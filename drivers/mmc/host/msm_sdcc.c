@@ -53,7 +53,6 @@
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
 #include <mach/dma.h>
-#include <mach/htc_pwrsink.h>
 #include <mach/sdio_al.h>
 
 #include "msm_sdcc.h"
@@ -316,6 +315,7 @@ static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 		/* Save the controller state */
 		mci_clk = readl_relaxed(host->base + MMCICLOCK);
 		mci_mask0 = readl_relaxed(host->base + MMCIMASK0);
+		host->pwr = readl_relaxed(host->base + MMCIPOWER);
 		mb();
 
 		msmsdcc_hard_reset(host);
@@ -1608,18 +1608,32 @@ msmsdcc_irq(int irq, void *dev_id)
 		if (!host->clks_on) {
 			pr_debug("%s: %s: SDIO async irq received\n",
 					mmc_hostname(host->mmc), __func__);
-			host->mmc->ios.clock = host->clk_rate;
-			spin_unlock(&host->lock);
-			host->mmc->ops->set_ios(host->mmc, &host->mmc->ios);
-			spin_lock(&host->lock);
-			if (host->plat->cfg_mpm_sdiowakeup &&
-				(host->mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ))
+
+			/*
+			 * Only async interrupt can come when clocks are off,
+			 * disable further interrupts and enable them when
+			 * clocks are on.
+			 */
+			if (!host->sdcc_irq_disabled) {
+				disable_irq_nosync(irq);
+				host->sdcc_irq_disabled = 1;
+			}
+
+			/*
+			 * If mmc_card_wake_sdio_irq() is set, mmc core layer
+			 * will take care of signaling sdio irq during
+			 * mmc_sdio_resume().
+			 */
+			if (host->sdcc_suspended)
+				/*
+				 * This is a wakeup interrupt so hold wakelock
+				 * until SDCC resume is handled.
+				 */
 				wake_lock(&host->sdio_wlock);
-			/* only ansyc interrupt can come when clocks are off */
-			writel_relaxed(MCI_SDIOINTMASK, host->base + MMCICLEAR);
-			if (host->clk_rate <=
-					msmsdcc_get_min_sup_clk_rate(host))
-				msmsdcc_delay(host);
+			else
+				mmc_signal_sdio_irq(host->mmc);
+			ret = 1;
+			break;
 		}
 
 		status = readl_relaxed(host->base + MMCISTATUS);
@@ -2339,6 +2353,56 @@ static u32 msmsdcc_setup_pins(struct msmsdcc_host *host, bool enable)
 	return rc;
 }
 
+static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
+{
+	u32 pwr = 0;
+	int ret = 0;
+	struct mmc_host *mmc = host->mmc;
+
+	if (host->plat->translate_vdd && !host->sdio_gpio_lpm)
+		ret = host->plat->translate_vdd(mmc_dev(mmc), ios->vdd);
+	else if (!host->plat->translate_vdd && !host->sdio_gpio_lpm)
+		ret = msmsdcc_setup_vreg(host, !!ios->vdd);
+
+	if (ret) {
+		pr_err("%s: Failed to setup voltage regulators\n",
+				mmc_hostname(host->mmc));
+		goto out;
+	}
+
+	switch (ios->power_mode) {
+	case MMC_POWER_OFF:
+		pwr = MCI_PWR_OFF;
+		if (host->plat->cfg_mpm_sdiowakeup)
+			host->plat->cfg_mpm_sdiowakeup(
+				mmc_dev(mmc), SDC_DAT1_DISABLE);
+		/*
+		 * As VDD pad rail is always on, set low voltage for VDD
+		 * pad rail when slot is unused (when card is not present
+		 * or during system suspend).
+		 */
+		msmsdcc_set_vddp_low_vol(host);
+		msmsdcc_setup_pins(host, false);
+		break;
+	case MMC_POWER_UP:
+		/* writing PWR_UP bit is redundant */
+		pwr = MCI_PWR_UP;
+		if (host->plat->cfg_mpm_sdiowakeup)
+			host->plat->cfg_mpm_sdiowakeup(
+				mmc_dev(mmc), SDC_DAT1_ENABLE);
+
+		msmsdcc_set_vddp_high_vol(host);
+		msmsdcc_setup_pins(host, true);
+		break;
+	case MMC_POWER_ON:
+		pwr = MCI_PWR_ON;
+		break;
+	}
+
+out:
+	return pwr;
+}
+
 static void msmsdcc_enable_irq_wake(struct msmsdcc_host *host)
 {
 	unsigned int wakeup_irq;
@@ -2368,6 +2432,88 @@ static void msmsdcc_disable_irq_wake(struct msmsdcc_host *host)
 }
 
 static void
+msmsdcc_cfg_sdio_wakeup(struct msmsdcc_host *host, bool enable_wakeup_irq)
+{
+	struct mmc_host *mmc = host->mmc;
+
+	/*
+	 * SDIO_AL clients has different mechanism of handling LPM through
+	 * sdio_al driver itself. The sdio wakeup interrupt is configured as
+	 * part of that. Here, we are interested only in clients like WLAN.
+	 */
+	if (!(mmc->card && mmc_card_sdio(mmc->card))
+			|| host->plat->is_sdio_al_client)
+		goto out;
+
+	if (!host->sdcc_suspended) {
+		/*
+		 * When MSM is not in power collapse and we
+		 * are disabling clocks, enable bit 22 in MASK0
+		 * to handle asynchronous SDIO interrupts.
+		 */
+		if (enable_wakeup_irq)
+			writel_relaxed(MCI_SDIOINTMASK, host->base + MMCIMASK0);
+		else
+			writel_relaxed(MCI_SDIOINTMASK, host->base + MMCICLEAR);
+		mb();
+		goto out;
+	} else if (!mmc_card_wake_sdio_irq(mmc)) {
+		/*
+		 * Wakeup MSM only if SDIO function drivers set
+		 * MMC_PM_WAKE_SDIO_IRQ flag in their suspend call.
+		 */
+		goto out;
+	}
+
+	if (enable_wakeup_irq) {
+		if (!host->plat->sdiowakeup_irq) {
+			/*
+			 * When there is no gpio line that can be configured
+			 * as wakeup interrupt handle it by configuring
+			 * asynchronous sdio interrupts and DAT1 line.
+			 */
+			writel_relaxed(MCI_SDIOINTMASK,
+					host->base + MMCIMASK0);
+			mb();
+			if (host->plat->cfg_mpm_sdiowakeup)
+				host->plat->cfg_mpm_sdiowakeup(
+					mmc_dev(mmc), SDC_DAT1_ENWAKE);
+			/* configure sdcc core interrupt as wakeup interrupt */
+			msmsdcc_enable_irq_wake(host);
+		} else {
+			/* Let gpio line handle wakeup interrupt */
+			writel_relaxed(0, host->base + MMCIMASK0);
+			mb();
+			if (host->sdio_wakeupirq_disabled) {
+				host->sdio_wakeupirq_disabled = 0;
+				/* configure gpio line as wakeup interrupt */
+				msmsdcc_enable_irq_wake(host);
+				enable_irq(host->plat->sdiowakeup_irq);
+			}
+		}
+	} else {
+		if (!host->plat->sdiowakeup_irq) {
+			/*
+			 * We may not have cleared bit 22 in the interrupt
+			 * handler as the clocks might be off at that time.
+			 */
+			writel_relaxed(MCI_SDIOINTMASK, host->base + MMCICLEAR);
+			mb();
+			if (host->plat->cfg_mpm_sdiowakeup)
+				host->plat->cfg_mpm_sdiowakeup(
+					mmc_dev(mmc), SDC_DAT1_DISWAKE);
+			msmsdcc_disable_irq_wake(host);
+		} else if (!host->sdio_wakeupirq_disabled) {
+			disable_irq_nosync(host->plat->sdiowakeup_irq);
+			msmsdcc_disable_irq_wake(host);
+			host->sdio_wakeupirq_disabled = 1;
+		}
+	}
+out:
+	return;
+}
+
+static void
 msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
@@ -2378,33 +2524,35 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	DBG(host, "ios->clock = %u\n", ios->clock);
 
-	if (ios->clock) {
+	/*
+	 * Disable SDCC core interrupt until set_ios is completed.
+	 * This avoids any race conditions with interrupt raised
+	 * when turning on/off the clocks. One possible
+	 * scenario is SDIO operational interrupt while the clock
+	 * is turned off.
+	 */
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (!host->sdcc_irq_disabled) {
+		spin_unlock_irqrestore(&host->lock, flags);
+		disable_irq(host->core_irqres->start);
 		spin_lock_irqsave(&host->lock, flags);
+		host->sdcc_irq_disabled = 1;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	pwr = msmsdcc_setup_pwr(host, ios);
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (ios->clock) {
 		if (!host->clks_on) {
 			msmsdcc_setup_clocks(host, true);
 			host->clks_on = 1;
-			if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
-				if (!host->plat->sdiowakeup_irq) {
-					writel_relaxed(host->mci_irqenable,
-							host->base + MMCIMASK0);
-					mb();
-					if (host->plat->cfg_mpm_sdiowakeup &&
-					(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ))
-						host->plat->cfg_mpm_sdiowakeup(
-						mmc_dev(mmc), SDC_DAT1_DISWAKE);
-					msmsdcc_disable_irq_wake(host);
-				} else if (!(mmc->pm_flags &
-							MMC_PM_WAKE_SDIO_IRQ)) {
-					writel_relaxed(host->mci_irqenable,
-							host->base + MMCIMASK0);
-				}
-			} else {
-				writel_relaxed(host->mci_irqenable,
-						host->base + MMCIMASK0);
-				mb();
-			}
+			writel_relaxed(host->mci_irqenable,
+					host->base + MMCIMASK0);
+			mb();
+			msmsdcc_cfg_sdio_wakeup(host, false);
 		}
-		spin_unlock_irqrestore(&host->lock, flags);
 
 		clock = msmsdcc_get_sup_clk_rate(host, ios->clock);
 		/*
@@ -2484,90 +2632,21 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (host->io_pad_pwr_switch)
 		clk |= IO_PAD_PWR_SWITCH;
 
-	if (host->plat->translate_vdd && !host->sdio_gpio_lpm)
-		pwr |= host->plat->translate_vdd(mmc_dev(mmc), ios->vdd);
-	else if (!host->plat->translate_vdd && !host->sdio_gpio_lpm)
-		pwr |= msmsdcc_setup_vreg(host, !!ios->vdd);
-
-	switch (ios->power_mode) {
-	case MMC_POWER_OFF:
-		htc_pwrsink_set(PWRSINK_SDCARD, 0);
-		if (!host->sdcc_irq_disabled) {
-			if (host->plat->cfg_mpm_sdiowakeup)
-				host->plat->cfg_mpm_sdiowakeup(
-					mmc_dev(mmc), SDC_DAT1_DISABLE);
-			disable_irq(host->core_irqres->start);
-			host->sdcc_irq_disabled = 1;
+	/* Don't write into registers if clocks are disabled */
+	if (host->clks_on) {
+		if (readl_relaxed(host->base + MMCICLOCK) != clk) {
+			writel_relaxed(clk, host->base + MMCICLOCK);
+			msmsdcc_delay(host);
 		}
-		/*
-		 * As VDD pad rail is always on, set low voltage for VDD
-		 * pad rail when slot is unused (when card is not present
-		 * or during system suspend).
-		 */
-		msmsdcc_set_vddp_low_vol(host);
-		msmsdcc_setup_pins(host, false);
-		break;
-	case MMC_POWER_UP:
-		/* writing PWR_UP bit is redundant */
-		pwr |= MCI_PWR_UP;
-		if (host->sdcc_irq_disabled) {
-			if (host->plat->cfg_mpm_sdiowakeup)
-				host->plat->cfg_mpm_sdiowakeup(
-					mmc_dev(mmc), SDC_DAT1_ENABLE);
-			enable_irq(host->core_irqres->start);
-			host->sdcc_irq_disabled = 0;
+		if (readl_relaxed(host->base + MMCIPOWER) != pwr) {
+			host->pwr = pwr;
+			writel_relaxed(pwr, host->base + MMCIPOWER);
+			msmsdcc_delay(host);
 		}
-		msmsdcc_set_vddp_high_vol(host);
-		msmsdcc_setup_pins(host, true);
-		break;
-	case MMC_POWER_ON:
-		htc_pwrsink_set(PWRSINK_SDCARD, 100);
-		pwr |= MCI_PWR_ON;
-		break;
-	}
-
-	spin_lock_irqsave(&host->lock, flags);
-	if (!host->clks_on) {
-		/* force the clocks to be on */
-		msmsdcc_setup_clocks(host, true);
-		/*
-		 * give atleast 2 MCLK cycles delay for clocks
-		 * and SDCC core to stabilize
-		 */
-		msmsdcc_delay(host);
-	}
-	writel_relaxed(clk, host->base + MMCICLOCK);
-	msmsdcc_delay(host);
-
-	if (host->pwr != pwr) {
-		host->pwr = pwr;
-		writel_relaxed(pwr, host->base + MMCIPOWER);
-		msmsdcc_delay(host);
-	}
-	if (!host->clks_on) {
-		/* force the clocks to be off */
-		msmsdcc_setup_clocks(host, false);
 	}
 
 	if (!(clk & MCI_CLK_ENABLE) && host->clks_on) {
-		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
-			if (!host->plat->sdiowakeup_irq) {
-				writel_relaxed(MCI_SDIOINTMASK,
-						host->base + MMCIMASK0);
-				mb();
-				if (host->plat->cfg_mpm_sdiowakeup &&
-					(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ))
-					host->plat->cfg_mpm_sdiowakeup(
-						mmc_dev(mmc), SDC_DAT1_ENWAKE);
-				msmsdcc_enable_irq_wake(host);
-			} else if (mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) {
-				writel_relaxed(0, host->base + MMCIMASK0);
-			} else {
-				writel_relaxed(MCI_SDIOINTMASK,
-						host->base + MMCIMASK0);
-			}
-			mb();
-		}
+		msmsdcc_cfg_sdio_wakeup(host, true);
 		msmsdcc_setup_clocks(host, false);
 		host->clks_on = 0;
 	}
@@ -2575,6 +2654,12 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (host->tuning_in_progress)
 		WARN(!host->clks_on,
 			"tuning_in_progress but SDCC clocks are OFF\n");
+
+	/* Let interrupts be disabled if the host is powered off */
+	if (ios->power_mode != MMC_POWER_OFF && host->sdcc_irq_disabled) {
+		enable_irq(host->core_irqres->start);
+		host->sdcc_irq_disabled = 0;
+	}
 
 	spin_unlock_irqrestore(&host->lock, flags);
 }
@@ -2640,18 +2725,29 @@ static void msmsdcc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
 
+	/*
+	 * We may come here with clocks turned off in that case don't
+	 * attempt to write into MASK0 register. While turning on the
+	 * clocks mci_irqenable will be written to MASK0 register.
+	 */
+
 	if (enable) {
 		spin_lock_irqsave(&host->lock, flags);
 		host->mci_irqenable |= MCI_SDIOINTOPERMASK;
-		writel_relaxed(readl_relaxed(host->base + MMCIMASK0) |
+		if (host->clks_on) {
+			writel_relaxed(readl_relaxed(host->base + MMCIMASK0) |
 				MCI_SDIOINTOPERMASK, host->base + MMCIMASK0);
+			mb();
+		}
 		spin_unlock_irqrestore(&host->lock, flags);
 	} else {
 		host->mci_irqenable &= ~MCI_SDIOINTOPERMASK;
-		writel_relaxed(readl_relaxed(host->base + MMCIMASK0) &
+		if (host->clks_on) {
+			writel_relaxed(readl_relaxed(host->base + MMCIMASK0) &
 				~MCI_SDIOINTOPERMASK, host->base + MMCIMASK0);
+			mb();
+		}
 	}
-	mb();
 }
 #endif /* CONFIG_MMC_MSM_SDIO_SUPPORT */
 
@@ -3365,13 +3461,13 @@ msmsdcc_platform_sdiowakeup_irq(int irq, void *dev_id)
 
 	pr_debug("%s: SDIO Wake up IRQ : %d\n", mmc_hostname(host->mmc), irq);
 	spin_lock(&host->lock);
-	if (!host->sdio_irq_disabled) {
+	if (!host->sdio_wakeupirq_disabled) {
 		disable_irq_nosync(irq);
-		if (host->mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) {
+		if (host->sdcc_suspended) {
 			wake_lock(&host->sdio_wlock);
 			msmsdcc_disable_irq_wake(host);
 		}
-		host->sdio_irq_disabled = 1;
+		host->sdio_wakeupirq_disabled = 1;
 	}
 	if (host->plat->is_sdio_al_client) {
 		if (!host->clks_on) {
@@ -4462,9 +4558,9 @@ msmsdcc_probe(struct platform_device *pdev)
 			goto pio_irq_free;
 		} else {
 			spin_lock_irqsave(&host->lock, flags);
-			if (!host->sdio_irq_disabled) {
+			if (!host->sdio_wakeupirq_disabled) {
 				disable_irq_nosync(plat->sdiowakeup_irq);
-				host->sdio_irq_disabled = 1;
+				host->sdio_wakeupirq_disabled = 1;
 			}
 			spin_unlock_irqrestore(&host->lock, flags);
 		}
@@ -4770,15 +4866,15 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 			host->sdio_gpio_lpm = 1;
 		}
 
-		if (host->sdio_irq_disabled) {
+		if (host->sdio_wakeupirq_disabled) {
 			msmsdcc_enable_irq_wake(host);
 			enable_irq(host->plat->sdiowakeup_irq);
-			host->sdio_irq_disabled = 0;
+			host->sdio_wakeupirq_disabled = 0;
 		}
 	} else {
-		if (!host->sdio_irq_disabled) {
+		if (!host->sdio_wakeupirq_disabled) {
 			disable_irq_nosync(host->plat->sdiowakeup_irq);
-			host->sdio_irq_disabled = 1;
+			host->sdio_wakeupirq_disabled = 1;
 			msmsdcc_disable_irq_wake(host);
 		}
 
@@ -4820,6 +4916,8 @@ msmsdcc_runtime_suspend(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	int rc = 0;
+	unsigned long flags;
+
 
 	if (host->plat->is_sdio_al_client)
 		return 0;
@@ -4827,20 +4925,6 @@ msmsdcc_runtime_suspend(struct device *dev)
 	if (mmc) {
 		host->sdcc_suspending = 1;
 		mmc->suspend_task = current;
-
-		/*
-		 * If the clocks are already turned off by SDIO clients (as
-		 * part of LPM), then clocks should be turned on before
-		 * calling mmc_suspend_host() because mmc_suspend_host might
-		 * send some commands to the card. The clocks will be turned
-		 * off again after mmc_suspend_host. Thus for SDIO
-		 * cards, clocks will be turned on before mmc_suspend_host
-		 * and turned off after mmc_suspend_host.
-		 */
-		if (mmc->card && mmc_card_sdio(mmc->card)) {
-			mmc->ios.clock = host->clk_rate;
-			mmc->ops->set_ios(host->mmc, &host->mmc->ios);
-		}
 
 		/*
 		 * MMC core thinks that host is disabled by now since
@@ -4865,26 +4949,24 @@ msmsdcc_runtime_suspend(struct device *dev)
 		pm_runtime_put_noidle(dev);
 
 		if (!rc) {
-			if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
-				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ)) {
-				disable_irq(host->core_irqres->start);
-				host->sdcc_irq_disabled = 1;
-
+			spin_lock_irqsave(&host->lock, flags);
+			host->sdcc_suspended = true;
+			spin_unlock_irqrestore(&host->lock, flags);
+			if (mmc->card && mmc_card_sdio(mmc->card) &&
+				mmc->ios.clock) {
 				/*
-				 * If MMC core level suspend is not supported,
-				 * turn off clocks to allow deep sleep (TCXO
-				 * shutdown).
+				 * If SDIO function driver doesn't want
+				 * to power off the card, atleast turn off
+				 * clocks to allow deep sleep (TCXO shutdown).
 				 */
+				mmc_host_clk_hold(mmc);
+				spin_lock_irqsave(&mmc->clk_lock, flags);
+				mmc->clk_old = mmc->ios.clock;
 				mmc->ios.clock = 0;
-				mmc->ops->set_ios(host->mmc, &host->mmc->ios);
-				enable_irq(host->core_irqres->start);
-				host->sdcc_irq_disabled = 0;
-
-				if (host->plat->sdiowakeup_irq) {
-					host->sdio_irq_disabled = 0;
-					msmsdcc_enable_irq_wake(host);
-					enable_irq(host->plat->sdiowakeup_irq);
-				}
+				mmc->clk_gated = true;
+				spin_unlock_irqrestore(&mmc->clk_lock, flags);
+				mmc_set_ios(mmc);
+				mmc_host_clk_release(mmc);
 			}
 		}
 		host->sdcc_suspending = 0;
@@ -4908,30 +4990,12 @@ msmsdcc_runtime_resume(struct device *dev)
 
 	pr_debug("%s: %s: start\n", mmc_hostname(mmc), __func__);
 	if (mmc) {
-		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
-			if (host->sdcc_irq_disabled) {
-				enable_irq(host->core_irqres->start);
-				host->sdcc_irq_disabled = 0;
-			}
+		if (mmc->card && mmc_card_sdio(mmc->card) &&
+				mmc_card_keep_power(mmc)) {
+			mmc_host_clk_hold(mmc);
 			mmc->ios.clock = host->clk_rate;
-			mmc->ops->set_ios(host->mmc, &host->mmc->ios);
-
-			spin_lock_irqsave(&host->lock, flags);
-			writel_relaxed(host->mci_irqenable,
-					host->base + MMCIMASK0);
-			mb();
-
-			if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
-					!host->sdio_irq_disabled) {
-				if (host->plat->sdiowakeup_irq) {
-					disable_irq_nosync(
-						host->plat->sdiowakeup_irq);
-					msmsdcc_disable_irq_wake(host);
-					host->sdio_irq_disabled = 1;
-				}
-			}
-
-			spin_unlock_irqrestore(&host->lock, flags);
+			mmc_set_ios(mmc);
+			mmc_host_clk_release(mmc);
 		}
 
 		mmc_resume_host(mmc);
@@ -4942,13 +5006,14 @@ msmsdcc_runtime_resume(struct device *dev)
 		 */
 		spin_lock_irqsave(&host->lock, flags);
 		mmc->pm_flags = 0;
+		host->sdcc_suspended = false;
 		spin_unlock_irqrestore(&host->lock, flags);
 
 		/*
 		 * After resuming the host wait for sometime so that
 		 * the SDIO work will be processed.
 		 */
-		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO)) {
+		if (mmc->card && mmc_card_sdio(mmc->card)) {
 			if ((host->plat->cfg_mpm_sdiowakeup ||
 					host->plat->sdiowakeup_irq) &&
 					wake_lock_active(&host->sdio_wlock))
@@ -4994,6 +5059,30 @@ static int msmsdcc_pm_suspend(struct device *dev)
 	return rc;
 }
 
+static int msmsdcc_suspend_noirq(struct device *dev)
+{
+	struct mmc_host *mmc = dev_get_drvdata(dev);
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	int rc = 0;
+
+	/*
+	 * After platform suspend there may be active request
+	 * which might have enabled clocks. For example, in SDIO
+	 * case, ksdioirq thread might have scheduled after sdcc
+	 * suspend but before system freeze. In that case abort
+	 * suspend and retry instead of keeping the clocks on
+	 * during suspend and not allowing TCXO.
+	 */
+
+	if (host->clks_on) {
+		pr_warn("%s: clocks are on after suspend, aborting system "
+				"suspend\n", mmc_hostname(mmc));
+		rc = -EAGAIN;
+	}
+
+	return rc;
+}
+
 static int msmsdcc_pm_resume(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
@@ -5019,6 +5108,7 @@ static int msmsdcc_pm_resume(struct device *dev)
 #define msmsdcc_runtime_idle NULL
 #define msmsdcc_pm_suspend NULL
 #define msmsdcc_pm_resume NULL
+#define msmsdcc_suspend_noirq NULL
 #endif
 
 static const struct dev_pm_ops msmsdcc_dev_pm_ops = {
@@ -5027,6 +5117,7 @@ static const struct dev_pm_ops msmsdcc_dev_pm_ops = {
 	.runtime_idle    = msmsdcc_runtime_idle,
 	.suspend 	 = msmsdcc_pm_suspend,
 	.resume		 = msmsdcc_pm_resume,
+	.suspend_noirq	 = msmsdcc_suspend_noirq,
 };
 
 static const struct of_device_id msmsdcc_dt_match[] = {
