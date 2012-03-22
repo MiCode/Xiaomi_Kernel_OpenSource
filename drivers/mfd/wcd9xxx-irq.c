@@ -141,12 +141,30 @@ void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx)
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_unlock_sleep);
 
+static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
+{
+	if ((irqbit <= TABLA_IRQ_MBHC_INSERTION) &&
+	    (irqbit >= TABLA_IRQ_MBHC_REMOVAL)) {
+		wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_CLEAR0 +
+				  BIT_BYTE(irqbit), BYTE_BIT_MASK(irqbit));
+		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
+			wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_MODE, 0x02);
+		handle_nested_irq(wcd9xxx->irq_base + irqbit);
+	} else {
+		handle_nested_irq(wcd9xxx->irq_base + irqbit);
+		wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_CLEAR0 +
+				  BIT_BYTE(irqbit), BYTE_BIT_MASK(irqbit));
+		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
+			wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_MODE, 0x02);
+	}
+}
+
 static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 {
 	int ret;
 	struct wcd9xxx *wcd9xxx = data;
 	u8 status[WCD9XXX_NUM_IRQ_REGS];
-	unsigned int i;
+	int i;
 
 	wcd9xxx_lock_sleep(wcd9xxx);
 	ret = wcd9xxx_bulk_read(wcd9xxx, TABLA_A_INTR_STATUS0,
@@ -164,28 +182,22 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 	/* Find out which interrupt was triggered and call that interrupt's
 	 * handler function
 	 */
-	for (i = 0; i < TABLA_NUM_IRQS; i++) {
-		if (status[BIT_BYTE(i)] & BYTE_BIT_MASK(i)) {
-			if ((i <= TABLA_IRQ_MBHC_INSERTION) &&
-				(i >= TABLA_IRQ_MBHC_REMOVAL)) {
-				wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_CLEAR0 +
-					BIT_BYTE(i), BYTE_BIT_MASK(i));
-				if (wcd9xxx_get_intf_type() ==
-					WCD9XXX_INTERFACE_TYPE_I2C)
-					wcd9xxx_reg_write(wcd9xxx,
-						TABLA_A_INTR_MODE, 0x02);
-				handle_nested_irq(wcd9xxx->irq_base + i);
-			} else {
-				handle_nested_irq(wcd9xxx->irq_base + i);
-				wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_CLEAR0 +
-					BIT_BYTE(i), BYTE_BIT_MASK(i));
-				if (wcd9xxx_get_intf_type() ==
-					WCD9XXX_INTERFACE_TYPE_I2C)
-					wcd9xxx_reg_write(wcd9xxx,
-						TABLA_A_INTR_MODE, 0x02);
-			}
-			break;
-		}
+	if (status[BIT_BYTE(TABLA_IRQ_SLIMBUS)] &
+	    BYTE_BIT_MASK(TABLA_IRQ_SLIMBUS))
+		wcd9xxx_irq_dispatch(wcd9xxx, TABLA_IRQ_SLIMBUS);
+
+	/* Since codec has only one hardware irq line which is shared by
+	 * codec's different internal interrupts, so it's possible master irq
+	 * handler dispatches multiple nested irq handlers after breaking
+	 * order.  Dispatch MBHC interrupts order to follow MBHC state
+	 * machine's order */
+	for (i = TABLA_IRQ_MBHC_INSERTION; i >= TABLA_IRQ_MBHC_REMOVAL; i--) {
+		if (status[BIT_BYTE(i)] & BYTE_BIT_MASK(i))
+			wcd9xxx_irq_dispatch(wcd9xxx, i);
+	}
+	for (i = TABLA_IRQ_BG_PRECHARGE; i < TABLA_NUM_IRQS; i++) {
+		if (status[BIT_BYTE(i)] & BYTE_BIT_MASK(i))
+			wcd9xxx_irq_dispatch(wcd9xxx, i);
 	}
 	wcd9xxx_unlock_sleep(wcd9xxx);
 
