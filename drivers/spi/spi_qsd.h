@@ -331,7 +331,7 @@ static inline int msm_spi_set_state(struct msm_spi *dd,
 				    enum msm_spi_state state);
 static void msm_spi_write_word_to_fifo(struct msm_spi *dd);
 static inline void msm_spi_write_rmn_to_fifo(struct msm_spi *dd);
-static irqreturn_t msm_spi_qup_irq(int irq, void *dev_id);
+static inline irqreturn_t msm_spi_qup_irq(int irq, void *dev_id);
 
 #if defined(CONFIG_SPI_QSD) || defined(CONFIG_SPI_QSD_MODULE)
 static inline void msm_spi_disable_irqs(struct msm_spi *dd)

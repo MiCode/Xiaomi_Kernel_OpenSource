@@ -549,7 +549,7 @@ static int ccadc_get_rsense_voltage(int *voltage_uv)
 
 int pm8xxx_ccadc_get_battery_current(int *bat_current_ua)
 {
-	int voltage_uv, rc;
+	int voltage_uv = 0, rc;
 
 	rc = ccadc_get_rsense_voltage(&voltage_uv);
 	if (rc) {
