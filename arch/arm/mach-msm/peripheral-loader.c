@@ -23,6 +23,7 @@
 #include <linux/atomic.h>
 #include <linux/suspend.h>
 #include <linux/rwsem.h>
+#include <linux/sysfs.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -30,9 +31,20 @@
 
 #include "peripheral-loader.h"
 
+enum pil_state {
+	PIL_OFFLINE,
+	PIL_ONLINE,
+};
+
+static const char *pil_states[] = {
+	[PIL_OFFLINE] = "OFFLINE",
+	[PIL_ONLINE] = "ONLINE",
+};
+
 struct pil_device {
 	struct pil_desc *desc;
 	int count;
+	enum pil_state state;
 	struct mutex lock;
 	struct device dev;
 	struct module *owner;
@@ -43,8 +55,28 @@ struct pil_device {
 
 #define to_pil_device(d) container_of(d, struct pil_device, dev)
 
+static ssize_t name_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", to_pil_device(dev)->desc->name);
+}
+
+static ssize_t state_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	enum pil_state state = to_pil_device(dev)->state;
+	return snprintf(buf, PAGE_SIZE, "%s\n", pil_states[state]);
+}
+
+static struct device_attribute pil_attrs[] = {
+	__ATTR_RO(name),
+	__ATTR_RO(state),
+	{ },
+};
+
 struct bus_type pil_bus_type = {
 	.name		= "pil",
+	.dev_attrs	= pil_attrs,
 };
 
 static int __find_peripheral(struct device *dev, void *data)
@@ -70,7 +102,7 @@ static struct pil_device *find_peripheral(const char *str)
 static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 		struct pil_device *pil)
 {
-	int ret, count, paddr;
+	int ret = 0, count, paddr;
 	char fw_name[30];
 	const struct firmware *fw = NULL;
 	const u8 *data;
@@ -141,10 +173,12 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 		paddr += size;
 	}
 
-	ret = pil->desc->ops->verify_blob(pil->desc, phdr->p_paddr,
+	if (pil->desc->ops->verify_blob) {
+		ret = pil->desc->ops->verify_blob(pil->desc, phdr->p_paddr,
 					  phdr->p_memsz);
-	if (ret)
-		dev_err(&pil->dev, "Blob %u failed verification\n", num);
+		if (ret)
+			dev_err(&pil->dev, "Blob%u failed verification\n", num);
+	}
 
 release_fw:
 	release_firmware(fw);
@@ -235,6 +269,14 @@ out:
 	return ret;
 }
 
+static void pil_set_state(struct pil_device *pil, enum pil_state state)
+{
+	if (pil->state != state) {
+		pil->state = state;
+		sysfs_notify(&pil->dev.kobj, NULL, "state");
+	}
+}
+
 /**
  * pil_get() - Load a peripheral into memory and take it out of reset
  * @name: pointer to a string containing the name of the peripheral to load
@@ -276,6 +318,7 @@ void *pil_get(const char *name)
 			goto err_load;
 		}
 	}
+	pil_set_state(pil, PIL_ONLINE);
 	mutex_unlock(&pil->lock);
 out:
 	return retval;
@@ -306,8 +349,10 @@ void pil_put(void *peripheral_handle)
 	mutex_lock(&pil->lock);
 	if (WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
 		goto err_out;
-	if (!--pil->count)
+	if (!--pil->count) {
 		pil->desc->ops->shutdown(pil->desc);
+		pil_set_state(pil, PIL_OFFLINE);
+	}
 	mutex_unlock(&pil->lock);
 
 	pil_d = find_peripheral(pil->desc->depends_on);
@@ -335,7 +380,9 @@ void pil_force_shutdown(const char *name)
 	mutex_lock(&pil->lock);
 	if (!WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
 		pil->desc->ops->shutdown(pil->desc);
+	pil_set_state(pil, PIL_OFFLINE);
 	mutex_unlock(&pil->lock);
+
 	put_device(&pil->dev);
 }
 EXPORT_SYMBOL(pil_force_shutdown);
@@ -352,6 +399,8 @@ int pil_force_boot(const char *name)
 	mutex_lock(&pil->lock);
 	if (!WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
 		ret = load_image(pil);
+	if (!ret)
+		pil_set_state(pil, PIL_ONLINE);
 	mutex_unlock(&pil->lock);
 	put_device(&pil->dev);
 

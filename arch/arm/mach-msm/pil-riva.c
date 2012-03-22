@@ -132,11 +132,6 @@ static void pil_riva_remove_proxy_votes_now(struct device *dev)
 	flush_delayed_work(&drv->work);
 }
 
-static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
-{
-	return 0;
-}
-
 static int pil_riva_init_image(struct pil_desc *pil, const u8 *metadata,
 		size_t size)
 {
@@ -299,7 +294,6 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_riva_ops = {
 	.init_image = pil_riva_init_image,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_riva_reset,
 	.shutdown = pil_riva_shutdown,
 };
@@ -343,7 +337,6 @@ static int pil_riva_shutdown_trusted(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_riva_ops_trusted = {
 	.init_image = pil_riva_init_image_trusted,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_riva_reset_trusted,
 	.shutdown = pil_riva_shutdown_trusted,
 };

@@ -69,11 +69,6 @@ struct gss_data {
 	struct pil_device *pil;
 };
 
-static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
-{
-	return 0;
-}
-
 static int pil_gss_init_image(struct pil_desc *pil, const u8 *metadata,
 		size_t size)
 {
@@ -265,7 +260,6 @@ static int pil_gss_reset(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_gss_ops = {
 	.init_image = pil_gss_init_image,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_gss_reset,
 	.shutdown = pil_gss_shutdown,
 };
@@ -346,7 +340,6 @@ out:
 
 static struct pil_reset_ops pil_gss_ops_trusted = {
 	.init_image = pil_gss_init_image_trusted,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_gss_reset_trusted,
 	.shutdown = pil_gss_shutdown_trusted,
 };

@@ -83,11 +83,6 @@ static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
 	return 0;
 }
 
-static int nop_verify_blob(struct pil_desc *pil, u32 phy_addr, size_t size)
-{
-	return 0;
-}
-
 static int pil_q6v4_make_proxy_votes(struct device *dev)
 {
 	struct q6v4_data *drv = dev_get_drvdata(dev);
@@ -307,7 +302,6 @@ static int pil_q6v4_shutdown(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_q6v4_ops = {
 	.init_image = pil_q6v4_init_image,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_q6v4_reset,
 	.shutdown = pil_q6v4_shutdown,
 };
@@ -364,7 +358,6 @@ static int pil_q6v4_shutdown_trusted(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_q6v4_ops_trusted = {
 	.init_image = pil_q6v4_init_image_trusted,
-	.verify_blob = nop_verify_blob,
 	.auth_and_reset = pil_q6v4_reset_trusted,
 	.shutdown = pil_q6v4_shutdown_trusted,
 };
