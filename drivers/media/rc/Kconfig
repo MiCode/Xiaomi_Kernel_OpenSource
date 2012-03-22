@@ -33,6 +33,16 @@ config IR_LIRC_CODEC
 	   Enable this option to pass raw IR to and from userspace via
 	   the LIRC interface.
 
+config USER_RC_INPUT
+	tristate "User Space Input device wrapper for Remote Control"
+	depends on RC_CORE
+
+	---help---
+	   Say Y if you want to report remote control input events
+	   from userspace.
+
+	   To compile this driver as a module, choose M here: the module will
+	   be called user-rc-input.
 
 config IR_NEC_DECODER
 	tristate "Enable IR raw decoder for the NEC protocol"
