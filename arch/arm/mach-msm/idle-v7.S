@@ -246,17 +246,6 @@ ENTRY(msm_pm_boot_entry)
 	add     r1, r1, r0, LSL #2       /* locate boot vector for our cpu */
 	ldr     pc, [r1]                 /* jump                           */
 
-ENTRY(msm_pm_write_boot_vector)
-	ldr     r2, =msm_pm_boot_vector
-	add     r2, r2, r0, LSL #2       /* locate boot vector for our cpu */
-	str     r1, [r2]
-	mov	r0, r2
-	ldr	r1, =4
-	stmfd	sp!, {lr}
-	bl	v7_flush_kern_dcache_area
-	ldmfd	sp!, {lr}
-	bx      lr
-
 ENTRY(msm_pm_set_l2_flush_flag)
 	ldr r1, =msm_pm_flush_l2_flag
 	str r0, [r1]
@@ -276,6 +265,7 @@ msm_saved_state:
 msm_saved_state_phys:
 	.long	0x0
 
+	.globl msm_pm_boot_vector
 msm_pm_boot_vector:
 	.space  4 * NR_CPUS
 

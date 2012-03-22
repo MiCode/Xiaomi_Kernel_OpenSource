@@ -32,9 +32,9 @@ extern unsigned long msm_saved_state_phys;
 
 #ifdef CONFIG_CPU_V7
 void msm_pm_boot_entry(void);
-void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address);
 void msm_pm_set_l2_flush_flag(unsigned int flag);
 extern unsigned long msm_pm_pc_pgd;
+extern unsigned long msm_pm_boot_vector[NR_CPUS];
 #else
 static inline void msm_pm_set_l2_flush_flag(unsigned int flag)
 {

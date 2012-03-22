@@ -29,6 +29,14 @@ static void (*msm_pm_boot_before_pc)(unsigned int cpu, unsigned long entry);
 static void (*msm_pm_boot_after_pc)(unsigned int cpu);
 
 #ifdef CONFIG_MSM_SCM
+static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
+{
+	msm_pm_boot_vector[cpu] = address;
+	clean_caches((unsigned long)&msm_pm_boot_vector[cpu],
+		     sizeof(msm_pm_boot_vector[cpu]),
+		     virt_to_phys(&msm_pm_boot_vector[cpu]));
+}
+
 static int __init msm_pm_tz_boot_init(void)
 {
 	int flag = 0;
