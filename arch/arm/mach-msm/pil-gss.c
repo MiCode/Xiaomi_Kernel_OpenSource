@@ -19,7 +19,6 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
-#include <linux/workqueue.h>
 #include <linux/clk.h>
 #include <linux/smp.h>
 
@@ -58,13 +57,10 @@
 #define SLP_CLK_BRANCH_ENA	BIT(4)
 #define A5_RESET		BIT(0)
 
-#define PROXY_VOTE_TIMEOUT	10000
-
 struct gss_data {
 	void __iomem *base;
 	void __iomem *qgic2_base;
 	unsigned long start_addr;
-	struct delayed_work work;
 	struct clk *xo;
 	struct pil_device *pil;
 };
@@ -78,29 +74,23 @@ static int pil_gss_init_image(struct pil_desc *pil, const u8 *metadata,
 	return 0;
 }
 
-static int make_gss_proxy_votes(struct device *dev)
+static int make_gss_proxy_votes(struct pil_desc *pil)
 {
 	int ret;
-	struct gss_data *drv = dev_get_drvdata(dev);
+	struct gss_data *drv = dev_get_drvdata(pil->dev);
 
 	ret = clk_prepare_enable(drv->xo);
 	if (ret) {
-		dev_err(dev, "Failed to enable XO\n");
+		dev_err(pil->dev, "Failed to enable XO\n");
 		return ret;
 	}
-	schedule_delayed_work(&drv->work, msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
 	return 0;
 }
 
-static void remove_gss_proxy_votes(struct work_struct *work)
+static void remove_gss_proxy_votes(struct pil_desc *pil)
 {
-	struct gss_data *drv = container_of(work, struct gss_data, work.work);
+	struct gss_data *drv = dev_get_drvdata(pil->dev);
 	clk_disable_unprepare(drv->xo);
-}
-
-static void remove_gss_proxy_votes_now(struct gss_data *drv)
-{
-	flush_delayed_work(&drv->work);
 }
 
 static void gss_init(struct gss_data *drv)
@@ -200,7 +190,6 @@ static int pil_gss_shutdown(struct pil_desc *pil)
 	mb();
 
 	clk_disable_unprepare(drv->xo);
-	remove_gss_proxy_votes_now(drv);
 
 	return 0;
 }
@@ -212,15 +201,10 @@ static int pil_gss_reset(struct pil_desc *pil)
 	unsigned long start_addr = drv->start_addr;
 	int ret;
 
-	ret = make_gss_proxy_votes(pil->dev);
-	if (ret)
-		return ret;
-
 	/* Unhalt bus port. */
 	ret = msm_bus_axi_portunhalt(MSM_BUS_MASTER_GSS_NAV);
 	if (ret) {
 		dev_err(pil->dev, "Failed to unhalt bus port\n");
-		remove_gss_proxy_votes_now(drv);
 		return ret;
 	}
 
@@ -262,6 +246,8 @@ static struct pil_reset_ops pil_gss_ops = {
 	.init_image = pil_gss_init_image,
 	.auth_and_reset = pil_gss_reset,
 	.shutdown = pil_gss_shutdown,
+	.proxy_vote = make_gss_proxy_votes,
+	.proxy_unvote = remove_gss_proxy_votes,
 };
 
 static int pil_gss_init_image_trusted(struct pil_desc *pil,
@@ -288,24 +274,18 @@ static int pil_gss_shutdown_trusted(struct pil_desc *pil)
 	msm_bus_axi_porthalt(MSM_BUS_MASTER_GSS_NAV);
 	ret = pas_shutdown(PAS_GSS);
 	clk_disable_unprepare(drv->xo);
-	remove_gss_proxy_votes_now(drv);
 
 	return ret;
 }
 
 static int pil_gss_reset_trusted(struct pil_desc *pil)
 {
-	struct gss_data *drv = dev_get_drvdata(pil->dev);
 	int err;
-
-	err = make_gss_proxy_votes(pil->dev);
-	if (err)
-		goto out;
 
 	err = msm_bus_axi_portunhalt(MSM_BUS_MASTER_GSS_NAV);
 	if (err) {
 		dev_err(pil->dev, "Failed to unhalt bus port\n");
-		goto remove_votes;
+		goto out;
 	}
 
 	err =  pas_auth_and_reset(PAS_GSS);
@@ -316,8 +296,6 @@ static int pil_gss_reset_trusted(struct pil_desc *pil)
 
 halt_port:
 	msm_bus_axi_porthalt(MSM_BUS_MASTER_GSS_NAV);
-remove_votes:
-	remove_gss_proxy_votes_now(drv);
 out:
 	return err;
 }
@@ -326,6 +304,8 @@ static struct pil_reset_ops pil_gss_ops_trusted = {
 	.init_image = pil_gss_init_image_trusted,
 	.auth_and_reset = pil_gss_reset_trusted,
 	.shutdown = pil_gss_shutdown_trusted,
+	.proxy_vote = make_gss_proxy_votes,
+	.proxy_unvote = remove_gss_proxy_votes,
 };
 
 static int __devinit pil_gss_probe(struct platform_device *pdev)
@@ -367,6 +347,7 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	desc->name = "gss";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
+	desc->proxy_timeout = 10000;
 
 	if (pas_supported(PAS_GSS) > 0) {
 		desc->ops = &pil_gss_ops_trusted;
@@ -376,11 +357,8 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
-	INIT_DELAYED_WORK(&drv->work, remove_gss_proxy_votes);
-
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil)) {
-		flush_delayed_work_sync(&drv->work);
 		clk_put(drv->xo);
 		return PTR_ERR(drv->pil);
 	}
@@ -391,7 +369,6 @@ static int __devexit pil_gss_remove(struct platform_device *pdev)
 {
 	struct gss_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
-	flush_delayed_work_sync(&drv->work);
 	clk_put(drv->xo);
 	return 0;
 }
