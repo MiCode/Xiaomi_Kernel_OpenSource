@@ -737,21 +737,26 @@ static void zcache_flush_all_obj(void)
 {
 	struct tmem_pool *pool;
 	int pool_id;
-	struct zcache_preload *kp;
-
-	kp = &__get_cpu_var(zcache_preloads);
 
 	for (pool_id = 0; pool_id < MAX_POOLS_PER_CLIENT; pool_id++) {
 		pool = zcache_get_pool_by_id(LOCAL_CLIENT, pool_id);
 		tmem_flush_pool(pool);
 	}
-	if (kp->page) {
-		qcache_free(kp->page);
-		kp->page = NULL;
-	}
-	if (zcache_qc_used)
-		pr_warn("pages used not 0 after qcache flush all, is %ld\n",
-			zcache_qc_used);
+}
+
+static void reset_qcache(void)
+{
+	struct qcache_info *qc = &qcache_info;
+	int bitmap_size;
+	struct zcache_preload *kp;
+
+	bitmap_size = BITS_TO_LONGS(qc->pages) * sizeof(long);
+	memset(qc->bitmap, 0, bitmap_size);
+	zcache_qc_used = 0;
+	zcache_qc_freed = zcache_qc_allocated;
+
+	kp = &__get_cpu_var(zcache_preloads);
+	kp->page = NULL;
 }
 
 /*
@@ -766,6 +771,9 @@ static bool zcache_freeze;
 static void zcache_control(bool freeze)
 {
 	zcache_freeze = freeze;
+
+	if (freeze)
+		reset_qcache();
 }
 
 static struct tmem_hostops zcache_hostops = {
