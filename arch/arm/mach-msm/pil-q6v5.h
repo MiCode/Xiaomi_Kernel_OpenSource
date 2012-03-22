@@ -22,6 +22,7 @@ struct platform_device;
 struct q6v5_data {
 	void __iomem *reg_base;
 	void __iomem *clk_base;
+	void __iomem *axi_halt_base;
 	void __iomem *rmb_base;
 	unsigned long start_addr;
 	struct regulator *vreg;

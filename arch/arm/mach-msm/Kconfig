@@ -239,6 +239,7 @@ config ARCH_MSMCOPPER
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
 	select MSM_MULTIMEDIA_USE_ION
+	select MSM_PIL
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
@@ -1742,7 +1743,6 @@ config MSM_RPM_REGULATOR
 config MSM_PIL
 	bool "Peripheral image loading"
 	select FW_LOADER
-	depends on (ARCH_MSM8X60 || ARCH_MSM8960)
 	default n
 	help
 	  Some peripherals need to be loaded into memory before they can be
@@ -1770,6 +1770,13 @@ config MSM_PIL_QDSP6V4
 	  Support for booting and shutting down QDSP6v4 processors (hexagon).
 	  The QDSP6 is a low power DSP used in audio, modem firmware, and modem
 	  software applications.
+
+config MSM_PIL_LPASS_QDSP6V5
+       tristate "LPASS QDSP6v5 (Hexagon) Boot Support"
+       depends on MSM_PIL
+       help
+         Support for booting and shutting down QDSP6v5 processors (Hexagon)
+	 processors in low power audio subsystems.
 
 config MSM_PIL_RIVA
 	tristate "RIVA (WCNSS) Boot Support"
