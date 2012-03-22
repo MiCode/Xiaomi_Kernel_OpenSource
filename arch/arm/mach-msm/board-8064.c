@@ -2309,6 +2309,8 @@ static void __init apq8064_cdp_init(void)
 	apq8064_common_init();
 	ethernet_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
+	if (!machine_is_apq8064_mtp())
+		msm_rotator_update_bus_vectors(1376, 768);
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 	apq8064_init_fb();
 	apq8064_init_gpu();
