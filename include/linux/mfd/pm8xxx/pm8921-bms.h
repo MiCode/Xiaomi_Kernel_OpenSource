@@ -124,6 +124,7 @@ struct pm8921_bms_platform_data {
 	unsigned int			v_failure;
 	unsigned int			calib_delay_ms;
 	unsigned int			max_voltage_uv;
+	unsigned int			rconn_mohm;
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)

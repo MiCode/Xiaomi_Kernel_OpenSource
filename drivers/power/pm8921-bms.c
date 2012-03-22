@@ -125,6 +125,7 @@ struct pm8921_bms_chip {
 	int			default_rbatt_mohm;
 	int			amux_2_trim_delta;
 	uint16_t		prev_last_good_ocv_raw;
+	unsigned int		rconn_mohm;
 };
 
 static struct pm8921_bms_chip *the_chip;
@@ -990,6 +991,10 @@ static int get_rbatt(struct pm8921_bms_chip *chip, int soc_rbatt, int batt_temp)
 	pr_debug("rbatt sf = %d for batt_temp = %d, soc_rbatt = %d\n",
 				scalefactor, batt_temp, soc_rbatt);
 	rbatt = (rbatt * scalefactor) / 100;
+
+	rbatt += the_chip->rconn_mohm;
+	pr_debug("adding rconn_mohm = %d rbatt = %d\n",
+				the_chip->rconn_mohm, rbatt);
 
 	pr_debug("RBATT = %d\n", rbatt);
 	return rbatt;
@@ -2306,6 +2311,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->calib_delay_ms = pdata->calib_delay_ms;
 	chip->max_voltage_uv = pdata->max_voltage_uv;
 	chip->batt_type = pdata->battery_type;
+	chip->rconn_mohm = pdata->rconn_mohm;
 	chip->start_percent = -EINVAL;
 	chip->end_percent = -EINVAL;
 	rc = set_battery_data(chip);
