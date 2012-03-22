@@ -171,6 +171,12 @@ uint32_t mdp_block2base(uint32_t block)
 	case MDP_BLOCK_RGB_2:
 		base = 0x50000;
 		break;
+	case MDP_BLOCK_OVERLAY_0:
+		base = 0x10000;
+		break;
+	case MDP_BLOCK_OVERLAY_1:
+		base = 0x18000;
+		break;
 	default:
 		break;
 	}

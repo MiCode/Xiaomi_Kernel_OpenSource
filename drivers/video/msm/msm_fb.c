@@ -2995,7 +2995,7 @@ static int msmfb_handle_pp_ioctl(struct msmfb_mdp_pp *pp_ptr)
 			break;
 
 		case mdp_lut_pgc:
-			ret = mdp4_pgc_cfg(
+			ret = mdp4_argc_cfg(
 				&pp_ptr->data.lut_cfg_data.data.pgc_lut_data);
 			break;
 
