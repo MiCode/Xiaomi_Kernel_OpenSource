@@ -24,6 +24,9 @@
 #include <linux/suspend.h>
 #include <linux/rwsem.h>
 #include <linux/sysfs.h>
+#include <linux/workqueue.h>
+#include <linux/jiffies.h>
+#include <linux/wakelock.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -51,6 +54,9 @@ struct pil_device {
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
 #endif
+	struct delayed_work proxy;
+	struct wake_lock wlock;
+	char wake_name[32];
 };
 
 #define to_pil_device(d) container_of(d, struct pil_device, dev)
@@ -95,6 +101,30 @@ static struct pil_device *find_peripheral(const char *str)
 	dev = bus_find_device(&pil_bus_type, NULL, (void *)str,
 			__find_peripheral);
 	return dev ? to_pil_device(dev) : NULL;
+}
+
+static void pil_proxy_work(struct work_struct *work)
+{
+	struct pil_device *pil;
+
+	pil = container_of(work, struct pil_device, proxy.work);
+	pil->desc->ops->proxy_unvote(pil->desc);
+	wake_unlock(&pil->wlock);
+}
+
+static int pil_proxy_vote(struct pil_device *pil)
+{
+	if (pil->desc->ops->proxy_vote) {
+		wake_lock(&pil->wlock);
+		return pil->desc->ops->proxy_vote(pil->desc);
+	}
+	return 0;
+}
+
+static void pil_proxy_unvote(struct pil_device *pil, unsigned long timeout)
+{
+	if (pil->desc->ops->proxy_unvote)
+		schedule_delayed_work(&pil->proxy, msecs_to_jiffies(timeout));
 }
 
 #define IOMAP_SIZE SZ_4M
@@ -202,6 +232,7 @@ static int load_image(struct pil_device *pil)
 	struct elf32_hdr *ehdr;
 	const struct elf32_phdr *phdr;
 	const struct firmware *fw;
+	unsigned long proxy_timeout = pil->desc->proxy_timeout;
 
 	down_read(&pil_pm_rwsem);
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", pil->desc->name);
@@ -255,13 +286,21 @@ static int load_image(struct pil_device *pil)
 		}
 	}
 
+	ret = pil_proxy_vote(pil);
+	if (ret) {
+		dev_err(&pil->dev, "Failed to proxy vote\n");
+		goto release_fw;
+	}
+
 	ret = pil->desc->ops->auth_and_reset(pil->desc);
 	if (ret) {
 		dev_err(&pil->dev, "Failed to bring out of reset\n");
-		goto release_fw;
+		proxy_timeout = 0; /* Remove proxy vote immediately on error */
+		goto err_boot;
 	}
 	dev_info(&pil->dev, "brought %s out of reset\n", pil->desc->name);
-
+err_boot:
+	pil_proxy_unvote(pil, proxy_timeout);
 release_fw:
 	release_firmware(fw);
 out:
@@ -332,6 +371,13 @@ err_depends:
 }
 EXPORT_SYMBOL(pil_get);
 
+static void pil_shutdown(struct pil_device *pil)
+{
+	pil->desc->ops->shutdown(pil->desc);
+	flush_delayed_work(&pil->proxy);
+	pil_set_state(pil, PIL_OFFLINE);
+}
+
 /**
  * pil_put() - Inform PIL the peripheral no longer needs to be active
  * @peripheral_handle: pointer from a previous call to pil_get()
@@ -349,10 +395,8 @@ void pil_put(void *peripheral_handle)
 	mutex_lock(&pil->lock);
 	if (WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
 		goto err_out;
-	if (!--pil->count) {
-		pil->desc->ops->shutdown(pil->desc);
-		pil_set_state(pil, PIL_OFFLINE);
-	}
+	if (!--pil->count)
+		pil_shutdown(pil);
 	mutex_unlock(&pil->lock);
 
 	pil_d = find_peripheral(pil->desc->depends_on);
@@ -381,8 +425,7 @@ void pil_force_shutdown(const char *name)
 
 	mutex_lock(&pil->lock);
 	if (!WARN(!pil->count, "%s: Reference count mismatch\n", __func__))
-		pil->desc->ops->shutdown(pil->desc);
-	pil_set_state(pil, PIL_OFFLINE);
+		pil_shutdown(pil);
 	mutex_unlock(&pil->lock);
 
 	put_device(&pil->dev);
@@ -502,8 +545,7 @@ static void msm_pil_debugfs_remove(struct pil_device *pil) { }
 
 static int __msm_pil_shutdown(struct device *dev, void *data)
 {
-	struct pil_device *pil = to_pil_device(dev);
-	pil->desc->ops->shutdown(pil->desc);
+	pil_shutdown(to_pil_device(dev));
 	return 0;
 }
 
@@ -516,6 +558,7 @@ late_initcall(msm_pil_shutdown_at_boot);
 static void pil_device_release(struct device *dev)
 {
 	struct pil_device *pil = to_pil_device(dev);
+	wake_lock_destroy(&pil->wlock);
 	mutex_destroy(&pil->lock);
 	kfree(pil);
 }
@@ -524,8 +567,14 @@ struct pil_device *msm_pil_register(struct pil_desc *desc)
 {
 	int err;
 	static atomic_t pil_count = ATOMIC_INIT(-1);
-	struct pil_device *pil = kzalloc(sizeof(*pil), GFP_KERNEL);
+	struct pil_device *pil;
 
+	/* Ignore users who don't make any sense */
+	if (WARN(desc->ops->proxy_unvote && !desc->ops->proxy_vote,
+				"invalid proxy voting. ignoring\n"))
+		((struct pil_reset_ops *)desc->ops)->proxy_unvote = NULL;
+
+	pil = kzalloc(sizeof(*pil), GFP_KERNEL);
 	if (!pil)
 		return ERR_PTR(-ENOMEM);
 
@@ -536,10 +585,15 @@ struct pil_device *msm_pil_register(struct pil_desc *desc)
 	pil->dev.bus = &pil_bus_type;
 	pil->dev.release = pil_device_release;
 
+	snprintf(pil->wake_name, sizeof(pil->wake_name), "pil-%s", desc->name);
+	wake_lock_init(&pil->wlock, WAKE_LOCK_SUSPEND, pil->wake_name);
+	INIT_DELAYED_WORK(&pil->proxy, pil_proxy_work);
+
 	dev_set_name(&pil->dev, "pil%d", atomic_inc_return(&pil_count));
 	err = device_register(&pil->dev);
 	if (err) {
 		put_device(&pil->dev);
+		wake_lock_destroy(&pil->wlock);
 		mutex_destroy(&pil->lock);
 		kfree(pil);
 		return ERR_PTR(err);
@@ -563,6 +617,7 @@ void msm_pil_unregister(struct pil_device *pil)
 	if (get_device(&pil->dev)) {
 		mutex_lock(&pil->lock);
 		WARN_ON(pil->count);
+		flush_delayed_work_sync(&pil->proxy);
 		msm_pil_debugfs_remove(pil);
 		device_unregister(&pil->dev);
 		mutex_unlock(&pil->lock);
