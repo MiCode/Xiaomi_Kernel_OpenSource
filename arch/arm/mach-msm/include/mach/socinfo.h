@@ -36,9 +36,12 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmcopper")
 #define machine_is_copper()		\
 	of_machine_is_compatible("qcom,msmcopper")
+#define machine_is_copper_sim()		\
+	of_machine_is_compatible("qcom,msmcopper-sim")
 #else
 #define early_machine_is_copper()	0
 #define machine_is_copper()		0
+#define machine_is_copper_sim()	0
 #endif
 
 enum msm_cpu {
