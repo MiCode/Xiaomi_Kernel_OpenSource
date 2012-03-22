@@ -1146,13 +1146,7 @@ static int pm_power_get_property_usb(struct power_supply *psy,
 			return 0;
 
 		/* USB charging */
-		if (psy->type == POWER_SUPPLY_TYPE_USB ||
-				psy->type == POWER_SUPPLY_TYPE_USB_DCP ||
-				psy->type == POWER_SUPPLY_TYPE_USB_CDP ||
-				psy->type == POWER_SUPPLY_TYPE_USB_ACA) {
-			val->intval = is_usb_chg_plugged_in(the_chip);
-			return 0;
-		}
+		val->intval = is_usb_chg_plugged_in(the_chip);
 		break;
 	default:
 		return -EINVAL;
@@ -1690,23 +1684,6 @@ bool pm8921_is_battery_charging(int *source)
 	return is_charging;
 }
 EXPORT_SYMBOL(pm8921_is_battery_charging);
-
-int pm8921_set_usb_power_supply_type(enum power_supply_type type)
-{
-	if (!the_chip) {
-		pr_err("called before init\n");
-		return -EINVAL;
-	}
-
-	if (type < POWER_SUPPLY_TYPE_USB)
-		return -EINVAL;
-
-	the_chip->usb_psy.type = type;
-	power_supply_changed(&the_chip->usb_psy);
-	power_supply_changed(&the_chip->dc_psy);
-	return 0;
-}
-EXPORT_SYMBOL_GPL(pm8921_set_usb_power_supply_type);
 
 int pm8921_batt_temperature(void)
 {
