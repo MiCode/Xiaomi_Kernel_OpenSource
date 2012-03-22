@@ -27,6 +27,7 @@
 
 #include "devices.h"
 #include "footswitch.h"
+#include "acpuclock.h"
 
 #include <asm/mach/flash.h>
 
@@ -430,6 +431,16 @@ void __init msm_pm_register_irqs(void)
 {
 	msm_pm_set_irq_extns(&msm7x27_pm_irq_calls);
 }
+
+static struct acpuclk_pdata msm7x27_acpuclk_pdata = {
+	.max_speed_delta_khz = 400000,
+};
+
+struct platform_device msm7x27_device_acpuclk = {
+	.name		= "acpuclk-7627",
+	.id		= -1,
+	.dev.platform_data = &msm7x27_acpuclk_pdata,
+};
 
 #define MSM_SDC1_BASE         0xA0400000
 #define MSM_SDC2_BASE         0xA0500000
