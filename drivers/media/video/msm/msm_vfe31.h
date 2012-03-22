@@ -154,6 +154,7 @@
 #define VFE_AE_PINGPONG_STATUS_BIT       0x80
 #define VFE_AF_PINGPONG_STATUS_BIT       0x100
 #define VFE_AWB_PINGPONG_STATUS_BIT      0x200
+#define PINGPONG_LOWER                   0x7
 
 #define HFR_MODE_OFF 1
 

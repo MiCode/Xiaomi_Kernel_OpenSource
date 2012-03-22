@@ -21,7 +21,6 @@
 
 #include "msm_vfe31.h"
 #include "msm_vpe1.h"
-
 atomic_t irq_cnt;
 
 #define CHECKED_COPY_FROM_USER(in) {					\
@@ -3029,6 +3028,15 @@ static void vfe31_process_output_path_irq_0(uint32_t ping_pong)
 	/* we render frames in the following conditions:
 	1. Continuous mode and the free buffer is avaialable.
 	*/
+	if (vfe31_ctrl->outpath.output_mode &
+		VFE31_OUTPUT_MODE_P_ALL_CHNLS) {
+		if (!(((ping_pong & PINGPONG_LOWER) == PINGPONG_LOWER) ||
+			((ping_pong & PINGPONG_LOWER) == 0x0))) {
+			pr_err(" Irq_2 - skip the frame pp_status is not proper"
+				"PP_status = 0x%x\n", ping_pong);
+			return;
+		}
+	}
 	free_buf = vfe31_get_free_buf(&vfe31_ctrl->outpath.out0);
 
 	if (free_buf) {
