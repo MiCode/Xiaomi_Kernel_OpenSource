@@ -612,6 +612,39 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k3l1yx_data = {
 	.camera_type          = BACK_CAMERA_2D,
 };
 
+static struct msm_camera_csi_lane_params imx091_csi_lane_params = {
+	.csi_lane_assign = 0xE4,
+	.csi_lane_mask = 0xF,
+};
+
+static struct camera_vreg_t msm_8960_imx091_vreg[] = {
+	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
+	{"cam_vaf", REG_LDO, 2800000, 2800000, 300000},
+	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
+	{"cam_vio", REG_VS, 0, 0, 0},
+};
+
+static struct msm_camera_sensor_flash_data flash_imx091 = {
+	.flash_type	= MSM_CAMERA_FLASH_NONE,
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_imx091 = {
+	.mount_angle	= 0,
+	.cam_vreg = msm_8960_imx091_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8960_imx091_vreg),
+	.gpio_conf = &msm_8960_back_cam_gpio_conf,
+	.csi_lane_params = &imx091_csi_lane_params,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {
+	.sensor_name	= "imx091",
+	.pdata	= &msm_camera_csi_device_data[0],
+	.flash_data	= &flash_imx091,
+	.sensor_platform_info = &sensor_board_info_imx091,
+	.csi_if	= 1,
+	.camera_type = BACK_CAMERA_2D,
+};
+
 static struct pm8xxx_mpp_config_data privacy_light_on_config = {
 	.type		= PM8XXX_MPP_TYPE_SINK,
 	.level		= PM8XXX_MPP_CS_OUT_5MA,
@@ -699,6 +732,10 @@ static struct i2c_board_info msm8960_camera_i2c_boardinfo[] = {
 	I2C_BOARD_INFO("sc628a", 0x6E),
 	},
 #endif
+	{
+	I2C_BOARD_INFO("imx091", 0x34),
+	.platform_data = &msm_camera_sensor_imx091_data,
+	},
 };
 
 struct msm_camera_board_info msm8960_camera_board_info = {
