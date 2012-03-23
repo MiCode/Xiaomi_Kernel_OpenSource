@@ -144,8 +144,17 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 		} else {
 			entry = virt_to_phys(msm_pm_boot_entry);
 
-			msm_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
-			msm_pm_reset_vector[1] = entry;
+			/* Below sequence is a work around for cores
+			 * to come out of GDFS properly on 8625 target.
+			 * On 8625 while cores coming out of GDFS observed
+			 * the memory corruption at very first memory read.
+			 */
+			msm_pm_reset_vector[0] = 0xE59F000C; /* ldr r0, 0x14 */
+			msm_pm_reset_vector[1] = 0xE59F1008; /* ldr r1, 0x14 */
+			msm_pm_reset_vector[2] = 0xE1500001; /* cmp r0, r1 */
+			msm_pm_reset_vector[3] = 0x1AFFFFFB; /* bne 0x0 */
+			msm_pm_reset_vector[4] = 0xE12FFF10; /* bx  r0 */
+			msm_pm_reset_vector[5] = entry; /* 0x14 */
 
 			/* Here upper 16bits[16:31] used by CORE1
 			 * lower 16bits[0:15] used by CORE0
