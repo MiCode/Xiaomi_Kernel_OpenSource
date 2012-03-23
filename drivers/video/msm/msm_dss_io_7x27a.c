@@ -30,6 +30,7 @@ static struct clk *mdp_dsi_pclk;
 static struct clk *ahb_m_clk;
 static struct clk *ahb_s_clk;
 static struct clk *ebi1_dsi_clk;
+int mipi_dsi_clk_on;
 
 void mipi_dsi_clk_init(struct platform_device *pdev)
 {
@@ -300,14 +301,25 @@ void cont_splash_clk_ctrl(void)
 
 void mipi_dsi_ahb_ctrl(u32 enable)
 {
+	static int ahb_ctrl_done;
 	if (enable) {
+		if (ahb_ctrl_done) {
+			pr_info("%s: ahb clks already ON\n", __func__);
+			return;
+		}
 		clk_enable(dsi_ref_clk);
 		clk_enable(ahb_m_clk);
 		clk_enable(ahb_s_clk);
+		ahb_ctrl_done = 1;
 	} else {
+		if (ahb_ctrl_done == 0) {
+			pr_info("%s: ahb clks already OFF\n", __func__);
+			return;
+		}
 		clk_disable(ahb_m_clk);
 		clk_disable(ahb_s_clk);
 		clk_disable(dsi_ref_clk);
+		ahb_ctrl_done = 0;
 	}
 }
 
@@ -316,6 +328,10 @@ void mipi_dsi_clk_enable(void)
 	unsigned data = 0;
 	uint32 pll_ctrl;
 
+	if (mipi_dsi_clk_on) {
+		pr_info("%s: mipi_dsi_clks already ON\n", __func__);
+		return;
+	}
 	if (clk_set_rate(ebi1_dsi_clk, 65000000)) /* 65 MHz */
 		pr_err("%s: ebi1_dsi_clk set rate failed\n", __func__);
 	clk_enable(ebi1_dsi_clk);
@@ -331,10 +347,15 @@ void mipi_dsi_clk_enable(void)
 	clk_enable(dsi_esc_clk);
 	mipi_dsi_pclk_ctrl(&dsi_pclk, 1);
 	mipi_dsi_clk_ctrl(&dsicore_clk, 1);
+	mipi_dsi_clk_on = 1;
 }
 
 void mipi_dsi_clk_disable(void)
 {
+	if (mipi_dsi_clk_on == 0) {
+		pr_info("%s: mipi_dsi_clks already OFF\n", __func__);
+		return;
+	}
 	mipi_dsi_pclk_ctrl(&dsi_pclk, 0);
 	mipi_dsi_clk_ctrl(&dsicore_clk, 0);
 	clk_disable(dsi_esc_clk);
@@ -345,6 +366,7 @@ void mipi_dsi_clk_disable(void)
 	if (clk_set_rate(ebi1_dsi_clk, 0))
 		pr_err("%s: ebi1_dsi_clk set rate failed\n", __func__);
 	clk_disable(ebi1_dsi_clk);
+	mipi_dsi_clk_on = 0;
 }
 
 void mipi_dsi_phy_ctrl(int on)
