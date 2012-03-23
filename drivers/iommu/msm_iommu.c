@@ -695,6 +695,19 @@ fail:
 	return len;
 }
 
+static unsigned int get_phys_addr(struct scatterlist *sg)
+{
+	/*
+	 * Try sg_dma_address first so that we can
+	 * map carveout regions that do not have a
+	 * struct page associated with them.
+	 */
+	unsigned int pa = sg_dma_address(sg);
+	if (pa == 0)
+		pa = sg_phys(sg);
+	return pa;
+}
+
 static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 			       struct scatterlist *sg, unsigned int len,
 			       int prot)
@@ -732,7 +745,12 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
 	sl_offset = SL_OFFSET(va);
 
-	chunk_pa = sg_phys(sg);
+	chunk_pa = get_phys_addr(sg);
+	if (chunk_pa == 0) {
+		pr_debug("No dma address for sg %p\n", sg);
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	while (offset < len) {
 		/* Set up a 2nd level page table if one doesn't exist */
@@ -774,7 +792,13 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 			if (chunk_offset >= sg->length && offset < len) {
 				chunk_offset = 0;
 				sg = sg_next(sg);
-				chunk_pa = sg_phys(sg);
+				chunk_pa = get_phys_addr(sg);
+				if (chunk_pa == 0) {
+					pr_debug("No dma address for sg %p\n",
+						 sg);
+					ret = -EINVAL;
+					goto fail;
+				}
 			}
 		}
 
