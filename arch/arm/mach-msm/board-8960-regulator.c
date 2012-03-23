@@ -372,8 +372,8 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 
 #define RPM_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, _default_uV, \
 		 _peak_uA, _avg_uA, _pull_down, _pin_ctrl, _freq, _pin_fn, \
-		 _force_mode, _power_mode, _state, _sleep_selectable, \
-		 _always_on, _supply_regulator, _system_uA) \
+		 _force_mode, _sleep_set_force_mode, _power_mode, _state, \
+		 _sleep_selectable, _always_on, _supply_regulator, _system_uA) \
 	{ \
 		.init_data = { \
 			.constraints = { \
@@ -399,6 +399,7 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 		.freq			= RPM_VREG_FREQ_##_freq, \
 		.pin_fn			= _pin_fn, \
 		.force_mode		= _force_mode, \
+		.sleep_set_force_mode	= _sleep_set_force_mode, \
 		.power_mode		= _power_mode, \
 		.state			= _state, \
 		.sleep_selectable	= _sleep_selectable, \
@@ -412,24 +413,28 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
 		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _init_peak_uA, 0, _pd, \
 		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_8960_NONE, \
+		 RPM_VREG_FORCE_MODE_8960_NONE, \
 		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, _system_uA)
 
 #define RPM_SMPS(_id, _always_on, _pd, _sleep_selectable, _min_uV, _max_uV, \
-		 _supply_regulator, _system_uA, _freq) \
+		 _supply_regulator, _system_uA, _freq, _force_mode, \
+		 _sleep_set_force_mode) \
 	RPM_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
 		 | REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE \
 		 | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE \
 		 | REGULATOR_CHANGE_DRMS, 0, _max_uV, _system_uA, 0, _pd, \
 		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8960_NONE, \
-		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
-		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
-		 _supply_regulator, _system_uA)
+		 RPM_VREG_FORCE_MODE_8960_##_force_mode, \
+		 RPM_VREG_FORCE_MODE_8960_##_sleep_set_force_mode, \
+		 RPM_VREG_POWER_MODE_8960_PWM, RPM_VREG_STATE_OFF, \
+		 _sleep_selectable, _always_on, _supply_regulator, _system_uA)
 
 #define RPM_VS(_id, _always_on, _pd, _sleep_selectable, _supply_regulator) \
 	RPM_INIT(_id, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, 0, 1000, 1000, _pd, \
 		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_8960_NONE, \
+		 RPM_VREG_FORCE_MODE_8960_NONE, \
 		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, 0)
@@ -439,6 +444,7 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 	RPM_INIT(_id, _min_uV, _max_uV, 0, REGULATOR_CHANGE_VOLTAGE \
 		 | REGULATOR_CHANGE_STATUS, 0, _max_uV, 1000, 1000, 0, \
 		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8960_NONE, \
+		 RPM_VREG_FORCE_MODE_8960_NONE, \
 		 RPM_VREG_FORCE_MODE_8960_NONE, RPM_VREG_POWER_MODE_8960_PWM, \
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, 0)
@@ -502,13 +508,13 @@ msm_pm8921_regulator_pdata[] __devinitdata = {
 
 static struct rpm_regulator_init_data
 msm_rpm_regulator_init_data[] __devinitdata = {
-	/*	 ID    a_on pd ss min_uV   max_uV  supply sys_uA freq */
-	RPM_SMPS(S1,	 1, 1, 0, 1225000, 1225000, NULL, 100000, 3p20),
-	RPM_SMPS(S2,	 0, 1, 0, 1300000, 1300000, NULL, 0,	  1p60),
-	RPM_SMPS(S3,	 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80),
-	RPM_SMPS(S4,	 1, 1, 0, 1800000, 1800000, NULL, 100000, 1p60),
-	RPM_SMPS(S7,	 0, 1, 0, 1150000, 1150000, NULL, 100000, 3p20),
-	RPM_SMPS(S8,	 1, 1, 1, 2100000, 2100000, NULL, 100000, 1p60),
+	/*	ID a_on pd ss min_uV   max_uV  supply sys_uA  freq  fm  ss_fm */
+	RPM_SMPS(S1, 1, 1, 0, 1225000, 1225000, NULL, 100000, 3p20, NONE, NONE),
+	RPM_SMPS(S2, 0, 1, 0, 1300000, 1300000, NULL,      0, 1p60, NONE, NONE),
+	RPM_SMPS(S3, 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, NONE, NONE),
+	RPM_SMPS(S4, 1, 1, 0, 1800000, 1800000, NULL, 100000, 1p60, NONE, NONE),
+	RPM_SMPS(S7, 0, 1, 0, 1150000, 1150000, NULL, 100000, 3p20, NONE, NONE),
+	RPM_SMPS(S8, 1, 1, 1, 2100000, 2100000, NULL, 100000, 1p60, NONE, NONE),
 
 	/*	ID     a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
 	RPM_LDO(L1,	 1, 1, 0, 1050000, 1050000, "8921_s4", 0, 10000),
