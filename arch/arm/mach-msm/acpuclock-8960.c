@@ -142,7 +142,6 @@ struct scalable {
 	struct core_speed *current_speed;
 	struct l2_level *l2_vote;
 	struct vreg vreg[NUM_VREG];
-	bool first_set_call;
 	unsigned int *hfpll_vdd_tbl;
 };
 
@@ -1100,7 +1099,7 @@ static int acpuclk_8960_set_rate(int cpu, unsigned long rate,
 	strt_acpu_s = scalable[cpu].current_speed;
 
 	/* Return early if rate didn't change. */
-	if (rate == strt_acpu_s->khz && scalable[cpu].first_set_call == false)
+	if (rate == strt_acpu_s->khz)
 		goto out;
 
 	/* Find target frequency. */
@@ -1154,7 +1153,6 @@ static int acpuclk_8960_set_rate(int cpu, unsigned long rate,
 	/* Drop VDD levels if we can. */
 	decrease_vdd(cpu, vdd_core, vdd_mem, vdd_dig, reason);
 
-	scalable[cpu].first_set_call = false;
 	pr_debug("ACPU%d speed change complete\n", cpu);
 
 out:
@@ -1185,13 +1183,41 @@ static void __init hfpll_init(struct scalable *sc, struct core_speed *tgt_s)
 }
 
 /* Voltage regulator initialization. */
-static void __init regulator_init(int set_vdd)
+static void __init regulator_init(struct acpu_level *lvl)
 {
 	int cpu, ret;
 	struct scalable *sc;
+	unsigned int vdd_mem, vdd_dig, vdd_core;
+
+	vdd_mem = calculate_vdd_mem(lvl);
+	vdd_dig = calculate_vdd_dig(lvl);
 
 	for_each_possible_cpu(cpu) {
 		sc = &scalable[cpu];
+
+		/* Set initial vdd_mem vote. */
+		ret = rpm_vreg_set_voltage(sc->vreg[VREG_MEM].rpm_vreg_id,
+				sc->vreg[VREG_MEM].rpm_vreg_voter, vdd_mem,
+				sc->vreg[VREG_MEM].max_vdd, 0);
+		if (ret) {
+			pr_err("%s initialization failed (%d)\n",
+				sc->vreg[VREG_MEM].name, ret);
+			BUG();
+		}
+		sc->vreg[VREG_MEM].cur_vdd  = vdd_mem;
+
+		/* Set initial vdd_dig vote. */
+		ret = rpm_vreg_set_voltage(sc->vreg[VREG_DIG].rpm_vreg_id,
+				sc->vreg[VREG_DIG].rpm_vreg_voter, vdd_dig,
+				sc->vreg[VREG_DIG].max_vdd, 0);
+		if (ret) {
+			pr_err("%s initialization failed (%d)\n",
+				sc->vreg[VREG_DIG].name, ret);
+			BUG();
+		}
+		sc->vreg[VREG_DIG].cur_vdd  = vdd_dig;
+
+		/* Setup Krait CPU regulators and initial core voltage. */
 		sc->vreg[VREG_CORE].reg = regulator_get(NULL,
 					  sc->vreg[VREG_CORE].name);
 		if (IS_ERR(sc->vreg[VREG_CORE].reg)) {
@@ -1200,18 +1226,21 @@ static void __init regulator_init(int set_vdd)
 			       PTR_ERR(sc->vreg[VREG_CORE].reg));
 			BUG();
 		}
-
-		ret = regulator_set_voltage(sc->vreg[VREG_CORE].reg,
-					    set_vdd,
+		vdd_core = calculate_vdd_core(lvl);
+		ret = regulator_set_voltage(sc->vreg[VREG_CORE].reg, vdd_core,
 					    sc->vreg[VREG_CORE].max_vdd);
-		if (ret)
-			pr_err("regulator_set_voltage(%s) failed"
-			       " (%d)\n", sc->vreg[VREG_CORE].name, ret);
-
+		if (ret) {
+			pr_err("%s initialization failed (%d)\n",
+				sc->vreg[VREG_CORE].name, ret);
+			BUG();
+		}
+		sc->vreg[VREG_CORE].cur_vdd = vdd_core;
 		ret = regulator_enable(sc->vreg[VREG_CORE].reg);
-		if (ret)
+		if (ret) {
 			pr_err("regulator_enable(%s) failed (%d)\n",
 			       sc->vreg[VREG_CORE].name, ret);
+			BUG();
+		}
 	}
 }
 
@@ -1238,12 +1267,6 @@ static void __init init_clock_sources(struct scalable *sc,
 	set_sec_clk_src(sc, tgt_s->sec_src_sel);
 	set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	sc->current_speed = tgt_s;
-
-	/*
-	 * Set this flag so that the first call to acpuclk_8960_set_rate() can
-	 * drop voltages and set initial bus bandwidth requests.
-	 */
-	sc->first_set_call = true;
 }
 
 static void __init per_cpu_init(void *data)
@@ -1471,7 +1494,7 @@ static int __init acpuclk_8960_init(struct acpuclk_soc_data *soc_data)
 {
 	struct acpu_level *max_acpu_level = select_freq_plan();
 
-	regulator_init(max_acpu_level->vdd_core);
+	regulator_init(max_acpu_level);
 	bus_init(max_acpu_level->l2_level->bw_level);
 
 	init_clock_sources(&scalable[L2], &max_acpu_level->l2_level->speed);
