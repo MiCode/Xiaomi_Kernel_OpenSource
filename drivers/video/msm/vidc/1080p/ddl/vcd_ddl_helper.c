@@ -256,13 +256,14 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 					 0x80808080,
 					frame[i].vcd_frm.alloc_len - luma_size);
 				if (frame[i].vcd_frm.ion_flag == CACHED) {
-					clean_and_invalidate_caches(
-					(unsigned long)frame[i].
+					msm_ion_do_cache_op(
+					ddl_context->video_ion_client,
+					frame[i].vcd_frm.buff_ion_handle,
+					(unsigned long *)frame[i].
 					vcd_frm.virtual,
 					(unsigned long)frame[i].
 					vcd_frm.alloc_len,
-					(unsigned long)frame[i].
-					vcd_frm.physical);
+					ION_IOC_CLEAN_INV_CACHES);
 				}
 			} else {
 				DDL_MSG_ERROR("luma size error");

@@ -1656,6 +1656,7 @@ u32 vid_enc_encode_frame(struct video_client_ctx *client_ctx,
 	struct file *file;
 	s32 buffer_index = -1;
 	u32 ion_flag = 0;
+	struct ion_handle *buff_handle = NULL;
 
 	u32 vcd_status = VCD_ERR_FAIL;
 
@@ -1688,14 +1689,17 @@ u32 vid_enc_encode_frame(struct video_client_ctx *client_ctx,
 		vcd_input_buffer.flags = input_frame_info->flags;
 
 		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_INPUT,
-				pmem_fd, kernel_vaddr, buffer_index);
+				pmem_fd, kernel_vaddr, buffer_index,
+				&buff_handle);
 
 		if (vcd_input_buffer.data_len > 0) {
 			if (ion_flag == CACHED) {
-				clean_caches(
-				(unsigned long) vcd_input_buffer.virtual,
+				msm_ion_do_cache_op(
+				client_ctx->user_ion_client,
+				buff_handle,
+				(unsigned long *) vcd_input_buffer.virtual,
 				(unsigned long) vcd_input_buffer.data_len,
-				(phy_addr + input_frame_info->offset));
+				ION_IOC_CLEAN_CACHES);
 			}
 		}
 
