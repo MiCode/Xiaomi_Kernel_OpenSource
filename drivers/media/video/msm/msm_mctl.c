@@ -232,16 +232,18 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 
 			rc = v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
 				VIDIOC_MSM_ISPIF_CFG, &ispif_params);
-			if (rc < 0)
-				return rc;
+		} else {
+			pr_err("%s: invalid ispif_sdev\n", __func__);
 		}
 		break;
 	case NOTIFY_ISPIF_STREAM:
 		/* call ISPIF stream on/off */
-		rc = v4l2_subdev_call(p_mctl->ispif_sdev, video,
-				s_stream, (int)arg);
-		if (rc < 0)
-			return rc;
+		if (p_mctl->ispif_sdev) {
+			rc = v4l2_subdev_call(p_mctl->ispif_sdev, video,
+					s_stream, (int)arg);
+		} else {
+			pr_err("%s: invalid ispif_sdev\n", __func__);
+		}
 
 		break;
 	case NOTIFY_ISP_MSG_EVT:
@@ -253,29 +255,56 @@ static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
 		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_notify) {
 			rc = p_mctl->isp_sdev->isp_notify(
 				p_mctl->isp_sdev->sd, notification, arg);
+		} else {
+			pr_err("%s: invalid isp_sdev\n", __func__);
 		}
+
 		break;
 	case NOTIFY_VPE_MSG_EVT:
 		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_notify) {
 			rc = p_mctl->isp_sdev->isp_notify(
 				p_mctl->isp_sdev->sd_vpe, notification, arg);
+		} else {
+			pr_err("%s: invalid isp_sdev\n", __func__);
 		}
+
 		break;
 	case NOTIFY_PCLK_CHANGE:
-		rc = v4l2_subdev_call(p_mctl->isp_sdev->sd, video,
-			s_crystal_freq, *(uint32_t *)arg, 0);
+		if (p_mctl->isp_sdev && p_mctl->isp_sdev->sd) {
+			rc = v4l2_subdev_call(p_mctl->isp_sdev->sd, video,
+					s_crystal_freq, *(uint32_t *)arg, 0);
+		} else {
+			pr_err("%s: invalid ispif_sdev\n", __func__);
+		}
+
 		break;
 	case NOTIFY_CSIPHY_CFG:
-		rc = v4l2_subdev_call(p_mctl->csiphy_sdev,
-			core, ioctl, VIDIOC_MSM_CSIPHY_CFG, arg);
+		if (p_mctl->csiphy_sdev) {
+			rc = v4l2_subdev_call(p_mctl->csiphy_sdev,
+					core, ioctl, VIDIOC_MSM_CSIPHY_CFG,
+					arg);
+		} else {
+			pr_err("%s: invalid csiphy_sdev\n", __func__);
+		}
+
 		break;
 	case NOTIFY_CSID_CFG:
-		rc = v4l2_subdev_call(p_mctl->csid_sdev,
-			core, ioctl, VIDIOC_MSM_CSID_CFG, arg);
+		if (p_mctl->csid_sdev) {
+			rc = v4l2_subdev_call(p_mctl->csid_sdev,
+					core, ioctl, VIDIOC_MSM_CSID_CFG, arg);
+		} else {
+			pr_err("%s: invalid csid_sdev\n", __func__);
+		}
+
 		break;
 	case NOTIFY_CSIC_CFG:
-		rc = v4l2_subdev_call(p_mctl->csic_sdev,
-			core, ioctl, VIDIOC_MSM_CSIC_CFG, arg);
+		if (p_mctl->csic_sdev) {
+			rc = v4l2_subdev_call(p_mctl->csic_sdev,
+					core, ioctl, VIDIOC_MSM_CSIC_CFG, arg);
+		} else {
+			pr_err("%s: invalid csic_sdev\n", __func__);
+		}
+
 		break;
 	default:
 		break;
@@ -857,9 +886,15 @@ static int msm_mctl_dev_open(struct file *f)
 {
 	int rc = -EINVAL, i;
 	/* get the video device */
-	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
+	struct msm_cam_v4l2_device *pcam  = NULL;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	D("%s : E ", __func__);
+
+	if (f == NULL) {
+		pr_err("%s :: cannot open video driver data", __func__);
+		return rc;
+	}
+	pcam = video_drvdata(f);
 
 	if (!pcam) {
 		pr_err("%s NULL pointer passed in!\n", __func__);
@@ -889,7 +924,7 @@ static int msm_mctl_dev_open(struct file *f)
 
 	D("%s pcam_inst %p my_index = %d\n", __func__,
 		pcam_inst, pcam_inst->my_index);
-	D("%s for %s\n", __func__, pcam->pdev->name);
+	D("%s for %s\n", __func__, pcam->mctl.sensor_sdev->name);
 	rc = msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 					pcam->mctl_node.pvdev);
 	if (rc < 0) {
@@ -991,10 +1026,22 @@ static struct v4l2_file_operations g_msm_mctl_fops = {
 static int msm_mctl_v4l2_querycap(struct file *f, void *pctx,
 				struct v4l2_capability *pcaps)
 {
-	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
+	struct msm_cam_v4l2_device *pcam;
+
+	if (f == NULL) {
+		pr_err("%s :: NULL file pointer", __func__);
+		return -EINVAL;
+	}
+
+	pcam = video_drvdata(f);
 
 	D("%s\n", __func__);
 	WARN_ON(pctx != f->private_data);
+
+	if (!pcam) {
+		pr_err("%s NULL pointer passed in!\n", __func__);
+		return -EINVAL;
+	}
 
 	strlcpy(pcaps->driver, pcam->mctl.sensor_sdev->name,
 		sizeof(pcaps->driver));

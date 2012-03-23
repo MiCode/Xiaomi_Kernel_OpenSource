@@ -1440,6 +1440,10 @@ static int msm_open(struct file *f)
 		pr_err("%s NULL pointer passed in!\n", __func__);
 		return rc;
 	}
+	if (!g_server_dev.use_count) {
+		pr_err("%s: error, daemon not yet started.", __func__);
+		return -EINVAL;
+	}
 	mutex_lock(&pcam->vid_lock);
 	for (i = 0; i < MSM_DEV_INST_MAX; i++) {
 		if (pcam->dev_inst[i] == NULL)
@@ -1631,6 +1635,10 @@ static int msm_close(struct file *f)
 	pcam = pcam_inst->pcam;
 	if (!pcam) {
 		pr_err("%s NULL pointer of camera device!\n", __func__);
+		return -EINVAL;
+	}
+	if (!g_server_dev.use_count) {
+		pr_err("%s: error, daemon not yet started.", __func__);
 		return -EINVAL;
 	}
 
