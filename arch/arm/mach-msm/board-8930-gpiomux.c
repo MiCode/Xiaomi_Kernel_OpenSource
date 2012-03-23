@@ -171,26 +171,6 @@ static struct msm_gpiomux_config msm8930_hsusb_configs[] = {
 	},
 };
 #endif
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-static struct gpiomux_setting hsic_act_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_12MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting hsic_sus_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-	.dir = GPIOMUX_OUT_LOW,
-};
-
-static struct gpiomux_setting hsic_hub_act_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-#endif
 
 static struct gpiomux_setting hap_lvl_shft_suspended_config = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -487,32 +467,6 @@ static struct msm_gpiomux_config msm8960_atmel_configs[] __initdata = {
 	},
 };
 
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-static struct msm_gpiomux_config msm8960_hsic_configs[] = {
-	{
-		.gpio = 150,               /*HSIC_STROBE */
-		.settings = {
-			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
-			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
-		},
-	},
-	{
-		.gpio = 151,               /* HSIC_DATA */
-		.settings = {
-			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
-			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
-		},
-	},
-	{
-		.gpio = 91,               /* HSIC_HUB_RESET */
-		.settings = {
-			[GPIOMUX_ACTIVE] = &hsic_hub_act_cfg,
-			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
-		},
-	},
-};
-#endif
-
 static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 	{
 		.gpio = 47,
@@ -688,14 +642,6 @@ int __init msm8930_init_gpiomux(void)
 		|| machine_is_msm8930_fluid())
 		msm_gpiomux_install(msm8930_haptics_configs,
 			ARRAY_SIZE(msm8930_haptics_configs));
-
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1) &&
-			!machine_is_msm8930_mtp() &&
-			!machine_is_msm8930_fluid())
-		msm_gpiomux_install(msm8960_hsic_configs,
-			ARRAY_SIZE(msm8960_hsic_configs));
-#endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 	msm_gpiomux_install(msm8960_hdmi_configs,
