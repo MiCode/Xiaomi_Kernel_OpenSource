@@ -20,9 +20,14 @@ ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
 else
   obj-$(CONFIG_ARCH_MSM7X27A) += msm_vfe7x27a.o msm_io_7x27a.o
 endif
-obj-$(CONFIG_ARCH_MSM7X30) += msm_vfe31.o msm_io_vfe31.o msm_vpe1.o
 obj-$(CONFIG_ARCH_QSD8X50) += msm_vfe8x.o msm_vfe8x_proc.o msm_io8x.o
-obj-$(CONFIG_ARCH_MSM8X60) += msm_vfe31.o msm_io_8x60.o msm_vpe1.o
+ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
+  obj-$(CONFIG_ARCH_MSM8X60) += msm_io_vfe31_v4l2.o msm_vfe31_v4l2.o msm_vpe.o
+  obj-$(CONFIG_ARCH_MSM7X30) += msm_io_vfe31_v4l2.o msm_vfe31_v4l2.o msm_vpe.o msm_axi_qos.o
+else
+  obj-$(CONFIG_ARCH_MSM8X60) += msm_vfe31.o msm_io_8x60.o msm_vpe1.o
+  obj-$(CONFIG_ARCH_MSM7X30) += msm_vfe31.o msm_io_vfe31.o msm_vpe1.o
+endif
 obj-$(CONFIG_ARCH_MSM8960) += msm_io_8960.o msm_vfe32.o msm_vpe.o
 obj-$(CONFIG_MT9T013) += mt9t013.o mt9t013_reg.o
 obj-$(CONFIG_SN12M0PZ) += sn12m0pz.o sn12m0pz_reg.o
@@ -32,9 +37,7 @@ obj-$(CONFIG_MSM_CAMERA_AF_BAM) += mt9p012_bam.o
 obj-$(CONFIG_MT9P012_KM) += mt9p012_km.o mt9p012_km_reg.o
 obj-$(CONFIG_S5K3E2FX) += s5k3e2fx.o
 #FIXME: Merge the two ifeq causes VX6953 preview not coming up.
-ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
-  obj-$(CONFIG_VX6953) += vx6953_v4l2.o vx6953_reg_v4l2.o
-else
+ifneq ($(CONFIG_MSM_CAMERA_V4L2),y)
   obj-$(CONFIG_VX6953) += vx6953.o vx6953_reg.o
   obj-$(CONFIG_IMX074) += imx074.o imx074_reg.o
   obj-$(CONFIG_MT9E013) += mt9e013.o mt9e013_reg.o

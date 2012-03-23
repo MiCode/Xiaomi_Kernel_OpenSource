@@ -356,3 +356,9 @@ extern struct platform_device msm_bus_8930_sys_fabric;
 extern struct platform_device msm_bus_8930_mm_fabric;
 extern struct platform_device msm_bus_8930_sys_fpb;
 extern struct platform_device msm_bus_8930_cpss_fpb;
+
+extern struct platform_device msm_device_csic0;
+extern struct platform_device msm_device_csic1;
+extern struct platform_device msm_device_vfe;
+extern struct platform_device msm_device_vpe;
+

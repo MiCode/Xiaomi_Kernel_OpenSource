@@ -17,6 +17,9 @@
 #include <linux/io.h>
 #include <media/v4l2-subdev.h>
 
+#define CSIC_7X 0x1
+#define CSIC_8X (0x1 << 1)
+
 struct csic_device {
 	struct platform_device *pdev;
 	struct v4l2_subdev subdev;

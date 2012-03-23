@@ -632,6 +632,22 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto msm_open_done;
 		}
 
+		/* then sensor - move sub dev later*/
+		rc = v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 1);
+
+		if (rc < 0) {
+			pr_err("%s: isp init failed: %d\n", __func__, rc);
+			goto msm_open_done;
+		}
+		if (sync->actctrl.a_power_up)
+			rc = sync->actctrl.a_power_up(
+				sync->sdata->actuator_info);
+
+		if (rc < 0) {
+			pr_err("%s: act power failed:%d\n", __func__, rc);
+			goto msm_open_done;
+		}
+
 		if (camdev->is_csiphy) {
 			rc = v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
 				VIDIOC_MSM_CSIPHY_INIT, NULL);
@@ -683,22 +699,6 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			}
 		}
 
-		/* then sensor - move sub dev later*/
-		rc = v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 1);
-
-		if (rc < 0) {
-			pr_err("%s: isp init failed: %d\n", __func__, rc);
-			goto msm_open_done;
-		}
-		if (sync->actctrl.a_power_up)
-			rc = sync->actctrl.a_power_up(
-				sync->sdata->actuator_info);
-
-		if (rc < 0) {
-			pr_err("%s: act power failed:%d\n", __func__, rc);
-			goto msm_open_done;
-		}
-
 		if (camdev->is_ispif) {
 			pm_qos_add_request(&p_mctl->pm_qos_req_list,
 					PM_QOS_CPU_DMA_LATENCY,
@@ -728,6 +728,11 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_ISPIF_RELEASE, NULL);
 	}
 
+	if (camdev->is_csic) {
+		v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
+			VIDIOC_MSM_CSIC_RELEASE, NULL);
+	}
+
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
 		p_mctl->isp_sdev->isp_release(&p_mctl->sync,
 				p_mctl->gemini_sdev);
@@ -737,26 +742,22 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_CSID_RELEASE, NULL);
 	}
 
-	if (camdev->is_csic) {
-		v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
-			VIDIOC_MSM_CSIC_RELEASE, NULL);
-	}
-
 	if (camdev->is_csiphy) {
 		v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
 			VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 	}
 
-	if (p_mctl->sync.actctrl.a_power_down)
-		p_mctl->sync.actctrl.a_power_down(
-			p_mctl->sync.sdata->actuator_info);
-
-	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
 	if (camdev->is_ispif) {
 		pm_qos_update_request(&p_mctl->pm_qos_req_list,
 				PM_QOS_DEFAULT_VALUE);
 		pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 	}
+	if (p_mctl->sync.actctrl.a_power_down)
+		p_mctl->sync.actctrl.a_power_down(
+			p_mctl->sync.sdata->actuator_info);
+
+	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
+
 	wake_unlock(&p_mctl->sync.wake_lock);
 	return rc;
 }
