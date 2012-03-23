@@ -178,7 +178,7 @@ enum msm_tlmm_pull_tgt {
 	TLMM_PULL_SDC1_DATA,
 };
 
-#ifdef CONFIG_GPIO_MSM_V2
+#if defined(CONFIG_GPIO_MSM_V2) || defined(CONFIG_GPIO_MSM_V3)
 void msm_tlmm_set_hdrive(enum msm_tlmm_hdrive_tgt tgt, int drv_str);
 void msm_tlmm_set_pull(enum msm_tlmm_pull_tgt tgt, int pull);
 
