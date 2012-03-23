@@ -376,7 +376,7 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	if (!desc)
 		return -ENOMEM;
 
-	drv->pll_supply = regulator_get(&pdev->dev, "pll_vdd");
+	drv->pll_supply = devm_regulator_get(&pdev->dev, "pll_vdd");
 	if (IS_ERR(drv->pll_supply)) {
 		drv->pll_supply = NULL;
 	} else {
@@ -407,7 +407,7 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
-	drv->vreg = regulator_get(&pdev->dev, "core_vdd");
+	drv->vreg = devm_regulator_get(&pdev->dev, "core_vdd");
 	if (IS_ERR(drv->vreg)) {
 		ret = PTR_ERR(drv->vreg);
 		goto err;
@@ -416,7 +416,7 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	drv->xo = clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo)) {
 		ret = PTR_ERR(drv->xo);
-		goto err_xo;
+		goto err;
 	}
 
 	drv->pil = msm_pil_register(desc);
@@ -427,10 +427,7 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	return 0;
 err_pil:
 	clk_put(drv->xo);
-err_xo:
-	regulator_put(drv->vreg);
 err:
-	regulator_put(drv->pll_supply);
 	return ret;
 }
 
@@ -438,8 +435,6 @@ static int __devexit pil_q6v4_driver_exit(struct platform_device *pdev)
 {
 	struct q6v4_data *drv = platform_get_drvdata(pdev);
 	clk_put(drv->xo);
-	regulator_put(drv->vreg);
-	regulator_put(drv->pll_supply);
 	msm_pil_unregister(drv->pil);
 	return 0;
 }
