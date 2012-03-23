@@ -278,7 +278,7 @@ static int tsens_tz_set_mode(struct thermal_zone_device *thermal,
 			}
 			writel_relaxed(reg | TSENS_SW_RST, TSENS_CNTL_ADDR);
 			if (tmdev->hw_type == MSM_8960 ||
-				tmdev->hw_type == MSM_9615 ||
+				tmdev->hw_type == MDM_9615 ||
 				tmdev->hw_type == APQ_8064)
 				reg |= mask | TSENS_8960_SLP_CLK_ENA
 							| TSENS_EN;
@@ -294,7 +294,7 @@ static int tsens_tz_set_mode(struct thermal_zone_device *thermal,
 						TSENS_8960_SLP_CLK_ENA |
 						TSENS_EN);
 				else if (tmdev->hw_type == MSM_8960 ||
-						tmdev->hw_type == MSM_9615)
+						tmdev->hw_type == MDM_9615)
 					reg &= ~(SENSORS_EN |
 						TSENS_8960_SLP_CLK_ENA |
 						TSENS_EN);
@@ -677,7 +677,7 @@ static void tsens8960_sensor_mode_init(void)
 	unsigned int reg_cntl = 0;
 
 	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
-	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MSM_9615 ||
+	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MDM_9615 ||
 			tmdev->hw_type == APQ_8064) {
 		writel_relaxed(reg_cntl &
 				~((((1 << tmdev->tsens_num_sensor) - 1) >> 1)
@@ -691,7 +691,7 @@ static void tsens_disable_mode(void)
 	unsigned int reg_cntl = 0;
 
 	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
-	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MSM_9615 ||
+	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MDM_9615 ||
 			tmdev->hw_type == APQ_8064)
 		writel_relaxed(reg_cntl &
 				~((((1 << tmdev->tsens_num_sensor) - 1) <<
@@ -712,7 +712,7 @@ static void tsens_hw_init(void)
 	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
 	writel_relaxed(reg_cntl | TSENS_SW_RST, TSENS_CNTL_ADDR);
 
-	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MSM_9615) {
+	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MDM_9615) {
 		reg_cntl |= TSENS_8960_SLP_CLK_ENA |
 			(TSENS_MEASURE_PERIOD << 18) |
 			TSENS_LOWER_STATUS_CLR | TSENS_UPPER_STATUS_CLR |
@@ -853,7 +853,7 @@ static int tsens_calib_sensors(void)
 
 	if (tmdev->hw_type == MSM_8660)
 		rc = tsens_calib_sensors8660();
-	else if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MSM_9615 ||
+	else if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MDM_9615 ||
 		tmdev->hw_type == APQ_8064)
 		rc = tsens_calib_sensors8960();
 

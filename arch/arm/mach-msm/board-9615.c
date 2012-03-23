@@ -23,6 +23,7 @@
 #include <linux/leds.h>
 #include <linux/leds-pm8xxx.h>
 #include <linux/power/ltc4088-charger.h>
+#include <linux/msm_tsens.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -508,6 +509,13 @@ static struct platform_device msm_device_charger = {
 };
 #endif
 
+static struct tsens_platform_data msm_tsens_pdata  = {
+	.tsens_factor		= 1000,
+	.hw_type		= MDM_9615,
+	.tsens_num_sensor	= 5,
+	.slope = {1176, 1176, 1154, 1176, 1111},
+};
+
 static struct platform_device *common_devices[] = {
 	&msm9615_device_dmov,
 	&msm_device_smd,
@@ -530,7 +538,6 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_qup_spi_gsbi3,
 	&msm_device_sps,
 	&msm9615_slim_ctrl,
-	&msm9615_device_tsens,
 	&msm_device_nand,
 	&msm_device_bam_dmux,
 	&msm9615_rpm_device,
@@ -599,6 +606,7 @@ static void __init msm9615_common_init(void)
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 						msm_pm_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	msm_tsens_early_init(&msm_tsens_pdata);
 }
 
 static void __init msm9615_cdp_init(void)
