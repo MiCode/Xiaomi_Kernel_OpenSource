@@ -341,7 +341,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	if (!desc)
 		return -ENOMEM;
 
-	drv->pll_supply = regulator_get(&pdev->dev, "pll_vdd");
+	drv->pll_supply = devm_regulator_get(&pdev->dev, "pll_vdd");
 	if (IS_ERR(drv->pll_supply)) {
 		dev_err(&pdev->dev, "failed to get pll supply\n");
 		return PTR_ERR(drv->pll_supply);
@@ -390,7 +390,6 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 err_register:
 	clk_put(drv->xo);
 err:
-	regulator_put(drv->pll_supply);
 	return ret;
 }
 
@@ -399,7 +398,6 @@ static int __devexit pil_riva_remove(struct platform_device *pdev)
 	struct riva_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
 	clk_put(drv->xo);
-	regulator_put(drv->pll_supply);
 	return 0;
 }
 
