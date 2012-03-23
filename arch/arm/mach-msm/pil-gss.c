@@ -312,22 +312,6 @@ static int pil_gss_reset_trusted(struct pil_desc *pil)
 	if (err)
 		goto halt_port;
 
-	if (cpu_is_apq8064() &&
-	    ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) &&
-	     (SOCINFO_VERSION_MINOR(socinfo_get_version()) == 0))) {
-		err = smp_call_function_single(0, cfg_qgic2_bus_access, drv, 1);
-		if (err) {
-			pr_err("Failed to configure QGIC2 bus access\n");
-			pil_gss_shutdown_trusted(pil);
-			return err;
-		}
-		/*
-		 * On 8064v1.0, pas_auth_and_reset() will not release the A5
-		 * from reset. Linux must do this after cfg_qgic2_bus_access()
-		 * is called on CPU0.
-		 */
-		writel_relaxed(0x0, drv->base + GSS_CSR_RESET);
-	}
 	return 0;
 
 halt_port:
