@@ -214,6 +214,7 @@ static struct mmc_platform_data sdc1_data = {
 	.nonremovable	= 1,
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
+	.uhs_caps	= MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50,
 };
 static struct mmc_platform_data *apq8064_sdc1_pdata = &sdc1_data;
 #else
