@@ -111,10 +111,6 @@ struct sg_table *ion_carveout_heap_map_dma(struct ion_heap *heap,
 {
 	struct sg_table *table;
 	int ret;
-	struct page *page = phys_to_page(buffer->priv_phys);
-
-	if (page == NULL)
-		return NULL;
 
 	table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!table)
@@ -123,7 +119,10 @@ struct sg_table *ion_carveout_heap_map_dma(struct ion_heap *heap,
 	ret = sg_alloc_table(table, 1, GFP_KERNEL);
 	if (ret)
 		goto err0;
-	sg_set_page(sglist, page, buffer->size, 0);
+
+	table->sgl->length = buffer->size;
+	table->sgl->offset = 0;
+	table->sgl->dma_address = buffer->priv_phys;
 
 	return table;
 
