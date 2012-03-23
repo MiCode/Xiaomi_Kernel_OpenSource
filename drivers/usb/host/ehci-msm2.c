@@ -82,7 +82,7 @@ static int msm_ehci_init_vddcx(struct msm_hcd *mhcd, int init)
 	if (!init)
 		goto disable_reg;
 
-	mhcd->hsusb_vddcx = regulator_get(mhcd->dev, "HSUSB_VDDCX");
+	mhcd->hsusb_vddcx = devm_regulator_get(mhcd->dev, "HSUSB_VDDCX");
 	if (IS_ERR(mhcd->hsusb_vddcx)) {
 		dev_err(mhcd->dev, "unable to get ehci vddcx\n");
 		return PTR_ERR(mhcd->hsusb_vddcx);
@@ -94,7 +94,7 @@ static int msm_ehci_init_vddcx(struct msm_hcd *mhcd, int init)
 	if (ret) {
 		dev_err(mhcd->dev, "unable to set the voltage"
 				"for ehci vddcx\n");
-		goto reg_set_voltage_err;
+		return ret;
 	}
 
 	ret = regulator_set_optimum_mode(mhcd->hsusb_vddcx,
@@ -120,9 +120,6 @@ reg_enable_err:
 reg_optimum_mode_err:
 	regulator_set_voltage(mhcd->hsusb_vddcx, 0,
 				HSUSB_PHY_VDD_DIG_VOL_MIN);
-reg_set_voltage_err:
-	regulator_put(mhcd->hsusb_vddcx);
-
 	return ret;
 
 }
@@ -134,7 +131,7 @@ static int msm_ehci_ldo_init(struct msm_hcd *mhcd, int init)
 	if (!init)
 		goto put_1p8;
 
-	mhcd->hsusb_3p3 = regulator_get(mhcd->dev, "HSUSB_3p3");
+	mhcd->hsusb_3p3 = devm_regulator_get(mhcd->dev, "HSUSB_3p3");
 	if (IS_ERR(mhcd->hsusb_3p3)) {
 		dev_err(mhcd->dev, "unable to get hsusb 3p3\n");
 		return PTR_ERR(mhcd->hsusb_3p3);
@@ -145,9 +142,9 @@ static int msm_ehci_ldo_init(struct msm_hcd *mhcd, int init)
 	if (rc) {
 		dev_err(mhcd->dev, "unable to set voltage level for"
 				"hsusb 3p3\n");
-		goto put_3p3;
+		return rc;
 	}
-	mhcd->hsusb_1p8 = regulator_get(mhcd->dev, "HSUSB_1p8");
+	mhcd->hsusb_1p8 = devm_regulator_get(mhcd->dev, "HSUSB_1p8");
 	if (IS_ERR(mhcd->hsusb_1p8)) {
 		dev_err(mhcd->dev, "unable to get hsusb 1p8\n");
 		rc = PTR_ERR(mhcd->hsusb_1p8);
@@ -165,11 +162,8 @@ static int msm_ehci_ldo_init(struct msm_hcd *mhcd, int init)
 
 put_1p8:
 	regulator_set_voltage(mhcd->hsusb_1p8, 0, HSUSB_PHY_1P8_VOL_MAX);
-	regulator_put(mhcd->hsusb_1p8);
 put_3p3_lpm:
 	regulator_set_voltage(mhcd->hsusb_3p3, 0, HSUSB_PHY_3P3_VOL_MAX);
-put_3p3:
-	regulator_put(mhcd->hsusb_3p3);
 
 	return rc;
 }
@@ -273,13 +267,12 @@ static int msm_ehci_init_vbus(struct msm_hcd *mhcd, int init)
 	pdata = mhcd->dev->platform_data;
 
 	if (!init) {
-		regulator_put(mhcd->vbus);
 		if (pdata && pdata->dock_connect_irq)
 			free_irq(pdata->dock_connect_irq, mhcd);
 		return rc;
 	}
 
-	mhcd->vbus = regulator_get(mhcd->dev, "vbus");
+	mhcd->vbus = devm_regulator_get(mhcd->dev, "vbus");
 	if (IS_ERR(mhcd->vbus)) {
 		pr_err("Unable to get vbus\n");
 		return -ENODEV;
