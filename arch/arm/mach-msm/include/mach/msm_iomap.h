@@ -49,7 +49,7 @@
 	defined(CONFIG_ARCH_MSM8930) || defined(CONFIG_ARCH_MSM9615) || \
 	defined(CONFIG_ARCH_MSMCOPPER) || defined(CONFIG_ARCH_MSM7X27) || \
 	defined(CONFIG_ARCH_MSM7X25) || defined(CONFIG_ARCH_MSM7X01A) || \
-	defined(CONFIG_ARCH_MSM8625)
+	defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_MSM7X30)
 
 /* Unified iomap */
 
@@ -88,6 +88,7 @@
 #define MSM_GPIO2_BASE		IOMEM(0xFA103000)	/*  4K */
 #define MSM_SCU_BASE		IOMEM(0xFA104000)	/*  4K */
 #define MSM_CFG_CTL_BASE	IOMEM(0xFA105000)	/*  4K */
+#define MSM_CLK_CTL_SH2_BASE	IOMEM(0xFA106000)	/*  4K */
 #define MSM_MDC_BASE		IOMEM(0xFA400000)	/*  1M */
 #define MSM_AD5_BASE		IOMEM(0xFA900000)	/*  13M (D00000)
 							  0xFB600000 */
@@ -96,13 +97,15 @@
 #define MSM8625_SECONDARY_PHYS		0x0FE00000
 
 
-#if defined(CONFIG_ARCH_MSM9615) || defined(CONFIG_ARCH_MSM7X27)
+#if defined(CONFIG_ARCH_MSM9615) || defined(CONFIG_ARCH_MSM7X27) \
+	|| defined(CONFIG_ARCH_MSM7X30)
 #define MSM_SHARED_RAM_SIZE	SZ_1M
 #else
 #define MSM_SHARED_RAM_SIZE	SZ_2M
 #endif
 
 #include "msm_iomap-7xxx.h"
+#include "msm_iomap-7x30.h"
 #include "msm_iomap-8625.h"
 #include "msm_iomap-8960.h"
 #include "msm_iomap-8930.h"
@@ -112,10 +115,7 @@
 
 #else
 /* Legacy single-target iomap */
-
-#if defined(CONFIG_ARCH_MSM7X30)
-#include "msm_iomap-7x30.h"
-#elif defined(CONFIG_ARCH_QSD8X50)
+#if defined(CONFIG_ARCH_QSD8X50)
 #include "msm_iomap-8x50.h"
 #elif defined(CONFIG_ARCH_MSM8X60)
 #include "msm_iomap-8x60.h"

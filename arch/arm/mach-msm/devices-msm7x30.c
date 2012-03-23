@@ -96,8 +96,8 @@ static struct resource resources_uart1[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART1_PHYS,
-		.end	= MSM_UART1_PHYS + MSM_UART1_SIZE - 1,
+		.start	= MSM7X30_UART1_PHYS,
+		.end	= MSM7X30_UART1_PHYS + MSM7X30_UART1_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -109,8 +109,8 @@ static struct resource resources_uart2[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART2_PHYS,
-		.end	= MSM_UART2_PHYS + MSM_UART2_SIZE - 1,
+		.start	= MSM7X30_UART2_PHYS,
+		.end	= MSM7X30_UART2_PHYS + MSM7X30_UART2_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 		.name  = "uart_resource"
 	},
@@ -123,8 +123,8 @@ static struct resource resources_uart3[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= MSM_UART3_PHYS,
-		.end	= MSM_UART3_PHYS + MSM_UART3_SIZE - 1,
+		.start	= MSM7X30_UART3_PHYS,
+		.end	= MSM7X30_UART3_PHYS + MSM7X30_UART3_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -626,7 +626,7 @@ static struct smd_subsystem_config smd_config_list[] = {
 		.smd_int.dev_id = 0,
 
 		.smd_int.out_bit_pos =  1 << 0,
-		.smd_int.out_base = (void __iomem *)MSM_GCC_BASE,
+		.smd_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
 		.smd_int.out_offset = 0x8,
 
 		.smsm_int.irq_name = "a9_m2a_5",
@@ -636,7 +636,7 @@ static struct smd_subsystem_config smd_config_list[] = {
 		.smsm_int.dev_id = 0,
 
 		.smsm_int.out_bit_pos =  1 << 5,
-		.smsm_int.out_base = (void __iomem *)MSM_GCC_BASE,
+		.smsm_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
 		.smsm_int.out_offset = 0x8,
 
 	}

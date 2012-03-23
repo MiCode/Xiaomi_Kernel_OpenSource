@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/proc_comm.c
  *
  * Copyright (C) 2007-2008 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -31,7 +31,7 @@ static inline void notify_other_proc_comm(void)
 	/* Make sure the write completes before interrupt */
 	wmb();
 #if defined(CONFIG_ARCH_MSM7X30)
-	__raw_writel(1 << 6, MSM_GCC_BASE + 0x8);
+	__raw_writel(1 << 6, MSM_APCS_GCC_BASE + 0x8);
 #elif defined(CONFIG_ARCH_MSM8X60)
 	__raw_writel(1 << 5, MSM_GCC_BASE + 0x8);
 #else
