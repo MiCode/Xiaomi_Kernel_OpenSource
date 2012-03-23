@@ -329,7 +329,7 @@ int mipi_dsi_clk_div_config(uint8 bpp, uint8 lanes,
 	} else if (rate < 250) {
 		vco = rate * 4;
 		div_ratio = 4;
-	} else if (rate < 500) {
+	} else if (rate < 600) {
 		vco = rate * 2;
 		div_ratio = 2;
 	} else {
