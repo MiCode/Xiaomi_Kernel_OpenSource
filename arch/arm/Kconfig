@@ -1621,23 +1621,18 @@ source "mm/Kconfig"
 
 config ARCH_MEMORY_PROBE
 	def_bool n
-	depends on MEMORY_HOTPLUG
 
 config ARCH_MEMORY_REMOVE
 	def_bool n
-	depends on MEMORY_HOTPLUG
 
 config ARCH_POPULATES_NODE_MAP
 	def_bool n
-	depends on MEMORY_HOTPLUG
 
 config ENABLE_DMM
 	def_bool n
-	depends on MEMORY_HOTPLUG
 
 config FIX_MOVABLE_ZONE
 	def_bool n
-	depends on MEMORY_HOTPLUG
 
 config DONT_MAP_HOLE_AFTER_MEMBANK0
 	def_bool n
