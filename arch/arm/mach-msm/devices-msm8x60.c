@@ -2466,6 +2466,7 @@ struct msm_rpm_platform_data msm8660_rpm_data __initdata = {
 		[MSM_RPM_PAGE_ACK] = MSM_RPM_BASE + 0xa00,
 	},
 	.irq_ack = RPM_SCSS_CPU0_GP_HIGH_IRQ,
+	.irq_err = RPM_SCSS_CPU0_GP_LOW_IRQ,
 	.ipc_rpm_reg = MSM_GCC_BASE + 0x008,
 	.ipc_rpm_val = 4,
 	.target_id = {
