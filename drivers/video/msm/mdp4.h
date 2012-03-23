@@ -632,6 +632,7 @@ void mdp4_dsi_blt_dmap_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_overlay_dsi_video_vsync_push(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_cmd_overlay_restore(void);
+void mdp_dsi_cmd_overlay_suspend(void);
 #else
 static inline void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 {
@@ -650,6 +651,12 @@ static inline void mdp4_dsi_cmd_overlay_restore(void)
 {
 	/* empty */
 }
+#ifdef CONFIG_FB_MSM_MDP40
+static inline void mdp_dsi_cmd_overlay_suspend(void)
+{
+	/* empty */
+}
+#endif
 #endif /* MIPI_DSI */
 
 void mdp4_dsi_cmd_kickoff_ui(struct msm_fb_data_type *mfd,

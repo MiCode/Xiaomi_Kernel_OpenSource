@@ -651,6 +651,13 @@ void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdp4_stat.kickoff_ov0++;
 }
 
+void mdp_dsi_cmd_overlay_suspend(void)
+{
+	/* dis-engage rgb0 from mixer0 */
+	if (dsi_pipe)
+		mdp4_mixer_stage_down(dsi_pipe);
+}
+
 void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 {
 	mutex_lock(&mfd->dma->ov_mutex);

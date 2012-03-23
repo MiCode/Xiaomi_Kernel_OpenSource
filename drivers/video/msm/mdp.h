@@ -785,4 +785,11 @@ static inline int mdp4_overlay_dsi_state_get(void)
 }
 #endif
 
+#ifndef CONFIG_FB_MSM_MDP40
+static inline void mdp_dsi_cmd_overlay_suspend(void)
+{
+	/* empty */
+}
+#endif
+
 #endif /* MDP_H */
