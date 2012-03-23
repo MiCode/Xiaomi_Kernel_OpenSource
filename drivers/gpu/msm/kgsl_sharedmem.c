@@ -284,7 +284,7 @@ static void outer_cache_range_op_sg(struct scatterlist *sg, int sglen, int op)
 	int i;
 
 	for_each_sg(sg, s, sglen, i) {
-		unsigned int paddr = sg_phys(s);
+		unsigned int paddr = kgsl_get_sg_pa(s);
 		_outer_cache_range_op(op, paddr, s->length);
 	}
 }
