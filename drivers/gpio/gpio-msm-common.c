@@ -611,12 +611,12 @@ int __init msm_gpio_of_init(struct device_node *node,
 		return domain->irq_base;
 	}
 
-	domain->irq_base = irq_domain_find_free_range(0, NR_MSM_GPIOS);
 	domain->nr_irq = NR_MSM_GPIOS;
 	domain->of_node = of_node_get(node);
 	domain->priv = &msm_gpio;
 	domain->ops = &msm_gpio_irq_domain_ops;
 	irq_domain_add(domain);
+	msm_gpio.gpio_chip.of_node = of_node_get(node);
 	pr_debug("%s: irq_base = %u\n", __func__, domain->irq_base);
 
 	return 0;
