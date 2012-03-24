@@ -94,6 +94,8 @@ static void event_handler(uint32_t opcode,
 		pr_debug("ASM_DATA_EVENT_WRITE_DONE\n");
 		pr_debug("Buffer Consumed = 0x%08x\n", *ptrmem);
 		prtd->pcm_irq_pos += prtd->pcm_count;
+		if (prtd->pcm_irq_pos >= prtd->pcm_size)
+			prtd->pcm_irq_pos = 0;
 		if (atomic_read(&prtd->start))
 			snd_pcm_period_elapsed(substream);
 		else
@@ -415,8 +417,6 @@ static snd_pcm_uframes_t msm_pcm_pointer(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 
-	if (prtd->pcm_irq_pos >= prtd->pcm_size)
-		prtd->pcm_irq_pos = 0;
 	pr_debug("%s: pcm_irq_pos = %d\n", __func__, prtd->pcm_irq_pos);
 	return bytes_to_frames(runtime, (prtd->pcm_irq_pos));
 }
