@@ -14,6 +14,7 @@
 #ifndef _WFD_ENC_SUBDEV_
 #define _WFD_ENC_SUBDEV_
 
+#include <linux/ion.h>
 #include <media/v4l2-subdev.h>
 #include <media/videobuf2-core.h>
 #define VENC_MAGIC_IOCTL 'V'
@@ -26,6 +27,7 @@ struct mem_region {
 	u32 offset;
 	u32 fd;
 	u32 cookie;
+	struct ion_handle *ion_handle;
 };
 struct bufreq {
 	u32 count;
@@ -65,7 +67,7 @@ struct venc_msg_ops {
 #define FILL_OUTPUT_BUFFER  _IO('V', 15)
 #define SET_FORMAT _IOW('V', 16, struct v4l2_format *)
 #define SET_FRAMERATE _IOW('V', 17, struct v4l2_fract *)
-#define ALLOC_INPUT_BUFFER _IOWR('V', 18, struct mem_region *)
+#define SET_INPUT_BUFFER _IOWR('V', 18, struct mem_region *)
 #define SET_OUTPUT_BUFFER _IOWR('V', 19, struct mem_region *)
 #define ALLOC_RECON_BUFFERS _IO('V', 20)
 #define FREE_OUTPUT_BUFFER _IOWR('V', 21, struct mem_region *)

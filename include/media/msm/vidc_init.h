@@ -79,6 +79,11 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	unsigned long *kernel_vaddr, int pmem_fd,
 	unsigned long buffer_addr_offset,
 	unsigned int max_num_buffers, unsigned long length);
+u32 vidc_insert_addr_table_kernel(struct video_client_ctx *client_ctx,
+	enum buffer_dir buffer, unsigned long user_vaddr,
+	unsigned long kernel_vaddr, unsigned long phys_addr,
+	unsigned int max_num_buffers,
+	unsigned long length);
 u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 	enum buffer_dir buffer, unsigned long user_vaddr,
 	unsigned long *kernel_vaddr);
