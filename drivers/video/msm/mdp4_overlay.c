@@ -22,6 +22,7 @@
 #include <linux/clk.h>
 #include <mach/hardware.h>
 #include <mach/iommu_domains.h>
+#include <mach/iommu.h>
 #include <linux/io.h>
 #include <linux/debugfs.h>
 #include <linux/fb.h>
@@ -2835,6 +2836,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 			}
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 			if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
+				mdp4_iommu_attach();
 				mdp4_dsi_cmd_dma_busy_wait(mfd);
 				mdp4_dsi_cmd_kickoff_video(mfd, pipe);
 			}
@@ -2867,4 +2869,44 @@ end:
 	if (img->flags & MDP_MEMORY_ID_TYPE_FB)
 		fput_light(srcp0_file, ps0_need);
 	return ret;
+}
+
+static struct {
+	char *name;
+	int  domain;
+} msm_iommu_ctx_names[] = {
+/* Display domains */
+};
+
+void mdp4_iommu_attach(void)
+{
+	static int done;
+	struct iommu_domain *domain;
+	int i;
+
+	if (!done) {
+		for (i = 0; i < ARRAY_SIZE(msm_iommu_ctx_names); i++) {
+			int domain_idx;
+			struct device *ctx = msm_iommu_get_ctx(
+				msm_iommu_ctx_names[i].name);
+
+			if (!ctx)
+				continue;
+
+			domain_idx = msm_iommu_ctx_names[i].domain;
+
+			domain = msm_get_iommu_domain(domain_idx);
+			if (!domain)
+				continue;
+
+			if (iommu_attach_device(domain,	ctx)) {
+				WARN(1, "%s: could not attach domain %d to context %s."
+					" iommu programming will not occur.\n",
+					__func__, domain_idx,
+					msm_iommu_ctx_names[i].name);
+				continue;
+			}
+		}
+		done = 1;
+	}
 }

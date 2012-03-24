@@ -396,6 +396,7 @@ void mdp4_overlay_lcdc_start(void)
 {
 	if (!lcdc_enabled) {
 		/* enable LCDC block */
+		mdp4_iommu_attach();
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		MDP_OUTP(MDP_BASE + LCDC_BASE, 1);
 		mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_ON, FALSE);

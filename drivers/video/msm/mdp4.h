@@ -747,4 +747,5 @@ void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
 
 int mdp4_igc_lut_config(struct mdp_igc_lut_data *cfg);
 void mdp4_iommu_unmap(struct mdp4_overlay_pipe *pipe);
+void mdp4_iommu_attach(void);
 #endif /* MDP_H */
