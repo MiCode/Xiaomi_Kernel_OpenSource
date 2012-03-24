@@ -4501,6 +4501,7 @@ msmsdcc_probe(struct platform_device *pdev)
 		mmc->caps |= (MMC_CAP_SET_XPC_330 | MMC_CAP_SET_XPC_300 |
 				MMC_CAP_SET_XPC_180);
 
+	mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
 	if (pdev->dev.of_node) {
 		if (of_get_property((&pdev->dev)->of_node,
 					"qcom,sdcc-hs200", NULL))
