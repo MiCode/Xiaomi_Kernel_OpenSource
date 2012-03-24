@@ -76,9 +76,10 @@ struct kgsl_functable {
 		enum kgsl_property_type type, void *value,
 		unsigned int sizebytes);
 	int (*waittimestamp) (struct kgsl_device *device,
-		unsigned int timestamp, unsigned int msecs);
+		struct kgsl_context *context, unsigned int timestamp,
+		unsigned int msecs);
 	unsigned int (*readtimestamp) (struct kgsl_device *device,
-		enum kgsl_timestamp_type type);
+		struct kgsl_context *context, enum kgsl_timestamp_type type);
 	int (*issueibcmds) (struct kgsl_device_private *dev_priv,
 		struct kgsl_context *context, struct kgsl_ibdesc *ibdesc,
 		unsigned int sizedwords, uint32_t *timestamp,
@@ -123,8 +124,9 @@ struct kgsl_mh {
 };
 
 struct kgsl_event {
+	struct kgsl_context *context;
 	uint32_t timestamp;
-	void (*func)(struct kgsl_device *, void *, u32);
+	void (*func)(struct kgsl_device *, void *, u32, u32);
 	void *priv;
 	struct list_head list;
 	struct kgsl_device_private *owner;
@@ -156,6 +158,7 @@ struct kgsl_device {
 	uint32_t state;
 	uint32_t requested_state;
 
+	unsigned int last_expired_ctxt_id;
 	unsigned int active_cnt;
 	struct completion suspend_gate;
 
@@ -330,7 +333,8 @@ kgsl_find_context(struct kgsl_device_private *dev_priv, uint32_t id)
 	return  (ctxt && ctxt->dev_priv == dev_priv) ? ctxt : NULL;
 }
 
-int kgsl_check_timestamp(struct kgsl_device *device, unsigned int timestamp);
+int kgsl_check_timestamp(struct kgsl_device *device,
+		struct kgsl_context *context, unsigned int timestamp);
 
 int kgsl_register_ts_notifier(struct kgsl_device *device,
 			      struct notifier_block *nb);

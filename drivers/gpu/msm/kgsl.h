@@ -24,6 +24,14 @@
 
 #define KGSL_NAME "kgsl"
 
+/* The number of memstore arrays limits the number of contexts allowed.
+ * If more contexts are needed, update multiple for MEMSTORE_SIZE
+ */
+#define KGSL_MEMSTORE_SIZE	((int)(PAGE_SIZE * 2))
+#define KGSL_MEMSTORE_GLOBAL	(0)
+#define KGSL_MEMSTORE_MAX	(KGSL_MEMSTORE_SIZE / \
+		sizeof(struct kgsl_devmemstore) - 1)
+
 /*cache coherency ops */
 #define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
 #define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
@@ -138,6 +146,7 @@ struct kgsl_mem_entry {
 	void *priv_data;
 	struct list_head list;
 	uint32_t free_timestamp;
+	unsigned int context_id;
 	/* back pointer to private structure under whose context this
 	* allocation is made */
 	struct kgsl_process_private *priv;

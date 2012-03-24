@@ -14,6 +14,7 @@
 #include <linux/vmalloc.h>
 
 #include "kgsl.h"
+#include "kgsl_sharedmem.h"
 
 #include "adreno.h"
 #include "adreno_pm4types.h"
@@ -689,7 +690,9 @@ static int adreno_dump(struct kgsl_device *device)
 	const uint32_t *rb_vaddr;
 	int num_item = 0;
 	int read_idx, write_idx;
-	unsigned int ts_processed;
+	unsigned int ts_processed = 0xdeaddead;
+	struct kgsl_context *context;
+	unsigned int context_id;
 
 	static struct ib_list ib_list;
 
@@ -715,9 +718,18 @@ static int adreno_dump(struct kgsl_device *device)
 	kgsl_regread(device, REG_CP_IB2_BASE, &cp_ib2_base);
 	kgsl_regread(device, REG_CP_IB2_BUFSZ, &cp_ib2_bufsz);
 
-	ts_processed = device->ftbl->readtimestamp(device,
-		KGSL_TIMESTAMP_RETIRED);
-	KGSL_LOG_DUMP(device, "TIMESTM RTRD: %08X\n", ts_processed);
+	kgsl_sharedmem_readl(&device->memstore,
+			(unsigned int *) &context_id,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+				current_context));
+	context = idr_find(&device->context_idr, context_id);
+	if (context) {
+		ts_processed = device->ftbl->readtimestamp(device, context,
+				KGSL_TIMESTAMP_RETIRED);
+		KGSL_LOG_DUMP(device, "CTXT: %d  TIMESTM RTRD: %08X\n",
+				context->id, ts_processed);
+	} else
+		KGSL_LOG_DUMP(device, "BAD CTXT: %d\n", context_id);
 
 	num_item = adreno_ringbuffer_count(&adreno_dev->ringbuffer,
 						cp_rb_rptr);
