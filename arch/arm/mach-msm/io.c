@@ -68,7 +68,7 @@ static struct map_desc msm_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(MDC, MSM7XXX),
 #if defined(CONFIG_DEBUG_MSM_UART1) || defined(CONFIG_DEBUG_MSM_UART2) || \
 	defined(CONFIG_DEBUG_MSM_UART3)
-	MSM_CHIP_DEVICE(DEBUG_UART, MSM7XXX),
+	MSM_DEVICE(DEBUG_UART),
 #endif
 #ifdef CONFIG_CACHE_L2X0
 	{
@@ -424,7 +424,7 @@ static struct map_desc msm8625_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(MDC, MSM7XXX),
 #if defined(CONFIG_DEBUG_MSM_UART1) || defined(CONFIG_DEBUG_MSM_UART2) || \
 	defined(CONFIG_DEBUG_MSM_UART3)
-	MSM_CHIP_DEVICE(DEBUG_UART, MSM7XXX),
+	MSM_DEVICE(DEBUG_UART),
 #endif
 #ifdef CONFIG_CACHE_L2X0
 	{
