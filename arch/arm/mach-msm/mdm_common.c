@@ -139,11 +139,14 @@ static void mdm_status_fn(struct work_struct *work)
 {
 	int value = gpio_get_value(mdm_drv->mdm2ap_status_gpio);
 
+	if (!mdm_drv->mdm_ready)
+		return;
+
 	mdm_drv->ops->status_cb(mdm_drv, value);
 
 	pr_debug("%s: status:%d\n", __func__, value);
 
-	if ((value == 0) && mdm_drv->mdm_ready) {
+	if ((value == 0)) {
 		pr_info("%s: unexpected reset external modem\n", __func__);
 		subsystem_restart(EXTERNAL_MODEM);
 	} else if (value == 1) {
