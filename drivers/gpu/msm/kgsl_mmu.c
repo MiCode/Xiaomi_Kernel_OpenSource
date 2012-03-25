@@ -556,8 +556,11 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		return -ENOMEM;
 	}
 
-	spin_lock(&pagetable->lock);
+	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
+		spin_lock(&pagetable->lock);
 	ret = pagetable->pt_ops->mmu_map(pagetable->priv, memdesc, protflags);
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
+		spin_lock(&pagetable->lock);
 
 	if (ret)
 		goto err_free_gpuaddr;
@@ -593,8 +596,11 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		memdesc->gpuaddr = 0;
 		return 0;
 	}
-	spin_lock(&pagetable->lock);
+	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
+		spin_lock(&pagetable->lock);
 	pagetable->pt_ops->mmu_unmap(pagetable->priv, memdesc);
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
+		spin_lock(&pagetable->lock);
 	/* Remove the statistics */
 	pagetable->stats.entries--;
 	pagetable->stats.mapped -= memdesc->size;
