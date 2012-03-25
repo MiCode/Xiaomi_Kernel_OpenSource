@@ -58,8 +58,7 @@ struct adreno_ringbuffer {
 
 	unsigned int wptr; /* write pointer offset in dwords from baseaddr */
 	unsigned int rptr; /* read pointer offset in dwords from baseaddr */
-
-	unsigned int timestamp[KGSL_MEMSTORE_MAX];
+	uint32_t timestamp;
 };
 
 
@@ -85,7 +84,7 @@ struct adreno_ringbuffer {
 #else
 #define GSL_RB_MEMPTRS_SCRATCH_MASK 0x0
 #define GSL_RB_INIT_TIMESTAMP(rb) \
-		adreno_regwrite((rb)->device, REG_CP_TIMESTAMP, 0)
+		adreno_regwrite((rb)->device->id, REG_CP_TIMESTAMP, 0)
 
 #endif /* GSL_RB_USE_MEMTIMESTAMP */
 
@@ -100,7 +99,7 @@ struct adreno_ringbuffer {
 #define GSL_RB_CNTL_NO_UPDATE 0x1 /* disable */
 #define GSL_RB_GET_READPTR(rb, data) \
 	do { \
-		adreno_regread((rb)->device, REG_CP_RB_RPTR, (data)); \
+		adreno_regread((rb)->device->id, REG_CP_RB_RPTR, (data)); \
 	} while (0)
 #endif /* GSL_RB_USE_MEMRPTR */
 
