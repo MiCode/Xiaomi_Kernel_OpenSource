@@ -643,7 +643,7 @@ static int __devinit msm_hsic_probe(struct platform_device *pdev)
 	}
 	dev_info(&pdev->dev, "HSIC Peripheral regs = %p\n", mhsic->regs);
 
-	mhsic->xo_handle = msm_xo_get(MSM_XO_CXO, "hsic_peripheral");
+	mhsic->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "hsic_peripheral");
 	if (IS_ERR(mhsic->xo_handle)) {
 		dev_err(&pdev->dev, "%s not able to get the handle "
 			"to vote for TCXO\n", __func__);
