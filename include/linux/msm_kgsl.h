@@ -2,18 +2,14 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
-#define KGSL_VERSION_MINOR        9
+#define KGSL_VERSION_MINOR        8
 
 /*context flags */
-#define KGSL_CONTEXT_SAVE_GMEM		0x00000001
-#define KGSL_CONTEXT_NO_GMEM_ALLOC	0x00000002
-#define KGSL_CONTEXT_SUBMIT_IB_LIST	0x00000004
-#define KGSL_CONTEXT_CTX_SWITCH		0x00000008
-#define KGSL_CONTEXT_PREAMBLE		0x00000010
-#define KGSL_CONTEXT_TRASH_STATE	0x00000020
-#define KGSL_CONTEXT_PER_CONTEXT_TS	0x00000040
-
-#define KGSL_CONTEXT_INVALID 0xffffffff
+#define KGSL_CONTEXT_SAVE_GMEM	1
+#define KGSL_CONTEXT_NO_GMEM_ALLOC	2
+#define KGSL_CONTEXT_SUBMIT_IB_LIST	4
+#define KGSL_CONTEXT_CTX_SWITCH	8
+#define KGSL_CONTEXT_PREAMBLE	16
 
 /* Memory allocayion flags */
 #define KGSL_MEMFLAGS_GPUREADONLY	0x01000000
@@ -29,7 +25,6 @@
 #define KGSL_FLAGS_RESERVED1   0x00000040
 #define KGSL_FLAGS_RESERVED2   0x00000080
 #define KGSL_FLAGS_SOFT_RESET  0x00000100
-#define KGSL_FLAGS_PER_CONTEXT_TIMESTAMPS 0x00000200
 
 /* Clock flags to show which clocks should be controled by a given platform */
 #define KGSL_CLK_SRC	0x00000001
@@ -104,9 +99,9 @@ struct kgsl_devmemstore {
 	unsigned int sbz5;
 };
 
-#define KGSL_MEMSTORE_OFFSET(ctxt_id, field) \
-	((ctxt_id)*sizeof(struct kgsl_devmemstore) + \
-	 offsetof(struct kgsl_devmemstore, field))
+#define KGSL_DEVICE_MEMSTORE_OFFSET(field) \
+	offsetof(struct kgsl_devmemstore, field)
+
 
 /* timestamp id*/
 enum kgsl_timestamp_type {
@@ -223,14 +218,6 @@ struct kgsl_device_waittimestamp {
 #define IOCTL_KGSL_DEVICE_WAITTIMESTAMP \
 	_IOW(KGSL_IOC_TYPE, 0x6, struct kgsl_device_waittimestamp)
 
-struct kgsl_device_waittimestamp_ctxtid {
-	unsigned int context_id;
-	unsigned int timestamp;
-	unsigned int timeout;
-};
-
-#define IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID \
-	_IOW(KGSL_IOC_TYPE, 0x7, struct kgsl_device_waittimestamp_ctxtid)
 
 /* issue indirect commands to the GPU.
  * drawctxt_id must have been created with IOCTL_KGSL_DRAWCTXT_CREATE
@@ -323,26 +310,6 @@ struct kgsl_map_user_mem {
 
 #define IOCTL_KGSL_MAP_USER_MEM \
 	_IOWR(KGSL_IOC_TYPE, 0x15, struct kgsl_map_user_mem)
-
-struct kgsl_cmdstream_readtimestamp_ctxtid {
-	unsigned int context_id;
-	unsigned int type;
-	unsigned int timestamp; /*output param */
-};
-
-#define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_CTXTID \
-	_IOWR(KGSL_IOC_TYPE, 0x16, struct kgsl_cmdstream_readtimestamp_ctxtid)
-
-struct kgsl_cmdstream_freememontimestamp_ctxtid {
-	unsigned int context_id;
-	unsigned int gpuaddr;
-	unsigned int type;
-	unsigned int timestamp;
-};
-
-#define IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP_CTXTID \
-	_IOW(KGSL_IOC_TYPE, 0x17, \
-	struct kgsl_cmdstream_freememontimestamp_ctxtid)
 
 /* add a block of pmem or fb into the GPU address space */
 struct kgsl_sharedmem_from_pmem {

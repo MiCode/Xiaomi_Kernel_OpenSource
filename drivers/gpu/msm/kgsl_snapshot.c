@@ -64,7 +64,7 @@ static int snapshot_context_info(int id, void *ptr, void *data)
 
 	header->timestamp_queued = -1;
 	header->timestamp_retired = device->ftbl->readtimestamp(device,
-		context, KGSL_TIMESTAMP_RETIRED);
+		KGSL_TIMESTAMP_RETIRED);
 
 	_ctxtptr += sizeof(struct kgsl_snapshot_linux_context);
 
