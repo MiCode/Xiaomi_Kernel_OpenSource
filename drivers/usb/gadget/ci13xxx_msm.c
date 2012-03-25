@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,12 @@
 #include "ci13xxx_udc.c"
 
 #define MSM_USB_BASE	(udc->regs)
+
+struct ci13xxx_udc_context {
+	int irq;
+	void __iomem *regs;
+};
+static struct ci13xxx_udc_context _udc_ctxt;
 
 static irqreturn_t msm_udc_irq(int irq, void *data)
 {
@@ -56,8 +62,6 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 static int ci13xxx_msm_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	void __iomem *regs;
-	int irq;
 	int ret;
 
 	dev_dbg(&pdev->dev, "ci13xxx_msm_probe\n");
@@ -68,26 +72,27 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	regs = ioremap(res->start, resource_size(res));
-	if (!regs) {
+	_udc_ctxt.regs = ioremap(res->start, resource_size(res));
+	if (!_udc_ctxt.regs) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		return -ENOMEM;
 	}
 
-	ret = udc_probe(&ci13xxx_msm_udc_driver, &pdev->dev, regs);
+	ret = udc_probe(&ci13xxx_msm_udc_driver, &pdev->dev, _udc_ctxt.regs);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "udc_probe failed\n");
 		goto iounmap;
 	}
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
+	_udc_ctxt.irq = platform_get_irq(pdev, 0);
+	if (_udc_ctxt.irq < 0) {
 		dev_err(&pdev->dev, "IRQ not found\n");
 		ret = -ENXIO;
 		goto udc_remove;
 	}
 
-	ret = request_irq(irq, msm_udc_irq, IRQF_SHARED, pdev->name, pdev);
+	ret = request_irq(_udc_ctxt.irq, msm_udc_irq, IRQF_SHARED, pdev->name,
+					  pdev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "request_irq failed\n");
 		goto udc_remove;
@@ -101,14 +106,24 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 udc_remove:
 	udc_remove();
 iounmap:
-	iounmap(regs);
+	iounmap(_udc_ctxt.regs);
 
 	return ret;
+}
+
+int ci13xxx_msm_remove(struct platform_device *pdev)
+{
+	pm_runtime_disable(&pdev->dev);
+	free_irq(_udc_ctxt.irq, pdev);
+	udc_remove();
+	iounmap(_udc_ctxt.regs);
+	return 0;
 }
 
 static struct platform_driver ci13xxx_msm_driver = {
 	.probe = ci13xxx_msm_probe,
 	.driver = { .name = "msm_hsusb", },
+	.remove = ci13xxx_msm_remove,
 };
 
 static int __init ci13xxx_msm_init(void)
@@ -116,3 +131,11 @@ static int __init ci13xxx_msm_init(void)
 	return platform_driver_register(&ci13xxx_msm_driver);
 }
 module_init(ci13xxx_msm_init);
+
+static void __exit ci13xxx_msm_exit(void)
+{
+	platform_driver_unregister(&ci13xxx_msm_driver);
+}
+module_exit(ci13xxx_msm_exit);
+
+MODULE_LICENSE("GPL v2");

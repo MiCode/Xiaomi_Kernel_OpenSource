@@ -470,7 +470,7 @@ static int serial_function_bind_config(struct android_usb_function *f,
 	}
 
 bind_config:
-	for (i = 0; i < ports; i++) { 
+	for (i = 0; i < ports; i++) {
 		err = gser_bind_config(c, i);
 		if (err) {
 			pr_err("serial: bind_config failed for port %d", i);
@@ -989,6 +989,31 @@ static struct android_usb_function *supported_functions[] = {
 	NULL
 };
 
+static void android_cleanup_functions(struct android_usb_function **functions)
+{
+	struct android_usb_function *f;
+	struct device_attribute **attrs;
+	struct device_attribute *attr;
+
+	while (*functions) {
+		f = *functions++;
+
+		if (f->dev) {
+			device_destroy(android_class, f->dev->devt);
+			kfree(f->dev_name);
+		} else
+			continue;
+
+		if (f->cleanup)
+			f->cleanup(f);
+
+		attrs = f->attributes;
+		if (attrs) {
+			while ((attr = *attrs++))
+				device_remove_file(f->dev, attr);
+		}
+	}
+}
 
 static int android_init_functions(struct android_usb_function **functions,
 				  struct usb_composite_dev *cdev)
@@ -998,16 +1023,21 @@ static int android_init_functions(struct android_usb_function **functions,
 	struct device_attribute **attrs;
 	struct device_attribute *attr;
 	int err = 0;
-	int index = 0;
+	int index = 1; /* index 0 is for android0 device */
 
 	for (; (f = *functions++); index++) {
 		f->dev_name = kasprintf(GFP_KERNEL, "f_%s", f->name);
+		if (!f->dev_name) {
+			err = -ENOMEM;
+			goto err_out;
+		}
 		f->dev = device_create(android_class, dev->dev,
 				MKDEV(0, index), f, f->dev_name);
 		if (IS_ERR(f->dev)) {
 			pr_err("%s: Failed to create dev %s", __func__,
 							f->dev_name);
 			err = PTR_ERR(f->dev);
+			f->dev = NULL;
 			goto err_create;
 		}
 
@@ -1016,7 +1046,7 @@ static int android_init_functions(struct android_usb_function **functions,
 			if (err) {
 				pr_err("%s: Failed to init %s", __func__,
 								f->name);
-				goto err_out;
+				goto err_init;
 			}
 		}
 
@@ -1028,33 +1058,24 @@ static int android_init_functions(struct android_usb_function **functions,
 		if (err) {
 			pr_err("%s: Failed to create function %s attributes",
 					__func__, f->name);
-			goto err_out;
+			goto err_attrs;
 		}
 	}
 	return 0;
 
-err_out:
+err_attrs:
+	for (attr = *(attrs -= 2); attrs != f->attributes; attr = *(attrs--))
+		device_remove_file(f->dev, attr);
+	if (f->cleanup)
+		f->cleanup(f);
+err_init:
 	device_destroy(android_class, f->dev->devt);
 err_create:
+	f->dev = NULL;
 	kfree(f->dev_name);
+err_out:
+	android_cleanup_functions(dev->functions);
 	return err;
-}
-
-static void android_cleanup_functions(struct android_usb_function **functions)
-{
-	struct android_usb_function *f;
-
-	while (*functions) {
-		f = *functions++;
-
-		if (f->dev) {
-			device_destroy(android_class, f->dev->devt);
-			kfree(f->dev_name);
-		}
-
-		if (f->cleanup)
-			f->cleanup(f);
-	}
 }
 
 static int
@@ -1393,6 +1414,9 @@ static int android_usb_unbind(struct usb_composite_dev *cdev)
 {
 	struct android_dev *dev = _android_dev;
 
+	manufacturer_string[0] = '\0';
+	product_string[0] = '\0';
+	serial_string[0] = '0';
 	cancel_work_sync(&dev->work);
 	android_cleanup_functions(dev->functions);
 	return 0;
@@ -1502,15 +1526,29 @@ static int __devinit android_probe(struct platform_device *pdev)
 {
 	struct android_usb_platform_data *pdata = pdev->dev.platform_data;
 	struct android_dev *dev = _android_dev;
+	int ret = 0;
 
 	dev->pdata = pdata;
 
+	ret = usb_composite_probe(&android_usb_driver, android_bind);
+	if (ret) {
+		pr_err("%s(): Failed to register android "
+				 "composite driver\n", __func__);
+	}
+
+	return ret;
+}
+
+static int android_remove(struct platform_device *pdev)
+{
+	usb_composite_unregister(&android_usb_driver);
 	return 0;
 }
 
 static struct platform_driver android_platform_driver = {
-	.probe = android_probe,
 	.driver = { .name = "android_usb"},
+	.probe = android_probe,
+	.remove = android_remove,
 };
 
 static int __init init(void)
@@ -1550,13 +1588,7 @@ static int __init init(void)
 				 "platform driver\n", __func__);
 		goto err_probe;
 	}
-	ret = usb_composite_probe(&android_usb_driver, android_bind);
-	if (ret) {
-		pr_err("%s(): Failed to register android"
-				 "composite driver\n", __func__);
-		platform_driver_unregister(&android_platform_driver);
-		goto err_probe;
-	}
+
 	return ret;
 
 err_probe:
@@ -1570,9 +1602,10 @@ module_init(init);
 
 static void __exit cleanup(void)
 {
-	usb_composite_unregister(&android_usb_driver);
-	class_destroy(android_class);
+	platform_driver_unregister(&android_platform_driver);
+	android_destroy_device(_android_dev);
 	kfree(_android_dev);
+	class_destroy(android_class);
 	_android_dev = NULL;
 }
 module_exit(cleanup);
