@@ -192,6 +192,7 @@ obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
 obj-$(CONFIG_MSM_MODEM_8960) += modem-8960.o
 obj-$(CONFIG_MSM_LPASS_8960) += lpass-8960.o
 obj-$(CONFIG_MSM_WCNSS_SSR_8960) += wcnss-ssr-8960.o
+obj-$(CONFIG_MSM_GSS_SSR_8064) += gss-8064.o
 
 ifdef CONFIG_CPU_IDLE
 	obj-$(CONFIG_ARCH_APQ8064) += cpuidle.o
