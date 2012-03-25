@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@ struct msm_watchdog_pdata {
 	unsigned int bark_time;
 	bool has_secure;
 	bool needs_expired_enable;
+	bool has_vic;
 };
 
 #ifdef CONFIG_MSM_WATCHDOG
