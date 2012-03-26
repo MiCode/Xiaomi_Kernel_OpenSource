@@ -2278,18 +2278,22 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		mfd->use_ov0_blt |= (use_blt << (pipe->pipe_ndx-1));
 	}
 
-	if (!IS_ERR_OR_NULL(mfd->iclient)) {
-		if (pipe->flags & MDP_SECURE_OVERLAY_SESSION)
-			mfd->mem_hid |= ION_SECURE;
-		else
-			mfd->mem_hid &= ~ION_SECURE;
-	}
-
 	/* return id back to user */
 	req->id = pipe->pipe_ndx;	/* pipe_ndx start from 1 */
 	pipe->req_data = *req;		/* keep original req */
 
 	pipe->flags = req->flags;
+
+	if (!IS_ERR_OR_NULL(mfd->iclient)) {
+		pr_debug("pipe->flags 0x%x\n", pipe->flags);
+		if (pipe->flags & MDP_SECURE_OVERLAY_SESSION) {
+			mfd->mem_hid &= ~BIT(ION_IOMMU_HEAP_ID);
+			mfd->mem_hid |= ION_SECURE;
+		} else {
+			mfd->mem_hid |= BIT(ION_IOMMU_HEAP_ID);
+			mfd->mem_hid &= ~ION_SECURE;
+		}
+	}
 
 	if (pipe->flags & MDP_SHARPENING) {
 		bool test = ((pipe->req_data.dpp.sharp_strength > 0) &&
