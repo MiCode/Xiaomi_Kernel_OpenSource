@@ -301,11 +301,13 @@ struct tabla_priv {
 	 * when microphone voltage is too high"
 	 */
 	bool mbhc_inval_hs_range_override;
-};
 
 #ifdef CONFIG_DEBUG_FS
-struct tabla_priv *debug_tabla_priv;
+	struct dentry *debugfs_poke;
+	struct dentry *debugfs_mbhc;
 #endif
+};
+
 
 static const u32 comp_shift[] = {
 	0,
@@ -6598,6 +6600,95 @@ static void tabla_update_reg_address(struct tabla_priv *priv)
 	}
 }
 
+#ifdef CONFIG_DEBUG_FS
+static int codec_debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t codec_debug_write(struct file *filp,
+	const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	char lbuf[32];
+	char *buf;
+	int rc;
+	struct tabla_priv *tabla = filp->private_data;
+
+	if (cnt > sizeof(lbuf) - 1)
+		return -EINVAL;
+
+	rc = copy_from_user(lbuf, ubuf, cnt);
+	if (rc)
+		return -EFAULT;
+
+	lbuf[cnt] = '\0';
+	buf = (char *)lbuf;
+	tabla->no_mic_headset_override = (*strsep(&buf, " ") == '0') ?
+					     false : true;
+	return rc;
+}
+
+static ssize_t codec_mbhc_debug_read(struct file *file, char __user *buf,
+				     size_t count, loff_t *pos)
+{
+	const int size = 768;
+	char buffer[size];
+	int n = 0;
+	struct tabla_priv *tabla = file->private_data;
+	struct snd_soc_codec *codec = tabla->codec;
+	const struct mbhc_internal_cal_data *p = &tabla->mbhc_data;
+
+	n = scnprintf(buffer, size - n, "dce_z = %x(%dmv)\n",  p->dce_z,
+		     tabla_codec_sta_dce_v(codec, 1, p->dce_z));
+	n += scnprintf(buffer + n, size - n, "dce_mb = %x(%dmv)\n",
+		       p->dce_mb, tabla_codec_sta_dce_v(codec, 1, p->dce_mb));
+	n += scnprintf(buffer + n, size - n, "sta_z = %x(%dmv)\n",
+		       p->sta_z, tabla_codec_sta_dce_v(codec, 0, p->sta_z));
+	n += scnprintf(buffer + n, size - n, "sta_mb = %x(%dmv)\n",
+		       p->sta_mb, tabla_codec_sta_dce_v(codec, 0, p->sta_mb));
+	n += scnprintf(buffer + n, size - n, "t_dce = %x\n",  p->t_dce);
+	n += scnprintf(buffer + n, size - n, "t_sta = %x\n",  p->t_sta);
+	n += scnprintf(buffer + n, size - n, "micb_mv = %dmv\n",
+		       p->micb_mv);
+	n += scnprintf(buffer + n, size - n, "v_ins_hu = %x(%dmv)\n",
+		       p->v_ins_hu,
+		       tabla_codec_sta_dce_v(codec, 0, p->v_ins_hu));
+	n += scnprintf(buffer + n, size - n, "v_ins_h = %x(%dmv)\n",
+		       p->v_ins_h, tabla_codec_sta_dce_v(codec, 1, p->v_ins_h));
+	n += scnprintf(buffer + n, size - n, "v_b1_hu = %x(%dmv)\n",
+		       p->v_b1_hu, tabla_codec_sta_dce_v(codec, 0, p->v_b1_hu));
+	n += scnprintf(buffer + n, size - n, "v_b1_h = %x(%dmv)\n",
+		       p->v_b1_h, tabla_codec_sta_dce_v(codec, 1, p->v_b1_h));
+	n += scnprintf(buffer + n, size - n, "v_b1_huc = %x(%dmv)\n",
+		       p->v_b1_huc,
+		       tabla_codec_sta_dce_v(codec, 1, p->v_b1_huc));
+	n += scnprintf(buffer + n, size - n, "v_brh = %x(%dmv)\n",
+		       p->v_brh, tabla_codec_sta_dce_v(codec, 1, p->v_brh));
+	n += scnprintf(buffer + n, size - n, "v_brl = %x(%dmv)\n",  p->v_brl,
+		       tabla_codec_sta_dce_v(codec, 0, p->v_brl));
+	n += scnprintf(buffer + n, size - n, "v_no_mic = %x(%dmv)\n",
+		       p->v_no_mic,
+		       tabla_codec_sta_dce_v(codec, 0, p->v_no_mic));
+	n += scnprintf(buffer + n, size - n, "npoll = %d\n",  p->npoll);
+	n += scnprintf(buffer + n, size - n, "nbounce_wait = %d\n",
+		       p->nbounce_wait);
+	buffer[n] = 0;
+
+	return simple_read_from_buffer(buf, count, pos, buffer, n);
+}
+
+static const struct file_operations codec_debug_ops = {
+	.open = codec_debug_open,
+	.write = codec_debug_write,
+};
+
+static const struct file_operations codec_mbhc_debug_ops = {
+	.open = codec_debug_open,
+	.read = codec_mbhc_debug_read,
+};
+#endif
+
 static int tabla_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -6789,7 +6880,14 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	}
 
 #ifdef CONFIG_DEBUG_FS
-	debug_tabla_priv = tabla;
+	if (ret == 0) {
+		tabla->debugfs_poke =
+		    debugfs_create_file("TRRS", S_IFREG | S_IRUGO, NULL, tabla,
+					&codec_debug_ops);
+		tabla->debugfs_mbhc =
+		    debugfs_create_file("tabla_mbhc", S_IFREG | S_IRUGO,
+					NULL, tabla, &codec_mbhc_debug_ops);
+	}
 #endif
 
 	return ret;
@@ -6831,6 +6929,10 @@ static int tabla_codec_remove(struct snd_soc_codec *codec)
 	for (i = 0; i < ARRAY_SIZE(tabla_dai); i++)
 		kfree(tabla->dai[i].ch_num);
 	mutex_destroy(&tabla->codec_resource_lock);
+#ifdef CONFIG_DEBUG_FS
+	debugfs_remove(tabla->debugfs_poke);
+	debugfs_remove(tabla->debugfs_mbhc);
+#endif
 	kfree(tabla);
 	return 0;
 }
@@ -6847,42 +6949,6 @@ static struct snd_soc_codec_driver soc_codec_dev_tabla = {
 	.reg_cache_default = tabla_reg_defaults,
 	.reg_word_size = 1,
 };
-
-#ifdef CONFIG_DEBUG_FS
-static struct dentry *debugfs_poke;
-
-static int codec_debug_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
-static ssize_t codec_debug_write(struct file *filp,
-	const char __user *ubuf, size_t cnt, loff_t *ppos)
-{
-	char lbuf[32];
-	char *buf;
-	int rc;
-
-	if (cnt > sizeof(lbuf) - 1)
-		return -EINVAL;
-
-	rc = copy_from_user(lbuf, ubuf, cnt);
-	if (rc)
-		return -EFAULT;
-
-	lbuf[cnt] = '\0';
-	buf = (char *)lbuf;
-	debug_tabla_priv->no_mic_headset_override = (*strsep(&buf, " ") == '0')
-		? false : true;
-	return rc;
-}
-
-static const struct file_operations codec_debug_ops = {
-	.open = codec_debug_open,
-	.write = codec_debug_write,
-};
-#endif
 
 #ifdef CONFIG_PM
 static int tabla_suspend(struct device *dev)
@@ -6909,11 +6975,6 @@ static const struct dev_pm_ops tabla_pm_ops = {
 static int __devinit tabla_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-#ifdef CONFIG_DEBUG_FS
-	debugfs_poke = debugfs_create_file("TRRS",
-		S_IFREG | S_IRUGO, NULL, (void *) "TRRS", &codec_debug_ops);
-
-#endif
 	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tabla,
 			tabla_dai, ARRAY_SIZE(tabla_dai));
@@ -6925,10 +6986,6 @@ static int __devinit tabla_probe(struct platform_device *pdev)
 static int __devexit tabla_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_codec(&pdev->dev);
-
-#ifdef CONFIG_DEBUG_FS
-	debugfs_remove(debugfs_poke);
-#endif
 	return 0;
 }
 static struct platform_driver tabla_codec_driver = {
