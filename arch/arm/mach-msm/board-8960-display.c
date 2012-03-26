@@ -83,10 +83,15 @@
 #define TVOUT_PANEL_NAME	"tvout_msm"
 
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-unsigned char hdmi_is_primary = 1;
+static unsigned char hdmi_is_primary = 1;
 #else
-unsigned char hdmi_is_primary;
+static unsigned char hdmi_is_primary;
 #endif
+
+unsigned char msm8960_hdmi_as_primary_selected(void)
+{
+	return hdmi_is_primary;
+}
 
 static struct resource msm_fb_resources[] = {
 	{
