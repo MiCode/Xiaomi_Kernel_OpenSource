@@ -614,6 +614,24 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 				msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
 						cmd_data, len);
 				vfe2x_ctrl->start_pending = 0;
+			} else if (vfe2x_ctrl->stop_pending) {
+				CDBG("Send STOP\n");
+				cmd_data = buf;
+				*(uint32_t *)cmd_data = VFE_STOP;
+				/* Send Stop cmd here */
+				len  = 4;
+				msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
+						cmd_data, len);
+				vfe2x_ctrl->stop_pending = 0;
+			} else if (vfe2x_ctrl->update_pending) {
+				CDBG("Send Update\n");
+				cmd_data = buf;
+				*(uint32_t *)cmd_data = VFE_UPDATE;
+				/* Send Update cmd here */
+				len  = 4;
+				msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
+						cmd_data, len);
+				vfe2x_ctrl->update_pending = 0;
 			}
 			vfe2x_ctrl->tableack_pending = 0;
 			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
@@ -1105,7 +1123,9 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			case VFE_CMD_CAPTURE_RAW:
 				spin_lock_irqsave(&vfe2x_ctrl->table_lock,
 									flags);
-				if (!list_empty(&vfe2x_ctrl->table_q)) {
+				if ((!list_empty(&vfe2x_ctrl->table_q)) ||
+						vfe2x_ctrl->tableack_pending) {
+					CDBG("start pending\n");
 					vfe2x_ctrl->start_pending = 1;
 					spin_unlock_irqrestore(
 						&vfe2x_ctrl->table_lock,
@@ -1126,9 +1146,36 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 				break;
 			case VFE_CMD_STOP:
 				vfestopped = 1;
+				spin_lock_irqsave(&vfe2x_ctrl->table_lock,
+						flags);
+				if ((!list_empty(&vfe2x_ctrl->table_q)) ||
+						vfe2x_ctrl->tableack_pending) {
+					CDBG("stop pending\n");
+					vfe2x_ctrl->stop_pending = 1;
+					spin_unlock_irqrestore(
+							&vfe2x_ctrl->table_lock,
+							flags);
+					return 0;
+				}
+				spin_unlock_irqrestore(&vfe2x_ctrl->table_lock,
+						flags);
 				vfe2x_ctrl->vfe_started = 0;
 				goto config_send;
-
+			case VFE_CMD_UPDATE:
+				spin_lock_irqsave(&vfe2x_ctrl->table_lock,
+						flags);
+				if ((!list_empty(&vfe2x_ctrl->table_q)) ||
+						vfe2x_ctrl->tableack_pending) {
+					CDBG("update pending\n");
+					vfe2x_ctrl->update_pending = 1;
+					spin_unlock_irqrestore(
+							&vfe2x_ctrl->table_lock,
+							flags);
+					return 0;
+				}
+				spin_unlock_irqrestore(&vfe2x_ctrl->table_lock,
+						flags);
+				goto config_send;
 			default:
 				break;
 			}
