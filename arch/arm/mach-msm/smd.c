@@ -34,6 +34,7 @@
 #include <linux/kfifo.h>
 #include <linux/wakelock.h>
 #include <linux/notifier.h>
+#include <linux/sort.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/system.h>
@@ -163,6 +164,16 @@ static struct interrupt_config private_intr_config[NUM_SMD_SUBSYSTEMS] = {
 		.smsm.irq_handler = NULL, /* does not support smsm */
 	},
 };
+
+struct smem_area {
+	void *phys_addr;
+	unsigned size;
+	void __iomem *virt_addr;
+};
+static uint32_t num_smem_areas;
+static struct smem_area *smem_areas;
+static void *smem_range_check(void *base, unsigned offset);
+
 struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
 
 #define SMSM_STATE_ADDR(entry)           (smsm_info.state + entry)
@@ -2198,6 +2209,37 @@ EXPORT_SYMBOL(smd_tiocmset);
 
 /* -------------------------------------------------------------------------- */
 
+/*
+ * Shared Memory Range Check
+ *
+ * Takes a physical address and an offset and checks if the resulting physical
+ * address would fit into one of the aux smem regions.  If so, returns the
+ * corresponding virtual address.  Otherwise returns NULL.  Expects the array
+ * of smem regions to be in ascending physical address order.
+ *
+ * @base: physical base address to check
+ * @offset: offset from the base to get the final address
+ */
+static void *smem_range_check(void *base, unsigned offset)
+{
+	int i;
+	void *phys_addr;
+	unsigned size;
+
+	for (i = 0; i < num_smem_areas; ++i) {
+		phys_addr = smem_areas[i].phys_addr;
+		size = smem_areas[i].size;
+		if (base < phys_addr)
+			return NULL;
+		if (base > phys_addr + size)
+			continue;
+		if (base >= phys_addr && base + offset < phys_addr + size)
+			return smem_areas[i].virt_addr + offset;
+	}
+
+	return NULL;
+}
+
 /* smem_alloc returns the pointer to smem item if it is already allocated.
  * Otherwise, it returns NULL.
  */
@@ -2273,7 +2315,12 @@ void *smem_get_entry(unsigned id, unsigned *size)
 	if (toc[id].allocated) {
 		*size = toc[id].size;
 		barrier();
-		ret = (void *) (MSM_SHARED_RAM_BASE + toc[id].offset);
+		if (!(toc[id].reserved & BASE_ADDR_MASK))
+			ret = (void *) (MSM_SHARED_RAM_BASE + toc[id].offset);
+		else
+			ret = smem_range_check(
+				(void *)(toc[id].reserved & BASE_ADDR_MASK),
+				toc[id].offset);
 	} else {
 		*size = 0;
 	}
@@ -3184,6 +3231,14 @@ static int intr_init(struct interrupt_config_item *private_irq,
 	return ret;
 }
 
+int sort_cmp_func(const void *a, const void *b)
+{
+	struct smem_area *left = (struct smem_area *)(a);
+	struct smem_area *right = (struct smem_area *)(b);
+
+	return left->phys_addr - right->phys_addr;
+}
+
 int smd_core_platform_init(struct platform_device *pdev)
 {
 	int i;
@@ -3193,6 +3248,8 @@ int smd_core_platform_init(struct platform_device *pdev)
 	struct smd_subsystem_config *smd_ss_config_list;
 	struct smd_subsystem_config *cfg;
 	int err_ret = 0;
+	struct smd_smem_regions *smd_smem_areas;
+	int smem_idx = 0;
 
 	smd_platform_data = pdev->dev.platform_data;
 	num_ss = smd_platform_data->num_ss_configs;
@@ -3201,6 +3258,40 @@ int smd_core_platform_init(struct platform_device *pdev)
 	if (smd_platform_data->smd_ssr_config)
 		disable_smsm_reset_handshake = smd_platform_data->
 			   smd_ssr_config->disable_smsm_reset_handshake;
+
+	smd_smem_areas = smd_platform_data->smd_smem_areas;
+	if (smd_smem_areas) {
+		num_smem_areas = smd_platform_data->num_smem_areas;
+		smem_areas = kmalloc(sizeof(struct smem_area) * num_smem_areas,
+						GFP_KERNEL);
+		if (!smem_areas) {
+			pr_err("%s: smem_areas kmalloc failed\n", __func__);
+			err_ret = -ENOMEM;
+			goto smem_areas_alloc_fail;
+		}
+
+		for (smem_idx = 0; smem_idx < num_smem_areas; ++smem_idx) {
+			smem_areas[smem_idx].phys_addr =
+					smd_smem_areas[smem_idx].phys_addr;
+			smem_areas[smem_idx].size =
+					smd_smem_areas[smem_idx].size;
+			smem_areas[smem_idx].virt_addr = ioremap_nocache(
+				(unsigned long)(smem_areas[smem_idx].phys_addr),
+				smem_areas[smem_idx].size);
+			if (!smem_areas[smem_idx].virt_addr) {
+				pr_err("%s: ioremap_nocache() of addr:%p"
+					" size: %x\n", __func__,
+					smem_areas[smem_idx].phys_addr,
+					smem_areas[smem_idx].size);
+				err_ret = -ENOMEM;
+				++smem_idx;
+				goto smem_failed;
+			}
+		}
+		sort(smem_areas, num_smem_areas,
+				sizeof(struct smem_area),
+				sort_cmp_func, NULL);
+	}
 
 	for (i = 0; i < num_ss; i++) {
 		cfg = &smd_ss_config_list[i];
@@ -3215,7 +3306,7 @@ int smd_core_platform_init(struct platform_device *pdev)
 			err_ret = ret;
 			pr_err("smd: register irq failed on %s\n",
 				cfg->smd_int.irq_name);
-			break;
+			goto intr_failed;
 		}
 
 		/* only init smsm structs if this edge supports smsm */
@@ -3230,7 +3321,7 @@ int smd_core_platform_init(struct platform_device *pdev)
 			err_ret = ret;
 			pr_err("smd: register irq failed on %s\n",
 				cfg->smsm_int.irq_name);
-			break;
+			goto intr_failed;
 		}
 
 		if (cfg->subsys_name)
@@ -3238,26 +3329,30 @@ int smd_core_platform_init(struct platform_device *pdev)
 				cfg->subsys_name, SMD_MAX_CH_NAME_LEN);
 	}
 
-	if (err_ret < 0) {
-		pr_err("smd: deregistering IRQs\n");
-		for (i = 0; i < num_ss; ++i) {
-			cfg = &smd_ss_config_list[i];
-
-			if (cfg->smd_int.irq_id >= 0)
-				free_irq(cfg->smd_int.irq_id,
-					(void *)cfg->smd_int.dev_id
-					);
-			if (cfg->smsm_int.irq_id >= 0)
-				free_irq(cfg->smsm_int.irq_id,
-					(void *)cfg->smsm_int.dev_id
-					);
-		}
-		return err_ret;
-	}
 
 	SMD_INFO("smd_core_platform_init() done\n");
 	return 0;
 
+intr_failed:
+	pr_err("smd: deregistering IRQs\n");
+	for (i = 0; i < num_ss; ++i) {
+		cfg = &smd_ss_config_list[i];
+
+		if (cfg->smd_int.irq_id >= 0)
+			free_irq(cfg->smd_int.irq_id,
+				(void *)cfg->smd_int.dev_id
+				);
+		if (cfg->smsm_int.irq_id >= 0)
+			free_irq(cfg->smsm_int.irq_id,
+				(void *)cfg->smsm_int.dev_id
+				);
+	}
+smem_failed:
+	for (smem_idx = smem_idx - 1; smem_idx >= 0; --smem_idx)
+		iounmap(smem_areas[smem_idx].virt_addr);
+	kfree(smem_areas);
+smem_areas_alloc_fail:
+	return err_ret;
 }
 
 static int __devinit msm_smd_probe(struct platform_device *pdev)

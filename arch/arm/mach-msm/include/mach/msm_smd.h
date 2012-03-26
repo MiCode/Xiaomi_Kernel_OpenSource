@@ -132,10 +132,25 @@ struct smd_subsystem_restart_config {
 	int disable_smsm_reset_handshake;
 };
 
+/*
+ * Shared Memory Regions
+ *
+ * the array of these regions is expected to be in ascending order by phys_addr
+ *
+ * @phys_addr: physical base address of the region
+ * @size: size of the region in bytes
+ */
+struct smd_smem_regions {
+	void *phys_addr;
+	unsigned size;
+};
+
 struct smd_platform {
 	uint32_t num_ss_configs;
 	struct smd_subsystem_config *smd_ss_configs;
 	struct smd_subsystem_restart_config *smd_ssr_config;
+	uint32_t num_smem_areas;
+	struct smd_smem_regions *smd_smem_areas;
 };
 
 #ifdef CONFIG_MSM_SMD

@@ -44,8 +44,9 @@ struct smem_heap_entry {
 	unsigned allocated;
 	unsigned offset;
 	unsigned size;
-	unsigned reserved;
+	unsigned reserved; /* bits 1:0 reserved, bits 31:2 aux smem base addr */
 };
+#define BASE_ADDR_MASK 0xfffffffc
 
 struct smem_proc_comm {
 	unsigned command;
