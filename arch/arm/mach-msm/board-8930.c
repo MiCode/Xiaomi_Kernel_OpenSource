@@ -952,15 +952,17 @@ static void __init msm8930_init_buses(void)
 {
 #ifdef CONFIG_MSM_BUS_SCALING
 	msm_bus_rpm_set_mt_mask();
-	msm_bus_8960_apps_fabric_pdata.rpm_enabled = 1;
-	msm_bus_8960_sys_fabric_pdata.rpm_enabled = 1;
-	msm_bus_8960_mm_fabric_pdata.rpm_enabled = 1;
-	msm_bus_apps_fabric.dev.platform_data =
-		&msm_bus_8960_apps_fabric_pdata;
-	msm_bus_sys_fabric.dev.platform_data = &msm_bus_8960_sys_fabric_pdata;
-	msm_bus_mm_fabric.dev.platform_data = &msm_bus_8960_mm_fabric_pdata;
-	msm_bus_sys_fpb.dev.platform_data = &msm_bus_8960_sys_fpb_pdata;
-	msm_bus_cpss_fpb.dev.platform_data = &msm_bus_8960_cpss_fpb_pdata;
+	msm_bus_8930_apps_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8930_sys_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8930_mm_fabric_pdata.rpm_enabled = 1;
+	msm_bus_8930_apps_fabric.dev.platform_data =
+		&msm_bus_8930_apps_fabric_pdata;
+	msm_bus_8930_sys_fabric.dev.platform_data =
+		&msm_bus_8930_sys_fabric_pdata;
+	msm_bus_8930_mm_fabric.dev.platform_data =
+		&msm_bus_8930_mm_fabric_pdata;
+	msm_bus_8930_sys_fpb.dev.platform_data = &msm_bus_8930_sys_fpb_pdata;
+	msm_bus_8930_cpss_fpb.dev.platform_data = &msm_bus_8930_cpss_fpb_pdata;
 #endif
 }
 
@@ -1783,7 +1785,6 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&android_pmem_audio_device,
 #endif
-	&msm_device_vidc,
 	&msm_device_bam_dmux,
 	&msm_fm_platform_init,
 
@@ -1814,6 +1815,11 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm8930_cpu_idle_device,
 	&msm8930_msm_gov_device,
+	&msm_bus_8930_apps_fabric,
+	&msm_bus_8930_sys_fabric,
+	&msm_bus_8930_mm_fabric,
+	&msm_bus_8930_sys_fpb,
+	&msm_bus_8930_cpss_fpb,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
@@ -1834,11 +1840,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_cpudai_auxpcm_tx,
 	&msm_cpu_fe,
 	&msm_stub_codec,
-	&msm_kgsl_3d0,
-#ifdef CONFIG_MSM_KGSL_2D
-	&msm_kgsl_2d0,
-	&msm_kgsl_2d1,
-#endif
 #ifdef CONFIG_MSM_GEMINI
 	&msm8960_gemini_device,
 #endif
@@ -1855,11 +1856,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_cpudai_incall_record_rx,
 	&msm_cpudai_incall_record_tx,
 	&msm_pcm_hostless,
-	&msm_bus_apps_fabric,
-	&msm_bus_sys_fabric,
-	&msm_bus_mm_fabric,
-	&msm_bus_sys_fpb,
-	&msm_bus_cpss_fpb,
 };
 
 static void __init msm8930_i2c_init(void)
@@ -1878,17 +1874,6 @@ static void __init msm8930_i2c_init(void)
 
 	msm8960_device_qup_i2c_gsbi12.dev.platform_data =
 					&msm8960_i2c_qup_gsbi12_pdata;
-}
-
-static void __init msm8930_gfx_init(void)
-{
-	uint32_t soc_platform_version = socinfo_get_version();
-	if (SOCINFO_VERSION_MAJOR(soc_platform_version) == 1) {
-		struct kgsl_device_platform_data *kgsl_3d0_pdata =
-				msm_kgsl_3d0.dev.platform_data;
-		kgsl_3d0_pdata->pwrlevel[0].gpu_freq = 320000000;
-		kgsl_3d0_pdata->pwrlevel[1].gpu_freq = 266667000;
-	}
 }
 
 static struct msm_cpuidle_state msm_cstates[] __initdata = {
@@ -2205,13 +2190,14 @@ static void __init msm8930_cdp_init(void)
 	msm8930_init_pmic();
 #endif
 	msm8930_i2c_init();
-	msm8930_gfx_init();
+	msm8930_init_gpu();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm8930_init_buses();
 	platform_add_devices(msm_footswitch_devices,
 		msm_num_footswitch_devices);
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+	msm8930_add_vidc_device();
 	/*
 	 * TODO: When physical 8930/PM8038 hardware becomes
 	 * available, remove this block or add the config

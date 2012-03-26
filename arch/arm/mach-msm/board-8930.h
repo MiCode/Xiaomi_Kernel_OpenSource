@@ -109,6 +109,7 @@ extern struct msm_camera_board_info msm8930_camera_board_info;
 void msm8930_init_cam(void);
 void msm8930_init_fb(void);
 void msm8930_init_pmic(void);
+extern void msm8930_add_vidc_device(void);
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes
@@ -125,6 +126,7 @@ int msm8930_init_gpiomux(void);
 void msm8930_allocate_fb_region(void);
 void msm8930_pm8038_gpio_mpp_init(void);
 void msm8930_mdp_writeback(struct memtype_reserve *reserve_table);
+void __init msm8930_init_gpu(void);
 
 #define PLATFORM_IS_CHARM25() \
 	(machine_is_msm8930_cdp() && \

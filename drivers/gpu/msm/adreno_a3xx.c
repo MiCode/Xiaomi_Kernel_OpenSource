@@ -12,6 +12,7 @@
  */
 
 #include <linux/delay.h>
+#include <mach/socinfo.h>
 
 #include "kgsl.h"
 #include "adreno.h"
@@ -2567,10 +2568,11 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, A3XX_VBIF_OUT_AXI_AOOO_EN, 0x0000003C);
 	adreno_regwrite(device, A3XX_VBIF_OUT_AXI_AOOO, 0x003C003C);
 
-	/* Enable 1K sort */
-	adreno_regwrite(device, A3XX_VBIF_ABIT_SORT, 0x000000FF);
-	adreno_regwrite(device, A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4);
-
+	if (cpu_is_apq8064()) {
+		/* Enable 1K sort */
+		adreno_regwrite(device, A3XX_VBIF_ABIT_SORT, 0x000000FF);
+		adreno_regwrite(device, A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4);
+	}
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	adreno_regwrite(device, A3XX_RBBM_GPU_BUSY_MASKED, 0xFFFFFFFF);
 

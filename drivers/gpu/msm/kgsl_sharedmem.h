@@ -80,12 +80,22 @@ void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 int kgsl_sharedmem_init_sysfs(void);
 void kgsl_sharedmem_uninit_sysfs(void);
 
+static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
+{
+	/*
+	 * Try sg_dma_address first to support ion carveout
+	 * regions which do not work with sg_phys().
+	 */
+	unsigned int pa = sg_dma_address(sg);
+	if (pa == 0)
+		pa = sg_phys(sg);
+	return pa;
+}
+
 static inline int
 memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 		unsigned int physaddr, unsigned int size)
 {
-	struct page *page = phys_to_page(physaddr);
-
 	memdesc->sg = vmalloc(sizeof(struct scatterlist) * 1);
 	if (memdesc->sg == NULL)
 		return -ENOMEM;
@@ -94,7 +104,9 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 
 	memdesc->sglen = 1;
 	sg_init_table(memdesc->sg, 1);
-	sg_set_page(&memdesc->sg[0], page, size, 0);
+	memdesc->sg[0].length = size;
+	memdesc->sg[0].offset = 0;
+	memdesc->sg[0].dma_address = physaddr;
 	return 0;
 }
 

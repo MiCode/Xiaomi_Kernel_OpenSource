@@ -338,3 +338,9 @@ extern struct platform_device apq8064_cpu_idle_device;
 extern struct platform_device msm8960_msm_gov_device;
 extern struct platform_device msm8930_msm_gov_device;
 extern struct platform_device apq8064_msm_gov_device;
+
+extern struct platform_device msm_bus_8930_apps_fabric;
+extern struct platform_device msm_bus_8930_sys_fabric;
+extern struct platform_device msm_bus_8930_mm_fabric;
+extern struct platform_device msm_bus_8930_sys_fpb;
+extern struct platform_device msm_bus_8930_cpss_fpb;

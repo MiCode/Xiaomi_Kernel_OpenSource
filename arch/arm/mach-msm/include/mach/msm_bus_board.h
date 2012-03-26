@@ -72,6 +72,13 @@ extern struct msm_bus_fabric_registration msm_bus_8064_cpss_fpb_pdata;
 
 extern struct msm_bus_fabric_registration msm_bus_9615_sys_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_9615_def_fab_pdata;
+
+extern struct msm_bus_fabric_registration msm_bus_8930_apps_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8930_sys_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8930_mm_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8930_sys_fpb_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8930_cpss_fpb_pdata;
+
 void msm_bus_rpm_set_mt_mask(void);
 int msm_bus_board_rpm_get_il_ids(uint16_t *id);
 int msm_bus_board_get_iid(int id);

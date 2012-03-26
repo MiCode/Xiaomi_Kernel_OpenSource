@@ -110,17 +110,15 @@ struct scatterlist *ion_carveout_heap_map_dma(struct ion_heap *heap,
 					      struct ion_buffer *buffer)
 {
 	struct scatterlist *sglist;
-	struct page *page = phys_to_page(buffer->priv_phys);
-
-	if (page == NULL)
-		return NULL;
 
 	sglist = vmalloc(sizeof(struct scatterlist));
 	if (!sglist)
 		return ERR_PTR(-ENOMEM);
 
 	sg_init_table(sglist, 1);
-	sg_set_page(sglist, page, buffer->size, 0);
+	sglist->length = buffer->size;
+	sglist->offset = 0;
+	sglist->dma_address = buffer->priv_phys;
 
 	return sglist;
 }
