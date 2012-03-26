@@ -1032,6 +1032,18 @@ static struct mxt_config_info mxt_config_array[] = {
 		.variant_id	= 0x7,
 		.version	= 0x21,
 		.build		= 0xAA,
+		.bootldr_id	= MXT_BOOTLOADER_ID_1386E,
+		.fw_name	= "atmel_8064_liquid_v2_2_AA.hex",
+	},
+	{
+		/* The config data for V2.2.AA is the same as for V2.1.AA */
+		.config		= mxt1386e_config_data_v2_1,
+		.config_length	= ARRAY_SIZE(mxt1386e_config_data_v2_1),
+		.family_id	= 0xA0,
+		.variant_id	= 0x7,
+		.version	= 0x22,
+		.build		= 0xAA,
+		.bootldr_id	= MXT_BOOTLOADER_ID_1386E,
 	},
 };
 
