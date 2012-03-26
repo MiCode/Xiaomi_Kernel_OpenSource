@@ -142,6 +142,7 @@ static int msm_csic_config(struct csic_cfg_params *cfg_params)
 	struct csic_device *csic_dev;
 	struct msm_camera_csi_params *csic_params;
 	void __iomem *csicbase;
+	int i;
 
 	csic_dev = v4l2_get_subdevdata(cfg_params->subdev);
 	csicbase = csic_dev->base;
@@ -163,24 +164,14 @@ static int msm_csic_config(struct csic_cfg_params *cfg_params)
 	CDBG("%s MIPI_PROTOCOL_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csicbase + MIPI_PROTOCOL_CONTROL);
 
-	val = (0x1 << MIPI_CALIBRATION_CONTROL_SWCAL_CAL_EN_SHFT) |
-		(0x1 <<
-		MIPI_CALIBRATION_CONTROL_SWCAL_STRENGTH_OVERRIDE_EN_SHFT) |
-		(0x1 << MIPI_CALIBRATION_CONTROL_CAL_SW_HW_MODE_SHFT) |
-		(0x1 << MIPI_CALIBRATION_CONTROL_MANUAL_OVERRIDE_EN_SHFT);
-	CDBG("%s MIPI_CALIBRATION_CONTROL val=0x%x\n", __func__, val);
-	msm_io_w(val, csicbase + MIPI_CALIBRATION_CONTROL);
-
 	val = (csic_params->settle_cnt <<
 		MIPI_PHY_D0_CONTROL2_SETTLE_COUNT_SHFT) |
 		(0x0F << MIPI_PHY_D0_CONTROL2_HS_TERM_IMP_SHFT) |
 		(0x1 << MIPI_PHY_D0_CONTROL2_LP_REC_EN_SHFT) |
 		(0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
 	CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
-	msm_io_w(val, csicbase + MIPI_PHY_D0_CONTROL2);
-	msm_io_w(val, csicbase + MIPI_PHY_D1_CONTROL2);
-	msm_io_w(val, csicbase + MIPI_PHY_D2_CONTROL2);
-	msm_io_w(val, csicbase + MIPI_PHY_D3_CONTROL2);
+	for (i = 0; i < csic_params->lane_cnt; i++)
+		msm_io_w(val, csicbase + MIPI_PHY_D0_CONTROL2 + i * 4);
 
 
 	val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
@@ -233,7 +224,9 @@ static irqreturn_t msm_csic_irq(int irq_num, void *data)
 
 	pr_info("msm_csic_irq: %x\n", (unsigned int)csic_dev->base);
 	irq = msm_io_r(csic_dev->base + MIPI_INTERRUPT_STATUS);
-	pr_info("%s MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
+	pr_info("%s MIPI_INTERRUPT_STATUS = 0x%x 0x%x\n",
+			__func__, irq,
+			msm_io_r(csic_dev->base + MIPI_PROTOCOL_CONTROL));
 	msm_io_w(irq, csic_dev->base + MIPI_INTERRUPT_STATUS);
 
 	/* TODO: Needs to send this info to upper layers */
@@ -372,7 +365,7 @@ static int __devinit csic_probe(struct platform_device *pdev)
 	}
 
 	rc = request_irq(new_csic_dev->irq->start, msm_csic_irq,
-		IRQF_TRIGGER_RISING, "csic", new_csic_dev);
+			IRQF_TRIGGER_HIGH, "csic", new_csic_dev);
 	if (rc < 0) {
 		release_mem_region(new_csic_dev->mem->start,
 			resource_size(new_csic_dev->mem));

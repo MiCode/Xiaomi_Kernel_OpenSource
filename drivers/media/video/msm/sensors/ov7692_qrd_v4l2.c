@@ -597,6 +597,22 @@ static int32_t ov7692_i2c_write_b_sensor(struct i2c_client *ov7692_client,
 	return rc;
 }
 
+static int32_t ov7692_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
+		uint16_t gain, uint32_t line)
+{
+	CDBG("ov7692_write_exp_gain : Not supported\n");
+	return 0;
+}
+
+int32_t ov7692_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
+		struct fps_cfg *fps)
+{
+	CDBG("ov7692_sensor_set_fps: Not supported\n");
+	return 0;
+}
+
+
+
 static void ov7692_sw_reset(struct msm_sensor_ctrl_t *s_ctrl)
 {
 
@@ -671,7 +687,7 @@ static struct msm_sensor_fn_t ov7692_func_tbl = {
 	.sensor_stop_stream = msm_sensor_stop_stream,
 	.sensor_group_hold_on = msm_sensor_group_hold_on,
 	.sensor_group_hold_off = msm_sensor_group_hold_off,
-	.sensor_set_fps = msm_sensor_set_fps,
+	.sensor_set_fps = ov7692_sensor_set_fps,
 	.sensor_setting = msm_sensor_setting3,
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
 	.sensor_mode_init = msm_sensor_mode_init,
@@ -679,6 +695,8 @@ static struct msm_sensor_fn_t ov7692_func_tbl = {
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = ov7692_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
+	.sensor_write_exp_gain = ov7692_write_exp_gain,
+	.sensor_write_snapshot_exp_gain = ov7692_write_exp_gain,
 };
 
 static struct msm_sensor_reg_t ov7692_regs = {

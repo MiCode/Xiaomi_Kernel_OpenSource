@@ -97,6 +97,8 @@ struct vfe2x_ctrl_type {
 	struct vfe_cmd_start start_cmd;
 	uint32_t start_pending;
 	uint32_t vfe_started;
+	uint32_t stop_pending;
+	uint32_t update_pending;
 
 	/* v4l2 subdev */
 	struct v4l2_subdev subdev;
