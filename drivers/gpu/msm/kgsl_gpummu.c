@@ -22,6 +22,10 @@
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 
+#define KGSL_PAGETABLE_SIZE \
+	ALIGN(KGSL_PAGETABLE_ENTRIES(CONFIG_MSM_KGSL_PAGE_TABLE_SIZE) * \
+	KGSL_PAGETABLE_ENTRY_SIZE, PAGE_SIZE)
+
 static ssize_t
 sysfs_show_ptpool_entries(struct kobject *kobj,
 			  struct kobj_attribute *attr,
@@ -310,16 +314,15 @@ void kgsl_gpummu_ptpool_destroy(void *ptpool)
 /**
  * kgsl_ptpool_init
  * @pool:  A pointer to a ptpool structure to initialize
- * @ptsize: The size of each pagetable entry
  * @entries:  The number of inital entries to add to the pool
  *
  * Initalize a pool and allocate an initial chunk of entries.
  */
-void *kgsl_gpummu_ptpool_init(int ptsize, int entries)
+void *kgsl_gpummu_ptpool_init(int entries)
 {
+	int ptsize = KGSL_PAGETABLE_SIZE;
 	struct kgsl_ptpool *pool;
 	int ret = 0;
-	BUG_ON(ptsize == 0);
 
 	pool = kzalloc(sizeof(struct kgsl_ptpool), GFP_KERNEL);
 	if (!pool) {
