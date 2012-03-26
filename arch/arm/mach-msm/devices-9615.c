@@ -17,6 +17,8 @@
 #include <linux/io.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/dma-mapping.h>
+#include <sound/msm-dai-q6.h>
+#include <sound/apr_audio.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/flash.h>
 #include <mach/board.h>
@@ -385,6 +387,124 @@ struct platform_device msm9615_slim_ctrl = {
 	.dev            = {
 		.coherent_dma_mask      = 0xffffffffULL,
 	},
+};
+
+struct platform_device msm_pcm = {
+	.name	= "msm-pcm-dsp",
+	.id	= -1,
+};
+
+struct platform_device msm_multi_ch_pcm = {
+	.name	= "msm-multi-ch-pcm-dsp",
+	.id	= -1,
+};
+
+struct platform_device msm_pcm_routing = {
+	.name	= "msm-pcm-routing",
+	.id	= -1,
+};
+
+struct platform_device msm_cpudai0 = {
+	.name	= "msm-dai-q6",
+	.id	= 0x4000,
+};
+
+struct platform_device msm_cpudai1 = {
+	.name	= "msm-dai-q6",
+	.id	= 0x4001,
+};
+
+struct platform_device msm_cpudai_bt_rx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x3000,
+};
+
+struct platform_device msm_cpudai_bt_tx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x3001,
+};
+
+/*
+ * Machine specific data for AUX PCM Interface
+ * which the driver will  be unware of.
+ */
+struct msm_dai_auxpcm_pdata auxpcm_rx_pdata = {
+	.clk = "pcm_clk",
+	.mode = AFE_PCM_CFG_MODE_PCM,
+	.sync = AFE_PCM_CFG_SYNC_INT,
+	.frame = AFE_PCM_CFG_FRM_256BPF,
+	.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD,
+	.slot = 0,
+	.data = AFE_PCM_CFG_CDATAOE_MASTER,
+	.pcm_clk_rate = 2048000,
+};
+
+struct platform_device msm_cpudai_auxpcm_rx = {
+	.name = "msm-dai-q6",
+	.id = 2,
+	.dev = {
+		.platform_data = &auxpcm_rx_pdata,
+	},
+};
+
+struct platform_device msm_cpudai_auxpcm_tx = {
+	.name = "msm-dai-q6",
+	.id = 3,
+};
+
+struct platform_device msm_cpu_fe = {
+	.name	= "msm-dai-fe",
+	.id	= -1,
+};
+
+struct platform_device msm_stub_codec = {
+	.name	= "msm-stub-codec",
+	.id	= 1,
+};
+
+struct platform_device msm_voice = {
+	.name	= "msm-pcm-voice",
+	.id	= -1,
+};
+
+struct platform_device msm_voip = {
+	.name	= "msm-voip-dsp",
+	.id	= -1,
+};
+
+struct platform_device msm_compr_dsp = {
+	.name	= "msm-compr-dsp",
+	.id	= -1,
+};
+
+struct platform_device msm_pcm_hostless = {
+	.name	= "msm-pcm-hostless",
+	.id	= -1,
+};
+
+struct platform_device msm_cpudai_afe_01_rx = {
+	.name = "msm-dai-q6",
+	.id = 0xE0,
+};
+
+struct platform_device msm_cpudai_afe_01_tx = {
+	.name = "msm-dai-q6",
+	.id = 0xF0,
+};
+
+struct platform_device msm_cpudai_afe_02_rx = {
+	.name = "msm-dai-q6",
+	.id = 0xF1,
+};
+
+struct platform_device msm_cpudai_afe_02_tx = {
+	.name = "msm-dai-q6",
+	.id = 0xE1,
+};
+
+struct platform_device msm_pcm_afe = {
+	.name	= "msm-pcm-afe",
+	.id	= -1,
 };
 
 static struct resource resources_ssbi_pmic1[] = {
