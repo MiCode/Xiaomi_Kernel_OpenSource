@@ -11,6 +11,9 @@
  */
 
 /include/ "skeleton.dtsi"
+/include/ "msm-pm8841.dtsi"
+/include/ "msm-pm8941.dtsi"
+/include/ "msmcopper-regulator.dtsi"
 
 / {
 	model = "Qualcomm MSM Copper";
