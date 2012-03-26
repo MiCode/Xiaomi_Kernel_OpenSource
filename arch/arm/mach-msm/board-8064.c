@@ -933,21 +933,26 @@ static struct i2c_board_info cs8427_device_info[] __initdata = {
 
 static int isa1200_power(int on)
 {
+	int rc = 0;
+
 	gpio_set_value_cansleep(ISA1200_HAP_CLK, !!on);
 
-	return 0;
+	if (on)
+		rc = pm8xxx_aux_clk_control(CLK_MP3_2, XO_DIV_1, true);
+	else
+		rc = pm8xxx_aux_clk_control(CLK_MP3_2, XO_DIV_NONE, true);
+
+	if (rc) {
+		pr_err("%s: unable to write aux clock register(%d)\n",
+			__func__, rc);
+	}
+
+	return rc;
 }
 
 static int isa1200_dev_setup(bool enable)
 {
 	int rc = 0;
-
-	rc = pm8xxx_aux_clk_control(CLK_MP3_2, XO_DIV_1, enable);
-	if (rc) {
-		pr_err("%s: unable to write aux clock register(%d)\n",
-			__func__, rc);
-		return rc;
-	}
 
 	if (!enable)
 		goto free_gpio;
