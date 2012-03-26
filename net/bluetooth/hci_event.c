@@ -1970,6 +1970,9 @@ static inline void hci_remote_features_evt(struct hci_dev *hdev, struct sk_buff 
 		hci_send_cmd(hdev, HCI_OP_READ_REMOTE_EXT_FEATURES,
 							sizeof(cp), &cp);
 		goto unlock;
+	} else  if (!(lmp_ssp_capable(conn)) && conn->auth_initiator &&
+		(conn->pending_sec_level == BT_SECURITY_HIGH)) {
+		conn->pending_sec_level = BT_SECURITY_MEDIUM;
 	}
 
 	if (!ev->status) {
