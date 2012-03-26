@@ -54,6 +54,7 @@ static int first_pixel_start_y;
 static int dtv_enabled;
 
 static struct mdp4_overlay_pipe *dtv_pipe;
+static DECLARE_COMPLETION(dtv_comp);
 
 static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 {
@@ -259,6 +260,12 @@ int mdp4_dtv_off(struct platform_device *pdev)
 
 	if (dtv_pipe != NULL) {
 		mdp4_mixer_stage_down(dtv_pipe);
+		/*
+		 * wait4vsync to make sure pipes are
+		 * dis-engaged from mixer1
+		 * before turn off timing generator
+		 */
+		mdp4_overlay_dtv_wait4vsync();
 		mdp4_dtv_stop(mfd);
 		mdp4_overlay_pipe_free(dtv_pipe);
 		dtv_pipe = NULL;
@@ -512,7 +519,7 @@ void mdp4_dma_e_done_dtv()
 
 void mdp4_external_vsync_dtv()
 {
-	complete_all(&dtv_pipe->comp);
+	complete_all(&dtv_comp);
 }
 
 /*
@@ -554,6 +561,25 @@ void mdp4_dtv_set_black_screen(void)
 	MDP_OUTP(rgb_base + 0x0050, temp_src_format | BIT(22));
 	mdp4_mixer_stage_up(dtv_pipe);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+}
+
+void mdp4_overlay_dtv_wait4vsync(void)
+{
+	unsigned long flag;
+
+	if (!dtv_enabled)
+		return;
+
+	/* enable irq */
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	mdp_enable_irq(MDP_DMA_E_TERM);
+	INIT_COMPLETION(dtv_comp);
+	outp32(MDP_INTR_CLEAR, INTR_EXTERNAL_VSYNC);
+	mdp_intr_mask |= INTR_EXTERNAL_VSYNC;
+	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+	wait_for_completion_killable(&dtv_comp);
+	mdp_disable_irq(MDP_DMA_E_TERM);
 }
 
 static void mdp4_overlay_dtv_wait4dmae(struct msm_fb_data_type *mfd)

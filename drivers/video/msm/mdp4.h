@@ -419,6 +419,7 @@ int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
 int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 void mdp4_dma_e_done_dtv(void);
+void mdp4_overlay_dtv_wait4vsync(void);
 #else
 static inline void mdp4_overlay_dtv_start(void)
 {
@@ -446,7 +447,11 @@ static inline int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 }
 static inline void mdp4_dma_e_done_dtv(void)
 {
-	return;
+    /* empty */
+}
+static inline void mdp4_overlay_dtv_wait4vsync(void)
+{
+    /* empty */
 }
 #endif
 
