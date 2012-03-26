@@ -1195,6 +1195,8 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 	struct kgsl_mem_entry *entry = NULL;
 	struct vm_area_struct *vma;
 
+	KGSL_DEV_ERR_ONCE(dev_priv->device, "IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC"
+			" is deprecated\n");
 	if (!kgsl_mmu_enabled())
 		return -ENODEV;
 
@@ -1637,6 +1639,8 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		break;
 
 	case KGSL_USER_MEM_TYPE_ADDR:
+		KGSL_DEV_ERR_ONCE(dev_priv->device, "User mem type "
+				"KGSL_USER_MEM_TYPE_ADDR is deprecated\n");
 		if (!kgsl_mmu_enabled()) {
 			KGSL_DRV_ERR(dev_priv->device,
 				"Cannot map paged memory with the "
