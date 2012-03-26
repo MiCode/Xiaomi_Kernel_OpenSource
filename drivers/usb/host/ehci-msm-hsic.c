@@ -24,7 +24,6 @@
 
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-#include <linux/irq.h>
 #include <linux/err.h>
 #include <linux/wakelock.h>
 #include <linux/pm_runtime.h>
@@ -55,6 +54,7 @@ struct msm_hsic_hcd {
 	struct wake_lock	wlock;
 	int			peripheral_status_irq;
 	int			wakeup_irq;
+	bool			wakeup_irq_enabled;
 };
 
 static inline struct msm_hsic_hcd *hcd_to_hsic(struct usb_hcd *hcd)
@@ -750,6 +750,12 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 
 	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt\n", __func__);
 
+	if (mehci->wakeup_irq_enabled) {
+		mehci->wakeup_irq_enabled = 0;
+		disable_irq_wake(irq);
+		disable_irq_nosync(irq);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -878,7 +884,6 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 				"msm_hsic_wakeup", mehci);
 		if (!ret) {
 			disable_irq_nosync(mehci->wakeup_irq);
-			enable_irq_wake(mehci->wakeup_irq);
 		} else {
 			dev_err(&pdev->dev, "request_irq(%d) failed: %d\n",
 					mehci->wakeup_irq, ret);
@@ -923,8 +928,10 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 
 	if (mehci->peripheral_status_irq)
 		free_irq(mehci->peripheral_status_irq, mehci);
+
 	if (mehci->wakeup_irq) {
-		disable_irq_wake(mehci->wakeup_irq);
+		if (mehci->wakeup_irq_enabled)
+			disable_irq_wake(mehci->wakeup_irq);
 		free_irq(mehci->wakeup_irq, mehci);
 	}
 
@@ -959,7 +966,22 @@ static int msm_hsic_pm_suspend(struct device *dev)
 		enable_irq_wake(hcd->irq);
 
 	return msm_hsic_suspend(mehci);
+}
 
+static int msm_hsic_pm_suspend_noirq(struct device *dev)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+
+	dev_dbg(dev, "ehci-msm-hsic PM suspend_noirq\n");
+
+	if (device_may_wakeup(dev) && !mehci->wakeup_irq_enabled) {
+		enable_irq(mehci->wakeup_irq);
+		enable_irq_wake(mehci->wakeup_irq);
+		mehci->wakeup_irq_enabled = 1;
+	}
+
+	return 0;
 }
 
 static int msm_hsic_pm_resume(struct device *dev)
@@ -972,6 +994,12 @@ static int msm_hsic_pm_resume(struct device *dev)
 
 	if (device_may_wakeup(dev))
 		disable_irq_wake(hcd->irq);
+
+	if (mehci->wakeup_irq_enabled) {
+		mehci->wakeup_irq_enabled = 0;
+		disable_irq_wake(mehci->wakeup_irq);
+		disable_irq_nosync(mehci->wakeup_irq);
+	}
 
 	ret = msm_hsic_resume(mehci);
 	if (ret)
@@ -1016,6 +1044,7 @@ static int msm_hsic_runtime_resume(struct device *dev)
 #ifdef CONFIG_PM
 static const struct dev_pm_ops msm_hsic_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(msm_hsic_pm_suspend, msm_hsic_pm_resume)
+	.suspend_noirq = msm_hsic_pm_suspend_noirq,
 	SET_RUNTIME_PM_OPS(msm_hsic_runtime_suspend, msm_hsic_runtime_resume,
 				msm_hsic_runtime_idle)
 };
