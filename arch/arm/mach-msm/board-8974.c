@@ -59,7 +59,7 @@
 #endif
 #define MSM_ION_MM_FW_SIZE	0xa00000 /* (10MB) */
 #define MSM_ION_MM_SIZE		0x7800000 /* (120MB) */
-#define MSM_ION_QSECOM_SIZE	0x100000 /* (1MB) */
+#define MSM_ION_QSECOM_SIZE	0x600000 /* (6MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
 #define MSM_ION_AUDIO_SIZE	0x2B4000
 #define MSM_ION_HEAP_NUM	8
