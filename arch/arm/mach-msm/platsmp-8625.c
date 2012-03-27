@@ -17,6 +17,7 @@
 #include <linux/jiffies.h>
 #include <linux/smp.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
 
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
@@ -59,6 +60,78 @@ static void __iomem *scu_base_addr(void)
 }
 
 static DEFINE_SPINLOCK(boot_lock);
+static DEFINE_RAW_SPINLOCK(irq_controller_lock);
+
+/*
+ * MP_CORE_IPC will be used to generate interrupt and can be used by either
+ * of core.
+ * To bring core1 out of GDFS we need to raise the SPI using the MP_CORE_IPC.
+ */
+static void raise_clear_spi(unsigned int cpu, bool set)
+{
+	int value;
+
+	value = __raw_readl(MSM_CSR_BASE + 0x54);
+	if (set)
+		__raw_writel(value | BIT(cpu), MSM_CSR_BASE + 0x54);
+	else
+		__raw_writel(value & ~BIT(cpu), MSM_CSR_BASE + 0x54);
+	mb();
+}
+
+/*
+ * Configure the GIC after we come out of power collapse.
+ * This function will configure some of the GIC registers so as to prepare the
+ * core1 to receive an SPI(ACSR_MP_CORE_IPC1, (32 + 8)), which will bring
+ * core1 out of GDFS.
+ */
+static void core1_gic_configure_and_raise(void)
+{
+	unsigned int value = 0;
+
+	raw_spin_lock(&irq_controller_lock);
+
+	value = __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_ACTIVE_BIT + 0x4);
+	value |= BIT(8);
+	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_ACTIVE_BIT + 0x4);
+	mb();
+
+	value = __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_TARGET + 0x24);
+	value |= BIT(13);
+	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_TARGET + 0x24);
+	mb();
+
+	value = __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_TARGET + 0x28);
+	value |= BIT(1);
+	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_TARGET + 0x28);
+	mb();
+
+	value =  __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET + 0x4);
+	value |= BIT(8);
+	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET + 0x4);
+	mb();
+
+	value =  __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_PENDING_SET + 0x4);
+	value |= BIT(8);
+	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_PENDING_SET + 0x4);
+	mb();
+
+	raise_clear_spi(1, true);
+	raw_spin_unlock(&irq_controller_lock);
+}
+
+void clear_pending_spi(unsigned int irq)
+{
+	struct irq_data *d = irq_get_irq_data(irq);
+	struct irq_chip *c = irq_data_get_irq_chip(d);
+
+	/* Clear the IRQ from the ENABLE_SET */
+	c->irq_mask(d);
+	local_irq_disable();
+	gic_clear_spi_pending(irq);
+	c->irq_unmask(d);
+	local_irq_enable();
+}
 
 void __cpuinit platform_secondary_init(unsigned int cpu)
 {
@@ -153,8 +226,16 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * Send the secondary CPU a soft interrupt, thereby causing
 	 * the boot monitor to read the system wide flags register,
 	 * and branch to the address found there.
+	 *
+	 * power_collapsed is the flag which will be updated for Powercollapse.
+	 * Once we are out of PC, as Core1 will be in the state of GDFS which
+	 * needs to be brought out by raising an SPI.
 	 */
-	gic_raise_softirq(cpumask_of(cpu), 1);
+
+	if (power_collapsed)
+		core1_gic_configure_and_raise();
+	else
+		gic_raise_softirq(cpumask_of(cpu), 1);
 
 	timeout = jiffies + (1 * HZ);
 	while (time_before(jiffies, timeout)) {
@@ -163,6 +244,13 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 			break;
 
 		udelay(10);
+	}
+
+	/* Now we should clear the pending SPI */
+	if (power_collapsed) {
+		raise_clear_spi(1, false);
+		clear_pending_spi(MSM8625_INT_ACSR_MP_CORE_IPC1);
+		power_collapsed = 0;
 	}
 
 	/*

@@ -80,6 +80,7 @@ enum {
 };
 
 static int msm_pm_debug_mask;
+int power_collapsed;
 module_param_named(
 	debug_mask, msm_pm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
 );
