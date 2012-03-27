@@ -387,6 +387,10 @@ config MSM_RPM
 	bool "Resource Power Manager"
 	select MSM_MPM
 
+config MSM_RPM_SMD
+	depends on MSM_SMD
+	bool "Support for using SMD as the transport layer for communicatons with RPM"
+
 config MSM_MPM
 	bool "Modem Power Manager"
 
