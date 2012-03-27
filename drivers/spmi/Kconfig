@@ -30,6 +30,7 @@ config MSM_QPNP_INT
 	depends on SPARSE_IRQ
 	depends on ARCH_MSMCOPPER
 	depends on OF_SPMI
+	depends on MSM_QPNP
 	bool "MSM QPNP INT"
 	help
 	  Say 'y' here to include support for the Qualcomm QPNP interrupt
