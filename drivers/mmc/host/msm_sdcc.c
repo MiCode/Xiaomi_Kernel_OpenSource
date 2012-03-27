@@ -2228,6 +2228,11 @@ static inline unsigned int msmsdcc_get_sup_clk_rate(struct msmsdcc_host *host,
 {
 	unsigned int sel_clk = -1;
 
+	if (req_clk < msmsdcc_get_min_sup_clk_rate(host)) {
+		sel_clk = msmsdcc_get_min_sup_clk_rate(host);
+		goto out;
+	}
+
 	if (host->plat->sup_clk_table && host->plat->sup_clk_cnt) {
 		unsigned char cnt;
 
@@ -2248,6 +2253,7 @@ static inline unsigned int msmsdcc_get_sup_clk_rate(struct msmsdcc_host *host,
 			sel_clk = req_clk;
 	}
 
+out:
 	return sel_clk;
 }
 
@@ -4495,6 +4501,7 @@ msmsdcc_probe(struct platform_device *pdev)
 		mmc->caps |= (MMC_CAP_SET_XPC_330 | MMC_CAP_SET_XPC_300 |
 				MMC_CAP_SET_XPC_180);
 
+	mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
 	if (pdev->dev.of_node) {
 		if (of_get_property((&pdev->dev)->of_node,
 					"qcom,sdcc-hs200", NULL))
