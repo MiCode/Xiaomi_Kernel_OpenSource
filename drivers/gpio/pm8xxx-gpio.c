@@ -1,7 +1,7 @@
 /*
  * Qualcomm PMIC8XXX GPIO driver
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -302,7 +302,7 @@ static int __devinit pm_gpio_probe(struct platform_device *pdev)
 	pm_gpio_chip->gpio_chip.set = pm_gpio_write;
 	pm_gpio_chip->gpio_chip.dbg_show = pm_gpio_dbg_show;
 	pm_gpio_chip->gpio_chip.ngpio = pdata->gpio_cdata.ngpios;
-	pm_gpio_chip->gpio_chip.can_sleep = 1;
+	pm_gpio_chip->gpio_chip.can_sleep = 0;
 	pm_gpio_chip->gpio_chip.dev = &pdev->dev;
 	pm_gpio_chip->gpio_chip.base = pdata->gpio_base;
 	pm_gpio_chip->irq_base = platform_get_irq(pdev, 0);
