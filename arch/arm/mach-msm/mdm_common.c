@@ -508,12 +508,7 @@ int mdm_common_modem_remove(struct platform_device *pdev)
 
 void mdm_common_modem_shutdown(struct platform_device *pdev)
 {
-	pr_debug("%s: setting AP2MDM_STATUS low for a graceful restart\n",
-		__func__);
-
 	mdm_disable_irqs();
-
-	gpio_set_value(mdm_drv->ap2mdm_status_gpio, 0);
 
 	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
 		gpio_set_value(mdm_drv->ap2mdm_wakeup_gpio, 1);
