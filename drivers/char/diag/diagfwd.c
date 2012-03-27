@@ -37,6 +37,8 @@
 #ifdef CONFIG_DIAG_SDIO_PIPE
 #include "diagfwd_sdio.h"
 #endif
+#include "diag_dci.h"
+
 #define MODE_CMD		41
 #define RESET_ID		2
 #define ALL_EQUIP_ID		100
@@ -689,14 +691,14 @@ void diag_update_userspace_clients(unsigned int type)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
-void diag_update_sleeping_process(int process_id)
+void diag_update_sleeping_process(int process_id, int data_type)
 {
 	int i;
 
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == process_id) {
-			driver->data_ready[i] |= PKT_TYPE;
+			driver->data_ready[i] |= data_type;
 			break;
 		}
 	wake_up_interruptible(&driver->wait_q);
@@ -709,7 +711,7 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 	driver->pkt_length = len;
 	if (entry.process_id != NON_APPS_PROC && type != MODEM_DATA) {
 		diag_update_pkt_buffer(buf);
-		diag_update_sleeping_process(entry.process_id);
+		diag_update_sleeping_process(entry.process_id, PKT_TYPE);
 	} else {
 		if (len > 0) {
 			if (entry.client_id == MODEM_PROC && driver->ch) {
@@ -2016,6 +2018,7 @@ void diagfwd_exit(void)
 	usb_diag_close(driver->legacy_ch);
 #endif
 	platform_driver_unregister(&msm_smd_ch1_driver);
+	platform_driver_unregister(&msm_diag_dci_driver);
 	platform_driver_unregister(&diag_smd_lite_driver);
 	kfree(driver->event_mask);
 	kfree(driver->log_mask);
