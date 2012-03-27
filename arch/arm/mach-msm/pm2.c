@@ -49,6 +49,7 @@
 #include <mach/msm_migrate_pages.h>
 #endif
 #include <mach/socinfo.h>
+#include <asm/smp_scu.h>
 
 #include "smd_private.h"
 #include "smd_rpcrouter.h"
@@ -63,6 +64,7 @@
 #include "spm.h"
 #include "sirc.h"
 #include "pm-boot.h"
+#define MSM_CORE1_RESET		0xA8600590
 
 /******************************************************************************
  * Debug Definitions
@@ -478,10 +480,78 @@ static void msm_pm_config_hw_before_power_down(void)
 }
 
 /*
+ * Program the top csr from core0 context to put the
+ * core1 into GDFS, as core1 is not running yet.
+ */
+static void configure_top_csr(void)
+{
+	void __iomem *base_ptr;
+	unsigned int value = 0;
+
+	base_ptr = ioremap_nocache(MSM_CORE1_RESET, SZ_4);
+	if (!base_ptr)
+		return;
+
+	/* bring the core1 out of reset */
+	__raw_writel(0x3, base_ptr);
+	mb();
+	/*
+	 * override DBGNOPOWERDN and program the GDFS
+	 * count val
+	 */
+
+	 __raw_writel(0x00030002, (MSM_CFG_CTL_BASE + 0x38));
+	mb();
+
+	/* Initialize the SPM0 and SPM1 registers */
+	msm_spm_reinit();
+
+	/* enable TCSR for core1 */
+	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
+	value |= BIT(22);
+	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
+	mb();
+
+	/* set reset bit for SPM1 */
+	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
+	value |= BIT(20);
+	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
+	mb();
+
+	/* set CLK_OFF bit */
+	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
+	value |= BIT(18);
+	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
+	mb();
+
+	/* set clamps bit */
+	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
+	value |= BIT(21);
+	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
+	mb();
+
+	/* set power_up bit */
+	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
+	value |= BIT(19);
+	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
+	mb();
+
+	/* Disable TSCR for core0 */
+	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
+	value &= ~BIT(22);
+	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
+	mb();
+	__raw_writel(0x0, base_ptr);
+	mb();
+	iounmap(base_ptr);
+}
+
+/*
  * Clear hardware registers after Apps powers up.
  */
 static void msm_pm_config_hw_after_power_up(void)
 {
+
 	if (cpu_is_msm7x30() || cpu_is_msm8x55()) {
 		__raw_writel(0, APPS_SECOP);
 		mb();
@@ -493,6 +563,18 @@ static void msm_pm_config_hw_after_power_up(void)
 		mb();
 		__raw_writel(0, APPS_CLK_SLEEP_EN);
 		mb();
+
+		if (cpu_is_msm8625()) {
+			/*
+			 * enable the SCU while coming out of power
+			 * collapse.
+			 */
+			scu_enable(MSM_SCU_BASE);
+			/*
+			 * Program the top csr to put the core1 into GDFS.
+			 */
+			configure_top_csr();
+		}
 	}
 }
 
