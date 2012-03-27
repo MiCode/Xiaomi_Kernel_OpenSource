@@ -31,12 +31,10 @@
 
 #define SCM_Q6_NMI_CMD                  0x1
 #define MODULE_NAME			"lpass_8960"
-#define Q6SS_SOFT_INTR_WAKEUP		0x28800024
 
 /* Subsystem restart: QDSP6 data, functions */
 static void lpass_fatal_fn(struct work_struct *);
 static DECLARE_WORK(lpass_fatal_work, lpass_fatal_fn);
-void __iomem *q6_wakeup_intr;
 struct lpass_ssr {
 	void *lpass_ramdump_dev;
 } lpass_ssr;
@@ -117,11 +115,6 @@ static void send_q6_nmi(void)
 
 	scm_call(SCM_SVC_UTIL, SCM_Q6_NMI_CMD,
 	&cmd, sizeof(cmd), NULL, 0);
-
-	/* Wakeup the Q6 */
-	if (q6_wakeup_intr)
-		writel_relaxed(0x01, q6_wakeup_intr);
-	mb();
 
 	/* Q6 requires worstcase 100ms to dump caches etc.*/
 	mdelay(100);
@@ -212,9 +205,6 @@ static int __init lpass_fatal_init(void)
 				__func__, ret);
 		goto out;
 	}
-	q6_wakeup_intr = ioremap_nocache(Q6SS_SOFT_INTR_WAKEUP, 8);
-	if (!q6_wakeup_intr)
-		pr_err("%s: Unable to request q6 wakeup interrupt\n", __func__);
 
 	lpass_ssr_8960.lpass_ramdump_dev = create_ramdump_device("lpass");
 
@@ -230,7 +220,6 @@ static int __init lpass_fatal_init(void)
 		ret = PTR_ERR(ssr_notif_hdle);
 		pr_err("%s: subsys_register_notifier for Riva: err = %d\n",
 			__func__, ret);
-		iounmap(q6_wakeup_intr);
 		free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 		goto out;
 	}
@@ -242,7 +231,6 @@ static int __init lpass_fatal_init(void)
 		pr_err("%s: subsys_register_notifier for Modem: err = %d\n",
 			__func__, ret);
 		subsys_notif_unregister_notifier(ssr_notif_hdle, &rnb);
-		iounmap(q6_wakeup_intr);
 		free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 		goto out;
 	}
@@ -256,7 +244,6 @@ static void __exit lpass_fatal_exit(void)
 {
 	subsys_notif_unregister_notifier(ssr_notif_hdle, &rnb);
 	subsys_notif_unregister_notifier(ssr_modem_notif_hdle, &mnb);
-	iounmap(q6_wakeup_intr);
 	free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 }
 
