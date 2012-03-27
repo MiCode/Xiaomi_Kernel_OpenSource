@@ -2177,26 +2177,8 @@ void mdp_set_scale(MDPIBUF *iBuf,
 			*pppop_reg_ptr |=
 			    (PPP_OP_SCALE_Y_ON | PPP_OP_SCALE_X_ON);
 
-		/* let's use SHIM logic to calculate the partial ROI scaling */
-#if 0
-			phasex_step =
-			    (uint32) mdp_do_div(0x20000000 * iBuf->roi.width,
-						dst_roi_width_scale);
-			phasey_step =
-			    (uint32) mdp_do_div(0x20000000 * iBuf->roi.height,
-						dst_roi_height_scale);
-
-/*
-    phasex_step= ((long long) iBuf->roi.width * 0x20000000)/dst_roi_width_scale;
-    phasey_step= ((long long)iBuf->roi.height * 0x20000000)/dst_roi_height_scale;
-*/
-
-			phasex_init =
-			    (((long long)phasex_step - 0x20000000) >> 1);
-			phasey_init =
-			    (((long long)phasey_step - 0x20000000) >> 1);
-
-#else
+			/* let's use SHIM logic to calculate the
+			   partial ROI scaling */
 			mdp_calc_scale_params(iBuf->roi.x, iBuf->roi.width,
 					      dst_roi_width_scale, 1,
 					      &phasex_init, &phasex_step,
@@ -2205,7 +2187,6 @@ void mdp_set_scale(MDPIBUF *iBuf,
 					      dst_roi_height_scale, 0,
 					      &phasey_init, &phasey_step,
 					      &dummy, &dummy);
-#endif
 			MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x013c,
 				 phasex_init);
 			MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x0140,
