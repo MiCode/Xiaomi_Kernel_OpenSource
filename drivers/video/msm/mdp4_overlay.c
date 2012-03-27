@@ -1360,44 +1360,63 @@ static void mdp4_mixer_stage_commit(int mixer)
 		}
 	}
 
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	if (ctrl->mixer_cfg[mixer] != cfg[mixer]) {
-		if (mixer <= MDP4_MIXER1) {
+		if ((ctrl->mixer_cfg[MDP4_MIXER0] != cfg[MDP4_MIXER0]) ||
+		    (ctrl->mixer_cfg[MDP4_MIXER1] != cfg[MDP4_MIXER1])) {
 			off = 0x10100;
 			if (ctrl->mixer_cfg[MDP4_MIXER0] != cfg[MDP4_MIXER0]) {
 				flush_bits |= 0x1;
 				ctrl->mixer_cfg[MDP4_MIXER0] = cfg[MDP4_MIXER0];
+
+				if ((ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) ||
+				    (ctrl->panel_mode & MDP4_PANEL_LCDC))
+					pull_mode = 1;
 			}
 			if (ctrl->mixer_cfg[MDP4_MIXER1] != cfg[MDP4_MIXER1]) {
 				flush_bits |= 0x2;
 				ctrl->mixer_cfg[MDP4_MIXER1] = cfg[MDP4_MIXER1];
+
+				pull_mode = 1;
 			}
+
 			data = cfg[MDP4_MIXER0] | cfg[MDP4_MIXER1];
-		} else {
+
+			pr_debug("%s: mixer=%d data=%x flush=%x\n", __func__,
+			       mixer, data, flush_bits);
+
+			outpdw(MDP_BASE + off, data); /* LAYERMIXER_IN_CFG */
+			if (pull_mode)
+				outpdw(MDP_BASE + 0x18000, flush_bits);
+		}
+
+		if (ctrl->mixer_cfg[MDP4_MIXER2] != cfg[MDP4_MIXER2]) {
+			/* wait for vsync on both pull mode interfaces */
+			if (pull_mode)
+				msleep(20);
+
 			off = 0x100F0;
 			ctrl->mixer_cfg[MDP4_MIXER2] = cfg[MDP4_MIXER2];
 			data = cfg[MDP4_MIXER2];
+
+			pr_debug("%s: mixer=%d data=%x\n", __func__,
+			       mixer, data);
+
+			outpdw(MDP_BASE + off, data); /* LAYERMIXER_IN_CFG */
+		}
+	} else {
+		if (mixer == MDP4_MIXER0) {
+			if ((ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) ||
+			(ctrl->panel_mode & MDP4_PANEL_LCDC))
+				pull_mode = 1;
+		} else if (mixer == MDP4_MIXER1) {
+			pull_mode = 1;
 		}
 
-		pr_debug("%s: mixer=%d data=%x flush=%x\n", __func__,
-		       mixer, data, flush_bits);
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-		outpdw(MDP_BASE + off, data); /* MDP_LAYERMIXER_IN_CFG */
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+		if (pull_mode)
+			outpdw(MDP_BASE + 0x18000, flush_bits);
 	}
-
-	if (mixer == MDP4_MIXER0) {
-		if ((ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) ||
-		    (ctrl->panel_mode & MDP4_PANEL_LCDC))
-			pull_mode = 1;
-	} else if (mixer == MDP4_MIXER1) {
-		pull_mode = 1;
-	}
-
-	if (pull_mode) {
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-		outpdw(MDP_BASE + 0x18000, flush_bits);
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	if (data && pipe_cnt == 1)
 		mdp4_update_perf_level(OVERLAY_PERF_LEVEL4);
