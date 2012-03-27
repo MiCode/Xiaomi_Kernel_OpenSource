@@ -156,7 +156,7 @@ void sku3_lcdc_lcd_camera_power_init(void)
 				__func__);
 			goto fail_gpio1;
 		}
-	} else if (socinfo == 0x0F) {
+	} else if (socinfo == 0x0F || machine_is_msm8625_qrd7()) {
 		if (gpio_request(SKU3_1_LCDC_LCD_CAMERA_LDO_1V8,
 				"lcd_camera_ldo_1v8")) {
 			pr_err("failed to request gpio lcd_camera_ldo_1v8\n");
@@ -189,7 +189,7 @@ void sku3_lcdc_lcd_camera_power_init(void)
 fail_gpio1:
 	if (socinfo == 0x0B)
 		gpio_free(SKU3_LCDC_LCD_CAMERA_LDO_1V8);
-	else if (socinfo == 0x0F)
+	else if (socinfo == 0x0F || machine_is_msm8625_qrd7())
 		gpio_free(SKU3_1_LCDC_LCD_CAMERA_LDO_1V8);
 fail_gpio2:
 	gpio_free(SKU3_LCDC_LCD_CAMERA_LDO_2V8);
@@ -205,7 +205,7 @@ int sku3_lcdc_lcd_camera_power_onoff(int on)
 		if (socinfo == 0x0B)
 			gpio_set_value_cansleep(SKU3_LCDC_LCD_CAMERA_LDO_1V8,
 				1);
-		else if (socinfo == 0x0F)
+		else if (socinfo == 0x0F || machine_is_msm8625_qrd7())
 			gpio_set_value_cansleep(SKU3_1_LCDC_LCD_CAMERA_LDO_1V8,
 				1);
 
@@ -220,7 +220,7 @@ int sku3_lcdc_lcd_camera_power_onoff(int on)
 		if (socinfo == 0x0B)
 			gpio_set_value_cansleep(SKU3_LCDC_LCD_CAMERA_LDO_1V8,
 				0);
-		else if (socinfo == 0x0F)
+		else if (socinfo == 0x0F || machine_is_msm8625_qrd7())
 			gpio_set_value_cansleep(SKU3_1_LCDC_LCD_CAMERA_LDO_1V8,
 				0);
 
@@ -419,7 +419,7 @@ static int lcdc_toshiba_set_bl(int level)
 static int msm_lcdc_power_save(int on)
 {
 	int rc = 0;
-	if (machine_is_msm7627a_qrd3())
+	if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7())
 		rc = sku3_lcdc_power_save(on);
 	else
 		rc = msm_fb_lcdc_power_save(on);
@@ -477,7 +477,7 @@ static int msm_fb_detect_panel(const char *name)
 	} else if (machine_is_msm7627a_qrd1()) {
 		if (!strncmp(name, "mipi_video_truly_wvga", 21))
 			ret = 0;
-	} else if (machine_is_msm7627a_qrd3()) {
+	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		if (!strncmp(name, "lcdc_truly_hvga_ips3p2335_pt", 28))
 			ret = 0;
 	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
@@ -1112,7 +1112,7 @@ void __init msm_fb_add_devices(void)
 	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		platform_add_devices(evb_fb_devices,
 				ARRAY_SIZE(evb_fb_devices));
-	else if (machine_is_msm7627a_qrd3()) {
+	else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		sku3_lcdc_lcd_camera_power_init();
 		platform_add_devices(qrd3_fb_devices,
 						ARRAY_SIZE(qrd3_fb_devices));
@@ -1122,7 +1122,8 @@ void __init msm_fb_add_devices(void)
 
 	msm_fb_register_device("mdp", &mdp_pdata);
 	if (machine_is_msm7625a_surf() || machine_is_msm7x27a_surf() ||
-			machine_is_msm8625_surf() || machine_is_msm7627a_qrd3())
+			machine_is_msm8625_surf() || machine_is_msm7627a_qrd3()
+			|| machine_is_msm8625_qrd7())
 		msm_fb_register_device("lcdc", &lcdc_pdata);
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
