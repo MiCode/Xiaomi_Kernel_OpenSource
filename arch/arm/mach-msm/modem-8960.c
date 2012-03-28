@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,14 +93,6 @@ static int modem_shutdown(const struct subsys_data *subsys)
 {
 	void __iomem *q6_fw_wdog_addr;
 	void __iomem *q6_sw_wdog_addr;
-	int smsm_notif_unregistered = 0;
-
-	if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
-		smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET,
-			smsm_state_cb, 0);
-		smsm_notif_unregistered = 1;
-		smsm_reset_modem(SMSM_RESET);
-	}
 
 	/*
 	 * Disable the modem watchdog since it keeps running even after the
@@ -126,10 +118,6 @@ static int modem_shutdown(const struct subsys_data *subsys)
 	pil_force_shutdown("modem_fw");
 	disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
 	disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
-
-	if (smsm_notif_unregistered)
-		smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
-			smsm_state_cb, 0);
 
 	return 0;
 }
