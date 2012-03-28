@@ -102,6 +102,8 @@ static void gpio_bt_config(void)
 		gpio_bt_sys_rest_en = 114;
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		gpio_bt_sys_rest_en = 16;
+	if (machine_is_msm8625_qrd7())
+		gpio_bt_sys_rest_en = 88;
 }
 
 static int bt_set_gpio(int on)
@@ -113,7 +115,7 @@ static int bt_set_gpio(int on)
 			__func__, gpio_bt_sys_rest_en, on);
 	if (on) {
 
-		if (machine_is_msm7627a_evb()) {
+		if (machine_is_msm7627a_evb() || machine_is_msm8625_qrd7()) {
 			rc = gpio_tlmm_config(GPIO_CFG(gpio_bt_sys_rest_en, 0,
 					GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
 					GPIO_CFG_2MA),
@@ -128,7 +130,8 @@ static int bt_set_gpio(int on)
 
 		if (!marimba_get_fm_status(&config) &&
 				!marimba_get_bt_status(&config)) {
-			if (machine_is_msm7627a_evb()) {
+			if (machine_is_msm7627a_evb() ||
+					 machine_is_msm8625_qrd7()) {
 				gpio_set_value(gpio_bt_sys_rest_en, 0);
 				rc = gpio_tlmm_config(GPIO_CFG(
 					gpio_bt_sys_rest_en, 0,
