@@ -1784,8 +1784,6 @@ static int __init msm_pm_init(void)
 	pmd_t *pmd;
 	unsigned long pmdval;
 
-	if (cpu_is_msm8625())
-		return 0;
 	/* Page table for cores to come back up safely. */
 	pc_pgd = pgd_alloc(&init_mm);
 	if (!pc_pgd)
