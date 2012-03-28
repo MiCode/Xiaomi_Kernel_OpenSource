@@ -649,6 +649,11 @@ static void smem_log_event_from_user(struct smem_log_inst *inst,
 	int first = 1;
 	int ret;
 
+	if (!inst->idx) {
+		pr_err("%s: invalid write index\n", __func__);
+		return;
+	}
+
 	remote_spin_lock_irqsave(inst->remote_spinlock, flags);
 
 	while (num--) {
@@ -898,6 +903,9 @@ static ssize_t smem_log_read_bin(struct file *fp, char __user *buf,
 
 	local_inst = fp->private_data;
 
+	if (!local_inst->idx)
+		return -ENODEV;
+
 	remote_spin_lock_irqsave(local_inst->remote_spinlock, flags);
 
 	orig_idx = *local_inst->idx;
@@ -947,6 +955,8 @@ static ssize_t smem_log_read(struct file *fp, char __user *buf,
 	struct smem_log_inst *inst;
 
 	inst = fp->private_data;
+	if (!inst->idx)
+		return -ENODEV;
 
 	remote_spin_lock_irqsave(inst->remote_spinlock, flags);
 
@@ -1185,8 +1195,10 @@ static int update_read_avail(struct smem_log_inst *inst)
 	int curr_read_avail;
 	unsigned long flags = 0;
 
-	remote_spin_lock_irqsave(inst->remote_spinlock, flags);
+	if (!inst->idx)
+		return 0;
 
+	remote_spin_lock_irqsave(inst->remote_spinlock, flags);
 	curr_read_avail = (*inst->idx - inst->read_idx);
 	if (curr_read_avail < 0)
 		curr_read_avail = inst->num - inst->read_idx + *inst->idx;
@@ -1694,6 +1706,10 @@ static int _debug_dump_sym(int log, char *buf, int max, uint32_t cont)
 static int debug_dump(char *buf, int max, uint32_t cont)
 {
 	int r;
+
+	if (!inst[GEN].idx || !inst[GEN].events)
+		return -ENODEV;
+
 	while (cont) {
 		update_read_avail(&inst[GEN]);
 		r = wait_event_interruptible_timeout(inst[GEN].read_wait,
@@ -1714,6 +1730,10 @@ static int debug_dump(char *buf, int max, uint32_t cont)
 static int debug_dump_sym(char *buf, int max, uint32_t cont)
 {
 	int r;
+
+	if (!inst[GEN].idx || !inst[GEN].events)
+		return -ENODEV;
+
 	while (cont) {
 		update_read_avail(&inst[GEN]);
 		r = wait_event_interruptible_timeout(inst[GEN].read_wait,
@@ -1734,6 +1754,10 @@ static int debug_dump_sym(char *buf, int max, uint32_t cont)
 static int debug_dump_static(char *buf, int max, uint32_t cont)
 {
 	int r;
+
+	if (!inst[STA].idx || !inst[STA].events)
+		return -ENODEV;
+
 	while (cont) {
 		update_read_avail(&inst[STA]);
 		r = wait_event_interruptible_timeout(inst[STA].read_wait,
@@ -1754,6 +1778,10 @@ static int debug_dump_static(char *buf, int max, uint32_t cont)
 static int debug_dump_static_sym(char *buf, int max, uint32_t cont)
 {
 	int r;
+
+	if (!inst[STA].idx || !inst[STA].events)
+		return -ENODEV;
+
 	while (cont) {
 		update_read_avail(&inst[STA]);
 		r = wait_event_interruptible_timeout(inst[STA].read_wait,
@@ -1774,6 +1802,10 @@ static int debug_dump_static_sym(char *buf, int max, uint32_t cont)
 static int debug_dump_power(char *buf, int max, uint32_t cont)
 {
 	int r;
+
+	if (!inst[POW].idx || !inst[POW].events)
+		return -ENODEV;
+
 	while (cont) {
 		update_read_avail(&inst[POW]);
 		r = wait_event_interruptible_timeout(inst[POW].read_wait,
@@ -1794,6 +1826,10 @@ static int debug_dump_power(char *buf, int max, uint32_t cont)
 static int debug_dump_power_sym(char *buf, int max, uint32_t cont)
 {
 	int r;
+
+	if (!inst[POW].idx || !inst[POW].events)
+		return -ENODEV;
+
 	while (cont) {
 		update_read_avail(&inst[POW]);
 		r = wait_event_interruptible_timeout(inst[POW].read_wait,
@@ -1822,10 +1858,15 @@ static ssize_t debug_read(struct file *file, char __user *buf,
 			  size_t count, loff_t *ppos)
 {
 	int r;
-	static int bsize;
+	int bsize = 0;
 	int (*fill)(char *, int, uint32_t) = file->private_data;
-	if (!(*ppos))
+	if (!(*ppos)) {
 		bsize = fill(debug_buffer, EVENTS_PRINT_SIZE, 0);
+
+		if (bsize < 0)
+			bsize = scnprintf(debug_buffer,
+				EVENTS_PRINT_SIZE, "Log not available\n");
+	}
 	DBG("%s: count %d ppos %d\n", __func__, count, (unsigned int)*ppos);
 	r =  simple_read_from_buffer(buf, count, ppos, debug_buffer,
 				     bsize);
@@ -1840,12 +1881,21 @@ static ssize_t debug_read_cont(struct file *file, char __user *buf,
 	int bsize;
 	if (!buffer)
 		return -ENOMEM;
+
 	bsize = fill(buffer, count, 1);
+	if (bsize < 0) {
+		if (*ppos == 0)
+			bsize = scnprintf(buffer, count, "Log not available\n");
+		else
+			bsize = 0;
+	}
+
 	DBG("%s: count %d bsize %d\n", __func__, count, bsize);
 	if (copy_to_user(buf, buffer, bsize)) {
 		kfree(buffer);
 		return -EFAULT;
 	}
+	*ppos += bsize;
 	kfree(buffer);
 	return bsize;
 }
