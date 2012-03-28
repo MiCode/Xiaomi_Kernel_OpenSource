@@ -802,13 +802,13 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 	if (dev->pipes[pipe_index] != BAM_PIPE_UNASSIGNED) {
 		SPS_ERR("sps:Invalid pipe %d on BAM 0x%x for connect",
 			pipe_index, BAM_ID(dev));
-		goto exit_err;
+		return SPS_ERROR;
 	}
 
 	if (bam_pipe_is_enabled(dev->base, pipe_index)) {
 		SPS_ERR("sps:BAM 0x%x pipe %d sharing violation",
 			BAM_ID(dev), pipe_index);
-		goto exit_err;
+		return SPS_ERROR;
 	}
 
 	if (bam_pipe_init(dev->base, pipe_index, &hw_params, dev->props.ee)) {
