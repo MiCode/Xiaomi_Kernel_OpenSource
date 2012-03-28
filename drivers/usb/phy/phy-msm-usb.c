@@ -2889,6 +2889,27 @@ const struct file_operations msm_otg_mode_fops = {
 	.release = single_release,
 };
 
+static int msm_otg_show_otg_state(struct seq_file *s, void *unused)
+{
+	struct msm_otg *motg = s->private;
+	struct usb_phy *phy = &motg->phy;
+
+	seq_printf(s, "%s\n", usb_otg_state_string(phy->state));
+	return 0;
+}
+
+static int msm_otg_otg_state_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msm_otg_show_otg_state, inode->i_private);
+}
+
+const struct file_operations msm_otg_state_fops = {
+	.open = msm_otg_otg_state_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int msm_otg_show_chg_type(struct seq_file *s, void *unused)
 {
 	struct msm_otg *motg = s->private;
@@ -3049,6 +3070,14 @@ static int msm_otg_debugfs_init(struct msm_otg *motg)
 	msm_otg_dentry = debugfs_create_file("bus_voting", S_IRUGO | S_IWUSR,
 		msm_otg_dbg_root, motg,
 		&msm_otg_bus_fops);
+
+	if (!msm_otg_dentry) {
+		debugfs_remove_recursive(msm_otg_dbg_root);
+		return -ENODEV;
+	}
+
+	msm_otg_dentry = debugfs_create_file("otg_state", S_IRUGO,
+				msm_otg_dbg_root, motg, &msm_otg_state_fops);
 
 	if (!msm_otg_dentry) {
 		debugfs_remove_recursive(msm_otg_dbg_root);
