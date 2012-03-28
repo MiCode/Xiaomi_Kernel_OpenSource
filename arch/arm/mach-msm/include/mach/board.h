@@ -513,6 +513,7 @@ struct mmc_platform_data;
 int msm_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
 
+void msm_pm_register_irqs(void);
 struct msm_usb_host_platform_data;
 int msm_add_host(unsigned int host,
 		struct msm_usb_host_platform_data *plat);

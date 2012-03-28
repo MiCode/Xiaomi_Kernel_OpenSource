@@ -40,6 +40,8 @@
 #endif
 #include <mach/dal_axi.h>
 #include <mach/msm_memtypes.h>
+#include "pm.h"
+#include "irq.h"
 
 /* EBI THERMAL DRIVER */
 static struct resource msm_ebi0_thermal_resources[] = {
@@ -594,6 +596,21 @@ struct platform_device msm_device_nand = {
 		.platform_data	= &msm_nand_data,
 	},
 };
+
+static struct msm_pm_irq_calls msm7x30_pm_irq_calls = {
+	.irq_pending = msm_irq_pending,
+	.idle_sleep_allowed = msm_irq_idle_sleep_allowed,
+	.enter_sleep1 = msm_irq_enter_sleep1,
+	.enter_sleep2 = msm_irq_enter_sleep2,
+	.exit_sleep1 = msm_irq_exit_sleep1,
+	.exit_sleep2 = msm_irq_exit_sleep2,
+	.exit_sleep3 = msm_irq_exit_sleep3,
+};
+
+void msm_pm_register_irqs(void)
+{
+	msm_pm_set_irq_extns(&msm7x30_pm_irq_calls);
+}
 
 static struct resource smd_resource[] = {
 	{

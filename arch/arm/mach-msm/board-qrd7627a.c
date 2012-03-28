@@ -1323,6 +1323,7 @@ static void __init msm_qrd_init(void)
 #endif
 	msm_pm_init();
 
+	msm_pm_register_irqs();
 	msm_fb_add_devices();
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)

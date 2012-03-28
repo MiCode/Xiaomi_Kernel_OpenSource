@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -33,6 +33,7 @@
 #include <mach/msm_hsusb.h>
 #include <mach/usbdiag.h>
 #include <mach/rpc_hsusb.h>
+#include "pm.h"
 
 static struct resource resources_uart1[] = {
 	{
@@ -431,6 +432,21 @@ struct platform_device msm_device_nand = {
 		.platform_data	= &msm_nand_data,
 	},
 };
+
+static struct msm_pm_irq_calls qsd8x50_pm_irq_calls = {
+	.irq_pending = msm_irq_pending,
+	.idle_sleep_allowed = msm_irq_idle_sleep_allowed,
+	.enter_sleep1 = msm_irq_enter_sleep1,
+	.enter_sleep2 = msm_irq_enter_sleep2,
+	.exit_sleep1 = msm_irq_exit_sleep1,
+	.exit_sleep2 = msm_irq_exit_sleep2,
+	.exit_sleep3 = msm_irq_exit_sleep3,
+};
+
+void msm_pm_register_irqs(void)
+{
+	msm_pm_set_irq_extns(&qsd8x50_pm_irq_calls);
+}
 
 struct platform_device msm_device_smd = {
 	.name	= "msm_smd",

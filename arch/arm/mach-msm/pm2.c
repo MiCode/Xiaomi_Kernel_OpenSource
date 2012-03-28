@@ -155,6 +155,7 @@ static char *msm_pm_sleep_mode_labels[MSM_PM_SLEEP_MODE_NR] = {
 };
 
 static struct msm_pm_platform_data *msm_pm_modes;
+static struct msm_pm_irq_calls *msm_pm_irq_extns;
 
 struct msm_pm_kobj_attribute {
 	unsigned int cpu;
@@ -398,6 +399,19 @@ void __init msm_pm_set_platform_data(
 	msm_pm_modes = data;
 }
 
+void __init msm_pm_set_irq_extns(struct msm_pm_irq_calls *irq_calls)
+{
+	/* sanity check */
+	BUG_ON(irq_calls == NULL || irq_calls->irq_pending == NULL ||
+		irq_calls->idle_sleep_allowed == NULL ||
+		irq_calls->enter_sleep1 == NULL ||
+		irq_calls->enter_sleep2 == NULL ||
+		irq_calls->exit_sleep1 == NULL ||
+		irq_calls->exit_sleep2 == NULL ||
+		irq_calls->exit_sleep3 == NULL);
+
+	msm_pm_irq_extns = irq_calls;
+}
 
 /******************************************************************************
  * Sleep Limitations
@@ -1015,7 +1029,8 @@ static int msm_pm_power_collapse
 		WARN_ON(ret);
 	}
 
-	msm_irq_enter_sleep1(true, from_idle, &msm_pm_smem_data->irq_mask);
+	msm_pm_irq_extns->enter_sleep1(true, from_idle,
+						&msm_pm_smem_data->irq_mask);
 	msm_sirc_enter_sleep();
 	msm_gpio_enter_sleep(from_idle);
 
@@ -1061,7 +1076,7 @@ static int msm_pm_power_collapse
 
 	MSM_PM_DEBUG_PRINT_STATE("msm_pm_power_collapse(): PWRC RSA");
 
-	ret = msm_irq_enter_sleep2(true, from_idle);
+	ret = msm_pm_irq_extns->enter_sleep2(true, from_idle);
 	if (ret < 0) {
 		MSM_PM_DPRINTK(
 			MSM_PM_DEBUG_SUSPEND|MSM_PM_DEBUG_POWER_COLLAPSE,
@@ -1125,7 +1140,7 @@ static int msm_pm_power_collapse
 		printk(KERN_ERR "%s(): failed to restore clock rate(%lu)\n",
 			__func__, saved_acpuclk_rate);
 
-	msm_irq_exit_sleep1(msm_pm_smem_data->irq_mask,
+	msm_pm_irq_extns->exit_sleep1(msm_pm_smem_data->irq_mask,
 		msm_pm_smem_data->wakeup_reason,
 		msm_pm_smem_data->pending_irqs);
 
@@ -1202,10 +1217,10 @@ static int msm_pm_power_collapse
 	MSM_PM_DEBUG_PRINT_STATE("msm_pm_power_collapse(): WFPI RUN");
 	MSM_PM_DEBUG_PRINT_SLEEP_INFO();
 
-	msm_irq_exit_sleep2(msm_pm_smem_data->irq_mask,
+	msm_pm_irq_extns->exit_sleep2(msm_pm_smem_data->irq_mask,
 		msm_pm_smem_data->wakeup_reason,
 		msm_pm_smem_data->pending_irqs);
-	msm_irq_exit_sleep3(msm_pm_smem_data->irq_mask,
+	msm_pm_irq_extns->exit_sleep3(msm_pm_smem_data->irq_mask,
 		msm_pm_smem_data->wakeup_reason,
 		msm_pm_smem_data->pending_irqs);
 	msm_gpio_exit_sleep();
@@ -1438,7 +1453,7 @@ void arch_idle(void)
 #ifdef CONFIG_HAS_WAKELOCK
 		has_wake_lock(WAKE_LOCK_IDLE) ||
 #endif
-		!msm_irq_idle_sleep_allowed()) {
+		!msm_pm_irq_extns->idle_sleep_allowed()) {
 		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = false;
 		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN] = false;
 	}
@@ -1521,7 +1536,7 @@ void arch_idle(void)
 	} else if (allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT]) {
 		ret = msm_pm_swfi(true);
 		if (ret)
-			while (!msm_irq_pending())
+			while (!msm_pm_irq_extns->irq_pending())
 				udelay(1);
 		low_power = 0;
 #ifdef CONFIG_MSM_IDLE_STATS
@@ -1534,7 +1549,7 @@ void arch_idle(void)
 		exit_stat = MSM_PM_STAT_IDLE_WFI;
 #endif
 	} else {
-		while (!msm_irq_pending())
+		while (!msm_pm_irq_extns->irq_pending())
 			udelay(1);
 		low_power = 0;
 #ifdef CONFIG_MSM_IDLE_STATS
@@ -1656,7 +1671,7 @@ static int msm_pm_enter(suspend_state_t state)
 	} else if (allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT]) {
 		ret = msm_pm_swfi(true);
 		if (ret)
-			while (!msm_irq_pending())
+			while (!msm_pm_irq_extns->irq_pending())
 				udelay(1);
 	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
 		msm_pm_swfi(false);
