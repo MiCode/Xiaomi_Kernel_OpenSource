@@ -3221,7 +3221,7 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 		void __iomem *regs)
 {
 	struct ci13xxx *udc;
-	int retval = 0;
+	int retval = 0, i;
 
 	trace("%p, %p, %p", dev, regs, name);
 
@@ -3258,6 +3258,11 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	retval = hw_device_init(regs);
 	if (retval < 0)
 		goto free_udc;
+
+	for (i = 0; i < hw_ep_max; i++) {
+		struct ci13xxx_ep *mEp = &udc->ci13xxx_ep[i];
+		INIT_LIST_HEAD(&mEp->ep.ep_list);
+	}
 
 	udc->transceiver = otg_get_transceiver();
 
