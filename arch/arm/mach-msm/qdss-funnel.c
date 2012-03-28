@@ -19,7 +19,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 
-#include "qdss.h"
+#include "qdss-priv.h"
 
 #define funnel_writel(funnel, id, val, off)	\
 			__raw_writel((val), funnel.base + (SZ_4K * id) + off)
@@ -52,14 +52,13 @@ do {									\
 struct funnel_ctx {
 	void __iomem	*base;
 	bool		enabled;
+	struct mutex	mutex;
 	struct device	*dev;
 	struct kobject	*kobj;
 	uint32_t	priority;
 };
 
-static struct funnel_ctx funnel = {
-	.priority	= 0xFAC680,
-};
+static struct funnel_ctx funnel;
 
 static void __funnel_enable(uint8_t id, uint32_t port_mask)
 {
@@ -79,10 +78,12 @@ static void __funnel_enable(uint8_t id, uint32_t port_mask)
 
 void funnel_enable(uint8_t id, uint32_t port_mask)
 {
+	mutex_lock(&funnel.mutex);
 	__funnel_enable(id, port_mask);
 	funnel.enabled = true;
 	dev_info(funnel.dev, "FUNNEL port mask 0x%lx enabled\n",
 					(unsigned long) port_mask);
+	mutex_unlock(&funnel.mutex);
 }
 
 static void __funnel_disable(uint8_t id, uint32_t port_mask)
@@ -100,10 +101,12 @@ static void __funnel_disable(uint8_t id, uint32_t port_mask)
 
 void funnel_disable(uint8_t id, uint32_t port_mask)
 {
+	mutex_lock(&funnel.mutex);
 	__funnel_disable(id, port_mask);
 	funnel.enabled = false;
 	dev_info(funnel.dev, "FUNNEL port mask 0x%lx disabled\n",
 					(unsigned long) port_mask);
+	mutex_unlock(&funnel.mutex);
 }
 
 #define FUNNEL_ATTR(__name)						\
@@ -181,6 +184,8 @@ static int __devinit funnel_probe(struct platform_device *pdev)
 
 	funnel.dev = &pdev->dev;
 
+	mutex_init(&funnel.mutex);
+
 	funnel_sysfs_init();
 
 	dev_info(funnel.dev, "FUNNEL initialized\n");
@@ -197,6 +202,7 @@ static int funnel_remove(struct platform_device *pdev)
 	if (funnel.enabled)
 		funnel_disable(0x0, 0xFF);
 	funnel_sysfs_exit();
+	mutex_destroy(&funnel.mutex);
 	iounmap(funnel.base);
 
 	return 0;

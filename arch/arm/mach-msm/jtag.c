@@ -16,20 +16,22 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
+#include <linux/export.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <mach/scm.h>
 
-#include "qdss.h"
+#include "qdss-priv.h"
 #include "cp14.h"
 
- /* no of dbg regs + 1 (for storing the reg count) */
+/* no of dbg regs + 1 (for storing the reg count) */
 #define MAX_DBG_REGS		(90)
 #define MAX_DBG_STATE_SIZE	(MAX_DBG_REGS * num_possible_cpus())
- /* no of etm regs + 1 (for storing the reg count) */
+/* no of etm regs + 1 (for storing the reg count) */
 #define MAX_ETM_REGS		(78)
 #define MAX_ETM_STATE_SIZE	(MAX_ETM_REGS * num_possible_cpus())
 
+#define OSLOCK_MAGIC		(0xC5ACCE55)
 #define DBGDSCR_MASK		(0x6C30FC3C)
 #define CPMR_ETMCLKEN		(0x8)
 #define TZ_DBG_ETM_FEAT_ID	(0x8)
@@ -1004,16 +1006,23 @@ static inline void etm_restore_state(int cpu)
 	etm_clk_disable();
 }
 
-/* msm_jtag_save_state and msm_jtag_restore_state should be fast
+/**
+ * msm_jtag_save_state - save debug and etm registers
  *
- * These functions will be called either from:
- * 1. per_cpu idle thread context for idle power collapses.
- * 2. per_cpu idle thread context for hotplug/suspend power collapse for
- *    nonboot cpus.
- * 3. suspend thread context for core0.
+ * Debug and etm registers are saved before power collapse if debug
+ * and etm architecture is supported respectively and TZ isn't supporting
+ * the save and restore of debug and etm registers.
  *
- * In all cases we are guaranteed to be running on the same cpu for the
- * entire duration.
+ * CONTEXT:
+ * Called with preemption off and interrupts locked from:
+ * 1. per_cpu idle thread context for idle power collapses
+ * or
+ * 2. per_cpu idle thread context for hotplug/suspend power collapse
+ *    for nonboot cpus
+ * or
+ * 3. suspend thread context for suspend power collapse for core0
+ *
+ * In all cases we will run on the same cpu for the entire duration.
  */
 void msm_jtag_save_state(void)
 {
@@ -1030,7 +1039,26 @@ void msm_jtag_save_state(void)
 	if (etm.save_restore_enabled)
 		etm_save_state(cpu);
 }
+EXPORT_SYMBOL(msm_jtag_save_state);
 
+/**
+ * msm_jtag_restore_state - restore debug and etm registers
+ *
+ * Debug and etm registers are restored after power collapse if debug
+ * and etm architecture is supported respectively and TZ isn't supporting
+ * the save and restore of debug and etm registers.
+ *
+ * CONTEXT:
+ * Called with preemption off and interrupts locked from:
+ * 1. per_cpu idle thread context for idle power collapses
+ * or
+ * 2. per_cpu idle thread context for hotplug/suspend power collapse
+ *    for nonboot cpus
+ * or
+ * 3. suspend thread context for suspend power collapse for core0
+ *
+ * In all cases we will run on the same cpu for the entire duration.
+ */
 void msm_jtag_restore_state(void)
 {
 	int cpu;
@@ -1046,6 +1074,7 @@ void msm_jtag_restore_state(void)
 	if (etm.save_restore_enabled)
 		etm_restore_state(cpu);
 }
+EXPORT_SYMBOL(msm_jtag_restore_state);
 
 static int __init msm_jtag_dbg_init(void)
 {

@@ -18,7 +18,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 
-#include "qdss.h"
+#include "qdss-priv.h"
 
 #define tpiu_writel(tpiu, val, off)	__raw_writel((val), tpiu.base + off)
 #define tpiu_readl(tpiu, off)		__raw_readl(tpiu.base + off)
