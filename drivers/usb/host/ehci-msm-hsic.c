@@ -83,7 +83,7 @@ static int msm_hsic_init_vddcx(struct msm_hsic_hcd *mehci, int init)
 	if (!init)
 		goto disable_reg;
 
-	mehci->hsic_vddcx = regulator_get(mehci->dev, "HSIC_VDDCX");
+	mehci->hsic_vddcx = devm_regulator_get(mehci->dev, "HSIC_VDDCX");
 	if (IS_ERR(mehci->hsic_vddcx)) {
 		dev_err(mehci->dev, "unable to get hsic vddcx\n");
 		return PTR_ERR(mehci->hsic_vddcx);
@@ -95,7 +95,7 @@ static int msm_hsic_init_vddcx(struct msm_hsic_hcd *mehci, int init)
 	if (ret) {
 		dev_err(mehci->dev, "unable to set the voltage"
 				"for hsic vddcx\n");
-		goto reg_set_voltage_err;
+		return ret;
 	}
 
 	ret = regulator_set_optimum_mode(mehci->hsic_vddcx,
@@ -121,9 +121,6 @@ reg_enable_err:
 reg_optimum_mode_err:
 	regulator_set_voltage(mehci->hsic_vddcx, 0,
 				USB_PHY_VDD_DIG_VOL_MIN);
-reg_set_voltage_err:
-	regulator_put(mehci->hsic_vddcx);
-
 	return ret;
 
 }
@@ -170,7 +167,7 @@ static int msm_hsic_config_hub(struct msm_hsic_hcd *mehci, int init)
 	if (!init)
 		goto disable_reg;
 
-	hsic_hub_reg = regulator_get(mehci->dev, "EXT_HUB_VDDIO");
+	hsic_hub_reg = devm_regulator_get(mehci->dev, "EXT_HUB_VDDIO");
 	if (IS_ERR(hsic_hub_reg)) {
 		dev_err(mehci->dev, "unable to get ext hub vddcx\n");
 		return PTR_ERR(hsic_hub_reg);
@@ -180,7 +177,7 @@ static int msm_hsic_config_hub(struct msm_hsic_hcd *mehci, int init)
 	if (ret < 0) {
 		dev_err(mehci->dev, "gpio request failed for GPIO%d\n",
 							pdata->hub_reset);
-		goto gpio_req_fail;
+		return ret;
 	}
 
 	ret = regulator_set_voltage(hsic_hub_reg,
@@ -222,8 +219,6 @@ reg_optimum_mode_fail:
 				HSIC_HUB_VDD_VOL_MIN);
 reg_set_voltage_fail:
 	gpio_free(pdata->hub_reset);
-gpio_req_fail:
-	regulator_put(hsic_hub_reg);
 
 	return ret;
 
