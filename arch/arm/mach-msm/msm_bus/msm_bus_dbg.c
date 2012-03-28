@@ -550,7 +550,7 @@ static int msm_bus_dbg_fill_fab_buffer(const char *fabname,
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n%d.%d\n",
 		(int)ts.tv_sec, (int)ts.tv_nsec);
 
-	msm_bus_rpm_fill_cdata_buffer(&i, buf + i, MAX_BUFF_SIZE, cdata,
+	msm_bus_rpm_fill_cdata_buffer(&i, buf, MAX_BUFF_SIZE, cdata,
 		nmasters, nslaves, ntslaves);
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n");
 	mutex_lock(&msm_bus_dbg_fablist_lock);
