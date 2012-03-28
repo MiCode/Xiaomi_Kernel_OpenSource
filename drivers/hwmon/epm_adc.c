@@ -10,9 +10,9 @@
  * GNU General Public License for more details.
  */
 
-
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/fs.h>
 #include <linux/mutex.h>
 #include <linux/err.h>
 #include <linux/slab.h>
@@ -20,8 +20,10 @@
 #include <linux/hwmon.h>
 #include <linux/delay.h>
 #include <linux/epm_adc.h>
+#include <linux/uaccess.h>
 #include <linux/spi/spi.h>
 #include <linux/hwmon-sysfs.h>
+#include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 
 #define EPM_ADC_DRIVER_NAME		"epm_adc"
@@ -73,12 +75,14 @@ struct epm_adc_drv {
 	struct spi_device		*epm_spi_client;
 	struct mutex			conv_lock;
 	uint32_t			bus_id;
+	struct miscdevice		misc;
 };
 
 static struct epm_adc_drv *epm_adc_drv;
 static struct i2c_board_info *epm_i2c_info;
 static bool epm_adc_first_request;
 static int epm_gpio_expander_base_addr;
+static bool epm_adc_expander_register;
 
 #define GPIO_EPM_EXPANDER_IO0	epm_gpio_expander_base_addr
 #define GPIO_PWR_MON_ENABLE	(GPIO_EPM_EXPANDER_IO0 + 1)
@@ -605,6 +609,73 @@ conv_err:
 	return rc;
 }
 
+static long epm_adc_ioctl(struct file *file, unsigned int cmd,
+						unsigned long arg)
+{
+	struct epm_adc_drv *epm_adc = epm_adc_drv;
+
+	switch (cmd) {
+	case EPM_ADC_REQUEST:
+		{
+			struct epm_chan_request conv;
+			int rc;
+
+			if (copy_from_user(&conv, (void __user *)arg,
+					sizeof(struct epm_chan_request)))
+				return -EFAULT;
+
+			rc = epm_adc_blocking_conversion(epm_adc, &conv);
+			if (rc) {
+				pr_err("Failed EPM conversion:%d\n", rc);
+				return rc;
+			}
+
+			if (copy_to_user((void __user *)arg, &conv,
+				sizeof(struct epm_chan_request)))
+				return -EFAULT;
+			break;
+		}
+	case EPM_ADC_INIT:
+		{
+			uint32_t result;
+			if (!epm_adc_expander_register) {
+				result = epm_adc_i2c_expander_register();
+				if (result) {
+					pr_err("Failed i2c register:%d\n",
+								result);
+					return result;
+				}
+				epm_adc_expander_register = true;
+			}
+
+			result = epm_adc_hw_init(epm_adc_drv);
+
+			if (copy_to_user((void __user *)arg, &result,
+						sizeof(uint32_t)))
+				return -EFAULT;
+			break;
+		}
+	case EPM_ADC_DEINIT:
+		{
+			uint32_t result;
+			result = epm_adc_hw_deinit(epm_adc_drv);
+
+			if (copy_to_user((void __user *)arg, &result,
+						sizeof(uint32_t)))
+				return -EFAULT;
+			break;
+		}
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+const struct file_operations epm_adc_fops = {
+	.unlocked_ioctl = epm_adc_ioctl,
+};
+
 static ssize_t epm_adc_show_in(struct device *dev,
 				 struct device_attribute *devattr, char *buf)
 {
@@ -619,6 +690,15 @@ static ssize_t epm_adc_show_in(struct device *dev,
 	conv.physical = 0;
 	pr_debug("%s: device_idx=%d channel_idx=%d", __func__, conv.device_idx,
 			conv.channel_idx);
+	if (!epm_adc_expander_register) {
+		rc = epm_adc_i2c_expander_register();
+		if (rc) {
+			pr_err("I2C expander register failed:%d\n", rc);
+			return rc;
+		}
+		epm_adc_expander_register = true;
+	}
+
 	rc = epm_adc_hw_init(epm_adc);
 	if (rc) {
 		pr_err("%s: epm_adc_hw_init() failed, rc = %d",
@@ -746,15 +826,26 @@ static int epm_adc_probe(struct platform_device *pdev)
 	epm_adc_drv = epm_adc;
 	epm_adc->pdev = pdev;
 
+	epm_adc->misc.name = EPM_ADC_DRIVER_NAME;
+	epm_adc->misc.minor = MISC_DYNAMIC_MINOR;
+	epm_adc->misc.fops = &epm_adc_fops;
+
+	if (misc_register(&epm_adc->misc)) {
+		dev_err(&pdev->dev, "Unable to register misc device!\n");
+		return -EFAULT;
+	}
+
 	rc = epm_adc_init_hwmon(pdev, epm_adc);
 	if (rc) {
 		dev_err(&pdev->dev, "msm_adc_dev_init failed\n");
+		misc_deregister(&epm_adc->misc);
 		return rc;
 	}
 
 	epm_adc->hwmon = hwmon_device_register(&pdev->dev);
 	if (IS_ERR(epm_adc->hwmon)) {
 		dev_err(&pdev->dev, "hwmon_device_register failed\n");
+		misc_deregister(&epm_adc->misc);
 		rc = PTR_ERR(epm_adc->hwmon);
 		return rc;
 	}
@@ -763,9 +854,7 @@ static int epm_adc_probe(struct platform_device *pdev)
 	epm_i2c_info = &pdata->epm_i2c_board_info;
 	epm_adc->bus_id = pdata->bus_id;
 	epm_gpio_expander_base_addr = pdata->gpio_expander_base_addr;
-	rc = epm_adc_i2c_expander_register();
-	if (rc)
-		pr_err("EPM ADC i2c register failed\n");
+	epm_adc_expander_register = false;
 	return rc;
 }
 
@@ -781,6 +870,7 @@ static int __devexit epm_adc_remove(struct platform_device *pdev)
 			device_remove_file(&pdev->dev,
 					&epm_adc->sens_attr[i].dev_attr);
 	hwmon_device_unregister(epm_adc->hwmon);
+	misc_deregister(&epm_adc->misc);
 	epm_adc = NULL;
 
 	return 0;
