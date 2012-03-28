@@ -64,6 +64,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
+#include <linux/usb/msm_hsusb.h>
 
 #include "ci13xxx_udc.h"
 
@@ -1676,7 +1677,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
 		if (mReq->req.udc_priv & MSM_SPS_MODE) {
 			mReq->ptr->token = TD_STATUS_ACTIVE;
-			if (mReq->req.udc_priv & MSM_TBE)
+			if (mReq->req.udc_priv & MSM_IS_FINITE_TRANSFER)
 				mReq->ptr->next = TD_TERMINATE;
 			else
 				mReq->ptr->next = MSM_ETD_TYPE | mReq->dma;
@@ -1794,7 +1795,7 @@ static int _hardware_dequeue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 
 	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID)
 		if ((mReq->req.udc_priv & MSM_SPS_MODE) &&
-			(mReq->req.udc_priv & MSM_TBE))
+			(mReq->req.udc_priv & MSM_IS_FINITE_TRANSFER))
 			return -EBUSY;
 	if (mReq->zptr) {
 		if ((TD_STATUS_ACTIVE & mReq->zptr->token) != 0)

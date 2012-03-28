@@ -30,15 +30,8 @@
  */
 #define CI13XX_REQ_VENDOR_ID(id)  (id & 0xFFFF0000UL)
 
-/* MSM specific */
-#define MSM_PIPE_ID_MASK         (0x1F)
-#define MSM_TX_PIPE_ID_OFS       (16)
-#define MSM_SPS_MODE             BIT(5)
-#define MSM_TBE                  BIT(6)
-#define MSM_ETD_TYPE             BIT(1)
-#define MSM_ETD_IOC              BIT(9)
-#define MSM_VENDOR_ID            BIT(16)
-#define MSM_EP_PIPE_ID_RESET_VAL 0x1F001F
+#define MSM_ETD_TYPE			BIT(1)
+#define MSM_EP_PIPE_ID_RESET_VAL	0x1F001F
 
 /******************************************************************************
  * STRUCTURES
