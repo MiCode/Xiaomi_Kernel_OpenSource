@@ -160,11 +160,11 @@ static const struct {
 		"a225_pm4.fw", "a225_pfp.fw", &adreno_a2xx_gpudev,
 		1536, 768, 3, SZ_512K },
 	/* A3XX doesn't use the pix_shader_start */
-	{ ADRENO_REV_A305, 3, 1, ANY_ID, ANY_ID,
+	{ ADRENO_REV_A305, 3, 0, 5, 0,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_256K },
 	/* A3XX doesn't use the pix_shader_start */
-	{ ADRENO_REV_A320, 3, 1, ANY_ID, ANY_ID,
+	{ ADRENO_REV_A320, 3, 2, 0, 0,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_512K },
 
@@ -358,26 +358,29 @@ static void adreno_setstate(struct kgsl_device *device,
 static unsigned int
 a3xx_getchipid(struct kgsl_device *device)
 {
-	unsigned int chipid = 0;
-	unsigned int coreid, majorid, minorid, patchid;
-	unsigned int version;
+	unsigned int majorid, minorid, patchid;
 
-	adreno_regread(device, A3XX_RBBM_HW_VERSION, &version);
+	/*
+	 * We could detect the chipID from the hardware but it takes multiple
+	 * registers to find the right combination. Since we traffic exclusively
+	 * in system on chips, we can be (mostly) confident that a SOC version
+	 * will match a GPU (at this juncture at least).  So do the lazy/quick
+	 * thing and set the chip_id based on the SoC
+	 */
 
-	coreid = 0x03;
+	if (cpu_is_apq8064()) {
+		/* A320 */
+		majorid = 2;
+		minorid = 0;
+		patchid = 0;
+	} else if (cpu_is_msm8930()) {
+		/* A305 */
+		majorid = 0;
+		minorid = 5;
+		patchid = 0;
+	}
 
-	/* Version might not be set - if it isn't, assume this is 320 */
-	if (version)
-		majorid = version & 0x0F;
-	else
-		majorid = 1;
-
-	minorid = (version >> 4) & 0xFFF;
-	patchid = 0;
-
-	chipid = (coreid << 24) | (majorid << 16) | (minorid << 8) | patchid;
-
-	return chipid;
+	return (0x03 << 24) | (majorid << 16) | (minorid << 8) | patchid;
 }
 
 static unsigned int
