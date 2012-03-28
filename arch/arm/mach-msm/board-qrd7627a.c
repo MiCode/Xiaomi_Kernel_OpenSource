@@ -1232,18 +1232,20 @@ static void __init msm_add_footswitch_devices(void)
 
 static void add_platform_devices(void)
 {
-	if (machine_is_msm8625_evb()) {
+	if (machine_is_msm8625_evb() || machine_is_msm8625_qrd7()) {
 		platform_add_devices(msm8625_evb_devices,
 				ARRAY_SIZE(msm8625_evb_devices));
 		platform_add_devices(qrd3_devices,
-					ARRAY_SIZE(qrd3_devices));
+				ARRAY_SIZE(qrd3_devices));
 	} else {
 		platform_add_devices(qrd7627a_devices,
 				ARRAY_SIZE(qrd7627a_devices));
-		if (machine_is_msm7627a_qrd3())
-			platform_add_devices(qrd3_devices,
-					ARRAY_SIZE(qrd3_devices));
 	}
+
+	if (machine_is_msm7627a_qrd3())
+		platform_add_devices(qrd3_devices,
+			ARRAY_SIZE(qrd3_devices));
+
 	platform_add_devices(common_devices,
 			ARRAY_SIZE(common_devices));
 }
@@ -1276,6 +1278,23 @@ static void __init qrd7627a_otg_gadget(void)
 	}
 }
 
+static void __init msm_pm_init(void)
+{
+	if (machine_is_msm8625_qrd7())
+		return;
+
+	if (!machine_is_msm8625_evb()) {
+		msm_pm_set_platform_data(msm7627a_pm_data,
+				ARRAY_SIZE(msm7627a_pm_data));
+		BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	} else {
+		msm_pm_set_platform_data(msm8625_pm_data,
+				ARRAY_SIZE(msm8625_pm_data));
+		BUG_ON(msm_pm_boot_init(&msm_pm_8625_boot_pdata));
+		msm8x25_spm_device_init();
+	}
+}
+
 static void __init msm_qrd_init(void)
 {
 	msm7x2x_misc_init();
@@ -1302,16 +1321,7 @@ static void __init msm_qrd_init(void)
 #ifdef CONFIG_USB_EHCI_MSM_72K
 	msm7627a_init_host();
 #endif
-	if (!machine_is_msm8625_evb()) {
-		msm_pm_set_platform_data(msm7627a_pm_data,
-				ARRAY_SIZE(msm7627a_pm_data));
-		BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
-	} else {
-		msm_pm_set_platform_data(msm8625_pm_data,
-				ARRAY_SIZE(msm8625_pm_data));
-		BUG_ON(msm_pm_boot_init(&msm_pm_8625_boot_pdata));
-		msm8x25_spm_device_init();
-	}
+	msm_pm_init();
 
 	msm_fb_add_devices();
 
@@ -1363,6 +1373,16 @@ MACHINE_START(MSM8625_EVB, "QRD MSM8625 EVB")
 	.boot_params	= PHYS_OFFSET + 0x100,
 	.map_io		= msm8625_map_io,
 	.reserve	= msm8625_reserve,
+	.init_irq	= msm8625_init_irq,
+	.init_machine	= msm_qrd_init,
+	.timer		= &msm_timer,
+	.init_early	= qrd7627a_init_early,
+	.handle_irq	= gic_handle_irq,
+MACHINE_END
+MACHINE_START(MSM8625_QRD7, "QRD MSM8625 QRD7")
+	.boot_params	= PHYS_OFFSET + 0x100,
+	.map_io		= msm8625_map_io,
+	.reserve	= msm7627a_reserve,
 	.init_irq	= msm8625_init_irq,
 	.init_machine	= msm_qrd_init,
 	.timer		= &msm_timer,
