@@ -950,7 +950,7 @@ static void __init msm8625_reserve(void)
 {
 	msm7x27a_reserve();
 	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
-	msm_pm_8625_boot_pdata.p_addr = memblock_alloc(SZ_16, SZ_64K);
+	memblock_remove(MSM8625_WARM_BOOT_PHYS, SZ_32);
 }
 
 static void __init msm7x27a_device_i2c_init(void)

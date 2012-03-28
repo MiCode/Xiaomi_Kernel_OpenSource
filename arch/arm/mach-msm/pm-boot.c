@@ -102,6 +102,7 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 {
 	int ret = 0;
 	unsigned long entry;
+	void __iomem *warm_boot_ptr;
 
 	switch (pdata->mode) {
 	case MSM_PM_BOOT_CONFIG_TZ:
@@ -124,16 +125,17 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			= msm_pm_config_rst_vector_after_pc;
 		break;
 	case MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR:
-		/*
-		 * Set the boot remap address and enable remapping of
-		 * reset vector
-		 */
-		if (!pdata->p_addr || !pdata->v_addr)
-			return -ENODEV;
-
-		ret = msm_pm_boot_reset_vector_init(__va(pdata->p_addr));
-
 		if (!cpu_is_msm8625()) {
+			/*
+			 * Set the boot remap address and enable remapping of
+			 * reset vector
+			 */
+			if (!pdata->p_addr || !pdata->v_addr)
+				return -ENODEV;
+
+			ret = msm_pm_boot_reset_vector_init(
+							__va(pdata->p_addr));
+
 			__raw_writel((pdata->p_addr | BOOT_REMAP_ENABLE),
 					pdata->v_addr);
 
@@ -142,6 +144,10 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			msm_pm_boot_after_pc
 				= msm_pm_config_rst_vector_after_pc;
 		} else {
+			warm_boot_ptr = ioremap_nocache(
+						MSM8625_WARM_BOOT_PHYS, SZ_64);
+			ret = msm_pm_boot_reset_vector_init(warm_boot_ptr);
+
 			entry = virt_to_phys(msm_pm_boot_entry);
 
 			/* Below sequence is a work around for cores
@@ -159,8 +165,8 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			/* Here upper 16bits[16:31] used by CORE1
 			 * lower 16bits[0:15] used by CORE0
 			 */
-			entry = (pdata->p_addr) |
-					((pdata->p_addr & 0xFFFF0000) >> 16);
+			entry = (MSM8625_WARM_BOOT_PHYS |
+				((MSM8625_WARM_BOOT_PHYS & 0xFFFF0000) >> 16));
 
 			/* write 'entry' to boot remapper register */
 			__raw_writel(entry, (pdata->v_addr +
