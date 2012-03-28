@@ -2710,6 +2710,12 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 	return 0;
 }
 
+static int is_sps_req(struct ci13xxx_req *mReq)
+{
+	return (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID &&
+			mReq->req.udc_priv & MSM_SPS_MODE);
+}
+
 /**
  * ep_set_halt: sets the endpoint halt feature
  *
@@ -2731,7 +2737,9 @@ static int ep_set_halt(struct usb_ep *ep, int value)
 #ifndef STALL_IN
 	/* g_file_storage MS compliant but g_zero fails chapter 9 compliance */
 	if (value && mEp->type == USB_ENDPOINT_XFER_BULK && mEp->dir == TX &&
-	    !list_empty(&mEp->qh.queue)) {
+		!list_empty(&mEp->qh.queue) &&
+		!is_sps_req(list_entry(mEp->qh.queue.next, struct ci13xxx_req,
+							   queue))){
 		spin_unlock_irqrestore(mEp->lock, flags);
 		return -EAGAIN;
 	}
