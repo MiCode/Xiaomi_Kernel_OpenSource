@@ -445,6 +445,12 @@ static int __devexit dwc3_remove(struct platform_device *pdev)
 
 static const struct platform_device_id dwc3_id_table[] __devinitconst = {
 	{
+		.name	= "dwc3-msm",
+		.driver_data = (DWC3_HAS_PERIPHERAL
+			| DWC3_HAS_XHCI
+			| DWC3_HAS_OTG),
+	},
+	{
 		.name	= "dwc3-omap",
 		.driver_data = (DWC3_HAS_PERIPHERAL
 			| DWC3_HAS_XHCI
