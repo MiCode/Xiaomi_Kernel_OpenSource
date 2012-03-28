@@ -61,7 +61,7 @@ struct vsg_context {
 	/* All time related values below in nanosecs */
 	int64_t frame_interval, max_frame_interval;
 	struct workqueue_struct *work_queue;
-	struct timer_list threshold_timer;
+	struct hrtimer threshold_timer;
 	struct mutex mutex;
 	struct vsg_buf_info *last_buffer, *regen_buffer;
 	bool send_regen_buffer;

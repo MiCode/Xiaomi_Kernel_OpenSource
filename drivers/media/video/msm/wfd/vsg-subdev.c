@@ -119,8 +119,8 @@ static void vsg_work_func(struct work_struct *task)
 	INIT_LIST_HEAD(&buf_info->node);
 
 	ktime_get_ts(&buf_info->time);
-	mod_timer(&context->threshold_timer, jiffies +
-			nsecs_to_jiffies(context->max_frame_interval));
+	hrtimer_forward_now(&context->threshold_timer, ns_to_ktime(
+				context->max_frame_interval));
 
 	list_for_each_entry(temp, &context->busy_queue.node, node) {
 		if (mdp_buf_info_equals(&temp->mdp_buf_info,
@@ -250,11 +250,14 @@ err_locked:
 	kfree(work);
 }
 
-static void vsg_threshold_timeout_func(unsigned long data)
+static enum hrtimer_restart vsg_threshold_timeout_func(struct hrtimer *timer)
 {
-	struct vsg_context *context = (struct vsg_context *)data;
-	struct vsg_work *task = kzalloc(sizeof(*task), GFP_ATOMIC);
+	struct vsg_context *context = NULL;
+	struct vsg_work *task = NULL;
 
+	task = kzalloc(sizeof(*task), GFP_ATOMIC);
+	context = container_of(timer, struct vsg_context,
+			threshold_timer);
 	if (!task) {
 		WFD_MSG_ERR("Out of memory in %s", __func__);
 		goto threshold_err_bad_param;
@@ -263,15 +266,14 @@ static void vsg_threshold_timeout_func(unsigned long data)
 		goto threshold_err_bad_param;
 	}
 
-	mod_timer(&context->threshold_timer, jiffies +
-			nsecs_to_jiffies(context->max_frame_interval));
-
 	INIT_WORK(&task->work, vsg_timer_helper_func);
 	task->context = context;
 
 	queue_work(context->work_queue, &task->work);
 threshold_err_bad_param:
-	return;
+	hrtimer_forward_now(&context->threshold_timer, ns_to_ktime(
+				context->max_frame_interval));
+	return HRTIMER_RESTART;
 }
 
 int vsg_init(struct v4l2_subdev *sd, u32 val)
@@ -296,10 +298,9 @@ static int vsg_open(struct v4l2_subdev *sd, void *arg)
 	context->frame_interval = DEFAULT_FRAME_INTERVAL;
 	context->max_frame_interval = DEFAULT_MAX_FRAME_INTERVAL;
 
-	context->threshold_timer = (struct timer_list)
-		TIMER_INITIALIZER(vsg_threshold_timeout_func,
-				context->max_frame_interval,
-				(unsigned long)context);
+	hrtimer_init(&context->threshold_timer, CLOCK_MONOTONIC,
+			HRTIMER_MODE_REL);
+	context->threshold_timer.function = vsg_threshold_timeout_func;
 
 	context->last_buffer = context->regen_buffer = NULL;
 	context->send_regen_buffer = false;
@@ -345,8 +346,8 @@ static int vsg_start(struct v4l2_subdev *sd)
 	}
 
 	context->state = VSG_STATE_STARTED;
-	mod_timer(&context->threshold_timer, jiffies +
-			nsecs_to_jiffies(context->max_frame_interval));
+	hrtimer_start(&context->threshold_timer, ns_to_ktime(context->
+			max_frame_interval), HRTIMER_MODE_REL);
 	return 0;
 }
 
@@ -373,7 +374,7 @@ static int vsg_stop(struct v4l2_subdev *sd)
 		}
 	}
 
-	del_timer_sync(&context->threshold_timer);
+	hrtimer_cancel(&context->threshold_timer);
 
 	mutex_unlock(&context->mutex);
 
