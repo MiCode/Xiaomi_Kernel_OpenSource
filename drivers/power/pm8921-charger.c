@@ -2249,7 +2249,7 @@ static irqreturn_t loop_change_irq_handler(int irq, void *data)
 	pr_debug("fsm_state=%d reg_loop=0x%x\n",
 		pm_chg_get_fsm_state(data),
 		pm_chg_get_regulation_loop(data));
-	unplug_check_worker(&(chip->unplug_check_work.work));
+	schedule_work(&chip->unplug_check_work.work);
 	return IRQ_HANDLED;
 }
 
