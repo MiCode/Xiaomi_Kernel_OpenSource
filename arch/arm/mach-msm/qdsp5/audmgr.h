@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/qdsp5/audmgr.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -253,6 +253,20 @@ int audpp_dsp_set_eq(unsigned id, unsigned enable,
 			audpp_cmd_cfg_object_params_eqalizer *eq);
 int audpp_dsp_set_rx_iir(unsigned id, unsigned enable,
 				audpp_cmd_cfg_object_params_pcm *iir);
+
+int audpp_dsp_set_rx_srs_trumedia_g
+	(struct audpp_cmd_cfg_object_params_srstm_g *srstm);
+int audpp_dsp_set_rx_srs_trumedia_w
+	(struct audpp_cmd_cfg_object_params_srstm_w *srstm);
+int audpp_dsp_set_rx_srs_trumedia_c
+	(struct audpp_cmd_cfg_object_params_srstm_c *srstm);
+int audpp_dsp_set_rx_srs_trumedia_h
+	(struct audpp_cmd_cfg_object_params_srstm_h *srstm);
+int audpp_dsp_set_rx_srs_trumedia_p
+	(struct audpp_cmd_cfg_object_params_srstm_p *srstm);
+int audpp_dsp_set_rx_srs_trumedia_l
+	(struct audpp_cmd_cfg_object_params_srstm_l *srstm);
+
 int audpp_dsp_set_vol_pan(unsigned id,
 				audpp_cmd_cfg_object_params_volume *vol_pan);
 int audpp_dsp_set_qconcert_plus(unsigned id, unsigned enable,

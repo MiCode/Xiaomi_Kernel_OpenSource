@@ -71,6 +71,14 @@ static DEFINE_MUTEX(audpp_dec_lock);
 #define AUDPP_CLNT_MAX_COUNT 6
 #define AUDPP_AVSYNC_INFO_SIZE 7
 
+#define AUDPP_SRS_PARAMS 2
+#define AUDPP_SRS_PARAMS_G 0
+#define AUDPP_SRS_PARAMS_W 1
+#define AUDPP_SRS_PARAMS_C 2
+#define AUDPP_SRS_PARAMS_H 3
+#define AUDPP_SRS_PARAMS_P 4
+#define AUDPP_SRS_PARAMS_L 5
+
 #define AUDPP_CMD_CFG_OBJ_UPDATE 0x8000
 #define AUDPP_CMD_EQ_FLAG_DIS	0x0000
 #define AUDPP_CMD_EQ_FLAG_ENA	-1
@@ -603,6 +611,108 @@ int audpp_dsp_set_rx_iir(unsigned id, unsigned enable,
 	return audpp_send_queue3(&cmd, sizeof(cmd));
 }
 EXPORT_SYMBOL(audpp_dsp_set_rx_iir);
+
+int audpp_dsp_set_rx_srs_trumedia_g(
+	struct audpp_cmd_cfg_object_params_srstm_g *srstm)
+{
+	struct audpp_cmd_cfg_object_params_srstm_g cmd;
+
+	MM_DBG("%s\n", __func__);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.common.cmd_id = AUDPP_SRS_PARAMS;
+	cmd.common.comman_cfg = AUDPP_CMD_CFG_OBJ_UPDATE;
+	cmd.common.command_type = AUDPP_SRS_PARAMS_G;
+
+	memcpy(cmd.v, srstm->v, sizeof(srstm->v));
+
+	return audpp_send_queue3(&cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(audpp_dsp_set_rx_srs_trumedia_g);
+
+int audpp_dsp_set_rx_srs_trumedia_w(
+	struct audpp_cmd_cfg_object_params_srstm_w *srstm)
+{
+	struct audpp_cmd_cfg_object_params_srstm_w cmd;
+
+	MM_DBG("%s\n", __func__);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.common.cmd_id = AUDPP_SRS_PARAMS;
+	cmd.common.comman_cfg = AUDPP_CMD_CFG_OBJ_UPDATE;
+	cmd.common.command_type = AUDPP_SRS_PARAMS_W;
+
+	memcpy(cmd.v, srstm->v, sizeof(srstm->v));
+
+	return audpp_send_queue3(&cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(audpp_dsp_set_rx_srs_trumedia_w);
+
+int audpp_dsp_set_rx_srs_trumedia_c(
+	struct audpp_cmd_cfg_object_params_srstm_c *srstm)
+{
+	struct audpp_cmd_cfg_object_params_srstm_c cmd;
+
+	MM_DBG("%s\n", __func__);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.common.cmd_id = AUDPP_SRS_PARAMS;
+	cmd.common.comman_cfg = AUDPP_CMD_CFG_OBJ_UPDATE;
+	cmd.common.command_type = AUDPP_SRS_PARAMS_C;
+
+	memcpy(cmd.v, srstm->v, sizeof(srstm->v));
+
+	return audpp_send_queue3(&cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(audpp_dsp_set_rx_srs_trumedia_c);
+
+int audpp_dsp_set_rx_srs_trumedia_h(
+	struct audpp_cmd_cfg_object_params_srstm_h *srstm)
+{
+	struct audpp_cmd_cfg_object_params_srstm_h cmd;
+
+	MM_DBG("%s\n", __func__);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.common.cmd_id = AUDPP_SRS_PARAMS;
+	cmd.common.comman_cfg = AUDPP_CMD_CFG_OBJ_UPDATE;
+	cmd.common.command_type = AUDPP_SRS_PARAMS_H;
+
+	memcpy(cmd.v, srstm->v, sizeof(srstm->v));
+
+	return audpp_send_queue3(&cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(audpp_dsp_set_rx_srs_trumedia_h);
+
+int audpp_dsp_set_rx_srs_trumedia_p(
+	struct audpp_cmd_cfg_object_params_srstm_p *srstm)
+{
+	struct audpp_cmd_cfg_object_params_srstm_p cmd;
+
+	MM_DBG("%s\n", __func__);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.common.cmd_id = AUDPP_SRS_PARAMS;
+	cmd.common.comman_cfg = AUDPP_CMD_CFG_OBJ_UPDATE;
+	cmd.common.command_type = AUDPP_SRS_PARAMS_P;
+
+	memcpy(cmd.v, srstm->v, sizeof(srstm->v));
+
+	return audpp_send_queue3(&cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(audpp_dsp_set_rx_srs_trumedia_p);
+
+int audpp_dsp_set_rx_srs_trumedia_l(
+	struct audpp_cmd_cfg_object_params_srstm_l *srstm)
+{
+	struct audpp_cmd_cfg_object_params_srstm_l cmd;
+
+	MM_DBG("%s\n", __func__);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.common.cmd_id = AUDPP_SRS_PARAMS;
+	cmd.common.comman_cfg = AUDPP_CMD_CFG_OBJ_UPDATE;
+	cmd.common.command_type = AUDPP_SRS_PARAMS_L;
+
+	memcpy(cmd.v, srstm->v, sizeof(srstm->v));
+
+	return audpp_send_queue3(&cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(audpp_dsp_set_rx_srs_trumedia_l);
 
 /* Implementation Of COPP + POPP */
 int audpp_dsp_set_eq(unsigned id, unsigned enable,
