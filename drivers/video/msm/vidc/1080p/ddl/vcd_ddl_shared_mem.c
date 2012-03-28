@@ -184,6 +184,14 @@
 #define VIDC_SM_METADATA_ENABLE_QP_BMSK              0x1
 #define VIDC_SM_METADATA_ENABLE_QP_SHFT              0
 
+#define VIDC_SM_ASPECT_RATIO_INFO_ADDR               0x00c8
+#define VIDC_SM_MPEG4_ASPECT_RATIO_INFO_BMSK         0xf
+#define VIDC_SM_MPEG4_ASPECT_RATIO_INFO_SHFT         0x0
+#define VIDC_SM_EXTENDED_PAR_ADDR                    0x00cc
+#define VIDC_SM_EXTENDED_PAR_WIDTH_BMSK              0xffff0000
+#define VIDC_SM_EXTENDED_PAR_WIDTH_SHFT              0xf
+#define VIDC_SM_EXTENDED_PAR_HEIGHT_BMSK             0x0000ffff
+#define VIDC_SM_EXTENDED_PAR_HEIGHT_SHFT             0x0
 
 #define VIDC_SM_METADATA_STATUS_ADDR         0x003c
 #define VIDC_SM_METADATA_STATUS_STATUS_BMSK  0x1
@@ -769,4 +777,25 @@ void vidc_sm_set_decoder_stuff_bytes_consumption(
 {
 	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_NUM_STUFF_BYTES_CONSUME_ADDR,
 	consume_info);
+}
+
+void vidc_sm_get_aspect_ratio_info(struct ddl_buf_addr *shared_mem,
+	struct vcd_aspect_ratio *aspect_ratio_info)
+{
+	u32 extended_par_info = 0;
+	aspect_ratio_info->aspect_ratio = DDL_MEM_READ_32(shared_mem,
+				VIDC_SM_ASPECT_RATIO_INFO_ADDR);
+
+	if (aspect_ratio_info->aspect_ratio == 0x0f) {
+		extended_par_info = DDL_MEM_READ_32(shared_mem,
+			VIDC_SM_EXTENDED_PAR_ADDR);
+		aspect_ratio_info->extended_par_width =
+			VIDC_GETFIELD(extended_par_info,
+			VIDC_SM_EXTENDED_PAR_WIDTH_BMSK,
+			VIDC_SM_EXTENDED_PAR_WIDTH_SHFT);
+		aspect_ratio_info->extended_par_height =
+			VIDC_GETFIELD(extended_par_info,
+			VIDC_SM_EXTENDED_PAR_HEIGHT_BMSK,
+			VIDC_SM_EXTENDED_PAR_HEIGHT_SHFT);
+	}
 }

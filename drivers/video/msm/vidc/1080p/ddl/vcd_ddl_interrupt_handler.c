@@ -1236,6 +1236,9 @@ static u32 ddl_decoder_output_done_callback(
 		if (vidc_msg_timing)
 			ddl_calc_core_proc_time(__func__, DEC_OP_TIME);
 		ddl_process_decoder_metadata(ddl);
+		vidc_sm_get_aspect_ratio_info(
+			&ddl->shared_mem[ddl->command_channel],
+			&output_vcd_frm->aspect_ratio_info);
 		ddl_context->ddl_callback(VCD_EVT_RESP_OUTPUT_DONE,
 			vcd_status, output_frame,
 			sizeof(struct ddl_frame_data_tag),
