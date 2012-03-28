@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,11 @@ struct usb_bam_connect_info {
 
 static struct usb_bam_connect_info usb_bam_connections[CONNECTIONS_NUM];
 
+static inline int bam_offset(struct msm_usb_bam_platform_data *pdata)
+{
+	return pdata->usb_active_bam * CONNECTIONS_NUM * 2;
+}
+
 static int connect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
 						u8 *usb_pipe_idx)
 {
@@ -51,7 +56,7 @@ static int connect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
 			(usb_bam_pdev->dev.platform_data);
 	struct usb_bam_pipe_connect *pipe_connection =
 			(struct usb_bam_pipe_connect *)(pdata->connections +
-						(2*connection_idx+pipe_dir));
+			 bam_offset(pdata) + (2*connection_idx+pipe_dir));
 
 	pipe = sps_alloc_endpoint();
 	if (pipe == NULL) {
@@ -162,6 +167,7 @@ int usb_bam_connect(u8 idx, u8 *src_pipe_idx, u8 *dst_pipe_idx)
 
 	return 0;
 }
+
 static int usb_bam_init(void)
 {
 	u32 h_usb;
@@ -207,6 +213,62 @@ static int usb_bam_init(void)
 	return 0;
 }
 
+static char *bam_enable_strings[2] = {
+	[HSUSB_BAM] = "hsusb",
+	[HSIC_BAM]  = "hsic",
+};
+
+static ssize_t
+usb_bam_show_enable(struct device *dev, struct device_attribute *attr,
+		    char *buf)
+{
+	struct platform_device *pdev = container_of(dev, struct platform_device,
+						    dev);
+	struct msm_usb_bam_platform_data *pdata =
+		(struct msm_usb_bam_platform_data *)
+			(usb_bam_pdev->dev.platform_data);
+
+	if (!pdev || !pdata)
+		return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			 bam_enable_strings[pdata->usb_active_bam]);
+}
+
+static ssize_t usb_bam_store_enable(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct platform_device *pdev = container_of(dev, struct platform_device,
+						    dev);
+	struct msm_usb_bam_platform_data *pdata =
+		(struct msm_usb_bam_platform_data *)
+			(usb_bam_pdev->dev.platform_data);
+	char str[10], *pstr;
+	int ret, i;
+
+	strlcpy(str, buf, sizeof(str));
+	pstr = strim(str);
+
+	for (i = 0; i < ARRAY_SIZE(bam_enable_strings); i++) {
+		if (!strncmp(pstr, bam_enable_strings[i], sizeof(str)))
+			pdata->usb_active_bam = i;
+	}
+
+	dev_dbg(&pdev->dev, "active_bam=%s\n",
+		bam_enable_strings[pdata->usb_active_bam]);
+
+	ret = usb_bam_init();
+	if (ret) {
+		dev_err(&pdev->dev, "failed to initialize usb bam\n");
+		return ret;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(enable, S_IWUSR | S_IRUSR, usb_bam_show_enable,
+		   usb_bam_store_enable);
+
 static int usb_bam_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -222,13 +284,11 @@ static int usb_bam_probe(struct platform_device *pdev)
 	}
 	usb_bam_pdev = pdev;
 
-	ret = usb_bam_init();
-	if (ret) {
-		dev_err(&pdev->dev, "failed to initialize usb bam\n");
-		return ret;
-	}
+	ret = device_create_file(&pdev->dev, &dev_attr_enable);
+	if (ret)
+		dev_err(&pdev->dev, "failed to create device file\n");
 
-	return 0;
+	return ret;
 }
 
 static struct platform_driver usb_bam_driver = {
