@@ -33,7 +33,7 @@ static struct clk *dsi_s_pclk;
 
 static struct clk *amp_pclk;
 
-void mipi_dsi_clk_init(struct device *dev)
+void mipi_dsi_clk_init(struct platform_device *pdev)
 {
 	amp_pclk = clk_get(NULL, "amp_pclk");
 	if (IS_ERR(amp_pclk)) {
@@ -388,6 +388,10 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 	/* pll ctrl 0 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x200, pd->pll[0]);
 	wmb();
+}
+
+void cont_splash_clk_ctrl(void)
+{
 }
 
 void mipi_dsi_ahb_ctrl(u32 enable)

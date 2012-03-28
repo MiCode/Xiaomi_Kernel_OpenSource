@@ -717,6 +717,8 @@ void mdp_dsi_video_update(struct msm_fb_data_type *mfd);
 void mdp3_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd);
 #endif
 
+void set_cont_splashScreen_status(int);
+
 int mdp_hw_cursor_update(struct fb_info *info, struct fb_cursor *cursor);
 #if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDP40)
 int mdp_hw_cursor_sync_update(struct fb_info *info, struct fb_cursor *cursor);
