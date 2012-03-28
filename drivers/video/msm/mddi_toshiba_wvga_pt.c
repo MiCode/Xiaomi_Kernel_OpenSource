@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,7 @@ static int __init mddi_toshiba_wvga_pt_init(void)
 	pinfo.bpp = 18;
 	pinfo.lcd.vsync_enable = TRUE;
 	pinfo.lcd.refx100 = 6102; /* adjust refx100 to prevent tearing */
+	pinfo.mddi.is_type1 = TRUE;
 	pinfo.lcd.v_back_porch = 8;     /* vsw=10 + vbp = 8 */
 	pinfo.lcd.v_front_porch = 2;
 	pinfo.lcd.v_pulse_width = 10;

@@ -86,6 +86,7 @@ struct lcdc_panel_info {
 
 struct mddi_panel_info {
 	__u32 vdopkt;
+	boolean is_type1;
 };
 
 struct mipi_panel_info {
