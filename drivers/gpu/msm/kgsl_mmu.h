@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,13 +175,13 @@ void kgsl_mmu_setstate(struct kgsl_device *device,
 int kgsl_mmu_get_ptname_from_ptbase(unsigned int pt_base);
 int kgsl_mmu_pt_get_flags(struct kgsl_pagetable *pt,
 			enum kgsl_deviceid id);
-
 void kgsl_mmu_ptpool_destroy(void *ptpool);
-void *kgsl_mmu_ptpool_init(int ptsize, int entries);
+void *kgsl_mmu_ptpool_init(int entries);
 int kgsl_mmu_enabled(void);
 int kgsl_mmu_pt_equal(struct kgsl_pagetable *pt,
 			unsigned int pt_base);
 void kgsl_mmu_set_mmutype(char *mmutype);
 unsigned int kgsl_mmu_get_current_ptbase(struct kgsl_device *device);
 enum kgsl_mmutype kgsl_mmu_get_mmutype(void);
+unsigned int kgsl_mmu_get_ptsize(void);
 #endif /* __KGSL_MMU_H */
