@@ -1032,7 +1032,7 @@ static void __init msm_timer_init(void)
 		gpt->freq = 32765;
 		gpt_hz = 32765;
 		sclk_hz = 32765;
-		if (!machine_is_apq8064_rumi3()) {
+		if (!cpu_is_msm8930()) {
 			gpt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
 			dgt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT;
 		}
