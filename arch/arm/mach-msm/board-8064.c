@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/i2c.h>
+#include <linux/i2c/smb349.h>
 #include <linux/slimbus/slimbus.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
@@ -602,6 +603,19 @@ static void __init apq8064_ehci_host_init(void)
 #endif
 	}
 }
+
+static struct smb349_platform_data smb349_data __initdata = {
+	.en_n_gpio		= PM8921_GPIO_PM_TO_SYS(37),
+	.chg_susp_gpio		= PM8921_GPIO_PM_TO_SYS(30),
+	.chg_current_ma		= 2200,
+};
+
+static struct i2c_board_info smb349_charger_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO(SMB349_NAME, 0x1B),
+		.platform_data	= &smb349_data,
+	},
+};
 
 #define TABLA_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8921_IRQS)
 
@@ -2031,6 +2045,12 @@ struct i2c_registry {
 };
 
 static struct i2c_registry apq8064_i2c_devices[] __initdata = {
+	{
+		I2C_LIQUID,
+		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
+		smb349_charger_i2c_info,
+		ARRAY_SIZE(smb349_charger_i2c_info)
+	},
 	{
 		I2C_SURF | I2C_LIQUID,
 		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
