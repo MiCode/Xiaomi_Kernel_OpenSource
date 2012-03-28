@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1493,9 +1493,9 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 		mipi_dsi_mdp_stat_inc(STAT_DSI_MDP);
 		spin_lock(&dsi_mdp_lock);
 		dsi_mdp_busy = FALSE;
+		mipi_dsi_disable_irq_nosync();
 		spin_unlock(&dsi_mdp_lock);
 		complete(&dsi_mdp_comp);
-		mipi_dsi_disable_irq_nosync();
 		mipi_dsi_post_kickoff_action();
 	}
 
