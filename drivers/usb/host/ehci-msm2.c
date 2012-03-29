@@ -515,7 +515,7 @@ static int msm_hsusb_reset(struct msm_hcd *mhcd)
 	msleep(100);
 
 	writel_relaxed(0x0, USB_AHBBURST);
-	writel_relaxed(0x00, USB_AHBMODE);
+	writel_relaxed(0x08, USB_AHBMODE);
 
 	/* Ensure that RESET operation is completed before turning off clock */
 	mb();
@@ -703,7 +703,7 @@ static int msm_ehci_reset(struct usb_hcd *hcd)
 	/* bursts of unspecified length. */
 	writel_relaxed(0, USB_AHBBURST);
 	/* Use the AHB transactor */
-	writel_relaxed(0, USB_AHBMODE);
+	writel_relaxed(0x08, USB_AHBMODE);
 	/* Disable streaming mode and select host mode */
 	writel_relaxed(0x13, USB_USBMODE);
 
