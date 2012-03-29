@@ -399,18 +399,23 @@ set_perf(struct device *dev, struct device_attribute *attr,
 {
 	int64_t value;
 	struct mmc_host *host = dev_get_drvdata(dev);
+
 	sscanf(buf, "%lld", &value);
+	spin_lock(&host->lock);
 	if (!value) {
-		spin_lock(&host->lock);
 		memset(&host->perf, 0, sizeof(host->perf));
-		spin_unlock(&host->lock);
+		host->perf_enable = false;
+	} else {
+		host->perf_enable = true;
 	}
+	spin_unlock(&host->lock);
 
 	return count;
 }
 
 static DEVICE_ATTR(perf, S_IRUGO | S_IWUSR,
 		show_perf, set_perf);
+
 #endif
 
 static struct attribute *dev_attrs[] = {

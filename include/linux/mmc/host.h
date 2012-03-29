@@ -352,6 +352,7 @@ struct mmc_host {
 		ktime_t wtime_drv;	   /* Wr time  MMC Host  */
 		ktime_t start;
 	} perf;
+	bool perf_enable;
 #endif
 
 	struct mmc_async_req	*areq;		/* active async req */
