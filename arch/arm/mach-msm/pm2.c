@@ -1923,7 +1923,6 @@ static int __init msm_pm_init(void)
 
 	BUG_ON(msm_pm_modes == NULL);
 
-	atomic_set(&msm_pm_init_done, 1);
 	suspend_set_ops(&msm_pm_ops);
 
 	msm_pm_mode_sysfs_add();
@@ -1979,6 +1978,9 @@ static int __init msm_pm_init(void)
 		stats[MSM_PM_STAT_NOT_IDLE].first_bucket_time =
 			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
 	}
+
+	atomic_set(&msm_pm_init_done, 1);
+
 	d_entry = create_proc_entry("msm_pm_stats",
 			S_IRUGO | S_IWUSR | S_IWGRP, NULL);
 	if (d_entry) {
