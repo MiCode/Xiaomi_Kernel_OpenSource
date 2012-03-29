@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/memory_alloc.h>
+#include <linux/notifier.h>
 #include <mach/scm.h>
 #include <mach/msm_cache_dump.h>
 #include <mach/memory.h>
@@ -38,6 +39,25 @@ static unsigned long msm_cache_dump_addr;
 static struct l1_cache_dump __used *l1_dump;
 static struct l2_cache_dump __used *l2_dump;
 
+static int msm_cache_dump_panic(struct notifier_block *this,
+				unsigned long event, void *ptr)
+{
+#ifdef CONFIG_MSM_CACHE_DUMP_ON_PANIC
+	scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID, 2);
+	scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID, 1);
+#endif
+	return 0;
+}
+
+static struct notifier_block msm_cache_dump_blk = {
+	.notifier_call  = msm_cache_dump_panic,
+	/*
+	 * higher priority to ensure this runs before another panic handler
+	 * flushes the caches.
+	 */
+	.priority = 1,
+};
+
 static int msm_cache_dump_probe(struct platform_device *pdev)
 {
 	struct msm_cache_dump_platform_data *d = pdev->dev.platform_data;
@@ -46,7 +66,9 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 		unsigned long buf;
 		unsigned long size;
 	} l1_cache_data;
+#ifndef CONFIG_MSM_CACHE_DUMP_ON_PANIC
 	unsigned int *imem_loc;
+#endif
 	void *temp;
 	unsigned long total_size = d->l1_size + d->l2_size;
 
@@ -72,14 +94,36 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 		pr_err("%s: could not register L1 buffer ret = %d.\n",
 			__func__, ret);
 
+#if defined(CONFIG_MSM_CACHE_DUMP_ON_PANIC)
+	l1_cache_data.buf = msm_cache_dump_addr + d->l1_size;
+	l1_cache_data.size = d->l2_size;
+
+	ret = scm_call(L1C_SERVICE_ID, L2C_BUFFER_SET_COMMAND_ID,
+			&l1_cache_data, sizeof(l1_cache_data), NULL, 0);
+
+	if (ret)
+		pr_err("%s: could not register L2 buffer ret = %d.\n",
+			__func__, ret);
+#else
 	imem_loc = ioremap(L2C_IMEM_ADDR, SZ_4K);
 	__raw_writel(msm_cache_dump_addr + d->l1_size, imem_loc);
 	iounmap(imem_loc);
+#endif
 
+	atomic_notifier_chain_register(&panic_notifier_list,
+						&msm_cache_dump_blk);
+	return 0;
+}
+
+static int msm_cache_dump_remove(struct platform_device *pdev)
+{
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					&msm_cache_dump_blk);
 	return 0;
 }
 
 static struct platform_driver msm_cache_dump_driver = {
+	.remove		= __devexit_p(msm_cache_dump_remove),
 	.driver         = {
 		.name = "msm_cache_dump",
 		.owner = THIS_MODULE
