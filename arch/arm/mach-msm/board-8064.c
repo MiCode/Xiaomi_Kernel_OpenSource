@@ -454,11 +454,24 @@ early_param("ext_display", ext_display_setup);
 static void __init apq8064_reserve(void)
 {
 	apq8064_set_display_params(prim_panel_name, ext_panel_name);
-	reserve_info = &apq8064_reserve_info;
-	locate_unstable_memory();
 	msm_reserve();
 }
 
+static void __init place_movable_zone(void)
+{
+	movable_reserved_start = apq8064_reserve_info.low_unstable_address;
+	movable_reserved_size = apq8064_reserve_info.max_unstable_size;
+	pr_info("movable zone start %lx size %lx\n",
+		movable_reserved_start, movable_reserved_size);
+}
+
+static void __init apq8064_early_reserve(void)
+{
+	reserve_info = &apq8064_reserve_info;
+	locate_unstable_memory();
+	place_movable_zone();
+
+}
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 static struct msm_hsic_host_platform_data msm_hsic_pdata = {
 	.strobe		= 88,
@@ -2236,6 +2249,7 @@ MACHINE_START(APQ8064_CDP, "QCT APQ8064 CDP")
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
+	.init_very_early = apq8064_early_reserve,
 MACHINE_END
 
 MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
@@ -2246,6 +2260,7 @@ MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
+	.init_very_early = apq8064_early_reserve,
 MACHINE_END
 
 MACHINE_START(APQ8064_LIQUID, "QCT APQ8064 LIQUID")
@@ -2256,6 +2271,7 @@ MACHINE_START(APQ8064_LIQUID, "QCT APQ8064 LIQUID")
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
+	.init_very_early = apq8064_early_reserve,
 MACHINE_END
 
 MACHINE_START(MPQ8064_HRD, "QCT MPQ8064 HRD")
@@ -2265,6 +2281,7 @@ MACHINE_START(MPQ8064_HRD, "QCT MPQ8064 HRD")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
+	.init_very_early = apq8064_early_reserve,
 MACHINE_END
 
 MACHINE_START(MPQ8064_DTV, "QCT MPQ8064 DTV")
@@ -2274,5 +2291,6 @@ MACHINE_START(MPQ8064_DTV, "QCT MPQ8064 DTV")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
+	.init_very_early = apq8064_early_reserve,
 MACHINE_END
 
