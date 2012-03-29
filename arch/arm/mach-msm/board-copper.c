@@ -337,9 +337,14 @@ static struct smd_smem_regions aux_smem_areas[] = {
 	},
 };
 
+static struct smd_subsystem_restart_config smd_ssr_cfg = {
+	.disable_smsm_reset_handshake = 1,
+};
+
 static struct smd_platform smd_platform_data = {
 	.num_ss_configs = ARRAY_SIZE(smd_config_list),
 	.smd_ss_configs = smd_config_list,
+	.smd_ssr_config = &smd_ssr_cfg,
 	.num_smem_areas = ARRAY_SIZE(aux_smem_areas),
 	.smd_smem_areas = aux_smem_areas,
 };
