@@ -1904,13 +1904,14 @@ static void unplug_ovp_fet_open_worker(struct work_struct *work)
 
 			turn_on_usb_ovp_fet(chip);
 		} else {
-			pm_chg_masked_write(chip, USB_OVP_CONTROL,
-						USB_OVP_DEBOUNCE_TIME, 0x1);
-			pr_debug("Exit count=%d chg_gone=%d, usb_valid=%d\n",
-					count, chg_gone, usb_chg_plugged_in);
-			return;
+			break;
 		}
 	}
+	pm_chg_masked_write(chip, USB_OVP_CONTROL,
+		USB_OVP_DEBOUNCE_TIME, 0x2);
+	pr_debug("Exit count=%d chg_gone=%d, usb_valid=%d\n",
+		count, chg_gone, usb_chg_plugged_in);
+	return;
 }
 
 static int find_usb_ma_value(int value)
