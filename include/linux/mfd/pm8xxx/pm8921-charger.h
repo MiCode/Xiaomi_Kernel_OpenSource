@@ -48,6 +48,14 @@ enum pm8921_usb_debounce_time {
 	PM_USB_DEBOUNCE_80P5MS,
 };
 
+enum pm8921_chg_led_src_config {
+	LED_SRC_GND,
+	LED_SRC_VPH_PWR,
+	LED_SRC_5V,
+	LED_SRC_MIN_VPH_5V,
+	LED_SRC_BYPASS,
+};
+
 /**
  * struct pm8921_charger_platform_data -
  * @safety_time:	max charging time in minutes incl. fast and trkl
@@ -104,6 +112,7 @@ enum pm8921_usb_debounce_time {
  *			with the battery terminals shorted. This indicates
  *			resistance of the pads, connectors, battery terminals
  *			and rsense.
+ * @led_src_config:	Power source for anode of charger indicator LED.
  */
 struct pm8921_charger_platform_data {
 	struct pm8xxx_charger_core_data	charger_cdata;
@@ -136,6 +145,7 @@ struct pm8921_charger_platform_data {
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
 	int				rconn_mohm;
+	enum pm8921_chg_led_src_config	led_src_config;
 };
 
 enum pm8921_charger_source {
