@@ -781,7 +781,7 @@ static void hfpll_enable(struct scalable *sc, bool skip_regulators)
 			rc = rpm_vreg_set_voltage(
 					sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
 					sc->vreg[VREG_HFPLL_A].rpm_vreg_voter,
-					2100000,
+					2050000,
 					sc->vreg[VREG_HFPLL_A].max_vdd, 0);
 			if (rc)
 				pr_err("%s regulator enable failed (%d)\n",
