@@ -34,8 +34,10 @@
 #include <linux/gpio.h>
 #include "wcd9310.h"
 
-#define WCD9310_RATES (SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000|\
-			SNDRV_PCM_RATE_32000|SNDRV_PCM_RATE_48000)
+#define WCD9310_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
+			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
+			SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
+
 
 #define NUM_DECIMATORS 10
 #define NUM_INTERPOLATORS 7
@@ -63,7 +65,9 @@ enum {
 #define AIF1_PB 1
 #define AIF1_CAP 2
 #define AIF2_PB 3
-#define NUM_CODEC_DAIS 3
+#define AIF2_CAP 4
+
+#define NUM_CODEC_DAIS 4
 #define TABLA_COMP_DIGITAL_GAIN_OFFSET 3
 
 struct tabla_codec_dai_data {
@@ -148,6 +152,8 @@ enum {
 	COMPANDER_FS_16KHZ,
 	COMPANDER_FS_32KHZ,
 	COMPANDER_FS_48KHZ,
+	COMPANDER_FS_96KHZ,
+	COMPANDER_FS_192KHZ,
 	COMPANDER_FS_MAX,
 };
 
@@ -1081,6 +1087,21 @@ static const char *sb_tx1_mux_text[] = {
 		"DEC1"
 };
 
+static const char *sb_tx2_mux_text[] = {
+	"ZERO", "RMIX1", "RMIX2", "RMIX3", "RMIX4", "RMIX5", "RMIX6", "RMIX7",
+		"DEC2"
+};
+
+static const char *sb_tx3_mux_text[] = {
+	"ZERO", "RMIX1", "RMIX2", "RMIX3", "RMIX4", "RMIX5", "RMIX6", "RMIX7",
+		"DEC3"
+};
+
+static const char *sb_tx4_mux_text[] = {
+	"ZERO", "RMIX1", "RMIX2", "RMIX3", "RMIX4", "RMIX5", "RMIX6", "RMIX7",
+		"DEC4"
+};
+
 static const char *sb_tx5_mux_text[] = {
 	"ZERO", "RMIX1", "RMIX2", "RMIX3", "RMIX4", "RMIX5", "RMIX6", "RMIX7",
 		"DEC5"
@@ -1217,6 +1238,18 @@ static const struct soc_enum rx4_dsm_enum =
 static const struct soc_enum rx6_dsm_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_RX6_B6_CTL, 4, 2, rx_dsm_text);
 
+static const struct soc_enum sb_tx1_mux_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B1_CTL, 0, 9, sb_tx1_mux_text);
+
+static const struct soc_enum sb_tx2_mux_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B2_CTL, 0, 9, sb_tx2_mux_text);
+
+static const struct soc_enum sb_tx3_mux_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B3_CTL, 0, 9, sb_tx3_mux_text);
+
+static const struct soc_enum sb_tx4_mux_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B4_CTL, 0, 9, sb_tx4_mux_text);
+
 static const struct soc_enum sb_tx5_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B5_CTL, 0, 9, sb_tx5_mux_text);
 
@@ -1238,9 +1271,6 @@ static const struct soc_enum sb_tx9_mux_enum =
 static const struct soc_enum sb_tx10_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B10_CTL, 0, 18,
 			sb_tx7_to_tx10_mux_text);
-
-static const struct soc_enum sb_tx1_mux_enum =
-	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_SB_B1_CTL, 0, 9, sb_tx1_mux_text);
 
 static const struct soc_enum dec1_mux_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_TX_B1_CTL, 0, 3, dec1_mux_text);
@@ -1350,6 +1380,18 @@ static const struct snd_kcontrol_new rx4_dsm_mux =
 static const struct snd_kcontrol_new rx6_dsm_mux =
 	SOC_DAPM_ENUM("RX6 DSM MUX Mux", rx6_dsm_enum);
 
+static const struct snd_kcontrol_new sb_tx1_mux =
+	SOC_DAPM_ENUM("SLIM TX1 MUX Mux", sb_tx1_mux_enum);
+
+static const struct snd_kcontrol_new sb_tx2_mux =
+	SOC_DAPM_ENUM("SLIM TX2 MUX Mux", sb_tx2_mux_enum);
+
+static const struct snd_kcontrol_new sb_tx3_mux =
+	SOC_DAPM_ENUM("SLIM TX3 MUX Mux", sb_tx3_mux_enum);
+
+static const struct snd_kcontrol_new sb_tx4_mux =
+	SOC_DAPM_ENUM("SLIM TX4 MUX Mux", sb_tx4_mux_enum);
+
 static const struct snd_kcontrol_new sb_tx5_mux =
 	SOC_DAPM_ENUM("SLIM TX5 MUX Mux", sb_tx5_mux_enum);
 
@@ -1368,8 +1410,6 @@ static const struct snd_kcontrol_new sb_tx9_mux =
 static const struct snd_kcontrol_new sb_tx10_mux =
 	SOC_DAPM_ENUM("SLIM TX10 MUX Mux", sb_tx10_mux_enum);
 
-static const struct snd_kcontrol_new sb_tx1_mux =
-	SOC_DAPM_ENUM("SLIM TX1 MUX Mux", sb_tx1_mux_enum);
 
 static int wcd9310_put_dec_enum(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
@@ -2993,6 +3033,15 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX1", NULL, "SLIM TX1 MUX"},
 	{"SLIM TX1 MUX", "DEC1", "DEC1 MUX"},
 
+	{"SLIM TX2", NULL, "SLIM TX2 MUX"},
+	{"SLIM TX2 MUX", "DEC2", "DEC2 MUX"},
+
+	{"SLIM TX3", NULL, "SLIM TX3 MUX"},
+	{"SLIM TX3 MUX", "DEC3", "DEC3 MUX"},
+
+	{"SLIM TX4", NULL, "SLIM TX4 MUX"},
+	{"SLIM TX4 MUX", "DEC4", "DEC4 MUX"},
+
 	{"SLIM TX5", NULL, "SLIM TX5 MUX"},
 	{"SLIM TX5 MUX", "DEC5", "DEC5 MUX"},
 
@@ -3018,6 +3067,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX8 MUX", "DEC4", "DEC4 MUX"},
 	{"SLIM TX8 MUX", "DEC5", "DEC5 MUX"},
 	{"SLIM TX8 MUX", "DEC6", "DEC6 MUX"},
+	{"SLIM TX8 MUX", "DEC7", "DEC7 MUX"},
+	{"SLIM TX8 MUX", "DEC8", "DEC8 MUX"},
+	{"SLIM TX8 MUX", "DEC9", "DEC9 MUX"},
+	{"SLIM TX8 MUX", "DEC10", "DEC10 MUX"},
 
 	{"SLIM TX9", NULL, "SLIM TX9 MUX"},
 	{"SLIM TX9 MUX", "DEC1", "DEC1 MUX"},
@@ -3270,12 +3323,23 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"DEC6 MUX", "ADC1", "ADC1"},
 	{"DEC6 MUX", NULL, "CDC_CONN"},
 	{"DEC7 MUX", "DMIC1", "DMIC1"},
+	{"DEC7 MUX", "DMIC6", "DMIC6"},
+	{"DEC7 MUX", "ADC1", "ADC1"},
 	{"DEC7 MUX", "ADC6", "ADC6"},
 	{"DEC7 MUX", NULL, "CDC_CONN"},
+	{"DEC8 MUX", "DMIC2", "DMIC2"},
+	{"DEC8 MUX", "DMIC5", "DMIC5"},
+	{"DEC8 MUX", "ADC2", "ADC2"},
 	{"DEC8 MUX", "ADC5", "ADC5"},
 	{"DEC8 MUX", NULL, "CDC_CONN"},
+	{"DEC9 MUX", "DMIC4", "DMIC4"},
+	{"DEC9 MUX", "DMIC5", "DMIC5"},
+	{"DEC9 MUX", "ADC2", "ADC2"},
 	{"DEC9 MUX", "ADC3", "ADC3"},
 	{"DEC9 MUX", NULL, "CDC_CONN"},
+	{"DEC10 MUX", "DMIC3", "DMIC3"},
+	{"DEC10 MUX", "DMIC6", "DMIC6"},
+	{"DEC10 MUX", "ADC1", "ADC1"},
 	{"DEC10 MUX", "ADC4", "ADC4"},
 	{"DEC10 MUX", NULL, "CDC_CONN"},
 
@@ -3712,7 +3776,7 @@ static int tabla_set_channel_map(struct snd_soc_dai *dai,
 			tabla->dai[dai->id - 1].ch_act = 0;
 			tabla->dai[dai->id - 1].ch_tot = rx_num;
 		}
-	} else if (dai->id == AIF1_CAP) {
+	} else if (dai->id == AIF1_CAP || dai->id == AIF2_CAP) {
 		for (i = 0; i < tx_num; i++) {
 			tabla->dai[dai->id - 1].ch_num[i]  = tx_slot[i];
 			tabla->dai[dai->id - 1].ch_act = 0;
@@ -3760,7 +3824,14 @@ static int tabla_get_channel_map(struct snd_soc_dai *dai,
 			rx_slot[cnt] = rx_ch[5 + cnt];
 			cnt++;
 		}
+	} else if (dai->id == AIF2_CAP) {
+		*tx_num = tabla_dai[dai->id - 1].capture.channels_max;
+		tx_slot[0] = tx_ch[cnt];
+		tx_slot[1] = tx_ch[1 + cnt];
+		tx_slot[2] = tx_ch[3 + cnt];
+		tx_slot[3] = tx_ch[5 + cnt];
 	}
+
 	return 0;
 }
 
@@ -3799,6 +3870,16 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 		rx_fs_rate = 0x60;
 		compander_fs = COMPANDER_FS_48KHZ;
 		break;
+	case 96000:
+		tx_fs_rate = 0x04;
+		rx_fs_rate = 0x80;
+		compander_fs = COMPANDER_FS_96KHZ;
+		break;
+	case 192000:
+		tx_fs_rate = 0x05;
+		rx_fs_rate = 0xA0;
+		compander_fs = COMPANDER_FS_192KHZ;
+		break;
 	default:
 		pr_err("%s: Invalid sampling rate %d\n", __func__,
 				params_rate(params));
@@ -3810,7 +3891,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 	 * If current dai is a tx dai, set sample rate to
 	 * all the txfe paths that are currently not active
 	 */
-	if (dai->id == AIF1_CAP) {
+	if ((dai->id == AIF1_CAP) || (dai->id == AIF2_CAP)) {
 
 		tx_state = snd_soc_read(codec,
 				TABLA_A_CDC_CLK_TX_CLK_EN_B1_CTL);
@@ -3828,7 +3909,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 				tx_fs_reg = TABLA_A_CDC_TX1_CLK_FS_CTL
 						+ (BITS_PER_REG*(path-1));
 				snd_soc_update_bits(codec, tx_fs_reg,
-							0x03, tx_fs_rate);
+							0x07, tx_fs_rate);
 			}
 		}
 		if (tabla->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
@@ -3848,7 +3929,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 				break;
 			}
 			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_TX_I2S_CTL,
-						0x03, tx_fs_rate);
+						0x07, tx_fs_rate);
 		} else {
 			tabla->dai[dai->id - 1].rate   = params_rate(params);
 		}
@@ -3924,7 +4005,7 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 			.stream_name = "AIF1 Playback",
 			.rates = WCD9310_RATES,
 			.formats = TABLA_FORMATS,
-			.rate_max = 48000,
+			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 2,
@@ -3938,7 +4019,7 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 			.stream_name = "AIF1 Capture",
 			.rates = WCD9310_RATES,
 			.formats = TABLA_FORMATS,
-			.rate_max = 48000,
+			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 4,
@@ -3953,9 +4034,23 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 			.rates = WCD9310_RATES,
 			.formats = TABLA_FORMATS,
 			.rate_min = 8000,
-			.rate_max = 48000,
+			.rate_max = 192000,
 			.channels_min = 1,
 			.channels_max = 2,
+		},
+		.ops = &tabla_dai_ops,
+	},
+	{
+		.name = "tabla_tx2",
+		.id = AIF2_CAP,
+		.capture = {
+			.stream_name = "AIF2 Capture",
+			.rates = WCD9310_RATES,
+			.formats = TABLA_FORMATS,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.channels_min = 1,
+			.channels_max = 4,
 		},
 		.ops = &tabla_dai_ops,
 	},
@@ -3969,7 +4064,7 @@ static struct snd_soc_dai_driver tabla_i2s_dai[] = {
 			.stream_name = "AIF1 Playback",
 			.rates = WCD9310_RATES,
 			.formats = TABLA_FORMATS,
-			.rate_max = 48000,
+			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 4,
@@ -3983,7 +4078,7 @@ static struct snd_soc_dai_driver tabla_i2s_dai[] = {
 			.stream_name = "AIF1 Capture",
 			.rates = WCD9310_RATES,
 			.formats = TABLA_FORMATS,
-			.rate_max = 48000,
+			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 4,
@@ -4008,7 +4103,8 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
-			if (tabla_dai[j].id == AIF1_CAP)
+			if ((tabla_dai[j].id == AIF1_CAP) ||
+			    (tabla_dai[j].id == AIF2_CAP))
 				continue;
 			if (!strncmp(w->sname,
 				tabla_dai[j].playback.stream_name, 13)) {
@@ -4024,7 +4120,8 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
-			if (tabla_dai[j].id == AIF1_CAP)
+			if ((tabla_dai[j].id == AIF1_CAP) ||
+			    (tabla_dai[j].id == AIF2_CAP))
 				continue;
 			if (!strncmp(w->sname,
 				tabla_dai[j].playback.stream_name, 13)) {
@@ -4062,6 +4159,9 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	/* Execute the callback only if interface type is slimbus */
 	if (tabla_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		return 0;
+
+	pr_debug("%s(): %s %d\n", __func__, w->name, event);
+
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
@@ -4411,16 +4511,34 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("SLIM TX1 MUX", SND_SOC_NOPM, 0, 0, &sb_tx1_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX1", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			0, 0),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX1", "AIF2 Capture", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("SLIM TX2 MUX", SND_SOC_NOPM, 0, 0, &sb_tx2_mux),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX2", "AIF2 Capture", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("SLIM TX3 MUX", SND_SOC_NOPM, 0, 0, &sb_tx3_mux),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX3", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("SLIM TX4 MUX", SND_SOC_NOPM, 0, 0, &sb_tx4_mux),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX4", "AIF2 Capture", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("SLIM TX5 MUX", SND_SOC_NOPM, 0, 0, &sb_tx5_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX5", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			4, 0),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX5", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("SLIM TX6 MUX", SND_SOC_NOPM, 0, 0, &sb_tx6_mux),
-	SND_SOC_DAPM_AIF_OUT("SLIM TX6", "AIF1 Capture", NULL, SND_SOC_NOPM,
-			5, 0),
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX6", "AIF2 Capture", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("SLIM TX7 MUX", SND_SOC_NOPM, 0, 0, &sb_tx7_mux),
 	SND_SOC_DAPM_AIF_OUT_E("SLIM TX7", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
@@ -7312,6 +7430,9 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			break;
 		case AIF2_PB:
 			ch_cnt = tabla_dai[i].playback.channels_max;
+			break;
+		case AIF2_CAP:
+			ch_cnt = tabla_dai[i].capture.channels_max;
 			break;
 		default:
 			continue;

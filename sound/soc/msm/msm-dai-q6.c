@@ -281,7 +281,7 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 	dev_dbg(dai->dev, "%s:slimbus_dev_id[%hu] bit_wd[%hu] format[%hu]\n"
 		"num_channel %hu  slave_ch_mapping[0]  %hu\n"
 		"slave_port_mapping[1]  %hu slave_port_mapping[2]  %hu\n"
-		"sample_rate %d\n", __func__,
+		"slave_port_mapping[3]  %hu\n sample_rate %d\n", __func__,
 		dai_data->port_config.slim_sch.slimbus_dev_id,
 		dai_data->port_config.slim_sch.bit_width,
 		dai_data->port_config.slim_sch.data_format,
@@ -289,6 +289,7 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 		dai_data->port_config.slim_sch.slave_ch_mapping[0],
 		dai_data->port_config.slim_sch.slave_ch_mapping[1],
 		dai_data->port_config.slim_sch.slave_ch_mapping[2],
+		dai_data->port_config.slim_sch.slave_ch_mapping[3],
 		dai_data->rate);
 
 	return 0;
@@ -386,6 +387,7 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case SLIMBUS_1_RX:
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_TX:
 		rc = msm_dai_q6_slim_bus_hw_params(params, dai,
 				substream->stream);
 		break;
@@ -898,13 +900,16 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 							rx_slot[i]);
 		}
 		dai_data->port_config.slim_sch.num_channels = rx_num;
-		pr_debug("%s:SLIMBUS_0_RX cnt[%d] ch[%d %d]\n", __func__,
+		pr_debug("%s:SLIMBUS_%d_RX cnt[%d] ch[%d %d]\n", __func__,
+				(dai->id - SLIMBUS_0_RX) / 2,
 		rx_num, dai_data->port_config.slim_sch.slave_ch_mapping[0],
 		dai_data->port_config.slim_sch.slave_ch_mapping[1]);
 
 		break;
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_TX:
+
 		/* channel number to be between 128 and 255. For RX port
 		 * use channel numbers from 138 to 144, for TX port
 		 * use channel numbers from 128 to 137
@@ -919,7 +924,8 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 						__func__, i, tx_slot[i]);
 		}
 		dai_data->port_config.slim_sch.num_channels = tx_num;
-		pr_debug("%s:SLIMBUS_0_TX cnt[%d] ch[%d %d]\n", __func__,
+		pr_debug("%s:SLIMBUS_%d_TX cnt[%d] ch[%d %d]\n", __func__,
+			(dai->id - SLIMBUS_0_TX) / 2,
 		tx_num, dai_data->port_config.slim_sch.slave_ch_mapping[0],
 		dai_data->port_config.slim_sch.slave_ch_mapping[1]);
 		break;
@@ -1195,6 +1201,22 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_slimbus_2_tx_dai = {
+	.capture = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
+		SNDRV_PCM_RATE_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 4,
+		.rate_min =     8000,
+		.rate_max =	192000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
 /* To do: change to register DAIs as batch */
 static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 {
@@ -1230,7 +1252,6 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 		rc = snd_soc_register_dai(&pdev->dev,
 				&msm_dai_q6_slimbus_tx_dai);
 		break;
-
 	case SLIMBUS_1_RX:
 		rc = snd_soc_register_dai(&pdev->dev,
 				&msm_dai_q6_slimbus_1_rx_dai);
@@ -1238,6 +1259,10 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case SLIMBUS_1_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 				&msm_dai_q6_slimbus_1_tx_dai);
+		break;
+	case SLIMBUS_2_TX:
+		rc = snd_soc_register_dai(&pdev->dev,
+				&msm_dai_q6_slimbus_2_tx_dai);
 		break;
 	case INT_BT_SCO_RX:
 		rc = snd_soc_register_dai(&pdev->dev,

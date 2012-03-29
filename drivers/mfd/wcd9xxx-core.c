@@ -59,8 +59,8 @@ static int wcd9xxx_read(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		dev_err(wcd9xxx->dev, "Codec read failed\n");
 		return ret;
 	} else
-		dev_dbg(wcd9xxx->dev, "Read 0x%02x from R%d(0x%x)\n",
-			 *buf, reg, reg);
+		dev_dbg(wcd9xxx->dev, "Read 0x%02x from 0x%x\n",
+			 *buf, reg);
 
 	return 0;
 }
@@ -90,8 +90,8 @@ static int wcd9xxx_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		return -EINVAL;
 	}
 
-	dev_dbg(wcd9xxx->dev, "Write %02x to R%d(0x%x)\n",
-		 *buf, reg, reg);
+	dev_dbg(wcd9xxx->dev, "Write %02x to 0x%x\n",
+		 *buf, reg);
 
 	return wcd9xxx->write_dev(wcd9xxx, reg, bytes, src, interface_reg);
 }
