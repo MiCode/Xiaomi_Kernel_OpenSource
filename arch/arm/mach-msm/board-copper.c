@@ -228,6 +228,11 @@ static struct resource smd_resource[] = {
 		.start	= 32 + 144,		/* RicaAppsWlanSmsmIrq  */
 		.flags	= IORESOURCE_IRQ,
 	},
+	{
+		.name	= "rpm_smd_in",
+		.start	= 32 + 168,		/* rpm_to_kpss_ipc_irq4  */
+		.flags	= IORESOURCE_IRQ,
+	},
 };
 
 static struct smd_subsystem_config smd_config_list[] = {
@@ -300,11 +305,43 @@ static struct smd_subsystem_config smd_config_list[] = {
 		.smsm_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
 		.smsm_int.out_offset = 0x8,
 	},
+	{
+		.irq_config_id = SMD_RPM,
+		.subsys_name = NULL, /* do not use PIL to load RPM */
+		.edge = SMD_APPS_RPM,
+
+		.smd_int.irq_name = "rpm_smd_in",
+		.smd_int.flags = IRQF_TRIGGER_RISING,
+		.smd_int.irq_id = -1,
+		.smd_int.device_name = "smd_dev",
+		.smd_int.dev_id = 0,
+		.smd_int.out_bit_pos = 1 << 0,
+		.smd_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
+		.smd_int.out_offset = 0x8,
+
+		.smsm_int.irq_name = NULL, /* RPM does not support SMSM */
+		.smsm_int.flags = 0,
+		.smsm_int.irq_id = 0,
+		.smsm_int.device_name = NULL,
+		.smsm_int.dev_id = 0,
+		.smsm_int.out_bit_pos = 0,
+		.smsm_int.out_base = NULL,
+		.smsm_int.out_offset = 0,
+	},
+};
+
+static struct smd_smem_regions aux_smem_areas[] = {
+	{
+		.phys_addr = (void *)(0xfc428000),
+		.size = 0x4000,
+	},
 };
 
 static struct smd_platform smd_platform_data = {
 	.num_ss_configs = ARRAY_SIZE(smd_config_list),
 	.smd_ss_configs = smd_config_list,
+	.num_smem_areas = ARRAY_SIZE(aux_smem_areas),
+	.smd_smem_areas = aux_smem_areas,
 };
 
 struct platform_device msm_device_smd_copper = {
