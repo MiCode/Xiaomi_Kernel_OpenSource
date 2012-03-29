@@ -59,10 +59,20 @@ do { \
 #define D(x...) do {} while (0)
 #endif
 
+/*
+ * Legacy targets use the 32KHz hardware timer and new targets will use
+ * the scheduler timer scaled to a 32KHz tick count.
+ *
+ * As testing on legacy targets permits, we will move them to use
+ * sched_clock() and eventually remove the conditiona compilation.
+ */
 #if defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM8X60) \
 	|| defined(CONFIG_ARCH_FSM9XXX)
 #define TIMESTAMP_ADDR (MSM_TMR_BASE + 0x08)
-#else
+#elif defined(CONFIG_ARCH_APQ8064) || defined(CONFIG_ARCH_MSM7X01A) || \
+	defined(CONFIG_ARCH_MSM7x25) || defined(CONFIG_ARCH_MSM7X27) || \
+	defined(CONFIG_ARCH_MSM7X27A) || defined(CONFIG_ARCH_MSM8960) || \
+	defined(CONFIG_ARCH_MSM9615) || defined(CONFIG_ARCH_QSD8X50)
 #define TIMESTAMP_ADDR (MSM_TMR_BASE + 0x04)
 #endif
 
@@ -623,6 +633,8 @@ static char *find_sym(uint32_t id, uint32_t val)
 static void init_syms(void) {}
 #endif
 
+#ifdef TIMESTAMP_ADDR
+/* legacy timestamp using 32.768KHz clock */
 static inline unsigned int read_timestamp(void)
 {
 	unsigned int tick = 0;
@@ -637,6 +649,18 @@ static inline unsigned int read_timestamp(void)
 
 	return tick;
 }
+#else
+static inline unsigned int read_timestamp(void)
+{
+	unsigned long long val;
+
+	/* SMEM LOG uses a 32.768KHz timestamp */
+	val = sched_clock() * 32768U;
+	do_div(val, 1000000000U);
+
+	return (unsigned int)val;
+}
+#endif
 
 static void smem_log_event_from_user(struct smem_log_inst *inst,
 				     const char __user *buf, int size, int num)
