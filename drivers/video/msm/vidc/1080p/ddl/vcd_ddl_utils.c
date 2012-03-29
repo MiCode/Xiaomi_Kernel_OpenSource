@@ -348,7 +348,7 @@ u32 ddl_fw_init(struct ddl_buf_addr *dram_base)
 
 void ddl_fw_release(void)
 {
-
+	res_trk_close_secure_session();
 }
 
 void ddl_set_core_start_time(const char *func_name, u32 index)

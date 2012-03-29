@@ -2112,7 +2112,6 @@ static int vid_dec_open_secure(struct inode *inode, struct file *file)
 	int rc = 0;
 	struct video_client_ctx *client_ctx;
 	mutex_lock(&vid_dec_device_p->lock);
-	res_trk_secure_set();
 	rc = vid_dec_open_client(&client_ctx, VCD_CP_SESSION);
 	if (rc)
 		goto error;
@@ -2130,7 +2129,6 @@ static int vid_dec_open_secure(struct inode *inode, struct file *file)
 	mutex_unlock(&vid_dec_device_p->lock);
 	return 0;
 error:
-	res_trk_secure_unset();
 	mutex_unlock(&vid_dec_device_p->lock);
 	return rc;
 }
@@ -2141,11 +2139,6 @@ static int vid_dec_open(struct inode *inode, struct file *file)
 	struct video_client_ctx *client_ctx;
 	INFO("msm_vidc_dec: Inside %s()", __func__);
 	mutex_lock(&vid_dec_device_p->lock);
-	if (res_trk_check_for_sec_session()) {
-		ERR("Secure session present return failure\n");
-		mutex_unlock(&vid_dec_device_p->lock);
-		return -EACCES;
-	}
 	rc = vid_dec_open_client(&client_ctx, 0);
 	if (rc) {
 		mutex_unlock(&vid_dec_device_p->lock);
@@ -2168,7 +2161,6 @@ static int vid_dec_release_secure(struct inode *inode, struct file *file)
 	INFO("msm_vidc_dec: Inside %s()", __func__);
 	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT);
 	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_INPUT);
-	res_trk_close_secure_session();
 	vid_dec_close_client(client_ctx);
 	vidc_release_firmware();
 #ifndef USE_RES_TRACKER

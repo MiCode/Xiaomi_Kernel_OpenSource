@@ -121,22 +121,21 @@ static int is_session_invalid(u32 decoding, u32 flags)
 	secure_session_running = (sec_info.secure_enc > 0) ||
 			(sec_info.secure_dec > 0);
 	if (!decoding && is_secure) {
-		if ((sec_info.secure_dec > 1) ||
-			(sec_info.secure_enc)
-		   ) {
-			VCD_MSG_HIGH("SE-SE: FAILURE\n");
-			VCD_MSG_HIGH("S-S-SE: FAILURE\n");
+		if ((sec_info.secure_dec == 1))
+			VCD_MSG_LOW("SE-SD: SUCCESS\n");
+		else {
+			VCD_MSG_LOW("SE is permitted only with SD: FAILURE\n");
 			return -EACCES;
 		}
 	} else if (!decoding && !is_secure) {
 		if (secure_session_running) {
-			VCD_MSG_HIGH("SD-NSE: FAILURE\n");
-			VCD_MSG_HIGH("SE-NSE: FAILURE\n");
+			VCD_MSG_LOW("SD-NSE: FAILURE\n");
+			VCD_MSG_LOW("SE-NSE: FAILURE\n");
 			return -EACCES;
 		}
 	} else if (decoding && is_secure) {
 		if (client_count > 0) {
-			VCD_MSG_HIGH("S/NS-SD: FAILURE\n");
+			VCD_MSG_LOW("S/NS-SD: FAILURE\n");
 			if (sec_info.secure_enc > 0 ||
 				sec_info.non_secure_enc > 0) {
 				return -EAGAIN;
@@ -145,7 +144,7 @@ static int is_session_invalid(u32 decoding, u32 flags)
 		}
 	} else {
 		if (sec_info.secure_dec > 0) {
-			VCD_MSG_HIGH("SD-NSD: FAILURE\n");
+			VCD_MSG_LOW("SD-NSD: FAILURE\n");
 			return -EACCES;
 		}
 	}
@@ -169,9 +168,12 @@ u32 vcd_open(s32 driver_handle, u32 decoding,
 	}
 	rc = is_session_invalid(decoding, flags);
 	if (rc) {
-			VCD_MSG_ERROR("Secure session in progress");
-			return rc;
+		VCD_MSG_ERROR("Invalid Session: is_decoder: %d, secure: %d\n",
+				decoding, flags);
+		return rc;
 	}
+	if (is_secure)
+		res_trk_secure_set();
 	drv_ctxt = vcd_get_drv_context();
 	mutex_lock(&drv_ctxt->dev_mutex);
 
@@ -179,8 +181,9 @@ u32 vcd_open(s32 driver_handle, u32 decoding,
 		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
 		    open(drv_ctxt, driver_handle, decoding, callback,
 			    client_data);
-		if (rc)
+		if (rc) {
 			rc = -ENODEV;
+		}
 	} else {
 		VCD_MSG_ERROR("Unsupported API in device state %d",
 			      drv_ctxt->dev_state.state);
@@ -189,7 +192,9 @@ u32 vcd_open(s32 driver_handle, u32 decoding,
 	if (!rc) {
 		cctxt = drv_ctxt->dev_ctxt.cctxt_list_head;
 		cctxt->secure = is_secure;
-	}
+	} else if (is_secure)
+		res_trk_secure_unset();
+
 	mutex_unlock(&drv_ctxt->dev_mutex);
 	return rc;
 }
@@ -201,7 +206,7 @@ u32 vcd_close(void *handle)
 	    (struct vcd_clnt_ctxt *)handle;
 	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
-
+	int is_secure = 0;
 	VCD_MSG_MED("vcd_close:");
 
 	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
@@ -210,6 +215,7 @@ u32 vcd_close(void *handle)
 		return VCD_ERR_BAD_HANDLE;
 	}
 
+	is_secure = cctxt->secure;
 	drv_ctxt = vcd_get_drv_context();
 	mutex_lock(&drv_ctxt->dev_mutex);
 	if (drv_ctxt->dev_state.state_table->ev_hdlr.close) {
@@ -222,6 +228,8 @@ u32 vcd_close(void *handle)
 		rc = VCD_ERR_BAD_STATE;
 	}
 	mutex_unlock(&drv_ctxt->dev_mutex);
+	if (is_secure)
+		res_trk_secure_unset();
 	return rc;
 
 }
