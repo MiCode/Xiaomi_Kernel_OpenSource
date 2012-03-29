@@ -299,13 +299,14 @@ static int kgsl_vmalloc_vmfault(struct kgsl_memdesc *memdesc,
 				struct vm_area_struct *vma,
 				struct vm_fault *vmf)
 {
-	unsigned long offset, pg;
+	unsigned long offset;
 	struct page *page;
+	int i;
 
 	offset = (unsigned long) vmf->virtual_address - vma->vm_start;
-	pg = (unsigned long) memdesc->hostptr + offset;
 
-	page = vmalloc_to_page((void *) pg);
+	i = offset >> PAGE_SHIFT;
+	page = sg_page(&memdesc->sg[i]);
 	if (page == NULL)
 		return VM_FAULT_SIGBUS;
 
@@ -322,13 +323,52 @@ static int kgsl_vmalloc_vmflags(struct kgsl_memdesc *memdesc)
 
 static void kgsl_vmalloc_free(struct kgsl_memdesc *memdesc)
 {
+	int i = 0;
+	struct scatterlist *sg;
 	kgsl_driver.stats.vmalloc -= memdesc->size;
-	vfree(memdesc->hostptr);
+	if (memdesc->hostptr)
+		vunmap(memdesc->hostptr);
+	if (memdesc->sg)
+		for_each_sg(memdesc->sg, sg, memdesc->sglen, i)
+			__free_page(sg_page(sg));
 }
 
 static int kgsl_contiguous_vmflags(struct kgsl_memdesc *memdesc)
 {
 	return VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
+}
+
+/*
+ * kgsl_vmalloc_map_kernel - Map the memory in memdesc to kernel address space
+ *
+ * @memdesc - The memory descriptor which contains information about the memory
+ *
+ * Return: 0 on success else error code
+ */
+static int kgsl_vmalloc_map_kernel(struct kgsl_memdesc *memdesc)
+{
+	if (!memdesc->hostptr) {
+		pgprot_t page_prot = pgprot_writecombine(PAGE_KERNEL);
+		struct page **pages = NULL;
+		struct scatterlist *sg;
+		int i;
+		/* create a list of pages to call vmap */
+		pages = vmalloc(memdesc->sglen * sizeof(struct page *));
+		if (!pages) {
+			KGSL_CORE_ERR("vmalloc(%d) failed\n",
+				memdesc->sglen * sizeof(struct page *));
+			return -ENOMEM;
+		}
+		for_each_sg(memdesc->sg, sg, memdesc->sglen, i)
+			pages[i] = sg_page(sg);
+		memdesc->hostptr = vmap(pages, memdesc->sglen,
+					VM_IOREMAP, page_prot);
+		vfree(pages);
+	}
+	if (!memdesc->hostptr)
+		return -ENOMEM;
+
+	return 0;
 }
 
 static int kgsl_contiguous_vmfault(struct kgsl_memdesc *memdesc,
@@ -374,6 +414,7 @@ struct kgsl_memdesc_ops kgsl_vmalloc_ops = {
 	.free = kgsl_vmalloc_free,
 	.vmflags = kgsl_vmalloc_vmflags,
 	.vmfault = kgsl_vmalloc_vmfault,
+	.map_kernel_mem = kgsl_vmalloc_map_kernel,
 };
 EXPORT_SYMBOL(kgsl_vmalloc_ops);
 
@@ -411,7 +452,7 @@ EXPORT_SYMBOL(kgsl_cache_range_op);
 static int
 _kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable,
-			void *ptr, size_t size, unsigned int protflags)
+			size_t size, unsigned int protflags)
 {
 	int order, ret = 0;
 	int sglen = PAGE_ALIGN(size) / PAGE_SIZE;
@@ -421,7 +462,6 @@ _kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 	memdesc->pagetable = pagetable;
 	memdesc->priv = KGSL_MEMFLAGS_CACHED;
 	memdesc->ops = &kgsl_vmalloc_ops;
-	memdesc->hostptr = (void *) ptr;
 
 	memdesc->sg = vmalloc(sglen * sizeof(struct scatterlist));
 	if (memdesc->sg == NULL) {
@@ -434,16 +474,17 @@ _kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 	memdesc->sglen = sglen;
 	sg_init_table(memdesc->sg, sglen);
 
-	for (i = 0; i < memdesc->sglen; i++, ptr += PAGE_SIZE) {
-		struct page *page = vmalloc_to_page(ptr);
+	for (i = 0; i < memdesc->sglen; i++) {
+		struct page *page = alloc_page(GFP_KERNEL | __GFP_ZERO |
+						__GFP_HIGHMEM);
 		if (!page) {
-			ret = -EINVAL;
+			ret = -ENOMEM;
+			memdesc->sglen = i;
 			goto done;
 		}
+		flush_dcache_page(page);
 		sg_set_page(&memdesc->sg[i], page, PAGE_SIZE, 0);
 	}
-
-	kgsl_cache_range_op(memdesc, KGSL_CACHE_OP_FLUSH);
 
 	ret = kgsl_mmu_map(pagetable, memdesc, protflags);
 
@@ -469,20 +510,18 @@ int
 kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 		       struct kgsl_pagetable *pagetable, size_t size)
 {
-	void *ptr;
-
+	int ret = 0;
 	BUG_ON(size == 0);
 
 	size = ALIGN(size, PAGE_SIZE * 2);
-	ptr = vmalloc(size);
 
-	if (ptr  == NULL) {
-		KGSL_CORE_ERR("vmalloc(%d) failed\n", size);
-		return -ENOMEM;
-	}
-
-	return _kgsl_sharedmem_vmalloc(memdesc, pagetable, ptr, size,
+	ret =  _kgsl_sharedmem_vmalloc(memdesc, pagetable, size,
 		GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+	if (!ret)
+		ret = kgsl_vmalloc_map_kernel(memdesc);
+	if (ret)
+		kgsl_sharedmem_free(memdesc);
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_vmalloc);
 
@@ -491,25 +530,15 @@ kgsl_sharedmem_vmalloc_user(struct kgsl_memdesc *memdesc,
 			    struct kgsl_pagetable *pagetable,
 			    size_t size, int flags)
 {
-	void *ptr;
 	unsigned int protflags;
 
 	BUG_ON(size == 0);
-	ptr = vmalloc_user(size);
-
-	if (ptr == NULL) {
-		KGSL_CORE_ERR("vmalloc_user(%d) failed: allocated=%d\n",
-			      size, kgsl_driver.stats.vmalloc);
-		return -ENOMEM;
-	}
-
-	kmemleak_not_leak(ptr);
 
 	protflags = GSL_PT_PAGE_RV;
 	if (!(flags & KGSL_MEMFLAGS_GPUREADONLY))
 		protflags |= GSL_PT_PAGE_WV;
 
-	return _kgsl_sharedmem_vmalloc(memdesc, pagetable, ptr, size,
+	return _kgsl_sharedmem_vmalloc(memdesc, pagetable, size,
 		protflags);
 }
 EXPORT_SYMBOL(kgsl_sharedmem_vmalloc_user);
@@ -692,3 +721,33 @@ kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes,
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_set);
+
+/*
+ * kgsl_sharedmem_map_vma - Map a user vma to physical memory
+ *
+ * @vma - The user vma to map
+ * @memdesc - The memory descriptor which contains information about the
+ * physical memory
+ *
+ * Return: 0 on success else error code
+ */
+int
+kgsl_sharedmem_map_vma(struct vm_area_struct *vma,
+			const struct kgsl_memdesc *memdesc)
+{
+	unsigned long addr = vma->vm_start;
+	unsigned long size = vma->vm_end - vma->vm_start;
+	int ret, i = 0;
+
+	if (!memdesc->sg || (size != memdesc->size) ||
+		(memdesc->sglen != (size / PAGE_SIZE)))
+		return -EINVAL;
+
+	for (; addr < vma->vm_end; addr += PAGE_SIZE, i++) {
+		ret = vm_insert_page(vma, addr, sg_page(&memdesc->sg[i]));
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(kgsl_sharedmem_map_vma);

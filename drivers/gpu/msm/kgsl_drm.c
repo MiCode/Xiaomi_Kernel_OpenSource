@@ -903,17 +903,18 @@ int kgsl_gem_kmem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct drm_gem_object *obj = vma->vm_private_data;
 	struct drm_device *dev = obj->dev;
 	struct drm_kgsl_gem_object *priv;
-	unsigned long offset, pg;
+	unsigned long offset;
 	struct page *page;
+	int i;
 
 	mutex_lock(&dev->struct_mutex);
 
 	priv = obj->driver_private;
 
 	offset = (unsigned long) vmf->virtual_address - vma->vm_start;
-	pg = (unsigned long) priv->memdesc.hostptr + offset;
+	i = offset >> PAGE_SHIFT;
+	page = sg_page(&(priv->memdesc.sg[i]));
 
-	page = vmalloc_to_page((void *) pg);
 	if (!page) {
 		mutex_unlock(&dev->struct_mutex);
 		return VM_FAULT_SIGBUS;
