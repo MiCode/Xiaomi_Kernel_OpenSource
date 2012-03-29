@@ -353,12 +353,18 @@ static int __init gpiomux_init(void)
 	return 0;
 }
 
+static struct platform_device android_usb_device = {
+	.name	= "android_usb",
+	.id	= -1,
+};
+
 void __init msm_copper_add_devices(void)
 {
 #ifdef CONFIG_ION_MSM
 	platform_device_register(&ion_dev);
 #endif
 	platform_device_register(&msm_device_smd_copper);
+	platform_device_register(&android_usb_device);
 	platform_add_devices(msm_copper_stub_regulator_devices,
 					msm_copper_stub_regulator_devices_len);
 }
