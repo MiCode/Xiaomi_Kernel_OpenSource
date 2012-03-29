@@ -1,3 +1,4 @@
+
 /* Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
@@ -552,7 +553,8 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		}
 
 		if (data->abort) {
-			pr_err("Aborting driver\n");
+			pr_err("Aborting listener service %d\n",
+				data->listener.id);
 			return -ENODEV;
 		}
 		qseecom.send_resp_flag = 0;
@@ -605,7 +607,8 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		app_id = resp.data;
 
 	if (app_id) {
-		pr_warn("App id already exists\n");
+		pr_warn("App id %d (%s) already exists\n", app_id,
+			(char *)(req.app_name));
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(entry,
 				&qseecom.registered_app_list_head, list){
@@ -619,7 +622,8 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	} else {
 		struct qseecom_load_app_ireq load_req;
 
-		pr_warn("App id does not exist\n");
+		pr_warn("App (%s) does not exist, loading apps for first time\n",
+			(char *)(load_req.app_name));
 		/* Get the handle of the shared fd */
 		ihandle = ion_import_fd(qseecom.ion_clnt,
 					load_img_req.ifd_data_fd);
@@ -642,6 +646,13 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 				sizeof(struct qseecom_load_app_ireq),
 				&resp, sizeof(resp));
 
+		if (resp.result == QSEOS_RESULT_FAILURE) {
+			pr_err("scm_call failed resp.result QSEOS_RESULT_FAILURE -1\n");
+			if (!IS_ERR_OR_NULL(ihandle))
+				ion_free(qseecom.ion_clnt, ihandle);
+			return -EFAULT;
+		}
+
 		if (resp.result == QSEOS_RESULT_INCOMPLETE) {
 			ret = __qseecom_process_incomplete_cmd(data, &resp);
 			if (ret) {
@@ -653,7 +664,8 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 			}
 		}
 		if (resp.result != QSEOS_RESULT_SUCCESS) {
-			pr_err("scm_call failed resp.result != QSEOS_RESULT_SUCCESS\n");
+			pr_err("scm_call failed resp.result unknown, %d\n",
+					resp.result);
 			if (!IS_ERR_OR_NULL(ihandle))
 				ion_free(qseecom.ion_clnt, ihandle);
 			return -EFAULT;
@@ -677,6 +689,9 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		list_add_tail(&entry->list, &qseecom.registered_app_list_head);
 		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
 					flags);
+
+		pr_warn("App with id %d  (%s) now loaded\n", app_id,
+			(char *)(load_req.app_name));
 	}
 	data->client.app_id = app_id;
 	load_img_req.app_id = app_id;
@@ -720,10 +735,14 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 					unload = __qseecom_cleanup_app(data);
 					list_del(&ptr_app->list);
 					kzfree(ptr_app);
+					pr_warn("App id %d now unloaded\n",
+							ptr_app->app_id);
 					break;
 				} else {
 					ptr_app->ref_cnt--;
 					data->released = true;
+					pr_warn("Can't unload app with id %d (it is inuse)\n",
+							ptr_app->app_id);
 					break;
 				}
 			}
@@ -748,7 +767,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 				sizeof(struct qseecom_unload_app_ireq),
 				&resp, sizeof(resp));
 		if (ret) {
-			pr_err("Fail to unload APP\n");
+			pr_err("Fail to unload app id %d\n", req.app_id);
 			return -EFAULT;
 		}
 		if (resp.result == QSEOS_RESULT_INCOMPLETE) {
@@ -964,7 +983,7 @@ static int __qseecom_send_cmd_req_clean_up(
 	int i = 0;
 
 	for (i = 0; i < MAX_ION_FD; i++) {
-		if (req->ifd_data[i].fd != 0) {
+		if (req->ifd_data[i].fd > 0) {
 			field = (char *)req->cmd_req_buf +
 					req->ifd_data[i].cmd_buf_offset;
 			update = (uint32_t *) field;
@@ -986,7 +1005,7 @@ static int __qseecom_update_with_phy_addr(
 	uint32_t length;
 
 	for (i = 0; i < MAX_ION_FD; i++) {
-		if (req->ifd_data[i].fd != 0) {
+		if (req->ifd_data[i].fd > 0) {
 			/* Get the handle of the shared fd */
 			ihandle = ion_import_fd(qseecom.ion_clnt,
 						req->ifd_data[i].fd);
