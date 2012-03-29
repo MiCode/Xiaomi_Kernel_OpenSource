@@ -845,3 +845,23 @@ error_close:
 	mutex_unlock(&resource_context.secure_lock);
 	return rc;
 }
+
+u32 get_res_trk_perf_level(enum vcd_perf_level perf_level)
+{
+	u32 res_trk_perf_level;
+	switch (perf_level) {
+	case VCD_PERF_LEVEL0:
+		res_trk_perf_level = RESTRK_1080P_VGA_PERF_LEVEL;
+		break;
+	case VCD_PERF_LEVEL1:
+		res_trk_perf_level = RESTRK_1080P_720P_PERF_LEVEL;
+		break;
+	case VCD_PERF_LEVEL2:
+		res_trk_perf_level = RESTRK_1080P_MAX_PERF_LEVEL;
+		break;
+	default:
+		VCD_MSG_ERROR("Invalid perf level: %d\n", perf_level);
+		res_trk_perf_level = -EINVAL;
+	}
+	return res_trk_perf_level;
+}

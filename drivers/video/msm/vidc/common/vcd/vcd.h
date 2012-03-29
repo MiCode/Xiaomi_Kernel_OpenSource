@@ -390,4 +390,7 @@ void vcd_handle_clnt_fatal_input_done(struct vcd_clnt_ctxt *cctxt,
 void vcd_handle_ind_info_output_reconfig
 	(struct vcd_clnt_ctxt *cctxt, u32 status);
 
+u32 vcd_req_perf_level(struct vcd_clnt_ctxt *cctxt,
+	struct vcd_property_perf_level *);
+
 #endif
