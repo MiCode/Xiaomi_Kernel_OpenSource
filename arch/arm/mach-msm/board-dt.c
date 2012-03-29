@@ -61,7 +61,7 @@ static void __init msm_dt_init(void)
 	}
 }
 
-static const char *msm_dt_match[] __initdata = {
+static const char *msm_dt_match[] __initconst = {
 	"qcom,msmcopper",
 	NULL
 };
