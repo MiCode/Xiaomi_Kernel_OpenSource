@@ -446,6 +446,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.sensor_platform_info = &sensor_board_info_imx074,
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 	.actuator_info = &imx074_actuator_info
 };
 
@@ -480,6 +481,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_mt9m114_data = {
 	.sensor_platform_info = &sensor_board_info_mt9m114,
 	.csi_if = 1,
 	.camera_type = FRONT_CAMERA_2D,
+	.sensor_type = YUV_SENSOR,
 };
 
 static struct msm_camera_sensor_flash_data flash_ov2720 = {
@@ -506,6 +508,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 	.sensor_platform_info = &sensor_board_info_ov2720,
 	.csi_if	= 1,
 	.camera_type = FRONT_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 };
 
 static struct camera_vreg_t msm_8930_s5k3l1yx_vreg[] = {
@@ -539,6 +542,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k3l1yx_data = {
 	.sensor_platform_info = &sensor_board_info_s5k3l1yx,
 	.csi_if               = 1,
 	.camera_type          = BACK_CAMERA_2D,
+	.sensor_type          = BAYER_SENSOR,
 };
 
 void __init msm8930_init_cam(void)

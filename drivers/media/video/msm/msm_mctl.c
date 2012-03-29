@@ -194,7 +194,8 @@ static int msm_get_sensor_info(struct msm_sync *sync,
 	info.pxlcode = pcam->usr_fmts[0].pxlcode;
 	info.flashtype = sdata->flash_type; /* two flash_types here? */
 	info.camera_type = sdata->camera_type;
-	info.sensor_type = 0; /* need to add YUV/SOC in probing */
+	/* sensor_type needed to add YUV/SOC in probing */
+	info.sensor_type = sdata->sensor_type;
 	info.mount_angle = sdata->sensor_platform_info->mount_angle;
 	/* copy back to user space */
 	if (copy_to_user((void *)arg,

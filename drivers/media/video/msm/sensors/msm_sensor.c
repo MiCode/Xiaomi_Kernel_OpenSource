@@ -214,59 +214,6 @@ int32_t msm_sensor_setting3(struct msm_sensor_ctrl_t *s_ctrl,
 	return rc;
 }
 
-int32_t msm_sensor_setting2(struct msm_sensor_ctrl_t *s_ctrl,
-			int update_type, int res)
-{
-	int32_t rc = 0;
-	static int csi_config;
-
-	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
-	if (csi_config == 0 || res == 0)
-		msleep(66);
-	else
-		msleep(266);
-	if (update_type == MSM_SENSOR_REG_INIT) {
-		CDBG("Register INIT\n");
-		s_ctrl->curr_csi_params = NULL;
-		msm_camera_i2c_write(
-				s_ctrl->sensor_i2c_client,
-				0x103, 0x1,
-				MSM_CAMERA_I2C_BYTE_DATA);
-		msm_sensor_enable_debugfs(s_ctrl);
-		msm_sensor_write_init_settings(s_ctrl);
-		csi_config = 0;
-	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
-		CDBG("PERIODIC : %d\n", res);
-		msm_sensor_write_conf_array(
-			s_ctrl->sensor_i2c_client,
-			s_ctrl->msm_sensor_reg->mode_settings, res);
-		msleep(30);
-		if (!csi_config) {
-			s_ctrl->curr_csic_params = s_ctrl->csic_params[res];
-			CDBG("CSI config in progress\n");
-			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-				NOTIFY_CSIC_CFG,
-				s_ctrl->curr_csic_params);
-			CDBG("CSI config is done\n");
-			mb();
-			msleep(30);
-			csi_config = 1;
-		msm_camera_i2c_write(
-			s_ctrl->sensor_i2c_client,
-			0x100, 0x1,
-			MSM_CAMERA_I2C_BYTE_DATA);
-		}
-		msm_camera_i2c_write(
-			s_ctrl->sensor_i2c_client,
-			0x4800, 0x4,
-			MSM_CAMERA_I2C_BYTE_DATA);
-		msleep(266);
-		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
-		msleep(50);
-	}
-	return rc;
-}
-
 int32_t msm_sensor_setting1(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {

@@ -85,6 +85,10 @@ struct vfe2x_ctrl_type {
 	struct buf_info raw;
 	struct buf_info thumb;
 	struct prev_free_buf_info free_buf;
+	struct buf_info zsl_prim;
+	struct buf_info zsl_sec;
+	struct prev_free_buf_info zsl_free_buf[2];
+
 
 	spinlock_t  table_lock;
 	struct list_head table_q;
@@ -106,6 +110,7 @@ struct vfe2x_ctrl_type {
 	struct clk *vfe_clk[3];
 	spinlock_t  sd_notify_lock;
 	uint32_t    reconfig_vfe;
+	uint32_t    zsl_mode;
 } __packed;
 
 struct vfe_frame_extra {
