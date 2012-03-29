@@ -245,6 +245,7 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
 #else
 	.wpswitch_gpio	= 66,
+	.wpswitch_polarity = 1,
 #endif
 #endif
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
