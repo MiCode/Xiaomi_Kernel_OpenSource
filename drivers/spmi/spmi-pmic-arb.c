@@ -99,7 +99,6 @@ struct spmi_pmic_arb_dev {
 	void __iomem		*base;
 	void __iomem		*intr;
 	int			pic_irq;
-	int			pic_enable_cnt;
 	spinlock_t		lock;
 	u8			owner;
 	u8			channel;
@@ -365,8 +364,6 @@ static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 	spin_lock_irqsave(&pmic_arb->lock, flags);
 	status = readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
 	if (!status) {
-		if (pmic_arb->pic_enable_cnt++ == 0)
-			enable_irq(pmic_arb->pic_irq);
 		writel_relaxed(0x1, pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
 		/* Interrupt needs to be enabled before returning to caller */
 		wmb();
@@ -400,8 +397,6 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 	spin_lock_irqsave(&pmic_arb->lock, flags);
 	status = readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
 	if (status) {
-		if (pmic_arb->pic_enable_cnt-- == 1)
-			disable_irq(pmic_arb->pic_irq);
 		writel_relaxed(0x0, pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
 		/* Interrupt needs to be disabled before returning to caller */
 		wmb();
@@ -629,7 +624,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "request IRQ failed\n");
 		return ret;
 	}
-	disable_irq(pmic_arb->pic_irq);
 
 	/* Get properties from the device tree */
 	ret = spmi_pmic_arb_get_property(pdev, "cell-index", &cell_index);
