@@ -352,6 +352,7 @@ void msm_gic_irq_enter_sleep1(bool modem_wake, int from_idle, uint32_t
   */
 int msm_gic_irq_enter_sleep2(bool modem_wake, int from_idle)
 {
+	int i;
 
 	if (from_idle && !modem_wake)
 		return 0;
@@ -370,11 +371,17 @@ int msm_gic_irq_enter_sleep2(bool modem_wake, int from_idle)
 	}
 
 	if (modem_wake) {
-		irq_set_irq_type(MSM8625_INT_A9_M2A_6, IRQF_TRIGGER_RISING);
 		/* save the contents of GIC CPU interface and Distributor */
 		msm_gic_save();
+		/* Disable all the Interrupts, if we enter from idle pc */
+		if (from_idle) {
+			for (i = 0; (i * 32) < max_irqs; i++)
+				writel_relaxed(0xffffffff, dist_base
+					+ GIC_DIST_ENABLE_CLEAR + i * 4);
+		}
+		irq_set_irq_type(MSM8625_INT_A9_M2A_6, IRQF_TRIGGER_RISING);
 		enable_irq(MSM8625_INT_A9_M2A_6);
-		pr_info("%s Good to go for sleep now\n", __func__);
+		pr_debug("%s going for sleep now\n", __func__);
 	}
 
 	return 0;
