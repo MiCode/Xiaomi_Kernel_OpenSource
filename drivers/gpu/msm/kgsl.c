@@ -895,6 +895,21 @@ static long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 	return result;
 }
 
+static long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,
+					  unsigned int cmd, void *data)
+{
+	int result = 0;
+	/* The getproperty struct is reused for setproperty too */
+	struct kgsl_device_getproperty *param = data;
+
+	if (dev_priv->device->ftbl->setproperty)
+		result = dev_priv->device->ftbl->setproperty(
+			dev_priv->device, param->type,
+			param->value, param->sizebytes);
+
+	return result;
+}
+
 static long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private
 						*dev_priv, unsigned int cmd,
 						void *data)
@@ -1981,6 +1996,8 @@ static const struct {
 			kgsl_ioctl_cff_user_event, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMESTAMP_EVENT,
 			kgsl_ioctl_timestamp_event, 1),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SETPROPERTY,
+			kgsl_ioctl_device_setproperty, 1),
 };
 
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)

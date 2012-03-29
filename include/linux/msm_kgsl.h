@@ -2,7 +2,7 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
-#define KGSL_VERSION_MINOR        8
+#define KGSL_VERSION_MINOR        9
 
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM	1
@@ -454,6 +454,14 @@ struct kgsl_timestamp_event {
 struct kgsl_timestamp_event_genlock {
 	int handle; /* Handle of the genlock lock to release */
 };
+
+/*
+ * Set a property within the kernel.  Uses the same structure as
+ * IOCTL_KGSL_GETPROPERTY
+ */
+
+#define IOCTL_KGSL_SETPROPERTY \
+	_IOW(KGSL_IOC_TYPE, 0x32, struct kgsl_device_getproperty)
 
 #ifdef __KERNEL__
 #ifdef CONFIG_MSM_KGSL_DRM
