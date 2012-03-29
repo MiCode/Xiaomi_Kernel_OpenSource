@@ -2190,3 +2190,23 @@ struct platform_device apq8064_msm_gov_device = {
 		.platform_data = &apq8064_core_info,
 	},
 };
+
+static struct resource msm_cache_erp_resources[] = {
+	{
+		.name = "l1_irq",
+		.start = SC_SICCPUXEXTFAULTIRPTREQ,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "l2_irq",
+		.start = APCC_QGICL2IRPTREQ,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+struct platform_device apq8064_device_cache_erp = {
+	.name		= "msm_cache_erp",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(msm_cache_erp_resources),
+	.resource	= msm_cache_erp_resources,
+};
