@@ -821,9 +821,9 @@ static int _smem_log_init(void)
 
 	inst[GEN].which_log = GEN;
 	inst[GEN].events =
-		(struct smem_log_item *)smem_alloc(SMEM_SMEM_LOG_EVENTS,
+		(struct smem_log_item *)smem_alloc2(SMEM_SMEM_LOG_EVENTS,
 						  SMEM_LOG_EVENTS_SIZE);
-	inst[GEN].idx = (uint32_t *)smem_alloc(SMEM_SMEM_LOG_IDX,
+	inst[GEN].idx = (uint32_t *)smem_alloc2(SMEM_SMEM_LOG_IDX,
 					     sizeof(uint32_t));
 	if (!inst[GEN].events || !inst[GEN].idx)
 		pr_info("%s: no log or log_idx allocated\n", __func__);
@@ -837,9 +837,9 @@ static int _smem_log_init(void)
 	inst[STA].which_log = STA;
 	inst[STA].events =
 		(struct smem_log_item *)
-		smem_alloc(SMEM_SMEM_STATIC_LOG_EVENTS,
+		smem_alloc2(SMEM_SMEM_STATIC_LOG_EVENTS,
 			   SMEM_STATIC_LOG_EVENTS_SIZE);
-	inst[STA].idx = (uint32_t *)smem_alloc(SMEM_SMEM_STATIC_LOG_IDX,
+	inst[STA].idx = (uint32_t *)smem_alloc2(SMEM_SMEM_STATIC_LOG_IDX,
 						     sizeof(uint32_t));
 	if (!inst[STA].events || !inst[STA].idx)
 		pr_info("%s: no static log or log_idx allocated\n", __func__);
@@ -853,9 +853,9 @@ static int _smem_log_init(void)
 	inst[POW].which_log = POW;
 	inst[POW].events =
 		(struct smem_log_item *)
-		smem_alloc(SMEM_SMEM_LOG_POWER_EVENTS,
+		smem_alloc2(SMEM_SMEM_LOG_POWER_EVENTS,
 			   SMEM_POWER_LOG_EVENTS_SIZE);
-	inst[POW].idx = (uint32_t *)smem_alloc(SMEM_SMEM_LOG_POWER_IDX,
+	inst[POW].idx = (uint32_t *)smem_alloc2(SMEM_SMEM_LOG_POWER_IDX,
 						     sizeof(uint32_t));
 	if (!inst[POW].events || !inst[POW].idx)
 		pr_info("%s: no power log or log_idx allocated\n", __func__);
@@ -1934,28 +1934,25 @@ static int smem_log_initialize(void)
 	return ret;
 }
 
-static int modem_notifier(struct notifier_block *this,
-			  unsigned long code,
-			  void *_cmd)
+static int smsm_driver_state_notifier(struct notifier_block *this,
+				      unsigned long code,
+				      void *_cmd)
 {
-	switch (code) {
-	case MODEM_NOTIFIER_SMSM_INIT:
+	int ret = 0;
+	if (code & SMSM_INIT) {
 		if (!smem_log_initialized)
-			smem_log_initialize();
-		break;
-	default:
-		break;
+			ret = smem_log_initialize();
 	}
-	return NOTIFY_DONE;
+	return ret;
 }
 
 static struct notifier_block nb = {
-	.notifier_call = modem_notifier,
+	.notifier_call = smsm_driver_state_notifier,
 };
 
 static int __init smem_log_init(void)
 {
-	return modem_register_notifier(&nb);
+	return smsm_driver_state_notifier_register(&nb);
 }
 
 
