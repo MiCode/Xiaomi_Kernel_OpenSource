@@ -79,18 +79,12 @@ module_param_named(
  *****************************************************************************/
 
 static struct msm_pm_platform_data *msm_pm_modes;
-static int rpm_cpu0_wakeup_irq;
 
 void __init msm_pm_set_platform_data(
 	struct msm_pm_platform_data *data, int count)
 {
 	BUG_ON(MSM_PM_SLEEP_MODE_NR * num_possible_cpus() > count);
 	msm_pm_modes = data;
-}
-
-void __init msm_pm_set_rpm_wakeup_irq(unsigned int irq)
-{
-	rpm_cpu0_wakeup_irq = irq;
 }
 
 enum {
@@ -763,15 +757,6 @@ static bool msm_pm_power_collapse(bool from_idle)
 	return collapsed;
 }
 
-static irqreturn_t msm_pm_rpm_wakeup_interrupt(int irq, void *dev_id)
-{
-	if (dev_id != &msm_pm_rpm_wakeup_interrupt)
-		return IRQ_NONE;
-
-	return IRQ_HANDLED;
-}
-
-
 /******************************************************************************
  * External Idle/Suspend Functions
  *****************************************************************************/
@@ -1167,7 +1152,6 @@ static int __init msm_pm_init(void)
 #ifdef CONFIG_MSM_IDLE_STATS
 	struct proc_dir_entry *d_entry;
 #endif
-	int ret;
 
 	/* Page table for cores to come back up safely. */
 	pc_pgd = pgd_alloc(&init_mm);
@@ -1204,22 +1188,6 @@ static int __init msm_pm_init(void)
 	msm_pm_pc_pgd = virt_to_phys(pc_pgd);
 	clean_caches((unsigned long)&msm_pm_pc_pgd, sizeof(msm_pm_pc_pgd),
 		     virt_to_phys(&msm_pm_pc_pgd));
-
-	ret = request_irq(rpm_cpu0_wakeup_irq,
-			msm_pm_rpm_wakeup_interrupt, IRQF_TRIGGER_RISING,
-			"pm_drv", msm_pm_rpm_wakeup_interrupt);
-	if (ret) {
-		pr_err("%s: failed to request irq %u: %d\n",
-			__func__, rpm_cpu0_wakeup_irq, ret);
-		return ret;
-	}
-
-	ret = irq_set_irq_wake(rpm_cpu0_wakeup_irq, 1);
-	if (ret) {
-		pr_err("%s: failed to set wakeup irq %u: %d\n",
-			__func__, rpm_cpu0_wakeup_irq, ret);
-		return ret;
-	}
 
 #ifdef CONFIG_MSM_IDLE_STATS
 	for_each_possible_cpu(cpu) {

@@ -54,7 +54,6 @@ struct msm_rpm_notif_config {
 static uint32_t msm_rpm_sel_mask_size;
 static struct msm_rpm_platform_data msm_rpm_data;
 
-
 static DEFINE_MUTEX(msm_rpm_mutex);
 static DEFINE_SPINLOCK(msm_rpm_lock);
 static DEFINE_SPINLOCK(msm_rpm_irq_lock);
@@ -936,9 +935,16 @@ static void __init msm_rpm_populate_map(struct msm_rpm_platform_data *data)
 	}
 }
 
+static irqreturn_t msm_pm_rpm_wakeup_interrupt(int irq, void *dev_id)
+{
+	if (dev_id != &msm_pm_rpm_wakeup_interrupt)
+		return IRQ_NONE;
+
+	return IRQ_HANDLED;
+}
+
 int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 {
-	unsigned int irq;
 	int rc;
 
 	memcpy(&msm_rpm_data, data, sizeof(struct msm_rpm_platform_data));
@@ -971,21 +977,19 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 	msm_rpm_write(MSM_RPM_PAGE_CTRL,
 		target_ctrl(MSM_RPM_CTRL_VERSION_BUILD), msm_rpm_data.ver[2]);
 
-	irq = data->irq_ack;
-
-	rc = request_irq(irq, msm_rpm_ack_interrupt,
+	rc = request_irq(data->irq_ack, msm_rpm_ack_interrupt,
 			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
 			"rpm_drv", msm_rpm_ack_interrupt);
 	if (rc) {
 		pr_err("%s: failed to request irq %d: %d\n",
-			__func__, irq, rc);
+			__func__, data->irq_ack, rc);
 		return rc;
 	}
 
-	rc = irq_set_irq_wake(irq, 1);
+	rc = irq_set_irq_wake(data->irq_ack, 1);
 	if (rc) {
 		pr_err("%s: failed to set wakeup irq %u: %d\n",
-			__func__, irq, rc);
+			__func__, data->irq_ack, rc);
 		return rc;
 	}
 
@@ -994,6 +998,22 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 	if (rc) {
 		pr_err("%s: failed to request error interrupt: %d\n",
 			__func__, rc);
+		return rc;
+	}
+
+	rc = request_irq(data->irq_wakeup,
+			msm_pm_rpm_wakeup_interrupt, IRQF_TRIGGER_RISING,
+			"pm_drv", msm_pm_rpm_wakeup_interrupt);
+	if (rc) {
+		pr_err("%s: failed to request irq %u: %d\n",
+			__func__, data->irq_wakeup, rc);
+		return rc;
+	}
+
+	rc = irq_set_irq_wake(data->irq_wakeup, 1);
+	if (rc) {
+		pr_err("%s: failed to set wakeup irq %u: %d\n",
+			__func__, data->irq_wakeup, rc);
 		return rc;
 	}
 

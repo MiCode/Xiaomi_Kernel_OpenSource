@@ -40,6 +40,7 @@ struct msm_rpm_platform_data msm8930_rpm_data __initdata = {
 	},
 	.irq_ack = RPM_APCC_CPU0_GP_HIGH_IRQ,
 	.irq_err = RPM_APCC_CPU0_GP_LOW_IRQ,
+	.irq_wakeup = RPM_APCC_CPU0_WAKE_UP_IRQ,
 	.ipc_rpm_reg = MSM_APCS_GCC_BASE + 0x008,
 	.ipc_rpm_val = 4,
 	.target_id = {
