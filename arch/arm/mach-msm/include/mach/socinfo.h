@@ -44,6 +44,8 @@
 #define machine_is_copper_sim()	0
 #endif
 
+#define PLATFORM_SUBTYPE_SGLTE	6
+
 enum msm_cpu {
 	MSM_CPU_UNKNOWN = 0,
 	MSM_CPU_7X01,
