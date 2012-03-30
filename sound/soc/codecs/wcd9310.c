@@ -5610,7 +5610,6 @@ static void tabla_hs_insert_irq_nogpio(struct tabla_priv *priv, bool is_removal,
 		tabla_codec_enable_hs_detect(codec, 1, MBHC_USE_HPHL_TRIGGER,
 					     false);
 	} else  {
-		wcd9xxx_lock_sleep(core);
 		ret = cancel_delayed_work(&priv->mbhc_insert_dwork);
 		if (ret != 0) {
 			pr_debug("%s: Complete plug insertion, Detecting plug "
