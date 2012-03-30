@@ -1,5 +1,5 @@
 /*
- * Broadcom Ethernettype  protocol definitions
+ * Linux cfg80211 driver - Dongle Host Driver (DHD) related
  *
  * Copyright (C) 1999-2011, Broadcom Corporation
  * 
@@ -21,63 +21,22 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmeth.h 277737 2011-08-16 17:54:59Z $
+ * $Id: wl_cfg80211.c,v 1.1.4.1.2.14 2011/02/09 01:40:07 Exp $
  */
 
 
+#ifndef __DHD_CFG80211__
+#define __DHD_CFG80211__
 
+#include <wl_cfg80211.h>
+#include <wl_cfgp2p.h>
 
-#ifndef _BCMETH_H_
-#define _BCMETH_H_
+s32 dhd_cfg80211_init(struct wl_priv *wl);
+s32 dhd_cfg80211_deinit(struct wl_priv *wl);
+s32 dhd_cfg80211_down(struct wl_priv *wl);
+s32 dhd_config_dongle(struct wl_priv *wl, bool need_lock);
 
-#ifndef _TYPEDEFS_H_
-#include <typedefs.h>
-#endif
+int wl_cfg80211_btcoex_init(struct wl_priv *wl);
+void wl_cfg80211_btcoex_deinit(struct wl_priv *wl);
 
-
-#include <packed_section_start.h>
-
-
-
-
-
-
-
-#define	BCMILCP_SUBTYPE_RATE		1
-#define	BCMILCP_SUBTYPE_LINK		2
-#define	BCMILCP_SUBTYPE_CSA		3
-#define	BCMILCP_SUBTYPE_LARQ		4
-#define BCMILCP_SUBTYPE_VENDOR		5
-#define	BCMILCP_SUBTYPE_FLH		17
-
-#define BCMILCP_SUBTYPE_VENDOR_LONG	32769
-#define BCMILCP_SUBTYPE_CERT		32770
-#define BCMILCP_SUBTYPE_SES		32771
-
-
-#define BCMILCP_BCM_SUBTYPE_RESERVED		0
-#define BCMILCP_BCM_SUBTYPE_EVENT		1
-#define BCMILCP_BCM_SUBTYPE_SES			2
-
-
-#define BCMILCP_BCM_SUBTYPE_DPT			4
-
-#define BCMILCP_BCM_SUBTYPEHDR_MINLENGTH	8
-#define BCMILCP_BCM_SUBTYPEHDR_VERSION		0
-
-
-typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr
-{
-	uint16	subtype;	
-	uint16	length;
-	uint8	version;	
-	uint8	oui[3];		
-	
-	uint16	usr_subtype;
-} BWL_POST_PACKED_STRUCT bcmeth_hdr_t;
-
-
-
-#include <packed_section_end.h>
-
-#endif	
+#endif /* __DHD_CFG80211__ */
