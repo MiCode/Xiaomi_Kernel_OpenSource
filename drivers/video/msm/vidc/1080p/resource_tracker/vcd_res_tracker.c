@@ -644,8 +644,9 @@ void res_trk_init(struct device *device, u32 irq)
 			VIDC_FW_SIZE, DDL_KILO_BYTE(128))) {
 			pr_err("%s() Firmware buffer allocation failed",
 				   __func__);
-			memset(&resource_context.firmware_addr, 0,
-			   sizeof(resource_context.firmware_addr));
+			if (!res_trk_check_for_sec_session())
+				memset(&resource_context.firmware_addr, 0,
+				sizeof(resource_context.firmware_addr));
 		}
 	}
 }

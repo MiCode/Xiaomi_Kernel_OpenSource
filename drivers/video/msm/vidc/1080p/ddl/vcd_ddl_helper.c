@@ -248,7 +248,8 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 	if (dpb > DDL_MAX_BUFFER_COUNT)
 		dpb = DDL_MAX_BUFFER_COUNT;
 	for (i = 0; i < dpb; i++) {
-		if (frame[i].vcd_frm.virtual) {
+		if (!(res_trk_check_for_sec_session()) &&
+			frame[i].vcd_frm.virtual) {
 			if (luma_size <= frame[i].vcd_frm.alloc_len) {
 				memset(frame[i].vcd_frm.virtual,
 					 0x10101010, luma_size);
@@ -734,13 +735,16 @@ u32 ddl_allocate_dec_hw_buffers(struct ddl_client_context *ddl)
 		if (!ptr)
 			status = VCD_ERR_ALLOC_FAIL;
 		else {
-			memset(dec_bufs->desc.align_virtual_addr,
-				   0, buf_size.sz_desc);
-			msm_ion_do_cache_op(ddl_context->video_ion_client,
+			if (!res_trk_check_for_sec_session()) {
+				memset(dec_bufs->desc.align_virtual_addr,
+					   0, buf_size.sz_desc);
+				msm_ion_do_cache_op(
+						ddl_context->video_ion_client,
 						dec_bufs->desc.alloc_handle,
 						dec_bufs->desc.alloc_handle,
 						dec_bufs->desc.buffer_size,
 						ION_IOC_CLEAN_INV_CACHES);
+			}
 		}
 	}
 	if (status)
