@@ -123,4 +123,5 @@ struct pm8921_bms_battery_data palladium_1500_data = {
 	.pc_sf_lut		= &palladium_1500_pc_sf,
 	.rbatt_sf_lut		= &palladium_1500_rbatt_sf,
 	.default_rbatt_mohm	= 254,
+	.delta_rbatt_mohm	= 60,
 };

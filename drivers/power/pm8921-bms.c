@@ -94,6 +94,7 @@ struct pm8921_bms_chip {
 	struct pc_temp_ocv_lut	*pc_temp_ocv_lut;
 	struct sf_lut		*pc_sf_lut;
 	struct sf_lut		*rbatt_sf_lut;
+	int			delta_rbatt_mohm;
 	struct work_struct	calib_hkadc_work;
 	struct delayed_work	calib_ccadc_work;
 	unsigned int		calib_delay_ms;
@@ -995,6 +996,13 @@ static int get_rbatt(struct pm8921_bms_chip *chip, int soc_rbatt, int batt_temp)
 	rbatt += the_chip->rconn_mohm;
 	pr_debug("adding rconn_mohm = %d rbatt = %d\n",
 				the_chip->rconn_mohm, rbatt);
+
+	if (is_between(20, 10, soc_rbatt))
+		rbatt = rbatt
+			+ ((20 - soc_rbatt) * chip->delta_rbatt_mohm) / 10;
+	else
+		if (is_between(10, 0, soc_rbatt))
+			rbatt = rbatt + chip->delta_rbatt_mohm;
 
 	pr_debug("RBATT = %d\n", rbatt);
 	return rbatt;
@@ -1961,6 +1969,7 @@ palladium:
 		chip->rbatt_sf_lut = palladium_1500_data.rbatt_sf_lut;
 		chip->default_rbatt_mohm
 				= palladium_1500_data.default_rbatt_mohm;
+		chip->delta_rbatt_mohm = palladium_1500_data.delta_rbatt_mohm;
 		return 0;
 desay:
 		chip->fcc = desay_5200_data.fcc;
@@ -1969,6 +1978,7 @@ desay:
 		chip->pc_sf_lut = desay_5200_data.pc_sf_lut;
 		chip->rbatt_sf_lut = desay_5200_data.rbatt_sf_lut;
 		chip->default_rbatt_mohm = desay_5200_data.default_rbatt_mohm;
+		chip->delta_rbatt_mohm = desay_5200_data.delta_rbatt_mohm;
 		return 0;
 }
 

@@ -80,8 +80,10 @@ struct pc_temp_ocv_lut {
  *			and percent charge
  * @rbatt_sf_lut:	table to get battery resistance scaling factor given
  *			temperature and percent charge
- * default_rbatt_mohm:	the default value of battery resistance to use when
+ * @default_rbatt_mohm:	the default value of battery resistance to use when
  *			readings from bms are not available.
+ * @delta_rbatt_mohm:	the resistance to be added towards lower soc to
+ *			compensate for battery capacitance.
  */
 struct pm8921_bms_battery_data {
 	unsigned int		fcc;
@@ -91,6 +93,7 @@ struct pm8921_bms_battery_data {
 	struct sf_lut		*pc_sf_lut;
 	struct sf_lut		*rbatt_sf_lut;
 	int			default_rbatt_mohm;
+	int			delta_rbatt_mohm;
 };
 
 struct pm8xxx_bms_core_data {
