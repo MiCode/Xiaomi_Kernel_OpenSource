@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2010-2011 Code Aurora Forum.  All rights reserved.
+   Copyright (c) 2010-2012 Code Aurora Forum.  All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License version 2 and
@@ -115,7 +115,7 @@ int amp_init(void);
 void amp_exit(void);
 
 /* L2CAP-AMP fixed channel interface */
-void amp_conn_ind(struct l2cap_conn *conn, struct sk_buff *skb);
+void amp_conn_ind(struct hci_conn *hcon, struct sk_buff *skb);
 
 /* L2CAP-AMP link interface */
 void amp_create_physical(struct l2cap_conn *conn, struct sock *sk);
@@ -256,7 +256,7 @@ struct amp_work_state_change {
 };
 struct amp_work_conn_ind {
 	struct work_struct work;
-	struct l2cap_conn *conn;
+	struct hci_conn *hcon;
 	struct sk_buff *skb;
 };
 struct amp_work_create_physical {
