@@ -1395,11 +1395,10 @@ int usb_hcd_map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 					ret = -EAGAIN;
 				else
 					urb->transfer_flags |= URB_DMA_MAP_SG;
-				if (n != urb->num_sgs) {
-					urb->num_sgs = n;
+				urb->num_mapped_sgs = n;
+				if (n != urb->num_sgs)
 					urb->transfer_flags |=
 							URB_DMA_SG_COMBINED;
-				}
 			} else if (urb->sg) {
 				struct scatterlist *sg = urb->sg;
 				urb->transfer_dma = dma_map_page(
@@ -1772,6 +1771,8 @@ int usb_hcd_alloc_bandwidth(struct usb_device *udev,
 		struct usb_interface *iface = usb_ifnum_to_if(udev,
 				cur_alt->desc.bInterfaceNumber);
 
+		if (!iface)
+			return -EINVAL;
 		if (iface->resetting_device) {
 			/*
 			 * The USB core just reset the device, so the xHCI host
