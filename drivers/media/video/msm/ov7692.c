@@ -522,6 +522,8 @@ int ov7692_sensor_config(void __user *argp)
 	case CFG_PWR_DOWN:
 		rc = ov7692_power_down();
 		break;
+	case CFG_SET_EFFECT:
+		break;
 	default:
 		rc = -EFAULT;
 		break;
