@@ -1111,6 +1111,8 @@ static int msm_pm_power_collapse
 #endif
 
 	collapsed = msm_pm_collapse();
+	if (collapsed)
+		power_collapsed = 1;
 
 #ifdef CONFIG_CACHE_L2X0
 	l2x0_resume(collapsed);
