@@ -126,6 +126,13 @@ spm_failed_malloc:
 	return ret;
 }
 
+void msm_spm_reinit(void)
+{
+	unsigned int cpu;
+	for_each_possible_cpu(cpu)
+		msm_spm_drv_reinit(&per_cpu(msm_cpu_spm_device.reg_data, cpu));
+}
+
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
 	struct msm_spm_device *dev = &__get_cpu_var(msm_cpu_spm_device);
@@ -197,5 +204,10 @@ int msm_spm_l2_set_low_power_mode(unsigned int mode, bool notify_rpm)
 int __init msm_spm_l2_init(struct msm_spm_platform_data *data)
 {
 	return msm_spm_dev_init(&msm_spm_l2_device, data);
+}
+
+void msm_spm_l2_reinit(void)
+{
+	msm_spm_drv_reinit(&msm_spm_l2_device.reg_data);
 }
 #endif
