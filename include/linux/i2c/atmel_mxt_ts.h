@@ -53,10 +53,18 @@ struct mxt_platform_data {
 	const struct mxt_config_info *config_array;
 	size_t config_array_size;
 
-	unsigned int x_size;
-	unsigned int y_size;
-	unsigned int touch_x_size;
-	unsigned int touch_y_size;
+	/* touch panel's minimum and maximum coordinates */
+	u32 panel_minx;
+	u32 panel_maxx;
+	u32 panel_miny;
+	u32 panel_maxy;
+
+	/* display's minimum and maximum coordinates */
+	u32 disp_minx;
+	u32 disp_maxx;
+	u32 disp_miny;
+	u32 disp_maxy;
+
 	unsigned long irqflags;
 	bool	i2c_pull_up;
 	bool	digital_pwr_regulator;

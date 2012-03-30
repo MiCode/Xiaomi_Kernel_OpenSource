@@ -1134,8 +1134,14 @@ static int mxt_key_codes[MXT_KEYARRAY_MAX_KEYS] = {
 static struct mxt_platform_data mxt_platform_data = {
 	.config_array		= mxt_config_array,
 	.config_array_size	= ARRAY_SIZE(mxt_config_array),
-	.x_size                 = 479,
-	.y_size                 = 799,
+	.panel_minx		= 0,
+	.panel_maxx		= 479,
+	.panel_miny		= 0,
+	.panel_maxy		= 799,
+	.disp_minx		= 0,
+	.disp_maxx		= 479,
+	.disp_miny		= 0,
+	.disp_maxy		= 799,
 	.irqflags               = IRQF_TRIGGER_FALLING,
 	.i2c_pull_up            = true,
 	.reset_gpio		= MXT_TS_RESET_GPIO,
@@ -1180,7 +1186,7 @@ static void msm7627a_add_io_devices(void)
 		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 					mxt_device_info,
 					ARRAY_SIZE(mxt_device_info));
-	} else if (machine_is_msm7627a_qrd3()) {
+	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		ft5x06_touchpad_setup();
 	}
 
