@@ -1506,7 +1506,7 @@ void arch_idle(void)
 
 #ifdef CONFIG_MSM_IDLE_STATS
 	int64_t t1;
-	static int64_t t2;
+	static DEFINE_PER_CPU(int64_t, t2);
 	int exit_stat;
  #endif
 
@@ -1521,7 +1521,7 @@ void arch_idle(void)
 
 #ifdef CONFIG_MSM_IDLE_STATS
 	t1 = ktime_to_ns(ktime_get());
-	msm_pm_add_stat(MSM_PM_STAT_NOT_IDLE, t1 - t2);
+	msm_pm_add_stat(MSM_PM_STAT_NOT_IDLE, t1 - __get_cpu_var(t2));
 	msm_pm_add_stat(MSM_PM_STAT_REQUESTED_IDLE, timer_expiration);
 	exit_stat = MSM_PM_STAT_IDLE_SPIN;
 #endif
@@ -1642,8 +1642,8 @@ void arch_idle(void)
 	}
 
 #ifdef CONFIG_MSM_IDLE_STATS
-	t2 = ktime_to_ns(ktime_get());
-	msm_pm_add_stat(exit_stat, t2 - t1);
+	__get_cpu_var(t2) = ktime_to_ns(ktime_get());
+	msm_pm_add_stat(exit_stat, __get_cpu_var(t2) - t1);
 #endif
 }
 
