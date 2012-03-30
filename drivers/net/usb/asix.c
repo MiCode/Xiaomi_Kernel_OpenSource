@@ -314,12 +314,11 @@ static int asix_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 	skb_pull(skb, 4);
 
 	while (skb->len > 0) {
-		if ((short)(header & 0x0000ffff) !=
-		    ~((short)((header & 0xffff0000) >> 16))) {
+		if ((header & 0x07ff) != ((~header >> 16) & 0x07ff))
 			netdev_err(dev->net, "asix_rx_fixup() Bad Header Length\n");
-		}
+
 		/* get the packet length */
-		size = (u16) (header & 0x0000ffff);
+		size = (u16) (header & 0x000007ff);
 
 		if ((skb->len) - ((size + 1) & 0xfffe) == 0) {
 			u8 alignment = (unsigned long)skb->data & 0x3;
@@ -372,7 +371,7 @@ static int asix_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 
 		skb_pull(skb, (size + 1) & 0xfffe);
 
-		if (skb->len == 0)
+		if (skb->len < sizeof(header))
 			break;
 
 		head = (u8 *) skb->data;
@@ -1560,6 +1559,10 @@ static const struct usb_device_id	products [] = {
 }, {
 	// ASIX 88772a
 	USB_DEVICE(0x0db0, 0xa877),
+	.driver_info = (unsigned long) &ax88772_info,
+}, {
+	// Asus USB Ethernet Adapter
+	USB_DEVICE (0x0b95, 0x7e2b),
 	.driver_info = (unsigned long) &ax88772_info,
 },
 	{ },		// END

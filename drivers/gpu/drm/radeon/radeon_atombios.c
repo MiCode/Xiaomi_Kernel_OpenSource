@@ -85,6 +85,18 @@ static inline struct radeon_i2c_bus_rec radeon_lookup_i2c_gpio(struct radeon_dev
 		for (i = 0; i < num_indices; i++) {
 			gpio = &i2c_info->asGPIO_Info[i];
 
+			/* r4xx mask is technically not used by the hw, so patch in the legacy mask bits */
+			if ((rdev->family == CHIP_R420) ||
+			    (rdev->family == CHIP_R423) ||
+			    (rdev->family == CHIP_RV410)) {
+				if ((le16_to_cpu(gpio->usClkMaskRegisterIndex) == 0x0018) ||
+				    (le16_to_cpu(gpio->usClkMaskRegisterIndex) == 0x0019) ||
+				    (le16_to_cpu(gpio->usClkMaskRegisterIndex) == 0x001a)) {
+					gpio->ucClkMaskShift = 0x19;
+					gpio->ucDataMaskShift = 0x18;
+				}
+			}
+
 			/* some evergreen boards have bad data for this entry */
 			if (ASIC_IS_DCE4(rdev)) {
 				if ((i == 7) &&
@@ -168,6 +180,18 @@ void radeon_atombios_i2c_init(struct radeon_device *rdev)
 		for (i = 0; i < num_indices; i++) {
 			gpio = &i2c_info->asGPIO_Info[i];
 			i2c.valid = false;
+
+			/* r4xx mask is technically not used by the hw, so patch in the legacy mask bits */
+			if ((rdev->family == CHIP_R420) ||
+			    (rdev->family == CHIP_R423) ||
+			    (rdev->family == CHIP_RV410)) {
+				if ((le16_to_cpu(gpio->usClkMaskRegisterIndex) == 0x0018) ||
+				    (le16_to_cpu(gpio->usClkMaskRegisterIndex) == 0x0019) ||
+				    (le16_to_cpu(gpio->usClkMaskRegisterIndex) == 0x001a)) {
+					gpio->ucClkMaskShift = 0x19;
+					gpio->ucDataMaskShift = 0x18;
+				}
+			}
 
 			/* some evergreen boards have bad data for this entry */
 			if (ASIC_IS_DCE4(rdev)) {
@@ -2544,7 +2568,11 @@ void radeon_atombios_get_power_modes(struct radeon_device *rdev)
 
 	rdev->pm.current_power_state_index = rdev->pm.default_power_state_index;
 	rdev->pm.current_clock_mode_index = 0;
-	rdev->pm.current_vddc = rdev->pm.power_state[rdev->pm.default_power_state_index].clock_info[0].voltage.voltage;
+	if (rdev->pm.default_power_state_index >= 0)
+		rdev->pm.current_vddc =
+			rdev->pm.power_state[rdev->pm.default_power_state_index].clock_info[0].voltage.voltage;
+	else
+		rdev->pm.current_vddc = 0;
 }
 
 void radeon_atom_set_clock_gating(struct radeon_device *rdev, int enable)

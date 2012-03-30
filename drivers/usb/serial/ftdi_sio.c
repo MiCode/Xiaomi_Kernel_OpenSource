@@ -156,6 +156,7 @@ static struct ftdi_sio_quirk ftdi_8u2232c_quirk = {
  * /sys/bus/usb/ftdi_sio/new_id, then send patch/report!
  */
 static struct usb_device_id id_table_combined [] = {
+	{ USB_DEVICE(FTDI_VID, FTDI_ZEITCONTROL_TAGTRACE_MIFARE_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_CTI_MINI_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_CTI_NANO_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_AMC232_PID) },
@@ -206,6 +207,8 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(FTDI_VID, FTDI_XF_640_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_XF_642_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_DSS20_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_URBAN_0_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_URBAN_1_PID) },
 	{ USB_DEVICE(FTDI_NF_RIC_VID, FTDI_NF_RIC_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_VNHCPCUSB_D_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_MTXORB_0_PID) },
@@ -732,6 +735,7 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(TML_VID, TML_USB_SERIAL_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_ELSTER_UNICOM_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_PROPOX_JTAGCABLEII_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_PROPOX_ISPCABLEIII_PID) },
 	{ USB_DEVICE(OLIMEX_VID, OLIMEX_ARM_USB_OCD_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(OLIMEX_VID, OLIMEX_ARM_USB_OCD_H_PID),
@@ -743,6 +747,8 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(FTDI_VID, LMI_LM3S_DEVEL_BOARD_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(FTDI_VID, LMI_LM3S_EVAL_BOARD_PID),
+		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+	{ USB_DEVICE(FTDI_VID, LMI_LM3S_ICDI_BOARD_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(FTDI_VID, FTDI_TURTELIZER_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
@@ -790,6 +796,7 @@ static struct usb_device_id id_table_combined [] = {
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(ADI_VID, ADI_GNICEPLUS_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+	{ USB_DEVICE(HORNBY_VID, HORNBY_ELITE_PID) },
 	{ USB_DEVICE(JETI_VID, JETI_SPC1201_PID) },
 	{ USB_DEVICE(MARVELL_VID, MARVELL_SHEEVAPLUG_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
@@ -797,6 +804,8 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(GN_OTOMETRICS_VID, AURICAL_USB_PID) },
 	{ USB_DEVICE(BAYER_VID, BAYER_CONTOUR_CABLE_PID) },
 	{ USB_DEVICE(FTDI_VID, MARVELL_OPENRD_PID),
+		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+	{ USB_DEVICE(FTDI_VID, TI_XDS100V2_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(FTDI_VID, HAMEG_HO820_PID) },
 	{ USB_DEVICE(FTDI_VID, HAMEG_HO720_PID) },
@@ -829,11 +838,13 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(FTDI_VID, FTDI_SCIENCESCOPE_LOGBOOKML_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_SCIENCESCOPE_LS_LOGBOOK_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_SCIENCESCOPE_HS_LOGBOOK_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_CINTERION_MC55I_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_DOTEC_PID) },
 	{ USB_DEVICE(QIHARDWARE_VID, MILKYMISTONE_JTAGSERIAL_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(ST_VID, ST_STMCLT1030_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_stmclite_quirk },
+	{ USB_DEVICE(FTDI_VID, FTDI_RF_R106) },
 	{ },					/* Optional parameter entry */
 	{ }					/* Terminating entry */
 };
@@ -1320,8 +1331,7 @@ static int set_serial_info(struct tty_struct *tty,
 		goto check_and_exit;
 	}
 
-	if ((new_serial.baud_base != priv->baud_base) &&
-	    (new_serial.baud_base < 9600)) {
+	if (new_serial.baud_base != priv->baud_base) {
 		mutex_unlock(&priv->cfg_lock);
 		return -EINVAL;
 	}
@@ -1810,6 +1820,7 @@ static int ftdi_sio_port_remove(struct usb_serial_port *port)
 
 static int ftdi_open(struct tty_struct *tty, struct usb_serial_port *port)
 {
+	struct ktermios dummy;
 	struct usb_device *dev = port->serial->dev;
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
 	int result;
@@ -1828,8 +1839,10 @@ static int ftdi_open(struct tty_struct *tty, struct usb_serial_port *port)
 	   This is same behaviour as serial.c/rs_open() - Kuba */
 
 	/* ftdi_set_termios  will send usb control messages */
-	if (tty)
-		ftdi_set_termios(tty, port, tty->termios);
+	if (tty) {
+		memset(&dummy, 0, sizeof(dummy));
+		ftdi_set_termios(tty, port, &dummy);
+	}
 
 	/* Start reading from the device */
 	result = usb_serial_generic_open(tty, port);
@@ -2075,12 +2088,18 @@ static void ftdi_set_termios(struct tty_struct *tty,
 
 	cflag = termios->c_cflag;
 
-	/* FIXME -For this cut I don't care if the line is really changing or
-	   not  - so just do the change regardless  - should be able to
-	   compare old_termios and tty->termios */
+	if (old_termios->c_cflag == termios->c_cflag
+	    && old_termios->c_ispeed == termios->c_ispeed
+	    && old_termios->c_ospeed == termios->c_ospeed)
+		goto no_c_cflag_changes;
+
 	/* NOTE These routines can get interrupted by
 	   ftdi_sio_read_bulk_callback  - need to examine what this means -
 	   don't see any problems yet */
+
+	if ((old_termios->c_cflag & (CSIZE|PARODD|PARENB|CMSPAR|CSTOPB)) ==
+	    (termios->c_cflag & (CSIZE|PARODD|PARENB|CMSPAR|CSTOPB)))
+		goto no_data_parity_stop_changes;
 
 	/* Set number of data bits, parity, stop bits */
 
@@ -2122,6 +2141,7 @@ static void ftdi_set_termios(struct tty_struct *tty,
 	}
 
 	/* Now do the baudrate */
+no_data_parity_stop_changes:
 	if ((cflag & CBAUD) == B0) {
 		/* Disable flow control */
 		if (usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
@@ -2149,6 +2169,7 @@ static void ftdi_set_termios(struct tty_struct *tty,
 
 	/* Set flow control */
 	/* Note device also supports DTR/CD (ugh) and Xon/Xoff in hardware */
+no_c_cflag_changes:
 	if (cflag & CRTSCTS) {
 		dbg("%s Setting to CRTSCTS flow control", __func__);
 		if (usb_control_msg(dev,

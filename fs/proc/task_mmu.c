@@ -516,6 +516,9 @@ static int clear_refs_pte_range(pmd_t *pmd, unsigned long addr,
 		if (!page)
 			continue;
 
+		if (PageReserved(page))
+			continue;
+
 		/* Clear accessed and referenced bits. */
 		ptep_test_and_clear_young(vma, addr, pte);
 		ClearPageReferenced(page);
@@ -1038,6 +1041,9 @@ static int show_numa_map(struct seq_file *m, void *v)
 			vma->vm_end >= mm->start_stack) {
 		seq_printf(m, " stack");
 	}
+
+	if (is_vm_hugetlb_page(vma))
+		seq_printf(m, " huge");
 
 	walk_page_range(vma->vm_start, vma->vm_end, &walk);
 
