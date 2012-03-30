@@ -103,7 +103,7 @@ static int scm_pas_enable_bw(void)
 		if (ret) {
 			pr_err("bandwidth request failed (%d)\n", ret);
 		} else {
-			ret = clk_enable(scm_bus_clk);
+			ret = clk_prepare_enable(scm_bus_clk);
 			if (ret)
 				pr_err("clock enable failed\n");
 		}
@@ -121,7 +121,7 @@ static void scm_pas_disable_bw(void)
 	mutex_lock(&scm_pas_bw_mutex);
 	if (scm_pas_bw_count-- == 1) {
 		msm_bus_scale_client_update_request(scm_perf_client, 0);
-		clk_disable(scm_bus_clk);
+		clk_disable_unprepare(scm_bus_clk);
 	}
 	mutex_unlock(&scm_pas_bw_mutex);
 }
