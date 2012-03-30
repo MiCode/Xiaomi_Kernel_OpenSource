@@ -809,6 +809,8 @@ static void __init msm7x2x_init(void)
 	msm7627a_add_io_devices();
 	/*7x25a kgsl initializations*/
 	msm7x25a_kgsl_3d0_init();
+	/*8x25 kgsl initializations*/
+	msm8x25_kgsl_3d0_init();
 }
 
 static void __init msm7x2x_init_early(void)

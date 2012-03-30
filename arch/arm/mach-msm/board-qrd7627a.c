@@ -566,6 +566,7 @@ static void __init msm_qrd_init(void)
 	msm7627a_camera_init();
 	qrd7627a_add_io_devices();
 	msm7x25a_kgsl_3d0_init();
+	msm8x25_kgsl_3d0_init();
 }
 
 static void __init qrd7627a_init_early(void)

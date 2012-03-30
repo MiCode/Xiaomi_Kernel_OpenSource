@@ -808,7 +808,7 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.init_level = 0,
 	.num_levels = 3,
 	.set_grp_async = set_grp_xbar_async,
-	.idle_timeout = HZ/5,
+	.idle_timeout = HZ,
 	.nap_allowed = false,
 	.clk_map = KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM,
 };
@@ -832,6 +832,12 @@ void __init msm7x25a_kgsl_3d0_init(void)
 		kgsl_3d0_pdata.pwrlevel[1].gpu_freq = 96000000;
 		kgsl_3d0_pdata.pwrlevel[1].bus_freq = 0;
 	}
+}
+
+void __init msm8x25_kgsl_3d0_init(void)
+{
+	if (cpu_is_msm8625())
+		kgsl_3d0_pdata.idle_timeout = HZ/5;
 }
 
 static void __init msm_register_device(struct platform_device *pdev, void *data)
