@@ -141,6 +141,16 @@ static unsigned int msm_serial_hsl_has_gsbi(struct uart_port *port)
 	return UART_TO_MSM(port)->is_uartdm;
 }
 
+static int get_line(struct platform_device *pdev)
+{
+	const struct msm_serial_hslite_platform_data *pdata =
+					pdev->dev.platform_data;
+	if (pdata)
+		return pdata->line;
+
+	return pdev->id;
+}
+
 static int clk_en(struct uart_port *port, int enable)
 {
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
@@ -1243,7 +1253,7 @@ static ssize_t show_msm_console(struct device *dev,
 	struct uart_port *port;
 
 	struct platform_device *pdev = to_platform_device(dev);
-	port = get_port_from_line(pdev->id);
+	port = get_port_from_line(get_line(pdev));
 
 	enable = get_console_state(port);
 
@@ -1264,7 +1274,7 @@ static ssize_t set_msm_console(struct device *dev,
 	struct uart_port *port;
 
 	struct platform_device *pdev = to_platform_device(dev);
-	port = get_port_from_line(pdev->id);
+	port = get_port_from_line(get_line(pdev));
 
 	cur_state = get_console_state(port);
 	enable = buf[0] - '0';
@@ -1332,12 +1342,12 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	if (pdev->id == -1)
 		pdev->id = atomic_inc_return(&msm_serial_hsl_next_id) - 1;
 
-	if (unlikely(pdev->id < 0 || pdev->id >= UART_NR))
+	if (unlikely(get_line(pdev) < 0 || get_line(pdev) >= UART_NR))
 		return -ENXIO;
 
 	printk(KERN_INFO "msm_serial_hsl: detected port #%d\n", pdev->id);
 
-	port = get_port_from_line(pdev->id);
+	port = get_port_from_line(get_line(pdev));
 	port->dev = &pdev->dev;
 	msm_hsl_port = UART_TO_MSM(port);
 
@@ -1395,7 +1405,7 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	if (unlikely(ret))
 		pr_err("%s():Can't create console attribute\n", __func__);
 #endif
-	msm_hsl_debugfs_init(msm_hsl_port, pdev->id);
+	msm_hsl_debugfs_init(msm_hsl_port, get_line(pdev));
 
 	/* Temporarily increase the refcount on the GSBI clock to avoid a race
 	 * condition with the earlyprintk handover mechanism.
@@ -1413,7 +1423,7 @@ static int __devexit msm_serial_hsl_remove(struct platform_device *pdev)
 	struct msm_hsl_port *msm_hsl_port = platform_get_drvdata(pdev);
 	struct uart_port *port;
 
-	port = get_port_from_line(pdev->id);
+	port = get_port_from_line(get_line(pdev));
 #ifdef CONFIG_SERIAL_MSM_HSL_CONSOLE
 	device_remove_file(&pdev->dev, &dev_attr_console);
 #endif
@@ -1436,7 +1446,7 @@ static int msm_serial_hsl_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct uart_port *port;
-	port = get_port_from_line(pdev->id);
+	port = get_port_from_line(get_line(pdev));
 
 	if (port) {
 
@@ -1455,7 +1465,7 @@ static int msm_serial_hsl_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct uart_port *port;
-	port = get_port_from_line(pdev->id);
+	port = get_port_from_line(get_line(pdev));
 
 	if (port) {
 
@@ -1478,7 +1488,7 @@ static int msm_hsl_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct uart_port *port;
-	port = get_port_from_line(pdev->id);
+	port = get_port_from_line(get_line(pdev));
 
 	dev_dbg(dev, "pm_runtime: suspending\n");
 	msm_hsl_deinit_clock(port);
@@ -1489,7 +1499,7 @@ static int msm_hsl_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct uart_port *port;
-	port = get_port_from_line(pdev->id);
+	port = get_port_from_line(get_line(pdev));
 
 	dev_dbg(dev, "pm_runtime: resuming\n");
 	msm_hsl_init_clock(port);
