@@ -214,9 +214,9 @@ static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 		global*global_timer_offset;
 
 	if (!(clock->flags & MSM_CLOCK_FLAGS_UNSTABLE_COUNT))
-		return __raw_readl(addr);
+		return __raw_readl_no_log(addr);
 
-	t1 = __raw_readl(addr);
+	t1 = __raw_readl_no_log(addr);
 	t2 = __raw_readl_no_log(addr);
 	if ((t2-t1) <= 1)
 		return t2;
