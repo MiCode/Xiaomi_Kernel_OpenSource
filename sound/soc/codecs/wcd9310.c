@@ -3591,6 +3591,7 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			ret = wcd9xxx_close_slim_sch_rx(tabla,
 						tabla_p->dai[j].ch_num,
 						tabla_p->dai[j].ch_tot);
+			usleep_range(5000, 5000);
 			tabla_p->dai[j].rate = 0;
 			memset(tabla_p->dai[j].ch_num, 0, (sizeof(u32)*
 					tabla_p->dai[j].ch_tot));
