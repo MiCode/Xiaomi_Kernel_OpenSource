@@ -41,4 +41,15 @@ struct epm_adc_platform_data {
 	uint32_t bus_id;
 	uint32_t gpio_expander_base_addr;
 };
+
+#define EPM_ADC_IOCTL_CODE		0x91
+
+#define EPM_ADC_REQUEST		_IOWR(EPM_ADC_IOCTL_CODE, 1,	\
+					struct epm_chan_request)
+
+#define EPM_ADC_INIT		_IOR(EPM_ADC_IOCTL_CODE, 2,	\
+					     uint32_t)
+
+#define EPM_ADC_DEINIT		_IOR(EPM_ADC_IOCTL_CODE, 3,	\
+					     uint32_t)
 #endif /* __EPM_ADC_H */
