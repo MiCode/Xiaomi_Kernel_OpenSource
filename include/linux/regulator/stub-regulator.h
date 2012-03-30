@@ -30,4 +30,6 @@ struct stub_regulator_pdata {
 	int				hpm_min_load;
 	int				system_uA;
 };
+
+int __init regulator_stub_init(void);
 #endif
