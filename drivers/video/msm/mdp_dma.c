@@ -529,7 +529,10 @@ void mdp_set_dma_pan_info(struct fb_info *info, struct mdp_dirty_region *dirty,
 	down(&mfd->sem);
 
 	iBuf = &mfd->ibuf;
-	iBuf->buf = (uint8 *) info->fix.smem_start;
+	if (mfd->map_buffer)
+		iBuf->buf = (uint8 *)mfd->map_buffer->iova[0];
+	else
+		iBuf->buf = (uint8 *) info->fix.smem_start;
 
 	iBuf->buf += calc_fb_offset(mfd, fbi, bpp);
 

@@ -141,6 +141,7 @@ int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
 {
 	struct fb_info *fbi;
 	uint8 *buf;
+	unsigned int buf_offset;
 	struct mdp4_overlay_pipe *pipe;
 	int bpp;
 
@@ -156,7 +157,7 @@ int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
 
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
-	buf += fbi->var.xoffset * bpp +
+	buf_offset = fbi->var.xoffset * bpp +
 		fbi->var.yoffset * fbi->fix.line_length;
 
 	/* MDP cmd block enable */
@@ -173,8 +174,15 @@ int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
 	pipe->src_x = 0;
 	pipe->dst_y = 0;
 	pipe->dst_x = 0;
-	pipe->srcp0_addr = (uint32)buf;
 
+	if (mfd->map_buffer) {
+		pipe->srcp0_addr = (unsigned int)mfd->map_buffer->iova[0] + \
+			buf_offset;
+		pr_debug("start 0x%lx srcp0_addr 0x%x\n", mfd->
+			map_buffer->iova[0], pipe->srcp0_addr);
+	} else {
+		pipe->srcp0_addr = (uint32)(buf + buf_offset);
+	}
 
 	mdp4_mixer_stage_up(pipe);
 
@@ -349,6 +357,7 @@ void mdp4_writeback_overlay(struct msm_fb_data_type *mfd)
 		pr_debug("%s: in writeback pan display 0x%x\n", __func__,
 				(unsigned int)writeback_pipe->blt_addr);
 		mdp4_writeback_kickoff_ui(mfd, writeback_pipe);
+		mdp4_iommu_unmap(writeback_pipe);
 
 		/* signal if pan function is waiting for the
 		 * update completion */
