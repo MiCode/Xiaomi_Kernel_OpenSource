@@ -267,6 +267,7 @@ extern struct platform_device msm_kgsl_2d1;
 
 extern struct platform_device msm_mipi_dsi1_device;
 extern struct platform_device msm_lvds_device;
+extern struct platform_device msm_ebi2_lcdc_device;
 
 extern struct clk_lookup msm_clocks_fsm9xxx[];
 extern unsigned msm_num_clocks_fsm9xxx;
