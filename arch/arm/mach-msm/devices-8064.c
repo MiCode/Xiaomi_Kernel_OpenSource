@@ -481,6 +481,19 @@ struct platform_device apq_cpudai_auxpcm_tx = {
 	},
 };
 
+struct msm_mi2s_data mpq_mi2s_tx_data = {
+	.sd_lines = MSM_MI2S_SD0 | MSM_MI2S_SD1 | MSM_MI2S_SD2 | MSM_MI2S_SD3,
+	.capability = MSM_MI2S_CAP_TX,
+};
+
+struct platform_device mpq_cpudai_mi2s_tx = {
+	.name	= "msm-dai-q6",
+	.id	= 7, /*MI2S_TX */
+	.dev = {
+		.platform_data = &mpq_mi2s_tx_data,
+	},
+};
+
 struct platform_device apq_cpu_fe = {
 	.name	= "msm-dai-fe",
 	.id	= -1,

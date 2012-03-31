@@ -1930,6 +1930,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_cpudai0,
 	&apq_cpudai1,
 	&mpq_cpudai_sec_i2s_rx,
+	&mpq_cpudai_mi2s_tx,
 	&apq_cpudai_hdmi_rx,
 	&apq_cpudai_bt_rx,
 	&apq_cpudai_bt_tx,

@@ -238,6 +238,7 @@ extern struct platform_device apq_pcm;
 extern struct platform_device apq_pcm_routing;
 extern struct platform_device apq_cpudai0;
 extern struct platform_device apq_cpudai1;
+extern struct platform_device mpq_cpudai_mi2s_tx;
 extern struct platform_device apq_cpudai_hdmi_rx;
 extern struct platform_device apq_cpudai_bt_rx;
 extern struct platform_device apq_cpudai_bt_tx;

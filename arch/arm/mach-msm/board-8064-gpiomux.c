@@ -809,6 +809,71 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting mi2s_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting mi2s_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config mpq8064_mi2s_configs[] __initdata = {
+	{
+		.gpio	= 27,		/* mi2s ws */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mi2s_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+		},
+	},
+	{
+		.gpio	= 28,		/* mi2s sclk */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mi2s_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+		},
+	},
+	{
+		.gpio	= 29,		/* mi2s dout3 */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mi2s_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+		},
+	},
+	{
+		.gpio	= 30,		/* mi2s dout2 */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mi2s_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+		},
+	},
+
+	{
+		.gpio	= 31,		/* mi2s dout1 */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mi2s_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+		},
+	},
+	{
+		.gpio	= 32,		/* mi2s dout0 */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mi2s_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+		},
+	},
+
+	{
+		.gpio	= 33,		/* mi2s mclk */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mi2s_act_cfg,
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+		},
+	},
+};
 static struct msm_gpiomux_config apq8064_mxt_configs[] __initdata = {
 	{	/* TS INTERRUPT */
 		.gpio = 6,
@@ -949,6 +1014,11 @@ void __init apq8064_init_gpiomux(void)
 	pr_debug("%s(): audio-auxpcm: Include GPIO configs"
 		" as audio is not the primary user"
 		" for these GPIO Pins\n", __func__);
+
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+		machine_is_mpq8064_dtv())
+		msm_gpiomux_install(mpq8064_mi2s_configs,
+			ARRAY_SIZE(mpq8064_mi2s_configs));
 
 	msm_gpiomux_install(apq8064_ext_regulator_configs,
 			ARRAY_SIZE(apq8064_ext_regulator_configs));
