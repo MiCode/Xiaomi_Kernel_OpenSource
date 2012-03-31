@@ -2921,7 +2921,7 @@ void mgmt_read_rssi_complete(u16 index, s8 rssi, bdaddr_t *bdaddr,
 
 	if (conn->rssi_update_thresh_exceed == 1) {
 		BT_DBG("rssi_update_thresh_exceed == 1");
-		if (rssi >= conn->rssi_threshold) {
+		if (rssi > conn->rssi_threshold) {
 			memset(&ev, 0, sizeof(ev));
 			bacpy(&ev.bdaddr, bdaddr);
 			ev.rssi = rssi;
@@ -2934,7 +2934,7 @@ void mgmt_read_rssi_complete(u16 index, s8 rssi, bdaddr_t *bdaddr,
 		}
 	} else {
 		BT_DBG("rssi_update_thresh_exceed == 0");
-		if (rssi <= conn->rssi_threshold) {
+		if (rssi < conn->rssi_threshold) {
 			memset(&ev, 0, sizeof(ev));
 			bacpy(&ev.bdaddr, bdaddr);
 			ev.rssi = rssi;
