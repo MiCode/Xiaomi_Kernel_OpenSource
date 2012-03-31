@@ -1441,7 +1441,7 @@ static int msm_pm_power_collapse_standalone(bool from_idle)
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 	WARN_ON(ret);
 
-	return 0;
+	return !collapsed;
 }
 
 /*
