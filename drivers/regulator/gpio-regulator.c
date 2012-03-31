@@ -152,7 +152,7 @@ static int __devinit gpio_vreg_probe(struct platform_device *pdev)
 	vreg->desc.owner	= THIS_MODULE;
 
 	vreg->rdev = regulator_register(&vreg->desc, &pdev->dev,
-					&pdata->init_data, vreg);
+					&pdata->init_data, vreg, NULL);
 	if (IS_ERR(vreg->rdev)) {
 		rc = PTR_ERR(vreg->rdev);
 		pr_err("%s: regulator_register failed, rc=%d.\n", vreg->name,

@@ -326,7 +326,7 @@ static struct pm8xxx_vreg regulator_data[] = {
 #define MAX_NAME_COMPARISON_LEN 32
 
 static int __devinit match_regulator(
-	struct pm8xxx_regulator_core_platform_data *core_data, char *name)
+	struct pm8xxx_regulator_core_platform_data *core_data, const char *name)
 {
 	int found = 0;
 	int i;

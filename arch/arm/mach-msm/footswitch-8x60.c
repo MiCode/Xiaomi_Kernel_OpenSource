@@ -653,7 +653,8 @@ static int footswitch_probe(struct platform_device *pdev)
 	regval &= ~RETENTION_BIT;
 	writel_relaxed(regval, fs->gfs_ctl_reg);
 
-	fs->rdev = regulator_register(&fs->desc, &pdev->dev, init_data, fs);
+	fs->rdev = regulator_register(&fs->desc, &pdev->dev,
+							init_data, fs, NULL);
 	if (IS_ERR(footswitches[pdev->id].rdev)) {
 		pr_err("regulator_register(\"%s\") failed\n",
 			fs->desc.name);

@@ -196,7 +196,7 @@ static struct regulator_ops proccomm_regulator_ops = {
 static struct regulator_dev *__devinit create_proccomm_rdev(
 	struct proccomm_regulator_info *info, struct device *parent)
 {
-	char *name;
+	const char *name;
 	struct proccomm_regulator_drvdata *d;
 	struct regulator_dev *rdev;
 	int rc = 0;
@@ -247,7 +247,7 @@ static struct regulator_dev *__devinit create_proccomm_rdev(
 	d->negative	= info->negative;
 	d->rdesc.n_voltages = info->n_voltages;
 
-	rdev = regulator_register(&d->rdesc, parent, &info->init_data, d);
+	rdev = regulator_register(&d->rdesc, parent, &info->init_data, d, NULL);
 
 	if (IS_ERR(rdev)) {
 		rc = PTR_ERR(rdev);

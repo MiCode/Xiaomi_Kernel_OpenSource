@@ -249,6 +249,12 @@ static inline bool of_have_populated_dt(void)
 #define for_each_child_of_node(parent, child) \
 	while (0)
 
+static inline int of_device_is_compatible(const struct device_node *device,
+					  const char *name)
+{
+	return 0;
+}
+
 static inline struct property *of_find_property(const struct device_node *np,
 						const char *name,
 						int *lenp)
@@ -284,6 +290,13 @@ static inline int of_property_count_strings(struct device_node *np,
 static inline const void *of_get_property(const struct device_node *node,
 				const char *name,
 				int *lenp)
+{
+	return NULL;
+}
+
+static inline struct device_node *of_parse_phandle(struct device_node *np,
+						   const char *phandle_name,
+						   int index)
 {
 	return NULL;
 }

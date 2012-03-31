@@ -1330,7 +1330,7 @@ rpm_vreg_init_regulator(const struct rpm_regulator_init_data *pdata,
 	if (rc)
 		goto bail;
 
-	rdev = regulator_register(rdesc, dev, &(pdata->init_data), vreg);
+	rdev = regulator_register(rdesc, dev, &(pdata->init_data), vreg, NULL);
 	if (IS_ERR(rdev)) {
 		rc = PTR_ERR(rdev);
 		pr_err("regulator_register failed: %s, rc=%d\n",

@@ -138,6 +138,18 @@ VREG_CONSUMERS(LVS2) = {
 VREG_CONSUMERS(LVS3) = {
 	REGULATOR_SUPPLY("8941_lvs3",		NULL),
 };
+VREG_CONSUMERS(K0) = {
+	REGULATOR_SUPPLY("krait0",		NULL),
+};
+VREG_CONSUMERS(K1) = {
+	REGULATOR_SUPPLY("krait1",		NULL),
+};
+VREG_CONSUMERS(K2) = {
+	REGULATOR_SUPPLY("krait2",		NULL),
+};
+VREG_CONSUMERS(K3) = {
+	REGULATOR_SUPPLY("krait3",		NULL),
+};
 
 #define PM8X41_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
 			 _always_on, _supply_regulator, _hpm_min, _system_uA)  \
@@ -189,6 +201,14 @@ VREG_CONSUMERS(LVS3) = {
 	PM8X41_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, \
 		 _always_on, _supply_regulator, 0, 0)
 
+#define KRAIT_PWR(_id, _name, _always_on, _min_uV, _max_uV, \
+		_supply_regulator, _hpm_min, _system_uA) \
+	PM8X41_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
+		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
+		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
+		REGULATOR_CHANGE_DRMS, _always_on, \
+		_supply_regulator, _hpm_min, _system_uA)
+
 /* PM8x41 regulator constraints */
 
 /*	    ID      name     a_on  min_uV   max_uV  supply    hpm_min sys_uA  */
@@ -232,6 +252,12 @@ PM8X41_LDO(L24,    "8941_l24", 0, 3075000, 3075000, NULL,       5000,   0);
 PM8X41_VS(LVS1,    "8941_lvs1", 0, "8941_s3");
 PM8X41_VS(LVS2,    "8941_lvs2", 0, "8941_s3");
 PM8X41_VS(LVS3,    "8941_lvs3", 0, "8941_s3");
+
+/*	 ID      name     a_on  min_uV   max_uV  supply  hpm_min sys_uA  */
+KRAIT_PWR(K0, "krait0", 0, 850000,  1100000, NULL,     100000, 0);
+KRAIT_PWR(K1, "krait1", 0, 850000,  1100000, NULL,     100000, 0);
+KRAIT_PWR(K2, "krait2", 0, 850000,  1100000, NULL,     100000, 0);
+KRAIT_PWR(K3, "krait3", 0, 850000,  1100000, NULL,     100000, 0);
 
 #define VREG_DEVICE(_name, _devid)					       \
 		vreg_device_##_name __devinitdata =			       \
@@ -279,6 +305,10 @@ static struct platform_device VREG_DEVICE(L24, 35);
 static struct platform_device VREG_DEVICE(LVS1, 36);
 static struct platform_device VREG_DEVICE(LVS2, 37);
 static struct platform_device VREG_DEVICE(LVS3, 38);
+static struct platform_device VREG_DEVICE(K0, 39);
+static struct platform_device VREG_DEVICE(K1, 40);
+static struct platform_device VREG_DEVICE(K2, 41);
+static struct platform_device VREG_DEVICE(K3, 42);
 
 struct platform_device *msm_copper_stub_regulator_devices[] __devinitdata = {
 	&vreg_device_S1B,
@@ -319,6 +349,10 @@ struct platform_device *msm_copper_stub_regulator_devices[] __devinitdata = {
 	&vreg_device_LVS1,
 	&vreg_device_LVS2,
 	&vreg_device_LVS3,
+	&vreg_device_K0,
+	&vreg_device_K1,
+	&vreg_device_K2,
+	&vreg_device_K3,
 };
 
 int msm_copper_stub_regulator_devices_len __devinitdata =

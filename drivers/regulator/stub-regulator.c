@@ -182,7 +182,7 @@ static int __devinit regulator_stub_probe(struct platform_device *pdev)
 	vreg_priv->voltage = vreg_pdata->init_data.constraints.min_uV;
 
 	vreg_priv->rdev = regulator_register(rdesc, &pdev->dev,
-			&(vreg_pdata->init_data), vreg_priv);
+			&(vreg_pdata->init_data), vreg_priv, NULL);
 	if (IS_ERR(vreg_priv->rdev)) {
 		rc = PTR_ERR(vreg_priv->rdev);
 		vreg_priv->rdev = NULL;

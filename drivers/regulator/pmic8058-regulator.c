@@ -1692,7 +1692,7 @@ static int __devinit pm8058_vreg_probe(struct platform_device *pdev)
 			      &= ~(REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE);
 
 		vreg->rdev = regulator_register(rdesc, &pdev->dev,
-				&vreg->pdata->init_data, vreg);
+				&vreg->pdata->init_data, vreg, NULL);
 		if (IS_ERR(vreg->rdev)) {
 			rc = PTR_ERR(vreg->rdev);
 			pr_err("%s: regulator_register failed for %s, rc=%d\n",
