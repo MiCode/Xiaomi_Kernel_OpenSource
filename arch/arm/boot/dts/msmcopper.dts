@@ -23,8 +23,9 @@
 	};
 
 	timer {
-		compatible = "qcom,msm-qtimer";
+		compatible = "qcom,msm-qtimer", "arm,armv7-timer";
 		interrupts = <1 2 0>;
+		clock-frequency = <19200000>;
 	};
 
 	serial@f991f000 {

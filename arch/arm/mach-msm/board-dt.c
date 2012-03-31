@@ -26,25 +26,7 @@
 
 static void __init msm_dt_timer_init(void)
 {
-	struct device_node *node;
-	struct arch_timer tmr;
-	int rc;
-
-	node = of_find_compatible_node(NULL, NULL, "qcom,msm-qtimer");
-	if (!node) {
-		pr_err("no matching timer node found\n");
-		return;
-	}
-
-	tmr.res[0].start = 0;
-	tmr.res[1].start = 0;
-	rc = of_irq_to_resource(node, 0, tmr.res);
-	if (rc < 0)
-		pr_err("interrupt not specified in timer node\n");
-	else
-		arch_timer_register(&tmr);
-
-	of_node_put(node);
+	arch_timer_of_register();
 }
 
 static struct sys_timer msm_dt_timer = {
