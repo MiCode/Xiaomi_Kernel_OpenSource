@@ -93,6 +93,7 @@ static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
 static struct regulator *hsusb_vddcx;
 static struct regulator *vbus_otg;
+static struct regulator *mhl_analog_switch;
 
 static bool aca_id_turned_on;
 static inline bool aca_enabled(void)
@@ -109,7 +110,7 @@ static int msm_hsusb_init_vddcx(struct msm_otg *motg, int init)
 	int ret = 0;
 
 	if (init) {
-		hsusb_vddcx = regulator_get(motg->otg.dev, "HSUSB_VDDCX");
+		hsusb_vddcx = devm_regulator_get(motg->otg.dev, "HSUSB_VDDCX");
 		if (IS_ERR(hsusb_vddcx)) {
 			dev_err(motg->otg.dev, "unable to get hsusb vddcx\n");
 			return PTR_ERR(hsusb_vddcx);
@@ -121,7 +122,6 @@ static int msm_hsusb_init_vddcx(struct msm_otg *motg, int init)
 		if (ret) {
 			dev_err(motg->otg.dev, "unable to set the voltage "
 					"for hsusb vddcx\n");
-			regulator_put(hsusb_vddcx);
 			return ret;
 		}
 
@@ -129,7 +129,6 @@ static int msm_hsusb_init_vddcx(struct msm_otg *motg, int init)
 		if (ret) {
 			regulator_set_voltage(hsusb_vddcx, 0,
 			USB_PHY_VDD_DIG_VOL_MIN);
-			regulator_put(hsusb_vddcx);
 			dev_err(motg->otg.dev, "unable to enable the hsusb vddcx\n");
 			return ret;
 		}
@@ -149,8 +148,6 @@ static int msm_hsusb_init_vddcx(struct msm_otg *motg, int init)
 					"for hsusb vddcx\n");
 			return ret;
 		}
-
-		regulator_put(hsusb_vddcx);
 	}
 
 	return ret;
@@ -161,7 +158,7 @@ static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 	int rc = 0;
 
 	if (init) {
-		hsusb_3p3 = regulator_get(motg->otg.dev, "HSUSB_3p3");
+		hsusb_3p3 = devm_regulator_get(motg->otg.dev, "HSUSB_3p3");
 		if (IS_ERR(hsusb_3p3)) {
 			dev_err(motg->otg.dev, "unable to get hsusb 3p3\n");
 			return PTR_ERR(hsusb_3p3);
@@ -172,9 +169,9 @@ static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 		if (rc) {
 			dev_err(motg->otg.dev, "unable to set voltage level for"
 					"hsusb 3p3\n");
-			goto put_3p3;
+			return rc;
 		}
-		hsusb_1p8 = regulator_get(motg->otg.dev, "HSUSB_1p8");
+		hsusb_1p8 = devm_regulator_get(motg->otg.dev, "HSUSB_1p8");
 		if (IS_ERR(hsusb_1p8)) {
 			dev_err(motg->otg.dev, "unable to get hsusb 1p8\n");
 			rc = PTR_ERR(hsusb_1p8);
@@ -193,11 +190,8 @@ static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 
 put_1p8:
 	regulator_set_voltage(hsusb_1p8, 0, USB_PHY_1P8_VOL_MAX);
-	regulator_put(hsusb_1p8);
 put_3p3_lpm:
 	regulator_set_voltage(hsusb_3p3, 0, USB_PHY_3P3_VOL_MAX);
-put_3p3:
-	regulator_put(hsusb_3p3);
 	return rc;
 }
 
@@ -314,30 +308,22 @@ static int msm_hsusb_ldo_enable(struct msm_otg *motg, int on)
 
 static void msm_hsusb_mhl_switch_enable(struct msm_otg *motg, bool on)
 {
-	static struct regulator *mhl_analog_switch;
 	struct msm_otg_platform_data *pdata = motg->pdata;
 
 	if (!pdata->mhl_enable)
 		return;
 
-	if (on) {
-		mhl_analog_switch = regulator_get(motg->otg.dev,
-					       "mhl_ext_3p3v");
-		if (IS_ERR(mhl_analog_switch)) {
-			pr_err("Unable to get mhl_analog_switch\n");
-			return;
-		}
-
-		if (regulator_enable(mhl_analog_switch)) {
-			pr_err("unable to enable mhl_analog_switch\n");
-			goto put_analog_switch;
-		}
+	if (!mhl_analog_switch) {
+		pr_err("%s: mhl_analog_switch is NULL.\n", __func__);
 		return;
 	}
 
-	regulator_disable(mhl_analog_switch);
-put_analog_switch:
-	regulator_put(mhl_analog_switch);
+	if (on) {
+		if (regulator_enable(mhl_analog_switch))
+			pr_err("unable to enable mhl_analog_switch\n");
+	} else {
+		regulator_disable(mhl_analog_switch);
+	}
 }
 
 static int ulpi_read(struct otg_transceiver *otg, u32 reg)
@@ -1253,7 +1239,7 @@ static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 	}
 
 	if (!motg->pdata->vbus_power && host) {
-		vbus_otg = regulator_get(motg->otg.dev, "vbus_otg");
+		vbus_otg = devm_regulator_get(motg->otg.dev, "vbus_otg");
 		if (IS_ERR(vbus_otg)) {
 			pr_err("Unable to get vbus_otg\n");
 			return -ENODEV;
@@ -1272,9 +1258,6 @@ static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 		} else {
 			otg->host = NULL;
 		}
-
-		if (vbus_otg)
-			regulator_put(vbus_otg);
 
 		return 0;
 	}
@@ -3303,6 +3286,15 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg configuration failed\n");
 		goto free_init_vddcx;
+	}
+
+	if (pdata->mhl_enable) {
+		mhl_analog_switch = devm_regulator_get(motg->otg.dev,
+							"mhl_ext_3p3v");
+		if (IS_ERR(mhl_analog_switch)) {
+			dev_err(&pdev->dev, "Unable to get mhl_analog_switch\n");
+			goto free_ldo_init;
+		}
 	}
 
 	ret = msm_hsusb_ldo_enable(motg, 1);
