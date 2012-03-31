@@ -1358,7 +1358,7 @@ static DEFINE_CLK_VOTER(dfab_sps_clk, &dfab_clk.c, 0);
 static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c, 0);
 static DEFINE_CLK_VOTER(dfab_msmbus_clk, &dfab_clk.c, 0);
 static DEFINE_CLK_VOTER(dfab_msmbus_a_clk, &dfab_a_clk.c, 0);
-static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ebi1_adm_clk, &ebi1_clk.c, 0);
 
 #ifdef CONFIG_DEBUG_FS

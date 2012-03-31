@@ -3132,7 +3132,7 @@ static DEFINE_CLK_VOTER(dfab_sdc4_clk, &dfab_clk.c, 0);
 static DEFINE_CLK_VOTER(dfab_sdc5_clk, &dfab_clk.c, 0);
 static DEFINE_CLK_VOTER(dfab_scm_clk, &dfab_clk.c, 0);
 
-static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ebi1_adm0_clk,   &ebi1_clk.c, 0);
 static DEFINE_CLK_VOTER(ebi1_adm1_clk,   &ebi1_clk.c, 0);
 
