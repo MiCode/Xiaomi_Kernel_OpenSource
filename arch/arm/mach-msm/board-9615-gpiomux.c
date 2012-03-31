@@ -85,6 +85,26 @@ static struct gpiomux_setting cdc_mclk = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+#ifdef CONFIG_FB_MSM_EBI2
+static struct gpiomux_setting ebi2_lcdc_a_d = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting ebi2_lcdc_cs = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting ebi2_lcdc_rs = {
+	.func = GPIOMUX_FUNC_3,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+#endif
+
 static struct msm_gpiomux_config msm9615_audio_codec_configs[] __initdata = {
 	{
 		.gpio = 24,
@@ -263,6 +283,29 @@ static struct msm_gpiomux_config msm9615_slimbus_configs[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_FB_MSM_EBI2
+static struct msm_gpiomux_config msm9615_ebi2_lcdc_configs[] __initdata = {
+	{
+		.gpio      = 21,	/* a_d */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ebi2_lcdc_a_d,
+		},
+	},
+	{
+		.gpio      = 22,	/* cs */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ebi2_lcdc_cs,
+		},
+	},
+	{
+		.gpio      = 24,	/* rs */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ebi2_lcdc_rs,
+		},
+	},
+};
+#endif
+
 int __init msm9615_init_gpiomux(void)
 {
 	int rc;
@@ -288,6 +331,11 @@ int __init msm9615_init_gpiomux(void)
 #endif
 	msm_gpiomux_install(msm9615_audio_codec_configs,
 			ARRAY_SIZE(msm9615_audio_codec_configs));
+
+#ifdef CONFIG_FB_MSM_EBI2
+	msm_gpiomux_install(msm9615_ebi2_lcdc_configs,
+			ARRAY_SIZE(msm9615_ebi2_lcdc_configs));
+#endif
 
 	return 0;
 }
