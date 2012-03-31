@@ -5111,6 +5111,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 
 	CLK_LOOKUP("bit_clk",		mi2s_bit_clk.c,		"msm-dai-q6.6"),
 	CLK_LOOKUP("osr_clk",		mi2s_osr_clk.c,		"msm-dai-q6.6"),
+	CLK_LOOKUP("bit_clk",		mi2s_bit_clk.c,		"msm-dai-q6.7"),
+	CLK_LOOKUP("osr_clk",		mi2s_osr_clk.c,		"msm-dai-q6.7"),
 	CLK_LOOKUP("bit_clk",		codec_i2s_mic_bit_clk.c,
 			   "msm-dai-q6.1"),
 	CLK_LOOKUP("osr_clk",		codec_i2s_mic_osr_clk.c,
@@ -5425,6 +5427,8 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("iface_clk",		vpe_p_clk.c,	"footswitch-8x60.9"),
 	CLK_LOOKUP("bit_clk",		mi2s_bit_clk.c,		"msm-dai-q6.6"),
 	CLK_LOOKUP("osr_clk",		mi2s_osr_clk.c,		"msm-dai-q6.6"),
+	CLK_LOOKUP("bit_clk",		mi2s_bit_clk.c,		"msm-dai-q6.7"),
+	CLK_LOOKUP("osr_clk",		mi2s_osr_clk.c,		"msm-dai-q6.7"),
 	CLK_LOOKUP("bit_clk",		codec_i2s_mic_bit_clk.c,
 			   "msm-dai-q6.1"),
 	CLK_LOOKUP("osr_clk",		codec_i2s_mic_osr_clk.c,
