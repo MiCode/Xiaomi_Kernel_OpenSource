@@ -171,6 +171,11 @@ obj-$(CONFIG_FB_MSM_LCDC_TRULY_HVGA_IPS3P2335) += lcdc_truly_ips3p2335.o
 
 obj-$(CONFIG_FB_MSM_TVOUT) += tvout_msm.o
 
+ccflags-y := -I$(src)/mhl
+obj-$(CONFIG_FB_MSM_HDMI_MHL_8334) += mhl-8334.o
+mhl-8334-objs  += mhl/mhl_8334.o
+mhl-8334-objs  += mhl/mhl_i2c_utils.o
+
 obj-$(CONFIG_FB_MSM_EXTMDDI_SVGA) += mddi_ext_lcd.o
 
 obj-$(CONFIG_FB_MSM_WRITEBACK_MSM_PANEL) += mdp4_wfd_writeback_panel.o
