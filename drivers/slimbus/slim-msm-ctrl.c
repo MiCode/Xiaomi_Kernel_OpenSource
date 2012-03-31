@@ -22,6 +22,8 @@
 #include <linux/kthread.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
+#include <linux/of.h>
+#include <linux/of_slimbus.h>
 #include <mach/sps.h>
 
 /* Per spec.max 40 bytes per received message */
@@ -1868,7 +1870,24 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_ioremap_bam_failed;
 	}
-	dev->ctrl.nr = pdev->id;
+	if (pdev->dev.of_node) {
+
+		ret = of_property_read_u32(pdev->dev.of_node, "cell-index",
+					&dev->ctrl.nr);
+		if (ret) {
+			dev_err(&pdev->dev, "Cell index not specified:%d", ret);
+			goto err_of_init_failed;
+		}
+		/* Optional properties */
+		ret = of_property_read_u32(pdev->dev.of_node,
+					"qcom,min-clk-gear", &dev->ctrl.min_cg);
+		ret = of_property_read_u32(pdev->dev.of_node,
+					"qcom,max-clk-gear", &dev->ctrl.max_cg);
+		pr_err("min_cg:%d, max_cg:%d, ret:%d", dev->ctrl.min_cg,
+					dev->ctrl.max_cg, ret);
+	} else {
+		dev->ctrl.nr = pdev->id;
+	}
 	dev->ctrl.nchans = MSM_SLIM_NCHANS;
 	dev->ctrl.nports = MSM_SLIM_NPORTS;
 	dev->ctrl.set_laddr = msm_set_laddr;
@@ -1901,6 +1920,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	dev->ctrl.a_framer = &dev->framer;
 	dev->ctrl.clkgear = SLIM_MAX_CLK_GEAR;
 	dev->ctrl.dev.parent = &pdev->dev;
+	dev->ctrl.dev.of_node = pdev->dev.of_node;
 
 	ret = request_irq(dev->irq, msm_slim_interrupt, IRQF_TRIGGER_HIGH,
 				"msm_slim_irq", dev);
@@ -1995,6 +2015,9 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	 * function
 	 */
 	mb();
+	if (pdev->dev.of_node)
+		of_register_slim_devices(&dev->ctrl);
+
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, MSM_SLIM_AUTOSUSPEND);
 	pm_runtime_set_active(&pdev->dev);
@@ -2009,6 +2032,7 @@ err_clk_get_failed:
 err_request_irq_failed:
 	msm_slim_sps_exit(dev);
 err_sps_init_failed:
+err_of_init_failed:
 	iounmap(dev->bam.base);
 err_ioremap_bam_failed:
 	iounmap(dev->base);
@@ -2162,6 +2186,13 @@ static const struct dev_pm_ops msm_slim_dev_pm_ops = {
 	)
 };
 
+static struct of_device_id msm_slim_dt_match[] = {
+	{
+		.compatible = "qcom,slim-msm",
+	},
+	{}
+};
+
 static struct platform_driver msm_slim_driver = {
 	.probe = msm_slim_probe,
 	.remove = msm_slim_remove,
@@ -2169,6 +2200,7 @@ static struct platform_driver msm_slim_driver = {
 		.name = MSM_SLIM_NAME,
 		.owner = THIS_MODULE,
 		.pm = &msm_slim_dev_pm_ops,
+		.of_match_table = msm_slim_dt_match,
 	},
 };
 
