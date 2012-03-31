@@ -440,7 +440,6 @@ static int msm_hs_init_clk(struct uart_port *uport)
 	int ret;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
-	wake_lock(&msm_uport->dma_wake_lock);
 	/* Set up the MREG/NREG/DREG/MNDREG */
 	ret = clk_set_rate(msm_uport->clk, uport->uartclk);
 	if (ret) {
@@ -456,6 +455,7 @@ static int msm_hs_init_clk(struct uart_port *uport)
 	if (msm_uport->pclk) {
 		ret = clk_enable(msm_uport->pclk);
 		if (ret) {
+			clk_disable(msm_uport->clk);
 			dev_err(uport->dev,
 				"Error could not turn on UART pclk\n");
 			return ret;
@@ -1578,10 +1578,14 @@ static int msm_hs_startup(struct uart_port *uport)
 	tx->dma_base = dma_map_single(uport->dev, tx_buf->buf, UART_XMIT_SIZE,
 				      DMA_TO_DEVICE);
 
+	wake_lock(&msm_uport->dma_wake_lock);
 	/* turn on uart clk */
 	ret = msm_hs_init_clk(uport);
-	if (unlikely(ret))
+	if (unlikely(ret)) {
+		pr_err("Turning ON uartclk error\n");
+		wake_unlock(&msm_uport->dma_wake_lock);
 		return ret;
+	}
 
 	/* Set auto RFR Level */
 	data = msm_hs_read(uport, UARTDM_MR1_ADDR);
@@ -1646,20 +1650,26 @@ static int msm_hs_startup(struct uart_port *uport)
 
 	if (use_low_power_wakeup(msm_uport)) {
 		ret = irq_set_irq_wake(msm_uport->wakeup.irq, 1);
-		if (unlikely(ret))
-			return ret;
+		if (unlikely(ret)) {
+			pr_err("%s():Err setting wakeup irq\n", __func__);
+			goto deinit_uart_clk;
+		}
 	}
 
 	ret = request_irq(uport->irq, msm_hs_isr, IRQF_TRIGGER_HIGH,
 			  "msm_hs_uart", msm_uport);
-	if (unlikely(ret))
-		return ret;
+	if (unlikely(ret)) {
+		pr_err("%s():Error getting uart irq\n", __func__);
+		goto free_wake_irq;
+	}
 	if (use_low_power_wakeup(msm_uport)) {
 		ret = request_irq(msm_uport->wakeup.irq, msm_hs_wakeup_isr,
 				  IRQF_TRIGGER_FALLING,
 				  "msm_hs_wakeup", msm_uport);
-		if (unlikely(ret))
-			return ret;
+		if (unlikely(ret)) {
+			pr_err("%s():Err getting uart wakeup_irq\n", __func__);
+			goto free_uart_irq;
+		}
 		disable_irq(msm_uport->wakeup.irq);
 	}
 
@@ -1673,8 +1683,19 @@ static int msm_hs_startup(struct uart_port *uport)
 		dev_err(uport->dev, "set active error:%d\n", ret);
 	pm_runtime_enable(uport->dev);
 
-
 	return 0;
+
+free_uart_irq:
+	free_irq(uport->irq, msm_uport);
+free_wake_irq:
+	irq_set_irq_wake(msm_uport->wakeup.irq, 0);
+deinit_uart_clk:
+	clk_disable(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_disable(msm_uport->pclk);
+	wake_unlock(&msm_uport->dma_wake_lock);
+
+	return ret;
 }
 
 /* Initialize tx and rx data structures */
