@@ -5982,6 +5982,19 @@ static void __init reg_init(void)
 		if (!readl_relaxed(PRNG_CLK_NS_REG))
 			writel_relaxed(0x2B, PRNG_CLK_NS_REG);
 	}
+
+	/*
+	 * Program PLL15 to 900MHz with ref clk = 27MHz and
+	 * only enable PLL main output.
+	 */
+	if (cpu_is_msm8930()) {
+		writel_relaxed(0x30021, MM_PLL3_L_VAL_REG);
+		writel_relaxed(0x1,	MM_PLL3_M_VAL_REG);
+		writel_relaxed(0x3,	MM_PLL3_N_VAL_REG);
+
+		writel_relaxed(0xC20000, MM_PLL3_CONFIG_REG);
+		writel_relaxed(0,	 MM_PLL3_TEST_CTL_REG);
+	}
 }
 
 /* Local clock driver initialization. */
