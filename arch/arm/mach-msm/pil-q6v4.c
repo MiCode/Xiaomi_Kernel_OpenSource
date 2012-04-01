@@ -19,7 +19,6 @@
 #include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/workqueue.h>
 #include <linux/clk.h>
 
 #include <mach/msm_bus.h>
@@ -28,8 +27,6 @@
 #include "peripheral-loader.h"
 #include "pil-q6v4.h"
 #include "scm-pas.h"
-
-#define PROXY_VOTE_TIMEOUT	10000
 
 #define QDSP6SS_RST_EVB		0x0
 #define QDSP6SS_RESET		0x04
@@ -70,7 +67,6 @@ struct q6v4_data {
 	struct regulator *pll_supply;
 	bool vreg_enabled;
 	struct clk *xo;
-	struct delayed_work work;
 	struct pil_device *pil;
 };
 
@@ -83,24 +79,23 @@ static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
 	return 0;
 }
 
-static int pil_q6v4_make_proxy_votes(struct device *dev)
+static int pil_q6v4_make_proxy_votes(struct pil_desc *pil)
 {
-	struct q6v4_data *drv = dev_get_drvdata(dev);
+	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
 	int ret;
 
 	ret = clk_prepare_enable(drv->xo);
 	if (ret) {
-		dev_err(dev, "Failed to enable XO\n");
+		dev_err(pil->dev, "Failed to enable XO\n");
 		goto err;
 	}
 	if (drv->pll_supply) {
 		ret = regulator_enable(drv->pll_supply);
 		if (ret) {
-			dev_err(dev, "Failed to enable pll supply\n");
+			dev_err(pil->dev, "Failed to enable pll supply\n");
 			goto err_regulator;
 		}
 	}
-	schedule_delayed_work(&drv->work, msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
 	return 0;
 err_regulator:
 	clk_disable_unprepare(drv->xo);
@@ -108,18 +103,12 @@ err:
 	return ret;
 }
 
-static void pil_q6v4_remove_proxy_votes(struct work_struct *work)
+static void pil_q6v4_remove_proxy_votes(struct pil_desc *pil)
 {
-	struct q6v4_data *drv = container_of(work, struct q6v4_data, work.work);
+	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
 	if (drv->pll_supply)
 		regulator_disable(drv->pll_supply);
 	clk_disable_unprepare(drv->xo);
-}
-
-static void pil_q6v4_remove_proxy_votes_now(struct device *dev)
-{
-	struct q6v4_data *drv = dev_get_drvdata(dev);
-	flush_delayed_work(&drv->work);
 }
 
 static int pil_q6v4_power_up(struct device *dev)
@@ -192,13 +181,9 @@ static void pil_q6v4_shutdown_modem(void)
 
 static int pil_q6v4_reset(struct pil_desc *pil)
 {
-	u32 reg, err = 0;
+	u32 reg, err;
 	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
 	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
-
-	err = pil_q6v4_make_proxy_votes(pil->dev);
-	if (err)
-		return err;
 
 	err = pil_q6v4_power_up(pil->dev);
 	if (err)
@@ -295,8 +280,6 @@ static int pil_q6v4_shutdown(struct pil_desc *pil)
 		drv->vreg_enabled = false;
 	}
 
-	pil_q6v4_remove_proxy_votes_now(pil->dev);
-
 	return 0;
 }
 
@@ -304,6 +287,8 @@ static struct pil_reset_ops pil_q6v4_ops = {
 	.init_image = pil_q6v4_init_image,
 	.auth_and_reset = pil_q6v4_reset,
 	.shutdown = pil_q6v4_shutdown,
+	.proxy_vote = pil_q6v4_make_proxy_votes,
+	.proxy_unvote = pil_q6v4_remove_proxy_votes,
 };
 
 static int pil_q6v4_init_image_trusted(struct pil_desc *pil,
@@ -317,10 +302,6 @@ static int pil_q6v4_reset_trusted(struct pil_desc *pil)
 {
 	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
 	int err;
-
-	err = pil_q6v4_make_proxy_votes(pil->dev);
-	if (err)
-		return err;
 
 	err = pil_q6v4_power_up(pil->dev);
 	if (err)
@@ -351,8 +332,6 @@ static int pil_q6v4_shutdown_trusted(struct pil_desc *pil)
 		drv->vreg_enabled = false;
 	}
 
-	pil_q6v4_remove_proxy_votes_now(pil->dev);
-
 	return ret;
 }
 
@@ -360,6 +339,8 @@ static struct pil_reset_ops pil_q6v4_ops_trusted = {
 	.init_image = pil_q6v4_init_image_trusted,
 	.auth_and_reset = pil_q6v4_reset_trusted,
 	.shutdown = pil_q6v4_shutdown_trusted,
+	.proxy_vote = pil_q6v4_make_proxy_votes,
+	.proxy_unvote = pil_q6v4_remove_proxy_votes,
 };
 
 static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
@@ -416,6 +397,7 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	desc->depends_on = pdata->depends;
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
+	desc->proxy_timeout = 10000;
 
 	if (pas_supported(pdata->pas_id) > 0) {
 		desc->ops = &pil_q6v4_ops_trusted;
@@ -436,7 +418,6 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->xo);
 		goto err_xo;
 	}
-	INIT_DELAYED_WORK(&drv->work, pil_q6v4_remove_proxy_votes);
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil)) {
@@ -445,7 +426,6 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	}
 	return 0;
 err_pil:
-	flush_delayed_work_sync(&drv->work);
 	clk_put(drv->xo);
 err_xo:
 	regulator_put(drv->vreg);
@@ -457,7 +437,6 @@ err:
 static int __devexit pil_q6v4_driver_exit(struct platform_device *pdev)
 {
 	struct q6v4_data *drv = platform_get_drvdata(pdev);
-	flush_delayed_work_sync(&drv->work);
 	clk_put(drv->xo);
 	regulator_put(drv->vreg);
 	regulator_put(drv->pll_supply);
