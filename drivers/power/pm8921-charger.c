@@ -2326,15 +2326,23 @@ static irqreturn_t batttemp_cold_irq_handler(int irq, void *data)
 static irqreturn_t chg_gone_irq_handler(int irq, void *data)
 {
 	struct pm8921_chg_chip *chip = data;
-	int chg_gone, usb_chg_plugged_in;
+	u8 reg;
+	int rc, chg_gone, usb_chg_plugged_in;
 
 	usb_chg_plugged_in = is_usb_chg_plugged_in(chip);
 	chg_gone = pm_chg_get_rt_status(chip, CHG_GONE_IRQ);
 
 	pr_debug("chg_gone=%d, usb_valid = %d\n", chg_gone, usb_chg_plugged_in);
+	pr_debug("Chg gone fsm_state=%d\n", pm_chg_get_fsm_state(data));
+
+	rc = pm8xxx_readb(chip->dev->parent, CHG_CNTRL_3, &reg);
+	if (rc)
+		pr_err("Failed to read CHG_CNTRL_3 rc=%d\n", rc);
+
+	if (reg & CHG_USB_SUSPEND_BIT)
+		return IRQ_HANDLED;
 	schedule_work(&chip->unplug_ovp_fet_open_work);
 
-	pr_debug("Chg gone fsm_state=%d\n", pm_chg_get_fsm_state(data));
 	power_supply_changed(&chip->batt_psy);
 	power_supply_changed(&chip->usb_psy);
 	return IRQ_HANDLED;
