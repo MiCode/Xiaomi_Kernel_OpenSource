@@ -53,6 +53,13 @@ static struct gpiomux_setting gpio_spi_cs_config = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
+/* Chip selects for EPM SPI clients */
+static struct gpiomux_setting gpio_epm_spi_cs_config = {
+	.func = GPIOMUX_FUNC_3,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
 struct msm_gpiomux_config apq8064_ethernet_configs[] = {
 	{
 		.gpio = 43,
@@ -371,7 +378,7 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 32,		/* EPM CS */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_config,
+			[GPIOMUX_SUSPENDED] = &gpio_epm_spi_cs_config,
 		},
 	},
 	{
