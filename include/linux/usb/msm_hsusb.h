@@ -19,6 +19,8 @@
 #define __ASM_ARCH_MSM_HSUSB_H
 
 #include <linux/types.h>
+#include <linux/usb/ch9.h>
+#include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 #include <linux/wakelock.h>
 #include <linux/pm_qos_params.h>
@@ -374,5 +376,9 @@ enum usb_bam {
 	HSUSB_BAM = 0,
 	HSIC_BAM,
 };
+
+int msm_ep_config(struct usb_ep *ep);
+int msm_ep_unconfig(struct usb_ep *ep);
+int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size);
 
 #endif

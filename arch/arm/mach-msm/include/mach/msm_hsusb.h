@@ -20,6 +20,8 @@
 
 #include <linux/types.h>
 #include <linux/pm_qos_params.h>
+#include <linux/usb/ch9.h>
+#include <linux/usb/gadget.h>
 
 #define PHY_TYPE_MASK		0x0F
 #define PHY_TYPE_MODE		0xF0
@@ -199,5 +201,9 @@ struct msm_usb_host_platform_data {
 	int  (*vbus_init)(int init);
 	struct clk *ebi1_clk;
 };
+
+int msm_ep_config(struct usb_ep *ep);
+int msm_ep_unconfig(struct usb_ep *ep);
+int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size);
 
 #endif
