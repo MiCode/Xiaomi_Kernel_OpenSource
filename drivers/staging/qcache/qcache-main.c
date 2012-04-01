@@ -160,15 +160,18 @@ static void *qcache_alloc(void)
 
 	spin_lock_irqsave(&qc->lock, flags);
 	offset = bitmap_find_free_region(qc->bitmap, qc->pages, 0);
-	spin_unlock_irqrestore(&qc->lock, flags);
 
-	if (offset < 0)
+	if (offset < 0) {
+		spin_unlock_irqrestore(&qc->lock, flags);
 		return NULL;
+	}
 
-	addr = qc->addr + offset * PAGE_SIZE;
 	zcache_qc_allocated++;
 	zcache_qc_used++;
 	zcache_qc_max_used = max(zcache_qc_max_used, zcache_qc_used);
+	spin_unlock_irqrestore(&qc->lock, flags);
+
+	addr = qc->addr + offset * PAGE_SIZE;
 
 	return addr;
 }
@@ -183,10 +186,10 @@ static void qcache_free(void *addr)
 
 	spin_lock_irqsave(&qc->lock, flags);
 	bitmap_release_region(qc->bitmap, offset, 0);
-	spin_unlock_irqrestore(&qc->lock, flags);
 
 	zcache_qc_freed++;
 	zcache_qc_used--;
+	spin_unlock_irqrestore(&qc->lock, flags);
 }
 
 /*
