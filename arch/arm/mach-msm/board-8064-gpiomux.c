@@ -163,6 +163,18 @@ static struct gpiomux_setting hdmi_active_2_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting gsbi5_suspended_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gsbi5_active_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 static struct gpiomux_setting hsic_act_cfg = {
 	.func = GPIOMUX_FUNC_1,
@@ -566,6 +578,23 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 	},
 };
 
+static struct msm_gpiomux_config mpq8064_gsbi5_i2c_configs[] __initdata = {
+	{
+		.gpio      = 53,			/* GSBI5 I2C QUP SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi5_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi5_active_cfg,
+		},
+	},
+	{
+		.gpio      = 54,			/* GSBI5 I2C QUP SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi5_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi5_active_cfg,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -576,16 +605,22 @@ void __init apq8064_init_gpiomux(void)
 		return;
 	}
 
-#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
-	msm_gpiomux_install(apq8064_ethernet_configs,
-			ARRAY_SIZE(apq8064_ethernet_configs));
-#endif
-
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
 
-	msm_gpiomux_install(apq8064_gsbi_configs,
-			ARRAY_SIZE(apq8064_gsbi_configs));
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+		 machine_is_mpq8064_dtv()) {
+		msm_gpiomux_install(mpq8064_gsbi5_i2c_configs,
+				ARRAY_SIZE(mpq8064_gsbi5_i2c_configs));
+	} else {
+		#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
+		msm_gpiomux_install(apq8064_ethernet_configs,
+				ARRAY_SIZE(apq8064_ethernet_configs));
+		#endif
+
+		msm_gpiomux_install(apq8064_gsbi_configs,
+				ARRAY_SIZE(apq8064_gsbi_configs));
+	}
 
 	msm_gpiomux_install(apq8064_slimbus_config,
 			ARRAY_SIZE(apq8064_slimbus_config));

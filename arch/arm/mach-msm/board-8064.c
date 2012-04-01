@@ -1837,6 +1837,14 @@ static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 	},
 };
 
+static struct platform_device *mpq_devices[] __initdata = {
+	&mpq8064_device_qup_i2c_gsbi5,
+	&msm_device_sps_apq8064,
+#ifdef CONFIG_MSM_ROTATOR
+	&msm_rotator_device,
+#endif
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi1,
@@ -2012,6 +2020,11 @@ static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
 	.src_clk_rate = 24000000,
 };
 
+static struct msm_i2c_platform_data mpq8064_i2c_qup_gsbi5_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+
 #define GSBI_DUAL_MODE_CODE 0x60
 #define MSM_GSBI1_PHYS		0x12440000
 static void __init apq8064_i2c_init(void)
@@ -2032,6 +2045,8 @@ static void __init apq8064_i2c_init(void)
 					&apq8064_i2c_qup_gsbi1_pdata;
 	apq8064_device_qup_i2c_gsbi4.dev.platform_data =
 					&apq8064_i2c_qup_gsbi4_pdata;
+	mpq8064_device_qup_i2c_gsbi5.dev.platform_data =
+					&mpq8064_i2c_qup_gsbi5_pdata;
 }
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
@@ -2283,6 +2298,7 @@ static void enable_ddr3_regulator(void)
 
 static void __init apq8064_common_init(void)
 {
+	msm_tsens_early_init(&apq_tsens_pdata);
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 	BUG_ON(msm_rpm_init(&apq8064_rpm_data));
@@ -2347,31 +2363,30 @@ static void __init apq8064_sim_init(void)
 		&msm8064_device_watchdog.dev.platform_data;
 
 	wdog_pdata->bark_time = 15000;
-	msm_tsens_early_init(&apq_tsens_pdata);
 	apq8064_common_init();
 	platform_add_devices(sim_devices, ARRAY_SIZE(sim_devices));
 }
 
 static void __init apq8064_rumi3_init(void)
 {
-	msm_tsens_early_init(&apq_tsens_pdata);
 	apq8064_common_init();
 	ethernet_init();
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
-	apq8064_init_fb();
-	apq8064_init_gpu();
 }
 
 static void __init apq8064_cdp_init(void)
 {
-	msm_tsens_early_init(&apq_tsens_pdata);
 	apq8064_common_init();
-	ethernet_init();
-	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
-	if (!machine_is_apq8064_mtp())
-		msm_rotator_update_bus_vectors(1376, 768);
-	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+		machine_is_mpq8064_dtv()) {
+		platform_add_devices(mpq_devices, ARRAY_SIZE(mpq_devices));
+	} else {
+		ethernet_init();
+		platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
+		spi_register_board_info(spi_board_info,
+						ARRAY_SIZE(spi_board_info));
+	}
 	apq8064_init_fb();
 	apq8064_init_gpu();
 	platform_add_devices(apq8064_fs_devices, apq8064_num_fs_devices);
