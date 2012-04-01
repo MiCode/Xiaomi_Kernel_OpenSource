@@ -1771,6 +1771,15 @@ config MSM_PIL_TZAPPS
 	  used to decrypt data and perform secure operations on the behalf of
 	  the kernel.
 
+config MSM_PIL_DSPS
+	tristate "DSPS Boot Support"
+	depends on MSM_PIL
+	help
+	  Support for booting and shutting down ARM7 DSPS processors.
+
+	  DSPS is a sensors offloading processor used for applications such
+	  as rotation detection, temperature, etc.
+
 config MSM_PIL_GSS
 	tristate "GSS (Coretx A5) Boot Support"
 	depends on MSM_PIL
