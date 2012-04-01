@@ -271,10 +271,11 @@ int ion_carveout_heap_map_iommu(struct ion_buffer *buffer,
 					unsigned long iova_length,
 					unsigned long flags)
 {
-	unsigned long temp_phys, temp_iova;
 	struct iommu_domain *domain;
-	int i, ret = 0;
+	int ret = 0;
 	unsigned long extra;
+	int prot = ION_IS_CACHED(flags) ? 1 : 0;
+	struct scatterlist *sglist = 0;
 
 	data->mapped_size = iova_length;
 
@@ -300,32 +301,36 @@ int ion_carveout_heap_map_iommu(struct ion_buffer *buffer,
 		goto out1;
 	}
 
-	temp_iova = data->iova_addr;
-	temp_phys = buffer->priv_phys;
-	for (i = buffer->size; i > 0; i -= SZ_4K, temp_iova += SZ_4K,
-						  temp_phys += SZ_4K) {
-		ret = iommu_map(domain, temp_iova, temp_phys,
-				get_order(SZ_4K),
-				ION_IS_CACHED(flags) ? 1 : 0);
+	sglist = vmalloc(sizeof(*sglist));
+	if (!sglist)
+		goto out1;
 
-		if (ret) {
-			pr_err("%s: could not map %lx to %lx in domain %p\n",
-				__func__, temp_iova, temp_phys, domain);
-			goto out2;
-		}
+	sg_init_table(sglist, 1);
+	sglist->length = buffer->size;
+	sglist->offset = 0;
+	sglist->dma_address = buffer->priv_phys;
+
+	ret = iommu_map_range(domain, data->iova_addr, sglist,
+			      buffer->size, prot);
+	if (ret) {
+		pr_err("%s: could not map %lx in domain %p\n",
+			__func__, data->iova_addr, domain);
+		goto out1;
 	}
 
-	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, flags) < 0))
-		goto out2;
-
-	return 0;
-
+	if (extra) {
+		unsigned long extra_iova_addr = data->iova_addr + buffer->size;
+		ret = msm_iommu_map_extra(domain, extra_iova_addr, extra, prot);
+		if (ret)
+			goto out2;
+	}
+	vfree(sglist);
+	return ret;
 
 out2:
-	for ( ; i < buffer->size; i += SZ_4K, temp_iova -= SZ_4K)
-		iommu_unmap(domain, temp_iova, get_order(SZ_4K));
-
+	iommu_unmap_range(domain, data->iova_addr, buffer->size);
 out1:
+	vfree(sglist);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 				data->mapped_size);
 
@@ -336,8 +341,6 @@ out:
 
 void ion_carveout_heap_unmap_iommu(struct ion_iommu_map *data)
 {
-	int i;
-	unsigned long temp_iova;
 	unsigned int domain_num;
 	unsigned int partition_num;
 	struct iommu_domain *domain;
@@ -355,10 +358,7 @@ void ion_carveout_heap_unmap_iommu(struct ion_iommu_map *data)
 		return;
 	}
 
-	temp_iova = data->iova_addr;
-	for (i = data->mapped_size; i > 0; i -= SZ_4K, temp_iova += SZ_4K)
-		iommu_unmap(domain, temp_iova, get_order(SZ_4K));
-
+	iommu_unmap_range(domain, data->iova_addr, data->mapped_size);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 				data->mapped_size);
 

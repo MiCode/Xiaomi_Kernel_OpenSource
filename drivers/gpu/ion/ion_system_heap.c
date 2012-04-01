@@ -104,8 +104,6 @@ void ion_system_heap_unmap_kernel(struct ion_heap *heap,
 
 void ion_system_heap_unmap_iommu(struct ion_iommu_map *data)
 {
-	int i;
-	unsigned long temp_iova;
 	unsigned int domain_num;
 	unsigned int partition_num;
 	struct iommu_domain *domain;
@@ -123,10 +121,7 @@ void ion_system_heap_unmap_iommu(struct ion_iommu_map *data)
 		return;
 	}
 
-	temp_iova = data->iova_addr;
-	for (i = data->mapped_size; i > 0; i -= SZ_4K, temp_iova += SZ_4K)
-		iommu_unmap(domain, temp_iova, get_order(SZ_4K));
-
+	iommu_unmap_range(domain, data->iova_addr, data->mapped_size);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 				data->mapped_size);
 
@@ -206,11 +201,15 @@ int ion_system_heap_map_iommu(struct ion_buffer *buffer,
 				unsigned long iova_length,
 				unsigned long flags)
 {
-	int ret, i;
-	unsigned long temp_iova;
+	int ret = 0, i;
 	struct iommu_domain *domain;
-	void *temp_phys;
 	unsigned long extra;
+	unsigned long extra_iova_addr;
+	struct page *page;
+	int npages = buffer->size >> PAGE_SHIFT;
+	void *vaddr = buffer->priv_virt;
+	struct scatterlist *sglist = 0;
+	int prot = ION_IS_CACHED(flags) ? 1 : 0;
 
 	if (!ION_IS_CACHED(flags))
 		return -EINVAL;
@@ -236,35 +235,46 @@ int ion_system_heap_map_iommu(struct ion_buffer *buffer,
 		goto out1;
 	}
 
-	temp_iova = data->iova_addr;
-	temp_phys = buffer->vaddr;
-	for (i = buffer->size; i > 0; i -= SZ_4K, temp_iova += SZ_4K,
-						  temp_phys += SZ_4K) {
-		ret = iommu_map(domain, temp_iova,
-			page_to_phys(vmalloc_to_page(temp_phys)),
-			get_order(SZ_4K), ION_IS_CACHED(flags) ? 1 : 0);
 
-		if (ret) {
-			pr_err("%s: could not map %lx to %x in domain %p\n",
-				__func__, temp_iova,
-				page_to_phys(vmalloc_to_page(temp_phys)),
-				domain);
-			goto out2;
-		}
+	sglist = vmalloc(sizeof(*sglist) * npages);
+	if (!sglist) {
+		ret = -ENOMEM;
+		goto out1;
 	}
 
-	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, flags) < 0))
-		goto out2;
+	sg_init_table(sglist, npages);
+	for (i = 0; i < npages; i++) {
+		page = vmalloc_to_page(vaddr);
+		if (!page)
+			goto out1;
+		sg_set_page(&sglist[i], page, PAGE_SIZE, 0);
+		vaddr += PAGE_SIZE;
+	}
 
-	return 0;
+	ret = iommu_map_range(domain, data->iova_addr, sglist,
+			      buffer->size, prot);
+
+	if (ret) {
+		pr_err("%s: could not map %lx in domain %p\n",
+			__func__, data->iova_addr, domain);
+		goto out1;
+	}
+
+	extra_iova_addr = data->iova_addr + buffer->size;
+	if (extra) {
+		ret = msm_iommu_map_extra(domain, extra_iova_addr, extra, prot);
+		if (ret)
+			goto out2;
+	}
+	vfree(sglist);
+	return ret;
 
 out2:
-	for ( ; i < buffer->size; i += SZ_4K, temp_iova -= SZ_4K)
-		iommu_unmap(domain, temp_iova, get_order(SZ_4K));
-
+	iommu_unmap_range(domain, data->iova_addr, buffer->size);
 out1:
+	vfree(sglist);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
-						data->mapped_size);
+				data->mapped_size);
 out:
 	return ret;
 }
@@ -408,10 +418,12 @@ int ion_system_contig_heap_map_iommu(struct ion_buffer *buffer,
 				unsigned long iova_length,
 				unsigned long flags)
 {
-	int ret, i;
+	int ret = 0;
 	struct iommu_domain *domain;
-	unsigned long temp_phys, temp_iova;
 	unsigned long extra;
+	int prot = ION_IS_CACHED(flags) ? 1 : 0;
+	struct scatterlist *sglist = 0;
+	struct page *page = 0;
 
 	if (!ION_IS_CACHED(flags))
 		return -EINVAL;
@@ -438,30 +450,36 @@ int ion_system_contig_heap_map_iommu(struct ion_buffer *buffer,
 		ret = -ENOMEM;
 		goto out1;
 	}
-	temp_iova = data->iova_addr;
-	temp_phys = virt_to_phys(buffer->vaddr);
-	for (i = buffer->size; i > 0; i -= SZ_4K, temp_iova += SZ_4K,
-						  temp_phys += SZ_4K) {
-		ret = iommu_map(domain, temp_iova,
-			temp_phys,
-			get_order(SZ_4K), ION_IS_CACHED(flags) ? 1 : 0);
+	page = virt_to_page(buffer->vaddr);
 
-		if (ret) {
-			pr_err("%s: could not map %lx to %lx in domain %p\n",
-				__func__, temp_iova, temp_phys, domain);
-			goto out2;
-		}
+	sglist = vmalloc(sizeof(*sglist));
+	if (!sglist)
+		goto out1;
+
+	sg_init_table(sglist, 1);
+	sg_set_page(sglist, page, buffer->size, 0);
+
+	ret = iommu_map_range(domain, data->iova_addr, sglist,
+			      buffer->size, prot);
+	if (ret) {
+		pr_err("%s: could not map %lx in domain %p\n",
+			__func__, data->iova_addr, domain);
+		goto out1;
 	}
 
-	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, flags) < 0))
-		goto out2;
-
-	return 0;
+	if (extra) {
+		unsigned long extra_iova_addr = data->iova_addr + buffer->size;
+		ret = msm_iommu_map_extra(domain, extra_iova_addr, extra, prot);
+		if (ret)
+			goto out2;
+	}
+	vfree(sglist);
+	return ret;
 out2:
-	for ( ; i < buffer->size; i += SZ_4K, temp_iova -= SZ_4K)
-		iommu_unmap(domain, temp_iova, get_order(SZ_4K));
+	iommu_unmap_range(domain, data->iova_addr, buffer->size);
 
 out1:
+	vfree(sglist);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 						data->mapped_size);
 out:
