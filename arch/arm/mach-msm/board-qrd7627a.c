@@ -924,7 +924,7 @@ static void __init msm7627a_reserve(void)
 {
 	reserve_info = &msm7627a_reserve_info;
 	msm_reserve();
-	msm_pm_8625_boot_pdata.p_addr = memblock_alloc(SZ_8, SZ_64K);
+	memblock_remove(MSM8625_WARM_BOOT_PHYS, SZ_32);
 }
 
 static void __init msm8625_reserve(void)
