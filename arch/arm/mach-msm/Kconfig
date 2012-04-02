@@ -243,6 +243,8 @@ config ARCH_MSMCOPPER
 	select MULTI_IRQ_HANDLER
 	select MSM_MULTIMEDIA_USE_ION
 	select MSM_PIL
+	select MSM_SPM_V2
+	select MSM_L2_SPM
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
