@@ -106,12 +106,19 @@ struct msm_rotator_mem_planes {
 #define checkoffset(offset, size, max_size) \
 	((size) > (max_size) || (offset) > ((max_size) - (size)))
 
+struct msm_rotator_fd_info {
+	int pid;
+	int ref_cnt;
+	struct list_head list;
+};
+
 struct msm_rotator_dev {
 	void __iomem *io_base;
 	int irq;
 	struct msm_rotator_img_info *img_info[MAX_SESSIONS];
 	struct clk *core_clk;
-	int pid_list[MAX_SESSIONS];
+	struct msm_rotator_fd_info *fd_info[MAX_SESSIONS];
+	struct list_head fd_list;
 	struct clk *pclk;
 	int rot_clk_state;
 	struct regulator *regulator;
@@ -1162,7 +1169,8 @@ static void msm_rotator_set_perf_level(u32 wh, u32 is_rgb)
 
 }
 
-static int msm_rotator_start(unsigned long arg, int pid)
+static int msm_rotator_start(unsigned long arg,
+			     struct msm_rotator_fd_info *fd_info)
 {
 	struct msm_rotator_img_info info;
 	int rc = 0;
@@ -1256,7 +1264,7 @@ static int msm_rotator_start(unsigned long arg, int pid)
 			(unsigned int)msm_rotator_dev->img_info[s]
 			)) {
 			*(msm_rotator_dev->img_info[s]) = info;
-			msm_rotator_dev->pid_list[s] = pid;
+			msm_rotator_dev->fd_info[s] = fd_info;
 
 			if (msm_rotator_dev->last_session_idx == s)
 				msm_rotator_dev->last_session_idx =
@@ -1284,7 +1292,7 @@ static int msm_rotator_start(unsigned long arg, int pid)
 		info.session_id = (unsigned int)
 			msm_rotator_dev->img_info[first_free_index];
 		*(msm_rotator_dev->img_info[first_free_index]) = info;
-		msm_rotator_dev->pid_list[first_free_index] = pid;
+		msm_rotator_dev->fd_info[first_free_index] = fd_info;
 
 		if (copy_to_user((void __user *)arg, &info, sizeof(info)))
 			rc = -EFAULT;
@@ -1319,7 +1327,7 @@ static int msm_rotator_finish(unsigned long arg)
 					INVALID_SESSION;
 			kfree(msm_rotator_dev->img_info[s]);
 			msm_rotator_dev->img_info[s] = NULL;
-			msm_rotator_dev->pid_list[s] = 0;
+			msm_rotator_dev->fd_info[s] = NULL;
 			break;
 		}
 	}
@@ -1337,24 +1345,45 @@ static int msm_rotator_finish(unsigned long arg)
 static int
 msm_rotator_open(struct inode *inode, struct file *filp)
 {
-	int *id;
+	struct msm_rotator_fd_info *tmp, *fd_info = NULL;
 	int i;
 
 	if (filp->private_data)
 		return -EBUSY;
 
 	mutex_lock(&msm_rotator_dev->rotator_lock);
-	id = &msm_rotator_dev->pid_list[0];
-	for (i = 0; i < MAX_SESSIONS; i++, id++) {
-		if (*id == 0)
+	for (i = 0; i < MAX_SESSIONS; i++) {
+		if (msm_rotator_dev->fd_info[i] == NULL)
 			break;
 	}
+
+	if (i == MAX_SESSIONS) {
+		mutex_unlock(&msm_rotator_dev->rotator_lock);
+		return -EBUSY;
+	}
+
+	list_for_each_entry(tmp, &msm_rotator_dev->fd_list, list) {
+		if (tmp->pid == current->pid) {
+			fd_info = tmp;
+			break;
+		}
+	}
+
+	if (!fd_info) {
+		fd_info = kzalloc(sizeof(*fd_info), GFP_KERNEL);
+		if (!fd_info) {
+			mutex_unlock(&msm_rotator_dev->rotator_lock);
+			pr_err("%s: insufficient memory to alloc resources\n",
+			       __func__);
+			return -ENOMEM;
+		}
+		list_add(&fd_info->list, &msm_rotator_dev->fd_list);
+		fd_info->pid = current->pid;
+	}
+	fd_info->ref_cnt++;
 	mutex_unlock(&msm_rotator_dev->rotator_lock);
 
-	if (i == MAX_SESSIONS)
-		return -EBUSY;
-
-	filp->private_data = (void *)current->pid;
+	filp->private_data = fd_info;
 
 	return 0;
 }
@@ -1362,21 +1391,33 @@ msm_rotator_open(struct inode *inode, struct file *filp)
 static int
 msm_rotator_close(struct inode *inode, struct file *filp)
 {
+	struct msm_rotator_fd_info *fd_info;
 	int s;
-	int pid;
 
-	pid = (int)filp->private_data;
+	fd_info = (struct msm_rotator_fd_info *)filp->private_data;
+
 	mutex_lock(&msm_rotator_dev->rotator_lock);
+	if (--fd_info->ref_cnt > 0) {
+		mutex_unlock(&msm_rotator_dev->rotator_lock);
+		return 0;
+	}
+
 	for (s = 0; s < MAX_SESSIONS; s++) {
 		if (msm_rotator_dev->img_info[s] != NULL &&
-			msm_rotator_dev->pid_list[s] == pid) {
+			msm_rotator_dev->fd_info[s] == fd_info) {
+			pr_debug("%s: freeing rotator session %p (pid %d)\n",
+				 __func__, msm_rotator_dev->img_info[s],
+				 fd_info->pid);
 			kfree(msm_rotator_dev->img_info[s]);
 			msm_rotator_dev->img_info[s] = NULL;
+			msm_rotator_dev->fd_info[s] = NULL;
 			if (msm_rotator_dev->last_session_idx == s)
 				msm_rotator_dev->last_session_idx =
 					INVALID_SESSION;
 		}
 	}
+	list_del(&fd_info->list);
+	kfree(fd_info);
 	mutex_unlock(&msm_rotator_dev->rotator_lock);
 
 	return 0;
@@ -1385,16 +1426,16 @@ msm_rotator_close(struct inode *inode, struct file *filp)
 static long msm_rotator_ioctl(struct file *file, unsigned cmd,
 						 unsigned long arg)
 {
-	int pid;
+	struct msm_rotator_fd_info *fd_info;
 
 	if (_IOC_TYPE(cmd) != MSM_ROTATOR_IOCTL_MAGIC)
 		return -ENOTTY;
 
-	pid = (int)file->private_data;
+	fd_info = (struct msm_rotator_fd_info *)file->private_data;
 
 	switch (cmd) {
 	case MSM_ROTATOR_IOCTL_START:
-		return msm_rotator_start(arg, pid);
+		return msm_rotator_start(arg, fd_info);
 	case MSM_ROTATOR_IOCTL_ROTATE:
 		return msm_rotator_do_rotate(arg);
 	case MSM_ROTATOR_IOCTL_FINISH:
@@ -1437,6 +1478,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 
 	msm_rotator_dev->imem_owner = IMEM_NO_OWNER;
 	mutex_init(&msm_rotator_dev->imem_lock);
+	INIT_LIST_HEAD(&msm_rotator_dev->fd_list);
 	msm_rotator_dev->imem_clk_state = CLK_DIS;
 	INIT_DELAYED_WORK(&msm_rotator_dev->imem_clk_work,
 			  msm_rotator_imem_clk_work_f);
