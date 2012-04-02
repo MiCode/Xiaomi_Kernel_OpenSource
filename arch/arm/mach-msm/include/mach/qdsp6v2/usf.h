@@ -135,6 +135,8 @@ struct us_input_info_type {
 	uint16_t event_types;
 	/* Input event source */
 	enum us_input_event_src_type event_src;
+	/* Bitmap of types of events from devs, conflicting with USF */
+	uint16_t conflicting_event_types;
 };
 
 struct us_tx_info_type {
@@ -208,6 +210,8 @@ struct us_tx_update_info_type {
 /* Time (sec) to wait for data or special values: */
 /* USF_NO_WAIT_TIMEOUT, USF_INFINITIVE_TIMEOUT, USF_DEFAULT_TIMEOUT */
 	uint32_t timeout;
+/* Events (from conflicting devs) to be disabled/enabled */
+	uint16_t event_filters;
 
 /* Input  transparent data: */
 /* Parameters size */
