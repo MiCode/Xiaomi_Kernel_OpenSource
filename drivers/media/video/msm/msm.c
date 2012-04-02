@@ -19,6 +19,10 @@
 #include <linux/spinlock.h>
 #include <linux/proc_fs.h>
 #include "msm.h"
+#include "msm_csid.h"
+#include "msm_csic.h"
+#include "msm_csiphy.h"
+#include "msm_ispif.h"
 #include "msm_sensor.h"
 
 #define MSM_MAX_CAMERA_SENSORS 5
@@ -106,11 +110,6 @@ static void msm_cam_v4l2_subdev_notify(struct v4l2_subdev *sd,
 
 	if (pcam == NULL)
 		return;
-
-	/* forward to media controller for any changes*/
-	if (pcam->mctl.mctl_notify) {
-		pcam->mctl.mctl_notify(&pcam->mctl, notification, arg);
-	}
 }
 
 static int msm_ctrl_cmd_done(void *arg)
@@ -1591,21 +1590,6 @@ static int msm_open(struct file *f)
 		}
 		pcam->mctl.sync.pcam_sync = pcam;
 
-		/* Register isp subdev */
-		rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
-					pcam->mctl.isp_sdev->sd);
-		if (rc < 0) {
-			pr_err("%s: v4l2_device_register_subdev failed rc = %d\n",
-				__func__, rc);
-			goto err;
-		}
-		if (pcam->mctl.isp_sdev->sd_vpe) {
-			rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
-						pcam->mctl.isp_sdev->sd_vpe);
-			if (rc < 0) {
-				goto err;
-			}
-		}
 		rc = msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 							pcam->pvdev);
 		if (rc < 0) {
@@ -1760,8 +1744,6 @@ static int msm_close(struct file *f)
 	f->private_data = NULL;
 
 	if (pcam->use_count == 0) {
-		v4l2_device_unregister_subdev(pcam->mctl.isp_sdev->sd);
-		v4l2_device_unregister_subdev(pcam->mctl.isp_sdev->sd_vpe);
 		rc = msm_cam_server_close_session(&g_server_dev, pcam);
 		if (rc < 0)
 			pr_err("msm_cam_server_close_session fails %d\n", rc);
@@ -2439,6 +2421,150 @@ config_setup_fail:
 
 }
 
+static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
+				unsigned int notification, void *arg)
+{
+	int rc = -EINVAL;
+	struct msm_sensor_ctrl_t *s_ctrl;
+	struct msm_camera_sensor_info *sinfo;
+	struct msm_camera_device_platform_data *camdev;
+	uint8_t csid_core = 0;
+
+	if (notification == NOTIFY_CID_CHANGE ||
+		notification == NOTIFY_ISPIF_STREAM ||
+		notification == NOTIFY_PCLK_CHANGE ||
+		notification == NOTIFY_CSIPHY_CFG ||
+		notification == NOTIFY_CSID_CFG ||
+		notification == NOTIFY_CSIC_CFG) {
+		s_ctrl = get_sctrl(sd);
+		sinfo = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
+		camdev = sinfo->pdata;
+		csid_core = camdev->csid_core;
+	}
+
+	switch (notification) {
+	case NOTIFY_CID_CHANGE:
+		/* reconfig the ISPIF*/
+		if (g_server_dev.ispif_device) {
+			struct msm_ispif_params_list ispif_params;
+			ispif_params.len = 1;
+			ispif_params.params[0].intftype = PIX0;
+			ispif_params.params[0].cid_mask = 0x0001;
+			ispif_params.params[0].csid = csid_core;
+
+			rc = v4l2_subdev_call(
+				g_server_dev.ispif_device, core, ioctl,
+				VIDIOC_MSM_ISPIF_CFG, &ispif_params);
+			if (rc < 0)
+				return;
+		}
+		break;
+	case NOTIFY_ISPIF_STREAM:
+		/* call ISPIF stream on/off */
+		rc = v4l2_subdev_call(g_server_dev.ispif_device, video,
+				s_stream, (int)arg);
+		if (rc < 0)
+			return;
+
+		break;
+	case NOTIFY_ISP_MSG_EVT:
+	case NOTIFY_VFE_MSG_OUT:
+	case NOTIFY_VFE_MSG_STATS:
+	case NOTIFY_VFE_MSG_COMP_STATS:
+	case NOTIFY_VFE_BUF_EVT:
+	case NOTIFY_VFE_BUF_FREE_EVT:
+		if (g_server_dev.isp_subdev[0] &&
+			g_server_dev.isp_subdev[0]->isp_notify) {
+			rc = g_server_dev.isp_subdev[0]->isp_notify(
+				g_server_dev.vfe_device[0], notification, arg);
+		}
+		break;
+	case NOTIFY_VPE_MSG_EVT:
+		if (g_server_dev.isp_subdev[0] &&
+			g_server_dev.isp_subdev[0]->isp_notify) {
+			rc = g_server_dev.isp_subdev[0]->isp_notify(
+				g_server_dev.vpe_device[0], notification, arg);
+		}
+		break;
+	case NOTIFY_PCLK_CHANGE:
+		rc = v4l2_subdev_call(g_server_dev.vfe_device[0], video,
+			s_crystal_freq, *(uint32_t *)arg, 0);
+		break;
+	case NOTIFY_CSIPHY_CFG:
+		rc = v4l2_subdev_call(g_server_dev.csiphy_device[csid_core],
+			core, ioctl, VIDIOC_MSM_CSIPHY_CFG, arg);
+		break;
+	case NOTIFY_CSID_CFG:
+		rc = v4l2_subdev_call(g_server_dev.csid_device[csid_core],
+			core, ioctl, VIDIOC_MSM_CSID_CFG, arg);
+		break;
+	case NOTIFY_CSIC_CFG:
+		rc = v4l2_subdev_call(g_server_dev.csic_device[csid_core],
+			core, ioctl, VIDIOC_MSM_CSIC_CFG, arg);
+		break;
+	default:
+		break;
+	}
+
+	return;
+}
+
+int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
+	enum msm_cam_subdev_type sdev_type, uint8_t index)
+{
+	struct video_device *vdev;
+	int err = 0;
+
+	if (sdev_type == CSIPHY_DEV) {
+		if (index >= MAX_NUM_CSIPHY_DEV)
+			return -EINVAL;
+		g_server_dev.csiphy_device[index] = sd;
+	} else if (sdev_type == CSID_DEV) {
+		if (index >= MAX_NUM_CSID_DEV)
+			return -EINVAL;
+		g_server_dev.csid_device[index] = sd;
+	} else if (sdev_type == CSIC_DEV) {
+		if (index >= MAX_NUM_CSIC_DEV)
+			return -EINVAL;
+		g_server_dev.csic_device[index] = sd;
+	} else if (sdev_type == ISPIF_DEV) {
+		g_server_dev.ispif_device = sd;
+	} else if (sdev_type == VFE_DEV) {
+		if (index >= MAX_NUM_VFE_DEV)
+			return -EINVAL;
+		g_server_dev.vfe_device[index] = sd;
+	} else if (sdev_type == VPE_DEV) {
+		if (index >= MAX_NUM_VPE_DEV)
+			return -EINVAL;
+		g_server_dev.vpe_device[index] = sd;
+	}
+
+	err = v4l2_device_register_subdev(&g_server_dev.v4l2_dev, sd);
+	if (err < 0)
+		return err;
+
+	/* Register a device node for every subdev marked with the
+	 * V4L2_SUBDEV_FL_HAS_DEVNODE flag.
+	 */
+	if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
+		return err;
+
+	vdev = &sd->devnode;
+	strlcpy(vdev->name, sd->name, sizeof(vdev->name));
+	vdev->v4l2_dev = &g_server_dev.v4l2_dev;
+	vdev->fops = &v4l2_subdev_fops;
+	vdev->release = video_device_release_empty;
+	err = __video_register_device(vdev, VFL_TYPE_SUBDEV, -1, 1,
+						  sd->owner);
+	if (err < 0)
+		return err;
+#if defined(CONFIG_MEDIA_CONTROLLER)
+	sd->entity.v4l.major = VIDEO_MAJOR;
+	sd->entity.v4l.minor = vdev->minor;
+#endif
+	return 0;
+}
+
 static int msm_setup_server_dev(struct platform_device *pdev)
 {
 	int rc = -ENODEV, i;
@@ -2446,7 +2572,7 @@ static int msm_setup_server_dev(struct platform_device *pdev)
 	D("%s\n", __func__);
 	g_server_dev.server_pdev = pdev;
 	g_server_dev.v4l2_dev.dev = &pdev->dev;
-
+	g_server_dev.v4l2_dev.notify = msm_cam_server_subdev_notify;
 	rc = v4l2_device_register(g_server_dev.v4l2_dev.dev,
 			&g_server_dev.v4l2_dev);
 	if (rc < 0)
@@ -2765,7 +2891,7 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 		g_server_dev.camera_info.num_cameras);
 
 	/* register the subdevice, must be done for callbacks */
-	rc = v4l2_device_register_subdev(&pcam->v4l2_dev, sensor_sd);
+	rc = msm_cam_register_subdev_node(sensor_sd, SENSOR_DEV, vnode_count);
 	if (rc < 0) {
 		D("%s sensor sub device register failed\n",
 			__func__);

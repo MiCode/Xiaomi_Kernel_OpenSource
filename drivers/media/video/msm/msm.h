@@ -50,6 +50,23 @@
 #define MSM_GEMINI_DRV_NAME "msm_gemini"
 #define MSM_I2C_MUX_DRV_NAME "msm_cam_i2c_mux"
 
+#define MAX_NUM_CSIPHY_DEV 3
+#define MAX_NUM_CSID_DEV 3
+#define MAX_NUM_CSIC_DEV 3
+#define MAX_NUM_ISPIF_DEV 1
+#define MAX_NUM_VFE_DEV 2
+#define MAX_NUM_VPE_DEV 1
+
+enum msm_cam_subdev_type {
+	CSIPHY_DEV,
+	CSID_DEV,
+	CSIC_DEV,
+	ISPIF_DEV,
+	VFE_DEV,
+	VPE_DEV,
+	SENSOR_DEV,
+};
+
 /* msm queue management APIs*/
 
 #define msm_dequeue(queue, member) ({	   \
@@ -204,8 +221,6 @@ struct msm_cam_media_controller {
 	int (*mctl_open)(struct msm_cam_media_controller *p_mctl,
 					 const char *const apps_id);
 	int (*mctl_cb)(void);
-	int (*mctl_notify)(struct msm_cam_media_controller *p_mctl,
-			unsigned int notification, void *arg);
 	int (*mctl_cmd)(struct msm_cam_media_controller *p_mctl,
 					unsigned int cmd, unsigned long arg);
 	int (*mctl_release)(struct msm_cam_media_controller *p_mctl);
@@ -432,6 +447,13 @@ struct msm_cam_server_dev {
 	struct msm_mctl_node_info mctl_node_info;
 	struct mutex server_lock;
 	struct mutex server_queue_lock;
+	/*v4l2 subdevs*/
+	struct v4l2_subdev *csiphy_device[MAX_NUM_CSIPHY_DEV];
+	struct v4l2_subdev *csid_device[MAX_NUM_CSID_DEV];
+	struct v4l2_subdev *csic_device[MAX_NUM_CSIC_DEV];
+	struct v4l2_subdev *ispif_device;
+	struct v4l2_subdev *vfe_device[MAX_NUM_VFE_DEV];
+	struct v4l2_subdev *vpe_device[MAX_NUM_VPE_DEV];
 };
 
 /* camera server related functions */
@@ -549,6 +571,8 @@ int msm_mctl_buf_return_buf(struct msm_cam_media_controller *pmctl,
 int msm_mctl_pp_mctl_divert_done(struct msm_cam_media_controller *p_mctl,
 					void __user *arg);
 void msm_release_ion_client(struct kref *ref);
+int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
+			enum msm_cam_subdev_type sdev_type, uint8_t index);
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */

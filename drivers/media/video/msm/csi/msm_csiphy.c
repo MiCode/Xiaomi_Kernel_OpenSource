@@ -263,6 +263,8 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 
+static const struct v4l2_subdev_internal_ops msm_csiphy_internal_ops;
+
 static struct v4l2_subdev_core_ops msm_csiphy_subdev_core_ops = {
 	.g_chip_ident = &msm_csiphy_subdev_g_chip_ident,
 	.ioctl = &msm_csiphy_subdev_ioctl,
@@ -284,6 +286,10 @@ static int __devinit csiphy_probe(struct platform_device *pdev)
 	}
 
 	v4l2_subdev_init(&new_csiphy_dev->subdev, &msm_csiphy_subdev_ops);
+	new_csiphy_dev->subdev.internal_ops = &msm_csiphy_internal_ops;
+	new_csiphy_dev->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	snprintf(new_csiphy_dev->subdev.name,
+			ARRAY_SIZE(new_csiphy_dev->subdev.name), "msm_csiphy");
 	v4l2_set_subdevdata(&new_csiphy_dev->subdev, new_csiphy_dev);
 	platform_set_drvdata(pdev, &new_csiphy_dev->subdev);
 
@@ -323,6 +329,8 @@ static int __devinit csiphy_probe(struct platform_device *pdev)
 	disable_irq(new_csiphy_dev->irq->start);
 
 	new_csiphy_dev->pdev = pdev;
+	msm_cam_register_subdev_node(
+		&new_csiphy_dev->subdev, CSIPHY_DEV, pdev->id);
 	return 0;
 
 csiphy_no_resource:

@@ -599,6 +599,8 @@ static const struct v4l2_subdev_ops msm_ispif_subdev_ops = {
 	.video = &msm_ispif_subdev_video_ops,
 };
 
+static const struct v4l2_subdev_internal_ops msm_ispif_internal_ops;
+
 static int __devinit ispif_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -610,6 +612,10 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 	}
 
 	v4l2_subdev_init(&ispif->subdev, &msm_ispif_subdev_ops);
+	ispif->subdev.internal_ops = &msm_ispif_internal_ops;
+	ispif->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	snprintf(ispif->subdev.name,
+			ARRAY_SIZE(ispif->subdev.name), "msm_ispif");
 	v4l2_set_subdevdata(&ispif->subdev, ispif);
 	platform_set_drvdata(pdev, &ispif->subdev);
 	snprintf(ispif->subdev.name, sizeof(ispif->subdev.name),
@@ -645,6 +651,7 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 	}
 
 	ispif->pdev = pdev;
+	msm_cam_register_subdev_node(&ispif->subdev, ISPIF_DEV, pdev->id);
 	return 0;
 
 ispif_no_mem:

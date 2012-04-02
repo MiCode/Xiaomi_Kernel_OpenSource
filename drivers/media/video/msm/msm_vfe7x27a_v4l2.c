@@ -1739,6 +1739,8 @@ static const struct v4l2_subdev_ops msm_vfe_subdev_ops = {
 	.core = &msm_vfe_subdev_core_ops,
 };
 
+static const struct v4l2_subdev_internal_ops msm_vfe_internal_ops;
+
 static int __devinit vfe2x_probe(struct platform_device *pdev)
 {
 	CDBG("%s: device id = %d\n", __func__, pdev->id);
@@ -1749,12 +1751,15 @@ static int __devinit vfe2x_probe(struct platform_device *pdev)
 	}
 
 	v4l2_subdev_init(&vfe2x_ctrl->subdev, &msm_vfe_subdev_ops);
+	vfe2x_ctrl->subdev.internal_ops = &msm_vfe_internal_ops;
+	vfe2x_ctrl->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	snprintf(vfe2x_ctrl->subdev.name,
 			 sizeof(vfe2x_ctrl->subdev.name), "vfe2.x");
 	v4l2_set_subdevdata(&vfe2x_ctrl->subdev, vfe2x_ctrl);
 	platform_set_drvdata(pdev, &vfe2x_ctrl->subdev);
 
 	vfe2x_ctrl->pdev = pdev;
+	msm_cam_register_subdev_node(&vfe2x_ctrl->subdev, VFE_DEV, 0);
 	return 0;
 }
 

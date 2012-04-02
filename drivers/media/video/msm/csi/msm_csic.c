@@ -379,6 +379,8 @@ static const struct v4l2_subdev_ops msm_csic_subdev_ops = {
 	.core = &msm_csic_subdev_core_ops,
 };
 
+static const struct v4l2_subdev_internal_ops msm_csic_internal_ops;
+
 static int __devinit csic_probe(struct platform_device *pdev)
 {
 	struct csic_device *new_csic_dev;
@@ -391,6 +393,10 @@ static int __devinit csic_probe(struct platform_device *pdev)
 	}
 
 	v4l2_subdev_init(&new_csic_dev->subdev, &msm_csic_subdev_ops);
+	new_csic_dev->subdev.internal_ops = &msm_csic_internal_ops;
+	new_csic_dev->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	snprintf(new_csic_dev->subdev.name,
+			ARRAY_SIZE(new_csic_dev->subdev.name), "msm_csic");
 	v4l2_set_subdevdata(&new_csic_dev->subdev, new_csic_dev);
 	platform_set_drvdata(pdev, &new_csic_dev->subdev);
 	mutex_init(&new_csic_dev->mutex);
@@ -431,6 +437,8 @@ static int __devinit csic_probe(struct platform_device *pdev)
 	new_csic_dev->base = NULL;
 
 	new_csic_dev->pdev = pdev;
+	msm_cam_register_subdev_node(
+		&new_csic_dev->subdev, CSIC_DEV, pdev->id);
 	return 0;
 
 csic_no_resource:
