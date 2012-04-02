@@ -28,7 +28,6 @@ static uint32_t saved_vector[2];
 static void (*msm_pm_boot_before_pc)(unsigned int cpu, unsigned long entry);
 static void (*msm_pm_boot_after_pc)(unsigned int cpu);
 
-#ifdef CONFIG_MSM_SCM
 static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
 {
 	msm_pm_boot_vector[cpu] = address;
@@ -37,6 +36,7 @@ static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
 		     virt_to_phys(&msm_pm_boot_vector[cpu]));
 }
 
+#ifdef CONFIG_MSM_SCM
 static int __init msm_pm_tz_boot_init(void)
 {
 	int flag = 0;
@@ -191,6 +191,7 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			__raw_writel(readl_relaxed(pdata->v_addr +
 					MPA5_CFG_CTL_REG) | BIT(26),
 					pdata->v_addr + MPA5_CFG_CTL_REG);
+			msm_pm_boot_before_pc = msm_pm_write_boot_vector;
 		}
 		break;
 	default:
