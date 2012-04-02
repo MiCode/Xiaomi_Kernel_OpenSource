@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,7 +51,12 @@
 #define SPS_IOVEC_FLAG_INT  0x8000  /* Generate interrupt */
 #define SPS_IOVEC_FLAG_EOT  0x4000  /* Generate end-of-transfer indication */
 #define SPS_IOVEC_FLAG_EOB  0x2000  /* Generate end-of-block indication */
-#define SPS_IOVEC_FLAG_NO_SUBMIT 0x0100  /* Do not submit descriptor to HW */
+#define SPS_IOVEC_FLAG_NWD  0x1000  /* notify when done */
+#define SPS_IOVEC_FLAG_CMD  0x0800  /* command descriptor */
+#define SPS_IOVEC_FLAG_LOCK  0x0400  /* pipe lock */
+#define SPS_IOVEC_FLAG_UNLOCK  0x0200  /* pipe unlock */
+#define SPS_IOVEC_FLAG_IMME 0x0100  /* immediate command descriptor */
+#define SPS_IOVEC_FLAG_NO_SUBMIT 0x0002  /* Do not submit descriptor to HW */
 #define SPS_IOVEC_FLAG_DEFAULT   0x0001  /* Use driver default */
 
 /* BAM device options flags */
@@ -127,6 +132,8 @@ enum sps_option {
 	SPS_O_STREAMING = 0x00010000,  /* Enable streaming mode (no EOT) */
 	/* Use MTI/SETPEND instead of BAM interrupt */
 	SPS_O_IRQ_MTI   = 0x00020000,
+	/* NWD bit written with EOT for BAM2BAM producer pipe */
+	SPS_O_WRITE_NWD   = 0x00040000,
 
 	/* Options to enable software features */
 	/* Transfer operation should be polled */
@@ -233,6 +240,14 @@ enum sps_timer_mode {
 /*   SPS_TIMER_MODE_PERIODIC,    Not supported by hardware yet */
 };
 
+/*
+ * This enum indicates the command type in a command element
+ */
+enum sps_command_type {
+	SPS_WRITE_COMMAND = 0,
+	SPS_READ_COMMAND,
+};
+
 /**
  * This data type corresponds to the native I/O vector (BAM descriptor)
  * supported by SPS hardware
@@ -246,6 +261,26 @@ struct sps_iovec {
 	u32 addr;
 	u32 size:16;
 	u32 flags:16;
+};
+
+/**
+ * This data type corresponds to the native Command Element
+ * supported by SPS hardware
+ *
+ * @addr - register address.
+ * @command - command type.
+ * @data - for write command: content to be written into peripheral register.
+ *         for read command: dest addr to write peripheral register value to.
+ * @mask - register mask.
+ * @reserved - for future usage.
+ *
+ */
+struct sps_command_element {
+	u32 addr:24;
+	u32 command:8;
+	u32 data;
+	u32 mask;
+	u32 reserved;
 };
 
 /*
@@ -398,6 +433,7 @@ struct sps_mem_buffer {
  * @data - Data FIFO (BAM-to-BAM mode only).
  *
  * @event_thresh - Pipe event threshold or derivative.
+ * @lock_group - The lock group this pipe belongs to.
  *
  * @sps_reserved - Reserved word - client must not modify.
  *
@@ -418,6 +454,8 @@ struct sps_connect {
 	struct sps_mem_buffer data;
 
 	u32 event_thresh;
+
+	u32 lock_group;
 
 	/* SETPEND/MTI interrupt generation parameters */
 

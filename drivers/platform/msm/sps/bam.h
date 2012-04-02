@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,13 @@ enum bam_stream_mode {
 	BAM_STREAM_MODE_ENABLE = 1,
 };
 
+/* NWD written Type */
+enum bam_write_nwd {
+	BAM_WRITE_NWD_DISABLE = 0,
+	BAM_WRITE_NWD_ENABLE = 1,
+};
+
+
 /* Enable Type */
 enum bam_enable {
 	BAM_DISABLE = 0,
@@ -63,8 +70,10 @@ struct bam_pipe_parameters {
 	u32 pipe_irq_mask;
 	enum bam_pipe_dir dir;
 	enum bam_pipe_mode mode;
+	enum bam_write_nwd write_nwd;
 	u32 desc_base;	/* Physical address of descriptor FIFO */
 	u32 desc_size;	/* Size (bytes) of descriptor FIFO */
+	u32 lock_group;	/* The lock group this pipe belongs to */
 	enum bam_stream_mode stream_mode;
 	u32 ee;		/* BAM execution environment index */
 

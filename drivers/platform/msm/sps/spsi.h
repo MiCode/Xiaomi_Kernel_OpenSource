@@ -28,6 +28,7 @@
 #include "sps_map.h"
 
 #define BAM_MAX_PIPES              31
+#define BAM_MAX_P_LOCK_GROUP_NUM   31
 
 /* Adjust for offset of struct sps_q_event */
 #define SPS_EVENT_INDEX(e)    ((e) - 1)
@@ -35,6 +36,9 @@
 
 /* BAM identifier used in log messages */
 #define BAM_ID(dev)       ((dev)->props.phys_addr)
+
+/* "Clear" value for the connection parameter struct */
+#define SPSRM_CLEAR     0xcccccccc
 
 #ifdef CONFIG_DEBUG_FS
 extern u8 debugfs_record_enabled;
@@ -127,6 +131,7 @@ struct sps_conn_end_pt {
 	u32 bam_phys;		/* Physical address of BAM. */
 	u32 pipe_index;		/* Pipe index */
 	u32 event_threshold;	/* Pipe event threshold */
+	u32 lock_group;	/* The lock group this pipe belongs to */
 	void *bam;
 };
 

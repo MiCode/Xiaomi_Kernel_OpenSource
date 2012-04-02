@@ -27,7 +27,7 @@
  *
  */
 #define BAM_MIN_VERSION 2
-#define BAM_MAX_VERSION 0x1f
+#define BAM_MAX_VERSION 0x2f
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 
@@ -95,6 +95,8 @@
  *
  */
 /* CTRL */
+#define CACHE_MISS_ERR_RESP_EN                 0x80000
+#define LOCAL_CLK_GATING                       0x60000
 #define IBC_DISABLE                            0x10000
 #define BAM_CACHED_DESC_STORE                   0x8000
 #define BAM_DESC_CACHE_SEL                      0x6000
@@ -172,17 +174,23 @@
 #define AHB_MASTER_ERR_CTRLS_BAM_ERR_HTRANS             0x3
 
 /* TRUST_REG  */
+#define LOCK_EE_CTRL                            0x2000
 #define BAM_VMID                                0x1f00
 #define BAM_RST_BLOCK                             0x80
 #define BAM_EE                                     0x7
 
 /* TEST_BUS_SEL */
+#define BAM_SW_EVENTS_ZERO                    0x200000
+#define BAM_SW_EVENTS_SEL                     0x180000
 #define BAM_DATA_ERASE                         0x40000
 #define BAM_DATA_FLUSH                         0x20000
 #define BAM_CLK_ALWAYS_ON                      0x10000
 #define BAM_TESTBUS_SEL                           0x7f
 
 /* CNFG_BITS */
+#define CNFG_BITS_MULTIPLE_EVENTS_DESC_AVAIL_EN  0x40000000
+#define CNFG_BITS_MULTIPLE_EVENTS_SIZE_EN        0x20000000
+#define CNFG_BITS_BAM_ZLT_W_CD_SUPPORT           0x10000000
 #define CNFG_BITS_BAM_CD_ENABLE                   0x8000000
 #define CNFG_BITS_BAM_AU_ACCUMED                  0x4000000
 #define CNFG_BITS_BAM_PSM_P_HD_DATA               0x2000000
@@ -222,6 +230,7 @@
 
 /* P_TRUST_REGn */
 #define BAM_P_VMID                              0x1f00
+#define BAM_P_SUP_GROUP                           0xf8
 #define BAM_P_EE                                   0x7
 
 /* P_IRQ_STTSn */
@@ -663,6 +672,12 @@ int bam_init(void *base, u32 ee,
 
 	bam_write_reg_field(base, CTRL, BAM_EN, 1);
 
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+	bam_write_reg_field(base, CTRL, CACHE_MISS_ERR_RESP_EN, 1);
+
+	bam_write_reg_field(base, CTRL, LOCAL_CLK_GATING, 1);
+#endif
+
 	bam_write_reg(base, DESC_CNT_TRSHLD, summing_threshold);
 
 	bam_write_reg(base, CNFG_BITS, cfg_bits);
@@ -862,6 +877,14 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 	bam_write_reg_field(base, P_CTRL(pipe), P_SYS_STRM,
 			    param->stream_mode);
 
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+	bam_write_reg_field(base, P_CTRL(pipe), P_LOCK_GROUP,
+				param->lock_group);
+
+	SPS_DBG("sps:bam=0x%x(va).pipe=%d.lock_group=%d.\n",
+			(u32) base, pipe, param->lock_group);
+#endif
+
 	if (param->mode == BAM_PIPE_MODE_BAM2BAM) {
 		u32 peer_dest_addr = param->peer_phys_addr +
 				      P_EVNT_REG(param->peer_pipe);
@@ -878,6 +901,14 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 			(u32) base, pipe,
 			(u32) param->peer_phys_addr,
 			param->peer_pipe);
+
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+		bam_write_reg_field(base, P_CTRL(pipe), P_WRITE_NWD,
+					param->write_nwd);
+
+		SPS_DBG("sps:%s WRITE_NWD bit for this bam2bam pipe.",
+			param->write_nwd ? "Set" : "Do not set");
+#endif
 	}
 
 	/* Pipe Enable - at last */
