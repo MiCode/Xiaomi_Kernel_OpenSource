@@ -1,0 +1,296 @@
+Introduction
+============
+
+In MDM9x25, new NAND controller(NANDc) has been added and it has the
+following major changes as compared to its previous version -
+
+1. It includes Secured BAM-Lite and the support for ADM(Application Data Mover)
+has been removed.
+
+2. It includes 4 bit BCH ECC and the support for 4 bit Reed Solomon ECC has
+been removed.
+
+3. The support for Dual NAND controllers has been removed and thus the
+software features like ping-pong mode and interleave mode are deprecated.
+
+4. It includes support for dual buffers in case of read and one dedicated
+write buffer to each processor (Modem and Apps).
+
+This new NAND driver takes care of all the above new hardware changes. In
+addition to the above hardware changes, it also takes care of software device
+tree changes.
+
+Hardware description
+====================
+
+The NANDc Core:
+---------------
+Qualcomm Parallel Interface Controller (QPIC), formerly named EBI2, is a
+wrapper module which integrates a NAND controller core and a LCD controller
+core and multiplexes their access to shared parallel interfaces pins. Both
+controller cores are accessible to processors (Modem and Apps), and share
+master access to the Peripheral NoC (Network on Chip) via a BAM module.
+
+In MDM9x25, QPIC is located on the peripheral NoC, connected via a 32-bit AHB
+Master port and a 32-bit AHB Slave Port. The NANDc register interface goes
+through AHB Slave Port and data transfers using BAM goes through AHB Master
+Port. The NAND Controller (NANDc) is a hardware core which manages the access
+to an off-chip NAND device.
+
+BAM-Lite:
+---------
+BAM(Bus Access Manager) can transfer data between a peripheral and memory,
+or between two peripherals in a BAM to BAM mode. Each BAM contains multiple
+DMA channels, called pipes. A pipe provides a unidirectional data transfer
+engine, capable of either receiving data in consumer mode, or transmitting
+data in producer mode. The consumer fetches the data from the source system
+memory, and the producer writes data to the destination system memory.
+
+BAM-Lite's interface is similar to the BAM interface with slight changes to
+the sideband interface. BAM-Lite is an area-optimized version of BAM. BAM-Lite
+supports new features such as Notify-When-Done(NWD), pipe lock/unlock and
+command descriptors.
+
+NANDc has a secured BAM-Lite which provides DMA support for the NANDc and
+command support for accessing the NANDc registers. It is called secured
+because it has an integrated APU (Address Protection Unit) that validates
+every access to BAM and its peripheral registers.
+
+The NANDc has in total 6 BAM pipes - 3 pipes are dedicated for each processor
+(Modem and Apps) at the hardware level.
+
+Software description
+====================
+
+The NAND device is shared between two independent file systems, each running
+on a different processor - the application processor (Apps) and the Modem.
+The NAND driver uses BAM driver to transfer NAND operation requests and
+data to/from the NAND Controller (NANDc) core through the BAM pipes. Every
+NANDc register read/write access must go through BAM as it facilitates security
+mechanisms to enable simultaneous access to NAND device from both processors
+(Modem and Apps).
+
+The Apps NAND driver registers NANDc BAM peripheral with BAM driver, allocates
+endpoints and descriptor FIFO memory and registers for complete event
+notification for the following pipes:
+
+	- system consumer pipe for data (pipe#0) : This BAM pipe will be used
+	  for transferring data from system memory to NANDc i.e., during write.
+
+	- system producer pipe for data (pipe#1) : This BAM pipe will be used
+	  for transferring data from NANDc to system memory i.e., during read.
+
+	- system consumer pipe for commands (pipe#2) : This BAM pipe will be
+	  used for both reading and writing to NANDc registers. It can be
+	  configured either as consumer pipe or producer pipe but as per HW
+	  team's recommendation it is configured as consumer pipe.
+
+Control path:
+-------------
+Each NAND operation can be described as a set of BAM command or/and data
+descriptors.
+
+A command descriptor(CD) points to the starting address of a command
+block. Each command block may contain a set of command elements where
+each command element is a single NANDc register read/write. The NAND
+driver submits all command descriptors to its system consumer pipe#2.
+
+Data path:
+----------
+A Data Descriptor(DD) points to the start of a data block which is a sequential
+chunk of data.
+
+For page write operations, the NAND driver submits data descriptors to system
+consumer pipe#0 and as per the descriptors submitted, the BAM reads data from
+the data block into the NANDc buffer.
+
+For page read operations, the NAND driver submits data descriptors to system
+producer pipe#1 and as per the descriptors submitted, the BAM reads data from
+the NANDc buffer into the data block.
+
+The driver submits a CD/DD using BAM driver APIs sps_transfer_one()/
+sps_transfer(). To this API, flags is passed as one of the arguments and if
+SPS_IOVEC_FLAG_CMD is passed, then it is identified as a CD. Otherwise, it is
+identified as a DD. The other valid SPS flags for a CD/DD are -
+
+	- SPS_IOVEC_FLAG_INT : This flag indicates BAM driver to raise BAM
+	  interrupt after the current descriptor with this flag has been
+	  processed by BAM HW. This flag is applicable for both CD and DD.
+
+	- SPS_IOVEC_FLAG_NWD : This flag indicates BAM HW to not process
+	  next descriptors until it receives an acknowledgement by NANDc
+	  that the current descriptor with this flag is completely
+	  executed. This flag is applicable only for a CD.
+
+	- SPS_IOVEC_FLAG_LOCK: This flag marks the beginning of a series of
+	  commands and it indicates that all the CDs submitted on this pipe
+	  must be executed atomically without any interruption by commands
+	  from other pipes. This is applicable only for a CD.
+
+	- SPS_IOVEC_FLAG_UNLOCK: This flag marks the end of a series of
+	  commands and it indicates that the other pipe that was locked due to
+	  SPS_IOVEC_FLAG_LOCK flag can be unblocked after the current CD
+	  with this flag is executed. This is applicable only for a CD.
+
+	- SPS_IOVEC_FLAG_EOT - This flag indicates to BAM driver that the
+	  current descriptor with this flag is the last descriptor submitted
+	  during write operation. This is applicable only for a DD.
+
+Error handling:
+---------------
+After a page read/write complete notification from BAM, NAND driver validates
+the values read from NANDc registers to confirm the success/failure of page
+read/write operation. For example, after a page read/write is complete, the
+drivers reads the NANDc status registers to check for any operational errors,
+protection violation errors and device status errors, number of correctable/
+uncorrectable errors reported by the controller. Based on the error conditions
+that are met, the driver reports appropriate error codes to upper layers. The
+upper layers respond to these errors and take appropriate action.
+
+Design
+======
+
+The existing NAND driver (ADM based) can not be reused due to many major HW
+changes (see Introduction section) in the new NANDc core. Some of the complex
+features (Dual NAND controllers support) too are deprecated in the new NANDc.
+Hence, a new NAND driver is written to take care of both SPS/BAM changes and
+other controller specific changes. The rest of the interaction with MTD and
+YAFFS2 remains same as its previous version of NAND driver msm_nand.c.
+
+Power Management
+================
+
+Two clocks are supplied by the system's clock controller to NANDc - AHB clock
+and interface clock. The interface clock is the clock that drives some of the
+HW blocks within NANDc. As of now, both these clocks are always on. But NANDc
+provides clock gating if some of the QPIC clock control registers are
+configured. The clock gating is yet to be enabled by driver.
+
+SMP/Multi-Core
+==============
+
+The locking mechanism for page read/write operations is taken care of by the
+higher layers such as MTD/YAFFS2 and only one single page operation can happen
+at any time on a given partition. For a single page operation, there is always
+only one context associated within the driver and thus no additional handling
+is required within the driver. But it is possible for file system to issue
+one request on partition and at the same time to issue another request on
+another partition as each partition corresponds to different MTD block device.
+This situation is handled within the driver by properly acquiring a mutex lock
+before submitting any command/data descriptors to any of the BAM pipes.
+
+
+Security
+========
+
+The same NAND device is accessible from both processors (Modem and Apps) and
+thus to avoid any configuration overwrite issues during a page operation,
+driver on each processor (Modem and Apps) must explicitly use BAM pipe
+lock/unlock mechanism. This is taken care of by the NAND driver. The partition
+violation issues are prevented by an MPU (Memory Protection Unit) that is
+attached to NANDc.
+
+Performance
+===========
+
+None.
+
+Interface
+=========
+
+The NAND driver registers each partition on NAND device as a MTD block device
+using mtd_device_register(). As part of this registration, the following ops
+(struct mtd_info *mtd) are registered with MTD layer for each partition:
+
+mtd->_block_isbad = msm_nand_block_isbad;
+mtd->_block_markbad = msm_nand_block_markbad;
+mtd->_read = msm_nand_read;
+mtd->_write = msm_nand_write;
+mtd->_read_oob  = msm_nand_read_oob;
+mtd->_write_oob = msm_nand_write_oob;
+mtd->_erase = msm_nand_erase;
+
+msm_nand_block_isbad() - This checks if a block is bad or not by reading bad
+block byte in the first page of a block. A block is considered as bad if bad
+block byte location contains any value other than 0xFF.
+
+msm_nand_block_markbad() - This marks a block as bad by writing 0 to the
+entire first page of the block and thus writing 0 to bad block byte location.
+
+msm_nand_read/write() - This is used to read/write only main data from/to
+single/multiple pages within NAND device. The YAFFS2 file system can send
+read/write request for two types of data -
+
+	- Main data : This is the actual data to be read/written from/to a
+	  page during a read/write operation on this device. The size of this
+	  data request is typically based on the page size of the device
+	  (2K/4K).
+
+	- OOB(Out Of Band) data : This is the spare data that will be used by
+	  file system to keep track of its meta data/tags associated with the
+	  actual data. As of now, the file system needs only 16 bytes to
+	  accommodate this data. The NAND driver always writes this data
+	  towards the end of main data.
+
+It is up to the file system whether or not to send a read/write request for OOB
+data along with main data.
+
+msm_nand_read_oob()/write_oob() - This is used to read/write both main data
+and spare data from/to single/multiple pages within NAND device.
+
+msm_nand_erase() - This erases the complete block by sending erase command to
+the device.
+
+The YAFFS2 file system registers as the user of MTD device and uses the ops
+exposed by the NAND driver to perform read/write/erase operations on NAND
+device. As of now, the driver can work with only YAFFS2 file system. An
+attempt to use it with any other file system might demand additional changes
+in the driver.
+
+Driver parameters
+=================
+
+None.
+
+Config options
+==============
+
+The config option MTD_MSM_QPIC_NAND enables this driver.
+
+Dependencies
+============
+
+It depends on the following kernel components:
+
+- SPS/BAM driver
+- MTD core layer
+- To add necessary NANDc and BAM resources to .dts file
+
+It depends on the following non-kernel components:
+
+The partition information of the NAND device must be passed by Modem subsystem
+to Apps boot loader and Apps boot loader must update the .dts file
+with the partition information as per the defined MTD bindings.
+
+The detailed information on MTD bindings can be found at -
+Documentation/devicetree/bindings/mtd/msm_qpic_nand.txt
+
+User space utilities
+====================
+
+None.
+
+Other
+=====
+
+No changes other than device tree changes are anticipated.
+
+Known issues
+============
+
+None.
+
+To do
+=====
+
+The NANDc core supports clock gating and is not yet supported by the driver.
