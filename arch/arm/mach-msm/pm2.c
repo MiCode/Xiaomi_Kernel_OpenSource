@@ -28,6 +28,7 @@
 #include <linux/reboot.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
+#include <linux/tick.h>
 #include <linux/memory.h>
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
@@ -1497,17 +1498,15 @@ void arch_idle(void)
 	bool allow[MSM_PM_SLEEP_MODE_NR];
 	uint32_t sleep_limit = SLEEP_LIMIT_NONE;
 
-	int latency_qos;
 	int64_t timer_expiration;
-
-	int low_power;
+	int latency_qos;
 	int ret;
 	int i;
 	unsigned int cpu;
 
 #ifdef CONFIG_MSM_IDLE_STATS
 	int64_t t1;
-	static int64_t t2;
+	static DEFINE_PER_CPU(int64_t, t2);
 	int exit_stat;
  #endif
 
@@ -1517,15 +1516,14 @@ void arch_idle(void)
 	cpu = smp_processor_id();
 
 	latency_qos = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
-	timer_expiration = msm_timer_enter_idle();
+	/* get the next timer expiration */
+	timer_expiration = ktime_to_ns(tick_nohz_get_sleep_length());
 
 #ifdef CONFIG_MSM_IDLE_STATS
 	t1 = ktime_to_ns(ktime_get());
-	msm_pm_add_stat(MSM_PM_STAT_NOT_IDLE, t1 - t2);
+	msm_pm_add_stat(MSM_PM_STAT_NOT_IDLE, t1 - __get_cpu_var(t2));
 	msm_pm_add_stat(MSM_PM_STAT_REQUESTED_IDLE, timer_expiration);
-
 	exit_stat = MSM_PM_STAT_IDLE_SPIN;
-	low_power = 0;
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(allow); i++)
@@ -1581,10 +1579,16 @@ void arch_idle(void)
 
 	if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] ||
 		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN]) {
+		/* Sync the timer with SCLK, it is needed only for modem
+		 * assissted pollapse case.
+		 */
+		int64_t next_timer_exp = msm_timer_enter_idle();
 		uint32_t sleep_delay;
+		bool low_power = false;
 
 		sleep_delay = (uint32_t) msm_pm_convert_and_cap_time(
-			timer_expiration, MSM_PM_SLEEP_TICK_LIMIT);
+			next_timer_exp, MSM_PM_SLEEP_TICK_LIMIT);
+
 		if (sleep_delay == 0) /* 0 would mean infinite time */
 			sleep_delay = 1;
 
@@ -1599,6 +1603,7 @@ void arch_idle(void)
 
 		ret = msm_pm_power_collapse(true, sleep_delay, sleep_limit);
 		low_power = (ret != -EBUSY && ret != -ETIMEDOUT);
+		msm_timer_exit_idle(low_power);
 
 #ifdef CONFIG_MSM_IDLE_STATS
 		if (ret)
@@ -1610,7 +1615,6 @@ void arch_idle(void)
 #endif
 	} else if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE]) {
 		ret = msm_pm_power_collapse_standalone(true);
-		low_power = 0;
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = ret ?
 			MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE :
@@ -1621,30 +1625,25 @@ void arch_idle(void)
 		if (ret)
 			while (!msm_pm_irq_extns->irq_pending())
 				udelay(1);
-		low_power = 0;
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = ret ? MSM_PM_STAT_IDLE_SPIN : MSM_PM_STAT_IDLE_WFI;
 #endif
 	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
 		msm_pm_swfi(false);
-		low_power = 0;
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_WFI;
 #endif
 	} else {
 		while (!msm_pm_irq_extns->irq_pending())
 			udelay(1);
-		low_power = 0;
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_SPIN;
 #endif
 	}
 
-	msm_timer_exit_idle(low_power);
-
 #ifdef CONFIG_MSM_IDLE_STATS
-	t2 = ktime_to_ns(ktime_get());
-	msm_pm_add_stat(exit_stat, t2 - t1);
+	__get_cpu_var(t2) = ktime_to_ns(ktime_get());
+	msm_pm_add_stat(exit_stat, __get_cpu_var(t2) - t1);
 #endif
 }
 
@@ -1924,7 +1923,6 @@ static int __init msm_pm_init(void)
 
 	BUG_ON(msm_pm_modes == NULL);
 
-	atomic_set(&msm_pm_init_done, 1);
 	suspend_set_ops(&msm_pm_ops);
 
 	msm_pm_mode_sysfs_add();
@@ -1980,6 +1978,9 @@ static int __init msm_pm_init(void)
 		stats[MSM_PM_STAT_NOT_IDLE].first_bucket_time =
 			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
 	}
+
+	atomic_set(&msm_pm_init_done, 1);
+
 	d_entry = create_proc_entry("msm_pm_stats",
 			S_IRUGO | S_IWUSR | S_IWGRP, NULL);
 	if (d_entry) {
