@@ -1907,7 +1907,7 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	adreno_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
-	if (cpu_is_msm8960() || cpu_is_msm8930())
+	if (cpu_is_msm8960())
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x200);
 	else
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
