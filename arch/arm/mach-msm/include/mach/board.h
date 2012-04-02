@@ -172,6 +172,11 @@ enum msm_camera_type {
 	BACK_CAMERA_INT_3D,
 };
 
+enum msm_sensor_type {
+	BAYER_SENSOR,
+	YUV_SENSOR,
+};
+
 enum camera_vreg_type {
 	REG_LDO,
 	REG_VS,
@@ -261,6 +266,7 @@ struct msm_camera_sensor_info {
 	struct msm_camera_sensor_strobe_flash_data *strobe_flash_data;
 	char *eeprom_data;
 	enum msm_camera_type camera_type;
+	enum msm_sensor_type sensor_type;
 	struct msm_actuator_info *actuator_info;
 	int pmic_gpio_enable;
 };

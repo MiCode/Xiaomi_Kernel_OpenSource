@@ -292,7 +292,8 @@ struct cmd_id_map cmds_map[] = {
 		"VFE_DEMOSAICv3_BPC_UPDATE"},
 	{VFE_CMD_XBAR_CFG, VFE_MAX, VFE_MAX},
 	{VFE_CMD_MODULE_CFG, VFE_MAX, VFE_MAX},
-	{VFE_CMD_ZSL, VFE_MAX, VFE_MAX},
+	{VFE_CMD_ZSL, VFE_START, QDSP_CMDQUEUE,
+			"VFE_CMD_ZSL", "VFE_START"},
 	{VFE_CMD_LINEARIZATION_UPDATE, VFE_MAX, VFE_MAX},
 	{VFE_CMD_DEMOSAICV3_ABF_UPDATE, VFE_DEMOSAICv3_ABF_CFG,
 		QDSP_TABLEQUEUE, "VFE_CMD_DEMOSAICV3_ABF_UPDATE",
@@ -452,6 +453,75 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 							y_phy, cbcr_phy);
 			break;
 		case MSG_OUTPUT1:
+			if (op_mode & SNAPSHOT_MASK_MODE) {
+				kfree(data);
+				return;
+			} else {
+				free_buf = vfe2x_check_free_buffer(
+							VFE_MSG_OUTPUT_IRQ,
+							VFE_MSG_OUTPUT_SECONDARY
+							);
+				CDBG("free_buf = %x\n",
+						(unsigned int) free_buf);
+				if (free_buf) {
+					fack.header = VFE_OUTPUT1_ACK;
+
+					fack.output2newybufferaddress =
+						(void *)(free_buf->ch_paddr[0]);
+
+					fack.output2newcbcrbufferaddress =
+						(void *)(free_buf->ch_paddr[1]);
+
+					cmd_data = &fack;
+					len = sizeof(fack);
+					msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
+							cmd_data, len);
+			      } else {
+					fack.header = VFE_OUTPUT1_ACK;
+					fack.output2newybufferaddress =
+					(void *)
+				((struct vfe_endframe *)data)->y_address;
+					fack.output2newcbcrbufferaddress =
+					(void *)
+				((struct vfe_endframe *)data)->cbcr_address;
+					cmd_data = &fack;
+					len = sizeof(fack);
+					msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
+						cmd_data, len);
+				}
+			}
+			y_phy = ((struct vfe_endframe *)data)->y_address;
+			cbcr_phy = ((struct vfe_endframe *)data)->cbcr_address;
+
+
+			CDBG("vfe_7x_convert, y_phy = 0x%x, cbcr_phy = 0x%x\n",
+				 y_phy, cbcr_phy);
+			if (free_buf) {
+				for (i = 0; i < 3; i++) {
+					if (vfe2x_ctrl->free_buf.buf[i].
+							ch_paddr[0] == y_phy) {
+						vfe2x_ctrl->free_buf.
+							buf[i].ch_paddr[0] =
+							free_buf->ch_paddr[0];
+						vfe2x_ctrl->free_buf.
+							buf[i].ch_paddr[1] =
+							free_buf->ch_paddr[1];
+						break;
+					}
+				}
+				if (i == 3)
+					CDBG("Address doesnt match\n");
+			}
+			memcpy(((struct vfe_frame_extra *)extdata),
+				&((struct vfe_endframe *)data)->extra,
+				sizeof(struct vfe_frame_extra));
+
+			vfe2x_ctrl->vfeFrameId =
+				((struct vfe_frame_extra *)extdata)->frame_id;
+			vfe_send_outmsg(&vfe2x_ctrl->subdev,
+						MSG_ID_OUTPUT_SECONDARY,
+						y_phy, cbcr_phy);
+			break;
 		case MSG_OUTPUT2:
 			if (op_mode & SNAPSHOT_MASK_MODE) {
 				kfree(data);
@@ -601,6 +671,7 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 	}
 	if (MSG_TABLE_CMD_ACK == id) {
 		spin_lock_irqsave(&vfe2x_ctrl->table_lock, flags);
+		vfe2x_ctrl->tableack_pending = 0;
 		if (list_empty(&vfe2x_ctrl->table_q)) {
 			if (vfe2x_ctrl->start_pending) {
 				CDBG("Send START\n");
@@ -633,14 +704,12 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 						cmd_data, len);
 				vfe2x_ctrl->update_pending = 0;
 			}
-			vfe2x_ctrl->tableack_pending = 0;
 			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 			return;
 		}
 		table_pending = list_first_entry(&vfe2x_ctrl->table_q,
 					struct table_cmd, list);
 		if (!table_pending) {
-			vfe2x_ctrl->tableack_pending = 0;
 			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 			return;
 		}
@@ -673,16 +742,32 @@ static int vfe_7x_config_axi(int mode,
 
 	if (mode == OUTPUT_SEC) {
 		/* Thumbnail */
-		ao->output1buffer1_y_phy = ad->ping.ch_paddr[0];
-		ao->output1buffer1_cbcr_phy = ad->ping.ch_paddr[1];
-		ao->output1buffer2_y_phy = ad->pong.ch_paddr[0];
-		ao->output1buffer2_cbcr_phy = ad->pong.ch_paddr[1];
-		bptr = &ao->output1buffer3_y_phy;
-		for (cnt = 0; cnt < 6; cnt++) {
-			*bptr = ad->pong.ch_paddr[0];
-			bptr++;
-			*bptr = ad->pong.ch_paddr[1];
-			bptr++;
+		if (vfe2x_ctrl->zsl_mode) {
+			ao->output2buffer1_y_phy = ad->ping.ch_paddr[0];
+			ao->output2buffer1_cbcr_phy = ad->ping.ch_paddr[1];
+			ao->output2buffer2_y_phy = ad->pong.ch_paddr[0];
+			ao->output2buffer2_cbcr_phy = ad->pong.ch_paddr[1];
+			ao->output2buffer3_y_phy = ad->free_buf.ch_paddr[0];
+			ao->output2buffer3_cbcr_phy = ad->free_buf.ch_paddr[1];
+			bptr = &ao->output2buffer4_y_phy;
+			for (cnt = 0; cnt < 5; cnt++) {
+				*bptr = ad->pong.ch_paddr[0];
+				bptr++;
+				*bptr = ad->pong.ch_paddr[1];
+				bptr++;
+			}
+		} else {
+			ao->output1buffer1_y_phy = ad->ping.ch_paddr[0];
+			ao->output1buffer1_cbcr_phy = ad->ping.ch_paddr[1];
+			ao->output1buffer2_y_phy = ad->pong.ch_paddr[0];
+			ao->output1buffer2_cbcr_phy = ad->pong.ch_paddr[1];
+			bptr = &ao->output1buffer3_y_phy;
+			for (cnt = 0; cnt < 6; cnt++) {
+				*bptr = ad->pong.ch_paddr[0];
+				bptr++;
+				*bptr = ad->pong.ch_paddr[1];
+				bptr++;
+			}
 		}
 	} else if (mode == OUTPUT_PRIM && o_mode != SNAPSHOT_MASK_MODE) {
 		/* Preview */
@@ -775,8 +860,13 @@ static struct msm_free_buf *vfe2x_check_free_buffer(int id, int path)
 		else if (path == VFE_MSG_OUTPUT_SECONDARY)
 			outch = &vfe2x_ctrl->thumb;
 	} else {
-		if (path == VFE_MSG_OUTPUT_PRIMARY)
-			outch = &vfe2x_ctrl->prev;
+		if (path == VFE_MSG_OUTPUT_PRIMARY) {
+			if (vfe2x_ctrl->zsl_mode)
+				outch = &vfe2x_ctrl->zsl_prim;
+			else
+				outch = &vfe2x_ctrl->prev;
+		} else if (path == VFE_MSG_OUTPUT_SECONDARY)
+				outch = &vfe2x_ctrl->zsl_sec;
 	}
 	if (outch->free_buf.ch_paddr[0])
 		return &outch->free_buf;
@@ -797,8 +887,13 @@ static int vfe2x_configure_pingpong_buffers(int id, int path)
 		else if (path == VFE_MSG_OUTPUT_SECONDARY)
 			outch = &vfe2x_ctrl->thumb;
 	} else {
-		if (path == VFE_MSG_OUTPUT_PRIMARY)
-			outch = &vfe2x_ctrl->prev;
+		if (path == VFE_MSG_OUTPUT_PRIMARY) {
+			if (vfe2x_ctrl->zsl_mode)
+				outch = &vfe2x_ctrl->zsl_prim;
+			else
+				outch = &vfe2x_ctrl->prev;
+		} else if (path == VFE_MSG_OUTPUT_SECONDARY)
+			outch = &vfe2x_ctrl->zsl_sec;
 	}
 	if (outch->ping.ch_paddr[0] && outch->pong.ch_paddr[0]) {
 		/* Configure Preview Ping Pong */
@@ -823,8 +918,13 @@ static struct buf_info *vfe2x_get_ch(int path)
 		else if (path == VFE_MSG_OUTPUT_PRIMARY)
 			ch = &vfe2x_ctrl->snap;
 	} else {
-		if (path == VFE_MSG_OUTPUT_PRIMARY)
-			ch = &vfe2x_ctrl->prev;
+		if (path == VFE_MSG_OUTPUT_PRIMARY) {
+			if (vfe2x_ctrl->zsl_mode)
+				ch = &vfe2x_ctrl->zsl_prim;
+			else
+				ch = &vfe2x_ctrl->prev;
+		} else if (path == VFE_MSG_OUTPUT_SECONDARY)
+			ch = &vfe2x_ctrl->zsl_sec;
 	}
 
 	BUG_ON(ch == NULL);
@@ -1121,6 +1221,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			case VFE_CMD_START:
 			case VFE_CMD_CAPTURE:
 			case VFE_CMD_CAPTURE_RAW:
+			case VFE_CMD_ZSL:
 				spin_lock_irqsave(&vfe2x_ctrl->table_lock,
 									flags);
 				if ((!list_empty(&vfe2x_ctrl->table_q)) ||
@@ -1185,6 +1286,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_SEC: {
 		CDBG("CMD_AXI_CFG_SEC\n");
 		raw_mode = 0;
+		vfe2x_ctrl->zsl_mode = 0;
 		axio = kmalloc(sizeof(struct axiout), GFP_ATOMIC);
 		if (!axio) {
 			pr_err("NULL axio\n");
@@ -1237,6 +1339,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_PRIM: {
 		CDBG("CMD_AXI_CFG_PRIM : %d\n", op_mode);
 		raw_mode = 0;
+		vfe2x_ctrl->zsl_mode = 0;
 		axio = kmalloc(sizeof(struct axiout), GFP_ATOMIC);
 		if (!axio) {
 			pr_err("NULL axio\n");
@@ -1299,9 +1402,74 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		cmd_data = axio;
 	}
 		break;
+	case CMD_AXI_CFG_ZSL: {
+		CDBG("CMD_AXI_CFG_ZSL: %d\n", op_mode);
+		raw_mode = 0;
+		vfe2x_ctrl->zsl_mode = 1;
+		axio = kmalloc(sizeof(struct axiout), GFP_ATOMIC);
+		if (!axio) {
+			pr_err("NULL axio\n");
+			rc = -ENOMEM;
+			goto config_failure;
+		}
+
+		if (copy_from_user((char *)axio + 4,
+					(void __user *)(vfecmd.value),
+					sizeof(struct axiout))) {
+			pr_err("copy_from_user failed\n");
+			rc = -EFAULT;
+			goto config_done;
+		}
+		if (!vfe2x_ctrl->reconfig_vfe) {
+				rc = vfe2x_configure_pingpong_buffers(
+						VFE_MSG_V2X_PREVIEW,
+						VFE_MSG_OUTPUT_PRIMARY);
+				rc = vfe2x_configure_pingpong_buffers(
+						VFE_MSG_V2X_PREVIEW,
+						VFE_MSG_OUTPUT_SECONDARY);
+			if (rc < 0) {
+				pr_err("%s error configuring pingpong buffers"
+					" for preview", __func__);
+				rc = -EINVAL;
+				goto config_done;
+			}
+				free_buf = vfe2x_check_free_buffer(
+					VFE_MSG_OUTPUT_IRQ,
+					VFE_MSG_OUTPUT_PRIMARY);
+				free_buf = vfe2x_check_free_buffer(
+					VFE_MSG_OUTPUT_IRQ,
+					VFE_MSG_OUTPUT_SECONDARY);
+		} else {
+			vfe2x_ctrl->prev.ping.ch_paddr[0] =
+				vfe2x_ctrl->free_buf.buf[0].ch_paddr[0];
+			vfe2x_ctrl->prev.ping.ch_paddr[1] =
+				vfe2x_ctrl->free_buf.buf[0].ch_paddr[1];
+			vfe2x_ctrl->prev.pong.ch_paddr[0] =
+				vfe2x_ctrl->free_buf.buf[1].ch_paddr[0];
+			vfe2x_ctrl->prev.pong.ch_paddr[1] =
+				vfe2x_ctrl->free_buf.buf[1].ch_paddr[1];
+			vfe2x_ctrl->prev.free_buf.ch_paddr[0] =
+				vfe2x_ctrl->free_buf.buf[2].ch_paddr[0];
+			vfe2x_ctrl->prev.free_buf.ch_paddr[1] =
+				vfe2x_ctrl->free_buf.buf[2].ch_paddr[1];
+			vfe2x_ctrl->reconfig_vfe = 0;
+		}
+		header = cmds_map[vfecmd.id].vfe_id;
+		queue = cmds_map[vfecmd.id].queue;
+		if (header == -1 && queue == -1) {
+			rc = -EFAULT;
+			goto config_done;
+		}
+		*(uint32_t *)axio = header;
+		vfe_7x_config_axi(OUTPUT_PRIM, &vfe2x_ctrl->zsl_prim, axio);
+		vfe_7x_config_axi(OUTPUT_SEC, &vfe2x_ctrl->zsl_sec, axio);
+		cmd_data = axio;
+	}
+		break;
 	case CMD_AXI_CFG_SEC|CMD_AXI_CFG_PRIM: {
 		CDBG("CMD_AXI_CFG_SEC|PRIM\n");
 		raw_mode = 0;
+		vfe2x_ctrl->zsl_mode = 0;
 		axio = kmalloc(sizeof(struct axiout), GFP_ATOMIC);
 		if (!axio) {
 			pr_err("NULL axio\n");
@@ -1440,20 +1608,22 @@ config_send:
 		spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 	} else {
 		if (queue == QDSP_TABLEQUEUE) {
-			CDBG("sending table cmd\n");
 			spin_lock_irqsave(&vfe2x_ctrl->table_lock, flags);
+			CDBG("sending table cmd\n");
+			vfe2x_ctrl->tableack_pending = 1;
 			rc = msm_adsp_write(vfe_mod, queue,
 				cmd_data, vfecmd.length + 4);
-			vfe2x_ctrl->tableack_pending = 1;
 			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 		} else {
-			CDBG("send n-table cmd\n");
 			if (*(uint32_t *)cmd_data == VFE_OUTPUT2_ACK) {
 				uint32_t *ptr = cmd_data;
 				CDBG("%x %x %x\n", ptr[0], ptr[1], ptr[2]);
 			}
+			spin_lock_irqsave(&vfe2x_ctrl->table_lock, flags);
+			CDBG("send n-table cmd\n");
 			rc = msm_adsp_write(vfe_mod, queue,
 				cmd_data, vfecmd.length + 4);
+			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 			CDBG("%x\n", vfecmd.length + 4);
 		}
 	}

@@ -149,6 +149,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data = {
 	.sensor_platform_info   = &sensor_board_info_s5k4e1,
 	.csi_if                 = 1,
 	.camera_type = BACK_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 #ifdef CONFIG_DW9712_ACT
 	.actuator_info = &s5k4e1_actuator_info
 #endif
@@ -178,6 +179,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov7692_data = {
 	.sensor_platform_info   = &sensor_board_info_ov7692,
 	.csi_if		 = 1,
 	.camera_type = FRONT_CAMERA_2D,
+	.sensor_type = YUV_SENSOR,
 };
 #endif
 
@@ -225,6 +227,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov5647_data = {
 	.sensor_platform_info   = &sensor_board_info_ov5647,
 	.csi_if                 = 1,
 	.camera_type	= BACK_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 
 #ifdef CONFIG_AD5046_ACT
 	.actuator_info = &ad5046_actuator_info
@@ -254,6 +257,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
 	.sensor_platform_info   = &sensor_board_info_mt9e013,
 	.csi_if                 = 1,
 	.camera_type = BACK_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 };
 #endif
 
@@ -279,6 +283,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data = {
 	.sensor_platform_info   = &sensor_board_info_ov9726,
 	.csi_if                 = 1,
 	.camera_type = FRONT_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 };
 #endif
 

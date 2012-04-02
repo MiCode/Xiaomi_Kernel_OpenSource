@@ -461,6 +461,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.sensor_platform_info = &sensor_board_info_imx074,
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 	.actuator_info = &imx074_actuator_info
 };
 static struct msm_camera_csi_lane_params imx091_csi_lane_params = {
@@ -495,6 +496,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {
 	.sensor_platform_info = &sensor_board_info_imx091,
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 };
 
 static struct camera_vreg_t apq_8064_mt9m114_vreg[] = {
@@ -529,6 +531,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_mt9m114_data = {
 	.sensor_platform_info = &sensor_board_info_mt9m114,
 	.csi_if = 1,
 	.camera_type = FRONT_CAMERA_2D,
+	.sensor_type = YUV_SENSOR,
 };
 
 static struct msm_camera_sensor_flash_data flash_ov2720 = {
@@ -556,6 +559,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 	.sensor_platform_info = &sensor_board_info_ov2720,
 	.csi_if	= 1,
 	.camera_type = FRONT_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
 };
 
 void __init apq8064_init_cam(void)

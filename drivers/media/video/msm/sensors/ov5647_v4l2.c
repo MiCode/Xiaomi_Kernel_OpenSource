@@ -12,6 +12,7 @@
  */
 
 #include "msm_sensor.h"
+#include "msm.h"
 #define SENSOR_NAME "ov5647"
 #define PLATFORM_DRIVER_NAME "msm_camera_ov5647"
 #define ov5647_obj ov5647_##obj
@@ -333,27 +334,31 @@ static int32_t ov5647_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		, gain, line, line);
 
 	if (line > 1964) {
+		s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-			s_ctrl->sensor_exp_gain_info->vert_offset,
+			s_ctrl->sensor_output_reg_addr->frame_length_lines,
 			(uint8_t)((line+4) >> 8),
 			MSM_CAMERA_I2C_BYTE_DATA);
 
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-			s_ctrl->sensor_exp_gain_info->vert_offset + 1,
+			s_ctrl->sensor_output_reg_addr->frame_length_lines + 1,
 			(uint8_t)((line+4) & 0x00FF),
 			MSM_CAMERA_I2C_BYTE_DATA);
+		s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
 
 		max_line = line + 4;
 	} else if (line > 1968) {
+		s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-			s_ctrl->sensor_exp_gain_info->vert_offset,
+			s_ctrl->sensor_output_reg_addr->frame_length_lines,
 			(uint8_t)((line+4) >> 8),
 			MSM_CAMERA_I2C_BYTE_DATA);
 
 		 msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-			s_ctrl->sensor_exp_gain_info->vert_offset + 1,
+			s_ctrl->sensor_output_reg_addr->frame_length_lines + 1,
 			(uint8_t)((line+4) & 0x00FF),
 			MSM_CAMERA_I2C_BYTE_DATA);
+		s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
 			max_line = 1968;
 	}
 
@@ -447,24 +452,24 @@ static int32_t ov5647_write_prev_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	if (line > 980) {
 
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		s_ctrl->sensor_exp_gain_info->vert_offset,
+		s_ctrl->sensor_output_reg_addr->frame_length_lines,
 		(uint8_t)((line+4) >> 8),
 		MSM_CAMERA_I2C_BYTE_DATA);
 
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		s_ctrl->sensor_exp_gain_info->vert_offset + 1,
+		s_ctrl->sensor_output_reg_addr->frame_length_lines + 1,
 		(uint8_t)((line+4) & 0x00FF),
 		MSM_CAMERA_I2C_BYTE_DATA);
 		max_line = line + 4;
 	} else if (line > 984) {
 
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		s_ctrl->sensor_exp_gain_info->vert_offset,
+		s_ctrl->sensor_output_reg_addr->frame_length_lines,
 		(uint8_t)(984 >> 8),
 		MSM_CAMERA_I2C_BYTE_DATA);
 
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		s_ctrl->sensor_exp_gain_info->vert_offset + 1 ,
+		s_ctrl->sensor_output_reg_addr->frame_length_lines + 1 ,
 		(uint8_t)(984 & 0x00FF),
 		MSM_CAMERA_I2C_BYTE_DATA);
 		max_line = 984;
@@ -568,32 +573,117 @@ static struct v4l2_subdev_ops ov5647_subdev_ops = {
 	.video  = &ov5647_subdev_video_ops,
 };
 
+int32_t ov5647_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	struct msm_camera_sensor_info *info = NULL;
+	unsigned short rdata;
+	int rc;
+
+	info = s_ctrl->sensordata;
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+		0x4202, 0xf,
+		MSM_CAMERA_I2C_BYTE_DATA);
+	msleep(20);
+	rc = msm_camera_i2c_read(s_ctrl->sensor_i2c_client, 0x3018,
+			&rdata, MSM_CAMERA_I2C_WORD_DATA);
+	CDBG("ov5647_sensor_power_down: %d\n", rc);
+	rdata |= 0x18;
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+		0x3018, rdata,
+		MSM_CAMERA_I2C_WORD_DATA);
+	msleep(20);
+	gpio_direction_output(info->sensor_pwd, 1);
+	usleep_range(5000, 5100);
+	msm_sensor_power_down(s_ctrl);
+	return 0;
+}
+
 int32_t ov5647_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *info = NULL;
 
+	info = s_ctrl->sensordata;
+	gpio_direction_output(info->sensor_pwd, 1);
+	gpio_direction_output(info->sensor_reset, 0);
+	usleep_range(10000, 11000);
+	if (info->pmic_gpio_enable) {
+		info->pmic_gpio_enable = 0;
+		lcd_camera_power_onoff(1);
+	}
+	usleep_range(10000, 11000);
 	rc = msm_sensor_power_up(s_ctrl);
 	if (rc < 0) {
 		CDBG("%s: msm_sensor_power_up failed\n", __func__);
 		return rc;
 	}
-	info = s_ctrl->sensordata;
 
-	gpio_direction_output(info->sensor_pwd, 1);
-	gpio_direction_output(info->sensor_reset, 0);
-	usleep_range(1000, 1100);
 	/* turn on ldo and vreg */
-	if (info->pmic_gpio_enable)
-		lcd_camera_power_onoff(1);
 
 	gpio_direction_output(info->sensor_pwd, 0);
-	usleep_range(4000, 4100);
+	msleep(20);
 	gpio_direction_output(info->sensor_reset, 1);
-	usleep_range(2000, 2100);
+	msleep(25);
 
 	return rc;
 
+}
+
+int32_t ov5647_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
+			int update_type, int res)
+{
+	int32_t rc = 0;
+	static int csi_config;
+
+	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
+	if (csi_config == 0 || res == 0)
+		msleep(66);
+	else
+		msleep(266);
+	msm_camera_i2c_write(
+			s_ctrl->sensor_i2c_client,
+			0x4800, 0x25,
+			MSM_CAMERA_I2C_BYTE_DATA);
+	if (update_type == MSM_SENSOR_REG_INIT) {
+		CDBG("Register INIT\n");
+		s_ctrl->curr_csi_params = NULL;
+		msm_camera_i2c_write(
+				s_ctrl->sensor_i2c_client,
+				0x103, 0x1,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		msm_sensor_enable_debugfs(s_ctrl);
+		msm_sensor_write_init_settings(s_ctrl);
+		csi_config = 0;
+	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
+		CDBG("PERIODIC : %d\n", res);
+		msm_sensor_write_conf_array(
+			s_ctrl->sensor_i2c_client,
+			s_ctrl->msm_sensor_reg->mode_settings, res);
+		msleep(30);
+		if (!csi_config) {
+			s_ctrl->curr_csic_params = s_ctrl->csic_params[res];
+			CDBG("CSI config in progress\n");
+			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+				NOTIFY_CSIC_CFG,
+				s_ctrl->curr_csic_params);
+			CDBG("CSI config is done\n");
+			mb();
+			msleep(30);
+			csi_config = 1;
+		msm_camera_i2c_write(
+			s_ctrl->sensor_i2c_client,
+			0x100, 0x1,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		}
+		msm_camera_i2c_write(
+			s_ctrl->sensor_i2c_client,
+			0x4800, 0x4,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		msleep(266);
+		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
+		msleep(50);
+	}
+	return rc;
 }
 static struct msm_sensor_fn_t ov5647_func_tbl = {
 	.sensor_start_stream = msm_sensor_start_stream,
@@ -603,13 +693,13 @@ static struct msm_sensor_fn_t ov5647_func_tbl = {
 	.sensor_set_fps = msm_sensor_set_fps,
 	.sensor_write_exp_gain = ov5647_write_prev_exp_gain,
 	.sensor_write_snapshot_exp_gain = ov5647_write_pict_exp_gain,
-	.sensor_setting = msm_sensor_setting2,
+	.sensor_setting = ov5647_sensor_setting,
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
 	.sensor_mode_init = msm_sensor_mode_init,
 	.sensor_get_output_info = msm_sensor_get_output_info,
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = ov5647_sensor_power_up,
-	.sensor_power_down = msm_sensor_power_down,
+	.sensor_power_down = ov5647_sensor_power_down,
 };
 
 static struct msm_sensor_reg_t ov5647_regs = {
