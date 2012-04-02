@@ -98,6 +98,37 @@
 
 #define PM8XXX_LED_PWM_FLAGS	(PM_PWM_LUT_LOOP | PM_PWM_LUT_RAMP_UP)
 
+#define LED_MAP(_version, _kb, _led0, _led1, _led2, _flash_led0, _flash_led1, \
+	_wled)\
+	{\
+		.version = _version,\
+		.supported = _kb << PM8XXX_ID_LED_KB_LIGHT | \
+			_led0 << PM8XXX_ID_LED_0 | _led1 << PM8XXX_ID_LED_1 | \
+			_led2 << PM8XXX_ID_LED_2  | \
+			_flash_led0 << PM8XXX_ID_FLASH_LED_0 | \
+			_flash_led1 << PM8XXX_ID_FLASH_LED_1 | \
+			_wled << PM8XXX_ID_WLED, \
+	}
+
+/**
+ * supported_leds - leds supported for each PMIC version
+ * @version - version of PMIC
+ * @supported - which leds are supported on version
+ */
+
+struct supported_leds {
+	enum pm8xxx_version version;
+	u32 supported;
+};
+
+static const struct supported_leds led_map[] = {
+	LED_MAP(PM8XXX_VERSION_8058, 1, 1, 1, 1, 1, 1, 0),
+	LED_MAP(PM8XXX_VERSION_8921, 1, 1, 1, 1, 1, 1, 0),
+	LED_MAP(PM8XXX_VERSION_8018, 1, 0, 0, 0, 0, 0, 0),
+	LED_MAP(PM8XXX_VERSION_8922, 0, 0, 0, 0, 1, 1, 1),
+	LED_MAP(PM8XXX_VERSION_8038, 0, 0, 0, 0, 0, 0, 1),
+};
+
 /**
  * struct pm8xxx_led_data - internal led data structure
  * @led_classdev - led class device
@@ -639,7 +670,9 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 	struct led_info *curr_led;
 	struct pm8xxx_led_data *led, *led_dat;
 	struct pm8xxx_led_config *led_cfg;
-	int rc, i;
+	enum pm8xxx_version version;
+	bool found = false;
+	int rc, i, j;
 
 	if (pdata == NULL) {
 		dev_err(&pdev->dev, "platform data not supplied\n");
@@ -674,8 +707,26 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 
 		if (!((led_dat->id >= PM8XXX_ID_LED_KB_LIGHT) &&
 				(led_dat->id < PM8XXX_ID_MAX))) {
-			dev_err(&pdev->dev, "invalid LED ID (%d) specified\n",
-						 led_dat->id);
+			dev_err(&pdev->dev, "invalid LED ID(%d) specified\n",
+				led_dat->id);
+			rc = -EINVAL;
+			goto fail_id_check;
+
+		}
+
+		found = false;
+		version = pm8xxx_get_version(pdev->dev.parent);
+		for (j = 0; j < ARRAY_SIZE(led_map); j++) {
+			if (version == led_map[j].version
+			&& (led_map[j].supported & (1 << led_dat->id))) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			dev_err(&pdev->dev, "invalid LED ID(%d) specified\n",
+				led_dat->id);
 			rc = -EINVAL;
 			goto fail_id_check;
 		}
