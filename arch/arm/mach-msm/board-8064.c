@@ -686,8 +686,6 @@ static void __init apq8064_epm_adc_init(void)
 	epm_adc_pdata.chan_per_mux = 8;
 };
 
-#define TABLA_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8921_IRQS)
-
 /* Micbias setting is based on 8660 CDP/MTP/FLUID requirement
  * 4 micbiases are used to power various analog and digital
  * microphones operating at 1800 mV. Technically, all micbiases
