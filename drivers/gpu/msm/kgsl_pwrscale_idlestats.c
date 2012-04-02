@@ -153,6 +153,14 @@ static void idlestats_sleep(struct kgsl_device *device,
 		MSM_IDLE_STATS_EVENT_IDLE_TIMER_EXPIRED);
 }
 
+static void idlestats_wake(struct kgsl_device *device,
+			struct kgsl_pwrscale *pwrscale)
+{
+	/* Use highest perf level on wake-up from
+	   sleep for better performance */
+	kgsl_pwrctrl_pwrlevel_change(device, KGSL_PWRLEVEL_TURBO);
+}
+
 static int idlestats_init(struct kgsl_device *device,
 		     struct kgsl_pwrscale *pwrscale)
 {
@@ -218,5 +226,6 @@ struct kgsl_pwrscale_policy kgsl_pwrscale_policy_idlestats = {
 	.idle = idlestats_idle,
 	.busy = idlestats_busy,
 	.sleep = idlestats_sleep,
+	.wake = idlestats_wake,
 	.close = idlestats_close
 };
