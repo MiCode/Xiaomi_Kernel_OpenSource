@@ -7361,7 +7361,7 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
 			bh_unlock_sock(sk);
 		} else if (cid == L2CAP_CID_A2MP) {
 			BT_DBG("A2MP");
-			amp_conn_ind(conn, skb);
+			amp_conn_ind(conn->hcon, skb);
 		} else {
 			BT_DBG("unknown cid 0x%4.4x", cid);
 			kfree_skb(skb);

@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2010-2011 Code Aurora Forum.  All rights reserved.
+   Copyright (c) 2010-2012 Code Aurora Forum.  All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License version 2 and
@@ -87,15 +87,15 @@ static struct amp_mgr *get_amp_mgr_sk(struct sock *sk)
 	return found;
 }
 
-static struct amp_mgr *get_create_amp_mgr(struct l2cap_conn *conn,
+static struct amp_mgr *get_create_amp_mgr(struct hci_conn *hcon,
 						struct sk_buff *skb)
 {
 	struct amp_mgr *mgr;
 
 	write_lock(&amp_mgr_list_lock);
 	list_for_each_entry(mgr, &amp_mgr_list, list) {
-		if (mgr->l2cap_conn == conn) {
-			BT_DBG("conn %p found %p", conn, mgr);
+		if (mgr->l2cap_conn == hcon->l2cap_data) {
+			BT_DBG("found %p", mgr);
 			write_unlock(&amp_mgr_list_lock);
 			goto gc_finished;
 		}
@@ -106,13 +106,13 @@ static struct amp_mgr *get_create_amp_mgr(struct l2cap_conn *conn,
 	if (!mgr)
 		return NULL;
 
-	mgr->l2cap_conn = conn;
+	mgr->l2cap_conn = hcon->l2cap_data;
 	mgr->next_ident = 1;
 	INIT_LIST_HEAD(&mgr->ctx_list);
 	rwlock_init(&mgr->ctx_list_lock);
 	mgr->skb = skb;
-	BT_DBG("conn %p mgr %p", conn, mgr);
-	mgr->a2mp_sock = open_fixed_channel(conn->src, conn->dst);
+	BT_DBG("hcon %p mgr %p", hcon, mgr);
+	mgr->a2mp_sock = open_fixed_channel(&hcon->hdev->bdaddr, &hcon->dst);
 	if (!mgr->a2mp_sock) {
 		kfree(mgr);
 		return NULL;
@@ -484,7 +484,7 @@ static void create_physical(struct l2cap_conn *conn, struct sock *sk)
 	struct amp_ctx *ctx = NULL;
 
 	BT_DBG("conn %p", conn);
-	mgr = get_create_amp_mgr(conn, NULL);
+	mgr = get_create_amp_mgr(conn->hcon, NULL);
 	if (!mgr)
 		goto cp_finished;
 	BT_DBG("mgr %p", mgr);
@@ -514,7 +514,7 @@ static void accept_physical(struct l2cap_conn *lcon, u8 id, struct sock *sk)
 	if (!hdev)
 		goto ap_finished;
 	BT_DBG("hdev %p", hdev);
-	mgr = get_create_amp_mgr(lcon, NULL);
+	mgr = get_create_amp_mgr(lcon->hcon, NULL);
 	if (!mgr)
 		goto ap_finished;
 	BT_DBG("mgr %p", mgr);
@@ -1773,12 +1773,13 @@ static struct socket *open_fixed_channel(bdaddr_t *src, bdaddr_t *dst)
 static void conn_ind_worker(struct work_struct *w)
 {
 	struct amp_work_conn_ind *work = (struct amp_work_conn_ind *) w;
-	struct l2cap_conn *conn = work->conn;
+	struct hci_conn *hcon = work->hcon;
 	struct sk_buff *skb = work->skb;
 	struct amp_mgr *mgr;
 
-	mgr = get_create_amp_mgr(conn, skb);
+	mgr = get_create_amp_mgr(hcon, skb);
 	BT_DBG("mgr %p", mgr);
+	hci_conn_put(hcon);
 	kfree(work);
 }
 
@@ -1804,17 +1805,20 @@ static void accept_physical_worker(struct work_struct *w)
 
 /* L2CAP Fixed Channel interface */
 
-void amp_conn_ind(struct l2cap_conn *conn, struct sk_buff *skb)
+void amp_conn_ind(struct hci_conn *hcon, struct sk_buff *skb)
 {
 	struct amp_work_conn_ind *work;
-	BT_DBG("conn %p, skb %p", conn, skb);
+	BT_DBG("hcon %p, skb %p", hcon, skb);
 	work = kmalloc(sizeof(*work), GFP_ATOMIC);
 	if (work) {
 		INIT_WORK((struct work_struct *) work, conn_ind_worker);
-		work->conn = conn;
+		hci_conn_hold(hcon);
+		work->hcon = hcon;
 		work->skb = skb;
-		if (queue_work(amp_workqueue, (struct work_struct *) work) == 0)
+		if (!queue_work(amp_workqueue, (struct work_struct *) work)) {
+			hci_conn_put(hcon);
 			kfree(work);
+		}
 	}
 }
 
