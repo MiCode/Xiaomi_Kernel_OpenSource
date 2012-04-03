@@ -1001,215 +1001,6 @@ static void __init msm7x27a_init_ebi2(void)
 	iounmap(ebi2_cfg_ptr);
 }
 
-#define ATMEL_TS_I2C_NAME "maXTouch"
-
-static struct regulator_bulk_data regs_atmel[] = {
-	{ .supply = "ldo2",  .min_uV = 2850000, .max_uV = 2850000 },
-	{ .supply = "smps3", .min_uV = 1800000, .max_uV = 1800000 },
-};
-
-#define ATMEL_TS_GPIO_IRQ 82
-
-static int atmel_ts_power_on(bool on)
-{
-	int rc = on ?
-		regulator_bulk_enable(ARRAY_SIZE(regs_atmel), regs_atmel) :
-		regulator_bulk_disable(ARRAY_SIZE(regs_atmel), regs_atmel);
-
-	if (rc)
-		pr_err("%s: could not %sable regulators: %d\n",
-				__func__, on ? "en" : "dis", rc);
-	else
-		msleep(50);
-
-	return rc;
-}
-
-static int atmel_ts_platform_init(struct i2c_client *client)
-{
-	int rc;
-	struct device *dev = &client->dev;
-
-	rc = regulator_bulk_get(dev, ARRAY_SIZE(regs_atmel), regs_atmel);
-	if (rc) {
-		dev_err(dev, "%s: could not get regulators: %d\n",
-				__func__, rc);
-		goto out;
-	}
-
-	rc = regulator_bulk_set_voltage(ARRAY_SIZE(regs_atmel), regs_atmel);
-	if (rc) {
-		dev_err(dev, "%s: could not set voltages: %d\n",
-				__func__, rc);
-		goto reg_free;
-	}
-
-	rc = gpio_tlmm_config(GPIO_CFG(ATMEL_TS_GPIO_IRQ, 0,
-				GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
-				GPIO_CFG_8MA), GPIO_CFG_ENABLE);
-	if (rc) {
-		dev_err(dev, "%s: gpio_tlmm_config for %d failed\n",
-			__func__, ATMEL_TS_GPIO_IRQ);
-		goto reg_free;
-	}
-
-	/* configure touchscreen interrupt gpio */
-	rc = gpio_request(ATMEL_TS_GPIO_IRQ, "atmel_maxtouch_gpio");
-	if (rc) {
-		dev_err(dev, "%s: unable to request gpio %d\n",
-			__func__, ATMEL_TS_GPIO_IRQ);
-		goto ts_gpio_tlmm_unconfig;
-	}
-
-	rc = gpio_direction_input(ATMEL_TS_GPIO_IRQ);
-	if (rc < 0) {
-		dev_err(dev, "%s: unable to set the direction of gpio %d\n",
-			__func__, ATMEL_TS_GPIO_IRQ);
-		goto free_ts_gpio;
-	}
-	return 0;
-
-free_ts_gpio:
-	gpio_free(ATMEL_TS_GPIO_IRQ);
-ts_gpio_tlmm_unconfig:
-	gpio_tlmm_config(GPIO_CFG(ATMEL_TS_GPIO_IRQ, 0,
-				GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
-				GPIO_CFG_2MA), GPIO_CFG_DISABLE);
-reg_free:
-	regulator_bulk_free(ARRAY_SIZE(regs_atmel), regs_atmel);
-out:
-	return rc;
-}
-
-static int atmel_ts_platform_exit(struct i2c_client *client)
-{
-	gpio_free(ATMEL_TS_GPIO_IRQ);
-	gpio_tlmm_config(GPIO_CFG(ATMEL_TS_GPIO_IRQ, 0,
-				GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
-				GPIO_CFG_2MA), GPIO_CFG_DISABLE);
-	regulator_bulk_free(ARRAY_SIZE(regs_atmel), regs_atmel);
-	return 0;
-}
-
-static u8 atmel_ts_read_chg(void)
-{
-	return gpio_get_value(ATMEL_TS_GPIO_IRQ);
-}
-
-static u8 atmel_ts_valid_interrupt(void)
-{
-	return !atmel_ts_read_chg();
-}
-
-#define ATMEL_X_OFFSET 13
-#define ATMEL_Y_OFFSET 0
-
-static struct maxtouch_platform_data atmel_ts_pdata = {
-	.numtouch = 4,
-	.init_platform_hw = atmel_ts_platform_init,
-	.exit_platform_hw = atmel_ts_platform_exit,
-	.power_on = atmel_ts_power_on,
-	.display_res_x = 480,
-	.display_res_y = 864,
-	.min_x = ATMEL_X_OFFSET,
-	.max_x = (505 - ATMEL_X_OFFSET),
-	.min_y = ATMEL_Y_OFFSET,
-	.max_y = (863 - ATMEL_Y_OFFSET),
-	.valid_interrupt = atmel_ts_valid_interrupt,
-	.read_chg = atmel_ts_read_chg,
-};
-
-static struct i2c_board_info atmel_ts_i2c_info[] __initdata = {
-	{
-		I2C_BOARD_INFO(ATMEL_TS_I2C_NAME, 0x4a),
-		.platform_data = &atmel_ts_pdata,
-		.irq = MSM_GPIO_TO_INT(ATMEL_TS_GPIO_IRQ),
-	},
-};
-
-#define KP_INDEX(row, col) ((row)*ARRAY_SIZE(kp_col_gpios) + (col))
-
-static unsigned int kp_row_gpios[] = {31, 32, 33, 34, 35};
-static unsigned int kp_col_gpios[] = {36, 37, 38, 39, 40};
-
-static const unsigned short keymap[ARRAY_SIZE(kp_col_gpios) *
-					  ARRAY_SIZE(kp_row_gpios)] = {
-	[KP_INDEX(0, 0)] = KEY_7,
-	[KP_INDEX(0, 1)] = KEY_DOWN,
-	[KP_INDEX(0, 2)] = KEY_UP,
-	[KP_INDEX(0, 3)] = KEY_RIGHT,
-	[KP_INDEX(0, 4)] = KEY_ENTER,
-
-	[KP_INDEX(1, 0)] = KEY_LEFT,
-	[KP_INDEX(1, 1)] = KEY_SEND,
-	[KP_INDEX(1, 2)] = KEY_1,
-	[KP_INDEX(1, 3)] = KEY_4,
-	[KP_INDEX(1, 4)] = KEY_CLEAR,
-
-	[KP_INDEX(2, 0)] = KEY_6,
-	[KP_INDEX(2, 1)] = KEY_5,
-	[KP_INDEX(2, 2)] = KEY_8,
-	[KP_INDEX(2, 3)] = KEY_3,
-	[KP_INDEX(2, 4)] = KEY_NUMERIC_STAR,
-
-	[KP_INDEX(3, 0)] = KEY_9,
-	[KP_INDEX(3, 1)] = KEY_NUMERIC_POUND,
-	[KP_INDEX(3, 2)] = KEY_0,
-	[KP_INDEX(3, 3)] = KEY_2,
-	[KP_INDEX(3, 4)] = KEY_SLEEP,
-
-	[KP_INDEX(4, 0)] = KEY_BACK,
-	[KP_INDEX(4, 1)] = KEY_HOME,
-	[KP_INDEX(4, 2)] = KEY_MENU,
-	[KP_INDEX(4, 3)] = KEY_VOLUMEUP,
-	[KP_INDEX(4, 4)] = KEY_VOLUMEDOWN,
-};
-
-/* SURF keypad platform device information */
-static struct gpio_event_matrix_info kp_matrix_info = {
-	.info.func	= gpio_event_matrix_func,
-	.keymap		= keymap,
-	.output_gpios	= kp_row_gpios,
-	.input_gpios	= kp_col_gpios,
-	.noutputs	= ARRAY_SIZE(kp_row_gpios),
-	.ninputs	= ARRAY_SIZE(kp_col_gpios),
-	.settle_time.tv_nsec = 40 * NSEC_PER_USEC,
-	.poll_time.tv_nsec = 20 * NSEC_PER_MSEC,
-	.flags		= GPIOKPF_LEVEL_TRIGGERED_IRQ | GPIOKPF_DRIVE_INACTIVE |
-			  GPIOKPF_PRINT_UNMAPPED_KEYS,
-};
-
-static struct gpio_event_info *kp_info[] = {
-	&kp_matrix_info.info
-};
-
-static struct gpio_event_platform_data kp_pdata = {
-	.name		= "7x27a_kp",
-	.info		= kp_info,
-	.info_count	= ARRAY_SIZE(kp_info)
-};
-
-static struct platform_device kp_pdev = {
-	.name	= GPIO_EVENT_DEV_NAME,
-	.id	= -1,
-	.dev	= {
-		.platform_data	= &kp_pdata,
-	},
-};
-
-static struct msm_handset_platform_data hs_platform_data = {
-	.hs_name = "7k_handset",
-	.pwr_key_delay_ms = 500, /* 0 will disable end key */
-};
-
-static struct platform_device hs_pdev = {
-	.name   = "msm-handset",
-	.id     = -1,
-	.dev    = {
-		.platform_data = &hs_platform_data,
-	},
-};
-
 static struct platform_device msm_proccomm_regulator_dev = {
 	.name   = PROCCOMM_REGULATOR_DEV_NAME,
 	.id     = -1,
@@ -1262,7 +1053,6 @@ static void __init msm8625_rumi3_init(void)
 	msm8x25_spm_device_init();
 }
 
-#define LED_GPIO_PDM		96
 #define UART1DM_RX_GPIO		45
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
@@ -1330,39 +1120,6 @@ static void __init msm7x27a_otg_gadget(void)
 	}
 }
 
-static void __init msm7x27a_add_io_devices(void)
-{
-	/* touchscreen */
-	if (machine_is_msm7625a_surf() || machine_is_msm7625a_ffa()) {
-		atmel_ts_pdata.min_x = 0;
-		atmel_ts_pdata.max_x = 480;
-		atmel_ts_pdata.min_y = 0;
-		atmel_ts_pdata.max_y = 320;
-	}
-
-	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
-				atmel_ts_i2c_info,
-				ARRAY_SIZE(atmel_ts_i2c_info));
-	/* keypad */
-	platform_device_register(&kp_pdev);
-
-	/* headset */
-	platform_device_register(&hs_pdev);
-
-	/* LED: configure it as a pdm function */
-	if (gpio_tlmm_config(GPIO_CFG(LED_GPIO_PDM, 3,
-				GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-				GPIO_CFG_8MA), GPIO_CFG_ENABLE))
-		pr_err("%s: gpio_tlmm_config for %d failed\n",
-			__func__, LED_GPIO_PDM);
-	else
-		platform_device_register(&led_pdev);
-
-	/* Vibrator */
-	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa())
-		msm_init_pmic_vibrator();
-}
-
 static void __init msm7x27a_pm_init(void)
 {
 	if (machine_is_msm8625_surf()) {
@@ -1407,7 +1164,7 @@ static void __init msm7x2x_init(void)
 	register_i2c_devices();
 	msm7627a_bt_power_init();
 	msm7627a_camera_init();
-	msm7x27a_add_io_devices();
+	msm7627a_add_io_devices();
 	/*7x25a kgsl initializations*/
 	msm7x25a_kgsl_3d0_init();
 }
