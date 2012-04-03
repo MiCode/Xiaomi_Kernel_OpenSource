@@ -19,7 +19,6 @@
 #include <linux/elf.h>
 #include <linux/err.h>
 #include <linux/clk.h>
-#include <linux/workqueue.h>
 
 #include <mach/msm_iomap.h>
 
@@ -61,14 +60,11 @@
 #define Q6_STRAP_TCM_BASE	(0x28C << 15)
 #define Q6_STRAP_TCM_CONFIG	0x28B
 
-#define PROXY_VOTE_TIMEOUT	10000
-
 struct q6v3_data {
 	void __iomem *base;
 	unsigned long start_addr;
 	struct pil_device *pil;
 	struct clk *pll;
-	struct delayed_work work;
 };
 
 static int pil_q6v3_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -80,40 +76,29 @@ static int pil_q6v3_init_image(struct pil_desc *pil, const u8 *metadata,
 	return 0;
 }
 
-static void q6v3_remove_proxy_votes(struct work_struct *work)
+static void pil_q6v3_remove_proxy_votes(struct pil_desc *pil)
 {
-	struct q6v3_data *drv = container_of(work, struct q6v3_data, work.work);
+	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
 	clk_disable_unprepare(drv->pll);
 }
 
-static int q6v3_make_proxy_votes(struct device *dev)
+static int pil_q6v3_make_proxy_votes(struct pil_desc *pil)
 {
 	int ret;
-	struct q6v3_data *drv = dev_get_drvdata(dev);
+	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
 
 	ret = clk_prepare_enable(drv->pll);
 	if (ret) {
-		dev_err(dev, "Failed to enable PLL\n");
+		dev_err(pil->dev, "Failed to enable PLL\n");
 		return ret;
 	}
-	schedule_delayed_work(&drv->work, msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
 	return 0;
-}
-
-static void q6v3_remove_proxy_votes_now(struct q6v3_data *drv)
-{
-	flush_delayed_work(&drv->work);
 }
 
 static int pil_q6v3_reset(struct pil_desc *pil)
 {
 	u32 reg;
-	int ret;
 	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
-
-	ret = q6v3_make_proxy_votes(pil->dev);
-	if (ret)
-		return ret;
 
 	/* Put Q6 into reset */
 	reg = readl_relaxed(LCC_Q6_FUNC);
@@ -159,7 +144,6 @@ static int pil_q6v3_reset(struct pil_desc *pil)
 static int pil_q6v3_shutdown(struct pil_desc *pil)
 {
 	u32 reg;
-	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
 
 	/* Put Q6 into reset */
 	reg = readl_relaxed(LCC_Q6_FUNC);
@@ -179,8 +163,6 @@ static int pil_q6v3_shutdown(struct pil_desc *pil)
 	reg |= CLAMP_IO;
 	writel_relaxed(reg, LCC_Q6_FUNC);
 
-	q6v3_remove_proxy_votes_now(drv);
-
 	return 0;
 }
 
@@ -188,6 +170,8 @@ static struct pil_reset_ops pil_q6v3_ops = {
 	.init_image = pil_q6v3_init_image,
 	.auth_and_reset = pil_q6v3_reset,
 	.shutdown = pil_q6v3_shutdown,
+	.proxy_vote = pil_q6v3_make_proxy_votes,
+	.proxy_unvote = pil_q6v3_remove_proxy_votes,
 };
 
 static int pil_q6v3_init_image_trusted(struct pil_desc *pil,
@@ -198,31 +182,20 @@ static int pil_q6v3_init_image_trusted(struct pil_desc *pil,
 
 static int pil_q6v3_reset_trusted(struct pil_desc *pil)
 {
-	int ret;
-	ret = q6v3_make_proxy_votes(pil->dev);
-	if (ret)
-		return ret;
 	return pas_auth_and_reset(PAS_Q6);
 }
 
 static int pil_q6v3_shutdown_trusted(struct pil_desc *pil)
 {
-	int ret;
-	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
-
-	ret = pas_shutdown(PAS_Q6);
-	if (ret)
-		return ret;
-
-	q6v3_remove_proxy_votes_now(drv);
-
-	return 0;
+	return pas_shutdown(PAS_Q6);
 }
 
 static struct pil_reset_ops pil_q6v3_ops_trusted = {
 	.init_image = pil_q6v3_init_image_trusted,
 	.auth_and_reset = pil_q6v3_reset_trusted,
 	.shutdown = pil_q6v3_shutdown_trusted,
+	.proxy_vote = pil_q6v3_make_proxy_votes,
+	.proxy_unvote = pil_q6v3_remove_proxy_votes,
 };
 
 static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
@@ -255,6 +228,7 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	desc->name = "q6";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
+	desc->proxy_timeout = 10000;
 
 	if (pas_supported(PAS_Q6) > 0) {
 		desc->ops = &pil_q6v3_ops_trusted;
@@ -264,11 +238,8 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
-	INIT_DELAYED_WORK(&drv->work, q6v3_remove_proxy_votes);
-
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil)) {
-		flush_delayed_work_sync(&drv->work);
 		return PTR_ERR(drv->pil);
 	}
 	return 0;
@@ -278,7 +249,6 @@ static int __devexit pil_q6v3_driver_exit(struct platform_device *pdev)
 {
 	struct q6v3_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
-	flush_delayed_work_sync(&drv->work);
 	return 0;
 }
 
