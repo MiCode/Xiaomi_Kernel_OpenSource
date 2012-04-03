@@ -79,6 +79,13 @@
 #define WLED_SYNC_VAL			0x07
 #define WLED_SYNC_RESET_VAL		0x00
 
+#define SSBI_REG_ADDR_RGB_CNTL1		0x12D
+#define SSBI_REG_ADDR_RGB_CNTL2		0x12E
+
+#define PM8XXX_DRV_RGB_RED_LED		BIT(2)
+#define PM8XXX_DRV_RGB_GREEN_LED	BIT(1)
+#define PM8XXX_DRV_RGB_BLUE_LED		BIT(0)
+
 #define MAX_FLASH_LED_CURRENT		300
 #define MAX_LC_LED_CURRENT		40
 #define MAX_KP_BL_LED_CURRENT		300
@@ -99,7 +106,7 @@
 #define PM8XXX_LED_PWM_FLAGS	(PM_PWM_LUT_LOOP | PM_PWM_LUT_RAMP_UP)
 
 #define LED_MAP(_version, _kb, _led0, _led1, _led2, _flash_led0, _flash_led1, \
-	_wled)\
+	_wled, _rgb_led_red, _rgb_led_green, _rgb_led_blue)\
 	{\
 		.version = _version,\
 		.supported = _kb << PM8XXX_ID_LED_KB_LIGHT | \
@@ -107,7 +114,10 @@
 			_led2 << PM8XXX_ID_LED_2  | \
 			_flash_led0 << PM8XXX_ID_FLASH_LED_0 | \
 			_flash_led1 << PM8XXX_ID_FLASH_LED_1 | \
-			_wled << PM8XXX_ID_WLED, \
+			_wled << PM8XXX_ID_WLED | \
+			_rgb_led_red << PM8XXX_ID_RGB_LED_RED | \
+			_rgb_led_green << PM8XXX_ID_RGB_LED_GREEN | \
+			_rgb_led_blue << PM8XXX_ID_RGB_LED_BLUE, \
 	}
 
 /**
@@ -122,11 +132,11 @@ struct supported_leds {
 };
 
 static const struct supported_leds led_map[] = {
-	LED_MAP(PM8XXX_VERSION_8058, 1, 1, 1, 1, 1, 1, 0),
-	LED_MAP(PM8XXX_VERSION_8921, 1, 1, 1, 1, 1, 1, 0),
-	LED_MAP(PM8XXX_VERSION_8018, 1, 0, 0, 0, 0, 0, 0),
-	LED_MAP(PM8XXX_VERSION_8922, 0, 0, 0, 0, 1, 1, 1),
-	LED_MAP(PM8XXX_VERSION_8038, 0, 0, 0, 0, 0, 0, 1),
+	LED_MAP(PM8XXX_VERSION_8058, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0),
+	LED_MAP(PM8XXX_VERSION_8921, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0),
+	LED_MAP(PM8XXX_VERSION_8018, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+	LED_MAP(PM8XXX_VERSION_8922, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1),
+	LED_MAP(PM8XXX_VERSION_8038, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1),
 };
 
 /**
@@ -291,6 +301,44 @@ static void wled_dump_regs(struct pm8xxx_led_data *led)
 	}
 }
 
+static void
+led_rgb_set(struct pm8xxx_led_data *led, enum led_brightness value)
+{
+	int rc;
+	u8 val, mask;
+
+	rc = pm8xxx_readb(led->dev->parent, SSBI_REG_ADDR_RGB_CNTL2, &val);
+	if (rc) {
+		dev_err(led->cdev.dev, "can't read rgb ctrl register rc=%d\n",
+							rc);
+		return;
+	}
+
+	switch (led->id) {
+	case PM8XXX_ID_RGB_LED_RED:
+		mask = PM8XXX_DRV_RGB_RED_LED;
+		break;
+	case PM8XXX_ID_RGB_LED_GREEN:
+		mask = PM8XXX_DRV_RGB_GREEN_LED;
+		break;
+	case PM8XXX_ID_RGB_LED_BLUE:
+		mask = PM8XXX_DRV_RGB_BLUE_LED;
+		break;
+	default:
+		return;
+	}
+
+	if (value)
+		val |= mask;
+	else
+		val &= ~mask;
+
+	rc = pm8xxx_writeb(led->dev->parent, SSBI_REG_ADDR_RGB_CNTL2, val);
+	if (rc < 0)
+		dev_err(led->cdev.dev, "can't set rgb led %d level rc=%d\n",
+			 led->id, rc);
+}
+
 static int pm8xxx_led_pwm_work(struct pm8xxx_led_data *led)
 {
 	int duty_us;
@@ -336,6 +384,11 @@ static void __pm8xxx_led_work(struct pm8xxx_led_data *led,
 		if (rc < 0)
 			pr_err("wled brightness set failed %d\n", rc);
 		break;
+	case PM8XXX_ID_RGB_LED_RED:
+	case PM8XXX_ID_RGB_LED_GREEN:
+	case PM8XXX_ID_RGB_LED_BLUE:
+		led_rgb_set(led, level);
+		break;
 	default:
 		dev_err(led->cdev.dev, "unknown led id %d", led->id);
 		break;
@@ -380,8 +433,6 @@ static void pm8xxx_led_set(struct led_classdev *led_cdev,
 static int pm8xxx_set_led_mode_and_max_brightness(struct pm8xxx_led_data *led,
 		enum pm8xxx_led_modes led_mode, int max_current)
 {
-	int rc = 0;
-
 	switch (led->id) {
 	case PM8XXX_ID_LED_0:
 	case PM8XXX_ID_LED_1:
@@ -420,13 +471,17 @@ static int pm8xxx_set_led_mode_and_max_brightness(struct pm8xxx_led_data *led,
 	case PM8XXX_ID_WLED:
 		led->cdev.max_brightness = WLED_MAX_LEVEL;
 		break;
-	default:
-		rc = -EINVAL;
-		pr_err("LED Id is invalid");
+	case PM8XXX_ID_RGB_LED_RED:
+	case PM8XXX_ID_RGB_LED_GREEN:
+	case PM8XXX_ID_RGB_LED_BLUE:
+		led->cdev.max_brightness = LED_FULL;
 		break;
+	default:
+		dev_err(led->cdev.dev, "LED Id is invalid");
+		return -EINVAL;
 	}
 
-	return rc;
+	return 0;
 }
 
 static enum led_brightness pm8xxx_led_get(struct led_classdev *led_cdev)
@@ -581,6 +636,35 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 	return 0;
 }
 
+static int __devinit init_rgb_led(struct pm8xxx_led_data *led)
+{
+	int rc;
+	u8 val;
+
+	rc = pm8xxx_readb(led->dev->parent, SSBI_REG_ADDR_RGB_CNTL1, &val);
+	if (rc) {
+		dev_err(led->cdev.dev, "can't read rgb ctrl1 register rc=%d\n",
+							rc);
+		return rc;
+	}
+
+	switch (led->id) {
+	case PM8XXX_ID_RGB_LED_RED:
+		val |= PM8XXX_DRV_RGB_RED_LED;
+		break;
+	case PM8XXX_ID_RGB_LED_GREEN:
+		val |= PM8XXX_DRV_RGB_GREEN_LED;
+		break;
+	case PM8XXX_ID_RGB_LED_BLUE:
+		val |= PM8XXX_DRV_RGB_BLUE_LED;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return pm8xxx_writeb(led->dev->parent, SSBI_REG_ADDR_RGB_CNTL1, val);
+}
+
 static int __devinit get_init_value(struct pm8xxx_led_data *led, u8 *val)
 {
 	int rc, offset;
@@ -608,6 +692,17 @@ static int __devinit get_init_value(struct pm8xxx_led_data *led, u8 *val)
 			dev_err(led->cdev.dev, "can't initialize wled rc=%d\n",
 								rc);
 		return rc;
+	case PM8XXX_ID_RGB_LED_RED:
+	case PM8XXX_ID_RGB_LED_GREEN:
+	case PM8XXX_ID_RGB_LED_BLUE:
+		rc = init_rgb_led(led);
+		if (rc) {
+			dev_err(led->cdev.dev, "can't initialize rgb rc=%d\n",
+								rc);
+			return rc;
+		}
+		addr = SSBI_REG_ADDR_RGB_CNTL1;
+		break;
 	default:
 		dev_err(led->cdev.dev, "unknown led id %d", led->id);
 		return -EINVAL;
@@ -765,7 +860,12 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 			led->cdev.brightness = LED_OFF;
 
 		if (led_cfg->mode != PM8XXX_LED_MODE_MANUAL) {
-			__pm8xxx_led_work(led_dat,
+			if (led_dat->id == PM8XXX_ID_RGB_LED_RED ||
+				led_dat->id == PM8XXX_ID_RGB_LED_GREEN ||
+				led_dat->id == PM8XXX_ID_RGB_LED_BLUE)
+				__pm8xxx_led_work(led_dat, 0);
+			else
+				__pm8xxx_led_work(led_dat,
 					led_dat->cdev.max_brightness);
 
 			if (led_dat->pwm_channel != -1) {

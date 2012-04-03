@@ -229,10 +229,23 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 };
 
 #define PM8038_WLED_MAX_CURRENT		25
+#define PM8XXX_LED_PWM_PERIOD		1000
+#define PM8XXX_LED_PWM_DUTY_MS		20
+#define PM8038_RGB_LED_MAX_CURRENT	12
 
 static struct led_info pm8038_led_info[] = {
 	[0] = {
 		.name			= "wled",
+	},
+	[1] = {
+		.name			= "led:rgb_red",
+		.default_trigger	= "battery-charging",
+	},
+	[2] = {
+		.name			= "led:rgb_green",
+	},
+	[3] = {
+		.name			= "led:rgb_blue",
 	},
 };
 
@@ -251,6 +264,22 @@ static struct wled_config_data wled_cfg = {
 	.num_strings = 1,
 };
 
+static int pm8038_led0_pwm_duty_pcts[56] = {
+		1, 4, 8, 12, 16, 20, 24, 28, 32, 36,
+		40, 44, 46, 52, 56, 60, 64, 68, 72, 76,
+		80, 84, 88, 92, 96, 100, 100, 100, 98, 95,
+		92, 88, 84, 82, 78, 74, 70, 66, 62, 58,
+		58, 54, 50, 48, 42, 38, 34, 30, 26, 22,
+		14, 10, 6, 4, 1
+};
+
+static struct pm8xxx_pwm_duty_cycles pm8038_led0_pwm_duty_cycles = {
+	.duty_pcts = (int *)&pm8038_led0_pwm_duty_pcts,
+	.num_duty_pcts = ARRAY_SIZE(pm8038_led0_pwm_duty_pcts),
+	.duty_ms = PM8XXX_LED_PWM_DUTY_MS,
+	.start_idx = 0,
+};
+
 static struct pm8xxx_led_config pm8038_led_configs[] = {
 	[0] = {
 		.id = PM8XXX_ID_WLED,
@@ -258,6 +287,30 @@ static struct pm8xxx_led_config pm8038_led_configs[] = {
 		.max_current = PM8038_WLED_MAX_CURRENT,
 		.default_state = 1,
 		.wled_cfg = &wled_cfg,
+	},
+	[1] = {
+		.id = PM8XXX_ID_RGB_LED_RED,
+		.mode = PM8XXX_LED_MODE_PWM1,
+		.max_current = PM8038_RGB_LED_MAX_CURRENT,
+		.pwm_channel = 5,
+		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
+		.pwm_duty_cycles = &pm8038_led0_pwm_duty_cycles,
+	},
+	[2] = {
+		.id = PM8XXX_ID_RGB_LED_GREEN,
+		.mode = PM8XXX_LED_MODE_PWM1,
+		.max_current = PM8038_RGB_LED_MAX_CURRENT,
+		.pwm_channel = 4,
+		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
+		.pwm_duty_cycles = &pm8038_led0_pwm_duty_cycles,
+	},
+	[3] = {
+		.id = PM8XXX_ID_RGB_LED_BLUE,
+		.mode = PM8XXX_LED_MODE_PWM1,
+		.max_current = PM8038_RGB_LED_MAX_CURRENT,
+		.pwm_channel = 3,
+		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
+		.pwm_duty_cycles = &pm8038_led0_pwm_duty_cycles,
 	},
 };
 
