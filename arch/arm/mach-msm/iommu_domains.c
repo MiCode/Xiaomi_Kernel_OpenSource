@@ -44,10 +44,145 @@ struct {
 	char *name;
 	int  domain;
 } msm_iommu_ctx_names[] = {
+	/* Camera */
+	{
+		.name = "vpe_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vpe_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vfe_imgwr",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vfe_misc",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "ijpeg_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "ijpeg_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "jpegd_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "jpegd_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Rotator */
+	{
+		.name = "rot_src",
+		.domain = ROTATOR_DOMAIN,
+	},
+	/* Rotator */
+	{
+		.name = "rot_dst",
+		.domain = ROTATOR_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_a_mm1",
+		.domain = VIDEO_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_b_mm2",
+		.domain = VIDEO_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_a_stream",
+		.domain = VIDEO_DOMAIN,
+	},
 };
 
+static struct mem_pool video_pools[] =  {
+	/*
+	 * Video hardware has the following requirements:
+	 * 1. All video addresses used by the video hardware must be at a higher
+	 *    address than video firmware address.
+	 * 2. Video hardware can only access a range of 256MB from the base of
+	 *    the video firmware.
+	*/
+	[VIDEO_FIRMWARE_POOL] =
+	/* Low addresses, intended for video firmware */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_16M - SZ_128K,
+		},
+	[VIDEO_MAIN_POOL] =
+	/* Main video pool */
+		{
+			.paddr	= SZ_16M,
+			.size	= SZ_256M - SZ_16M,
+		},
+	[GEN_POOL] =
+	/* Remaining address space up to 2G */
+		{
+			.paddr	= SZ_256M,
+			.size	= SZ_2G - SZ_256M,
+		},
+};
+
+static struct mem_pool camera_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for camera */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
+
+static struct mem_pool display_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for display */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
+
+static struct mem_pool rotator_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for rotator */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
 
 static struct msm_iommu_domain msm_iommu_domains[] = {
+		[VIDEO_DOMAIN] = {
+			.iova_pools = video_pools,
+			.npools = ARRAY_SIZE(video_pools),
+		},
+		[CAMERA_DOMAIN] = {
+			.iova_pools = camera_pools,
+			.npools = ARRAY_SIZE(camera_pools),
+		},
+		[DISPLAY_DOMAIN] = {
+			.iova_pools = display_pools,
+			.npools = ARRAY_SIZE(display_pools),
+		},
+		[ROTATOR_DOMAIN] = {
+			.iova_pools = rotator_pools,
+			.npools = ARRAY_SIZE(rotator_pools),
+		},
 };
 
 int msm_iommu_map_extra(struct iommu_domain *domain,
@@ -181,8 +316,7 @@ void msm_free_iova_address(unsigned long iova,
 
 int msm_use_iommu()
 {
-	/* Kill use of the iommu by these clients for now. */
-	return 0;
+	return iommu_found();
 }
 
 static int __init msm_subsystem_iommu_init(void)
@@ -198,25 +332,29 @@ static int __init msm_subsystem_iommu_init(void)
 			struct mem_pool *pool = &msm_iommu_domains[i].
 							iova_pools[j];
 			mutex_init(&pool->pool_mutex);
-			pool->gpool = gen_pool_create(PAGE_SHIFT, -1);
+			if (pool->size) {
+				pool->gpool = gen_pool_create(PAGE_SHIFT, -1);
 
-			if (!pool->gpool) {
-				pr_err("%s: domain %d: could not allocate iova"
-					" pool. iommu programming will not work"
-					" with iova space %d\n", __func__,
-					i, j);
-				continue;
-			}
+				if (!pool->gpool) {
+					pr_err("%s: could not allocate pool\n",
+						__func__);
+					pr_err("%s: domain %d iova space %d\n",
+						__func__, i, j);
+					continue;
+				}
 
-			if (gen_pool_add(pool->gpool, pool->paddr, pool->size,
-						-1)) {
-				pr_err("%s: domain %d: could not add memory to"
-					" iova pool. iommu programming will not"
-					" work with iova space %d\n", __func__,
-					i, j);
-				gen_pool_destroy(pool->gpool);
+				if (gen_pool_add(pool->gpool, pool->paddr,
+						pool->size, -1)) {
+					pr_err("%s: could not add memory\n",
+						__func__);
+					pr_err("%s: domain %d pool %d\n",
+						__func__, i, j);
+					gen_pool_destroy(pool->gpool);
+					pool->gpool = NULL;
+					continue;
+				}
+			} else {
 				pool->gpool = NULL;
-				continue;
 			}
 		}
 	}
