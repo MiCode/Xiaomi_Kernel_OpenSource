@@ -113,7 +113,7 @@ void gss_crash_shutdown(const struct subsys_data *subsys)
 
 /* FIXME: Get address, size from PIL */
 static struct ramdump_segment gss_segments[] = {
-	{0x89D00000 - 0x89000000}
+	{0x89000000, 0x00D00000}
 };
 
 static struct ramdump_segment smem_segments[] = {
