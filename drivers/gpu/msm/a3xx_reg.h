@@ -249,7 +249,7 @@
 
 /* Bit flags for RBBM_CTL */
 #define RBBM_RBBM_CTL_RESET_PWR_CTR1  (1 << 1)
-#define RBBM_RBBM_CTL_ENABLE_PWR_CTR1  (17 << 1)
+#define RBBM_RBBM_CTL_ENABLE_PWR_CTR1  (1 << 17)
 
 /* Various flags used by the context switch code */
 
