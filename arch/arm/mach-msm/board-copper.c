@@ -340,19 +340,6 @@ void __init msm_copper_reserve(void)
 	msm_reserve();
 }
 
-static int __init gpiomux_init(void)
-{
-	int rc;
-
-	rc = msm_gpiomux_init(NR_GPIO_IRQS);
-	if (rc) {
-		pr_err("%s: msm_gpiomux_init failed %d\n", __func__, rc);
-		return rc;
-	}
-
-	return 0;
-}
-
 static struct platform_device android_usb_device = {
 	.name	= "android_usb",
 	.id	= -1,
@@ -433,8 +420,7 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 
 void __init msm_copper_init(struct of_dev_auxdata **adata)
 {
-	if (gpiomux_init())
-		pr_err("%s: gpiomux_init() failed\n", __func__);
+	msm_copper_init_gpiomux();
 	msm_clock_init(&msm_dummy_clock_init_data);
 
 	*adata = msm_copper_auxdata_lookup;
