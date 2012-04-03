@@ -203,12 +203,18 @@ static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
 	struct device_node *node;
 	int rc, i, num_dev_node = 0;
 
+	if (!of_device_is_available(container))
+		return;
+
 	/*
 	 * Count the total number of device_nodes so we know how much
 	 * device_store to allocate.
 	 */
-	for_each_child_of_node(container, node)
+	for_each_child_of_node(container, node) {
+		if (!of_device_is_available(node))
+			continue;
 		num_dev_node++;
+	}
 
 	rc = of_spmi_alloc_device_store(d_info, num_dev_node);
 	if (rc) {
@@ -219,6 +225,8 @@ static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
 
 	i = 0;
 	for_each_child_of_node(container, node) {
+		if (!of_device_is_available(node))
+			continue;
 		of_spmi_init_resource(&r_info, node);
 		of_spmi_sum_node_resources(&r_info, 1);
 		rc = of_spmi_allocate_node_resources(d_info, &r_info, i);
@@ -255,6 +263,9 @@ static void of_spmi_walk_slave_container(struct of_spmi_dev_info *d_info,
 
 	for_each_child_of_node(container, node) {
 		struct of_spmi_res_info r_info;
+
+		if (!of_device_is_available(node))
+			continue;
 
 		/**
 		 * Check to see if this node contains children which
@@ -355,6 +366,9 @@ int of_spmi_register_devices(struct spmi_controller *ctrl)
 				     __func__, node->full_name);
 				continue;
 			}
+
+			if (!of_device_is_available(node))
+				continue;
 
 			rc = of_spmi_alloc_device_store(&d_info, 1);
 			if (rc) {
