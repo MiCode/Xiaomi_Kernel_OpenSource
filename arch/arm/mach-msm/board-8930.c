@@ -1218,127 +1218,25 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 #/* TODO: Remove this once PM8038 physically becomes
  * available.
  */
-#ifndef MSM8930_PHASE_2
-#define PM_HAP_EN_GPIO		PM8921_GPIO_PM_TO_SYS(33)
-#define PM_HAP_LEN_GPIO		PM8921_GPIO_PM_TO_SYS(20)
-#else
 #define ISA1200_HAP_EN_GPIO	77
 #define ISA1200_HAP_LEN_GPIO	78
 #define ISA1200_HAP_CLK		PM8038_GPIO_PM_TO_SYS(7)
-#endif
-
-#ifndef MSM8930_PHASE_2
-static struct msm_xo_voter *xo_handle_d1;
-#endif
 
 static int isa1200_power(int on)
 {
-#ifndef MSM8930_PHASE_2
-	int rc = 0;
-
-	gpio_set_value(HAP_SHIFT_LVL_OE_GPIO, !!on);
-
-	rc = on ? msm_xo_mode_vote(xo_handle_d1, MSM_XO_MODE_ON) :
-			msm_xo_mode_vote(xo_handle_d1, MSM_XO_MODE_OFF);
-	if (rc < 0) {
-		pr_err("%s: failed to %svote for TCXO D1 buffer%d\n",
-				__func__, on ? "" : "de-", rc);
-		goto err_xo_vote;
-	}
-
-	return 0;
-
-err_xo_vote:
-	gpio_set_value(HAP_SHIFT_LVL_OE_GPIO, !on);
-	return rc;
-#else
 	gpio_set_value_cansleep(ISA1200_HAP_CLK, !!on);
 
 	return 0;
-#endif
-
 }
 
 static int isa1200_dev_setup(bool enable)
 {
 	int rc = 0;
 
-#ifndef MSM8930_PHASE_2
-	struct pm_gpio hap_gpio_config = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.pull           = PM_GPIO_PULL_NO,
-		.out_strength   = PM_GPIO_STRENGTH_HIGH,
-		.function       = PM_GPIO_FUNC_NORMAL,
-		.inv_int_pol    = 0,
-		.vin_sel        = 2,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.output_value   = 0,
-	};
-
-	if (enable == true) {
-		rc = pm8xxx_gpio_config(PM_HAP_EN_GPIO, &hap_gpio_config);
-		if (rc) {
-			pr_err("%s: pm8921 gpio %d config failed(%d)\n",
-					__func__, PM_HAP_EN_GPIO, rc);
-			return rc;
-		}
-
-		rc = pm8xxx_gpio_config(PM_HAP_LEN_GPIO, &hap_gpio_config);
-		if (rc) {
-			pr_err("%s: pm8921 gpio %d config failed(%d)\n",
-					__func__, PM_HAP_LEN_GPIO, rc);
-			return rc;
-		}
-
-		rc = gpio_request(HAP_SHIFT_LVL_OE_GPIO, "hap_shft_lvl_oe");
-		if (rc) {
-			pr_err("%s: unable to request gpio %d (%d)\n",
-					__func__, HAP_SHIFT_LVL_OE_GPIO, rc);
-			return rc;
-		}
-
-		rc = gpio_direction_output(HAP_SHIFT_LVL_OE_GPIO, 0);
-		if (rc) {
-			pr_err("%s: Unable to set direction\n", __func__);
-			goto free_gpio;
-		}
-
-		xo_handle_d1 = msm_xo_get(MSM_XO_TCXO_D1, "isa1200");
-		if (IS_ERR(xo_handle_d1)) {
-			rc = PTR_ERR(xo_handle_d1);
-			pr_err("%s: failed to get the handle for D1(%d)\n",
-							__func__, rc);
-			goto gpio_set_dir;
-		}
-	} else {
-		gpio_free(HAP_SHIFT_LVL_OE_GPIO);
-
-		msm_xo_put(xo_handle_d1);
-	}
-
-	return 0;
-
-gpio_set_dir:
-	gpio_set_value(HAP_SHIFT_LVL_OE_GPIO, 0);
-free_gpio:
-	gpio_free(HAP_SHIFT_LVL_OE_GPIO);
-	return rc;
-#else
-	struct pm_gpio hap_clk_gpio_config = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.pull           = PM_GPIO_PULL_NO,
-		.out_strength   = PM_GPIO_STRENGTH_HIGH,
-		.function       = PM_GPIO_FUNC_1,
-		.inv_int_pol    = 0,
-		.vin_sel        = PM_GPIO_VIN_S4,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.output_value   = 0,
-	};
-
-	rc = pm8xxx_gpio_config(ISA1200_HAP_CLK, &hap_clk_gpio_config);
+	rc = pm8xxx_aux_clk_control(CLK_MP3_1, XO_DIV_1, enable);
 	if (rc) {
-		pr_err("%s: pm8038 gpio %d config failed(%d)\n",
-				__func__, ISA1200_HAP_CLK, rc);
+		pr_err("%s: unable to write aux clock register(%d)\n",
+			__func__, rc);
 		return rc;
 	}
 
@@ -1363,38 +1261,29 @@ fail_gpio_dir:
 fail_gpio_req:
 	return rc;
 
-#endif
 }
 
 static struct isa1200_regulator isa1200_reg_data[] = {
-#ifndef MSM8930_PHASE_2
-	{
-		.name = "vcc_i2c",
-		.min_uV = ISA_I2C_VTG_MIN_UV,
-		.max_uV = ISA_I2C_VTG_MAX_UV,
-		.load_uA = ISA_I2C_CURR_UA,
-	},
-#else
 	{
 		.name = "vddp",
 		.min_uV = ISA_I2C_VTG_MIN_UV,
 		.max_uV = ISA_I2C_VTG_MAX_UV,
 		.load_uA = ISA_I2C_CURR_UA,
 	},
-#endif
+	{
+		.name = "vcc_i2c",
+		.min_uV = ISA_I2C_VTG_MIN_UV,
+		.max_uV = ISA_I2C_VTG_MAX_UV,
+		.load_uA = ISA_I2C_CURR_UA,
+	},
 };
 
 static struct isa1200_platform_data isa1200_1_pdata = {
 	.name = "vibrator",
 	.dev_setup = isa1200_dev_setup,
 	.power_on = isa1200_power,
-#ifndef MSM8930_PHASE_2
-	.hap_en_gpio = PM_HAP_EN_GPIO,
-	.hap_len_gpio = PM_HAP_LEN_GPIO,
-#else
 	.hap_en_gpio = ISA1200_HAP_EN_GPIO,
 	.hap_len_gpio = ISA1200_HAP_LEN_GPIO,
-#endif
 	.max_timeout = 15000,
 	.mode_ctrl = PWM_GEN_MODE,
 	.pwm_fd = {
@@ -2099,21 +1988,12 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(isl_charger_i2c_info),
 	},
 #endif /* CONFIG_ISL9519_CHARGER */
-#ifndef MSM8930_PHASE_2
 	{
-		I2C_LIQUID,
-		MSM_8930_GSBI10_QUP_I2C_BUS_ID,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
+		MSM_8930_GSBI9_QUP_I2C_BUS_ID,
 		msm_isa1200_board_info,
 		ARRAY_SIZE(msm_isa1200_board_info),
 	},
-#else
-	{
-		I2C_FFA | I2C_FLUID,
-		MSM_8930_GSBI10_QUP_I2C_BUS_ID,
-		msm_isa1200_board_info,
-		ARRAY_SIZE(msm_isa1200_board_info),
-	},
-#endif
 	{
 		I2C_SURF,
 		MSM_8930_GSBI3_QUP_I2C_BUS_ID,

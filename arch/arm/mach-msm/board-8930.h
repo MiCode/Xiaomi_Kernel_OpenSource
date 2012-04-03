@@ -133,6 +133,7 @@ void __init msm8930_init_gpu(void);
 		(socinfo_get_platform_subtype() == 1) \
 	)
 
-#define MSM_8930_GSBI4_QUP_I2C_BUS_ID 4
 #define MSM_8930_GSBI3_QUP_I2C_BUS_ID 3
+#define MSM_8930_GSBI4_QUP_I2C_BUS_ID 4
+#define MSM_8930_GSBI9_QUP_I2C_BUS_ID 0
 #define MSM_8930_GSBI10_QUP_I2C_BUS_ID 10
