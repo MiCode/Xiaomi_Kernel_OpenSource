@@ -674,7 +674,7 @@ void __init qrd7627a_add_io_devices(void)
 		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 					mxt_device_info,
 					ARRAY_SIZE(mxt_device_info));
-	} else if (machine_is_msm7627a_qrd3()) {
+	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		ft5x06_touchpad_setup();
 	}
 
