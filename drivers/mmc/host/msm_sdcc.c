@@ -1691,14 +1691,17 @@ msmsdcc_irq(int irq, void *dev_id)
 			 * will take care of signaling sdio irq during
 			 * mmc_sdio_resume().
 			 */
-			if (host->sdcc_suspended)
+			if (host->sdcc_suspended) {
 				/*
 				 * This is a wakeup interrupt so hold wakelock
 				 * until SDCC resume is handled.
 				 */
 				wake_lock(&host->sdio_wlock);
-			else
+			} else {
+				spin_unlock(&host->lock);
 				mmc_signal_sdio_irq(host->mmc);
+				spin_lock(&host->lock);
+			}
 			ret = 1;
 			break;
 		}
@@ -1725,7 +1728,9 @@ msmsdcc_irq(int irq, void *dev_id)
 		if (status & MCI_SDIOINTROPE) {
 			if (host->sdcc_suspending)
 				wake_lock(&host->sdio_suspend_wlock);
+			spin_unlock(&host->lock);
 			mmc_signal_sdio_irq(host->mmc);
+			spin_lock(&host->lock);
 		}
 		data = host->curr.data;
 
@@ -3105,15 +3110,14 @@ static void msmsdcc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 	 * clocks mci_irqenable will be written to MASK0 register.
 	 */
 
+	spin_lock_irqsave(&host->lock, flags);
 	if (enable) {
-		spin_lock_irqsave(&host->lock, flags);
 		host->mci_irqenable |= MCI_SDIOINTOPERMASK;
 		if (host->clks_on) {
 			writel_relaxed(readl_relaxed(host->base + MMCIMASK0) |
 				MCI_SDIOINTOPERMASK, host->base + MMCIMASK0);
 			mb();
 		}
-		spin_unlock_irqrestore(&host->lock, flags);
 	} else {
 		host->mci_irqenable &= ~MCI_SDIOINTOPERMASK;
 		if (host->clks_on) {
@@ -3122,6 +3126,7 @@ static void msmsdcc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 			mb();
 		}
 	}
+	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 #ifdef CONFIG_PM_RUNTIME
@@ -3934,10 +3939,13 @@ msmsdcc_platform_sdiowakeup_irq(int irq, void *dev_id)
 	}
 	if (host->plat->is_sdio_al_client) {
 		wake_lock(&host->sdio_wlock);
+		spin_unlock(&host->lock);
 		mmc_signal_sdio_irq(host->mmc);
+		goto out_unlocked;
 	}
 	spin_unlock(&host->lock);
 
+out_unlocked:
 	return IRQ_HANDLED;
 }
 
