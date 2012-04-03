@@ -567,34 +567,36 @@ struct clk *rcg_clk_get_parent(struct clk *clk)
 }
 
 /* Disable hw clock gating if not set at boot */
-static void branch_handoff(struct branch *clk, struct clk *c)
+enum handoff branch_handoff(struct branch *clk, struct clk *c)
 {
 	if (!branch_in_hwcg_mode(clk)) {
 		clk->hwcg_mask = 0;
 		c->flags &= ~CLKFLAG_HWCG;
+		if (readl_relaxed(clk->ctl_reg) & clk->en_mask)
+			return HANDOFF_ENABLED_CLK;
 	} else {
 		c->flags |= CLKFLAG_HWCG;
 	}
+	return HANDOFF_DISABLED_CLK;
 }
 
-int branch_clk_handoff(struct clk *c)
+enum handoff branch_clk_handoff(struct clk *c)
 {
 	struct branch_clk *clk = to_branch_clk(c);
-	branch_handoff(&clk->b, &clk->c);
-	return 0;
+	return branch_handoff(&clk->b, &clk->c);
 }
 
-int rcg_clk_handoff(struct clk *c)
+enum handoff rcg_clk_handoff(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	uint32_t ctl_val, ns_val, md_val, ns_mask;
 	struct clk_freq_tbl *freq;
-
-	branch_handoff(&clk->b, &clk->c);
+	enum handoff ret;
 
 	ctl_val = readl_relaxed(clk->b.ctl_reg);
-	if (!(ctl_val & clk->root_en_mask))
-		return 0;
+	ret = branch_handoff(&clk->b, &clk->c);
+	if (ret == HANDOFF_DISABLED_CLK)
+		return HANDOFF_DISABLED_CLK;
 
 	if (clk->bank_info) {
 		const struct bank_masks *bank_masks = clk->bank_info;
@@ -611,7 +613,8 @@ int rcg_clk_handoff(struct clk *c)
 		ns_mask = clk->ns_mask;
 		md_val = clk->md_reg ? readl_relaxed(clk->md_reg) : 0;
 	}
-
+	if (!ns_mask)
+		return HANDOFF_UNKNOWN_RATE;
 	ns_val = readl_relaxed(clk->ns_reg) & ns_mask;
 	for (freq = clk->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
 		if ((freq->ns_val & ns_mask) == ns_val &&
@@ -621,12 +624,12 @@ int rcg_clk_handoff(struct clk *c)
 		}
 	}
 	if (freq->freq_hz == FREQ_END)
-		return 0;
+		return HANDOFF_UNKNOWN_RATE;
 
 	clk->current_freq = freq;
 	c->rate = freq->freq_hz;
 
-	return 1;
+	return HANDOFF_ENABLED_CLK;
 }
 
 int pll_vote_clk_enable(struct clk *clk)
@@ -1058,12 +1061,15 @@ static int cdiv_clk_list_rate(struct clk *c, unsigned n)
 	return n > clk->max_div ? -ENXIO : n;
 }
 
-static int cdiv_clk_handoff(struct clk *c)
+static enum handoff cdiv_clk_handoff(struct clk *c)
 {
 	struct cdiv_clk *clk = to_cdiv_clk(c);
+	enum handoff ret;
 	u32 reg_val;
 
-	branch_handoff(&clk->b, &clk->c);
+	ret = branch_handoff(&clk->b, &clk->c);
+	if (ret == HANDOFF_DISABLED_CLK)
+		return ret;
 
 	reg_val = readl_relaxed(clk->ns_reg);
 	if (reg_val & clk->ext_mask) {
@@ -1073,7 +1079,7 @@ static int cdiv_clk_handoff(struct clk *c)
 		clk->cur_div = (reg_val & (clk->max_div - 1)) + 1;
 	}
 
-	return 0;
+	return HANDOFF_ENABLED_CLK;
 }
 
 static void cdiv_clk_enable_hwcg(struct clk *c)

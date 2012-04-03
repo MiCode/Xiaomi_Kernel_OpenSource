@@ -63,6 +63,12 @@ struct clk_vdd_class {
 		.lock = __SPIN_LOCK_UNLOCKED(lock) \
 	}
 
+enum handoff {
+	HANDOFF_ENABLED_CLK,
+	HANDOFF_DISABLED_CLK,
+	HANDOFF_UNKNOWN_RATE,
+};
+
 struct clk_ops {
 	int (*prepare)(struct clk *clk);
 	int (*enable)(struct clk *clk);
@@ -72,7 +78,7 @@ struct clk_ops {
 	void (*enable_hwcg)(struct clk *clk);
 	void (*disable_hwcg)(struct clk *clk);
 	int (*in_hwcg_mode)(struct clk *clk);
-	int (*handoff)(struct clk *clk);
+	enum handoff (*handoff)(struct clk *clk);
 	int (*reset)(struct clk *clk, enum clk_reset_action action);
 	int (*set_rate)(struct clk *clk, unsigned long rate);
 	int (*set_max_rate)(struct clk *clk, unsigned long rate);

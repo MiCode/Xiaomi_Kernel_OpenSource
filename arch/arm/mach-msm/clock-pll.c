@@ -156,7 +156,7 @@ static bool pll_clk_is_local(struct clk *clk)
 	return true;
 }
 
-static int pll_clk_handoff(struct clk *clk)
+static enum handoff pll_clk_handoff(struct clk *clk)
 {
 	struct pll_shared_clk *pll = to_pll_shared_clk(clk);
 	unsigned int pll_lval;
@@ -184,7 +184,7 @@ static int pll_clk_handoff(struct clk *clk)
 		BUG();
 	}
 
-	return 0;
+	return HANDOFF_ENABLED_CLK;
 }
 
 struct clk_ops clk_pll_ops = {

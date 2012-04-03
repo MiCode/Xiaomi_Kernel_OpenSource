@@ -2866,16 +2866,22 @@ static int pix_rdi_clk_list_rate(struct clk *c, unsigned n)
 	return -ENXIO;
 }
 
-static int pix_rdi_clk_handoff(struct clk *c)
+static enum handoff pix_rdi_clk_handoff(struct clk *c)
 {
 	u32 reg;
 	struct pix_rdi_clk *clk = to_pix_rdi_clk(c);
+	enum handoff ret;
+
+	ret = branch_handoff(&clk->b, &clk->c);
+	if (ret == HANDOFF_DISABLED_CLK)
+		return ret;
 
 	reg = readl_relaxed(clk->s_reg);
 	clk->cur_rate = reg & clk->s_mask ? 1 : 0;
 	reg = readl_relaxed(clk->s2_reg);
 	clk->cur_rate = reg & clk->s2_mask ? 2 : clk->cur_rate;
-	return 0;
+
+	return HANDOFF_ENABLED_CLK;
 }
 
 static struct clk_ops clk_ops_pix_rdi_8960 = {

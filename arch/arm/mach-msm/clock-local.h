@@ -171,7 +171,8 @@ struct branch {
 int branch_reset(struct branch *b, enum clk_reset_action action);
 void __branch_clk_enable_reg(const struct branch *clk, const char *name);
 u32 __branch_clk_disable_reg(const struct branch *clk, const char *name);
-int branch_clk_handoff(struct clk *c);
+enum handoff branch_clk_handoff(struct clk *c);
+enum handoff branch_handoff(struct branch *clk, struct clk *c);
 int branch_clk_set_flags(struct clk *clk, unsigned flags);
 
 /*
@@ -211,7 +212,7 @@ int rcg_clk_list_rate(struct clk *clk, unsigned n);
 int rcg_clk_is_enabled(struct clk *clk);
 long rcg_clk_round_rate(struct clk *clk, unsigned long rate);
 struct clk *rcg_clk_get_parent(struct clk *c);
-int rcg_clk_handoff(struct clk *c);
+enum handoff rcg_clk_handoff(struct clk *c);
 int rcg_clk_reset(struct clk *clk, enum clk_reset_action action);
 void rcg_clk_enable_hwcg(struct clk *clk);
 void rcg_clk_disable_hwcg(struct clk *clk);

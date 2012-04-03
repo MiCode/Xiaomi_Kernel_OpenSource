@@ -412,7 +412,7 @@ void __init msm_clock_init(struct clock_init_data *data)
 		struct clk *parent = clk_get_parent(clk);
 		clk_set_parent(clk, parent);
 		if (clk->ops->handoff && !(clk->flags & CLKFLAG_HANDOFF_RATE)) {
-			if (clk->ops->handoff(clk)) {
+			if (clk->ops->handoff(clk) == HANDOFF_ENABLED_CLK) {
 				clk->flags |= CLKFLAG_HANDOFF_RATE;
 				clk_prepare_enable(clk);
 			}
