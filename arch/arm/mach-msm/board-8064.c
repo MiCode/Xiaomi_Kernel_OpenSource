@@ -2200,6 +2200,20 @@ static void __init register_i2c_devices(void)
 #endif
 }
 
+static void enable_ddr3_regulator(void)
+{
+	static struct regulator *ext_ddr3;
+
+	/* Use MPP7 output state as a flag for PCDDR3 presence. */
+	if (gpio_get_value_cansleep(PM8921_MPP_PM_TO_SYS(7)) > 0) {
+		ext_ddr3 = regulator_get(NULL, "ext_ddr3");
+		if (IS_ERR(ext_ddr3) || ext_ddr3 == NULL)
+			pr_err("Could not get MPP7 regulator\n");
+		else
+			regulator_enable(ext_ddr3);
+	}
+}
+
 static void __init apq8064_common_init(void)
 {
 	if (socinfo_init() < 0)
@@ -2228,6 +2242,7 @@ static void __init apq8064_common_init(void)
 	apq8064_ehci_host_init();
 	apq8064_init_buses();
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+	enable_ddr3_regulator();
 	if (machine_is_apq8064_mtp()) {
 		apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 		device_initialize(&apq8064_device_hsic_host.dev);
