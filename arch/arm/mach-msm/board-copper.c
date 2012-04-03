@@ -369,6 +369,17 @@ void __init msm_copper_add_devices(void)
 					msm_copper_stub_regulator_devices_len);
 }
 
+/*
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
+ */
+void __init msm_copper_add_drivers(void)
+{
+	regulator_stub_init();
+}
+
 static struct of_device_id irq_match[] __initdata  = {
 	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
 	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },

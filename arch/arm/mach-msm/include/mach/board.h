@@ -499,6 +499,7 @@ void msm_copper_init(struct of_dev_auxdata **);
 #endif
 void msm_add_devices(void);
 void msm_copper_add_devices(void);
+void msm_copper_add_drivers(void);
 void msm_map_common_io(void);
 void msm_map_qsd8x50_io(void);
 void msm_map_msm8x60_io(void);

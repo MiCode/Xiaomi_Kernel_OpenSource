@@ -215,11 +215,18 @@ static struct platform_driver regulator_stub_driver = {
 	},
 };
 
-static int __init regulator_stub_init(void)
+int __init regulator_stub_init(void)
 {
+	static int registered;
+
+	if (registered)
+		return 0;
+	else
+		registered = 1;
 	return platform_driver_register(&regulator_stub_driver);
 }
 postcore_initcall(regulator_stub_init);
+EXPORT_SYMBOL(regulator_stub_init);
 
 static void __exit regulator_stub_exit(void)
 {

@@ -55,8 +55,10 @@ static void __init msm_dt_init(void)
 		msm_copper_init(&adata);
 
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
-	if (machine_is_copper())
+	if (machine_is_copper()) {
 		msm_copper_add_devices();
+		msm_copper_add_drivers();
+	}
 }
 
 static const char *msm_dt_match[] __initdata = {
