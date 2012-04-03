@@ -2965,8 +2965,7 @@ static const struct reg_init {
 	{USBH3_NS_REG, BIT(6), BIT(6)},
 };
 
-/* Local clock driver initialization. */
-static void __init msm7x30_clock_init(void)
+static void __init msm7x30_clock_pre_init(void)
 {
 	int i;
 	uint32_t val;
@@ -2979,15 +2978,17 @@ static void __init msm7x30_clock_init(void)
 	 * function is a NOP since writes to shadow regions that we don't own
 	 * are ignored. */
 
-	clk_set_rate(&usb_hs_src_clk.c, clk_tbl_usb[1].freq_hz);
-
 	for (i = 0; i < ARRAY_SIZE(ri_list); i++) {
 		val = readl_relaxed(ri_list[i].reg);
 		val &= ~ri_list[i].mask;
 		val |= ri_list[i].val;
 		writel_relaxed(val, ri_list[i].reg);
 	}
+}
 
+static void __init msm7x30_clock_post_init(void)
+{
+	clk_set_rate(&usb_hs_src_clk.c, 60000000);
 	clk_set_rate(&i2c_clk.c, 19200000);
 	clk_set_rate(&i2c_2_clk.c, 19200000);
 	clk_set_rate(&qup_i2c_clk.c, 19200000);
@@ -3006,7 +3007,8 @@ static void __init msm7x30_clock_init(void)
 struct clock_init_data msm7x30_clock_init_data __initdata = {
 	.table = msm_clocks_7x30,
 	.size = ARRAY_SIZE(msm_clocks_7x30),
-	.init = msm7x30_clock_init,
+	.pre_init = msm7x30_clock_pre_init,
+	.post_init = msm7x30_clock_post_init,
 };
 
 /*

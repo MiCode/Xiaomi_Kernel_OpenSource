@@ -126,13 +126,15 @@ struct clk {
  * struct clock_init_data - SoC specific clock initialization data
  * @table: table of lookups to add
  * @size: size of @table
- * @init: called before registering @table
+ * @pre_init: called before initializing the clock driver.
+ * @post_init: called after registering @table. clock APIs can be called inside.
  * @late_init: called during late init
  */
 struct clock_init_data {
 	struct clk_lookup *table;
 	size_t size;
-	void (*init)(void);
+	void (*pre_init)(void);
+	void (*post_init)(void);
 	int (*late_init)(void);
 };
 

@@ -1739,9 +1739,13 @@ static void set_fsm_mode(void __iomem *mode_reg)
 /*
  * Miscellaneous clock register initializations
  */
-static void __init reg_init(void)
+static void __init msm9615_clock_pre_init(void)
 {
 	u32 regval, is_pll_enabled, pll9_lval;
+
+	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+
+	clk_ops_pll.enable = sr_pll_clk_enable;
 
 	/* Enable PDM CXO source. */
 	regval = readl_relaxed(PDM_CLK_NS_REG);
@@ -1831,17 +1835,10 @@ static void __init reg_init(void)
 	writel_relaxed(regval, DMA_BAM_HCLK_CTL);
 }
 
-/* Local clock driver initialization. */
-static void __init msm9615_clock_init(void)
+static void __init msm9615_clock_post_init(void)
 {
-	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 	/* Keep CXO on whenever APPS cpu is active */
 	clk_prepare_enable(&cxo_a_clk.c);
-
-	clk_ops_pll.enable = sr_pll_clk_enable;
-
-	/* Initialize clock registers. */
-	reg_init();
 
 	/* Initialize rates for clocks that only support one. */
 	clk_set_rate(&pdm_clk.c, 19200000);
@@ -1868,6 +1865,7 @@ static int __init msm9615_clock_late_init(void)
 struct clock_init_data msm9615_clock_init_data __initdata = {
 	.table = msm_clocks_9615,
 	.size = ARRAY_SIZE(msm_clocks_9615),
-	.init = msm9615_clock_init,
+	.pre_init = msm9615_clock_pre_init,
+	.post_init = msm9615_clock_post_init,
 	.late_init = msm9615_clock_late_init,
 };

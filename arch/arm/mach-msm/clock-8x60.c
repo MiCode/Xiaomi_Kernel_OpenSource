@@ -3751,8 +3751,10 @@ static void __init rmwreg(uint32_t val, void *reg, uint32_t mask)
 	writel_relaxed(regval, reg);
 }
 
-static void __init reg_init(void)
+static void __init msm8660_clock_pre_init(void)
 {
+	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+
 	/* Setup MM_PLL2 (PLL3), but turn it off. Rate set by set_rate_tv(). */
 	rmwreg(0, MM_PLL2_MODE_REG, BIT(0)); /* Disable output */
 	/* Set ref, bypass, assert reset, disable output, disable test mode */
@@ -3836,14 +3838,10 @@ static void __init reg_init(void)
 	rmwreg(0x400001, MISC_CC2_REG, 0x424003);
 }
 
-/* Local clock driver initialization. */
-static void __init msm8660_clock_init(void)
+static void __init msm8660_clock_post_init(void)
 {
-	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 	/* Keep PXO on whenever APPS cpu is active */
 	clk_prepare_enable(&pxo_a_clk.c);
-	/* Initialize clock registers. */
-	reg_init();
 
 	/* Initialize rates for clocks that only support one. */
 	clk_set_rate(&pdm_clk.c, 27000000);
@@ -3885,6 +3883,7 @@ static int __init msm8660_clock_late_init(void)
 struct clock_init_data msm8x60_clock_init_data __initdata = {
 	.table = msm_clocks_8x60,
 	.size = ARRAY_SIZE(msm_clocks_8x60),
-	.init = msm8660_clock_init,
+	.pre_init = msm8660_clock_pre_init,
+	.post_init = msm8660_clock_post_init,
 	.late_init = msm8660_clock_late_init,
 };

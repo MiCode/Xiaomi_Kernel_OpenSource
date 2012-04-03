@@ -401,8 +401,8 @@ void __init msm_clock_init(struct clock_init_data *data)
 	size_t num_clocks;
 
 	clk_init_data = data;
-	if (clk_init_data->init)
-		clk_init_data->init();
+	if (clk_init_data->pre_init)
+		clk_init_data->pre_init();
 
 	clock_tbl = data->table;
 	num_clocks = data->size;
@@ -420,6 +420,9 @@ void __init msm_clock_init(struct clock_init_data *data)
 	}
 
 	clkdev_add_table(clock_tbl, num_clocks);
+
+	if (clk_init_data->post_init)
+		clk_init_data->post_init();
 }
 
 /*
