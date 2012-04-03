@@ -484,8 +484,11 @@ static int msm_server_s_ctrl(struct msm_cam_v4l2_device *pcam,
 	uint8_t ctrl_data[max_control_command_size];
 
 	WARN_ON(ctrl == NULL);
-
-	if (ctrl && ctrl->id == MSM_V4L2_PID_CTRL_CMD)
+	if (ctrl == NULL) {
+		pr_err("%s Invalid control\n", __func__);
+		return -EINVAL;
+	}
+	if (ctrl->id == MSM_V4L2_PID_CTRL_CMD)
 		return msm_server_proc_ctrl_cmd(pcam, ctrl, 1);
 
 	memset(ctrl_data, 0, sizeof(ctrl_data));
@@ -512,7 +515,11 @@ static int msm_server_g_ctrl(struct msm_cam_v4l2_device *pcam,
 	uint8_t ctrl_data[max_control_command_size];
 
 	WARN_ON(ctrl == NULL);
-	if (ctrl && ctrl->id == MSM_V4L2_PID_CTRL_CMD)
+	if (ctrl == NULL) {
+		pr_err("%s Invalid control\n", __func__);
+		return -EINVAL;
+	}
+	if (ctrl->id == MSM_V4L2_PID_CTRL_CMD)
 		return msm_server_proc_ctrl_cmd(pcam, ctrl, 0);
 
 	memset(ctrl_data, 0, sizeof(ctrl_data));
@@ -2322,7 +2329,7 @@ static int msm_setup_config_dev(int node, char *device_name)
 	if (IS_ERR(device_config)) {
 		rc = PTR_ERR(device_config);
 		pr_err("%s: error creating device: %d\n", __func__, rc);
-		return rc;
+		goto config_setup_fail;
 	}
 
 	cdev_init(&config_cam->config_cdev,
@@ -2333,7 +2340,7 @@ static int msm_setup_config_dev(int node, char *device_name)
 	if (rc < 0) {
 		pr_err("%s: error adding cdev: %d\n", __func__, rc);
 		device_destroy(msm_class, devno);
-		return rc;
+		goto config_setup_fail;
 	}
 	g_server_dev.config_info.config_dev_name[dev_num]
 		= dev_name(device_config);
@@ -2345,16 +2352,23 @@ static int msm_setup_config_dev(int node, char *device_name)
 	config_cam->config_stat_event_queue.pvdev = video_device_alloc();
 	if (config_cam->config_stat_event_queue.pvdev == NULL) {
 		pr_err("%s: video_device_alloc failed\n", __func__);
-		return -ENOMEM;
+		goto config_setup_fail;
 	}
 
 	rc = msm_setup_v4l2_event_queue(
 		&config_cam->config_stat_event_queue.eventHandle,
 		config_cam->config_stat_event_queue.pvdev);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("%s failed to initialize event queue\n", __func__);
+		goto config_setup_fail;
+	}
 
 	return rc;
+
+config_setup_fail:
+	kfree(config_cam);
+	return rc;
+
 }
 
 static int msm_setup_server_dev(int node, char *device_name)
