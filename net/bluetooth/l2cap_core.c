@@ -5465,7 +5465,9 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 		} else if ((pi->amp_move_state !=
 				L2CAP_AMP_STATE_WAIT_MOVE_RSP_SUCCESS) &&
 			(pi->amp_move_state !=
-				L2CAP_AMP_STATE_WAIT_MOVE_CONFIRM)) {
+				L2CAP_AMP_STATE_WAIT_MOVE_CONFIRM) &&
+			(pi->amp_move_state !=
+				L2CAP_AMP_STATE_WAIT_MOVE_CONFIRM_RSP)) {
 			/* Move was not in expected state, free the channel */
 			ampchan = pi->ampchan;
 			ampcon = pi->ampcon;
