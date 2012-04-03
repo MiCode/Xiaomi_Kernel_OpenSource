@@ -14,10 +14,24 @@
 #define __ARCH_ARM_MACH_MSM_BOARD_7627A__
 
 #include "pm.h"
+#include <linux/fmem.h>
+
 void __init msm7627a_init_mmc(void);
 
 void __init msm_msm7627a_allocate_memory_regions(void);
 void __init msm_fb_add_devices(void);
+
+#define PMEM_KERNEL_EBI1_SIZE	0x3A000
+#define MSM_PMEM_AUDIO_SIZE	0x5B000
+
+#define MSM_PMEM_MDP_SIZE		0x2300000
+#define MSM_PMEM_ADSP_SIZE		0x1100000
+
+#define MSM7x25A_MSM_PMEM_MDP_SIZE	0x1500000
+#define MSM7x25A_MSM_PMEM_ADSP_SIZE	0xB91000
+
+#define QRD_PMEM_MDP_SIZE		0x1DD1000
+#define QRD_PMEM_ADSP_SIZE		0x1100000
 
 enum {
 	GPIO_EXPANDER_IRQ_BASE  = NR_MSM_IRQS + NR_GPIO_IRQS,
@@ -102,9 +116,14 @@ struct bt_vreg_info {
 void __init msm7627a_bt_power_init(void);
 #endif
 
+extern struct fmem_platform_data fmem_pdata;
+
 void __init msm7627a_camera_init(void);
 u32 msm7627a_power_collapse_latency(enum msm_pm_sleep_mode);
 
 void __init msm7627a_add_io_devices(void);
 void __init qrd7627a_add_io_devices(void);
+void __init msm_adsp_add_pdev(void);
+void __init msm7627a_reserve(void);
+void __init qrd7627a_reserve(void);
 #endif
