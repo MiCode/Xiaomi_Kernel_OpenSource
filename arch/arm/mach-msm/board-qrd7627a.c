@@ -507,10 +507,8 @@ static void __init qrd7627a_otg_gadget(void)
 
 static void __init msm_pm_init(void)
 {
-	if (machine_is_msm8625_qrd7())
-		return;
 
-	if (!machine_is_msm8625_evb()) {
+	if (!cpu_is_msm8625()) {
 		msm_pm_set_platform_data(msm7627a_pm_data,
 				ARRAY_SIZE(msm7627a_pm_data));
 		BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
