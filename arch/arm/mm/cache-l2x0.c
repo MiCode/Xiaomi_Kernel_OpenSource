@@ -484,6 +484,16 @@ void l2x0_resume(int collapsed)
 
 		/* Invalidate the cache */
 		l2x0_inv_all();
+		/*
+		 * TBD: make sure that l2xo_inv_all finished
+		 * before actually enabling the cache. Logically this
+		 * is not required as cache sync is atomic operation.
+		 * but on 8x25, observed the random crashes and they go
+		 * away if we add dmb or disable the L2.
+		 * keeping this as temporary workaround until root
+		 * cause is find out.
+		 */
+		dmb();
 	}
 
 	/* Enable the cache */
