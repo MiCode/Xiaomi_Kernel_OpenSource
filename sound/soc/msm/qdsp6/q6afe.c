@@ -77,6 +77,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
 			switch (payload[0]) {
 			case AFE_PORT_AUDIO_IF_CONFIG:
+			case AFE_PORT_CMD_I2S_CONFIG:
 			case AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG:
 			case AFE_PORT_AUDIO_SLIM_SCH_CONFIG:
 			case AFE_PORT_CMD_STOP:
@@ -444,6 +445,26 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		case SLIMBUS_4_TX:
 			config.hdr.opcode = AFE_PORT_AUDIO_SLIM_SCH_CONFIG;
 		break;
+		case MI2S_TX:
+		case MI2S_RX:
+		case SECONDARY_I2S_RX:
+		case SECONDARY_I2S_TX:
+		case PRIMARY_I2S_RX:
+		case PRIMARY_I2S_TX:
+			/* AFE_PORT_CMD_I2S_CONFIG command is not supported
+			 * in the LPASS EL 1.0. So we have to distiguish
+			 * which AFE command, AFE_PORT_CMD_I2S_CONFIG or
+			 * AFE_PORT_AUDIO_IF_CONFIG	to use. If the format
+			 * is L-PCM, the AFE_PORT_AUDIO_IF_CONFIG is used
+			 * to make the backward compatible.
+			 */
+			pr_debug("%s: afe_config->mi2s.format = %d\n", __func__,
+					 afe_config->mi2s.format);
+			if (afe_config->mi2s.format == MSM_AFE_I2S_FORMAT_LPCM)
+				config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+			else
+				config.hdr.opcode = AFE_PORT_CMD_I2S_CONFIG;
+		break;
 		default:
 			config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
 		break;
@@ -533,7 +554,43 @@ int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
 	config.hdr.src_port = 0;
 	config.hdr.dest_port = 0;
 	config.hdr.token = 0;
-	config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+	switch (port_id) {
+	case SLIMBUS_0_RX:
+	case SLIMBUS_0_TX:
+	case SLIMBUS_1_RX:
+	case SLIMBUS_1_TX:
+	case SLIMBUS_2_RX:
+	case SLIMBUS_2_TX:
+	case SLIMBUS_3_RX:
+	case SLIMBUS_3_TX:
+	case SLIMBUS_4_RX:
+	case SLIMBUS_4_TX:
+		config.hdr.opcode = AFE_PORT_AUDIO_SLIM_SCH_CONFIG;
+	break;
+	case MI2S_TX:
+	case MI2S_RX:
+	case SECONDARY_I2S_RX:
+	case SECONDARY_I2S_TX:
+	case PRIMARY_I2S_RX:
+	case PRIMARY_I2S_TX:
+		/* AFE_PORT_CMD_I2S_CONFIG command is not supported
+		 * in the LPASS EL 1.0. So we have to distiguish
+		 * which AFE command, AFE_PORT_CMD_I2S_CONFIG or
+		 * AFE_PORT_AUDIO_IF_CONFIG	to use. If the format
+		 * is L-PCM, the AFE_PORT_AUDIO_IF_CONFIG is used
+		 * to make the backward compatible.
+		 */
+		pr_debug("%s: afe_config->mi2s.format = %d\n", __func__,
+				 afe_config->mi2s.format);
+		if (afe_config->mi2s.format == MSM_AFE_I2S_FORMAT_LPCM)
+			config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+		else
+			config.hdr.opcode = AFE_PORT_CMD_I2S_CONFIG;
+	break;
+	default:
+		config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+	break;
+	}
 
 	if (afe_validate_port(port_id) < 0) {
 
