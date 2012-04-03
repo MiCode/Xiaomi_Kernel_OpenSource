@@ -49,8 +49,7 @@
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
 
-#define ID_TIMER_FREQ		(jiffies + msecs_to_jiffies(2000))
-#define ID_TIMER_INITIAL_FREQ	(jiffies + msecs_to_jiffies(1000))
+#define ID_TIMER_FREQ		(jiffies + msecs_to_jiffies(500))
 #define ULPI_IO_TIMEOUT_USEC	(10 * 1000)
 #define USB_PHY_3P3_VOL_MIN	3050000 /* uV */
 #define USB_PHY_3P3_VOL_MAX	3300000 /* uV */
@@ -2292,7 +2291,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 			msm_otg_start_host(otg, 1);
 			msm_chg_enable_aca_det(motg);
 			msm_chg_disable_aca_intr(motg);
-			mod_timer(&motg->id_timer, ID_TIMER_INITIAL_FREQ);
+			mod_timer(&motg->id_timer, ID_TIMER_FREQ);
 			if (msm_chg_check_aca_intr(motg))
 				work = 1;
 		}
