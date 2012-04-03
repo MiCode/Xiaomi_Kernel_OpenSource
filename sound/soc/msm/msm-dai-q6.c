@@ -44,6 +44,54 @@ static DEFINE_MUTEX(aux_pcm_mutex);
 static int aux_pcm_count;
 static struct msm_dai_auxpcm_pdata *auxpcm_plat_data;
 
+static int msm_dai_q6_mi2s_format_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+	int value = ucontrol->value.integer.value[0];
+	dai_data->port_config.mi2s.format = value;
+	pr_debug("%s: value = %d, channel = %d, line = %d\n",
+		   __func__, value, dai_data->port_config.mi2s.channel,
+		   dai_data->port_config.mi2s.line);
+	return 0;
+}
+
+static int msm_dai_q6_mi2s_format_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+	ucontrol->value.integer.value[0] = dai_data->port_config.mi2s.format ;
+	return 0;
+}
+
+
+/* MI2S format field for AFE_PORT_CMD_I2S_CONFIG command
+ *  0: linear PCM
+ *  1: non-linear PCM
+ *  2: PCM data in IEC 60968 container
+ *  3: compressed data in IEC 60958 container
+ */
+static const char *mi2s_format[] = {
+	"LPCM",
+	"Compr",
+	"60958-LPCM",
+	"60958-Compr"};
+
+static const struct soc_enum mi2s_config_enum[] = {
+	SOC_ENUM_SINGLE_EXT(4, mi2s_format),
+};
+
+static const struct snd_kcontrol_new mi2s_config_controls[] = {
+	SOC_ENUM_EXT("MI2S RX Format", mi2s_config_enum[0],
+				 msm_dai_q6_mi2s_format_get,
+				 msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("SEC RX Format", mi2s_config_enum[0],
+				 msm_dai_q6_mi2s_format_get,
+				 msm_dai_q6_mi2s_format_put),
+};
+
 static u8 num_of_bits_set(u8 sd_line_mask)
 {
 	u8 num_bits_set = 0;
@@ -108,6 +156,10 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_hw_params *params,
 	/* Q6 only supports 16 as now */
 	dai_data->port_config.mi2s.bitwidth = 16;
 
+	pr_debug("%s: format = %d, channel = %d, line = %d\n",
+		   __func__, dai_data->port_config.mi2s.format,
+		   dai_data->port_config.mi2s.channel,
+		   dai_data->port_config.mi2s.line);
 	return 0;
 }
 
@@ -708,6 +760,9 @@ done:
 static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_dai_data *dai_data;
+	struct msm_mi2s_data *mi2s_pdata =
+			(struct msm_mi2s_data *)dai->dev->platform_data;
+	const struct snd_kcontrol_new *kcontrol;
 	int rc = 0;
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data),
@@ -726,7 +781,14 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 		pr_err("%s: The msm_dai_q6_mi2s_platform_data_validation failed\n",
 			    __func__);
 		kfree(dai_data);
+		goto rtn;
 	}
+	if (mi2s_pdata->capability == MSM_MI2S_CAP_RX) {
+		kcontrol = &mi2s_config_controls[0];
+		rc = snd_ctl_add(dai->card->snd_card,
+					snd_ctl_new1(kcontrol, dai_data));
+	}
+
 rtn:
 	return rc;
 }
@@ -735,6 +797,7 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_dai_data *dai_data;
 	int rc = 0;
+	const struct snd_kcontrol_new *kcontrol;
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data),
 		GFP_KERNEL);
@@ -745,6 +808,11 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 		rc = -ENOMEM;
 	} else
 		dev_set_drvdata(dai->dev, dai_data);
+	if (dai->id == SECONDARY_I2S_RX) {
+		kcontrol = &mi2s_config_controls[1];
+		rc = snd_ctl_add(dai->card->snd_card,
+				 snd_ctl_new1(kcontrol, dai_data));
+	}
 
 	return rc;
 }
