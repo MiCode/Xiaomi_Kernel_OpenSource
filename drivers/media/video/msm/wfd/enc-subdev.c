@@ -191,7 +191,7 @@ static void venc_cb(u32 event, u32 status, void *info, u32 size, void *handle,
 		}
 
 		vbuf->v4l2_buf.timestamp =
-			ns_to_timeval(frame_data->time_stamp);
+			ns_to_timeval(frame_data->time_stamp * NSEC_PER_USEC);
 
 		WFD_MSG_DBG("bytes used %d, ts: %d.%d, frame type is %d\n",
 				frame_data->data_len,
@@ -1051,6 +1051,7 @@ static long venc_set_framerate(struct v4l2_subdev *sd,
 	struct v4l2_fract *frate = arg;
 	struct vcd_property_hdr vcd_property_hdr;
 	struct vcd_property_frame_rate vcd_frame_rate;
+	struct vcd_property_vop_timing_constant_delta vcd_delta;
 	int rc;
 	vcd_property_hdr.prop_id = VCD_I_FRAME_RATE;
 	vcd_property_hdr.sz =
@@ -1060,8 +1061,25 @@ static long venc_set_framerate(struct v4l2_subdev *sd,
 	vcd_frame_rate.fps_numerator = frate->denominator;
 	rc = vcd_set_property(client_ctx->vcd_handle,
 					&vcd_property_hdr, &vcd_frame_rate);
-	if (rc)
+	if (rc) {
 		WFD_MSG_ERR("Failed to set frame rate, rc = %d\n", rc);
+		goto set_framerate_fail;
+	}
+
+	vcd_property_hdr.prop_id = VCD_I_VOP_TIMING_CONSTANT_DELTA;
+	vcd_property_hdr.sz = sizeof(vcd_delta);
+
+	vcd_delta.constant_delta = (frate->numerator * USEC_PER_SEC) /
+					frate->denominator;
+	rc = vcd_set_property(client_ctx->vcd_handle,
+					&vcd_property_hdr, &vcd_delta);
+
+	if (rc) {
+		WFD_MSG_ERR("Failed to set frame delta, rc = %d", rc);
+		goto set_framerate_fail;
+	}
+
+set_framerate_fail:
 	return rc;
 }
 
@@ -1827,12 +1845,16 @@ static long venc_encode_frame(struct v4l2_subdev *sd, void *arg)
 	struct venc_buf_info *venc_buf = arg;
 	struct mem_region *mregion = venc_buf->mregion;
 	struct vcd_frame_data vcd_input_buffer = {0};
+	int64_t ts = 0;
+
+	ts = venc_buf->timestamp;
+	do_div(ts, NSEC_PER_USEC);
 
 	vcd_input_buffer.virtual = mregion->kvaddr;
 	vcd_input_buffer.frm_clnt_data = (u32)mregion;
 	vcd_input_buffer.ip_frm_tag = (u32)mregion;
 	vcd_input_buffer.data_len = mregion->size;
-	vcd_input_buffer.time_stamp = venc_buf->timestamp;
+	vcd_input_buffer.time_stamp = ts;
 	vcd_input_buffer.offset = 0;
 
 	rc = vcd_encode_frame(client_ctx->vcd_handle,

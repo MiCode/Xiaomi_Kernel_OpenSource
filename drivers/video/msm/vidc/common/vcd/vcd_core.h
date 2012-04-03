@@ -191,6 +191,7 @@ struct vcd_clnt_ctxt {
 	u32 frm_p_units;
 	u32 reqd_perf_lvl;
 	u32 time_resoln;
+	u32 time_frame_delta;
 
 	struct vcd_buffer_pool in_buf_pool;
 	struct vcd_buffer_pool out_buf_pool;

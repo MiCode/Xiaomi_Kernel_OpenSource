@@ -3052,13 +3052,15 @@ u32 vcd_calculate_frame_delta(
 	u32 frm_delta;
 	u64 temp, max = ~((u64)0);
 
-	if (frame->time_stamp >= cctxt->status.prev_ts)
+	if (cctxt->time_frame_delta)
+		temp = cctxt->time_frame_delta;
+	else if (frame->time_stamp >= cctxt->status.prev_ts)
 		temp = frame->time_stamp - cctxt->status.prev_ts;
 	else
 		temp = (max - cctxt->status.prev_ts) +
 			frame->time_stamp;
 
-	VCD_MSG_LOW("Curr_ts=%lld  Prev_ts=%lld Diff=%llu",
+	VCD_MSG_LOW("Curr_ts=%lld  Prev_ts=%lld Diff=%llu\n",
 			frame->time_stamp, cctxt->status.prev_ts, temp);
 
 	temp *= cctxt->time_resoln;
