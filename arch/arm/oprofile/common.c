@@ -36,6 +36,8 @@ char *op_name_from_perf_id(void)
 		return "arm/armv6";
 	case ARM_PERF_PMU_ID_V6MP:
 		return "arm/mpcore";
+	case ARM_PERF_PMU_ID_CA5:
+		return "arm/armv7";
 	case ARM_PERF_PMU_ID_CA8:
 		return "arm/armv7";
 	case ARM_PERF_PMU_ID_CA9:
