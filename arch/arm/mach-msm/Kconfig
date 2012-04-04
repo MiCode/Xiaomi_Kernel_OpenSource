@@ -2192,10 +2192,23 @@ config MSM_L1_ERR_PANIC
 
 	  For production builds, you should probably say 'N' here.
 
+config MSM_L2_ERP_PRINT_ACCESS_ERRORS
+	bool "Report L2 master port slave/decode errors in kernel log"
+	depends on MSM_CACHE_ERP
+	help
+	  Master port errors can occur when a memory request is not properly
+	  handled by the destination slave. This can occur if the destination
+	  register does not exist or is inaccessible due to security
+	  restrictions or (in some cases) clock configuration. Enabling this
+	  option will cause a backtrace to be printed to the kernel log whenever
+	  such an error is encountered. Note that the error is reported as an
+	  interrupt rather than as an exception, meaning that the backtrace may
+	  have some skid. This option may help with debugging, though production
+	  builds should probably say 'N' here.
 
 config MSM_L2_ERP_PORT_PANIC
 	bool "Panic on L2 master port errors"
-	depends on MSM_CACHE_ERP
+	depends on MSM_CACHE_ERP && MSM_L2_ERP_PRINT_ACCESS_ERRORS
 	help
 	  Master port errors can occur when a memory request is not properly
 	  handled by the destination slave. Enable this option to catch drivers

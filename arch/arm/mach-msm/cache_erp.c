@@ -43,6 +43,8 @@
 #define L2ESR_MSE		BIT(6)
 #define L2ESR_MPLDREXNOK	BIT(8)
 
+#define L2ESR_ACCESS_ERR_MASK	0xFFFC
+
 #define L2ESR_CPU_MASK		0x0F
 #define L2ESR_CPU_SHIFT		16
 
@@ -62,6 +64,12 @@
 #define ERP_1BIT_ERR(a) panic(a)
 #else
 #define ERP_1BIT_ERR(a) do { } while (0)
+#endif
+
+#ifdef CONFIG_MSM_L2_ERP_PRINT_ACCESS_ERRORS
+#define print_access_errors()	1
+#else
+#define print_access_errors()	0
 #endif
 
 #ifdef CONFIG_MSM_L2_ERP_2BIT_PANIC
@@ -257,6 +265,7 @@ static irqreturn_t msm_l2_erp_irq(int irq, void *dev_id)
 	int soft_error = 0;
 	int port_error = 0;
 	int unrecoverable = 0;
+	int print_alert;
 
 	l2esr = get_l2_indirect_reg(L2ESR_IND_ADDR);
 	l2esynr0 = get_l2_indirect_reg(L2ESYNR0_IND_ADDR);
@@ -264,23 +273,29 @@ static irqreturn_t msm_l2_erp_irq(int irq, void *dev_id)
 	l2ear0 = get_l2_indirect_reg(L2EAR0_IND_ADDR);
 	l2ear1 = get_l2_indirect_reg(L2EAR1_IND_ADDR);
 
-	pr_alert("L2 Error detected!\n");
-	pr_alert("\tL2ESR    = 0x%08x\n", l2esr);
-	pr_alert("\tL2ESYNR0 = 0x%08x\n", l2esynr0);
-	pr_alert("\tL2ESYNR1 = 0x%08x\n", l2esynr1);
-	pr_alert("\tL2EAR0   = 0x%08x\n", l2ear0);
-	pr_alert("\tL2EAR1   = 0x%08x\n", l2ear1);
-	pr_alert("\tCPU bitmap = 0x%x\n", (l2esr >> L2ESR_CPU_SHIFT) &
-						    L2ESR_CPU_MASK);
+	print_alert = print_access_errors() || (l2esr & L2ESR_ACCESS_ERR_MASK);
+
+	if (print_alert) {
+		pr_alert("L2 Error detected!\n");
+		pr_alert("\tL2ESR    = 0x%08x\n", l2esr);
+		pr_alert("\tL2ESYNR0 = 0x%08x\n", l2esynr0);
+		pr_alert("\tL2ESYNR1 = 0x%08x\n", l2esynr1);
+		pr_alert("\tL2EAR0   = 0x%08x\n", l2ear0);
+		pr_alert("\tL2EAR1   = 0x%08x\n", l2ear1);
+		pr_alert("\tCPU bitmap = 0x%x\n", (l2esr >> L2ESR_CPU_SHIFT) &
+							L2ESR_CPU_MASK);
+	}
 
 	if (l2esr & L2ESR_MPDCD) {
-		pr_alert("L2 master port decode error\n");
+		if (print_alert)
+			pr_alert("L2 master port decode error\n");
 		port_error++;
 		msm_l2_erp_stats.mpdcd++;
 	}
 
 	if (l2esr & L2ESR_MPSLV) {
-		pr_alert("L2 master port slave error\n");
+		if (print_alert)
+			pr_alert("L2 master port slave error\n");
 		port_error++;
 		msm_l2_erp_stats.mpslv++;
 	}
@@ -323,7 +338,7 @@ static irqreturn_t msm_l2_erp_irq(int irq, void *dev_id)
 		msm_l2_erp_stats.mplxrexnok++;
 	}
 
-	if (port_error)
+	if (port_error && print_alert)
 		ERP_PORT_ERR("L2 master port error detected");
 
 	if (soft_error && !unrecoverable)
