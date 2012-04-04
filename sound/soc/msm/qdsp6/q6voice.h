@@ -163,6 +163,14 @@ struct vss_unmap_memory_cmd {
 #define VSS_IWIDEVOICE_CMD_SET_WIDEVOICE                0x00011243
 /* Enable/disable WideVoice */
 
+enum msm_audio_voc_rate {
+		VOC_0_RATE, /* Blank frame */
+		VOC_8_RATE, /* 1/8 rate    */
+		VOC_4_RATE, /* 1/4 rate    */
+		VOC_2_RATE, /* 1/2 rate    */
+		VOC_1_RATE  /* Full rate   */
+};
+
 struct vss_istream_cmd_set_tty_mode_t {
 	uint32_t mode;
 	/**<
@@ -657,6 +665,10 @@ struct cvs_start_record_cmd {
 /* G.711 mu-law (contains two 10ms vocoder frames). */
 #define VSS_MEDIA_ID_G729		0x00010FD0
 /* G.729AB (contains two 10ms vocoder frames. */
+#define VSS_MEDIA_ID_4GV_NB_MODEM	0x00010FC3
+/*CDMA EVRC-B vocoder modem format */
+#define VSS_MEDIA_ID_4GV_WB_MODEM	0x00010FC4
+/*CDMA EVRC-WB vocoder modem format */
 
 #define VSS_IVOCPROC_CMD_SET_MUTE			0x000110EF
 
