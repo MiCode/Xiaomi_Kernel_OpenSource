@@ -259,6 +259,7 @@ config ARCH_MSMCOPPER
 	select MSM_L2_SPM
 	select MSM_PM8X60 if PM
 	select MSM_RPM_SMD
+	select REGULATOR
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
@@ -1799,6 +1800,18 @@ config MSM_RPM_REGULATOR
 	  Compile in support for the RPM regulator driver, used for setting
 	  voltages and other parameters of the various power rails supplied
 	  by some Qualcomm PMICs.
+
+config MSM_RPM_REGULATOR_SMD
+	bool "SMD RPM regulator driver"
+	depends on REGULATOR
+	depends on OF
+	depends on MSM_RPM_SMD
+	help
+	  Compile in support for the SMD RPM regulator driver which is used for
+	  setting voltages and other parameters of the various power rails
+	  supplied by some Qualcomm PMICs.  The SMD RPM regulator driver should
+	  be used on systems which contain an RPM which communicates with the
+	  application processor over SMD.
 
 config MSM_PIL
 	bool "Peripheral image loading"
