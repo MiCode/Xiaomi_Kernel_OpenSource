@@ -46,7 +46,16 @@
 #define MSM_FB_EXT_BUF_SIZE	0
 #endif
 
-#define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE, 4096)
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+#define MSM_FB_WFD_BUF_SIZE \
+		(roundup((1280 * 736 * 2), 4096) * 1) /* 2 bpp x 1 page */
+#else
+#define MSM_FB_WFD_BUF_SIZE     0
+#endif
+
+#define MSM_FB_SIZE \
+	roundup(MSM_FB_PRIM_BUF_SIZE + \
+		MSM_FB_EXT_BUF_SIZE + MSM_FB_WFD_BUF_SIZE, 4096)
 
 #ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK
 #define MSM_FB_OVERLAY0_WRITEBACK_SIZE roundup((1376 * 768 * 3 * 2), 4096)
@@ -296,6 +305,19 @@ static struct platform_device hdmi_msm_device = {
 	.resource = hdmi_msm_resources,
 	.dev.platform_data = &hdmi_msm_data,
 };
+
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+static struct platform_device wfd_panel_device = {
+	.name = "wfd_panel",
+	.id = 0,
+	.dev.platform_data = NULL,
+};
+
+static struct platform_device wfd_device = {
+	.name          = "msm_wfd",
+	.id            = -1,
+};
+#endif
 
 /* HDMI related GPIOs */
 #define HDMI_CEC_VAR_GPIO	69
@@ -896,6 +918,11 @@ void __init apq8064_init_fb(void)
 {
 	platform_device_register(&msm_fb_device);
 	platform_device_register(&lvds_chimei_panel_device);
+
+#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
+	platform_device_register(&wfd_panel_device);
+	platform_device_register(&wfd_device);
+#endif
 
 	if (machine_is_apq8064_liquid())
 		platform_device_register(&mipi_dsi2lvds_bridge_device);
