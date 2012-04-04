@@ -223,6 +223,9 @@ static int fmem_memory_callback(struct notifier_block *self,
 {
 	int ret = 0;
 
+	if (fmem_state == FMEM_UNINITIALIZED)
+		return NOTIFY_OK;
+
 	switch (action) {
 	case MEM_ONLINE:
 		fmem_mem_online_callback(arg);
