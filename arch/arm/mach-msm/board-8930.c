@@ -1995,7 +1995,7 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(msm_isa1200_board_info),
 	},
 	{
-		I2C_SURF,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_8930_GSBI3_QUP_I2C_BUS_ID,
 		mxt_device_info_8930,
 		ARRAY_SIZE(mxt_device_info_8930),
@@ -2098,8 +2098,7 @@ static void __init msm8930_cdp_init(void)
 	msm8930_init_cam();
 	msm8930_init_mmc();
 	acpuclk_init(&acpuclk_8930_soc_data);
-	if (machine_is_msm8930_cdp() || machine_is_msm8627_cdp())
-		mxt_init_vkeys_8930();
+	mxt_init_vkeys_8930();
 	register_i2c_devices();
 	msm8930_init_fb();
 	slim_register_board_info(msm_slim_devices,
