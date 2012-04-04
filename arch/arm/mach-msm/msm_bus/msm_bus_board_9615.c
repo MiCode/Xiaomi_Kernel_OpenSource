@@ -184,6 +184,8 @@ static struct msm_bus_node_info system_fabric_info[]  = {
 		.tier = tier2,
 		.num_tiers = ARRAY_SIZE(tier2),
 		.buswidth = 8,
+		.slaveclk[DUAL_CTX] = "dfab_clk",
+		.slaveclk[ACTIVE_CTX] = "dfab_a_clk",
 	},
 	{
 		.id = MSM_BUS_SLAVE_EBI_CH0,
