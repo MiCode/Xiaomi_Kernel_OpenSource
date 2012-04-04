@@ -2365,26 +2365,19 @@ static void smsm_cb_snapshot(uint32_t use_wakelock)
 		return;
 	}
 
-	/* queue state entries */
-	for (n = 0; n < SMSM_NUM_ENTRIES; n++) {
-		new_state = __raw_readl(SMSM_STATE_ADDR(n));
-
-		ret = kfifo_in(&smsm_snapshot_fifo,
-				&new_state, sizeof(new_state));
-		if (ret != sizeof(new_state)) {
-			pr_err("%s: SMSM snapshot failure %d\n", __func__, ret);
-			return;
-		}
-	}
-
-	/* queue wakelock usage flag */
-	ret = kfifo_in(&smsm_snapshot_fifo,
-			&use_wakelock, sizeof(use_wakelock));
-	if (ret != sizeof(use_wakelock)) {
-		pr_err("%s: SMSM snapshot failure %d\n", __func__, ret);
-		return;
-	}
-
+	/*
+	 * To avoid a race condition with notify_smsm_cb_clients_worker, the
+	 * following sequence must be followed:
+	 *   1) increment snapshot count
+	 *   2) insert data into FIFO
+	 *
+	 *   Potentially in parallel, the worker:
+	 *   a) verifies >= 1 snapshots are in FIFO
+	 *   b) processes snapshot
+	 *   c) decrements reference count
+	 *
+	 *   This order ensures that 1 will always occur before abc.
+	 */
 	if (use_wakelock) {
 		spin_lock_irqsave(&smsm_snapshot_count_lock, flags);
 		if (smsm_snapshot_count == 0) {
@@ -2394,7 +2387,44 @@ static void smsm_cb_snapshot(uint32_t use_wakelock)
 		++smsm_snapshot_count;
 		spin_unlock_irqrestore(&smsm_snapshot_count_lock, flags);
 	}
+
+	/* queue state entries */
+	for (n = 0; n < SMSM_NUM_ENTRIES; n++) {
+		new_state = __raw_readl(SMSM_STATE_ADDR(n));
+
+		ret = kfifo_in(&smsm_snapshot_fifo,
+				&new_state, sizeof(new_state));
+		if (ret != sizeof(new_state)) {
+			pr_err("%s: SMSM snapshot failure %d\n", __func__, ret);
+			goto restore_snapshot_count;
+		}
+	}
+
+	/* queue wakelock usage flag */
+	ret = kfifo_in(&smsm_snapshot_fifo,
+			&use_wakelock, sizeof(use_wakelock));
+	if (ret != sizeof(use_wakelock)) {
+		pr_err("%s: SMSM snapshot failure %d\n", __func__, ret);
+		goto restore_snapshot_count;
+	}
+
 	schedule_work(&smsm_cb_work);
+	return;
+
+restore_snapshot_count:
+	if (use_wakelock) {
+		spin_lock_irqsave(&smsm_snapshot_count_lock, flags);
+		if (smsm_snapshot_count) {
+			--smsm_snapshot_count;
+			if (smsm_snapshot_count == 0) {
+				SMx_POWER_INFO("SMSM snapshot wake unlock\n");
+				wake_unlock(&smsm_snapshot_wakelock);
+			}
+		} else {
+			pr_err("%s: invalid snapshot count\n", __func__);
+		}
+		spin_unlock_irqrestore(&smsm_snapshot_count_lock, flags);
+	}
 }
 
 static irqreturn_t smsm_irq_handler(int irq, void *data)
