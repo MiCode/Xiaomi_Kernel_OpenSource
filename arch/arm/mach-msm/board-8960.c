@@ -79,6 +79,8 @@
 #include <mach/mdm2.h>
 #include <mach/mdm-peripheral.h>
 #include <mach/msm_rtb.h>
+#include <mach/msm_cache_dump.h>
+#include <mach/scm.h>
 
 #include <linux/fmem.h>
 
@@ -590,6 +592,43 @@ static void __init reserve_mdp_memory(void)
 	msm8960_mdp_writeback(msm8960_reserve_table);
 }
 
+#if defined(CONFIG_MSM_CACHE_DUMP)
+static struct msm_cache_dump_platform_data msm_cache_dump_pdata = {
+	.l2_size = L2_BUFFER_SIZE,
+};
+
+static struct platform_device msm_cache_dump_device = {
+	.name           = "msm_cache_dump",
+	.id             = -1,
+	.dev            = {
+		.platform_data = &msm_cache_dump_pdata,
+	},
+};
+
+#endif
+
+static void reserve_cache_dump_memory(void)
+{
+#ifdef CONFIG_MSM_CACHE_DUMP
+	unsigned int spare;
+	unsigned int l1_size;
+	unsigned int total;
+	int ret;
+
+	ret = scm_call(L1C_SERVICE_ID, L1C_BUFFER_GET_SIZE_COMMAND_ID, &spare,
+		sizeof(spare), &l1_size, sizeof(l1_size));
+
+	if (ret)
+		/* Fall back to something reasonable here */
+		l1_size = L1_BUFFER_SIZE;
+
+	total = l1_size + L2_BUFFER_SIZE;
+
+	msm8960_reserve_table[MEMTYPE_EBI1].size += total;
+	msm_cache_dump_pdata.l1_size = l1_size;
+#endif
+}
+
 static void __init msm8960_calculate_reserve_sizes(void)
 {
 	size_pmem_devices();
@@ -597,6 +636,7 @@ static void __init msm8960_calculate_reserve_sizes(void)
 	reserve_ion_memory();
 	reserve_mdp_memory();
 	reserve_rtb_memory();
+	reserve_cache_dump_memory();
 }
 
 static struct reserve_info msm8960_reserve_info __initdata = {
@@ -2214,6 +2254,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_cpu_idle_device,
 	&msm8960_msm_gov_device,
 	&msm8960_device_cache_erp,
+#ifdef CONFIG_MSM_CACHE_DUMP
+	&msm_cache_dump_device,
+#endif
 };
 
 static struct platform_device *sim_devices[] __initdata = {
