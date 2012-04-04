@@ -442,24 +442,24 @@ static int __init clock_late_init(void)
 		bool handoff = false;
 
 		clock_debug_add(clk);
+		spin_lock_irqsave(&clk->lock, flags);
 		if (!(clk->flags & CLKFLAG_SKIP_AUTO_OFF)) {
-			spin_lock_irqsave(&clk->lock, flags);
 			if (!clk->count && clk->ops->auto_off) {
 				count++;
 				clk->ops->auto_off(clk);
 			}
-			if (clk->flags & CLKFLAG_HANDOFF_RATE) {
-				clk->flags &= ~CLKFLAG_HANDOFF_RATE;
-				handoff = true;
-			}
-			spin_unlock_irqrestore(&clk->lock, flags);
-			/*
-			 * Calling this outside the lock is safe since
-			 * it doesn't need to be atomic with the flag change.
-			 */
-			if (handoff)
-				clk_disable_unprepare(clk);
 		}
+		if (clk->flags & CLKFLAG_HANDOFF_RATE) {
+			clk->flags &= ~CLKFLAG_HANDOFF_RATE;
+			handoff = true;
+		}
+		spin_unlock_irqrestore(&clk->lock, flags);
+		/*
+		 * Calling this outside the lock is safe since
+		 * it doesn't need to be atomic with the flag change.
+		 */
+		if (handoff)
+			clk_disable_unprepare(clk);
 	}
 	pr_info("clock_late_init() disabled %d unused clocks\n", count);
 	if (clk_init_data->late_init)
