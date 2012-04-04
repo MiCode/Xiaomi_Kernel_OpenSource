@@ -79,7 +79,7 @@ enum pm8xxx_aux_clk_id {
 };
 
 enum pm8xxx_aux_clk_div {
-	X0_DIV_NONE,
+	XO_DIV_NONE,
 	XO_DIV_1,
 	XO_DIV_2,
 	XO_DIV_4,
