@@ -3037,5 +3037,4 @@ static struct clk_ops clk_ops_branch = {
 	.set_flags = soc_clk_set_flags,
 	.is_local = local_clk_is_local,
 	.get_parent = branch_clk_get_parent,
-	.set_parent = branch_clk_set_parent,
 };

@@ -581,7 +581,6 @@ static struct clk_ops clk_ops_branch = {
 	.reset = branch_clk_reset,
 	.is_local = local_clk_is_local,
 	.get_parent = branch_clk_get_parent,
-	.set_parent = branch_clk_set_parent,
 	.handoff = branch_clk_handoff,
 	.set_flags = branch_clk_set_flags,
 };

@@ -832,19 +832,6 @@ struct clk *branch_clk_get_parent(struct clk *clk)
 	return branch->parent;
 }
 
-int branch_clk_set_parent(struct clk *clk, struct clk *parent)
-{
-	/*
-	 * We setup the parent pointer at init time in msm_clock_init().
-	 * This check is to make sure drivers can't change the parent.
-	 */
-	if (parent && list_empty(&clk->siblings)) {
-		list_add(&clk->siblings, &parent->children);
-		return 0;
-	}
-	return -EINVAL;
-}
-
 int branch_clk_is_enabled(struct clk *clk)
 {
 	struct branch_clk *branch = to_branch_clk(clk);

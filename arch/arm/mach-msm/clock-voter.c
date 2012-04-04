@@ -148,18 +148,6 @@ static long voter_clk_round_rate(struct clk *clk, unsigned long rate)
 	return clk_round_rate(v->parent, rate);
 }
 
-static int voter_clk_set_parent(struct clk *clk, struct clk *parent)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&voter_clk_lock, flags);
-	if (list_empty(&clk->siblings))
-		list_add(&clk->siblings, &parent->children);
-	spin_unlock_irqrestore(&voter_clk_lock, flags);
-
-	return 0;
-}
-
 static struct clk *voter_clk_get_parent(struct clk *clk)
 {
 	struct clk_voter *v = to_clk_voter(clk);
@@ -178,7 +166,6 @@ struct clk_ops clk_ops_voter = {
 	.get_rate = voter_clk_get_rate,
 	.is_enabled = voter_clk_is_enabled,
 	.round_rate = voter_clk_round_rate,
-	.set_parent = voter_clk_set_parent,
 	.get_parent = voter_clk_get_parent,
 	.is_local = voter_clk_is_local,
 };
