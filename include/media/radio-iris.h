@@ -44,7 +44,14 @@
 /* default data access */
 #define DEFAULT_DATA_OFFSET 2
 #define DEFAULT_DATA_SIZE 249
-
+/* Power levels are 0-7, but SOC will expect values from 0-255
+ * So the each level step size will be 255/7 = 36 */
+#define FM_TX_PWR_LVL_STEP_SIZE 36
+#define FM_TX_PWR_LVL_0         0 /* Lowest power lvl that can be set for Tx */
+#define FM_TX_PWR_LVL_MAX       7 /* Max power lvl for Tx */
+#define FM_TX_PHY_CFG_MODE   0x3c
+#define FM_TX_PHY_CFG_LEN    0x10
+#define FM_TX_PWR_GAIN_OFFSET 14
 /* HCI timeouts */
 #define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
 
