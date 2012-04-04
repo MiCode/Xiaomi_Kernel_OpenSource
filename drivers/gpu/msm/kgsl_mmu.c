@@ -35,6 +35,10 @@ static void pagetable_remove_sysfs_objects(struct kgsl_pagetable *pagetable);
 static int kgsl_cleanup_pt(struct kgsl_pagetable *pt)
 {
 	int i;
+	/* For IOMMU only unmap the global structures to global pt */
+	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) &&
+		(KGSL_MMU_GLOBAL_PT !=  pt->name))
+		return 0;
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
 		struct kgsl_device *device = kgsl_driver.devp[i];
 		if (device)
@@ -57,6 +61,8 @@ static void kgsl_destroy_pagetable(struct kref *kref)
 
 	kgsl_cleanup_pt(pagetable);
 
+	if (pagetable->kgsl_pool)
+		gen_pool_destroy(pagetable->kgsl_pool);
 	if (pagetable->pool)
 		gen_pool_destroy(pagetable->pool);
 
@@ -384,6 +390,10 @@ static int kgsl_setup_pt(struct kgsl_pagetable *pt)
 	int i = 0;
 	int status = 0;
 
+	/* For IOMMU only map the global structures to global pt */
+	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) &&
+		(KGSL_MMU_GLOBAL_PT !=  pt->name))
+		return 0;
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
 		struct kgsl_device *device = kgsl_driver.devp[i];
 		if (device) {
@@ -427,10 +437,30 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 	pagetable->name = name;
 	pagetable->max_entries = KGSL_PAGETABLE_ENTRIES(ptsize);
 
+	/*
+	 * create a separate kgsl pool for IOMMU, global mappings can be mapped
+	 * just once from this pool of the defaultpagetable
+	 */
+	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) &&
+		(KGSL_MMU_GLOBAL_PT == name)) {
+		pagetable->kgsl_pool = gen_pool_create(PAGE_SHIFT, -1);
+		if (pagetable->kgsl_pool == NULL) {
+			KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
+					PAGE_SHIFT);
+			goto err_alloc;
+		}
+		if (gen_pool_add(pagetable->kgsl_pool,
+			KGSL_IOMMU_GLOBAL_MEM_BASE,
+			KGSL_IOMMU_GLOBAL_MEM_SIZE, -1)) {
+			KGSL_CORE_ERR("gen_pool_add failed\n");
+			goto err_kgsl_pool;
+		}
+	}
+
 	pagetable->pool = gen_pool_create(PAGE_SHIFT, -1);
 	if (pagetable->pool == NULL) {
 		KGSL_CORE_ERR("gen_pool_create(%d) failed\n", PAGE_SHIFT);
-		goto err_alloc;
+		goto err_kgsl_pool;
 	}
 
 	if (gen_pool_add(pagetable->pool, KGSL_PAGETABLE_BASE,
@@ -465,6 +495,9 @@ err_mmu_create:
 	pagetable->pt_ops->mmu_destroy_pagetable(pagetable->priv);
 err_pool:
 	gen_pool_destroy(pagetable->pool);
+err_kgsl_pool:
+	if (pagetable->kgsl_pool)
+		gen_pool_destroy(pagetable->kgsl_pool);
 err_alloc:
 	kfree(pagetable);
 
@@ -565,11 +598,21 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		}
 	}
 
-	memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->pool,
-		memdesc->size, KGSL_MMU_ALIGN_SHIFT);
+	/* Allocate from kgsl pool if it exists for global mappings */
+	if (pagetable->kgsl_pool &&
+		(KGSL_MEMFLAGS_GLOBAL & memdesc->priv))
+		memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->kgsl_pool,
+			memdesc->size, KGSL_MMU_ALIGN_SHIFT);
+	else
+		memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->pool,
+			memdesc->size, KGSL_MMU_ALIGN_SHIFT);
 
 	if (memdesc->gpuaddr == 0) {
-		KGSL_CORE_ERR("gen_pool_alloc(%d) failed\n", memdesc->size);
+		KGSL_CORE_ERR("gen_pool_alloc(%d) failed from pool: %s\n",
+			memdesc->size,
+			((pagetable->kgsl_pool &&
+			(KGSL_MEMFLAGS_GLOBAL & memdesc->priv)) ?
+			"kgsl_pool" : "general_pool"));
 		KGSL_CORE_ERR(" [%d] allocated=%d, entries=%d\n",
 				pagetable->name, pagetable->stats.mapped,
 				pagetable->stats.entries);
@@ -627,7 +670,13 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 	spin_unlock(&pagetable->lock);
 
-	gen_pool_free(pagetable->pool,
+	if (pagetable->kgsl_pool &&
+		(KGSL_MEMFLAGS_GLOBAL & memdesc->priv))
+		gen_pool_free(pagetable->kgsl_pool,
+			memdesc->gpuaddr & KGSL_MMU_ALIGN_MASK,
+			memdesc->size);
+	else
+		gen_pool_free(pagetable->pool,
 			memdesc->gpuaddr & KGSL_MMU_ALIGN_MASK,
 			memdesc->size);
 
@@ -656,6 +705,7 @@ int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
 		return 0;
 
 	gpuaddr = memdesc->gpuaddr;
+	memdesc->priv |= KGSL_MEMFLAGS_GLOBAL;
 
 	result = kgsl_mmu_map(pagetable, memdesc, protflags);
 	if (result)
@@ -668,7 +718,6 @@ int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
 			gpuaddr, memdesc->gpuaddr);
 		goto error_unmap;
 	}
-	memdesc->priv |= KGSL_MEMFLAGS_GLOBAL;
 	return result;
 error_unmap:
 	kgsl_mmu_unmap(pagetable, memdesc);
