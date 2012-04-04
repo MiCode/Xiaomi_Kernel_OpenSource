@@ -181,8 +181,6 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			__raw_writel(readl_relaxed(pdata->v_addr +
 					MPA5_CFG_CTL_REG) | BIT(26),
 					pdata->v_addr + MPA5_CFG_CTL_REG);
-
-			msm_pm_boot_before_pc = msm_pm_write_boot_vector;
 		}
 		break;
 	default:
