@@ -15,7 +15,7 @@
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/module.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/debugfs.h>
 #include <linux/list.h>
 #include <linux/seq_file.h>
@@ -29,7 +29,7 @@
 
 #include "rpm_resources.h"
 
-static DEFINE_SPINLOCK(msm_xo_lock);
+static DEFINE_MUTEX(msm_xo_lock);
 
 struct msm_xo {
 	unsigned votes[NUM_MSM_XO_MODES];
@@ -151,13 +151,12 @@ static void msm_xo_dump_xo(struct seq_file *m, struct msm_xo *xo,
 
 static int msm_xo_show_voters(struct seq_file *m, void *v)
 {
-	unsigned long flags;
 	int i;
 
-	spin_lock_irqsave(&msm_xo_lock, flags);
+	mutex_lock(&msm_xo_lock);
 	for (i = 0; i < ARRAY_SIZE(msm_xo_sources); i++)
 		msm_xo_dump_xo(m, &msm_xo_sources[i], msm_xo_to_str[i]);
-	spin_unlock_irqrestore(&msm_xo_lock, flags);
+	mutex_unlock(&msm_xo_lock);
 
 	return 0;
 }
@@ -221,7 +220,7 @@ static int msm_xo_update_vote(struct msm_xo *xo)
 		     */
 		    ((msm_xo_sources[MSM_XO_CORE].mode ? 1 : 0) << 20) |
 		    ((msm_xo_sources[MSM_XO_CORE].mode ? 1 : 0) << 18);
-	ret = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &cmd, 1);
+	ret = msm_rpm_set(MSM_RPM_CTX_SET_0, &cmd, 1);
 
 	if (ret)
 		xo->mode = prev_vote;
@@ -281,7 +280,6 @@ out:
 int msm_xo_mode_vote(struct msm_xo_voter *xo_voter, enum msm_xo_modes mode)
 {
 	int ret;
-	unsigned long flags;
 
 	if (!xo_voter)
 		return 0;
@@ -289,9 +287,9 @@ int msm_xo_mode_vote(struct msm_xo_voter *xo_voter, enum msm_xo_modes mode)
 	if (mode >= NUM_MSM_XO_MODES || IS_ERR(xo_voter))
 		return -EINVAL;
 
-	spin_lock_irqsave(&msm_xo_lock, flags);
+	mutex_lock(&msm_xo_lock);
 	ret = __msm_xo_mode_vote(xo_voter, mode);
-	spin_unlock_irqrestore(&msm_xo_lock, flags);
+	mutex_unlock(&msm_xo_lock);
 
 	return ret;
 }
@@ -310,7 +308,6 @@ EXPORT_SYMBOL(msm_xo_mode_vote);
 struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter)
 {
 	int ret;
-	unsigned long flags;
 	struct msm_xo_voter *xo_voter;
 
 	if (xo_id >= NUM_MSM_XO_IDS) {
@@ -333,10 +330,10 @@ struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter)
 	xo_voter->xo = &msm_xo_sources[xo_id];
 
 	/* Voters vote for OFF by default */
-	spin_lock_irqsave(&msm_xo_lock, flags);
+	mutex_lock(&msm_xo_lock);
 	xo_voter->xo->votes[MSM_XO_MODE_OFF]++;
 	list_add(&xo_voter->list, &xo_voter->xo->voters);
-	spin_unlock_irqrestore(&msm_xo_lock, flags);
+	mutex_unlock(&msm_xo_lock);
 
 	return xo_voter;
 
@@ -357,16 +354,14 @@ EXPORT_SYMBOL(msm_xo_get);
  */
 void msm_xo_put(struct msm_xo_voter *xo_voter)
 {
-	unsigned long flags;
-
 	if (!xo_voter || IS_ERR(xo_voter))
 		return;
 
-	spin_lock_irqsave(&msm_xo_lock, flags);
+	mutex_lock(&msm_xo_lock);
 	__msm_xo_mode_vote(xo_voter, MSM_XO_MODE_OFF);
 	xo_voter->xo->votes[MSM_XO_MODE_OFF]--;
 	list_del(&xo_voter->list);
-	spin_unlock_irqrestore(&msm_xo_lock, flags);
+	mutex_unlock(&msm_xo_lock);
 
 	kfree(xo_voter->name);
 	kfree(xo_voter);
