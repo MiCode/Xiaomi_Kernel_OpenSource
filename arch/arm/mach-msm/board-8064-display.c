@@ -117,7 +117,8 @@ static int msm_fb_detect_panel(const char *name)
 			strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
 				PANEL_NAME_MAX_LEN)))
 			return 0;
-	} else if (machine_is_apq8064_cdp()) {
+	} else if (machine_is_apq8064_cdp() ||
+		       machine_is_mpq8064_dtv()) {
 		if (!strncmp(name, LVDS_CHIMEI_PANEL_NAME,
 			strnlen(LVDS_CHIMEI_PANEL_NAME,
 				PANEL_NAME_MAX_LEN)))
@@ -977,6 +978,18 @@ static void set_mdp_clocks_for_wuxga(void)
 
 void __init apq8064_set_display_params(char *prim_panel, char *ext_panel)
 {
+	/*
+	 * For certain MPQ boards, HDMI should be set as primary display
+	 * by default, with the flexibility to specify any other panel
+	 * as a primary panel through boot parameters.
+	 */
+	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_cdp()) {
+		pr_debug("HDMI is the primary display by default for MPQ\n");
+		if (!strnlen(prim_panel, PANEL_NAME_MAX_LEN))
+			strlcpy(msm_fb_pdata.prim_panel_name, HDMI_PANEL_NAME,
+				PANEL_NAME_MAX_LEN);
+	}
+
 	if (strnlen(prim_panel, PANEL_NAME_MAX_LEN)) {
 		strlcpy(msm_fb_pdata.prim_panel_name, prim_panel,
 			PANEL_NAME_MAX_LEN);
