@@ -66,6 +66,7 @@
 #include <mach/msm_xo.h>
 #include <mach/msm_rtb.h>
 #include <sound/cs8427.h>
+#include <media/gpio-ir-recv.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -1860,6 +1861,18 @@ static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 	},
 };
 
+static struct gpio_ir_recv_platform_data gpio_ir_recv_pdata = {
+	.gpio_nr = 88,
+	.active_low = 1,
+};
+
+static struct platform_device gpio_ir_recv_pdev = {
+	.name = "gpio-rc-recv",
+	.dev = {
+		.platform_data = &gpio_ir_recv_pdata,
+	},
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 #ifndef CONFIG_MSM_VCAP
@@ -2061,6 +2074,7 @@ static struct platform_device *mpq_devices[] __initdata = {
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
+	&gpio_ir_recv_pdev,
 	&mpq8064_device_ext_5v_frc_vreg,
 	&mpq8064_device_ext_1p2_buck_vreg,
 	&mpq8064_device_ext_1p8_buck_vreg,

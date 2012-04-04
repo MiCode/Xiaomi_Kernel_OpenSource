@@ -900,6 +900,28 @@ static struct msm_gpiomux_config mpq8064_gsbi5_i2c_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting ir_suspended_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting ir_active_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config mpq8064_ir_configs[] __initdata = {
+	{
+		.gpio      = 88,			/* GPIO IR */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ir_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &ir_active_cfg,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -970,4 +992,8 @@ void __init apq8064_init_gpiomux(void)
 
 	msm_gpiomux_install(apq8064_hdmi_configs,
 			ARRAY_SIZE(apq8064_hdmi_configs));
+
+	 if (machine_is_mpq8064_cdp())
+		msm_gpiomux_install(mpq8064_ir_configs,
+				ARRAY_SIZE(mpq8064_ir_configs));
 }
