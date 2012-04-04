@@ -216,6 +216,69 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"75 useconds",
 		NULL,
 	};
+	static const char *const h264_video_entropy_mode[] = {
+		"CAVLC",
+		"CABAC",
+		NULL
+	};
+	static const char *const mpeg_video_slice_mode[] = {
+		"Single Slice Mode",
+		"MB Based Slice",
+		"Byte Based Slice",
+		NULL
+	};
+	static const char *const h264_video_profile[] = {
+		"Baseline Profile",
+		"Constrained Baseline Profile",
+		"Main Profile",
+		"Extended Profile",
+		"High Profile",
+		"High Profile 10",
+		"High Profile 422",
+		"High Profile 444 Predicitve",
+		"High Profile 10 Intra",
+		"High Profile 422 Intra",
+		"High Profile 444 Intra",
+		"CAVLC Profile 444 Intra",
+		"Scalable Baseline Profile",
+		"Scalable high Profile",
+		"Scalable High Intra Profile",
+		"Stereo High Profile",
+		"Multiview High Profile",
+		NULL
+	};
+	static const char *const h264_video_level[] = {
+		"Level 1 0",
+		"Level 1 B",
+		"Level 1 1",
+		"Level 1 2",
+		"Level 1 3",
+		"Level 2 0",
+		"Level 2 1",
+		"Level 2 2",
+		"Level 3 0",
+		"Level 3 1",
+		"Level 3 2",
+		"Level 4 0",
+		"Level 4 1",
+		"Level 4 2",
+		"Level 5 0",
+		"Level 5 1",
+		NULL
+	};
+	static const char *const mpeg_video_intra_refresh_mode[] = {
+		"No Intra Refresh",
+		"AIR MBS",
+		"AIR REF",
+		"CIR MBS",
+		NULL
+	};
+	static const char *const h264_loop_filter_mode[] = {
+		"Ebnabled",
+		"Disabled",
+		"Disabled At Slice Boundary",
+		NULL
+	};
 
 	switch (id) {
 	case V4L2_CID_MPEG_AUDIO_SAMPLING_FREQ:
@@ -256,6 +319,18 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		return colorfx;
 	case V4L2_CID_TUNE_PREEMPHASIS:
 		return tune_preemphasis;
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		return h264_video_entropy_mode;
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+		return h264_video_profile;
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		return h264_video_level;
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE:
+		return mpeg_video_slice_mode;
+	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE:
+		return mpeg_video_intra_refresh_mode;
+	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
+		return h264_loop_filter_mode;
 	default:
 		return NULL;
 	}
@@ -343,6 +418,30 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_VIDEO_TEMPORAL_DECIMATION: return "Video Temporal Decimation";
 	case V4L2_CID_MPEG_VIDEO_MUTE:		return "Video Mute";
 	case V4L2_CID_MPEG_VIDEO_MUTE_YUV:	return "Video Mute YUV";
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE: return "Entropy Mode";
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE: return "H264 Profile";
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL: return "H264 Level";
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE: return "Slice Mode";
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB: return "Slice MB Size";
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
+		return "Slice Byte Size";
+	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP: return "I Frame Quantization";
+	case V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP: return "P Frame Quantization";
+	case V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP: return "B Frame Quantization";
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION: return "Rotation";
+	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL: return "Rate Control";
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL: return "CABAC Model";
+	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE:
+		return "Intra Refresh Mode";
+	case V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS: return "Intra Refresh AIR MBS";
+	case V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF: return "Intra Refresh AIR REF";
+	case V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS: return "Intra Refresh CIR MBS";
+	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
+		return "H.264 Loop Filter Mode";
+	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA:
+		return "H.264 Loop Filter Beta Offset";
+	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_ALPHA:
+		return "H.264 Loop Filter Alpha Offset";
 
 	/* CAMERA controls */
 	/* Keep the order of the 'case's the same as in videodev2.h! */
@@ -452,6 +551,13 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_EXPOSURE_AUTO:
 	case V4L2_CID_COLORFX:
 	case V4L2_CID_TUNE_PREEMPHASIS:
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
+	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL:
 		*type = V4L2_CTRL_TYPE_MENU;
 		break;
 	case V4L2_CID_RDS_TX_PS_NAME:
@@ -468,7 +574,12 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 		*min = *max = *step = *def = 0;
 		break;
 	case V4L2_CID_BG_COLOR:
-		*type = V4L2_CTRL_TYPE_INTEGER;
+	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP:
+	case V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP:
+	case V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP:
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
+	*type = V4L2_CTRL_TYPE_INTEGER;
 		*step = 1;
 		*min = 0;
 		/* Max is calculated as RGB888 that is 2^24 */
