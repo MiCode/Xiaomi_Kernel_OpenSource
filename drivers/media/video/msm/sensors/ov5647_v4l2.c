@@ -273,16 +273,16 @@ static struct msm_sensor_output_info_t ov5647_dimensions[] = {
 		.y_output = 0x7A0,   /*1952*/
 		.line_length_pclk = 0xA8C,
 		.frame_length_lines = 0x7B0,
-		.vt_pixel_clk = 159408000,
+		.vt_pixel_clk = 79704000,
 		.op_pixel_clk = 159408000,
 		.binning_factor = 0x0,
 	},
 	{ /* For PREVIEW */
-		.x_output = 0x500,  /*2608*/  /*for 5Mp*/
-		.y_output = 0x3C0,   /*1952*/
-		.line_length_pclk = 0x768 * 2,
+		.x_output = 0x500, /*1280*/
+		.y_output = 0x3C0, /*960*/
+		.line_length_pclk = 0x768,
 		.frame_length_lines = 0x3D8,
-		.vt_pixel_clk = 159408000,
+		.vt_pixel_clk = 55969920,
 		.op_pixel_clk = 159408000,
 		.binning_factor = 0x0,
 	},
