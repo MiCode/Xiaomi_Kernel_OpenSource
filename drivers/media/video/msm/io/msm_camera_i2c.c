@@ -252,7 +252,7 @@ int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 		enum msm_camera_i2c_data_type dt;
 		if (reg_conf_tbl->cmd_type == MSM_CAMERA_I2C_CMD_POLL) {
 			rc = msm_camera_i2c_poll(client, reg_conf_tbl->reg_addr,
-				reg_conf_tbl->reg_addr, reg_conf_tbl->dt);
+				reg_conf_tbl->reg_data, reg_conf_tbl->dt);
 		} else {
 			if (reg_conf_tbl->dt == 0)
 				dt = data_type;
