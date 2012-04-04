@@ -43,10 +43,20 @@ extern int msm8064_pm8921_regulator_pdata_len __devinitdata;
 #define GPIO_VREG_ID_EXT_TS_SW		2
 #define GPIO_VREG_ID_EXT_MPP8		3
 
+#define GPIO_VREG_ID_FRC_5V		0
+#define GPIO_VREG_ID_AVC_1P2V		1
+#define GPIO_VREG_ID_AVC_1P8V		2
+#define GPIO_VREG_ID_AVC_2P2V		3
+#define GPIO_VREG_ID_AVC_5V		4
+#define GPIO_VREG_ID_AVC_3P3V		5
+
 #define APQ8064_EXT_3P3V_REG_EN_GPIO	77
 
 extern struct gpio_regulator_platform_data
 	apq8064_gpio_regulator_pdata[] __devinitdata;
+
+extern struct gpio_regulator_platform_data
+	mpq8064_gpio_regulator_pdata[] __devinitdata;
 
 extern struct rpm_regulator_platform_data
 	apq8064_rpm_regulator_pdata __devinitdata;

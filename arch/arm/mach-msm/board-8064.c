@@ -1830,14 +1830,6 @@ static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 	},
 };
 
-static struct platform_device *mpq_devices[] __initdata = {
-	&mpq8064_device_qup_i2c_gsbi5,
-	&msm_device_sps_apq8064,
-#ifdef CONFIG_MSM_ROTATOR
-	&msm_rotator_device,
-#endif
-};
-
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi1,
@@ -1960,6 +1952,80 @@ static struct platform_device *cdp_devices[] __initdata = {
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
+};
+
+static struct platform_device
+mpq8064_device_ext_5v_frc_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 10),
+	.dev	= {
+		.platform_data =
+			&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_FRC_5V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_1p2_buck_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 2),
+	.dev	= {
+		.platform_data =
+		 &mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_1P2V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_1p8_buck_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 4),
+	.dev	= {
+		.platform_data =
+		&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_1P8V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_2p2_buck_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 14),
+	.dev	= {
+		.platform_data =
+		&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_2P2V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_5v_buck_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 3),
+	.dev	= {
+		.platform_data =
+		 &mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_5V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_3p3v_ldo_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 15),
+	.dev	= {
+		.platform_data =
+		&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_3P3V],
+	},
+};
+
+static struct platform_device *mpq_devices[] __initdata = {
+	&msm_device_sps_apq8064,
+	&mpq8064_device_qup_i2c_gsbi5,
+#ifdef CONFIG_MSM_ROTATOR
+	&msm_rotator_device,
+#endif
+	&mpq8064_device_ext_5v_frc_vreg,
+	&mpq8064_device_ext_1p2_buck_vreg,
+	&mpq8064_device_ext_1p8_buck_vreg,
+	&mpq8064_device_ext_2p2_buck_vreg,
+	&mpq8064_device_ext_5v_buck_vreg,
+	&mpq8064_device_ext_3p3v_ldo_vreg,
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
