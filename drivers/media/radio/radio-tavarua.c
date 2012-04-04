@@ -1078,6 +1078,10 @@ static void fm_shutdown(struct work_struct *work)
 {
 	struct tavarua_device *radio = container_of(work,
 					struct tavarua_device, work.work);
+	FMDERR("%s: Releasing the FM I2S GPIO\n", __func__);
+	if (radio->pdata->config_i2s_gpio != NULL)
+		radio->pdata->config_i2s_gpio(FM_I2S_OFF);
+	FMDERR("%s: Shutting down FM SOC\n", __func__);
 	radio->pdata->fm_shutdown(radio->pdata);
 	complete(&radio->shutdown_done);
 }
@@ -1163,8 +1167,9 @@ static int tavarua_disable_irq(struct tavarua_device *radio)
 		return -EINVAL;
 	irq = radio->pdata->irq;
 	disable_irq_wake(irq);
-	flush_workqueue(radio->wqueue);
 	free_irq(irq, radio);
+	cancel_delayed_work_sync(&radio->work);
+	flush_workqueue(radio->wqueue);
 	return 0;
 }
 
@@ -2043,14 +2048,18 @@ static int tavarua_fops_release(struct file *file)
 
 	FMDBG("In %s", __func__);
 
-	/* disable radio ctrl */
-	retval = tavarua_write_register(radio, RDCTRL, 0x00);
-
-	FMDBG("%s, Disable IRQs\n", __func__);
+	FMDBG("%s, Disabling the IRQs\n", __func__);
 	/* disable irq */
 	retval = tavarua_disable_irq(radio);
 	if (retval < 0) {
 		printk(KERN_ERR "%s: failed to disable irq\n", __func__);
+		return retval;
+	}
+
+	/* disable radio ctrl */
+	retval = tavarua_write_register(radio, RDCTRL, 0x00);
+	if (retval < 0) {
+		printk(KERN_ERR "%s: failed to disable FM\n", __func__);
 		return retval;
 	}
 
@@ -2146,8 +2155,6 @@ exit:
 	/* teardown gpio and pmic */
 	marimba_set_fm_status(radio->marimba, false);
 	wait_for_completion(&radio->shutdown_done);
-	if (radio->pdata->config_i2s_gpio != NULL)
-		radio->pdata->config_i2s_gpio(FM_I2S_OFF);
 	radio->handle_irq = 1;
 	atomic_inc(&radio->users);
 	radio->marimba->mod_id = SLAVE_ID_BAHAMA;
@@ -2992,7 +2999,7 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		}
 		/* check if off */
 		else if ((ctrl->value == FM_OFF) && radio->registers[RDCTRL]) {
-			FMDBG("turning off...\n");
+			FMDBG("%s: turning off...\n", __func__);
 			tavarua_write_register(radio, RDCTRL, ctrl->value);
 			/* flush the event and work queues */
 			kfifo_reset(&radio->data_buf[TAVARUA_BUF_EVENTS]);
