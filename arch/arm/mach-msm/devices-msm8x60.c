@@ -331,6 +331,7 @@ static struct msm_serial_hslite_platform_data uart_gsbi9_pdata = {
 	.config_gpio	= 1,
 	.uart_tx_gpio	= 67,
 	.uart_rx_gpio	= 66,
+	.line		= 1,
 };
 
 static struct resource msm_uart_gsbi9_resources[] = {

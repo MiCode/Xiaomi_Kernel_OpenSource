@@ -18,6 +18,7 @@ struct msm_serial_hslite_platform_data {
 	unsigned config_gpio;
 	unsigned uart_tx_gpio;
 	unsigned uart_rx_gpio;
+	int line;
 };
 
 #endif
