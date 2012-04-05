@@ -23,6 +23,8 @@
 #include <linux/suspend.h>
 #include <linux/percpu.h>
 #include <linux/interrupt.h>
+#include <asm/fiq.h>
+#include <asm/hardware/gic.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach-types.h>
 #include <mach/scm.h>
@@ -41,6 +43,8 @@
 #define WDT0_BITE_TIME	0x5C
 
 #define WDT_HZ		32768
+
+struct msm_watchdog_dump msm_dump_cpu_ctx;
 
 static void __iomem *msm_tmr0_base;
 
@@ -78,6 +82,8 @@ module_param_call(runtime_disable, wdog_enable_set, param_get_int,
 static int appsbark;
 module_param(appsbark, int, 0);
 
+static int appsbark_fiq;
+
 /*
  * Use /sys/module/msm_watchdog/parameters/print_all_stacks
  * to control whether stacks of all running
@@ -95,6 +101,13 @@ static void pet_watchdog_work(struct work_struct *work);
 static void init_watchdog_work(struct work_struct *work);
 static DECLARE_DELAYED_WORK(dogwork_struct, pet_watchdog_work);
 static DECLARE_WORK(init_dogwork_struct, init_watchdog_work);
+
+/* Called from the FIQ bark handler */
+void msm_wdog_bark_fin(void)
+{
+	pr_crit("\nApps Watchdog bark received - Calling Panic\n");
+	panic("Apps Watchdog Bark received\n");
+}
 
 static int msm_watchdog_suspend(struct device *dev)
 {
@@ -166,9 +179,11 @@ static int wdog_enable_set(const char *val, struct kernel_param *kp)
 				free_irq(WDT0_ACCSCSSNBARK_INT, 0);
 			} else {
 				disable_percpu_irq(WDT0_ACCSCSSNBARK_INT);
-				free_percpu_irq(WDT0_ACCSCSSNBARK_INT,
-					percpu_pdata);
-				free_percpu(percpu_pdata);
+				if (!appsbark_fiq) {
+					free_percpu_irq(WDT0_ACCSCSSNBARK_INT,
+							percpu_pdata);
+					free_percpu(percpu_pdata);
+				}
 			}
 			enable = 0;
 			atomic_notifier_chain_unregister(&panic_notifier_list,
@@ -231,8 +246,11 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 			free_irq(WDT0_ACCSCSSNBARK_INT, 0);
 		} else {
 			disable_percpu_irq(WDT0_ACCSCSSNBARK_INT);
-			free_percpu_irq(WDT0_ACCSCSSNBARK_INT, percpu_pdata);
-			free_percpu(percpu_pdata);
+			if (!appsbark_fiq) {
+				free_percpu_irq(WDT0_ACCSCSSNBARK_INT,
+						percpu_pdata);
+				free_percpu(percpu_pdata);
+			}
 		}
 		enable = 0;
 		/* In case we got suspended mid-exit */
@@ -329,26 +347,35 @@ static void init_watchdog_work(struct work_struct *work)
 	__raw_writel(1, msm_tmr0_base + WDT0_RST);
 	last_pet = sched_clock();
 
+	if (!has_vic)
+		enable_percpu_irq(WDT0_ACCSCSSNBARK_INT, IRQ_TYPE_EDGE_RISING);
+
 	printk(KERN_INFO "MSM Watchdog Initialized\n");
 
 	return;
 }
 
+struct fiq_handler wdog_fh = {
+	.name = MODULE_NAME,
+};
+
 static int msm_watchdog_probe(struct platform_device *pdev)
 {
 	struct msm_watchdog_pdata *pdata = pdev->dev.platform_data;
 	int ret;
+	void *stack;
 
 	if (!enable || !pdata || !pdata->pet_time || !pdata->bark_time) {
 		printk(KERN_INFO "MSM Watchdog Not Initialized\n");
 		return -ENODEV;
 	}
 
-	if (!pdata->has_secure)
-		appsbark = 1;
-
 	bark_time = pdata->bark_time;
 	has_vic = pdata->has_vic;
+	if (!pdata->has_secure) {
+		appsbark = 1;
+		appsbark_fiq = pdata->use_kernel_fiq;
+	}
 
 	msm_tmr0_base = msm_timer_get_timer0_base();
 
@@ -357,6 +384,18 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 				  "apps_wdog_bark", NULL);
 		if (ret)
 			return ret;
+	} else if (appsbark_fiq) {
+		claim_fiq(&wdog_fh);
+		set_fiq_handler(&msm_wdog_fiq_start, msm_wdog_fiq_length);
+		stack = (void *)__get_free_pages(GFP_KERNEL, THREAD_SIZE_ORDER);
+		if (!stack) {
+			pr_info("No free pages available - %s fails\n",
+					__func__);
+			return -ENOMEM;
+		}
+
+		msm_wdog_fiq_setup(stack);
+		gic_set_irq_secure(WDT0_ACCSCSSNBARK_INT);
 	} else {
 		percpu_pdata = alloc_percpu(struct msm_watchdog_pdata *);
 		if (!percpu_pdata) {
@@ -373,8 +412,6 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 			free_percpu(percpu_pdata);
 			return ret;
 		}
-
-		enable_percpu_irq(WDT0_ACCSCSSNBARK_INT, IRQ_TYPE_EDGE_RISING);
 	}
 
 	/*

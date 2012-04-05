@@ -265,6 +265,7 @@ config ARCH_MSM9615
 	select MSM_XO
 	select MSM_QDSP6_APR
 	select MSM_AUDIO_QDSP6 if SND_SOC
+	select FIQ
 
 config ARCH_MSM8625
 	bool "MSM8625"
