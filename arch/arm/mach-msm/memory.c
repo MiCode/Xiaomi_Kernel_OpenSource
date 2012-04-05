@@ -146,7 +146,7 @@ void invalidate_caches(unsigned long vstart,
 	flush_axi_bus_buffer();
 }
 
-void *alloc_bootmem_aligned(unsigned long size, unsigned long alignment)
+void * __init alloc_bootmem_aligned(unsigned long size, unsigned long alignment)
 {
 	void *unused_addr = NULL;
 	unsigned long addr, tmp_size, unused_size;
