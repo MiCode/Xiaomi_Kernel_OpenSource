@@ -203,7 +203,10 @@ static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
 	struct device_node *node;
 	int rc, i, num_dev_node = 0;
 
-	/* first count the total number of device_nodes */
+	/*
+	 * Count the total number of device_nodes so we know how much
+	 * device_store to allocate.
+	 */
 	for_each_child_of_node(container, node)
 		num_dev_node++;
 
@@ -214,7 +217,6 @@ static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
 		return;
 	}
 
-	/* allocate resources per device_node */
 	i = 0;
 	for_each_child_of_node(container, node) {
 		of_spmi_init_resource(&r_info, node);
@@ -226,17 +228,6 @@ static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
 			of_spmi_free_device_resources(d_info);
 			return;
 		}
-		i++;
-	}
-
-	/**
-	 * Now we need to cycle through again and actually populate
-	 * the resources for each node.
-	 */
-	i = 0;
-	for_each_child_of_node(container, node) {
-		of_spmi_init_resource(&r_info, node);
-		of_spmi_sum_node_resources(&r_info, 1);
 		of_spmi_populate_node_resources(d_info, &r_info, i);
 		i++;
 	}
