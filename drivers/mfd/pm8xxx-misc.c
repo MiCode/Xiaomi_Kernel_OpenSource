@@ -999,6 +999,10 @@ static int __pm8901_preload_dVdd(struct pm8xxx_misc_chip *chip)
 {
 	int rc;
 
+	/* dVdd preloading is not needed for PMIC PM8901 rev 2.3 and beyond. */
+	if (pm8xxx_get_revision(chip->dev->parent) >= PM8XXX_REVISION_8901_2p3)
+		return 0;
+
 	rc = pm8xxx_writeb(chip->dev->parent, 0x0BD, 0x0F);
 	if (rc)
 		pr_err("pm8xxx_writeb failed for 0x0BD, rc=%d\n", rc);
