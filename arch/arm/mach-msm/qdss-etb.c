@@ -318,7 +318,7 @@ err_create:
 	return ret;
 }
 
-static void etb_sysfs_exit(void)
+static void __exit etb_sysfs_exit(void)
 {
 	sysfs_remove_file(etb.kobj, &trigger_cntr_attr.attr);
 	kobject_put(etb.kobj);
@@ -371,7 +371,7 @@ err_res:
 	return ret;
 }
 
-static int etb_remove(struct platform_device *pdev)
+static int __devexit etb_remove(struct platform_device *pdev)
 {
 	if (etb.enabled)
 		etb_disable();
@@ -386,18 +386,23 @@ static int etb_remove(struct platform_device *pdev)
 
 static struct platform_driver etb_driver = {
 	.probe          = etb_probe,
-	.remove         = etb_remove,
+	.remove         = __devexit_p(etb_remove),
 	.driver         = {
 		.name   = "msm_etb",
 	},
 };
 
-int __init etb_init(void)
+static int __init etb_init(void)
 {
 	return platform_driver_register(&etb_driver);
 }
+module_init(etb_init);
 
-void etb_exit(void)
+static void __exit etb_exit(void)
 {
 	platform_driver_unregister(&etb_driver);
 }
+module_exit(etb_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("CoreSight Embedded Trace Buffer driver");

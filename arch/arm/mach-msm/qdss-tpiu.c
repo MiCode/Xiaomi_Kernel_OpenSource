@@ -108,7 +108,7 @@ err_res:
 	return ret;
 }
 
-static int tpiu_remove(struct platform_device *pdev)
+static int __devexit tpiu_remove(struct platform_device *pdev)
 {
 	if (tpiu.enabled)
 		tpiu_disable();
@@ -119,18 +119,23 @@ static int tpiu_remove(struct platform_device *pdev)
 
 static struct platform_driver tpiu_driver = {
 	.probe          = tpiu_probe,
-	.remove         = tpiu_remove,
+	.remove         = __devexit_p(tpiu_remove),
 	.driver         = {
 		.name   = "msm_tpiu",
 	},
 };
 
-int __init tpiu_init(void)
+static int __init tpiu_init(void)
 {
 	return platform_driver_register(&tpiu_driver);
 }
+module_init(tpiu_init);
 
-void tpiu_exit(void)
+static void __exit tpiu_exit(void)
 {
 	platform_driver_unregister(&tpiu_driver);
 }
+module_exit(tpiu_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("CoreSight Trace Port Interface Unit driver");
