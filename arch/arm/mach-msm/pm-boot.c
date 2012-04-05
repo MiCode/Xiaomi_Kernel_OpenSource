@@ -126,6 +126,8 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 		break;
 	case MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR:
 		if (!cpu_is_msm8625()) {
+			void *remapped;
+
 			/*
 			 * Set the boot remap address and enable remapping of
 			 * reset vector
@@ -133,8 +135,8 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			if (!pdata->p_addr || !pdata->v_addr)
 				return -ENODEV;
 
-			ret = msm_pm_boot_reset_vector_init(
-							__va(pdata->p_addr));
+			remapped = ioremap_nocache(pdata->p_addr, SZ_8);
+			ret = msm_pm_boot_reset_vector_init(remapped);
 
 			__raw_writel((pdata->p_addr | BOOT_REMAP_ENABLE),
 					pdata->v_addr);

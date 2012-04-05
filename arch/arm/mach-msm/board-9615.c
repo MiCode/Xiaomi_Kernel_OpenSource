@@ -28,6 +28,8 @@
 #include <linux/leds-pm8xxx.h>
 #include <linux/power/ltc4088-charger.h>
 #include <linux/msm_tsens.h>
+#include <linux/ion.h>
+#include <linux/memory.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -39,6 +41,8 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_xo.h>
 #include <mach/dma.h>
+#include <mach/ion.h>
+#include <mach/msm_memtypes.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
@@ -46,6 +50,80 @@
 #include "pm.h"
 #include "acpuclock.h"
 #include "pm-boot.h"
+
+#ifdef CONFIG_ION_MSM
+#define MSM_ION_AUDIO_SIZE	0xAF000
+#define MSM_ION_HEAP_NUM	3
+#define MSM_KERNEL_EBI_SIZE	0x51000
+
+static struct memtype_reserve msm9615_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+	[MEMTYPE_EBI1] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+};
+
+static int msm9615_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
+
+static struct ion_co_heap_pdata co_ion_pdata = {
+	.adjacent_mem_id = INVALID_HEAP_ID,
+	.align = PAGE_SIZE,
+};
+
+static struct ion_platform_data ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.heaps = {
+		{
+			.id	= ION_SYSTEM_HEAP_ID,
+			.type	= ION_HEAP_TYPE_SYSTEM,
+			.name	= ION_VMALLOC_HEAP_NAME,
+		},
+		{
+			.id	= ION_IOMMU_HEAP_ID,
+			.type	= ION_HEAP_TYPE_IOMMU,
+			.name	= ION_IOMMU_HEAP_NAME,
+		},
+		{
+			.id	= ION_AUDIO_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_AUDIO_HEAP_NAME,
+			.size	= MSM_ION_AUDIO_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &co_ion_pdata,
+		},
+	}
+};
+
+static struct platform_device ion_dev = {
+	.name = "ion-msm",
+	.id = 1,
+	.dev = { .platform_data = &ion_pdata },
+};
+
+static void reserve_ion_memory(void)
+{
+	msm9615_reserve_table[MEMTYPE_EBI1].size += MSM_ION_AUDIO_SIZE;
+}
+
+static void __init msm9615_calculate_reserve_sizes(void)
+{
+	reserve_ion_memory();
+	msm9615_reserve_table[MEMTYPE_EBI1].size += MSM_KERNEL_EBI_SIZE;
+}
+
+static struct reserve_info msm9615_reserve_info __initdata = {
+	.memtype_reserve_table = msm9615_reserve_table,
+	.calculate_reserve_sizes = msm9615_calculate_reserve_sizes,
+	.paddr_to_memtype = msm9615_paddr_to_memtype,
+};
+#endif
 
 static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
@@ -634,6 +712,9 @@ static struct platform_device *common_devices[] = {
 #ifdef CONFIG_HW_RANDOM_MSM
 	&msm_device_rng,
 #endif
+#ifdef CONFIG_ION_MSM
+	&ion_dev,
+#endif
 
 	&msm_pcm,
 	&msm_multi_ch_pcm,
@@ -679,7 +760,10 @@ static void __init msm9615_i2c_init(void)
 
 static void __init msm9615_reserve(void)
 {
-	msm_pm_boot_pdata.p_addr = memblock_alloc(SZ_8, SZ_64K);
+#ifdef CONFIG_ION_MSM
+	reserve_info = &msm9615_reserve_info;
+	msm_reserve();
+#endif
 }
 
 static void __init msm9615_common_init(void)
@@ -715,6 +799,7 @@ static void __init msm9615_common_init(void)
 	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 						msm_pm_data);
+	msm_pm_boot_pdata.p_addr = allocate_contiguous_ebi_nomap(SZ_8, SZ_64K);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 	msm_tsens_early_init(&msm_tsens_pdata);
 }
