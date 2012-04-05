@@ -31,6 +31,7 @@
 #include <mach/mdm2.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_dcvs.h>
+#include <mach/qdss.h>
 #include <linux/ion.h>
 #include "clock.h"
 #include "devices.h"
@@ -2209,4 +2210,43 @@ struct platform_device apq8064_device_cache_erp = {
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(msm_cache_erp_resources),
 	.resource	= msm_cache_erp_resources,
+};
+
+#define MSM_QDSS_PHYS_BASE		0x01A00000
+#define MSM_ETM_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1C000)
+
+#define QDSS_SOURCE(src_name, fpm) { .name = src_name, .fport_mask = fpm, }
+
+static struct qdss_source msm_qdss_sources[] = {
+	QDSS_SOURCE("msm_etm", 0x33),
+	QDSS_SOURCE("msm_oxili", 0x80),
+};
+
+static struct msm_qdss_platform_data qdss_pdata = {
+	.src_table = msm_qdss_sources,
+	.size = ARRAY_SIZE(msm_qdss_sources),
+	.afamily = 1,
+};
+
+struct platform_device apq8064_qdss_device = {
+	.name          = "msm_qdss",
+	.id            = -1,
+	.dev           = {
+		.platform_data = &qdss_pdata,
+	},
+};
+
+static struct resource msm_etm_resources[] = {
+	{
+		.start = MSM_ETM_PHYS_BASE,
+		.end   = MSM_ETM_PHYS_BASE + (SZ_4K * 4) - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device apq8064_etm_device = {
+	.name          = "msm_etm",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(msm_etm_resources),
+	.resource      = msm_etm_resources,
 };

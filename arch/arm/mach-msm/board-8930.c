@@ -1693,6 +1693,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_tz_log,
 
 #ifdef CONFIG_MSM_QDSS
+	&msm_qdss_device,
 	&msm_etb_device,
 	&msm_tpiu_device,
 	&msm_funnel_device,

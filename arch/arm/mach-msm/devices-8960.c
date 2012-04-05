@@ -34,6 +34,7 @@
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
 #include <mach/msm_tsif.h>
+#include <mach/qdss.h>
 #include "clock.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -3166,6 +3167,26 @@ struct platform_device msm_dsps_device = {
 #define MSM_TPIU_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x3000)
 #define MSM_FUNNEL_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x4000)
 #define MSM_ETM_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1C000)
+
+#define QDSS_SOURCE(src_name, fpm) { .name = src_name, .fport_mask = fpm, }
+
+static struct qdss_source msm_qdss_sources[] = {
+	QDSS_SOURCE("msm_etm", 0x3),
+};
+
+static struct msm_qdss_platform_data qdss_pdata = {
+	.src_table = msm_qdss_sources,
+	.size = ARRAY_SIZE(msm_qdss_sources),
+	.afamily = 1,
+};
+
+struct platform_device msm_qdss_device = {
+	.name          = "msm_qdss",
+	.id            = -1,
+	.dev           = {
+		.platform_data = &qdss_pdata,
+	},
+};
 
 static struct resource msm_etb_resources[] = {
 	{
