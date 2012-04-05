@@ -151,7 +151,9 @@ static int gpio_sdc1_hw_det = 85;
 static void gpio_sdc1_config(void)
 {
 	if (machine_is_msm7627a_qrd1() || machine_is_msm7627a_evb()
-					|| machine_is_msm8625_evb())
+					|| machine_is_msm8625_evb()
+					|| machine_is_msm7627a_qrd3()
+					|| machine_is_msm8625_qrd7())
 		gpio_sdc1_hw_det = 42;
 }
 
@@ -253,7 +255,9 @@ static unsigned int msm7627a_sdcc_slot_status(struct device *dev)
 		if (!status) {
 			if (machine_is_msm7627a_qrd1() ||
 					machine_is_msm7627a_evb() ||
-					machine_is_msm8625_evb())
+					machine_is_msm8625_evb()  ||
+					machine_is_msm7627a_qrd3() ||
+					machine_is_msm8625_qrd7())
 				status = !gpio_get_value(gpio_sdc1_hw_det);
 			else
 				status = gpio_get_value(gpio_sdc1_hw_det);
@@ -367,11 +371,15 @@ void __init msm7627a_init_mmc(void)
 {
 	/* eMMC slot */
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
-	if (mmc_regulator_init(3, "emmc", 3000000))
-		return;
-	sdc3_plat_data.swfi_latency = msm7627a_power_collapse_latency(
+
+	/* There is no eMMC on SDC3 for QRD3 based devices */
+	if (!(machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7())) {
+		if (mmc_regulator_init(3, "emmc", 3000000))
+			return;
+		sdc3_plat_data.swfi_latency = msm7627a_power_collapse_latency(
 			MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT);
-	msm_add_sdcc(3, &sdc3_plat_data);
+		msm_add_sdcc(3, &sdc3_plat_data);
+	}
 #endif
 	/* Micro-SD slot */
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
@@ -392,9 +400,12 @@ void __init msm7627a_init_mmc(void)
 	/* Not Used */
 #if (defined(CONFIG_MMC_MSM_SDC4_SUPPORT)\
 		&& !defined(CONFIG_MMC_MSM_SDC3_8_BIT_SUPPORT))
-	if (mmc_regulator_init(4, "smps3", 1800000))
-		return;
-	msm_add_sdcc(4, &sdc4_plat_data);
+	/* There is no SDC4 for QRD3/7 based devices */
+	if (!(machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7())) {
+		if (mmc_regulator_init(4, "smps3", 1800000))
+			return;
+		msm_add_sdcc(4, &sdc4_plat_data);
+	}
 #endif
 }
 #endif
