@@ -181,6 +181,8 @@ static void lvds_init(struct msm_fb_data_type *mfd)
 			lvds_intf = 0x0001078c;
 			lvds_phy_cfg0 = BIT(6);
 		}
+	} else {
+		BUG();
 	}
 
 	/* MDP_LVDSPHY_CFG0 */
