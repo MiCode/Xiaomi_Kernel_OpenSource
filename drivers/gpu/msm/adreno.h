@@ -176,6 +176,12 @@ static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 	return (adreno_dev->gpurev >= 300);
 }
 
+static inline int adreno_rb_ctxtswitch(unsigned int *cmd)
+{
+	return (cmd[0] == cp_nop_packet(1) &&
+		cmd[1] == KGSL_CONTEXT_TO_MEM_IDENTIFIER);
+}
+
 /**
  * adreno_encode_istore_size - encode istore size in CP format
  * @adreno_dev - The 3D device.
