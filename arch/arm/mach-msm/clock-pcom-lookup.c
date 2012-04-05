@@ -179,15 +179,15 @@ static DEFINE_CLK_PCOM(vfe_axi_clk,	VFE_AXI_CLK,	0);
 static DEFINE_CLK_PCOM(vfe_clk,		VFE_CLK,	0);
 static DEFINE_CLK_PCOM(vfe_mdc_clk,	VFE_MDC_CLK,	0);
 
-static DEFINE_CLK_VOTER(ebi_acpu_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_grp_3d_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_grp_2d_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_lcdc_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_mddi_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_tv_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_usb_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_vfe_clk,	&ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi_adm_clk,	&ebi1_clk.c);
+static DEFINE_CLK_VOTER(ebi_acpu_clk,	&ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_grp_3d_clk,	&ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_grp_2d_clk,	&ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_lcdc_clk,	&ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_mddi_clk,	&ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_tv_clk,	&ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_usb_clk,	&ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_vfe_clk,	&ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_adm_clk,	&ebi1_clk.c, 0);
 
 static struct clk_lookup msm_clocks_7x01a[] = {
 	CLK_LOOKUP("core_clk",		adm_clk.c,	"msm_dmov"),

@@ -28,13 +28,14 @@ static inline struct clk_voter *to_clk_voter(struct clk *clk)
 	return container_of(clk, struct clk_voter, c);
 }
 
-#define DEFINE_CLK_VOTER(clk_name, _parent) \
+#define DEFINE_CLK_VOTER(clk_name, _parent, _default_rate) \
 	struct clk_voter clk_name = { \
 		.parent = _parent, \
 		.c = { \
 			.dbg_name = #clk_name, \
 			.ops = &clk_ops_voter, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
+			.rate = _default_rate, \
 			CLK_INIT(clk_name.c), \
 		}, \
 	}

@@ -4476,28 +4476,28 @@ DEFINE_CLK_RPM(mmfpb_clk, mmfpb_a_clk, MMFPB, NULL);
 DEFINE_CLK_RPM(sfab_clk, sfab_a_clk, SYSTEM_FABRIC, NULL);
 DEFINE_CLK_RPM(sfpb_clk, sfpb_a_clk, SFPB, NULL);
 
-static DEFINE_CLK_VOTER(sfab_msmbus_a_clk, &sfab_a_clk.c);
-static DEFINE_CLK_VOTER(sfab_tmr_a_clk, &sfab_a_clk.c);
+static DEFINE_CLK_VOTER(sfab_msmbus_a_clk, &sfab_a_clk.c, 0);
+static DEFINE_CLK_VOTER(sfab_tmr_a_clk, &sfab_a_clk.c, 0);
 
-static DEFINE_CLK_VOTER(dfab_dsps_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_usb_hs3_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_usb_hs4_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc1_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc3_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc4_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc5_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sps_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_scm_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_qseecom_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_tzcom_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_msmbus_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_msmbus_a_clk, &dfab_a_clk.c);
+static DEFINE_CLK_VOTER(dfab_dsps_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_usb_hs3_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_usb_hs4_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc1_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc3_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc4_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc5_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sps_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_scm_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_qseecom_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_tzcom_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_msmbus_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_msmbus_a_clk, &dfab_a_clk.c, 0);
 
-static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi1_adm_clk, &ebi1_clk.c);
+static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi1_adm_clk, &ebi1_clk.c, 0);
 
 #ifdef CONFIG_DEBUG_FS
 struct measure_sel {
