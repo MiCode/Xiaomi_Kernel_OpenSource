@@ -41,6 +41,7 @@ extern pgprot_t     pgprot_kernel;
 struct msm_iommu_dev {
 	const char *name;
 	int ncb;
+	int ttbr_split;
 };
 
 /**
@@ -74,6 +75,7 @@ struct msm_iommu_drvdata {
 	void __iomem *base;
 	int irq;
 	int ncb;
+	int ttbr_split;
 	struct clk *clk;
 	struct clk *pclk;
 	const char *name;
