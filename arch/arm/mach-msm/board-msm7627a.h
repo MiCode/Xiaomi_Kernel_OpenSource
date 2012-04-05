@@ -22,7 +22,7 @@ void __init msm_msm7627a_allocate_memory_regions(void);
 void __init msm_fb_add_devices(void);
 
 #define PMEM_KERNEL_EBI1_SIZE	0x3A000
-#define MSM_PMEM_AUDIO_SIZE	0x5B000
+#define MSM_PMEM_AUDIO_SIZE	0x1F4000
 
 #define MSM_PMEM_MDP_SIZE		0x2300000
 #define MSM_PMEM_ADSP_SIZE		0x1100000

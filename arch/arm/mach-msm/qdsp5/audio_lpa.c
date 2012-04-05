@@ -73,7 +73,7 @@
 
 /* Size must be power of 2 */
 #define MAX_BUF 2
-#define BUFSZ (167210)
+#define BUFSZ (1024000)
 
 #define AUDDEC_DEC_PCM 0
 
