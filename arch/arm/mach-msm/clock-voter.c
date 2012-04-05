@@ -29,7 +29,7 @@ static unsigned long voter_clk_aggregate_rate(const struct clk *parent)
 	list_for_each_entry(clk, &parent->children, siblings) {
 		struct clk_voter *v = to_clk_voter(clk);
 		if (v->enabled)
-			rate = max(v->rate, rate);
+			rate = max(clk->rate, rate);
 	}
 	return rate;
 }
@@ -54,10 +54,10 @@ static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 		list_for_each_entry(clkp, &parent->children, siblings) {
 			clkh = to_clk_voter(clkp);
 			if (clkh->enabled && clkh != v)
-				other_rate = max(clkh->rate, other_rate);
+				other_rate = max(clkp->rate, other_rate);
 		}
 
-		cur_rate = max(other_rate, v->rate);
+		cur_rate = max(other_rate, clk->rate);
 		new_rate = max(other_rate, rate);
 
 		if (new_rate != cur_rate) {
@@ -66,7 +66,7 @@ static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 				goto unlock;
 		}
 	}
-	v->rate = rate;
+	clk->rate = rate;
 unlock:
 	spin_unlock_irqrestore(&voter_clk_lock, flags);
 
@@ -89,8 +89,8 @@ static int voter_clk_enable(struct clk *clk)
 	 * than the current rate.
 	 */
 	cur_rate = voter_clk_aggregate_rate(parent);
-	if (v->rate > cur_rate) {
-		ret = clk_set_rate(parent, v->rate);
+	if (clk->rate > cur_rate) {
+		ret = clk_set_rate(parent, clk->rate);
 		if (ret)
 			goto out;
 	}
@@ -116,24 +116,12 @@ static void voter_clk_disable(struct clk *clk)
 	 */
 	v->enabled = false;
 	new_rate = voter_clk_aggregate_rate(parent);
-	cur_rate = max(new_rate, v->rate);
+	cur_rate = max(new_rate, clk->rate);
 
 	if (new_rate < cur_rate)
 		clk_set_rate(parent, new_rate);
 
 	spin_unlock_irqrestore(&voter_clk_lock, flags);
-}
-
-static unsigned long voter_clk_get_rate(struct clk *clk)
-{
-	unsigned long rate, flags;
-	struct clk_voter *v = to_clk_voter(clk);
-
-	spin_lock_irqsave(&voter_clk_lock, flags);
-	rate = v->rate;
-	spin_unlock_irqrestore(&voter_clk_lock, flags);
-
-	return rate;
 }
 
 static int voter_clk_is_enabled(struct clk *clk)
@@ -163,7 +151,6 @@ struct clk_ops clk_ops_voter = {
 	.enable = voter_clk_enable,
 	.disable = voter_clk_disable,
 	.set_rate = voter_clk_set_rate,
-	.get_rate = voter_clk_get_rate,
 	.is_enabled = voter_clk_is_enabled,
 	.round_rate = voter_clk_round_rate,
 	.get_parent = voter_clk_get_parent,
