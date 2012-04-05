@@ -184,7 +184,8 @@ static void __reset_context(void __iomem *base, int ctx)
 }
 
 static void __program_context(void __iomem *base, int ctx, int ncb,
-			      phys_addr_t pgtable, int redirect)
+			      phys_addr_t pgtable, int redirect,
+			      int ttbr_split)
 {
 	unsigned int prrr, nmrr;
 	int i, j, found;
@@ -197,8 +198,10 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 	/* V2P configuration: HTW for access */
 	SET_V2PCFG(base, ctx, 0x3);
 
-	SET_TTBCR(base, ctx, 0);
+	SET_TTBCR(base, ctx, ttbr_split);
 	SET_TTBR0_PA(base, ctx, (pgtable >> TTBR0_PA_SHIFT));
+	if (ttbr_split)
+		SET_TTBR1_PA(base, ctx, (pgtable >> TTBR1_PA_SHIFT));
 
 	/* Enable context fault interrupt */
 	SET_CFEIE(base, ctx, 1);
@@ -378,7 +381,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 
 	__program_context(iommu_drvdata->base, ctx_dev->num, iommu_drvdata->ncb,
-			  __pa(priv->pgtable), priv->redirect);
+			  __pa(priv->pgtable), priv->redirect,
+			  iommu_drvdata->ttbr_split);
 
 	__disable_clocks(iommu_drvdata);
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
