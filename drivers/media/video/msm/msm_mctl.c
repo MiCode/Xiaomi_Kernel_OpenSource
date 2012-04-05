@@ -996,7 +996,8 @@ static int msm_mctl_v4l2_querycap(struct file *f, void *pctx,
 	D("%s\n", __func__);
 	WARN_ON(pctx != f->private_data);
 
-	strlcpy(pcaps->driver, pcam->pdev->name, sizeof(pcaps->driver));
+	strlcpy(pcaps->driver, pcam->mctl.sensor_sdev->name,
+		sizeof(pcaps->driver));
 	pcaps->capabilities = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 	return 0;
 }

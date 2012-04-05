@@ -316,7 +316,8 @@ int32_t msm_sensor_set_sensor_mode(struct msm_sensor_ctrl_t *s_ctrl,
 			s_ctrl->msm_sensor_reg->
 			output_settings[res].line_length_pclk;
 
-		if (s_ctrl->sensordata->pdata->is_csic)
+		if (s_ctrl->sensordata->pdata->is_csic ||
+			!s_ctrl->sensordata->csi_if)
 			rc = s_ctrl->func_tbl->sensor_csi_setting(s_ctrl,
 				MSM_SENSOR_UPDATE_PERIODIC, res);
 		else
@@ -342,7 +343,8 @@ int32_t msm_sensor_mode_init(struct msm_sensor_ctrl_t *s_ctrl,
 		s_ctrl->curr_res = MSM_SENSOR_INVALID_RES;
 		s_ctrl->cam_mode = mode;
 
-		if (s_ctrl->sensordata->pdata->is_csic)
+		if (s_ctrl->sensordata->pdata->is_csic ||
+			!s_ctrl->sensordata->csi_if)
 			rc = s_ctrl->func_tbl->sensor_csi_setting(s_ctrl,
 				MSM_SENSOR_REG_INIT, 0);
 		else
@@ -672,9 +674,10 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 {
 	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl;
-	CDBG("%s_i2c_probe called\n", client->name);
+	CDBG("%s %s_i2c_probe called\n", __func__, client->name);
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		CDBG("i2c_check_functionality failed\n");
+		pr_err("%s %s i2c_check_functionality failed\n",
+			__func__, client->name);
 		rc = -EFAULT;
 		return rc;
 	}
@@ -686,19 +689,23 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 			s_ctrl->sensor_i2c_client->client->addr =
 				s_ctrl->sensor_i2c_addr;
 	} else {
+		pr_err("%s %s sensor_i2c_client NULL\n",
+			__func__, client->name);
 		rc = -EFAULT;
 		return rc;
 	}
 
 	s_ctrl->sensordata = client->dev.platform_data;
 	if (s_ctrl->sensordata == NULL) {
-		pr_err("%s: NULL sensor data\n", __func__);
+		pr_err("%s %s NULL sensor data\n", __func__, client->name);
 		return -EFAULT;
 	}
 
 	rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
-	if (rc < 0)
-		goto probe_fail;
+	if (rc < 0) {
+		pr_err("%s %s power up failed\n", __func__, client->name);
+		return rc;
+	}
 
 	if (s_ctrl->func_tbl->sensor_match_id)
 		rc = s_ctrl->func_tbl->sensor_match_id(s_ctrl);
@@ -734,7 +741,7 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	msm_sensor_register(&s_ctrl->sensor_v4l2_subdev);
 	goto power_down;
 probe_fail:
-	pr_err("%s_i2c_probe failed\n", client->name);
+	pr_err("%s %s_i2c_probe failed\n", __func__, client->name);
 power_down:
 	if (rc > 0)
 		rc = 0;

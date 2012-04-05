@@ -870,6 +870,13 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 			.vfe_clk_rate =	153600000,
 		},
 	},
+	{
+		.csid_core = 0,
+		.is_vpe    = 1,
+		.ioclk = {
+			.vfe_clk_rate =	153600000,
+		},
+	},
 };
 
 static struct camera_vreg_t msm_7x30_back_cam_vreg[] = {

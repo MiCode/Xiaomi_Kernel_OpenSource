@@ -13,6 +13,4 @@ obj-$(CONFIG_S5K4E1) += s5k4e1_v4l2.o
 obj-$(CONFIG_MT9E013) += mt9e013_v4l2.o
 obj-$(CONFIG_WEBCAM_OV9726) += ov9726_v4l2.o
 obj-$(CONFIG_WEBCAM_OV7692_QRD) += ov7692_qrd_v4l2.o
-ifeq ($(CONFIG_ARCH_MSM7X30),y)
-  obj-$(CONFIG_VX6953) += vx6953.o
-endif
+obj-$(CONFIG_VX6953) += vx6953.o

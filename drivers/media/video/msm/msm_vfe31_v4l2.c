@@ -3568,7 +3568,7 @@ static void msm_vfe_camio_clk_sel(enum msm_camio_clk_src_type srctype)
 {
 	struct clk *clk = NULL;
 
-	clk = vfe31_ctrl->vfe_camif_clk[1];
+	clk = vfe31_ctrl->vfe_clk[0];
 
 	if (clk != NULL) {
 		switch (srctype) {
