@@ -351,8 +351,8 @@ static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		if (!clk_users) {
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
-			clk_disable(codec_clk);
 			tabla_mclk_enable(codec, 0, dapm);
+			clk_disable(codec_clk);
 		}
 	}
 	return 0;
@@ -396,8 +396,8 @@ static int msm_mclk_event(struct snd_soc_dapm_widget *w,
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					__func__, clk_users);
 
-			clk_disable(codec_clk);
 			tabla_mclk_enable(w->codec, 0, true);
+			clk_disable(codec_clk);
 		}
 		break;
 	}
