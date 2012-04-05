@@ -49,7 +49,9 @@ int gpio_wlan_sys_rest_en = 134;
 static void gpio_wlan_config(void)
 {
 	if (machine_is_msm7627a_qrd1() || machine_is_msm7627a_evb()
-					|| machine_is_msm8625_evb())
+					|| machine_is_msm8625_evb()
+					|| machine_is_msm7627a_qrd3()
+					|| machine_is_msm8625_qrd7())
 		gpio_wlan_sys_rest_en = 124;
 }
 
@@ -231,7 +233,9 @@ static unsigned int msm_AR600X_setup_power(bool on)
 	 * EVB1.0 and QRD8625,so the below step is required for those devices.
 	 */
 	if (machine_is_msm7627a_qrd1() || machine_is_msm7627a_evb()
-					|| machine_is_msm8625_evb()) {
+					|| machine_is_msm8625_evb()
+					|| machine_is_msm7627a_qrd3()
+					|| machine_is_msm8625_qrd7()) {
 		rc = gpio_tlmm_config(GPIO_CFG(gpio_wlan_sys_rest_en, 0,
 					GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
 					GPIO_CFG_2MA), GPIO_CFG_ENABLE);
@@ -305,7 +309,9 @@ static unsigned int msm_AR600X_shutdown_power(bool on)
 	 * EVB1.0 and QRD8625,so the below step is required for those devices.
 	 */
 	if (machine_is_msm7627a_qrd1() || machine_is_msm7627a_evb()
-					|| machine_is_msm8625_evb()) {
+					|| machine_is_msm8625_evb()
+					|| machine_is_msm7627a_qrd3()
+					|| machine_is_msm8625_qrd7()) {
 		rc = gpio_tlmm_config(GPIO_CFG(gpio_wlan_sys_rest_en, 0,
 					GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
 					GPIO_CFG_2MA), GPIO_CFG_ENABLE);
