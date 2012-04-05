@@ -270,11 +270,23 @@ bail:
 	return rc;
 }
 
+static const char * const pm8901_rev_names[] = {
+	[PM8XXX_REVISION_8901_TEST]	= "test",
+	[PM8XXX_REVISION_8901_1p0]	= "1.0",
+	[PM8XXX_REVISION_8901_1p1]	= "1.1",
+	[PM8XXX_REVISION_8901_2p0]	= "2.0",
+	[PM8XXX_REVISION_8901_2p1]	= "2.1",
+	[PM8XXX_REVISION_8901_2p2]	= "2.2",
+	[PM8XXX_REVISION_8901_2p3]	= "2.3",
+};
+
 static int __devinit pm8901_probe(struct platform_device *pdev)
 {
 	int rc;
 	struct pm8901_platform_data *pdata = pdev->dev.platform_data;
+	const char *revision_name = "unknown";
 	struct pm8901_chip *pmic;
+	int revision;
 
 	if (pdata == NULL) {
 		pr_err("%s: No platform_data or IRQ.\n", __func__);
@@ -298,7 +310,11 @@ static int __devinit pm8901_probe(struct platform_device *pdev)
 		pr_err("%s: Failed reading version register rc=%d.\n",
 			__func__, rc);
 
-	pr_info("%s: PMIC REVISION = %X\n", __func__, pmic->revision);
+	pr_info("%s: PMIC revision reg: %02X\n", __func__, pmic->revision);
+	revision =  pm8xxx_get_revision(pmic->dev);
+	if (revision >= 0 && revision < ARRAY_SIZE(pm8901_rev_names))
+		revision_name = pm8901_rev_names[revision];
+	pr_info("%s: PMIC version: PM8901 rev %s\n", __func__, revision_name);
 
 	(void) memcpy((void *)&pmic->pdata, (const void *)pdata,
 		      sizeof(pmic->pdata));
