@@ -48,6 +48,7 @@ struct kgsl_pwrctrl {
 	int thermal_pwrlevel;
 	unsigned int num_pwrlevels;
 	unsigned int interval_timeout;
+	bool strtstp_sleepwake;
 	struct regulator *gpu_reg;
 	uint32_t pcl;
 	unsigned int nap_allowed;
