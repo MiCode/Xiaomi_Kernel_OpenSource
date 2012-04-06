@@ -161,6 +161,8 @@ struct msm_hs_port {
 
 	struct msm_hs_wakeup wakeup;
 	struct wake_lock dma_wake_lock;  /* held while any DMA active */
+
+	struct dentry *loopback_dir;
 };
 
 #define MSM_UARTDM_BURST_SIZE 16   /* DM burst size (in bytes) */
@@ -367,13 +369,15 @@ static void __init msm_serial_debugfs_init(struct msm_hs_port *msm_uport,
 {
 	char node_name[15];
 	snprintf(node_name, sizeof(node_name), "loopback.%d", id);
-	if (IS_ERR_OR_NULL(debugfs_create_file(node_name,
-					       S_IRUGO | S_IWUSR,
-					       debug_base,
-					       msm_uport,
-					       &loopback_enable_fops))) {
-		debugfs_remove_recursive(debug_base);
-	}
+	msm_uport->loopback_dir = debugfs_create_file(node_name,
+						S_IRUGO | S_IWUSR,
+						debug_base,
+						msm_uport,
+						&loopback_enable_fops);
+
+	if (IS_ERR_OR_NULL(msm_uport->loopback_dir))
+		pr_err("%s(): Cannot create loopback.%d debug entry",
+							__func__, id);
 }
 
 static int __devexit msm_hs_remove(struct platform_device *pdev)
@@ -397,7 +401,7 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 			dev_err(dev, "GPIO config error\n");
 
 	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_clock.attr);
-	debugfs_remove_recursive(debug_base);
+	debugfs_remove(msm_uport->loopback_dir);
 
 	dma_unmap_single(dev, msm_uport->rx.mapped_cmd_ptr, sizeof(dmov_box),
 			 DMA_TO_DEVICE);
@@ -1796,7 +1800,7 @@ free_tx_command_ptr:
 	return ret;
 }
 
-static int __init msm_hs_probe(struct platform_device *pdev)
+static int __devinit msm_hs_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct uart_port *uport;
@@ -1930,8 +1934,7 @@ static int __init msm_serial_hs_init(void)
 	if (IS_ERR_OR_NULL(debug_base))
 		pr_info("msm_serial_hs: Cannot create debugfs dir\n");
 
-	ret = platform_driver_probe(&msm_serial_hs_platform_driver,
-					msm_hs_probe);
+	ret = platform_driver_register(&msm_serial_hs_platform_driver);
 	if (ret) {
 		printk(KERN_ERR "%s failed to load\n", __FUNCTION__);
 		debugfs_remove_recursive(debug_base);
@@ -2001,6 +2004,7 @@ static void msm_hs_shutdown(struct uart_port *uport)
 static void __exit msm_serial_hs_exit(void)
 {
 	printk(KERN_INFO "msm_serial_hs module removed\n");
+	debugfs_remove_recursive(debug_base);
 	platform_driver_unregister(&msm_serial_hs_platform_driver);
 	uart_unregister_driver(&msm_hs_driver);
 }
@@ -2039,7 +2043,8 @@ static const struct dev_pm_ops msm_hs_dev_pm_ops = {
 };
 
 static struct platform_driver msm_serial_hs_platform_driver = {
-	.remove = msm_hs_remove,
+	.probe	= msm_hs_probe,
+	.remove = __devexit_p(msm_hs_remove),
 	.driver = {
 		.name = "msm_serial_hs",
 		.pm   = &msm_hs_dev_pm_ops,
