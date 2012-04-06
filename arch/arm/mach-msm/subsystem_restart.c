@@ -23,6 +23,8 @@
 #include <linux/io.h>
 #include <linux/kthread.h>
 #include <linux/time.h>
+#include <linux/wakelock.h>
+#include <linux/suspend.h>
 
 #include <asm/current.h>
 
@@ -43,9 +45,12 @@ struct subsys_soc_restart_order {
 	struct subsys_data *subsys_ptrs[];
 };
 
-struct restart_thread_data {
+struct restart_wq_data {
 	struct subsys_data *subsys;
+	struct wake_lock ssr_wake_lock;
+	char wakelockname[64];
 	int coupled;
+	struct work_struct work;
 };
 
 struct restart_log {
@@ -56,6 +61,7 @@ struct restart_log {
 
 static int restart_level;
 static int enable_ramdumps;
+struct workqueue_struct *ssr_wq;
 
 static LIST_HEAD(restart_log_list);
 static LIST_HEAD(subsystem_list);
@@ -297,9 +303,10 @@ out:
 	mutex_unlock(&restart_log_mutex);
 }
 
-static int subsystem_restart_thread(void *data)
+static void subsystem_restart_wq_func(struct work_struct *work)
 {
-	struct restart_thread_data *r_work = data;
+	struct restart_wq_data *r_work = container_of(work,
+						struct restart_wq_data, work);
 	struct subsys_data **restart_list;
 	struct subsys_data *subsys = r_work->subsys;
 	struct subsys_soc_restart_order *soc_restart_order = NULL;
@@ -334,10 +341,8 @@ static int subsystem_restart_thread(void *data)
 	/* Try to acquire shutdown_lock. If this fails, these subsystems are
 	 * already being restarted - return.
 	 */
-	if (!mutex_trylock(shutdown_lock)) {
-		kfree(data);
-		do_exit(0);
-	}
+	if (!mutex_trylock(shutdown_lock))
+		goto out;
 
 	pr_debug("[%p]: Attempting to get powerup lock!\n", current);
 
@@ -430,15 +435,17 @@ static int subsystem_restart_thread(void *data)
 
 	pr_debug("[%p]: Released powerup lock!\n", current);
 
-	kfree(data);
-	do_exit(0);
+out:
+	wake_unlock(&r_work->ssr_wake_lock);
+	wake_lock_destroy(&r_work->ssr_wake_lock);
+	kfree(r_work);
 }
 
 int subsystem_restart(const char *subsys_name)
 {
 	struct subsys_data *subsys;
-	struct task_struct *tsk;
-	struct restart_thread_data *data = NULL;
+	struct restart_wq_data *data = NULL;
+	int rc;
 
 	if (!subsys_name) {
 		pr_err("Invalid subsystem name.\n");
@@ -459,7 +466,7 @@ int subsystem_restart(const char *subsys_name)
 	}
 
 	if (restart_level != RESET_SOC) {
-		data = kzalloc(sizeof(struct restart_thread_data), GFP_KERNEL);
+		data = kzalloc(sizeof(struct restart_wq_data), GFP_KERNEL);
 		if (!data) {
 			restart_level = RESET_SOC;
 			pr_warn("Failed to alloc restart data. Resetting.\n");
@@ -482,18 +489,18 @@ int subsystem_restart(const char *subsys_name)
 		pr_debug("Restarting %s [level=%d]!\n", subsys_name,
 				restart_level);
 
-		/* Let the kthread handle the actual restarting. Using a
-		 * workqueue will not work since all restart requests are
-		 * serialized and it prevents the short circuiting of
-		 * restart requests for subsystems already in a restart
-		 * sequence.
-		 */
-		tsk = kthread_run(subsystem_restart_thread, data,
-				"subsystem_restart_thread");
-		if (IS_ERR(tsk))
-			panic("%s: Unable to create thread to restart %s",
-				__func__, subsys->name);
+		snprintf(data->wakelockname, sizeof(data->wakelockname),
+				"ssr(%s)", subsys_name);
+		wake_lock_init(&data->ssr_wake_lock, WAKE_LOCK_SUSPEND,
+			data->wakelockname);
+		wake_lock(&data->ssr_wake_lock);
 
+		INIT_WORK(&data->work, subsystem_restart_wq_func);
+		rc = schedule_work(&data->work);
+
+		if (rc < 0)
+			panic("%s: Unable to schedule work to restart %s",
+			     __func__, subsys->name);
 		break;
 
 	case RESET_SOC:
@@ -596,6 +603,11 @@ static int __init subsys_restart_init(void)
 	int ret = 0;
 
 	restart_level = RESET_SOC;
+
+	ssr_wq = alloc_workqueue("ssr_wq", 0, 0);
+
+	if (!ssr_wq)
+		panic("Couldn't allocate workqueue for subsystem restart.\n");
 
 	ret = ssr_init_soc_restart_orders();
 
