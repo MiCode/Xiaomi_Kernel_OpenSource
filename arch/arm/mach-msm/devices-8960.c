@@ -31,6 +31,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
+#include <mach/msm_dcvs.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
 #include <mach/msm_tsif.h>
@@ -2403,6 +2404,49 @@ struct platform_device msm_slim_ctrl = {
 	},
 };
 
+static struct msm_dcvs_freq_entry grp3d_freq[] = {
+	{0, 0, 333932},
+	{0, 0, 497532},
+	{0, 0, 707610},
+	{0, 0, 844545},
+};
+
+static struct msm_dcvs_freq_entry grp2d_freq[] = {
+	{0, 0, 86000},
+	{0, 0, 200000},
+};
+
+static struct msm_dcvs_core_info grp3d_core_info = {
+	.freq_tbl = &grp3d_freq[0],
+	.core_param = {
+		.max_time_us = 100000,
+		.num_freq = ARRAY_SIZE(grp3d_freq),
+	},
+	.algo_param = {
+		.slack_time_us = 39000,
+		.disable_pc_threshold = 86000,
+		.ss_window_size = 1000000,
+		.ss_util_pct = 95,
+		.em_max_util_pct = 97,
+		.ss_iobusy_conv = 100,
+	},
+};
+
+static struct msm_dcvs_core_info grp2d_core_info = {
+	.freq_tbl = &grp2d_freq[0],
+	.core_param = {
+		.max_time_us = 100000,
+		.num_freq = ARRAY_SIZE(grp2d_freq),
+	},
+	.algo_param = {
+		.slack_time_us = 39000,
+		.disable_pc_threshold = 90000,
+		.ss_window_size = 1000000,
+		.ss_util_pct = 90,
+		.em_max_util_pct = 95,
+	},
+};
+
 #ifdef CONFIG_MSM_BUS_SCALING
 static struct msm_bus_vectors grp3d_init_vectors[] = {
 	{
@@ -2632,7 +2676,7 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 		},
 	},
 	.init_level = 0,
-	.num_levels = 5,
+	.num_levels = ARRAY_SIZE(grp3d_freq) + 1,
 	.set_grp_async = NULL,
 	.idle_timeout = HZ/20,
 	.nap_allowed = true,
@@ -2642,6 +2686,7 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 #endif
 	.iommu_data = kgsl_3d0_iommu_data,
 	.iommu_count = ARRAY_SIZE(kgsl_3d0_iommu_data),
+	.core_info = &grp3d_core_info,
 };
 
 struct platform_device msm_kgsl_3d0 = {
@@ -2698,7 +2743,7 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 		},
 	},
 	.init_level = 0,
-	.num_levels = 3,
+	.num_levels = ARRAY_SIZE(grp2d_freq) + 1,
 	.set_grp_async = NULL,
 	.idle_timeout = HZ/5,
 	.nap_allowed = true,
@@ -2708,6 +2753,7 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 #endif
 	.iommu_data = kgsl_2d0_iommu_data,
 	.iommu_count = ARRAY_SIZE(kgsl_2d0_iommu_data),
+	.core_info = &grp2d_core_info,
 };
 
 struct platform_device msm_kgsl_2d0 = {
@@ -2764,7 +2810,7 @@ static struct kgsl_device_platform_data kgsl_2d1_pdata = {
 		},
 	},
 	.init_level = 0,
-	.num_levels = 3,
+	.num_levels = ARRAY_SIZE(grp2d_freq) + 1,
 	.set_grp_async = NULL,
 	.idle_timeout = HZ/5,
 	.nap_allowed = true,
@@ -2774,6 +2820,7 @@ static struct kgsl_device_platform_data kgsl_2d1_pdata = {
 #endif
 	.iommu_data = kgsl_2d1_iommu_data,
 	.iommu_count = ARRAY_SIZE(kgsl_2d1_iommu_data),
+	.core_info = &grp2d_core_info,
 };
 
 struct platform_device msm_kgsl_2d1 = {
