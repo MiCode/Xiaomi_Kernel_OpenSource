@@ -259,14 +259,8 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
 	if (dtv_pipe != NULL) {
-		mdp4_mixer_stage_down(dtv_pipe);
-		/*
-		 * wait4vsync to make sure pipes are
-		 * dis-engaged from mixer1
-		 * before turn off timing generator
-		 */
-		mdp4_overlay_dtv_wait4vsync();
 		mdp4_dtv_stop(mfd);
+		mdp4_mixer_stage_down(dtv_pipe);
 		mdp4_overlay_pipe_free(dtv_pipe);
 		mdp4_iommu_unmap(dtv_pipe);
 		dtv_pipe = NULL;
