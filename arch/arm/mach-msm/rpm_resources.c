@@ -895,6 +895,9 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 		if (latency_us < level->latency_us)
 			continue;
 
+		if (sleep_us <= level->time_overhead_us)
+			continue;
+
 		if (!msm_rpmrs_irqs_detectable(&level->rs_limits,
 					irqs_detectable, gpio_detectable))
 			continue;
