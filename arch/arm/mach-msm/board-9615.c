@@ -722,12 +722,22 @@ static void __init msm9615_common_init(void)
 static void __init msm9615_cdp_init(void)
 {
 	msm9615_common_init();
+#ifdef CONFIG_FB_MSM
+	mdm9615_init_fb();
+#endif
 }
 
 static void __init msm9615_mtp_init(void)
 {
 	msm9615_common_init();
 }
+
+#ifdef CONFIG_FB_MSM
+static void __init mdm9615_allocate_memory_regions(void)
+{
+	mdm9615_allocate_fb_region();
+}
+#endif
 
 MACHINE_START(MSM9615_CDP, "QCT MSM9615 CDP")
 	.map_io = msm9615_map_io,
@@ -736,6 +746,9 @@ MACHINE_START(MSM9615_CDP, "QCT MSM9615 CDP")
 	.timer = &msm_timer,
 	.init_machine = msm9615_cdp_init,
 	.reserve = msm9615_reserve,
+#ifdef CONFIG_FB_MSM
+	.init_early = mdm9615_allocate_memory_regions,
+#endif
 MACHINE_END
 
 MACHINE_START(MSM9615_MTP, "QCT MSM9615 MTP")

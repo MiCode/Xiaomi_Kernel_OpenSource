@@ -40,4 +40,6 @@ uint32_t msm9615_rpm_get_swfi_latency(void);
 
 int msm9615_init_gpiomux(void);
 void msm9615_init_mmc(void);
+void mdm9615_allocate_fb_region(void);
+void mdm9615_init_fb(void);
 #endif
