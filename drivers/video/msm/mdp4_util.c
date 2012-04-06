@@ -2845,10 +2845,12 @@ int mdp4_pcc_cfg(struct mdp_pcc_cfg_data *cfg_ptr)
 
 	if (0x8 & cfg_ptr->ops)
 		outpdw(mdp_dma_op_mode,
-			(inpdw(mdp_dma_op_mode)|((0x8&cfg_ptr->ops)<<10)));
+			((inpdw(mdp_dma_op_mode) & ~(0x1<<10)) |
+						((0x8 & cfg_ptr->ops)<<10)));
 
 	outpdw(mdp_cfg_offset,
-			(inpdw(mdp_cfg_offset)|((cfg_ptr->ops&0x1)<<29)));
+			((inpdw(mdp_cfg_offset) & ~(0x1<<29)) |
+						((cfg_ptr->ops & 0x1)<<29)));
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
@@ -3034,8 +3036,9 @@ int mdp4_argc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
 
 		if (!ret) {
 			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-			outpdw(pgc_enable_offset, (inpdw(pgc_enable_offset) |
-				((0x1 & pgc_ptr->flags) << lshift_bits)));
+			outpdw(pgc_enable_offset, (inpdw(pgc_enable_offset) &
+							~(0x1<<lshift_bits)) |
+				((0x1 & pgc_ptr->flags) << lshift_bits));
 			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF,
 									FALSE);
 		}
