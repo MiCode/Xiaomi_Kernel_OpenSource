@@ -1132,11 +1132,13 @@ static int qsee_vote_for_clock(void)
 	int ret = 0;
 
 	if (!qsee_perf_client)
-		return -EINVAL;
+		return ret;
 
 	/* Check if the clk is valid */
-	if (IS_ERR_OR_NULL(qseecom_bus_clk))
+	if (IS_ERR_OR_NULL(qseecom_bus_clk)) {
+		pr_warn("qseecom bus clock is null or error");
 		return -EINVAL;
+	}
 
 	mutex_lock(&qsee_bw_mutex);
 	if (!qsee_bw_count) {
@@ -1166,8 +1168,10 @@ static void qsee_disable_clock_vote(void)
 		return;
 
 	/* Check if the clk is valid */
-	if (IS_ERR_OR_NULL(qseecom_bus_clk))
+	if (IS_ERR_OR_NULL(qseecom_bus_clk)) {
+		pr_warn("qseecom bus clock is null or error");
 		return;
+	}
 
 	mutex_lock(&qsee_bw_mutex);
 	if (qsee_bw_count > 0) {
@@ -1420,6 +1424,10 @@ static int __init qseecom_init(void)
 	char qsee_not_legacy = 0;
 	uint32_t system_call_id = QSEOS_CHECK_VERSION_CMD;
 
+	qsee_bw_count = 0;
+	qseecom_bus_clk = NULL;
+	qsee_perf_client = 0;
+
 	rc = alloc_chrdev_region(&qseecom_device_no, 0, 1, QSEECOM_DEV);
 	if (rc < 0) {
 		pr_err("alloc_chrdev_region failed %d\n", rc);
@@ -1483,8 +1491,8 @@ static int __init qseecom_init(void)
 					&qsee_bus_pdata);
 	if (!qsee_perf_client) {
 		pr_err("Unable to register bus client\n");
-
-		qseecom_bus_clk = clk_get(class_dev, "qseecom");
+	} else {
+		qseecom_bus_clk = clk_get(class_dev, "bus_clk");
 		if (IS_ERR(qseecom_bus_clk)) {
 			qseecom_bus_clk = NULL;
 		} else if (qseecom_bus_clk != NULL) {
