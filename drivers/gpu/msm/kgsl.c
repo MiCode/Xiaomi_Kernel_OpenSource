@@ -938,40 +938,6 @@ static long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private
 
 	return result;
 }
-static bool check_ibdesc(struct kgsl_device_private *dev_priv,
-			 struct kgsl_ibdesc *ibdesc, unsigned int numibs,
-			 bool parse)
-{
-	bool result = true;
-	unsigned int i;
-	for (i = 0; i < numibs; i++) {
-		struct kgsl_mem_entry *entry;
-		spin_lock(&dev_priv->process_priv->mem_lock);
-		entry = kgsl_sharedmem_find_region(dev_priv->process_priv,
-			ibdesc[i].gpuaddr, ibdesc[i].sizedwords * sizeof(uint));
-		spin_unlock(&dev_priv->process_priv->mem_lock);
-		if (entry == NULL) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"invalid cmd buffer gpuaddr %08x " \
-				"sizedwords %d\n", ibdesc[i].gpuaddr,
-				ibdesc[i].sizedwords);
-			result = false;
-			break;
-		}
-
-		if (parse && !kgsl_cffdump_parse_ibs(dev_priv, &entry->memdesc,
-			ibdesc[i].gpuaddr, ibdesc[i].sizedwords, true)) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"invalid cmd buffer gpuaddr %08x " \
-				"sizedwords %d numibs %d/%d\n",
-				ibdesc[i].gpuaddr,
-				ibdesc[i].sizedwords, i+1, numibs);
-			result = false;
-			break;
-		}
-	}
-	return result;
-}
 
 static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 				      unsigned int cmd, void *data)
@@ -1037,12 +1003,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		param->numibs = 1;
 	}
 
-	if (!check_ibdesc(dev_priv, ibdesc, param->numibs, true)) {
-		KGSL_DRV_ERR(dev_priv->device, "bad ibdesc");
-		result = -EINVAL;
-		goto free_ibdesc;
-	}
-
 	result = dev_priv->device->ftbl->issueibcmds(dev_priv,
 					     context,
 					     ibdesc,
@@ -1051,18 +1011,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 					     param->flags);
 
 	trace_kgsl_issueibcmds(dev_priv->device, param, result);
-
-	if (result != 0)
-		goto free_ibdesc;
-
-	/* this is a check to try to detect if a command buffer was freed
-	 * during issueibcmds().
-	 */
-	if (!check_ibdesc(dev_priv, ibdesc, param->numibs, false)) {
-		KGSL_DRV_ERR(dev_priv->device, "bad ibdesc AFTER issue");
-		result = -EINVAL;
-		goto free_ibdesc;
-	}
 
 free_ibdesc:
 	kfree(ibdesc);

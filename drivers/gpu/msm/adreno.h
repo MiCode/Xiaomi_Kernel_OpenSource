@@ -77,6 +77,7 @@ struct adreno_device {
 	unsigned int istore_size;
 	unsigned int pix_shader_start;
 	unsigned int instruction_size;
+	unsigned int ib_check_level;
 };
 
 struct adreno_gpudev {
