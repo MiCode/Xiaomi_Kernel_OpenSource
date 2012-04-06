@@ -1024,16 +1024,6 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 };
 #endif
 
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-#define HSIC_HUB_RESET_GPIO	91
-static struct msm_hsic_host_platform_data msm_hsic_pdata = {
-	.strobe		= 150,
-	.data		= 151,
-};
-#else
-static struct msm_hsic_host_platform_data msm_hsic_pdata;
-#endif
-
 #define PID_MAGIC_ID		0x71432909
 #define SERIAL_NUM_MAGIC_ID	0x61945374
 #define SERIAL_NUMBER_LENGTH	127
@@ -1942,24 +1932,6 @@ struct i2c_registry {
 	int                    len;
 };
 
-static void __init msm8930_init_hsic(void)
-{
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-	uint32_t version = socinfo_get_version();
-
-	pr_info("%s: version:%d mtp:%d\n", __func__,
-			SOCINFO_VERSION_MAJOR(version),
-			machine_is_msm8930_mtp());
-
-	if ((SOCINFO_VERSION_MAJOR(version) == 1) ||
-			machine_is_msm8930_mtp() ||
-			machine_is_msm8930_fluid())
-		return;
-
-	platform_device_register(&msm_device_hsic_host);
-#endif
-}
-
 #ifdef CONFIG_ISL9519_CHARGER
 static struct isl_platform_data isl_data __initdata = {
 	.valid_n_gpio		= 0,	/* Not required when notify-by-pmic */
@@ -2059,7 +2031,6 @@ static void __init msm8930_cdp_init(void)
 	platform_device_register(&msm8930_device_rpm_regulator);
 	msm_clock_init(&msm8930_clock_init_data);
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
-	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	msm8930_init_gpiomux();
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
@@ -2095,7 +2066,6 @@ static void __init msm8930_cdp_init(void)
 	msm8930_pm8038_gpio_mpp_init();
 #endif
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
-	msm8930_init_hsic();
 	msm8930_init_cam();
 	msm8930_init_mmc();
 	acpuclk_init(&acpuclk_8930_soc_data);
