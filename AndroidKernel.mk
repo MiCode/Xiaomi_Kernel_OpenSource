@@ -15,19 +15,21 @@ MSM_ARCH ?= $(shell $(PERL) -e 'while (<>) {$$a = $$1 if /CONFIG_ARCH_((?:MSM|QS
 KERNEL_USE_OF ?= $(shell $(PERL) -e '$$of = "n"; while (<>) { if (/CONFIG_USE_OF=y/) { $$of = "y"; break; } } print $$of;' kernel/arch/arm/configs/$(KERNEL_DEFCONFIG))
 
 ifeq "$(KERNEL_USE_OF)" "y"
+DTS_NAME ?= $(MSM_ARCH)
+DTS_FILES = $(wildcard $(TOP)/kernel/arch/arm/boot/dts/$(DTS_NAME)*.dts)
+DTS_FILE = $(lastword $(subst /, ,$(1)))
+DTB_FILE = $(addprefix $(KERNEL_OUT)/arch/arm/boot/,$(patsubst %.dts,%.dtb,$(call DTS_FILE,$(1))))
+ZIMG_FILE = $(addprefix $(KERNEL_OUT)/arch/arm/boot/,$(patsubst %.dts,%-zImage,$(call DTS_FILE,$(1))))
 KERNEL_ZIMG = $(KERNEL_OUT)/arch/arm/boot/zImage
-DTB_FILE = $(KERNEL_OUT)/arch/arm/boot/$(MSM_ARCH).dtb
-DTS_FILE = $(TOP)/kernel/arch/arm/boot/dts/$(MSM_ARCH).dts
-FULL_KERNEL = $(KERNEL_OUT)/arch/arm/boot/$(MSM_ARCH)-zImage
 DTC = $(KERNEL_OUT)/scripts/dtc/dtc
 
 define append-dtb
-md $(KERNEL_OUT)/arch/arm/boot;\
-$(DTC) -p 1024 -O dtb -o $(DTB_FILE) $(DTS_FILE);\
-cat $(KERNEL_ZIMG) $(DTB_FILE) > $(FULL_KERNEL)
+mkdir -p $(KERNEL_OUT)/arch/arm/boot;\
+$(foreach d, $(DTS_FILES), \
+   $(DTC) -p 1024 -O dtb -o $(call DTB_FILE,$(d)) $(d); \
+   cat $(KERNEL_ZIMG) $(call DTB_FILE,$(d)) > $(call ZIMG_FILE,$(d));)
 endef
 else
-FULL_KERNEL = $(KERNEL_IMG)
 
 define append-dtb
 endef
