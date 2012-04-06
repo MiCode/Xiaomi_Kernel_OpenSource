@@ -781,6 +781,12 @@ config MACH_APQ8064_LIQUID
 	help
 	  Support for the Qualcomm APQ8064 LIQUID device.
 
+config MACH_MPQ8064_CDP
+	depends on ARCH_APQ8064
+	bool "MPQ8064 CDP"
+	help
+	  Support for the Qualcomm MPQ8064 CDP device.
+
 config MACH_MPQ8064_HRD
 	depends on ARCH_APQ8064
 	bool "MPQ8064 HRD"
