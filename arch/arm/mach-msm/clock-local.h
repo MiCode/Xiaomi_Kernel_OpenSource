@@ -331,7 +331,6 @@ static inline struct branch_clk *to_branch_clk(struct clk *clk)
 int branch_clk_enable(struct clk *clk);
 void branch_clk_disable(struct clk *clk);
 struct clk *branch_clk_get_parent(struct clk *clk);
-int branch_clk_set_parent(struct clk *clk, struct clk *parent);
 int branch_clk_is_enabled(struct clk *clk);
 int branch_clk_reset(struct clk *c, enum clk_reset_action action);
 void branch_clk_enable_hwcg(struct clk *clk);
