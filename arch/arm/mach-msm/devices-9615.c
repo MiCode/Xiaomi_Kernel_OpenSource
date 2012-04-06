@@ -850,6 +850,30 @@ int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
 	return platform_device_register(pdev);
 }
 
+#ifdef CONFIG_FB_MSM_EBI2
+static struct resource msm_ebi2_lcdc_resources[] = {
+	{
+		.name   = "base",
+		.start  = 0x1B300000,
+		.end    = 0x1B300000 + PAGE_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "lcd01",
+		.start  = 0x1FC00000,
+		.end    = 0x1FC00000 + 0x80000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_ebi2_lcdc_device = {
+	.name   = "ebi2_lcd",
+	.id     = 0,
+	.num_resources  = ARRAY_SIZE(msm_ebi2_lcdc_resources),
+	.resource       = msm_ebi2_lcdc_resources,
+};
+#endif
+
 #ifdef CONFIG_CACHE_L2X0
 static int __init l2x0_cache_init(void)
 {
@@ -1273,3 +1297,26 @@ struct platform_device msm_bus_def_fab = {
 	.name  = "msm_bus_fabric",
 	.id    =  MSM_BUS_FAB_DEFAULT,
 };
+
+#ifdef CONFIG_FB_MSM_EBI2
+static void __init msm_register_device(struct platform_device *pdev, void *data)
+{
+	int ret;
+
+	pdev->dev.platform_data = data;
+
+	ret = platform_device_register(pdev);
+	if (ret)
+		dev_err(&pdev->dev,
+			  "%s: platform_device_register() failed = %d\n",
+			  __func__, ret);
+}
+
+void __init msm_fb_register_device(char *name, void *data)
+{
+	if (!strncmp(name, "ebi2", 4))
+		msm_register_device(&msm_ebi2_lcdc_device, data);
+	else
+		pr_err("%s: unknown device! %s\n", __func__, name);
+}
+#endif
