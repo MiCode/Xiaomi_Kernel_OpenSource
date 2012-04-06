@@ -183,7 +183,7 @@ int chk_apps_master(void)
 		return 0;
 }
 
-inline int chk_polling_response(void)
+int chk_polling_response(void)
 {
 	if (!(driver->polling_reg_flag) && chk_apps_master())
 		/*
