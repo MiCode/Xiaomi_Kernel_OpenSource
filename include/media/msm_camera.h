@@ -1224,6 +1224,8 @@ struct flash_ctrl_data {
 struct msm_camsensor_info {
 	char name[MAX_SENSOR_NAME];
 	uint8_t flash_enabled;
+	uint8_t strobe_flash_enabled;
+	uint8_t actuator_enabled;
 	int8_t total_steps;
 	uint8_t support_3d;
 	enum flash_type flashtype;
