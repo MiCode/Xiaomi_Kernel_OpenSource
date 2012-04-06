@@ -142,7 +142,7 @@ static struct gpio_event_info *kp_info_8625[] = {
 };
 
 static struct gpio_event_platform_data kp_pdata_8625 = {
-	.name           = "8625_kp",
+	.name           = "7x27a_kp",
 	.info           = kp_info_8625,
 	.info_count     = ARRAY_SIZE(kp_info_8625)
 };
@@ -612,6 +612,47 @@ static void ft5x06_touchpad_setup(void)
 				ARRAY_SIZE(ft5x06_device_info));
 }
 
+/* SKU3/SKU7 keypad device information */
+#define KP_INDEX_SKU3(row, col) ((row)*ARRAY_SIZE(kp_col_gpios_sku3) + (col))
+static unsigned int kp_row_gpios_sku3[] = {31, 32};
+static unsigned int kp_col_gpios_sku3[] = {36, 37};
+
+static const unsigned short keymap_sku3[] = {
+	[KP_INDEX_SKU3(0, 0)] = KEY_VOLUMEUP,
+	[KP_INDEX_SKU3(0, 1)] = KEY_VOLUMEDOWN,
+	[KP_INDEX_SKU3(1, 1)] = KEY_CAMERA,
+};
+
+static struct gpio_event_matrix_info kp_matrix_info_sku3 = {
+	.info.func      = gpio_event_matrix_func,
+	.keymap         = keymap_sku3,
+	.output_gpios   = kp_row_gpios_sku3,
+	.input_gpios    = kp_col_gpios_sku3,
+	.noutputs       = ARRAY_SIZE(kp_row_gpios_sku3),
+	.ninputs        = ARRAY_SIZE(kp_col_gpios_sku3),
+	.settle_time.tv_nsec = 40 * NSEC_PER_USEC,
+	.poll_time.tv_nsec = 20 * NSEC_PER_MSEC,
+	.flags          = GPIOKPF_LEVEL_TRIGGERED_IRQ | GPIOKPF_DRIVE_INACTIVE |
+				GPIOKPF_PRINT_UNMAPPED_KEYS,
+};
+
+static struct gpio_event_info *kp_info_sku3[] = {
+	&kp_matrix_info_sku3.info,
+};
+static struct gpio_event_platform_data kp_pdata_sku3 = {
+	.name           = "7x27a_kp",
+	.info           = kp_info_sku3,
+	.info_count     = ARRAY_SIZE(kp_info_sku3)
+};
+
+static struct platform_device kp_pdev_sku3 = {
+	.name   = GPIO_EVENT_DEV_NAME,
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &kp_pdata_sku3,
+	},
+};
+
 void __init msm7627a_add_io_devices(void)
 {
 	/* touchscreen */
@@ -689,6 +730,8 @@ void __init qrd7627a_add_io_devices(void)
 	/* keypad */
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
 		platform_device_register(&kp_pdev_8625);
+	else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7())
+		platform_device_register(&kp_pdev_sku3);
 
 	/* leds */
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
