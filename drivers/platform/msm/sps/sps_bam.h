@@ -545,4 +545,20 @@ int sps_bam_set_satellite(struct sps_bam *dev, u32 pipe_index);
 int sps_bam_pipe_timer_ctrl(struct sps_bam *dev, u32 pipe_index,
 			    struct sps_timer_ctrl *timer_ctrl,
 			    struct sps_timer_result *timer_result);
+
+
+/**
+ * Get the number of unused descriptors in the descriptor FIFO
+ * of a pipe
+ *
+ * @dev - pointer to BAM device descriptor
+ *
+ * @pipe_index - pipe index
+ *
+ * @desc_num - number of unused descriptors
+ *
+ */
+int sps_bam_pipe_get_unused_desc_num(struct sps_bam *dev, u32 pipe_index,
+					u32 *desc_num);
+
 #endif	/* _SPSBAM_H_ */

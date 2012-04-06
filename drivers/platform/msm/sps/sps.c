@@ -1352,6 +1352,32 @@ int sps_free_mem(struct sps_pipe *h, struct sps_mem_buffer *mem_buffer)
 EXPORT_SYMBOL(sps_free_mem);
 
 /**
+ * Get the number of unused descriptors in the descriptor FIFO
+ * of a pipe
+ *
+ */
+int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num)
+{
+	struct sps_pipe *pipe = h;
+	struct sps_bam *bam;
+	int result;
+
+	SPS_DBG("sps:%s.", __func__);
+
+	bam = sps_bam_lock(pipe);
+	if (bam == NULL)
+		return SPS_ERROR;
+
+	result = sps_bam_pipe_get_unused_desc_num(bam, pipe->pipe_index,
+						desc_num);
+
+	sps_bam_unlock(bam);
+
+	return result;
+}
+EXPORT_SYMBOL(sps_get_unused_desc_num);
+
+/**
  * Register a BAM device
  *
  */

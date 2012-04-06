@@ -1960,3 +1960,29 @@ int sps_bam_pipe_timer_ctrl(struct sps_bam *dev,
 	return result;
 }
 
+/**
+ * Get the number of unused descriptors in the descriptor FIFO
+ * of a pipe
+ */
+int sps_bam_pipe_get_unused_desc_num(struct sps_bam *dev, u32 pipe_index,
+					u32 *desc_num)
+{
+	u32 sw_offset, peer_offset, fifo_size;
+	u32 desc_size = sizeof(struct sps_iovec);
+	struct sps_pipe *pipe = dev->pipes[pipe_index];
+
+	if (pipe == NULL)
+		return SPS_ERROR;
+
+	fifo_size = pipe->desc_size;
+
+	sw_offset = bam_pipe_get_desc_read_offset(dev->base, pipe_index);
+	peer_offset = bam_pipe_get_desc_write_offset(dev->base, pipe_index);
+
+	if (sw_offset <= peer_offset)
+		*desc_num = (peer_offset - sw_offset) / desc_size;
+	else
+		*desc_num = (peer_offset + fifo_size - sw_offset) / desc_size;
+
+	return 0;
+}
