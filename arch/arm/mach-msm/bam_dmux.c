@@ -2036,6 +2036,7 @@ static int bam_init_fallback(void)
 		goto register_bam_failed;
 	}
 	a2_device_handle = h;
+	toggle_apps_ack();
 
 	return 0;
 
