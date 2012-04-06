@@ -401,8 +401,8 @@ void __init msm_clock_init(struct clock_init_data *data)
 	size_t num_clocks;
 
 	clk_init_data = data;
-	if (clk_init_data->init)
-		clk_init_data->init();
+	if (clk_init_data->pre_init)
+		clk_init_data->pre_init();
 
 	clock_tbl = data->table;
 	num_clocks = data->size;
@@ -412,7 +412,7 @@ void __init msm_clock_init(struct clock_init_data *data)
 		struct clk *parent = clk_get_parent(clk);
 		clk_set_parent(clk, parent);
 		if (clk->ops->handoff && !(clk->flags & CLKFLAG_HANDOFF_RATE)) {
-			if (clk->ops->handoff(clk)) {
+			if (clk->ops->handoff(clk) == HANDOFF_ENABLED_CLK) {
 				clk->flags |= CLKFLAG_HANDOFF_RATE;
 				clk_prepare_enable(clk);
 			}
@@ -420,6 +420,9 @@ void __init msm_clock_init(struct clock_init_data *data)
 	}
 
 	clkdev_add_table(clock_tbl, num_clocks);
+
+	if (clk_init_data->post_init)
+		clk_init_data->post_init();
 }
 
 /*
@@ -439,24 +442,24 @@ static int __init clock_late_init(void)
 		bool handoff = false;
 
 		clock_debug_add(clk);
+		spin_lock_irqsave(&clk->lock, flags);
 		if (!(clk->flags & CLKFLAG_SKIP_AUTO_OFF)) {
-			spin_lock_irqsave(&clk->lock, flags);
 			if (!clk->count && clk->ops->auto_off) {
 				count++;
 				clk->ops->auto_off(clk);
 			}
-			if (clk->flags & CLKFLAG_HANDOFF_RATE) {
-				clk->flags &= ~CLKFLAG_HANDOFF_RATE;
-				handoff = true;
-			}
-			spin_unlock_irqrestore(&clk->lock, flags);
-			/*
-			 * Calling this outside the lock is safe since
-			 * it doesn't need to be atomic with the flag change.
-			 */
-			if (handoff)
-				clk_disable_unprepare(clk);
 		}
+		if (clk->flags & CLKFLAG_HANDOFF_RATE) {
+			clk->flags &= ~CLKFLAG_HANDOFF_RATE;
+			handoff = true;
+		}
+		spin_unlock_irqrestore(&clk->lock, flags);
+		/*
+		 * Calling this outside the lock is safe since
+		 * it doesn't need to be atomic with the flag change.
+		 */
+		if (handoff)
+			clk_disable_unprepare(clk);
 	}
 	pr_info("clock_late_init() disabled %d unused clocks\n", count);
 	if (clk_init_data->late_init)

@@ -63,6 +63,12 @@ struct clk_vdd_class {
 		.lock = __SPIN_LOCK_UNLOCKED(lock) \
 	}
 
+enum handoff {
+	HANDOFF_ENABLED_CLK,
+	HANDOFF_DISABLED_CLK,
+	HANDOFF_UNKNOWN_RATE,
+};
+
 struct clk_ops {
 	int (*prepare)(struct clk *clk);
 	int (*enable)(struct clk *clk);
@@ -72,7 +78,7 @@ struct clk_ops {
 	void (*enable_hwcg)(struct clk *clk);
 	void (*disable_hwcg)(struct clk *clk);
 	int (*in_hwcg_mode)(struct clk *clk);
-	int (*handoff)(struct clk *clk);
+	enum handoff (*handoff)(struct clk *clk);
 	int (*reset)(struct clk *clk, enum clk_reset_action action);
 	int (*set_rate)(struct clk *clk, unsigned long rate);
 	int (*set_max_rate)(struct clk *clk, unsigned long rate);
@@ -126,13 +132,15 @@ struct clk {
  * struct clock_init_data - SoC specific clock initialization data
  * @table: table of lookups to add
  * @size: size of @table
- * @init: called before registering @table
+ * @pre_init: called before initializing the clock driver.
+ * @post_init: called after registering @table. clock APIs can be called inside.
  * @late_init: called during late init
  */
 struct clock_init_data {
 	struct clk_lookup *table;
 	size_t size;
-	void (*init)(void);
+	void (*pre_init)(void);
+	void (*post_init)(void);
 	int (*late_init)(void);
 };
 

@@ -307,7 +307,7 @@ static struct clk_lookup msm_clocks_7x27[] = {
 struct clock_init_data msm7x27_clock_init_data __initdata = {
 	.table = msm_clocks_7x27,
 	.size = ARRAY_SIZE(msm_clocks_7x27),
-	.init = msm_shared_pll_control_init,
+	.pre_init = msm_shared_pll_control_init,
 };
 
 /* Clock table for common clocks between 7627a and 7625a */
@@ -413,7 +413,7 @@ static struct clk_lookup msm_clk_7627a[] __initdata = {
 static struct clk_lookup msm_clk_7627a_7625a[ARRAY_SIZE(msm_cmn_clk_7625a_7627a)
 					+ ARRAY_SIZE(msm_clk_7627a)];
 
-static void __init msm7627a_clock_init(void)
+static void __init msm7627a_clock_pre_init(void)
 {
 	int size = ARRAY_SIZE(msm_cmn_clk_7625a_7627a);
 
@@ -432,7 +432,7 @@ static void __init msm7627a_clock_init(void)
 
 struct clock_init_data msm7x27a_clock_init_data __initdata = {
 	.table = msm_clk_7627a_7625a,
-	.init = msm7627a_clock_init,
+	.pre_init = msm7627a_clock_pre_init,
 };
 
 static struct clk_lookup msm_clocks_8x50[] = {

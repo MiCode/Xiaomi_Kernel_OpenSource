@@ -2866,16 +2866,22 @@ static int pix_rdi_clk_list_rate(struct clk *c, unsigned n)
 	return -ENXIO;
 }
 
-static int pix_rdi_clk_handoff(struct clk *c)
+static enum handoff pix_rdi_clk_handoff(struct clk *c)
 {
 	u32 reg;
 	struct pix_rdi_clk *clk = to_pix_rdi_clk(c);
+	enum handoff ret;
+
+	ret = branch_handoff(&clk->b, &clk->c);
+	if (ret == HANDOFF_DISABLED_CLK)
+		return ret;
 
 	reg = readl_relaxed(clk->s_reg);
 	clk->cur_rate = reg & clk->s_mask ? 1 : 0;
 	reg = readl_relaxed(clk->s2_reg);
 	clk->cur_rate = reg & clk->s2_mask ? 2 : clk->cur_rate;
-	return 0;
+
+	return HANDOFF_ENABLED_CLK;
 }
 
 static struct clk_ops clk_ops_pix_rdi_8960 = {
@@ -5996,12 +6002,8 @@ static void __init reg_init(void)
 	}
 }
 
-/* Local clock driver initialization. */
-static void __init msm8960_clock_init(void)
+static void __init msm8960_clock_pre_init(void)
 {
-	/* Keep PXO on whenever APPS cpu is active */
-	clk_prepare_enable(&pxo_a_clk.c);
-
 	if (cpu_is_apq8064()) {
 		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8064;
 	} else if (cpu_is_msm8930() || cpu_is_msm8627()) {
@@ -6050,6 +6052,12 @@ static void __init msm8960_clock_init(void)
 
 	/* Initialize clock registers. */
 	reg_init();
+}
+
+static void __init msm8960_clock_post_init(void)
+{
+	/* Keep PXO on whenever APPS cpu is active */
+	clk_prepare_enable(&pxo_a_clk.c);
 
 	/* Initialize rates for clocks that only support one. */
 	clk_set_rate(&pdm_clk.c, 27000000);
@@ -6131,20 +6139,23 @@ static int __init msm8960_clock_late_init(void)
 struct clock_init_data msm8960_clock_init_data __initdata = {
 	.table = msm_clocks_8960,
 	.size = ARRAY_SIZE(msm_clocks_8960),
-	.init = msm8960_clock_init,
+	.pre_init = msm8960_clock_pre_init,
+	.post_init = msm8960_clock_post_init,
 	.late_init = msm8960_clock_late_init,
 };
 
 struct clock_init_data apq8064_clock_init_data __initdata = {
 	.table = msm_clocks_8064,
 	.size = ARRAY_SIZE(msm_clocks_8064),
-	.init = msm8960_clock_init,
+	.pre_init = msm8960_clock_pre_init,
+	.post_init = msm8960_clock_post_init,
 	.late_init = msm8960_clock_late_init,
 };
 
 struct clock_init_data msm8930_clock_init_data __initdata = {
 	.table = msm_clocks_8930,
 	.size = ARRAY_SIZE(msm_clocks_8930),
-	.init = msm8960_clock_init,
+	.pre_init = msm8960_clock_pre_init,
+	.post_init = msm8960_clock_post_init,
 	.late_init = msm8960_clock_late_init,
 };
