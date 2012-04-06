@@ -80,7 +80,6 @@ struct riva_data {
 	void __iomem *base;
 	unsigned long start_addr;
 	struct clk *xo;
-	bool use_cxo;
 	struct regulator *pll_supply;
 	struct pil_device *pil;
 };
@@ -97,18 +96,15 @@ static int pil_riva_make_proxy_vote(struct pil_desc *pil)
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	int ret;
 
-	drv->use_cxo = cxo_is_needed(drv);
 	ret = regulator_enable(drv->pll_supply);
 	if (ret) {
 		dev_err(pil->dev, "failed to enable pll supply\n");
 		goto err;
 	}
-	if (drv->use_cxo) {
-		ret = clk_prepare_enable(drv->xo);
-		if (ret) {
-			dev_err(pil->dev, "failed to enable xo\n");
-			goto err_clk;
-		}
+	ret = clk_prepare_enable(drv->xo);
+	if (ret) {
+		dev_err(pil->dev, "failed to enable xo\n");
+		goto err_clk;
 	}
 	return 0;
 err_clk:
@@ -121,8 +117,7 @@ static void pil_riva_remove_proxy_vote(struct pil_desc *pil)
 {
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	regulator_disable(drv->pll_supply);
-	if (drv->use_cxo)
-		clk_disable_unprepare(drv->xo);
+	clk_disable_unprepare(drv->xo);
 }
 
 static int pil_riva_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -140,11 +135,8 @@ static int pil_riva_reset(struct pil_desc *pil)
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
 	unsigned long start_addr = drv->start_addr;
-	int ret;
+	bool use_cxo = cxo_is_needed(drv);
 
-	ret = clk_prepare_enable(drv->xo);
-	if (ret)
-		return ret;
 	/* Enable A2XB bridge */
 	reg = readl_relaxed(base + RIVA_PMU_A2XB_CFG);
 	reg |= RIVA_PMU_A2XB_CFG_EN;
@@ -155,7 +147,7 @@ static int pil_riva_reset(struct pil_desc *pil)
 	reg &= ~(PLL_MODE_BYPASSNL | PLL_MODE_OUTCTRL | PLL_MODE_RESET_N);
 	writel_relaxed(reg, RIVA_PLL_MODE);
 
-	if (drv->use_cxo)
+	if (use_cxo)
 		writel_relaxed(0x40000C00 | 50, RIVA_PLL_L_VAL);
 	else
 		writel_relaxed(0x40000C00 | 40, RIVA_PLL_L_VAL);
@@ -165,7 +157,7 @@ static int pil_riva_reset(struct pil_desc *pil)
 
 	reg = readl_relaxed(RIVA_PLL_MODE);
 	reg &= ~(PLL_MODE_REF_XO_SEL);
-	reg |= drv->use_cxo ? PLL_MODE_REF_XO_SEL_CXO : PLL_MODE_REF_XO_SEL_RF;
+	reg |= use_cxo ? PLL_MODE_REF_XO_SEL_CXO : PLL_MODE_REF_XO_SEL_RF;
 	writel_relaxed(reg, RIVA_PLL_MODE);
 
 	/* Enable PLL 13 */
@@ -230,7 +222,6 @@ static int pil_riva_reset(struct pil_desc *pil)
 	/* Take cCPU out of reset */
 	reg |= RIVA_PMU_OVRD_VAL_CCPU_RESET;
 	writel_relaxed(reg, base + RIVA_PMU_OVRD_VAL);
-	clk_disable_unprepare(drv->xo);
 
 	return 0;
 }
@@ -239,11 +230,7 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 {
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	u32 reg;
-	int ret;
 
-	ret = clk_prepare_enable(drv->xo);
-	if (ret)
-		return ret;
 	/* Put cCPU and cCPU clock into reset */
 	reg = readl_relaxed(drv->base + RIVA_PMU_OVRD_VAL);
 	reg &= ~(RIVA_PMU_OVRD_VAL_CCPU_RESET | RIVA_PMU_OVRD_VAL_CCPU_CLK);
@@ -261,8 +248,6 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 	/* Deassert reset to Riva */
 	writel_relaxed(0, RIVA_RESET);
 	mb();
-
-	clk_disable_unprepare(drv->xo);
 
 	return 0;
 }
@@ -283,30 +268,12 @@ static int pil_riva_init_image_trusted(struct pil_desc *pil,
 
 static int pil_riva_reset_trusted(struct pil_desc *pil)
 {
-	struct riva_data *drv = dev_get_drvdata(pil->dev);
-	int ret;
-
-	ret = clk_prepare_enable(drv->xo);
-	if (ret)
-		return ret;
-	/* Proxy-vote for resources RIVA needs */
-	ret = pas_auth_and_reset(PAS_RIVA);
-	clk_disable_unprepare(drv->xo);
-	return ret;
+	return pas_auth_and_reset(PAS_RIVA);
 }
 
 static int pil_riva_shutdown_trusted(struct pil_desc *pil)
 {
-	int ret;
-	struct riva_data *drv = dev_get_drvdata(pil->dev);
-
-	ret = clk_prepare_enable(drv->xo);
-	if (ret)
-		return ret;
-	ret = pas_shutdown(PAS_RIVA);
-	clk_disable_unprepare(drv->xo);
-
-	return ret;
+	return pas_shutdown(PAS_RIVA);
 }
 
 static struct pil_reset_ops pil_riva_ops_trusted = {
