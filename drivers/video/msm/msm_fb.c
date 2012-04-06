@@ -1239,6 +1239,8 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	snprintf(fix->id, sizeof(fix->id), "msmfb31_%x", (__u32) *id);
 #elif defined(CONFIG_FB_MSM_MDP40)
 	snprintf(fix->id, sizeof(fix->id), "msmfb40_%x", (__u32) *id);
+#elif defined(CONFIG_FB_MSM_MDP_NONE)
+	snprintf(fix->id, sizeof(fix->id), "msmfb0_%x", (__u32) *id);
 #else
 	error CONFIG_FB_MSM_MDP undefined !
 #endif
