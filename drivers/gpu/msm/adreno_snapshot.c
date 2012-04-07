@@ -522,13 +522,10 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	unsigned int *data = snapshot + sizeof(*header);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-	unsigned int rbbase, ptbase, rptr, *rbptr, ibbase;
-	int start, stop, index;
-	int numitems, size;
+	unsigned int ptbase, rptr, *rbptr, ibbase;
+	int index, size, i;
 	int parse_ibs = 0, ib_parse_start;
-
-	/* Get the GPU address of the ringbuffer */
-	kgsl_regread(device, REG_CP_RB_BASE, &rbbase);
+	int skip_pktsize = 1;
 
 	/* Get the physical address of the MMU pagetable */
 	ptbase = kgsl_mmu_get_current_ptbase(device);
@@ -536,34 +533,77 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	/* Get the current read pointers for the RB */
 	kgsl_regread(device, REG_CP_RB_RPTR, &rptr);
 
-	/*
-	 * Get the address of the last executed IB1 so we can be sure to
-	 * snapshot it
-	 */
-
+	/* Address of the last processed IB */
 	kgsl_regread(device, REG_CP_IB1_BASE, &ibbase);
 
-	/* start the dump at the rptr minus some history */
-	start = (int) rptr - NUM_DWORDS_OF_RINGBUFFER_HISTORY;
-	if (start < 0)
-		start += rb->sizedwords;
-
 	/*
-	 * Stop the dump at the point where the software last wrote.  Don't use
-	 * the hardware value here on the chance that it didn't get properly
-	 * updated
+	 * Figure out the window of ringbuffer data to dump.  First we need to
+	 * find where the last processed IB ws submitted
 	 */
 
-	stop = (int) rb->wptr + 16;
-	if (stop > rb->sizedwords)
-		stop -= rb->sizedwords;
+	index = rptr;
+	rbptr = rb->buffer_desc.hostptr;
 
-	/* Set up the header for the section */
+	while (index != rb->wptr) {
+		index--;
 
-	numitems = (stop > start) ? stop - start :
-		(rb->sizedwords - start) + stop;
+		if (index < 0) {
+			index = rb->sizedwords - 3;
 
-	size = (numitems << 2);
+			/* We wrapped without finding what we wanted */
+			if (index < rb->wptr) {
+				index = rb->wptr;
+				break;
+			}
+		}
+
+		if (adreno_cmd_is_ib(rbptr[index]) &&
+			rbptr[index + 1] == ibbase)
+			break;
+	}
+
+	/*
+	 * index points at the last submitted IB. We can only trust that the
+	 * memory between the context switch and the hanging IB is valid, so
+	 * the next step is to find the context switch before the submission
+	 */
+
+	while (index != rb->wptr) {
+		index--;
+
+		if (index  < 0) {
+			index = rb->sizedwords - 2;
+
+			/*
+			 * Wrapped without finding the context switch. This is
+			 * harmless - we should still have enough data to dump a
+			 * valid state
+			 */
+
+			if (index < rb->wptr) {
+				index = rb->wptr;
+				break;
+			}
+		}
+
+		/* Break if the current packet is a context switch identifier */
+		if (adreno_rb_ctxtswitch(&rbptr[index]))
+			break;
+	}
+
+	/*
+	 * Index represents the start of the window of interest.  We will try
+	 * to dump all buffers between here and the rptr
+	 */
+
+	ib_parse_start = index;
+
+	/*
+	 * Dump the entire ringbuffer - the parser can choose how much of it to
+	 * process
+	 */
+
+	size = (rb->sizedwords << 2);
 
 	if (remain < size + sizeof(*header)) {
 		KGSL_DRV_ERR(device,
@@ -572,73 +612,48 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	}
 
 	/* Write the sub-header for the section */
-	header->start = start;
-	header->end = stop;
+	header->start = rb->wptr;
+	header->end = rb->wptr;
 	header->wptr = rb->wptr;
 	header->rbsize = rb->sizedwords;
-	header->count = numitems;
-
-	/*
-	 * We can only reliably dump IBs from the beginning of the context,
-	 * and it turns out that for the vast majority of the time we really
-	 * only care about the current context when it comes to diagnosing
-	 * a hang. So, with an eye to limiting the buffer dumping to what is
-	 * really useful find the beginning of the context and only dump
-	 * IBs from that point
-	 */
-
-	index = rptr;
-	ib_parse_start = start;
-	rbptr = rb->buffer_desc.hostptr;
-
-	while (index != start) {
-		index--;
-
-		if (index < 0) {
-			/*
-			 * The marker we are looking for is 2 dwords long, so
-			 * when wrapping, go back 2 from the end so we don't
-			 * access out of range in the if statement below
-			 */
-			index = rb->sizedwords - 2;
-
-			/*
-			 * Account for the possibility that start might be at
-			 * rb->sizedwords - 1
-			 */
-
-			if (start == rb->sizedwords - 1)
-				break;
-		}
-
-		/*
-		 * Look for a NOP packet with the context switch identifier in
-		 * the second dword
-		 */
-
-		if (rbptr[index] == cp_nop_packet(1) &&
-			rbptr[index + 1] == KGSL_CONTEXT_TO_MEM_IDENTIFIER) {
-				ib_parse_start = index;
-				break;
-		}
-	}
-
-	index = start;
+	header->count = rb->sizedwords;
 
 	/*
 	 * Loop through the RB, copying the data and looking for indirect
 	 * buffers and MMU pagetable changes
 	 */
 
-	while (index != rb->wptr) {
+	index = rb->wptr;
+	for (i = 0; i < rb->sizedwords; i++) {
 		*data = rbptr[index];
 
-		/* Only parse IBs between the context start and the rptr */
+		/*
+		 * Sometimes the rptr is located in the middle of a packet.
+		 * try to adust for that by modifying the rptr to match a
+		 * packet boundary. Unfortunately for us, it is hard to tell
+		 * which dwords are legitimate type0 header and which are just
+		 * random data so just walk over type0 packets until we get
+		 * to the first type3, and from that point on start checking the
+		 * size of the packet and adjusting accordingly
+		 */
+
+		if (skip_pktsize && pkt_is_type3(rbptr[index]))
+			skip_pktsize = 0;
+
+		if (skip_pktsize == 0) {
+			unsigned int pktsize = type3_pkt_size(rbptr[index]);
+			if (index +  pktsize > rptr)
+				rptr = (index + pktsize) % rb->sizedwords;
+		}
+
+		/*
+		 * Only parse IBs between the start and the rptr or the next
+		 * context switch, whichever comes first
+		 */
 
 		if (index == ib_parse_start)
 			parse_ibs = 1;
-
-		if (index == rptr)
+		else if (index == rptr || adreno_rb_ctxtswitch(&rbptr[index]))
 			parse_ibs = 0;
 
 		if (parse_ibs && adreno_cmd_is_ib(rbptr[index])) {
@@ -655,18 +670,6 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 					rbptr[index + 1], rbptr[index + 2]);
 		}
 
-		index = index + 1;
-
-		if (index == rb->sizedwords)
-			index = 0;
-
-		data++;
-	}
-
-	/* Dump 16 dwords past the wptr, but don't  bother interpeting it */
-
-	while (index != stop) {
-		*data = rbptr[index];
 		index = index + 1;
 
 		if (index == rb->sizedwords)
