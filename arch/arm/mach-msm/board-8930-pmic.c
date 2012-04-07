@@ -236,6 +236,7 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 static struct led_info pm8038_led_info[] = {
 	[0] = {
 		.name			= "wled",
+		.default_trigger	= "bkl_trigger",
 	},
 	[1] = {
 		.name			= "led:rgb_red",
@@ -285,7 +286,7 @@ static struct pm8xxx_led_config pm8038_led_configs[] = {
 		.id = PM8XXX_ID_WLED,
 		.mode = PM8XXX_LED_MODE_MANUAL,
 		.max_current = PM8038_WLED_MAX_CURRENT,
-		.default_state = 1,
+		.default_state = 0,
 		.wled_cfg = &wled_cfg,
 	},
 	[1] = {
