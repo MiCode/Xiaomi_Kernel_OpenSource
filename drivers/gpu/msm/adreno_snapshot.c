@@ -383,7 +383,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 	int offset = type0_pkt_offset(*ptr);
 	int i;
 
-	for (i = 0; i < (size + 1); i++, offset++) {
+	for (i = 0; i < size; i++, offset++) {
 
 		/* Visiblity stream buffer */
 
@@ -403,9 +403,9 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 			 * ...
 			 */
 
-			if (index % 3 == 0)
+			if ((index % 3) == 0)
 				vsc_pipe[index / 3].base = ptr[i + 1];
-			else if (index % 3 == 1)
+			else if ((index % 3) == 1)
 				vsc_pipe[index / 3].size = ptr[i + 1];
 		} else if ((offset >= A3XX_VFD_FETCH_INSTR_0_0) &&
 			(offset <= A3XX_VFD_FETCH_INSTR_1_F)) {
@@ -417,7 +417,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 			 * in between
 			 */
 
-			if (index % 2 == 0)
+			if ((index % 2) == 0)
 				vbo[index >> 1].stride =
 					(ptr[i + 1] >> 7) & 0x1FF;
 			else
