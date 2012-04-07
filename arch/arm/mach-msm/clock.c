@@ -399,6 +399,7 @@ void __init msm_clock_init(struct clock_init_data *data)
 	unsigned n;
 	struct clk_lookup *clock_tbl;
 	size_t num_clocks;
+	struct clk *clk;
 
 	clk_init_data = data;
 	if (clk_init_data->pre_init)
@@ -408,15 +409,23 @@ void __init msm_clock_init(struct clock_init_data *data)
 	num_clocks = data->size;
 
 	for (n = 0; n < num_clocks; n++) {
-		struct clk *clk = clock_tbl[n].clk;
-		struct clk *parent = clk_get_parent(clk);
+		struct clk *parent;
+		clk = clock_tbl[n].clk;
+		parent = clk_get_parent(clk);
 		if (parent && list_empty(&clk->siblings))
 			list_add(&clk->siblings, &parent->children);
-		if (clk->ops->handoff && !(clk->flags & CLKFLAG_HANDOFF_RATE)) {
-			if (clk->ops->handoff(clk) == HANDOFF_ENABLED_CLK) {
-				clk->flags |= CLKFLAG_HANDOFF_RATE;
-				clk_prepare_enable(clk);
-			}
+	}
+
+	/*
+	 * Detect and preserve initial clock state until clock_late_init() or
+	 * a driver explicitly changes it, whichever is first.
+	 */
+	for (n = 0; n < num_clocks; n++) {
+		clk = clock_tbl[n].clk;
+		if (clk->ops->handoff && !(clk->flags & CLKFLAG_HANDOFF_RATE) &&
+		    (clk->ops->handoff(clk) == HANDOFF_ENABLED_CLK)) {
+			clk->flags |= CLKFLAG_HANDOFF_RATE;
+			clk_prepare_enable(clk);
 		}
 	}
 
