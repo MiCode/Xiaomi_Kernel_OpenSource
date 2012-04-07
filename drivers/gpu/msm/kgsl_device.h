@@ -104,6 +104,9 @@ struct kgsl_functable {
 		struct kgsl_context *context);
 	long (*ioctl) (struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data);
+	int (*setproperty) (struct kgsl_device *device,
+		enum kgsl_property_type type, void *value,
+		unsigned int sizebytes);
 };
 
 struct kgsl_memregion {
