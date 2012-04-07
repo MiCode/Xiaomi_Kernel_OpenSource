@@ -461,6 +461,14 @@ static void __init populate_plls(void)
 	BUG_ON(IS_ERR(acpuclk_sources[PLL_2]));
 	acpuclk_sources[PLL_3] = clk_get_sys("acpu", "pll3_clk");
 	BUG_ON(IS_ERR(acpuclk_sources[PLL_3]));
+	/*
+	 * Prepare all the PLLs because we enable/disable them
+	 * from atomic context and can't always ensure they're
+	 * all prepared in non-atomic context.
+	 */
+	BUG_ON(clk_prepare(acpuclk_sources[PLL_1]));
+	BUG_ON(clk_prepare(acpuclk_sources[PLL_2]));
+	BUG_ON(clk_prepare(acpuclk_sources[PLL_3]));
 }
 
 static struct acpuclk_data acpuclk_7x30_data = {
