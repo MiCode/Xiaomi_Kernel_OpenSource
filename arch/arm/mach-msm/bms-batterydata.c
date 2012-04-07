@@ -24,10 +24,11 @@ static struct single_row_lut palladium_1500_fcc_sf = {
 	.cols	= 5,
 };
 
-static struct pc_sf_lut palladium_1500_pc_sf = {
+static struct sf_lut palladium_1500_pc_sf = {
 	.rows		= 10,
 	.cols		= 5,
-	.cycles		= {100, 200, 300, 400, 500},
+	/* row_entries are chargecycles */
+	.row_entries	= {100, 200, 300, 400, 500},
 	.percent	= {100, 90, 80, 70, 60, 50, 40, 30, 20, 10},
 	.sf		= {
 			{97, 93, 93, 90, 87},
@@ -43,6 +44,36 @@ static struct pc_sf_lut palladium_1500_pc_sf = {
 	},
 };
 
+static struct sf_lut palladium_1500_rbatt_sf = {
+	.rows		= 19,
+	.cols		= 5,
+	/* row_entries are temperature */
+	.row_entries	= {-20, 0, 20, 40, 65},
+	.percent	= {100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50,
+				45, 40, 35, 30, 25, 20, 15, 10
+	},
+	.sf		= {
+					{645, 301, 100, 80, 69},
+					{616, 290, 100, 79, 69},
+					{586, 279, 100, 78, 68},
+					{564, 270, 100, 78, 68},
+					{546, 262, 100, 78, 68},
+					{537, 256, 100, 79, 68},
+					{536, 253, 100, 79, 69},
+					{552, 258, 100, 81, 71},
+					{618, 284, 100, 80, 72},
+					{643, 290, 100, 77, 68},
+					{673, 294, 100, 77, 68},
+					{720, 296, 100, 77, 69},
+					{769, 294, 100, 76, 68},
+					{821, 288, 100, 74, 67},
+					{892, 284, 100, 74, 61},
+					{1003, 290, 100, 71, 58},
+					{1192, 307, 100, 70, 58},
+					{1579, 345, 100, 68, 57},
+					{1261, 324, 100, 68, 57},
+	}
+};
 static struct pc_temp_ocv_lut palladium_1500_pc_temp_ocv = {
 	.rows		= 29,
 	.cols		= 8,
@@ -90,4 +121,6 @@ struct pm8921_bms_battery_data palladium_1500_data = {
 	.fcc_sf_lut		= &palladium_1500_fcc_sf,
 	.pc_temp_ocv_lut	= &palladium_1500_pc_temp_ocv,
 	.pc_sf_lut		= &palladium_1500_pc_sf,
+	.rbatt_sf_lut		= &palladium_1500_rbatt_sf,
+	.default_rbatt_mohm	= 254,
 };
