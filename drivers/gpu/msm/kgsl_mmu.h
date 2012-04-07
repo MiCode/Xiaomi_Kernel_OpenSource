@@ -13,6 +13,14 @@
 #ifndef __KGSL_MMU_H
 #define __KGSL_MMU_H
 
+/*
+ * These defines control the split between ttbr1 and ttbr0 pagetables of IOMMU
+ * and what ranges of memory we map to them
+ */
+#define KGSL_IOMMU_GLOBAL_MEM_BASE	0xC0000000
+#define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_4M
+#define KGSL_IOMMU_TTBR1_SPLIT		2
+
 #define KGSL_MMU_ALIGN_SHIFT    13
 #define KGSL_MMU_ALIGN_MASK     (~((1 << KGSL_MMU_ALIGN_SHIFT) - 1))
 
@@ -92,6 +100,7 @@ struct kgsl_pagetable {
 	struct kref refcount;
 	unsigned int   max_entries;
 	struct gen_pool *pool;
+	struct gen_pool *kgsl_pool;
 	struct list_head list;
 	unsigned int name;
 	struct kobject *kobj;
