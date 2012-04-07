@@ -132,7 +132,7 @@ struct kgsl_mem_entry {
 	int memtype;
 	int flags;
 	void *priv_data;
-	struct list_head list;
+	struct rb_node node;
 	uint32_t free_timestamp;
 	/* back pointer to private structure under whose context this
 	* allocation is made */
