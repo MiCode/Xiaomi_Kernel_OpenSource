@@ -2540,6 +2540,7 @@ u32 mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 {
 	struct mdp_buf_type *buf;
 	ion_phys_addr_t	addr;
+	size_t buffer_size;
 	unsigned long len;
 
 	if (mix_num == MDP4_MIXER0)
@@ -2555,10 +2556,13 @@ u32 mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 		return -EINVAL;
 	}
 
+	buffer_size = roundup(mfd->panel_info.xres * \
+		mfd->panel_info.yres * 3 * 2, SZ_4K);
+
 	if (!IS_ERR_OR_NULL(mfd->iclient)) {
 		pr_info("%s:%d ion based allocation mfd->mem_hid 0x%x\n",
 			__func__, __LINE__, mfd->mem_hid);
-		buf->ihdl = ion_alloc(mfd->iclient, buf->size, SZ_4K,
+		buf->ihdl = ion_alloc(mfd->iclient, buffer_size, SZ_4K,
 			mfd->mem_hid);
 		if (!IS_ERR_OR_NULL(buf->ihdl)) {
 			if (ion_map_iommu(mfd->iclient, buf->ihdl,
@@ -2573,12 +2577,12 @@ u32 mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 			return -ENOMEM;
 		}
 	} else {
-		addr = allocate_contiguous_memory_nomap(buf->size,
+		addr = allocate_contiguous_memory_nomap(buffer_size,
 			mfd->mem_hid, 4);
 	}
 	if (addr) {
 		pr_info("allocating %d bytes at %x for mdp writeback\n",
-			buf->size, (u32) addr);
+			buffer_size, (u32) addr);
 		buf->phys_addr = addr;
 		return 0;
 	} else {
