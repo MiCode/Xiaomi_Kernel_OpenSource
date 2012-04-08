@@ -761,16 +761,9 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 		return -EIO;
 	}
 
-	if (dev->clk_state == 0) {
-		if (dev->clk_ctl == 0) {
-			if (dev->pdata->src_clk_rate > 0)
-				clk_set_rate(dev->clk,
-						dev->pdata->src_clk_rate);
-			else
-				dev->pdata->src_clk_rate = 19200000;
-		}
+	if (dev->clk_state == 0)
 		qup_i2c_pwr_mgmt(dev, 1);
-	}
+
 	/* Initialize QUP registers during first transfer */
 	if (dev->clk_ctl == 0) {
 		int fs_div;
@@ -1257,6 +1250,12 @@ blsp_core_init:
 	 * If bootloaders leave a pending interrupt on certain GSBI's,
 	 * then we reset the core before registering for interrupts.
 	 */
+
+	if (dev->pdata->src_clk_rate > 0)
+		clk_set_rate(dev->clk, dev->pdata->src_clk_rate);
+	else
+		dev->pdata->src_clk_rate = 19200000;
+
 	clk_prepare_enable(dev->clk);
 	clk_prepare_enable(dev->pclk);
 	writel_relaxed(1, dev->base + QUP_SW_RESET);
