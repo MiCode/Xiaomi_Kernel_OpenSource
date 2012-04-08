@@ -439,7 +439,6 @@ static struct clk_ops clk_ops_rcg_8x60 = {
 	.is_enabled = rcg_clk_is_enabled,
 	.round_rate = rcg_clk_round_rate,
 	.reset = rcg_clk_reset,
-	.is_local = local_clk_is_local,
 	.get_parent = rcg_clk_get_parent,
 	.set_flags = rcg_clk_set_flags,
 };
@@ -450,14 +449,12 @@ static struct clk_ops clk_ops_branch = {
 	.auto_off = branch_clk_disable,
 	.is_enabled = branch_clk_is_enabled,
 	.reset = branch_clk_reset,
-	.is_local = local_clk_is_local,
 	.get_parent = branch_clk_get_parent,
 	.set_flags = branch_clk_set_flags,
 };
 
 static struct clk_ops clk_ops_reset = {
 	.reset = branch_clk_reset,
-	.is_local = local_clk_is_local,
 };
 
 /*
@@ -3481,7 +3478,6 @@ static unsigned long measure_clk_get_rate(struct clk *clk)
 static struct clk_ops measure_clk_ops = {
 	.set_parent = measure_clk_set_parent,
 	.get_rate = measure_clk_get_rate,
-	.is_local = local_clk_is_local,
 };
 
 static struct measure_clk measure_clk = {

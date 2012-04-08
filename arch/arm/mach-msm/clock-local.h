@@ -365,11 +365,6 @@ extern spinlock_t		local_clock_reg_lock;
 extern struct fixed_clk		gnd_clk;
 
 /*
- * Local-clock APIs
- */
-bool local_clk_is_local(struct clk *clk);
-
-/*
  * PLL vote clock APIs
  */
 int pll_vote_clk_enable(struct clk *clk);

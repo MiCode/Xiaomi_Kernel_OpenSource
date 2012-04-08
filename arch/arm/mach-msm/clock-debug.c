@@ -120,7 +120,10 @@ static int clock_debug_local_get(void *data, u64 *val)
 {
 	struct clk *clock = data;
 
-	*val = clock->ops->is_local(clock);
+	if (!clock->ops->is_local)
+		*val = true;
+	else
+		*val = clock->ops->is_local(clock);
 
 	return 0;
 }

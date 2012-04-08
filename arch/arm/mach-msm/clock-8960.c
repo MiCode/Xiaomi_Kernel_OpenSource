@@ -565,7 +565,6 @@ static struct clk_ops clk_ops_rcg_8960 = {
 	.is_enabled = rcg_clk_is_enabled,
 	.round_rate = rcg_clk_round_rate,
 	.reset = rcg_clk_reset,
-	.is_local = local_clk_is_local,
 	.get_parent = rcg_clk_get_parent,
 	.set_flags = rcg_clk_set_flags,
 };
@@ -579,7 +578,6 @@ static struct clk_ops clk_ops_branch = {
 	.auto_off = branch_clk_disable,
 	.is_enabled = branch_clk_is_enabled,
 	.reset = branch_clk_reset,
-	.is_local = local_clk_is_local,
 	.get_parent = branch_clk_get_parent,
 	.handoff = branch_clk_handoff,
 	.set_flags = branch_clk_set_flags,
@@ -587,7 +585,6 @@ static struct clk_ops clk_ops_branch = {
 
 static struct clk_ops clk_ops_reset = {
 	.reset = branch_clk_reset,
-	.is_local = local_clk_is_local,
 };
 
 /* AXI Interfaces */
@@ -2892,7 +2889,6 @@ static struct clk_ops clk_ops_pix_rdi_8960 = {
 	.get_rate = pix_rdi_clk_get_rate,
 	.list_rate = pix_rdi_clk_list_rate,
 	.reset = pix_rdi_clk_reset,
-	.is_local = local_clk_is_local,
 	.get_parent = pix_rdi_clk_get_parent,
 };
 
@@ -3823,7 +3819,6 @@ static struct clk_ops clk_ops_hdmi_pll = {
 	.enable = hdmi_pll_clk_enable,
 	.disable = hdmi_pll_clk_disable,
 	.get_rate = hdmi_pll_clk_get_rate,
-	.is_local = local_clk_is_local,
 	.get_parent = hdmi_pll_clk_get_parent,
 };
 
@@ -4893,7 +4888,6 @@ static unsigned long measure_clk_get_rate(struct clk *clk)
 static struct clk_ops measure_clk_ops = {
 	.set_parent = measure_clk_set_parent,
 	.get_rate = measure_clk_get_rate,
-	.is_local = local_clk_is_local,
 };
 
 static struct measure_clk measure_clk = {
