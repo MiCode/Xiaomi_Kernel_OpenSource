@@ -3,3 +3,4 @@ header-y += tavarua.h
 header-y += msm_camera.h
 header-y += msm_isp.h
 header-y += msm_gemini.h
+header-y += msm_v4l2_overlay.h

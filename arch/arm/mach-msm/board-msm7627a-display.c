@@ -35,6 +35,12 @@
 #define MSM7x25A_MSM_FB_SIZE    0x96000
 #endif
 
+/*
+ * Reserve enough v4l2 space for a double buffered full screen
+ * res image (864x480x1.5x2)
+ */
+#define MSM_V4L2_VIDEO_OVERLAY_BUF_SIZE 1244160
+
 static unsigned fb_size = MSM_FB_SIZE;
 static int __init fb_size_setup(char *p)
 {
@@ -459,6 +465,14 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
+#ifdef CONFIG_MSM_V4L2_VIDEO_OVERLAY_DEVICE
+static struct resource msm_v4l2_video_overlay_resources[] = {
+	{
+		.flags = IORESOURCE_DMA,
+	}
+};
+#endif
+
 #define LCDC_TOSHIBA_FWVGA_PANEL_NAME   "lcdc_toshiba_fwvga_pt"
 #define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME       "mipi_cmd_renesas_fwvga"
 
@@ -522,6 +536,16 @@ static struct platform_device msm_fb_device = {
 	}
 };
 
+#ifdef CONFIG_MSM_V4L2_VIDEO_OVERLAY_DEVICE
+static struct platform_device msm_v4l2_video_overlay_device = {
+		.name   = "msm_v4l2_overlay_pd",
+		.id     = 0,
+		.num_resources  = ARRAY_SIZE(msm_v4l2_video_overlay_resources),
+		.resource       = msm_v4l2_video_overlay_resources,
+	};
+#endif
+
+
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 static int mipi_renesas_set_bl(int level)
 {
@@ -579,6 +603,9 @@ static struct platform_device *msm_fb_devices[] __initdata = {
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 	&mipi_dsi_renesas_panel_device,
 #endif
+#ifdef CONFIG_MSM_V4L2_VIDEO_OVERLAY_DEVICE
+	&msm_v4l2_video_overlay_device,
+#endif
 };
 
 static struct platform_device *qrd_fb_devices[] __initdata = {
@@ -610,6 +637,17 @@ void __init msm_msm7627a_allocate_memory_regions(void)
 	msm_fb_resources[0].end = msm_fb_resources[0].start + fb_size - 1;
 	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n", fb_size,
 						addr, __pa(addr));
+
+#ifdef CONFIG_MSM_V4L2_VIDEO_OVERLAY_DEVICE
+	fb_size = MSM_V4L2_VIDEO_OVERLAY_BUF_SIZE;
+	addr = alloc_bootmem_align(fb_size, 0x1000);
+	msm_v4l2_video_overlay_resources[0].start = __pa(addr);
+	msm_v4l2_video_overlay_resources[0].end =
+		msm_v4l2_video_overlay_resources[0].start + fb_size - 1;
+	pr_debug("allocating %lu bytes at %p (%lx physical) for v4l2\n",
+		fb_size, addr, __pa(addr));
+#endif
+
 }
 
 static struct msm_panel_common_pdata mdp_pdata = {
