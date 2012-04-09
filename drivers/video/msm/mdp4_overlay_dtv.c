@@ -370,6 +370,10 @@ int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
 		mdp4_overlay_dtv_alloc_pipe(mfd, OVERLAY_TYPE_RGB);
 	if (dtv_pipe == NULL)
 		return -ENODEV;
+
+	mdp4_init_writeback_buf(mfd, MDP4_MIXER1);
+	dtv_pipe->blt_addr = 0;
+
 	return mdp4_dtv_start(mfd);
 }
 
