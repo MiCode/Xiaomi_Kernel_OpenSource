@@ -635,10 +635,15 @@ int soc_dsp_be_dai_trigger(struct snd_soc_pcm_runtime *fe, int stream, int cmd)
 {
 	struct snd_soc_dsp_params *dsp_params;
 	int ret = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&fe->card->dsp_spinlock, flags);
 
 	if ((cmd == SNDRV_PCM_TRIGGER_PAUSE_RELEASE) ||
-				(cmd == SNDRV_PCM_TRIGGER_PAUSE_PUSH))
+				(cmd == SNDRV_PCM_TRIGGER_PAUSE_PUSH)) {
+		spin_unlock_irqrestore(&fe->card->dsp_spinlock, flags);
 		return ret;
+	}
 
 	list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
 
@@ -687,10 +692,14 @@ int soc_dsp_be_dai_trigger(struct snd_soc_pcm_runtime *fe, int stream, int cmd)
 			}
 			break;
 		}
-		if (ret < 0)
+
+		if (ret < 0) {
+			spin_unlock_irqrestore(&fe->card->dsp_spinlock, flags);
 			return ret;
+		}
 	}
 
+	spin_unlock_irqrestore(&fe->card->dsp_spinlock, flags);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(soc_dsp_be_dai_trigger);
