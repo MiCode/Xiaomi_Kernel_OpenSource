@@ -17,6 +17,8 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 
+#define KS8851_IRQ_GPIO 90
+
 static struct gpiomux_setting gpio_uart_config = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_16MA,
@@ -24,7 +26,62 @@ static struct gpiomux_setting gpio_uart_config = {
 	.dir = GPIOMUX_OUT_HIGH,
 };
 
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
+static struct gpiomux_setting gpio_eth_config = {
+	.pull = GPIOMUX_PULL_NONE,
+	.drv = GPIOMUX_DRV_8MA,
+	.func = GPIOMUX_FUNC_GPIO,
+};
+
+static struct gpiomux_setting gpio_spi_cs_config = {
+	.func = GPIOMUX_FUNC_4,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gpio_spi_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config msm_eth_configs[] = {
+	{
+		.gpio = KS8851_IRQ_GPIO,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
+		}
+	},
+};
+#endif
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
+	{
+		.gpio      = 0,		/* BLSP1 QUP SPI_DATA_MOSI */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 1,		/* BLSP1 QUP SPI_DATA_MISO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 3,		/* BLSP1 QUP SPI_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 9,		/* BLSP1 QUP SPI_CS_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_config,
+		},
+	},
+#endif
 	{
 		.gpio      = 45,	       /* BLSP8 UART TX */
 		.settings = {
@@ -49,5 +106,8 @@ void __init msm_copper_init_gpiomux(void)
 		return;
 	}
 
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
+	msm_gpiomux_install(msm_eth_configs, ARRAY_SIZE(msm_eth_configs));
+#endif
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 }
