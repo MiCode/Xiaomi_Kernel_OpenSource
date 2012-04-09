@@ -45,9 +45,11 @@
 
 static DEFINE_SPINLOCK(pll_reg_lock);
 
+#define ENABLE_WAIT_MAX_LOOPS 200
+
 int pll_vote_clk_enable(struct clk *clk)
 {
-	u32 ena;
+	u32 ena, count;
 	unsigned long flags;
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
 
@@ -57,11 +59,22 @@ int pll_vote_clk_enable(struct clk *clk)
 	writel_relaxed(ena, PLL_EN_REG(pll));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 
-	/* Wait until PLL is enabled */
-	while ((readl_relaxed(PLL_STATUS_REG(pll)) & pll->status_mask) == 0)
-		cpu_relax();
+	/*
+	 * Use a memory barrier since some PLL status registers are
+	 * not within the same 1K segment as the voting registers.
+	 */
+	mb();
 
-	return 0;
+	/* Wait for pll to enable. */
+	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
+		if (readl_relaxed(pll->status_reg) & pll->status_mask)
+			return 0;
+		udelay(1);
+	}
+
+	WARN("PLL %s didn't enable after voting for it!\n", clk->dbg_name);
+
+	return -ETIMEDOUT;
 }
 
 void pll_vote_clk_disable(struct clk *clk)
