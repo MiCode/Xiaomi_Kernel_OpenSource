@@ -79,6 +79,7 @@ struct rmnet_private {
 #endif
 	struct sk_buff *waiting_for_ul_skb;
 	spinlock_t lock;
+	spinlock_t tx_queue_lock;
 	struct tasklet_struct tsklt;
 	u32 operation_mode; /* IOCTL specified mode (protocol, QoS header) */
 	uint8_t device_up;
@@ -321,6 +322,7 @@ static void bam_write_done(void *dev, struct sk_buff *skb)
 {
 	struct rmnet_private *p = netdev_priv(dev);
 	u32 opmode = p->operation_mode;
+	unsigned long flags;
 
 	DBG1("%s: write complete\n", __func__);
 	if (RMNET_IS_MODE_IP(opmode) ||
@@ -335,12 +337,15 @@ static void bam_write_done(void *dev, struct sk_buff *skb)
 	    ((struct net_device *)(dev))->name, p->stats.tx_packets,
 	    skb->len, skb->mark);
 	dev_kfree_skb_any(skb);
+
+	spin_lock_irqsave(&p->tx_queue_lock, flags);
 	if (netif_queue_stopped(dev) &&
 	    msm_bam_dmux_is_ch_low(p->ch_id)) {
 		DBG0("%s: Low WM hit, waking queue=%p\n",
 		      __func__, skb);
 		netif_wake_queue(dev);
 	}
+	spin_unlock_irqrestore(&p->tx_queue_lock, flags);
 }
 
 static void bam_notify(void *dev, int event, unsigned long data)
@@ -509,10 +514,12 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		goto exit;
 	}
 
+	spin_lock_irqsave(&p->tx_queue_lock, flags);
 	if (msm_bam_dmux_is_ch_full(p->ch_id)) {
 		netif_stop_queue(dev);
 		DBG0("%s: High WM hit, stopping queue=%p\n",    __func__, skb);
 	}
+	spin_unlock_irqrestore(&p->tx_queue_lock, flags);
 
 exit:
 	msm_bam_dmux_ul_power_unvote();
@@ -770,6 +777,7 @@ static int __init rmnet_init(void)
 		p->waiting_for_ul_skb = NULL;
 		p->in_reset = 0;
 		spin_lock_init(&p->lock);
+		spin_lock_init(&p->tx_queue_lock);
 #ifdef CONFIG_MSM_RMNET_DEBUG
 		p->timeout_us = timeout_us;
 		p->wakeups_xmit = p->wakeups_rcv = 0;
