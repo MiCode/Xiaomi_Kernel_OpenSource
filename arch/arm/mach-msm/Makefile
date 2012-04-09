@@ -318,6 +318,7 @@ obj-$(CONFIG_MSM_IOMMU)		+= iommu.o iommu_dev.o devices-iommu.o iommu_domains.o
 ifdef CONFIG_VCM
 obj-$(CONFIG_ARCH_MSM8X60) += board-msm8x60-vcm.o
 endif
+obj-$(CONFIG_MSM_OCMEM) += ocmem.o
 
 obj-$(CONFIG_ARCH_MSM7X27) += gpiomux-7x27.o gpiomux-v1.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM7X30) += gpiomux-7x30.o gpiomux-v1.o gpiomux.o

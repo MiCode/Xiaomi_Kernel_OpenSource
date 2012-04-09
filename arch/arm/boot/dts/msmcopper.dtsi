@@ -265,4 +265,8 @@
 
 		qcom,firmware-name = "wcnss";
 	};
+
+	qcom,ocmem@fdd00000 {
+		compatible = "qcom,msm_ocmem";
+	};
 };
