@@ -26,6 +26,24 @@
 #define SCM_CMD_TERMINATE_PC 0x2
 #endif
 
+/* Switch between smp_to_amp/amp_to_smp configuration */
+.macro SET_SMP_COHERENCY, on = 0
+ldr     r0, =target_type
+ldr     r0, [r0]
+mov     r1, #TARGET_IS_8625
+cmp     r0, r1
+bne     skip\@
+mrc	p15, 0, r0, c1, c0, 1	/* read ACTLR register */
+.if     \on
+orr	r0, r0, #(1 << 6)	/* Set the SMP bit in ACTLR */
+.else
+bic	r0, r0, #(1 << 6)	/* Clear the SMP bit */
+.endif
+mcr	p15, 0, r0, c1, c0, 1	/* write ACTLR register */
+isb
+skip\@:
+.endm
+
 ENTRY(msm_arch_idle)
 	wfi
 #ifdef CONFIG_ARCH_MSM8X60
@@ -110,13 +128,13 @@ skip:
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
 	dsb
 
+	SET_SMP_COHERENCY OFF
 	wfi
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
 #endif
-
-
+	SET_SMP_COHERENCY ON
 #if defined(CONFIG_MSM_FIQ_SUPPORT)
 	cpsie   f
 #endif
@@ -132,7 +150,6 @@ skip:
 	mul	r2, r2, r1
 	add	r0, r0, r2
 #endif
-
 	ldmfd   r0, {r4-r14}		 /* restore registers */
 	mov     r0, #0                   /* return power collapse failed */
 	bx      lr
@@ -209,6 +226,8 @@ msm_pm_pa_to_va:
 	mcr     p15, 0, r3, c7, c5, 6   /* BPIALL */
 	dsb
 	isb
+
+	SET_SMP_COHERENCY ON
 #ifdef CONFIG_ARCH_MSM_KRAIT
 	mrc	p15, 0, r1, c0, c0, 0
 	ldr	r3, =0xff00fc00
@@ -268,6 +287,10 @@ msm_saved_state_phys:
 	.globl msm_pm_boot_vector
 msm_pm_boot_vector:
 	.space  4 * NR_CPUS
+
+	.globl target_type
+target_type:
+	.long  0x0
 
 /*
  * Default the l2 flush flag to 1 so that caches are flushed during power
