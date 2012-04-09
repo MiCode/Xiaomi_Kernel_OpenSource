@@ -39,6 +39,7 @@
 #include <linux/remote_spinlock.h>
 #include <linux/pm_qos_params.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include "spi_qsd.h"
 
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
@@ -1773,6 +1774,7 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 	int                     clk_enabled = 0;
 	int                     pclk_enabled = 0;
 	struct msm_spi_platform_data *pdata;
+	enum of_gpio_flags flags;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(struct msm_spi));
 	if (!master) {
@@ -1797,9 +1799,35 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 			rc = -ENOMEM;
 			goto err_probe_exit;
 		}
+
+		for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
+			dd->spi_gpios[i] = of_get_gpio_flags(pdev->dev.of_node,
+								i, &flags);
+		}
+
+		for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i) {
+			dd->cs_gpios[i].gpio_num = of_get_named_gpio_flags(
+						pdev->dev.of_node, "cs-gpios",
+						i, &flags);
+			dd->cs_gpios[i].valid = 0;
+		}
 	} else {
 		pdata = pdev->dev.platform_data;
 		dd->qup_ver = SPI_QUP_VERSION_NONE;
+
+		for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
+			resource = platform_get_resource(pdev, IORESOURCE_IO,
+							i);
+			dd->spi_gpios[i] = resource ? resource->start : -1;
+		}
+
+		for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i) {
+			resource = platform_get_resource(pdev, IORESOURCE_IO,
+						i + ARRAY_SIZE(spi_rsrcs));
+			dd->cs_gpios[i].gpio_num = resource ?
+							resource->start : -1;
+			dd->cs_gpios[i].valid = 0;
+		}
 	}
 
 	dd->pdata = pdata;
@@ -1850,18 +1878,6 @@ skip_dma_resources:
 				goto err_probe_gpio;
 			}
 		}
-	}
-
-	for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
-		resource = platform_get_resource(pdev, IORESOURCE_IO, i);
-		dd->spi_gpios[i] = resource ? resource->start : -1;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i) {
-		resource = platform_get_resource(pdev, IORESOURCE_IO,
-				i + ARRAY_SIZE(spi_rsrcs));
-		dd->cs_gpios[i].gpio_num = resource ? resource->start : -1;
-		dd->cs_gpios[i].valid = 0;
 	}
 
 	rc = msm_spi_request_gpios(dd);
