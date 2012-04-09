@@ -293,9 +293,7 @@ static struct mmc_platform_data sdc2_plat_data = {
 	.ocr_mask       = MMC_VDD_28_29 | MMC_VDD_165_195,
 	.translate_vdd  = msm_sdcc_setup_power,
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
-#ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
 	.sdiowakeup_irq = MSM_GPIO_TO_INT(66),
-#endif
 	.msmsdcc_fmin   = 144000,
 	.msmsdcc_fmid   = 24576000,
 	.msmsdcc_fmax   = 49152000,
