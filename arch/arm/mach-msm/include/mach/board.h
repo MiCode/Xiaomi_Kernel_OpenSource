@@ -504,6 +504,12 @@ struct msm_vidc_platform_data {
 #endif
 };
 
+struct vcap_platform_data {
+	unsigned *gpios;
+	int num_gpios;
+	struct msm_bus_scale_pdata *bus_client_pdata;
+};
+
 #if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 struct isp1763_platform_data {
 	unsigned reset_gpio;
