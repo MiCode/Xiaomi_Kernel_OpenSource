@@ -157,8 +157,6 @@
 		.ns_val = N8(nmsb, nlsb, m, n) | SPDIV(SRC_SEL_##s, div), \
 	}
 
-static struct clk_ops clk_ops_rcg_7x30;
-
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
 	VDD_DIG_LOW,
@@ -324,8 +322,6 @@ static struct pll_vote_clk pll4_clk = {
 	},
 };
 
-static struct clk_ops clk_ops_branch;
-
 static struct clk_freq_tbl clk_tbl_axi[] = {
 	F_RAW(1, &lpxo_clk.c, 0, 0, 0, NULL),
 	F_END,
@@ -344,7 +340,7 @@ static struct rcg_clk glbl_root_clk = {
 	.set_rate = set_rate_nop,
 	.c = {
 		.dbg_name = "glbl_root_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 1),
 		CLK_INIT(glbl_root_clk.c),
 	},
@@ -1011,7 +1007,7 @@ static struct rcg_clk csi0_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "csi0_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 384000000),
 		CLK_INIT(csi0_clk.c),
 	},
@@ -1036,7 +1032,7 @@ static struct rcg_clk i2c_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "i2c_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 19200000),
 		CLK_INIT(i2c_clk.c),
 	},
@@ -1056,7 +1052,7 @@ static struct rcg_clk i2c_2_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "i2c_2_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 19200000),
 		CLK_INIT(i2c_2_clk.c),
 	},
@@ -1076,7 +1072,7 @@ static struct rcg_clk qup_i2c_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "qup_i2c_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 19200000),
 		CLK_INIT(qup_i2c_clk.c),
 	},
@@ -1096,7 +1092,7 @@ static struct rcg_clk uart1_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "uart1_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 19200000),
 		CLK_INIT(uart1_clk.c),
 	},
@@ -1116,7 +1112,7 @@ static struct rcg_clk uart2_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "uart2_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 19200000),
 		CLK_INIT(uart2_clk.c),
 	},
@@ -1156,7 +1152,7 @@ static struct rcg_clk uart1dm_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "uart1dm_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 64000000),
 		CLK_INIT(uart1dm_clk.c),
 	},
@@ -1180,7 +1176,7 @@ static struct rcg_clk uart2dm_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "uart2dm_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 64000000),
 		CLK_INIT(uart2dm_clk.c),
 	},
@@ -1214,7 +1210,7 @@ static struct rcg_clk emdh_clk = {
 	.c = {
 		.dbg_name = "emdh_clk",
 		.flags = CLKFLAG_MIN | CLKFLAG_MAX,
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 445500000),
 		CLK_INIT(emdh_clk.c),
 		.depends = &axi_li_adsp_a_clk.c,
@@ -1236,7 +1232,7 @@ static struct rcg_clk pmdh_clk = {
 	.c = {
 		.dbg_name = "pmdh_clk",
 		.flags = CLKFLAG_MIN | CLKFLAG_MAX,
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 445500000),
 		CLK_INIT(pmdh_clk.c),
 		.depends = &axi_li_adsp_a_clk.c,
@@ -1281,7 +1277,7 @@ static struct rcg_clk grp_2d_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "grp_2d_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 245760000),
 		CLK_INIT(grp_2d_clk.c),
 		.depends = &axi_grp_2d_clk.c,
@@ -1301,7 +1297,7 @@ static struct rcg_clk grp_3d_src_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "grp_3d_src_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 245760000),
 		CLK_INIT(grp_3d_src_clk.c),
 		.depends = &axi_li_grp_clk.c,
@@ -1370,7 +1366,7 @@ static struct rcg_clk sdc1_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "sdc1_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 49152000),
 		CLK_INIT(sdc1_clk.c),
 	},
@@ -1394,7 +1390,7 @@ static struct rcg_clk sdc3_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "sdc3_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 49152000),
 		CLK_INIT(sdc3_clk.c),
 	},
@@ -1430,7 +1426,7 @@ static struct rcg_clk sdc2_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "sdc2_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 49152000),
 		CLK_INIT(sdc2_clk.c),
 	},
@@ -1454,7 +1450,7 @@ static struct rcg_clk sdc4_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "sdc4_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 49152000),
 		CLK_INIT(sdc4_clk.c),
 	},
@@ -1489,7 +1485,7 @@ static struct rcg_clk mdp_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "mdp_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(NOMINAL, 153600000, HIGH, 192000000),
 		CLK_INIT(mdp_clk.c),
 		.depends = &axi_mdp_clk.c,
@@ -1524,7 +1520,7 @@ static struct rcg_clk mdp_lcdc_pclk_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "mdp_lcdc_pclk_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 73728000),
 		CLK_INIT(mdp_lcdc_pclk_clk.c),
 	},
@@ -1567,7 +1563,7 @@ static struct rcg_clk mdp_vsync_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "mdp_vsync_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 24576000),
 		CLK_INIT(mdp_vsync_clk.c),
 	},
@@ -1598,7 +1594,7 @@ static struct rcg_clk mi2s_codec_rx_m_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "mi2s_codec_rx_m_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 12288000),
 		CLK_INIT(mi2s_codec_rx_m_clk.c),
 	},
@@ -1638,7 +1634,7 @@ static struct rcg_clk mi2s_codec_tx_m_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "mi2s_codec_tx_m_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 12288000),
 		CLK_INIT(mi2s_codec_tx_m_clk.c),
 	},
@@ -1684,7 +1680,7 @@ static struct rcg_clk mi2s_m_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "mi2s_m_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 12288000),
 		CLK_INIT(mi2s_m_clk.c),
 	},
@@ -1745,7 +1741,7 @@ static struct rcg_clk sdac_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "sdac_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 1536000),
 		CLK_INIT(sdac_clk.c),
 	},
@@ -1789,7 +1785,7 @@ static struct rcg_clk tv_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "tv_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 74250000),
 		CLK_INIT(tv_clk.c),
 	},
@@ -1881,7 +1877,7 @@ static struct rcg_clk usb_hs_src_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "usb_hs_src_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
 		CLK_INIT(usb_hs_src_clk.c),
 		.depends = &axi_li_adsp_a_clk.c,
@@ -2018,7 +2014,7 @@ static struct rcg_clk jpeg_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "jpeg_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(NOMINAL, 153600000, HIGH, 192000000),
 		CLK_INIT(jpeg_clk.c),
 		.depends = &axi_li_jpeg_clk.c,
@@ -2043,7 +2039,7 @@ static struct rcg_clk vfe_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "vfe_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(NOMINAL, 153600000, HIGH, 192000000),
 		CLK_INIT(vfe_clk.c),
 		.depends = &axi_li_vfe_clk.c,
@@ -2128,7 +2124,7 @@ static struct rcg_clk cam_m_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "cam_m_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 64000000),
 		CLK_INIT(cam_m_clk.c),
 	},
@@ -2163,7 +2159,7 @@ static struct rcg_clk vpe_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "vpe_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 153600000),
 		CLK_INIT(vpe_clk.c),
 		.depends = &axi_vpe_clk.c,
@@ -2200,7 +2196,7 @@ static struct rcg_clk mfc_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "mfc_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 170667000),
 		CLK_INIT(mfc_clk.c),
 		.depends = &axi_mfc_clk.c,
@@ -2249,7 +2245,7 @@ static struct rcg_clk spi_clk = {
 	.set_rate = set_rate_mnd,
 	.c = {
 		.dbg_name = "spi_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(NOMINAL, 26331429),
 		CLK_INIT(spi_clk.c),
 	},
@@ -2278,7 +2274,7 @@ static struct rcg_clk lpa_codec_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "lpa_codec_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 4),
 		CLK_INIT(lpa_codec_clk.c),
 	},
@@ -2304,7 +2300,7 @@ static struct rcg_clk mdc_clk = {
 	.set_rate = set_rate_nop,
 	.c = {
 		.dbg_name = "mdc_clk",
-		.ops = &clk_ops_rcg_7x30,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 1),
 		CLK_INIT(mdc_clk.c),
 	},
@@ -2975,6 +2971,10 @@ static void __init msm7x30_clock_pre_init(void)
 	int i;
 	uint32_t val;
 
+	clk_ops_branch.reset = soc_branch_clk_reset;
+	clk_ops_rcg.reset = msm7x30_clk_reset;
+	clk_ops_rcg.set_flags = soc_clk_set_flags;
+
 	cache_ownership();
 	print_ownership();
 	set_clock_ownership();
@@ -3014,30 +3014,4 @@ struct clock_init_data msm7x30_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clocks_7x30),
 	.pre_init = msm7x30_clock_pre_init,
 	.post_init = msm7x30_clock_post_init,
-};
-
-/*
- * Clock operation handler registration
- */
-static struct clk_ops clk_ops_rcg_7x30 = {
-	.enable = rcg_clk_enable,
-	.disable = rcg_clk_disable,
-	.auto_off = rcg_clk_disable,
-	.set_rate = rcg_clk_set_rate,
-	.list_rate = rcg_clk_list_rate,
-	.is_enabled = rcg_clk_is_enabled,
-	.round_rate = rcg_clk_round_rate,
-	.reset = msm7x30_clk_reset,
-	.set_flags = soc_clk_set_flags,
-	.get_parent = rcg_clk_get_parent,
-};
-
-static struct clk_ops clk_ops_branch = {
-	.enable = branch_clk_enable,
-	.disable = branch_clk_disable,
-	.auto_off = branch_clk_disable,
-	.is_enabled = branch_clk_is_enabled,
-	.reset = soc_branch_clk_reset,
-	.set_flags = soc_clk_set_flags,
-	.get_parent = branch_clk_get_parent,
 };

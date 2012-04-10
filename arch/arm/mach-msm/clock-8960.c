@@ -556,41 +556,6 @@ static struct pll_clk pll15_clk = {
 	},
 };
 
-static struct clk_ops clk_ops_rcg_8960 = {
-	.enable = rcg_clk_enable,
-	.disable = rcg_clk_disable,
-	.enable_hwcg = rcg_clk_enable_hwcg,
-	.disable_hwcg = rcg_clk_disable_hwcg,
-	.in_hwcg_mode = rcg_clk_in_hwcg_mode,
-	.auto_off = rcg_clk_disable,
-	.handoff = rcg_clk_handoff,
-	.set_rate = rcg_clk_set_rate,
-	.list_rate = rcg_clk_list_rate,
-	.is_enabled = rcg_clk_is_enabled,
-	.round_rate = rcg_clk_round_rate,
-	.reset = rcg_clk_reset,
-	.get_parent = rcg_clk_get_parent,
-	.set_flags = rcg_clk_set_flags,
-};
-
-static struct clk_ops clk_ops_branch = {
-	.enable = branch_clk_enable,
-	.disable = branch_clk_disable,
-	.enable_hwcg = branch_clk_enable_hwcg,
-	.disable_hwcg = branch_clk_disable_hwcg,
-	.in_hwcg_mode = branch_clk_in_hwcg_mode,
-	.auto_off = branch_clk_disable,
-	.is_enabled = branch_clk_is_enabled,
-	.reset = branch_clk_reset,
-	.get_parent = branch_clk_get_parent,
-	.handoff = branch_clk_handoff,
-	.set_flags = branch_clk_set_flags,
-};
-
-static struct clk_ops clk_ops_reset = {
-	.reset = branch_clk_reset,
-};
-
 /* AXI Interfaces */
 static struct branch_clk gmem_axi_clk = {
 	.b = {
@@ -1238,7 +1203,7 @@ static struct branch_clk vcap_p_clk = {
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #i "_clk", \
-			.ops = &clk_ops_rcg_8960, \
+			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, 100000000, NOMINAL, 200000000), \
 			CLK_INIT(i##_clk.c), \
 		}, \
@@ -1288,7 +1253,7 @@ static CLK_GP(gp2, 2, CLK_HALT_SFPB_MISC_STATE_REG, 5);
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #i "_clk", \
-			.ops = &clk_ops_rcg_8960, \
+			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, 32000000, NOMINAL, 64000000), \
 			CLK_INIT(i##_clk.c), \
 		}, \
@@ -1352,7 +1317,7 @@ static CLK_GSBI_UART(gsbi12_uart, 12, CLK_HALT_CFPB_STATEC_REG, 13);
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #i "_clk", \
-			.ops = &clk_ops_rcg_8960, \
+			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, 24000000, NOMINAL, 52000000), \
 			CLK_INIT(i##_clk.c), \
 		}, \
@@ -1420,7 +1385,7 @@ static struct rcg_clk pdm_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "pdm_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 27000000),
 		CLK_INIT(pdm_clk.c),
 	},
@@ -1465,7 +1430,7 @@ static struct rcg_clk prng_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "prng_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 32000000, NOMINAL, 65000000),
 		CLK_INIT(prng_clk.c),
 	},
@@ -1491,7 +1456,7 @@ static struct rcg_clk prng_clk = {
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #name, \
-			.ops = &clk_ops_rcg_8960, \
+			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, fmax_low, NOMINAL, fmax_nom), \
 			CLK_INIT(name.c), \
 		}, \
@@ -1554,7 +1519,7 @@ static struct rcg_clk tsif_ref_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "tsif_ref_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 27000000, NOMINAL, 54000000),
 		CLK_INIT(tsif_ref_clk.c),
 	},
@@ -1586,7 +1551,7 @@ static struct rcg_clk tssc_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "tssc_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 27000000),
 		CLK_INIT(tssc_clk.c),
 	},
@@ -1612,7 +1577,7 @@ static struct rcg_clk tssc_clk = {
 	.current_freq = &rcg_dummy_freq, \
 	.c = { \
 		.dbg_name = #name, \
-		.ops = &clk_ops_rcg_8960, \
+		.ops = &clk_ops_rcg, \
 		VDD_DIG_FMAX_MAP1(NOMINAL, 64000000), \
 		CLK_INIT(name.c), \
 	}, \
@@ -1658,7 +1623,7 @@ static struct rcg_clk usb_hsic_xcvr_fs_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "usb_hsic_xcvr_fs_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 60000000),
 		CLK_INIT(usb_hsic_xcvr_fs_clk.c),
 	},
@@ -1702,7 +1667,7 @@ static struct rcg_clk usb_hsic_hsic_src_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "usb_hsic_hsic_src_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 480000000),
 		CLK_INIT(usb_hsic_hsic_src_clk.c),
 	},
@@ -1745,7 +1710,7 @@ static struct rcg_clk usb_hsic_hsio_cal_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "usb_hsic_hsio_cal_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 10000000),
 		CLK_INIT(usb_hsic_hsio_cal_clk.c),
 	},
@@ -1779,7 +1744,7 @@ static struct branch_clk usb_phy0_clk = {
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #i "_clk", \
-			.ops = &clk_ops_rcg_8960, \
+			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP1(NOMINAL, fmax_nom), \
 			CLK_INIT(i##_clk.c), \
 		}, \
@@ -1913,7 +1878,7 @@ static struct rcg_clk ce3_src_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "ce3_src_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 50000000, NOMINAL, 100000000),
 		CLK_INIT(ce3_src_clk.c),
 	},
@@ -2504,7 +2469,7 @@ static struct branch_clk rpm_msg_ram_p_clk = {
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #name, \
-			.ops = &clk_ops_rcg_8960, \
+			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, 64000000, NOMINAL, 128000000), \
 			CLK_INIT(name.c), \
 		}, \
@@ -2569,7 +2534,7 @@ static struct rcg_clk csi0_src_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "csi0_src_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 86000000, NOMINAL, 178000000),
 		CLK_INIT(csi0_src_clk.c),
 	},
@@ -2625,7 +2590,7 @@ static struct rcg_clk csi1_src_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "csi1_src_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 86000000, NOMINAL, 178000000),
 		CLK_INIT(csi1_src_clk.c),
 	},
@@ -2681,7 +2646,7 @@ static struct rcg_clk csi2_src_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "csi2_src_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 86000000, NOMINAL, 178000000),
 		CLK_INIT(csi2_src_clk.c),
 	},
@@ -3011,7 +2976,7 @@ static struct rcg_clk csiphy_timer_src_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "csiphy_timer_src_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 86000000, NOMINAL, 178000000),
 		CLK_INIT(csiphy_timer_src_clk.c),
 	},
@@ -3099,7 +3064,7 @@ static struct rcg_clk dsi1_byte_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "dsi1_byte_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		CLK_INIT(dsi1_byte_clk.c),
 	},
 };
@@ -3123,7 +3088,7 @@ static struct rcg_clk dsi2_byte_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "dsi2_byte_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		CLK_INIT(dsi2_byte_clk.c),
 	},
 };
@@ -3144,7 +3109,7 @@ static struct rcg_clk dsi1_esc_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "dsi1_esc_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		CLK_INIT(dsi1_esc_clk.c),
 	},
 };
@@ -3164,7 +3129,7 @@ static struct rcg_clk dsi2_esc_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "dsi2_esc_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		CLK_INIT(dsi2_esc_clk.c),
 	},
 };
@@ -3231,7 +3196,7 @@ static struct rcg_clk gfx2d0_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "gfx2d0_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW,  100000000, NOMINAL, 200000000,
 				  HIGH, 228571000),
 		CLK_INIT(gfx2d0_clk.c),
@@ -3275,7 +3240,7 @@ static struct rcg_clk gfx2d1_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "gfx2d1_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW,  100000000, NOMINAL, 200000000,
 				  HIGH, 228571000),
 		CLK_INIT(gfx2d1_clk.c),
@@ -3403,7 +3368,7 @@ static struct rcg_clk gfx3d_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "gfx3d_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW,  128000000, NOMINAL, 300000000,
 				  HIGH, 400000000),
 		CLK_INIT(gfx3d_clk.c),
@@ -3465,7 +3430,7 @@ static struct rcg_clk vcap_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "vcap_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		.depends = &vcap_axi_clk.c,
 		VDD_DIG_FMAX_MAP2(LOW, 100000000, NOMINAL, 200000000),
 		CLK_INIT(vcap_clk.c),
@@ -3540,7 +3505,7 @@ static struct rcg_clk ijpeg_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "ijpeg_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW, 110000000, NOMINAL, 266667000,
 				  HIGH, 320000000),
 		CLK_INIT(ijpeg_clk.c),
@@ -3583,7 +3548,7 @@ static struct rcg_clk jpegd_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "jpegd_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 96000000, NOMINAL, 200000000),
 		CLK_INIT(jpegd_clk.c),
 		.depends = &jpegd_axi_clk.c,
@@ -3660,7 +3625,7 @@ static struct rcg_clk mdp_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "mdp_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 96000000, NOMINAL, 200000000),
 		CLK_INIT(mdp_clk.c),
 		.depends = &mdp_axi_clk.c,
@@ -3711,7 +3676,7 @@ static struct rcg_clk mdp_vsync_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "mdp_vsync_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 27000000),
 		CLK_INIT(mdp_vsync_clk.c),
 	},
@@ -3772,7 +3737,7 @@ static struct rcg_clk rot_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "rot_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 96000000, NOMINAL, 200000000),
 		CLK_INIT(rot_clk.c),
 		.depends = &rot_axi_clk.c,
@@ -3883,7 +3848,7 @@ static struct rcg_clk tv_src_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "tv_src_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 27030000, NOMINAL, 149000000),
 		CLK_INIT(tv_src_clk.c),
 	},
@@ -4075,7 +4040,7 @@ static struct rcg_clk vcodec_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "vcodec_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW,  100000000, NOMINAL, 200000000,
 				  HIGH, 228571000),
 		CLK_INIT(vcodec_clk.c),
@@ -4121,7 +4086,7 @@ static struct rcg_clk vpe_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "vpe_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 76800000, NOMINAL, 160000000),
 		CLK_INIT(vpe_clk.c),
 		.depends = &vpe_axi_clk.c,
@@ -4187,7 +4152,7 @@ static struct rcg_clk vfe_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "vfe_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW, 110000000, NOMINAL, 266667000,
 				  HIGH, 320000000),
 		CLK_INIT(vfe_clk.c),
@@ -4259,7 +4224,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #i "_clk", \
-			.ops = &clk_ops_rcg_8960, \
+			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP1(LOW, 24576000), \
 			CLK_INIT(i##_clk.c), \
 		}, \
@@ -4285,7 +4250,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #i "_clk", \
-			.ops = &clk_ops_rcg_8960, \
+			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP1(LOW, 24576000), \
 			CLK_INIT(i##_clk.c), \
 		}, \
@@ -4396,7 +4361,7 @@ static struct rcg_clk pcm_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "pcm_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 24576000),
 		CLK_INIT(pcm_clk.c),
 	},
@@ -4422,7 +4387,7 @@ static struct rcg_clk audio_slimbus_clk = {
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "audio_slimbus_clk",
-		.ops = &clk_ops_rcg_8960,
+		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 24576000),
 		CLK_INIT(audio_slimbus_clk.c),
 	},
@@ -6097,10 +6062,10 @@ static void __init msm8960_clock_post_init(void)
 	 * The halt status bits for these clocks may be incorrect at boot.
 	 * Toggle these clocks on and off to refresh them.
 	 */
-	rcg_clk_enable(&pdm_clk.c);
-	rcg_clk_disable(&pdm_clk.c);
-	rcg_clk_enable(&tssc_clk.c);
-	rcg_clk_disable(&tssc_clk.c);
+	clk_prepare_enable(&pdm_clk.c);
+	clk_disable_unprepare(&pdm_clk.c);
+	clk_prepare_enable(&tssc_clk.c);
+	clk_disable_unprepare(&tssc_clk.c);
 	clk_prepare_enable(&usb_hsic_hsic_clk.c);
 	clk_disable_unprepare(&usb_hsic_hsic_clk.c);
 

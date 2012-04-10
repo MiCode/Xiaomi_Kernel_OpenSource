@@ -268,7 +268,7 @@ static int branch_clk_is_halted(const struct branch *clk)
 	return invert ? !status_bit : status_bit;
 }
 
-int branch_in_hwcg_mode(const struct branch *b)
+static int branch_in_hwcg_mode(const struct branch *b)
 {
 	if (!b->hwcg_mask)
 		return 0;
@@ -420,7 +420,7 @@ static void __rcg_clk_disable_reg(struct rcg_clk *clk)
 }
 
 /* Enable a rate-settable clock. */
-int rcg_clk_enable(struct clk *c)
+static int rcg_clk_enable(struct clk *c)
 {
 	unsigned long flags;
 	struct rcg_clk *clk = to_rcg_clk(c);
@@ -434,7 +434,7 @@ int rcg_clk_enable(struct clk *c)
 }
 
 /* Disable a rate-settable clock. */
-void rcg_clk_disable(struct clk *c)
+static void rcg_clk_disable(struct clk *c)
 {
 	unsigned long flags;
 	struct rcg_clk *clk = to_rcg_clk(c);
@@ -450,7 +450,7 @@ void rcg_clk_disable(struct clk *c)
  */
 
 /* Set a clock to an exact rate. */
-int rcg_clk_set_rate(struct clk *c, unsigned long rate)
+static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	struct clk_freq_tbl *nf, *cf;
@@ -527,13 +527,13 @@ int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 }
 
 /* Check if a clock is currently enabled. */
-int rcg_clk_is_enabled(struct clk *clk)
+static int rcg_clk_is_enabled(struct clk *clk)
 {
 	return to_rcg_clk(clk)->enabled;
 }
 
 /* Return a supported rate that's at least the specified rate. */
-long rcg_clk_round_rate(struct clk *c, unsigned long rate)
+static long rcg_clk_round_rate(struct clk *c, unsigned long rate)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	struct clk_freq_tbl *f;
@@ -546,7 +546,7 @@ long rcg_clk_round_rate(struct clk *c, unsigned long rate)
 }
 
 /* Return the nth supported frequency for a given clock. */
-int rcg_clk_list_rate(struct clk *c, unsigned n)
+static int rcg_clk_list_rate(struct clk *c, unsigned n)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 
@@ -556,7 +556,7 @@ int rcg_clk_list_rate(struct clk *c, unsigned n)
 	return (clk->freq_tbl + n)->freq_hz;
 }
 
-struct clk *rcg_clk_get_parent(struct clk *clk)
+static struct clk *rcg_clk_get_parent(struct clk *clk)
 {
 	return to_rcg_clk(clk)->current_freq->src_clk;
 }
@@ -575,13 +575,13 @@ enum handoff branch_handoff(struct branch *clk, struct clk *c)
 	return HANDOFF_DISABLED_CLK;
 }
 
-enum handoff branch_clk_handoff(struct clk *c)
+static enum handoff branch_clk_handoff(struct clk *c)
 {
 	struct branch_clk *clk = to_branch_clk(c);
 	return branch_handoff(&clk->b, &clk->c);
 }
 
-enum handoff rcg_clk_handoff(struct clk *c)
+static enum handoff rcg_clk_handoff(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	uint32_t ctl_val, ns_val, md_val, ns_mask;
@@ -641,7 +641,7 @@ struct fixed_clk gnd_clk = {
 struct clk_ops clk_ops_measure = {
 };
 
-int branch_clk_enable(struct clk *clk)
+static int branch_clk_enable(struct clk *clk)
 {
 	unsigned long flags;
 	struct branch_clk *branch = to_branch_clk(clk);
@@ -654,7 +654,7 @@ int branch_clk_enable(struct clk *clk)
 	return 0;
 }
 
-void branch_clk_disable(struct clk *clk)
+static void branch_clk_disable(struct clk *clk)
 {
 	unsigned long flags;
 	struct branch_clk *branch = to_branch_clk(clk);
@@ -665,13 +665,13 @@ void branch_clk_disable(struct clk *clk)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-struct clk *branch_clk_get_parent(struct clk *clk)
+static struct clk *branch_clk_get_parent(struct clk *clk)
 {
 	struct branch_clk *branch = to_branch_clk(clk);
 	return branch->parent;
 }
 
-int branch_clk_is_enabled(struct clk *clk)
+static int branch_clk_is_enabled(struct clk *clk)
 {
 	struct branch_clk *branch = to_branch_clk(clk);
 	return branch->enabled;
@@ -701,13 +701,13 @@ static void branch_disable_hwcg(struct branch *b)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-void branch_clk_enable_hwcg(struct clk *clk)
+static void branch_clk_enable_hwcg(struct clk *clk)
 {
 	struct branch_clk *branch = to_branch_clk(clk);
 	branch_enable_hwcg(&branch->b);
 }
 
-void branch_clk_disable_hwcg(struct clk *clk)
+static void branch_clk_disable_hwcg(struct clk *clk)
 {
 	struct branch_clk *branch = to_branch_clk(clk);
 	branch_disable_hwcg(&branch->b);
@@ -740,36 +740,36 @@ static int branch_set_flags(struct branch *b, unsigned flags)
 	return ret;
 }
 
-int branch_clk_set_flags(struct clk *clk, unsigned flags)
+static int branch_clk_set_flags(struct clk *clk, unsigned flags)
 {
 	return branch_set_flags(&to_branch_clk(clk)->b, flags);
 }
 
-int branch_clk_in_hwcg_mode(struct clk *c)
+static int branch_clk_in_hwcg_mode(struct clk *c)
 {
 	struct branch_clk *clk = to_branch_clk(c);
 	return branch_in_hwcg_mode(&clk->b);
 }
 
-void rcg_clk_enable_hwcg(struct clk *clk)
+static void rcg_clk_enable_hwcg(struct clk *clk)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
 	branch_enable_hwcg(&rcg->b);
 }
 
-void rcg_clk_disable_hwcg(struct clk *clk)
+static void rcg_clk_disable_hwcg(struct clk *clk)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
 	branch_disable_hwcg(&rcg->b);
 }
 
-int rcg_clk_in_hwcg_mode(struct clk *c)
+static int rcg_clk_in_hwcg_mode(struct clk *c)
 {
 	struct rcg_clk *clk = to_rcg_clk(c);
 	return branch_in_hwcg_mode(&clk->b);
 }
 
-int rcg_clk_set_flags(struct clk *clk, unsigned flags)
+static int rcg_clk_set_flags(struct clk *clk, unsigned flags)
 {
 	return branch_set_flags(&to_rcg_clk(clk)->b, flags);
 }
@@ -811,15 +811,50 @@ int branch_reset(struct branch *b, enum clk_reset_action action)
 	return ret;
 }
 
-int branch_clk_reset(struct clk *clk, enum clk_reset_action action)
+static int branch_clk_reset(struct clk *clk, enum clk_reset_action action)
 {
 	return branch_reset(&to_branch_clk(clk)->b, action);
 }
 
-int rcg_clk_reset(struct clk *clk, enum clk_reset_action action)
+struct clk_ops clk_ops_branch = {
+	.enable = branch_clk_enable,
+	.disable = branch_clk_disable,
+	.enable_hwcg = branch_clk_enable_hwcg,
+	.disable_hwcg = branch_clk_disable_hwcg,
+	.in_hwcg_mode = branch_clk_in_hwcg_mode,
+	.auto_off = branch_clk_disable,
+	.is_enabled = branch_clk_is_enabled,
+	.reset = branch_clk_reset,
+	.get_parent = branch_clk_get_parent,
+	.handoff = branch_clk_handoff,
+	.set_flags = branch_clk_set_flags,
+};
+
+struct clk_ops clk_ops_reset = {
+	.reset = branch_clk_reset,
+};
+
+static int rcg_clk_reset(struct clk *clk, enum clk_reset_action action)
 {
 	return branch_reset(&to_rcg_clk(clk)->b, action);
 }
+
+struct clk_ops clk_ops_rcg = {
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
+	.enable_hwcg = rcg_clk_enable_hwcg,
+	.disable_hwcg = rcg_clk_disable_hwcg,
+	.in_hwcg_mode = rcg_clk_in_hwcg_mode,
+	.auto_off = rcg_clk_disable,
+	.handoff = rcg_clk_handoff,
+	.set_rate = rcg_clk_set_rate,
+	.list_rate = rcg_clk_list_rate,
+	.is_enabled = rcg_clk_is_enabled,
+	.round_rate = rcg_clk_round_rate,
+	.reset = rcg_clk_reset,
+	.get_parent = rcg_clk_get_parent,
+	.set_flags = rcg_clk_set_flags,
+};
 
 static int cdiv_clk_enable(struct clk *c)
 {
