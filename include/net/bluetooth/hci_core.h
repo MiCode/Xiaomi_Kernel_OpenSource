@@ -321,6 +321,7 @@ struct hci_conn {
 	struct timer_list disc_timer;
 	struct timer_list idle_timer;
 	struct delayed_work	rssi_update_work;
+	struct timer_list encrypt_pause_timer;
 
 	struct work_struct work_add;
 	struct work_struct work_del;
