@@ -32,13 +32,6 @@ struct kgsl_process_private;
 /** Set if the memdesc is mapped into all pagetables */
 #define KGSL_MEMFLAGS_GLOBAL    0x00000002
 
-struct kgsl_memdesc_ops {
-	int (*vmflags)(struct kgsl_memdesc *);
-	int (*vmfault)(struct kgsl_memdesc *, struct vm_area_struct *,
-		       struct vm_fault *);
-	void (*free)(struct kgsl_memdesc *memdesc);
-};
-
 extern struct kgsl_memdesc_ops kgsl_vmalloc_ops;
 
 int kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
@@ -91,6 +84,10 @@ static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
 		pa = sg_phys(sg);
 	return pa;
 }
+
+int
+kgsl_sharedmem_map_vma(struct vm_area_struct *vma,
+			const struct kgsl_memdesc *memdesc);
 
 static inline int
 memdesc_sg_phys(struct kgsl_memdesc *memdesc,
