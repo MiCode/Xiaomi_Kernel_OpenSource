@@ -499,6 +499,41 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {
 	.sensor_type = BAYER_SENSOR,
 };
 
+static struct camera_vreg_t apq_8064_s5k3l1yx_vreg[] = {
+	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
+	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
+	{"cam_vio", REG_VS, 0, 0, 0},
+	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
+};
+
+static struct msm_camera_sensor_flash_data flash_s5k3l1yx = {
+	.flash_type	= MSM_CAMERA_FLASH_NONE,
+};
+
+static struct msm_camera_csi_lane_params s5k3l1yx_csi_lane_params = {
+	.csi_lane_assign = 0xE4,
+	.csi_lane_mask = 0xF,
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_s5k3l1yx = {
+	.mount_angle	= 90,
+	.cam_vreg = apq_8064_s5k3l1yx_vreg,
+	.num_vreg = ARRAY_SIZE(apq_8064_s5k3l1yx_vreg),
+	.gpio_conf = &apq8064_back_cam_gpio_conf,
+	.i2c_conf = &apq8064_back_cam_i2c_conf,
+	.csi_lane_params = &s5k3l1yx_csi_lane_params,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_s5k3l1yx_data = {
+	.sensor_name	= "s5k3l1yx",
+	.pdata	= &msm_camera_csi_device_data[0],
+	.flash_data	= &flash_s5k3l1yx,
+	.sensor_platform_info = &sensor_board_info_s5k3l1yx,
+	.csi_if	= 1,
+	.camera_type = BACK_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
+};
+
 static struct camera_vreg_t apq_8064_mt9m114_vreg[] = {
 	{"cam_vio", REG_VS, 0, 0, 0},
 	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
@@ -602,6 +637,10 @@ static struct i2c_board_info apq8064_camera_i2c_boardinfo[] = {
 	{
 	I2C_BOARD_INFO("imx091", 0x34),
 	.platform_data = &msm_camera_sensor_imx091_data,
+	},
+	{
+	I2C_BOARD_INFO("s5k3l1yx", 0x20),
+	.platform_data = &msm_camera_sensor_s5k3l1yx_data,
 	},
 };
 
