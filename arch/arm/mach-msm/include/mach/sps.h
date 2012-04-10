@@ -1205,4 +1205,17 @@ int sps_phy2h(u32 phys_addr, u32 *handle);
 int sps_setup_bam2bam_fifo(struct sps_mem_buffer *mem_buffer,
 		  u32 addr, u32 size, int use_offset);
 
+/**
+ * Get the number of unused descriptors in the descriptor FIFO
+ * of a pipe
+ *
+ * @h - client context for SPS connection end point
+ *
+ * @desc_num - number of unused descriptors
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num);
+
 #endif /* _SPS_H_ */
