@@ -231,6 +231,7 @@ EXPORT_SYMBOL(msm_idle_stats_idle_start);
 void msm_idle_stats_idle_end(struct msm_idle_stats_device *device,
 				struct msm_idle_pulse *pulse)
 {
+	int tmp;
 	u32 idle_time = 0;
 	spin_lock(&device->lock);
 	if (ktime_to_us(device->idle_start) != 0) {
@@ -255,7 +256,18 @@ void msm_idle_stats_idle_end(struct msm_idle_stats_device *device,
 				 ktime_to_us(busy_timer)))
 				busy_timer = device->remaining_time;
 		    start_busy_timer(device, busy_timer);
-	    }
+		    /* If previous busy interval exceeds the current submit,
+		     * raise a busy timer expired event intentionally.
+		     */
+		    tmp = device->stats->nr_collected - 1;
+		    if (tmp > 0) {
+			if ((device->stats->pulse_chain[tmp - 1].busy_start_time
+			+ device->stats->pulse_chain[tmp - 1].busy_interval) >
+			  device->stats->pulse_chain[tmp].busy_start_time)
+				msm_idle_stats_update_event(device,
+				   MSM_IDLE_STATS_EVENT_BUSY_TIMER_EXPIRED);
+		    }
+		}
 	}
 	spin_unlock(&device->lock);
 }
