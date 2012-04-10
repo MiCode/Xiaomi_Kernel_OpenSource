@@ -70,6 +70,8 @@
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
+#include "u_bam_data.c"
+#include "f_mbim.c"
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -385,6 +387,35 @@ static struct android_usb_function rmnet_function = {
 	.bind_config	= rmnet_function_bind_config,
 	.attributes	= rmnet_function_attributes,
 };
+
+
+/* MBIM - used with BAM */
+#define MAX_MBIM_INSTANCES 1
+
+static int mbim_function_init(struct android_usb_function *f,
+					 struct usb_composite_dev *cdev)
+{
+	return mbim_init(MAX_MBIM_INSTANCES);
+}
+
+static void mbim_function_cleanup(struct android_usb_function *f)
+{
+	fmbim_cleanup();
+}
+
+static int mbim_function_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	return mbim_bind_config(c, 0);
+}
+
+static struct android_usb_function mbim_function = {
+	.name		= "usb_mbim",
+	.cleanup	= mbim_function_cleanup,
+	.bind_config	= mbim_function_bind_config,
+	.init		= mbim_function_init,
+};
+
 
 /* DIAG */
 static char diag_clients[32];	    /*enabled DIAG clients- "diag[,diag_mdm]" */
@@ -1004,6 +1035,7 @@ static struct android_usb_function accessory_function = {
 
 
 static struct android_usb_function *supported_functions[] = {
+	&mbim_function,
 	&rmnet_smd_function,
 	&rmnet_sdio_function,
 	&rmnet_smd_sdio_function,
