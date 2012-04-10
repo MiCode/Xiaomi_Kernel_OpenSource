@@ -414,11 +414,12 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		return ret;
 	}
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		msm_vol_ctl.update = 1; /* Update Volume, with Cached value */
 		runtime->hw = msm_pcm_playback_hardware;
 		prtd->dir = SNDRV_PCM_STREAM_PLAYBACK;
 		prtd->playback_substream = substream;
 		prtd->eos_ack = 0;
+		ret = msm_audio_volume_update(PCMPLAYBACK_DECODERID,
+			msm_vol_ctl.volume, msm_vol_ctl.pan);
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		runtime->hw = msm_pcm_capture_hardware;
 		prtd->dir = SNDRV_PCM_STREAM_CAPTURE;
@@ -468,12 +469,6 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 		alsa_audio_configure(prtd);
 		mutex_unlock(&the_locks.lock);
 	}
-	if ((prtd->running) && (msm_vol_ctl.update)) {
-		rc = msm_audio_volume_update(PCMPLAYBACK_DECODERID,
-				msm_vol_ctl.volume, msm_vol_ctl.pan);
-		msm_vol_ctl.update = 0;
-	}
-
 	return  rc;
 }
 

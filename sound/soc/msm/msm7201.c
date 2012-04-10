@@ -84,11 +84,12 @@ static int snd_msm_volume_put(struct snd_kcontrol *kcontrol,
 	spin_lock_irq(&the_locks.mixer_lock);
 	change = (msm_vol_ctl.volume != volume);
 	if (change) {
-		msm_vol_ctl.update = 1;
 		msm_vol_ctl.volume = volume;
+		msm_audio_volume_update(PCMPLAYBACK_DECODERID,
+				msm_vol_ctl.volume, msm_vol_ctl.pan);
 	}
 	spin_unlock_irq(&the_locks.mixer_lock);
-	return change;
+	return 0;
 }
 
 static int snd_msm_device_info(struct snd_kcontrol *kcontrol,
