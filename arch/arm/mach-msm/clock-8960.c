@@ -4493,6 +4493,8 @@ static DEFINE_CLK_VOTER(dfab_bam_dmux_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_scm_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_qseecom_clk, &dfab_clk.c);
 static DEFINE_CLK_VOTER(dfab_tzcom_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_msmbus_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_msmbus_a_clk, &dfab_a_clk.c);
 
 static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
 static DEFINE_CLK_VOTER(ebi1_adm_clk, &ebi1_clk.c);
@@ -4927,10 +4929,10 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("bus_a_clk",		mmfab_a_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c,	"msm_bus"),
 	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,		"msm_bus"),
+	CLK_LOOKUP("dfab_clk",		dfab_msmbus_clk.c,	"msm_bus"),
+	CLK_LOOKUP("dfab_a_clk",	dfab_msmbus_a_clk.c,	"msm_bus"),
 
 	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,		""),
-	CLK_LOOKUP("dfab_clk",		dfab_clk.c,		""),
-	CLK_LOOKUP("dfab_a_clk",	dfab_a_clk.c,		""),
 	CLK_LOOKUP("mmfpb_clk",		mmfpb_clk.c,		""),
 	CLK_LOOKUP("mmfpb_a_clk",	mmfpb_a_clk.c,		"clock-8960"),
 	CLK_LOOKUP("cfpb_a_clk",	cfpb_a_clk.c,		"clock-8960"),
@@ -5211,10 +5213,10 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("bus_a_clk",		mmfab_a_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c,	"msm_bus"),
 	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,		"msm_bus"),
+	CLK_LOOKUP("dfab_clk",		dfab_msmbus_clk.c,	"msm_bus"),
+	CLK_LOOKUP("dfab_a_clk",	dfab_msmbus_a_clk.c,	"msm_bus"),
 
 	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,		NULL),
-	CLK_LOOKUP("dfab_clk",		dfab_clk.c,		NULL),
-	CLK_LOOKUP("dfab_a_clk",	dfab_a_clk.c,		NULL),
 	CLK_LOOKUP("mmfpb_clk",		mmfpb_clk.c,		NULL),
 	CLK_LOOKUP("mmfpb_a_clk",	mmfpb_a_clk.c,		"clock-8960"),
 	CLK_LOOKUP("cfpb_a_clk",	cfpb_a_clk.c,		"clock-8960"),
@@ -5502,10 +5504,10 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("bus_a_clk",		mmfab_a_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c,	"msm_bus"),
 	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,		"msm_bus"),
+	CLK_LOOKUP("dfab_clk",		dfab_msmbus_clk.c,	"msm_bus"),
+	CLK_LOOKUP("dfab_a_clk",	dfab_msmbus_a_clk.c,	"msm_bus"),
 
 	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,		NULL),
-	CLK_LOOKUP("dfab_clk",		dfab_clk.c,		NULL),
-	CLK_LOOKUP("dfab_a_clk",	dfab_a_clk.c,		NULL),
 	CLK_LOOKUP("mmfpb_clk",		mmfpb_clk.c,		NULL),
 	CLK_LOOKUP("mmfpb_a_clk",	mmfpb_a_clk.c,		"clock-8960"),
 	CLK_LOOKUP("cfpb_a_clk",	cfpb_a_clk.c,		"clock-8960"),
