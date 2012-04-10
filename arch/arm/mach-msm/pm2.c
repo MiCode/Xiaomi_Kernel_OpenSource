@@ -565,7 +565,7 @@ static void msm_pm_config_hw_after_power_up(void)
 		__raw_writel(0, APPS_CLK_SLEEP_EN);
 		mb();
 
-		if (cpu_is_msm8625()) {
+		if (cpu_is_msm8625() && power_collapsed) {
 			/*
 			 * enable the SCU while coming out of power
 			 * collapse.
@@ -1089,6 +1089,8 @@ static int msm_pm_power_collapse
 	unsigned long saved_acpuclk_rate;
 	int collapsed = 0;
 	int ret;
+	int val;
+	int modem_early_exit = 0;
 
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND|MSM_PM_DEBUG_POWER_COLLAPSE,
 		KERN_INFO, "%s(): idle %d, delay %u, limit %u\n", __func__,
@@ -1194,8 +1196,25 @@ static int msm_pm_power_collapse
 #endif
 
 	collapsed = msm_pm_collapse();
-	if (collapsed)
-		power_collapsed = 1;
+
+	/*
+	 * TBD: Currently recognise the MODEM early exit
+	 * path by reading the MPA5_GDFS_CNT_VAL register.
+	 */
+	if (cpu_is_msm8625()) {
+		/*
+		 * on system reset default value of MPA5_GDFS_CNT_VAL
+		 * is = 0xFF, later power driver reprogrammed this
+		 * as: 0x000300FF. Currently based on the value of
+		 * MPA5_GDFS_CNT_VAL register decide whether it is
+		 * a modem early exit are not.
+		 */
+		val = __raw_readl(MSM_CFG_CTL_BASE + 0x38);
+		if (val != 0xFF)
+			modem_early_exit = 1;
+		else
+			power_collapsed = 1;
+	}
 
 #ifdef CONFIG_CACHE_L2X0
 	l2x0_resume(collapsed);
@@ -1256,7 +1275,7 @@ static int msm_pm_power_collapse
 	}
 
 	/* Sanity check */
-	if (collapsed) {
+	if (collapsed && !modem_early_exit) {
 		BUG_ON(!(state_grps[0].value_read & DEM_MASTER_SMSM_RSA));
 	} else {
 		BUG_ON(!(state_grps[0].value_read &
