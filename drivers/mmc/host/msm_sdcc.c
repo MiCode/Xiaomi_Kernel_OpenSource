@@ -168,16 +168,12 @@ static inline unsigned short msmsdcc_get_nr_sg(struct msmsdcc_host *host)
 /* Prevent idle power collapse(pc) while operating in peripheral mode */
 static void msmsdcc_pm_qos_update_latency(struct msmsdcc_host *host, int vote)
 {
-	u32 swfi_latency = 0;
-
-	if (!host->plat->swfi_latency)
+	if (!host->cpu_dma_latency)
 		return;
-
-	swfi_latency = host->plat->swfi_latency + 1;
 
 	if (vote)
 		pm_qos_update_request(&host->pm_qos_req_dma,
-					swfi_latency);
+				host->cpu_dma_latency);
 	else
 		pm_qos_update_request(&host->pm_qos_req_dma,
 					PM_QOS_DEFAULT_VALUE);
@@ -4543,9 +4539,13 @@ msmsdcc_probe(struct platform_device *pdev)
 	/* Apply Hard reset to SDCC to put it in power on default state */
 	msmsdcc_hard_reset(host);
 
+#define MSM_MMC_DEFAULT_CPUDMA_LATENCY 200 /* usecs */
 	/* pm qos request to prevent apps idle power collapse */
-	if (host->plat->swfi_latency)
-		pm_qos_add_request(&host->pm_qos_req_dma,
+	if (host->plat->cpu_dma_latency)
+		host->cpu_dma_latency = host->plat->cpu_dma_latency;
+	else
+		host->cpu_dma_latency = MSM_MMC_DEFAULT_CPUDMA_LATENCY;
+	pm_qos_add_request(&host->pm_qos_req_dma,
 			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 
 	ret = msmsdcc_vreg_init(host, true);
@@ -4831,7 +4831,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	msmsdcc_vreg_init(host, false);
  clk_disable:
 	clk_disable(host->clk);
-	if (host->plat->swfi_latency)
+	if (host->cpu_dma_latency)
 		pm_qos_remove_request(&host->pm_qos_req_dma);
  clk_put:
 	clk_put(host->clk);
@@ -4905,7 +4905,7 @@ static int msmsdcc_remove(struct platform_device *pdev)
 	if (!IS_ERR_OR_NULL(host->dfab_pclk))
 		clk_put(host->dfab_pclk);
 
-	if (host->plat->swfi_latency)
+	if (host->cpu_dma_latency)
 		pm_qos_remove_request(&host->pm_qos_req_dma);
 
 	msmsdcc_vreg_init(host, false);

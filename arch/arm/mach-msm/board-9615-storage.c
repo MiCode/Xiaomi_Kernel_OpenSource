@@ -214,19 +214,13 @@ static struct mmc_platform_data *msm9615_sdc2_pdata;
 
 void __init msm9615_init_mmc(void)
 {
-	if (msm9615_sdc1_pdata) {
-		msm9615_sdc1_pdata->swfi_latency =
-			msm9615_rpm_get_swfi_latency();
+	if (msm9615_sdc1_pdata)
 		/* SDC1: External card slot for SD/MMC cards */
 		msm_add_sdcc(1, msm9615_sdc1_pdata);
-	}
 
-	if (msm9615_sdc2_pdata) {
-		msm9615_sdc2_pdata->swfi_latency =
-			msm9615_rpm_get_swfi_latency();
+	if (msm9615_sdc2_pdata)
 		/* SDC2: External card slot used for WLAN */
 		msm_add_sdcc(2, msm9615_sdc2_pdata);
-	}
 }
 #else
 void __init msm9615_init_mmc(void)
