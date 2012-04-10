@@ -3631,13 +3631,8 @@ static int tavarua_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 					struct v4l2_hw_freq_seek *seek)
 {
 	struct tavarua_device  *radio = video_get_drvdata(video_devdata(file));
-	int dir;
-	if (seek->seek_upward)
-		dir = SRCH_DIR_UP;
-	else
-		dir = SRCH_DIR_DOWN;
 	FMDBG("starting search\n");
-	return tavarua_search(radio, CTRL_ON, dir);
+	return tavarua_search(radio, CTRL_ON, seek->seek_upward);
 }
 
 /*
