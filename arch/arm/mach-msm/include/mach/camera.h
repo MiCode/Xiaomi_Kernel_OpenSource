@@ -210,6 +210,7 @@ struct msm_camera_csi2_params {
 #endif
 
 #define CSI_EMBED_DATA 0x12
+#define CSI_RESERVED_DATA_0 0x13
 #define CSI_YUV422_8  0x1E
 #define CSI_RAW8    0x2A
 #define CSI_RAW10   0x2B
