@@ -54,7 +54,7 @@ static const struct pm_id_name pm3_types[] = {
 	{CP_IM_LOAD,			"IN__LOAD"},
 	{CP_IM_LOAD_IMMEDIATE,		"IM_LOADI"},
 	{CP_IM_STORE,			"IM_STORE"},
-	{CP_INDIRECT_BUFFER,		"IND_BUF_"},
+	{CP_INDIRECT_BUFFER_PFE,	"IND_BUF_"},
 	{CP_INDIRECT_BUFFER_PFD,	"IND_BUFP"},
 	{CP_INTERRUPT,			"PM4_INTR"},
 	{CP_INVALIDATE_STATE,		"INV_STAT"},
