@@ -2275,4 +2275,21 @@ config MSM_CACHE_DUMP_ON_PANIC
 	  want to dump the L1 and L2 caches on panic before any flush occurs.
 	  If unsure, say N
 
+config MSM_HSIC_SYSMON
+	tristate "MSM HSIC system monitor driver"
+	depends on USB
+	help
+	  Add support for bridging with the system monitor interface of MDM
+	  over HSIC. This driver allows the local system monitor to
+	  communicate with the remote system monitor interface.
+
+config MSM_HSIC_SYSMON_TEST
+	tristate "MSM HSIC system monitor bridge test"
+	depends on USB && MSM_HSIC_SYSMON && DEBUG_FS
+	help
+	  Enable the test hook for the Qualcomm system monitor HSIC driver.
+	  This will create a debugfs file entry named "hsic_sysmon_test" which
+	  can be read and written to send character data to the sysmon port of
+	  the modem over USB.
+
 endif
