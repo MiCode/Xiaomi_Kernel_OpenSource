@@ -206,9 +206,9 @@ static struct msm_camera_sensor_platform_info sensor_board_info_ov5647 = {
 };
 
 static struct msm_camera_sensor_flash_src msm_flash_src_ov5647 = {
-	.flash_sr_type = MSM_CAMERA_FLASH_SRC_LED,
-	._fsrc.led_src.led_name = "flashlight",
-	._fsrc.led_src.led_name_len = 10,
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_LED1,
+	._fsrc.ext_driver_src.led_en = 13,
+	._fsrc.ext_driver_src.led_flash_en = 32,
 };
 
 static struct msm_camera_sensor_flash_data flash_ov5647 = {

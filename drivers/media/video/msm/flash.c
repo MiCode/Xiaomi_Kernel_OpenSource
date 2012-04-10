@@ -212,6 +212,66 @@ int msm_camera_flash_current_driver(
 #endif /* CONFIG_LEDS_PMIC8058 */
 	return rc;
 }
+
+int msm_camera_flash_led(
+		struct msm_camera_sensor_flash_external *external,
+		unsigned led_state)
+{
+	int rc = 0;
+
+	CDBG("msm_camera_flash_led: %d\n", led_state);
+	switch (led_state) {
+	case MSM_CAMERA_LED_INIT:
+		rc = gpio_request(external->led_en, "sgm3141");
+		CDBG("MSM_CAMERA_LED_INIT: gpio_req: %d %d\n",
+				external->led_en, rc);
+		if (!rc)
+			gpio_direction_output(external->led_en, 0);
+		else
+			return 0;
+
+		rc = gpio_request(external->led_flash_en, "sgm3141");
+		CDBG("MSM_CAMERA_LED_INIT: gpio_req: %d %d\n",
+				external->led_flash_en, rc);
+		if (!rc)
+			gpio_direction_output(external->led_flash_en, 0);
+
+			break;
+
+	case MSM_CAMERA_LED_RELEASE:
+		CDBG("MSM_CAMERA_LED_RELEASE\n");
+		gpio_set_value_cansleep(external->led_en, 0);
+		gpio_free(external->led_en);
+		gpio_set_value_cansleep(external->led_flash_en, 0);
+		gpio_free(external->led_flash_en);
+		break;
+
+	case MSM_CAMERA_LED_OFF:
+		CDBG("MSM_CAMERA_LED_OFF\n");
+		gpio_set_value_cansleep(external->led_en, 0);
+		gpio_set_value_cansleep(external->led_flash_en, 0);
+		break;
+
+	case MSM_CAMERA_LED_LOW:
+		CDBG("MSM_CAMERA_LED_LOW\n");
+		gpio_set_value_cansleep(external->led_en, 1);
+		gpio_set_value_cansleep(external->led_flash_en, 1);
+		break;
+
+	case MSM_CAMERA_LED_HIGH:
+		CDBG("MSM_CAMERA_LED_HIGH\n");
+		gpio_set_value_cansleep(external->led_en, 1);
+		gpio_set_value_cansleep(external->led_flash_en, 1);
+		break;
+
+	default:
+		rc = -EFAULT;
+		break;
+	}
+
+	return rc;
+}
+
 int msm_camera_flash_external(
 	struct msm_camera_sensor_flash_external *external,
 	unsigned led_state)
@@ -437,6 +497,12 @@ int32_t msm_camera_flash_set_led_state(
 		rc = msm_camera_flash_external(
 			&fdata->flash_src->_fsrc.ext_driver_src,
 			led_state);
+		break;
+
+	case MSM_CAMERA_FLASH_SRC_LED1:
+		rc = msm_camera_flash_led(
+				&fdata->flash_src->_fsrc.ext_driver_src,
+				led_state);
 		break;
 
 	default:
