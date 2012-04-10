@@ -197,6 +197,12 @@ static int snd_msm_device_put(struct snd_kcontrol *kcontrol,
 	} req;
 
 	snd_rpc_ids.device = (int)ucontrol->value.integer.value[0];
+
+	if (ucontrol->value.integer.value[1] > 1)
+		ucontrol->value.integer.value[1] = 1;
+	if (ucontrol->value.integer.value[2] > 1)
+		ucontrol->value.integer.value[2] = 1;
+
 	req.hdr.type = 0;
 	req.hdr.rpc_vers = 2;
 
@@ -221,6 +227,8 @@ static int snd_msm_device_put(struct snd_kcontrol *kcontrol,
 		printk(KERN_INFO "snd device connected\n");
 		snd_mute_ear_mute = ucontrol->value.integer.value[1];
 		snd_mute_mic_mute = ucontrol->value.integer.value[2];
+		printk(KERN_ERR "%s: snd_mute_ear_mute =%d, snd_mute_mic_mute = %d\n",
+				__func__, snd_mute_ear_mute, snd_mute_mic_mute);
 	}
 
 	return rc;
@@ -251,7 +259,7 @@ static const DECLARE_TLV_DB_LINEAR(db_scale_linear, -5000, 1800);
 static struct snd_kcontrol_new snd_msm_controls[] = {
 	MSM_EXT_TLV("PCM Playback Volume", 0, snd_msm_volume_info, \
 	snd_msm_volume_get, snd_msm_volume_put, 0, db_scale_linear),
-	MSM_EXT("device", 1, snd_msm_device_info, snd_msm_device_get, \
+	MSM_EXT("device", 0, snd_msm_device_info, snd_msm_device_get, \
 						 snd_msm_device_put, 0),
 };
 
@@ -331,6 +339,8 @@ static int __init msm_audio_init(void)
 	}
 
 	ret = msm_snd_rpc_connect();
+	snd_mute_ear_mute = 0;
+	snd_mute_mic_mute = 0;
 
 	return ret;
 }
