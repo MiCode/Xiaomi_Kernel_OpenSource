@@ -244,7 +244,7 @@ static enum hrtimer_restart vsg_threshold_timeout_func(struct hrtimer *timer)
 		goto threshold_err_bad_param;
 	} else if (!context) {
 		WFD_MSG_ERR("Context not proper in %s", __func__);
-		goto threshold_err_bad_param;
+		goto threshold_err_no_context;
 	}
 
 	INIT_WORK(&task->work, vsg_timer_helper_func);
@@ -255,6 +255,8 @@ threshold_err_bad_param:
 	hrtimer_forward_now(&context->threshold_timer, ns_to_ktime(
 				context->max_frame_interval));
 	return HRTIMER_RESTART;
+threshold_err_no_context:
+	return HRTIMER_NORESTART;
 }
 
 int vsg_init(struct v4l2_subdev *sd, u32 val)
@@ -399,13 +401,13 @@ static long vsg_queue_buffer(struct v4l2_subdev *sd, void *arg)
 					&context->last_buffer->mdp_buf_info,
 					&temp->mdp_buf_info);
 
+			list_del(&temp->node);
+
 			if (!is_last_buffer &&
 				!(temp->flags & VSG_NEVER_RELEASE)) {
 				vsg_release_input_buffer(context, temp);
 				kfree(temp);
 			}
-
-			list_del(&temp->node);
 		}
 	}
 
