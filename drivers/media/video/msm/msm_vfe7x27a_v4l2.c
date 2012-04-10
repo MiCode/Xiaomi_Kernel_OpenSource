@@ -743,13 +743,13 @@ static int vfe_7x_config_axi(int mode,
 	if (mode == OUTPUT_SEC) {
 		/* Thumbnail */
 		if (vfe2x_ctrl->zsl_mode) {
-			ao->output2buffer1_y_phy = ad->ping.ch_paddr[0];
-			ao->output2buffer1_cbcr_phy = ad->ping.ch_paddr[1];
-			ao->output2buffer2_y_phy = ad->pong.ch_paddr[0];
-			ao->output2buffer2_cbcr_phy = ad->pong.ch_paddr[1];
-			ao->output2buffer3_y_phy = ad->free_buf.ch_paddr[0];
-			ao->output2buffer3_cbcr_phy = ad->free_buf.ch_paddr[1];
-			bptr = &ao->output2buffer4_y_phy;
+			ao->output1buffer1_y_phy = ad->ping.ch_paddr[0];
+			ao->output1buffer1_cbcr_phy = ad->ping.ch_paddr[1];
+			ao->output1buffer2_y_phy = ad->pong.ch_paddr[0];
+			ao->output1buffer2_cbcr_phy = ad->pong.ch_paddr[1];
+			ao->output1buffer3_y_phy = ad->free_buf.ch_paddr[0];
+			ao->output1buffer3_cbcr_phy = ad->free_buf.ch_paddr[1];
+			bptr = &ao->output1buffer4_y_phy;
 			for (cnt = 0; cnt < 5; cnt++) {
 				*bptr = ad->pong.ch_paddr[0];
 				bptr++;
