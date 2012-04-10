@@ -45,7 +45,7 @@
 #define APPS_PROC		1
 #define QDSP_PROC		2
 #define WCNSS_PROC		3
-#define MSG_MASK_SIZE 8000
+#define MSG_MASK_SIZE 9500
 #define LOG_MASK_SIZE 8000
 #define EVENT_MASK_SIZE 1000
 #define USER_SPACE_DATA 8000
@@ -205,9 +205,6 @@ struct diagchar_dev {
 	struct work_struct diag_read_smd_wcnss_work;
 	struct work_struct diag_read_smd_wcnss_cntl_work;
 	struct workqueue_struct *diag_cntl_wq;
-	struct work_struct diag_msg_mask_update_work;
-	struct work_struct diag_log_mask_update_work;
-	struct work_struct diag_event_mask_update_work;
 	struct work_struct diag_modem_mask_update_work;
 	struct work_struct diag_qdsp_mask_update_work;
 	struct work_struct diag_wcnss_mask_update_work;
