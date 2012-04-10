@@ -680,9 +680,7 @@ adreno_recover_hang(struct kgsl_device *device)
 	kgsl_sharedmem_writel(&device->memstore,
 			KGSL_MEMSTORE_OFFSET(context_id, eoptimestamp),
 			eoptimestamp);
-	kgsl_sharedmem_writel(&device->memstore,
-			KGSL_MEMSTORE_OFFSET(context_id, soptimestamp),
-			soptimestamp);
+
 	if (num_rb_contents) {
 		kgsl_sharedmem_writel(&device->memstore,
 			KGSL_MEMSTORE_OFFSET(context_id, ref_wait_ts),
