@@ -214,8 +214,8 @@ static int calib_start_conv(struct pm8xxx_ccadc_chip *chip,
 			break;
 	}
 	if (i == ADC_WAIT_COUNT) {
-		pr_err("waited too long for offset eoc\n");
-		return rc;
+		pr_err("waited too long for offset eoc returning -EBUSY\n");
+		return -EBUSY;
 	}
 
 	rc = pm8xxx_readb(chip->dev->parent, ADC_ARB_SECP_DATA0, &data_lsb);
