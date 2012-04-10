@@ -3549,35 +3549,28 @@ static int msm_otg_runtime_resume(struct device *dev)
 #ifdef CONFIG_PM_SLEEP
 static int msm_otg_pm_suspend(struct device *dev)
 {
-	int ret;
+	struct msm_otg *motg = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "OTG PM suspend\n");
-
-#ifdef CONFIG_PM_RUNTIME
-	ret = pm_runtime_suspend(dev);
-	if (ret > 0)
-		ret = 0;
-#else
-	ret =  msm_otg_suspend(dev_get_drvdata(dev));
-#endif
-	return ret;
+	return msm_otg_suspend(motg);
 }
 
 static int msm_otg_pm_resume(struct device *dev)
 {
 	struct msm_otg *motg = dev_get_drvdata(dev);
+	int ret;
 
 	dev_dbg(dev, "OTG PM resume\n");
+	ret = msm_otg_resume(motg);
+	if (ret)
+		return ret;
 
-#ifdef CONFIG_PM_RUNTIME
-	/*
-	 * Do not resume hardware as part of system resume,
-	 * rather, wait for the ASYNC INT from the h/w
-	 */
+	/* Update runtime PM status */
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
 	return 0;
-#endif
-
-	return msm_otg_resume(motg);
 }
 #endif
 
