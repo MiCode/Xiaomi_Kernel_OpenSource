@@ -747,6 +747,8 @@ static void zcache_flush_all_obj(void)
 	for (pool_id = 0; pool_id < MAX_POOLS_PER_CLIENT; pool_id++) {
 		pool = zcache_get_pool_by_id(LOCAL_CLIENT, pool_id);
 		tmem_flush_pool(pool);
+		if (pool)
+			zcache_put_pool(pool);
 	}
 	if (kp->page) {
 		qcache_free(kp->page);
