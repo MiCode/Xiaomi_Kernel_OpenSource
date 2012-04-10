@@ -33,6 +33,7 @@
 
 #define VOC_PATH_PASSIVE 0
 #define VOC_PATH_FULL 1
+#define VOC_PATH_VOLTE_PASSIVE 2
 
 /* CVP CAL Size: 245760 = 240 * 1024 */
 #define CVP_CAL_SIZE 245760
@@ -145,6 +146,9 @@ uint16_t voc_get_session_id(char *name)
 	if (name != NULL) {
 		if (!strncmp(name, "Voice session", 13))
 			session_id = common.voice[VOC_PATH_PASSIVE].session_id;
+		else if (!strncmp(name, "VoLTE session", 13))
+			session_id =
+			common.voice[VOC_PATH_VOLTE_PASSIVE].session_id;
 		else
 			session_id = common.voice[VOC_PATH_FULL].session_id;
 
@@ -178,6 +182,11 @@ static bool is_voice_session(u16 session_id)
 static bool is_voip_session(u16 session_id)
 {
 	return (session_id == common.voice[VOC_PATH_FULL].session_id);
+}
+
+static bool is_volte_session(u16 session_id)
+{
+	return (session_id == common.voice[VOC_PATH_VOLTE_PASSIVE].session_id);
 }
 
 static int voice_apr_register(void)
@@ -250,6 +259,65 @@ err:
 	return -ENODEV;
 }
 
+static int voice_send_dual_control_cmd(struct voice_data *v)
+{
+	int ret = 0;
+	struct mvm_modem_dual_control_session_cmd mvm_voice_ctl_cmd;
+	void *apr_mvm;
+	u16 mvm_handle;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	apr_mvm = common.apr_q6_mvm;
+	if (!apr_mvm) {
+		pr_err("%s: apr_mvm is NULL.\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("%s: VoLTE command to MVM\n", __func__);
+	if (is_volte_session(v->session_id)) {
+		mvm_handle = voice_get_mvm_handle(v);
+		mvm_voice_ctl_cmd.hdr.hdr_field = APR_HDR_FIELD(
+						APR_MSG_TYPE_SEQ_CMD,
+						APR_HDR_LEN(APR_HDR_SIZE),
+						APR_PKT_VER);
+		mvm_voice_ctl_cmd.hdr.pkt_size = APR_PKT_SIZE(
+						APR_HDR_SIZE,
+						sizeof(mvm_voice_ctl_cmd) -
+						APR_HDR_SIZE);
+		pr_debug("%s: send mvm Voice Ctl pkt size = %d\n",
+			__func__, mvm_voice_ctl_cmd.hdr.pkt_size);
+		mvm_voice_ctl_cmd.hdr.src_port = v->session_id;
+		mvm_voice_ctl_cmd.hdr.dest_port = mvm_handle;
+		mvm_voice_ctl_cmd.hdr.token = 0;
+		mvm_voice_ctl_cmd.hdr.opcode =
+					VSS_IMVM_CMD_SET_POLICY_DUAL_CONTROL;
+		mvm_voice_ctl_cmd.voice_ctl.enable_flag = true;
+		v->mvm_state = CMD_STATUS_FAIL;
+
+		ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_voice_ctl_cmd);
+		if (ret < 0) {
+			pr_err("%s: Error sending MVM Voice CTL CMD\n",
+							__func__);
+			ret = -EINVAL;
+			goto fail;
+		}
+		ret = wait_event_timeout(v->mvm_wait,
+				(v->mvm_state == CMD_STATUS_SUCCESS),
+				msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout\n", __func__);
+			ret = -EINVAL;
+			goto fail;
+		}
+	}
+	ret = 0;
+fail:
+	return ret;
+}
+
+
 static int voice_create_mvm_cvs_session(struct voice_data *v)
 {
 	int ret = 0;
@@ -281,7 +349,8 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 	/* send cmd to create mvm session and wait for response */
 
 	if (!mvm_handle) {
-		if (is_voice_session(v->session_id)) {
+		if (is_voice_session(v->session_id) ||
+				is_volte_session(v->session_id)) {
 			mvm_session_cmd.hdr.hdr_field = APR_HDR_FIELD(
 						APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(APR_HDR_SIZE),
@@ -297,9 +366,15 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			mvm_session_cmd.hdr.token = 0;
 			mvm_session_cmd.hdr.opcode =
 				VSS_IMVM_CMD_CREATE_PASSIVE_CONTROL_SESSION;
+			if (is_volte_session(v->session_id)) {
+				strlcpy(mvm_session_cmd.mvm_session.name,
+				"default volte voice",
+				sizeof(mvm_session_cmd.mvm_session.name));
+			} else {
 			strlcpy(mvm_session_cmd.mvm_session.name,
 				"default modem voice",
 				sizeof(mvm_session_cmd.mvm_session.name));
+			}
 
 			v->mvm_state = CMD_STATUS_FAIL;
 
@@ -356,7 +431,8 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 	}
 	/* send cmd to create cvs session */
 	if (!cvs_handle) {
-		if (is_voice_session(v->session_id)) {
+		if (is_voice_session(v->session_id) ||
+			is_volte_session(v->session_id)) {
 			pr_debug("%s: creating CVS passive session\n",
 				 __func__);
 
@@ -373,10 +449,15 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			cvs_session_cmd.hdr.token = 0;
 			cvs_session_cmd.hdr.opcode =
 				VSS_ISTREAM_CMD_CREATE_PASSIVE_CONTROL_SESSION;
+			if (is_volte_session(v->session_id)) {
+				strlcpy(mvm_session_cmd.mvm_session.name,
+				"default volte voice",
+				sizeof(mvm_session_cmd.mvm_session.name));
+			} else {
 			strlcpy(cvs_session_cmd.cvs_session.name,
 				"default modem voice",
 				sizeof(cvs_session_cmd.cvs_session.name));
-
+			}
 			v->cvs_state = CMD_STATUS_FAIL;
 
 			ret = apr_send_pkt(apr_cvs,
@@ -3350,6 +3431,11 @@ int voc_start_voice_call(uint16_t session_id)
 			pr_err("create mvm and cvs failed\n");
 			goto fail;
 		}
+		ret = voice_send_dual_control_cmd(v);
+		if (ret < 0) {
+			pr_err("Err Dual command failed\n");
+			goto fail;
+		}
 		ret = voice_setup_vocproc(v);
 		if (ret < 0) {
 			pr_err("setup voice failed\n");
@@ -3373,7 +3459,6 @@ int voc_start_voice_call(uint16_t session_id)
 
 		v->voc_state = VOC_RUN;
 	}
-
 fail:	mutex_unlock(&v->lock);
 	return ret;
 }
@@ -3471,6 +3556,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 			case VSS_ICOMMON_CMD_SET_NETWORK:
 			case VSS_ICOMMON_CMD_SET_VOICE_TIMING:
 			case VSS_IWIDEVOICE_CMD_SET_WIDEVOICE:
+			case VSS_IMVM_CMD_SET_POLICY_DUAL_CONTROL:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);

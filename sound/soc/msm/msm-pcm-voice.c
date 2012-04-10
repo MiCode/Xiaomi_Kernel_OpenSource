@@ -29,7 +29,7 @@
 #include "msm-pcm-voice.h"
 #include "qdsp6/q6voice.h"
 
-static struct msm_voice voice_info;
+static struct msm_voice voice_info[VOICE_SESSION_INDEX_MAX];
 
 static struct snd_pcm_hardware msm_pcm_hardware = {
 
@@ -49,6 +49,13 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 
 	.fifo_size =            0,
 };
+static int is_volte(struct msm_voice *pvolte)
+{
+	if (pvolte == &voice_info[VOLTE_SESSION_INDEX])
+		return true;
+	else
+		return false;
+}
 
 static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 {
@@ -78,8 +85,17 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 static int msm_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct msm_voice *voice = &voice_info;
+	struct msm_voice *voice;
 
+	if (!strncmp("VoLTE", substream->pcm->id, 5)) {
+		voice = &voice_info[VOLTE_SESSION_INDEX];
+		pr_debug("%s: Open VoLTE Substream Id=%s\n",
+				__func__, substream->pcm->id);
+	} else {
+		voice = &voice_info[VOICE_SESSION_INDEX];
+		pr_debug("%s: Open VOICE Substream Id=%s\n",
+				__func__, substream->pcm->id);
+	}
 	mutex_lock(&voice->lock);
 
 	runtime->hw = msm_pcm_hardware;
@@ -90,7 +106,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		voice->capture_substream = substream;
 
 	voice->instance++;
-	pr_debug(" %s: instance: %d\n", __func__ , voice->instance);
+	pr_debug("%s: Instance = %d, Stream ID = %s\n",
+			__func__ , voice->instance, substream->pcm->id);
 	runtime->private_data = voice;
 
 	mutex_unlock(&voice->lock);
@@ -129,6 +146,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
+	uint16_t session_id = 0;
 	int ret = 0;
 
 	mutex_lock(&prtd->lock);
@@ -140,7 +158,11 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 	prtd->instance--;
 	if (!prtd->playback_start && !prtd->capture_start) {
 		pr_debug("end voice call\n");
-		voc_end_voice_call(voc_get_session_id(VOICE_SESSION_NAME));
+		if (is_volte(prtd))
+			session_id = voc_get_session_id(VOLTE_SESSION_NAME);
+		else
+			session_id = voc_get_session_id(VOICE_SESSION_NAME);
+		voc_end_voice_call(session_id);
 	}
 	mutex_unlock(&prtd->lock);
 
@@ -151,6 +173,7 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
+	uint16_t session_id = 0;
 
 	mutex_lock(&prtd->lock);
 
@@ -159,9 +182,13 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		ret = msm_pcm_capture_prepare(substream);
 
-	if (prtd->playback_start && prtd->capture_start)
-		voc_start_voice_call(voc_get_session_id(VOICE_SESSION_NAME));
-
+	if (prtd->playback_start && prtd->capture_start) {
+		if (is_volte(prtd))
+			session_id = voc_get_session_id(VOLTE_SESSION_NAME);
+		else
+			session_id = voc_get_session_id(VOICE_SESSION_NAME);
+		voc_start_voice_call(session_id);
+	}
 	mutex_unlock(&prtd->lock);
 
 	return ret;
@@ -189,12 +216,26 @@ static int msm_voice_volume_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	int volume = ucontrol->value.integer.value[0];
-
 	pr_debug("%s: volume: %d\n", __func__, volume);
-
 	voc_set_rx_vol_index(voc_get_session_id(VOICE_SESSION_NAME),
-			     RX_PATH,
-			     volume);
+						RX_PATH, volume);
+	return 0;
+}
+
+static int msm_volte_volume_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_volte_volume_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int volume = ucontrol->value.integer.value[0];
+	pr_debug("%s: volume: %d\n", __func__, volume);
+	voc_set_rx_vol_index(voc_get_session_id(VOLTE_SESSION_NAME),
+						RX_PATH, volume);
 	return 0;
 }
 
@@ -217,6 +258,25 @@ static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_volte_mute_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_volte_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int mute = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: mute=%d\n", __func__, mute);
+
+	voc_set_tx_mute(voc_get_session_id(VOLTE_SESSION_NAME), TX_PATH, mute);
+
+	return 0;
+}
+
 static int msm_voice_rx_device_mute_get(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
@@ -233,6 +293,26 @@ static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: mute=%d\n", __func__, mute);
 
 	voc_set_rx_device_mute(voc_get_session_id(VOICE_SESSION_NAME), mute);
+
+	return 0;
+}
+
+static int msm_volte_rx_device_mute_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+		voc_get_rx_device_mute(voc_get_session_id(VOLTE_SESSION_NAME));
+	return 0;
+}
+
+static int msm_volte_rx_device_mute_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int mute = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: mute=%d\n", __func__, mute);
+
+	voc_set_rx_device_mute(voc_get_session_id(VOLTE_SESSION_NAME), mute);
 
 	return 0;
 }
@@ -343,6 +423,13 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 				msm_voice_slowtalk_get, msm_voice_slowtalk_put),
 	SOC_SINGLE_EXT("FENS Enable", SND_SOC_NOPM, 0, 1, 0,
 				msm_voice_fens_get, msm_voice_fens_put),
+	SOC_SINGLE_EXT("VoLTE Rx Device Mute", SND_SOC_NOPM, 0, 1, 0,
+			msm_volte_rx_device_mute_get,
+			msm_volte_rx_device_mute_put),
+	SOC_SINGLE_EXT("VoLTE Tx Mute", SND_SOC_NOPM, 0, 1, 0,
+				msm_volte_mute_get, msm_volte_mute_put),
+	SOC_SINGLE_EXT("VoLTE Rx Volume", SND_SOC_NOPM, 0, 5, 0,
+				msm_volte_volume_get, msm_volte_volume_put),
 };
 
 static struct snd_pcm_ops msm_pcm_ops = {
@@ -402,7 +489,8 @@ static struct platform_driver msm_pcm_driver = {
 static int __init msm_soc_platform_init(void)
 {
 	memset(&voice_info, 0, sizeof(voice_info));
-	mutex_init(&voice_info.lock);
+	mutex_init(&voice_info[VOICE_SESSION_INDEX].lock);
+	mutex_init(&voice_info[VOLTE_SESSION_INDEX].lock);
 
 	return platform_driver_register(&msm_pcm_driver);
 }
