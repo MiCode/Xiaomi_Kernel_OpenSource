@@ -449,12 +449,6 @@ config MMC_MSM
 	  This provides support for the SD/MMC cell found in the
           MSM and QSD SOCs from Qualcomm.
 
-config MMC_MSM_SDIO_SUPPORT
-	boolean "Qualcomm MSM SDIO support"
-	depends on MMC_MSM
-	help
-	  This enables SDIO support in the msm_sdcc driver.
-
 config MMC_MSM_CARD_HW_DETECTION
 	boolean "Qualcomm MMC Hardware detection support"
 	depends on MMC_MSM
