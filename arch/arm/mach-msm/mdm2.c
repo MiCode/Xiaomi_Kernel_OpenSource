@@ -79,6 +79,11 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 {
 	power_on_count++;
 
+	/* this gpio will be used to indicate apq readiness,
+	 * de-assert it now so that it can asserted later
+	 */
+	gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 0);
+
 	/* The second attempt to power-on the mdm is the first attempt
 	 * from user space, but we're already powered on. Ignore this.
 	 * Subsequent attempts are from SSR or if something failed, in
@@ -97,7 +102,7 @@ static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
 	/* Deassert RESET first and wait for it to settle. */
 	pr_debug("%s: Pulling RESET gpio high\n", __func__);
 	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 1);
-	usleep(1000);
+	usleep(20000);
 
 	/* Pull PWR gpio high and wait for it to settle, but only
 	 * the first time the mdm is powered up.
@@ -152,6 +157,7 @@ static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 	if (value) {
 		mdm_peripheral_disconnect(mdm_drv);
 		mdm_peripheral_connect(mdm_drv);
+		gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 1);
 	}
 }
 

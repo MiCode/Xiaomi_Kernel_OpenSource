@@ -204,9 +204,6 @@ static int mdm_panic_prep(struct notifier_block *this,
 	mdm_disable_irqs();
 	gpio_set_value(mdm_drv->ap2mdm_errfatal_gpio, 1);
 
-	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
-		gpio_set_value(mdm_drv->ap2mdm_wakeup_gpio, 1);
-
 	for (i = MDM_MODEM_TIMEOUT; i > 0; i -= MDM_MODEM_DELTA) {
 		pet_watchdog();
 		mdelay(MDM_MODEM_DELTA);
@@ -523,12 +520,6 @@ void mdm_common_modem_shutdown(struct platform_device *pdev)
 {
 	mdm_disable_irqs();
 
-	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
-		gpio_set_value(mdm_drv->ap2mdm_wakeup_gpio, 1);
-
 	mdm_drv->ops->power_down_mdm_cb(mdm_drv);
-
-	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
-		gpio_set_value(mdm_drv->ap2mdm_wakeup_gpio, 0);
 }
 
