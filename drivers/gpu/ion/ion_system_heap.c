@@ -145,6 +145,7 @@ int ion_system_heap_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 			unsigned int cmd)
 {
 	unsigned long vstart, pstart;
+	void *vend;
 	void *vtemp;
 	unsigned long ln = 0;
 	void (*op)(unsigned long, unsigned long, unsigned long);
@@ -163,14 +164,32 @@ int ion_system_heap_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 		return -EINVAL;
 	}
 
-	for (vtemp = buffer->priv_virt + offset,
-	     vstart = (unsigned long) vaddr;
-			ln < length;
+	vend = buffer->priv_virt + buffer->size;
+	vtemp = buffer->priv_virt + offset;
+
+	if ((vtemp+length) > vend) {
+		pr_err("Trying to flush outside of mapped range.\n");
+		pr_err("End of mapped range: %p, trying to flush to "
+			"address %p\n", vend, vtemp+length);
+		WARN(1, "%s: called with heap name %s, buffer size 0x%x, "
+			"vaddr 0x%p, offset 0x%x, length: 0x%x\n", __func__,
+			heap->name, buffer->size, vaddr, offset, length);
+		return -EINVAL;
+	}
+
+	for (vstart = (unsigned long) vaddr;
+			ln < length && vtemp < vend;
 			vtemp += PAGE_SIZE, ln += PAGE_SIZE,
 			vstart += PAGE_SIZE) {
-		pstart = page_to_phys(vmalloc_to_page(vtemp));
+		struct page *page = vmalloc_to_page(vtemp);
+		if (!page) {
+			WARN(1, "Could not find page for virt. address %p\n",
+				vtemp);
+			return -EINVAL;
+		}
+		pstart = page_to_phys(page);
 		/*
-		 * If vmalloc -> page -> phys is returning NULL, something
+		 * If page -> phys is returning NULL, something
 		 * has really gone wrong...
 		 */
 		if (!pstart) {
