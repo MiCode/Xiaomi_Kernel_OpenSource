@@ -239,6 +239,7 @@ static int32_t pm8xxx_adc_arb_cntrl(uint32_t arb_cntrl,
 
 	if (arb_cntrl) {
 		data_arb_cntrl |= PM8XXX_ADC_ARB_USRP_CNTRL1_REQ;
+		INIT_COMPLETION(adc_pmic->adc_rslt_completion);
 		rc = pm8xxx_writeb(adc_pmic->dev->parent,
 			PM8XXX_ADC_ARB_USRP_CNTRL1, data_arb_cntrl);
 	} else
@@ -336,7 +337,6 @@ static uint32_t pm8xxx_adc_write_reg(uint32_t reg, u8 data)
 static int32_t pm8xxx_adc_configure(
 				struct pm8xxx_adc_amux_properties *chan_prop)
 {
-	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	u8 data_amux_chan = 0, data_arb_rsv = 0, data_dig_param = 0;
 	int rc;
 
@@ -394,9 +394,6 @@ static int32_t pm8xxx_adc_configure(
 						PM8XXX_ADC_ARB_ANA_DIG);
 	if (rc < 0)
 		return rc;
-
-	if (!pm8xxx_adc_calib_first_adc)
-		enable_irq(adc_pmic->adc_irq);
 
 	rc = pm8xxx_adc_arb_cntrl(1, data_amux_chan);
 	if (rc < 0) {
@@ -476,16 +473,21 @@ static void pm8xxx_adc_btm_cool_scheduler_fn(struct work_struct *work)
 	spin_unlock_irqrestore(&adc_pmic->btm_lock, flags);
 }
 
+void trigger_completion(struct work_struct *work)
+{
+	struct pm8xxx_adc *adc_8xxx = pmic_adc;
+
+	complete(&adc_8xxx->adc_rslt_completion);
+}
+DECLARE_WORK(trigger_completion_work, trigger_completion);
+
 static irqreturn_t pm8xxx_adc_isr(int irq, void *dev_id)
 {
-	struct pm8xxx_adc *adc_8xxx = dev_id;
-
-	disable_irq_nosync(adc_8xxx->adc_irq);
 
 	if (pm8xxx_adc_calib_first_adc)
 		return IRQ_HANDLED;
-	/* TODO Handle spurius interrupt condition */
-	complete(&adc_8xxx->adc_rslt_completion);
+
+	schedule_work(&trigger_completion_work);
 
 	return IRQ_HANDLED;
 }
@@ -1214,9 +1216,9 @@ static int __devinit pm8xxx_adc_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "failed to request adc irq "
 						"with error %d\n", rc);
+	} else {
+		enable_irq_wake(adc_pmic->adc_irq);
 	}
-
-	disable_irq_nosync(adc_pmic->adc_irq);
 
 	adc_pmic->btm_warm_irq = platform_get_irq(pdev, PM8XXX_ADC_IRQ_1);
 	if (adc_pmic->btm_warm_irq < 0)
