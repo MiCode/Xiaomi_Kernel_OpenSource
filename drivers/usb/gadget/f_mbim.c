@@ -553,7 +553,7 @@ fmbim_send_cpkt_response(struct f_mbim *gr, struct ctrl_pkt *cpkt)
 	}
 
 	spin_lock_irqsave(&dev->lock, flags);
-	list_add(&cpkt->list, &dev->cpkt_resp_q);
+	list_add_tail(&cpkt->list, &dev->cpkt_resp_q);
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	fmbim_ctrl_response_available(dev);
