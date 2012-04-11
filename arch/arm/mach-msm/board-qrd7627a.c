@@ -59,7 +59,7 @@
 #include "board-msm7627a.h"
 
 #define PMEM_KERNEL_EBI1_SIZE	0x3A000
-#define MSM_PMEM_AUDIO_SIZE	0x5B000
+#define MSM_PMEM_AUDIO_SIZE	0x1F4000
 #define BAHAMA_SLAVE_ID_FM_REG 0x02
 #define FM_GPIO	83
 #define BT_PCM_BCLK_MODE  0x88
@@ -510,6 +510,7 @@ static unsigned int dec_concurrency_table[] = {
 
 	/* Concurrency 6 */
 	(DEC0_FORMAT|(1<<MSM_ADSP_MODE_NONTUNNEL)|(1<<MSM_ADSP_OP_DM)),
+	(DEC1_FORMAT|(1<<MSM_ADSP_MODE_TUNNEL)|(1<<MSM_ADSP_OP_DM)),
 	0, 0, 0, 0,
 
 	/* Concurrency 7 */
