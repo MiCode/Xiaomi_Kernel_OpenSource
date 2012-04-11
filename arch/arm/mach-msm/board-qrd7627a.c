@@ -797,9 +797,9 @@ static void add_platform_devices(void)
 				ARRAY_SIZE(qrd7627a_devices));
 	}
 
-	if (machine_is_msm7627a_qrd3())
+	if (machine_is_msm7627a_qrd3() || machine_is_msm7627a_evb())
 		platform_add_devices(qrd3_devices,
-			ARRAY_SIZE(qrd3_devices));
+				ARRAY_SIZE(qrd3_devices));
 
 	platform_add_devices(common_devices,
 			ARRAY_SIZE(common_devices));
