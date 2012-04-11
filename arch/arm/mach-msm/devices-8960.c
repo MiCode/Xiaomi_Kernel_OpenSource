@@ -36,6 +36,7 @@
 #include <sound/apr_audio.h>
 #include <mach/msm_tsif.h>
 #include <mach/qdss.h>
+#include <mach/msm_serial_hs_lite.h>
 #include "clock.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -72,6 +73,7 @@
 #define MSM_UART2DM_PHYS	(MSM_GSBI2_PHYS + 0x40000)
 #define MSM_UART5DM_PHYS	(MSM_GSBI5_PHYS + 0x40000)
 #define MSM_UART6DM_PHYS	(MSM_GSBI6_PHYS + 0x40000)
+#define MSM_UART8DM_PHYS	(MSM_GSBI8_PHYS + 0x40000)
 
 /* GSBI QUP devices */
 #define MSM_GSBI1_QUP_PHYS	(MSM_GSBI1_PHYS + 0x80000)
@@ -308,6 +310,39 @@ struct platform_device msm8960_device_uart_gsbi5 = {
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi5),
 	.resource	= resources_uart_gsbi5,
 };
+
+static struct msm_serial_hslite_platform_data uart_gsbi8_pdata = {
+	.line		= 0,
+};
+
+static struct resource resources_uart_gsbi8[] = {
+	{
+		.start	= GSBI8_UARTDM_IRQ,
+		.end	= GSBI8_UARTDM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_UART8DM_PHYS,
+		.end	= MSM_UART8DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM_GSBI8_PHYS,
+		.end	= MSM_GSBI8_PHYS + PAGE_SIZE - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm8960_device_uart_gsbi8 = {
+	.name	= "msm_serial_hsl",
+	.id	= 1,
+	.num_resources	   = ARRAY_SIZE(resources_uart_gsbi8),
+	.resource	   = resources_uart_gsbi8,
+	.dev.platform_data = &uart_gsbi8_pdata,
+};
+
 /* MSM Video core device */
 #ifdef CONFIG_MSM_BUS_SCALING
 static struct msm_bus_vectors vidc_init_vectors[] = {

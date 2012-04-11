@@ -55,7 +55,7 @@ static struct gpiomux_setting gsbi3_active_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting gsbi5 = {
+static struct gpiomux_setting gsbi_uart = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
@@ -327,30 +327,6 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 		},
 	},
 	{
-		.gpio      = 22,	/* GSBI5 UART2 */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi5,
-		},
-	},
-	{
-		.gpio      = 23,	/* GSBI5 UART2 */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi5,
-		},
-	},
-	{
-		.gpio      = 24,	/* GSBI5 UART2 */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi5,
-		},
-	},
-	{
-		.gpio      = 25,	/* GSBI5 UART2 */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi5,
-		},
-	},
-	{
 		.gpio      = 44,	/* GSBI12 I2C QUP SDA */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi12,
@@ -372,6 +348,60 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 		.gpio      = 74,	/* GSBI10 I2C QUP SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi10,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm8960_gsbi5_uart_configs[] __initdata = {
+	{
+		.gpio      = 22,        /* GSBI5 UART2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi_uart,
+		},
+	},
+	{
+		.gpio      = 23,        /* GSBI5 UART2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi_uart,
+		},
+	},
+	{
+		.gpio      = 24,        /* GSBI5 UART2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi_uart,
+		},
+	},
+	{
+		.gpio      = 25,        /* GSBI5 UART2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi_uart,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm8960_gsbi8_uart_configs[] __initdata = {
+	{
+		.gpio      = 34,        /* GSBI8 UART3 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi_uart,
+		},
+	},
+	{
+		.gpio      = 35,        /* GSBI8 UART3 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi_uart,
+		},
+	},
+	{
+		.gpio      = 36,        /* GSBI8 UART3 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi_uart,
+		},
+	},
+	{
+		.gpio      = 37,        /* GSBI8 UART3 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi_uart,
 		},
 	},
 };
@@ -685,6 +715,13 @@ int __init msm8960_init_gpiomux(void)
 
 	msm_gpiomux_install(msm8960_mdp_vsync_configs,
 			ARRAY_SIZE(msm8960_mdp_vsync_configs));
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		msm_gpiomux_install(msm8960_gsbi8_uart_configs,
+			ARRAY_SIZE(msm8960_gsbi8_uart_configs));
+	else
+		msm_gpiomux_install(msm8960_gsbi5_uart_configs,
+			ARRAY_SIZE(msm8960_gsbi5_uart_configs));
 
 	return 0;
 }

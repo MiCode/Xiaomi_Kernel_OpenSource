@@ -2192,7 +2192,6 @@ static struct platform_device msm8960_device_rpm_regulator __devinitdata = {
 static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
-	&msm8960_device_uart_gsbi5,
 	&msm_device_uart_dm6,
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
@@ -2275,6 +2274,7 @@ static struct platform_device *common_devices[] __initdata = {
 };
 
 static struct platform_device *sim_devices[] __initdata = {
+	&msm8960_device_uart_gsbi5,
 	&msm8960_device_otg,
 	&msm8960_device_gadget_peripheral,
 	&msm_device_hsusb_host,
@@ -2320,6 +2320,7 @@ static struct platform_device *sim_devices[] __initdata = {
 };
 
 static struct platform_device *rumi3_devices[] __initdata = {
+	&msm8960_device_uart_gsbi5,
 	&msm_kgsl_3d0,
 	&msm_kgsl_2d0,
 	&msm_kgsl_2d1,
@@ -2900,6 +2901,12 @@ static void __init msm8960_cdp_init(void)
 		platform_device_register(&msm8960_device_ext_3p3v_vreg);
 	if (machine_is_msm8960_cdp())
 		platform_device_register(&msm8960_device_ext_l2_vreg);
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		platform_device_register(&msm8960_device_uart_gsbi8);
+	else
+		platform_device_register(&msm8960_device_uart_gsbi5);
+
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8960_pm8921_gpio_mpp_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
