@@ -1286,30 +1286,35 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 	},
 };
 
-#/* TODO: Remove this once PM8038 physically becomes
- * available.
- */
 #define ISA1200_HAP_EN_GPIO	77
 #define ISA1200_HAP_LEN_GPIO	78
 #define ISA1200_HAP_CLK		PM8038_GPIO_PM_TO_SYS(7)
 
 static int isa1200_power(int on)
 {
+	int rc = 0;
+
 	gpio_set_value_cansleep(ISA1200_HAP_CLK, !!on);
 
-	return 0;
+	if (on)
+		rc = pm8xxx_aux_clk_control(CLK_MP3_1, XO_DIV_1, true);
+	else
+		rc = pm8xxx_aux_clk_control(CLK_MP3_1, XO_DIV_NONE, true);
+
+	if (rc) {
+		pr_err("%s: unable to write aux clock register(%d)\n",
+			__func__, rc);
+	}
+
+	return rc;
 }
 
 static int isa1200_dev_setup(bool enable)
 {
 	int rc = 0;
 
-	rc = pm8xxx_aux_clk_control(CLK_MP3_1, XO_DIV_1, enable);
-	if (rc) {
-		pr_err("%s: unable to write aux clock register(%d)\n",
-			__func__, rc);
-		return rc;
-	}
+	if (!enable)
+		goto fail_gpio_dir;
 
 	rc = gpio_request(ISA1200_HAP_CLK, "haptics_clk");
 	if (rc) {
