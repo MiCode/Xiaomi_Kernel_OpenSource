@@ -202,9 +202,7 @@ static struct mmc_platform_data sdc2_data = {
 	.sup_clk_cnt	= ARRAY_SIZE(sdc2_sup_clk_rates),
 	.pclk_src_dfab	= 1,
 	.pin_data	= &mmc_slot_pin_data[SDCC2],
-#ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
 	.sdiowakeup_irq = MSM_GPIO_TO_INT(GPIO_SDC2_DAT1_WAKEUP),
-#endif
 };
 static struct mmc_platform_data *msm9615_sdc2_pdata = &sdc2_data;
 #else
