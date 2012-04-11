@@ -588,6 +588,12 @@ static struct msm_bus_scale_pdata usb_bus_scale_pdata = {
 	.name = "usb",
 };
 
+static int phy_init_seq[] = {
+	0x38, 0x81, /* update DC voltage level */
+	0x24, 0x82, /* set pre-emphasis and rise/fall time */
+	-1
+};
+
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
@@ -595,6 +601,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pmic_id_irq		= PM8921_USB_ID_IN_IRQ(PM8921_IRQ_BASE),
 	.power_budget		= 750,
 	.bus_scale_table	= &usb_bus_scale_pdata,
+	.phy_init_seq		= phy_init_seq,
 };
 
 static struct msm_usb_host_platform_data msm_ehci_host_pdata3 = {
