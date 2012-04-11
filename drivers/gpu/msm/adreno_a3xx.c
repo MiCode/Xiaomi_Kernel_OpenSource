@@ -2576,6 +2576,10 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	adreno_regwrite(device, A3XX_RBBM_GPU_BUSY_MASKED, 0xFFFFFFFF);
 
+	/* Tune the hystersis counters for SP and CP idle detection */
+	adreno_regwrite(device, A3XX_RBBM_SP_HYST_CNT, 0x10);
+	adreno_regwrite(device, A3XX_RBBM_WAIT_IDLE_CLOCKS_CTL, 0x10);
+
 	/* Enable the RBBM error reporting bits.  This lets us get
 	   useful information on failure */
 
