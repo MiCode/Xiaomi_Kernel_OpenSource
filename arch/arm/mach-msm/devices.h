@@ -171,6 +171,9 @@ extern struct platform_device msm_device_nand;
 extern struct platform_device msm_device_tssc;
 
 extern struct platform_device msm_rotator_device;
+#ifdef CONFIG_MSM_VCAP
+extern struct platform_device msm8064_device_vcap;
+#endif
 
 #ifdef CONFIG_MSM_BUS_SCALING
 extern struct msm_bus_scale_pdata rotator_bus_scale_pdata;
