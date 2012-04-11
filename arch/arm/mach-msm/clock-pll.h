@@ -40,6 +40,7 @@ struct pll_shared_clk {
 	unsigned int id;
 	void __iomem *const mode_reg;
 	struct clk c;
+	void *const __iomem *base;
 };
 
 extern struct clk_ops clk_pll_ops;
@@ -75,6 +76,7 @@ struct pll_vote_clk {
 
 	struct clk *parent;
 	struct clk c;
+	void *const __iomem *base;
 };
 
 extern struct clk_ops clk_ops_pll_vote;
@@ -95,6 +97,7 @@ struct pll_clk {
 
 	struct clk *parent;
 	struct clk c;
+	void *const __iomem *base;
 };
 
 extern struct clk_ops clk_ops_local_pll;

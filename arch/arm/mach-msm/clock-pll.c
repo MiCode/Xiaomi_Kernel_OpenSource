@@ -36,6 +36,13 @@
 #define PLL_RESET_N BIT(2)
 #define PLL_MODE_MASK BM(3, 0)
 
+#define PLL_EN_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->en_reg)) : \
+				((x)->en_reg))
+#define PLL_STATUS_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->status_reg)) : \
+				((x)->status_reg))
+#define PLL_MODE_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->mode_reg)) : \
+				((x)->mode_reg))
+
 static DEFINE_SPINLOCK(pll_reg_lock);
 
 int pll_vote_clk_enable(struct clk *clk)
@@ -45,13 +52,13 @@ int pll_vote_clk_enable(struct clk *clk)
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
-	ena = readl_relaxed(pll->en_reg);
+	ena = readl_relaxed(PLL_EN_REG(pll));
 	ena |= pll->en_mask;
-	writel_relaxed(ena, pll->en_reg);
+	writel_relaxed(ena, PLL_EN_REG(pll));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 
 	/* Wait until PLL is enabled */
-	while ((readl_relaxed(pll->status_reg) & pll->status_mask) == 0)
+	while ((readl_relaxed(PLL_STATUS_REG(pll)) & pll->status_mask) == 0)
 		cpu_relax();
 
 	return 0;
@@ -64,9 +71,9 @@ void pll_vote_clk_disable(struct clk *clk)
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
-	ena = readl_relaxed(pll->en_reg);
+	ena = readl_relaxed(PLL_EN_REG(pll));
 	ena &= ~(pll->en_mask);
-	writel_relaxed(ena, pll->en_reg);
+	writel_relaxed(ena, PLL_EN_REG(pll));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 }
 
@@ -79,7 +86,7 @@ struct clk *pll_vote_clk_get_parent(struct clk *clk)
 int pll_vote_clk_is_enabled(struct clk *clk)
 {
 	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
-	return !!(readl_relaxed(pll->status_reg) & pll->status_mask);
+	return !!(readl_relaxed(PLL_STATUS_REG(pll)) & pll->status_mask);
 }
 
 struct clk_ops clk_ops_pll_vote = {
@@ -126,7 +133,7 @@ static int local_pll_clk_enable(struct clk *clk)
 	struct pll_clk *pll = to_pll_clk(clk);
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
-	__pll_clk_enable_reg(pll->mode_reg);
+	__pll_clk_enable_reg(PLL_MODE_REG(pll));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 
 	return 0;
@@ -149,7 +156,7 @@ static void local_pll_clk_disable(struct clk *clk)
 	 * the bypass mode, and assert the reset.
 	 */
 	spin_lock_irqsave(&pll_reg_lock, flags);
-	__pll_clk_disable_reg(pll->mode_reg);
+	__pll_clk_disable_reg(PLL_MODE_REG(pll));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 }
 
@@ -166,10 +173,10 @@ int sr_pll_clk_enable(struct clk *clk)
 	struct pll_clk *pll = to_pll_clk(clk);
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
-	mode = readl_relaxed(pll->mode_reg);
+	mode = readl_relaxed(PLL_MODE_REG(pll));
 	/* De-assert active-low PLL reset. */
 	mode |= PLL_RESET_N;
-	writel_relaxed(mode, pll->mode_reg);
+	writel_relaxed(mode, PLL_MODE_REG(pll));
 
 	/*
 	 * H/W requires a 5us delay between disabling the bypass and
@@ -180,7 +187,7 @@ int sr_pll_clk_enable(struct clk *clk)
 
 	/* Disable PLL bypass mode. */
 	mode |= PLL_BYPASSNL;
-	writel_relaxed(mode, pll->mode_reg);
+	writel_relaxed(mode, PLL_MODE_REG(pll));
 
 	/* Wait until PLL is locked. */
 	mb();
@@ -188,7 +195,7 @@ int sr_pll_clk_enable(struct clk *clk)
 
 	/* Enable PLL output. */
 	mode |= PLL_OUTCTRL;
-	writel_relaxed(mode, pll->mode_reg);
+	writel_relaxed(mode, PLL_MODE_REG(pll));
 
 	/* Ensure that the write above goes through before returning. */
 	mb();
@@ -285,7 +292,7 @@ static int pll_clk_enable(struct clk *clk)
 
 	pll_control->pll[PLL_BASE + pll_id].votes |= BIT(1);
 	if (!pll_control->pll[PLL_BASE + pll_id].on) {
-		__pll_clk_enable_reg(pll->mode_reg);
+		__pll_clk_enable_reg(PLL_MODE_REG(pll));
 		pll_control->pll[PLL_BASE + pll_id].on = 1;
 	}
 
@@ -303,7 +310,7 @@ static void pll_clk_disable(struct clk *clk)
 	pll_control->pll[PLL_BASE + pll_id].votes &= ~BIT(1);
 	if (pll_control->pll[PLL_BASE + pll_id].on
 	    && !pll_control->pll[PLL_BASE + pll_id].votes) {
-		__pll_clk_disable_reg(pll->mode_reg);
+		__pll_clk_disable_reg(PLL_MODE_REG(pll));
 		pll_control->pll[PLL_BASE + pll_id].on = 0;
 	}
 
@@ -314,7 +321,7 @@ static int pll_clk_is_enabled(struct clk *clk)
 {
 	struct pll_shared_clk *pll = to_pll_shared_clk(clk);
 
-	return readl_relaxed(pll->mode_reg) & BIT(0);
+	return readl_relaxed(PLL_MODE_REG(pll)) & BIT(0);
 }
 
 static enum handoff pll_clk_handoff(struct clk *clk)
@@ -327,7 +334,7 @@ static enum handoff pll_clk_handoff(struct clk *clk)
 	 * Wait for the PLLs to be initialized and then read their frequency.
 	 */
 	do {
-		pll_lval = readl_relaxed(pll->mode_reg + 4) & 0x3ff;
+		pll_lval = readl_relaxed(PLL_MODE_REG(pll) + 4) & 0x3ff;
 		cpu_relax();
 		udelay(50);
 	} while (pll_lval == 0);
