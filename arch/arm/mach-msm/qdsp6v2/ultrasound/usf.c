@@ -24,9 +24,10 @@
 #include <sound/apr_audio.h>
 #include <mach/qdsp6v2/usf.h>
 #include "q6usm.h"
+#include "usfcdev.h"
 
 /* The driver version*/
-#define DRV_VERSION "1.2"
+#define DRV_VERSION "1.3"
 
 /* Standard timeout in the asynchronous ops */
 #define USF_TIMEOUT_JIFFIES (3*HZ) /* 3 sec */
@@ -111,6 +112,10 @@ struct usf_type {
 	struct input_dev *input_if;
 	/*  The event source */
 	int event_src;
+	/* Bitmap of types of events, conflicting to USF's ones */
+	uint16_t conflicting_event_types;
+	/* Bitmap of types of events from devs, conflicting with USF */
+	uint16_t conflicting_event_filters;
 };
 
 /* The MAX number of the supported devices */
@@ -125,6 +130,9 @@ static const int s_event_src_map[] = {
 
 /* The opened devices container */
 static int s_opened_devs[MAX_DEVS_NUMBER];
+
+#define USF_NAME_PREFIX "USF_"
+#define USF_NAME_PREFIX_SIZE 4
 
 static void usf_rx_cb(uint32_t opcode, uint32_t token,
 		      uint32_t *payload, void *priv)
@@ -316,11 +324,70 @@ static int config_xx(struct usf_xx_type *usf_xx, struct us_xx_info_type *config)
 	return rc;
 }
 
+static bool usf_match(uint16_t event_type_ind, struct input_dev *dev)
+{
+	bool rc = false;
+
+	rc = (event_type_ind < MAX_EVENT_TYPE_NUM) &&
+		((dev->name == NULL) ||
+		strncmp(dev->name, USF_NAME_PREFIX, USF_NAME_PREFIX_SIZE));
+	pr_debug("%s: name=[%s]; rc=%d\n",
+		 __func__, dev->name, rc);
+
+	return rc;
+}
+
+static bool usf_register_conflicting_events(uint16_t event_types)
+{
+	bool rc = true;
+	uint16_t ind = 0;
+	uint16_t mask = 1;
+
+	for (ind = 0; ind < MAX_EVENT_TYPE_NUM; ++ind) {
+		if (event_types & mask) {
+			rc = usfcdev_register(ind, usf_match);
+			if (!rc)
+				break;
+		}
+		mask = mask << 1;
+	}
+
+	return rc;
+}
+
+static void usf_unregister_conflicting_events(uint16_t event_types)
+{
+	uint16_t ind = 0;
+	uint16_t mask = 1;
+
+	for (ind = 0; ind < MAX_EVENT_TYPE_NUM; ++ind) {
+		if (event_types & mask)
+			usfcdev_unregister(ind);
+		mask = mask << 1;
+	}
+}
+
+static void usf_set_event_filters(struct usf_type *usf, uint16_t event_filters)
+{
+	uint16_t ind = 0;
+	uint16_t mask = 1;
+
+	if (usf->conflicting_event_filters != event_filters) {
+		for (ind = 0; ind < MAX_EVENT_TYPE_NUM; ++ind) {
+			if (usf->conflicting_event_types & mask)
+				usfcdev_set_filter(ind, event_filters&mask);
+			mask = mask << 1;
+		}
+		usf->conflicting_event_filters = event_filters;
+	}
+}
+
 static int register_input_device(struct usf_type *usf_info,
 				 struct us_input_info_type *input_info)
 {
 	int rc = 0;
 	struct input_dev *input_dev = NULL;
+	bool ret = true;
 
 	if ((usf_info == NULL) ||
 	    (input_info == NULL) ||
@@ -417,6 +484,11 @@ static int register_input_device(struct usf_type *usf_info,
 		usf_info->event_types = input_info->event_types;
 		pr_debug("%s: input device[%s] was registered\n",
 			__func__, input_dev->name);
+		ret = usf_register_conflicting_events(
+					input_info->conflicting_event_types);
+		if (ret)
+			usf_info->conflicting_event_types =
+				input_info->conflicting_event_types;
 	}
 
 	return rc;
@@ -826,6 +898,7 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 	}
 
 	if (!usf_xx->user_upd_info_na) {
+		usf_set_event_filters(usf, upd_tx_info.event_filters);
 		handle_input_event(usf,
 				   upd_tx_info.event_counter,
 				   upd_tx_info.event);
@@ -963,16 +1036,23 @@ static int usf_set_rx_update(struct usf_xx_type *usf_xx, unsigned long arg)
 	return rc;
 } /* usf_set_rx_update */
 
+static void usf_release_input(struct usf_type *usf)
+{
+	if (usf->input_if != NULL) {
+		usf_unregister_conflicting_events(
+						usf->conflicting_event_types);
+		usf->conflicting_event_types = 0;
+		input_unregister_device(usf->input_if);
+		usf->input_if = NULL;
+		pr_debug("%s input_unregister_device\n",  __func__);
+	}
+} /* usf_release_input */
+
 static int usf_stop_tx(struct usf_type *usf)
 {
 	struct usf_xx_type *usf_xx =  &usf->usf_tx;
 
-	if (usf->input_if != NULL) {
-		input_unregister_device(usf->input_if);
-		usf->input_if = NULL;
-		pr_debug("%s input_unregister_device",
-			__func__);
-	}
+	usf_release_input(usf);
 	usf_disable(usf_xx);
 
 	return 0;
@@ -1225,18 +1305,13 @@ static int usf_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-
 static int usf_release(struct inode *inode, struct file *file)
 {
 	struct usf_type *usf = file->private_data;
 
 	pr_debug("%s: release entry\n", __func__);
 
-	if (usf->input_if != NULL) {
-		input_unregister_device(usf->input_if);
-		usf->input_if = NULL;
-		pr_debug("%s input_unregister_device\n",  __func__);
-	}
+	usf_release_input(usf);
 
 	usf_disable(&usf->usf_tx);
 	usf_disable(&usf->usf_rx);
