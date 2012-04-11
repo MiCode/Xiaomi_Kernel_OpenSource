@@ -468,6 +468,10 @@ static void acpuclk_set_div(const struct clkctl_acpu_speed *hunt_s)
 	reg_clksel ^= 1;
 	writel_relaxed(reg_clksel, A11S_CLK_SEL_ADDR);
 
+	/* Wait for the clock switch to complete */
+	mb();
+	udelay(50);
+
 	/*
 	 * If the new clock divider is lower than the previous, then
 	 * program the divider after switching the clock
@@ -619,8 +623,6 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 		/* Adjust the global one */
 		loops_per_jiffy = cur_s->lpj;
 
-		mb();
-		udelay(50);
 	}
 
 	/* Nothing else to do for SWFI. */
