@@ -37,6 +37,7 @@ struct kgsl_pwrscale {
 	struct kobject kobj;
 	void *priv;
 	int gpu_busy;
+	int enabled;
 };
 
 struct kgsl_pwrscale_policy_attribute {
@@ -67,6 +68,9 @@ void kgsl_pwrscale_idle(struct kgsl_device *device);
 void kgsl_pwrscale_busy(struct kgsl_device *device);
 void kgsl_pwrscale_sleep(struct kgsl_device *device);
 void kgsl_pwrscale_wake(struct kgsl_device *device);
+
+void kgsl_pwrscale_enable(struct kgsl_device *device);
+void kgsl_pwrscale_disable(struct kgsl_device *device);
 
 int kgsl_pwrscale_policy_add_files(struct kgsl_device *device,
 				   struct kgsl_pwrscale *pwrscale,
