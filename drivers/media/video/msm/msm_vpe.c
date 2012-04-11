@@ -582,64 +582,6 @@ static int msm_vpe_do_pp(struct msm_mctl_pp_cmd *cmd,
 	return rc;
 }
 
-static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
-			unsigned int subdev_cmd, void *arg)
-{
-	struct msm_mctl_pp_params *vpe_params =
-		(struct msm_mctl_pp_params *)arg;
-	struct msm_mctl_pp_cmd *cmd = vpe_params->cmd;
-	int rc = 0;
-	switch (cmd->id) {
-	case VPE_CMD_INIT:
-	case VPE_CMD_DEINIT:
-		break;
-	case VPE_CMD_RESET:
-		rc = vpe_reset();
-		break;
-	case VPE_CMD_OPERATION_MODE_CFG:
-		rc = vpe_operation_config(cmd->value);
-		break;
-	case VPE_CMD_INPUT_PLANE_CFG:
-		vpe_input_plane_config(cmd->value);
-		break;
-	case VPE_CMD_OUTPUT_PLANE_CFG:
-		vpe_output_plane_config(cmd->value);
-		break;
-	case VPE_CMD_SCALE_CFG_TYPE:
-		vpe_update_scale_coef(cmd->value);
-		break;
-	case VPE_CMD_ZOOM: {
-		rc = msm_vpe_do_pp(cmd,
-			(struct msm_mctl_pp_frame_info *)vpe_params->data);
-		break;
-	}
-	case VPE_CMD_ENABLE: {
-		struct msm_vpe_clock_rate *clk_rate = cmd->value;
-		int turbo_mode = (int)clk_rate->rate;
-		rc = turbo_mode ? vpe_enable(VPE_TURBO_MODE_CLOCK_RATE) :
-			vpe_enable(VPE_NORMAL_MODE_CLOCK_RATE);
-		break;
-	}
-	case VPE_CMD_DISABLE:
-		rc = vpe_disable();
-		break;
-	case VPE_CMD_INPUT_PLANE_UPDATE:
-	case VPE_CMD_FLUSH:
-	default:
-		break;
-	}
-	CDBG("%s: end, id = %d, rc = %d", __func__, cmd->id, rc);
-	return rc;
-}
-
-static const struct v4l2_subdev_core_ops msm_vpe_subdev_core_ops = {
-	.ioctl = msm_vpe_subdev_ioctl,
-};
-
-static const struct v4l2_subdev_ops msm_vpe_subdev_ops = {
-	.core = &msm_vpe_subdev_core_ops,
-};
-
 static int msm_vpe_resource_init(void);
 
 int msm_vpe_subdev_init(struct v4l2_subdev *sd,
@@ -701,6 +643,75 @@ void msm_vpe_subdev_release(void)
 	atomic_set(&vpe_init_done, 0);
 }
 EXPORT_SYMBOL(msm_vpe_subdev_release);
+
+static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
+			unsigned int subdev_cmd, void *arg)
+{
+	struct msm_mctl_pp_params *vpe_params;
+	struct msm_mctl_pp_cmd *cmd;
+	int rc = 0;
+
+	if (subdev_cmd == VIDIOC_MSM_VPE_INIT) {
+		struct msm_cam_media_controller *mctl =
+			(struct msm_cam_media_controller *)arg;
+		msm_vpe_subdev_init(sd, mctl);
+	} else if (subdev_cmd == VIDIOC_MSM_VPE_RELEASE) {
+		msm_vpe_subdev_release();
+	} else if (subdev_cmd == VIDIOC_MSM_VPE_CFG) {
+		vpe_params = (struct msm_mctl_pp_params *)arg;
+		cmd = vpe_params->cmd;
+		switch (cmd->id) {
+		case VPE_CMD_INIT:
+		case VPE_CMD_DEINIT:
+			break;
+		case VPE_CMD_RESET:
+			rc = vpe_reset();
+			break;
+		case VPE_CMD_OPERATION_MODE_CFG:
+			rc = vpe_operation_config(cmd->value);
+			break;
+		case VPE_CMD_INPUT_PLANE_CFG:
+			vpe_input_plane_config(cmd->value);
+			break;
+		case VPE_CMD_OUTPUT_PLANE_CFG:
+			vpe_output_plane_config(cmd->value);
+			break;
+		case VPE_CMD_SCALE_CFG_TYPE:
+			vpe_update_scale_coef(cmd->value);
+			break;
+		case VPE_CMD_ZOOM: {
+			rc = msm_vpe_do_pp(cmd,
+			(struct msm_mctl_pp_frame_info *)vpe_params->data);
+			break;
+		}
+		case VPE_CMD_ENABLE: {
+			struct msm_vpe_clock_rate *clk_rate = cmd->value;
+			int turbo_mode = (int)clk_rate->rate;
+			rc = turbo_mode ?
+				vpe_enable(VPE_TURBO_MODE_CLOCK_RATE) :
+				vpe_enable(VPE_NORMAL_MODE_CLOCK_RATE);
+			break;
+		}
+		case VPE_CMD_DISABLE:
+			rc = vpe_disable();
+			break;
+		case VPE_CMD_INPUT_PLANE_UPDATE:
+		case VPE_CMD_FLUSH:
+		default:
+			break;
+		}
+		CDBG("%s: end, id = %d, rc = %d", __func__, cmd->id, rc);
+	}
+	return rc;
+}
+
+static const struct v4l2_subdev_core_ops msm_vpe_subdev_core_ops = {
+	.ioctl = msm_vpe_subdev_ioctl,
+};
+
+static const struct v4l2_subdev_ops msm_vpe_subdev_ops = {
+	.core = &msm_vpe_subdev_core_ops,
+};
 
 static const struct v4l2_subdev_internal_ops msm_vpe_internal_ops;
 

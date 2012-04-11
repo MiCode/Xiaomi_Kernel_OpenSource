@@ -238,6 +238,7 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *csic_sdev; /*csid sub device*/
 	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
 	struct v4l2_subdev *gemini_sdev; /* gemini sub device */
+	struct v4l2_subdev *vpe_sdev; /* vpe sub device */
 
 	struct msm_isp_ops *isp_sdev;    /* isp sub device : camif/VFE */
 	struct msm_cam_config_dev *config_device;
@@ -266,7 +267,7 @@ struct msm_isp_ops {
 	char *config_dev_name;
 
 	/*int (*isp_init)(struct msm_cam_v4l2_device *pcam);*/
-	int (*isp_open)(struct v4l2_subdev *sd, struct v4l2_subdev *sd_vpe,
+	int (*isp_open)(struct v4l2_subdev *sd,
 		struct msm_cam_media_controller *mctl);
 	int (*isp_config)(struct msm_cam_media_controller *pmctl,
 		 unsigned int cmd, unsigned long arg);
@@ -496,8 +497,6 @@ int msm_vpe_subdev_init(struct v4l2_subdev *sd,
 int msm_gemini_subdev_init(struct v4l2_subdev *gemini_sd);
 void msm_vpe_subdev_release(void);
 void msm_gemini_subdev_release(struct v4l2_subdev *gemini_sd);
-int msm_isp_subdev_ioctl_vpe(struct v4l2_subdev *isp_subdev,
-	struct msm_mctl_pp_cmd *cmd, void *data);
 int msm_mctl_is_pp_msg_type(struct msm_cam_media_controller *p_mctl,
 	int msg_type);
 int msm_mctl_do_pp(struct msm_cam_media_controller *p_mctl,

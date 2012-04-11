@@ -2548,13 +2548,16 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 				g_server_dev.vfe_device[0], notification, arg);
 		}
 		break;
-	case NOTIFY_VPE_MSG_EVT:
-		if (g_server_dev.isp_subdev[0] &&
-			g_server_dev.isp_subdev[0]->isp_notify) {
-			rc = g_server_dev.isp_subdev[0]->isp_notify(
-				g_server_dev.vpe_device[0], notification, arg);
-		}
+	case NOTIFY_VPE_MSG_EVT: {
+		struct msm_cam_media_controller *pmctl =
+		(struct msm_cam_media_controller *)
+		v4l2_get_subdev_hostdata(sd);
+		struct msm_vpe_resp *vdata = (struct msm_vpe_resp *)arg;
+		msm_mctl_pp_notify(pmctl,
+		(struct msm_mctl_pp_frame_info *)
+		vdata->extdata);
 		break;
+	}
 	case NOTIFY_PCLK_CHANGE:
 		rc = v4l2_subdev_call(g_server_dev.vfe_device[0], video,
 			s_crystal_freq, *(uint32_t *)arg, 0);
