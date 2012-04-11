@@ -1257,7 +1257,6 @@ static struct clk_freq_tbl clk_tbl_gp[] = {
 	F_GP( 96000000, pll8, 4, 0, 0),
 	F_GP(128000000, pll8, 3, 0, 0),
 	F_GP(192000000, pll8, 2, 0, 0),
-	F_GP(384000000, pll8, 1, 0, 0),
 	F_END
 };
 
