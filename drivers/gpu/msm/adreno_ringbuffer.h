@@ -70,7 +70,6 @@ struct adreno_ringbuffer {
 
 /* enable timestamp (...scratch0) memory shadowing */
 #define GSL_RB_MEMPTRS_SCRATCH_MASK 0x1
-#define GSL_RB_INIT_TIMESTAMP(rb)
 
 /* mem rptr */
 #define GSL_RB_CNTL_NO_UPDATE 0x0 /* enable */
