@@ -282,6 +282,19 @@ const char *smd_edge_to_subsystem(uint32_t type);
  * @returns Pointer to subsystem name or NULL if not found
  */
 const char *smd_pid_to_subsystem(uint32_t pid);
+
+/*
+ * Checks to see if a new packet has arrived on the channel.  Only to be
+ * called with interrupts disabled.
+ *
+ * @ch: channel to check if a packet has arrived
+ *
+ * Returns:
+ *      0 - packet not available
+ *      1 - packet available
+ *      -EINVAL - NULL parameter or non-packet based channel provided
+ */
+int smd_is_pkt_avail(smd_channel_t *ch);
 #else
 
 static inline int smd_open(const char *name, smd_channel_t **ch, void *priv,
@@ -392,6 +405,11 @@ static inline const char *smd_edge_to_subsystem(uint32_t type)
 static inline const char *smd_pid_to_subsystem(uint32_t pid)
 {
 	return NULL;
+}
+
+static inline int smd_is_pkt_avail(smd_channel_t *ch)
+{
+	return -ENODEV;
 }
 #endif
 
