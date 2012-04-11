@@ -1275,6 +1275,61 @@ static int mxt_backup_nv(struct mxt_data *data)
 	return 0;
 }
 
+static int mxt_save_objects(struct mxt_data *data)
+{
+	struct i2c_client *client = data->client;
+	struct mxt_object *t7_object;
+	struct mxt_object *t9_object;
+	struct mxt_object *t15_object;
+	int error;
+
+	/* Store T7 and T9 locally, used in suspend/resume operations */
+	t7_object = mxt_get_object(data, MXT_GEN_POWER_T7);
+	if (!t7_object) {
+		dev_err(&client->dev, "Failed to get T7 object\n");
+		return -EINVAL;
+	}
+
+	data->t7_start_addr = t7_object->start_address;
+	error = __mxt_read_reg(client, data->t7_start_addr,
+				T7_DATA_SIZE, data->t7_data);
+	if (error < 0) {
+		dev_err(&client->dev,
+			"Failed to save current power state\n");
+		return error;
+	}
+
+	error = mxt_read_object(data, MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL,
+			&data->t9_ctrl);
+	if (error < 0) {
+		dev_err(&client->dev, "Failed to save current touch object\n");
+		return error;
+	}
+
+	/* Store T9, T15's min and max report ids */
+	t9_object = mxt_get_object(data, MXT_TOUCH_MULTI_T9);
+	if (!t9_object) {
+		dev_err(&client->dev, "Failed to get T9 object\n");
+		return -EINVAL;
+	}
+	data->t9_max_reportid = t9_object->max_reportid;
+	data->t9_min_reportid = t9_object->max_reportid -
+					t9_object->num_report_ids + 1;
+
+	if (data->pdata->key_codes) {
+		t15_object = mxt_get_object(data, MXT_TOUCH_KEYARRAY_T15);
+		if (!t15_object)
+			dev_dbg(&client->dev, "T15 object is not available\n");
+		else {
+			data->t15_max_reportid = t15_object->max_reportid;
+			data->t15_min_reportid = t15_object->max_reportid -
+						t15_object->num_report_ids + 1;
+		}
+	}
+
+	return 0;
+}
+
 static int mxt_initialize(struct mxt_data *data)
 {
 	struct i2c_client *client = data->client;
@@ -1282,9 +1337,6 @@ static int mxt_initialize(struct mxt_data *data)
 	int error;
 	u8 val;
 	const u8 *cfg_ver;
-	struct mxt_object *t7_object;
-	struct mxt_object *t9_object;
-	struct mxt_object *t15_object;
 
 	error = mxt_get_info(data);
 	if (error) {
@@ -1361,50 +1413,9 @@ static int mxt_initialize(struct mxt_data *data)
 			"No cfg data defined, skipping check reg init\n");
 	}
 
-	/* Store T7 and T9 locally, used in suspend/resume operations */
-	t7_object = mxt_get_object(data, MXT_GEN_POWER_T7);
-	if (!t7_object) {
-		dev_err(&client->dev, "Failed to get T7 object\n");
-		error = -EINVAL;
+	error = mxt_save_objects(data);
+	if (error)
 		goto free_object_table;
-	}
-
-	data->t7_start_addr = t7_object->start_address;
-	error = __mxt_read_reg(client, data->t7_start_addr,
-				T7_DATA_SIZE, data->t7_data);
-	if (error < 0) {
-		dev_err(&client->dev,
-			"Failed to save current power state\n");
-		goto free_object_table;
-	}
-	error = mxt_read_object(data, MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL,
-			&data->t9_ctrl);
-	if (error < 0) {
-		dev_err(&client->dev, "Failed to save current touch object\n");
-		goto free_object_table;
-	}
-
-	/* Store T9, T15's min and max report ids */
-	t9_object = mxt_get_object(data, MXT_TOUCH_MULTI_T9);
-	if (!t9_object) {
-		dev_err(&client->dev, "Failed to get T9 object\n");
-		error = -EINVAL;
-		goto free_object_table;
-	}
-	data->t9_max_reportid = t9_object->max_reportid;
-	data->t9_min_reportid = t9_object->max_reportid -
-					t9_object->num_report_ids + 1;
-
-	if (data->pdata->key_codes) {
-		t15_object = mxt_get_object(data, MXT_TOUCH_KEYARRAY_T15);
-		if (!t15_object)
-			dev_dbg(&client->dev, "T15 object is not available\n");
-		else {
-			data->t15_max_reportid = t15_object->max_reportid;
-			data->t15_min_reportid = t15_object->max_reportid -
-						t15_object->num_report_ids + 1;
-		}
-	}
 
 	/* Update matrix size at info struct */
 	error = mxt_read_reg(client, MXT_MATRIX_X_SIZE, &val);
