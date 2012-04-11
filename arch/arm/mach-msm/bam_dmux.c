@@ -982,11 +982,13 @@ int msm_bam_dmux_is_ch_full(uint32_t id)
 
 int msm_bam_dmux_is_ch_low(uint32_t id)
 {
+	unsigned long flags;
 	int ret;
 
 	if (id >= BAM_DMUX_NUM_CHANNELS)
 		return -EINVAL;
 
+	spin_lock_irqsave(&bam_ch[id].lock, flags);
 	bam_ch[id].use_wm = 1;
 	ret = bam_ch[id].num_tx_pkts <= LOW_WATERMARK;
 	DBG("%s: ch %d num tx pkts=%d, LWM=%d\n", __func__,
@@ -995,6 +997,7 @@ int msm_bam_dmux_is_ch_low(uint32_t id)
 		ret = -ENODEV;
 		pr_err("%s: port not open: %d\n", __func__, bam_ch[id].status);
 	}
+	spin_unlock_irqrestore(&bam_ch[id].lock, flags);
 
 	return ret;
 }
