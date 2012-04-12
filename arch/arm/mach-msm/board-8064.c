@@ -1871,6 +1871,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_pil_dsps,
 	&msm_8960_riva,
 	&msm_8960_q6_lpass,
+	&msm_pil_vidc,
 	&msm_gss,
 #ifdef CONFIG_MSM_RTB
 	&msm_rtb_device,

@@ -221,6 +221,7 @@ extern struct platform_device msm_pil_q6v3;
 extern struct platform_device msm_pil_modem;
 extern struct platform_device msm_pil_tzapps;
 extern struct platform_device msm_pil_dsps;
+extern struct platform_device msm_pil_vidc;
 extern struct platform_device msm_8960_q6_lpass;
 extern struct platform_device msm_8960_q6_mss_fw;
 extern struct platform_device msm_8960_q6_mss_sw;
