@@ -1133,20 +1133,6 @@ static int mipi_dsi_panel_qrd3_power(int on)
 		if (rc < 0)
 			return rc;
 
-		rc = gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BACKLIGHT_EN, 0,
-			GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
-			GPIO_CFG_ENABLE);
-		if (rc < 0) {
-			pr_err("failed QRD3 GPIO_BACKLIGHT_EN tlmm config\n");
-			return rc;
-		}
-		rc = gpio_direction_output(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
-		if (rc < 0) {
-			pr_err("failed to enable backlight\n");
-			gpio_free(GPIO_QRD3_LCD_BACKLIGHT_EN);
-			return rc;
-		}
-
 		rc = gpio_request(GPIO_QRD3_LCD_EXT_2V85_EN,
 			"qrd3_gpio_ext_2v85_en");
 		if (rc < 0)
@@ -1191,6 +1177,20 @@ static int mipi_dsi_panel_qrd3_power(int on)
 	}
 
 	if (on) {
+		rc = gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BACKLIGHT_EN, 0,
+			GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
+			GPIO_CFG_ENABLE);
+		if (rc < 0) {
+			pr_err("failed QRD3 GPIO_BACKLIGHT_EN tlmm config\n");
+			return rc;
+		}
+		rc = gpio_direction_output(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
+		if (rc < 0) {
+			pr_err("failed to enable backlight\n");
+			gpio_free(GPIO_QRD3_LCD_BACKLIGHT_EN);
+			return rc;
+		}
+
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
 		udelay(190);
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 0);
@@ -1198,8 +1198,11 @@ static int mipi_dsi_panel_qrd3_power(int on)
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
 		/* 1 wire mode starts from this low to high transition */
 		udelay(50);
-	} else
-		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, !!on);
+	} else {
+		gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BACKLIGHT_EN, 0,
+			GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+			GPIO_CFG_DISABLE);
+	}
 
 	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_2V85_EN, !!on);
 	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_1V8_EN, !!on);
