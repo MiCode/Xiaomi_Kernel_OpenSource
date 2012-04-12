@@ -687,7 +687,7 @@ static struct platform_device mipi_dsi_NT35510_panel_device = {
 };
 
 static struct msm_panel_common_pdata mipi_NT35516_pdata = {
-	.pmic_backlight = NULL,
+	.pmic_backlight = evb_backlight_control,
 };
 
 static struct platform_device mipi_dsi_NT35516_panel_device = {
@@ -1284,6 +1284,7 @@ void __init msm_fb_add_devices(void)
 				ARRAY_SIZE(qrd_fb_devices));
 	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
 		mipi_NT35510_pdata.bl_lock = 1;
+		mipi_NT35516_pdata.bl_lock = 1;
 		platform_add_devices(evb_fb_devices,
 				ARRAY_SIZE(evb_fb_devices));
 	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {

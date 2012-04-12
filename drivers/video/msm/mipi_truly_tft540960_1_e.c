@@ -726,6 +726,8 @@ static int __devinit mipi_truly_lcd_probe(struct platform_device *pdev)
 
 	if (pdev->id == 0) {
 		mipi_truly_pdata = pdev->dev.platform_data;
+		if (mipi_truly_pdata->bl_lock)
+			spin_lock_init(&mipi_truly_pdata->bl_spinlock);
 		return rc;
 	}
 
@@ -743,7 +745,16 @@ static struct platform_driver this_driver = {
 
 static void mipi_truly_set_backlight(struct msm_fb_data_type *mfd)
 {
-	return;
+	int bl_level;
+	unsigned long flags;
+	bl_level = mfd->bl_level;
+
+	if (mipi_truly_pdata->bl_lock) {
+		spin_lock_irqsave(&mipi_truly_pdata->bl_spinlock, flags);
+		mipi_truly_pdata->pmic_backlight(bl_level);
+		spin_unlock_irqrestore(&mipi_truly_pdata->bl_spinlock, flags);
+	} else
+		mipi_truly_pdata->pmic_backlight(bl_level);
 }
 
 static struct msm_fb_panel_data truly_panel_data = {

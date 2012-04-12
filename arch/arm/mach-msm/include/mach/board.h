@@ -359,6 +359,7 @@ struct msm_panel_common_pdata {
 	uintptr_t hw_revision_addr;
 	int gpio;
 	bool bl_lock;
+	spinlock_t bl_spinlock;
 	int (*backlight_level)(int level, int max, int min);
 	int (*pmic_backlight)(int level);
 	int (*panel_num)(void);
