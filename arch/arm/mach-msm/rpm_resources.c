@@ -25,7 +25,7 @@
 #include <asm/mach-types.h>
 #include <linux/io.h>
 #include <mach/socinfo.h>
-#include "mpm.h"
+#include <mach/mpm.h>
 #include "rpm_resources.h"
 #include "spm.h"
 #include "idle.h"

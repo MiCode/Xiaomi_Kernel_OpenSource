@@ -49,7 +49,7 @@
 #include <mach/msm_dcvs.h>
 
 #ifdef CONFIG_MSM_MPM
-#include "mpm.h"
+#include <mach/mpm.h>
 #endif
 #ifdef CONFIG_MSM_DSPS
 #include <mach/msm_dsps.h>

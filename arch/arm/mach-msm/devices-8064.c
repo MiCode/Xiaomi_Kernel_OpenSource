@@ -39,7 +39,7 @@
 #include "msm_watchdog.h"
 #include "rpm_stats.h"
 #include "rpm_log.h"
-#include "mpm.h"
+#include <mach/mpm.h>
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS		0x12440000

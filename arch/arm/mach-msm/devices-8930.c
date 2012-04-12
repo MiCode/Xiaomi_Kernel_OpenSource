@@ -28,7 +28,7 @@
 #include "rpm_stats.h"
 
 #ifdef CONFIG_MSM_MPM
-#include "mpm.h"
+#include <mach/mpm.h>
 #endif
 
 struct msm_rpm_platform_data msm8930_rpm_data __initdata = {

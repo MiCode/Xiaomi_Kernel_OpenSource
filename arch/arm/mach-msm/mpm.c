@@ -26,7 +26,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/gpio.h>
 
-#include "mpm.h"
+#include <mach/mpm.h>
 
 /******************************************************************************
  * Debug Definitions

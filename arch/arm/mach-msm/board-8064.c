@@ -71,7 +71,7 @@
 #include "board-8064.h"
 #include "acpuclock.h"
 #include "spm.h"
-#include "mpm.h"
+#include <mach/mpm.h>
 #include "rpm_resources.h"
 #include "pm.h"
 #include "pm-boot.h"
