@@ -439,10 +439,7 @@ void __init apq8064_init_pmic(void)
 	apq8064_pm8921_platform_data.num_regulators =
 					msm8064_pm8921_regulator_pdata_len;
 
-	if (machine_is_apq8064_rumi3()) {
-		apq8064_pm8921_irq_pdata.devirq = 0;
-		apq8064_pm8821_irq_pdata.devirq = 0;
-	} else if (machine_is_apq8064_mtp()) {
+	if (machine_is_apq8064_mtp()) {
 		apq8064_pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
 	} else if (machine_is_apq8064_liquid()) {
 		apq8064_pm8921_bms_pdata.battery_type = BATT_DESAY;
