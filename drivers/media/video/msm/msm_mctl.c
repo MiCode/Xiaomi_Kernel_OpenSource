@@ -197,6 +197,8 @@ static int msm_get_sensor_info(struct msm_sync *sync,
 	/* sensor_type needed to add YUV/SOC in probing */
 	info.sensor_type = sdata->sensor_type;
 	info.mount_angle = sdata->sensor_platform_info->mount_angle;
+	info.actuator_enabled = sdata->actuator_info ? 1 : 0;
+	info.strobe_flash_enabled = sdata->strobe_flash_data ? 1 : 0;
 	/* copy back to user space */
 	if (copy_to_user((void *)arg,
 				&info,
