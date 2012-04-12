@@ -23,6 +23,7 @@
 #include <linux/reboot.h>
 #include <linux/of.h>
 #include <linux/spinlock.h>
+#include <linux/kmemleak.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
 #endif
@@ -1798,48 +1799,57 @@ void diagfwd_init(void)
 			struct diag_ctrl_event_mask), GFP_KERNEL);
 		if (driver->event_mask == NULL)
 			goto err;
+		kmemleak_not_leak(driver->event_mask);
 	}
 	if (driver->msg_mask == NULL) {
 		driver->msg_mask = kzalloc(sizeof(
 			struct diag_ctrl_msg_mask), GFP_KERNEL);
 		if (driver->msg_mask == NULL)
 			goto err;
+		kmemleak_not_leak(driver->msg_mask);
 	}
 	if (driver->log_mask == NULL) {
 		driver->log_mask = kzalloc(sizeof(
 			struct diag_ctrl_log_mask), GFP_KERNEL);
 		if (driver->log_mask == NULL)
 			goto err;
+		kmemleak_not_leak(driver->log_mask);
 	}
 	if (driver->buf_in_1 == NULL) {
 		driver->buf_in_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_1 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_1);
 	}
 	if (driver->buf_in_2 == NULL) {
 		driver->buf_in_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_2 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_2);
 	}
 	if (driver->buf_in_qdsp_1 == NULL) {
 		driver->buf_in_qdsp_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_qdsp_1 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_qdsp_1);
 	}
 	if (driver->buf_in_qdsp_2 == NULL) {
 		driver->buf_in_qdsp_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_qdsp_2 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_qdsp_2);
 	}
 	if (driver->buf_in_wcnss_1 == NULL) {
 		driver->buf_in_wcnss_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_wcnss_1 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_wcnss_1);
 	}
 	if (driver->buf_in_wcnss_2 == NULL) {
 		driver->buf_in_wcnss_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_wcnss_2 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_wcnss_2);
 	}
 
 	if (driver->buf_msg_mask_update == NULL) {
@@ -1847,98 +1857,117 @@ void diagfwd_init(void)
 								 GFP_KERNEL);
 		if (driver->buf_msg_mask_update == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_msg_mask_update);
 	}
 	if (driver->buf_log_mask_update == NULL) {
 		driver->buf_log_mask_update = kzalloc(APPS_BUF_SIZE,
 								 GFP_KERNEL);
 		if (driver->buf_log_mask_update == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_log_mask_update);
 	}
 	if (driver->buf_event_mask_update == NULL) {
 		driver->buf_event_mask_update = kzalloc(APPS_BUF_SIZE,
 								 GFP_KERNEL);
 		if (driver->buf_event_mask_update == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_event_mask_update);
 	}
 	if (driver->usb_buf_out  == NULL &&
 	     (driver->usb_buf_out = kzalloc(USB_MAX_OUT_BUF,
 					 GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->usb_buf_out);
 	if (driver->hdlc_buf == NULL
 	    && (driver->hdlc_buf = kzalloc(HDLC_MAX, GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->hdlc_buf);
 	if (driver->user_space_data == NULL)
 		driver->user_space_data = kzalloc(USER_SPACE_DATA, GFP_KERNEL);
 		if (driver->user_space_data == NULL)
 			goto err;
+	kmemleak_not_leak(driver->user_space_data);
 	if (driver->msg_masks == NULL
 	    && (driver->msg_masks = kzalloc(MSG_MASK_SIZE,
 					     GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->msg_masks);
 	diag_create_msg_mask_table();
 	diag_event_num_bytes = 0;
 	if (driver->log_masks == NULL &&
 	    (driver->log_masks = kzalloc(LOG_MASK_SIZE, GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->log_masks);
 	driver->log_masks_length = (sizeof(struct mask_info))*MAX_EQUIP_ID;
 	if (driver->event_masks == NULL &&
 	    (driver->event_masks = kzalloc(EVENT_MASK_SIZE,
 					    GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->event_masks);
 	if (driver->client_map == NULL &&
 	    (driver->client_map = kzalloc
 	     ((driver->num_clients) * sizeof(struct diag_client_map),
 		   GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->client_map);
 	if (driver->buf_tbl == NULL)
 			driver->buf_tbl = kzalloc(buf_tbl_size *
 			  sizeof(struct diag_write_device), GFP_KERNEL);
 	if (driver->buf_tbl == NULL)
 		goto err;
+	kmemleak_not_leak(driver->buf_tbl);
 	if (driver->data_ready == NULL &&
 	     (driver->data_ready = kzalloc(driver->num_clients * sizeof(int)
 							, GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->data_ready);
 	if (driver->table == NULL &&
 	     (driver->table = kzalloc(diag_max_reg*
 		      sizeof(struct diag_master_table),
 		       GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->table);
 	if (driver->write_ptr_1 == NULL) {
 		driver->write_ptr_1 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
 		if (driver->write_ptr_1 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->write_ptr_1);
 	}
 	if (driver->write_ptr_2 == NULL) {
 		driver->write_ptr_2 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
 		if (driver->write_ptr_2 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->write_ptr_2);
 	}
 	if (driver->write_ptr_qdsp_1 == NULL) {
 		driver->write_ptr_qdsp_1 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
 		if (driver->write_ptr_qdsp_1 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->write_ptr_qdsp_1);
 	}
 	if (driver->write_ptr_qdsp_2 == NULL) {
 		driver->write_ptr_qdsp_2 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
 		if (driver->write_ptr_qdsp_2 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->write_ptr_qdsp_2);
 	}
 	if (driver->write_ptr_wcnss_1 == NULL) {
 		driver->write_ptr_wcnss_1 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
 		if (driver->write_ptr_wcnss_1 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->write_ptr_wcnss_1);
 	}
 	if (driver->write_ptr_wcnss_2 == NULL) {
 		driver->write_ptr_wcnss_2 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
 		if (driver->write_ptr_wcnss_2 == NULL)
 			goto err;
+		kmemleak_not_leak(driver->write_ptr_wcnss_2);
 	}
 
 	if (driver->usb_read_ptr == NULL) {
@@ -1946,15 +1975,18 @@ void diagfwd_init(void)
 			sizeof(struct diag_request), GFP_KERNEL);
 		if (driver->usb_read_ptr == NULL)
 			goto err;
+		kmemleak_not_leak(driver->usb_read_ptr);
 	}
 	if (driver->pkt_buf == NULL &&
 	     (driver->pkt_buf = kzalloc(PKT_SIZE,
 			 GFP_KERNEL)) == NULL)
 		goto err;
+	kmemleak_not_leak(driver->pkt_buf);
 	if (driver->apps_rsp_buf == NULL) {
 		driver->apps_rsp_buf = kzalloc(APPS_BUF_SIZE, GFP_KERNEL);
 		if (driver->apps_rsp_buf == NULL)
 			goto err;
+		kmemleak_not_leak(driver->apps_rsp_buf);
 	}
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 #ifdef CONFIG_DIAG_OVER_USB
