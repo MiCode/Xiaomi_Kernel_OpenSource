@@ -417,16 +417,21 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 			buf_addr_table[i].client_data);
 			buf_addr_table[i].client_data = NULL;
 		}
-		if (buf_addr_table[i].buff_ion_handle) {
-			ion_unmap_kernel(client_ctx->user_ion_client,
-					buf_addr_table[i].buff_ion_handle);
-			ion_unmap_iommu(client_ctx->user_ion_client,
-					buf_addr_table[i].buff_ion_handle,
-					VIDEO_DOMAIN,
-					VIDEO_MAIN_POOL);
-			ion_free(client_ctx->user_ion_client,
-					buf_addr_table[i].buff_ion_handle);
-			buf_addr_table[i].buff_ion_handle = NULL;
+		if (!IS_ERR_OR_NULL(buf_addr_table[i].buff_ion_handle)) {
+			if (!IS_ERR_OR_NULL(client_ctx->user_ion_client)) {
+				ion_unmap_kernel(client_ctx->user_ion_client,
+						buf_addr_table[i].
+						buff_ion_handle);
+				ion_unmap_iommu(client_ctx->user_ion_client,
+						buf_addr_table[i].
+						buff_ion_handle,
+						VIDEO_DOMAIN,
+						VIDEO_MAIN_POOL);
+				ion_free(client_ctx->user_ion_client,
+						buf_addr_table[i].
+						buff_ion_handle);
+				buf_addr_table[i].buff_ion_handle = NULL;
+			}
 		}
 	}
 	if (client_ctx->vcd_h264_mv_buffer.client_data) {
@@ -434,16 +439,18 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 		client_ctx->vcd_h264_mv_buffer.client_data);
 		client_ctx->vcd_h264_mv_buffer.client_data = NULL;
 	}
-	if (client_ctx->h264_mv_ion_handle) {
-		ion_unmap_kernel(client_ctx->user_ion_client,
-				client_ctx->h264_mv_ion_handle);
-		ion_unmap_iommu(client_ctx->user_ion_client,
-				client_ctx->h264_mv_ion_handle,
-				VIDEO_DOMAIN,
-				VIDEO_MAIN_POOL);
-		ion_free(client_ctx->user_ion_client,
-				client_ctx->h264_mv_ion_handle);
-		client_ctx->h264_mv_ion_handle = NULL;
+	if (!IS_ERR_OR_NULL(client_ctx->h264_mv_ion_handle)) {
+		if (!IS_ERR_OR_NULL(client_ctx->user_ion_client)) {
+			ion_unmap_kernel(client_ctx->user_ion_client,
+					client_ctx->h264_mv_ion_handle);
+			ion_unmap_iommu(client_ctx->user_ion_client,
+					client_ctx->h264_mv_ion_handle,
+					VIDEO_DOMAIN,
+					VIDEO_MAIN_POOL);
+			ion_free(client_ctx->user_ion_client,
+					client_ctx->h264_mv_ion_handle);
+			client_ctx->h264_mv_ion_handle = NULL;
+		}
 	}
 bail_out_cleanup:
 	return;
