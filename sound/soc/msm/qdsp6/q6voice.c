@@ -1990,8 +1990,7 @@ static int voice_setup_vocproc(struct voice_data *v)
 	if (v->st_enable)
 		voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_ST,
 					v->st_enable);
-	if (v->fens_enable)
-		voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_FENS,
+	voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_FENS,
 					v->fens_enable);
 
 	if (is_voip_session(v->session_id))
