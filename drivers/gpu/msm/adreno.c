@@ -1011,6 +1011,10 @@ struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 	if (kgsl_gpuaddr_in_memdesc(&device->memstore, gpuaddr, size))
 		return &device->memstore;
 
+	if (kgsl_gpuaddr_in_memdesc(&device->mmu.setstate_memory, gpuaddr,
+					size))
+		return &device->mmu.setstate_memory;
+
 	entry = kgsl_get_mem_entry(pt_base, gpuaddr, size);
 
 	if (entry)
