@@ -19,6 +19,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/irqs.h>
 #include <mach/rpm-regulator.h>
+#include <mach/msm_rtb.h>
 
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
@@ -141,4 +142,5 @@ enum {
 	SX150X_EXP4,
 };
 
+extern struct msm_rtb_platform_data apq8064_rtb_pdata;
 #endif

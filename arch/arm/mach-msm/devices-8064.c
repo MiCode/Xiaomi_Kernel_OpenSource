@@ -31,6 +31,7 @@
 #include <mach/mdm2.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_dcvs.h>
+#include <mach/msm_rtb.h>
 #include <mach/qdss.h>
 #include <linux/ion.h>
 #include "clock.h"
@@ -2407,5 +2408,27 @@ struct platform_device apq8064_iommu_domain_device = {
 	.id = -1,
 	.dev = {
 		.platform_data = &apq8064_iommu_domain_pdata,
+	}
+};
+
+struct msm_rtb_platform_data apq8064_rtb_pdata = {
+	.size = SZ_1M,
+};
+
+static int __init msm_rtb_set_buffer_size(char *p)
+{
+	int s;
+
+	s = memparse(p, NULL);
+	apq8064_rtb_pdata.size = ALIGN(s, SZ_4K);
+	return 0;
+}
+early_param("msm_rtb_size", msm_rtb_set_buffer_size);
+
+struct platform_device apq8064_rtb_device = {
+	.name           = "msm_rtb",
+	.id             = -1,
+	.dev            = {
+		.platform_data = &apq8064_rtb_pdata,
 	},
 };

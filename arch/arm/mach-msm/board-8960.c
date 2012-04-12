@@ -291,31 +291,6 @@ static struct memtype_reserve msm8960_reserve_table[] __initdata = {
 	},
 };
 
-#if defined(CONFIG_MSM_RTB)
-static struct msm_rtb_platform_data msm8960_rtb_pdata = {
-	.size = SZ_1M,
-};
-
-static int __init msm_rtb_set_buffer_size(char *p)
-{
-	int s;
-
-	s = memparse(p, NULL);
-	msm8960_rtb_pdata.size = ALIGN(s, SZ_4K);
-	return 0;
-}
-early_param("msm_rtb_size", msm_rtb_set_buffer_size);
-
-
-static struct platform_device msm8960_rtb_device = {
-	.name           = "msm_rtb",
-	.id             = -1,
-	.dev            = {
-		.platform_data = &msm8960_rtb_pdata,
-	},
-};
-#endif
-
 static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
@@ -2587,9 +2562,7 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm_device_dspcrashd_8960,
 	&msm8960_device_watchdog,
-#ifdef CONFIG_MSM_RTB
 	&msm8960_rtb_device,
-#endif
 	&msm8960_cpu_idle_device,
 	&msm8960_msm_gov_device,
 	&msm8960_device_cache_erp,

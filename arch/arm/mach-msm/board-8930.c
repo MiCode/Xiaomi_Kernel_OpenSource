@@ -249,30 +249,6 @@ static struct memtype_reserve msm8930_reserve_table[] __initdata = {
 	},
 };
 
-#if defined(CONFIG_MSM_RTB)
-static struct msm_rtb_platform_data msm8930_rtb_pdata = {
-	.size = SZ_1M,
-};
-
-static int __init msm_rtb_set_buffer_size(char *p)
-{
-	int s;
-
-	s = memparse(p, NULL);
-	msm8930_rtb_pdata.size = ALIGN(s, SZ_4K);
-	return 0;
-}
-early_param("msm_rtb_size", msm_rtb_set_buffer_size);
-
-
-static struct platform_device msm8930_rtb_device = {
-	.name           = "msm_rtb",
-	.id             = -1,
-	.dev            = {
-		.platform_data = &msm8930_rtb_pdata,
-	},
-};
-#endif
 
 static void __init reserve_rtb_memory(void)
 {
@@ -1790,9 +1766,7 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef MSM8930_PHASE_2
 	&gpio_keys_8930,
 #endif
-#ifdef CONFIG_MSM_RTB
 	&msm8930_rtb_device,
-#endif
 	&msm8930_cpu_idle_device,
 	&msm8930_msm_gov_device,
 	&msm_bus_8930_apps_fabric,

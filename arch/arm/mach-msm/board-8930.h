@@ -22,6 +22,7 @@
 #include <mach/irqs.h>
 #include <mach/rpm-regulator.h>
 #include <mach/msm_memtypes.h>
+#include <mach/msm_rtb.h>
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes
@@ -137,3 +138,5 @@ void __init msm8930_init_gpu(void);
 #define MSM_8930_GSBI4_QUP_I2C_BUS_ID 4
 #define MSM_8930_GSBI9_QUP_I2C_BUS_ID 0
 #define MSM_8930_GSBI10_QUP_I2C_BUS_ID 10
+
+extern struct msm_rtb_platform_data msm8930_rtb_pdata;

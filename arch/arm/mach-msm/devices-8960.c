@@ -32,6 +32,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_dcvs.h>
+#include <mach/msm_rtb.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
 #include <mach/msm_tsif.h>
@@ -3502,5 +3503,28 @@ struct platform_device msm8960_iommu_domain_device = {
 	.id = -1,
 	.dev = {
 		.platform_data = &msm8960_iommu_domain_pdata,
+	}
+};
+
+struct msm_rtb_platform_data msm8960_rtb_pdata = {
+	.size = SZ_1M,
+};
+
+static int __init msm_rtb_set_buffer_size(char *p)
+{
+	int s;
+
+	s = memparse(p, NULL);
+	msm8960_rtb_pdata.size = ALIGN(s, SZ_4K);
+	return 0;
+}
+early_param("msm_rtb_size", msm_rtb_set_buffer_size);
+
+
+struct platform_device msm8960_rtb_device = {
+	.name           = "msm_rtb",
+	.id             = -1,
+	.dev            = {
+		.platform_data = &msm8960_rtb_pdata,
 	},
 };
