@@ -2671,6 +2671,11 @@ int mdp4_overlay_play_wait(struct fb_info *info, struct msmfb_overlay_data *req)
 
 	pipe = mdp4_overlay_ndx2pipe(req->id);
 
+	if (!pipe) {
+		mdp4_stat.err_play++;
+		return -ENODEV;
+	}
+
 	if (mutex_lock_interruptible(&mfd->dma->ov_mutex))
 		return -EINTR;
 
