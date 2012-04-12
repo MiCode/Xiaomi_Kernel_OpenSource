@@ -33,6 +33,7 @@
 #include <mach/msm_smd.h>
 #include <mach/msm_dcvs.h>
 #include <mach/msm_rtb.h>
+#include <mach/msm_cache_dump.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
 #include <mach/msm_tsif.h>
@@ -3617,5 +3618,17 @@ struct platform_device msm8960_rtb_device = {
 	.id             = -1,
 	.dev            = {
 		.platform_data = &msm8960_rtb_pdata,
+	},
+};
+
+struct msm_cache_dump_platform_data msm8960_cache_dump_pdata = {
+	.l2_size = L2_BUFFER_SIZE,
+};
+
+struct platform_device msm8960_cache_dump_device = {
+	.name           = "msm_cache_dump",
+	.id             = -1,
+	.dev            = {
+		.platform_data = &msm8960_cache_dump_pdata,
 	},
 };

@@ -389,3 +389,5 @@ extern struct platform_device apq8064_iommu_domain_device;
 extern struct platform_device msm8960_rtb_device;
 extern struct platform_device msm8930_rtb_device;
 extern struct platform_device apq8064_rtb_device;
+
+extern struct platform_device msm8960_cache_dump_device;

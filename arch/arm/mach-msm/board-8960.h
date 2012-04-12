@@ -21,6 +21,7 @@
 #include <mach/rpm-regulator.h>
 #include <mach/msm_memtypes.h>
 #include <mach/msm_rtb.h>
+#include <mach/msm_cache_dump.h>
 
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
@@ -95,3 +96,4 @@ void msm8960_mdp_writeback(struct memtype_reserve *reserve_table);
 #define MSM_8960_GSBI10_QUP_I2C_BUS_ID 10
 
 extern struct msm_rtb_platform_data msm8960_rtb_pdata;
+extern struct msm_cache_dump_platform_data msm8960_cache_dump_pdata;

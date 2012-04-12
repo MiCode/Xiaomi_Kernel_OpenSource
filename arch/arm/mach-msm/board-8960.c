@@ -673,21 +673,6 @@ static void __init reserve_mdp_memory(void)
 	msm8960_mdp_writeback(msm8960_reserve_table);
 }
 
-#if defined(CONFIG_MSM_CACHE_DUMP)
-static struct msm_cache_dump_platform_data msm8960_cache_dump_pdata = {
-	.l2_size = L2_BUFFER_SIZE,
-};
-
-static struct platform_device msm8960_cache_dump_device = {
-	.name           = "msm_cache_dump",
-	.id             = -1,
-	.dev            = {
-		.platform_data = &msm8960_cache_dump_pdata,
-	},
-};
-
-#endif
-
 static void __init reserve_cache_dump_memory(void)
 {
 #ifdef CONFIG_MSM_CACHE_DUMP
@@ -2566,9 +2551,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_cpu_idle_device,
 	&msm8960_msm_gov_device,
 	&msm8960_device_cache_erp,
-#ifdef CONFIG_MSM_CACHE_DUMP
 	&msm8960_cache_dump_device,
-#endif
 	&msm8960_iommu_domain_device,
 	&msm_tsens_device,
 };
