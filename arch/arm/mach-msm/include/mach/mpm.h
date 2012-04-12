@@ -54,24 +54,25 @@ bool msm_mpm_gpio_irqs_detectable(bool from_idle);
 void msm_mpm_enter_sleep(bool from_idle);
 void msm_mpm_exit_sleep(bool from_idle);
 #else
-int msm_mpm_enable_irq(unsigned int irq, unsigned int enable)
+static inline int msm_mpm_enable_irq(unsigned int irq, unsigned int enable)
 { return -ENODEV; }
-int msm_mpm_set_irq_wake(unsigned int irq, unsigned int on)
+static inline int msm_mpm_set_irq_wake(unsigned int irq, unsigned int on)
 { return -ENODEV; }
-int msm_mpm_set_irq_type(unsigned int irq, unsigned int flow_type)
+static inline int msm_mpm_set_irq_type(unsigned int irq, unsigned int flow_type)
 { return -ENODEV; }
-int msm_mpm_enable_pin(enum msm_mpm_pin pin, unsigned int enable)
+static inline int msm_mpm_enable_pin(enum msm_mpm_pin pin, unsigned int enable)
 { return -ENODEV; }
-int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)
+static inline int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)
 { return -ENODEV; }
-int msm_mpm_set_pin_type(enum msm_mpm_pin pin, unsigned int flow_type)
+static inline int msm_mpm_set_pin_type(enum msm_mpm_pin pin,
+				       unsigned int flow_type)
 { return -ENODEV; }
-bool msm_mpm_irqs_detectable(bool from_idle)
+static inline bool msm_mpm_irqs_detectable(bool from_idle)
 { return false; }
-bool msm_mpm_gpio_irqs_detectable(bool from_idle)
+static inline bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 { return false; }
-void msm_mpm_enter_sleep(bool from_idle) {}
-void msm_mpm_exit_sleep(bool from_idle) {}
+static inline void msm_mpm_enter_sleep(bool from_idle) {}
+static inline void msm_mpm_exit_sleep(bool from_idle) {}
 #endif
 
 
