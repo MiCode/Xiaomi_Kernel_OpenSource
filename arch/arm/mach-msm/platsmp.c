@@ -83,9 +83,6 @@ static int __cpuinit krait_release_secondary_sim(unsigned long base, int cpu)
 	if (!base_ptr)
 		return -ENODEV;
 
-	if (machine_is_apq8064_sim())
-		writel_relaxed(0xf0000, base_ptr+0x04);
-
 	if (machine_is_msm8974_sim()) {
 		writel_relaxed(0x800, base_ptr+0x04);
 		writel_relaxed(0x3FFF, base_ptr+0x14);
@@ -129,9 +126,6 @@ static int __cpuinit release_secondary(unsigned int cpu)
 
 	if (cpu_is_msm8x60())
 		return scorpion_release_secondary();
-
-	if (machine_is_apq8064_sim())
-		return krait_release_secondary_sim(0x02088000, cpu);
 
 	if (machine_is_msm8974_sim())
 		return krait_release_secondary_sim(0xf9088000, cpu);

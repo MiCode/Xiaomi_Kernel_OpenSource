@@ -817,18 +817,6 @@ config MSM_USE_TSIF1
 	  The two TSIF cores share the same DM configuration
 	  so they cannot be used simultaneously.
 
-config MACH_APQ8064_SIM
-	depends on ARCH_APQ8064
-	bool "APQ8064 Simulator"
-	help
-	  Support for the Qualcomm APQ8064 simulator.
-
-config MACH_APQ8064_RUMI3
-	depends on ARCH_APQ8064
-	bool "APQ8064 RUMI3"
-	help
-	  Support for the Qualcomm APQ8064 RUMI3 emulator.
-
 config MACH_APQ8064_CDP
 	depends on ARCH_APQ8064
 	bool "APQ8064 CDP"
