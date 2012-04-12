@@ -111,15 +111,15 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 						curr_vreg->reg_name);
 					goto vreg_set_voltage_fail;
 				}
-				if (curr_vreg->op_mode) {
+				if (curr_vreg->op_mode >= 0) {
 					rc = regulator_set_optimum_mode(
 						reg_ptr[i],
 						curr_vreg->op_mode);
 					if (rc < 0) {
-						pr_err("%s: %s set optimum"
-							"mode failed\n",
-							__func__,
-							curr_vreg->reg_name);
+						pr_err(
+						"%s: %s set optimum mode failed\n",
+						__func__,
+						curr_vreg->reg_name);
 						goto vreg_set_opt_mode_fail;
 					}
 				}
@@ -130,9 +130,10 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 			curr_vreg = &cam_vreg[i];
 			if (reg_ptr[i]) {
 				if (curr_vreg->type == REG_LDO) {
-					if (curr_vreg->op_mode)
+					if (curr_vreg->op_mode >= 0) {
 						regulator_set_optimum_mode(
 							reg_ptr[i], 0);
+					}
 					regulator_set_voltage(
 						reg_ptr[i], 0, curr_vreg->
 						max_voltage);

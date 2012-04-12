@@ -13,6 +13,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <mach/clk.h>
 #include <mach/board.h>
 #include <mach/camera.h>
 #include <media/msm_isp.h>
@@ -54,7 +55,7 @@
 /* Data format for unpacking purpose */
 #define	MIPI_PROTOCOL_CONTROL_DATA_FORMAT_SHFT			0x13
 /* Enable decoding of payload based on data type filed of packet hdr */
-#define	MIPI_PROTOCOL_CONTROL_DECODE_ID_BMSK			0x00000
+#define	MIPI_PROTOCOL_CONTROL_DECODE_ID_BMSK			0x40000
 /* Enable error correction on packet headers */
 #define	MIPI_PROTOCOL_CONTROL_ECC_EN_BMSK			0x20000
 
@@ -132,7 +133,7 @@
 #define MSM_AXI_QOS_SNAPSHOT 200000
 #define MSM_AXI_QOS_RECORDING 200000
 
-#define MIPI_PWR_CNTL_ENA	0x07
+#define MIPI_PWR_CNTL_EN	0x07
 #define MIPI_PWR_CNTL_DIS	0x0
 
 static int msm_csic_config(struct csic_cfg_params *cfg_params)
@@ -210,9 +211,9 @@ static int msm_csic_config(struct csic_cfg_params *cfg_params)
 		break;
 	}
 
-	msm_io_w(0xFFFFF3FF, csicbase + MIPI_INTERRUPT_MASK);
-	/*clear IRQ bits - write 1 clears the status*/
-	msm_io_w(0xFFFFF3FF, csicbase + MIPI_INTERRUPT_STATUS);
+	msm_io_w(0xF077F3C0, csicbase + MIPI_INTERRUPT_MASK);
+	/*clear IRQ bits*/
+	msm_io_w(0xF077F3C0, csicbase + MIPI_INTERRUPT_STATUS);
 
 	return rc;
 }
@@ -244,7 +245,14 @@ static int msm_csic_subdev_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static struct msm_cam_clk_info csic_clk_info[] = {
+static struct msm_cam_clk_info csic_8x_clk_info[] = {
+	{"csi_src_clk", 384000000},
+	{"csi_clk", -1},
+	{"csi_vfe_clk", -1},
+	{"csi_pclk", -1},
+};
+
+static struct msm_cam_clk_info csic_7x_clk_info[] = {
 	{"csi_clk", 400000000},
 	{"csi_vfe_clk", -1},
 	{"csi_pclk", -1},
@@ -267,12 +275,18 @@ static int msm_csic_init(struct v4l2_subdev *sd, uint32_t *csic_version)
 		return rc;
 	}
 
-	pr_info("msm_cam_clk_enable: enable csi_pclk, csi_clk, csi_vfe_clk\n");
-	rc = msm_cam_clk_enable(&csic_dev->pdev->dev, csic_clk_info,
-		csic_dev->csic_clk, ARRAY_SIZE(csic_clk_info), 1);
+	csic_dev->hw_version = CSIC_8X;
+	rc = msm_cam_clk_enable(&csic_dev->pdev->dev, csic_8x_clk_info,
+		csic_dev->csic_clk, ARRAY_SIZE(csic_8x_clk_info), 1);
 	if (rc < 0) {
-		iounmap(csic_dev->base);
-		return rc;
+		csic_dev->hw_version = CSIC_7X;
+		rc = msm_cam_clk_enable(&csic_dev->pdev->dev, csic_7x_clk_info,
+			csic_dev->csic_clk, ARRAY_SIZE(csic_7x_clk_info), 1);
+		if (rc < 0) {
+			csic_dev->hw_version = 0;
+			iounmap(csic_dev->base);
+			return rc;
+		}
 	}
 
 #if DBG_CSIC
@@ -282,20 +296,58 @@ static int msm_csic_init(struct v4l2_subdev *sd, uint32_t *csic_version)
 	return 0;
 }
 
+static void msm_csic_disable(struct v4l2_subdev *sd)
+{
+	uint32_t val;
+	struct csic_device *csic_dev;
+	csic_dev = v4l2_get_subdevdata(sd);
+
+	val = 0x0;
+	if (csic_dev->base != NULL) {
+		CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+		msm_io_w(val, csic_dev->base + MIPI_PHY_D0_CONTROL2);
+		msm_io_w(val, csic_dev->base + MIPI_PHY_D1_CONTROL2);
+		msm_io_w(val, csic_dev->base + MIPI_PHY_D2_CONTROL2);
+		msm_io_w(val, csic_dev->base + MIPI_PHY_D3_CONTROL2);
+		CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+		msm_io_w(val, csic_dev->base + MIPI_PHY_CL_CONTROL);
+		msleep(20);
+		val = msm_io_r(csic_dev->base + MIPI_PHY_D1_CONTROL);
+		val &=
+		~((0x1 << MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT)
+		|(0x1 << MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT));
+		CDBG("%s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
+		msm_io_w(val, csic_dev->base + MIPI_PHY_D1_CONTROL);
+		usleep_range(5000, 6000);
+		msm_io_w(0x0, csic_dev->base + MIPI_INTERRUPT_MASK);
+		msm_io_w(0x0, csic_dev->base + MIPI_INTERRUPT_STATUS);
+		msm_io_w(MIPI_PROTOCOL_CONTROL_SW_RST_BMSK,
+			csic_dev->base + MIPI_PROTOCOL_CONTROL);
+
+		msm_io_w(0xE400, csic_dev->base + MIPI_CAMERA_CNTL);
+	}
+}
+
 static int msm_csic_release(struct v4l2_subdev *sd)
 {
 	struct csic_device *csic_dev;
 	csic_dev = v4l2_get_subdevdata(sd);
 
+	msm_csic_disable(sd);
 #if DBG_CSIC
 	disable_irq(csic_dev->irq->start);
 #endif
 
-	pr_info("msm_cam_clk_enable: disble csi_pclk, csi_clk, csi_vfe_clk\n");
-	msm_cam_clk_enable(&csic_dev->pdev->dev, csic_clk_info,
-		csic_dev->csic_clk, ARRAY_SIZE(csic_clk_info), 0);
+	if (csic_dev->hw_version == CSIC_8X) {
+		msm_cam_clk_enable(&csic_dev->pdev->dev, csic_8x_clk_info,
+			csic_dev->csic_clk, ARRAY_SIZE(csic_8x_clk_info), 0);
+	} else if (csic_dev->hw_version == CSIC_7X) {
+		msm_cam_clk_enable(&csic_dev->pdev->dev, csic_7x_clk_info,
+			csic_dev->csic_clk, ARRAY_SIZE(csic_7x_clk_info), 0);
+	}
 
 	iounmap(csic_dev->base);
+	csic_dev->base = NULL;
 	return 0;
 }
 
@@ -365,7 +417,7 @@ static int __devinit csic_probe(struct platform_device *pdev)
 	}
 
 	rc = request_irq(new_csic_dev->irq->start, msm_csic_irq,
-			IRQF_TRIGGER_HIGH, "csic", new_csic_dev);
+		IRQF_TRIGGER_HIGH, "csic", new_csic_dev);
 	if (rc < 0) {
 		release_mem_region(new_csic_dev->mem->start,
 			resource_size(new_csic_dev->mem));
@@ -374,20 +426,6 @@ static int __devinit csic_probe(struct platform_device *pdev)
 		goto csic_no_resource;
 	}
 	disable_irq(new_csic_dev->irq->start);
-	pr_info("msm_cam_clk_enable: enable csi_pclk\n");
-	msm_cam_clk_enable(&pdev->dev, &csic_clk_info[2],
-				new_csic_dev->csic_clk, 1, 1);
-	new_csic_dev->base = ioremap(new_csic_dev->mem->start,
-		resource_size(new_csic_dev->mem));
-	if (!new_csic_dev->base) {
-		rc = -ENOMEM;
-		goto csic_no_resource;
-	}
-
-	msm_io_w(MIPI_PWR_CNTL_DIS, new_csic_dev->base + MIPI_PWR_CNTL_DIS);
-	pr_info("msm_cam_clk_enable: disable csi_pclk\n");
-	msm_cam_clk_enable(&pdev->dev, &csic_clk_info[2],
-					new_csic_dev->csic_clk, 1, 0);
 	iounmap(new_csic_dev->base);
 
 	new_csic_dev->pdev = pdev;
