@@ -414,6 +414,10 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 			"spi_qsd.1", NULL),
 	OF_DEV_AUXDATA("qcom,spmi-pmic-arb", 0xFC4C0000, \
 			"spmi-pmic-arb.0", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF980B000, \
+			"msm_sdcc.1", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF984B000, \
+			"msm_sdcc.3", NULL),
 	{}
 };
 
