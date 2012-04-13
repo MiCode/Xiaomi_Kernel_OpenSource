@@ -116,10 +116,6 @@ static int rpm_clk_set_rate(struct clk *clk, unsigned long rate)
 
 	spin_lock_irqsave(&rpm_clock_lock, flags);
 
-	/* Ignore duplicate requests. */
-	if (r->last_set_khz == this_khz)
-		goto out;
-
 	/* Active-only clocks don't care what the rate is during sleep. So,
 	 * they vote for zero. */
 	if (r->active_only)

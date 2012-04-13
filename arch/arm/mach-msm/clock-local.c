@@ -464,10 +464,7 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 	if (nf->freq_hz == FREQ_END)
 		return -EINVAL;
 
-	/* Check if frequency is actually changed. */
 	cf = clk->current_freq;
-	if (nf == cf)
-		return 0;
 
 	if (clk->enabled) {
 		/* Enable source clock dependency for the new freq. */
@@ -881,9 +878,6 @@ static int cdiv_clk_set_rate(struct clk *c, unsigned long rate)
 
 	if (rate > clk->max_div)
 		return -EINVAL;
-	/* Check if frequency is actually changed. */
-	if (rate == clk->cur_div)
-		return 0;
 
 	spin_lock(&local_clock_reg_lock);
 	reg_val = readl_relaxed(clk->ns_reg);
