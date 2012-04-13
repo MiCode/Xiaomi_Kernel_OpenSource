@@ -354,4 +354,14 @@ config REGULATOR_STUB
 	  when the real hardware based implementation may not be yet available.
 	  Clients can use the real regulator device names with proper
 	  constraint checking while the real driver is being developed.
+
+config REGULATOR_QPNP
+	depends on OF_SPMI
+	depends on MSM_QPNP
+	tristate "Qualcomm QPNP regulator support"
+	help
+	  This driver supports voltage regulators in Qualcomm PMIC chips which
+	  comply with QPNP.  QPNP is a SPMI based PMIC implementation.  These
+	  chips provide several different varieties of LDO and switching
+	  regulators.  They also provide voltage switches and boost regulators.
 endif
