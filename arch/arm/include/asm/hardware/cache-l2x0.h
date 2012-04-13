@@ -104,8 +104,8 @@
 #define L2X0_ADDR_FILTER_EN		1
 
 #ifndef __ASSEMBLY__
-extern void l2x0_suspend(void);
-extern void l2x0_resume(int collapsed);
+extern void l2cc_suspend(void);
+extern void l2cc_resume(int collapsed);
 extern void l2x0_cache_sync(void);
 extern void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask);
 #if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_OF)
