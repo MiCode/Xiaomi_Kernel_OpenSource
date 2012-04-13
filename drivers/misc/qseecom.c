@@ -1,4 +1,5 @@
 
+
 /* Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
@@ -31,6 +32,7 @@
 #include <linux/types.h>
 #include <linux/clk.h>
 #include <linux/qseecom.h>
+#include <linux/freezer.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/scm.h>
@@ -438,7 +440,7 @@ static int qseecom_unregister_listener(struct qseecom_dev_handle *data)
 	spin_unlock_irqrestore(&qseecom.registered_listener_list_lock, flags);
 
 	while (atomic_read(&data->ioctl_count) > 1) {
-		if (wait_event_interruptible(data->abort_wq,
+		if (wait_event_freezable(data->abort_wq,
 				atomic_read(&data->ioctl_count) <= 1)) {
 			pr_err("Interrupted from abort\n");
 			ret = -ERESTARTSYS;
@@ -546,7 +548,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		}
 		pr_debug("waking up rcv_req_wq and "
 				"waiting for send_resp_wq\n");
-		if (wait_event_interruptible(qseecom.send_resp_wq,
+		if (wait_event_freezable(qseecom.send_resp_wq,
 				__qseecom_listener_has_sent_rsp(data))) {
 			pr_warning("Interrupted: exiting send_cmd loop\n");
 			return -ERESTARTSYS;
@@ -707,7 +709,7 @@ static int __qseecom_cleanup_app(struct qseecom_dev_handle *data)
 {
 	wake_up_all(&qseecom.send_resp_wq);
 	while (atomic_read(&data->ioctl_count) > 1) {
-		if (wait_event_interruptible(data->abort_wq,
+		if (wait_event_freezable(data->abort_wq,
 					atomic_read(&data->ioctl_count) <= 1)) {
 			pr_err("Interrupted from abort\n");
 			return -ERESTARTSYS;
@@ -784,7 +786,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 		data->abort = 1;
 		wake_up_all(&qseecom.send_resp_wq);
 		while (atomic_read(&data->ioctl_count) > 0) {
-			if (wait_event_interruptible(data->abort_wq,
+			if (wait_event_freezable(data->abort_wq,
 					atomic_read(&data->ioctl_count) <= 0)) {
 				pr_err("Interrupted from abort\n");
 				ret = -ERESTARTSYS;
@@ -872,7 +874,7 @@ static int __qseecom_send_cmd_legacy(struct qseecom_dev_handle *data,
 
 		pr_debug("waking up rcv_req_wq and "
 				"waiting for send_resp_wq\n");
-		if (wait_event_interruptible(qseecom.send_resp_wq,
+		if (wait_event_freezable(qseecom.send_resp_wq,
 				__qseecom_listener_has_sent_rsp(data))) {
 			pr_warning("qseecom Interrupted: exiting send_cmd loop\n");
 			return -ERESTARTSYS;
@@ -1080,7 +1082,7 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 
 	this_lstnr = __qseecom_find_svc(data->listener.id);
 	while (1) {
-		if (wait_event_interruptible(this_lstnr->rcv_req_wq,
+		if (wait_event_freezable(this_lstnr->rcv_req_wq,
 				__qseecom_listener_has_rcvd_req(data,
 				this_lstnr))) {
 			pr_warning("Interrupted: exiting wait_rcv_req loop\n");
