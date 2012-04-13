@@ -1241,7 +1241,20 @@ static long venc_get_qp_range(struct video_client_ctx *client_ctx,
 err:
 	return rc;
 }
-
+static long venc_set_max_perf_level(struct video_client_ctx *client_ctx,
+		int val)
+{
+	int rc = 0;
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_perf_level perf;
+	vcd_property_hdr.prop_id = VCD_REQ_PERF_LEVEL;
+	vcd_property_hdr.sz =
+		sizeof(struct vcd_property_perf_level);
+	perf.level = VCD_PERF_LEVEL2;
+	rc = vcd_set_property(client_ctx->vcd_handle,
+				&vcd_property_hdr, &perf);
+	return rc;
+}
 static long venc_set_header_mode(struct video_client_ctx *client_ctx,
 		__s32 mode)
 {
@@ -1878,6 +1891,9 @@ static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE:
 		rc = venc_set_multislicing_mode(client_ctx, ctrl->id,
 				ctrl->value);
+		break;
+	case V4L2_CID_MPEG_QCOM_SET_PERF_LEVEL:
+		rc = venc_set_max_perf_level(client_ctx, ctrl->value);
 		break;
 	default:
 		WFD_MSG_ERR("Set property not suported: %d\n", ctrl->id);

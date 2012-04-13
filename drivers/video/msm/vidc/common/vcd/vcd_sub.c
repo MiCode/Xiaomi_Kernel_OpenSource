@@ -17,7 +17,6 @@
 #include "vcd.h"
 #include "vdec_internal.h"
 
-
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MAP_TABLE_SZ 64
 
@@ -2920,6 +2919,30 @@ u32 vcd_set_frame_rate(
 				  rc);
 	}
 	rc = vcd_sched_update_config(cctxt);
+	return rc;
+}
+
+u32 vcd_req_perf_level(
+	struct vcd_clnt_ctxt *cctxt,
+	 struct vcd_property_perf_level *perf_level)
+{
+	u32 rc;
+	u32 res_trk_perf_level;
+	if (!perf_level) {
+		VCD_MSG_ERROR("Invalid parameters\n");
+		return -EINVAL;
+	}
+	res_trk_perf_level = get_res_trk_perf_level(perf_level->level);
+	if (res_trk_perf_level < 0) {
+		rc = -ENOTSUPP;
+		goto perf_level_not_supp;
+	}
+	rc = vcd_set_perf_level(cctxt->dev_ctxt, res_trk_perf_level);
+	if (!rc) {
+		cctxt->reqd_perf_lvl = res_trk_perf_level;
+		cctxt->perf_set_by_client = 1;
+	}
+perf_level_not_supp:
 	return rc;
 }
 

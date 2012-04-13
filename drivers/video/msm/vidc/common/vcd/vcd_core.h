@@ -209,6 +209,7 @@ struct vcd_clnt_ctxt {
 	u32 vcd_enable_ion;
 	struct vcd_clnt_ctxt *next;
 	u32 meta_mode;
+	int perf_set_by_client;
 };
 
 #define VCD_BUFFERPOOL_INUSE_DECREMENT(val) \

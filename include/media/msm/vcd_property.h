@@ -51,6 +51,7 @@
 #define VCD_I_DISABLE_DMX (VCD_START_BASE + 0x23)
 #define VCD_I_DISABLE_DMX_SUPPORT (VCD_START_BASE + 0x24)
 #define VCD_I_ENABLE_SPS_PPS_FOR_IDR (VCD_START_BASE + 0x25)
+#define VCD_REQ_PERF_LEVEL (VCD_START_BASE + 0x26)
 
 #define VCD_START_REQ      (VCD_START_BASE + 0x1000)
 #define VCD_I_REQ_IFRAME   (VCD_START_REQ + 0x1)
@@ -92,6 +93,11 @@ struct vcd_property_frame_size {
 	u32              scan_lines;
 };
 
+enum vcd_perf_level {
+	VCD_PERF_LEVEL0,
+	VCD_PERF_LEVEL1,
+	VCD_PERF_LEVEL2,
+};
 
 #define VCD_METADATA_DATANONE       0x001
 #define VCD_METADATA_QCOMFILLER     0x002
@@ -121,6 +127,10 @@ struct vcd_property_frame_rate {
 
 struct vcd_property_target_bitrate {
 	u32             target_bitrate;
+};
+
+struct vcd_property_perf_level {
+	enum vcd_perf_level level;
 };
 
 enum vcd_yuv_buffer_format {
