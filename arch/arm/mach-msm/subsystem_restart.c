@@ -48,8 +48,8 @@ struct subsys_soc_restart_order {
 struct restart_wq_data {
 	struct subsys_data *subsys;
 	struct wake_lock ssr_wake_lock;
-	char wakelockname[64];
-	int coupled;
+	char wlname[64];
+	int use_restart_order;
 	struct work_struct work;
 };
 
@@ -317,7 +317,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	int i;
 	int restart_list_count = 0;
 
-	if (r_work->coupled)
+	if (r_work->use_restart_order)
 		soc_restart_order = subsys->restart_order;
 
 	/* It's OK to not take the registration lock at this point.
@@ -441,11 +441,38 @@ out:
 	kfree(r_work);
 }
 
+static void __subsystem_restart(struct subsys_data *subsys)
+{
+	struct restart_wq_data *data = NULL;
+	int rc;
+
+	pr_debug("Restarting %s [level=%d]!\n", subsys->name,
+				restart_level);
+
+	data = kzalloc(sizeof(struct restart_wq_data), GFP_ATOMIC);
+	if (!data)
+		panic("%s: Unable to allocate memory to restart %s.",
+		      __func__, subsys->name);
+
+	data->subsys = subsys;
+
+	if (restart_level != RESET_SUBSYS_INDEPENDENT)
+		data->use_restart_order = 1;
+
+	snprintf(data->wlname, sizeof(data->wlname), "ssr(%s)", subsys->name);
+	wake_lock_init(&data->ssr_wake_lock, WAKE_LOCK_SUSPEND, data->wlname);
+	wake_lock(&data->ssr_wake_lock);
+
+	INIT_WORK(&data->work, subsystem_restart_wq_func);
+	rc = queue_work(ssr_wq, &data->work);
+	if (rc < 0)
+		panic("%s: Unable to schedule work to restart %s (%d).",
+		     __func__, subsys->name, rc);
+}
+
 int subsystem_restart(const char *subsys_name)
 {
 	struct subsys_data *subsys;
-	struct restart_wq_data *data = NULL;
-	int rc;
 
 	if (!subsys_name) {
 		pr_err("Invalid subsystem name.\n");
@@ -465,42 +492,12 @@ int subsystem_restart(const char *subsys_name)
 		return -EINVAL;
 	}
 
-	if (restart_level != RESET_SOC) {
-		data = kzalloc(sizeof(struct restart_wq_data), GFP_KERNEL);
-		if (!data) {
-			restart_level = RESET_SOC;
-			pr_warn("Failed to alloc restart data. Resetting.\n");
-		} else {
-			if (restart_level == RESET_SUBSYS_COUPLED ||
-					restart_level == RESET_SUBSYS_MIXED)
-				data->coupled = 1;
-			else
-				data->coupled = 0;
-
-			data->subsys = subsys;
-		}
-	}
-
 	switch (restart_level) {
 
 	case RESET_SUBSYS_COUPLED:
 	case RESET_SUBSYS_MIXED:
 	case RESET_SUBSYS_INDEPENDENT:
-		pr_debug("Restarting %s [level=%d]!\n", subsys_name,
-				restart_level);
-
-		snprintf(data->wakelockname, sizeof(data->wakelockname),
-				"ssr(%s)", subsys_name);
-		wake_lock_init(&data->ssr_wake_lock, WAKE_LOCK_SUSPEND,
-			data->wakelockname);
-		wake_lock(&data->ssr_wake_lock);
-
-		INIT_WORK(&data->work, subsystem_restart_wq_func);
-		rc = queue_work(ssr_wq, &data->work);
-
-		if (rc < 0)
-			panic("%s: Unable to schedule work to restart %s",
-			     __func__, subsys->name);
+		__subsystem_restart(subsys);
 		break;
 
 	case RESET_SOC:
