@@ -983,7 +983,8 @@ static int get_rbatt(struct pm8921_bms_chip *chip, int soc_rbatt, int batt_temp)
 		pr_debug("RBATT = %d\n", rbatt);
 		return rbatt;
 	}
-
+	/* Convert the batt_temp to DegC from deciDegC */
+	batt_temp = batt_temp / 10;
 	scalefactor = interpolate_scalingfactor(chip, chip->rbatt_sf_lut,
 							batt_temp, soc_rbatt);
 	pr_debug("rbatt sf = %d for batt_temp = %d, soc_rbatt = %d\n",
@@ -1833,7 +1834,7 @@ static int pm8921_bms_resume(struct device *dev)
 	if (chip->rbatt_sf_lut) {
 		scalefactor = interpolate_scalingfactor(chip,
 						chip->rbatt_sf_lut,
-						chip->batt_temp_suspend,
+						chip->batt_temp_suspend / 10,
 						chip->soc_rbatt_suspend);
 		rbatt = rbatt * 100 / scalefactor;
 	}
