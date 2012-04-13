@@ -21,16 +21,16 @@
 static int msm_i2c_mux_config(struct i2c_mux_device *mux_device, uint8_t *mode)
 {
 	uint32_t val;
-	val = msm_io_r(mux_device->ctl_base);
+	val = msm_camera_io_r(mux_device->ctl_base);
 	if (*mode == MODE_DUAL) {
-		msm_io_w(val | 0x3, mux_device->ctl_base);
+		msm_camera_io_w(val | 0x3, mux_device->ctl_base);
 	} else if (*mode == MODE_L) {
-		msm_io_w(((val | 0x2) & ~(0x1)), mux_device->ctl_base);
-		val = msm_io_r(mux_device->ctl_base);
+		msm_camera_io_w(((val | 0x2) & ~(0x1)), mux_device->ctl_base);
+		val = msm_camera_io_r(mux_device->ctl_base);
 		CDBG("the camio mode config left value is %d\n", val);
 	} else {
-		msm_io_w(((val | 0x1) & ~(0x2)), mux_device->ctl_base);
-		val = msm_io_r(mux_device->ctl_base);
+		msm_camera_io_w(((val | 0x1) & ~(0x2)), mux_device->ctl_base);
+		val = msm_camera_io_r(mux_device->ctl_base);
 		CDBG("the camio mode config right value is %d\n", val);
 	}
 	return 0;
@@ -53,8 +53,8 @@ static int msm_i2c_mux_init(struct i2c_mux_device *mux_device)
 			iounmap(mux_device->ctl_base);
 			return rc;
 		}
-		val = msm_io_r(mux_device->rw_base);
-		msm_io_w((val | 0x200), mux_device->rw_base);
+		val = msm_camera_io_r(mux_device->rw_base);
+		msm_camera_io_w((val | 0x200), mux_device->rw_base);
 	}
 	mux_device->use_count++;
 	return 0;
@@ -65,8 +65,8 @@ static int msm_i2c_mux_release(struct i2c_mux_device *mux_device)
 	int val = 0;
 	mux_device->use_count--;
 	if (mux_device->use_count == 0) {
-		val = msm_io_r(mux_device->rw_base);
-		msm_io_w((val & ~0x200), mux_device->rw_base);
+		val = msm_camera_io_r(mux_device->rw_base);
+		msm_camera_io_w((val & ~0x200), mux_device->rw_base);
 		iounmap(mux_device->rw_base);
 		iounmap(mux_device->ctl_base);
 	}

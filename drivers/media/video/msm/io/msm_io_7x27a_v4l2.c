@@ -32,19 +32,6 @@ static struct msm_camera_io_clk camio_clk;
 static int apps_reset;
 void __iomem *appbase;
 
-void msm_io_w(u32 data, void __iomem *addr)
-{
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
-	writel_relaxed((data), (addr));
-}
-
-u32 msm_io_r(void __iomem *addr)
-{
-	uint32_t data = readl_relaxed(addr);
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
-	return data;
-}
-
 void msm_camio_clk_rate_set_2(struct clk *clk, int rate)
 {
 	clk_set_rate(clk, rate);

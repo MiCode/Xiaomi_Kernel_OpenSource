@@ -48,14 +48,14 @@ static long long vpe_do_div(long long num, long long den)
 static int vpe_start(void)
 {
 	/*  enable the frame irq, bit 0 = Display list 0 ROI done */
-	msm_io_w_mb(1, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
-	msm_io_dump(vpe_ctrl->vpebase, 0x120);
-	msm_io_dump(vpe_ctrl->vpebase + 0x10000, 0x250);
-	msm_io_dump(vpe_ctrl->vpebase + 0x30000, 0x20);
-	msm_io_dump(vpe_ctrl->vpebase + 0x50000, 0x30);
-	msm_io_dump(vpe_ctrl->vpebase + 0x50400, 0x10);
+	msm_camera_io_w_mb(1, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
+	msm_camera_io_dump(vpe_ctrl->vpebase, 0x120);
+	msm_camera_io_dump(vpe_ctrl->vpebase + 0x10000, 0x250);
+	msm_camera_io_dump(vpe_ctrl->vpebase + 0x30000, 0x20);
+	msm_camera_io_dump(vpe_ctrl->vpebase + 0x50000, 0x30);
+	msm_camera_io_dump(vpe_ctrl->vpebase + 0x50400, 0x10);
 	/* this triggers the operation. */
-	msm_io_w(1, vpe_ctrl->vpebase + VPE_DL0_START_OFFSET);
+	msm_camera_io_w(1, vpe_ctrl->vpebase + VPE_DL0_START_OFFSET);
 	wmb();
 	return 0;
 }
@@ -69,15 +69,15 @@ void vpe_reset_state_variables(void)
 
 static void vpe_config_axi_default(void)
 {
-	msm_io_w(0x25, vpe_ctrl->vpebase + VPE_AXI_ARB_2_OFFSET);
+	msm_camera_io_w(0x25, vpe_ctrl->vpebase + VPE_AXI_ARB_2_OFFSET);
 	CDBG("%s: yaddr %ld cbcraddr %ld", __func__,
 		 vpe_ctrl->out_y_addr, vpe_ctrl->out_cbcr_addr);
 	if (!vpe_ctrl->out_y_addr || !vpe_ctrl->out_cbcr_addr)
 		return;
-	msm_io_w(vpe_ctrl->out_y_addr,
+	msm_camera_io_w(vpe_ctrl->out_y_addr,
 		vpe_ctrl->vpebase + VPE_OUTP0_ADDR_OFFSET);
 	/* for video  CbCr address */
-	msm_io_w(vpe_ctrl->out_cbcr_addr,
+	msm_camera_io_w(vpe_ctrl->out_cbcr_addr,
 		vpe_ctrl->vpebase + VPE_OUTP1_ADDR_OFFSET);
 
 }
@@ -88,32 +88,33 @@ static int vpe_reset(void)
 	uint32_t rc = 0;
 
 	vpe_reset_state_variables();
-	vpe_version = msm_io_r(vpe_ctrl->vpebase + VPE_HW_VERSION_OFFSET);
+	vpe_version = msm_camera_io_r(
+			vpe_ctrl->vpebase + VPE_HW_VERSION_OFFSET);
 	CDBG("vpe_version = 0x%x\n", vpe_version);
 	/* disable all interrupts.*/
-	msm_io_w(0, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
+	msm_camera_io_w(0, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
 	/* clear all pending interrupts*/
-	msm_io_w(0x1fffff, vpe_ctrl->vpebase + VPE_INTR_CLEAR_OFFSET);
+	msm_camera_io_w(0x1fffff, vpe_ctrl->vpebase + VPE_INTR_CLEAR_OFFSET);
 	/* write sw_reset to reset the core. */
-	msm_io_w(0x10, vpe_ctrl->vpebase + VPE_SW_RESET_OFFSET);
+	msm_camera_io_w(0x10, vpe_ctrl->vpebase + VPE_SW_RESET_OFFSET);
 	/* then poll the reset bit, it should be self-cleared. */
 	while (1) {
 		rc =
-		msm_io_r(vpe_ctrl->vpebase + VPE_SW_RESET_OFFSET) & 0x10;
+		msm_camera_io_r(vpe_ctrl->vpebase + VPE_SW_RESET_OFFSET) & 0x10;
 		if (rc == 0)
 			break;
 	}
 	/*  at this point, hardware is reset. Then pogram to default
 		values. */
-	msm_io_w(VPE_AXI_RD_ARB_CONFIG_VALUE,
+	msm_camera_io_w(VPE_AXI_RD_ARB_CONFIG_VALUE,
 			vpe_ctrl->vpebase + VPE_AXI_RD_ARB_CONFIG_OFFSET);
 
-	msm_io_w(VPE_CGC_ENABLE_VALUE,
+	msm_camera_io_w(VPE_CGC_ENABLE_VALUE,
 			vpe_ctrl->vpebase + VPE_CGC_EN_OFFSET);
-	msm_io_w(1, vpe_ctrl->vpebase + VPE_CMD_MODE_OFFSET);
-	msm_io_w(VPE_DEFAULT_OP_MODE_VALUE,
+	msm_camera_io_w(1, vpe_ctrl->vpebase + VPE_CMD_MODE_OFFSET);
+	msm_camera_io_w(VPE_DEFAULT_OP_MODE_VALUE,
 			vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
-	msm_io_w(VPE_DEFAULT_SCALE_CONFIG,
+	msm_camera_io_w(VPE_DEFAULT_SCALE_CONFIG,
 			vpe_ctrl->vpebase + VPE_SCALE_CONFIG_OFFSET);
 	vpe_config_axi_default();
 	return rc;
@@ -124,7 +125,7 @@ static int msm_vpe_cfg_update(void *pinfo)
 	uint32_t  rot_flag, rc = 0;
 	struct msm_pp_crop *pcrop = (struct msm_pp_crop *)pinfo;
 
-	rot_flag = msm_io_r(vpe_ctrl->vpebase +
+	rot_flag = msm_camera_io_r(vpe_ctrl->vpebase +
 						VPE_OP_MODE_OFFSET) & 0xE00;
 	if (pinfo != NULL) {
 		CDBG("%s: Crop info in2_w = %d, in2_h = %d "
@@ -144,36 +145,40 @@ void vpe_update_scale_coef(uint32_t *p)
 	uint32_t i, offset;
 	offset = *p;
 	for (i = offset; i < (VPE_SCALE_COEFF_NUM + offset); i++) {
-		msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SCALE_COEFF_LSBn(i));
-		msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SCALE_COEFF_MSBn(i));
+		msm_camera_io_w(*(++p),
+			vpe_ctrl->vpebase + VPE_SCALE_COEFF_LSBn(i));
+		msm_camera_io_w(*(++p),
+			vpe_ctrl->vpebase + VPE_SCALE_COEFF_MSBn(i));
 	}
 }
 
 void vpe_input_plane_config(uint32_t *p)
 {
-	msm_io_w(*p, vpe_ctrl->vpebase + VPE_SRC_FORMAT_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_UNPACK_PATTERN1_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_IMAGE_SIZE_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_YSTRIDE1_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_SIZE_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_XY_OFFSET);
+	msm_camera_io_w(*p, vpe_ctrl->vpebase + VPE_SRC_FORMAT_OFFSET);
+	msm_camera_io_w(*(++p),
+		vpe_ctrl->vpebase + VPE_SRC_UNPACK_PATTERN1_OFFSET);
+	msm_camera_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_IMAGE_SIZE_OFFSET);
+	msm_camera_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_YSTRIDE1_OFFSET);
+	msm_camera_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_SIZE_OFFSET);
+	msm_camera_io_w(*(++p), vpe_ctrl->vpebase + VPE_SRC_XY_OFFSET);
 }
 
 void vpe_output_plane_config(uint32_t *p)
 {
-	msm_io_w(*p, vpe_ctrl->vpebase + VPE_OUT_FORMAT_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_PACK_PATTERN1_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_YSTRIDE1_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_SIZE_OFFSET);
-	msm_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_XY_OFFSET);
+	msm_camera_io_w(*p, vpe_ctrl->vpebase + VPE_OUT_FORMAT_OFFSET);
+	msm_camera_io_w(*(++p),
+		vpe_ctrl->vpebase + VPE_OUT_PACK_PATTERN1_OFFSET);
+	msm_camera_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_YSTRIDE1_OFFSET);
+	msm_camera_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_SIZE_OFFSET);
+	msm_camera_io_w(*(++p), vpe_ctrl->vpebase + VPE_OUT_XY_OFFSET);
 }
 
 static int vpe_operation_config(uint32_t *p)
 {
 	uint32_t w, h, temp;
-	msm_io_w(*p, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
+	msm_camera_io_w(*p, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
 
-	temp = msm_io_r(vpe_ctrl->vpebase + VPE_OUT_SIZE_OFFSET);
+	temp = msm_camera_io_r(vpe_ctrl->vpebase + VPE_OUT_SIZE_OFFSET);
 	w = temp & 0xFFF;
 	h = (temp & 0xFFF0000) >> 16;
 	if (*p++ & 0xE00) {
@@ -215,8 +220,8 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	/* assumption is both direction need zoom. this can be
 	improved. */
 	temp =
-		msm_io_r(vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET) | 0x3;
-	msm_io_w(temp, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
+		msm_camera_io_r(vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET) | 0x3;
+	msm_camera_io_w(temp, vpe_ctrl->vpebase + VPE_OP_MODE_OFFSET);
 
 	src_ROI_width = pcrop->src_w;
 	src_ROI_height = pcrop->src_h;
@@ -228,7 +233,7 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 		out_ROI_height);
 	src_roi = (src_ROI_height << 16) + src_ROI_width;
 
-	msm_io_w(src_roi, vpe_ctrl->vpebase + VPE_SRC_SIZE_OFFSET);
+	msm_camera_io_w(src_roi, vpe_ctrl->vpebase + VPE_SRC_SIZE_OFFSET);
 
 	src_x = pcrop->src_x;
 	src_y = pcrop->src_y;
@@ -236,7 +241,7 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	CDBG("src_x = %d, src_y=%d.\n", src_x, src_y);
 
 	src_xy = src_y*(1<<16) + src_x;
-	msm_io_w(src_xy, vpe_ctrl->vpebase +
+	msm_camera_io_w(src_xy, vpe_ctrl->vpebase +
 			VPE_SRC_XY_OFFSET);
 	CDBG("src_xy = %d, src_roi=%d.\n", src_xy, src_roi);
 
@@ -376,15 +381,15 @@ static int vpe_update_scaler(struct msm_pp_crop *pcrop)
 	CDBG("phase init x = %d, init y = %d.\n",
 		 phase_init_x, phase_init_y);
 
-	msm_io_w(phase_step_x, vpe_ctrl->vpebase +
+	msm_camera_io_w(phase_step_x, vpe_ctrl->vpebase +
 			VPE_SCALE_PHASEX_STEP_OFFSET);
-	msm_io_w(phase_step_y, vpe_ctrl->vpebase +
+	msm_camera_io_w(phase_step_y, vpe_ctrl->vpebase +
 			VPE_SCALE_PHASEY_STEP_OFFSET);
 
-	msm_io_w(phase_init_x, vpe_ctrl->vpebase +
+	msm_camera_io_w(phase_init_x, vpe_ctrl->vpebase +
 			VPE_SCALE_PHASEX_INIT_OFFSET);
 
-	msm_io_w(phase_init_y, vpe_ctrl->vpebase +
+	msm_camera_io_w(phase_init_y, vpe_ctrl->vpebase +
 			VPE_SCALE_PHASEY_INIT_OFFSET);
 
 	return 1;
@@ -406,16 +411,16 @@ static int msm_send_frame_to_vpe(void)
 	unsigned long flags;
 
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
-	msm_io_w((vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
+	msm_camera_io_w((vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
 			  vpe_ctrl->pp_frame_info->src_frame.sp.y_off),
 			vpe_ctrl->vpebase + VPE_SRCP0_ADDR_OFFSET);
-	msm_io_w((vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
+	msm_camera_io_w((vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
 			  vpe_ctrl->pp_frame_info->src_frame.sp.cbcr_off),
 			vpe_ctrl->vpebase + VPE_SRCP1_ADDR_OFFSET);
-	msm_io_w((vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
+	msm_camera_io_w((vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
 			  vpe_ctrl->pp_frame_info->dest_frame.sp.y_off),
 			vpe_ctrl->vpebase + VPE_OUTP0_ADDR_OFFSET);
-	msm_io_w((vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
+	msm_camera_io_w((vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
 			  vpe_ctrl->pp_frame_info->dest_frame.sp.cbcr_off),
 			vpe_ctrl->vpebase + VPE_OUTP1_ADDR_OFFSET);
 	vpe_ctrl->state = VPE_STATE_ACTIVE;
@@ -457,11 +462,11 @@ DECLARE_TASKLET(vpe_tasklet, vpe_do_tasklet, 0);
 
 static irqreturn_t vpe_parse_irq(int irq_num, void *data)
 {
-	vpe_ctrl->irq_status = msm_io_r_mb(vpe_ctrl->vpebase +
+	vpe_ctrl->irq_status = msm_camera_io_r_mb(vpe_ctrl->vpebase +
 							VPE_INTR_STATUS_OFFSET);
-	msm_io_w_mb(vpe_ctrl->irq_status, vpe_ctrl->vpebase +
+	msm_camera_io_w_mb(vpe_ctrl->irq_status, vpe_ctrl->vpebase +
 				VPE_INTR_CLEAR_OFFSET);
-	msm_io_w(0, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
+	msm_camera_io_w(0, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
 	CDBG("%s: vpe_parse_irq =0x%x.\n", __func__, vpe_ctrl->irq_status);
 	tasklet_schedule(&vpe_tasklet);
 	return IRQ_HANDLED;

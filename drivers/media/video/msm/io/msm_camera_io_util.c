@@ -14,9 +14,89 @@
 #include <linux/clk.h>
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
+#include <linux/io.h>
 #include <mach/board.h>
 #include <mach/camera.h>
 #include <mach/gpiomux.h>
+
+#define BUFF_SIZE_128 128
+
+void msm_camera_io_w(u32 data, void __iomem *addr)
+{
+	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	writel_relaxed((data), (addr));
+}
+
+void msm_camera_io_w_mb(u32 data, void __iomem *addr)
+{
+	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	wmb();
+	writel_relaxed((data), (addr));
+	wmb();
+}
+
+u32 msm_camera_io_r(void __iomem *addr)
+{
+	uint32_t data = readl_relaxed(addr);
+	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	return data;
+}
+
+u32 msm_camera_io_r_mb(void __iomem *addr)
+{
+	uint32_t data;
+	rmb();
+	data = readl_relaxed(addr);
+	rmb();
+	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	return data;
+}
+
+void msm_camera_io_memcpy_toio(void __iomem *dest_addr,
+	void __iomem *src_addr, u32 len)
+{
+	int i;
+	u32 *d = (u32 *) dest_addr;
+	u32 *s = (u32 *) src_addr;
+
+	for (i = 0; i < len; i++)
+		writel_relaxed(*s++, d++);
+}
+
+void msm_camera_io_dump(void __iomem *addr, int size)
+{
+	char line_str[BUFF_SIZE_128], *p_str;
+	int i;
+	u32 *p = (u32 *) addr;
+	u32 data;
+	CDBG("%s: %p %d\n", __func__, addr, size);
+	line_str[0] = '\0';
+	p_str = line_str;
+	for (i = 0; i < size/4; i++) {
+		if (i % 4 == 0) {
+			snprintf(p_str, 12, "%08x: ", (u32) p);
+			p_str += 10;
+		}
+		data = readl_relaxed(p++);
+		snprintf(p_str, 12, "%08x ", data);
+		p_str += 9;
+		if ((i + 1) % 4 == 0) {
+			CDBG("%s\n", line_str);
+			line_str[0] = '\0';
+			p_str = line_str;
+		}
+	}
+	if (line_str[0] != '\0')
+		CDBG("%s\n", line_str);
+}
+
+void msm_camera_io_memcpy(void __iomem *dest_addr,
+	void __iomem *src_addr, u32 len)
+{
+	CDBG("%s: %p %p %d\n", __func__, dest_addr, src_addr, len);
+	msm_camera_io_memcpy_toio(dest_addr, src_addr, len / 4);
+	msm_camera_io_dump(dest_addr, len);
+}
 
 int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 		struct clk **clk_ptr, int num_clk, int enable)
