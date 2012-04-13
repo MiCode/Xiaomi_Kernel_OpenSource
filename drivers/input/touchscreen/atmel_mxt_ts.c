@@ -337,7 +337,6 @@ struct mxt_data {
 
 	u8 t7_data[T7_DATA_SIZE];
 	u16 t7_start_addr;
-	u8 t9_ctrl;
 	u32 keyarray_old;
 	u32 keyarray_new;
 	u8 t9_max_reportid;
@@ -1302,13 +1301,6 @@ static int mxt_save_objects(struct mxt_data *data)
 		return error;
 	}
 
-	error = mxt_read_object(data, MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL,
-			&data->t9_ctrl);
-	if (error < 0) {
-		dev_err(&client->dev, "Failed to save current touch object\n");
-		return error;
-	}
-
 	/* Store T9, T15's min and max report ids */
 	t9_object = mxt_get_object(data, MXT_TOUCH_MULTI_T9);
 	if (!t9_object) {
@@ -1751,13 +1743,6 @@ static int mxt_start(struct mxt_data *data)
 		return error;
 	}
 
-	error = mxt_write_object(data,
-			MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL, data->t9_ctrl);
-	if (error < 0) {
-		dev_err(&data->client->dev, "failed to restore touch\n");
-		return error;
-	}
-
 	return 0;
 }
 
@@ -1765,13 +1750,6 @@ static int mxt_stop(struct mxt_data *data)
 {
 	int error;
 	u8 t7_data[T7_DATA_SIZE] = {0};
-
-	/* disable touch and configure deep sleep mode */
-	error = mxt_write_object(data, MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL, 0);
-	if (error < 0) {
-		dev_err(&data->client->dev, "failed to disable touch\n");
-		return error;
-	}
 
 	error = __mxt_write_reg(data->client, data->t7_start_addr,
 				T7_DATA_SIZE, t7_data);
