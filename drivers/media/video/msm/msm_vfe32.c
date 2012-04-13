@@ -3056,7 +3056,7 @@ static void vfe32_process_output_path_irq_1(void)
 		ch2_paddr = vfe32_get_ch_addr(ping_pong,
 			vfe32_ctrl->outpath.out1.ch2);
 
-		pr_debug("%s ch0 = 0x%x, ch1 = 0x%x, ch2 = 0x%x\n",
+		CDBG("%s ch0 = 0x%x, ch1 = 0x%x, ch2 = 0x%x\n",
 			__func__, ch0_paddr, ch1_paddr, ch2_paddr);
 		if (free_buf) {
 			/* Y channel */
