@@ -54,6 +54,7 @@
 #include <mach/clk.h>
 #include <mach/dma.h>
 #include <mach/sdio_al.h>
+#include <mach/mpm.h>
 
 #include "msm_sdcc.h"
 #include "msm_sdcc_dml.h"
@@ -2395,6 +2396,37 @@ static u32 msmsdcc_setup_pins(struct msmsdcc_host *host, bool enable)
 	return rc;
 }
 
+static int msmsdcc_cfg_mpm_sdiowakeup(struct msmsdcc_host *host,
+				      unsigned mode)
+{
+	int ret = 0;
+	unsigned int pin = host->plat->mpm_sdiowakeup_int;
+
+	if (!pin)
+		return 0;
+
+	switch (mode) {
+	case SDC_DAT1_DISABLE:
+		ret = msm_mpm_enable_pin(pin, 0);
+		break;
+	case SDC_DAT1_ENABLE:
+		ret = msm_mpm_set_pin_type(pin, IRQ_TYPE_LEVEL_LOW);
+		ret = msm_mpm_enable_pin(pin, 1);
+		break;
+	case SDC_DAT1_ENWAKE:
+		ret = msm_mpm_set_pin_wake(pin, 1);
+		break;
+	case SDC_DAT1_DISWAKE:
+		ret = msm_mpm_set_pin_wake(pin, 0);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
 static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 {
 	u32 pwr = 0;
@@ -2415,9 +2447,7 @@ static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
 		pwr = MCI_PWR_OFF;
-		if (host->plat->cfg_mpm_sdiowakeup)
-			host->plat->cfg_mpm_sdiowakeup(
-				mmc_dev(mmc), SDC_DAT1_DISABLE);
+		msmsdcc_cfg_mpm_sdiowakeup(host, SDC_DAT1_DISABLE);
 		/*
 		 * As VDD pad rail is always on, set low voltage for VDD
 		 * pad rail when slot is unused (when card is not present
@@ -2429,9 +2459,7 @@ static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 	case MMC_POWER_UP:
 		/* writing PWR_UP bit is redundant */
 		pwr = MCI_PWR_UP;
-		if (host->plat->cfg_mpm_sdiowakeup)
-			host->plat->cfg_mpm_sdiowakeup(
-				mmc_dev(mmc), SDC_DAT1_ENABLE);
+		msmsdcc_cfg_mpm_sdiowakeup(host, SDC_DAT1_ENABLE);
 
 		msmsdcc_set_vddp_high_vol(host);
 		msmsdcc_setup_pins(host, true);
@@ -2519,9 +2547,7 @@ msmsdcc_cfg_sdio_wakeup(struct msmsdcc_host *host, bool enable_wakeup_irq)
 			writel_relaxed(MCI_SDIOINTMASK,
 					host->base + MMCIMASK0);
 			mb();
-			if (host->plat->cfg_mpm_sdiowakeup)
-				host->plat->cfg_mpm_sdiowakeup(
-					mmc_dev(mmc), SDC_DAT1_ENWAKE);
+			msmsdcc_cfg_mpm_sdiowakeup(host, SDC_DAT1_ENWAKE);
 			/* configure sdcc core interrupt as wakeup interrupt */
 			msmsdcc_enable_irq_wake(host);
 		} else {
@@ -2543,9 +2569,7 @@ msmsdcc_cfg_sdio_wakeup(struct msmsdcc_host *host, bool enable_wakeup_irq)
 			 */
 			writel_relaxed(MCI_SDIOINTMASK, host->base + MMCICLEAR);
 			msmsdcc_sync_reg_wr(host);
-			if (host->plat->cfg_mpm_sdiowakeup)
-				host->plat->cfg_mpm_sdiowakeup(
-					mmc_dev(mmc), SDC_DAT1_DISWAKE);
+			msmsdcc_cfg_mpm_sdiowakeup(host, SDC_DAT1_DISWAKE);
 			msmsdcc_disable_irq_wake(host);
 		} else if (!host->sdio_wakeupirq_disabled) {
 			disable_irq_nosync(host->plat->sdiowakeup_irq);
@@ -4642,7 +4666,7 @@ msmsdcc_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (plat->cfg_mpm_sdiowakeup) {
+	if (host->plat->mpm_sdiowakeup_int) {
 		wake_lock_init(&host->sdio_wlock, WAKE_LOCK_SUSPEND,
 				mmc_hostname(mmc));
 	}
@@ -5088,7 +5112,7 @@ msmsdcc_runtime_resume(struct device *dev)
 		 * the SDIO work will be processed.
 		 */
 		if (mmc->card && mmc_card_sdio(mmc->card)) {
-			if ((host->plat->cfg_mpm_sdiowakeup ||
+			if ((host->plat->mpm_sdiowakeup_int ||
 					host->plat->sdiowakeup_irq) &&
 					wake_lock_active(&host->sdio_wlock))
 				wake_lock_timeout(&host->sdio_wlock, 1);
