@@ -1675,11 +1675,8 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 	struct scatterlist *s;
 	unsigned long flags;
 
-	if (kgsl_ion_client == NULL) {
-		kgsl_ion_client = msm_ion_client_create(UINT_MAX, KGSL_NAME);
-		if (kgsl_ion_client == NULL)
-			return -ENODEV;
-	}
+	if (IS_ERR_OR_NULL(kgsl_ion_client))
+		return -ENODEV;
 
 	handle = ion_import_fd(kgsl_ion_client, fd);
 	if (IS_ERR_OR_NULL(handle))
@@ -2440,6 +2437,8 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 	status = kgsl_pwrctrl_init(device);
 	if (status)
 		goto error;
+
+	kgsl_ion_client = msm_ion_client_create(UINT_MAX, KGSL_NAME);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   device->iomemname);
