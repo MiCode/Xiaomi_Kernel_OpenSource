@@ -34,16 +34,20 @@ Optional properties :
 
    @direction:		indicates whether the gpio should be input, output, or
 			both.
+			QPNP_GPIO_DIR_IN   = 0,
 			QPNP_GPIO_DIR_OUT  = 1,
-			QPNP_GPIO_DIR_IN   = 2,
-			QPNP_GPIO_DIR_BOTH = 3
+			QPNP_GPIO_DIR_BOTH = 2
 
    @output_type:	indicates gpio should be configured as CMOS or open
 			drain.
-			QPNP_GPIO_OUT_BUF_OPEN_DRAIN = 1,
 			QPNP_GPIO_OUT_BUF_CMOS = 0
+			QPNP_GPIO_OUT_BUF_OPEN_DRAIN_NMOS = 1,
+			QPNP_GPIO_OUT_BUF_OPEN_DRAIN_PMOS = 2,
 
-   @output_value:	The gpio output value of the gpio line - 0 or 1
+   @invert:		Invert the signal of the gpio line -
+			QPNP_GPIO_INVERT_DISABLE = 0
+			QPNP_GPIO_INVERT_ENABLE = 1
+
    @pull:		Indicates whether a pull up or pull down should be
 			applied. If a pullup is required the current strength
 			needs to be specified. Current values of 30uA, 1.5uA,
@@ -68,9 +72,9 @@ Optional properties :
 			QPNP_GPIO_VIN7 = 7
 
   @out_strength:	the amount of current supplied for an output gpio.
-			QPNP_GPIO_OUT_STRENGTH_HIGH = 1,
+			QPNP_GPIO_OUT_STRENGTH_LOW  = 1
 			QPNP_GPIO_OUT_STRENGTH_MED  = 2,
-			QPNP_GPIO_OUT_STRENGTH_LOW  = 3
+			QPNP_GPIO_OUT_STRENGTH_HIGH = 3,
 
   @source_sel:		choose alternate function for the gpio. Certain gpios
 			can be paired (shorted) with each other. Some gpio pin
@@ -78,16 +82,17 @@ Optional properties :
 			QPNP_GPIO_FUNC_NORMAL   = 0,
 			QPNP_GPIO_FUNC_PAIRED   = 1
 			QPNP_GPIO_FUNC_1	= 2,
-			QPNP_GPIO_FUNC_3	= 3,
+			QPNP_GPIO_FUNC_2	= 3,
 			QPNP_GPIO_DTEST1	= 4,
 			QPNP_GPIO_DTEST2	= 5,
 			QPNP_GPIO_DTEST3	= 6,
 			QPNP_GPIO_DTEST4	= 7
 
-  @master_en:		1 = Enable features within the GPIO block based on
-			configurations.
-			0 = Completely disable the GPIO block and let the pin
-			float with high impedance regardless of other settings.
+  @master_en:		1 = Enable features within the
+			GPIO block based on configurations.
+			0 = Completely disable the GPIO
+			block and let the pin float with high impedance
+			regardless of other settings.
 
 [PMIC GPIO clients]
 
