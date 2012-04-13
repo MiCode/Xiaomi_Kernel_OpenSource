@@ -8368,6 +8368,7 @@ static struct mmc_platform_data msm8x60_sdc3_data = {
 	.msmsdcc_fmax	= 48000000,
 	.nonremovable	= 0,
 	.pclk_src_dfab  = 1,
+	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC3_DAT1,
 };
 #endif
 
