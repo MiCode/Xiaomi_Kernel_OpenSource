@@ -1657,6 +1657,10 @@ config ARCH_ENABLE_MEMORY_HOTPLUG
 config ARCH_ENABLE_MEMORY_HOTREMOVE
 	def_bool n
 
+config HOLES_IN_ZONE
+	def_bool n
+	depends on SPARSEMEM
+
 config FORCE_MAX_ZONEORDER
 	int "Maximum zone order" if ARCH_SHMOBILE
 	range 11 64 if ARCH_SHMOBILE
