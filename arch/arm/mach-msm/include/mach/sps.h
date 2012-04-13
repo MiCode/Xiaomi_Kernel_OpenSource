@@ -652,6 +652,7 @@ struct sps_timer_result {
  * -------------------------------------------------------------------------*/
 struct sps_pipe;	/* Forward declaration */
 
+#ifdef CONFIG_SPS
 /**
  * Register a BAM device
  *
@@ -1217,5 +1218,163 @@ int sps_setup_bam2bam_fifo(struct sps_mem_buffer *mem_buffer,
  *
  */
 int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num);
+
+#else
+static inline int sps_register_bam_device(const struct sps_bam_props
+			*bam_props, u32 *dev_handle)
+{
+	return -EPERM;
+}
+
+static inline int sps_deregister_bam_device(u32 dev_handle)
+{
+	return -EPERM;
+}
+
+static inline struct sps_pipe *sps_alloc_endpoint(void)
+{
+	return NULL;
+}
+
+static inline int sps_free_endpoint(struct sps_pipe *h)
+{
+	return -EPERM;
+}
+
+static inline int sps_get_config(struct sps_pipe *h, struct sps_connect *config)
+{
+	return -EPERM;
+}
+
+static inline int sps_alloc_mem(struct sps_pipe *h, enum sps_mem mem,
+		  struct sps_mem_buffer *mem_buffer)
+{
+	return -EPERM;
+}
+
+static inline int sps_free_mem(struct sps_pipe *h,
+				struct sps_mem_buffer *mem_buffer)
+{
+	return -EPERM;
+}
+
+static inline int sps_connect(struct sps_pipe *h, struct sps_connect *connect)
+{
+	return -EPERM;
+}
+
+static inline int sps_disconnect(struct sps_pipe *h)
+{
+	return -EPERM;
+}
+
+static inline int sps_register_event(struct sps_pipe *h,
+					struct sps_register_event *reg)
+{
+	return -EPERM;
+}
+
+static inline int sps_transfer_one(struct sps_pipe *h, u32 addr, u32 size,
+		     void *user, u32 flags)
+{
+	return -EPERM;
+}
+
+static inline int sps_get_event(struct sps_pipe *h,
+				struct sps_event_notify *event)
+{
+	return -EPERM;
+}
+
+static inline int sps_get_iovec(struct sps_pipe *h, struct sps_iovec *iovec)
+{
+	return -EPERM;
+}
+
+static inline int sps_flow_on(struct sps_pipe *h)
+{
+	return -EPERM;
+}
+
+static inline int sps_flow_off(struct sps_pipe *h, enum sps_flow_off mode)
+{
+	return -EPERM;
+}
+
+static inline int sps_transfer(struct sps_pipe *h,
+				struct sps_transfer *transfer)
+{
+	return -EPERM;
+}
+
+static inline int sps_is_pipe_empty(struct sps_pipe *h, u32 *empty)
+{
+	return -EPERM;
+}
+
+static inline int sps_device_reset(u32 dev)
+{
+	return -EPERM;
+}
+
+static inline int sps_set_config(struct sps_pipe *h, struct sps_connect *config)
+{
+	return -EPERM;
+}
+
+static inline int sps_set_owner(struct sps_pipe *h, enum sps_owner owner,
+		  struct sps_satellite *connect)
+{
+	return -EPERM;
+}
+
+static inline int sps_get_free_count(struct sps_pipe *h, u32 *count)
+{
+	return -EPERM;
+}
+
+static inline int sps_alloc_dma_chan(const struct sps_alloc_dma_chan *alloc,
+		       struct sps_dma_chan *chan)
+{
+	return -EPERM;
+}
+
+static inline int sps_free_dma_chan(struct sps_dma_chan *chan)
+{
+	return -EPERM;
+}
+
+static inline u32 sps_dma_get_bam_handle(void)
+{
+	return 0;
+}
+
+static inline void sps_dma_free_bam_handle(u32 h)
+{
+}
+
+static inline int sps_timer_ctrl(struct sps_pipe *h,
+		   struct sps_timer_ctrl *timer_ctrl,
+		   struct sps_timer_result *timer_result)
+{
+	return -EPERM;
+}
+
+static inline int sps_phy2h(u32 phys_addr, u32 *handle)
+{
+	return -EPERM;
+}
+
+static inline int sps_setup_bam2bam_fifo(struct sps_mem_buffer *mem_buffer,
+		  u32 addr, u32 size, int use_offset)
+{
+	return -EPERM;
+}
+
+static inline int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num)
+{
+	return -EPERM;
+}
+#endif
 
 #endif /* _SPS_H_ */
