@@ -39,6 +39,12 @@ struct snd_msm {
 	struct snd_pcm *pcm;
 };
 
+struct snd_msm_volume {
+	struct msm_audio *prtd;
+	unsigned volume;
+};
+static struct snd_msm_volume multi_ch_pcm_audio = {NULL, 0x2000};
+
 #define PLAYBACK_NUM_PERIODS	8
 #define PLAYBACK_PERIOD_SIZE	4032
 #define CAPTURE_NUM_PERIODS	16
@@ -303,6 +309,17 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
 	int ret = 0;
+	struct asm_softpause_params softpause = {
+		.enable = SOFT_PAUSE_ENABLE,
+		.period = SOFT_PAUSE_PERIOD,
+		.step = SOFT_PAUSE_STEP,
+		.rampingcurve = SOFT_PAUSE_CURVE_LINEAR,
+	};
+	struct asm_softvolume_params softvol = {
+		.period = SOFT_VOLUME_PERIOD,
+		.step = SOFT_VOLUME_STEP,
+		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
+	};
 
 	pr_debug("%s\n", __func__);
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
@@ -363,9 +380,45 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 
 	prtd->dsp_cnt = 0;
 	runtime->private_data = prtd;
+	pr_debug("substream->pcm->device = %d\n", substream->pcm->device);
+	pr_debug("soc_prtd->dai_link->be_id = %d\n", soc_prtd->dai_link->be_id);
+	multi_ch_pcm_audio.prtd = prtd;
+	ret = multi_ch_pcm_set_volume(multi_ch_pcm_audio.volume);
+	if (ret < 0)
+		pr_err("%s : Set Volume failed : %d", __func__, ret);
+
+	ret = q6asm_set_softpause(multi_ch_pcm_audio.prtd->audio_client,
+								 &softpause);
+	if (ret < 0)
+		pr_err("%s: Send SoftPause Param failed ret=%d\n",
+			__func__, ret);
+	ret = q6asm_set_softvolume(multi_ch_pcm_audio.prtd->audio_client,
+								 &softvol);
+	if (ret < 0)
+		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+			__func__, ret);
 
 	return 0;
 }
+
+int multi_ch_pcm_set_volume(unsigned volume)
+{
+	int rc = 0;
+	pr_err("multi_ch_pcm_set_volume\n");
+
+	if (multi_ch_pcm_audio.prtd && multi_ch_pcm_audio.prtd->audio_client) {
+		pr_err("%s q6asm_set_volume\n", __func__);
+		rc = q6asm_set_volume(multi_ch_pcm_audio.prtd->audio_client,
+								volume);
+		if (rc < 0) {
+			pr_err("%s: Send Volume command failed"
+				" rc=%d\n", __func__, rc);
+		}
+	}
+	multi_ch_pcm_audio.volume = volume;
+	return rc;
+}
+
 
 static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	snd_pcm_uframes_t hwoff, void __user *buf, snd_pcm_uframes_t frames)
@@ -447,6 +500,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 	SNDRV_PCM_STREAM_PLAYBACK);
+	multi_ch_pcm_audio.prtd = NULL;
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
 	return 0;
