@@ -555,7 +555,7 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
 	RPM_VS(LVS4, 0, 1, 0,                   "8921_s4"),
 	RPM_VS(LVS5, 0, 1, 0,                   "8921_s4"),
 	RPM_VS(LVS6, 0, 1, 0,                   "8921_s4"),
-	RPM_VS(LVS7, 1, 1, 1,                   "8921_s4"),
+	RPM_VS(LVS7, 0, 1, 1,                   "8921_s4"),
 
 	/*	ID a_on    ss min_uV   max_uV   supply     freq */
 	RPM_NCP(NCP, 0,    0, 1800000, 1800000, "8921_l6", 1p60),
