@@ -74,6 +74,7 @@
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
 
+#include <linux/smsc3503.h>
 #include <linux/ion.h>
 #include <mach/ion.h>
 #include <mach/mdm2.h>
@@ -1302,9 +1303,22 @@ static struct msm_hsic_host_platform_data msm_hsic_pdata = {
 	.strobe		= 150,
 	.data		= 151,
 };
+
+static struct smsc_hub_platform_data hsic_hub_pdata = {
+	.hub_reset		= HSIC_HUB_RESET_GPIO,
+};
 #else
 static struct msm_hsic_host_platform_data msm_hsic_pdata;
+static struct smsc_hub_platform_data hsic_hub_pdata;
 #endif
+
+static struct platform_device smsc_hub_device = {
+	.name	= "msm_smsc_hub",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &hsic_hub_pdata,
+	},
+};
 
 #define PID_MAGIC_ID		0x71432909
 #define SERIAL_NUM_MAGIC_ID	0x61945374
@@ -2651,6 +2665,17 @@ out:
 }
 EXPORT_SYMBOL(peripheral_disconnect);
 
+static void __init msm8960_init_smsc_hub(void)
+{
+	uint32_t version = socinfo_get_version();
+
+	if (SOCINFO_VERSION_MAJOR(version) == 1)
+		return;
+
+	if (machine_is_msm8960_liquid())
+		platform_device_register(&smsc_hub_device);
+}
+
 static void __init msm8960_init_hsic(void)
 {
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
@@ -2887,13 +2912,10 @@ static void __init msm8960_cdp_init(void)
 	}
 	msm_otg_pdata.swfi_latency =
 		msm_rpmrs_levels[0].latency_us;
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-	if (machine_is_msm8960_liquid()) {
-		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
-			msm_hsic_pdata.hub_reset = HSIC_HUB_RESET_GPIO;
-	}
-#endif
 	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2 &&
+					machine_is_msm8960_liquid())
+		msm_device_hsic_host.dev.parent = &smsc_hub_device.dev;
 	msm8960_init_gpiomux();
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
@@ -2923,6 +2945,7 @@ static void __init msm8960_cdp_init(void)
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8960_pm8921_gpio_mpp_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
+	msm8960_init_smsc_hub();
 	msm8960_init_hsic();
 	msm8960_init_cam();
 	msm8960_init_mmc();
