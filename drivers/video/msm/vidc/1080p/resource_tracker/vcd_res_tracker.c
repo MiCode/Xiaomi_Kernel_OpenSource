@@ -25,7 +25,7 @@
 #include "vidc.h"
 #include "vcd_res_tracker.h"
 
-#define PIL_FW_BASE_ADDR 0xafe00000
+#define PIL_FW_BASE_ADDR 0x9fe00000
 #define PIL_FW_SIZE 0x200000
 
 static unsigned int vidc_clk_table[3] = {
