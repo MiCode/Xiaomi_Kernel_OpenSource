@@ -252,6 +252,24 @@ VREG_CONSUMERS(EXT_TS_SW) = {
 	REGULATOR_SUPPLY("ext_ts_sw",		NULL),
 	REGULATOR_SUPPLY("vdd_ana",		"3-005b"),
 };
+VREG_CONSUMERS(FRC_5V) = {
+	REGULATOR_SUPPLY("frc_5v",	NULL),
+};
+VREG_CONSUMERS(AVC_1P2V) = {
+	REGULATOR_SUPPLY("avc_1p2v",	NULL),
+};
+VREG_CONSUMERS(AVC_1P8V) = {
+	REGULATOR_SUPPLY("avc_1p8v",	NULL),
+};
+VREG_CONSUMERS(AVC_2P2V) = {
+	REGULATOR_SUPPLY("avc_2p2v",	NULL),
+};
+VREG_CONSUMERS(AVC_5V) = {
+	REGULATOR_SUPPLY("avc_5v",	NULL),
+};
+VREG_CONSUMERS(AVC_3P3V) = {
+	REGULATOR_SUPPLY("avc_3p3v",	NULL),
+};
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
 			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
@@ -484,6 +502,18 @@ apq8064_gpio_regulator_pdata[] __devinitdata = {
 		  PM8921_GPIO_PM_TO_SYS(23), "ext_3p3v"),
 	GPIO_VREG(EXT_MPP8, "ext_mpp8", "ext_mpp8_en",
 			PM8921_MPP_PM_TO_SYS(8), NULL),
+};
+
+struct gpio_regulator_platform_data
+mpq8064_gpio_regulator_pdata[] __devinitdata = {
+	GPIO_VREG(FRC_5V, "frc_5v", "frc_5v_en", SX150X_GPIO(4, 10), NULL),
+	GPIO_VREG(AVC_1P2V, "avc_1p2v", "avc_1p2v_en", SX150X_GPIO(4, 2), NULL),
+	GPIO_VREG(AVC_1P8V, "avc_1p8v", "avc_1p8v_en", SX150X_GPIO(4, 4), NULL),
+	GPIO_VREG(AVC_2P2V, "avc_2p2v", "avc_2p2v_en",
+						 SX150X_GPIO(4, 14), NULL),
+	GPIO_VREG(AVC_5V, "avc_5v", "avc_5v_en", SX150X_GPIO(4, 3), NULL),
+	GPIO_VREG(AVC_3P3V, "avc_3p3v", "avc_3p3v_en",
+					SX150X_GPIO(4, 15), "avc_5v"),
 };
 
 /* SAW regulator constraints */

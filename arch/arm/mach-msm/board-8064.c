@@ -32,6 +32,7 @@
 #include <linux/i2c/isa1200.h>
 #include <linux/gpio_keys.h>
 #include <linux/epm_adc.h>
+#include <linux/i2c/sx150x.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -96,14 +97,6 @@
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
 #define MSM_ION_HEAP_NUM	1
 #endif
-
-#define GPIO_EXPANDER_IRQ_BASE	(PM8821_IRQ_BASE + PM8821_NR_IRQS)
-#define GPIO_EXPANDER_GPIO_BASE	(PM8821_MPP_BASE + PM8821_NR_MPPS)
-#define GPIO_EPM_EXPANDER_BASE	GPIO_EXPANDER_GPIO_BASE
-
-enum {
-	SX150X_EPM,
-};
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
@@ -1837,14 +1830,6 @@ static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 	},
 };
 
-static struct platform_device *mpq_devices[] __initdata = {
-	&mpq8064_device_qup_i2c_gsbi5,
-	&msm_device_sps_apq8064,
-#ifdef CONFIG_MSM_ROTATOR
-	&msm_rotator_device,
-#endif
-};
-
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
 	&apq8064_device_qup_i2c_gsbi1,
@@ -1967,6 +1952,80 @@ static struct platform_device *cdp_devices[] __initdata = {
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
+};
+
+static struct platform_device
+mpq8064_device_ext_5v_frc_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 10),
+	.dev	= {
+		.platform_data =
+			&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_FRC_5V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_1p2_buck_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 2),
+	.dev	= {
+		.platform_data =
+		 &mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_1P2V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_1p8_buck_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 4),
+	.dev	= {
+		.platform_data =
+		&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_1P8V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_2p2_buck_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 14),
+	.dev	= {
+		.platform_data =
+		&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_2P2V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_5v_buck_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 3),
+	.dev	= {
+		.platform_data =
+		 &mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_5V],
+	},
+};
+
+static struct platform_device
+mpq8064_device_ext_3p3v_ldo_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= SX150X_GPIO(4, 15),
+	.dev	= {
+		.platform_data =
+		&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_AVC_3P3V],
+	},
+};
+
+static struct platform_device *mpq_devices[] __initdata = {
+	&msm_device_sps_apq8064,
+	&mpq8064_device_qup_i2c_gsbi5,
+#ifdef CONFIG_MSM_ROTATOR
+	&msm_rotator_device,
+#endif
+	&mpq8064_device_ext_5v_frc_vreg,
+	&mpq8064_device_ext_1p2_buck_vreg,
+	&mpq8064_device_ext_1p8_buck_vreg,
+	&mpq8064_device_ext_2p2_buck_vreg,
+	&mpq8064_device_ext_5v_buck_vreg,
+	&mpq8064_device_ext_3p3v_ldo_vreg,
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
@@ -2205,6 +2264,9 @@ static void __init apq8064_clock_init(void)
 #define I2C_RUMI (1 << 2)
 #define I2C_SIM  (1 << 3)
 #define I2C_LIQUID (1 << 4)
+#define I2C_MPQ_CDP	BIT(5)
+#define I2C_MPQ_HRD	BIT(6)
+#define I2C_MPQ_DTV	BIT(7)
 
 struct i2c_registry {
 	u8                     machs;
@@ -2240,6 +2302,75 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 	},
 };
 
+struct sx150x_platform_data mpq8064_sx150x_pdata[] = {
+	[SX150X_EXP1] = {
+		.gpio_base	= SX150X_EXP1_GPIO_BASE,
+		.oscio_is_gpo	= false,
+		.io_pullup_ena	= 0x0,
+		.io_pulldn_ena	= 0x0,
+		.io_open_drain_ena = 0x0,
+		.io_polarity	= 0,
+		.irq_summary	= -1,
+	},
+	[SX150X_EXP2] = {
+		.gpio_base	= SX150X_EXP2_GPIO_BASE,
+		.oscio_is_gpo	= false,
+		.io_pullup_ena	= 0x0,
+		.io_pulldn_ena	= 0x0,
+		.io_open_drain_ena = 0x0,
+		.io_polarity	= 0,
+		.irq_summary	= -1,
+	},
+	[SX150X_EXP3] = {
+		.gpio_base	= SX150X_EXP3_GPIO_BASE,
+		.oscio_is_gpo	= false,
+		.io_pullup_ena	= 0x0,
+		.io_pulldn_ena	= 0x0,
+		.io_open_drain_ena = 0x0,
+		.io_polarity	= 0,
+		.irq_summary	= -1,
+	},
+	[SX150X_EXP4] = {
+		.gpio_base	= SX150X_EXP4_GPIO_BASE,
+		.oscio_is_gpo	= false,
+		.io_pullup_ena	= 0x0,
+		.io_pulldn_ena	= 0x0,
+		.io_open_drain_ena = 0x0,
+		.io_polarity	= 0,
+		.irq_summary	= -1,
+	},
+};
+
+static struct i2c_board_info sx150x_gpio_exp_info[] = {
+	{
+		I2C_BOARD_INFO("sx1509q", 0x70),
+		.platform_data = &mpq8064_sx150x_pdata[SX150X_EXP1],
+	},
+	{
+		I2C_BOARD_INFO("sx1508q", 0x23),
+		.platform_data = &mpq8064_sx150x_pdata[SX150X_EXP2],
+	},
+	{
+		I2C_BOARD_INFO("sx1508q", 0x22),
+		.platform_data = &mpq8064_sx150x_pdata[SX150X_EXP3],
+	},
+	{
+		I2C_BOARD_INFO("sx1509q", 0x3E),
+		.platform_data = &mpq8064_sx150x_pdata[SX150X_EXP4],
+	},
+};
+
+#define MPQ8064_I2C_GSBI5_BUS_ID	5
+
+static struct i2c_registry mpq8064_i2c_devices[] __initdata = {
+	{
+		I2C_MPQ_CDP,
+		MPQ8064_I2C_GSBI5_BUS_ID,
+		sx150x_gpio_exp_info,
+		ARRAY_SIZE(sx150x_gpio_exp_info),
+	},
+};
+
 static void __init register_i2c_devices(void)
 {
 	u8 mach_mask = 0;
@@ -2264,6 +2395,8 @@ static void __init register_i2c_devices(void)
 		mach_mask = I2C_RUMI;
 	else if (machine_is_apq8064_sim())
 		mach_mask = I2C_SIM;
+	else if (PLATFORM_IS_MPQ8064())
+		mach_mask = I2C_MPQ_CDP;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
 
@@ -2280,6 +2413,14 @@ static void __init register_i2c_devices(void)
 			apq8064_camera_i2c_devices.info,
 			apq8064_camera_i2c_devices.len);
 #endif
+
+	for (i = 0; i < ARRAY_SIZE(mpq8064_i2c_devices); ++i) {
+		if (mpq8064_i2c_devices[i].machs & mach_mask)
+			i2c_register_board_info(
+					mpq8064_i2c_devices[i].bus,
+					mpq8064_i2c_devices[i].info,
+					mpq8064_i2c_devices[i].len);
+	}
 }
 
 static void enable_ddr3_regulator(void)
@@ -2294,6 +2435,19 @@ static void enable_ddr3_regulator(void)
 		else
 			regulator_enable(ext_ddr3);
 	}
+}
+
+static void enable_avc_i2c_bus(void)
+{
+	int avc_i2c_en_mpp = PM8921_MPP_PM_TO_SYS(8);
+	int rc;
+
+	rc = gpio_request(avc_i2c_en_mpp, "avc_i2c_en");
+	if (rc)
+		pr_err("request for avc_i2c_en mpp failed,"
+						 "rc=%d\n", rc);
+	else
+		gpio_set_value_cansleep(avc_i2c_en_mpp, 1);
 }
 
 static void __init apq8064_common_init(void)
@@ -2380,6 +2534,7 @@ static void __init apq8064_cdp_init(void)
 	apq8064_common_init();
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv()) {
+		enable_avc_i2c_bus();
 		platform_add_devices(mpq_devices, ARRAY_SIZE(mpq_devices));
 	} else {
 		ethernet_init();
