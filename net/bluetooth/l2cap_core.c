@@ -7539,6 +7539,17 @@ static int l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt)
 			rsp.status = cpu_to_le16(L2CAP_CS_NO_INFO);
 			l2cap_send_cmd(conn, l2cap_pi(sk)->ident,
 					L2CAP_CONN_RSP, sizeof(rsp), &rsp);
+
+			if (!(l2cap_pi(sk)->conf_state & L2CAP_CONF_REQ_SENT) &&
+				result == L2CAP_CR_SUCCESS) {
+				char buf[128];
+				l2cap_pi(sk)->conf_state |= L2CAP_CONF_REQ_SENT;
+				l2cap_send_cmd(conn, l2cap_get_ident(conn),
+					       L2CAP_CONF_REQ,
+					       l2cap_build_conf_req(sk, buf),
+					       buf);
+				l2cap_pi(sk)->num_conf_req++;
+			}
 		}
 
 		bh_unlock_sock(sk);
