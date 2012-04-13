@@ -2870,6 +2870,7 @@ static struct clk_local_ownership {
 	OWN(ROW2, 11, "iface_clk",	usb_hs_p_clk,	"msm_otg"),
 
 	OWN(APPS3,  6, "cam_m_clk",	cam_m_clk,	NULL),
+	OWN(APPS3,  6, "cam_clk",	cam_m_clk,	"4-0020"),
 	OWN(APPS3,  6, "camif_pad_pclk", camif_pad_p_clk, NULL),
 	OWN(APPS3,  6, "iface_clk",	camif_pad_p_clk, "qup_i2c.4"),
 	OWN(APPS3, 11, "csi_clk",	csi0_clk,	NULL),
