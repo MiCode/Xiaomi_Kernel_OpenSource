@@ -1920,8 +1920,25 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
 
 			hci_proto_connect_cfm(conn, ev->status);
 			hci_conn_put(conn);
-		} else
-			hci_encrypt_cfm(conn, ev->status, ev->encrypt);
+		} else {
+			/*
+			* If the remote device does not support
+			* Pause Encryption, usually during the
+			* roleSwitch we see Encryption disable
+			* for short duration. Allow remote device
+			* to disable encryption
+			* for short duration in this case.
+			*/
+			if ((ev->encrypt == 0) && (ev->status == 0) &&
+				((conn->features[5] & LMP_PAUSE_ENC) == 0)) {
+				mod_timer(&conn->encrypt_pause_timer,
+					jiffies + msecs_to_jiffies(500));
+				BT_INFO("enc pause timer, enc_pend_flag set");
+			} else {
+				del_timer(&conn->encrypt_pause_timer);
+				hci_encrypt_cfm(conn, ev->status, ev->encrypt);
+			}
+		}
 
 		if (test_bit(HCI_MGMT, &hdev->flags))
 			mgmt_encrypt_change(hdev->id, &conn->dst, ev->status);
