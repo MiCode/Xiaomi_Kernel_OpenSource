@@ -479,9 +479,59 @@ static void __init apq8064_early_reserve(void)
 
 }
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
+/* Bandwidth requests (zero) if no vote placed */
+static struct msm_bus_vectors hsic_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_SPS,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+/* Bus bandwidth requests in Bytes/sec */
+static struct msm_bus_vectors hsic_max_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 60000000,		/* At least 480Mbps on bus. */
+		.ib = 960000000,	/* MAX bursts rate */
+	},
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_SPS,
+		.ab = 0,
+		.ib = 512000000, /*vote for 64Mhz dfab clk rate*/
+	},
+};
+
+static struct msm_bus_paths hsic_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(hsic_init_vectors),
+		hsic_init_vectors,
+	},
+	{
+		ARRAY_SIZE(hsic_max_vectors),
+		hsic_max_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata hsic_bus_scale_pdata = {
+	hsic_bus_scale_usecases,
+	ARRAY_SIZE(hsic_bus_scale_usecases),
+	.name = "hsic",
+};
+
 static struct msm_hsic_host_platform_data msm_hsic_pdata = {
-	.strobe		= 88,
-	.data		= 89,
+	.strobe			= 88,
+	.data			= 89,
+	.bus_scale_table	= &hsic_bus_scale_pdata,
 };
 #else
 static struct msm_hsic_host_platform_data msm_hsic_pdata;
