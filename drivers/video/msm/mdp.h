@@ -681,7 +681,8 @@ void mdp_vsync_resync_workqueue_handler(struct work_struct *work);
 void mdp_dma2_update(struct msm_fb_data_type *mfd);
 void mdp_vsync_cfg_regs(struct msm_fb_data_type *mfd,
 	boolean first_time);
-void mdp_config_vsync(struct msm_fb_data_type *);
+void mdp_config_vsync(struct platform_device *pdev,
+	struct msm_fb_data_type *mfd);
 uint32 mdp_get_lcd_line_counter(struct msm_fb_data_type *mfd);
 enum hrtimer_restart mdp_dma2_vsync_hrtimer_handler(struct hrtimer *ht);
 void mdp_set_scale(MDPIBUF *iBuf,

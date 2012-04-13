@@ -64,64 +64,67 @@ static struct clk *dsi_s_pclk;
 static struct clk *amp_pclk;
 int mipi_dsi_clk_on;
 
-static int cont_splash_clks_enabled;
-
-void mipi_dsi_clk_init(struct platform_device *pdev)
+int mipi_dsi_clk_init(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	struct device *dev = &pdev->dev;
 
 	mfd = platform_get_drvdata(pdev);
 
-	amp_pclk = clk_get(NULL, "amp_pclk");
-	if (IS_ERR(amp_pclk)) {
+	amp_pclk = clk_get(dev, "arb_clk");
+	if (IS_ERR_OR_NULL(amp_pclk)) {
 		pr_err("can't find amp_pclk\n");
+		amp_pclk = NULL;
 		goto mipi_dsi_clk_err;
 	}
 
-	dsi_m_pclk = clk_get(dev, "dsi_m_pclk");
-	if (IS_ERR(dsi_m_pclk)) {
+	dsi_m_pclk = clk_get(dev, "master_iface_clk");
+	if (IS_ERR_OR_NULL(dsi_m_pclk)) {
 		pr_err("can't find dsi_m_pclk\n");
+		dsi_m_pclk = NULL;
 		goto mipi_dsi_clk_err;
 	}
 
-	dsi_s_pclk = clk_get(dev, "dsi_s_pclk");
-	if (IS_ERR(dsi_s_pclk)) {
+	dsi_s_pclk = clk_get(dev, "slave_iface_clk");
+	if (IS_ERR_OR_NULL(dsi_s_pclk)) {
 		pr_err("can't find dsi_s_pclk\n");
+		dsi_s_pclk = NULL;
 		goto mipi_dsi_clk_err;
 	}
 
-	dsi_byte_div_clk = clk_get(dev, "dsi_byte_div_clk");
+	dsi_byte_div_clk = clk_get(dev, "byte_clk");
 	if (IS_ERR(dsi_byte_div_clk)) {
 		pr_err("can't find dsi_byte_div_clk\n");
+		dsi_byte_div_clk = NULL;
 		goto mipi_dsi_clk_err;
 	}
 
-	dsi_esc_clk = clk_get(dev, "dsi_esc_clk");
+	dsi_esc_clk = clk_get(dev, "esc_clk");
 	if (IS_ERR(dsi_esc_clk)) {
 		printk(KERN_ERR "can't find dsi_esc_clk\n");
+		dsi_esc_clk = NULL;
 		goto mipi_dsi_clk_err;
 	}
 
-	if (!(mfd->cont_splash_done)) {
-		clk_enable(dsi_byte_div_clk);
-		clk_enable(dsi_esc_clk);
-		cont_splash_clks_enabled = 1;
-	}
-
-	return;
+	return 0;
 
 mipi_dsi_clk_err:
-	mipi_dsi_clk_deinit(NULL);
+	mipi_dsi_clk_deinit(dev);
+	return -EPERM;
 }
 
 void mipi_dsi_clk_deinit(struct device *dev)
 {
-	clk_put(amp_pclk);
-	clk_put(dsi_m_pclk);
-	clk_put(dsi_s_pclk);
-	clk_put(dsi_byte_div_clk);
-	clk_put(dsi_esc_clk);
+	if (amp_pclk)
+		clk_put(amp_pclk);
+	if (amp_pclk)
+		clk_put(dsi_m_pclk);
+	if (dsi_s_pclk)
+		clk_put(dsi_s_pclk);
+	if (dsi_byte_div_clk)
+		clk_put(dsi_byte_div_clk);
+	if (dsi_esc_clk)
+		clk_put(dsi_esc_clk);
 }
 
 static void mipi_dsi_clk_ctrl(struct dsi_clk_desc *clk, int clk_en)
@@ -541,12 +544,17 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 		mipi_dsi_configure_serdes();
 }
 
-void cont_splash_clk_ctrl(void)
+void cont_splash_clk_ctrl(int enable)
 {
-	if (cont_splash_clks_enabled) {
-		clk_disable(dsi_byte_div_clk);
-		clk_disable(dsi_esc_clk);
-		cont_splash_clks_enabled = 0;
+	static int cont_splash_clks_enabled;
+	if (enable && !cont_splash_clks_enabled) {
+			clk_enable(dsi_byte_div_clk);
+			clk_enable(dsi_esc_clk);
+			cont_splash_clks_enabled = 1;
+	} else if (!enable && cont_splash_clks_enabled) {
+			clk_disable(dsi_byte_div_clk);
+			clk_disable(dsi_esc_clk);
+			cont_splash_clks_enabled = 0;
 	}
 }
 

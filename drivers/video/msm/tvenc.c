@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -316,7 +316,8 @@ static int tvenc_probe(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct platform_device *mdp_dev = NULL;
 	struct msm_fb_panel_data *pdata = NULL;
-	int rc;
+	int rc, ret;
+	struct clk *ebi1_clk = NULL;
 
 	if (pdev->id == 0) {
 		tvenc_base = ioremap(pdev->resource[0].start,
@@ -326,6 +327,61 @@ static int tvenc_probe(struct platform_device *pdev)
 			pr_err("tvenc_base ioremap failed!\n");
 			return -ENOMEM;
 		}
+
+		tvenc_clk = clk_get(&pdev->dev, "enc_clk");
+		tvdac_clk = clk_get(&pdev->dev, "dac_clk");
+		tvenc_pclk = clk_get(&pdev->dev, "iface_clk");
+		mdp_tv_clk = clk_get(&pdev->dev, "mdp_clk");
+
+#ifndef CONFIG_MSM_BUS_SCALING
+		ebi1_clk = clk_get(&pdev->dev, "mem_clk");
+		if (IS_ERR(ebi1_clk)) {
+			rc = PTR_ERR(ebi1_clk);
+			goto tvenc_probe_err;
+		}
+		clk_set_rate(ebi1_clk, MSM_SYSTEM_BUS_RATE);
+#endif
+
+#ifdef CONFIG_FB_MSM_MDP40
+		tv_src_clk = clk_get(&pdev->dev, "src_clk");
+		if (IS_ERR(tv_src_clk))
+			tv_src_clk = tvenc_clk; /* Fallback to slave */
+#endif
+
+		if (IS_ERR(tvenc_clk)) {
+			pr_err("%s: error: can't get tvenc_clk!\n", __func__);
+			return PTR_ERR(tvenc_clk);
+		}
+
+		if (IS_ERR(tvdac_clk)) {
+			pr_err("%s: error: can't get tvdac_clk!\n", __func__);
+			return PTR_ERR(tvdac_clk);
+		}
+
+		if (IS_ERR(tvenc_pclk)) {
+			ret = PTR_ERR(tvenc_pclk);
+			if (-ENOENT == ret)
+				pr_info("%s: tvenc_pclk does not exist!\n",
+								__func__);
+			else {
+				pr_err("%s: error: can't get tvenc_pclk!\n",
+								__func__);
+				return ret;
+			}
+		}
+
+		if (IS_ERR(mdp_tv_clk)) {
+			ret = PTR_ERR(mdp_tv_clk);
+			if (-ENOENT == ret)
+				pr_info("%s: mdp_tv_clk does not exist!\n",
+								__func__);
+			else {
+				pr_err("%s: error: can't get mdp_tv_clk!\n",
+								__func__);
+				return ret;
+			}
+		}
+
 		tvenc_pdata = pdev->dev.platform_data;
 		tvenc_resource_initialized = 1;
 		return 0;
@@ -335,6 +391,7 @@ static int tvenc_probe(struct platform_device *pdev)
 		return -EPERM;
 
 	mfd = platform_get_drvdata(pdev);
+	mfd->ebi1_clk = ebi1_clk;
 
 	if (!mfd)
 		return -ENODEV;
@@ -397,13 +454,6 @@ static int tvenc_probe(struct platform_device *pdev)
 				__func__);
 		}
 	}
-#else
-	mfd->ebi1_clk = clk_get(NULL, "ebi1_tv_clk");
-	if (IS_ERR(mfd->ebi1_clk)) {
-		rc = PTR_ERR(mfd->ebi1_clk);
-		goto tvenc_probe_err;
-	}
-	clk_set_rate(mfd->ebi1_clk, MSM_SYSTEM_BUS_RATE);
 #endif
 
 	/*
@@ -466,48 +516,6 @@ static int tvenc_register_driver(void)
 
 static int __init tvenc_driver_init(void)
 {
-	int ret;
-	tvenc_clk = clk_get(NULL, "tv_enc_clk");
-	tvdac_clk = clk_get(NULL, "tv_dac_clk");
-	tvenc_pclk = clk_get(NULL, "tv_enc_pclk");
-	mdp_tv_clk = clk_get(NULL, "mdp_tv_clk");
-
-#ifdef CONFIG_FB_MSM_MDP40
-	tv_src_clk = clk_get(NULL, "tv_src_clk");
-	if (IS_ERR(tv_src_clk))
-		tv_src_clk = tvenc_clk; /* Fallback to slave */
-#endif
-
-	if (IS_ERR(tvenc_clk)) {
-		pr_err("%s: error: can't get tvenc_clk!\n", __func__);
-		return PTR_ERR(tvenc_clk);
-	}
-
-	if (IS_ERR(tvdac_clk)) {
-		pr_err("%s: error: can't get tvdac_clk!\n", __func__);
-		return PTR_ERR(tvdac_clk);
-	}
-
-	if (IS_ERR(tvenc_pclk)) {
-		ret = PTR_ERR(tvenc_pclk);
-		if (-ENOENT == ret)
-			pr_info("%s: tvenc_pclk does not exist!\n", __func__);
-		else {
-			pr_err("%s: error: can't get tvenc_pclk!\n", __func__);
-			return ret;
-		}
-	}
-
-	if (IS_ERR(mdp_tv_clk)) {
-		ret = PTR_ERR(mdp_tv_clk);
-		if (-ENOENT == ret)
-			pr_info("%s: mdp_tv_clk does not exist!\n", __func__);
-		else {
-			pr_err("%s: error: can't get mdp_tv_clk!\n", __func__);
-			return ret;
-		}
-	}
-
 	return tvenc_register_driver();
 }
 

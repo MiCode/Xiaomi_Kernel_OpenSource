@@ -274,6 +274,12 @@ static int lvds_probe(struct platform_device *pdev)
 
 	if (pdev->id == 0) {
 		lvds_pdata = pdev->dev.platform_data;
+
+		lvds_clk = clk_get(&pdev->dev, "lvds_clk");
+		if (IS_ERR_OR_NULL(lvds_clk)) {
+			pr_err("Couldnt find lvds_clk\n");
+			lvds_clk = NULL;
+		}
 		return 0;
 	}
 
@@ -371,12 +377,6 @@ static int lvds_register_driver(void)
 
 static int __init lvds_driver_init(void)
 {
-	lvds_clk = clk_get(NULL, "lvds_clk");
-	if (IS_ERR_OR_NULL(lvds_clk)) {
-		pr_err("Couldnt find lvds_clk\n");
-		lvds_clk = NULL;
-	}
-
 	return lvds_register_driver();
 }
 
