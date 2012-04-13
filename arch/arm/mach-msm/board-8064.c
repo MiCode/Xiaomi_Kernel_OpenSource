@@ -1898,6 +1898,8 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_voice,
 	&apq_voip,
 	&apq_lpa_pcm,
+	&apq_compr_dsp,
+	&apq_multi_ch_pcm,
 	&apq_pcm_hostless,
 	&apq_cpudai_afe_01_rx,
 	&apq_cpudai_afe_01_tx,
