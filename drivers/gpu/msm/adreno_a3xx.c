@@ -19,6 +19,7 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_cffdump.h"
 #include "a3xx_reg.h"
+#include "adreno_a3xx_trace.h"
 
 /*
  * Set of registers to dump for A3XX on postmortem and snapshot.
@@ -2505,6 +2506,8 @@ static irqreturn_t a3xx_irq_handler(struct adreno_device *adreno_dev)
 
 		tmp >>= 1;
 	}
+
+	trace_kgsl_a3xx_irq_status(device, status);
 
 	if (status)
 		adreno_regwrite(&adreno_dev->dev, A3XX_RBBM_INT_CLEAR_CMD,
