@@ -2023,6 +2023,11 @@ static int msm72k_disable(struct usb_ep *_ep)
 
 	usb_ept_enable(ept, 0, 0);
 	flush_endpoint(ept);
+	/*
+	 * Clear descriptors here. Otherwise previous descriptors
+	 * will be used by function drivers upon next enumeration.
+	 */
+	_ep->desc = NULL;
 	return 0;
 }
 
