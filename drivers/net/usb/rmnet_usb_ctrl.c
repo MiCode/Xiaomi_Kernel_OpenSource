@@ -231,6 +231,12 @@ static void resp_avail_cb(struct urb *urb)
 
 	cpkt = urb->transfer_buffer;
 	cpkt_size = urb->actual_length;
+	if (!cpkt_size) {
+		dev->zlp_cnt++;
+		dev_dbg(dev->devicep, "%s: zero length pkt received\n",
+				__func__);
+		goto resubmit_int_urb;
+	}
 
 	list_elem = kmalloc(sizeof(struct ctrl_pkt_list_elem), GFP_ATOMIC);
 	if (!list_elem) {
@@ -856,6 +862,7 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 				"cbits_tolocal:            %d\n"
 				"cbits_tomdm:              %d\n"
 				"mdm_wait_timeout:         %u\n"
+				"zlp_cnt:                  %u\n"
 				"dev opened:               %s\n",
 				dev, dev->name,
 				dev->snd_encap_cmd_cnt,
@@ -866,6 +873,7 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 				dev->cbits_tolocal,
 				dev->cbits_tomdm,
 				dev->mdm_wait_timeout,
+				dev->zlp_cnt,
 				dev->is_opened ? "OPEN" : "CLOSE");
 
 	}
@@ -893,6 +901,7 @@ static ssize_t rmnet_usb_ctrl_reset_stats(struct file *file, const char __user *
 		dev->get_encap_resp_cnt = 0;
 		dev->set_ctrl_line_state_cnt = 0;
 		dev->tx_ctrl_err_cnt = 0;
+		dev->zlp_cnt = 0;
 	}
 	return count;
 }
