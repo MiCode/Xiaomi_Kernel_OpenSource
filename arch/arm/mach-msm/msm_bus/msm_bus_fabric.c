@@ -20,6 +20,7 @@
 #include <linux/clk.h>
 #include <linux/radix-tree.h>
 #include <mach/board.h>
+#include <mach/socinfo.h>
 #include "msm_bus_core.h"
 
 enum {
@@ -335,6 +336,10 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 {
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	void *sel_cdata;
+
+	/* Temporarily stub out arbitration settings for copper */
+	if (machine_is_copper())
+		return;
 
 	sel_cdata = fabric->cdata[ctx];
 
