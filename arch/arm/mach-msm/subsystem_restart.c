@@ -120,26 +120,6 @@ int get_restart_level()
 }
 EXPORT_SYMBOL(get_restart_level);
 
-static void restart_level_changed(void)
-{
-	struct subsys_data *subsys;
-
-	if (cpu_is_msm8x60() && restart_level == RESET_SUBSYS_COUPLED) {
-		restart_orders = orders_8x60_all;
-		n_restart_orders = ARRAY_SIZE(orders_8x60_all);
-	}
-
-	if (cpu_is_msm8x60() && restart_level == RESET_SUBSYS_MIXED) {
-		restart_orders = orders_8x60_modems;
-		n_restart_orders = ARRAY_SIZE(orders_8x60_modems);
-	}
-
-	mutex_lock(&subsystem_list_lock);
-	list_for_each_entry(subsys, &subsystem_list, list)
-		subsys->restart_order = _update_restart_order(subsys);
-	mutex_unlock(&subsystem_list_lock);
-}
-
 static int restart_level_set(const char *val, struct kernel_param *kp)
 {
 	int ret;
@@ -162,20 +142,12 @@ static int restart_level_set(const char *val, struct kernel_param *kp)
 		pr_info("Phase %d behavior activated.\n", restart_level);
 	break;
 
-	case RESET_SUBSYS_MIXED:
-		pr_info("Phase 2+ behavior activated.\n");
-	break;
-
 	default:
 		restart_level = old_val;
 		return -EINVAL;
 	break;
 
 	}
-
-	if (restart_level != old_val)
-		restart_level_changed();
-
 	return 0;
 }
 
@@ -495,7 +467,6 @@ int subsystem_restart(const char *subsys_name)
 	switch (restart_level) {
 
 	case RESET_SUBSYS_COUPLED:
-	case RESET_SUBSYS_MIXED:
 	case RESET_SUBSYS_INDEPENDENT:
 		__subsystem_restart(subsys);
 		break;

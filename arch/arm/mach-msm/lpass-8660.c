@@ -79,9 +79,6 @@ int subsys_q6_shutdown(const struct subsys_data *crashed_subsys)
 	pil_force_shutdown("q6");
 	disable_irq_nosync(LPASS_Q6SS_WDOG_EXPIRED);
 
-	if (get_restart_level() == RESET_SUBSYS_MIXED)
-		smsm_reset_modem(SMSM_RESET);
-
 	return 0;
 }
 
