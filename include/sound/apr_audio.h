@@ -225,7 +225,8 @@ struct afe_port_mi2s_cfg {
 				/* i2s stereo = 3 */
 	u16	ws;		/* 0, word select signal from external source */
 				/* 1, word select signal from internal source */
-	u16	reserved;
+	u16	format;	/* don't touch this field if it is not for */
+				/* AFE_PORT_CMD_I2S_CONFIG opcode */
 } __attribute__ ((packed));
 
 struct afe_port_hdmi_cfg {
@@ -298,6 +299,7 @@ struct afe_port_rtproxy_cfg {
 #define AFE_PORT_AUDIO_IF_CONFIG 0x000100d3
 #define AFE_PORT_AUDIO_SLIM_SCH_CONFIG 0x000100e4
 #define AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG	0x000100D9
+#define AFE_PORT_CMD_I2S_CONFIG	0x000100E7
 
 union afe_port_config {
 	struct afe_port_pcm_cfg           pcm;

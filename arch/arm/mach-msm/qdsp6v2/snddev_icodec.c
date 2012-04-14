@@ -367,6 +367,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	afe_config.mi2s.channel = afe_channel_mode;
 	afe_config.mi2s.bitwidth = 16;
 	afe_config.mi2s.line = 1;
+	afe_config.mi2s.format = MSM_AFE_I2S_FORMAT_LPCM;
 	if (msm_codec_i2s_slave_mode)
 		afe_config.mi2s.ws = 0;
 	else
@@ -485,6 +486,7 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	afe_config.mi2s.channel = afe_channel_mode;
 	afe_config.mi2s.bitwidth = 16;
 	afe_config.mi2s.line = 1;
+	afe_config.mi2s.format = MSM_AFE_I2S_FORMAT_LPCM;
 	if (msm_codec_i2s_slave_mode)
 		afe_config.mi2s.ws = 0;
 	else
