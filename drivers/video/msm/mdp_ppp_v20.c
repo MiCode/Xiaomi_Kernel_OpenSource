@@ -2473,6 +2473,7 @@ void mdp_set_blend_attr(MDPIBUF *iBuf,
 				*pppop_reg_ptr |= PPP_OP_ROT_ON |
 						  PPP_OP_BLEND_ON |
 						  PPP_OP_BLEND_SRCPIXEL_ALPHA;
+				outpdw(MDP_BASE + 0x70010, 0);
 			} else {
 				if ((iBuf->mdpImg.mdpOp & MDPOP_ALPHAB)
 					&& (iBuf->mdpImg.alpha == 0xff)) {
@@ -2491,6 +2492,7 @@ void mdp_set_blend_attr(MDPIBUF *iBuf,
 				if (iBuf->mdpImg.mdpOp & MDPOP_TRANSP)
 					*pppop_reg_ptr |=
 						PPP_BLEND_CALPHA_TRNASP;
+				outpdw(MDP_BASE + 0x70010, 0);
 			}
 	} else {
 		if (perPixelAlpha) {
