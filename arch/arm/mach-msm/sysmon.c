@@ -104,15 +104,16 @@ static void sysmon_notify(void *priv, unsigned int smd_event)
 	}
 }
 
+static const uint32_t ss_map[SMD_NUM_TYPE] = {
+	[SMD_APPS_MODEM]	= SYSMON_SS_MODEM,
+	[SMD_APPS_QDSP]		= SYSMON_SS_LPASS,
+	[SMD_APPS_WCNSS]	= SYSMON_SS_WCNSS,
+	[SMD_APPS_DSPS]		= SYSMON_SS_DSPS,
+	[SMD_APPS_Q6FW]		= SYSMON_SS_Q6FW,
+};
+
 static int sysmon_probe(struct platform_device *pdev)
 {
-	static const uint32_t ss_map[SMD_NUM_TYPE] = {
-		[SMD_APPS_MODEM]	= SYSMON_SS_MODEM,
-		[SMD_APPS_QDSP]		= SYSMON_SS_LPASS,
-		[SMD_APPS_WCNSS]	= SYSMON_SS_WCNSS,
-		[SMD_APPS_DSPS]		= SYSMON_SS_DSPS,
-		[SMD_APPS_Q6FW]		= SYSMON_SS_Q6FW,
-	};
 	struct sysmon_subsys *ss;
 	int ret;
 
@@ -140,7 +141,7 @@ static int sysmon_probe(struct platform_device *pdev)
 
 static int __devexit sysmon_remove(struct platform_device *pdev)
 {
-	smd_close(subsys[pdev->id].chan);
+	smd_close(subsys[ss_map[pdev->id]].chan);
 	return 0;
 }
 
