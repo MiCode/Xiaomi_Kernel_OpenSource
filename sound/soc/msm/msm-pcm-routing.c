@@ -34,9 +34,10 @@
 struct msm_pcm_routing_bdai_data {
 	u16 port_id; /* AFE port ID */
 	u8 active; /* track if this backend is enabled */
-	struct snd_pcm_hw_params *hw_params; /* to get freq and channel mode */
 	unsigned long fe_sessions; /* Front-end sessions */
 	unsigned long port_sessions; /* track Tx BE ports -> Rx BE */
+	unsigned int  sample_rate;
+	unsigned int  channel;
 };
 
 #define INVALID_SESSION -1
@@ -112,27 +113,27 @@ static void msm_send_eq_values(int eq_idx);
  * If new back-end is defined, add new back-end DAI ID at the end of enum
  */
 static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
-	{ PRIMARY_I2S_RX, 0, NULL, 0, 0},
-	{ PRIMARY_I2S_TX, 0, NULL, 0, 0},
-	{ SLIMBUS_0_RX, 0, NULL, 0, 0},
-	{ SLIMBUS_0_TX, 0, NULL, 0, 0},
-	{ HDMI_RX, 0, NULL,  0, 0},
-	{ INT_BT_SCO_RX, 0, NULL, 0, 0},
-	{ INT_BT_SCO_TX, 0, NULL, 0, 0},
-	{ INT_FM_RX, 0, NULL, 0, 0},
-	{ INT_FM_TX, 0, NULL, 0, 0},
-	{ RT_PROXY_PORT_001_RX, 0, NULL, 0, 0},
-	{ RT_PROXY_PORT_001_TX, 0, NULL, 0, 0},
-	{ PCM_RX, 0, NULL, 0, 0},
-	{ PCM_TX, 0, NULL, 0, 0},
-	{ VOICE_PLAYBACK_TX, 0, NULL, 0, 0},
-	{ VOICE_RECORD_RX, 0, NULL, 0, 0},
-	{ VOICE_RECORD_TX, 0, NULL, 0, 0},
-	{ MI2S_RX, 0, NULL, 0, 0},
-	{ SECONDARY_I2S_RX, 0, NULL, 0, 0},
-	{ SLIMBUS_1_RX, 0, NULL, 0, 0},
-	{ SLIMBUS_1_TX, 0, NULL, 0, 0},
-	{ SLIMBUS_INVALID, 0, NULL, 0, 0},
+	{ PRIMARY_I2S_RX, 0, 0, 0, 0, 0},
+	{ PRIMARY_I2S_TX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_0_RX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_0_TX, 0, 0, 0, 0, 0},
+	{ HDMI_RX, 0, 0, 0, 0, 0},
+	{ INT_BT_SCO_RX, 0, 0, 0, 0, 0},
+	{ INT_BT_SCO_TX, 0, 0, 0, 0, 0},
+	{ INT_FM_RX, 0, 0, 0, 0, 0},
+	{ INT_FM_TX, 0, 0, 0, 0, 0},
+	{ RT_PROXY_PORT_001_RX, 0, 0, 0, 0, 0},
+	{ RT_PROXY_PORT_001_TX, 0, 0, 0, 0, 0},
+	{ PCM_RX, 0, 0, 0, 0, 0},
+	{ PCM_TX, 0, 0, 0, 0, 0},
+	{ VOICE_PLAYBACK_TX, 0, 0, 0, 0, 0},
+	{ VOICE_RECORD_RX, 0, 0, 0, 0, 0},
+	{ VOICE_RECORD_TX, 0, 0, 0, 0, 0},
+	{ MI2S_RX, 0, 0, 0, 0, 0},
+	{ SECONDARY_I2S_RX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_1_RX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_1_TX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_INVALID, 0, 0, 0, 0, 0},
 };
 
 
@@ -207,20 +208,20 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 			(test_bit(fedai_id,
 			&msm_bedais[i].fe_sessions))) {
 
-			channels = params_channels(msm_bedais[i].hw_params);
+			channels = msm_bedais[i].channel;
 
 			if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
 				(channels > 2))
 				adm_multi_ch_copp_open(msm_bedais[i].port_id,
 				path_type,
-				params_rate(msm_bedais[i].hw_params),
-				channels,
+				msm_bedais[i].sample_rate,
+				msm_bedais[i].channel,
 				DEFAULT_COPP_TOPOLOGY);
 			else
 				adm_open(msm_bedais[i].port_id,
 				path_type,
-				params_rate(msm_bedais[i].hw_params),
-				params_channels(msm_bedais[i].hw_params),
+				msm_bedais[i].sample_rate,
+				msm_bedais[i].channel,
 				DEFAULT_COPP_TOPOLOGY);
 
 			payload.copp_ids[payload.num_copps++] =
@@ -317,19 +318,18 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
 
-			channels = params_channels(msm_bedais[reg].hw_params);
+			channels = msm_bedais[reg].channel;
 
 			if ((session_type == SESSION_TYPE_RX) && (channels > 2))
 				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
 				path_type,
-				params_rate(msm_bedais[reg].hw_params),
+				msm_bedais[reg].sample_rate,
 				channels,
 				DEFAULT_COPP_TOPOLOGY);
 			else
 				adm_open(msm_bedais[reg].port_id,
 				path_type,
-				params_rate(msm_bedais[reg].hw_params),
-				params_channels(msm_bedais[reg].hw_params),
+				msm_bedais[reg].sample_rate, channels,
 				DEFAULT_COPP_TOPOLOGY);
 
 			msm_pcm_routing_build_matrix(val,
@@ -1657,7 +1657,8 @@ static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	mutex_lock(&routing_lock);
-	msm_bedais[be_id].hw_params = params;
+	msm_bedais[be_id].sample_rate = params_rate(params);
+	msm_bedais[be_id].channel = params_channels(params);
 	mutex_unlock(&routing_lock);
 	return 0;
 }
@@ -1675,7 +1676,6 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	}
 
 	bedai = &msm_bedais[be_id];
-
 	session_type = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
 		0 : 1);
 
@@ -1687,8 +1687,8 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	}
 
 	bedai->active = 0;
-	bedai->hw_params = NULL;
-
+	bedai->sample_rate = 0;
+	bedai->channel = 0;
 	mutex_unlock(&routing_lock);
 
 	return 0;
@@ -1707,14 +1707,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 		return -EINVAL;
 	}
 
-
 	bedai = &msm_bedais[be_id];
-
-	if (bedai->hw_params == NULL) {
-		pr_err("%s: HW param is not configured", __func__);
-		return -EINVAL;
-	}
-
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		path_type = ADM_PATH_PLAYBACK;
@@ -1735,23 +1728,22 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	 * is started.
 	 */
 	bedai->active = 1;
-
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
 
-			channels = params_channels(bedai->hw_params);
+			channels = bedai->channel;
 			if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
 				(channels > 2))
 				adm_multi_ch_copp_open(bedai->port_id,
 				path_type,
-				params_rate(bedai->hw_params),
+				bedai->sample_rate,
 				channels,
 				DEFAULT_COPP_TOPOLOGY);
 			else
 				adm_open(bedai->port_id,
 				path_type,
-				params_rate(bedai->hw_params),
-				params_channels(bedai->hw_params),
+				bedai->sample_rate,
+				channels,
 				DEFAULT_COPP_TOPOLOGY);
 
 			msm_pcm_routing_build_matrix(i,
