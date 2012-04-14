@@ -1168,13 +1168,10 @@ static int pm_power_get_property_usb(struct power_supply *psy,
 			return 0;
 
 		/* USB charging */
-		if (psy->type == POWER_SUPPLY_TYPE_USB ||
-				psy->type == POWER_SUPPLY_TYPE_USB_DCP ||
-				psy->type == POWER_SUPPLY_TYPE_USB_CDP ||
-				psy->type == POWER_SUPPLY_TYPE_USB_ACA) {
+		if (usb_target_ma < USB_WALL_THRESHOLD_MA)
 			val->intval = is_usb_chg_plugged_in(the_chip);
-			return 0;
-		}
+		else
+		    return 0;
 		break;
 	default:
 		return -EINVAL;
