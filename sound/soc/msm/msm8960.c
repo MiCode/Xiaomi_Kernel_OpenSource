@@ -350,8 +350,8 @@ static int msm8960_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 			if (clk_users == 0) {
 				pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
-				clk_disable(codec_clk);
 				tabla_mclk_enable(codec, 0, dapm);
+				clk_disable(codec_clk);
 			}
 		} else {
 			pr_err("%s: Error releasing Tabla MCLK\n", __func__);
@@ -624,7 +624,7 @@ static void *def_tabla_mbhc_cal(void)
 #undef S
 #define S(X, Y) ((TABLA_MBHC_CAL_PLUG_TYPE_PTR(tabla_cal)->X) = (Y))
 	S(v_no_mic, 30);
-	S(v_hs_max, 1550);
+	S(v_hs_max, 2400);
 #undef S
 #define S(X, Y) ((TABLA_MBHC_CAL_BTN_DET_PTR(tabla_cal)->X) = (Y))
 	S(c[0], 62);
@@ -658,8 +658,8 @@ static void *def_tabla_mbhc_cal(void)
 	btn_low[7] = 164;
 	btn_high[7] = 250;
 	n_ready = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_READY);
-	n_ready[0] = 48;
-	n_ready[1] = 38;
+	n_ready[0] = 80;
+	n_ready[1] = 68;
 	n_cic = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_CIC);
 	n_cic[0] = 60;
 	n_cic[1] = 47;
