@@ -236,7 +236,7 @@ static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 		/* Wait for the external modem to complete
 		 * its preparation for ramdumps.
 		 */
-		mdelay(mdm_drv->pdata->ramdump_delay_ms);
+		msleep(mdm_drv->pdata->ramdump_delay_ms);
 	}
 	mdm_drv->ops->power_down_mdm_cb(mdm_drv);
 	return 0;
