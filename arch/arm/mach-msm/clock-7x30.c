@@ -2415,15 +2415,15 @@ static DEFINE_CLK_PCOM(p_axi_rotator_clk, AXI_ROTATOR_CLK,
 static DEFINE_CLK_PCOM(p_rotator_imem_clk, ROTATOR_IMEM_CLK, 0);
 static DEFINE_CLK_PCOM(p_rotator_p_clk, ROTATOR_P_CLK, 0);
 
-static DEFINE_CLK_VOTER(ebi_dtv_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_grp_3d_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_grp_2d_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_lcdc_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_mddi_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_tv_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_vcd_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_vfe_clk, &ebi1_fixed_clk.c);
-static DEFINE_CLK_VOTER(ebi_adm_clk, &ebi1_fixed_clk.c);
+static DEFINE_CLK_VOTER(ebi_dtv_clk, &ebi1_fixed_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_grp_3d_clk, &ebi1_fixed_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_grp_2d_clk, &ebi1_fixed_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_lcdc_clk, &ebi1_fixed_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_mddi_clk, &ebi1_fixed_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_tv_clk, &ebi1_fixed_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_vcd_clk, &ebi1_fixed_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_vfe_clk, &ebi1_fixed_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi_adm_clk, &ebi1_fixed_clk.c, 0);
 
 #ifdef CONFIG_DEBUG_FS
 

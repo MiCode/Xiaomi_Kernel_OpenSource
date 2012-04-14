@@ -626,6 +626,8 @@ static struct branch_clk amp_p_clk = {
 	.b = {
 		.ctl_reg = AHB_EN_REG,
 		.en_mask = BIT(24),
+		.reset_reg = SW_RESET_CORE_REG,
+		.reset_mask = BIT(20),
 		.halt_reg = DBG_BUS_VEC_F_REG,
 		.halt_bit = 18,
 	},
@@ -1956,18 +1958,6 @@ static struct branch_clk rpm_msg_ram_p_clk = {
  * Multimedia Clocks
  */
 
-static struct branch_clk amp_clk = {
-	.b = {
-		.reset_reg = SW_RESET_CORE_REG,
-		.reset_mask = BIT(20),
-	},
-	.c = {
-		.dbg_name = "amp_clk",
-		.ops = &clk_ops_reset,
-		CLK_INIT(amp_clk.c),
-	},
-};
-
 #define F_CAM(f, s, d, m, n) \
 	{ \
 		.freq_hz = f, \
@@ -3123,18 +3113,18 @@ DEFINE_CLK_RPM(sfab_clk, sfab_a_clk, SYSTEM_FABRIC, NULL);
 DEFINE_CLK_RPM(sfpb_clk, sfpb_a_clk, SFPB, NULL);
 DEFINE_CLK_RPM(smi_clk, smi_a_clk, SMI, &smi_2x_axi_clk.c);
 
-static DEFINE_CLK_VOTER(dfab_dsps_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc1_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc3_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc4_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_sdc5_clk, &dfab_clk.c);
-static DEFINE_CLK_VOTER(dfab_scm_clk, &dfab_clk.c);
+static DEFINE_CLK_VOTER(dfab_dsps_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_usb_hs_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc1_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc2_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc3_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc4_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_sdc5_clk, &dfab_clk.c, 0);
+static DEFINE_CLK_VOTER(dfab_scm_clk, &dfab_clk.c, 0);
 
-static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi1_adm0_clk,   &ebi1_clk.c);
-static DEFINE_CLK_VOTER(ebi1_adm1_clk,   &ebi1_clk.c);
+static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(ebi1_adm0_clk,   &ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi1_adm1_clk,   &ebi1_clk.c, 0);
 
 static DEFINE_CLK_MEASURE(sc0_m_clk);
 static DEFINE_CLK_MEASURE(sc1_m_clk);
@@ -3607,7 +3597,6 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("iface_clk",		pmic_arb1_p_clk.c,	""),
 	CLK_LOOKUP("core_clk",		pmic_ssbi2_clk.c,	""),
 	CLK_LOOKUP("mem_clk",		rpm_msg_ram_p_clk.c,	""),
-	CLK_LOOKUP("core_clk",		amp_clk.c,		""),
 	CLK_LOOKUP("cam_clk",		cam_clk.c,		NULL),
 	CLK_LOOKUP("csi_clk",		csi0_clk.c,		NULL),
 	CLK_LOOKUP("csi_clk",		csi1_clk.c, "msm_camera_ov7692.0"),
