@@ -1633,6 +1633,7 @@ int __init msm7x2x_misc_init(void)
 static int __init msm7x27x_cache_init(void)
 {
 	int aux_ctrl = 0;
+	int pctrl = 0;
 
 	/* Way Size 010(0x2) 32KB */
 	aux_ctrl = (0x1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) | \
@@ -1643,10 +1644,22 @@ static int __init msm7x27x_cache_init(void)
 		/* Way Size 011(0x3) 64KB */
 		aux_ctrl |= (0x3 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
 			    (0x1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) | \
-			    (0x1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT);
+			    (0X1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT) | \
+			    (0x1 << L2X0_AUX_CTRL_L2_FORCE_NWA_SHIFT);
+
+		/* Write Prefetch Control settings */
+		pctrl = readl_relaxed(MSM_L2CC_BASE + L2X0_PREFETCH_CTRL);
+		pctrl |= (0x3 << L2X0_PREFETCH_CTRL_OFFSET_SHIFT) | \
+			 (0x1 << L2X0_PREFETCH_CTRL_WRAP8_INC_SHIFT) | \
+			 (0x1 << L2X0_PREFETCH_CTRL_WRAP8_SHIFT);
+		writel_relaxed(pctrl , MSM_L2CC_BASE + L2X0_PREFETCH_CTRL);
 	}
 
 	l2x0_init(MSM_L2CC_BASE, aux_ctrl, L2X0_AUX_CTRL_MASK);
+	if (cpu_is_msm8625()) {
+		pctrl = readl_relaxed(MSM_L2CC_BASE + L2X0_PREFETCH_CTRL);
+		pr_info("Prfetch Ctrl: 0x%08x\n", pctrl);
+	}
 
 	return 0;
 }
@@ -1687,4 +1700,3 @@ static int msm7627a_init_gpio(void)
 	return 0;
 }
 postcore_initcall(msm7627a_init_gpio);
-
