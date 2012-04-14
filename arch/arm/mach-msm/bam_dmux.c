@@ -239,6 +239,13 @@ static DEFINE_SPINLOCK(wakelock_reference_lock);
 static int wakelock_reference_count;
 static int a2_pc_disabled_wakelock_skipped;
 static int disconnect_ack;
+static LIST_HEAD(bam_other_notify_funcs);
+
+struct outside_notify_func {
+	void (*notify)(void *, int, unsigned long);
+	void *priv;
+	struct list_head list_node;
+};
 /* End A2 power collaspe */
 
 /* subsystem restart */
@@ -1377,6 +1384,8 @@ static void debug_create_multiple(const char *name, mode_t mode,
 static void notify_all(int event, unsigned long data)
 {
 	int i;
+	struct list_head *temp;
+	struct outside_notify_func *func;
 
 	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
 		if (bam_ch_is_open(i)) {
@@ -1384,6 +1393,12 @@ static void notify_all(int event, unsigned long data)
 			bam_dmux_log("%s: cid=%d, event=%d, data=%lu\n",
 					__func__, i, event, data);
 		}
+	}
+
+	__list_for_each(temp, &bam_other_notify_funcs) {
+		func = container_of(temp, struct outside_notify_func,
+								list_node);
+		func->notify(func->priv, event, data);
 	}
 }
 
@@ -1496,6 +1511,26 @@ int msm_bam_dmux_ul_power_unvote(void)
 	read_unlock(&ul_wakeup_lock);
 
 	return vote == 0;
+}
+
+int msm_bam_dmux_reg_notify(void *priv,
+			void (*notify)(void *priv, int event_type,
+						unsigned long data))
+{
+	struct outside_notify_func *func;
+
+	if (!notify)
+		return -EINVAL;
+
+	func = kmalloc(sizeof(struct outside_notify_func), GFP_KERNEL);
+	if (!func)
+		return -ENOMEM;
+
+	func->notify = notify;
+	func->priv = priv;
+	list_add(&func->list_node, &bam_other_notify_funcs);
+
+	return 0;
 }
 
 static void ul_timeout(struct work_struct *work)
