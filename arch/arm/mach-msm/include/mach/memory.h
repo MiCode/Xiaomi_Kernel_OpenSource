@@ -99,6 +99,7 @@ extern void store_ttbr0(void);
 #ifdef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
 extern unsigned long membank0_size;
 extern unsigned long membank1_start;
+void find_membank0_hole(void);
 
 #define MEMBANK0_PHYS_OFFSET PHYS_OFFSET
 #define MEMBANK0_PAGE_OFFSET PAGE_OFFSET
