@@ -2314,6 +2314,22 @@ struct platform_device msm8660_rpm_stat_device = {
 };
 #endif
 
+#define SHARED_IMEM_TZ_BASE 0x2a05f720
+static struct resource tzlog_resources[] = {
+	{
+		.start = SHARED_IMEM_TZ_BASE,
+		.end = SHARED_IMEM_TZ_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_device_tz_log = {
+	.name		= "tz_log",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(tzlog_resources),
+	.resource	= tzlog_resources,
+};
+
 #ifdef CONFIG_MSM_MPM
 static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS]  __initdata = {
 	[1] = MSM_GPIO_TO_INT(61),
