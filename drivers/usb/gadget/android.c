@@ -1613,17 +1613,37 @@ static int __devinit android_probe(struct platform_device *pdev)
 
 	dev->pdata = pdata;
 
+	android_class = class_create(THIS_MODULE, "android_usb");
+	if (IS_ERR(android_class))
+		return PTR_ERR(android_class);
+
+	ret = android_create_device(dev);
+	if (ret) {
+		pr_err("%s(): android_create_device failed\n", __func__);
+		goto err_dev;
+	}
+
 	ret = usb_composite_probe(&android_usb_driver, android_bind);
 	if (ret) {
 		pr_err("%s(): Failed to register android "
 				 "composite driver\n", __func__);
+		goto err_probe;
 	}
 
+	return ret;
+err_probe:
+	android_destroy_device(dev);
+err_dev:
+	class_destroy(android_class);
 	return ret;
 }
 
 static int android_remove(struct platform_device *pdev)
 {
+	struct android_dev *dev = _android_dev;
+
+	android_destroy_device(dev);
+	class_destroy(android_class);
 	usb_composite_unregister(&android_usb_driver);
 	return 0;
 }
@@ -1639,15 +1659,10 @@ static int __init init(void)
 	struct android_dev *dev;
 	int ret;
 
-	android_class = class_create(THIS_MODULE, "android_usb");
-	if (IS_ERR(android_class))
-		return PTR_ERR(android_class);
-
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
 		pr_err("%s(): Failed to alloc memory for android_dev\n",
 				__func__);
-		class_destroy(android_class);
 		return -ENOMEM;
 	}
 	dev->functions = supported_functions;
@@ -1655,11 +1670,6 @@ static int __init init(void)
 	INIT_WORK(&dev->work, android_work);
 	mutex_init(&dev->mutex);
 
-	ret = android_create_device(dev);
-	if (ret) {
-		pr_err("%s(): android_create_device failed\n", __func__);
-		goto err_dev;
-	}
 	_android_dev = dev;
 
 	/* Override composite driver functions */
@@ -1670,16 +1680,9 @@ static int __init init(void)
 	if (ret) {
 		pr_err("%s(): Failed to register android"
 				 "platform driver\n", __func__);
-		goto err_probe;
+		kfree(dev);
 	}
 
-	return ret;
-
-err_probe:
-	android_destroy_device(dev);
-err_dev:
-	kfree(dev);
-	class_destroy(android_class);
 	return ret;
 }
 module_init(init);
@@ -1687,9 +1690,7 @@ module_init(init);
 static void __exit cleanup(void)
 {
 	platform_driver_unregister(&android_platform_driver);
-	android_destroy_device(_android_dev);
 	kfree(_android_dev);
-	class_destroy(android_class);
 	_android_dev = NULL;
 }
 module_exit(cleanup);
