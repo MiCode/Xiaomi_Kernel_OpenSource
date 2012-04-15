@@ -129,6 +129,7 @@ config SND_SOC_MSM8960
 	select SND_SOC_WCD9304
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_SOC_MSM_QDSP6_HDMI_AUDIO
+	select SND_SOC_CS8427
 	default n
 	help
 	 To add support for SoC audio on MSM8960 and APQ8064 boards
