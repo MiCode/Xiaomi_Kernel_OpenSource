@@ -383,13 +383,13 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 		ret = regulator_set_voltage(drv->pll_supply, 1800000, 1800000);
 		if (ret) {
 			dev_err(&pdev->dev, "failed to set pll voltage\n");
-			goto err;
+			return ret;
 		}
 
 		ret = regulator_set_optimum_mode(drv->pll_supply, 100000);
 		if (ret < 0) {
 			dev_err(&pdev->dev, "failed to set pll optimum mode\n");
-			goto err;
+			return ret;
 		}
 	}
 
@@ -408,33 +408,22 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	}
 
 	drv->vreg = devm_regulator_get(&pdev->dev, "core_vdd");
-	if (IS_ERR(drv->vreg)) {
-		ret = PTR_ERR(drv->vreg);
-		goto err;
-	}
+	if (IS_ERR(drv->vreg))
+		return PTR_ERR(drv->vreg);
 
-	drv->xo = clk_get(&pdev->dev, "xo");
-	if (IS_ERR(drv->xo)) {
-		ret = PTR_ERR(drv->xo);
-		goto err;
-	}
+	drv->xo = devm_clk_get(&pdev->dev, "xo");
+	if (IS_ERR(drv->xo))
+		return PTR_ERR(drv->xo);
 
 	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil)) {
-		ret = PTR_ERR(drv->pil);
-		goto err_pil;
-	}
+	if (IS_ERR(drv->pil))
+		return PTR_ERR(drv->pil);
 	return 0;
-err_pil:
-	clk_put(drv->xo);
-err:
-	return ret;
 }
 
 static int __devexit pil_q6v4_driver_exit(struct platform_device *pdev)
 {
 	struct q6v4_data *drv = platform_get_drvdata(pdev);
-	clk_put(drv->xo);
 	msm_pil_unregister(drv->pil);
 	return 0;
 }

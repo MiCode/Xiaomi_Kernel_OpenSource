@@ -340,7 +340,7 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	if (!drv->qgic2_base)
 		return -ENOMEM;
 
-	drv->xo = clk_get(&pdev->dev, "xo");
+	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return PTR_ERR(drv->xo);
 
@@ -359,7 +359,6 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil)) {
-		clk_put(drv->xo);
 		return PTR_ERR(drv->pil);
 	}
 	return 0;
@@ -369,7 +368,6 @@ static int __devexit pil_gss_remove(struct platform_device *pdev)
 {
 	struct gss_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
-	clk_put(drv->xo);
 	return 0;
 }
 
