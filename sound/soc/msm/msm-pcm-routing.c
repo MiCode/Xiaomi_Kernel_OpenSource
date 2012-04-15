@@ -173,6 +173,46 @@ static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
 			payload.num_copps, payload.copp_ids, 0);
 }
 
+void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
+					int stream_type)
+{
+	int i, session_type, path_type, port_type;
+	u32 mode = 0;
+
+	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
+		/* bad ID assigned in machine driver */
+		pr_err("%s: bad MM ID\n", __func__);
+		return;
+	}
+
+	if (stream_type == SNDRV_PCM_STREAM_PLAYBACK) {
+		session_type = SESSION_TYPE_RX;
+		path_type = ADM_PATH_PLAYBACK;
+		port_type = MSM_AFE_PORT_TYPE_RX;
+	} else {
+		session_type = SESSION_TYPE_TX;
+		path_type = ADM_PATH_LIVE_REC;
+		port_type = MSM_AFE_PORT_TYPE_TX;
+	}
+
+	mutex_lock(&routing_lock);
+
+	fe_dai_map[fedai_id][session_type] = dspst_id;
+	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
+		if ((afe_get_port_type(msm_bedais[i].port_id) ==
+			port_type) && msm_bedais[i].active &&
+			(test_bit(fedai_id,
+			&msm_bedais[i].fe_sessions))) {
+
+			mode = afe_get_port_type(msm_bedais[i].port_id);
+			adm_connect_afe_port(mode, dspst_id,
+				msm_bedais[i].port_id);
+			break;
+		}
+	}
+	mutex_unlock(&routing_lock);
+}
+
 void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 {
 	int i, session_type, path_type, port_type;

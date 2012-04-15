@@ -1033,6 +1033,10 @@ struct asm_stream_cmd_open_read {
 #define WMA_V9       0x00010BF4
 #define AMR_WB_PLUS  0x00010BF5
 #define AC3_DECODER  0x00010BF6
+#define EAC3_DECODER 0x00010C3C
+#define DTS	0x00010D88
+#define ATRAC	0x00010D89
+#define MAT	0x00010D8A
 #define G711_ALAW_FS 0x00010BF7
 #define G711_MLAW_FS 0x00010BF8
 #define G711_PCM_FS  0x00010BF9
@@ -1059,6 +1063,16 @@ struct asm_stream_cmd_open_write {
 	u32            format;
 } __attribute__((packed));
 
+#define IEC_61937_MASK	0x00000001
+#define IEC_60958_MASK	0x00000002
+
+#define ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED	0x00010D84
+struct asm_stream_cmd_open_write_compressed {
+	struct apr_hdr hdr;
+	u32	flags;
+	u32	format;
+} __packed;
+
 #define ASM_STREAM_CMD_OPEN_READWRITE                    0x00010BCC
 
 struct asm_stream_cmd_open_read_write {
@@ -1068,6 +1082,15 @@ struct asm_stream_cmd_open_read_write {
 	u32                write_format;
 	u32                read_format;
 } __attribute__((packed));
+
+#define ADM_CMD_CONNECT_AFE_PORT 0x00010320
+
+struct adm_cmd_connect_afe_port {
+	struct apr_hdr     hdr;
+	u8	mode; /*mode represent the interface is for RX or TX*/
+	u8	session_id; /*ASM session ID*/
+	u16	afe_port_id;
+} __packed;
 
 #define ASM_STREAM_CMD_SET_ENCDEC_PARAM                  0x00010C10
 #define ASM_STREAM_CMD_GET_ENCDEC_PARAM                  0x00010C11

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <sound/soc-dsp.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
+#include <sound/pcm_params.h>
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
 #include "msm-pcm-routing.h"
@@ -34,38 +35,53 @@
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
 
-#define MSM8064_SPK_ON 1
-#define MSM8064_SPK_OFF 0
+#define MPQ8064_SPK_ON 1
+#define MPQ8064_SPK_OFF 0
 
 #define MSM_SLIM_0_RX_MAX_CHANNELS		2
 #define MSM_SLIM_0_TX_MAX_CHANNELS		4
-
-#define BTSCO_RATE_8KHZ 8000
-#define BTSCO_RATE_16KHZ 16000
 
 #define BOTTOM_SPK_AMP_POS	0x1
 #define BOTTOM_SPK_AMP_NEG	0x2
 #define TOP_SPK_AMP_POS		0x4
 #define TOP_SPK_AMP_NEG		0x8
 
-#define GPIO_AUX_PCM_DOUT 43
-#define GPIO_AUX_PCM_DIN 44
-#define GPIO_AUX_PCM_SYNC 45
-#define GPIO_AUX_PCM_CLK 46
-
 #define TABLA_EXT_CLK_RATE 12288000
 
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
 
-/* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
-enum {
-	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
-	SLIM_1_TX_1 = 146, /* BT-SCO and USB RX */
-	SLIM_2_RX_1 = 147, /* HDMI RX */
-	SLIM_3_RX_1 = 148, /* In-call recording RX */
-	SLIM_3_RX_2 = 149, /* In-call recording RX */
-	SLIM_4_TX_1 = 150, /* In-call musid delivery TX */
+#define GPIO_SEC_I2S_RX_SCK  47
+#define GPIO_SEC_I2S_RX_WS   48
+#define GPIO_SEC_I2S_RX_DOUT 49
+#define GPIO_SEC_I2S_RX_MCLK 50
+#define I2S_MCLK_RATE 1536000
+
+static struct clk *sec_i2s_rx_osr_clk;
+static struct clk *sec_i2s_rx_bit_clk;
+
+struct request_gpio {
+	unsigned gpio_no;
+	char *gpio_name;
+};
+
+static struct request_gpio sec_i2s_rx_gpio[] = {
+	{
+		.gpio_no = GPIO_SEC_I2S_RX_MCLK,
+		.gpio_name = "SEC_I2S_RX_MCLK",
+	},
+	{
+		.gpio_no = GPIO_SEC_I2S_RX_SCK,
+		.gpio_name = "SEC_I2S_RX_SCK",
+	},
+	{
+		.gpio_no = GPIO_SEC_I2S_RX_WS,
+		.gpio_name = "SEC_I2S_RX_WS",
+	},
+	{
+		.gpio_no = GPIO_SEC_I2S_RX_DOUT,
+		.gpio_name = "SEC_I2S_RX_DOUT",
+	},
 };
 
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
@@ -75,9 +91,6 @@ static int msm_ext_bottom_spk_pamp;
 static int msm_ext_top_spk_pamp;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
-
-static int msm_btsco_rate = BTSCO_RATE_8KHZ;
-static int msm_btsco_ch = 1;
 
 static struct clk *codec_clk;
 static int clk_users;
@@ -251,7 +264,7 @@ static void msm_ext_control(struct snd_soc_codec *codec)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
 	pr_debug("%s: msm_spk_control = %d", __func__, msm_spk_control);
-	if (msm_spk_control == MSM8064_SPK_ON) {
+	if (msm_spk_control == MPQ8064_SPK_ON) {
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
@@ -351,8 +364,8 @@ static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		if (!clk_users) {
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
-			tabla_mclk_enable(codec, 0, dapm);
 			clk_disable(codec_clk);
+			tabla_mclk_enable(codec, 0, dapm);
 		}
 	}
 	return 0;
@@ -396,8 +409,8 @@ static int msm_mclk_event(struct snd_soc_dapm_widget *w,
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					__func__, clk_users);
 
-			tabla_mclk_enable(w->codec, 0, true);
 			clk_disable(codec_clk);
+			tabla_mclk_enable(w->codec, 0, true);
 		}
 		break;
 	}
@@ -417,17 +430,9 @@ static const struct snd_soc_dapm_widget msm_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
+
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
-
-	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
-	SND_SOC_DAPM_MIC("Digital Mic2", NULL),
-	SND_SOC_DAPM_MIC("Digital Mic3", NULL),
-	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
-	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
-	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
-
 };
 
 static const struct snd_soc_dapm_route common_audio_map[] = {
@@ -462,57 +467,6 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"MIC BIAS1 Internal2", NULL, "ANCLeft Headset Mic"},
 
 	{"HEADPHONE", NULL, "LDO_H"},
-
-	/**
-	 * The digital Mic routes are setup considering
-	 * fluid as default device.
-	 */
-
-	/**
-	 * Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP.
-	 * Digital Mic GM5 on CDP mainboard.
-	 * Conncted to DMIC2 Input on Tabla codec.
-	 */
-	{"DMIC2", NULL, "MIC BIAS1 External"},
-	{"MIC BIAS1 External", NULL, "Digital Mic1"},
-
-	/**
-	 * Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP.
-	 * Digital Mic GM6 on CDP mainboard.
-	 * Conncted to DMIC1 Input on Tabla codec.
-	 */
-	{"DMIC1", NULL, "MIC BIAS1 External"},
-	{"MIC BIAS1 External", NULL, "Digital Mic2"},
-
-	/**
-	 * Digital Mic3. Back Bottom Digital Mic on Fluid.
-	 * Digital Mic GM1 on CDP mainboard.
-	 * Conncted to DMIC4 Input on Tabla codec.
-	 */
-	{"DMIC4", NULL, "MIC BIAS3 External"},
-	{"MIC BIAS3 External", NULL, "Digital Mic3"},
-
-	/**
-	 * Digital Mic4. Back top Digital Mic on Fluid.
-	 * Digital Mic GM2 on CDP mainboard.
-	 * Conncted to DMIC3 Input on Tabla codec.
-	 */
-	{"DMIC3", NULL, "MIC BIAS3 External"},
-	{"MIC BIAS3 External", NULL, "Digital Mic4"},
-
-	/**
-	 * Digital Mic5. Front top Digital Mic on Fluid.
-	 * Digital Mic GM3 on CDP mainboard.
-	 * Conncted to DMIC5 Input on Tabla codec.
-	 */
-	{"DMIC5", NULL, "MIC BIAS4 External"},
-	{"MIC BIAS4 External", NULL, "Digital Mic5"},
-
-	/* Tabla digital Mic6 - back bottom digital Mic on Liquid and
-	 * bottom mic on CDP. FLUID/MTP do not have dmic6 installed.
-	 */
-	{"DMIC6", NULL, "MIC BIAS4 External"},
-	{"MIC BIAS4 External", NULL, "Digital Mic6"},
 };
 
 static const char *spk_function[] = {"Off", "On"};
@@ -523,11 +477,6 @@ static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
 	SOC_ENUM_SINGLE_EXT(2, slim0_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
-};
-
-static const char *btsco_rate_text[] = {"8000", "16000"};
-static const struct soc_enum msm_btsco_enum[] = {
-		SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
 };
 
 static int msm_slim_0_rx_ch_get(struct snd_kcontrol *kcontrol,
@@ -568,34 +517,6 @@ static int msm_slim_0_tx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
-static int msm_btsco_rate_get(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	pr_debug("%s: msm_btsco_rate  = %d", __func__,
-					msm_btsco_rate);
-	ucontrol->value.integer.value[0] = msm_btsco_rate;
-	return 0;
-}
-
-static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	switch (ucontrol->value.integer.value[0]) {
-	case 0:
-		msm_btsco_rate = BTSCO_RATE_8KHZ;
-		break;
-	case 1:
-		msm_btsco_rate = BTSCO_RATE_16KHZ;
-		break;
-	default:
-		msm_btsco_rate = BTSCO_RATE_8KHZ;
-		break;
-	}
-	pr_debug("%s: msm_btsco_rate = %d\n", __func__,
-					msm_btsco_rate);
-	return 0;
-}
-
 static const struct snd_kcontrol_new tabla_msm_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm_enum[0], msm_get_spk,
 		msm_set_spk),
@@ -604,24 +525,6 @@ static const struct snd_kcontrol_new tabla_msm_controls[] = {
 	SOC_ENUM_EXT("SLIM_0_TX Channels", msm_enum[2],
 		msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
 };
-
-static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
-	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
-		msm_btsco_rate_get, msm_btsco_rate_put),
-};
-
-static int msm_btsco_init(struct snd_soc_pcm_runtime *rtd)
-{
-	int err = 0;
-	struct snd_soc_platform *platform = rtd->platform;
-
-	err = snd_soc_add_platform_controls(platform,
-			int_btsco_rate_mixer_controls,
-		ARRAY_SIZE(int_btsco_rate_mixer_controls));
-	if (err < 0)
-		return err;
-	return 0;
-}
 
 static void *def_tabla_mbhc_cal(void)
 {
@@ -756,49 +659,6 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 
 
 	}
-end:
-	return ret;
-}
-
-static int msm_stubrx_init(struct snd_soc_pcm_runtime *rtd)
-{
-	rtd->pmdown_time = 0;
-
-	return 0;
-}
-
-static int msm_slimbus_1_hw_params(struct snd_pcm_substream *substream,
-				struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	int ret = 0;
-	unsigned int rx_ch = SLIM_1_RX_1, tx_ch = SLIM_1_TX_1;
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		pr_debug("%s: APQ BT/USB TX -> SLIMBUS_1_RX -> MDM TX shared ch %d\n",
-			__func__, rx_ch);
-
-		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0, 1, &rx_ch);
-		if (ret < 0) {
-			pr_err("%s: Erorr %d setting SLIM_1 RX channel map\n",
-				__func__, ret);
-
-			goto end;
-		}
-	} else {
-		pr_debug("%s: MDM RX -> SLIMBUS_1_TX -> APQ BT/USB Rx shared ch %d\n",
-			__func__, tx_ch);
-
-		ret = snd_soc_dai_set_channel_map(cpu_dai, 1, &tx_ch, 0, 0);
-		if (ret < 0) {
-			pr_err("%s: Erorr %d setting SLIM_1 TX channel map\n",
-				__func__, ret);
-
-			goto end;
-		}
-	}
-
 end:
 	return ret;
 }
@@ -955,116 +815,11 @@ static int msm_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-static int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-					struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
-
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	rate->min = rate->max = msm_btsco_rate;
-	channels->min = channels->max = msm_btsco_ch;
-
-	return 0;
-}
-static int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
-					struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
-
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	/* PCM only supports mono output with 8khz sample rate */
-	rate->min = rate->max = 8000;
-	channels->min = channels->max = 1;
-
-	return 0;
-}
-
-static int msm_aux_pcm_get_gpios(void)
-{
-	int ret = 0;
-
-	pr_debug("%s\n", __func__);
-
-	ret = gpio_request(GPIO_AUX_PCM_DOUT, "AUX PCM DOUT");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM DOUT",
-				__func__, GPIO_AUX_PCM_DOUT);
-		goto fail_dout;
-	}
-
-	ret = gpio_request(GPIO_AUX_PCM_DIN, "AUX PCM DIN");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM DIN",
-				__func__, GPIO_AUX_PCM_DIN);
-		goto fail_din;
-	}
-
-	ret = gpio_request(GPIO_AUX_PCM_SYNC, "AUX PCM SYNC");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM SYNC",
-				__func__, GPIO_AUX_PCM_SYNC);
-		goto fail_sync;
-	}
-	ret = gpio_request(GPIO_AUX_PCM_CLK, "AUX PCM CLK");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM CLK",
-				__func__, GPIO_AUX_PCM_CLK);
-		goto fail_clk;
-	}
-
-	return 0;
-
-fail_clk:
-	gpio_free(GPIO_AUX_PCM_SYNC);
-fail_sync:
-	gpio_free(GPIO_AUX_PCM_DIN);
-fail_din:
-	gpio_free(GPIO_AUX_PCM_DOUT);
-fail_dout:
-
-	return ret;
-}
-
-static int msm_aux_pcm_free_gpios(void)
-{
-	gpio_free(GPIO_AUX_PCM_DIN);
-	gpio_free(GPIO_AUX_PCM_DOUT);
-	gpio_free(GPIO_AUX_PCM_SYNC);
-	gpio_free(GPIO_AUX_PCM_CLK);
-
-	return 0;
-}
 static int msm_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 	return 0;
-}
-
-static int msm_auxpcm_startup(struct snd_pcm_substream *substream)
-{
-	int ret = 0;
-
-	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	ret = msm_aux_pcm_get_gpios();
-	if (ret < 0) {
-		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static void msm_auxpcm_shutdown(struct snd_pcm_substream *substream)
-{
-
-	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	msm_aux_pcm_free_gpios();
 }
 
 static void msm_shutdown(struct snd_pcm_substream *substream)
@@ -1079,15 +834,128 @@ static struct snd_soc_ops msm_be_ops = {
 	.shutdown = msm_shutdown,
 };
 
-static struct snd_soc_ops msm_auxpcm_be_ops = {
-	.startup = msm_auxpcm_startup,
-	.shutdown = msm_auxpcm_shutdown,
-};
+static int mpq8064_sec_i2s_rx_free_gpios(void)
+{
+	int	i;
+	for (i = 0; i < ARRAY_SIZE(sec_i2s_rx_gpio); i++)
+		gpio_free(sec_i2s_rx_gpio[i].gpio_no);
+	return 0;
+}
 
-static struct snd_soc_ops msm_slimbus_1_be_ops = {
-	.startup = msm_startup,
-	.hw_params = msm_slimbus_1_hw_params,
-	.shutdown = msm_shutdown,
+static int mpq8064_sec_i2s_rx_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+
+	int rate = params_rate(params);
+	int bit_clk_set = 0;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		switch (params_format(params)) {
+		case SNDRV_PCM_FORMAT_S16_LE:
+			bit_clk_set = I2S_MCLK_RATE/(rate * 2 * 16);
+			clk_set_rate(sec_i2s_rx_bit_clk, bit_clk_set);
+			break;
+		case SNDRV_PCM_FORMAT_S24_LE:
+			bit_clk_set = I2S_MCLK_RATE/(rate * 2 * 24);
+			clk_set_rate(sec_i2s_rx_bit_clk, bit_clk_set);
+			break;
+		default:
+			pr_err("wrong format\n");
+			break;
+		}
+	}
+	return 0;
+}
+
+static void mpq8064_sec_i2s_rx_shutdown(struct snd_pcm_substream *substream)
+{
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (sec_i2s_rx_bit_clk) {
+			clk_disable(sec_i2s_rx_bit_clk);
+			clk_put(sec_i2s_rx_bit_clk);
+			sec_i2s_rx_bit_clk = NULL;
+		}
+		if (sec_i2s_rx_osr_clk) {
+			clk_disable(sec_i2s_rx_osr_clk);
+			clk_put(sec_i2s_rx_osr_clk);
+			sec_i2s_rx_osr_clk = NULL;
+		}
+		mpq8064_sec_i2s_rx_free_gpios();
+	}
+	pr_info("%s(): substream = %s  stream = %d\n", __func__,
+		 substream->name, substream->stream);
+}
+
+static int configure_sec_i2s_rx_gpio(void)
+{
+	int rtn;
+	int i;
+	int j;
+	for (i = 0; i < ARRAY_SIZE(sec_i2s_rx_gpio); i++) {
+		rtn = gpio_request(sec_i2s_rx_gpio[i].gpio_no,
+				sec_i2s_rx_gpio[i].gpio_name);
+		pr_debug("%s: gpio = %d, gpio name = %s, rtn = %d\n",
+				__func__,
+				sec_i2s_rx_gpio[i].gpio_no,
+				sec_i2s_rx_gpio[i].gpio_name,
+					rtn);
+		if (rtn) {
+			pr_err("%s: Failed to request gpio %d\n",
+				__func__,
+			sec_i2s_rx_gpio[i].gpio_no);
+			for (j = i; j >= 0; j--)
+				gpio_free(sec_i2s_rx_gpio[j].gpio_no);
+
+			goto err;
+		}
+	}
+err:
+	return rtn;
+}
+
+static int mpq8064_sec_i2s_rx_startup(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		configure_sec_i2s_rx_gpio();
+		sec_i2s_rx_osr_clk = clk_get(cpu_dai->dev, "osr_clk");
+		if (IS_ERR(sec_i2s_rx_osr_clk)) {
+			pr_err("Failed to get sec_i2s_rx_osr_clk\n");
+			return PTR_ERR(sec_i2s_rx_osr_clk);
+		}
+		clk_set_rate(sec_i2s_rx_osr_clk, I2S_MCLK_RATE);
+		clk_enable(sec_i2s_rx_osr_clk);
+		sec_i2s_rx_bit_clk = clk_get(cpu_dai->dev, "bit_clk");
+		if (IS_ERR(sec_i2s_rx_bit_clk)) {
+			pr_err("Failed to get sec i2s osr_clk\n");
+			clk_disable(sec_i2s_rx_osr_clk);
+			clk_put(sec_i2s_rx_osr_clk);
+			return PTR_ERR(sec_i2s_rx_bit_clk);
+		}
+		clk_set_rate(sec_i2s_rx_bit_clk, 1);
+		ret = clk_enable(sec_i2s_rx_bit_clk);
+		if (ret != 0) {
+			pr_err("Unable to enable sec i2s rx_bit_clk\n");
+			clk_put(sec_i2s_rx_bit_clk);
+			clk_disable(sec_i2s_rx_osr_clk);
+			clk_put(sec_i2s_rx_osr_clk);
+			return ret;
+		}
+		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
+		if (ret < 0)
+			pr_err("set format for codec dai failed\n");
+	}
+	pr_debug("%s: ret = %d\n", __func__, ret);
+	pr_info("%s(): substream = %s  stream = %d\n", __func__,
+		 substream->name, substream->stream);
+	return ret;
+}
+
+static struct snd_soc_ops mpq8064_sec_i2s_rx_be_ops = {
+	.startup = mpq8064_sec_i2s_rx_startup,
+	.shutdown = mpq8064_sec_i2s_rx_shutdown,
+	.hw_params = mpq8064_sec_i2s_rx_hw_params,
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -1182,6 +1050,15 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.ignore_suspend = 1,
 	},
 	{
+		.name = "MSM8960 Compr",
+		.stream_name = "COMPR",
+		.cpu_dai_name   = "MultiMedia4",
+		.platform_name  = "msm-compr-dsp",
+		.dynamic = 1,
+		.dsp_link = &lpa_fe_media,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA4,
+	},
+	{
 		.name = "Voice Stub",
 		.stream_name = "Voice Stub",
 		.cpu_dai_name = "VOICE_STUB",
@@ -1190,7 +1067,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.dsp_link = &fe_media,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
-		.be_id = MSM_FRONTEND_DAI_VOICE_STUB,
+		/* .be_id = do not care */
 	},
 	/* Backend DAI Links */
 	{
@@ -1218,29 +1095,17 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm_be_ops,
 	},
-	/* Backend BT/FM DAI Links */
 	{
-		.name = LPASS_BE_INT_BT_SCO_RX,
-		.stream_name = "Internal BT-SCO Playback",
-		.cpu_dai_name = "msm-dai-q6.12288",
+		.name = LPASS_BE_SEC_I2S_RX,
+		.stream_name = "Secondary I2S Playback",
+		.cpu_dai_name = "msm-dai-q6.4",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name	= "msm-stub-rx",
-		.init = &msm_btsco_init,
+		.codec_name     = "cs8427-spdif.5-0014",
+		.codec_dai_name = "spdif_rx",
 		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_RX,
-		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
-	},
-	{
-		.name = LPASS_BE_INT_BT_SCO_TX,
-		.stream_name = "Internal BT-SCO Capture",
-		.cpu_dai_name = "msm-dai-q6.12289",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name	= "msm-stub-tx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_TX,
-		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
+		.be_id = MSM_BACKEND_DAI_SEC_I2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &mpq8064_sec_i2s_rx_be_ops,
 	},
 	{
 		.name = LPASS_BE_INT_FM_RX,
@@ -1300,84 +1165,11 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
 	},
-	/* AUX PCM Backend DAI Links */
-	{
-		.name = LPASS_BE_AUXPCM_RX,
-		.stream_name = "AUX PCM Playback",
-		.cpu_dai_name = "msm-dai-q6.2",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
-		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
-		.ops = &msm_auxpcm_be_ops,
-	},
-	{
-		.name = LPASS_BE_AUXPCM_TX,
-		.stream_name = "AUX PCM Capture",
-		.cpu_dai_name = "msm-dai-q6.3",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
-		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
-	},
-	{
-		.name = LPASS_BE_STUB_RX,
-		.stream_name = "Stub Playback",
-		.cpu_dai_name = "msm-dai-stub",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tabla_codec",
-		.codec_dai_name = "tabla_rx2",
-		.no_pcm = 1,
-		/* .be_id = do not care */
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.init = &msm_stubrx_init,
-		.ops = &msm_be_ops,
-	},
-	{
-		.name = LPASS_BE_STUB_TX,
-		.stream_name = "Stub Capture",
-		.cpu_dai_name = "msm-dai-stub",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tabla_codec",
-		.codec_dai_name = "tabla_tx1",
-		.no_pcm = 1,
-		/* .be_id = do not care */
-		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
-		.ops = &msm_be_ops,
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_1_RX,
-		.stream_name = "Slimbus1 Playback",
-		.cpu_dai_name = "msm-dai-q6.16386",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_RX,
-		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
-		.ops = &msm_slimbus_1_be_ops,
-
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_1_TX,
-		.stream_name = "Slimbus1 Capture",
-		.cpu_dai_name = "msm-dai-q6.16387",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_TX,
-		.be_hw_params_fixup =  msm_btsco_be_hw_params_fixup,
-		.ops = &msm_slimbus_1_be_ops,
-	},
 };
 
-struct snd_soc_card snd_soc_card_msm = {
-	.name		= "apq8064-tabla-snd-card",
+
+static struct snd_soc_card snd_soc_card_msm = {
+	.name		= "mpq8064-tabla-snd-card",
 	.dai_link	= msm_dai,
 	.num_links	= ARRAY_SIZE(msm_dai),
 };
@@ -1439,7 +1231,7 @@ static int __init msm_audio_init(void)
 {
 	int ret;
 
-	if (!cpu_is_apq8064() || (socinfo_get_id() == 130)) {
+	if (socinfo_get_id() != 130) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return -ENODEV;
 	}
@@ -1478,7 +1270,7 @@ module_init(msm_audio_init);
 
 static void __exit msm_audio_exit(void)
 {
-	if (!cpu_is_apq8064() || (socinfo_get_id() == 130)) {
+	if (socinfo_get_id() != 130) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return ;
 	}
@@ -1488,5 +1280,5 @@ static void __exit msm_audio_exit(void)
 }
 module_exit(msm_audio_exit);
 
-MODULE_DESCRIPTION("ALSA SoC msm");
+MODULE_DESCRIPTION("ALSA SoC mpq8064");
 MODULE_LICENSE("GPL v2");

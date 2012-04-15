@@ -649,6 +649,16 @@ int poweron_cs8427(struct cs8427 *chip)
 	struct cs8427_platform_data *pdata = chip->client->dev.platform_data;
 	int ret = 0;
 
+	/*enable the 100KHz level shifter*/
+	if (pdata->enable) {
+		ret = pdata->enable(1);
+		if (ret < 0) {
+			dev_err(&chip->client->dev,
+				"failed to enable the level shifter\n");
+			return ret;
+		}
+	}
+
 	ret = gpio_request(pdata->reset_gpio, "cs8427 reset");
 	if (ret < 0) {
 		dev_err(&chip->client->dev,
@@ -843,6 +853,8 @@ static int __devexit cs8427_remove(struct i2c_client *client)
 	}
 	pdata = chip->client->dev.platform_data;
 	gpio_free(pdata->reset_gpio);
+	if (pdata->enable)
+		pdata->enable(0);
 	kfree(chip);
 	return 0;
 }
