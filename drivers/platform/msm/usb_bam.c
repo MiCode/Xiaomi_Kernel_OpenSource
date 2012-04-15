@@ -48,7 +48,7 @@ static int connect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
 						u8 *usb_pipe_idx)
 {
 	int ret;
-	struct sps_pipe *pipe = sps_pipes[connection_idx][pipe_dir];
+	struct sps_pipe **pipe = &sps_pipes[connection_idx][pipe_dir];
 	struct sps_connect *connection =
 		&sps_connections[connection_idx][pipe_dir];
 	struct msm_usb_bam_platform_data *pdata =
@@ -58,13 +58,13 @@ static int connect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
 			(struct usb_bam_pipe_connect *)(pdata->connections +
 			 bam_offset(pdata) + (2*connection_idx+pipe_dir));
 
-	pipe = sps_alloc_endpoint();
-	if (pipe == NULL) {
+	*pipe = sps_alloc_endpoint();
+	if (*pipe == NULL) {
 		pr_err("%s: sps_alloc_endpoint failed\n", __func__);
 		return -ENOMEM;
 	}
 
-	ret = sps_get_config(pipe, connection);
+	ret = sps_get_config(*pipe, connection);
 	if (ret) {
 		pr_err("%s: tx get config failed %d\n", __func__, ret);
 		goto get_config_failed;
@@ -114,7 +114,7 @@ static int connect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
 	connection->desc = desc_mem_buf[connection_idx][pipe_dir];
 	connection->event_thresh = 512;
 
-	ret = sps_connect(pipe, connection);
+	ret = sps_connect(*pipe, connection);
 	if (ret < 0) {
 		pr_err("%s: tx connect error %d\n", __func__, ret);
 		goto error;
@@ -122,10 +122,10 @@ static int connect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
 	return 0;
 
 error:
-	sps_disconnect(pipe);
+	sps_disconnect(*pipe);
 fifo_setup_error:
 get_config_failed:
-	sps_free_endpoint(pipe);
+	sps_free_endpoint(*pipe);
 	return ret;
 }
 
