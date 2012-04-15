@@ -236,4 +236,11 @@
 	qcom,acpuclk@0xf900000 {
 		compatible = "qcom,acpuclk-copper";
 	};
+
+	qcom,ssusb@F9200000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xF9200000 0xCCFF>;
+		interrupts = <0 131 0>;
+		qcom,dwc-usb3-msm-dbm-eps = <4>;
+	};
 };

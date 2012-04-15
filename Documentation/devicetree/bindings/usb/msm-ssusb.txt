@@ -1,0 +1,18 @@
+MSM SuperSpeed USB3.0 SoC controller
+
+Required properties :
+- compatible : should be "qcom,dwc-usb3-msm"
+- reg : offset and length of the register set in the memory map
+- interrupts: IRQ line
+- qcom,dwc-usb3-msm-dbm-eps: Number of endpoints avaliable for
+  the DBM (Device Bus Manager). The DBM is HW unit which is part of
+  the MSM USB3.0 core (which also includes the Synopsys DesignWare
+  USB3.0 controller)
+
+Example MSM USB3.0 controller device node :
+	usb@f9200000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xf9200000 0xCCFF>;
+		interrupts = <0 131 0>
+		qcom,dwc-usb3-msm-dbm-eps = <4>
+	};
