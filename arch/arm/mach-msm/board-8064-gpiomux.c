@@ -442,6 +442,39 @@ static struct msm_gpiomux_config apq8064_slimbus_config[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting spkr_i2c = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_KEEPER,
+};
+
+static struct msm_gpiomux_config mpq8064_spkr_i2s_config[] __initdata = {
+	{
+		.gpio   = 47,           /* spkr i2c sck */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spkr_i2c,
+		},
+	},
+	{
+		.gpio   = 48,           /* spkr_i2s_ws */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spkr_i2c,
+		},
+	},
+	{
+		.gpio   = 49,           /* spkr_i2s_dout */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spkr_i2c,
+		},
+	},
+	{
+		.gpio   = 50,           /* spkr_i2s_mclk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spkr_i2c,
+		},
+	},
+};
+
 static struct msm_gpiomux_config apq8064_audio_codec_configs[] __initdata = {
 	{
 		.gpio = 39,
@@ -627,6 +660,12 @@ void __init apq8064_init_gpiomux(void)
 
 	msm_gpiomux_install(apq8064_audio_codec_configs,
 			ARRAY_SIZE(apq8064_audio_codec_configs));
+
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+		machine_is_mpq8064_dtv()) {
+		msm_gpiomux_install(mpq8064_spkr_i2s_config,
+			ARRAY_SIZE(mpq8064_spkr_i2s_config));
+	}
 
 	pr_debug("%s(): audio-auxpcm: Include GPIO configs"
 		" as audio is not the primary user"

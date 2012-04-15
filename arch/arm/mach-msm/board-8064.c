@@ -65,6 +65,7 @@
 #include <linux/msm_tsens.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_rtb.h>
+#include <sound/cs8427.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -888,6 +889,18 @@ static struct slim_device apq8064_slim_tabla20 = {
 	.e_addr = {0, 1, 0x60, 0, 0x17, 2},
 	.dev = {
 		.platform_data = &apq8064_tabla20_platform_data,
+	},
+};
+
+static struct cs8427_platform_data cs8427_i2c_platform_data = {
+	.irq = SX150X_GPIO(1, 4),
+	.reset_gpio = SX150X_GPIO(1, 6),
+};
+
+static struct i2c_board_info cs8427_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("cs8427", CS8427_ADDR4),
+		.platform_data = &cs8427_i2c_platform_data,
 	},
 };
 
@@ -1901,6 +1914,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_pcm_routing,
 	&apq_cpudai0,
 	&apq_cpudai1,
+	&mpq_cpudai_sec_i2s_rx,
 	&apq_cpudai_hdmi_rx,
 	&apq_cpudai_bt_rx,
 	&apq_cpudai_bt_tx,
@@ -2319,6 +2333,12 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
 		isa1200_board_info,
 		ARRAY_SIZE(isa1200_board_info),
+	},
+	{
+		I2C_MPQ_CDP,
+		APQ_8064_GSBI5_QUP_I2C_BUS_ID,
+		cs8427_device_info,
+		ARRAY_SIZE(cs8427_device_info),
 	},
 };
 
