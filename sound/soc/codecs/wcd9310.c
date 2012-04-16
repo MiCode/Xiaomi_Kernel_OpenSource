@@ -1331,40 +1331,131 @@ static const struct snd_kcontrol_new sb_tx10_mux =
 static const struct snd_kcontrol_new sb_tx1_mux =
 	SOC_DAPM_ENUM("SLIM TX1 MUX Mux", sb_tx1_mux_enum);
 
+static int wcd9310_put_dec_enum(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *w = wlist->widgets[0];
+	struct snd_soc_codec *codec = w->codec;
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int dec_mux, decimator;
+	char *dec_name = NULL;
+	char *widget_name = NULL;
+	char *temp;
+	u16 tx_mux_ctl_reg;
+	u8 adc_dmic_sel = 0x0;
+	int ret = 0;
+
+	if (ucontrol->value.enumerated.item[0] > e->max - 1)
+		return -EINVAL;
+
+	dec_mux = ucontrol->value.enumerated.item[0];
+
+	widget_name = kstrndup(w->name, 15, GFP_KERNEL);
+	if (!widget_name)
+		return -ENOMEM;
+	temp = widget_name;
+
+	dec_name = strsep(&widget_name, " ");
+	widget_name = temp;
+	if (!dec_name) {
+		pr_err("%s: Invalid decimator = %s\n", __func__, w->name);
+		ret =  -EINVAL;
+		goto out;
+	}
+
+	ret = kstrtouint(strpbrk(dec_name, "123456789"), 10, &decimator);
+	if (ret < 0) {
+		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
+		ret =  -EINVAL;
+		goto out;
+	}
+
+	dev_dbg(w->dapm->dev, "%s(): widget = %s  dec_name = %s decimator = %u"
+		" dec_mux = %u\n", __func__, w->name, dec_name, decimator,
+		dec_mux);
+
+
+	switch (decimator) {
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+		if (dec_mux == 1)
+			adc_dmic_sel = 0x1;
+		else
+			adc_dmic_sel = 0x0;
+		break;
+	case 7:
+	case 8:
+	case 9:
+	case 10:
+		if ((dec_mux == 1) || (dec_mux == 2))
+			adc_dmic_sel = 0x1;
+		else
+			adc_dmic_sel = 0x0;
+		break;
+	default:
+		pr_err("%s: Invalid Decimator = %u\n", __func__, decimator);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	tx_mux_ctl_reg = TABLA_A_CDC_TX1_MUX_CTL + 8 * (decimator - 1);
+
+	snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x1, adc_dmic_sel);
+
+	ret = snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
+
+out:
+	kfree(widget_name);
+	return ret;
+}
+
+#define WCD9310_DEC_ENUM(xname, xenum) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.info = snd_soc_info_enum_double, \
+	.get = snd_soc_dapm_get_enum_double, \
+	.put = wcd9310_put_dec_enum, \
+	.private_value = (unsigned long)&xenum }
+
 static const struct snd_kcontrol_new dec1_mux =
-	SOC_DAPM_ENUM("DEC1 MUX Mux", dec1_mux_enum);
+	WCD9310_DEC_ENUM("DEC1 MUX Mux", dec1_mux_enum);
 
 static const struct snd_kcontrol_new dec2_mux =
-	SOC_DAPM_ENUM("DEC2 MUX Mux", dec2_mux_enum);
+	WCD9310_DEC_ENUM("DEC2 MUX Mux", dec2_mux_enum);
 
 static const struct snd_kcontrol_new dec3_mux =
-	SOC_DAPM_ENUM("DEC3 MUX Mux", dec3_mux_enum);
+	WCD9310_DEC_ENUM("DEC3 MUX Mux", dec3_mux_enum);
 
 static const struct snd_kcontrol_new dec4_mux =
-	SOC_DAPM_ENUM("DEC4 MUX Mux", dec4_mux_enum);
+	WCD9310_DEC_ENUM("DEC4 MUX Mux", dec4_mux_enum);
 
 static const struct snd_kcontrol_new dec5_mux =
-	SOC_DAPM_ENUM("DEC5 MUX Mux", dec5_mux_enum);
+	WCD9310_DEC_ENUM("DEC5 MUX Mux", dec5_mux_enum);
 
 static const struct snd_kcontrol_new dec6_mux =
-	SOC_DAPM_ENUM("DEC6 MUX Mux", dec6_mux_enum);
+	WCD9310_DEC_ENUM("DEC6 MUX Mux", dec6_mux_enum);
 
 static const struct snd_kcontrol_new dec7_mux =
-	SOC_DAPM_ENUM("DEC7 MUX Mux", dec7_mux_enum);
+	WCD9310_DEC_ENUM("DEC7 MUX Mux", dec7_mux_enum);
 
-static const struct snd_kcontrol_new anc1_mux =
-	SOC_DAPM_ENUM("ANC1 MUX Mux", anc1_mux_enum);
 static const struct snd_kcontrol_new dec8_mux =
-	SOC_DAPM_ENUM("DEC8 MUX Mux", dec8_mux_enum);
+	WCD9310_DEC_ENUM("DEC8 MUX Mux", dec8_mux_enum);
 
 static const struct snd_kcontrol_new dec9_mux =
-	SOC_DAPM_ENUM("DEC9 MUX Mux", dec9_mux_enum);
+	WCD9310_DEC_ENUM("DEC9 MUX Mux", dec9_mux_enum);
 
 static const struct snd_kcontrol_new dec10_mux =
-	SOC_DAPM_ENUM("DEC10 MUX Mux", dec10_mux_enum);
+	WCD9310_DEC_ENUM("DEC10 MUX Mux", dec10_mux_enum);
 
 static const struct snd_kcontrol_new iir1_inp1_mux =
 	SOC_DAPM_ENUM("IIR1 INP1 Mux", iir1_inp1_mux_enum);
+
+static const struct snd_kcontrol_new anc1_mux =
+	SOC_DAPM_ENUM("ANC1 MUX Mux", anc1_mux_enum);
 
 static const struct snd_kcontrol_new anc2_mux =
 	SOC_DAPM_ENUM("ANC2 MUX Mux", anc2_mux_enum);
@@ -1845,7 +1936,7 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	u16 tx_mux_ctl_reg, tx_dmic_ctl_reg;
+	u16 tx_dmic_ctl_reg;
 	u8 dmic_clk_sel, dmic_clk_en;
 	unsigned int dmic;
 	int ret;
@@ -1880,14 +1971,12 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
-	tx_mux_ctl_reg = TABLA_A_CDC_TX1_MUX_CTL + 8 * (dmic - 1);
 	tx_dmic_ctl_reg = TABLA_A_CDC_TX1_DMIC_CTL + 8 * (dmic - 1);
 
 	pr_debug("%s %d\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x1, 0x1);
 
 		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
 				dmic_clk_sel, dmic_clk_sel);
