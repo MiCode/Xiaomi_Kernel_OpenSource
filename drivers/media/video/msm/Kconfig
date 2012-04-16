@@ -57,7 +57,7 @@ config AD5046_ACT
 	  Say Y here if this is msm7627A variant platform.
 config WEBCAM_OV7692_QRD
 	bool "Sensor OV7692 QRD(VGA YUV)"
-	depends on MSM_CAMERA && ARCH_MSM7X27A
+	depends on MSM_CAMERA && (ARCH_MSM7X27A || ARCH_MSM8X60)
 	default n
 	---help---
 	  Omni Vision VGA YUV Sensor for QRD Devices

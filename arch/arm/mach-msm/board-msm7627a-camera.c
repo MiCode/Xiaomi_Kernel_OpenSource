@@ -73,9 +73,25 @@ static struct msm_camera_gpio_conf gpio_conf_ov9726 = {
 };
 
 #ifdef CONFIG_WEBCAM_OV7692_QRD
+static struct gpio ov7692_cam_req_gpio[] = {
+	{GPIO_SKU1_CAM_VGA_SHDN, GPIOF_DIR_OUT, "CAM_VGA_SHDN"},
+	{GPIO_SKU1_CAM_VGA_RESET_N, GPIOF_DIR_OUT, "CAM_VGA_RESET"},
+};
+
+static struct msm_gpio_set_tbl ov7692_cam_gpio_set_tbl[] = {
+	{GPIO_SKU1_CAM_VGA_SHDN, GPIOF_OUT_INIT_HIGH, 5000},
+	{GPIO_SKU1_CAM_VGA_SHDN, GPIOF_OUT_INIT_LOW, 5000},
+	{GPIO_SKU1_CAM_VGA_RESET_N, GPIOF_OUT_INIT_HIGH, 5000},
+	{GPIO_SKU1_CAM_VGA_RESET_N, GPIOF_OUT_INIT_LOW, 5000},
+	{40, GPIOF_OUT_INIT_HIGH, 5000},
+	{35, GPIOF_OUT_INIT_HIGH, 5000},
+};
+
 static struct msm_camera_gpio_conf gpio_conf_ov7692 = {
-	.camera_off_table = camera_off_gpio_table,
-	.camera_on_table = camera_on_gpio_table,
+	.cam_gpio_req_tbl = ov7692_cam_req_gpio,
+	.cam_gpio_req_tbl_size = ARRAY_SIZE(ov7692_cam_req_gpio),
+	.cam_gpio_set_tbl = ov7692_cam_gpio_set_tbl,
+	.cam_gpio_set_tbl_size = ARRAY_SIZE(ov7692_cam_gpio_set_tbl),
 	.gpio_no_mux = 1,
 };
 #endif
@@ -454,38 +470,6 @@ static void evb_camera_gpio_cfg(void)
 	}
 
 	gpio_direction_output(GPIO_SKU3_CAM_5MP_CAMIF_RESET, 1);
-
-	rc = gpio_request(GPIO_SKU1_CAM_VGA_SHDN, "ov7692");
-	if (rc < 0)
-		pr_err("%s: gpio_request---GPIO_SKU1_CAM_VGA_SHDN failed!",
-			 __func__);
-
-	rc = gpio_tlmm_config(GPIO_CFG(GPIO_SKU1_CAM_VGA_SHDN, 0,
-		GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
-		GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	if (rc < 0) {
-		pr_err("%s:unable to enable Powr Dwn gpio for frnt camera!\n",
-			 __func__);
-		gpio_free(GPIO_SKU1_CAM_VGA_SHDN);
-	}
-
-	gpio_direction_output(GPIO_SKU1_CAM_VGA_SHDN, 1);
-
-	rc = gpio_request(GPIO_SKU1_CAM_VGA_RESET_N, "ov7692");
-	if (rc < 0)
-		pr_err("%s: gpio_request---GPIO_SKU1_CAM_VGA_RESET_N failed!",
-			 __func__);
-
-	rc = gpio_tlmm_config(GPIO_CFG(GPIO_SKU1_CAM_VGA_RESET_N, 0,
-		GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
-		GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-
-	if (rc < 0) {
-		pr_err("%s: unable to enable reset gpio for front camera!\n",
-			 __func__);
-		gpio_free(GPIO_SKU1_CAM_VGA_RESET_N);
-	}
-	gpio_direction_output(GPIO_SKU1_CAM_VGA_RESET_N, 1);
 
 }
 

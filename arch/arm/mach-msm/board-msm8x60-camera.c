@@ -23,6 +23,7 @@
 #include "devices.h"
 
 #define GPIO_EXT_CAMIF_PWR_EN1 (PM8901_MPP_BASE + PM8901_MPPS + 13)
+#define GPIO_WEB_CAMIF_STANDBY1 (PM8901_MPP_BASE + PM8901_MPPS + 60)
 #ifdef CONFIG_MSM_CAMERA_FLASH
 #define VFE_CAMIF_TIMER1_GPIO 29
 #define VFE_CAMIF_TIMER2_GPIO 30
@@ -388,10 +389,10 @@ static struct gpio msm8x60_common_cam_gpio[] = {
 	{47, GPIOF_DIR_IN, "CAMIF_I2C_DATA"},
 	{48, GPIOF_DIR_IN, "CAMIF_I2C_CLK"},
 	{105, GPIOF_DIR_IN, "STANDBY"},
-	{GPIO_EXT_CAMIF_PWR_EN1, GPIOF_DIR_OUT, "CAMIF_PWR_EN"},
 };
 
 static struct gpio msm8x60_back_cam_gpio[] = {
+	{GPIO_EXT_CAMIF_PWR_EN1, GPIOF_DIR_OUT, "CAMIF_PWR_EN"},
 	{106, GPIOF_DIR_OUT, "CAM_RESET"},
 };
 
@@ -468,6 +469,43 @@ static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
 	.camera_type = BACK_CAMERA_2D,
 };
 
+static struct gpio ov7692_cam_gpio[] = {
+	{GPIO_WEB_CAMIF_STANDBY1, GPIOF_DIR_OUT, "CAM_EN"},
+};
+
+static struct msm_gpio_set_tbl ov7692_cam_gpio_set_tbl[] = {
+	{GPIO_WEB_CAMIF_STANDBY1, GPIOF_OUT_INIT_LOW, 10000},
+};
+
+static struct msm_camera_gpio_conf ov7692_cam_gpio_conf = {
+	.cam_gpio_common_tbl = msm8x60_common_cam_gpio,
+	.cam_gpio_common_tbl_size = ARRAY_SIZE(msm8x60_common_cam_gpio),
+	.cam_gpio_req_tbl = ov7692_cam_gpio,
+	.cam_gpio_req_tbl_size = ARRAY_SIZE(ov7692_cam_gpio),
+	.cam_gpio_set_tbl = ov7692_cam_gpio_set_tbl,
+	.cam_gpio_set_tbl_size = ARRAY_SIZE(ov7692_cam_gpio_set_tbl),
+};
+
+static struct msm_camera_sensor_flash_data flash_ov7692 = {
+	.flash_type	= MSM_CAMERA_FLASH_NONE,
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_ov7692 = {
+	.mount_angle	= 0,
+	.cam_vreg = msm_8x60_back_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8x60_back_cam_vreg),
+	.gpio_conf = &ov7692_cam_gpio_conf,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_ov7692_data = {
+	.sensor_name	= "ov7692",
+	.pdata	= &msm_camera_csi_device_data[1],
+	.flash_data	= &flash_ov7692,
+	.sensor_platform_info = &sensor_board_info_ov7692,
+	.csi_if	= 1,
+	.camera_type = FRONT_CAMERA_2D,
+};
+
 static struct platform_device msm_camera_server = {
 	.name = "msm_cam_server",
 	.id = 0,
@@ -491,6 +529,10 @@ static struct i2c_board_info msm8x60_camera_i2c_boardinfo[] = {
 	{
 	I2C_BOARD_INFO("mt9e013", 0x6C),
 	.platform_data = &msm_camera_sensor_mt9e013_data,
+	},
+	{
+	I2C_BOARD_INFO("ov7692", 0x78),
+	.platform_data = &msm_camera_sensor_ov7692_data,
 	},
 };
 
