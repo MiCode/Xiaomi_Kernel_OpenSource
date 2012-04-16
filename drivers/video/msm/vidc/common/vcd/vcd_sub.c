@@ -745,7 +745,8 @@ u32 vcd_free_one_buffer_internal(
 		return VCD_ERR_ILLEGAL_PARM;
 	}
 	if (buf_entry->in_use) {
-		VCD_MSG_ERROR("\n Buffer is in use and is not flushed");
+		VCD_MSG_ERROR("Buffer is in use and is not flushed: %p, %d\n",
+			buf_entry, buf_entry->in_use);
 		return VCD_ERR_ILLEGAL_OP;
 	}
 
@@ -1043,6 +1044,7 @@ u32 vcd_flush_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode)
 {
 	u32 rc = VCD_S_SUCCESS;
 	struct vcd_buffer_entry *buf_entry;
+	struct vcd_buffer_entry *orig_frame = NULL;
 
 	VCD_MSG_LOW("vcd_flush_buffers:");
 
@@ -1066,9 +1068,19 @@ u32 vcd_flush_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode)
 							 vcd_frame_data),
 						cctxt,
 						cctxt->client_data);
+				orig_frame = vcd_find_buffer_pool_entry(
+						&cctxt->in_buf_pool,
+						buf_entry->virtual);
 				}
 
-			buf_entry->in_use = false;
+			if (orig_frame) {
+				orig_frame->in_use--;
+				if (orig_frame != buf_entry)
+					kfree(buf_entry);
+			} else {
+				buf_entry->in_use = false;
+				VCD_MSG_ERROR("Original frame not found in buffer pool\n");
+			}
 			VCD_BUFFERPOOL_INUSE_DECREMENT(
 				cctxt->in_buf_pool.in_use);
 			buf_entry = NULL;
