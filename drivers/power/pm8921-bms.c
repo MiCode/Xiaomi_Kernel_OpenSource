@@ -94,6 +94,7 @@ struct pm8921_bms_chip {
 	struct pc_temp_ocv_lut	*pc_temp_ocv_lut;
 	struct sf_lut		*pc_sf_lut;
 	struct sf_lut		*rbatt_sf_lut;
+	int			delta_rbatt_mohm;
 	struct work_struct	calib_hkadc_work;
 	struct delayed_work	calib_ccadc_work;
 	unsigned int		calib_delay_ms;
@@ -125,6 +126,7 @@ struct pm8921_bms_chip {
 	int			default_rbatt_mohm;
 	int			amux_2_trim_delta;
 	uint16_t		prev_last_good_ocv_raw;
+	unsigned int		rconn_mohm;
 };
 
 static struct pm8921_bms_chip *the_chip;
@@ -983,12 +985,24 @@ static int get_rbatt(struct pm8921_bms_chip *chip, int soc_rbatt, int batt_temp)
 		pr_debug("RBATT = %d\n", rbatt);
 		return rbatt;
 	}
-
+	/* Convert the batt_temp to DegC from deciDegC */
+	batt_temp = batt_temp / 10;
 	scalefactor = interpolate_scalingfactor(chip, chip->rbatt_sf_lut,
 							batt_temp, soc_rbatt);
 	pr_debug("rbatt sf = %d for batt_temp = %d, soc_rbatt = %d\n",
 				scalefactor, batt_temp, soc_rbatt);
 	rbatt = (rbatt * scalefactor) / 100;
+
+	rbatt += the_chip->rconn_mohm;
+	pr_debug("adding rconn_mohm = %d rbatt = %d\n",
+				the_chip->rconn_mohm, rbatt);
+
+	if (is_between(20, 10, soc_rbatt))
+		rbatt = rbatt
+			+ ((20 - soc_rbatt) * chip->delta_rbatt_mohm) / 10;
+	else
+		if (is_between(10, 0, soc_rbatt))
+			rbatt = rbatt + chip->delta_rbatt_mohm;
 
 	pr_debug("RBATT = %d\n", rbatt);
 	return rbatt;
@@ -1833,7 +1847,7 @@ static int pm8921_bms_resume(struct device *dev)
 	if (chip->rbatt_sf_lut) {
 		scalefactor = interpolate_scalingfactor(chip,
 						chip->rbatt_sf_lut,
-						chip->batt_temp_suspend,
+						chip->batt_temp_suspend / 10,
 						chip->soc_rbatt_suspend);
 		rbatt = rbatt * 100 / scalefactor;
 	}
@@ -1955,6 +1969,7 @@ palladium:
 		chip->rbatt_sf_lut = palladium_1500_data.rbatt_sf_lut;
 		chip->default_rbatt_mohm
 				= palladium_1500_data.default_rbatt_mohm;
+		chip->delta_rbatt_mohm = palladium_1500_data.delta_rbatt_mohm;
 		return 0;
 desay:
 		chip->fcc = desay_5200_data.fcc;
@@ -1963,6 +1978,7 @@ desay:
 		chip->pc_sf_lut = desay_5200_data.pc_sf_lut;
 		chip->rbatt_sf_lut = desay_5200_data.rbatt_sf_lut;
 		chip->default_rbatt_mohm = desay_5200_data.default_rbatt_mohm;
+		chip->delta_rbatt_mohm = desay_5200_data.delta_rbatt_mohm;
 		return 0;
 }
 
@@ -2305,6 +2321,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->calib_delay_ms = pdata->calib_delay_ms;
 	chip->max_voltage_uv = pdata->max_voltage_uv;
 	chip->batt_type = pdata->battery_type;
+	chip->rconn_mohm = pdata->rconn_mohm;
 	chip->start_percent = -EINVAL;
 	chip->end_percent = -EINVAL;
 	rc = set_battery_data(chip);
