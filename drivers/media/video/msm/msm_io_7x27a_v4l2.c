@@ -29,6 +29,7 @@
 static struct clk *camio_cam_clk;
 static struct resource *clk_ctrl_mem;
 static struct msm_camera_io_clk camio_clk;
+static int apps_reset;
 void __iomem *appbase;
 
 void msm_io_w(u32 data, void __iomem *addr)
@@ -97,18 +98,27 @@ void msm_camio_clk_rate_set(int rate)
 	clk_set_rate(clk, rate);
 }
 
-void msm_camio_vfe_blk_reset(void)
+void msm_camio_vfe_blk_reset_2(int vfe_apps_reset)
 {
 	uint32_t val;
 
+	if (apps_reset && !vfe_apps_reset)
+		return;
+
 	/* do apps reset */
 	val = readl_relaxed(appbase + 0x00000210);
-	val |= 0x1;
+	if (apps_reset)
+		val |= 0x10A0001;
+	else
+		val |= 0x1;
 	writel_relaxed(val, appbase + 0x00000210);
 	usleep_range(10000, 11000);
 
 	val = readl_relaxed(appbase + 0x00000210);
-	val &= ~0x1;
+	if (apps_reset)
+		val &= ~(0x10A0001);
+	else
+		val &= ~0x1;
 	writel_relaxed(val, appbase + 0x00000210);
 	usleep_range(10000, 11000);
 
@@ -155,6 +165,7 @@ static int __devinit clkctl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 
+	apps_reset = *(int *)pdev->dev.platform_data;
 	clk_ctrl_mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "clk_ctl");
 	if (!clk_ctrl_mem) {
