@@ -90,6 +90,9 @@ static const struct snd_kcontrol_new mi2s_config_controls[] = {
 	SOC_ENUM_EXT("SEC RX Format", mi2s_config_enum[0],
 				 msm_dai_q6_mi2s_format_get,
 				 msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("MI2S TX Format", mi2s_config_enum[0],
+				 msm_dai_q6_mi2s_format_get,
+				 msm_dai_q6_mi2s_format_put),
 };
 
 static u8 num_of_bits_set(u8 sd_line_mask)
@@ -238,7 +241,8 @@ static int msm_dai_q6_mi2s_platform_data_validation(
 	}
 	if (mi2s_pdata->capability == MSM_MI2S_CAP_RX)
 		dai_driver->playback.channels_max = num_of_sd_lines << 1;
-
+	else if (mi2s_pdata->capability == MSM_MI2S_CAP_TX)
+		dai_driver->capture.channels_max = num_of_sd_lines << 1;
 	return 0;
 
 error_invalid_data:
@@ -381,6 +385,7 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 		rc = msm_dai_q6_cdc_hw_params(params, dai, substream->stream);
 		break;
 	case MI2S_RX:
+	case MI2S_TX:
 		rc = msm_dai_q6_mi2s_hw_params(params, dai, substream->stream);
 		break;
 	case SLIMBUS_0_RX:
@@ -787,12 +792,13 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 		kfree(dai_data);
 		goto rtn;
 	}
-	if (mi2s_pdata->capability == MSM_MI2S_CAP_RX) {
+	if (mi2s_pdata->capability == MSM_MI2S_CAP_RX)
 		kcontrol = &mi2s_config_controls[0];
-		rc = snd_ctl_add(dai->card->snd_card,
-					snd_ctl_new1(kcontrol, dai_data));
-	}
+	else
+		kcontrol = &mi2s_config_controls[2];
 
+	rc = snd_ctl_add(dai->card->snd_card,
+					 snd_ctl_new1(kcontrol, dai_data));
 rtn:
 	return rc;
 }
@@ -861,6 +867,7 @@ static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
 	case MI2S_RX:
+	case MI2S_TX:
 	case SECONDARY_I2S_RX:
 		rc = msm_dai_q6_cdc_set_fmt(dai, fmt);
 		break;
@@ -1176,6 +1183,20 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_rx_dai = {
 	.remove = msm_dai_q6_dai_probe,
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_mi2s_tx_dai = {
+	.capture = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.rate_min = 8000,
+		.rate_max = 48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_mi2s_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_rx_dai = {
 	.playback = {
 		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
@@ -1246,6 +1267,10 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case MI2S_RX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					&msm_dai_q6_mi2s_rx_dai);
+		break;
+	case MI2S_TX:
+		rc = snd_soc_register_dai(&pdev->dev,
+					&msm_dai_q6_mi2s_tx_dai);
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_4_RX:
