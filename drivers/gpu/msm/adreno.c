@@ -1280,12 +1280,23 @@ static unsigned int adreno_readtimestamp(struct kgsl_device *device,
 	unsigned int timestamp = 0;
 	unsigned int context_id = _get_context_id(context);
 
-	if (type == KGSL_TIMESTAMP_CONSUMED)
+	switch (type) {
+	case KGSL_TIMESTAMP_QUEUED: {
+		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+
+		timestamp = rb->timestamp[context_id];
+		break;
+	}
+	case KGSL_TIMESTAMP_CONSUMED:
 		adreno_regread(device, REG_CP_TIMESTAMP, &timestamp);
-	else if (type == KGSL_TIMESTAMP_RETIRED)
+		break;
+	case KGSL_TIMESTAMP_RETIRED:
 		kgsl_sharedmem_readl(&device->memstore, &timestamp,
-				 KGSL_MEMSTORE_OFFSET(context_id,
-					 eoptimestamp));
+			KGSL_MEMSTORE_OFFSET(context_id, eoptimestamp));
+		break;
+	}
+
 	rmb();
 
 	return timestamp;

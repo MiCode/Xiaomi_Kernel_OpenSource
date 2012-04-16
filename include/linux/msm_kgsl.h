@@ -112,7 +112,7 @@ struct kgsl_devmemstore {
 enum kgsl_timestamp_type {
 	KGSL_TIMESTAMP_CONSUMED = 0x00000001, /* start-of-pipeline timestamp */
 	KGSL_TIMESTAMP_RETIRED  = 0x00000002, /* end-of-pipeline timestamp*/
-	KGSL_TIMESTAMP_MAX      = 0x00000002,
+	KGSL_TIMESTAMP_QUEUED   = 0x00000003,
 };
 
 /* property types - used with kgsl_device_getproperty */
