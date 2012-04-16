@@ -849,9 +849,15 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * line must be disabled till async interrupt enable bit is cleared
 	 * in USBCMD register. Assert STP (ULPI interface STOP signal) to
 	 * block data communication from PHY.
+	 *
+	 * PHY retention mode is disallowed while entering to LPM with wall
+	 * charger connected.  But PHY is put into suspend mode. Hence
+	 * enable asynchronous interrupt to detect charger disconnection when
+	 * PMIC notifications are unavailable.
 	 */
 	cmd_val = readl_relaxed(USB_USBCMD);
-	if (host_bus_suspend)
+	if (host_bus_suspend || (motg->pdata->otg_control == OTG_PHY_CONTROL &&
+				dcp))
 		cmd_val |= ASYNC_INTR_CTRL | ULPI_STP_CTRL;
 	else
 		cmd_val |= ULPI_STP_CTRL;
