@@ -160,7 +160,7 @@ void *kgsl_iommu_create_pagetable(void)
 				sizeof(struct kgsl_iommu_pt));
 		return NULL;
 	}
-	iommu_pt->domain = iommu_domain_alloc(0);
+	iommu_pt->domain = iommu_domain_alloc(MSM_IOMMU_DOMAIN_PT_CACHEABLE);
 	if (!iommu_pt->domain) {
 		KGSL_CORE_ERR("Failed to create iommu domain\n");
 		kfree(iommu_pt);
