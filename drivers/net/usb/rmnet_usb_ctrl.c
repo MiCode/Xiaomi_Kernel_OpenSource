@@ -833,7 +833,7 @@ void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 }
 
 #if defined(CONFIG_DEBUG_FS)
-#define DEBUG_BUF_SIZE	1024
+#define DEBUG_BUF_SIZE	4096
 static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
