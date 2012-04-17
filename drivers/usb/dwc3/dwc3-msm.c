@@ -1115,7 +1115,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_hs_ldo;
 	}
 
-	dwc3 = platform_device_alloc("dwc3-msm", -1);
+	dwc3 = platform_device_alloc("dwc3", -1);
 	if (!dwc3) {
 		dev_err(&pdev->dev, "couldn't allocate dwc3 device\n");
 		ret = -ENODEV;
