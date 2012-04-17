@@ -623,8 +623,6 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		msm_sensor_disable_i2c_mux(
 			data->sensor_platform_info->i2c_conf);
 
-	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
-	msleep(20);
 	if (data->sensor_platform_info->ext_power_ctrl != NULL)
 		data->sensor_platform_info->ext_power_ctrl(0);
 	msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->dev,
