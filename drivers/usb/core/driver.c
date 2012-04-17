@@ -1383,6 +1383,7 @@ int usb_resume(struct device *dev, pm_message_t msg)
 	 * Unbind the interfaces that will need rebinding later.
 	 */
 	} else {
+		pm_runtime_get_sync(dev->parent);
 		status = usb_resume_both(udev, msg);
 		if (status == 0) {
 			pm_runtime_disable(dev);
@@ -1390,6 +1391,7 @@ int usb_resume(struct device *dev, pm_message_t msg)
 			pm_runtime_enable(dev);
 			do_unbind_rebind(udev, DO_REBIND);
 		}
+		pm_runtime_put_sync(dev->parent);
 	}
 
 	/* Avoid PM error messages for devices disconnected while suspended
