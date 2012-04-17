@@ -96,8 +96,8 @@ static u32 vcd_encode_start_in_open(struct vcd_clnt_ctxt *cctxt)
 		 cctxt->in_buf_pool.validated != cctxt->in_buf_pool.count) ||
 	    cctxt->out_buf_pool.validated !=
 	    cctxt->out_buf_pool.count) {
-		VCD_MSG_ERROR("Buffer pool is not completely setup yet");
-		return VCD_ERR_BAD_STATE;
+		VCD_MSG_HIGH("%s: Buffer pool is not completely setup yet",
+			__func__);
 	}
 
 	rc = vcd_sched_add_client(cctxt);
