@@ -518,6 +518,12 @@ static struct gpiomux_setting ap2mdm_pon_reset_n_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting ap2mdm_wakeup = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct msm_gpiomux_config mdm_configs[] __initdata = {
 	/* AP2MDM_STATUS */
 	{
@@ -552,6 +558,13 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 		.gpio = 27,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_pon_reset_n_cfg,
+		}
+	},
+	/* AP2MDM_WAKEUP */
+	{
+		.gpio = 35,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_wakeup,
 		}
 	},
 };
