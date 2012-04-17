@@ -411,7 +411,7 @@ void mdp4_overlay_dmap_cfg(struct msm_fb_data_type *mfd, int lcdc)
 
 	/* dma2 config register */
 	curr = inpdw(MDP_BASE + 0x90000);
-	mask = 0xBFFFFFFF;
+	mask = 0x0FFFFFFF;
 	dma2_cfg_reg = (dma2_cfg_reg & mask) | (curr & ~mask);
 	MDP_OUTP(MDP_BASE + 0x90000, dma2_cfg_reg);
 
@@ -1268,6 +1268,7 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 {
 	uint32 data, intf;
 	char *overlay_base;
+	uint32 curr;
 
 	intf = 0;
 	if (pipe->mixer_num == MDP4_MIXER2)
@@ -1309,10 +1310,13 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 			outpdw(overlay_base + 0x001c, pipe->blt_addr + off);
 			/* MDDI - BLT + on demand */
 			outpdw(overlay_base + 0x0004, 0x08);
+
+			curr = inpdw(overlay_base + 0x0014);
+			curr &= 0x4;
 #ifdef BLT_RGB565
-			outpdw(overlay_base + 0x0014, 0x1); /* RGB565 */
+			outpdw(overlay_base + 0x0014, curr | 0x1); /* RGB565 */
 #else
-			outpdw(overlay_base + 0x0014, 0x0); /* RGB888 */
+			outpdw(overlay_base + 0x0014, curr | 0x0); /* RGB888 */
 #endif
 		} else if (pipe->mixer_num == MDP4_MIXER2) {
 			if (ctrl->panel_mode & MDP4_PANEL_WRITEBACK) {
@@ -1339,7 +1343,9 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 				/* MDDI - BLT + on demand */
 				outpdw(overlay_base + 0x0004, 0x08);
 				/* pseudo planar + writeback */
-				outpdw(overlay_base + 0x0014, 0x012);
+				curr = inpdw(overlay_base + 0x0014);
+				curr &= 0x4;
+				outpdw(overlay_base + 0x0014, curr | 0x012);
 				/* rgb->yuv */
 				outpdw(overlay_base + 0x0200, 0x05);
 			}
@@ -1356,6 +1362,8 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 
 	if (pipe->mixer_num == MDP4_MIXER1) {
 		if (intf == TV_INTF) {
+			curr = inpdw(overlay_base + 0x0014);
+			curr &= 0x4;
 			outpdw(overlay_base + 0x0014, 0x02); /* yuv422 */
 			/* overlay1 CSC config */
 			outpdw(overlay_base + 0x0200, 0x05); /* rgb->yuv */
@@ -1363,7 +1371,9 @@ void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe)
 	}
 
 #ifdef MDP4_IGC_LUT_ENABLE
-	outpdw(overlay_base + 0x0014, 0x4);	/* GC_LUT_EN, 888 */
+	curr = inpdw(overlay_base + 0x0014);
+	curr &= ~0x4;
+	outpdw(overlay_base + 0x0014, curr | 0x4);	/* GC_LUT_EN, 888 */
 #endif
 
 	if (mdp_is_in_isr == FALSE)
