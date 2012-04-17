@@ -254,6 +254,8 @@ static void msm8960_ext_control(struct snd_soc_codec *codec)
 {
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
+	mutex_lock(&dapm->codec->mutex);
+
 	pr_debug("%s: msm8960_spk_control = %d", __func__, msm8960_spk_control);
 	if (msm8960_spk_control == MSM8960_SPK_ON) {
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
@@ -268,6 +270,7 @@ static void msm8960_ext_control(struct snd_soc_codec *codec)
 	}
 
 	snd_soc_dapm_sync(dapm);
+	mutex_unlock(&dapm->codec->mutex);
 }
 
 static int msm8960_get_spk(struct snd_kcontrol *kcontrol,
