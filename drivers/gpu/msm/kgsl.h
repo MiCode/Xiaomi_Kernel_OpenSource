@@ -33,6 +33,9 @@
 #define KGSL_MEMSTORE_MAX	(KGSL_MEMSTORE_SIZE / \
 		sizeof(struct kgsl_devmemstore) - 1)
 
+/* Timestamp window used to detect rollovers */
+#define KGSL_TIMESTAMP_WINDOW 0x80000000
+
 /*cache coherency ops */
 #define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
 #define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
@@ -225,7 +228,7 @@ static inline int timestamp_cmp(unsigned int new, unsigned int old)
 	if (ts_diff == 0)
 		return 0;
 
-	return ((ts_diff > 0) || (ts_diff < -25000)) ? 1 : -1;
+	return ((ts_diff > 0) || (ts_diff < -KGSL_TIMESTAMP_WINDOW)) ? 1 : -1;
 }
 
 static inline void
