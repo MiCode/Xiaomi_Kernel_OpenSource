@@ -697,10 +697,8 @@ static void __exit qpnp_gpio_exit(void)
 {
 }
 
-MODULE_AUTHOR(
-	"Michael Bohan <mbohan@codeaurora.org>");
 MODULE_DESCRIPTION("QPNP PMIC gpio driver");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
 
 module_init(qpnp_gpio_init);
 module_exit(qpnp_gpio_exit);
