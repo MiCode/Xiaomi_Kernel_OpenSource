@@ -885,7 +885,7 @@ endchoice
 
 choice
 	prompt "Default framebuffer color depth"
-	depends on FB_MSM_MDP40 || FB_MSM_MDP31
+	depends on FB_MSM_MDP40 || FB_MSM_MDP31 || FB_MSM_MDP303
 	default FB_MSM_DEFAULT_DEPTH_RGBA8888
 
 config FB_MSM_DEFAULT_DEPTH_RGB565
