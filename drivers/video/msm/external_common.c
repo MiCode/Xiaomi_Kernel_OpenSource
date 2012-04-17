@@ -1190,7 +1190,6 @@ static void hdmi_edid_extract_audio_data_blocks(const uint8 *in_buf)
 static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 {
 	uint8 len = 0;
-	uint8 const *prev_etag = in_buf;
 	uint32 start_offset = DBC_START_OFFSET;
 
 	/* A Tage code of 7 identifies extended data blocks */
@@ -1239,8 +1238,7 @@ static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 		}
 
 		/* There could be more that one extended data block */
-		start_offset = etag - prev_etag + len + 1;
-		prev_etag = etag;
+		start_offset = etag - in_buf + len + 1;
 		etag = hdmi_edid_find_block(in_buf, start_offset, 7, &len);
 	}
 }
