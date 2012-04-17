@@ -66,6 +66,78 @@ err1:
 	return ret;
 }
 
+static int msm_iommu_map_iova_phys(struct iommu_domain *domain,
+				unsigned long iova,
+				unsigned long phys,
+				unsigned long size,
+				int cached)
+{
+	int ret;
+	struct scatterlist *sglist;
+	int prot = IOMMU_WRITE | IOMMU_READ;
+	prot |= cached ? IOMMU_CACHE : 0;
+
+	sglist = vmalloc(sizeof(*sglist));
+	if (!sglist) {
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	sg_init_table(sglist, 1);
+	sglist->length = size;
+	sglist->offset = 0;
+	sglist->dma_address = phys;
+
+	ret = iommu_map_range(domain, iova, sglist, size, prot);
+	if (ret) {
+		pr_err("%s: could not map extra %lx in domain %p\n",
+			__func__, iova, domain);
+	}
+
+	vfree(sglist);
+err1:
+	return ret;
+
+}
+
+int msm_iommu_map_contig_buffer(unsigned long phys,
+				unsigned int domain_no,
+				unsigned int partition_no,
+				unsigned long size,
+				unsigned long align,
+				unsigned long cached,
+				unsigned long *iova_val)
+{
+	unsigned long iova;
+	int ret;
+
+	if (size & (align - 1))
+		return -EINVAL;
+
+	iova = msm_allocate_iova_address(domain_no, partition_no, size, align);
+
+	if (!iova)
+		return -ENOMEM;
+
+	ret = msm_iommu_map_iova_phys(msm_get_iommu_domain(domain_no), iova,
+					phys, size, cached);
+
+	if (ret)
+		msm_free_iova_address(iova, domain_no, partition_no, size);
+	else
+		*iova_val = iova;
+
+	return ret;
+}
+
+void msm_iommu_unmap_contig_buffer(unsigned long iova,
+					unsigned int domain_no,
+					unsigned int partition_no,
+					unsigned long size)
+{
+	iommu_unmap_range(msm_get_iommu_domain(domain_no), iova, size);
+	msm_free_iova_address(iova, domain_no, partition_no, size);
+}
 
 struct iommu_domain *msm_get_iommu_domain(int domain_num)
 {
