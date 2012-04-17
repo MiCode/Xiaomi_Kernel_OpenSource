@@ -539,6 +539,9 @@ static struct msm_gpiomux_config msm8960_hsic_configs[] = {
 			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
 		},
 	},
+};
+
+static struct msm_gpiomux_config msm8960_hsic_hub_configs[] = {
 	{
 		.gpio = 91,               /* HSIC_HUB_RESET */
 		.settings = {
@@ -706,6 +709,11 @@ int __init msm8960_init_gpiomux(void)
 		(PLATFORM_IS_CHARM25() || machine_is_msm8960_liquid()))
 		msm_gpiomux_install(msm8960_hsic_configs,
 			ARRAY_SIZE(msm8960_hsic_configs));
+
+	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1) &&
+			machine_is_msm8960_liquid())
+		msm_gpiomux_install(msm8960_hsic_hub_configs,
+			ARRAY_SIZE(msm8960_hsic_hub_configs));
 #endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL

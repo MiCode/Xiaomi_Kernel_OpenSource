@@ -174,7 +174,7 @@ VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("CDC_VDDA_TX",		"tabla2x-slim"),
 	REGULATOR_SUPPLY("CDC_VDDA_RX",		"tabla2x-slim"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-005b"),
-	REGULATOR_SUPPLY("EXT_HUB_VDDIO",	"msm_hsic_host"),
+	REGULATOR_SUPPLY("EXT_HUB_VDDIO",	"msm_smsc_hub"),
 	REGULATOR_SUPPLY("vcc_i2c",		"10-0048"),
 };
 VREG_CONSUMERS(S5) = {

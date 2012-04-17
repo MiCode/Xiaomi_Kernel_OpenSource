@@ -330,7 +330,6 @@ struct msm_otg {
 struct msm_hsic_host_platform_data {
 	unsigned strobe;
 	unsigned data;
-	unsigned hub_reset;
 	struct msm_bus_scale_pdata *bus_scale_table;
 };
 
