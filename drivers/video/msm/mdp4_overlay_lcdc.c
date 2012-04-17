@@ -247,7 +247,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
 #endif
-	mdp_histogram_ctrl(TRUE);
+	mdp_histogram_ctrl_all(TRUE);
 
 	ret = panel_next_on(pdev);
 	/* MDP cmd block disable */
@@ -273,7 +273,7 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
-	mdp_histogram_ctrl(FALSE);
+	mdp_histogram_ctrl_all(FALSE);
 	ret = panel_next_off(pdev);
 
 	mutex_unlock(&mfd->dma->ov_mutex);

@@ -274,7 +274,8 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE + 0x30, dsi_hsync_skew);
 	MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE + 0x38, ctrl_polarity);
 	mdp4_overlay_reg_flush(pipe, 1);
-	mdp_histogram_ctrl(TRUE);
+
+	mdp_histogram_ctrl_all(TRUE);
 
 	ret = panel_next_on(pdev);
 	if (ret == 0) {
@@ -300,7 +301,7 @@ int mdp4_dsi_video_off(struct platform_device *pdev)
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	mdp_histogram_ctrl(FALSE);
+	mdp_histogram_ctrl_all(FALSE);
 	ret = panel_next_off(pdev);
 
 	/* dis-engage rgb0 from mixer0 */

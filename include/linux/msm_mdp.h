@@ -352,7 +352,7 @@ struct mdp_histogram_data {
 	uint32_t *c0;
 	uint32_t *c1;
 	uint32_t *c2;
-	uint32_t extra_info[2];
+	uint32_t *extra_info;
 };
 
 struct mdp_pcc_coeff {
