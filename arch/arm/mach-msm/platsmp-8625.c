@@ -120,16 +120,11 @@ static void core1_gic_configure_and_raise(void)
 	raw_spin_unlock(&irq_controller_lock);
 }
 
-void clear_pending_spi(unsigned int irq)
+static void clear_pending_spi(unsigned int irq)
 {
-	struct irq_data *d = irq_get_irq_data(irq);
-	struct irq_chip *c = irq_data_get_irq_chip(d);
-
 	/* Clear the IRQ from the ENABLE_SET */
-	c->irq_mask(d);
 	local_irq_disable();
 	gic_clear_spi_pending(irq);
-	c->irq_unmask(d);
 	local_irq_enable();
 }
 
@@ -151,6 +146,13 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	 * pen, then head off into the C entry point
 	 */
 	write_pen_release(-1);
+
+	/* clear the IPC1(SPI-8) pending SPI */
+	if (power_collapsed) {
+		raise_clear_spi(1, false);
+		clear_pending_spi(MSM8625_INT_ACSR_MP_CORE_IPC1);
+		power_collapsed = 0;
+	}
 
 	/*
 	 * Synchronise with the boot thread.
@@ -244,13 +246,6 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 			break;
 
 		udelay(10);
-	}
-
-	/* Now we should clear the pending SPI */
-	if (power_collapsed) {
-		raise_clear_spi(1, false);
-		clear_pending_spi(MSM8625_INT_ACSR_MP_CORE_IPC1);
-		power_collapsed = 0;
 	}
 
 	/*
