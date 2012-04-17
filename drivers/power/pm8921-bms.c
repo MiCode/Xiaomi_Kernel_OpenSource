@@ -1610,10 +1610,12 @@ void pm8921_bms_charging_end(int is_battery_full)
 			/* new_fcc_uah is outside the scope limit it */
 			if (new_fcc_uah > fcc_uah)
 				new_fcc_uah
-				= (fcc_uah + DELTA_FCC_PERCENT * fcc_uah);
+				= (fcc_uah +
+					(DELTA_FCC_PERCENT * fcc_uah) / 100);
 			else
 				new_fcc_uah
-				= (fcc_uah - DELTA_FCC_PERCENT * fcc_uah);
+				= (fcc_uah -
+					(DELTA_FCC_PERCENT * fcc_uah) / 100);
 
 			pr_debug("delta_fcc=%d > %d percent of fcc=%d"
 					"restring it to %d\n",
