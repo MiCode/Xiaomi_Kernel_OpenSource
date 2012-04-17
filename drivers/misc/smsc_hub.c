@@ -110,6 +110,22 @@ static int i2c_hsic_hub_probe(struct i2c_client *client,
 				     I2C_FUNC_SMBUS_WORD_DATA))
 		return -EIO;
 
+	/* CONFIG_N bit in SP_ILOCK register has to be set before changing
+	 * other registers to change default configuration of hsic hub.
+	 */
+	hsic_hub_set_bits(client, SMSC3503_SP_ILOCK, CONFIG_N);
+
+	/* Can change default configuartion like VID,PID, strings etc
+	 * by writing new values to hsic hub registers.
+	 */
+	hsic_hub_write_word_data(client, SMSC3503_VENDORID, 0x05C6);
+
+	/* CONFIG_N bit in SP_ILOCK register has to be cleared for new
+	 * values in registers to be effective after writing to
+	 * other registers.
+	 */
+	hsic_hub_clear_bits(client, SMSC3503_SP_ILOCK, CONFIG_N);
+
 	return 0;
 }
 
