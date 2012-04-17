@@ -227,40 +227,6 @@ struct iommu_domain *msm_get_iommu_domain(int domain_num)
 		return NULL;
 }
 
-static unsigned long subsystem_to_domain_tbl[] = {
-	VIDEO_DOMAIN,
-	VIDEO_DOMAIN,
-	CAMERA_DOMAIN,
-	DISPLAY_DOMAIN,
-	ROTATOR_DOMAIN,
-	0xFFFFFFFF
-};
-
-unsigned long msm_subsystem_get_domain_no(int subsys_id)
-{
-	if (subsys_id > INVALID_SUBSYS_ID && subsys_id <= MAX_SUBSYSTEM_ID &&
-	    subsys_id < ARRAY_SIZE(subsystem_to_domain_tbl))
-		return subsystem_to_domain_tbl[subsys_id];
-	else
-		return subsystem_to_domain_tbl[MAX_SUBSYSTEM_ID];
-}
-
-unsigned long msm_subsystem_get_partition_no(int subsys_id)
-{
-	switch (subsys_id) {
-	case MSM_SUBSYSTEM_VIDEO_FWARE:
-		return VIDEO_FIRMWARE_POOL;
-	case MSM_SUBSYSTEM_VIDEO:
-		return VIDEO_MAIN_POOL;
-	case MSM_SUBSYSTEM_CAMERA:
-	case MSM_SUBSYSTEM_DISPLAY:
-	case MSM_SUBSYSTEM_ROTATOR:
-		return GEN_POOL;
-	default:
-		return 0xFFFFFFFF;
-	}
-}
-
 unsigned long msm_allocate_iova_address(unsigned int iommu_domain,
 					unsigned int partition_no,
 					unsigned long size,
