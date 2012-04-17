@@ -64,6 +64,9 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 		new_level >= pwr->thermal_pwrlevel &&
 		new_level != pwr->active_pwrlevel) {
 		struct kgsl_pwrlevel *pwrlevel = &pwr->pwrlevels[new_level];
+		int diff = new_level - pwr->active_pwrlevel;
+		int d = (diff > 0) ? 1 : -1;
+		int level = pwr->active_pwrlevel;
 		pwr->active_pwrlevel = new_level;
 		if ((test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags)) ||
 			(device->state == KGSL_STATE_NAP)) {
@@ -75,7 +78,14 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 			if (pwr->idle_needed == true)
 				device->ftbl->idle(device,
 						KGSL_TIMEOUT_DEFAULT);
-			clk_set_rate(pwr->grp_clks[0], pwrlevel->gpu_freq);
+			/* Don't shift by more than one level at a time to
+			 * avoid glitches.
+			 */
+			while (level != new_level) {
+				level += d;
+				clk_set_rate(pwr->grp_clks[0],
+						pwr->pwrlevels[level].gpu_freq);
+			}
 		}
 		if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)) {
 			if (pwr->pcl)
