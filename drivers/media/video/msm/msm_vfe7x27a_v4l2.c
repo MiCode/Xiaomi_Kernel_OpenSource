@@ -341,6 +341,7 @@ static uint32_t extlen;
 
 struct mutex vfe_lock;
 static void     *vfe_syncdata;
+static int apps_reset;
 static uint8_t vfestopped;
 
 static struct stop_event stopevent;
@@ -1215,7 +1216,8 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		if (queue == QDSP_CMDQUEUE) {
 			switch (vfecmd.id) {
 			case VFE_CMD_RESET:
-				msm_camio_vfe_blk_reset();
+				msm_camio_vfe_blk_reset_2(apps_reset);
+				apps_reset = 0;
 				vfestopped = 0;
 				break;
 			case VFE_CMD_START:
@@ -1717,7 +1719,7 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 	msm_cam_clk_enable(&vfe2x_ctrl->pdev->dev, vfe2x_clk_info,
 			vfe2x_ctrl->vfe_clk, ARRAY_SIZE(vfe2x_clk_info), 0);
 	vfe_syncdata = NULL;
-
+	apps_reset = 1;
 	msm_adsp_disable(qcam_mod);
 	msm_adsp_disable(vfe_mod);
 

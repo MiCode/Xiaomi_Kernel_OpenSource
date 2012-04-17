@@ -608,6 +608,7 @@ static struct platform_device *msm_sdcc_devices[] __initdata = {
 };
 
 #ifdef CONFIG_MSM_CAMERA_V4L2
+static int apps_reset;
 static struct resource msm_csic0_resources[] = {
 	{
 		.name   = "csic",
@@ -665,6 +666,9 @@ struct platform_device msm7x27a_device_clkctl = {
 	.id             = 0,
 	.resource       = msm_clkctl_resources,
 	.num_resources  = ARRAY_SIZE(msm_clkctl_resources),
+	.dev = {
+		.platform_data = &apps_reset,
+	},
 };
 
 struct platform_device msm7x27a_device_vfe = {
