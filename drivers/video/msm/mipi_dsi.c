@@ -432,6 +432,14 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		if (mipi_dsi_clk_init(pdev))
 			return -EPERM;
 
+		if (mipi_dsi_pdata->splash_is_enabled &&
+			!mipi_dsi_pdata->splash_is_enabled()) {
+			mipi_dsi_ahb_ctrl(1);
+			MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0);
+			MIPI_OUTP(MIPI_DSI_BASE + 0x0, 0);
+			MIPI_OUTP(MIPI_DSI_BASE + 0x200, 0);
+			mipi_dsi_ahb_ctrl(0);
+		}
 		mipi_dsi_resource_initialized = 1;
 
 		return 0;
