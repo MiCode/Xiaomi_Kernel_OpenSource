@@ -103,6 +103,7 @@ struct qpnp_gpio_spec {
 	u8 regs[Q_NUM_CTL_REGS];	/* Control regs */
 	u8 type;			/* peripheral type */
 	u8 subtype;			/* peripheral subtype */
+	struct device_node *node;
 };
 
 struct qpnp_gpio_chip {
@@ -188,6 +189,11 @@ static int qpnp_gpio_check_config(struct qpnp_gpio_spec *q_spec,
 	return -EINVAL;
 }
 
+static inline u8 q_reg_get(u8 *reg, int shift, int mask)
+{
+	return (*reg & mask) >> shift;
+}
+
 static inline void q_reg_set(u8 *reg, int shift, int mask, int value)
 {
 	*reg |= (value << shift) & mask;
@@ -197,6 +203,22 @@ static inline void q_reg_clr_set(u8 *reg, int shift, int mask, int value)
 {
 	*reg &= ~mask;
 	*reg |= (value << shift) & mask;
+}
+
+static int qpnp_gpio_cache_regs(struct qpnp_gpio_chip *q_chip,
+				struct qpnp_gpio_spec *q_spec)
+{
+	int rc;
+	struct device *dev = &q_chip->spmi->dev;
+
+	rc = spmi_ext_register_readl(q_chip->spmi->ctrl, q_spec->slave,
+				     Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
+				     &q_spec->regs[Q_REG_I_MODE_CTL],
+				     Q_NUM_CTL_REGS);
+	if (rc)
+		dev_err(dev, "%s: unable to read control regs\n", __func__);
+
+	return rc;
 }
 
 static int _qpnp_gpio_config(struct qpnp_gpio_chip *q_chip,
@@ -488,32 +510,54 @@ static int qpnp_gpio_of_gpio_xlate(struct gpio_chip *gpio_chip,
 	return q_spec->gpio_chip_idx;
 }
 
-static int qpnp_gpio_config_default(struct spmi_device *spmi,
-					const __be32 *prop, int gpio)
+static int qpnp_gpio_apply_config(struct qpnp_gpio_chip *q_chip,
+				  struct qpnp_gpio_spec *q_spec)
 {
 	struct qpnp_gpio_cfg param;
+	struct device_node *node = q_spec->node;
 	int rc;
 
-	dev_dbg(&spmi->dev, "%s: p[0]: 0x%x p[1]: 0x%x p[2]: 0x%x p[3]:"
-		" 0x%x p[4]: 0x%x p[5]: 0x%x p[6]: 0x%x p[7]: 0x%x\n", __func__,
-		be32_to_cpup(&prop[0]), be32_to_cpup(&prop[1]),
-		be32_to_cpup(&prop[2]), be32_to_cpup(&prop[3]),
-		be32_to_cpup(&prop[4]), be32_to_cpup(&prop[5]),
-		be32_to_cpup(&prop[6]), be32_to_cpup(&prop[7]));
+	param.direction    = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
+				       Q_REG_MODE_SEL_SHIFT,
+				       Q_REG_MODE_SEL_MASK);
+	param.output_type  = q_reg_get(&q_spec->regs[Q_REG_I_DIG_OUT_CTL],
+				       Q_REG_OUT_TYPE_SHIFT,
+				       Q_REG_OUT_TYPE_MASK);
+	param.invert	   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
+				       Q_REG_OUT_INVERT_MASK,
+				       Q_REG_OUT_INVERT_MASK);
+	param.pull	   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
+				       Q_REG_PULL_SHIFT, Q_REG_PULL_MASK);
+	param.vin_sel	   = q_reg_get(&q_spec->regs[Q_REG_I_DIG_VIN_CTL],
+				       Q_REG_VIN_SHIFT, Q_REG_VIN_MASK);
+	param.out_strength = q_reg_get(&q_spec->regs[Q_REG_I_DIG_OUT_CTL],
+				       Q_REG_OUT_STRENGTH_SHIFT,
+				       Q_REG_OUT_STRENGTH_MASK);
+	param.src_select   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
+				       Q_REG_SRC_SEL_SHIFT, Q_REG_SRC_SEL_MASK);
+	param.master_en    = q_reg_get(&q_spec->regs[Q_REG_I_EN_CTL],
+				       Q_REG_MASTER_EN_SHIFT,
+				       Q_REG_MASTER_EN_MASK);
 
-	param.direction    =	be32_to_cpup(&prop[0]);
-	param.output_type  =	be32_to_cpup(&prop[1]);
-	param.invert	   =	be32_to_cpup(&prop[2]);
-	param.pull	   =	be32_to_cpup(&prop[3]);
-	param.vin_sel	   =	be32_to_cpup(&prop[4]);
-	param.out_strength =	be32_to_cpup(&prop[5]);
-	param.src_select   =	be32_to_cpup(&prop[6]);
-	param.master_en    =	be32_to_cpup(&prop[7]);
+	of_property_read_u32(node, "qcom,direction",
+		&param.direction);
+	of_property_read_u32(node, "qcom,output-type",
+		&param.output_type);
+	of_property_read_u32(node, "qcom,invert",
+		&param.invert);
+	of_property_read_u32(node, "qcom,pull",
+		&param.pull);
+	of_property_read_u32(node, "qcom,vin-sel",
+		&param.vin_sel);
+	of_property_read_u32(node, "qcom,out-strength",
+		&param.out_strength);
+	of_property_read_u32(node, "qcom,src-select",
+		&param.src_select);
+	rc = of_property_read_u32(node, "qcom,master-en",
+		&param.master_en);
 
-	rc = qpnp_gpio_config(gpio, &param);
-	if (rc)
-		dev_err(&spmi->dev, "%s: unable to set default config for"
-				" gpio %d\n", __func__, gpio);
+	rc = _qpnp_gpio_config(q_chip, q_spec, &param);
+
 	return rc;
 }
 
@@ -566,14 +610,14 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 	/* first scan through nodes to find the range required for allocation */
 	for (i = 0; i < spmi->num_dev_node; i++) {
 		prop = of_get_property(spmi->dev_node[i].of_node,
-						"qcom,qpnp-gpio-num", &len);
+						"qcom,gpio-num", &len);
 		if (!prop) {
 			dev_err(&spmi->dev, "%s: unable to get"
-				" qcom,qpnp-gpio-num property\n", __func__);
+				" qcom,gpio-num property\n", __func__);
 			ret = -EINVAL;
 			goto err_probe;
 		} else if (len != sizeof(__be32)) {
-			dev_err(&spmi->dev, "%s: Invalid qcom,qpnp-gpio-num"
+			dev_err(&spmi->dev, "%s: invalid qcom,gpio-num"
 				" property\n", __func__);
 			ret = -EINVAL;
 			goto err_probe;
@@ -633,14 +677,14 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		}
 
 		prop = of_get_property(spmi->dev_node[i].of_node,
-				"qcom,qpnp-gpio-num", &len);
+				"qcom,gpio-num", &len);
 		if (!prop) {
 			dev_err(&spmi->dev, "%s: unable to get"
-				" qcom,qpnp-gpio-num property\n", __func__);
+				" qcom,gpio-num property\n", __func__);
 			ret = -EINVAL;
 			goto err_probe;
 		} else if (len != sizeof(__be32)) {
-			dev_err(&spmi->dev, "%s: Invalid qcom,qpnp-gpio-num"
+			dev_err(&spmi->dev, "%s: invalid qcom,qpnp-gpio-num"
 				" property\n", __func__);
 			ret = -EINVAL;
 			goto err_probe;
@@ -661,6 +705,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		q_spec->offset = res->start;
 		q_spec->gpio_chip_idx = i;
 		q_spec->pmic_gpio = gpio;
+		q_spec->node = spmi->dev_node[i].of_node;
 
 		rc = spmi_ext_register_readl(spmi->ctrl, q_spec->slave,
 				Q_REG_ADDR(q_spec, Q_REG_TYPE), &buf[0], 2);
@@ -711,48 +756,22 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		goto err_probe;
 	}
 
-	/* now configure gpio defaults if they exist */
+	/* now configure gpio config defaults if they exist */
 	for (i = 0; i < spmi->num_dev_node; i++) {
 		q_spec = qpnp_chip_gpio_get_spec(q_chip, i);
 		if (WARN_ON(!q_spec))
 			return -ENODEV;
 
-		/* It's not an error to not config a default */
-		prop = of_get_property(spmi->dev_node[i].of_node,
-				"qcom,qpnp-gpio-cfg", &len);
-		/* 8 data values constitute one tuple */
-		if (prop && (len != (8 * sizeof(__be32)))) {
-			dev_err(&spmi->dev, "%s: invalid format for"
-				" qcom,qpnp-gpio-cfg property\n",
-							__func__);
-			ret = -EINVAL;
+		rc = qpnp_gpio_cache_regs(q_chip, q_spec);
+		if (rc) {
+			ret = rc;
 			goto err_probe;
-		} else if (prop) {
-			rc = qpnp_gpio_config_default(spmi, prop,
-				     q_chip->gpio_chip.base + i);
-			if (rc) {
-				ret = rc;
-				goto err_probe;
-			}
-		} else {
-			/* initialize with hardware defaults */
-			rc = spmi_ext_register_readl(
-				q_chip->spmi->ctrl, q_spec->slave,
-				Q_REG_ADDR(q_spec, Q_REG_EN_CTL),
-				&q_spec->regs[Q_REG_I_EN_CTL],
-				Q_NUM_CTL_REGS);
-			q_spec->regs[Q_REG_I_EN_CTL] |=
-				(1 << Q_REG_MASTER_EN_SHIFT);
-			rc = spmi_ext_register_writel(
-				q_chip->spmi->ctrl, q_spec->slave,
-				Q_REG_ADDR(q_spec, Q_REG_EN_CTL),
-				&q_spec->regs[Q_REG_I_EN_CTL], 1);
-			if (rc) {
-				dev_err(&spmi->dev, "%s: spmi write"
-						" failed\n", __func__);
-				ret = rc;
-				goto err_probe;
-			}
+		}
+
+		rc = qpnp_gpio_apply_config(q_chip, q_spec);
+		if (rc) {
+			ret = rc;
+			goto err_probe;
 		}
 	}
 

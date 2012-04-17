@@ -24,31 +24,26 @@ Required properties :
 
 Required properties :
  - reg : Specify the spmi offset and size for this gpio device.
- - qcom,qpnp-gpio-num : Specify the PMIC GPIO number for this gpio device.
+ - qcom,gpio-num : Specify the PMIC GPIO number for this gpio device.
 
-Optional properties :
- - qcom,qpnp-gpio-cfg : Specify the PMIC gpio configuration.
-   The format of this configuration is specified in a tuple of 9 entries.
-   These entries should be specified in the same order as the entries listed
-   in this following discription.
-
-   @direction:		indicates whether the gpio should be input, output, or
+Optional configuration properties :
+ -  qcom,direction:	indicates whether the gpio should be input, output, or
 			both.
 			QPNP_GPIO_DIR_IN   = 0,
 			QPNP_GPIO_DIR_OUT  = 1,
 			QPNP_GPIO_DIR_BOTH = 2
 
-   @output_type:	indicates gpio should be configured as CMOS or open
+ - qcom,output-type:	indicates gpio should be configured as CMOS or open
 			drain.
 			QPNP_GPIO_OUT_BUF_CMOS = 0
 			QPNP_GPIO_OUT_BUF_OPEN_DRAIN_NMOS = 1,
 			QPNP_GPIO_OUT_BUF_OPEN_DRAIN_PMOS = 2,
 
-   @invert:		Invert the signal of the gpio line -
+ - qcom,invert:		Invert the signal of the gpio line -
 			QPNP_GPIO_INVERT_DISABLE = 0
 			QPNP_GPIO_INVERT_ENABLE = 1
 
-   @pull:		Indicates whether a pull up or pull down should be
+ - qcom,pull:		Indicates whether a pull up or pull down should be
 			applied. If a pullup is required the current strength
 			needs to be specified. Current values of 30uA, 1.5uA,
 			31.5uA, 1.5uA with 30uA boost are supported.
@@ -59,7 +54,7 @@ Optional properties :
 			QPNP_GPIO_PULL_DN	 = 4,
 			QPNP_GPIO_PULL_NO	 = 5
 
-  @vin_sel:		specifies the voltage level when the output is set to 1.
+  - qcom,vin-sel:	specifies the voltage level when the output is set to 1.
 			For an input gpio specifies the voltage level at which
 			the input is interpreted as a logical 1.
 			QPNP_GPIO_VIN0 = 0,
@@ -71,12 +66,12 @@ Optional properties :
 			QPNP_GPIO_VIN6 = 6,
 			QPNP_GPIO_VIN7 = 7
 
-  @out_strength:	the amount of current supplied for an output gpio.
+  - qcom,out-strength:	the amount of current supplied for an output gpio.
 			QPNP_GPIO_OUT_STRENGTH_LOW  = 1
 			QPNP_GPIO_OUT_STRENGTH_MED  = 2,
 			QPNP_GPIO_OUT_STRENGTH_HIGH = 3,
 
-  @source_sel:		choose alternate function for the gpio. Certain gpios
+  - qcom,source-sel:	choose alternate function for the gpio. Certain gpios
 			can be paired (shorted) with each other. Some gpio pin
 			can act as alternate functions.
 			QPNP_GPIO_FUNC_NORMAL   = 0,
@@ -88,11 +83,15 @@ Optional properties :
 			QPNP_GPIO_DTEST3	= 6,
 			QPNP_GPIO_DTEST4	= 7
 
-  @master_en:		1 = Enable features within the
+ - qcom,master-en:	1 = Enable features within the
 			GPIO block based on configurations.
 			0 = Completely disable the GPIO
 			block and let the pin float with high impedance
 			regardless of other settings.
+
+*Note: If any of the configuration properties are not specified, then the
+       qpnp-gpio driver will not modify that respective configuration in
+       hardware.
 
 [PMIC GPIO clients]
 
@@ -121,15 +120,16 @@ qpnp: qcom,spmi@fc4c0000 {
 				#address-cells = <1>;
 				#size-cells = <1>;
 
-				qcom,pm8941_gpio1@0xc000 {
+				gpio@c000 {
 					reg = <0xc000 0x100>;
-					qcom,qpnp-gpio-num = <62>;
+					qcom,gpio-num = <62>;
 				};
 
-				qcom,pm8941_gpio2@0xc100 {
+				gpio@c100 {
 					reg = <0xc100 0x100>;
-					qcom,qpnp-gpio-num = <20>;
-					qcom,qpnp-gpio-cfg = <0x1 0x1 0x1 0x2 0x3 0x2 0x0 0x0 0x1>;
+					qcom,gpio-num = <20>;
+					qcom,source_sel = <2>;
+					qcom,pull = <5>;
 				};
 			};
 
