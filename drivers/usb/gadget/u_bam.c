@@ -79,10 +79,6 @@ module_param(dl_intr_threshold, uint, S_IRUGO | S_IWUSR);
 
 #define BAM_CH_OPENED	BIT(0)
 #define BAM_CH_READY	BIT(1)
-#define SPS_PARAMS_PIPE_ID_MASK		(0x1F)
-#define SPS_PARAMS_SPS_MODE			BIT(5)
-#define SPS_PARAMS_TBE		        BIT(6)
-#define MSM_VENDOR_ID				BIT(16)
 
 struct bam_ch_info {
 	unsigned long		flags;
@@ -741,8 +737,8 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	d->rx_req->context = port;
 	d->rx_req->complete = gbam_endless_rx_complete;
 	d->rx_req->length = 0;
-	sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
-				 MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+	sps_params = (MSM_SPS_MODE | d->src_pipe_idx |
+				 MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
 	d->rx_req->udc_priv = sps_params;
 	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_KERNEL);
 	if (!d->tx_req)
@@ -751,8 +747,8 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	d->tx_req->context = port;
 	d->tx_req->complete = gbam_endless_tx_complete;
 	d->tx_req->length = 0;
-	sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
-				 MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+	sps_params = (MSM_SPS_MODE | d->dst_pipe_idx |
+				 MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
 	d->tx_req->udc_priv = sps_params;
 
 	/* queue in & out requests */
