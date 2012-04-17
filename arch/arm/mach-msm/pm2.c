@@ -465,7 +465,8 @@ static void msm_pm_config_hw_before_power_down(void)
 		__raw_writel(1, APPS_PWRDOWN);
 		mb();
 	} else if (cpu_is_msm7x27a() || cpu_is_msm7x27aa() ||
-		   cpu_is_msm7x25a() || cpu_is_msm7x25aa()) {
+		   cpu_is_msm7x25a() || cpu_is_msm7x25aa() ||
+		   cpu_is_msm7x25ab()) {
 		__raw_writel(0x7, APPS_CLK_SLEEP_EN);
 		mb();
 		__raw_writel(1, APPS_PWRDOWN);
@@ -591,7 +592,8 @@ static void msm_pm_config_hw_before_swfi(void)
 		__raw_writel(0x0f, APPS_CLK_SLEEP_EN);
 		mb();
 	} else if (cpu_is_msm7x27a() || cpu_is_msm7x27aa() ||
-		   cpu_is_msm7x25a() || cpu_is_msm7x25aa()) {
+		   cpu_is_msm7x25a() || cpu_is_msm7x25aa() ||
+		   cpu_is_msm7x25ab()) {
 		__raw_writel(0x7, APPS_CLK_SLEEP_EN);
 		mb();
 	}
