@@ -45,6 +45,7 @@ static struct {
 	int		smd_channel_ready;
 	unsigned int	serial_number;
 	int		thermal_mitigation;
+	void		(*tm_notify)(int);
 	struct wcnss_wlan_config wlan_config;
 	struct delayed_work wcnss_work;
 } *penv = NULL;
@@ -97,6 +98,8 @@ static ssize_t wcnss_thermal_mitigation_store(struct device *dev,
 	if (sscanf(buf, "%d", &value) != 1)
 		return -EINVAL;
 	penv->thermal_mitigation = value;
+	if (penv->tm_notify)
+		(penv->tm_notify)(value);
 	return count;
 }
 
@@ -271,6 +274,23 @@ void wcnss_wlan_unregister_pm_ops(struct device *dev,
 	}
 }
 EXPORT_SYMBOL(wcnss_wlan_unregister_pm_ops);
+
+void wcnss_register_thermal_mitigation(void (*tm_notify)(int))
+{
+	if (penv && tm_notify)
+		penv->tm_notify = tm_notify;
+}
+EXPORT_SYMBOL(wcnss_register_thermal_mitigation);
+
+void wcnss_unregister_thermal_mitigation(void (*tm_notify)(int))
+{
+	if (penv && tm_notify) {
+		if (tm_notify != penv->tm_notify)
+			pr_err("tm_notify doesn't match registered\n");
+		penv->tm_notify = NULL;
+	}
+}
+EXPORT_SYMBOL(wcnss_unregister_thermal_mitigation);
 
 unsigned int wcnss_get_serial_number(void)
 {

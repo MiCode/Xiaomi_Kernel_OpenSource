@@ -35,6 +35,8 @@ void wcnss_wlan_register_pm_ops(struct device *dev,
 				const struct dev_pm_ops *pm_ops);
 void wcnss_wlan_unregister_pm_ops(struct device *dev,
 				const struct dev_pm_ops *pm_ops);
+void wcnss_register_thermal_mitigation(void (*tm_notify)(int));
+void wcnss_unregister_thermal_mitigation(void (*tm_notify)(int));
 struct platform_device *wcnss_get_platform_device(void);
 struct wcnss_wlan_config *wcnss_get_wlan_config(void);
 int wcnss_wlan_power(struct device *dev,
