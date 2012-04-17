@@ -22,6 +22,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/board.h>
 #include <mach/socinfo.h>
+#include <mach/iommu_domains.h>
 
 #include "devices.h"
 #include "rpm_log.h"
@@ -628,3 +629,161 @@ void __init msm8930_add_vidc_device(void)
 	}
 	platform_add_devices(vidc_device, ARRAY_SIZE(vidc_device));
 }
+
+struct msm_iommu_domain_name msm8930_iommu_ctx_names[] = {
+	/* Camera */
+	{
+		.name = "vpe_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vpe_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vfe_imgwr",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vfe_misc",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "ijpeg_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "ijpeg_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "jpegd_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "jpegd_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Rotator */
+	{
+		.name = "rot_src",
+		.domain = ROTATOR_DOMAIN,
+	},
+	/* Rotator */
+	{
+		.name = "rot_dst",
+		.domain = ROTATOR_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_a_mm1",
+		.domain = VIDEO_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_b_mm2",
+		.domain = VIDEO_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_a_stream",
+		.domain = VIDEO_DOMAIN,
+	},
+};
+
+static struct mem_pool msm8930_video_pools[] =  {
+	/*
+	 * Video hardware has the following requirements:
+	 * 1. All video addresses used by the video hardware must be at a higher
+	 *    address than video firmware address.
+	 * 2. Video hardware can only access a range of 256MB from the base of
+	 *    the video firmware.
+	*/
+	[VIDEO_FIRMWARE_POOL] =
+	/* Low addresses, intended for video firmware */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_16M - SZ_128K,
+		},
+	[VIDEO_MAIN_POOL] =
+	/* Main video pool */
+		{
+			.paddr	= SZ_16M,
+			.size	= SZ_256M - SZ_16M,
+		},
+	[GEN_POOL] =
+	/* Remaining address space up to 2G */
+		{
+			.paddr	= SZ_256M,
+			.size	= SZ_2G - SZ_256M,
+		},
+};
+
+static struct mem_pool msm8930_camera_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for camera */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
+
+static struct mem_pool msm8930_display_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for display */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
+
+static struct mem_pool msm8930_rotator_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for rotator */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
+
+static struct msm_iommu_domain msm8930_iommu_domains[] = {
+		[VIDEO_DOMAIN] = {
+			.iova_pools = msm8930_video_pools,
+			.npools = ARRAY_SIZE(msm8930_video_pools),
+		},
+		[CAMERA_DOMAIN] = {
+			.iova_pools = msm8930_camera_pools,
+			.npools = ARRAY_SIZE(msm8930_camera_pools),
+		},
+		[DISPLAY_DOMAIN] = {
+			.iova_pools = msm8930_display_pools,
+			.npools = ARRAY_SIZE(msm8930_display_pools),
+		},
+		[ROTATOR_DOMAIN] = {
+			.iova_pools = msm8930_rotator_pools,
+			.npools = ARRAY_SIZE(msm8930_rotator_pools),
+		},
+};
+
+struct iommu_domains_pdata msm8930_iommu_domain_pdata = {
+	.domains = msm8930_iommu_domains,
+	.ndomains = ARRAY_SIZE(msm8930_iommu_domains),
+	.domain_names = msm8930_iommu_ctx_names,
+	.nnames = ARRAY_SIZE(msm8930_iommu_ctx_names),
+	.domain_alloc_flags = 0,
+};
+
+struct platform_device msm8930_iommu_domain_device = {
+	.name = "iommu_domains",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm8930_iommu_domain_pdata,
+	},
+};

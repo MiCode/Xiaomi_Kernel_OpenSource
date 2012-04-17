@@ -1971,6 +1971,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_cpudai_slim_4_rx,
 	&apq_cpudai_slim_4_tx,
 	&msm8960_gemini_device,
+	&apq8064_iommu_domain_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {

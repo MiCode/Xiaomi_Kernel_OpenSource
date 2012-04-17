@@ -40,6 +40,7 @@
 #include "rpm_stats.h"
 #include "rpm_log.h"
 #include <mach/mpm.h>
+#include <mach/iommu_domains.h>
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS		0x12440000
@@ -2248,4 +2249,162 @@ struct platform_device apq8064_etm_device = {
 	.id            = 0,
 	.num_resources = ARRAY_SIZE(msm_etm_resources),
 	.resource      = msm_etm_resources,
+};
+
+struct msm_iommu_domain_name apq8064_iommu_ctx_names[] = {
+	/* Camera */
+	{
+		.name = "vpe_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vpe_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vfe_imgwr",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "vfe_misc",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "ijpeg_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "ijpeg_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "jpegd_src",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Camera */
+	{
+		.name = "jpegd_dst",
+		.domain = CAMERA_DOMAIN,
+	},
+	/* Rotator */
+	{
+		.name = "rot_src",
+		.domain = ROTATOR_DOMAIN,
+	},
+	/* Rotator */
+	{
+		.name = "rot_dst",
+		.domain = ROTATOR_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_a_mm1",
+		.domain = VIDEO_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_b_mm2",
+		.domain = VIDEO_DOMAIN,
+	},
+	/* Video */
+	{
+		.name = "vcodec_a_stream",
+		.domain = VIDEO_DOMAIN,
+	},
+};
+
+static struct mem_pool apq8064_video_pools[] =  {
+	/*
+	 * Video hardware has the following requirements:
+	 * 1. All video addresses used by the video hardware must be at a higher
+	 *    address than video firmware address.
+	 * 2. Video hardware can only access a range of 256MB from the base of
+	 *    the video firmware.
+	*/
+	[VIDEO_FIRMWARE_POOL] =
+	/* Low addresses, intended for video firmware */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_16M - SZ_128K,
+		},
+	[VIDEO_MAIN_POOL] =
+	/* Main video pool */
+		{
+			.paddr	= SZ_16M,
+			.size	= SZ_256M - SZ_16M,
+		},
+	[GEN_POOL] =
+	/* Remaining address space up to 2G */
+		{
+			.paddr	= SZ_256M,
+			.size	= SZ_2G - SZ_256M,
+		},
+};
+
+static struct mem_pool apq8064_camera_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for camera */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
+
+static struct mem_pool apq8064_display_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for display */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
+
+static struct mem_pool apq8064_rotator_pools[] =  {
+	[GEN_POOL] =
+	/* One address space for rotator */
+		{
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
+		},
+};
+
+static struct msm_iommu_domain apq8064_iommu_domains[] = {
+		[VIDEO_DOMAIN] = {
+			.iova_pools = apq8064_video_pools,
+			.npools = ARRAY_SIZE(apq8064_video_pools),
+		},
+		[CAMERA_DOMAIN] = {
+			.iova_pools = apq8064_camera_pools,
+			.npools = ARRAY_SIZE(apq8064_camera_pools),
+		},
+		[DISPLAY_DOMAIN] = {
+			.iova_pools = apq8064_display_pools,
+			.npools = ARRAY_SIZE(apq8064_display_pools),
+		},
+		[ROTATOR_DOMAIN] = {
+			.iova_pools = apq8064_rotator_pools,
+			.npools = ARRAY_SIZE(apq8064_rotator_pools),
+		},
+};
+
+struct iommu_domains_pdata apq8064_iommu_domain_pdata = {
+	.domains = apq8064_iommu_domains,
+	.ndomains = ARRAY_SIZE(apq8064_iommu_domains),
+	.domain_names = apq8064_iommu_ctx_names,
+	.nnames = ARRAY_SIZE(apq8064_iommu_ctx_names),
+	.domain_alloc_flags = 0,
+};
+
+struct platform_device apq8064_iommu_domain_device = {
+	.name = "iommu_domains",
+	.id = -1,
+	.dev = {
+		.platform_data = &apq8064_iommu_domain_pdata,
+	},
 };
