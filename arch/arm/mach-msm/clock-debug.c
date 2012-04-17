@@ -148,8 +148,6 @@ static size_t num_msm_clocks;
 
 int __init clock_debug_init(struct clock_init_data *data)
 {
-	int ret = 0;
-
 	debugfs_base = debugfs_create_dir("clk", NULL);
 	if (!debugfs_base)
 		return -ENOMEM;
@@ -162,12 +160,10 @@ int __init clock_debug_init(struct clock_init_data *data)
 	num_msm_clocks = data->size;
 
 	measure = clk_get_sys("debug", "measure");
-	if (IS_ERR(measure)) {
-		ret = PTR_ERR(measure);
+	if (IS_ERR(measure))
 		measure = NULL;
-	}
 
-	return ret;
+	return 0;
 }
 
 
