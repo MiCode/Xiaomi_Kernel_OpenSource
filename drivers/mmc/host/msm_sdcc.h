@@ -399,6 +399,7 @@ struct msmsdcc_host {
 	bool sdcc_irq_disabled;
 	bool sdcc_suspended;
 	bool sdio_wakeupirq_disabled;
+	struct mutex clk_mutex;
 };
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);

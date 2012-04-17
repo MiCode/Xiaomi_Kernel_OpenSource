@@ -2213,24 +2213,28 @@ static inline int msmsdcc_is_pwrsave(struct msmsdcc_host *host)
 	return 0;
 }
 
+/*
+ * Any function calling msmsdcc_setup_clocks must
+ * acquire clk_mutex. May sleep.
+ */
 static inline void msmsdcc_setup_clocks(struct msmsdcc_host *host, bool enable)
 {
 	if (enable) {
 		if (!IS_ERR_OR_NULL(host->dfab_pclk))
-			clk_enable(host->dfab_pclk);
+			clk_prepare_enable(host->dfab_pclk);
 		if (!IS_ERR(host->pclk))
-			clk_enable(host->pclk);
-		clk_enable(host->clk);
+			clk_prepare_enable(host->pclk);
+		clk_prepare_enable(host->clk);
 		mb();
 		msmsdcc_delay(host);
 	} else {
 		mb();
 		msmsdcc_delay(host);
-		clk_disable(host->clk);
+		clk_disable_unprepare(host->clk);
 		if (!IS_ERR(host->pclk))
-			clk_disable(host->pclk);
+			clk_disable_unprepare(host->pclk);
 		if (!IS_ERR_OR_NULL(host->dfab_pclk))
-			clk_disable(host->dfab_pclk);
+			clk_disable_unprepare(host->dfab_pclk);
 	}
 }
 
@@ -2541,7 +2545,6 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	unsigned long flags;
 	unsigned int clock;
 
-	DBG(host, "ios->clock = %u\n", ios->clock);
 
 	/*
 	 * Disable SDCC core interrupt until set_ios is completed.
@@ -2549,8 +2552,12 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * when turning on/off the clocks. One possible
 	 * scenario is SDIO operational interrupt while the clock
 	 * is turned off.
+	 * host->lock is being released intermittently below.
+	 * Thus, prevent concurrent access to host.
 	 */
 
+	mutex_lock(&host->clk_mutex);
+	DBG(host, "ios->clock = %u\n", ios->clock);
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->sdcc_irq_disabled) {
 		spin_unlock_irqrestore(&host->lock, flags);
@@ -2565,7 +2572,9 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	spin_lock_irqsave(&host->lock, flags);
 	if (ios->clock) {
 		if (!host->clks_on) {
+			spin_unlock_irqrestore(&host->lock, flags);
 			msmsdcc_setup_clocks(host, true);
+			spin_lock_irqsave(&host->lock, flags);
 			host->clks_on = 1;
 			writel_relaxed(host->mci_irqenable,
 					host->base + MMCIMASK0);
@@ -2596,7 +2605,9 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 
 		if (clock != host->clk_rate) {
+			spin_unlock_irqrestore(&host->lock, flags);
 			rc = clk_set_rate(host->clk, clock);
+			spin_lock_irqsave(&host->lock, flags);
 			if (rc < 0)
 				pr_err("%s: failed to set clk rate %u\n",
 						mmc_hostname(mmc), clock);
@@ -2667,7 +2678,13 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	if (!(clk & MCI_CLK_ENABLE) && host->clks_on) {
 		msmsdcc_cfg_sdio_wakeup(host, true);
+		spin_unlock_irqrestore(&host->lock, flags);
+		/*
+		 * May get a wake-up interrupt the instant we disable the
+		 * clocks. This would disable the wake-up interrupt.
+		 */
 		msmsdcc_setup_clocks(host, false);
+		spin_lock_irqsave(&host->lock, flags);
 		host->clks_on = 0;
 	}
 
@@ -2682,6 +2699,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	spin_unlock_irqrestore(&host->lock, flags);
+	mutex_unlock(&host->clk_mutex);
 }
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
@@ -2832,12 +2850,16 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 
 	msmsdcc_pm_qos_update_latency(host, 1);
 
+	mutex_lock(&host->clk_mutex);
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->clks_on) {
+		spin_unlock_irqrestore(&host->lock, flags);
 		msmsdcc_setup_clocks(host, true);
+		spin_lock_irqsave(&host->lock, flags);
 		host->clks_on = 1;
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
+	mutex_unlock(&host->clk_mutex);
 
 	return 0;
 }
@@ -2852,12 +2874,16 @@ static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		return 0;
 
+	mutex_lock(&host->clk_mutex);
 	spin_lock_irqsave(&host->lock, flags);
 	if (host->clks_on) {
+		spin_unlock_irqrestore(&host->lock, flags);
 		msmsdcc_setup_clocks(host, false);
+		spin_lock_irqsave(&host->lock, flags);
 		host->clks_on = 0;
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
+	mutex_unlock(&host->clk_mutex);
 
 	return 0;
 }
@@ -3510,18 +3536,8 @@ msmsdcc_platform_sdiowakeup_irq(int irq, void *dev_id)
 		host->sdio_wakeupirq_disabled = 1;
 	}
 	if (host->plat->is_sdio_al_client) {
-		if (!host->clks_on) {
-			msmsdcc_setup_clocks(host, true);
-			host->clks_on = 1;
-		}
-		if (host->sdcc_irq_disabled) {
-			writel_relaxed(host->mci_irqenable,
-				       host->base + MMCIMASK0);
-			mb();
-			enable_irq(host->core_irqres->start);
-			host->sdcc_irq_disabled = 0;
-		}
 		wake_lock(&host->sdio_wlock);
+		mmc_signal_sdio_irq(host->mmc);
 	}
 	spin_unlock(&host->lock);
 
@@ -4380,6 +4396,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	host->dmares = dmares;
 	host->dma_crci_res = dma_crci_res;
 	spin_lock_init(&host->lock);
+	mutex_init(&host->clk_mutex);
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	if (plat->embedded_sdio)
@@ -4416,7 +4433,7 @@ msmsdcc_probe(struct platform_device *pdev)
 			ret = clk_set_rate(host->dfab_pclk, 64000000);
 			if (ret)
 				goto dfab_pclk_put;
-			ret = clk_enable(host->dfab_pclk);
+			ret = clk_prepare_enable(host->dfab_pclk);
 			if (ret)
 				goto dfab_pclk_put;
 		} else
@@ -4428,7 +4445,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	 */
 	host->pclk = clk_get(&pdev->dev, "iface_clk");
 	if (!IS_ERR(host->pclk)) {
-		ret = clk_enable(host->pclk);
+		ret = clk_prepare_enable(host->pclk);
 		if (ret)
 			goto pclk_put;
 
@@ -4450,7 +4467,7 @@ msmsdcc_probe(struct platform_device *pdev)
 		goto clk_put;
 	}
 
-	ret = clk_enable(host->clk);
+	ret = clk_prepare_enable(host->clk);
 	if (ret)
 		goto clk_put;
 
@@ -4771,12 +4788,12 @@ msmsdcc_probe(struct platform_device *pdev)
 	clk_put(host->clk);
  pclk_disable:
 	if (!IS_ERR(host->pclk))
-		clk_disable(host->pclk);
+		clk_disable_unprepare(host->pclk);
  pclk_put:
 	if (!IS_ERR(host->pclk))
 		clk_put(host->pclk);
 	if (!IS_ERR_OR_NULL(host->dfab_pclk))
-		clk_disable(host->dfab_pclk);
+		clk_disable_unprepare(host->dfab_pclk);
  dfab_pclk_put:
 	if (!IS_ERR_OR_NULL(host->dfab_pclk))
 		clk_put(host->dfab_pclk);
@@ -4874,6 +4891,7 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
 
+	mutex_lock(&host->clk_mutex);
 	spin_lock_irqsave(&host->lock, flags);
 	pr_debug("%s: %sabling LPM\n", mmc_hostname(mmc),
 			enable ? "En" : "Dis");
@@ -4886,7 +4904,9 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 		}
 
 		if (host->clks_on) {
+			spin_unlock_irqrestore(&host->lock, flags);
 			msmsdcc_setup_clocks(host, false);
+			spin_lock_irqsave(&host->lock, flags);
 			host->clks_on = 0;
 		}
 
@@ -4919,7 +4939,9 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 		}
 
 		if (!host->clks_on) {
+			spin_unlock_irqrestore(&host->lock, flags);
 			msmsdcc_setup_clocks(host, true);
+			spin_lock_irqsave(&host->lock, flags);
 			host->clks_on = 1;
 		}
 
@@ -4932,6 +4954,7 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 		}
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
+	mutex_unlock(&host->clk_mutex);
 	return 0;
 }
 #else
@@ -5121,7 +5144,7 @@ static int msmsdcc_suspend_noirq(struct device *dev)
 	 * during suspend and not allowing TCXO.
 	 */
 
-	if (host->clks_on) {
+	if (host->clks_on && !host->plat->is_sdio_al_client) {
 		pr_warn("%s: clocks are on after suspend, aborting system "
 				"suspend\n", mmc_hostname(mmc));
 		rc = -EAGAIN;
