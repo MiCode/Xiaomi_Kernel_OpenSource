@@ -13,10 +13,9 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/mfd/pm8xxx/misc.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
-#include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -31,27 +30,11 @@
 
 /* 8930 machine driver */
 
-#define PM8921_GPIO_BASE		NR_GPIO_IRQS
-#define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
-
 #define MSM8930_SPK_ON 1
 #define MSM8930_SPK_OFF 0
 
-#define msm8930_SLIM_0_RX_MAX_CHANNELS		2
-#define msm8930_SLIM_0_TX_MAX_CHANNELS		4
-
 #define BTSCO_RATE_8KHZ 8000
 #define BTSCO_RATE_16KHZ 16000
-
-#define BOTTOM_SPK_AMP_POS	0x1
-#define BOTTOM_SPK_AMP_NEG	0x2
-#define TOP_SPK_AMP_POS		0x4
-#define TOP_SPK_AMP_NEG		0x8
-
-#define GPIO_AUX_PCM_DOUT 63
-#define GPIO_AUX_PCM_DIN 64
-#define GPIO_AUX_PCM_SYNC 65
-#define GPIO_AUX_PCM_CLK 66
 
 #define SITAR_EXT_CLK_RATE 12288000
 
@@ -72,17 +55,7 @@ static int msm8930_headset_gpios_configured;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
-
-struct sitar_mbhc_calibration sitar_calib = {
-	.bias = SITAR_MICBIAS2,
-	.tldoh = 100,
-	.bg_fast_settle = 100,
-	.mic_current = SITAR_PID_MIC_5_UA,
-	.mic_pid = 100,
-	.hph_current = SITAR_PID_MIC_5_UA,
-	.setup_plug_removal_delay = 1000000,
-	.shutdown_plug_removal = 100000,
-};
+static void *sitar_mbhc_cal;
 
 static void msm8930_ext_control(struct snd_soc_codec *codec)
 {
@@ -91,10 +64,10 @@ static void msm8930_ext_control(struct snd_soc_codec *codec)
 	pr_debug("%s: msm8930_spk_control = %d", __func__, msm8930_spk_control);
 	if (msm8930_spk_control == MSM8930_SPK_ON) {
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Left Pos");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Right Pos");
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk left Neg");
 	} else {
 		snd_soc_dapm_disable_pin(dapm, "Ext Spk Left Pos");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Right Pos");
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Left Neg");
 	}
 
 	snd_soc_dapm_sync(dapm);
@@ -128,6 +101,7 @@ static int msm8930_spkramp_event(struct snd_soc_dapm_widget *w,
 	/* TODO: add external speaker power amps support */
 	return 0;
 }
+
 int msm8930_enable_codec_ext_clk(
 		struct snd_soc_codec *codec, int enable)
 {
@@ -140,10 +114,10 @@ int msm8930_enable_codec_ext_clk(
 
 		if (codec_clk) {
 			clk_set_rate(codec_clk, SITAR_EXT_CLK_RATE);
-			clk_enable(codec_clk);
+			clk_prepare_enable(codec_clk);
 			sitar_mclk_enable(codec, 1);
 		} else {
-			pr_err("%s: Error setting Tabla MCLK\n", __func__);
+			pr_err("%s: Error setting Sitar MCLK\n", __func__);
 			clk_users--;
 			return -EINVAL;
 		}
@@ -155,7 +129,7 @@ int msm8930_enable_codec_ext_clk(
 		if (!clk_users) {
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
-			clk_disable(codec_clk);
+			clk_disable_unprepare(codec_clk);
 			sitar_mclk_enable(codec, 0);
 		}
 	}
@@ -182,9 +156,8 @@ static const struct snd_soc_dapm_widget msm8930_dapm_widgets[] = {
 	msm8930_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SPK("Ext Spk Left Pos", msm8930_spkramp_event),
-	SND_SOC_DAPM_SPK("Ext Spk Right Pos", msm8930_spkramp_event),
+	SND_SOC_DAPM_SPK("Ext Spk Left Neg", NULL),
 
-	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
@@ -207,15 +180,18 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 
 	/* Speaker path */
 	{"Ext Spk Left Pos", NULL, "LINEOUT1"},
-	{"Ext Spk Right Pos", NULL, "LINEOUT2"},
+	{"Ext Spk Left Neg", NULL, "LINEOUT2"},
 
-
+	/* Headset Mic */
 	{"AMIC2", NULL, "MIC BIAS2 Internal1"},
 	{"MIC BIAS2 Internal1", NULL, "Headset Mic"},
 
 	/* Microphone path */
-	{"AMIC1", NULL, "MIC BIAS1 Internal1"},
-	{"MIC BIAS1 Internal1", NULL, "Handset Mic"},
+	{"AMIC1", NULL, "MIC BIAS2 Internal1"},
+	{"MIC BIAS2 Internal1", NULL, "ANCLeft Headset Mic"},
+
+	{"AMIC3", NULL, "MIC BIAS2 Internal1"},
+	{"MIC BIAS2 Internal1", NULL, "ANCRight Headset Mic"},
 
 	{"HEADPHONE", NULL, "LDO_H"},
 
@@ -227,7 +203,7 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	/**
 	 * Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP.
 	 * Digital Mic GM5 on CDP mainboard.
-	 * Conncted to DMIC2 Input on Tabla codec.
+	 * Conncted to DMIC2 Input on Sitar codec.
 	 */
 	{"DMIC1", NULL, "MIC BIAS1 External"},
 	{"MIC BIAS1 External", NULL, "Digital Mic1"},
@@ -235,25 +211,25 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	/**
 	 * Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP.
 	 * Digital Mic GM6 on CDP mainboard.
-	 * Conncted to DMIC1 Input on Tabla codec.
+	 * Conncted to DMIC1 Input on Sitar codec.
 	 */
 	{"DMIC2", NULL, "MIC BIAS1 External"},
 	{"MIC BIAS1 External", NULL, "Digital Mic2"},
 	/**
 	 * Digital Mic3. Back Bottom Digital Mic on Fluid.
 	 * Digital Mic GM1 on CDP mainboard.
-	 * Conncted to DMIC4 Input on Tabla codec.
+	 * Conncted to DMIC4 Input on Sitar codec.
 	 */
-	{"DMIC3", NULL, "MIC BIAS2 External"},
-	{"MIC BIAS2 External", NULL, "Digital Mic3"},
+	{"DMIC3", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic3"},
 
 	/**
 	 * Digital Mic4. Back top Digital Mic on Fluid.
 	 * Digital Mic GM2 on CDP mainboard.
-	 * Conncted to DMIC3 Input on Tabla codec.
+	 * Conncted to DMIC3 Input on Sitar codec.
 	 */
-	{"DMIC4", NULL, "MIC BIAS2 External"},
-	{"MIC BIAS2 External", NULL, "Digital Mic4"},
+	{"DMIC4", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic4"},
 
 
 };
@@ -277,7 +253,7 @@ static int msm8930_slim_0_rx_ch_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	pr_debug("%s: msm8930_slim_0_rx_ch  = %d\n", __func__,
-		 msm8930_slim_0_rx_ch);
+		msm8930_slim_0_rx_ch);
 	ucontrol->value.integer.value[0] = msm8930_slim_0_rx_ch - 1;
 	return 0;
 }
@@ -288,7 +264,7 @@ static int msm8930_slim_0_rx_ch_put(struct snd_kcontrol *kcontrol,
 	msm8930_slim_0_rx_ch = ucontrol->value.integer.value[0] + 1;
 
 	pr_debug("%s: msm8930_slim_0_rx_ch = %d\n", __func__,
-		 msm8930_slim_0_rx_ch);
+		msm8930_slim_0_rx_ch);
 	return 1;
 }
 
@@ -362,6 +338,83 @@ static int msm8930_btsco_init(struct snd_soc_pcm_runtime *rtd)
 	if (err < 0)
 		return err;
 	return 0;
+}
+
+static void *def_sitar_mbhc_cal(void)
+{
+	void *sitar_cal;
+	struct sitar_mbhc_btn_detect_cfg *btn_cfg;
+	u16 *btn_low, *btn_high;
+	u8 *n_ready, *n_cic, *gain;
+
+	sitar_cal = kzalloc(SITAR_MBHC_CAL_SIZE(SITAR_MBHC_DEF_BUTTONS,
+				SITAR_MBHC_DEF_RLOADS),
+				GFP_KERNEL);
+	if (!sitar_cal) {
+		pr_err("%s: out of memory\n", __func__);
+		return NULL;
+	}
+
+#define S(X, Y) ((SITAR_MBHC_CAL_GENERAL_PTR(sitar_cal)->X) = (Y))
+	S(t_ldoh, 100);
+	S(t_bg_fast_settle, 100);
+	S(t_shutdown_plug_rem, 255);
+	S(mbhc_nsa, 4);
+	S(mbhc_navg, 4);
+#undef S
+#define S(X, Y) ((SITAR_MBHC_CAL_PLUG_DET_PTR(sitar_cal)->X) = (Y))
+	S(mic_current, SITAR_PID_MIC_5_UA);
+	S(hph_current, SITAR_PID_MIC_5_UA);
+	S(t_mic_pid, 100);
+	S(t_ins_complete, 250);
+	S(t_ins_retry, 200);
+#undef S
+#define S(X, Y) ((SITAR_MBHC_CAL_PLUG_TYPE_PTR(sitar_cal)->X) = (Y))
+	S(v_no_mic, 30);
+	S(v_hs_max, 1550);
+#undef S
+#define S(X, Y) ((SITAR_MBHC_CAL_BTN_DET_PTR(sitar_cal)->X) = (Y))
+	S(c[0], 62);
+	S(c[1], 124);
+	S(nc, 1);
+	S(n_meas, 3);
+	S(mbhc_nsc, 11);
+	S(n_btn_meas, 1);
+	S(n_btn_con, 2);
+	S(num_btn, SITAR_MBHC_DEF_BUTTONS);
+	S(v_btn_press_delta_sta, 100);
+	S(v_btn_press_delta_cic, 50);
+#undef S
+	btn_cfg = SITAR_MBHC_CAL_BTN_DET_PTR(sitar_cal);
+	btn_low = sitar_mbhc_cal_btn_det_mp(btn_cfg, SITAR_BTN_DET_V_BTN_LOW);
+	btn_high = sitar_mbhc_cal_btn_det_mp(btn_cfg, SITAR_BTN_DET_V_BTN_HIGH);
+	btn_low[0] = -50;
+	btn_high[0] = 10;
+	btn_low[1] = 11;
+	btn_high[1] = 38;
+	btn_low[2] = 39;
+	btn_high[2] = 64;
+	btn_low[3] = 65;
+	btn_high[3] = 91;
+	btn_low[4] = 92;
+	btn_high[4] = 115;
+	btn_low[5] = 116;
+	btn_high[5] = 141;
+	btn_low[6] = 142;
+	btn_high[6] = 163;
+	btn_low[7] = 164;
+	btn_high[7] = 250;
+	n_ready = sitar_mbhc_cal_btn_det_mp(btn_cfg, SITAR_BTN_DET_N_READY);
+	n_ready[0] = 48;
+	n_ready[1] = 38;
+	n_cic = sitar_mbhc_cal_btn_det_mp(btn_cfg, SITAR_BTN_DET_N_CIC);
+	n_cic[0] = 60;
+	n_cic[1] = 47;
+	gain = sitar_mbhc_cal_btn_det_mp(btn_cfg, SITAR_BTN_DET_GAIN);
+	gain[0] = 11;
+	gain[1] = 9;
+
+	return sitar_cal;
 }
 
 static int msm8930_hw_params(struct snd_pcm_substream *substream,
@@ -447,7 +500,7 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		ARRAY_SIZE(common_audio_map));
 
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Left Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Right Pos");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Left Neg");
 
 	snd_soc_dapm_sync(dapm);
 
@@ -466,7 +519,10 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return err;
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
-	sitar_hs_detect(codec, &hs_jack, &button_jack, &sitar_calib);
+
+	sitar_hs_detect(codec, &hs_jack, &button_jack, sitar_mbhc_cal,
+			SITAR_MICBIAS2, msm8930_enable_codec_ext_clk, 0,
+			SITAR_EXT_CLK_RATE);
 	return 0;
 }
 
@@ -596,101 +652,12 @@ static int msm8930_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
-static int msm8930_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
-					struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
 
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	/* PCM only supports mono output with 8khz sample rate */
-	rate->min = rate->max = 8000;
-	channels->min = channels->max = 1;
-
-	return 0;
-}
-static int msm8930_aux_pcm_get_gpios(void)
-{
-	int ret = 0;
-
-	pr_debug("%s\n", __func__);
-
-	ret = gpio_request(GPIO_AUX_PCM_DOUT, "AUX PCM DOUT");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM DOUT",
-				__func__, GPIO_AUX_PCM_DOUT);
-		goto fail_dout;
-	}
-
-	ret = gpio_request(GPIO_AUX_PCM_DIN, "AUX PCM DIN");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM DIN",
-				__func__, GPIO_AUX_PCM_DIN);
-		goto fail_din;
-	}
-
-	ret = gpio_request(GPIO_AUX_PCM_SYNC, "AUX PCM SYNC");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM SYNC",
-				__func__, GPIO_AUX_PCM_SYNC);
-		goto fail_sync;
-	}
-	ret = gpio_request(GPIO_AUX_PCM_CLK, "AUX PCM CLK");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM CLK",
-				__func__, GPIO_AUX_PCM_CLK);
-		goto fail_clk;
-	}
-
-	return 0;
-
-fail_clk:
-	gpio_free(GPIO_AUX_PCM_SYNC);
-fail_sync:
-	gpio_free(GPIO_AUX_PCM_DIN);
-fail_din:
-	gpio_free(GPIO_AUX_PCM_DOUT);
-fail_dout:
-
-	return ret;
-}
-
-static int msm8930_aux_pcm_free_gpios(void)
-{
-	gpio_free(GPIO_AUX_PCM_DIN);
-	gpio_free(GPIO_AUX_PCM_DOUT);
-	gpio_free(GPIO_AUX_PCM_SYNC);
-	gpio_free(GPIO_AUX_PCM_CLK);
-
-	return 0;
-}
 static int msm8930_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 	return 0;
-}
-
-static int msm8930_auxpcm_startup(struct snd_pcm_substream *substream)
-{
-	int ret = 0;
-
-	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	ret = msm8930_aux_pcm_get_gpios();
-	if (ret < 0) {
-		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static void msm8930_auxpcm_shutdown(struct snd_pcm_substream *substream)
-{
-
-	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	msm8930_aux_pcm_free_gpios();
 }
 
 static void msm8930_shutdown(struct snd_pcm_substream *substream)
@@ -703,11 +670,6 @@ static struct snd_soc_ops msm8930_be_ops = {
 	.startup = msm8930_startup,
 	.hw_params = msm8930_hw_params,
 	.shutdown = msm8930_shutdown,
-};
-
-static struct snd_soc_ops msm8930_auxpcm_be_ops = {
-	.startup = msm8930_auxpcm_startup,
-	.shutdown = msm8930_auxpcm_shutdown,
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -940,30 +902,6 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
 	},
-	/* AUX PCM Backend DAI Links */
-	{
-		.name = LPASS_BE_AUXPCM_RX,
-		.stream_name = "AUX PCM Playback",
-		.cpu_dai_name = "msm-dai-q6.2",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
-		.be_hw_params_fixup = msm8930_auxpcm_be_params_fixup,
-		.ops = &msm8930_auxpcm_be_ops,
-	},
-	{
-		.name = LPASS_BE_AUXPCM_TX,
-		.stream_name = "AUX PCM Capture",
-		.cpu_dai_name = "msm-dai-q6.3",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
-		.be_hw_params_fixup = msm8930_auxpcm_be_params_fixup,
-	},
 	/* Incall Music BACK END DAI Link */
 	{
 		.name = LPASS_BE_VOICE_PLAYBACK_TX,
@@ -1043,10 +981,16 @@ static int __init msm8930_audio_init(void)
 		pr_err("%s: Not the right machine type\n", __func__);
 		return -ENODEV ;
 	}
+	sitar_mbhc_cal = def_sitar_mbhc_cal();
+	if (!sitar_mbhc_cal) {
+		pr_err("Calibration data allocation failed\n");
+		return -ENOMEM;
+	}
 
 	msm8930_snd_device = platform_device_alloc("soc-audio", 0);
 	if (!msm8930_snd_device) {
 		pr_err("Platform device allocation failed\n");
+		kfree(sitar_mbhc_cal);
 		return -ENOMEM;
 	}
 
@@ -1054,6 +998,7 @@ static int __init msm8930_audio_init(void)
 	ret = platform_device_add(msm8930_snd_device);
 	if (ret) {
 		platform_device_put(msm8930_snd_device);
+		kfree(sitar_mbhc_cal);
 		return ret;
 	}
 
@@ -1076,6 +1021,7 @@ static void __exit msm8930_audio_exit(void)
 	}
 	msm8930_free_headset_mic_gpios();
 	platform_device_unregister(msm8930_snd_device);
+	kfree(sitar_mbhc_cal);
 }
 module_exit(msm8930_audio_exit);
 
