@@ -128,6 +128,9 @@ struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 uint8_t *adreno_convertaddr(struct kgsl_device *device,
 	unsigned int pt_base, unsigned int gpuaddr, unsigned int size);
 
+struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
+	unsigned int pt_base, unsigned int gpuaddr, unsigned int size);
+
 void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 		int hang);
 

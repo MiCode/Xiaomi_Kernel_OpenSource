@@ -657,17 +657,31 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 			parse_ibs = 0;
 
 		if (parse_ibs && adreno_cmd_is_ib(rbptr[index])) {
+			unsigned int ibaddr = rbptr[index + 1];
+			unsigned int ibsize = rbptr[index + 2];
+
 			/*
-			 * The IB from CP_IB1_BASE goes into the snapshot, all
+			 * This will return non NULL if the IB happens to be
+			 * part of the context memory (i.e - context switch
+			 * command buffers)
+			 */
+
+			struct kgsl_memdesc *memdesc =
+				adreno_find_ctxtmem(device, ptbase, ibaddr,
+					ibsize);
+
+			/*
+			 * The IB from CP_IB1_BASE and the IBs for legacy
+			 * context switch go into the snapshot all
 			 * others get marked at GPU objects
 			 */
-			if (rbptr[index + 1] == ibbase)
+
+			if (ibaddr == ibbase || memdesc != NULL)
 				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
-					ptbase, rbptr[index + 1],
-					rbptr[index + 2]);
+					ptbase, ibaddr, ibsize);
 			else
-				ib_add_gpu_object(device, ptbase,
-					rbptr[index + 1], rbptr[index + 2]);
+				ib_add_gpu_object(device, ptbase, ibaddr,
+					ibsize);
 		}
 
 		index = index + 1;
