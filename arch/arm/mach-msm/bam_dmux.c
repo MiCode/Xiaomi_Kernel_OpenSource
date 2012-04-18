@@ -240,6 +240,7 @@ static int wakelock_reference_count;
 static int a2_pc_disabled_wakelock_skipped;
 static int disconnect_ack;
 static LIST_HEAD(bam_other_notify_funcs);
+static DEFINE_MUTEX(smsm_cb_lock);
 
 struct outside_notify_func {
 	void (*notify)(void *, int, unsigned long);
@@ -2116,10 +2117,20 @@ static void toggle_apps_ack(void)
 
 static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 {
+	static int last_processed_state;
+
+	mutex_lock(&smsm_cb_lock);
 	bam_dmux_power_state = new_state & SMSM_A2_POWER_CONTROL ? 1 : 0;
 	DBG_INC_A2_POWER_CONTROL_IN_CNT();
 	bam_dmux_log("%s: 0x%08x -> 0x%08x\n", __func__, old_state,
 			new_state);
+	if (last_processed_state == (new_state & SMSM_A2_POWER_CONTROL)) {
+		bam_dmux_log("%s: already processed this state\n", __func__);
+		mutex_unlock(&smsm_cb_lock);
+		return;
+	}
+
+	last_processed_state = new_state & SMSM_A2_POWER_CONTROL;
 
 	if (bam_mux_initialized && new_state & SMSM_A2_POWER_CONTROL) {
 		bam_dmux_log("%s: reconnect\n", __func__);
@@ -2141,6 +2152,7 @@ static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 		bam_dmux_log("%s: bad state change\n", __func__);
 		pr_err("%s: unsupported state change\n", __func__);
 	}
+	mutex_unlock(&smsm_cb_lock);
 
 }
 
