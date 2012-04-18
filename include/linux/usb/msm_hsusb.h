@@ -149,6 +149,17 @@ enum usb_chg_type {
 };
 
 /**
+ * Used different VDDCX voltage voting mechnism
+ * VDDCX_CORNER       Vote for VDDCX Corner voltage
+ * VDDCX              Vote for VDDCX Absolute voltage
+ */
+enum usb_vdd_type {
+	VDDCX_CORNER = 0,
+	VDDCX,
+	VDD_TYPE_MAX,
+};
+
+/**
  * struct msm_otg_platform_data - platform device data
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence. val, reg pairs
@@ -329,6 +340,7 @@ struct msm_otg {
 	unsigned long tmouts;
 	u8 active_tmout;
 	struct hrtimer timer;
+	enum usb_vdd_type vdd_type;
 };
 
 struct msm_hsic_host_platform_data {
