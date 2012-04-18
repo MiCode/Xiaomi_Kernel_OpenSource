@@ -334,6 +334,12 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 		}
 	}
 
+	if (kgsl_memdesc_map(&entry->memdesc) == NULL) {
+		KGSL_DRV_ERR(device, "Unable to map GPU buffer %X\n",
+				gpuaddr);
+		return 0;
+	}
+
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 
 	if (obj == NULL) {

@@ -208,17 +208,25 @@ static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 	}
 	return 0;
 }
+
+static inline void *kgsl_memdesc_map(struct kgsl_memdesc *memdesc)
+{
+	if (memdesc->hostptr == NULL && memdesc->ops->map_kernel_mem)
+		memdesc->ops->map_kernel_mem(memdesc);
+
+	return memdesc->hostptr;
+}
+
 static inline uint8_t *kgsl_gpuaddr_to_vaddr(struct kgsl_memdesc *memdesc,
 					     unsigned int gpuaddr)
 {
-	if (memdesc->gpuaddr == 0 ||
-		gpuaddr < memdesc->gpuaddr ||
-		gpuaddr >= (memdesc->gpuaddr + memdesc->size) ||
-		(NULL == memdesc->hostptr && memdesc->ops->map_kernel_mem &&
-			memdesc->ops->map_kernel_mem(memdesc)))
-			return NULL;
+	void *hostptr = NULL;
 
-	return memdesc->hostptr + (gpuaddr - memdesc->gpuaddr);
+	if ((gpuaddr >= memdesc->gpuaddr) &&
+		(gpuaddr < (memdesc->gpuaddr + memdesc->size)))
+		hostptr = kgsl_memdesc_map(memdesc);
+
+	return hostptr != NULL ? hostptr + (gpuaddr - memdesc->gpuaddr) : NULL;
 }
 
 static inline int timestamp_cmp(unsigned int new, unsigned int old)
