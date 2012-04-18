@@ -12,7 +12,6 @@
  */
 
 #include <asm/mach-types.h>
-#include <devices-msm8x60.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/mfd/pmic8901.h>
@@ -20,6 +19,7 @@
 #include <mach/board-msm8660.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_bus_board.h>
+#include "devices-msm8x60.h"
 #include "devices.h"
 
 #define GPIO_EXT_CAMIF_PWR_EN1 (PM8901_MPP_BASE + PM8901_MPPS + 13)
