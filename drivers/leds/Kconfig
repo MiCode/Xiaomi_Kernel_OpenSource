@@ -193,6 +193,18 @@ config LEDS_MSM_PDM
 	  To compile this driver as a module, choose M here: the
 	  module will be called leds-msm-pdm.
 
+config LEDS_PMIC_MPP
+        tristate "LED Support for Qualcomm PMIC MPP connected LEDs"
+        depends on LEDS_CLASS && MSM_SMD
+        help
+          This option enables support for LEDs connected to  PMIC MPPs
+	  on Qualcomm reference boards.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called leds-pmic-mpp.
+
 config LEDS_LP3944
 	tristate "LED Support for N.S. LP3944 (Fun Light) I2C chip"
 	depends on LEDS_CLASS
