@@ -190,6 +190,9 @@
 #define MSM_CAM_IOCTL_MCTL_DIVERT_DONE \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 53, struct msm_cam_evt_divert_frame *)
 
+#define MSM_CAM_IOCTL_GET_ACTUATOR_INFO \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 54, struct msm_actuator_cfg_data *)
+
 struct msm_mctl_pp_cmd {
 	int32_t  id;
 	uint16_t length;
@@ -212,6 +215,16 @@ struct msm_mctl_post_proc_cmd {
 
 #define MSM_MAX_CAMERA_SENSORS  5
 #define MAX_SENSOR_NAME 32
+#define MAX_CAM_NAME_SIZE 32
+#define MAX_ACT_MOD_NAME_SIZE 32
+#define MAX_ACT_NAME_SIZE 32
+#define NUM_ACTUATOR_DIR 2
+#define MAX_ACTUATOR_SCENARIO 8
+#define MAX_ACTUATOR_REGION 5
+#define MAX_ACTUATOR_INIT_SET 12
+#define MAX_ACTUATOR_TYPE_SIZE 32
+#define MAX_ACTUATOR_REG_TBL_SIZE 8
+
 
 #define MSM_MAX_CAMERA_CONFIGS 2
 
@@ -1121,15 +1134,84 @@ struct sensor_cfg_data {
 	} cfg;
 };
 
+struct damping_params_t {
+	uint32_t damping_step;
+	uint32_t damping_delay;
+	uint32_t hw_params;
+};
+
+enum actuator_type {
+	ACTUATOR_VCM,
+	ACTUATOR_PIEZO,
+};
+
+enum msm_actuator_data_type {
+	MSM_ACTUATOR_BYTE_DATA = 1,
+	MSM_ACTUATOR_WORD_DATA,
+};
+
+enum msm_actuator_addr_type {
+	MSM_ACTUATOR_BYTE_ADDR = 1,
+	MSM_ACTUATOR_WORD_ADDR,
+};
+
+enum msm_actuator_write_type {
+	MSM_ACTUATOR_WRITE_HW_DAMP,
+	MSM_ACTUATOR_WRITE_DAC,
+};
+
+struct msm_actuator_reg_params_t {
+	enum msm_actuator_write_type reg_write_type;
+	uint32_t hw_mask;
+	uint16_t reg_addr;
+	uint16_t hw_shift;
+	uint16_t data_shift;
+};
+
+struct reg_settings_t {
+	uint16_t reg_addr;
+	uint16_t reg_data;
+};
+
+struct region_params_t {
+	/* [0] = ForwardDirection Macro boundary
+	   [1] = ReverseDirection Inf boundary
+	 */
+	uint16_t step_bound[2];
+	uint16_t code_per_step;
+};
+
 struct msm_actuator_move_params_t {
 	int8_t dir;
+	int8_t sign_dir;
+	int16_t dest_step_pos;
 	int32_t num_steps;
+	struct damping_params_t *ringing_params;
+};
+
+struct msm_actuator_tuning_params_t {
+	int16_t initial_code;
+	uint16_t pwd_step;
+	uint16_t region_size;
+	uint32_t total_steps;
+	struct region_params_t *region_params;
+};
+
+struct msm_actuator_params_t {
+	enum actuator_type act_type;
+	uint8_t reg_tbl_size;
+	uint16_t data_size;
+	uint16_t init_setting_size;
+	uint32_t i2c_addr;
+	enum msm_actuator_addr_type i2c_addr_type;
+	enum msm_actuator_data_type i2c_data_type;
+	struct msm_actuator_reg_params_t *reg_tbl_params;
+	struct reg_settings_t *init_settings;
 };
 
 struct msm_actuator_set_info_t {
-	uint32_t total_steps;
-	uint16_t gross_steps;
-	uint16_t fine_steps;
+	struct msm_actuator_params_t actuator_params;
+	struct msm_actuator_tuning_params_t af_tuning_params;
 };
 
 struct msm_actuator_get_info_t {
@@ -1147,6 +1229,18 @@ struct msm_actuator_get_info_t {
 	uint32_t ver_view_angle_den;
 };
 
+enum af_camera_name {
+	ACTUATOR_MAIN_CAM_0,
+	ACTUATOR_MAIN_CAM_1,
+	ACTUATOR_MAIN_CAM_2,
+	ACTUATOR_MAIN_CAM_3,
+	ACTUATOR_MAIN_CAM_4,
+	ACTUATOR_MAIN_CAM_5,
+	ACTUATOR_WEB_CAM_0,
+	ACTUATOR_WEB_CAM_1,
+	ACTUATOR_WEB_CAM_2,
+};
+
 struct msm_actuator_cfg_data {
 	int cfgtype;
 	uint8_t is_af_supported;
@@ -1154,6 +1248,7 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_move_params_t move;
 		struct msm_actuator_set_info_t set_info;
 		struct msm_actuator_get_info_t get_info;
+		enum af_camera_name cam_name;
 	} cfg;
 };
 

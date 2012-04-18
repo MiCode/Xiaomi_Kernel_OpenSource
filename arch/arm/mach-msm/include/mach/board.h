@@ -241,8 +241,21 @@ struct msm_camera_sensor_platform_info {
 	struct msm_camera_csi_lane_params *csi_lane_params;
 };
 
+enum msm_camera_actuator_name {
+	MSM_ACTUATOR_MAIN_CAM_0,
+	MSM_ACTUATOR_MAIN_CAM_1,
+	MSM_ACTUATOR_MAIN_CAM_2,
+	MSM_ACTUATOR_MAIN_CAM_3,
+	MSM_ACTUATOR_MAIN_CAM_4,
+	MSM_ACTUATOR_MAIN_CAM_5,
+	MSM_ACTUATOR_WEB_CAM_0,
+	MSM_ACTUATOR_WEB_CAM_1,
+	MSM_ACTUATOR_WEB_CAM_2,
+};
+
 struct msm_actuator_info {
 	struct i2c_board_info const *board_info;
+	enum msm_camera_actuator_name cam_name;
 	int bus_id;
 	int vcm_pwd;
 	int vcm_enable;

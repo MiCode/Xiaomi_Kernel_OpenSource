@@ -343,7 +343,6 @@ struct msm_sensor_ctrl {
 };
 
 struct msm_actuator_ctrl {
-	int (*a_init_table)(void);
 	int (*a_power_up)(void *);
 	int (*a_power_down)(void *);
 	int (*a_create_subdevice)(void *, void *);
