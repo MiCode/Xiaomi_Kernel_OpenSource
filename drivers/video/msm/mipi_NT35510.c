@@ -18,7 +18,6 @@
 static struct msm_panel_common_pdata *mipi_nt35510_pdata;
 static struct dsi_buf nt35510_tx_buf;
 static struct dsi_buf nt35510_rx_buf;
-spinlock_t bl_spinlock;
 
 #define NT35510_SLEEP_OFF_DELAY 150
 #define NT35510_DISPLAY_ON_DELAY 150
@@ -508,7 +507,7 @@ static int __devinit mipi_nt35510_lcd_probe(struct platform_device *pdev)
 	if (pdev->id == 0) {
 		mipi_nt35510_pdata = pdev->dev.platform_data;
 		if (mipi_nt35510_pdata->bl_lock)
-			spin_lock_init(&bl_spinlock);
+			spin_lock_init(&mipi_nt35510_pdata->bl_spinlock);
 		return 0;
 	}
 
@@ -531,9 +530,9 @@ static void mipi_nt35510_set_backlight(struct msm_fb_data_type *mfd)
 	bl_level = mfd->bl_level;
 
 	if (mipi_nt35510_pdata->bl_lock) {
-		spin_lock_irqsave(&bl_spinlock, flags);
+		spin_lock_irqsave(&mipi_nt35510_pdata->bl_spinlock, flags);
 		mipi_nt35510_pdata->pmic_backlight(bl_level);
-		spin_unlock_irqrestore(&bl_spinlock, flags);
+		spin_unlock_irqrestore(&mipi_nt35510_pdata->bl_spinlock, flags);
 	} else
 		mipi_nt35510_pdata->pmic_backlight(bl_level);
 }
