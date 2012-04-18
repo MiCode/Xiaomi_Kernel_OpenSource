@@ -26,14 +26,8 @@ struct msm_cpuidle_state {
 };
 
 #ifdef CONFIG_CPU_IDLE
-void msm_cpuidle_set_states(struct msm_cpuidle_state *states,
-	int nr_states, struct msm_pm_platform_data *pm_data);
-
 int msm_cpuidle_init(void);
 #else
-static inline void msm_cpuidle_set_states(struct msm_cpuidle_state *states,
-	int nr_states, struct msm_pm_platform_data *pm_data) {}
-
 static inline int msm_cpuidle_init(void)
 { return -ENOSYS; }
 #endif

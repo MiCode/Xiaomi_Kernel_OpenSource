@@ -67,6 +67,8 @@ struct msm_pm_platform_data {
 				staying in the low power mode saves power */
 };
 
+extern struct msm_pm_platform_data msm_pm_sleep_modes[];
+
 struct msm_pm_sleep_status_data {
 	void *base_addr;
 	uint32_t cpu_offset;
