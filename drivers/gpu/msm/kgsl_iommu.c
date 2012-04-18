@@ -150,16 +150,15 @@ static int _get_iommu_ctxs(struct kgsl_iommu *iommu, struct kgsl_device *device,
 static int kgsl_get_iommu_ctxt(struct kgsl_iommu *iommu,
 				struct kgsl_device *device)
 {
-	struct platform_device *pdev =
-		container_of(device->parentdev, struct platform_device, dev);
-	struct kgsl_device_platform_data *pdata_dev = pdev->dev.platform_data;
+	struct kgsl_device_platform_data *pdata =
+		kgsl_device_get_drvdata(device);
 	int i, ret = 0;
 
 	/* Go through the IOMMU data and attach all the domains */
 
-	for (i = 0; i < pdata_dev->iommu_count; i++) {
+	for (i = 0; i < pdata->iommu_count; i++) {
 		ret = _get_iommu_ctxs(iommu, device,
-			&pdata_dev->iommu_data[i]);
+			&pdata->iommu_data[i]);
 		if (ret)
 			break;
 	}
