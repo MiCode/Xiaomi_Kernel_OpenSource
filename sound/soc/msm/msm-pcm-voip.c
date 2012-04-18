@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -691,7 +691,7 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct voip_drv_info *prtd = runtime->private_data;
-	uint32_t media_type = 0;
+	int32_t media_type = 0;
 	uint32_t rate_type = 0;
 
 	mutex_lock(&prtd->lock);
@@ -988,7 +988,7 @@ static int voip_get_rate_type(uint32_t mode, uint32_t rate,
 static int voip_get_media_type(uint32_t mode,
 				unsigned int samp_rate)
 {
-	uint32_t media_type;
+	int32_t media_type;
 
 	pr_debug("%s: mode=%d, samp_rate=%d\n", __func__,
 		mode, samp_rate);
