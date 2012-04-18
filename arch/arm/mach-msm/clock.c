@@ -132,8 +132,11 @@ int clk_prepare(struct clk *clk)
 {
 	int ret = 0;
 	struct clk *parent;
+
 	if (!clk)
 		return 0;
+	if (IS_ERR(clk))
+		return -EINVAL;
 
 	mutex_lock(&clk->prepare_lock);
 	if (clk->prepare_count == 0) {
@@ -174,6 +177,8 @@ int clk_enable(struct clk *clk)
 
 	if (!clk)
 		return 0;
+	if (IS_ERR(clk))
+		return -EINVAL;
 
 	spin_lock_irqsave(&clk->lock, flags);
 	if (WARN(!clk->warned && !clk->prepare_count,
@@ -230,7 +235,7 @@ void clk_disable(struct clk *clk)
 {
 	unsigned long flags;
 
-	if (!clk)
+	if (IS_ERR_OR_NULL(clk))
 		return;
 
 	spin_lock_irqsave(&clk->lock, flags);
@@ -259,7 +264,7 @@ EXPORT_SYMBOL(clk_disable);
 
 void clk_unprepare(struct clk *clk)
 {
-	if (!clk)
+	if (IS_ERR_OR_NULL(clk))
 		return;
 
 	mutex_lock(&clk->prepare_lock);
@@ -290,6 +295,9 @@ EXPORT_SYMBOL(clk_unprepare);
 
 int clk_reset(struct clk *clk, enum clk_reset_action action)
 {
+	if (IS_ERR_OR_NULL(clk))
+		return -EINVAL;
+
 	if (!clk->ops->reset)
 		return -ENOSYS;
 
@@ -299,6 +307,9 @@ EXPORT_SYMBOL(clk_reset);
 
 unsigned long clk_get_rate(struct clk *clk)
 {
+	if (IS_ERR_OR_NULL(clk))
+		return 0;
+
 	if (!clk->ops->get_rate)
 		return clk->rate;
 
@@ -310,6 +321,9 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	unsigned long start_rate, flags;
 	int rc;
+
+	if (IS_ERR_OR_NULL(clk))
+		return -EINVAL;
 
 	if (!clk->ops->set_rate)
 		return -ENOSYS;
@@ -347,6 +361,9 @@ EXPORT_SYMBOL(clk_set_rate);
 
 long clk_round_rate(struct clk *clk, unsigned long rate)
 {
+	if (IS_ERR_OR_NULL(clk))
+		return -EINVAL;
+
 	if (!clk->ops->round_rate)
 		return -ENOSYS;
 
@@ -356,6 +373,9 @@ EXPORT_SYMBOL(clk_round_rate);
 
 int clk_set_max_rate(struct clk *clk, unsigned long rate)
 {
+	if (IS_ERR_OR_NULL(clk))
+		return -EINVAL;
+
 	if (!clk->ops->set_max_rate)
 		return -ENOSYS;
 
@@ -374,6 +394,9 @@ EXPORT_SYMBOL(clk_set_parent);
 
 struct clk *clk_get_parent(struct clk *clk)
 {
+	if (IS_ERR_OR_NULL(clk))
+		return NULL;
+
 	if (!clk->ops->get_parent)
 		return NULL;
 
@@ -383,7 +406,7 @@ EXPORT_SYMBOL(clk_get_parent);
 
 int clk_set_flags(struct clk *clk, unsigned long flags)
 {
-	if (clk == NULL || IS_ERR(clk))
+	if (IS_ERR_OR_NULL(clk))
 		return -EINVAL;
 	if (!clk->ops->set_flags)
 		return -ENOSYS;
