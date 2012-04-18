@@ -865,6 +865,48 @@ static int adreno_getproperty(struct kgsl_device *device,
 	return status;
 }
 
+static int adreno_setproperty(struct kgsl_device *device,
+				enum kgsl_property_type type,
+				void *value,
+				unsigned int sizebytes)
+{
+	int status = -EINVAL;
+
+	switch (type) {
+	case KGSL_PROP_PWRCTRL: {
+			unsigned int enable;
+			struct kgsl_device_platform_data *pdata =
+				kgsl_device_get_drvdata(device);
+
+			if (sizebytes != sizeof(enable))
+				break;
+
+			if (copy_from_user(&enable, (void __user *) value,
+				sizeof(enable))) {
+				status = -EFAULT;
+				break;
+			}
+
+			if (enable) {
+				if (pdata->nap_allowed)
+					device->pwrctrl.nap_allowed = true;
+
+				kgsl_pwrscale_enable(device);
+			} else {
+				device->pwrctrl.nap_allowed = false;
+				kgsl_pwrscale_disable(device);
+			}
+
+			status = 0;
+		}
+		break;
+	default:
+		break;
+	}
+
+	return status;
+}
+
 static inline void adreno_poke(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1406,6 +1448,7 @@ static const struct kgsl_functable adreno_functable = {
 	.setstate = adreno_setstate,
 	.drawctxt_create = adreno_drawctxt_create,
 	.drawctxt_destroy = adreno_drawctxt_destroy,
+	.setproperty = adreno_setproperty,
 };
 
 static struct platform_device_id adreno_id_table[] = {

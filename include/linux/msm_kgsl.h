@@ -2,7 +2,7 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
-#define KGSL_VERSION_MINOR        10
+#define KGSL_VERSION_MINOR        11
 
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM		0x00000001
@@ -125,7 +125,8 @@ enum kgsl_property_type {
 	KGSL_PROP_MMU_ENABLE 	  = 0x00000006,
 	KGSL_PROP_INTERRUPT_WAITS = 0x00000007,
 	KGSL_PROP_VERSION         = 0x00000008,
-	KGSL_PROP_GPU_RESET_STAT  = 0x00000009
+	KGSL_PROP_GPU_RESET_STAT  = 0x00000009,
+	KGSL_PROP_PWRCTRL         = 0x0000000E,
 };
 
 struct kgsl_shadowprop {
