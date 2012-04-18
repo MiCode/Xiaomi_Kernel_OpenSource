@@ -48,27 +48,24 @@ static struct mutex routing_lock;
 
 static int fm_switch_enable;
 
-#define INT_FM_RX_VOL_MAX_STEPS 100
-#define INT_FM_RX_VOL_GAIN 2000
-
-static int msm_route_fm_vol_control;
-static const DECLARE_TLV_DB_SCALE(fm_rx_vol_gain, 0,
-			INT_FM_RX_VOL_MAX_STEPS, 0);
-
-#define INT_RX_VOL_MAX_STEPS 100
+#define INT_RX_VOL_MAX_STEPS 0x2000
 #define INT_RX_VOL_GAIN 0x2000
 
+static int msm_route_fm_vol_control;
+static const DECLARE_TLV_DB_LINEAR(fm_rx_vol_gain, 0,
+			INT_RX_VOL_MAX_STEPS);
+
 static int msm_route_lpa_vol_control;
-static const DECLARE_TLV_DB_SCALE(lpa_rx_vol_gain, 0,
-			INT_RX_VOL_MAX_STEPS, 0);
+static const DECLARE_TLV_DB_LINEAR(lpa_rx_vol_gain, 0,
+			INT_RX_VOL_MAX_STEPS);
 
 static int msm_route_multimedia2_vol_control;
-static const DECLARE_TLV_DB_SCALE(multimedia2_rx_vol_gain, 0,
-			INT_RX_VOL_MAX_STEPS, 0);
+static const DECLARE_TLV_DB_LINEAR(multimedia2_rx_vol_gain, 0,
+			INT_RX_VOL_MAX_STEPS);
 
 static int msm_route_compressed_vol_control;
-static const DECLARE_TLV_DB_SCALE(compressed_rx_vol_gain, 0,
-			INT_RX_VOL_MAX_STEPS, 0);
+static const DECLARE_TLV_DB_LINEAR(compressed_rx_vol_gain, 0,
+			INT_RX_VOL_MAX_STEPS);
 
 
 
@@ -1188,7 +1185,7 @@ static const struct snd_kcontrol_new fm_switch_mixer_controls =
 
 static const struct snd_kcontrol_new int_fm_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("Internal FM RX Volume", SND_SOC_NOPM, 0,
-	INT_FM_RX_VOL_GAIN, 0, msm_routing_get_fm_vol_mixer,
+	INT_RX_VOL_GAIN, 0, msm_routing_get_fm_vol_mixer,
 	msm_routing_set_fm_vol_mixer, fm_rx_vol_gain),
 };
 
