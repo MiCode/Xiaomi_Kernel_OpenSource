@@ -630,7 +630,10 @@ static struct camera_vreg_t msm_8960_imx091_vreg[] = {
 };
 
 static struct msm_camera_sensor_flash_data flash_imx091 = {
-	.flash_type	= MSM_CAMERA_FLASH_NONE,
+	.flash_type	= MSM_CAMERA_FLASH_LED,
+#ifdef CONFIG_MSM_CAMERA_FLASH
+	.flash_src	= &msm_flash_src
+#endif
 };
 
 static struct msm_camera_sensor_platform_info sensor_board_info_imx091 = {
