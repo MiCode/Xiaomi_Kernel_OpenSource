@@ -28,7 +28,7 @@ enum session_type {
 	MSM_VIDC_MAX_DEVICES,
 };
 
-void *msm_vidc_open(int core_id, int session_type);
+int msm_vidc_open(void *vidc_inst, int core_id, int session_type);
 int msm_vidc_close(void *instance);
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap);
 int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
