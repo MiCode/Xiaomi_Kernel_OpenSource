@@ -115,7 +115,7 @@ extern int msm_dcvs_scm_set_algo_params(uint32_t core_id,
  *		@param0: Did the core iowait
  *		@param1: unused
  *		@ret0: New clock frequency for the core in KHz
- *		@ret1: unused
+ *		@ret1: New QoS timer value for the core in usec
  *	MSM_DCVS_SCM_QOS_TIMER_EXPIRED
  *		@param0: unused
  *		@param1: unused
