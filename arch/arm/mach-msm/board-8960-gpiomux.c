@@ -61,6 +61,18 @@ static struct gpiomux_setting gsbi_uart = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gsbi9_active_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting gsbi9_suspended_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting gsbi10 = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_8MA,
@@ -275,6 +287,37 @@ static struct msm_gpiomux_config msm8960_ethernet_configs[] = {
 	},
 };
 #endif
+
+static struct msm_gpiomux_config msm8960_fusion_gsbi_configs[] = {
+	{
+		.gpio = 93,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi9_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi9_active_cfg,
+		}
+	},
+	{
+		.gpio = 94,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi9_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi9_active_cfg,
+		}
+	},
+	{
+		.gpio = 95,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi9_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi9_active_cfg,
+		}
+	},
+	{
+		.gpio = 96,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi9_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi9_active_cfg,
+		}
+	},
+};
 
 static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 	{
@@ -730,6 +773,10 @@ int __init msm8960_init_gpiomux(void)
 	else
 		msm_gpiomux_install(msm8960_gsbi5_uart_configs,
 			ARRAY_SIZE(msm8960_gsbi5_uart_configs));
+	/* For 8960 Fusion 2.2 Primary IPC */
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		msm_gpiomux_install(msm8960_fusion_gsbi_configs,
+			ARRAY_SIZE(msm8960_fusion_gsbi_configs));
 
 	return 0;
 }

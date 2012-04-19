@@ -51,6 +51,7 @@
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_spi.h>
+#include <mach/msm_serial_hs.h>
 #ifdef CONFIG_USB_MSM_OTG_72K
 #include <mach/msm_hsusb.h>
 #else
@@ -2214,11 +2215,45 @@ static struct platform_device msm8960_device_rpm_regulator __devinitdata = {
 		.platform_data = &msm_rpm_regulator_pdata,
 	},
 };
+#ifdef CONFIG_SERIAL_MSM_HS
+static int configure_uart_gpios(int on)
+{
+	int ret = 0, i;
+	int uart_gpios[] = {93, 94, 95, 96};
+
+	for (i = 0; i < ARRAY_SIZE(uart_gpios); i++) {
+		if (on) {
+			ret = gpio_request(uart_gpios[i], NULL);
+			if (ret) {
+				pr_err("%s: unable to request uart gpio[%d]\n",
+						__func__, uart_gpios[i]);
+				break;
+			}
+		} else {
+			gpio_free(uart_gpios[i]);
+		}
+	}
+
+	if (ret && on && i)
+		for (; i >= 0; i--)
+			gpio_free(uart_gpios[i]);
+	return ret;
+}
+
+static struct msm_serial_hs_platform_data msm_uart_dm9_pdata = {
+	.inject_rx_on_wakeup = 1,
+	.rx_to_inject = 0xFD,
+	.gpio_config = configure_uart_gpios,
+};
+#else
+static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
+#endif
 
 static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
 	&msm_device_uart_dm6,
+	&msm_device_uart_dm9,
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
 	&msm8960_device_ext_5v_vreg,
@@ -2809,6 +2844,11 @@ static void __init msm8960_rumi3_init(void)
 	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
 	msm8960_init_mmc();
 	register_i2c_devices();
+
+	/* For 8960 Fusion 2.2 Primary IPC */
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		msm_device_uart_dm9.dev.platform_data = &msm_uart_dm9_pdata;
+
 	msm8960_init_fb();
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));

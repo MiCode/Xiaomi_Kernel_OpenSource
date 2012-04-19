@@ -74,6 +74,7 @@
 #define MSM_UART5DM_PHYS	(MSM_GSBI5_PHYS + 0x40000)
 #define MSM_UART6DM_PHYS	(MSM_GSBI6_PHYS + 0x40000)
 #define MSM_UART8DM_PHYS	(MSM_GSBI8_PHYS + 0x40000)
+#define MSM_UART9DM_PHYS	(MSM_GSBI9_PHYS + 0x40000)
 
 /* GSBI QUP devices */
 #define MSM_GSBI1_QUP_PHYS	(MSM_GSBI1_PHYS + 0x80000)
@@ -280,6 +281,52 @@ struct platform_device msm_device_uart_dm6 = {
 	.resource	= msm_uart_dm6_resources,
 	.dev	= {
 		.dma_mask		= &msm_uart_dm6_dma_mask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
+};
+/*
+ * GSBI 9 used into UARTDM Mode
+ * For 8960 Fusion 2.2 Primary IPC
+ */
+static struct resource msm_uart_dm9_resources[] = {
+	{
+		.start	= MSM_UART9DM_PHYS,
+		.end	= MSM_UART9DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= GSBI9_UARTDM_IRQ,
+		.end	= GSBI9_UARTDM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_GSBI9_PHYS,
+		.end	= MSM_GSBI9_PHYS + 4 - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= DMOV_HSUART_GSBI9_TX_CHAN,
+		.end	= DMOV_HSUART_GSBI9_RX_CHAN,
+		.name	= "uartdm_channels",
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.start	= DMOV_HSUART_GSBI9_TX_CRCI,
+		.end	= DMOV_HSUART_GSBI9_RX_CRCI,
+		.name	= "uartdm_crci",
+		.flags	= IORESOURCE_DMA,
+	},
+};
+static u64 msm_uart_dm9_dma_mask = DMA_BIT_MASK(32);
+struct platform_device msm_device_uart_dm9 = {
+	.name	= "msm_serial_hs",
+	.id	= 1,
+	.num_resources	= ARRAY_SIZE(msm_uart_dm9_resources),
+	.resource	= msm_uart_dm9_resources,
+	.dev	= {
+		.dma_mask		= &msm_uart_dm9_dma_mask,
 		.coherent_dma_mask	= DMA_BIT_MASK(32),
 	},
 };
