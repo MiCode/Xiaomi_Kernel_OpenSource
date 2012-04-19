@@ -16,6 +16,7 @@
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
+#include "a2xx_reg.h"
 
 struct msm_priv {
 	struct kgsl_device *device;
@@ -97,7 +98,11 @@ static void msm_idle(struct kgsl_device *device,
 			struct kgsl_pwrscale *pwrscale)
 {
 	struct msm_priv *priv = pwrscale->priv;
-	if (priv->enabled && pwrscale->gpu_busy)
+	unsigned int rb_rptr, rb_wptr;
+	kgsl_regread(device, REG_CP_RB_RPTR, &rb_rptr);
+	kgsl_regread(device, REG_CP_RB_WPTR, &rb_wptr);
+
+	if (priv->enabled && (rb_rptr == rb_wptr))
 		msm_dcvs_idle(priv->handle, MSM_DCVS_IDLE_ENTER, 0);
 
 	return;
