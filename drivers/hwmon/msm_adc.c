@@ -41,6 +41,9 @@
 
 #define MSM_ADC_DALRC_CONV_TIMEOUT	(5 * HZ)  /* 5 seconds */
 
+#define MSM_8x25_ADC_DEV_ID		0
+#define MSM_8x25_CHAN_ID		16
+
 enum dal_error {
 	DAL_ERROR_INVALID_DEVICE_IDX = 1,
 	DAL_ERROR_INVALID_CHANNEL_IDX,
@@ -1171,18 +1174,26 @@ static int __devinit msm_rpc_adc_device_init(struct platform_device *pdev)
 			goto dev_init_err;
 		}
 
-		/* DAL device lookup */
-		rc = msm_adc_getinputproperties(msm_adc, adc_dev->name,
+		if (!pdata->target_hw == MSM_8x25) {
+			/* DAL device lookup */
+			rc = msm_adc_getinputproperties(msm_adc, adc_dev->name,
 								&target);
-		if (rc) {
-			dev_err(&pdev->dev, "No such DAL device[%s]\n",
+			if (rc) {
+				dev_err(&pdev->dev, "No such DAL device[%s]\n",
 							adc_dev->name);
-			goto dev_init_err;
+				goto dev_init_err;
+			}
+
+			adc_dev->transl.dal_dev_idx = target.dal.dev_idx;
+			adc_dev->nchans = target.dal.chan_idx;
+		} else {
+			/* On targets prior to MSM7x30 the remote driver has
+			   only the channel list and no device id. */
+			adc_dev->transl.dal_dev_idx = MSM_8x25_ADC_DEV_ID;
+			adc_dev->nchans = MSM_8x25_CHAN_ID;
 		}
 
-		adc_dev->transl.dal_dev_idx = target.dal.dev_idx;
 		adc_dev->transl.hwmon_dev_idx = i;
-		adc_dev->nchans = target.dal.chan_idx;
 		adc_dev->transl.hwmon_start = hwmon_cntr;
 		adc_dev->transl.hwmon_end = hwmon_cntr + adc_dev->nchans - 1;
 		hwmon_cntr += adc_dev->nchans;

@@ -30,6 +30,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/memblock.h>
 #include <linux/input/ft5x06_ts.h>
+#include <linux/msm_adc.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -599,6 +600,24 @@ static struct platform_device msm_batt_device = {
 	.dev.platform_data  = &msm_psy_batt_data,
 };
 
+static char *msm_adc_surf_device_names[] = {
+	"XO_ADC",
+};
+
+static struct msm_adc_platform_data msm_adc_pdata = {
+	.dev_names = msm_adc_surf_device_names,
+	.num_adc = ARRAY_SIZE(msm_adc_surf_device_names),
+	.target_hw = MSM_8x25,
+};
+
+static struct platform_device msm_adc_device = {
+	.name   = "msm_adc",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_adc_pdata,
+	},
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&android_usb_device,
 	&android_pmem_device,
@@ -610,6 +629,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&asoc_msm_pcm,
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
+	&msm_adc_device,
 };
 
 static struct platform_device *qrd7627a_devices[] __initdata = {

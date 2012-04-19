@@ -49,6 +49,7 @@
 #include <linux/smsc911x.h>
 #include <linux/atmel_maxtouch.h>
 #include <linux/fmem.h>
+#include <linux/msm_adc.h>
 #include "devices.h"
 #include "timer.h"
 #include "board-msm7x27a-regulator.h"
@@ -712,6 +713,24 @@ static struct msm_gpio smsc911x_gpios[] = {
 							 "eth_fifo_sel" },
 };
 
+static char *msm_adc_surf_device_names[] = {
+	"XO_ADC",
+};
+
+static struct msm_adc_platform_data msm_adc_pdata = {
+	.dev_names = msm_adc_surf_device_names,
+	.num_adc = ARRAY_SIZE(msm_adc_surf_device_names),
+	.target_hw = MSM_8x25,
+};
+
+static struct platform_device msm_adc_device = {
+	.name   = "msm_adc",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_adc_pdata,
+	},
+};
+
 #define ETH_FIFO_SEL_GPIO	49
 static void msm7x27a_cfg_smsc911x(void)
 {
@@ -814,6 +833,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
 	&msm_batt_device,
+	&msm_adc_device,
 };
 
 static struct platform_device *msm8625_surf_devices[] __initdata = {
