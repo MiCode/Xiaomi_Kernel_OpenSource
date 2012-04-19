@@ -271,7 +271,7 @@ obj-$(CONFIG_MACH_MPQ8064_HRD) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_MACH_MPQ8064_DTV) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o board-9615-gpiomux.o board-9615-storage.o board-9615-display.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o
-obj-$(CONFIG_ARCH_MSMCOPPER) += board-copper.o board-dt.o board-copper-regulator.o
+obj-$(CONFIG_ARCH_MSMCOPPER) += board-copper.o board-dt.o board-copper-regulator.o board-copper-gpiomux.o
 obj-$(CONFIG_ARCH_MSMCOPPER) += acpuclock-krait.o acpuclock-copper.o
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o
