@@ -297,6 +297,21 @@ u32 vcd_set_perf_level(struct vcd_dev_ctxt *dev_ctxt, u32 perf_lvl)
 	return rc;
 }
 
+u32 vcd_update_decoder_perf_level(struct vcd_dev_ctxt *dev_ctxt, u32 perf_lvl)
+{
+	u32 rc = VCD_S_SUCCESS;
+
+	if (res_trk_set_perf_level(perf_lvl,
+		&dev_ctxt->curr_perf_lvl, dev_ctxt)) {
+		dev_ctxt->set_perf_lvl_pending = false;
+	} else {
+		rc = VCD_ERR_FAIL;
+		dev_ctxt->set_perf_lvl_pending = true;
+	}
+
+	return rc;
+}
+
 u32 vcd_update_clnt_perf_lvl(
 	struct vcd_clnt_ctxt *cctxt,
      struct vcd_property_frame_rate *fps, u32 frm_p_units)

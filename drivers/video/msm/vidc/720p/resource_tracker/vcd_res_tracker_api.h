@@ -39,4 +39,5 @@ int res_trk_close_secure_session(void);
 void res_trk_secure_set(void);
 void res_trk_secure_unset(void);
 u32 get_res_trk_perf_level(enum vcd_perf_level perf_level);
+u32 res_trk_estimate_perf_level(u32 pn_perf_lvl);
 #endif

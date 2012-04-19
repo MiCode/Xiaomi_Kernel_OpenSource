@@ -764,3 +764,8 @@ u32 res_trk_is_cp_enabled(void)
 	else
 		return 0;
 }
+u32 res_trk_estimate_perf_level(u32 pn_perf_lvl)
+{
+	return 0;
+}
+
