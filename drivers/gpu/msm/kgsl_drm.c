@@ -263,7 +263,7 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 			priv->type & DRM_KGSL_GEM_CACHE_MASK)
 				list_add(&priv->list, &kgsl_mem_list);
 
-		result = kgsl_sharedmem_vmalloc_user(&priv->memdesc,
+		result = kgsl_sharedmem_page_alloc_user(&priv->memdesc,
 					priv->pagetable,
 					obj->size * priv->bufcount, 0);
 
