@@ -831,6 +831,7 @@ static const char * const pm8921_rev_names[] = {
 	[PM8XXX_REVISION_8921_1p1]	= "1.1",
 	[PM8XXX_REVISION_8921_2p0]	= "2.0",
 	[PM8XXX_REVISION_8921_3p0]	= "3.0",
+	[PM8XXX_REVISION_8921_3p1]	= "3.1",
 };
 
 static const char * const pm8922_rev_names[] = {
