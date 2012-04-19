@@ -8313,10 +8313,11 @@ static unsigned int msm8x60_sdcc_slot_status(struct device *dev)
 #endif
 
 #ifdef	CONFIG_MMC_MSM_SDC4_SUPPORT
+#define MSM_MPM_PIN_SDC4_DAT1	23
 static int msm_sdcc_cfg_mpm_sdiowakeup(struct device *dev, unsigned mode)
 {
 	struct platform_device *pdev;
-	enum msm_mpm_pin pin;
+	unsigned int pin;
 	int ret = 0;
 
 	pdev = container_of(dev, struct platform_device, dev);

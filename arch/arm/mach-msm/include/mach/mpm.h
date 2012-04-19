@@ -17,13 +17,6 @@
 #include <linux/types.h>
 #include <linux/list.h>
 
-enum msm_mpm_pin {
-	MSM_MPM_PIN_SDC3_DAT1 = 21,
-	MSM_MPM_PIN_SDC3_DAT3 = 22,
-	MSM_MPM_PIN_SDC4_DAT1 = 23,
-	MSM_MPM_PIN_SDC4_DAT3 = 24,
-};
-
 #define MSM_MPM_NR_MPM_IRQS  64
 
 struct msm_mpm_device_data {
@@ -46,9 +39,9 @@ extern struct msm_mpm_device_data apq8064_mpm_dev_data;
 void msm_mpm_irq_extn_init(struct msm_mpm_device_data *mpm_data);
 
 #ifdef CONFIG_MSM_MPM
-int msm_mpm_enable_pin(enum msm_mpm_pin pin, unsigned int enable);
-int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on);
-int msm_mpm_set_pin_type(enum msm_mpm_pin pin, unsigned int flow_type);
+int msm_mpm_enable_pin(unsigned int pin, unsigned int enable);
+int msm_mpm_set_pin_wake(unsigned int pin, unsigned int on);
+int msm_mpm_set_pin_type(unsigned int pin, unsigned int flow_type);
 bool msm_mpm_irqs_detectable(bool from_idle);
 bool msm_mpm_gpio_irqs_detectable(bool from_idle);
 void msm_mpm_enter_sleep(bool from_idle);
@@ -60,11 +53,11 @@ static inline int msm_mpm_set_irq_wake(unsigned int irq, unsigned int on)
 { return -ENODEV; }
 static inline int msm_mpm_set_irq_type(unsigned int irq, unsigned int flow_type)
 { return -ENODEV; }
-static inline int msm_mpm_enable_pin(enum msm_mpm_pin pin, unsigned int enable)
+static inline int msm_mpm_enable_pin(unsigned int pin, unsigned int enable)
 { return -ENODEV; }
-static inline int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)
+static inline int msm_mpm_set_pin_wake(unsigned int pin, unsigned int on)
 { return -ENODEV; }
-static inline int msm_mpm_set_pin_type(enum msm_mpm_pin pin,
+static inline int msm_mpm_set_pin_type(unsigned int pin,
 				       unsigned int flow_type)
 { return -ENODEV; }
 static inline bool msm_mpm_irqs_detectable(bool from_idle)

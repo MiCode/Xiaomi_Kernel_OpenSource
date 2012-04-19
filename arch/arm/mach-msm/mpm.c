@@ -328,7 +328,7 @@ static int msm_mpm_set_irq_type(struct irq_data *d, unsigned int flow_type)
 /******************************************************************************
  * Public functions
  *****************************************************************************/
-int msm_mpm_enable_pin(enum msm_mpm_pin pin, unsigned int enable)
+int msm_mpm_enable_pin(unsigned int pin, unsigned int enable)
 {
 	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
 	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
@@ -345,7 +345,7 @@ int msm_mpm_enable_pin(enum msm_mpm_pin pin, unsigned int enable)
 	return 0;
 }
 
-int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)
+int msm_mpm_set_pin_wake(unsigned int pin, unsigned int on)
 {
 	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
 	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
@@ -362,7 +362,7 @@ int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)
 	return 0;
 }
 
-int msm_mpm_set_pin_type(enum msm_mpm_pin pin, unsigned int flow_type)
+int msm_mpm_set_pin_type(unsigned int pin, unsigned int flow_type)
 {
 	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
 	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
