@@ -1,0 +1,587 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,rpm-smd {
+		rpm-regulator-smpb1 {
+			qcom,resource-name = "smpb";
+			qcom,resource-id = <1>;
+			qcom,regulator-type = <1>;
+			qcom,hpm-min-load = <100000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-s1 {
+				regulator-name = "8841_s1";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-smpb2 {
+			qcom,resource-name = "smpb";
+			qcom,resource-id = <2>;
+			qcom,regulator-type = <1>;
+			qcom,hpm-min-load = <100000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-s2 {
+				regulator-name = "8841_s2";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-smpb3 {
+			qcom,resource-name = "smpb";
+			qcom,resource-id = <3>;
+			qcom,regulator-type = <1>;
+			qcom,hpm-min-load = <100000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-s3 {
+				regulator-name = "8841_s3";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-smpb4 {
+			qcom,resource-name = "smpb";
+			qcom,resource-id = <4>;
+			qcom,regulator-type = <1>;
+			qcom,hpm-min-load = <100000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-s4 {
+				regulator-name = "8841_s4";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-smpa1 {
+			qcom,resource-name = "smpa";
+			qcom,resource-id = <1>;
+			qcom,regulator-type = <1>;
+			qcom,hpm-min-load = <100000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-s1 {
+				regulator-name = "8941_s1";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-smpa2 {
+			qcom,resource-name = "smpa";
+			qcom,resource-id = <2>;
+			qcom,regulator-type = <1>;
+			qcom,hpm-min-load = <100000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-s2 {
+				regulator-name = "8941_s2";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-smpa3 {
+			qcom,resource-name = "smpa";
+			qcom,resource-id = <3>;
+			qcom,regulator-type = <1>;
+			qcom,hpm-min-load = <100000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-s3 {
+				regulator-name = "8941_s3";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa1 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <1>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l1 {
+				regulator-name = "8941_l1";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa2 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <2>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l2 {
+				regulator-name = "8941_l2";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa3 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <3>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l3 {
+				regulator-name = "8941_l3";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa4 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <4>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l4 {
+				regulator-name = "8941_l4";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa5 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <5>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l5 {
+				regulator-name = "8941_l5";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa6 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <6>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l6 {
+				regulator-name = "8941_l6";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa7 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <7>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l7 {
+				regulator-name = "8941_l7";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa8 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <8>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l8 {
+				regulator-name = "8941_l8";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa9 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <9>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l9 {
+				regulator-name = "8941_l9";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa10 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <10>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l10 {
+				regulator-name = "8941_l10";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa11 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <11>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l11 {
+				regulator-name = "8941_l11";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa12 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <12>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l12 {
+				regulator-name = "8941_l12";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa13 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <13>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l13 {
+				regulator-name = "8941_l13";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa14 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <14>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l14 {
+				regulator-name = "8941_l14";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa15 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <15>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l15 {
+				regulator-name = "8941_l15";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa16 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <16>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l16 {
+				regulator-name = "8941_l16";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa17 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <17>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l17 {
+				regulator-name = "8941_l17";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa18 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <18>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l18 {
+				regulator-name = "8941_l18";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa19 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <19>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l19 {
+				regulator-name = "8941_l19";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa20 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <20>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l20 {
+				regulator-name = "8941_l20";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa21 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <21>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l21 {
+				regulator-name = "8941_l21";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa22 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <22>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l22 {
+				regulator-name = "8941_l22";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa23 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <23>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l23 {
+				regulator-name = "8941_l23";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-ldoa24 {
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <24>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-l24 {
+				regulator-name = "8941_l24";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		/* TODO: find out correct resource names for LVS vs MVS */
+		rpm-regulator-vsa1 {
+			qcom,resource-name = "vsa";
+			qcom,resource-id = <1>;
+			qcom,regulator-type = <2>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-lvs1 {
+				regulator-name = "8941_lvs1";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-vsa2 {
+			qcom,resource-name = "vsa";
+			qcom,resource-id = <2>;
+			qcom,regulator-type = <2>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-lvs2 {
+				regulator-name = "8941_lvs2";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-vsa3 {
+			qcom,resource-name = "vsa";
+			qcom,resource-id = <3>;
+			qcom,regulator-type = <2>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-lvs3 {
+				regulator-name = "8941_lvs3";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-vsa4 {
+			qcom,resource-name = "vsa";
+			qcom,resource-id = <4>;
+			qcom,regulator-type = <2>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-mvs1 {
+				regulator-name = "8941_mvs1";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+
+		rpm-regulator-vsa5 {
+			qcom,resource-name = "vsa";
+			qcom,resource-id = <5>;
+			qcom,regulator-type = <2>;
+			compatible = "qcom,rpm-regulator-smd-resource";
+			status = "disabled";
+
+			regulator-mvs2 {
+				regulator-name = "8941_mvs2";
+				qcom,set = <3>;
+				status = "disabled";
+				compatible = "qcom,rpm-regulator-smd";
+			};
+		};
+	};
+};
