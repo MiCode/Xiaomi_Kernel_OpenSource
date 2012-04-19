@@ -3576,7 +3576,7 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("iface_clk",		gsbi12_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		gsbi12_p_clk.c, "msm_serial_hsl.0"),
 	CLK_LOOKUP("iface_clk",		gsbi12_p_clk.c,		"qup_i2c.5"),
-	CLK_LOOKUP("ppss_pclk",		ppss_p_clk.c,		""),
+	CLK_LOOKUP("iface_clk",		ppss_p_clk.c,		"msm_dsps"),
 	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		"msm_tsif.0"),
 	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		"msm_tsif.1"),
 	CLK_LOOKUP("iface_clk",		usb_fs1_p_clk.c,	""),
