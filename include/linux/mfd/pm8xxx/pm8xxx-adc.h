@@ -51,6 +51,10 @@ enum pm8xxx_adc_channels {
 	CHANNEL_MPP_1,
 	CHANNEL_MPP_2,
 	CHANNEL_BATT_THERM,
+	/* PM8018 ADC Arbiter uses a single channel on AMUX8
+	 * to read either Batt_id or Batt_therm.
+	 */
+	CHANNEL_BATT_ID_THERM = CHANNEL_BATT_THERM,
 	CHANNEL_BATT_ID,
 	CHANNEL_USBIN,
 	CHANNEL_DIE_TEMP,
