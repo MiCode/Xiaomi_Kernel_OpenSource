@@ -717,6 +717,7 @@ invalid_key:
 	memset(&cp, 0, sizeof(cp));
 	build_pairing_cmd(conn, &cp, NULL, rp->auth_req);
 
+	hcon->pending_sec_level = authreq_to_seclevel(rp->auth_req);
 	hcon->preq[0] = SMP_CMD_PAIRING_REQ;
 	memcpy(&hcon->preq[1], &cp, sizeof(cp));
 
