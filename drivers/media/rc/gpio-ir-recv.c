@@ -87,7 +87,7 @@ static int __devinit gpio_ir_recv_probe(struct platform_device *pdev)
 	rcdev->input_name = GPIO_IR_DEVICE_NAME;
 	rcdev->input_id.bustype = BUS_HOST;
 	rcdev->driver_name = GPIO_IR_DRIVER_NAME;
-	rcdev->map_name = RC_MAP_EMPTY;
+	rcdev->map_name = RC_MAP_RC6_PHILIPS;
 
 	gpio_dev->rcdev = rcdev;
 	gpio_dev->gpio_nr = pdata->gpio_nr;
