@@ -57,6 +57,8 @@ enum qseecom_qceos_cmd_id {
 	QSEOS_DEREGISTER_LISTENER,
 	QSEOS_CLIENT_SEND_DATA_COMMAND,
 	QSEOS_LISTENER_DATA_RSP_COMMAND,
+	QSEOS_LOAD_EXTERNAL_ELF_COMMAND,
+	QSEOS_UNLOAD_EXTERNAL_ELF_COMMAND,
 	QSEOS_CMD_MAX     = 0xEFFFFFFF
 };
 
@@ -1206,6 +1208,102 @@ static void qsee_disable_clock_vote(void)
 	mutex_unlock(&qsee_bw_mutex);
 }
 
+static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
+				void __user *argp)
+{
+	struct ion_handle *ihandle;	/* Ion handle */
+	struct qseecom_load_img_req load_img_req;
+	int32_t ret;
+	ion_phys_addr_t pa = 0;
+	uint32_t len;
+	struct qseecom_load_app_ireq load_req;
+	struct qseecom_command_scm_resp resp;
+
+	/* Copy the relevant information needed for loading the image */
+	if (__copy_from_user(&load_img_req,
+				(void __user *)argp,
+				sizeof(struct qseecom_load_img_req))) {
+		pr_err("copy_from_user failed\n");
+		return -EFAULT;
+	}
+
+	/* Get the handle of the shared fd */
+	ihandle = ion_import_fd(qseecom.ion_clnt,
+				load_img_req.ifd_data_fd);
+	if (IS_ERR_OR_NULL(ihandle)) {
+		pr_err("Ion client could not retrieve the handle\n");
+		return -ENOMEM;
+	}
+
+	/* Get the physical address of the ION BUF */
+	ret = ion_phys(qseecom.ion_clnt, ihandle, &pa, &len);
+
+	/* Populate the structure for sending scm call to load image */
+	load_req.qsee_cmd_id = QSEOS_LOAD_EXTERNAL_ELF_COMMAND;
+	load_req.mdt_len = load_img_req.mdt_len;
+	load_req.img_len = load_img_req.img_len;
+	load_req.phy_addr = pa;
+
+	/*  SCM_CALL to load the external elf */
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &load_req,
+			sizeof(struct qseecom_load_app_ireq),
+			&resp, sizeof(resp));
+	if (ret) {
+		pr_err("scm_call to unload failed : ret %d\n",
+				ret);
+		ret = -EFAULT;
+	}
+
+	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
+		ret = __qseecom_process_incomplete_cmd(data, &resp);
+		if (ret)
+			pr_err("process_incomplete_cmd failed err: %d\n",
+					ret);
+	} else {
+		if (resp.result != QSEOS_RESULT_SUCCESS) {
+			pr_err("scm_call to load image failed resp.result =%d\n",
+						resp.result);
+			ret = -EFAULT;
+		}
+	}
+	/* Deallocate the handle */
+	if (!IS_ERR_OR_NULL(ihandle))
+		ion_free(qseecom.ion_clnt, ihandle);
+
+	return ret;
+}
+
+static int qseecom_unload_external_elf(struct qseecom_dev_handle *data)
+{
+	int ret = 0;
+	struct qseecom_command_scm_resp resp;
+	struct qseecom_unload_app_ireq req;
+
+	/* Populate the structure for sending scm call to unload image */
+	req.qsee_cmd_id = QSEOS_UNLOAD_EXTERNAL_ELF_COMMAND;
+	/* SCM_CALL to unload the external elf */
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &req,
+			sizeof(struct qseecom_unload_app_ireq),
+			&resp, sizeof(resp));
+	if (ret) {
+		pr_err("scm_call to unload failed : ret %d\n",
+				ret);
+		return -EFAULT;
+	}
+	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
+		ret = __qseecom_process_incomplete_cmd(data, &resp);
+		if (ret)
+			pr_err("process_incomplete_cmd fail err: %d\n",
+					ret);
+	} else {
+		if (resp.result != QSEOS_RESULT_SUCCESS) {
+			pr_err("scm_call to unload image failed resp.result =%d\n",
+						resp.result);
+			ret = -EFAULT;
+		}
+	}
+	return ret;
+}
 
 static long qseecom_ioctl(struct file *file, unsigned cmd,
 		unsigned long arg)
@@ -1329,6 +1427,38 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		atomic_inc(&data->ioctl_count);
 		qsee_disable_clock_vote();
 		atomic_dec(&data->ioctl_count);
+		break;
+	}
+	case QSEECOM_IOCTL_LOAD_EXTERNAL_ELF_REQ: {
+		data->released = true;
+		if (qseecom.qseos_version == QSEOS_VERSION_13) {
+			pr_err("Loading External elf image unsupported in rev 0x13\n");
+			ret = -EINVAL;
+			break;
+		}
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
+		ret = qseecom_load_external_elf(data, argp);
+		atomic_dec(&data->ioctl_count);
+		mutex_unlock(&app_access_lock);
+		if (ret)
+			pr_err("failed load_external_elf request: %d\n", ret);
+		break;
+	}
+	case QSEECOM_IOCTL_UNLOAD_EXTERNAL_ELF_REQ: {
+		data->released = true;
+		if (qseecom.qseos_version == QSEOS_VERSION_13) {
+			pr_err("Unloading External elf image unsupported in rev 0x13\n");
+			ret = -EINVAL;
+			break;
+		}
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
+		ret = qseecom_unload_external_elf(data);
+		atomic_dec(&data->ioctl_count);
+		mutex_unlock(&app_access_lock);
+		if (ret)
+			pr_err("failed unload_app request: %d\n", ret);
 		break;
 	}
 	default:

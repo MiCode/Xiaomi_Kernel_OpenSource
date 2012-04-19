@@ -146,4 +146,10 @@ struct qseecom_qseos_version_req {
 #define QSEECOM_IOCTL_PERF_DISABLE_REQ \
 	_IO(QSEECOM_IOC_MAGIC, 12)
 
+#define QSEECOM_IOCTL_LOAD_EXTERNAL_ELF_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 13, struct qseecom_load_img_req)
+
+#define QSEECOM_IOCTL_UNLOAD_EXTERNAL_ELF_REQ \
+	_IO(QSEECOM_IOC_MAGIC, 14)
+
 #endif /* __QSEECOM_H_ */
