@@ -65,8 +65,8 @@ static int lcdc_off(struct platform_device *pdev)
 	mfd = platform_get_drvdata(pdev);
 	ret = panel_next_off(pdev);
 
-	clk_disable(pixel_mdp_clk);
-	clk_disable(pixel_lcdc_clk);
+	clk_disable_unprepare(pixel_mdp_clk);
+	clk_disable_unprepare(pixel_lcdc_clk);
 
 	if (lcdc_pdata && lcdc_pdata->lcdc_power_save)
 		lcdc_pdata->lcdc_power_save(0);
@@ -81,7 +81,7 @@ static int lcdc_off(struct platform_device *pdev)
 				pr_err("%s: ebi1_lcdc_clk set rate failed\n",
 					__func__);
 		}
-		clk_disable(mfd->ebi1_clk);
+		clk_disable_unprepare(mfd->ebi1_clk);
 	}
 #else
 	mdp_bus_scale_update_request(0);
@@ -122,7 +122,7 @@ static int lcdc_on(struct platform_device *pdev)
 		} else {
 			clk_set_rate(mfd->ebi1_clk, pm_qos_rate * 1000);
 		}
-		clk_enable(mfd->ebi1_clk);
+		clk_prepare_enable(mfd->ebi1_clk);
 	}
 
 #endif
@@ -137,8 +137,8 @@ static int lcdc_on(struct platform_device *pdev)
 		goto out;
 	}
 
-	clk_enable(pixel_mdp_clk);
-	clk_enable(pixel_lcdc_clk);
+	clk_prepare_enable(pixel_mdp_clk);
+	clk_prepare_enable(pixel_lcdc_clk);
 
 	if (lcdc_pdata && lcdc_pdata->lcdc_power_save)
 		lcdc_pdata->lcdc_power_save(1);

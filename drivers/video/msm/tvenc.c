@@ -101,7 +101,7 @@ int tvenc_set_encoder_clock(boolean clock_on)
 			goto tvsrc_err;
 		}
 #endif
-		ret = clk_enable(tvenc_clk);
+		ret = clk_prepare_enable(tvenc_clk);
 		if (ret) {
 			pr_err("%s: tvenc_clk enable failed! %d\n",
 				__func__, ret);
@@ -109,7 +109,7 @@ int tvenc_set_encoder_clock(boolean clock_on)
 		}
 
 		if (!IS_ERR(tvenc_pclk)) {
-			ret = clk_enable(tvenc_pclk);
+			ret = clk_prepare_enable(tvenc_pclk);
 			if (ret) {
 				pr_err("%s: tvenc_pclk enable failed! %d\n",
 					__func__, ret);
@@ -119,12 +119,12 @@ int tvenc_set_encoder_clock(boolean clock_on)
 		return ret;
 	} else {
 		if (!IS_ERR(tvenc_pclk))
-			clk_disable(tvenc_pclk);
-		clk_disable(tvenc_clk);
+			clk_disable_unprepare(tvenc_pclk);
+		clk_disable_unprepare(tvenc_clk);
 		return ret;
 	}
 tvencp_err:
-	clk_disable(tvenc_clk);
+	clk_disable_unprepare(tvenc_clk);
 tvsrc_err:
 	return ret;
 }
@@ -141,14 +141,14 @@ int tvenc_set_clock(boolean clock_on)
 				goto tvenc_err;
 			}
 		}
-		ret = clk_enable(tvdac_clk);
+		ret = clk_prepare_enable(tvdac_clk);
 		if (ret) {
 			pr_err("%s: tvdac_clk enable failed! %d\n",
 				__func__, ret);
 			goto tvdac_err;
 		}
 		if (!IS_ERR(mdp_tv_clk)) {
-			ret = clk_enable(mdp_tv_clk);
+			ret = clk_prepare_enable(mdp_tv_clk);
 			if (ret) {
 				pr_err("%s: mdp_tv_clk enable failed! %d\n",
 					__func__, ret);
@@ -158,15 +158,15 @@ int tvenc_set_clock(boolean clock_on)
 		return ret;
 	} else {
 		if (!IS_ERR(mdp_tv_clk))
-			clk_disable(mdp_tv_clk);
-		clk_disable(tvdac_clk);
+			clk_disable_unprepare(mdp_tv_clk);
+		clk_disable_unprepare(tvdac_clk);
 		if (tvenc_pdata->poll)
 			tvenc_set_encoder_clock(CLOCK_OFF);
 		return ret;
 	}
 
 mdptv_err:
-	clk_disable(tvdac_clk);
+	clk_disable_unprepare(tvdac_clk);
 tvdac_err:
 	tvenc_set_encoder_clock(CLOCK_OFF);
 tvenc_err:
@@ -196,7 +196,7 @@ static int tvenc_off(struct platform_device *pdev)
 							0);
 #else
 	if (mfd->ebi1_clk)
-		clk_disable(mfd->ebi1_clk);
+		clk_disable_unprepare(mfd->ebi1_clk);
 #endif
 
 	if (ret)
@@ -220,7 +220,7 @@ static int tvenc_on(struct platform_device *pdev)
 							1);
 #else
 	if (mfd->ebi1_clk)
-		clk_enable(mfd->ebi1_clk);
+		clk_prepare_enable(mfd->ebi1_clk);
 #endif
 	mdp4_extn_disp = 1;
 	if (tvenc_pdata && tvenc_pdata->pm_vid_en)

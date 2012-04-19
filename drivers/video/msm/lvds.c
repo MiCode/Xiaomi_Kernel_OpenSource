@@ -208,7 +208,7 @@ static int lvds_off(struct platform_device *pdev)
 	ret = panel_next_off(pdev);
 
 	if (lvds_clk)
-		clk_disable(lvds_clk);
+		clk_disable_unprepare(lvds_clk);
 
 	if (lvds_pdata && lvds_pdata->lcdc_power_save)
 		lvds_pdata->lcdc_power_save(0);
@@ -249,7 +249,7 @@ static int lvds_on(struct platform_device *pdev)
 				__func__, mfd->fbi->var.pixclock);
 			goto out;
 		}
-		clk_enable(lvds_clk);
+		clk_prepare_enable(lvds_clk);
 	}
 
 	if (lvds_pdata && lvds_pdata->lcdc_power_save)

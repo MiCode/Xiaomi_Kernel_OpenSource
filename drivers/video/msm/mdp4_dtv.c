@@ -91,9 +91,9 @@ static int dtv_off(struct platform_device *pdev)
 
 	pr_info("%s\n", __func__);
 
-	clk_disable(hdmi_clk);
+	clk_disable_unprepare(hdmi_clk);
 	if (mdp_tv_clk)
-		clk_disable(mdp_tv_clk);
+		clk_disable_unprepare(mdp_tv_clk);
 
 	if (dtv_pdata && dtv_pdata->lcdc_power_save)
 		dtv_pdata->lcdc_power_save(0);
@@ -106,7 +106,7 @@ static int dtv_off(struct platform_device *pdev)
 							0);
 #else
 	if (ebi1_clk)
-		clk_disable(ebi1_clk);
+		clk_disable_unprepare(ebi1_clk);
 #endif
 	mdp4_extn_disp = 0;
 	return ret;
@@ -134,7 +134,7 @@ static int dtv_on(struct platform_device *pdev)
 #else
 	if (ebi1_clk) {
 		clk_set_rate(ebi1_clk, pm_qos_rate * 1000);
-		clk_enable(ebi1_clk);
+		clk_prepare_enable(ebi1_clk);
 	}
 #endif
 	mfd = platform_get_drvdata(pdev);
@@ -150,13 +150,13 @@ static int dtv_on(struct platform_device *pdev)
 	pr_info("%s: tv_src_clk=%dkHz, pm_qos_rate=%ldkHz, [%d]\n", __func__,
 		mfd->fbi->var.pixclock/1000, pm_qos_rate, ret);
 
-	clk_enable(hdmi_clk);
+	clk_prepare_enable(hdmi_clk);
 	clk_reset(hdmi_clk, CLK_RESET_ASSERT);
 	udelay(20);
 	clk_reset(hdmi_clk, CLK_RESET_DEASSERT);
 
 	if (mdp_tv_clk)
-		clk_enable(mdp_tv_clk);
+		clk_prepare_enable(mdp_tv_clk);
 
 	if (dtv_pdata && dtv_pdata->lcdc_power_save)
 		dtv_pdata->lcdc_power_save(1);

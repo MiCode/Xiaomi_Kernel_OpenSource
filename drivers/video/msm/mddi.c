@@ -156,11 +156,11 @@ static void pmdh_clk_disable()
 	}
 
 	if (mddi_clk) {
-		clk_disable(mddi_clk);
+		clk_disable_unprepare(mddi_clk);
 		pmdh_clk_status = 0;
 	}
 	if (mddi_pclk)
-		clk_disable(mddi_pclk);
+		clk_disable_unprepare(mddi_pclk);
 	mutex_unlock(&pmdh_clk_lock);
 }
 
@@ -173,11 +173,11 @@ static void pmdh_clk_enable()
 	}
 
 	if (mddi_clk) {
-		clk_enable(mddi_clk);
+		clk_prepare_enable(mddi_clk);
 		pmdh_clk_status = 1;
 	}
 	if (mddi_pclk)
-		clk_enable(mddi_pclk);
+		clk_prepare_enable(mddi_pclk);
 
 	if (int_mddi_pri_flag && !irq_enabled) {
 		enable_irq(INT_MDDI_PRI);
@@ -216,7 +216,7 @@ static int mddi_off(struct platform_device *pdev)
 	mdp_bus_scale_update_request(0);
 #else
 	if (mfd->ebi1_clk)
-		clk_disable(mfd->ebi1_clk);
+		clk_disable_unprepare(mfd->ebi1_clk);
 #endif
 	pm_runtime_put(&pdev->dev);
 	return ret;
@@ -279,7 +279,7 @@ static int mddi_on(struct platform_device *pdev)
 	mdp_bus_scale_update_request(2);
 #else
 	if (mfd->ebi1_clk)
-		clk_enable(mfd->ebi1_clk);
+		clk_prepare_enable(mfd->ebi1_clk);
 #endif
 	ret = panel_next_on(pdev);
 

@@ -548,14 +548,32 @@ void cont_splash_clk_ctrl(int enable)
 {
 	static int cont_splash_clks_enabled;
 	if (enable && !cont_splash_clks_enabled) {
-			clk_enable(dsi_byte_div_clk);
-			clk_enable(dsi_esc_clk);
+			clk_prepare_enable(dsi_byte_div_clk);
+			clk_prepare_enable(dsi_esc_clk);
 			cont_splash_clks_enabled = 1;
 	} else if (!enable && cont_splash_clks_enabled) {
-			clk_disable(dsi_byte_div_clk);
-			clk_disable(dsi_esc_clk);
+			clk_disable_unprepare(dsi_byte_div_clk);
+			clk_disable_unprepare(dsi_esc_clk);
 			cont_splash_clks_enabled = 0;
 	}
+}
+
+void mipi_dsi_prepare_clocks(void)
+{
+	clk_prepare(amp_pclk);
+	clk_prepare(dsi_m_pclk);
+	clk_prepare(dsi_s_pclk);
+	clk_prepare(dsi_byte_div_clk);
+	clk_prepare(dsi_esc_clk);
+}
+
+void mipi_dsi_unprepare_clocks(void)
+{
+	clk_unprepare(dsi_esc_clk);
+	clk_unprepare(dsi_byte_div_clk);
+	clk_unprepare(dsi_m_pclk);
+	clk_unprepare(dsi_s_pclk);
+	clk_unprepare(amp_pclk);
 }
 
 void mipi_dsi_ahb_ctrl(u32 enable)

@@ -211,7 +211,7 @@ int msm_rotator_imem_allocate(int requestor)
 		cancel_delayed_work(&msm_rotator_dev->imem_clk_work);
 		if (msm_rotator_dev->imem_clk_state != CLK_EN
 			&& msm_rotator_dev->imem_clk) {
-			clk_enable(msm_rotator_dev->imem_clk);
+			clk_prepare_enable(msm_rotator_dev->imem_clk);
 			msm_rotator_dev->imem_clk_state = CLK_EN;
 		}
 	}
@@ -240,7 +240,7 @@ static void msm_rotator_imem_clk_work_f(struct work_struct *work)
 	if (mutex_trylock(&msm_rotator_dev->imem_lock)) {
 		if (msm_rotator_dev->imem_clk_state == CLK_EN
 		     && msm_rotator_dev->imem_clk) {
-			clk_disable(msm_rotator_dev->imem_clk);
+			clk_disable_unprepare(msm_rotator_dev->imem_clk);
 			msm_rotator_dev->imem_clk_state = CLK_DIS;
 		} else if (msm_rotator_dev->imem_clk_state == CLK_SUSPEND)
 			msm_rotator_dev->imem_clk_state = CLK_DIS;
@@ -255,18 +255,18 @@ static void enable_rot_clks(void)
 	if (msm_rotator_dev->regulator)
 		regulator_enable(msm_rotator_dev->regulator);
 	if (msm_rotator_dev->core_clk != NULL)
-		clk_enable(msm_rotator_dev->core_clk);
+		clk_prepare_enable(msm_rotator_dev->core_clk);
 	if (msm_rotator_dev->pclk != NULL)
-		clk_enable(msm_rotator_dev->pclk);
+		clk_prepare_enable(msm_rotator_dev->pclk);
 }
 
 /* disable clocks needed by rotator block */
 static void disable_rot_clks(void)
 {
 	if (msm_rotator_dev->core_clk != NULL)
-		clk_disable(msm_rotator_dev->core_clk);
+		clk_disable_unprepare(msm_rotator_dev->core_clk);
 	if (msm_rotator_dev->pclk != NULL)
-		clk_disable(msm_rotator_dev->pclk);
+		clk_disable_unprepare(msm_rotator_dev->pclk);
 	if (msm_rotator_dev->regulator)
 		regulator_disable(msm_rotator_dev->regulator);
 }
@@ -1579,7 +1579,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_MSM_ROTATOR_USE_IMEM
 	if (msm_rotator_dev->imem_clk)
-		clk_enable(msm_rotator_dev->imem_clk);
+		clk_prepare_enable(msm_rotator_dev->imem_clk);
 #endif
 	enable_rot_clks();
 	ver = ioread32(MSM_ROTATOR_HW_VERSION);
@@ -1587,7 +1587,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_MSM_ROTATOR_USE_IMEM
 	if (msm_rotator_dev->imem_clk)
-		clk_disable(msm_rotator_dev->imem_clk);
+		clk_disable_unprepare(msm_rotator_dev->imem_clk);
 #endif
 	if (ver != pdata->hardware_version_number)
 		pr_info("%s: invalid HW version ver 0x%x\n",
@@ -1688,7 +1688,7 @@ static int __devexit msm_rotator_remove(struct platform_device *plat_dev)
 	iounmap(msm_rotator_dev->io_base);
 	if (msm_rotator_dev->imem_clk) {
 		if (msm_rotator_dev->imem_clk_state == CLK_EN)
-			clk_disable(msm_rotator_dev->imem_clk);
+			clk_disable_unprepare(msm_rotator_dev->imem_clk);
 		clk_put(msm_rotator_dev->imem_clk);
 		msm_rotator_dev->imem_clk = NULL;
 	}
@@ -1714,7 +1714,7 @@ static int msm_rotator_suspend(struct platform_device *dev, pm_message_t state)
 	mutex_lock(&msm_rotator_dev->imem_lock);
 	if (msm_rotator_dev->imem_clk_state == CLK_EN
 		&& msm_rotator_dev->imem_clk) {
-		clk_disable(msm_rotator_dev->imem_clk);
+		clk_disable_unprepare(msm_rotator_dev->imem_clk);
 		msm_rotator_dev->imem_clk_state = CLK_SUSPEND;
 	}
 	mutex_unlock(&msm_rotator_dev->imem_lock);
@@ -1732,7 +1732,7 @@ static int msm_rotator_resume(struct platform_device *dev)
 	mutex_lock(&msm_rotator_dev->imem_lock);
 	if (msm_rotator_dev->imem_clk_state == CLK_SUSPEND
 		&& msm_rotator_dev->imem_clk) {
-		clk_enable(msm_rotator_dev->imem_clk);
+		clk_prepare_enable(msm_rotator_dev->imem_clk);
 		msm_rotator_dev->imem_clk_state = CLK_EN;
 	}
 	mutex_unlock(&msm_rotator_dev->imem_lock);

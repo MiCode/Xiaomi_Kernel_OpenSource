@@ -407,6 +407,24 @@ void cont_splash_clk_ctrl(int enable)
 {
 }
 
+void mipi_dsi_prepare_clocks(void)
+{
+	clk_prepare(amp_pclk);
+	clk_prepare(dsi_m_pclk);
+	clk_prepare(dsi_s_pclk);
+	clk_prepare(dsi_byte_div_clk);
+	clk_prepare(dsi_esc_clk);
+}
+
+void mipi_dsi_unprepare_clocks(void)
+{
+	clk_unprepare(dsi_esc_clk);
+	clk_unprepare(dsi_byte_div_clk);
+	clk_unprepare(dsi_m_pclk);
+	clk_unprepare(dsi_s_pclk);
+	clk_unprepare(amp_pclk);
+}
+
 void mipi_dsi_ahb_ctrl(u32 enable)
 {
 	static int ahb_ctrl_done;

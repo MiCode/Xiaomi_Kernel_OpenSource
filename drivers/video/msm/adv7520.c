@@ -344,7 +344,7 @@ static int adv7520_power_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
-	clk_enable(tv_enc_clk);
+	clk_prepare_enable(tv_enc_clk);
 	external_common_state->dev = &pdev->dev;
 	if (mfd != NULL) {
 		DEV_INFO("adv7520_power: ON (%dx%d %d)\n",
@@ -378,7 +378,7 @@ static int adv7520_power_off(struct platform_device *pdev)
 	adv7520_chip_off();
 	wake_unlock(&wlock);
 	adv7520_comm_power(0, 1);
-	clk_disable(tv_enc_clk);
+	clk_disable_unprepare(tv_enc_clk);
 	return 0;
 }
 
