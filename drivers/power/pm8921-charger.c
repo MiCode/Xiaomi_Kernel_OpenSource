@@ -77,6 +77,7 @@
 #define CHG_ITRIM		0x35B
 #define CHG_TTRIM		0x35C
 #define CHG_COMP_OVR		0x20A
+#define IUSB_FINE_RES		0x2B6
 
 /* check EOC every 10 seconds */
 #define EOC_CHECK_PERIOD_MS	10000
@@ -243,6 +244,7 @@ struct pm8921_chg_chip {
 	bool				keep_btm_on_suspend;
 	bool				ext_charging;
 	bool				ext_charge_done;
+	bool				iusb_fine_res;
 	DECLARE_BITMAP(enabled_irqs, PM_CHG_MAX_INTS);
 	struct work_struct		battery_id_valid_work;
 	int64_t				batt_id_min;
@@ -657,50 +659,110 @@ static int pm_chg_iterm_get(struct pm8921_chg_chip *chip, int *chg_current)
 }
 
 struct usb_ma_limit_entry {
-	int usb_ma;
+	int	usb_ma;
+	u8	value;
 };
 
 static struct usb_ma_limit_entry usb_ma_table[] = {
-	{100},
-	{500},
-	{700},
-	{850},
-	{900},
-	{1100},
-	{1300},
-	{1500},
+	{100, 0x0},
+	{200, 0x1},
+	{500, 0x2},
+	{600, 0x3},
+	{700, 0x4},
+	{800, 0x5},
+	{850, 0x6},
+	{900, 0x8},
+	{950, 0x7},
+	{1000, 0x9},
+	{1100, 0xA},
+	{1200, 0xB},
+	{1300, 0xC},
+	{1400, 0xD},
+	{1500, 0xE},
+	{1600, 0xF},
 };
 
 #define PM8921_CHG_IUSB_MASK 0x1C
+#define PM8921_CHG_IUSB_SHIFT 2
 #define PM8921_CHG_IUSB_MAX  7
 #define PM8921_CHG_IUSB_MIN  0
+#define PM8917_IUSB_FINE_RES BIT(0)
 static int pm_chg_iusbmax_set(struct pm8921_chg_chip *chip, int reg_val)
 {
-	u8 temp;
+	u8 temp, fineres;
+	int rc;
+
+	fineres = PM8917_IUSB_FINE_RES & usb_ma_table[reg_val].value;
+	reg_val = usb_ma_table[reg_val].value >> 1;
 
 	if (reg_val < PM8921_CHG_IUSB_MIN || reg_val > PM8921_CHG_IUSB_MAX) {
 		pr_err("bad mA=%d asked to set\n", reg_val);
 		return -EINVAL;
 	}
-	temp = reg_val << 2;
-	return pm_chg_masked_write(chip, PBL_ACCESS2, PM8921_CHG_IUSB_MASK,
-					 temp);
+	temp = reg_val << PM8921_CHG_IUSB_SHIFT;
+
+	/* IUSB_FINE_RES */
+	if (chip->iusb_fine_res) {
+		/* Clear IUSB_FINE_RES bit to avoid overshoot */
+		rc = pm_chg_masked_write(chip, IUSB_FINE_RES,
+			PM8917_IUSB_FINE_RES, 0);
+
+		rc |= pm_chg_masked_write(chip, PBL_ACCESS2,
+			PM8921_CHG_IUSB_MASK, temp);
+
+		if (rc) {
+			pr_err("Failed to write PBL_ACCESS2 rc=%d\n", rc);
+			return rc;
+		}
+
+		if (fineres) {
+			rc = pm_chg_masked_write(chip, IUSB_FINE_RES,
+				PM8917_IUSB_FINE_RES, fineres);
+			if (rc)
+				pr_err("Failed to write ISUB_FINE_RES rc=%d\n",
+					rc);
+		}
+	} else {
+		rc = pm_chg_masked_write(chip, PBL_ACCESS2,
+			PM8921_CHG_IUSB_MASK, temp);
+		if (rc)
+			pr_err("Failed to write PBL_ACCESS2 rc=%d\n", rc);
+	}
+
+	return rc;
 }
 
 static int pm_chg_iusbmax_get(struct pm8921_chg_chip *chip, int *mA)
 {
-	u8 temp;
-	int rc;
+	u8 temp, fineres;
+	int rc, i;
 
+	fineres = 0;
 	*mA = 0;
 	rc = pm8xxx_readb(chip->dev->parent, PBL_ACCESS2, &temp);
 	if (rc) {
 		pr_err("err=%d reading PBL_ACCESS2\n", rc);
 		return rc;
 	}
+
+	if (chip->iusb_fine_res) {
+		rc = pm8xxx_readb(chip->dev->parent, IUSB_FINE_RES, &fineres);
+		if (rc) {
+			pr_err("err=%d reading IUSB_FINE_RES\n", rc);
+			return rc;
+		}
+	}
 	temp &= PM8921_CHG_IUSB_MASK;
-	temp = temp >> 2;
-	*mA = usb_ma_table[temp].usb_ma;
+	temp = temp >> PM8921_CHG_IUSB_SHIFT;
+
+	temp = (temp << 1) | (fineres & PM8917_IUSB_FINE_RES);
+	for (i = ARRAY_SIZE(usb_ma_table) - 1; i >= 0; i--) {
+		if (usb_ma_table[i].value == temp)
+			break;
+	}
+
+	*mA = usb_ma_table[i].usb_ma;
+
 	return rc;
 }
 
@@ -1450,8 +1512,12 @@ static void notify_usb_of_the_plugin_event(int plugin)
 static void __pm8921_charger_vbus_draw(unsigned int mA)
 {
 	int i, rc;
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return;
+	}
 
-	if (mA > 0 && mA <= 2) {
+	if (mA >= 0 && mA <= 2) {
 		usb_chg_current = 0;
 		rc = pm_chg_iusbmax_set(the_chip, 0);
 		if (rc) {
@@ -1468,6 +1534,11 @@ static void __pm8921_charger_vbus_draw(unsigned int mA)
 			if (usb_ma_table[i].usb_ma <= mA)
 				break;
 		}
+
+		/* Check if IUSB_FINE_RES is available */
+		if ((usb_ma_table[i].value & PM8917_IUSB_FINE_RES)
+				&& !the_chip->iusb_fine_res)
+			i--;
 		if (i < 0)
 			i = 0;
 		rc = pm_chg_iusbmax_set(the_chip, i);
@@ -1972,6 +2043,12 @@ static void increase_usb_ma_value(int *value)
 
 		if (i < (ARRAY_SIZE(usb_ma_table) - 1))
 			i++;
+		/* Get next correct entry if IUSB_FINE_RES is not available */
+		while (!the_chip->iusb_fine_res
+			&& (usb_ma_table[i].value & PM8917_IUSB_FINE_RES)
+			&& i < (ARRAY_SIZE(usb_ma_table) - 1))
+			i++;
+
 		*value = usb_ma_table[i].usb_ma;
 	}
 }
@@ -3410,6 +3487,10 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 	/* Workarounds for die 3.0 */
 	if (pm8xxx_get_revision(chip->dev->parent) == PM8XXX_REVISION_8921_3p0)
 		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xAC);
+
+	/* Enable isub_fine resolution AICL for PM8917 */
+	if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8917)
+		chip->iusb_fine_res = true;
 
 	pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xD9);
 
