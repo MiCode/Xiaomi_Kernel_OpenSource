@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,15 +68,15 @@ static int msm_csid_cid_lut(
 				 __func__, csid_lut_params->vc_cfg[i].dt);
 			return rc;
 		}
-		val = msm_io_r(csidbase + CSID_CID_LUT_VC_0_ADDR +
+		val = msm_camera_io_r(csidbase + CSID_CID_LUT_VC_0_ADDR +
 		(csid_lut_params->vc_cfg[i].cid >> 2) * 4)
 		& ~(0xFF << csid_lut_params->vc_cfg[i].cid * 8);
 		val |= csid_lut_params->vc_cfg[i].dt <<
 			csid_lut_params->vc_cfg[i].cid * 8;
-		msm_io_w(val, csidbase + CSID_CID_LUT_VC_0_ADDR +
+		msm_camera_io_w(val, csidbase + CSID_CID_LUT_VC_0_ADDR +
 			(csid_lut_params->vc_cfg[i].cid >> 2) * 4);
 		val = csid_lut_params->vc_cfg[i].decode_format << 4 | 0x3;
-		msm_io_w(val, csidbase + CSID_CID_n_CFG_ADDR +
+		msm_camera_io_w(val, csidbase + CSID_CID_n_CFG_ADDR +
 			(csid_lut_params->vc_cfg[i].cid * 4));
 	}
 	return rc;
@@ -100,15 +100,15 @@ static int msm_csid_config(struct csid_cfg_params *cfg_params)
 	val |= 0x1 << 12;
 	val |= 0x1 << 13;
 	val |= 0x1 << 28;
-	msm_io_w(val, csidbase + CSID_CORE_CTRL_ADDR);
+	msm_camera_io_w(val, csidbase + CSID_CORE_CTRL_ADDR);
 
 	rc = msm_csid_cid_lut(&csid_params->lut_params, csidbase);
 	if (rc < 0)
 		return rc;
 
 	val = ((1 << csid_params->lane_cnt) - 1) << 20;
-	msm_io_w(0x7f010800 | val, csidbase + CSID_IRQ_MASK_ADDR);
-	msm_io_w(0x7f010800 | val, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
+	msm_camera_io_w(0x7f010800 | val, csidbase + CSID_IRQ_MASK_ADDR);
+	msm_camera_io_w(0x7f010800 | val, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
 
 	msleep(20);
 	return rc;
@@ -118,18 +118,18 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 {
 	uint32_t irq;
 	struct csid_device *csid_dev = data;
-	irq = msm_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
+	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
 	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
 			complete(&csid_dev->reset_complete);
-	msm_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
+	msm_camera_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
 }
 
 static void msm_csid_reset(struct csid_device *csid_dev)
 {
-	msm_io_w(CSID_RST_STB_ALL, csid_dev->base + CSID_RST_CMD_ADDR);
+	msm_camera_io_w(CSID_RST_STB_ALL, csid_dev->base + CSID_RST_CMD_ADDR);
 	wait_for_completion_interruptible(&csid_dev->reset_complete);
 	return;
 }
@@ -193,7 +193,7 @@ static int msm_csid_init(struct v4l2_subdev *sd, uint32_t *csid_version)
 	}
 
 	csid_dev->hw_version =
-		msm_io_r(csid_dev->base + CSID_HW_VERSION_ADDR);
+		msm_camera_io_r(csid_dev->base + CSID_HW_VERSION_ADDR);
 	*csid_version = csid_dev->hw_version;
 
 	init_completion(&csid_dev->reset_complete);

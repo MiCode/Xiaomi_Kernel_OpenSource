@@ -78,10 +78,10 @@ int msm_csiphy_config(struct csiphy_cfg_params *cfg_params)
 	}
 
 	val = 0x3;
-	msm_io_w((csiphy_params->lane_mask << 2) | val,
+	msm_camera_io_w((csiphy_params->lane_mask << 2) | val,
 			csiphybase + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
-	msm_io_w(0x1, csiphybase + MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR);
-	msm_io_w(0x1, csiphybase + MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR);
+	msm_camera_io_w(0x1, csiphybase + MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR);
+	msm_camera_io_w(0x1, csiphybase + MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR);
 
 	while (lane_mask & 0xf) {
 		if (!(lane_mask & 0x1)) {
@@ -89,26 +89,27 @@ int msm_csiphy_config(struct csiphy_cfg_params *cfg_params)
 			lane_mask >>= 1;
 			continue;
 		}
-		msm_io_w(0x10, csiphybase + MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*j);
-		msm_io_w(csiphy_params->settle_cnt,
+		msm_camera_io_w(0x10,
+			csiphybase + MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*j);
+		msm_camera_io_w(csiphy_params->settle_cnt,
 			csiphybase + MIPI_CSIPHY_LNn_CFG3_ADDR + 0x40*j);
-		msm_io_w(0x6F,
+		msm_camera_io_w(0x6F,
 			csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR +
 				0x4*(j+1));
-		msm_io_w(0x6F,
+		msm_camera_io_w(0x6F,
 			csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR +
 				0x4*(j+1));
 		j++;
 		lane_mask >>= 1;
 	}
 
-	msm_io_w(0x10, csiphybase + MIPI_CSIPHY_LNCK_CFG2_ADDR);
-	msm_io_w(csiphy_params->settle_cnt,
+	msm_camera_io_w(0x10, csiphybase + MIPI_CSIPHY_LNCK_CFG2_ADDR);
+	msm_camera_io_w(csiphy_params->settle_cnt,
 			 csiphybase + MIPI_CSIPHY_LNCK_CFG3_ADDR);
 
-	msm_io_w(0x24,
+	msm_camera_io_w(0x24,
 		csiphybase + MIPI_CSIPHY_INTERRUPT_MASK0_ADDR);
-	msm_io_w(0x24,
+	msm_camera_io_w(0x24,
 		csiphybase + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR);
 	return rc;
 }
@@ -117,36 +118,51 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 {
 	uint32_t irq;
 	struct csiphy_device *csiphy_dev = data;
-	irq = msm_io_r(csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR);
-	msm_io_w(irq, csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR);
+
+	irq = msm_camera_io_r(
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR);
+	msm_camera_io_w(irq,
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR);
 	CDBG("%s MIPI_CSIPHY%d_INTERRUPT_STATUS0 = 0x%x\n",
 		 __func__, csiphy_dev->pdev->id, irq);
-	irq = msm_io_r(csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS1_ADDR);
-	msm_io_w(irq, csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR1_ADDR);
+
+	irq = msm_camera_io_r(
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS1_ADDR);
+	msm_camera_io_w(irq,
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR1_ADDR);
 	CDBG("%s MIPI_CSIPHY%d_INTERRUPT_STATUS1 = 0x%x\n",
 		__func__, csiphy_dev->pdev->id, irq);
-	irq = msm_io_r(csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS2_ADDR);
-	msm_io_w(irq, csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR2_ADDR);
+
+	irq = msm_camera_io_r(
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS2_ADDR);
+	msm_camera_io_w(irq,
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR2_ADDR);
 	CDBG("%s MIPI_CSIPHY%d_INTERRUPT_STATUS2 = 0x%x\n",
 		__func__, csiphy_dev->pdev->id, irq);
-	irq = msm_io_r(csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS3_ADDR);
-	msm_io_w(irq, csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR3_ADDR);
+
+	irq = msm_camera_io_r(
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS3_ADDR);
+	msm_camera_io_w(irq,
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR3_ADDR);
 	CDBG("%s MIPI_CSIPHY%d_INTERRUPT_STATUS3 = 0x%x\n",
 		__func__, csiphy_dev->pdev->id, irq);
-	irq = msm_io_r(csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS4_ADDR);
-	msm_io_w(irq, csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR4_ADDR);
+
+	irq = msm_camera_io_r(
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_STATUS4_ADDR);
+	msm_camera_io_w(irq,
+		csiphy_dev->base + MIPI_CSIPHY_INTERRUPT_CLEAR4_ADDR);
 	CDBG("%s MIPI_CSIPHY%d_INTERRUPT_STATUS4 = 0x%x\n",
 		__func__, csiphy_dev->pdev->id, irq);
-	msm_io_w(0x1, csiphy_dev->base + 0x164);
-	msm_io_w(0x0, csiphy_dev->base + 0x164);
+	msm_camera_io_w(0x1, csiphy_dev->base + 0x164);
+	msm_camera_io_w(0x0, csiphy_dev->base + 0x164);
 	return IRQ_HANDLED;
 }
 
 static void msm_csiphy_reset(struct csiphy_device *csiphy_dev)
 {
-	msm_io_w(0x1, csiphy_dev->base + MIPI_CSIPHY_GLBL_RESET_ADDR);
+	msm_camera_io_w(0x1, csiphy_dev->base + MIPI_CSIPHY_GLBL_RESET_ADDR);
 	usleep_range(5000, 8000);
-	msm_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_RESET_ADDR);
+	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_RESET_ADDR);
 }
 
 static int msm_csiphy_subdev_g_chip_ident(struct v4l2_subdev *sd,
@@ -202,11 +218,11 @@ static int msm_csiphy_release(struct v4l2_subdev *sd)
 	int i;
 	csiphy_dev = v4l2_get_subdevdata(sd);
 	for (i = 0; i < 4; i++)
-		msm_io_w(0x0, csiphy_dev->base +
+		msm_camera_io_w(0x0, csiphy_dev->base +
 		MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*i);
 
-	msm_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_LNCK_CFG2_ADDR);
-	msm_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
+	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_LNCK_CFG2_ADDR);
+	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
 
 #if DBG_CSIPHY
 	disable_irq(csiphy_dev->irq->start);

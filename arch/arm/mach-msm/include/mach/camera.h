@@ -669,16 +669,16 @@ int msm_camio_sensor_clk_on(struct platform_device *);
 int msm_camio_csi_config(struct msm_camera_csi_params *csi_params);
 int msm_camio_csiphy_config(struct msm_camera_csiphy_params *csiphy_params);
 int msm_camio_csid_config(struct msm_camera_csid_params *csid_params);
-void msm_io_read_interrupt(void);
 int add_axi_qos(void);
 int update_axi_qos(uint32_t freq);
 void release_axi_qos(void);
-void msm_io_w(u32 data, void __iomem *addr);
-void msm_io_w_mb(u32 data, void __iomem *addr);
-u32 msm_io_r(void __iomem *addr);
-u32 msm_io_r_mb(void __iomem *addr);
-void msm_io_dump(void __iomem *addr, int size);
-void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len);
+void msm_camera_io_w(u32 data, void __iomem *addr);
+void msm_camera_io_w_mb(u32 data, void __iomem *addr);
+u32 msm_camera_io_r(void __iomem *addr);
+u32 msm_camera_io_r_mb(void __iomem *addr);
+void msm_camera_io_dump(void __iomem *addr, int size);
+void msm_camera_io_memcpy(void __iomem *dest_addr,
+		void __iomem *src_addr, u32 len);
 void msm_camio_set_perf_lvl(enum msm_bus_perf_setting);
 void msm_camio_bus_scale_cfg(
 	struct msm_bus_scale_pdata *, enum msm_bus_perf_setting);

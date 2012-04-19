@@ -150,9 +150,9 @@ static int msm_csic_config(struct csic_cfg_params *cfg_params)
 	csic_params = cfg_params->parms;
 
 	/* Enable error correction for DATA lane. Applies to all data lanes */
-	msm_io_w(0x4, csicbase + MIPI_PHY_CONTROL);
+	msm_camera_io_w(0x4, csicbase + MIPI_PHY_CONTROL);
 
-	msm_io_w(MIPI_PROTOCOL_CONTROL_SW_RST_BMSK,
+	msm_camera_io_w(MIPI_PROTOCOL_CONTROL_SW_RST_BMSK,
 		csicbase + MIPI_PROTOCOL_CONTROL);
 
 	val = MIPI_PROTOCOL_CONTROL_LONG_PACKET_HEADER_CAPTURE_BMSK |
@@ -163,7 +163,7 @@ static int msm_csic_config(struct csic_cfg_params *cfg_params)
 	val |= csic_params->dpcm_scheme <<
 		MIPI_PROTOCOL_CONTROL_DPCM_SCHEME_SHFT;
 	CDBG("%s MIPI_PROTOCOL_CONTROL val=0x%x\n", __func__, val);
-	msm_io_w(val, csicbase + MIPI_PROTOCOL_CONTROL);
+	msm_camera_io_w(val, csicbase + MIPI_PROTOCOL_CONTROL);
 
 	val = (csic_params->settle_cnt <<
 		MIPI_PHY_D0_CONTROL2_SETTLE_COUNT_SHFT) |
@@ -172,48 +172,48 @@ static int msm_csic_config(struct csic_cfg_params *cfg_params)
 		(0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
 	CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
 	for (i = 0; i < csic_params->lane_cnt; i++)
-		msm_io_w(val, csicbase + MIPI_PHY_D0_CONTROL2 + i * 4);
+		msm_camera_io_w(val, csicbase + MIPI_PHY_D0_CONTROL2 + i * 4);
 
 
 	val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
 		(0x1 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
 	CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
-	msm_io_w(val, csicbase + MIPI_PHY_CL_CONTROL);
+	msm_camera_io_w(val, csicbase + MIPI_PHY_CL_CONTROL);
 
 	val = 0 << MIPI_PHY_D0_CONTROL_HS_REC_EQ_SHFT;
-	msm_io_w(val, csicbase + MIPI_PHY_D0_CONTROL);
+	msm_camera_io_w(val, csicbase + MIPI_PHY_D0_CONTROL);
 
 	val = (0x1 << MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT) |
 		(0x1 << MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT);
 	CDBG("%s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
-	msm_io_w(val, csicbase + MIPI_PHY_D1_CONTROL);
+	msm_camera_io_w(val, csicbase + MIPI_PHY_D1_CONTROL);
 
-	msm_io_w(0x00000000, csicbase + MIPI_PHY_D2_CONTROL);
-	msm_io_w(0x00000000, csicbase + MIPI_PHY_D3_CONTROL);
+	msm_camera_io_w(0x00000000, csicbase + MIPI_PHY_D2_CONTROL);
+	msm_camera_io_w(0x00000000, csicbase + MIPI_PHY_D3_CONTROL);
 
 	/* program number of lanes and lane mapping */
 	switch (csic_params->lane_cnt) {
 	case 1:
-		msm_io_w(csic_params->lane_assign << 8 | 0x4,
+		msm_camera_io_w(csic_params->lane_assign << 8 | 0x4,
 			csicbase + MIPI_CAMERA_CNTL);
 		break;
 	case 2:
-		msm_io_w(csic_params->lane_assign << 8 | 0x5,
+		msm_camera_io_w(csic_params->lane_assign << 8 | 0x5,
 			csicbase + MIPI_CAMERA_CNTL);
 		break;
 	case 3:
-		msm_io_w(csic_params->lane_assign << 8 | 0x6,
+		msm_camera_io_w(csic_params->lane_assign << 8 | 0x6,
 			csicbase + MIPI_CAMERA_CNTL);
 		break;
 	case 4:
-		msm_io_w(csic_params->lane_assign << 8 | 0x7,
+		msm_camera_io_w(csic_params->lane_assign << 8 | 0x7,
 			csicbase + MIPI_CAMERA_CNTL);
 		break;
 	}
 
-	msm_io_w(0xF077F3C0, csicbase + MIPI_INTERRUPT_MASK);
+	msm_camera_io_w(0xF077F3C0, csicbase + MIPI_INTERRUPT_MASK);
 	/*clear IRQ bits*/
-	msm_io_w(0xF077F3C0, csicbase + MIPI_INTERRUPT_STATUS);
+	msm_camera_io_w(0xF077F3C0, csicbase + MIPI_INTERRUPT_STATUS);
 
 	return rc;
 }
@@ -224,11 +224,11 @@ static irqreturn_t msm_csic_irq(int irq_num, void *data)
 	struct csic_device *csic_dev = data;
 
 	pr_info("msm_csic_irq: %x\n", (unsigned int)csic_dev->base);
-	irq = msm_io_r(csic_dev->base + MIPI_INTERRUPT_STATUS);
+	irq = msm_camera_io_r(csic_dev->base + MIPI_INTERRUPT_STATUS);
 	pr_info("%s MIPI_INTERRUPT_STATUS = 0x%x 0x%x\n",
-			__func__, irq,
-			msm_io_r(csic_dev->base + MIPI_PROTOCOL_CONTROL));
-	msm_io_w(irq, csic_dev->base + MIPI_INTERRUPT_STATUS);
+		__func__, irq,
+		msm_camera_io_r(csic_dev->base + MIPI_PROTOCOL_CONTROL));
+	msm_camera_io_w(irq, csic_dev->base + MIPI_INTERRUPT_STATUS);
 
 	/* TODO: Needs to send this info to upper layers */
 	if ((irq >> 19) & 0x1)
@@ -305,26 +305,26 @@ static void msm_csic_disable(struct v4l2_subdev *sd)
 	val = 0x0;
 	if (csic_dev->base != NULL) {
 		CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
-		msm_io_w(val, csic_dev->base + MIPI_PHY_D0_CONTROL2);
-		msm_io_w(val, csic_dev->base + MIPI_PHY_D1_CONTROL2);
-		msm_io_w(val, csic_dev->base + MIPI_PHY_D2_CONTROL2);
-		msm_io_w(val, csic_dev->base + MIPI_PHY_D3_CONTROL2);
+		msm_camera_io_w(val, csic_dev->base + MIPI_PHY_D0_CONTROL2);
+		msm_camera_io_w(val, csic_dev->base + MIPI_PHY_D1_CONTROL2);
+		msm_camera_io_w(val, csic_dev->base + MIPI_PHY_D2_CONTROL2);
+		msm_camera_io_w(val, csic_dev->base + MIPI_PHY_D3_CONTROL2);
 		CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
-		msm_io_w(val, csic_dev->base + MIPI_PHY_CL_CONTROL);
+		msm_camera_io_w(val, csic_dev->base + MIPI_PHY_CL_CONTROL);
 		msleep(20);
-		val = msm_io_r(csic_dev->base + MIPI_PHY_D1_CONTROL);
+		val = msm_camera_io_r(csic_dev->base + MIPI_PHY_D1_CONTROL);
 		val &=
 		~((0x1 << MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT)
 		|(0x1 << MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT));
 		CDBG("%s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
-		msm_io_w(val, csic_dev->base + MIPI_PHY_D1_CONTROL);
+		msm_camera_io_w(val, csic_dev->base + MIPI_PHY_D1_CONTROL);
 		usleep_range(5000, 6000);
-		msm_io_w(0x0, csic_dev->base + MIPI_INTERRUPT_MASK);
-		msm_io_w(0x0, csic_dev->base + MIPI_INTERRUPT_STATUS);
-		msm_io_w(MIPI_PROTOCOL_CONTROL_SW_RST_BMSK,
+		msm_camera_io_w(0x0, csic_dev->base + MIPI_INTERRUPT_MASK);
+		msm_camera_io_w(0x0, csic_dev->base + MIPI_INTERRUPT_STATUS);
+		msm_camera_io_w(MIPI_PROTOCOL_CONTROL_SW_RST_BMSK,
 			csic_dev->base + MIPI_PROTOCOL_CONTROL);
 
-		msm_io_w(0xE400, csic_dev->base + MIPI_CAMERA_CNTL);
+		msm_camera_io_w(0xE400, csic_dev->base + MIPI_CAMERA_CNTL);
 	}
 }
 
