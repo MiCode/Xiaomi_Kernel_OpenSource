@@ -4136,6 +4136,8 @@ static void hdmi_msm_turn_on(void)
 	/* HDMI_USEC_REFTIMER[0x0208] */
 	HDMI_OUTP(0x0208, 0x0001001B);
 
+	hdmi_msm_set_mode(TRUE);
+
 	hdmi_msm_video_setup(external_common_state->video_resolution);
 	if (!hdmi_msm_is_dvi_mode())
 		hdmi_msm_audio_setup();
@@ -4151,8 +4153,6 @@ static void hdmi_msm_turn_on(void)
 	/* Toggle HPD circuit to trigger HPD sense */
 	HDMI_OUTP(0x0258, ~(1 << 28) & hpd_ctrl);
 	HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
-
-	hdmi_msm_set_mode(TRUE);
 
 	/* Setup HPD IRQ */
 	HDMI_OUTP(0x0254, 4 | (external_common_state->hpd_state ? 0 : 2));
