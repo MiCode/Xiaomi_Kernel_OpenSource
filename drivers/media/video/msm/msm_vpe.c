@@ -640,10 +640,10 @@ static const struct v4l2_subdev_ops msm_vpe_subdev_ops = {
 	.core = &msm_vpe_subdev_core_ops,
 };
 
-static int msm_vpe_resource_init(struct platform_device *pdev);
+static int msm_vpe_resource_init(void);
 
-int msm_vpe_subdev_init(struct v4l2_subdev *sd, void *data,
-	struct platform_device *pdev)
+int msm_vpe_subdev_init(struct v4l2_subdev *sd,
+		struct msm_cam_media_controller *mctl)
 {
 	int rc = 0;
 	CDBG("%s:begin", __func__);
@@ -653,19 +653,19 @@ int msm_vpe_subdev_init(struct v4l2_subdev *sd, void *data,
 	}
 	atomic_set(&vpe_init_done, 1);
 
-	rc = msm_vpe_resource_init(pdev);
+	rc = msm_vpe_resource_init();
 	if (rc < 0) {
 		atomic_set(&vpe_init_done, 0);
 		return rc;
 	}
-	v4l2_set_subdev_hostdata(sd, data);
+	v4l2_set_subdev_hostdata(sd, mctl);
 	spin_lock_init(&vpe_ctrl->lock);
 	CDBG("%s:end", __func__);
 	return rc;
 }
 EXPORT_SYMBOL(msm_vpe_subdev_init);
 
-static int msm_vpe_resource_init(struct platform_device *pdev)
+static int msm_vpe_resource_init(void)
 {
 	int rc = 0;
 
@@ -686,7 +686,7 @@ vpe_unmap_mem_region:
 	return rc;  /* this rc should have error code. */
 }
 
-void msm_vpe_subdev_release(struct platform_device *pdev)
+void msm_vpe_subdev_release(void)
 {
 	if (!atomic_read(&vpe_init_done)) {
 		/* no VPE object created */

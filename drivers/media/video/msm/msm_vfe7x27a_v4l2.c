@@ -340,7 +340,6 @@ static void *extdata;
 static uint32_t extlen;
 
 struct mutex vfe_lock;
-static void     *vfe_syncdata;
 static int apps_reset;
 static uint8_t vfestopped;
 
@@ -1643,12 +1642,11 @@ static struct msm_cam_clk_info vfe2x_clk_info[] = {
 	{"vfe_clk", 192000000},
 };
 
-int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
-	struct platform_device *pdev)
+int msm_vfe_subdev_init(struct v4l2_subdev *sd,
+		struct msm_cam_media_controller *mctl)
 {
 	int rc = 0;
-	v4l2_set_subdev_hostdata(sd, data);
-	vfe_syncdata = data;
+	v4l2_set_subdev_hostdata(sd, mctl);
 
 	spin_lock_init(&vfe2x_ctrl->sd_notify_lock);
 	spin_lock_init(&vfe2x_ctrl->table_lock);
@@ -1702,24 +1700,24 @@ init_fail:
 	return rc;
 }
 
-int msm_vpe_subdev_init(struct v4l2_subdev *sd, void *data,
-	struct platform_device *pdev)
+int msm_vpe_subdev_init(struct v4l2_subdev *sd,
+			struct msm_cam_media_controller *mctl)
 {
 	return 0;
 }
 
-void msm_vpe_subdev_release(struct platform_device *pdev)
+void msm_vpe_subdev_release(void)
 {
 	return;
 }
 
-void msm_vfe_subdev_release(struct platform_device *pdev)
+void msm_vfe_subdev_release(struct v4l2_subdev *sd)
 {
 	CDBG("msm_cam_clk_enable: disable vfe_clk\n");
 	msm_cam_clk_enable(&vfe2x_ctrl->pdev->dev, vfe2x_clk_info,
 			vfe2x_ctrl->vfe_clk, ARRAY_SIZE(vfe2x_clk_info), 0);
-	vfe_syncdata = NULL;
 	apps_reset = 1;
+
 	msm_adsp_disable(qcam_mod);
 	msm_adsp_disable(vfe_mod);
 

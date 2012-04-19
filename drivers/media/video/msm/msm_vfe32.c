@@ -48,7 +48,6 @@ atomic_t irq_cnt;
 	vfe32_put_ch_ping_addr((chn), (addr)))
 
 static struct vfe32_ctrl_type *vfe32_ctrl;
-static void  *vfe_syncdata;
 static uint32_t vfe_clk_rate;
 
 struct vfe32_isr_queue_cmd {
@@ -726,31 +725,26 @@ static void vfe32_start_common(void)
 	atomic_set(&vfe32_ctrl->vstate, 1);
 }
 
-static int vfe32_start_recording(void)
+static int vfe32_start_recording(struct msm_cam_media_controller *pmctl)
 {
-	struct msm_sync *sync = vfe_syncdata;
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_VIDEO);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
 	vfe32_ctrl->recording_state = VFE_STATE_START_REQUESTED;
 	msm_camera_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	return 0;
 }
 
-static int vfe32_stop_recording(void)
+static int vfe32_stop_recording(struct msm_cam_media_controller *pmctl)
 {
-	struct msm_sync *sync = vfe_syncdata;
 	vfe32_ctrl->recording_state = VFE_STATE_STOP_REQUESTED;
 	msm_camera_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	return 0;
 }
 
-static void vfe32_start_liveshot(void){
-	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
-	if (p_sync)
-		p_sync->liveshot_enabled = true;
-
+static void vfe32_start_liveshot(struct msm_cam_media_controller *pmctl)
+{
 	/* Hardcode 1 live snapshot for now. */
 	vfe32_ctrl->outpath.out0.capture_cnt = 1;
 	vfe32_ctrl->vfe_capture_count = vfe32_ctrl->outpath.out0.capture_cnt;
@@ -759,9 +753,8 @@ static void vfe32_start_liveshot(void){
 	msm_camera_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 }
 
-static int vfe32_zsl(void)
+static int vfe32_zsl(struct msm_cam_media_controller *pmctl)
 {
-	struct msm_sync *sync = vfe_syncdata;
 	uint32_t irq_comp_mask = 0;
 	/* capture command is valid for both idle and active state. */
 	irq_comp_mask	=
@@ -823,16 +816,17 @@ static int vfe32_zsl(void)
 	msm_camera_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	vfe32_start_common();
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_ZSL);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_ZSL);
 
 	msm_camera_io_w(1, vfe32_ctrl->vfebase + 0x18C);
 	msm_camera_io_w(1, vfe32_ctrl->vfebase + 0x188);
 	return 0;
 }
-static int vfe32_capture_raw(uint32_t num_frames_capture)
+static int vfe32_capture_raw(
+	struct msm_cam_media_controller *pmctl,
+	uint32_t num_frames_capture)
 {
 	uint32_t irq_comp_mask = 0;
-	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
 
 	vfe32_ctrl->outpath.out0.capture_cnt = num_frames_capture;
 	vfe32_ctrl->vfe_capture_count = num_frames_capture;
@@ -848,19 +842,17 @@ static int vfe32_capture_raw(uint32_t num_frames_capture)
 
 	msm_camera_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_camio_bus_scale_cfg(
-		p_sync->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
 	vfe32_start_common();
 	return 0;
 }
 
-static int vfe32_capture(uint32_t num_frames_capture)
+static int vfe32_capture(
+	struct msm_cam_media_controller *pmctl,
+	uint32_t num_frames_capture)
 {
 	uint32_t irq_comp_mask = 0;
-	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
-	if (p_sync) {
-		p_sync->snap_count = num_frames_capture;
-		p_sync->thumb_count = num_frames_capture;
-	}
+
 	/* capture command is valid for both idle and active state. */
 	vfe32_ctrl->outpath.out1.capture_cnt = num_frames_capture;
 	if (vfe32_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB ||
@@ -910,7 +902,7 @@ static int vfe32_capture(uint32_t num_frames_capture)
 	msm_camera_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_camera_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_camio_bus_scale_cfg(
-		p_sync->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
 
 	vfe32_start_common();
 	/* for debug */
@@ -919,10 +911,9 @@ static int vfe32_capture(uint32_t num_frames_capture)
 	return 0;
 }
 
-static int vfe32_start(void)
+static int vfe32_start(struct msm_cam_media_controller *pmctl)
 {
 	uint32_t irq_comp_mask = 0;
-	struct msm_sync *sync = vfe_syncdata;
 
 	irq_comp_mask	=
 		msm_camera_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
@@ -986,7 +977,7 @@ static int vfe32_start(void)
 	}
 
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	vfe32_start_common();
 	return 0;
 }
@@ -1259,7 +1250,9 @@ static void vfe32_send_isp_msg(
 			(void *)&isp_msg_evt);
 }
 
-static int vfe32_proc_general(struct msm_isp_cmd *cmd)
+static int vfe32_proc_general(
+	struct msm_cam_media_controller *pmctl,
+	struct msm_isp_cmd *cmd)
 {
 	int i , rc = 0;
 	uint32_t old_val = 0 , new_val = 0;
@@ -1296,7 +1289,7 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe32_start();
+		rc = vfe32_start(pmctl);
 		break;
 	case VFE_CMD_UPDATE:
 		vfe32_update();
@@ -1316,7 +1309,7 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe32_capture_raw(snapshot_cnt);
+		rc = vfe32_capture_raw(pmctl, snapshot_cnt);
 		break;
 	case VFE_CMD_CAPTURE:
 		if (copy_from_user(&snapshot_cnt, (void __user *)(cmd->value),
@@ -1357,7 +1350,7 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe32_capture(snapshot_cnt);
+		rc = vfe32_capture(pmctl, snapshot_cnt);
 		break;
 	case VFE_CMD_START_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
@@ -1378,12 +1371,12 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe32_start_recording();
+		rc = vfe32_start_recording(pmctl);
 		break;
 	case VFE_CMD_STOP_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
-		rc = vfe32_stop_recording();
+		rc = vfe32_stop_recording(pmctl);
 		break;
 	case VFE_CMD_OPERATION_CFG: {
 		if (cmd->length != V32_OPERATION_CFG_LEN) {
@@ -1793,7 +1786,7 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		vfe32_start_liveshot();
+		vfe32_start_liveshot(pmctl);
 		break;
 
 	case VFE_CMD_LINEARIZATION_CFG:
@@ -2242,7 +2235,7 @@ static int vfe32_proc_general(struct msm_isp_cmd *cmd)
 		if (rc < 0)
 			goto proc_general_done;
 
-		rc = vfe32_zsl();
+		rc = vfe32_zsl(pmctl);
 		break;
 
 	case VFE_CMD_ASF_CFG:
@@ -3640,6 +3633,8 @@ static irqreturn_t vfe32_parse_irq(int irq_num, void *data)
 static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int subdev_cmd, void *arg)
 {
+	struct msm_cam_media_controller *pmctl =
+		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	struct msm_isp_cmd vfecmd;
 	struct msm_camvfe_params *vfe_params =
 		(struct msm_camvfe_params *)arg;
@@ -3743,7 +3738,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 	switch (cmd->cmd_type) {
 	case CMD_GENERAL:
-		rc = vfe32_proc_general(&vfecmd);
+		rc = vfe32_proc_general(pmctl, &vfecmd);
 		break;
 
 	case CMD_CONFIG_PING_ADDR: {
@@ -3941,13 +3936,11 @@ static const struct v4l2_subdev_ops msm_vfe_subdev_ops = {
 	.video = &msm_vfe_subdev_video_ops,
 };
 
-int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
-	struct platform_device *pdev)
+int msm_vfe_subdev_init(struct v4l2_subdev *sd,
+			struct msm_cam_media_controller *mctl)
 {
 	int rc = 0;
-	struct msm_sync *sync = data;
-	v4l2_set_subdev_hostdata(sd, data);
-	vfe_syncdata = data;
+	v4l2_set_subdev_hostdata(sd, mctl);
 
 	spin_lock_init(&vfe32_ctrl->stop_flag_lock);
 	spin_lock_init(&vfe32_ctrl->state_lock);
@@ -4004,9 +3997,9 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 		goto vfe_clk_enable_failed;
 
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_INIT);
+		mctl->sdata->pdata->cam_bus_scale_table, S_INIT);
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+		mctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 
 	if (msm_camera_io_r(vfe32_ctrl->vfebase + V32_GET_HW_VERSION_OFF) ==
 		VFE32_HW_NUMBER)
@@ -4028,9 +4021,10 @@ vfe_remap_failed:
 	return rc;
 }
 
-void msm_vfe_subdev_release(struct platform_device *pdev)
+void msm_vfe_subdev_release(struct v4l2_subdev *sd)
 {
-	struct msm_sync *sync = vfe_syncdata;
+	struct msm_cam_media_controller *pmctl =
+		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	CDBG("%s, free_irq\n", __func__);
 	disable_irq(vfe32_ctrl->vfeirq->start);
 	tasklet_kill(&vfe32_tasklet);
@@ -4048,8 +4042,7 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 		pr_warning("%s, Warning IRQ Count not ZERO\n", __func__);
 
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_EXIT);
-	vfe_syncdata = NULL;
+		pmctl->sdata->pdata->cam_bus_scale_table, S_EXIT);
 }
 
 static const struct v4l2_subdev_internal_ops msm_vfe_internal_ops;

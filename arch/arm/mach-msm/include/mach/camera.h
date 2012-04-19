@@ -382,6 +382,11 @@ struct msm_device_queue {
 	const char *name;
 };
 
+struct msm_mctl_stats_t {
+	struct hlist_head pmem_stats_list;
+	spinlock_t pmem_stats_spinlock;
+};
+
 struct msm_sync {
 	/* These two queues are accessed from a process context only
 	 * They contain pmem descriptors for the preview frames and the stats

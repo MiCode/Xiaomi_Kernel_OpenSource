@@ -54,7 +54,6 @@ atomic_t irq_cnt;
 #define CAMIF_CFG_RMSK             0x1fffff
 
 static struct vfe31_ctrl_type *vfe31_ctrl;
-static void  *vfe_syncdata;
 static uint32_t vfe_clk_rate;
 
 struct vfe31_isr_queue_cmd {
@@ -748,31 +747,26 @@ static void vfe31_start_common(void)
 	atomic_set(&vfe31_ctrl->vstate, 1);
 }
 
-static int vfe31_start_recording(void)
+static int vfe31_start_recording(struct msm_cam_media_controller *pmctl)
 {
-	struct msm_sync *sync = vfe_syncdata;
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_VIDEO);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
 	vfe31_ctrl->recording_state = VFE_STATE_START_REQUESTED;
 	msm_camera_io_w_mb(1, vfe31_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	return 0;
 }
 
-static int vfe31_stop_recording(void)
+static int vfe31_stop_recording(struct msm_cam_media_controller *pmctl)
 {
-	struct msm_sync *sync = vfe_syncdata;
 	vfe31_ctrl->recording_state = VFE_STATE_STOP_REQUESTED;
 	msm_camera_io_w_mb(1, vfe31_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	return 0;
 }
 
-static void vfe31_start_liveshot(void){
-	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
-	if (p_sync)
-		p_sync->liveshot_enabled = true;
-
+static void vfe31_start_liveshot(struct msm_cam_media_controller *pmctl)
+{
 	/* Hardcode 1 live snapshot for now. */
 	vfe31_ctrl->outpath.out0.capture_cnt = 1;
 	vfe31_ctrl->vfe_capture_count = vfe31_ctrl->outpath.out0.capture_cnt;
@@ -781,9 +775,8 @@ static void vfe31_start_liveshot(void){
 	msm_camera_io_w_mb(1, vfe31_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 }
 
-static int vfe31_zsl(void)
+static int vfe31_zsl(struct msm_cam_media_controller *pmctl)
 {
-	struct msm_sync *sync = vfe_syncdata;
 	uint32_t irq_comp_mask = 0;
 	/* capture command is valid for both idle and active state. */
 	irq_comp_mask	=
@@ -845,16 +838,17 @@ static int vfe31_zsl(void)
 	msm_camera_io_w(irq_comp_mask, vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	vfe31_start_common();
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_ZSL);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_ZSL);
 
 	msm_camera_io_w(1, vfe31_ctrl->vfebase + 0x18C);
 	msm_camera_io_w(1, vfe31_ctrl->vfebase + 0x188);
 	return 0;
 }
-static int vfe31_capture_raw(uint32_t num_frames_capture)
+static int vfe31_capture_raw(
+	struct msm_cam_media_controller *pmctl,
+	uint32_t num_frames_capture)
 {
 	uint32_t irq_comp_mask = 0;
-	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
 
 	vfe31_ctrl->outpath.out0.capture_cnt = num_frames_capture;
 	vfe31_ctrl->vfe_capture_count = num_frames_capture;
@@ -870,19 +864,16 @@ static int vfe31_capture_raw(uint32_t num_frames_capture)
 
 	msm_camera_io_w(irq_comp_mask, vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_camio_bus_scale_cfg(
-		p_sync->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
 	vfe31_start_common();
 	return 0;
 }
 
-static int vfe31_capture(uint32_t num_frames_capture)
+static int vfe31_capture(
+	struct msm_cam_media_controller *pmctl,
+	uint32_t num_frames_capture)
 {
 	uint32_t irq_comp_mask = 0;
-	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
-	if (p_sync) {
-		p_sync->snap_count = num_frames_capture;
-		p_sync->thumb_count = num_frames_capture;
-	}
 	/* capture command is valid for both idle and active state. */
 	vfe31_ctrl->outpath.out1.capture_cnt = num_frames_capture;
 	if (vfe31_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB ||
@@ -932,7 +923,7 @@ static int vfe31_capture(uint32_t num_frames_capture)
 	msm_camera_io_w(irq_comp_mask, vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_camera_io_r(vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_camio_bus_scale_cfg(
-		p_sync->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
 
 	vfe31_start_common();
 	/* for debug */
@@ -941,10 +932,9 @@ static int vfe31_capture(uint32_t num_frames_capture)
 	return 0;
 }
 
-static int vfe31_start(void)
+static int vfe31_start(struct msm_cam_media_controller *pmctl)
 {
 	uint32_t irq_comp_mask = 0;
-	struct msm_sync *sync = vfe_syncdata;
 
 	irq_comp_mask	=
 		msm_camera_io_r(vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
@@ -1007,7 +997,7 @@ static int vfe31_start(void)
 		break;
 	}
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	vfe31_start_common();
 	return 0;
 }
@@ -1241,7 +1231,9 @@ static void vfe31_send_isp_msg(struct vfe31_ctrl_type *vctrl,
 		NOTIFY_ISP_MSG_EVT, (void *)&isp_msg_evt);
 }
 
-static int vfe31_proc_general(struct msm_isp_cmd *cmd)
+static int vfe31_proc_general(
+	struct msm_cam_media_controller *pmctl,
+	struct msm_isp_cmd *cmd)
 {
 	int i , rc = 0;
 	uint32_t old_val = 0 , new_val = 0;
@@ -1278,7 +1270,7 @@ static int vfe31_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe31_start();
+		rc = vfe31_start(pmctl);
 		break;
 	case VFE_CMD_UPDATE:
 		vfe31_update();
@@ -1298,7 +1290,7 @@ static int vfe31_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe31_capture_raw(snapshot_cnt);
+		rc = vfe31_capture_raw(pmctl, snapshot_cnt);
 		break;
 	case VFE_CMD_CAPTURE:
 		if (copy_from_user(&snapshot_cnt, (void __user *)(cmd->value),
@@ -1339,7 +1331,7 @@ static int vfe31_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe31_capture(snapshot_cnt);
+		rc = vfe31_capture(pmctl, snapshot_cnt);
 		break;
 	case VFE_CMD_START_RECORDING:
 		pr_info("vfe31_proc_general: cmdID = %s\n",
@@ -1360,12 +1352,12 @@ static int vfe31_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		rc = vfe31_start_recording();
+		rc = vfe31_start_recording(pmctl);
 		break;
 	case VFE_CMD_STOP_RECORDING:
 		pr_info("vfe31_proc_general: cmdID = %s\n",
 			vfe31_general_cmd[cmd->id]);
-		rc = vfe31_stop_recording();
+		rc = vfe31_stop_recording(pmctl);
 		break;
 	case VFE_CMD_OPERATION_CFG:
 		if (cmd->length != V31_OPERATION_CFG_LEN) {
@@ -1756,7 +1748,7 @@ static int vfe31_proc_general(struct msm_isp_cmd *cmd)
 			rc = -EINVAL;
 			goto proc_general_done;
 		}
-		vfe31_start_liveshot();
+		vfe31_start_liveshot(pmctl);
 		break;
 
 	case VFE_CMD_DEMOSAICV3:
@@ -2057,7 +2049,7 @@ static int vfe31_proc_general(struct msm_isp_cmd *cmd)
 		if (rc < 0)
 			goto proc_general_done;
 
-		rc = vfe31_zsl();
+		rc = vfe31_zsl(pmctl);
 		break;
 
 	case VFE_CMD_ASF_CFG:
@@ -3316,6 +3308,8 @@ static irqreturn_t vfe31_parse_irq(int irq_num, void *data)
 static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int subdev_cmd, void *arg)
 {
+	struct msm_cam_media_controller *pmctl =
+		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	struct msm_isp_cmd vfecmd;
 	struct msm_camvfe_params *vfe_params =
 		(struct msm_camvfe_params *)arg;
@@ -3419,7 +3413,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 	switch (cmd->cmd_type) {
 	case CMD_GENERAL: {
-		rc = vfe31_proc_general(&vfecmd);
+		rc = vfe31_proc_general(pmctl, &vfecmd);
 		}
 		break;
 	case CMD_CONFIG_PING_ADDR: {
@@ -3685,13 +3679,11 @@ static void msm_vfe_camif_pad_reg_reset(void)
 	usleep_range(10000, 15000);
 }
 
-int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
-	struct platform_device *pdev)
+int msm_vfe_subdev_init(struct v4l2_subdev *sd,
+		struct msm_cam_media_controller *mctl)
 {
 	int rc = 0;
-	struct msm_sync *sync = data;
-	v4l2_set_subdev_hostdata(sd, data);
-	vfe_syncdata = data;
+	v4l2_set_subdev_hostdata(sd, mctl);
 
 	spin_lock_init(&vfe31_ctrl->stop_flag_lock);
 	spin_lock_init(&vfe31_ctrl->state_lock);
@@ -3722,7 +3714,7 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 		pr_err("%s: vfe ioremap failed\n", __func__);
 		goto vfe_remap_failed;
 	}
-	if (!sync->sdata->csi_if) {
+	if (!mctl->sdata->csi_if) {
 		vfe31_ctrl->camifbase = ioremap(vfe31_ctrl->camifmem->start,
 			resource_size(vfe31_ctrl->camifmem));
 		if (!vfe31_ctrl->camifbase) {
@@ -3754,7 +3746,7 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 	if (rc < 0)
 		goto vfe_clk_enable_failed;
 
-	if (!sync->sdata->csi_if) {
+	if (!mctl->sdata->csi_if) {
 		rc = msm_cam_clk_enable(&vfe31_ctrl->pdev->dev,
 			vfe_camif_clk_info,
 			vfe31_ctrl->vfe_camif_clk,
@@ -3765,9 +3757,9 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd, void *data,
 	}
 
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_INIT);
+		mctl->sdata->pdata->cam_bus_scale_table, S_INIT);
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+		mctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	vfe31_ctrl->register_total = VFE31_REGISTER_TOTAL;
 
 	enable_irq(vfe31_ctrl->vfeirq->start);
@@ -3779,7 +3771,7 @@ vfe_clk_enable_failed:
 	regulator_put(vfe31_ctrl->fs_vfe);
 	vfe31_ctrl->fs_vfe = NULL;
 vfe_fs_failed:
-	if (!sync->sdata->csi_if)
+	if (!mctl->sdata->csi_if)
 		iounmap(vfe31_ctrl->camifbase);
 camif_remap_failed:
 	iounmap(vfe31_ctrl->vfebase);
@@ -3788,13 +3780,14 @@ vfe_remap_failed:
 	return rc;
 }
 
-void msm_vfe_subdev_release(struct platform_device *pdev)
+void msm_vfe_subdev_release(struct v4l2_subdev *sd)
 {
-	struct msm_sync *sync = vfe_syncdata;
+	struct msm_cam_media_controller *pmctl =
+		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	disable_irq(vfe31_ctrl->vfeirq->start);
 	tasklet_kill(&vfe31_tasklet);
 
-	if (!sync->sdata->csi_if)
+	if (!pmctl->sdata->csi_if)
 		msm_cam_clk_enable(&vfe31_ctrl->pdev->dev,
 			vfe_camif_clk_info,
 			vfe31_ctrl->vfe_camif_clk,
@@ -3808,7 +3801,7 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 		vfe31_ctrl->fs_vfe = NULL;
 	}
 	CDBG("%s, 31ee_irq\n", __func__);
-	if (!sync->sdata->csi_if)
+	if (!pmctl->sdata->csi_if)
 		iounmap(vfe31_ctrl->camifbase);
 	iounmap(vfe31_ctrl->vfebase);
 
@@ -3816,8 +3809,7 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 		pr_warning("%s, Warning IRQ Count not ZERO\n", __func__);
 
 	msm_camio_bus_scale_cfg(
-		sync->sdata->pdata->cam_bus_scale_table, S_EXIT);
-	vfe_syncdata = NULL;
+		pmctl->sdata->pdata->cam_bus_scale_table, S_EXIT);
 }
 
 static const struct v4l2_subdev_internal_ops msm_vfe_internal_ops;
