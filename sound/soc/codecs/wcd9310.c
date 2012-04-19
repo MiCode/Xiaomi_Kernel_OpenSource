@@ -1068,6 +1068,10 @@ static const char *rx_mix1_text[] = {
 		"RX5", "RX6", "RX7"
 };
 
+static const char *rx_mix2_text[] = {
+	"ZERO", "SRC1", "SRC2", "IIR1", "IIR2"
+};
+
 static const char *rx_dsm_text[] = {
 	"CIC_OUT", "DSM_INV"
 };
@@ -1189,6 +1193,24 @@ static const struct soc_enum rx7_mix1_inp1_chain_enum =
 static const struct soc_enum rx7_mix1_inp2_chain_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX7_B1_CTL, 4, 12, rx_mix1_text);
 
+static const struct soc_enum rx1_mix2_inp1_chain_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX1_B3_CTL, 0, 5, rx_mix2_text);
+
+static const struct soc_enum rx1_mix2_inp2_chain_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX1_B3_CTL, 3, 5, rx_mix2_text);
+
+static const struct soc_enum rx2_mix2_inp1_chain_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX2_B3_CTL, 0, 5, rx_mix2_text);
+
+static const struct soc_enum rx2_mix2_inp2_chain_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX2_B3_CTL, 3, 5, rx_mix2_text);
+
+static const struct soc_enum rx3_mix2_inp1_chain_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX3_B3_CTL, 0, 5, rx_mix2_text);
+
+static const struct soc_enum rx3_mix2_inp2_chain_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX3_B3_CTL, 3, 5, rx_mix2_text);
+
 static const struct soc_enum rx4_dsm_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_RX4_B6_CTL, 4, 2, rx_dsm_text);
 
@@ -1303,6 +1325,24 @@ static const struct snd_kcontrol_new rx7_mix1_inp1_mux =
 
 static const struct snd_kcontrol_new rx7_mix1_inp2_mux =
 	SOC_DAPM_ENUM("RX7 MIX1 INP2 Mux", rx7_mix1_inp2_chain_enum);
+
+static const struct snd_kcontrol_new rx1_mix2_inp1_mux =
+	SOC_DAPM_ENUM("RX1 MIX2 INP1 Mux", rx1_mix2_inp1_chain_enum);
+
+static const struct snd_kcontrol_new rx1_mix2_inp2_mux =
+	SOC_DAPM_ENUM("RX1 MIX2 INP2 Mux", rx1_mix2_inp2_chain_enum);
+
+static const struct snd_kcontrol_new rx2_mix2_inp1_mux =
+	SOC_DAPM_ENUM("RX2 MIX2 INP1 Mux", rx2_mix2_inp1_chain_enum);
+
+static const struct snd_kcontrol_new rx2_mix2_inp2_mux =
+	SOC_DAPM_ENUM("RX2 MIX2 INP2 Mux", rx2_mix2_inp2_chain_enum);
+
+static const struct snd_kcontrol_new rx3_mix2_inp1_mux =
+	SOC_DAPM_ENUM("RX3 MIX2 INP1 Mux", rx3_mix2_inp1_chain_enum);
+
+static const struct snd_kcontrol_new rx3_mix2_inp2_mux =
+	SOC_DAPM_ENUM("RX3 MIX2 INP2 Mux", rx3_mix2_inp2_chain_enum);
 
 static const struct snd_kcontrol_new rx4_dsm_mux =
 	SOC_DAPM_ENUM("RX4 DSM MUX Mux", rx4_dsm_enum);
@@ -3009,8 +3049,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"EAR_PA_MIXER", NULL, "DAC1"},
 	{"DAC1", NULL, "CP"},
 
-	{"ANC1 FB MUX", "EAR_HPH_L", "RX1 MIX1"},
-	{"ANC1 FB MUX", "EAR_LINE_1", "RX2 MIX1"},
+	{"ANC1 FB MUX", "EAR_HPH_L", "RX1 MIX2"},
+	{"ANC1 FB MUX", "EAR_LINE_1", "RX2 MIX2"},
 	{"ANC", NULL, "ANC1 FB MUX"},
 
 	/* Headset (RX MIX1 and RX MIX2) */
@@ -3060,11 +3100,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT5 PA", NULL, "LINEOUT5_PA_MIXER"},
 	{"LINEOUT5_PA_MIXER", NULL, "LINEOUT5 DAC"},
 
-	{"LINEOUT1 DAC", NULL, "RX3 MIX1"},
+	{"LINEOUT1 DAC", NULL, "RX3 MIX2"},
 	{"LINEOUT5 DAC", NULL, "RX7 MIX1"},
 
-	{"RX1 CHAIN", NULL, "RX1 MIX1"},
-	{"RX2 CHAIN", NULL, "RX2 MIX1"},
+	{"RX1 CHAIN", NULL, "RX1 MIX2"},
+	{"RX2 CHAIN", NULL, "RX2 MIX2"},
 	{"RX1 CHAIN", NULL, "ANC"},
 	{"RX2 CHAIN", NULL, "ANC"},
 
@@ -3095,6 +3135,15 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX6 MIX1", NULL, "RX6 MIX1 INP2"},
 	{"RX7 MIX1", NULL, "RX7 MIX1 INP1"},
 	{"RX7 MIX1", NULL, "RX7 MIX1 INP2"},
+	{"RX1 MIX2", NULL, "RX1 MIX1"},
+	{"RX1 MIX2", NULL, "RX1 MIX2 INP1"},
+	{"RX1 MIX2", NULL, "RX1 MIX2 INP2"},
+	{"RX2 MIX2", NULL, "RX2 MIX1"},
+	{"RX2 MIX2", NULL, "RX2 MIX2 INP1"},
+	{"RX2 MIX2", NULL, "RX2 MIX2 INP2"},
+	{"RX3 MIX2", NULL, "RX3 MIX1"},
+	{"RX3 MIX2", NULL, "RX3 MIX2 INP1"},
+	{"RX3 MIX2", NULL, "RX3 MIX2 INP2"},
 
 	{"RX1 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX1 MIX1 INP1", "RX2", "SLIM RX2"},
@@ -3194,6 +3243,12 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX7 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX7 MIX1 INP2", "RX7", "SLIM RX7"},
 	{"RX7 MIX1 INP2", "IIR1", "IIR1"},
+	{"RX1 MIX2 INP1", "IIR1", "IIR1"},
+	{"RX1 MIX2 INP2", "IIR1", "IIR1"},
+	{"RX2 MIX2 INP1", "IIR1", "IIR1"},
+	{"RX2 MIX2 INP2", "IIR1", "IIR1"},
+	{"RX3 MIX2 INP1", "IIR1", "IIR1"},
+	{"RX3 MIX2 INP2", "IIR1", "IIR1"},
 
 	/* Decimator Inputs */
 	{"DEC1 MUX", "DMIC1", "DMIC1"},
@@ -3295,13 +3350,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 static const struct snd_soc_dapm_route tabla_1_x_lineout_2_to_4_map[] = {
 
-	{"RX4 DSM MUX", "DSM_INV", "RX3 MIX1"},
+	{"RX4 DSM MUX", "DSM_INV", "RX3 MIX2"},
 	{"RX4 DSM MUX", "CIC_OUT", "RX4 MIX1"},
 
 	{"LINEOUT2 DAC", NULL, "RX4 DSM MUX"},
 
 	{"LINEOUT3 DAC", NULL, "RX5 MIX1"},
-	{"LINEOUT3 DAC GROUND", "Switch", "RX3 MIX1"},
+	{"LINEOUT3 DAC GROUND", "Switch", "RX3 MIX2"},
 	{"LINEOUT3 DAC", NULL, "LINEOUT3 DAC GROUND"},
 
 	{"RX6 DSM MUX", "DSM_INV", "RX5 MIX1"},
@@ -3315,7 +3370,7 @@ static const struct snd_soc_dapm_route tabla_1_x_lineout_2_to_4_map[] = {
 
 static const struct snd_soc_dapm_route tabla_2_x_lineout_2_to_4_map[] = {
 
-	{"RX4 DSM MUX", "DSM_INV", "RX3 MIX1"},
+	{"RX4 DSM MUX", "DSM_INV", "RX3 MIX2"},
 	{"RX4 DSM MUX", "CIC_OUT", "RX4 MIX1"},
 
 	{"LINEOUT3 DAC", NULL, "RX4 DSM MUX"},
@@ -4137,13 +4192,13 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		, tabla_lineout_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MIXER_E("RX1 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
+	SND_SOC_DAPM_MIXER_E("RX1 MIX2", TABLA_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
 		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_MIXER_E("RX2 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 1, 0, NULL,
+	SND_SOC_DAPM_MIXER_E("RX2 MIX2", TABLA_A_CDC_CLK_RX_B1_CTL, 1, 0, NULL,
 		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_MIXER_E("RX3 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
+	SND_SOC_DAPM_MIXER_E("RX3 MIX2", TABLA_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
 		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX4 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 3, 0, NULL,
@@ -4158,6 +4213,10 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER_E("RX7 MIX1", TABLA_A_CDC_CLK_RX_B1_CTL, 6, 0, NULL,
 		0, tabla_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX3 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	SND_SOC_DAPM_MUX_E("RX4 DSM MUX", TABLA_A_CDC_CLK_RX_B1_CTL, 3, 0,
 		&rx4_dsm_mux, tabla_codec_reset_interpolator,
@@ -4198,6 +4257,18 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		&rx7_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX7 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx7_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX("RX1 MIX2 INP1", SND_SOC_NOPM, 0, 0,
+		&rx1_mix2_inp1_mux),
+	SND_SOC_DAPM_MUX("RX1 MIX2 INP2", SND_SOC_NOPM, 0, 0,
+		&rx1_mix2_inp2_mux),
+	SND_SOC_DAPM_MUX("RX2 MIX2 INP1", SND_SOC_NOPM, 0, 0,
+		&rx2_mix2_inp1_mux),
+	SND_SOC_DAPM_MUX("RX2 MIX2 INP2", SND_SOC_NOPM, 0, 0,
+		&rx2_mix2_inp2_mux),
+	SND_SOC_DAPM_MUX("RX3 MIX2 INP1", SND_SOC_NOPM, 0, 0,
+		&rx3_mix2_inp1_mux),
+	SND_SOC_DAPM_MUX("RX3 MIX2 INP2", SND_SOC_NOPM, 0, 0,
+		&rx3_mix2_inp2_mux),
 
 	SND_SOC_DAPM_SUPPLY("CP", TABLA_A_CP_EN, 0, 0,
 		tabla_codec_enable_charge_pump, SND_SOC_DAPM_POST_PMU |
