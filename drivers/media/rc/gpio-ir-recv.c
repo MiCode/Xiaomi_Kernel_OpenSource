@@ -175,6 +175,8 @@ static int gpio_ir_recv_probe(struct platform_device *pdev)
 	if (rc < 0)
 		goto err_request_irq;
 
+	device_init_wakeup(&pdev->dev, pdata->can_wakeup);
+
 	return 0;
 
 err_request_irq:
