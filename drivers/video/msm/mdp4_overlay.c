@@ -2528,10 +2528,7 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 #endif
 	}
 
-	if (mfd->mdp_rev >= MDP_REV_42 && !mfd->use_ov0_blt &&
-		(pipe->mixer_num == MDP4_MIXER0 || hdmi_prim_display)) {
-			ctrl->stage[pipe->mixer_num][pipe->mixer_stage] = NULL;
-	} else if (mfd->mdp_rev == MDP_REV_41 &&
+	if (mfd->mdp_rev >= MDP_REV_41 &&
 		mdp4_overlay_is_rgb_type(pipe->src_format) &&
 		!mfd->use_ov0_blt && (pipe->mixer_num == MDP4_MIXER0 ||
 		hdmi_prim_display)) {
