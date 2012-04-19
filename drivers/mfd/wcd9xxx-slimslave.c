@@ -356,7 +356,7 @@ int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 		if (slave_port_id <=
 			SB_PGD_TX_PORT_MULTI_CHANNEL_0_END_PORT_ID) {
 			payload_tx_0 = payload_tx_0 | (1 << slave_port_id);
-		} else if (slave_port_id <
+		} else if (slave_port_id <=
 				SB_PGD_TX_PORT_MULTI_CHANNEL_1_END_PORT_ID) {
 				payload_tx_1 = payload_tx_1 |
 				(1 <<

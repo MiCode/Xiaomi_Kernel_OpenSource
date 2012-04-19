@@ -679,10 +679,13 @@ static int msm8960_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 	unsigned int rx_ch[SLIM_MAX_RX_PORTS], tx_ch[SLIM_MAX_TX_PORTS];
 	unsigned int rx_ch_cnt = 0, tx_ch_cnt = 0;
+	unsigned int user_set_tx_ch = 0;
 
-	pr_debug("%s: ch=%d\n", __func__,
-					msm8960_slim_0_rx_ch);
+
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+
+		pr_debug("%s: rx_0_ch=%d\n", __func__, msm8960_slim_0_rx_ch);
+
 		ret = snd_soc_dai_get_channel_map(codec_dai,
 				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
 		if (ret < 0) {
@@ -704,6 +707,15 @@ static int msm8960_hw_params(struct snd_pcm_substream *substream,
 			goto end;
 		}
 	} else {
+
+		if (codec_dai->id  == 2)
+			user_set_tx_ch =  msm8960_slim_0_tx_ch;
+		else if (codec_dai->id  == 4)
+			user_set_tx_ch =  params_channels(params);
+
+		pr_debug("%s: %s_tx_dai_id_%d_ch=%d\n", __func__,
+			codec_dai->name, codec_dai->id, user_set_tx_ch);
+
 		ret = snd_soc_dai_get_channel_map(codec_dai,
 				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
 		if (ret < 0) {
@@ -711,13 +723,13 @@ static int msm8960_hw_params(struct snd_pcm_substream *substream,
 			goto end;
 		}
 		ret = snd_soc_dai_set_channel_map(cpu_dai,
-				msm8960_slim_0_tx_ch, tx_ch, 0 , 0);
+				user_set_tx_ch, tx_ch, 0 , 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
 		ret = snd_soc_dai_set_channel_map(codec_dai,
-				msm8960_slim_0_tx_ch, tx_ch, 0, 0);
+				user_set_tx_ch, tx_ch, 0, 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set codec channel map\n",
 								__func__);
@@ -1327,6 +1339,16 @@ static struct snd_soc_dai_link msm8960_dai_delta_tabla1x[] = {
 		.be_hw_params_fixup = msm8960_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8960_be_ops,
 	},
+	{
+		.name = "SLIMBUS_2 Hostless",
+		.stream_name = "SLIMBUS_2 Hostless",
+		.cpu_dai_name = "msm-dai-q6.16389",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "tabla1x_codec",
+		.codec_dai_name = "tabla_tx2",
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8960_be_ops,
+	},
 };
 
 
@@ -1355,6 +1377,16 @@ static struct snd_soc_dai_link msm8960_dai_delta_tabla2x[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
 		.be_hw_params_fixup = msm8960_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm8960_be_ops,
+	},
+	{
+		.name = "SLIMBUS_2 Hostless",
+		.stream_name = "SLIMBUS_2 Hostless",
+		.cpu_dai_name = "msm-dai-q6.16389",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "tabla_codec",
+		.codec_dai_name = "tabla_tx2",
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm8960_be_ops,
 	},
 };

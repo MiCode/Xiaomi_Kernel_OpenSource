@@ -404,7 +404,7 @@ static int msm_mclk_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static const struct snd_soc_dapm_widget msm_dapm_widgets[] = {
+static const struct snd_soc_dapm_widget apq8064_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 	msm_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
@@ -415,25 +415,32 @@ static const struct snd_soc_dapm_widget msm_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Ext Spk Top Pos", msm_spkramp_event),
 	SND_SOC_DAPM_SPK("Ext Spk Top Neg", msm_spkramp_event),
 
-	SND_SOC_DAPM_MIC("Handset Mic", NULL),
+	/************ Analog MICs ************/
+	/**
+	 * Analog mic7 (Front Top) on Liquid.
+	 * Used as Handset mic on CDP.
+	 */
+	SND_SOC_DAPM_MIC("Analog mic7", NULL),
+
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
 
+	/*********** Digital Mics ***************/
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic2", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic3", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
-
 };
 
-static const struct snd_soc_dapm_route common_audio_map[] = {
+static const struct snd_soc_dapm_route apq8064_audio_map[] = {
 
 	{"RX_BIAS", NULL, "MCLK"},
 	{"LDO_H", NULL, "MCLK"},
+
+	{"HEADPHONE", NULL, "LDO_H"},
 
 	/* Speaker path */
 	{"Ext Spk Bottom Pos", NULL, "LINEOUT1"},
@@ -442,77 +449,85 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"Ext Spk Top Pos", NULL, "LINEOUT2"},
 	{"Ext Spk Top Neg", NULL, "LINEOUT4"},
 
-	/* Microphone path */
-	{"AMIC1", NULL, "MIC BIAS1 Internal1"},
-	{"MIC BIAS1 Internal1", NULL, "Handset Mic"},
+	/************   Analog MIC Paths  ************/
+	/**
+	 * Analog mic7 (Front Top Mic) on Liquid.
+	 * Used as Handset mic on CDP.
+	 * Not there on MTP.
+	 */
+	{"AMIC1", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Analog mic7"},
 
+	/* Headset Mic */
 	{"AMIC2", NULL, "MIC BIAS2 External"},
 	{"MIC BIAS2 External", NULL, "Headset Mic"},
 
-	/**
-	 * AMIC3 and AMIC4 inputs are connected to ANC microphones
-	 * These mics are biased differently on CDP and FLUID
-	 * routing entries below are based on bias arrangement
-	 * on FLUID.
-	 */
+	/* Headset ANC microphones */
 	{"AMIC3", NULL, "MIC BIAS3 Internal1"},
 	{"MIC BIAS3 Internal1", NULL, "ANCRight Headset Mic"},
 
 	{"AMIC4", NULL, "MIC BIAS1 Internal2"},
 	{"MIC BIAS1 Internal2", NULL, "ANCLeft Headset Mic"},
 
-	{"HEADPHONE", NULL, "LDO_H"},
 
+	/************   Digital MIC Paths  ************/
 	/**
 	 * The digital Mic routes are setup considering
-	 * fluid as default device.
+	 * Liquid as default device.
 	 */
 
 	/**
-	 * Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP.
-	 * Digital Mic GM5 on CDP mainboard.
+	 * Digital Mic1 (Front bottom left corner) on Liquid.
+	 * Digital Mic2 (Front bottom right) on MTP.
+	 * Digital Mic GM1 on CDP mainboard.
 	 * Conncted to DMIC2 Input on Tabla codec.
 	 */
 	{"DMIC2", NULL, "MIC BIAS1 External"},
 	{"MIC BIAS1 External", NULL, "Digital Mic1"},
 
 	/**
-	 * Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP.
-	 * Digital Mic GM6 on CDP mainboard.
-	 * Conncted to DMIC1 Input on Tabla codec.
-	 */
-	{"DMIC1", NULL, "MIC BIAS1 External"},
-	{"MIC BIAS1 External", NULL, "Digital Mic2"},
-
-	/**
-	 * Digital Mic3. Back Bottom Digital Mic on Fluid.
-	 * Digital Mic GM1 on CDP mainboard.
-	 * Conncted to DMIC4 Input on Tabla codec.
-	 */
-	{"DMIC4", NULL, "MIC BIAS3 External"},
-	{"MIC BIAS3 External", NULL, "Digital Mic3"},
-
-	/**
-	 * Digital Mic4. Back top Digital Mic on Fluid.
+	 * Digital Mic2 (Front left side) on Liquid.
 	 * Digital Mic GM2 on CDP mainboard.
+	 * Not there on MTP.
 	 * Conncted to DMIC3 Input on Tabla codec.
 	 */
 	{"DMIC3", NULL, "MIC BIAS3 External"},
-	{"MIC BIAS3 External", NULL, "Digital Mic4"},
+	{"MIC BIAS3 External", NULL, "Digital Mic2"},
 
 	/**
-	 * Digital Mic5. Front top Digital Mic on Fluid.
+	 * Digital Mic3. Front bottom left of middle on Liquid.
+	 * Digital Mic5 (Top front Mic) on MTP.
+	 * Digital Mic GM5 on CDP mainboard.
+	 * Conncted to DMIC6 Input on Tabla codec.
+	 */
+	{"DMIC6", NULL, "MIC BIAS4 External"},
+	{"MIC BIAS4 External", NULL, "Digital Mic3"},
+
+	/**
+	 * Digital Mic4. Back bottom on Liquid.
 	 * Digital Mic GM3 on CDP mainboard.
+	 * Top Front Mic on MTP.
 	 * Conncted to DMIC5 Input on Tabla codec.
 	 */
 	{"DMIC5", NULL, "MIC BIAS4 External"},
-	{"MIC BIAS4 External", NULL, "Digital Mic5"},
+	{"MIC BIAS4 External", NULL, "Digital Mic4"},
 
-	/* Tabla digital Mic6 - back bottom digital Mic on Liquid and
-	 * bottom mic on CDP. FLUID/MTP do not have dmic6 installed.
+	/**
+	 * Digital Mic5. Front bottom right of middle on Liquid.
+	 * Digital Mic GM6 on CDP mainboard.
+	 * Not there on MTP.
+	 * Conncted to DMIC4 Input on Tabla codec.
 	 */
-	{"DMIC6", NULL, "MIC BIAS4 External"},
-	{"MIC BIAS4 External", NULL, "Digital Mic6"},
+	{"DMIC4", NULL, "MIC BIAS3 External"},
+	{"MIC BIAS3 External", NULL, "Digital Mic5"},
+
+	/* Digital Mic6 (Front bottom right corner) on Liquid.
+	 * Digital Mic1 (Front bottom Left) on MTP.
+	 * Digital Mic GM4 on CDP.
+	 * Conncted to DMIC1 Input on Tabla codec.
+	 */
+	{"DMIC1", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic6"},
 };
 
 static const char *spk_function[] = {"Off", "On"};
@@ -709,10 +724,13 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 	unsigned int rx_ch[SLIM_MAX_RX_PORTS], tx_ch[SLIM_MAX_TX_PORTS];
 	unsigned int rx_ch_cnt = 0, tx_ch_cnt = 0;
+	unsigned int user_set_tx_ch = 0;
 
-	pr_debug("%s: ch=%d\n", __func__,
-					msm_slim_0_rx_ch);
+
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+
+		pr_debug("%s: rx_0_ch=%d\n", __func__, msm_slim_0_rx_ch);
+
 		ret = snd_soc_dai_get_channel_map(codec_dai,
 				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
 		if (ret < 0) {
@@ -734,20 +752,30 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 			goto end;
 		}
 	} else {
+
+		if (codec_dai->id  == 2)
+			user_set_tx_ch =  msm_slim_0_tx_ch;
+		else if (codec_dai->id  == 4)
+			user_set_tx_ch =  params_channels(params);
+
+		pr_debug("%s: %s_tx_dai_id_%d_ch=%d\n", __func__,
+			codec_dai->name, codec_dai->id, user_set_tx_ch);
+
 		ret = snd_soc_dai_get_channel_map(codec_dai,
 				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
 		if (ret < 0) {
 			pr_err("%s: failed to get codec chan map\n", __func__);
 			goto end;
 		}
+
 		ret = snd_soc_dai_set_channel_map(cpu_dai,
-				msm_slim_0_tx_ch, tx_ch, 0 , 0);
+				user_set_tx_ch, tx_ch, 0 , 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
 		ret = snd_soc_dai_set_channel_map(codec_dai,
-				msm_slim_0_tx_ch, tx_ch, 0, 0);
+				user_set_tx_ch, tx_ch, 0, 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set codec channel map\n",
 								__func__);
@@ -824,11 +852,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (err < 0)
 		return err;
 
-	snd_soc_dapm_new_controls(dapm, msm_dapm_widgets,
-				ARRAY_SIZE(msm_dapm_widgets));
+	snd_soc_dapm_new_controls(dapm, apq8064_dapm_widgets,
+				ARRAY_SIZE(apq8064_dapm_widgets));
 
-	snd_soc_dapm_add_routes(dapm, common_audio_map,
-		ARRAY_SIZE(common_audio_map));
+	snd_soc_dapm_add_routes(dapm, apq8064_audio_map,
+		ARRAY_SIZE(apq8064_audio_map));
 
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
@@ -1374,6 +1402,17 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_hw_params_fixup =  msm_btsco_be_hw_params_fixup,
 		.ops = &msm_slimbus_1_be_ops,
 	},
+	{
+		.name = "SLIMBUS_2 Hostless",
+		.stream_name = "SLIMBUS_2 Hostless",
+		.cpu_dai_name = "msm-dai-q6.16389",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "tabla_codec",
+		.codec_dai_name = "tabla_tx2",
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm_be_ops,
+	},
+
 };
 
 struct snd_soc_card snd_soc_card_msm = {
