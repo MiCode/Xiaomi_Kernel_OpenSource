@@ -1325,9 +1325,8 @@ static int a2xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 {
 	int result;
 
-	calc_gmemsize(&drawctxt->context_gmem_shadow,
-		adreno_dev->gmemspace.sizebytes);
-	tmp_ctx.gmem_base = adreno_dev->gmemspace.gpu_base;
+	calc_gmemsize(&drawctxt->context_gmem_shadow, adreno_dev->gmem_base);
+	tmp_ctx.gmem_base = adreno_dev->gmem_base;
 
 	result = kgsl_allocate(&drawctxt->context_gmem_shadow.gmemshadow,
 		drawctxt->pagetable, drawctxt->context_gmem_shadow.size);
@@ -1849,12 +1848,8 @@ static void a2xx_gmeminit(struct adreno_device *adreno_dev)
 	unsigned int gmem_size;
 	unsigned int edram_value = 0;
 
-	/* make sure edram range is aligned to size */
-	BUG_ON(adreno_dev->gmemspace.gpu_base &
-				(adreno_dev->gmemspace.sizebytes - 1));
-
 	/* get edram_size value equivalent */
-	gmem_size = (adreno_dev->gmemspace.sizebytes >> 14);
+	gmem_size = (adreno_dev->gmem_size >> 14);
 	while (gmem_size >>= 1)
 		edram_value++;
 
@@ -1864,7 +1859,7 @@ static void a2xx_gmeminit(struct adreno_device *adreno_dev)
 	rb_edram_info.f.edram_mapping_mode = 0; /* EDRAM_MAP_UPPER */
 
 	/* must be aligned to size */
-	rb_edram_info.f.edram_range = (adreno_dev->gmemspace.gpu_base >> 14);
+	rb_edram_info.f.edram_range = (adreno_dev->gmem_base >> 14);
 
 	adreno_regwrite(device, REG_RB_EDRAM_INFO, rb_edram_info.val);
 }

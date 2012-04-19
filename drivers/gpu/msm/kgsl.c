@@ -2426,7 +2426,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 {
 	int result;
 	int status = -EINVAL;
-	struct kgsl_memregion *regspace = NULL;
 	struct resource *res;
 	struct platform_device *pdev =
 		container_of(device->parentdev, struct platform_device, dev);
@@ -2447,26 +2446,25 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 		goto error_pwrctrl_close;
 	}
 	if (res->start == 0 || resource_size(res) == 0) {
-		KGSL_DRV_ERR(device, "dev %d invalid regspace\n", device->id);
+		KGSL_DRV_ERR(device, "dev %d invalid register region\n",
+			device->id);
 		status = -EINVAL;
 		goto error_pwrctrl_close;
 	}
 
-	regspace = &device->regspace;
-	regspace->mmio_phys_base = res->start;
-	regspace->sizebytes = resource_size(res);
+	device->reg_phys = res->start;
+	device->reg_len = resource_size(res);
 
-	if (!request_mem_region(regspace->mmio_phys_base,
-				regspace->sizebytes, device->name)) {
+	if (!request_mem_region(device->reg_phys, device->reg_len,
+		device->name)) {
 		KGSL_DRV_ERR(device, "request_mem_region failed\n");
 		status = -ENODEV;
 		goto error_pwrctrl_close;
 	}
 
-	regspace->mmio_virt_base = ioremap(regspace->mmio_phys_base,
-					   regspace->sizebytes);
+	device->reg_virt = ioremap(device->reg_phys, device->reg_len);
 
-	if (regspace->mmio_virt_base == NULL) {
+	if (device->reg_virt == NULL) {
 		KGSL_DRV_ERR(device, "ioremap failed\n");
 		status = -ENODEV;
 		goto error_release_mem;
@@ -2483,9 +2481,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 	disable_irq(device->pwrctrl.interrupt_num);
 
 	KGSL_DRV_INFO(device,
-		"dev_id %d regs phys 0x%08x size 0x%08x virt %p\n",
-		device->id, regspace->mmio_phys_base,
-		regspace->sizebytes, regspace->mmio_virt_base);
+		"dev_id %d regs phys 0x%08lx size 0x%08x virt %p\n",
+		device->id, device->reg_phys, device->reg_len,
+		device->reg_virt);
 
 	result = kgsl_drm_init(pdev);
 	if (result)
@@ -2498,10 +2496,10 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 	free_irq(device->pwrctrl.interrupt_num, NULL);
 	device->pwrctrl.have_irq = 0;
 error_iounmap:
-	iounmap(regspace->mmio_virt_base);
-	regspace->mmio_virt_base = NULL;
+	iounmap(device->reg_virt);
+	device->reg_virt = NULL;
 error_release_mem:
-	release_mem_region(regspace->mmio_phys_base, regspace->sizebytes);
+	release_mem_region(device->reg_phys, device->reg_len);
 error_pwrctrl_close:
 	kgsl_pwrctrl_close(device);
 error:
@@ -2511,15 +2509,12 @@ EXPORT_SYMBOL(kgsl_device_platform_probe);
 
 void kgsl_device_platform_remove(struct kgsl_device *device)
 {
-	struct kgsl_memregion *regspace = &device->regspace;
-
 	kgsl_unregister_device(device);
 
-	if (regspace->mmio_virt_base != NULL) {
-		iounmap(regspace->mmio_virt_base);
-		regspace->mmio_virt_base = NULL;
-		release_mem_region(regspace->mmio_phys_base,
-					regspace->sizebytes);
+	if (device->reg_virt != NULL) {
+		iounmap(device->reg_virt);
+		device->reg_virt = NULL;
+		release_mem_region(device->reg_phys, device->reg_len);
 	}
 	kgsl_pwrctrl_close(device);
 

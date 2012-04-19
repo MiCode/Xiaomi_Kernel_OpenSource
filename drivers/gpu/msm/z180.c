@@ -700,10 +700,9 @@ static void _z180_regread_simple(struct kgsl_device *device,
 {
 	unsigned int *reg;
 
-	BUG_ON(offsetwords * sizeof(uint32_t) >= device->regspace.sizebytes);
+	BUG_ON(offsetwords * sizeof(uint32_t) >= device->reg_len);
 
-	reg = (unsigned int *)(device->regspace.mmio_virt_base
-			+ (offsetwords << 2));
+	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
 
 	/*ensure this read finishes before the next one.
 	 * i.e. act like normal readl() */
@@ -718,10 +717,9 @@ static void _z180_regwrite_simple(struct kgsl_device *device,
 {
 	unsigned int *reg;
 
-	BUG_ON(offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes);
+	BUG_ON(offsetwords*sizeof(uint32_t) >= device->reg_len);
 
-	reg = (unsigned int *)(device->regspace.mmio_virt_base
-			+ (offsetwords << 2));
+	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
 	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
 	/*ensure previous writes post before this one,
 	 * i.e. act like normal writel() */

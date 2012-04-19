@@ -106,10 +106,8 @@ static struct adreno_device device_3d0 = {
 		},
 #endif
 	},
-	.gmemspace = {
-		.gpu_base = 0,
-		.sizebytes = SZ_256K,
-	},
+	.gmem_base = 0,
+	.gmem_size = SZ_256K,
 	.pfp_fw = NULL,
 	.pm4_fw = NULL,
 	.wait_timeout = 10000, /* in milliseconds */
@@ -472,7 +470,7 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	adreno_dev->istore_size = adreno_gpulist[i].istore_size;
 	adreno_dev->pix_shader_start = adreno_gpulist[i].pix_shader_start;
 	adreno_dev->instruction_size = adreno_gpulist[i].instruction_size;
-	adreno_dev->gmemspace.sizebytes = adreno_gpulist[i].gmem_size;
+	adreno_dev->gmem_size = adreno_gpulist[i].gmem_size;
 }
 
 static int __devinit
@@ -792,10 +790,8 @@ static int adreno_getproperty(struct kgsl_device *device,
 			devinfo.chip_id = adreno_dev->chip_id;
 			devinfo.mmu_enabled = kgsl_mmu_enabled();
 			devinfo.gpu_id = adreno_dev->gpurev;
-			devinfo.gmem_gpubaseaddr = adreno_dev->gmemspace.
-					gpu_base;
-			devinfo.gmem_sizebytes = adreno_dev->gmemspace.
-					sizebytes;
+			devinfo.gmem_gpubaseaddr = adreno_dev->gmem_base;
+			devinfo.gmem_sizebytes = adreno_dev->gmem_size;
 
 			if (copy_to_user(value, &devinfo, sizeof(devinfo)) !=
 					0) {
@@ -1065,9 +1061,8 @@ void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value)
 {
 	unsigned int *reg;
-	BUG_ON(offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes);
-	reg = (unsigned int *)(device->regspace.mmio_virt_base
-				+ (offsetwords << 2));
+	BUG_ON(offsetwords*sizeof(uint32_t) >= device->reg_len);
+	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
 
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
@@ -1083,14 +1078,13 @@ void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 {
 	unsigned int *reg;
 
-	BUG_ON(offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes);
+	BUG_ON(offsetwords*sizeof(uint32_t) >= device->reg_len);
 
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
 
 	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
-	reg = (unsigned int *)(device->regspace.mmio_virt_base
-				+ (offsetwords << 2));
+	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
 
 	/*ensure previous writes post before this one,
 	 * i.e. act like normal writel() */
