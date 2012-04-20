@@ -339,7 +339,6 @@ int adreno_ringbuffer_start(struct adreno_ringbuffer *rb, unsigned int init_ram)
 	if (status != 0)
 		return status;
 
-	adreno_regwrite(device, REG_CP_QUEUE_THRESHOLDS, 0x000C0804);
 
 	rb->rptr = 0;
 	rb->wptr = 0;
