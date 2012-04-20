@@ -3260,7 +3260,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (IS_ERR(motg->core_clk)) {
 		motg->core_clk = NULL;
 		dev_err(&pdev->dev, "failed to get core_clk\n");
-		ret = PTR_ERR(motg->clk);
+		ret = PTR_ERR(motg->core_clk);
 		goto put_clk;
 	}
 	clk_set_rate(motg->core_clk, INT_MAX);
