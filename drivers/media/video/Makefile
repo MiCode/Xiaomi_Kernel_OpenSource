@@ -189,6 +189,7 @@ obj-y	+= davinci/
 
 obj-$(CONFIG_MSM_CAMERA) += msm/
 obj-$(CONFIG_ARCH_OMAP)	+= omap/
+obj-$(CONFIG_MSM_VIDC) += msm_vidc/
 
 EXTRA_CFLAGS += -Idrivers/media/dvb/dvb-core
 EXTRA_CFLAGS += -Idrivers/media/dvb/frontends

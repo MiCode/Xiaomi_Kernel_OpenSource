@@ -1090,3 +1090,5 @@ config VIDEO_MEM2MEM_TESTDEV
 
 
 endif # V4L_MEM2MEM_DRIVERS
+
+source "drivers/media/video/msm_vidc/Kconfig"
