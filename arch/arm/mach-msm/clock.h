@@ -37,6 +37,12 @@
 #define CLKFLAG_MIN			0x00000400
 #define CLKFLAG_MAX			0x00000800
 
+/*
+ * Bit manipulation macros
+ */
+#define BM(msb, lsb)	(((((uint32_t)-1) << (31-msb)) >> (31-msb+lsb)) << lsb)
+#define BVAL(msb, lsb, val)	(((val) << lsb) & BM(msb, lsb))
+
 #define MAX_VDD_LEVELS			4
 
 /**

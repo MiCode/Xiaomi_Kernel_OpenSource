@@ -33,6 +33,7 @@
 #include "clock-voter.h"
 #include "clock-dss-8960.h"
 #include "devices.h"
+#include "clock-pll.h"
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_MM(off)	(MSM_MMSS_CLK_CTL_BASE + (off))
@@ -478,7 +479,7 @@ static struct pll_clk pll2_clk = {
 	.c = {
 		.dbg_name = "pll2_clk",
 		.rate = 800000000,
-		.ops = &clk_ops_pll,
+		.ops = &clk_ops_local_pll,
 		CLK_INIT(pll2_clk.c),
 		.warned = true,
 	},
@@ -490,7 +491,7 @@ static struct pll_clk pll3_clk = {
 	.c = {
 		.dbg_name = "pll3_clk",
 		.rate = 1200000000,
-		.ops = &clk_ops_pll,
+		.ops = &clk_ops_local_pll,
 		.vdd_class = &vdd_sr2_pll,
 		.fmax[VDD_SR2_PLL_ON] = ULONG_MAX,
 		CLK_INIT(pll3_clk.c),
@@ -502,6 +503,7 @@ static struct pll_vote_clk pll4_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(4),
 	.status_reg = LCC_PLL0_STATUS_REG,
+	.status_mask = BIT(16),
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll4_clk",
@@ -516,6 +518,7 @@ static struct pll_vote_clk pll8_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
+	.status_mask = BIT(16),
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll8_clk",
@@ -530,6 +533,7 @@ static struct pll_vote_clk pll14_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(14),
 	.status_reg = BB_PLL14_STATUS_REG,
+	.status_mask = BIT(16),
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll14_clk",
@@ -546,7 +550,7 @@ static struct pll_clk pll15_clk = {
 	.c = {
 		.dbg_name = "pll15_clk",
 		.rate = 975000000,
-		.ops = &clk_ops_pll,
+		.ops = &clk_ops_local_pll,
 		CLK_INIT(pll15_clk.c),
 		.warned = true,
 	},
@@ -6032,7 +6036,7 @@ static void __init msm8960_clock_pre_init(void)
 
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 
-	clk_ops_pll.enable = sr_pll_clk_enable;
+	clk_ops_local_pll.enable = sr_pll_clk_enable;
 
 	/* Initialize clock registers. */
 	reg_init();

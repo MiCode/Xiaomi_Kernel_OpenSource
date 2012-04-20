@@ -17,12 +17,6 @@
 #include <linux/spinlock.h>
 #include "clock.h"
 
-/*
- * Bit manipulation macros
- */
-#define BM(msb, lsb)	(((((uint32_t)-1) << (31-msb)) >> (31-msb+lsb)) << lsb)
-#define BVAL(msb, lsb, val)	(((val) << lsb) & BM(msb, lsb))
-
 #define MN_MODE_DUAL_EDGE 0x2
 
 /* MD Registers */
@@ -257,57 +251,6 @@ struct fixed_clk {
 };
 
 /**
- * struct pll_vote_clk - phase locked loop (HW voteable)
- * @soft_vote: soft voting variable for multiple PLL software instances
- * @soft_vote_mask: soft voting mask for multiple PLL software instances
- * @en_reg: enable register
- * @en_mask: ORed with @en_reg to enable the clock
- * @status_reg: status register
- * @parent: clock source
- * @c: clk
- */
-struct pll_vote_clk {
-	u32 *soft_vote;
-	const u32 soft_vote_mask;
-	void __iomem *const en_reg;
-	const u32 en_mask;
-
-	void __iomem *const status_reg;
-
-	struct clk *parent;
-	struct clk c;
-};
-
-extern struct clk_ops clk_ops_pll_vote;
-
-static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *clk)
-{
-	return container_of(clk, struct pll_vote_clk, c);
-}
-
-/**
- * struct pll_clk - phase locked loop
- * @mode_reg: enable register
- * @parent: clock source
- * @c: clk
- */
-struct pll_clk {
-	void __iomem *const mode_reg;
-
-	struct clk *parent;
-	struct clk c;
-};
-
-extern struct clk_ops clk_ops_pll;
-
-static inline struct pll_clk *to_pll_clk(struct clk *clk)
-{
-	return container_of(clk, struct pll_clk, c);
-}
-
-int sr_pll_clk_enable(struct clk *clk);
-
-/**
  * struct branch_clk - branch
  * @enabled: true if clock is on, false otherwise
  * @b: branch
@@ -363,14 +306,6 @@ static inline struct measure_clk *to_measure_clk(struct clk *clk)
  */
 extern spinlock_t		local_clock_reg_lock;
 extern struct fixed_clk		gnd_clk;
-
-/*
- * PLL vote clock APIs
- */
-int pll_vote_clk_enable(struct clk *clk);
-void pll_vote_clk_disable(struct clk *clk);
-struct clk *pll_vote_clk_get_parent(struct clk *clk);
-int pll_vote_clk_is_enabled(struct clk *clk);
 
 /*
  * Generic set-rate implementations

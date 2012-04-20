@@ -31,6 +31,7 @@
 #include "clock-local.h"
 #include "clock-rpm.h"
 #include "clock-voter.h"
+#include "clock-pll.h"
 
 #ifdef CONFIG_MSM_SECURE_IO
 #undef readl_relaxed
@@ -304,6 +305,7 @@ static struct pll_vote_clk pll8_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
+	.status_mask = BIT(16),
 	.parent = &pxo_clk.c,
 	.c = {
 		.dbg_name = "pll8_clk",
@@ -320,7 +322,7 @@ static struct pll_clk pll2_clk = {
 	.c = {
 		.dbg_name = "pll2_clk",
 		.rate = 800000000,
-		.ops = &clk_ops_pll,
+		.ops = &clk_ops_local_pll,
 		CLK_INIT(pll2_clk.c),
 		.warned = true,
 	},
@@ -332,7 +334,7 @@ static struct pll_clk pll3_clk = {
 	.c = {
 		.dbg_name = "pll3_clk",
 		.rate = 0, /* TODO: Detect rate dynamically */
-		.ops = &clk_ops_pll,
+		.ops = &clk_ops_local_pll,
 		CLK_INIT(pll3_clk.c),
 		.warned = true,
 	},

@@ -17,12 +17,193 @@
 #include <linux/err.h>
 #include <linux/remote_spinlock.h>
 
-#include <mach/socinfo.h>
+#include <mach/scm-io.h>
 #include <mach/msm_iomap.h>
 
 #include "clock.h"
 #include "clock-pll.h"
 #include "smd_private.h"
+
+#ifdef CONFIG_MSM_SECURE_IO
+#undef readl_relaxed
+#undef writel_relaxed
+#define readl_relaxed secure_readl
+#define writel_relaxed secure_writel
+#endif
+
+#define PLL_OUTCTRL BIT(0)
+#define PLL_BYPASSNL BIT(1)
+#define PLL_RESET_N BIT(2)
+#define PLL_MODE_MASK BM(3, 0)
+
+static DEFINE_SPINLOCK(pll_reg_lock);
+
+int pll_vote_clk_enable(struct clk *clk)
+{
+	u32 ena;
+	unsigned long flags;
+	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+	ena = readl_relaxed(pll->en_reg);
+	ena |= pll->en_mask;
+	writel_relaxed(ena, pll->en_reg);
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+
+	/* Wait until PLL is enabled */
+	while ((readl_relaxed(pll->status_reg) & pll->status_mask) == 0)
+		cpu_relax();
+
+	return 0;
+}
+
+void pll_vote_clk_disable(struct clk *clk)
+{
+	u32 ena;
+	unsigned long flags;
+	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+	ena = readl_relaxed(pll->en_reg);
+	ena &= ~(pll->en_mask);
+	writel_relaxed(ena, pll->en_reg);
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+}
+
+struct clk *pll_vote_clk_get_parent(struct clk *clk)
+{
+	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
+	return pll->parent;
+}
+
+int pll_vote_clk_is_enabled(struct clk *clk)
+{
+	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
+	return !!(readl_relaxed(pll->status_reg) & pll->status_mask);
+}
+
+struct clk_ops clk_ops_pll_vote = {
+	.enable = pll_vote_clk_enable,
+	.disable = pll_vote_clk_disable,
+	.auto_off = pll_vote_clk_disable,
+	.is_enabled = pll_vote_clk_is_enabled,
+	.get_parent = pll_vote_clk_get_parent,
+};
+
+static void __pll_clk_enable_reg(void __iomem *mode_reg)
+{
+	u32 mode = readl_relaxed(mode_reg);
+	/* Disable PLL bypass mode. */
+	mode |= PLL_BYPASSNL;
+	writel_relaxed(mode, mode_reg);
+
+	/*
+	 * H/W requires a 5us delay between disabling the bypass and
+	 * de-asserting the reset. Delay 10us just to be safe.
+	 */
+	mb();
+	udelay(10);
+
+	/* De-assert active-low PLL reset. */
+	mode |= PLL_RESET_N;
+	writel_relaxed(mode, mode_reg);
+
+	/* Wait until PLL is locked. */
+	mb();
+	udelay(50);
+
+	/* Enable PLL output. */
+	mode |= PLL_OUTCTRL;
+	writel_relaxed(mode, mode_reg);
+
+	/* Ensure that the write above goes through before returning. */
+	mb();
+}
+
+static int local_pll_clk_enable(struct clk *clk)
+{
+	unsigned long flags;
+	struct pll_clk *pll = to_pll_clk(clk);
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+	__pll_clk_enable_reg(pll->mode_reg);
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+
+	return 0;
+}
+
+static void __pll_clk_disable_reg(void __iomem *mode_reg)
+{
+	u32 mode = readl_relaxed(mode_reg);
+	mode &= ~PLL_MODE_MASK;
+	writel_relaxed(mode, mode_reg);
+}
+
+static void local_pll_clk_disable(struct clk *clk)
+{
+	unsigned long flags;
+	struct pll_clk *pll = to_pll_clk(clk);
+
+	/*
+	 * Disable the PLL output, disable test mode, enable
+	 * the bypass mode, and assert the reset.
+	 */
+	spin_lock_irqsave(&pll_reg_lock, flags);
+	__pll_clk_disable_reg(pll->mode_reg);
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+}
+
+static struct clk *local_pll_clk_get_parent(struct clk *clk)
+{
+	struct pll_clk *pll = to_pll_clk(clk);
+	return pll->parent;
+}
+
+int sr_pll_clk_enable(struct clk *clk)
+{
+	u32 mode;
+	unsigned long flags;
+	struct pll_clk *pll = to_pll_clk(clk);
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+	mode = readl_relaxed(pll->mode_reg);
+	/* De-assert active-low PLL reset. */
+	mode |= PLL_RESET_N;
+	writel_relaxed(mode, pll->mode_reg);
+
+	/*
+	 * H/W requires a 5us delay between disabling the bypass and
+	 * de-asserting the reset. Delay 10us just to be safe.
+	 */
+	mb();
+	udelay(10);
+
+	/* Disable PLL bypass mode. */
+	mode |= PLL_BYPASSNL;
+	writel_relaxed(mode, pll->mode_reg);
+
+	/* Wait until PLL is locked. */
+	mb();
+	udelay(60);
+
+	/* Enable PLL output. */
+	mode |= PLL_OUTCTRL;
+	writel_relaxed(mode, pll->mode_reg);
+
+	/* Ensure that the write above goes through before returning. */
+	mb();
+
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+
+	return 0;
+}
+
+struct clk_ops clk_ops_local_pll = {
+	.enable = local_pll_clk_enable,
+	.disable = local_pll_clk_disable,
+	.auto_off = local_pll_clk_disable,
+	.get_parent = local_pll_clk_get_parent,
+};
 
 struct pll_rate {
 	unsigned int lvalue;
@@ -95,21 +276,6 @@ void __init msm_shared_pll_control_init(void)
 
 }
 
-static void pll_enable(void __iomem *addr, unsigned on)
-{
-	if (on) {
-		writel_relaxed(2, addr);
-		mb();
-		udelay(5);
-		writel_relaxed(6, addr);
-		mb();
-		udelay(50);
-		writel_relaxed(7, addr);
-	} else {
-		writel_relaxed(0, addr);
-	}
-}
-
 static int pll_clk_enable(struct clk *clk)
 {
 	struct pll_shared_clk *pll = to_pll_shared_clk(clk);
@@ -119,7 +285,7 @@ static int pll_clk_enable(struct clk *clk)
 
 	pll_control->pll[PLL_BASE + pll_id].votes |= BIT(1);
 	if (!pll_control->pll[PLL_BASE + pll_id].on) {
-		pll_enable(pll->mode_reg, 1);
+		__pll_clk_enable_reg(pll->mode_reg);
 		pll_control->pll[PLL_BASE + pll_id].on = 1;
 	}
 
@@ -137,7 +303,7 @@ static void pll_clk_disable(struct clk *clk)
 	pll_control->pll[PLL_BASE + pll_id].votes &= ~BIT(1);
 	if (pll_control->pll[PLL_BASE + pll_id].on
 	    && !pll_control->pll[PLL_BASE + pll_id].votes) {
-		pll_enable(pll->mode_reg, 0);
+		__pll_clk_disable_reg(pll->mode_reg);
 		pll_control->pll[PLL_BASE + pll_id].on = 0;
 	}
 
@@ -149,11 +315,6 @@ static int pll_clk_is_enabled(struct clk *clk)
 	struct pll_shared_clk *pll = to_pll_shared_clk(clk);
 
 	return readl_relaxed(pll->mode_reg) & BIT(0);
-}
-
-static bool pll_clk_is_local(struct clk *clk)
-{
-	return true;
 }
 
 static enum handoff pll_clk_handoff(struct clk *clk)
@@ -191,6 +352,5 @@ struct clk_ops clk_pll_ops = {
 	.enable = pll_clk_enable,
 	.disable = pll_clk_disable,
 	.handoff = pll_clk_handoff,
-	.is_local = pll_clk_is_local,
 	.is_enabled = pll_clk_is_enabled,
 };
