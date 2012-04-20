@@ -1465,6 +1465,7 @@ static int tavarua_set_region(struct tavarua_device *radio,
 	xfr_buf[1] = GET_ABS_VAL(band_low);
 	xfr_buf[2] = RSH_DATA(band_high, 8);
 	xfr_buf[3] = GET_ABS_VAL(band_high);
+	xfr_buf[4] = 0; /* Active LOW */
 	retval = sync_write_xfr(radio, RADIO_CONFIG, xfr_buf);
 	if (retval < 0) {
 		FMDERR("Could not set regional settings\n");
@@ -3037,8 +3038,8 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		} else if (ctrl->value == FM_ANALOG_PATH) {
 			FMDBG("Analog audio path enabled ...\n");
 			retval = tavarua_set_audio_path(
-				TAVARUA_AUDIO_OUT_ANALOG_ON,
-				TAVARUA_AUDIO_OUT_DIGITAL_OFF);
+				TAVARUA_AUDIO_OUT_DIGITAL_OFF,
+				TAVARUA_AUDIO_OUT_ANALOG_ON);
 			if (retval < 0) {
 				FMDERR("Error in tavarua_set_audio_path"
 					" %d\n", retval);
@@ -3891,10 +3892,27 @@ int tavarua_set_audio_path(int digital_on, int analog_on)
 {
 	struct tavarua_device *radio = private_data;
 	int rx_on = radio->registers[RDCTRL] & FM_RECV;
+	int retval = 0;
 	if (!radio)
 		return -ENOMEM;
 	/* RX */
 	FMDBG("%s: digital: %d analog: %d\n", __func__, digital_on, analog_on);
+	if ((radio->pdata != NULL) && (radio->pdata->config_i2s_gpio != NULL)) {
+		if (digital_on) {
+			retval = radio->pdata->config_i2s_gpio(FM_I2S_ON);
+			if (retval) {
+				pr_err("%s: config_i2s_gpio failed\n",
+								__func__);
+			}
+		} else {
+			retval = radio->pdata->config_i2s_gpio(FM_I2S_OFF);
+			if (retval) {
+				pr_err("%s: config_i2s_gpio failed\n",
+								__func__);
+			}
+		}
+	}
+
 	SET_REG_FIELD(radio->registers[AUDIOCTRL],
 		((rx_on && analog_on) ? 1 : 0),
 		AUDIORX_ANALOG_OFFSET,
