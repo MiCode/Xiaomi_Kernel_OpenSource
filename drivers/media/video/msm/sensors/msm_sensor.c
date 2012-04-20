@@ -143,20 +143,9 @@ void msm_sensor_group_hold_off(struct msm_sensor_ctrl_t *s_ctrl)
 int32_t msm_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
 						struct fps_cfg *fps)
 {
-	uint16_t total_lines_per_frame;
-	int32_t rc = 0;
 	s_ctrl->fps_divider = fps->fps_div;
 
-	if (s_ctrl->curr_res != MSM_SENSOR_INVALID_RES) {
-		total_lines_per_frame = (uint16_t)
-			((s_ctrl->curr_frame_length_lines) *
-			s_ctrl->fps_divider/Q10);
-
-		rc = msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-			s_ctrl->sensor_output_reg_addr->frame_length_lines,
-			total_lines_per_frame, MSM_CAMERA_I2C_WORD_DATA);
-	}
-	return rc;
+	return 0;
 }
 
 int32_t msm_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
