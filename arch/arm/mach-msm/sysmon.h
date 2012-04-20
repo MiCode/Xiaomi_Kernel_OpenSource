@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@ enum subsys_id {
 	SYSMON_SS_WCNSS,
 	SYSMON_SS_DSPS,
 	SYSMON_SS_Q6FW,
+	SYSMON_SS_EXT_MODEM,
 	SYSMON_NUM_SS
 };
 
