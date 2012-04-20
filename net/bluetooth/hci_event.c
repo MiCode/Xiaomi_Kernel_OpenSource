@@ -1852,11 +1852,29 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 
 		if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
 			if (!ev->status) {
-				struct hci_cp_set_conn_encrypt cp;
-				cp.handle  = ev->handle;
-				cp.encrypt = 0x01;
-				hci_send_cmd(hdev, HCI_OP_SET_CONN_ENCRYPT,
-							sizeof(cp), &cp);
+				if (conn->link_mode & HCI_LM_ENCRYPT) {
+					/* Encryption implies authentication */
+					conn->link_mode |= HCI_LM_AUTH;
+					conn->link_mode |= HCI_LM_ENCRYPT;
+					conn->sec_level =
+						conn->pending_sec_level;
+					clear_bit(HCI_CONN_ENCRYPT_PEND,
+							&conn->pend);
+					hci_encrypt_cfm(conn, ev->status, 1);
+
+					if (test_bit(HCI_MGMT, &hdev->flags))
+						mgmt_encrypt_change(hdev->id,
+							&conn->dst,
+							ev->status);
+
+				} else {
+					struct hci_cp_set_conn_encrypt cp;
+					cp.handle  = ev->handle;
+					cp.encrypt = 0x01;
+					hci_send_cmd(hdev,
+						HCI_OP_SET_CONN_ENCRYPT,
+						sizeof(cp), &cp);
+				}
 			} else {
 				clear_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend);
 				hci_encrypt_cfm(conn, ev->status, 0x00);
@@ -2653,6 +2671,7 @@ static inline void hci_link_key_notify_evt(struct hci_dev *hdev, struct sk_buff 
 		conn->key_type = ev->key_type;
 		hci_disconnect_amp(conn, 0x06);
 
+		conn->link_mode &= ~HCI_LM_ENCRYPT;
 		pin_len = conn->pin_length;
 		hci_conn_put(conn);
 		hci_conn_enter_active_mode(conn, 0);
