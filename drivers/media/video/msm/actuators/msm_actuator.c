@@ -368,9 +368,8 @@ int32_t msm_actuator_set_default_focus(
 	return rc;
 }
 
-int32_t msm_actuator_af_power_down(void *cfg_data)
+int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 {
-	struct msm_actuator_ctrl_t *a_ctrl = &msm_actuator_t;
 	int32_t rc = 0;
 	int16_t step_pos = 0;
 	int16_t i = 0;
@@ -501,9 +500,9 @@ int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 }
 
 
-int32_t msm_actuator_config(void __user *argp)
+int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
+							void __user *argp)
 {
-	struct msm_actuator_ctrl_t *a_ctrl = &msm_actuator_t;
 	struct msm_actuator_cfg_data cdata;
 	int32_t rc = 0;
 	if (copy_from_user(&cdata,
@@ -554,12 +553,18 @@ int32_t msm_actuator_i2c_probe(
 	}
 
 	act_ctrl_t = (struct msm_actuator_ctrl_t *)(id->driver_data);
-	i2c_set_clientdata(client, (void *)&act_ctrl_t->actuator_ext_ctrl);
-	CDBG("%s client = %x act ctrl t = %x\n",
-		__func__,
-		(unsigned int) client,
-		(unsigned int)&act_ctrl_t->actuator_ext_ctrl);
+	CDBG("%s client = %x\n",
+		__func__, (unsigned int) client);
 	act_ctrl_t->i2c_client.client = client;
+
+	/* Assign name for sub device */
+	snprintf(act_ctrl_t->sdev.name, sizeof(act_ctrl_t->sdev.name),
+			 "%s", act_ctrl_t->i2c_driver->driver.name);
+
+	/* Initialize sub device */
+	v4l2_i2c_subdev_init(&act_ctrl_t->sdev,
+		act_ctrl_t->i2c_client.client,
+		act_ctrl_t->act_v4l2_subdev_ops);
 
 	CDBG("%s succeeded\n", __func__);
 	return rc;
@@ -569,16 +574,11 @@ probe_failure:
 	return rc;
 }
 
-int32_t msm_actuator_power_up(void *act_info)
+int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int rc = 0;
-	struct msm_actuator_ctrl_t *a_ctrl = &msm_actuator_t;
-	struct msm_actuator_info *ptr;
 	CDBG("%s called\n", __func__);
 
-	ptr = act_info;
-	a_ctrl->vcm_pwd = ptr->vcm_pwd;
-	a_ctrl->vcm_enable = ptr->vcm_enable;
 	CDBG("vcm info: %x %x\n", a_ctrl->vcm_pwd,
 		a_ctrl->vcm_enable);
 	if (a_ctrl->vcm_enable) {
@@ -588,31 +588,6 @@ int32_t msm_actuator_power_up(void *act_info)
 			gpio_direction_output(a_ctrl->vcm_pwd, 1);
 		}
 	}
-	return rc;
-}
-
-
-int32_t msm_actuator_create_subdevice(void *info, void *dev)
-{
-	struct msm_actuator_info *act_info = (struct msm_actuator_info *)info;
-	struct i2c_board_info const *board_info = act_info->board_info;
-	struct v4l2_subdev *sdev = (struct v4l2_subdev *)dev;
-	struct msm_actuator_ctrl_t *a_ctrl = &msm_actuator_t;
-	int32_t rc = -EFAULT;
-
-	CDBG("%s called\n", __func__);
-
-	/* Store the sub device in actuator structure */
-	a_ctrl->sdev = sdev;
-
-	/* Assign name for sub device */
-	snprintf(sdev->name, sizeof(sdev->name), "%s", board_info->type);
-
-	/* Initialize sub device */
-	v4l2_i2c_subdev_init(sdev,
-		a_ctrl->i2c_client.client,
-		a_ctrl->act_v4l2_subdev_ops);
-
 	return rc;
 }
 
@@ -639,7 +614,41 @@ static int __init msm_actuator_i2c_add_driver(
 	return i2c_add_driver(msm_actuator_t.i2c_driver);
 }
 
-static struct v4l2_subdev_core_ops msm_actuator_subdev_core_ops;
+long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
+			unsigned int cmd, void *arg)
+{
+	struct msm_actuator_ctrl_t *a_ctrl = get_actrl(sd);
+	void __user *argp = (void __user *)arg;
+	switch (cmd) {
+	case VIDIOC_MSM_ACTUATOR_CFG:
+		return msm_actuator_config(a_ctrl, argp);
+	default:
+		return -ENOIOCTLCMD;
+	}
+}
+
+int32_t msm_actuator_power(struct v4l2_subdev *sd, int on)
+{
+	int rc = 0;
+	struct msm_actuator_ctrl_t *a_ctrl = get_actrl(sd);
+	mutex_lock(a_ctrl->actuator_mutex);
+	if (on)
+		rc = msm_actuator_power_up(a_ctrl);
+	else
+		rc = msm_actuator_power_down(a_ctrl);
+	mutex_unlock(a_ctrl->actuator_mutex);
+	return rc;
+}
+
+struct msm_actuator_ctrl_t *get_actrl(struct v4l2_subdev *sd)
+{
+	return container_of(sd, struct msm_actuator_ctrl_t, sdev);
+}
+
+static struct v4l2_subdev_core_ops msm_actuator_subdev_core_ops = {
+	.ioctl = msm_actuator_subdev_ioctl,
+	.s_power = msm_actuator_power,
+};
 
 static struct v4l2_subdev_ops msm_actuator_subdev_ops = {
 	.core = &msm_actuator_subdev_core_ops,
@@ -648,12 +657,6 @@ static struct v4l2_subdev_ops msm_actuator_subdev_ops = {
 static struct msm_actuator_ctrl_t msm_actuator_t = {
 	.i2c_driver = &msm_actuator_i2c_driver,
 	.act_v4l2_subdev_ops = &msm_actuator_subdev_ops,
-	.actuator_ext_ctrl = {
-		.a_power_up = msm_actuator_power_up,
-		.a_create_subdevice = msm_actuator_create_subdevice,
-		.a_config = msm_actuator_config,
-		.a_power_down = msm_actuator_af_power_down,
-	},
 
 	.curr_step_pos = 0,
 	.curr_region_index = 0,

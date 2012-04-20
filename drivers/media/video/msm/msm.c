@@ -24,6 +24,7 @@
 #include "msm_csiphy.h"
 #include "msm_ispif.h"
 #include "msm_sensor.h"
+#include "msm_actuator.h"
 
 #define MSM_MAX_CAMERA_SENSORS 5
 
@@ -1521,7 +1522,7 @@ static int msm_cam_server_open_session(struct msm_cam_server_dev *ps,
 	/* initialization the media controller module*/
 	msm_mctl_init(pcam);
 
-	/*yyan: for single VFE msms (8660, 8960v1), just populate the session
+	/*for single VFE msms (8660, 8960v1), just populate the session
 	with our VFE devices that registered*/
 	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
 	pmctl->isp_sdev = ps->isp_subdev[0];
@@ -2783,14 +2784,13 @@ reg_fail:
 	return rc;
 }
 
-static int msm_actuator_probe(struct msm_actuator_info *actuator_info,
-			      struct v4l2_subdev *act_sdev,
-			      struct msm_actuator_ctrl *actctrl)
+static struct v4l2_subdev *msm_actuator_probe(
+	struct msm_actuator_info *actuator_info)
 {
-	int rc = 0;
+	struct v4l2_subdev *act_sdev;
 	struct i2c_adapter *adapter = NULL;
+	struct msm_actuator_ctrl_t *actrl;
 	void *act_client = NULL;
-	struct msm_actuator_ctrl *a_ext_ctrl = NULL;
 
 	D("%s called\n", __func__);
 
@@ -2805,14 +2805,19 @@ static int msm_actuator_probe(struct msm_actuator_info *actuator_info,
 	if (!act_client)
 		goto device_fail;
 
-	a_ext_ctrl = (struct msm_actuator_ctrl *)i2c_get_clientdata(act_client);
-	if (!a_ext_ctrl)
+	act_sdev = (struct v4l2_subdev *)i2c_get_clientdata(act_client);
+	if (act_sdev == NULL)
 		goto client_fail;
 
-	*actctrl = *a_ext_ctrl;
-	a_ext_ctrl->a_create_subdevice((void *)actuator_info,
-				       (void *)act_sdev);
-	return rc;
+	if (actuator_info->vcm_enable) {
+		actrl = get_actrl(act_sdev);
+		if (actrl) {
+			actrl->vcm_enable = actuator_info->vcm_enable;
+			actrl->vcm_pwd = actuator_info->vcm_pwd;
+		}
+	}
+
+	return act_sdev;
 
 client_fail:
 	i2c_unregister_device(act_client);
@@ -2820,11 +2825,7 @@ device_fail:
 	i2c_put_adapter(adapter);
 	adapter = NULL;
 probe_fail:
-	actctrl->a_power_up = NULL;
-	actctrl->a_power_down = NULL;
-	actctrl->a_config = NULL;
-	actctrl->a_create_subdevice = NULL;
-	return rc;
+	return NULL;
 }
 
 /* register a msm sensor into the msm device, which will probe the
@@ -2836,8 +2837,6 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	struct msm_camera_sensor_info *sdata;
 	struct msm_cam_v4l2_device *pcam;
 	struct msm_sensor_ctrl_t *s_ctrl;
-	struct v4l2_subdev *act_sdev = NULL;
-	struct msm_actuator_ctrl *actctrl = NULL;
 
 	D("%s for %s\n", __func__, sensor_sd->name);
 
@@ -2853,20 +2852,7 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	s_ctrl = get_sctrl(sensor_sd);
 	sdata = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
 
-	pcam->act_sdev = kzalloc(sizeof(struct v4l2_subdev),
-								  GFP_KERNEL);
-	if (!pcam->act_sdev) {
-		pr_err("%s: could not allocate mem for actuator v4l2_subdev\n",
-			   __func__);
-		kfree(pcam);
-		return -ENOMEM;
-	}
-
-	act_sdev = pcam->act_sdev;
-	actctrl = &pcam->actctrl;
-
-	msm_actuator_probe(sdata->actuator_info,
-					   act_sdev, actctrl);
+	pcam->act_sdev = msm_actuator_probe(sdata->actuator_info);
 
 	D("%s: pcam =0x%p\n", __func__, pcam);
 
@@ -2941,8 +2927,9 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 		goto failure;
 	}
 
-	if (sdata->actuator_info) {
-		rc = v4l2_device_register_subdev(&pcam->v4l2_dev, act_sdev);
+	if (pcam->act_sdev) {
+		rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
+				pcam->act_sdev);
 		if (rc < 0) {
 			D("%s actuator sub device register failed\n",
 			  __func__);
@@ -2954,7 +2941,6 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	return rc;
 
 failure:
-	kfree(act_sdev);
 	kzfree(pcam);
 	return rc;
 }

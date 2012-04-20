@@ -33,6 +33,7 @@
 #include "msm_csiphy.h"
 #include "msm_ispif.h"
 #include "msm_sensor.h"
+#include "msm_actuator.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_mctl: " fmt, ##args)
@@ -247,8 +248,6 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 
 	case MSM_CAM_IOCTL_GET_ACTUATOR_INFO: {
 		struct msm_actuator_cfg_data cdata;
-		CDBG("%s: act_config: %p\n", __func__,
-			p_mctl->actctrl->a_config);
 		if (copy_from_user(&cdata,
 			(void *)argp,
 			sizeof(struct msm_actuator_cfg_data))) {
@@ -258,7 +257,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		cdata.is_af_supported = 0;
 		rc = 0;
 
-		if (p_mctl->actctrl->a_config) {
+		if (p_mctl->act_sdev) {
 			struct msm_camera_sensor_info *sdata;
 
 			sdata = p_mctl->sdata;
@@ -286,8 +285,9 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 
 	case MSM_CAM_IOCTL_ACTUATOR_IO_CFG: {
 		struct msm_actuator_cfg_data act_data;
-		if (p_mctl->actctrl->a_config) {
-			rc = p_mctl->actctrl->a_config(argp);
+		if (p_mctl->act_sdev) {
+			rc = v4l2_subdev_call(p_mctl->act_sdev,
+				core, ioctl, VIDIOC_MSM_ACTUATOR_CFG, argp);
 		} else {
 			rc = copy_from_user(
 				&act_data,
@@ -556,9 +556,9 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			pr_err("%s: isp init failed: %d\n", __func__, rc);
 			goto msm_open_done;
 		}
-		if (p_mctl->actctrl->a_power_up)
-			rc = p_mctl->actctrl->a_power_up(
-				p_mctl->sdata->actuator_info);
+		if (p_mctl->act_sdev)
+			rc = v4l2_subdev_call(p_mctl->act_sdev,
+					core, s_power, 1);
 
 		if (rc < 0) {
 			pr_err("%s: act power failed:%d\n", __func__, rc);
@@ -672,9 +672,8 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 		pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 	}
 
-	if (p_mctl->actctrl->a_power_down)
-		p_mctl->actctrl->a_power_down(
-			p_mctl->sdata->actuator_info);
+	if (p_mctl->act_sdev)
+		v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);
 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
 
@@ -777,7 +776,6 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 	spin_lock_init(&pmctl->pp_info.lock);
 
 	pmctl->act_sdev = pcam->act_sdev;
-	pmctl->actctrl = &pcam->actctrl;
 	pmctl->sensor_sdev = pcam->sensor_sdev;
 	pmctl->sdata = pcam->sdata;
 

@@ -65,6 +65,7 @@ enum msm_cam_subdev_type {
 	VFE_DEV,
 	VPE_DEV,
 	SENSOR_DEV,
+	ACTUATOR_DEV,
 };
 
 /* msm queue management APIs*/
@@ -231,11 +232,11 @@ struct msm_cam_media_controller {
 
 	/* the following reflect the HW topology information*/
 	struct v4l2_subdev *sensor_sdev; /* sensor sub device */
+	struct v4l2_subdev *act_sdev; /* actuator sub device */
 	struct v4l2_subdev *csiphy_sdev; /*csiphy sub device*/
 	struct v4l2_subdev *csid_sdev; /*csid sub device*/
 	struct v4l2_subdev *csic_sdev; /*csid sub device*/
 	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
-	struct v4l2_subdev *act_sdev; /* actuator sub device */
 	struct v4l2_subdev *gemini_sdev; /* gemini sub device */
 
 	struct msm_isp_ops *isp_sdev;    /* isp sub device : camif/VFE */
@@ -258,7 +259,6 @@ struct msm_cam_media_controller {
 
 	/*sensor info*/
 	struct msm_camera_sensor_info *sdata;
-	struct msm_actuator_ctrl *actctrl;
 };
 
 /* abstract camera device represents a VFE and connected sensor */
@@ -350,7 +350,6 @@ struct msm_cam_v4l2_device {
 	struct v4l2_subdev *sensor_sdev; /* sensor sub device */
 	struct v4l2_subdev *act_sdev; /* actuator sub device */
 	struct msm_camera_sensor_info *sdata;
-	struct msm_actuator_ctrl actctrl;
 };
 
 static inline struct msm_cam_v4l2_device *to_pcam(

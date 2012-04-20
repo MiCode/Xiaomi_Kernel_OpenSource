@@ -343,13 +343,6 @@ struct msm_sensor_ctrl {
 	enum msm_st_frame_packing s_snap_packing;
 };
 
-struct msm_actuator_ctrl {
-	int (*a_power_up)(void *);
-	int (*a_power_down)(void *);
-	int (*a_create_subdevice)(void *, void *);
-	int (*a_config)(void __user *);
-};
-
 struct msm_strobe_flash_ctrl {
 	int (*strobe_flash_init)
 		(struct msm_camera_sensor_strobe_flash_data *);
@@ -421,7 +414,6 @@ struct msm_sync {
 	struct msm_camvpe_fn vpefn;
 	struct msm_sensor_ctrl sctrl;
 	struct msm_strobe_flash_ctrl sfctrl;
-	struct msm_actuator_ctrl actctrl;
 	struct wake_lock wake_lock;
 	struct platform_device *pdev;
 	int16_t ignore_qcmd_type;
