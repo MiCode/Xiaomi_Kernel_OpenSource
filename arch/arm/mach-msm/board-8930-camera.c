@@ -138,6 +138,13 @@ static struct msm_gpiomux_config msm8930_cam_common_configs[] = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
+	{
+		.gpio = 54,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[2],
+			[GPIOMUX_SUSPENDED] = &cam_settings[0],
+		},
+	},
 };
 
 static struct msm_gpiomux_config msm8930_cam_2d_configs[] = {
@@ -373,6 +380,7 @@ static struct gpio msm8930_front_cam_gpio[] = {
 
 static struct gpio msm8930_back_cam_gpio[] = {
 	{107, GPIOF_DIR_OUT, "CAM_RESET"},
+	{54, GPIOF_DIR_OUT, "CAM_STBY_N"},
 };
 
 static struct msm_gpio_set_tbl msm8930_front_cam_gpio_set_tbl[] = {
@@ -381,6 +389,8 @@ static struct msm_gpio_set_tbl msm8930_front_cam_gpio_set_tbl[] = {
 };
 
 static struct msm_gpio_set_tbl msm8930_back_cam_gpio_set_tbl[] = {
+	{54, GPIOF_OUT_INIT_LOW, 1000},
+	{54, GPIOF_OUT_INIT_HIGH, 4000},
 	{107, GPIOF_OUT_INIT_LOW, 1000},
 	{107, GPIOF_OUT_INIT_HIGH, 4000},
 };
