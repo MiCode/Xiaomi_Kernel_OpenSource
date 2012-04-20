@@ -284,7 +284,8 @@ static struct platform_device msm_camera_server = {
 static void __init msm7x27a_init_cam(void)
 {
 	if (!(machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
-				|| machine_is_msm7627a_qrd1())) {
+				|| machine_is_msm7627a_qrd1()
+				|| machine_is_msm8625_ffa())) {
 		sensor_board_info_s5k4e1.cam_vreg = NULL;
 		sensor_board_info_s5k4e1.num_vreg = 0;
 		sensor_board_info_mt9e013.cam_vreg = NULL;
@@ -523,7 +524,8 @@ static int config_camera_on_gpios_rear(void)
 	int rc = 0;
 
 	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
-				|| machine_is_msm7627a_qrd1())
+				|| machine_is_msm7627a_qrd1()
+				|| machine_is_msm8625_ffa())
 		msm_camera_vreg_config(1);
 
 	rc = config_gpio_table(camera_on_gpio_table,
@@ -540,7 +542,8 @@ static int config_camera_on_gpios_rear(void)
 static void config_camera_off_gpios_rear(void)
 {
 	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
-				|| machine_is_msm7627a_qrd1())
+				|| machine_is_msm7627a_qrd1()
+				|| machine_is_msm8625_ffa())
 		msm_camera_vreg_config(0);
 
 	config_gpio_table(camera_off_gpio_table,
@@ -552,7 +555,8 @@ static int config_camera_on_gpios_front(void)
 	int rc = 0;
 
 	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
-				|| machine_is_msm7627a_qrd1())
+				|| machine_is_msm7627a_qrd1()
+				|| machine_is_msm8625_ffa())
 		msm_camera_vreg_config(1);
 
 	rc = config_gpio_table(camera_on_gpio_table,
@@ -569,7 +573,8 @@ static int config_camera_on_gpios_front(void)
 static void config_camera_off_gpios_front(void)
 {
 	if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
-				|| machine_is_msm7627a_qrd1())
+				|| machine_is_msm7627a_qrd1()
+				|| machine_is_msm8625_ffa())
 		msm_camera_vreg_config(0);
 
 	config_gpio_table(camera_off_gpio_table,
