@@ -988,17 +988,47 @@ static int adreno_suspend_context(struct kgsl_device *device)
 	return status;
 }
 
+/* Find a memory structure attached to an adreno context */
+
+struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
+	unsigned int pt_base, unsigned int gpuaddr, unsigned int size)
+{
+	struct kgsl_context *context;
+	struct adreno_context *adreno_context = NULL;
+	int next = 0;
+
+	while (1) {
+		context = idr_get_next(&device->context_idr, &next);
+		if (context == NULL)
+			break;
+
+		adreno_context = (struct adreno_context *)context->devctxt;
+
+		if (kgsl_mmu_pt_equal(adreno_context->pagetable, pt_base)) {
+			struct kgsl_memdesc *desc;
+
+			desc = &adreno_context->gpustate;
+			if (kgsl_gpuaddr_in_memdesc(desc, gpuaddr, size))
+				return desc;
+
+			desc = &adreno_context->context_gmem_shadow.gmemshadow;
+			if (kgsl_gpuaddr_in_memdesc(desc, gpuaddr, size))
+				return desc;
+		}
+		next = next + 1;
+	}
+
+	return NULL;
+}
+
 struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 						unsigned int pt_base,
 						unsigned int gpuaddr,
 						unsigned int size)
 {
-	struct kgsl_memdesc *result = NULL;
 	struct kgsl_mem_entry *entry;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *ringbuffer = &adreno_dev->ringbuffer;
-	struct kgsl_context *context;
-	int next = 0;
 
 	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->buffer_desc, gpuaddr, size))
 		return &ringbuffer->buffer_desc;
@@ -1018,34 +1048,7 @@ struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 	if (entry)
 		return &entry->memdesc;
 
-	while (1) {
-		struct adreno_context *adreno_context = NULL;
-		context = idr_get_next(&device->context_idr, &next);
-		if (context == NULL)
-			break;
-
-		adreno_context = (struct adreno_context *)context->devctxt;
-
-		if (kgsl_mmu_pt_equal(adreno_context->pagetable, pt_base)) {
-			struct kgsl_memdesc *desc;
-
-			desc = &adreno_context->gpustate;
-			if (kgsl_gpuaddr_in_memdesc(desc, gpuaddr, size)) {
-				result = desc;
-				return result;
-			}
-
-			desc = &adreno_context->context_gmem_shadow.gmemshadow;
-			if (kgsl_gpuaddr_in_memdesc(desc, gpuaddr, size)) {
-				result = desc;
-				return result;
-			}
-		}
-		next = next + 1;
-	}
-
-	return NULL;
-
+	return adreno_find_ctxtmem(device, pt_base, gpuaddr, size);
 }
 
 uint8_t *adreno_convertaddr(struct kgsl_device *device, unsigned int pt_base,
