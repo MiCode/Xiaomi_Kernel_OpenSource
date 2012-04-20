@@ -55,6 +55,7 @@
 #define MAX_NUM_CSIC_DEV 3
 #define MAX_NUM_ISPIF_DEV 1
 #define MAX_NUM_VFE_DEV 2
+#define MAX_NUM_AXI_DEV 2
 #define MAX_NUM_VPE_DEV 1
 
 enum msm_cam_subdev_type {
@@ -63,6 +64,7 @@ enum msm_cam_subdev_type {
 	CSIC_DEV,
 	ISPIF_DEV,
 	VFE_DEV,
+	AXI_DEV,
 	VPE_DEV,
 	SENSOR_DEV,
 	ACTUATOR_DEV,
@@ -145,6 +147,8 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_CSID_CFG, /* arg = msm_camera_csid_params */
 	NOTIFY_CSIC_CFG, /* arg = msm_camera_csic_params */
 	NOTIFY_VFE_BUF_FREE_EVT, /* arg = msm_camera_csic_params */
+	NOTIFY_VFE_IRQ,
+	NOTIFY_AXI_IRQ,
 	NOTIFY_INVALID
 };
 
@@ -239,6 +243,7 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
 	struct v4l2_subdev *gemini_sdev; /* gemini sub device */
 	struct v4l2_subdev *vpe_sdev; /* vpe sub device */
+	struct v4l2_subdev *axi_sdev; /* vpe sub device */
 
 	struct msm_isp_ops *isp_sdev;    /* isp sub device : camif/VFE */
 	struct msm_cam_config_dev *config_device;
@@ -434,6 +439,7 @@ struct msm_cam_server_dev {
 	struct v4l2_subdev *csic_device[MAX_NUM_CSIC_DEV];
 	struct v4l2_subdev *ispif_device;
 	struct v4l2_subdev *vfe_device[MAX_NUM_VFE_DEV];
+	struct v4l2_subdev *axi_device[MAX_NUM_AXI_DEV];
 	struct v4l2_subdev *vpe_device[MAX_NUM_VPE_DEV];
 };
 

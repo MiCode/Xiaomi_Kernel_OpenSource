@@ -605,48 +605,6 @@ static int msm_config_vfe(struct v4l2_subdev *sd,
 	return -EINVAL;
 }
 
-static int msm_stats_axi_cfg(struct v4l2_subdev *sd,
-	struct msm_cam_media_controller *mctl, struct msm_vfe_cfg_cmd *cfgcmd)
-{
-	int rc = -EIO;
-	struct axidata axi_data;
-	void *data = &axi_data;
-	struct msm_pmem_region region[3];
-	int pmem_type = MSM_PMEM_MAX;
-
-	memset(&axi_data, 0, sizeof(axi_data));
-
-	switch (cfgcmd->cmd_type) {
-	case CMD_STATS_AF_AXI_CFG:
-		pmem_type = MSM_PMEM_AF;
-		break;
-	case CMD_GENERAL:
-		data = NULL;
-		break;
-	default:
-		pr_err("%s: unknown command type %d\n",
-			__func__, cfgcmd->cmd_type);
-		return -EINVAL;
-	}
-
-	if (cfgcmd->cmd_type != CMD_GENERAL) {
-		axi_data.bufnum1 =
-			msm_pmem_region_lookup(
-				&mctl->stats_info.pmem_stats_list, pmem_type,
-				&region[0], NUM_STAT_OUTPUT_BUFFERS);
-		if (!axi_data.bufnum1) {
-			pr_err("%s %d: pmem region lookup error\n",
-				__func__, __LINE__);
-			return -EINVAL;
-		}
-		axi_data.region = &region[0];
-	}
-
-	/* send the AEC/AWB STATS configuration command to driver */
-	rc = msm_isp_subdev_ioctl(sd, cfgcmd, data);
-	return rc;
-}
-
 static int msm_axi_config(struct v4l2_subdev *sd,
 		struct msm_cam_media_controller *mctl, void __user *arg)
 {
@@ -658,13 +616,6 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 	}
 
 	switch (cfgcmd.cmd_type) {
-	case CMD_AXI_CFG_VIDEO:
-	case CMD_AXI_CFG_PREVIEW:
-	case CMD_AXI_CFG_SNAP:
-	case CMD_AXI_CFG_ZSL:
-	case CMD_AXI_CFG_VIDEO_ALL_CHNLS:
-	case CMD_AXI_CFG_ZSL_ALL_CHNLS:
-	case CMD_RAW_PICT_AXI_CFG:
 	case CMD_AXI_CFG_PRIM:
 	case CMD_AXI_CFG_SEC:
 	case CMD_AXI_CFG_PRIM_ALL_CHNLS:
@@ -676,10 +627,6 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 		 * controller free queue.
 		 */
 		return msm_isp_subdev_ioctl(sd, &cfgcmd, NULL);
-
-	case CMD_STATS_AXI_CFG:
-	case CMD_STATS_AF_AXI_CFG:
-		return msm_stats_axi_cfg(sd, mctl, &cfgcmd);
 
 	default:
 		pr_err("%s: unknown command type %d\n",
@@ -769,7 +716,6 @@ static int msm_isp_config(struct msm_cam_media_controller *pmctl,
 		break;
 
 	case MSM_CAM_IOCTL_AXI_CONFIG:
-	case MSM_CAM_IOCTL_AXI_VPE_CONFIG:
 		D("Received MSM_CAM_IOCTL_AXI_CONFIG\n");
 		rc = msm_axi_config(sd, pmctl, argp);
 		break;

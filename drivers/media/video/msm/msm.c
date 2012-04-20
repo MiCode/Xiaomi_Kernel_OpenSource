@@ -25,6 +25,7 @@
 #include "msm_ispif.h"
 #include "msm_sensor.h"
 #include "msm_actuator.h"
+#include "msm_vfe32.h"
 
 #define MSM_MAX_CAMERA_SENSORS 5
 
@@ -1525,6 +1526,7 @@ static int msm_cam_server_open_session(struct msm_cam_server_dev *ps,
 	/*for single VFE msms (8660, 8960v1), just populate the session
 	with our VFE devices that registered*/
 	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl->axi_sdev = ps->axi_device[0];
 	pmctl->isp_sdev = ps->isp_subdev[0];
 	return rc;
 }
@@ -2558,9 +2560,27 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 		vdata->extdata);
 		break;
 	}
+	case NOTIFY_VFE_IRQ:{
+		struct msm_vfe_cfg_cmd cfg_cmd;
+		struct msm_camvfe_params vfe_params;
+		cfg_cmd.cmd_type = CMD_VFE_PROCESS_IRQ;
+		vfe_params.vfe_cfg = &cfg_cmd;
+		vfe_params.data = arg;
+		rc = v4l2_subdev_call(g_server_dev.vfe_device[0],
+			core, ioctl, 0, &vfe_params);
+	}
+		break;
+	case NOTIFY_AXI_IRQ:
+		rc = v4l2_subdev_call(g_server_dev.axi_device[0],
+			core, ioctl, VIDIOC_MSM_AXI_IRQ, arg);
+		break;
 	case NOTIFY_PCLK_CHANGE:
-		rc = v4l2_subdev_call(g_server_dev.vfe_device[0], video,
-			s_crystal_freq, *(uint32_t *)arg, 0);
+		if (g_server_dev.axi_device[0])
+			rc = v4l2_subdev_call(g_server_dev.axi_device[0], video,
+				s_crystal_freq, *(uint32_t *)arg, 0);
+		else
+			rc = v4l2_subdev_call(g_server_dev.vfe_device[0], video,
+				s_crystal_freq, *(uint32_t *)arg, 0);
 		break;
 	case NOTIFY_CSIPHY_CFG:
 		rc = v4l2_subdev_call(g_server_dev.csiphy_device[csid_core],
@@ -2609,6 +2629,10 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 		if (index >= MAX_NUM_VPE_DEV)
 			return -EINVAL;
 		g_server_dev.vpe_device[index] = sd;
+	} else if (sdev_type == AXI_DEV) {
+		if (index >= MAX_NUM_AXI_DEV)
+			return -EINVAL;
+		g_server_dev.axi_device[index] = sd;
 	}
 
 	err = v4l2_device_register_subdev(&g_server_dev.v4l2_dev, sd);

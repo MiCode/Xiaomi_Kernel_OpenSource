@@ -35,6 +35,7 @@
 #include "msm_sensor.h"
 #include "msm_actuator.h"
 #include "msm_vpe.h"
+#include "msm_vfe32.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_mctl: " fmt, ##args)
@@ -362,6 +363,13 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			(void __user *)arg);
 		break;
 			/* ISFIF config*/
+	case MSM_CAM_IOCTL_AXI_CONFIG:
+		if (p_mctl->axi_sdev)
+			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
+				VIDIOC_MSM_AXI_CFG, (void __user *)arg);
+		else
+			rc = p_mctl->isp_sdev->isp_config(p_mctl, cmd, arg);
+		break;
 	default:
 		/* ISP config*/
 		D("%s:%d: go to default. Calling msm_isp_config\n",
@@ -596,12 +604,24 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		}
 
 		/* ISP first*/
-		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_open)
+		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_open) {
 			rc = p_mctl->isp_sdev->isp_open(
 				p_mctl->isp_sdev->sd, p_mctl);
-		if (rc < 0) {
-			pr_err("%s: isp init failed: %d\n", __func__, rc);
-			goto msm_open_done;
+			if (rc < 0) {
+				pr_err("%s: isp init failed: %d\n",
+					__func__, rc);
+				goto msm_open_done;
+			}
+		}
+
+		if (p_mctl->axi_sdev) {
+			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
+				VIDIOC_MSM_AXI_INIT, p_mctl);
+			if (rc < 0) {
+				pr_err("%s: vpe initialization failed %d\n",
+				__func__, rc);
+				goto msm_open_done;
+			}
 		}
 
 		if (camdev->is_vpe) {
@@ -664,6 +684,11 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	if (camdev->is_vpe) {
 		v4l2_subdev_call(p_mctl->vpe_sdev, core, ioctl,
 			VIDIOC_MSM_VPE_RELEASE, NULL);
+	}
+
+	if (p_mctl->axi_sdev) {
+		v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
+			VIDIOC_MSM_AXI_RELEASE, NULL);
 	}
 
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
