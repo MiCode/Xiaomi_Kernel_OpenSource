@@ -46,6 +46,7 @@ struct kgsl_pwrctrl {
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];
 	unsigned int active_pwrlevel;
 	int thermal_pwrlevel;
+	unsigned int default_pwrlevel;
 	unsigned int num_pwrlevels;
 	unsigned int interval_timeout;
 	bool strtstp_sleepwake;
