@@ -2111,9 +2111,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 		} else {
 			pr_debug("chg_work cancel");
 			cancel_delayed_work_sync(&motg->chg_work);
-			msm_otg_notify_charger(motg, 0);
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
 			motg->chg_type = USB_INVALID_CHARGER;
+			msm_otg_notify_charger(motg, 0);
 			msm_otg_reset(otg);
 			pm_runtime_put_noidle(otg->dev);
 			pm_runtime_suspend(otg->dev);
@@ -2152,11 +2152,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 				test_bit(ID_B, &motg->inputs) ||
 				!test_bit(B_SESS_VLD, &motg->inputs)) {
 			pr_debug("!id  || id_a/b || !b_sess_vld\n");
+			motg->chg_state = USB_CHG_STATE_UNDEFINED;
+			motg->chg_type = USB_INVALID_CHARGER;
 			msm_otg_notify_charger(motg, 0);
 			srp_reqd = otg->gadget->otg_srp_reqd;
 			msm_otg_start_peripheral(otg, 0);
-			motg->chg_state = USB_CHG_STATE_UNDEFINED;
-			motg->chg_type = USB_INVALID_CHARGER;
 			if (test_bit(ID_B, &motg->inputs))
 				clear_bit(ID_B, &motg->inputs);
 			clear_bit(B_BUS_REQ, &motg->inputs);
