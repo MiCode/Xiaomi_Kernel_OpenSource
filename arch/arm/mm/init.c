@@ -358,8 +358,6 @@ void __init find_membank0_hole(void)
 
 	membank0_size = meminfo.bank[0].size;
 	membank1_start = meminfo.bank[1].start;
-
-	pr_info("m0 size %lx m1 start %lx\n", membank0_size, membank1_start);
 }
 #endif
 
