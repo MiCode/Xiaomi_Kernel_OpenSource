@@ -454,33 +454,36 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
 		unsigned int gpuaddr, unsigned int dwords)
 {
-	int i = 0, ret;
+	int i, ret, rem = dwords;
 	unsigned int *src = (unsigned int *) adreno_convertaddr(device, ptbase,
 		gpuaddr, dwords << 2);
 
 	if (src == NULL)
 		return;
 
-	while (i < dwords) {
+	for (i = 0; rem != 0; rem--, i++) {
+		int pktsize;
+
+		if (!pkt_is_type0(src[i]) && !pkt_is_type3(src[i]))
+			continue;
+
+		pktsize = type3_pkt_size(src[i]);
+
+		if ((pktsize + 1) > rem)
+			break;
 
 		if (pkt_is_type3(src[i])) {
-			if ((dwords - i) < type3_pkt_size(src[i]) + 1)
-				goto skip;
-
 			if (adreno_cmd_is_ib(src[i]))
 				ib_add_gpu_object(device, ptbase,
 					src[i + 1], src[i + 2]);
 			else
 				ib_parse_type3(device, &src[i], ptbase);
-
-			i += type3_pkt_size(src[i]);
 		} else if (pkt_is_type0(src[i])) {
 			ib_parse_type0(device, &src[i], ptbase);
-			i += type0_pkt_size(src[i]);
 		}
 
-skip:
-		i++;
+		i += pktsize;
+		rem -= pktsize;
 	}
 
 	ret = kgsl_snapshot_get_object(device, ptbase, gpuaddr, dwords << 2,
@@ -571,7 +574,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	while (index != rb->wptr) {
 		index--;
 
-		if (index  < 0) {
+		if (index < 0) {
 			index = rb->sizedwords - 2;
 
 			/*
@@ -587,7 +590,8 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		}
 
 		/* Break if the current packet is a context switch identifier */
-		if (adreno_rb_ctxtswitch(&rbptr[index]))
+		if ((rbptr[index] == cp_nop_packet(1)) &&
+			(rbptr[index + 1] == KGSL_CONTEXT_TO_MEM_IDENTIFIER))
 			break;
 	}
 
