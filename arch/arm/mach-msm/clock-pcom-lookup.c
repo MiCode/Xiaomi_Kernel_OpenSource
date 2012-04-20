@@ -395,6 +395,7 @@ static struct clk_lookup msm_cmn_clk_7625a_7627a[] __initdata = {
 	CLK_LOOKUP("ebi1_acpu_clk",	ebi_acpu_clk.c,	NULL),
 	CLK_LOOKUP("bus_clk",		ebi_grp_3d_clk.c, "kgsl-3d0.0"),
 	CLK_LOOKUP("mem_clk",	ebi_lcdc_clk.c,	"lcdc.0"),
+	CLK_LOOKUP("mem_clk",	ebi_lcdc_clk.c,	"mipi_dsi.1"),
 	CLK_LOOKUP("mem_clk",	ebi_mddi_clk.c,	"mddi.0"),
 	CLK_LOOKUP("ebi1_vfe_clk",	ebi_vfe_clk.c,	NULL),
 	CLK_LOOKUP("mem_clk",		ebi_adm_clk.c,	"msm_dmov"),
