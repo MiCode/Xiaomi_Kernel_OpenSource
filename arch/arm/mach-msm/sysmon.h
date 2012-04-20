@@ -15,21 +15,24 @@
 #ifndef __MSM_SYSMON_H
 #define __MSM_SYSMON_H
 
+#include <mach/msm_smd.h>
 #include <mach/subsystem_notif.h>
 
 /**
  * enum subsys_id - Destination subsystems for events.
  */
 enum subsys_id {
-	SYSMON_SS_MODEM,
-	SYSMON_SS_LPASS,
-	SYSMON_SS_WCNSS,
-	SYSMON_SS_DSPS,
-	SYSMON_SS_Q6FW,
-	SYSMON_SS_EXT_MODEM,
+	/* SMD subsystems */
+	SYSMON_SS_MODEM     = SMD_APPS_MODEM,
+	SYSMON_SS_LPASS     = SMD_APPS_QDSP,
+	SYSMON_SS_WCNSS     = SMD_APPS_WCNSS,
+	SYSMON_SS_DSPS      = SMD_APPS_DSPS,
+	SYSMON_SS_Q6FW      = SMD_APPS_Q6FW,
+
+	/* Non-SMD subsystems */
+	SYSMON_SS_EXT_MODEM = SMD_NUM_TYPE,
 	SYSMON_NUM_SS
 };
-
 
 /**
  * sysmon_send_event() - Notify a subsystem of another's state change.
