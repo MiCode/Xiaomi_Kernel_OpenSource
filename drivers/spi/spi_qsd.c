@@ -1155,6 +1155,22 @@ static inline int combine_transfers(struct msm_spi *dd)
 	return xfrs_grped;
 }
 
+static inline void write_force_cs(struct msm_spi *dd, bool set_flag)
+{
+	u32 spi_ioc;
+	u32 spi_ioc_orig;
+
+	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
+	spi_ioc_orig = spi_ioc;
+	if (set_flag)
+		spi_ioc |= SPI_IO_C_FORCE_CS;
+	else
+		spi_ioc &= ~SPI_IO_C_FORCE_CS;
+
+	if (spi_ioc != spi_ioc_orig)
+		writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
+}
+
 static void msm_spi_process_message(struct msm_spi *dd)
 {
 	int xfrs_grped = 0;
@@ -1178,11 +1194,10 @@ static void msm_spi_process_message(struct msm_spi *dd)
 	}
 
 	if (dd->qup_ver) {
+		write_force_cs(dd, 0);
 		list_for_each_entry(dd->cur_transfer,
 				&dd->cur_msg->transfers,
 				transfer_list) {
-			u32 spi_ioc;
-			u32 spi_ioc_orig;
 			struct spi_transfer *t = dd->cur_transfer;
 			struct spi_transfer *nxt;
 
@@ -1191,18 +1206,10 @@ static void msm_spi_process_message(struct msm_spi *dd)
 						struct spi_transfer,
 						transfer_list);
 
-				spi_ioc = readl_relaxed(dd->base +
-							SPI_IO_CONTROL);
-				spi_ioc_orig = spi_ioc;
 				if (t->cs_change == nxt->cs_change)
-					spi_ioc |= SPI_IO_C_FORCE_CS;
+					write_force_cs(dd, 1);
 				else
-					spi_ioc &= ~SPI_IO_C_FORCE_CS;
-
-				if (spi_ioc != spi_ioc_orig) {
-					writel_relaxed(spi_ioc,
-						dd->base + SPI_IO_CONTROL);
-				}
+					write_force_cs(dd, 0);
 			}
 
 			dd->cur_msg_len = dd->cur_transfer->len;
