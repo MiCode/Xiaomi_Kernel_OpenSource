@@ -400,6 +400,9 @@ static int msm_otg_link_clk_reset(struct msm_otg *motg, bool assert)
 {
 	int ret;
 
+	if (IS_ERR(motg->clk))
+		return 0;
+
 	if (assert) {
 		ret = clk_reset(motg->clk, CLK_RESET_ASSERT);
 		if (ret)
@@ -525,7 +528,8 @@ static int msm_otg_reset(struct otg_transceiver *otg)
 			motg->reset_counter++;
 	}
 
-	clk_prepare_enable(motg->clk);
+	if (!IS_ERR(motg->clk))
+		clk_prepare_enable(motg->clk);
 	ret = msm_otg_phy_reset(motg);
 	if (ret) {
 		dev_err(otg->dev, "phy_reset failed\n");
@@ -545,7 +549,8 @@ static int msm_otg_reset(struct otg_transceiver *otg)
 	/* Ensure that RESET operation is completed before turning off clock */
 	mb();
 
-	clk_disable_unprepare(motg->clk);
+	if (!IS_ERR(motg->clk))
+		clk_disable_unprepare(motg->clk);
 
 	if (pdata->otg_control == OTG_PHY_CONTROL) {
 		val = readl_relaxed(USB_OTGSC);
@@ -3236,13 +3241,15 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (IS_ERR(motg->phy_reset_clk))
 		dev_err(&pdev->dev, "failed to get phy_clk\n");
 
+	/*
+	 * Targets on which link uses asynchronous reset methodology,
+	 * free running clock is not required during the reset.
+	 */
 	motg->clk = clk_get(&pdev->dev, "alt_core_clk");
-	if (IS_ERR(motg->clk)) {
-		dev_err(&pdev->dev, "failed to get alt_core_clk\n");
-		ret = PTR_ERR(motg->clk);
-		goto put_phy_reset_clk;
-	}
-	clk_set_rate(motg->clk, 60000000);
+	if (IS_ERR(motg->clk))
+		dev_dbg(&pdev->dev, "alt_core_clk is not present\n");
+	else
+		clk_set_rate(motg->clk, 60000000);
 
 	/* pm qos request to prevent apps idle power collapse */
 	if (motg->pdata->swfi_latency)
@@ -3464,8 +3471,8 @@ put_pclk:
 put_core_clk:
 	clk_put(motg->core_clk);
 put_clk:
-	clk_put(motg->clk);
-put_phy_reset_clk:
+	if (!IS_ERR(motg->clk))
+		clk_put(motg->clk);
 	if (!IS_ERR(motg->phy_reset_clk))
 		clk_put(motg->phy_reset_clk);
 free_motg:
@@ -3533,7 +3540,8 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	if (!IS_ERR(motg->phy_reset_clk))
 		clk_put(motg->phy_reset_clk);
 	clk_put(motg->pclk);
-	clk_put(motg->clk);
+	if (!IS_ERR(motg->clk))
+		clk_put(motg->clk);
 	clk_put(motg->core_clk);
 
 	if (motg->pdata->swfi_latency)
