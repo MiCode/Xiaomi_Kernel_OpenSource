@@ -43,6 +43,7 @@
 #define NUM_SMD_PKT_PORTS 15
 #endif
 
+#define PDRIVER_NAME_MAX_SIZE 32
 #define LOOPBACK_INX (NUM_SMD_PKT_PORTS - 1)
 
 #define DEVICE_NAME "smdpkt"
@@ -52,6 +53,7 @@ struct smd_pkt_dev {
 	struct cdev cdev;
 	struct device *devicep;
 	void *pil;
+	char pdriver_name[PDRIVER_NAME_MAX_SIZE];
 	struct platform_driver driver;
 
 	struct smd_channel *ch;
@@ -729,7 +731,10 @@ static int smd_pkt_dummy_probe(struct platform_device *pdev)
 	int i;
 
 	for (i = 0; i < NUM_SMD_PKT_PORTS; i++) {
-		if (!strncmp(pdev->name, smd_ch_name[i], SMD_MAX_CH_NAME_LEN)) {
+		if (smd_ch_edge[i] == pdev->id
+		    && !strncmp(pdev->name, smd_ch_name[i],
+				SMD_MAX_CH_NAME_LEN)
+		    && smd_pkt_devp[i]->driver.probe) {
 			complete_all(&smd_pkt_devp[i]->ch_allocated);
 			D_STATUS("%s allocated SMD ch for smd_pkt_dev id:%d\n",
 				 __func__, i);
@@ -772,8 +777,10 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 	if (smd_pkt_devp->ch == 0) {
 		init_completion(&smd_pkt_devp->ch_allocated);
 		smd_pkt_devp->driver.probe = smd_pkt_dummy_probe;
-		smd_pkt_devp->driver.driver.name =
-			smd_ch_name[smd_pkt_devp->i];
+		scnprintf(smd_pkt_devp->pdriver_name, PDRIVER_NAME_MAX_SIZE,
+			  "%s.%d", smd_ch_name[smd_pkt_devp->i],
+			  smd_ch_edge[smd_pkt_devp->i]);
+		smd_pkt_devp->driver.driver.name = smd_pkt_devp->pdriver_name;
 		smd_pkt_devp->driver.driver.owner = THIS_MODULE;
 		r = platform_driver_register(&smd_pkt_devp->driver);
 		if (r) {
@@ -870,8 +877,10 @@ release_pil:
 		pil_put(smd_pkt_devp->pil);
 
 release_pd:
-	if (r < 0)
+	if (r < 0) {
 		platform_driver_unregister(&smd_pkt_devp->driver);
+		smd_pkt_devp->driver.probe = NULL;
+	}
 out:
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
@@ -904,6 +913,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 		smd_pkt_devp->blocking_write = 0;
 		smd_pkt_devp->poll_mode = 0;
 		platform_driver_unregister(&smd_pkt_devp->driver);
+		smd_pkt_devp->driver.probe = NULL;
 		if (smd_pkt_devp->pil)
 			pil_put(smd_pkt_devp->pil);
 	}
