@@ -1978,6 +1978,9 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 				slc1 = ctrl->sched.chc1[coeff1];
 			}
 		}
+		/* Leave some slots for messaging space */
+		if (opensl1[1] == 0 && opensl1[0] == 0)
+			return -EXFULL;
 		if (opensl1[1] > opensl1[0]) {
 			int temp = opensl1[0];
 			opensl1[0] = opensl1[1];
@@ -2180,6 +2183,9 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 				slc1 = ctrl->sched.chc1[coeff1];
 			}
 		}
+		/* Leave some slots for messaging space */
+		if (opensl3[1] == 0 && opensl3[0] == 0)
+			return -EXFULL;
 		/* swap 1st and 2nd bucket if 2nd bucket has more open slots */
 		if (opensl3[1] > opensl3[0]) {
 			int temp = opensl3[0];
