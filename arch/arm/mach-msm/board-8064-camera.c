@@ -430,6 +430,19 @@ static struct msm_actuator_info msm_act_main_cam_0_info = {
 	.vcm_enable     = 0,
 };
 
+static struct i2c_board_info msm_act_main_cam1_i2c_info = {
+	I2C_BOARD_INFO("msm_actuator", 0x18),
+};
+
+static struct msm_actuator_info msm_act_main_cam_1_info = {
+	.board_info     = &msm_act_main_cam1_i2c_info,
+	.cam_name       = MSM_ACTUATOR_MAIN_CAM_1,
+	.bus_id         = APQ_8064_GSBI4_QUP_I2C_BUS_ID,
+	.vcm_pwd        = 0,
+	.vcm_enable     = 0,
+};
+
+
 static struct msm_camera_i2c_conf apq8064_front_cam_i2c_conf = {
 	.use_i2c_mux = 1,
 	.mux_dev = &msm8960_device_i2c_mux_gsbi4,
@@ -498,6 +511,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
+	.actuator_info = &msm_act_main_cam_1_info,
 };
 
 static struct camera_vreg_t apq_8064_s5k3l1yx_vreg[] = {

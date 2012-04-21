@@ -492,6 +492,18 @@ static struct msm_actuator_info msm_act_main_cam_0_info = {
 	.vcm_enable     = 0,
 };
 
+static struct i2c_board_info msm_act_main_cam1_i2c_info = {
+	I2C_BOARD_INFO("msm_actuator", 0x18),
+};
+
+static struct msm_actuator_info msm_act_main_cam_1_info = {
+	.board_info     = &msm_act_main_cam1_i2c_info,
+	.cam_name       = MSM_ACTUATOR_MAIN_CAM_1,
+	.bus_id         = MSM_8960_GSBI4_QUP_I2C_BUS_ID,
+	.vcm_pwd        = 0,
+	.vcm_enable     = 0,
+};
+
 static struct msm_camera_sensor_flash_data flash_imx074 = {
 	.flash_type	= MSM_CAMERA_FLASH_LED,
 #ifdef CONFIG_MSM_CAMERA_FLASH
@@ -654,6 +666,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {
 	.csi_if	= 1,
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
+	.actuator_info = &msm_act_main_cam_1_info,
 };
 
 static struct pm8xxx_mpp_config_data privacy_light_on_config = {
