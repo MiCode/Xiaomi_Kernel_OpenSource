@@ -110,13 +110,6 @@ struct kgsl_functable {
 		unsigned int sizebytes);
 };
 
-struct kgsl_memregion {
-	unsigned char *mmio_virt_base;
-	unsigned int mmio_phys_base;
-	uint32_t gpu_base;
-	unsigned int sizebytes;
-};
-
 /* MH register values */
 struct kgsl_mh {
 	unsigned int     mharb;
@@ -143,7 +136,9 @@ struct kgsl_device {
 	unsigned int ver_minor;
 	uint32_t flags;
 	enum kgsl_deviceid id;
-	struct kgsl_memregion regspace;
+	unsigned long reg_phys;
+	void *reg_virt;
+	unsigned int reg_len;
 	struct kgsl_memdesc memstore;
 	const char *iomemname;
 

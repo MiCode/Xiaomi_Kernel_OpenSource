@@ -62,7 +62,8 @@ struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	unsigned int chip_id;
 	enum adreno_gpurev gpurev;
-	struct kgsl_memregion gmemspace;
+	unsigned long gmem_base;
+	unsigned int gmem_size;
 	struct adreno_context *drawctxt_active;
 	const char *pfp_fwfile;
 	unsigned int *pfp_fw;

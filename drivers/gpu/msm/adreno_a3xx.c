@@ -2138,9 +2138,8 @@ static int a3xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 {
 	int result;
 
-	calc_gmemsize(&drawctxt->context_gmem_shadow,
-		adreno_dev->gmemspace.sizebytes);
-	tmp_ctx.gmem_base = adreno_dev->gmemspace.gpu_base;
+	calc_gmemsize(&drawctxt->context_gmem_shadow, adreno_dev->gmem_size);
+	tmp_ctx.gmem_base = adreno_dev->gmem_base;
 
 	result = kgsl_allocate(&drawctxt->context_gmem_shadow.gmemshadow,
 		drawctxt->pagetable, drawctxt->context_gmem_shadow.size);
