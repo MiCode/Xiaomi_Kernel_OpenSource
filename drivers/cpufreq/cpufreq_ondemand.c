@@ -412,8 +412,11 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 {
 	int input  = 0;
 	int bypass = 0;
-	int ret, cpu, reenable_timer;
+	int ret, cpu, reenable_timer, j;
 	struct cpu_dbs_info_s *dbs_info;
+
+	struct cpumask cpus_timer_done;
+	cpumask_clear(&cpus_timer_done);
 
 	ret = sscanf(buf, "%d", &input);
 
@@ -447,10 +450,23 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 					continue;
 
 				dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+
+				for_each_cpu(j, &cpus_timer_done) {
+					if (!dbs_info->cur_policy) {
+						pr_err("Dbs policy is NULL\n");
+						goto skip_this_cpu;
+					}
+					if (cpumask_test_cpu(j, dbs_info->
+							cur_policy->cpus))
+						goto skip_this_cpu;
+				}
+
+				cpumask_set_cpu(cpu, &cpus_timer_done);
 				if (dbs_info->cur_policy) {
 					/* restart dbs timer */
 					dbs_timer_init(dbs_info);
 				}
+skip_this_cpu:
 				unlock_policy_rwsem_write(cpu);
 			}
 		}
@@ -463,6 +479,19 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 				continue;
 
 			dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+
+			for_each_cpu(j, &cpus_timer_done) {
+				if (!dbs_info->cur_policy) {
+					pr_err("Dbs policy is NULL\n");
+					goto skip_this_cpu_bypass;
+				}
+				if (cpumask_test_cpu(j, dbs_info->
+							cur_policy->cpus))
+					goto skip_this_cpu_bypass;
+			}
+
+			cpumask_set_cpu(cpu, &cpus_timer_done);
+
 			if (dbs_info->cur_policy) {
 				/* cpu using ondemand, cancel dbs timer */
 				mutex_lock(&dbs_info->timer_mutex);
@@ -475,6 +504,7 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 
 				mutex_unlock(&dbs_info->timer_mutex);
 			}
+skip_this_cpu_bypass:
 			unlock_policy_rwsem_write(cpu);
 		}
 	}
