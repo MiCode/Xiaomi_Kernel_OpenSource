@@ -483,12 +483,18 @@ static struct clk_data gfx2d1_clks[] = {
 	{ 0 }
 };
 
-static struct clk_data gfx3d_clks[] = {
+static struct clk_data gfx3d_8660_clks[] = {
 	{ .name = "core_clk", .reset_rate = 27000000 },
 	{ .name = "iface_clk" },
 	{ 0 }
 };
 
+static struct clk_data gfx3d_8064_clks[] = {
+	{ .name = "core_clk", .reset_rate = 27000000 },
+	{ .name = "iface_clk" },
+	{ .name = "bus_clk" },
+	{ 0 }
+};
 
 static struct clk_data ijpeg_clks[] = {
 	{ .name = "core_clk" },
@@ -579,7 +585,7 @@ static struct footswitch footswitches[] = {
 		GFX2D1_GFS_CTL_REG, 31, gfx2d1_clks,
 		MSM_BUS_MASTER_GRAPHICS_2D_CORE1, 0),
 	FOOTSWITCH(FS_GFX3D, "fs_gfx3d", &standard_fs_ops,
-		GFX3D_GFS_CTL_REG, 31, gfx3d_clks,
+		GFX3D_GFS_CTL_REG, 31, gfx3d_8660_clks,
 		MSM_BUS_MASTER_GRAPHICS_3D, 0),
 	FOOTSWITCH(FS_IJPEG, "fs_ijpeg", &standard_fs_ops,
 		GEMINI_GFS_CTL_REG, 31, ijpeg_clks,
@@ -625,10 +631,13 @@ static int footswitch_probe(struct platform_device *pdev)
 	if (pdev->id == FS_MDP) {
 		if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_apq8064())
 			fs->clk_data = mdp_8960_clks;
-		else if (cpu_is_msm8x60())
-			fs->clk_data = mdp_8660_clks;
 		else
-			BUG();
+			fs->clk_data = mdp_8660_clks;
+	} else if (pdev->id == FS_GFX3D) {
+		if (cpu_is_msm8930() || cpu_is_apq8064())
+			fs->clk_data = gfx3d_8064_clks;
+		else
+			fs->clk_data = gfx3d_8660_clks;
 	}
 
 	for (clock = fs->clk_data; clock->name; clock++) {
