@@ -3036,9 +3036,6 @@ static void __init msm8960_rumi3_init(void)
 	msm8960_init_mmc();
 	register_i2c_devices();
 
-	/* For 8960 Fusion 2.2 Primary IPC */
-	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
-		msm_device_uart_dm9.dev.platform_data = &msm_uart_dm9_pdata;
 
 	msm8960_init_fb();
 	slim_register_board_info(msm_slim_devices,
@@ -3102,6 +3099,10 @@ static void __init msm8960_cdp_init(void)
 		platform_device_register(&msm8960_device_uart_gsbi8);
 	else
 		platform_device_register(&msm8960_device_uart_gsbi5);
+
+	/* For 8960 Fusion 2.2 Primary IPC */
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		msm_device_uart_dm9.dev.platform_data = &msm_uart_dm9_pdata;
 
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8960_pm8921_gpio_mpp_init();
