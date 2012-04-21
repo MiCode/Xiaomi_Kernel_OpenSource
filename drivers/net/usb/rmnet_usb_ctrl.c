@@ -453,19 +453,11 @@ static int rmnet_ctl_open(struct inode *inode, struct file *file)
 	if (dev->is_opened)
 		goto already_opened;
 
-ctrl_open:
-	if (!is_dev_connected(dev)) {
-		dev_dbg(dev->devicep, "%s: Device not connected\n",
-			__func__);
-		return -ENODEV;
-	}
-
 	/*block open to get first response available from mdm*/
 	if (dev->mdm_wait_timeout && !dev->resp_available) {
 		retval = wait_event_interruptible_timeout(
 					dev->open_wait_queue,
-					dev->resp_available ||
-					!is_dev_connected(dev),
+					dev->resp_available,
 					msecs_to_jiffies(dev->mdm_wait_timeout *
 									1000));
 		if (retval == 0) {
@@ -477,8 +469,6 @@ ctrl_open:
 						__func__, dev->name);
 			return retval;
 		}
-
-		goto ctrl_open;
 	}
 
 	if (!dev->resp_available) {
