@@ -248,13 +248,16 @@ memory_block_action(unsigned long phys_index, unsigned long action)
 	 */
 	if (action == MEM_ONLINE) {
 		for (i = 0; i < nr_pages; i++) {
-			if (PageReserved(first_page+i))
-				continue;
-
-			printk(KERN_WARNING "section number %ld page number %d "
-				"not reserved, was it already online?\n",
-				phys_index, i);
-			return -EBUSY;
+			if (page_is_ram(page_to_pfn(first_page+i))) {
+				if (PageReserved(first_page+i))
+					continue;
+					printk(KERN_WARNING
+						"section number %ld page number"
+						" %d not reserved, was it "
+						" already online?\n",
+						phys_index, i);
+					return -EBUSY;
+			}
 		}
 	}
 
