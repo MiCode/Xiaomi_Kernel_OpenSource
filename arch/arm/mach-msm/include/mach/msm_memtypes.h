@@ -55,10 +55,13 @@ struct memtype_reserve {
 struct reserve_info {
 	struct memtype_reserve *memtype_reserve_table;
 	void (*calculate_reserve_sizes)(void);
+	void (*reserve_fixed_area)(unsigned long);
 	int (*paddr_to_memtype)(unsigned int);
 	unsigned long low_unstable_address;
 	unsigned long max_unstable_size;
 	unsigned long bank_size;
+	unsigned long fixed_area_start;
+	unsigned long fixed_area_size;
 };
 
 extern struct reserve_info *reserve_info;

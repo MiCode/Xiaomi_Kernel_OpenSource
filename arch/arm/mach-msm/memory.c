@@ -372,8 +372,17 @@ static void __init initialize_mempools(void)
 
 void __init msm_reserve(void)
 {
+	unsigned long msm_fixed_area_size;
+	unsigned long msm_fixed_area_start;
+
 	memory_pool_init();
 	reserve_info->calculate_reserve_sizes();
+
+	msm_fixed_area_size = reserve_info->fixed_area_size;
+	msm_fixed_area_start = reserve_info->fixed_area_start;
+	if (msm_fixed_area_size)
+		reserve_info->low_unstable_address = msm_fixed_area_start;
+
 	calculate_reserve_limits();
 	adjust_reserve_sizes();
 	reserve_memory_for_mempools();
