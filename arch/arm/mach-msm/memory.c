@@ -317,6 +317,8 @@ static void __init reserve_memory_for_mempools(void)
 			if (size >= mt->size) {
 				size = stable_size(mb,
 					reserve_info->low_unstable_address);
+				if (!size)
+					continue;
 				/* mt->size may be larger than size, all this
 				 * means is that we are carving the memory pool
 				 * out of multiple contiguous memory banks.
@@ -370,6 +372,8 @@ static void __init initialize_mempools(void)
 	}
 }
 
+#define  MAX_FIXED_AREA_SIZE 0x11000000
+
 void __init msm_reserve(void)
 {
 	unsigned long msm_fixed_area_size;
@@ -381,7 +385,10 @@ void __init msm_reserve(void)
 	msm_fixed_area_size = reserve_info->fixed_area_size;
 	msm_fixed_area_start = reserve_info->fixed_area_start;
 	if (msm_fixed_area_size)
-		reserve_info->low_unstable_address = msm_fixed_area_start;
+		if (msm_fixed_area_start > reserve_info->low_unstable_address
+			- MAX_FIXED_AREA_SIZE)
+			reserve_info->low_unstable_address =
+			msm_fixed_area_start;
 
 	calculate_reserve_limits();
 	adjust_reserve_sizes();

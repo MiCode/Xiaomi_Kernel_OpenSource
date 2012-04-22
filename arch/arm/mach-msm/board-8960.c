@@ -161,9 +161,9 @@ struct sx150x_platform_data msm8960_sx150x_data[] = {
 #define MSM_LIQUID_ION_SF_SIZE MSM_LIQUID_PMEM_SIZE
 #define MSM_HDMI_PRIM_ION_SF_SIZE MSM_HDMI_PRIM_PMEM_SIZE
 
-#define MSM8960_FIXED_AREA_START 0xb0000000
+#define MSM8960_FIXED_AREA_START 0xa0000000
 #define MAX_FIXED_AREA_SIZE	0x10000000
-#define MSM_MM_FW_SIZE		0x280000
+#define MSM_MM_FW_SIZE		0x200000
 #define MSM8960_FW_START	(MSM8960_FIXED_AREA_START - MSM_MM_FW_SIZE)
 
 static unsigned msm_ion_sf_size = MSM_ION_SF_SIZE;
@@ -639,7 +639,12 @@ static void __init reserve_ion_memory(void)
 		fmem_pdata.reserved_size_high = fixed_high_size;
 	}
 
-	msm8960_reserve_fixed_area(fixed_size + MSM_MM_FW_SIZE);
+	/* Since the fixed area may be carved out of lowmem,
+	 * make sure the length is a multiple of 1M.
+	 */
+	fixed_size = (fixed_size + MSM_MM_FW_SIZE + SECTION_SIZE - 1)
+		& SECTION_MASK;
+	msm8960_reserve_fixed_area(fixed_size);
 
 	fixed_low_start = MSM8960_FIXED_AREA_START;
 	fixed_middle_start = fixed_low_start + fixed_low_size;
@@ -762,6 +767,8 @@ static void __init locate_unstable_memory(void)
 	unsigned long low, high;
 
 	bank_size = msm8960_memory_bank_size();
+	msm8960_reserve_info.bank_size = bank_size;
+
 	low = meminfo.bank[0].start;
 	high = mb->start + mb->size;
 
@@ -769,12 +776,14 @@ static void __init locate_unstable_memory(void)
 	if (high < mb->start)
 		high = ~0UL;
 
+	if (high < MAX_FIXED_AREA_SIZE + MSM8960_FIXED_AREA_START)
+		panic("fixed area extends beyond end of memory\n");
+
 	low &= ~(bank_size - 1);
 
 	if (high - low <= bank_size)
-		return;
+		goto no_dmm;
 
-	msm8960_reserve_info.bank_size = bank_size;
 #ifdef CONFIG_ENABLE_DMM
 	msm8960_reserve_info.low_unstable_address = mb->start -
 					MIN_MEMORY_BLOCK_SIZE + mb->size;
@@ -783,10 +792,11 @@ static void __init locate_unstable_memory(void)
 		msm8960_reserve_info.low_unstable_address,
 		msm8960_reserve_info.max_unstable_size,
 		msm8960_reserve_info.bank_size);
-#else
-	msm8960_reserve_info.low_unstable_address = 0;
-	msm8960_reserve_info.max_unstable_size = 0;
+	return;
 #endif
+no_dmm:
+	msm8960_reserve_info.low_unstable_address = high;
+	msm8960_reserve_info.max_unstable_size = 0;
 }
 
 static void __init place_movable_zone(void)
