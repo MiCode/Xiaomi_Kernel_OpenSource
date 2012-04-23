@@ -29,6 +29,7 @@ struct ocmem_partition {
 	unsigned long p_start;
 	unsigned long p_size;
 	unsigned long p_min;
+	unsigned int p_tail;
 };
 
 struct ocmem_plat_data {
@@ -70,19 +71,20 @@ struct ocmem_quota_table {
 	unsigned long start;
 	unsigned long size;
 	unsigned long min;
+	unsigned int tail;
 };
 
 /* This static table will go away with device tree support */
 static struct ocmem_quota_table qt[OCMEM_CLIENT_MAX] = {
-	/* name,	id,	start,	size,	min */
-	{ "graphics", OCMEM_GRAPHICS, 0x0, 0x100000, 0x80000},
-	{ "video", OCMEM_VIDEO, 0x100000, 0x80000, 0x55000},
-	{ "camera", OCMEM_CAMERA, 0x0, 0x0, 0x0},
-	{ "voice", OCMEM_VOICE,  0x0, 0x0, 0x0 },
-	{ "hp_audio", OCMEM_HP_AUDIO, 0x0, 0x0, 0x0},
-	{ "lp_audio", OCMEM_LP_AUDIO, 0x80000, 0xA0000, 0xA0000},
-	{ "blast", OCMEM_BLAST, 0x120000, 0x20000, 0x20000},
-	{ "sensors", OCMEM_SENSORS, 0x140000, 0x40000, 0x40000},
+	/* name,        id,     start,  size,   min, tail */
+	{ "graphics", OCMEM_GRAPHICS, 0x0, 0x100000, 0x80000, 0},
+	{ "video", OCMEM_VIDEO, 0x100000, 0x80000, 0x55000, 1},
+	{ "camera", OCMEM_CAMERA, 0x0, 0x0, 0x0, 0},
+	{ "voice", OCMEM_VOICE,  0x0, 0x0, 0x0, 0 },
+	{ "hp_audio", OCMEM_HP_AUDIO, 0x0, 0x0, 0x0, 0},
+	{ "lp_audio", OCMEM_LP_AUDIO, 0x80000, 0xA0000, 0xA0000, 0},
+	{ "blast", OCMEM_BLAST, 0x120000, 0x20000, 0x20000, 0},
+	{ "sensors", OCMEM_SENSORS, 0x140000, 0x40000, 0x40000, 0},
 };
 
 static inline int get_id(const char *name)
@@ -142,6 +144,7 @@ static struct ocmem_plat_data *parse_static_config(struct platform_device *pdev)
 		parts[j].p_size = qt[i].size;
 		parts[j].p_start = qt[i].start;
 		parts[j].p_min = qt[i].min;
+		parts[j].p_tail = qt[i].tail;
 		j++;
 	}
 	BUG_ON(j != nr_parts);
@@ -225,8 +228,13 @@ static int ocmem_zone_init(struct platform_device *pdev)
 		zone->max_regions = 0;
 		INIT_LIST_HEAD(&zone->region_list);
 		zone->z_ops = z_ops;
-		z_ops->allocate = allocate_head;
-		z_ops->free = free_head;
+		if (part->p_tail) {
+			z_ops->allocate = allocate_tail;
+			z_ops->free = free_tail;
+		} else {
+			z_ops->allocate = allocate_head;
+			z_ops->free = free_head;
+		}
 		active_zones++;
 
 		if (active_zones == 1)
