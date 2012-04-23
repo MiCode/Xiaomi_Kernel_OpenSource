@@ -496,7 +496,7 @@ int subsystem_restart(const char *subsys_name)
 		wake_lock(&data->ssr_wake_lock);
 
 		INIT_WORK(&data->work, subsystem_restart_wq_func);
-		rc = schedule_work(&data->work);
+		rc = queue_work(ssr_wq, &data->work);
 
 		if (rc < 0)
 			panic("%s: Unable to schedule work to restart %s",
