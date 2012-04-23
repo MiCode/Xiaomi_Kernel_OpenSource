@@ -90,6 +90,20 @@
 #define VERSION_KEY_MASK 0xFFFFFF00
 #define MAX_DOWNSCALE_RATIO 3
 
+#define ROTATOR_REVISION_V0		0
+#define ROTATOR_REVISION_V1		1
+#define ROTATOR_REVISION_V2		2
+#define ROTATOR_REVISION_NONE	0xffffffff
+
+uint32_t rotator_hw_revision;
+
+/*
+ * rotator_hw_revision:
+ * 0 == 7x30
+ * 1 == 8x60
+ * 2 == 8960
+ *
+ */
 struct tile_parm {
 	unsigned int width;  /* tile's width */
 	unsigned int height; /* tile's height */
@@ -527,8 +541,9 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 		return -EINVAL;
 
 	/* rotator expects YCbCr for planar input format */
-	if (info->src.format == MDP_Y_CR_CB_H2V2 ||
-	    info->src.format == MDP_Y_CR_CB_GH2V2)
+	if ((info->src.format == MDP_Y_CR_CB_H2V2 ||
+	    info->src.format == MDP_Y_CR_CB_GH2V2) &&
+	    rotator_hw_revision < ROTATOR_REVISION_V2)
 		swap(in_chroma_paddr, in_chroma2_paddr);
 
 	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
@@ -1217,38 +1232,25 @@ static int msm_rotator_start(unsigned long arg,
 	case MDP_RGBX_8888:
 	case MDP_BGRA_8888:
 		is_rgb = 1;
+		info.dst.format = info.src.format;
 		break;
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CRCB_H2V2:
+	case MDP_Y_CBCR_H2V1:
+	case MDP_Y_CRCB_H2V1:
+		info.dst.format = info.src.format;
+		break;
+	case MDP_YCRYCB_H2V1:
+		info.dst.format = MDP_Y_CRCB_H2V1;
+		break;
 	case MDP_Y_CB_CR_H2V2:
+	case MDP_Y_CBCR_H2V2_TILE:
+		info.dst.format = MDP_Y_CBCR_H2V2;
+		break;
 	case MDP_Y_CR_CB_H2V2:
 	case MDP_Y_CR_CB_GH2V2:
-	case MDP_Y_CBCR_H2V1:
-	case MDP_Y_CRCB_H2V1:
-	case MDP_YCRYCB_H2V1:
 	case MDP_Y_CRCB_H2V2_TILE:
-	case MDP_Y_CBCR_H2V2_TILE:
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	switch (info.dst.format) {
-	case MDP_RGB_565:
-	case MDP_BGR_565:
-	case MDP_RGB_888:
-	case MDP_ARGB_8888:
-	case MDP_RGBA_8888:
-	case MDP_XRGB_8888:
-	case MDP_RGBX_8888:
-	case MDP_BGRA_8888:
-	case MDP_Y_CBCR_H2V2:
-	case MDP_Y_CRCB_H2V2:
-	case MDP_Y_CB_CR_H2V2:
-	case MDP_Y_CR_CB_H2V2:
-	case MDP_Y_CBCR_H2V1:
-	case MDP_Y_CRCB_H2V1:
-	case MDP_YCRYCB_H2V1:
+		info.dst.format = MDP_Y_CRCB_H2V2;
 		break;
 	default:
 		return -EINVAL;
@@ -1590,8 +1592,15 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 		clk_disable_unprepare(msm_rotator_dev->imem_clk);
 #endif
 	if (ver != pdata->hardware_version_number)
-		pr_info("%s: invalid HW version ver 0x%x\n",
+		pr_debug("%s: invalid HW version ver 0x%x\n",
 			DRIVER_NAME, ver);
+
+	rotator_hw_revision = ver;
+	rotator_hw_revision >>= 16;     /* bit 31:16 */
+	rotator_hw_revision &= 0xff;
+
+	pr_info("%s: rotator_hw_revision=%x\n",
+		__func__, rotator_hw_revision);
 
 	msm_rotator_dev->irq = platform_get_irq(pdev, 0);
 	if (msm_rotator_dev->irq < 0) {
