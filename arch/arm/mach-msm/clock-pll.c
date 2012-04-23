@@ -75,7 +75,7 @@ int pll_vote_clk_enable(struct clk *clk)
 
 	/* Wait for pll to enable. */
 	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
-		if (readl_relaxed(pll->status_reg) & pll->status_mask)
+		if (readl_relaxed(PLL_STATUS_REG(pll)) & pll->status_mask)
 			return 0;
 		udelay(1);
 	}
@@ -224,6 +224,57 @@ int sr_pll_clk_enable(struct clk *clk)
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 
 	return 0;
+}
+
+#define PLL_LOCKED_BIT BIT(16)
+
+int copper_pll_clk_enable(struct clk *clk)
+{
+	unsigned long flags;
+	struct pll_clk *pll = to_pll_clk(clk);
+	u32 count, mode;
+	int ret = 0;
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+	mode = readl_relaxed(PLL_MODE_REG(pll));
+	/* Disable PLL bypass mode. */
+	mode |= BIT(1);
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/*
+	 * H/W requires a 5us delay between disabling the bypass and
+	 * de-asserting the reset. Delay 10us just to be safe.
+	 */
+	mb();
+	udelay(10);
+
+	/* De-assert active-low PLL reset. */
+	mode |= BIT(2);
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/* Wait for pll to enable. */
+	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
+		if (readl_relaxed(PLL_STATUS_REG(pll)) & PLL_LOCKED_BIT)
+			break;
+		udelay(1);
+	}
+
+	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & PLL_LOCKED_BIT)) {
+		WARN("PLL %s didn't lock after enabling it!\n", clk->dbg_name);
+		ret = -ETIMEDOUT;
+		goto out;
+	}
+
+	/* Enable PLL output. */
+	mode |= BIT(0);
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/* Ensure the write above goes through before returning. */
+	mb();
+
+out:
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+	return ret;
 }
 
 struct clk_ops clk_ops_local_pll = {
