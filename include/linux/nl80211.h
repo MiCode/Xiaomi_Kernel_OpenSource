@@ -1031,6 +1031,42 @@ enum nl80211_commands {
  *	%NL80211_CMD_SET_BEACON to provide extra IEs (e.g., WPS/P2P IE) into
  *	(Re)Association Response frames when the driver (or firmware) replies to
  *	(Re)Association Request frames.
+ * @NL80211_ATTR_STA_WME: Nested attribute containing the wme configuration
+ *      of the station, see &enum nl80211_sta_wme_attr.
+ * @NL80211_ATTR_SUPPORT_AP_UAPSD: the device supports uapsd when working
+ *      as AP.
+ *
+ * @NL80211_ATTR_ROAM_SUPPORT: Indicates whether the firmware is capable of
+ *      roaming to another AP in the same ESS if the signal lever is low.
+ *
+ * @NL80211_ATTR_PMKSA_CANDIDATE: Nested attribute containing the PMKSA caching
+ *      candidate information, see &enum nl80211_pmksa_candidate_attr.
+ *
+ * @NL80211_ATTR_TX_NO_CCK_RATE: Indicates whether to use CCK rate or not
+ *      for management frames transmission. In order to avoid p2p probe/action
+ *      frames are being transmitted at CCK rate in 2GHz band, the user space
+ *      applications use this attribute.
+ *      This attribute is used with %NL80211_CMD_TRIGGER_SCAN and
+ *      %NL80211_CMD_FRAME commands.
+ *
+ * @NL80211_ATTR_TDLS_ACTION: Low level TDLS action code (e.g. link setup
+ *      request, link setup confirm, link teardown, etc.). Values are
+ *      described in the TDLS (802.11z) specification.
+ * @NL80211_ATTR_TDLS_DIALOG_TOKEN: Non-zero token for uniquely identifying a
+ *      TDLS conversation between two devices.
+ * @NL80211_ATTR_TDLS_OPERATION: High level TDLS operation; see
+ *      &enum nl80211_tdls_operation, represented as a u8.
+ * @NL80211_ATTR_TDLS_SUPPORT: A flag indicating the device can operate
+ *      as a TDLS peer sta.
+ * @NL80211_ATTR_TDLS_EXTERNAL_SETUP: The TDLS discovery/setup and teardown
+ *      procedures should be performed by sending TDLS packets via
+ *      %NL80211_CMD_TDLS_MGMT. Otherwise %NL80211_CMD_TDLS_OPER should be
+ *      used for asking the driver to perform a TDLS operation.
+ *
+ * @NL80211_ATTR_DEVICE_AP_SME: This u32 attribute may be listed for devices
+ *      that have AP support to indicate that they have the AP SME integrated
+ *      with support for the features listed in this attribute, see
+ *      &enum nl80211_ap_sme_features.
  *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -1253,6 +1289,13 @@ enum nl80211_attrs {
 	NL80211_ATTR_PMKSA_CANDIDATE,
 
 	NL80211_ATTR_TX_NO_CCK_RATE,
+
+	NL80211_ATTR_TDLS_ACTION,
+	NL80211_ATTR_TDLS_DIALOG_TOKEN,
+	NL80211_ATTR_TDLS_OPERATION,
+	NL80211_ATTR_TDLS_SUPPORT,
+	NL80211_ATTR_TDLS_EXTERNAL_SETUP,
+	NL80211_ATTR_DEVICE_AP_SME,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -2435,5 +2478,13 @@ enum nl80211_hidden_ssid {
 	NL80211_HIDDEN_SSID_ZERO_LEN,
 	NL80211_HIDDEN_SSID_ZERO_CONTENTS
 };
+
+/*
+ * enum nl80211_ap_sme_features - device-integrated AP features
+ * Reserved for future use, no bits are defined in
+ * NL80211_ATTR_DEVICE_AP_SME yet.
+enum nl80211_ap_sme_features {
+};
+ */
 
 #endif /* __LINUX_NL80211_H */
