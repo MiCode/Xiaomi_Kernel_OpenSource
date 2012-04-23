@@ -1378,7 +1378,7 @@ static const u8 mxt_config_data_8930[] = {
 	/* T6 Object */
 	 0, 0, 0, 0, 0, 0,
 	/* T38 Object */
-	 15, 1, 0, 15, 12, 11, 0, 0,
+	 15, 2, 0, 15, 12, 11, 0, 0,
 	/* T7 Object */
 	 48, 255, 25,
 	/* T8 Object */
