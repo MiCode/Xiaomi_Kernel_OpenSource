@@ -273,6 +273,9 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 	if (ocmem_zone_init(pdev))
 		return -EBUSY;
 
+	if (ocmem_notifier_init())
+		return -EBUSY;
+
 	dev_info(dev, "initialized successfully\n");
 	return 0;
 }
