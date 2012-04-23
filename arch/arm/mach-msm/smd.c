@@ -138,6 +138,7 @@ static irqreturn_t smd_dsps_irq_handler(int irq, void *data);
 static irqreturn_t smsm_dsps_irq_handler(int irq, void *data);
 static irqreturn_t smd_wcnss_irq_handler(int irq, void *data);
 static irqreturn_t smsm_wcnss_irq_handler(int irq, void *data);
+static irqreturn_t smd_rpm_irq_handler(int irq, void *data);
 static irqreturn_t smsm_irq_handler(int irq, void *data);
 
 static struct interrupt_config private_intr_config[NUM_SMD_SUBSYSTEMS] = {
@@ -156,6 +157,10 @@ static struct interrupt_config private_intr_config[NUM_SMD_SUBSYSTEMS] = {
 	[SMD_WCNSS] = {
 		.smd.irq_handler = smd_wcnss_irq_handler,
 		.smsm.irq_handler = smsm_wcnss_irq_handler,
+	},
+	[SMD_RPM] = {
+		.smd.irq_handler = smd_rpm_irq_handler,
+		.smsm.irq_handler = NULL, /* does not support smsm */
 	},
 };
 struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
@@ -430,6 +435,18 @@ static inline void notify_wcnss_smd(void)
 	}
 }
 
+static inline void notify_rpm_smd(void)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_RPM].smd;
+
+	if (intr->out_base) {
+		++interrupt_stats[SMD_RPM].smd_out_config_count;
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	}
+}
+
 static inline void notify_modem_smsm(void)
 {
 	static const struct interrupt_config_item *intr
@@ -608,9 +625,14 @@ struct smd_shared_v2 {
 	struct smd_half_channel ch1;
 };
 
+struct smd_shared_v2_word_access {
+	struct smd_half_channel_word_access ch0;
+	struct smd_half_channel_word_access ch1;
+};
+
 struct smd_channel {
-	volatile struct smd_half_channel *send;
-	volatile struct smd_half_channel *recv;
+	volatile void *send; /* some variant of smd_half_channel */
+	volatile void *recv; /* some variant of smd_half_channel */
 	unsigned char *send_data;
 	unsigned char *recv_data;
 	unsigned fifo_size;
@@ -641,6 +663,12 @@ struct smd_channel {
 	int pending_pkt_sz;
 
 	char is_pkt_ch;
+
+	/*
+	 * private internal functions to access *send and *recv.
+	 * never to be exported outside of smd
+	 */
+	struct smd_half_channel_access *half_ch;
 };
 
 struct edge_to_pid {
@@ -668,6 +696,10 @@ static struct edge_to_pid edge_to_pids[] = {
 	[SMD_QDSP_Q6FW] = {SMD_Q6, SMD_MODEM_Q6_FW},
 	[SMD_DSPS_Q6FW] = {SMD_DSPS, SMD_MODEM_Q6_FW},
 	[SMD_WCNSS_Q6FW] = {SMD_WCNSS, SMD_MODEM_Q6_FW},
+	[SMD_APPS_RPM] = {SMD_APPS, SMD_RPM},
+	[SMD_MODEM_RPM] = {SMD_MODEM, SMD_RPM},
+	[SMD_QDSP_RPM] = {SMD_Q6, SMD_RPM},
+	[SMD_WCNSS_RPM] = {SMD_WCNSS, SMD_RPM},
 };
 
 struct restart_notifier_block {
@@ -686,6 +718,7 @@ static LIST_HEAD(smd_ch_list_modem);
 static LIST_HEAD(smd_ch_list_dsp);
 static LIST_HEAD(smd_ch_list_dsps);
 static LIST_HEAD(smd_ch_list_wcnss);
+static LIST_HEAD(smd_ch_list_rpm);
 
 static unsigned char smd_ch_allocated[64];
 static struct work_struct probe_work;
@@ -721,8 +754,8 @@ static void smd_channel_probe_worker(struct work_struct *work)
 		/* channel should be allocated only if APPS
 		   processor is involved */
 		type = SMD_CHANNEL_TYPE(shared[n].type);
-		if ((type != SMD_APPS_MODEM) && (type != SMD_APPS_QDSP) &&
-		    (type != SMD_APPS_DSPS) && (type != SMD_APPS_WCNSS))
+		if (type >= ARRAY_SIZE(edge_to_pids) ||
+				edge_to_pids[type].local_pid != SMD_APPS)
 			continue;
 		if (!shared[n].ref_count)
 			continue;
@@ -941,14 +974,15 @@ void smd_channel_reset(uint32_t restart_pid)
 /* how many bytes are available for reading */
 static int smd_stream_read_avail(struct smd_channel *ch)
 {
-	return (ch->recv->head - ch->recv->tail) & ch->fifo_mask;
+	return (ch->half_ch->get_head(ch->recv) -
+			ch->half_ch->get_tail(ch->recv)) & ch->fifo_mask;
 }
 
 /* how many bytes we are free to write */
 static int smd_stream_write_avail(struct smd_channel *ch)
 {
-	return ch->fifo_mask -
-		((ch->send->head - ch->send->tail) & ch->fifo_mask);
+	return ch->fifo_mask - ((ch->half_ch->get_head(ch->send) -
+			ch->half_ch->get_tail(ch->send)) & ch->fifo_mask);
 }
 
 static int smd_packet_read_avail(struct smd_channel *ch)
@@ -971,16 +1005,16 @@ static int smd_packet_write_avail(struct smd_channel *ch)
 
 static int ch_is_open(struct smd_channel *ch)
 {
-	return (ch->recv->state == SMD_SS_OPENED ||
-		ch->recv->state == SMD_SS_FLUSHING)
-		&& (ch->send->state == SMD_SS_OPENED);
+	return (ch->half_ch->get_state(ch->recv) == SMD_SS_OPENED ||
+		ch->half_ch->get_state(ch->recv) == SMD_SS_FLUSHING)
+		&& (ch->half_ch->get_state(ch->send) == SMD_SS_OPENED);
 }
 
 /* provide a pointer and length to readable data in the fifo */
 static unsigned ch_read_buffer(struct smd_channel *ch, void **ptr)
 {
-	unsigned head = ch->recv->head;
-	unsigned tail = ch->recv->tail;
+	unsigned head = ch->half_ch->get_head(ch->recv);
+	unsigned tail = ch->half_ch->get_tail(ch->recv);
 	*ptr = (void *) (ch->recv_data + tail);
 
 	if (tail <= head)
@@ -991,16 +1025,17 @@ static unsigned ch_read_buffer(struct smd_channel *ch, void **ptr)
 
 static int read_intr_blocked(struct smd_channel *ch)
 {
-	return ch->recv->fBLOCKREADINTR;
+	return ch->half_ch->get_fBLOCKREADINTR(ch->recv);
 }
 
 /* advance the fifo read pointer after data from ch_read_buffer is consumed */
 static void ch_read_done(struct smd_channel *ch, unsigned count)
 {
 	BUG_ON(count > smd_stream_read_avail(ch));
-	ch->recv->tail = (ch->recv->tail + count) & ch->fifo_mask;
+	ch->half_ch->set_tail(ch->recv,
+		(ch->half_ch->get_tail(ch->recv) + count) & ch->fifo_mask);
 	wmb();
-	ch->send->fTAIL = 1;
+	ch->half_ch->set_fTAIL(ch->send,  1);
 }
 
 /* basic read interface to ch_read_{buffer,done} used
@@ -1072,8 +1107,8 @@ static void update_packet_state(struct smd_channel *ch)
 /* provide a pointer and length to next free space in the fifo */
 static unsigned ch_write_buffer(struct smd_channel *ch, void **ptr)
 {
-	unsigned head = ch->send->head;
-	unsigned tail = ch->send->tail;
+	unsigned head = ch->half_ch->get_head(ch->send);
+	unsigned tail = ch->half_ch->get_tail(ch->send);
 	*ptr = (void *) (ch->send_data + head);
 
 	if (head < tail) {
@@ -1092,24 +1127,25 @@ static unsigned ch_write_buffer(struct smd_channel *ch, void **ptr)
 static void ch_write_done(struct smd_channel *ch, unsigned count)
 {
 	BUG_ON(count > smd_stream_write_avail(ch));
-	ch->send->head = (ch->send->head + count) & ch->fifo_mask;
+	ch->half_ch->set_head(ch->send,
+		(ch->half_ch->get_head(ch->send) + count) & ch->fifo_mask);
 	wmb();
-	ch->send->fHEAD = 1;
+	ch->half_ch->set_fHEAD(ch->send, 1);
 }
 
 static void ch_set_state(struct smd_channel *ch, unsigned n)
 {
 	if (n == SMD_SS_OPENED) {
-		ch->send->fDSR = 1;
-		ch->send->fCTS = 1;
-		ch->send->fCD = 1;
+		ch->half_ch->set_fDSR(ch->send, 1);
+		ch->half_ch->set_fCTS(ch->send, 1);
+		ch->half_ch->set_fCD(ch->send, 1);
 	} else {
-		ch->send->fDSR = 0;
-		ch->send->fCTS = 0;
-		ch->send->fCD = 0;
+		ch->half_ch->set_fDSR(ch->send, 0);
+		ch->half_ch->set_fCTS(ch->send, 0);
+		ch->half_ch->set_fCD(ch->send, 0);
 	}
-	ch->send->state = n;
-	ch->send->fSTATE = 1;
+	ch->half_ch->set_state(ch->send, n);
+	ch->half_ch->set_fSTATE(ch->send, 1);
 	ch->notify_other_cpu();
 }
 
@@ -1131,16 +1167,16 @@ static void smd_state_change(struct smd_channel *ch,
 
 	switch (next) {
 	case SMD_SS_OPENING:
-		if (ch->send->state == SMD_SS_CLOSING ||
-		    ch->send->state == SMD_SS_CLOSED) {
-			ch->recv->tail = 0;
-			ch->send->head = 0;
-			ch->send->fBLOCKREADINTR = 0;
+		if (ch->half_ch->get_state(ch->send) == SMD_SS_CLOSING ||
+		    ch->half_ch->get_state(ch->send) == SMD_SS_CLOSED) {
+			ch->half_ch->set_tail(ch->recv, 0);
+			ch->half_ch->set_head(ch->send, 0);
+			ch->half_ch->set_fBLOCKREADINTR(ch->send, 0);
 			ch_set_state(ch, SMD_SS_OPENING);
 		}
 		break;
 	case SMD_SS_OPENED:
-		if (ch->send->state == SMD_SS_OPENING) {
+		if (ch->half_ch->get_state(ch->send) == SMD_SS_OPENING) {
 			ch_set_state(ch, SMD_SS_OPENED);
 			ch->notify(ch->priv, SMD_EVENT_OPEN);
 		}
@@ -1150,7 +1186,7 @@ static void smd_state_change(struct smd_channel *ch,
 		/* we should force them to close? */
 		break;
 	case SMD_SS_CLOSED:
-		if (ch->send->state == SMD_SS_OPENED) {
+		if (ch->half_ch->get_state(ch->send) == SMD_SS_OPENED) {
 			ch_set_state(ch, SMD_SS_CLOSING);
 			ch->current_packet = 0;
 			ch->pending_pkt_sz = 0;
@@ -1158,7 +1194,7 @@ static void smd_state_change(struct smd_channel *ch,
 		}
 		break;
 	case SMD_SS_CLOSING:
-		if (ch->send->state == SMD_SS_CLOSED) {
+		if (ch->half_ch->get_state(ch->send) == SMD_SS_CLOSED) {
 			list_move(&ch->ch_list,
 					&smd_ch_to_close_list);
 			queue_work(channel_close_wq,
@@ -1177,9 +1213,9 @@ static void handle_smd_irq_closing_list(void)
 
 	spin_lock_irqsave(&smd_lock, flags);
 	list_for_each_entry_safe(ch, index, &smd_ch_closing_list, ch_list) {
-		if (ch->recv->fSTATE)
-			ch->recv->fSTATE = 0;
-		tmp = ch->recv->state;
+		if (ch->half_ch->get_fSTATE(ch->recv))
+			ch->half_ch->set_fSTATE(ch->recv, 0);
+		tmp = ch->half_ch->get_state(ch->recv);
 		if (tmp != ch->last_state)
 			smd_state_change(ch, ch->last_state, tmp);
 	}
@@ -1199,20 +1235,20 @@ static void handle_smd_irq(struct list_head *list, void (*notify)(void))
 		state_change = 0;
 		ch_flags = 0;
 		if (ch_is_open(ch)) {
-			if (ch->recv->fHEAD) {
-				ch->recv->fHEAD = 0;
+			if (ch->half_ch->get_fHEAD(ch->recv)) {
+				ch->half_ch->set_fHEAD(ch->recv, 0);
 				ch_flags |= 1;
 			}
-			if (ch->recv->fTAIL) {
-				ch->recv->fTAIL = 0;
+			if (ch->half_ch->get_fTAIL(ch->recv)) {
+				ch->half_ch->set_fTAIL(ch->recv, 0);
 				ch_flags |= 2;
 			}
-			if (ch->recv->fSTATE) {
-				ch->recv->fSTATE = 0;
+			if (ch->half_ch->get_fSTATE(ch->recv)) {
+				ch->half_ch->set_fSTATE(ch->recv, 0);
 				ch_flags |= 4;
 			}
 		}
-		tmp = ch->recv->state;
+		tmp = ch->half_ch->get_state(ch->recv);
 		if (tmp != ch->last_state) {
 			SMx_POWER_INFO("SMD ch%d '%s' State change %d->%d\n",
 					ch->n, ch->name, ch->last_state, tmp);
@@ -1273,12 +1309,22 @@ static irqreturn_t smd_wcnss_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t smd_rpm_irq_handler(int irq, void *data)
+{
+	SMx_POWER_INFO("SMD Int RPM->Apps\n");
+	++interrupt_stats[SMD_RPM].smd_in_count;
+	handle_smd_irq(&smd_ch_list_rpm, notify_rpm_smd);
+	handle_smd_irq_closing_list();
+	return IRQ_HANDLED;
+}
+
 static void smd_fake_irq_handler(unsigned long arg)
 {
 	handle_smd_irq(&smd_ch_list_modem, notify_modem_smd);
 	handle_smd_irq(&smd_ch_list_dsp, notify_dsp_smd);
 	handle_smd_irq(&smd_ch_list_dsps, notify_dsps_smd);
 	handle_smd_irq(&smd_ch_list_wcnss, notify_wcnss_smd);
+	handle_smd_irq(&smd_ch_list_rpm, notify_rpm_smd);
 	handle_smd_irq_closing_list();
 }
 
@@ -1287,9 +1333,11 @@ static DECLARE_TASKLET(smd_fake_irq_tasklet, smd_fake_irq_handler, 0);
 static inline int smd_need_int(struct smd_channel *ch)
 {
 	if (ch_is_open(ch)) {
-		if (ch->recv->fHEAD || ch->recv->fTAIL || ch->recv->fSTATE)
+		if (ch->half_ch->get_fHEAD(ch->recv) ||
+				ch->half_ch->get_fTAIL(ch->recv) ||
+				ch->half_ch->get_fSTATE(ch->recv))
 			return 1;
-		if (ch->recv->state != ch->last_state)
+		if (ch->half_ch->get_state(ch->recv) != ch->last_state)
 			return 1;
 	}
 	return 0;
@@ -1504,15 +1552,32 @@ static int smd_packet_read_from_cb(smd_channel_t *ch, void *data, int len,
 #if (defined(CONFIG_MSM_SMD_PKG4) || defined(CONFIG_MSM_SMD_PKG3))
 static int smd_alloc_v2(struct smd_channel *ch)
 {
-	struct smd_shared_v2 *shared2;
 	void *buffer;
 	unsigned buffer_sz;
 
-	shared2 = smem_alloc(SMEM_SMD_BASE_ID + ch->n, sizeof(*shared2));
-	if (!shared2) {
-		SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
-		return -EINVAL;
+	if (is_word_access_ch(ch->type)) {
+		struct smd_shared_v2_word_access *shared2;
+		shared2 = smem_alloc(SMEM_SMD_BASE_ID + ch->n,
+						sizeof(*shared2));
+		if (!shared2) {
+			SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
+			return -EINVAL;
+		}
+		ch->send = &shared2->ch0;
+		ch->recv = &shared2->ch1;
+	} else {
+		struct smd_shared_v2 *shared2;
+		shared2 = smem_alloc(SMEM_SMD_BASE_ID + ch->n,
+							sizeof(*shared2));
+		if (!shared2) {
+			SMD_INFO("smem_alloc failed ch=%d\n", ch->n);
+			return -EINVAL;
+		}
+		ch->send = &shared2->ch0;
+		ch->recv = &shared2->ch1;
 	}
+	ch->half_ch = get_half_ch_funcs(ch->type);
+
 	buffer = smem_get_entry(SMEM_SMD_FIFO_BASE_ID + ch->n, &buffer_sz);
 	if (!buffer) {
 		SMD_INFO("smem_get_entry failed\n");
@@ -1525,11 +1590,10 @@ static int smd_alloc_v2(struct smd_channel *ch)
 		return -EINVAL;
 	}
 	buffer_sz /= 2;
-	ch->send = &shared2->ch0;
-	ch->recv = &shared2->ch1;
 	ch->send_data = buffer;
 	ch->recv_data = buffer + buffer_sz;
 	ch->fifo_size = buffer_sz;
+
 	return 0;
 }
 
@@ -1557,6 +1621,7 @@ static int smd_alloc_v1(struct smd_channel *ch)
 	ch->send_data = shared1->data0;
 	ch->recv_data = shared1->data1;
 	ch->fifo_size = SMD_BUF_SIZE;
+	ch->half_ch = get_half_ch_funcs(ch->type);
 	return 0;
 }
 
@@ -1572,6 +1637,7 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm)
 		return -1;
 	}
 	ch->n = alloc_elm->cid;
+	ch->type = SMD_CHANNEL_TYPE(alloc_elm->type);
 
 	if (smd_alloc_v2(ch) && smd_alloc_v1(ch)) {
 		kfree(ch);
@@ -1579,16 +1645,18 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm)
 	}
 
 	ch->fifo_mask = ch->fifo_size - 1;
-	ch->type = SMD_CHANNEL_TYPE(alloc_elm->type);
 
+	/* probe_worker guarentees ch->type will be a valid type */
 	if (ch->type == SMD_APPS_MODEM)
 		ch->notify_other_cpu = notify_modem_smd;
 	else if (ch->type == SMD_APPS_QDSP)
 		ch->notify_other_cpu = notify_dsp_smd;
 	else if (ch->type == SMD_APPS_DSPS)
 		ch->notify_other_cpu = notify_dsps_smd;
-	else
+	else if (ch->type == SMD_APPS_WCNSS)
 		ch->notify_other_cpu = notify_wcnss_smd;
+	else if (ch->type == SMD_APPS_RPM)
+		ch->notify_other_cpu = notify_rpm_smd;
 
 	if (smd_is_packet(alloc_elm)) {
 		ch->read = smd_packet_read;
@@ -1783,10 +1851,10 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 
 	if (edge == SMD_LOOPBACK_TYPE) {
 		ch->last_state = SMD_SS_OPENED;
-		ch->send->state = SMD_SS_OPENED;
-		ch->send->fDSR = 1;
-		ch->send->fCTS = 1;
-		ch->send->fCD = 1;
+		ch->half_ch->set_state(ch->send, SMD_SS_OPENED);
+		ch->half_ch->set_fDSR(ch->send, 1);
+		ch->half_ch->set_fCTS(ch->send, 1);
+		ch->half_ch->set_fCD(ch->send, 1);
 	}
 
 	*_ch = ch;
@@ -1802,6 +1870,8 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 		list_add(&ch->ch_list, &smd_ch_list_dsps);
 	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_WCNSS)
 		list_add(&ch->ch_list, &smd_ch_list_wcnss);
+	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_RPM)
+		list_add(&ch->ch_list, &smd_ch_list_rpm);
 	else
 		list_add(&ch->ch_list, &smd_ch_list_loopback);
 
@@ -1837,14 +1907,14 @@ int smd_close(smd_channel_t *ch)
 	spin_lock_irqsave(&smd_lock, flags);
 	list_del(&ch->ch_list);
 	if (ch->n == SMD_LOOPBACK_CID) {
-		ch->send->fDSR = 0;
-		ch->send->fCTS = 0;
-		ch->send->fCD = 0;
-		ch->send->state = SMD_SS_CLOSED;
+		ch->half_ch->set_fDSR(ch->send, 0);
+		ch->half_ch->set_fCTS(ch->send, 0);
+		ch->half_ch->set_fCD(ch->send, 0);
+		ch->half_ch->set_state(ch->send, SMD_SS_CLOSED);
 	} else
 		ch_set_state(ch, SMD_SS_CLOSED);
 
-	if (ch->recv->state == SMD_SS_OPENED) {
+	if (ch->half_ch->get_state(ch->recv) == SMD_SS_OPENED) {
 		list_add(&ch->ch_list, &smd_ch_closing_list);
 		spin_unlock_irqrestore(&smd_lock, flags);
 	} else {
@@ -2031,14 +2101,14 @@ EXPORT_SYMBOL(smd_write_avail);
 void smd_enable_read_intr(smd_channel_t *ch)
 {
 	if (ch)
-		ch->send->fBLOCKREADINTR = 0;
+		ch->half_ch->set_fBLOCKREADINTR(ch->send, 0);
 }
 EXPORT_SYMBOL(smd_enable_read_intr);
 
 void smd_disable_read_intr(smd_channel_t *ch)
 {
 	if (ch)
-		ch->send->fBLOCKREADINTR = 1;
+		ch->half_ch->set_fBLOCKREADINTR(ch->send, 1);
 }
 EXPORT_SYMBOL(smd_disable_read_intr);
 
@@ -2070,12 +2140,12 @@ int smd_tiocmget(smd_channel_t *ch)
 		return -ENODEV;
 	}
 
-	return  (ch->recv->fDSR ? TIOCM_DSR : 0) |
-		(ch->recv->fCTS ? TIOCM_CTS : 0) |
-		(ch->recv->fCD ? TIOCM_CD : 0) |
-		(ch->recv->fRI ? TIOCM_RI : 0) |
-		(ch->send->fCTS ? TIOCM_RTS : 0) |
-		(ch->send->fDSR ? TIOCM_DTR : 0);
+	return  (ch->half_ch->get_fDSR(ch->recv) ? TIOCM_DSR : 0) |
+		(ch->half_ch->get_fCTS(ch->recv) ? TIOCM_CTS : 0) |
+		(ch->half_ch->get_fCD(ch->recv) ? TIOCM_CD : 0) |
+		(ch->half_ch->get_fRI(ch->recv) ? TIOCM_RI : 0) |
+		(ch->half_ch->get_fCTS(ch->send) ? TIOCM_RTS : 0) |
+		(ch->half_ch->get_fDSR(ch->send) ? TIOCM_DTR : 0);
 }
 EXPORT_SYMBOL(smd_tiocmget);
 
@@ -2089,18 +2159,18 @@ smd_tiocmset_from_cb(smd_channel_t *ch, unsigned int set, unsigned int clear)
 	}
 
 	if (set & TIOCM_DTR)
-		ch->send->fDSR = 1;
+		ch->half_ch->set_fDSR(ch->send, 1);
 
 	if (set & TIOCM_RTS)
-		ch->send->fCTS = 1;
+		ch->half_ch->set_fCTS(ch->send, 1);
 
 	if (clear & TIOCM_DTR)
-		ch->send->fDSR = 0;
+		ch->half_ch->set_fDSR(ch->send, 0);
 
 	if (clear & TIOCM_RTS)
-		ch->send->fCTS = 0;
+		ch->half_ch->set_fCTS(ch->send, 0);
 
-	ch->send->fSTATE = 1;
+	ch->half_ch->set_fSTATE(ch->send, 1);
 	barrier();
 	ch->notify_other_cpu();
 
@@ -3148,11 +3218,13 @@ int smd_core_platform_init(struct platform_device *pdev)
 			break;
 		}
 
-		ret = intr_init(
-			&private_intr_config[cfg->irq_config_id].smsm,
-			&cfg->smsm_int,
-			pdev
-			);
+		/* only init smsm structs if this edge supports smsm */
+		if (cfg->smsm_int.irq_id)
+			ret = intr_init(
+				&private_intr_config[cfg->irq_config_id].smsm,
+				&cfg->smsm_int,
+				pdev
+				);
 
 		if (ret < 0) {
 			err_ret = ret;
@@ -3161,7 +3233,8 @@ int smd_core_platform_init(struct platform_device *pdev)
 			break;
 		}
 
-		strncpy(edge_to_pids[cfg->edge].subsys_name,
+		if (cfg->subsys_name)
+			strlcpy(edge_to_pids[cfg->edge].subsys_name,
 				cfg->subsys_name, SMD_MAX_CH_NAME_LEN);
 	}
 
