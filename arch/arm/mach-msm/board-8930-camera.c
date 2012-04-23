@@ -545,7 +545,7 @@ static struct msm_camera_csi_lane_params s5k3l1yx_csi_lane_params = {
 };
 
 static struct msm_camera_sensor_platform_info sensor_board_info_s5k3l1yx = {
-	.mount_angle  = 0,
+	.mount_angle  = 90,
 	.cam_vreg = msm_8930_s5k3l1yx_vreg,
 	.num_vreg = ARRAY_SIZE(msm_8930_s5k3l1yx_vreg),
 	.gpio_conf = &msm_8930_back_cam_gpio_conf,
@@ -571,6 +571,12 @@ void __init msm8930_init_cam(void)
 {
 	msm_gpiomux_install(msm8930_cam_common_configs,
 			ARRAY_SIZE(msm8930_cam_common_configs));
+
+	if (machine_is_msm8930_cdp()) {
+		struct msm_camera_sensor_info *s_info;
+		s_info = &msm_camera_sensor_s5k3l1yx_data;
+		s_info->sensor_platform_info->mount_angle = 0;
+	}
 
 	platform_device_register(&msm_camera_server);
 	platform_device_register(&msm8960_device_csiphy0);
