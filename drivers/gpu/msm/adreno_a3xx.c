@@ -2599,7 +2599,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, A3XX_RBBM_AHB_CTL1, 0xA6FFFFFF);
 
 	/* Turn on the power counters */
-	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, 0x00003000);
+	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, 0x00030000);
 
 	/* Turn on hang detection - this spews a lot of useful information
 	 * into the RBBM registers on a hang */
