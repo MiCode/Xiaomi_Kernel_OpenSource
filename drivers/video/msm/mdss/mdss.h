@@ -22,6 +22,7 @@
 #define MDSS_REG_READ(addr) readl_relaxed(mdss_reg_base + addr)
 
 extern unsigned char *mdss_reg_base;
+extern spinlock_t dsi_clk_lock;
 
 enum mdss_mdp_clk_type {
 	MDSS_CLK_AHB,
