@@ -290,7 +290,7 @@ static ssize_t max_clk_show(struct kobject *kobj,
 }
 QDSS_ATTR(max_clk);
 
-static void __init qdss_add_sources(struct qdss_source *srcs, size_t num)
+static void __devinit qdss_add_sources(struct qdss_source *srcs, size_t num)
 {
 	mutex_lock(&qdss.sources_mutex);
 	while (num--) {
@@ -322,7 +322,7 @@ err:
 	return ret;
 }
 
-static void __exit qdss_sysfs_exit(void)
+static void __devexit qdss_sysfs_exit(void)
 {
 	sysfs_remove_file(qdss.modulekobj, &max_clk_attr.attr);
 }
