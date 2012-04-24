@@ -457,8 +457,12 @@ struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
 	INIT_LIST_HEAD(&port_ptr->port_rx_q);
 	mutex_init(&port_ptr->port_rx_q_lock);
 	init_waitqueue_head(&port_ptr->port_rx_wait_q);
+	snprintf(port_ptr->rx_wakelock_name, MAX_WAKELOCK_NAME_SZ,
+		 "msm_ipc_read%08x:%08x",
+		 port_ptr->this_port.node_id,
+		 port_ptr->this_port.port_id);
 	wake_lock_init(&port_ptr->port_rx_wake_lock,
-			WAKE_LOCK_SUSPEND, "msm_ipc_read");
+			WAKE_LOCK_SUSPEND, port_ptr->rx_wakelock_name);
 
 	port_ptr->endpoint = endpoint;
 	port_ptr->notify = notify;
