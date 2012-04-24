@@ -342,17 +342,11 @@ static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	{
 		.csid_core = 0,
-		.is_csiphy = 1,
-		.is_csid   = 1,
-		.is_ispif  = 1,
 		.is_vpe    = 1,
 		.cam_bus_scale_table = &cam_bus_client_pdata,
 	},
 	{
 		.csid_core = 1,
-		.is_csiphy = 1,
-		.is_csid   = 1,
-		.is_ispif  = 1,
 		.is_vpe    = 1,
 		.cam_bus_scale_table = &cam_bus_client_pdata,
 	},

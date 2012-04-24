@@ -653,6 +653,7 @@ static struct msm_sensor_fn_t s5k3l1yx_func_tbl = {
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_adjust_frame_lines = msm_sensor_adjust_frame_lines,
+	.sensor_get_csi_params = msm_sensor_get_csi_params,
 };
 
 static struct msm_sensor_reg_t s5k3l1yx_regs = {

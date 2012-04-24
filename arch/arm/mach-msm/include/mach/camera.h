@@ -114,52 +114,6 @@ enum msm_stereo_state {
 	STEREO_RAW_SNAP_STARTED,
 };
 
-enum msm_ispif_intftype {
-	PIX0,
-	RDI0,
-	PIX1,
-	RDI1,
-	PIX2,
-	RDI2,
-};
-
-enum msm_ispif_vc {
-	VC0,
-	VC1,
-	VC2,
-	VC3,
-};
-
-enum msm_ispif_cid {
-	CID0,
-	CID1,
-	CID2,
-	CID3,
-	CID4,
-	CID5,
-	CID6,
-	CID7,
-	CID8,
-	CID9,
-	CID10,
-	CID11,
-	CID12,
-	CID13,
-	CID14,
-	CID15,
-};
-
-struct msm_ispif_params {
-	uint8_t intftype;
-	uint16_t cid_mask;
-	uint8_t csid;
-};
-
-struct msm_ispif_params_list {
-	uint32_t len;
-	struct msm_ispif_params params[3];
-};
-
 struct msm_vpe_phy_info {
 	uint32_t sbuf_phy;
 	uint32_t planar0_off;
@@ -170,12 +124,6 @@ struct msm_vpe_phy_info {
 	uint32_t p2_phy;
 	uint8_t  output_id; /* VFE31_OUTPUT_MODE_PT/S/V */
 	uint32_t frame_id;
-};
-
-struct msm_camera_csid_vc_cfg {
-	uint8_t cid;
-	uint8_t dt;
-	uint8_t decode_format;
 };
 
 struct msm_camera_csid_lut_params {
@@ -208,18 +156,6 @@ struct msm_camera_csi2_params {
 #define VFE31_OUTPUT_MODE_T (0x1 << 4)
 #define VFE31_OUTPUT_MODE_P_ALL_CHNLS (0x1 << 5)
 #endif
-
-#define CSI_EMBED_DATA 0x12
-#define CSI_RESERVED_DATA_0 0x13
-#define CSI_YUV422_8  0x1E
-#define CSI_RAW8    0x2A
-#define CSI_RAW10   0x2B
-#define CSI_RAW12   0x2C
-
-#define CSI_DECODE_6BIT 0
-#define CSI_DECODE_8BIT 1
-#define CSI_DECODE_10BIT 2
-#define CSI_DECODE_DPCM_10_8_10 5
 
 struct msm_vfe_phy_info {
 	uint32_t sbuf_phy;
