@@ -1365,9 +1365,7 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	struct msm_camera_device_platform_data *camdev;
 	uint8_t csid_core = 0;
 
-	if (notification == NOTIFY_CID_CHANGE ||
-		notification == NOTIFY_ISPIF_STREAM ||
-		notification == NOTIFY_PCLK_CHANGE ||
+	if (notification == NOTIFY_PCLK_CHANGE ||
 		notification == NOTIFY_CSIPHY_CFG ||
 		notification == NOTIFY_CSID_CFG ||
 		notification == NOTIFY_CSIC_CFG) {
@@ -1378,30 +1376,6 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	}
 
 	switch (notification) {
-	case NOTIFY_CID_CHANGE:
-		/* reconfig the ISPIF*/
-		if (g_server_dev.ispif_device) {
-			struct msm_ispif_params_list ispif_params;
-			ispif_params.len = 1;
-			ispif_params.params[0].intftype = PIX0;
-			ispif_params.params[0].cid_mask = 0x0001;
-			ispif_params.params[0].csid = csid_core;
-
-			rc = v4l2_subdev_call(
-				g_server_dev.ispif_device, core, ioctl,
-				VIDIOC_MSM_ISPIF_CFG, &ispif_params);
-			if (rc < 0)
-				return;
-		}
-		break;
-	case NOTIFY_ISPIF_STREAM:
-		/* call ISPIF stream on/off */
-		rc = v4l2_subdev_call(g_server_dev.ispif_device, video,
-				s_stream, (int)arg);
-		if (rc < 0)
-			return;
-
-		break;
 	case NOTIFY_ISP_MSG_EVT:
 	case NOTIFY_VFE_MSG_OUT:
 	case NOTIFY_VFE_MSG_STATS:
