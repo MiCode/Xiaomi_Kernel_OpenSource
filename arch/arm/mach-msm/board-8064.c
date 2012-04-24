@@ -1068,6 +1068,7 @@ static const u8 mxt1386e_config_data_v2_1[] = {
 	0,
 };
 
+#ifndef CONFIG_MSM_VCAP
 #define MXT_TS_GPIO_IRQ			6
 #define MXT_TS_PWR_EN_GPIO		PM8921_GPIO_PM_TO_SYS(23)
 #define MXT_TS_RESET_GPIO		33
@@ -1119,6 +1120,7 @@ static struct i2c_board_info mxt_device_info[] __initdata = {
 		.irq = MSM_GPIO_TO_INT(MXT_TS_GPIO_IRQ),
 	},
 };
+#endif
 #define CYTTSP_TS_GPIO_IRQ		6
 #define CYTTSP_TS_GPIO_RESOUT		7
 #define CYTTSP_TS_GPIO_SLEEP		33
@@ -1854,9 +1856,11 @@ static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 
 static struct platform_device *common_devices[] __initdata = {
 	&apq8064_device_dmov,
+#ifndef CONFIG_MSM_VCAP
 	&apq8064_device_qup_i2c_gsbi1,
 	&apq8064_device_qup_i2c_gsbi3,
 	&apq8064_device_qup_i2c_gsbi4,
+#endif
 	&apq8064_device_qup_spi_gsbi5,
 	&apq8064_device_ext_5v_vreg,
 	&apq8064_device_ext_mpp8_vreg,
@@ -2054,6 +2058,9 @@ static struct platform_device *mpq_devices[] __initdata = {
 	&mpq8064_device_ext_2p2_buck_vreg,
 	&mpq8064_device_ext_5v_buck_vreg,
 	&mpq8064_device_ext_3p3v_ldo_vreg,
+#ifdef CONFIG_MSM_VCAP
+	&msm8064_device_vcap,
+#endif
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
@@ -2310,12 +2317,14 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		smb349_charger_i2c_info,
 		ARRAY_SIZE(smb349_charger_i2c_info)
 	},
+#ifndef CONFIG_MSM_VCAP
 	{
 		I2C_SURF | I2C_LIQUID,
 		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
 		mxt_device_info,
 		ARRAY_SIZE(mxt_device_info),
 	},
+#endif
 	{
 		I2C_FFA,
 		APQ_8064_GSBI3_QUP_I2C_BUS_ID,

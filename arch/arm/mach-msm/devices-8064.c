@@ -2258,6 +2258,109 @@ struct platform_device apq8064_msm_gov_device = {
 	},
 };
 
+#ifdef CONFIG_MSM_VCAP
+#define VCAP_HW_BASE         0x05900000
+
+static struct msm_bus_vectors vcap_init_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_CAP,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+
+static struct msm_bus_vectors vcap_480_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_CAP,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1280 * 720 * 3 * 60 / 16,
+		.ib = 1280 * 720 * 3 * 60 / 16 * 1.5,
+	},
+};
+
+static struct msm_bus_vectors vcap_720_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_CAP,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1280 * 720 * 3 * 60 / 16,
+		.ib = 1280 * 720 * 3 * 60 / 16 * 1.5,
+	},
+};
+
+static struct msm_bus_vectors vcap_1080_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_CAP,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1920 * 1080 * 3 * 60 / 16,
+		.ib = 1920 * 1080 * 3 * 60 / 16 * 1.5,
+	},
+};
+
+static struct msm_bus_paths vcap_bus_usecases[]  = {
+	{
+		ARRAY_SIZE(vcap_init_vectors),
+		vcap_init_vectors,
+	},
+	{
+		ARRAY_SIZE(vcap_480_vectors),
+		vcap_480_vectors,
+	},
+	{
+		ARRAY_SIZE(vcap_720_vectors),
+		vcap_720_vectors,
+	},
+	{
+		ARRAY_SIZE(vcap_1080_vectors),
+		vcap_1080_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata vcap_axi_client_pdata = {
+	vcap_bus_usecases,
+	ARRAY_SIZE(vcap_bus_usecases),
+};
+
+static struct resource msm_vcap_resources[] = {
+	{
+		.name	= "vcap",
+		.start	= VCAP_HW_BASE,
+		.end	= VCAP_HW_BASE + SZ_1M - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "vcap",
+		.start	= VCAP_VC,
+		.end	= VCAP_VC,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static unsigned vcap_gpios[] = {
+	2, 3, 4, 5, 6, 7, 8, 9, 10,
+	11, 12, 13, 18, 19, 20, 21,
+	22, 23, 24, 25, 26, 80, 82,
+	83, 84, 85, 86, 87,
+};
+
+static struct vcap_platform_data vcap_pdata = {
+	.gpios = vcap_gpios,
+	.num_gpios = ARRAY_SIZE(vcap_gpios),
+	.bus_client_pdata = &vcap_axi_client_pdata
+};
+
+struct platform_device msm8064_device_vcap = {
+	.name           = "msm_vcap",
+	.id             = 0,
+	.resource       = msm_vcap_resources,
+	.num_resources  = ARRAY_SIZE(msm_vcap_resources),
+	.dev = {
+		.platform_data = &vcap_pdata,
+	},
+};
+#endif
+
 static struct resource msm_cache_erp_resources[] = {
 	{
 		.name = "l1_irq",
