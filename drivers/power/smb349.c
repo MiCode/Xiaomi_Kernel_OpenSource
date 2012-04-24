@@ -415,7 +415,7 @@ static void remove_debugfs_entries(struct smb349_struct *smb349_chg)
 		debugfs_remove_recursive(smb349_chg->dent);
 }
 
-static int __devinit smb349_hwinit(struct smb349_struct *smb349_chg)
+static int smb349_hwinit(struct smb349_struct *smb349_chg)
 {
 	int ret;
 
