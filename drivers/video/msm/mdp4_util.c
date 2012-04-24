@@ -515,7 +515,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			mdp_intr_mask &= ~INTR_DMA_P_DONE;
 			outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 			dma->waiting = FALSE;
-			mdp4_dma_p_done_dsi_video();
+			mdp4_dma_p_done_dsi_video(dma);
 			spin_unlock(&mdp_spin_lock);
 		} else if (panel & MDP4_PANEL_DSI_CMD) {
 			mdp4_dma_p_done_dsi(dma);

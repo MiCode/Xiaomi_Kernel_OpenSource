@@ -537,7 +537,7 @@ void mdp4_overlay0_done_mddi(struct mdp_dma_data *dma);
 void mdp4_dma_s_done_mddi(void);
 void mdp4_dma_p_done_mddi(void);
 void mdp4_dma_p_done_dsi(struct mdp_dma_data *dma);
-void mdp4_dma_p_done_dsi_video(void);
+void mdp4_dma_p_done_dsi_video(struct mdp_dma_data *dma);
 void mdp4_dma_p_done_lcdc(void);
 void mdp4_overlay1_done_dtv(void);
 void mdp4_overlay1_done_atv(void);
