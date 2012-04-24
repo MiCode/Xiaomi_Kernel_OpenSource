@@ -54,6 +54,7 @@
 #define DIAG_CTRL_MSG_LOG_MASK	9
 #define DIAG_CTRL_MSG_EVENT_MASK	10
 #define DIAG_CTRL_MSG_F3_MASK	11
+#define CONTROL_CHAR	0x7E
 
 /* Maximum number of pkt reg supported at initialization*/
 extern unsigned int diag_max_reg;
@@ -135,7 +136,14 @@ struct diagchar_dev {
 	int polling_reg_flag;
 	struct diag_write_device *buf_tbl;
 	int use_device_tree;
-
+	/* DCI related variables */
+	struct diag_dci_tbl *dci_tbl;
+	int dci_tag;
+	int dci_client_id;
+	struct mutex dci_mutex;
+	int num_dci_client;
+	unsigned char *apps_dci_buf;
+	int dci_state;
 	/* Memory pool parameters */
 	unsigned int itemsize;
 	unsigned int poolsize;
@@ -167,6 +175,7 @@ struct diagchar_dev {
 	unsigned char *buf_in_wcnss_1;
 	unsigned char *buf_in_wcnss_2;
 	unsigned char *buf_in_wcnss_cntl;
+	unsigned char *buf_in_dci;
 	unsigned char *usb_buf_out;
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data;
@@ -176,6 +185,7 @@ struct diagchar_dev {
 	unsigned char *buf_event_mask_update;
 	smd_channel_t *ch;
 	smd_channel_t *ch_cntl;
+	smd_channel_t *ch_dci;
 	smd_channel_t *chqdsp;
 	smd_channel_t *chqdsp_cntl;
 	smd_channel_t *ch_wcnss;
@@ -186,6 +196,7 @@ struct diagchar_dev {
 	int in_busy_qdsp_2;
 	int in_busy_wcnss_1;
 	int in_busy_wcnss_2;
+	int in_busy_dci;
 	int read_len_legacy;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
@@ -208,6 +219,7 @@ struct diagchar_dev {
 	struct work_struct diag_modem_mask_update_work;
 	struct work_struct diag_qdsp_mask_update_work;
 	struct work_struct diag_wcnss_mask_update_work;
+	struct work_struct diag_read_smd_dci_work;
 	uint8_t *msg_masks;
 	uint8_t *log_masks;
 	int log_masks_length;
@@ -223,6 +235,7 @@ struct diagchar_dev {
 	struct diag_request *write_ptr_qdsp_2;
 	struct diag_request *write_ptr_wcnss_1;
 	struct diag_request *write_ptr_wcnss_2;
+	struct diag_write_device *write_ptr_dci;
 	int logging_mode;
 	int mask_check;
 	int logging_process_id;
