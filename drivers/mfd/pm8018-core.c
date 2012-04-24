@@ -529,8 +529,8 @@ static const char * const pm8018_restart_reason[] = {
 static const char * const pm8018_rev_names[] = {
 	[PM8XXX_REVISION_8018_TEST]	= "test",
 	[PM8XXX_REVISION_8018_1p0]	= "1.0",
-	[PM8XXX_REVISION_8018_1p1]	= "1.1",
 	[PM8XXX_REVISION_8018_2p0]	= "2.0",
+	[PM8XXX_REVISION_8018_2p1]	= "2.1",
 };
 
 static int __devinit pm8018_probe(struct platform_device *pdev)
