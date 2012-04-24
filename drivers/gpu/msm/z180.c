@@ -304,15 +304,22 @@ error:
 	return result;
 }
 
-static inline unsigned int rb_offset(unsigned int index)
+static inline unsigned int rb_offset(unsigned int timestamp)
 {
-	return index*sizeof(unsigned int)*(Z180_PACKET_SIZE);
+	return (timestamp % Z180_PACKET_COUNT)
+		*sizeof(unsigned int)*(Z180_PACKET_SIZE);
 }
 
-static void addmarker(struct z180_ringbuffer *rb, unsigned int index)
+static inline unsigned int rb_gpuaddr(struct z180_device *z180_dev,
+					unsigned int timestamp)
+{
+	return z180_dev->ringbuffer.cmdbufdesc.gpuaddr + rb_offset(timestamp);
+}
+
+static void addmarker(struct z180_ringbuffer *rb, unsigned int timestamp)
 {
 	char *ptr = (char *)(rb->cmdbufdesc.hostptr);
-	unsigned int *p = (unsigned int *)(ptr + rb_offset(index));
+	unsigned int *p = (unsigned int *)(ptr + rb_offset(timestamp));
 
 	*p++ = Z180_STREAM_PACKET;
 	*p++ = (Z180_MARKER_CMD | 5);
@@ -326,11 +333,11 @@ static void addmarker(struct z180_ringbuffer *rb, unsigned int index)
 	*p++ = ADDR_VGV3_LAST << 24;
 }
 
-static void addcmd(struct z180_ringbuffer *rb, unsigned int index,
+static void addcmd(struct z180_ringbuffer *rb, unsigned int timestamp,
 			unsigned int cmd, unsigned int nextcnt)
 {
 	char * ptr = (char *)(rb->cmdbufdesc.hostptr);
-	unsigned int *p = (unsigned int *)(ptr + (rb_offset(index)
+	unsigned int *p = (unsigned int *)(ptr + (rb_offset(timestamp)
 			   + (Z180_MARKER_SIZE * sizeof(unsigned int))));
 
 	*p++ = Z180_STREAM_PACKET_CALL;
@@ -355,7 +362,7 @@ static void z180_cmdstream_start(struct kgsl_device *device, int init_ram)
 	z180_cmdwindow_write(device, ADDR_VGV3_MODE, 4);
 
 	z180_cmdwindow_write(device, ADDR_VGV3_NEXTADDR,
-			z180_dev->ringbuffer.cmdbufdesc.gpuaddr);
+			     rb_gpuaddr(z180_dev, z180_dev->current_timestamp));
 
 	z180_cmdwindow_write(device, ADDR_VGV3_NEXTCMD, cmd | 5);
 
@@ -406,9 +413,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	long result = 0;
 	unsigned int ofs        = PACKETSIZE_STATESTREAM * sizeof(unsigned int);
 	unsigned int cnt        = 5;
-	unsigned int nextaddr   = 0;
-	unsigned int index	= 0;
-	unsigned int nextindex;
+	unsigned int old_timestamp = 0;
 	unsigned int nextcnt    = Z180_STREAM_END_CMD | 5;
 	struct kgsl_mem_entry *entry = NULL;
 	unsigned int cmd;
@@ -477,26 +482,22 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 	result = 0;
 
-	index = z180_dev->current_timestamp % Z180_PACKET_COUNT;
+	old_timestamp = z180_dev->current_timestamp;
 	z180_dev->current_timestamp++;
-	nextindex = z180_dev->current_timestamp % Z180_PACKET_COUNT;
 	*timestamp = z180_dev->current_timestamp;
 
 	z180_dev->ringbuffer.prevctx = context->id;
 
-	addcmd(&z180_dev->ringbuffer, index, cmd + ofs, cnt);
+	addcmd(&z180_dev->ringbuffer, old_timestamp, cmd + ofs, cnt);
 	kgsl_pwrscale_busy(device);
 
 	/* Make sure the next ringbuffer entry has a marker */
-	addmarker(&z180_dev->ringbuffer, nextindex);
-
-	nextaddr = z180_dev->ringbuffer.cmdbufdesc.gpuaddr
-		+ rb_offset(nextindex);
+	addmarker(&z180_dev->ringbuffer, z180_dev->current_timestamp);
 
 	/* monkey patch the IB so that it jumps back to the ringbuffer */
 	kgsl_sharedmem_writel(&entry->memdesc,
-			      ((sizedwords + 1) * sizeof(unsigned int)),
-			      nextaddr);
+		      ((sizedwords + 1) * sizeof(unsigned int)),
+		      rb_gpuaddr(z180_dev, z180_dev->current_timestamp));
 	kgsl_sharedmem_writel(&entry->memdesc,
 			      ((sizedwords + 2) * sizeof(unsigned int)),
 			      nextcnt);
