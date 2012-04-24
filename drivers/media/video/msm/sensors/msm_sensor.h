@@ -249,4 +249,7 @@ struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd);
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, void __user *)
 
+#define VIDIOC_MSM_SENSOR_RELEASE \
+	_IO('V', BASE_VIDIOC_PRIVATE + 11)
+
 #endif

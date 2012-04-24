@@ -368,6 +368,24 @@ int32_t msm_sensor_get_output_info(struct msm_sensor_ctrl_t *s_ctrl,
 	return rc;
 }
 
+int32_t msm_sensor_release(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	long fps = 0;
+	uint32_t delay = 0;
+	CDBG("%s called\n", __func__);
+	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
+	if (s_ctrl->curr_res != MSM_SENSOR_INVALID_RES) {
+		fps = s_ctrl->msm_sensor_reg->
+			output_settings[s_ctrl->curr_res].vt_pixel_clk /
+			s_ctrl->curr_frame_length_lines /
+			s_ctrl->curr_line_length_pclk;
+		delay = 1000 / fps;
+		CDBG("%s fps = %ld, delay = %d\n", __func__, fps, delay);
+		msleep(delay);
+	}
+	return 0;
+}
+
 long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
@@ -376,6 +394,8 @@ long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_CFG:
 		return s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
+	case VIDIOC_MSM_SENSOR_RELEASE:
+		return msm_sensor_release(s_ctrl);
 	default:
 		return -ENOIOCTLCMD;
 	}
