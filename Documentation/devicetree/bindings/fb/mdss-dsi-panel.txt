@@ -1,0 +1,140 @@
+Qualcomm mdss-dsi-panel
+
+mdss-dsi-panel is a dsi panel driver which supports panels that
+are compatable with MIPI display serial interface specification.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-dsi-panel"
+- status:        			A string that has to be set to "okay/ok" to enable
+					the panel driver. By default this property will be
+					set to "disable". Will be set to "ok/okay" status
+					for specific platforms.
+- qcom,mdss-pan-res:			A two dimensional array that specifies the panel
+					resolution.
+- qcom,mdss-pan-bpp:			Specifies the panel bits per pixel. Default value is 24(rgb888).
+					18 = for rgb666
+					16 = for rgb565
+- qcom,mdss-panel-on-cmds:		An array of variable length that lists the init commands
+					of the panel. Each command will have the format specified
+					as below:
+					--> data type of the command
+					--> specifies whether this command packet is last.
+					--> virtual channel
+					--> Needs acknowledge from the panel or not.
+					--> wait time after the command is transmitter.
+					--> size of payload
+					--> payload.
+- qcom,mdss-panel-off-cmds:		An array of variable length that lists the panel off
+					commands. Each command will have the format specified
+					as below:
+					--> data type of the command
+					--> specifies whether this command packet is last.
+					--> virtual channel
+					--> Needs acknowledge from the panel or not.
+					--> wait time after the command is transmitter.
+					--> size of payload
+					--> payload.
+
+Required structure:
+- A qcom,mdss-dsi-panel node must be a child of an mdss-dsi controller node that links to
+    one of the two DSI controllers.
+
+
+Optional properties:
+- label:		        	A string used as a descriptive name of the panel
+- qcom,mdss-pan-porch-values:		An array of size 6 that specifies the panel blanking values.
+- qcom,mdss-pan-underflow-clr:		Specifies the controller settings for the panel underflow clear
+					settings. Default value is 0xff.
+- qcom,mdss-pan-bl-levels:		Specifies the backlight levels supported by the panel.
+					Default range is 1 to 255.
+
+- qcom,mdss-pan-dsi-mode:		Specifies the panel operating mode.
+					0 = enable video mode(default mode).
+					1 = enable command mode.
+- qcom,mdss-pan-dsi-h-pulse-mode:	Specifies the pulse mode option for the panel.
+					0 = Don't send hsa/he following vs/ve packet(default)
+					1 = Send hsa/he following vs/ve packet
+- qcom,mdss-pan-dsi-h-power-stop:	An Array of size 3 that specifies the power mode
+					during horizontal porch and sync periods of the panel.
+					0 = high speed mode(default mode).
+					1 = Low power mode for horizontal porches and sync pulse.
+- qcom,mdss-pan-dsi-bllp-power-stop:	An Array of size 2 that specifies the power mode
+					during blanking period and after EOF(end of frame).
+					0 = high speed mode(default mode).
+					1 = Low power mode during blanking and EOF.
+- qcom,mdss-pan-dsi-traffic-mode:	Specifies the panel traffic mode.
+					0 = non burst with sync pulses (default mode).
+					1 = non burst with sync start event.
+					2 = burst mode.
+- qcom,mdss-pan-dsi-dst-format:		Specifies the destination format.
+					0 = DSI_VIDEO_DST_FORMAT_RGB565.
+					1 = DSI_VIDEO_DST_FORMAT_RGB666.
+					2 = DSI_VIDEO_DST_FORMAT_RGB666_LOOSE.
+					3 = DSI_VIDEO_DST_FORMAT_RGB888 (Default format)
+					6 = DSI_CMD_DST_FORMAT_RGB565
+					7 = DSI_CMD_DST_FORMAT_RGB666
+					8 = DSI_CMD_DST_FORMAT_RGB888
+- qcom,mdss-pan-dsi-vc:			Specifies the virtual channel identefier.
+					0 = default value.
+- qcom,mdss-pan-dsi-rgb-swap:		Specifies the R, G and B channel ordering.
+					0 = DSI_RGB_SWAP_RGB (default value)
+					1 = DSI_RGB_SWAP_RBG
+					2 = DSI_RGB_SWAP_BGR
+					3 = DSI_RGB_SWAP_BRG
+					4 = DSI_RGB_SWAP_GRB
+					5 = DSI_RGB_SWAP_GBR
+- qcom,mdss-pan-dsi-data-lanes:		An array that specifies the data lanes enabled.
+					<1 1 0 0> = data lanes 1 and 2 are enabled.(default).
+- qcom,mdss-pan-dsi-t-clk:		An array that specifies the byte clock cycles
+					before and after each mode switch.
+- qcom,mdss-pan-dsi-stream:		Specifies the packet stream to be used.
+					0 = stream 0 (default)
+					1 = stream 1
+- qcom,mdss-pan-dsi-mdp-tr:		Specifies the trigger mechanism to be used for MDP path.
+					0 = no trigger
+					2 = Tear check signal line used for trigger
+					4 = Triggered by software (default mode)
+					6 = Software trigger and TE
+- qcom,mdss-pan-dsi-dma-tr:		Specifies the trigger mechanism to be used for DMA path.
+					0 = no trigger
+					2 = Tear check signal line used for trigger
+					4 = Triggered by software (default mode)
+					5 = Software trigger and start/end of frame trigger.
+					6 = Software trigger and TE
+- qcom,mdss-pan-dsi-frame-rate:		Specifies the frame rate for the panel.
+					60 = 60 frames per second (default)
+
+Note, if a given optional qcom,* binding is not present, then the driver will configure
+the default values specified.
+
+Example:
+	qcom,mdss_dsi@fd922800 {
+
+		qcom,mdss_dsi_sim_video {
+			compatible = "qcom,mdss-dsi-panel";
+			label = "simulator video mode dsi panel";
+			status = "disable";
+			qcom,mdss-pan-res = <640 480>;
+			qcom,mdss-pan-bpp = <24>;
+			qcom,mdss-pan-porch-values = <6 2 6 6 2 6>;
+			qcom,mdss-pan-underflow-clr = <0xff>;
+			qcom,mdss-pan-bl-levels = <1 15>;
+			qcom,mdss-pan-dsi-mode = <0>;
+			qcom,mdss-pan-dsi-h-pulse-mode = <1>;
+			qcom,mdss-pan-dsi-h-power-stop = <1 1 1>;
+			qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
+			qcom,mdss-pan-dsi-traffic-mode = <0>;
+			qcom,mdss-pan-dsi-dst-format = <3>;
+			qcom,mdss-pan-dsi-vc = <0>;
+			qcom,mdss-pan-dsi-rgb-swap = <0>;
+			qcom,mdss-pan-dsi-data-lanes = <1 1 0 0>;
+			qcom,mdss-pan-dsi-t-clk = <0x24 0x03>;
+			qcom,mdss-pan-dsi-stream = <0>;
+			qcom,mdss-pan-dsi-mdp-tr = <0x04>;
+			qcom,mdss-pan-dsi-dma-tr = <0x04>;
+			qcom,mdss-pan-frame-rate = <60>;
+			qcom,panel-on-cmds = [32 01 00 00 00 02 00 00];
+			qcom,panel-off-cmds = [22 01 00 00 00 00 00];
+		};
+
+	};
