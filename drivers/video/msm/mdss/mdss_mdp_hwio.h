@@ -375,6 +375,7 @@ enum mdss_mpd_intf_index {
 #define MDSS_MDP_REG_INTF_FRAME_LINE_COUNT_EN		0x0A8
 #define MDSS_MDP_REG_INTF_FRAME_COUNT			0x0AC
 #define MDSS_MDP_REG_INTF_LINE_COUNT			0x0B0
+#define MDSS_MDP_PANEL_FORMAT_RGB888			0x213F
 
 enum mdss_mdp_pingpong_index {
 	MDSS_MDP_PINGPONG0,
