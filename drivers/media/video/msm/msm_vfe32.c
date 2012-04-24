@@ -4022,6 +4022,7 @@ vfe_clk_enable_failed:
 	vfe32_ctrl->fs_vfe = NULL;
 vfe_fs_failed:
 	iounmap(vfe32_ctrl->vfebase);
+	vfe32_ctrl->vfebase = NULL;
 vfe_remap_failed:
 	disable_irq(vfe32_ctrl->vfeirq->start);
 	return rc;
@@ -4041,6 +4042,7 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 		vfe32_ctrl->fs_vfe = NULL;
 	}
 	iounmap(vfe32_ctrl->vfebase);
+	vfe32_ctrl->vfebase = NULL;
 
 	if (atomic_read(&irq_cnt))
 		pr_warning("%s, Warning IRQ Count not ZERO\n", __func__);

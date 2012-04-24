@@ -1422,7 +1422,7 @@ static int __msm_vpe_probe(struct platform_device *pdev)
 	return rc;  /* this rc should be zero.*/
 
 	iounmap(vpe_device->vpebase);  /* this path should never occur */
-
+	vpe_device->vpebase = NULL;
 /* from this part it is error handling. */
 vpe_release_mem_region:
 	release_mem_region(vpemem->start, (vpemem->end - vpemem->start) + 1);
@@ -1436,6 +1436,7 @@ static int __msm_vpe_remove(struct platform_device *pdev)
 	vpemem = vpe_device->vpemem;
 
 	iounmap(vpe_device->vpebase);
+	vpe_device->vpebase = NULL;
 	release_mem_region(vpemem->start,
 					(vpemem->end - vpemem->start) + 1);
 	return 0;
