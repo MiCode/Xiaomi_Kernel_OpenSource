@@ -556,6 +556,7 @@ void msm_map_msm7x30_io(void);
 void msm_map_fsm9xxx_io(void);
 void msm_map_copper_io(void);
 void msm_map_msm8625_io(void);
+void msm_map_msm9625_io(void);
 void msm_init_irq(void);
 void msm_copper_init_irq(void);
 void vic_handle_irq(struct pt_regs *regs);
