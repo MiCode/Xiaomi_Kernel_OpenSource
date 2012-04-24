@@ -77,6 +77,7 @@
 #include "pm.h"
 #include "pm-boot.h"
 #include "devices-msm8x60.h"
+#include "smd_private.h"
 
 #define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x4CF000
@@ -440,6 +441,12 @@ static void __init locate_unstable_memory(void)
 		apq8064_reserve_info.low_unstable_address,
 		apq8064_reserve_info.max_unstable_size,
 		apq8064_reserve_info.bank_size);
+}
+
+static int apq8064_change_memory_power(u64 start, u64 size,
+	int change_type)
+{
+	return soc_change_memory_power(start, size, change_type);
 }
 
 static char prim_panel_name[PANEL_NAME_MAX_LEN];
@@ -2577,6 +2584,8 @@ static void __init apq8064_rumi3_init(void)
 
 static void __init apq8064_cdp_init(void)
 {
+	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
+		pr_err("meminfo_init() failed!\n");
 	apq8064_common_init();
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv()) {
@@ -2598,6 +2607,8 @@ static void __init apq8064_cdp_init(void)
 
 	if (machine_is_apq8064_mtp())
 		platform_device_register(&mtp_kp_pdev);
+
+	change_memory_power = &apq8064_change_memory_power;
 }
 
 MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
