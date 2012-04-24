@@ -247,6 +247,9 @@ static enum msm_cpu cpu_of_id[] = {
 	[128] = MSM_CPU_8625,
 	[129] = MSM_CPU_8625,
 
+	/* 9625 IDs */
+	[130] = MSM_CPU_9625,
+
 	/* 7x25AB IDs */
 	[131] = MSM_CPU_7X25AB,
 	[132] = MSM_CPU_7X25AB,
@@ -620,6 +623,10 @@ static void * __init setup_dummy_socinfo(void)
 	else if (early_machine_is_copper()) {
 		dummy_socinfo.id = 126;
 		strlcpy(dummy_socinfo.build_id, "copper - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm9625()) {
+		dummy_socinfo.id = 130;
+		strlcpy(dummy_socinfo.build_id, "msm9625 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (machine_is_msm8625_rumi3())
 		dummy_socinfo.id = 127;

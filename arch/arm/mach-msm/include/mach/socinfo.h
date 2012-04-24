@@ -40,11 +40,17 @@
 	of_machine_is_compatible("qcom,msmcopper-sim")
 #define machine_is_copper_rumi()	\
 	of_machine_is_compatible("qcom,msmcopper-rumi")
+#define early_machine_is_msm9625()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm9625")
+#define machine_is_msm9625()		\
+	of_machine_is_compatible("qcom,msm9625")
 #else
 #define early_machine_is_copper()	0
 #define machine_is_copper()		0
 #define machine_is_copper_sim()	0
 #define machine_is_copper_rumi()	0
+#define early_machine_is_msm9625()	0
+#define machine_is_msm9625()		0
 #endif
 
 #define PLATFORM_SUBTYPE_SGLTE	6
@@ -72,6 +78,7 @@ enum msm_cpu {
 	MSM_CPU_COPPER,
 	MSM_CPU_8627,
 	MSM_CPU_8625,
+	MSM_CPU_9625
 };
 
 enum msm_cpu socinfo_get_msm_cpu(void);
