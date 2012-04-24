@@ -91,6 +91,11 @@ static struct gpiomux_setting cam_settings[] = {
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_KEEPER,
 	},
+	{
+		.func = GPIOMUX_FUNC_2, /*active 9*/
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
 
 };
 
@@ -113,7 +118,7 @@ static struct msm_gpiomux_config msm8930_cam_common_configs[] = {
 	{
 		.gpio = 4,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_settings[1],
+			[GPIOMUX_ACTIVE]    = &cam_settings[9],
 			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
@@ -369,16 +374,17 @@ static struct camera_vreg_t msm_8930_front_cam_vreg[] = {
 };
 
 static struct gpio msm8930_common_cam_gpio[] = {
-	{5, GPIOF_DIR_IN, "CAMIF_MCLK"},
 	{20, GPIOF_DIR_IN, "CAMIF_I2C_DATA"},
 	{21, GPIOF_DIR_IN, "CAMIF_I2C_CLK"},
 };
 
 static struct gpio msm8930_front_cam_gpio[] = {
+	{4, GPIOF_DIR_IN, "CAMIF_MCLK"},
 	{76, GPIOF_DIR_OUT, "CAM_RESET"},
 };
 
 static struct gpio msm8930_back_cam_gpio[] = {
+	{5, GPIOF_DIR_IN, "CAMIF_MCLK"},
 	{107, GPIOF_DIR_OUT, "CAM_RESET"},
 	{54, GPIOF_DIR_OUT, "CAM_STBY_N"},
 };
