@@ -3070,6 +3070,10 @@ static int msmfb_handle_pp_ioctl(struct msmfb_mdp_pp *pp_ptr)
 			break;
 		}
 		break;
+	case mdp_op_qseed_cfg:
+		ret = mdp4_qseed_cfg((struct mdp_qseed_cfg_data *)
+						&pp_ptr->data.qseed_cfg_data);
+		break;
 #endif
 	default:
 		pr_warn("Unsupported request to MDP_PP IOCTL.\n");

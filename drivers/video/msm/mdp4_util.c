@@ -3205,3 +3205,90 @@ int mdp4_igc_lut_config(struct mdp_igc_lut_data *cfg)
 error:
 	return ret;
 }
+
+#define QSEED_TABLE_1_COUNT	2
+#define QSEED_TABLE_2_COUNT	1024
+
+static uint32_t mdp4_pp_block2qseed(uint32_t block)
+{
+	uint32_t valid = 0;
+	switch (block) {
+	case MDP_BLOCK_VG_1:
+	case MDP_BLOCK_VG_2:
+		valid = 0x1;
+		break;
+	default:
+		break;
+	}
+	return valid;
+}
+
+static int mdp4_qseed_write_cfg(struct mdp_qseed_cfg_data *cfg)
+{
+	int i, ret = 0;
+	uint32_t base = (uint32_t) (MDP_BASE + mdp_block2base(cfg->block));
+	uint32_t *values;
+
+	if ((cfg->table_num != 1) && (cfg->table_num != 2)) {
+		ret = -ENOTTY;
+		goto error;
+	}
+
+	if (((cfg->table_num == 1) && (cfg->len != QSEED_TABLE_1_COUNT)) ||
+		((cfg->table_num == 2) && (cfg->len != QSEED_TABLE_2_COUNT))) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	values = kmalloc(cfg->len * sizeof(uint32_t), GFP_KERNEL);
+	if (!values) {
+		ret = -ENOMEM;
+		goto error;
+	}
+
+	ret = copy_from_user(values, cfg->data, sizeof(uint32_t) * cfg->len);
+
+	base += (cfg->table_num == 1) ? MDP4_QSEED_TABLE1_OFF :
+						MDP4_QSEED_TABLE2_OFF;
+	for (i = 0; i < cfg->len; i++) {
+		MDP_OUTP(base , values[i]);
+		base += sizeof(uint32_t);
+	}
+
+	kfree(values);
+error:
+	return ret;
+}
+
+int mdp4_qseed_cfg(struct mdp_qseed_cfg_data *cfg)
+{
+	int ret = 0;
+
+	if (!mdp4_pp_block2qseed(cfg->block)) {
+		ret = -ENOTTY;
+		goto error;
+	}
+
+	if (cfg->table_num != 1) {
+		ret = -ENOTTY;
+		pr_info("%s: Only QSEED table1 supported.\n", __func__);
+		goto error;
+	}
+
+	switch ((cfg->ops & 0x6) >> 1) {
+	case 0x1:
+		pr_info("%s: QSEED read not supported\n", __func__);
+		ret = -ENOTTY;
+		break;
+	case 0x2:
+		ret = mdp4_qseed_write_cfg(cfg);
+		if (ret)
+			goto error;
+		break;
+	default:
+		break;
+	}
+
+error:
+	return ret;
+}
