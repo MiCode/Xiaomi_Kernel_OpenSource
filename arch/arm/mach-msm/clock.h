@@ -152,14 +152,12 @@ struct clock_init_data {
 
 extern struct clock_init_data msm9615_clock_init_data;
 extern struct clock_init_data apq8064_clock_init_data;
-extern struct clock_init_data apq8064_dummy_clock_init_data;
 extern struct clock_init_data fsm9xxx_clock_init_data;
 extern struct clock_init_data msm7x01a_clock_init_data;
 extern struct clock_init_data msm7x27_clock_init_data;
 extern struct clock_init_data msm7x27a_clock_init_data;
 extern struct clock_init_data msm7x30_clock_init_data;
 extern struct clock_init_data msm8960_clock_init_data;
-extern struct clock_init_data msm8960_dummy_clock_init_data;
 extern struct clock_init_data msm8x60_clock_init_data;
 extern struct clock_init_data qds8x50_clock_init_data;
 extern struct clock_init_data msm8625_dummy_clock_init_data;

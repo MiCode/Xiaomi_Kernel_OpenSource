@@ -3021,7 +3021,6 @@ static void __init msm8960_rumi3_init(void)
 	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 	regulator_suppress_info_printing();
 	platform_device_register(&msm8960_device_rpm_regulator);
-	msm_clock_init(&msm8960_dummy_clock_init_data);
 	msm8960_init_gpiomux();
 	msm8960_init_pmic();
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
