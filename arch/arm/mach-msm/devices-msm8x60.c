@@ -1591,7 +1591,7 @@ static void dsps_init1(struct msm_dsps_platform_data *data)
 
 static struct dsps_clk_info dsps_clks[] = {
 	{
-		.name = "ppss_pclk",
+		.name = "iface_clk",
 		.rate =	0, /* no rate just on/off */
 	},
 	{
