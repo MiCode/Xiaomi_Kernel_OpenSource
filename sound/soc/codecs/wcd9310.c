@@ -5427,8 +5427,9 @@ static bool tabla_mbhc_fw_validate(const struct firmware *fw)
 	return true;
 }
 
+/* called under codec_resource_lock acquisition */
 static int tabla_determine_button(const struct tabla_priv *priv,
-				  const s32 bias_mv)
+				  const s32 micmv)
 {
 	s16 *v_btn_low, *v_btn_high;
 	struct tabla_mbhc_btn_detect_cfg *btn_det;
@@ -5438,8 +5439,9 @@ static int tabla_determine_button(const struct tabla_priv *priv,
 	v_btn_low = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_V_BTN_LOW);
 	v_btn_high = tabla_mbhc_cal_btn_det_mp(btn_det,
 				TABLA_BTN_DET_V_BTN_HIGH);
+
 	for (i = 0; i < btn_det->num_btn; i++) {
-		if ((v_btn_low[i] <= bias_mv) && (v_btn_high[i] >= bias_mv)) {
+		if ((v_btn_low[i] <= micmv) && (v_btn_high[i] >= micmv)) {
 			btn = i;
 			break;
 		}
@@ -5447,7 +5449,7 @@ static int tabla_determine_button(const struct tabla_priv *priv,
 
 	if (btn == -1)
 		pr_debug("%s: couldn't find button number for mic mv %d\n",
-			 __func__, bias_mv);
+			 __func__, micmv);
 
 	return btn;
 }
@@ -5487,8 +5489,9 @@ static int tabla_get_button_mask(const int btn)
 static irqreturn_t tabla_dce_handler(int irq, void *data)
 {
 	int i, mask;
-	short dce, sta, bias_value_dce;
-	s32 mv, stamv, bias_mv_dce;
+	short dce, sta;
+	s32 mv, mv_s, stamv_s;
+	bool vddio;
 	int btn = -1, meas = 0;
 	struct tabla_priv *priv = data;
 	const struct tabla_mbhc_btn_detect_cfg *d =
@@ -5527,6 +5530,10 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 		goto done;
 	}
 
+	vddio = (priv->mbhc_data.micb_mv != VDDIO_MICBIAS_MV &&
+		 priv->mbhc_micbias_switched);
+	mv_s = vddio ? tabla_scale_v_micb_vddio(priv, mv, false) : mv;
+
 	if (mbhc_status != TABLA_MBHC_STATUS_REL_DETECTION) {
 		if (priv->mbhc_last_resume &&
 		    !time_after(jiffies, priv->mbhc_last_resume + HZ)) {
@@ -5537,27 +5544,32 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 			pr_debug("%s: Button is already released without "
 				 "resume", __func__);
 			sta = tabla_codec_read_sta_result(codec);
-			stamv = tabla_codec_sta_dce_v(codec, 0, sta);
-			btn = tabla_determine_button(priv, mv);
-			if (btn != tabla_determine_button(priv, stamv))
+			stamv_s = tabla_codec_sta_dce_v(codec, 0, sta);
+			if (vddio)
+				stamv_s = tabla_scale_v_micb_vddio(priv,
+								   stamv_s,
+								   false);
+			btn = tabla_determine_button(priv, mv_s);
+			if (btn != tabla_determine_button(priv, stamv_s))
 				btn = -1;
 			goto done;
 		}
 	}
 
 	/* determine pressed button */
-	btnmeas[meas++] = tabla_determine_button(priv, mv);
-	pr_debug("%s: meas %d - DCE %d,%d, button %d\n", __func__,
-		 meas - 1, dce, mv, btnmeas[meas - 1]);
+	btnmeas[meas++] = tabla_determine_button(priv, mv_s);
+	pr_debug("%s: meas %d - DCE %d,%d,%d button %d\n", __func__,
+		 meas - 1, dce, mv, mv_s, btnmeas[meas - 1]);
 	if (n_btn_meas == 0)
 		btn = btnmeas[0];
 	for (; ((d->n_btn_meas) && (meas < (d->n_btn_meas + 1))); meas++) {
-		bias_value_dce = tabla_codec_sta_dce(codec, 1, false);
-		bias_mv_dce = tabla_codec_sta_dce_v(codec, 1, bias_value_dce);
-		btnmeas[meas] = tabla_determine_button(priv, bias_mv_dce);
-		pr_debug("%s: meas %d - DCE %d,%d, button %d\n",
-			 __func__, meas, bias_value_dce, bias_mv_dce,
-			 btnmeas[meas]);
+		dce = tabla_codec_sta_dce(codec, 1, false);
+		mv = tabla_codec_sta_dce_v(codec, 1, dce);
+		mv_s = vddio ? tabla_scale_v_micb_vddio(priv, mv, false) : mv;
+
+		btnmeas[meas] = tabla_determine_button(priv, mv_s);
+		pr_debug("%s: meas %d - DCE %d,%d,%d button %d\n",
+			 __func__, meas, dce, mv, mv_s, btnmeas[meas]);
 		/* if large enough measurements are collected,
 		 * start to check if last all n_btn_con measurements were
 		 * in same button low/high range */
