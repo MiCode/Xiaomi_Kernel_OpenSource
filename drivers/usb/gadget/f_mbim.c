@@ -100,8 +100,6 @@ struct f_mbim {
 	u32			ntb_input_size;
 	u16			ntb_max_datagrams;
 
-	pid_t			user_pid;
-
 	atomic_t		error;
 };
 
@@ -619,6 +617,59 @@ static inline void mbim_reset_values(struct f_mbim *mbim)
 	atomic_set(&mbim->online, 0);
 }
 
+static void mbim_reset_function_queue(struct f_mbim *dev)
+{
+	struct ctrl_pkt	*cpkt = NULL;
+
+	pr_debug("Queue empty packet for QBI");
+
+	spin_lock(&dev->lock);
+	if (!dev->is_open) {
+		pr_err("%s: mbim file handler %p is not open", __func__, dev);
+		spin_unlock(&dev->lock);
+		return;
+	}
+
+	cpkt = mbim_alloc_ctrl_pkt(0, GFP_ATOMIC);
+	if (!cpkt) {
+		pr_err("%s: Unable to allocate reset function pkt\n", __func__);
+		spin_unlock(&dev->lock);
+		return;
+	}
+
+	list_add_tail(&cpkt->list, &dev->cpkt_req_q);
+	spin_unlock(&dev->lock);
+
+	pr_debug("%s: Wake up read queue", __func__);
+	wake_up(&dev->read_wq);
+}
+
+static void fmbim_reset_cmd_complete(struct usb_ep *ep, struct usb_request *req)
+{
+	struct f_mbim		*dev = req->context;
+
+	mbim_reset_function_queue(dev);
+}
+
+static void mbim_clear_queues(struct f_mbim *mbim)
+{
+	struct ctrl_pkt	*cpkt = NULL;
+	struct list_head *act, *tmp;
+
+	spin_lock(&mbim->lock);
+	list_for_each_safe(act, tmp, &mbim->cpkt_req_q) {
+		cpkt = list_entry(act, struct ctrl_pkt, list);
+		list_del(&cpkt->list);
+		mbim_free_ctrl_pkt(cpkt);
+	}
+	list_for_each_safe(act, tmp, &mbim->cpkt_resp_q) {
+		cpkt = list_entry(act, struct ctrl_pkt, list);
+		list_del(&cpkt->list);
+		mbim_free_ctrl_pkt(cpkt);
+	}
+	spin_unlock(&mbim->lock);
+}
+
 /*
  * Context: mbim->lock held
  */
@@ -741,6 +792,9 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		mbim->not_port.notify_state = NCM_NOTIFY_NONE;
 		atomic_set(&mbim->not_port.notify_count, 0);
 		pr_info("ESHUTDOWN/ECONNRESET, connection gone");
+		spin_unlock(&mbim->lock);
+		mbim_clear_queues(mbim);
+		mbim_reset_function_queue(mbim);
 		break;
 	default:
 		pr_err("Unknown event %02x --> %d\n",
@@ -880,21 +934,8 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 		pr_info("USB_CDC_RESET_FUNCTION");
 		value = 0;
-		if (!_mbim_dev->user_pid) {
-			pr_err("QBI pid is not set");
-			break;
-		}
-
-		if (!_mbim_dev->is_open) {
-			pr_err("QBI is not up yet");
-			break;
-		}
-
-		send_sig_info(SIGUSR1, SEND_SIG_NOINFO,
-			find_task_by_vpid(_mbim_dev->user_pid));
-
-		pr_info("Sent signal to QBI pid %d",
-			_mbim_dev->user_pid);
+		req->complete = fmbim_reset_cmd_complete;
+		req->context = mbim;
 		break;
 
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
@@ -1200,12 +1241,8 @@ static void mbim_disable(struct usb_function *f)
 	pr_info("SET DEVICE OFFLINE");
 	atomic_set(&mbim->online, 0);
 
-	if (_mbim_dev && _mbim_dev->user_pid && _mbim_dev->is_open) {
-		send_sig_info(SIGUSR1, SEND_SIG_NOINFO,
-			find_task_by_vpid(_mbim_dev->user_pid));
-		pr_info("Sending reset signal to QBI pid %d",
-			_mbim_dev->user_pid);
-	}
+	mbim_clear_queues(mbim);
+	mbim_reset_function_queue(mbim);
 
 	mbim_bam_disconnect(mbim);
 
@@ -1599,9 +1636,6 @@ static int mbim_open(struct inode *ip, struct file *fp)
 	if (!atomic_read(&_mbim_dev->online))
 		pr_err("USB cable not connected\n");
 
-	pr_info("Set QBI pid %d\n", pid_nr(task_pid(current)));
-	_mbim_dev->user_pid = pid_nr(task_pid(current));
-
 	fp->private_data = _mbim_dev;
 
 	atomic_set(&_mbim_dev->error, 0);
@@ -1626,8 +1660,6 @@ static int mbim_release(struct inode *ip, struct file *fp)
 	mbim->is_open = false;
 	mbim_notify(mbim);
 	spin_unlock(&mbim->lock);
-
-	mbim->user_pid = 0;
 
 	mbim_unlock(&_mbim_dev->open_excl);
 
