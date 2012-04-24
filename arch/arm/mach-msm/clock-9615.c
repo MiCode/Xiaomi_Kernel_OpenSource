@@ -1689,28 +1689,51 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("q6_func_clk",	q6_func_clk, NULL),
 };
 
-static void set_fsm_mode(void __iomem *mode_reg)
-{
-	u32 regval = readl_relaxed(mode_reg);
+static struct pll_config_regs pll0_regs __initdata = {
+	.l_reg = BB_PLL0_L_VAL_REG,
+	.m_reg = BB_PLL0_M_VAL_REG,
+	.n_reg = BB_PLL0_N_VAL_REG,
+	.config_reg = BB_PLL0_CONFIG_REG,
+	.mode_reg = BB_PLL0_MODE_REG,
+};
 
-	/* De-assert reset to FSM */
-	regval &= ~BIT(21);
-	writel_relaxed(regval, mode_reg);
+static struct pll_config pll0_config __initdata = {
+	.l = 0xE,
+	.m = 0x3,
+	.n = 0x8,
+	.vco_val = 0x0,
+	.vco_mask = BM(17, 16),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BIT(19),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(21, 20),
+	.mn_ena_val = BIT(22),
+	.mn_ena_mask = BIT(22),
+	.main_output_val = BIT(23),
+	.main_output_mask = BIT(23),
+};
 
-	/* Program bias count */
-	regval &= ~BM(19, 14);
-	regval |= BVAL(19, 14, 0x1);
-	writel_relaxed(regval, mode_reg);
+static struct pll_config_regs pll14_regs __initdata = {
+	.l_reg = BB_PLL14_L_VAL_REG,
+	.m_reg = BB_PLL14_M_VAL_REG,
+	.n_reg = BB_PLL14_N_VAL_REG,
+	.config_reg = BB_PLL14_CONFIG_REG,
+	.mode_reg = BB_PLL14_MODE_REG,
+};
 
-	/* Program lock count */
-	regval &= ~BM(13, 8);
-	regval |= BVAL(13, 8, 0x8);
-	writel_relaxed(regval, mode_reg);
-
-	/* Enable PLL FSM voting */
-	regval |= BIT(20);
-	writel_relaxed(regval, mode_reg);
-}
+static struct pll_config pll14_config __initdata = {
+	.l = 0x19,
+	.m = 0x0,
+	.n = 0x1,
+	.vco_val = 0x0,
+	.vco_mask = BM(17, 16),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BIT(19),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(21, 20),
+	.main_output_val = BIT(23),
+	.main_output_mask = BIT(23),
+};
 
 /*
  * Miscellaneous clock register initializations
@@ -1731,57 +1754,20 @@ static void __init msm9615_clock_pre_init(void)
 	is_pll_enabled = readl_relaxed(BB_PLL0_STATUS_REG) & BIT(16);
 
 	if (!is_pll_enabled) {
-		writel_relaxed(0xE, BB_PLL0_L_VAL_REG);
-		writel_relaxed(0x3, BB_PLL0_M_VAL_REG);
-		writel_relaxed(0x8, BB_PLL0_N_VAL_REG);
-
-		regval = readl_relaxed(BB_PLL0_CONFIG_REG);
-
-		/* Enable the main output and the MN accumulator  */
-		regval |= BIT(23) | BIT(22);
-
-		/* Set pre-divider and post-divider values to 1 and 1 */
-		regval &= ~BIT(19);
-		regval &= ~BM(21, 20);
-
-		/* Set VCO frequency */
-		regval &= ~BM(17, 16);
-
-		writel_relaxed(regval, BB_PLL0_CONFIG_REG);
-
 		/* Enable AUX output */
 		regval = readl_relaxed(BB_PLL0_TEST_CTL_REG);
 		regval |= BIT(12);
 		writel_relaxed(regval, BB_PLL0_TEST_CTL_REG);
 
-		set_fsm_mode(BB_PLL0_MODE_REG);
+		configure_pll(&pll0_config, &pll0_regs, 1);
 	}
 
 	/* Check if PLL14 is enabled in FSM mode */
 	is_pll_enabled  = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
 
-	if (!is_pll_enabled) {
-		writel_relaxed(0x19, BB_PLL14_L_VAL_REG);
-		writel_relaxed(0x0, BB_PLL14_M_VAL_REG);
-		writel_relaxed(0x1, BB_PLL14_N_VAL_REG);
-
-		regval = readl_relaxed(BB_PLL14_CONFIG_REG);
-
-		/* Enable main output and the MN accumulator */
-		regval |= BIT(23) | BIT(22);
-
-		/* Set pre-divider and post-divider values to 1 and 1 */
-		regval &= ~BIT(19);
-		regval &= ~BM(21, 20);
-
-		/* Set VCO frequency */
-		regval &= ~BM(17, 16);
-
-		writel_relaxed(regval, BB_PLL14_CONFIG_REG);
-
-		set_fsm_mode(BB_PLL14_MODE_REG);
-
-	} else if (!(readl_relaxed(BB_PLL14_MODE_REG) & BIT(20)))
+	if (!is_pll_enabled)
+		configure_pll(&pll14_config, &pll14_regs, 1);
+	else if (!(readl_relaxed(BB_PLL14_MODE_REG) & BIT(20)))
 		WARN(1, "PLL14 enabled in non-FSM mode!\n");
 
 	/* Detect PLL9 rate and fixup structure accordingly */
