@@ -154,7 +154,10 @@ static int capture_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
 				unsigned int *nplanes, unsigned long sizes[],
 				void *alloc_ctxs[])
 {
-	*nbuffers = 3;
+	*nbuffers += 2;
+	if (*nbuffers > VIDEO_MAX_FRAME)
+		return -EINVAL;
+
 	*nplanes = 1;
 	return 0;
 }
