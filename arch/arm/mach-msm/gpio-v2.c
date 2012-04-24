@@ -490,6 +490,12 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.irq_disable	= msm_gpio_irq_disable,
 };
 
+/*
+ * This lock class tells lockdep that GPIO irqs are in a different
+ * category than their parents, so it won't report false recursion.
+ */
+static struct lock_class_key msm_gpio_lock_class;
+
 static int __devinit msm_gpio_probe(void)
 {
 	int i, irq, ret;
@@ -504,6 +510,7 @@ static int __devinit msm_gpio_probe(void)
 
 	for (i = 0; i < msm_gpio.gpio_chip.ngpio; ++i) {
 		irq = msm_gpio_to_irq(&msm_gpio.gpio_chip, i);
+		irq_set_lockdep_class(irq, &msm_gpio_lock_class);
 		irq_set_chip_and_handler(irq, &msm_gpio_irq_chip,
 					 handle_level_irq);
 		set_irq_flags(irq, IRQF_VALID);
