@@ -167,6 +167,7 @@ struct mdss_panel_info {
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
 	void (*set_backlight) (u32 bl_level);
+	unsigned char *dsi_base;
 
 	/* function entry chain */
 	int (*on) (struct mdss_panel_data *pdata);
