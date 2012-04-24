@@ -318,14 +318,14 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev,
 				"failed to set pll supply voltage\n");
-			goto err;
+			return ret;
 		}
 
 		ret = regulator_set_optimum_mode(drv->pll_supply, 100000);
 		if (ret < 0) {
 			dev_err(&pdev->dev,
 				"failed to set pll supply optimum mode\n");
-			goto err;
+			return ret;
 		}
 	}
 
@@ -342,29 +342,20 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
-	drv->xo = clk_get(&pdev->dev, "cxo");
-	if (IS_ERR(drv->xo)) {
-		ret = PTR_ERR(drv->xo);
-		goto err;
-	}
+	drv->xo = devm_clk_get(&pdev->dev, "cxo");
+	if (IS_ERR(drv->xo))
+		return PTR_ERR(drv->xo);
 
 	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil)) {
-		ret = PTR_ERR(drv->pil);
-		goto err_register;
-	}
+	if (IS_ERR(drv->pil))
+		return PTR_ERR(drv->pil);
 	return 0;
-err_register:
-	clk_put(drv->xo);
-err:
-	return ret;
 }
 
 static int __devexit pil_riva_remove(struct platform_device *pdev)
 {
 	struct riva_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
-	clk_put(drv->xo);
 	return 0;
 }
 

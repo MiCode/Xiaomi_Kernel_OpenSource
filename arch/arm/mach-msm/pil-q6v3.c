@@ -221,7 +221,7 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	if (!drv)
 		return -ENOMEM;
 
-	drv->pll = clk_get(&pdev->dev, "pll4");
+	drv->pll = devm_clk_get(&pdev->dev, "pll4");
 	if (IS_ERR(drv->pll))
 		return PTR_ERR(drv->pll);
 
