@@ -47,6 +47,7 @@ struct msm_pcm_routing_bdai_data {
 static struct mutex routing_lock;
 
 static int fm_switch_enable;
+static int fm_pcmrx_switch_enable;
 
 #define INT_RX_VOL_MAX_STEPS 0x2000
 #define INT_RX_VOL_GAIN 0x2000
@@ -591,6 +592,31 @@ static int msm_routing_put_switch_mixer(struct snd_kcontrol *kcontrol,
 	else
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
 	fm_switch_enable = ucontrol->value.integer.value[0];
+	return 1;
+}
+
+static int msm_routing_get_fm_pcmrx_switch_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = fm_pcmrx_switch_enable;
+	pr_debug("%s: FM Switch enable %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_routing_put_fm_pcmrx_switch_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+
+	pr_debug("%s: FM Switch enable %ld\n", __func__,
+			ucontrol->value.integer.value[0]);
+	if (ucontrol->value.integer.value[0])
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
+	else
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
+	fm_pcmrx_switch_enable = ucontrol->value.integer.value[0];
 	return 1;
 }
 
@@ -1178,10 +1204,21 @@ static const struct snd_kcontrol_new bt_sco_rx_port_mixer_controls[] = {
 	msm_routing_put_port_mixer),
 };
 
+static const struct snd_kcontrol_new afe_pcm_rx_port_mixer_controls[] = {
+	SOC_SINGLE_EXT("INTERNAL_FM_TX", MSM_BACKEND_DAI_AFE_PCM_RX,
+	MSM_BACKEND_DAI_INT_FM_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
+};
+
 static const struct snd_kcontrol_new fm_switch_mixer_controls =
 	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
 	0, 1, 0, msm_routing_get_switch_mixer,
 	msm_routing_put_switch_mixer);
+
+static const struct snd_kcontrol_new pcm_rx_switch_mixer_controls =
+	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
+	0, 1, 0, msm_routing_get_fm_pcmrx_switch_mixer,
+	msm_routing_put_fm_pcmrx_switch_mixer);
 
 static const struct snd_kcontrol_new int_fm_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("Internal FM RX Volume", SND_SOC_NOPM, 0,
@@ -1452,6 +1489,8 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	/* Switch Definitions */
 	SND_SOC_DAPM_SWITCH("SLIMBUS_DL_HL", SND_SOC_NOPM, 0, 0,
 				&fm_switch_mixer_controls),
+	SND_SOC_DAPM_SWITCH("PCM_RX_DL_HL", SND_SOC_NOPM, 0, 0,
+				&pcm_rx_switch_mixer_controls),
 	/* Mixer definitions */
 	SND_SOC_DAPM_MIXER("PRI_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
 	pri_i2s_rx_mixer_controls, ARRAY_SIZE(pri_i2s_rx_mixer_controls)),
@@ -1531,6 +1570,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_MIXER("INTERNAL_BT_SCO_RX Port Mixer", SND_SOC_NOPM, 0, 0,
 	bt_sco_rx_port_mixer_controls,
 	ARRAY_SIZE(bt_sco_rx_port_mixer_controls)),
+	SND_SOC_DAPM_MIXER("AFE_PCM_RX Port Mixer",
+	SND_SOC_NOPM, 0, 0, afe_pcm_rx_port_mixer_controls,
+	ARRAY_SIZE(afe_pcm_rx_port_mixer_controls)),
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
@@ -1656,10 +1698,15 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"INTFM_UL_HL", NULL, "INT_FM_TX"},
 	{"AUX_PCM_RX", NULL, "AUXPCM_DL_HL"},
 	{"AUXPCM_UL_HL", NULL, "AUX_PCM_TX"},
+	{"PCM_RX_DL_HL", "Switch", "SLIM0_DL_HL"},
+	{"PCM_RX", NULL, "PCM_RX_DL_HL"},
 	{"SLIMBUS_0_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},
 	{"SLIMBUS_0_RX", NULL, "SLIMBUS_0_RX Port Mixer"},
+
+	{"AFE_PCM_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
+	{"PCM_RX", NULL, "AFE_PCM_RX Port Mixer"},
 
 	{"AUXPCM_RX Port Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},
 	{"AUXPCM_RX Port Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
