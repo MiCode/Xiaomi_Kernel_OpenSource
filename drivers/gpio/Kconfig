@@ -485,4 +485,12 @@ config GPIO_QPNP
 	help
 	  Say 'y' here to include support for the Qualcomm QPNP gpio
 	  support. QPNP is a SPMI based PMIC implementation.
+
+config GPIO_QPNP_DEBUG
+	depends on GPIO_QPNP
+	depends on DEBUG_FS
+	bool "Qualcomm QPNP GPIO debug support"
+	help
+	  Say 'y' here to include debug support for the Qualcomm
+	  QPNP gpio support
 endif
