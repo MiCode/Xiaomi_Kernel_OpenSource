@@ -23,6 +23,7 @@
 #include <mach/gpiomux.h>
 #include "devices.h"
 #include "board-8064.h"
+#include "board-storage-common-a.h"
 
 
 /* APQ8064 has 4 SDCC controllers */
@@ -219,6 +220,7 @@ static struct mmc_platform_data sdc1_data = {
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
 	.uhs_caps	= MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50,
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC1_DAT1,
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 static struct mmc_platform_data *apq8064_sdc1_pdata = &sdc1_data;
 #else
@@ -249,6 +251,7 @@ static struct mmc_platform_data sdc3_data = {
 			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50 |
 			MMC_CAP_UHS_SDR104 | MMC_CAP_MAX_CURRENT_800),
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC3_DAT1,
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 static struct mmc_platform_data *apq8064_sdc3_pdata = &sdc3_data;
 #else

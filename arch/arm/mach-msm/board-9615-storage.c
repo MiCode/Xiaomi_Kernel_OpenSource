@@ -22,6 +22,7 @@
 #include "devices.h"
 
 #include "board-9615.h"
+#include "board-storage-common-a.h"
 
 #if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT) \
 		|| defined(CONFIG_MMC_MSM_SDC2_SUPPORT))
@@ -187,6 +188,7 @@ static struct mmc_platform_data sdc1_data = {
 	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
 			   MMC_CAP_MAX_CURRENT_400),
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC1_DAT1,
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 static struct mmc_platform_data *msm9615_sdc1_pdata = &sdc1_data;
 #else
@@ -206,6 +208,7 @@ static struct mmc_platform_data sdc2_data = {
 	.pclk_src_dfab	= 1,
 	.pin_data	= &mmc_slot_pin_data[SDCC2],
 	.sdiowakeup_irq = MSM_GPIO_TO_INT(GPIO_SDC2_DAT1_WAKEUP),
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 static struct mmc_platform_data *msm9615_sdc2_pdata = &sdc2_data;
 #else
