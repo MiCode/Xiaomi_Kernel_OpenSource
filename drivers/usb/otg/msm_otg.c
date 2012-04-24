@@ -1993,10 +1993,13 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 				clear_bit(B_SESS_VLD, &motg->inputs);
 		} else if (pdata->otg_control == OTG_PMIC_CONTROL) {
 			if (pdata->pmic_id_irq) {
+				unsigned long flags;
+				local_irq_save(flags);
 				if (irq_read_line(pdata->pmic_id_irq))
 					set_bit(ID, &motg->inputs);
 				else
 					clear_bit(ID, &motg->inputs);
+				local_irq_restore(flags);
 			}
 			/*
 			 * VBUS initial state is reported after PMIC
