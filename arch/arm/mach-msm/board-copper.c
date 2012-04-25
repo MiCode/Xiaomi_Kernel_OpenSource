@@ -47,6 +47,7 @@
 #include "devices.h"
 #include "spm.h"
 #include "modem_notifier.h"
+#include "lpm_resources.h"
 
 #define MSM_KERNEL_EBI1_MEM_SIZE	0x280000
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
@@ -467,6 +468,7 @@ void __init msm_copper_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
+	msm_lpmrs_module_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	regulator_stub_init();

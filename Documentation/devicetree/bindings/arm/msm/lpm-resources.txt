@@ -1,0 +1,31 @@
+* Low Power Management Resources
+
+The application processor in the MSM can enter several different low power
+states depending on the sleep time and on the required system resources. The
+MSM cannot enter a given low power state if that state involves turning off
+some shared resources which are required by some components of the
+system.The lpm-resources device tree node represents the shared resources
+that need to be monitored for usage requirement to check if a given low power
+state can be entered.Each resource is identified by a combination of the name,
+id,type and key which is also used by the RPM to identify a shared resource.
+
+The required nodes for lpm-resources are:
+
+- compatible: "qcom,lpm-resources"
+- reg: The numeric level id
+- qcom,name: The name of the low power resource.
+- qcom,type: The string represeting the type of resource used
+             like smps or pxo.
+- qcom,id: The id representing a device within a resource type.
+- qcom,key: The key is the specific attribute of the resource being
+            monitored.
+
+Example:
+            qcom,lpm-resources@0 {
+                        reg = <0x0>;
+                        qcom,name = "vdd-dig";
+                        qcom,type = "smpb\0";
+                        qcom,id = <0x02>;
+                        qcom,key = "uv\0\0";
+                };
+
