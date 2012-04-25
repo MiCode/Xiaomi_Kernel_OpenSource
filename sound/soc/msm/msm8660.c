@@ -170,7 +170,7 @@ static int msm8660_startup(struct snd_pcm_substream *substream)
 		/* Master clock OSR 256 */
 		/* Initially set to Lowest sample rate Needed */
 		clk_set_rate(rx_osr_clk, 8000 * 256);
-		ret = clk_enable(rx_osr_clk);
+		ret = clk_prepare_enable(rx_osr_clk);
 		if (ret != 0) {
 			pr_debug("Unable to enable i2s_spkr_osr_clk\n");
 			clk_put(rx_osr_clk);
@@ -179,16 +179,16 @@ static int msm8660_startup(struct snd_pcm_substream *substream)
 		rx_bit_clk = clk_get(NULL, "i2s_spkr_bit_clk");
 		if (IS_ERR(rx_bit_clk)) {
 			pr_debug("Failed to get i2s_spkr_bit_clk\n");
-			clk_disable(rx_osr_clk);
+			clk_disable_unprepare(rx_osr_clk);
 			clk_put(rx_osr_clk);
 			return PTR_ERR(rx_bit_clk);
 		}
 		clk_set_rate(rx_bit_clk, 8);
-		ret = clk_enable(rx_bit_clk);
+		ret = clk_prepare_enable(rx_bit_clk);
 		if (ret != 0) {
 			pr_debug("Unable to enable i2s_spkr_bit_clk\n");
 			clk_put(rx_bit_clk);
-			clk_disable(rx_osr_clk);
+			clk_disable_unprepare(rx_osr_clk);
 			clk_put(rx_osr_clk);
 			return ret;
 		}
@@ -203,7 +203,7 @@ static int msm8660_startup(struct snd_pcm_substream *substream)
 		}
 		/* Master clock OSR 256 */
 		clk_set_rate(tx_osr_clk, 8000 * 256);
-		ret = clk_enable(tx_osr_clk);
+		ret = clk_prepare_enable(tx_osr_clk);
 		if (ret != 0) {
 			pr_debug("Unable to enable i2s_mic_osr_clk\n");
 			clk_put(tx_osr_clk);
@@ -212,16 +212,16 @@ static int msm8660_startup(struct snd_pcm_substream *substream)
 		tx_bit_clk = clk_get(NULL, "i2s_mic_bit_clk");
 		if (IS_ERR(tx_bit_clk)) {
 			pr_debug("Failed to get i2s_mic_bit_clk\n");
-			clk_disable(tx_osr_clk);
+			clk_disable_unprepare(tx_osr_clk);
 			clk_put(tx_osr_clk);
 			return PTR_ERR(tx_bit_clk);
 		}
 		clk_set_rate(tx_bit_clk, 8);
-		ret = clk_enable(tx_bit_clk);
+		ret = clk_prepare_enable(tx_bit_clk);
 		if (ret != 0) {
 			pr_debug("Unable to enable i2s_mic_bit_clk\n");
 			clk_put(tx_bit_clk);
-			clk_disable(tx_osr_clk);
+			clk_disable_unprepare(tx_osr_clk);
 			clk_put(tx_osr_clk);
 			return ret;
 		}
@@ -243,12 +243,12 @@ static void msm8660_shutdown(struct snd_pcm_substream *substream)
 		timpani_poweramp_off();
 		msleep(30);
 		if (rx_bit_clk) {
-			clk_disable(rx_bit_clk);
+			clk_disable_unprepare(rx_bit_clk);
 			clk_put(rx_bit_clk);
 			rx_bit_clk = NULL;
 		}
 		if (rx_osr_clk) {
-			clk_disable(rx_osr_clk);
+			clk_disable_unprepare(rx_osr_clk);
 			clk_put(rx_osr_clk);
 			rx_osr_clk = NULL;
 		}
@@ -257,12 +257,12 @@ static void msm8660_shutdown(struct snd_pcm_substream *substream)
 		msm_snddev_disable_dmic_power();
 		msleep(30);
 		if (tx_bit_clk) {
-			clk_disable(tx_bit_clk);
+			clk_disable_unprepare(tx_bit_clk);
 			clk_put(tx_bit_clk);
 			tx_bit_clk = NULL;
 		}
 		if (tx_osr_clk) {
-			clk_disable(tx_osr_clk);
+			clk_disable_unprepare(tx_osr_clk);
 			clk_put(tx_osr_clk);
 			tx_osr_clk = NULL;
 		}

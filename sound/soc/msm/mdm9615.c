@@ -321,7 +321,7 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 
 		if (codec_clk) {
 			clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
-			clk_enable(codec_clk);
+			clk_prepare_enable(codec_clk);
 			tabla_mclk_enable(codec, 1, dapm);
 		} else {
 			pr_err("%s: Error setting Tabla MCLK\n", __func__);
@@ -337,7 +337,7 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
 			tabla_mclk_enable(codec, 0, dapm);
-			clk_disable(codec_clk);
+			clk_disable_unprepare(codec_clk);
 		}
 	}
 	return 0;
