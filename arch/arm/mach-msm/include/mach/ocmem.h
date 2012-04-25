@@ -41,7 +41,7 @@ struct ocmem_chunk {
 };
 
 struct ocmem_map_list {
-	int num_chunks;
+	unsigned num_chunks;
 	struct ocmem_chunk chunks[OCMEM_MAX_CHUNKS];
 };
 
@@ -84,8 +84,13 @@ void *ocmem_notifier_register(int client_id, struct notifier_block *nb);
 
 int ocmem_notifier_unregister(void *notif_hndl, struct notifier_block *nb);
 
+/* Obtain the maximum quota for the client */
+unsigned long get_max_quota(int client_id);
+
 /* Allocation APIs */
 struct ocmem_buf *ocmem_allocate(int client_id, unsigned long size);
+
+struct ocmem_buf *ocmem_allocate_nowait(int client_id, unsigned long size);
 
 struct ocmem_buf *ocmem_allocate_nb(int client_id, unsigned long size);
 
