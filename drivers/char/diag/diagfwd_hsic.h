@@ -17,7 +17,7 @@
 #define N_MDM_WRITE	1 /* Upgrade to 2 with ping pong buffer */
 #define N_MDM_READ	1
 
-void __init diagfwd_hsic_init(void);
-void __exit diagfwd_hsic_exit(void);
+void diagfwd_hsic_init(void);
+void diagfwd_hsic_exit(void);
 
 #endif
