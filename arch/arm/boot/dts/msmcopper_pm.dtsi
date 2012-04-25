@@ -132,6 +132,36 @@
 				3b 60 02 32 a0 50 0f];
 	};
 
+	qcom,lpm-resources {
+		compatible = "qcom,lpm-resources";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,lpm-resources@0 {
+			reg = <0x0>;
+			qcom,name = "vdd-dig";
+			qcom,type = "smpb\0";
+			qcom,id = <0x02>;
+			qcom,key = "uv\0\0";
+		};
+
+		qcom,lpm-resources@1 {
+			reg = <0x1>;
+			qcom,name = "vdd-mem";
+			qcom,type = "smpb\0";
+			qcom,id = <0x01>;
+			qcom,key = "uv\0\0";
+		};
+
+		qcom,lpm-resources@2 {
+			reg = <0x2>;
+			qcom,name = "pxo";
+			qcom,type = "clk0\0";
+			qcom,id = <0x00>;
+			qcom,key = "Enab";
+		};
+	};
+
 	qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
 		#address-cells = <1>;

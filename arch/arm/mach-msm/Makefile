@@ -317,7 +317,7 @@ ifdef CONFIG_MSM_RPM
 	obj-$(CONFIG_ARCH_MSM9615) += rpm_resources.o
 endif
 ifdef CONFIG_MSM_RPM_SMD
-	obj-$(CONFIG_ARCH_MSMCOPPER) += lpm_levels.o
+	obj-$(CONFIG_ARCH_MSMCOPPER) += lpm_levels.o lpm_resources.o
 endif
 obj-$(CONFIG_MSM_MPM) += mpm.o
 obj-$(CONFIG_MSM_RPM_STATS_LOG) += rpm_stats.o
