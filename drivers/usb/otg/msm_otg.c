@@ -45,6 +45,7 @@
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
+#include <mach/rpm-regulator.h>
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
@@ -61,6 +62,7 @@
 #define USB_PHY_1P8_HPM_LOAD	50000	/* uA */
 #define USB_PHY_1P8_LPM_LOAD	4000	/* uA */
 
+#define USB_PHY_VDD_DIG_VOL_NONE	0 /*uV */
 #define USB_PHY_VDD_DIG_VOL_MIN	1045000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX	1320000 /* uV */
 
@@ -104,53 +106,25 @@ static inline bool aca_enabled(void)
 #endif
 }
 
-static int msm_hsusb_init_vddcx(struct msm_otg *motg, int init)
-{
-	int ret = 0;
+enum usb_vdd_value {
+	VDD_NONE = 0,
+	VDD_MIN,
+	VDD_MAX,
+	VDD_VAL_MAX,
+};
 
-	if (init) {
-		hsusb_vddcx = devm_regulator_get(motg->otg.dev, "HSUSB_VDDCX");
-		if (IS_ERR(hsusb_vddcx)) {
-			dev_err(motg->otg.dev, "unable to get hsusb vddcx\n");
-			return PTR_ERR(hsusb_vddcx);
-		}
-
-		ret = regulator_set_voltage(hsusb_vddcx,
-				USB_PHY_VDD_DIG_VOL_MIN,
-				USB_PHY_VDD_DIG_VOL_MAX);
-		if (ret) {
-			dev_err(motg->otg.dev, "unable to set the voltage "
-					"for hsusb vddcx\n");
-			return ret;
-		}
-
-		ret = regulator_enable(hsusb_vddcx);
-		if (ret) {
-			regulator_set_voltage(hsusb_vddcx, 0,
-			USB_PHY_VDD_DIG_VOL_MIN);
-			dev_err(motg->otg.dev, "unable to enable the hsusb vddcx\n");
-			return ret;
-		}
-
-	} else {
-
-		ret = regulator_disable(hsusb_vddcx);
-		if (ret) {
-			dev_err(motg->otg.dev, "unable to disable hsusb vddcx\n");
-			return ret;
-		}
-
-		ret = regulator_set_voltage(hsusb_vddcx, 0,
-			USB_PHY_VDD_DIG_VOL_MIN);
-		if (ret) {
-			dev_err(motg->otg.dev, "unable to set the voltage"
-					"for hsusb vddcx\n");
-			return ret;
-		}
-	}
-
-	return ret;
-}
+static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
+		{  /* VDD_CX CORNER Voting */
+			[VDD_NONE]	= RPM_VREG_CORNER_NONE,
+			[VDD_MIN]	= RPM_VREG_CORNER_NOMINAL,
+			[VDD_MAX]	= RPM_VREG_CORNER_HIGH,
+		},
+		{ /* VDD_CX Voltage Voting */
+			[VDD_NONE]	= USB_PHY_VDD_DIG_VOL_NONE,
+			[VDD_MIN]	= USB_PHY_VDD_DIG_VOL_MIN,
+			[VDD_MAX]	= USB_PHY_VDD_DIG_VOL_MAX,
+		},
+};
 
 static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 {
@@ -198,15 +172,13 @@ put_3p3_lpm:
 #define USB_PHY_SUSP_DIG_VOL  500000
 static int msm_hsusb_config_vddcx(int high)
 {
-	int max_vol = USB_PHY_VDD_DIG_VOL_MAX;
+	struct msm_otg *motg = the_msm_otg;
+	enum usb_vdd_type vdd_type = motg->vdd_type;
+	int max_vol = vdd_val[vdd_type][VDD_MAX];
 	int min_vol;
 	int ret;
 
-	if (high)
-		min_vol = USB_PHY_VDD_DIG_VOL_MIN;
-	else
-		min_vol = USB_PHY_SUSP_DIG_VOL;
-
+	min_vol = vdd_val[vdd_type][!!high];
 	ret = regulator_set_voltage(hsusb_vddcx, min_vol, max_vol);
 	if (ret) {
 		pr_err("%s: unable to set the voltage for regulator "
@@ -3321,22 +3293,33 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	clk_prepare_enable(motg->pclk);
 
-	ret = msm_hsusb_init_vddcx(motg, 1);
-	if (ret) {
-		dev_err(&pdev->dev, "hsusb vddcx init failed\n");
-		goto devote_xo_handle;
+	motg->vdd_type = VDDCX_CORNER;
+	hsusb_vddcx = devm_regulator_get(motg->otg.dev, "hsusb_vdd_dig");
+	if (IS_ERR(hsusb_vddcx)) {
+		hsusb_vddcx = devm_regulator_get(motg->otg.dev, "HSUSB_VDDCX");
+		if (IS_ERR(hsusb_vddcx)) {
+			dev_err(motg->otg.dev, "unable to get hsusb vddcx\n");
+			goto devote_xo_handle;
+		}
+		motg->vdd_type = VDDCX;
 	}
 
 	ret = msm_hsusb_config_vddcx(1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vddcx configuration failed\n");
-		goto free_init_vddcx;
+		goto devote_xo_handle;
+	}
+
+	ret = regulator_enable(hsusb_vddcx);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to enable the hsusb vddcx\n");
+		goto free_config_vddcx;
 	}
 
 	ret = msm_hsusb_ldo_init(motg, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg configuration failed\n");
-		goto free_init_vddcx;
+		goto free_hsusb_vddcx;
 	}
 
 	if (pdata->mhl_enable) {
@@ -3460,8 +3443,12 @@ destroy_wlock:
 	msm_hsusb_ldo_enable(motg, 0);
 free_ldo_init:
 	msm_hsusb_ldo_init(motg, 0);
-free_init_vddcx:
-	msm_hsusb_init_vddcx(motg, 0);
+free_hsusb_vddcx:
+	regulator_disable(hsusb_vddcx);
+free_config_vddcx:
+	regulator_set_voltage(hsusb_vddcx,
+		vdd_val[motg->vdd_type][VDD_NONE],
+		vdd_val[motg->vdd_type][VDD_MAX]);
 devote_xo_handle:
 	clk_disable_unprepare(motg->pclk);
 	msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
@@ -3535,7 +3522,10 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	msm_xo_put(motg->xo_handle);
 	msm_hsusb_ldo_enable(motg, 0);
 	msm_hsusb_ldo_init(motg, 0);
-	msm_hsusb_init_vddcx(motg, 0);
+	regulator_disable(hsusb_vddcx);
+	regulator_set_voltage(hsusb_vddcx,
+		vdd_val[motg->vdd_type][VDD_NONE],
+		vdd_val[motg->vdd_type][VDD_MAX]);
 
 	iounmap(motg->regs);
 	pm_runtime_set_suspended(&pdev->dev);

@@ -148,7 +148,6 @@ VREG_CONSUMERS(L27) = {
 };
 VREG_CONSUMERS(S1) = {
 	REGULATOR_SUPPLY("8038_s1",		NULL),
-	REGULATOR_SUPPLY("HSUSB_VDDCX",		"msm_otg"),
 	REGULATOR_SUPPLY("riva_vddcx",		"wcnss_wlan.0"),
 };
 VREG_CONSUMERS(S2) = {
@@ -192,6 +191,7 @@ VREG_CONSUMERS(EXT_OTG_SW) = {
 };
 VREG_CONSUMERS(VDD_DIG_CORNER) = {
 	REGULATOR_SUPPLY("vdd_dig_corner",	NULL),
+	REGULATOR_SUPPLY("hsusb_vdd_dig",	"msm_otg"),
 };
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
