@@ -74,6 +74,17 @@ struct msm_rtb_state msm_rtb = {
 module_param_named(filter, msm_rtb.filter, uint, 0644);
 module_param_named(enable, msm_rtb.enabled, int, 0644);
 
+static int msm_rtb_panic_notifier(struct notifier_block *this,
+					unsigned long event, void *ptr)
+{
+	msm_rtb.enabled = 0;
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block msm_rtb_panic_blk = {
+	.notifier_call  = msm_rtb_panic_notifier,
+};
+
 int msm_rtb_event_should_log(enum logk_event_type log_type)
 {
 	return msm_rtb.initialized && msm_rtb.enabled &&
@@ -258,7 +269,8 @@ int msm_rtb_probe(struct platform_device *pdev)
 	msm_rtb.step_size = 1;
 #endif
 
-
+	atomic_notifier_chain_register(&panic_notifier_list,
+						&msm_rtb_panic_blk);
 	msm_rtb.initialized = 1;
 	return 0;
 }
