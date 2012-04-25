@@ -1563,7 +1563,7 @@ int hci_unregister_dev(struct hci_dev *hdev)
 	list_del(&hdev->list);
 	write_unlock_bh(&hci_dev_list_lock);
 
-	hci_dev_do_close(hdev, 0);
+	hci_dev_do_close(hdev, hdev->bus == HCI_SMD);
 
 	for (i = 0; i < NUM_REASSEMBLY; i++)
 		kfree_skb(hdev->reassembly[i]);
