@@ -1057,7 +1057,7 @@ void msm_pm_cpu_enter_lowpower(unsigned int cpu)
 		msm_pm_retention();
 	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
 		per_cpu(msm_pm_last_slp_mode, cpu)
-			= MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE;
+			= MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT;
 		msm_pm_swfi();
 	} else
 		per_cpu(msm_pm_last_slp_mode, cpu) = MSM_PM_SLEEP_MODE_NR;
