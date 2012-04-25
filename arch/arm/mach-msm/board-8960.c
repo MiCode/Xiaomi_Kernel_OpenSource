@@ -710,7 +710,7 @@ static struct platform_device msm_cache_dump_device = {
 
 #endif
 
-static void reserve_cache_dump_memory(void)
+static void __init reserve_cache_dump_memory(void)
 {
 #ifdef CONFIG_MSM_CACHE_DUMP
 	unsigned int spare;

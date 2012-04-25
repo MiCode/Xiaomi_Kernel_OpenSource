@@ -806,7 +806,7 @@ static void __init msm_add_footswitch_devices(void)
 				msm_num_footswitch_devices);
 }
 
-static void add_platform_devices(void)
+static void __init add_platform_devices(void)
 {
 	if (machine_is_msm8625_evb() || machine_is_msm8625_qrd7()) {
 		platform_add_devices(msm8625_evb_devices,

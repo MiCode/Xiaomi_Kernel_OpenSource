@@ -376,7 +376,7 @@ static struct platform_device ion_dev = {
 };
 #endif
 
-static void reserve_ion_memory(void)
+static void __init reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 	apq8064_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_SIZE;

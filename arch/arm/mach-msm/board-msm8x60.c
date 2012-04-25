@@ -5409,7 +5409,7 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 	},
 };
 
-static void reserve_ion_memory(void)
+static void __init reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 	unsigned int i;
@@ -7275,7 +7275,7 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 };
 #endif /* CONFIG_I2C */
 
-static void fixup_i2c_configs(void)
+static void __init fixup_i2c_configs(void)
 {
 #ifdef CONFIG_I2C
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
@@ -7293,7 +7293,7 @@ static void fixup_i2c_configs(void)
 #endif
 }
 
-static void register_i2c_devices(void)
+static void __init register_i2c_devices(void)
 {
 #ifdef CONFIG_I2C
 	u8 mach_mask = 0;
