@@ -296,6 +296,7 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 
 		isp_event->isp_data.isp_msg.msg_id = isp_msg->msg_id;
 		isp_event->isp_data.isp_msg.frame_id = isp_msg->sof_count;
+		getnstimeofday(&(isp_event->isp_data.isp_msg.timestamp));
 		break;
 	}
 	case NOTIFY_VFE_MSG_OUT: {

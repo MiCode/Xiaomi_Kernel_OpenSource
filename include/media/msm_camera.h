@@ -270,6 +270,7 @@ struct msm_cam_evt_msg {
 	unsigned int len;	/* size in, number of bytes out */
 	uint32_t frame_id;
 	void *data;
+	struct timespec timestamp;
 };
 
 struct msm_pp_frame_sp {
