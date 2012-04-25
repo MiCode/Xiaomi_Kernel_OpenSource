@@ -805,7 +805,7 @@ static struct spi_driver epm_spi_driver = {
 	},
 };
 
-static int epm_adc_probe(struct platform_device *pdev)
+static int __devinit epm_adc_probe(struct platform_device *pdev)
 {
 	struct epm_adc_drv *epm_adc;
 	struct epm_adc_platform_data *pdata = pdev->dev.platform_data;
