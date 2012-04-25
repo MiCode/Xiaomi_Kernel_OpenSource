@@ -367,7 +367,7 @@ DEFINE_SIMPLE_ATTRIBUTE(loopback_enable_fops, msm_serial_loopback_enable_get,
  * test scripts.
  * writing 0 disables the internal loopback mode. Default is disabled.
  */
-static void __init msm_serial_debugfs_init(struct msm_hs_port *msm_uport,
+static void __devinit msm_serial_debugfs_init(struct msm_hs_port *msm_uport,
 					   int id)
 {
 	char node_name[15];
