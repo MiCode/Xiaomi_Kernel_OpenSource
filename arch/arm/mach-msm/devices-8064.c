@@ -440,6 +440,16 @@ struct platform_device apq_cpudai_fm_tx = {
 	.id     = 0x3005,
 };
 
+struct platform_device apq_cpudai_slim_4_rx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x4008,
+};
+
+struct platform_device apq_cpudai_slim_4_tx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x4009,
+};
+
 /*
  * Machine specific data for AUX PCM Interface
  * which the driver will  be unware of.

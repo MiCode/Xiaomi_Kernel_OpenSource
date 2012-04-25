@@ -63,9 +63,14 @@ enum {
 	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
 	SLIM_1_TX_1 = 146, /* BT-SCO and USB RX */
 	SLIM_2_RX_1 = 147, /* HDMI RX */
-	SLIM_3_RX_1 = 148, /* In-call recording RX */
-	SLIM_3_RX_2 = 149, /* In-call recording RX */
-	SLIM_4_TX_1 = 150, /* In-call musid delivery TX */
+	SLIM_4_TX_1 = 148, /* In-call recording RX */
+	SLIM_4_TX_2 = 149, /* In-call recording RX */
+	SLIM_4_RX_1 = 150, /* In-call music delivery TX */
+};
+
+enum {
+	INCALL_REC_MONO,
+	INCALL_REC_STEREO,
 };
 
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
@@ -78,6 +83,8 @@ static int msm_slim_0_tx_ch = 1;
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
+
+static int rec_mode = INCALL_REC_MONO;
 
 static struct clk *codec_clk;
 static int clk_users;
@@ -611,6 +618,23 @@ static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_incall_rec_mode_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = rec_mode;
+	return 0;
+}
+
+static int msm_incall_rec_mode_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+
+	rec_mode = ucontrol->value.integer.value[0];
+	pr_debug("%s: rec_mode:%d\n", __func__, rec_mode);
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new tabla_msm_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm_enum[0], msm_get_spk,
 		msm_set_spk),
@@ -625,6 +649,11 @@ static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
 		msm_btsco_rate_get, msm_btsco_rate_put),
 };
 
+static const struct snd_kcontrol_new incall_rec_mode_mixer_controls[] = {
+	 SOC_SINGLE_EXT("Incall Rec Mode", SND_SOC_NOPM, 0, 1, 0,
+			msm_incall_rec_mode_get, msm_incall_rec_mode_put),
+};
+
 static int msm_btsco_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err = 0;
@@ -633,6 +662,19 @@ static int msm_btsco_init(struct snd_soc_pcm_runtime *rtd)
 	err = snd_soc_add_platform_controls(platform,
 			int_btsco_rate_mixer_controls,
 		ARRAY_SIZE(int_btsco_rate_mixer_controls));
+	if (err < 0)
+		return err;
+	return 0;
+}
+
+static int msm_incall_rec_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int err = 0;
+	struct snd_soc_platform *platform = rtd->platform;
+
+	err = snd_soc_add_platform_controls(platform,
+			incall_rec_mode_mixer_controls,
+		ARRAY_SIZE(incall_rec_mode_mixer_controls));
 	if (err < 0)
 		return err;
 	return 0;
@@ -830,6 +872,49 @@ static int msm_slimbus_1_hw_params(struct snd_pcm_substream *substream,
 end:
 	return ret;
 }
+
+static int msm_slimbus_4_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch = SLIM_4_RX_1, tx_ch[2];
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s: APQ Incall Playback SLIMBUS_4_RX -> MDM TX shared ch %d\n",
+			__func__, rx_ch);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0, 1, &rx_ch);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_4 RX channel map\n",
+				__func__, ret);
+
+		}
+	} else {
+		if (rec_mode == INCALL_REC_STEREO) {
+			tx_ch[0] = SLIM_4_TX_1;
+			tx_ch[1] = SLIM_4_TX_2;
+			ret = snd_soc_dai_set_channel_map(cpu_dai, 2,
+							tx_ch, 0, 0);
+		} else {
+			tx_ch[0] = SLIM_4_TX_1;
+			ret = snd_soc_dai_set_channel_map(cpu_dai, 1,
+							tx_ch, 0, 0);
+		}
+		pr_debug("%s: Incall Record shared tx_ch[0]:%d, tx_ch[1]:%d\n",
+			__func__, tx_ch[0], tx_ch[1]);
+
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_4 TX channel map\n",
+				__func__, ret);
+
+		}
+	}
+
+	return ret;
+}
+
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -1115,6 +1200,12 @@ static struct snd_soc_ops msm_auxpcm_be_ops = {
 static struct snd_soc_ops msm_slimbus_1_be_ops = {
 	.startup = msm_startup,
 	.hw_params = msm_slimbus_1_hw_params,
+	.shutdown = msm_shutdown,
+};
+
+static struct snd_soc_ops msm_slimbus_4_be_ops = {
+	.startup = msm_startup,
+	.hw_params = msm_slimbus_4_hw_params,
 	.shutdown = msm_shutdown,
 };
 
@@ -1413,6 +1504,35 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.ops = &msm_be_ops,
 	},
 
+	/* Incall Music Back End DAI Link */
+	{
+		.name = LPASS_BE_SLIMBUS_4_RX,
+		.stream_name = "Slimbus4 Playback",
+		.cpu_dai_name = "msm-dai-q6.16392",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.no_codec = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_slimbus_4_be_ops,
+	},
+	/* Incall Record Back End DAI Link */
+	{
+		.name = LPASS_BE_SLIMBUS_4_TX,
+		.stream_name = "Slimbus4 Capture",
+		.cpu_dai_name = "msm-dai-q6.16393",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.no_codec = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.init = &msm_incall_rec_init,
+		.ops = &msm_slimbus_4_be_ops,
+	},
 };
 
 struct snd_soc_card snd_soc_card_msm = {
