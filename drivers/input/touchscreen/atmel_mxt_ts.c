@@ -2209,7 +2209,7 @@ static const struct file_operations mxt_object_fops = {
 	.release	= single_release,
 };
 
-static void __init mxt_debugfs_init(struct mxt_data *data)
+static void __devinit mxt_debugfs_init(struct mxt_data *data)
 {
 	debug_base = debugfs_create_dir(MXT_DEBUGFS_DIR, NULL);
 	if (IS_ERR_OR_NULL(debug_base))
