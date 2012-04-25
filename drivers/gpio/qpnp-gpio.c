@@ -588,10 +588,9 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 	struct qpnp_gpio_chip *q_chip;
 	struct resource *res;
 	struct qpnp_gpio_spec *q_spec;
-	const __be32 *prop;
-	int i, rc, gpio, len;
-	int lowest_gpio = INT_MAX, highest_gpio = INT_MIN;
-	u32 intspec[3];
+	int i, rc;
+	int lowest_gpio = UINT_MAX, highest_gpio = 0;
+	u32 intspec[3], gpio;
 	char buf[2];
 
 	q_chip = kzalloc(sizeof(*q_chip), GFP_KERNEL);
@@ -609,21 +608,14 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 
 	/* first scan through nodes to find the range required for allocation */
 	for (i = 0; i < spmi->num_dev_node; i++) {
-		prop = of_get_property(spmi->dev_node[i].of_node,
-						"qcom,gpio-num", &len);
-		if (!prop) {
+		rc = of_property_read_u32(spmi->dev_node[i].of_node,
+							"qcom,gpio-num", &gpio);
+		if (rc) {
 			dev_err(&spmi->dev, "%s: unable to get"
 				" qcom,gpio-num property\n", __func__);
-			rc = -EINVAL;
-			goto err_probe;
-		} else if (len != sizeof(__be32)) {
-			dev_err(&spmi->dev, "%s: invalid qcom,gpio-num"
-				" property\n", __func__);
-			rc = -EINVAL;
 			goto err_probe;
 		}
 
-		gpio = be32_to_cpup(prop);
 		if (gpio < lowest_gpio)
 			lowest_gpio = gpio;
 		if (gpio > highest_gpio)
@@ -676,20 +668,13 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 				__func__, spmi->dev_node[i].of_node->full_name);
 		}
 
-		prop = of_get_property(spmi->dev_node[i].of_node,
-				"qcom,gpio-num", &len);
-		if (!prop) {
+		rc = of_property_read_u32(spmi->dev_node[i].of_node,
+							"qcom,gpio-num", &gpio);
+		if (rc) {
 			dev_err(&spmi->dev, "%s: unable to get"
 				" qcom,gpio-num property\n", __func__);
-			rc = -EINVAL;
-			goto err_probe;
-		} else if (len != sizeof(__be32)) {
-			dev_err(&spmi->dev, "%s: invalid qcom,qpnp-gpio-num"
-				" property\n", __func__);
-			rc = -EINVAL;
 			goto err_probe;
 		}
-		gpio = be32_to_cpup(prop);
 
 		q_spec = kzalloc(sizeof(struct qpnp_gpio_spec),
 							GFP_KERNEL);
