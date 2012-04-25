@@ -224,6 +224,7 @@ vreg_enable_failed:
 		ARRAY_SIZE(csid_vreg_info), &csid_dev->csi_vdd, 0);
 vreg_config_failed:
 	iounmap(csid_dev->base);
+	csid_dev->base = NULL;
 	return rc;
 }
 
@@ -244,6 +245,7 @@ static int msm_csid_release(struct v4l2_subdev *sd)
 		ARRAY_SIZE(csid_vreg_info), &csid_dev->csi_vdd, 0);
 
 	iounmap(csid_dev->base);
+	csid_dev->base = NULL;
 	return 0;
 }
 
