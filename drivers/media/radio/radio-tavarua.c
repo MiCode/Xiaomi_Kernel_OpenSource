@@ -2157,6 +2157,7 @@ exit:
 	marimba_set_fm_status(radio->marimba, false);
 	wait_for_completion(&radio->shutdown_done);
 	radio->handle_irq = 1;
+	radio->lp_mode = 1;
 	atomic_inc(&radio->users);
 	radio->marimba->mod_id = SLAVE_ID_BAHAMA;
 	flush_workqueue(radio->wqueue);
