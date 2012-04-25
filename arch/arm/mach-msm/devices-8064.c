@@ -1548,16 +1548,88 @@ struct platform_device msm_gss = {
 	.resource       = msm_gss_resources,
 };
 
-struct platform_device *apq8064_fs_devices[] = {
-	FS_8X60(FS_ROT,    "fs_rot"),
-	FS_8X60(FS_IJPEG,  "fs_ijpeg"),
-	FS_8X60(FS_VFE,    "fs_vfe"),
-	FS_8X60(FS_VPE,    "fs_vpe"),
-	FS_8X60(FS_GFX3D,  "fs_gfx3d"),
-	FS_8X60(FS_VED,    "fs_ved"),
-	FS_8X60(FS_VCAP,   "fs_vcap"),
+static struct fs_driver_data gfx3d_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk", .reset_rate = 27000000 },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_GRAPHICS_3D,
+	.bus_port1 = MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
 };
-unsigned apq8064_num_fs_devices = ARRAY_SIZE(apq8064_fs_devices);
+
+static struct fs_driver_data ijpeg_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_JPEG_ENC,
+};
+
+static struct fs_driver_data rot_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_ROTATOR,
+};
+
+static struct fs_driver_data ved_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_VIDEO_ENC,
+	.bus_port1 = MSM_BUS_MASTER_VIDEO_DEC,
+};
+
+static struct fs_driver_data vfe_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_VFE,
+};
+
+static struct fs_driver_data vpe_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_VPE,
+};
+
+static struct fs_driver_data vcap_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 },
+	},
+	.bus_port0 = MSM_BUS_MASTER_VIDEO_CAP,
+};
+
+struct platform_device *apq8064_footswitch[] __initdata = {
+	FS_8X60(FS_ROT,    "fs_rot",	&rot_fs_data),
+	FS_8X60(FS_IJPEG,  "fs_ijpeg",	&ijpeg_fs_data),
+	FS_8X60(FS_VFE,    "fs_vfe",	&vfe_fs_data),
+	FS_8X60(FS_VPE,    "fs_vpe",	&vpe_fs_data),
+	FS_8X60(FS_GFX3D,  "fs_gfx3d",	&gfx3d_fs_data),
+	FS_8X60(FS_VED,    "fs_ved",	&ved_fs_data),
+	FS_8X60(FS_VCAP,   "fs_vcap",	&vcap_fs_data),
+};
+unsigned apq8064_num_footswitch __initdata = ARRAY_SIZE(apq8064_footswitch);
 
 struct msm_rpm_platform_data apq8064_rpm_data __initdata = {
 	.reg_base_addrs = {

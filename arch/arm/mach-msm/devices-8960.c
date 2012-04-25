@@ -1977,19 +1977,111 @@ struct platform_device msm_pcm_afe = {
 	.id	= -1,
 };
 
-struct platform_device *msm_footswitch_devices[] = {
-	FS_8X60(FS_MDP,    "fs_mdp"),
-	FS_8X60(FS_ROT,    "fs_rot"),
-	FS_8X60(FS_IJPEG,  "fs_ijpeg"),
-	FS_8X60(FS_VFE,    "fs_vfe"),
-	FS_8X60(FS_VPE,    "fs_vpe"),
-	FS_8X60(FS_GFX3D,  "fs_gfx3d"),
-	FS_8X60(FS_GFX2D0, "fs_gfx2d0"),
-	FS_8X60(FS_GFX2D1, "fs_gfx2d1"),
-	FS_8X60(FS_VED,    "fs_ved"),
+static struct fs_driver_data gfx2d0_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_GRAPHICS_2D_CORE0,
 };
-unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
+static struct fs_driver_data gfx2d1_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_GRAPHICS_2D_CORE1,
+};
+
+static struct fs_driver_data gfx3d_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk", .reset_rate = 27000000 },
+		{ .name = "iface_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_GRAPHICS_3D,
+};
+
+static struct fs_driver_data ijpeg_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_JPEG_ENC,
+};
+
+static struct fs_driver_data mdp_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ .name = "vsync_clk" },
+		{ .name = "lut_clk" },
+		{ .name = "tv_src_clk" },
+		{ .name = "tv_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_MDP_PORT0,
+	.bus_port1 = MSM_BUS_MASTER_MDP_PORT1,
+};
+
+static struct fs_driver_data rot_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_ROTATOR,
+};
+
+static struct fs_driver_data ved_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_HD_CODEC_PORT0,
+	.bus_port1 = MSM_BUS_MASTER_HD_CODEC_PORT1,
+};
+
+static struct fs_driver_data vfe_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_VFE,
+};
+
+static struct fs_driver_data vpe_fs_data = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_VPE,
+};
+
+struct platform_device *msm8960_footswitch[] __initdata = {
+	FS_8X60(FS_MDP,    "fs_mdp",	&mdp_fs_data),
+	FS_8X60(FS_ROT,    "fs_rot",	&rot_fs_data),
+	FS_8X60(FS_IJPEG,  "fs_ijpeg",	&ijpeg_fs_data),
+	FS_8X60(FS_VFE,    "fs_vfe",	&vfe_fs_data),
+	FS_8X60(FS_VPE,    "fs_vpe",	&vpe_fs_data),
+	FS_8X60(FS_GFX3D,  "fs_gfx3d",	&gfx3d_fs_data),
+	FS_8X60(FS_GFX2D0, "fs_gfx2d0",	&gfx2d0_fs_data),
+	FS_8X60(FS_GFX2D1, "fs_gfx2d1",	&gfx2d1_fs_data),
+	FS_8X60(FS_VED,    "fs_ved",	&ved_fs_data),
+};
+unsigned msm8960_num_footswitch __initdata = ARRAY_SIZE(msm8960_footswitch);
 
 #ifdef CONFIG_MSM_ROTATOR
 static struct msm_bus_vectors rotator_init_vectors[] = {

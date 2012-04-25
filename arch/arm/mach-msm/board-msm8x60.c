@@ -10315,8 +10315,8 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	    machine_is_msm8x60_fusn_ffa() || machine_is_msm8x60_dragon()) {
 		msm8x60_cfg_smsc911x();
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1)
-			platform_add_devices(msm_footswitch_devices,
-					     msm_num_footswitch_devices);
+			platform_add_devices(msm8660_footswitch,
+					     msm8660_num_footswitch);
 		platform_add_devices(surf_devices,
 				     ARRAY_SIZE(surf_devices));
 

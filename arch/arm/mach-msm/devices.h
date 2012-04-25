@@ -269,8 +269,14 @@ extern struct platform_device apq_cpudai_slim_4_tx;
 
 extern struct platform_device *msm_footswitch_devices[];
 extern unsigned msm_num_footswitch_devices;
-extern struct platform_device *apq8064_fs_devices[];
-extern unsigned apq8064_num_fs_devices;
+extern struct platform_device *msm8660_footswitch[];
+extern unsigned msm8660_num_footswitch;
+extern struct platform_device *msm8960_footswitch[];
+extern unsigned msm8960_num_footswitch;
+extern struct platform_device *apq8064_footswitch[];
+extern unsigned apq8064_num_footswitch;
+extern struct platform_device *msm8930_footswitch[];
+extern unsigned msm8930_num_footswitch;
 
 extern struct platform_device fsm_qfp_fuse_device;
 
