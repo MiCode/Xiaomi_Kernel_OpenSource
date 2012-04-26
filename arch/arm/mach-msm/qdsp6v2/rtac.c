@@ -487,11 +487,11 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		payload_size);
 	adm_params.src_svc = APR_SVC_ADM;
 	adm_params.src_domain = APR_DOMAIN_APPS;
-	adm_params.src_port = port_index;
+	adm_params.src_port = copp_id;
 	adm_params.dest_svc = APR_SVC_ADM;
 	adm_params.dest_domain = APR_DOMAIN_ADSP;
 	adm_params.dest_port = copp_id;
-	adm_params.token = port_index;
+	adm_params.token = copp_id;
 	adm_params.opcode = opcode;
 
 	memcpy(rtac_adm_buffer, &adm_params, sizeof(adm_params));
