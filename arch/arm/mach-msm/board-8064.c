@@ -1123,7 +1123,6 @@ static struct i2c_board_info mxt_device_info[] __initdata = {
 };
 #endif
 #define CYTTSP_TS_GPIO_IRQ		6
-#define CYTTSP_TS_GPIO_RESOUT		7
 #define CYTTSP_TS_GPIO_SLEEP		33
 
 static ssize_t tma340_vkeys_show(struct kobject *kobj,
@@ -1217,7 +1216,7 @@ static struct cyttsp_platform_data cyttsp_pdata = {
 	 */
 	.lp_intrvl = CY_LP_INTRVL_DFLT,
 	.sleep_gpio = CYTTSP_TS_GPIO_SLEEP,
-	.resout_gpio = CYTTSP_TS_GPIO_RESOUT,
+	.resout_gpio = -1,
 	.irq_gpio = CYTTSP_TS_GPIO_IRQ,
 	.regulator_info = cyttsp_regulator_data,
 	.num_regulators = ARRAY_SIZE(cyttsp_regulator_data),
