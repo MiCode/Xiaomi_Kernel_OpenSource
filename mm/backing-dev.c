@@ -253,7 +253,9 @@ static int __init default_bdi_init(void)
 	sync_supers_tsk = kthread_run(bdi_sync_supers, NULL, "sync_supers");
 	BUG_ON(IS_ERR(sync_supers_tsk));
 
-	setup_timer(&sync_supers_timer, sync_supers_timer_fn, 0);
+	init_timer_deferrable(&sync_supers_timer);
+	sync_supers_timer.function = sync_supers_timer_fn;
+	sync_supers_timer.data = 0;
 	bdi_arm_supers_timer();
 
 	err = bdi_init(&default_backing_dev_info);
