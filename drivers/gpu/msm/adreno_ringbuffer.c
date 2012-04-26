@@ -857,7 +857,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	*cmds++ = cp_nop_packet(1);
 	*cmds++ = KGSL_END_OF_IB_IDENTIFIER;
 
-	kgsl_setstate(device,
+	kgsl_setstate(&device->mmu,
 		      kgsl_mmu_pt_get_flags(device->mmu.hwpagetable,
 					device->id));
 
