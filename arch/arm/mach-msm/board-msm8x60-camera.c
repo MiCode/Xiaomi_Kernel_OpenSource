@@ -448,6 +448,26 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.actuator_info = &imx074_actuator_info
 };
 
+static struct msm_camera_sensor_flash_data flash_mt9e013 = {
+	.flash_type	= MSM_CAMERA_FLASH_NONE,
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_mt9e013 = {
+	.mount_angle	= 0,
+	.cam_vreg = msm_8x60_back_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8x60_back_cam_vreg),
+	.gpio_conf = &msm_8x60_back_cam_gpio_conf,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
+	.sensor_name	= "mt9e013",
+	.pdata	= &msm_camera_csi_device_data[0],
+	.flash_data	= &flash_mt9e013,
+	.sensor_platform_info = &sensor_board_info_mt9e013,
+	.csi_if	= 1,
+	.camera_type = BACK_CAMERA_2D,
+};
+
 static struct platform_device msm_camera_server = {
 	.name = "msm_cam_server",
 	.id = 0,
@@ -467,6 +487,10 @@ static struct i2c_board_info msm8x60_camera_i2c_boardinfo[] = {
 	{
 	I2C_BOARD_INFO("imx074", 0x1A),
 	.platform_data = &msm_camera_sensor_imx074_data,
+	},
+	{
+	I2C_BOARD_INFO("mt9e013", 0x6C),
+	.platform_data = &msm_camera_sensor_mt9e013_data,
 	},
 };
 
