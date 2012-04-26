@@ -118,6 +118,8 @@ enum battery_type {
  *			calculated or the peak system current (mA)
  * @v_failure:		the voltage at which the battery is considered empty(mV)
  * @calib_delay_ms:	how often should the adc calculate gain and offset
+ * @enable_fcc_learning:	if set the driver will learn full charge
+ *				capacity of the battery upon end of charge
  */
 struct pm8921_bms_platform_data {
 	struct pm8xxx_bms_core_data	bms_cdata;
@@ -128,6 +130,7 @@ struct pm8921_bms_platform_data {
 	unsigned int			calib_delay_ms;
 	unsigned int			max_voltage_uv;
 	unsigned int			rconn_mohm;
+	int				enable_fcc_learning;
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)

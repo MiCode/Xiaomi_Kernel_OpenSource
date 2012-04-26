@@ -135,6 +135,7 @@ struct pm8921_bms_chip {
 	int			last_cc_uah; /* used for Iavg calc for UUC */
 	struct timeval		t;
 	int			last_uuc_uah;
+	int			enable_fcc_learning;
 };
 
 static struct pm8921_bms_chip *the_chip;
@@ -1820,7 +1821,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 	bms_end_ocv_uv = raw.last_good_ocv_uv;
 
-	if (is_battery_full
+	if (is_battery_full && the_chip->enable_fcc_learning
 		&& the_chip->start_percent <= MIN_START_PERCENT_FOR_LEARNING) {
 		int fcc_uah, new_fcc_uah, delta_fcc_uah;
 
@@ -2587,6 +2588,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->ref1p25v_channel = pdata->bms_cdata.ref1p25v_channel;
 	chip->batt_id_channel = pdata->bms_cdata.batt_id_channel;
 	chip->revision = pm8xxx_get_revision(chip->dev->parent);
+	chip->enable_fcc_learning = pdata->enable_fcc_learning;
 	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
 
 	rc = request_irqs(chip, pdev);
