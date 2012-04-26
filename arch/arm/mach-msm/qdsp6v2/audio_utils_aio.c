@@ -946,8 +946,15 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 
 	ac = audio->ac;
 	/* Offset with  appropriate meta */
-	param.paddr = buf_node->paddr + sizeof(struct dec_meta_in);
-	param.len = buf_node->buf.data_len - sizeof(struct dec_meta_in);
+	if (audio->feedback) {
+		/* Non Tunnel mode */
+		param.paddr = buf_node->paddr + sizeof(struct dec_meta_in);
+		param.len = buf_node->buf.data_len - sizeof(struct dec_meta_in);
+	} else {
+		/* Tunnel mode */
+		param.paddr = buf_node->paddr;
+		param.len = buf_node->buf.data_len;
+	}
 	param.msw_ts = buf_node->meta_info.meta_in.ntimestamp.highpart;
 	param.lsw_ts = buf_node->meta_info.meta_in.ntimestamp.lowpart;
 	/* If no meta_info enaled, indicate no time stamp valid */
