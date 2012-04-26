@@ -339,6 +339,8 @@ int adreno_ringbuffer_start(struct adreno_ringbuffer *rb, unsigned int init_ram)
 	if (status != 0)
 		return status;
 
+	if (adreno_is_a305(adreno_dev) || adreno_is_a320(adreno_dev))
+		adreno_regwrite(device, REG_CP_QUEUE_THRESHOLDS, 0x000F0602);
 
 	rb->rptr = 0;
 	rb->wptr = 0;
