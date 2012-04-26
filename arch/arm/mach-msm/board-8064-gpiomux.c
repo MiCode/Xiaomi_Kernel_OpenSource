@@ -433,6 +433,19 @@ static struct gpiomux_setting gsbi5_active_cfg = {
 	.drv = GPIOMUX_DRV_12MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
+
+static struct gpiomux_setting sx150x_suspended_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting sx150x_active_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting cyts_sleep_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
@@ -968,6 +981,16 @@ static struct msm_gpiomux_config mpq8064_ir_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config sx150x_int_configs[] __initdata = {
+	{
+		.gpio      = 81,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &sx150x_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &sx150x_active_cfg,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -989,6 +1012,8 @@ void __init apq8064_init_gpiomux(void)
 		msm_gpiomux_install(vcap_configs,
 				ARRAY_SIZE(vcap_configs));
 #endif
+		msm_gpiomux_install(sx150x_int_configs,
+				ARRAY_SIZE(sx150x_int_configs));
 	} else {
 		#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 		msm_gpiomux_install(apq8064_ethernet_configs,
