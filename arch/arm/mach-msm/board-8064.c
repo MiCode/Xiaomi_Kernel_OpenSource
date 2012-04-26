@@ -1794,6 +1794,12 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	},
 };
 
+static struct msm_pm_sleep_status_data msm_pm_slp_sts_data = {
+	.base_addr = MSM_ACC0_BASE + 0x08,
+	.cpu_offset = MSM_ACC1_BASE - MSM_ACC0_BASE,
+	.mask = 1UL << 13,
+};
+
 static void __init apq8064_init_buses(void)
 {
 	msm_bus_rpm_set_mt_mask();
@@ -2536,6 +2542,7 @@ static void __init apq8064_common_init(void)
 	acpuclk_init(&acpuclk_8064_soc_data);
 	msm_spm_l2_init(msm_spm_l2_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	msm_pm_init_sleep_status_data(&msm_pm_slp_sts_data);
 	apq8064_epm_adc_init();
 }
 
