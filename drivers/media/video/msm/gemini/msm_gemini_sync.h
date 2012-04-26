@@ -21,6 +21,10 @@
 #include <media/v4l2-subdev.h>
 #include "msm_gemini_core.h"
 
+#define GEMINI_7X 0x1
+#define GEMINI_8X60 (0x1 << 1)
+#define GEMINI_8960 (0x1 << 2)
+
 struct msm_gemini_q {
 	char const	*name;
 	struct list_head  q;
@@ -39,6 +43,9 @@ struct msm_gemini_device {
 	struct resource        *mem;
 	int                     irq;
 	void                   *base;
+	struct clk *gemini_clk[3];
+	struct regulator *gemini_fs;
+	uint32_t hw_version;
 
 	struct device *device;
 	struct cdev   cdev;

@@ -20,6 +20,7 @@
 #include <mach/msm_subsystem_map.h>
 
 #include "msm_gemini_platform.h"
+#include "msm_gemini_sync.h"
 #include "msm_gemini_common.h"
 #include "msm_gemini_hw.h"
 
@@ -80,6 +81,20 @@ error1:
 	return 0;
 }
 
+static struct msm_cam_clk_info gemini_8x_clk_info[] = {
+	{"ijpeg_clk", 228571000},
+	{"ijpeg_pclk", -1},
+};
+
+static struct msm_cam_clk_info gemini_7x_clk_info[] = {
+	{"jpeg_clk", 153600000},
+	{"jpeg_pclk", -1},
+};
+
+static struct msm_cam_clk_info gemini_imem_clk_info[] = {
+	{"imem_clk", -1},
+};
+
 int msm_gemini_platform_init(struct platform_device *pdev,
 	struct resource **mem,
 	void **base,
@@ -91,6 +106,8 @@ int msm_gemini_platform_init(struct platform_device *pdev,
 	int gemini_irq;
 	struct resource *gemini_mem, *gemini_io, *gemini_irq_res;
 	void *gemini_base;
+	struct msm_gemini_device *pgmn_dev =
+		(struct msm_gemini_device *) context;
 
 	gemini_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!gemini_mem) {
@@ -119,10 +136,43 @@ int msm_gemini_platform_init(struct platform_device *pdev,
 		goto fail1;
 	}
 
-	rc = msm_camio_jpeg_clk_enable();
-	if (rc) {
-		GMN_PR_ERR("%s: clk failed rc = %d\n", __func__, rc);
-		goto fail2;
+	pgmn_dev->hw_version = GEMINI_8X60;
+	rc = msm_cam_clk_enable(&pgmn_dev->pdev->dev, gemini_8x_clk_info,
+	 pgmn_dev->gemini_clk, ARRAY_SIZE(gemini_8x_clk_info), 1);
+	if (rc < 0) {
+		pgmn_dev->hw_version = GEMINI_7X;
+		rc = msm_cam_clk_enable(&pgmn_dev->pdev->dev,
+			gemini_7x_clk_info, pgmn_dev->gemini_clk,
+			ARRAY_SIZE(gemini_7x_clk_info), 1);
+		if (rc < 0) {
+			GMN_PR_ERR("%s: clk failed rc = %d\n", __func__, rc);
+			goto fail2;
+		}
+	} else {
+		rc = msm_cam_clk_enable(&pgmn_dev->pdev->dev,
+				gemini_imem_clk_info, &pgmn_dev->gemini_clk[2],
+				ARRAY_SIZE(gemini_imem_clk_info), 1);
+		if (!rc)
+			pgmn_dev->hw_version = GEMINI_8960;
+	}
+
+	if (pgmn_dev->hw_version != GEMINI_7X) {
+		if (pgmn_dev->gemini_fs == NULL) {
+			pgmn_dev->gemini_fs =
+				regulator_get(&pgmn_dev->pdev->dev, "fs_ijpeg");
+			if (IS_ERR(pgmn_dev->gemini_fs)) {
+				pr_err("%s: Regulator FS_ijpeg get failed %ld\n",
+					__func__, PTR_ERR(pgmn_dev->gemini_fs));
+				pgmn_dev->gemini_fs = NULL;
+				goto gemini_fs_failed;
+			} else if (regulator_enable(pgmn_dev->gemini_fs)) {
+				pr_err("%s: Regulator FS_ijpeg enable failed\n",
+								__func__);
+				regulator_put(pgmn_dev->gemini_fs);
+				pgmn_dev->gemini_fs = NULL;
+				goto gemini_fs_failed;
+			}
+		}
 	}
 
 	msm_gemini_hw_init(gemini_base, resource_size(gemini_mem));
@@ -146,7 +196,21 @@ int msm_gemini_platform_init(struct platform_device *pdev,
 	return rc;
 
 fail3:
-	msm_camio_jpeg_clk_disable();
+	if (pgmn_dev->hw_version != GEMINI_7X) {
+		regulator_disable(pgmn_dev->gemini_fs);
+		regulator_put(pgmn_dev->gemini_fs);
+		pgmn_dev->gemini_fs = NULL;
+	}
+gemini_fs_failed:
+	if (pgmn_dev->hw_version == GEMINI_8960)
+		msm_cam_clk_enable(&pgmn_dev->pdev->dev, gemini_imem_clk_info,
+		 &pgmn_dev->gemini_clk[2], ARRAY_SIZE(gemini_imem_clk_info), 0);
+	if (pgmn_dev->hw_version != GEMINI_7X)
+		msm_cam_clk_enable(&pgmn_dev->pdev->dev, gemini_8x_clk_info,
+		pgmn_dev->gemini_clk, ARRAY_SIZE(gemini_8x_clk_info), 0);
+	else
+		msm_cam_clk_enable(&pgmn_dev->pdev->dev, gemini_7x_clk_info,
+		pgmn_dev->gemini_clk, ARRAY_SIZE(gemini_7x_clk_info), 0);
 fail2:
 	iounmap(gemini_base);
 fail1:
@@ -158,10 +222,28 @@ fail1:
 int msm_gemini_platform_release(struct resource *mem, void *base, int irq,
 	void *context)
 {
-	int result;
+	int result = 0;
+	struct msm_gemini_device *pgmn_dev =
+		(struct msm_gemini_device *) context;
 
 	free_irq(irq, context);
-	result = msm_camio_jpeg_clk_disable();
+
+	if (pgmn_dev->hw_version != GEMINI_7X) {
+		regulator_disable(pgmn_dev->gemini_fs);
+		regulator_put(pgmn_dev->gemini_fs);
+		pgmn_dev->gemini_fs = NULL;
+	}
+
+	if (pgmn_dev->hw_version == GEMINI_8960)
+		msm_cam_clk_enable(&pgmn_dev->pdev->dev, gemini_imem_clk_info,
+		 &pgmn_dev->gemini_clk[2], ARRAY_SIZE(gemini_imem_clk_info), 0);
+	if (pgmn_dev->hw_version != GEMINI_7X)
+		msm_cam_clk_enable(&pgmn_dev->pdev->dev, gemini_8x_clk_info,
+		pgmn_dev->gemini_clk, ARRAY_SIZE(gemini_8x_clk_info), 0);
+	else
+		msm_cam_clk_enable(&pgmn_dev->pdev->dev, gemini_7x_clk_info,
+		pgmn_dev->gemini_clk, ARRAY_SIZE(gemini_7x_clk_info), 0);
+
 	iounmap(base);
 	release_mem_region(mem->start, resource_size(mem));
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION

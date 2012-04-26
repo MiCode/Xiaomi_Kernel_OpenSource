@@ -108,8 +108,6 @@ static struct clk *camio_camif_pad_pbdg_clk;
 static struct clk *camio_csi_clk;
 static struct clk *camio_csi_pclk;
 static struct clk *camio_csi_vfe_clk;
-static struct clk *camio_jpeg_clk;
-static struct clk *camio_jpeg_pclk;
 static struct clk *camio_vpe_clk;
 static struct regulator *fs_vpe;
 static struct msm_camera_io_ext camio_ext;
@@ -117,7 +115,6 @@ static struct msm_camera_io_clk camio_clk;
 static struct resource *camifpadio, *csiio;
 void __iomem *camifpadbase, *csibase;
 static uint32_t vpe_clk_rate;
-static uint32_t jpeg_clk_rate;
 
 static struct regulator_bulk_data regs[] = {
 	{ .supply = "gp2",  .min_uV = 2600000, .max_uV = 2600000 },
@@ -239,16 +236,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		clk = clk_get(NULL, "csi_pclk");
 		break;
 
-	case CAMIO_JPEG_CLK:
-		camio_jpeg_clk =
-		clk = clk_get(NULL, "jpeg_clk");
-		jpeg_clk_rate = clk_round_rate(clk, 144000000);
-		clk_set_rate(clk, jpeg_clk_rate);
-		break;
-	case CAMIO_JPEG_PCLK:
-		camio_jpeg_pclk =
-		clk = clk_get(NULL, "jpeg_pclk");
-		break;
 	case CAMIO_VPE_CLK:
 		camio_vpe_clk =
 		clk = clk_get(NULL, "vpe_clk");
@@ -308,12 +295,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 	case CAMIO_CSI0_PCLK:
 		clk = camio_csi_pclk;
 		break;
-	case CAMIO_JPEG_CLK:
-		clk = camio_jpeg_clk;
-		break;
-	case CAMIO_JPEG_PCLK:
-		clk = camio_jpeg_pclk;
-		break;
 	case CAMIO_VPE_CLK:
 		clk = camio_vpe_clk;
 		break;
@@ -354,22 +335,6 @@ static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
 	CDBG("%s MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
 	msm_camera_io_w(irq, csibase + MIPI_INTERRUPT_STATUS);
 	return IRQ_HANDLED;
-}
-
-int msm_camio_jpeg_clk_disable(void)
-{
-	msm_camio_clk_disable(CAMIO_JPEG_CLK);
-	msm_camio_clk_disable(CAMIO_JPEG_PCLK);
-	/* Need to add the code for remove PM QOS requirement */
-	return 0;
-}
-
-
-int msm_camio_jpeg_clk_enable(void)
-{
-	msm_camio_clk_enable(CAMIO_JPEG_CLK);
-	msm_camio_clk_enable(CAMIO_JPEG_PCLK);
-	return 0;
 }
 
 int msm_camio_vpe_clk_disable(void)

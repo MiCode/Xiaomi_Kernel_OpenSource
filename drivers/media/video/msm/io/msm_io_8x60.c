@@ -85,12 +85,9 @@ static struct clk *camio_csi1_clk;
 static struct clk *camio_csi0_pclk;
 static struct clk *camio_csi1_pclk;
 static struct clk *camio_vfe_pclk;
-static struct clk *camio_jpeg_clk;
-static struct clk *camio_jpeg_pclk;
 static struct clk *camio_vpe_clk;
 static struct clk *camio_vpe_pclk;
 static struct regulator *fs_vfe;
-static struct regulator *fs_ijpeg;
 static struct regulator *fs_vpe;
 static struct regulator *ldo15;
 static struct regulator *lvs0;
@@ -254,17 +251,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		clk = clk_get(&camio_dev->dev, "csi_pclk");
 		break;
 
-	case CAMIO_JPEG_CLK:
-		camio_jpeg_clk =
-		clk = clk_get(NULL, "ijpeg_clk");
-		msm_camio_clk_rate_set_2(clk, 228571000);
-		break;
-
-	case CAMIO_JPEG_PCLK:
-		camio_jpeg_pclk =
-		clk = clk_get(NULL, "ijpeg_pclk");
-		break;
-
 	case CAMIO_VPE_CLK:
 		camio_vpe_clk =
 		clk = clk_get(NULL, "vpe_clk");
@@ -334,14 +320,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 		clk = camio_csi1_pclk;
 		break;
 
-	case CAMIO_JPEG_CLK:
-		clk = camio_jpeg_clk;
-		break;
-
-	case CAMIO_JPEG_PCLK:
-		clk = camio_jpeg_pclk;
-		break;
-
 	case CAMIO_VPE_CLK:
 		clk = camio_vpe_clk;
 		break;
@@ -391,47 +369,6 @@ static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
 	if (csibase != NULL)
 		msm_camera_io_w(irq, csibase + MIPI_INTERRUPT_STATUS);
 	return IRQ_HANDLED;
-}
-
-int msm_camio_jpeg_clk_disable(void)
-{
-	int rc = 0;
-	if (fs_ijpeg) {
-		rc = regulator_disable(fs_ijpeg);
-		if (rc < 0) {
-			CDBG("%s: Regulator disable failed %d\n", __func__, rc);
-			return rc;
-		}
-		regulator_put(fs_ijpeg);
-	}
-	rc = msm_camio_clk_disable(CAMIO_JPEG_PCLK);
-	if (rc < 0)
-		return rc;
-	rc = msm_camio_clk_disable(CAMIO_JPEG_CLK);
-	CDBG("%s: exit %d\n", __func__, rc);
-	return rc;
-}
-
-int msm_camio_jpeg_clk_enable(void)
-{
-	int rc = 0;
-	rc = msm_camio_clk_enable(CAMIO_JPEG_CLK);
-	if (rc < 0)
-		return rc;
-	rc = msm_camio_clk_enable(CAMIO_JPEG_PCLK);
-	if (rc < 0)
-		return rc;
-	fs_ijpeg = regulator_get(NULL, "fs_ijpeg");
-	if (IS_ERR(fs_ijpeg)) {
-		CDBG("%s: Regulator FS_IJPEG get failed %ld\n", __func__,
-			PTR_ERR(fs_ijpeg));
-		fs_ijpeg = NULL;
-	} else if (regulator_enable(fs_ijpeg)) {
-		CDBG("%s: Regulator FS_IJPEG enable failed\n", __func__);
-		regulator_put(fs_ijpeg);
-	}
-	CDBG("%s: exit %d\n", __func__, rc);
-	return rc;
 }
 
 int msm_camio_vpe_clk_disable(void)
