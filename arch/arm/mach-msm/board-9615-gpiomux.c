@@ -105,20 +105,6 @@ static struct gpiomux_setting ebi2_lcdc_rs = {
 };
 #endif
 
-static struct gpiomux_setting wlan_active_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-	.dir = GPIOMUX_OUT_LOW,
-};
-
-static struct gpiomux_setting wlan_suspend_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-	.dir = GPIOMUX_IN,
-};
-
 static struct msm_gpiomux_config msm9615_audio_codec_configs[] __initdata = {
 	{
 		.gpio = 24,
@@ -320,24 +306,6 @@ static struct msm_gpiomux_config msm9615_ebi2_lcdc_configs[] __initdata = {
 };
 #endif
 
-static struct msm_gpiomux_config msm9615_wlan_configs[] __initdata = {
-	{
-		.gpio	= 2,	/* WLAN_PM_ENABLE */
-		.settings = {
-			[GPIOMUX_ACTIVE] = &wlan_active_config,
-			[GPIOMUX_SUSPENDED] = &wlan_suspend_config,
-		},
-	},
-	{
-		.gpio	= 21,	/* WLAN_RESET_N */
-		.settings = {
-			[GPIOMUX_ACTIVE] = &wlan_active_config,
-			[GPIOMUX_SUSPENDED] = &wlan_suspend_config,
-		},
-	},
-};
-
-
 int __init msm9615_init_gpiomux(void)
 {
 	int rc;
@@ -363,9 +331,6 @@ int __init msm9615_init_gpiomux(void)
 #endif
 	msm_gpiomux_install(msm9615_audio_codec_configs,
 			ARRAY_SIZE(msm9615_audio_codec_configs));
-
-	msm_gpiomux_install(msm9615_wlan_configs,
-			ARRAY_SIZE(msm9615_wlan_configs));
 
 #ifdef CONFIG_FB_MSM_EBI2
 	msm_gpiomux_install(msm9615_ebi2_lcdc_configs,
