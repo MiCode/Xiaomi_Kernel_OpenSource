@@ -273,6 +273,7 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 				break;
 		if (i < driver->num_clients) {
 			driver->data_ready[i] |= USER_SPACE_LOG_TYPE;
+			pr_debug("diag: wake up logging process\n");
 			wake_up_interruptible(&driver->wait_q);
 		} else
 			return -EINVAL;
@@ -298,6 +299,15 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			driver->in_busy_sdio = 0;
 			queue_work(driver->diag_sdio_wq,
 				&(driver->diag_read_sdio_work));
+		}
+#endif
+#ifdef CONFIG_DIAG_HSIC_PIPE
+		else if (proc_num == HSIC_DATA) {
+			driver->in_busy_hsic_read = 0;
+			driver->in_busy_hsic_write_on_device = 0;
+			if (driver->hsic_ch)
+				queue_work(driver->diag_hsic_wq,
+					&(driver->diag_read_hsic_work));
 		}
 #endif
 		err = -1;

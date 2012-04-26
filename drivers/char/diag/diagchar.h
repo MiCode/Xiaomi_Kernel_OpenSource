@@ -262,8 +262,8 @@ struct diagchar_dev {
 	int hsic_device_opened;
 	int hsic_suspend;
 	int read_len_mdm;
-	int in_busy_hsic_read_on_mdm;
-	int in_busy_hsic_write_on_mdm;
+	int in_busy_hsic_read_on_device;
+	int in_busy_hsic_write_on_device;
 	int in_busy_hsic_write;
 	int in_busy_hsic_read;
 	int usb_mdm_connected;
