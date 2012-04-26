@@ -2505,7 +2505,7 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	pce_dev->ce_clk = ce_clk;
 
 	/* Enable CE core clk */
-	*rc = clk_enable(pce_dev->ce_core_clk);
+	*rc = clk_prepare_enable(pce_dev->ce_core_clk);
 	if (*rc) {
 		if (pce_dev->ce_core_src_clk != NULL)
 			clk_put(pce_dev->ce_core_src_clk);
@@ -2514,9 +2514,9 @@ void *qce_open(struct platform_device *pdev, int *rc)
 		goto err;
 	} else {
 		/* Enable CE clk */
-		*rc = clk_enable(pce_dev->ce_clk);
+		*rc = clk_prepare_enable(pce_dev->ce_clk);
 		if (*rc) {
-			clk_disable(pce_dev->ce_core_clk);
+			clk_disable_unprepare(pce_dev->ce_core_clk);
 			if (pce_dev->ce_core_src_clk != NULL)
 				clk_put(pce_dev->ce_core_src_clk);
 			clk_put(pce_dev->ce_core_clk);
@@ -2567,8 +2567,8 @@ int qce_close(void *handle)
 	if (pce_dev->coh_vmem)
 		dma_free_coherent(pce_dev->pdev, pce_dev->memsize,
 				pce_dev->coh_vmem, pce_dev->coh_pmem);
-	clk_disable(pce_dev->ce_clk);
-	clk_disable(pce_dev->ce_core_clk);
+	clk_disable_unprepare(pce_dev->ce_clk);
+	clk_disable_unprepare(pce_dev->ce_core_clk);
 
 	if (pce_dev->ce_core_src_clk != NULL)
 		clk_put(pce_dev->ce_core_src_clk);
