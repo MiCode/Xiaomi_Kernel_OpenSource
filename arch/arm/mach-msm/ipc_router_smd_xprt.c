@@ -19,7 +19,6 @@
 #include <linux/types.h>
 
 #include <mach/msm_smd.h>
-#include <mach/peripheral-loader.h>
 
 #include "ipc_router.h"
 #include "smd_private.h"
@@ -442,31 +441,6 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 
 	return 0;
 }
-
-void *msm_ipc_load_default_node(void)
-{
-	void *pil = NULL;
-	const char *peripheral;
-
-	peripheral = smd_edge_to_subsystem(SMD_APPS_MODEM);
-	if (peripheral && !strncmp(peripheral, "modem", 6)) {
-		pil = pil_get(peripheral);
-		if (IS_ERR(pil)) {
-			pr_err("%s: Failed to load %s\n",
-				__func__, peripheral);
-			pil = NULL;
-		}
-	}
-	return pil;
-}
-EXPORT_SYMBOL(msm_ipc_load_default_node);
-
-void msm_ipc_unload_default_node(void *pil)
-{
-	if (pil)
-		pil_put(pil);
-}
-EXPORT_SYMBOL(msm_ipc_unload_default_node);
 
 static struct platform_driver msm_ipc_router_smd_remote_driver[] = {
 	{
