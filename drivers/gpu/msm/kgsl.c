@@ -122,6 +122,40 @@ static int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 }
 
 /**
+ * kgsl_cancel_events_ctxt - Cancel all events for a context
+ * @device - KGSL device for the events to cancel
+ * @ctxt - context whose events we want to cancel
+ *
+ */
+static void kgsl_cancel_events_ctxt(struct kgsl_device *device,
+	struct kgsl_context *context)
+{
+	struct kgsl_event *event, *event_tmp;
+	unsigned int id, cur;
+
+	cur = device->ftbl->readtimestamp(device, context,
+			KGSL_TIMESTAMP_RETIRED);
+	id = context->id;
+
+	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
+		if (event->context != context)
+			continue;
+
+		/*
+		 * "cancel" the events by calling their callback.
+		 * Currently, events are used for lock and memory
+		 * management, so if the process is dying the right
+		 * thing to do is release or free.
+		 */
+		if (event->func)
+			event->func(device, event->priv, id, cur);
+
+		list_del(&event->list);
+		kfree(event);
+	}
+}
+
+/**
  * kgsl_cancel_events - Cancel all events for a process
  * @device - KGSL device for the events to cancel
  * @owner - driver instance that owns the events to cancel
@@ -1239,6 +1273,8 @@ static long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 		result = -EINVAL;
 		goto done;
 	}
+
+	kgsl_cancel_events_ctxt(dev_priv->device, context);
 
 	if (dev_priv->device->ftbl->drawctxt_destroy)
 		dev_priv->device->ftbl->drawctxt_destroy(dev_priv->device,
