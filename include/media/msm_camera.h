@@ -446,10 +446,12 @@ struct msm_camera_cfg_cmd {
 #define CMD_VFE_BUFFER_RELEASE 51
 #define CMD_VFE_PROCESS_IRQ 52
 
-#define CMD_AXI_CFG_PRIM		0xF1
-#define CMD_AXI_CFG_PRIM_ALL_CHNLS	0xF2
-#define CMD_AXI_CFG_SEC			0xF4
-#define CMD_AXI_CFG_SEC_ALL_CHNLS	0xF8
+#define CMD_AXI_CFG_PRIM		0xc1
+#define CMD_AXI_CFG_PRIM_ALL_CHNLS	0xc2
+#define CMD_AXI_CFG_SEC			0xc4
+#define CMD_AXI_CFG_SEC_ALL_CHNLS	0xc8
+#define CMD_AXI_CFG_TERT1		0xd0
+
 
 #define CMD_AXI_START  0xE1
 #define CMD_AXI_STOP   0xE2
@@ -549,10 +551,11 @@ struct outputCfg {
 #define OUTPUT_ZSL_ALL_CHNLS 10
 #define LAST_AXI_OUTPUT_MODE_ENUM = OUTPUT_ZSL_ALL_CHNLS
 
-#define OUTPUT_PRIM		0xF1
-#define OUTPUT_PRIM_ALL_CHNLS	0xF2
-#define OUTPUT_SEC		0xF4
-#define OUTPUT_SEC_ALL_CHNLS	0xF8
+#define OUTPUT_PRIM		0xC1
+#define OUTPUT_PRIM_ALL_CHNLS	0xC2
+#define OUTPUT_SEC		0xC4
+#define OUTPUT_SEC_ALL_CHNLS	0xC8
+#define OUTPUT_TERT1		0xD0
 
 
 #define MSM_FRAME_PREV_1	0
