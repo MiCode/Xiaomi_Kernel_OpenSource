@@ -325,15 +325,9 @@ struct msm_otg {
 	 * voltage regulator(VDDCX).
 	 */
 #define ALLOW_PHY_RETENTION		BIT(1)
-	  /*
-	   * Disable the OTG comparators to save more power
-	   * if depends on PMIC for VBUS and ID interrupts.
-	   */
-#define ALLOW_PHY_COMP_DISABLE		BIT(2)
 	unsigned long lpm_flags;
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)
-#define PHY_OTG_COMP_DISABLED		BIT(2)
 	struct pm_qos_request_list pm_qos_req_dma;
 	int reset_counter;
 	unsigned long b_last_se0_sess;
