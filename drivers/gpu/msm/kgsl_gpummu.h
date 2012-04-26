@@ -47,7 +47,6 @@ struct kgsl_tlbflushfilter {
 struct kgsl_gpummu_pt {
 	struct kgsl_memdesc  base;
 	unsigned int   last_superpte;
-	unsigned int tlb_flags;
 	/* Maintain filter to manage tlb flushing */
 	struct kgsl_tlbflushfilter tlbflushfilter;
 };

@@ -112,6 +112,7 @@ struct kgsl_pagetable {
 		unsigned int max_entries;
 	} stats;
 	const struct kgsl_mmu_pt_ops *pt_ops;
+	unsigned int tlb_flags;
 	void *priv;
 };
 
@@ -132,15 +133,14 @@ struct kgsl_mmu_ops {
 struct kgsl_mmu_pt_ops {
 	int (*mmu_map) (void *mmu_pt,
 			struct kgsl_memdesc *memdesc,
-			unsigned int protflags);
+			unsigned int protflags,
+			unsigned int *tlb_flags);
 	int (*mmu_unmap) (void *mmu_pt,
 			struct kgsl_memdesc *memdesc);
 	void *(*mmu_create_pagetable) (void);
 	void (*mmu_destroy_pagetable) (void *pt);
 	int (*mmu_pt_equal) (struct kgsl_pagetable *pt,
 			unsigned int pt_base);
-	unsigned int (*mmu_pt_get_flags) (struct kgsl_pagetable *pt,
-				enum kgsl_deviceid id);
 };
 
 struct kgsl_mmu {
