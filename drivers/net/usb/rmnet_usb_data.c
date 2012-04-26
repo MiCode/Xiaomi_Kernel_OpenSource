@@ -13,6 +13,8 @@
 #include <linux/mii.h>
 #include <linux/if_arp.h>
 #include <linux/etherdevice.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include <linux/usb.h>
 #include <linux/usb/usbnet.h>
 #include <linux/msm_rmnet.h>
@@ -416,6 +418,86 @@ static void rmnet_usb_setup(struct net_device *dev)
 	dev->watchdog_timeo = 1000; /* 10 seconds? */
 }
 
+static int rmnet_usb_data_status(struct seq_file *s, void *unused)
+{
+	struct usbnet *unet = s->private;
+
+	seq_printf(s, "RMNET_MODE_LLP_IP:  %d\n",
+			test_bit(RMNET_MODE_LLP_IP, &unet->data[0]));
+	seq_printf(s, "RMNET_MODE_LLP_ETH: %d\n",
+			test_bit(RMNET_MODE_LLP_ETH, &unet->data[0]));
+	seq_printf(s, "RMNET_MODE_QOS:     %d\n",
+			test_bit(RMNET_MODE_QOS, &unet->data[0]));
+	seq_printf(s, "Net MTU:            %u\n", unet->net->mtu);
+	seq_printf(s, "rx_urb_size:        %u\n", unet->rx_urb_size);
+	seq_printf(s, "rx skb q len:       %u\n", unet->rxq.qlen);
+	seq_printf(s, "rx skb done q len:  %u\n", unet->done.qlen);
+	seq_printf(s, "rx errors:          %lu\n", unet->net->stats.rx_errors);
+	seq_printf(s, "rx over errors:     %lu\n",
+			unet->net->stats.rx_over_errors);
+	seq_printf(s, "rx length errors:   %lu\n",
+			unet->net->stats.rx_length_errors);
+	seq_printf(s, "rx packets:         %lu\n", unet->net->stats.rx_packets);
+	seq_printf(s, "rx bytes:           %lu\n", unet->net->stats.rx_bytes);
+	seq_printf(s, "tx skb q len:       %u\n", unet->txq.qlen);
+	seq_printf(s, "tx errors:          %lu\n", unet->net->stats.tx_errors);
+	seq_printf(s, "tx packets:         %lu\n", unet->net->stats.tx_packets);
+	seq_printf(s, "tx bytes:           %lu\n", unet->net->stats.tx_bytes);
+	seq_printf(s, "suspend count:      %d\n", unet->suspend_count);
+	seq_printf(s, "EVENT_DEV_OPEN:     %d\n",
+			test_bit(EVENT_DEV_OPEN, &unet->flags));
+	seq_printf(s, "EVENT_TX_HALT:      %d\n",
+			test_bit(EVENT_TX_HALT, &unet->flags));
+	seq_printf(s, "EVENT_RX_HALT:      %d\n",
+			test_bit(EVENT_RX_HALT, &unet->flags));
+	seq_printf(s, "EVENT_RX_MEMORY:    %d\n",
+			test_bit(EVENT_RX_MEMORY, &unet->flags));
+	seq_printf(s, "EVENT_DEV_ASLEEP:   %d\n",
+			test_bit(EVENT_DEV_ASLEEP, &unet->flags));
+
+	return 0;
+}
+
+static int rmnet_usb_data_status_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, rmnet_usb_data_status, inode->i_private);
+}
+
+const struct file_operations rmnet_usb_data_fops = {
+	.open = rmnet_usb_data_status_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static struct dentry *rmnet_usb_data_dbg_root;
+static int rmnet_usb_data_debugfs_init(struct usbnet *unet)
+{
+	struct dentry *rmnet_usb_data_dentry;
+
+	rmnet_usb_data_dbg_root = debugfs_create_dir(unet->net->name, NULL);
+
+	if (!rmnet_usb_data_dbg_root || IS_ERR(rmnet_usb_data_dbg_root))
+		return -ENODEV;
+
+	rmnet_usb_data_dentry = debugfs_create_file("status",
+		S_IRUGO | S_IWUSR,
+		rmnet_usb_data_dbg_root, unet,
+		&rmnet_usb_data_fops);
+
+	if (!rmnet_usb_data_dentry) {
+		debugfs_remove_recursive(rmnet_usb_data_dbg_root);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void rmnet_usb_data_debugfs_cleanup(void)
+{
+	debugfs_remove_recursive(rmnet_usb_data_dbg_root);
+}
+
 static int rmnet_usb_probe(struct usb_interface *iface,
 		const struct usb_device_id *prod)
 {
@@ -469,6 +551,10 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 	if (status)
 		goto out;
 
+	status = rmnet_usb_data_debugfs_init(unet);
+	if (status)
+		dev_dbg(&udev->dev, "mode debugfs file is not available\n");
+
 	/* allow modem to wake up suspended system */
 	device_set_wakeup_enable(&udev->dev, 1);
 out:
@@ -483,6 +569,8 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 
 	udev = interface_to_usbdev(intf);
 	device_set_wakeup_enable(&udev->dev, 0);
+
+	rmnet_usb_data_debugfs_cleanup();
 
 	unet = usb_get_intfdata(intf);
 	if (!unet) {
