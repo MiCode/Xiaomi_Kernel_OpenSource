@@ -475,6 +475,12 @@ struct msm_hdmi_platform_data {
 	bool (*check_hdcp_hw_support)(void);
 };
 
+struct msm_mhl_platform_data {
+	int irq;
+	int (*gpio_setup)(int on);
+	void (*reset_pin)(int on);
+};
+
 struct msm_i2c_platform_data {
 	int clk_freq;
 	uint32_t rmutex;

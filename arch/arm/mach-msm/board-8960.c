@@ -110,6 +110,9 @@ static struct platform_device msm_fm_platform_init = {
 #define KS8851_IRQ_GPIO		90
 #define HAP_SHIFT_LVL_OE_GPIO	47
 
+#define MHL_GPIO_INT            4
+#define MHL_GPIO_RESET          15
+
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 
 struct sx150x_platform_data msm8960_sx150x_data[] = {
@@ -2273,11 +2276,76 @@ static struct i2c_board_info mxt_device_info[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_FB_MSM_HDMI_MHL_8334
+static void mhl_sii_reset_gpio(int on)
+{
+	gpio_set_value(MHL_GPIO_RESET, on);
+	return;
+}
+
+/*
+ * Request for GPIO allocations
+ * Set appropriate GPIO directions
+ */
+static int mhl_sii_gpio_setup(int on)
+{
+	int ret;
+
+	if (on) {
+		ret = gpio_request(MHL_GPIO_RESET, "W_RST#");
+		if (ret < 0) {
+			pr_err("GPIO RESET request failed: %d\n", ret);
+			return -EBUSY;
+		}
+		ret = gpio_direction_output(MHL_GPIO_RESET, 1);
+		if (ret < 0) {
+			pr_err("SET GPIO RESET direction failed: %d\n", ret);
+			gpio_free(MHL_GPIO_RESET);
+			return -EBUSY;
+		}
+		ret = gpio_request(MHL_GPIO_INT, "W_INT");
+		if (ret < 0) {
+			pr_err("GPIO INT request failed: %d\n", ret);
+			gpio_free(MHL_GPIO_RESET);
+			return -EBUSY;
+		}
+		ret = gpio_direction_input(MHL_GPIO_INT);
+		if (ret < 0) {
+			pr_err("SET GPIO INTR direction failed: %d\n", ret);
+			gpio_free(MHL_GPIO_RESET);
+			gpio_free(MHL_GPIO_INT);
+			return -EBUSY;
+		}
+	} else {
+		gpio_free(MHL_GPIO_RESET);
+		gpio_free(MHL_GPIO_INT);
+	}
+
+	return 0;
+}
+
+static struct msm_mhl_platform_data mhl_platform_data = {
+	.irq = MSM_GPIO_TO_INT(4),
+	.gpio_setup = mhl_sii_gpio_setup,
+	.reset_pin = mhl_sii_reset_gpio,
+};
+#endif
+
 static struct i2c_board_info sii_device_info[] __initdata = {
 	{
+#ifdef CONFIG_FB_MSM_HDMI_MHL_8334
+		/*
+		 * keeps SI 8334 as the default
+		 * MHL TX
+		 */
+		I2C_BOARD_INFO("sii8334", 0x39),
+		.platform_data = &mhl_platform_data,
+#endif
+#ifdef CONFIG_FB_MSM_HDMI_MHL_9244
 		I2C_BOARD_INFO("Sil-9244", 0x39),
-		.flags = I2C_CLIENT_WAKE,
 		.irq = MSM_GPIO_TO_INT(15),
+#endif /* CONFIG_MSM_HDMI_MHL */
+		.flags = I2C_CLIENT_WAKE,
 	},
 };
 
@@ -2902,7 +2970,7 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(mxt_device_info),
 	},
 	{
-		I2C_FFA | I2C_LIQUID,
+		I2C_SURF | I2C_FFA | I2C_LIQUID,
 		MSM_8960_GSBI10_QUP_I2C_BUS_ID,
 		sii_device_info,
 		ARRAY_SIZE(sii_device_info),
