@@ -269,15 +269,6 @@ static void msm_dmov_clock_timer(unsigned long adm)
 	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
 }
 
-void msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful)
-{
-	int adm = DMOV_ID_TO_ADM(id);
-	int ch = DMOV_ID_TO_CHAN(id);
-	writel_relaxed((graceful << 31), DMOV_REG(DMOV_FLUSH0(ch), adm));
-	wmb();
-}
-EXPORT_SYMBOL(msm_dmov_stop_cmd);
-
 void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 {
 	unsigned long irq_flags;

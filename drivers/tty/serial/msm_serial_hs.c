@@ -769,8 +769,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		 */
 		mb();
 		/* do discard flush */
-		msm_dmov_stop_cmd(msm_uport->dma_rx_channel,
-				  &msm_uport->rx.xfer, 0);
+		msm_dmov_flush(msm_uport->dma_rx_channel, 0);
 	}
 
 	msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
@@ -831,8 +830,7 @@ static void msm_hs_stop_rx_locked(struct uart_port *uport)
 	if (msm_uport->rx.flush == FLUSH_NONE) {
 		wake_lock(&msm_uport->rx.wake_lock);
 		/* do discard flush */
-		msm_dmov_stop_cmd(msm_uport->dma_rx_channel,
-				  &msm_uport->rx.xfer, 0);
+		msm_dmov_flush(msm_uport->dma_rx_channel, 0);
 	}
 	if (msm_uport->rx.flush != FLUSH_SHUTDOWN)
 		msm_uport->rx.flush = FLUSH_STOP;
