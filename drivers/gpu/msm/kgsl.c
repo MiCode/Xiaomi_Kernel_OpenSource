@@ -491,11 +491,8 @@ int kgsl_check_timestamp(struct kgsl_device *device,
 	struct kgsl_context *context, unsigned int timestamp)
 {
 	unsigned int ts_processed;
-	unsigned int global;
 
 	ts_processed = device->ftbl->readtimestamp(device, context,
-		KGSL_TIMESTAMP_RETIRED);
-	global = device->ftbl->readtimestamp(device, NULL,
 		KGSL_TIMESTAMP_RETIRED);
 
 	return (timestamp_cmp(ts_processed, timestamp) >= 0);
