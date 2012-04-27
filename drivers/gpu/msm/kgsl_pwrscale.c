@@ -244,8 +244,8 @@ void kgsl_pwrscale_busy(struct kgsl_device *device)
 void kgsl_pwrscale_idle(struct kgsl_device *device)
 {
 	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->idle)
-		if (device->requested_state !=
-			(KGSL_STATE_SLUMBER | KGSL_STATE_SLEEP))
+		if (device->requested_state != KGSL_STATE_SLUMBER &&
+			device->requested_state != KGSL_STATE_SLEEP)
 			device->pwrscale.policy->idle(device,
 					&device->pwrscale);
 	device->pwrscale.gpu_busy = 0;
