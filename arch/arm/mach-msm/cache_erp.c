@@ -28,6 +28,9 @@
 #define CESR_TLBMH		BIT(16)
 #define CESR_I_MASK		0x000000CC
 
+/* Print a message for everything but TLB MH events */
+#define CESR_PRINT_MASK		0x000000FF
+
 #define L2ESR_IND_ADDR		0x204
 #define L2ESYNR0_IND_ADDR	0x208
 #define L2ESYNR1_IND_ADDR	0x209
@@ -190,9 +193,12 @@ static irqreturn_t msm_l1_erp_irq(int irq, void *dev_id)
 	struct msm_l1_err_stats *l1_stats = dev_id;
 	unsigned int cesr = read_cesr();
 	unsigned int i_cesynr, d_cesynr;
+	int print_regs = cesr & CESR_PRINT_MASK;
 
-	pr_alert("L1 Error detected on CPU %d!\n", smp_processor_id());
-	pr_alert("\tCESR    = 0x%08x\n", cesr);
+	if (print_regs) {
+		pr_alert("L1 Error detected on CPU %d!\n", smp_processor_id());
+		pr_alert("\tCESR    = 0x%08x\n", cesr);
+	}
 
 	if (cesr & CESR_DCTPE) {
 		pr_alert("D-cache tag parity error\n");
@@ -225,7 +231,7 @@ static irqreturn_t msm_l1_erp_irq(int irq, void *dev_id)
 	}
 
 	if (cesr & CESR_TLBMH) {
-		pr_alert("TLB multi-hit error\n");
+		asm ("mcr p15, 0, r0, c8, c7, 0");
 		l1_stats->tlbmh++;
 	}
 
@@ -250,7 +256,8 @@ static irqreturn_t msm_l1_erp_irq(int irq, void *dev_id)
 	/* Clear the interrupt bits we processed */
 	write_cesr(cesr);
 
-	ERP_L1_ERR("L1 cache / TLB error detected");
+	if (print_regs)
+		ERP_L1_ERR("L1 cache error detected");
 
 	return IRQ_HANDLED;
 }
