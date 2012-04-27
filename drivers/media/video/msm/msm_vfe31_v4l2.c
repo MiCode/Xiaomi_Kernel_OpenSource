@@ -367,6 +367,8 @@ static const char * const vfe31_general_cmd[] = {
 
 static void vfe31_stop(void)
 {
+
+	uint8_t  axiBusyFlag = true;
 	unsigned long flags;
 
 	atomic_set(&vfe31_ctrl->vstate, 0);
@@ -375,12 +377,6 @@ static void vfe31_stop(void)
 	spin_lock_irqsave(&vfe31_ctrl->stop_flag_lock, flags);
 	vfe31_ctrl->stop_ack_pending = TRUE;
 	spin_unlock_irqrestore(&vfe31_ctrl->stop_flag_lock, flags);
-
-	/* disable all interrupts.  */
-	/* in either continuous or snapshot mode, stop command can be issued
-	 * at any time. stop camif immediately. */
-	msm_camera_io_w_mb(CAMIF_COMMAND_STOP_IMMEDIATELY,
-		vfe31_ctrl->vfebase + VFE_CAMIF_COMMAND);
 
 	/* disable all interrupts.  */
 	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
@@ -398,15 +394,29 @@ static void vfe31_stop(void)
 	msm_camera_io_w_mb(1,
 		vfe31_ctrl->vfebase + VFE_IRQ_CMD);
 
+	/* in either continuous or snapshot mode, stop command can be issued
+	 * at any time. stop camif immediately. */
+	msm_camera_io_w_mb(CAMIF_COMMAND_STOP_IMMEDIATELY,
+		vfe31_ctrl->vfebase + VFE_CAMIF_COMMAND);
+
+	/* axi halt command. */
+	msm_camera_io_w(AXI_HALT,
+		vfe31_ctrl->vfebase + VFE_AXI_CMD);
+	wmb();
+	while (axiBusyFlag) {
+		if (msm_camera_io_r(vfe31_ctrl->vfebase + VFE_AXI_STATUS) & 0x1)
+			axiBusyFlag = false;
+	}
+	/* Ensure the write order while writing
+	to the command register using the barrier */
+	msm_camera_io_w_mb(AXI_HALT_CLEAR,
+		vfe31_ctrl->vfebase + VFE_AXI_CMD);
+
 	/* now enable only halt_irq & reset_irq */
 	msm_camera_io_w(0xf0000000,          /* this is for async timer. */
 		vfe31_ctrl->vfebase + VFE_IRQ_MASK_0);
 	msm_camera_io_w(VFE_IMASK_WHILE_STOPPING_1,
 		vfe31_ctrl->vfebase + VFE_IRQ_MASK_1);
-
-	/* then apply axi halt command. */
-	msm_camera_io_w_mb(AXI_HALT,
-		vfe31_ctrl->vfebase + VFE_AXI_CMD);
 
 	msm_camera_io_w_mb(VFE_RESET_UPON_STOP_CMD,
 		vfe31_ctrl->vfebase + VFE_GLOBAL_RESET);
