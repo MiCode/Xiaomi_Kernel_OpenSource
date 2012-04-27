@@ -233,6 +233,10 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	if (driver->logging_process_id == current->tgid) {
 		driver->logging_mode = USB_MODE;
 		diagfwd_connect();
+#ifdef CONFIG_DIAG_HSIC_PIPE
+		diagfwd_cancel_hsic();
+		diagfwd_connect_hsic(0);
+#endif
 	}
 #endif /* DIAG over USB */
 	/* Delete the pkt response table entry for the exiting process */
@@ -476,6 +480,9 @@ long diagchar_ioctl(struct file *filp,
 #ifdef CONFIG_DIAG_SDIO_PIPE
 			driver->in_busy_sdio = 1;
 #endif
+#ifdef CONFIG_DIAG_HSIC_PIPE
+			diagfwd_disconnect_hsic(0);
+#endif
 		} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
 			driver->in_busy_1 = 0;
@@ -501,15 +508,24 @@ long diagchar_ioctl(struct file *filp,
 				queue_work(driver->diag_sdio_wq,
 					&(driver->diag_read_sdio_work));
 #endif
+#ifdef CONFIG_DIAG_HSIC_PIPE
+			diagfwd_connect_hsic(0);
+#endif
 		}
 #ifdef CONFIG_DIAG_OVER_USB
 		else if (temp == USB_MODE && driver->logging_mode
-							 == NO_LOGGING_MODE)
+							 == NO_LOGGING_MODE) {
 			diagfwd_disconnect();
-		else if (temp == NO_LOGGING_MODE && driver->logging_mode
-								== USB_MODE)
+#ifdef CONFIG_DIAG_HSIC_PIPE
+			diagfwd_disconnect_hsic(0);
+#endif
+		} else if (temp == NO_LOGGING_MODE && driver->logging_mode
+								== USB_MODE) {
 			diagfwd_connect();
-		else if (temp == USB_MODE && driver->logging_mode
+#ifdef CONFIG_DIAG_HSIC_PIPE
+			diagfwd_connect_hsic(0);
+#endif
+		} else if (temp == USB_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
 			diagfwd_disconnect();
 			driver->in_busy_1 = 0;
@@ -535,9 +551,18 @@ long diagchar_ioctl(struct file *filp,
 				queue_work(driver->diag_sdio_wq,
 					&(driver->diag_read_sdio_work));
 #endif
-			} else if (temp == MEMORY_DEVICE_MODE &&
-					 driver->logging_mode == USB_MODE)
-				diagfwd_connect();
+#ifdef CONFIG_DIAG_HSIC_PIPE
+			diagfwd_cancel_hsic();
+			diagfwd_connect_hsic(0);
+#endif
+		} else if (temp == MEMORY_DEVICE_MODE &&
+				 driver->logging_mode == USB_MODE) {
+			diagfwd_connect();
+#ifdef CONFIG_DIAG_HSIC_PIPE
+			diagfwd_cancel_hsic();
+			diagfwd_connect_hsic(0);
+#endif
+		}
 #endif /* DIAG over USB */
 		success = 1;
 	}
@@ -565,6 +590,7 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 
 	if ((driver->data_ready[index] & USER_SPACE_LOG_TYPE) && (driver->
 					logging_mode == MEMORY_DEVICE_MODE)) {
+		pr_debug("diag: process woken up\n");
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & USER_SPACE_LOG_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
@@ -691,6 +717,23 @@ drop:
 					*(driver->buf_in_sdio),
 					 driver->write_ptr_mdm->length);
 			driver->in_busy_sdio = 0;
+		}
+#endif
+#ifdef CONFIG_DIAG_HSIC_PIPE
+		pr_debug("diag: Copy data to user space %d\n",
+			 driver->in_busy_hsic_write_on_device);
+		if (driver->in_busy_hsic_write_on_device == 1) {
+			num_data++;
+			/*Copy the length of data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+				 (driver->write_ptr_mdm->length), 4);
+			/*Copy the actual data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+					*(driver->buf_in_hsic),
+					 driver->write_ptr_mdm->length);
+			pr_debug("diag: data copied\n");
+			/* call the write complete function */
+			diagfwd_write_complete_hsic();
 		}
 #endif
 		/* copy number of data fields */
@@ -854,7 +897,32 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			}
 		}
 #endif
-		/* send masks to modem now */
+#ifdef CONFIG_DIAG_HSIC_PIPE
+		/* send masks to 9k too */
+		if (driver->hsic_ch && (payload_size > 0)) {
+			/* wait sending mask updates if HSIC ch not ready */
+			if (driver->in_busy_hsic_write)
+				wait_event_interruptible(driver->wait_q,
+					(driver->in_busy_hsic_write != 1));
+			driver->in_busy_hsic_write = 1;
+			driver->in_busy_hsic_read_on_device = 0;
+			err = diag_bridge_write(driver->user_space_data,
+							 payload_size);
+			if (err) {
+				pr_err("diag: err sending mask to MDM: %d\n",
+									 err);
+				/*
+				* If the error is recoverable, then clear
+				* the write flag, so we will resubmit a
+				* write on the next frame.  Otherwise, don't
+				* resubmit a write on the next frame.
+				*/
+				if ((-ESHUTDOWN) != err)
+					driver->in_busy_hsic_write = 0;
+			}
+		}
+#endif
+		/* send masks to 8k now */
 		diag_process_hdlc((void *)(driver->user_space_data),
 							 payload_size);
 		return 0;
