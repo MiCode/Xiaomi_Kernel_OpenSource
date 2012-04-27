@@ -661,7 +661,7 @@ static void adreno_dump_a2xx(struct kgsl_device *device)
 
 	kgsl_regread(device, MH_MMU_MPU_END, &r1);
 	kgsl_regread(device, MH_MMU_VA_RANGE, &r2);
-	r3 = kgsl_mmu_get_current_ptbase(device);
+	r3 = kgsl_mmu_get_current_ptbase(&device->mmu);
 	KGSL_LOG_DUMP(device,
 		"        MPU_END    = %08X | VA_RANGE = %08X | PT_BASE  ="
 		" %08X\n", r1, r2, r3);
@@ -706,7 +706,7 @@ static int adreno_dump(struct kgsl_device *device)
 	else if (adreno_is_a3xx(adreno_dev))
 		adreno_dump_a3xx(device);
 
-	pt_base = kgsl_mmu_get_current_ptbase(device);
+	pt_base = kgsl_mmu_get_current_ptbase(&device->mmu);
 	cur_pt_base = pt_base;
 
 	kgsl_regread(device, REG_CP_RB_BASE, &cp_rb_base);

@@ -464,7 +464,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	    (ctrl & KGSL_CONTEXT_CTX_SWITCH)) {
 		KGSL_CMD_INFO(device, "context switch %d -> %d\n",
 			context->id, z180_dev->ringbuffer.prevctx);
-		kgsl_mmu_setstate(device, pagetable);
+		kgsl_mmu_setstate(&device->mmu, pagetable);
 		cnt = PACKETSIZE_STATESTREAM;
 		ofs = 0;
 	}
@@ -613,7 +613,7 @@ static int z180_stop(struct kgsl_device *device)
 
 	del_timer_sync(&device->idle_timer);
 
-	kgsl_mmu_stop(device);
+	kgsl_mmu_stop(&device->mmu);
 
 	/* Disable the clocks before the power rail. */
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);

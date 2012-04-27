@@ -263,7 +263,7 @@ static void adreno_setstate(struct kgsl_device *device,
 	 */
 
 	if (adreno_is_a3xx(adreno_dev)) {
-		kgsl_mmu_device_setstate(device, flags);
+		kgsl_mmu_device_setstate(&device->mmu, flags);
 		return;
 	}
 
@@ -349,7 +349,7 @@ static void adreno_setstate(struct kgsl_device *device,
 		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
 					&link[0], sizedwords);
 	} else {
-		kgsl_mmu_device_setstate(device, flags);
+		kgsl_mmu_device_setstate(&device->mmu, flags);
 	}
 }
 
@@ -575,7 +575,7 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	}
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-	kgsl_mmu_stop(device);
+	kgsl_mmu_stop(&device->mmu);
 error_clk_off:
 	kgsl_pwrctrl_disable(device);
 
@@ -590,7 +590,7 @@ static int adreno_stop(struct kgsl_device *device)
 
 	adreno_ringbuffer_stop(&adreno_dev->ringbuffer);
 
-	kgsl_mmu_stop(device);
+	kgsl_mmu_stop(&device->mmu);
 
 	device->ftbl->irqctrl(device, 0);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);

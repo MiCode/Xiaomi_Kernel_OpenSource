@@ -1510,7 +1510,7 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 
 	if (context == NULL) {
 		/* No context - set the default apgetable and thats it */
-		kgsl_mmu_setstate(device, device->mmu.defaultpagetable);
+		kgsl_mmu_setstate(&device->mmu, device->mmu.defaultpagetable);
 		return;
 	}
 
@@ -1523,7 +1523,7 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context);
 	cmds[4] = context->id;
 	adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE, cmds, 5);
-	kgsl_mmu_setstate(device, context->pagetable);
+	kgsl_mmu_setstate(&device->mmu, context->pagetable);
 
 #ifndef CONFIG_MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
 	kgsl_cffdump_syncmem(NULL, &context->gpustate,
