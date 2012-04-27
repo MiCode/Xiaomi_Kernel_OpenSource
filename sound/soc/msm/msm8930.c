@@ -520,9 +520,6 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 
-	sitar_hs_detect(codec, &hs_jack, &button_jack, sitar_mbhc_cal,
-			SITAR_MICBIAS2, msm8930_enable_codec_ext_clk, 0,
-			SITAR_EXT_CLK_RATE);
 	return 0;
 }
 
