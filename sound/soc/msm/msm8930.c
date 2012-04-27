@@ -129,8 +129,8 @@ int msm8930_enable_codec_ext_clk(
 		if (!clk_users) {
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
-			clk_disable_unprepare(codec_clk);
 			sitar_mclk_enable(codec, 0);
+			clk_disable_unprepare(codec_clk);
 		}
 	}
 	return 0;

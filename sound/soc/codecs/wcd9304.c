@@ -1474,6 +1474,8 @@ static int sitar_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 	pr_err("%s %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_OTHR_RESET_CTL, 0x10,
+			0x00);
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_OTHR_CTL, 0x01,
 			0x01);
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLSG_CTL, 0x08, 0x08);
@@ -1996,7 +1998,6 @@ static int sitar_codec_enable_clock_block(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, SITAR_A_CLK_BUFF_EN1, 0x05, 0x05);
 	snd_soc_update_bits(codec, SITAR_A_CLK_BUFF_EN2, 0x02, 0x00);
 	snd_soc_update_bits(codec, SITAR_A_CLK_BUFF_EN2, 0x04, 0x04);
-	snd_soc_update_bits(codec, SITAR_A_CDC_CLK_MCLK_CTL, 0x01, 0x01);
 	usleep_range(50, 50);
 	sitar->clock_active = true;
 	return 0;
@@ -2005,7 +2006,6 @@ static void sitar_codec_disable_clock_block(struct snd_soc_codec *codec)
 {
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
 	pr_err("%s\n", __func__);
-	snd_soc_update_bits(codec, SITAR_A_CDC_CLK_MCLK_CTL, 0x01, 0x00);
 	snd_soc_update_bits(codec, SITAR_A_CLK_BUFF_EN2, 0x04, 0x00);
 	ndelay(160);
 	snd_soc_update_bits(codec, SITAR_A_CLK_BUFF_EN2, 0x02, 0x02);
@@ -3962,6 +3962,9 @@ static const struct sitar_reg_mask_val sitar_codec_reg_init_val[] = {
 	/*enable HPF filter for TX paths */
 	{SITAR_A_CDC_TX1_MUX_CTL, 0x8, 0x0},
 	{SITAR_A_CDC_TX2_MUX_CTL, 0x8, 0x0},
+
+	/*enable External clock select*/
+	{SITAR_A_CDC_CLK_MCLK_CTL, 0x01, 0x01},
 };
 
 static void sitar_codec_init_reg(struct snd_soc_codec *codec)
