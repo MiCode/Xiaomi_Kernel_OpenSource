@@ -33,7 +33,7 @@
 #define KGSL_MEMSTORE_MAX	(KGSL_MEMSTORE_SIZE / \
 		sizeof(struct kgsl_devmemstore) - 1)
 
-/* Timestamp window used to detect rollovers */
+/* Timestamp window used to detect rollovers (half of integer range) */
 #define KGSL_TIMESTAMP_WINDOW 0x80000000
 
 /*cache coherency ops */
@@ -229,14 +229,24 @@ static inline uint8_t *kgsl_gpuaddr_to_vaddr(struct kgsl_memdesc *memdesc,
 	return hostptr != NULL ? hostptr + (gpuaddr - memdesc->gpuaddr) : NULL;
 }
 
-static inline int timestamp_cmp(unsigned int new, unsigned int old)
+static inline int timestamp_cmp(unsigned int a, unsigned int b)
 {
-	int ts_diff = new - old;
-
-	if (ts_diff == 0)
+	/* check for equal */
+	if (a == b)
 		return 0;
 
-	return ((ts_diff > 0) || (ts_diff < -KGSL_TIMESTAMP_WINDOW)) ? 1 : -1;
+	/* check for greater-than for non-rollover case */
+	if ((a > b) && (a - b < KGSL_TIMESTAMP_WINDOW))
+		return 1;
+
+	/* check for greater-than for rollover case
+	 * note that <= is required to ensure that consistent
+	 * results are returned for values whose difference is
+	 * equal to the window size
+	 */
+	a += KGSL_TIMESTAMP_WINDOW;
+	b += KGSL_TIMESTAMP_WINDOW;
+	return ((a > b) && (a - b <= KGSL_TIMESTAMP_WINDOW)) ? 1 : -1;
 }
 
 static inline void
