@@ -285,7 +285,9 @@ set_gpio_fail:
 gpio_fail:
 	gpio_free(gpio_wlan_sys_rest_en);
 qrd_gpio_fail:
-	gpio_free(GPIO_WLAN_3V3_EN);
+	/* GPIO_WLAN_3V3_EN is only required for the QRD7627a */
+	if (machine_is_msm7627a_qrd1())
+		gpio_free(GPIO_WLAN_3V3_EN);
 reg_disable:
 	wlan_switch_regulators(0);
 out:
@@ -322,6 +324,7 @@ static unsigned int msm_AR600X_shutdown_power(bool on)
 		}
 		gpio_set_value(gpio_wlan_sys_rest_en, 0);
 	} else {
+		gpio_request(gpio_wlan_sys_rest_en, "WLAN_DEEP_SLEEP_N");
 		rc = setup_wlan_gpio(on);
 		if (rc) {
 			pr_err("%s: wlan_set_gpio = %d\n", __func__, rc);
@@ -359,7 +362,9 @@ set_gpio_fail:
 gpio_fail:
 	gpio_free(gpio_wlan_sys_rest_en);
 qrd_gpio_fail:
-	gpio_free(GPIO_WLAN_3V3_EN);
+	/* GPIO_WLAN_3V3_EN is only required for the QRD7627a */
+	if (machine_is_msm7627a_qrd1())
+		gpio_free(GPIO_WLAN_3V3_EN);
 reg_disable:
 	wlan_switch_regulators(0);
 	pr_info("WLAN power-down failed\n");
