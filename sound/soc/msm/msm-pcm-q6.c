@@ -55,7 +55,7 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.rate_min =             8000,
 	.rate_max =             48000,
 	.channels_min =         1,
-	.channels_max =         2,
+	.channels_max =         4,
 	.buffer_bytes_max =     CAPTURE_NUM_PERIODS * CAPTURE_PERIOD_SIZE,
 	.period_bytes_min =	CAPTURE_PERIOD_SIZE,
 	.period_bytes_max =     CAPTURE_PERIOD_SIZE,
@@ -248,8 +248,14 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 
 	pr_debug("Samp_rate = %d\n", prtd->samp_rate);
 	pr_debug("Channel = %d\n", prtd->channel_mode);
-	ret = q6asm_enc_cfg_blk_pcm(prtd->audio_client, prtd->samp_rate,
-					prtd->channel_mode);
+	if (prtd->channel_mode > 2) {
+		ret = q6asm_enc_cfg_blk_multi_ch_pcm(prtd->audio_client,
+		prtd->samp_rate, prtd->channel_mode);
+	} else {
+		ret = q6asm_enc_cfg_blk_pcm(prtd->audio_client,
+		prtd->samp_rate, prtd->channel_mode);
+	}
+
 	if (ret < 0)
 		pr_debug("%s: cmd cfg pcm was block failed", __func__);
 
@@ -331,13 +337,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	/* Capture path */
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		runtime->hw = msm_pcm_hardware_capture;
-		ret = q6asm_open_read(prtd->audio_client, FORMAT_LINEAR_PCM);
-		if (ret < 0) {
-			pr_err("%s: pcm in open failed\n", __func__);
-			q6asm_audio_client_free(prtd->audio_client);
-			kfree(prtd);
-			return -ENOMEM;
-		}
 	}
 
 	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
@@ -622,11 +621,27 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	struct audio_buffer *buf;
 	int dir, ret;
+	int format = FORMAT_LINEAR_PCM;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		dir = IN;
 	else
 		dir = OUT;
+
+	/*capture path*/
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		if (params_channels(params) > 2)
+			format = FORMAT_MULTI_CHANNEL_LINEAR_PCM;
+		pr_debug("%s format = :0x%x\n", __func__, format);
+
+		ret = q6asm_open_read(prtd->audio_client, format);
+		if (ret < 0) {
+			pr_err("%s: q6asm_open_read failed\n", __func__);
+			q6asm_audio_client_free(prtd->audio_client);
+			kfree(prtd);
+			return -ENOMEM;
+		}
+	}
 
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
 			prtd->audio_client,

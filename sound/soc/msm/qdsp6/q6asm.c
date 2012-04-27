@@ -1228,6 +1228,10 @@ int q6asm_open_read(struct audio_client *ac,
 		open.uMode = STREAM_PRIORITY_HIGH;
 		open.format = LINEAR_PCM;
 		break;
+	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:
+		open.uMode = STREAM_PRIORITY_HIGH;
+		open.format = MULTI_CHANNEL_PCM;
+		break;
 	case FORMAT_MPEG4_AAC:
 		open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_HIGH;
 		open.format = MPEG4_AAC;
@@ -1646,6 +1650,56 @@ int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 	enc_cfg.enc_blk.cfg.pcm.sample_rate = rate;
 	enc_cfg.enc_blk.cfg.pcm.is_signed = 1;
 	enc_cfg.enc_blk.cfg.pcm.interleaved = 1;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
+	if (rc < 0) {
+		pr_err("Comamnd open failed\n");
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("timeout opcode[0x%x] ", enc_cfg.hdr.opcode);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_enc_cfg_blk_multi_ch_pcm(struct audio_client *ac,
+			uint32_t rate, uint32_t channels)
+{
+	struct asm_stream_cmd_encdec_cfg_blk  enc_cfg;
+
+	int rc = 0;
+
+	pr_debug("%s: Session %d, rate = %d, channels = %d\n", __func__,
+			 ac->session, rate, channels);
+
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
+
+	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
+	enc_cfg.param_id = ASM_ENCDEC_CFG_BLK_ID;
+	enc_cfg.param_size = sizeof(struct asm_encode_cfg_blk);
+	enc_cfg.enc_blk.frames_per_buf = 1;
+	enc_cfg.enc_blk.format_id = MULTI_CHANNEL_PCM;
+	enc_cfg.enc_blk.cfg_size =
+		sizeof(struct asm_multi_channel_pcm_fmt_blk);
+	enc_cfg.enc_blk.cfg.mpcm.num_channels = channels;
+	enc_cfg.enc_blk.cfg.mpcm.bits_per_sample = 16;
+	enc_cfg.enc_blk.cfg.mpcm.sample_rate = rate;
+	enc_cfg.enc_blk.cfg.mpcm.is_signed = 1;
+	enc_cfg.enc_blk.cfg.mpcm.is_interleaved = 1;
+	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[0] = PCM_CHANNEL_FL;
+	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[1] = PCM_CHANNEL_FR;
+	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[2] = PCM_CHANNEL_RB;
+	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[3] = PCM_CHANNEL_LB;
+	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[4] = 0;
+	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[5] = 0;
+	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[6] = 0;
+	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[7] = 0;
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
 	if (rc < 0) {

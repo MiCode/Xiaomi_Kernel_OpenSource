@@ -1842,8 +1842,9 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
 
 			channels = bedai->channel;
-			if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
-				(channels > 2))
+			if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK ||
+				substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+				&& (channels > 2))
 				adm_multi_ch_copp_open(bedai->port_id,
 				path_type,
 				bedai->sample_rate,
