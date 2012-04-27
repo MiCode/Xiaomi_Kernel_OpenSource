@@ -517,7 +517,7 @@ static void __init pl310_of_setup(const struct device_node *np,
 }
 #endif
 
-static void __init pl310_save(void)
+static void pl310_save(void)
 {
 	u32 l2x0_revision = readl_relaxed(l2x0_base + L2X0_CACHE_ID) &
 		L2X0_CACHE_ID_RTL_MASK;
