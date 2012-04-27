@@ -152,7 +152,7 @@ static int wfd_allocate_ion_buffer(struct ion_client *client,
 	int rc;
 
 	alloc_regions = ION_HEAP(ION_CP_MM_HEAP_ID);
-	alloc_regions |= secure ? 0 :
+	alloc_regions |= secure ? ION_SECURE :
 				ION_HEAP(ION_IOMMU_HEAP_ID);
 	handle = ion_alloc(client,
 			mregion->size, SZ_4K, alloc_regions);
@@ -1279,6 +1279,7 @@ static int wfd_open(struct file *filp)
 	enc_mops.op_buffer_done = venc_op_buffer_done;
 	enc_mops.ip_buffer_done = venc_ip_buffer_done;
 	enc_mops.cbdata = filp;
+	enc_mops.secure = wfd_dev->secure_device;
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl, OPEN,
 				(void *)&enc_mops);
 	if (rc || !enc_mops.cookie) {
