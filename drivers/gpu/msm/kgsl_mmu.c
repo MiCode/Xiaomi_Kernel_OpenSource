@@ -589,7 +589,14 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
 		if (memdesc->sglen == 1) {
-			memdesc->gpuaddr = sg_phys(memdesc->sg);
+			memdesc->gpuaddr = sg_dma_address(memdesc->sg);
+			if (!memdesc->gpuaddr)
+				memdesc->gpuaddr = sg_phys(memdesc->sg);
+			if (!memdesc->gpuaddr) {
+				KGSL_CORE_ERR("Unable to get a valid physical "
+					"address for memdesc\n");
+				return -EINVAL;
+			}
 			return 0;
 		} else {
 			KGSL_CORE_ERR("Memory is not contigious "
