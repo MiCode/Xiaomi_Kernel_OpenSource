@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,8 +201,8 @@ static int amrwb_in_open(struct inode *inode, struct file *file)
 	audio->enc_cfg = kzalloc(sizeof(struct msm_audio_amrwb_enc_config),
 				GFP_KERNEL);
 	if (audio->enc_cfg == NULL) {
-		pr_err("%s: Could not allocate memory for amrwb"
-			"config param\n", __func__);
+		pr_err("%s:session id %d: Could not allocate memory for amrwb"
+			"config param\n", __func__, audio->ac->session);
 		kfree(audio);
 		return -ENOMEM;
 	}
