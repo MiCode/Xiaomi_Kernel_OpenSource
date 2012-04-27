@@ -42,6 +42,7 @@
 #include <mach/socinfo.h>
 #include "clock.h"
 #include "devices.h"
+#include "spm.h"
 
 #define MSM_KERNEL_EBI1_MEM_SIZE	0x280000
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
@@ -407,6 +408,7 @@ void __init msm_copper_add_devices(void)
  */
 void __init msm_copper_add_drivers(void)
 {
+	msm_spm_device_init();
 	regulator_stub_init();
 }
 
