@@ -505,8 +505,10 @@ static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, ch
 		memset(&sec, 0, sizeof(sec));
 		sec.level = l2cap_pi(sk)->sec_level;
 
-		if (sk->sk_state == BT_CONNECTED)
+		if (sk->sk_state == BT_CONNECTED) {
 			sec.key_size = l2cap_pi(sk)->conn->hcon->enc_key_size;
+			sec.level = l2cap_pi(sk)->conn->hcon->sec_level;
+		}
 
 		len = min_t(unsigned int, len, sizeof(sec));
 		if (copy_to_user(optval, (char *) &sec, len))
