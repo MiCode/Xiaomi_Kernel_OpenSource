@@ -105,6 +105,7 @@ struct msm_pm_sysfs_sleep_mode {
 static char *msm_pm_sleep_mode_labels[MSM_PM_SLEEP_MODE_NR] = {
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = "power_collapse",
 	[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT] = "wfi",
+	[MSM_PM_SLEEP_MODE_RETENTION] = "retention",
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE] =
 		"standalone_power_collapse",
 };
@@ -324,6 +325,7 @@ mode_sysfs_add_exit:
 enum msm_pm_time_stats_id {
 	MSM_PM_STAT_REQUESTED_IDLE,
 	MSM_PM_STAT_IDLE_WFI,
+	MSM_PM_STAT_RETENTION,
 	MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE,
 	MSM_PM_STAT_IDLE_POWER_COLLAPSE,
 	MSM_PM_STAT_SUSPEND,
@@ -617,6 +619,19 @@ static void msm_pm_swfi(void)
 	msm_arch_idle();
 }
 
+
+static void msm_pm_retention(void)
+{
+	int ret = 0;
+
+	msm_pm_config_hw_before_swfi();
+	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_RETENTION, false);
+	WARN_ON(ret);
+	msm_arch_idle();
+	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
+	WARN_ON(ret);
+}
+
 #ifdef CONFIG_CACHE_L2X0
 static inline bool msm_pm_l2x0_power_collapse(void)
 {
@@ -810,6 +825,11 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev)
 			}
 			/* fall through */
 
+		case MSM_PM_SLEEP_MODE_RETENTION:
+			if (!allow)
+				break;
+			/* fall through */
+
 		case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
 			if (!allow)
 				break;
@@ -881,6 +901,13 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		msm_pm_swfi();
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_WFI;
+#endif
+		break;
+
+	case MSM_PM_SLEEP_MODE_RETENTION:
+		msm_pm_retention();
+#ifdef CONFIG_MSM_IDLE_STATS
+		exit_stat = MSM_PM_STAT_RETENTION;
 #endif
 		break;
 
@@ -982,6 +1009,10 @@ void msm_pm_cpu_enter_lowpower(unsigned int cpu)
 		per_cpu(msm_pm_last_slp_mode, cpu)
 			= MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE;
 		msm_pm_power_collapse_standalone(false);
+	} else if (allow[MSM_PM_SLEEP_MODE_RETENTION]) {
+		per_cpu(msm_pm_last_slp_mode, cpu)
+			= MSM_PM_SLEEP_MODE_RETENTION;
+		msm_pm_retention();
 	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
 		per_cpu(msm_pm_last_slp_mode, cpu)
 			= MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE;
@@ -1108,6 +1139,10 @@ static int msm_pm_enter(suspend_state_t state)
 		if (MSM_PM_DEBUG_SUSPEND & msm_pm_debug_mask)
 			pr_info("%s: standalone power collapse\n", __func__);
 		msm_pm_power_collapse_standalone(false);
+	} else if (allow[MSM_PM_SLEEP_MODE_RETENTION]) {
+		if (MSM_PM_DEBUG_SUSPEND & msm_pm_debug_mask)
+			pr_info("%s: retention\n", __func__);
+		msm_pm_retention();
 	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
 		if (MSM_PM_DEBUG_SUSPEND & msm_pm_debug_mask)
 			pr_info("%s: swfi\n", __func__);
@@ -1193,6 +1228,10 @@ static int __init msm_pm_init(void)
 
 		stats[MSM_PM_STAT_IDLE_WFI].name = "idle-wfi";
 		stats[MSM_PM_STAT_IDLE_WFI].first_bucket_time =
+			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
+
+		stats[MSM_PM_STAT_RETENTION].name = "retention";
+		stats[MSM_PM_STAT_RETENTION].first_bucket_time =
 			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
 
 		stats[MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE].name =
