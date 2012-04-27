@@ -84,10 +84,6 @@ Optional properties :
 			QPNP_GPIO_DTEST3	= 6,
 			QPNP_GPIO_DTEST4	= 7
 
-  @inv_int_pol:		Invert polarity before feeding the line to the interrupt
-			module in pmic. This feature will almost be never used
-			since the pm8xxx interrupt block can detect both edges
-			and both levels.
   @master_en:		1 = Enable features within the GPIO block based on
 			configurations.
 			0 = Completely disable the GPIO block and let the pin

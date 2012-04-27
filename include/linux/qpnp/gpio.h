@@ -69,10 +69,6 @@
  *			can be paired (shorted) with each other. Some gpio pin
  *			can act as alternate functions. This parameter should
  *			be of type QPNP_GPIO_FUNC_*
- * @inv_int_pol:	Invert polarity before feeding the line to the interrupt
- *			module in pmic. This feature will almost be never used
- *			since the pm8xxx interrupt block can detect both edges
- *			and both levels.
  * @master_en:		1 = Enable features within the GPIO block based on
  *			configurations.
  *			0 = Completely disable the GPIO block and let the pin
@@ -86,7 +82,6 @@ struct qpnp_gpio_cfg {
 	int		vin_sel;
 	int		out_strength;
 	int		src_select;
-	int		inv_int_pol;
 	int		master_en;
 };
 

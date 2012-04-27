@@ -168,7 +168,7 @@ int qpnp_gpio_config(int gpio, struct qpnp_gpio_cfg *param)
 	}
 
 	if (param->direction & QPNP_GPIO_DIR_OUT) {
-		q_spec->regs[Q_REG_I_OUTPUT_CTL2] = (param->inv_int_pol
+		q_spec->regs[Q_REG_I_OUTPUT_CTL2] = (param->output_value
 			    << Q_REG_OUT_INVERT_SHIFT) & Q_REG_OUT_INVERT_MASK;
 		q_spec->regs[Q_REG_I_OUTPUT_CTL2] |= (param->src_select
 			    << Q_REG_SRC_SEL_SHIFT) & Q_REG_SRC_SEL_MASK;
@@ -398,13 +398,11 @@ static int qpnp_gpio_config_default(struct spmi_device *spmi,
 	int rc;
 
 	dev_dbg(&spmi->dev, "%s: p[0]: 0x%x p[1]: 0x%x p[2]: 0x%x p[3]:"
-		" 0x%x p[4]: 0x%x p[5]: 0x%x p[6]: 0x%x p[7]: 0x%x"
-		" p[8]: 0x%x\n", __func__,
+		" 0x%x p[4]: 0x%x p[5]: 0x%x p[6]: 0x%x p[7]: 0x%x\n", __func__,
 		be32_to_cpup(&prop[0]), be32_to_cpup(&prop[1]),
 		be32_to_cpup(&prop[2]), be32_to_cpup(&prop[3]),
 		be32_to_cpup(&prop[4]), be32_to_cpup(&prop[5]),
-		be32_to_cpup(&prop[6]), be32_to_cpup(&prop[7]),
-		be32_to_cpup(&prop[8]));
+		be32_to_cpup(&prop[6]), be32_to_cpup(&prop[7]));
 
 	param.direction    =	be32_to_cpup(&prop[0]);
 	param.output_type  =	be32_to_cpup(&prop[1]);
@@ -413,8 +411,7 @@ static int qpnp_gpio_config_default(struct spmi_device *spmi,
 	param.vin_sel	   =	be32_to_cpup(&prop[4]);
 	param.out_strength =	be32_to_cpup(&prop[5]);
 	param.src_select   =	be32_to_cpup(&prop[6]);
-	param.inv_int_pol  =	be32_to_cpup(&prop[7]);
-	param.master_en    =	be32_to_cpup(&prop[8]);
+	param.master_en    =	be32_to_cpup(&prop[7]);
 
 	rc = qpnp_gpio_config(gpio, &param);
 	if (rc)
@@ -613,8 +610,8 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		/* It's not an error to not config a default */
 		prop = of_get_property(spmi->dev_node[i].of_node,
 				"qcom,qpnp-gpio-cfg", &len);
-		/* 9 data values constitute one tuple */
-		if (prop && (len != (9 * sizeof(__be32)))) {
+		/* 8 data values constitute one tuple */
+		if (prop && (len != (8 * sizeof(__be32)))) {
 			dev_err(&spmi->dev, "%s: invalid format for"
 				" qcom,qpnp-gpio-cfg property\n",
 							__func__);
@@ -697,10 +694,8 @@ static void __exit qpnp_gpio_exit(void)
 {
 }
 
-MODULE_AUTHOR(
-	"Michael Bohan <mbohan@codeaurora.org>");
 MODULE_DESCRIPTION("QPNP PMIC gpio driver");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
 
 module_init(qpnp_gpio_init);
 module_exit(qpnp_gpio_exit);
