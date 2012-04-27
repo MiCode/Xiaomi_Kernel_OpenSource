@@ -638,6 +638,11 @@ static int footswitch_probe(struct platform_device *pdev)
 			fs->clk_data = gfx3d_8064_clks;
 		else
 			fs->clk_data = gfx3d_8660_clks;
+	} else if (pdev->id == FS_VED) {
+		if (cpu_is_apq8064()) {
+			fs->bus_port0 = MSM_BUS_MASTER_VIDEO_ENC;
+			fs->bus_port1 = MSM_BUS_MASTER_VIDEO_DEC;
+		}
 	}
 
 	for (clock = fs->clk_data; clock->name; clock++) {
