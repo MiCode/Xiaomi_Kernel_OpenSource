@@ -394,7 +394,7 @@ static int synaptics_touchpad_setup(void)
 #endif
 
 static struct regulator_bulk_data regs_atmel[] = {
-	{ .supply = "ldo2",  .min_uV = 2850000, .max_uV = 2850000 },
+	{ .supply = "ldo12", .min_uV = 2700000, .max_uV = 3300000 },
 	{ .supply = "smps3", .min_uV = 1800000, .max_uV = 1800000 },
 };
 
