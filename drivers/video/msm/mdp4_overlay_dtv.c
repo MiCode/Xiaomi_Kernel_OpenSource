@@ -453,6 +453,12 @@ static void mdp4_overlay_dtv_ov_start(struct msm_fb_data_type *mfd)
 	if (mfd->ov_start)
 		return;
 
+	if (!dtv_pipe) {
+		pr_debug("%s: no mixer1 base layer pipe allocated!\n",
+			 __func__);
+		return;
+	}
+
 	if (dtv_pipe->blt_addr) {
 		mdp4_dtv_blt_ov_update(dtv_pipe);
 		dtv_pipe->ov_cnt++;
@@ -481,6 +487,12 @@ static void mdp4_overlay_dtv_wait4_ov_done(struct msm_fb_data_type *mfd,
 		return;
 	if (!(data & 0x1) || (pipe == NULL))
 		return;
+	if (!dtv_pipe) {
+		pr_debug("%s: no mixer1 base layer pipe allocated!\n",
+			 __func__);
+		return;
+	}
+
 	wait_for_completion_timeout(&dtv_pipe->comp,
 			msecs_to_jiffies(VSYNC_PERIOD*2));
 	mdp_disable_irq(MDP_OVERLAY1_TERM);
@@ -521,11 +533,15 @@ void mdp4_overlay_dtv_wait_for_ov(struct msm_fb_data_type *mfd,
 
 void mdp4_dma_e_done_dtv()
 {
+	if (!dtv_pipe)
+		return;
+
 	complete(&dtv_pipe->comp);
 }
 
 void mdp4_external_vsync_dtv()
 {
+
 	complete_all(&dtv_comp);
 }
 
@@ -534,6 +550,8 @@ void mdp4_external_vsync_dtv()
  */
 void mdp4_overlay1_done_dtv()
 {
+	if (!dtv_pipe)
+		return;
 	if (dtv_pipe->blt_addr) {
 		mdp4_dtv_blt_dmae_update(dtv_pipe);
 		dtv_pipe->dmae_cnt++;
@@ -593,6 +611,11 @@ static void mdp4_overlay_dtv_wait4dmae(struct msm_fb_data_type *mfd)
 {
 	unsigned long flag;
 
+	if (!dtv_pipe) {
+		pr_debug("%s: no mixer1 base layer pipe allocated!\n",
+			 __func__);
+		return;
+	}
 	/* enable irq */
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	mdp_enable_irq(MDP_DMA_E_TERM);
@@ -613,6 +636,12 @@ static void mdp4_dtv_do_blt(struct msm_fb_data_type *mfd, int enable)
 
 	if (!mfd->ov1_wb_buf->phys_addr) {
 		pr_debug("%s: no writeback buf assigned\n", __func__);
+		return;
+	}
+
+	if (!dtv_pipe) {
+		pr_debug("%s: no mixer1 base layer pipe allocated!\n",
+			 __func__);
 		return;
 	}
 
@@ -656,7 +685,11 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	struct mdp4_overlay_pipe *pipe;
 	if (!mfd->panel_power_on)
 		return;
-
+	if (!dtv_pipe) {
+		pr_debug("%s: no mixer1 base layer pipe allocated!\n",
+			 __func__);
+		return;
+	}
 	mutex_lock(&mfd->dma->ov_mutex);
 	pipe = dtv_pipe;
 	if (pipe->pipe_type == OVERLAY_TYPE_RGB) {
