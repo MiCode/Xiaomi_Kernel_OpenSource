@@ -75,6 +75,7 @@
 #define PLLTEST_PAD_CFG_REG			REG(0x2FA4)
 #define PMEM_ACLK_CTL_REG			REG(0x25A0)
 #define PPSS_HCLK_CTL_REG			REG(0x2580)
+#define PRNG_CLK_NS_REG				REG(0x2E80)
 #define RINGOSC_NS_REG				REG(0x2DC0)
 #define RINGOSC_STATUS_REG			REG(0x2DCC)
 #define RINGOSC_TCXO_CTL_REG			REG(0x2DC4)
@@ -1139,7 +1140,12 @@ static struct branch_clk pmem_clk = {
 		.freq_hz = f, \
 		.src_clk = &s##_clk.c, \
 	}
-static struct clk_freq_tbl clk_tbl_prng[] = {
+static struct clk_freq_tbl clk_tbl_prng_32[] = {
+	F_PRNG(32000000, pll8),
+	F_END
+};
+
+static struct clk_freq_tbl clk_tbl_prng_64[] = {
 	F_PRNG(64000000, pll8),
 	F_END
 };
@@ -1153,12 +1159,12 @@ static struct rcg_clk prng_clk = {
 		.halt_bit = 10,
 	},
 	.set_rate = set_rate_nop,
-	.freq_tbl = clk_tbl_prng,
+	.freq_tbl = clk_tbl_prng_32,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "prng_clk",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOW, 32000000, NOMINAL, 65000000),
+		VDD_DIG_FMAX_MAP2(LOW, 32000000, NOMINAL, 64000000),
 		CLK_INIT(prng_clk.c),
 	},
 };
@@ -3788,6 +3794,9 @@ static void __init msm8660_clock_pre_init(void)
 	/* Set the dsi_byte_clk src to the DSI PHY PLL,
 	 * dsi_esc_clk to PXO/2, and the hdmi_app_clk src to PXO */
 	rmwreg(0x400001, MISC_CC2_REG, 0x424003);
+
+	if ((readl_relaxed(PRNG_CLK_NS_REG) & 0x7F) == 0x2B)
+		prng_clk.freq_tbl = clk_tbl_prng_64;
 }
 
 static void __init msm8660_clock_post_init(void)
@@ -3805,7 +3814,7 @@ static void __init msm8660_clock_post_init(void)
 
 	/* Initialize rates for clocks that only support one. */
 	clk_set_rate(&pdm_clk.c, 27000000);
-	clk_set_rate(&prng_clk.c, 64000000);
+	clk_set_rate(&prng_clk.c, prng_clk.freq_tbl->freq_hz);
 	clk_set_rate(&mdp_vsync_clk.c, 27000000);
 	clk_set_rate(&tsif_ref_clk.c, 105000);
 	clk_set_rate(&tssc_clk.c, 27000000);
