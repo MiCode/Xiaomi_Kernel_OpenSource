@@ -36,7 +36,8 @@ static int kgsl_cleanup_pt(struct kgsl_pagetable *pt)
 {
 	int i;
 	/* For IOMMU only unmap the global structures to global pt */
-	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) &&
+	if ((KGSL_MMU_TYPE_NONE != kgsl_mmu_type) &&
+		(KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) &&
 		(KGSL_MMU_GLOBAL_PT !=  pt->name))
 		return 0;
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
@@ -45,6 +46,36 @@ static int kgsl_cleanup_pt(struct kgsl_pagetable *pt)
 			device->ftbl->cleanup_pt(device, pt);
 	}
 	return 0;
+}
+
+
+static int kgsl_setup_pt(struct kgsl_pagetable *pt)
+{
+	int i = 0;
+	int status = 0;
+
+	/* For IOMMU only map the global structures to global pt */
+	if ((KGSL_MMU_TYPE_NONE != kgsl_mmu_type) &&
+		(KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) &&
+		(KGSL_MMU_GLOBAL_PT !=  pt->name))
+		return 0;
+	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+		struct kgsl_device *device = kgsl_driver.devp[i];
+		if (device) {
+			status = device->ftbl->setup_pt(device, pt);
+			if (status)
+				goto error_pt;
+		}
+	}
+	return status;
+error_pt:
+	while (i >= 0) {
+		struct kgsl_device *device = kgsl_driver.devp[i];
+		if (device)
+			device->ftbl->cleanup_pt(device, pt);
+		i--;
+	}
+	return status;
 }
 
 static void kgsl_destroy_pagetable(struct kref *kref)
@@ -340,9 +371,15 @@ int kgsl_mmu_init(struct kgsl_device *device)
 	mmu->device = device;
 
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type) {
-		dev_info(device->dev, "|%s| MMU type set for device is "
-			"NOMMU\n", __func__);
-		return 0;
+		int status = 0;
+		status = kgsl_allocate_contiguous(&mmu->setstate_memory, 64);
+		if (!status) {
+			kgsl_sharedmem_set(&mmu->setstate_memory, 0, 0,
+					mmu->setstate_memory.size);
+			dev_info(device->dev, "|%s| MMU type set for device is "
+				"NOMMU\n", __func__);
+		}
+		return status;
 	} else if (KGSL_MMU_TYPE_GPU == kgsl_mmu_type)
 		mmu->mmu_ops = &gpummu_ops;
 	else if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type)
@@ -358,6 +395,9 @@ int kgsl_mmu_start(struct kgsl_device *device)
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
 		kgsl_regwrite(device, MH_MMU_CONFIG, 0);
+		/* Setup gpuaddr of global mappings */
+		if (!mmu->setstate_memory.gpuaddr)
+			kgsl_setup_pt(NULL);
 		return 0;
 	} else {
 		return mmu->mmu_ops->mmu_start(device);
@@ -384,34 +424,6 @@ void kgsl_mh_intrcallback(struct kgsl_device *device)
 	kgsl_regwrite(device, MH_INTERRUPT_CLEAR, status);
 }
 EXPORT_SYMBOL(kgsl_mh_intrcallback);
-
-static int kgsl_setup_pt(struct kgsl_pagetable *pt)
-{
-	int i = 0;
-	int status = 0;
-
-	/* For IOMMU only map the global structures to global pt */
-	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) &&
-		(KGSL_MMU_GLOBAL_PT !=  pt->name))
-		return 0;
-	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-		struct kgsl_device *device = kgsl_driver.devp[i];
-		if (device) {
-			status = device->ftbl->setup_pt(device, pt);
-			if (status)
-				goto error_pt;
-		}
-	}
-	return status;
-error_pt:
-	while (i >= 0) {
-		struct kgsl_device *device = kgsl_driver.devp[i];
-		if (device)
-			device->ftbl->cleanup_pt(device, pt);
-		i--;
-	}
-	return status;
-}
 
 static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 				unsigned int name)
@@ -748,9 +760,10 @@ int kgsl_mmu_close(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
 
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
+	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
+		kgsl_sharedmem_free(&mmu->setstate_memory);
 		return 0;
-	else
+	} else
 		return mmu->mmu_ops->mmu_close(device);
 }
 EXPORT_SYMBOL(kgsl_mmu_close);
