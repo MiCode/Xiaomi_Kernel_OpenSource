@@ -2295,6 +2295,14 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
+static irqreturn_t kgsl_irq_handler(int irq, void *data)
+{
+	struct kgsl_device *device = data;
+
+	return device->ftbl->irq_handler(device);
+
+}
+
 static const struct file_operations kgsl_fops = {
 	.owner = THIS_MODULE,
 	.release = kgsl_release,
@@ -2455,8 +2463,7 @@ err_devlist:
 }
 EXPORT_SYMBOL(kgsl_register_device);
 
-int kgsl_device_platform_probe(struct kgsl_device *device,
-			       irqreturn_t (*dev_isr) (int, void*))
+int kgsl_device_platform_probe(struct kgsl_device *device)
 {
 	int result;
 	int status = -EINVAL;
@@ -2504,7 +2511,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 		goto error_release_mem;
 	}
 
-	status = request_irq(device->pwrctrl.interrupt_num, dev_isr,
+	status = request_irq(device->pwrctrl.interrupt_num, kgsl_irq_handler,
 			     IRQF_TRIGGER_HIGH, device->name, device);
 	if (status) {
 		KGSL_DRV_ERR(device, "request_irq(%d) failed: %d\n",
