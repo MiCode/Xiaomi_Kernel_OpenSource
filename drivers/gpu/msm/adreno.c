@@ -1107,6 +1107,53 @@ err:
 	return ret;
 }
 
+#ifdef CONFIG_MSM_OCMEM
+static int
+adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
+{
+	if (adreno_dev->gpurev != ADRENO_REV_A330)
+		return 0;
+
+	/* OCMEM is only needed once, do not support consective allocation */
+	if (adreno_dev->ocmem_hdl != NULL)
+		return 0;
+
+	adreno_dev->ocmem_hdl =
+		ocmem_allocate(OCMEM_GRAPHICS, adreno_dev->gmem_size);
+	if (adreno_dev->ocmem_hdl == NULL)
+		return -ENOMEM;
+
+	adreno_dev->gmem_size = adreno_dev->ocmem_hdl->len;
+	adreno_dev->gmem_base = adreno_dev->ocmem_hdl->addr;
+
+	return 0;
+}
+
+static void
+adreno_ocmem_gmem_free(struct adreno_device *adreno_dev)
+{
+	if (adreno_dev->gpurev != ADRENO_REV_A330)
+		return;
+
+	if (adreno_dev->ocmem_hdl == NULL)
+		return;
+
+	ocmem_free(OCMEM_GRAPHICS, adreno_dev->ocmem_hdl);
+	adreno_dev->ocmem_hdl = NULL;
+}
+#else
+static int
+adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
+{
+	return 0;
+}
+
+static void
+adreno_ocmem_gmem_free(struct adreno_device *adreno_dev)
+{
+}
+#endif
+
 static int 
 adreno_probe(struct platform_device *pdev)
 {
@@ -1210,6 +1257,12 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	if (status)
 		goto error_clk_off;
 
+	status = adreno_ocmem_gmem_malloc(adreno_dev);
+	if (status) {
+		KGSL_DRV_ERR(device, "OCMEM malloc failed\n");
+		goto error_mmu_off;
+	}
+
 	/* Start the GPU */
 	adreno_dev->gpudev->start(adreno_dev);
 
@@ -1226,7 +1279,10 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	}
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+
+error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);
+
 error_clk_off:
 	kgsl_pwrctrl_disable(device);
 
@@ -1246,6 +1302,8 @@ static int adreno_stop(struct kgsl_device *device)
 	device->ftbl->irqctrl(device, 0);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 	del_timer_sync(&device->idle_timer);
+
+	adreno_ocmem_gmem_free(adreno_dev);
 
 	/* Power down the device */
 	kgsl_pwrctrl_disable(device);
