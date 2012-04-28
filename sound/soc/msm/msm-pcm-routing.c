@@ -135,6 +135,8 @@ static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ SLIMBUS_4_RX, 0, 0, 0, 0, 0},
 	{ SLIMBUS_4_TX, 0, 0, 0, 0, 0},
 	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
 };
 
 
@@ -150,6 +152,16 @@ static int fe_dai_map[MSM_FRONTEND_DAI_MM_SIZE][2] = {
 	{INVALID_SESSION, INVALID_SESSION},
 };
 
+static uint8_t is_be_dai_extproc(int be_dai)
+{
+	if (be_dai == MSM_BACKEND_DAI_EXTPROC_RX ||
+	    be_dai == MSM_BACKEND_DAI_EXTPROC_TX ||
+	    be_dai == MSM_BACKEND_DAI_EXTPROC_EC_TX)
+		return 1;
+	else
+		return 0;
+}
+
 static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
 	int path_type)
 {
@@ -161,7 +173,7 @@ static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
 		MSM_AFE_PORT_TYPE_RX : MSM_AFE_PORT_TYPE_TX);
 
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if ((i != MSM_BACKEND_DAI_EXTPROC_RX) &&
+		if (!is_be_dai_extproc(i) &&
 		    (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		    (msm_bedais[i].active) &&
 		    (test_bit(fedai_id, &msm_bedais[i].fe_sessions)))
@@ -200,7 +212,7 @@ void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 
 	fe_dai_map[fedai_id][session_type] = dspst_id;
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if ((i != MSM_BACKEND_DAI_EXTPROC_RX) &&
+		if (!is_be_dai_extproc(i) &&
 		    (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		    (msm_bedais[i].active) &&
 		    (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
@@ -243,7 +255,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 	if (eq_data[fedai_id].enable)
 		msm_send_eq_values(fedai_id);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if ((i != MSM_BACKEND_DAI_EXTPROC_RX) &&
+		if (!is_be_dai_extproc(i) &&
 		    (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		    (msm_bedais[i].active) &&
 		    (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
@@ -296,7 +308,7 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 	mutex_lock(&routing_lock);
 
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if ((i != MSM_BACKEND_DAI_EXTPROC_RX) &&
+		if (!is_be_dai_extproc(i) &&
 		    (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		    (msm_bedais[i].active) &&
 		    (test_bit(fedai_id, &msm_bedais[i].fe_sessions)))
@@ -1227,13 +1239,16 @@ static const struct snd_kcontrol_new tx_voip_mixer_controls[] = {
 };
 
 static const struct snd_kcontrol_new tx_voice_stub_mixer_controls[] = {
-	SOC_SINGLE_EXT("STUB_TX_HL", MSM_BACKEND_DAI_EXTPROC_RX,
+	SOC_SINGLE_EXT("STUB_TX_HL", MSM_BACKEND_DAI_EXTPROC_TX,
 	MSM_FRONTEND_DAI_VOICE_STUB, 1, 0, msm_routing_get_voice_stub_mixer,
 	msm_routing_put_voice_stub_mixer),
 	SOC_SINGLE_EXT("INTERNAL_BT_SCO_TX", MSM_BACKEND_DAI_INT_BT_SCO_TX,
 	MSM_FRONTEND_DAI_VOICE_STUB, 1, 0, msm_routing_get_voice_stub_mixer,
 	msm_routing_put_voice_stub_mixer),
 	SOC_SINGLE_EXT("SLIM_1_TX", MSM_BACKEND_DAI_SLIMBUS_1_TX,
+	MSM_FRONTEND_DAI_VOICE_STUB, 1, 0, msm_routing_get_voice_stub_mixer,
+	msm_routing_put_voice_stub_mixer),
+	SOC_SINGLE_EXT("STUB_1_TX_HL", MSM_BACKEND_DAI_EXTPROC_EC_TX,
 	MSM_FRONTEND_DAI_VOICE_STUB, 1, 0, msm_routing_get_voice_stub_mixer,
 	msm_routing_put_voice_stub_mixer),
 };
@@ -1580,6 +1595,7 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("STUB_TX", "Stub Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("SLIMBUS_1_RX", "Slimbus1 Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("SLIMBUS_1_TX", "Slimbus1 Capture", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_IN("STUB_1_TX", "Stub1 Capture", 0, 0, 0, 0),
 
 	/* Switch Definitions */
 	SND_SOC_DAPM_SWITCH("SLIMBUS_DL_HL", SND_SOC_NOPM, 0, 0,
@@ -1845,6 +1861,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"Voice Stub Tx Mixer", "STUB_TX_HL", "STUB_TX"},
 	{"Voice Stub Tx Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
 	{"Voice Stub Tx Mixer", "INTERNAL_BT_SCO_TX", "INT_BT_SCO_TX"},
+	{"Voice Stub Tx Mixer", "STUB_1_TX_HL", "STUB_1_TX"},
 	{"VOICE_STUB_UL", NULL, "Voice Stub Tx Mixer"},
 
 	{"STUB_RX Mixer", "Voice Stub", "VOICE_STUB_DL"},
