@@ -1249,6 +1249,7 @@ static int __init diagchar_init(void)
 			diag_read_smd_wcnss_cntl_work_fn);
 		INIT_WORK(&(driver->diag_read_smd_dci_work),
 						 diag_read_smd_dci_work_fn);
+		diag_debugfs_init();
 		diagfwd_init();
 		diagfwd_cntl_init();
 		driver->dci_state = diag_dci_init();
@@ -1282,6 +1283,7 @@ static int __init diagchar_init(void)
 	return 0;
 
 fail:
+	diag_debugfs_cleanup();
 	diagchar_cleanup();
 	diagfwd_exit();
 	diagfwd_cntl_exit();
@@ -1300,6 +1302,7 @@ static void __exit diagchar_exit(void)
 	diagfwd_cntl_exit();
 	diag_sdio_fn(EXIT);
 	diag_hsic_fn(EXIT);
+	diag_debugfs_cleanup();
 	diagchar_cleanup();
 	printk(KERN_INFO "done diagchar exit\n");
 }

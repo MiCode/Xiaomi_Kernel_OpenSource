@@ -27,7 +27,10 @@ long diagchar_ioctl(struct file *, unsigned int, unsigned long);
 int diag_device_write(void *, int, struct diag_request *);
 int mask_request_validate(unsigned char mask_buf[]);
 void diag_clear_reg(int);
+int chk_config_get_id(void);
 int chk_apps_only(void);
+int chk_apps_master(void);
+int chk_polling_response(void);
 void diag_send_event_mask_update(smd_channel_t *, int num_bytes);
 void diag_send_msg_mask_update(smd_channel_t *, int ssid_first,
 					 int ssid_last, int proc);
