@@ -470,13 +470,12 @@ const struct file_operations rmnet_usb_data_fops = {
 	.release = single_release,
 };
 
-static struct dentry *rmnet_usb_data_dbg_root;
 static int rmnet_usb_data_debugfs_init(struct usbnet *unet)
 {
+	struct dentry *rmnet_usb_data_dbg_root;
 	struct dentry *rmnet_usb_data_dentry;
 
 	rmnet_usb_data_dbg_root = debugfs_create_dir(unet->net->name, NULL);
-
 	if (!rmnet_usb_data_dbg_root || IS_ERR(rmnet_usb_data_dbg_root))
 		return -ENODEV;
 
@@ -490,12 +489,17 @@ static int rmnet_usb_data_debugfs_init(struct usbnet *unet)
 		return -ENODEV;
 	}
 
+	unet->data[2] = (unsigned long)rmnet_usb_data_dbg_root;
+
 	return 0;
 }
 
-static void rmnet_usb_data_debugfs_cleanup(void)
+static void rmnet_usb_data_debugfs_cleanup(struct usbnet *unet)
 {
-	debugfs_remove_recursive(rmnet_usb_data_dbg_root);
+	struct dentry *root = (struct dentry *)unet->data[2];
+
+	debugfs_remove_recursive(root);
+	unet->data[2] = 0;
 }
 
 static int rmnet_usb_probe(struct usb_interface *iface,
@@ -570,13 +574,13 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 	udev = interface_to_usbdev(intf);
 	device_set_wakeup_enable(&udev->dev, 0);
 
-	rmnet_usb_data_debugfs_cleanup();
-
 	unet = usb_get_intfdata(intf);
 	if (!unet) {
 		dev_err(&udev->dev, "%s:data device not found\n", __func__);
 		return;
 	}
+
+	rmnet_usb_data_debugfs_cleanup(unet);
 
 	dev = (struct rmnet_ctrl_dev *)unet->data[1];
 	if (!dev) {
