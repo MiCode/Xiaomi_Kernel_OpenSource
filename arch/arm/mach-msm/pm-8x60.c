@@ -637,9 +637,9 @@ static inline bool msm_pm_l2x0_power_collapse(void)
 {
 	bool collapsed = 0;
 
-	l2cc_suspend();
+	l2x0_suspend();
 	collapsed = msm_pm_collapse();
-	l2cc_resume(collapsed);
+	l2x0_resume(collapsed);
 
 	return collapsed;
 }
