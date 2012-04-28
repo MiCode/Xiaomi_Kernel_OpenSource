@@ -107,6 +107,15 @@ struct vss_unmap_memory_cmd {
 #define VSS_IMVM_CMD_CREATE_PASSIVE_CONTROL_SESSION	0x000110FF
 /**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
 
+#define VSS_IMVM_CMD_SET_POLICY_DUAL_CONTROL	0x00011327
+/*
+ * VSS_IMVM_CMD_SET_POLICY_DUAL_CONTROL
+ * Description: This command is required to let MVM know
+ * who is in control of session.
+ * Payload: Defined by vss_imvm_cmd_set_policy_dual_control_t.
+ * Result: Wait for APRV2_IBASIC_RSP_RESULT response.
+ */
+
 #define VSS_IMVM_CMD_CREATE_FULL_CONTROL_SESSION	0x000110FE
 /* Create a new full control MVM session. */
 
@@ -228,6 +237,12 @@ struct vss_imvm_cmd_create_control_session_t {
 	*/
 } __packed;
 
+
+struct vss_imvm_cmd_set_policy_dual_control_t {
+	bool enable_flag;
+	/* Set to TRUE to enable modem state machine control */
+} __packed;
+
 struct vss_iwidevoice_cmd_set_widevoice_t {
 	uint32_t enable;
 	/* WideVoice enable/disable; possible values:
@@ -249,6 +264,11 @@ struct mvm_detach_vocproc_cmd {
 struct mvm_create_ctl_session_cmd {
 	struct apr_hdr hdr;
 	struct vss_imvm_cmd_create_control_session_t mvm_session;
+} __packed;
+
+struct mvm_modem_dual_control_session_cmd {
+	struct apr_hdr hdr;
+	struct vss_imvm_cmd_set_policy_dual_control_t voice_ctl;
 } __packed;
 
 struct mvm_set_tty_mode_cmd {
@@ -878,7 +898,7 @@ struct cal_mem {
 	void *buf;
 };
 
-#define MAX_VOC_SESSIONS 2
+#define MAX_VOC_SESSIONS 3
 #define SESSION_ID_BASE 0xFFF0
 
 struct common_data {
@@ -947,6 +967,7 @@ uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
 
 #define VOICE_SESSION_NAME "Voice session"
 #define VOIP_SESSION_NAME "VoIP session"
+#define VOLTE_SESSION_NAME "VoLTE session"
 uint16_t voc_get_session_id(char *name);
 
 int voc_start_playback(uint32_t set);

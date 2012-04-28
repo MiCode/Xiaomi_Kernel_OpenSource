@@ -13,6 +13,11 @@
 #define _MSM_PCM_VOICE_H
 #include <sound/apr_audio.h>
 
+enum {
+	VOICE_SESSION_INDEX,
+	VOLTE_SESSION_INDEX,
+	VOICE_SESSION_INDEX_MAX,
+};
 
 struct msm_voice {
 	struct snd_pcm_substream *playback_substream;
