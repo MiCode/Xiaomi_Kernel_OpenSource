@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -138,10 +138,6 @@ static int audio_open(struct inode *inode, struct file *file)
 		goto fail;
 	}
 	rc = audio_aio_open(audio, file);
-	if (IS_ERR_VALUE(rc)) {
-		pr_err("%s: audio_aio_open failed\n", __func__);
-		goto fail;
-	}
 
 #ifdef CONFIG_DEBUG_FS
 	snprintf(name, sizeof name, "msm_amrnb_%04x", audio->ac->session);

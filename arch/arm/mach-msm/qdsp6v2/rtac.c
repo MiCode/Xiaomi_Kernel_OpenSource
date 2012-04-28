@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -443,6 +443,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 
 
 	if (payload_size > MAX_PAYLOAD_SIZE) {
+
 			pr_err("%s: Invalid payload size = %d\n",
 				__func__, payload_size);
 		goto done;
@@ -613,6 +614,7 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 	}
 
 	if (payload_size > MAX_PAYLOAD_SIZE) {
+
 			pr_err("%s: Invalid payload size = %d\n",
 				__func__, payload_size);
 		goto done;
@@ -623,15 +625,17 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 			__func__);
 		goto done;
 	}
-	if (session_id > SESSION_MAX) {
+	if (session_id > (SESSION_MAX + 1)) {
 		pr_err("%s: Invalid Session = %d\n", __func__, session_id);
 		goto done;
 	}
 
 	mutex_lock(&rtac_asm_apr_mutex);
-	if (rtac_asm_apr_data[session_id].apr_handle == NULL) {
-		pr_err("%s: APR not initialized\n", __func__);
-		goto err;
+	if (session_id < SESSION_MAX+1) {
+		if (rtac_asm_apr_data[session_id].apr_handle == NULL) {
+			pr_err("%s: APR not initialized\n", __func__);
+			goto err;
+		}
 	}
 
 	/* Set globals for copy of returned payload */
