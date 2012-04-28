@@ -48,8 +48,8 @@ struct subsys_soc_restart_order {
 struct restart_wq_data {
 	struct subsys_data *subsys;
 	struct wake_lock ssr_wake_lock;
-	char wakelockname[64];
-	int coupled;
+	char wlname[64];
+	int use_restart_order;
 	struct work_struct work;
 };
 
@@ -120,26 +120,6 @@ int get_restart_level()
 }
 EXPORT_SYMBOL(get_restart_level);
 
-static void restart_level_changed(void)
-{
-	struct subsys_data *subsys;
-
-	if (cpu_is_msm8x60() && restart_level == RESET_SUBSYS_COUPLED) {
-		restart_orders = orders_8x60_all;
-		n_restart_orders = ARRAY_SIZE(orders_8x60_all);
-	}
-
-	if (cpu_is_msm8x60() && restart_level == RESET_SUBSYS_MIXED) {
-		restart_orders = orders_8x60_modems;
-		n_restart_orders = ARRAY_SIZE(orders_8x60_modems);
-	}
-
-	mutex_lock(&subsystem_list_lock);
-	list_for_each_entry(subsys, &subsystem_list, list)
-		subsys->restart_order = _update_restart_order(subsys);
-	mutex_unlock(&subsystem_list_lock);
-}
-
 static int restart_level_set(const char *val, struct kernel_param *kp)
 {
 	int ret;
@@ -162,20 +142,12 @@ static int restart_level_set(const char *val, struct kernel_param *kp)
 		pr_info("Phase %d behavior activated.\n", restart_level);
 	break;
 
-	case RESET_SUBSYS_MIXED:
-		pr_info("Phase 2+ behavior activated.\n");
-	break;
-
 	default:
 		restart_level = old_val;
 		return -EINVAL;
 	break;
 
 	}
-
-	if (restart_level != old_val)
-		restart_level_changed();
-
 	return 0;
 }
 
@@ -317,7 +289,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	int i;
 	int restart_list_count = 0;
 
-	if (r_work->coupled)
+	if (r_work->use_restart_order)
 		soc_restart_order = subsys->restart_order;
 
 	/* It's OK to not take the registration lock at this point.
@@ -441,11 +413,38 @@ out:
 	kfree(r_work);
 }
 
+static void __subsystem_restart(struct subsys_data *subsys)
+{
+	struct restart_wq_data *data = NULL;
+	int rc;
+
+	pr_debug("Restarting %s [level=%d]!\n", subsys->name,
+				restart_level);
+
+	data = kzalloc(sizeof(struct restart_wq_data), GFP_ATOMIC);
+	if (!data)
+		panic("%s: Unable to allocate memory to restart %s.",
+		      __func__, subsys->name);
+
+	data->subsys = subsys;
+
+	if (restart_level != RESET_SUBSYS_INDEPENDENT)
+		data->use_restart_order = 1;
+
+	snprintf(data->wlname, sizeof(data->wlname), "ssr(%s)", subsys->name);
+	wake_lock_init(&data->ssr_wake_lock, WAKE_LOCK_SUSPEND, data->wlname);
+	wake_lock(&data->ssr_wake_lock);
+
+	INIT_WORK(&data->work, subsystem_restart_wq_func);
+	rc = queue_work(ssr_wq, &data->work);
+	if (rc < 0)
+		panic("%s: Unable to schedule work to restart %s (%d).",
+		     __func__, subsys->name, rc);
+}
+
 int subsystem_restart(const char *subsys_name)
 {
 	struct subsys_data *subsys;
-	struct restart_wq_data *data = NULL;
-	int rc;
 
 	if (!subsys_name) {
 		pr_err("Invalid subsystem name.\n");
@@ -465,42 +464,11 @@ int subsystem_restart(const char *subsys_name)
 		return -EINVAL;
 	}
 
-	if (restart_level != RESET_SOC) {
-		data = kzalloc(sizeof(struct restart_wq_data), GFP_KERNEL);
-		if (!data) {
-			restart_level = RESET_SOC;
-			pr_warn("Failed to alloc restart data. Resetting.\n");
-		} else {
-			if (restart_level == RESET_SUBSYS_COUPLED ||
-					restart_level == RESET_SUBSYS_MIXED)
-				data->coupled = 1;
-			else
-				data->coupled = 0;
-
-			data->subsys = subsys;
-		}
-	}
-
 	switch (restart_level) {
 
 	case RESET_SUBSYS_COUPLED:
-	case RESET_SUBSYS_MIXED:
 	case RESET_SUBSYS_INDEPENDENT:
-		pr_debug("Restarting %s [level=%d]!\n", subsys_name,
-				restart_level);
-
-		snprintf(data->wakelockname, sizeof(data->wakelockname),
-				"ssr(%s)", subsys_name);
-		wake_lock_init(&data->ssr_wake_lock, WAKE_LOCK_SUSPEND,
-			data->wakelockname);
-		wake_lock(&data->ssr_wake_lock);
-
-		INIT_WORK(&data->work, subsystem_restart_wq_func);
-		rc = schedule_work(&data->work);
-
-		if (rc < 0)
-			panic("%s: Unable to schedule work to restart %s",
-			     __func__, subsys->name);
+		__subsystem_restart(subsys);
 		break;
 
 	case RESET_SOC:
