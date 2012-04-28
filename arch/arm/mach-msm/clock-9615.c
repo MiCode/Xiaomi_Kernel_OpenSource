@@ -153,6 +153,7 @@
 /* MUX source input identifiers. */
 #define cxo_to_bb_mux		0
 #define pll8_to_bb_mux		3
+#define pll8_acpu_to_bb_mux	3
 #define pll14_to_bb_mux		4
 #define gnd_to_bb_mux		6
 #define cxo_to_xo_mux		0
@@ -689,8 +690,8 @@ static struct clk_freq_tbl clk_tbl_usb[] = {
 };
 
 static struct clk_freq_tbl clk_tbl_usb_hsic_sys[] = {
-	F_USB(       0, gnd,  1, 0, 0),
-	F_USB(64000000, pll8, 1, 1, 6),
+	F_USB(       0,       gnd, 1, 0, 0),
+	F_USB(64000000, pll8_acpu, 1, 1, 6),
 	F_END
 };
 
