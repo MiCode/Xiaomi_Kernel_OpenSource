@@ -43,6 +43,16 @@
 #define BM(msb, lsb)	(((((uint32_t)-1) << (31-msb)) >> (31-msb+lsb)) << lsb)
 #define BVAL(msb, lsb, val)	(((val) << lsb) & BM(msb, lsb))
 
+/*
+ * Halt/Status Checking Mode Macros
+ */
+#define HALT		0	/* Bit pol: 1 = halted */
+#define NOCHECK		1	/* No bit to check, do nothing */
+#define HALT_VOTED	2	/* Bit pol: 1 = halted; delay on disable */
+#define ENABLE		3	/* Bit pol: 1 = running */
+#define ENABLE_VOTED	4	/* Bit pol: 1 = running; delay on disable */
+#define DELAY		5	/* No bit to check, just delay */
+
 #define MAX_VDD_LEVELS			4
 
 /**
