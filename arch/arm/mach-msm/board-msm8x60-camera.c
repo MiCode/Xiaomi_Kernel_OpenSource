@@ -413,14 +413,14 @@ static struct msm_camera_gpio_conf msm_8x60_back_cam_gpio_conf = {
 
 
 static struct i2c_board_info imx074_actuator_i2c_info = {
-	I2C_BOARD_INFO("imx074_act", 0x11),
+	I2C_BOARD_INFO("msm_actuator", 0x11),
 };
 
 static struct msm_actuator_info imx074_actuator_info = {
 	.board_info     = &imx074_actuator_i2c_info,
+	.cam_name   = MSM_ACTUATOR_MAIN_CAM_0,
 	.bus_id         = MSM_GSBI4_QUP_I2C_BUS_ID,
-	.vcm_pwd        = 0,
-	.vcm_enable     = 1,
+	.vcm_enable     = 0,
 };
 
 static struct msm_camera_sensor_flash_data flash_imx074 = {
