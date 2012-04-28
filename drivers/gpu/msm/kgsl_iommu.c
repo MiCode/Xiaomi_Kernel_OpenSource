@@ -271,7 +271,8 @@ kgsl_iommu_unmap(void *mmu_specific_pt,
 static int
 kgsl_iommu_map(void *mmu_specific_pt,
 			struct kgsl_memdesc *memdesc,
-			unsigned int protflags)
+			unsigned int protflags,
+			unsigned int *tlb_flags)
 {
 	int ret;
 	unsigned int iommu_virt_addr;
@@ -292,6 +293,14 @@ kgsl_iommu_map(void *mmu_specific_pt,
 		return ret;
 	}
 
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	/*
+	 * Flushing only required if per process pagetables are used. With
+	 * global case, flushing will happen inside iommu_map function
+	 */
+	if (!ret)
+		*tlb_flags = UINT_MAX;
+#endif
 	return ret;
 }
 
@@ -350,5 +359,4 @@ struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.mmu_create_pagetable = kgsl_iommu_create_pagetable,
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.mmu_pt_equal = kgsl_iommu_pt_equal,
-	.mmu_pt_get_flags = NULL,
 };

@@ -397,25 +397,6 @@ kgsl_pt_map_get(struct kgsl_gpummu_pt *pt, uint32_t pte)
 	return baseptr[pte] & GSL_PT_PAGE_ADDR_MASK;
 }
 
-static unsigned int kgsl_gpummu_pt_get_flags(struct kgsl_pagetable *pt,
-				enum kgsl_deviceid id)
-{
-	unsigned int result = 0;
-	struct kgsl_gpummu_pt *gpummu_pt;
-
-	if (pt == NULL)
-		return 0;
-	gpummu_pt = pt->priv;
-
-	spin_lock(&pt->lock);
-	if (gpummu_pt->tlb_flags && (1<<id)) {
-		result = KGSL_MMUFLAGS_TLBFLUSH;
-		gpummu_pt->tlb_flags &= ~(1<<id);
-	}
-	spin_unlock(&pt->lock);
-	return result;
-}
-
 static void kgsl_gpummu_pagefault(struct kgsl_device *device)
 {
 	unsigned int reg;
@@ -440,7 +421,6 @@ static void *kgsl_gpummu_create_pagetable(void)
 	if (!gpummu_pt)
 		return NULL;
 
-	gpummu_pt->tlb_flags = 0;
 	gpummu_pt->last_superpte = 0;
 
 	gpummu_pt->tlbflushfilter.size = (CONFIG_MSM_KGSL_PAGE_TABLE_SIZE /
@@ -504,7 +484,6 @@ static void kgsl_gpummu_setstate(struct kgsl_device *device,
 				struct kgsl_pagetable *pagetable)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
-	struct kgsl_gpummu_pt *gpummu_pt;
 
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
 		/* page table not current, then setup mmu to use new
@@ -512,10 +491,10 @@ static void kgsl_gpummu_setstate(struct kgsl_device *device,
 		 */
 		if (mmu->hwpagetable != pagetable) {
 			mmu->hwpagetable = pagetable;
-			spin_lock(&mmu->hwpagetable->lock);
-			gpummu_pt = mmu->hwpagetable->priv;
-			gpummu_pt->tlb_flags &= ~(1<<device->id);
-			spin_unlock(&mmu->hwpagetable->lock);
+			/* Since we do a TLB flush the tlb_flags should
+			 * be cleared by calling kgsl_mmu_pt_get_flags
+			 */
+			kgsl_mmu_pt_get_flags(pagetable, mmu->device->id);
 
 			/* call device specific set page table */
 			kgsl_setstate(mmu->device, KGSL_MMUFLAGS_TLBFLUSH |
@@ -670,7 +649,8 @@ GSL_TLBFLUSH_FILTER_ISDIRTY((_p) / GSL_PT_SUPER_PTE))
 static int
 kgsl_gpummu_map(void *mmu_specific_pt,
 		struct kgsl_memdesc *memdesc,
-		unsigned int protflags)
+		unsigned int protflags,
+		unsigned int *tlb_flags)
 {
 	unsigned int pte;
 	struct kgsl_gpummu_pt *gpummu_pt = mmu_specific_pt;
@@ -704,7 +684,7 @@ kgsl_gpummu_map(void *mmu_specific_pt,
 
 	if (flushtlb) {
 		/*set all devices as needing flushing*/
-		gpummu_pt->tlb_flags = UINT_MAX;
+		*tlb_flags = UINT_MAX;
 		GSL_TLBFLUSH_FILTER_RESET();
 	}
 
@@ -764,5 +744,4 @@ struct kgsl_mmu_pt_ops gpummu_pt_ops = {
 	.mmu_create_pagetable = kgsl_gpummu_create_pagetable,
 	.mmu_destroy_pagetable = kgsl_gpummu_destroy_pagetable,
 	.mmu_pt_equal = kgsl_gpummu_pt_equal,
-	.mmu_pt_get_flags = kgsl_gpummu_pt_get_flags,
 };

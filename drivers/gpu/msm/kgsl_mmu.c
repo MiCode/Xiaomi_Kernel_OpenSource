@@ -640,7 +640,8 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
-	ret = pagetable->pt_ops->mmu_map(pagetable->priv, memdesc, protflags);
+	ret = pagetable->pt_ops->mmu_map(pagetable->priv, memdesc, protflags,
+						&pagetable->tlb_flags);
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 
@@ -771,10 +772,18 @@ EXPORT_SYMBOL(kgsl_mmu_close);
 int kgsl_mmu_pt_get_flags(struct kgsl_pagetable *pt,
 			enum kgsl_deviceid id)
 {
-	if (KGSL_MMU_TYPE_GPU == kgsl_mmu_type)
-		return pt->pt_ops->mmu_pt_get_flags(pt, id);
-	else
+	unsigned int result = 0;
+
+	if (pt == NULL)
 		return 0;
+
+	spin_lock(&pt->lock);
+	if (pt->tlb_flags && (1<<id)) {
+		result = KGSL_MMUFLAGS_TLBFLUSH;
+		pt->tlb_flags &= ~(1<<id);
+	}
+	spin_unlock(&pt->lock);
+	return result;
 }
 EXPORT_SYMBOL(kgsl_mmu_pt_get_flags);
 
