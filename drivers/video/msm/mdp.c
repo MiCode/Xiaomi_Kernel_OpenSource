@@ -177,6 +177,9 @@ uint32_t mdp_block2base(uint32_t block)
 	case MDP_BLOCK_OVERLAY_1:
 		base = 0x18000;
 		break;
+	case MDP_BLOCK_OVERLAY_2:
+		base = (mdp_rev >= MDP_REV_44) ? 0x88000 : 0;
+		break;
 	default:
 		break;
 	}

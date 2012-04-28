@@ -2413,6 +2413,9 @@ static uint32_t mdp4_csc_block2base(uint32_t block)
 	case MDP_BLOCK_OVERLAY_1:
 		base = 0x1A000;
 		break;
+	case MDP_BLOCK_OVERLAY_2:
+		base = (mdp_rev >= MDP_REV_44) ? 0x8A000 : 0x0;
+		break;
 	case MDP_BLOCK_VG_1:
 		base = 0x24000;
 		break;
@@ -2465,6 +2468,11 @@ int mdp4_csc_enable(struct mdp_csc_cfg_data *config)
 		break;
 	case MDP_BLOCK_OVERLAY_1:
 		base = 0x18200;
+		output = config->csc_data.flags;
+		mask = 0x07;
+		break;
+	case MDP_BLOCK_OVERLAY_2:
+		base = 0x88200;
 		output = config->csc_data.flags;
 		mask = 0x07;
 		break;
@@ -2779,13 +2787,11 @@ static int mdp4_read_pcc_regs(uint32_t offset,
 
 #define MDP_PCC_OFFSET 0xA000
 #define MDP_DMA_GC_OFFSET 0x8800
-#define MDP_LM_0_GC_OFFSET 0x4800
-#define MDP_LM_1_GC_OFFSET 0x4880
-
+#define MDP_LM_GC_OFFSET 0x4800
 
 #define MDP_DMA_P_OP_MODE_OFFSET 0x70
 #define MDP_DMA_S_OP_MODE_OFFSET 0x28
-#define MDP_LM_OP_MODE_OFFSET 0x10
+#define MDP_LM_OP_MODE_OFFSET 0x14
 
 #define DMA_PCC_R2_OFFSET 0x100
 
@@ -2884,6 +2890,10 @@ static uint32_t mdp_pp_block2argc(uint32_t block)
 	case MDP_BLOCK_OVERLAY_0:
 	case MDP_BLOCK_OVERLAY_1:
 		valid = (mdp_rev >= MDP_REV_42) ? 1 : 0;
+		break;
+
+	case MDP_BLOCK_OVERLAY_2:
+		valid = (mdp_rev >= MDP_REV_44) ? 1 : 0;
 		break;
 
 	default:
@@ -3021,11 +3031,8 @@ int mdp4_argc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
 
 	case MDP_BLOCK_OVERLAY_0:
 	case MDP_BLOCK_OVERLAY_1:
-		offset = (uint32_t *)(blockbase +
-				(MDP_BLOCK_OVERLAY_0 == pgc_ptr->block ?
-				 MDP_LM_0_GC_OFFSET
-				 : MDP_LM_1_GC_OFFSET));
-
+	case MDP_BLOCK_OVERLAY_2:
+		offset = (uint32_t *)(blockbase + MDP_LM_GC_OFFSET);
 		pgc_enable_offset = (uint32_t *)(blockbase
 				+ MDP_LM_OP_MODE_OFFSET);
 		lshift_bits = 2;
