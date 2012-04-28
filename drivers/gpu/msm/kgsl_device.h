@@ -94,6 +94,7 @@ struct kgsl_functable {
 	unsigned int (*gpuid)(struct kgsl_device *device);
 	void * (*snapshot)(struct kgsl_device *device, void *snapshot,
 		int *remain, int hang);
+	irqreturn_t (*irq_handler)(struct kgsl_device *device);
 	/* Optional functions - these functions are not mandatory.  The
 	   driver will check that the function pointer is not NULL before
 	   calling the hook */
@@ -340,8 +341,8 @@ int kgsl_register_ts_notifier(struct kgsl_device *device,
 int kgsl_unregister_ts_notifier(struct kgsl_device *device,
 				struct notifier_block *nb);
 
-int kgsl_device_platform_probe(struct kgsl_device *device,
-		irqreturn_t (*dev_isr) (int, void*));
+int kgsl_device_platform_probe(struct kgsl_device *device);
+
 void kgsl_device_platform_remove(struct kgsl_device *device);
 
 const char *kgsl_pwrstate_to_str(unsigned int state);

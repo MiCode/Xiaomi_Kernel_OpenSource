@@ -169,10 +169,9 @@ static const struct {
 
 };
 
-static irqreturn_t adreno_isr(int irq, void *data)
+static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 {
 	irqreturn_t result;
-	struct kgsl_device *device = data;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	result = adreno_dev->gpudev->irq_handler(adreno_dev);
@@ -490,7 +489,7 @@ adreno_probe(struct platform_device *pdev)
 	if (status != 0)
 		goto error;
 
-	status = kgsl_device_platform_probe(device, adreno_isr);
+	status = kgsl_device_platform_probe(device);
 	if (status)
 		goto error_close_rb;
 
@@ -1444,6 +1443,7 @@ static const struct kgsl_functable adreno_functable = {
 	.irqctrl = adreno_irqctrl,
 	.gpuid = adreno_gpuid,
 	.snapshot = adreno_snapshot,
+	.irq_handler = adreno_irq_handler,
 	/* Optional functions */
 	.setstate = adreno_setstate,
 	.drawctxt_create = adreno_drawctxt_create,

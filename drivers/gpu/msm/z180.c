@@ -206,11 +206,10 @@ static struct z180_device device_2d1 = {
 	},
 };
 
-static irqreturn_t z180_isr(int irq, void *data)
+static irqreturn_t z180_irq_handler(struct kgsl_device *device)
 {
 	irqreturn_t result = IRQ_NONE;
 	unsigned int status;
-	struct kgsl_device *device = (struct kgsl_device *) data;
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 
 	z180_regread(device, ADDR_VGC_IRQSTATUS >> 2, &status);
@@ -546,7 +545,7 @@ static int __devinit z180_probe(struct platform_device *pdev)
 	if (status != 0)
 		goto error;
 
-	status = kgsl_device_platform_probe(device, z180_isr);
+	status = kgsl_device_platform_probe(device);
 	if (status)
 		goto error_close_ringbuffer;
 
@@ -945,6 +944,7 @@ static const struct kgsl_functable z180_functable = {
 	.power_stats = z180_power_stats,
 	.irqctrl = z180_irqctrl,
 	.gpuid = z180_gpuid,
+	.irq_handler = z180_irq_handler,
 	/* Optional functions */
 	.drawctxt_create = NULL,
 	.drawctxt_destroy = z180_drawctxt_destroy,
