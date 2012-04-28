@@ -2372,8 +2372,7 @@ static void vfe31_process_reg_update_irq(void)
 		/* later we need to add check for live snapshot mode. */
 		if (vfe31_ctrl->frame_skip_pattern & (0x1 <<
 			(vfe31_ctrl->snapshot_frame_cnt %
-			vfe31_ctrl->frame_skip_cnt))) {
-			vfe31_ctrl->vfe_capture_count--;
+				vfe31_ctrl->frame_skip_cnt))) {
 			/* if last frame to be captured: */
 			if (vfe31_ctrl->vfe_capture_count == 0) {
 				/* stop the bus output:write master enable = 0*/
@@ -2403,7 +2402,6 @@ static void vfe31_process_reg_update_irq(void)
 				vfe31_ctrl->frame_skip_pattern = 0xffffffff;
 			} /*if snapshot count is 0*/
 		} /*if frame is not being dropped*/
-		vfe31_ctrl->snapshot_frame_cnt++;
 		/* then do reg_update. */
 		msm_camera_io_w(1, vfe31_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	} /* if snapshot mode. */
@@ -2502,6 +2500,17 @@ static void vfe31_process_camif_sof_irq(void)
 			vfe31_sync_timer_stop();
 		else
 			vfe31_ctrl->sync_timer_repeat_count--;
+	}
+	if ((vfe31_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_MAIN) ||
+		(vfe31_ctrl->operation_mode == VFE_OUTPUTS_MAIN_AND_THUMB) ||
+		(vfe31_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_JPEG) ||
+		(vfe31_ctrl->operation_mode == VFE_OUTPUTS_JPEG_AND_THUMB)) {
+		if (vfe31_ctrl->frame_skip_pattern & (0x1 <<
+			(vfe31_ctrl->snapshot_frame_cnt %
+				vfe31_ctrl->frame_skip_cnt))) {
+			vfe31_ctrl->vfe_capture_count--;
+		}
+		vfe31_ctrl->snapshot_frame_cnt++;
 	}
 }
 
