@@ -433,33 +433,6 @@ static struct gpiomux_setting gsbi5_active_cfg = {
 	.drv = GPIOMUX_DRV_12MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-static struct gpiomux_setting hsic_act_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting hsic_sus_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-	.dir = GPIOMUX_OUT_LOW,
-};
-
-static struct gpiomux_setting cyts_resout_sus_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
-static struct gpiomux_setting cyts_resout_act_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
 static struct gpiomux_setting cyts_sleep_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
@@ -499,14 +472,22 @@ static struct msm_gpiomux_config cyts_gpio_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cyts_sleep_sus_cfg,
 		},
 	},
-	{	/* TS RESOUT */
-		.gpio = 7,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &cyts_resout_act_cfg,
-			[GPIOMUX_SUSPENDED] = &cyts_resout_sus_cfg,
-		},
-	},
 };
+
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+static struct gpiomux_setting hsic_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting hsic_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
 
 static struct msm_gpiomux_config apq8064_hsic_configs[] = {
 	{
