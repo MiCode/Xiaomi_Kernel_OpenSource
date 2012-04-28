@@ -569,6 +569,10 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.disable_reset_on_disconnect	= true,
 };
 
+static struct msm_hsic_peripheral_platform_data msm_hsic_peripheral_pdata = {
+	.keep_core_clk_on_suspend_workaround = true,
+};
+
 #define PID_MAGIC_ID		0x71432909
 #define SERIAL_NUM_MAGIC_ID	0x61945374
 #define SERIAL_NUMBER_LENGTH	127
@@ -757,6 +761,8 @@ static void __init msm9615_common_init(void)
 
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm_otg_pdata.phy_init_seq = shelby_phy_init_seq;
+	msm_device_hsic_peripheral.dev.platform_data =
+		&msm_hsic_peripheral_pdata;
 	msm_device_usb_bam.dev.platform_data = &msm_usb_bam_pdata;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 

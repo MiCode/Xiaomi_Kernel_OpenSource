@@ -342,6 +342,10 @@ struct msm_usb_host_platform_data {
 	unsigned int dock_connect_irq;
 };
 
+struct msm_hsic_peripheral_platform_data {
+	bool keep_core_clk_on_suspend_workaround;
+};
+
 struct usb_bam_pipe_connect {
 	u32 src_phy_addr;
 	int src_pipe_index;
