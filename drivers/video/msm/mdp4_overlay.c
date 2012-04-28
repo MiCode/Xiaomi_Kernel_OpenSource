@@ -99,7 +99,7 @@ struct mdp4_overlay_ctrl {
 static struct mdp4_overlay_ctrl *ctrl = &mdp4_overlay_db;
 static int new_perf_level;
 static struct ion_client *display_iclient;
-static struct mdp4_iommu_pipe_info mdp_iommu[MDP4_MIXER_MAX][OVERLAY_PIPE_RGB3];
+static struct mdp4_iommu_pipe_info mdp_iommu[MDP4_MIXER_MAX][OVERLAY_PIPE_MAX];
 
 int mdp4_overlay_iommu_map_buf(int mem_id,
 	struct mdp4_overlay_pipe *pipe, unsigned int plane,
@@ -160,7 +160,7 @@ void mdp4_iommu_unmap(struct mdp4_overlay_pipe *pipe)
 	if (!display_iclient)
 		return;
 
-	for (j = 0; j < OVERLAY_PIPE_RGB3; j++) {
+	for (j = 0; j < OVERLAY_PIPE_MAX; j++) {
 		iom_pipe_info = &mdp_iommu[pipe->mixer_num][j];
 		for (i = 0; i < MDP4_MAX_PLANE; i++) {
 			if (iom_pipe_info->prev_ihdl[i]) {
