@@ -5371,7 +5371,7 @@ void l2cap_amp_physical_complete(int result, u8 local_id, u8 remote_id,
 	release_sock(sk);
 }
 
-int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
+static void l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 {
 	struct l2cap_pinfo *pi;
 	struct sock *sk;
@@ -5385,11 +5385,14 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 
 	BT_DBG("sk %p", sk);
 
+	if (!sk)
+		return;
+
 	lock_sock(sk);
 
 	if (sk->sk_state != BT_CONNECTED && !l2cap_pi(sk)->amp_id) {
 		release_sock(sk);
-		return 0;
+		return;
 	}
 
 	pi = l2cap_pi(sk);
@@ -5516,7 +5519,6 @@ int l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 	}
 
 	release_sock(sk);
-	return 0;
 }
 
 static void l2cap_logical_link_worker(struct work_struct *work)
