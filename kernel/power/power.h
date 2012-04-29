@@ -265,31 +265,20 @@ static inline void suspend_thaw_processes(void)
 }
 #endif
 
-#ifdef CONFIG_WAKELOCK
-/* kernel/power/wakelock.c */
-extern struct workqueue_struct *suspend_work_queue;
-extern struct wake_lock main_wake_lock;
-extern suspend_state_t requested_suspend_state;
-extern void suspend_sys_sync_queue(void);
-extern int suspend_sys_sync_wait(void);
-#else
-static inline void suspend_sys_sync_queue(void) {}
-static inline int suspend_sys_sync_wait(void) { return 0; }
-#endif
+#ifdef CONFIG_PM_AUTOSLEEP
 
-#ifdef CONFIG_USER_WAKELOCK
-ssize_t wake_lock_show(struct kobject *kobj, struct kobj_attribute *attr,
-			char *buf);
-ssize_t wake_lock_store(struct kobject *kobj, struct kobj_attribute *attr,
-			const char *buf, size_t n);
-ssize_t wake_unlock_show(struct kobject *kobj, struct kobj_attribute *attr,
-			char *buf);
-ssize_t  wake_unlock_store(struct kobject *kobj, struct kobj_attribute *attr,
-			const char *buf, size_t n);
-#endif
+/* kernel/power/autosleep.c */
+extern int pm_autosleep_init(void);
+extern int pm_autosleep_lock(void);
+extern void pm_autosleep_unlock(void);
+extern suspend_state_t pm_autosleep_state(void);
+extern int pm_autosleep_set_state(suspend_state_t state);
 
-#ifdef CONFIG_EARLYSUSPEND
-/* kernel/power/earlysuspend.c */
-void request_suspend_state(suspend_state_t state);
-suspend_state_t get_suspend_state(void);
-#endif
+#else /* !CONFIG_PM_AUTOSLEEP */
+
+static inline int pm_autosleep_init(void) { return 0; }
+static inline int pm_autosleep_lock(void) { return 0; }
+static inline void pm_autosleep_unlock(void) {}
+static inline suspend_state_t pm_autosleep_state(void) { return PM_SUSPEND_ON; }
+
+#endif /* !CONFIG_PM_AUTOSLEEP */
