@@ -603,6 +603,7 @@ static long venc_set_codec_profile(struct video_client_ctx *client_ctx,
 	struct vcd_property_profile vcd_property_profile;
 	struct vcd_property_hdr vcd_property_hdr;
 	struct vcd_property_codec vcd_property_codec;
+	struct vcd_property_i_period vcd_property_i_period;
 	int rc = 0;
 
 	/* Validate params */
@@ -614,7 +615,7 @@ static long venc_set_codec_profile(struct video_client_ctx *client_ctx,
 	if (rc < 0) {
 		WFD_MSG_ERR("Error getting codec property");
 		rc = -EINVAL;
-		goto err;
+		goto err_set_profile;
 	}
 
 	if (!((vcd_property_codec.codec == VCD_CODEC_H264
@@ -624,7 +625,7 @@ static long venc_set_codec_profile(struct video_client_ctx *client_ctx,
 		WFD_MSG_ERR("Attempting to set %d for codec type %d",
 			codec, vcd_property_codec.codec);
 		rc = -EINVAL;
-		goto err;
+		goto err_set_profile;
 	}
 
 	/* Set property */
@@ -671,12 +672,31 @@ static long venc_set_codec_profile(struct video_client_ctx *client_ctx,
 				"not setting profile (%d)",
 				codec, profile);
 		rc = -ENOTSUPP;
-		goto err;
+		goto err_set_profile;
 	}
 
 	rc = vcd_set_property(client_ctx->vcd_handle,
 				&vcd_property_hdr, &vcd_property_profile);
-err:
+
+	/* Disable B-frames, since VSG doesn't support out of order i/p bufs */
+	vcd_property_hdr.prop_id = VCD_I_INTRA_PERIOD;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_i_period);
+
+	rc = vcd_get_property(client_ctx->vcd_handle,
+				&vcd_property_hdr, &vcd_property_i_period);
+	if (rc) {
+		WFD_MSG_ERR("Error getting I-period property");
+		goto err_set_profile;
+	}
+	vcd_property_i_period.b_frames = 0;
+	rc = vcd_set_property(client_ctx->vcd_handle,
+				&vcd_property_hdr, &vcd_property_i_period);
+	if (rc) {
+		WFD_MSG_ERR("Error setting I-period property");
+		goto err_set_profile;
+	}
+
+err_set_profile:
 	return rc;
 }
 
