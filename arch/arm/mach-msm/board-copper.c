@@ -225,7 +225,7 @@ static struct resource smd_resource[] = {
 	},
 	{
 		.name	= "wcnss_smsm_in",
-		.start	= 32 + 144,		/* RicaAppsWlanSmsmIrq  */
+		.start	= 32 + 144,		/* RivaAppsWlanSmsmIrq  */
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
