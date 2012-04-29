@@ -86,7 +86,6 @@ unsigned char apq8064_hdmi_as_primary_selected(void);
 void apq8064_init_fb(void);
 void apq8064_allocate_fb_region(void);
 void apq8064_mdp_writeback(struct memtype_reserve *reserve_table);
-uint32_t apq8064_rpm_get_swfi_latency(void);
 void __init apq8064_set_display_params(char *prim_panel, char *ext_panel);
 
 void apq8064_init_gpu(void);

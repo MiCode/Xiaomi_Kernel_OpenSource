@@ -395,6 +395,7 @@ struct msmsdcc_host {
 	bool sdio_gpio_lpm;
 	bool irq_wake_enabled;
 	struct pm_qos_request_list pm_qos_req_dma;
+	u32 cpu_dma_latency;
 	bool sdcc_suspending;
 	bool sdcc_irq_disabled;
 	bool sdcc_suspended;

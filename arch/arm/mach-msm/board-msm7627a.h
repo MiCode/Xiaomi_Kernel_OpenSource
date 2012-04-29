@@ -103,7 +103,6 @@ void __init msm7627a_bt_power_init(void);
 #endif
 
 void __init msm7627a_camera_init(void);
-u32 msm7627a_power_collapse_latency(enum msm_pm_sleep_mode);
 
 void __init msm7627a_add_io_devices(void);
 void __init qrd7627a_add_io_devices(void);
