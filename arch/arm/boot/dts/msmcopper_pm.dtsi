@@ -272,4 +272,9 @@
 			qcom,time-overhead = <30000>;
 		};
 	};
+
+	qcom,pm-boot {
+		compatible = "qcom,pm-boot";
+		qcom,mode = <0>; /* MSM_PM_BOOT_CONFIG_TZ */
+	};
 };
