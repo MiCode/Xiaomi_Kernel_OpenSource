@@ -1630,6 +1630,65 @@ get_entropy_mode_fail:
 	return rc;
 }
 
+static long venc_set_cyclic_intra_refresh_mb(
+		struct video_client_ctx *client_ctx,
+		__s32 value)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_intra_refresh_mb_number cir_mb_num;
+	int rc = 0;
+
+	if (!client_ctx) {
+		WFD_MSG_ERR("Invalid parameters\n");
+		rc = -EINVAL;
+		goto set_cir_mbs_fail;
+	}
+
+	vcd_property_hdr.prop_id = VCD_I_INTRA_REFRESH;
+	vcd_property_hdr.sz = sizeof(cir_mb_num);
+
+	cir_mb_num.cir_mb_number = value;
+
+	rc = vcd_set_property(client_ctx->vcd_handle, &vcd_property_hdr,
+			&cir_mb_num);
+	if (rc) {
+		WFD_MSG_ERR("Failed to set CIR MBs\n");
+		goto set_cir_mbs_fail;
+	}
+
+set_cir_mbs_fail:
+	return rc;
+}
+
+static long venc_get_cyclic_intra_refresh_mb(
+		struct video_client_ctx *client_ctx,
+		__s32 *value)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_intra_refresh_mb_number cir_mb_num;
+	int rc = 0;
+
+	if (!client_ctx || !value) {
+		WFD_MSG_ERR("Invalid parameters\n");
+		rc = -EINVAL;
+		goto get_cir_mbs_fail;
+	}
+
+	vcd_property_hdr.prop_id = VCD_I_INTRA_REFRESH;
+	vcd_property_hdr.sz = sizeof(cir_mb_num);
+
+	rc = vcd_get_property(client_ctx->vcd_handle, &vcd_property_hdr,
+			&cir_mb_num);
+	if (rc) {
+		WFD_MSG_ERR("Failed to set CIR MBs\n");
+		goto get_cir_mbs_fail;
+	}
+
+	*value = cir_mb_num.cir_mb_number;
+
+get_cir_mbs_fail:
+	return rc;
+}
 static long venc_set_input_buffer(struct v4l2_subdev *sd, void *arg)
 {
 	struct mem_region *mregion = arg;
@@ -2008,6 +2067,9 @@ static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 		rc = venc_set_entropy_mode(client_ctx, ctrl->value);
 		break;
+	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB:
+		rc = venc_set_cyclic_intra_refresh_mb(client_ctx, ctrl->value);
+		break;
 	default:
 		WFD_MSG_ERR("Set property not suported: %d\n", ctrl->id);
 		rc = -ENOTSUPP;
@@ -2069,6 +2131,9 @@ static long venc_get_property(struct v4l2_subdev *sd, void *arg)
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 		rc = venc_get_entropy_mode(client_ctx, &ctrl->value);
+		break;
+	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB:
+		rc = venc_get_cyclic_intra_refresh_mb(client_ctx, &ctrl->value);
 		break;
 	default:
 		WFD_MSG_ERR("Get property not suported: %d\n", ctrl->id);
