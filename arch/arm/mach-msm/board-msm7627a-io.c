@@ -579,7 +579,7 @@ static struct i2c_board_info ft5x06_device_info[] __initdata = {
 	},
 };
 
-static void ft5x06_touchpad_setup(void)
+static void __init ft5x06_touchpad_setup(void)
 {
 	int rc;
 
