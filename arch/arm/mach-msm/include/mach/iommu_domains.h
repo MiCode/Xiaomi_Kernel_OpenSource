@@ -13,6 +13,8 @@
 #ifndef _ARCH_IOMMU_DOMAINS_H
 #define _ARCH_IOMMU_DOMAINS_H
 
+#include <linux/memory_alloc.h>
+
 enum {
 	VIDEO_DOMAIN,
 	CAMERA_DOMAIN,
@@ -27,6 +29,32 @@ enum {
 	GEN_POOL,
 };
 
+struct msm_iommu_domain_name {
+	char *name;
+	int domain;
+};
+
+struct msm_iommu_domain {
+	/* iommu domain to map in */
+	struct iommu_domain *domain;
+	/* total number of allocations from this domain */
+	atomic_t allocation_cnt;
+	/* number of iova pools */
+	int npools;
+	/*
+	 * array of gen_pools for allocating iovas.
+	 * behavior is undefined if these overlap
+	 */
+	struct mem_pool *iova_pools;
+};
+
+struct iommu_domains_pdata {
+	struct msm_iommu_domain *domains;
+	int ndomains;
+	struct msm_iommu_domain_name *domain_names;
+	int nnames;
+	unsigned int domain_alloc_flags;
+};
 
 #if defined(CONFIG_MSM_IOMMU)
 
