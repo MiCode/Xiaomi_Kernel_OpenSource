@@ -634,10 +634,14 @@ static int footswitch_probe(struct platform_device *pdev)
 		else
 			fs->clk_data = mdp_8660_clks;
 	} else if (pdev->id == FS_GFX3D) {
-		if (cpu_is_msm8930() || cpu_is_apq8064())
+		if (cpu_is_apq8064()) {
 			fs->clk_data = gfx3d_8064_clks;
-		else
+			fs->bus_port1 = MSM_BUS_MASTER_GRAPHICS_3D_PORT1;
+		} else if (cpu_is_msm8930()) {
+			fs->clk_data = gfx3d_8064_clks;
+		} else {
 			fs->clk_data = gfx3d_8660_clks;
+		}
 	} else if (pdev->id == FS_VED) {
 		if (cpu_is_apq8064()) {
 			fs->bus_port0 = MSM_BUS_MASTER_VIDEO_ENC;
