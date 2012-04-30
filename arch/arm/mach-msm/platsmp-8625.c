@@ -60,7 +60,6 @@ static void __iomem *scu_base_addr(void)
 }
 
 static DEFINE_SPINLOCK(boot_lock);
-static DEFINE_RAW_SPINLOCK(irq_controller_lock);
 
 /*
  * MP_CORE_IPC will be used to generate interrupt and can be used by either
@@ -77,47 +76,6 @@ static void raise_clear_spi(unsigned int cpu, bool set)
 	else
 		__raw_writel(value & ~BIT(cpu), MSM_CSR_BASE + 0x54);
 	mb();
-}
-
-/*
- * Configure the GIC after we come out of power collapse.
- * This function will configure some of the GIC registers so as to prepare the
- * core1 to receive an SPI(ACSR_MP_CORE_IPC1, (32 + 8)), which will bring
- * core1 out of GDFS.
- */
-static void core1_gic_configure_and_raise(void)
-{
-	unsigned int value = 0;
-
-	raw_spin_lock(&irq_controller_lock);
-
-	value = __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_ACTIVE_BIT + 0x4);
-	value |= BIT(8);
-	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_ACTIVE_BIT + 0x4);
-	mb();
-
-	value = __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_TARGET + 0x24);
-	value |= BIT(13);
-	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_TARGET + 0x24);
-	mb();
-
-	value = __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_TARGET + 0x28);
-	value |= BIT(1);
-	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_TARGET + 0x28);
-	mb();
-
-	value =  __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET + 0x4);
-	value |= BIT(8);
-	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET + 0x4);
-	mb();
-
-	value =  __raw_readl(MSM_QGIC_DIST_BASE + GIC_DIST_PENDING_SET + 0x4);
-	value |= BIT(8);
-	__raw_writel(value, MSM_QGIC_DIST_BASE + GIC_DIST_PENDING_SET + 0x4);
-	mb();
-
-	raise_clear_spi(1, true);
-	raw_spin_unlock(&irq_controller_lock);
 }
 
 static void clear_pending_spi(unsigned int irq)
@@ -234,10 +192,12 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * needs to be brought out by raising an SPI.
 	 */
 
-	if (power_collapsed)
+	if (power_collapsed) {
 		core1_gic_configure_and_raise();
-	else
+		raise_clear_spi(1, true);
+	} else {
 		gic_raise_softirq(cpumask_of(cpu), 1);
+	}
 
 	timeout = jiffies + (1 * HZ);
 	while (time_before(jiffies, timeout)) {
