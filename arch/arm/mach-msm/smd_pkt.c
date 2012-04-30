@@ -287,7 +287,6 @@ ssize_t smd_pkt_read(struct file *file,
 	int bytes_read;
 	int pkt_size;
 	struct smd_pkt_dev *smd_pkt_devp;
-	struct smd_channel *chl;
 	unsigned long flags;
 
 	smd_pkt_devp = file->private_data;
@@ -312,20 +311,30 @@ ssize_t smd_pkt_read(struct file *file,
 	D_READ("Begin %s on smd_pkt_dev id:%d buffer_size %d\n",
 		__func__, smd_pkt_devp->i, count);
 
-	chl = smd_pkt_devp->ch;
 wait_for_packet:
 	r = wait_event_interruptible(smd_pkt_devp->ch_read_wait_queue,
-				     (smd_cur_packet_size(chl) > 0 &&
-				      smd_read_avail(chl)) ||
+				     !smd_pkt_devp->ch ||
+				     (smd_cur_packet_size(smd_pkt_devp->ch) > 0
+				      && smd_read_avail(smd_pkt_devp->ch)) ||
 				     smd_pkt_devp->has_reset);
 
+	mutex_lock(&smd_pkt_devp->rx_lock);
 	if (smd_pkt_devp->has_reset) {
+		mutex_unlock(&smd_pkt_devp->rx_lock);
 		pr_err("%s notifying reset for smd_pkt_dev id:%d\n",
 			__func__, smd_pkt_devp->i);
 		return notify_reset(smd_pkt_devp);
 	}
 
+	if (!smd_pkt_devp->ch) {
+		mutex_unlock(&smd_pkt_devp->rx_lock);
+		pr_err("%s on a closed smd_pkt_dev id:%d\n",
+			__func__, smd_pkt_devp->i);
+		return -EINVAL;
+	}
+
 	if (r < 0) {
+		mutex_unlock(&smd_pkt_devp->rx_lock);
 		/* qualify error message */
 		if (r != -ERESTARTSYS) {
 			/* we get this anytime a signal comes in */
@@ -337,8 +346,6 @@ wait_for_packet:
 	}
 
 	/* Here we have a whole packet waiting for us */
-
-	mutex_lock(&smd_pkt_devp->rx_lock);
 	pkt_size = smd_cur_packet_size(smd_pkt_devp->ch);
 
 	if (!pkt_size) {
@@ -485,6 +492,9 @@ ssize_t smd_pkt_write(struct file *file,
 						__func__, smd_pkt_devp->i);
 					return notify_reset(smd_pkt_devp);
 				}
+				pr_err("%s on smd_pkt_dev id:%d failed r:%d\n",
+					__func__, smd_pkt_devp->i, r);
+				return r;
 			}
 			bytes_written += r;
 		}
@@ -864,6 +874,8 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 	clean_and_signal(smd_pkt_devp);
 
 	mutex_lock(&smd_pkt_devp->ch_lock);
+	mutex_lock(&smd_pkt_devp->rx_lock);
+	mutex_lock(&smd_pkt_devp->tx_lock);
 	if (smd_pkt_devp->ch != 0) {
 		r = smd_close(smd_pkt_devp->ch);
 		smd_pkt_devp->ch = 0;
@@ -873,6 +885,8 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 		if (smd_pkt_devp->pil)
 			pil_put(smd_pkt_devp->pil);
 	}
+	mutex_unlock(&smd_pkt_devp->tx_lock);
+	mutex_unlock(&smd_pkt_devp->rx_lock);
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
 	smd_pkt_devp->has_reset = 0;
