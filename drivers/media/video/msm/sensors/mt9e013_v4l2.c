@@ -271,8 +271,6 @@ static struct msm_camera_i2c_conf_array mt9e013_confs[] = {
 	ARRAY_SIZE(mt9e013_prev_settings), 0, MSM_CAMERA_I2C_WORD_DATA},
 	{&mt9e013_hfr60_settings[0],
 	ARRAY_SIZE(mt9e013_hfr60_settings), 0, MSM_CAMERA_I2C_WORD_DATA},
-	{&mt9e013_hfr60_settings[0],
-	ARRAY_SIZE(mt9e013_hfr60_settings), 0, MSM_CAMERA_I2C_WORD_DATA},
 	{&mt9e013_hfr90_settings[0],
 	ARRAY_SIZE(mt9e013_hfr90_settings), 0, MSM_CAMERA_I2C_WORD_DATA},
 	{&mt9e013_hfr120_settings[0],
@@ -296,15 +294,6 @@ static struct msm_sensor_output_info_t mt9e013_dimensions[] = {
 		.frame_length_lines = 0x55B,
 		.vt_pixel_clk = 174000000,
 		.op_pixel_clk = 174000000,
-		.binning_factor = 1,
-	},
-	{
-		.x_output = 0x340,
-		.y_output = 0x212,
-		.line_length_pclk = 0x970,
-		.frame_length_lines = 0x2A1,
-		.vt_pixel_clk = 98400000,
-		.op_pixel_clk = 98400000,
 		.binning_factor = 1,
 	},
 	{
@@ -345,7 +334,6 @@ static struct msm_camera_csi_params mt9e013_csi_params = {
 };
 
 static struct msm_camera_csi_params *mt9e013_csi_params_array[] = {
-	&mt9e013_csi_params,
 	&mt9e013_csi_params,
 	&mt9e013_csi_params,
 	&mt9e013_csi_params,
