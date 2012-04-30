@@ -3412,7 +3412,12 @@ static int iris_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 					struct v4l2_hw_freq_seek *seek)
 {
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
-	return iris_search(radio, CTRL_ON, seek->seek_upward);
+	int dir;
+	if (seek->seek_upward)
+		dir = SRCH_DIR_UP;
+	else
+		dir = SRCH_DIR_DOWN;
+	return iris_search(radio, CTRL_ON, dir);
 }
 
 static int iris_vidioc_querycap(struct file *file, void *priv,
