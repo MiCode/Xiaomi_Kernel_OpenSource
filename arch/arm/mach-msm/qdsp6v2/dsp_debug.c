@@ -27,7 +27,6 @@
 
 #include "../proc_comm.h"
 #include <mach/debug_mm.h>
-#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp6v2/dsp_debug.h>
 
 static wait_queue_head_t dsp_wait;
@@ -72,8 +71,7 @@ static ssize_t dsp_write(struct file *file, const char __user *buf,
 {
 	char cmd[32];
 	void __iomem *ptr;
-	unsigned int flags = MSM_SUBSYSTEM_MAP_KADDR | MSM_SUBSYSTEM_MAP_CACHED;
-	struct msm_mapped_buffer *mem_buffer;
+	void *mem_buffer;
 
 	if (count >= sizeof(cmd))
 		return -EINVAL;
@@ -96,21 +94,19 @@ static ssize_t dsp_write(struct file *file, const char __user *buf,
 			}
 		}
 		/* assert DSP NMI */
-		mem_buffer = msm_subsystem_map_buffer(DSP_NMI_ADDR, 0x16, flags,
-							NULL, 0);
+		mem_buffer = ioremap(DSP_NMI_ADDR, 0x16);
 		if (IS_ERR((void *)mem_buffer)) {
 			pr_err("%s:map_buffer failed, error = %ld\n", __func__,
 				   PTR_ERR((void *)mem_buffer));
 			return -ENOMEM;
 		}
-		ptr = mem_buffer->vaddr;
+		ptr = mem_buffer;
 		if (!ptr) {
 			pr_err("Unable to map DSP NMI\n");
 			return -EFAULT;
 		}
 		writel(0x1, (void *)ptr);
-		if (msm_subsystem_unmap_buffer(mem_buffer) < 0)
-			pr_err("%s:unmap buffer failed\n", __func__);
+		iounmap(mem_buffer);
 	} else if (!strcmp(cmd, "boom")) {
 		q6audio_dsp_not_responding();
 	} else if (!strcmp(cmd, "continue-crash")) {
@@ -135,8 +131,7 @@ static ssize_t dsp_read(struct file *file, char __user *buf,
 	size_t mapsize = PAGE_SIZE;
 	unsigned addr;
 	void __iomem *ptr;
-	unsigned int flags = MSM_SUBSYSTEM_MAP_KADDR | MSM_SUBSYSTEM_MAP_CACHED;
-	struct msm_mapped_buffer *mem_buffer;
+	void *mem_buffer;
 
 	if ((dsp_ram_base == 0) || (dsp_ram_size == 0)) {
 		pr_err("[%s:%s] Memory Invalid or not initialized, Base = 0x%x,"
@@ -158,29 +153,26 @@ static ssize_t dsp_read(struct file *file, char __user *buf,
 		mapsize *= 2;
 
 	while (count >= PAGE_SIZE) {
-		mem_buffer = msm_subsystem_map_buffer(addr, mapsize, flags,
-							NULL, 0);
+		mem_buffer = ioremap(addr, mapsize);
 		if (IS_ERR((void *)mem_buffer)) {
 			pr_err("%s:map_buffer failed, error = %ld\n",
 				__func__, PTR_ERR((void *)mem_buffer));
 			return -ENOMEM;
 		}
-		ptr = mem_buffer->vaddr;
+		ptr = mem_buffer;
 		if (!ptr) {
 			pr_err("[%s:%s] map error @ %x\n", __MM_FILE__,
 					__func__, addr);
 			return -EFAULT;
 		}
 		if (copy_to_user(buf, ptr, PAGE_SIZE)) {
-			if (msm_subsystem_unmap_buffer(mem_buffer) < 0)
-				pr_err("%s: unmap buffer failed\n", __func__);
+			iounmap(mem_buffer);
 			pr_err("[%s:%s] copy error @ %p\n", __MM_FILE__,
 					__func__, buf);
 			return -EFAULT;
 		}
 		copy_ok_count += PAGE_SIZE;
-		if (msm_subsystem_unmap_buffer(mem_buffer) < 0)
-			pr_err("%s: unmap buffer failed\n", __func__);
+		iounmap(mem_buffer);
 		addr += PAGE_SIZE;
 		buf += PAGE_SIZE;
 		actual += PAGE_SIZE;
