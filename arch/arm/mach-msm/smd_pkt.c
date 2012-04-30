@@ -436,7 +436,7 @@ ssize_t smd_pkt_write(struct file *file,
 		return -EINVAL;
 	}
 
-	if (smd_pkt_devp->do_reset_notification) {
+	if (smd_pkt_devp->do_reset_notification || smd_pkt_devp->has_reset) {
 		pr_err("%s notifying reset for smd_pkt_dev id:%d\n",
 			__func__, smd_pkt_devp->i);
 		/* notify client that a reset occurred */
@@ -522,11 +522,20 @@ static unsigned int smd_pkt_poll(struct file *file, poll_table *wait)
 
 	smd_pkt_devp->poll_mode = 1;
 	poll_wait(file, &smd_pkt_devp->ch_read_wait_queue, wait);
+	mutex_lock(&smd_pkt_devp->ch_lock);
+	if (smd_pkt_devp->has_reset || !smd_pkt_devp->ch) {
+		mutex_unlock(&smd_pkt_devp->ch_lock);
+		pr_err("%s notifying reset for smd_pkt_dev id:%d\n",
+			__func__, smd_pkt_devp->i);
+		return POLLERR;
+	}
+
 	if (smd_read_avail(smd_pkt_devp->ch)) {
 		mask |= POLLIN | POLLRDNORM;
 		D_POLL("%s sets POLLIN for smd_pkt_dev id: %d\n",
 			__func__, smd_pkt_devp->i);
 	}
+	mutex_unlock(&smd_pkt_devp->ch_lock);
 
 	return mask;
 }
