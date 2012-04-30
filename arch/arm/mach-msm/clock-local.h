@@ -152,12 +152,13 @@ struct branch {
 	const u32 retain_mask;
 };
 
+extern struct clk_ops clk_ops_branch;
+extern struct clk_ops clk_ops_reset;
+
 int branch_reset(struct branch *b, enum clk_reset_action action);
 void __branch_clk_enable_reg(const struct branch *clk, const char *name);
 u32 __branch_clk_disable_reg(const struct branch *clk, const char *name);
-enum handoff branch_clk_handoff(struct clk *c);
 enum handoff branch_handoff(struct branch *clk, struct clk *c);
-int branch_clk_set_flags(struct clk *clk, unsigned flags);
 
 /*
  * Generic clock-definition struct and macros
@@ -187,21 +188,9 @@ static inline struct rcg_clk *to_rcg_clk(struct clk *clk)
 	return container_of(clk, struct rcg_clk, c);
 }
 
-extern struct clk_freq_tbl rcg_dummy_freq;
+extern struct clk_ops clk_ops_rcg;
 
-int rcg_clk_enable(struct clk *clk);
-void rcg_clk_disable(struct clk *clk);
-int rcg_clk_set_rate(struct clk *clk, unsigned long rate);
-int rcg_clk_list_rate(struct clk *clk, unsigned n);
-int rcg_clk_is_enabled(struct clk *clk);
-long rcg_clk_round_rate(struct clk *clk, unsigned long rate);
-struct clk *rcg_clk_get_parent(struct clk *c);
-enum handoff rcg_clk_handoff(struct clk *c);
-int rcg_clk_reset(struct clk *clk, enum clk_reset_action action);
-void rcg_clk_enable_hwcg(struct clk *clk);
-void rcg_clk_disable_hwcg(struct clk *clk);
-int rcg_clk_in_hwcg_mode(struct clk *c);
-int rcg_clk_set_flags(struct clk *clk, unsigned flags);
+extern struct clk_freq_tbl rcg_dummy_freq;
 
 /**
  * struct cdiv_clk - integer divider clock with external source selection
@@ -260,15 +249,6 @@ static inline struct branch_clk *to_branch_clk(struct clk *clk)
 {
 	return container_of(clk, struct branch_clk, c);
 }
-
-int branch_clk_enable(struct clk *clk);
-void branch_clk_disable(struct clk *clk);
-struct clk *branch_clk_get_parent(struct clk *clk);
-int branch_clk_is_enabled(struct clk *clk);
-int branch_clk_reset(struct clk *c, enum clk_reset_action action);
-void branch_clk_enable_hwcg(struct clk *clk);
-void branch_clk_disable_hwcg(struct clk *clk);
-int branch_clk_in_hwcg_mode(struct clk *c);
 
 /**
  * struct measure_clk - for rate measurement debug use
