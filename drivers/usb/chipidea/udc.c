@@ -1580,6 +1580,15 @@ int ci13xxx_wakeup(struct usb_gadget *_gadget)
 		ret = -EOPNOTSUPP;
 		goto out;
 	}
+	spin_unlock_irqrestore(&ci->lock, flags);
+
+	ci->platdata->notify_event(ci,
+			CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT);
+
+	if (ci->transceiver)
+		usb_phy_set_suspend(ci->transceiver, 0);
+
+	spin_lock_irqsave(&ci->lock, flags);
 	if (!hw_read(ci, OP_PORTSC, PORTSC_SUSP)) {
 		ret = -EINVAL;
 		goto out;
