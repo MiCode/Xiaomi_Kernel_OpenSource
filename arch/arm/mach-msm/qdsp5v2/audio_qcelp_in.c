@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -33,7 +33,6 @@
 #include <mach/msm_adsp.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
-#include <mach/msm_subsystem_map.h>
 #include <mach/socinfo.h>
 #include <mach/qdsp5v2/qdsp5audreccmdi.h>
 #include <mach/qdsp5v2/qdsp5audrecmsg.h>
@@ -133,8 +132,8 @@ struct audio_in {
 	/* data allocated for various buffers */
 	char *data;
 	dma_addr_t phys;
-	struct msm_mapped_buffer *map_v_read;
-	struct msm_mapped_buffer *map_v_write;
+	void *map_v_read;
+	void *map_v_write;
 
 	int opened;
 	int enabled;
@@ -1325,12 +1324,12 @@ static int audqcelp_in_release(struct inode *inode, struct file *file)
 	audio->audrec = NULL;
 	audio->opened = 0;
 	if (audio->data) {
-		msm_subsystem_unmap_buffer(audio->map_v_read);
+		iounmap(audio->map_v_read);
 		free_contiguous_memory_by_paddr(audio->phys);
 		audio->data = NULL;
 	}
 	if (audio->out_data) {
-		msm_subsystem_unmap_buffer(audio->map_v_write);
+		iounmap(audio->map_v_write);
 		free_contiguous_memory_by_paddr(audio->out_phys);
 		audio->out_data = NULL;
 	}
@@ -1352,16 +1351,14 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 	}
 	audio->phys = allocate_contiguous_ebi_nomap(DMASZ, SZ_4K);
 	if (audio->phys) {
-		audio->map_v_read = msm_subsystem_map_buffer(
-					audio->phys, DMASZ,
-					MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+		audio->map_v_read = ioremap(audio->phys, DMASZ);
 		if (IS_ERR(audio->map_v_read)) {
 			MM_ERR("could not map DMA buffers\n");
 			rc = -ENOMEM;
 			free_contiguous_memory_by_paddr(audio->phys);
 			goto done;
 		}
-		audio->data = audio->map_v_read->vaddr;
+		audio->data = audio->map_v_read;
 	} else {
 		MM_ERR("could not allocate DMA buffers\n");
 		rc = -ENOMEM;
@@ -1431,16 +1428,14 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 		rc = -ENOMEM;
 		goto evt_error;
 	} else {
-		audio->map_v_write = msm_subsystem_map_buffer(
-					audio->out_phys, BUFFER_SIZE,
-					MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+		audio->map_v_write = ioremap(audio->out_phys, BUFFER_SIZE);
 		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("could not map write buffers\n");
 			rc = -ENOMEM;
 			free_contiguous_memory_by_paddr(audio->out_phys);
 			goto evt_error;
 		}
-		audio->out_data = audio->map_v_write->vaddr;
+		audio->out_data = audio->map_v_write;
 		MM_DBG("write buf: phy addr 0x%08x kernel addr 0x%08x\n",
 				audio->out_phys, (int)audio->out_data);
 	}
@@ -1466,7 +1461,7 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 					qcelp_in_listener, (void *) audio);
 	if (rc) {
 		MM_ERR("failed to register device event listener\n");
-		msm_subsystem_unmap_buffer(audio->map_v_write);
+		iounmap(audio->map_v_write);
 		free_contiguous_memory_by_paddr(audio->out_phys);
 		goto evt_error;
 	}

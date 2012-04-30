@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,6 @@
 #include <mach/dal.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
-#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/qdsp5v2/audpp.h>
 #include <mach/socinfo.h>
@@ -111,7 +110,7 @@ struct acdb_data {
 	u16 *pbe_enable_flag;
 	u32 fluence_extbuff;
 	u8 *fluence_extbuff_virt;
-	struct msm_mapped_buffer *map_v_fluence;
+	void *map_v_fluence;
 
 	struct acdb_pbe_block *pbe_blk;
 
@@ -130,7 +129,7 @@ struct acdb_data {
 	/* pmem for get acdb blk */
 	unsigned long	get_blk_paddr;
 	u8		*get_blk_kvaddr;
-	struct msm_mapped_buffer *map_v_get_blk;
+	void *map_v_get_blk;
 	char *build_id;
 };
 
@@ -140,7 +139,7 @@ struct acdb_cache_node {
 	u32 node_status;
 	s32 stream_id;
 	u32 phys_addr_acdb_values;
-	struct msm_mapped_buffer *map_v_addr;
+	void *map_v_addr;
 	u8 *virt_addr_acdb_values;
 	struct auddev_evt_audcal_info device_info;
 };
@@ -237,7 +236,7 @@ static struct dentry *get_set_abid_data_dentry;
 struct rtc_acdb_pmem {
 	u8 *viraddr;
 	int32_t phys;
-	struct msm_mapped_buffer *map_v_rtc;
+	void *map_v_rtc;
 };
 
 struct rtc_acdb_data {
@@ -1087,11 +1086,11 @@ static void rtc_acdb_deinit(void)
 	rtc_acdb.valid_abid = false;
 
 	if (rtc_read->viraddr != NULL || ((void *)rtc_read->phys) != NULL) {
-		msm_subsystem_unmap_buffer(rtc_read->map_v_rtc);
+		iounmap(rtc_read->map_v_rtc);
 		free_contiguous_memory_by_paddr(rtc_read->phys);
 	}
 	if (rtc_write->viraddr != NULL || ((void *)rtc_write->phys) != NULL) {
-		msm_subsystem_unmap_buffer(rtc_write->map_v_rtc);
+		iounmap(rtc_write->map_v_rtc);
 		free_contiguous_memory_by_paddr(rtc_write->phys);
 	}
 }
@@ -1141,17 +1140,15 @@ static bool rtc_acdb_init(void)
 		result = -ENOMEM;
 		goto error;
 	}
-	rtc_read->map_v_rtc = msm_subsystem_map_buffer(
-				rtc_read->phys,
-				PMEM_RTC_ACDB_QUERY_MEM,
-				MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+	rtc_read->map_v_rtc = ioremap(rtc_read->phys,
+				PMEM_RTC_ACDB_QUERY_MEM);
 
 	if (IS_ERR(rtc_read->map_v_rtc)) {
 		MM_ERR("ACDB Could not map physical address\n");
 		result = -ENOMEM;
 		goto error;
 	}
-	rtc_read->viraddr = rtc_read->map_v_rtc->vaddr;
+	rtc_read->viraddr = rtc_read->map_v_rtc;
 	memset(rtc_read->viraddr, 0, PMEM_RTC_ACDB_QUERY_MEM);
 
 	rtc_write->phys = allocate_contiguous_ebi_nomap(PMEM_RTC_ACDB_QUERY_MEM,
@@ -1162,16 +1159,15 @@ static bool rtc_acdb_init(void)
 		result = -ENOMEM;
 		goto error;
 	}
-	rtc_write->map_v_rtc = msm_subsystem_map_buffer(
-				rtc_write->phys, PMEM_RTC_ACDB_QUERY_MEM,
-				MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+	rtc_write->map_v_rtc = ioremap(rtc_write->phys,
+				PMEM_RTC_ACDB_QUERY_MEM);
 
 	if (IS_ERR(rtc_write->map_v_rtc)) {
 		MM_ERR("ACDB Could not map physical address\n");
 		result = -ENOMEM;
 		goto error;
 	}
-	rtc_write->viraddr = rtc_write->map_v_rtc->vaddr;
+	rtc_write->viraddr = rtc_write->map_v_rtc;
 	memset(rtc_write->viraddr, 0, PMEM_RTC_ACDB_QUERY_MEM);
 	init_waitqueue_head(&rtc_acdb.wait);
 	return true;
@@ -1187,11 +1183,11 @@ error:
 		debugfs_remove(get_set_abid_data_dentry);
 	}
 	if (rtc_read->viraddr != NULL || ((void *)rtc_read->phys) != NULL) {
-		msm_subsystem_unmap_buffer(rtc_read->map_v_rtc);
+		iounmap(rtc_read->map_v_rtc);
 		free_contiguous_memory_by_paddr(rtc_read->phys);
 	}
 	if (rtc_write->viraddr != NULL || ((void *)rtc_write->phys) != NULL) {
-		msm_subsystem_unmap_buffer(rtc_write->map_v_rtc);
+		iounmap(rtc_write->map_v_rtc);
 		free_contiguous_memory_by_paddr(rtc_write->phys);
 	}
 	return false;
@@ -2544,11 +2540,9 @@ static u32 allocate_memory_acdb_cache_tx(void)
 			result = -ENOMEM;
 			goto error;
 		}
-		acdb_cache_tx[i].map_v_addr =
-					msm_subsystem_map_buffer(
+		acdb_cache_tx[i].map_v_addr = ioremap(
 					acdb_cache_tx[i].phys_addr_acdb_values,
-						ACDB_BUF_SIZE,
-					MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+						ACDB_BUF_SIZE);
 		if (IS_ERR(acdb_cache_tx[i].map_v_addr)) {
 			MM_ERR("ACDB=> Could not map physical address\n");
 			result = -ENOMEM;
@@ -2557,15 +2551,14 @@ static u32 allocate_memory_acdb_cache_tx(void)
 			goto error;
 		}
 		acdb_cache_tx[i].virt_addr_acdb_values =
-					acdb_cache_tx[i].map_v_addr->vaddr;
+					acdb_cache_tx[i].map_v_addr;
 		memset(acdb_cache_tx[i].virt_addr_acdb_values, 0,
 						ACDB_BUF_SIZE);
 	}
 	return result;
 error:
 	for (err = 0; err < i; err++) {
-		msm_subsystem_unmap_buffer(
-				acdb_cache_tx[err].map_v_addr);
+		iounmap(acdb_cache_tx[err].map_v_addr);
 		free_contiguous_memory_by_paddr(
 				acdb_cache_tx[err].phys_addr_acdb_values);
 	}
@@ -2590,11 +2583,8 @@ static u32 allocate_memory_acdb_cache_rx(void)
 			goto error;
 		}
 		acdb_cache_rx[i].map_v_addr =
-				msm_subsystem_map_buffer(
-					acdb_cache_rx[i].phys_addr_acdb_values,
-					ACDB_BUF_SIZE,
-					MSM_SUBSYSTEM_MAP_KADDR,
-					NULL, 0);
+				ioremap(acdb_cache_rx[i].phys_addr_acdb_values,
+					ACDB_BUF_SIZE);
 		if (IS_ERR(acdb_cache_rx[i].map_v_addr)) {
 			MM_ERR("ACDB=> Could not map physical address\n");
 			result = -ENOMEM;
@@ -2603,15 +2593,14 @@ static u32 allocate_memory_acdb_cache_rx(void)
 			goto error;
 		}
 		acdb_cache_rx[i].virt_addr_acdb_values =
-					acdb_cache_rx[i].map_v_addr->vaddr;
+					acdb_cache_rx[i].map_v_addr;
 		memset(acdb_cache_rx[i].virt_addr_acdb_values, 0,
 						ACDB_BUF_SIZE);
 	}
 	return result;
 error:
 	for (err = 0; err < i; err++) {
-		msm_subsystem_unmap_buffer(
-					acdb_cache_rx[err].map_v_addr);
+		iounmap(acdb_cache_rx[err].map_v_addr);
 		free_contiguous_memory_by_paddr(
 				acdb_cache_rx[err].phys_addr_acdb_values);
 	}
@@ -2628,10 +2617,8 @@ static u32 allocate_memory_acdb_get_blk(void)
 		result = -ENOMEM;
 		goto error;
 	}
-	acdb_data.map_v_get_blk = msm_subsystem_map_buffer(
-					acdb_data.get_blk_paddr,
-					ACDB_BUF_SIZE,
-					MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+	acdb_data.map_v_get_blk = ioremap(acdb_data.get_blk_paddr,
+					ACDB_BUF_SIZE);
 	if (IS_ERR(acdb_data.map_v_get_blk)) {
 		MM_ERR("ACDB=> Could not map physical address\n");
 		result = -ENOMEM;
@@ -2639,7 +2626,7 @@ static u32 allocate_memory_acdb_get_blk(void)
 					acdb_data.get_blk_paddr);
 		goto error;
 	}
-	acdb_data.get_blk_kvaddr = acdb_data.map_v_get_blk->vaddr;
+	acdb_data.get_blk_kvaddr = acdb_data.map_v_get_blk;
 	memset(acdb_data.get_blk_kvaddr, 0, ACDB_BUF_SIZE);
 error:
 	return result;
@@ -2650,7 +2637,7 @@ static void free_memory_acdb_cache_rx(void)
 	u32 i = 0;
 
 	for (i = 0; i < MAX_COPP_NODE_SUPPORTED; i++) {
-		msm_subsystem_unmap_buffer(acdb_cache_rx[i].map_v_addr);
+		iounmap(acdb_cache_rx[i].map_v_addr);
 		free_contiguous_memory_by_paddr(
 				acdb_cache_rx[i].phys_addr_acdb_values);
 	}
@@ -2661,7 +2648,7 @@ static void free_memory_acdb_cache_tx(void)
 	u32 i = 0;
 
 	for (i = 0; i < MAX_AUDREC_SESSIONS; i++) {
-		msm_subsystem_unmap_buffer(acdb_cache_tx[i].map_v_addr);
+		iounmap(acdb_cache_tx[i].map_v_addr);
 		free_contiguous_memory_by_paddr(
 				acdb_cache_tx[i].phys_addr_acdb_values);
 	}
@@ -2669,7 +2656,7 @@ static void free_memory_acdb_cache_tx(void)
 
 static void free_memory_acdb_get_blk(void)
 {
-	msm_subsystem_unmap_buffer(acdb_data.map_v_get_blk);
+	iounmap(acdb_data.map_v_get_blk);
 	free_contiguous_memory_by_paddr(acdb_data.get_blk_paddr);
 }
 
@@ -2827,11 +2814,9 @@ static s32 initialize_memory(void)
 		result = -ENOMEM;
 		goto done;
 	}
-	acdb_data.map_v_fluence =
-			msm_subsystem_map_buffer(
+	acdb_data.map_v_fluence = ioremap(
 				acdb_data.fluence_extbuff,
-				FLUENCE_BUF_SIZE,
-				MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+				FLUENCE_BUF_SIZE);
 	if (IS_ERR(acdb_data.map_v_fluence)) {
 		MM_ERR("ACDB=> Could not map physical address\n");
 		free_memory_acdb_get_blk();
@@ -2852,7 +2837,7 @@ static s32 initialize_memory(void)
 		goto done;
 	} else
 		acdb_data.fluence_extbuff_virt =
-					acdb_data.map_v_fluence->vaddr;
+					acdb_data.map_v_fluence;
 done:
 	return result;
 }
@@ -3431,11 +3416,11 @@ static void __exit acdb_exit(void)
 
 	for (i = 0; i < MAX_COPP_NODE_SUPPORTED; i++) {
 		if (i < MAX_AUDREC_SESSIONS) {
-			msm_subsystem_unmap_buffer(acdb_cache_tx[i].map_v_addr);
+			iounmap(acdb_cache_tx[i].map_v_addr);
 			free_contiguous_memory_by_paddr(
 					acdb_cache_tx[i].phys_addr_acdb_values);
 		}
-		msm_subsystem_unmap_buffer(acdb_cache_rx[i].map_v_addr);
+		iounmap(acdb_cache_rx[i].map_v_addr);
 		free_contiguous_memory_by_paddr(
 					acdb_cache_rx[i].phys_addr_acdb_values);
 	}
@@ -3446,7 +3431,7 @@ static void __exit acdb_exit(void)
 	kfree(acdb_data.preproc_iir);
 	free_contiguous_memory_by_paddr(
 				(int32_t)acdb_data.pbe_extbuff);
-	msm_subsystem_unmap_buffer(acdb_data.map_v_fluence);
+	iounmap(acdb_data.map_v_fluence);
 	free_contiguous_memory_by_paddr(
 			(int32_t)acdb_data.fluence_extbuff);
 	mutex_destroy(&acdb_data.acdb_mutex);

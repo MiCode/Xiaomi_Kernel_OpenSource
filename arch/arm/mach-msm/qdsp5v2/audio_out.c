@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -36,7 +36,6 @@
 #include <mach/msm_adsp.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
-#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp5v2/qdsp5audppcmdi.h>
 #include <mach/qdsp5v2/qdsp5audppmsg.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
@@ -86,7 +85,7 @@ struct audio {
 	/* data allocated for various buffers */
 	char *data;
 	dma_addr_t phys;
-	struct msm_mapped_buffer *map_v_write;
+	void *map_v_write;
 	int teos; /* valid only if tunnel mode & no data left for decoder */
 	int opened;
 	int enabled;
@@ -704,16 +703,13 @@ static int __init audio_init(void)
 {
 	the_audio.phys = allocate_contiguous_ebi_nomap(DMASZ, SZ_4K);
 	if (the_audio.phys) {
-		the_audio.map_v_write = msm_subsystem_map_buffer(
-						the_audio.phys, DMASZ,
-						MSM_SUBSYSTEM_MAP_KADDR,
-						NULL, 0);
+		the_audio.map_v_write = ioremap(the_audio.phys, DMASZ);
 		if (IS_ERR(the_audio.map_v_write)) {
 			MM_ERR("could not map physical buffers\n");
 			free_contiguous_memory_by_paddr(the_audio.phys);
 			return -ENOMEM;
 		}
-		the_audio.data = the_audio.map_v_write->vaddr;
+		the_audio.data = the_audio.map_v_write;
 	} else {
 			MM_ERR("could not allocate physical buffers\n");
 			return -ENOMEM;
