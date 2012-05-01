@@ -1529,6 +1529,87 @@ get_multislicing_mode_fail:
 	return rc;
 }
 
+static long venc_set_entropy_mode(struct video_client_ctx *client_ctx,
+		__s32 value)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_entropy_control entropy_control;
+	int rc = 0;
+
+	if (!client_ctx) {
+		WFD_MSG_ERR("Invalid parameters\n");
+		rc = -EINVAL;
+		goto set_entropy_mode_fail;
+	}
+
+	vcd_property_hdr.prop_id = VCD_I_ENTROPY_CTRL;
+	vcd_property_hdr.sz = sizeof(entropy_control);
+
+	switch (value) {
+	case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC:
+		entropy_control.entropy_sel = VCD_ENTROPY_SEL_CAVLC;
+		break;
+	case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC:
+		entropy_control.entropy_sel = VCD_ENTROPY_SEL_CABAC;
+		entropy_control.cabac_model = VCD_CABAC_MODEL_NUMBER_0;
+		break;
+	default:
+		WFD_MSG_ERR("Entropy type %d not supported\n", value);
+		rc = -ENOTSUPP;
+		goto set_entropy_mode_fail;
+	}
+	rc = vcd_set_property(client_ctx->vcd_handle, &vcd_property_hdr,
+			&entropy_control);
+	if (rc) {
+		WFD_MSG_ERR("Failed to set entropy mode\n");
+		goto set_entropy_mode_fail;
+	}
+
+set_entropy_mode_fail:
+	return rc;
+}
+
+static long venc_get_entropy_mode(struct video_client_ctx *client_ctx,
+		__s32 *value)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_entropy_control entropy_control;
+	int rc = 0;
+
+	if (!client_ctx || !value) {
+		WFD_MSG_ERR("Invalid parameters\n");
+		rc = -EINVAL;
+		goto get_entropy_mode_fail;
+	}
+
+	vcd_property_hdr.prop_id = VCD_I_ENTROPY_CTRL;
+	vcd_property_hdr.sz = sizeof(entropy_control);
+
+	rc = vcd_get_property(client_ctx->vcd_handle, &vcd_property_hdr,
+			&entropy_control);
+
+	if (rc) {
+		WFD_MSG_ERR("Failed to get entropy mode\n");
+		goto get_entropy_mode_fail;
+	}
+
+	switch (entropy_control.entropy_sel) {
+	case VCD_ENTROPY_SEL_CAVLC:
+		*value = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
+		break;
+	case VCD_ENTROPY_SEL_CABAC:
+		*value = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC;
+		break;
+	default:
+		WFD_MSG_ERR("Entropy type %d not known\n",
+				entropy_control.entropy_sel);
+		rc = -EINVAL;
+		goto get_entropy_mode_fail;
+	}
+get_entropy_mode_fail:
+	return rc;
+}
+
 static long venc_set_input_buffer(struct v4l2_subdev *sd, void *arg)
 {
 	struct mem_region *mregion = arg;
@@ -1904,6 +1985,9 @@ static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 	case V4L2_CID_MPEG_QCOM_SET_PERF_LEVEL:
 		rc = venc_set_max_perf_level(client_ctx, ctrl->value);
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		rc = venc_set_entropy_mode(client_ctx, ctrl->value);
+		break;
 	default:
 		WFD_MSG_ERR("Set property not suported: %d\n", ctrl->id);
 		rc = -ENOTSUPP;
@@ -1962,6 +2046,9 @@ static long venc_get_property(struct v4l2_subdev *sd, void *arg)
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE:
 		rc = venc_get_multislicing_mode(client_ctx, ctrl->id,
 				&ctrl->value);
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		rc = venc_get_entropy_mode(client_ctx, &ctrl->value);
 		break;
 	default:
 		WFD_MSG_ERR("Get property not suported: %d\n", ctrl->id);
