@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,8 @@
 
 #define SUBSYS_NAME_MAX_LENGTH 40
 
+struct subsys_device;
+
 enum {
 	RESET_SOC = 1,
 	RESET_SUBSYS_COUPLED,
@@ -25,29 +27,23 @@ enum {
 	RESET_LEVEL_MAX
 };
 
-struct subsys_data {
+struct subsys_desc {
 	const char *name;
-	int (*shutdown) (const struct subsys_data *);
-	int (*powerup) (const struct subsys_data *);
-	void (*crash_shutdown) (const struct subsys_data *);
-	int (*ramdump) (int, const struct subsys_data *);
 
-	/* Internal use only */
-	struct list_head list;
-	void *notif_handle;
-
-	struct mutex shutdown_lock;
-	struct mutex powerup_lock;
-
-	void *restart_order;
-	struct subsys_data *single_restart_list[1];
+	int (*shutdown)(const struct subsys_desc *desc);
+	int (*powerup)(const struct subsys_desc *desc);
+	void (*crash_shutdown)(const struct subsys_desc *desc);
+	int (*ramdump)(int, const struct subsys_desc *desc);
 };
 
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)
 
-int get_restart_level(void);
-int subsystem_restart(const char *subsys_name);
-int ssr_register_subsystem(struct subsys_data *subsys);
+extern int get_restart_level(void);
+extern int subsystem_restart_dev(struct subsys_device *dev);
+extern int subsystem_restart(const char *name);
+
+extern struct subsys_device *subsys_register(struct subsys_desc *desc);
+extern void subsys_unregister(struct subsys_device *dev);
 
 #else
 
@@ -56,15 +52,23 @@ static inline int get_restart_level(void)
 	return 0;
 }
 
-static inline int subsystem_restart(const char *subsystem_name)
+static inline int subsystem_restart_dev(struct subsys_device *dev)
 {
 	return 0;
 }
 
-static inline int ssr_register_subsystem(struct subsys_data *subsys)
+static inline int subsystem_restart(const char *name)
 {
 	return 0;
 }
+
+static inline
+struct subsys_device *subsys_register(struct subsys_desc *desc)
+{
+	return NULL;
+}
+
+static inline void subsys_unregister(struct subsys_device *dev) { }
 
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 

@@ -56,6 +56,7 @@ static unsigned int dump_timeout_ms;
 #define EXTERNAL_MODEM "external_modem"
 
 static struct mdm_modem_drv *mdm_drv;
+static struct subsys_device *mdm_subsys_dev;
 
 DECLARE_COMPLETION(mdm_needs_reload);
 DECLARE_COMPLETION(mdm_boot);
@@ -154,7 +155,7 @@ static void mdm2ap_status_check(struct work_struct *work)
 		pr_err("%s: MDM2AP_STATUS gpio did not go high\n",
 			   __func__);
 		mdm_drv->mdm_ready = 0;
-		subsystem_restart(EXTERNAL_MODEM);
+		subsystem_restart_dev(mdm_subsys_dev);
 	}
 }
 
@@ -271,7 +272,7 @@ static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 		(gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 1)) {
 		pr_info("%s: Reseting the mdm due to an errfatal\n", __func__);
 		mdm_drv->mdm_ready = 0;
-		subsystem_restart(EXTERNAL_MODEM);
+		subsystem_restart_dev(mdm_subsys_dev);
 	}
 	return IRQ_HANDLED;
 }
@@ -332,7 +333,7 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		pr_info("%s: unexpected reset external modem\n", __func__);
 		mdm_drv->mdm_unexpected_reset_occurred = 1;
 		mdm_drv->mdm_ready = 0;
-		subsystem_restart(EXTERNAL_MODEM);
+		subsystem_restart_dev(mdm_subsys_dev);
 	} else if (value == 1) {
 		cancel_delayed_work(&mdm2ap_status_check_work);
 		pr_info("%s: status = 1: mdm is now ready\n", __func__);
@@ -349,7 +350,7 @@ static irqreturn_t mdm_pblrdy_change(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
+static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys)
 {
 	mdm_drv->mdm_ready = 0;
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
@@ -367,7 +368,7 @@ static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 	return 0;
 }
 
-static int mdm_subsys_powerup(const struct subsys_data *crashed_subsys)
+static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 {
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 0);
 	gpio_direction_output(mdm_drv->ap2mdm_status_gpio, 1);
@@ -390,7 +391,7 @@ static int mdm_subsys_powerup(const struct subsys_data *crashed_subsys)
 }
 
 static int mdm_subsys_ramdumps(int want_dumps,
-				const struct subsys_data *crashed_subsys)
+				const struct subsys_desc *crashed_subsys)
 {
 	mdm_drv->mdm_ram_dump_status = 0;
 	if (want_dumps) {
@@ -411,7 +412,7 @@ static int mdm_subsys_ramdumps(int want_dumps,
 	return mdm_drv->mdm_ram_dump_status;
 }
 
-static struct subsys_data mdm_subsystem = {
+static struct subsys_desc mdm_subsystem = {
 	.shutdown = mdm_subsys_shutdown,
 	.ramdump = mdm_subsys_ramdumps,
 	.powerup = mdm_subsys_powerup,
@@ -588,7 +589,11 @@ int mdm_common_create(struct platform_device  *pdev,
 	mdm_debugfs_init();
 
 	/* Register subsystem handlers */
-	ssr_register_subsystem(&mdm_subsystem);
+	mdm_subsys_dev = subsys_register(&mdm_subsystem);
+	if (IS_ERR(mdm_subsys_dev)) {
+		ret = PTR_ERR(mdm_subsys_dev);
+		goto fatal_err;
+	}
 
 	/* ERR_FATAL irq. */
 	irq = MSM_GPIO_TO_INT(mdm_drv->mdm2ap_errfatal_gpio);

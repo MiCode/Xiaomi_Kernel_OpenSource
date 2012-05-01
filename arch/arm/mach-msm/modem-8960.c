@@ -35,6 +35,8 @@
 
 static int crash_shutdown;
 
+static struct subsys_device *modem_8960_dev;
+
 #define MAX_SSR_REASON_LEN 81U
 #define Q6_FW_WDOG_ENABLE		0x08882024
 #define Q6_SW_WDOG_ENABLE		0x08982024
@@ -66,7 +68,7 @@ static void log_modem_sfr(void)
 static void restart_modem(void)
 {
 	log_modem_sfr();
-	subsystem_restart("modem");
+	subsystem_restart_dev(modem_8960_dev);
 }
 
 static void modem_wdog_check(struct work_struct *work)
@@ -101,7 +103,7 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 	}
 }
 
-static int modem_shutdown(const struct subsys_data *subsys)
+static int modem_shutdown(const struct subsys_desc *subsys)
 {
 	void __iomem *q6_fw_wdog_addr;
 	void __iomem *q6_sw_wdog_addr;
@@ -142,7 +144,7 @@ static int modem_shutdown(const struct subsys_data *subsys)
 
 #define MODEM_WDOG_CHECK_TIMEOUT_MS 10000
 
-static int modem_powerup(const struct subsys_data *subsys)
+static int modem_powerup(const struct subsys_desc *subsys)
 {
 	pil_force_boot("modem_fw");
 	pil_force_boot("modem");
@@ -153,7 +155,7 @@ static int modem_powerup(const struct subsys_data *subsys)
 	return 0;
 }
 
-void modem_crash_shutdown(const struct subsys_data *subsys)
+void modem_crash_shutdown(const struct subsys_desc *subsys)
 {
 	crash_shutdown = 1;
 	smsm_reset_modem(SMSM_RESET);
@@ -176,8 +178,7 @@ static void *modemfw_ramdump_dev;
 static void *modemsw_ramdump_dev;
 static void *smem_ramdump_dev;
 
-static int modem_ramdump(int enable,
-				const struct subsys_data *crashed_subsys)
+static int modem_ramdump(int enable, const struct subsys_desc *crashed_subsys)
 {
 	int ret = 0;
 
@@ -234,7 +235,7 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static struct subsys_data modem_8960 = {
+static struct subsys_desc modem_8960 = {
 	.name = "modem",
 	.shutdown = modem_shutdown,
 	.powerup = modem_powerup,
@@ -244,13 +245,16 @@ static struct subsys_data modem_8960 = {
 
 static int modem_subsystem_restart_init(void)
 {
-	return ssr_register_subsystem(&modem_8960);
+	modem_8960_dev = subsys_register(&modem_8960);
+	if (IS_ERR(modem_8960_dev))
+		return PTR_ERR(modem_8960_dev);
+	return 0;
 }
 
 static int modem_debug_set(void *data, u64 val)
 {
 	if (val == 1)
-		subsystem_restart("modem");
+		subsystem_restart_dev(modem_8960_dev);
 
 	return 0;
 }
