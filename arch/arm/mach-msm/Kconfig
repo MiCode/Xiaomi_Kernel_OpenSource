@@ -2197,12 +2197,12 @@ config MSM_CACHE_ERP
 	  For production builds, you should probably say 'N' here.
 
 config MSM_L1_ERR_PANIC
-	bool "Panic on L1 cache / TLB errors"
+	bool "Panic on L1 cache errors"
 	depends on MSM_CACHE_ERP
 	help
-	  To cause the kernel to panic whenever an L1 cache or TLB error is
-	  detected, say 'Y' here. This may be useful as a debugging technique if
-	  general system instability is suspected.
+	  To cause the kernel to panic whenever an L1 cache error is detected, say
+	  'Y' here. This may be useful as a debugging technique if general system
+	  instability is suspected.
 
 	  For production builds, you should probably say 'N' here.
 
