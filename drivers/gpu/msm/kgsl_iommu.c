@@ -24,6 +24,78 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_iommu.h"
 
+/*
+ * kgsl_iommu_disable_clk - Disable iommu clocks
+ * @mmu - Pointer to mmu structure
+ *
+ * Disables iommu clocks
+ * Return - void
+ */
+static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
+	struct msm_iommu_drvdata *iommu_drvdata;
+	int i, j;
+
+	for (i = 0; i < iommu->unit_count; i++) {
+		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
+		for (j = 0; j < iommu_unit->dev_count; j++) {
+			if (!iommu_unit->dev[j].clk_enabled)
+				continue;
+			iommu_drvdata = dev_get_drvdata(
+					iommu_unit->dev[j].dev->parent);
+			if (iommu_drvdata->clk)
+				clk_disable_unprepare(iommu_drvdata->clk);
+			clk_disable_unprepare(iommu_drvdata->pclk);
+			iommu_unit->dev[j].clk_enabled = false;
+		}
+	}
+}
+
+/*
+ * kgsl_iommu_enable_clk - Enable iommu clocks
+ * @mmu - Pointer to mmu structure
+ * @ctx_id - The context bank whose clocks are to be turned on
+ *
+ * Enables iommu clocks of a given context
+ * Return: 0 on success else error code
+ */
+static int kgsl_iommu_enable_clk(struct kgsl_mmu *mmu,
+				int ctx_id)
+{
+	int ret = 0;
+	int i, j;
+	struct kgsl_iommu *iommu = mmu->priv;
+	struct msm_iommu_drvdata *iommu_drvdata;
+
+	for (i = 0; i < iommu->unit_count; i++) {
+		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
+		for (j = 0; j < iommu_unit->dev_count; j++) {
+			if (iommu_unit->dev[j].clk_enabled ||
+				ctx_id != iommu_unit->dev[j].ctx_id)
+				continue;
+			iommu_drvdata =
+			dev_get_drvdata(iommu_unit->dev[j].dev->parent);
+			ret = clk_prepare_enable(iommu_drvdata->pclk);
+			if (ret)
+				goto done;
+			if (iommu_drvdata->clk) {
+				ret = clk_prepare_enable(iommu_drvdata->clk);
+				if (ret) {
+					clk_disable_unprepare(
+						iommu_drvdata->pclk);
+					goto done;
+				}
+			}
+			iommu_unit->dev[j].clk_enabled = true;
+		}
+	}
+done:
+	if (ret)
+		kgsl_iommu_disable_clk(mmu);
+	return ret;
+}
+
 static int kgsl_iommu_pt_equal(struct kgsl_pagetable *pt,
 					unsigned int pt_base)
 {
@@ -408,6 +480,8 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_device_setstate = NULL,
 	.mmu_pagefault = NULL,
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
+	.mmu_enable_clk = kgsl_iommu_enable_clk,
+	.mmu_disable_clk = kgsl_iommu_disable_clk,
 };
 
 struct kgsl_mmu_pt_ops iommu_pt_ops = {

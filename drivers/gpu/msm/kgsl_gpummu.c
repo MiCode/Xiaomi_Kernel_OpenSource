@@ -725,6 +725,8 @@ struct kgsl_mmu_ops gpummu_ops = {
 	.mmu_device_setstate = kgsl_gpummu_default_setstate,
 	.mmu_pagefault = kgsl_gpummu_pagefault,
 	.mmu_get_current_ptbase = kgsl_gpummu_get_current_ptbase,
+	.mmu_enable_clk = NULL,
+	.mmu_disable_clk = NULL,
 };
 
 struct kgsl_mmu_pt_ops gpummu_pt_ops = {
