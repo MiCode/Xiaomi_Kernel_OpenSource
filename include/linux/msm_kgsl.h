@@ -157,8 +157,18 @@ struct kgsl_version {
 #define KGSL_2D1_REG_MEMORY	"kgsl_2d1_reg_memory"
 #define KGSL_2D1_IRQ		"kgsl_2d1_irq"
 
+enum kgsl_iommu_context_id {
+	KGSL_IOMMU_CONTEXT_USER = 0,
+	KGSL_IOMMU_CONTEXT_PRIV = 1,
+};
+
+struct kgsl_iommu_ctx {
+	const char *iommu_ctx_name;
+	enum kgsl_iommu_context_id ctx_id;
+};
+
 struct kgsl_device_iommu_data {
-	const char **iommu_ctx_names;
+	const struct kgsl_iommu_ctx *iommu_ctxs;
 	int iommu_ctx_count;
 	unsigned int physstart;
 	unsigned int physend;

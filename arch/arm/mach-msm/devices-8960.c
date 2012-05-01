@@ -2616,15 +2616,15 @@ static struct resource kgsl_3d0_resources[] = {
 	},
 };
 
-static const char *kgsl_3d0_iommu_ctx_names[] = {
-	"gfx3d_user",
-	/* priv_ctx goes here */
+static const struct kgsl_iommu_ctx kgsl_3d0_iommu_ctxs[] = {
+	{ "gfx3d_user", 0 },
+	{ "gfx3d_priv", 1 },
 };
 
 static struct kgsl_device_iommu_data kgsl_3d0_iommu_data[] = {
 	{
-		.iommu_ctx_names = kgsl_3d0_iommu_ctx_names,
-		.iommu_ctx_count = ARRAY_SIZE(kgsl_3d0_iommu_ctx_names),
+		.iommu_ctxs = kgsl_3d0_iommu_ctxs,
+		.iommu_ctx_count = ARRAY_SIZE(kgsl_3d0_iommu_ctxs),
 		.physstart = 0x07C00000,
 		.physend = 0x07C00000 + SZ_1M - 1,
 	},
@@ -2696,14 +2696,14 @@ static struct resource kgsl_2d0_resources[] = {
 	},
 };
 
-static const char *kgsl_2d0_iommu_ctx_names[] = {
-	"gfx2d0_2d0",
+static const struct kgsl_iommu_ctx kgsl_2d0_iommu_ctxs[] = {
+	{ "gfx2d0_2d0", 0 },
 };
 
 static struct kgsl_device_iommu_data kgsl_2d0_iommu_data[] = {
 	{
-		.iommu_ctx_names = kgsl_2d0_iommu_ctx_names,
-		.iommu_ctx_count = ARRAY_SIZE(kgsl_2d0_iommu_ctx_names),
+		.iommu_ctxs = kgsl_2d0_iommu_ctxs,
+		.iommu_ctx_count = ARRAY_SIZE(kgsl_2d0_iommu_ctxs),
 		.physstart = 0x07D00000,
 		.physend = 0x07D00000 + SZ_1M - 1,
 	},
@@ -2748,14 +2748,14 @@ struct platform_device msm_kgsl_2d0 = {
 	},
 };
 
-static const char *kgsl_2d1_iommu_ctx_names[] = {
-	"gfx2d1_2d1",
+static const struct kgsl_iommu_ctx kgsl_2d1_iommu_ctxs[] = {
+	{ "gfx2d1_2d1", 0 },
 };
 
 static struct kgsl_device_iommu_data kgsl_2d1_iommu_data[] = {
 	{
-		.iommu_ctx_names = kgsl_2d1_iommu_ctx_names,
-		.iommu_ctx_count = ARRAY_SIZE(kgsl_2d1_iommu_ctx_names),
+		.iommu_ctxs = kgsl_2d1_iommu_ctxs,
+		.iommu_ctx_count = ARRAY_SIZE(kgsl_2d1_iommu_ctxs),
 		.physstart = 0x07E00000,
 		.physend = 0x07E00000 + SZ_1M - 1,
 	},
