@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,7 +188,7 @@ static int msm8660_wm8903_enable_mclk(int enable)
 			return ret;
 		}
 
-		wm8903_mclk = clk_get(NULL, "i2s_mic_osr_clk");
+		wm8903_mclk = clk_get_sys(NULL, "i2s_mic_osr_clk");
 		if (IS_ERR(wm8903_mclk)) {
 			pr_err("Failed to get i2s_mic_osr_clk\n");
 			gpio_free(MSM_CDC_MIC_I2S_MCLK);
@@ -308,7 +308,7 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 			pr_err("cpu_dai set_fmt error\n");
 			return ret;
 		}
-		spkr_osr_clk = clk_get(NULL, "i2s_spkr_osr_clk");
+		spkr_osr_clk = clk_get_sys(NULL, "i2s_spkr_osr_clk");
 		if (IS_ERR(spkr_osr_clk)) {
 			pr_err("Failed to get i2s_spkr_osr_clk\n");
 			return PTR_ERR(spkr_osr_clk);
@@ -320,7 +320,7 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 			clk_put(spkr_osr_clk);
 			return ret;
 		}
-		spkr_bit_clk = clk_get(NULL, "i2s_spkr_bit_clk");
+		spkr_bit_clk = clk_get_sys(NULL, "i2s_spkr_bit_clk");
 		if (IS_ERR(spkr_bit_clk)) {
 			pr_err("Failed to get i2s_spkr_bit_clk\n");
 			clk_disable_unprepare(spkr_osr_clk);
@@ -351,7 +351,7 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 			return ret;
 		}
 
-		mic_bit_clk = clk_get(NULL, "i2s_mic_bit_clk");
+		mic_bit_clk = clk_get_sys(NULL, "i2s_mic_bit_clk");
 		if (IS_ERR(mic_bit_clk)) {
 			pr_err("Failed to get i2s_mic_bit_clk\n");
 			return PTR_ERR(mic_bit_clk);
