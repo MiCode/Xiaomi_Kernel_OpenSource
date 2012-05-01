@@ -1791,6 +1791,67 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_set_encdec_chan_map(struct audio_client *ac,
+			uint32_t num_channels)
+{
+	struct asm_stream_cmd_encdec_channelmap chan_map;
+	u8 *channel_mapping;
+
+	int rc = 0;
+
+	pr_debug("%s: Session %d, num_channels = %d\n",
+			 __func__, ac->session, num_channels);
+
+	q6asm_add_hdr(ac, &chan_map.hdr, sizeof(chan_map), TRUE);
+
+	chan_map.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
+	chan_map.param_id = ASM_ENCDEC_DEC_CHAN_MAP;
+	chan_map.param_size = sizeof(struct asm_dec_chan_map);
+	chan_map.chan_map.num_channels = num_channels;
+
+	channel_mapping =
+		chan_map.chan_map.channel_mapping;
+
+	memset(channel_mapping, PCM_CHANNEL_NULL, MAX_CHAN_MAP_CHANNELS);
+	if (num_channels == 1)  {
+		channel_mapping[0] = PCM_CHANNEL_FL;
+	} else if (num_channels == 2) {
+		channel_mapping[0] = PCM_CHANNEL_FL;
+		channel_mapping[1] = PCM_CHANNEL_FR;
+	} else if (num_channels == 6) {
+		channel_mapping[0] = PCM_CHANNEL_FC;
+		channel_mapping[1] = PCM_CHANNEL_FL;
+		channel_mapping[2] = PCM_CHANNEL_FR;
+		channel_mapping[3] = PCM_CHANNEL_LB;
+		channel_mapping[4] = PCM_CHANNEL_RB;
+		channel_mapping[5] = PCM_CHANNEL_LFE;
+	} else {
+		pr_err("%s: ERROR.unsupported num_ch = %u\n", __func__,
+				num_channels);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &chan_map);
+	if (rc < 0) {
+		pr_err("%s:Command opcode[0x%x]paramid[0x%x] failed\n",
+				__func__, ASM_STREAM_CMD_SET_ENCDEC_PARAM,
+				ASM_ENCDEC_DEC_CHAN_MAP);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s:timeout opcode[0x%x]\n", __func__,
+						chan_map.hdr.opcode);
+		rc = -ETIMEDOUT;
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return rc;
+}
+
 int q6asm_enc_cfg_blk_qcelp(struct audio_client *ac, uint32_t frames_per_buf,
 		uint16_t min_rate, uint16_t max_rate,
 		uint16_t reduced_rate_level, uint16_t rate_modulation_cmd)
