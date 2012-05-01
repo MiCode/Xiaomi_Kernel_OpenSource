@@ -40,6 +40,8 @@
 #include <mach/msm_xo.h>
 #include <linux/spinlock.h>
 
+#define RUNTIME_SUSP_DELAY 500
+
 #define MSM_USB_BASE (hcd->regs)
 
 struct msm_hsic_hcd {
@@ -57,6 +59,7 @@ struct msm_hsic_hcd {
 	int			peripheral_status_irq;
 	int			wakeup_irq;
 	bool			wakeup_irq_enabled;
+	bool			pm_resume;
 	uint32_t		bus_perf_client;
 };
 
@@ -766,8 +769,6 @@ static void ehci_hsic_msm_debugfs_cleanup(void)
 	debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
 }
 
-
-
 static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd;
@@ -954,6 +955,7 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 
 	ehci_hsic_msm_debugfs_cleanup();
 	device_init_wakeup(&pdev->dev, 0);
+	mehci->pm_resume = false;
 	pm_runtime_set_suspended(&pdev->dev);
 
 	usb_remove_hcd(hcd);
@@ -978,6 +980,8 @@ static int msm_hsic_pm_suspend(struct device *dev)
 
 	if (device_may_wakeup(dev))
 		enable_irq_wake(hcd->irq);
+
+	mehci->pm_resume = false;
 
 	return msm_hsic_suspend(mehci);
 }
@@ -1015,6 +1019,8 @@ static int msm_hsic_pm_resume(struct device *dev)
 		disable_irq_nosync(mehci->wakeup_irq);
 	}
 
+	mehci->pm_resume = true;
+
 	ret = msm_hsic_resume(mehci);
 	if (ret)
 		return ret;
@@ -1031,7 +1037,16 @@ static int msm_hsic_pm_resume(struct device *dev)
 #ifdef CONFIG_PM_RUNTIME
 static int msm_hsic_runtime_idle(struct device *dev)
 {
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+
 	dev_dbg(dev, "EHCI runtime idle\n");
+
+	if (mehci->pm_resume) {
+		mehci->pm_resume = false;
+		pm_schedule_suspend(dev, RUNTIME_SUSP_DELAY);
+		return -EAGAIN;
+	}
 
 	return 0;
 }
