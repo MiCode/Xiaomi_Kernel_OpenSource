@@ -37,6 +37,9 @@
 /* Length of the DSP frame info header added to the voc packet. */
 #define DSP_FRAME_HDR_LEN 1
 
+#define MODE_IS127		0x2
+#define MODE_4GV_NB		0x3
+#define MODE_4GV_WB		0x4
 #define MODE_AMR		0x5
 #define MODE_AMR_WB		0xD
 #define MODE_PCM		0xC
@@ -74,7 +77,10 @@ enum voip_state {
 };
 
 struct voip_frame {
+	union {
 	uint32_t frame_type;
+	uint32_t packet_rate;
+	} header;
 	uint32_t len;
 	uint8_t voc_pkt[VOIP_MAX_VOC_PKT_SIZE];
 };
@@ -276,12 +282,31 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 			 * Bits 0-3: Frame rate
 			 * Bits 4-7: Frame type
 			 */
-			buf_node->frame.frame_type = ((*voc_pkt) & 0xF0) >> 4;
+			buf_node->frame.header.frame_type =
+						((*voc_pkt) & 0xF0) >> 4;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 			buf_node->frame.len = pkt_len - DSP_FRAME_HDR_LEN;
 			memcpy(&buf_node->frame.voc_pkt[0],
 				voc_pkt,
 				buf_node->frame.len);
+			list_add_tail(&buf_node->list, &prtd->out_queue);
+			break;
+		}
+		case MODE_IS127:
+		case MODE_4GV_NB:
+		case MODE_4GV_WB: {
+			/* Remove the DSP frame info header.
+			 * Header format:
+			 * Bits 0-3: frame rate
+			 */
+			buf_node->frame.header.packet_rate = (*voc_pkt) & 0x0F;
+			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
+			buf_node->frame.len = pkt_len - DSP_FRAME_HDR_LEN;
+
+			memcpy(&buf_node->frame.voc_pkt[0],
+				voc_pkt,
+				buf_node->frame.len);
+
 			list_add_tail(&buf_node->list, &prtd->out_queue);
 			break;
 		}
@@ -332,13 +357,30 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt,
 			 * Bits 0-3: Frame rate
 			 * Bits 4-7: Frame type
 			 */
-			*voc_pkt = ((buf_node->frame.frame_type & 0x0F) << 4) |
-					(prtd->rate_type & 0x0F);
+			*voc_pkt = ((buf_node->frame.header.frame_type &
+					0x0F) << 4) | (prtd->rate_type & 0x0F);
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 			*pkt_len = buf_node->frame.len + DSP_FRAME_HDR_LEN;
 			memcpy(voc_pkt,
 				&buf_node->frame.voc_pkt[0],
 				buf_node->frame.len);
+			list_add_tail(&buf_node->list, &prtd->free_in_queue);
+			break;
+		}
+		case MODE_IS127:
+		case MODE_4GV_NB:
+		case MODE_4GV_WB: {
+			/* Add the DSP frame info header. Header format:
+			 * Bits 0-3 : Frame rate
+			*/
+			*voc_pkt = buf_node->frame.header.packet_rate & 0x0F;
+			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
+			*pkt_len = buf_node->frame.len + DSP_FRAME_HDR_LEN;
+
+			memcpy(voc_pkt,
+				&buf_node->frame.voc_pkt[0],
+				buf_node->frame.len);
+
 			list_add_tail(&buf_node->list, &prtd->free_in_queue);
 			break;
 		}
@@ -702,7 +744,9 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 		ret = msm_pcm_capture_prepare(substream);
 
 	if ((runtime->format != FORMAT_SPECIAL) &&
-		 ((prtd->mode == MODE_AMR) || (prtd->mode == MODE_AMR_WB))) {
+		 ((prtd->mode == MODE_AMR) || (prtd->mode == MODE_AMR_WB) ||
+		 (prtd->mode == MODE_IS127) || (prtd->mode == MODE_4GV_NB) ||
+		 (prtd->mode == MODE_4GV_WB))) {
 		pr_err("mode:%d and format:%u are not mached\n",
 			prtd->mode, (uint32_t)runtime->format);
 		ret =  -EINVAL;
@@ -976,6 +1020,24 @@ static int voip_get_rate_type(uint32_t mode, uint32_t rate,
 		*rate_type = 0;
 		break;
 	}
+	case MODE_IS127:
+	case MODE_4GV_NB:
+	case MODE_4GV_WB: {
+		switch (rate) {
+		case VOC_0_RATE:
+		case VOC_8_RATE:
+		case VOC_4_RATE:
+		case VOC_2_RATE:
+		case VOC_1_RATE:
+			*rate_type = rate;
+			break;
+		default:
+			pr_err("wrong rate for IS127/4GV_NB/WB.\n");
+			ret = -EINVAL;
+			break;
+		}
+		break;
+	}
 	default:
 		pr_err("wrong mode type.\n");
 		ret = -EINVAL;
@@ -1004,6 +1066,15 @@ static int voip_get_media_type(uint32_t mode,
 			media_type = VSS_MEDIA_ID_PCM_NB;
 		else
 			media_type = VSS_MEDIA_ID_PCM_WB;
+		break;
+	case MODE_IS127: /* EVRC-A */
+		media_type = VSS_MEDIA_ID_EVRC_MODEM;
+		break;
+	case MODE_4GV_NB: /* EVRC-B */
+		media_type = VSS_MEDIA_ID_4GV_NB_MODEM;
+		break;
+	case MODE_4GV_WB: /* EVRC-WB */
+		media_type = VSS_MEDIA_ID_4GV_WB_MODEM;
 		break;
 	default:
 		pr_debug(" input mode is not supported\n");
