@@ -2495,9 +2495,7 @@ static int configure_uart_gpios(int on)
 }
 
 static struct msm_serial_hs_platform_data msm_uart_dm9_pdata = {
-	.inject_rx_on_wakeup = 1,
-	.rx_to_inject = 0xFD,
-	.gpio_config = configure_uart_gpios,
+	.gpio_config	= configure_uart_gpios,
 };
 #else
 static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
@@ -3156,8 +3154,10 @@ static void __init msm8960_cdp_init(void)
 		platform_device_register(&msm8960_device_uart_gsbi5);
 
 	/* For 8960 Fusion 2.2 Primary IPC */
-	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		msm_uart_dm9_pdata.wakeup_irq = gpio_to_irq(94); /* GSBI9(2) */
 		msm_device_uart_dm9.dev.platform_data = &msm_uart_dm9_pdata;
+	}
 
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8960_pm8921_gpio_mpp_init();
