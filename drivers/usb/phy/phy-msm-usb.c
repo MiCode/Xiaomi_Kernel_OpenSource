@@ -173,8 +173,6 @@ put_3p3_lpm:
 	return rc;
 }
 
-#ifdef CONFIG_PM_SLEEP
-#define USB_PHY_SUSP_DIG_VOL  500000
 static int msm_hsusb_config_vddcx(int high)
 {
 	struct msm_otg *motg = the_msm_otg;
@@ -195,12 +193,6 @@ static int msm_hsusb_config_vddcx(int high)
 
 	return ret;
 }
-#else
-static int msm_hsusb_config_vddcx(int high)
-{
-	return 0;
-}
-#endif
 
 static int msm_hsusb_ldo_enable(struct msm_otg *motg, int on)
 {
