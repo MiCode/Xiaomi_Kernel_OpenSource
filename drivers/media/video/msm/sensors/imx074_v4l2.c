@@ -309,6 +309,7 @@ static struct msm_sensor_fn_t imx074_func_tbl = {
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
+	.sensor_adjust_frame_lines = msm_sensor_adjust_frame_lines,
 };
 
 static struct msm_sensor_reg_t imx074_regs = {
