@@ -328,7 +328,7 @@ unsigned int kgsl_mmu_get_current_ptbase(struct kgsl_device *device)
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return 0;
 	else
-		return mmu->mmu_ops->mmu_get_current_ptbase(device);
+		return mmu->mmu_ops->mmu_get_current_ptbase(mmu);
 }
 EXPORT_SYMBOL(kgsl_mmu_get_current_ptbase);
 
@@ -359,7 +359,7 @@ void kgsl_mmu_setstate(struct kgsl_device *device,
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return;
 	else
-		mmu->mmu_ops->mmu_setstate(device,
+		mmu->mmu_ops->mmu_setstate(mmu,
 					pagetable);
 }
 EXPORT_SYMBOL(kgsl_mmu_setstate);
@@ -385,7 +385,7 @@ int kgsl_mmu_init(struct kgsl_device *device)
 	else if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type)
 		mmu->mmu_ops = &iommu_ops;
 
-	return mmu->mmu_ops->mmu_init(device);
+	return mmu->mmu_ops->mmu_init(mmu);
 }
 EXPORT_SYMBOL(kgsl_mmu_init);
 
@@ -400,7 +400,7 @@ int kgsl_mmu_start(struct kgsl_device *device)
 			kgsl_setup_pt(NULL);
 		return 0;
 	} else {
-		return mmu->mmu_ops->mmu_start(device);
+		return mmu->mmu_ops->mmu_start(mmu);
 	}
 }
 EXPORT_SYMBOL(kgsl_mmu_start);
@@ -418,7 +418,7 @@ void kgsl_mh_intrcallback(struct kgsl_device *device)
 	if (status & MH_INTERRUPT_MASK__AXI_WRITE_ERROR)
 		KGSL_MEM_CRIT(device, "axi write error interrupt: %08x\n", reg);
 	if (status & MH_INTERRUPT_MASK__MMU_PAGE_FAULT)
-		device->mmu.mmu_ops->mmu_pagefault(device);
+		device->mmu.mmu_ops->mmu_pagefault(&device->mmu);
 
 	status &= KGSL_MMU_INT_MASK;
 	kgsl_regwrite(device, MH_INTERRUPT_CLEAR, status);
@@ -543,15 +543,15 @@ void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable)
 }
 EXPORT_SYMBOL(kgsl_mmu_putpagetable);
 
-void kgsl_setstate(struct kgsl_device *device, uint32_t flags)
+void kgsl_setstate(struct kgsl_mmu *mmu, uint32_t flags)
 {
-	struct kgsl_mmu *mmu = &device->mmu;
+	struct kgsl_device *device = mmu->device;
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return;
 	else if (device->ftbl->setstate)
 		device->ftbl->setstate(device, flags);
 	else if (mmu->mmu_ops->mmu_device_setstate)
-		mmu->mmu_ops->mmu_device_setstate(device, flags);
+		mmu->mmu_ops->mmu_device_setstate(mmu, flags);
 }
 EXPORT_SYMBOL(kgsl_setstate);
 
@@ -561,7 +561,7 @@ void kgsl_mmu_device_setstate(struct kgsl_device *device, uint32_t flags)
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return;
 	else if (mmu->mmu_ops->mmu_device_setstate)
-		mmu->mmu_ops->mmu_device_setstate(device, flags);
+		mmu->mmu_ops->mmu_device_setstate(mmu, flags);
 }
 EXPORT_SYMBOL(kgsl_mmu_device_setstate);
 
@@ -753,7 +753,7 @@ int kgsl_mmu_stop(struct kgsl_device *device)
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
 		return 0;
 	else
-		return mmu->mmu_ops->mmu_stop(device);
+		return mmu->mmu_ops->mmu_stop(mmu);
 }
 EXPORT_SYMBOL(kgsl_mmu_stop);
 
@@ -764,8 +764,9 @@ int kgsl_mmu_close(struct kgsl_device *device)
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
 		kgsl_sharedmem_free(&mmu->setstate_memory);
 		return 0;
-	} else
-		return mmu->mmu_ops->mmu_close(device);
+	} else {
+		return mmu->mmu_ops->mmu_close(mmu);
+	}
 }
 EXPORT_SYMBOL(kgsl_mmu_close);
 

@@ -397,15 +397,15 @@ kgsl_pt_map_get(struct kgsl_gpummu_pt *pt, uint32_t pte)
 	return baseptr[pte] & GSL_PT_PAGE_ADDR_MASK;
 }
 
-static void kgsl_gpummu_pagefault(struct kgsl_device *device)
+static void kgsl_gpummu_pagefault(struct kgsl_mmu *mmu)
 {
 	unsigned int reg;
 	unsigned int ptbase;
 
-	kgsl_regread(device, MH_MMU_PAGE_FAULT, &reg);
-	kgsl_regread(device, MH_MMU_PT_BASE, &ptbase);
+	kgsl_regread(mmu->device, MH_MMU_PAGE_FAULT, &reg);
+	kgsl_regread(mmu->device, MH_MMU_PT_BASE, &ptbase);
 
-	KGSL_MEM_CRIT(device,
+	KGSL_MEM_CRIT(mmu->device,
 			"mmu page fault: page=0x%lx pt=%d op=%s axi=%d\n",
 			reg & ~(PAGE_SIZE - 1),
 			kgsl_mmu_get_ptname_from_ptbase(ptbase),
@@ -460,7 +460,7 @@ err_free_gpummu:
 	return NULL;
 }
 
-static void kgsl_gpummu_default_setstate(struct kgsl_device *device,
+static void kgsl_gpummu_default_setstate(struct kgsl_mmu *mmu,
 					uint32_t flags)
 {
 	struct kgsl_gpummu_pt *gpummu_pt;
@@ -468,23 +468,21 @@ static void kgsl_gpummu_default_setstate(struct kgsl_device *device,
 		return;
 
 	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
-		kgsl_idle(device, KGSL_TIMEOUT_DEFAULT);
-		gpummu_pt = device->mmu.hwpagetable->priv;
-		kgsl_regwrite(device, MH_MMU_PT_BASE,
+		kgsl_idle(mmu->device, KGSL_TIMEOUT_DEFAULT);
+		gpummu_pt = mmu->hwpagetable->priv;
+		kgsl_regwrite(mmu->device, MH_MMU_PT_BASE,
 			gpummu_pt->base.gpuaddr);
 	}
 
 	if (flags & KGSL_MMUFLAGS_TLBFLUSH) {
 		/* Invalidate all and tc */
-		kgsl_regwrite(device, MH_MMU_INVALIDATE,  0x00000003);
+		kgsl_regwrite(mmu->device, MH_MMU_INVALIDATE,  0x00000003);
 	}
 }
 
-static void kgsl_gpummu_setstate(struct kgsl_device *device,
+static void kgsl_gpummu_setstate(struct kgsl_mmu *mmu,
 				struct kgsl_pagetable *pagetable)
 {
-	struct kgsl_mmu *mmu = &device->mmu;
-
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
 		/* page table not current, then setup mmu to use new
 		 *  specified page table
@@ -497,13 +495,13 @@ static void kgsl_gpummu_setstate(struct kgsl_device *device,
 			kgsl_mmu_pt_get_flags(pagetable, mmu->device->id);
 
 			/* call device specific set page table */
-			kgsl_setstate(mmu->device, KGSL_MMUFLAGS_TLBFLUSH |
+			kgsl_setstate(mmu, KGSL_MMUFLAGS_TLBFLUSH |
 				KGSL_MMUFLAGS_PTUPDATE);
 		}
 	}
 }
 
-static int kgsl_gpummu_init(struct kgsl_device *device)
+static int kgsl_gpummu_init(struct kgsl_mmu *mmu)
 {
 	/*
 	 * intialize device mmu
@@ -511,9 +509,6 @@ static int kgsl_gpummu_init(struct kgsl_device *device)
 	 * call this with the global lock held
 	 */
 	int status = 0;
-	struct kgsl_mmu *mmu = &device->mmu;
-
-	mmu->device = device;
 
 	/* sub-client MMU lookups require address translation */
 	if ((mmu->config & ~0x1) > 0) {
@@ -533,12 +528,12 @@ static int kgsl_gpummu_init(struct kgsl_device *device)
 					   mmu->setstate_memory.size);
 	}
 
-	dev_info(device->dev, "|%s| MMU type set for device is GPUMMU\n",
+	dev_info(mmu->device->dev, "|%s| MMU type set for device is GPUMMU\n",
 		__func__);
 	return status;
 }
 
-static int kgsl_gpummu_start(struct kgsl_device *device)
+static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 {
 	/*
 	 * intialize device mmu
@@ -546,7 +541,7 @@ static int kgsl_gpummu_start(struct kgsl_device *device)
 	 * call this with the global lock held
 	 */
 
-	struct kgsl_mmu *mmu = &device->mmu;
+	struct kgsl_device *device = mmu->device;
 	struct kgsl_gpummu_pt *gpummu_pt;
 
 	if (mmu->flags & KGSL_FLAGS_STARTED)
@@ -587,12 +582,12 @@ static int kgsl_gpummu_start(struct kgsl_device *device)
 
 	mmu->hwpagetable = mmu->defaultpagetable;
 	gpummu_pt = mmu->hwpagetable->priv;
-	kgsl_regwrite(device, MH_MMU_PT_BASE,
+	kgsl_regwrite(mmu->device, MH_MMU_PT_BASE,
 		      gpummu_pt->base.gpuaddr);
-	kgsl_regwrite(device, MH_MMU_VA_RANGE,
+	kgsl_regwrite(mmu->device, MH_MMU_VA_RANGE,
 		      (KGSL_PAGETABLE_BASE |
 		      (CONFIG_MSM_KGSL_PAGE_TABLE_SIZE >> 16)));
-	kgsl_setstate(device, KGSL_MMUFLAGS_TLBFLUSH);
+	kgsl_setstate(mmu, KGSL_MMUFLAGS_TLBFLUSH);
 	mmu->flags |= KGSL_FLAGS_STARTED;
 
 	return 0;
@@ -691,25 +686,21 @@ kgsl_gpummu_map(void *mmu_specific_pt,
 	return 0;
 }
 
-static int kgsl_gpummu_stop(struct kgsl_device *device)
+static int kgsl_gpummu_stop(struct kgsl_mmu *mmu)
 {
-	struct kgsl_mmu *mmu = &device->mmu;
-
-	kgsl_regwrite(device, MH_MMU_CONFIG, 0x00000000);
+	kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
 	mmu->flags &= ~KGSL_FLAGS_STARTED;
 
 	return 0;
 }
 
-static int kgsl_gpummu_close(struct kgsl_device *device)
+static int kgsl_gpummu_close(struct kgsl_mmu *mmu)
 {
 	/*
 	 *  close device mmu
 	 *
 	 *  call this with the global lock held
 	 */
-	struct kgsl_mmu *mmu = &device->mmu;
-
 	if (mmu->setstate_memory.gpuaddr)
 		kgsl_sharedmem_free(&mmu->setstate_memory);
 
@@ -720,10 +711,10 @@ static int kgsl_gpummu_close(struct kgsl_device *device)
 }
 
 static unsigned int
-kgsl_gpummu_get_current_ptbase(struct kgsl_device *device)
+kgsl_gpummu_get_current_ptbase(struct kgsl_mmu *mmu)
 {
 	unsigned int ptbase;
-	kgsl_regread(device, MH_MMU_PT_BASE, &ptbase);
+	kgsl_regread(mmu->device, MH_MMU_PT_BASE, &ptbase);
 	return ptbase;
 }
 
