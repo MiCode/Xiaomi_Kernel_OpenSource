@@ -44,7 +44,7 @@
 #define KGSL_PAGETABLE_ENTRY_SIZE  4
 
 /* Pagetable Virtual Address base */
-#define KGSL_PAGETABLE_BASE	0x66000000
+#define KGSL_PAGETABLE_BASE	0x10000000
 
 /* Extra accounting entries needed in the pagetable */
 #define KGSL_PT_EXTRA_ENTRIES      16
