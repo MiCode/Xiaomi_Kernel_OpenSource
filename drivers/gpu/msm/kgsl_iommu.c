@@ -297,6 +297,59 @@ done:
 	return ret;
 }
 
+/*
+ * kgsl_set_register_map - Map the IOMMU regsiters in the memory descriptors
+ * of the respective iommu units
+ * @mmu - Pointer to mmu structure
+ *
+ * Return - 0 on success else error code
+ */
+static int kgsl_set_register_map(struct kgsl_mmu *mmu)
+{
+	struct platform_device *pdev =
+		container_of(mmu->device->parentdev, struct platform_device,
+				dev);
+	struct kgsl_device_platform_data *pdata_dev = pdev->dev.platform_data;
+	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
+	struct kgsl_iommu_unit *iommu_unit;
+	int i = 0, ret = 0;
+
+	for (; i < pdata_dev->iommu_count; i++) {
+		struct kgsl_device_iommu_data data = pdata_dev->iommu_data[i];
+		iommu_unit = &iommu->iommu_units[i];
+		/* set up the IOMMU register map for the given IOMMU unit */
+		if (!data.physstart || !data.physend) {
+			KGSL_CORE_ERR("The register range for IOMMU unit not"
+					" specified\n");
+			ret = -EINVAL;
+			goto err;
+		}
+		iommu_unit->reg_map.hostptr = ioremap(data.physstart,
+					data.physend - data.physstart + 1);
+		if (!iommu_unit->reg_map.hostptr) {
+			KGSL_CORE_ERR("Failed to map SMMU register address "
+				"space from %x to %x\n", data.physstart,
+				data.physend - data.physstart + 1);
+			ret = -ENOMEM;
+			i--;
+			goto err;
+		}
+		iommu_unit->reg_map.size = data.physend - data.physstart + 1;
+		iommu_unit->reg_map.physaddr = data.physstart;
+	}
+	iommu->unit_count = pdata_dev->iommu_count;
+	return ret;
+err:
+	/* Unmap any mapped IOMMU regions */
+	for (; i >= 0; i--) {
+		iommu_unit = &iommu->iommu_units[i];
+		iounmap(iommu_unit->reg_map.hostptr);
+		iommu_unit->reg_map.size = 0;
+		iommu_unit->reg_map.physaddr = 0;
+	}
+	return ret;
+}
+
 static void kgsl_iommu_setstate(struct kgsl_mmu *mmu,
 				struct kgsl_pagetable *pagetable)
 {
@@ -333,6 +386,9 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 
 	mmu->priv = iommu;
 	status = kgsl_get_iommu_ctxt(mmu);
+	if (status)
+		goto done;
+	status = kgsl_set_register_map(mmu);
 	if (status)
 		goto done;
 
