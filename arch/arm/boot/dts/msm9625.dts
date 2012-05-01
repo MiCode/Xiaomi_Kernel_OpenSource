@@ -38,4 +38,10 @@
 		interrupts = <0 7 0>;
 		clock-frequency = <5000000>;
 	};
+
+	serial@f991f000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991f000 0x1000>;
+		interrupts = <0 109 0>;
+	};
 };

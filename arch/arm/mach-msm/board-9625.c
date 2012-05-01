@@ -31,6 +31,8 @@
 #include "clock.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {
+	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
+	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
 	CLK_DUMMY("phy_clk", NULL, "msm_otg", OFF),
 	CLK_DUMMY("core_clk", NULL, "msm_otg", OFF),
 	CLK_DUMMY("alt_core_clk", NULL, "msm_otg", OFF),
@@ -63,6 +65,8 @@ static const char *msm9625_dt_match[] __initconst = {
 };
 
 static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
+	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
+			"msm_serial_hsl.0", NULL),
 	{}
 };
 
