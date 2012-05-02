@@ -184,7 +184,9 @@ static const struct {
 	{ ADRENO_REV_A320, 3, 2, 0, ANY_ID,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_512K },
-
+	{ ADRENO_REV_A330, 3, 3, 0, 0,
+		"a330_pm4.fw", "a330_pfp.fw", &adreno_a3xx_gpudev,
+		512, 0, 2, SZ_1M },
 };
 
 static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
