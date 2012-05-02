@@ -502,6 +502,8 @@ int pm8xxx_reset_pwr_off(int reset)
 		case PM8XXX_VERSION_8901:
 			rc = __pm8901_reset_pwr_off(chip, reset);
 			break;
+		case PM8XXX_VERSION_8038:
+		case PM8XXX_VERSION_8917:
 		case PM8XXX_VERSION_8921:
 			rc = __pm8921_reset_pwr_off(chip, reset);
 			break;
