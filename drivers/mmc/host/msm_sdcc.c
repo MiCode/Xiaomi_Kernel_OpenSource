@@ -1862,10 +1862,6 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	spin_lock_irqsave(&host->lock, flags);
-	WARN(host->curr.mrq, "Request in progress\n");
-	WARN(!host->pwr, "SDCC power is turned off\n");
-	WARN(!host->clks_on, "SDCC clocks are turned off\n");
-	WARN(host->sdcc_irq_disabled, "SDCC IRQ is disabled\n");
 
 	if (host->eject) {
 		if (mrq->data && !(mrq->data->flags & MMC_DATA_READ)) {
@@ -1879,6 +1875,29 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		mmc_request_done(mmc, mrq);
 		return;
 	}
+
+	/*
+	 * Don't start the request if SDCC is not in proper state to handle it
+	 */
+	if (!host->pwr || !host->clks_on || host->sdcc_irq_disabled) {
+		WARN(1, "%s: %s: SDCC is in bad state. don't process"
+		     " new request (CMD%d)\n", mmc_hostname(host->mmc),
+		     __func__, mrq->cmd->opcode);
+		msmsdcc_dump_sdcc_state(host);
+		mrq->cmd->error = -EIO;
+		if (mrq->data) {
+			mrq->data->error = -EIO;
+			mrq->data->bytes_xfered = 0;
+		}
+		spin_unlock_irqrestore(&host->lock, flags);
+		mmc_request_done(mmc, mrq);
+		return;
+	}
+
+	WARN(host->curr.mrq, "%s: %s: New request (CMD%d) received while"
+	     " other request (CMD%d) is in progress\n",
+	     mmc_hostname(host->mmc), __func__,
+	     mrq->cmd->opcode, host->curr.mrq->cmd->opcode);
 
 	/*
 	 * Kick the software command timeout timer here.
