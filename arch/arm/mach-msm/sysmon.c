@@ -111,10 +111,10 @@ int sysmon_send_event(enum subsys_id dest_ss, const char *event_ss,
 	mutex_lock(&ss->lock);
 	switch (ss->transport) {
 	case TRANSPORT_SMD:
-		ret = sysmon_send_smd(ss, tx_buf, ARRAY_SIZE(tx_buf));
+		ret = sysmon_send_smd(ss, tx_buf, strlen(tx_buf));
 		break;
 	case TRANSPORT_HSIC:
-		ret = sysmon_send_hsic(ss, tx_buf, ARRAY_SIZE(tx_buf));
+		ret = sysmon_send_hsic(ss, tx_buf, strlen(tx_buf));
 		break;
 	default:
 		ret = -EINVAL;
