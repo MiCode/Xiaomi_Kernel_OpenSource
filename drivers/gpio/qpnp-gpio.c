@@ -1079,6 +1079,7 @@ static void __exit qpnp_gpio_exit(void)
 #ifdef CONFIG_GPIO_QPNP_DEBUG
 	debugfs_remove_recursive(driver_dfs_dir);
 #endif
+	spmi_driver_unregister(&qpnp_gpio_driver);
 }
 
 MODULE_DESCRIPTION("QPNP PMIC gpio driver");
