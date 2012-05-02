@@ -792,6 +792,9 @@ static void msm_hsl_set_termios(struct uart_port *port,
 	unsigned int baud, mr;
 	unsigned int vid;
 
+	if (!termios->c_cflag)
+		return;
+
 	spin_lock_irqsave(&port->lock, flags);
 
 	/* calculate and set baud rate */
