@@ -175,7 +175,7 @@ static void __init msm_gic_pm_init(void)
 }
 #endif
 
-void msm_gic_irq_extn_init(void __iomem *db, void __iomem *cb)
+void __init msm_gic_irq_extn_init(void __iomem *db, void __iomem *cb)
 {
 	dist_base = db;
 	cpu_base = cb;

@@ -447,7 +447,7 @@ static struct msm_pm_irq_calls msm8625_pm_irq_calls = {
 	.exit_sleep3 = msm_gic_irq_exit_sleep3,
 };
 
-void msm_pm_register_irqs(void)
+void __init msm_pm_register_irqs(void)
 {
 	if (cpu_is_msm8625())
 		msm_pm_set_irq_extns(&msm8625_pm_irq_calls);
