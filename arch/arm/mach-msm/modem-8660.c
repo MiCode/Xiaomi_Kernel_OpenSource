@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -275,8 +275,6 @@ static void debug_crash_modem_fn(struct work_struct *work)
 {
 	if (reset_modem == 1)
 		smsm_reset_modem(SMSM_RESET);
-	else if (reset_modem == 2)
-		subsystem_restart("lpass");
 
 	reset_modem = 0;
 	schedule_delayed_work(&debug_crash_modem_work, msecs_to_jiffies(1000));
