@@ -29,6 +29,7 @@
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/android_pmem.h>
+#include <sound/timer.h>
 
 #include "msm-compr-q6.h"
 #include "msm-pcm-routing.h"
@@ -92,6 +93,9 @@ static void compr_event_handler(uint32_t opcode,
 		prtd->pcm_irq_pos += prtd->pcm_count;
 		if (atomic_read(&prtd->start))
 			snd_pcm_period_elapsed(substream);
+		else
+			if (substream->timer_running)
+				snd_timer_interrupt(substream->timer, 1);
 		atomic_inc(&prtd->out_count);
 		wake_up(&the_locks.write_wait);
 		if (!atomic_read(&prtd->start)) {
