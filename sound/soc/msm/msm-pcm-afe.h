@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@ struct pcm_afe_info {
 	int prepared;
 	struct hrtimer hrt;
 	int poll_time;
+	struct msm_mapped_buffer *mem_buffer;
 };
 
 

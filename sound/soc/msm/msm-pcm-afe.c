@@ -29,6 +29,8 @@
 #include <sound/control.h>
 #include <sound/q6adm.h>
 #include <asm/dma.h>
+#include <linux/memory_alloc.h>
+#include <mach/msm_subsystem_map.h>
 #include "msm-pcm-afe.h"
 
 #define MIN_PERIOD_SIZE (128 * 2)
@@ -380,13 +382,18 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 	if (dma_buf == NULL) {
 		pr_debug("dma_buf is NULL\n");
 			goto done;
-		}
-	if (dma_buf->area != NULL) {
-		dma_free_coherent(substream->pcm->card->dev,
-			runtime->hw.buffer_bytes_max, dma_buf->area,
-			dma_buf->addr);
-		dma_buf->area = NULL;
 	}
+
+	if (dma_buf->area) {
+		if (msm_subsystem_unmap_buffer(prtd->mem_buffer) < 0) {
+			pr_err("%s: unmap buffer failed\n", __func__);
+			prtd->mem_buffer = NULL;
+			dma_buf->area = NULL;
+		}
+	}
+
+	if (dma_buf->addr)
+		free_contiguous_memory_by_paddr(dma_buf->addr);
 done:
 	pr_debug("%s: dai->id =%x\n", __func__, dai->id);
 	mutex_unlock(&prtd->lock);
@@ -416,14 +423,21 @@ static int msm_afe_mmap(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct pcm_afe_info *prtd = runtime->private_data;
+	int result = 0;
 
 	pr_debug("%s\n", __func__);
 	prtd->mmap_flag = 1;
-	dma_mmap_coherent(substream->pcm->card->dev, vma,
-				runtime->dma_area,
-				runtime->dma_addr,
-				runtime->dma_bytes);
-	return 0;
+	if (runtime->dma_addr && runtime->dma_bytes) {
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		result = remap_pfn_range(vma, vma->vm_start,
+				runtime->dma_addr >> PAGE_SHIFT,
+				runtime->dma_bytes,
+				vma->vm_page_prot);
+	} else {
+		pr_err("Physical address or size of buf is NULL");
+		return -EINVAL;
+	}
+	return result;
 }
 static int msm_afe_trigger(struct snd_pcm_substream *substream, int cmd)
 {
@@ -457,6 +471,7 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	struct pcm_afe_info *prtd = runtime->private_data;
 	int rc;
+	unsigned int flags = 0;
 
 	pr_debug("%s:\n", __func__);
 
@@ -465,17 +480,46 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;
-	dma_buf->area = dma_alloc_coherent(dma_buf->dev.dev,
-				runtime->hw.buffer_bytes_max,
-				&dma_buf->addr, GFP_KERNEL);
 
-	pr_debug("%s: dma_buf->area: 0x%p, dma_buf->addr: 0x%x", __func__,
-			(unsigned int *) dma_buf->area, dma_buf->addr);
-	if (!dma_buf->area) {
-		pr_err("%s:MSM AFE memory allocation failed\n", __func__);
+	dma_buf->addr = allocate_contiguous_ebi_nomap(
+				runtime->hw.buffer_bytes_max, SZ_4K);
+	if (!dma_buf->addr) {
+		pr_err("%s:MSM AFE physical memory allocation failed\n",
+							__func__);
 		mutex_unlock(&prtd->lock);
 		return -ENOMEM;
 	}
+
+	flags = MSM_SUBSYSTEM_MAP_KADDR | MSM_SUBSYSTEM_MAP_CACHED;
+
+	prtd->mem_buffer = msm_subsystem_map_buffer(dma_buf->addr,
+				runtime->hw.buffer_bytes_max, flags,
+				NULL, 0);
+	if (IS_ERR((void *) prtd->mem_buffer)) {
+		pr_err("%s: map_buffer failed error = %ld\n", __func__,
+				PTR_ERR((void *)prtd->mem_buffer));
+		free_contiguous_memory_by_paddr(dma_buf->addr);
+		mutex_unlock(&prtd->lock);
+		return -ENOMEM;
+	}
+
+	dma_buf->area = prtd->mem_buffer->vaddr;
+
+	pr_debug("%s: dma_buf->area: 0x%p, dma_buf->addr: 0x%x", __func__,
+			(unsigned int *) dma_buf->area, dma_buf->addr);
+
+	if (!dma_buf->area) {
+		pr_err("%s: Invalid Virtual address\n", __func__);
+		if (prtd->mem_buffer) {
+			msm_subsystem_unmap_buffer(prtd->mem_buffer);
+			prtd->mem_buffer = NULL;
+			dma_buf->area = NULL;
+		}
+		free_contiguous_memory_by_paddr(dma_buf->addr);
+		mutex_unlock(&prtd->lock);
+		return -ENOMEM;
+	}
+
 	dma_buf->bytes = runtime->hw.buffer_bytes_max;
 	memset(dma_buf->area, 0, runtime->hw.buffer_bytes_max);
 	prtd->dma_addr = (u32) dma_buf->addr;
