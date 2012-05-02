@@ -198,17 +198,6 @@ found:
 	return order;
 }
 
-static void _send_notification_to_order(struct subsys_device **restart_list,
-					int count, enum subsys_notif_type type)
-{
-	int i;
-	struct subsys_device **dev;
-
-	for (i = 0, dev = restart_list; i < count; i++, dev++)
-		if (*dev)
-			subsys_notif_queue_notification((*dev)->notify, type);
-}
-
 static int max_restarts;
 module_param(max_restarts, int, 0644);
 
@@ -273,11 +262,63 @@ out:
 	mutex_unlock(&restart_log_mutex);
 }
 
+static void for_each_subsys_device(struct subsys_device **list, unsigned count,
+		void *data, void (*fn)(struct subsys_device *, void *))
+{
+	while (count--) {
+		struct subsys_device *dev = *list++;
+		if (!dev)
+			continue;
+		fn(dev, data);
+	}
+}
+
+static void __send_notification_to_order(struct subsys_device *dev, void *data)
+{
+	enum subsys_notif_type type = (enum subsys_notif_type)data;
+
+	subsys_notif_queue_notification(dev->notify, type);
+}
+
+static void send_notification_to_order(struct subsys_device **l, unsigned n,
+		enum subsys_notif_type t)
+{
+	for_each_subsys_device(l, n, (void *)t, __send_notification_to_order);
+}
+
+static void subsystem_shutdown(struct subsys_device *dev, void *data)
+{
+	const char *name = dev->desc->name;
+
+	pr_info("[%p]: Shutting down %s\n", current, name);
+	if (dev->desc->shutdown(dev->desc) < 0)
+		panic("subsys-restart: [%p]: Failed to shutdown %s!",
+			current, name);
+}
+
+static void subsystem_ramdump(struct subsys_device *dev, void *data)
+{
+	const char *name = dev->desc->name;
+
+	if (dev->desc->ramdump)
+		if (dev->desc->ramdump(enable_ramdumps, dev->desc) < 0)
+			pr_warn("%s[%p]: Ramdump failed.\n", name, current);
+}
+
+static void subsystem_powerup(struct subsys_device *dev, void *data)
+{
+	const char *name = dev->desc->name;
+
+	pr_info("[%p]: Powering up %s\n", current, name);
+	if (dev->desc->powerup(dev->desc) < 0)
+		panic("[%p]: Failed to powerup %s!", current, name);
+}
+
 static void subsystem_restart_wq_func(struct work_struct *work)
 {
 	struct restart_wq_data *r_work = container_of(work,
 						struct restart_wq_data, work);
-	struct subsys_device **restart_list;
+	struct subsys_device **list;
 	struct subsys_device *dev = r_work->dev;
 	struct subsys_desc *desc = dev->desc;
 	struct subsys_soc_restart_order *soc_restart_order = NULL;
@@ -285,8 +326,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	struct mutex *powerup_lock;
 	struct mutex *shutdown_lock;
 
-	int i;
-	int restart_list_count = 0;
+	unsigned count;
 
 	if (r_work->use_restart_order)
 		soc_restart_order = dev->restart_order;
@@ -297,13 +337,13 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	 * restart order is not being traversed.
 	 */
 	if (!soc_restart_order) {
-		restart_list = &dev;
-		restart_list_count = 1;
+		list = &dev;
+		count = 1;
 		powerup_lock = &dev->powerup_lock;
 		shutdown_lock = &dev->shutdown_lock;
 	} else {
-		restart_list = soc_restart_order->subsys_ptrs;
-		restart_list_count = soc_restart_order->count;
+		list = soc_restart_order->subsys_ptrs;
+		count = soc_restart_order->count;
 		powerup_lock = &soc_restart_order->powerup_lock;
 		shutdown_lock = &soc_restart_order->shutdown_lock;
 	}
@@ -340,28 +380,9 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 	pr_debug("[%p]: Starting restart sequence for %s\n", current,
 			desc->name);
-
-	_send_notification_to_order(restart_list,
-				restart_list_count,
-				SUBSYS_BEFORE_SHUTDOWN);
-
-	for (i = 0; i < restart_list_count; i++) {
-		const struct subsys_device *dev = restart_list[i];
-		const char *name;
-
-		if (!dev)
-			continue;
-		name = dev->desc->name;
-
-		pr_info("[%p]: Shutting down %s\n", current, name);
-
-		if (dev->desc->shutdown(dev->desc) < 0)
-			panic("subsys-restart: %s[%p]: Failed to shutdown %s!",
-				__func__, current, name);
-	}
-
-	_send_notification_to_order(restart_list, restart_list_count,
-				SUBSYS_AFTER_SHUTDOWN);
+	send_notification_to_order(list, count, SUBSYS_BEFORE_SHUTDOWN);
+	for_each_subsys_device(list, count, NULL, subsystem_shutdown);
+	send_notification_to_order(list, count, SUBSYS_AFTER_SHUTDOWN);
 
 	/*
 	 * Now that we've finished shutting down these subsystems, release the
@@ -372,42 +393,11 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	mutex_unlock(shutdown_lock);
 
 	/* Collect ram dumps for all subsystems in order here */
-	for (i = 0; i < restart_list_count; i++) {
-		const struct subsys_device *dev = restart_list[i];
-		const char *name;
+	for_each_subsys_device(list, count, NULL, subsystem_ramdump);
 
-		if (!dev)
-			continue;
-		name = dev->desc->name;
-
-		if (dev->desc->ramdump)
-			if (dev->desc->ramdump(enable_ramdumps, dev->desc) < 0)
-				pr_warn("%s[%p]: Ramdump failed.\n", name,
-						current);
-	}
-
-	_send_notification_to_order(restart_list,
-			restart_list_count,
-			SUBSYS_BEFORE_POWERUP);
-
-	for (i = restart_list_count - 1; i >= 0; i--) {
-		const struct subsys_device *dev = restart_list[i];
-		const char *name;
-
-		if (!dev)
-			continue;
-		name = dev->desc->name;
-
-		pr_info("[%p]: Powering up %s\n", current, name);
-
-		if (dev->desc->powerup(dev->desc) < 0)
-			panic("%s[%p]: Failed to powerup %s!", __func__,
-				current, name);
-	}
-
-	_send_notification_to_order(restart_list,
-				restart_list_count,
-				SUBSYS_AFTER_POWERUP);
+	send_notification_to_order(list, count, SUBSYS_BEFORE_POWERUP);
+	for_each_subsys_device(list, count, NULL, subsystem_powerup);
+	send_notification_to_order(list, count, SUBSYS_AFTER_POWERUP);
 
 	pr_info("[%p]: Restart sequence for %s completed.\n",
 			current, desc->name);
