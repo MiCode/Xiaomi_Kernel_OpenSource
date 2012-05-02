@@ -57,6 +57,14 @@
 #define GPIO_SEC_I2S_RX_MCLK 50
 #define I2S_MCLK_RATE 1536000
 
+#define GPIO_MI2S_WS     27
+#define GPIO_MI2S_SCLK   28
+#define GPIO_MI2S_DOUT3  29
+#define GPIO_MI2S_DOUT2  30
+#define GPIO_MI2S_DOUT1  31
+#define GPIO_MI2S_DOUT0  32
+#define GPIO_MI2S_MCLK   33
+
 static struct clk *sec_i2s_rx_osr_clk;
 static struct clk *sec_i2s_rx_bit_clk;
 
@@ -83,6 +91,41 @@ static struct request_gpio sec_i2s_rx_gpio[] = {
 		.gpio_name = "SEC_I2S_RX_DOUT",
 	},
 };
+
+static struct request_gpio mi2s_gpio[] = {
+	{
+		.gpio_no = GPIO_MI2S_WS,
+		.gpio_name = "MI2S_WS",
+	},
+	{
+		.gpio_no = GPIO_MI2S_SCLK,
+		.gpio_name = "MI2S_SCLK",
+	},
+	{
+		.gpio_no = GPIO_MI2S_DOUT3,
+		.gpio_name = "MI2S_DOUT3",
+	},
+	{
+		.gpio_no = GPIO_MI2S_DOUT2,
+		.gpio_name = "MI2S_DOUT2",
+	},
+	{
+		.gpio_no = GPIO_MI2S_DOUT1,
+		.gpio_name = "MI2S_DOUT1",
+	},
+	{
+		.gpio_no = GPIO_MI2S_DOUT0,
+		.gpio_name = "MI2S_DOUT0",
+	},
+	{
+		.gpio_no = GPIO_MI2S_MCLK,
+		.gpio_name = "MI2S_MCLK",
+	},
+};
+
+static struct clk *mi2s_bit_clk;
+
+
 
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
 static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
@@ -815,6 +858,71 @@ static int msm_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_mi2s_free_gpios(void)
+{
+	int	i;
+	for (i = 0; i < ARRAY_SIZE(mi2s_gpio); i++)
+		gpio_free(mi2s_gpio[i].gpio_no);
+	return 0;
+}
+
+static void msm_mi2s_shutdown(struct snd_pcm_substream *substream)
+{
+	if (mi2s_bit_clk) {
+		clk_disable(mi2s_bit_clk);
+		clk_put(mi2s_bit_clk);
+		mi2s_bit_clk = NULL;
+	}
+	msm_mi2s_free_gpios();
+}
+
+static int configure_mi2s_gpio(void)
+{
+	int	rtn;
+	int	i;
+	int	j;
+	for (i = 0; i < ARRAY_SIZE(mi2s_gpio); i++) {
+		rtn = gpio_request(mi2s_gpio[i].gpio_no,
+						   mi2s_gpio[i].gpio_name);
+		pr_debug("%s: gpio = %d, gpio name = %s, rtn = %d\n",
+				 __func__,
+				 mi2s_gpio[i].gpio_no,
+				 mi2s_gpio[i].gpio_name,
+				 rtn);
+		if (rtn) {
+			pr_err("%s: Failed to request gpio %d\n",
+				   __func__,
+				   mi2s_gpio[i].gpio_no);
+			for (j = i; j >= 0; j--)
+				gpio_free(mi2s_gpio[j].gpio_no);
+			goto err;
+		}
+	}
+err:
+	return rtn;
+}
+static int msm_mi2s_startup(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	configure_mi2s_gpio();
+	mi2s_bit_clk = clk_get(cpu_dai->dev, "bit_clk");
+	if (IS_ERR(mi2s_bit_clk))
+		return PTR_ERR(mi2s_bit_clk);
+	clk_set_rate(mi2s_bit_clk, 0);
+	ret = clk_enable(mi2s_bit_clk);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("Unable to enable mi2s_bit_clk\n");
+		clk_put(mi2s_bit_clk);
+		return ret;
+	}
+	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBM_CFM);
+	if (IS_ERR_VALUE(ret))
+		pr_err("set format for CPU dai failed\n");
+	return ret;
+}
+
 static int msm_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -957,6 +1065,12 @@ static struct snd_soc_ops mpq8064_sec_i2s_rx_be_ops = {
 	.shutdown = mpq8064_sec_i2s_rx_shutdown,
 	.hw_params = mpq8064_sec_i2s_rx_hw_params,
 };
+
+static struct snd_soc_ops msm_mi2s_tx_be_ops = {
+	.startup = msm_mi2s_startup,
+	.shutdown = msm_mi2s_shutdown,
+};
+
 
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link msm_dai[] = {
@@ -1141,6 +1255,19 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.no_codec = 1,
 		.be_id = MSM_BACKEND_DAI_HDMI_RX,
 		.be_hw_params_fixup = msm_hdmi_be_hw_params_fixup,
+	},
+	{
+		.name = LPASS_BE_MI2S_TX,
+		.stream_name = "MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6.7",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.no_codec = 1,
+		.be_id = MSM_BACKEND_DAI_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_tx_be_ops,
 	},
 	/* Backend AFE DAI Links */
 	{
