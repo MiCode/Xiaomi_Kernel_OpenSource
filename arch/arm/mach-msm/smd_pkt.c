@@ -833,8 +833,12 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 		r = wait_event_interruptible_timeout(
 				smd_pkt_devp->ch_opened_wait_queue,
 				smd_pkt_devp->is_open, (2 * HZ));
-		if (r == 0)
+		if (r == 0) {
 			r = -ETIMEDOUT;
+			/* close the ch to sync smd's state with smd_pkt */
+			smd_close(smd_pkt_devp->ch);
+			smd_pkt_devp->ch = NULL;
+		}
 
 		if (r < 0) {
 			pr_err("%s: wait on smd_pkt_dev id:%d OPEN event failed"
