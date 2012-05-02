@@ -814,6 +814,7 @@ struct snd_soc_card {
 	struct list_head list;
 	struct mutex mutex;
 	struct mutex dapm_mutex;
+	struct mutex dapm_power_mutex;
 	struct mutex dsp_mutex;
 	spinlock_t dsp_spinlock;
 
