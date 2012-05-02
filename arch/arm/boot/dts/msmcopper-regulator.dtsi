@@ -24,16 +24,16 @@
 			};
 
 			pm8941_s2: regulator@1700 {
-				regulator-min-microvolt = <1300000>;
-				regulator-max-microvolt = <1300000>;
+				regulator-min-microvolt = <2150000>;
+				regulator-max-microvolt = <2150000>;
 				qcom,enable-time = <500>;
 				qcom,pull-down-enable = <1>;
 				status = "okay";
 			};
 
 			pm8941_s3: regulator@1a00 {
-				regulator-min-microvolt = <1300000>;
-				regulator-max-microvolt = <1300000>;
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
 				qcom,enable-time = <500>;
 				qcom,pull-down-enable = <1>;
 				status = "okay";
