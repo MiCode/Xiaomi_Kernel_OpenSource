@@ -581,83 +581,83 @@ static int evb_backlight_control(int level)
 	int i = 0;
 	int remainder;
 	/* device address byte = 0x72 */
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(67);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(33);
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(33);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(67);
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(33);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(67);
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(33);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(67);
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(67);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(33);
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(67);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(33);
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(33);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(67);
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(67);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(33);
 
 	/* t-EOS and t-start */
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	ndelay(4200);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	ndelay(9000);
 
 	/* data byte */
 	/* RFA = 0 */
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(67);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(33);
 
 	/* Address bits */
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(67);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(33);
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	udelay(67);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	udelay(33);
 
 	/* Data bits */
 	for (i = 0; i < 5; i++) {
 		remainder = (level) & (16);
 		if (remainder) {
-			gpio_set_value_cansleep(96, 0);
+			gpio_set_value(96, 0);
 			udelay(33);
-			gpio_set_value_cansleep(96, 1);
+			gpio_set_value(96, 1);
 			udelay(67);
 		} else {
-			gpio_set_value_cansleep(96, 0);
+			gpio_set_value(96, 0);
 			udelay(67);
-			gpio_set_value_cansleep(96, 1);
+			gpio_set_value(96, 1);
 			udelay(33);
 		}
 		level = level << 1;
 	}
 
 	/* t-EOS */
-	gpio_set_value_cansleep(96, 0);
+	gpio_set_value(96, 0);
 	ndelay(12000);
-	gpio_set_value_cansleep(96, 1);
+	gpio_set_value(96, 1);
 	return 0;
 }
 
