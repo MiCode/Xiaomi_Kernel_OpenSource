@@ -1530,7 +1530,7 @@ static int snd_compressed_ioctl(struct snd_pcm_substream *substream,
 	if (PCM_RUNTIME_CHECK(substream))
 		return -ENXIO;
 	runtime = substream->runtime;
-	pr_err("%s called with cmd = %d\n", __func__, cmd);
+	pr_debug("%s called with cmd = %d\n", __func__, cmd);
 	err = substream->ops->ioctl(substream, cmd, arg);
 	return err;
 }

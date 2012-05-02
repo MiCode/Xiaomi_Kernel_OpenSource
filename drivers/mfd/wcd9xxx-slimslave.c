@@ -141,7 +141,7 @@ static int wcd9xxx_alloc_slim_sh_ch_tx(struct wcd9xxx *wcd9xxx,
 	struct wcd9xxx_slim_sch_tx *tx = sh_ch.tx;
 	u16 slave_port_id = 0;
 
-	pr_err("%s: pgd_la[%d]\n", __func__, wcd9xxx_pgd_la);
+	pr_debug("%s: pgd_la[%d]\n", __func__, wcd9xxx_pgd_la);
 	/* DSP requires channel number to be between 128 and 255. For RX port
 	 * use channel numbers from 138 to 144, for TX port
 	 * use channel numbers from 128 to 137
@@ -218,7 +218,7 @@ int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 	struct slim_ch prop;
 
 	/* Configure slave interface device */
-	pr_err("%s: ch_cnt[%d] rate=%d\n", __func__, ch_cnt, rate);
+	pr_debug("%s: ch_cnt[%d] rate=%d\n", __func__, ch_cnt, rate);
 
 	for (i = 0; i < ch_cnt; i++) {
 		idx = (ch_num[i] - BASE_CH_NUM -
@@ -458,7 +458,7 @@ int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 	int ret = 0;
 	struct wcd9xxx_slim_sch_rx *rx = sh_ch.rx;
 
-	pr_err("%s: ch_cnt[%d]\n", __func__, ch_cnt);
+	pr_debug("%s: ch_cnt[%d]\n", __func__, ch_cnt);
 	for (i = 0; i < ch_cnt; i++) {
 		idx = (ch_num[i] - BASE_CH_NUM -
 				SB_PGD_OFFSET_OF_RX_SLAVE_DEV_PORTS - 1);
@@ -498,7 +498,7 @@ int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 	int i = 0 , idx = 0;
 	struct wcd9xxx_slim_sch_tx *tx = sh_ch.tx;
 
-	pr_err("%s: ch_cnt[%d]\n", __func__, ch_cnt);
+	pr_debug("%s: ch_cnt[%d]\n", __func__, ch_cnt);
 	for (i = 0; i < ch_cnt; i++) {
 		idx = (ch_num[i] - BASE_CH_NUM);
 		sph[i] = tx[idx].sph;
