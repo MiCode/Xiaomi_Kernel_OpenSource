@@ -17,7 +17,6 @@
 #include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/fs.h>
-#include <linux/proc_fs.h>
 #include <linux/delay.h>
 #include <linux/list.h>
 #include <linux/io.h>
@@ -26,11 +25,11 @@
 #include <linux/wakelock.h>
 #include <linux/suspend.h>
 #include <linux/mutex.h>
+#include <linux/slab.h>
 
 #include <asm/current.h>
 
 #include <mach/peripheral-loader.h>
-#include <mach/scm.h>
 #include <mach/socinfo.h>
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
@@ -72,8 +71,9 @@ struct subsys_device {
 	void *restart_order;
 };
 
-static int restart_level;
 static int enable_ramdumps;
+module_param(enable_ramdumps, int, S_IRUGO | S_IWUSR);
+
 struct workqueue_struct *ssr_wq;
 
 static LIST_HEAD(restart_log_list);
@@ -135,7 +135,7 @@ static struct subsys_soc_restart_order *restart_orders_8960_sglte[] = {
 static struct subsys_soc_restart_order **restart_orders;
 static int n_restart_orders;
 
-module_param(enable_ramdumps, int, S_IRUGO | S_IWUSR);
+static int restart_level = RESET_SOC;
 
 int get_restart_level()
 {
@@ -158,18 +158,14 @@ static int restart_level_set(const char *val, struct kernel_param *kp)
 		return ret;
 
 	switch (restart_level) {
-
 	case RESET_SOC:
 	case RESET_SUBSYS_COUPLED:
 	case RESET_SUBSYS_INDEPENDENT:
 		pr_info("Phase %d behavior activated.\n", restart_level);
-	break;
-
+		break;
 	default:
 		restart_level = old_val;
 		return -EINVAL;
-	break;
-
 	}
 	return 0;
 }
@@ -295,7 +291,8 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	if (r_work->use_restart_order)
 		soc_restart_order = dev->restart_order;
 
-	/* It's OK to not take the registration lock at this point.
+	/*
+	 * It's OK to not take the registration lock at this point.
 	 * This is because the subsystem list inside the relevant
 	 * restart order is not being traversed.
 	 */
@@ -313,7 +310,8 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 	pr_debug("[%p]: Attempting to get shutdown lock!\n", current);
 
-	/* Try to acquire shutdown_lock. If this fails, these subsystems are
+	/*
+	 * Try to acquire shutdown_lock. If this fails, these subsystems are
 	 * already being restarted - return.
 	 */
 	if (!mutex_trylock(shutdown_lock))
@@ -321,7 +319,8 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 	pr_debug("[%p]: Attempting to get powerup lock!\n", current);
 
-	/* Now that we've acquired the shutdown lock, either we're the first to
+	/*
+	 * Now that we've acquired the shutdown lock, either we're the first to
 	 * restart these subsystems or some other thread is doing the powerup
 	 * sequence for these subsystems. In the latter case, panic and bail
 	 * out, since a subsystem died in its powerup sequence.
@@ -332,9 +331,10 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 	do_epoch_check(dev);
 
-	/* Now it is necessary to take the registration lock. This is because
-	 * the subsystem list in the SoC restart order will be traversed
-	 * and it shouldn't be changed until _this_ restart sequence completes.
+	/*
+	 * It's necessary to take the registration lock because the subsystem
+	 * list in the SoC restart order will be traversed and it shouldn't be
+	 * changed until _this_ restart sequence completes.
 	 */
 	mutex_lock(&soc_order_reg_lock);
 
@@ -363,7 +363,8 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	_send_notification_to_order(restart_list, restart_list_count,
 				SUBSYS_AFTER_SHUTDOWN);
 
-	/* Now that we've finished shutting down these subsystems, release the
+	/*
+	 * Now that we've finished shutting down these subsystems, release the
 	 * shutdown lock. If a subsystem restart request comes in for a
 	 * subsystem in _this_ restart order after the unlock below, and
 	 * before the powerup lock is released, panic and bail out.
@@ -426,7 +427,6 @@ out:
 static void __subsystem_restart_dev(struct subsys_device *dev)
 {
 	struct restart_wq_data *data = NULL;
-	int rc;
 	struct subsys_desc *desc = dev->desc;
 
 	pr_debug("Restarting %s [level=%d]!\n", desc->name, restart_level);
@@ -446,10 +446,7 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 	wake_lock(&data->ssr_wake_lock);
 
 	INIT_WORK(&data->work, subsystem_restart_wq_func);
-	rc = queue_work(ssr_wq, &data->work);
-	if (rc < 0)
-		panic("%s: Unable to schedule work to restart %s (%d).",
-		     __func__, desc->name, rc);
+	queue_work(ssr_wq, &data->work);
 }
 
 int subsystem_restart_dev(struct subsys_device *dev)
@@ -465,15 +462,12 @@ int subsystem_restart_dev(struct subsys_device *dev)
 	case RESET_SUBSYS_INDEPENDENT:
 		__subsystem_restart_dev(dev);
 		break;
-
 	case RESET_SOC:
 		panic("subsys-restart: Resetting the SoC - %s crashed.", name);
 		break;
-
 	default:
 		panic("subsys-restart: Unknown restart level!\n");
-	break;
-
+		break;
 	}
 
 	return 0;
@@ -595,20 +589,12 @@ static int __init ssr_init_soc_restart_orders(void)
 
 static int __init subsys_restart_init(void)
 {
-	int ret = 0;
-
-	restart_level = RESET_SOC;
-
 	ssr_wq = alloc_workqueue("ssr_wq", 0, 0);
-
 	if (!ssr_wq)
 		panic("Couldn't allocate workqueue for subsystem restart.\n");
 
-	ret = ssr_init_soc_restart_orders();
-
-	return ret;
+	return ssr_init_soc_restart_orders();
 }
-
 arch_initcall(subsys_restart_init);
 
 MODULE_DESCRIPTION("Subsystem Restart Driver");
