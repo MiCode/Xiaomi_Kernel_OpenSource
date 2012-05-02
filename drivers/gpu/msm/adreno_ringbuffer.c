@@ -464,8 +464,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (context) {
 		total_sizedwords += 3; /* sop timestamp */
 		total_sizedwords += 4; /* eop timestamp */
+		total_sizedwords += 3; /* global timestamp without cache
+					* flush for non-zero context */
+	} else {
+		total_sizedwords += 4; /* global timestamp for recovery*/
 	}
-	total_sizedwords += 4; /* global timestamp for recovery*/
 
 	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
 	rcmd_gpu = rb->buffer_desc.gpuaddr
@@ -538,14 +541,24 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		GSL_RB_WRITE(ringcmds, rcmd_gpu, (gpuaddr +
 			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp)));
 		GSL_RB_WRITE(ringcmds, rcmd_gpu, timestamp);
-	}
 
-	GSL_RB_WRITE(ringcmds, rcmd_gpu, cp_type3_packet(CP_EVENT_WRITE, 3));
-	GSL_RB_WRITE(ringcmds, rcmd_gpu, CACHE_FLUSH_TS);
-	GSL_RB_WRITE(ringcmds, rcmd_gpu, (gpuaddr +
-		      KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-			      eoptimestamp)));
-	GSL_RB_WRITE(ringcmds, rcmd_gpu, rb->timestamp[KGSL_MEMSTORE_GLOBAL]);
+		GSL_RB_WRITE(ringcmds, rcmd_gpu,
+			cp_type3_packet(CP_MEM_WRITE, 2));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, (gpuaddr +
+			      KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+				      eoptimestamp)));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu,
+			rb->timestamp[KGSL_MEMSTORE_GLOBAL]);
+	} else {
+		GSL_RB_WRITE(ringcmds, rcmd_gpu,
+			cp_type3_packet(CP_EVENT_WRITE, 3));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, CACHE_FLUSH_TS);
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, (gpuaddr +
+			      KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+				      eoptimestamp)));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu,
+			rb->timestamp[KGSL_MEMSTORE_GLOBAL]);
+	}
 
 	if (!(flags & KGSL_CMD_FLAGS_NO_TS_CMP)) {
 		/* Conditional execution based on memory values */
