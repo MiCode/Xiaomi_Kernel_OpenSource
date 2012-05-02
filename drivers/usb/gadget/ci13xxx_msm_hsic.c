@@ -283,6 +283,12 @@ static int msm_hsic_reset(struct msm_hsic_per *mhsic)
 	return 0;
 }
 
+static void msm_hsic_wakeup(void)
+{
+	if (atomic_read(&the_mhsic->in_lpm))
+		pm_runtime_resume(the_mhsic->dev);
+}
+
 static void msm_hsic_start(void)
 {
 	int ret;
@@ -579,6 +585,10 @@ static void ci13xxx_msm_hsic_notify_event(struct ci13xxx *udc, unsigned event)
 	case CI13XXX_CONTROLLER_SUSPEND_EVENT:
 		dev_dbg(dev, "CI13XXX_CONTROLLER_SUSPEND_EVENT received\n");
 		queue_work(mhsic->wq, &mhsic->suspend_w);
+		break;
+	case CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT:
+		dev_dbg(dev, "CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT received\n");
+		msm_hsic_wakeup();
 		break;
 	default:
 		dev_dbg(dev, "unknown ci13xxx_udc event\n");

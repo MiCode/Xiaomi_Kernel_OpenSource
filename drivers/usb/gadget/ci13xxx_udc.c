@@ -1476,6 +1476,15 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 		dbg_trace("remote wakeup feature is not enabled\n");
 		goto out;
 	}
+	spin_unlock_irqrestore(udc->lock, flags);
+
+	udc->udc_driver->notify_event(udc,
+		CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT);
+
+	if (udc->transceiver)
+		otg_set_suspend(udc->transceiver, 0);
+
+	spin_lock_irqsave(udc->lock, flags);
 	if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
 		ret = -EINVAL;
 		dbg_trace("port is not suspended\n");
