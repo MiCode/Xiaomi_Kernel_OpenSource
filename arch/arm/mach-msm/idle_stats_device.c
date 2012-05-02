@@ -103,9 +103,10 @@ static void msm_idle_stats_add_sample(struct msm_idle_stats_device *device,
 {
 	hrtimer_cancel(&device->busy_timer);
 	hrtimer_set_expires(&device->busy_timer, us_to_ktime(0));
-	if (device->stats->nr_collected >= device->max_samples)
-		return;
-
+	if (device->stats->nr_collected >= MSM_IDLE_STATS_NR_MAX_INTERVALS) {
+		pr_warning("idle_stats_device: Overwriting samples\n");
+		device->stats->nr_collected = 0;
+	}
 	device->stats->pulse_chain[device->stats->nr_collected] = *pulse;
 	device->stats->nr_collected++;
 
