@@ -343,26 +343,30 @@ EXPORT_SYMBOL(kgsl_mmu_get_ptname_from_ptbase);
 
 int kgsl_mmu_init(struct kgsl_device *device)
 {
+	int status = 0;
 	struct kgsl_mmu *mmu = &device->mmu;
 
 	mmu->device = device;
+	status = kgsl_allocate_contiguous(&mmu->setstate_memory, PAGE_SIZE);
+	if (status)
+		return status;
+	kgsl_sharedmem_set(&mmu->setstate_memory, 0, 0,
+				mmu->setstate_memory.size);
 
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type) {
-		int status = 0;
-		status = kgsl_allocate_contiguous(&mmu->setstate_memory, 64);
-		if (!status) {
-			kgsl_sharedmem_set(&mmu->setstate_memory, 0, 0,
-					mmu->setstate_memory.size);
-			dev_info(device->dev, "|%s| MMU type set for device is "
+		dev_info(device->dev, "|%s| MMU type set for device is "
 				"NOMMU\n", __func__);
-		}
-		return status;
+		goto done;
 	} else if (KGSL_MMU_TYPE_GPU == kgsl_mmu_type)
 		mmu->mmu_ops = &gpummu_ops;
 	else if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type)
 		mmu->mmu_ops = &iommu_ops;
 
-	return mmu->mmu_ops->mmu_init(mmu);
+	status =  mmu->mmu_ops->mmu_init(mmu);
+done:
+	if (status)
+		kgsl_sharedmem_free(&mmu->setstate_memory);
+	return status;
 }
 EXPORT_SYMBOL(kgsl_mmu_init);
 
@@ -734,12 +738,11 @@ int kgsl_mmu_close(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
 
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
-		kgsl_sharedmem_free(&mmu->setstate_memory);
+	kgsl_sharedmem_free(&mmu->setstate_memory);
+	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
 		return 0;
-	} else {
+	else
 		return mmu->mmu_ops->mmu_close(mmu);
-	}
 }
 EXPORT_SYMBOL(kgsl_mmu_close);
 
