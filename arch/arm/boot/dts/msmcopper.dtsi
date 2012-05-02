@@ -75,30 +75,50 @@
 		qcom,hsusb-otg-otg-control = <1>;
 	};
 
-	qcom,sdcc@f980b000 {
+	qcom,sdcc@f9824000 {
 		cell-index = <1>;
 		compatible = "qcom,msm-sdcc";
-		reg = <0xf980b000 0x1000>;
+		reg = <0xf9824000 0x1000>;
 		interrupts = <0 123 0>;
 
-		qcom,sdcc-clk-rates = <400000 25000000 50000000 96000000 192000000>;
-		qcom,sdcc-sup-voltages = <3300 3300>;
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,sdcc-sup-voltages = <2950 2950>;
 		qcom,sdcc-bus-width = <8>;
 		qcom,sdcc-hs200;
 		qcom,sdcc-nonremovable;
-		qcom,sdcc-disable_cmd23;
 	};
 
-	qcom,sdcc@f984b000 {
+	qcom,sdcc@f98a4000 {
+		cell-index = <2>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf98a4000 0x1000>;
+		interrupts = <0 125 0>;
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,sdcc-sup-voltages = <2950 2950>;
+		qcom,sdcc-bus-width = <4>;
+	};
+
+	qcom,sdcc@f9864000 {
 		cell-index = <3>;
 		compatible = "qcom,msm-sdcc";
-		reg = <0xf984b000 0x1000>;
+		reg = <0xf9864000 0x1000>;
 		interrupts = <0 127 0>;
 
-		qcom,sdcc-clk-rates = <400000 25000000 50000000>;
-		qcom,sdcc-sup-voltages = <3300 3300>;
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
+		qcom,sdcc-sup-voltages = <1800 1800>;
 		qcom,sdcc-bus-width = <4>;
-		qcom,sdcc-disable_cmd23;
+	};
+
+	qcom,sdcc@f98e4000 {
+		cell-index = <4>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf98e4000 0x1000>;
+		interrupts = <0 129 0>;
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
+		qcom,sdcc-sup-voltages = <1800 1800>;
+		qcom,sdcc-bus-width = <4>;
 	};
 
 	qcom,sps@f9980000 {
