@@ -1,7 +1,7 @@
 /* linux/include/asm-arm/arch-msm/dma.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -255,10 +255,10 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #endif
 
 /* channels for APQ8064 */
-#define DMOV8064_CE_IN_CHAN        2
+#define DMOV8064_CE_IN_CHAN        0
 #define DMOV8064_CE_IN_CRCI       14
 
-#define DMOV8064_CE_OUT_CHAN       3
+#define DMOV8064_CE_OUT_CHAN       1
 #define DMOV8064_CE_OUT_CRCI       15
 
 
