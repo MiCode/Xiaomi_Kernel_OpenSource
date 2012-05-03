@@ -31,14 +31,14 @@
 	};
 
 	qcom,sdcc@f9824000 {
-		status = "disable";
-	};
+                qcom,sdcc-clk-rates = <400000 19200000>;
+        };
+
+        qcom,sdcc@f98a4000 {
+                qcom,sdcc-clk-rates = <400000 19200000>;
+        };
 
 	qcom,sdcc@f9864000 {
-		status = "disable";
-	};
-
-	qcom,sdcc@f98a4000 {
 		status = "disable";
 	};
 
