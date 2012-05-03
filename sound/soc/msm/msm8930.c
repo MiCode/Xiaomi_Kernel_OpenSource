@@ -55,7 +55,24 @@ static int msm8930_headset_gpios_configured;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
-static void *sitar_mbhc_cal;
+
+static int msm8930_enable_codec_ext_clk(
+		struct snd_soc_codec *codec, int enable,
+		bool dapm);
+
+static struct sitar_mbhc_config mbhc_cfg = {
+	.headset_jack = &hs_jack,
+	.button_jack = &button_jack,
+	.read_fw_bin = false,
+	.calibration = NULL,
+	.micbias = SITAR_MICBIAS2,
+	.mclk_cb_fn = msm8930_enable_codec_ext_clk,
+	.mclk_rate = SITAR_EXT_CLK_RATE,
+	.gpio = 0,
+	.gpio_irq = 0,
+	.gpio_level_insert = 1,
+};
+
 
 static void msm8930_ext_control(struct snd_soc_codec *codec)
 {
@@ -102,8 +119,9 @@ static int msm8930_spkramp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-int msm8930_enable_codec_ext_clk(
-		struct snd_soc_codec *codec, int enable)
+static int msm8930_enable_codec_ext_clk(
+		struct snd_soc_codec *codec, int enable,
+		bool dapm)
 {
 	pr_debug("%s: enable = %d\n", __func__, enable);
 	if (enable) {
@@ -115,7 +133,7 @@ int msm8930_enable_codec_ext_clk(
 		if (codec_clk) {
 			clk_set_rate(codec_clk, SITAR_EXT_CLK_RATE);
 			clk_prepare_enable(codec_clk);
-			sitar_mclk_enable(codec, 1);
+			sitar_mclk_enable(codec, 1, dapm);
 		} else {
 			pr_err("%s: Error setting Sitar MCLK\n", __func__);
 			clk_users--;
@@ -129,7 +147,7 @@ int msm8930_enable_codec_ext_clk(
 		if (!clk_users) {
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
-			sitar_mclk_enable(codec, 0);
+			sitar_mclk_enable(codec, 0, dapm);
 			clk_disable_unprepare(codec_clk);
 		}
 	}
@@ -143,9 +161,9 @@ static int msm8930_mclk_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		return msm8930_enable_codec_ext_clk(w->codec, 1);
+		return msm8930_enable_codec_ext_clk(w->codec, 1, true);
 	case SND_SOC_DAPM_POST_PMD:
-		return msm8930_enable_codec_ext_clk(w->codec, 0);
+		return msm8930_enable_codec_ext_clk(w->codec, 0, true);
 	}
 	return 0;
 }
@@ -519,6 +537,10 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return err;
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+
+	mbhc_cfg.gpio = 37;
+	mbhc_cfg.gpio_irq = gpio_to_irq(mbhc_cfg.gpio);
+	sitar_hs_detect(codec, &mbhc_cfg);
 
 	return 0;
 }
@@ -978,8 +1000,8 @@ static int __init msm8930_audio_init(void)
 		pr_err("%s: Not the right machine type\n", __func__);
 		return -ENODEV ;
 	}
-	sitar_mbhc_cal = def_sitar_mbhc_cal();
-	if (!sitar_mbhc_cal) {
+	mbhc_cfg.calibration = def_sitar_mbhc_cal();
+	if (!mbhc_cfg.calibration) {
 		pr_err("Calibration data allocation failed\n");
 		return -ENOMEM;
 	}
@@ -987,7 +1009,7 @@ static int __init msm8930_audio_init(void)
 	msm8930_snd_device = platform_device_alloc("soc-audio", 0);
 	if (!msm8930_snd_device) {
 		pr_err("Platform device allocation failed\n");
-		kfree(sitar_mbhc_cal);
+		kfree(mbhc_cfg.calibration);
 		return -ENOMEM;
 	}
 
@@ -995,7 +1017,7 @@ static int __init msm8930_audio_init(void)
 	ret = platform_device_add(msm8930_snd_device);
 	if (ret) {
 		platform_device_put(msm8930_snd_device);
-		kfree(sitar_mbhc_cal);
+		kfree(mbhc_cfg.calibration);
 		return ret;
 	}
 
@@ -1018,7 +1040,7 @@ static void __exit msm8930_audio_exit(void)
 	}
 	msm8930_free_headset_mic_gpios();
 	platform_device_unregister(msm8930_snd_device);
-	kfree(sitar_mbhc_cal);
+	kfree(mbhc_cfg.calibration);
 }
 module_exit(msm8930_audio_exit);
 

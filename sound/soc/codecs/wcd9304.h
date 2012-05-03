@@ -156,12 +156,29 @@ struct sitar_mbhc_imped_detect_cfg {
 	u16 _beta[3];
 } __packed;
 
+struct sitar_mbhc_config {
+	struct snd_soc_jack *headset_jack;
+	struct snd_soc_jack *button_jack;
+	bool read_fw_bin;
+	/* void* calibration contains:
+	 *  struct tabla_mbhc_general_cfg generic;
+	 *  struct tabla_mbhc_plug_detect_cfg plug_det;
+	 *  struct tabla_mbhc_plug_type_cfg plug_type;
+	 *  struct tabla_mbhc_btn_detect_cfg btn_det;
+	 *  struct tabla_mbhc_imped_detect_cfg imped_det;
+	 * Note: various size depends on btn_det->num_btn
+	 */
+	void *calibration;
+	enum sitar_micbias_num micbias;
+	int (*mclk_cb_fn) (struct snd_soc_codec*, int, bool);
+	unsigned int mclk_rate;
+	unsigned int gpio;
+	unsigned int gpio_irq;
+	int gpio_level_insert;
+};
+
 extern int sitar_hs_detect(struct snd_soc_codec *codec,
-			   struct snd_soc_jack *headset_jack,
-			   struct snd_soc_jack *button_jack,
-			   void *calibration, enum sitar_micbias_num micbis,
-			   int (*mclk_cb_fn) (struct snd_soc_codec*, int),
-			   int read_fw_bin, u32 mclk_rate);
+			const struct sitar_mbhc_config *cfg);
 
 #ifndef anc_header_dec
 struct anc_header {
@@ -171,7 +188,8 @@ struct anc_header {
 #define anc_header_dec
 #endif
 
-extern int sitar_mclk_enable(struct snd_soc_codec *codec, int mclk_enable);
+extern int sitar_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
+							 bool dapm);
 
 extern void *sitar_mbhc_cal_btn_det_mp(const struct sitar_mbhc_btn_detect_cfg
 				       *btn_det,
