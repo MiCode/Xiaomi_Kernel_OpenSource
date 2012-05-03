@@ -82,6 +82,25 @@
 #define MSM_HSUSB4_PHYS		0x12530000
 #define MSM_HSUSB4_SIZE		SZ_4K
 
+/* Address of PCIE20 PARF */
+#define PCIE20_PARF_PHYS   0x1b600000
+#define PCIE20_PARF_SIZE   SZ_128
+
+/* Address of PCIE20 ELBI */
+#define PCIE20_ELBI_PHYS   0x1b502000
+#define PCIE20_ELBI_SIZE   SZ_256
+
+/* Address of PCIE20 */
+#define PCIE20_PHYS   0x1b500000
+#define PCIE20_SIZE   SZ_4K
+
+/* AXI address for PCIE device BAR resources */
+#define PCIE_AXI_BAR_PHYS   0x08000000
+#define PCIE_AXI_BAR_SIZE   SZ_8M
+
+/* AXI address for PCIE device config space */
+#define PCIE_AXI_CONF_PHYS   0x08c00000
+#define PCIE_AXI_CONF_SIZE   SZ_4K
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
@@ -1516,6 +1535,46 @@ struct platform_device msm_device_smd_apq8064 = {
 	.dev = {
 		.platform_data = &smd_platform_data,
 	},
+};
+
+static struct resource resources_msm_pcie[] = {
+	{
+		.name   = "parf",
+		.start  = PCIE20_PARF_PHYS,
+		.end    = PCIE20_PARF_PHYS + PCIE20_PARF_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "elbi",
+		.start  = PCIE20_ELBI_PHYS,
+		.end    = PCIE20_ELBI_PHYS + PCIE20_ELBI_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "pcie20",
+		.start  = PCIE20_PHYS,
+		.end    = PCIE20_PHYS + PCIE20_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "axi_bar",
+		.start  = PCIE_AXI_BAR_PHYS,
+		.end    = PCIE_AXI_BAR_PHYS + PCIE_AXI_BAR_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "axi_conf",
+		.start  = PCIE_AXI_CONF_PHYS,
+		.end    = PCIE_AXI_CONF_PHYS + PCIE_AXI_CONF_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_device_pcie = {
+	.name           = "msm_pcie",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(resources_msm_pcie),
+	.resource       = resources_msm_pcie,
 };
 
 #ifdef CONFIG_HW_RANDOM_MSM

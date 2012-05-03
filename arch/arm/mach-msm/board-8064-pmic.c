@@ -127,6 +127,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	/* TABLA CODEC RESET */
 	PM8921_GPIO_OUTPUT(34, 1, MED),
 	PM8921_GPIO_INPUT(31, PM_GPIO_PULL_NO),
+	PM8921_GPIO_OUTPUT(13, 0, HIGH),               /* PCIE_CLK_PWR_EN */
 };
 
 static struct pm8xxx_gpio_init pm8921_mtp_kp_gpios[] __initdata = {
@@ -146,6 +147,8 @@ static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
 	PM8921_MPP_INIT(8, D_OUTPUT, PM8921_MPP_DIG_LEVEL_S4, DOUT_CTRL_LOW),
 	/*MPP9 is used to detect docking station connection/removal on Liquid*/
 	PM8921_MPP_INIT(9, D_INPUT, PM8921_MPP_DIG_LEVEL_S4, DIN_TO_INT),
+	/* PCIE_RESET_N */
+	PM8921_MPP_INIT(1, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_HIGH),
 };
 
 void __init apq8064_pm8xxx_gpio_mpp_init(void)

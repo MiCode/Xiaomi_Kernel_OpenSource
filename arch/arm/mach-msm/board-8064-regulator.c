@@ -157,6 +157,8 @@ VREG_CONSUMERS(S3) = {
 	REGULATOR_SUPPLY("HSUSB_VDDCX",		"msm_ehci_host.1"),
 	REGULATOR_SUPPLY("HSIC_VDDCX",		"msm_hsic_host"),
 	REGULATOR_SUPPLY("riva_vddcx",		"wcnss_wlan.0"),
+	REGULATOR_SUPPLY("vp_pcie",             "msm_pcie"),
+	REGULATOR_SUPPLY("vptx_pcie",           "msm_pcie"),
 };
 VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("8921_s4",		NULL),
@@ -213,6 +215,7 @@ VREG_CONSUMERS(LVS5) = {
 };
 VREG_CONSUMERS(LVS6) = {
 	REGULATOR_SUPPLY("8921_lvs6",		NULL),
+	REGULATOR_SUPPLY("vdd_pcie_vph",        "msm_pcie"),
 };
 VREG_CONSUMERS(LVS7) = {
 	REGULATOR_SUPPLY("8921_lvs7",		NULL),
@@ -256,6 +259,7 @@ VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("lvds_vccs_3p3v",      "lvds.0"),
 	REGULATOR_SUPPLY("dsi1_vccs_3p3v",      "mipi_dsi.1"),
 	REGULATOR_SUPPLY("hdmi_mux_vdd",        "hdmi_msm.0"),
+	REGULATOR_SUPPLY("pcie_ext_3p3v",       "msm_pcie"),
 };
 VREG_CONSUMERS(EXT_TS_SW) = {
 	REGULATOR_SUPPLY("ext_ts_sw",		NULL),
