@@ -12,12 +12,16 @@
 
 #include <mach/qpnp.h>
 
+#define QPNP_GPIO_DIR_IN			0
 #define QPNP_GPIO_DIR_OUT			1
-#define QPNP_GPIO_DIR_IN			2
-#define QPNP_GPIO_DIR_BOTH	(QPNP_GPIO_DIR_OUT | QPNP_GPIO_DIR_IN)
+#define QPNP_GPIO_DIR_BOTH			2
 
-#define QPNP_GPIO_OUT_BUF_OPEN_DRAIN		1
+#define QPNP_GPIO_INVERT_DISABLE		0
+#define QPNP_GPIO_INVERT_ENABLE			1
+
 #define QPNP_GPIO_OUT_BUF_CMOS			0
+#define QPNP_GPIO_OUT_BUF_OPEN_DRAIN_NMOS	1
+#define QPNP_GPIO_OUT_BUF_OPEN_DRAIN_PMOS	2
 
 #define QPNP_GPIO_VIN0				0
 #define QPNP_GPIO_VIN1				1
@@ -39,14 +43,17 @@
 #define QPNP_GPIO_OUT_STRENGTH_MED		2
 #define QPNP_GPIO_OUT_STRENGTH_HIGH		3
 
-#define QPNP_GPIO_FUNC_NORMAL			0
-#define QPNP_GPIO_FUNC_PAIRED			1
-#define QPNP_GPIO_FUNC_1			2
-#define QPNP_GPIO_FUNC_2			3
-#define QPNP_GPIO_DTEST1			4
-#define QPNP_GPIO_DTEST2			5
-#define QPNP_GPIO_DTEST3			6
-#define QPNP_GPIO_DTEST4			7
+#define QPNP_GPIO_SRC_FUNC_NORMAL		0
+#define QPNP_GPIO_SRC_FUNC_PAIRED		1
+#define QPNP_GPIO_SRC_FUNC_1			2
+#define QPNP_GPIO_SRC_FUNC_2			3
+#define QPNP_GPIO_SRC_DTEST1			4
+#define QPNP_GPIO_SRC_DTEST2			5
+#define QPNP_GPIO_SRC_DTEST3			6
+#define QPNP_GPIO_SRC_DTEST4			7
+
+#define QPNP_GPIO_MASTER_DISABLE		0
+#define QPNP_GPIO_MASTER_ENABLE			1
 
 /**
  * struct qpnp_gpio_cfg - structure to specify gpio configurtion values
@@ -54,7 +61,8 @@
  *			both. Should be of the type QPNP_GPIO_DIR_*
  * @output_type:	indicates gpio should be configured as CMOS or open
  *			drain. Should be of the type QPNP_GPIO_OUT_BUF_*
- * @output_value:	The gpio output value of the gpio line - 0 or 1
+ * @invert:		Invert the signal of the gpio line -
+ *			QPNP_GPIO_INVERT_DISABLE or QPNP_GPIO_INVERT_ENABLE
  * @pull:		Indicates whether a pull up or pull down should be
  *			applied. If a pullup is required the current strength
  *			needs to be specified. Current values of 30uA, 1.5uA,
@@ -68,21 +76,22 @@
  * @source_sel:		choose alternate function for the gpio. Certain gpios
  *			can be paired (shorted) with each other. Some gpio pin
  *			can act as alternate functions. This parameter should
- *			be of type QPNP_GPIO_FUNC_*
- * @master_en:		1 = Enable features within the GPIO block based on
- *			configurations.
- *			0 = Completely disable the GPIO block and let the pin
- *			float with high impedance regardless of other settings.
+ *			be of type QPNP_GPIO_SRC_*.
+ * @master_en:		QPNP_GPIO_MASTER_ENABLE = Enable features within the
+ *			GPIO block based on configurations.
+ *			QPNP_GPIO_MASTER_DISABLE = Completely disable the GPIO
+ *			block and let the pin float with high impedance
+ *			regardless of other settings.
  */
 struct qpnp_gpio_cfg {
-	int		direction;
-	int		output_type;
-	int		output_value;
-	int		pull;
-	int		vin_sel;
-	int		out_strength;
-	int		src_select;
-	int		master_en;
+	unsigned int direction;
+	unsigned int output_type;
+	unsigned int invert;
+	unsigned int pull;
+	unsigned int vin_sel;
+	unsigned int out_strength;
+	unsigned int src_select;
+	unsigned int master_en;
 };
 
 /**
