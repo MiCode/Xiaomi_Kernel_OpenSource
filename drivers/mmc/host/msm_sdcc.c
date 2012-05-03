@@ -150,6 +150,7 @@ static inline void msmsdcc_delay(struct msmsdcc_host *host);
 static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host);
 static void msmsdcc_sg_start(struct msmsdcc_host *host);
 static int msmsdcc_vreg_reset(struct msmsdcc_host *host);
+static int msmsdcc_runtime_resume(struct device *dev);
 
 static inline unsigned short msmsdcc_get_nr_sg(struct msmsdcc_host *host)
 {
@@ -2831,14 +2832,22 @@ static void msmsdcc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 #ifdef CONFIG_PM_RUNTIME
 static int msmsdcc_enable(struct mmc_host *mmc)
 {
-	int rc;
+	int rc = 0;
 	struct device *dev = mmc->parent;
 	struct msmsdcc_host *host = mmc_priv(mmc);
 
 	msmsdcc_pm_qos_update_latency(host, 1);
 
-	if (mmc->card && mmc_card_sdio(mmc->card) && host->is_resumed)
+	if (mmc->card && mmc_card_sdio(mmc->card))
 		return 0;
+
+	if (host->sdcc_suspended && host->pending_resume &&
+			!pm_runtime_suspended(dev)) {
+		host->pending_resume = false;
+		pm_runtime_get_noresume(dev);
+		rc = msmsdcc_runtime_resume(dev);
+		goto out;
+	}
 
 	if (dev->power.runtime_status == RPM_SUSPENDING) {
 		if (mmc->suspend_task == current) {
@@ -2849,14 +2858,13 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 
 	rc = pm_runtime_get_sync(dev);
 
+out:
 	if (rc < 0) {
 		pr_info("%s: %s: failed with error %d", mmc_hostname(mmc),
 				__func__, rc);
 		return rc;
 	}
 
-	host->is_resumed = true;
-out:
 	return 0;
 }
 
@@ -2875,21 +2883,38 @@ static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
 
 	rc = pm_runtime_put_sync(mmc->parent);
 
-	if (rc < 0)
+	/*
+	 * Ignore -EAGAIN as that is not fatal, it means that
+	 * either runtime usage count is non-zero or the runtime
+	 * pm itself is disabled or not in proper state to process
+	 * idle notification.
+	 */
+	if (rc < 0 && (rc != -EAGAIN)) {
 		pr_info("%s: %s: failed with error %d", mmc_hostname(mmc),
 				__func__, rc);
-	else
-		host->is_resumed = false;
+		return rc;
+	}
 
-	return rc;
+	return 0;
 }
 #else
 static int msmsdcc_enable(struct mmc_host *mmc)
 {
+	struct device *dev = mmc->parent;
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
+	int rc;
 
 	msmsdcc_pm_qos_update_latency(host, 1);
+
+	if (mmc->card && mmc_card_sdio(mmc->card))
+		return 0;
+
+	if (host->sdcc_suspended && host->pending_resume) {
+		host->pending_resume = false;
+		rc = msmsdcc_runtime_resume(dev);
+		goto out;
+	}
 
 	mutex_lock(&host->clk_mutex);
 	spin_lock_irqsave(&host->lock, flags);
@@ -2901,6 +2926,13 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
 	mutex_unlock(&host->clk_mutex);
+
+out:
+	if (rc < 0) {
+		pr_info("%s: %s: failed with error %d", mmc_hostname(mmc),
+				__func__, rc);
+		return rc;
+	}
 
 	return 0;
 }
@@ -5157,23 +5189,8 @@ static int msmsdcc_pm_suspend(struct device *dev)
 	if (host->plat->status_irq)
 		disable_irq(host->plat->status_irq);
 
-	if (!pm_runtime_suspended(dev)) {
-		if (!(mmc->card && mmc_card_sdio(mmc->card))) {
-			/*
-			 * decrement power.usage_counter if it's
-			 * not zero earlier
-			 */
-			pm_runtime_put_noidle(dev);
-			rc = pm_runtime_suspend(dev);
-		}
-
-		/*
-		 * if device runtime PM status is still not suspended
-		 * then perform suspend here.
-		 */
-		if (!pm_runtime_suspended(dev))
-			rc = msmsdcc_runtime_suspend(dev);
-	}
+	if (!pm_runtime_suspended(dev))
+		rc = msmsdcc_runtime_suspend(dev);
 
 	return rc;
 }
@@ -5211,8 +5228,11 @@ static int msmsdcc_pm_resume(struct device *dev)
 	if (host->plat->is_sdio_al_client)
 		return 0;
 
-	if (!pm_runtime_suspended(dev))
+	if (mmc->card && mmc_card_sdio(mmc->card))
 		rc = msmsdcc_runtime_resume(dev);
+	else
+		host->pending_resume = true;
+
 	if (host->plat->status_irq) {
 		msmsdcc_check_status((unsigned long)host);
 		enable_irq(host->plat->status_irq);
@@ -5222,12 +5242,30 @@ static int msmsdcc_pm_resume(struct device *dev)
 }
 
 #else
-#define msmsdcc_runtime_suspend NULL
-#define msmsdcc_runtime_resume NULL
-#define msmsdcc_runtime_idle NULL
-#define msmsdcc_pm_suspend NULL
-#define msmsdcc_pm_resume NULL
-#define msmsdcc_suspend_noirq NULL
+static int msmsdcc_runtime_suspend(struct device *dev)
+{
+	return 0;
+}
+static int msmsdcc_runtime_idle(struct device *dev)
+{
+	return 0;
+}
+static int msmsdcc_pm_suspend(struct device *dev)
+{
+	return 0;
+}
+static int msmsdcc_pm_resume(struct device *dev)
+{
+	return 0;
+}
+static int msmsdcc_suspend_noirq(struct device *dev)
+{
+	return 0;
+}
+static int msmsdcc_runtime_resume(struct device *dev)
+{
+	return 0;
+}
 #endif
 
 static const struct dev_pm_ops msmsdcc_dev_pm_ops = {

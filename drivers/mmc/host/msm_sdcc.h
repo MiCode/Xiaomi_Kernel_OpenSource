@@ -384,7 +384,6 @@ struct msmsdcc_host {
 	unsigned int	dummy_52_needed;
 	unsigned int	dummy_52_sent;
 
-	bool		is_resumed;
 	struct wake_lock	sdio_wlock;
 	struct wake_lock	sdio_suspend_wlock;
 	struct timer_list req_tout_timer;
@@ -401,6 +400,7 @@ struct msmsdcc_host {
 	bool sdcc_suspended;
 	bool sdio_wakeupirq_disabled;
 	struct mutex clk_mutex;
+	bool pending_resume;
 };
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);
