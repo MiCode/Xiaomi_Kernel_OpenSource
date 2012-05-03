@@ -274,6 +274,19 @@
 		krait1-supply = <&krait1_vreg>;
 		krait2-supply = <&krait2_vreg>;
 		krait3-supply = <&krait3_vreg>;
+		krait0_mem-supply = <&pm8841_s1_ao>;
+		krait1_mem-supply = <&pm8841_s1_ao>;
+		krait2_mem-supply = <&pm8841_s1_ao>;
+		krait3_mem-supply = <&pm8841_s1_ao>;
+		krait0_dig-supply = <&pm8841_s2_corner_ao>;
+		krait1_dig-supply = <&pm8841_s2_corner_ao>;
+		krait2_dig-supply = <&pm8841_s2_corner_ao>;
+		krait3_dig-supply = <&pm8841_s2_corner_ao>;
+		krait0_hfpll-supply = <&pm8941_l12_ao>;
+		krait1_hfpll-supply = <&pm8941_l12_ao>;
+		krait2_hfpll-supply = <&pm8941_l12_ao>;
+		krait3_hfpll-supply = <&pm8941_l12_ao>;
+		l2_hfpll-supply = <&pm8941_l12_ao>;
 	};
 
 	qcom,ssusb@F9200000 {
