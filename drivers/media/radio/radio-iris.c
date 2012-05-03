@@ -963,7 +963,8 @@ static int hci_def_data_write_req(struct radio_hci_dev *hdev,
 
 	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
 		HCI_OCF_FM_DEFAULT_DATA_WRITE);
-	return radio_hci_send_cmd(hdev, opcode, sizeof((*def_data_wr)),
+
+	return radio_hci_send_cmd(hdev, opcode, (def_data_wr->length+2),
 	def_data_wr);
 }
 
@@ -2470,7 +2471,7 @@ static int iris_do_calibration(struct iris_device *radio)
 			radio->fm_hdev);
 	if (retval < 0)
 		FMDERR("Disable Failed after calibration %d", retval);
-		return retval;
+	return retval;
 }
 static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 		struct v4l2_control *ctrl)
@@ -2726,10 +2727,44 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_WRITE_DEFAULT:
 		data = (ctrl->controls[0]).string;
 		memset(&default_data, 0, sizeof(default_data));
-		if (copy_from_user(&default_data, data, sizeof(default_data)))
+		/*
+		 * Check if length of the 'FM Default Data' to be sent
+		 * is within the maximum  'FM Default Data' packet limit.
+		 * Max. 'FM Default Data' packet length is 251 bytes:
+		 *	1 byte    - XFR Mode
+		 *	1 byte    - length of the default data
+		 *	249 bytes - actual data to be configured
+		 */
+		if (ctrl->controls[0].size > (DEFAULT_DATA_SIZE + 2)) {
+			pr_err("%s: Default data buffer overflow!\n", __func__);
+			return -EINVAL;
+		}
+
+		/* copy only 'size' bytes of data as requested by user */
+		retval = copy_from_user(&default_data, data,
+			ctrl->controls[0].size);
+		if (retval > 0) {
+			pr_err("%s: Failed to copy %d bytes of default data"
+				" passed by user\n", __func__, retval);
 			return -EFAULT;
+		}
+		FMDBG("%s: XFR Mode\t: 0x%x\n", __func__, default_data.mode);
+		FMDBG("%s: XFR Data Length\t: %d\n", __func__,
+			default_data.length);
+		/*
+		 * Check if the 'length' of the actual XFR data to be configured
+		 * is valid or not. Length of actual XFR data should be always
+		 * 2 bytes less than the total length of the 'FM Default Data'.
+		 * Length of 'FM Default Data' DEF_DATA_LEN: (1+1+XFR Data Size)
+		 * Length of 'Actual XFR Data' XFR_DATA_LEN: (DEF_DATA_LEN - 2)
+		 */
+		if (default_data.length != (ctrl->controls[0].size - 2)) {
+			pr_err("%s: Invalid 'length' parameter passed for "
+				"actual xfr data\n", __func__);
+			return -EINVAL;
+		}
 		retval = hci_def_data_write(&default_data, radio->fm_hdev);
-			break;
+		break;
 	case V4L2_CID_PRIVATE_IRIS_SET_CALIBRATION:
 		data = (ctrl->controls[0]).string;
 		bytes_to_copy = (ctrl->controls[0]).size;
