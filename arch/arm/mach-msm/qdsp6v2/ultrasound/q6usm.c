@@ -21,7 +21,7 @@
 #include "q6usm.h"
 
 /* The driver version*/
-#define DRV_VERSION "1.1"
+#define DRV_VERSION "1.2"
 
 #define SESSION_MAX 0x02 /* aDSP:USM limit */
 
@@ -38,7 +38,7 @@
 #define WRITEDONE_IDX_STATUS    0
 
 /* Standard timeout in the asynchronous ops */
-#define Q6USM_TIMEOUT_JIFFIES	(3*HZ) /* 3 sec */
+#define Q6USM_TIMEOUT_JIFFIES	(1*HZ) /* 1 sec */
 
 static DEFINE_MUTEX(session_lock);
 
