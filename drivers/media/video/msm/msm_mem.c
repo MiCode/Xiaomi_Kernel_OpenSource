@@ -346,14 +346,15 @@ uint8_t msm_pmem_region_lookup_2(struct hlist_head *ptype,
 }
 
 unsigned long msm_pmem_stats_vtop_lookup(
-				struct msm_sync *sync,
+				struct msm_cam_media_controller *mctl,
 				unsigned long buffer,
 				int fd)
 {
 	struct msm_pmem_region *region;
 	struct hlist_node *node, *n;
 
-	hlist_for_each_entry_safe(region, node, n, &sync->pmem_stats, list) {
+	hlist_for_each_entry_safe(region, node, n,
+	&mctl->stats_info.pmem_stats_list, list) {
 		if (((unsigned long)(region->info.vaddr) == buffer) &&
 						(region->info.fd == fd) &&
 						region->info.active == 0) {
@@ -365,13 +366,15 @@ unsigned long msm_pmem_stats_vtop_lookup(
 	return 0;
 }
 
-unsigned long msm_pmem_stats_ptov_lookup(struct msm_sync *sync,
-						unsigned long addr, int *fd)
+unsigned long msm_pmem_stats_ptov_lookup(
+		struct msm_cam_media_controller *mctl,
+		unsigned long addr, int *fd)
 {
 	struct msm_pmem_region *region;
 	struct hlist_node *node, *n;
 
-	hlist_for_each_entry_safe(region, node, n, &sync->pmem_stats, list) {
+	hlist_for_each_entry_safe(region, node, n,
+	&mctl->stats_info.pmem_stats_list, list) {
 		if (addr == region->paddr && region->info.active) {
 			/* offset since we could pass vaddr inside a
 			 * registered pmem buffer */

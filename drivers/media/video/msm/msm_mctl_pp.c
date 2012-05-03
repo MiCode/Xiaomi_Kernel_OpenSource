@@ -156,7 +156,7 @@ static struct msm_cam_v4l2_dev_inst *msm_mctl_get_pcam_inst_for_divert(
 		int image_mode, struct msm_free_buf *fbuf, int *node_type)
 {
 	struct msm_cam_v4l2_dev_inst *pcam_inst = NULL;
-	struct msm_cam_v4l2_device *pcam = pmctl->sync.pcam_sync;
+	struct msm_cam_v4l2_device *pcam = pmctl->pcam_ptr;
 	int idx;
 
 	if (image_mode >= 0) {
@@ -559,14 +559,14 @@ int msm_mctl_pp_proc_vpe_cmd(
 				zoom->pp_frame_cmd.cookie,
 				zoom->pp_frame_cmd.vpe_output_action,
 				zoom->pp_frame_cmd.path);
-		idx = msm_mctl_pp_path_to_inst_index(p_mctl->sync.pcam_sync,
+		idx = msm_mctl_pp_path_to_inst_index(p_mctl->pcam_ptr,
 			zoom->pp_frame_cmd.path);
 		if (idx < 0) {
 			pr_err("%s Invalid path, returning\n", __func__);
 			kfree(zoom);
 			return idx;
 		}
-		pcam_inst = p_mctl->sync.pcam_sync->dev_inst[idx];
+		pcam_inst = p_mctl->pcam_ptr->dev_inst[idx];
 		if (!pcam_inst) {
 			pr_err("%s Invalid instance, returning\n", __func__);
 			kfree(zoom);
@@ -809,7 +809,7 @@ int msm_mctl_pp_reserve_free_frame(
 		return -EINVAL;
 	}
 	/* Always reserve the buffer from user's video node */
-	pcam_inst = p_mctl->sync.pcam_sync->dev_inst[image_mode];
+	pcam_inst = p_mctl->pcam_ptr->dev_inst[image_mode];
 	if (!pcam_inst) {
 		pr_err("%s Instance already closed ", __func__);
 		return -EINVAL;
