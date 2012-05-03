@@ -80,8 +80,12 @@ static void raise_clear_spi(unsigned int cpu, bool set)
 
 static void clear_pending_spi(unsigned int irq)
 {
-	/* Clear the IRQ from the ENABLE_SET */
+	struct irq_data *d = irq_get_irq_data(irq);
+	struct irq_chip *c = irq_data_get_irq_chip(d);
+
+	c->irq_mask(d);
 	local_irq_disable();
+	/* Clear the IRQ from the ENABLE_SET */
 	gic_clear_spi_pending(irq);
 	local_irq_enable();
 }
