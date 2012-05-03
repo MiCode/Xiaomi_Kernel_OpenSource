@@ -1760,6 +1760,8 @@ EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
 #define OCV_TOL_MASK			0xF0
 #define IBAT_TOL_DEFAULT	0x03
 #define IBAT_TOL_NOCHG		0x0F
+#define OCV_TOL_DEFAULT		0x20
+#define OCV_TOL_NO_OCV		0x00
 void pm8921_bms_charging_began(void)
 {
 	int batt_temp, rc;
@@ -1896,6 +1898,22 @@ void pm8921_bms_charging_end(int is_battery_full)
 				IBAT_TOL_MASK, IBAT_TOL_NOCHG);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_end);
+
+int pm8921_bms_stop_ocv_updates(struct pm8921_bms_chip *chip)
+{
+	pr_debug("stopping ocv updates\n");
+	return pm_bms_masked_write(chip, BMS_TOLERANCES,
+			OCV_TOL_MASK, OCV_TOL_NO_OCV);
+}
+EXPORT_SYMBOL_GPL(pm8921_bms_stop_ocv_updates);
+
+int pm8921_bms_start_ocv_updates(struct pm8921_bms_chip *chip)
+{
+	pr_debug("stopping ocv updates\n");
+	return pm_bms_masked_write(chip, BMS_TOLERANCES,
+			OCV_TOL_MASK, OCV_TOL_DEFAULT);
+}
+EXPORT_SYMBOL_GPL(pm8921_bms_start_ocv_updates);
 
 static irqreturn_t pm8921_bms_sbi_write_ok_handler(int irq, void *data)
 {
@@ -2231,6 +2249,8 @@ enum bms_request_operation {
 	CALIB_HKADC,
 	CALIB_CCADC,
 	GET_VBAT_VSENSE_SIMULTANEOUS,
+	STOP_OCV,
+	START_OCV,
 };
 
 static int test_batt_temp = 5;
@@ -2323,13 +2343,30 @@ static int get_calc(void *data, u64 * val)
 		pm8921_bms_get_simultaneous_battery_voltage_and_current(
 			&ibat_ua,
 			&vbat_uv);
+	default:
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
+static int set_calc(void *data, u64 val)
+{
+	int param = (int)data;
+	int ret = 0;
+
+	switch (param) {
+	case STOP_OCV:
+		pm8921_bms_stop_ocv_updates(the_chip);
+		break;
+	case START_OCV:
+		pm8921_bms_start_ocv_updates(the_chip);
 		break;
 	default:
 		ret = -EINVAL;
 	}
 	return ret;
 }
-DEFINE_SIMPLE_ATTRIBUTE(calc_fops, get_calc, NULL, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(calc_fops, get_calc, set_calc, "%llu\n");
 
 static int get_reading(void *data, u64 * val)
 {
@@ -2467,6 +2504,10 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 				(void *)CALIB_HKADC, &calc_fops);
 	debugfs_create_file("calib_ccadc", 0644, chip->dent,
 				(void *)CALIB_CCADC, &calc_fops);
+	debugfs_create_file("stop_ocv", 0644, chip->dent,
+				(void *)STOP_OCV, &calc_fops);
+	debugfs_create_file("start_ocv", 0644, chip->dent,
+				(void *)START_OCV, &calc_fops);
 
 	debugfs_create_file("simultaneous", 0644, chip->dent,
 			(void *)GET_VBAT_VSENSE_SIMULTANEOUS, &calc_fops);
