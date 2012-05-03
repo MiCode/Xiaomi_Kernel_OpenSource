@@ -234,7 +234,7 @@ static int sitar_pa_gain_get(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	}
 
-	pr_err("%s: ear_pa_gain = 0x%x\n", __func__, ear_pa_gain);
+	pr_debug("%s: ear_pa_gain = 0x%x\n", __func__, ear_pa_gain);
 
 	return 0;
 }
@@ -277,7 +277,7 @@ static int sitar_get_iir_enable_audio_mixer(
 		snd_soc_read(codec, (SITAR_A_CDC_IIR1_CTL + 16 * iir_idx)) &
 		(1 << band_idx);
 
-	pr_err("%s: IIR #%d band #%d enable %d\n", __func__,
+	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
 		iir_idx, band_idx,
 		(uint32_t)ucontrol->value.integer.value[0]);
 	return 0;
@@ -298,7 +298,7 @@ static int sitar_put_iir_enable_audio_mixer(
 	snd_soc_update_bits(codec, (SITAR_A_CDC_IIR1_CTL + 16 * iir_idx),
 		(1 << band_idx), (value << band_idx));
 
-	pr_err("%s: IIR #%d band #%d enable %d\n", __func__,
+	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
 		iir_idx, band_idx, value);
 	return 0;
 }
@@ -344,7 +344,7 @@ static int sitar_get_iir_band_audio_mixer(
 	ucontrol->value.integer.value[4] =
 		get_iir_band_coeff(codec, iir_idx, band_idx, 4);
 
-	pr_err("%s: IIR #%d band #%d b0 = 0x%x\n"
+	pr_debug("%s: IIR #%d band #%d b0 = 0x%x\n"
 		"%s: IIR #%d band #%d b1 = 0x%x\n"
 		"%s: IIR #%d band #%d b2 = 0x%x\n"
 		"%s: IIR #%d band #%d a1 = 0x%x\n"
@@ -412,7 +412,7 @@ static int sitar_put_iir_band_audio_mixer(
 	set_iir_band_coeff(codec, iir_idx, band_idx, 4,
 				ucontrol->value.integer.value[4]);
 
-	pr_err("%s: IIR #%d band #%d b0 = 0x%x\n"
+	pr_debug("%s: IIR #%d band #%d b0 = 0x%x\n"
 		"%s: IIR #%d band #%d b1 = 0x%x\n"
 		"%s: IIR #%d band #%d b2 = 0x%x\n"
 		"%s: IIR #%d band #%d a1 = 0x%x\n"
@@ -743,7 +743,7 @@ static void sitar_codec_enable_adc_block(struct snd_soc_codec *codec,
 {
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
 
-	pr_err("%s %d\n", __func__, enable);
+	pr_debug("%s %d\n", __func__, enable);
 
 	if (enable) {
 		sitar->adc_count++;
@@ -765,7 +765,7 @@ static int sitar_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	u16 adc_reg;
 
-	pr_err("%s %d\n", __func__, event);
+	pr_debug("%s %d\n", __func__, event);
 
 	if (w->reg == SITAR_A_TX_1_2_EN)
 		adc_reg = SITAR_A_TX_1_2_TEST_CTL;
@@ -818,7 +818,7 @@ static int sitar_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	u16 lineout_gain_reg;
 
-	pr_err("%s %d %s\n", __func__, event, w->name);
+	pr_debug("%s %d %s\n", __func__, event, w->name);
 
 	switch (w->shift) {
 	case 0:
@@ -838,7 +838,7 @@ static int sitar_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, lineout_gain_reg, 0x10, 0x10);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		pr_err("%s: sleeping 16 ms after %s PA turn on\n",
+		pr_debug("%s: sleeping 16 ms after %s PA turn on\n",
 				__func__, w->name);
 		usleep_range(16000, 16000);
 		break;
@@ -886,7 +886,7 @@ static int sitar_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	tx_mux_ctl_reg = SITAR_A_CDC_TX1_MUX_CTL + 8 * (dmic - 1);
 	tx_dmic_ctl_reg = SITAR_A_CDC_TX1_DMIC_CTL + 8 * (dmic - 1);
 
-	pr_err("%s %d\n", __func__, event);
+	pr_debug("%s %d\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -974,7 +974,7 @@ static void sitar_codec_switch_cfilt_mode(struct snd_soc_codec *codec,
 			sitar->mbhc_bias_regs.cfilt_ctl, 0x40, reg_mode_val);
 		if (mbhc_was_polling)
 			sitar_codec_start_hs_polling(codec);
-		pr_err("%s: CFILT mode change (%x to %x)\n", __func__,
+		pr_debug("%s: CFILT mode change (%x to %x)\n", __func__,
 			cur_mode_val, reg_mode_val);
 	} else {
 		pr_err("%s: CFILT Value is already %x\n",
@@ -1113,7 +1113,7 @@ static void sitar_codec_switch_micbias(struct snd_soc_codec *codec,
 			sitar_codec_start_hs_polling(codec);
 
 			sitar->mbhc_micbias_switched = true;
-			pr_err("%s: Enabled MBHC Mic bias to VDDIO Switch\n",
+			pr_debug("%s: Enabled MBHC Mic bias to VDDIO Switch\n",
 				__func__);
 		}
 		break;
@@ -1138,7 +1138,7 @@ static void sitar_codec_switch_micbias(struct snd_soc_codec *codec,
 				sitar_codec_start_hs_polling(codec);
 
 			sitar->mbhc_micbias_switched = false;
-			pr_err("%s: Disabled MBHC Mic bias to VDDIO Switch\n",
+			pr_debug("%s: Disabled MBHC Mic bias to VDDIO Switch\n",
 				__func__);
 		}
 		break;
@@ -1156,7 +1156,7 @@ static int sitar_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	char *internal1_text = "Internal1";
 	char *internal2_text = "Internal2";
 
-	pr_err("%s %d\n", __func__, event);
+	pr_debug("%s %d\n", __func__, event);
 	switch (w->reg) {
 	case SITAR_A_MICB_1_CTL:
 		micb_int_reg = SITAR_A_MICB_1_INT_RBIAS;
@@ -1218,7 +1218,7 @@ static int sitar_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	u16 dec_reset_reg;
 
-	pr_err("%s %d\n", __func__, event);
+	pr_debug("%s %d\n", __func__, event);
 
 	if (w->reg == SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL)
 		dec_reset_reg = SITAR_A_CDC_CLK_TX_RESET_B1_CTL;
@@ -1242,7 +1242,7 @@ static int sitar_codec_reset_interpolator(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 
-	pr_err("%s %d %s\n", __func__, event, w->name);
+	pr_debug("%s %d %s\n", __func__, event, w->name);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1290,7 +1290,7 @@ static int sitar_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 
-	pr_err("%s %d\n", __func__, event);
+	pr_debug("%s %d\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1307,7 +1307,7 @@ static int sitar_hphr_dac_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 
-	pr_err("%s %s %d\n", __func__, w->name, event);
+	pr_debug("%s %s %d\n", __func__, w->name, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1378,7 +1378,7 @@ static int sitar_hph_pa_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
 	u8 mbhc_micb_ctl_val;
-	pr_err("%s: event = %d\n", __func__, event);
+	pr_debug("%s: event = %d\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1416,7 +1416,7 @@ static int sitar_hph_pa_event(struct snd_soc_dapm_widget *w,
 		if (sitar->mbhc_micbias_switched)
 			sitar_codec_switch_micbias(codec, 0);
 
-		pr_err("%s: sleep 10 ms after %s PA disable.\n", __func__,
+		pr_debug("%s: sleep 10 ms after %s PA disable.\n", __func__,
 				w->name);
 		usleep_range(10000, 10000);
 
@@ -1471,7 +1471,7 @@ static int sitar_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 
-	pr_err("%s %d\n", __func__, event);
+	pr_debug("%s %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_OTHR_RESET_CTL, 0x10,
@@ -1908,7 +1908,7 @@ static void sitar_codec_enable_bandgap(struct snd_soc_codec *codec,
 	* interrupt handlers
 	*/
 
-	pr_err("%s, choice is %d, current is %d\n", __func__, choice,
+	pr_debug("%s, choice is %d, current is %d\n", __func__, choice,
 		sitar->bandgap_type);
 
 	if (sitar->bandgap_type == choice)
@@ -1978,7 +1978,7 @@ static int sitar_codec_enable_clock_block(struct snd_soc_codec *codec,
 {
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
 
-	pr_err("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	if (config_mode) {
 		sitar_codec_enable_config_mode(codec, 1);
@@ -2005,7 +2005,7 @@ static int sitar_codec_enable_clock_block(struct snd_soc_codec *codec,
 static void sitar_codec_disable_clock_block(struct snd_soc_codec *codec)
 {
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
-	pr_err("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	snd_soc_update_bits(codec, SITAR_A_CLK_BUFF_EN2, 0x04, 0x00);
 	ndelay(160);
 	snd_soc_update_bits(codec, SITAR_A_CLK_BUFF_EN2, 0x02, 0x02);
@@ -2077,7 +2077,7 @@ static int sitar_startup(struct snd_pcm_substream *substream,
 	if ((wcd9xxx != NULL) && (wcd9xxx->dev != NULL) &&
 			(wcd9xxx->dev->parent != NULL))
 		pm_runtime_get_sync(wcd9xxx->dev->parent);
-	pr_err("%s(): substream = %s  stream = %d\n" , __func__,
+	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
 		substream->name, substream->stream);
 
 	return 0;
@@ -2092,7 +2092,7 @@ static void sitar_shutdown(struct snd_pcm_substream *substream,
 		pm_runtime_mark_last_busy(wcd9xxx->dev->parent);
 		pm_runtime_put(wcd9xxx->dev->parent);
 	}
-	pr_err("%s(): substream = %s  stream = %d\n" , __func__,
+	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
 		substream->name, substream->stream);
 }
 
@@ -2100,7 +2100,7 @@ int sitar_mclk_enable(struct snd_soc_codec *codec, int mclk_enable)
 {
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
 
-	pr_err("%s() mclk_enable = %u\n", __func__, mclk_enable);
+	pr_debug("%s() mclk_enable = %u\n", __func__, mclk_enable);
 
 	if (mclk_enable) {
 		sitar->mclk_enabled = true;
@@ -2149,7 +2149,7 @@ int sitar_mclk_enable(struct snd_soc_codec *codec, int mclk_enable)
 static int sitar_set_dai_sysclk(struct snd_soc_dai *dai,
 		int clk_id, unsigned int freq, int dir)
 {
-	pr_err("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	return 0;
 }
 
@@ -2158,7 +2158,7 @@ static int sitar_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	u8 val = 0;
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(dai->codec);
 
-	pr_err("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
 		/* CPU is master */
@@ -2265,7 +2265,7 @@ static int sitar_hw_params(struct snd_pcm_substream *substream,
 	u16 tx_fs_reg, rx_fs_reg;
 	u8 tx_fs_rate, rx_fs_rate, rx_state, tx_state;
 
-	pr_err("%s: DAI-ID %x\n", __func__, dai->id);
+	pr_debug("%s: DAI-ID %x\n", __func__, dai->id);
 
 	switch (params_rate(params)) {
 	case 8000:
