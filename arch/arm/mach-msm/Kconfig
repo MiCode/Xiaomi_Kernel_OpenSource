@@ -1906,6 +1906,13 @@ config MSM_PIL_VIDC
 	help
 	  Support for authenticating the video core image.
 
+config MSM_PIL_VENUS
+	tristate "VENUS (Video) Boot Support"
+	depends on MSM_PIL
+	help
+	  Support for booting and shutting down the VENUS processor (Video).
+	  Venus is the Video subsystem processor used for video codecs.
+
 config MSM_PIL_GSS
 	tristate "GSS (Coretx A5) Boot Support"
 	depends on MSM_PIL
