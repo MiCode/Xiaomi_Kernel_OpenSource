@@ -114,7 +114,12 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	struct resource *res;
 
 	desc = pil_q6v5_init(pdev);
+	if (IS_ERR(desc))
+		return PTR_ERR(desc);
+
 	drv = platform_get_drvdata(pdev);
+	if (drv == NULL)
+		return -ENODEV;
 
 	desc->ops = &pil_lpass_ops;
 	desc->owner = THIS_MODULE;
