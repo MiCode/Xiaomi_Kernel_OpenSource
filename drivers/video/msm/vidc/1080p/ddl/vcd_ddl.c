@@ -300,6 +300,27 @@ u32 ddl_encode_start(u32 *ddl_handle, void *client_data)
 				encoder->seq_header.virtual_base_addr,
 				encoder->seq_header.buffer_size,
 				ION_IOC_CLEAN_INV_CACHES);
+	if (encoder->slice_delivery_info.enable) {
+		DDL_MSG_LOW("%s: slice mode allocate memory for struct\n",
+					__func__);
+		ptr = ddl_pmem_alloc(&encoder->batch_frame.slice_batch_in,
+				DDL_ENC_SLICE_BATCH_INPSTRUCT_SIZE,
+				DDL_LINEAR_BUFFER_ALIGN_BYTES);
+		if (ptr) {
+			ptr = ddl_pmem_alloc(
+				&encoder->batch_frame.slice_batch_out,
+				DDL_ENC_SLICE_BATCH_OUTSTRUCT_SIZE,
+				DDL_LINEAR_BUFFER_ALIGN_BYTES);
+		}
+		if (!ptr) {
+			ddl_pmem_free(&encoder->batch_frame.slice_batch_in);
+			ddl_pmem_free(&encoder->batch_frame.slice_batch_out);
+			ddl_free_enc_hw_buffers(ddl);
+			ddl_pmem_free(&encoder->seq_header);
+			DDL_MSG_ERROR("ddlEncStart:SeqHdrAllocFailed");
+			return VCD_ERR_ALLOC_FAIL;
+		}
+	}
 	if (!ddl_take_command_channel(ddl_context, ddl, client_data))
 		return VCD_ERR_BUSY;
 	ddl_vidc_channel_set(ddl);
@@ -451,7 +472,17 @@ u32 ddl_encode_frame(u32 *ddl_handle,
 	struct ddl_client_context *ddl =
 		(struct ddl_client_context *) ddl_handle;
 	struct ddl_context *ddl_context;
+	struct ddl_encoder_data *encoder =
+		&ddl->codec_data.encoder;
 	u32 vcd_status = VCD_S_SUCCESS;
+	if (encoder->slice_delivery_info.enable) {
+		return ddl_encode_frame_batch(ddl_handle,
+					input_frame,
+					output_bit,
+					1,
+					encoder->slice_delivery_info.num_slices,
+					client_data);
+	}
 
 	DDL_MSG_HIGH("ddl_encode_frame");
 	if (vidc_msg_timing)
@@ -516,6 +547,76 @@ u32 ddl_encode_frame(u32 *ddl_handle,
 		ddl_vidc_encode_frame_run(ddl);
 	else
 		DDL_MSG_ERROR("insert to frame pool failed %u", vcd_status);
+	return vcd_status;
+}
+
+u32 ddl_encode_frame_batch(u32 *ddl_handle,
+	struct ddl_frame_data_tag *input_frame,
+	struct ddl_frame_data_tag *output_bit,
+	u32 num_in_frames, u32 num_out_frames,
+	void *client_data)
+{
+	struct ddl_client_context *ddl =
+		(struct ddl_client_context *) ddl_handle;
+	struct ddl_context *ddl_context;
+	u32 vcd_status = VCD_S_SUCCESS;
+	struct ddl_encoder_data *encoder;
+
+	DDL_MSG_LOW("ddl_encode_frame_batch");
+	ddl_context = ddl_get_context();
+	if (!DDL_IS_INITIALIZED(ddl_context)) {
+		DDL_MSG_ERROR("ddl_enc_frame:Not_inited");
+		return VCD_ERR_ILLEGAL_OP;
+	}
+	if (DDL_IS_BUSY(ddl_context)) {
+		DDL_MSG_ERROR("ddl_enc_frame:Ddl_busy");
+		return VCD_ERR_BUSY;
+	}
+	if (!ddl || ddl->decoding) {
+		DDL_MSG_ERROR("ddl_enc_frame:Bad_handle");
+	return VCD_ERR_BAD_HANDLE;
+	}
+	if (!input_frame || !input_frame->vcd_frm.physical	||
+		!input_frame->vcd_frm.data_len) {
+		DDL_MSG_ERROR("ddl_enc_frame:Bad_input_params");
+		return VCD_ERR_ILLEGAL_PARM;
+	}
+	if ((((u32) input_frame->vcd_frm.physical +
+		input_frame->vcd_frm.offset) &
+		(DDL_STREAMBUF_ALIGN_GUARD_BYTES))) {
+		DDL_MSG_ERROR("ddl_enc_frame:Un_aligned_yuv_start_address");
+		return VCD_ERR_ILLEGAL_PARM;
+	}
+	if (!output_bit || !output_bit->vcd_frm.physical ||
+		!output_bit->vcd_frm.alloc_len) {
+		DDL_MSG_ERROR("ddl_enc_frame:Bad_output_params");
+		return VCD_ERR_ILLEGAL_PARM;
+	}
+	if ((ddl->codec_data.encoder.output_buf_req.sz +
+		output_bit->vcd_frm.offset) >
+		output_bit->vcd_frm.alloc_len)
+		DDL_MSG_ERROR("ddl_enc_frame:offset_large,"
+			"Exceeds_min_buf_size");
+	if (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_FRAME)) {
+		DDL_MSG_ERROR("ddl_enc_frame:Wrong_state");
+		return VCD_ERR_ILLEGAL_OP;
+	}
+	if (!ddl_take_command_channel(ddl_context, ddl, client_data))
+		return VCD_ERR_BUSY;
+	encoder = &ddl->codec_data.encoder;
+	if (encoder->slice_delivery_info.enable) {
+		DDL_MEMCPY((void *)&(encoder->batch_frame.output_frame[0]),
+			(void *)output_bit,
+			sizeof(struct ddl_frame_data_tag) * num_out_frames);
+		encoder->batch_frame.num_output_frames = num_out_frames;
+		ddl->input_frame = *input_frame;
+		vcd_status = ddl_insert_input_frame_to_pool(ddl, input_frame);
+		if (!vcd_status)
+			ddl_vidc_encode_slice_batch_run(ddl);
+		else
+			DDL_MSG_ERROR("insert to frame pool failed %u",
+					vcd_status);
+	}
 	return vcd_status;
 }
 

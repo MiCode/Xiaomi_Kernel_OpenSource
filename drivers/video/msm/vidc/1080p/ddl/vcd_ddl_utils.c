@@ -385,6 +385,36 @@ void ddl_calc_core_proc_time(const char *func_name, u32 index)
 	}
 }
 
+void ddl_calc_core_proc_time_cnt(const char *func_name, u32 index, u32 count)
+{
+	struct time_data *time_data = &proc_time[index];
+	if (time_data->ddl_t1) {
+		int ddl_t2;
+		struct timeval ddl_tv;
+		do_gettimeofday(&ddl_tv);
+		ddl_t2 = (ddl_tv.tv_sec * 1000) + (ddl_tv.tv_usec / 1000);
+		time_data->ddl_ttotal += (ddl_t2 - time_data->ddl_t1);
+		time_data->ddl_count += count;
+		DDL_MSG_TIME("\n%s(): cnt(%u) End Time (%u) Diff(%u) Avg(%u)",
+			func_name, time_data->ddl_count, ddl_t2,
+			ddl_t2 - time_data->ddl_t1,
+			time_data->ddl_ttotal/time_data->ddl_count);
+		time_data->ddl_t1 = 0;
+	}
+}
+
+void ddl_update_core_start_time(const char *func_name, u32 index)
+{
+	u32 act_time;
+	struct timeval ddl_tv;
+	struct time_data *time_data = &proc_time[index];
+	do_gettimeofday(&ddl_tv);
+	act_time = (ddl_tv.tv_sec * 1000) + (ddl_tv.tv_usec / 1000);
+	time_data->ddl_t1 = act_time;
+	DDL_MSG_LOW("\n%s(): Start time updated Act(%u)",
+				func_name, act_time);
+}
+
 void ddl_reset_core_time_variables(u32 index)
 {
 	proc_time[index].ddl_t1 = 0;

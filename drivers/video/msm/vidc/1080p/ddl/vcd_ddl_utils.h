@@ -24,6 +24,7 @@ enum timing_data {
 	DEC_OP_TIME,
 	DEC_IP_TIME,
 	ENC_OP_TIME,
+	ENC_SLICE_OP_TIME,
 	MAX_TIME_DATA
 };
 
@@ -65,9 +66,12 @@ do { \
 
 #define DDL_MIN(x, y)  ((x < y) ? x : y)
 #define DDL_MAX(x, y)  ((x > y) ? x : y)
+#define DDL_MEMCPY(dest, src, len)  memcpy((dest), (src), (len))
+#define DDL_MEMSET(src, value, len) memset((src), (value), (len))
 
 void ddl_set_core_start_time(const char *func_name, u32 index);
 void ddl_calc_core_proc_time(const char *func_name, u32 index);
 void ddl_reset_core_time_variables(u32 index);
-
+void ddl_calc_core_proc_time_cnt(const char *func_name, u32 index, u32 count);
+void ddl_update_core_start_time(const char *func_name, u32 index);
 #endif

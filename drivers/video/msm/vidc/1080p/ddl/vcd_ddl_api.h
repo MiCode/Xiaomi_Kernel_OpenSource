@@ -62,6 +62,11 @@ struct vcd_property_adaptive_rc_params{
 	u32 disable_static_region_as_flag;
 	u32 disable_activity_region_flag;
 };
+struct vcd_property_slice_delivery_info {
+	u32  enable;
+	u32  num_slices;
+	u32  num_slices_enc;
+};
 struct ddl_property_dec_pic_buffers{
 	struct ddl_frame_data_tag *dec_pic_buffers;
 	u32 no_of_dec_pic_buf;
@@ -94,6 +99,11 @@ u32 ddl_encode_start(u32 *ddl_handle, void *client_data);
 u32 ddl_encode_frame(u32 *ddl_handle,
 	struct ddl_frame_data_tag *input_frame,
 	struct ddl_frame_data_tag *output_bit, void *client_data);
+u32 ddl_encode_frame_batch(u32 *ddl_handle,
+	struct ddl_frame_data_tag *input_frame,
+	struct ddl_frame_data_tag *output_bit,
+	u32 num_in_frames, u32 num_out_frames,
+	void *client_data);
 u32 ddl_encode_end(u32 *ddl_handle, void *client_data);
 u32 ddl_decode_start(u32 *ddl_handle, struct vcd_sequence_hdr *header,
 	void *client_data);

@@ -1604,6 +1604,20 @@ static long vid_enc_ioctl(struct file *file,
 		}
 		if (!result) {
 			ERR("setting VEN_IOCTL_(G)SET_LIVE_MODE failed\n");
+		}
+		break;
+	}
+	case VEN_IOCTL_SET_SLICE_DELIVERY_MODE:
+	{
+		struct vcd_property_hdr vcd_property_hdr;
+		u32 vcd_status = VCD_ERR_FAIL;
+		u32 enable = true;
+		vcd_property_hdr.prop_id = VCD_I_SLICE_DELIVERY_MODE;
+		vcd_property_hdr.sz = sizeof(u32);
+		vcd_status = vcd_set_property(client_ctx->vcd_handle,
+						&vcd_property_hdr, &enable);
+		if (vcd_status) {
+			pr_err(" Setting slice delivery mode failed");
 			return -EIO;
 		}
 		break;

@@ -63,7 +63,7 @@ struct workqueue_struct *vidc_timer_wq;
 static irqreturn_t vidc_isr(int irq, void *dev);
 static spinlock_t vidc_spin_lock;
 
-u32 vidc_msg_timing, vidc_msg_pmem;
+u32 vidc_msg_timing, vidc_msg_pmem, vidc_msg_register;
 
 #ifdef VIDC_ENABLE_DBGFS
 struct dentry *vidc_debugfs_root;
@@ -311,6 +311,8 @@ static int __init vidc_init(void)
 				(u32 *) &vidc_msg_timing);
 		vidc_debugfs_file_create(root, "vidc_msg_pmem",
 				(u32 *) &vidc_msg_pmem);
+		vidc_debugfs_file_create(root, "vidc_msg_register",
+				(u32 *) &vidc_msg_register);
 	}
 #endif
 	return 0;
