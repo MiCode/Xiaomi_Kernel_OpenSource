@@ -656,7 +656,7 @@ static struct tsens_platform_data msm_tsens_pdata  = {
 	.tsens_factor		= 1000,
 	.hw_type		= MDM_9615,
 	.tsens_num_sensor	= 5,
-	.slope = {1176, 1176, 1154, 1176, 1111},
+	.slope = {1176, 1162, 1162, 1149, 1176},
 };
 
 static struct platform_device *common_devices[] = {
