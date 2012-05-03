@@ -1368,6 +1368,7 @@ static void hci_cs_le_create_conn(struct hci_dev *hdev, __u8 status)
 {
 	struct hci_cp_le_create_conn *cp;
 	struct hci_conn *conn;
+	unsigned long exp = msecs_to_jiffies(5000);
 
 	BT_DBG("%s status 0x%x", hdev->name, status);
 
@@ -1396,11 +1397,11 @@ static void hci_cs_le_create_conn(struct hci_dev *hdev, __u8 status)
 				conn->out = 1;
 			else
 				BT_ERR("No memory for new connection");
-		}
+		} else
+			exp = msecs_to_jiffies(conn->conn_timeout * 1000);
 
-		if (conn)
-			mod_timer(&conn->disc_timer,
-					jiffies + msecs_to_jiffies(5000));
+		if (conn && exp)
+			mod_timer(&conn->disc_timer, jiffies + exp);
 	}
 
 	hci_dev_unlock(hdev);

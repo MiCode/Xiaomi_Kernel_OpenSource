@@ -1623,8 +1623,8 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 
 	entry = hci_find_adv_entry(hdev, &cp->bdaddr);
 	if (entry && entry->flags & 0x04) {
-		conn = hci_connect(hdev, LE_LINK, 0, &cp->bdaddr, sec_level,
-								auth_type);
+		conn = hci_le_connect(hdev, 0, &cp->bdaddr, sec_level,
+							auth_type, NULL);
 	} else {
 		/* ACL-SSP does not support io_cap 0x04 (KeyboadDisplay) */
 		if (io_cap == 0x04)

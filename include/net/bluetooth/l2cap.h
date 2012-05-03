@@ -685,6 +685,7 @@ int l2cap_strm_tx(struct sock *sk, struct sk_buff_head *skbs);
 int l2cap_ertm_tx(struct sock *sk, struct bt_l2cap_control *control,
 			struct sk_buff_head *skbs, u8 event);
 
+int l2cap_sock_le_params_valid(struct bt_le_params *le_params);
 void l2cap_sock_set_timer(struct sock *sk, long timeout);
 void l2cap_sock_clear_timer(struct sock *sk);
 void __l2cap_sock_close(struct sock *sk, int reason);

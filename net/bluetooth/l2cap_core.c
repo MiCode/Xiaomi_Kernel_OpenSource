@@ -1277,8 +1277,9 @@ int l2cap_do_connect(struct sock *sk)
 		conn = hcon->l2cap_data;
 	} else {
 		if (l2cap_pi(sk)->dcid == L2CAP_CID_LE_DATA)
-			hcon = hci_connect(hdev, LE_LINK, 0, dst,
-					l2cap_pi(sk)->sec_level, auth_type);
+			hcon = hci_le_connect(hdev, 0, dst,
+					l2cap_pi(sk)->sec_level, auth_type,
+					&bt_sk(sk)->le_params);
 		else
 			hcon = hci_connect(hdev, ACL_LINK, 0, dst,
 					l2cap_pi(sk)->sec_level, auth_type);
@@ -1308,7 +1309,17 @@ int l2cap_do_connect(struct sock *sk)
 		sk->sk_state_change(sk);
 	} else {
 		sk->sk_state = BT_CONNECT;
-		l2cap_sock_set_timer(sk, sk->sk_sndtimeo);
+		/* If we have valid LE Params, let timeout override default */
+		if (l2cap_pi(sk)->dcid == L2CAP_CID_LE_DATA &&
+			l2cap_sock_le_params_valid(&bt_sk(sk)->le_params)) {
+			u16 timeout = bt_sk(sk)->le_params.conn_timeout;
+
+			if (timeout)
+				l2cap_sock_set_timer(sk,
+						msecs_to_jiffies(timeout*1000));
+		} else
+			l2cap_sock_set_timer(sk, sk->sk_sndtimeo);
+
 		sk->sk_state_change(sk);
 
 		if (hcon->state == BT_CONNECTED) {
@@ -5668,7 +5679,8 @@ static inline int l2cap_conn_param_update_req(struct l2cap_conn *conn,
 	struct hci_conn *hcon = conn->hcon;
 	struct l2cap_conn_param_update_req *req;
 	struct l2cap_conn_param_update_rsp rsp;
-	u16 min, max, latency, to_multiplier, cmd_len;
+	struct sock *sk;
+	u16 min, max, latency, timeout, cmd_len;
 	int err;
 
 	if (!(hcon->link_mode & HCI_LM_MASTER))
@@ -5678,28 +5690,32 @@ static inline int l2cap_conn_param_update_req(struct l2cap_conn *conn,
 	if (cmd_len != sizeof(struct l2cap_conn_param_update_req))
 		return -EPROTO;
 
-	req = (struct l2cap_conn_param_update_req *) data;
-	min		= __le16_to_cpu(req->min);
-	max		= __le16_to_cpu(req->max);
-	latency		= __le16_to_cpu(req->latency);
-	to_multiplier	= __le16_to_cpu(req->to_multiplier);
-
-	BT_DBG("min 0x%4.4x max 0x%4.4x latency: 0x%4.4x Timeout: 0x%4.4x",
-						min, max, latency, to_multiplier);
-
 	memset(&rsp, 0, sizeof(rsp));
+	rsp.result = cpu_to_le16(L2CAP_CONN_PARAM_REJECTED);
 
-	err = l2cap_check_conn_param(min, max, latency, to_multiplier);
-	if (err)
-		rsp.result = cpu_to_le16(L2CAP_CONN_PARAM_REJECTED);
-	else
-		rsp.result = cpu_to_le16(L2CAP_CONN_PARAM_ACCEPTED);
+	sk = l2cap_find_sock_by_fixed_cid_and_dir(4, conn->src, conn->dst, 0);
+
+	if (sk && !bt_sk(sk)->le_params.prohibit_remote_chg) {
+		req = (struct l2cap_conn_param_update_req *) data;
+		min = __le16_to_cpu(req->min);
+		max = __le16_to_cpu(req->max);
+		latency = __le16_to_cpu(req->latency);
+		timeout = __le16_to_cpu(req->to_multiplier);
+
+		err = l2cap_check_conn_param(min, max, latency, timeout);
+		if (!err) {
+			rsp.result = cpu_to_le16(L2CAP_CONN_PARAM_ACCEPTED);
+			hci_le_conn_update(hcon, min, max, latency, timeout);
+			bt_sk(sk)->le_params.interval_min = min;
+			bt_sk(sk)->le_params.interval_max = max;
+			bt_sk(sk)->le_params.latency = latency;
+			bt_sk(sk)->le_params.supervision_timeout = timeout;
+		}
+	}
 
 	l2cap_send_cmd(conn, cmd->ident, L2CAP_CONN_PARAM_UPDATE_RSP,
 							sizeof(rsp), &rsp);
 
-	if (!err)
-		hci_le_conn_update(hcon, min, max, latency, to_multiplier);
 
 	return 0;
 }
