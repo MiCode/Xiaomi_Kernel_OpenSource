@@ -44,7 +44,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/misc.h>
-#include <linux/pm_qos_params.h>
 #include <linux/power_supply.h>
 
 #include <mach/clk.h>
@@ -75,25 +74,6 @@ static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
 static bool debug_bus_voting_enabled;
-
-/* Prevent idle power collapse(pc) while operating in peripheral mode */
-static void otg_pm_qos_update_latency(struct msm_otg *dev, int vote)
-{
-	struct msm_otg_platform_data *pdata = dev->pdata;
-	u32 swfi_latency = 0;
-
-	if (!pdata || !pdata->swfi_latency)
-		return;
-
-	swfi_latency = pdata->swfi_latency + 1;
-
-	if (vote)
-		pm_qos_update_request(&dev->pm_qos_req_dma,
-				swfi_latency);
-	else
-		pm_qos_update_request(&dev->pm_qos_req_dma,
-				PM_QOS_DEFAULT_VALUE);
-}
 
 static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
@@ -1320,11 +1300,7 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 		 */
 		if (pdata->setup_gpio)
 			pdata->setup_gpio(OTG_STATE_B_PERIPHERAL);
-		/*
-		 * vote for minimum dma_latency to prevent idle
-		 * power collapse(pc) while running in peripheral mode.
-		 */
-		otg_pm_qos_update_latency(motg, 1);
+
 		/* Configure BUS performance parameters for MAX bandwidth */
 		if (motg->bus_perf_client && debug_bus_voting_enabled) {
 			ret = msm_bus_scale_client_update_request(
@@ -1337,7 +1313,6 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 	} else {
 		dev_dbg(otg->phy->dev, "gadget off\n");
 		usb_gadget_vbus_disconnect(otg->gadget);
-		otg_pm_qos_update_latency(motg, 0);
 		/* Configure BUS performance parameters to default */
 		if (motg->bus_perf_client) {
 			ret = msm_bus_scale_client_update_request(
@@ -3235,11 +3210,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	else
 		clk_set_rate(motg->clk, 60000000);
 
-	/* pm qos request to prevent apps idle power collapse */
-	if (motg->pdata->swfi_latency)
-		pm_qos_add_request(&motg->pm_qos_req_dma,
-			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-
 	/*
 	 * USB Core is running its protocol engine based on CORE CLK,
 	 * CORE CLK  must be running at >55Mhz for correct HSUSB
@@ -3476,8 +3446,6 @@ put_clk:
 	if (!IS_ERR(motg->phy_reset_clk))
 		clk_put(motg->phy_reset_clk);
 free_motg:
-	if (motg->pdata->swfi_latency)
-		pm_qos_remove_request(&motg->pm_qos_req_dma);
 	kfree(motg->phy.otg);
 	kfree(motg);
 	return ret;
@@ -3547,9 +3515,6 @@ static int msm_otg_remove(struct platform_device *pdev)
 	if (!IS_ERR(motg->clk))
 		clk_put(motg->clk);
 	clk_put(motg->core_clk);
-
-	if (motg->pdata->swfi_latency)
-		pm_qos_remove_request(&motg->pm_qos_req_dma);
 
 	if (motg->bus_perf_client)
 		msm_bus_scale_unregister_client(motg->bus_perf_client);

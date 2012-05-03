@@ -175,7 +175,6 @@ enum usb_vdd_type {
  * @mhl_enable: indicates MHL connector or not.
  * @disable_reset_on_disconnect: perform USB PHY and LINK reset
  *              on USB cable disconnection.
- * @swfi_latency: miminum latency to allow swfi.
  * @enable_dcd: Enable Data Contact Detection circuit. if not set
  *              wait for 600msec before proceeding to primary
  *              detection.
@@ -193,7 +192,6 @@ struct msm_otg_platform_data {
 	int pmic_id_irq;
 	bool mhl_enable;
 	bool disable_reset_on_disconnect;
-	u32 swfi_latency;
 	bool enable_dcd;
 	struct msm_bus_scale_pdata *bus_scale_table;
 };
@@ -264,8 +262,6 @@ struct msm_otg_platform_data {
  *             connected. Useful only when ACA_A charger is
  *             connected.
  * @mA_port: The amount of current drawn by the attached B-device.
- * @pm_qos_req_dma: miminum DMA latency to vote against idle power
-	collapse when cable is connected.
  * @id_timer: The timer used for polling ID line to detect ACA states.
  * @xo_handle: TCXO buffer handle
  * @bus_perf_client: Bus performance client handle to request BUS bandwidth
@@ -328,7 +324,6 @@ struct msm_otg {
 	unsigned long lpm_flags;
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)
-	struct pm_qos_request_list pm_qos_req_dma;
 	int reset_counter;
 	unsigned long b_last_se0_sess;
 	unsigned long tmouts;
