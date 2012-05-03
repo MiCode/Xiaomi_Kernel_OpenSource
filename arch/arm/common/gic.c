@@ -1113,3 +1113,113 @@ int __init gic_of_init(struct device_node *node, struct device_node *parent)
 	return 0;
 }
 #endif
+#ifdef CONFIG_ARCH_MSM8625
+ /*
+  *  Check for any interrupts which are enabled are pending
+  *  in the pending set or not.
+  *  Return :
+  *       0 : No pending interrupts
+  *       1 : Pending interrupts other than A9_M2A_5
+  */
+unsigned int msm_gic_spi_ppi_pending(void)
+{
+	unsigned int i, bit = 0;
+	unsigned int pending_enb = 0, pending = 0;
+	unsigned long value = 0;
+	struct gic_chip_data *gic = &gic_data[0];
+	void __iomem *base = gic_data_dist_base(gic);
+
+	raw_spin_lock(&irq_controller_lock);
+	/*
+	 * PPI and SGI to be included.
+	 * MSM8625_INT_A9_M2A_5 needs to be ignored, as A9_M2A_5
+	 * requesting sleep triggers it
+	 */
+	for (i = 0; (i * 32) < gic->max_irq; i++) {
+		pending = readl_relaxed(base +
+				GIC_DIST_PENDING_SET + i * 4);
+		pending_enb = readl_relaxed(base +
+				GIC_DIST_ENABLE_SET + i * 4);
+		value = pending & pending_enb;
+
+		if (value) {
+			for (bit = 0; bit < 32; bit++) {
+				bit = find_next_bit(&value, 32, bit);
+				if ((bit + 32 * i) != MSM8625_INT_A9_M2A_5) {
+					raw_spin_unlock(&irq_controller_lock);
+					return 1;
+				}
+			}
+		}
+	}
+	raw_spin_unlock(&irq_controller_lock);
+
+	return 0;
+}
+
+void msm_gic_save(bool modem_wake, int from_idle)
+{
+	unsigned int i;
+	struct gic_chip_data *gic = &gic_data[0];
+	void __iomem *base = gic_data_dist_base(gic);
+
+	gic_cpu_save(0);
+	gic_dist_save(0);
+	 /* Disable all the Interrupts, if we enter from idle pc */
+	if (from_idle) {
+		for (i = 0; (i * 32) < gic->max_irq; i++) {
+			raw_spin_lock(&irq_controller_lock);
+			writel_relaxed(0xffffffff, base
+					+ GIC_DIST_ENABLE_CLEAR + i * 4);
+			raw_spin_unlock(&irq_controller_lock);
+		}
+	}
+}
+
+void msm_gic_restore(void)
+{
+	gic_dist_restore(0);
+	gic_cpu_restore(0);
+}
+
+/*
+ * Configure the GIC after we come out of power collapse.
+ * This function will configure some of the GIC registers so as to prepare the
+ * core1 to receive an SPI(ACSR_MP_CORE_IPC1, (32 + 8)), which will bring
+ * core1 out of GDFS.
+ */
+void core1_gic_configure_and_raise(void)
+{
+	struct gic_chip_data *gic = &gic_data[0];
+	void __iomem *base = gic_data_dist_base(gic);
+	unsigned int value = 0;
+
+	raw_spin_lock(&irq_controller_lock);
+
+	value = __raw_readl(base + GIC_DIST_ACTIVE_BIT + 0x4);
+	value |= BIT(8);
+	__raw_writel(value, base + GIC_DIST_ACTIVE_BIT + 0x4);
+	mb();
+
+	value = __raw_readl(base + GIC_DIST_TARGET + 0x24);
+	value |= BIT(13);
+	__raw_writel(value, base + GIC_DIST_TARGET + 0x24);
+	mb();
+
+	value = __raw_readl(base + GIC_DIST_TARGET + 0x28);
+	value |= BIT(1);
+	__raw_writel(value, base + GIC_DIST_TARGET + 0x28);
+	mb();
+
+	value =  __raw_readl(base + GIC_DIST_ENABLE_SET + 0x4);
+	value |= BIT(8);
+	__raw_writel(value, base + GIC_DIST_ENABLE_SET + 0x4);
+	mb();
+
+	value =  __raw_readl(base + GIC_DIST_PENDING_SET + 0x4);
+	value |= BIT(8);
+	__raw_writel(value, base + GIC_DIST_PENDING_SET + 0x4);
+	mb();
+	raw_spin_unlock(&irq_controller_lock);
+}
+#endif

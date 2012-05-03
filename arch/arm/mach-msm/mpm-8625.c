@@ -25,19 +25,13 @@
 #include <asm/hardware/gic.h>
 #include <mach/msm_smsm.h>
 
+#include "mpm-8625.h"
+
 #define NUM_REGS_ENABLE		2
 /* (NR_MSM_IRQS/32) 96 max irqs supported */
 #define NUM_REGS_DISABLE	3
 #define GIC_IRQ_MASK(irq)	BIT(irq % 32)
 #define GIC_IRQ_INDEX(irq)	(irq / 32)
-
-#ifdef CONFIG_PM
-u32 saved_spi_enable[DIV_ROUND_UP(256, 32)];
-u32 saved_spi_conf[DIV_ROUND_UP(256, 16)];
-u32 saved_spi_target[DIV_ROUND_UP(256, 4)];
-u32 __percpu *saved_ppi_enable;
-u32 __percpu *saved_ppi_conf;
-#endif
 
 enum {
 	IRQ_DEBUG_SLEEP_INT_TRIGGER	= BIT(0),
@@ -53,10 +47,6 @@ module_param_named(debug_mask, msm_gic_irq_debug_mask, int,
 
 static uint32_t msm_gic_irq_smsm_wake_enable[NUM_REGS_ENABLE];
 static uint32_t msm_gic_irq_idle_disable[NUM_REGS_DISABLE];
-
-static DEFINE_RAW_SPINLOCK(gic_controller_lock);
-static void __iomem *dist_base, *cpu_base;
-static unsigned int max_irqs;
 
  /*
   * Some of the interrupts which will not be considered as wake capable
@@ -162,156 +152,15 @@ static int msm_gic_set_irq_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static void __init msm_gic_pm_init(void)
-{
-	saved_ppi_enable =  __alloc_percpu(DIV_ROUND_UP(32, 32) * 4,
-						sizeof(u32));
-	BUG_ON(!saved_ppi_enable);
-
-	saved_ppi_conf = __alloc_percpu(DIV_ROUND_UP(32, 16) * 4,
-						sizeof(u32));
-	BUG_ON(!saved_ppi_conf);
-}
-#endif
-
 void __init msm_gic_irq_extn_init(void __iomem *db, void __iomem *cb)
 {
-	dist_base = db;
-	cpu_base = cb;
-	max_irqs = readl_relaxed(dist_base + GIC_DIST_CTR) & 0x11f;
-	max_irqs = (max_irqs + 1) * 32;
-
 	gic_arch_extn.irq_mask	= msm_gic_mask_irq;
 	gic_arch_extn.irq_unmask = msm_gic_unmask_irq;
 	gic_arch_extn.irq_disable = msm_gic_mask_irq;
 	gic_arch_extn.irq_set_wake = msm_gic_set_irq_wake;
-
-#ifdef CONFIG_PM
-	msm_gic_pm_init();
-#endif
-}
-
-/* GIC APIs */
-
- /*
-  * Save the GIC cpu and distributor context before PC and
-  * restor it back after coming out of PC.
-  */
-static void msm_gic_save(void)
-{
-	int i;
-	u32 *ptr;
-
-	/* Save the Per CPU PPI's */
-	ptr = __this_cpu_ptr(saved_ppi_enable);
-	/* 0 - 31 the SGI and PPI */
-	ptr[0] = readl_relaxed(dist_base +  GIC_DIST_ENABLE_SET);
-
-	ptr = __this_cpu_ptr(saved_ppi_conf);
-	for (i = 0; i < 2; i++)
-		ptr[i] =  readl_relaxed(dist_base +  GIC_DIST_CONFIG + i * 4);
-
-	/* Save the SPIs */
-	for (i = 0; (i * 16) < max_irqs; i++)
-		saved_spi_conf[i] =
-			readl_relaxed(dist_base + GIC_DIST_CONFIG + i * 4);
-
-	for (i = 0; (i * 4) < max_irqs; i++)
-		saved_spi_target[i] =
-			readl_relaxed(dist_base + GIC_DIST_TARGET + i * 4);
-
-	for (i = 0; (i * 32) < max_irqs; i++)
-		saved_spi_enable[i] =
-		readl_relaxed(dist_base + GIC_DIST_ENABLE_SET + i * 4);
-}
-
-static void msm_gic_restore(void)
-{
-	int i;
-	u32 *ptr;
-
-	/* restore CPU Interface */
-	/* Per CPU SGIs and PPIs */
-	ptr = __this_cpu_ptr(saved_ppi_enable);
-	writel_relaxed(ptr[0], dist_base + GIC_DIST_ENABLE_SET);
-
-	ptr = __this_cpu_ptr(saved_ppi_conf);
-	for (i = 0; i < 2; i++)
-		writel_relaxed(ptr[i], dist_base +  GIC_DIST_CONFIG + i * 4);
-
-	for (i = 0; (i * 4) < max_irqs; i++)
-		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4);
-
-	writel_relaxed(0xf0, cpu_base + GIC_CPU_PRIMASK);
-	writel_relaxed(1, cpu_base + GIC_CPU_CTRL);
-
-	/* restore Distributor */
-	writel_relaxed(0, dist_base + GIC_DIST_CTRL);
-
-	for (i = 0; (i * 16) < max_irqs; i++)
-		writel_relaxed(saved_spi_conf[i],
-				dist_base + GIC_DIST_CONFIG + i * 4);
-
-	for (i = 0; (i * 4) < max_irqs; i++)
-		writel_relaxed(0xa0a0a0a0,
-				dist_base + GIC_DIST_PRI + i * 4);
-
-	for (i = 0; (i * 4) < max_irqs; i++)
-		writel_relaxed(saved_spi_target[i],
-				dist_base + GIC_DIST_TARGET + i * 4);
-
-	for (i = 0; (i * 32) < max_irqs; i++)
-		writel_relaxed(saved_spi_enable[i],
-				dist_base + GIC_DIST_ENABLE_SET + i * 4);
-
-	writel_relaxed(1, dist_base + GIC_DIST_CTRL);
-
-	mb();
 }
 
 /* Power APIs */
-
- /*
-  *  Check for any interrupts which are enabled are pending
-  *  in the pending set or not.
-  *  Return :
-  *       0 : No pending interrupts
-  *       1 : Pending interrupts other than A9_M2A_5
-  */
-unsigned int msm_gic_spi_ppi_pending(void)
-{
-	unsigned int i, bit = 0;
-	unsigned int pending_enb = 0, pending = 0;
-	unsigned long value = 0;
-
-	raw_spin_lock(&gic_controller_lock);
-	/*
-	 * PPI and SGI to be included.
-	 * MSM8625_INT_A9_M2A_5 needs to be ignored, as A9_M2A_5
-	 * requesting sleep triggers it
-	 */
-	for (i = 0; (i * 32) < max_irqs; i++) {
-		pending = readl_relaxed(dist_base +
-				GIC_DIST_PENDING_SET + i * 4);
-		pending_enb = readl_relaxed(dist_base +
-				GIC_DIST_ENABLE_SET + i * 4);
-		value = pending & pending_enb;
-
-		if (value) {
-			for (bit = 0; bit < 32; bit++) {
-				bit = find_next_bit(&value, 32, bit);
-				if ((bit + 32 * i) != MSM8625_INT_A9_M2A_5) {
-					raw_spin_unlock(&gic_controller_lock);
-					return 1;
-				}
-			}
-		}
-	}
-	raw_spin_unlock(&gic_controller_lock);
-
-	return 0;
-}
 
  /*
   * Iterate over the disable list
@@ -352,8 +201,6 @@ void msm_gic_irq_enter_sleep1(bool modem_wake, int from_idle, uint32_t
   */
 int msm_gic_irq_enter_sleep2(bool modem_wake, int from_idle)
 {
-	int i;
-
 	if (from_idle && !modem_wake)
 		return 0;
 
@@ -371,14 +218,10 @@ int msm_gic_irq_enter_sleep2(bool modem_wake, int from_idle)
 	}
 
 	if (modem_wake) {
-		/* save the contents of GIC CPU interface and Distributor */
-		msm_gic_save();
-		/* Disable all the Interrupts, if we enter from idle pc */
-		if (from_idle) {
-			for (i = 0; (i * 32) < max_irqs; i++)
-				writel_relaxed(0xffffffff, dist_base
-					+ GIC_DIST_ENABLE_CLEAR + i * 4);
-		}
+		/* save the contents of GIC CPU interface and Distributor
+		 * Disable all the Interrupts, if we enter from idle pc
+		 */
+		msm_gic_save(modem_wake, from_idle);
 		irq_set_irq_type(MSM8625_INT_A9_M2A_6, IRQF_TRIGGER_RISING);
 		enable_irq(MSM8625_INT_A9_M2A_6);
 		pr_debug("%s going for sleep now\n", __func__);
