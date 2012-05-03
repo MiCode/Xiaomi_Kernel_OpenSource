@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -748,7 +748,7 @@ static void marimba_init_reg(struct i2c_client *client, u8 driver_data)
 	}
 }
 
-static int marimba_probe(struct i2c_client *client,
+static int __devinit marimba_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	struct marimba_platform_data *pdata = client->dev.platform_data;
