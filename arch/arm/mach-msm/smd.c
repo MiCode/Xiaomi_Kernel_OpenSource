@@ -2207,6 +2207,20 @@ int smd_tiocmset(smd_channel_t *ch, unsigned int set, unsigned int clear)
 }
 EXPORT_SYMBOL(smd_tiocmset);
 
+int smd_is_pkt_avail(smd_channel_t *ch)
+{
+	if (!ch || !ch->is_pkt_ch)
+		return -EINVAL;
+
+	if (ch->current_packet)
+		return 1;
+
+	update_packet_state(ch);
+
+	return ch->current_packet ? 1 : 0;
+}
+EXPORT_SYMBOL(smd_is_pkt_avail);
+
 
 /* -------------------------------------------------------------------------- */
 
