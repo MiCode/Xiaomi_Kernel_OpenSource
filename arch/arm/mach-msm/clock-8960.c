@@ -4932,8 +4932,6 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("src_clk",		usb_fs1_src_clk.c,	""),
 	CLK_LOOKUP("alt_core_clk",	usb_fs1_xcvr_clk.c,	""),
 	CLK_LOOKUP("sys_clk",		usb_fs1_sys_clk.c,	""),
-	CLK_LOOKUP("iface_clk",		ce1_p_clk.c,		""),
-	CLK_LOOKUP("core_clk",		ce1_core_clk.c,		""),
 	CLK_LOOKUP("ref_clk",		sata_phy_ref_clk.c,	""),
 	CLK_LOOKUP("cfg_clk",		sata_phy_cfg_clk.c,	""),
 	CLK_LOOKUP("iface_clk",		ce3_p_clk.c,		"qce.0"),
