@@ -69,7 +69,7 @@ struct etb_ctx {
 	void __iomem	*base;
 	bool		enabled;
 	bool		reading;
-	struct mutex	mutex;
+	spinlock_t	spinlock;
 	atomic_t	in_use;
 	struct device	*dev;
 	struct kobject	*kobj;
@@ -100,11 +100,13 @@ static void __etb_enable(void)
 
 void etb_enable(void)
 {
-	mutex_lock(&etb.mutex);
+	unsigned long flags;
+
+	spin_lock_irqsave(&etb.spinlock, flags);
 	__etb_enable();
 	etb.enabled = true;
 	dev_info(etb.dev, "ETB enabled\n");
-	mutex_unlock(&etb.mutex);
+	spin_unlock_irqrestore(&etb.spinlock, flags);
 }
 
 static void __etb_disable(void)
@@ -137,11 +139,13 @@ static void __etb_disable(void)
 
 void etb_disable(void)
 {
-	mutex_lock(&etb.mutex);
+	unsigned long flags;
+
+	spin_lock_irqsave(&etb.spinlock, flags);
 	__etb_disable();
 	etb.enabled = false;
 	dev_info(etb.dev, "ETB disabled\n");
-	mutex_unlock(&etb.mutex);
+	spin_unlock_irqrestore(&etb.spinlock, flags);
 }
 
 static void __etb_dump(void)
@@ -200,7 +204,9 @@ static void __etb_dump(void)
 
 void etb_dump(void)
 {
-	mutex_lock(&etb.mutex);
+	unsigned long flags;
+
+	spin_lock_irqsave(&etb.spinlock, flags);
 	if (etb.enabled) {
 		__etb_disable();
 		__etb_dump();
@@ -208,7 +214,7 @@ void etb_dump(void)
 
 		dev_info(etb.dev, "ETB dumped\n");
 	}
-	mutex_unlock(&etb.mutex);
+	spin_unlock_irqrestore(&etb.spinlock, flags);
 }
 
 static int etb_open(struct inode *inode, struct file *file)
@@ -343,7 +349,7 @@ static int __devinit etb_probe(struct platform_device *pdev)
 
 	etb.dev = &pdev->dev;
 
-	mutex_init(&etb.mutex);
+	spin_lock_init(&etb.spinlock);
 
 	ret = misc_register(&etb_misc);
 	if (ret)
@@ -363,7 +369,6 @@ static int __devinit etb_probe(struct platform_device *pdev)
 err_alloc:
 	misc_deregister(&etb_misc);
 err_misc:
-	mutex_destroy(&etb.mutex);
 	iounmap(etb.base);
 err_ioremap:
 err_res:
@@ -378,7 +383,6 @@ static int __devexit etb_remove(struct platform_device *pdev)
 	etb_sysfs_exit();
 	kfree(etb.buf);
 	misc_deregister(&etb_misc);
-	mutex_destroy(&etb.mutex);
 	iounmap(etb.base);
 
 	return 0;
