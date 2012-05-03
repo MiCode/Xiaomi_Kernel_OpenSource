@@ -175,6 +175,26 @@ out:
 EXPORT_SYMBOL(qdss_disable);
 
 /**
+ * qdss_disable_sink - force disable the current qdss sink(s)
+ *
+ * Force disable the current qdss sink(s) to stop the sink from accepting any
+ * trace generated subsequent to this call. This function should only be used
+ * as a way to stop the sink from getting polluted with trace data that is
+ * uninteresting after an event of interest has occured.
+ *
+ * CONTEXT:
+ * Can be called from atomic or non-atomic context.
+ */
+void qdss_disable_sink(void)
+{
+	if ((qdss.pdata)->afamily) {
+		etb_dump();
+		etb_disable();
+	}
+}
+EXPORT_SYMBOL(qdss_disable_sink);
+
+/**
  * qdss_clk_enable - enable qdss clocks
  *
  * Enables qdss clocks via RPM if they aren't already enabled, otherwise
