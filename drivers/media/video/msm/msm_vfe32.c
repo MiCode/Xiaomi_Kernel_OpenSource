@@ -4177,16 +4177,18 @@ static long msm_axi_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VIDIOC_MSM_AXI_INIT:
 		rc = msm_axi_subdev_init(sd,
-				(struct msm_cam_media_controller *)arg);
+			(struct msm_cam_media_controller *)arg);
 		break;
 	case VIDIOC_MSM_AXI_CFG:
 		rc = msm_axi_config(sd, arg);
 		break;
 	case VIDIOC_MSM_AXI_IRQ:
 		msm_axi_process_irq(sd, arg);
+		rc = 0;
 		break;
 	case VIDIOC_MSM_AXI_RELEASE:
 		msm_axi_subdev_release(sd);
+		rc = 0;
 		break;
 	default:
 		pr_err("%s: command not found\n", __func__);
