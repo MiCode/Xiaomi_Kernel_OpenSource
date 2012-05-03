@@ -242,6 +242,8 @@ config ARCH_APQ8064
 	select FIX_MOVABLE_ZONE if ENABLE_DMM
 	select CLEANCACHE
 	select QCACHE
+	select MIGHT_HAVE_PCI
+	select ARCH_SUPPORTS_MSI
 
 config ARCH_MSMCOPPER
 	bool "MSM Copper"
@@ -1215,6 +1217,13 @@ choice
 	  bool
 	    prompt "Package 4"
 endchoice
+
+config MSM_PCIE
+	bool "MSM PCIe Controller driver"
+	depends on PCI && PCI_MSI
+	help
+	  Enables the PCIe functionality by configures PCIe core on
+	  MSM chipset and by enabling the ARM PCI framework extension.
 
 config MSM_RPC_SDIO_XPRT
 	depends on MSM_SDIO_AL
