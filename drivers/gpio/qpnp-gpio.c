@@ -589,7 +589,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 	struct resource *res;
 	struct qpnp_gpio_spec *q_spec;
 	const __be32 *prop;
-	int i, rc, ret, gpio, len;
+	int i, rc, gpio, len;
 	int lowest_gpio = INT_MAX, highest_gpio = INT_MIN;
 	u32 intspec[3];
 	char buf[2];
@@ -614,12 +614,12 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		if (!prop) {
 			dev_err(&spmi->dev, "%s: unable to get"
 				" qcom,gpio-num property\n", __func__);
-			ret = -EINVAL;
+			rc = -EINVAL;
 			goto err_probe;
 		} else if (len != sizeof(__be32)) {
 			dev_err(&spmi->dev, "%s: invalid qcom,gpio-num"
 				" property\n", __func__);
-			ret = -EINVAL;
+			rc = -EINVAL;
 			goto err_probe;
 		}
 
@@ -633,12 +633,12 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 	if (highest_gpio < lowest_gpio) {
 		dev_err(&spmi->dev, "%s: no device nodes specified in"
 					" topology\n", __func__);
-		ret = -EINVAL;
+		rc = -EINVAL;
 		goto err_probe;
 	} else if (lowest_gpio == 0) {
 		dev_err(&spmi->dev, "%s: 0 is not a valid PMIC GPIO\n",
 								__func__);
-		ret = -EINVAL;
+		rc = -EINVAL;
 		goto err_probe;
 	}
 
@@ -654,7 +654,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 	if (!q_chip->pmic_gpios || !q_chip->chip_gpios) {
 		dev_err(&spmi->dev, "%s: unable to allocate memory\n",
 								__func__);
-		ret = -ENOMEM;
+		rc = -ENOMEM;
 		goto err_probe;
 	}
 
@@ -663,7 +663,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 	if (!q_chip->int_ctrl) {
 		dev_err(&spmi->dev, "%s: Can't find interrupt parent\n",
 								__func__);
-		ret = -EINVAL;
+		rc = -EINVAL;
 		goto err_probe;
 	}
 
@@ -681,12 +681,12 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		if (!prop) {
 			dev_err(&spmi->dev, "%s: unable to get"
 				" qcom,gpio-num property\n", __func__);
-			ret = -EINVAL;
+			rc = -EINVAL;
 			goto err_probe;
 		} else if (len != sizeof(__be32)) {
 			dev_err(&spmi->dev, "%s: invalid qcom,qpnp-gpio-num"
 				" property\n", __func__);
-			ret = -EINVAL;
+			rc = -EINVAL;
 			goto err_probe;
 		}
 		gpio = be32_to_cpup(prop);
@@ -697,7 +697,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 			dev_err(&spmi->dev, "%s: unable to allocate"
 						" memory\n",
 					__func__);
-			ret = -ENOMEM;
+			rc = -ENOMEM;
 			goto err_probe;
 		}
 
@@ -712,7 +712,6 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		if (rc) {
 			dev_err(&spmi->dev, "%s: unable to read type regs\n",
 						__func__);
-			ret = rc;
 			goto err_probe;
 		}
 		q_spec->type	= buf[0];
@@ -727,7 +726,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		if (!q_spec->irq) {
 			dev_err(&spmi->dev, "%s: invalid irq for gpio"
 					" %u\n", __func__, gpio);
-			ret = -EINVAL;
+			rc = -EINVAL;
 			goto err_probe;
 		}
 		/* initialize lookup table entries */
@@ -752,27 +751,24 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 	if (rc) {
 		dev_err(&spmi->dev, "%s: Can't add gpio chip, rc = %d\n",
 								__func__, rc);
-		ret = rc;
 		goto err_probe;
 	}
 
 	/* now configure gpio config defaults if they exist */
 	for (i = 0; i < spmi->num_dev_node; i++) {
 		q_spec = qpnp_chip_gpio_get_spec(q_chip, i);
-		if (WARN_ON(!q_spec))
-			return -ENODEV;
+		if (WARN_ON(!q_spec)) {
+			rc = -ENODEV;
+			goto err_probe;
+		}
 
 		rc = qpnp_gpio_cache_regs(q_chip, q_spec);
-		if (rc) {
-			ret = rc;
+		if (rc)
 			goto err_probe;
-		}
 
 		rc = qpnp_gpio_apply_config(q_chip, q_spec);
-		if (rc) {
-			ret = rc;
+		if (rc)
 			goto err_probe;
-		}
 	}
 
 	dev_dbg(&spmi->dev, "%s: gpio_chip registered between %d-%u\n",
@@ -782,7 +778,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 
 err_probe:
 	qpnp_gpio_free_chip(q_chip);
-	return ret;
+	return rc;
 }
 
 static int qpnp_gpio_remove(struct spmi_device *spmi)
