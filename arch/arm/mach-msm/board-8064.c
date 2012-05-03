@@ -154,7 +154,7 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct platform_device android_pmem_device = {
+static struct platform_device apq8064_android_pmem_device = {
 	.name = "android_pmem",
 	.id = 0,
 	.dev = {.platform_data = &android_pmem_pdata},
@@ -166,7 +166,7 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.cached = 0,
 	.memory_type = MEMTYPE_EBI1,
 };
-static struct platform_device android_pmem_adsp_device = {
+static struct platform_device apq8064_android_pmem_adsp_device = {
 	.name = "android_pmem",
 	.id = 2,
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
@@ -179,7 +179,7 @@ static struct android_pmem_platform_data android_pmem_audio_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct platform_device android_pmem_audio_device = {
+static struct platform_device apq8064_android_pmem_audio_device = {
 	.name = "android_pmem",
 	.id = 4,
 	.dev = { .platform_data = &android_pmem_audio_pdata },
@@ -199,7 +199,7 @@ static struct memtype_reserve apq8064_reserve_table[] __initdata = {
 };
 
 #if defined(CONFIG_MSM_RTB)
-static struct msm_rtb_platform_data msm_rtb_pdata = {
+static struct msm_rtb_platform_data apq8064_rtb_pdata = {
 	.size = SZ_1M,
 };
 
@@ -208,17 +208,17 @@ static int __init msm_rtb_set_buffer_size(char *p)
 	int s;
 
 	s = memparse(p, NULL);
-	msm_rtb_pdata.size = ALIGN(s, SZ_4K);
+	apq8064_rtb_pdata.size = ALIGN(s, SZ_4K);
 	return 0;
 }
 early_param("msm_rtb_size", msm_rtb_set_buffer_size);
 
 
-static struct platform_device msm_rtb_device = {
+static struct platform_device apq8064_rtb_device = {
 	.name           = "msm_rtb",
 	.id             = -1,
 	.dev            = {
-		.platform_data = &msm_rtb_pdata,
+		.platform_data = &apq8064_rtb_pdata,
 	},
 };
 #endif
@@ -226,7 +226,7 @@ static struct platform_device msm_rtb_device = {
 static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
-	apq8064_reserve_table[MEMTYPE_EBI1].size += msm_rtb_pdata.size;
+	apq8064_reserve_table[MEMTYPE_EBI1].size += apq8064_rtb_pdata.size;
 #endif
 }
 
@@ -270,22 +270,22 @@ static int apq8064_paddr_to_memtype(unsigned int paddr)
 
 #ifdef CONFIG_ION_MSM
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
+static struct ion_cp_heap_pdata cp_mm_apq8064_ion_pdata = {
 	.permission_type = IPT_TYPE_MM_CARVEOUT,
 	.align = PAGE_SIZE,
 };
 
-static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
+static struct ion_cp_heap_pdata cp_mfc_apq8064_ion_pdata = {
 	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
 	.align = PAGE_SIZE,
 };
 
-static struct ion_co_heap_pdata co_ion_pdata = {
+static struct ion_co_heap_pdata co_apq8064_ion_pdata = {
 	.adjacent_mem_id = INVALID_HEAP_ID,
 	.align = PAGE_SIZE,
 };
 
-static struct ion_co_heap_pdata fw_co_ion_pdata = {
+static struct ion_co_heap_pdata fw_co_apq8064_ion_pdata = {
 	.adjacent_mem_id = ION_CP_MM_HEAP_ID,
 	.align = SZ_128K,
 };
@@ -302,7 +302,7 @@ static struct ion_co_heap_pdata fw_co_ion_pdata = {
  * to each other.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data ion_pdata = {
+static struct ion_platform_data apq8064_ion_pdata = {
 	.nr = MSM_ION_HEAP_NUM,
 	.heaps = {
 		{
@@ -317,7 +317,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MM_HEAP_NAME,
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mm_ion_pdata,
+			.extra_data = (void *) &cp_mm_apq8064_ion_pdata,
 		},
 		{
 			.id	= ION_MM_FIRMWARE_HEAP_ID,
@@ -325,7 +325,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MM_FIRMWARE_HEAP_NAME,
 			.size	= MSM_ION_MM_FW_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &fw_co_ion_pdata,
+			.extra_data = (void *) &fw_co_apq8064_ion_pdata,
 		},
 		{
 			.id	= ION_CP_MFC_HEAP_ID,
@@ -333,7 +333,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MFC_HEAP_NAME,
 			.size	= MSM_ION_MFC_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mfc_ion_pdata,
+			.extra_data = (void *) &cp_mfc_apq8064_ion_pdata,
 		},
 #ifndef CONFIG_MSM_IOMMU
 		{
@@ -342,7 +342,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_SF_HEAP_NAME,
 			.size	= MSM_ION_SF_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_apq8064_ion_pdata,
 		},
 #endif
 		{
@@ -356,7 +356,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_QSECOM_HEAP_NAME,
 			.size	= MSM_ION_QSECOM_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_apq8064_ion_pdata,
 		},
 		{
 			.id	= ION_AUDIO_HEAP_ID,
@@ -364,16 +364,16 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_AUDIO_HEAP_NAME,
 			.size	= MSM_ION_AUDIO_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_apq8064_ion_pdata,
 		},
 #endif
 	}
 };
 
-static struct platform_device ion_dev = {
+static struct platform_device apq8064_ion_dev = {
 	.name = "ion-msm",
 	.id = 1,
-	.dev = { .platform_data = &ion_pdata },
+	.dev = { .platform_data = &apq8064_ion_pdata },
 };
 #endif
 
@@ -1889,13 +1889,13 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_iris_fm,
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	&android_pmem_device,
-	&android_pmem_adsp_device,
-	&android_pmem_audio_device,
+	&apq8064_android_pmem_device,
+	&apq8064_android_pmem_adsp_device,
+	&apq8064_android_pmem_audio_device,
 #endif /*CONFIG_MSM_MULTIMEDIA_USE_ION*/
 #endif /*CONFIG_ANDROID_PMEM*/
 #ifdef CONFIG_ION_MSM
-	&ion_dev,
+	&apq8064_ion_dev,
 #endif
 	&msm8064_device_watchdog,
 	&msm8064_device_saw_regulator_core0,
@@ -1964,7 +1964,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_pil_vidc,
 	&msm_gss,
 #ifdef CONFIG_MSM_RTB
-	&msm_rtb_device,
+	&apq8064_rtb_device,
 #endif
 	&apq8064_cpu_idle_device,
 	&apq8064_msm_gov_device,

@@ -224,7 +224,7 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct platform_device android_pmem_device = {
+static struct platform_device msm8960_android_pmem_device = {
 	.name = "android_pmem",
 	.id = 0,
 	.dev = {.platform_data = &android_pmem_pdata},
@@ -236,7 +236,7 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.cached = 0,
 	.memory_type = MEMTYPE_EBI1,
 };
-static struct platform_device android_pmem_adsp_device = {
+static struct platform_device msm8960_android_pmem_adsp_device = {
 	.name = "android_pmem",
 	.id = 2,
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
@@ -249,7 +249,7 @@ static struct android_pmem_platform_data android_pmem_audio_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct platform_device android_pmem_audio_device = {
+static struct platform_device msm8960_android_pmem_audio_device = {
 	.name = "android_pmem",
 	.id = 4,
 	.dev = { .platform_data = &android_pmem_audio_pdata },
@@ -257,7 +257,7 @@ static struct platform_device android_pmem_audio_device = {
 #endif /*CONFIG_MSM_MULTIMEDIA_USE_ION*/
 #endif /*CONFIG_ANDROID_PMEM*/
 
-struct fmem_platform_data fmem_pdata = {
+struct fmem_platform_data msm8960_fmem_pdata = {
 };
 
 #define DSP_RAM_BASE_8960 0x8da00000
@@ -292,7 +292,7 @@ static struct memtype_reserve msm8960_reserve_table[] __initdata = {
 };
 
 #if defined(CONFIG_MSM_RTB)
-static struct msm_rtb_platform_data msm_rtb_pdata = {
+static struct msm_rtb_platform_data msm8960_rtb_pdata = {
 	.size = SZ_1M,
 };
 
@@ -301,17 +301,17 @@ static int __init msm_rtb_set_buffer_size(char *p)
 	int s;
 
 	s = memparse(p, NULL);
-	msm_rtb_pdata.size = ALIGN(s, SZ_4K);
+	msm8960_rtb_pdata.size = ALIGN(s, SZ_4K);
 	return 0;
 }
 early_param("msm_rtb_size", msm_rtb_set_buffer_size);
 
 
-static struct platform_device msm_rtb_device = {
+static struct platform_device msm8960_rtb_device = {
 	.name           = "msm_rtb",
 	.id             = -1,
 	.dev            = {
-		.platform_data = &msm_rtb_pdata,
+		.platform_data = &msm8960_rtb_pdata,
 	},
 };
 #endif
@@ -319,7 +319,7 @@ static struct platform_device msm_rtb_device = {
 static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
-	msm8960_reserve_table[MEMTYPE_EBI1].size += msm_rtb_pdata.size;
+	msm8960_reserve_table[MEMTYPE_EBI1].size += msm8960_rtb_pdata.size;
 #endif
 }
 
@@ -372,7 +372,7 @@ static int msm8960_paddr_to_memtype(unsigned int paddr)
 
 #ifdef CONFIG_ION_MSM
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
+static struct ion_cp_heap_pdata cp_mm_msm8960_ion_pdata = {
 	.permission_type = IPT_TYPE_MM_CARVEOUT,
 	.align = PAGE_SIZE,
 	.reusable = FMEM_ENABLED,
@@ -380,7 +380,7 @@ static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
 	.fixed_position = FIXED_MIDDLE,
 };
 
-static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
+static struct ion_cp_heap_pdata cp_mfc_msm8960_ion_pdata = {
 	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
 	.align = PAGE_SIZE,
 	.reusable = 0,
@@ -388,13 +388,13 @@ static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
 	.fixed_position = FIXED_HIGH,
 };
 
-static struct ion_co_heap_pdata co_ion_pdata = {
+static struct ion_co_heap_pdata co_msm8960_ion_pdata = {
 	.adjacent_mem_id = INVALID_HEAP_ID,
 	.align = PAGE_SIZE,
 	.mem_is_fmem = 0,
 };
 
-static struct ion_co_heap_pdata fw_co_ion_pdata = {
+static struct ion_co_heap_pdata fw_co_msm8960_ion_pdata = {
 	.adjacent_mem_id = ION_CP_MM_HEAP_ID,
 	.align = SZ_128K,
 	.mem_is_fmem = FMEM_ENABLED,
@@ -413,7 +413,7 @@ static struct ion_co_heap_pdata fw_co_ion_pdata = {
  * to each other.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data ion_pdata = {
+static struct ion_platform_data msm8960_ion_pdata = {
 	.nr = MSM_ION_HEAP_NUM,
 	.heaps = {
 		{
@@ -428,7 +428,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MM_HEAP_NAME,
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mm_ion_pdata,
+			.extra_data = (void *) &cp_mm_msm8960_ion_pdata,
 		},
 		{
 			.id	= ION_MM_FIRMWARE_HEAP_ID,
@@ -436,7 +436,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MM_FIRMWARE_HEAP_NAME,
 			.size	= MSM_ION_MM_FW_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &fw_co_ion_pdata,
+			.extra_data = (void *) &fw_co_msm8960_ion_pdata,
 		},
 		{
 			.id	= ION_CP_MFC_HEAP_ID,
@@ -444,7 +444,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MFC_HEAP_NAME,
 			.size	= MSM_ION_MFC_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mfc_ion_pdata,
+			.extra_data = (void *) &cp_mfc_msm8960_ion_pdata,
 		},
 #ifndef CONFIG_MSM_IOMMU
 		{
@@ -453,7 +453,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_SF_HEAP_NAME,
 			.size	= MSM_ION_SF_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_msm8960_ion_pdata,
 		},
 #endif
 		{
@@ -467,7 +467,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_QSECOM_HEAP_NAME,
 			.size	= MSM_ION_QSECOM_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_msm8960_ion_pdata,
 		},
 		{
 			.id	= ION_AUDIO_HEAP_ID,
@@ -475,23 +475,23 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_AUDIO_HEAP_NAME,
 			.size	= MSM_ION_AUDIO_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_msm8960_ion_pdata,
 		},
 #endif
 	}
 };
 
-static struct platform_device ion_dev = {
+static struct platform_device msm8960_ion_dev = {
 	.name = "ion-msm",
 	.id = 1,
-	.dev = { .platform_data = &ion_pdata },
+	.dev = { .platform_data = &msm8960_ion_pdata },
 };
 #endif
 
-struct platform_device fmem_device = {
+struct platform_device msm8960_fmem_device = {
 	.name = "fmem",
 	.id = 1,
-	.dev = { .platform_data = &fmem_pdata },
+	.dev = { .platform_data = &msm8960_fmem_pdata },
 };
 
 static void __init adjust_mem_for_liquid(void)
@@ -507,9 +507,10 @@ static void __init adjust_mem_for_liquid(void)
 
 		if (machine_is_msm8960_liquid() ||
 			msm8960_hdmi_as_primary_selected()) {
-			for (i = 0; i < ion_pdata.nr; i++) {
-				if (ion_pdata.heaps[i].id == ION_SF_HEAP_ID) {
-					ion_pdata.heaps[i].size =
+			for (i = 0; i < msm8960_ion_pdata.nr; i++) {
+				if (msm8960_ion_pdata.heaps[i].id ==
+							ION_SF_HEAP_ID) {
+					msm8960_ion_pdata.heaps[i].size =
 						msm_ion_sf_size;
 					pr_debug("msm_ion_sf_size 0x%x\n",
 						msm_ion_sf_size);
@@ -566,9 +567,9 @@ static void __init reserve_ion_memory(void)
 	unsigned long fixed_low_start, fixed_middle_start, fixed_high_start;
 
 	adjust_mem_for_liquid();
-	fmem_pdata.size = 0;
-	fmem_pdata.reserved_size_low = 0;
-	fmem_pdata.reserved_size_high = 0;
+	msm8960_fmem_pdata.size = 0;
+	msm8960_fmem_pdata.reserved_size_low = 0;
+	msm8960_fmem_pdata.reserved_size_high = 0;
 	fixed_low_size = 0;
 	fixed_middle_size = 0;
 	fixed_high_size = 0;
@@ -576,8 +577,9 @@ static void __init reserve_ion_memory(void)
 	/* We only support 1 reusable heap. Check if more than one heap
 	 * is specified as reusable and set as non-reusable if found.
 	 */
-	for (i = 0; i < ion_pdata.nr; ++i) {
-		const struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
+	for (i = 0; i < msm8960_ion_pdata.nr; ++i) {
+		const struct ion_platform_heap *heap =
+						&(msm8960_ion_pdata.heaps[i]);
 
 		if (heap->type == ION_HEAP_TYPE_CP && heap->extra_data) {
 			struct ion_cp_heap_pdata *data = heap->extra_data;
@@ -593,8 +595,9 @@ static void __init reserve_ion_memory(void)
 		}
 	}
 
-	for (i = 0; i < ion_pdata.nr; ++i) {
-		const struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
+	for (i = 0; i < msm8960_ion_pdata.nr; ++i) {
+		const struct ion_platform_heap *heap =
+						&(msm8960_ion_pdata.heaps[i]);
 
 		if (heap->extra_data) {
 			int fixed_position = NOT_FIXED;
@@ -630,16 +633,16 @@ static void __init reserve_ion_memory(void)
 				fixed_high_size += heap->size;
 
 			if (mem_is_fmem)
-				fmem_pdata.size += heap->size;
+				msm8960_fmem_pdata.size += heap->size;
 		}
 	}
 
 	if (!fixed_size)
 		return;
 
-	if (fmem_pdata.size) {
-		fmem_pdata.reserved_size_low = fixed_low_size;
-		fmem_pdata.reserved_size_high = fixed_high_size;
+	if (msm8960_fmem_pdata.size) {
+		msm8960_fmem_pdata.reserved_size_low = fixed_low_size;
+		msm8960_fmem_pdata.reserved_size_high = fixed_high_size;
 	}
 
 	/* Since the fixed area may be carved out of lowmem,
@@ -653,8 +656,8 @@ static void __init reserve_ion_memory(void)
 	fixed_middle_start = fixed_low_start + fixed_low_size;
 	fixed_high_start = fixed_middle_start + fixed_middle_size;
 
-	for (i = 0; i < ion_pdata.nr; ++i) {
-		struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
+	for (i = 0; i < msm8960_ion_pdata.nr; ++i) {
+		struct ion_platform_heap *heap = &(msm8960_ion_pdata.heaps[i]);
 
 		if (heap->extra_data) {
 			int fixed_position = NOT_FIXED;
@@ -696,15 +699,15 @@ static void __init reserve_mdp_memory(void)
 }
 
 #if defined(CONFIG_MSM_CACHE_DUMP)
-static struct msm_cache_dump_platform_data msm_cache_dump_pdata = {
+static struct msm_cache_dump_platform_data msm8960_cache_dump_pdata = {
 	.l2_size = L2_BUFFER_SIZE,
 };
 
-static struct platform_device msm_cache_dump_device = {
+static struct platform_device msm8960_cache_dump_device = {
 	.name           = "msm_cache_dump",
 	.id             = -1,
 	.dev            = {
-		.platform_data = &msm_cache_dump_pdata,
+		.platform_data = &msm8960_cache_dump_pdata,
 	},
 };
 
@@ -736,8 +739,8 @@ static void __init reserve_cache_dump_memory(void)
 	total = l1_size + l2_size;
 
 	msm8960_reserve_table[MEMTYPE_EBI1].size += total;
-	msm_cache_dump_pdata.l1_size = l1_size;
-	msm_cache_dump_pdata.l2_size = l2_size;
+	msm8960_cache_dump_pdata.l1_size = l1_size;
+	msm8960_cache_dump_pdata.l2_size = l2_size;
 #endif
 }
 
@@ -841,16 +844,17 @@ static void __init msm8960_reserve(void)
 {
 	msm8960_set_display_params(prim_panel_name, ext_panel_name);
 	msm_reserve();
-	if (fmem_pdata.size) {
+	if (msm8960_fmem_pdata.size) {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
-		fmem_pdata.phys = reserve_info->fixed_area_start +
+		msm8960_fmem_pdata.phys = reserve_info->fixed_area_start +
 			MSM_MM_FW_SIZE;
 		pr_info("mm fw at %lx (fixed) size %x\n",
 			reserve_info->fixed_area_start, MSM_MM_FW_SIZE);
 		pr_info("fmem start %lx (fixed) size %lx\n",
-			fmem_pdata.phys, fmem_pdata.size);
+			msm8960_fmem_pdata.phys, msm8960_fmem_pdata.size);
 #else
-		fmem_pdata.phys = reserve_memory_for_fmem(fmem_pdata.size);
+		msm8960_fmem_pdata.phys =
+			reserve_memory_for_fmem(msm8960_fmem_pdata.size);
 #endif
 	}
 }
@@ -2539,12 +2543,12 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_MSM_FAKE_BATTERY
 	&fish_battery_device,
 #endif
-	&fmem_device,
+	&msm8960_fmem_device,
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	&android_pmem_device,
-	&android_pmem_adsp_device,
-	&android_pmem_audio_device,
+	&msm8960_android_pmem_device,
+	&msm8960_android_pmem_adsp_device,
+	&msm8960_android_pmem_audio_device,
 #endif
 #endif
 	&msm_device_vidc,
@@ -2563,7 +2567,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_rng,
 #endif
 #ifdef CONFIG_ION_MSM
-	&ion_dev,
+	&msm8960_ion_dev,
 #endif
 	&msm8960_rpm_device,
 	&msm8960_rpm_log_device,
@@ -2579,13 +2583,13 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_dspcrashd_8960,
 	&msm8960_device_watchdog,
 #ifdef CONFIG_MSM_RTB
-	&msm_rtb_device,
+	&msm8960_rtb_device,
 #endif
 	&msm8960_cpu_idle_device,
 	&msm8960_msm_gov_device,
 	&msm8960_device_cache_erp,
 #ifdef CONFIG_MSM_CACHE_DUMP
-	&msm_cache_dump_device,
+	&msm8960_cache_dump_device,
 #endif
 	&msm8960_iommu_domain_device,
 };
