@@ -235,10 +235,8 @@ int adreno_ringbuffer_start(struct adreno_ringbuffer *rb, unsigned int init_ram)
 	if (rb->flags & KGSL_FLAGS_STARTED)
 		return 0;
 
-	if (init_ram) {
+	if (init_ram)
 		rb->timestamp[KGSL_MEMSTORE_GLOBAL] = 0;
-		GSL_RB_INIT_TIMESTAMP(rb);
-	}
 
 	kgsl_sharedmem_set(&rb->memptrs_desc, 0, 0,
 			   sizeof(struct kgsl_rbmemptrs));
