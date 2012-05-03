@@ -217,6 +217,9 @@ void pet_watchdog(void)
 	unsigned long long slack_ns;
 	unsigned long long bark_time_ns = bark_time * 1000000ULL;
 
+	if (!enable)
+		return;
+
 	slack = __raw_readl(msm_tmr0_base + WDT0_STS) >> 3;
 	slack = ((bark_time*WDT_HZ)/1000) - slack;
 	if (slack < min_slack_ticks)
