@@ -316,7 +316,7 @@ static void branch_clk_halt_check(u32 halt_check, const char *clk_name,
 				  void __iomem *cbcr_reg,
 				  enum branch_state br_status)
 {
-	char *status_str = (br_status == BRANCH_ON) ? "on" : "off";
+	char *status_str = (br_status == BRANCH_ON) ? "off" : "on";
 
 	/*
 	 * Use a memory barrier since some halt status registers are
