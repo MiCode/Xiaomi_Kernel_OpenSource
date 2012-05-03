@@ -25,6 +25,7 @@
 #include <asm/gpio.h>
 #include <asm/mach-types.h>
 #include <mach/rpc_server_handset.h>
+#include <mach/pmic.h>
 
 #include "devices.h"
 #include "board-msm7627a.h"
@@ -653,6 +654,24 @@ static struct platform_device kp_pdev_sku3 = {
 	},
 };
 
+static struct led_info ctp_backlight_info = {
+	.name           = "button-backlight",
+	.flags          = PM_MPP__I_SINK__LEVEL_40mA << 16 | PM_MPP_7,
+};
+
+static struct led_platform_data ctp_backlight_pdata = {
+	.leds = &ctp_backlight_info,
+	.num_leds = 1,
+};
+
+static struct platform_device pmic_mpp_leds_pdev = {
+	.name   = "pmic-mpp-leds",
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &ctp_backlight_pdata,
+	},
+};
+
 void __init msm7627a_add_io_devices(void)
 {
 	/* touchscreen */
@@ -752,5 +771,6 @@ void __init qrd7627a_add_io_devices(void)
 		}
 
 		platform_device_register(&gpio_leds_8625);
+		platform_device_register(&pmic_mpp_leds_pdev);
 	}
 }
