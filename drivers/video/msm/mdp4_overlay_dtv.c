@@ -470,6 +470,28 @@ static void mdp4_overlay_dtv_ov_start(struct msm_fb_data_type *mfd)
 	mfd->ov_start = true;
 }
 
+static void mdp4_overlay_dtv_wait4dmae(struct msm_fb_data_type *mfd)
+{
+	unsigned long flag;
+
+	if (!dtv_pipe) {
+		pr_debug("%s: no mixer1 base layer pipe allocated!\n",
+			 __func__);
+		return;
+	}
+	/* enable irq */
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	mdp_enable_irq(MDP_DMA_E_TERM);
+	INIT_COMPLETION(dtv_pipe->comp);
+	mfd->dma->waiting = TRUE;
+	outp32(MDP_INTR_CLEAR, INTR_DMA_E_DONE);
+	mdp_intr_mask |= INTR_DMA_E_DONE;
+	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+	wait_for_completion_killable(&dtv_pipe->comp);
+	mdp_disable_irq(MDP_DMA_E_TERM);
+}
+
 static void mdp4_overlay_dtv_wait4_ov_done(struct msm_fb_data_type *mfd,
 	struct mdp4_overlay_pipe *pipe)
 {
@@ -490,6 +512,9 @@ static void mdp4_overlay_dtv_wait4_ov_done(struct msm_fb_data_type *mfd,
 	wait_for_completion_timeout(&dtv_pipe->comp,
 			msecs_to_jiffies(VSYNC_PERIOD*2));
 	mdp_disable_irq(MDP_OVERLAY1_TERM);
+
+	if (dtv_pipe->blt_addr)
+		mdp4_overlay_dtv_wait4dmae(mfd);
 }
 
 void mdp4_overlay_dtv_start(void)
@@ -598,28 +623,6 @@ void mdp4_overlay_dtv_wait4vsync(void)
 	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	wait_for_completion_killable(&dtv_comp);
-	mdp_disable_irq(MDP_DMA_E_TERM);
-}
-
-static void mdp4_overlay_dtv_wait4dmae(struct msm_fb_data_type *mfd)
-{
-	unsigned long flag;
-
-	if (!dtv_pipe) {
-		pr_debug("%s: no mixer1 base layer pipe allocated!\n",
-			 __func__);
-		return;
-	}
-	/* enable irq */
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	mdp_enable_irq(MDP_DMA_E_TERM);
-	INIT_COMPLETION(dtv_pipe->comp);
-	mfd->dma->waiting = TRUE;
-	outp32(MDP_INTR_CLEAR, INTR_DMA_E_DONE);
-	mdp_intr_mask |= INTR_DMA_E_DONE;
-	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-	wait_for_completion_killable(&dtv_pipe->comp);
 	mdp_disable_irq(MDP_DMA_E_TERM);
 }
 
