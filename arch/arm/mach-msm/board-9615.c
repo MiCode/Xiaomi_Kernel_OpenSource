@@ -620,18 +620,6 @@ out:
 	return 0;
 }
 
-static struct android_usb_platform_data android_usb_pdata = {
-	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
-};
-
-static struct platform_device android_usb_device = {
-	.name	= "android_usb",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &android_usb_pdata,
-	},
-};
-
 static struct platform_device msm_wlan_ar6000_pm_device = {
 	.name           = "wlan_ar6000_pm_dev",
 	.id             = -1,
@@ -678,7 +666,7 @@ static struct platform_device *common_devices[] = {
 	&msm_device_hsusb_host,
 	&msm_device_hsic_host,
 	&msm_device_usb_bam,
-	&android_usb_device,
+	&msm_android_usb_device,
 	&msm9615_device_uart_gsbi4,
 	&msm9615_device_ext_2p95v_vreg,
 	&msm9615_device_ssbi_pmic1,
@@ -749,6 +737,9 @@ static void __init msm9615_reserve(void)
 
 static void __init msm9615_common_init(void)
 {
+	struct android_usb_platform_data *android_pdata =
+				msm_android_usb_device.dev.platform_data;
+
 	msm9615_device_init();
 	msm9615_init_gpiomux();
 	msm9615_i2c_init();
@@ -776,6 +767,8 @@ static void __init msm9615_common_init(void)
 	msm9615_init_mmc();
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));
+	android_pdata->update_pid_and_serial_num =
+					usb_diag_update_pid_and_serial_num;
 	msm_pm_boot_pdata.p_addr = allocate_contiguous_ebi_nomap(SZ_8, SZ_64K);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 	msm_tsens_early_init(&msm_tsens_pdata);

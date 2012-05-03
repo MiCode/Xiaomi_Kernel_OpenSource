@@ -3104,7 +3104,7 @@ static void __init msm8960_cdp_init(void)
 			msm_otg_pdata.phy_init_seq =
 				liquid_v1_phy_init_seq;
 	}
-	msm_otg_pdata.swfi_latency =
+	android_usb_pdata.swfi_latency =
 		msm_rpmrs_levels[0].latency_us;
 	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2 &&

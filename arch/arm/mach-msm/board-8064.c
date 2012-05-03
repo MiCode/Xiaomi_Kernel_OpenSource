@@ -2595,8 +2595,8 @@ static void __init apq8064_common_init(void)
 	if (machine_is_apq8064_liquid())
 		msm_otg_pdata.mhl_enable = true;
 
-	msm_otg_pdata.swfi_latency =
-		msm_rpmrs_levels[0].latency_us + 1;
+	android_usb_pdata.swfi_latency =
+		msm_rpmrs_levels[0].latency_us;
 
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
 	apq8064_ehci_host_init();
