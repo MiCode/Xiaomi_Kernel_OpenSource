@@ -209,110 +209,6 @@ static int msm_get_sensor_info(struct msm_sync *sync,
 	return rc;
 }
 
-/* called by other subdev to notify any changes*/
-
-static int msm_mctl_notify(struct msm_cam_media_controller *p_mctl,
-	unsigned int notification, void *arg)
-{
-	int rc = -EINVAL;
-	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
-	struct msm_camera_sensor_info *sinfo =
-		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-	uint8_t csid_core = camdev->csid_core;
-	switch (notification) {
-	case NOTIFY_CID_CHANGE:
-		/* reconfig the ISPIF*/
-		if (p_mctl->ispif_sdev) {
-			struct msm_ispif_params_list ispif_params;
-			ispif_params.len = 1;
-			ispif_params.params[0].intftype = PIX0;
-			ispif_params.params[0].cid_mask = 0x0001;
-			ispif_params.params[0].csid = csid_core;
-
-			rc = v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
-				VIDIOC_MSM_ISPIF_CFG, &ispif_params);
-		} else {
-			pr_err("%s: invalid ispif_sdev\n", __func__);
-		}
-		break;
-	case NOTIFY_ISPIF_STREAM:
-		/* call ISPIF stream on/off */
-		if (p_mctl->ispif_sdev) {
-			rc = v4l2_subdev_call(p_mctl->ispif_sdev, video,
-					s_stream, (int)arg);
-		} else {
-			pr_err("%s: invalid ispif_sdev\n", __func__);
-		}
-
-		break;
-	case NOTIFY_ISP_MSG_EVT:
-	case NOTIFY_VFE_MSG_OUT:
-	case NOTIFY_VFE_MSG_STATS:
-	case NOTIFY_VFE_MSG_COMP_STATS:
-	case NOTIFY_VFE_BUF_EVT:
-	case NOTIFY_VFE_BUF_FREE_EVT:
-		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_notify) {
-			rc = p_mctl->isp_sdev->isp_notify(
-				p_mctl->isp_sdev->sd, notification, arg);
-		} else {
-			pr_err("%s: invalid isp_sdev\n", __func__);
-		}
-
-		break;
-	case NOTIFY_VPE_MSG_EVT:
-		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_notify) {
-			rc = p_mctl->isp_sdev->isp_notify(
-				p_mctl->isp_sdev->sd_vpe, notification, arg);
-		} else {
-			pr_err("%s: invalid isp_sdev\n", __func__);
-		}
-
-		break;
-	case NOTIFY_PCLK_CHANGE:
-		if (p_mctl->isp_sdev && p_mctl->isp_sdev->sd) {
-			rc = v4l2_subdev_call(p_mctl->isp_sdev->sd, video,
-					s_crystal_freq, *(uint32_t *)arg, 0);
-		} else {
-			pr_err("%s: invalid ispif_sdev\n", __func__);
-		}
-
-		break;
-	case NOTIFY_CSIPHY_CFG:
-		if (p_mctl->csiphy_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csiphy_sdev,
-					core, ioctl, VIDIOC_MSM_CSIPHY_CFG,
-					arg);
-		} else {
-			pr_err("%s: invalid csiphy_sdev\n", __func__);
-		}
-
-		break;
-	case NOTIFY_CSID_CFG:
-		if (p_mctl->csid_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csid_sdev,
-					core, ioctl, VIDIOC_MSM_CSID_CFG, arg);
-		} else {
-			pr_err("%s: invalid csid_sdev\n", __func__);
-		}
-
-		break;
-	case NOTIFY_CSIC_CFG:
-		if (p_mctl->csic_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csic_sdev,
-					core, ioctl, VIDIOC_MSM_CSIC_CFG, arg);
-		} else {
-			pr_err("%s: invalid csic_sdev\n", __func__);
-		}
-
-		break;
-	default:
-		break;
-	}
-
-	return rc;
-}
-
 static int msm_mctl_set_vfe_output_mode(struct msm_cam_media_controller
 					*p_mctl, void __user *arg)
 {
@@ -908,7 +804,6 @@ int msm_mctl_init_module(struct msm_cam_v4l2_device *pcam)
 	/* init module operations*/
 	pmctl->mctl_open = msm_mctl_open;
 	pmctl->mctl_cmd = msm_mctl_cmd;
-	pmctl->mctl_notify = msm_mctl_notify;
 	pmctl->mctl_release = msm_mctl_release;
 	/* init mctl buf */
 	msm_mctl_buf_init(pcam);

@@ -702,6 +702,8 @@ void msm_vpe_subdev_release(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(msm_vpe_subdev_release);
 
+static const struct v4l2_subdev_internal_ops msm_vpe_internal_ops;
+
 static int __devinit vpe_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -714,6 +716,8 @@ static int __devinit vpe_probe(struct platform_device *pdev)
 
 	v4l2_subdev_init(&vpe_ctrl->subdev, &msm_vpe_subdev_ops);
 	v4l2_set_subdevdata(&vpe_ctrl->subdev, vpe_ctrl);
+	vpe_ctrl->subdev.internal_ops = &msm_vpe_internal_ops;
+	vpe_ctrl->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	snprintf(vpe_ctrl->subdev.name, sizeof(vpe_ctrl->subdev.name), "vpe");
 	platform_set_drvdata(pdev, &vpe_ctrl->subdev);
 
@@ -753,6 +757,7 @@ static int __devinit vpe_probe(struct platform_device *pdev)
 	disable_irq(vpe_ctrl->vpeirq->start);
 
 	vpe_ctrl->pdev = pdev;
+	msm_cam_register_subdev_node(&vpe_ctrl->subdev, VPE_DEV, pdev->id);
 	return 0;
 
 vpe_no_resource:

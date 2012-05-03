@@ -275,6 +275,8 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 
+static const struct v4l2_subdev_internal_ops msm_csid_internal_ops;
+
 static struct v4l2_subdev_core_ops msm_csid_subdev_core_ops = {
 	.g_chip_ident = &msm_csid_subdev_g_chip_ident,
 	.ioctl = &msm_csid_subdev_ioctl,
@@ -296,6 +298,10 @@ static int __devinit csid_probe(struct platform_device *pdev)
 	}
 
 	v4l2_subdev_init(&new_csid_dev->subdev, &msm_csid_subdev_ops);
+	new_csid_dev->subdev.internal_ops = &msm_csid_internal_ops;
+	new_csid_dev->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	snprintf(new_csid_dev->subdev.name,
+			ARRAY_SIZE(new_csid_dev->subdev.name), "msm_csid");
 	v4l2_set_subdevdata(&new_csid_dev->subdev, new_csid_dev);
 	platform_set_drvdata(pdev, &new_csid_dev->subdev);
 	mutex_init(&new_csid_dev->mutex);
@@ -334,6 +340,7 @@ static int __devinit csid_probe(struct platform_device *pdev)
 	disable_irq(new_csid_dev->irq->start);
 
 	new_csid_dev->pdev = pdev;
+	msm_cam_register_subdev_node(&new_csid_dev->subdev, CSID_DEV, pdev->id);
 	return 0;
 
 csid_no_resource:

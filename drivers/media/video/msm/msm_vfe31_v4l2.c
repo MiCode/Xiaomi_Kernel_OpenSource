@@ -3820,6 +3820,7 @@ void msm_vfe_subdev_release(struct platform_device *pdev)
 	vfe_syncdata = NULL;
 }
 
+static const struct v4l2_subdev_internal_ops msm_vfe_internal_ops;
 
 static int __devinit vfe31_probe(struct platform_device *pdev)
 {
@@ -3832,6 +3833,8 @@ static int __devinit vfe31_probe(struct platform_device *pdev)
 	}
 
 	v4l2_subdev_init(&vfe31_ctrl->subdev, &msm_vfe_subdev_ops);
+	vfe31_ctrl->subdev.internal_ops = &msm_vfe_internal_ops;
+	vfe31_ctrl->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	snprintf(vfe31_ctrl->subdev.name,
 			 sizeof(vfe31_ctrl->subdev.name), "vfe3.1");
 	v4l2_set_subdevdata(&vfe31_ctrl->subdev, vfe31_ctrl);
@@ -3894,6 +3897,7 @@ static int __devinit vfe31_probe(struct platform_device *pdev)
 	disable_irq(vfe31_ctrl->vfeirq->start);
 
 	vfe31_ctrl->pdev = pdev;
+	msm_cam_register_subdev_node(&vfe31_ctrl->subdev, VFE_DEV, 0);
 	return 0;
 
 vfe31_no_resource:
