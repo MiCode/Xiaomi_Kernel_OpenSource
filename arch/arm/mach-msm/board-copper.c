@@ -423,6 +423,7 @@ void __init msm_copper_init_irq(void)
 
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("xo",		XO_CLK,		NULL,	OFF),
+	CLK_DUMMY("xo",		XO_CLK,		"pil_pronto",		OFF),
 	CLK_DUMMY("core_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
 	CLK_DUMMY("iface_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
 	CLK_DUMMY("core_clk",	SDC1_CLK,	NULL,			OFF),
@@ -463,6 +464,8 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 			"msm_sdcc.3", NULL),
 	OF_DEV_AUXDATA("qcom,pil-q6v5-lpass",   0xFE200000, \
 			"pil-q6v5-lpass", NULL),
+	OF_DEV_AUXDATA("qcom,pil-pronto", 0xFB21B000, \
+			"pil_pronto", NULL),
 	{}
 };
 

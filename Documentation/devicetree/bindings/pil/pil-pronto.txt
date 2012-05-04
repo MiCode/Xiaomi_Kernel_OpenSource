@@ -1,0 +1,25 @@
+* Qualcomm WCNSS Pronto Peripheral Image Loader
+
+pil-pronto is a peripheral image loading (PIL) driver. It is used for loading
+Pronto firmware images for wireless connectivity subsystems into memory and
+preparing the subsystem's processor to execute code. It is also used for
+shutting down the processor when it's not needed.
+
+Required properties:
+- compatible: "pil-pronto"
+- reg: offset and length of the register set for the device. The first pair
+       corresponds to PRONTO_PMU, the second pair corresponds to CLK_CTL_WCNSS
+       the third pair corresponds to WCNSS_HALTREQ.
+- vdd_pronto_pll-supply: regulator to supply pronto pll.
+- qcom,firmware-name: Base name of the firmware image. Ex. "wcnss"
+
+Example:
+	qcom,pronto@fb21b000 {
+		compatible = "qcom,pil-pronto";
+		reg = <0xfb21b000 0x3000>,
+		      <0xfc401700 0x4>,
+		      <0xfd485300 0xc>;
+		vdd_pronto_pll-supply = <&pm8941_l12>;
+
+		qcom,firmware-name = "wcnss";
+	};
