@@ -19,11 +19,19 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
+#include <linux/reboot.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/subsystem_restart.h>
+#include <mach/msm_smsm.h>
+#include <mach/peripheral-loader.h>
 
+#include "modem_notifier.h"
 #include "peripheral-loader.h"
 #include "scm-pas.h"
+#include "ramdump.h"
 
 #define MARM_BOOT_CONTROL		0x0010
 #define MARM_RESET			(MSM_CLK_CTL_BASE + 0x2BD4)
@@ -46,12 +54,22 @@
 #define PLL_ENA_MARM			(MSM_CLK_CTL_BASE + 0x3500)
 #define PLL8_STATUS			(MSM_CLK_CTL_BASE + 0x3158)
 #define CLK_HALT_MSS_SMPSS_MISC_STATE	(MSM_CLK_CTL_BASE + 0x2FDC)
+#define MSS_MODEM_RESET			(MSM_CLK_CTL_BASE + 0x2C48)
 
 struct modem_data {
 	void __iomem *base;
+	void __iomem *wdog;
 	unsigned long start_addr;
 	struct pil_device *pil;
 	struct clk *xo;
+	struct notifier_block notifier;
+	int ignore_smsm_ack;
+	int irq;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
+	struct delayed_work unlock_work;
+	struct work_struct fatal_work;
+	struct ramdump_device *ramdump_dev;
 };
 
 static int make_modem_proxy_votes(struct pil_desc *pil)
@@ -161,7 +179,7 @@ static int modem_reset(struct pil_desc *pil)
 	return 0;
 }
 
-static int modem_shutdown(struct pil_desc *pil)
+static int modem_pil_shutdown(struct pil_desc *pil)
 {
 	u32 reg;
 
@@ -203,7 +221,7 @@ static int modem_shutdown(struct pil_desc *pil)
 static struct pil_reset_ops pil_modem_ops = {
 	.init_image = modem_init_image,
 	.auth_and_reset = modem_reset,
-	.shutdown = modem_shutdown,
+	.shutdown = modem_pil_shutdown,
 	.proxy_vote = make_modem_proxy_votes,
 	.proxy_unvote = remove_modem_proxy_votes,
 };
@@ -232,11 +250,166 @@ static struct pil_reset_ops pil_modem_ops_trusted = {
 	.proxy_unvote = remove_modem_proxy_votes,
 };
 
+static void modem_crash_shutdown(const struct subsys_desc *subsys)
+{
+	struct modem_data *drv;
+
+	/* If modem hasn't already crashed, send SMSM_RESET. */
+	drv = container_of(subsys, struct modem_data, subsys_desc);
+	if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
+		modem_unregister_notifier(&drv->notifier);
+		smsm_reset_modem(SMSM_RESET);
+	}
+
+	/* Wait to allow the modem to clean up caches etc. */
+	mdelay(5);
+}
+
+static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
+{
+	struct modem_data *drv = dev_id;
+
+	schedule_work(&drv->fatal_work);
+	disable_irq_nosync(drv->irq);
+
+	return IRQ_HANDLED;
+}
+
+static void modem_unlock_timeout(struct work_struct *work)
+{
+	struct modem_data *drv;
+	struct delayed_work *dwork = to_delayed_work(work);
+
+	pr_crit("Timeout waiting for modem to unlock.\n");
+
+	drv = container_of(dwork, struct modem_data, unlock_work);
+	/* The unlock didn't work, clear the reset */
+	writel_relaxed(0x0, MSS_MODEM_RESET);
+	mb();
+
+	subsystem_restart_dev(drv->subsys);
+	enable_irq(drv->irq);
+}
+
+static void modem_fatal_fn(struct work_struct *work)
+{
+	u32 modem_state;
+	u32 panic_smsm_states = SMSM_RESET | SMSM_SYSTEM_DOWNLOAD;
+	u32 reset_smsm_states = SMSM_SYSTEM_REBOOT_USR | SMSM_SYSTEM_PWRDWN_USR;
+	struct modem_data *drv;
+
+	drv = container_of(work, struct modem_data, fatal_work);
+
+	pr_err("Watchdog bite received from modem!\n");
+
+	modem_state = smsm_get_state(SMSM_MODEM_STATE);
+	pr_err("Modem SMSM state = 0x%x!\n", modem_state);
+
+	if (modem_state == 0 || modem_state & panic_smsm_states) {
+		subsystem_restart_dev(drv->subsys);
+		enable_irq(drv->irq);
+	} else if (modem_state & reset_smsm_states) {
+		pr_err("User-invoked system reset/powerdown.");
+		kernel_restart(NULL);
+	} else {
+		unsigned long timeout = msecs_to_jiffies(6000);
+
+		pr_err("Modem AHB locked up. Trying to free up modem!\n");
+
+		writel_relaxed(0x3, MSS_MODEM_RESET);
+		/*
+		 * If we are still alive (allowing for the 5 second
+		 * delayed-panic-reboot), the modem is either still wedged or
+		 * SMSM didn't come through. Force panic in that case.
+		 */
+		schedule_delayed_work(&drv->unlock_work, timeout);
+	}
+}
+
+static int modem_notif_handler(struct notifier_block *nb, unsigned long code,
+				void *p)
+{
+	struct modem_data *drv = container_of(nb, struct modem_data, notifier);
+
+	if (code == MODEM_NOTIFIER_START_RESET) {
+		if (drv->ignore_smsm_ack) {
+			drv->ignore_smsm_ack = 0;
+		} else {
+			pr_err("Modem error fatal'ed.");
+			subsystem_restart_dev(drv->subsys);
+		}
+	}
+	return NOTIFY_DONE;
+}
+
+static int modem_shutdown(const struct subsys_desc *subsys)
+{
+	struct modem_data *drv;
+
+	drv = container_of(subsys, struct modem_data, subsys_desc);
+	/*
+	 * If the modem didn't already crash, setting SMSM_RESET here will help
+	 * flush caches etc. The ignore_smsm_ack flag is set to ignore the
+	 * SMSM_RESET notification that is generated due to the modem settings
+	 * its own SMSM_RESET bit in response to the apps setting the apps
+	 * SMSM_RESET bit.
+	 */
+	if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
+		drv->ignore_smsm_ack = 1;
+		smsm_reset_modem(SMSM_RESET);
+	}
+
+	/* Disable the modem watchdog to allow clean modem bootup */
+	writel_relaxed(0x0, drv->wdog + 0x8);
+	/*
+	 * The write above needs to go through before the modem is powered up
+	 * again.
+	 */
+	mb();
+	/* Wait here to allow the modem to clean up caches, etc. */
+	msleep(20);
+
+	pil_force_shutdown("modem");
+	disable_irq_nosync(drv->irq);
+
+	return 0;
+}
+
+static int modem_powerup(const struct subsys_desc *subsys)
+{
+	struct modem_data *drv;
+	int ret;
+
+	drv = container_of(subsys, struct modem_data, subsys_desc);
+	ret = pil_force_boot("modem");
+	enable_irq(drv->irq);
+
+	return ret;
+}
+
+/* FIXME: Get address, size from PIL */
+static struct ramdump_segment modem_segments[] = {
+	{ 0x42F00000, 0x46000000 - 0x42F00000 },
+};
+
+static int modem_ramdump(int enable, const struct subsys_desc *subsys)
+{
+	struct modem_data *drv;
+
+	drv = container_of(subsys, struct modem_data, subsys_desc);
+	if (enable)
+		return do_ramdump(drv->ramdump_dev, modem_segments,
+				ARRAY_SIZE(modem_segments));
+	else
+		return 0;
+}
+
 static int pil_modem_driver_probe(struct platform_device *pdev)
 {
 	struct modem_data *drv;
 	struct resource *res;
 	struct pil_desc *desc;
+	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
@@ -246,6 +419,10 @@ static int pil_modem_driver_probe(struct platform_device *pdev)
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
+
+	drv->irq = platform_get_irq(pdev, 0);
+	if (drv->irq < 0)
+		return drv->irq;
 
 	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!drv->base)
@@ -257,6 +434,14 @@ static int pil_modem_driver_probe(struct platform_device *pdev)
 
 	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res)
+		return -EINVAL;
+
+	drv->wdog = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!drv->wdog)
 		return -ENOMEM;
 
 	desc->name = "modem";
@@ -273,16 +458,61 @@ static int pil_modem_driver_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil)) {
+	if (IS_ERR(drv->pil))
 		return PTR_ERR(drv->pil);
+
+	drv->notifier.notifier_call = modem_notif_handler,
+	ret = modem_register_notifier(&drv->notifier);
+	if (ret)
+		goto err_notify;
+
+	drv->subsys_desc.name = "modem";
+	drv->subsys_desc.shutdown = modem_shutdown;
+	drv->subsys_desc.powerup = modem_powerup;
+	drv->subsys_desc.ramdump = modem_ramdump;
+	drv->subsys_desc.crash_shutdown = modem_crash_shutdown;
+
+	INIT_WORK(&drv->fatal_work, modem_fatal_fn);
+	INIT_DELAYED_WORK(&drv->unlock_work, modem_unlock_timeout);
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		ret = PTR_ERR(drv->subsys);
+		goto err_subsys;
 	}
+
+	drv->ramdump_dev = create_ramdump_device("modem");
+	if (!drv->ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_ramdump;
+	}
+
+	ret = devm_request_irq(&pdev->dev, drv->irq, modem_wdog_bite_irq,
+			IRQF_TRIGGER_RISING, "modem_watchdog", drv);
+	if (ret)
+		goto err_irq;
 	return 0;
+
+err_irq:
+	destroy_ramdump_device(drv->ramdump_dev);
+err_ramdump:
+	subsys_unregister(drv->subsys);
+err_subsys:
+	modem_unregister_notifier(&drv->notifier);
+err_notify:
+	msm_pil_unregister(drv->pil);
+	return ret;
 }
 
 static int pil_modem_driver_exit(struct platform_device *pdev)
 {
 	struct modem_data *drv = platform_get_drvdata(pdev);
+
+	destroy_ramdump_device(drv->ramdump_dev);
+	subsys_unregister(drv->subsys);
+	modem_unregister_notifier(&drv->notifier);
 	msm_pil_unregister(drv->pil);
+
 	return 0;
 }
 

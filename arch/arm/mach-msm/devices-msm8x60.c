@@ -210,12 +210,23 @@ struct platform_device msm_pil_q6v3 = {
 };
 
 #define MSM_MSS_REGS_PHYS 0x10200000
+#define MSM_MSS_WDOG_PHYS 0x10020000
 
 static struct resource msm_8660_modem_resources[] = {
 	{
 		.start  = MSM_MSS_REGS_PHYS,
 		.end    = MSM_MSS_REGS_PHYS + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM_MSS_WDOG_PHYS,
+		.end	= MSM_MSS_WDOG_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MARM_WDOG_EXPIRED,
+		.end	= MARM_WDOG_EXPIRED,
+		.flags	= IORESOURCE_IRQ,
 	},
 };
 
