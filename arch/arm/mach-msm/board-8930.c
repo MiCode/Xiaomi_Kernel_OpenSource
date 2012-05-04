@@ -1638,9 +1638,9 @@ static struct platform_device msm_device_saw_core1 = {
 static struct tsens_platform_data msm_tsens_pdata  = {
 	.tsens_factor		= 1000,
 	.hw_type		= APQ_8064,
-	.tsens_num_sensor	= 11,
-	.slope = {1176, 1176, 1154, 1176, 1111,
-			1132, 1132, 1199, 1132, 1199, 1132},
+	.tsens_num_sensor	= 10,
+	.slope = {1132, 1135, 1137, 1135, 1157,
+			1142, 1124, 1153, 1175, 1166},
 };
 
 #ifdef CONFIG_MSM_FAKE_BATTERY
