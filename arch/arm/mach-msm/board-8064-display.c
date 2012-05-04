@@ -615,7 +615,7 @@ static int lvds_pixel_remap(void)
 {
 	if (machine_is_apq8064_cdp() ||
 	    machine_is_apq8064_liquid()) {
-		u32 ver = socinfo_get_platform_version();
+		u32 ver = socinfo_get_version();
 		if ((SOCINFO_VERSION_MAJOR(ver) == 1) &&
 		    (SOCINFO_VERSION_MINOR(ver) == 0))
 			return 1;
