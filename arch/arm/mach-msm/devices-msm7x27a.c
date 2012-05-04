@@ -17,6 +17,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/init.h>
 #include <linux/irq.h>
+#include <linux/notifier.h>
 #include <mach/irqs.h>
 #include <mach/msm_iomap.h>
 #include <mach/board.h>
@@ -26,6 +27,7 @@
 #include <asm/hardware/gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/mmc.h>
+#include <asm/cacheflush.h>
 #include <mach/rpc_hsusb.h>
 #include <mach/socinfo.h>
 
@@ -1704,3 +1706,23 @@ static int msm7627a_init_gpio(void)
 	return 0;
 }
 postcore_initcall(msm7627a_init_gpio);
+
+static int msm7627a_panic_handler(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	flush_cache_all();
+	outer_flush_all();
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_handler = {
+	.notifier_call = msm7627a_panic_handler,
+};
+
+static int __init panic_register(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&panic_handler);
+	return 0;
+}
+module_init(panic_register);
