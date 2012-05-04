@@ -11,7 +11,9 @@
  *
  */
 #include <linux/memory_alloc.h>
+#include <linux/delay.h>
 #include <mach/msm_subsystem_map.h>
+#include <mach/peripheral-loader.h>
 #include "vcd_ddl_utils.h"
 #include "vcd_ddl.h"
 #include "vcd_res_tracker_api.h"
@@ -103,7 +105,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 		addr->alloced_phys_addr = (phys_addr_t) iova;
 		if (!addr->alloced_phys_addr) {
 			DDL_MSG_ERROR("%s():DDL ION client physical failed\n",
-						 __func__);
+						__func__);
 			goto unmap_ion_alloc;
 		}
 		addr->mapped_buffer = NULL;
@@ -332,23 +334,67 @@ void ddl_list_buffers(struct ddl_client_context *ddl)
 
 u32 ddl_fw_init(struct ddl_buf_addr *dram_base)
 {
-
 	u8 *dest_addr;
-
 	dest_addr = DDL_GET_ALIGNED_VITUAL(*dram_base);
-	if (vidc_video_codec_fw_size > dram_base->buffer_size ||
-		!vidc_video_codec_fw)
-		return false;
 	DDL_MSG_LOW("FW Addr / FW Size : %x/%d", (u32)vidc_video_codec_fw,
 		vidc_video_codec_fw_size);
-	memcpy(dest_addr, vidc_video_codec_fw,
-		vidc_video_codec_fw_size);
+	if (res_trk_check_for_sec_session() && res_trk_is_cp_enabled()) {
+		if (res_trk_enable_footswitch()) {
+			pr_err("Failed to enable footswitch");
+			return false;
+		}
+		if (res_trk_enable_iommu_clocks()) {
+			res_trk_disable_footswitch();
+			pr_err("Failed to enable iommu clocks\n");
+			return false;
+		}
+		dram_base->pil_cookie = pil_get("vidc");
+		if (res_trk_disable_iommu_clocks())
+			pr_err("Failed to disable iommu clocks\n");
+		if (IS_ERR_OR_NULL(dram_base->pil_cookie)) {
+			res_trk_disable_footswitch();
+			pr_err("pil_get failed\n");
+			return false;
+		}
+	} else {
+		if (vidc_video_codec_fw_size > dram_base->buffer_size ||
+				!vidc_video_codec_fw)
+			return false;
+		memcpy(dest_addr, vidc_video_codec_fw,
+				vidc_video_codec_fw_size);
+	}
 	return true;
 }
 
-void ddl_fw_release(void)
+void ddl_fw_release(struct ddl_buf_addr *dram_base)
 {
-	res_trk_close_secure_session();
+	void *cookie = dram_base->pil_cookie;
+	if (res_trk_is_cp_enabled() &&
+		res_trk_check_for_sec_session()) {
+		res_trk_close_secure_session();
+		if (IS_ERR_OR_NULL(cookie)) {
+			pr_err("Invalid params");
+		return;
+	}
+	if (res_trk_enable_footswitch()) {
+		pr_err("Failed to enable footswitch");
+		return;
+	}
+	if (res_trk_enable_iommu_clocks()) {
+		res_trk_disable_footswitch();
+		pr_err("Failed to enable iommu clocks\n");
+		return;
+	}
+	pil_put(cookie);
+	if (res_trk_disable_iommu_clocks())
+		pr_err("Failed to disable iommu clocks\n");
+	if (res_trk_disable_footswitch())
+		pr_err("Failed to disable footswitch\n");
+	} else {
+	if (res_trk_check_for_sec_session())
+		res_trk_close_secure_session();
+		res_trk_release_fw_addr();
+	}
 }
 
 void ddl_set_core_start_time(const char *func_name, u32 index)

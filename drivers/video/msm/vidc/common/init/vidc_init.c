@@ -345,28 +345,32 @@ int vidc_load_firmware(void)
 {
 	u32 status = true;
 
-	mutex_lock(&vidc_device_p->lock);
-	if (!vidc_device_p->get_firmware) {
-		status = res_trk_download_firmware();
-		if (!status)
-			goto error;
-		vidc_device_p->get_firmware = 1;
-	}
-	vidc_device_p->firmware_refcount++;
+	if (!res_trk_check_for_sec_session()) {
+		mutex_lock(&vidc_device_p->lock);
+		if (!vidc_device_p->get_firmware) {
+			status = res_trk_download_firmware();
+			if (!status)
+				goto error;
+			vidc_device_p->get_firmware = 1;
+		}
+		vidc_device_p->firmware_refcount++;
 error:
-	mutex_unlock(&vidc_device_p->lock);
+		mutex_unlock(&vidc_device_p->lock);
+	}
 	return status;
 }
 EXPORT_SYMBOL(vidc_load_firmware);
 
 void vidc_release_firmware(void)
 {
-	mutex_lock(&vidc_device_p->lock);
-	if (vidc_device_p->firmware_refcount > 0)
-		vidc_device_p->firmware_refcount--;
-	else
-		vidc_device_p->firmware_refcount = 0;
-	mutex_unlock(&vidc_device_p->lock);
+	if (!res_trk_check_for_sec_session()) {
+		mutex_lock(&vidc_device_p->lock);
+		if (vidc_device_p->firmware_refcount > 0)
+			vidc_device_p->firmware_refcount--;
+		else
+			vidc_device_p->firmware_refcount = 0;
+		mutex_unlock(&vidc_device_p->lock);
+	}
 }
 EXPORT_SYMBOL(vidc_release_firmware);
 

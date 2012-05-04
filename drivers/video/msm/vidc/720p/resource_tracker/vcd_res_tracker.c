@@ -757,3 +757,10 @@ u32 get_res_trk_perf_level(enum vcd_perf_level perf_level)
 {
 	return -ENOTSUPP;
 }
+u32 res_trk_is_cp_enabled(void)
+{
+	if (resource_context.vidc_platform_data->cp_enabled)
+		return 1;
+	else
+		return 0;
+}
