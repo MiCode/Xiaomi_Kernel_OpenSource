@@ -35,6 +35,7 @@ config ARCH_MSM7X27
 	select CLEANCACHE
 	select QCACHE
 	select MSM_PM2 if PM
+	select MSM_RUN_QUEUE_STATS if MSM_SOC_REV_A
 
 config ARCH_MSM7X30
 	bool "MSM7x30"
@@ -128,6 +129,7 @@ config ARCH_MSM8X60
 	select MULTI_IRQ_HANDLER
 	select MSM_MULTIMEDIA_USE_ION
 	select MSM_PM8X60 if PM
+	select MSM_RUN_QUEUE_STATS
 
 config ARCH_MSM8960
 	bool "MSM8960"
@@ -169,6 +171,7 @@ config ARCH_MSM8960
 	select MULTI_IRQ_HANDLER
 	select MSM_PM8X60 if PM
 	select HOLES_IN_ZONE if SPARSEMEM
+	select MSM_RUN_QUEUE_STATS
 
 config ARCH_MSM8930
 	bool "MSM8930"
@@ -281,6 +284,7 @@ config ARCH_MSM8625
 	select ARCH_MSM_CORTEXMP
 	select MULTI_IRQ_HANDLER
 	select ARM_TICKET_LOCKS
+	select MSM_RUN_QUEUE_STATS
 endmenu
 
 choice
@@ -2049,7 +2053,11 @@ config MSM_SLEEP_STATS_DEVICE
 
 config MSM_RUN_QUEUE_STATS
 	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
-	default y
+	depends on (MSM_SOC_REV_A || ARCH_MSM8X60 || ARCH_MSM8960)
+	help
+	 This option enalbes statistics collection on Run Queue. A daemon
+         in user mode, called MPDecision will be using this data to decide
+         on when to switch off/on the other cores.
 
 config MSM_STANDALONE_POWER_COLLAPSE
        bool "Enable standalone power collapse"
