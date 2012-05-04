@@ -42,6 +42,14 @@
 				((x)->status_reg))
 #define PLL_MODE_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->mode_reg)) : \
 				((x)->mode_reg))
+#define PLL_L_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->l_reg)) : \
+				((x)->l_reg))
+#define PLL_M_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->m_reg)) : \
+				((x)->m_reg))
+#define PLL_N_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->n_reg)) : \
+				((x)->n_reg))
+#define PLL_CONFIG_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->config_reg)) : \
+				((x)->config_reg))
 
 static DEFINE_SPINLOCK(pll_reg_lock);
 
@@ -374,3 +382,65 @@ struct clk_ops clk_pll_ops = {
 	.handoff = pll_clk_handoff,
 	.is_enabled = pll_clk_is_enabled,
 };
+
+static void __init __set_fsm_mode(void __iomem *mode_reg)
+{
+	u32 regval = readl_relaxed(mode_reg);
+
+	/* De-assert reset to FSM */
+	regval &= ~BIT(21);
+	writel_relaxed(regval, mode_reg);
+
+	/* Program bias count */
+	regval &= ~BM(19, 14);
+	regval |= BVAL(19, 14, 0x1);
+	writel_relaxed(regval, mode_reg);
+
+	/* Program lock count */
+	regval &= ~BM(13, 8);
+	regval |= BVAL(13, 8, 0x8);
+	writel_relaxed(regval, mode_reg);
+
+	/* Enable PLL FSM voting */
+	regval |= BIT(20);
+	writel_relaxed(regval, mode_reg);
+}
+
+void __init configure_pll(struct pll_config *config,
+		struct pll_config_regs *regs, u32 ena_fsm_mode)
+{
+	u32 regval;
+
+	writel_relaxed(config->l, PLL_L_REG(regs));
+	writel_relaxed(config->m, PLL_M_REG(regs));
+	writel_relaxed(config->n, PLL_N_REG(regs));
+
+	regval = readl_relaxed(PLL_CONFIG_REG(regs));
+
+	/* Enable the MN accumulator  */
+	if (config->mn_ena_mask) {
+		regval &= ~config->mn_ena_mask;
+		regval |= config->mn_ena_val;
+	}
+
+	/* Enable the main output */
+	if (config->main_output_mask) {
+		regval &= ~config->main_output_mask;
+		regval |= config->main_output_val;
+	}
+
+	/* Set pre-divider and post-divider values */
+	regval &= ~config->pre_div_mask;
+	regval |= config->pre_div_val;
+	regval &= ~config->post_div_mask;
+	regval |= config->post_div_val;
+
+	/* Select VCO setting */
+	regval &= ~config->vco_mask;
+	regval |= config->vco_val;
+	writel_relaxed(regval, PLL_CONFIG_REG(regs));
+
+	/* Configure in FSM mode if necessary */
+	if (ena_fsm_mode)
+		__set_fsm_mode(PLL_MODE_REG(regs));
+}

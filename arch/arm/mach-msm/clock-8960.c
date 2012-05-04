@@ -5747,32 +5747,82 @@ static void __init rmwreg(uint32_t val, void *reg, uint32_t mask)
 	writel_relaxed(regval, reg);
 }
 
-static void __init set_fsm_mode(void __iomem *mode_reg)
-{
-	u32 regval = readl_relaxed(mode_reg);
+static struct pll_config_regs pll4_regs __initdata = {
+	.l_reg = LCC_PLL0_L_VAL_REG,
+	.m_reg = LCC_PLL0_M_VAL_REG,
+	.n_reg = LCC_PLL0_N_VAL_REG,
+	.config_reg = LCC_PLL0_CONFIG_REG,
+	.mode_reg = LCC_PLL0_MODE_REG,
+};
 
-	/*De-assert reset to FSM */
-	regval &= ~BIT(21);
-	writel_relaxed(regval, mode_reg);
+static struct pll_config pll4_config __initdata = {
+	.l = 0xE,
+	.m = 0x27A,
+	.n = 0x465,
+	.vco_val = 0x0,
+	.vco_mask = BM(17, 16),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BIT(19),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(21, 20),
+	.mn_ena_val = BIT(22),
+	.mn_ena_mask = BIT(22),
+	.main_output_val = BIT(23),
+	.main_output_mask = BIT(23),
+};
 
-	/* Program bias count */
-	regval &= ~BM(19, 14);
-	regval |= BVAL(19, 14, 0x1);
-	writel_relaxed(regval, mode_reg);
+static struct pll_config_regs pll15_regs __initdata = {
+	.l_reg = MM_PLL3_L_VAL_REG,
+	.m_reg = MM_PLL3_M_VAL_REG,
+	.n_reg = MM_PLL3_N_VAL_REG,
+	.config_reg = MM_PLL3_CONFIG_REG,
+	.mode_reg = MM_PLL3_MODE_REG,
+};
 
-	/* Program lock count */
-	regval &= ~BM(13, 8);
-	regval |= BVAL(13, 8, 0x8);
-	writel_relaxed(regval, mode_reg);
+static struct pll_config pll15_config __initdata = {
+	.l = (0x24 | BVAL(31, 7, 0x620)),
+	.m = 0x1,
+	.n = 0x9,
+	.vco_val = BVAL(17, 16, 0x2),
+	.vco_mask = BM(17, 16),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BIT(19),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(21, 20),
+	.mn_ena_val = BIT(22),
+	.mn_ena_mask = BIT(22),
+	.main_output_val = BIT(23),
+	.main_output_mask = BIT(23),
+};
 
-	/*Enable PLL FSM voting */
-	regval |= BIT(20);
-	writel_relaxed(regval, mode_reg);
-}
+static struct pll_config_regs pll14_regs __initdata = {
+	.l_reg = BB_PLL14_L_VAL_REG,
+	.m_reg = BB_PLL14_M_VAL_REG,
+	.n_reg = BB_PLL14_N_VAL_REG,
+	.config_reg = BB_PLL14_CONFIG_REG,
+	.mode_reg = BB_PLL14_MODE_REG,
+};
+
+static struct pll_config pll14_config __initdata = {
+	.l = (0x11 | BVAL(31, 7, 0x620)),
+	.m = 0x7,
+	.n = 0x9,
+	.vco_val = 0x0,
+	.vco_mask = BM(17, 16),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BIT(19),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(21, 20),
+	.mn_ena_val = BIT(22),
+	.mn_ena_mask = BIT(22),
+	.main_output_val = BIT(23),
+	.main_output_mask = BIT(23),
+};
 
 static void __init reg_init(void)
 {
 	void __iomem *imem_reg;
+
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel_relaxed(0, SW_RESET_ALL_REG);
 
@@ -5913,40 +5963,18 @@ static void __init reg_init(void)
 
 		/* Check if PLL14 is active */
 		is_pll_enabled = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
-		if (!is_pll_enabled) {
+		if (!is_pll_enabled)
 			/* Ref clk = 27MHz and program pll14 to 480MHz */
-			writel_relaxed(0x00031011, BB_PLL14_L_VAL_REG);
-			writel_relaxed(0x7,  BB_PLL14_M_VAL_REG);
-			writel_relaxed(0x9,  BB_PLL14_N_VAL_REG);
-
-			/*
-			 * Enable the main output and the MN accumulator
-			 * Set pre-divider and post-divider values to 1 and 1
-			 */
-			writel_relaxed(0x00C00000, BB_PLL14_CONFIG_REG);
-
-			set_fsm_mode(BB_PLL14_MODE_REG);
-		}
+			configure_pll(&pll14_config, &pll14_regs, 1);
 
 		/* Program PLL15 to 975MHz with ref clk = 27MHz */
-		writel_relaxed(0x31024, MM_PLL3_L_VAL_REG);
-		writel_relaxed(0x1,	MM_PLL3_M_VAL_REG);
-		writel_relaxed(0x9,	MM_PLL3_N_VAL_REG);
-
-		writel_relaxed(0xC20000, MM_PLL3_CONFIG_REG);
+		configure_pll(&pll15_config, &pll15_regs, 0);
 
 		/* Check if PLL4 is active */
 		is_pll_enabled = readl_relaxed(LCC_PLL0_STATUS_REG) & BIT(16);
-		if (!is_pll_enabled) {
+		if (!is_pll_enabled)
 			/* Ref clk = 27MHz and program pll4 to 393.2160MHz */
-			writel_relaxed(0xE,   LCC_PLL0_L_VAL_REG);
-			writel_relaxed(0x27A, LCC_PLL0_M_VAL_REG);
-			writel_relaxed(0x465, LCC_PLL0_N_VAL_REG);
-
-			writel_relaxed(0xC00000, LCC_PLL0_CONFIG_REG);
-
-			set_fsm_mode(LCC_PLL0_MODE_REG);
-		}
+			configure_pll(&pll4_config, &pll4_regs, 1);
 
 		/* Enable PLL4 source on the LPASS Primary PLL Mux */
 		writel_relaxed(0x1, LCC_PRI_PLL_CLK_CTL_REG);
@@ -5961,12 +5989,12 @@ static void __init reg_init(void)
 	 * only enable PLL main output.
 	 */
 	if (cpu_is_msm8930()) {
-		writel_relaxed(0x30021, MM_PLL3_L_VAL_REG);
-		writel_relaxed(0x1,	MM_PLL3_M_VAL_REG);
-		writel_relaxed(0x3,	MM_PLL3_N_VAL_REG);
-
-		writel_relaxed(0xC20000, MM_PLL3_CONFIG_REG);
-		writel_relaxed(0,	 MM_PLL3_TEST_CTL_REG);
+		pll15_config.l = 0x21 | BVAL(31, 7, 0x600);
+		pll15_config.m = 0x1;
+		pll15_config.n = 0x3;
+		configure_pll(&pll15_config, &pll15_regs, 0);
+		/* Disable AUX and BIST outputs */
+		writel_relaxed(0, MM_PLL3_TEST_CTL_REG);
 	}
 }
 

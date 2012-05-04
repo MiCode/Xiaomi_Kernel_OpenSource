@@ -117,4 +117,31 @@ void pll_vote_clk_disable(struct clk *clk);
 struct clk *pll_vote_clk_get_parent(struct clk *clk);
 int pll_vote_clk_is_enabled(struct clk *clk);
 
+struct pll_config {
+	u32 l;
+	u32 m;
+	u32 n;
+	u32 vco_val;
+	u32 vco_mask;
+	u32 pre_div_val;
+	u32 pre_div_mask;
+	u32 post_div_val;
+	u32 post_div_mask;
+	u32 mn_ena_val;
+	u32 mn_ena_mask;
+	u32 main_output_val;
+	u32 main_output_mask;
+};
+
+struct pll_config_regs {
+	void __iomem *l_reg;
+	void __iomem *m_reg;
+	void __iomem *n_reg;
+	void __iomem *config_reg;
+	void __iomem *mode_reg;
+	void *const __iomem *base;
+};
+
+void __init configure_pll(struct pll_config *, struct pll_config_regs *, u32);
+
 #endif
