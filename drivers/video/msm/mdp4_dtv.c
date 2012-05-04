@@ -149,7 +149,7 @@ static int dtv_on(struct platform_device *pdev)
 	}
 	pr_info("%s: tv_src_clk=%dkHz, pm_qos_rate=%ldkHz, [%d]\n", __func__,
 		mfd->fbi->var.pixclock/1000, pm_qos_rate, ret);
-
+	mfd->panel_info.clk_rate = mfd->fbi->var.pixclock;
 	clk_prepare_enable(hdmi_clk);
 	clk_reset(hdmi_clk, CLK_RESET_ASSERT);
 	udelay(20);
