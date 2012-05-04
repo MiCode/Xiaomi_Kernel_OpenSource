@@ -427,7 +427,8 @@ static u32 res_trk_vidc_pwr_up(void)
 		goto bail_out;
 	}
 	if (!resource_context.footswitch)
-		resource_context.footswitch = regulator_get(NULL, "fs_ved");
+		resource_context.footswitch =
+			regulator_get(resource_context.device, "vdd");
 	if (IS_ERR(resource_context.footswitch)) {
 		VCDRES_MSG_ERROR("foot switch get failed\n");
 		resource_context.footswitch = NULL;
