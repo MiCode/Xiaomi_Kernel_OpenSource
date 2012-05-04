@@ -131,7 +131,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	struct msm_iommu_dev *iommu_dev = pdev->dev.platform_data;
 	void __iomem *regs_base;
 	resource_size_t	len;
-	int ret, irq, par;
+	int ret, par;
 
 	if (pdev->id == -1) {
 		msm_iommu_root_dev = pdev;
@@ -202,12 +202,6 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail_mem;
 	}
 
-	irq = platform_get_irq_byname(pdev, "nonsecure_irq");
-	if (irq < 0) {
-		ret = -ENODEV;
-		goto fail_io;
-	}
-
 	msm_iommu_reset(regs_base, iommu_dev->ncb);
 
 	SET_M(regs_base, 0, 1);
@@ -226,24 +220,15 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail_io;
 	}
 
-	ret = request_threaded_irq(irq, NULL, msm_iommu_fault_handler,
-			IRQF_ONESHOT, "msm_iommu_secure_irpt_handler", drvdata);
-	if (ret) {
-		pr_err("Request IRQ %d failed with ret=%d\n", irq, ret);
-		goto fail_io;
-	}
-
-
 	drvdata->pclk = iommu_pclk;
 	drvdata->clk = iommu_clk;
 	drvdata->base = regs_base;
-	drvdata->irq = irq;
 	drvdata->ncb = iommu_dev->ncb;
 	drvdata->ttbr_split = iommu_dev->ttbr_split;
 	drvdata->name = iommu_dev->name;
 
-	pr_info("device %s mapped at %p, irq %d with %d ctx banks\n",
-		iommu_dev->name, regs_base, irq, iommu_dev->ncb);
+	pr_info("device %s mapped at %p, with %d ctx banks\n",
+		iommu_dev->name, regs_base, iommu_dev->ncb);
 
 	platform_set_drvdata(pdev, drvdata);
 
@@ -292,7 +277,7 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 	struct msm_iommu_ctx_dev *c = pdev->dev.platform_data;
 	struct msm_iommu_drvdata *drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata = NULL;
-	int i, ret;
+	int i, ret, irq;
 	if (!c || !pdev->dev.parent) {
 		ret = -EINVAL;
 		goto fail;
@@ -312,6 +297,23 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 	}
 	ctx_drvdata->num = c->num;
 	ctx_drvdata->pdev = pdev;
+	ctx_drvdata->name = c->name;
+
+	irq = platform_get_irq_byname(to_platform_device(pdev->dev.parent),
+				      "nonsecure_irq");
+	if (irq < 0) {
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	ret = request_threaded_irq(irq, NULL, msm_iommu_fault_handler,
+				   IRQF_ONESHOT | IRQF_SHARED,
+				   "msm_iommu_nonsecure_irq", ctx_drvdata);
+
+	if (ret) {
+		pr_err("request_threaded_irq %d failed: %d\n", irq, ret);
+		goto fail;
+	}
 
 	INIT_LIST_HEAD(&ctx_drvdata->attached_elm);
 	platform_set_drvdata(pdev, ctx_drvdata);
