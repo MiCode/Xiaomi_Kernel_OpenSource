@@ -73,6 +73,15 @@ config QPNP_CLKDIV
 	  PMIC. These clocks are typically wired through alternate functions
 	  on gpio pins.
 
+config QPNP_VIBRATOR
+	tristate "Vibrator support for QPNP PMIC"
+	depends on OF_SPMI
+	help
+	  This option enables device driver support for the vibrator
+	  on the Qualcomm's QPNP PMICs. The vibrator is connected on the
+	  VIB_DRV_N line and can be controlled manually or by the DTEST lines.
+	  It uses the android timed-output framework.
+
 config IPA
 	tristate "IPA support"
 	depends on SPS
