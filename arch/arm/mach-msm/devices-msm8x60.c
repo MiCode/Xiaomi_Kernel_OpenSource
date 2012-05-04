@@ -2658,7 +2658,7 @@ static struct fs_driver_data vpe_fs_data = {
 
 struct platform_device *msm8660_footswitch[] __initdata = {
 	FS_8X60(FS_IJPEG,  "fs_ijpeg",	NULL,	&ijpeg_fs_data),
-	FS_8X60(FS_MDP,    "fs_mdp",	NULL,	&mdp_fs_data),
+	FS_8X60(FS_MDP,    "vdd",	"mdp.0",	&mdp_fs_data),
 	FS_8X60(FS_ROT,    "fs_rot",	NULL,	&rot_fs_data),
 	FS_8X60(FS_VED,    "vdd",	"msm_vidc.0",	&ved_fs_data),
 	FS_8X60(FS_VFE,    "fs_vfe",	NULL,	&vfe_fs_data),
