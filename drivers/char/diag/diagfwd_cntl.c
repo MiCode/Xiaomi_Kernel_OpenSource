@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/diagchar.h>
 #include <linux/platform_device.h>
+#include <linux/kmemleak.h>
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
@@ -280,16 +281,19 @@ void diagfwd_cntl_init(void)
 		driver->buf_in_cntl = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_cntl == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_cntl);
 	}
 	if (driver->buf_in_qdsp_cntl == NULL) {
 		driver->buf_in_qdsp_cntl = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_qdsp_cntl == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_qdsp_cntl);
 	}
 	if (driver->buf_in_wcnss_cntl == NULL) {
 		driver->buf_in_wcnss_cntl = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_wcnss_cntl == NULL)
 			goto err;
+		kmemleak_not_leak(driver->buf_in_wcnss_cntl);
 	}
 	platform_driver_register(&msm_smd_ch1_cntl_driver);
 	platform_driver_register(&diag_smd_lite_cntl_driver);
