@@ -826,6 +826,10 @@ u32 res_trk_get_disable_dmx(void){
 	return resource_context.disable_dmx;
 }
 
+u32 res_trk_get_min_dpb_count(void){
+	return resource_context.vidc_platform_data->cont_mode_dpb_count;
+}
+
 void res_trk_set_mem_type(enum ddl_mem_area mem_type)
 {
 	resource_context.res_mem_type = mem_type;
