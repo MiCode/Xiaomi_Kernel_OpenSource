@@ -39,6 +39,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
 #include <mach/qpnp-int.h>
+#include <mach/socinfo.h>
 #include "clock.h"
 #include "devices.h"
 
@@ -472,7 +473,11 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 void __init msm_copper_init(struct of_dev_auxdata **adata)
 {
 	msm_copper_init_gpiomux();
-	msm_clock_init(&msmcopper_clock_init_data);
+
+	if (machine_is_copper_rumi())
+		msm_clock_init(&msm_dummy_clock_init_data);
+	else
+		msm_clock_init(&msmcopper_clock_init_data);
 
 	*adata = msm_copper_auxdata_lookup;
 }
