@@ -294,4 +294,10 @@
 	qcom,ocmem@fdd00000 {
 		compatible = "qcom,msm_ocmem";
 	};
+
+	qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
 };
