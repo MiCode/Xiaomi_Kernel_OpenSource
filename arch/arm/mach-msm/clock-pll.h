@@ -89,11 +89,14 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *clk)
 /**
  * struct pll_clk - phase locked loop
  * @mode_reg: enable register
+ * @status_reg: status register, contains the lock detection bit
  * @parent: clock source
  * @c: clk
+ * @base: pointer to base address of ioremapped registers.
  */
 struct pll_clk {
 	void __iomem *const mode_reg;
+	void __iomem *const status_reg;
 
 	struct clk *parent;
 	struct clk c;
@@ -108,6 +111,7 @@ static inline struct pll_clk *to_pll_clk(struct clk *clk)
 }
 
 int sr_pll_clk_enable(struct clk *clk);
+int copper_pll_clk_enable(struct clk *clk);
 
 /*
  * PLL vote clock APIs

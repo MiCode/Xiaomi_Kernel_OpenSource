@@ -469,7 +469,7 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 void __init msm_copper_init(struct of_dev_auxdata **adata)
 {
 	msm_copper_init_gpiomux();
-	msm_clock_init(&msm_dummy_clock_init_data);
+	msm_clock_init(&msmcopper_clock_init_data);
 
 	*adata = msm_copper_auxdata_lookup;
 }
