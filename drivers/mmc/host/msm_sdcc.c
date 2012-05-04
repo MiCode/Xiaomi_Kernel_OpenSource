@@ -1557,10 +1557,17 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 	struct mmc_command *cmd = host->curr.cmd;
 
 	host->curr.cmd = NULL;
-	cmd->resp[0] = readl_relaxed(host->base + MMCIRESPONSE0);
-	cmd->resp[1] = readl_relaxed(host->base + MMCIRESPONSE1);
-	cmd->resp[2] = readl_relaxed(host->base + MMCIRESPONSE2);
-	cmd->resp[3] = readl_relaxed(host->base + MMCIRESPONSE3);
+	if (mmc_resp_type(cmd))
+		cmd->resp[0] = readl_relaxed(host->base + MMCIRESPONSE0);
+	/*
+	 * Read rest of the response registers only if
+	 * long response is expected for this command
+	 */
+	if (mmc_resp_type(cmd) & MMC_RSP_136) {
+		cmd->resp[1] = readl_relaxed(host->base + MMCIRESPONSE1);
+		cmd->resp[2] = readl_relaxed(host->base + MMCIRESPONSE2);
+		cmd->resp[3] = readl_relaxed(host->base + MMCIRESPONSE3);
+	}
 
 	if (status & (MCI_CMDTIMEOUT | MCI_AUTOCMD19TIMEOUT)) {
 		pr_debug("%s: CMD%d: Command timeout\n",
