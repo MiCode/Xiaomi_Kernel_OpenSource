@@ -520,11 +520,16 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 static unsigned int
 kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu)
 {
-	/* Current base is always the hwpagetables domain as we
-	 * do not use per process pagetables right not for iommu.
-	 * This will change when we switch to per process pagetables.
-	 */
-	return (unsigned int)mmu->hwpagetable->priv;
+	unsigned int pt_base;
+	struct kgsl_iommu *iommu = mmu->priv;
+	/* Return the current pt base by reading IOMMU pt_base register */
+	kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_CONTEXT_USER);
+	pt_base = readl_relaxed(iommu->iommu_units[0].reg_map.hostptr +
+			(KGSL_IOMMU_CONTEXT_USER << KGSL_IOMMU_CTX_SHIFT) +
+			KGSL_IOMMU_TTBR0);
+	kgsl_iommu_disable_clk(mmu);
+	return pt_base & (KGSL_IOMMU_TTBR0_PA_MASK <<
+				KGSL_IOMMU_TTBR0_PA_SHIFT);
 }
 
 struct kgsl_mmu_ops iommu_ops = {
