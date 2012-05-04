@@ -143,9 +143,9 @@ static void lvds_init(struct msm_fb_data_type *mfd)
 			/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_6_TO_4 */
 			MDP_OUTP(MDP_BASE +  0xc2028, 0x00121314);
 			/* MDP_LCDC_LVDS_MUX_CTL_FOR_D3_3_TO_0 */
-			MDP_OUTP(MDP_BASE +  0xc202c, 0x1706071b);
+			MDP_OUTP(MDP_BASE +  0xc202c, 0x0f16171b);
 			/* MDP_LCDC_LVDS_MUX_CTL_FOR_D3_6_TO_4 */
-			MDP_OUTP(MDP_BASE +  0xc2030, 0x000e0f16);
+			MDP_OUTP(MDP_BASE +  0xc2030, 0x0006070e);
 		}
 		if (mfd->panel_info.lvds.channel_mode ==
 			LVDS_DUAL_CHANNEL_MODE) {
