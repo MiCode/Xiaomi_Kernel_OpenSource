@@ -82,17 +82,17 @@ error1:
 }
 
 static struct msm_cam_clk_info gemini_8x_clk_info[] = {
-	{"ijpeg_clk", 228571000},
-	{"ijpeg_pclk", -1},
+	{"core_clk", 228571000},
+	{"iface_clk", -1},
 };
 
 static struct msm_cam_clk_info gemini_7x_clk_info[] = {
-	{"jpeg_clk", 153600000},
-	{"jpeg_pclk", -1},
+	{"core_clk", 153600000},
+	{"iface_clk", -1},
 };
 
 static struct msm_cam_clk_info gemini_imem_clk_info[] = {
-	{"imem_clk", -1},
+	{"mem_clk", -1},
 };
 
 int msm_gemini_platform_init(struct platform_device *pdev,
