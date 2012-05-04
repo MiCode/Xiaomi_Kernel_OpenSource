@@ -122,7 +122,7 @@ static int snapshot_os(struct kgsl_device *device,
 	header->current_context = -1;
 
 	/* Get the current PT base */
-	header->ptbase = kgsl_mmu_get_current_ptbase(device);
+	header->ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
 	/* And the PID for the task leader */
 	pid = header->pid = kgsl_mmu_get_ptname_from_ptbase(header->ptbase);
 

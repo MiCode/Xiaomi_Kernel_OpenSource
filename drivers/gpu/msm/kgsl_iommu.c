@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -298,7 +298,7 @@ kgsl_iommu_map(void *mmu_specific_pt,
 	return ret;
 }
 
-static int kgsl_iommu_stop(struct kgsl_mmu *mmu)
+static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 {
 	/*
 	 *  stop device mmu
@@ -312,8 +312,6 @@ static int kgsl_iommu_stop(struct kgsl_mmu *mmu)
 
 		mmu->flags &= ~KGSL_FLAGS_STARTED;
 	}
-
-	return 0;
 }
 
 static int kgsl_iommu_close(struct kgsl_mmu *mmu)

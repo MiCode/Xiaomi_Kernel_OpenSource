@@ -322,16 +322,6 @@ unsigned int kgsl_mmu_get_ptsize(void)
 		return 0;
 }
 
-unsigned int kgsl_mmu_get_current_ptbase(struct kgsl_device *device)
-{
-	struct kgsl_mmu *mmu = &device->mmu;
-	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
-		return 0;
-	else
-		return mmu->mmu_ops->mmu_get_current_ptbase(mmu);
-}
-EXPORT_SYMBOL(kgsl_mmu_get_current_ptbase);
-
 int
 kgsl_mmu_get_ptname_from_ptbase(unsigned int pt_base)
 {
@@ -350,19 +340,6 @@ kgsl_mmu_get_ptname_from_ptbase(unsigned int pt_base)
 	return ptid;
 }
 EXPORT_SYMBOL(kgsl_mmu_get_ptname_from_ptbase);
-
-void kgsl_mmu_setstate(struct kgsl_device *device,
-			struct kgsl_pagetable *pagetable)
-{
-	struct kgsl_mmu *mmu = &device->mmu;
-
-	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
-		return;
-	else
-		mmu->mmu_ops->mmu_setstate(mmu,
-					pagetable);
-}
-EXPORT_SYMBOL(kgsl_mmu_setstate);
 
 int kgsl_mmu_init(struct kgsl_device *device)
 {
@@ -555,16 +532,6 @@ void kgsl_setstate(struct kgsl_mmu *mmu, uint32_t flags)
 }
 EXPORT_SYMBOL(kgsl_setstate);
 
-void kgsl_mmu_device_setstate(struct kgsl_device *device, uint32_t flags)
-{
-	struct kgsl_mmu *mmu = &device->mmu;
-	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
-		return;
-	else if (mmu->mmu_ops->mmu_device_setstate)
-		mmu->mmu_ops->mmu_device_setstate(mmu, flags);
-}
-EXPORT_SYMBOL(kgsl_mmu_device_setstate);
-
 void kgsl_mh_start(struct kgsl_device *device)
 {
 	struct kgsl_mh *mh = &device->mh;
@@ -746,17 +713,6 @@ error:
 }
 EXPORT_SYMBOL(kgsl_mmu_map_global);
 
-int kgsl_mmu_stop(struct kgsl_device *device)
-{
-	struct kgsl_mmu *mmu = &device->mmu;
-
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
-		return 0;
-	else
-		return mmu->mmu_ops->mmu_stop(mmu);
-}
-EXPORT_SYMBOL(kgsl_mmu_stop);
-
 int kgsl_mmu_close(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
@@ -813,16 +769,6 @@ int kgsl_mmu_enabled(void)
 		return 0;
 }
 EXPORT_SYMBOL(kgsl_mmu_enabled);
-
-int kgsl_mmu_pt_equal(struct kgsl_pagetable *pt,
-			unsigned int pt_base)
-{
-	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
-		return true;
-	else
-		return pt->pt_ops->mmu_pt_equal(pt, pt_base);
-}
-EXPORT_SYMBOL(kgsl_mmu_pt_equal);
 
 enum kgsl_mmutype kgsl_mmu_get_mmutype(void)
 {

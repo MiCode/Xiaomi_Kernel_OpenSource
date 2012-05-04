@@ -122,7 +122,7 @@ struct kgsl_mmu_ops {
 	int (*mmu_init) (struct kgsl_mmu *mmu);
 	int (*mmu_close) (struct kgsl_mmu *mmu);
 	int (*mmu_start) (struct kgsl_mmu *mmu);
-	int (*mmu_stop) (struct kgsl_mmu *mmu);
+	void (*mmu_stop) (struct kgsl_mmu *mmu);
 	void (*mmu_setstate) (struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable);
 	void (*mmu_device_setstate) (struct kgsl_mmu *mmu,
@@ -169,7 +169,6 @@ void kgsl_mh_start(struct kgsl_device *device);
 void kgsl_mh_intrcallback(struct kgsl_device *device);
 int kgsl_mmu_init(struct kgsl_device *device);
 int kgsl_mmu_start(struct kgsl_device *device);
-int kgsl_mmu_stop(struct kgsl_device *device);
 int kgsl_mmu_close(struct kgsl_device *device);
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc,
@@ -180,19 +179,57 @@ int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
 void kgsl_setstate(struct kgsl_mmu *mmu, uint32_t flags);
-void kgsl_mmu_device_setstate(struct kgsl_device *device, uint32_t flags);
-void kgsl_mmu_setstate(struct kgsl_device *device,
-			struct kgsl_pagetable *pt);
 int kgsl_mmu_get_ptname_from_ptbase(unsigned int pt_base);
 int kgsl_mmu_pt_get_flags(struct kgsl_pagetable *pt,
 			enum kgsl_deviceid id);
 void kgsl_mmu_ptpool_destroy(void *ptpool);
 void *kgsl_mmu_ptpool_init(int entries);
 int kgsl_mmu_enabled(void);
-int kgsl_mmu_pt_equal(struct kgsl_pagetable *pt,
-			unsigned int pt_base);
 void kgsl_mmu_set_mmutype(char *mmutype);
-unsigned int kgsl_mmu_get_current_ptbase(struct kgsl_device *device);
 enum kgsl_mmutype kgsl_mmu_get_mmutype(void);
 unsigned int kgsl_mmu_get_ptsize(void);
+
+/*
+ * Static inline functions of MMU that simply call the SMMU specific
+ * function using a function pointer. These functions can be thought
+ * of as wrappers around the actual function
+ */
+
+static inline unsigned int kgsl_mmu_get_current_ptbase(struct kgsl_mmu *mmu)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_current_ptbase)
+		return mmu->mmu_ops->mmu_get_current_ptbase(mmu);
+	else
+		return 0;
+}
+
+static inline void kgsl_mmu_setstate(struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pagetable)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_setstate)
+		mmu->mmu_ops->mmu_setstate(mmu, pagetable);
+}
+
+static inline void kgsl_mmu_device_setstate(struct kgsl_mmu *mmu,
+						uint32_t flags)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_device_setstate)
+		mmu->mmu_ops->mmu_device_setstate(mmu, flags);
+}
+
+static inline void kgsl_mmu_stop(struct kgsl_mmu *mmu)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_stop)
+		mmu->mmu_ops->mmu_stop(mmu);
+}
+
+static inline int kgsl_mmu_pt_equal(struct kgsl_pagetable *pt,
+			unsigned int pt_base)
+{
+	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_get_mmutype())
+		return 1;
+	else
+		return pt->pt_ops->mmu_pt_equal(pt, pt_base);
+}
+
 #endif /* __KGSL_MMU_H */
