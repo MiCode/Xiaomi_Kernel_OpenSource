@@ -211,6 +211,18 @@ config MSM_ACTUATOR
 	bool "Qualcomm MSM actuator support"
 	depends on MSM_CAMERA
 
+config MSM_EEPROM
+	bool "Qualcomm MSM EEPROM support"
+	depends on MSM_CAMERA
+
+config IMX074_EEPROM
+	bool "IMX074 EEPROM support"
+	depends on MSM_CAMERA
+
+config IMX091_EEPROM
+	bool "IMX091 EEPROM support"
+	depends on MSM_CAMERA
+
 config MSM_GEMINI
 	tristate "Qualcomm MSM Gemini Jpeg Engine support"
 	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM8960)

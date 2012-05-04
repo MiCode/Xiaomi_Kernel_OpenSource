@@ -36,6 +36,7 @@
 #include "msm_actuator.h"
 #include "msm_vpe.h"
 #include "msm_vfe32.h"
+#include "msm_camera_eeprom.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_mctl: " fmt, ##args)
@@ -303,6 +304,33 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			rc = copy_to_user((void *)argp,
 					 &act_data,
 					 sizeof(struct msm_actuator_cfg_data));
+			if (rc != 0) {
+				rc = -EFAULT;
+				break;
+			}
+		}
+		break;
+	}
+
+	case MSM_CAM_IOCTL_EEPROM_IO_CFG: {
+		struct msm_eeprom_cfg_data eeprom_data;
+		if (p_mctl->eeprom_sdev) {
+			eeprom_data.is_eeprom_supported = 1;
+			rc = v4l2_subdev_call(p_mctl->eeprom_sdev,
+				core, ioctl, VIDIOC_MSM_EEPROM_CFG, argp);
+		} else {
+			rc = copy_from_user(
+				&eeprom_data,
+				(void *)argp,
+				sizeof(struct msm_eeprom_cfg_data));
+			if (rc != 0) {
+				rc = -EFAULT;
+				break;
+			}
+			eeprom_data.is_eeprom_supported = 0;
+			rc = copy_to_user((void *)argp,
+					 &eeprom_data,
+					 sizeof(struct msm_eeprom_cfg_data));
 			if (rc != 0) {
 				rc = -EFAULT;
 				break;
@@ -815,6 +843,7 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 	spin_lock_init(&pmctl->pp_info.lock);
 
 	pmctl->act_sdev = pcam->act_sdev;
+	pmctl->eeprom_sdev = pcam->eeprom_sdev;
 	pmctl->sensor_sdev = pcam->sensor_sdev;
 	pmctl->sdata = pcam->sdata;
 

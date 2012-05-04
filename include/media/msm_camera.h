@@ -187,6 +187,9 @@
 #define MSM_CAM_IOCTL_GET_ACTUATOR_INFO \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 52, struct msm_actuator_cfg_data *)
 
+#define MSM_CAM_IOCTL_EEPROM_IO_CFG \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 53, struct msm_eeprom_cfg_data *)
+
 struct msm_mctl_pp_cmd {
 	int32_t  id;
 	uint16_t length;
@@ -778,18 +781,19 @@ struct msm_snapshot_pp_status {
 #define CFG_GET_3D_CALI_DATA 30
 #define CFG_GET_CALIB_DATA		31
 #define CFG_GET_OUTPUT_INFO		32
-#define CFG_GET_EEPROM_DATA		33
-#define CFG_SET_ACTUATOR_INFO		34
-#define CFG_GET_ACTUATOR_INFO           35
+#define CFG_GET_EEPROM_INFO		33
+#define CFG_GET_EEPROM_DATA		34
+#define CFG_SET_ACTUATOR_INFO		35
+#define CFG_GET_ACTUATOR_INFO           36
 /* TBD: QRD */
-#define CFG_SET_SATURATION            36
-#define CFG_SET_SHARPNESS             37
-#define CFG_SET_TOUCHAEC              38
-#define CFG_SET_AUTO_FOCUS            39
-#define CFG_SET_AUTOFLASH             40
-#define CFG_SET_EXPOSURE_COMPENSATION 41
-#define CFG_SET_ISO                   42
-#define CFG_MAX			43
+#define CFG_SET_SATURATION            37
+#define CFG_SET_SHARPNESS             38
+#define CFG_SET_TOUCHAEC              39
+#define CFG_SET_AUTO_FOCUS            40
+#define CFG_SET_AUTOFLASH             41
+#define CFG_SET_EXPOSURE_COMPENSATION 42
+#define CFG_SET_ISO                   43
+#define CFG_MAX			44
 
 
 #define MOVE_NEAR	0
@@ -1076,11 +1080,6 @@ struct sensor_output_info_t {
 	uint16_t num_info;
 };
 
-struct sensor_eeprom_data_t {
-	void *eeprom_data;
-	uint16_t index;
-};
-
 struct mirror_flip {
 	int32_t x_mirror;
 	int32_t y_flip;
@@ -1089,6 +1088,11 @@ struct mirror_flip {
 struct cord {
 	uint32_t x;
 	uint32_t y;
+};
+
+struct msm_eeprom_data_t {
+	void *eeprom_data;
+	uint16_t index;
 };
 
 struct sensor_cfg_data {
@@ -1116,7 +1120,7 @@ struct sensor_cfg_data {
 		struct sensor_3d_exp_cfg sensor_3d_exp;
 		struct sensor_calib_data calib_info;
 		struct sensor_output_info_t output_info;
-		struct sensor_eeprom_data_t eeprom_data;
+		struct msm_eeprom_data_t eeprom_data;
 		/* QRD */
 		uint16_t antibanding;
 		uint8_t contrast;
@@ -1247,6 +1251,60 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_set_info_t set_info;
 		struct msm_actuator_get_info_t get_info;
 		enum af_camera_name cam_name;
+	} cfg;
+};
+
+struct msm_eeprom_support {
+	uint16_t is_supported;
+	uint16_t size;
+	uint16_t index;
+	uint16_t qvalue;
+};
+
+struct msm_calib_wb {
+	uint16_t r_over_g;
+	uint16_t b_over_g;
+	uint16_t gr_over_gb;
+};
+
+struct msm_calib_af {
+	uint16_t macro_dac;
+	uint16_t inf_dac;
+	uint16_t start_dac;
+};
+
+struct msm_calib_lsc {
+	uint16_t r_gain[221];
+	uint16_t b_gain[221];
+	uint16_t gr_gain[221];
+	uint16_t gb_gain[221];
+};
+
+struct pixel_t {
+	int x;
+	int y;
+};
+
+struct msm_calib_dpc {
+	uint16_t validcount;
+	struct pixel_t snapshot_coord[128];
+	struct pixel_t preview_coord[128];
+	struct pixel_t video_coord[128];
+};
+
+struct msm_camera_eeprom_info_t {
+	struct msm_eeprom_support af;
+	struct msm_eeprom_support wb;
+	struct msm_eeprom_support lsc;
+	struct msm_eeprom_support dpc;
+};
+
+struct msm_eeprom_cfg_data {
+	int cfgtype;
+	uint8_t is_eeprom_supported;
+	union {
+		struct msm_eeprom_data_t get_data;
+		struct msm_camera_eeprom_info_t get_info;
 	} cfg;
 };
 

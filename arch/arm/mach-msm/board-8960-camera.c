@@ -524,6 +524,15 @@ static struct msm_camera_sensor_platform_info sensor_board_info_imx074 = {
 	.csi_lane_params = &imx074_csi_lane_params,
 };
 
+static struct i2c_board_info imx074_eeprom_i2c_info = {
+	I2C_BOARD_INFO("imx074_eeprom", 0x34 << 1),
+};
+
+static struct msm_eeprom_info imx074_eeprom_info = {
+	.board_info     = &imx074_eeprom_i2c_info,
+	.bus_id         = MSM_8960_GSBI4_QUP_I2C_BUS_ID,
+};
+
 static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.sensor_name	= "imx074",
 	.pdata	= &msm_camera_csi_device_data[0],
@@ -534,6 +543,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
 	.actuator_info = &msm_act_main_cam_0_info,
+	.eeprom_info = &imx074_eeprom_info,
 };
 
 static struct camera_vreg_t msm_8960_mt9m114_vreg[] = {
@@ -667,6 +677,15 @@ static struct msm_camera_sensor_platform_info sensor_board_info_imx091 = {
 	.csi_lane_params = &imx091_csi_lane_params,
 };
 
+static struct i2c_board_info imx091_eeprom_i2c_info = {
+	I2C_BOARD_INFO("imx091_eeprom", 0x21),
+};
+
+static struct msm_eeprom_info imx091_eeprom_info = {
+	.board_info     = &imx091_eeprom_i2c_info,
+	.bus_id         = MSM_8960_GSBI4_QUP_I2C_BUS_ID,
+};
+
 static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {
 	.sensor_name	= "imx091",
 	.pdata	= &msm_camera_csi_device_data[0],
@@ -676,6 +695,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
 	.actuator_info = &msm_act_main_cam_1_info,
+	.eeprom_info = &imx091_eeprom_info,
 };
 
 static struct pm8xxx_mpp_config_data privacy_light_on_config = {

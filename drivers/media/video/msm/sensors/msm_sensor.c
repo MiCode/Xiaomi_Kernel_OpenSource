@@ -491,24 +491,6 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 				rc = -EFAULT;
 			break;
 
-		case CFG_GET_EEPROM_DATA:
-			if (s_ctrl->sensor_eeprom_client == NULL ||
-				s_ctrl->sensor_eeprom_client->
-				func_tbl.eeprom_get_data == NULL) {
-				rc = -EFAULT;
-				break;
-			}
-			rc = s_ctrl->sensor_eeprom_client->
-				func_tbl.eeprom_get_data(
-				s_ctrl->sensor_eeprom_client,
-				&cdata.cfg.eeprom_data);
-
-			if (copy_to_user((void *)argp,
-				&cdata,
-				sizeof(struct sensor_eeprom_data_t)))
-				rc = -EFAULT;
-			break;
-
 		default:
 			rc = -EFAULT;
 			break;
@@ -722,25 +704,6 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 		rc = msm_sensor_match_id(s_ctrl);
 	if (rc < 0)
 		goto probe_fail;
-
-	if (s_ctrl->sensor_eeprom_client != NULL) {
-		struct msm_camera_eeprom_client *eeprom_client =
-			s_ctrl->sensor_eeprom_client;
-		if (eeprom_client->func_tbl.eeprom_init != NULL &&
-			eeprom_client->func_tbl.eeprom_release != NULL) {
-			rc = eeprom_client->func_tbl.eeprom_init(
-				eeprom_client,
-				s_ctrl->sensor_i2c_client->client->adapter);
-			if (rc < 0)
-				goto probe_fail;
-
-			rc = msm_camera_eeprom_read_tbl(eeprom_client,
-			eeprom_client->read_tbl, eeprom_client->read_tbl_size);
-			eeprom_client->func_tbl.eeprom_release(eeprom_client);
-			if (rc < 0)
-				goto probe_fail;
-		}
-	}
 
 	snprintf(s_ctrl->sensor_v4l2_subdev.name,
 		sizeof(s_ctrl->sensor_v4l2_subdev.name), "%s", id->name);
