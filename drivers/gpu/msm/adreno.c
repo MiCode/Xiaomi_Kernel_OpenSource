@@ -90,7 +90,6 @@ static struct adreno_device device_3d0 = {
 			.config = ADRENO_MMU_CONFIG,
 		},
 		.pwrctrl = {
-			.regulator_name = "fs_gfx3d",
 			.irq_name = KGSL_3D0_IRQ,
 		},
 		.mutex = __MUTEX_INITIALIZER(device_3d0.dev.mutex),
