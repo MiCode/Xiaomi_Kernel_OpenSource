@@ -1,0 +1,25 @@
+QPNP Vibrator
+
+QPNP (Qualcomm Plug N Play) vibrator is a peripheral on
+Qualcomm PMICs.  The PMIC is connected to Host processor
+via SPMI bus.
+
+Required Properties:
+ - status: default status is set to "disabled.  Must be "okay"
+ - compatible: must be "qcom,qpnp-vibrator"
+ - label: name which describes the device
+ - reg: address of device
+
+Optional Properties:
+ - qcom,vib-timeout-ms: timeout of vibrator, in ms.  Default 15000 ms
+ - qcom,vib-vtg-level-mV: voltage level, in mV.  Default 3100 mV
+
+Example:
+		qcom,vib@c000 {
+			status = "okay";
+			compatible = "qcom,qpnp-vibrator";
+			reg = <0xc000 0x100>;
+			label = "vibrator";
+			qcom,vib-timeout-ms = <15000>;
+			qcom,vib-vtg-level-mV = <3100>;
+		};
