@@ -387,6 +387,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	__disable_clocks(iommu_drvdata);
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 
+	ctx_drvdata->attached_domain = domain;
 fail:
 	mutex_unlock(&msm_iommu_lock);
 	return ret;
@@ -424,7 +425,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	__reset_context(iommu_drvdata->base, ctx_dev->num);
 	__disable_clocks(iommu_drvdata);
 	list_del_init(&ctx_drvdata->attached_elm);
-
+	ctx_drvdata->attached_domain = NULL;
 fail:
 	mutex_unlock(&msm_iommu_lock);
 }
@@ -984,41 +985,55 @@ static void print_ctx_regs(void __iomem *base, int ctx)
 
 irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 {
-	struct msm_iommu_drvdata *drvdata = dev_id;
+	struct msm_iommu_ctx_drvdata *ctx_drvdata = dev_id;
+	struct msm_iommu_drvdata *drvdata;
 	void __iomem *base;
-	unsigned int fsr;
-	int i, ret;
+	unsigned int fsr, num;
+	int ret;
 
 	mutex_lock(&msm_iommu_lock);
+	BUG_ON(!ctx_drvdata);
 
-	if (!drvdata) {
-		pr_err("Invalid device ID in context interrupt handler\n");
-		goto fail;
-	}
+	drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
+	BUG_ON(!drvdata);
 
 	base = drvdata->base;
-
-	pr_err("Unexpected IOMMU page fault!\n");
-	pr_err("base = %08x\n", (unsigned int) base);
-	pr_err("name = %s\n", drvdata->name);
+	num = ctx_drvdata->num;
 
 	ret = __enable_clocks(drvdata);
 	if (ret)
 		goto fail;
 
-	for (i = 0; i < drvdata->ncb; i++) {
-		fsr = GET_FSR(base, i);
-		if (fsr) {
-			pr_err("Fault occurred in context %d.\n", i);
+	fsr = GET_FSR(base, num);
+
+	if (fsr) {
+		if (!ctx_drvdata->attached_domain) {
+			pr_err("Bad domain in interrupt handler\n");
+			ret = -ENOSYS;
+		} else
+			ret = report_iommu_fault(ctx_drvdata->attached_domain,
+						&ctx_drvdata->pdev->dev,
+						GET_FAR(base, num), 0);
+
+		if (ret == -ENOSYS) {
+			pr_err("Unexpected IOMMU page fault!\n");
+			pr_err("name    = %s\n", drvdata->name);
+			pr_err("context = %s (%d)\n", ctx_drvdata->name, num);
 			pr_err("Interesting registers:\n");
-			print_ctx_regs(base, i);
-			SET_FSR(base, i, 0x4000000F);
+			print_ctx_regs(base, num);
 		}
-	}
+
+		SET_FSR(base, num, fsr);
+		SET_RESUME(base, num, 1);
+
+		ret = IRQ_HANDLED;
+	} else
+		ret = IRQ_NONE;
+
 	__disable_clocks(drvdata);
 fail:
 	mutex_unlock(&msm_iommu_lock);
-	return 0;
+	return ret;
 }
 
 static phys_addr_t msm_iommu_get_pt_base_addr(struct iommu_domain *domain)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,7 +78,6 @@ struct msm_iommu_ctx_dev {
  */
 struct msm_iommu_drvdata {
 	void __iomem *base;
-	int irq;
 	int ncb;
 	int ttbr_split;
 	struct clk *clk;
@@ -100,6 +99,8 @@ struct msm_iommu_ctx_drvdata {
 	int num;
 	struct platform_device *pdev;
 	struct list_head attached_elm;
+	struct iommu_domain *attached_domain;
+	const char *name;
 };
 
 /*
