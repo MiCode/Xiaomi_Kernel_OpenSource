@@ -236,6 +236,9 @@
 
 struct snd_enc_wma {
 	__u32 super_block_align; /* WMA Type-specific data */
+	__u32 bits_per_sample;
+	__u32 channelmask;
+	__u32 encodeopt;
 };
 
 
