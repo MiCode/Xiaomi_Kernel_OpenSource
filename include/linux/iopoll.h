@@ -43,7 +43,7 @@
 		if ((cond) || (timeout_us && time_after(jiffies, timeout))) \
 			break; \
 		if (sleep_us) \
-			usleep_range(1, sleep_us); \
+			usleep_range(DIV_ROUND_UP(sleep_us, 4), sleep_us); \
 	} \
 	(cond) ? 0 : -ETIMEDOUT; \
 })
