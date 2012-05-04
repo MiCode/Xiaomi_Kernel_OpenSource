@@ -10,6 +10,8 @@ Required properties:
   - qcom,sdcc-clk-rates : specifies supported SDCC clock frequencies, Units - Hz.
   - qcom,sdcc-sup-voltages: specifies supported voltage ranges for card. Should always be
 			specified in pairs (min, max), Units - mV.
+  - <supply-name>-supply: phandle to the regulator device tree node
+  "supply-name" examples are "vdd", "vdd-io".
 
 Optional Properties:
 	- cell-index - defines slot ID.
@@ -22,6 +24,14 @@ Optional Properties:
 				hot pluggable or hard wired.
 	- qcom,sdcc-disable_cmd23 - disable sending CMD23 to card when controller can't support it.
 	- qcom,sdcc-hs200 - enable eMMC4.5 HS200 bus speed mode
+
+In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
+	- qcom,sdcc-<supply>-always_on - specifies whether supply should be kept "on" always.
+	- qcom,sdcc-<supply>-lpm_sup - specifies whether supply can be kept in low power mode (lpm).
+	- qcom,sdcc-<supply>-voltage_level - specifies voltage levels for supply. Should be
+	specified in pairs (min, max), units uV.
+	- qcom,sdcc-<supply>-current_level - specifies load levels for supply in lpm or
+	high power mode (hpm). Should be specified in pairs (lpm, hpm), units uA.
 
 Example:
 
