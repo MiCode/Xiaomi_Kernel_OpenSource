@@ -1862,10 +1862,6 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	spin_lock_irqsave(&host->lock, flags);
-	WARN(host->curr.mrq, "Request in progress\n");
-	WARN(!host->pwr, "SDCC power is turned off\n");
-	WARN(!host->clks_on, "SDCC clocks are turned off\n");
-	WARN(host->sdcc_irq_disabled, "SDCC IRQ is disabled\n");
 
 	if (host->eject) {
 		if (mrq->data && !(mrq->data->flags & MMC_DATA_READ)) {
@@ -1879,6 +1875,29 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		mmc_request_done(mmc, mrq);
 		return;
 	}
+
+	/*
+	 * Don't start the request if SDCC is not in proper state to handle it
+	 */
+	if (!host->pwr || !host->clks_on || host->sdcc_irq_disabled) {
+		WARN(1, "%s: %s: SDCC is in bad state. don't process"
+		     " new request (CMD%d)\n", mmc_hostname(host->mmc),
+		     __func__, mrq->cmd->opcode);
+		msmsdcc_dump_sdcc_state(host);
+		mrq->cmd->error = -EIO;
+		if (mrq->data) {
+			mrq->data->error = -EIO;
+			mrq->data->bytes_xfered = 0;
+		}
+		spin_unlock_irqrestore(&host->lock, flags);
+		mmc_request_done(mmc, mrq);
+		return;
+	}
+
+	WARN(host->curr.mrq, "%s: %s: New request (CMD%d) received while"
+	     " other request (CMD%d) is in progress\n",
+	     mmc_hostname(host->mmc), __func__,
+	     mrq->cmd->opcode, host->curr.mrq->cmd->opcode);
 
 	/*
 	 * Kick the software command timeout timer here.
@@ -2830,6 +2849,20 @@ static void msmsdcc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 }
 
 #ifdef CONFIG_PM_RUNTIME
+static void msmsdcc_print_rpm_info(struct msmsdcc_host *host)
+{
+	struct device *dev = mmc_dev(host->mmc);
+
+	pr_info("%s: RPM: runtime_status=%d, usage_count=%d,"
+		" is_suspended=%d, disable_depth=%d, runtime_error=%d,"
+		" request_pending=%d, request=%d\n",
+		mmc_hostname(host->mmc), dev->power.runtime_status,
+		atomic_read(&dev->power.usage_count),
+		dev->power.is_suspended, dev->power.disable_depth,
+		dev->power.runtime_error, dev->power.request_pending,
+		dev->power.request);
+}
+
 static int msmsdcc_enable(struct mmc_host *mmc)
 {
 	int rc = 0;
@@ -2862,6 +2895,7 @@ out:
 	if (rc < 0) {
 		pr_info("%s: %s: failed with error %d", mmc_hostname(mmc),
 				__func__, rc);
+		msmsdcc_print_rpm_info(host);
 		return rc;
 	}
 
@@ -2892,12 +2926,15 @@ static int msmsdcc_disable(struct mmc_host *mmc, int lazy)
 	if (rc < 0 && (rc != -EAGAIN)) {
 		pr_info("%s: %s: failed with error %d", mmc_hostname(mmc),
 				__func__, rc);
+		msmsdcc_print_rpm_info(host);
 		return rc;
 	}
 
 	return 0;
 }
 #else
+static void msmsdcc_print_rpm_info(struct msmsdcc_host *host) {}
+
 static int msmsdcc_enable(struct mmc_host *mmc)
 {
 	struct device *dev = mmc->parent;
@@ -4153,7 +4190,7 @@ static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
 				mmc_hostname(host->mmc), host->dma.busy,
 				host->dma.channel, host->dma.crci);
 		else if (host->is_sps_mode) {
-			if (host->sps.busy)
+			if (host->sps.busy && host->clks_on)
 				msmsdcc_print_regs("SDCC-DML", host->dml_base,
 						   host->dml_memres->start,
 						   16);
@@ -4171,6 +4208,7 @@ static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
 		mmc_hostname(host->mmc), host->curr.got_dataend,
 		host->prog_enable, host->curr.wait_for_auto_prog_done,
 		host->curr.got_auto_prog_done);
+	msmsdcc_print_rpm_info(host);
 }
 
 static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
