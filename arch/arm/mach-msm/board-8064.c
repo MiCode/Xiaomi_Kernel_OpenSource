@@ -2291,6 +2291,92 @@ static struct platform_device mtp_kp_pdev = {
 	},
 };
 
+static struct gpio_keys_button mpq_keys[] = {
+	{
+		.code           = KEY_VOLUMEDOWN,
+		.gpio           = GPIO_KEY_VOLUME_DOWN,
+		.desc           = "volume_down_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = KEY_VOLUMEUP,
+		.gpio           = GPIO_KEY_VOLUME_UP,
+		.desc           = "volume_up_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+};
+
+static struct gpio_keys_platform_data mpq_keys_data = {
+	.buttons        = mpq_keys,
+	.nbuttons       = ARRAY_SIZE(mpq_keys),
+};
+
+static struct platform_device mpq_gpio_keys_pdev = {
+	.name           = "gpio-keys",
+	.id             = -1,
+	.dev            = {
+		.platform_data  = &mpq_keys_data,
+	},
+};
+
+#define MPQ_KP_ROW_BASE		SX150X_EXP2_GPIO_BASE
+#define MPQ_KP_COL_BASE		(SX150X_EXP2_GPIO_BASE + 4)
+
+static unsigned int mpq_row_gpios[] = {MPQ_KP_ROW_BASE, MPQ_KP_ROW_BASE + 1,
+				MPQ_KP_ROW_BASE + 2, MPQ_KP_ROW_BASE + 3};
+static unsigned int mpq_col_gpios[] = {MPQ_KP_COL_BASE, MPQ_KP_COL_BASE + 1,
+				MPQ_KP_COL_BASE + 2};
+
+static const unsigned int mpq_keymap[] = {
+	KEY(0, 0, KEY_UP),
+	KEY(0, 1, KEY_ENTER),
+	KEY(0, 2, KEY_3),
+
+	KEY(1, 0, KEY_DOWN),
+	KEY(1, 1, KEY_EXIT),
+	KEY(1, 2, KEY_4),
+
+	KEY(2, 0, KEY_LEFT),
+	KEY(2, 1, KEY_1),
+	KEY(2, 2, KEY_5),
+
+	KEY(3, 0, KEY_RIGHT),
+	KEY(3, 1, KEY_2),
+	KEY(3, 2, KEY_6),
+};
+
+static struct matrix_keymap_data mpq_keymap_data = {
+	.keymap_size	= ARRAY_SIZE(mpq_keymap),
+	.keymap		= mpq_keymap,
+};
+
+static struct matrix_keypad_platform_data mpq_keypad_data = {
+	.keymap_data		= &mpq_keymap_data,
+	.row_gpios		= mpq_row_gpios,
+	.col_gpios		= mpq_col_gpios,
+	.num_row_gpios		= ARRAY_SIZE(mpq_row_gpios),
+	.num_col_gpios		= ARRAY_SIZE(mpq_col_gpios),
+	.col_scan_delay_us	= 32000,
+	.debounce_ms		= 20,
+	.wakeup			= 1,
+	.active_low		= 1,
+	.no_autorepeat		= 1,
+};
+
+static struct platform_device mpq_keypad_device = {
+	.name           = "matrix-keypad",
+	.id             = -1,
+	.dev            = {
+		.platform_data  = &mpq_keypad_data,
+	},
+};
+
 /* Sensors DSPS platform data */
 #define DSPS_PIL_GENERIC_NAME		"dsps"
 static void __init apq8064_init_dsps(void)
@@ -2372,8 +2458,8 @@ struct sx150x_platform_data mpq8064_sx150x_pdata[] = {
 	[SX150X_EXP2] = {
 		.gpio_base	= SX150X_EXP2_GPIO_BASE,
 		.oscio_is_gpo	= false,
-		.io_pullup_ena	= 0x0,
-		.io_pulldn_ena	= 0x0,
+		.io_pullup_ena	= 0x0f,
+		.io_pulldn_ena	= 0x70,
 		.io_open_drain_ena = 0x0,
 		.io_polarity	= 0,
 		.irq_summary	= SX150X_EXP2_INT_N,
@@ -2611,6 +2697,11 @@ static void __init apq8064_cdp_init(void)
 		platform_device_register(&mtp_kp_pdev);
 
 	change_memory_power = &apq8064_change_memory_power;
+
+	if (machine_is_mpq8064_cdp()) {
+		platform_device_register(&mpq_gpio_keys_pdev);
+		platform_device_register(&mpq_keypad_device);
+	}
 }
 
 MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
