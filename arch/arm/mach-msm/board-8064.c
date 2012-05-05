@@ -198,31 +198,6 @@ static struct memtype_reserve apq8064_reserve_table[] __initdata = {
 	},
 };
 
-#if defined(CONFIG_MSM_RTB)
-static struct msm_rtb_platform_data apq8064_rtb_pdata = {
-	.size = SZ_1M,
-};
-
-static int __init msm_rtb_set_buffer_size(char *p)
-{
-	int s;
-
-	s = memparse(p, NULL);
-	apq8064_rtb_pdata.size = ALIGN(s, SZ_4K);
-	return 0;
-}
-early_param("msm_rtb_size", msm_rtb_set_buffer_size);
-
-
-static struct platform_device apq8064_rtb_device = {
-	.name           = "msm_rtb",
-	.id             = -1,
-	.dev            = {
-		.platform_data = &apq8064_rtb_pdata,
-	},
-};
-#endif
-
 static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
@@ -1968,9 +1943,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_8960_q6_lpass,
 	&msm_pil_vidc,
 	&msm_gss,
-#ifdef CONFIG_MSM_RTB
 	&apq8064_rtb_device,
-#endif
 	&apq8064_cpu_idle_device,
 	&apq8064_msm_gov_device,
 	&apq8064_device_cache_erp,
