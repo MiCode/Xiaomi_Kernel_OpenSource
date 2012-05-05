@@ -15,10 +15,17 @@
 #include "spm.h"
 
 struct msm_spm_driver_data {
+	uint32_t major;
+	uint32_t minor;
+	uint32_t ver_reg;
+	uint32_t vctl_port;
+	uint32_t phase_port;
 	void __iomem *reg_base_addr;
 	uint32_t vctl_timeout_us;
+	uint32_t avs_timeout_us;
 	uint32_t reg_shadow[MSM_SPM_REG_NR];
 	uint32_t *reg_seq_entry_shadow;
+	uint32_t *reg_offsets;
 };
 
 int msm_spm_drv_init(struct msm_spm_driver_data *dev,
@@ -29,9 +36,10 @@ int msm_spm_drv_set_low_power_mode(struct msm_spm_driver_data *dev,
 int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev,
 		unsigned int vlevel);
 int msm_spm_drv_write_seq_data(struct msm_spm_driver_data *dev,
-		uint8_t *cmd, uint32_t offset);
+		uint8_t *cmd, uint32_t *offset);
 void msm_spm_drv_flush_seq_entry(struct msm_spm_driver_data *dev);
 int msm_spm_drv_set_spm_enable(struct msm_spm_driver_data *dev,
 		bool enable);
-
+int msm_spm_drv_set_phase(struct msm_spm_driver_data *dev,
+		unsigned int phase_cnt);
 #endif
