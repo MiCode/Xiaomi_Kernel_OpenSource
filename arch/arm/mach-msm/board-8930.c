@@ -1643,6 +1643,11 @@ static struct tsens_platform_data msm_tsens_pdata  = {
 			1142, 1124, 1153, 1175, 1166},
 };
 
+static struct platform_device msm_tsens_device = {
+	.name   = "tsens8960-tm",
+	.id = -1,
+};
+
 #ifdef CONFIG_MSM_FAKE_BATTERY
 static struct platform_device fish_battery_device = {
 	.name = "fish_battery",
@@ -1797,6 +1802,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_bus_8930_cpss_fpb,
 	&msm8960_device_cache_erp,
 	&msm8930_iommu_domain_device,
+	&msm_tsens_device,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {

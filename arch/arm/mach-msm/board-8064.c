@@ -1490,6 +1490,11 @@ static struct tsens_platform_data apq_tsens_pdata  = {
 			1132, 1132, 1199, 1132, 1199, 1132},
 };
 
+static struct platform_device msm_tsens_device = {
+	.name   = "tsens8960-tm",
+	.id = -1,
+};
+
 #define MSM_SHARED_RAM_PHYS 0x80000000
 static void __init apq8064_map_io(void)
 {
@@ -1979,6 +1984,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_cpudai_slim_4_tx,
 	&msm8960_gemini_device,
 	&apq8064_iommu_domain_device,
+	&msm_tsens_device,
 };
 
 static struct platform_device *sim_devices[] __initdata = {

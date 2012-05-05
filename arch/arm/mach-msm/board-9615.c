@@ -659,6 +659,11 @@ static struct tsens_platform_data msm_tsens_pdata  = {
 	.slope = {1176, 1162, 1162, 1149, 1176},
 };
 
+static struct platform_device msm_tsens_device = {
+	.name   = "tsens8960-tm",
+	.id = -1,
+};
+
 static struct platform_device *common_devices[] = {
 	&msm9615_device_dmov,
 	&msm_device_smd,
@@ -725,6 +730,7 @@ static struct platform_device *common_devices[] = {
 	&msm_bus_def_fab,
 	&msm9615_rpm_log_device,
 	&msm9615_rpm_stat_device,
+	&msm_tsens_device,
 };
 
 static void __init msm9615_i2c_init(void)
