@@ -30,32 +30,13 @@
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 /* prim = 1366 x 768 x 3(bpp) x 3(pages) */
-#define MSM_FB_PRIM_BUF_SIZE roundup(1920 * 1080 * 4 * 3, 0x10000)
+#define MSM_FB_PRIM_BUF_SIZE roundup(1920 * 1088 * 4 * 3, 0x10000)
 #else
 /* prim = 1366 x 768 x 3(bpp) x 2(pages) */
-#define MSM_FB_PRIM_BUF_SIZE roundup(1920 * 1080 * 4 * 2, 0x10000)
+#define MSM_FB_PRIM_BUF_SIZE roundup(1920 * 1088 * 4 * 2, 0x10000)
 #endif
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-#define MSM_FB_EXT_BUF_SIZE \
-		(roundup((1920 * 1088 * 2), 4096) * 1) /* 2 bpp x 1 page */
-#elif defined(CONFIG_FB_MSM_TVOUT)
-#define MSM_FB_EXT_BUF_SIZE \
-		(roundup((720 * 576 * 2), 4096) * 2) /* 2 bpp x 2 pages */
-#else
-#define MSM_FB_EXT_BUF_SIZE	0
-#endif
-
-#ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
-#define MSM_FB_WFD_BUF_SIZE \
-		(roundup((1280 * 736 * 2), 4096) * 1) /* 2 bpp x 1 page */
-#else
-#define MSM_FB_WFD_BUF_SIZE     0
-#endif
-
-#define MSM_FB_SIZE \
-	roundup(MSM_FB_PRIM_BUF_SIZE + \
-		MSM_FB_EXT_BUF_SIZE + MSM_FB_WFD_BUF_SIZE, 4096)
+#define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE, 4096)
 
 #ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK
 #define MSM_FB_OVERLAY0_WRITEBACK_SIZE roundup((1376 * 768 * 3 * 2), 4096)
