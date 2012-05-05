@@ -203,7 +203,7 @@ void mdp4_writeback_dma_busy_wait(struct msm_fb_data_type *mfd)
 	if (mfd->dma->busy == TRUE) {
 		if (busy_wait_cnt == 0)
 			INIT_COMPLETION(mfd->dma->comp);
-		busy_wait_cnt++;
+		busy_wait_cnt = 1;
 		need_wait++;
 	}
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
@@ -220,22 +220,21 @@ void mdp4_overlay1_done_writeback(struct mdp_dma_data *dma)
 {
 	spin_lock(&mdp_spin_lock);
 	dma->busy = FALSE;
-	spin_unlock(&mdp_spin_lock);
-	complete(&dma->comp);
 	if (busy_wait_cnt)
-		busy_wait_cnt--;
-
+		busy_wait_cnt = 0;
 	mdp_disable_irq_nosync(MDP_OVERLAY2_TERM);
+	spin_unlock(&mdp_spin_lock);
+	complete_all(&dma->comp);
 	pr_debug("%s ovdone interrupt\n", __func__);
 
 }
 void mdp4_writeback_overlay_kickoff(struct msm_fb_data_type *mfd,
-		struct mdp4_overlay_pipe *pipe)
+				    struct mdp4_overlay_pipe *pipe)
 {
 	unsigned long flag;
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	mdp_enable_irq(MDP_OVERLAY2_TERM);
-	INIT_COMPLETION(writeback_pipe->comp);
+
 	mfd->dma->busy = TRUE;
 	outp32(MDP_INTR_CLEAR, INTR_OVERLAY2_DONE);
 	mdp_intr_mask |= INTR_OVERLAY2_DONE;
@@ -247,7 +246,6 @@ void mdp4_writeback_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdp_pipe_kickoff(MDP_OVERLAY2_TERM, mfd);
 	wmb();
 	pr_debug("%s: before ov done interrupt\n", __func__);
-	wait_for_completion_killable(&mfd->dma->comp);
 }
 void mdp4_writeback_dma_stop(struct msm_fb_data_type *mfd)
 {
