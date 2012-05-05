@@ -447,33 +447,14 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	return rc;
 }
 
-static int msm_isp_notify_vpe(struct v4l2_subdev *sd, void *arg)
-{
-	struct msm_cam_media_controller *pmctl =
-		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
-	struct msm_vpe_resp *vdata = (struct msm_vpe_resp *)arg;
-	if (pmctl == NULL) {
-		pr_err("%s: VPE subdev hostdata not set\n", __func__);
-		return -EINVAL;
-	}
-
-	msm_mctl_pp_notify(pmctl,
-		(struct msm_mctl_pp_frame_info *)vdata->extdata);
-	return 0;
-}
-
 static int msm_isp_notify(struct v4l2_subdev *sd,
 	unsigned int notification, void *arg)
 {
-	if (notification == NOTIFY_VPE_MSG_EVT)
-		return msm_isp_notify_vpe(sd, arg);
-	else
-		return msm_isp_notify_vfe(sd, notification, arg);
+	return msm_isp_notify_vfe(sd, notification, arg);
 }
 
 /* This function is called by open() function, so we need to init HW*/
 static int msm_isp_open(struct v4l2_subdev *sd,
-	struct v4l2_subdev *sd_vpe,
 	struct msm_cam_media_controller *mctl)
 {
 	/* init vfe and senor, register sync callbacks for init*/
@@ -489,12 +470,6 @@ static int msm_isp_open(struct v4l2_subdev *sd,
 		pr_err("%s: vfe_init failed at %d\n",
 					__func__, rc);
 	}
-	D("%s: init vpe subdev", __func__);
-	rc = msm_vpe_subdev_init(sd_vpe, mctl);
-	if (rc < 0) {
-		pr_err("%s: vpe_init failed at %d\n",
-					__func__, rc);
-	}
 	return rc;
 }
 
@@ -503,7 +478,6 @@ static void msm_isp_release(
 {
 	D("%s\n", __func__);
 	msm_vfe_subdev_release(sd);
-	msm_vpe_subdev_release();
 }
 
 static int msm_config_vfe(struct v4l2_subdev *sd,
@@ -631,48 +605,6 @@ static int msm_config_vfe(struct v4l2_subdev *sd,
 	return -EINVAL;
 }
 
-static int msm_stats_axi_cfg(struct v4l2_subdev *sd,
-	struct msm_cam_media_controller *mctl, struct msm_vfe_cfg_cmd *cfgcmd)
-{
-	int rc = -EIO;
-	struct axidata axi_data;
-	void *data = &axi_data;
-	struct msm_pmem_region region[3];
-	int pmem_type = MSM_PMEM_MAX;
-
-	memset(&axi_data, 0, sizeof(axi_data));
-
-	switch (cfgcmd->cmd_type) {
-	case CMD_STATS_AF_AXI_CFG:
-		pmem_type = MSM_PMEM_AF;
-		break;
-	case CMD_GENERAL:
-		data = NULL;
-		break;
-	default:
-		pr_err("%s: unknown command type %d\n",
-			__func__, cfgcmd->cmd_type);
-		return -EINVAL;
-	}
-
-	if (cfgcmd->cmd_type != CMD_GENERAL) {
-		axi_data.bufnum1 =
-			msm_pmem_region_lookup(
-				&mctl->stats_info.pmem_stats_list, pmem_type,
-				&region[0], NUM_STAT_OUTPUT_BUFFERS);
-		if (!axi_data.bufnum1) {
-			pr_err("%s %d: pmem region lookup error\n",
-				__func__, __LINE__);
-			return -EINVAL;
-		}
-		axi_data.region = &region[0];
-	}
-
-	/* send the AEC/AWB STATS configuration command to driver */
-	rc = msm_isp_subdev_ioctl(sd, cfgcmd, data);
-	return rc;
-}
-
 static int msm_axi_config(struct v4l2_subdev *sd,
 		struct msm_cam_media_controller *mctl, void __user *arg)
 {
@@ -684,13 +616,6 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 	}
 
 	switch (cfgcmd.cmd_type) {
-	case CMD_AXI_CFG_VIDEO:
-	case CMD_AXI_CFG_PREVIEW:
-	case CMD_AXI_CFG_SNAP:
-	case CMD_AXI_CFG_ZSL:
-	case CMD_AXI_CFG_VIDEO_ALL_CHNLS:
-	case CMD_AXI_CFG_ZSL_ALL_CHNLS:
-	case CMD_RAW_PICT_AXI_CFG:
 	case CMD_AXI_CFG_PRIM:
 	case CMD_AXI_CFG_SEC:
 	case CMD_AXI_CFG_PRIM_ALL_CHNLS:
@@ -702,10 +627,6 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 		 * controller free queue.
 		 */
 		return msm_isp_subdev_ioctl(sd, &cfgcmd, NULL);
-
-	case CMD_STATS_AXI_CFG:
-	case CMD_STATS_AF_AXI_CFG:
-		return msm_stats_axi_cfg(sd, mctl, &cfgcmd);
 
 	default:
 		pr_err("%s: unknown command type %d\n",
@@ -794,14 +715,7 @@ static int msm_isp_config(struct msm_cam_media_controller *pmctl,
 		rc = msm_config_vfe(sd, pmctl, argp);
 		break;
 
-	case MSM_CAM_IOCTL_CONFIG_VPE:
-		/* Coming from config thread for update */
-		/*rc = msm_config_vpe(pmsm->sync, argp);*/
-		rc = 0;
-		break;
-
 	case MSM_CAM_IOCTL_AXI_CONFIG:
-	case MSM_CAM_IOCTL_AXI_VPE_CONFIG:
 		D("Received MSM_CAM_IOCTL_AXI_CONFIG\n");
 		rc = msm_axi_config(sd, pmctl, argp);
 		break;
@@ -870,15 +784,3 @@ int msm_isp_subdev_ioctl(struct v4l2_subdev *isp_subdev,
 	vfe_params.data = data;
 	return v4l2_subdev_call(isp_subdev, core, ioctl, 0, &vfe_params);
 }
-
-int msm_isp_subdev_ioctl_vpe(struct v4l2_subdev *isp_subdev,
-	struct msm_mctl_pp_cmd *cmd, void *data)
-{
-	int rc = 0;
-	struct msm_mctl_pp_params parm;
-	parm.cmd = cmd;
-	parm.data = data;
-	rc = v4l2_subdev_call(isp_subdev, core, ioctl, 0, &parm);
-	return rc;
-}
-

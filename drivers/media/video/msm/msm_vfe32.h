@@ -901,6 +901,23 @@ struct vfe_stats_control {
 	uint32_t bufToRender;
 };
 
+struct axi_ctrl_t {
+	struct v4l2_subdev subdev;
+	struct platform_device *pdev;
+	struct resource *vfeirq;
+	spinlock_t  tasklet_lock;
+	struct list_head tasklet_q;
+
+	void __iomem *vfebase;
+	void *syncdata;
+
+	struct resource	*vfemem;
+	struct resource *vfeio;
+	struct regulator *fs_vfe;
+	struct clk *vfe_clk[3];
+	struct tasklet_struct vfe32_tasklet;
+};
+
 struct vfe32_ctrl_type {
 	uint16_t operation_mode;     /* streaming or snapshot */
 	struct vfe32_output_path outpath;
@@ -934,16 +951,8 @@ struct vfe32_ctrl_type {
 	int8_t update_gamma;
 	enum vfe_output_state liveshot_state;
 
-	spinlock_t  tasklet_lock;
-	struct list_head tasklet_q;
 	void __iomem *vfebase;
-	void *syncdata;
 	uint32_t register_total;
-
-	struct resource	*vfemem;
-	struct resource *vfeio;
-	struct resource *vfeirq;
-	struct regulator *fs_vfe;
 
 	uint32_t stats_comp;
 	atomic_t vstate;
@@ -969,7 +978,6 @@ struct vfe32_ctrl_type {
 	/* v4l2 subdev */
 	struct v4l2_subdev subdev;
 	struct platform_device *pdev;
-	struct clk *vfe_clk[3];
 	spinlock_t  sd_notify_lock;
 	uint32_t hfr_mode;
 	uint32_t frame_skip_cnt;
@@ -994,4 +1002,17 @@ struct vfe_cmd_stats_ack {
 struct vfe_cmd_stats_buf {
 	uint32_t statsBuf[VFE_STATS_BUFFER_COUNT];
 };
+
+#define VIDIOC_MSM_AXI_INIT \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct msm_cam_media_controller *)
+
+#define VIDIOC_MSM_AXI_RELEASE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 19, struct msm_cam_media_controller *)
+
+#define VIDIOC_MSM_AXI_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 20, void *)
+
+#define VIDIOC_MSM_AXI_IRQ \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 21, void *)
+
 #endif /* __MSM_VFE32_H__ */
