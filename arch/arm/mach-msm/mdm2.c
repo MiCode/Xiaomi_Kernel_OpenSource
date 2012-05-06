@@ -53,11 +53,13 @@ static DEFINE_MUTEX(hsic_status_lock);
 
 static void mdm_peripheral_connect(struct mdm_modem_drv *mdm_drv)
 {
+	if (!mdm_drv->pdata->peripheral_platform_device)
+		return;
+
 	mutex_lock(&hsic_status_lock);
 	if (hsic_peripheral_status)
 		goto out;
-	if (mdm_drv->pdata->peripheral_platform_device)
-		platform_device_add(mdm_drv->pdata->peripheral_platform_device);
+	platform_device_add(mdm_drv->pdata->peripheral_platform_device);
 	hsic_peripheral_status = 1;
 out:
 	mutex_unlock(&hsic_status_lock);
@@ -65,84 +67,106 @@ out:
 
 static void mdm_peripheral_disconnect(struct mdm_modem_drv *mdm_drv)
 {
+	if (!mdm_drv->pdata->peripheral_platform_device)
+		return;
+
 	mutex_lock(&hsic_status_lock);
 	if (!hsic_peripheral_status)
 		goto out;
-	if (mdm_drv->pdata->peripheral_platform_device)
-		platform_device_del(mdm_drv->pdata->peripheral_platform_device);
+	platform_device_del(mdm_drv->pdata->peripheral_platform_device);
 	hsic_peripheral_status = 0;
 out:
 	mutex_unlock(&hsic_status_lock);
 }
 
-static void power_on_mdm(struct mdm_modem_drv *mdm_drv)
+static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
+{
+	int soft_reset_direction =
+		mdm_drv->pdata->soft_reset_inverted ? 1 : 0;
+
+	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+				soft_reset_direction);
+	mdm_peripheral_disconnect(mdm_drv);
+}
+
+static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
+{
+	int soft_reset_direction =
+		mdm_drv->pdata->soft_reset_inverted ? 0 : 1;
+
+	if (power_on_count != 1) {
+		pr_err("%s: Calling fn when power_on_count != 1\n",
+			   __func__);
+		return;
+	}
+
+	pr_err("%s: Powering on modem for the first time\n", __func__);
+	mdm_peripheral_disconnect(mdm_drv);
+
+	/* If the device has a kpd pwr gpio then toggle it. */
+	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0) {
+		/* Pull AP2MDM_KPDPWR gpio high and wait for PS_HOLD to settle,
+		 * then	pull it back low.
+		 */
+		pr_debug("%s: Pulling AP2MDM_KPDPWR gpio high\n", __func__);
+		gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 1);
+		msleep(1000);
+		gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 0);
+	}
+
+	/* De-assert the soft reset line. */
+	pr_debug("%s: De-asserting soft reset gpio\n", __func__);
+	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+						  soft_reset_direction);
+
+	mdm_peripheral_connect(mdm_drv);
+	msleep(200);
+}
+
+static void mdm_do_soft_power_on(struct mdm_modem_drv *mdm_drv)
+{
+	int soft_reset_direction =
+		mdm_drv->pdata->soft_reset_inverted ? 0 : 1;
+
+	/* De-assert the soft reset line. */
+	pr_err("%s: soft resetting mdm modem\n", __func__);
+
+	mdm_peripheral_disconnect(mdm_drv);
+
+	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+		soft_reset_direction == 1 ? 0 : 1);
+	usleep_range(5000, 10000);
+	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+		soft_reset_direction == 1 ? 1 : 0);
+
+	mdm_peripheral_connect(mdm_drv);
+	msleep(200);
+}
+
+static void mdm_power_on_common(struct mdm_modem_drv *mdm_drv)
 {
 	power_on_count++;
 
 	/* this gpio will be used to indicate apq readiness,
-	 * de-assert it now so that it can asserted later
+	 * de-assert it now so that it can be asserted later.
+	 * May not be used.
 	 */
-	gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 0);
+	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
+		gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 0);
 
-	/* The second attempt to power-on the mdm is the first attempt
-	 * from user space, but we're already powered on. Ignore this.
-	 * Subsequent attempts are from SSR or if something failed, in
-	 * which case we must always reset the modem.
+	/*
+	 * If we did an "early power on" then ignore the very next
+	 * power-on request because it would the be first request from
+	 * user space but we're already powered on. Ignore it.
 	 */
-	if (power_on_count == 2)
+	if (mdm_drv->pdata->early_power_on &&
+			(power_on_count == 2))
 		return;
 
-	mdm_peripheral_disconnect(mdm_drv);
-
-	/* Pull RESET gpio low and wait for it to settle. */
-	pr_debug("Pulling RESET gpio low\n");
-	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 0);
-	usleep_range(5000, 10000);
-
-	/* Deassert RESET first and wait for it to settle. */
-	pr_debug("%s: Pulling RESET gpio high\n", __func__);
-	gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 1);
-	usleep(20000);
-
-	/* Pull PWR gpio high and wait for it to settle, but only
-	 * the first time the mdm is powered up.
-	 * Some targets do not use ap2mdm_kpdpwr_n_gpio.
-	 */
-	if (power_on_count == 1) {
-		if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0) {
-			pr_debug("%s: Powering on mdm modem\n", __func__);
-			gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 1);
-			usleep(1000);
-		}
-	}
-	mdm_peripheral_connect(mdm_drv);
-
-	msleep(200);
-}
-
-static void power_down_mdm(struct mdm_modem_drv *mdm_drv)
-{
-	int i;
-
-	for (i = MDM_MODEM_TIMEOUT; i > 0; i -= MDM_MODEM_DELTA) {
-		pet_watchdog();
-		msleep(MDM_MODEM_DELTA);
-		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
-			break;
-	}
-	if (i <= 0) {
-		pr_err("%s: MDM2AP_STATUS never went low.\n",
-			 __func__);
-		gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 0);
-
-		for (i = MDM_HOLD_TIME; i > 0; i -= MDM_MODEM_DELTA) {
-			pet_watchdog();
-			msleep(MDM_MODEM_DELTA);
-		}
-	}
-	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0)
-		gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 0);
-	mdm_peripheral_disconnect(mdm_drv);
+	if (power_on_count == 1)
+		mdm_do_first_power_on(mdm_drv);
+	else
+		mdm_do_soft_power_on(mdm_drv);
 }
 
 static void debug_state_changed(int value)
@@ -157,13 +181,15 @@ static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 	if (value) {
 		mdm_peripheral_disconnect(mdm_drv);
 		mdm_peripheral_connect(mdm_drv);
-		gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 1);
+		if (mdm_drv->ap2mdm_wakeup_gpio > 0)
+			gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 1);
 	}
 }
 
 static struct mdm_ops mdm_cb = {
-	.power_on_mdm_cb = power_on_mdm,
-	.power_down_mdm_cb = power_down_mdm,
+	.power_on_mdm_cb = mdm_power_on_common,
+	.reset_mdm_cb = mdm_power_on_common,
+	.power_down_mdm_cb = mdm_power_down_common,
 	.debug_state_changed_cb = debug_state_changed,
 	.status_cb = mdm_status_changed,
 };

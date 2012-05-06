@@ -152,6 +152,14 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 					 (unsigned long __user *) arg);
 		INIT_COMPLETION(mdm_needs_reload);
 		break;
+	case GET_DLOAD_STATUS:
+		pr_debug("getting status of mdm2ap_errfatal_gpio\n");
+		if (gpio_get_value(mdm_drv->mdm2ap_errfatal_gpio) == 1 &&
+			!mdm_drv->mdm_ready)
+			put_user(1, (unsigned long __user *) arg);
+		else
+			put_user(0, (unsigned long __user *) arg);
+		break;
 	default:
 		pr_err("%s: invalid ioctl cmd = %d\n", __func__, _IOC_NR(cmd));
 		ret = -EINVAL;
@@ -161,31 +169,13 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 	return ret;
 }
 
-static void mdm_fatal_fn(struct work_struct *work)
-{
-	pr_info("%s: Reseting the mdm due to an errfatal\n", __func__);
-	subsystem_restart(EXTERNAL_MODEM);
-}
-
-static DECLARE_WORK(mdm_fatal_work, mdm_fatal_fn);
-
 static void mdm_status_fn(struct work_struct *work)
 {
 	int value = gpio_get_value(mdm_drv->mdm2ap_status_gpio);
 
-	if (!mdm_drv->mdm_ready)
-		return;
-
-	mdm_drv->ops->status_cb(mdm_drv, value);
-
 	pr_debug("%s: status:%d\n", __func__, value);
-
-	if ((value == 0)) {
-		pr_info("%s: unexpected reset external modem\n", __func__);
-		subsystem_restart(EXTERNAL_MODEM);
-	} else if (value == 1) {
-		pr_info("%s: status = 1: mdm is now ready\n", __func__);
-	}
+	if (mdm_drv->mdm_ready && mdm_drv->ops->status_cb)
+		mdm_drv->ops->status_cb(mdm_drv, value);
 }
 
 static DECLARE_WORK(mdm_status_work, mdm_status_fn);
@@ -194,7 +184,6 @@ static void mdm_disable_irqs(void)
 {
 	disable_irq_nosync(mdm_drv->mdm_errfatal_irq);
 	disable_irq_nosync(mdm_drv->mdm_status_irq);
-
 }
 
 static irqreturn_t mdm_errfatal(int irq, void *dev_id)
@@ -202,8 +191,9 @@ static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 	pr_debug("%s: mdm got errfatal interrupt\n", __func__);
 	if (mdm_drv->mdm_ready &&
 		(gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 1)) {
-		pr_debug("%s: scheduling work now\n", __func__);
-		queue_work(mdm_queue, &mdm_fatal_work);
+		pr_info("%s: Reseting the mdm due to an errfatal\n", __func__);
+		mdm_drv->mdm_ready = 0;
+		subsystem_restart(EXTERNAL_MODEM);
 	}
 	return IRQ_HANDLED;
 }
@@ -242,8 +232,12 @@ static int mdm_panic_prep(struct notifier_block *this,
 		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
 			break;
 	}
-	if (i <= 0)
+	if (i <= 0) {
 		pr_err("%s: MDM2AP_STATUS never went low\n", __func__);
+		/* Reset the modem so that it will go into download mode. */
+		if (mdm_drv && mdm_drv->ops->reset_mdm_cb)
+			mdm_drv->ops->reset_mdm_cb(mdm_drv);
+	}
 	return NOTIFY_DONE;
 }
 
@@ -253,16 +247,23 @@ static struct notifier_block mdm_panic_blk = {
 
 static irqreturn_t mdm_status_change(int irq, void *dev_id)
 {
+	int value = gpio_get_value(mdm_drv->mdm2ap_status_gpio);
+
 	pr_debug("%s: mdm sent status change interrupt\n", __func__);
-
-	queue_work(mdm_queue, &mdm_status_work);
-
+	if (value == 0 && mdm_drv->mdm_ready == 1) {
+		pr_info("%s: unexpected reset external modem\n", __func__);
+		mdm_drv->mdm_unexpected_reset_occurred = 1;
+		mdm_drv->mdm_ready = 0;
+		subsystem_restart(EXTERNAL_MODEM);
+	} else if (value == 1) {
+		pr_info("%s: status = 1: mdm is now ready\n", __func__);
+		queue_work(mdm_queue, &mdm_status_work);
+	}
 	return IRQ_HANDLED;
 }
 
 static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 {
-	mdm_drv->mdm_ready = 0;
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
 	if (mdm_drv->pdata->ramdump_delay_ms > 0) {
 		/* Wait for the external modem to complete
@@ -270,7 +271,11 @@ static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 		 */
 		msleep(mdm_drv->pdata->ramdump_delay_ms);
 	}
-	mdm_drv->ops->power_down_mdm_cb(mdm_drv);
+	if (!mdm_drv->mdm_unexpected_reset_occurred)
+		mdm_drv->ops->reset_mdm_cb(mdm_drv);
+	else
+		mdm_drv->mdm_unexpected_reset_occurred = 0;
+
 	return 0;
 }
 
@@ -287,8 +292,10 @@ static int mdm_subsys_powerup(const struct subsys_data *crashed_subsys)
 		pr_info("%s: mdm modem restart timed out.\n", __func__);
 	} else {
 		pr_info("%s: mdm modem has been restarted\n", __func__);
+
 		/* Log the reason for the restart */
-		queue_work(mdm_sfr_queue, &sfr_reason_work);
+		if (mdm_drv->pdata->sfr_query)
+			queue_work(mdm_sfr_queue, &sfr_reason_work);
 	}
 	INIT_COMPLETION(mdm_boot);
 	return mdm_drv->mdm_boot_status;
@@ -310,7 +317,6 @@ static int mdm_subsys_ramdumps(int want_dumps,
 			pr_info("%s: mdm modem ramdumps completed.\n",
 					__func__);
 		INIT_COMPLETION(mdm_ram_dumps);
-		gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
 		mdm_drv->ops->power_down_mdm_cb(mdm_drv);
 	}
 	return mdm_drv->mdm_ram_dump_status;
@@ -395,17 +401,23 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 	if (pres)
 		mdm_drv->ap2mdm_wakeup_gpio = pres->start;
 
-	/* AP2MDM_PMIC_RESET_N */
+	/* AP2MDM_SOFT_RESET */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
-							"AP2MDM_PMIC_RESET_N");
+							"AP2MDM_SOFT_RESET");
 	if (pres)
-		mdm_drv->ap2mdm_pmic_reset_n_gpio = pres->start;
+		mdm_drv->ap2mdm_soft_reset_gpio = pres->start;
 
 	/* AP2MDM_KPDPWR_N */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"AP2MDM_KPDPWR_N");
 	if (pres)
 		mdm_drv->ap2mdm_kpdpwr_n_gpio = pres->start;
+
+	/* AP2MDM_PMIC_PWR_EN */
+	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
+							"AP2MDM_PMIC_PWR_EN");
+	if (pres)
+		mdm_drv->ap2mdm_pmic_pwr_en_gpio = pres->start;
 
 	mdm_drv->boot_type                  = CHARM_NORMAL_BOOT;
 
@@ -430,10 +442,17 @@ int mdm_common_create(struct platform_device  *pdev,
 
 	gpio_request(mdm_drv->ap2mdm_status_gpio, "AP2MDM_STATUS");
 	gpio_request(mdm_drv->ap2mdm_errfatal_gpio, "AP2MDM_ERRFATAL");
-	gpio_request(mdm_drv->ap2mdm_kpdpwr_n_gpio, "AP2MDM_KPDPWR_N");
-	gpio_request(mdm_drv->ap2mdm_pmic_reset_n_gpio, "AP2MDM_PMIC_RESET_N");
+	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0)
+		gpio_request(mdm_drv->ap2mdm_kpdpwr_n_gpio, "AP2MDM_KPDPWR_N");
 	gpio_request(mdm_drv->mdm2ap_status_gpio, "MDM2AP_STATUS");
 	gpio_request(mdm_drv->mdm2ap_errfatal_gpio, "MDM2AP_ERRFATAL");
+
+	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+		gpio_request(mdm_drv->ap2mdm_pmic_pwr_en_gpio,
+					 "AP2MDM_PMIC_PWR_EN");
+	if (mdm_drv->ap2mdm_soft_reset_gpio > 0)
+		gpio_request(mdm_drv->ap2mdm_soft_reset_gpio,
+					 "AP2MDM_SOFT_RESET");
 
 	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
 		gpio_request(mdm_drv->ap2mdm_wakeup_gpio, "AP2MDM_WAKEUP");
@@ -515,10 +534,18 @@ errfatal_err:
 	mdm_drv->mdm_status_irq = irq;
 
 status_err:
+	/*
+	 * If AP2MDM_PMIC_PWR_EN gpio is used, pull it high. It remains
+	 * high until the whole phone is shut down.
+	 */
+	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+		gpio_direction_output(mdm_drv->ap2mdm_pmic_pwr_en_gpio, 1);
+
 	/* Perform early powerup of the external modem in order to
 	 * allow tabla devices to be found.
 	 */
-	mdm_drv->ops->power_on_mdm_cb(mdm_drv);
+	if (mdm_drv->pdata->early_power_on)
+		mdm_drv->ops->power_on_mdm_cb(mdm_drv);
 
 	pr_info("%s: Registering mdm modem\n", __func__);
 	return misc_register(&mdm_modem_misc);
@@ -526,10 +553,14 @@ status_err:
 fatal_err:
 	gpio_free(mdm_drv->ap2mdm_status_gpio);
 	gpio_free(mdm_drv->ap2mdm_errfatal_gpio);
-	gpio_free(mdm_drv->ap2mdm_kpdpwr_n_gpio);
-	gpio_free(mdm_drv->ap2mdm_pmic_reset_n_gpio);
+	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0)
+		gpio_free(mdm_drv->ap2mdm_kpdpwr_n_gpio);
+	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+		gpio_free(mdm_drv->ap2mdm_pmic_pwr_en_gpio);
 	gpio_free(mdm_drv->mdm2ap_status_gpio);
 	gpio_free(mdm_drv->mdm2ap_errfatal_gpio);
+	if (mdm_drv->ap2mdm_soft_reset_gpio > 0)
+		gpio_free(mdm_drv->ap2mdm_soft_reset_gpio);
 
 	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
 		gpio_free(mdm_drv->ap2mdm_wakeup_gpio);
@@ -547,10 +578,14 @@ int mdm_common_modem_remove(struct platform_device *pdev)
 
 	gpio_free(mdm_drv->ap2mdm_status_gpio);
 	gpio_free(mdm_drv->ap2mdm_errfatal_gpio);
-	gpio_free(mdm_drv->ap2mdm_kpdpwr_n_gpio);
-	gpio_free(mdm_drv->ap2mdm_pmic_reset_n_gpio);
+	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0)
+		gpio_free(mdm_drv->ap2mdm_kpdpwr_n_gpio);
+	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+		gpio_free(mdm_drv->ap2mdm_pmic_pwr_en_gpio);
 	gpio_free(mdm_drv->mdm2ap_status_gpio);
 	gpio_free(mdm_drv->mdm2ap_errfatal_gpio);
+	if (mdm_drv->ap2mdm_soft_reset_gpio > 0)
+		gpio_free(mdm_drv->ap2mdm_soft_reset_gpio);
 
 	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
 		gpio_free(mdm_drv->ap2mdm_wakeup_gpio);
@@ -566,5 +601,7 @@ void mdm_common_modem_shutdown(struct platform_device *pdev)
 	mdm_disable_irqs();
 
 	mdm_drv->ops->power_down_mdm_cb(mdm_drv);
+	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+		gpio_direction_output(mdm_drv->ap2mdm_pmic_pwr_en_gpio, 0);
 }
 
