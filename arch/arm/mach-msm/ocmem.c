@@ -97,6 +97,25 @@ static inline int get_id(const char *name)
 	return -EINVAL;
 }
 
+inline unsigned long phys_to_offset(unsigned long addr)
+{
+	if (!ocmem_pdata)
+		return 0;
+	if (addr < ocmem_pdata->base ||
+		addr > (ocmem_pdata->base + ocmem_pdata->size))
+		return 0;
+	return addr - ocmem_pdata->base;
+}
+
+inline unsigned long offset_to_phys(unsigned long offset)
+{
+	if (!ocmem_pdata)
+		return 0;
+	if (offset > ocmem_pdata->size)
+		return 0;
+	return offset + ocmem_pdata->base;
+}
+
 static struct ocmem_plat_data *parse_static_config(struct platform_device *pdev)
 {
 	struct ocmem_plat_data *pdata = NULL;
@@ -276,6 +295,8 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 	if (ocmem_notifier_init())
 		return -EBUSY;
 
+	if (ocmem_sched_init())
+		return -EBUSY;
 	dev_info(dev, "initialized successfully\n");
 	return 0;
 }
