@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -991,7 +991,7 @@ void msm_charger_vbus_draw(unsigned int mA)
 		usb_chg_current = mA;
 }
 
-static int __init determine_initial_batt_status(void)
+static int determine_initial_batt_status(void)
 {
 	if (is_battery_present())
 		if (is_battery_id_valid())
