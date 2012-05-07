@@ -38,10 +38,13 @@
 	of_machine_is_compatible("qcom,msmcopper")
 #define machine_is_copper_sim()		\
 	of_machine_is_compatible("qcom,msmcopper-sim")
+#define machine_is_copper_rumi()	\
+	of_machine_is_compatible("qcom,msmcopper-rumi")
 #else
 #define early_machine_is_copper()	0
 #define machine_is_copper()		0
 #define machine_is_copper_sim()	0
+#define machine_is_copper_rumi()	0
 #endif
 
 #define PLATFORM_SUBTYPE_SGLTE	6
