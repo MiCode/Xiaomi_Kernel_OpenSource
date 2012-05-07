@@ -137,6 +137,9 @@ enum usb_chg_state {
  *			or more downstream ports. Capable of supplying
  *			IDEV_CHG_MAX irrespective of devices connected on
  *			accessory ports.
+ * USB_PROPRIETARY_CHARGER A proprietary charger pull DP and DM to specific
+ *			voltages between 2.0-3.3v for identification.
+ *
  */
 enum usb_chg_type {
 	USB_INVALID_CHARGER = 0,
@@ -147,6 +150,7 @@ enum usb_chg_type {
 	USB_ACA_B_CHARGER,
 	USB_ACA_C_CHARGER,
 	USB_ACA_DOCK_CHARGER,
+	USB_PROPRIETARY_CHARGER,
 };
 
 /**
