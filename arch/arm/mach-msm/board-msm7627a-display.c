@@ -487,7 +487,8 @@ static int msm_fb_detect_panel(const char *name)
 		if (!strncmp(name, "lcdc_toshiba_fwvga_pt", 21) ||
 				!strncmp(name, "mipi_cmd_renesas_fwvga", 22))
 			ret = 0;
-	} else if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()) {
+	} else if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
+					|| machine_is_msm8625_ffa()) {
 		if (!strncmp(name, "mipi_cmd_renesas_fwvga", 22))
 			ret = 0;
 	} else if (machine_is_msm7627a_qrd1()) {
@@ -1021,8 +1022,8 @@ static int mipi_dsi_panel_msm_power(int on)
 			machine_is_msm8625_surf()) {
 		gpio_set_value_cansleep(GPIO_DISPLAY_PWR_EN, on);
 		gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, on);
-	} else if (machine_is_msm7x27a_ffa() ||
-			 machine_is_msm7625a_ffa()) {
+	} else if (machine_is_msm7x27a_ffa() || machine_is_msm7625a_ffa()
+					|| machine_is_msm8625_ffa()) {
 		if (on) {
 			/* This line drives an active low pin on FFA */
 			rc = gpio_direction_output(GPIO_DISPLAY_PWR_EN, !on);
