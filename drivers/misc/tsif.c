@@ -304,7 +304,9 @@ static int tsif_gpios_disable(const struct msm_gpio *table, int size)
 	for (i = size-1; i >= 0; i--) {
 		int tmp;
 		g = table + i;
-		tmp = gpio_tlmm_config(g->gpio_cfg, GPIO_CFG_DISABLE);
+		tmp = gpio_tlmm_config(GPIO_CFG(GPIO_PIN(g->gpio_cfg),
+			0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+			GPIO_CFG_DISABLE);
 		if (tmp) {
 			pr_err("gpio_tlmm_config(0x%08x, GPIO_CFG_DISABLE)"
 			       " <%s> failed: %d\n",
@@ -681,7 +683,7 @@ static void tsif_dma_flush(struct msm_tsif_device *tsif_device)
 		while (tsif_device->xfer[0].busy ||
 		       tsif_device->xfer[1].busy) {
 			msm_dmov_flush(tsif_device->dma, 1);
-			msleep(10);
+			usleep(10000);
 		}
 	}
 	tsif_device->state = tsif_state_stopped;
@@ -1031,6 +1033,15 @@ static int action_open(struct msm_tsif_device *tsif_device)
 		return rc;
 	}
 	tsif_device->state = tsif_state_running;
+
+	/* make sure the GPIO's are set up */
+	rc = tsif_start_gpios(tsif_device);
+	if (rc) {
+		dev_err(&tsif_device->pdev->dev, "failed to start GPIOs\n");
+		tsif_dma_exit(tsif_device);
+		return rc;
+	}
+
 	/*
 	 * DMA should be scheduled prior to TSIF hardware initialization,
 	 * otherwise "bus error" will be reported by Data Mover
@@ -1046,6 +1057,7 @@ static int action_open(struct msm_tsif_device *tsif_device)
 	rc = tsif_start_hw(tsif_device);
 	if (rc) {
 		dev_err(&tsif_device->pdev->dev, "Unable to start HW\n");
+		tsif_stop_gpios(tsif_device);
 		tsif_dma_exit(tsif_device);
 		tsif_clock(tsif_device, 0);
 		return rc;
@@ -1067,10 +1079,19 @@ static int action_close(struct msm_tsif_device *tsif_device)
 {
 	dev_info(&tsif_device->pdev->dev, "%s, state %d\n", __func__,
 		 (int)tsif_device->state);
-	/*
-	 * DMA should be flushed/stopped prior to TSIF hardware stop,
-	 * otherwise "bus error" will be reported by Data Mover
+
+	/* turn off the GPIO's to prevent new data from entering */
+	tsif_stop_gpios(tsif_device);
+
+	/* we unfortunately must sleep here to give the ADM time to
+	 * complete any outstanding reads after the GPIO's are turned
+	 * off.  There is no indication from the ADM hardware that
+	 * there are any outstanding reads on the bus, and if we
+	 * stop the TSIF too quickly, it can cause a bus error.
 	 */
+	msleep(100);
+
+	/* now we can stop the core */
 	tsif_stop_hw(tsif_device);
 	tsif_dma_exit(tsif_device);
 	tsif_clock(tsif_device, 0);
@@ -1317,9 +1338,6 @@ static int msm_tsif_probe(struct platform_device *pdev)
 	}
 	dev_info(&pdev->dev, "remapped phys 0x%08x => virt %p\n",
 		 tsif_device->memres->start, tsif_device->base);
-	rc = tsif_start_gpios(tsif_device);
-	if (rc)
-		goto err_gpio;
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -1355,8 +1373,6 @@ err_attrs:
 	free_irq(tsif_device->irq, tsif_device);
 err_irq:
 	tsif_debugfs_exit(tsif_device);
-	tsif_stop_gpios(tsif_device);
-err_gpio:
 	iounmap(tsif_device->base);
 err_ioremap:
 err_rgn:
