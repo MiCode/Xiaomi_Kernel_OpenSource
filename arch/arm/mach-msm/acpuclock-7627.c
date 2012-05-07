@@ -527,7 +527,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 
 	if (reason == SETRATE_CPUFREQ) {
 		if (strt_s->pll != tgt_s->pll && tgt_s->pll != ACPU_PLL_TCXO) {
-			rc = clk_prepare_enable(pll_clk[tgt_s->pll].clk);
+			rc = clk_enable(pll_clk[tgt_s->pll].clk);
 			if (rc < 0) {
 				pr_err("PLL%d enable failed (%d)\n",
 					tgt_s->pll, rc);
@@ -602,7 +602,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 
 		if (cur_s->pll != ACPU_PLL_TCXO
 		    && !(plls_enabled & (1 << cur_s->pll))) {
-			rc = clk_prepare_enable(pll_clk[cur_s->pll].clk);
+			rc = clk_enable(pll_clk[cur_s->pll].clk);
 			if (rc < 0) {
 				pr_err("PLL%d enable failed (%d)\n",
 					cur_s->pll, rc);
@@ -642,7 +642,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 		plls_enabled &= ~(1 << tgt_s->pll);
 	for (pll = ACPU_PLL_0; pll < ACPU_PLL_END; pll++)
 		if (plls_enabled & (1 << pll))
-			clk_disable_unprepare(pll_clk[pll].clk);
+			clk_disable(pll_clk[pll].clk);
 
 	/* Nothing else to do for power collapse. */
 	if (reason == SETRATE_PC)
@@ -667,6 +667,18 @@ static void __init acpuclk_hw_init(void)
 	struct clkctl_acpu_speed *speed;
 	uint32_t div, sel, reg_clksel;
 	int res;
+
+	/*
+	 * Prepare all the PLLs because we enable/disable them
+	 * from atomic context and can't always ensure they're
+	 * all prepared in non-atomic context. Same goes for
+	 * ebi1_acpu_clk.
+	 */
+	BUG_ON(clk_prepare(pll_clk[ACPU_PLL_0].clk));
+	BUG_ON(clk_prepare(pll_clk[ACPU_PLL_1].clk));
+	BUG_ON(clk_prepare(pll_clk[ACPU_PLL_2].clk));
+	BUG_ON(clk_prepare(pll_clk[ACPU_PLL_4].clk));
+	BUG_ON(clk_prepare(drv_state.ebi1_clk));
 
 	/*
 	 * Determine the rate of ACPU clock
@@ -696,7 +708,7 @@ static void __init acpuclk_hw_init(void)
 
 	drv_state.current_speed = speed;
 	if (speed->pll != ACPU_PLL_TCXO) {
-		if (clk_prepare_enable(pll_clk[speed->pll].clk))
+		if (clk_enable(pll_clk[speed->pll].clk))
 			pr_warning("Failed to vote for boot PLL\n");
 	}
 
@@ -711,7 +723,7 @@ static void __init acpuclk_hw_init(void)
 	res = clk_set_rate(drv_state.ebi1_clk, speed->axiclk_khz * 1000);
 	if (res < 0)
 		pr_warning("Setting AXI min rate failed (%d)\n", res);
-	res = clk_prepare_enable(drv_state.ebi1_clk);
+	res = clk_enable(drv_state.ebi1_clk);
 	if (res < 0)
 		pr_warning("Enabling AXI clock failed (%d)\n", res);
 
