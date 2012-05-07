@@ -1850,7 +1850,7 @@ static void
 msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
-	unsigned long		flags;
+	unsigned long		flags, timeout;
 
 	/*
 	 * Get the SDIO AL client out of LPM.
@@ -1904,11 +1904,18 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	     mrq->cmd->opcode, host->curr.mrq->cmd->opcode);
 
 	/*
-	 * Kick the software command timeout timer here.
-	 * Timer expires in 10 secs.
+	 * Set timeout value to 10 secs (or more in case of buggy cards)
+	 */
+	if ((mmc->card) && (mmc->card->quirks & MMC_QUIRK_INAND_DATA_TIMEOUT))
+		timeout = 20000;
+	else
+		timeout = MSM_MMC_REQ_TIMEOUT;
+	/*
+	 * Kick the software request timeout timer here with the timeout
+	 * value identified above
 	 */
 	mod_timer(&host->req_tout_timer,
-			(jiffies + msecs_to_jiffies(MSM_MMC_REQ_TIMEOUT)));
+			(jiffies + msecs_to_jiffies(timeout)));
 
 	host->curr.mrq = mrq;
 	if (mrq->data && (mrq->data->flags & MMC_DATA_WRITE)) {
