@@ -33,6 +33,8 @@
 #define PORTSC_PHCD            (1 << 23) /* phy suspend mode */
 #define PORTSC_PTS_MASK         (3 << 30)
 #define PORTSC_PTS_ULPI         (3 << 30)
+#define PORTSC_LS               (3 << 10)
+#define PORTSC_LS_DM            (1 << 10)
 #define PORTSC_CSC              (1 << 1)
 #define PORTSC_CCS              (1 << 0)
 
