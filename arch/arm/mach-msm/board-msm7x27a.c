@@ -1059,14 +1059,16 @@ static void __init msm7x27a_uartdm_config(void)
 
 static void __init msm7x27a_otg_gadget(void)
 {
-	msm_otg_pdata.swfi_latency =
-		msm7x27a_pm_data[
-		MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
 	if (cpu_is_msm8625()) {
+		msm_otg_pdata.swfi_latency =
+		msm8625_pm_data[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT].latency;
 		msm8625_device_otg.dev.platform_data = &msm_otg_pdata;
 		msm8625_device_gadget_peripheral.dev.platform_data =
 			&msm_gadget_pdata;
 	} else {
+		msm_otg_pdata.swfi_latency =
+		msm7x27a_pm_data[
+		MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
 		msm_device_otg.dev.platform_data = &msm_otg_pdata;
 		msm_device_gadget_peripheral.dev.platform_data =
 			&msm_gadget_pdata;
