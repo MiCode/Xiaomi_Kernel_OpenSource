@@ -23,6 +23,8 @@ extern int usb_wwan_send_setup(struct usb_serial_port *port);
 extern int usb_wwan_write(struct tty_struct *tty, struct usb_serial_port *port,
 			  const unsigned char *buf, int count);
 extern int usb_wwan_chars_in_buffer(struct tty_struct *tty);
+extern void usb_wwan_throttle(struct tty_struct *tty);
+extern void usb_wwan_unthrottle(struct tty_struct *tty);
 #ifdef CONFIG_PM
 extern int usb_wwan_suspend(struct usb_serial *serial, pm_message_t message);
 extern int usb_wwan_resume(struct usb_serial *serial);
@@ -32,7 +34,7 @@ extern int usb_wwan_resume(struct usb_serial *serial);
 
 #define N_IN_URB 5
 #define N_OUT_URB 5
-#define IN_BUFLEN 65536
+#define IN_BUFLEN 16384
 #define OUT_BUFLEN 65536
 
 struct usb_wwan_intf_private {
@@ -54,6 +56,10 @@ struct usb_wwan_port_private {
 	int opened;
 	struct usb_anchor submitted;
 	struct usb_anchor delayed;
+	struct list_head in_urb_list;
+	spinlock_t in_lock;
+	ssize_t n_read;
+	struct work_struct in_work;
 
 	/* Settings for the port */
 	int rts_state;		/* Handshaking pins (outputs) */
