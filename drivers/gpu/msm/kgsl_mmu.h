@@ -134,6 +134,7 @@ struct kgsl_mmu_ops {
 		(struct kgsl_mmu *mmu);
 	int (*mmu_enable_clk)
 		(struct kgsl_mmu *mmu, int ctx_id);
+	int (*mmu_get_hwpagetable_asid)(struct kgsl_mmu *mmu);
 };
 
 struct kgsl_mmu_pt_ops {

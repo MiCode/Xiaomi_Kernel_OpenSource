@@ -26,6 +26,10 @@
 #define KGSL_IOMMU_CONTEXTIDR_ASID_SHIFT	0
 #define KGSL_IOMMU_CTX_TLBIASID			0x804
 #define KGSL_IOMMU_CTX_SHIFT			12
+
+#define KGSL_IOMMU_MAX_ASIDS			256
+#define KGSL_IOMMU_ASID_REUSE			2
+
 /*
  * Max number of iommu units that the gpu core can have
  * On APQ8064, KGSL can control a maximum of 2 IOMMU units.
@@ -81,6 +85,7 @@ struct kgsl_iommu_unit {
  * @asids: A bit structure indicating which id's are presently used
  * @asid: Contains the initial value of IOMMU_CONTEXTIDR when a domain
  * is first attached
+ * asid_reuse: Holds the number of times the reuse asid is reused
  */
 struct kgsl_iommu {
 	struct kgsl_iommu_unit iommu_units[KGSL_IOMMU_MAX_UNITS];
@@ -89,7 +94,19 @@ struct kgsl_iommu {
 	struct kgsl_device *device;
 	unsigned long *asids;
 	unsigned int asid;
-	unsigned int active_ctx;
+	unsigned int asid_reuse;
+};
+
+/*
+ * struct kgsl_iommu_pt - Iommu pagetable structure private to kgsl driver
+ * @domain: Pointer to the iommu domain that contains the iommu pagetable
+ * @iommu: Pointer to iommu structure
+ * @asid: The asid assigned to this domain
+ */
+struct kgsl_iommu_pt {
+	struct iommu_domain *domain;
+	struct kgsl_iommu *iommu;
+	unsigned int asid;
 };
 
 #endif
