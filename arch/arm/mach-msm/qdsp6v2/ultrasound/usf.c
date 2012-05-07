@@ -27,10 +27,10 @@
 #include "usfcdev.h"
 
 /* The driver version*/
-#define DRV_VERSION "1.3"
+#define DRV_VERSION "1.3.1"
 
 /* Standard timeout in the asynchronous ops */
-#define USF_TIMEOUT_JIFFIES (3*HZ) /* 3 sec */
+#define USF_TIMEOUT_JIFFIES (1*HZ) /* 1 sec */
 
 /* Undefined USF device */
 #define USF_UNDEF_DEV_ID 0xffff
@@ -735,24 +735,27 @@ static int usf_set_us_detection(struct usf_type *usf, unsigned long arg)
 
 	/* Get US detection result */
 	if (detect_info.detect_timeout == USF_INFINITIVE_TIMEOUT) {
-		wait_event(usf_xx->wait,
-				(usf_xx->us_detect_type !=
-				 USF_US_DETECT_UNDEF));
+		rc = wait_event_interruptible(usf_xx->wait,
+						(usf_xx->us_detect_type !=
+						USF_US_DETECT_UNDEF));
 	} else {
 		if (detect_info.detect_timeout == USF_DEFAULT_TIMEOUT)
 			timeout = USF_TIMEOUT_JIFFIES;
 		else
 			timeout = detect_info.detect_timeout * HZ;
-
-		rc = wait_event_timeout(usf_xx->wait,
+	}
+	rc = wait_event_interruptible_timeout(usf_xx->wait,
 					(usf_xx->us_detect_type !=
 					 USF_US_DETECT_UNDEF),
 					timeout);
-		/* In the case of timeout, "no US" is assumed */
+	/* In the case of timeout, "no US" is assumed */
+	if (rc < 0) {
+		pr_err("%s: Getting US detection failed rc[%d]\n",
+		       __func__, rc);
+		return rc;
 	}
 
 	usf->usf_rx.us_detect_type = usf->usf_tx.us_detect_type;
-
 	detect_info.is_us = (usf_xx->us_detect_type == USF_US_DETECT_YES);
 	rc = copy_to_user((void __user *)arg,
 			  &detect_info,
@@ -913,7 +916,7 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 
 	/* Get data ready regions */
 	if (upd_tx_info.timeout == USF_INFINITIVE_TIMEOUT) {
-		wait_event(usf_xx->wait,
+		rc = wait_event_interruptible(usf_xx->wait,
 			   (usf_xx->prev_region !=
 			    usf_xx->new_region) ||
 			   (usf_xx->usf_state !=
@@ -922,18 +925,26 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 		if (upd_tx_info.timeout == USF_NO_WAIT_TIMEOUT)
 			rc = (usf_xx->prev_region != usf_xx->new_region);
 		else {
-			if (upd_tx_info.timeout == USF_DEFAULT_TIMEOUT)
-				timeout = USF_TIMEOUT_JIFFIES;
-			else
-				timeout = upd_tx_info.timeout * HZ;
-
 			prev_jiffies = jiffies;
-			rc = wait_event_timeout(usf_xx->wait,
+			if (upd_tx_info.timeout == USF_DEFAULT_TIMEOUT) {
+				timeout = USF_TIMEOUT_JIFFIES;
+				rc = wait_event_timeout(
+						usf_xx->wait,
 						(usf_xx->prev_region !=
 						 usf_xx->new_region) ||
 						(usf_xx->usf_state !=
 						 USF_WORK_STATE),
 						timeout);
+			} else {
+				timeout = upd_tx_info.timeout * HZ;
+				rc = wait_event_interruptible_timeout(
+						usf_xx->wait,
+						(usf_xx->prev_region !=
+						 usf_xx->new_region) ||
+						(usf_xx->usf_state !=
+						 USF_WORK_STATE),
+						timeout);
+			}
 		}
 		if (!rc) {
 			pr_debug("%s: timeout. prev_j=%lu; j=%lu\n",
@@ -952,9 +963,11 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 		}
 	}
 
-	if (usf_xx->usf_state != USF_WORK_STATE) {
-		pr_err("%s: TX device is in not work state[%d]\n",
-		       __func__, usf_xx->usf_state);
+	if ((usf_xx->usf_state != USF_WORK_STATE) ||
+	    (rc == -ERESTARTSYS)) {
+		pr_err("%s: Getting ready region failed "
+			"work state[%d]; rc[%d]\n",
+		       __func__, usf_xx->usf_state, rc);
 		return -EINTR;
 	}
 
