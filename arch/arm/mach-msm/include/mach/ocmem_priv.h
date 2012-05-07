@@ -24,6 +24,9 @@
 #define OCMEM_PHYS_BASE 0xFEC00000
 #define OCMEM_PHYS_SIZE 0x180000
 
+#define TO_OCMEM 0x1
+#define TO_DDR 0x2
+
 struct ocmem_zone;
 
 struct ocmem_zone_ops {
@@ -45,6 +48,19 @@ struct ocmem_zone {
 	struct ocmem_zone_ops *z_ops;
 };
 
+enum op_code {
+	SCHED_NOP = 0x0,
+	SCHED_ALLOCATE,
+	SCHED_FREE,
+	SCHED_GROW,
+	SCHED_SHRINK,
+	SCHED_MAP,
+	SCHED_UNMAP,
+	SCHED_EVICT,
+	SCHED_RESTORE,
+	SCHED_DUMP,
+};
+
 struct ocmem_req {
 	struct rw_semaphore rw_sem;
 	/* Chain in sched queue */
@@ -60,6 +76,8 @@ struct ocmem_req {
 	/* reverse pointers */
 	struct ocmem_zone *zone;
 	struct ocmem_buf *buffer;
+	struct ocmem_map_list *mlist;
+	enum op_code op;
 	unsigned long state;
 	/* Request assignments */
 	unsigned long req_start;
@@ -73,7 +91,41 @@ struct ocmem_handle {
 	struct ocmem_req *req;
 };
 
+static inline struct ocmem_buf *handle_to_buffer(struct ocmem_handle *handle)
+{
+	if (handle)
+		return &handle->buffer;
+	else
+		return NULL;
+}
+
+static inline struct ocmem_handle *buffer_to_handle(struct ocmem_buf *buffer)
+{
+	if (buffer)
+		return container_of(buffer, struct ocmem_handle, buffer);
+	else
+		return NULL;
+}
+
+static inline struct ocmem_req *handle_to_req(struct ocmem_handle *handle)
+{
+	if (handle)
+		return handle->req;
+	else
+		return NULL;
+}
+
+static inline struct ocmem_handle *req_to_handle(struct ocmem_req *req)
+{
+	if (req && req->buffer)
+		return container_of(req->buffer, struct ocmem_handle, buffer);
+	else
+		return NULL;
+}
+
 struct ocmem_zone *get_zone(unsigned);
+unsigned long offset_to_phys(unsigned long);
+unsigned long phys_to_offset(unsigned long);
 unsigned long allocate_head(struct ocmem_zone *, unsigned long);
 int free_head(struct ocmem_zone *, unsigned long, unsigned long);
 unsigned long allocate_tail(struct ocmem_zone *, unsigned long);
@@ -82,4 +134,12 @@ int free_tail(struct ocmem_zone *, unsigned long, unsigned long);
 int ocmem_notifier_init(void);
 int check_notifier(int);
 int dispatch_notification(int, enum ocmem_notif_type, struct ocmem_buf *);
+
+int ocmem_sched_init(void);
+int process_allocate(int, struct ocmem_handle *, unsigned long, unsigned long,
+			unsigned long, bool, bool);
+int process_free(int, struct ocmem_handle *);
+int process_xfer(int, struct ocmem_handle *, struct ocmem_map_list *,
+			int direction);
+unsigned long process_quota(int);
 #endif
