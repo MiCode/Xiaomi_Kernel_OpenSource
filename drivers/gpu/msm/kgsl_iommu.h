@@ -39,6 +39,22 @@
 /* Max number of iommu contexts per IOMMU unit */
 #define KGSL_IOMMU_MAX_DEVS_PER_UNIT 2
 
+/* Macros to read/write IOMMU registers */
+#define KGSL_IOMMU_SET_IOMMU_REG(base_addr, ctx, REG, val)		\
+		writel_relaxed(val, base_addr +				\
+				(ctx << KGSL_IOMMU_CTX_SHIFT) +		\
+				KGSL_IOMMU_##REG)
+
+#define KGSL_IOMMU_GET_IOMMU_REG(base_addr, ctx, REG)			\
+		readl_relaxed(base_addr +				\
+			(ctx << KGSL_IOMMU_CTX_SHIFT) +			\
+			KGSL_IOMMU_##REG)
+
+/* Gets the lsb value of pagetable */
+#define KGSL_IOMMMU_PT_LSB(pt_val)					\
+		(pt_val & ~(KGSL_IOMMU_TTBR0_PA_MASK <<			\
+				KGSL_IOMMU_TTBR0_PA_SHIFT))
+
 /*
  * struct kgsl_iommu_device - Structure holding data about iommu contexts
  * @dev: Device pointer to iommu context
