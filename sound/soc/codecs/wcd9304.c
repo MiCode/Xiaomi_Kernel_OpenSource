@@ -778,10 +778,6 @@ static const struct snd_kcontrol_new dac1_switch[] = {
 	SOC_DAPM_SINGLE("Switch", SITAR_A_RX_EAR_EN, 5, 1, 0),
 };
 
-static const struct snd_kcontrol_new hphl_switch[] = {
-	SOC_DAPM_SINGLE("Switch", SITAR_A_RX_HPH_L_DAC_CTL, 6, 1, 0)
-};
-
 static void sitar_codec_enable_adc_block(struct snd_soc_codec *codec,
 	int enable)
 {
@@ -1368,7 +1364,7 @@ static int sitar_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	}
 	return 0;
 }
-static int sitar_hphr_dac_event(struct snd_soc_dapm_widget *w,
+static int sitar_hph_dac_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
@@ -1598,15 +1594,16 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_E("HPHL", SITAR_A_RX_HPH_CNP_EN, 5, 0, NULL, 0,
 		sitar_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
 			SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER("HPHL DAC", SITAR_A_RX_HPH_L_DAC_CTL, 7, 0,
-		hphl_switch, ARRAY_SIZE(hphl_switch)),
 
 	SND_SOC_DAPM_PGA_E("HPHR", SITAR_A_RX_HPH_CNP_EN, 4, 0, NULL, 0,
 		sitar_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
 			SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_DAC_E("HPHL DAC", NULL, SITAR_A_RX_HPH_L_DAC_CTL, 7, 0,
+		sitar_hph_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_DAC_E("HPHR DAC", NULL, SITAR_A_RX_HPH_R_DAC_CTL, 7, 0,
-		sitar_hphr_dac_event,
+		sitar_hph_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* Speaker */
@@ -1779,7 +1776,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HEADPHONE", NULL, "HPHR"},
 
 	{"HPHL", NULL, "HPHL DAC"},
-	{"HPHL DAC", "Switch", "DAC4 MUX"},
+	{"HPHL DAC", "NULL", "DAC4 MUX"},
 	{"HPHR", NULL, "HPHR DAC"},
 	{"HPHR DAC", NULL, "RX3 MIX1"},
 
