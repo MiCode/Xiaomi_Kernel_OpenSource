@@ -600,6 +600,22 @@
 		qcom,memory-reservation-type = "EBI1";
 		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
 	};
+
+        qcom,qcedev@fd440000 {
+		compatible = "qcom,qcedev";
+		reg = <0xfd440000 0x20000>,
+		      <0xfd444000 0x8000>;
+		interrupts = <0 235 0>;
+		qcom,bam-pipes = <0>;
+	};
+
+        qcom,qcrypto@fd444000 {
+		compatible = "qcom,qcrypto";
+		reg = <0xfd440000 0x20000>,
+		      <0xfd444000 0x8000>;
+		interrupts = <0 235 0>;
+		qcom,bam-pipes = <1>;
+	};
 };
 
 /include/ "msm-pm8x41-rpm-regulator.dtsi"
