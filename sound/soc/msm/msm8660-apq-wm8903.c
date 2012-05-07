@@ -196,7 +196,7 @@ static int msm8660_wm8903_enable_mclk(int enable)
 		}
 		/* Master clock OSR 256 */
 		clk_set_rate(wm8903_mclk, 48000 * 256);
-		ret = clk_enable(wm8903_mclk);
+		ret = clk_prepare_enable(wm8903_mclk);
 		if (ret != 0) {
 			pr_err("Unable to enable i2s_mic_osr_clk\n");
 			gpio_free(MSM_CDC_MIC_I2S_MCLK);
@@ -205,7 +205,7 @@ static int msm8660_wm8903_enable_mclk(int enable)
 		}
 	} else {
 		if (wm8903_mclk) {
-			clk_disable(wm8903_mclk);
+			clk_disable_unprepare(wm8903_mclk);
 			clk_put(wm8903_mclk);
 			gpio_free(MSM_CDC_MIC_I2S_MCLK);
 			wm8903_mclk = NULL;
@@ -314,7 +314,7 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 			return PTR_ERR(spkr_osr_clk);
 		}
 		clk_set_rate(spkr_osr_clk, 48000 * 256);
-		ret = clk_enable(spkr_osr_clk);
+		ret = clk_prepare_enable(spkr_osr_clk);
 		if (ret != 0) {
 			pr_err("Unable to enable i2s_spkr_osr_clk\n");
 			clk_put(spkr_osr_clk);
@@ -323,15 +323,15 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 		spkr_bit_clk = clk_get(NULL, "i2s_spkr_bit_clk");
 		if (IS_ERR(spkr_bit_clk)) {
 			pr_err("Failed to get i2s_spkr_bit_clk\n");
-			clk_disable(spkr_osr_clk);
+			clk_disable_unprepare(spkr_osr_clk);
 			clk_put(spkr_osr_clk);
 			return PTR_ERR(spkr_bit_clk);
 		}
 		clk_set_rate(spkr_bit_clk, 0);
-		ret = clk_enable(spkr_bit_clk);
+		ret = clk_prepare_enable(spkr_bit_clk);
 		if (ret != 0) {
 			pr_err("Unable to enable i2s_spkr_bit_clk\n");
-			clk_disable(spkr_osr_clk);
+			clk_disable_unprepare(spkr_osr_clk);
 			clk_put(spkr_osr_clk);
 			clk_put(spkr_bit_clk);
 			return ret;
@@ -357,7 +357,7 @@ static int msm8660_i2s_startup(struct snd_pcm_substream *substream)
 			return PTR_ERR(mic_bit_clk);
 		}
 		clk_set_rate(mic_bit_clk, 0);
-		ret = clk_enable(mic_bit_clk);
+		ret = clk_prepare_enable(mic_bit_clk);
 		if (ret != 0) {
 			pr_err("Unable to enable i2s_mic_bit_clk\n");
 			clk_put(mic_bit_clk);
@@ -375,17 +375,17 @@ static void msm8660_i2s_shutdown(struct snd_pcm_substream *substream)
 		tx_hw_param_status = 0;
 		rx_hw_param_status = 0;
 		if (spkr_bit_clk) {
-			clk_disable(spkr_bit_clk);
+			clk_disable_unprepare(spkr_bit_clk);
 			clk_put(spkr_bit_clk);
 			spkr_bit_clk = NULL;
 		}
 		if (spkr_osr_clk) {
-			clk_disable(spkr_osr_clk);
+			clk_disable_unprepare(spkr_osr_clk);
 			clk_put(spkr_osr_clk);
 			spkr_osr_clk = NULL;
 		}
 		if (mic_bit_clk) {
-			clk_disable(mic_bit_clk);
+			clk_disable_unprepare(mic_bit_clk);
 			clk_put(mic_bit_clk);
 			mic_bit_clk = NULL;
 		}

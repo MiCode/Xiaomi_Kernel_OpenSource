@@ -457,7 +457,7 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	pr_debug("%s: dai->id = %d aux_pcm_count = %d\n", __func__,
 			dai->id, aux_pcm_count);
 
-	clk_disable(pcm_clk);
+	clk_disable_unprepare(pcm_clk);
 	rc = afe_close(PCM_RX); /* can block */
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close PCM_RX  AFE port\n");
@@ -559,7 +559,7 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 		return rc;
 	}
 
-	clk_enable(pcm_clk);
+	clk_prepare_enable(pcm_clk);
 	clk_reset(pcm_clk, CLK_RESET_DEASSERT);
 
 	mutex_unlock(&aux_pcm_mutex);

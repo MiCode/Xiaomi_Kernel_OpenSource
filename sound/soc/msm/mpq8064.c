@@ -393,7 +393,7 @@ static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 
 		if (codec_clk) {
 			clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
-			clk_enable(codec_clk);
+			clk_prepare_enable(codec_clk);
 			tabla_mclk_enable(codec, 1, dapm);
 		} else {
 			pr_err("%s: Error setting Tabla MCLK\n", __func__);
@@ -408,7 +408,7 @@ static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		if (!clk_users) {
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
-			clk_disable(codec_clk);
+			clk_disable_unprepare(codec_clk);
 			tabla_mclk_enable(codec, 0, dapm);
 		}
 	}
@@ -431,7 +431,7 @@ static int msm_mclk_event(struct snd_soc_dapm_widget *w,
 
 		if (codec_clk) {
 			clk_set_rate(codec_clk, 12288000);
-			clk_enable(codec_clk);
+			clk_prepare_enable(codec_clk);
 			tabla_mclk_enable(w->codec, 1, true);
 
 		} else {
@@ -453,7 +453,7 @@ static int msm_mclk_event(struct snd_soc_dapm_widget *w,
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					__func__, clk_users);
 
-			clk_disable(codec_clk);
+			clk_disable_unprepare(codec_clk);
 			tabla_mclk_enable(w->codec, 0, true);
 		}
 		break;
@@ -1014,12 +1014,12 @@ static void mpq8064_sec_i2s_rx_shutdown(struct snd_pcm_substream *substream)
 {
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		if (sec_i2s_rx_bit_clk) {
-			clk_disable(sec_i2s_rx_bit_clk);
+			clk_disable_unprepare(sec_i2s_rx_bit_clk);
 			clk_put(sec_i2s_rx_bit_clk);
 			sec_i2s_rx_bit_clk = NULL;
 		}
 		if (sec_i2s_rx_osr_clk) {
-			clk_disable(sec_i2s_rx_osr_clk);
+			clk_disable_unprepare(sec_i2s_rx_osr_clk);
 			clk_put(sec_i2s_rx_osr_clk);
 			sec_i2s_rx_osr_clk = NULL;
 		}
@@ -1069,20 +1069,20 @@ static int mpq8064_sec_i2s_rx_startup(struct snd_pcm_substream *substream)
 			return PTR_ERR(sec_i2s_rx_osr_clk);
 		}
 		clk_set_rate(sec_i2s_rx_osr_clk, I2S_MCLK_RATE);
-		clk_enable(sec_i2s_rx_osr_clk);
+		clk_prepare_enable(sec_i2s_rx_osr_clk);
 		sec_i2s_rx_bit_clk = clk_get(cpu_dai->dev, "bit_clk");
 		if (IS_ERR(sec_i2s_rx_bit_clk)) {
 			pr_err("Failed to get sec i2s osr_clk\n");
-			clk_disable(sec_i2s_rx_osr_clk);
+			clk_disable_unprepare(sec_i2s_rx_osr_clk);
 			clk_put(sec_i2s_rx_osr_clk);
 			return PTR_ERR(sec_i2s_rx_bit_clk);
 		}
 		clk_set_rate(sec_i2s_rx_bit_clk, 1);
-		ret = clk_enable(sec_i2s_rx_bit_clk);
+		ret = clk_prepare_enable(sec_i2s_rx_bit_clk);
 		if (ret != 0) {
 			pr_err("Unable to enable sec i2s rx_bit_clk\n");
 			clk_put(sec_i2s_rx_bit_clk);
-			clk_disable(sec_i2s_rx_osr_clk);
+			clk_disable_unprepare(sec_i2s_rx_osr_clk);
 			clk_put(sec_i2s_rx_osr_clk);
 			return ret;
 		}
