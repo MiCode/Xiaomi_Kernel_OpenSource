@@ -120,14 +120,38 @@ static struct camera_vreg_t msm_cam_vreg[] = {
 
 static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data;
 
-struct msm_camera_device_platform_data msm_camera_device_data_csi1 = {
-	.csid_core = 1,
-	.is_csic = 1,
+struct msm_camera_device_platform_data msm_camera_device_data_csi1[] = {
+	{
+		.csid_core = 1,
+		.is_csic = 1,
+		.ioclk = {
+			.vfe_clk_rate = 192000000,
+		},
+	},
+	{
+		.csid_core = 1,
+		.is_csic = 1,
+		.ioclk = {
+			.vfe_clk_rate = 266667000,
+		},
+	},
 };
 
-struct msm_camera_device_platform_data msm_camera_device_data_csi0 = {
-	.csid_core = 0,
-	.is_csic = 1,
+struct msm_camera_device_platform_data msm_camera_device_data_csi0[] = {
+	{
+		.csid_core = 0,
+		.is_csic = 1,
+		.ioclk = {
+			.vfe_clk_rate = 192000000,
+		},
+	},
+	{
+		.csid_core = 0,
+		.is_csic = 1,
+		.ioclk = {
+			.vfe_clk_rate = 266667000,
+		},
+	},
 };
 
 static struct i2c_board_info msm_act_main_cam_i2c_info = {
@@ -159,7 +183,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data = {
 	.sensor_name    = "s5k4e1",
 	.sensor_reset_enable = 1,
 	.pmic_gpio_enable    = 0,
-	.pdata                  = &msm_camera_device_data_csi1,
+	.pdata                  = &msm_camera_device_data_csi1[0],
 	.flash_data             = &flash_s5k4e1,
 	.sensor_platform_info   = &sensor_board_info_s5k4e1,
 	.csi_if                 = 1,
@@ -187,7 +211,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov7692_data = {
 	.pmic_gpio_enable  = 1,
 	.sensor_reset	   = GPIO_SKU1_CAM_VGA_RESET_N,
 	.sensor_pwd	     = GPIO_SKU1_CAM_VGA_SHDN,
-	.pdata			= &msm_camera_device_data_csi0,
+	.pdata			= &msm_camera_device_data_csi0[0],
 	.flash_data	     = &flash_ov7692,
 	.sensor_platform_info   = &sensor_board_info_ov7692,
 	.csi_if		 = 1,
@@ -230,7 +254,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov5647_data = {
 	.pmic_gpio_enable  = 1,
 	.sensor_reset   = GPIO_SKU3_CAM_5MP_CAMIF_RESET,
 	.sensor_pwd     = GPIO_SKU3_CAM_5MP_SHDN_N,
-	.pdata          = &msm_camera_device_data_csi1,
+	.pdata          = &msm_camera_device_data_csi1[0],
 	.flash_data     = &flash_ov5647,
 	.sensor_platform_info   = &sensor_board_info_ov5647,
 	.csi_if                 = 1,
@@ -257,7 +281,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
 	.sensor_name    = "mt9e013",
 	.sensor_reset_enable = 1,
 	.pmic_gpio_enable    = 0,
-	.pdata                  = &msm_camera_device_data_csi1,
+	.pdata                  = &msm_camera_device_data_csi1[1],
 	.flash_data             = &flash_mt9e013,
 	.sensor_platform_info   = &sensor_board_info_mt9e013,
 	.csi_if                 = 1,
@@ -283,7 +307,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data = {
 	.sensor_name    = "ov9726",
 	.sensor_reset_enable = 0,
 	.pmic_gpio_enable  = 0,
-	.pdata                  = &msm_camera_device_data_csi0,
+	.pdata                  = &msm_camera_device_data_csi0[0],
 	.flash_data             = &flash_ov9726,
 	.sensor_platform_info   = &sensor_board_info_ov9726,
 	.csi_if                 = 1,

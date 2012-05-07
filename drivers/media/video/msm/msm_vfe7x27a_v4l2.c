@@ -22,6 +22,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/msm_isp.h>
 #include <mach/msm_adsp.h>
+#include <linux/clk.h>
 #include <mach/clk.h>
 #include <mach/camera.h>
 #include "msm_vfe7x27a_v4l2.h"
@@ -1729,12 +1730,38 @@ void msm_vfe_subdev_release(struct v4l2_subdev *sd)
 	return;
 }
 
+static int msm_vfe_subdev_s_crystal_freq(struct v4l2_subdev *sd,
+	u32 freq, u32 flags)
+{
+	int rc = 0;
+	int round_rate;
+
+	round_rate = clk_round_rate(vfe2x_ctrl->vfe_clk[0], freq);
+	if (rc < 0) {
+		pr_err("%s: clk_round_rate failed %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = clk_set_rate(vfe2x_ctrl->vfe_clk[0], round_rate);
+	if (rc < 0)
+		pr_err("%s: clk_set_rate failed %d\n",
+			__func__, rc);
+
+	return rc;
+}
+
+static const struct v4l2_subdev_video_ops msm_vfe_subdev_video_ops = {
+	.s_crystal_freq = msm_vfe_subdev_s_crystal_freq,
+};
+
 static const struct v4l2_subdev_core_ops msm_vfe_subdev_core_ops = {
 	.ioctl = msm_vfe_subdev_ioctl,
 };
 
 static const struct v4l2_subdev_ops msm_vfe_subdev_ops = {
 	.core = &msm_vfe_subdev_core_ops,
+	.video = &msm_vfe_subdev_video_ops,
 };
 
 static const struct v4l2_subdev_internal_ops msm_vfe_internal_ops;
