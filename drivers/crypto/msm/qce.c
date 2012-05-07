@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2463,6 +2463,8 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 	ce_support->aes_xts  = false;
 	ce_support->aes_ccm  = false;
 	ce_support->ota = pce_dev->ota;
+	ce_support->aligned_only = false;
+	ce_support->bam = false;
 	return 0;
 }
 EXPORT_SYMBOL(qce_hw_support);
@@ -2703,7 +2705,5 @@ bad:
 EXPORT_SYMBOL(qce_f9_req);
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("1.15");
 

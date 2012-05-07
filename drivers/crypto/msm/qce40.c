@@ -2599,11 +2599,11 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 	ce_support->aes_xts = true;
 	ce_support->aes_ccm = true;
 	ce_support->ota = false;
+	ce_support->aligned_only = false;
+	ce_support->bam = false;
 	return 0;
 }
 EXPORT_SYMBOL(qce_hw_support);
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.17");
