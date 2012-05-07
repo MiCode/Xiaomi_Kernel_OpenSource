@@ -231,3 +231,12 @@ void ddl_reset_core_time_variables(u32 index)
 	proc_time[index].ddl_ttotal = 0;
 	proc_time[index].ddl_count = 0;
 }
+int ddl_get_core_decode_proc_time(u32 *ddl_handle)
+{
+	return 0;
+}
+
+void ddl_reset_avg_dec_time(u32 *ddl_handle)
+{
+	return;
+}

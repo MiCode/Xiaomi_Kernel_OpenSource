@@ -407,15 +407,17 @@ void ddl_set_core_start_time(const char *func_name, u32 index)
 	if (!time_data->ddl_t1) {
 		time_data->ddl_t1 = act_time;
 		DDL_MSG_LOW("\n%s(): Start Time (%u)", func_name, act_time);
-	} else {
+	} else if (vidc_msg_timing) {
 		DDL_MSG_TIME("\n%s(): Timer already started! St(%u) Act(%u)",
 			func_name, time_data->ddl_t1, act_time);
 	}
 }
 
-void ddl_calc_core_proc_time(const char *func_name, u32 index)
+void ddl_calc_core_proc_time(const char *func_name, u32 index,
+			struct ddl_client_context *ddl)
 {
 	struct time_data *time_data = &proc_time[index];
+	struct ddl_decoder_data *decoder = NULL;
 	if (time_data->ddl_t1) {
 		int ddl_t2;
 		struct timeval ddl_tv;
@@ -423,10 +425,22 @@ void ddl_calc_core_proc_time(const char *func_name, u32 index)
 		ddl_t2 = (ddl_tv.tv_sec * 1000) + (ddl_tv.tv_usec / 1000);
 		time_data->ddl_ttotal += (ddl_t2 - time_data->ddl_t1);
 		time_data->ddl_count++;
-		DDL_MSG_TIME("\n%s(): cnt(%u) End Time (%u) Diff(%u) Avg(%u)",
-			func_name, time_data->ddl_count, ddl_t2,
-			ddl_t2 - time_data->ddl_t1,
-			time_data->ddl_ttotal/time_data->ddl_count);
+		if (vidc_msg_timing) {
+			DDL_MSG_TIME("\n%s(): cnt(%u) End Time (%u)"
+				"Diff(%u) Avg(%u)",
+				func_name, time_data->ddl_count, ddl_t2,
+				ddl_t2 - time_data->ddl_t1,
+				time_data->ddl_ttotal/time_data->ddl_count);
+		}
+		if ((index == DEC_OP_TIME) && (time_data->ddl_count > 2) &&
+					(time_data->ddl_count < 6)) {
+			decoder = &(ddl->codec_data.decoder);
+			decoder->dec_time_sum = decoder->dec_time_sum +
+				ddl_t2 - time_data->ddl_t1;
+			if (time_data->ddl_count == 5)
+				decoder->avg_dec_time =
+					decoder->dec_time_sum / 3;
+		}
 		time_data->ddl_t1 = 0;
 	}
 }
@@ -466,4 +480,20 @@ void ddl_reset_core_time_variables(u32 index)
 	proc_time[index].ddl_t1 = 0;
 	proc_time[index].ddl_ttotal = 0;
 	proc_time[index].ddl_count = 0;
+}
+
+int ddl_get_core_decode_proc_time(u32 *ddl_handle)
+{
+	int avg_time = 0;
+	struct ddl_client_context *ddl =
+		(struct ddl_client_context *) ddl_handle;
+	avg_time = ddl_vidc_decode_get_avg_time(ddl);
+	return avg_time;
+}
+
+void ddl_reset_avg_dec_time(u32 *ddl_handle)
+{
+	struct ddl_client_context *ddl =
+		(struct ddl_client_context *) ddl_handle;
+	ddl_vidc_decode_reset_avg_time(ddl);
 }
