@@ -3365,6 +3365,7 @@ done:
 		break;
 
 	case L2CAP_MODE_STREAMING:
+		l2cap_setup_txwin(pi);
 		rfc.txwin_size      = 0;
 		rfc.max_transmit    = 0;
 		rfc.retrans_timeout = 0;
