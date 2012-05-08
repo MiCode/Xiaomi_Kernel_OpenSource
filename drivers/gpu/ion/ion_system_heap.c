@@ -235,7 +235,8 @@ int ion_system_heap_map_iommu(struct ion_buffer *buffer,
 	unsigned long extra;
 	unsigned long extra_iova_addr;
 	struct sg_table *table = buffer->priv_virt;
-	int prot = ION_IS_CACHED(flags) ? 1 : 0;
+	int prot = IOMMU_WRITE | IOMMU_READ;
+	prot |= ION_IS_CACHED(flags) ? IOMMU_CACHE : 0;
 
 	if (!ION_IS_CACHED(flags))
 		return -EINVAL;
@@ -434,9 +435,10 @@ int ion_system_contig_heap_map_iommu(struct ion_buffer *buffer,
 	int ret = 0;
 	struct iommu_domain *domain;
 	unsigned long extra;
-	int prot = ION_IS_CACHED(flags) ? 1 : 0;
 	struct scatterlist *sglist = 0;
 	struct page *page = 0;
+	int prot = IOMMU_WRITE | IOMMU_READ;
+	prot |= ION_IS_CACHED(flags) ? IOMMU_CACHE : 0;
 
 	if (!ION_IS_CACHED(flags))
 		return -EINVAL;
