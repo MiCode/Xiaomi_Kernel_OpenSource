@@ -217,6 +217,38 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 				struct v4l2_requestbuffers *b)
 {
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	struct msm_v4l2_vid_inst *v4l2_inst;
+	struct list_head *ptr, *next;
+	int rc;
+	struct buffer_info *bi;
+	struct v4l2_buffer buffer_info;
+	v4l2_inst = get_v4l2_inst(file, NULL);
+	if (b->count == 0) {
+		list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
+			bi = list_entry(ptr, struct buffer_info, list);
+			if (bi->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				buffer_info.type = bi->type;
+				buffer_info.m.planes[0].reserved[0] =
+					bi->fd;
+				buffer_info.m.planes[0].reserved[1] =
+					bi->buff_off;
+				buffer_info.m.planes[0].length = bi->size;
+				buffer_info.m.planes[0].m.userptr =
+					bi->uvaddr;
+				buffer_info.length = 1;
+				pr_err("Releasing buffer: %d, %d, %d\n",
+				buffer_info.m.planes[0].reserved[0],
+				buffer_info.m.planes[0].reserved[1],
+				buffer_info.m.planes[0].length);
+				rc = msm_vidc_release_buf(&v4l2_inst->vidc_inst,
+					&buffer_info);
+				list_del(&bi->list);
+				msm_smem_free(v4l2_inst->mem_client,
+					bi->handle);
+				kfree(bi);
+			}
+		}
+	}
 	return msm_vidc_reqbufs((void *)vidc_inst, b);
 }
 
@@ -330,8 +362,8 @@ int msm_v4l2_streamoff(struct file *file, void *fh,
 	return msm_vidc_streamoff((void *)vidc_inst, i);
 }
 
-static int msm_vidc_v4l2_subscribe_event(struct v4l2_fh *fh,
-			struct v4l2_event_subscription *sub)
+static int msm_v4l2_subscribe_event(struct v4l2_fh *fh,
+				struct v4l2_event_subscription *sub)
 {
 	int rc = 0;
 	if (sub->type == V4L2_EVENT_ALL)
@@ -340,12 +372,19 @@ static int msm_vidc_v4l2_subscribe_event(struct v4l2_fh *fh,
 	return rc;
 }
 
-static int msm_vidc_v4l2_unsubscribe_event(struct v4l2_fh *fh,
-			struct v4l2_event_subscription *sub)
+static int msm_v4l2_unsubscribe_event(struct v4l2_fh *fh,
+				struct v4l2_event_subscription *sub)
 {
 	int rc = 0;
 	rc = v4l2_event_unsubscribe(fh, sub);
 	return rc;
+}
+
+static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
+				struct v4l2_decoder_cmd *dec)
+{
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_decoder_cmd((void *)vidc_inst, dec);
 }
 static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_v4l2_querycap,
@@ -363,8 +402,9 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_streamoff = msm_v4l2_streamoff,
 	.vidioc_s_ctrl = msm_v4l2_s_ctrl,
 	.vidioc_g_ctrl = msm_v4l2_g_ctrl,
-	.vidioc_subscribe_event = msm_vidc_v4l2_subscribe_event,
-	.vidioc_unsubscribe_event = msm_vidc_v4l2_unsubscribe_event,
+	.vidioc_subscribe_event = msm_v4l2_subscribe_event,
+	.vidioc_unsubscribe_event = msm_v4l2_unsubscribe_event,
+	.vidioc_decoder_cmd = msm_v4l2_decoder_cmd,
 };
 
 static const struct v4l2_ioctl_ops msm_v4l2_enc_ioctl_ops = {

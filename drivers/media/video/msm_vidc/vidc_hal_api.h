@@ -18,7 +18,7 @@
 
 #define CONTAINS(__a, __sz, __t) ({\
 	int __rc = __t >= __a && \
-			__t <= __a + __sz; \
+			__t < __a + __sz; \
 	__rc; \
 })
 
@@ -834,6 +834,8 @@ struct msm_vidc_cb_event {
 	u32 device_id;
 	u32 session_id;
 	u32 status;
+	u32 height;
+	u32 width;
 };
 
 /* Data callback structure */

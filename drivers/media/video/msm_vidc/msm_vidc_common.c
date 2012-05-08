@@ -203,6 +203,34 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 	}
 }
 
+static void handle_event_change(enum command_response cmd, void *data)
+{
+	struct msm_vidc_cb_cmd_done *response = data;
+	struct msm_vidc_inst *inst;
+	struct video_device *vdev;
+	struct v4l2_event dqevent;
+	struct msm_vidc_cb_event *event_notify;
+	struct msm_vidc_core *core;
+	if (response) {
+		inst = (struct msm_vidc_inst *)response->session_id;
+		core = inst->core;
+		if (inst->session_type == MSM_VIDC_ENCODER)
+			vdev = &core->vdev[MSM_VIDC_ENCODER].vdev;
+		else
+			vdev = &core->vdev[MSM_VIDC_DECODER].vdev;
+		dqevent.type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
+		dqevent.u.data[0] = (uint8_t)MSM_VIDC_DECODER_EVENT_CHANGE;
+		event_notify = (struct msm_vidc_cb_event *) response->data;
+		inst->reconfig_height = event_notify->height;
+		inst->reconfig_width = event_notify->width;
+		inst->in_reconfig = true;
+		v4l2_event_queue(vdev, &dqevent);
+		return;
+	} else {
+		pr_err("Failed to get valid response for event_change\n");
+	}
+}
+
 static void handle_session_prop_info(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
@@ -249,7 +277,7 @@ static void handle_start_done(enum command_response cmd, void *data)
 		dqevent.u.data[0] = (uint8_t)MSM_VIDC_START_DONE;
 		v4l2_event_queue(vdev, &dqevent);
 	} else {
-		pr_err("Failed to get valid response for start done\n");
+		pr_err("Failed to get valid response for start\n");
 	}
 }
 
@@ -272,7 +300,7 @@ static void handle_stop_done(enum command_response cmd, void *data)
 		dqevent.u.data[0] = (uint8_t)MSM_VIDC_STOP_DONE;
 		v4l2_event_queue(vdev, &dqevent);
 	} else {
-		pr_err("Failed to get valid response for stop done\n");
+		pr_err("Failed to get valid response for stop\n");
 	}
 }
 
@@ -284,10 +312,32 @@ static void handle_release_res_done(enum command_response cmd, void *data)
 		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
 	} else {
-		pr_err("Failed to get valid response for release"
-			   " resource done\n");
+		pr_err("Failed to get valid response for release resource\n");
 	}
 }
+
+static void handle_session_flush(enum command_response cmd, void *data)
+{
+	struct msm_vidc_cb_cmd_done *response = data;
+	struct msm_vidc_inst *inst;
+	struct video_device *vdev;
+	struct v4l2_event dqevent;
+	struct msm_vidc_core *core;
+	if (response) {
+		inst = (struct msm_vidc_inst *)response->session_id;
+		core = inst->core;
+		if (inst->session_type == MSM_VIDC_ENCODER)
+			vdev = &core->vdev[MSM_VIDC_ENCODER].vdev;
+		else
+			vdev = &core->vdev[MSM_VIDC_DECODER].vdev;
+		dqevent.type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
+		dqevent.u.data[0] = (uint8_t)MSM_VIDC_DECODER_FLUSH_DONE;
+		v4l2_event_queue(vdev, &dqevent);
+	} else {
+		pr_err("Failed to get valid response for flush\n");
+	}
+}
+
 
 static void handle_session_close(enum command_response cmd, void *data)
 {
@@ -364,7 +414,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 		(u32)fill_buf_done->packet_buffer1);
 	if (vb) {
 		vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
-		pr_err("Filled length = %d\n", vb->v4l2_planes[0].bytesused);
+		pr_debug("Filled length = %d\n", vb->v4l2_planes[0].bytesused);
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
@@ -404,6 +454,12 @@ void handle_cmd_response(enum command_response cmd, void *data)
 		break;
 	case SESSION_END_DONE:
 		handle_session_close(cmd, data);
+		break;
+	case VIDC_EVENT_CHANGE:
+		handle_event_change(cmd, data);
+		break;
+	case SESSION_FLUSH_DONE:
+		handle_session_flush(cmd, data);
 		break;
 	default:
 		pr_err("response unhandled\n");
@@ -889,6 +945,23 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 		goto exit;
 	}
 	rc = 0;
+exit:
+	mutex_unlock(&inst->sync_lock);
+	return rc;
+}
+
+int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec)
+{
+	int rc = 0;
+	struct msm_vidc_inst *inst = (struct msm_vidc_inst *)instance;
+	mutex_lock(&inst->sync_lock);
+	if (dec->cmd != V4L2_DEC_CMD_STOP)
+		return -EINVAL;
+	rc = vidc_hal_session_flush((void *)inst->session, HAL_FLUSH_OUTPUT);
+	if (rc) {
+		pr_err("Failed to get property\n");
+		goto exit;
+	}
 exit:
 	mutex_unlock(&inst->sync_lock);
 	return rc;

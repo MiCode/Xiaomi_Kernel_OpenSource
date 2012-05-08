@@ -74,6 +74,59 @@ static enum vidc_status vidc_map_hal_err_status(enum HFI_ERROR hfi_err)
 	return vidc_err;
 }
 
+void hal_process_sess_evt_seq_changed(struct hal_device *device,
+	struct hfi_msg_event_notify_packet *pkt)
+{
+	struct msm_vidc_cb_cmd_done cmd_done;
+	struct msm_vidc_cb_event event_notify;
+	int num_properties_changed;
+	struct hfi_frame_size frame_sz;
+	u8 *data_ptr;
+	enum HFI_PROPERTY prop_id;
+	HAL_MSG_LOW("RECEIVED:EVENT_NOTIFY");
+	if (sizeof(struct hfi_msg_event_notify_packet)
+		> pkt->size) {
+		HAL_MSG_ERROR("hal_process_session_init_done:bad_pkt_size");
+		return;
+	}
+
+	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
+	memset(&event_notify, 0, sizeof(struct
+				msm_vidc_cb_event));
+
+	cmd_done.device_id = device->device_id;
+	cmd_done.session_id = ((struct hal_session *) pkt->session_id)->
+		session_id;
+	cmd_done.status = VIDC_ERR_NONE;
+	cmd_done.size = sizeof(struct msm_vidc_cb_event);
+	num_properties_changed = pkt->event_data2;
+	if (num_properties_changed) {
+		data_ptr = (u8 *) &pkt->rg_ext_event_data[0];
+		do {
+			prop_id = (enum HFI_PROPERTY) *((u32 *)data_ptr);
+			switch (prop_id) {
+			case HFI_PROPERTY_PARAM_FRAME_SIZE:
+				frame_sz.buffer =
+					(enum HFI_BUFFER)
+						*((((u32 *)data_ptr)+1));
+				frame_sz.width =
+					event_notify.width =
+						*((((u32 *)data_ptr)+2));
+				frame_sz.height =
+					event_notify.height =
+						*((((u32 *)data_ptr)+3));
+				data_ptr += 4;
+			break;
+			default:
+			break;
+			}
+			num_properties_changed--;
+		} while (num_properties_changed > 0);
+	}
+	cmd_done.data = &event_notify;
+	device->callback(VIDC_EVENT_CHANGE, &cmd_done);
+}
+
 static void hal_process_event_notify(struct hal_device *device,
 	struct hfi_msg_event_notify_packet *pkt)
 {
@@ -94,6 +147,7 @@ static void hal_process_event_notify(struct hal_device *device,
 		break;
 	case HFI_EVENT_SESSION_SEQUENCE_CHANGED:
 		HAL_MSG_INFO("HFI_EVENT_SESSION_SEQUENCE_CHANGED");
+		hal_process_sess_evt_seq_changed(device, pkt);
 		break;
 	case HFI_EVENT_SESSION_PROPERTY_CHANGED:
 		HAL_MSG_INFO("HFI_EVENT_SESSION_PROPERTY_CHANGED");

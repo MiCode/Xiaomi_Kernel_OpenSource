@@ -896,7 +896,7 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	}
 	if (property_id) {
-		pr_err("Control: HAL property=%d,ctrl_id=%d,ctrl_value=%d\n",
+		pr_debug("Control: HAL property=%d,ctrl_id=%d,ctrl_value=%d\n",
 				property_id,
 				msm_venc_ctrls[control_idx].id,
 				control.value);
@@ -1110,7 +1110,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		for (i = 0; i < b->length; i++) {
-			pr_err("device_addr = %ld, size = %d\n",
+			pr_debug("device_addr = %ld, size = %d\n",
 				b->m.planes[i].m.userptr,
 				b->m.planes[i].length);
 			buffer_info.buffer_size = b->m.planes[i].length;
