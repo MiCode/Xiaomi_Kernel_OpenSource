@@ -58,6 +58,8 @@
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
 
+#define JACK_DETECT_GPIO 38
+
 /* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
 enum {
 	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
@@ -97,6 +99,8 @@ static int msm_headset_gpios_configured;
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
+static bool hs_detect_use_gpio;
+
 static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 				    bool dapm);
 
@@ -108,7 +112,7 @@ static struct tabla_mbhc_config mbhc_cfg = {
 	.micbias = TABLA_MICBIAS2,
 	.mclk_cb_fn = msm_enable_codec_ext_clk,
 	.mclk_rate = TABLA_EXT_CLK_RATE,
-	.gpio = 0, /* MBHC GPIO is not configured */
+	.gpio = 0,
 	.gpio_irq = 0,
 	.gpio_level_insert = 1,
 };
@@ -1037,7 +1041,6 @@ static int msm_slimbus_4_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -1096,6 +1099,18 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+
+	if (hs_detect_use_gpio) {
+		mbhc_cfg.gpio = JACK_DETECT_GPIO;
+		mbhc_cfg.gpio_irq = gpio_to_irq(JACK_DETECT_GPIO);
+		err = gpio_request(mbhc_cfg.gpio, "MBHC_HS_DETECT");
+		if (err < 0) {
+			pr_err("%s: gpio_request %d failed %d\n", __func__,
+			       mbhc_cfg.gpio, err);
+			return err;
+		}
+		gpio_direction_input(JACK_DETECT_GPIO);
+	}
 
 	err = tabla_hs_detect(codec, &mbhc_cfg);
 
@@ -1857,6 +1872,8 @@ static void __exit msm_audio_exit(void)
 	}
 	msm_free_headset_mic_gpios();
 	platform_device_unregister(msm_snd_device);
+	if (mbhc_cfg.gpio)
+		gpio_free(mbhc_cfg.gpio);
 	kfree(mbhc_cfg.calibration);
 }
 module_exit(msm_audio_exit);
