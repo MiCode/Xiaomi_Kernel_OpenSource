@@ -220,6 +220,7 @@ void kgsl_timestamp_expired(struct work_struct *work);
 	.last_expired_ctxt_id = KGSL_CONTEXT_INVALID
 
 struct kgsl_context {
+	struct kref refcount;
 	uint32_t id;
 
 	/* Pointer to the owning device instance */
@@ -378,6 +379,34 @@ kgsl_device_get_drvdata(struct kgsl_device *dev)
 		container_of(dev->parentdev, struct platform_device, dev);
 
 	return pdev->dev.platform_data;
+}
+
+/**
+ * kgsl_context_get - Get context reference count
+ * @context
+ *
+ * Asynchronous code that holds a pointer to a context
+ * must hold a reference count on it. The kgsl device
+ * mutex must be held while the context reference count
+ * is changed.
+ */
+static inline void
+kgsl_context_get(struct kgsl_context *context)
+{
+	kref_get(&context->refcount);
+}
+
+void kgsl_context_destroy(struct kref *kref);
+
+/**
+ * kgsl_context_put - Release context reference count
+ * @context
+ *
+ */
+static inline void
+kgsl_context_put(struct kgsl_context *context)
+{
+	kref_put(&context->refcount, kgsl_context_destroy);
 }
 
 #endif  /* __KGSL_DEVICE_H */
