@@ -344,7 +344,7 @@ kgsl_iommu_map(void *mmu_specific_pt,
 	iommu_virt_addr = memdesc->gpuaddr;
 
 	ret = iommu_map_range(domain, iommu_virt_addr, memdesc->sg,
-				memdesc->size, 0);
+				memdesc->size, (IOMMU_READ | IOMMU_WRITE));
 	if (ret) {
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %d, %d) "
 				"failed with err: %d\n", domain,
