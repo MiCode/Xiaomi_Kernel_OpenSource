@@ -1214,3 +1214,49 @@ free_bam_ports:
 
 	return ret;
 }
+
+static int gbam_wake_cb(void *param)
+{
+	struct gbam_port	*port = (struct gbam_port *)param;
+	struct bam_ch_info *d;
+	struct f_rmnet		*dev;
+
+	dev = port_to_rmnet(port->gr);
+	d = &port->data_ch;
+
+	pr_debug("%s: woken up by peer\n", __func__);
+
+	return usb_gadget_wakeup(dev->cdev->gadget);
+}
+
+void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans)
+{
+	struct gbam_port	*port;
+	struct bam_ch_info *d;
+
+	if (trans != USB_GADGET_XPORT_BAM2BAM)
+		return;
+
+	port = bam2bam_ports[port_num];
+	d = &port->data_ch;
+
+	pr_debug("%s: suspended port %d\n", __func__, port_num);
+
+	usb_bam_register_wake_cb(d->connection_idx, gbam_wake_cb, port);
+}
+
+void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans)
+{
+	struct gbam_port	*port;
+	struct bam_ch_info *d;
+
+	if (trans != USB_GADGET_XPORT_BAM2BAM)
+		return;
+
+	port = bam2bam_ports[port_num];
+	d = &port->data_ch;
+
+	pr_debug("%s: resumed port %d\n", __func__, port_num);
+
+	usb_bam_register_wake_cb(d->connection_idx, NULL, NULL);
+}

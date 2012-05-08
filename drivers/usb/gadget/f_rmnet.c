@@ -414,6 +414,60 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(f->name);
 }
 
+static void frmnet_suspend(struct usb_function *f)
+{
+	struct f_rmnet *dev = func_to_rmnet(f);
+	unsigned		port_num;
+	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
+
+	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
+		__func__, xport_to_str(dxport),
+		dev, dev->port_num);
+
+	port_num = rmnet_ports[dev->port_num].data_xport_num;
+	switch (dxport) {
+	case USB_GADGET_XPORT_BAM:
+		break;
+	case USB_GADGET_XPORT_BAM2BAM:
+		gbam_suspend(&dev->port, port_num, dxport);
+		break;
+	case USB_GADGET_XPORT_HSIC:
+		break;
+	case USB_GADGET_XPORT_NONE:
+		break;
+	default:
+		pr_err("%s: Un-supported transport: %s\n", __func__,
+				xport_to_str(dxport));
+	}
+}
+
+static void frmnet_resume(struct usb_function *f)
+{
+	struct f_rmnet *dev = func_to_rmnet(f);
+	unsigned		port_num;
+	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
+
+	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
+		__func__, xport_to_str(dxport),
+		dev, dev->port_num);
+
+	port_num = rmnet_ports[dev->port_num].data_xport_num;
+	switch (dxport) {
+	case USB_GADGET_XPORT_BAM:
+		break;
+	case USB_GADGET_XPORT_BAM2BAM:
+		gbam_resume(&dev->port, port_num, dxport);
+		break;
+	case USB_GADGET_XPORT_HSIC:
+		break;
+	case USB_GADGET_XPORT_NONE:
+		break;
+	default:
+		pr_err("%s: Un-supported transport: %s\n", __func__,
+				xport_to_str(dxport));
+	}
+}
+
 static void frmnet_disable(struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
@@ -912,6 +966,8 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 	f->disable = frmnet_disable;
 	f->set_alt = frmnet_set_alt;
 	f->setup = frmnet_setup;
+	f->suspend = frmnet_suspend;
+	f->resume = frmnet_resume;
 	dev->port.send_cpkt_response = frmnet_send_cpkt_response;
 	dev->port.disconnect = frmnet_disconnect;
 	dev->port.connect = frmnet_connect;

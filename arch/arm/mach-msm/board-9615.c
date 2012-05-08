@@ -43,10 +43,11 @@
 #include <mach/dma.h>
 #include <mach/ion.h>
 #include <mach/msm_memtypes.h>
+#include <mach/cpuidle.h>
+#include <mach/usb_bam.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
-#include <mach/cpuidle.h>
 #include "pm.h"
 #include "acpuclock.h"
 #include "pm-boot.h"

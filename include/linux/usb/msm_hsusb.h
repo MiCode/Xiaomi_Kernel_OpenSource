@@ -159,19 +159,6 @@ enum usb_vdd_type {
 };
 
 /**
- * SPS Pipes direction.
- *
- * USB_TO_PEER_PERIPHERAL	USB (as Producer) to other
- *                          peer peripheral.
- * PEER_PERIPHERAL_TO_USB	Other Peripheral to
- *                          USB (as consumer).
- */
-enum usb_bam_pipe_dir {
-	USB_TO_PEER_PERIPHERAL,
-	PEER_PERIPHERAL_TO_USB,
-};
-
-/**
  * struct msm_otg_platform_data - platform device data
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence. val, reg pairs
