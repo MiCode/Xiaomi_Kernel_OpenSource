@@ -241,6 +241,8 @@ static int a2_pc_disabled_wakelock_skipped;
 static int disconnect_ack;
 static LIST_HEAD(bam_other_notify_funcs);
 static DEFINE_MUTEX(smsm_cb_lock);
+static DEFINE_MUTEX(delayed_ul_vote_lock);
+static int need_delayed_ul_vote;
 
 struct outside_notify_func {
 	void (*notify)(void *, int, unsigned long);
@@ -1601,6 +1603,19 @@ static void ul_wakeup(void)
 		return;
 	}
 
+	/*
+	 * if someone is voting for UL before bam is inited (modem up first
+	 * time), set flag for init to kickoff ul wakeup once bam is inited
+	 */
+	mutex_lock(&delayed_ul_vote_lock);
+	if (unlikely(!bam_mux_initialized)) {
+		need_delayed_ul_vote = 1;
+		mutex_unlock(&delayed_ul_vote_lock);
+		mutex_unlock(&wakeup_lock);
+		return;
+	}
+	mutex_unlock(&delayed_ul_vote_lock);
+
 	if (a2_pc_disabled) {
 		/*
 		 * don't grab the wakelock the first time because it is
@@ -2012,7 +2027,13 @@ static int bam_init(void)
 		goto rx_event_reg_failed;
 	}
 
+	mutex_lock(&delayed_ul_vote_lock);
 	bam_mux_initialized = 1;
+	if (need_delayed_ul_vote) {
+		need_delayed_ul_vote = 0;
+		msm_bam_dmux_kickoff_ul_wakeup();
+	}
+	mutex_unlock(&delayed_ul_vote_lock);
 	toggle_apps_ack();
 	bam_connection_is_active = 1;
 	complete_all(&bam_connection_completion);
@@ -2079,6 +2100,14 @@ static int bam_init_fallback(void)
 		goto register_bam_failed;
 	}
 	a2_device_handle = h;
+
+	mutex_lock(&delayed_ul_vote_lock);
+	bam_mux_initialized = 1;
+	if (need_delayed_ul_vote) {
+		need_delayed_ul_vote = 0;
+		msm_bam_dmux_kickoff_ul_wakeup();
+	}
+	mutex_unlock(&delayed_ul_vote_lock);
 	toggle_apps_ack();
 
 	return 0;
