@@ -2650,11 +2650,19 @@ unsigned char hdmi_is_primary;
 #define USER_SMI_SIZE         (MSM_SMI_SIZE - KERNEL_SMI_SIZE)
 #define MSM_PMEM_SMIPOOL_SIZE USER_SMI_SIZE
 
+#define MSM_ION_HOLE_SIZE	SZ_128K /* (128KB) */
+#define MSM_MM_FW_SIZE		(0x200000 - MSM_ION_HOLE_SIZE) /*(2MB-128KB)*/
+#define MSM_ION_MM_SIZE		0x3800000  /* (56MB) */
+#define MSM_ION_MFC_SIZE	SZ_8K
+
+#define MSM_MM_FW_BASE		MSM_SMI_BASE
+#define MSM_ION_HOLE_BASE	(MSM_MM_FW_BASE + MSM_MM_FW_SIZE)
+#define MSM_ION_MM_BASE		(MSM_ION_HOLE_BASE + MSM_ION_HOLE_SIZE)
+#define MSM_ION_MFC_BASE	(MSM_ION_MM_BASE + MSM_ION_MM_SIZE)
+
 #define MSM_ION_SF_SIZE		0x4000000 /* 64MB */
 #define MSM_ION_CAMERA_SIZE     MSM_PMEM_ADSP_SIZE
-#define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
-#define MSM_ION_MM_SIZE		0x3c00000 /* (60MB) Must be a multiple of 64K */
-#define MSM_ION_MFC_SIZE	SZ_8K
+
 #ifdef CONFIG_FB_MSM_OVERLAY1_WRITEBACK
 #define MSM_ION_WB_SIZE		0xC00000 /* 12MB */
 #else
@@ -5296,6 +5304,8 @@ static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
 	.request_region = request_smi_region,
 	.release_region = release_smi_region,
 	.setup_region = setup_smi_region,
+	.secure_base = MSM_ION_HOLE_BASE,
+	.secure_size = MSM_ION_HOLE_SIZE + MSM_ION_MM_SIZE,
 	.iommu_map_all = 1,
 	.iommu_2x_map_domain = VIDEO_DOMAIN,
 };
@@ -5313,9 +5323,8 @@ static struct ion_cp_heap_pdata cp_wb_ion_pdata = {
 	.align = PAGE_SIZE,
 };
 
-static struct ion_co_heap_pdata fw_co_ion_pdata = {
+static struct ion_co_heap_pdata hole_co_ion_pdata = {
 	.adjacent_mem_id = ION_CP_MM_HEAP_ID,
-	.align = SZ_128K,
 };
 
 static struct ion_co_heap_pdata co_ion_pdata = {
@@ -5348,6 +5357,7 @@ static struct ion_platform_data ion_pdata = {
 			.id	= ION_CP_MM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_MM_HEAP_NAME,
+			.base   = MSM_ION_MM_BASE,
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_SMI_TYPE,
 			.extra_data = (void *) &cp_mm_ion_pdata,
@@ -5356,14 +5366,16 @@ static struct ion_platform_data ion_pdata = {
 			.id	= ION_MM_FIRMWARE_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
 			.name	= ION_MM_FIRMWARE_HEAP_NAME,
-			.size	= MSM_ION_MM_FW_SIZE,
+			.base	= MSM_ION_HOLE_BASE,
+			.size	= MSM_ION_HOLE_SIZE,
 			.memory_type = ION_SMI_TYPE,
-			.extra_data = (void *) &fw_co_ion_pdata,
+			.extra_data = (void *) &hole_co_ion_pdata,
 		},
 		{
 			.id	= ION_CP_MFC_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_MFC_HEAP_NAME,
+			.base	= MSM_ION_MFC_BASE,
 			.size	= MSM_ION_MFC_SIZE,
 			.memory_type = ION_SMI_TYPE,
 			.extra_data = (void *) &cp_mfc_ion_pdata,
@@ -5432,12 +5444,7 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 		.size	=	KERNEL_SMI_SIZE,
 		.flags	=	MEMTYPE_FLAGS_FIXED,
 	},
-	/* User space SMI memory pool for video core */
-	/* used for encoder, decoder input & output buffers  */
 	[MEMTYPE_SMI] = {
-		.start	=	USER_SMI_BASE,
-		.limit	=	USER_SMI_SIZE,
-		.flags	=	MEMTYPE_FLAGS_FIXED,
 	},
 	[MEMTYPE_EBI0] = {
 		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
@@ -5482,9 +5489,6 @@ static void __init reserve_ion_memory(void)
 	}
 
 	msm8x60_reserve_table[MEMTYPE_EBI1].size += msm_ion_sf_size;
-	msm8x60_reserve_table[MEMTYPE_SMI].size += MSM_ION_MM_FW_SIZE;
-	msm8x60_reserve_table[MEMTYPE_SMI].size += MSM_ION_MM_SIZE;
-	msm8x60_reserve_table[MEMTYPE_SMI].size += MSM_ION_MFC_SIZE;
 	msm8x60_reserve_table[MEMTYPE_EBI1].size += MSM_ION_CAMERA_SIZE;
 	msm8x60_reserve_table[MEMTYPE_EBI1].size += MSM_ION_WB_SIZE;
 	msm8x60_reserve_table[MEMTYPE_EBI1].size += MSM_ION_AUDIO_SIZE;
