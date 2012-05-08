@@ -403,7 +403,7 @@ void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 			trace_kgsl_bus(device, state);
 			if (pwr->ebi1_clk) {
 				clk_set_rate(pwr->ebi1_clk, 0);
-				clk_disable(pwr->ebi1_clk);
+				clk_disable_unprepare(pwr->ebi1_clk);
 			}
 			if (pwr->pcl)
 				msm_bus_scale_client_update_request(pwr->pcl,
@@ -414,7 +414,7 @@ void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 			&pwr->power_flags)) {
 			trace_kgsl_bus(device, state);
 			if (pwr->ebi1_clk) {
-				clk_enable(pwr->ebi1_clk);
+				clk_prepare_enable(pwr->ebi1_clk);
 				clk_set_rate(pwr->ebi1_clk,
 					pwr->pwrlevels[pwr->active_pwrlevel].
 					bus_freq);
