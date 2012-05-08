@@ -279,20 +279,16 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 					struct v4l2_format *f)
 {
 	int size;
-#ifdef NEW_S_FMT
+	struct vcap_priv_fmt *priv_fmt;
 	struct v4l2_format_vc_ext *vc_format;
-#endif
 	struct vcap_client_data *c_data = file->private_data;
 
-	switch (f->type) {
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-#ifdef NEW_S_FMT
-		vc_format = (struct v4l2_format_vc_ext *) f->fmt.raw_data;
+	priv_fmt = (struct vcap_priv_fmt *) f->fmt.raw_data;
+
+	switch (priv_fmt->type) {
+	case VC_TYPE:
+		vc_format = (struct v4l2_format_vc_ext *) &priv_fmt->u.timing;
 		c_data->vc_format = *vc_format;
-#else
-		c_data->vc_format =
-			vcap_vc_lut[f->fmt.pix.priv];
-#endif
 
 		config_vc_format(c_data);
 
@@ -304,22 +300,20 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		else
 			size *= 2;
 
-#ifndef NEW_S_FMT
-		f->fmt.pix.bytesperline = size;
+		priv_fmt->u.timing.bytesperline = size;
 		size *= (c_data->vc_format.vactive_end -
 			c_data->vc_format.vactive_start);
-		f->fmt.pix.sizeimage = size;
-#endif
+		priv_fmt->u.timing.sizeimage = size;
 		vcap_ctrl->vc_client = c_data;
 		break;
-	case V4L2_BUF_TYPE_INTERLACED_IN_DECODER:
+	case VP_IN_TYPE:
 		c_data->vp_buf_type_field = V4L2_BUF_TYPE_INTERLACED_IN_DECODER;
 		c_data->vp_format.field = f->fmt.pix.field;
 		c_data->vp_format.height = f->fmt.pix.height;
 		c_data->vp_format.width = f->fmt.pix.width;
 		c_data->vp_format.pixelformat = f->fmt.pix.pixelformat;
 		break;
-	case V4L2_BUF_TYPE_INTERLACED_IN_AFE:
+	case VP_OUT_TYPE:
 		break;
 	default:
 		break;
@@ -522,6 +516,8 @@ static const struct v4l2_ioctl_ops vcap_ioctl_ops = {
 	.vidioc_g_fmt_vid_cap     = vidioc_g_fmt_vid_cap,
 	.vidioc_try_fmt_vid_cap   = vidioc_try_fmt_vid_cap,
 	.vidioc_s_fmt_vid_cap     = vidioc_s_fmt_vid_cap,
+	.vidioc_s_fmt_type_private     = vidioc_s_fmt_vid_cap,
+	.vidioc_g_fmt_type_private     = vidioc_g_fmt_vid_cap,
 	.vidioc_reqbufs       = vidioc_reqbufs,
 	.vidioc_querybuf      = vidioc_querybuf,
 	.vidioc_qbuf          = vidioc_qbuf,

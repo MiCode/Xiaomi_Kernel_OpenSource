@@ -13,11 +13,9 @@
 #ifndef VCAP_VC_H
 #define VCAP_VC_H
 
-/* #define NEW_S_FMT */
 #include <linux/interrupt.h>
 
 #include <media/vcap_v4l2.h>
-extern struct v4l2_format_vc_ext vcap_vc_lut[];
 
 #define VCAP_HARDWARE_VERSION 0x10000000
 
