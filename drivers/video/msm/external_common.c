@@ -2056,6 +2056,7 @@ void hdmi_common_init_panel_info(struct msm_panel_info *pinfo)
 	pinfo->xres = timing->active_h;
 	pinfo->yres = timing->active_v;
 	pinfo->clk_rate = timing->pixel_freq*1000;
+	pinfo->frame_rate = 60;
 
 	pinfo->lcdc.h_back_porch = timing->back_porch_h;
 	pinfo->lcdc.h_front_porch = timing->front_porch_h;
