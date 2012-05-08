@@ -40,6 +40,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
+#include <mach/rpm-regulator-smd.h>
 #include <mach/qpnp-int.h>
 #include <mach/socinfo.h>
 #include "clock.h"
@@ -450,6 +451,7 @@ void __init msm_copper_add_drivers(void)
 {
 	msm_smd_init();
 	msm_rpm_driver_init();
+	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	regulator_stub_init();
 }
