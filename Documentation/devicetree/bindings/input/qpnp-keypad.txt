@@ -1,0 +1,57 @@
+Qualcomm QPNP keypad controller
+
+The qpnp-keypad driver supports the PMIC keypad controller module
+in the Qualcomm PMICs. This controller supports 10 x 8 (row x col)
+configuration and is connected to the host processor on the
+SPMI interface.
+
+Required properties:
+- compatible:		Must be "qcom,qpnp-keypad"
+- reg:			Specifies the SPMI address and size for the keypad controller
+- interrupts:		Specifies the interrupt associated with keypad controller
+- interrupt-names: 	The names of the 2 interrupts assocaited with the keypad
+			controller. They are - "kp-sense" and "kp-stuck".
+- keypad,num-rows:	Number of rows used in the keypad configuration. These
+			rows are the number of PMIC gpios configured as drive
+			lines. Possible values: Max = 10, Min = 2.
+- keypad,num-columns:	Number of columns used in the keypad configuration. These
+			cols are number of PMIC gpios configured as sense lines.
+			Possible values: Max = 8, Min = 1.
+- linux,keymap:		Row-column-keycode mapping. It is an array of packed
+			entries containing the equivalent of row, column and
+			linux key-code. Each value represented as
+			(row << 24 | column << 16 | key-code)
+
+Optional Properties:
+- qcom,scan-delay-ms:	Wait time in milliseconds before each keypad scan.
+			This is used to determine if the key has been stuck.
+			Possible values: 1, 2, 4, 8, 16, 32, 64, 128ms.
+- qcom,row-hold-ns:	Wait time in nanoseconds between each row assertion.
+			Configured based on last-row scan delay.
+			Possible values: 31250, 62500, 125000, 250000ns.
+- qcom,debounce-ms:	Wait time in milliseconds before the column data is
+			sampled for key	press detection.
+			Possible values: 5, 10, 15, 20ms.
+- qcom,wakeup:		Configure the keypad as a wakeup source. This is a
+			boolean property.
+- linux,keypad-no-autorepeat:
+			Disables the auto-repeat feature for the keys. This
+			is a boolean property.
+
+Example:
+
+	qcom,keypad@a800 {
+		compatible = "qcom,qpnp-keypad";
+		reg = <0xA800 0x100>;
+		interrupts = <0x1 0xA8 0x0>,
+			     <0x1 0xA8 0x1>;
+		interrupt-names = "kp-sense", "kp-stuck";
+		keypad,num-rows = <2>;
+		keypad,num-cols = <2>;
+		qcom,scan-delay-ms = <128>;
+		qcom,row-hold-ns = <31250>;
+		qcom,debounce-ms = <20>;
+		qcom,wakeup;
+		linux,keymap = <0x00000001 0x00010002
+			       0x01000003 0x01010004>;
+	}
