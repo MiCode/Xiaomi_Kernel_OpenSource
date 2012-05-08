@@ -2068,8 +2068,7 @@ static void __init msm8930_cdp_init(void)
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm8930_init_buses();
-	platform_add_devices(msm_footswitch_devices,
-		msm_num_footswitch_devices);
+	platform_add_devices(msm8930_footswitch, msm8930_num_footswitch);
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8930_add_vidc_device();
 	/*

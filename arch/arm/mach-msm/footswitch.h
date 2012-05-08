@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,20 @@
 #define FS_VCAP		10
 #define MAX_FS		11
 
-#define FS_GENERIC(_drv_name, _id, _name) (&(struct platform_device){ \
+struct fs_clk_data {
+	const char *name;
+	struct clk *clk;
+	unsigned long rate;
+	unsigned long reset_rate;
+	bool enabled;
+};
+
+struct fs_driver_data {
+	int bus_port0, bus_port1;
+	struct fs_clk_data *clks;
+};
+
+#define FS_GENERIC(_drv_name, _id, _name, _data) (&(struct platform_device){ \
 	.name	= (_drv_name), \
 	.id	= (_id), \
 	.dev	= { \
@@ -43,10 +56,13 @@
 			.consumer_supplies = \
 				&(struct regulator_consumer_supply) \
 				REGULATOR_SUPPLY((_name), NULL), \
+			.driver_data = (_data), \
 		} \
 	}, \
 })
-#define FS_PCOM(_id, _name) FS_GENERIC("footswitch-pcom", (_id), (_name))
-#define FS_8X60(_id, _name) FS_GENERIC("footswitch-8x60", (_id), (_name))
+#define FS_PCOM(_id, _name) \
+		FS_GENERIC("footswitch-pcom", (_id), (_name), NULL)
+#define FS_8X60(_id, _name, _data) \
+		FS_GENERIC("footswitch-8x60", (_id), (_name), (_data))
 
 #endif
