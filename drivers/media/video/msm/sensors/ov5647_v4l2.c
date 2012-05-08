@@ -32,11 +32,12 @@ static struct msm_camera_i2c_reg_conf ov5647_stop_settings[] = {
 };
 
 static struct msm_camera_i2c_reg_conf ov5647_groupon_settings[] = {
-	{0x0104, 0x01},
+	{0x3208, 0x0},
 };
 
 static struct msm_camera_i2c_reg_conf ov5647_groupoff_settings[] = {
-	{0x0104, 0x0},
+	{0x3208, 0x10},
+	{0x3208, 0xa0},
 };
 
 static struct msm_camera_i2c_reg_conf ov5647_prev_settings[] = {
@@ -293,6 +294,8 @@ static struct msm_camera_i2c_reg_conf ov5647_recommend_settings[] = {
 	{0x518a, 0x04},
 	{0x518b, 0x00},
 	{0x5000, 0x06}, /*No lenc,WBC on*/
+	{0x4005, 0x18},
+	{0x4051, 0x8f},
 };
 
 
@@ -407,7 +410,7 @@ static int32_t ov5647_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		uint16_t gain, uint32_t line)
 {
 
-	uint16_t max_line;
+	static uint16_t max_line = 1964;
 	uint8_t gain_lsb, gain_hsb;
 	u8 intg_time_hsb, intg_time_msb, intg_time_lsb;
 
@@ -417,8 +420,8 @@ static int32_t ov5647_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	CDBG(KERN_ERR "snapshot exposure seting 0x%x, 0x%x, %d"
 		, gain, line, line);
 
+	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 	if (line > 1964) {
-		s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_output_reg_addr->frame_length_lines,
 			(uint8_t)((line+4) >> 8),
@@ -428,21 +431,17 @@ static int32_t ov5647_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 			s_ctrl->sensor_output_reg_addr->frame_length_lines + 1,
 			(uint8_t)((line+4) & 0x00FF),
 			MSM_CAMERA_I2C_BYTE_DATA);
-		s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
-
 		max_line = line + 4;
-	} else if (line > 1968) {
-		s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
+	} else if (max_line > 1968) {
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_output_reg_addr->frame_length_lines,
-			(uint8_t)((line+4) >> 8),
+			(uint8_t)(1968 >> 8),
 			MSM_CAMERA_I2C_BYTE_DATA);
 
 		 msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_output_reg_addr->frame_length_lines + 1,
-			(uint8_t)((line+4) & 0x00FF),
+			(uint8_t)(1968 & 0x00FF),
 			MSM_CAMERA_I2C_BYTE_DATA);
-		s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
 			max_line = 1968;
 	}
 
@@ -454,8 +453,6 @@ static int32_t ov5647_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	intg_time_lsb = (u8) (line & 0x00FF);
 
 	/* FIXME for BLC trigger */
-	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
-
 	/* Coarse Integration Time */
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->coarse_int_time_addr,
@@ -481,7 +478,7 @@ static int32_t ov5647_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->global_gain_addr + 1,
-		gain_lsb-1,
+		gain_lsb^0x1,
 		MSM_CAMERA_I2C_BYTE_DATA);
 
 	/* Coarse Integration Time */
@@ -523,7 +520,7 @@ static int32_t ov5647_write_prev_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 						uint16_t gain, uint32_t line)
 {
 
-	uint16_t max_line;
+	static uint16_t max_line = 984;
 	u8 intg_time_hsb, intg_time_msb, intg_time_lsb;
 	uint8_t gain_lsb, gain_hsb;
 
@@ -533,9 +530,10 @@ static int32_t ov5647_write_prev_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	gain_lsb = (uint8_t) (gain);
 	gain_hsb = (uint8_t)((gain & 0x300)>>8);
 
+	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
+
 	/* adjust frame rate */
 	if (line > 980 && line <= 984) {
-
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_output_reg_addr->frame_length_lines,
 		(uint8_t)((line+4) >> 8),
@@ -546,7 +544,7 @@ static int32_t ov5647_write_prev_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		(uint8_t)((line+4) & 0x00FF),
 		MSM_CAMERA_I2C_BYTE_DATA);
 		max_line = line + 4;
-	} else if (line > 984) {
+	} else if (max_line > 984) {
 
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_output_reg_addr->frame_length_lines,
@@ -566,7 +564,6 @@ static int32_t ov5647_write_prev_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	intg_time_msb = (u8) ((line & 0xFF00) >> 8);
 	intg_time_lsb = (u8) (line & 0x00FF);
 
-	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 
 	/* Coarse Integration Time */
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
