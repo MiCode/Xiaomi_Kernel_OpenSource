@@ -244,6 +244,10 @@ struct tabla_priv {
 	u32 cfilt2_cnt;
 	u32 cfilt3_cnt;
 	u32 rx_bias_count;
+	s32 dmic_1_2_clk_cnt;
+	s32 dmic_3_4_clk_cnt;
+	s32 dmic_5_6_clk_cnt;
+
 	enum tabla_bandgap_type bandgap_type;
 	bool mclk_enabled;
 	bool clock_active;
@@ -2027,8 +2031,9 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	u16 tx_dmic_ctl_reg;
-	u8 dmic_clk_sel, dmic_clk_en;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	u8  dmic_clk_en;
+	s32 *dmic_clk_cnt;
 	unsigned int dmic;
 	int ret;
 
@@ -2041,20 +2046,31 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	switch (dmic) {
 	case 1:
 	case 2:
-		dmic_clk_sel = 0x02;
 		dmic_clk_en = 0x01;
+		dmic_clk_cnt = &(tabla->dmic_1_2_clk_cnt);
+
+		pr_debug("%s() event %d DMIC%d dmic_1_2_clk_cnt %d\n",
+			__func__, event,  dmic, *dmic_clk_cnt);
+
 		break;
 
 	case 3:
 	case 4:
-		dmic_clk_sel = 0x08;
 		dmic_clk_en = 0x04;
+		dmic_clk_cnt = &(tabla->dmic_3_4_clk_cnt);
+
+		pr_debug("%s() event %d DMIC%d dmic_3_4_clk_cnt %d\n",
+			__func__, event,  dmic, *dmic_clk_cnt);
 		break;
 
 	case 5:
 	case 6:
-		dmic_clk_sel = 0x20;
 		dmic_clk_en = 0x10;
+		dmic_clk_cnt = &(tabla->dmic_5_6_clk_cnt);
+
+		pr_debug("%s() event %d DMIC%d dmic_5_6_clk_cnt %d\n",
+			__func__, event,  dmic, *dmic_clk_cnt);
+
 		break;
 
 	default:
@@ -2062,24 +2078,21 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
-	tx_dmic_ctl_reg = TABLA_A_CDC_TX1_DMIC_CTL + 8 * (dmic - 1);
-
-	pr_debug("%s %d\n", __func__, event);
-
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 
-		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
-				dmic_clk_sel, dmic_clk_sel);
+		(*dmic_clk_cnt)++;
+		if (*dmic_clk_cnt == 1)
+			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
+					dmic_clk_en, dmic_clk_en);
 
-		snd_soc_update_bits(codec, tx_dmic_ctl_reg, 0x1, 0x1);
-
-		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
-				dmic_clk_en, dmic_clk_en);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
-				dmic_clk_en, 0);
+
+		(*dmic_clk_cnt)--;
+		if (*dmic_clk_cnt  == 0)
+			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_DMIC_CTL,
+					dmic_clk_en, 0);
 		break;
 	}
 	return 0;
@@ -7173,6 +7186,22 @@ static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
 	{TABLA_A_CDC_TX8_MUX_CTL, 0x8, 0x0},
 	{TABLA_A_CDC_TX9_MUX_CTL, 0x8, 0x0},
 	{TABLA_A_CDC_TX10_MUX_CTL, 0x8, 0x0},
+
+	/* config Decimator for DMIC CLK_MODE_1(3.072Mhz@12.88Mhz mclk) */
+	{TABLA_A_CDC_TX1_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX2_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX3_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX4_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX5_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX6_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX7_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX8_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX9_DMIC_CTL, 0x1, 0x1},
+	{TABLA_A_CDC_TX10_DMIC_CTL, 0x1, 0x1},
+
+	/* config DMIC clk to CLK_MODE_1 (3.072Mhz@12.88Mhz mclk) */
+	{TABLA_A_CDC_CLK_DMIC_CTL, 0x2A, 0x2A},
+
 };
 
 static const struct tabla_reg_mask_val tabla_1_x_codec_reg_init_val[] = {
