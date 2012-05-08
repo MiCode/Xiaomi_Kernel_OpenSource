@@ -48,6 +48,9 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 	unsigned long ionflag = 0;
 	unsigned long flags = 0;
 	int ret = 0;
+	ion_phys_addr_t phyaddr = 0;
+	size_t len = 0;
+	int rc = 0;
 	DBG_PMEM("\n%s() IN: Requested alloc size(%u)", __func__, (u32)sz);
 	if (!addr) {
 		DDL_MSG_ERROR("\n%s() Invalid Parameters", __func__);
@@ -88,28 +91,42 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 				goto free_ion_alloc;
 		}
 		addr->virtual_base_addr = (u8 *) kernel_vaddr;
-		ret = ion_map_iommu(ddl_context->video_ion_client,
-				addr->alloc_handle,
-				VIDEO_DOMAIN,
-				VIDEO_MAIN_POOL,
-				SZ_4K,
-				0,
-				&iova,
-				&buffer_size,
-				UNCACHED, 0);
-		if (ret) {
-			DDL_MSG_ERROR("%s():DDL ION ion map iommu failed\n",
-						 __func__);
-			goto unmap_ion_alloc;
+		if (res_trk_check_for_sec_session()) {
+			rc = ion_phys(ddl_context->video_ion_client,
+				addr->alloc_handle, &phyaddr,
+					&len);
+			if (rc || !phyaddr) {
+				DDL_MSG_ERROR(
+				"%s():DDL ION client physical failed\n",
+				__func__);
+				goto unmap_ion_alloc;
+			}
+			addr->alloced_phys_addr = phyaddr;
+		} else {
+			ret = ion_map_iommu(ddl_context->video_ion_client,
+					addr->alloc_handle,
+					VIDEO_DOMAIN,
+					VIDEO_MAIN_POOL,
+					SZ_4K,
+					0,
+					&iova,
+					&buffer_size,
+					UNCACHED, 0);
+			if (ret) {
+				DDL_MSG_ERROR(
+				"%s():DDL ION ion map iommu failed\n",
+				 __func__);
+				goto unmap_ion_alloc;
+			}
+			addr->alloced_phys_addr = (phys_addr_t) iova;
 		}
-		addr->alloced_phys_addr = (phys_addr_t) iova;
 		if (!addr->alloced_phys_addr) {
 			DDL_MSG_ERROR("%s():DDL ION client physical failed\n",
 						__func__);
 			goto unmap_ion_alloc;
 		}
 		addr->mapped_buffer = NULL;
-		addr->physical_base_addr = (u8 *) iova;
+		addr->physical_base_addr = (u8 *) addr->alloced_phys_addr;
 		addr->align_physical_addr = (u8 *) DDL_ALIGN((u32)
 			addr->physical_base_addr, alignment);
 		offset = (u32)(addr->align_physical_addr -
@@ -187,10 +204,12 @@ void ddl_pmem_free(struct ddl_buf_addr *addr)
 		if (!IS_ERR_OR_NULL(addr->alloc_handle)) {
 			ion_unmap_kernel(ddl_context->video_ion_client,
 					addr->alloc_handle);
-			ion_unmap_iommu(ddl_context->video_ion_client,
+			if (!res_trk_check_for_sec_session()) {
+				ion_unmap_iommu(ddl_context->video_ion_client,
 					addr->alloc_handle,
 					VIDEO_DOMAIN,
 					VIDEO_MAIN_POOL);
+			}
 			ion_free(ddl_context->video_ion_client,
 				addr->alloc_handle);
 			}

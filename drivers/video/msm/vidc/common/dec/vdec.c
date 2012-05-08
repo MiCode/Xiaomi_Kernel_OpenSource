@@ -890,19 +890,35 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 				 __func__);
 			goto import_ion_error;
 		}
-		rc = ion_map_iommu(client_ctx->user_ion_client,
+		if (res_trk_check_for_sec_session()) {
+			rc = ion_phys(client_ctx->user_ion_client,
 				client_ctx->h264_mv_ion_handle,
-				VIDEO_DOMAIN, VIDEO_MAIN_POOL,
-				SZ_4K, 0, (unsigned long *)&iova,
-				(unsigned long *)&buffer_size, UNCACHED, 0);
-		if (rc) {
-			ERR("%s():get_ION_kernel physical addr fail\n",
-					 __func__);
-			goto ion_map_error;
+				(unsigned long *) (&(vcd_h264_mv_buffer->
+				physical_addr)), &len);
+			if (rc) {
+				ERR("%s():get_ION_kernel physical addr fail\n",
+					__func__);
+				goto ion_map_error;
+			}
+			vcd_h264_mv_buffer->client_data = NULL;
+			vcd_h264_mv_buffer->dev_addr = (u8 *)
+				vcd_h264_mv_buffer->physical_addr;
+		} else {
+			rc = ion_map_iommu(client_ctx->user_ion_client,
+					client_ctx->h264_mv_ion_handle,
+					VIDEO_DOMAIN, VIDEO_MAIN_POOL,
+					SZ_4K, 0, (unsigned long *)&iova,
+					(unsigned long *)&buffer_size,
+					UNCACHED, 0);
+			if (rc) {
+				ERR("%s():get_ION_kernel physical addr fail\n",
+						 __func__);
+				goto ion_map_error;
+			}
+			vcd_h264_mv_buffer->physical_addr = (u8 *) iova;
+			vcd_h264_mv_buffer->client_data = NULL;
+			vcd_h264_mv_buffer->dev_addr = (u8 *) iova;
 		}
-		vcd_h264_mv_buffer->physical_addr = (u8 *) iova;
-		vcd_h264_mv_buffer->client_data = NULL;
-		vcd_h264_mv_buffer->dev_addr = (u8 *) iova;
 	}
 	DBG("Virt: %p, Phys %p, fd: %d", vcd_h264_mv_buffer->
 		kernel_virtual_addr, vcd_h264_mv_buffer->physical_addr,
@@ -997,10 +1013,12 @@ static u32 vid_dec_free_h264_mv_buffers(struct video_client_ctx *client_ctx)
 	if (!IS_ERR_OR_NULL(client_ctx->h264_mv_ion_handle)) {
 		ion_unmap_kernel(client_ctx->user_ion_client,
 					client_ctx->h264_mv_ion_handle);
-		ion_unmap_iommu(client_ctx->user_ion_client,
+		if (!res_trk_check_for_sec_session()) {
+			ion_unmap_iommu(client_ctx->user_ion_client,
 				client_ctx->h264_mv_ion_handle,
 				VIDEO_DOMAIN,
 				VIDEO_MAIN_POOL);
+		}
 		ion_free(client_ctx->user_ion_client,
 					client_ctx->h264_mv_ion_handle);
 		 client_ctx->h264_mv_ion_handle = NULL;
