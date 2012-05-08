@@ -618,6 +618,8 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 	switch (cfgcmd.cmd_type) {
 	case CMD_AXI_CFG_PRIM:
 	case CMD_AXI_CFG_SEC:
+	case CMD_AXI_CFG_ZSL:
+	case CMD_RAW_PICT_AXI_CFG:
 	case CMD_AXI_CFG_PRIM_ALL_CHNLS:
 	case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC:
 	case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC_ALL_CHNLS:
