@@ -22,6 +22,7 @@
 #define TRACE_INCLUDE_FILE kgsl_trace
 
 #include <linux/tracepoint.h>
+#include "kgsl_device.h"
 
 struct kgsl_device;
 struct kgsl_ringbuffer_issueibcmds;
@@ -33,9 +34,11 @@ struct kgsl_device_waittimestamp;
 TRACE_EVENT(kgsl_issueibcmds,
 
 	TP_PROTO(struct kgsl_device *device,
-			struct kgsl_ringbuffer_issueibcmds *cmd, int result),
+			struct kgsl_ringbuffer_issueibcmds *cmd,
+			struct kgsl_ibdesc *ibdesc,
+			int result),
 
-	TP_ARGS(device, cmd, result),
+	TP_ARGS(device, cmd, ibdesc, result),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
@@ -50,7 +53,7 @@ TRACE_EVENT(kgsl_issueibcmds,
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
 		__entry->drawctxt_id = cmd->drawctxt_id;
-		__entry->ibdesc_addr = cmd->ibdesc_addr;
+		__entry->ibdesc_addr = ibdesc[0].gpuaddr;
 		__entry->numibs = cmd->numibs;
 		__entry->timestamp = cmd->timestamp;
 		__entry->flags = cmd->flags;
@@ -58,14 +61,19 @@ TRACE_EVENT(kgsl_issueibcmds,
 	),
 
 	TP_printk(
-		"d_name=%s ctx=%u ib=%u numibs=%u timestamp=%u "
-		"flags=%u result=%d",
+		"d_name=%s ctx=%u ib=0x%u numibs=%u timestamp=0x%x "
+		"flags=0x%x(%s) result=%d",
 		__get_str(device_name),
 		__entry->drawctxt_id,
 		__entry->ibdesc_addr,
 		__entry->numibs,
 		__entry->timestamp,
 		__entry->flags,
+		__entry->flags ? __print_flags(__entry->flags, "|",
+			{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" },
+			{ KGSL_CONTEXT_SUBMIT_IB_LIST, "IB_LIST" },
+			{ KGSL_CONTEXT_CTX_SWITCH, "CTX_SWITCH" })
+			: "None",
 		__entry->result
 	)
 );
@@ -97,7 +105,7 @@ TRACE_EVENT(kgsl_readtimestamp,
 	),
 
 	TP_printk(
-		"d_name=%s context_id=%u type=%u timestamp=%u",
+		"d_name=%s context_id=%u type=%u timestamp=0x%x",
 		__get_str(device_name),
 		__entry->context_id,
 		__entry->type,
@@ -112,30 +120,34 @@ TRACE_EVENT(kgsl_waittimestamp_entry,
 
 	TP_PROTO(struct kgsl_device *device,
 			unsigned int context_id,
-			unsigned int timestamp,
+			unsigned int curr_ts,
+			unsigned int wait_ts,
 			unsigned int timeout),
 
-	TP_ARGS(device, context_id, timestamp, timeout),
+	TP_ARGS(device, context_id, curr_ts, wait_ts, timeout),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
 		__field(unsigned int, context_id)
-		__field(unsigned int, timestamp)
+		__field(unsigned int, curr_ts)
+		__field(unsigned int, wait_ts)
 		__field(unsigned int, timeout)
 	),
 
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
 		__entry->context_id = context_id;
-		__entry->timestamp = timestamp;
+		__entry->curr_ts = curr_ts;
+		__entry->wait_ts = wait_ts;
 		__entry->timeout = timeout;
 	),
 
 	TP_printk(
-		"d_name=%s context_id=%u timestamp=%u timeout=%u",
+		"d_name=%s context_id=%u curr_ts=%u timestamp=0x%x timeout=%u",
 		__get_str(device_name),
 		__entry->context_id,
-		__entry->timestamp,
+		__entry->curr_ts,
+		__entry->wait_ts,
 		__entry->timeout
 	)
 );
@@ -145,23 +157,27 @@ TRACE_EVENT(kgsl_waittimestamp_entry,
  */
 TRACE_EVENT(kgsl_waittimestamp_exit,
 
-	TP_PROTO(struct kgsl_device *device, int result),
+	TP_PROTO(struct kgsl_device *device, unsigned int curr_ts,
+		 int result),
 
-	TP_ARGS(device, result),
+	TP_ARGS(device, curr_ts, result),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
+		__field(unsigned int, curr_ts)
 		__field(int, result)
 	),
 
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
+		__entry->curr_ts = curr_ts;
 		__entry->result = result;
 	),
 
 	TP_printk(
-		"d_name=%s result=%d",
+		"d_name=%s curr_ts=%u result=%d",
 		__get_str(device_name),
+		__entry->curr_ts,
 		__entry->result
 	)
 );
@@ -343,12 +359,13 @@ TRACE_EVENT(kgsl_mem_free,
 
 DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 
-	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int id,
-		unsigned int curr_ts),
+	TP_PROTO(struct kgsl_device *device, struct kgsl_mem_entry *mem_entry,
+		unsigned int id, unsigned int curr_ts, unsigned int free_ts),
 
-	TP_ARGS(mem_entry, id, curr_ts),
+	TP_ARGS(device, mem_entry, id, curr_ts, free_ts),
 
 	TP_STRUCT__entry(
+		__string(device_name, device->name)
 		__field(unsigned int, gpuaddr)
 		__field(unsigned int, size)
 		__field(int, type)
@@ -358,33 +375,92 @@ DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 	),
 
 	TP_fast_assign(
+		__assign_str(device_name, device->name);
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
 		__entry->drawctxt_id = id;
 		__entry->type = mem_entry->memtype;
 		__entry->curr_ts = curr_ts;
-		__entry->free_ts = mem_entry->free_timestamp;
+		__entry->free_ts = free_ts;
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%d type=%d ctx=%u curr_ts=0x%08x free_ts=0x%08x",
-		__entry->gpuaddr, __entry->size, __entry->type,
-		__entry->drawctxt_id, __entry->curr_ts, __entry->free_ts
+		"d_name=%s gpuaddr=0x%08x size=%d type=%d ctx=%u"
+		" curr_ts=0x%08x free_ts=0x%08x",
+		__get_str(device_name),
+		__entry->gpuaddr,
+		__entry->size,
+		__entry->type,
+		__entry->drawctxt_id,
+		__entry->curr_ts,
+		__entry->free_ts
 	)
 );
 
 DEFINE_EVENT(kgsl_mem_timestamp_template, kgsl_mem_timestamp_queue,
-	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int id,
-		unsigned int curr_ts),
-	TP_ARGS(mem_entry, id, curr_ts)
+	TP_PROTO(struct kgsl_device *device, struct kgsl_mem_entry *mem_entry,
+		unsigned int id, unsigned int curr_ts, unsigned int free_ts),
+	TP_ARGS(device, mem_entry, id, curr_ts, free_ts)
 );
 
 DEFINE_EVENT(kgsl_mem_timestamp_template, kgsl_mem_timestamp_free,
-	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int id,
-		unsigned int curr_ts),
-	TP_ARGS(mem_entry, id, curr_ts)
+	TP_PROTO(struct kgsl_device *device, struct kgsl_mem_entry *mem_entry,
+		unsigned int id, unsigned int curr_ts, unsigned int free_ts),
+	TP_ARGS(device, mem_entry, id, curr_ts, free_ts)
 );
 
+TRACE_EVENT(kgsl_context_create,
+
+	TP_PROTO(struct kgsl_device *device, struct kgsl_context *context,
+		 unsigned int flags),
+
+	TP_ARGS(device, context, flags),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, id)
+		__field(unsigned int, flags)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->id = context->id;
+		__entry->flags = flags;
+	),
+
+	TP_printk(
+		"d_name=%s ctx=%u flags=0x%x %s",
+		__get_str(device_name), __entry->id, __entry->flags,
+		__entry->flags ? __print_flags(__entry->flags, "|",
+			{ KGSL_CONTEXT_NO_GMEM_ALLOC , "NO_GMEM_ALLOC" },
+			{ KGSL_CONTEXT_PREAMBLE, "PREAMBLE" },
+			{ KGSL_CONTEXT_TRASH_STATE, "TRASH_STATE" },
+			{ KGSL_CONTEXT_PER_CONTEXT_TS, "PER_CONTEXT_TS" })
+			: "None"
+	)
+);
+
+TRACE_EVENT(kgsl_context_detach,
+
+	TP_PROTO(struct kgsl_device *device, struct kgsl_context *context),
+
+	TP_ARGS(device, context),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, id)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->id = context->id;
+	),
+
+	TP_printk(
+		"d_name=%s ctx=%u",
+		__get_str(device_name), __entry->id
+	)
+);
 
 TRACE_EVENT(kgsl_mmu_pagefault,
 
@@ -413,7 +489,6 @@ TRACE_EVENT(kgsl_mmu_pagefault,
 		__get_str(op)
 	)
 );
-
 
 #endif /* _KGSL_TRACE_H */
 
