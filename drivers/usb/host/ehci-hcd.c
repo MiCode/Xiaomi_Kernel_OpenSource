@@ -779,6 +779,12 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 			pstatus = ehci_readl(ehci,
 					 &ehci->regs->port_status[i]);
 
+			/*set RS bit in case of remote wakeup*/
+			if (ehci_is_TDI(ehci) && !(cmd & CMD_RUN) &&
+					(pstatus & PORT_SUSPEND))
+				ehci_writel(ehci, cmd | CMD_RUN,
+						&ehci->regs->command);
+
 			if (pstatus & PORT_OWNER)
 				continue;
 			if (!(test_bit(i, &ehci->suspended_ports) &&
