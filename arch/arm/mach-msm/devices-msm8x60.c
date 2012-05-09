@@ -2660,7 +2660,7 @@ struct platform_device *msm8660_footswitch[] __initdata = {
 	FS_8X60(FS_IJPEG,  "fs_ijpeg",	NULL,	&ijpeg_fs_data),
 	FS_8X60(FS_MDP,    "fs_mdp",	NULL,	&mdp_fs_data),
 	FS_8X60(FS_ROT,    "fs_rot",	NULL,	&rot_fs_data),
-	FS_8X60(FS_VED,    "fs_ved",	NULL,	&ved_fs_data),
+	FS_8X60(FS_VED,    "vdd",	"msm_vidc.0",	&ved_fs_data),
 	FS_8X60(FS_VFE,    "fs_vfe",	NULL,	&vfe_fs_data),
 	FS_8X60(FS_VPE,    "fs_vpe",	NULL,	&vpe_fs_data),
 	FS_8X60(FS_GFX3D,  "vdd",	"kgsl-3d0.0",	&gfx3d_fs_data),
