@@ -1076,8 +1076,8 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 						 "timeout\n", __func__);
 				dd->cur_msg->status = -EIO;
 				if (dd->mode == SPI_DMOV_MODE) {
-					msm_dmov_flush(dd->tx_dma_chan);
-					msm_dmov_flush(dd->rx_dma_chan);
+					msm_dmov_flush(dd->tx_dma_chan, 1);
+					msm_dmov_flush(dd->rx_dma_chan, 1);
 				}
 				break;
 		}
@@ -1672,8 +1672,8 @@ static void msm_spi_teardown_dma(struct msm_spi *dd)
 		return;
 
 	while (dd->mode == SPI_DMOV_MODE && limit++ < 50) {
-		msm_dmov_flush(dd->tx_dma_chan);
-		msm_dmov_flush(dd->rx_dma_chan);
+		msm_dmov_flush(dd->tx_dma_chan, 1);
+		msm_dmov_flush(dd->rx_dma_chan, 1);
 		msleep(10);
 	}
 
@@ -1739,8 +1739,8 @@ static __init int msm_spi_init_dma(struct msm_spi *dd)
 					  SPI_INPUT_FIFO;
 
 	/* Clear remaining activities on channel */
-	msm_dmov_flush(dd->tx_dma_chan);
-	msm_dmov_flush(dd->rx_dma_chan);
+	msm_dmov_flush(dd->tx_dma_chan, 1);
+	msm_dmov_flush(dd->rx_dma_chan, 1);
 
 	return 0;
 }

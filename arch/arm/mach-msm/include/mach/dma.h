@@ -46,7 +46,7 @@ struct msm_dmov_pdata {
 void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd);
 void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd);
 void msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful);
-void msm_dmov_flush(unsigned int id);
+void msm_dmov_flush(unsigned int id, int graceful);
 int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 
 #define DMOV_CRCIS_PER_CONF 10

@@ -1,7 +1,7 @@
 /*
  * TSIF Driver
  *
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -680,7 +680,7 @@ static void tsif_dma_flush(struct msm_tsif_device *tsif_device)
 		tsif_device->state = tsif_state_flushing;
 		while (tsif_device->xfer[0].busy ||
 		       tsif_device->xfer[1].busy) {
-			msm_dmov_flush(tsif_device->dma);
+			msm_dmov_flush(tsif_device->dma, 1);
 			msleep(10);
 		}
 	}
@@ -760,7 +760,7 @@ static int tsif_dma_init(struct msm_tsif_device *tsif_device)
 			      offsetof(struct tsif_dmov_cmd, box_ptr));
 		hdr->complete_func = tsif_dmov_complete_func;
 	}
-	msm_dmov_flush(tsif_device->dma);
+	msm_dmov_flush(tsif_device->dma, 1);
 	return 0;
 err:
 	dev_err(&tsif_device->pdev->dev, "Failed to allocate DMA buffers\n");
