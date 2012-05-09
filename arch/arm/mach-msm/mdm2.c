@@ -45,6 +45,7 @@
 #define MDM_MODEM_TIMEOUT	6000
 #define MDM_HOLD_TIME		4000
 #define MDM_MODEM_DELTA		100
+#define MDM_PBLRDY_CNT		20
 
 static int mdm_debug_on;
 static int power_on_count;
@@ -93,6 +94,8 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 {
 	int soft_reset_direction =
 		mdm_drv->pdata->soft_reset_inverted ? 0 : 1;
+	int i;
+	int pblrdy;
 
 	if (power_on_count != 1) {
 		pr_err("%s: Calling fn when power_on_count != 1\n",
@@ -118,7 +121,19 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 	pr_debug("%s: De-asserting soft reset gpio\n", __func__);
 	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
 						  soft_reset_direction);
+	if (!mdm_drv->mdm2ap_pblrdy)
+		goto start_mdm_peripheral;
 
+	for (i = 0; i  < MDM_PBLRDY_CNT; i++) {
+		pblrdy = gpio_get_value(mdm_drv->mdm2ap_pblrdy);
+		if (pblrdy)
+			break;
+		usleep_range(5000, 5000);
+	}
+
+	pr_debug("%s: i:%d\n", __func__, i);
+
+start_mdm_peripheral:
 	mdm_peripheral_connect(mdm_drv);
 	msleep(200);
 }
@@ -127,6 +142,8 @@ static void mdm_do_soft_power_on(struct mdm_modem_drv *mdm_drv)
 {
 	int soft_reset_direction =
 		mdm_drv->pdata->soft_reset_inverted ? 0 : 1;
+	int i;
+	int pblrdy;
 
 	/* De-assert the soft reset line. */
 	pr_err("%s: soft resetting mdm modem\n", __func__);
@@ -139,6 +156,19 @@ static void mdm_do_soft_power_on(struct mdm_modem_drv *mdm_drv)
 	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
 		soft_reset_direction == 1 ? 1 : 0);
 
+	if (!mdm_drv->mdm2ap_pblrdy)
+		goto start_mdm_peripheral;
+
+	for (i = 0; i  < MDM_PBLRDY_CNT; i++) {
+		pblrdy = gpio_get_value(mdm_drv->mdm2ap_pblrdy);
+		if (pblrdy)
+			break;
+		usleep_range(5000, 5000);
+	}
+
+	pr_debug("%s: i:%d\n", __func__, i);
+
+start_mdm_peripheral:
 	mdm_peripheral_connect(mdm_drv);
 	msleep(200);
 }

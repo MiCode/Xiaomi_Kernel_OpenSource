@@ -2273,6 +2273,7 @@ struct msm_mpm_device_data apq8064_mpm_dev_data __initdata = {
 #define AP2MDM_STATUS			48
 #define AP2MDM_SOFT_RESET		27
 #define AP2MDM_WAKEUP			35
+#define MDM2AP_PBLRDY			46
 
 static struct resource mdm_resources[] = {
 	{
@@ -2309,6 +2310,12 @@ static struct resource mdm_resources[] = {
 		.start	= AP2MDM_WAKEUP,
 		.end	= AP2MDM_WAKEUP,
 		.name	= "AP2MDM_WAKEUP",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_PBLRDY,
+		.end	= MDM2AP_PBLRDY,
+		.name	= "MDM2AP_PBLRDY",
 		.flags	= IORESOURCE_IO,
 	},
 };

@@ -340,6 +340,14 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t mdm_pblrdy_change(int irq, void *dev_id)
+{
+	pr_info("%s: pbl ready:%d\n", __func__,
+			gpio_get_value(mdm_drv->mdm2ap_pblrdy));
+
+	return IRQ_HANDLED;
+}
+
 static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 {
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
@@ -497,6 +505,12 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 	if (pres)
 		mdm_drv->ap2mdm_pmic_pwr_en_gpio = pres->start;
 
+	/* MDM2AP_PBLRDY */
+	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
+							"MDM2AP_PBLRDY");
+	if (pres)
+		mdm_drv->mdm2ap_pblrdy = pres->start;
+
 	mdm_drv->boot_type                  = CHARM_NORMAL_BOOT;
 
 	mdm_drv->ops      = mdm_ops;
@@ -524,6 +538,8 @@ int mdm_common_create(struct platform_device  *pdev,
 		gpio_request(mdm_drv->ap2mdm_kpdpwr_n_gpio, "AP2MDM_KPDPWR_N");
 	gpio_request(mdm_drv->mdm2ap_status_gpio, "MDM2AP_STATUS");
 	gpio_request(mdm_drv->mdm2ap_errfatal_gpio, "MDM2AP_ERRFATAL");
+	if (mdm_drv->mdm2ap_pblrdy > 0)
+		gpio_request(mdm_drv->mdm2ap_pblrdy, "MDM2AP_PBLRDY");
 
 	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
 		gpio_request(mdm_drv->ap2mdm_pmic_pwr_en_gpio,
@@ -612,6 +628,27 @@ errfatal_err:
 	mdm_drv->mdm_status_irq = irq;
 
 status_err:
+	if (mdm_drv->mdm2ap_pblrdy > 0) {
+		irq = MSM_GPIO_TO_INT(mdm_drv->mdm2ap_pblrdy);
+		if (irq < 0) {
+			pr_err("%s: could not get MDM2AP_PBLRDY IRQ resource",
+				__func__);
+			goto pblrdy_err;
+		}
+
+		ret = request_threaded_irq(irq, NULL, mdm_pblrdy_change,
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
+			IRQF_SHARED,
+			"mdm pbl ready", mdm_drv);
+
+		if (ret < 0) {
+			pr_err("%s: MDM2AP_PBL IRQ#%d request failed error=%d",
+				__func__, irq, ret);
+			goto pblrdy_err;
+		}
+	}
+
+pblrdy_err:
 	/*
 	 * If AP2MDM_PMIC_PWR_EN gpio is used, pull it high. It remains
 	 * high until the whole phone is shut down.
