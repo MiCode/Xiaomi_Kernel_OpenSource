@@ -4539,7 +4539,6 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	hdmi_msm_state->hdcp_timer.data = (uint32)NULL;
 
 	hdmi_msm_state->hdcp_timer.expires = 0xffffffffL;
-	add_timer(&hdmi_msm_state->hdcp_timer);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
