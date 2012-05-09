@@ -708,6 +708,13 @@ kgsl_gpummu_get_current_ptbase(struct kgsl_mmu *mmu)
 	return ptbase;
 }
 
+static unsigned int
+kgsl_gpummu_pt_get_base_addr(struct kgsl_pagetable *pt)
+{
+	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
+	return gpummu_pt->base.gpuaddr;
+}
+
 struct kgsl_mmu_ops gpummu_ops = {
 	.mmu_init = kgsl_gpummu_init,
 	.mmu_close = kgsl_gpummu_close,
@@ -728,4 +735,5 @@ struct kgsl_mmu_pt_ops gpummu_pt_ops = {
 	.mmu_create_pagetable = kgsl_gpummu_create_pagetable,
 	.mmu_destroy_pagetable = kgsl_gpummu_destroy_pagetable,
 	.mmu_pt_equal = kgsl_gpummu_pt_equal,
+	.mmu_pt_get_base_addr = kgsl_gpummu_pt_get_base_addr,
 };

@@ -876,4 +876,5 @@ struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.mmu_create_pagetable = kgsl_iommu_create_pagetable,
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.mmu_pt_equal = kgsl_iommu_pt_equal,
+	.mmu_pt_get_base_addr = kgsl_iommu_pt_get_base_addr,
 };

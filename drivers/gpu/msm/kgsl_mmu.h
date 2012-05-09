@@ -148,6 +148,8 @@ struct kgsl_mmu_pt_ops {
 	void (*mmu_destroy_pagetable) (void *pt);
 	int (*mmu_pt_equal) (struct kgsl_pagetable *pt,
 			unsigned int pt_base);
+	unsigned int (*mmu_pt_get_base_addr)
+			(struct kgsl_pagetable *pt);
 };
 
 struct kgsl_mmu {
@@ -235,6 +237,14 @@ static inline int kgsl_mmu_pt_equal(struct kgsl_pagetable *pt,
 		return 1;
 	else
 		return pt->pt_ops->mmu_pt_equal(pt, pt_base);
+}
+
+static inline unsigned int kgsl_mmu_pt_get_base_addr(struct kgsl_pagetable *pt)
+{
+	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_get_mmutype())
+		return 0;
+	else
+		return pt->pt_ops->mmu_pt_get_base_addr(pt);
 }
 
 #endif /* __KGSL_MMU_H */
