@@ -54,7 +54,6 @@ struct kgsl_pwrctrl {
 	uint32_t pcl;
 	unsigned int nap_allowed;
 	unsigned int idle_needed;
-	const char *regulator_name;
 	const char *irq_name;
 	s64 time;
 	struct kgsl_busy busy;

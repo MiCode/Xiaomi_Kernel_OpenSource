@@ -1345,8 +1345,8 @@ struct platform_device msm_kgsl_2d0 = {
 };
 
 struct platform_device *msm_footswitch_devices[] = {
-	FS_PCOM(FS_GFX2D0, "fs_gfx2d0", NULL),
-	FS_PCOM(FS_GFX3D,  "fs_gfx3d",  NULL),
+	FS_PCOM(FS_GFX2D0, "vdd", "kgsl-2d0.0"),
+	FS_PCOM(FS_GFX3D,  "vdd", "kgsl-3d0.0"),
 	FS_PCOM(FS_MDP,    "fs_mdp",    NULL),
 	FS_PCOM(FS_MFC,    "fs_mfc",    NULL),
 	FS_PCOM(FS_ROT,    "fs_rot",    NULL),
