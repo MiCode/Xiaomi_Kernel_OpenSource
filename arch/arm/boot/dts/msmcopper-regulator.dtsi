@@ -20,6 +20,7 @@
 				regulator-max-microvolt = <1300000>;
 				qcom,enable-time = <500>;
 				qcom,pull-down-enable = <1>;
+				regulator-always-on;
 				status = "okay";
 			};
 
@@ -36,6 +37,7 @@
 				regulator-max-microvolt = <1800000>;
 				qcom,enable-time = <500>;
 				qcom,pull-down-enable = <1>;
+				regulator-always-on;
 				status = "okay";
 			};
 
@@ -52,6 +54,7 @@
 				regulator-max-microvolt = <1225000>;
 				qcom,enable-time = <200>;
 				qcom,pull-down-enable = <1>;
+				regulator-always-on;
 				status = "okay";
 			};
 
@@ -292,6 +295,7 @@
 				regulator-max-microvolt = <1150000>;
 				qcom,enable-time = <500>;
 				qcom,pull-down-enable = <1>;
+				regulator-always-on;
 				status = "okay";
 			};
 
@@ -300,6 +304,7 @@
 				regulator-max-microvolt = <1150000>;
 				qcom,enable-time = <500>;
 				qcom,pull-down-enable = <1>;
+				regulator-always-on;
 				status = "okay";
 			};
 
@@ -324,6 +329,7 @@
 				regulator-max-microvolt = <1100000>;
 				qcom,enable-time = <500>;
 				qcom,pull-down-enable = <1>;
+				regulator-always-on;
 				status = "okay";
 			};
 
