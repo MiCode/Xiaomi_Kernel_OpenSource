@@ -1817,44 +1817,45 @@ static void msm_bus_bimc_update_bw(struct msm_bus_inode_info *hop,
 		info->node_info->id, info->node_info->priv_id, add_bw);
 
 	binfo = (struct msm_bus_bimc_info *)fab_pdata->hw_data;
-	if (!info->node_info->qport) {
-		MSM_BUS_DBG("No qos ports to update!\n");
-		return;
-	}
 
 	if (info->node_info->num_mports == 0) {
 		MSM_BUS_DBG("BIMC: Skip Master BW\n");
 		goto skip_mas_bw;
 	}
 
+	ports = info->node_info->num_mports;
 	bw = INTERLEAVED_BW(fab_pdata, add_bw, ports);
-	ports = INTERLEAVED_VAL(fab_pdata, ports);
 
 	for (i = 0; i < ports; i++) {
-		MSM_BUS_DBG("qport: %d\n", info->node_info->qport[i]);
 		sel_cd->mas[info->node_info->masterp[i]].bw += bw;
 		sel_cd->mas[info->node_info->masterp[i]].hw_id =
 			info->node_info->mas_hw_id;
-		qbw.bw = sel_cd->mas[info->node_info->masterp[i]].bw;
-		qbw.ws = info->node_info->ws;
-		/* Threshold low = 90% of bw */
-		qbw.thl = (90 * bw) / 100;
-		/* Threshold medium = bw */
-		qbw.thm = bw;
-		/* Threshold high = 10% more than bw */
-		qbw.thh = (110 * bw) / 100;
-		/* Check if info is a shared master.
-		 * If it is, mark it dirty
-		 * If it isn't, then set QOS Bandwidth
-		 **/
-		MSM_BUS_DBG("BIMC: Update mas_bw for ID: %d -> %ld\n",
+		MSM_BUS_DBG("BIMC: Update mas_bw for ID: %d -> %llu\n",
 			info->node_info->priv_id,
 			sel_cd->mas[info->node_info->masterp[i]].bw);
 		if (info->node_info->hw_sel == MSM_BUS_RPM)
 			sel_cd->mas[info->node_info->masterp[i]].dirty = 1;
-		else
+		else {
+			if (!info->node_info->qport) {
+				MSM_BUS_DBG("No qos ports to update!\n");
+				break;
+			}
+			MSM_BUS_DBG("qport: %d\n", info->node_info->qport[i]);
+			qbw.bw = sel_cd->mas[info->node_info->masterp[i]].bw;
+			qbw.ws = info->node_info->ws;
+			/* Threshold low = 90% of bw */
+			qbw.thl = (90 * bw) / 100;
+			/* Threshold medium = bw */
+			qbw.thm = bw;
+			/* Threshold high = 10% more than bw */
+			qbw.thh = (110 * bw) / 100;
+			/* Check if info is a shared master.
+			 * If it is, mark it dirty
+			 * If it isn't, then set QOS Bandwidth
+			 **/
 			msm_bus_bimc_set_qos_bw(binfo,
 				info->node_info->qport[i], &qbw);
+		}
 	}
 
 skip_mas_bw:
@@ -1870,7 +1871,7 @@ skip_mas_bw:
 		sel_cd->slv[hop->node_info->slavep[i]].bw += bw;
 		sel_cd->slv[hop->node_info->slavep[i]].hw_id =
 			hop->node_info->slv_hw_id;
-		MSM_BUS_DBG("BIMC: Update slave_bw: ID: %d -> %ld\n",
+		MSM_BUS_DBG("BIMC: Update slave_bw: ID: %d -> %llu\n",
 			hop->node_info->priv_id,
 			sel_cd->slv[hop->node_info->slavep[i]].bw);
 		MSM_BUS_DBG("BIMC: Update slave_bw: index: %d\n",
@@ -1893,6 +1894,7 @@ static int msm_bus_bimc_commit(struct msm_bus_fabric_registration
 	*fab_pdata, void *hw_data, void **cdata)
 {
 	MSM_BUS_DBG("\nReached BIMC Commit\n");
+	msm_bus_remote_hw_commit(fab_pdata, hw_data, cdata);
 	return 0;
 }
 

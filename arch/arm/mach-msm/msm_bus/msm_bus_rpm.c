@@ -946,6 +946,12 @@ static int msm_bus_rpm_port_unhalt(uint32_t haltid, uint8_t mport)
 	return status;
 }
 
+int msm_bus_remote_hw_commit(struct msm_bus_fabric_registration
+	*fab_pdata, void *hw_data, void **cdata)
+{
+	return 0;
+}
+
 int msm_bus_rpm_hw_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo)
 {
