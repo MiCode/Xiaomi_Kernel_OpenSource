@@ -159,7 +159,7 @@ int msm_gemini_platform_init(struct platform_device *pdev,
 	if (pgmn_dev->hw_version != GEMINI_7X) {
 		if (pgmn_dev->gemini_fs == NULL) {
 			pgmn_dev->gemini_fs =
-				regulator_get(&pgmn_dev->pdev->dev, "fs_ijpeg");
+				regulator_get(&pgmn_dev->pdev->dev, "vdd");
 			if (IS_ERR(pgmn_dev->gemini_fs)) {
 				pr_err("%s: Regulator FS_ijpeg get failed %ld\n",
 					__func__, PTR_ERR(pgmn_dev->gemini_fs));

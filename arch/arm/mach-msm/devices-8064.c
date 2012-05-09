@@ -1621,13 +1621,13 @@ static struct fs_driver_data vcap_fs_data = {
 };
 
 struct platform_device *apq8064_footswitch[] __initdata = {
-	FS_8X60(FS_ROT,    "fs_rot",	NULL,	&rot_fs_data),
-	FS_8X60(FS_IJPEG,  "fs_ijpeg",	NULL,	&ijpeg_fs_data),
+	FS_8X60(FS_ROT,    "vdd",	"msm_rotator.0", &rot_fs_data),
+	FS_8X60(FS_IJPEG,  "vdd",	"msm_gemini.0",	&ijpeg_fs_data),
 	FS_8X60(FS_VFE,    "fs_vfe",	NULL,	&vfe_fs_data),
 	FS_8X60(FS_VPE,    "fs_vpe",	NULL,	&vpe_fs_data),
 	FS_8X60(FS_GFX3D,  "vdd",	"kgsl-3d0.0",	&gfx3d_fs_data),
 	FS_8X60(FS_VED,    "vdd",	"msm_vidc.0",	&ved_fs_data),
-	FS_8X60(FS_VCAP,   "fs_vcap",	NULL,	&vcap_fs_data),
+	FS_8X60(FS_VCAP,   "vdd",	"msm_vcap.0",	&vcap_fs_data),
 };
 unsigned apq8064_num_footswitch __initdata = ARRAY_SIZE(apq8064_footswitch);
 
