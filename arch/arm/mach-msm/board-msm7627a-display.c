@@ -577,90 +577,98 @@ static struct platform_device mipi_dsi_renesas_panel_device = {
 };
 #endif
 
-static int evb_backlight_control(int level)
+static int evb_backlight_control(int level, int mode)
 {
 
 	int i = 0;
-	int remainder;
+	int remainder, ret = 0;
+
 	/* device address byte = 0x72 */
-	gpio_set_value(96, 0);
-	udelay(67);
-	gpio_set_value(96, 1);
-	udelay(33);
-	gpio_set_value(96, 0);
-	udelay(33);
-	gpio_set_value(96, 1);
-	udelay(67);
-	gpio_set_value(96, 0);
-	udelay(33);
-	gpio_set_value(96, 1);
-	udelay(67);
-	gpio_set_value(96, 0);
-	udelay(33);
-	gpio_set_value(96, 1);
-	udelay(67);
-	gpio_set_value(96, 0);
-	udelay(67);
-	gpio_set_value(96, 1);
-	udelay(33);
-	gpio_set_value(96, 0);
-	udelay(67);
-	gpio_set_value(96, 1);
-	udelay(33);
-	gpio_set_value(96, 0);
-	udelay(33);
-	gpio_set_value(96, 1);
-	udelay(67);
-	gpio_set_value(96, 0);
-	udelay(67);
-	gpio_set_value(96, 1);
-	udelay(33);
+	if (!mode) {
+		gpio_set_value(96, 0);
+		udelay(67);
+		gpio_set_value(96, 1);
+		udelay(33);
+		gpio_set_value(96, 0);
+		udelay(33);
+		gpio_set_value(96, 1);
+		udelay(67);
+		gpio_set_value(96, 0);
+		udelay(33);
+		gpio_set_value(96, 1);
+		udelay(67);
+		gpio_set_value(96, 0);
+		udelay(33);
+		gpio_set_value(96, 1);
+		udelay(67);
+		gpio_set_value(96, 0);
+		udelay(67);
+		gpio_set_value(96, 1);
+		udelay(33);
+		gpio_set_value(96, 0);
+		udelay(67);
+		gpio_set_value(96, 1);
+		udelay(33);
+		gpio_set_value(96, 0);
+		udelay(33);
+		gpio_set_value(96, 1);
+		udelay(67);
+		gpio_set_value(96, 0);
+		udelay(67);
+		gpio_set_value(96, 1);
+		udelay(33);
 
-	/* t-EOS and t-start */
-	gpio_set_value(96, 0);
-	ndelay(4200);
-	gpio_set_value(96, 1);
-	ndelay(9000);
+		/* t-EOS and t-start */
+		gpio_set_value(96, 0);
+		ndelay(4200);
+		gpio_set_value(96, 1);
+		ndelay(9000);
 
-	/* data byte */
-	/* RFA = 0 */
-	gpio_set_value(96, 0);
-	udelay(67);
-	gpio_set_value(96, 1);
-	udelay(33);
+		/* data byte */
+		/* RFA = 0 */
+		gpio_set_value(96, 0);
+		udelay(67);
+		gpio_set_value(96, 1);
+		udelay(33);
 
-	/* Address bits */
-	gpio_set_value(96, 0);
-	udelay(67);
-	gpio_set_value(96, 1);
-	udelay(33);
-	gpio_set_value(96, 0);
-	udelay(67);
-	gpio_set_value(96, 1);
-	udelay(33);
+		/* Address bits */
+		gpio_set_value(96, 0);
+		udelay(67);
+		gpio_set_value(96, 1);
+		udelay(33);
+		gpio_set_value(96, 0);
+		udelay(67);
+		gpio_set_value(96, 1);
+		udelay(33);
 
-	/* Data bits */
-	for (i = 0; i < 5; i++) {
-		remainder = (level) & (16);
-		if (remainder) {
-			gpio_set_value(96, 0);
-			udelay(33);
-			gpio_set_value(96, 1);
-			udelay(67);
-		} else {
-			gpio_set_value(96, 0);
-			udelay(67);
-			gpio_set_value(96, 1);
-			udelay(33);
+		/* Data bits */
+		for (i = 0; i < 5; i++) {
+			remainder = (level) & (16);
+			if (remainder) {
+				gpio_set_value(96, 0);
+				udelay(33);
+				gpio_set_value(96, 1);
+				udelay(67);
+			} else {
+				gpio_set_value(96, 0);
+				udelay(67);
+				gpio_set_value(96, 1);
+				udelay(33);
+			}
+			level = level << 1;
 		}
-		level = level << 1;
+
+		/* t-EOS */
+		gpio_set_value(96, 0);
+		ndelay(12000);
+		gpio_set_value(96, 1);
+	} else {
+		ret = pmapp_disp_backlight_set_brightness(level);
+		 if (ret)
+			pr_err("%s: can't set lcd backlight!\n", __func__);
 	}
 
-	/* t-EOS */
-	gpio_set_value(96, 0);
-	ndelay(12000);
-	gpio_set_value(96, 1);
-	return 0;
+	return ret;
 }
 
 static int mipi_NT35510_rotate_panel(void)
@@ -685,7 +693,7 @@ static struct platform_device mipi_dsi_truly_panel_device = {
 };
 
 static struct msm_panel_common_pdata mipi_NT35510_pdata = {
-	.pmic_backlight = evb_backlight_control,
+	.backlight    = evb_backlight_control,
 	.rotate_panel = mipi_NT35510_rotate_panel,
 };
 
@@ -698,7 +706,7 @@ static struct platform_device mipi_dsi_NT35510_panel_device = {
 };
 
 static struct msm_panel_common_pdata mipi_NT35516_pdata = {
-	.pmic_backlight = evb_backlight_control,
+	.backlight = evb_backlight_control,
 };
 
 static struct platform_device mipi_dsi_NT35516_panel_device = {
@@ -1141,6 +1149,7 @@ static int mipi_dsi_panel_qrd3_power(int on)
 	static struct regulator *gpio_reg_2p85v, *gpio_reg_1p8v;
 
 	if (!qrd3_dsi_gpio_initialized) {
+		pmapp_disp_backlight_init();
 		rc = gpio_request(GPIO_QRD3_LCD_BACKLIGHT_EN,
 			"qrd3_gpio_bkl_en");
 		if (rc < 0)
