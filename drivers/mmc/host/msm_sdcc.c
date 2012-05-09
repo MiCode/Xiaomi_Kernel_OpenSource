@@ -1021,11 +1021,8 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 	if (/*interrupt*/0)
 		*c |= MCI_CPSM_INTERRUPT;
 
-	if (cmd->opcode == MMC_READ_SINGLE_BLOCK ||
-		cmd->opcode == MMC_READ_MULTIPLE_BLOCK ||
-		cmd->opcode == MMC_WRITE_BLOCK ||
-		cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK ||
-		cmd->opcode == SD_IO_RW_EXTENDED)
+	/* DAT_CMD bit should be set for all ADTC */
+	if (mmc_cmd_type(cmd) == MMC_CMD_ADTC)
 		*c |= MCI_CSPM_DATCMD;
 
 	/* Check if AUTO CMD19 is required or not? */
