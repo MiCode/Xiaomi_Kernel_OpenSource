@@ -61,6 +61,7 @@
 
 #define JACK_DETECT_GPIO 38
 #define JACK_DETECT_INT PM8921_GPIO_IRQ(PM8921_IRQ_BASE, JACK_DETECT_GPIO)
+#define JACK_US_EURO_SEL_GPIO 35
 
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
 static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
@@ -93,6 +94,7 @@ MODULE_PARM_DESC(hs_detect_use_firmware, "Use firmware for headset detection");
 
 static int msm8960_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
+static bool msm8960_swap_gnd_mic(struct snd_soc_codec *codec);
 
 static struct tabla_mbhc_config mbhc_cfg = {
 	.headset_jack = &hs_jack,
@@ -105,7 +107,10 @@ static struct tabla_mbhc_config mbhc_cfg = {
 	.gpio = 0,
 	.gpio_irq = 0,
 	.gpio_level_insert = 1,
+	.swap_gnd_mic = NULL,
 };
+
+static u32 us_euro_sel_gpio = PM8921_GPIO_PM_TO_SYS(JACK_US_EURO_SEL_GPIO);
 
 static struct mutex cdc_mclk_mutex;
 
@@ -372,6 +377,15 @@ static int msm8960_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 	}
 	mutex_unlock(&cdc_mclk_mutex);
 	return r;
+}
+
+static bool msm8960_swap_gnd_mic(struct snd_soc_codec *codec)
+{
+	int value = gpio_get_value_cansleep(us_euro_sel_gpio);
+	pr_debug("%s: US EURO select switch %d to %d\n", __func__, value,
+		 !value);
+	gpio_set_value_cansleep(us_euro_sel_gpio, !value);
+	return true;
 }
 
 static int msm8960_mclk_event(struct snd_soc_dapm_widget *w,
@@ -850,7 +864,7 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	err = snd_soc_jack_new(codec, "Headset Jack",
 			       (SND_JACK_HEADSET | SND_JACK_OC_HPHL |
-				SND_JACK_OC_HPHR),
+				SND_JACK_OC_HPHR | SND_JACK_UNSUPPORTED),
 			       &hs_jack);
 	if (err) {
 		pr_err("failed to create new jack\n");
@@ -866,6 +880,9 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 
+	if (machine_is_msm8960_cdp())
+		mbhc_cfg.swap_gnd_mic = msm8960_swap_gnd_mic;
+
 	if (hs_detect_use_gpio) {
 		mbhc_cfg.gpio = PM8921_GPIO_PM_TO_SYS(JACK_DETECT_GPIO);
 		mbhc_cfg.gpio_irq = JACK_DETECT_INT;
@@ -874,8 +891,8 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (mbhc_cfg.gpio) {
 		err = pm8xxx_gpio_config(mbhc_cfg.gpio, &jack_gpio_cfg);
 		if (err) {
-			pr_err("%s: pm8xxx_gpio_config failed %d\n", __func__,
-			       err);
+			pr_err("%s: pm8xxx_gpio_config JACK_DETECT failed %d\n",
+			       __func__, err);
 			return err;
 		}
 	}
@@ -1524,19 +1541,19 @@ static int msm8960_configure_headset_mic_gpios(void)
 	else
 		gpio_direction_output(PM8921_GPIO_PM_TO_SYS(23), 0);
 
-	ret = gpio_request(PM8921_GPIO_PM_TO_SYS(35), "US_EURO_SWITCH");
+	ret = gpio_request(us_euro_sel_gpio, "US_EURO_SWITCH");
 	if (ret) {
 		pr_err("%s: Failed to request gpio %d\n", __func__,
-			PM8921_GPIO_PM_TO_SYS(35));
+		       us_euro_sel_gpio);
 		gpio_free(PM8921_GPIO_PM_TO_SYS(23));
 		return ret;
 	}
-	ret = pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(35), &param);
+	ret = pm8xxx_gpio_config(us_euro_sel_gpio, &param);
 	if (ret)
 		pr_err("%s: Failed to configure gpio %d\n", __func__,
-			PM8921_GPIO_PM_TO_SYS(35));
+		       us_euro_sel_gpio);
 	else
-		gpio_direction_output(PM8921_GPIO_PM_TO_SYS(35), 0);
+		gpio_direction_output(us_euro_sel_gpio, 0);
 
 	return 0;
 }
@@ -1544,7 +1561,7 @@ static void msm8960_free_headset_mic_gpios(void)
 {
 	if (msm8960_headset_gpios_configured) {
 		gpio_free(PM8921_GPIO_PM_TO_SYS(23));
-		gpio_free(PM8921_GPIO_PM_TO_SYS(35));
+		gpio_free(us_euro_sel_gpio);
 	}
 }
 
