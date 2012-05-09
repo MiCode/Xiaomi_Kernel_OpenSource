@@ -92,7 +92,7 @@ static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
 	return ret;
 }
 
-static int __init msm_spm_dev_init(struct msm_spm_device *dev,
+static int __devinit msm_spm_dev_init(struct msm_spm_device *dev,
 		struct msm_spm_platform_data *data)
 {
 	int i, ret = -ENOMEM;
