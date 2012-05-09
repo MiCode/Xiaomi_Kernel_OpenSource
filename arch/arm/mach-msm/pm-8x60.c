@@ -29,6 +29,7 @@
 #include <linux/wakelock.h>
 #include <linux/delay.h>
 #include <mach/msm_iomap.h>
+#include <mach/socinfo.h>
 #include <mach/system.h>
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
@@ -612,6 +613,7 @@ EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
  *****************************************************************************/
 
 static struct msm_rpmrs_limits *msm_pm_idle_rs_limits;
+static bool msm_pm_use_qtimer;
 
 static void msm_pm_swfi(void)
 {
@@ -763,6 +765,28 @@ static bool msm_pm_power_collapse(bool from_idle)
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: return\n", cpu, __func__);
 	return collapsed;
+}
+
+static void msm_pm_qtimer_available(void)
+{
+	if (machine_is_copper())
+		msm_pm_use_qtimer = true;
+}
+
+static int64_t msm_pm_timer_enter_idle(void)
+{
+	if (msm_pm_use_qtimer)
+		return ktime_to_ns(tick_nohz_get_sleep_length());
+
+	return msm_timer_enter_idle();
+}
+
+static void msm_pm_timer_exit_idle(bool timer_halted)
+{
+	if (msm_pm_use_qtimer)
+		return;
+
+	msm_timer_exit_idle((int) timer_halted);
 }
 
 /******************************************************************************
@@ -919,13 +943,15 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		break;
 
 	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE: {
-		int64_t timer_expiration = msm_timer_enter_idle();
+		int64_t timer_expiration = 0;
 		bool timer_halted = false;
 		uint32_t sleep_delay;
 		int ret;
 		int notify_rpm =
 			(sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE);
 		int collapsed;
+
+		timer_expiration = msm_pm_timer_enter_idle();
 
 		sleep_delay = (uint32_t) msm_pm_convert_and_cap_time(
 			timer_expiration, MSM_PM_SLEEP_TICK_LIMIT);
@@ -944,8 +970,8 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 			msm_rpmrs_exit_sleep(msm_pm_idle_rs_limits, true,
 					notify_rpm, collapsed);
 		}
+		msm_pm_timer_exit_idle(timer_halted);
 
-		msm_timer_exit_idle((int) timer_halted);
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_POWER_COLLAPSE;
 #endif
@@ -1132,7 +1158,6 @@ static int msm_pm_enter(suspend_state_t state)
 			} else
 				time = 0;
 		}
-
 		msm_pm_add_stat(MSM_PM_STAT_SUSPEND, time);
 #endif /* CONFIG_MSM_IDLE_STATS */
 	} else if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE]) {
@@ -1176,11 +1201,10 @@ static int __init msm_pm_init(void)
 	pgd_t *pc_pgd;
 	pmd_t *pmd;
 	unsigned long pmdval;
-	unsigned int cpu;
 #ifdef CONFIG_MSM_IDLE_STATS
+	unsigned int cpu;
 	struct proc_dir_entry *d_entry;
 #endif
-
 	/* Page table for cores to come back up safely. */
 	pc_pgd = pgd_alloc(&init_mm);
 	if (!pc_pgd)
@@ -1258,10 +1282,12 @@ static int __init msm_pm_init(void)
 	}
 #endif  /* CONFIG_MSM_IDLE_STATS */
 
+
 	msm_pm_mode_sysfs_add();
 	msm_spm_allow_x_cpu_set_vdd(false);
 
 	suspend_set_ops(&msm_pm_ops);
+	msm_pm_qtimer_available();
 	msm_cpuidle_init();
 
 	return 0;

@@ -15,6 +15,10 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <asm/mach-types.h>
@@ -200,3 +204,69 @@ int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 
 	return ret;
 }
+
+static int __devinit msm_pm_boot_probe(struct platform_device *pdev)
+{
+	struct msm_pm_boot_platform_data pdata;
+	char *key = NULL;
+	uint32_t val = 0;
+	int ret = 0;
+	int flag = 0;
+
+	key = "qcom,mode";
+	ret = of_property_read_u32(pdev->dev.of_node, key, &val);
+	if (ret) {
+		pr_err("Unable to read boot mode Err(%d).\n", ret);
+		return -ENODEV;
+	}
+	pdata.mode = val;
+
+	key = "qcom,phy-addr";
+	ret = of_property_read_u32(pdev->dev.of_node, key, &val);
+	if (ret && pdata.mode == MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS)
+		goto fail;
+	if (!ret) {
+		pdata.p_addr = val;
+		flag++;
+	}
+
+	key = "qcom,virt-addr";
+	ret = of_property_read_u32(pdev->dev.of_node, key, &val);
+	if (ret && pdata.mode == MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT)
+		goto fail;
+	if (!ret) {
+		pdata.v_addr = (void *)val;
+		flag++;
+	}
+
+	if (pdata.mode == MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR && (flag != 2)) {
+		key = "addresses for boot remap";
+		goto fail;
+	}
+
+	return msm_pm_boot_init(&pdata);
+
+fail:
+	pr_err("Error reading %s\n", key);
+	return -EFAULT;
+}
+
+static struct of_device_id msm_pm_match_table[] = {
+	{.compatible = "qcom,pm-boot"},
+	{},
+};
+
+static struct platform_driver msm_pm_boot_driver = {
+	.probe = msm_pm_boot_probe,
+	.driver = {
+		.name = "pm-boot",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_pm_match_table,
+	},
+};
+
+static int __init msm_pm_boot_module_init(void)
+{
+	return platform_driver_register(&msm_pm_boot_driver);
+}
+module_init(msm_pm_boot_module_init);
