@@ -26,5 +26,6 @@ void msm_timer_exit_idle(int low_power);
 #else
 static inline int64_t msm_timer_enter_idle(void) { return 0; }
 static inline void msm_timer_exit_idle(int low_power) { return; }
+static inline int64_t msm_timer_get_sclk_time(int64_t *period) { return 0; }
 #endif
 #endif
