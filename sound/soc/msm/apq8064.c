@@ -62,7 +62,9 @@
 enum {
 	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
 	SLIM_1_TX_1 = 146, /* BT-SCO and USB RX */
-	SLIM_2_RX_1 = 147, /* HDMI RX */
+	SLIM_3_RX_1 = 151, /* External echo-cancellation ref */
+	SLIM_3_RX_2 = 152, /* External echo-cancellation ref */
+	SLIM_3_TX_1 = 147, /* HDMI RX */
 	SLIM_4_TX_1 = 148, /* In-call recording RX */
 	SLIM_4_TX_2 = 149, /* In-call recording RX */
 	SLIM_4_RX_1 = 150, /* In-call music delivery TX */
@@ -80,6 +82,7 @@ static int msm_ext_bottom_spk_pamp;
 static int msm_ext_top_spk_pamp;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
+static int msm_slim_3_rx_ch = 1;
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
@@ -636,6 +639,25 @@ static int msm_slim_0_tx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm_slim_3_rx_ch_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_slim_3_rx_ch  = %d\n", __func__,
+			msm_slim_3_rx_ch);
+	ucontrol->value.integer.value[0] = msm_slim_3_rx_ch - 1;
+	return 0;
+}
+
+static int msm_slim_3_rx_ch_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	msm_slim_3_rx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_slim_3_rx_ch = %d\n", __func__,
+			msm_slim_3_rx_ch);
+	return 1;
+}
+
 static int msm_btsco_rate_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -708,6 +730,24 @@ static int msm_btsco_init(struct snd_soc_pcm_runtime *rtd)
 	err = snd_soc_add_platform_controls(platform,
 			int_btsco_rate_mixer_controls,
 		ARRAY_SIZE(int_btsco_rate_mixer_controls));
+	if (err < 0)
+		return err;
+	return 0;
+}
+
+static const struct snd_kcontrol_new slim_3_mixer_controls[] = {
+	SOC_ENUM_EXT("SLIM_3_RX Channels", msm_enum[1],
+		msm_slim_3_rx_ch_get, msm_slim_3_rx_ch_put),
+};
+
+static int msm_slim_3_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int err = 0;
+	struct snd_soc_platform *platform = rtd->platform;
+
+	err = snd_soc_add_platform_controls(platform,
+			slim_3_mixer_controls,
+		ARRAY_SIZE(slim_3_mixer_controls));
 	if (err < 0)
 		return err;
 	return 0;
@@ -926,6 +966,35 @@ end:
 	return ret;
 }
 
+static int msm_slimbus_3_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch[2] = {SLIM_3_RX_1, SLIM_3_RX_2};
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s: slim_3_rx_ch %d, sch %d %d\n",
+			 __func__, msm_slim_3_rx_ch,
+				 rx_ch[0], rx_ch[1]);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0,
+				msm_slim_3_rx_ch, rx_ch);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_3 RX channel map\n",
+				__func__, ret);
+
+			goto end;
+		}
+	} else {
+		pr_err("%s: SLIMBUS_3_TX not defined for this DAI\n", __func__);
+	}
+
+end:
+	return ret;
+}
+
 static int msm_slimbus_4_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
@@ -1100,6 +1169,22 @@ static int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_slim_3_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+			struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+	SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_slim_3_rx_ch;
+
+	return 0;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
@@ -1261,6 +1346,12 @@ static struct snd_soc_ops msm_auxpcm_be_ops = {
 static struct snd_soc_ops msm_slimbus_1_be_ops = {
 	.startup = msm_startup,
 	.hw_params = msm_slimbus_1_hw_params,
+	.shutdown = msm_shutdown,
+};
+
+static struct snd_soc_ops msm_slimbus_3_be_ops = {
+	.startup = msm_startup,
+	.hw_params = msm_slimbus_3_hw_params,
 	.shutdown = msm_shutdown,
 };
 
@@ -1610,6 +1701,20 @@ static struct snd_soc_dai_link msm_dai[] = {
 		 */
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
 		.ops = &msm_be_ops,
+	},
+	{
+
+		.name = LPASS_BE_SLIMBUS_3_RX,
+		.stream_name = "Slimbus3 Playback",
+		.cpu_dai_name = "msm-dai-q6.16390",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.init = &msm_slim_3_init,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_RX,
+		.be_hw_params_fixup = msm_slim_3_rx_be_hw_params_fixup,
+		.ops = &msm_slimbus_3_be_ops,
 	},
 };
 
