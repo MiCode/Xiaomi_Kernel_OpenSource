@@ -386,6 +386,35 @@ DEFINE_EVENT(kgsl_mem_timestamp_template, kgsl_mem_timestamp_free,
 );
 
 
+TRACE_EVENT(kgsl_mmu_pagefault,
+
+	TP_PROTO(struct kgsl_device *device, unsigned int page,
+		 unsigned int pt, const char *op),
+
+	TP_ARGS(device, page, pt, op),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, page)
+		__field(unsigned int, pt)
+		__string(op, op)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->page = page;
+		__entry->pt = pt;
+		__assign_str(op, op);
+	),
+
+	TP_printk(
+		"d_name=%s page=0x%08x pt=%d op=%s\n",
+		__get_str(device_name), __entry->page, __entry->pt,
+		__get_str(op)
+	)
+);
+
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */
