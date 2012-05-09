@@ -34,6 +34,7 @@
 #include <linux/wait.h>
 #include <linux/wakelock.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
 #include <mach/debug_mm.h>
 #include <linux/debugfs.h>
 
@@ -70,6 +71,10 @@ static uint32_t rpc_adsp_rtos_mtoa_prog;
 static uint32_t rpc_adsp_rtos_mtoa_vers;
 static uint32_t rpc_adsp_rtos_mtoa_vers_comp;
 static DEFINE_MUTEX(adsp_open_lock);
+
+static struct workqueue_struct *msm_adsp_probe_work_queue;
+static void adsp_probe_work(struct work_struct *work);
+static DECLARE_WORK(msm_adsp_probe_work, adsp_probe_work);
 
 /* protect interactions with the ADSP command/message queue */
 static spinlock_t adsp_cmd_lock;
@@ -1230,8 +1235,8 @@ static int msm_adsp_probe(struct platform_device *pdev)
 		goto fail_rpc_register;
 	}
 
-	/* start the kernel thread to process the callbacks */
-	kthread_run(adsp_rpc_thread, NULL, "kadspd");
+	/* schedule start of kernel thread later using work queue */
+	queue_work(msm_adsp_probe_work_queue, &msm_adsp_probe_work);
 
 	for (i = 0; i < count; i++) {
 		struct msm_adsp_module *mod = adsp_modules + i;
@@ -1271,6 +1276,13 @@ fail_request_irq:
 	kfree(adsp_info.init_info_ptr);
 	return rc;
 }
+
+static void adsp_probe_work(struct work_struct *work)
+{
+	/* start the kernel thread to process the callbacks */
+	kthread_run(adsp_rpc_thread, NULL, "kadspd");
+}
+
 #ifdef CONFIG_DEBUG_FS
 static int get_parameters(char *buf, long int *param1, int num_of_par)
 {
@@ -1433,6 +1445,9 @@ static int __init adsp_init(void)
 	rpc_adsp_rtos_mtoa_vers_comp = 0x00030001;
 #endif
 
+	msm_adsp_probe_work_queue = create_workqueue("msm_adsp_probe");
+	if (msm_adsp_probe_work_queue == NULL)
+		return -ENOMEM;
 	msm_adsp_driver.driver.name = msm_adsp_driver_name;
 	rc = platform_driver_register(&msm_adsp_driver);
 	MM_INFO("%s -- %d\n", msm_adsp_driver_name, rc);
