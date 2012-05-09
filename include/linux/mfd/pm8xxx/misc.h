@@ -89,6 +89,12 @@ enum pm8xxx_aux_clk_div {
 	XO_DIV_64,
 };
 
+enum pm8xxx_hsed_bias {
+	PM8XXX_HSED_BIAS0,
+	PM8XXX_HSED_BIAS1,
+	PM8XXX_HSED_BIAS2,
+};
+
 #if defined(CONFIG_MFD_PM8XXX_MISC) || defined(CONFIG_MFD_PM8XXX_MISC_MODULE)
 
 /**
@@ -210,6 +216,14 @@ int pm8xxx_aux_clk_control(enum pm8xxx_aux_clk_id clk_id,
 				enum pm8xxx_aux_clk_div divider,
 				bool enable);
 
+/**
+ * pm8xxx_hsed_bias_control - Control the HSED_BIAS signal
+ * @bias: the bias line to be controlled (of the 3)
+ * @enable: enable/disable the bias line
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_hsed_bias_control(enum pm8xxx_hsed_bias bias, bool enable);
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)
@@ -256,6 +270,11 @@ static inline int pm8xxx_usb_id_pullup(int enable)
 }
 static inline int pm8xxx_aux_clk_control(enum pm8xxx_aux_clk_id clk_id,
 			enum pm8xxx_aux_clk_div divider, bool enable)
+{
+	return -ENODEV;
+}
+static inline int pm8xxx_hsed_bias_control(enum pm8xxx_hsed_bias bias,
+							bool enable)
 {
 	return -ENODEV;
 }

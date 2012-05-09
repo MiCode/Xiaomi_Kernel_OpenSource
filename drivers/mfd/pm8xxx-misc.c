@@ -145,6 +145,11 @@
 #define MP3_1_SHIFT	5
 #define MP3_2_SHIFT	2
 
+#define REG_HSED_BIAS0_CNTL2		0xA1
+#define REG_HSED_BIAS1_CNTL2		0x135
+#define REG_HSED_BIAS2_CNTL2		0x138
+#define HSED_EN_MASK			0xC0
+
 struct pm8xxx_misc_chip {
 	struct list_head			link;
 	struct pm8xxx_misc_platform_data	pdata;
@@ -1099,6 +1104,52 @@ int pm8xxx_aux_clk_control(enum pm8xxx_aux_clk_id clk_id,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_aux_clk_control);
+
+int pm8xxx_hsed_bias_control(enum pm8xxx_hsed_bias bias, bool enable)
+{
+	struct pm8xxx_misc_chip *chip;
+	unsigned long flags;
+	int rc = 0;
+	u16 addr;
+
+	switch (bias) {
+	case PM8XXX_HSED_BIAS0:
+		addr = REG_HSED_BIAS0_CNTL2;
+		break;
+	case PM8XXX_HSED_BIAS1:
+		addr = REG_HSED_BIAS1_CNTL2;
+		break;
+	case PM8XXX_HSED_BIAS2:
+		addr = REG_HSED_BIAS2_CNTL2;
+		break;
+	default:
+		pr_err("Invalid BIAS line\n");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+
+	/* Loop over all attached PMICs and call specific functions for them. */
+	list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+		switch (chip->version) {
+		case PM8XXX_VERSION_8058:
+		case PM8XXX_VERSION_8921:
+			rc = pm8xxx_misc_masked_write(chip, addr,
+				HSED_EN_MASK, enable ? HSED_EN_MASK : 0);
+			if (rc < 0)
+				pr_err("Enable HSED BIAS failed rc=%d\n", rc);
+			break;
+		default:
+			/* Functionality not supported */
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_hsed_bias_control);
 
 static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 {
