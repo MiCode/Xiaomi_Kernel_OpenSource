@@ -1952,11 +1952,14 @@ static int __init msm_pm_init(void)
 		clean_caches((unsigned long)&target_type, sizeof(target_type),
 				virt_to_phys(&target_type));
 
-		/* Override the DBGNOPOWERDN for each cpu in
-		 * MPA5_GDFS_CNT_VAL register
+		/*
+		 * Configure the MPA5_GDFS_CNT_VAL register for
+		 * DBGPWRUPEREQ_OVERRIDE[17:16] = Override the
+		 * DBGNOPOWERDN for each cpu.
+		 * MPA5_GDFS_CNT_VAL[9:0] = Delay counter for
+		 * GDFS control.
 		 */
-		val = __raw_readl((MSM_CFG_CTL_BASE + 0x38));
-		val = val | 0x00030000;
+		val = 0x00030002;
 		__raw_writel(val, (MSM_CFG_CTL_BASE + 0x38));
 	}
 
