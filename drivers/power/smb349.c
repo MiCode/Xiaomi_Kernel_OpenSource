@@ -86,11 +86,11 @@ struct smb349_struct {
 
 	int			en_n_gpio;
 	int			chg_susp_gpio;
-	struct dentry			*dent;
-	spinlock_t			lock;
-	struct work_struct			hwinit_work;
+	struct dentry		*dent;
+	spinlock_t		lock;
 
-	struct power_supply			dc_psy;
+	struct work_struct	chg_work;
+	struct power_supply	dc_psy;
 };
 
 struct chg_ma_limit_entry {
@@ -445,16 +445,17 @@ static int smb349_hwinit(struct smb349_struct *smb349_chg)
 static int smb349_stop_charging(struct smb349_struct *smb349_chg)
 {
 	unsigned long flags;
-
-	if (smb349_chg->charging)
-		gpio_set_value_cansleep(smb349_chg->en_n_gpio, 0);
+	int rc = 0;
 
 	spin_lock_irqsave(&smb349_chg->lock, flags);
 	pr_debug("stop charging %d\n", smb349_chg->charging);
 	smb349_chg->charging = 0;
 	spin_unlock_irqrestore(&smb349_chg->lock, flags);
-	power_supply_changed(&smb349_chg->dc_psy);
-	return 0;
+
+	if (smb349_chg->charging)
+		rc = schedule_work(&smb349_chg->chg_work);
+
+	return rc;
 }
 
 static int smb349_start_charging(struct smb349_struct *smb349_chg)
@@ -463,21 +464,14 @@ static int smb349_start_charging(struct smb349_struct *smb349_chg)
 	int rc;
 
 	rc = 0;
-	if (!smb349_chg->charging) {
-		gpio_set_value_cansleep(smb349_chg->en_n_gpio, 1);
-		/*
-		 * Write non-default values, charger chip reloads from
-		 * non-volatile memory if it was in suspend mode
-		 *
-		 */
-		rc = schedule_work(&smb349_chg->hwinit_work);
-	}
-
 	spin_lock_irqsave(&smb349_chg->lock, flags);
 	pr_debug("start charging %d\n", smb349_chg->charging);
 	smb349_chg->charging = 1;
 	spin_unlock_irqrestore(&smb349_chg->lock, flags);
-	power_supply_changed(&smb349_chg->dc_psy);
+
+	if (!smb349_chg->charging)
+		rc = schedule_work(&smb349_chg->chg_work);
+
 	return rc;
 }
 
@@ -522,15 +516,25 @@ static int pm_power_set_property(struct power_supply *psy,
 	return 0;
 }
 
-static void hwinit_worker(struct work_struct *work)
+static void chg_worker(struct work_struct *work)
 {
-	int ret;
 	struct smb349_struct *smb349_chg = container_of(work,
-				struct smb349_struct, hwinit_work);
+				struct smb349_struct, chg_work);
+	int ret = 0;
 
-	ret = smb349_hwinit(smb349_chg);
+	gpio_set_value_cansleep(smb349_chg->en_n_gpio, smb349_chg->charging);
+
+	/*
+	 * Write non-default values, charger chip reloads from
+	 * non-volatile memory if it was in suspend mode
+	 *
+	 */
+	if (smb349_chg->charging)
+		ret = smb349_hwinit(smb349_chg);
 	if (ret)
 		pr_err("Failed to re-initilaze registers\n");
+
+	power_supply_changed(&smb349_chg->dc_psy);
 }
 
 static int smb349_init_ext_chg(struct smb349_struct *smb349_chg)
@@ -614,7 +618,7 @@ static int smb349_probe(struct i2c_client *client,
 	the_smb349_chg = smb349_chg;
 
 	create_debugfs_entries(smb349_chg);
-	INIT_WORK(&smb349_chg->hwinit_work, hwinit_worker);
+	INIT_WORK(&smb349_chg->chg_work, chg_worker);
 
 	pr_info("OK connector present = %d\n", smb349_chg->present);
 	return 0;
@@ -634,7 +638,7 @@ static int smb349_remove(struct i2c_client *client)
 	const struct smb349_platform_data *pdata;
 	struct smb349_struct *smb349_chg = i2c_get_clientdata(client);
 
-	flush_work(&smb349_chg->hwinit_work);
+	flush_work(&smb349_chg->chg_work);
 	pdata = client->dev.platform_data;
 	power_supply_unregister(&smb349_chg->dc_psy);
 	gpio_free(pdata->en_n_gpio);
