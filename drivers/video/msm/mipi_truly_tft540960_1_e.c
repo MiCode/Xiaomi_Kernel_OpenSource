@@ -19,6 +19,8 @@ static struct msm_panel_common_pdata *mipi_truly_pdata;
 static struct dsi_buf truly_tx_buf;
 static struct dsi_buf truly_rx_buf;
 
+static int mipi_truly_bl_ctrl;
+
 #define TRULY_CMD_DELAY 0
 #define MIPI_SETTING_DELAY 10
 #define TRULY_SLEEP_OFF_DELAY 150
@@ -720,8 +722,64 @@ static int mipi_truly_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
+static ssize_t mipi_truly_wta_bl_ctrl(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int err;
+
+	err =  kstrtoint(buf, 0, &mipi_truly_bl_ctrl);
+	if (err)
+		return ret;
+
+	pr_info("%s: bl ctrl set to %d\n", __func__, mipi_truly_bl_ctrl);
+
+	return ret;
+}
+
+static DEVICE_ATTR(bl_ctrl, S_IWUSR, NULL, mipi_truly_wta_bl_ctrl);
+
+static struct attribute *mipi_truly_fs_attrs[] = {
+	&dev_attr_bl_ctrl.attr,
+	NULL,
+};
+
+static struct attribute_group mipi_truly_fs_attr_group = {
+	.attrs = mipi_truly_fs_attrs,
+};
+
+static int mipi_truly_create_sysfs(struct platform_device *pdev)
+{
+	int rc;
+	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
+
+	if (!mfd) {
+		pr_err("%s: mfd not found\n", __func__);
+		return -ENODEV;
+	}
+	if (!mfd->fbi) {
+		pr_err("%s: mfd->fbi not found\n", __func__);
+		return -ENODEV;
+	}
+	if (!mfd->fbi->dev) {
+		pr_err("%s: mfd->fbi->dev not found\n", __func__);
+		return -ENODEV;
+	}
+	rc = sysfs_create_group(&mfd->fbi->dev->kobj,
+		&mipi_truly_fs_attr_group);
+	if (rc) {
+		pr_err("%s: sysfs group creation failed, rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+
 static int mipi_truly_lcd_probe(struct platform_device *pdev)
 {
+	struct platform_device *pthisdev = NULL;
 	int rc = 0;
 
 	if (pdev->id == 0) {
@@ -731,7 +789,8 @@ static int mipi_truly_lcd_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	msm_fb_add_device(pdev);
+	pthisdev = msm_fb_add_device(pdev);
+	mipi_truly_create_sysfs(pthisdev);
 
 	return rc;
 }
@@ -743,6 +802,8 @@ static struct platform_driver this_driver = {
 	},
 };
 
+static int old_bl_level;
+
 static void mipi_truly_set_backlight(struct msm_fb_data_type *mfd)
 {
 	int bl_level;
@@ -750,11 +811,33 @@ static void mipi_truly_set_backlight(struct msm_fb_data_type *mfd)
 	bl_level = mfd->bl_level;
 
 	if (mipi_truly_pdata->bl_lock) {
-		spin_lock_irqsave(&mipi_truly_pdata->bl_spinlock, flags);
-		mipi_truly_pdata->pmic_backlight(bl_level);
-		spin_unlock_irqrestore(&mipi_truly_pdata->bl_spinlock, flags);
-	} else
-		mipi_truly_pdata->pmic_backlight(bl_level);
+		if (!mipi_truly_bl_ctrl) {
+			/* Level received is of range 1 to bl_max,
+			   We need to convert the levels to 1
+			   to 31 */
+			bl_level = (2 * bl_level * 31 + mfd->panel_info.bl_max)
+					/(2 * mfd->panel_info.bl_max);
+			if (bl_level == old_bl_level)
+				return;
+
+			if (bl_level == 0)
+				mipi_truly_pdata->backlight(0, 1);
+
+			if (old_bl_level == 0)
+				mipi_truly_pdata->backlight(50, 1);
+
+			spin_lock_irqsave(&mipi_truly_pdata->bl_spinlock,
+						flags);
+			mipi_truly_pdata->backlight(bl_level, 0);
+			spin_unlock_irqrestore(&mipi_truly_pdata->bl_spinlock,
+						flags);
+			old_bl_level = bl_level;
+		} else {
+			mipi_truly_pdata->backlight(bl_level, 1);
+		}
+	} else {
+		mipi_truly_pdata->backlight(bl_level, mipi_truly_bl_ctrl);
+	}
 }
 
 static struct msm_fb_panel_data truly_panel_data = {
