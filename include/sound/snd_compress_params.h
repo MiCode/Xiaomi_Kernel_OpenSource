@@ -72,6 +72,7 @@
 #define SND_AUDIOCODEC_AC3		     ((__u32) 0x0000000E)
 #define SND_AUDIOCODEC_DTS		     ((__u32) 0x0000000F)
 #define SND_AUDIOCODEC_AC3_PASS_THROUGH		((__u32) 0x00000010)
+#define SND_AUDIOCODEC_WMA_PRO               ((__u32) 0x000000011)
 /*
  * Profile and modes are listed with bit masks. This allows for a
  * more compact representation of fields that will not evolve

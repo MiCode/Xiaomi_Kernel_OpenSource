@@ -192,6 +192,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	struct msm_audio *prtd = &compr->prtd;
 	struct asm_aac_cfg aac_cfg;
 	struct asm_wma_cfg wma_cfg;
+	struct asm_wmapro_cfg wma_pro_cfg;
 	int ret;
 
 	pr_debug("compressed stream prepare\n");
@@ -247,6 +248,26 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 			compr->info.codec_param.codec.options.wma.encodeopt;
 		ret = q6asm_media_format_block_wma(prtd->audio_client,
 					&wma_cfg);
+		if (ret < 0)
+			pr_err("%s: CMD Format block failed\n", __func__);
+		break;
+	case SND_AUDIOCODEC_WMA_PRO:
+		pr_debug("SND_AUDIOCODEC_WMA_PRO\n");
+		memset(&wma_pro_cfg, 0x0, sizeof(struct asm_wmapro_cfg));
+		wma_pro_cfg.format_tag = compr->info.codec_param.codec.format;
+		wma_pro_cfg.ch_cfg = compr->info.codec_param.codec.ch_in;
+		wma_pro_cfg.sample_rate = runtime->rate;
+		wma_pro_cfg.avg_bytes_per_sec =
+			compr->info.codec_param.codec.bit_rate/8;
+		wma_pro_cfg.block_align = compr->info.codec_param.codec.align;
+		wma_pro_cfg.valid_bits_per_sample =
+		compr->info.codec_param.codec.options.wma.bits_per_sample;
+		wma_pro_cfg.ch_mask =
+			compr->info.codec_param.codec.options.wma.channelmask;
+		wma_pro_cfg.encode_opt =
+			compr->info.codec_param.codec.options.wma.encodeopt;
+		ret = q6asm_media_format_block_wmapro(prtd->audio_client,
+				&wma_pro_cfg);
 		if (ret < 0)
 			pr_err("%s: CMD Format block failed\n", __func__);
 		break;
@@ -316,6 +337,7 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	compr->info.compr_cap.codecs[2] = SND_AUDIOCODEC_AC3_PASS_THROUGH;
 	compr->info.compr_cap.codecs[3] = SND_AUDIOCODEC_WMA;
+	compr->info.compr_cap.codecs[4] = SND_AUDIOCODEC_WMA_PRO;
 	/* Add new codecs here */
 }
 
@@ -637,6 +659,10 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_WMA:
 			pr_debug("SND_AUDIOCODEC_WMA\n");
 			compr->codec = FORMAT_WMA_V9;
+			break;
+		case SND_AUDIOCODEC_WMA_PRO:
+			pr_debug("SND_AUDIOCODEC_WMA_PRO\n");
+			compr->codec = FORMAT_WMA_V10PRO;
 			break;
 		default:
 			pr_debug("FORMAT_LINEAR_PCM\n");
