@@ -409,6 +409,7 @@ void __init msm_copper_add_devices(void)
  */
 void __init msm_copper_add_drivers(void)
 {
+	msm_smd_init();
 	msm_spm_device_init();
 	regulator_stub_init();
 }
