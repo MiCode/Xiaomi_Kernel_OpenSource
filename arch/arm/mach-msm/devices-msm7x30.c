@@ -1345,13 +1345,13 @@ struct platform_device msm_kgsl_2d0 = {
 };
 
 struct platform_device *msm_footswitch_devices[] = {
-	FS_PCOM(FS_GFX2D0, "fs_gfx2d0"),
-	FS_PCOM(FS_GFX3D,  "fs_gfx3d"),
-	FS_PCOM(FS_MDP,    "fs_mdp"),
-	FS_PCOM(FS_MFC,    "fs_mfc"),
-	FS_PCOM(FS_ROT,    "fs_rot"),
-	FS_PCOM(FS_VFE,    "fs_vfe"),
-	FS_PCOM(FS_VPE,    "fs_vpe"),
+	FS_PCOM(FS_GFX2D0, "fs_gfx2d0", NULL),
+	FS_PCOM(FS_GFX3D,  "fs_gfx3d",  NULL),
+	FS_PCOM(FS_MDP,    "fs_mdp",    NULL),
+	FS_PCOM(FS_MFC,    "fs_mfc",    NULL),
+	FS_PCOM(FS_ROT,    "fs_rot",    NULL),
+	FS_PCOM(FS_VFE,    "fs_vfe",    NULL),
+	FS_PCOM(FS_VPE,    "fs_vpe",    NULL),
 };
 unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 

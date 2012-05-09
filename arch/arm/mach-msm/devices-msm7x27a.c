@@ -929,7 +929,7 @@ static struct platform_device msm_device_gpio = {
 };
 
 struct platform_device *msm_footswitch_devices[] = {
-	FS_PCOM(FS_GFX3D,  "fs_gfx3d"),
+	FS_PCOM(FS_GFX3D,  "fs_gfx3d", NULL),
 };
 unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
