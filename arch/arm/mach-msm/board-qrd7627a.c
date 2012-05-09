@@ -808,7 +808,8 @@ static void __init msm_add_footswitch_devices(void)
 
 static void __init add_platform_devices(void)
 {
-	if (machine_is_msm8625_evb() || machine_is_msm8625_qrd7()) {
+	if (machine_is_msm8625_evb() || machine_is_msm8625_qrd7()
+				|| machine_is_msm8625_evt()) {
 		platform_add_devices(msm8625_evb_devices,
 				ARRAY_SIZE(msm8625_evb_devices));
 		platform_add_devices(qrd3_devices,
@@ -957,6 +958,16 @@ MACHINE_START(MSM8625_EVB, "QRD MSM8625 EVB")
 	.handle_irq	= gic_handle_irq,
 MACHINE_END
 MACHINE_START(MSM8625_QRD7, "QRD MSM8625 QRD7")
+	.boot_params	= PHYS_OFFSET + 0x100,
+	.map_io		= msm8625_map_io,
+	.reserve	= msm8625_reserve,
+	.init_irq	= msm8625_init_irq,
+	.init_machine	= msm_qrd_init,
+	.timer		= &msm_timer,
+	.init_early	= qrd7627a_init_early,
+	.handle_irq	= gic_handle_irq,
+MACHINE_END
+MACHINE_START(MSM8625_EVT, "QRD MSM8625 EVT")
 	.boot_params	= PHYS_OFFSET + 0x100,
 	.map_io		= msm8625_map_io,
 	.reserve	= msm8625_reserve,

@@ -500,6 +500,9 @@ static int msm_fb_detect_panel(const char *name)
 	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
 		if (!strncmp(name, "mipi_cmd_nt35510_wvga", 21))
 			ret = 0;
+	} else if (machine_is_msm8625_evt()) {
+		if (!strncmp(name, "mipi_video_nt35510_wvga", 23))
+			ret = 0;
 	}
 
 #if !defined(CONFIG_FB_MSM_LCDC_AUTO_DETECT) && \
@@ -733,7 +736,8 @@ void __init msm_msm7627a_allocate_memory_regions(void)
 
 	if (machine_is_msm7625a_surf() || machine_is_msm7625a_ffa())
 		fb_size = MSM7x25A_MSM_FB_SIZE;
-	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+						|| machine_is_msm8625_evt())
 		fb_size = MSM8x25_MSM_FB_SIZE;
 	else
 		fb_size = MSM_FB_SIZE;
@@ -947,7 +951,8 @@ static int msm_fb_dsi_client_reset(void)
 
 	if (machine_is_msm7627a_qrd1())
 		rc = msm_fb_dsi_client_qrd1_reset();
-	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+						|| machine_is_msm8625_evt())
 		rc = msm_fb_dsi_client_qrd3_reset();
 	else
 		rc = msm_fb_dsi_client_msm_reset();
@@ -1243,7 +1248,8 @@ static int mipi_dsi_panel_power(int on)
 
 	if (machine_is_msm7627a_qrd1())
 		rc = mipi_dsi_panel_qrd1_power(on);
-	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+						|| machine_is_msm8625_evt())
 		rc = mipi_dsi_panel_qrd3_power(on);
 	else
 		rc = mipi_dsi_panel_msm_power(on);
@@ -1286,7 +1292,8 @@ void __init msm_fb_add_devices(void)
 	if (machine_is_msm7627a_qrd1())
 		platform_add_devices(qrd_fb_devices,
 				ARRAY_SIZE(qrd_fb_devices));
-	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
+	else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+						|| machine_is_msm8625_evt()) {
 		mipi_NT35510_pdata.bl_lock = 1;
 		mipi_NT35516_pdata.bl_lock = 1;
 		platform_add_devices(evb_fb_devices,

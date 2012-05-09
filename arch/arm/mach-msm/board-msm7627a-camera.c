@@ -314,14 +314,15 @@ static void __init msm7x27a_init_cam(void)
 		sensor_board_info_ov5647.num_vreg = 0;
 	}
 	platform_device_register(&msm_camera_server);
-	if (machine_is_msm8625_surf() || machine_is_msm8625_evb()) {
+	if (machine_is_msm8625_surf() || machine_is_msm8625_evb()
+				|| machine_is_msm8625_evt()) {
 		platform_device_register(&msm8625_device_csic0);
 		platform_device_register(&msm8625_device_csic1);
 	} else {
 		platform_device_register(&msm7x27a_device_csic0);
 		platform_device_register(&msm7x27a_device_csic1);
 	}
-	if (machine_is_msm8625_evb())
+	if (machine_is_msm8625_evb() || machine_is_msm8625_evt())
 		*(int *) msm7x27a_device_clkctl.dev.platform_data = 1;
 	platform_device_register(&msm7x27a_device_clkctl);
 	platform_device_register(&msm7x27a_device_vfe);
@@ -1053,7 +1054,8 @@ void __init msm7627a_camera_init(void)
 
 	pr_debug("msm7627a_camera_init Entered\n");
 	/* LCD and camera power (VREG & LDO) init */
-	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+				|| machine_is_msm8625_evt()) {
 		lcd_camera_power_init();
 		evb_camera_gpio_cfg();
 	}
@@ -1063,7 +1065,8 @@ void __init msm7627a_camera_init(void)
 		qrd1_camera_gpio_cfg();
 		platform_add_devices(camera_devices_qrd,
 				ARRAY_SIZE(camera_devices_qrd));
-	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
+	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+					|| machine_is_msm8625_evt()) {
 		platform_add_devices(camera_devices_evb,
 				ARRAY_SIZE(camera_devices_evb));
 	} else if (machine_is_msm7627a_qrd3())
@@ -1073,7 +1076,8 @@ void __init msm7627a_camera_init(void)
 				ARRAY_SIZE(camera_devices_msm));
 #endif
 	if (!machine_is_msm7627a_qrd1() || !machine_is_msm7627a_evb()
-					|| !machine_is_msm8625_evb())
+					|| !machine_is_msm8625_evb()
+					|| !machine_is_msm8625_evt())
 		register_i2c_devices();
 #ifndef CONFIG_MSM_CAMERA_V4L2
 	rc = regulator_bulk_get(NULL, ARRAY_SIZE(regs_camera), regs_camera);
@@ -1099,7 +1103,8 @@ void __init msm7627a_camera_init(void)
 		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 				i2c_camera_devices_qrd,
 				ARRAY_SIZE(i2c_camera_devices_qrd));
-	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
+	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+					|| machine_is_msm8625_evt()) {
 		pr_debug("machine_is_msm7627a_evb i2c_register_board_info\n");
 		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 				i2c_camera_devices_evb,
