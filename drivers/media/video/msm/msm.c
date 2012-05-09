@@ -560,7 +560,10 @@ static int msm_server_proc_ctrl_cmd(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.type = MSM_V4L2_SET_CTRL_CMD;
 	ctrlcmd.length = cmd_len + value_len;
 	ctrlcmd.value = (void *)ctrl_data;
-	ctrlcmd.timeout_ms = 1000;
+	if (tmp_cmd->timeout_ms > 0)
+		ctrlcmd.timeout_ms = tmp_cmd->timeout_ms;
+	else
+		ctrlcmd.timeout_ms = 1000;
 	ctrlcmd.vnode_id = pcam->vnode_id;
 	ctrlcmd.queue_idx = pcam->server_queue_idx;
 	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
