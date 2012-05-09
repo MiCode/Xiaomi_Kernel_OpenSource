@@ -727,6 +727,7 @@ struct kgsl_mmu_ops gpummu_ops = {
 	.mmu_enable_clk = NULL,
 	.mmu_disable_clk = NULL,
 	.mmu_get_hwpagetable_asid = NULL,
+	.mmu_get_pt_lsb = NULL,
 };
 
 struct kgsl_mmu_pt_ops gpummu_pt_ops = {

@@ -868,6 +868,7 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
 	.mmu_disable_clk = kgsl_iommu_disable_clk,
 	.mmu_get_hwpagetable_asid = kgsl_iommu_get_hwpagetable_asid,
+	.mmu_get_pt_lsb = kgsl_iommu_get_pt_lsb,
 };
 
 struct kgsl_mmu_pt_ops iommu_pt_ops = {
