@@ -106,6 +106,140 @@ static struct msm_bus_scale_pdata mdp_bus_scale_table = {
 	.name = "mdss_mdp",
 };
 
+struct mdss_hw mdss_mdp_hw = {
+	.hw_ndx = MDSS_HW_MDP,
+	.irq_handler = mdss_mdp_isr,
+};
+
+static DEFINE_SPINLOCK(mdss_lock);
+struct mdss_hw *mdss_irq_handlers[MDSS_MAX_HW_BLK];
+
+static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
+{
+	struct mdss_hw *hw;
+
+	spin_lock(&mdss_lock);
+	hw = mdss_irq_handlers[hw_ndx];
+	spin_unlock(&mdss_lock);
+	if (hw)
+		return hw->irq_handler(irq, ptr);
+
+	return -ENODEV;
+}
+
+static irqreturn_t mdss_irq_handler(int irq, void *ptr)
+{
+	u32 intr = MDSS_MDP_REG_READ(MDSS_REG_HW_INTR_STATUS);
+
+	mdss_res->irq_buzy = true;
+
+	if (intr & MDSS_INTR_MDP)
+		mdss_irq_dispatch(MDSS_HW_MDP, irq, ptr);
+
+	if (intr & MDSS_INTR_DSI0)
+		mdss_irq_dispatch(MDSS_HW_DSI0, irq, ptr);
+
+	if (intr & MDSS_INTR_DSI1)
+		mdss_irq_dispatch(MDSS_HW_DSI1, irq, ptr);
+
+	if (intr & MDSS_INTR_EDP)
+		mdss_irq_dispatch(MDSS_HW_EDP, irq, ptr);
+
+	if (intr & MDSS_INTR_HDMI)
+		mdss_irq_dispatch(MDSS_HW_HDMI, irq, ptr);
+
+	mdss_res->irq_buzy = false;
+
+	return IRQ_HANDLED;
+}
+
+
+void mdss_enable_irq(struct mdss_hw *hw)
+{
+	unsigned long irq_flags;
+	u32 ndx_bit;
+
+	if (hw->hw_ndx >= MDSS_MAX_HW_BLK)
+		return;
+
+	ndx_bit = BIT(hw->hw_ndx);
+
+	pr_debug("Enable HW=%d irq ena=%d mask=%x\n", hw->hw_ndx,
+			mdss_res->irq_ena, mdss_res->irq_mask);
+
+	spin_lock_irqsave(&mdss_lock, irq_flags);
+	if (mdss_res->irq_mask & ndx_bit) {
+		pr_debug("MDSS HW ndx=%d is already set, mask=%x\n",
+				hw->hw_ndx, mdss_res->irq_mask);
+	} else {
+		mdss_irq_handlers[hw->hw_ndx] = hw;
+		mdss_res->irq_mask |= ndx_bit;
+		if (!mdss_res->irq_ena) {
+			mdss_res->irq_ena = true;
+			enable_irq(mdss_res->irq);
+		}
+	}
+	spin_unlock_irqrestore(&mdss_lock, irq_flags);
+}
+EXPORT_SYMBOL(mdss_enable_irq);
+
+void mdss_disable_irq(struct mdss_hw *hw)
+{
+	unsigned long irq_flags;
+	u32 ndx_bit;
+
+	if (hw->hw_ndx >= MDSS_MAX_HW_BLK)
+		return;
+
+	ndx_bit = BIT(hw->hw_ndx);
+
+	pr_debug("Disable HW=%d irq ena=%d mask=%x\n", hw->hw_ndx,
+			mdss_res->irq_ena, mdss_res->irq_mask);
+
+	spin_lock_irqsave(&mdss_lock, irq_flags);
+	if (!(mdss_res->irq_mask & ndx_bit)) {
+		pr_warn("MDSS HW ndx=%d is NOT set, mask=%x\n",
+			hw->hw_ndx, mdss_res->mdp_irq_mask);
+	} else {
+		mdss_irq_handlers[hw->hw_ndx] = NULL;
+		mdss_res->irq_mask &= ~ndx_bit;
+		if (mdss_res->irq_mask == 0) {
+			mdss_res->irq_ena = false;
+			disable_irq(mdss_res->irq);
+		}
+	}
+	spin_unlock_irqrestore(&mdss_lock, irq_flags);
+}
+EXPORT_SYMBOL(mdss_disable_irq);
+
+void mdss_disable_irq_nosync(struct mdss_hw *hw)
+{
+	u32 ndx_bit;
+
+	if (hw->hw_ndx >= MDSS_MAX_HW_BLK)
+		return;
+
+	ndx_bit = BIT(hw->hw_ndx);
+
+	pr_debug("Disable HW=%d irq ena=%d mask=%x\n", hw->hw_ndx,
+			mdss_res->irq_ena, mdss_res->irq_mask);
+
+	spin_lock(&mdss_lock);
+	if (!(mdss_res->irq_mask & ndx_bit)) {
+		pr_warn("MDSS HW ndx=%d is NOT set, mask=%x\n",
+			hw->hw_ndx, mdss_res->mdp_irq_mask);
+	} else {
+		mdss_irq_handlers[hw->hw_ndx] = NULL;
+		mdss_res->irq_mask &= ~ndx_bit;
+		if (mdss_res->irq_mask == 0) {
+			mdss_res->irq_ena = false;
+			disable_irq_nosync(mdss_res->irq);
+		}
+	}
+	spin_unlock(&mdss_lock);
+}
+EXPORT_SYMBOL(mdss_disable_irq_nosync);
+
 static int mdss_mdp_bus_scale_register(void)
 {
 	if (!mdss_res->bus_hdl) {
@@ -166,19 +300,12 @@ int mdss_mdp_bus_scale_set_min_quota(u32 quota)
 	return msm_bus_scale_client_update_request(mdss_res->bus_hdl, lvl);
 }
 
-
-irqreturn_t mdss_irq_handler(int mdss_irq, void *ptr)
+static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
 {
-	u32 intr = MDSS_MDP_REG_READ(MDSS_REG_HW_INTR_STATUS);
-
-	mdss_res->irq_buzy = true;
-
-	if (intr & MDSS_INTR_MDP)
-		mdss_mdp_isr(mdss_irq, ptr);
-
-	mdss_res->irq_buzy = false;
-
-	return IRQ_HANDLED;
+	if (intr_type == MDSS_MDP_IRQ_INTF_UNDER_RUN ||
+	    intr_type == MDSS_MDP_IRQ_INTF_VSYNC)
+		intf_num = (intf_num - MDSS_MDP_INTF0) * 2;
+	return 1 << (intr_type + intf_num);
 }
 
 int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num)
@@ -187,25 +314,21 @@ int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num)
 	unsigned long irq_flags;
 	int ret = 0;
 
-	if (intr_type == MDSS_MDP_IRQ_INTF_UNDER_RUN ||
-	    intr_type == MDSS_MDP_IRQ_INTF_VSYNC)
-		intf_num = intf_num << 1;
-
-	irq =  BIT(intr_type + intf_num);
+	irq = mdss_mdp_irq_mask(intr_type, intf_num);
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	if (mdss_res->irq_mask & irq) {
-		pr_warn("MDSS IRQ-0x%x is already set, mask=%x irq=%d\n",
-			irq, mdss_res->irq_mask, mdss_res->irq_ena);
+	if (mdss_res->mdp_irq_mask & irq) {
+		pr_warn("MDSS MDP IRQ-0x%x is already set, mask=%x\n",
+				irq, mdss_res->mdp_irq_mask);
 		ret = -EBUSY;
 	} else {
-		mdss_res->irq_mask |= irq;
+		pr_debug("MDP IRQ mask old=%x new=%x\n",
+				mdss_res->mdp_irq_mask, irq);
+		mdss_res->mdp_irq_mask |= irq;
 		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_CLEAR, irq);
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN, mdss_res->irq_mask);
-		if (!mdss_res->irq_ena) {
-			mdss_res->irq_ena = true;
-			enable_irq(mdss_res->irq);
-		}
+		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN,
+				mdss_res->mdp_irq_mask);
+		mdss_enable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 
@@ -217,24 +340,17 @@ void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 	u32 irq;
 	unsigned long irq_flags;
 
-
-	if (intr_type == MDSS_MDP_IRQ_INTF_UNDER_RUN ||
-	    intr_type == MDSS_MDP_IRQ_INTF_VSYNC)
-		intf_num = intf_num << 1;
-
-	irq = BIT(intr_type + intf_num);
+	irq = mdss_mdp_irq_mask(intr_type, intf_num);
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	if (!(mdss_res->irq_mask & irq)) {
-		pr_warn("MDSS IRQ-%x is NOT set, mask=%x irq=%d\n",
-			irq, mdss_res->irq_mask, mdss_res->irq_ena);
+	if (!(mdss_res->mdp_irq_mask & irq)) {
+		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
+				irq, mdss_res->mdp_irq_mask);
 	} else {
-		mdss_res->irq_mask &= ~irq;
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN, mdss_res->irq_mask);
-		if (!mdss_res->irq_mask) {
-			mdss_res->irq_ena = false;
-			disable_irq(mdss_res->irq);
-		}
+		mdss_res->mdp_irq_mask &= ~irq;
+		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN,
+				mdss_res->mdp_irq_mask);
+		mdss_disable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
@@ -243,23 +359,17 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 {
 	u32 irq;
 
-	if (intr_type == MDSS_MDP_IRQ_INTF_UNDER_RUN ||
-	    intr_type == MDSS_MDP_IRQ_INTF_VSYNC)
-		intf_num = intf_num << 1;
-
-	irq = BIT(intr_type + intf_num);
+	irq = mdss_mdp_irq_mask(intr_type, intf_num);
 
 	spin_lock(&mdp_lock);
-	if (!(mdss_res->irq_mask & irq)) {
-		pr_warn("MDSS IRQ-%x is NOT set, mask=%x irq=%d\n",
-			irq, mdss_res->irq_mask, mdss_res->irq_ena);
+	if (!(mdss_res->mdp_irq_mask & irq)) {
+		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
+				irq, mdss_res->mdp_irq_mask);
 	} else {
-		mdss_res->irq_mask &= ~irq;
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN, mdss_res->irq_mask);
-		if (!mdss_res->irq_mask) {
-			mdss_res->irq_ena = false;
-			disable_irq_nosync(mdss_res->irq);
-		}
+		mdss_res->mdp_irq_mask &= ~irq;
+		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN,
+				mdss_res->mdp_irq_mask);
+		mdss_disable_irq_nosync(&mdss_mdp_hw);
 	}
 	spin_unlock(&mdp_lock);
 }
