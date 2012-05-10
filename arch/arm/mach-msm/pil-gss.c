@@ -21,15 +21,22 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/smp.h>
+#include <linux/miscdevice.h>
+#include <linux/reboot.h>
+#include <linux/interrupt.h>
 
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 #include <mach/socinfo.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
+#include <mach/subsystem_restart.h>
+#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
+#include "smd_private.h"
+#include "ramdump.h"
 
 #define GSS_CSR_AHB_CLK_SEL	0x0
 #define GSS_CSR_RESET		0x4
@@ -63,6 +70,14 @@ struct gss_data {
 	unsigned long start_addr;
 	struct clk *xo;
 	struct pil_device *pil;
+	struct miscdevice misc_dev;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
+	int crash_shutdown;
+	int irq;
+	void *pil_handle;
+	struct ramdump_device *ramdump_dev;
+	struct ramdump_device *smem_ramdump_dev;
 };
 
 static int pil_gss_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -308,11 +323,160 @@ static struct pil_reset_ops pil_gss_ops_trusted = {
 	.proxy_unvote = remove_gss_proxy_votes,
 };
 
+#define MAX_SSR_REASON_LEN 81U
+
+static void log_gss_sfr(void)
+{
+	u32 size;
+	char *smem_reason, reason[MAX_SSR_REASON_LEN];
+
+	smem_reason = smem_get_entry(SMEM_SSR_REASON_MSS0, &size);
+	if (!smem_reason || !size) {
+		pr_err("GSS subsystem failure reason: (unknown, smem_get_entry failed).\n");
+		return;
+	}
+	if (!smem_reason[0]) {
+		pr_err("GSS subsystem failure reason: (unknown, init string found).\n");
+		return;
+	}
+
+	size = min(size, MAX_SSR_REASON_LEN-1);
+	memcpy(reason, smem_reason, size);
+	reason[size] = '\0';
+	pr_err("GSS subsystem failure reason: %s.\n", reason);
+
+	smem_reason[0] = '\0';
+	wmb();
+}
+
+static void restart_gss(struct gss_data *drv)
+{
+	log_gss_sfr();
+	subsystem_restart_dev(drv->subsys);
+}
+
+static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
+{
+	struct gss_data *drv = data;
+
+	/* Ignore if we're the one that set SMSM_RESET */
+	if (drv->crash_shutdown)
+		return;
+
+	if (new_state & SMSM_RESET) {
+		pr_err("GSS SMSM state changed to SMSM_RESET.\n"
+			"Probable err_fatal on the GSS. "
+			"Calling subsystem restart...\n");
+		restart_gss(drv);
+	}
+}
+
+static int gss_shutdown(const struct subsys_desc *desc)
+{
+	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
+
+	pil_force_shutdown("gss");
+	disable_irq_nosync(drv->irq);
+
+	return 0;
+}
+
+static int gss_powerup(const struct subsys_desc *desc)
+{
+	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
+
+	pil_force_boot("gss");
+	enable_irq(drv->irq);
+	return 0;
+}
+
+void gss_crash_shutdown(const struct subsys_desc *desc)
+{
+	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
+
+	drv->crash_shutdown = 1;
+	smsm_reset_modem(SMSM_RESET);
+}
+
+/* FIXME: Get address, size from PIL */
+static struct ramdump_segment gss_segments[] = {
+	{0x89000000, 0x00D00000}
+};
+
+static struct ramdump_segment smem_segments[] = {
+	{0x80000000, 0x00200000},
+};
+
+static int gss_ramdump(int enable, const struct subsys_desc *desc)
+{
+	int ret;
+	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
+
+	if (enable) {
+		ret = do_ramdump(drv->ramdump_dev, gss_segments,
+				ARRAY_SIZE(gss_segments));
+		if (ret < 0) {
+			pr_err("Unable to dump gss memory\n");
+			return ret;
+		}
+
+		ret = do_ramdump(drv->smem_ramdump_dev, smem_segments,
+			ARRAY_SIZE(smem_segments));
+		if (ret < 0) {
+			pr_err("Unable to dump smem memory (rc = %d).\n", ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static irqreturn_t gss_wdog_bite_irq(int irq, void *dev_id)
+{
+	struct gss_data *drv = dev_id;
+
+	pr_err("Watchdog bite received from GSS!\n");
+	restart_gss(drv);
+
+	return IRQ_HANDLED;
+}
+
+static int gss_open(struct inode *inode, struct file *filp)
+{
+	void *ret;
+	struct miscdevice *c = filp->private_data;
+	struct gss_data *drv = container_of(c, struct gss_data, misc_dev);
+
+	drv->pil_handle = ret = pil_get("gss");
+	if (!ret)
+		pr_debug("%s - pil_get returned NULL\n", __func__);
+
+	return 0;
+}
+
+static int gss_release(struct inode *inode, struct file *filp)
+{
+	struct miscdevice *c = filp->private_data;
+	struct gss_data *drv = container_of(c, struct gss_data, misc_dev);
+
+	pil_put(drv->pil_handle);
+	pr_debug("%s pil_put called on GSS\n", __func__);
+
+	return 0;
+}
+
+const struct file_operations gss_file_ops = {
+	.open = gss_open,
+	.release = gss_release,
+	.owner = THIS_MODULE,
+};
+
 static int __devinit pil_gss_probe(struct platform_device *pdev)
 {
 	struct gss_data *drv;
 	struct resource *res;
 	struct pil_desc *desc;
+	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
@@ -344,6 +508,10 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->xo))
 		return PTR_ERR(drv->xo);
 
+	drv->irq = platform_get_irq(pdev, 0);
+	if (drv->irq < 0)
+		return drv->irq;
+
 	desc->name = "gss";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
@@ -363,13 +531,71 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->pil)) {
 		return PTR_ERR(drv->pil);
 	}
+
+	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
+			smsm_state_cb, drv);
+	if (ret < 0)
+		dev_warn(&pdev->dev, "Unable to register SMSM callback\n");
+
+	drv->subsys_desc.name = "gss";
+	drv->subsys_desc.shutdown = gss_shutdown;
+	drv->subsys_desc.powerup = gss_powerup;
+	drv->subsys_desc.ramdump = gss_ramdump;
+	drv->subsys_desc.crash_shutdown = gss_crash_shutdown;
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		ret = PTR_ERR(drv->subsys);
+		goto err_subsys;
+	}
+
+	drv->misc_dev.minor = MISC_DYNAMIC_MINOR;
+	drv->misc_dev.name = "gss";
+	drv->misc_dev.fops = &gss_file_ops;
+	ret = misc_register(&drv->misc_dev);
+	if (ret)
+		goto err_misc;
+
+	drv->ramdump_dev = create_ramdump_device("gss");
+	if (!drv->ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_ramdump;
+	}
+
+	drv->smem_ramdump_dev = create_ramdump_device("smem-gss");
+	if (!drv->smem_ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_smem;
+	}
+
+	ret = devm_request_irq(&pdev->dev, drv->irq, gss_wdog_bite_irq,
+			IRQF_TRIGGER_RISING, "gss_a5_wdog", drv);
+	if (ret < 0)
+		goto err;
 	return 0;
+err:
+	destroy_ramdump_device(drv->smem_ramdump_dev);
+err_smem:
+	destroy_ramdump_device(drv->ramdump_dev);
+err_ramdump:
+	misc_deregister(&drv->misc_dev);
+err_misc:
+	subsys_unregister(drv->subsys);
+err_subsys:
+	msm_pil_unregister(drv->pil);
+	return ret;
 }
 
 static int __devexit pil_gss_remove(struct platform_device *pdev)
 {
 	struct gss_data *drv = platform_get_drvdata(pdev);
+
+	destroy_ramdump_device(drv->smem_ramdump_dev);
+	destroy_ramdump_device(drv->ramdump_dev);
+	misc_deregister(&drv->misc_dev);
+	subsys_unregister(drv->subsys);
 	msm_pil_unregister(drv->pil);
+
 	return 0;
 }
 

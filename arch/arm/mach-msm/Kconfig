@@ -1984,8 +1984,8 @@ config MSM_PIL_VENUS
 	  Venus is the Video subsystem processor used for video codecs.
 
 config MSM_PIL_GSS
-	tristate "GSS (Coretx A5) Boot Support"
-	depends on MSM_PIL
+	tristate "GSS (Cortex A5) Boot Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down Cortex A5 processors which run
 	  GPS subsystem firmware.
@@ -2025,14 +2025,6 @@ config MSM_WCNSS_SSR_8960
 	 This option enables the WCNSS restart module for MSM8960, which
 	 monitors WCNSS hardware watchdog interrupt lines and plugs WCNSS
 	 into the subsystem restart framework.
-
-config MSM_GSS_SSR_8064
-	bool "MSM 8064 GSS restart driver"
-	depends on (ARCH_APQ8064)
-	help
-	 This option enables the gps subsystem restart driver for APQ8064, which monitors
-	 gss hardware watchdog interrupt lines and plugs into the subsystem
-	 restart and PIL drivers.
 
 config MSM_MODEM_SSR_8974
 	bool "MSM 8974 Modem restart driver"
