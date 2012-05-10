@@ -7,6 +7,8 @@
  * Copyright (c) 2000 Nokia Research Center
  *                    Tampere, FINLAND
  *
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
  * as published by the Free Software Foundation; either version 2.1
@@ -190,6 +192,14 @@ typedef int (*dmx_section_cb) (	const u8 * buffer1,
 				struct dmx_section_filter * source,
 				enum dmx_success success);
 
+typedef int (*dmx_ts_fullness) (
+				struct dmx_ts_feed *source,
+				int required_space);
+
+typedef int (*dmx_section_fullness) (
+				struct dmx_section_filter *source,
+				int required_space);
+
 /*--------------------------------------------------------------------------*/
 /* DVB Front-End */
 /*--------------------------------------------------------------------------*/
@@ -247,7 +257,7 @@ struct dmx_demux {
 	void* priv;                  /* Pointer to private data of the API client */
 	int (*open) (struct dmx_demux* demux);
 	int (*close) (struct dmx_demux* demux);
-	int (*write) (struct dmx_demux* demux, const char __user *buf, size_t count);
+	int (*write) (struct dmx_demux *demux, const char *buf, size_t count);
 	int (*allocate_ts_feed) (struct dmx_demux* demux,
 				 struct dmx_ts_feed** feed,
 				 dmx_ts_cb callback);
@@ -271,7 +281,20 @@ struct dmx_demux {
 
 	int (*get_caps) (struct dmx_demux* demux, struct dmx_caps *caps);
 
-	int (*set_source) (struct dmx_demux* demux, const dmx_source_t *src);
+	int (*set_source) (struct dmx_demux *demux, const dmx_source_t *src);
+
+	int (*set_tsp_format) (struct dmx_demux *demux,
+				enum dmx_tsp_format_t tsp_format);
+
+	int (*set_tsp_out_format) (struct dmx_demux *demux,
+				enum dmx_tsp_format_t tsp_format);
+
+	int (*set_playback_mode) (struct dmx_demux *demux,
+				 enum dmx_playback_mode_t mode,
+				 dmx_ts_fullness ts_fullness_callback,
+				 dmx_section_fullness sec_fullness_callback);
+
+	int (*write_cancel) (struct dmx_demux *demux);
 
 	int (*get_stc) (struct dmx_demux* demux, unsigned int num,
 			u64 *stc, unsigned int *base);
