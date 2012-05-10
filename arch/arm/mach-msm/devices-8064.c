@@ -1962,6 +1962,11 @@ static struct resource msm_gss_resources[] = {
 		.end    = 0x10008000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
+	{
+		.start	= GSS_A5_WDOG_EXPIRED,
+		.end	= GSS_A5_WDOG_EXPIRED,
+		.flags	= IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device msm_gss = {
