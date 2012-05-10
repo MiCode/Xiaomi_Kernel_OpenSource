@@ -333,20 +333,19 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 			kfree(prtd);
 			return -ENOMEM;
 		}
+
+		pr_debug("%s: session ID %d\n", __func__,
+			prtd->audio_client->session);
+		prtd->session_id = prtd->audio_client->session;
+		msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+			prtd->session_id, substream->stream);
+		prtd->cmd_ack = 1;
+
 	}
 	/* Capture path */
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		runtime->hw = msm_pcm_hardware_capture;
 	}
-
-	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
-
-	prtd->session_id = prtd->audio_client->session;
-	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
-			prtd->session_id, substream->stream);
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		prtd->cmd_ack = 1;
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0,
 				SNDRV_PCM_HW_PARAM_RATE,
@@ -622,6 +621,7 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
+	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct audio_buffer *buf;
 	int dir, ret;
 	int format = FORMAT_LINEAR_PCM;
@@ -644,6 +644,12 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 			prtd->audio_client = NULL;
 			return -ENOMEM;
 		}
+
+		pr_debug("%s: session ID %d\n", __func__,
+			prtd->audio_client->session);
+		prtd->session_id = prtd->audio_client->session;
+		msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+			prtd->session_id, substream->stream);
 	}
 
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
