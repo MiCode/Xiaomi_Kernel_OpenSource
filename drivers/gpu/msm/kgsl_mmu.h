@@ -138,6 +138,8 @@ struct kgsl_mmu_ops {
 	int (*mmu_get_pt_lsb)(struct kgsl_mmu *mmu,
 				unsigned int unit_id,
 				enum kgsl_iommu_context_id ctx_id);
+	int (*mmu_get_reg_map_desc)(struct kgsl_mmu *mmu,
+				void **reg_map_desc);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -248,6 +250,15 @@ static inline unsigned int kgsl_mmu_pt_get_base_addr(struct kgsl_pagetable *pt)
 		return 0;
 	else
 		return pt->pt_ops->mmu_pt_get_base_addr(pt);
+}
+
+static inline int kgsl_mmu_get_reg_map_desc(struct kgsl_mmu *mmu,
+						void **reg_map_desc)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_reg_map_desc)
+		return mmu->mmu_ops->mmu_get_reg_map_desc(mmu, reg_map_desc);
+	else
+		return 0;
 }
 
 #endif /* __KGSL_MMU_H */
