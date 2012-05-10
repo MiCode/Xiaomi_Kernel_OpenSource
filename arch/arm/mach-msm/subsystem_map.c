@@ -407,7 +407,7 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 
 			if (flags & MSM_SUBSYSTEM_MAP_IOMMU_2X)
 				msm_iommu_map_extra
-					(d, temp_va, length,
+					(d, temp_va, length, SZ_4K,
 					(IOMMU_READ | IOMMU_WRITE));
 		}
 

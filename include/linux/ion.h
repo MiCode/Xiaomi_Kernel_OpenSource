@@ -177,6 +177,8 @@ struct ion_platform_heap {
  *			or not.
  * @fixed_position	If nonzero, position in the fixed area.
  * @virt_addr:		Virtual address used when using fmem.
+ * @iommu_map_all:	Indicates whether we should map whole heap into IOMMU.
+ * @iommu_2x_map_domain: Indicates the domain to use for overmapping.
  * @request_region:	function to be called when the number of allocations
  *			goes from 0 -> 1
  * @release_region:	function to be called when the number of allocations
@@ -192,6 +194,8 @@ struct ion_cp_heap_pdata {
 	int reusable;
 	int mem_is_fmem;
 	enum ion_fixed_position fixed_position;
+	int iommu_map_all;
+	int iommu_2x_map_domain;
 	ion_virt_addr_t *virt_addr;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
