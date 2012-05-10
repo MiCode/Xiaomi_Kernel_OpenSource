@@ -75,8 +75,10 @@ static int __cpuinit krait_release_secondary_sim(unsigned long base, int cpu)
 	if (machine_is_apq8064_sim())
 		writel_relaxed(0xf0000, base_ptr+0x04);
 
-	if (machine_is_copper_sim())
-		writel_relaxed(0x9, base_ptr+0x04);
+	if (machine_is_copper_sim()) {
+		writel_relaxed(0x800, base_ptr+0x04);
+		writel_relaxed(0x3FFF, base_ptr+0x14);
+	}
 
 	mb();
 	iounmap(base_ptr);
