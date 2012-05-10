@@ -409,7 +409,7 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 
 	CDBG("%s:id=%d\n", __func__, id);
 	if (id != VFE_ADSP_EVENT) {
-		data = kzalloc(len, GFP_KERNEL);
+		data = kzalloc(len, GFP_ATOMIC);
 		if (!data) {
 			pr_err("%s: rp: cannot allocate buffer\n", __func__);
 			return;
