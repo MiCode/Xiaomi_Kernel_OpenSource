@@ -23,6 +23,7 @@
 #include "kgsl_mmu.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_iommu.h"
+#include "adreno_pm4types.h"
 
 /*
  * kgsl_iommu_disable_clk - Disable iommu clocks
@@ -498,6 +499,12 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	status = kgsl_set_register_map(mmu);
 	if (status)
 		goto done;
+
+	/* A nop is required in an indirect buffer when switching
+	 * pagetables in-stream */
+	kgsl_sharedmem_writel(&mmu->setstate_memory,
+				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
+				cp_nop_packet(1));
 
 	dev_info(mmu->device->dev, "|%s| MMU type set for device is IOMMU\n",
 			__func__);

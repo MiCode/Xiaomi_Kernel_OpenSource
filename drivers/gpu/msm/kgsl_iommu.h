@@ -55,6 +55,9 @@
 		(pt_val & ~(KGSL_IOMMU_TTBR0_PA_MASK <<			\
 				KGSL_IOMMU_TTBR0_PA_SHIFT))
 
+/* offset at which a nop command is placed in setstate_memory */
+#define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
+
 /*
  * struct kgsl_iommu_device - Structure holding data about iommu contexts
  * @dev: Device pointer to iommu context
