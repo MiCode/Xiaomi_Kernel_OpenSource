@@ -121,7 +121,7 @@ static int __init mipi_chimei_wxga_init(void)
 	pinfo->lcdc.hsync_skew = 0;
 
 	/* Backlight levels - controled via PMIC pwm gpio */
-	pinfo->bl_max = 15;
+	pinfo->bl_max = PWM_LEVEL;
 	pinfo->bl_min = 1;
 
 	/* mipi - general */
