@@ -156,6 +156,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 		off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+		ctx->timegen_en = false;
 	}
 
 	memset(ctx, 0, sizeof(*ctx));
@@ -196,24 +197,24 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 static int mdss_mdp_video_prepare(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_video_ctx *ctx;
-	u32 intr_type = MDSS_MDP_IRQ_PING_PONG_COMP;
-
-	if (ctl->play_cnt == 0)
-		return 0;
-
-	pr_debug("setup ctl=%d\n", ctl->num);
 
 	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
 	if (!ctx) {
 		pr_err("invalid ctx\n");
 		return -ENODEV;
 	}
-	mdss_mdp_set_intr_callback(intr_type, ctx->pp_num,
-				   mdss_mdp_video_pp_intr_done, ctx);
-	mdss_mdp_irq_enable(intr_type, ctx->pp_num);
 
-	wait_for_completion_interruptible(&ctx->pp_comp);
-	mdss_mdp_irq_disable(intr_type, ctx->pp_num);
+	if (ctx->timegen_en) {
+		u32 intr_type = MDSS_MDP_IRQ_PING_PONG_COMP;
+
+		pr_debug("waiting for ping pong %d done\n", ctx->pp_num);
+		mdss_mdp_set_intr_callback(intr_type, ctx->pp_num,
+					   mdss_mdp_video_pp_intr_done, ctx);
+		mdss_mdp_irq_enable(intr_type, ctx->pp_num);
+
+		wait_for_completion_interruptible(&ctx->pp_comp);
+		mdss_mdp_irq_disable(intr_type, ctx->pp_num);
+	}
 
 	return 0;
 }
@@ -236,9 +237,13 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 	if (!ctx->timegen_en) {
 		int off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
+
+		pr_debug("enabling timing gen for intf=%d\n", ctl->intf_num);
+
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
-		ctx->timegen_en = 1;
+		ctx->timegen_en = true;
+		wmb();
 	}
 
 	wait_for_completion_interruptible(&ctx->vsync_comp);
