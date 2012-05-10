@@ -821,13 +821,15 @@ static long audamrnb_in_ioctl(struct file *file,
 		}
 		/* Allow only single frame */
 		if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL) {
-			if (cfg.buffer_size != (FRAME_SIZE - 8))
+			if (cfg.buffer_size != (FRAME_SIZE - 8)) {
 				rc = -EINVAL;
 				break;
+			}
 		} else {
-			if (cfg.buffer_size != (AMRNB_FRAME_SIZE + 14))
+			if (cfg.buffer_size != (AMRNB_FRAME_SIZE + 14)) {
 				rc = -EINVAL;
 				break;
+			}
 		}
 		audio->buffer_size = cfg.buffer_size;
 		break;

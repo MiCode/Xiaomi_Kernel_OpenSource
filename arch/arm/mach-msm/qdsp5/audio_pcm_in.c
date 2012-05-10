@@ -585,7 +585,7 @@ static void audpcm_in_flush(struct audio_in *audio)
 	audio->in_head = 0;
 	audio->in_tail = 0;
 	audio->in_count = 0;
-	for (i = FRAME_NUM-1; i <= 0; i--) {
+	for (i = FRAME_NUM-1; i >= 0; i--) {
 		audio->in[i].size = 0;
 		audio->in[i].read = 0;
 	}
