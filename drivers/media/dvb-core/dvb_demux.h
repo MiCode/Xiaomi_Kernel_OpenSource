@@ -4,6 +4,8 @@
  * Copyright (C) 2000-2001 Marcus Metzler & Ralph Metzler
  *                         for convergence integrated media GmbH
  *
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
  * as published by the Free Software Foundation; either version 2.1
@@ -27,6 +29,7 @@
 #include <linux/timer.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
+#include <linux/debugfs.h>
 
 #include "demux.h"
 
@@ -107,6 +110,10 @@ struct dvb_demux {
 	int (*stop_feed)(struct dvb_demux_feed *feed);
 	int (*write_to_decoder)(struct dvb_demux_feed *feed,
 				 const u8 *buf, size_t len);
+	int (*decoder_fullness_init)(struct dvb_demux_feed *feed);
+	int (*decoder_fullness_wait)(struct dvb_demux_feed *feed,
+				 size_t required_space);
+	int (*decoder_fullness_abort)(struct dvb_demux_feed *feed);
 	u32 (*check_crc32)(struct dvb_demux_feed *feed,
 			    const u8 *buf, size_t len);
 	void (*memcopy)(struct dvb_demux_feed *feed, u8 *dst,
@@ -136,6 +143,28 @@ struct dvb_demux {
 
 	struct timespec speed_last_time; /* for TS speed check */
 	uint32_t speed_pkts_cnt; /* for TS speed check */
+
+	enum dmx_tsp_format_t tsp_format;
+	enum dmx_tsp_format_t tsp_out_format;
+
+	enum dmx_playback_mode_t playback_mode;
+	int sw_filter_abort;
+
+	struct {
+		dmx_ts_fullness ts;
+		dmx_section_fullness sec;
+	} buffer_ctrl;
+
+	/*
+	 * the following is used for debugfs exposing info
+	 * about dvb demux performance.
+	 */
+#define MAX_DVB_DEMUX_NAME_LEN 10
+	char alias[MAX_DVB_DEMUX_NAME_LEN];
+
+	u32 total_process_time;
+	u32 total_crc_time;
+	struct dentry *debugfs_demux_dir;
 };
 
 int dvb_dmx_init(struct dvb_demux *dvbdemux);
@@ -149,5 +178,10 @@ void dvb_dmx_swfilter_204(struct dvb_demux *demux, const u8 *buf,
 			  size_t count);
 void dvb_dmx_swfilter_raw(struct dvb_demux *demux, const u8 *buf,
 			  size_t count);
+void dvb_dmx_swfilter_format(
+			struct dvb_demux *demux, const u8 *buf,
+			size_t count,
+			enum dmx_tsp_format_t tsp_format);
+
 
 #endif /* _DVB_DEMUX_H_ */

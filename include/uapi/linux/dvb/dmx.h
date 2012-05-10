@@ -5,6 +5,8 @@
  *                  & Ralph  Metzler <ralph@convergence.de>
  *                    for convergence integrated media GmbH
  *
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
  * as published by the Free Software Foundation; either version 2.1
@@ -117,6 +119,29 @@ struct dmx_pes_filter_params
 	__u32          flags;
 };
 
+struct dmx_buffer_status {
+	/* size of buffer in bytes */
+	unsigned int size;
+
+	/* fullness of buffer in bytes */
+	unsigned int fullness;
+
+	/*
+	 * How many bytes are free
+	 * It's the same as: size-fullness-1
+	 */
+	unsigned int free_bytes;
+
+	/* read pointer offset in bytes */
+	unsigned int read_offset;
+
+	/* write pointer offset in bytes */
+	unsigned int write_offset;
+
+	/* non-zero if data error occured */
+	int error;
+};
+
 typedef struct dmx_caps {
 	__u32 caps;
 	int num_decoders;
@@ -132,6 +157,34 @@ typedef enum {
 	DMX_SOURCE_DVR2,
 	DMX_SOURCE_DVR3
 } dmx_source_t;
+
+enum dmx_tsp_format_t {
+	DMX_TSP_FORMAT_188 = 0,
+	DMX_TSP_FORMAT_192_TAIL,
+	DMX_TSP_FORMAT_192_HEAD,
+	DMX_TSP_FORMAT_204,
+};
+
+enum dmx_playback_mode_t {
+	/*
+	 * In push mode, if one of output buffers
+	 * is full, the buffer would overflow
+	 * and demux continue processing incoming stream.
+	 * This is the default mode. When playing from frontend,
+	 * this is the only mode that is allowed.
+	 */
+	DMX_PB_MODE_PUSH = 0,
+
+	/*
+	 * In pull mode, if one of output buffers
+	 * is full, demux stalls waiting for free space,
+	 * this would cause DVR input buffer fullness
+	 * to accumulate.
+	 * This mode is possible only when playing
+	 * from DVR.
+	 */
+	DMX_PB_MODE_PULL,
+};
 
 struct dmx_stc {
 	unsigned int num;	/* input : which STC? 0..N */
@@ -151,5 +204,12 @@ struct dmx_stc {
 #define DMX_GET_STC              _IOWR('o', 50, struct dmx_stc)
 #define DMX_ADD_PID              _IOW('o', 51, __u16)
 #define DMX_REMOVE_PID           _IOW('o', 52, __u16)
+#define DMX_SET_TS_PACKET_FORMAT _IOW('o', 53, enum dmx_tsp_format_t)
+#define DMX_SET_TS_OUT_FORMAT	 _IOW('o', 54, enum dmx_tsp_format_t)
+#define DMX_SET_DECODER_BUFFER_SIZE	_IO('o', 55)
+#define DMX_GET_BUFFER_STATUS	 _IOR('o', 56, struct dmx_buffer_status)
+#define DMX_RELEASE_DATA		 _IO('o', 57)
+#define DMX_FEED_DATA			 _IO('o', 58)
+#define DMX_SET_PLAYBACK_MODE	 _IOW('o', 59, enum dmx_playback_mode_t)
 
 #endif /* _UAPI_DVBDMX_H_ */
