@@ -1679,7 +1679,7 @@ static int __devinit android_probe(struct platform_device *pdev)
 	}
 
 	/* pm qos request to prevent apps idle power collapse */
-	if (pdata->swfi_latency)
+	if (pdata && pdata->swfi_latency)
 		pm_qos_add_request(&dev->pm_qos_req_dma,
 			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 	strlcpy(dev->pm_qos, "high", sizeof(dev->pm_qos));
@@ -1700,7 +1700,7 @@ static int android_remove(struct platform_device *pdev)
 	android_destroy_device(dev);
 	class_destroy(android_class);
 	usb_composite_unregister(&android_usb_driver);
-	if (pdata->swfi_latency)
+	if (pdata && pdata->swfi_latency)
 		pm_qos_remove_request(&dev->pm_qos_req_dma);
 
 	return 0;
