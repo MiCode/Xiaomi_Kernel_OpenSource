@@ -166,6 +166,13 @@ enum qpnp_boost_control_register_index {
 #define QPNP_BOOST_CURRENT_LIMIT_ENABLE_MASK	0x80
 #define QPNP_BOOST_CURRENT_LIMIT_MASK		0x07
 
+/*
+ * This voltage in uV is returned by get_voltage functions when there is no way
+ * to determine the current voltage level.  It is needed because the regulator
+ * framework treats a 0 uV voltage as an error.
+ */
+#define VOLTAGE_UNKNOWN 1
+
 struct qpnp_voltage_range {
 	int					min_uV;
 	int					max_uV;
@@ -243,15 +250,18 @@ struct qpnp_regulator {
  * properties to hold.
  */
 static struct qpnp_voltage_range pldo_ranges[] = {
-	VOLTAGE_RANGE(0,  375000,  375000, 1512500, 12500),
-	VOLTAGE_RANGE(2,  750000, 1525000, 1537500, 12500),
+	VOLTAGE_RANGE(2,  750000,  750000, 1537500, 12500),
 	VOLTAGE_RANGE(3, 1500000, 1550000, 3075000, 25000),
 	VOLTAGE_RANGE(4, 1750000, 3100000, 4900000, 50000),
 };
 
-static struct qpnp_voltage_range nldo_ranges[] = {
-	VOLTAGE_RANGE(0,  375000,  375000, 1512500, 12500),
-	VOLTAGE_RANGE(2,  750000, 1525000, 1537500, 12500),
+static struct qpnp_voltage_range nldo1_ranges[] = {
+	VOLTAGE_RANGE(2,  750000,  750000, 1537500, 12500),
+};
+
+static struct qpnp_voltage_range nldo2_ranges[] = {
+	VOLTAGE_RANGE(1,  375000,  375000,  768750,  6250),
+	VOLTAGE_RANGE(2,  750000,  775000, 1537500, 12500),
 };
 
 static struct qpnp_voltage_range smps_ranges[] = {
@@ -260,7 +270,7 @@ static struct qpnp_voltage_range smps_ranges[] = {
 };
 
 static struct qpnp_voltage_range ftsmps_ranges[] = {
-	VOLTAGE_RANGE(0,   80000,   80000, 1355000,  5000),
+	VOLTAGE_RANGE(0,   80000,  350000, 1355000,  5000),
 	VOLTAGE_RANGE(1,  160000, 1360000, 2710000, 10000),
 };
 
@@ -269,7 +279,10 @@ static struct qpnp_voltage_range boost_ranges[] = {
 };
 
 static struct qpnp_voltage_set_points pldo_set_points = SET_POINTS(pldo_ranges);
-static struct qpnp_voltage_set_points nldo_set_points = SET_POINTS(nldo_ranges);
+static struct qpnp_voltage_set_points nldo1_set_points
+					= SET_POINTS(nldo1_ranges);
+static struct qpnp_voltage_set_points nldo2_set_points
+					= SET_POINTS(nldo2_ranges);
 static struct qpnp_voltage_set_points smps_set_points = SET_POINTS(smps_ranges);
 static struct qpnp_voltage_set_points ftsmps_set_points
 					= SET_POINTS(ftsmps_ranges);
@@ -279,7 +292,8 @@ static struct qpnp_voltage_set_points none_set_points;
 
 static struct qpnp_voltage_set_points *all_set_points[] = {
 	&pldo_set_points,
-	&nldo_set_points,
+	&nldo1_set_points,
+	&nldo2_set_points,
 	&smps_set_points,
 	&ftsmps_set_points,
 	&boost_set_points,
@@ -629,7 +643,7 @@ static int qpnp_regulator_common_get_voltage(struct regulator_dev *rdev)
 	if (!range) {
 		vreg_err(vreg, "voltage unknown, range %d is invalid\n",
 			range_sel);
-		return -EINVAL;
+		return VOLTAGE_UNKNOWN;
 	}
 
 	return range->step_uV * voltage_sel + range->min_uV;
@@ -949,11 +963,9 @@ static struct regulator_ops qpnp_ftsmps_ops = {
 
 static const struct qpnp_regulator_mapping supported_regulators[] = {
 	QPNP_VREG_MAP(HF_BUCK,  GP_CTL,    SMPS,   smps,   smps,   100000),
-	QPNP_VREG_MAP(LDO,      N50,       LDO,    ldo,    nldo,     5000),
-	QPNP_VREG_MAP(LDO,      N150,      LDO,    ldo,    nldo,    10000),
-	QPNP_VREG_MAP(LDO,      N300,      LDO,    ldo,    nldo,    10000),
-	QPNP_VREG_MAP(LDO,      N600,      LDO,    ldo,    nldo,    10000),
-	QPNP_VREG_MAP(LDO,      N1200,     LDO,    ldo,    nldo,    10000),
+	QPNP_VREG_MAP(LDO,      N300,      LDO,    ldo,    nldo1,   10000),
+	QPNP_VREG_MAP(LDO,      N600,      LDO,    ldo,    nldo2,   10000),
+	QPNP_VREG_MAP(LDO,      N1200,     LDO,    ldo,    nldo2,   10000),
 	QPNP_VREG_MAP(LDO,      P50,       LDO,    ldo,    pldo,     5000),
 	QPNP_VREG_MAP(LDO,      P150,      LDO,    ldo,    pldo,    10000),
 	QPNP_VREG_MAP(LDO,      P300,      LDO,    ldo,    pldo,    10000),
