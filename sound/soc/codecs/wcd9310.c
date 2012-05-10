@@ -3828,8 +3828,7 @@ static int tabla_get_channel_map(struct snd_soc_dai *dai,
 		*tx_num = tabla_dai[dai->id - 1].capture.channels_max;
 		tx_slot[0] = tx_ch[cnt];
 		tx_slot[1] = tx_ch[1 + cnt];
-		tx_slot[2] = tx_ch[3 + cnt];
-		tx_slot[3] = tx_ch[5 + cnt];
+		tx_slot[2] = tx_ch[5 + cnt];
 	}
 
 	return 0;
@@ -4526,7 +4525,7 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("SLIM TX4 MUX", SND_SOC_NOPM, 0, 0, &sb_tx4_mux),
-	SND_SOC_DAPM_AIF_OUT_E("SLIM TX4", "AIF2 Capture", 0, SND_SOC_NOPM, 0,
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX4", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
 				0, tabla_codec_enable_slimtx,
 				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 

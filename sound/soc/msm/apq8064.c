@@ -442,7 +442,7 @@ static const struct snd_soc_dapm_widget apq8064_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
 };
 
-static const struct snd_soc_dapm_route apq8064_audio_map[] = {
+static const struct snd_soc_dapm_route apq8064_common_audio_map[] = {
 
 	{"RX_BIAS", NULL, "MCLK"},
 	{"LDO_H", NULL, "MCLK"},
@@ -457,13 +457,6 @@ static const struct snd_soc_dapm_route apq8064_audio_map[] = {
 	{"Ext Spk Top Neg", NULL, "LINEOUT4"},
 
 	/************   Analog MIC Paths  ************/
-	/**
-	 * Analog mic7 (Front Top Mic) on Liquid.
-	 * Used as Handset mic on CDP.
-	 * Not there on MTP.
-	 */
-	{"AMIC1", NULL, "MIC BIAS1 External"},
-	{"MIC BIAS1 External", NULL, "Analog mic7"},
 
 	/* Headset Mic */
 	{"AMIC2", NULL, "MIC BIAS2 External"},
@@ -475,6 +468,59 @@ static const struct snd_soc_dapm_route apq8064_audio_map[] = {
 
 	{"AMIC4", NULL, "MIC BIAS1 Internal2"},
 	{"MIC BIAS1 Internal2", NULL, "ANCLeft Headset Mic"},
+};
+
+static const struct snd_soc_dapm_route apq8064_mtp_audio_map[] = {
+
+	/************   Digital MIC Paths  ************/
+
+	/*
+	 * Digital Mic1 (Front bottom Left) on MTP.
+	 * Conncted to DMIC1 Input on Tabla codec.
+	 */
+	{"DMIC1", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic1"},
+
+	/**
+	 * Digital Mic2 (Front bottom right) on MTP.
+	 * Conncted to DMIC2 Input on Tabla codec.
+	 */
+	{"DMIC2", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic2"},
+
+	/**
+	 * Digital Mic3 (Back bottom) on MTP.
+	 * Conncted to DMIC3 Input on Tabla codec.
+	 */
+	{"DMIC3", NULL, "MIC BIAS3 External"},
+	{"MIC BIAS3 External", NULL, "Digital Mic3"},
+
+	/**
+	 * Digital Mic4 (Back top) on MTP.
+	 * Conncted to DMIC4 Input on Tabla codec.
+	 */
+	{"DMIC4", NULL, "MIC BIAS3 External"},
+	{"MIC BIAS3 External", NULL, "Digital Mic4"},
+
+	/**
+	 * Digital Mic5 (Top front Mic) on MTP.
+	 * Conncted to DMIC6 Input on Tabla codec.
+	 */
+	{"DMIC6", NULL, "MIC BIAS4 External"},
+	{"MIC BIAS4 External", NULL, "Digital Mic5"},
+
+};
+
+static const struct snd_soc_dapm_route apq8064_liquid_cdp_audio_map[] = {
+
+	/************   Analog MIC Paths  ************/
+	/**
+	 * Analog mic7 (Front Top Mic) on Liquid.
+	 * Used as Handset mic on CDP.
+	 * Not there on MTP.
+	 */
+	{"AMIC1", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Analog mic7"},
 
 
 	/************   Digital MIC Paths  ************/
@@ -940,8 +986,16 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_new_controls(dapm, apq8064_dapm_widgets,
 				ARRAY_SIZE(apq8064_dapm_widgets));
 
-	snd_soc_dapm_add_routes(dapm, apq8064_audio_map,
-		ARRAY_SIZE(apq8064_audio_map));
+	snd_soc_dapm_add_routes(dapm, apq8064_common_audio_map,
+		ARRAY_SIZE(apq8064_common_audio_map));
+
+	if (machine_is_apq8064_mtp()) {
+		snd_soc_dapm_add_routes(dapm, apq8064_mtp_audio_map,
+			ARRAY_SIZE(apq8064_mtp_audio_map));
+	} else  {
+		snd_soc_dapm_add_routes(dapm, apq8064_liquid_cdp_audio_map,
+			ARRAY_SIZE(apq8064_liquid_cdp_audio_map));
+	}
 
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
