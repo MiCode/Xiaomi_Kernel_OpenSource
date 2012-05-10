@@ -78,8 +78,7 @@ static int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 		if (context == NULL)
 			return -EINVAL;
 	}
-	cur_ts = device->ftbl->readtimestamp(device, context,
-				KGSL_TIMESTAMP_RETIRED);
+	cur_ts = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
 
 	/* Check to see if the requested timestamp has already fired */
 
@@ -135,8 +134,7 @@ static void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 	struct kgsl_event *event, *event_tmp;
 	unsigned int id, cur;
 
-	cur = device->ftbl->readtimestamp(device, context,
-			KGSL_TIMESTAMP_RETIRED);
+	cur = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
 	id = context->id;
 
 	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
@@ -173,8 +171,8 @@ static void kgsl_cancel_events(struct kgsl_device *device,
 		if (event->owner != owner)
 			continue;
 
-		cur = device->ftbl->readtimestamp(device, event->context,
-				KGSL_TIMESTAMP_RETIRED);
+		cur = kgsl_readtimestamp(device, event->context,
+					 KGSL_TIMESTAMP_RETIRED);
 
 		id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
 		/*
@@ -425,8 +423,8 @@ void kgsl_timestamp_expired(struct work_struct *work)
 
 	/* Process expired events */
 	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
-		ts_processed = device->ftbl->readtimestamp(device,
-				event->context, KGSL_TIMESTAMP_RETIRED);
+		ts_processed = kgsl_readtimestamp(device, event->context,
+						  KGSL_TIMESTAMP_RETIRED);
 		if (timestamp_cmp(ts_processed, event->timestamp) < 0)
 			continue;
 
@@ -521,8 +519,8 @@ int kgsl_check_timestamp(struct kgsl_device *device,
 {
 	unsigned int ts_processed;
 
-	ts_processed = device->ftbl->readtimestamp(device, context,
-		KGSL_TIMESTAMP_RETIRED);
+	ts_processed = kgsl_readtimestamp(device, context,
+					  KGSL_TIMESTAMP_RETIRED);
 
 	return (timestamp_cmp(ts_processed, timestamp) >= 0);
 }
@@ -1164,8 +1162,7 @@ static long _cmdstream_readtimestamp(struct kgsl_device_private *dev_priv,
 		struct kgsl_context *context, unsigned int type,
 		unsigned int *timestamp)
 {
-	*timestamp = dev_priv->device->ftbl->readtimestamp(dev_priv->device,
-			context, type);
+	*timestamp = kgsl_readtimestamp(dev_priv->device, context, type);
 
 	trace_kgsl_readtimestamp(dev_priv->device,
 			context ? context->id : KGSL_MEMSTORE_GLOBAL,

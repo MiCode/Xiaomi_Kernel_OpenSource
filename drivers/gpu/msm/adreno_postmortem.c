@@ -725,8 +725,8 @@ static int adreno_dump(struct kgsl_device *device)
 				current_context));
 	context = idr_find(&device->context_idr, context_id);
 	if (context) {
-		ts_processed = device->ftbl->readtimestamp(device, context,
-				KGSL_TIMESTAMP_RETIRED);
+		ts_processed = kgsl_readtimestamp(device, context,
+						  KGSL_TIMESTAMP_RETIRED);
 		KGSL_LOG_DUMP(device, "CTXT: %d  TIMESTM RTRD: %08X\n",
 				context->id, ts_processed);
 	} else

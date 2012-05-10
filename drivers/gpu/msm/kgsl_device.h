@@ -294,6 +294,13 @@ static inline unsigned int kgsl_gpuid(struct kgsl_device *device)
 	return device->ftbl->gpuid(device);
 }
 
+static inline unsigned int kgsl_readtimestamp(struct kgsl_device *device,
+					      struct kgsl_context *context,
+					      enum kgsl_timestamp_type type)
+{
+	return device->ftbl->readtimestamp(device, context, type);
+}
+
 static inline int kgsl_create_device_sysfs_files(struct device *root,
 	const struct device_attribute **list)
 {
