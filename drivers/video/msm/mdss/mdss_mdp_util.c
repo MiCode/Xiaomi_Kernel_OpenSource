@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/android_pmem.h>
@@ -54,7 +53,7 @@ static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 	int index = -1;
 	switch (intr_type) {
 	case MDSS_MDP_IRQ_INTF_VSYNC:
-		index = MDP_INTR_VSYNC_INTF_0 + intf_num;
+		index = MDP_INTR_VSYNC_INTF_0 + (intf_num - MDSS_MDP_INTF0);
 		break;
 	case MDSS_MDP_IRQ_PING_PONG_COMP:
 		index = MDP_INTR_PING_PONG_0 + intf_num;
@@ -117,10 +116,11 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 
 
 	isr = MDSS_MDP_REG_READ(MDSS_MDP_REG_INTR_STATUS);
+
+	pr_debug("isr=%x\n", isr);
+
 	if (isr == 0)
 		goto done;
-
-	pr_devel("isr=%x\n", isr);
 
 	mask = MDSS_MDP_REG_READ(MDSS_MDP_REG_INTR_EN);
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_CLEAR, isr);

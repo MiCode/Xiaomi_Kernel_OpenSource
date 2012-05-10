@@ -462,7 +462,7 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 	mixer->params_changed++;
 
 	temp = MDSS_MDP_REG_READ(MDSS_MDP_REG_DISP_INTF_SEL);
-	temp |= (ctl->intf_type << (ctl->intf_num * 8));
+	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_DISP_INTF_SEL, temp);
 
 	outsize = (mixer->height << 16) | mixer->width;
