@@ -43,6 +43,11 @@ static int msm_cache_dump_panic(struct notifier_block *this,
 				unsigned long event, void *ptr)
 {
 #ifdef CONFIG_MSM_CACHE_DUMP_ON_PANIC
+	/*
+	 * Clear the bootloader magic so the dumps aren't overwritten
+	 */
+	__raw_writel(0, MSM_IMEM_BASE + L2_DUMP_OFFSET);
+
 	scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID, 2);
 	scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID, 1);
 #endif
@@ -101,10 +106,9 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 	if (ret)
 		pr_err("%s: could not register L2 buffer ret = %d.\n",
 			__func__, ret);
-#else
+#endif
 	__raw_writel(msm_cache_dump_addr + d->l1_size,
 			MSM_IMEM_BASE + L2_DUMP_OFFSET);
-#endif
 
 	atomic_notifier_chain_register(&panic_notifier_list,
 						&msm_cache_dump_blk);
