@@ -26,7 +26,7 @@
 #include <mach/memory.h>
 #include <mach/msm_iomap.h>
 
-#define L2C_IMEM_ADDR 0x2a03f014
+#define L2_DUMP_OFFSET 0x14
 
 static unsigned long msm_cache_dump_addr;
 
@@ -66,9 +66,6 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 		unsigned long buf;
 		unsigned long size;
 	} l1_cache_data;
-#ifndef CONFIG_MSM_CACHE_DUMP_ON_PANIC
-	unsigned int *imem_loc;
-#endif
 	void *temp;
 	unsigned long total_size = d->l1_size + d->l2_size;
 
@@ -105,9 +102,8 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 		pr_err("%s: could not register L2 buffer ret = %d.\n",
 			__func__, ret);
 #else
-	imem_loc = ioremap(L2C_IMEM_ADDR, SZ_4K);
-	__raw_writel(msm_cache_dump_addr + d->l1_size, imem_loc);
-	iounmap(imem_loc);
+	__raw_writel(msm_cache_dump_addr + d->l1_size,
+			MSM_IMEM_BASE + L2_DUMP_OFFSET);
 #endif
 
 	atomic_notifier_chain_register(&panic_notifier_list,
