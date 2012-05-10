@@ -147,7 +147,7 @@ static bool voter_clk_is_local(struct clk *clk)
 	return true;
 }
 
-enum handoff voter_clk_handoff(struct clk *clk)
+static enum handoff voter_clk_handoff(struct clk *clk)
 {
 	/* Apply default rate vote */
 	if (clk->rate)
@@ -164,4 +164,5 @@ struct clk_ops clk_ops_voter = {
 	.round_rate = voter_clk_round_rate,
 	.get_parent = voter_clk_get_parent,
 	.is_local = voter_clk_is_local,
+	.handoff = voter_clk_handoff,
 };
