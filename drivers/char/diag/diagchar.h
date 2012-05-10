@@ -162,6 +162,7 @@ struct diagchar_dev {
 	int count_write_struct_pool;
 	int used;
 	/* Buffers for masks */
+	struct mutex diag_cntl_mutex;
 	struct diag_ctrl_event_mask *event_mask;
 	struct diag_ctrl_log_mask *log_mask;
 	struct diag_ctrl_msg_mask *msg_mask;
