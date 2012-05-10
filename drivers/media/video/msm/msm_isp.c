@@ -246,7 +246,6 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		pr_err("%s: Invalid vdata type: %d\n", __func__, vdata->type);
 		break;
 	}
-	msm_isp_sync_free(vdata);
 	return rc;
 }
 

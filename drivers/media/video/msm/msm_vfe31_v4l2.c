@@ -423,20 +423,15 @@ static void vfe31_stop(void)
 
 static void vfe31_subdev_notify(int id, int path)
 {
-	struct msm_vfe_resp *rp;
+	struct msm_vfe_resp rp;
 	unsigned long flags;
 	spin_lock_irqsave(&vfe31_ctrl->sd_notify_lock, flags);
-	rp = msm_isp_sync_alloc(sizeof(struct msm_vfe_resp), GFP_ATOMIC);
-	if (!rp) {
-		CDBG("rp: cannot allocate buffer\n");
-		spin_unlock_irqrestore(&vfe31_ctrl->sd_notify_lock, flags);
-		return;
-	}
+	memset(&rp, 0, sizeof(struct msm_vfe_resp));
 	CDBG("vfe31_subdev_notify : msgId = %d\n", id);
-	rp->evt_msg.type   = MSM_CAMERA_MSG;
-	rp->evt_msg.msg_id = path;
-	rp->type	   = id;
-	v4l2_subdev_notify(&vfe31_ctrl->subdev, NOTIFY_VFE_BUF_EVT, rp);
+	rp.evt_msg.type   = MSM_CAMERA_MSG;
+	rp.evt_msg.msg_id = path;
+	rp.type	   = id;
+	v4l2_subdev_notify(&vfe31_ctrl->subdev, NOTIFY_VFE_BUF_EVT, &rp);
 	spin_unlock_irqrestore(&vfe31_ctrl->sd_notify_lock, flags);
 }
 
