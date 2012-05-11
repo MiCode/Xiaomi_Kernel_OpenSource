@@ -1129,22 +1129,30 @@ static struct i2c_board_info cs8427_device_info[] __initdata = {
 #define ISA1200_HAP_LEN_GPIO		PM8921_GPIO_PM_TO_SYS(20)
 #define ISA1200_HAP_CLK			PM8921_GPIO_PM_TO_SYS(44)
 
-static int isa1200_power(int on)
+static int isa1200_clk_enable(bool on)
 {
 	int rc = 0;
 
-	gpio_set_value_cansleep(ISA1200_HAP_CLK, !!on);
+	gpio_set_value_cansleep(ISA1200_HAP_CLK, on);
 
-	if (on)
+	if (on) {
 		rc = pm8xxx_aux_clk_control(CLK_MP3_2, XO_DIV_1, true);
-	else
+		if (rc) {
+			pr_err("%s: unable to write aux clock register(%d)\n",
+				__func__, rc);
+			goto err_gpio_dis;
+		}
+	} else {
 		rc = pm8xxx_aux_clk_control(CLK_MP3_2, XO_DIV_NONE, true);
-
-	if (rc) {
-		pr_err("%s: unable to write aux clock register(%d)\n",
-			__func__, rc);
+		if (rc)
+			pr_err("%s: unable to write aux clock register(%d)\n",
+				__func__, rc);
 	}
 
+	return rc;
+
+err_gpio_dis:
+	gpio_set_value_cansleep(ISA1200_HAP_CLK, !on);
 	return rc;
 }
 
@@ -1187,7 +1195,7 @@ static struct isa1200_regulator isa1200_reg_data[] = {
 static struct isa1200_platform_data isa1200_1_pdata = {
 	.name = "vibrator",
 	.dev_setup = isa1200_dev_setup,
-	.power_on = isa1200_power,
+	.clk_enable = isa1200_clk_enable,
 	.hap_en_gpio = ISA1200_HAP_EN_GPIO,
 	.hap_len_gpio = ISA1200_HAP_LEN_GPIO,
 	.max_timeout = 15000,
