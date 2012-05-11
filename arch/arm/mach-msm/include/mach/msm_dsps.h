@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,16 +75,6 @@ struct dsps_regulator_info {
  * @regs_num - number of regulators.
  * @dsps_pwr_ctl_en - to enable DSPS to do power control if set 1
  *  otherwise the apps will do power control
- * @tcm_code_start - start of the TCM code region as physical address
- * @tcm_code_size - size of the TCM code region in bytes
- * @tcm_buf_start - start of the TCM buf region as physical address
- * @tcm_buf_size - size of the TCM buf region in bytes
- * @pipe_start - start of the PIPE region as physical address
- * @pipe_size - size of the PIPE region in bytes
- * @ddr_start - start of the DDR region as physical address
- * @ddr_size - size of the DDR region in bytes
- * @smem_start - start of the smem region as physical address
- * @smem_size - size of the smem region in bytes
  * @ppss_pause_reg - Offset to the PPSS_PAUSE register
  * @ppss_wdog_unmasked_int_en_reg - Offset to PPSS_WDOG_UNMASKED_INT_EN register
  * @signature - signature for validity check.
@@ -99,16 +89,6 @@ struct msm_dsps_platform_data {
 	int regs_num;
 	int dsps_pwr_ctl_en;
 	void (*init)(struct msm_dsps_platform_data *data);
-	int tcm_code_start;
-	int tcm_code_size;
-	int tcm_buf_start;
-	int tcm_buf_size;
-	int pipe_start;
-	int pipe_size;
-	int ddr_start;
-	int ddr_size;
-	int smem_start;
-	int smem_size;
 	int ppss_pause_reg;
 	int ppss_wdog_unmasked_int_en_reg;
 	u32 signature;
