@@ -4906,8 +4906,8 @@ static struct clk_lookup msm_clocks_copper[] = {
 
 	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c, ""),
 	CLK_LOOKUP("bus_clk",       mss_bus_q6_clk.c, ""),
-	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c, ""),
-	CLK_LOOKUP("bus_clk",  q6ss_ahb_lfabif_clk.c, ""),
+	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c, "pil-q6v5-lpass"),
+	CLK_LOOKUP("bus_clk",  q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
 	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c, ""),
 	CLK_LOOKUP("bus_clk",  gcc_mss_cfg_ahb_clk.c, ""),
 

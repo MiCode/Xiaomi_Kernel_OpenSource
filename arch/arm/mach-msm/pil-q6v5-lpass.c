@@ -18,36 +18,18 @@
 #include <linux/iopoll.h>
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/clk.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 
 /* Register Offsets */
 #define QDSP6SS_RST_EVB			0x010
-#define LPASS_Q6SS_BCR			0x06000
-#define LPASS_Q6SS_AHB_LFABIF_CBCR	0x22000
-#define LPASS_Q6SS_XO_CBCR		0x26000
 #define AXI_HALTREQ			0x0
 #define AXI_HALTACK			0x4
 #define AXI_IDLE			0x8
 
 #define HALT_ACK_TIMEOUT_US		100000
-
-static void clk_reg_enable(void __iomem *reg)
-{
-	u32 val;
-	val = readl_relaxed(reg);
-	val |= BIT(0);
-	writel_relaxed(val, reg);
-}
-
-static void clk_reg_disable(void __iomem *reg)
-{
-	u32 val;
-	val = readl_relaxed(reg);
-	val &= ~BIT(0);
-	writel_relaxed(val, reg);
-}
 
 static int pil_lpass_shutdown(struct pil_desc *pil)
 {
@@ -64,17 +46,18 @@ static int pil_lpass_shutdown(struct pil_desc *pil)
 		dev_err(pil->dev, "Port halt failed\n");
 	writel_relaxed(0, drv->axi_halt_base + AXI_HALTREQ);
 
-	/* Make sure Q6 registers are accessible */
-	writel_relaxed(0, drv->clk_base + LPASS_Q6SS_BCR);
-	clk_reg_enable(drv->clk_base + LPASS_Q6SS_AHB_LFABIF_CBCR);
-	mb();
+	/*
+	 * If the shutdown function is called before the reset function, clocks
+	 * will not be enabled yet. Enable them here so that register writes
+	 * performed during the shutdown succeed.
+	 */
+	if (drv->is_booted == false)
+		pil_q6v5_enable_clks(pil);
 
 	pil_q6v5_shutdown(pil);
+	pil_q6v5_disable_clks(pil);
 
-	/* Disable clocks and assert subsystem resets. */
-	clk_reg_disable(drv->clk_base + LPASS_Q6SS_AHB_LFABIF_CBCR);
-	clk_reg_disable(drv->clk_base + LPASS_Q6SS_XO_CBCR);
-	writel_relaxed(1, drv->clk_base + LPASS_Q6SS_BCR);
+	drv->is_booted = false;
 
 	return 0;
 }
@@ -82,21 +65,25 @@ static int pil_lpass_shutdown(struct pil_desc *pil)
 static int pil_lpass_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	int ret;
 
-	/*
-	 * Bring subsystem out of reset and enable required
-	 * regulators and clocks.
-	 */
-	writel_relaxed(0, drv->clk_base + LPASS_Q6SS_BCR);
-	clk_reg_enable(drv->clk_base + LPASS_Q6SS_XO_CBCR);
-	clk_reg_enable(drv->clk_base + LPASS_Q6SS_AHB_LFABIF_CBCR);
-	mb();
+	ret = pil_q6v5_enable_clks(pil);
+	if (ret)
+		return ret;
 
 	/* Program Image Address */
 	writel_relaxed(((drv->start_addr >> 4) & 0x0FFFFFF0),
 				drv->reg_base + QDSP6SS_RST_EVB);
 
-	return pil_q6v5_reset(pil);
+	ret = pil_q6v5_reset(pil);
+	if (ret) {
+		pil_q6v5_disable_clks(pil);
+		return ret;
+	}
+
+	drv->is_booted = true;
+
+	return 0;
 }
 
 static struct pil_reset_ops pil_lpass_ops = {
@@ -124,7 +111,7 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	desc->ops = &pil_lpass_ops;
 	desc->owner = THIS_MODULE;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
 					  resource_size(res));
 	if (!drv->axi_halt_base)

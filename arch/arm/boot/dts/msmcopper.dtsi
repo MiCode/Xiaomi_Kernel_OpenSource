@@ -276,7 +276,6 @@
 	qcom,lpass@fe200000 {
 		compatible = "qcom,pil-q6v5-lpass";
 		reg = <0xfe200000 0x00100>,
-		      <0xfe000000 0x40000>,
 		      <0xfd485100 0x00010>;
 
 		qcom,firmware-name = "lpass";

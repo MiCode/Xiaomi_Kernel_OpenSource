@@ -7,17 +7,15 @@ also responsible for shutting down the processor when it's not needed.
 
 Required properties:
 - compatible:	      Must be "qcom,pil-q6v5-lpass"
-- reg:		      Three pairs of physical base addresses and region sizes
+- reg:		      Two pairs of physical base addresses and region sizes
 		      of memory mapped registers. The first region corresponds
-		      to QDSP6SS_PUB, the second corresponds to LPASS_CC, and
-		      the third to LPASS_HALTREQ.
+		      to QDSP6SS_PUB, and the second to LPASS_HALTREQ.
 - qcom,firmware-name: Base name of the firmware image. Ex. "lpass"
 
 Example:
 	qcom,lpass@fe200000 {
 	        compatible = "qcom,pil-q6v5-lpass";
 	        reg = <0xfe200000 0x00100>,
-	              <0xfe000000 0x40000>,
 	              <0xfd485100 0x00010>;
 
 	        qcom,firmware-name = "lpass";
