@@ -2312,9 +2312,15 @@ static struct resource msm_vcap_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name	= "vcap",
+		.name	= "vc_irq",
 		.start	= VCAP_VC,
 		.end	= VCAP_VC,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "vp_irq",
+		.start	= VCAP_VP,
+		.end	= VCAP_VP,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
