@@ -1848,8 +1848,13 @@ static void a2xx_rb_init(struct adreno_device *adreno_dev,
 
 	/* NQ and External Memory Swap */
 	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
-	/* Protected mode error checking */
-	GSL_RB_WRITE(cmds, cmds_gpu, GSL_RB_PROTECTED_MODE_CONTROL);
+	/* Protected mode error checking
+	 * If iommu is used then protection needs to be turned off
+	 * to enable context bank switching */
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
+		GSL_RB_WRITE(cmds, cmds_gpu, 0);
+	else
+		GSL_RB_WRITE(cmds, cmds_gpu, GSL_RB_PROTECTED_MODE_CONTROL);
 	/* Disable header dumping and Header dump address */
 	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
 	/* Header dump size */

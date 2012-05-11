@@ -21,6 +21,7 @@
 #include "kgsl_pwrscale.h"
 #include "kgsl_cffdump.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_iommu.h"
 
 #include "adreno.h"
 #include "adreno_pm4types.h"
@@ -243,7 +244,144 @@ error:
 	return result;
 }
 
-static void adreno_setstate(struct kgsl_device *device,
+static void adreno_iommu_setstate(struct kgsl_device *device,
+					uint32_t flags)
+{
+	unsigned int pt_val, reg_pt_val;
+	unsigned int link[200];
+	unsigned int *cmds = &link[0];
+	int sizedwords = 0;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_memdesc **reg_map_desc;
+	void *reg_map_array;
+	int num_iommu_units, i;
+
+	if (!adreno_dev->drawctxt_active)
+		return kgsl_mmu_device_setstate(&device->mmu, flags);
+	num_iommu_units = kgsl_mmu_get_reg_map_desc(&device->mmu,
+							&reg_map_array);
+	reg_map_desc = reg_map_array;
+
+	if (kgsl_mmu_enable_clk(&device->mmu,
+				KGSL_IOMMU_CONTEXT_USER))
+		goto done;
+
+	if (adreno_is_a225(adreno_dev))
+		cmds += adreno_add_change_mh_phys_limit_cmds(cmds, 0xFFFFF000,
+					device->mmu.setstate_memory.gpuaddr +
+					KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+	else
+		cmds += adreno_add_bank_change_cmds(cmds,
+					KGSL_IOMMU_CONTEXT_USER,
+					device->mmu.setstate_memory.gpuaddr +
+					KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+
+	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
+		pt_val = kgsl_mmu_pt_get_base_addr(device->mmu.hwpagetable);
+		/*
+		 * We need to perfrom the following operations for all
+		 * IOMMU units
+		 */
+		for (i = 0; i < num_iommu_units; i++) {
+			reg_pt_val = (pt_val &
+				(KGSL_IOMMU_TTBR0_PA_MASK <<
+				KGSL_IOMMU_TTBR0_PA_SHIFT)) +
+				kgsl_mmu_get_pt_lsb(&device->mmu, i,
+					KGSL_IOMMU_CONTEXT_USER);
+			/*
+			 * Set address of the new pagetable by writng to IOMMU
+			 * TTBR0 register
+			 */
+			*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
+			*cmds++ = reg_map_desc[i]->gpuaddr +
+				(KGSL_IOMMU_CONTEXT_USER <<
+				KGSL_IOMMU_CTX_SHIFT) + KGSL_IOMMU_TTBR0;
+			*cmds++ = reg_pt_val;
+			*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+			*cmds++ = 0x00000000;
+
+			/*
+			 * Read back the ttbr0 register as a barrier to ensure
+			 * above writes have completed
+			 */
+			cmds += adreno_add_read_cmds(device, cmds,
+				reg_map_desc[i]->gpuaddr +
+				(KGSL_IOMMU_CONTEXT_USER <<
+				KGSL_IOMMU_CTX_SHIFT) + KGSL_IOMMU_TTBR0,
+				reg_pt_val,
+				device->mmu.setstate_memory.gpuaddr +
+				KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+
+			/* set the asid */
+			*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
+			*cmds++ = reg_map_desc[i]->gpuaddr +
+				(KGSL_IOMMU_CONTEXT_USER <<
+				KGSL_IOMMU_CTX_SHIFT) + KGSL_IOMMU_CONTEXTIDR;
+			*cmds++ = kgsl_mmu_get_hwpagetable_asid(&device->mmu);
+			*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+			*cmds++ = 0x00000000;
+
+			/* Read back asid to ensure above write completes */
+			cmds += adreno_add_read_cmds(device, cmds,
+				reg_map_desc[i]->gpuaddr +
+				(KGSL_IOMMU_CONTEXT_USER <<
+				KGSL_IOMMU_CTX_SHIFT) + KGSL_IOMMU_CONTEXTIDR,
+				kgsl_mmu_get_hwpagetable_asid(&device->mmu),
+				device->mmu.setstate_memory.gpuaddr +
+				KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+		}
+		/* invalidate all base pointers */
+		*cmds++ = cp_type3_packet(CP_INVALIDATE_STATE, 1);
+		*cmds++ = 0x7fff;
+
+		if (flags & KGSL_MMUFLAGS_TLBFLUSH)
+			cmds += __adreno_add_idle_indirect_cmds(cmds,
+				device->mmu.setstate_memory.gpuaddr +
+				KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+	}
+	if (flags & KGSL_MMUFLAGS_TLBFLUSH) {
+		/*
+		 * tlb flush based on asid, no need to flush entire tlb
+		 */
+		for (i = 0; i < num_iommu_units; i++) {
+			*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
+			*cmds++ = (reg_map_desc[i]->gpuaddr +
+				(KGSL_IOMMU_CONTEXT_USER <<
+				KGSL_IOMMU_CTX_SHIFT) +
+				KGSL_IOMMU_CTX_TLBIASID);
+			*cmds++ = kgsl_mmu_get_hwpagetable_asid(&device->mmu);
+			cmds += adreno_add_read_cmds(device, cmds,
+				reg_map_desc[i]->gpuaddr +
+				(KGSL_IOMMU_CONTEXT_USER <<
+				KGSL_IOMMU_CTX_SHIFT) +
+				KGSL_IOMMU_CONTEXTIDR,
+				kgsl_mmu_get_hwpagetable_asid(&device->mmu),
+				device->mmu.setstate_memory.gpuaddr +
+				KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+		}
+	}
+
+	if (adreno_is_a225(adreno_dev))
+		cmds += adreno_add_change_mh_phys_limit_cmds(cmds,
+			reg_map_desc[num_iommu_units - 1]->gpuaddr - PAGE_SIZE,
+			device->mmu.setstate_memory.gpuaddr +
+			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+	else
+		cmds += adreno_add_bank_change_cmds(cmds,
+			KGSL_IOMMU_CONTEXT_PRIV,
+			device->mmu.setstate_memory.gpuaddr +
+			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+
+	sizedwords += (cmds - &link[0]);
+	if (sizedwords)
+		adreno_ringbuffer_issuecmds(device,
+			KGSL_CMD_FLAGS_PMODE, &link[0], sizedwords);
+done:
+	if (num_iommu_units)
+		kfree(reg_map_array);
+}
+
+static void adreno_gpummu_setstate(struct kgsl_device *device,
 					uint32_t flags)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -251,16 +389,6 @@ static void adreno_setstate(struct kgsl_device *device,
 	unsigned int *cmds = &link[0];
 	int sizedwords = 0;
 	unsigned int mh_mmu_invalidate = 0x00000003; /*invalidate all and tc */
-
-	/*
-	 * A3XX doesn't support the fast path (the registers don't even exist)
-	 * so just bail out early
-	 */
-
-	if (adreno_is_a3xx(adreno_dev)) {
-		kgsl_mmu_device_setstate(&device->mmu, flags);
-		return;
-	}
 
 	/*
 	 * If possible, then set the state via the command stream to avoid
@@ -346,6 +474,16 @@ static void adreno_setstate(struct kgsl_device *device,
 	} else {
 		kgsl_mmu_device_setstate(&device->mmu, flags);
 	}
+}
+
+static void adreno_setstate(struct kgsl_device *device,
+			uint32_t flags)
+{
+	/* call the mmu specific handler */
+	if (KGSL_MMU_TYPE_GPU == kgsl_mmu_get_mmutype())
+		return adreno_gpummu_setstate(device, flags);
+	else if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
+		return adreno_iommu_setstate(device, flags);
 }
 
 static unsigned int
