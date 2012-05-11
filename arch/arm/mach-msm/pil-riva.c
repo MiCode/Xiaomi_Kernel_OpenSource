@@ -20,11 +20,17 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
+#include <linux/interrupt.h>
+#include <linux/wcnss_wlan.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/subsystem_restart.h>
+#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
+#include "ramdump.h"
+#include "smd_private.h"
 
 #define RIVA_PMU_A2XB_CFG		0xB8
 #define RIVA_PMU_A2XB_CFG_EN		BIT(0)
@@ -82,6 +88,13 @@ struct riva_data {
 	struct clk *xo;
 	struct regulator *pll_supply;
 	struct pil_device *pil;
+	int irq;
+	int crash;
+	int rst_in_progress;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
+	struct delayed_work cancel_work;
+	struct ramdump_device *ramdump_dev;
 };
 
 static bool cxo_is_needed(struct riva_data *drv)
@@ -272,6 +285,160 @@ static struct pil_reset_ops pil_riva_ops_trusted = {
 	.proxy_unvote = pil_riva_remove_proxy_vote,
 };
 
+static int enable_riva_ssr;
+
+static int enable_riva_ssr_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	ret = param_set_int(val, kp);
+	if (ret)
+		return ret;
+
+	if (enable_riva_ssr)
+		pr_info("Subsystem restart activated for riva.\n");
+
+	return 0;
+}
+module_param_call(enable_riva_ssr, enable_riva_ssr_set, param_get_int,
+		 &enable_riva_ssr, S_IRUGO | S_IWUSR);
+
+static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
+			       uint32_t new_state)
+{
+	struct riva_data *drv = data;
+	char *smem_reset_reason;
+	char buffer[81];
+	unsigned smem_reset_size;
+	unsigned size;
+
+	drv->crash = true;
+	if (!(new_state & SMSM_RESET))
+		return;
+
+	if (drv->rst_in_progress) {
+		pr_err("riva: Ignoring smsm reset req, restart in progress\n");
+		return;
+	}
+
+	pr_err("riva: smsm state changed to smsm reset\n");
+
+	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_WCNSS0,
+		&smem_reset_size);
+
+	if (!smem_reset_reason || !smem_reset_size) {
+		pr_err("wcnss subsystem failure reason:\n"
+		       "(unknown, smem_get_entry failed)");
+	} else if (!smem_reset_reason[0]) {
+		pr_err("wcnss subsystem failure reason:\n"
+		       "(unknown, init string found)");
+	} else {
+		size = smem_reset_size < sizeof(buffer) ? smem_reset_size :
+				(sizeof(buffer) - 1);
+		memcpy(buffer, smem_reset_reason, size);
+		buffer[size] = '\0';
+		pr_err("wcnss subsystem failure reason: %s\n", buffer);
+		memset(smem_reset_reason, 0, smem_reset_size);
+		wmb();
+	}
+
+	drv->rst_in_progress = 1;
+	subsystem_restart_dev(drv->subsys);
+}
+
+static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
+{
+	struct riva_data *drv = dev_id;
+
+	drv->crash = true;
+	if (drv->rst_in_progress) {
+		pr_err("Ignoring riva bite irq, restart in progress\n");
+		return IRQ_HANDLED;
+	}
+	if (!enable_riva_ssr)
+		panic("Watchdog bite received from Riva");
+
+	drv->rst_in_progress = 1;
+	subsystem_restart_dev(drv->subsys);
+
+	return IRQ_HANDLED;
+}
+
+static void riva_post_bootup(struct work_struct *work)
+{
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+
+	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF);
+}
+
+static int riva_shutdown(const struct subsys_desc *desc)
+{
+	struct riva_data *drv;
+
+	drv = container_of(desc, struct riva_data, subsys_desc);
+	pil_force_shutdown("wcnss");
+	flush_delayed_work(&drv->cancel_work);
+	wcnss_flush_delayed_boot_votes();
+	disable_irq_nosync(drv->irq);
+
+	return 0;
+}
+
+static int riva_powerup(const struct subsys_desc *desc)
+{
+	struct riva_data *drv;
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+	int ret = 0;
+
+	drv = container_of(desc, struct riva_data, subsys_desc);
+	if (pdev && pwlanconfig) {
+		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_ON);
+		if (!ret)
+			pil_force_boot("wcnss");
+	}
+	drv->rst_in_progress = 0;
+	enable_irq(drv->irq);
+	schedule_delayed_work(&drv->cancel_work, msecs_to_jiffies(5000));
+
+	return ret;
+}
+
+/*
+ * 7MB RAM segments for Riva SS;
+ * Riva 1.1 0x8f000000 - 0x8f700000
+ * Riva 1.0 0x8f200000 - 0x8f700000
+ */
+static struct ramdump_segment riva_segments[] = {
+	{0x8f000000, 0x8f700000 - 0x8f000000}
+};
+
+static int riva_ramdump(int enable, const struct subsys_desc *desc)
+{
+	struct riva_data *drv;
+
+	drv = container_of(desc, struct riva_data, subsys_desc);
+
+	if (enable)
+		return do_ramdump(drv->ramdump_dev, riva_segments,
+				ARRAY_SIZE(riva_segments));
+	else
+		return 0;
+}
+
+/* Riva crash handler */
+static void riva_crash_shutdown(const struct subsys_desc *desc)
+{
+	struct riva_data *drv;
+
+	drv = container_of(desc, struct riva_data, subsys_desc);
+	pr_err("riva crash shutdown %d\n", drv->crash);
+	if (drv->crash != true)
+		smsm_change_state(SMSM_APPS_STATE, SMSM_RESET, SMSM_RESET);
+}
+
 static int __devinit pil_riva_probe(struct platform_device *pdev)
 {
 	struct riva_data *drv;
@@ -317,6 +484,10 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		}
 	}
 
+	drv->irq = platform_get_irq(pdev, 0);
+	if (drv->irq < 0)
+		return drv->irq;
+
 	desc->name = "wcnss";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
@@ -337,13 +508,60 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))
 		return PTR_ERR(drv->pil);
+
+	ret = smsm_state_cb_register(SMSM_WCNSS_STATE, SMSM_RESET,
+					smsm_state_cb_hdlr, drv);
+	if (ret < 0)
+		goto err_smsm;
+
+	drv->subsys_desc.name = "wcnss";
+	drv->subsys_desc.shutdown = riva_shutdown;
+	drv->subsys_desc.powerup = riva_powerup;
+	drv->subsys_desc.ramdump = riva_ramdump;
+	drv->subsys_desc.crash_shutdown = riva_crash_shutdown;
+
+	INIT_DELAYED_WORK(&drv->cancel_work, riva_post_bootup);
+
+	drv->ramdump_dev = create_ramdump_device("riva");
+	if (!drv->ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_ramdump;
+	}
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		ret = PTR_ERR(drv->subsys);
+		goto err_subsys;
+	}
+
+	ret = devm_request_irq(&pdev->dev, drv->irq, riva_wdog_bite_irq_hdlr,
+			IRQF_TRIGGER_HIGH, "riva_wdog", drv);
+	if (ret < 0)
+		goto err;
+
 	return 0;
+err:
+	subsys_unregister(drv->subsys);
+err_subsys:
+	destroy_ramdump_device(drv->ramdump_dev);
+err_ramdump:
+	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
+					smsm_state_cb_hdlr, drv);
+err_smsm:
+	msm_pil_unregister(drv->pil);
+	return ret;
 }
 
 static int __devexit pil_riva_remove(struct platform_device *pdev)
 {
 	struct riva_data *drv = platform_get_drvdata(pdev);
+
+	subsys_unregister(drv->subsys);
+	destroy_ramdump_device(drv->ramdump_dev);
+	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
+					smsm_state_cb_hdlr, drv);
 	msm_pil_unregister(drv->pil);
+
 	return 0;
 }
 
