@@ -52,6 +52,7 @@
 #define N_TI_WL		22	/* for TI's WL BT, FM, GPS combo chips */
 #define N_TRACESINK	23	/* Trace data routing for MIPI P1149.7 */
 #define N_TRACEROUTER	24	/* Trace data routing for MIPI P1149.7 */
+#define N_SMUX		25	/* Serial MUX */
 
 /*
  * This character is the same as _POSIX_VDISABLE: it cannot be used as
