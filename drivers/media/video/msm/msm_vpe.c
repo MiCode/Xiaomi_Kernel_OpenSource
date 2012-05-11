@@ -50,10 +50,12 @@ static int vpe_start(void)
 	/*  enable the frame irq, bit 0 = Display list 0 ROI done */
 	msm_camera_io_w_mb(1, vpe_ctrl->vpebase + VPE_INTR_ENABLE_OFFSET);
 	msm_camera_io_dump(vpe_ctrl->vpebase, 0x120);
+	msm_camera_io_dump(vpe_ctrl->vpebase + 0x00400, 0x18);
 	msm_camera_io_dump(vpe_ctrl->vpebase + 0x10000, 0x250);
 	msm_camera_io_dump(vpe_ctrl->vpebase + 0x30000, 0x20);
 	msm_camera_io_dump(vpe_ctrl->vpebase + 0x50000, 0x30);
 	msm_camera_io_dump(vpe_ctrl->vpebase + 0x50400, 0x10);
+
 	/* this triggers the operation. */
 	msm_camera_io_w(1, vpe_ctrl->vpebase + VPE_DL0_START_OFFSET);
 	wmb();
@@ -756,7 +758,7 @@ static int __devinit vpe_probe(struct platform_device *pdev)
 	}
 
 	rc = request_irq(vpe_ctrl->vpeirq->start, vpe_parse_irq,
-		IRQF_TRIGGER_RISING, "vfe", 0);
+		IRQF_TRIGGER_RISING, "vpe", 0);
 	if (rc < 0) {
 		release_mem_region(vpe_ctrl->vpemem->start,
 			resource_size(vpe_ctrl->vpemem));
