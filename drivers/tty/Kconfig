@@ -346,6 +346,12 @@ config N_SMUX_LOOPBACK
 	help
 	  Provides loopback and unit testing support for the Serial MUX Protocol.
 
+config SMUX_CTL
+	tristate "SMUX control driver"
+	depends on N_SMUX
+	help
+	  Support for SMUX control driver on top of serial MUX.
+
 config TRACE_ROUTER
 	tristate "Trace data router for MIPI P1149.7 cJTAG standard"
 	depends on TRACE_SINK
