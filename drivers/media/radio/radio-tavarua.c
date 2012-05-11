@@ -3453,9 +3453,17 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		if (retval < 0)
 			FMDBG("write failed");
 	} break;
+	case V4L2_CID_PRIVATE_SOFT_MUTE:
+		radio->registers[IOCTRL] &= ~(IOC_SFT_MUTE);
+		if (ctrl->value)
+			radio->registers[IOCTRL] |= IOC_SFT_MUTE;
+		retval = tavarua_write_register(radio, IOCTRL,
+					radio->registers[IOCTRL]);
+		if (retval < 0)
+			FMDERR("Failed to enable/disable SMute\n");
+		break;
 	/*These IOCTL's are place holders to keep the
 	driver compatible with change in frame works for IRIS */
-	case V4L2_CID_PRIVATE_SOFT_MUTE:
 	case V4L2_CID_PRIVATE_RIVA_ACCS_ADDR:
 	case V4L2_CID_PRIVATE_RIVA_ACCS_LEN:
 	case V4L2_CID_PRIVATE_RIVA_PEEK:
