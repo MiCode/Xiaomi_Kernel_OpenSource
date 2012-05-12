@@ -48,6 +48,7 @@ struct msm_snd_rpc_ids {
 	unsigned long   vers;
 	unsigned long   vers2;
 	unsigned long   rpc_set_snd_device;
+	unsigned long	rpc_set_device_vol;
 	int device;
 };
 
@@ -125,6 +126,7 @@ int msm_snd_init_rpc_ids(void)
 	 * index for snd_set_device
 	 */
 	snd_rpc_ids.rpc_set_snd_device = 2;
+	snd_rpc_ids.rpc_set_device_vol = 3;
 	return 0;
 }
 
@@ -235,6 +237,67 @@ static int snd_msm_device_put(struct snd_kcontrol *kcontrol,
 	return rc;
 }
 
+static int snd_msm_device_vol_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 2; /* Device/Volume */
+
+	/*
+	 * The number of devices supported is 37 (0 to 36)
+	 */
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 36;
+	return 0;
+}
+
+static int snd_msm_device_vol_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+	struct snd_vol_req {
+		struct rpc_request_hdr hdr;
+		uint32_t device;
+		uint32_t method;
+		uint32_t volume;
+		uint32_t cb_func;
+		uint32_t client_data;
+	} req;
+
+	snd_rpc_ids.device = (int)ucontrol->value.integer.value[0];
+
+	if ((ucontrol->value.integer.value[1] < 0) ||
+		(ucontrol->value.integer.value[1] > 6)) {
+		pr_err("Device volume should be in range of 1 to 6\n");
+		return -EINVAL;
+	}
+	if ((ucontrol->value.integer.value[0] > 36) ||
+		(ucontrol->value.integer.value[0] < 0)) {
+		pr_err("Device range supported is 0 to 36\n");
+		return -EINVAL;
+	}
+
+	req.device = cpu_to_be32((int)ucontrol->value.integer.value[0]);
+	req.method = cpu_to_be32(0);
+	req.volume = cpu_to_be32((int)ucontrol->value.integer.value[1]);
+	req.cb_func = -1;
+	req.client_data = cpu_to_be32(0);
+
+	rc = msm_rpc_call(snd_ep, snd_rpc_ids.rpc_set_device_vol ,
+			&req, sizeof(req), 5 * HZ);
+
+	if (rc < 0) {
+		printk(KERN_ERR "%s: snd rpc call failed! rc = %d\n",
+			__func__, rc);
+	} else {
+		printk(KERN_ERR "%s: device [%d] volume set to [%d]\n",
+				__func__, (int)ucontrol->value.integer.value[0],
+				(int)ucontrol->value.integer.value[1]);
+	}
+
+	return rc;
+}
+
 /* Supported range -50dB to 18dB */
 static const DECLARE_TLV_DB_LINEAR(db_scale_linear, -5000, 1800);
 
@@ -262,6 +325,8 @@ static struct snd_kcontrol_new snd_msm_controls[] = {
 	snd_msm_volume_get, snd_msm_volume_put, 0, db_scale_linear),
 	MSM_EXT("device", 0, snd_msm_device_info, snd_msm_device_get, \
 						 snd_msm_device_put, 0),
+	MSM_EXT("Device Volume", 0, snd_msm_device_vol_info, NULL, \
+						 snd_msm_device_vol_put, 0),
 };
 
 static int msm_new_mixer(struct snd_soc_codec *codec)
