@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,8 @@ int gbam_setup(unsigned int no_bam_port, unsigned int no_bam2bam_port);
 int gbam_connect(struct grmnet *gr, u8 port_num,
 				 enum transport_type trans, u8 connection_idx);
 void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans);
+void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans);
+void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans);
 int gsmd_ctrl_connect(struct grmnet *gr, int port_num);
 void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num);
 int gsmd_ctrl_setup(unsigned int count);

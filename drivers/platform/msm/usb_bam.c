@@ -19,6 +19,7 @@
 #include <linux/usb/msm_hsusb.h>
 #include <mach/usb_bam.h>
 #include <mach/sps.h>
+#include <linux/workqueue.h>
 
 #define USB_SUMMING_THRESHOLD 512
 #define CONNECTIONS_NUM		4
@@ -29,11 +30,20 @@ static struct sps_connect sps_connections[CONNECTIONS_NUM][2];
 static struct sps_mem_buffer data_mem_buf[CONNECTIONS_NUM][2];
 static struct sps_mem_buffer desc_mem_buf[CONNECTIONS_NUM][2];
 static struct platform_device *usb_bam_pdev;
+static struct workqueue_struct *usb_bam_wq;
+
+struct usb_bam_wake_event_info {
+	struct sps_register_event event;
+	int (*callback)(void *);
+	void *param;
+	struct work_struct wake_w;
+};
 
 struct usb_bam_connect_info {
 	u8 idx;
 	u8 *src_pipe;
 	u8 *dst_pipe;
+	struct usb_bam_wake_event_info peer_event;
 	bool enabled;
 };
 
@@ -168,6 +178,58 @@ int usb_bam_connect(u8 idx, u8 *src_pipe_idx, u8 *dst_pipe_idx)
 	return 0;
 }
 
+static void usb_bam_wake_work(struct work_struct *w)
+{
+	struct usb_bam_wake_event_info *wake_event_info =
+		container_of(w, struct usb_bam_wake_event_info, wake_w);
+
+	wake_event_info->callback(wake_event_info->param);
+}
+
+static void usb_bam_wake_cb(struct sps_event_notify *notify)
+{
+	struct usb_bam_wake_event_info *wake_event_info =
+		(struct usb_bam_wake_event_info *)notify->user;
+
+	queue_work(usb_bam_wq, &wake_event_info->wake_w);
+}
+
+int usb_bam_register_wake_cb(u8 idx,
+	int (*callback)(void *user), void* param)
+{
+	struct sps_pipe *pipe = sps_pipes[idx][PEER_PERIPHERAL_TO_USB];
+	struct sps_connect *sps_connection =
+		&sps_connections[idx][PEER_PERIPHERAL_TO_USB];
+	struct usb_bam_connect_info *connection = &usb_bam_connections[idx];
+	struct usb_bam_wake_event_info *wake_event_info =
+		&connection->peer_event;
+	int ret;
+
+	wake_event_info->param = param;
+	wake_event_info->callback = callback;
+	wake_event_info->event.mode = SPS_TRIGGER_CALLBACK;
+	wake_event_info->event.xfer_done = NULL;
+	wake_event_info->event.callback = callback ? usb_bam_wake_cb : NULL;
+	wake_event_info->event.user = wake_event_info;
+	wake_event_info->event.options = SPS_O_WAKEUP;
+	ret = sps_register_event(pipe, &wake_event_info->event);
+	if (ret) {
+		pr_err("%s: sps_register_event() failed %d\n", __func__, ret);
+		return ret;
+	}
+
+	sps_connection->options = callback ?
+		(SPS_O_AUTO_ENABLE | SPS_O_WAKEUP | SPS_O_WAKEUP_IS_ONESHOT) :
+			SPS_O_AUTO_ENABLE;
+	ret = sps_set_config(pipe, sps_connection);
+	if (ret) {
+		pr_err("%s: sps_set_config() failed %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int usb_bam_init(void)
 {
 	u32 h_usb;
@@ -275,8 +337,11 @@ static int usb_bam_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "usb_bam_probe\n");
 
-	for (i = 0; i < CONNECTIONS_NUM; i++)
+	for (i = 0; i < CONNECTIONS_NUM; i++) {
 		usb_bam_connections[i].enabled = 0;
+		INIT_WORK(&usb_bam_connections[i].peer_event.wake_w,
+			usb_bam_wake_work);
+	}
 
 	if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "missing platform_data\n");
@@ -288,11 +353,26 @@ static int usb_bam_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "failed to create device file\n");
 
+	usb_bam_wq = alloc_workqueue("usb_bam_wq",
+		WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+	if (!usb_bam_wq) {
+		pr_err("unable to create workqueue usb_bam_wq\n");
+		return -ENOMEM;
+	}
+
 	return ret;
+}
+
+static int usb_bam_remove(struct platform_device *pdev)
+{
+	destroy_workqueue(usb_bam_wq);
+
+	return 0;
 }
 
 static struct platform_driver usb_bam_driver = {
 	.probe = usb_bam_probe,
+	.remove = usb_bam_remove,
 	.driver = { .name = "usb_bam", },
 };
 
