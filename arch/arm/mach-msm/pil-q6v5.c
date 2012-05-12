@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/elf.h>
 #include <linux/err.h>
 #include <linux/of.h>
@@ -25,10 +26,17 @@
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 
-/* Register Offsets */
+/* QDSP6SS Register Offsets */
 #define QDSP6SS_RESET			0x014
 #define QDSP6SS_GFMUX_CTL		0x020
 #define QDSP6SS_PWR_CTL			0x030
+
+/* AXI Halt Register Offsets */
+#define AXI_HALTREQ			0x0
+#define AXI_HALTACK			0x4
+#define AXI_IDLE			0x8
+
+#define HALT_ACK_TIMEOUT_US		100000
 
 /* QDSP6SS_RESET */
 #define Q6SS_CORE_ARES			BIT(1)
@@ -67,6 +75,27 @@ void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 	clk_disable_unprepare(drv->xo);
 }
 EXPORT_SYMBOL(pil_q6v5_remove_proxy_votes);
+
+void pil_q6v5_halt_axi_port(struct pil_desc *pil, void __iomem *halt_base)
+{
+	int ret;
+	u32 status;
+
+	/* Assert halt request */
+	writel_relaxed(1, halt_base + AXI_HALTREQ);
+
+	/* Wait for halt */
+	ret = readl_poll_timeout(halt_base + AXI_HALTACK,
+		status, status != 0, 50, HALT_ACK_TIMEOUT_US);
+	if (ret)
+		dev_warn(pil->dev, "Port %p halt timeout\n", halt_base);
+	else if (!readl_relaxed(halt_base + AXI_IDLE))
+		dev_warn(pil->dev, "Port %p halt failed\n", halt_base);
+
+	/* Clear halt request (port will remain halted until reset) */
+	writel_relaxed(0, halt_base + AXI_HALTREQ);
+}
+EXPORT_SYMBOL(pil_q6v5_halt_axi_port);
 
 int pil_q6v5_init_image(struct pil_desc *pil, const u8 *metadata,
 			       size_t size)
@@ -209,6 +238,11 @@ struct pil_desc __devinit *pil_q6v5_init(struct platform_device *pdev)
 	drv->reg_base = devm_ioremap(&pdev->dev, res->start,
 				     resource_size(res));
 	if (!drv->reg_base)
+		return ERR_PTR(-ENOMEM);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
+					  resource_size(res));
+	if (!drv->axi_halt_base)
 		return ERR_PTR(-ENOMEM);
 
 	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
