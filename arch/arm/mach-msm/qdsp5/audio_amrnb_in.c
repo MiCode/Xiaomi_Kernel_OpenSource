@@ -2,7 +2,7 @@
  *
  * amrnb encoder device
  *
- * Copyright (c) 2009, 2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009, 2011-2012 Code Aurora Forum. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5/audio_in.c, which is
  * Copyright (C) 2008 Google, Inc.
@@ -44,7 +44,6 @@
 #include <mach/msm_rpcrouter.h>
 #include <mach/msm_memtypes.h>
 #include <mach/iommu.h>
-#include <mach/msm_subsystem_map.h>
 #include <mach/iommu_domains.h>
 
 #include <mach/msm_adsp.h>
@@ -146,7 +145,7 @@ struct audio_amrnb_in {
 	/* data allocated for various buffers */
 	char *data;
 	dma_addr_t phys;
-	struct msm_mapped_buffer *map_v_write;
+	void *map_v_write;
 
 	uint8_t opened;
 	uint8_t enabled;
@@ -1206,7 +1205,7 @@ static int audamrnb_in_release(struct inode *inode, struct file *file)
 	audio->opened = 0;
 	if ((audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) && \
 	   (audio->out_data)) {
-		msm_subsystem_unmap_buffer(audio->map_v_write);
+		iounmap(audio->map_v_write);
 		free_contiguous_memory_by_paddr(audio->out_phys);
 		audio->out_data = NULL;
 	}
@@ -1330,9 +1329,8 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 				dma_size, audio->data, audio->phys);
 			goto evt_error;
 		} else {
-			audio->map_v_write = msm_subsystem_map_buffer(
-					audio->out_phys, BUFFER_SIZE,
-					MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+			audio->map_v_write = ioremap(
+					audio->out_phys, BUFFER_SIZE);
 			if (IS_ERR(audio->map_v_write)) {
 				MM_ERR("could not map write phys address\n");
 				rc = -ENOMEM;
@@ -1342,7 +1340,7 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 						audio->out_phys);
 				goto evt_error;
 			}
-			audio->out_data = audio->map_v_write->vaddr;
+			audio->out_data = audio->map_v_write;
 			MM_DBG("wr buf: phy addr 0x%08x kernel addr 0x%08x\n",
 					audio->out_phys,
 					(uint32_t)audio->out_data);
