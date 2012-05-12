@@ -727,6 +727,11 @@ void __init msm8960_init_cam(void)
 			msm_camera_8960_ext_power_ctrl;
 	}
 
+	if (machine_is_msm8960_fluid()) {
+		msm_camera_sensor_imx091_data.sensor_platform_info->
+			mount_angle = 270;
+	}
+
 	platform_device_register(&msm_camera_server);
 	platform_device_register(&msm8960_device_csiphy0);
 	platform_device_register(&msm8960_device_csiphy1);
