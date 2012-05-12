@@ -382,18 +382,35 @@ int kgsl_mmu_start(struct kgsl_device *device)
 }
 EXPORT_SYMBOL(kgsl_mmu_start);
 
+static void mh_axi_error(struct kgsl_device *device, const char* type)
+{
+	unsigned int reg, gpu_err, phys_err, pt_base;
+
+	kgsl_regread(device, MH_AXI_ERROR, &reg);
+	pt_base = kgsl_mmu_get_current_ptbase(&device->mmu);
+	/*
+	 * Read gpu virtual and physical addresses that
+	 * caused the error from the debug data.
+	 */
+	kgsl_regwrite(device, MH_DEBUG_CTRL, 44);
+	kgsl_regread(device, MH_DEBUG_DATA, &gpu_err);
+	kgsl_regwrite(device, MH_DEBUG_CTRL, 45);
+	kgsl_regread(device, MH_DEBUG_DATA, &phys_err);
+	KGSL_MEM_CRIT(device,
+			"axi %s error: %08x pt %08x gpu %08x phys %08x\n",
+			type, reg, pt_base, gpu_err, phys_err);
+}
+
 void kgsl_mh_intrcallback(struct kgsl_device *device)
 {
 	unsigned int status = 0;
-	unsigned int reg;
 
 	kgsl_regread(device, MH_INTERRUPT_STATUS, &status);
-	kgsl_regread(device, MH_AXI_ERROR, &reg);
 
 	if (status & MH_INTERRUPT_MASK__AXI_READ_ERROR)
-		KGSL_MEM_CRIT(device, "axi read error interrupt: %08x\n", reg);
+		mh_axi_error(device, "read");
 	if (status & MH_INTERRUPT_MASK__AXI_WRITE_ERROR)
-		KGSL_MEM_CRIT(device, "axi write error interrupt: %08x\n", reg);
+		mh_axi_error(device, "write");
 	if (status & MH_INTERRUPT_MASK__MMU_PAGE_FAULT)
 		device->mmu.mmu_ops->mmu_pagefault(&device->mmu);
 
