@@ -65,6 +65,7 @@ struct msm_hsic_per {
 	struct msm_xo_voter	*xo_handle;
 	struct workqueue_struct *wq;
 	struct work_struct	suspend_w;
+	struct msm_hsic_peripheral_platform_data *pdata;
 };
 
 static int msm_hsic_init_vddcx(struct msm_hsic_per *mhsic, int init)
@@ -365,8 +366,10 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 	 */
 	mb();
 
-	clk_disable(mhsic->iface_clk);
-	clk_disable(mhsic->core_clk);
+	if (!mhsic->pdata->keep_core_clk_on_suspend_workaround) {
+		clk_disable(mhsic->iface_clk);
+		clk_disable(mhsic->core_clk);
+	}
 	clk_disable(mhsic->phy_clk);
 	clk_disable(mhsic->cal_clk);
 
@@ -416,8 +419,10 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 		dev_err(mhsic->dev, "%s failed to vote for TCXO %d\n",
 				__func__, ret);
 
-	clk_enable(mhsic->iface_clk);
-	clk_enable(mhsic->core_clk);
+	if (!mhsic->pdata->keep_core_clk_on_suspend_workaround) {
+		clk_enable(mhsic->iface_clk);
+		clk_enable(mhsic->core_clk);
+	}
 	clk_enable(mhsic->phy_clk);
 	clk_enable(mhsic->cal_clk);
 
@@ -611,8 +616,16 @@ static int __devinit msm_hsic_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct msm_hsic_per *mhsic;
 	int ret = 0;
+	struct msm_hsic_peripheral_platform_data *pdata;
 
 	dev_dbg(&pdev->dev, "msm-hsic probe\n");
+
+	if (!pdev->dev.platform_data) {
+		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
+		return -ENODEV;
+	} else {
+		pdata = pdev->dev.platform_data;
+	}
 
 	mhsic = kzalloc(sizeof(struct msm_hsic_per), GFP_KERNEL);
 	if (!mhsic) {
@@ -622,6 +635,7 @@ static int __devinit msm_hsic_probe(struct platform_device *pdev)
 	the_mhsic = mhsic;
 	platform_set_drvdata(pdev, mhsic);
 	mhsic->dev = &pdev->dev;
+	mhsic->pdata = pdata;
 
 	mhsic->irq = platform_get_irq(pdev, 0);
 	if (mhsic->irq < 0) {
