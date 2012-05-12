@@ -88,7 +88,8 @@ static void diag_bridge_read_cb(struct urb *urb)
 		return;
 	}
 
-	cbs->read_complete_cb(cbs->ctxt,
+	if (cbs && cbs->read_complete_cb)
+		cbs->read_complete_cb(cbs->ctxt,
 			urb->transfer_buffer,
 			urb->transfer_buffer_length,
 			urb->status < 0 ? urb->status : urb->actual_length);
@@ -172,7 +173,8 @@ static void diag_bridge_write_cb(struct urb *urb)
 		return;
 	}
 
-	cbs->write_complete_cb(cbs->ctxt,
+	if (cbs && cbs->write_complete_cb)
+		cbs->write_complete_cb(cbs->ctxt,
 			urb->transfer_buffer,
 			urb->transfer_buffer_length,
 			urb->status < 0 ? urb->status : urb->actual_length);
