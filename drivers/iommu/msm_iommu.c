@@ -301,6 +301,9 @@ static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 	memset(priv->pgtable, 0, SZ_16K);
 	domain->priv = priv;
 
+	if (!priv->redirect)
+		clean_pte(priv->pgtable, priv->pgtable + NUM_FL_PTE);
+
 	domain->geometry.aperture_start = 0;
 	domain->geometry.aperture_end   = (1ULL << 32) - 1;
 	domain->geometry.force_aperture = true;
@@ -560,6 +563,8 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 				goto fail;
 			}
 			memset(sl, 0, SZ_4K);
+			if (!priv->redirect)
+				clean_pte(sl, sl + NUM_SL_PTE);
 
 			*fl_pte = ((((int)__pa(sl)) & FL_BASE_MASK) | \
 						      FL_TYPE_TABLE);
@@ -783,6 +788,9 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 			}
 
 			memset(sl_table, 0, SZ_4K);
+			if (!priv->redirect)
+				clean_pte(sl_table, sl_table + NUM_SL_PTE);
+
 			*fl_pte = ((((int)__pa(sl_table)) & FL_BASE_MASK) |
 							    FL_TYPE_TABLE);
 			if (!priv->redirect)
