@@ -1331,7 +1331,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 	{
 		.name = LPASS_BE_MI2S_TX,
 		.stream_name = "MI2S Capture",
-		.cpu_dai_name = "msm-dai-q6.7",
+		.cpu_dai_name = "msm-dai-q6-mi2s",
 		.platform_name = "msm-pcm-routing",
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
