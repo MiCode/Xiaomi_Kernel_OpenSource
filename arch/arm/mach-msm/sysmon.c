@@ -27,7 +27,8 @@
 #include "hsic_sysmon.h"
 #include "sysmon.h"
 
-#define MAX_MSG_LENGTH	50
+#define TX_BUF_SIZE	50
+#define RX_BUF_SIZE	500
 #define TIMEOUT_MS	5000
 
 enum transports {
@@ -40,7 +41,7 @@ struct sysmon_subsys {
 	struct smd_channel	*chan;
 	bool			chan_open;
 	struct completion	resp_ready;
-	char			rx_buf[MAX_MSG_LENGTH];
+	char			rx_buf[RX_BUF_SIZE];
 	enum transports		transport;
 };
 
@@ -60,7 +61,8 @@ static const char *notif_name[SUBSYS_NOTIF_TYPE_COUNT] = {
 	[SUBSYS_AFTER_POWERUP]   = "after_powerup",
 };
 
-static int sysmon_send_smd(struct sysmon_subsys *ss, char *tx_buf, size_t len)
+static int sysmon_send_smd(struct sysmon_subsys *ss, const char *tx_buf,
+			   size_t len)
 {
 	int ret;
 
@@ -78,7 +80,8 @@ static int sysmon_send_smd(struct sysmon_subsys *ss, char *tx_buf, size_t len)
 	return 0;
 }
 
-static int sysmon_send_hsic(struct sysmon_subsys *ss, char *tx_buf, size_t len)
+static int sysmon_send_hsic(struct sysmon_subsys *ss, const char *tx_buf,
+			    size_t len)
 {
 	int ret;
 	size_t actual_len;
@@ -93,11 +96,46 @@ static int sysmon_send_hsic(struct sysmon_subsys *ss, char *tx_buf, size_t len)
 	return ret;
 }
 
+static int sysmon_send_msg(struct sysmon_subsys *ss, const char *tx_buf,
+			   size_t len)
+{
+	int ret;
+
+	switch (ss->transport) {
+	case TRANSPORT_SMD:
+		ret = sysmon_send_smd(ss, tx_buf, len);
+		break;
+	case TRANSPORT_HSIC:
+		ret = sysmon_send_hsic(ss, tx_buf, len);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	if (!ret)
+		pr_debug("Received response: %s\n", ss->rx_buf);
+
+	return ret;
+}
+
+/**
+ * sysmon_send_event() - Notify a subsystem of another's state change
+ * @dest_ss:	ID of subsystem the notification should be sent to
+ * @event_ss:	String name of the subsystem that generated the notification
+ * @notif:	ID of the notification type (ex. SUBSYS_BEFORE_SHUTDOWN)
+ *
+ * Returns 0 for success, -EINVAL for invalid destination or notification IDs,
+ * -ENODEV if the transport channel is not open, -ETIMEDOUT if the destination
+ * subsystem does not respond, and -ENOSYS if the destination subsystem
+ * responds, but with something other than an acknowledgement.
+ *
+ * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
+ */
 int sysmon_send_event(enum subsys_id dest_ss, const char *event_ss,
 		      enum subsys_notif_type notif)
 {
 	struct sysmon_subsys *ss = &subsys[dest_ss];
-	char tx_buf[MAX_MSG_LENGTH];
+	char tx_buf[TX_BUF_SIZE];
 	int ret;
 
 	if (dest_ss < 0 || dest_ss >= SYSMON_NUM_SS ||
@@ -109,24 +147,52 @@ int sysmon_send_event(enum subsys_id dest_ss, const char *event_ss,
 		 notif_name[notif]);
 
 	mutex_lock(&ss->lock);
-	switch (ss->transport) {
-	case TRANSPORT_SMD:
-		ret = sysmon_send_smd(ss, tx_buf, strlen(tx_buf));
-		break;
-	case TRANSPORT_HSIC:
-		ret = sysmon_send_hsic(ss, tx_buf, strlen(tx_buf));
-		break;
-	default:
-		ret = -EINVAL;
-	}
+	ret = sysmon_send_msg(ss, tx_buf, strlen(tx_buf));
 	if (ret)
 		goto out;
 
-	pr_debug("Received response: %s\n", ss->rx_buf);
 	if (strncmp(ss->rx_buf, "ssr:ack", ARRAY_SIZE(ss->rx_buf)))
 		ret = -ENOSYS;
-	else
-		ret = 0;
+out:
+	mutex_unlock(&ss->lock);
+	return ret;
+}
+
+/**
+ * sysmon_get_reason() - Retrieve failure reason from a subsystem.
+ * @dest_ss:	ID of subsystem to query
+ * @buf:	Caller-allocated buffer for the returned NUL-terminated reason
+ * @len:	Length of @buf
+ *
+ * Returns 0 for success, -EINVAL for an invalid destination, -ENODEV if
+ * the SMD transport channel is not open, -ETIMEDOUT if the destination
+ * subsystem does not respond, and -ENOSYS if the destination subsystem
+ * responds with something unexpected.
+ *
+ * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
+ */
+int sysmon_get_reason(enum subsys_id dest_ss, char *buf, size_t len)
+{
+	struct sysmon_subsys *ss = &subsys[dest_ss];
+	const char tx_buf[] = "ssr:retrieve:sfr";
+	const char expect[] = "ssr:return:";
+	size_t prefix_len = ARRAY_SIZE(expect) - 1;
+	int ret;
+
+	if (dest_ss < 0 || dest_ss >= SYSMON_NUM_SS ||
+	    buf == NULL || len == 0)
+		return -EINVAL;
+
+	mutex_lock(&ss->lock);
+	ret = sysmon_send_msg(ss, tx_buf, ARRAY_SIZE(tx_buf));
+	if (ret)
+		goto out;
+
+	if (strncmp(ss->rx_buf, expect, prefix_len)) {
+		ret = -ENOSYS;
+		goto out;
+	}
+	strlcpy(buf, ss->rx_buf + prefix_len, len);
 out:
 	mutex_unlock(&ss->lock);
 	return ret;
