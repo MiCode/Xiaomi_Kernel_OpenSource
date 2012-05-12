@@ -1554,6 +1554,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.platform_name = "msm-pcm-hostless",
 		.codec_name = "tabla_codec",
 		.codec_dai_name = "tabla_tx2",
+		.ignore_suspend = 1,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm_be_ops,
 	},
