@@ -130,6 +130,10 @@ struct kgsl_mmu_ops {
 	void (*mmu_pagefault) (struct kgsl_mmu *mmu);
 	unsigned int (*mmu_get_current_ptbase)
 			(struct kgsl_mmu *mmu);
+	void (*mmu_disable_clk)
+		(struct kgsl_mmu *mmu);
+	int (*mmu_enable_clk)
+		(struct kgsl_mmu *mmu, int ctx_id);
 };
 
 struct kgsl_mmu_pt_ops {
