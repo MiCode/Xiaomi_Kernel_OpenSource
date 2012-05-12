@@ -626,6 +626,9 @@ static void msm_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned long flags;
 	unsigned int baud, mr;
 
+	if (!termios->c_cflag)
+		return;
+
 	spin_lock_irqsave(&port->lock, flags);
 
 	/* calculate and set baud rate */
