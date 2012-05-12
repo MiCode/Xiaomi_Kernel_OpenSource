@@ -770,7 +770,10 @@ struct asm_pcm_cfg {
 
 #define PCM_FORMAT_MAX_NUM_CHANNEL  8
 
-
+/* Maximum number of channels supported
+ * in ASM_ENCDEC_DEC_CHAN_MAP command
+ */
+#define MAX_CHAN_MAP_CHANNELS 16
 /*
  *  Multiple-channel PCM decoder format block structure used in the
  *  #ASM_STREAM_CMD_OPEN_WRITE command.
@@ -980,6 +983,32 @@ struct asm_dual_mono {
 	u16 sce_right;
 };
 
+struct asm_dec_chan_map {
+	u32 num_channels;			  /* Number of decoder output
+						   * channels. A value of 0
+						   * indicates native channel
+						   * mapping, which is valid
+						   * only for NT mode. This
+						   * means the output of the
+						   * decoder is to be preserved
+						   * as is.
+						   */
+
+	u8 channel_mapping[MAX_CHAN_MAP_CHANNELS];/* Channel array of size
+						   * num_channels. It can grow
+						   * till MAX_CHAN_MAP_CHANNELS.
+						   * Channel[i] mapping
+						   * describes channel I inside
+						   * the decoder output buffer.
+						   * Valid channel mapping
+						   * values are to be present at
+						   * the beginning of the array.
+						   * All remaining elements of
+						   * the array are to be filled
+						   * with PCM_CHANNEL_NULL.
+						   */
+};
+
 struct asm_encode_cfg_blk {
 	u32 frames_per_buf;
 	u32 format_id;
@@ -1130,6 +1159,14 @@ struct asm_stream_cmd_encdec_dualmono {
 	u32            param_id;
 	u32            param_size;
 	struct asm_dual_mono channel_map;
+} __packed;
+
+#define ASM_ENCDEC_DEC_CHAN_MAP				 0x00010D82
+struct asm_stream_cmd_encdec_channelmap {
+	struct apr_hdr hdr;
+	u32            param_id;
+	u32            param_size;
+	struct asm_dec_chan_map chan_map;
 } __packed;
 
 #define ASM_STREAM _CMD_ADJUST_SAMPLES                   0x00010C0A
