@@ -57,4 +57,16 @@
 	i2c@f9966000 {
 		status = "disable";
 	};
+
+	qcom,ssusb@F9200000 {
+		status = "disable";
+	};
+
+	qcom,lpass@fe200000 {
+		status = "disable";
+	};
+
+	qcom,pronto@fb21b000 {
+		status = "disable";
+	};
 };
