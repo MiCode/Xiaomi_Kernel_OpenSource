@@ -981,7 +981,7 @@ static void __init msm_timer_init(void)
 
 	if (cpu_is_msm7x01() || cpu_is_msm7x25() || cpu_is_msm7x27() ||
 	    cpu_is_msm7x25a() || cpu_is_msm7x27a() || cpu_is_msm7x25aa() ||
-	    cpu_is_msm7x27aa() || cpu_is_msm8625()) {
+	    cpu_is_msm7x27aa() || cpu_is_msm8625() || cpu_is_msm7x25ab()) {
 		dgt->shift = MSM_DGT_SHIFT;
 		dgt->freq = 19200000 >> MSM_DGT_SHIFT;
 		dgt->clockevent.shift = 32 + MSM_DGT_SHIFT;

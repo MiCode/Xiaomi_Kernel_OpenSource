@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1138,7 +1138,7 @@ static int mipi_renesas_lcd_on(struct platform_device *pdev)
 	mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_display_on_cmds,
 			ARRAY_SIZE(renesas_display_on_cmds));
 
-	if (cpu_is_msm7x25a() || cpu_is_msm7x25aa()) {
+	if (cpu_is_msm7x25a() || cpu_is_msm7x25aa() || cpu_is_msm7x25ab()) {
 		mipi_dsi_cmds_tx(mfd, &renesas_tx_buf, renesas_hvga_on_cmds,
 			ARRAY_SIZE(renesas_hvga_on_cmds));
 	}

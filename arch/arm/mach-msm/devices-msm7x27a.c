@@ -832,7 +832,7 @@ struct platform_device msm_kgsl_3d0 = {
 
 void __init msm7x25a_kgsl_3d0_init(void)
 {
-	if (cpu_is_msm7x25a() || cpu_is_msm7x25aa()) {
+	if (cpu_is_msm7x25a() || cpu_is_msm7x25aa() || cpu_is_msm7x25ab()) {
 		kgsl_3d0_pdata.num_levels = 2;
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 133330000;
 		kgsl_3d0_pdata.pwrlevel[0].bus_freq = 160000000;
@@ -1620,7 +1620,7 @@ int __init msm7x2x_misc_init(void)
 	}
 
 	msm_clock_init(&msm7x27a_clock_init_data);
-	if (cpu_is_msm7x27aa())
+	if (cpu_is_msm7x27aa() || cpu_is_msm7x25ab())
 		acpuclk_init(&acpuclk_7x27aa_soc_data);
 	else if (cpu_is_msm8625()) {
 		if (msm8625_cpu_id() == MSM8625)
