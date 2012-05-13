@@ -552,6 +552,14 @@ static struct msm_camera_sensor_platform_info sensor_board_info_s5k3l1yx = {
 	.csi_lane_params = &s5k3l1yx_csi_lane_params,
 };
 
+static struct msm_actuator_info msm_act_main_cam_2_info = {
+	.board_info     = &msm_act_main_cam_i2c_info,
+	.cam_name   = MSM_ACTUATOR_MAIN_CAM_2,
+	.bus_id         = MSM_8930_GSBI4_QUP_I2C_BUS_ID,
+	.vcm_pwd        = 0,
+	.vcm_enable     = 0,
+};
+
 static struct msm_camera_sensor_info msm_camera_sensor_s5k3l1yx_data = {
 	.sensor_name          = "s5k3l1yx",
 	.pdata                = &msm_camera_csi_device_data[0],
@@ -560,6 +568,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k3l1yx_data = {
 	.csi_if               = 1,
 	.camera_type          = BACK_CAMERA_2D,
 	.sensor_type          = BAYER_SENSOR,
+	.actuator_info    = &msm_act_main_cam_2_info,
 };
 
 static struct platform_device msm_camera_server = {
