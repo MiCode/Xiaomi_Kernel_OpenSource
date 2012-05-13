@@ -27,12 +27,39 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/socinfo.h>
+#include <mach/msm_smsm.h>
 
 #include "smd_private.h"
 #include "modem_notifier.h"
 #include "ramdump.h"
 
 static int crash_shutdown;
+
+#define MAX_SSR_REASON_LEN 81U
+
+static void log_modem_sfr(void)
+{
+	u32 size;
+	char *smem_reason, reason[MAX_SSR_REASON_LEN];
+
+	smem_reason = smem_get_entry(SMEM_SSR_REASON_MSS0, &size);
+	if (!smem_reason || !size) {
+		pr_err("modem subsystem failure reason: (unknown, smem_get_entry failed).\n");
+		return;
+	}
+	if (!smem_reason[0]) {
+		pr_err("modem subsystem failure reason: (unknown, init string found).\n");
+		return;
+	}
+
+	size = min(size, MAX_SSR_REASON_LEN-1);
+	memcpy(reason, smem_reason, size);
+	reason[size] = '\0';
+	pr_err("modem subsystem failure reason: %s.\n", reason);
+
+	smem_reason[0] = '\0';
+	wmb();
+}
 
 static void modem_sw_fatal_fn(struct work_struct *work)
 {
@@ -50,6 +77,7 @@ static void modem_sw_fatal_fn(struct work_struct *work)
 		pr_err("Modem SMSM state changed to SMSM_RESET.\n"
 			"Probable err_fatal on the modem. "
 			"Calling subsystem restart...\n");
+		log_modem_sfr();
 		subsystem_restart("modem");
 
 	} else if (modem_state & reset_smsm_states) {
@@ -59,7 +87,7 @@ static void modem_sw_fatal_fn(struct work_struct *work)
 			__func__);
 		kernel_restart(NULL);
 	} else {
-		/* TODO: Bus unlock code/sequence goes _here_ */
+		log_modem_sfr();
 		subsystem_restart("modem");
 	}
 }
@@ -67,6 +95,7 @@ static void modem_sw_fatal_fn(struct work_struct *work)
 static void modem_fw_fatal_fn(struct work_struct *work)
 {
 	pr_err("Watchdog bite received from modem FW!\n");
+	log_modem_sfr();
 	subsystem_restart("modem");
 }
 
@@ -80,9 +109,8 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 		return;
 
 	if (new_state & SMSM_RESET) {
-		pr_err("Modem SMSM state changed to SMSM_RESET.\n"
-			"Probable err_fatal on the modem. "
-			"Calling subsystem restart...\n");
+		pr_err("Probable fatal error on the modem.\n");
+		log_modem_sfr();
 		subsystem_restart("modem");
 	}
 }
