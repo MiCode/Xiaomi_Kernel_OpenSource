@@ -1194,7 +1194,7 @@ static int msm_pm_power_collapse
 #endif
 
 #ifdef CONFIG_CACHE_L2X0
-	l2x0_suspend();
+	l2cc_suspend();
 #endif
 
 	collapsed = msm_pm_collapse();
@@ -1219,7 +1219,7 @@ static int msm_pm_power_collapse
 	}
 
 #ifdef CONFIG_CACHE_L2X0
-	l2x0_resume(collapsed);
+	l2cc_resume();
 #endif
 
 	msm_pm_boot_config_after_pc(smp_processor_id());
@@ -1436,14 +1436,14 @@ static int __ref msm_pm_power_collapse_standalone(bool from_idle)
 
 #ifdef CONFIG_CACHE_L2X0
 	if (!cpu_is_msm8625())
-		l2x0_suspend();
+		l2cc_suspend();
 #endif
 
 	collapsed = msm_pm_collapse();
 
 #ifdef CONFIG_CACHE_L2X0
 	if (!cpu_is_msm8625())
-		l2x0_resume(collapsed);
+		l2cc_resume();
 #endif
 
 	msm_pm_boot_config_after_pc(smp_processor_id());
