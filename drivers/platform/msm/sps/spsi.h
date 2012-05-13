@@ -40,6 +40,8 @@
 /* "Clear" value for the connection parameter struct */
 #define SPSRM_CLEAR     0xcccccccc
 
+extern u32 d_type;
+
 #ifdef CONFIG_DEBUG_FS
 extern u8 debugfs_record_enabled;
 extern u8 logging_option;

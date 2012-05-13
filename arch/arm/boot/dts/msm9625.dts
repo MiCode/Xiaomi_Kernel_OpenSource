@@ -41,6 +41,15 @@
 		clock-frequency = <5000000>;
 	};
 
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>,
+		      <0xfe800000 0x4800>;
+		interrupts = <0 94 0>;
+		qcom,device-type = <2>;
+	};
+
 	serial@f991f000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991f000 0x1000>;

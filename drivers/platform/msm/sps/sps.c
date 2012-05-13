@@ -79,6 +79,8 @@ struct sps_drv {
  */
 static struct sps_drv *sps;
 
+u32 d_type;
+
 static void sps_device_de_init(void);
 
 #ifdef CONFIG_DEBUG_FS
@@ -1443,11 +1445,6 @@ int sps_alloc_mem(struct sps_pipe *h, enum sps_mem mem,
 {
 	SPS_DBG("sps:%s.", __func__);
 
-	if (h == NULL) {
-		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
-		return SPS_ERROR;
-	}
-
 	if (sps == NULL)
 		return -ENODEV;
 
@@ -1460,6 +1457,11 @@ int sps_alloc_mem(struct sps_pipe *h, enum sps_mem mem,
 		SPS_ERR("sps:invalid memory buffer address or size");
 		return SPS_ERROR;
 	}
+
+	if (h == NULL)
+		SPS_DBG("sps:allocate pipe memory before setup pipe");
+	else
+		SPS_DBG("sps:allocate pipe memory for pipe %d", h->pipe_index);
 
 	mem_buffer->phys_base = sps_mem_alloc_io(mem_buffer->size);
 	if (mem_buffer->phys_base == SPS_ADDR_INVALID) {
@@ -1481,15 +1483,15 @@ int sps_free_mem(struct sps_pipe *h, struct sps_mem_buffer *mem_buffer)
 {
 	SPS_DBG("sps:%s.", __func__);
 
-	if (h == NULL) {
-		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
-		return SPS_ERROR;
-	}
-
 	if (mem_buffer == NULL || mem_buffer->phys_base == SPS_ADDR_INVALID) {
 		SPS_ERR("sps:invalid memory to free");
 		return SPS_ERROR;
 	}
+
+	if (h == NULL)
+		SPS_DBG("sps:free pipe memory.");
+	else
+		SPS_DBG("sps:free pipe memory for pipe %d.", h->pipe_index);
 
 	sps_mem_free_io(mem_buffer->phys_base, mem_buffer->size);
 
@@ -1928,12 +1930,19 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,bam-dma-res-pipes",
-				&sps->bamdma_restricted_pipes)) {
-		SPS_ERR("sps:Fail to get restricted bamdma pipes.\n");
-		return -EINVAL;
-	} else
+				&sps->bamdma_restricted_pipes))
+		SPS_DBG("sps:No restricted bamdma pipes on this target.\n");
+	else
 		SPS_DBG("sps:bamdma_restricted_pipes=0x%x.",
 			sps->bamdma_restricted_pipes);
+
+	if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,device-type",
+				&d_type)) {
+		d_type = 1;
+		SPS_DBG("sps:default device type.\n");
+	} else
+		SPS_DBG("sps:device type is %d.", d_type);
 
 	resource  = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (resource) {
@@ -1958,6 +1967,16 @@ static int get_device_tree_data(struct platform_device *pdev)
 		SPS_ERR("sps:BAM DMA mem unavailable.");
 		return -ENODEV;
 	}
+
+	resource = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (resource) {
+		sps->pipemem_phys_base = resource->start;
+		sps->pipemem_size = resource_size(resource);
+		SPS_DBG("sps:pipemem.base=0x%x,size=0x%x.",
+			sps->pipemem_phys_base,
+			sps->pipemem_size);
+	} else
+		SPS_DBG("sps:No pipe memory on this target.\n");
 
 	resource  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (resource) {
@@ -1985,6 +2004,7 @@ static int msm_sps_probe(struct platform_device *pdev)
 		} else
 			SPS_DBG("sps:get data from device tree.");
 	} else {
+		d_type = 0;
 		if (get_platform_data(pdev)) {
 			SPS_ERR("sps:Fail to get platform data.");
 			return -ENODEV;
@@ -2008,17 +2028,18 @@ static int msm_sps_probe(struct platform_device *pdev)
 		goto device_create_err;
 	}
 
-	sps->dfab_clk = clk_get(sps->dev, "dfab_clk");
-	if (IS_ERR(sps->dfab_clk)) {
-		SPS_ERR("sps:fail to get dfab_clk.");
-		goto clk_err;
-	} else {
-		ret = clk_set_rate(sps->dfab_clk, 64000000);
-		if (ret) {
-			SPS_ERR("sps:failed to set dfab_clk rate. "
-					"ret=%d", ret);
-			clk_put(sps->dfab_clk);
+	if (!d_type) {
+		sps->dfab_clk = clk_get(sps->dev, "dfab_clk");
+		if (IS_ERR(sps->dfab_clk)) {
+			SPS_ERR("sps:fail to get dfab_clk.");
 			goto clk_err;
+		} else {
+			ret = clk_set_rate(sps->dfab_clk, 64000000);
+			if (ret) {
+				SPS_ERR("sps:failed to set dfab_clk rate.");
+				clk_put(sps->dfab_clk);
+				goto clk_err;
+			}
 		}
 	}
 
@@ -2047,22 +2068,26 @@ static int msm_sps_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = clk_prepare_enable(sps->dfab_clk);
-	if (ret) {
-		SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
-		goto clk_err;
+	if (!d_type) {
+		ret = clk_prepare_enable(sps->dfab_clk);
+		if (ret) {
+			SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
+			goto clk_err;
+		}
 	}
 #endif
 	ret = sps_device_init();
 	if (ret) {
 		SPS_ERR("sps:sps_device_init err.");
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
-		clk_disable_unprepare(sps->dfab_clk);
+		if (!d_type)
+			clk_disable_unprepare(sps->dfab_clk);
 #endif
 		goto sps_device_init_err;
 	}
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
-	clk_disable_unprepare(sps->dfab_clk);
+	if (!d_type)
+		clk_disable_unprepare(sps->dfab_clk);
 #endif
 	sps->is_ready = true;
 
@@ -2089,7 +2114,8 @@ static int msm_sps_remove(struct platform_device *pdev)
 	class_destroy(sps->dev_class);
 	sps_device_de_init();
 
-	clk_put(sps->dfab_clk);
+	if (!d_type)
+		clk_put(sps->dfab_clk);
 	clk_put(sps->pmem_clk);
 	clk_put(sps->bamdma_clk);
 
