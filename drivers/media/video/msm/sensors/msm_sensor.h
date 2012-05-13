@@ -247,7 +247,7 @@ long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 
 struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd);
 
-#if (defined CONFIG_WEBCAM_OV7692_QRD || defined CONFIG_OV5647)
+#if defined(CONFIG_OV5647)
 	extern int lcd_camera_power_onoff(int on);
 #endif
 
