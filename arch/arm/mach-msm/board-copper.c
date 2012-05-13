@@ -27,6 +27,7 @@
 #include <linux/android_pmem.h>
 #endif
 #include <linux/regulator/stub-regulator.h>
+#include <linux/regulator/machine.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
 #include <mach/board.h>
@@ -482,6 +483,8 @@ void __init msm_copper_init(struct of_dev_auxdata **adata)
 		msm_clock_init(&msmcopper_clock_init_data);
 
 	*adata = msm_copper_auxdata_lookup;
+
+	regulator_has_full_constraints();
 }
 
 void __init msm_copper_very_early(void)
