@@ -104,31 +104,30 @@ void sps_mem_free_io(u32 phys_addr, u32 bytes)
  */
 int sps_mem_init(u32 pipemem_phys_base, u32 pipemem_size)
 {
-#ifndef CONFIG_SPS_SUPPORT_NDP_BAM
 	int res;
-#endif
+
 	/* 2^8=128. The desc-fifo and data-fifo minimal allocation. */
 	int min_alloc_order = 8;
 
-#ifndef CONFIG_SPS_SUPPORT_NDP_BAM
-	iomem_phys = pipemem_phys_base;
-	iomem_size = pipemem_size;
+	if ((d_type == 0) || (d_type == 2)) {
+		iomem_phys = pipemem_phys_base;
+		iomem_size = pipemem_size;
 
-	if (iomem_phys == 0) {
-		SPS_ERR("sps:Invalid Pipe-Mem address");
-		return SPS_ERROR;
-	} else {
-		iomem_virt = ioremap(iomem_phys, iomem_size);
-		if (!iomem_virt) {
-			SPS_ERR("sps:Failed to IO map pipe memory.\n");
-			return -ENOMEM;
+		if (iomem_phys == 0) {
+			SPS_ERR("sps:Invalid Pipe-Mem address");
+			return SPS_ERROR;
+		} else {
+			iomem_virt = ioremap(iomem_phys, iomem_size);
+			if (!iomem_virt) {
+				SPS_ERR("sps:Failed to IO map pipe memory.\n");
+				return -ENOMEM;
+			}
 		}
-	}
 
-	iomem_offset = 0;
-	SPS_DBG("sps:sps_mem_init.iomem_phys=0x%x,iomem_virt=0x%x.",
-		iomem_phys, (u32) iomem_virt);
-#endif
+		iomem_offset = 0;
+		SPS_DBG("sps:sps_mem_init.iomem_phys=0x%x,iomem_virt=0x%x.",
+			iomem_phys, (u32) iomem_virt);
+	}
 
 	pool = gen_pool_create(min_alloc_order, nid);
 
@@ -137,11 +136,11 @@ int sps_mem_init(u32 pipemem_phys_base, u32 pipemem_size)
 		return -ENOMEM;
 	}
 
-#ifndef CONFIG_SPS_SUPPORT_NDP_BAM
-	res = gen_pool_add(pool, (u32) iomem_virt, iomem_size, nid);
-	if (res)
-		return res;
-#endif
+	if ((d_type == 0) || (d_type == 2)) {
+		res = gen_pool_add(pool, (u32) iomem_virt, iomem_size, nid);
+		if (res)
+			return res;
+	}
 
 	return 0;
 }
