@@ -1205,17 +1205,19 @@ static int msm_pm_power_collapse
 	 */
 	if (cpu_is_msm8625()) {
 		/*
-		 * on system reset default value of MPA5_GDFS_CNT_VAL
-		 * is = 0xFF, later power driver reprogrammed this
-		 * as: 0x000300FF. Currently based on the value of
-		 * MPA5_GDFS_CNT_VAL register decide whether it is
-		 * a modem early exit are not.
+		 * on system reset, default value of MPA5_GDFS_CNT_VAL
+		 * is = 0x0, later modem reprogram this value to
+		 * 0x00030004. Once APPS did a power collapse and
+		 * coming out of it expected value of this register
+		 * always be 0x00030004. Incase if APPS sees the value
+		 * as 0x00030002 consider this case as a modem early
+		 * exit.
 		 */
 		val = __raw_readl(MSM_CFG_CTL_BASE + 0x38);
-		if (val != 0xFF)
-			modem_early_exit = 1;
-		else
+		if (val != 0x00030002)
 			power_collapsed = 1;
+		else
+			modem_early_exit = 1;
 	}
 
 #ifdef CONFIG_CACHE_L2X0
