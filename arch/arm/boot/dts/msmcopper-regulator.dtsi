@@ -285,7 +285,7 @@
 			};
 		};
 
-		qcom,pm8841@3 {
+		qcom,pm8841@5 {
 
 			pm8841_s1: regulator@1400 {
 				regulator-min-microvolt = <900000>;
