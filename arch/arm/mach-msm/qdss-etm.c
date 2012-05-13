@@ -1120,7 +1120,7 @@ static struct attribute_group etm_attr_grp = {
 	.attrs = etm_attrs,
 };
 
-static int __init etm_sysfs_init(void)
+static int __devinit etm_sysfs_init(void)
 {
 	int ret;
 
@@ -1148,14 +1148,14 @@ err_create:
 	return ret;
 }
 
-static void __exit etm_sysfs_exit(void)
+static void __devexit etm_sysfs_exit(void)
 {
 	sysfs_remove_group(etm.kobj, &etm_attr_grp);
 	sysfs_remove_file(etm.kobj, &enabled_attr.attr);
 	kobject_put(etm.kobj);
 }
 
-static bool __init etm_arch_supported(uint8_t arch)
+static bool __devinit etm_arch_supported(uint8_t arch)
 {
 	switch (arch) {
 	case PFT_ARCH_V1_1:
@@ -1166,7 +1166,7 @@ static bool __init etm_arch_supported(uint8_t arch)
 	return true;
 }
 
-static int __init etm_arch_init(void)
+static int __devinit etm_arch_init(void)
 {
 	int ret, i;
 	/* use cpu 0 for setup */

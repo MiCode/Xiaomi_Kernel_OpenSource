@@ -134,7 +134,7 @@ static ssize_t priority_show(struct kobject *kobj,
 }
 FUNNEL_ATTR(priority);
 
-static int __init funnel_sysfs_init(void)
+static int __devinit funnel_sysfs_init(void)
 {
 	int ret;
 
@@ -159,7 +159,7 @@ err_create:
 	return ret;
 }
 
-static void __exit funnel_sysfs_exit(void)
+static void __devexit funnel_sysfs_exit(void)
 {
 	sysfs_remove_file(funnel.kobj, &priority_attr.attr);
 	kobject_put(funnel.kobj);
