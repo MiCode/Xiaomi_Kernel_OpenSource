@@ -236,6 +236,14 @@ static void msmsdcc_sps_pipes_reset_and_restore(struct msmsdcc_host *host)
 		pr_err("%s:msmsdcc_sps_reset_ep(cons) error=%d\n",
 				mmc_hostname(host->mmc), rc);
 
+	if (host->sps.reset_device) {
+		rc = sps_device_reset(host->sps.bam_handle);
+		if (rc)
+			pr_err("%s: sps_device_reset error=%d\n",
+				mmc_hostname(host->mmc), rc);
+		host->sps.reset_device = false;
+	}
+
 	/* Restore all BAM pipes connections */
 	rc = msmsdcc_sps_restore_ep(host, &host->sps.prod);
 	if (rc)
@@ -4323,6 +4331,96 @@ out:
 }
 
 /**
+ * Handle BAM device's global error condition
+ *
+ * This is an error handler for the SDCC bam device
+ *
+ * This function is registered as a callback with SPS-BAM
+ * driver and will called in case there are an errors for
+ * the SDCC BAM deivce. Any error conditions in the BAM
+ * device are global and will be result in this function
+ * being called once per device.
+ *
+ * This function will be called from the sps driver's
+ * interrupt context.
+ *
+ * @sps_cb_case - indicates what error it is
+ * @user - Pointer to sdcc host structure
+ */
+static void
+msmsdcc_sps_bam_global_irq_cb(enum sps_callback_case sps_cb_case, void *user)
+{
+	struct msmsdcc_host *host = (struct msmsdcc_host *)user;
+	struct mmc_request *mrq;
+	unsigned long flags;
+	int32_t error = 0;
+
+	BUG_ON(!host);
+	BUG_ON(!is_sps_mode(host));
+
+	if (sps_cb_case == SPS_CALLBACK_BAM_ERROR_IRQ) {
+		/**
+		 * Reset the all endpoints along with reseting the sps device.
+		 */
+		host->sps.pipe_reset_pending = true;
+		host->sps.reset_device = true;
+
+		pr_err("%s: BAM Global ERROR IRQ happened\n",
+			mmc_hostname(host->mmc));
+		error = EAGAIN;
+	} else if (sps_cb_case == SPS_CALLBACK_BAM_HRESP_ERR_IRQ) {
+		/**
+		 *  This means that there was an AHB access error and
+		 *  the address we are trying to read/write is something
+		 *  we dont have priviliges to do so.
+		 */
+		pr_err("%s: BAM HRESP_ERR_IRQ happened\n",
+			mmc_hostname(host->mmc));
+		error = EACCES;
+	} else {
+		/**
+		 * This should not have happened ideally. If this happens
+		 * there is some seriously wrong.
+		 */
+		pr_err("%s: BAM global IRQ callback received, type:%d\n",
+			mmc_hostname(host->mmc), (u32) sps_cb_case);
+		error = EIO;
+	}
+
+	spin_lock_irqsave(&host->lock, flags);
+
+	mrq = host->curr.mrq;
+
+	if (mrq && mrq->cmd) {
+		msmsdcc_dump_sdcc_state(host);
+
+		if (!mrq->cmd->error)
+			mrq->cmd->error = -error;
+		if (host->curr.data) {
+			if (mrq->data && !mrq->data->error)
+				mrq->data->error = -error;
+			host->curr.data_xfered = 0;
+			if (host->sps.sg && is_sps_mode(host)) {
+				/* Stop current SPS transfer */
+				msmsdcc_sps_exit_curr_xfer(host);
+			} else {
+				/* this condition should not have happened */
+				pr_err("%s: something is seriously wrong. "\
+					"Funtion: %s, line: %d\n",
+					mmc_hostname(host->mmc),
+					__func__, __LINE__);
+			}
+		} else {
+			/* this condition should not have happened */
+			pr_err("%s: something is seriously wrong. Funtion: "\
+				"%s, line: %d\n", mmc_hostname(host->mmc),
+				__func__, __LINE__);
+		}
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+}
+
+/**
  * Initialize SPS HW connected with SDCC core
  *
  * This function register BAM HW resources with
@@ -4371,6 +4469,8 @@ static int msmsdcc_sps_init(struct msmsdcc_host *host)
 	/* SPS driver wll handle the SDCC BAM IRQ */
 	bam.irq = (u32)host->bam_irqres->start;
 	bam.manage = SPS_BAM_MGR_LOCAL;
+	bam.callback = msmsdcc_sps_bam_global_irq_cb;
+	bam.user = (void *)host;
 
 	pr_info("%s: bam physical base=0x%x\n", mmc_hostname(host->mmc),
 			(u32)bam.phys_addr);
