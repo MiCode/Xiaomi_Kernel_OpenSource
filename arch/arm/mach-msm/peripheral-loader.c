@@ -34,6 +34,15 @@
 
 #include "peripheral-loader.h"
 
+/**
+ * proxy_timeout - Override for proxy vote timeouts
+ * -1: Use driver-specified timeout
+ *  0: Hold proxy votes until shutdown
+ * >0: Specify a custom timeout in ms
+ */
+static int proxy_timeout_ms = -1;
+module_param(proxy_timeout_ms, int, S_IRUGO | S_IWUSR);
+
 enum pil_state {
 	PIL_OFFLINE,
 	PIL_ONLINE,
@@ -127,7 +136,10 @@ static int pil_proxy_vote(struct pil_device *pil)
 
 static void pil_proxy_unvote(struct pil_device *pil, unsigned long timeout)
 {
-	if (pil->desc->ops->proxy_unvote)
+	if (proxy_timeout_ms >= 0)
+		timeout = proxy_timeout_ms;
+
+	if (timeout && pil->desc->ops->proxy_unvote)
 		schedule_delayed_work(&pil->proxy, msecs_to_jiffies(timeout));
 }
 
@@ -393,7 +405,11 @@ EXPORT_SYMBOL(pil_get);
 static void pil_shutdown(struct pil_device *pil)
 {
 	pil->desc->ops->shutdown(pil->desc);
-	flush_delayed_work(&pil->proxy);
+	if (proxy_timeout_ms == 0 && pil->desc->ops->proxy_unvote)
+		pil->desc->ops->proxy_unvote(pil->desc);
+	else
+		flush_delayed_work(&pil->proxy);
+
 	pil_set_state(pil, PIL_OFFLINE);
 }
 
