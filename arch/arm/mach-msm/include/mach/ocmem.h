@@ -22,7 +22,7 @@
 
 /* Maximum number of slots in DM */
 #define OCMEM_MAX_CHUNKS 32
-#define MIN_CHUNK_SIZE (SZ_1K/8)
+#define MIN_CHUNK_SIZE 128
 
 struct ocmem_notifier;
 
@@ -61,7 +61,7 @@ enum ocmem_client {
 	/* IMEM Clients */
 	OCMEM_LP_AUDIO,
 	OCMEM_SENSORS,
-	OCMEM_BLAST,
+	OCMEM_OTHER_OS,
 	OCMEM_CLIENT_MAX,
 };
 
@@ -108,8 +108,13 @@ int ocmem_free(int client_id, struct ocmem_buf *buf);
 int ocmem_shrink(int client_id, struct ocmem_buf *buf,
 			unsigned long new_size);
 
-int ocmem_expand(int client_id, struct ocmem_buf *buf,
-			unsigned long new_size);
+/* Transfer APIs */
+int ocmem_map(int client_id, struct ocmem_buf *buffer,
+			struct ocmem_map_list *list);
+
+
+int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
+			struct ocmem_map_list *list);
 
 /* Priority Enforcement APIs */
 int ocmem_evict(int client_id);

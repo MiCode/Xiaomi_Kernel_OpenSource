@@ -55,6 +55,7 @@ struct ocmem_zone *get_zone(unsigned id)
 static struct ocmem_plat_data *ocmem_pdata;
 
 #define CLIENT_NAME_MAX 10
+
 /* Must be in sync with enum ocmem_client */
 static const char *client_names[OCMEM_CLIENT_MAX] = {
 	"graphics",
@@ -64,7 +65,7 @@ static const char *client_names[OCMEM_CLIENT_MAX] = {
 	"voice",
 	"lp_audio",
 	"sensors",
-	"blast",
+	"other_os",
 };
 
 struct ocmem_quota_table {
@@ -85,7 +86,7 @@ static struct ocmem_quota_table qt[OCMEM_CLIENT_MAX] = {
 	{ "voice", OCMEM_VOICE,  0x0, 0x0, 0x0, 0 },
 	{ "hp_audio", OCMEM_HP_AUDIO, 0x0, 0x0, 0x0, 0},
 	{ "lp_audio", OCMEM_LP_AUDIO, 0x80000, 0xA0000, 0xA0000, 0},
-	{ "blast", OCMEM_BLAST, 0x120000, 0x20000, 0x20000, 0},
+	{ "other_os", OCMEM_OTHER_OS, 0x120000, 0x20000, 0x20000, 0},
 	{ "sensors", OCMEM_SENSORS, 0x140000, 0x40000, 0x40000, 0},
 };
 
@@ -97,6 +98,18 @@ static inline int get_id(const char *name)
 			return i;
 	}
 	return -EINVAL;
+}
+
+int check_id(int id)
+{
+	return (id < OCMEM_CLIENT_MAX && id >= OCMEM_GRAPHICS);
+}
+
+const char *get_name(int id)
+{
+	if (!check_id(id))
+		return NULL;
+	return client_names[id];
 }
 
 inline unsigned long phys_to_offset(unsigned long addr)
@@ -455,7 +468,7 @@ static int ocmem_zone_init(struct platform_device *pdev)
 		zone->owner = part->id;
 		zone->active_regions = 0;
 		zone->max_regions = 0;
-		INIT_LIST_HEAD(&zone->region_list);
+		INIT_LIST_HEAD(&zone->req_list);
 		zone->z_ops = z_ops;
 		if (part->p_tail) {
 			z_ops->allocate = allocate_tail;
@@ -519,6 +532,10 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 	writel_relaxed(REGION_ENABLE, ocmem_region_vbase);
 	writel_relaxed(REGION_ENABLE, ocmem_region_vbase + 4);
 	writel_relaxed(REGION_ENABLE, ocmem_region_vbase + 8);
+
+	if (ocmem_rdm_init(pdev))
+		return -EBUSY;
+
 	dev_dbg(dev, "initialized successfully\n");
 	return 0;
 }
