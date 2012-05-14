@@ -477,6 +477,17 @@
 		qcom,firmware-min-paddr = <0xF500000>;
 		qcom,firmware-max-paddr = <0xFA00000>;
 	};
+
+	tsens@fc4a8000 {
+		compatible = "qcom,msm-tsens";
+		reg = <0xfc4a8000 0x2000>,
+		      <0xfc4b80d0 0x5>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		qcom,sensors = <11>;
+		qcom,slope = <1134 1122 1142 1123 1176 1176 1176 1186 1176
+				1176 1176>;
+	};
 };
 
 /include/ "msm-pm8x41-rpm-regulator.dtsi"
