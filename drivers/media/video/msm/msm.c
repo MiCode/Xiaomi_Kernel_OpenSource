@@ -26,6 +26,7 @@
 #include "msm_sensor.h"
 #include "msm_actuator.h"
 #include "msm_vfe32.h"
+#include "msm_camera_eeprom.h"
 
 #define MSM_MAX_CAMERA_SENSORS 5
 
@@ -2858,6 +2859,43 @@ probe_fail:
 	return NULL;
 }
 
+static struct v4l2_subdev *msm_eeprom_probe(
+	struct msm_eeprom_info *eeprom_info)
+{
+	struct v4l2_subdev *eeprom_sdev;
+	struct i2c_adapter *adapter = NULL;
+	void *eeprom_client = NULL;
+
+	D("%s called\n", __func__);
+
+	if (!eeprom_info)
+		goto probe_fail;
+
+	adapter = i2c_get_adapter(eeprom_info->bus_id);
+	if (!adapter)
+		goto probe_fail;
+
+	eeprom_client = i2c_new_device(adapter, eeprom_info->board_info);
+	if (!eeprom_client)
+		goto device_fail;
+
+	eeprom_sdev = (struct v4l2_subdev *)i2c_get_clientdata(eeprom_client);
+	if (eeprom_sdev == NULL)
+		goto client_fail;
+
+	return eeprom_sdev;
+client_fail:
+	pr_err("%s client_fail\n", __func__);
+	i2c_unregister_device(eeprom_client);
+device_fail:
+	pr_err("%s device_fail\n", __func__);
+	i2c_put_adapter(adapter);
+	adapter = NULL;
+probe_fail:
+	pr_err("%s probe_fail\n", __func__);
+	return NULL;
+}
+
 /* register a msm sensor into the msm device, which will probe the
  * sensor HW. if the HW exist then create a video device (/dev/videoX/)
  * to represent this sensor */
@@ -2883,6 +2921,7 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	sdata = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
 
 	pcam->act_sdev = msm_actuator_probe(sdata->actuator_info);
+	pcam->eeprom_sdev = msm_eeprom_probe(sdata->eeprom_info);
 
 	D("%s: pcam =0x%p\n", __func__, pcam);
 
@@ -2963,6 +3002,15 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 		if (rc < 0) {
 			D("%s actuator sub device register failed\n",
 			  __func__);
+			goto failure;
+		}
+	}
+
+	if (pcam->eeprom_sdev) {
+		rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
+			pcam->eeprom_sdev);
+		if (rc < 0) {
+			D("%s eeprom sub device register failed\n", __func__);
 			goto failure;
 		}
 	}

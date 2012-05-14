@@ -68,6 +68,7 @@ enum msm_cam_subdev_type {
 	VPE_DEV,
 	SENSOR_DEV,
 	ACTUATOR_DEV,
+	EEPROM_DEV,
 };
 
 /* msm queue management APIs*/
@@ -244,6 +245,7 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *gemini_sdev; /* gemini sub device */
 	struct v4l2_subdev *vpe_sdev; /* vpe sub device */
 	struct v4l2_subdev *axi_sdev; /* vpe sub device */
+	struct v4l2_subdev *eeprom_sdev; /* eeprom sub device */
 
 	struct msm_isp_ops *isp_sdev;    /* isp sub device : camif/VFE */
 	struct msm_cam_config_dev *config_device;
@@ -355,6 +357,7 @@ struct msm_cam_v4l2_device {
 
 	struct v4l2_subdev *sensor_sdev; /* sensor sub device */
 	struct v4l2_subdev *act_sdev; /* actuator sub device */
+	struct v4l2_subdev *eeprom_sdev; /* actuator sub device */
 	struct msm_camera_sensor_info *sdata;
 };
 

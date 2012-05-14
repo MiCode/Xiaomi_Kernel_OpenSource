@@ -144,8 +144,6 @@ struct msm_sensor_ctrl_t {
 	struct msm_camera_i2c_client *sensor_i2c_client;
 	uint16_t sensor_i2c_addr;
 
-	struct msm_camera_eeprom_client *sensor_eeprom_client;
-
 	struct msm_sensor_output_reg_addr_t *sensor_output_reg_addr;
 	struct msm_sensor_id_info_t *sensor_id_info;
 	struct msm_sensor_exp_gain_info_t *sensor_exp_gain_info;

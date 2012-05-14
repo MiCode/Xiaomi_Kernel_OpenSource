@@ -261,6 +261,11 @@ struct msm_actuator_info {
 	int vcm_enable;
 };
 
+struct msm_eeprom_info {
+	struct i2c_board_info const *board_info;
+	int bus_id;
+};
+
 struct msm_camera_sensor_info {
 	const char *sensor_name;
 	int sensor_reset_enable;
@@ -283,6 +288,7 @@ struct msm_camera_sensor_info {
 	enum msm_sensor_type sensor_type;
 	struct msm_actuator_info *actuator_info;
 	int pmic_gpio_enable;
+	struct msm_eeprom_info *eeprom_info;
 };
 
 struct msm_camera_board_info {
