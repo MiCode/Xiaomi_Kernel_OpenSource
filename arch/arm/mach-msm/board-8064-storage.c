@@ -280,6 +280,13 @@ void __init apq8064_init_mmc(void)
 			apq8064_sdc3_pdata->wpswitch_gpio = 0;
 			apq8064_sdc3_pdata->wpswitch_polarity = 0;
 		}
+		if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+			machine_is_mpq8064_dtv()) {
+			apq8064_sdc3_pdata->status_gpio =
+				PM8921_GPIO_PM_TO_SYS(31);
+			apq8064_sdc3_pdata->status_irq =
+				PM8921_GPIO_IRQ(PM8921_IRQ_BASE, 31);
+		}
 		apq8064_add_sdcc(3, apq8064_sdc3_pdata);
 	}
 }
