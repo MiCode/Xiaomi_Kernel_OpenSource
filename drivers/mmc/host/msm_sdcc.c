@@ -79,6 +79,9 @@ static struct dentry *debugfs_file;
 static int  msmsdcc_dbg_init(void);
 #endif
 
+static int msmsdcc_prep_xfer(struct msmsdcc_host *host, struct mmc_data
+			     *data);
+
 static u64 dma_mask = DMA_BIT_MASK(32);
 static unsigned int msmsdcc_pwrsave = 1;
 
@@ -482,8 +485,9 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 		if (!mrq->data->error)
 			mrq->data->error = -EIO;
 	}
-	dma_unmap_sg(mmc_dev(host->mmc), host->dma.sg, host->dma.num_ents,
-		     host->dma.dir);
+	if (!mrq->data->host_cookie)
+		dma_unmap_sg(mmc_dev(host->mmc), host->dma.sg,
+			     host->dma.num_ents, host->dma.dir);
 
 	if (host->curr.user_pages) {
 		struct scatterlist *sg = host->dma.sg;
@@ -649,9 +653,9 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 	}
 
 	/* Unmap sg buffers */
-	dma_unmap_sg(mmc_dev(host->mmc), host->sps.sg, host->sps.num_ents,
-			 host->sps.dir);
-
+	if (!mrq->data->host_cookie)
+		dma_unmap_sg(mmc_dev(host->mmc), host->sps.sg,
+			     host->sps.num_ents, host->sps.dir);
 	host->sps.sg = NULL;
 	host->sps.busy = 0;
 
@@ -720,8 +724,9 @@ static void msmsdcc_sps_exit_curr_xfer(struct msmsdcc_host *host)
 		mrq->data->error = -EIO;
 
 	/* Unmap sg buffers */
-	dma_unmap_sg(mmc_dev(host->mmc), host->sps.sg, host->sps.num_ents,
-			 host->sps.dir);
+	if (!mrq->data->host_cookie)
+		dma_unmap_sg(mmc_dev(host->mmc), host->sps.sg,
+			     host->sps.num_ents, host->sps.dir);
 
 	host->sps.sg = NULL;
 	host->sps.busy = 0;
@@ -816,15 +821,13 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 	else
 		host->dma.dir = DMA_TO_DEVICE;
 
-	n = dma_map_sg(mmc_dev(host->mmc), host->dma.sg,
-			host->dma.num_ents, host->dma.dir);
-
-	if (n != host->dma.num_ents) {
-		pr_err("%s: Unable to map in all sg elements\n",
-		       mmc_hostname(host->mmc));
-		host->dma.sg = NULL;
-		host->dma.num_ents = 0;
-		return -ENOMEM;
+	if (!data->host_cookie) {
+		n = msmsdcc_prep_xfer(host, data);
+		if (unlikely(n < 0)) {
+			host->dma.sg = NULL;
+			host->dma.num_ents = 0;
+			return -ENOMEM;
+		}
 	}
 
 	/* host->curr.user_pages = (data->flags & MMC_DATA_USERPAGE); */
@@ -893,8 +896,9 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 
 unmap:
 	if (err) {
-		dma_unmap_sg(mmc_dev(host->mmc), host->dma.sg,
-				host->dma.num_ents, host->dma.dir);
+		if (!data->host_cookie)
+			dma_unmap_sg(mmc_dev(host->mmc), host->dma.sg,
+				     host->dma.num_ents, host->dma.dir);
 		pr_err("%s: cannot do DMA, fall back to PIO mode err=%d\n",
 				mmc_hostname(host->mmc), err);
 	}
@@ -902,6 +906,44 @@ unmap:
 	return err;
 }
 
+static int msmsdcc_prep_xfer(struct msmsdcc_host *host,
+			     struct mmc_data *data)
+{
+	int rc = 0;
+	unsigned int dir;
+
+	/* Prevent memory corruption */
+	BUG_ON(data->sg_len > msmsdcc_get_nr_sg(host));
+
+	if (data->flags & MMC_DATA_READ)
+		dir = DMA_FROM_DEVICE;
+	else
+		dir = DMA_TO_DEVICE;
+
+	/* Make sg buffers DMA ready */
+	rc = dma_map_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
+			dir);
+
+	if (unlikely(rc != data->sg_len)) {
+		pr_err("%s: Unable to map in all sg elements, rc=%d\n",
+		       mmc_hostname(host->mmc), rc);
+		rc = -ENOMEM;
+		goto dma_map_err;
+	}
+
+	pr_debug("%s: %s: %s: sg_len=%d\n",
+		mmc_hostname(host->mmc), __func__,
+		dir == DMA_FROM_DEVICE ? "READ" : "WRITE",
+		data->sg_len);
+
+	goto out;
+
+dma_map_err:
+	dma_unmap_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
+		     data->flags);
+out:
+	return rc;
+}
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 /**
  * Submits data transfer request to SPS driver
@@ -916,7 +958,7 @@ unmap:
  * @return 0 if success else negative value
  */
 static int msmsdcc_sps_start_xfer(struct msmsdcc_host *host,
-				struct mmc_data *data)
+				  struct mmc_data *data)
 {
 	int rc = 0;
 	u32 flags;
@@ -924,9 +966,6 @@ static int msmsdcc_sps_start_xfer(struct msmsdcc_host *host,
 	u32 addr, len, data_cnt;
 	struct scatterlist *sg = data->sg;
 	struct sps_pipe *sps_pipe_handle;
-
-	/* Prevent memory corruption */
-	BUG_ON(data->sg_len > msmsdcc_get_nr_sg(host));
 
 	host->sps.sg = data->sg;
 	host->sps.num_ents = data->sg_len;
@@ -939,23 +978,14 @@ static int msmsdcc_sps_start_xfer(struct msmsdcc_host *host,
 		sps_pipe_handle = host->sps.cons.pipe_handle;
 	}
 
-	/* Make sg buffers DMA ready */
-	rc = dma_map_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
-			host->sps.dir);
-
-	if (rc != data->sg_len) {
-		pr_err("%s: Unable to map in all sg elements, rc=%d\n",
-		       mmc_hostname(host->mmc), rc);
-		host->sps.sg = NULL;
-		host->sps.num_ents = 0;
-		rc = -ENOMEM;
-		goto dma_map_err;
+	if (!data->host_cookie) {
+		rc = msmsdcc_prep_xfer(host, data);
+		if (unlikely(rc < 0)) {
+			host->dma.sg = NULL;
+			host->dma.num_ents = 0;
+			goto out;
+		}
 	}
-
-	pr_debug("%s: %s: %s: pipe=0x%x, total_xfer=0x%x, sg_len=%d\n",
-		mmc_hostname(host->mmc), __func__,
-		host->sps.dir == DMA_FROM_DEVICE ? "READ" : "WRITE",
-		(u32)sps_pipe_handle, host->curr.xfer_size, data->sg_len);
 
 	for (i = 0; i < data->sg_len; i++) {
 		/*
@@ -993,8 +1023,9 @@ static int msmsdcc_sps_start_xfer(struct msmsdcc_host *host,
 
 dma_map_err:
 	/* unmap sg buffers */
-	dma_unmap_sg(mmc_dev(host->mmc), host->sps.sg, host->sps.num_ents,
-			host->sps.dir);
+	if (!data->host_cookie)
+		dma_unmap_sg(mmc_dev(host->mmc), host->sps.sg,
+			     host->sps.num_ents, host->sps.dir);
 out:
 	return rc;
 }
@@ -1830,6 +1861,63 @@ msmsdcc_irq(int irq, void *dev_id)
 	spin_unlock(&host->lock);
 
 	return IRQ_RETVAL(ret);
+}
+
+static void
+msmsdcc_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
+		bool is_first_request)
+{
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	struct mmc_data *data = mrq->data;
+	int rc = 0;
+
+	if (unlikely(!data)) {
+		pr_err("%s: %s cannot prepare null data\n", mmc_hostname(mmc),
+		       __func__);
+		return;
+	}
+	if (unlikely(data->host_cookie)) {
+		/* Very wrong */
+		data->host_cookie = 0;
+		pr_err("%s: %s Request reposted for prepare\n",
+		       mmc_hostname(mmc), __func__);
+		return;
+	}
+
+	if (!msmsdcc_is_dma_possible(host, data))
+		return;
+
+	rc = msmsdcc_prep_xfer(host, data);
+	if (unlikely(rc < 0)) {
+		data->host_cookie = 0;
+		return;
+	}
+
+	data->host_cookie = 1;
+}
+
+static void
+msmsdcc_post_req(struct mmc_host *mmc, struct mmc_request *mrq, int err)
+{
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	unsigned int dir;
+	struct mmc_data *data = mrq->data;
+
+	if (unlikely(!data)) {
+		pr_err("%s: %s cannot cleanup null data\n", mmc_hostname(mmc),
+		       __func__);
+		return;
+	}
+	if (data->flags & MMC_DATA_READ)
+		dir = DMA_FROM_DEVICE;
+	else
+		dir = DMA_TO_DEVICE;
+
+	if (data->host_cookie)
+		dma_unmap_sg(mmc_dev(host->mmc), data->sg,
+			     data->sg_len, dir);
+
+	data->host_cookie = 0;
 }
 
 static void
@@ -3561,6 +3649,8 @@ exit:
 static const struct mmc_host_ops msmsdcc_ops = {
 	.enable		= msmsdcc_enable,
 	.disable	= msmsdcc_disable,
+	.pre_req        = msmsdcc_pre_req,
+	.post_req       = msmsdcc_post_req,
 	.request	= msmsdcc_request,
 	.set_ios	= msmsdcc_set_ios,
 	.get_ro		= msmsdcc_get_ro,
