@@ -152,6 +152,7 @@ static void gpio_sdc1_config(void)
 {
 	if (machine_is_msm7627a_qrd1() || machine_is_msm7627a_evb()
 					|| machine_is_msm8625_evb()
+					|| machine_is_msm8625_evt()
 					|| machine_is_msm7627a_qrd3()
 					|| machine_is_msm8625_qrd7())
 		gpio_sdc1_hw_det = 42;
@@ -256,6 +257,7 @@ static unsigned int msm7627a_sdcc_slot_status(struct device *dev)
 			if (machine_is_msm7627a_qrd1() ||
 					machine_is_msm7627a_evb() ||
 					machine_is_msm8625_evb()  ||
+					machine_is_msm8625_evt()  ||
 					machine_is_msm7627a_qrd3() ||
 					machine_is_msm8625_qrd7())
 				status = !gpio_get_value(gpio_sdc1_hw_det);
