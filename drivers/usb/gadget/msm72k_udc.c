@@ -2301,13 +2301,14 @@ static int msm72k_pullup_internal(struct usb_gadget *_gadget, int is_active)
 static int msm72k_pullup(struct usb_gadget *_gadget, int is_active)
 {
 	struct usb_info *ui = container_of(_gadget, struct usb_info, gadget);
+	struct msm_otg *otg = to_msm_otg(ui->xceiv);
 	unsigned long flags;
-
 
 	atomic_set(&ui->softconnect, is_active);
 
 	spin_lock_irqsave(&ui->lock, flags);
-	if (ui->usb_state == USB_STATE_NOTATTACHED || ui->driver == NULL) {
+	if (ui->usb_state == USB_STATE_NOTATTACHED || ui->driver == NULL ||
+		atomic_read(&otg->chg_type) == USB_CHG_TYPE__WALLCHARGER) {
 		spin_unlock_irqrestore(&ui->lock, flags);
 		return 0;
 	}
