@@ -20,7 +20,6 @@
 
 #include "bam.h"
 #include "sps_bam.h"
-#include "spsi.h"
 
 /**
  *  Valid BAM Hardware version.
@@ -823,9 +822,46 @@ void bam_exit(void *base, u32 ee)
 }
 
 /**
+ * Output BAM register content
+ * including the TEST_BUS register content under
+ * different TEST_BUS_SEL values.
+ */
+static void bam_output_register_content(void *base)
+{
+	u32 num_pipes;
+	u32 test_bus_selection[] = {0x1, 0x2, 0x3, 0x4, 0xD, 0x10,
+			0x41, 0x42, 0x43, 0x44, 0x45, 0x46};
+	u32 i;
+	u32 size = sizeof(test_bus_selection) / sizeof(u32);
+
+	for (i = 0; i < size; i++) {
+		bam_write_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL,
+					test_bus_selection[i]);
+
+		SPS_INFO("sps:bam 0x%x(va);BAM_TEST_BUS_REG is"
+			"0x%x when BAM_TEST_BUS_SEL is 0x%x.",
+			(u32) base, bam_read_reg(base, TEST_BUS_REG),
+			bam_read_reg_field(base, TEST_BUS_SEL,
+					BAM_TESTBUS_SEL));
+	}
+
+	print_bam_reg(base);
+
+	num_pipes = bam_read_reg_field(base, NUM_PIPES,
+					BAM_NUM_PIPES);
+	SPS_INFO("sps:bam 0x%x(va) has %d pipes.",
+			(u32) base, num_pipes);
+
+	for (i = 0; i < num_pipes; i++)
+		print_bam_pipe_reg(base, i);
+
+}
+
+/**
  * Get BAM IRQ source and clear global IRQ status
  */
-u32 bam_check_irq_source(void *base, u32 ee, u32 mask)
+u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
+				enum sps_callback_case *cb_case)
 {
 	u32 source = bam_read_reg(base, IRQ_SRCS_EE(ee));
 	u32 clr = source & (1UL << 31);
@@ -833,19 +869,27 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask)
 	if (clr) {
 		u32 status = 0;
 		status = bam_read_reg(base, IRQ_STTS);
+
+		if (status & IRQ_STTS_BAM_ERROR_IRQ) {
+			SPS_ERR("sps:bam 0x%x(va);bam irq status="
+				"0x%x.\nsps: BAM_ERROR_IRQ\n",
+				(u32) base, status);
+			bam_output_register_content(base);
+			*cb_case = SPS_CALLBACK_BAM_ERROR_IRQ;
+		} else if (status & IRQ_STTS_BAM_HRESP_ERR_IRQ) {
+			SPS_ERR("sps:bam 0x%x(va);bam irq status="
+				"0x%x.\nsps: BAM_HRESP_ERR_IRQ\n",
+				(u32) base, status);
+			bam_output_register_content(base);
+			*cb_case = SPS_CALLBACK_BAM_HRESP_ERR_IRQ;
+		} else
+			SPS_INFO("sps:bam 0x%x(va);bam irq status="
+				"0x%x.", (u32) base, status);
+
 		bam_write_reg(base, IRQ_CLR, status);
-		if (printk_ratelimit()) {
-			if (status & IRQ_STTS_BAM_ERROR_IRQ)
-				SPS_ERR("sps:bam 0x%x(va);bam irq status="
-					"0x%x.\nsps: BAM_ERROR_IRQ\n",
-					(u32) base, status);
-			else
-				SPS_INFO("sps:bam 0x%x(va);bam irq status="
-					"0x%x.", (u32) base, status);
-		}
 	}
 
-	source &= mask;
+	source &= (mask|(1UL << 31));
 	return source;
 }
 

@@ -136,12 +136,18 @@ static irqreturn_t bam_isr(int irq, void *ctxt)
 	/* Get BAM interrupt source(s) */
 	if ((dev->state & BAM_STATE_MTI) == 0) {
 		u32 mask = dev->pipe_active_mask;
-		source = bam_check_irq_source(dev->base,
-							  dev->props.ee,
-							  mask);
+		enum sps_callback_case cb_case;
+		source = bam_check_irq_source(dev->base, dev->props.ee,
+						mask, &cb_case);
 
 		SPS_DBG1("sps:bam_isr:bam=0x%x;source=0x%x;mask=0x%x.",
 				BAM_ID(dev), source, mask);
+
+		if ((source & (1UL << 31)) && (dev->props.callback)) {
+			SPS_INFO("sps:bam_isr:bam=0x%x;callback for case %d.",
+				BAM_ID(dev), cb_case);
+			dev->props.callback(cb_case, dev->props.user);
+		}
 
 		/* Mask any non-local source */
 		source &= dev->pipe_active_mask;

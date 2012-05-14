@@ -18,6 +18,7 @@
 #include <linux/types.h>	/* u32 */
 #include <linux/io.h>		/* ioread32() */
 #include <linux/bitops.h>	/* find_first_bit() */
+#include "spsi.h"
 
 /* Pipe mode */
 enum bam_pipe_mode {
@@ -166,10 +167,13 @@ void bam_exit(void *base, u32 ee);
  *
  * @mask - active pipes mask.
  *
+ * @case - callback case.
+ *
  * @return IRQ status
  *
  */
-u32 bam_check_irq_source(void *base, u32 ee, u32 mask);
+u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
+				enum sps_callback_case *cb_case);
 
 /**
  * Initialize a BAM pipe
