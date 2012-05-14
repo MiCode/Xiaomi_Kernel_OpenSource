@@ -1498,7 +1498,7 @@ static void sitar_get_mbhc_micbias_regs(struct snd_soc_codec *codec,
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
 	unsigned int cfilt;
 
-	switch (sitar->micbias) {
+	switch (sitar->mbhc_cfg.micbias) {
 	case SITAR_MICBIAS1:
 		cfilt = sitar->pdata->micbias.bias1_cfilt_sel;
 		micbias_regs->mbhc_reg = SITAR_A_MICB_1_MBHC;
