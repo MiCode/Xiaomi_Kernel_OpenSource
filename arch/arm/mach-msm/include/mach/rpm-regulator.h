@@ -81,6 +81,20 @@ enum rpm_vreg_voltage_corner {
 };
 
 /**
+ * enum rpm_vreg_voter - RPM regulator voter IDs for private APIs
+ */
+enum rpm_vreg_voter {
+	RPM_VREG_VOTER_REG_FRAMEWORK,	/* for internal use only */
+	RPM_VREG_VOTER1,		/* for use by the acpu-clock driver */
+	RPM_VREG_VOTER2,		/* for use by the acpu-clock driver */
+	RPM_VREG_VOTER3,		/* for use by other drivers */
+	RPM_VREG_VOTER4,		/* for use by the acpu-clock driver */
+	RPM_VREG_VOTER5,		/* for use by the acpu-clock driver */
+	RPM_VREG_VOTER6,		/* for use by the acpu-clock driver */
+	RPM_VREG_VOTER_COUNT,
+};
+
+/**
  * struct rpm_regulator_init_data - RPM regulator initialization data
  * @init_data:		regulator constraints
  * @id:			regulator id; from enum rpm_vreg_id
@@ -132,28 +146,27 @@ struct rpm_regulator_init_data {
 };
 
 /**
- * struct rpm_regulator_platform_data - RPM regulator platform data
+ * struct rpm_regulator_consumer_mapping - mapping used by private consumers
  */
-struct rpm_regulator_platform_data {
-	struct rpm_regulator_init_data	*init_data;
-	int				num_regulators;
-	enum rpm_vreg_version		version;
-	int				vreg_id_vdd_mem;
-	int				vreg_id_vdd_dig;
+struct rpm_regulator_consumer_mapping {
+	const char		*dev_name;
+	const char		*supply;
+	int			vreg_id;
+	enum rpm_vreg_voter	voter;
+	int			sleep_also;
 };
 
 /**
- * enum rpm_vreg_voter - RPM regulator voter IDs for private APIs
+ * struct rpm_regulator_platform_data - RPM regulator platform data
  */
-enum rpm_vreg_voter {
-	RPM_VREG_VOTER_REG_FRAMEWORK,	/* for internal use only */
-	RPM_VREG_VOTER1,		/* for use by the acpu-clock driver */
-	RPM_VREG_VOTER2,		/* for use by the acpu-clock driver */
-	RPM_VREG_VOTER3,		/* for use by other drivers */
-	RPM_VREG_VOTER4,		/* for use by the acpu-clock driver */
-	RPM_VREG_VOTER5,		/* for use by the acpu-clock driver */
-	RPM_VREG_VOTER6,		/* for use by the acpu-clock driver */
-	RPM_VREG_VOTER_COUNT,
+struct rpm_regulator_platform_data {
+	struct rpm_regulator_init_data		*init_data;
+	int					num_regulators;
+	enum rpm_vreg_version			version;
+	int					vreg_id_vdd_mem;
+	int					vreg_id_vdd_dig;
+	struct rpm_regulator_consumer_mapping	*consumer_map;
+	int					consumer_map_len;
 };
 
 #ifdef CONFIG_MSM_RPM_REGULATOR

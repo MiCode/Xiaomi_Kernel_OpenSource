@@ -19,10 +19,12 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/string.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <mach/rpm.h>
 #include <mach/rpm-regulator.h>
+#include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
 
 #include "rpm_resources.h"
@@ -42,12 +44,24 @@ module_param_named(
 	debug_mask, msm_rpm_vreg_debug_mask, int, S_IRUSR | S_IWUSR
 );
 
+/* Used for access via the rpm_regulator_* API. */
+struct rpm_regulator {
+	int			vreg_id;
+	enum rpm_vreg_voter	voter;
+	int			sleep_also;
+	int			min_uV;
+	int			max_uV;
+};
+
 struct vreg_config *(*get_config[])(void) = {
 	[RPM_VREG_VERSION_8660] = get_config_8660,
 	[RPM_VREG_VERSION_8960] = get_config_8960,
 	[RPM_VREG_VERSION_9615] = get_config_9615,
 	[RPM_VREG_VERSION_8930] = get_config_8930,
 };
+
+static struct rpm_regulator_consumer_mapping *consumer_map;
+static int consumer_map_len;
 
 #define SET_PART(_vreg, _part, _val) \
 	_vreg->req[_vreg->part->_part.word].value \
@@ -614,6 +628,243 @@ int rpm_vreg_set_frequency(int vreg_id, enum rpm_vreg_freq freq)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(rpm_vreg_set_frequency);
+
+#define MAX_NAME_LEN 64
+/**
+ * rpm_regulator_get() - lookup and obtain a handle to an RPM regulator
+ * @dev: device for regulator consumer
+ * @supply: supply name
+ *
+ * Returns a struct rpm_regulator corresponding to the regulator producer,
+ * or ERR_PTR() containing errno.
+ *
+ * This function may only be called from nonatomic context.  The mapping between
+ * <dev, supply> tuples and rpm_regulators struct pointers is specified via
+ * rpm-regulator platform data.
+ */
+struct rpm_regulator *rpm_regulator_get(struct device *dev, const char *supply)
+{
+	struct rpm_regulator_consumer_mapping *mapping = NULL;
+	const char *devname = NULL;
+	struct rpm_regulator *regulator;
+	int i;
+
+	if (!config) {
+		pr_err("rpm-regulator driver has not probed yet.\n");
+		return ERR_PTR(-ENODEV);
+	}
+
+	if (consumer_map == NULL || consumer_map_len == 0) {
+		pr_err("No private consumer mapping has been specified.\n");
+		return ERR_PTR(-ENODEV);
+	}
+
+	if (supply == NULL) {
+		pr_err("supply name must be specified\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (dev)
+		devname = dev_name(dev);
+
+	for (i = 0; i < consumer_map_len; i++) {
+		/* If the mapping has a device set up it must match */
+		if (consumer_map[i].dev_name &&
+			(!devname || strncmp(consumer_map[i].dev_name, devname,
+					     MAX_NAME_LEN)))
+			continue;
+
+		if (strncmp(consumer_map[i].supply, supply, MAX_NAME_LEN)
+		    == 0) {
+			mapping = &consumer_map[i];
+			break;
+		}
+	}
+
+	if (mapping == NULL) {
+		pr_err("could not find mapping for dev=%s, supply=%s\n",
+			(devname ? devname : "(null)"), supply);
+		return ERR_PTR(-ENODEV);
+	}
+
+	regulator = kzalloc(sizeof(struct rpm_regulator), GFP_KERNEL);
+	if (regulator == NULL) {
+		pr_err("could not allocate memory for regulator\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	regulator->vreg_id	= mapping->vreg_id;
+	regulator->voter	= mapping->voter;
+	regulator->sleep_also	= mapping->sleep_also;
+
+	return regulator;
+}
+EXPORT_SYMBOL_GPL(rpm_regulator_get);
+
+static int rpm_regulator_check_input(struct rpm_regulator *regulator)
+{
+	int rc = 0;
+
+	if (regulator == NULL) {
+		rc = -EINVAL;
+		pr_err("invalid (null) rpm_regulator pointer\n");
+	} else if (IS_ERR(regulator)) {
+		rc = PTR_ERR(regulator);
+		pr_err("invalid rpm_regulator pointer, rc=%d\n", rc);
+	}
+
+	return rc;
+}
+
+/**
+ * rpm_regulator_put() - free the RPM regulator handle
+ * @regulator: RPM regulator handle
+ *
+ * Parameter reaggregation does not take place when rpm_regulator_put is called.
+ * Therefore, regulator enable state and voltage must be configured
+ * appropriately before calling rpm_regulator_put.
+ *
+ * This function may be called from either atomic or nonatomic context.
+ */
+void rpm_regulator_put(struct rpm_regulator *regulator)
+{
+	kfree(regulator);
+}
+EXPORT_SYMBOL_GPL(rpm_regulator_put);
+
+/**
+ * rpm_regulator_enable() - enable regulator output
+ * @regulator: RPM regulator handle
+ *
+ * Returns 0 on success or errno on failure.
+ *
+ * This function may be called from either atomic or nonatomic context.  This
+ * function may only be called for regulators which have the sleep_selectable
+ * flag set in their configuration data.
+ *
+ * rpm_regulator_set_voltage must be called before rpm_regulator_enable because
+ * enabling is defined by the RPM interface to be requesting the desired
+ * non-zero regulator output voltage.
+ */
+int rpm_regulator_enable(struct rpm_regulator *regulator)
+{
+	int rc = rpm_regulator_check_input(regulator);
+	struct vreg *vreg;
+
+	if (rc)
+		return rc;
+
+	if (regulator->vreg_id < config->vreg_id_min
+			|| regulator->vreg_id > config->vreg_id_max) {
+		pr_err("invalid regulator id=%d\n", regulator->vreg_id);
+		return -EINVAL;
+	}
+
+	vreg = &config->vregs[regulator->vreg_id];
+
+	/*
+	 * Handle voltage switches which can be enabled without
+	 * rpm_regulator_set_voltage ever being called.
+	 */
+	if (regulator->min_uV == 0 && regulator->max_uV == 0
+	    && vreg->part->uV.mask == 0 && vreg->part->mV.mask == 0) {
+		regulator->min_uV = 1;
+		regulator->max_uV = 1;
+	}
+
+	if (regulator->min_uV == 0 && regulator->max_uV == 0) {
+		pr_err("Voltage must be set with rpm_regulator_set_voltage "
+			"before calling rpm_regulator_enable; vreg_id=%d, "
+			"voter=%d\n", regulator->vreg_id, regulator->voter);
+		return -EINVAL;
+	}
+
+	rc = rpm_vreg_set_voltage(regulator->vreg_id, regulator->voter,
+		regulator->min_uV, regulator->max_uV, regulator->sleep_also);
+
+	if (rc)
+		pr_err("rpm_vreg_set_voltage failed, rc=%d\n", rc);
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(rpm_regulator_enable);
+
+/**
+ * rpm_regulator_disable() - disable regulator output
+ * @regulator: RPM regulator handle
+ *
+ * Returns 0 on success or errno on failure.
+ *
+ * The enable state of the regulator is determined by aggregating the requests
+ * of all consumers.  Therefore, it is possible that the regulator will remain
+ * enabled even after rpm_regulator_disable is called.
+ *
+ * This function may be called from either atomic or nonatomic context.  This
+ * function may only be called for regulators which have the sleep_selectable
+ * flag set in their configuration data.
+ */
+int rpm_regulator_disable(struct rpm_regulator *regulator)
+{
+	int rc = rpm_regulator_check_input(regulator);
+
+	if (rc)
+		return rc;
+
+	rc = rpm_vreg_set_voltage(regulator->vreg_id, regulator->voter, 0, 0,
+				  regulator->sleep_also);
+
+	if (rc)
+		pr_err("rpm_vreg_set_voltage failed, rc=%d\n", rc);
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(rpm_regulator_disable);
+
+/**
+ * rpm_regulator_set_voltage() - set regulator output voltage
+ * @regulator: RPM regulator handle
+ * @min_uV: minimum required voltage in uV
+ * @max_uV: maximum acceptable voltage in uV
+ *
+ * Sets a voltage regulator to the desired output voltage. This can be set
+ * while the regulator is disabled or enabled.  If the regulator is disabled,
+ * then rpm_regulator_set_voltage will both enable the regulator and set it to
+ * output at the requested voltage.
+ *
+ * The min_uV to max_uV voltage range requested must intersect with the
+ * voltage constraint range configured for the regulator.
+ *
+ * Returns 0 on success or errno on failure.
+ *
+ * The final voltage value that is sent to the RPM is aggregated based upon the
+ * values requested by all consumers of the regulator.  This corresponds to the
+ * maximum min_uV value.
+ *
+ * This function may be called from either atomic or nonatomic context.  This
+ * function may only be called for regulators which have the sleep_selectable
+ * flag set in their configuration data.
+ */
+int rpm_regulator_set_voltage(struct rpm_regulator *regulator, int min_uV,
+			      int max_uV)
+{
+	int rc = rpm_regulator_check_input(regulator);
+
+	if (rc)
+		return rc;
+
+	rc = rpm_vreg_set_voltage(regulator->vreg_id, regulator->voter, min_uV,
+				 max_uV, regulator->sleep_also);
+
+	if (rc) {
+		pr_err("rpm_vreg_set_voltage failed, rc=%d\n", rc);
+	} else {
+		regulator->min_uV = min_uV;
+		regulator->max_uV = max_uV;
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(rpm_regulator_set_voltage);
 
 static inline int vreg_hpm_min_uA(struct vreg *vreg)
 {
@@ -1374,6 +1625,8 @@ static void rpm_vreg_set_point_init(void)
 static int __devinit rpm_vreg_probe(struct platform_device *pdev)
 {
 	struct rpm_regulator_platform_data *platform_data;
+	static struct rpm_regulator_consumer_mapping *prev_consumer_map;
+	static int prev_consumer_map_len;
 	int rc = 0;
 	int i, id;
 
@@ -1414,6 +1667,42 @@ static int __devinit rpm_vreg_probe(struct platform_device *pdev)
 		/* First time probed; initialize pin control mutexes. */
 		for (i = 0; i < config->vregs_len; i++)
 			mutex_init(&config->vregs[i].pc_lock);
+	}
+
+	/* Copy the list of private API consumers. */
+	if (platform_data->consumer_map_len > 0) {
+		if (consumer_map_len == 0) {
+			consumer_map_len = platform_data->consumer_map_len;
+			consumer_map = kmemdup(platform_data->consumer_map,
+				sizeof(struct rpm_regulator_consumer_mapping)
+				* consumer_map_len, GFP_KERNEL);
+			if (consumer_map == NULL) {
+				pr_err("memory allocation failed\n");
+				consumer_map_len = 0;
+				return -ENOMEM;
+			}
+		} else {
+			/* Concatenate new map with the existing one. */
+			prev_consumer_map = consumer_map;
+			prev_consumer_map_len = consumer_map_len;
+			consumer_map_len += platform_data->consumer_map_len;
+			consumer_map = kmalloc(
+				sizeof(struct rpm_regulator_consumer_mapping)
+				* consumer_map_len, GFP_KERNEL);
+			if (consumer_map == NULL) {
+				pr_err("memory allocation failed\n");
+				consumer_map_len = 0;
+				return -ENOMEM;
+			}
+			memcpy(consumer_map, prev_consumer_map,
+				sizeof(struct rpm_regulator_consumer_mapping)
+				* prev_consumer_map_len);
+			memcpy(&consumer_map[prev_consumer_map_len],
+				platform_data->consumer_map,
+				sizeof(struct rpm_regulator_consumer_mapping)
+				* platform_data->consumer_map_len);
+		}
+
 	}
 
 	/* Initialize all of the regulators listed in the platform data. */
@@ -1491,6 +1780,8 @@ static void __exit rpm_vreg_exit(void)
 	int i;
 
 	platform_driver_unregister(&rpm_vreg_driver);
+
+	kfree(consumer_map);
 
 	for (i = 0; i < config->vregs_len; i++)
 		mutex_destroy(&config->vregs[i].pc_lock);
