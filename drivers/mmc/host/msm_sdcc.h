@@ -321,6 +321,7 @@ struct msmsdcc_sps_data {
 	unsigned int			busy;
 	unsigned int			xfer_req_cnt;
 	bool				pipe_reset_pending;
+	bool				reset_device;
 	struct tasklet_struct		tlet;
 };
 
