@@ -469,6 +469,8 @@ void ddl_decoder_chroma_dpb_change(struct ddl_client_context *ddl);
 u32  ddl_check_reconfig(struct ddl_client_context *ddl);
 void ddl_handle_reconfig(u32 res_change, struct ddl_client_context *ddl);
 void ddl_fill_dec_desc_buffer(struct ddl_client_context *ddl);
+void ddl_set_vidc_timeout(struct ddl_client_context *ddl);
+
 
 #ifdef DDL_BUF_LOG
 void ddl_list_buffers(struct ddl_client_context *ddl);
