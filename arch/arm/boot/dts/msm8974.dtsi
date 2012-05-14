@@ -479,7 +479,7 @@
 
 		partition@E0000 {
 			reg = <0x120000 0x20000>;
-			qcom,ocmem-part-name = "blast";
+			qcom,ocmem-part-name = "other_os";
 			qcom,ocmem-part-min = <0x20000>;
 		};
 

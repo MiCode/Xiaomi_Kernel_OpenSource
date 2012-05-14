@@ -24,11 +24,6 @@ struct ocmem_notifier {
 	unsigned listeners;
 } notifiers[OCMEM_CLIENT_MAX];
 
-static int check_id(int id)
-{
-	return (id < OCMEM_CLIENT_MAX && id >= OCMEM_GRAPHICS);
-}
-
 int check_notifier(int id)
 {
 	int ret = 0;

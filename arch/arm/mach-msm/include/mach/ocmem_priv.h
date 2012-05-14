@@ -20,12 +20,13 @@
 #include "ocmem.h"
 #include <mach/msm_iomap.h>
 #include <asm/io.h>
+#include <linux/platform_device.h>
 
 #define OCMEM_PHYS_BASE 0xFEC00000
 #define OCMEM_PHYS_SIZE 0x180000
 
-#define TO_OCMEM 0x1
-#define TO_DDR 0x2
+#define TO_OCMEM 0x0
+#define TO_DDR 0x1
 
 struct ocmem_zone;
 
@@ -38,7 +39,7 @@ struct ocmem_zone {
 	int owner;
 	int active_regions;
 	int max_regions;
-	struct list_head region_list;
+	struct list_head req_list;
 	unsigned long z_start;
 	unsigned long z_end;
 	unsigned long z_head;
@@ -78,12 +79,24 @@ struct ocmem_plat_data {
 	bool interleaved;
 };
 
+struct ocmem_eviction_data {
+	struct completion completion;
+	struct list_head victim_list;
+	struct list_head req_list;
+	struct work_struct work;
+	int prio;
+	int pending;
+	bool passive;
+};
+
 struct ocmem_req {
 	struct rw_semaphore rw_sem;
 	/* Chain in sched queue */
 	struct list_head sched_list;
 	/* Chain in zone list */
 	struct list_head zone_list;
+	/* Chain in eviction list */
+	struct list_head eviction_list;
 	int owner;
 	int prio;
 	uint32_t req_id;
@@ -100,6 +113,7 @@ struct ocmem_req {
 	unsigned long req_start;
 	unsigned long req_end;
 	unsigned long req_sz;
+	struct ocmem_eviction_data *edata;
 };
 
 struct ocmem_handle {
@@ -150,13 +164,20 @@ int free_tail(struct ocmem_zone *, unsigned long, unsigned long);
 
 int ocmem_notifier_init(void);
 int check_notifier(int);
+const char *get_name(int);
+int check_id(int);
 int dispatch_notification(int, enum ocmem_notif_type, struct ocmem_buf *);
 
 int ocmem_sched_init(void);
+int ocmem_rdm_init(struct platform_device *);
 int process_allocate(int, struct ocmem_handle *, unsigned long, unsigned long,
 			unsigned long, bool, bool);
 int process_free(int, struct ocmem_handle *);
-int process_xfer(int, struct ocmem_handle *, struct ocmem_map_list *,
-			int direction);
+int process_xfer(int, struct ocmem_handle *, struct ocmem_map_list *, int);
+int process_evict(int);
+int process_restore(int);
+int process_shrink(int, struct ocmem_handle *, unsigned long);
+int ocmem_rdm_transfer(int, struct ocmem_map_list *,
+				unsigned long, int);
 unsigned long process_quota(int);
 #endif

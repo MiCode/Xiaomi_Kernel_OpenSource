@@ -13,10 +13,8 @@
 #include <linux/slab.h>
 #include <mach/ocmem_priv.h>
 
-static inline int check_id(int id)
-{
-	return (id < OCMEM_CLIENT_MAX && id >= OCMEM_GRAPHICS);
-}
+static DEFINE_MUTEX(ocmem_eviction_lock);
+static DECLARE_BITMAP(evicted, OCMEM_CLIENT_MAX);
 
 static struct ocmem_handle *generate_handle(void)
 {
@@ -58,6 +56,24 @@ static int __ocmem_free(int id, struct ocmem_buf *buf)
 		return -EINVAL;
 
 	free_handle(handle);
+	return 0;
+}
+
+static int __ocmem_shrink(int id, struct ocmem_buf *buf, unsigned long len)
+{
+	int ret = 0;
+	struct ocmem_handle *handle = buffer_to_handle(buf);
+
+	if (!handle)
+		return -EINVAL;
+
+	mutex_lock(&handle->handle_mutex);
+	ret = process_shrink(id, handle, len);
+	mutex_unlock(&handle->handle_mutex);
+
+	if (ret)
+		return -EINVAL;
+
 	return 0;
 }
 
@@ -218,6 +234,15 @@ int ocmem_free(int client_id, struct ocmem_buf *buffer)
 	return __ocmem_free(client_id, buffer);
 }
 
+int ocmem_shrink(int client_id, struct ocmem_buf *buffer, unsigned long len)
+{
+	if (!buffer)
+		return -EINVAL;
+	if (len >= buffer->len)
+		return -EINVAL;
+	return __ocmem_shrink(client_id, buffer, len);
+}
+
 int pre_validate_chunk_list(struct ocmem_map_list *list)
 {
 	int i = 0;
@@ -236,8 +261,12 @@ int pre_validate_chunk_list(struct ocmem_map_list *list)
 
 	for (i = 0; i < list->num_chunks; i++) {
 		if (!chunks[i].ddr_paddr ||
-			chunks[i].size < MIN_CHUNK_SIZE)
+			chunks[i].size < MIN_CHUNK_SIZE ||
+			!IS_ALIGNED(chunks[i].size, MIN_CHUNK_SIZE)) {
+			pr_err("Invalid ocmem chunk at index %d (p: %lx, size %lx)\n",
+					i, chunks[i].ddr_paddr, chunks[i].size);
 			return -EINVAL;
+		}
 	}
 	return 0;
 }
@@ -265,7 +294,7 @@ int ocmem_map(int client_id, struct ocmem_buf *buffer,
 		return -EINVAL;
 	}
 
-	if (!pre_validate_chunk_list(list))
+	if (pre_validate_chunk_list(list) != 0)
 		return -EINVAL;
 
 	handle = buffer_to_handle(buffer);
@@ -303,14 +332,10 @@ int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 		return -EINVAL;
 	}
 
-	if (!pre_validate_chunk_list(list))
+	if (pre_validate_chunk_list(list) != 0)
 		return -EINVAL;
 
 	handle = buffer_to_handle(buffer);
-
-	if (!handle)
-		return -EINVAL;
-
 	mutex_lock(&handle->handle_mutex);
 	ret = process_xfer(client_id, handle, list, TO_DDR);
 	mutex_unlock(&handle->handle_mutex);
@@ -324,4 +349,53 @@ unsigned long get_max_quota(int client_id)
 		return 0x0;
 	}
 	return process_quota(client_id);
+}
+
+/* Synchronous eviction/restore calls */
+/* Only a single eviction or restoration is allowed */
+/* Evictions/Restorations cannot be concurrent with other maps */
+int ocmem_evict(int client_id)
+{
+	int ret = 0;
+
+	if (!check_id(client_id)) {
+		pr_err("ocmem: Invalid client id: %d\n", client_id);
+		return -EINVAL;
+	}
+
+	mutex_lock(&ocmem_eviction_lock);
+	if (test_bit(client_id, evicted)) {
+		pr_err("ocmem: Previous eviction was not restored by %d\n",
+			client_id);
+		mutex_unlock(&ocmem_eviction_lock);
+		return -EINVAL;
+	}
+
+	ret = process_evict(client_id);
+	if (ret == 0)
+		set_bit(client_id, evicted);
+
+	mutex_unlock(&ocmem_eviction_lock);
+	return ret;
+}
+
+int ocmem_restore(int client_id)
+{
+	int ret = 0;
+
+	if (!check_id(client_id)) {
+		pr_err("ocmem: Invalid client id: %d\n", client_id);
+		return -EINVAL;
+	}
+
+	mutex_lock(&ocmem_eviction_lock);
+	if (!test_bit(client_id, evicted)) {
+		pr_err("ocmem: No previous eviction by %d\n", client_id);
+		mutex_unlock(&ocmem_eviction_lock);
+		return -EINVAL;
+	}
+	ret = process_restore(client_id);
+	clear_bit(client_id, evicted);
+	mutex_unlock(&ocmem_eviction_lock);
+	return ret;
 }

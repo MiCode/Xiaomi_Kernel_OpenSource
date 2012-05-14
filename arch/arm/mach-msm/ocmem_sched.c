@@ -54,7 +54,7 @@ enum client_prio {
 	MIN_PRIO = 0x0,
 	NO_PRIO = MIN_PRIO,
 	PRIO_SENSORS = 0x1,
-	PRIO_BLAST = 0x1,
+	PRIO_OTHER_OS = 0x1,
 	PRIO_LP_AUDIO = 0x1,
 	PRIO_HP_AUDIO = 0x2,
 	PRIO_VOICE = 0x3,
@@ -74,6 +74,21 @@ static struct mutex sched_queue_mutex;
  * hardware.
 */
 #define SCHED_DELAY 10
+
+static struct list_head rdm_queue;
+static struct mutex rdm_mutex;
+static struct workqueue_struct *ocmem_rdm_wq;
+static struct workqueue_struct *ocmem_eviction_wq;
+
+static struct ocmem_eviction_data *evictions[OCMEM_CLIENT_MAX];
+
+struct ocmem_rdm_work {
+	int id;
+	struct ocmem_map_list *list;
+	struct ocmem_handle *handle;
+	int direction;
+	struct work_struct work;
+};
 
 /* OCMEM Operational modes */
 enum ocmem_client_modes {
@@ -107,7 +122,7 @@ struct ocmem_table {
 	{OCMEM_VOICE, PRIO_VOICE, OCMEM_PASSIVE, OCMEM_BLOCKED},
 	{OCMEM_LP_AUDIO, PRIO_LP_AUDIO, OCMEM_LOW_POWER, OCMEM_SYSNOC},
 	{OCMEM_SENSORS, PRIO_SENSORS, OCMEM_LOW_POWER, OCMEM_SYSNOC},
-	{OCMEM_BLAST, PRIO_BLAST, OCMEM_LOW_POWER, OCMEM_SYSNOC},
+	{OCMEM_OTHER_OS, PRIO_OTHER_OS, OCMEM_LOW_POWER, OCMEM_SYSNOC},
 };
 
 static struct rb_root sched_tree;
@@ -119,6 +134,8 @@ struct ocmem_region {
 	struct rb_node region_rb;
 	/* Hash map of requests */
 	struct idr region_idr;
+	/* Chain in eviction list */
+	struct list_head eviction_list;
 	unsigned long r_start;
 	unsigned long r_end;
 	unsigned long r_sz;
@@ -244,6 +261,7 @@ static struct ocmem_region *create_region(void)
 	if (!p)
 		return NULL;
 	idr_init(&p->region_idr);
+	INIT_LIST_HEAD(&p->eviction_list);
 	p->r_start = p->r_end = p->r_sz = 0x0;
 	p->max_prio = NO_PRIO;
 	return p;
@@ -461,9 +479,13 @@ static int do_map(struct ocmem_req *req)
 {
 	int rc = 0;
 
+	down_write(&req->rw_sem);
+
 	mutex_lock(&sched_mutex);
 	rc = __sched_map(req);
 	mutex_unlock(&sched_mutex);
+
+	up_write(&req->rw_sem);
 
 	if (rc == OP_FAIL)
 		return -EINVAL;
@@ -475,9 +497,13 @@ static int do_unmap(struct ocmem_req *req)
 {
 	int rc = 0;
 
+	down_write(&req->rw_sem);
+
 	mutex_lock(&sched_mutex);
 	rc = __sched_unmap(req);
 	mutex_unlock(&sched_mutex);
+
+	up_write(&req->rw_sem);
 
 	if (rc == OP_FAIL)
 		return -EINVAL;
@@ -713,6 +739,104 @@ err_op_fail:
 }
 
 /* Must be called with sched_mutex held */
+static int __sched_shrink(struct ocmem_req *req, unsigned long new_sz)
+{
+	int owner = req->owner;
+	int ret = 0;
+
+	struct ocmem_req *matched_req = NULL;
+	struct ocmem_region *matched_region = NULL;
+	struct ocmem_region *region = NULL;
+	unsigned long alloc_addr = 0x0;
+
+	struct ocmem_zone *zone = get_zone(owner);
+
+	BUG_ON(!zone);
+
+	/* The shrink should not be called for zero size */
+	BUG_ON(new_sz == 0);
+
+	matched_region = find_region_match(req->req_start, req->req_end);
+	matched_req = find_req_match(req->req_id, matched_region);
+
+	if (!matched_region || !matched_req)
+		goto invalid_op_error;
+	if (matched_req != req)
+		goto invalid_op_error;
+
+
+	ret = zone->z_ops->free(zone,
+		matched_req->req_start, matched_req->req_sz);
+
+	if (ret < 0) {
+		pr_err("Zone Allocation operation failed\n");
+		goto internal_error;
+	}
+
+	alloc_addr = zone->z_ops->allocate(zone, new_sz);
+
+	if (alloc_addr < 0) {
+		pr_err("Zone Allocation operation failed\n");
+		goto internal_error;
+	}
+
+	/* Detach the region from the interval tree */
+	/* This is to guarantee that the change in size
+	 * causes the tree to be rebalanced if required */
+
+	detach_req(matched_region, req);
+	if (req_count(matched_region) == 0) {
+		remove_region(matched_region);
+		region = matched_region;
+	} else {
+		region = create_region();
+		if (!region) {
+			pr_err("ocmem: Unable to create region\n");
+			goto internal_error;
+		}
+	}
+	/* update the request */
+	req->req_start = alloc_addr;
+	req->req_sz = new_sz;
+	req->req_end = alloc_addr + req->req_sz;
+
+	if (req_count(region) == 0) {
+		remove_region(matched_region);
+		destroy_region(matched_region);
+	}
+
+	/* update request state */
+	SET_STATE(req, R_MUST_GROW);
+	SET_STATE(req, R_MUST_MAP);
+	req->op = SCHED_MAP;
+
+	/* attach the request to the region */
+	attach_req(region, req);
+	populate_region(region, req);
+	update_region_prio(region);
+
+	/* update the tree with new region */
+	if (insert_region(region)) {
+		pr_err("ocmem: Failed to insert the region\n");
+		zone->z_ops->free(zone, alloc_addr, new_sz);
+		detach_req(region, req);
+		update_region_prio(region);
+		/* req will be destroyed by the caller */
+		goto region_error;
+	}
+	return OP_COMPLETE;
+
+region_error:
+	destroy_region(region);
+internal_error:
+	pr_err("ocmem: shrink: Failed\n");
+	return OP_FAIL;
+invalid_op_error:
+	pr_err("ocmem: shrink: Failed to find matching region\n");
+	return OP_FAIL;
+}
+
+/* Must be called with sched_mutex held */
 static int __sched_allocate(struct ocmem_req *req, bool can_block,
 				bool can_wait)
 {
@@ -906,12 +1030,6 @@ static struct ocmem_req *ocmem_fetch_req(void)
 	return req;
 }
 
-int process_xfer(int id, struct ocmem_handle *handle,
-		struct ocmem_map_list *list, int direction)
-{
-
-	return 0;
-}
 
 unsigned long process_quota(int id)
 {
@@ -987,6 +1105,35 @@ static int process_grow(struct ocmem_req *req)
 		BUG();
 	}
 	return 0;
+}
+
+static int do_shrink(struct ocmem_req *req, unsigned long shrink_size)
+{
+
+	int rc = 0;
+	struct ocmem_buf *buffer = NULL;
+
+	down_write(&req->rw_sem);
+	buffer = req->buffer;
+
+	/* Take the scheduler mutex */
+	mutex_lock(&sched_mutex);
+	rc = __sched_shrink(req, shrink_size);
+	mutex_unlock(&sched_mutex);
+
+	if (rc == OP_FAIL)
+		goto err_op_fail;
+
+	else if (rc == OP_COMPLETE) {
+		buffer->addr = device_address(req->owner, req->req_start);
+		buffer->len = req->req_sz;
+	}
+
+	up_write(&req->rw_sem);
+	return 0;
+err_op_fail:
+	up_write(&req->rw_sem);
+	return -EINVAL;
 }
 
 static void ocmem_sched_wk_func(struct work_struct *work);
@@ -1076,6 +1223,250 @@ int process_free(int id, struct ocmem_handle *handle)
 	return 0;
 }
 
+static void ocmem_rdm_worker(struct work_struct *work)
+{
+	int offset = 0;
+	int rc = 0;
+	int event;
+	struct ocmem_rdm_work *work_data = container_of(work,
+				struct ocmem_rdm_work, work);
+	int id = work_data->id;
+	struct ocmem_map_list *list = work_data->list;
+	int direction = work_data->direction;
+	struct ocmem_handle *handle = work_data->handle;
+	struct ocmem_req *req = handle_to_req(handle);
+	struct ocmem_buf *buffer = handle_to_buffer(handle);
+
+	down_write(&req->rw_sem);
+	offset = phys_to_offset(req->req_start);
+	rc = ocmem_rdm_transfer(id, list, offset, direction);
+	if (work_data->direction == TO_OCMEM)
+		event = (rc == 0) ? OCMEM_MAP_DONE : OCMEM_MAP_FAIL;
+	else
+		event = (rc == 0) ? OCMEM_UNMAP_DONE : OCMEM_UNMAP_FAIL;
+
+	up_write(&req->rw_sem);
+	kfree(work_data);
+	dispatch_notification(id, event, buffer);
+}
+
+int queue_transfer(struct ocmem_req *req, struct ocmem_handle *handle,
+			struct ocmem_map_list *list, int direction)
+{
+	struct ocmem_rdm_work *work_data = NULL;
+
+	down_write(&req->rw_sem);
+
+	work_data = kzalloc(sizeof(struct ocmem_rdm_work), GFP_ATOMIC);
+	if (!work_data)
+		BUG();
+
+	work_data->handle = handle;
+	work_data->list = list;
+	work_data->id = req->owner;
+	work_data->direction = direction;
+	INIT_WORK(&work_data->work, ocmem_rdm_worker);
+	up_write(&req->rw_sem);
+	queue_work(ocmem_rdm_wq, &work_data->work);
+	return 0;
+}
+
+int process_xfer_out(int id, struct ocmem_handle *handle,
+			struct ocmem_map_list *list)
+{
+	struct ocmem_req *req = NULL;
+	int rc = 0;
+
+	req = handle_to_req(handle);
+
+	if (!req)
+		return -EINVAL;
+
+	if (!is_mapped(req)) {
+		pr_err("Buffer is not already mapped\n");
+		goto transfer_out_error;
+	}
+
+	rc = process_unmap(req, req->req_start, req->req_end);
+	if (rc < 0) {
+		pr_err("Unmapping the buffer failed\n");
+		goto transfer_out_error;
+	}
+
+	rc = queue_transfer(req, handle, list, TO_DDR);
+
+	if (rc < 0) {
+		pr_err("Failed to queue rdm transfer to DDR\n");
+		goto transfer_out_error;
+	}
+
+	return 0;
+
+transfer_out_error:
+	return -EINVAL;
+}
+
+int process_xfer_in(int id, struct ocmem_handle *handle,
+			struct ocmem_map_list *list)
+{
+	struct ocmem_req *req = NULL;
+	int rc = 0;
+
+	req = handle_to_req(handle);
+
+	if (!req)
+		return -EINVAL;
+
+	if (is_mapped(req)) {
+		pr_err("Buffer is already mapped\n");
+		goto transfer_in_error;
+	}
+
+	rc = process_map(req, req->req_start, req->req_end);
+	if (rc < 0) {
+		pr_err("Mapping the buffer failed\n");
+		goto transfer_in_error;
+	}
+
+	rc = queue_transfer(req, handle, list, TO_OCMEM);
+
+	if (rc < 0) {
+		pr_err("Failed to queue rdm transfer to OCMEM\n");
+		goto transfer_in_error;
+	}
+
+	return 0;
+transfer_in_error:
+	return -EINVAL;
+}
+
+int process_shrink(int id, struct ocmem_handle *handle, unsigned long size)
+{
+	struct ocmem_req *req = NULL;
+	struct ocmem_buf *buffer = NULL;
+	struct ocmem_eviction_data *edata = NULL;
+	int rc = 0;
+
+	if (is_blocked(id)) {
+		pr_err("Client %d cannot request free\n", id);
+		return -EINVAL;
+	}
+
+	req = handle_to_req(handle);
+	buffer = handle_to_buffer(handle);
+
+	if (!req)
+		return -EINVAL;
+
+	if (req->req_start != core_address(id, buffer->addr)) {
+		pr_err("Invalid buffer handle passed for shrink\n");
+		return -EINVAL;
+	}
+
+	edata = req->edata;
+
+	if (is_tcm(req->owner))
+		do_unmap(req);
+
+	if (size == 0) {
+		pr_info("req %p being shrunk to zero\n", req);
+		rc = do_free(req);
+		if (rc < 0)
+			return -EINVAL;
+	} else {
+		rc = do_shrink(req, size);
+		if (rc < 0)
+			return -EINVAL;
+	}
+
+	edata->pending--;
+	if (edata->pending == 0) {
+		pr_debug("All regions evicted");
+		complete(&edata->completion);
+	}
+
+	return 0;
+}
+
+int process_xfer(int id, struct ocmem_handle *handle,
+		struct ocmem_map_list *list, int direction)
+{
+	int rc = 0;
+
+	if (is_tcm(id)) {
+		WARN(1, "Mapping operation is invalid for client\n");
+		return -EINVAL;
+	}
+
+	if (direction == TO_DDR)
+		rc = process_xfer_out(id, handle, list);
+	else if (direction == TO_OCMEM)
+		rc = process_xfer_in(id, handle, list);
+	return rc;
+}
+
+int ocmem_eviction_thread(struct work_struct *work)
+{
+	return 0;
+}
+
+int process_evict(int id)
+{
+	struct ocmem_eviction_data *edata = NULL;
+	int prio = ocmem_client_table[id].priority;
+	struct rb_node *rb_node = NULL;
+	struct ocmem_req *req = NULL;
+	struct ocmem_buf buffer;
+	int j = 0;
+
+	edata = kzalloc(sizeof(struct ocmem_eviction_data), GFP_ATOMIC);
+
+	INIT_LIST_HEAD(&edata->victim_list);
+	INIT_LIST_HEAD(&edata->req_list);
+	edata->prio = prio;
+	edata->pending = 0;
+	edata->passive = 1;
+	evictions[id] = edata;
+
+	mutex_lock(&sched_mutex);
+
+	for (rb_node = rb_first(&sched_tree); rb_node;
+				rb_node = rb_next(rb_node)) {
+		struct ocmem_region *tmp_region = NULL;
+		tmp_region = rb_entry(rb_node, struct ocmem_region, region_rb);
+		if (tmp_region->max_prio < prio) {
+			for (j = id - 1; j > NO_PRIO; j--) {
+				req = find_req_match(j, tmp_region);
+				if (req) {
+					pr_info("adding %p to eviction list\n",
+							tmp_region);
+					list_add_tail(
+						&tmp_region->eviction_list,
+						&edata->victim_list);
+					list_add_tail(
+						&req->eviction_list,
+						&edata->req_list);
+					edata->pending++;
+					req->edata = edata;
+					buffer.addr = req->req_start;
+					buffer.len = 0x0;
+					dispatch_notification(req->owner,
+						OCMEM_ALLOC_SHRINK, &buffer);
+				}
+			}
+		} else {
+			pr_info("skipping %p from eviction\n", tmp_region);
+		}
+	}
+	mutex_unlock(&sched_mutex);
+	pr_debug("Waiting for all regions to be shrunk\n");
+	if (edata->pending > 0) {
+		init_completion(&edata->completion);
+		wait_for_completion(&edata->completion);
+	}
+	return 0;
+}
+
 static int do_allocate(struct ocmem_req *req, bool can_block, bool can_wait)
 {
 	int rc = 0;
@@ -1113,6 +1504,31 @@ err_allocate_fail:
 	return -EINVAL;
 }
 
+int process_restore(int id)
+{
+	struct ocmem_req *req = NULL;
+	struct ocmem_req *next = NULL;
+	struct ocmem_eviction_data *edata = evictions[id];
+
+	if (!edata)
+		return 0;
+
+	list_for_each_entry_safe(req, next, &edata->req_list, eviction_list)
+	{
+		if (req) {
+			pr_debug("ocmem: Fetched evicted request %p\n",
+								req);
+			list_del(&req->sched_list);
+			req->op = SCHED_ALLOCATE;
+			sched_enqueue(req);
+		}
+	}
+	kfree(edata);
+	evictions[id] = NULL;
+	pr_debug("Restore all evicted regions\n");
+	ocmem_schedule_pending();
+	return 0;
+}
 
 int process_allocate(int id, struct ocmem_handle *handle,
 			unsigned long min, unsigned long max,
@@ -1185,6 +1601,7 @@ int process_delayed_allocate(struct ocmem_req *req)
 
 	rc = do_allocate(req, true, false);
 
+
 	if (rc < 0)
 		goto do_allocate_error;
 
@@ -1251,5 +1668,13 @@ int ocmem_sched_init(void)
 	for (i = MIN_PRIO; i < MAX_OCMEM_PRIO; i++)
 		INIT_LIST_HEAD(&sched_queue[i]);
 
+	mutex_init(&rdm_mutex);
+	INIT_LIST_HEAD(&rdm_queue);
+	ocmem_rdm_wq = alloc_workqueue("ocmem_rdm_wq", 0, 0);
+	if (!ocmem_rdm_wq)
+		return -ENOMEM;
+	ocmem_eviction_wq = alloc_workqueue("ocmem_eviction_wq", 0, 0);
+	if (!ocmem_eviction_wq)
+		return -ENOMEM;
 	return 0;
 }
