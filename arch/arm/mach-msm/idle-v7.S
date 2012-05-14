@@ -44,6 +44,15 @@ isb
 skip\@:
 .endm
 
+/* Add NOPs for 8x25 target */
+.macro DELAY_8x25, rept
+#ifdef CONFIG_ARCH_MSM8625
+	.rept	\rept
+	nop
+	.endr
+#endif
+.endm
+
 ENTRY(msm_arch_idle)
 	wfi
 #ifdef CONFIG_ARCH_MSM8X60
@@ -130,6 +139,7 @@ skip:
 
 	SET_SMP_COHERENCY OFF
 	wfi
+	DELAY_8x25 300
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
