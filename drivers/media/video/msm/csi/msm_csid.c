@@ -211,10 +211,11 @@ static int msm_csid_init(struct v4l2_subdev *sd, uint32_t *csid_version)
 
 	init_completion(&csid_dev->reset_complete);
 
-	enable_irq(csid_dev->irq->start);
+	rc = request_irq(csid_dev->irq->start, msm_csid_irq,
+		IRQF_TRIGGER_RISING, "csid", csid_dev);
 
 	msm_csid_reset(csid_dev);
-	return 0;
+	return rc;
 
 clk_enable_failed:
 	msm_camera_enable_vreg(&csid_dev->pdev->dev, csid_vreg_info,
@@ -230,10 +231,15 @@ vreg_config_failed:
 
 static int msm_csid_release(struct v4l2_subdev *sd)
 {
+	uint32_t irq;
 	struct csid_device *csid_dev;
 	csid_dev = v4l2_get_subdevdata(sd);
 
-	disable_irq(csid_dev->irq->start);
+	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
+	msm_camera_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
+	msm_camera_io_w(0, csid_dev->base + CSID_IRQ_MASK_ADDR);
+
+	free_irq(csid_dev->irq->start, csid_dev);
 
 	msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
 		csid_dev->csid_clk, ARRAY_SIZE(csid_clk_info), 0);
@@ -327,17 +333,6 @@ static int __devinit csid_probe(struct platform_device *pdev)
 		rc = -EBUSY;
 		goto csid_no_resource;
 	}
-
-	rc = request_irq(new_csid_dev->irq->start, msm_csid_irq,
-		IRQF_TRIGGER_RISING, "csid", new_csid_dev);
-	if (rc < 0) {
-		release_mem_region(new_csid_dev->mem->start,
-			resource_size(new_csid_dev->mem));
-		pr_err("%s: irq request fail\n", __func__);
-		rc = -EBUSY;
-		goto csid_no_resource;
-	}
-	disable_irq(new_csid_dev->irq->start);
 
 	new_csid_dev->pdev = pdev;
 	msm_cam_register_subdev_node(&new_csid_dev->subdev, CSID_DEV, pdev->id);
