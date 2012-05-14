@@ -350,13 +350,14 @@ void *pil_get(const char *name)
 	}
 
 	mutex_lock(&pil->lock);
-	if (!pil->count++) {
+	if (!pil->count) {
 		ret = load_image(pil);
 		if (ret) {
 			retval = ERR_PTR(ret);
 			goto err_load;
 		}
 	}
+	pil->count++;
 	pil_set_state(pil, PIL_ONLINE);
 	mutex_unlock(&pil->lock);
 out:
