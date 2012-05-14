@@ -587,6 +587,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		msm_sensor_enable_i2c_mux(data->sensor_platform_info->i2c_conf);
 
 	return rc;
+
 enable_clk_failed:
 		msm_camera_config_gpio_table(data, 0);
 config_gpio_failed:
@@ -643,13 +644,14 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 			s_ctrl->sensor_id_info->sensor_id_reg_addr, &chipid,
 			MSM_CAMERA_I2C_WORD_DATA);
 	if (rc < 0) {
-		CDBG("%s: read id failed\n", __func__);
+		pr_err("%s: %s: read id failed\n", __func__,
+			s_ctrl->sensordata->sensor_name);
 		return rc;
 	}
 
 	CDBG("msm_sensor id: %d\n", chipid);
 	if (chipid != s_ctrl->sensor_id_info->sensor_id) {
-		CDBG("msm_sensor_match_id chip id doesnot match\n");
+		pr_err("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
 	}
 	return rc;
@@ -726,10 +728,30 @@ int32_t msm_sensor_power(struct v4l2_subdev *sd, int on)
 	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
 	mutex_lock(s_ctrl->msm_sensor_mutex);
-	if (on)
+	if (on) {
 		rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
-	else
+		if (rc < 0) {
+			pr_err("%s: %s power_up failed rc = %d\n", __func__,
+				s_ctrl->sensordata->sensor_name, rc);
+		} else {
+			if (s_ctrl->func_tbl->sensor_match_id)
+				rc = s_ctrl->func_tbl->sensor_match_id(s_ctrl);
+			else
+				rc = msm_sensor_match_id(s_ctrl);
+			if (rc < 0) {
+				pr_err("%s: %s match_id failed  rc=%d\n",
+					__func__,
+					s_ctrl->sensordata->sensor_name, rc);
+				if (s_ctrl->func_tbl->sensor_power_down(s_ctrl)
+					< 0)
+					pr_err("%s: %s power_down failed\n",
+					__func__,
+					s_ctrl->sensordata->sensor_name);
+			}
+		}
+	} else {
 		rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
+	}
 	mutex_unlock(s_ctrl->msm_sensor_mutex);
 	return rc;
 }

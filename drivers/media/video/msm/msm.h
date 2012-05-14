@@ -244,7 +244,7 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
 	struct v4l2_subdev *gemini_sdev; /* gemini sub device */
 	struct v4l2_subdev *vpe_sdev; /* vpe sub device */
-	struct v4l2_subdev *axi_sdev; /* vpe sub device */
+	struct v4l2_subdev *axi_sdev; /* axi sub device */
 	struct v4l2_subdev *eeprom_sdev; /* eeprom sub device */
 
 	struct msm_isp_ops *isp_sdev;    /* isp sub device : camif/VFE */
