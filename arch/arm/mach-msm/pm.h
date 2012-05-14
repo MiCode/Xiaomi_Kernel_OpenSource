@@ -84,6 +84,8 @@ void msm_pm_cpu_enter_lowpower(unsigned int cpu);
 
 void __init msm_pm_init_sleep_status_data(
 		struct msm_pm_sleep_status_data *sleep_data);
+
+
 #ifdef CONFIG_MSM_PM8X60
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
 int msm_pm_wait_cpu_shutdown(unsigned int cpu);
@@ -99,4 +101,29 @@ int msm_platform_secondary_init(unsigned int cpu);
 #else
 static inline int msm_platform_secondary_init(unsigned int cpu) { return 0; }
 #endif
+
+enum msm_pm_time_stats_id {
+	MSM_PM_STAT_REQUESTED_IDLE = 0,
+	MSM_PM_STAT_IDLE_SPIN,
+	MSM_PM_STAT_IDLE_WFI,
+	MSM_PM_STAT_RETENTION,
+	MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE,
+	MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE,
+	MSM_PM_STAT_IDLE_POWER_COLLAPSE,
+	MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE,
+	MSM_PM_STAT_SUSPEND,
+	MSM_PM_STAT_FAILED_SUSPEND,
+	MSM_PM_STAT_NOT_IDLE,
+	MSM_PM_STAT_COUNT
+};
+
+#ifdef CONFIG_MSM_IDLE_STATS
+void msm_pm_add_stats(enum msm_pm_time_stats_id *enable_stats, int size);
+void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t);
+#else
+static inline void msm_pm_add_stats(enum msm_pm_time_stats_id *enable_stats,
+		int size) {}
+static inline void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t) {}
+#endif
+
 #endif  /* __ARCH_ARM_MACH_MSM_PM_H */
