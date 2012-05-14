@@ -62,7 +62,7 @@ static int fmem_probe(struct platform_device *pdev)
 
 	if (!pdata->phys)
 		pdata->phys = allocate_contiguous_ebi_nomap(pdata->size,
-			PAGE_SIZE);
+			pdata->align);
 
 #ifdef CONFIG_MEMORY_HOTPLUG
 	fmem_section_start = pdata->phys >> PA_SECTION_SHIFT;

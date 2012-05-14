@@ -321,7 +321,8 @@ int ion_carveout_heap_map_iommu(struct ion_buffer *buffer,
 
 	if (extra) {
 		unsigned long extra_iova_addr = data->iova_addr + buffer->size;
-		ret = msm_iommu_map_extra(domain, extra_iova_addr, extra, prot);
+		ret = msm_iommu_map_extra(domain, extra_iova_addr, extra,
+					  SZ_4K, prot);
 		if (ret)
 			goto out2;
 	}
