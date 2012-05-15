@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -597,6 +597,84 @@ static struct msm_gpiomux_config msm8960_hsic_hub_configs[] = {
 };
 #endif
 
+#ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
+static struct gpiomux_setting sdcc4_clk_actv_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting sdcc4_cmd_data_0_3_actv_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting sdcc4_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting sdcc4_data_1_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config msm8960_sdcc4_configs[] __initdata = {
+	{
+		/* SDC4_DATA_3 */
+		.gpio      = 83,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc4_suspend_cfg,
+		},
+	},
+	{
+		/* SDC4_DATA_2 */
+		.gpio      = 84,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc4_suspend_cfg,
+		},
+	},
+	{
+		/* SDC4_DATA_1 */
+		.gpio      = 85,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc4_data_1_suspend_cfg,
+		},
+	},
+	{
+		/* SDC4_DATA_0 */
+		.gpio      = 86,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc4_suspend_cfg,
+		},
+	},
+	{
+		/* SDC4_CMD */
+		.gpio      = 87,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc4_suspend_cfg,
+		},
+	},
+	{
+		/* SDC4_CLK */
+		.gpio      = 88,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdcc4_clk_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdcc4_suspend_cfg,
+		},
+	},
+};
+#endif
+
+
 static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 	{
 		.gpio = 47,
@@ -834,6 +912,11 @@ int __init msm8960_init_gpiomux(void)
 
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
+
+#ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
+	msm_gpiomux_install(msm8960_sdcc4_configs,
+		ARRAY_SIZE(msm8960_sdcc4_configs));
+#endif
 
 	if (machine_is_msm8960_mtp() || machine_is_msm8960_fluid() ||
 		machine_is_msm8960_liquid() || machine_is_msm8960_cdp())
