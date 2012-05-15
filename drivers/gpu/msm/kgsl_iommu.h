@@ -15,6 +15,17 @@
 
 #include <mach/iommu.h>
 
+/* IOMMU registers and masks */
+#define KGSL_IOMMU_TTBR0			0x10
+#define KGSL_IOMMU_TTBR1			0x14
+#define KGSL_IOMMU_TTBR0_PA_MASK		0x0003FFFF
+#define KGSL_IOMMU_TTBR0_PA_SHIFT		14
+#define KGSL_IOMMU_CTX_TLBIALL			0x800
+#define KGSL_IOMMU_CONTEXTIDR			0x8
+#define KGSL_IOMMU_CONTEXTIDR_ASID_MASK		0xFF
+#define KGSL_IOMMU_CONTEXTIDR_ASID_SHIFT	0
+#define KGSL_IOMMU_CTX_TLBIASID			0x804
+#define KGSL_IOMMU_CTX_SHIFT			12
 /*
  * Max number of iommu units that the gpu core can have
  * On APQ8064, KGSL can control a maximum of 2 IOMMU units.
