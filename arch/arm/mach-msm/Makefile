@@ -156,6 +156,8 @@ obj-$(CONFIG_MSM_PM2) += pm2.o
 obj-$(CONFIG_MSM_PM) += pm.o
 obj-$(CONFIG_MSM_NOPM) += no-pm.o
 
+obj-$(CONFIG_MSM_PCIE) += pcie.o pcie_irq.o
+
 obj-$(CONFIG_MSM_SPM_V1) += spm.o
 obj-$(CONFIG_MSM_SPM_V2) += spm-v2.o spm_devices.o
 
