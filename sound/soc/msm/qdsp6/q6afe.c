@@ -147,6 +147,7 @@ int afe_get_port_type(u16 port_id)
 	case HDMI_RX:
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
+	case SLIMBUS_3_RX:
 	case INT_BT_SCO_RX:
 	case INT_BT_A2DP_RX:
 	case INT_FM_RX:
@@ -206,6 +207,7 @@ int afe_validate_port(u16 port_id)
 	case SLIMBUS_1_RX:
 	case SLIMBUS_1_TX:
 	case SLIMBUS_2_TX:
+	case SLIMBUS_3_RX:
 	case INT_BT_SCO_RX:
 	case INT_BT_SCO_TX:
 	case INT_BT_A2DP_RX:
@@ -271,6 +273,7 @@ int afe_get_port_index(u16 port_id)
 	case SLIMBUS_1_RX: return IDX_SLIMBUS_1_RX;
 	case SLIMBUS_1_TX: return IDX_SLIMBUS_1_TX;
 	case SLIMBUS_2_TX: return IDX_SLIMBUS_2_TX;
+	case SLIMBUS_3_RX: return IDX_SLIMBUS_3_RX;
 	case INT_BT_SCO_RX: return IDX_INT_BT_SCO_RX;
 	case INT_BT_SCO_TX: return IDX_INT_BT_SCO_TX;
 	case INT_BT_A2DP_RX: return IDX_INT_BT_A2DP_RX;
@@ -305,6 +308,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SLIMBUS_1_RX:
 	case SLIMBUS_1_TX:
 	case SLIMBUS_2_TX:
+	case SLIMBUS_3_RX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_port_slimbus_sch_cfg);
@@ -676,7 +680,7 @@ fail_cmd:
 	return ret;
 }
 
-int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
+int afe_loopback(u16 enable, u16 dst_port, u16 src_port)
 {
 	struct afe_loopback_command lb_cmd;
 	int ret = 0;
@@ -684,6 +688,11 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 	ret = afe_q6_interface_prepare();
 	if (ret != 0)
 		return ret;
+
+	if ((afe_get_port_type(dst_port) == MSM_AFE_PORT_TYPE_RX) &&
+		(afe_get_port_type(src_port) == MSM_AFE_PORT_TYPE_RX))
+		return afe_loopback_cfg(enable, dst_port, src_port,
+					LB_MODE_EC_REF_VOICE_AUDIO);
 
 	lb_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(20), APR_PKT_VER);
@@ -693,8 +702,8 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 	lb_cmd.hdr.dest_port = 0;
 	lb_cmd.hdr.token = 0;
 	lb_cmd.hdr.opcode = AFE_PORT_CMD_LOOPBACK;
-	lb_cmd.tx_port_id = tx_port;
-	lb_cmd.rx_port_id = rx_port;
+	lb_cmd.tx_port_id = src_port;
+	lb_cmd.rx_port_id = dst_port;
 	lb_cmd.mode = 0xFFFF;
 	lb_cmd.enable = (enable ? 1 : 0);
 	atomic_set(&this_afe.state, 1);
@@ -716,6 +725,63 @@ done:
 	return ret;
 }
 
+int afe_loopback_cfg(u16 enable, u16 dst_port, u16 src_port, u16 mode)
+{
+	struct afe_port_cmd_set_param lp_cfg;
+	int ret = 0;
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
+
+	pr_debug("%s: src_port %d, dst_port %d\n",
+		  __func__, src_port, dst_port);
+
+	lp_cfg.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	lp_cfg.hdr.pkt_size = sizeof(lp_cfg);
+	lp_cfg.hdr.src_port = 0;
+	lp_cfg.hdr.dest_port = 0;
+	lp_cfg.hdr.token = 0;
+	lp_cfg.hdr.opcode = AFE_PORT_CMD_SET_PARAM;
+
+	lp_cfg.port_id = src_port;
+	lp_cfg.payload_size	= sizeof(struct afe_param_payload);
+	lp_cfg.payload_address	= 0;
+
+	lp_cfg.payload.module_id = AFE_MODULE_LOOPBACK;
+	lp_cfg.payload.param_id	= AFE_PARAM_ID_LOOPBACK_CONFIG;
+	lp_cfg.payload.param_size = sizeof(struct afe_param_loopback_cfg);
+	lp_cfg.payload.reserved	= 0;
+
+	lp_cfg.payload.param.loopback_cfg.loopback_cfg_minor_version =
+			AFE_API_VERSION_LOOPBACK_CONFIG;
+	lp_cfg.payload.param.loopback_cfg.dst_port_id = dst_port;
+	lp_cfg.payload.param.loopback_cfg.routing_mode = mode;
+	lp_cfg.payload.param.loopback_cfg.enable = enable;
+	lp_cfg.payload.param.loopback_cfg.reserved = 0;
+
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &lp_cfg);
+	if (ret < 0) {
+		pr_err("%s: AFE loopback config failed for src_port %d, dst_port %d\n",
+			   __func__, src_port, dst_port);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+		(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (ret < 0) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return ret;
+}
 
 int afe_loopback_gain(u16 port_id, u16 volume)
 {

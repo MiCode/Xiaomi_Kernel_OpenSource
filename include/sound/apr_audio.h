@@ -352,8 +352,53 @@ struct afe_param_loopback_gain {
 	u16 reserved;
 } __attribute__ ((packed));
 
+/* Parameter ID used to configure and enable/disable the loopback path. The
+ * difference with respect to the existing API, AFE_PORT_CMD_LOOPBACK, is that
+ * it allows Rx port to be configured as source port in loopback path. Port-id
+ * in AFE_PORT_CMD_SET_PARAM cmd is the source port whcih can be Tx or Rx port.
+ * In addition, we can configure the type of routing mode to handle different
+ * use cases.
+*/
+enum {
+	/* Regular loopback from source to destination port */
+	LB_MODE_DEFAULT = 1,
+	/* Sidetone feed from Tx source to Rx destination port */
+	LB_MODE_SIDETONE,
+	/* Echo canceller reference, voice + audio + DTMF */
+	LB_MODE_EC_REF_VOICE_AUDIO,
+	/* Echo canceller reference, voice alone */
+	LB_MODE_EC_REF_VOICE
+};
+
+#define AFE_PARAM_ID_LOOPBACK_CONFIG 0x0001020B
+#define AFE_API_VERSION_LOOPBACK_CONFIG 0x1
+struct afe_param_loopback_cfg {
+	/* Minor version used for tracking the version of the configuration
+	 * interface.
+	 */
+	uint32_t loopback_cfg_minor_version;
+
+	/* Destination Port Id. */
+	uint16_t dst_port_id;
+
+	/* Specifies data path type from src to dest port. Supported values:
+	 * LB_MODE_DEFAULT
+	 * LB_MODE_SIDETONE
+	 * LB_MODE_EC_REF_VOICE_AUDIO
+	 * LB_MODE_EC_REF_VOICE
+	 */
+	uint16_t routing_mode;
+
+	/* Specifies whether to enable (1) or disable (0) an AFE loopback. */
+	uint16_t enable;
+
+	/* Reserved for 32-bit alignment. This field must be set to 0. */
+	uint16_t reserved;
+} __packed;
 
 #define AFE_MODULE_ID_PORT_INFO		0x00010200
+/* Module ID for the loopback-related parameters. */
+#define AFE_MODULE_LOOPBACK           0x00010205
 struct afe_param_payload {
 	u32 module_id;
 	u32 param_id;
@@ -364,6 +409,7 @@ struct afe_param_payload {
 		struct afe_param_sampling_rate sampling_rate;
 		struct afe_param_channels      channels;
 		struct afe_param_loopback_gain loopback_gain;
+		struct afe_param_loopback_cfg loopback_cfg;
 	} __attribute__((packed)) param;
 } __attribute__ ((packed));
 

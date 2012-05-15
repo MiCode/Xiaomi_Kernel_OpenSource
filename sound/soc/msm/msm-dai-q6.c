@@ -590,6 +590,7 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
+	case SLIMBUS_3_RX:
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
 	case SLIMBUS_2_TX:
@@ -1117,6 +1118,7 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 	switch (dai->id) {
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
+	case SLIMBUS_3_RX:
 	case SLIMBUS_4_RX:
 		/* channel number to be between 128 and 255. For RX port
 		 * use channel numbers from 138 to 144, for TX port
@@ -1466,6 +1468,21 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_2_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_slimbus_3_rx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+		SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_min = 8000,
+		.rate_max = 48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
 /* To do: change to register DAIs as batch */
 static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 {
@@ -1511,6 +1528,10 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case SLIMBUS_2_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 				&msm_dai_q6_slimbus_2_tx_dai);
+		break;
+	case SLIMBUS_3_RX:
+		rc = snd_soc_register_dai(&pdev->dev,
+				&msm_dai_q6_slimbus_3_rx_dai);
 		break;
 	case INT_BT_SCO_RX:
 		rc = snd_soc_register_dai(&pdev->dev,
