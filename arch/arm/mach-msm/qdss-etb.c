@@ -388,11 +388,18 @@ static int etb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id etb_match[] = {
+	{.compatible = "qcom,msm-etb"},
+	{}
+};
+
 static struct platform_driver etb_driver = {
 	.probe          = etb_probe,
 	.remove         = etb_remove,
 	.driver         = {
 		.name   = "msm_etb",
+		.owner	= THIS_MODULE,
+		.of_match_table = etb_match,
 	},
 };
 

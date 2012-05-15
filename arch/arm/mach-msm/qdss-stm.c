@@ -571,11 +571,18 @@ static int stm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id stm_match[] = {
+	{.compatible = "qcom,msm-stm"},
+	{}
+};
+
 static struct platform_driver stm_driver = {
 	.probe          = stm_probe,
 	.remove         = stm_remove,
 	.driver         = {
 		.name   = "msm_stm",
+		.owner	= THIS_MODULE,
+		.of_match_table = stm_match,
 	},
 };
 

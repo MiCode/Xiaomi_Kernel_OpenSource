@@ -117,11 +117,18 @@ static int tpiu_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id tpiu_match[] = {
+	{.compatible = "qcom,msm-tpiu"},
+	{}
+};
+
 static struct platform_driver tpiu_driver = {
 	.probe          = tpiu_probe,
 	.remove         = tpiu_remove,
 	.driver         = {
 		.name   = "msm_tpiu",
+		.owner	= THIS_MODULE,
+		.of_match_table = tpiu_match,
 	},
 };
 

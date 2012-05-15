@@ -208,11 +208,18 @@ static int funnel_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id funnel_match[] = {
+	{.compatible = "qcom,msm-funnel"},
+	{}
+};
+
 static struct platform_driver funnel_driver = {
 	.probe          = funnel_probe,
 	.remove         = funnel_remove,
 	.driver         = {
 		.name   = "msm_funnel",
+		.owner	= THIS_MODULE,
+		.of_match_table = funnel_match,
 	},
 };
 

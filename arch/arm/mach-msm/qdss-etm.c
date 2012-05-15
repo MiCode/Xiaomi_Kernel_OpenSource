@@ -1305,11 +1305,18 @@ static int etm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id etm_match[] = {
+	{.compatible = "qcom,msm-etm"},
+	{}
+};
+
 static struct platform_driver etm_driver = {
 	.probe          = etm_probe,
 	.remove         = etm_remove,
 	.driver         = {
 		.name   = "msm_etm",
+		.owner	= THIS_MODULE,
+		.of_match_table = etm_match,
 	},
 };
 

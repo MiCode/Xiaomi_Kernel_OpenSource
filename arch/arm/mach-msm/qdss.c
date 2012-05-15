@@ -369,11 +369,18 @@ static int qdss_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id qdss_match[] = {
+	{.compatible = "qcom,msm-qdss"},
+	{}
+};
+
 static struct platform_driver qdss_driver = {
 	.probe          = qdss_probe,
 	.remove         = qdss_remove,
 	.driver         = {
 		.name   = "msm_qdss",
+		.owner	= THIS_MODULE,
+		.of_match_table = qdss_match,
 	},
 };
 
