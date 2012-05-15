@@ -186,6 +186,56 @@ static struct platform_device gpio_leds_8625 = {
 
 #define MXT_TS_IRQ_GPIO         48
 #define MXT_TS_RESET_GPIO       26
+#define MAX_VKEY_LEN		100
+
+static ssize_t mxt_virtual_keys_register(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	char *virtual_keys = __stringify(EV_KEY) ":" __stringify(KEY_MENU) \
+		":60:840:120:80" ":" __stringify(EV_KEY) \
+		":" __stringify(KEY_HOME)   ":180:840:120:80" \
+		":" __stringify(EV_KEY) ":" \
+		__stringify(KEY_BACK) ":300:840:120:80" \
+		":" __stringify(EV_KEY) ":" \
+		__stringify(KEY_SEARCH)   ":420:840:120:80" "\n";
+
+	return snprintf(buf, strnlen(virtual_keys, MAX_VKEY_LEN) + 1 , "%s",
+			virtual_keys);
+}
+
+static struct kobj_attribute mxt_virtual_keys_attr = {
+	.attr = {
+		.name = "virtualkeys.atmel_mxt_ts",
+		.mode = S_IRUGO,
+	},
+	.show = &mxt_virtual_keys_register,
+};
+
+static struct attribute *mxt_virtual_key_properties_attrs[] = {
+	&mxt_virtual_keys_attr.attr,
+	NULL,
+};
+
+static struct attribute_group mxt_virtual_key_properties_attr_group = {
+	.attrs = mxt_virtual_key_properties_attrs,
+};
+
+struct kobject *mxt_virtual_key_properties_kobj;
+
+static int mxt_vkey_setup(void)
+{
+	int retval;
+
+	mxt_virtual_key_properties_kobj =
+		kobject_create_and_add("board_properties", NULL);
+	if (mxt_virtual_key_properties_kobj)
+		retval = sysfs_create_group(mxt_virtual_key_properties_kobj,
+				&mxt_virtual_key_properties_attr_group);
+	if (!mxt_virtual_key_properties_kobj || retval)
+		pr_err("failed to create mxt board_properties\n");
+
+	return retval;
+}
 
 static const u8 mxt_config_data[] = {
 	/* T6 Object */
@@ -230,6 +280,51 @@ static const u8 mxt_config_data[] = {
 	0, 0, 0, 0, 16, 65, 3, 1, 1, 0,
 	10, 10, 10, 0, 0, 15, 15, 154, 58, 145,
 	80, 100, 15, 3,
+};
+
+static const u8 mxt_config_data_evt[] = {
+	/* T6 Object */
+	0, 0, 0, 0, 0, 0,
+	/* T38 Object */
+	20, 0, 0, 0, 0, 0, 0, 0,
+	/* T7 Object */
+	24, 12, 10,
+	/* T8 Object */
+	30, 0, 20, 20, 0, 0, 9, 45, 10, 192,
+	/* T9 Object */
+	3, 0, 0, 18, 11, 0, 16, 60, 3, 1,
+	0, 1, 1, 0, 10, 10, 10, 10, 107, 3,
+	223, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+	20, 15, 0, 0, 2,
+	/* T15 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0,
+	/* T18 Object */
+	0, 0,
+	/* T19 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0,
+	/* T23 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0,
+	/* T25 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0,
+	/* T40 Object */
+	17, 0, 0, 30, 30,
+	/* T42 Object */
+	3, 20, 45, 40, 128, 0, 0, 0,
+	/* T46 Object */
+	0, 2, 16, 16, 0, 0, 0, 0, 0,
+	/* T47 Object */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	/* T48 Object */
+	1, 128, 96, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 6, 6, 0, 0, 63, 4, 64,
+	10, 0, 32, 5, 0, 38, 0, 8, 0, 0,
+	0, 0, 0, 0, 16, 65, 3, 1, 1, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0,
 };
 
 static struct mxt_config_info mxt_config_array[] = {
@@ -715,7 +810,17 @@ void __init qrd7627a_add_io_devices(void)
 		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 					synaptic_i2c_clearpad3k,
 					ARRAY_SIZE(synaptic_i2c_clearpad3k));
-	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
+	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb() ||
+			machine_is_msm8625_evt()) {
+		/* Use configuration data for EVT */
+		if (machine_is_msm8625_evt()) {
+			mxt_config_array[0].config = mxt_config_data_evt;
+			mxt_config_array[0].config_length =
+					ARRAY_SIZE(mxt_config_data_evt);
+			mxt_platform_data.panel_maxy = 875;
+			mxt_vkey_setup();
+		}
+
 		rc = gpio_tlmm_config(GPIO_CFG(MXT_TS_IRQ_GPIO, 0,
 				GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
 				GPIO_CFG_8MA), GPIO_CFG_ENABLE);
