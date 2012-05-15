@@ -686,7 +686,8 @@ static int mdp_histogram_init(void)
 {
 	struct mdp_hist_mgmt *temp;
 	int i, ret;
-	mdp_hist_wq = alloc_workqueue("mdp_hist_wq", WQ_UNBOUND, 0);
+	mdp_hist_wq = alloc_workqueue("mdp_hist_wq",
+					WQ_NON_REENTRANT | WQ_UNBOUND, 0);
 
 	for (i = 0; i < MDP_HIST_MGMT_MAX; i++)
 		mdp_hist_mgmt_array[i] = NULL;
@@ -1082,8 +1083,11 @@ static void mdp_hist_read_work(struct work_struct *data)
 		goto error;
 	}
 
-	/* if read was triggered by an underrun, don't wake up readers*/
-	if (mgmt->mdp_is_hist_valid && mgmt->mdp_is_hist_init) {
+	/*
+	 * if read was triggered by an underrun or failed copying,
+	 * don't wake up readers
+	 */
+	if (!ret && mgmt->mdp_is_hist_valid && mgmt->mdp_is_hist_init) {
 		mgmt->hist = NULL;
 		complete(&mgmt->mdp_hist_comp);
 	}
@@ -1747,7 +1751,6 @@ static void mdp_drv_init(void)
 	spin_lock_init(&mdp_spin_lock);
 	mdp_dma_wq = create_singlethread_workqueue("mdp_dma_wq");
 	mdp_vsync_wq = create_singlethread_workqueue("mdp_vsync_wq");
-	mdp_hist_wq = create_singlethread_workqueue("mdp_hist_wq");
 	mdp_pipe_ctrl_wq = create_singlethread_workqueue("mdp_pipe_ctrl_wq");
 	INIT_DELAYED_WORK(&mdp_pipe_ctrl_worker,
 			  mdp_pipe_ctrl_workqueue_handler);
