@@ -620,7 +620,7 @@ int ion_cp_unsecure_heap(struct ion_heap *heap)
 }
 
 static int iommu_map_all(unsigned long domain_num, struct ion_cp_heap *cp_heap,
-			int partition, unsigned long prot, unsigned long align)
+			int partition, unsigned long prot)
 {
 	unsigned long left_to_map = cp_heap->total_size;
 	unsigned long order = get_order(SZ_64K);
@@ -718,8 +718,7 @@ static int ion_cp_heap_map_iommu(struct ion_buffer *buffer,
 		data->iova_addr = cp_heap->iommu_iova[domain_num] + offset;
 		return 0;
 	} else if (cp_heap->iommu_map_all) {
-		ret = iommu_map_all(domain_num, cp_heap, partition_num,
-				    align, prot);
+		ret = iommu_map_all(domain_num, cp_heap, partition_num, prot);
 		if (!ret) {
 			unsigned long offset =
 					buffer->priv_phys - cp_heap->base;
