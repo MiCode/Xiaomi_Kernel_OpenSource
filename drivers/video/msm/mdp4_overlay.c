@@ -2983,22 +2983,22 @@ static struct {
 } msm_iommu_ctx_names[] = {
 	/* Display */
 	{
-		.name = "mdp_vg1",
+		.name = "mdp_port0_cb0",
 		.domain = DISPLAY_DOMAIN,
 	},
 	/* Display */
 	{
-		.name = "mdp_vg2",
+		.name = "mdp_port0_cb1",
 		.domain = DISPLAY_DOMAIN,
 	},
 	/* Display */
 	{
-		.name = "mdp_rgb1",
+		.name = "mdp_port1_cb0",
 		.domain = DISPLAY_DOMAIN,
 	},
 	/* Display */
 	{
-		.name = "mdp_rgb2",
+		.name = "mdp_port1_cb1",
 		.domain = DISPLAY_DOMAIN,
 	},
 };
