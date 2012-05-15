@@ -86,6 +86,7 @@ static int __init mipi_video_toshiba_wsvga_pt_init(void)
 	pinfo.mipi.data_lane2 = TRUE;
 	pinfo.mipi.t_clk_post = 0x20;
 	pinfo.mipi.t_clk_pre = 0x2d;
+	pinfo.mipi.esc_byte_ratio = 4;
 	pinfo.mipi.stream = 0; /* dma_p */
 	pinfo.mipi.mdp_trigger = 0;
 	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;

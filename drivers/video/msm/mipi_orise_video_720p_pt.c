@@ -85,6 +85,7 @@ static int __init mipi_video_orise_720p_pt_init(void)
 	pinfo.mipi.frame_rate = 55;
 	pinfo.mipi.dsi_phy_db = &dsi_video_mode_phy_db;
 	pinfo.mipi.tx_eot_append = TRUE;
+	pinfo.mipi.esc_byte_ratio = 4;
 
 	ret = mipi_orise_device_register(&pinfo, MIPI_DSI_PRIM,
 						MIPI_DSI_PANEL_720P_PT);
