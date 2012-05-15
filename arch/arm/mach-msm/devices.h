@@ -27,6 +27,7 @@ void __init msm_map_msm9615_io(void);
 void __init msm9615_init_irq(void);
 void __init msm_rotator_update_bus_vectors(unsigned int xres,
 	unsigned int yres);
+void __init msm_rotator_set_split_iommu_domain(void);
 
 extern struct platform_device asoc_msm_pcm;
 extern struct platform_device asoc_msm_dai0;

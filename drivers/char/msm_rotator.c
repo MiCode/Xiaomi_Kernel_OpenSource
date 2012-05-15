@@ -97,6 +97,7 @@
 #define ROTATOR_REVISION_NONE	0xffffffff
 
 uint32_t rotator_hw_revision;
+static char rot_iommu_split_domain;
 
 /*
  * rotator_hw_revision:
@@ -174,6 +175,7 @@ int msm_rotator_iommu_map_buf(int mem_id, unsigned char src,
 	unsigned long *start, unsigned long *len,
 	struct ion_handle **pihdl)
 {
+	int domain;
 	if (!msm_rotator_dev->client)
 		return -EINVAL;
 
@@ -185,8 +187,13 @@ int msm_rotator_iommu_map_buf(int mem_id, unsigned char src,
 	pr_debug("%s(): ion_hdl %p, ion_fd %d\n", __func__, *pihdl,
 		ion_share_dma_buf(msm_rotator_dev->client, *pihdl));
 
+	if (rot_iommu_split_domain)
+		domain = src ? ROTATOR_SRC_DOMAIN : ROTATOR_DST_DOMAIN;
+	else
+		domain = ROTATOR_SRC_DOMAIN;
+
 	if (ion_map_iommu(msm_rotator_dev->client,
-		*pihdl,	ROTATOR_DOMAIN, GEN_POOL,
+		*pihdl,	domain, GEN_POOL,
 		SZ_4K, 0, start, len, 0, ION_IOMMU_UNMAP_DELAYED)) {
 		pr_err("ion_map_iommu() failed\n");
 		return -EINVAL;
@@ -862,17 +869,24 @@ static int get_img(struct msmfb_data *fbd, unsigned char src,
 
 }
 
-static void put_img(struct file *p_file, struct ion_handle *p_ihdl)
+static void put_img(struct file *p_file, struct ion_handle *p_ihdl,
+	unsigned char src)
 {
 #ifdef CONFIG_ANDROID_PMEM
 	if (p_file != NULL)
 		put_pmem_file(p_file);
 #endif
+
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	if (!IS_ERR_OR_NULL(p_ihdl)) {
+		int domain;
+		if (rot_iommu_split_domain)
+			domain = src ? ROTATOR_SRC_DOMAIN : ROTATOR_DST_DOMAIN;
+		else
+			domain = ROTATOR_SRC_DOMAIN;
 		pr_debug("%s(): p_ihdl %p\n", __func__, p_ihdl);
 		ion_unmap_iommu(msm_rotator_dev->client,
-			p_ihdl, ROTATOR_DOMAIN, GEN_POOL);
+			p_ihdl, domain, GEN_POOL);
 
 		ion_free(msm_rotator_dev->client, p_ihdl);
 	}
@@ -1162,15 +1176,15 @@ do_rotate_exit:
 #endif
 	schedule_delayed_work(&msm_rotator_dev->rot_clk_work, HZ);
 do_rotate_unlock_mutex:
-	put_img(dstp1_file, dstp1_ihdl);
-	put_img(srcp1_file, srcp1_ihdl);
-	put_img(dstp0_file, dstp0_ihdl);
+	put_img(dstp1_file, dstp1_ihdl, 0);
+	put_img(srcp1_file, srcp1_ihdl, 1);
+	put_img(dstp0_file, dstp0_ihdl, 0);
 
 	/* only source may use frame buffer */
 	if (info.src.flags & MDP_MEMORY_ID_TYPE_FB)
 		fput_light(srcp0_file, ps0_need);
 	else
-		put_img(srcp0_file, srcp0_ihdl);
+		put_img(srcp0_file, srcp0_ihdl, 1);
 	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	dev_dbg(msm_rotator_dev->device, "%s() returning rc = %d\n",
 		__func__, rc);
@@ -1492,6 +1506,7 @@ static int msm_rotator_probe(struct platform_device *pdev)
 
 	pdata = pdev->dev.platform_data;
 	number_of_clks = pdata->number_of_clocks;
+	rot_iommu_split_domain = pdata->rot_iommu_split_domain;
 
 	msm_rotator_dev->imem_owner = IMEM_NO_OWNER;
 	mutex_init(&msm_rotator_dev->imem_lock);
