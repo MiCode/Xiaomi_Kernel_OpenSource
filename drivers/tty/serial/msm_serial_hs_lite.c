@@ -384,14 +384,15 @@ static void handle_tx(struct uart_port *port)
 	/* Handle x_char */
 	if (port->x_char) {
 		wait_for_xmitr(port, UARTDM_ISR_TX_READY_BMSK);
-		msm_hsl_write(port, tx_count + 1,
-			regmap[vid][UARTDM_NCF_TX]);
+		msm_hsl_write(port, tx_count + 1, regmap[vid][UARTDM_NCF_TX]);
+		msm_hsl_read(port, regmap[vid][UARTDM_NCF_TX]);
 		msm_hsl_write(port, port->x_char, regmap[vid][UARTDM_TF]);
 		port->icount.tx++;
 		port->x_char = 0;
 	} else if (tx_count) {
 		wait_for_xmitr(port, UARTDM_ISR_TX_READY_BMSK);
 		msm_hsl_write(port, tx_count, regmap[vid][UARTDM_NCF_TX]);
+		msm_hsl_read(port, regmap[vid][UARTDM_NCF_TX]);
 	}
 	if (!tx_count) {
 		msm_hsl_stop_tx(port);
