@@ -682,7 +682,6 @@ struct platform_device msm_device_vidc = {
 #define MSM_SDC2_BASE         0x12140000
 #define MSM_SDC2_DML_BASE     (MSM_SDC2_BASE + 0x800)
 #define MSM_SDC2_BAM_BASE     (MSM_SDC2_BASE + 0x2000)
-#define MSM_SDC2_BASE         0x12140000
 #define MSM_SDC3_BASE         0x12180000
 #define MSM_SDC3_DML_BASE     (MSM_SDC3_BASE + 0x800)
 #define MSM_SDC3_BAM_BASE     (MSM_SDC3_BASE + 0x2000)

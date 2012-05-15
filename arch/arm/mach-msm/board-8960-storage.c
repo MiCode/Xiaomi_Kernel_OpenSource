@@ -46,6 +46,16 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		.lpm_uA = 9000,
 		.hpm_uA = 200000, /* 200mA */
 	},
+	/* SDCC2 : SDIO slot connected */
+	[SDCC2] = {
+		.name = "sdc_vdd",
+		.high_vol_level = 1800000,
+		.low_vol_level = 1800000,
+		.always_on = 1,
+		.lpm_sup = 1,
+		.lpm_uA = 9000,
+		.hpm_uA = 200000, /* 200mA */
+	},
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.name = "sdc_vdd",
@@ -92,6 +102,10 @@ static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC1],
 		.vccq_data = &mmc_vccq_reg_data[SDCC1],
+	},
+	/* SDCC2 : SDIO card slot connected */
+	[SDCC2] = {
+		.vdd_data = &mmc_vdd_reg_data[SDCC2],
 	},
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
@@ -186,6 +200,22 @@ static struct msm_mmc_pad_drv_data mmc_pad_drv_data[MAX_SDCC_CONTROLLER] = {
 	},
 };
 
+struct msm_mmc_gpio sdc2_gpio[] = {
+	{92, "sdc2_dat_3"},
+	{91, "sdc2_dat_2"},
+	{90, "sdc2_dat_1"},
+	{89, "sdc2_dat_0"},
+	{97, "sdc2_cmd"},
+	{98, "sdc2_clk"}
+};
+
+struct msm_mmc_gpio_data mmc_gpio_data[MAX_SDCC_CONTROLLER] = {
+	[SDCC2] = {
+		.gpio = sdc2_gpio,
+		.size = ARRAY_SIZE(sdc2_gpio),
+	}
+};
+
 static struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.pull = &mmc_pad_pull_data[SDCC1],
@@ -200,6 +230,10 @@ static struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
 static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.pad_data = &mmc_pad_data[SDCC1],
+	},
+	[SDCC2] = {
+		.is_gpio = 1,
+		.gpio_data = &mmc_gpio_data[SDCC2],
 	},
 	[SDCC3] = {
 		.pad_data = &mmc_pad_data[SDCC3],
@@ -237,6 +271,23 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 };
 #endif
 
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+static unsigned int sdc2_sup_clk_rates[] = {
+	400000, 24000000, 48000000
+};
+
+static struct mmc_platform_data msm8960_sdc2_data = {
+	.ocr_mask       = MMC_VDD_165_195,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table  = sdc2_sup_clk_rates,
+	.sup_clk_cnt    = ARRAY_SIZE(sdc2_sup_clk_rates),
+	.pclk_src_dfab  = 1,
+	.vreg_data      = &mmc_slot_vreg_data[SDCC2],
+	.pin_data       = &mmc_slot_pin_data[SDCC2],
+	.sdiowakeup_irq = MSM_GPIO_TO_INT(90),
+};
+#endif
+
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 static struct mmc_platform_data msm8960_sdc3_data = {
 	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
@@ -268,6 +319,10 @@ void __init msm8960_init_mmc(void)
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 	/* SDC1 : eMMC card connected */
 	msm_add_sdcc(1, &msm8960_sdc1_data);
+#endif
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+	/* SDC2: SDIO slot for WLAN*/
+	msm_add_sdcc(2, &msm8960_sdc2_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	/* SDC3: External card slot */
