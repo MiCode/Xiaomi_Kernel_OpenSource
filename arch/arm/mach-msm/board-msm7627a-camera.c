@@ -75,7 +75,7 @@ static struct msm_camera_gpio_conf gpio_conf_ov9726 = {
 	.gpio_no_mux = 1,
 };
 
-#ifdef CONFIG_WEBCAM_OV7692_QRD
+#ifdef CONFIG_OV7692
 static struct gpio ov7692_cam_req_gpio[] = {
 	{GPIO_SKU1_CAM_VGA_SHDN, GPIOF_DIR_OUT, "CAM_VGA_SHDN"},
 	{GPIO_SKU1_CAM_VGA_RESET_N, GPIOF_DIR_OUT, "CAM_VGA_RESET"},
@@ -194,7 +194,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data = {
 };
 #endif
 
-#ifdef CONFIG_WEBCAM_OV7692_QRD
+#ifdef CONFIG_OV7692
 static struct msm_camera_sensor_platform_info sensor_board_info_ov7692 = {
 	.mount_angle = 90,
 	.cam_vreg = msm_cam_vreg,
