@@ -95,7 +95,7 @@ extern uint32_t SMSM_NUM_HOSTS;
 #define SMSM_WLAN_TX_RINGS_EMPTY 0x00000200
 #define SMSM_WLAN_TX_ENABLE	0x00000400
 
-#define SMSM_ERR_SRV_READY         0x00008000
+#define SMSM_SUBSYS2AP_STATUS         0x00008000
 
 #ifdef CONFIG_MSM_SMD
 void *smem_alloc(unsigned id, unsigned size);
