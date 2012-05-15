@@ -294,6 +294,8 @@ struct msm_otg {
 #define B_BUS_REQ	16
 	unsigned long inputs;
 	struct work_struct sm_work;
+	bool sm_work_pending;
+	atomic_t pm_suspended;
 	atomic_t in_lpm;
 	int async_int;
 	unsigned cur_power;

@@ -709,6 +709,9 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 			/* Remote wakeup or resume */
 			set_bit(A_BUS_REQ, &motg->inputs);
 			phy->state = OTG_STATE_A_HOST;
+
+			/* ensure hardware is not in low power mode */
+			pm_runtime_resume(phy->dev);
 			break;
 		default:
 			break;
@@ -2527,7 +2530,10 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 		pr_debug("OTG IRQ: in LPM\n");
 		disable_irq_nosync(irq);
 		motg->async_int = 1;
-		pm_request_resume(phy->dev);
+		if (atomic_read(&motg->pm_suspended))
+			motg->sm_work_pending = true;
+		else
+			pm_request_resume(otg->phy->dev);
 		return IRQ_HANDLED;
 	}
 
@@ -2692,7 +2698,10 @@ static void msm_otg_set_vbus_state(int online)
 		return;
 	}
 
-	queue_work(system_nrt_wq, &motg->sm_work);
+	if (atomic_read(&motg->pm_suspended))
+		motg->sm_work_pending = true;
+	else
+		queue_work(system_nrt_wq, &motg->sm_work);
 }
 
 static irqreturn_t msm_pmic_id_irq(int irq, void *data)
@@ -2711,8 +2720,12 @@ static irqreturn_t msm_pmic_id_irq(int irq, void *data)
 		set_bit(A_BUS_REQ, &motg->inputs);
 	}
 
-	if (motg->phy.state != OTG_STATE_UNDEFINED)
-		queue_work(system_nrt_wq, &motg->sm_work);
+	if (motg->phy.state != OTG_STATE_UNDEFINED) {
+		if (atomic_read(&motg->pm_suspended))
+			motg->sm_work_pending = true;
+		else
+			queue_work(system_nrt_wq, &motg->sm_work);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -3559,28 +3572,42 @@ static int msm_otg_runtime_resume(struct device *dev)
 #ifdef CONFIG_PM_SLEEP
 static int msm_otg_pm_suspend(struct device *dev)
 {
+	int ret = 0;
 	struct msm_otg *motg = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "OTG PM suspend\n");
-	return msm_otg_suspend(motg);
+
+	atomic_set(&motg->pm_suspended, 1);
+	ret = msm_otg_suspend(motg);
+	if (ret)
+		atomic_set(&motg->pm_suspended, 0);
+
+	return ret;
 }
 
 static int msm_otg_pm_resume(struct device *dev)
 {
+	int ret = 0;
 	struct msm_otg *motg = dev_get_drvdata(dev);
-	int ret;
 
 	dev_dbg(dev, "OTG PM resume\n");
-	ret = msm_otg_resume(motg);
-	if (ret)
-		return ret;
 
-	/* Update runtime PM status */
-	pm_runtime_disable(dev);
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
+	atomic_set(&motg->pm_suspended, 0);
+	if (motg->sm_work_pending) {
+		motg->sm_work_pending = false;
 
-	return 0;
+		pm_runtime_get_noresume(dev);
+		ret = msm_otg_resume(motg);
+
+		/* Update runtime PM status */
+		pm_runtime_disable(dev);
+		pm_runtime_set_active(dev);
+		pm_runtime_enable(dev);
+
+		queue_work(system_nrt_wq, &motg->sm_work);
+	}
+
+	return ret;
 }
 #endif
 
