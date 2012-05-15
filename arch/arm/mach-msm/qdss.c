@@ -41,7 +41,7 @@ enum {
  */
 struct qdss_ctx {
 	struct kobject			*modulekobj;
-	struct msm_qdss_platform_data	*pdata;
+	uint8_t				afamily;
 	struct list_head		sources;	/* S: sources list */
 	struct mutex			sources_mutex;
 	uint8_t				sink_count;	/* I: sink count */
@@ -120,7 +120,7 @@ int qdss_enable(struct qdss_source *src)
 	if (ret)
 		goto err;
 
-	if ((qdss.pdata)->afamily) {
+	if (qdss.afamily) {
 		mutex_lock(&qdss.sink_mutex);
 		if (qdss.sink_count == 0) {
 			etb_disable();
@@ -154,7 +154,7 @@ void qdss_disable(struct qdss_source *src)
 	if (!src)
 		return;
 
-	if ((qdss.pdata)->afamily) {
+	if (qdss.afamily) {
 		mutex_lock(&qdss.sink_mutex);
 		if (WARN(qdss.sink_count == 0, "qdss is unbalanced\n"))
 			goto out;
@@ -187,7 +187,7 @@ EXPORT_SYMBOL(qdss_disable);
  */
 void qdss_disable_sink(void)
 {
-	if ((qdss.pdata)->afamily) {
+	if (qdss.afamily) {
 		etb_dump();
 		etb_disable();
 	}
@@ -330,24 +330,20 @@ static void qdss_sysfs_exit(void)
 static int qdss_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct qdss_source *src_table;
-	size_t num_srcs;
+	struct msm_qdss_platform_data *pdata;
 
 	mutex_init(&qdss.sources_mutex);
 	mutex_init(&qdss.clk_mutex);
 	mutex_init(&qdss.sink_mutex);
 
-	if (pdev->dev.platform_data == NULL) {
-		pr_err("%s: platform data is NULL\n", __func__);
-		ret = -ENODEV;
-		goto err_pdata;
-	}
-	qdss.pdata = pdev->dev.platform_data;
-
 	INIT_LIST_HEAD(&qdss.sources);
-	src_table = (qdss.pdata)->src_table;
-	num_srcs = (qdss.pdata)->size;
-	qdss_add_sources(src_table, num_srcs);
+
+	pdata = pdev->dev.platform_data;
+	if (!pdata)
+		goto err_pdata;
+
+	qdss.afamily = pdata->afamily;
+	qdss_add_sources(pdata->src_table, pdata->size);
 
 	pr_info("QDSS arch initialized\n");
 	return 0;
