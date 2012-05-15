@@ -281,6 +281,13 @@ int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms);
  *
  */
 int pm8921_usb_ovp_disable(int disable);
+/**
+ * pm8921_is_batfet_closed - battery fet status
+ *
+ * Returns 1 if batfet is closed 0 if open. On configurations without
+ * batfet this will return 0.
+ */
+int pm8921_is_batfet_closed(void);
 #else
 static inline void pm8921_charger_vbus_draw(unsigned int mA)
 {
@@ -352,6 +359,10 @@ static inline int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms)
 static inline int pm8921_usb_ovp_disable(int disable)
 {
 	return -ENXIO;
+}
+static inline int pm8921_is_batfet_closed(void)
+{
+	return 1;
 }
 #endif
 

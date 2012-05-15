@@ -327,6 +327,10 @@ static int is_dc_chg_plugged_in(struct pm8921_chg_chip *chip)
 	return pm_chg_get_rt_status(chip, DCIN_VALID_IRQ);
 }
 
+static int is_batfet_closed(struct pm8921_chg_chip *chip)
+{
+	return pm_chg_get_rt_status(chip, BATFET_IRQ);
+}
 #define CAPTURE_FSM_STATE_CMD	0xC2
 #define READ_BANK_7		0x70
 #define READ_BANK_4		0x40
@@ -1741,6 +1745,15 @@ int pm8921_is_battery_present(void)
 }
 EXPORT_SYMBOL(pm8921_is_battery_present);
 
+int pm8921_is_batfet_closed(void)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+	return is_batfet_closed(the_chip);
+}
+EXPORT_SYMBOL(pm8921_is_batfet_closed);
 /*
  * Disabling the charge current limit causes current
  * current limits to have no monitoring. An adequate charger
