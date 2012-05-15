@@ -238,7 +238,7 @@ int copper_pll_clk_enable(struct clk *clk)
 	spin_lock_irqsave(&pll_reg_lock, flags);
 	mode = readl_relaxed(PLL_MODE_REG(pll));
 	/* Disable PLL bypass mode. */
-	mode |= BIT(1);
+	mode |= PLL_BYPASSNL;
 	writel_relaxed(mode, PLL_MODE_REG(pll));
 
 	/*
@@ -249,7 +249,7 @@ int copper_pll_clk_enable(struct clk *clk)
 	udelay(10);
 
 	/* De-assert active-low PLL reset. */
-	mode |= BIT(2);
+	mode |= PLL_RESET_N;
 	writel_relaxed(mode, PLL_MODE_REG(pll));
 
 	/* Wait for pll to enable. */
@@ -266,7 +266,7 @@ int copper_pll_clk_enable(struct clk *clk)
 	}
 
 	/* Enable PLL output. */
-	mode |= BIT(0);
+	mode |= PLL_OUTCTRL;
 	writel_relaxed(mode, PLL_MODE_REG(pll));
 
 	/* Ensure the write above goes through before returning. */
