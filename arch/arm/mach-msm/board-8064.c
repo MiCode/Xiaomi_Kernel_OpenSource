@@ -2252,6 +2252,11 @@ mpq8064_device_ext_3p3v_ldo_vreg __devinitdata = {
 	},
 };
 
+static struct platform_device rc_input_loopback_pdev = {
+	.name	= "rc-user-input",
+	.id	= -1,
+};
+
 static struct platform_device *mpq_devices[] __initdata = {
 	&msm_device_sps_apq8064,
 	&mpq8064_device_qup_i2c_gsbi5,
@@ -2268,6 +2273,7 @@ static struct platform_device *mpq_devices[] __initdata = {
 #ifdef CONFIG_MSM_VCAP
 	&msm8064_device_vcap,
 #endif
+	&rc_input_loopback_pdev,
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
