@@ -2354,14 +2354,16 @@ static void mdp4_overlay_update_blt_mode(struct msm_fb_data_type *mfd)
 		return;
 
 	if (mfd->use_ov0_blt) {
-		if (mfd->panel_info.type == LCDC_PANEL)
+		if (mfd->panel_info.type == LCDC_PANEL ||
+		    mfd->panel_info.type == LVDS_PANEL)
 			mdp4_lcdc_overlay_blt_start(mfd);
 		else if (mfd->panel_info.type == MIPI_VIDEO_PANEL)
 			mdp4_dsi_video_blt_start(mfd);
 		else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD)
 			mdp4_dsi_overlay_blt_start(mfd);
 	} else {
-		if (mfd->panel_info.type == LCDC_PANEL)
+		if (mfd->panel_info.type == LCDC_PANEL ||
+		    mfd->panel_info.type == LVDS_PANEL)
 			mdp4_lcdc_overlay_blt_stop(mfd);
 		else if (mfd->panel_info.type == MIPI_VIDEO_PANEL)
 			mdp4_dsi_video_blt_stop(mfd);
