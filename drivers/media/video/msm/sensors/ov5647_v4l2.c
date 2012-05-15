@@ -100,6 +100,65 @@ static struct msm_camera_i2c_reg_conf ov5647_snap_settings[] = {
 	{0x4004, 0x04},
 };
 
+static struct msm_camera_i2c_reg_conf ov5647_video_60fps_settings[] = {
+	{0x3035, 0x21},
+	{0x3036, 0x38},
+	{0x3821, 0x07},
+	{0x3820, 0x41},
+	{0x3612, 0x49},
+	{0x3618, 0x00},
+	{0x380c, 0x07},
+	{0x380d, 0x30},
+	{0x380e, 0x01},
+	{0x380f, 0xf8},
+	{0x3814, 0x71},
+	{0x3815, 0x71},
+	{0x3709, 0x52},
+	{0x3808, 0x02},
+	{0x3809, 0x80},
+	{0x380a, 0x01},
+	{0x380b, 0xe0},
+	{0x3800, 0x00},
+	{0x3801, 0x10},
+	{0x3802, 0x00},
+	{0x3803, 0x00},
+	{0x3804, 0x0a},
+	{0x3805, 0x2f},
+	{0x3806, 0x07},
+	{0x3807, 0x9f},
+	{0x4004, 0x02},
+};
+
+static struct msm_camera_i2c_reg_conf ov5647_video_90fps_settings[] = {
+	{0x3035, 0x11},
+	{0x3036, 0x2a},
+	{0x3821, 0x07},
+	{0x3820, 0x41},
+	{0x3612, 0x49},
+	{0x3618, 0x00},
+	{0x380c, 0x07},
+	{0x380d, 0x30},
+	{0x380e, 0x01},
+	{0x380f, 0xf8},
+	{0x3814, 0x71},
+	{0x3815, 0x71},
+	{0x3709, 0x52},
+	{0x3808, 0x02},
+	{0x3809, 0x80},
+	{0x380a, 0x01},
+	{0x380b, 0xe0},
+	{0x3800, 0x00},
+	{0x3801, 0x10},
+	{0x3802, 0x00},
+	{0x3803, 0x00},
+	{0x3804, 0x0a},
+	{0x3805, 0x2f},
+	{0x3806, 0x07},
+	{0x3807, 0x9f},
+	{0x4004, 0x02},
+};
+
+
 static struct msm_camera_i2c_reg_conf ov5647_recommend_settings[] = {
 	{0x3035, 0x11},
 	{0x303c, 0x11},
@@ -247,6 +306,10 @@ static struct msm_camera_i2c_conf_array ov5647_confs[] = {
 	ARRAY_SIZE(ov5647_snap_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov5647_prev_settings[0],
 	ARRAY_SIZE(ov5647_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
+	{&ov5647_video_60fps_settings[0],
+	ARRAY_SIZE(ov5647_video_60fps_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
+	{&ov5647_video_90fps_settings[0],
+	ARRAY_SIZE(ov5647_video_90fps_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 };
 
 static struct msm_camera_csi_params ov5647_csi_params = {
@@ -286,6 +349,25 @@ static struct msm_sensor_output_info_t ov5647_dimensions[] = {
 		.op_pixel_clk = 159408000,
 		.binning_factor = 0x0,
 	},
+	{ /* For 60fps */
+		.x_output = 0x280,  /*640*/
+		.y_output = 0x1E0,   /*480*/
+		.line_length_pclk = 0x73C,
+		.frame_length_lines = 0x1F8,
+		.vt_pixel_clk = 56004480,
+		.op_pixel_clk = 159408000,
+		.binning_factor = 0x0,
+	},
+	{ /* For 90fps */
+		.x_output = 0x280,  /*640*/
+		.y_output = 0x1E0,   /*480*/
+		.line_length_pclk = 0x73C,
+		.frame_length_lines = 0x1F8,
+		.vt_pixel_clk = 56004480,
+		.op_pixel_clk = 159408000,
+		.binning_factor = 0x0,
+	},
+
 };
 
 static struct msm_sensor_output_reg_addr_t ov5647_reg_addr = {
@@ -296,6 +378,8 @@ static struct msm_sensor_output_reg_addr_t ov5647_reg_addr = {
 };
 
 static struct msm_camera_csi_params *ov5647_csi_params_array[] = {
+	&ov5647_csi_params,
+	&ov5647_csi_params,
 	&ov5647_csi_params,
 	&ov5647_csi_params,
 };
@@ -443,11 +527,12 @@ static int32_t ov5647_write_prev_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	u8 intg_time_hsb, intg_time_msb, intg_time_lsb;
 	uint8_t gain_lsb, gain_hsb;
 
-	pr_info(KERN_ERR "preview exposure setting 0x%x, 0x%x, %d",
+	CDBG(KERN_ERR "preview exposure setting 0x%x, 0x%x, %d",
 		 gain, line, line);
 
 	gain_lsb = (uint8_t) (gain);
 	gain_hsb = (uint8_t)((gain & 0x300)>>8);
+
 	/* adjust frame rate */
 	if (line > 980 && line <= 984) {
 
@@ -634,12 +719,12 @@ int32_t ov5647_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 {
 	int32_t rc = 0;
 	static int csi_config;
-
 	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
 	if (csi_config == 0 || res == 0)
 		msleep(66);
 	else
 		msleep(266);
+
 	msm_camera_i2c_write(
 			s_ctrl->sensor_i2c_client,
 			0x4800, 0x25,
