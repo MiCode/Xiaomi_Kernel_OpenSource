@@ -25,6 +25,7 @@
 #define ON	1
 #define OFF	0
 #define TARGET_IS_8625	1
+#define POWER_COLLAPSED 1
 
 #ifndef __ASSEMBLY__
 
@@ -40,6 +41,8 @@ void msm_pm_set_l2_flush_flag(unsigned int flag);
 extern unsigned long msm_pm_pc_pgd;
 extern unsigned long msm_pm_boot_vector[NR_CPUS];
 extern uint32_t target_type;
+extern uint32_t apps_power_collapse;
+extern uint32_t *l2x0_base_addr;
 #else
 static inline void msm_pm_set_l2_flush_flag(unsigned int flag)
 {

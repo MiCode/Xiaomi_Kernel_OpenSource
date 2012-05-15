@@ -954,7 +954,10 @@ static int msm_pm_power_collapse
 #endif
 
 #ifdef CONFIG_CACHE_L2X0
-	l2cc_suspend();
+	if (!cpu_is_msm8625())
+		l2cc_suspend();
+	else
+		apps_power_collapse = 1;
 #endif
 
 	collapsed = msm_pm_collapse();
@@ -981,7 +984,10 @@ static int msm_pm_power_collapse
 	}
 
 #ifdef CONFIG_CACHE_L2X0
-	l2cc_resume();
+	if (!cpu_is_msm8625())
+		l2cc_resume();
+	else
+		apps_power_collapse = 0;
 #endif
 
 	msm_pm_boot_config_after_pc(smp_processor_id());
@@ -1720,6 +1726,8 @@ static int __init msm_pm_init(void)
 		 */
 		val = 0x00030002;
 		__raw_writel(val, (MSM_CFG_CTL_BASE + 0x38));
+
+		l2x0_base_addr = MSM_L2CC_BASE;
 	}
 
 #ifdef CONFIG_MSM_MEMORY_LOW_POWER_MODE
