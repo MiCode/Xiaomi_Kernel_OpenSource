@@ -110,12 +110,22 @@ int pll_vote_clk_is_enabled(struct clk *clk)
 	return !!(readl_relaxed(PLL_STATUS_REG(pll)) & pll->status_mask);
 }
 
+static enum handoff pll_vote_clk_handoff(struct clk *clk)
+{
+	struct pll_vote_clk *pll = to_pll_vote_clk(clk);
+	if (readl_relaxed(PLL_EN_REG(pll)) & pll->en_mask)
+		return HANDOFF_ENABLED_CLK;
+
+	return HANDOFF_DISABLED_CLK;
+}
+
 struct clk_ops clk_ops_pll_vote = {
 	.enable = pll_vote_clk_enable,
 	.disable = pll_vote_clk_disable,
 	.auto_off = pll_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
 	.get_parent = pll_vote_clk_get_parent,
+	.handoff = pll_vote_clk_handoff,
 };
 
 static void __pll_clk_enable_reg(void __iomem *mode_reg)
@@ -179,6 +189,18 @@ static void local_pll_clk_disable(struct clk *clk)
 	spin_lock_irqsave(&pll_reg_lock, flags);
 	__pll_clk_disable_reg(PLL_MODE_REG(pll));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
+}
+
+static enum handoff local_pll_clk_handoff(struct clk *clk)
+{
+	struct pll_clk *pll = to_pll_clk(clk);
+	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
+	u32 mask = PLL_BYPASSNL | PLL_RESET_N | PLL_OUTCTRL;
+
+	if ((mode & mask) == mask)
+		return HANDOFF_ENABLED_CLK;
+
+	return HANDOFF_DISABLED_CLK;
 }
 
 static struct clk *local_pll_clk_get_parent(struct clk *clk)
@@ -281,6 +303,7 @@ struct clk_ops clk_ops_local_pll = {
 	.enable = local_pll_clk_enable,
 	.disable = local_pll_clk_disable,
 	.auto_off = local_pll_clk_disable,
+	.handoff = local_pll_clk_handoff,
 	.get_parent = local_pll_clk_get_parent,
 };
 
