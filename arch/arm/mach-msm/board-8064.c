@@ -1260,7 +1260,6 @@ static const u8 mxt1386e_config_data_v2_1[] = {
 	0,
 };
 
-#ifndef CONFIG_MSM_VCAP
 #define MXT_TS_GPIO_IRQ			6
 #define MXT_TS_PWR_EN_GPIO		PM8921_GPIO_PM_TO_SYS(23)
 #define MXT_TS_RESET_GPIO		33
@@ -1312,7 +1311,6 @@ static struct i2c_board_info mxt_device_info[] __initdata = {
 		.irq = MSM_GPIO_TO_INT(MXT_TS_GPIO_IRQ),
 	},
 };
-#endif
 #define CYTTSP_TS_GPIO_IRQ		6
 #define CYTTSP_TS_GPIO_SLEEP		33
 
@@ -2055,13 +2053,14 @@ static struct platform_device gpio_ir_recv_pdev = {
 	},
 };
 
-static struct platform_device *common_devices[] __initdata = {
-	&apq8064_device_dmov,
-#ifndef CONFIG_MSM_VCAP
+static struct platform_device *common_not_mpq_devices[] __initdata = {
 	&apq8064_device_qup_i2c_gsbi1,
 	&apq8064_device_qup_i2c_gsbi3,
 	&apq8064_device_qup_i2c_gsbi4,
-#endif
+};
+
+static struct platform_device *common_devices[] __initdata = {
+	&apq8064_device_dmov,
 	&apq8064_device_qup_spi_gsbi5,
 	&apq8064_device_ext_5v_vreg,
 	&apq8064_device_ext_mpp8_vreg,
@@ -2603,14 +2602,12 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		smb349_charger_i2c_info,
 		ARRAY_SIZE(smb349_charger_i2c_info)
 	},
-#ifndef CONFIG_MSM_VCAP
 	{
 		I2C_SURF | I2C_LIQUID,
 		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
 		mxt_device_info,
 		ARRAY_SIZE(mxt_device_info),
 	},
-#endif
 	{
 		I2C_FFA,
 		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
@@ -2813,6 +2810,10 @@ static void __init apq8064_common_init(void)
 	apq8064_ehci_host_init();
 	apq8064_init_buses();
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+	if (!(machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+			machine_is_mpq8064_dtv()))
+		platform_add_devices(common_not_mpq_devices,
+			ARRAY_SIZE(common_not_mpq_devices));
 	enable_ddr3_regulator();
 	if (machine_is_apq8064_mtp()) {
 		apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;

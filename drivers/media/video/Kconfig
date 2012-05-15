@@ -572,7 +572,7 @@ config VIDEO_VIVI
 config MSM_VCAP
 	tristate "Qualcomm MSM VCAP"
 	depends on VIDEO_DEV && VIDEO_V4L2
-	default n
+	default y
 	---help---
 		Enables VCAP driver. This device allows for video capture and
 		video processing using the v4l2 api
