@@ -518,14 +518,6 @@ static int kgsl_gpummu_init(struct kgsl_mmu *mmu)
 			"for GPUMMU: %x\n", CONFIG_MSM_KGSL_PAGE_TABLE_SIZE);
 			return -EINVAL;
 		}
-
-		/* allocate memory used for completing r/w operations that
-		 * cannot be mapped by the MMU
-		 */
-		status = kgsl_allocate_contiguous(&mmu->setstate_memory, 64);
-		if (!status)
-			kgsl_sharedmem_set(&mmu->setstate_memory, 0, 0,
-					   mmu->setstate_memory.size);
 	}
 
 	dev_info(mmu->device->dev, "|%s| MMU type set for device is GPUMMU\n",
