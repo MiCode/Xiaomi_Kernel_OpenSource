@@ -734,6 +734,10 @@ int usb_wwan_resume(struct usb_serial *serial)
 		}
 	}
 
+	spin_lock_irq(&intfdata->susp_lock);
+	intfdata->suspended = 0;
+	spin_unlock_irq(&intfdata->susp_lock);
+
 	for (i = 0; i < serial->num_ports; i++) {
 		/* walk all ports */
 		port = serial->port[i];
@@ -759,9 +763,6 @@ int usb_wwan_resume(struct usb_serial *serial)
 		play_delayed(port);
 		spin_unlock_irq(&intfdata->susp_lock);
 	}
-	spin_lock_irq(&intfdata->susp_lock);
-	intfdata->suspended = 0;
-	spin_unlock_irq(&intfdata->susp_lock);
 err_out:
 	return err;
 }
