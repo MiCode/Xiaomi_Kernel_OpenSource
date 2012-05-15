@@ -20,6 +20,7 @@
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/ccadc.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
@@ -836,18 +837,13 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 #define BMS_MODE_BIT	BIT(6)
 #define EN_VBAT_BIT	BIT(5)
 #define OVERRIDE_MODE_DELAY_MS	20
-int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
+int override_mode_simultaneous_battery_voltage_and_current(int *ibat_ua,
 								int *vbat_uv)
 {
 	int16_t vsense_raw;
 	int16_t vbat_raw;
 	int vsense_uv;
 	int usb_chg;
-
-	if (the_chip == NULL) {
-		pr_err("Called to early\n");
-		return -EINVAL;
-	}
 
 	mutex_lock(&the_chip->bms_output_lock);
 
@@ -880,7 +876,6 @@ int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
 			*ibat_ua, *vbat_uv);
 	return 0;
 }
-EXPORT_SYMBOL(pm8921_bms_get_simultaneous_battery_voltage_and_current);
 
 static int read_rbatt_params_raw(struct pm8921_bms_chip *chip,
 				struct pm8921_rbatt_params *raw)
@@ -1408,6 +1403,38 @@ static int calculate_real_fcc_uah(struct pm8921_bms_chip *chip,
 	return real_fcc_uah;
 }
 
+int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
+								int *vbat_uv)
+{
+	int rc;
+
+	if (the_chip == NULL) {
+		pr_err("Called too early\n");
+		return -EINVAL;
+	}
+
+	if (pm8921_is_batfet_closed()) {
+		return override_mode_simultaneous_battery_voltage_and_current(
+								ibat_ua,
+								vbat_uv);
+	} else {
+		pr_debug("batfet is open using separate vbat and ibat meas\n");
+		rc = get_battery_uvolts(the_chip, vbat_uv);
+		if (rc < 0) {
+			pr_err("adc vbat failed err = %d\n", rc);
+			return rc;
+		}
+		rc = pm8921_bms_get_battery_current(ibat_ua);
+		if (rc < 0) {
+			pr_err("bms ibat failed err = %d\n", rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(pm8921_bms_get_simultaneous_battery_voltage_and_current);
+
 static int bound_soc(int soc)
 {
 	soc = max(0, soc);
@@ -1427,9 +1454,16 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	int pc_new = 0;
 	int soc_new = 0;
 	int m = 0;
+	int rc = 0;
 
-	pm8921_bms_get_simultaneous_battery_voltage_and_current(&ibat_ua,
-		&vbat_uv);
+	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
+							&ibat_ua,
+							&vbat_uv);
+	if (rc < 0) {
+		pr_err("simultaneous vbat ibat failed err = %d\n", rc);
+		goto out;
+	}
+
 
 	if (ibat_ua < 0)
 		goto out;
