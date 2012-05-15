@@ -574,26 +574,26 @@ static struct msm_iommu_ctx_dev vpe_dst_ctx = {
 	.mids = {1, -1}
 };
 
-static struct msm_iommu_ctx_dev mdp_vg1_ctx = {
-	.name = "mdp_vg1",
+static struct msm_iommu_ctx_dev mdp_port0_cb0_ctx = {
+	.name = "mdp_port0_cb0",
 	.num = 0,
 	.mids = {0, 2, -1}
 };
 
-static struct msm_iommu_ctx_dev mdp_rgb1_ctx = {
-	.name = "mdp_rgb1",
+static struct msm_iommu_ctx_dev mdp_port0_cb1_ctx = {
+	.name = "mdp_port0_cb1",
 	.num = 1,
 	.mids = {1, 3, 4, 5, 6, 7, 8, 9, 10, -1}
 };
 
-static struct msm_iommu_ctx_dev mdp_vg2_ctx = {
-	.name = "mdp_vg2",
+static struct msm_iommu_ctx_dev mdp_port1_cb0_ctx = {
+	.name = "mdp_port1_cb0",
 	.num = 0,
 	.mids = {0, 2, -1}
 };
 
-static struct msm_iommu_ctx_dev mdp_rgb2_ctx = {
-	.name = "mdp_rgb2",
+static struct msm_iommu_ctx_dev mdp_port1_cb1_ctx = {
+	.name = "mdp_port1_cb1",
 	.num = 1,
 	.mids = {1, 3, 4, 5, 6, 7, 8, 9, 10, -1}
 };
@@ -738,39 +738,39 @@ static struct platform_device msm_device_vpe_dst_ctx = {
 	},
 };
 
-static struct platform_device msm_device_mdp_vg1_ctx = {
+static struct platform_device msm_device_mdp_port0_cb0_ctx = {
 	.name = "msm_iommu_ctx",
 	.id = 4,
 	.dev = {
 		.parent = &msm_device_iommu_mdp0.dev,
-		.platform_data = &mdp_vg1_ctx,
+		.platform_data = &mdp_port0_cb0_ctx,
 	},
 };
 
-static struct platform_device msm_device_mdp_rgb1_ctx = {
+static struct platform_device msm_device_mdp_port0_cb1_ctx = {
 	.name = "msm_iommu_ctx",
 	.id = 5,
 	.dev = {
 		.parent = &msm_device_iommu_mdp0.dev,
-		.platform_data = &mdp_rgb1_ctx,
+		.platform_data = &mdp_port0_cb1_ctx,
 	},
 };
 
-static struct platform_device msm_device_mdp_vg2_ctx = {
+static struct platform_device msm_device_mdp_port1_cb0_ctx = {
 	.name = "msm_iommu_ctx",
 	.id = 6,
 	.dev = {
 		.parent = &msm_device_iommu_mdp1.dev,
-		.platform_data = &mdp_vg2_ctx,
+		.platform_data = &mdp_port1_cb0_ctx,
 	},
 };
 
-static struct platform_device msm_device_mdp_rgb2_ctx = {
+static struct platform_device msm_device_mdp_port1_cb1_ctx = {
 	.name = "msm_iommu_ctx",
 	.id = 7,
 	.dev = {
 		.parent = &msm_device_iommu_mdp1.dev,
-		.platform_data = &mdp_rgb2_ctx,
+		.platform_data = &mdp_port1_cb1_ctx,
 	},
 };
 
@@ -956,10 +956,10 @@ static struct platform_device *msm_iommu_jpegd_devs[] = {
 static struct platform_device *msm_iommu_common_ctx_devs[] = {
 	&msm_device_vpe_src_ctx,
 	&msm_device_vpe_dst_ctx,
-	&msm_device_mdp_vg1_ctx,
-	&msm_device_mdp_rgb1_ctx,
-	&msm_device_mdp_vg2_ctx,
-	&msm_device_mdp_rgb2_ctx,
+	&msm_device_mdp_port0_cb0_ctx,
+	&msm_device_mdp_port0_cb1_ctx,
+	&msm_device_mdp_port1_cb0_ctx,
+	&msm_device_mdp_port1_cb1_ctx,
 	&msm_device_rot_src_ctx,
 	&msm_device_rot_dst_ctx,
 	&msm_device_ijpeg_src_ctx,
