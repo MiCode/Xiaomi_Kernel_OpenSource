@@ -257,6 +257,7 @@ static int mdss_mdp_irq_clk_setup(void)
 		regulator_enable(mdss_res->fs);
 		mdss_res->fs_ena = true;
 	}
+	regulator_enable(mdss_res->fs);
 
 	return 0;
 }
