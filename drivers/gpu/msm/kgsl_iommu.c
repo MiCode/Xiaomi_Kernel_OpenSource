@@ -336,6 +336,8 @@ static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 		}
 		iommu_unit->reg_map.size = data.physend - data.physstart + 1;
 		iommu_unit->reg_map.physaddr = data.physstart;
+		memdesc_sg_phys(&iommu_unit->reg_map, data.physstart,
+				iommu_unit->reg_map.size);
 	}
 	iommu->unit_count = pdata_dev->iommu_count;
 	return ret;
@@ -402,6 +404,53 @@ done:
 	return status;
 }
 
+/*
+ * kgsl_iommu_setup_defaultpagetable - Setup the initial defualtpagetable
+ * for iommu. This function is only called once during first start, successive
+ * start do not call this funciton.
+ * @mmu - Pointer to mmu structure
+ *
+ * Create the  initial defaultpagetable and setup the iommu mappings to it
+ * Return - 0 on success else error code
+ */
+static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
+{
+	int status = 0;
+	int i = 0;
+	struct kgsl_iommu *iommu = mmu->priv;
+
+	mmu->defaultpagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
+	/* Return error if the default pagetable doesn't exist */
+	if (mmu->defaultpagetable == NULL) {
+		status = -ENOMEM;
+		goto err;
+	}
+	/* Map the IOMMU regsiters to only defaultpagetable */
+	for (i = 0; i < iommu->unit_count; i++) {
+		iommu->iommu_units[i].reg_map.priv |= KGSL_MEMFLAGS_GLOBAL;
+		status = kgsl_mmu_map(mmu->defaultpagetable,
+			&(iommu->iommu_units[i].reg_map),
+			GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+		if (status) {
+			iommu->iommu_units[i].reg_map.priv &=
+							~KGSL_MEMFLAGS_GLOBAL;
+			goto err;
+		}
+	}
+	return status;
+err:
+	for (i--; i >= 0; i--) {
+		kgsl_mmu_unmap(mmu->defaultpagetable,
+				&(iommu->iommu_units[i].reg_map));
+		iommu->iommu_units[i].reg_map.priv &= ~KGSL_MEMFLAGS_GLOBAL;
+	}
+	if (mmu->defaultpagetable) {
+		kgsl_mmu_putpagetable(mmu->defaultpagetable);
+		mmu->defaultpagetable = NULL;
+	}
+	return status;
+}
+
 static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 {
 	int status;
@@ -409,13 +458,13 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	if (mmu->flags & KGSL_FLAGS_STARTED)
 		return 0;
 
+	if (mmu->defaultpagetable == NULL) {
+		status = kgsl_iommu_setup_defaultpagetable(mmu);
+		if (status)
+			return -ENOMEM;
+	}
 	kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
-	if (mmu->defaultpagetable == NULL)
-		mmu->defaultpagetable =
-			kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
-	/* Return error if the default pagetable doesn't exist */
-	if (mmu->defaultpagetable == NULL)
-		return -ENOMEM;
+
 	mmu->hwpagetable = mmu->defaultpagetable;
 
 	status = kgsl_attach_pagetable_iommu_domain(mmu);
@@ -511,6 +560,17 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 
 static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 {
+	struct kgsl_iommu *iommu = mmu->priv;
+	int i;
+	for (i = 0; i < iommu->unit_count; i++) {
+		if (iommu->iommu_units[i].reg_map.gpuaddr)
+			kgsl_mmu_unmap(mmu->defaultpagetable,
+			&(iommu->iommu_units[i].reg_map));
+		if (iommu->iommu_units[i].reg_map.hostptr)
+			iounmap(iommu->iommu_units[i].reg_map.hostptr);
+		kgsl_sg_free(iommu->iommu_units[i].reg_map.sg,
+				iommu->iommu_units[i].reg_map.sglen);
+	}
 	if (mmu->defaultpagetable)
 		kgsl_mmu_putpagetable(mmu->defaultpagetable);
 
