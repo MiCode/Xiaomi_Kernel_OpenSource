@@ -2999,6 +2999,27 @@ struct platform_device msm8960_gemini_device = {
 };
 #endif
 
+#ifdef CONFIG_MSM_MERCURY
+static struct resource msm_mercury_resources[] = {
+	{
+		.start  = 0x05000000,
+		.end  = 0x05000000 + SZ_1M - 1,
+		.name   = "mercury_resource_base",
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = JPEGD_IRQ,
+		.end  = JPEGD_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+struct platform_device msm8960_mercury_device = {
+	.name       = "msm_mercury",
+	.resource     = msm_mercury_resources,
+	.num_resources  = ARRAY_SIZE(msm_mercury_resources),
+};
+#endif
+
 struct msm_rpm_platform_data msm8960_rpm_data __initdata = {
 	.reg_base_addrs = {
 		[MSM_RPM_PAGE_STATUS] = MSM_RPM_BASE,
