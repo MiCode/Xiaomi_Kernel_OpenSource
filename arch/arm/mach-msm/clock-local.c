@@ -627,18 +627,14 @@ static enum handoff rcg_clk_handoff(struct clk *c)
 	return HANDOFF_ENABLED_CLK;
 }
 
-struct clk_ops clk_ops_gnd = {
-};
+struct clk_ops clk_ops_empty;
 
 struct fixed_clk gnd_clk = {
 	.c = {
 		.dbg_name = "ground_clk",
-		.ops = &clk_ops_gnd,
+		.ops = &clk_ops_empty,
 		CLK_INIT(gnd_clk.c),
 	},
-};
-
-struct clk_ops clk_ops_measure = {
 };
 
 static int branch_clk_enable(struct clk *clk)

@@ -427,7 +427,7 @@ static enum handoff pll_clk_handoff(struct clk *clk)
 	return HANDOFF_ENABLED_CLK;
 }
 
-struct clk_ops clk_pll_ops = {
+struct clk_ops clk_ops_pll = {
 	.enable = pll_clk_enable,
 	.disable = pll_clk_disable,
 	.handoff = pll_clk_handoff,
