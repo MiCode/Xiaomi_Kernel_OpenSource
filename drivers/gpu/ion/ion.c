@@ -1561,6 +1561,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (!data.handle)
 			ion_free(client, handle);
 
+		if (ret < 0)
+			return ret;
 		break;
 
 	}
