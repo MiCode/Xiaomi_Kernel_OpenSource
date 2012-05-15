@@ -598,9 +598,16 @@ static void cxo_clk_disable(struct clk *clk)
 	return;
 }
 
+static enum handoff cxo_clk_handoff(struct clk *clk)
+{
+	/* TODO: Remove from here once the rpm xo clock is ready. */
+	return HANDOFF_ENABLED_CLK;
+}
+
 static struct clk_ops clk_ops_cxo = {
 	.enable = cxo_clk_enable,
 	.disable = cxo_clk_disable,
+	.handoff = cxo_clk_handoff,
 };
 
 static struct fixed_clk cxo_clk_src = {

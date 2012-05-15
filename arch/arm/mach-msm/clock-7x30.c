@@ -221,9 +221,15 @@ static void tcxo_clk_disable(struct clk *clk)
 	pcom_xo_enable(PCOM_XO_TCXO, PCOM_XO_DISABLE);
 }
 
+static enum handoff xo_clk_handoff(struct clk *clk)
+{
+	return HANDOFF_ENABLED_CLK;
+}
+
 static struct clk_ops clk_ops_tcxo = {
 	.enable = tcxo_clk_enable,
 	.disable = tcxo_clk_disable,
+	.handoff = xo_clk_handoff,
 	.is_local = pcom_is_local,
 };
 
@@ -250,6 +256,7 @@ static void lpxo_clk_disable(struct clk *clk)
 static struct clk_ops clk_ops_lpxo = {
 	.enable = lpxo_clk_enable,
 	.disable = lpxo_clk_disable,
+	.handoff = xo_clk_handoff,
 	.is_local = pcom_is_local,
 };
 
