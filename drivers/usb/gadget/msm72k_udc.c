@@ -1109,6 +1109,7 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 	struct msm_endpoint *ept = ui->ept + bit;
 	struct msm_request *req;
 	unsigned long flags;
+	int req_dequeue = 1;
 	unsigned info;
 
 	/*
@@ -1128,12 +1129,23 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 			break;
 		}
 
+dequeue:
 		/* clean speculative fetches on req->item->info */
 		dma_coherent_post_ops();
 		info = req->item->info;
 		/* if the transaction is still in-flight, stop here */
-		if (info & INFO_ACTIVE)
-			break;
+		if (info & INFO_ACTIVE) {
+			if (req_dequeue) {
+				req_dequeue = 0;
+				ui->dTD_update_fail_count++;
+				ept->dTD_update_fail_count++;
+				udelay(10);
+				goto dequeue;
+			} else {
+				break;
+			}
+		}
+		req_dequeue = 0;
 
 		del_timer(&ept->prime_timer);
 		/* advance ept queue to the next request */
