@@ -295,6 +295,14 @@ const char *smd_pid_to_subsystem(uint32_t pid);
  *      -EINVAL - NULL parameter or non-packet based channel provided
  */
 int smd_is_pkt_avail(smd_channel_t *ch);
+
+/*
+ * SMD initialization function that registers for a SMD platform driver.
+ *
+ * returns success on successful driver registration.
+ */
+int __init msm_smd_init(void);
+
 #else
 
 static inline int smd_open(const char *name, smd_channel_t **ch, void *priv,
@@ -410,6 +418,11 @@ static inline const char *smd_pid_to_subsystem(uint32_t pid)
 static inline int smd_is_pkt_avail(smd_channel_t *ch)
 {
 	return -ENODEV;
+}
+
+static inline int __init msm_smd_init(void)
+{
+	return 0;
 }
 #endif
 

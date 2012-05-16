@@ -3483,8 +3483,14 @@ static struct platform_driver msm_smd_driver = {
 	},
 };
 
-static int __init msm_smd_init(void)
+int __init msm_smd_init(void)
 {
+	static bool registered;
+
+	if (registered)
+		return 0;
+
+	registered = true;
 	return platform_driver_register(&msm_smd_driver);
 }
 
