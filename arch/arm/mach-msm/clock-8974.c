@@ -3775,6 +3775,18 @@ static struct branch_clk venus0_vcodec0_clk = {
 	},
 };
 
+static struct branch_clk oxilicx_axi_clk = {
+	.cbcr_reg = OXILICX_AXI_CBCR,
+	.parent = &axi_clk_src.c,
+	.has_sibling = 1,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "oxilicx_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(oxilicx_axi_clk.c),
+	},
+};
+
 static struct branch_clk oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
 	.has_sibling = 1,
@@ -3783,6 +3795,7 @@ static struct branch_clk oxili_gfx3d_clk = {
 		.dbg_name = "oxili_gfx3d_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(oxili_gfx3d_clk.c),
+		.depends = &oxilicx_axi_clk.c,
 	},
 };
 
@@ -3794,18 +3807,6 @@ static struct branch_clk oxilicx_ahb_clk = {
 		.dbg_name = "oxilicx_ahb_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(oxilicx_ahb_clk.c),
-	},
-};
-
-static struct branch_clk oxilicx_axi_clk = {
-	.cbcr_reg = OXILICX_AXI_CBCR,
-	.parent = &axi_clk_src.c,
-	.has_sibling = 1,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "oxilicx_axi_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(oxilicx_axi_clk.c),
 	},
 };
 
@@ -4744,9 +4745,10 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd928000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", mdss_axi_clk.c, "fd928000.qcom,iommu"),
 	CLK_LOOKUP("bus_clk", mdss_axi_clk.c, "mdp.0"),
-	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, ""),
-	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, ""),
-	CLK_LOOKUP("bus_clk", oxilicx_axi_clk.c, ""),
+	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fdb00000.qcom,kgsl-3d0"),
+	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb00000.qcom,kgsl-3d0"),
+	CLK_LOOKUP("core_clk", oxilicx_axi_clk.c, "fdb10000.qcom,iommu"),
+	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb10000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", venus0_ahb_clk.c, "fdc84000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", venus0_axi_clk.c, "fdc84000.qcom,iommu"),
 	CLK_LOOKUP("bus_clk", venus0_axi_clk.c, ""),
