@@ -406,6 +406,36 @@ static int32_t s5k4e1_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	return 0;
 }
 
+int32_t s5k4e1_sensor_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	int rc = 0;
+	struct msm_camera_sensor_info *s_info;
+
+	rc = msm_sensor_i2c_probe(client, id);
+
+	s_info = client->dev.platform_data;
+	if (s_info == NULL) {
+		pr_err("%s %s NULL sensor data\n", __func__, client->name);
+		return -EFAULT;
+	}
+
+	if (s_info->actuator_info->vcm_enable) {
+		rc = gpio_request(s_info->actuator_info->vcm_pwd,
+				"msm_actuator");
+		if (rc < 0)
+			pr_err("%s: gpio_request:msm_actuator %d failed\n",
+				__func__, s_info->actuator_info->vcm_pwd);
+		rc = gpio_direction_output(s_info->actuator_info->vcm_pwd, 0);
+		if (rc < 0)
+			pr_err("%s: gpio:msm_actuator %d direction can't be set\n",
+				__func__, s_info->actuator_info->vcm_pwd);
+		gpio_free(s_info->actuator_info->vcm_pwd);
+	}
+
+	return rc;
+}
+
 static const struct i2c_device_id s5k4e1_i2c_id[] = {
 	{SENSOR_NAME, (kernel_ulong_t)&s5k4e1_s_ctrl},
 	{ }
@@ -413,7 +443,7 @@ static const struct i2c_device_id s5k4e1_i2c_id[] = {
 
 static struct i2c_driver s5k4e1_i2c_driver = {
 	.id_table = s5k4e1_i2c_id,
-	.probe  = msm_sensor_i2c_probe,
+	.probe  = s5k4e1_sensor_i2c_probe,
 	.driver = {
 		.name = SENSOR_NAME,
 	},

@@ -370,7 +370,7 @@ int msm_camera_config_gpio_table(struct msm_camera_sensor_info *sinfo,
 			usleep_range(gpio_conf->cam_gpio_set_tbl[i].delay,
 				gpio_conf->cam_gpio_set_tbl[i].delay + 1000);
 		}
-	} else if (!gpio_conf->gpio_no_mux) {
+	} else {
 		for (i = gpio_conf->cam_gpio_set_tbl_size - 1; i >= 0; i--) {
 			if (gpio_conf->cam_gpio_set_tbl[i].flags)
 				gpio_set_value_cansleep(
