@@ -665,6 +665,14 @@ static int evb_backlight_control(int level)
 	return 0;
 }
 
+static int mipi_NT35510_rotate_panel(void)
+{
+	int rotate = 0;
+	if (machine_is_msm8625_evt())
+		rotate = 1;
+
+	return rotate;
+}
 
 static struct msm_panel_common_pdata mipi_truly_pdata = {
 	.pmic_backlight = mipi_truly_set_bl,
@@ -680,6 +688,7 @@ static struct platform_device mipi_dsi_truly_panel_device = {
 
 static struct msm_panel_common_pdata mipi_NT35510_pdata = {
 	.pmic_backlight = evb_backlight_control,
+	.rotate_panel = mipi_NT35510_rotate_panel,
 };
 
 static struct platform_device mipi_dsi_NT35510_panel_device = {
