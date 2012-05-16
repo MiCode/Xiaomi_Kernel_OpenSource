@@ -40,7 +40,6 @@
 
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
-#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp5v2/qdsp5audppcmdi.h>
 #include <mach/qdsp5v2/qdsp5audppmsg.h>
 #include <mach/qdsp5v2/qdsp5audplaycmdi.h>
@@ -172,7 +171,7 @@ struct audio {
 	/* data allocated for various buffers */
 	char *data;
 	int32_t phys;
-	struct msm_mapped_buffer *map_v_write;
+	void *map_v_write;
 	uint32_t drv_status;
 	int wflush; /* Write flush */
 	int opened;
@@ -1382,7 +1381,7 @@ static int audio_release(struct inode *inode, struct file *file)
 	wake_up(&audio->event_wait);
 	audpcm_reset_event_queue(audio);
 	if (audio->data) {
-		msm_subsystem_unmap_buffer(audio->map_v_write);
+		iounmap(audio->map_v_write);
 		free_contiguous_memory_by_paddr(audio->phys);
 	}
 	mutex_unlock(&audio->lock);
@@ -1560,10 +1559,8 @@ static int audio_open(struct inode *inode, struct file *file)
 			audio->phys = allocate_contiguous_ebi_nomap(pmem_sz,
 								SZ_4K);
 			if (audio->phys) {
-				audio->map_v_write = msm_subsystem_map_buffer(
-							audio->phys, pmem_sz,
-							MSM_SUBSYSTEM_MAP_KADDR
-							, NULL, 0);
+				audio->map_v_write = ioremap(
+							audio->phys, pmem_sz);
 				if (IS_ERR(audio->map_v_write)) {
 					MM_ERR("could not map write phys\
 						address freeing instance \
@@ -1575,7 +1572,7 @@ static int audio_open(struct inode *inode, struct file *file)
 					kfree(audio);
 					goto done;
 				}
-				audio->data = audio->map_v_write->vaddr;
+				audio->data = audio->map_v_write;
 				MM_DBG("write buf: phy addr 0x%08x \
 						kernel addr 0x%08x\n",
 						audio->phys, (int)audio->data);
@@ -1679,7 +1676,7 @@ event_err:
 	msm_adsp_put(audio->audplay);
 err:
 	if (audio->data) {
-		msm_subsystem_unmap_buffer(audio->map_v_write);
+		iounmap(audio->map_v_write);
 		free_contiguous_memory_by_paddr(audio->phys);
 	}
 	audpp_adec_free(audio->dec_id);

@@ -40,7 +40,6 @@
 #include <mach/msm_adsp.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
-#include <mach/msm_subsystem_map.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/qdsp5v2/qdsp5audppmsg.h>
 #include <mach/qdsp5v2/qdsp5audplaycmdi.h>
@@ -132,8 +131,8 @@ struct audio {
 	/* data allocated for various buffers */
 	char *data;
 	int32_t phys;  /* physical address of write buffer */
-	struct msm_mapped_buffer *map_v_read;
-	struct msm_mapped_buffer *map_v_write;
+	void *map_v_read;
+	void *map_v_write;
 
 	int mfield; /* meta field embedded in data */
 	int rflush; /* Read  flush */
@@ -982,12 +981,10 @@ static long audevrc_ioctl(struct file *file, unsigned int cmd,
 					rc = -ENOMEM;
 					break;
 				}
-				audio->map_v_read = msm_subsystem_map_buffer(
+				audio->map_v_read = ioremap(
 							audio->read_phys,
 							config.buffer_size *
-							config.buffer_count,
-							MSM_SUBSYSTEM_MAP_KADDR
-							, NULL, 0);
+							config.buffer_count);
 				if (IS_ERR(audio->map_v_read)) {
 					MM_ERR("failed to map read"
 							" phy address\n");
@@ -998,7 +995,7 @@ static long audevrc_ioctl(struct file *file, unsigned int cmd,
 					uint8_t index;
 					uint32_t offset = 0;
 					audio->read_data =
-						audio->map_v_read->vaddr;
+						audio->map_v_read;
 					audio->buf_refresh = 0;
 					audio->pcm_buf_count =
 					    config.buffer_count;
@@ -1311,10 +1308,10 @@ static int audevrc_release(struct inode *inode, struct file *file)
 	audio->event_abort = 1;
 	wake_up(&audio->event_wait);
 	audevrc_reset_event_queue(audio);
-	msm_subsystem_unmap_buffer(audio->map_v_write);
+	iounmap(audio->map_v_write);
 	free_contiguous_memory_by_paddr(audio->phys);
 	if (audio->read_data) {
-		msm_subsystem_unmap_buffer(audio->map_v_read);
+		iounmap(audio->map_v_read);
 		free_contiguous_memory_by_paddr(audio->read_phys);
 	}
 	mutex_unlock(&audio->lock);
@@ -1505,9 +1502,7 @@ static int audevrc_open(struct inode *inode, struct file *file)
 		kfree(audio);
 		goto done;
 	} else {
-		audio->map_v_write = msm_subsystem_map_buffer(
-					audio->phys, DMASZ,
-					MSM_SUBSYSTEM_MAP_KADDR, NULL, 0);
+		audio->map_v_write = ioremap(audio->phys, DMASZ);
 		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("failed to map write physical address, freeing \
 					instance 0x%08x\n", (int)audio);
@@ -1517,7 +1512,7 @@ static int audevrc_open(struct inode *inode, struct file *file)
 			kfree(audio);
 			goto done;
 		}
-		audio->data = audio->map_v_write->vaddr;
+		audio->data = audio->map_v_write;
 		MM_DBG("write buf: phy addr 0x%08x kernel addr 0x%08x\n",
 				audio->phys, (int)audio->data);
 	}
@@ -1604,7 +1599,7 @@ done:
 event_err:
 	msm_adsp_put(audio->audplay);
 err:
-	msm_subsystem_unmap_buffer(audio->map_v_write);
+	iounmap(audio->map_v_write);
 	free_contiguous_memory_by_paddr(audio->phys);
 	audpp_adec_free(audio->dec_id);
 	kfree(audio);
