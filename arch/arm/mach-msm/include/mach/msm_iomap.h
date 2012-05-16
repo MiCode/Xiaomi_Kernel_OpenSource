@@ -58,7 +58,8 @@
 	defined(CONFIG_ARCH_MSM8930) || defined(CONFIG_ARCH_MSM9615) || \
 	defined(CONFIG_ARCH_MSMCOPPER) || defined(CONFIG_ARCH_MSM7X27) || \
 	defined(CONFIG_ARCH_MSM7X25) || defined(CONFIG_ARCH_MSM7X01A) || \
-	defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_MSM7X30)
+	defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_MSM7X30) || \
+	defined(CONFIG_ARCH_MSM9625)
 
 /* Unified iomap */
 
@@ -121,6 +122,7 @@
 #include "msm_iomap-8064.h"
 #include "msm_iomap-9615.h"
 #include "msm_iomap-copper.h"
+#include "msm_iomap-9625.h"
 
 #else
 /* Legacy single-target iomap */
