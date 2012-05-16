@@ -290,6 +290,8 @@ static u32 ddl_header_done_callback(struct ddl_context *ddl_context)
 			decoder->client_output_buf_req.actual_count
 			&& decoder->progressive_only)
 			need_reconfig = false;
+		if (input_vcd_frm->flags & VCD_FRAME_FLAG_EOS)
+			need_reconfig = false;
 		if ((input_vcd_frm->data_len <= seq_hdr_info.dec_frm_size ||
 			 (input_vcd_frm->flags & VCD_FRAME_FLAG_CODECCONFIG)) &&
 			(!need_reconfig ||
