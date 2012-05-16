@@ -3312,12 +3312,16 @@ static int mdp4_qseed_access_cfg(struct mdp_qseed_cfg_data *cfg)
 			goto err_mem;
 		}
 		for (i = 0; i < cfg->len; i++) {
+			if (!(base & 0x3FF))
+				wmb();
 			MDP_OUTP(base , values[i]);
 			base += sizeof(uint32_t);
 		}
 	} else if (cfg->ops & MDP_PP_OPS_READ) {
 		for (i = 0; i < cfg->len; i++) {
 			values[i] = inpdw(base);
+			if (!(base & 0x3FF))
+				rmb();
 			base += sizeof(uint32_t);
 		}
 		ret = copy_to_user(cfg->data, values,
@@ -3341,12 +3345,6 @@ int mdp4_qseed_cfg(struct mdp_qseed_cfg_data *cfg)
 
 	if (!mdp4_pp_block2qseed(cfg->block)) {
 		ret = -ENOTTY;
-		goto error;
-	}
-
-	if (cfg->table_num != 1) {
-		ret = -ENOTTY;
-		pr_info("%s: Only QSEED table1 supported.\n", __func__);
 		goto error;
 	}
 
