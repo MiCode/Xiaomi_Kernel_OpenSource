@@ -8,7 +8,6 @@ config ARCH_MSM7X01A
 	select MSM_VIC
 	select CPU_V6
 	select MSM_REMOTE_SPINLOCK_SWP
-	select MSM_PM if PM
 
 config ARCH_MSM7X25
 	bool "MSM7x25"
@@ -17,7 +16,6 @@ config ARCH_MSM7X25
 	select CPU_V6
 	select MSM_REMOTE_SPINLOCK_SWP
 	select MULTI_IRQ_HANDLER
-	select MSM_PM if PM
 
 config ARCH_MSM7X27
 	bool "MSM7x27"
@@ -2035,10 +2033,6 @@ config MSM_SECURE_IO
 	bool
 
 config MSM_NATIVE_RESTART
-	bool
-
-config MSM_PM
-	depends on PM
 	bool
 
 config MSM_PM2
