@@ -463,6 +463,7 @@ static void audio_dsp_event(void *private, unsigned id, uint16_t *msg)
 		wake_up(&audio->write_wait);
 		if (audio->pcm_feedback)
 			audplay_buffer_refresh(audio);
+		break;
 	case AUDPP_MSG_PCMDMAMISSED:
 		MM_DBG("PCMDMAMISSED\n");
 		audio->teos = 1;

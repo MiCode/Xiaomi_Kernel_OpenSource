@@ -593,6 +593,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			audio_flush(audio);
 			mutex_unlock(&audio->write_lock);
 		}
+		break;
 	case AUDIO_SET_CONFIG: {
 		struct msm_audio_config config;
 		if (copy_from_user(&config, (void*) arg, sizeof(config))) {
