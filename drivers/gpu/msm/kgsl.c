@@ -385,7 +385,7 @@ kgsl_destroy_context(struct kgsl_device_private *dev_priv,
 	idr_remove(&dev_priv->device->context_idr, id);
 }
 
-static void kgsl_timestamp_expired(struct work_struct *work)
+void kgsl_timestamp_expired(struct work_struct *work)
 {
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
 		ts_expired_ws);
@@ -415,6 +415,7 @@ static void kgsl_timestamp_expired(struct work_struct *work)
 
 	mutex_unlock(&device->mutex);
 }
+EXPORT_SYMBOL(kgsl_timestamp_expired);
 
 static void kgsl_check_idle_locked(struct kgsl_device *device)
 {
@@ -2334,7 +2335,7 @@ struct kgsl_driver kgsl_driver  = {
 };
 EXPORT_SYMBOL(kgsl_driver);
 
-void kgsl_unregister_device(struct kgsl_device *device)
+static void _unregister_device(struct kgsl_device *device)
 {
 	int minor;
 
@@ -2343,43 +2344,15 @@ void kgsl_unregister_device(struct kgsl_device *device)
 		if (device == kgsl_driver.devp[minor])
 			break;
 	}
-
-	mutex_unlock(&kgsl_driver.devlock);
-
-	if (minor == KGSL_DEVICE_MAX)
-		return;
-
-	kgsl_device_snapshot_close(device);
-
-	kgsl_cffdump_close(device->id);
-	kgsl_pwrctrl_uninit_sysfs(device);
-
-	wake_lock_destroy(&device->idle_wakelock);
-	pm_qos_remove_request(&device->pm_qos_req_dma);
-
-	idr_destroy(&device->context_idr);
-
-	if (device->memstore.hostptr)
-		kgsl_sharedmem_free(&device->memstore);
-
-	kgsl_mmu_close(device);
-
-	if (device->work_queue) {
-		destroy_workqueue(device->work_queue);
-		device->work_queue = NULL;
+	if (minor != KGSL_DEVICE_MAX) {
+		device_destroy(kgsl_driver.class,
+				MKDEV(MAJOR(kgsl_driver.major), minor));
+		kgsl_driver.devp[minor] = NULL;
 	}
-
-	device_destroy(kgsl_driver.class,
-		       MKDEV(MAJOR(kgsl_driver.major), minor));
-
-	mutex_lock(&kgsl_driver.devlock);
-	kgsl_driver.devp[minor] = NULL;
 	mutex_unlock(&kgsl_driver.devlock);
 }
-EXPORT_SYMBOL(kgsl_unregister_device);
 
-int
-kgsl_register_device(struct kgsl_device *device)
+static int _register_device(struct kgsl_device *device)
 {
 	int minor, ret;
 	dev_t dev;
@@ -2393,7 +2366,6 @@ kgsl_register_device(struct kgsl_device *device)
 			break;
 		}
 	}
-
 	mutex_unlock(&kgsl_driver.devlock);
 
 	if (minor == KGSL_DEVICE_MAX) {
@@ -2409,75 +2381,17 @@ kgsl_register_device(struct kgsl_device *device)
 				    device->name);
 
 	if (IS_ERR(device->dev)) {
+		mutex_lock(&kgsl_driver.devlock);
+		kgsl_driver.devp[minor] = NULL;
+		mutex_unlock(&kgsl_driver.devlock);
 		ret = PTR_ERR(device->dev);
 		KGSL_CORE_ERR("device_create(%s): %d\n", device->name, ret);
-		goto err_devlist;
+		return ret;
 	}
 
 	dev_set_drvdata(device->parentdev, device);
-
-	/* Generic device initialization */
-	init_waitqueue_head(&device->wait_queue);
-
-	kgsl_cffdump_open(device->id);
-
-	init_completion(&device->hwaccess_gate);
-	init_completion(&device->suspend_gate);
-
-	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
-
-	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
-	ret = kgsl_create_device_workqueue(device);
-	if (ret)
-		goto err_devlist;
-
-	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
-	INIT_WORK(&device->ts_expired_ws, kgsl_timestamp_expired);
-
-	INIT_LIST_HEAD(&device->events);
-
-	device->last_expired_ctxt_id = KGSL_CONTEXT_INVALID;
-
-	ret = kgsl_mmu_init(device);
-	if (ret != 0)
-		goto err_dest_work_q;
-
-	ret = kgsl_allocate_contiguous(&device->memstore, KGSL_MEMSTORE_SIZE);
-	if (ret != 0)
-		goto err_close_mmu;
-
-	wake_lock_init(&device->idle_wakelock, WAKE_LOCK_IDLE, device->name);
-	pm_qos_add_request(&device->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
-				PM_QOS_DEFAULT_VALUE);
-
-	idr_init(&device->context_idr);
-
-	/* Initalize the snapshot engine */
-	kgsl_device_snapshot_init(device);
-
-	/* sysfs and debugfs initalization - failure here is non fatal */
-
-	/* Initialize logging */
-	kgsl_device_debugfs_init(device);
-
-	/* Initialize common sysfs entries */
-	kgsl_pwrctrl_init_sysfs(device);
-
 	return 0;
-
-err_close_mmu:
-	kgsl_mmu_close(device);
-err_dest_work_q:
-	destroy_workqueue(device->work_queue);
-	device->work_queue = NULL;
-err_devlist:
-	mutex_lock(&kgsl_driver.devlock);
-	kgsl_driver.devp[minor] = NULL;
-	mutex_unlock(&kgsl_driver.devlock);
-
-	return ret;
 }
-EXPORT_SYMBOL(kgsl_register_device);
 
 int kgsl_device_platform_probe(struct kgsl_device *device)
 {
@@ -2487,7 +2401,12 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	struct platform_device *pdev =
 		container_of(device->parentdev, struct platform_device, dev);
 
-	pm_runtime_enable(device->parentdev);
+	status = _register_device(device);
+	if (status)
+		return status;
+
+	/* Initialize logging first, so that failures below actually print. */
+	kgsl_device_debugfs_init(device);
 
 	status = kgsl_pwrctrl_init(device);
 	if (status)
@@ -2526,6 +2445,16 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		status = -ENODEV;
 		goto error_release_mem;
 	}
+	/*acquire interrupt */
+	device->pwrctrl.interrupt_num =
+		platform_get_irq_byname(pdev, device->pwrctrl.irq_name);
+
+	if (device->pwrctrl.interrupt_num <= 0) {
+		KGSL_DRV_ERR(device, "platform_get_irq_byname failed: %d\n",
+					 device->pwrctrl.interrupt_num);
+		status = -EINVAL;
+		goto error_iounmap;
+	}
 
 	status = request_irq(device->pwrctrl.interrupt_num, kgsl_irq_handler,
 			     IRQF_TRIGGER_HIGH, device->name, device);
@@ -2534,7 +2463,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 			      device->pwrctrl.interrupt_num, status);
 		goto error_iounmap;
 	}
-	device->pwrctrl.have_irq = 1;
 	disable_irq(device->pwrctrl.interrupt_num);
 
 	KGSL_DRV_INFO(device,
@@ -2544,14 +2472,50 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	result = kgsl_drm_init(pdev);
 	if (result)
-		goto error_iounmap;
+		goto error_irq;
 
-	status = kgsl_register_device(device);
-	if (!status)
-		return status;
+	kgsl_cffdump_open(device->id);
 
+	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
+	status = kgsl_create_device_workqueue(device);
+	if (status)
+		goto error_irq;
+
+	status = kgsl_mmu_init(device);
+	if (status != 0) {
+		KGSL_DRV_ERR(device, "kgsl_mmu_init failed %d\n", status);
+		goto error_dest_work_q;
+	}
+
+	status = kgsl_allocate_contiguous(&device->memstore,
+		sizeof(struct kgsl_devmemstore));
+
+	if (status != 0) {
+		KGSL_DRV_ERR(device, "kgsl_allocate_contiguous failed %d\n",
+				status);
+		goto error_close_mmu;
+	}
+
+	wake_lock_init(&device->idle_wakelock, WAKE_LOCK_IDLE, device->name);
+	pm_qos_add_request(&device->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
+
+	/* Initalize the snapshot engine */
+	kgsl_device_snapshot_init(device);
+
+	/* Initialize common sysfs entries */
+	kgsl_pwrctrl_init_sysfs(device);
+
+	return 0;
+
+error_close_mmu:
+	kgsl_mmu_close(device);
+error_dest_work_q:
+	destroy_workqueue(device->work_queue);
+	device->work_queue = NULL;
+error_irq:
 	free_irq(device->pwrctrl.interrupt_num, NULL);
-	device->pwrctrl.have_irq = 0;
+	device->pwrctrl.interrupt_num = 0;
 error_iounmap:
 	iounmap(device->reg_virt);
 	device->reg_virt = NULL;
@@ -2560,22 +2524,45 @@ error_release_mem:
 error_pwrctrl_close:
 	kgsl_pwrctrl_close(device);
 error:
+	_unregister_device(device);
 	return status;
 }
 EXPORT_SYMBOL(kgsl_device_platform_probe);
 
 void kgsl_device_platform_remove(struct kgsl_device *device)
 {
-	kgsl_unregister_device(device);
 
+	kgsl_device_snapshot_close(device);
+
+	kgsl_cffdump_close(device->id);
+	kgsl_pwrctrl_uninit_sysfs(device);
+
+	wake_lock_destroy(&device->idle_wakelock);
+	pm_qos_remove_request(&device->pm_qos_req_dma);
+
+	idr_destroy(&device->context_idr);
+
+	kgsl_sharedmem_free(&device->memstore);
+
+	kgsl_mmu_close(device);
+
+	if (device->work_queue) {
+		destroy_workqueue(device->work_queue);
+		device->work_queue = NULL;
+	}
 	if (device->reg_virt != NULL) {
 		iounmap(device->reg_virt);
 		device->reg_virt = NULL;
 		release_mem_region(device->reg_phys, device->reg_len);
 	}
+	if (device->pwrctrl.interrupt_num > 0) {
+		free_irq(device->pwrctrl.interrupt_num, NULL);
+		device->pwrctrl.interrupt_num = 0;
+	}
+
 	kgsl_pwrctrl_close(device);
 
-	pm_runtime_disable(device->parentdev);
+	_unregister_device(device);
 }
 EXPORT_SYMBOL(kgsl_device_platform_remove);
 

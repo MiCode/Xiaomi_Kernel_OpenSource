@@ -69,10 +69,9 @@ static const struct kgsl_functable adreno_functable;
 
 static struct adreno_device device_3d0 = {
 	.dev = {
+		KGSL_DEVICE_COMMON_INIT(device_3d0.dev),
 		.name = DEVICE_3D0_NAME,
 		.id = KGSL_DEVICE_3D0,
-		.ver_major = DRIVER_VERSION_MAJOR,
-		.ver_minor = DRIVER_VERSION_MINOR,
 		.mh = {
 			.mharb  = ADRENO_CFG_MHARB,
 			/* Remove 1k boundary check in z470 to avoid a GPU
@@ -92,9 +91,6 @@ static struct adreno_device device_3d0 = {
 		.pwrctrl = {
 			.irq_name = KGSL_3D0_IRQ,
 		},
-		.mutex = __MUTEX_INITIALIZER(device_3d0.dev.mutex),
-		.state = KGSL_STATE_INIT,
-		.active_cnt = 0,
 		.iomemname = KGSL_3D0_REG_MEMORY,
 		.ftbl = &adreno_functable,
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -481,8 +477,6 @@ adreno_probe(struct platform_device *pdev)
 	device = (struct kgsl_device *)pdev->id_entry->driver_data;
 	adreno_dev = ADRENO_DEVICE(device);
 	device->parentdev = &pdev->dev;
-
-	init_completion(&device->recovery_gate);
 
 	status = adreno_ringbuffer_init(device);
 	if (status != 0)

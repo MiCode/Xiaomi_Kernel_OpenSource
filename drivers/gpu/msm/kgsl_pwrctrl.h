@@ -39,7 +39,6 @@ struct kgsl_busy {
 
 struct kgsl_pwrctrl {
 	int interrupt_num;
-	int have_irq;
 	struct clk *ebi1_clk;
 	struct clk *grp_clks[KGSL_MAX_CLKS];
 	unsigned long power_flags;

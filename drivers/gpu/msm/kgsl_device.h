@@ -199,6 +199,26 @@ struct kgsl_device {
 	s64 on_time;
 };
 
+void kgsl_timestamp_expired(struct work_struct *work);
+
+#define KGSL_DEVICE_COMMON_INIT(_dev) \
+	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
+	.suspend_gate = COMPLETION_INITIALIZER((_dev).suspend_gate),\
+	.recovery_gate = COMPLETION_INITIALIZER((_dev).recovery_gate),\
+	.ts_notifier_list = ATOMIC_NOTIFIER_INIT((_dev).ts_notifier_list),\
+	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
+			kgsl_idle_check),\
+	.ts_expired_ws  = __WORK_INITIALIZER((_dev).ts_expired_ws,\
+			kgsl_timestamp_expired),\
+	.context_idr = IDR_INIT((_dev).context_idr),\
+	.events = LIST_HEAD_INIT((_dev).events),\
+	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
+	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
+	.state = KGSL_STATE_INIT,\
+	.ver_major = DRIVER_VERSION_MAJOR,\
+	.ver_minor = DRIVER_VERSION_MINOR,\
+	.last_expired_ctxt_id = KGSL_CONTEXT_INVALID
+
 struct kgsl_context {
 	uint32_t id;
 
