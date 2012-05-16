@@ -2384,16 +2384,20 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 	spin_lock_init(&config_cam->p_mctl->stats_info.pmem_stats_spinlock);
 
 	config_cam->p_mctl->config_device = config_cam;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	kref_get(&config_cam->p_mctl->refcount);
+#endif
 	fp->private_data = config_cam;
 	return rc;
 }
 
 static int msm_close_config(struct inode *node, struct file *f)
 {
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	struct msm_cam_config_dev *config_cam = f->private_data;
 	D("%s Decrementing ref count of config node ", __func__);
 	kref_put(&config_cam->p_mctl->refcount, msm_release_ion_client);
+#endif
 	return 0;
 }
 
