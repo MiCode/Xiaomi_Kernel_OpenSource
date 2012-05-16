@@ -21,9 +21,16 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
+#include <linux/list.h>
 #include <trace/events/power.h>
 
 #include "clock.h"
+
+struct handoff_clk {
+	struct list_head list;
+	struct clk *clk;
+};
+static LIST_HEAD(handoff_list);
 
 /* Find the voltage level required for a given rate. */
 static int find_vdd_level(struct clk *clk, unsigned long rate)
@@ -203,18 +210,8 @@ int clk_enable(struct clk *clk)
 			ret = clk->ops->enable(clk);
 		if (ret)
 			goto err_enable_clock;
-	} else if (clk->flags & CLKFLAG_HANDOFF_RATE) {
-		/*
-		 * The clock was already enabled by handoff code so there is no
-		 * need to enable it again here. Clearing the handoff flag will
-		 * prevent the lateinit handoff code from disabling the clock if
-		 * a client driver still has it enabled.
-		 */
-		clk->flags &= ~CLKFLAG_HANDOFF_RATE;
-		goto out;
 	}
 	clk->count++;
-out:
 	spin_unlock_irqrestore(&clk->lock, flags);
 
 	return 0;
@@ -426,8 +423,10 @@ void __init msm_clock_init(struct clock_init_data *data)
 {
 	unsigned n;
 	struct clk_lookup *clock_tbl;
+	struct handoff_clk *h;
 	size_t num_clocks;
 	struct clk *clk;
+	int ret;
 
 	clk_init_data = data;
 	if (clk_init_data->pre_init)
@@ -450,10 +449,28 @@ void __init msm_clock_init(struct clock_init_data *data)
 	 */
 	for (n = 0; n < num_clocks; n++) {
 		clk = clock_tbl[n].clk;
-		if (clk->ops->handoff && !(clk->flags & CLKFLAG_HANDOFF_RATE) &&
-		    (clk->ops->handoff(clk) == HANDOFF_ENABLED_CLK)) {
-			clk->flags |= CLKFLAG_HANDOFF_RATE;
-			clk_prepare_enable(clk);
+		/*
+		 * Perform the handoffs, skipping clocks that don't support it
+		 * or have already been handed off because they have multiple
+		 * entries in the clock table.
+		 */
+		if (clk->ops->handoff && !clk->count &&
+		    !(clk->flags & CLKFLAG_SKIP_HANDOFF) &&
+		    clk->ops->handoff(clk) == HANDOFF_ENABLED_CLK) {
+			h = kmalloc(sizeof(*h), GFP_KERNEL);
+			if (!h)
+				ret = -ENOMEM;
+			else
+				ret = clk_prepare_enable(clk);
+
+			if (ret) {
+				pr_err("%s handoff failed (%d)\n",
+				       clk->dbg_name, ret);
+				kfree(h);
+			} else {
+				h->clk = clk;
+				list_add_tail(&h->list, &handoff_list);
+			}
 		}
 	}
 
@@ -471,13 +488,13 @@ void __init msm_clock_init(struct clock_init_data *data)
 static int __init clock_late_init(void)
 {
 	unsigned n, count = 0;
+	struct handoff_clk *h, *h_temp;
 	unsigned long flags;
 	int ret = 0;
 
 	clock_debug_init(clk_init_data);
 	for (n = 0; n < clk_init_data->size; n++) {
 		struct clk *clk = clk_init_data->table[n].clk;
-		bool handoff = false;
 
 		clock_debug_add(clk);
 		spin_lock_irqsave(&clk->lock, flags);
@@ -487,19 +504,16 @@ static int __init clock_late_init(void)
 				clk->ops->auto_off(clk);
 			}
 		}
-		if (clk->flags & CLKFLAG_HANDOFF_RATE) {
-			clk->flags &= ~CLKFLAG_HANDOFF_RATE;
-			handoff = true;
-		}
 		spin_unlock_irqrestore(&clk->lock, flags);
-		/*
-		 * Calling this outside the lock is safe since
-		 * it doesn't need to be atomic with the flag change.
-		 */
-		if (handoff)
-			clk_disable_unprepare(clk);
 	}
 	pr_info("clock_late_init() disabled %d unused clocks\n", count);
+
+	list_for_each_entry_safe(h, h_temp, &handoff_list, list) {
+		clk_disable_unprepare(h->clk);
+		list_del(&h->list);
+		kfree(h);
+	}
+
 	if (clk_init_data->late_init)
 		ret = clk_init_data->late_init();
 	return ret;
