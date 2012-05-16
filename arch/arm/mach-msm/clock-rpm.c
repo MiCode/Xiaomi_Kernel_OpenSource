@@ -183,6 +183,29 @@ static bool rpm_clk_is_local(struct clk *clk)
 	return false;
 }
 
+static enum handoff rpm_clk_handoff(struct clk *clk)
+{
+	struct rpm_clk *r = to_rpm_clk(clk);
+	struct msm_rpm_iv_pair iv = { r->rpm_status_id };
+	int rc;
+
+	/*
+	 * Querying an RPM clock's status will return 0 unless the clock's
+	 * rate has previously been set through the RPM. When handing off,
+	 * assume these clocks are enabled (unless the RPM call fails) so
+	 * child clocks of these RPM clocks can still be handed off.
+	 */
+	rc  = msm_rpm_get_status(&iv, 1);
+	if (rc < 0)
+		return HANDOFF_DISABLED_CLK;
+
+	r->last_set_khz = iv.value;
+	r->last_set_sleep_khz = iv.value;
+	clk->rate = iv.value * 1000;
+
+	return HANDOFF_ENABLED_CLK;
+}
+
 struct clk_ops clk_ops_rpm = {
 	.enable = rpm_clk_enable,
 	.disable = rpm_clk_disable,
@@ -191,10 +214,12 @@ struct clk_ops clk_ops_rpm = {
 	.is_enabled = rpm_clk_is_enabled,
 	.round_rate = rpm_clk_round_rate,
 	.is_local = rpm_clk_is_local,
+	.handoff = rpm_clk_handoff,
 };
 
 struct clk_ops clk_ops_rpm_branch = {
 	.enable = rpm_clk_enable,
 	.disable = rpm_clk_disable,
 	.is_local = rpm_clk_is_local,
+	.handoff = rpm_clk_handoff,
 };
