@@ -121,7 +121,6 @@ static enum handoff pll_vote_clk_handoff(struct clk *c)
 struct clk_ops clk_ops_pll_vote = {
 	.enable = pll_vote_clk_enable,
 	.disable = pll_vote_clk_disable,
-	.auto_off = pll_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
 	.get_parent = pll_vote_clk_get_parent,
 	.handoff = pll_vote_clk_handoff,
@@ -300,7 +299,6 @@ out:
 struct clk_ops clk_ops_local_pll = {
 	.enable = local_pll_clk_enable,
 	.disable = local_pll_clk_disable,
-	.auto_off = local_pll_clk_disable,
 	.handoff = local_pll_clk_handoff,
 	.get_parent = local_pll_clk_get_parent,
 };

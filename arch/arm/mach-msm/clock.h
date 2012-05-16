@@ -33,7 +33,6 @@
 #define CLKFLAG_RETAIN			0x00000040
 #define CLKFLAG_NORETAIN		0x00000080
 #define CLKFLAG_SKIP_HANDOFF		0x00000100
-#define CLKFLAG_SKIP_AUTO_OFF		0x00000200
 #define CLKFLAG_MIN			0x00000400
 #define CLKFLAG_MAX			0x00000800
 
@@ -90,7 +89,6 @@ struct clk_ops {
 	int (*enable)(struct clk *clk);
 	void (*disable)(struct clk *clk);
 	void (*unprepare)(struct clk *clk);
-	void (*auto_off)(struct clk *clk);
 	void (*enable_hwcg)(struct clk *clk);
 	void (*disable_hwcg)(struct clk *clk);
 	int (*in_hwcg_mode)(struct clk *clk);

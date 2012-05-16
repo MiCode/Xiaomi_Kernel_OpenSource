@@ -2990,7 +2990,6 @@ static enum handoff pix_rdi_clk_handoff(struct clk *c)
 static struct clk_ops clk_ops_pix_rdi_8960 = {
 	.enable = pix_rdi_clk_enable,
 	.disable = pix_rdi_clk_disable,
-	.auto_off = pix_rdi_clk_disable,
 	.handoff = pix_rdi_clk_handoff,
 	.set_rate = pix_rdi_clk_set_rate,
 	.get_rate = pix_rdi_clk_get_rate,
