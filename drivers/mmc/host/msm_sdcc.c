@@ -1612,8 +1612,7 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 	if (!cmd->data || cmd->error) {
 		if (host->curr.data && host->dma.sg &&
 			host->is_dma_mode)
-			msm_dmov_stop_cmd(host->dma.channel,
-					  &host->dma.hdr, 0);
+			msm_dmov_flush(host->dma.channel, 0);
 		else if (host->curr.data && host->sps.sg &&
 			host->is_sps_mode){
 			/* Stop current SPS transfer */
@@ -1766,8 +1765,7 @@ msmsdcc_irq(int irq, void *dev_id)
 				msmsdcc_data_err(host, data, status);
 				host->curr.data_xfered = 0;
 				if (host->dma.sg && host->is_dma_mode)
-					msm_dmov_stop_cmd(host->dma.channel,
-							  &host->dma.hdr, 0);
+					msm_dmov_flush(host->dma.channel, 0);
 				else if (host->sps.sg && host->is_sps_mode) {
 					/* Stop current SPS transfer */
 					msmsdcc_sps_exit_curr_xfer(host);
@@ -4340,8 +4338,7 @@ static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
 				mrq->data->error = -ETIMEDOUT;
 			host->curr.data_xfered = 0;
 			if (host->dma.sg && host->is_dma_mode) {
-				msm_dmov_stop_cmd(host->dma.channel,
-						&host->dma.hdr, 0);
+				msm_dmov_flush(host->dma.channel, 0);
 			} else if (host->sps.sg && host->is_sps_mode) {
 				/* Stop current SPS transfer */
 				msmsdcc_sps_exit_curr_xfer(host);
