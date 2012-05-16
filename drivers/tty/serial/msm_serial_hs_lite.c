@@ -1173,7 +1173,7 @@ static int msm_hsl_console_setup(struct console *co, char *options)
 {
 	struct uart_port *port;
 	unsigned int vid;
-	int baud = 0, flow, bits, parity;
+	int baud = 0, flow, bits, parity, mr2;
 	int ret;
 
 	if (unlikely(co->index >= UART_NR || co->index < 0))
@@ -1208,6 +1208,12 @@ static int msm_hsl_console_setup(struct console *co, char *options)
 	msm_hsl_set_baud_rate(port, baud);
 
 	ret = uart_set_options(port, co, baud, parity, bits, flow);
+
+	mr2 = msm_hsl_read(port, regmap[vid][UARTDM_MR2]);
+	mr2 |= UARTDM_MR2_RX_ERROR_CHAR_OFF;
+	mr2 |= UARTDM_MR2_RX_BREAK_ZERO_CHAR_OFF;
+	msm_hsl_write(port, mr2, regmap[vid][UARTDM_MR2]);
+
 	msm_hsl_reset(port);
 	/* Enable transmitter */
 	msm_hsl_write(port, CR_PROTECTION_EN, regmap[vid][UARTDM_CR]);
