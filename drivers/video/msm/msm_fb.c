@@ -289,6 +289,9 @@ static ssize_t msm_fb_msm_fb_type(struct device *dev,
 	case MIPI_CMD_PANEL:
 		ret = snprintf(buf, PAGE_SIZE, "mipi dsi cmd panel\n");
 		break;
+	case WRITEBACK_PANEL:
+		ret = snprintf(buf, PAGE_SIZE, "writeback panel\n");
+		break;
 	default:
 		ret = snprintf(buf, PAGE_SIZE, "unknown panel\n");
 		break;
