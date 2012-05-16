@@ -1863,6 +1863,8 @@ static void handle_stop_ext_chg(struct pm8921_chg_chip *chip)
 	chip->ext_charging = false;
 	chip->ext_charge_done = false;
 	bms_notify_check(chip);
+	/* Update battery charging LEDs and user space battery info */
+	power_supply_changed(&chip->batt_psy);
 }
 
 static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
@@ -1917,6 +1919,8 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 	/* Start BMS */
 	schedule_delayed_work(&chip->eoc_work, delay);
 	wake_lock(&chip->eoc_wake_lock);
+	/* Update battery charging LEDs and user space battery info */
+	power_supply_changed(&chip->batt_psy);
 }
 
 static void turn_off_usb_ovp_fet(struct pm8921_chg_chip *chip)
