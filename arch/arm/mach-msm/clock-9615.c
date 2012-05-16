@@ -250,7 +250,6 @@ static void pll_acpu_vote_clk_disable(struct clk *c)
 static struct clk_ops clk_ops_pll_acpu_vote = {
 	.enable = pll_acpu_vote_clk_enable,
 	.disable = pll_acpu_vote_clk_disable,
-	.auto_off = pll_acpu_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
 	.get_parent = pll_vote_clk_get_parent,
 };

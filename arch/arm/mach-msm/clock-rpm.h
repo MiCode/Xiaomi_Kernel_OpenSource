@@ -58,7 +58,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
 			.ops = &clk_ops_rpm, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #name, \
 			CLK_INIT(name.c), \
 			.depends = dep, \
@@ -74,7 +73,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
 			.ops = &clk_ops_rpm, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #active, \
 			CLK_INIT(active.c), \
 			.depends = dep, \
@@ -96,7 +94,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
 			.ops = &clk_ops_rpm_branch, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #name, \
 			.rate = (r), \
 			CLK_INIT(name.c), \
@@ -115,7 +112,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
 			.ops = &clk_ops_rpm_branch, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #active, \
 			.rate = (r), \
 			CLK_INIT(active.c), \
@@ -134,7 +130,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
 			.ops = &clk_ops_rpm, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #name, \
 			CLK_INIT(name.c), \
 			.warned = true, \
@@ -150,7 +145,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
 			.ops = &clk_ops_rpm, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.dbg_name = #active, \
 			CLK_INIT(active.c), \
 			.warned = true, \

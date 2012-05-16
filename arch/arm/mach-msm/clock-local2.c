@@ -589,7 +589,6 @@ struct clk_ops clk_ops_rcg_mnd = {
 struct clk_ops clk_ops_branch = {
 	.enable = branch_clk_enable,
 	.disable = branch_clk_disable,
-	.auto_off = branch_clk_disable,
 	.set_rate = branch_clk_set_rate,
 	.get_rate = branch_clk_get_rate,
 	.list_rate = branch_clk_list_rate,
@@ -602,7 +601,6 @@ struct clk_ops clk_ops_branch = {
 struct clk_ops clk_ops_vote = {
 	.enable = local_vote_clk_enable,
 	.disable = local_vote_clk_disable,
-	.auto_off = local_vote_clk_disable,
 	.reset = local_vote_clk_reset,
 	.handoff = local_vote_clk_handoff,
 };
