@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,7 +184,7 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 	}
 
 	/* set up osr clk */
-	drv->tx_osrclk = clk_get(0, "mi2s_osr_clk");
+	drv->tx_osrclk = clk_get_sys(NULL, "mi2s_osr_clk");
 	if (IS_ERR(drv->tx_osrclk))
 		pr_err("%s master clock Error\n", __func__);
 
@@ -197,7 +197,7 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 	clk_enable(drv->tx_osrclk);
 
 	/* set up bit clk */
-	drv->tx_bitclk = clk_get(0, "mi2s_bit_clk");
+	drv->tx_bitclk = clk_get_sys(NULL, "mi2s_bit_clk");
 	if (IS_ERR(drv->tx_bitclk))
 		pr_err("%s clock Error\n", __func__);
 

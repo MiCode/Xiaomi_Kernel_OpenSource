@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -308,7 +308,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	}
 	msm_snddev_rx_mclk_request();
 
-	drv->rx_osrclk = clk_get(0, "i2s_spkr_osr_clk");
+	drv->rx_osrclk = clk_get_sys(NULL, "i2s_spkr_osr_clk");
 	if (IS_ERR(drv->rx_osrclk))
 		pr_err("%s master clock Error\n", __func__);
 
@@ -320,7 +320,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	}
 
 	clk_enable(drv->rx_osrclk);
-	drv->rx_bitclk = clk_get(0, "i2s_spkr_bit_clk");
+	drv->rx_bitclk = clk_get_sys(NULL, "i2s_spkr_bit_clk");
 	if (IS_ERR(drv->rx_bitclk))
 		pr_err("%s clock Error\n", __func__);
 
@@ -437,7 +437,7 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 
 	msm_snddev_tx_mclk_request();
 
-	drv->tx_osrclk = clk_get(0, "i2s_mic_osr_clk");
+	drv->tx_osrclk = clk_get_sys(NULL, "i2s_mic_osr_clk");
 	if (IS_ERR(drv->tx_osrclk))
 		pr_err("%s master clock Error\n", __func__);
 
@@ -449,7 +449,7 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	}
 
 	clk_enable(drv->tx_osrclk);
-	drv->tx_bitclk = clk_get(0, "i2s_mic_bit_clk");
+	drv->tx_bitclk = clk_get_sys(NULL, "i2s_mic_bit_clk");
 	if (IS_ERR(drv->tx_bitclk))
 		pr_err("%s clock Error\n", __func__);
 

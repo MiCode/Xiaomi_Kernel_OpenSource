@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -344,7 +344,7 @@ int __init snddev_ecodec_init(void)
 	mutex_init(&drv->dev_lock);
 	drv->ref_cnt = 0;
 
-	drv->ecodec_clk = clk_get(NULL, "pcm_clk");
+	drv->ecodec_clk = clk_get_sys(NULL, "pcm_clk");
 	if (IS_ERR(drv->ecodec_clk)) {
 		pr_err("%s: could not get pcm_clk\n", __func__);
 		return PTR_ERR(drv->ecodec_clk);
