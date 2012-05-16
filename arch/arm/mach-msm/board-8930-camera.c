@@ -198,12 +198,9 @@ static struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
 #ifdef CONFIG_MSM_CAMERA_FLASH
 static struct msm_camera_sensor_flash_src msm_flash_src = {
 	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
-	._fsrc.ext_driver_src.led_en = GPIO_CAM_GP_LED_EN1,
-	._fsrc.ext_driver_src.led_flash_en = GPIO_CAM_GP_LED_EN2,
-#if defined(CONFIG_I2C) && (defined(CONFIG_GPIO_SX150X) || \
-			defined(CONFIG_GPIO_SX150X_MODULE))
-	._fsrc.ext_driver_src.expander_info = cam_expander_info,
-#endif
+	._fsrc.ext_driver_src.led_en = VFE_CAMIF_TIMER1_GPIO,
+	._fsrc.ext_driver_src.led_flash_en = VFE_CAMIF_TIMER2_GPIO,
+	._fsrc.ext_driver_src.flash_id = MAM_CAMERA_EXT_LED_FLASH_TPS61310,
 };
 #endif
 
@@ -536,7 +533,8 @@ static struct camera_vreg_t msm_8930_s5k3l1yx_vreg[] = {
 };
 
 static struct msm_camera_sensor_flash_data flash_s5k3l1yx = {
-	.flash_type = MSM_CAMERA_FLASH_NONE,
+	.flash_type = MSM_CAMERA_FLASH_LED,
+	.flash_src = &msm_flash_src
 };
 
 static struct msm_camera_csi_lane_params s5k3l1yx_csi_lane_params = {
@@ -585,6 +583,15 @@ void __init msm8930_init_cam(void)
 		struct msm_camera_sensor_info *s_info;
 		s_info = &msm_camera_sensor_s5k3l1yx_data;
 		s_info->sensor_platform_info->mount_angle = 0;
+		msm_flash_src._fsrc.ext_driver_src.led_en =
+			GPIO_CAM_GP_LED_EN1;
+		msm_flash_src._fsrc.ext_driver_src.led_flash_en =
+			GPIO_CAM_GP_LED_EN2;
+#if defined(CONFIG_I2C) && (defined(CONFIG_GPIO_SX150X) || \
+	defined(CONFIG_GPIO_SX150X_MODULE))
+		msm_flash_src._fsrc.ext_driver_src.expander_info =
+			cam_expander_info;
+#endif
 	}
 
 	platform_device_register(&msm_camera_server);
@@ -615,11 +622,9 @@ struct i2c_board_info msm8930_camera_i2c_boardinfo[] = {
 	I2C_BOARD_INFO("s5k3l1yx", 0x20),
 	.platform_data = &msm_camera_sensor_s5k3l1yx_data,
 	},
-#ifdef CONFIG_MSM_CAMERA_FLASH_SC628A
 	{
-	I2C_BOARD_INFO("sc628a", 0x6E),
+	I2C_BOARD_INFO("tps61310", 0x66),
 	},
-#endif
 };
 
 struct msm_camera_board_info msm8930_camera_board_info = {
