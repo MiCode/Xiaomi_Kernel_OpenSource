@@ -3622,6 +3622,7 @@ struct platform_device msm8960_rtb_device = {
 
 struct msm_cache_dump_platform_data msm8960_cache_dump_pdata = {
 	.l2_size = L2_BUFFER_SIZE,
+	.l1_size = L1_BUFFER_SIZE,
 };
 
 struct platform_device msm8960_cache_dump_device = {
