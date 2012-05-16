@@ -1595,6 +1595,7 @@ static int ssrestart_check(void)
 static void ul_wakeup(void)
 {
 	int ret;
+	int do_vote_dfab = 0;
 
 	mutex_lock(&wakeup_lock);
 	if (bam_is_connected) { /* bam got connected before lock grabbed */
@@ -1621,16 +1622,19 @@ static void ul_wakeup(void)
 		 * don't grab the wakelock the first time because it is
 		 * already grabbed when a2 powers on
 		 */
-		if (likely(a2_pc_disabled_wakelock_skipped))
+		if (likely(a2_pc_disabled_wakelock_skipped)) {
 			grab_wakelock();
-		else
+			do_vote_dfab = 1; /* vote must occur after wait */
+		} else {
 			a2_pc_disabled_wakelock_skipped = 1;
+		}
 		if (wait_for_dfab) {
 			ret = wait_for_completion_timeout(
 					&dfab_unvote_completion, HZ);
 			BUG_ON(ret == 0);
 		}
-		vote_dfab();
+		if (likely(do_vote_dfab))
+			vote_dfab();
 		schedule_delayed_work(&ul_timeout_work,
 				msecs_to_jiffies(UL_TIMEOUT_DELAY));
 		bam_is_connected = 1;
