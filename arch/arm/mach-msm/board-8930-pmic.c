@@ -329,6 +329,10 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 	.priority		= 0,
 };
 
+static struct pm8xxx_spk_platform_data pm8xxx_spk_pdata = {
+	.spk_add_enable		= false,
+};
+
 static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.battery_type	= BATT_UNKNOWN,
 	.r_sense		= 10,
@@ -351,6 +355,7 @@ static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
 	.adc_pdata		= &pm8xxx_adc_pdata,
 	.leds_pdata		= &pm8xxx_leds_pdata,
 	.ccadc_pdata		= &pm8xxx_ccadc_pdata,
+	.spk_pdata		= &pm8xxx_spk_pdata,
 };
 
 static struct msm_ssbi_platform_data msm8930_ssbi_pm8038_pdata __devinitdata = {
