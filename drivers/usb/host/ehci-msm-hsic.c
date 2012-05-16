@@ -340,6 +340,15 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	}
 
 	disable_irq(hcd->irq);
+
+	/* make sure we don't race against a remote wakeup */
+	if (test_bit(HCD_FLAG_WAKEUP_PENDING, &hcd->flags) ||
+	    readl_relaxed(USB_PORTSC) & PORT_RESUME) {
+		dev_dbg(mehci->dev, "wakeup pending, aborting suspend\n");
+		enable_irq(hcd->irq);
+		return -EBUSY;
+	}
+
 	/*
 	 * PHY may take some time or even fail to enter into low power
 	 * mode (LPM). Hence poll for 500 msec and reset the PHY and link
@@ -973,6 +982,7 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int msm_hsic_pm_suspend(struct device *dev)
 {
+	int ret;
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 
@@ -981,7 +991,12 @@ static int msm_hsic_pm_suspend(struct device *dev)
 	if (device_may_wakeup(dev))
 		enable_irq_wake(hcd->irq);
 
-	return msm_hsic_suspend(mehci);
+	ret = msm_hsic_suspend(mehci);
+
+	if (ret && device_may_wakeup(dev))
+		disable_irq_wake(hcd->irq);
+
+	return ret;
 }
 
 static int msm_hsic_pm_suspend_noirq(struct device *dev)
@@ -1033,14 +1048,7 @@ static int msm_hsic_pm_resume(struct device *dev)
 #ifdef CONFIG_PM_RUNTIME
 static int msm_hsic_runtime_idle(struct device *dev)
 {
-	struct usb_hcd *hcd = dev_get_drvdata(dev);
-
 	dev_dbg(dev, "EHCI runtime idle\n");
-
-	/*don't allow runtime suspend in the middle of remote wakeup*/
-	if (readl_relaxed(USB_PORTSC) & PORT_RESUME)
-		return -EAGAIN;
-
 	return 0;
 }
 
