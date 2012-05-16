@@ -302,6 +302,18 @@ config ARCH_MSM8625
 	select MULTI_IRQ_HANDLER
 	select ARM_TICKET_LOCKS
 	select MSM_RUN_QUEUE_STATS
+
+config ARCH_MSM9625
+	bool "MSM9625"
+	select ARM_GIC
+	select GIC_SECURE
+	select ARCH_MSM_CORTEX_A5
+	select SMP
+	select MSM_SMP
+	select CPU_V7
+	select MULTI_IRQ_HANDLER
+	select MSM_V2_TLMM
+
 endmenu
 
 choice
@@ -869,6 +881,7 @@ config PHYS_OFFSET
 	default "0x80200000" if ARCH_MSM8930
 	default "0x20200000" if ARCH_MSMCOPPER
 	default "0x10000000" if ARCH_FSM9XXX
+	default "0x20200000" if ARCH_MSM9625
 	default "0x00200000" if !MSM_STACKED_MEMORY
 	default "0x00000000" if ARCH_QSD8X50 && MSM_SOC_REV_A
 	default "0x20000000" if ARCH_QSD8X50
