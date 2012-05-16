@@ -125,6 +125,11 @@ static const unsigned short keymap_8625[] = {
 	KEY_VOLUMEDOWN,
 };
 
+static const unsigned short keymap_8625_evt[] = {
+	KEY_VOLUMEDOWN,
+	KEY_VOLUMEUP,
+};
+
 static struct gpio_event_matrix_info kp_matrix_info_8625 = {
 	.info.func      = gpio_event_matrix_func,
 	.keymap         = keymap_8625,
@@ -853,7 +858,11 @@ void __init qrd7627a_add_io_devices(void)
 #endif
 
 	/* keypad */
-	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb())
+	if (machine_is_msm8625_evt())
+		kp_matrix_info_8625.keymap = keymap_8625_evt;
+
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb() ||
+			machine_is_msm8625_evt())
 		platform_device_register(&kp_pdev_8625);
 	else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7())
 		platform_device_register(&kp_pdev_sku3);
