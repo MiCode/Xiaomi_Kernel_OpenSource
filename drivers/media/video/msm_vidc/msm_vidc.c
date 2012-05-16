@@ -246,7 +246,6 @@ int msm_vidc_open(void *vidc_inst, int core_id, int session_type)
 	inst->session_type = session_type;
 	INIT_LIST_HEAD(&inst->pendingq);
 	INIT_LIST_HEAD(&inst->internalbufs);
-	INIT_LIST_HEAD(&inst->extradatabufs);
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
@@ -301,7 +300,6 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 	struct list_head *ptr, *next;
 	struct vb2_buf_entry *entry;
 	struct internal_buf *buf;
-
 	if (inst) {
 		spin_lock_irqsave(&inst->lock, flags);
 		if (!list_empty(&inst->pendingq)) {

@@ -27,8 +27,6 @@ struct vb2_queue *msm_comm_get_vb2q(
 		struct msm_vidc_inst *inst, enum v4l2_buf_type type);
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state);
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst);
-int msm_comm_allocate_extradata_buffers(struct msm_vidc_inst *inst,
-	struct extradata_buf *binfo);
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct vb2_buffer *vb);
 #define IS_PRIV_CTRL(idx) (\

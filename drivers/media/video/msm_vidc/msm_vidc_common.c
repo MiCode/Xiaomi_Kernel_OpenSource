@@ -892,23 +892,9 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 					&frame_data);
 			pr_debug("Sent etb to HAL\n");
 		} else if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-			struct extradata_buf *addr;
 			frame_data.filled_len = 0;
 			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
 			frame_data.extradata_addr = 0;
-			if (!list_empty(&inst->extradatabufs)) {
-				list_for_each_entry(addr, &inst->extradatabufs,
-									list) {
-					if (addr->device_addr ==
-							frame_data.
-						device_addr) {
-						frame_data.extradata_addr =
-							addr->
-							handle->device_addr;
-						break;
-					}
-				}
-			}
 			pr_debug("Sending ftb to hal...: Alloc: %d :filled: %d"
 				" extradata_addr: %d\n", frame_data.alloc_len,
 				   frame_data.filled_len,
@@ -969,49 +955,31 @@ exit:
 	return rc;
 }
 
-int msm_comm_allocate_extradata_buffers(struct msm_vidc_inst *inst,
-	struct extradata_buf *binfo)
-{
-	int rc = 0;
-	unsigned long flags;
-	struct msm_smem *handle;
-	pr_debug("Extradata: num = %d, size = %d, align = %d\n",
-			inst->buff_req.buffer[4].buffer_count_actual,
-			inst->buff_req.buffer[4].buffer_size,
-			inst->buff_req.buffer[4].buffer_alignment);
-	if (!inst->buff_req.buffer[4].buffer_size) {
-		pr_err("invalid size: %d",
-			   inst->buff_req.buffer[4].buffer_size);
-		rc = -ENOMEM;
-		goto err_no_mem;
-	}
-	handle = msm_smem_alloc(inst->mem_client,
-			inst->buff_req.buffer[4].buffer_size,
-			inst->buff_req.buffer[4].buffer_alignment, 0);
-	if (!handle) {
-		pr_err("Failed to allocate Extradata memory\n");
-		rc = -ENOMEM;
-		goto err_no_mem;
-	}
-	binfo->handle = handle;
-	spin_lock_irqsave(&inst->lock, flags);
-	list_add_tail(&binfo->list, &inst->extradatabufs);
-	spin_unlock_irqrestore(&inst->lock, flags);
-err_no_mem:
-	return rc;
-}
-
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct msm_smem *handle;
 	struct internal_buf *binfo;
+	struct list_head *ptr, *next;
 	struct vidc_buffer_addr_info buffer_info;
 	unsigned long flags;
 	int i;
 	pr_debug("scratch: num = %d, size = %d\n",
 			inst->buff_req.buffer[6].buffer_count_actual,
 			inst->buff_req.buffer[6].buffer_size);
+	spin_lock_irqsave(&inst->lock, flags);
+	if (!list_empty(&inst->internalbufs)) {
+		list_for_each_safe(ptr, next, &inst->internalbufs) {
+			binfo = list_entry(ptr, struct internal_buf,
+					list);
+			list_del(&binfo->list);
+			msm_smem_free(inst->mem_client, binfo->handle);
+			kfree(binfo);
+		}
+	}
+	spin_unlock_irqrestore(&inst->lock, flags);
+
+
 	for (i = 0; i < inst->buff_req.buffer[6].buffer_count_actual;
 				i++) {
 		handle = msm_smem_alloc(inst->mem_client,
