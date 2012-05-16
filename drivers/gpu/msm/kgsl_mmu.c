@@ -453,10 +453,11 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 	 */
 	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) &&
 		(KGSL_MMU_GLOBAL_PT == name)) {
-		pagetable->kgsl_pool = gen_pool_create(PAGE_SHIFT, -1);
+		pagetable->kgsl_pool = gen_pool_create(KGSL_MMU_ALIGN_SHIFT,
+						       -1);
 		if (pagetable->kgsl_pool == NULL) {
 			KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
-					PAGE_SHIFT);
+					KGSL_MMU_ALIGN_SHIFT);
 			goto err_alloc;
 		}
 		if (gen_pool_add(pagetable->kgsl_pool,
@@ -467,9 +468,10 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 		}
 	}
 
-	pagetable->pool = gen_pool_create(PAGE_SHIFT, -1);
+	pagetable->pool = gen_pool_create(KGSL_MMU_ALIGN_SHIFT, -1);
 	if (pagetable->pool == NULL) {
-		KGSL_CORE_ERR("gen_pool_create(%d) failed\n", PAGE_SHIFT);
+		KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
+			      KGSL_MMU_ALIGN_SHIFT);
 		goto err_kgsl_pool;
 	}
 
@@ -606,11 +608,11 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	/* Allocate from kgsl pool if it exists for global mappings */
 	if (pagetable->kgsl_pool &&
 		(KGSL_MEMFLAGS_GLOBAL & memdesc->priv))
-		memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->kgsl_pool,
-			memdesc->size, KGSL_MMU_ALIGN_SHIFT);
+		memdesc->gpuaddr = gen_pool_alloc(pagetable->kgsl_pool,
+			memdesc->size);
 	else
-		memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->pool,
-			memdesc->size, KGSL_MMU_ALIGN_SHIFT);
+		memdesc->gpuaddr = gen_pool_alloc(pagetable->pool,
+			memdesc->size);
 
 	if (memdesc->gpuaddr == 0) {
 		KGSL_CORE_ERR("gen_pool_alloc(%d) failed from pool: %s\n",
@@ -679,12 +681,10 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 	if (pagetable->kgsl_pool &&
 		(KGSL_MEMFLAGS_GLOBAL & memdesc->priv))
 		gen_pool_free(pagetable->kgsl_pool,
-			memdesc->gpuaddr & KGSL_MMU_ALIGN_MASK,
-			memdesc->size);
+			memdesc->gpuaddr, memdesc->size);
 	else
 		gen_pool_free(pagetable->pool,
-			memdesc->gpuaddr & KGSL_MMU_ALIGN_MASK,
-			memdesc->size);
+			memdesc->gpuaddr, memdesc->size);
 
 	/*
 	 * Don't clear the gpuaddr on global mappings because they
