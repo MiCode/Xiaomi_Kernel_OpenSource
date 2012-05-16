@@ -251,6 +251,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 		.gpio      = 16,	/* GSBI5 I2C QUP SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi5,
+			[GPIOMUX_ACTIVE] = &gsbi5,
 		},
 	},
 	{

@@ -62,6 +62,9 @@
 #define MSM_PMIC1_SSBI_CMD_PHYS	0x00500000
 #define MSM_PMIC_SSBI_SIZE	SZ_4K
 
+#define MSM_GPIO_I2C_CLK 16
+#define MSM_GPIO_I2C_SDA 17
+
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
 	.bark_time = 11000,
@@ -307,6 +310,19 @@ static struct resource resources_qup_i2c_gsbi5[] = {
 		.end	= GSBI5_QUP_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+	{
+		.name   = "i2c_clk",
+		.start     = MSM_GPIO_I2C_CLK,
+		.end       = MSM_GPIO_I2C_CLK,
+		.flags     = IORESOURCE_IO,
+	},
+	{
+		.name   = "i2c_sda",
+		.start     = MSM_GPIO_I2C_SDA,
+		.end       = MSM_GPIO_I2C_SDA,
+		.flags     = IORESOURCE_IO,
+
+	},
 };
 
 struct platform_device msm9615_device_qup_i2c_gsbi5 = {
@@ -472,6 +488,15 @@ struct platform_device msm_voice = {
 	.id	= -1,
 };
 
+struct platform_device msm_i2s_cpudai0 = {
+	.name   = "msm-dai-q6",
+	.id     = PRIMARY_I2S_RX,
+};
+
+struct platform_device msm_i2s_cpudai1 = {
+	.name   = "msm-dai-q6",
+	.id     = PRIMARY_I2S_TX,
+};
 struct platform_device msm_voip = {
 	.name	= "msm-voip-dsp",
 	.id	= -1,
