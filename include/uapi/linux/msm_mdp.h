@@ -380,13 +380,15 @@ struct mdp_csc_cfg_data {
 	struct mdp_csc_cfg csc_data;
 };
 
+#define MDP_PP_OPS_READ 0x2
+#define MDP_PP_OPS_WRITE 0x4
+
 enum {
 	mdp_lut_igc,
 	mdp_lut_pgc,
 	mdp_lut_hist,
 	mdp_lut_max,
 };
-
 
 struct mdp_igc_lut_data {
 	uint32_t block;
