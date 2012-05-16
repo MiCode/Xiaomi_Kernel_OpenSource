@@ -3276,7 +3276,7 @@ static uint32_t mdp4_pp_block2qseed(uint32_t block)
 	return valid;
 }
 
-static int mdp4_qseed_write_cfg(struct mdp_qseed_cfg_data *cfg)
+static int mdp4_qseed_access_cfg(struct mdp_qseed_cfg_data *cfg)
 {
 	int i, ret = 0;
 	uint32_t base = (uint32_t) (MDP_BASE + mdp_block2base(cfg->block));
@@ -3299,15 +3299,37 @@ static int mdp4_qseed_write_cfg(struct mdp_qseed_cfg_data *cfg)
 		goto error;
 	}
 
-	ret = copy_from_user(values, cfg->data, sizeof(uint32_t) * cfg->len);
-
 	base += (cfg->table_num == 1) ? MDP4_QSEED_TABLE1_OFF :
-						MDP4_QSEED_TABLE2_OFF;
-	for (i = 0; i < cfg->len; i++) {
-		MDP_OUTP(base , values[i]);
-		base += sizeof(uint32_t);
+							MDP4_QSEED_TABLE2_OFF;
+
+	if (cfg->ops & MDP_PP_OPS_WRITE) {
+		ret = copy_from_user(values, cfg->data,
+						sizeof(uint32_t) * cfg->len);
+		if (ret) {
+			pr_warn("%s: Error copying from user, %d", __func__,
+									ret);
+			ret = -EINVAL;
+			goto err_mem;
+		}
+		for (i = 0; i < cfg->len; i++) {
+			MDP_OUTP(base , values[i]);
+			base += sizeof(uint32_t);
+		}
+	} else if (cfg->ops & MDP_PP_OPS_READ) {
+		for (i = 0; i < cfg->len; i++) {
+			values[i] = inpdw(base);
+			base += sizeof(uint32_t);
+		}
+		ret = copy_to_user(cfg->data, values,
+						sizeof(uint32_t) * cfg->len);
+		if (ret) {
+			pr_warn("%s: Error copying to user, %d", __func__, ret);
+			ret = -EINVAL;
+			goto err_mem;
+		}
 	}
 
+err_mem:
 	kfree(values);
 error:
 	return ret;
@@ -3328,19 +3350,14 @@ int mdp4_qseed_cfg(struct mdp_qseed_cfg_data *cfg)
 		goto error;
 	}
 
-	switch ((cfg->ops & 0x6) >> 1) {
-	case 0x1:
-		pr_info("%s: QSEED read not supported\n", __func__);
-		ret = -ENOTTY;
-		break;
-	case 0x2:
-		ret = mdp4_qseed_write_cfg(cfg);
-		if (ret)
-			goto error;
-		break;
-	default:
-		break;
+	if ((cfg->ops & MDP_PP_OPS_READ) && (cfg->ops & MDP_PP_OPS_WRITE)) {
+		ret = -EPERM;
+		pr_warn("%s: Cannot read and write on the same request\n",
+								__func__);
+		goto error;
 	}
+
+	ret = mdp4_qseed_access_cfg(cfg);
 
 error:
 	return ret;
