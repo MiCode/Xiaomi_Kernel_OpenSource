@@ -84,6 +84,8 @@
 
 #define DDL_MAX_NUM_IN_INPUTFRAME_POOL          (DDL_MAX_NUM_OF_B_FRAME + 1)
 
+#define MDP_MIN_TILE_HEIGHT			96
+
 enum ddl_mem_area {
 	DDL_FW_MEM	= 0x0,
 	DDL_MM_MEM	= 0x1,
