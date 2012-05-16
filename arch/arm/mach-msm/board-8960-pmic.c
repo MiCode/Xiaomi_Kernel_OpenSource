@@ -471,7 +471,7 @@ static struct led_info pm8921_led_info_liquid[] = {
 	{
 		.name		= "led:blue",
 		.flags		= PM8XXX_ID_LED_2,
-		.default_trigger	= "dc-online",
+		.default_trigger	= "notification",
 	},
 };
 
