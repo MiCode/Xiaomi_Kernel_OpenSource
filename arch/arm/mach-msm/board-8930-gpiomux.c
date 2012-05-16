@@ -624,6 +624,22 @@ static struct msm_gpiomux_config msm8930_haptics_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting sd_det_line = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config msm8930_sd_det_config[] __initdata = {
+	{
+		.gpio = 94,	/* SD Card Detect Line */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &sd_det_line,
+			[GPIOMUX_ACTIVE] = &sd_det_line,
+		},
+	},
+};
+
 int __init msm8930_init_gpiomux(void)
 {
 	int rc = msm_gpiomux_init(NR_GPIO_IRQS);
@@ -687,5 +703,9 @@ int __init msm8930_init_gpiomux(void)
 
 	msm_gpiomux_install(msm8960_mdp_vsync_configs,
 			ARRAY_SIZE(msm8960_mdp_vsync_configs));
+
+	msm_gpiomux_install(msm8930_sd_det_config,
+			ARRAY_SIZE(msm8930_sd_det_config));
+
 	return 0;
 }
