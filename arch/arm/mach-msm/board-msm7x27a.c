@@ -883,6 +883,7 @@ static void __init size_pmem_devices(void)
 	android_pmem_audio_pdata.size = pmem_audio_size;
 
 	fmem_pdata.size = 0;
+	fmem_pdata.align = PAGE_SIZE;
 
 	/* Find pmem devices that should use FMEM (reusable) memory.
 	 */
