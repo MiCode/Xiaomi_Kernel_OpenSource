@@ -109,6 +109,7 @@ struct dmxdev {
 #define DMXDEV_CAP_DUPLEX			0x1
 #define DMXDEV_CAP_PULL_MODE		0x2
 #define DMXDEV_CAP_PCR_EXTRACTION	0x4
+#define DMXDEV_CAP_INDEXING		0x8
 
 	enum dmx_playback_mode_t playback_mode;
 	dmx_source_t source;

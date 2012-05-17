@@ -97,16 +97,40 @@ typedef struct dmx_filter
 } dmx_filter_t;
 
 
+/* Filter flags */
+#define DMX_CHECK_CRC		0x01
+#define DMX_ONESHOT		0x02
+#define DMX_IMMEDIATE_START	0x04
+#define DMX_ENABLE_INDEXING	0x08
+#define DMX_KERNEL_CLIENT	0x8000
+
 struct dmx_sct_filter_params
 {
 	__u16          pid;
 	dmx_filter_t   filter;
 	__u32          timeout;
 	__u32          flags;
-#define DMX_CHECK_CRC       1
-#define DMX_ONESHOT         2
-#define DMX_IMMEDIATE_START 4
-#define DMX_KERNEL_CLIENT   0x8000
+};
+
+
+/* Indexing: supported video standards */
+enum dmx_indexing_video_standard {
+	DMX_INDEXING_MPEG2,
+	DMX_INDEXING_H264,
+	DMX_INDEXING_VC1
+};
+
+/* Indexing: Supported video profiles */
+enum dmx_indexing_video_profile {
+	DMX_INDEXING_MPEG2_ANY,
+	DMX_INDEXING_H264_ANY,
+	DMX_INDEXING_VC1_ANY
+};
+
+/* Indexing: video configuration parameters */
+struct dmx_indexing_video_params {
+	enum dmx_indexing_video_standard standard;
+	enum dmx_indexing_video_profile profile;
 };
 
 
@@ -117,6 +141,8 @@ struct dmx_pes_filter_params
 	dmx_output_t   output;
 	dmx_pes_type_t pes_type;
 	__u32          flags;
+
+	struct dmx_indexing_video_params video_params;
 };
 
 struct dmx_buffer_status {

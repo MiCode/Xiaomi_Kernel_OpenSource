@@ -95,10 +95,12 @@ struct dvb_demux_feed {
 	int cc;
 	int pusi_seen;		/* prevents feeding of garbage from previous section */
 
-	u16 peslen;
+	u32 peslen;
 
 	struct list_head list_head;
 	unsigned int index;	/* a unique index for each feed (can be used as hardware pid filter index) */
+
+	struct dmx_indexing_video_params indexing_params;
 };
 
 struct dvb_demux {
