@@ -51,7 +51,7 @@ static int clk_rpmrs_get_rate(struct rpm_clk *r)
 	int rc;
 	struct msm_rpm_iv_pair iv = { .id = r->rpm_status_id, };
 	rc = msm_rpm_get_status(&iv, 1);
-	return (rc < 0) ? rc : iv.value * 1000;
+	return (rc < 0) ? rc : iv.value * r->factor;
 }
 
 #define RPM_SMD_KEY_RATE	0x007A484B
@@ -192,7 +192,7 @@ static int rpm_clk_set_rate(struct clk *clk, unsigned long rate)
 	unsigned long this_khz, this_sleep_khz;
 	int rc = 0;
 
-	this_khz = DIV_ROUND_UP(rate, 1000);
+	this_khz = DIV_ROUND_UP(rate, r->factor);
 
 	spin_lock_irqsave(&rpm_clock_lock, flags);
 
@@ -277,7 +277,7 @@ static enum handoff rpm_clk_handoff(struct clk *clk)
 	if (!r->branch) {
 		r->last_set_khz = iv.value;
 		r->last_set_sleep_khz = iv.value;
-		clk->rate = iv.value * 1000;
+		clk->rate = iv.value * r->factor;
 	}
 
 	return HANDOFF_ENABLED_CLK;
