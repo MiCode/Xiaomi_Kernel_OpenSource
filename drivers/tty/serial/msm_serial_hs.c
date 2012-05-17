@@ -1964,12 +1964,25 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	INIT_WORK(&msm_uport->clock_off_w, hsuart_clock_off_work);
 	mutex_init(&msm_uport->clk_mutex);
 
+	clk_prepare_enable(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_prepare_enable(msm_uport->pclk);
+
 	ret = uartdm_init_port(uport);
-	if (unlikely(ret))
+	if (unlikely(ret)) {
+		clk_disable_unprepare(msm_uport->clk);
+		if (msm_uport->pclk)
+			clk_disable_unprepare(msm_uport->pclk);
 		return ret;
+	}
 
 	/* configure the CR Protection to Enable */
 	msm_hs_write(uport, UARTDM_CR_ADDR, CR_PROTECTION_EN);
+
+	clk_disable_unprepare(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_disable_unprepare(msm_uport->pclk);
+
 	/*
 	 * Enable Command register protection before going ahead as this hw
 	 * configuration makes sure that issued cmd to CR register gets complete
