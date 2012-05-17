@@ -96,11 +96,29 @@ done:
 	return ret;
 }
 
+/*
+ * kgsl_iommu_pt_equal - Check if pagetables are equal
+ * @pt - Pointer to pagetable
+ * @pt_base - Address of a pagetable that the IOMMU register is
+ * programmed with
+ *
+ * Checks whether the pt_base is equal to the base address of
+ * the pagetable which is contained in the pt structure
+ * Return - Non-zero if the pagetable addresses are equal else 0
+ */
 static int kgsl_iommu_pt_equal(struct kgsl_pagetable *pt,
 					unsigned int pt_base)
 {
 	struct iommu_domain *domain = pt ? pt->priv : NULL;
-	return domain && pt_base && ((unsigned int)domain == pt_base);
+	unsigned int domain_ptbase = domain ? iommu_get_pt_base_addr(domain) :
+						0;
+	/* Only compare the valid address bits of the pt_base */
+	domain_ptbase &= (KGSL_IOMMU_TTBR0_PA_MASK <<
+				KGSL_IOMMU_TTBR0_PA_SHIFT);
+	pt_base &= (KGSL_IOMMU_TTBR0_PA_MASK <<
+				KGSL_IOMMU_TTBR0_PA_SHIFT);
+	return domain_ptbase && pt_base &&
+		(domain_ptbase == pt_base);
 }
 
 static void kgsl_iommu_destroy_pagetable(void *mmu_specific_pt)
