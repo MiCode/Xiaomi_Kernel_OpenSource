@@ -56,14 +56,28 @@ struct iommu_domains_pdata {
 	unsigned int domain_alloc_flags;
 };
 
+
+struct msm_iova_partition {
+	unsigned long start;
+	unsigned long size;
+};
+
+struct msm_iova_layout {
+	struct msm_iova_partition *partitions;
+	int npartitions;
+	const char *client_name;
+	unsigned int domain_flags;
+};
+
 #if defined(CONFIG_MSM_IOMMU)
 
 extern struct iommu_domain *msm_get_iommu_domain(int domain_num);
 
-extern unsigned long msm_allocate_iova_address(unsigned int iommu_domain,
+extern int msm_allocate_iova_address(unsigned int iommu_domain,
 					unsigned int partition_no,
 					unsigned long size,
-					unsigned long align);
+					unsigned long align,
+					unsigned long *iova);
 
 extern void msm_free_iova_address(unsigned long iova,
 			unsigned int iommu_domain,
@@ -97,16 +111,19 @@ extern void msm_iommu_unmap_contig_buffer(unsigned long iova,
 					unsigned int partition_no,
 					unsigned long size);
 
+extern int msm_register_domain(struct msm_iova_layout *layout);
+
 #else
 static inline struct iommu_domain
 	*msm_get_iommu_domain(int subsys_id) { return NULL; }
 
 
 
-static inline unsigned long msm_allocate_iova_address(unsigned int iommu_domain,
+static inline int msm_allocate_iova_address(unsigned int iommu_domain,
 					unsigned int partition_no,
 					unsigned long size,
-					unsigned long align) { return 0; }
+					unsigned long align,
+					unsigned long *iova) { return -ENOMEM; }
 
 static inline void msm_free_iova_address(unsigned long iova,
 			unsigned int iommu_domain,
@@ -152,6 +169,11 @@ static inline void msm_iommu_unmap_contig_buffer(unsigned long iova,
 					unsigned long size)
 {
 	return;
+}
+
+static inline int msm_register_domain(struct msm_iova_layout *layout)
+{
+	return -ENODEV;
 }
 #endif
 

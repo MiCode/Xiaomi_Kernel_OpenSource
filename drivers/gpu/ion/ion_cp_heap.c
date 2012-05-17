@@ -695,13 +695,15 @@ static int iommu_map_all(unsigned long domain_num, struct ion_cp_heap *cp_heap,
 	}
 	if (!ret_value && domain) {
 		unsigned long temp_phys = cp_heap->base;
-		unsigned long temp_iova =
-				msm_allocate_iova_address(domain_num, partition,
-						virt_addr_len, SZ_64K);
-		if (!temp_iova) {
+		unsigned long temp_iova;
+
+		ret_value = msm_allocate_iova_address(domain_num, partition,
+						virt_addr_len, SZ_64K,
+						&temp_iova);
+
+		if (ret_value) {
 			pr_err("%s: could not allocate iova from domain %lu, partition %d\n",
 				__func__, domain_num, partition);
-			ret_value = -ENOMEM;
 			goto out;
 		}
 		cp_heap->iommu_iova[domain_num] = temp_iova;
@@ -789,13 +791,12 @@ static int ion_cp_heap_map_iommu(struct ion_buffer *buffer,
 
 	extra = iova_length - buffer->size;
 
-	data->iova_addr = msm_allocate_iova_address(domain_num, partition_num,
-						data->mapped_size, align);
+	ret = msm_allocate_iova_address(domain_num, partition_num,
+						data->mapped_size, align,
+						&data->iova_addr);
 
-	if (!data->iova_addr) {
-		ret = -ENOMEM;
+	if (ret)
 		goto out;
-	}
 
 	domain = msm_get_iommu_domain(domain_num);
 

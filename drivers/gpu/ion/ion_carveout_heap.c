@@ -335,13 +335,12 @@ int ion_carveout_heap_map_iommu(struct ion_buffer *buffer,
 
 	extra = iova_length - buffer->size;
 
-	data->iova_addr = msm_allocate_iova_address(domain_num, partition_num,
-						data->mapped_size, align);
+	ret = msm_allocate_iova_address(domain_num, partition_num,
+						data->mapped_size, align,
+						&data->iova_addr);
 
-	if (!data->iova_addr) {
-		ret = -ENOMEM;
+	if (ret)
 		goto out;
-	}
 
 	domain = msm_get_iommu_domain(domain_num);
 
