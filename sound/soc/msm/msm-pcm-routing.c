@@ -172,6 +172,7 @@ static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ SLIMBUS_4_RX, 0, 0, 0, 0, 0},
 	{ SLIMBUS_4_TX, 0, 0, 0, 0, 0},
 	{ SLIMBUS_3_RX, 0, 0, 0, 0, 0},
+	{ SLIMBUS_3_TX, 0, 0, 0, 0, 0},
 	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
 	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
 	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
@@ -1408,6 +1409,9 @@ static const struct snd_kcontrol_new tx_voice_stub_mixer_controls[] = {
 	SOC_SINGLE_EXT("MI2S_TX", MSM_BACKEND_DAI_MI2S_TX,
 	MSM_FRONTEND_DAI_VOICE_STUB, 1, 0, msm_routing_get_voice_stub_mixer,
 	msm_routing_put_voice_stub_mixer),
+	SOC_SINGLE_EXT("SLIM_3_TX", MSM_BACKEND_DAI_SLIMBUS_3_TX,
+	MSM_FRONTEND_DAI_VOICE_STUB, 1, 0, msm_routing_get_voice_stub_mixer,
+	msm_routing_put_voice_stub_mixer),
 };
 
 static const struct snd_kcontrol_new sbus_0_rx_port_mixer_controls[] = {
@@ -1464,6 +1468,9 @@ static const struct snd_kcontrol_new afe_pcm_rx_port_mixer_controls[] = {
 static const struct snd_kcontrol_new hdmi_rx_port_mixer_controls[] = {
 	SOC_SINGLE_EXT("MI2S_TX", MSM_BACKEND_DAI_HDMI_RX,
 	MSM_BACKEND_DAI_MI2S_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
+	SOC_SINGLE_EXT("SLIM_3_TX", MSM_BACKEND_DAI_HDMI_RX,
+	MSM_BACKEND_DAI_SLIMBUS_3_TX, 1, 0, msm_routing_get_port_mixer,
 	msm_routing_put_port_mixer),
 };
 
@@ -1825,6 +1832,7 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("SLIMBUS_1_TX", "Slimbus1 Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("STUB_1_TX", "Stub1 Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("SLIMBUS_3_RX", "Slimbus3 Playback", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_IN("SLIMBUS_3_TX", "Slimbus3 Capture", 0, 0, 0, 0),
 
 	/* Switch Definitions */
 	SND_SOC_DAPM_SWITCH("SLIMBUS_DL_HL", SND_SOC_NOPM, 0, 0,
@@ -2103,6 +2111,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"Voice Stub Tx Mixer", "INTERNAL_BT_SCO_TX", "INT_BT_SCO_TX"},
 	{"Voice Stub Tx Mixer", "STUB_1_TX_HL", "STUB_1_TX"},
 	{"Voice Stub Tx Mixer", "MI2S_TX", "MI2S_TX"},
+	{"Voice Stub Tx Mixer", "SLIM_3_TX", "SLIMBUS_3_TX"},
 	{"VOICE_STUB_UL", NULL, "Voice Stub Tx Mixer"},
 
 	{"STUB_RX Mixer", "Voice Stub", "VOICE_STUB_DL"},
@@ -2112,6 +2121,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"INTERNAL_BT_SCO_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
 	{"MI2S_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
 	{"MI2S_RX", NULL, "MI2S_RX_Voice Mixer"},
+	{"HDMI_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
 
 	{"SLIMBUS_3_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
 	{"SLIMBUS_3_RX", NULL, "SLIMBUS_3_RX_Voice Mixer"},
@@ -2126,6 +2136,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 
 	{"HDMI_RX Port Mixer", "MI2S_TX", "MI2S_TX"},
+	{"HDMI_RX Port Mixer", "SLIM_3_TX", "SLIMBUS_3_TX"},
 	{"HDMI", NULL, "HDMI_RX Port Mixer"},
 
 	{"SEC_I2S_RX Port Mixer", "MI2S_TX", "MI2S_TX"},

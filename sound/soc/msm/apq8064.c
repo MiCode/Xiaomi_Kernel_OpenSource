@@ -66,7 +66,8 @@ enum {
 	SLIM_1_TX_1 = 146, /* BT-SCO and USB RX */
 	SLIM_3_RX_1 = 151, /* External echo-cancellation ref */
 	SLIM_3_RX_2 = 152, /* External echo-cancellation ref */
-	SLIM_3_TX_1 = 147, /* HDMI RX */
+	SLIM_3_TX_1 = 153, /* HDMI RX */
+	SLIM_3_TX_2 = 154, /* HDMI RX */
 	SLIM_4_TX_1 = 148, /* In-call recording RX */
 	SLIM_4_TX_2 = 149, /* In-call recording RX */
 	SLIM_4_RX_1 = 150, /* In-call music delivery TX */
@@ -984,6 +985,7 @@ static int msm_slimbus_3_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int ret = 0;
 	unsigned int rx_ch[2] = {SLIM_3_RX_1, SLIM_3_RX_2};
+	unsigned int tx_ch[2] = {SLIM_3_TX_1, SLIM_3_TX_2};
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		pr_debug("%s: slim_3_rx_ch %d, sch %d %d\n",
@@ -999,7 +1001,16 @@ static int msm_slimbus_3_hw_params(struct snd_pcm_substream *substream,
 			goto end;
 		}
 	} else {
-		pr_err("%s: SLIMBUS_3_TX not defined for this DAI\n", __func__);
+		pr_debug("%s: MDM RX -> SLIMBUS_3_TX -> APQ HDMI ch: %d, %d\n",
+			__func__, tx_ch[0], tx_ch[1]);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 2, tx_ch, 0, 0);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_3 TX channel map\n",
+				__func__, ret);
+
+			goto end;
+		}
 	}
 
 end:
@@ -1234,6 +1245,22 @@ static int msm_slim_3_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s()\n", __func__);
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = msm_slim_3_rx_ch;
+
+	return 0;
+}
+
+static int msm_slim_3_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+			struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = 2;
 
 	return 0;
 }
@@ -1798,6 +1825,18 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_RX,
 		.be_hw_params_fixup = msm_slim_3_rx_be_hw_params_fixup,
+		.ops = &msm_slimbus_3_be_ops,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_3_TX,
+		.stream_name = "Slimbus3 Capture",
+		.cpu_dai_name = "msm-dai-q6.16391",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_TX,
+		.be_hw_params_fixup = msm_slim_3_tx_be_hw_params_fixup,
 		.ops = &msm_slimbus_3_be_ops,
 	},
 };

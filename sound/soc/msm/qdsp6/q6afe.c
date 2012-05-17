@@ -167,6 +167,7 @@ int afe_get_port_type(u16 port_id)
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
 	case SLIMBUS_2_TX:
+	case SLIMBUS_3_TX:
 	case INT_FM_TX:
 	case VOICE_RECORD_RX:
 	case INT_BT_SCO_TX:
@@ -210,6 +211,7 @@ int afe_validate_port(u16 port_id)
 	case SLIMBUS_2_RX:
 	case SLIMBUS_2_TX:
 	case SLIMBUS_3_RX:
+	case SLIMBUS_3_TX:
 	case INT_BT_SCO_RX:
 	case INT_BT_SCO_TX:
 	case INT_BT_A2DP_RX:
@@ -277,6 +279,7 @@ int afe_get_port_index(u16 port_id)
 	case SLIMBUS_2_RX: return IDX_SLIMBUS_2_RX;
 	case SLIMBUS_2_TX: return IDX_SLIMBUS_2_TX;
 	case SLIMBUS_3_RX: return IDX_SLIMBUS_3_RX;
+	case SLIMBUS_3_TX: return IDX_SLIMBUS_3_TX;
 	case INT_BT_SCO_RX: return IDX_INT_BT_SCO_RX;
 	case INT_BT_SCO_TX: return IDX_INT_BT_SCO_TX;
 	case INT_BT_A2DP_RX: return IDX_INT_BT_A2DP_RX;
@@ -313,6 +316,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SLIMBUS_2_RX:
 	case SLIMBUS_2_TX:
 	case SLIMBUS_3_RX:
+	case SLIMBUS_3_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_port_slimbus_sch_cfg);

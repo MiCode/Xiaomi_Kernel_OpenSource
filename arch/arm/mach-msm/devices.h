@@ -269,6 +269,7 @@ extern struct platform_device apq_cpudai_slimbus_1_rx;
 extern struct platform_device apq_cpudai_slimbus_1_tx;
 extern struct platform_device apq_cpudai_slimbus_2_tx;
 extern struct platform_device apq_cpudai_slimbus_3_rx;
+extern struct platform_device apq_cpudai_slimbus_3_tx;
 extern struct platform_device apq_cpudai_slim_4_rx;
 extern struct platform_device apq_cpudai_slim_4_tx;
 
