@@ -13,7 +13,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#include <linux/mfd/pm8xxx/misc.h>
+#include <linux/mfd/pm8xxx/spk.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/slab.h>
@@ -36,6 +36,8 @@
 #define BTSCO_RATE_8KHZ 8000
 #define BTSCO_RATE_16KHZ 16000
 
+#define SPK_AMP_POS	0x1
+#define SPK_AMP_NEG	0x2
 #define SITAR_EXT_CLK_RATE 12288000
 
 #define SITAR_MBHC_DEF_BUTTONS 3
@@ -45,6 +47,7 @@ static int msm8930_spk_control;
 static int msm8930_slim_0_rx_ch = 1;
 static int msm8930_slim_0_tx_ch = 1;
 
+static int msm8930_ext_spk_pamp;
 static int msm8930_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm8930_btsco_ch = 1;
 
@@ -111,11 +114,81 @@ static int msm8930_set_spk(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static void msm8960_ext_spk_power_amp_on(u32 spk)
+{
+	if (spk & (SPK_AMP_POS | SPK_AMP_NEG)) {
+		if ((msm8930_ext_spk_pamp & SPK_AMP_POS) &&
+			(msm8930_ext_spk_pamp & SPK_AMP_NEG)) {
+
+			pr_debug("%s() External Bottom Speaker Ampl already "
+				"turned on. spk = 0x%08x\n", __func__, spk);
+			return;
+		}
+
+		msm8930_ext_spk_pamp |= spk;
+
+		if ((msm8930_ext_spk_pamp & SPK_AMP_POS) &&
+			(msm8930_ext_spk_pamp & SPK_AMP_NEG)) {
+
+			pm8xxx_spk_enable(MSM8930_SPK_ON);
+			pr_debug("%s: slepping 4 ms after turning on external "
+				" Left Speaker Ampl\n", __func__);
+			usleep_range(4000, 4000);
+		}
+
+	} else  {
+
+		pr_err("%s: ERROR : Invalid External Speaker Ampl. spk = 0x%08x\n",
+			__func__, spk);
+		return;
+	}
+}
+
+static void msm8960_ext_spk_power_amp_off(u32 spk)
+{
+	if (spk & (SPK_AMP_POS | SPK_AMP_NEG)) {
+		if (!msm8930_ext_spk_pamp)
+			return;
+
+		pm8xxx_spk_enable(MSM8930_SPK_OFF);
+		msm8930_ext_spk_pamp = 0;
+		pr_debug("%s: slepping 4 ms after turning on external "
+			" Left Speaker Ampl\n", __func__);
+		usleep_range(4000, 4000);
+
+	} else  {
+
+		pr_err("%s: ERROR : Invalid External Speaker Ampl. spk = 0x%08x\n",
+			__func__, spk);
+		return;
+	}
+}
+
 static int msm8930_spkramp_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *k, int event)
 {
 	pr_debug("%s() %x\n", __func__, SND_SOC_DAPM_EVENT_ON(event));
-	/* TODO: add external speaker power amps support */
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		if (!strncmp(w->name, "Ext Spk Left Pos", 17))
+			msm8960_ext_spk_power_amp_on(SPK_AMP_POS);
+		else if (!strncmp(w->name, "Ext Spk Left Neg", 17))
+			msm8960_ext_spk_power_amp_on(SPK_AMP_NEG);
+		else {
+			pr_err("%s() Invalid Speaker Widget = %s\n",
+					__func__, w->name);
+			return -EINVAL;
+		}
+	} else {
+		if (!strncmp(w->name, "Ext Spk Left Pos", 17))
+			msm8960_ext_spk_power_amp_off(SPK_AMP_POS);
+		else if (!strncmp(w->name, "Ext Spk Left Neg", 17))
+			msm8960_ext_spk_power_amp_off(SPK_AMP_NEG);
+		else {
+			pr_err("%s() Invalid Speaker Widget = %s\n",
+					__func__, w->name);
+			return -EINVAL;
+		}
+	}
 	return 0;
 }
 
@@ -174,7 +247,7 @@ static const struct snd_soc_dapm_widget msm8930_dapm_widgets[] = {
 	msm8930_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SPK("Ext Spk Left Pos", msm8930_spkramp_event),
-	SND_SOC_DAPM_SPK("Ext Spk Left Neg", NULL),
+	SND_SOC_DAPM_SPK("Ext Spk Left Neg", msm8930_spkramp_event),
 
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
