@@ -31,6 +31,7 @@
 
 #define SCM_Q6_NMI_CMD                  0x1
 #define MODULE_NAME			"lpass_8960"
+#define MAX_BUF_SIZE			0x51
 
 /* Subsystem restart: QDSP6 data, functions */
 static void lpass_fatal_fn(struct work_struct *);
@@ -86,10 +87,39 @@ static struct notifier_block mnb = {
 	.notifier_call = modem_notifier_cb,
 };
 
+static void lpass_log_failure_reason(void)
+{
+	char *reason;
+	char buffer[MAX_BUF_SIZE];
+	unsigned size;
+
+	reason = smem_get_entry(SMEM_SSR_REASON_LPASS0, &size);
+
+	if (!reason) {
+		pr_err("%s: subsystem failure reason: (unknown, smem_get_entry failed).",
+			 MODULE_NAME);
+		return;
+	}
+
+	if (reason[0] == '\0') {
+		pr_err("%s: subsystem failure reason: (unknown, init value found)",
+			 MODULE_NAME);
+		return;
+	}
+
+	size = size < MAX_BUF_SIZE ? size : (MAX_BUF_SIZE-1);
+	memcpy(buffer, reason, size);
+	buffer[size] = '\0';
+	pr_err("%s: subsystem failure reason: %s", MODULE_NAME, buffer);
+	memset((void *)reason, 0x0, size);
+	wmb();
+}
+
 static void lpass_fatal_fn(struct work_struct *work)
 {
 	pr_err("%s %s: Watchdog bite received from Q6!\n", MODULE_NAME,
 		__func__);
+	lpass_log_failure_reason();
 	panic(MODULE_NAME ": Resetting the SoC");
 }
 
@@ -104,6 +134,7 @@ static void lpass_smsm_state_cb(void *data, uint32_t old_state,
 		pr_err("%s: LPASS SMSM state changed to SMSM_RESET,"
 			" new_state = 0x%x, old_state = 0x%x\n", __func__,
 			new_state, old_state);
+		lpass_log_failure_reason();
 		panic(MODULE_NAME ": Resetting the SoC");
 	}
 }
