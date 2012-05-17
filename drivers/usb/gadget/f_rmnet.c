@@ -525,7 +525,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 	dev->notify->driver_data = dev;
 
-	if (!dev->port.in->driver_data) {
+	if (!dev->port.in->desc || !dev->port.out->desc) {
 		if (config_ep_by_speed(cdev->gadget, f, dev->port.in) ||
 			config_ep_by_speed(cdev->gadget, f, dev->port.out)) {
 				dev->port.in->desc = NULL;
