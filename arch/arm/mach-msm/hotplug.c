@@ -12,11 +12,11 @@
 #include <linux/smp.h>
 #include <linux/cpu.h>
 #include <linux/notifier.h>
+#include <linux/qdss.h>
 
 #include <asm/smp_plat.h>
 #include <asm/vfp.h>
 
-#include <mach/qdss.h>
 #include <mach/msm_rtb.h>
 
 #include "pm.h"
