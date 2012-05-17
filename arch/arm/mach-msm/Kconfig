@@ -2237,6 +2237,12 @@ config MSM_MULTIMEDIA_USE_ION
 	  instead of pmem. Selecting this may also involve userspace
 	  dependencies as well.
 
+config MSM_OCMEM
+	bool "MSM On-Chip memory driver (OCMEM)"
+	help
+	  Enable support for On-Chip Memory available on certain MSM chipsets.
+	  OCMEM is a low latency, high performance pool shared by subsystems.
+
 config MSM_RTB
 	bool "Register tracing"
 	help
