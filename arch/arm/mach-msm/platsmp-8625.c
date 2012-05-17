@@ -40,6 +40,7 @@ int pen_release = -1;
 static bool cold_boot_done;
 
 static uint32_t *msm8625_boot_vector;
+static void __iomem *reset_core1_base;
 
 /*
  * Write pen_release in a way that is guaranteed to be visible to all
@@ -155,9 +156,14 @@ static int  __cpuinit msm8625_release_secondary(void)
 	__raw_writel(0x0, base_ptr);
 	mb();
 
-	iounmap(base_ptr);
+	reset_core1_base = base_ptr;
 
 	return 0;
+}
+
+void __iomem *core1_reset_base(void)
+{
+	return reset_core1_base;
 }
 
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
