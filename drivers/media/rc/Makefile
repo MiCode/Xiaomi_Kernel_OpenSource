@@ -11,6 +11,7 @@ obj-$(CONFIG_IR_JVC_DECODER) += ir-jvc-decoder.o
 obj-$(CONFIG_IR_SONY_DECODER) += ir-sony-decoder.o
 obj-$(CONFIG_IR_RC5_SZ_DECODER) += ir-rc5-sz-decoder.o
 obj-$(CONFIG_IR_LIRC_CODEC) += ir-lirc-codec.o
+obj-$(CONFIG_USER_RC_INPUT) += user-rc-input.o
 
 # stand-alone IR receivers/transmitters
 obj-$(CONFIG_IR_IMON) += imon.o
