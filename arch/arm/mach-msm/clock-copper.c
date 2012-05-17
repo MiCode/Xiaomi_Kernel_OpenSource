@@ -102,6 +102,7 @@ static void __iomem *virt_bases[N_BASES];
 #define MMSS_DEBUG_CLK_CTL_REG         0x0900
 #define LPASS_DEBUG_CLK_CTL_REG        0x29000
 #define LPASS_LPA_PLL_VOTE_APPS_REG    0x2000
+#define MSS_DEBUG_CLK_CTL_REG          0x0078
 
 #define USB30_MASTER_CMD_RCGR          0x03D4
 #define USB30_MOCK_UTMI_CMD_RCGR       0x03E8
@@ -230,6 +231,7 @@ static void __iomem *virt_bases[N_BASES];
 #define BLSP2_UART5_BCR           0x0BC0
 #define BLSP2_QUP6_BCR            0x0C00
 #define BLSP2_UART6_BCR           0x0C40
+#define BOOT_ROM_BCR              0x0E00
 #define PDM_BCR                   0x0CC0
 #define PRNG_BCR                  0x0D00
 #define BAM_DMA_BCR               0x0D40
@@ -280,6 +282,8 @@ static void __iomem *virt_bases[N_BASES];
 #define OXILICX_AXI_CBCR          0x4038
 #define OXILI_BCR                 0x4020
 #define OXILICX_BCR               0x4030
+#define LPASS_Q6SS_BCR            0x6000
+#define MSS_Q6SS_BCR              0x1068
 
 #define OCMEM_SYS_NOC_AXI_CBCR                   0x0244
 #define OCMEM_NOC_CFG_AHB_CBCR                   0x0248
@@ -327,6 +331,7 @@ static void __iomem *virt_bases[N_BASES];
 #define BLSP1_UART6_APPS_CBCR                    0x0904
 #define BLSP1_UART6_SIM_CBCR                     0x0908
 #define BLSP2_AHB_CBCR                           0x0944
+#define BOOT_ROM_AHB_CBCR                        0x0E04
 #define BLSP2_QUP1_SPI_APPS_CBCR                 0x0984
 #define BLSP2_QUP1_I2C_APPS_CBCR                 0x0988
 #define BLSP2_UART1_APPS_CBCR                    0x09C4
@@ -469,6 +474,11 @@ static void __iomem *virt_bases[N_BASES];
 #define MMSS_MISC_AHB_CBCR                       0x502C
 #define MMSS_S0_AXI_CBCR                         0x5064
 #define OCMEMNOC_CBCR                            0x50B4
+#define LPASS_Q6SS_AHB_LFABIF_CBCR               0x22000
+#define LPASS_Q6SS_XO_CBCR                       0x26000
+#define MSS_XO_Q6_CBCR                           0x108C
+#define MSS_BUS_Q6_CBCR                          0x10A4
+#define MSS_CFG_AHB_CBCR                         0x0280
 
 #define APCS_CLOCK_BRANCH_ENA_VOTE 0x1484
 #define APCS_CLOCK_SLEEP_ENA_VOTE  0x1488
@@ -1625,6 +1635,19 @@ static struct branch_clk gcc_blsp1_uart6_apps_clk = {
 	},
 };
 
+static struct local_vote_clk gcc_boot_rom_ahb_clk = {
+	.cbcr_reg = BOOT_ROM_AHB_CBCR,
+	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(10),
+	.bcr_reg = BOOT_ROM_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_boot_rom_ahb_clk",
+		.ops = &clk_ops_vote,
+		CLK_INIT(gcc_boot_rom_ahb_clk.c),
+	},
+};
+
 static struct local_vote_clk gcc_blsp2_ahb_clk = {
 	.cbcr_reg = BLSP2_AHB_CBCR,
 	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
@@ -2222,6 +2245,17 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 		.dbg_name = "gcc_usb_hsic_system_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hsic_system_clk.c),
+	},
+};
+
+static struct branch_clk gcc_mss_cfg_ahb_clk = {
+	.cbcr_reg = MSS_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_mss_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mss_cfg_ahb_clk.c),
 	},
 };
 
@@ -4291,6 +4325,55 @@ static struct branch_clk audio_core_lpaif_pcm1_ibit_clk = {
 	},
 };
 
+static struct branch_clk q6ss_ahb_lfabif_clk = {
+	.cbcr_reg = LPASS_Q6SS_AHB_LFABIF_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[LPASS_BASE],
+	.c = {
+		.dbg_name = "q6ss_ahb_lfabif_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(q6ss_ahb_lfabif_clk.c),
+	},
+};
+
+static struct branch_clk q6ss_xo_clk = {
+	.cbcr_reg = LPASS_Q6SS_XO_CBCR,
+	.bcr_reg = LPASS_Q6SS_BCR,
+	.has_sibling = 1,
+	.base = &virt_bases[LPASS_BASE],
+	.c = {
+		.dbg_name = "q6ss_xo_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(q6ss_xo_clk.c),
+	},
+};
+
+static struct branch_clk mss_xo_q6_clk = {
+	.cbcr_reg = MSS_XO_Q6_CBCR,
+	.bcr_reg = MSS_Q6SS_BCR,
+	.has_sibling = 1,
+	.base = &virt_bases[MSS_BASE],
+	.c = {
+		.dbg_name = "mss_xo_q6_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(mss_xo_q6_clk.c),
+		.depends = &gcc_mss_cfg_ahb_clk.c,
+	},
+};
+
+static struct branch_clk mss_bus_q6_clk = {
+	.cbcr_reg = MSS_BUS_Q6_CBCR,
+	.bcr_reg = MSS_Q6SS_BCR,
+	.has_sibling = 1,
+	.base = &virt_bases[MSS_BASE],
+	.c = {
+		.dbg_name = "mss_bus_q6_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(mss_bus_q6_clk.c),
+		.depends = &gcc_mss_cfg_ahb_clk.c,
+	},
+};
+
 #ifdef CONFIG_DEBUG_FS
 
 struct measure_mux_entry {
@@ -4339,6 +4422,8 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_blsp2_uart4_apps_clk.c,		GCC_BASE, 0x00c2},
 	{&gcc_blsp2_uart5_apps_clk.c,		GCC_BASE, 0x00c6},
 	{&gcc_blsp2_uart6_apps_clk.c,		GCC_BASE, 0x00cb},
+	{&gcc_boot_rom_ahb_clk.c,		GCC_BASE, 0x0100},
+	{&gcc_mss_cfg_ahb_clk.c,		GCC_BASE, 0x0030},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0140},
 	{&gcc_ce2_clk.c,			GCC_BASE, 0x0148},
 	{&gcc_pdm2_clk.c,			GCC_BASE, 0x00da},
@@ -4438,6 +4523,11 @@ struct measure_mux_entry measure_mux[] = {
 	{&audio_core_lpaif_pcm1_clk_src.c,	LPASS_BASE, 0x0012},
 	{&audio_core_slimbus_core_clk.c,	LPASS_BASE, 0x003d},
 	{&audio_core_slimbus_lfabif_clk.c,	LPASS_BASE, 0x003e},
+	{&q6ss_xo_clk.c,			LPASS_BASE, 0x002b},
+	{&q6ss_ahb_lfabif_clk.c,		LPASS_BASE, 0x001e},
+	{&mss_bus_q6_clk.c,			MSS_BASE, 0x003c},
+	{&mss_xo_q6_clk.c,			MSS_BASE, 0x0007},
+
 	{&dummy_clk,				N_BASES,   0x0000},
 };
 
@@ -4465,6 +4555,7 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 	clk->sample_ticks = 0x10000;
 	clk->multiplier = 1;
 
+	writel_relaxed(0, MSS_REG_BASE(MSS_DEBUG_CLK_CTL_REG));
 	writel_relaxed(0, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
 	writel_relaxed(0, MMSS_REG_BASE(MMSS_DEBUG_CLK_CTL_REG));
 	writel_relaxed(0, GCC_REG_BASE(GCC_DEBUG_CLK_CTL_REG));
@@ -4493,6 +4584,12 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		/* Activate debug clock output */
 		regval |= BIT(16);
 		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
+		break;
+
+	case MSS_BASE:
+		clk_sel = 0x32;
+		regval = BVAL(5, 0, measure_mux[i].debug_mux);
+		writel_relaxed(regval, MSS_REG_BASE(MSS_DEBUG_CLK_CTL_REG));
 		break;
 
 	default:
@@ -4807,6 +4904,13 @@ static struct clk_lookup msm_clocks_copper[] = {
 	CLK_LOOKUP("ebit_clk", audio_core_lpaif_pcm1_ebit_clk.c, ""),
 	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pcm1_ibit_clk.c, ""),
 
+	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c, ""),
+	CLK_LOOKUP("bus_clk",       mss_bus_q6_clk.c, ""),
+	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c, ""),
+	CLK_LOOKUP("bus_clk",  q6ss_ahb_lfabif_clk.c, ""),
+	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c, ""),
+	CLK_LOOKUP("bus_clk",  gcc_mss_cfg_ahb_clk.c, ""),
+
 	/* TODO: Remove dummy clocks as soon as they become unnecessary */
 	CLK_DUMMY("phy_clk",       NULL,    "msm_otg", OFF),
 	CLK_DUMMY("core_clk",      NULL,    "msm_otg", OFF),
@@ -5048,6 +5152,9 @@ static void __init msmcopper_clock_post_init(void)
 #define LPASS_CC_PHYS	0xFE000000
 #define LPASS_CC_SIZE	SZ_256K
 
+#define MSS_CC_PHYS	0xFC980000
+#define MSS_CC_SIZE	SZ_16K
+
 static void __init msmcopper_clock_pre_init(void)
 {
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
@@ -5061,6 +5168,10 @@ static void __init msmcopper_clock_pre_init(void)
 	virt_bases[LPASS_BASE] = ioremap(LPASS_CC_PHYS, LPASS_CC_SIZE);
 	if (!virt_bases[LPASS_BASE])
 		panic("clock-copper: Unable to ioremap LPASS_CC memory!");
+
+	virt_bases[MSS_BASE] = ioremap(MSS_CC_PHYS, MSS_CC_SIZE);
+	if (!virt_bases[MSS_BASE])
+		panic("clock-copper: Unable to ioremap MSS_CC memory!");
 
 	clk_ops_local_pll.enable = copper_pll_clk_enable;
 
