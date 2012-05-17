@@ -17,6 +17,7 @@
 #include <mach/rpm.h>
 
 struct clk_ops;
+struct clk_rpmrs_data;
 extern struct clk_ops clk_ops_rpm;
 extern struct clk_ops clk_ops_rpm_branch;
 
@@ -29,6 +30,7 @@ struct rpm_clk {
 	unsigned last_set_sleep_khz;
 	bool enabled;
 	bool branch; /* true: RPM only accepts 1 for ON and 0 for OFF */
+	struct clk_rpmrs_data *rpmrs_data;
 
 	struct rpm_clk *peer;
 	struct clk c;
@@ -39,12 +41,15 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 	return container_of(clk, struct rpm_clk, c);
 }
 
+extern struct clk_rpmrs_data clk_rpmrs_data;
+
 #define DEFINE_CLK_RPM(name, active, r_id, dep) \
 	static struct rpm_clk active; \
 	static struct rpm_clk name = { \
 		.rpm_clk_id = MSM_RPM_ID_##r_id##_CLK, \
 		.rpm_status_id = MSM_RPM_STATUS_ID_##r_id##_CLK, \
 		.peer = &active, \
+		.rpmrs_data = &clk_rpmrs_data,\
 		.c = { \
 			.ops = &clk_ops_rpm, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
@@ -58,6 +63,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 		.rpm_status_id = MSM_RPM_STATUS_ID_##r_id##_CLK, \
 		.peer = &name, \
 		.active_only = true, \
+		.rpmrs_data = &clk_rpmrs_data,\
 		.c = { \
 			.ops = &clk_ops_rpm, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
@@ -76,6 +82,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 		.last_set_khz = ((r) / 1000), \
 		.last_set_sleep_khz = ((r) / 1000), \
 		.branch = true, \
+		.rpmrs_data = &clk_rpmrs_data,\
 		.c = { \
 			.ops = &clk_ops_rpm_branch, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
@@ -92,6 +99,7 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 		.last_set_khz = ((r) / 1000), \
 		.active_only = true, \
 		.branch = true, \
+		.rpmrs_data = &clk_rpmrs_data,\
 		.c = { \
 			.ops = &clk_ops_rpm_branch, \
 			.flags = CLKFLAG_SKIP_AUTO_OFF, \
