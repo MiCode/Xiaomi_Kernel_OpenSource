@@ -103,6 +103,7 @@ void __init msm7627a_bt_power_init(void);
 #endif
 
 void __init msm7627a_camera_init(void);
+int lcd_camera_power_onoff(int on);
 
 void __init msm7627a_add_io_devices(void);
 void __init qrd7627a_add_io_devices(void);
