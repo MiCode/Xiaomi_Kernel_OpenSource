@@ -81,11 +81,17 @@ static void msm_drain_eventq(struct msm_device_queue *queue)
 {
 	unsigned long flags;
 	struct msm_queue_cmd *qcmd;
+	struct msm_isp_event_ctrl *isp_event;
 	spin_lock_irqsave(&queue->lock, flags);
 	while (!list_empty(&queue->list)) {
 		qcmd = list_first_entry(&queue->list,
 			struct msm_queue_cmd, list_eventdata);
 		list_del_init(&qcmd->list_eventdata);
+		isp_event =
+			(struct msm_isp_event_ctrl *)
+			qcmd->command;
+		if (isp_event->isp_data.ctrl.value != NULL)
+			kfree(isp_event->isp_data.ctrl.value);
 		kfree(qcmd->command);
 		free_qcmd(qcmd);
 	}
@@ -167,36 +173,46 @@ static int msm_ctrl_cmd_done(void *arg)
 	void __user *uptr;
 	struct msm_queue_cmd *qcmd;
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr = arg;
-	struct msm_ctrl_cmd *command =
-		kzalloc(sizeof(struct msm_ctrl_cmd), GFP_KERNEL);
+	struct msm_ctrl_cmd *command;
+	D("%s\n", __func__);
+
+	command = kzalloc(sizeof(struct msm_ctrl_cmd), GFP_KERNEL);
 	if (!command) {
 		pr_err("%s Insufficient memory. return", __func__);
-		return -ENOMEM;
+		goto command_alloc_fail;
 	}
 
-	D("%s\n", __func__);
+	qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
+	if (!qcmd) {
+		pr_err("%s Insufficient memory. return", __func__);
+		goto qcmd_alloc_fail;
+	}
+
+	mutex_lock(&g_server_dev.server_queue_lock);
 	if (copy_from_user(command, (void __user *)ioctl_ptr->ioctl_ptr,
 					   sizeof(struct msm_ctrl_cmd))) {
 		pr_err("%s: copy_from_user failed, size=%d\n",
 			   __func__, sizeof(struct msm_ctrl_cmd));
-		return -EINVAL;
+		goto ctrl_cmd_done_error;
+	}
+
+	if (!g_server_dev.server_queue[command->queue_idx].queue_active) {
+		pr_err("%s: Invalid queue\n", __func__);
+		goto ctrl_cmd_done_error;
 	}
 
 	D("%s qid %d evtid %d %d\n", __func__, command->queue_idx,
 		command->evt_id,
 		g_server_dev.server_queue[command->queue_idx].evt_id);
-	g_server_dev.server_queue[command->queue_idx].ctrl = command;
 	if (command->evt_id !=
 		g_server_dev.server_queue[command->queue_idx].evt_id) {
 		pr_err("%s Invalid event id from userspace cmd id %d %d qid %d\n",
 			__func__, command->evt_id,
 			g_server_dev.server_queue[command->queue_idx].evt_id,
 			command->queue_idx);
-		return -EINVAL;
+		goto ctrl_cmd_done_error;
 	}
 
-	mutex_lock(&g_server_dev.server_queue_lock);
-	qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
 	atomic_set(&qcmd->on_heap, 1);
 	uptr = command->value;
 	qcmd->command = command;
@@ -208,18 +224,26 @@ static int msm_ctrl_cmd_done(void *arg)
 			pr_err("%s: user data %d is too big (max %d)\n",
 				__func__, command->length,
 				max_control_command_size);
-			free_qcmd(qcmd);
-			return -EINVAL;
+			goto ctrl_cmd_done_error;
 		}
 		if (copy_from_user(command->value, uptr, command->length)) {
-			free_qcmd(qcmd);
-			return -EINVAL;
+			pr_err("%s: copy_from_user failed, size=%d\n",
+			__func__, sizeof(struct msm_ctrl_cmd));
+			goto ctrl_cmd_done_error;
 		}
 	}
 	msm_enqueue(&g_server_dev.server_queue
 		[command->queue_idx].ctrl_q, &qcmd->list_control);
 	mutex_unlock(&g_server_dev.server_queue_lock);
 	return 0;
+
+ctrl_cmd_done_error:
+	mutex_unlock(&g_server_dev.server_queue_lock);
+	free_qcmd(qcmd);
+qcmd_alloc_fail:
+	kfree(command);
+command_alloc_fail:
+	return -EINVAL;
 }
 
 /* send control command to config and wait for results*/
@@ -236,15 +260,20 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 
 	struct v4l2_event v4l2_evt;
 	struct msm_isp_event_ctrl *isp_event;
-	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_KERNEL);
-	if (!isp_event) {
-		pr_err("%s Insufficient memory. return", __func__);
-		return -ENOMEM;
-	}
+	void *ctrlcmd_data;
+
 	event_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
 	if (!event_qcmd) {
 		pr_err("%s Insufficient memory. return", __func__);
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto event_qcmd_alloc_fail;
+	}
+
+	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_KERNEL);
+	if (!isp_event) {
+		pr_err("%s Insufficient memory. return", __func__);
+		rc = -ENOMEM;
+		goto isp_event_alloc_fail;
 	}
 
 	D("%s\n", __func__);
@@ -262,6 +291,16 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	isp_event->resptype = MSM_CAM_RESP_V4L2;
 	isp_event->isp_data.ctrl = *out;
 	isp_event->isp_data.ctrl.evt_id = server_dev->server_evt_id;
+
+	if (out->value != NULL && out->length != 0) {
+		ctrlcmd_data = kzalloc(out->length, GFP_KERNEL);
+		if (!ctrlcmd_data) {
+			rc = -ENOMEM;
+			goto ctrlcmd_alloc_fail;
+		}
+		memcpy(ctrlcmd_data, out->value, out->length);
+		isp_event->isp_data.ctrl.value = ctrlcmd_data;
+	}
 
 	atomic_set(&event_qcmd->on_heap, 1);
 	event_qcmd->command = isp_event;
@@ -286,7 +325,8 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 		if (!rc)
 			rc = -ETIMEDOUT;
 		if (rc < 0) {
-			kfree(isp_event);
+			if (++server_dev->server_evt_id == 0)
+				server_dev->server_evt_id++;
 			pr_err("%s: wait_event error %d\n", __func__, rc);
 			return rc;
 		}
@@ -306,10 +346,7 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	out->value = value;
 
 	kfree(ctrlcmd);
-	server_dev->server_queue[out->queue_idx].ctrl = NULL;
-
 	free_qcmd(rcmd);
-	kfree(isp_event);
 	D("%s: rc %d\n", __func__, rc);
 	/* rc is the time elapsed. */
 	if (rc >= 0) {
@@ -321,6 +358,13 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 		else
 			rc = -EINVAL;
 	}
+	return rc;
+
+ctrlcmd_alloc_fail:
+	kfree(isp_event);
+isp_event_alloc_fail:
+	kfree(event_qcmd);
+event_qcmd_alloc_fail:
 	return rc;
 }
 
@@ -1604,7 +1648,6 @@ int msm_server_open_client(int *p_qidx)
 
 	*p_qidx = server_q_idx;
 	queue = &g_server_dev.server_queue[server_q_idx];
-	queue->ctrl = NULL;
 	queue->ctrl_data = kzalloc(sizeof(uint8_t) *
 		max_control_command_size, GFP_KERNEL);
 	msm_queue_init(&queue->ctrl_q, "control");
@@ -1698,8 +1741,6 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 	out->value = value;
 
 	kfree(ctrlcmd);
-	server_dev->server_queue[out->queue_idx].ctrl = NULL;
-
 	free_qcmd(rcmd);
 	kfree(isp_event);
 	D("%s: rc %d\n", __func__, rc);
@@ -1723,8 +1764,6 @@ int msm_server_close_client(int idx)
 	mutex_lock(&g_server_dev.server_lock);
 	queue = &g_server_dev.server_queue[idx];
 	queue->queue_active = 0;
-	kfree(queue->ctrl);
-	queue->ctrl = NULL;
 	kfree(queue->ctrl_data);
 	queue->ctrl_data = NULL;
 	msm_queue_drain(&queue->ctrl_q, list_control);
@@ -1792,14 +1831,12 @@ static int msm_open(struct file *f)
 		int ges_evt = MSM_V4L2_GES_CAM_OPEN;
 		pcam->server_queue_idx = server_q_idx;
 		queue = &g_server_dev.server_queue[server_q_idx];
-		queue->ctrl = NULL;
 		queue->ctrl_data = kzalloc(sizeof(uint8_t) *
 			max_control_command_size, GFP_KERNEL);
 		msm_queue_init(&queue->ctrl_q, "control");
 		msm_queue_init(&queue->eventData_q, "eventdata");
 		queue->queue_active = 1;
 
-		pr_err("%s send gesture evt\n", __func__);
 		msm_cam_server_subdev_notify(g_server_dev.gesture_device,
 			NOTIFY_GESTURE_CAM_EVT, &ges_evt);
 
@@ -1852,14 +1889,14 @@ static int msm_open(struct file *f)
 
 	if (pcam->use_count == 1) {
 		rc = msm_send_open_server(pcam);
-		if (rc < 0) {
+		if (rc < 0 && rc != -ERESTARTSYS) {
 			pr_err("%s: msm_send_open_server failed %d\n",
 				__func__, rc);
 			goto msm_send_open_server_failed;
 		}
 	}
 	mutex_unlock(&pcam->vid_lock);
-	D("%s: end", __func__);
+	D("%s: end\n", __func__);
 	return rc;
 
 msm_send_open_server_failed:
@@ -1873,7 +1910,7 @@ mctl_open_failed:
 	if (pcam->use_count == 1) {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		if (ion_client_created) {
-			pr_err("%s: destroy ion client", __func__);
+			D("%s: destroy ion client", __func__);
 			kref_put(&pmctl->refcount, msm_release_ion_client);
 		}
 #endif
@@ -2035,8 +2072,8 @@ static int msm_mmap(struct file *f, struct vm_area_struct *vma)
 void msm_release_ion_client(struct kref *ref)
 {
 	struct msm_cam_media_controller *mctl = container_of(ref,
-			struct msm_cam_media_controller, refcount);
-	pr_err("%s Calling ion_client_destroy ", __func__);
+		struct msm_cam_media_controller, refcount);
+	pr_err("%s Calling ion_client_destroy\n", __func__);
 	ion_client_destroy(mctl->client);
 }
 
@@ -2097,28 +2134,27 @@ static int msm_close(struct file *f)
 			if (rc < 0)
 				pr_err("msm_send_close_server failed %d\n", rc);
 		}
+
 		if (pmctl->mctl_release) {
 			rc = pmctl->mctl_release(pmctl);
 			if (rc < 0)
 				pr_err("mctl_release fails %d\n", rc);
 		}
+
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		kref_put(&pmctl->refcount, msm_release_ion_client);
 #endif
+		mutex_lock(&g_server_dev.server_queue_lock);
 		queue = &g_server_dev.server_queue[pcam->server_queue_idx];
 		queue->queue_active = 0;
-		kfree(queue->ctrl);
-		queue->ctrl = NULL;
 		kfree(queue->ctrl_data);
 		queue->ctrl_data = NULL;
 		msm_queue_drain(&queue->ctrl_q, list_control);
 		msm_drain_eventq(&queue->eventData_q);
+		mutex_unlock(&g_server_dev.server_queue_lock);
 		rc = msm_cam_server_close_session(&g_server_dev, pcam);
 		if (rc < 0)
 			pr_err("msm_cam_server_close_session fails %d\n", rc);
-
-		if (g_server_dev.use_count == 0)
-			mutex_unlock(&g_server_dev.server_lock);
 
 		msm_cam_server_subdev_notify(g_server_dev.gesture_device,
 			NOTIFY_GESTURE_CAM_EVT, &ges_evt);
@@ -2295,12 +2331,21 @@ static long msm_ioctl_server(struct file *file, void *fh,
 			rc = -EINVAL;
 			return rc;
 		}
+		mutex_lock(&g_server_dev.server_queue_lock);
+		if (!g_server_dev.server_queue
+			[u_isp_event.isp_data.ctrl.queue_idx].queue_active) {
+			pr_err("%s: Invalid queue\n", __func__);
+			mutex_unlock(&g_server_dev.server_queue_lock);
+			rc = -EINVAL;
+			return rc;
+		}
 		queue = &g_server_dev.server_queue
 			[u_isp_event.isp_data.ctrl.queue_idx].eventData_q;
 		event_cmd = msm_dequeue(queue, list_eventdata);
 		if (!event_cmd) {
 			pr_err("%s: No event payload\n", __func__);
 			rc = -EINVAL;
+			mutex_unlock(&g_server_dev.server_queue_lock);
 			return rc;
 		}
 		k_isp_event = (struct msm_isp_event_ctrl *)
@@ -2318,21 +2363,30 @@ static long msm_ioctl_server(struct file *file, void *fh,
 		u_isp_event.isp_data.ctrl.value = u_ctrl_value;
 
 		/* Copy the ctrl cmd, if present*/
-		if (k_isp_event->isp_data.ctrl.length > 0) {
+		if (k_isp_event->isp_data.ctrl.length > 0 &&
+			k_isp_event->isp_data.ctrl.value != NULL) {
 			void *k_ctrl_value =
 				k_isp_event->isp_data.ctrl.value;
 			if (copy_to_user(u_ctrl_value, k_ctrl_value,
 				 k_isp_event->isp_data.ctrl.length)) {
+				kfree(k_isp_event->isp_data.ctrl.value);
+				kfree(k_isp_event);
 				rc = -EINVAL;
+				mutex_unlock(&g_server_dev.server_queue_lock);
 				break;
 			}
+			kfree(k_isp_event->isp_data.ctrl.value);
 		}
 		if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
 							  &u_isp_event,
 				sizeof(struct msm_isp_event_ctrl))) {
+			kfree(k_isp_event);
 			rc = -EINVAL;
+			mutex_unlock(&g_server_dev.server_queue_lock);
 			return rc;
 		}
+		kfree(k_isp_event);
+		mutex_unlock(&g_server_dev.server_queue_lock);
 		rc = 0;
 		break;
 	}
@@ -2387,9 +2441,21 @@ static int msm_close_server(struct file *fp)
 		g_server_dev.use_count--;
 	mutex_unlock(&g_server_dev.server_lock);
 	if (g_server_dev.use_count == 0) {
+		mutex_lock(&g_server_dev.server_lock);
 		if (g_server_dev.pcam_active) {
 			struct v4l2_event v4l2_ev;
-			mutex_lock(&g_server_dev.server_lock);
+			struct msm_cam_media_controller *pmctl = NULL;
+			int rc;
+
+			pmctl = msm_camera_get_mctl(
+				g_server_dev.pcam_active->mctl_handle);
+			if (pmctl && pmctl->mctl_release) {
+				rc = pmctl->mctl_release(pmctl);
+				if (rc < 0)
+					pr_err("mctl_release fails %d\n", rc);
+			}
+			/*so that it isn't closed again*/
+			pmctl->mctl_release = NULL;
 
 			v4l2_ev.type = V4L2_EVENT_PRIVATE_START
 				+ MSM_CAM_APP_NOTIFY_ERROR_EVENT;
@@ -2397,9 +2463,10 @@ static int msm_close_server(struct file *fp)
 			v4l2_event_queue(
 				g_server_dev.pcam_active->pvdev, &v4l2_ev);
 		}
-	sub.type = V4L2_EVENT_ALL;
-	msm_server_v4l2_unsubscribe_event(
-		&g_server_dev.server_command_queue.eventHandle, &sub);
+		sub.type = V4L2_EVENT_ALL;
+		msm_server_v4l2_unsubscribe_event(
+			&g_server_dev.server_command_queue.eventHandle, &sub);
+		mutex_unlock(&g_server_dev.server_lock);
 	}
 	return 0;
 }
@@ -2654,7 +2721,6 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 	int rc;
 	struct msm_cam_config_dev *config_cam = container_of(inode->i_cdev,
 		struct msm_cam_config_dev, config_cdev);
-
 	D("%s: open %s\n", __func__, fp->f_path.dentry->d_name.name);
 
 	rc = nonseekable_open(inode, fp);
@@ -2682,11 +2748,32 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 
 static int msm_close_config(struct inode *node, struct file *f)
 {
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	struct v4l2_event ev;
+	struct v4l2_event_subscription sub;
+	struct msm_isp_event_ctrl *isp_event;
 	struct msm_cam_config_dev *config_cam = f->private_data;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	D("%s Decrementing ref count of config node ", __func__);
 	kref_put(&config_cam->p_mctl->refcount, msm_release_ion_client);
 #endif
+	sub.type = V4L2_EVENT_ALL;
+	msm_server_v4l2_unsubscribe_event(
+		&config_cam->config_stat_event_queue.eventHandle,
+		&sub);
+	while (v4l2_event_pending(
+		&config_cam->config_stat_event_queue.eventHandle)) {
+		v4l2_event_dequeue(
+			&config_cam->config_stat_event_queue.eventHandle,
+			&ev, O_NONBLOCK);
+		isp_event = (struct msm_isp_event_ctrl *)
+			(*((uint32_t *)ev.u.data));
+		if (isp_event) {
+			if (isp_event->isp_data.isp_msg.len != 0 &&
+				isp_event->isp_data.isp_msg.data != NULL)
+				kfree(isp_event->isp_data.isp_msg.data);
+			kfree(isp_event);
+		}
+	}
 	return 0;
 }
 

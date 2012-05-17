@@ -397,7 +397,6 @@ struct msm_cam_server_queue {
 	uint32_t queue_active;
 	struct msm_device_queue ctrl_q;
 	struct msm_device_queue eventData_q;
-	struct msm_ctrl_cmd *ctrl;
 	uint8_t *ctrl_data;
 	uint32_t evt_id;
 };
