@@ -310,7 +310,7 @@ static struct wcd9xxx_pdata tabla20_platform_data = {
 		.name = "tabla-slave",
 		.e_addr = {0, 0, 0x60, 0, 0x17, 2},
 	},
-	.irq = 85,
+	.irq = MSM_GPIO_TO_INT(85),
 	.irq_base = TABLA_INTERRUPT_BASE,
 	.num_irqs = NR_WCD9XXX_IRQS,
 	.reset_gpio = 84,
