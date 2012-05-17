@@ -236,6 +236,20 @@ static inline int msm_rpm_send_request_noirq(struct msm_rpm_request *handle)
 	return 0;
 
 }
+
+static inline int msm_rpm_send_message(enum msm_rpm_set set, uint32_t rsc_type,
+		uint32_t rsc_id, struct msm_rpm_kvp *kvp, int nelems)
+{
+	return 0;
+}
+
+static inline int msm_rpm_send_message_noirq(enum msm_rpm_set set,
+		uint32_t rsc_type, uint32_t rsc_id, struct msm_rpm_kvp *kvp,
+		int nelems)
+{
+	return 0;
+}
+
 static inline int msm_rpm_wait_for_ack(uint32_t msg_id)
 {
 	return 0;

@@ -899,6 +899,8 @@ extern struct msm_rpm_platform_data msm9615_rpm_data;
 extern struct msm_rpm_platform_data msm8930_rpm_data;
 extern struct msm_rpm_platform_data apq8064_rpm_data;
 
+#if defined(CONFIG_MSM_RPM)
+
 int msm_rpm_local_request_is_outstanding(void);
 int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count);
 int msm_rpm_set(int ctx, struct msm_rpm_iv_pair *req, int count);
@@ -937,5 +939,71 @@ int msm_rpm_register_notification(struct msm_rpm_notification *n,
 	struct msm_rpm_iv_pair *req, int count);
 int msm_rpm_unregister_notification(struct msm_rpm_notification *n);
 int msm_rpm_init(struct msm_rpm_platform_data *data);
+
+#else
+
+static inline int msm_rpm_local_request_is_outstanding(void)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_set(int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_set_noirq(int ctx, struct msm_rpm_iv_pair *req,
+					int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_set_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_clear(int ctx, struct msm_rpm_iv_pair *req,
+				int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_clear_noirq(int ctx, struct msm_rpm_iv_pair *req,
+					int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_clear_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_register_notification(struct msm_rpm_notification *n,
+	struct msm_rpm_iv_pair *req, int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_unregister_notification(
+					struct msm_rpm_notification *n)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpm_init(struct msm_rpm_platform_data *data)
+{
+	return -ENODEV;
+}
+
+#endif /* CONFIG_RPM */
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_H */

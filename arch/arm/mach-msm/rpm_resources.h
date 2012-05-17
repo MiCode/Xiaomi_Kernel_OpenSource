@@ -102,6 +102,8 @@ struct msm_rpmrs_platform_data {
 	unsigned int rpmrs_target_id[MSM_RPMRS_ID_LAST];
 };
 
+#if defined(CONFIG_MSM_RPM)
+
 int msm_rpmrs_set(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_set_bits_noirq(int ctx, struct msm_rpm_iv_pair *req, int count,
@@ -138,5 +140,75 @@ static inline int msm_rpmrs_clear_nosleep(
 
 void msm_rpmrs_show_resources(void);
 int msm_rpmrs_levels_init(struct msm_rpmrs_platform_data *data);
+
+#else
+
+static inline int msm_rpmrs_set(int ctx, struct msm_rpm_iv_pair *req,
+				int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpmrs_set_noirq(int ctx, struct msm_rpm_iv_pair *req,
+					int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpmrs_set_bits_noirq(int ctx, struct msm_rpm_iv_pair *req,
+			int count, int *mask)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpmrs_set_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpmrs_clear(int ctx, struct msm_rpm_iv_pair *req,
+					int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpmrs_clear_noirq(int ctx, struct msm_rpm_iv_pair *req,
+						int count)
+{
+	return -ENODEV;
+}
+
+static inline int msm_rpmrs_clear_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	return -ENODEV;
+}
+
+static inline struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
+	bool from_idle, enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
+	uint32_t sleep_us)
+{
+	return NULL;
+}
+
+static inline int msm_rpmrs_enter_sleep(uint32_t sclk_count,
+	struct msm_rpmrs_limits *limits, bool from_idle, bool notify_rpm)
+{
+	return -ENODEV;
+}
+
+static inline void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits,
+		bool from_idle, bool notify_rpm, bool collapsed)
+{
+	return;
+}
+
+static inline int msm_rpmrs_levels_init(struct msm_rpmrs_platform_data *data)
+{
+	return -ENODEV;
+}
+
+#endif /* CONFIG_MSM_RPM */
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H */
