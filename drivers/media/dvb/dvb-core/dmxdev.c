@@ -1186,6 +1186,24 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 		return ret;
 	}
 
+	/* Support indexing for video PES */
+	if ((para->pes_type == DMX_PES_VIDEO0) ||
+	    (para->pes_type == DMX_PES_VIDEO1) ||
+	    (para->pes_type == DMX_PES_VIDEO2) ||
+	    (para->pes_type == DMX_PES_VIDEO3)) {
+
+		if (tsfeed->set_indexing_params) {
+			ret = tsfeed->set_indexing_params(tsfeed,
+							&para->video_params);
+
+			if (ret < 0) {
+				dmxdev->demux->release_ts_feed(dmxdev->demux,
+								tsfeed);
+				return ret;
+			}
+		}
+	}
+
 	ret = tsfeed->start_filtering(tsfeed);
 	if (ret < 0) {
 		dmxdev->demux->release_ts_feed(dmxdev->demux, tsfeed);
@@ -1463,6 +1481,23 @@ static int dvb_dmxdev_pes_filter_set(struct dmxdev *dmxdev,
 
 	if (params->pes_type > DMX_PES_OTHER || params->pes_type < 0)
 		return -EINVAL;
+
+	if (params->flags & DMX_ENABLE_INDEXING) {
+		if (!(dmxdev->capabilities & DMXDEV_CAP_INDEXING))
+			return -EINVAL;
+
+		/* can do indexing only on video PES */
+		if ((params->pes_type != DMX_PES_VIDEO0) &&
+		    (params->pes_type != DMX_PES_VIDEO1) &&
+		    (params->pes_type != DMX_PES_VIDEO2) &&
+		    (params->pes_type != DMX_PES_VIDEO3))
+			return -EINVAL;
+
+		/* can do indexing only when recording */
+		if ((params->output != DMX_OUT_TS_TAP) &&
+		    (params->output != DMX_OUT_TSDEMUX_TAP))
+			return -EINVAL;
+	}
 
 	dmxdevfilter->type = DMXDEV_TYPE_PES;
 	memcpy(&dmxdevfilter->params, params,
