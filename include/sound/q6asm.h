@@ -13,7 +13,6 @@
 #define __Q6_ASM_H__
 
 #include <mach/qdsp6v2/apr.h>
-#include <mach/msm_subsystem_map.h>
 #include <sound/apr_audio.h>
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #include <linux/ion.h>
@@ -110,7 +109,7 @@ struct audio_buffer {
 	struct ion_handle *handle;
 	struct ion_client *client;
 #else
-	struct msm_mapped_buffer *mem_buffer;
+	void *mem_buffer;
 #endif
 };
 

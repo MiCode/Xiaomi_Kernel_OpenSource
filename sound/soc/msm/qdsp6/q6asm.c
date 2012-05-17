@@ -38,7 +38,6 @@
 #include <mach/peripheral-loader.h>
 #include <mach/qdsp6v2/audio_acdb.h>
 #include <mach/qdsp6v2/rtac.h>
-#include <mach/msm_subsystem_map.h>
 
 #include <sound/apr_audio.h>
 #include <sound/q6asm.h>
@@ -258,7 +257,7 @@ int q6asm_audio_client_buf_free(unsigned int dir,
 						 "%ld\n", __func__,
 				PTR_ERR((void *)port->buf[cnt].mem_buffer));
 				else {
-					if (msm_subsystem_unmap_buffer(
+					if (iounmap(
 						port->buf[cnt].mem_buffer) < 0)
 						pr_err("%s: unmap buffer"
 							" failed\n", __func__);
@@ -328,7 +327,7 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 				"%ld\n", __func__,
 				PTR_ERR((void *)port->buf[0].mem_buffer));
 		else {
-			if (msm_subsystem_unmap_buffer(
+			if (iounmap(
 				port->buf[0].mem_buffer) < 0)
 				pr_err("%s: unmap buffer"
 					" failed\n", __func__);
@@ -574,11 +573,8 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 						mutex_unlock(&ac->cmd_lock);
 						goto fail;
 					}
-					flags = MSM_SUBSYSTEM_MAP_KADDR |
-						MSM_SUBSYSTEM_MAP_CACHED;
 					buf[cnt].mem_buffer =
-					msm_subsystem_map_buffer(buf[cnt].phys,
-						bufsz, flags, NULL, 0);
+					ioremap(buf[cnt].phys, bufsz);
 					if (IS_ERR(
 						(void *)buf[cnt].mem_buffer)) {
 						pr_err("%s:map_buffer failed,"
@@ -588,7 +584,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 						goto fail;
 					}
 					buf[cnt].data =
-						buf[cnt].mem_buffer->vaddr;
+						buf[cnt].mem_buffer;
 					if (!buf[cnt].data) {
 						pr_err("%s:invalid vaddr,"
 						" iomap failed\n", __func__);
@@ -700,9 +696,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		goto fail;
 	}
 
-	flags = MSM_SUBSYSTEM_MAP_KADDR | MSM_SUBSYSTEM_MAP_CACHED;
-	buf[0].mem_buffer = msm_subsystem_map_buffer(buf[0].phys,
-				bufsz * bufcnt, flags, NULL, 0);
+	buf[0].mem_buffer = ioremap(buf[0].phys, bufsz * bufcnt);
 	if (IS_ERR((void *)buf[cnt].mem_buffer)) {
 		pr_err("%s:map_buffer failed,"
 			"error = %ld\n",
@@ -711,7 +705,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		mutex_unlock(&ac->cmd_lock);
 		goto fail;
 	}
-	buf[0].data = buf[0].mem_buffer->vaddr;
+	buf[0].data = buf[0].mem_buffer;
 #endif
 	if (!buf[0].data) {
 		pr_err("%s:invalid vaddr,"
