@@ -284,6 +284,10 @@ void __init msm8930_init_mmc(void)
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	/* SDC3: External card slot */
+	if (!machine_is_msm8930_cdp()) {
+		msm8960_sdc3_data.wpswitch_gpio = 0;
+		msm8960_sdc3_data.wpswitch_polarity = 0;
+	}
 	msm_add_sdcc(3, &msm8960_sdc3_data);
 #endif
 }
