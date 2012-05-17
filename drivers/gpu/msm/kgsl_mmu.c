@@ -521,11 +521,8 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable(unsigned long name)
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return (void *)(-1);
 
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type)
-		name = KGSL_MMU_GLOBAL_PT;
-#else
-		name = KGSL_MMU_GLOBAL_PT;
+#ifndef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	name = KGSL_MMU_GLOBAL_PT;
 #endif
 	pt = kgsl_get_pagetable(name);
 
@@ -546,7 +543,8 @@ void kgsl_setstate(struct kgsl_mmu *mmu, uint32_t flags)
 	struct kgsl_device *device = mmu->device;
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return;
-	else if (device->ftbl->setstate)
+	else if (device->ftbl->setstate && (KGSL_MMU_TYPE_IOMMU !=
+						kgsl_mmu_type))
 		device->ftbl->setstate(device, flags);
 	else if (mmu->mmu_ops->mmu_device_setstate)
 		mmu->mmu_ops->mmu_device_setstate(mmu, flags);
