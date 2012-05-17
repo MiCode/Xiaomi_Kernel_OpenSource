@@ -152,7 +152,6 @@ static void gpio_sdc1_config(void)
 {
 	if (machine_is_msm7627a_qrd1() || machine_is_msm7627a_evb()
 					|| machine_is_msm8625_evb()
-					|| machine_is_msm8625_evt()
 					|| machine_is_msm7627a_qrd3()
 					|| machine_is_msm8625_qrd7())
 		gpio_sdc1_hw_det = 42;
@@ -257,7 +256,6 @@ static unsigned int msm7627a_sdcc_slot_status(struct device *dev)
 			if (machine_is_msm7627a_qrd1() ||
 					machine_is_msm7627a_evb() ||
 					machine_is_msm8625_evb()  ||
-					machine_is_msm8625_evt()  ||
 					machine_is_msm7627a_qrd3() ||
 					machine_is_msm8625_qrd7())
 				status = !gpio_get_value(gpio_sdc1_hw_det);
@@ -384,7 +382,14 @@ void __init msm7627a_init_mmc(void)
 	gpio_sdc1_config();
 	if (mmc_regulator_init(1, "mmc", 2850000))
 		return;
-	sdc1_plat_data.status_irq = MSM_GPIO_TO_INT(gpio_sdc1_hw_det);
+#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
+	/* 8x25 EVT do not use hw detector */
+	if (!(machine_is_msm8625_evt()))
+		sdc1_plat_data.status_irq = MSM_GPIO_TO_INT(gpio_sdc1_hw_det);
+	if (machine_is_msm8625_evt())
+		sdc1_plat_data.status = NULL;
+#endif
+
 	msm_add_sdcc(1, &sdc1_plat_data);
 #endif
 	/* SDIO WLAN slot */
