@@ -1555,6 +1555,26 @@ void pm8921_charger_vbus_draw(unsigned int mA)
 
 	pr_debug("Enter charge=%d\n", mA);
 
+	if (!the_chip) {
+		pr_err("chip not yet initalized\n");
+		return;
+	}
+
+	/*
+	 * Reject VBUS requests if USB connection is the only available
+	 * power source. This makes sure that if booting without
+	 * battery the iusb_max value is not decreased avoiding potential
+	 * brown_outs.
+	 *
+	 * This would also apply when the battery has been
+	 * removed from the running system.
+	 */
+	if (!get_prop_batt_present(the_chip)
+		&& !is_dc_chg_plugged_in(the_chip)) {
+		pr_err("rejected: no other power source connected\n");
+		return;
+	}
+
 	if (usb_max_current && mA > usb_max_current) {
 		pr_warn("restricting usb current to %d instead of %d\n",
 					usb_max_current, mA);
@@ -3360,13 +3380,6 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 			ENUM_TIMER_STOP_BIT);
 	if (rc) {
 		pr_err("Failed to set enum timer stop rc=%d\n", rc);
-		return rc;
-	}
-
-	/* init with the lowest USB current */
-	rc = pm_chg_iusbmax_set(chip, 0);
-	if (rc) {
-		pr_err("Failed to set usb max to %d rc=%d\n", 0, rc);
 		return rc;
 	}
 
