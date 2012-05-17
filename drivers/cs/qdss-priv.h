@@ -14,7 +14,7 @@
 #define _ARCH_ARM_MACH_MSM_QDSS_H_
 
 #include <linux/bitops.h>
-#include <mach/qdss.h>
+#include <linux/qdss.h>
 
 /* Coresight management registers (0xF00-0xFCC)
  * 0xFA0 - 0xFA4: Management	registers in PFTv1.0

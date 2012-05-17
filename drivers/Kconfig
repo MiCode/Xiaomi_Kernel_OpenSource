@@ -148,4 +148,6 @@ source "drivers/devfreq/Kconfig"
 
 source "drivers/gud/Kconfig"
 
+source "drivers/cs/Kconfig"
+
 endmenu

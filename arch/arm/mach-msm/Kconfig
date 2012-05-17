@@ -347,12 +347,14 @@ config  ARCH_MSM_SCORPIONMP
 	select ARCH_MSM_SCORPION
 	select MSM_SMP
 	select HAVE_ARCH_HAS_CURRENT_TIMER
+	select MSM_JTAG if MSM_QDSS
 	bool
 
 config  ARCH_MSM_KRAITMP
 	select ARCH_MSM_KRAIT
 	select MSM_SMP
 	select HAVE_ARCH_HAS_CURRENT_TIMER
+	select MSM_JTAG if MSM_QDSS
 	bool
 	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
 
@@ -2074,9 +2076,15 @@ config MSM_DLOAD_MODE
 		enabled via another mechanism.
 
 config MSM_JTAG
-        bool "JTAG debug and trace support"
+	bool "JTAG and kernel debug and trace support across power collapse"
 	help
-          Add additional support for JTAG kernel debugging and tracing.
+	  Enables support for kernel debugging (specifically breakpoints) and
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on the target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
+
+	  For production builds, you should probably say 'N' here to avoid
+	  potential power, performance and memory penalty.
 
 config MSM_ETM
 	tristate "Enable MSM ETM and ETB"
@@ -2084,30 +2092,6 @@ config MSM_ETM
 	select MSM_JTAG
 	help
 	  Enables embedded trace collection on MSM8660
-
-config MSM_QDSS
-	bool "Qualcomm Debug Subsystem"
-	select MSM_JTAG
-	help
-	  Enables support for Qualcomm Debug Subsystem.
-
-config MSM_QDSS_STM_DEFAULT_ENABLE
-	bool "Turn on QDSS STM Tracing by Default"
-	depends on MSM_QDSS
-	help
-	  Turns on QDSS STM tracing (hardware assisted software
-	  instrumentation based tracing) by default. Otherwise, tracing is
-	  disabled by default but can be enabled via sysfs.
-
-	  For production builds, you should probably say 'N' here to avoid
-	  potential power, performance and memory penalty.
-
-config MSM_QDSS_ETM_DEFAULT_ENABLE
-	bool "Turn on QDSS ETM Tracing by Default"
-	depends on MSM_QDSS
-	help
-	  Turns on QDSS ETM tracing by default. Otherwise, tracing is
-	  disabled by default but can be enabled by other means.
 
 config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"
