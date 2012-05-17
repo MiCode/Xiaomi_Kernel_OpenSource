@@ -133,4 +133,12 @@ struct msm_audio_mvs_frame {
 
 };
 
+#define Q5V2_MVS_MAX_VOC_PKT_SIZE 320
+
+struct q5v2_msm_audio_mvs_frame {
+	uint32_t frame_type;
+	uint32_t len;
+	uint8_t voc_pkt[Q5V2_MVS_MAX_VOC_PKT_SIZE];
+
+};
 #endif /* __MSM_AUDIO_MVS_H */
