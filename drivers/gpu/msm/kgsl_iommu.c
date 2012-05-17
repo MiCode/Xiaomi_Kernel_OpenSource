@@ -109,9 +109,9 @@ done:
 static int kgsl_iommu_pt_equal(struct kgsl_pagetable *pt,
 					unsigned int pt_base)
 {
-	struct iommu_domain *domain = pt ? pt->priv : NULL;
-	unsigned int domain_ptbase = domain ? iommu_get_pt_base_addr(domain) :
-						0;
+	struct kgsl_iommu_pt *iommu_pt = pt ? pt->priv : NULL;
+	unsigned int domain_ptbase = iommu_pt ?
+				iommu_get_pt_base_addr(iommu_pt->domain) : 0;
 	/* Only compare the valid address bits of the pt_base */
 	domain_ptbase &= (KGSL_IOMMU_TTBR0_PA_MASK <<
 				KGSL_IOMMU_TTBR0_PA_SHIFT);
@@ -121,20 +121,52 @@ static int kgsl_iommu_pt_equal(struct kgsl_pagetable *pt,
 		(domain_ptbase == pt_base);
 }
 
+/*
+ * kgsl_iommu_destroy_pagetable - Free up reaources help by a pagetable
+ * @mmu_specific_pt - Pointer to pagetable which is to be freed
+ *
+ * Return - void
+ */
 static void kgsl_iommu_destroy_pagetable(void *mmu_specific_pt)
 {
-	struct iommu_domain *domain = mmu_specific_pt;
-	if (domain)
-		iommu_domain_free(domain);
+	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
+	if (iommu_pt->domain)
+		iommu_domain_free(iommu_pt->domain);
+	if (iommu_pt->iommu) {
+		if ((KGSL_IOMMU_ASID_REUSE == iommu_pt->asid) &&
+			iommu_pt->iommu->asid_reuse)
+			iommu_pt->iommu->asid_reuse--;
+		if (!iommu_pt->iommu->asid_reuse ||
+			(KGSL_IOMMU_ASID_REUSE != iommu_pt->asid))
+			clear_bit(iommu_pt->asid, iommu_pt->iommu->asids);
+	}
+	kfree(iommu_pt);
 }
 
+/*
+ * kgsl_iommu_create_pagetable - Create a IOMMU pagetable
+ *
+ * Allocate memory to hold a pagetable and allocate the IOMMU
+ * domain which is the actual IOMMU pagetable
+ * Return - void
+ */
 void *kgsl_iommu_create_pagetable(void)
 {
-	struct iommu_domain *domain = iommu_domain_alloc(0);
-	if (!domain)
-		KGSL_CORE_ERR("Failed to create iommu domain\n");
+	struct kgsl_iommu_pt *iommu_pt;
 
-	return domain;
+	iommu_pt = kzalloc(sizeof(struct kgsl_iommu_pt), GFP_KERNEL);
+	if (!iommu_pt) {
+		KGSL_CORE_ERR("kzalloc(%d) failed\n",
+				sizeof(struct kgsl_iommu_pt));
+		return NULL;
+	}
+	iommu_pt->domain = iommu_domain_alloc(0);
+	if (!iommu_pt->domain) {
+		KGSL_CORE_ERR("Failed to create iommu domain\n");
+		kfree(iommu_pt);
+		return NULL;
+	}
+	return iommu_pt;
 }
 
 /*
@@ -151,25 +183,25 @@ void *kgsl_iommu_create_pagetable(void)
  */
 static void kgsl_detach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 {
-	struct iommu_domain *domain;
+	struct kgsl_iommu_pt *iommu_pt;
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i, j;
 
 	BUG_ON(mmu->hwpagetable == NULL);
 	BUG_ON(mmu->hwpagetable->priv == NULL);
 
-	domain = mmu->hwpagetable->priv;
+	iommu_pt = mmu->hwpagetable->priv;
 
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
 			if (iommu_unit->dev[j].attached) {
-				iommu_detach_device(domain,
+				iommu_detach_device(iommu_pt->domain,
 						iommu_unit->dev[j].dev);
 				iommu_unit->dev[j].attached = false;
 				KGSL_MEM_INFO(mmu->device, "iommu %p detached "
 					"from user dev of MMU: %p\n",
-					domain, mmu);
+					iommu_pt->domain, mmu);
 			}
 		}
 	}
@@ -190,14 +222,14 @@ static void kgsl_detach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
  */
 static int kgsl_attach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 {
-	struct iommu_domain *domain;
+	struct kgsl_iommu_pt *iommu_pt;
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i, j, ret = 0;
 
 	BUG_ON(mmu->hwpagetable == NULL);
 	BUG_ON(mmu->hwpagetable->priv == NULL);
 
-	domain = mmu->hwpagetable->priv;
+	iommu_pt = mmu->hwpagetable->priv;
 
 	/*
 	 * Loop through all the iommu devcies under all iommu units and
@@ -207,7 +239,7 @@ static int kgsl_attach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
 			if (!iommu_unit->dev[j].attached) {
-				ret = iommu_attach_device(domain,
+				ret = iommu_attach_device(iommu_pt->domain,
 							iommu_unit->dev[j].dev);
 				if (ret) {
 					KGSL_MEM_ERR(mmu->device,
@@ -218,8 +250,8 @@ static int kgsl_attach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 				iommu_unit->dev[j].attached = true;
 				KGSL_MEM_INFO(mmu->device,
 				"iommu pt %p attached to dev %p, ctx_id %d\n",
-					domain, iommu_unit->dev[j].dev,
-					iommu_unit->dev[j].ctx_id);
+				iommu_pt->domain, iommu_unit->dev[j].dev,
+				iommu_unit->dev[j].ctx_id);
 			}
 		}
 	}
@@ -403,6 +435,14 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 				sizeof(struct kgsl_iommu));
 		return -ENOMEM;
 	}
+	iommu->asids = kzalloc(BITS_TO_LONGS(KGSL_IOMMU_MAX_ASIDS) *
+				sizeof(unsigned long), GFP_KERNEL);
+	if (!iommu->asids) {
+		KGSL_CORE_ERR("kzalloc(%d) failed\n",
+				sizeof(struct kgsl_iommu));
+		status = -ENOMEM;
+		goto done;
+	}
 
 	mmu->priv = iommu;
 	status = kgsl_get_iommu_ctxt(mmu);
@@ -416,6 +456,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 			__func__);
 done:
 	if (status) {
+		kfree(iommu->asids);
 		kfree(iommu);
 		mmu->priv = NULL;
 	}
@@ -436,6 +477,7 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 	int status = 0;
 	int i = 0;
 	struct kgsl_iommu *iommu = mmu->priv;
+	struct kgsl_iommu_pt *iommu_pt;
 
 	mmu->defaultpagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
 	/* Return error if the default pagetable doesn't exist */
@@ -455,6 +497,14 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 			goto err;
 		}
 	}
+	/*
+	 * The dafault pagetable always has asid 0 assigned by the iommu driver
+	 * and asid 1 is assigned to the private context.
+	 */
+	iommu_pt = mmu->defaultpagetable->priv;
+	iommu_pt->asid = 0;
+	set_bit(0, iommu->asids);
+	set_bit(1, iommu->asids);
 	return status;
 err:
 	for (i--; i >= 0; i--) {
@@ -472,6 +522,7 @@ err:
 static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 {
 	int status;
+	struct kgsl_iommu *iommu = mmu->priv;
 
 	if (mmu->flags & KGSL_FLAGS_STARTED)
 		return 0;
@@ -492,6 +543,11 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		kgsl_detach_pagetable_iommu_domain(mmu);
 		mmu->hwpagetable = NULL;
 	}
+	status = kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_CONTEXT_USER);
+	iommu->asid = readl_relaxed(iommu->iommu_units[0].reg_map.hostptr +
+			(KGSL_IOMMU_CONTEXT_USER << KGSL_IOMMU_CTX_SHIFT) +
+			KGSL_IOMMU_CONTEXTIDR);
+	kgsl_iommu_disable_clk(mmu);
 
 	return status;
 }
@@ -502,8 +558,7 @@ kgsl_iommu_unmap(void *mmu_specific_pt,
 {
 	int ret;
 	unsigned int range = memdesc->size;
-	struct iommu_domain *domain = (struct iommu_domain *)
-					mmu_specific_pt;
+	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
 
 	/* All GPU addresses as assigned are page aligned, but some
 	   functions purturb the gpuaddr with an offset, so apply the
@@ -514,10 +569,10 @@ kgsl_iommu_unmap(void *mmu_specific_pt,
 	if (range == 0 || gpuaddr == 0)
 		return 0;
 
-	ret = iommu_unmap_range(domain, gpuaddr, range);
+	ret = iommu_unmap_range(iommu_pt->domain, gpuaddr, range);
 	if (ret)
 		KGSL_CORE_ERR("iommu_unmap_range(%p, %x, %d) failed "
-			"with err: %d\n", domain, gpuaddr,
+			"with err: %d\n", iommu_pt->domain, gpuaddr,
 			range, ret);
 
 	return 0;
@@ -531,20 +586,20 @@ kgsl_iommu_map(void *mmu_specific_pt,
 {
 	int ret;
 	unsigned int iommu_virt_addr;
-	struct iommu_domain *domain = mmu_specific_pt;
+	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
 
-	BUG_ON(NULL == domain);
+	BUG_ON(NULL == iommu_pt);
 
 
 	iommu_virt_addr = memdesc->gpuaddr;
 
-	ret = iommu_map_range(domain, iommu_virt_addr, memdesc->sg,
+	ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr, memdesc->sg,
 				memdesc->size, (IOMMU_READ | IOMMU_WRITE));
 	if (ret) {
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %d, %d) "
-				"failed with err: %d\n", domain,
+				"failed with err: %d\n", iommu_pt->domain,
 				iommu_virt_addr, memdesc->sg, memdesc->size,
-				0, ret);
+				(IOMMU_READ | IOMMU_WRITE), ret);
 		return ret;
 	}
 
@@ -591,6 +646,8 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 	}
 	if (mmu->defaultpagetable)
 		kgsl_mmu_putpagetable(mmu->defaultpagetable);
+	kfree(iommu->asids);
+	kfree(iommu);
 
 	return 0;
 }
@@ -610,6 +667,47 @@ kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu)
 				KGSL_IOMMU_TTBR0_PA_SHIFT);
 }
 
+/*
+ * kgsl_iommu_get_hwpagetable_asid - Returns asid(application space ID) for a
+ * pagetable
+ * @mmu - Pointer to mmu structure
+ *
+ * Allocates an asid to a IOMMU domain if it does not already have one. asid's
+ * are unique identifiers for pagetable that can be used to selectively flush
+ * tlb entries of the IOMMU unit.
+ * Return - asid to be used with the IOMMU domain
+ */
+static int kgsl_iommu_get_hwpagetable_asid(struct kgsl_mmu *mmu)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
+	struct kgsl_iommu_pt *iommu_pt = mmu->hwpagetable->priv;
+
+	/*
+	 * If the iommu pagetable does not have any asid assigned and is not the
+	 * default pagetable then assign asid.
+	 */
+	if (!iommu_pt->asid && iommu_pt != mmu->defaultpagetable->priv) {
+		iommu_pt->asid = find_first_zero_bit(iommu->asids,
+							KGSL_IOMMU_MAX_ASIDS);
+		/* No free bits means reuse asid */
+		if (iommu_pt->asid >= KGSL_IOMMU_MAX_ASIDS) {
+			iommu_pt->asid = KGSL_IOMMU_ASID_REUSE;
+			iommu->asid_reuse++;
+		}
+		set_bit(iommu_pt->asid, iommu->asids);
+		/*
+		 * Store pointer to asids list so that during pagetable destroy
+		 * the asid assigned to this pagetable may be cleared
+		 */
+		iommu_pt->iommu = iommu;
+	}
+	/* Return the asid + the constant part of asid that never changes */
+	return (iommu_pt->asid & (KGSL_IOMMU_CONTEXTIDR_ASID_MASK <<
+				KGSL_IOMMU_CONTEXTIDR_ASID_SHIFT)) +
+		(iommu->asid & ~(KGSL_IOMMU_CONTEXTIDR_ASID_MASK <<
+				KGSL_IOMMU_CONTEXTIDR_ASID_SHIFT));
+}
+
 struct kgsl_mmu_ops iommu_ops = {
 	.mmu_init = kgsl_iommu_init,
 	.mmu_close = kgsl_iommu_close,
@@ -621,6 +719,7 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
 	.mmu_disable_clk = kgsl_iommu_disable_clk,
+	.mmu_get_hwpagetable_asid = kgsl_iommu_get_hwpagetable_asid,
 };
 
 struct kgsl_mmu_pt_ops iommu_pt_ops = {
