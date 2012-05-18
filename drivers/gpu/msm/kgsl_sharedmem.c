@@ -63,6 +63,13 @@ struct mem_entry_stats {
 }
 
 
+/*
+ * One page allocation for a guard region to protect against over-zealous
+ * GPU pre-fetch
+ */
+
+static struct page *kgsl_guard_page;
+
 /**
  * Given a kobj, find the process structure attached to it
  */
@@ -333,13 +340,20 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 {
 	int i = 0;
 	struct scatterlist *sg;
+	int sglen = memdesc->sglen;
+
+	/* Don't free the guard page if it was used */
+	if (memdesc->flags & KGSL_MEMDESC_GUARD_PAGE)
+		sglen--;
+
 	kgsl_driver.stats.page_alloc -= memdesc->size;
+
 	if (memdesc->hostptr) {
 		vunmap(memdesc->hostptr);
 		kgsl_driver.stats.vmalloc -= memdesc->size;
 	}
 	if (memdesc->sg)
-		for_each_sg(memdesc->sg, sg, memdesc->sglen, i)
+		for_each_sg(memdesc->sg, sg, sglen, i)
 			__free_page(sg_page(sg));
 }
 
@@ -362,17 +376,23 @@ static int kgsl_page_alloc_map_kernel(struct kgsl_memdesc *memdesc)
 		pgprot_t page_prot = pgprot_writecombine(PAGE_KERNEL);
 		struct page **pages = NULL;
 		struct scatterlist *sg;
+		int sglen = memdesc->sglen;
 		int i;
+
+		/* Don't map the guard page if it exists */
+		if (memdesc->flags & KGSL_MEMDESC_GUARD_PAGE)
+			sglen--;
+
 		/* create a list of pages to call vmap */
-		pages = vmalloc(memdesc->sglen * sizeof(struct page *));
+		pages = vmalloc(sglen * sizeof(struct page *));
 		if (!pages) {
 			KGSL_CORE_ERR("vmalloc(%d) failed\n",
-				memdesc->sglen * sizeof(struct page *));
+				sglen * sizeof(struct page *));
 			return -ENOMEM;
 		}
-		for_each_sg(memdesc->sg, sg, memdesc->sglen, i)
+		for_each_sg(memdesc->sg, sg, sglen, i)
 			pages[i] = sg_page(sg);
-		memdesc->hostptr = vmap(pages, memdesc->sglen,
+		memdesc->hostptr = vmap(pages, sglen,
 					VM_IOREMAP, page_prot);
 		KGSL_STATS_ADD(memdesc->size, kgsl_driver.stats.vmalloc,
 				kgsl_driver.stats.vmalloc_max);
@@ -471,6 +491,14 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	int sglen = PAGE_ALIGN(size) / PAGE_SIZE;
 	int i;
 
+	/*
+	 * Add guard page to the end of the allocation when the
+	 * IOMMU is in use.
+	 */
+
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU)
+		sglen++;
+
 	memdesc->size = size;
 	memdesc->pagetable = pagetable;
 	memdesc->priv = KGSL_MEMFLAGS_CACHED;
@@ -490,7 +518,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	memdesc->sglen = sglen;
 	sg_init_table(memdesc->sg, sglen);
 
-	for (i = 0; i < memdesc->sglen; i++) {
+	for (i = 0; i < PAGE_ALIGN(size) / PAGE_SIZE; i++) {
 		struct page *page = alloc_page(GFP_KERNEL | __GFP_ZERO |
 						__GFP_HIGHMEM);
 		if (!page) {
@@ -501,6 +529,22 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		flush_dcache_page(page);
 		sg_set_page(&memdesc->sg[i], page, PAGE_SIZE, 0);
 	}
+
+	/* ADd the guard page to the end of the sglist */
+
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU) {
+		if (kgsl_guard_page == NULL)
+			kgsl_guard_page = alloc_page(GFP_KERNEL | __GFP_ZERO |
+				__GFP_HIGHMEM);
+
+		if (kgsl_guard_page != NULL) {
+			sg_set_page(&memdesc->sg[sglen - 1], kgsl_guard_page,
+				PAGE_SIZE, 0);
+			memdesc->flags |= KGSL_MEMDESC_GUARD_PAGE;
+		} else
+			memdesc->sglen--;
+	}
+
 	outer_cache_range_op_sg(memdesc->sg, memdesc->sglen,
 				KGSL_CACHE_OP_FLUSH);
 
