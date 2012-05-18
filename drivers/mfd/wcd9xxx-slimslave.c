@@ -461,7 +461,13 @@ int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 	pr_debug("%s: ch_cnt[%d]\n", __func__, ch_cnt);
 	for (i = 0; i < ch_cnt; i++) {
 		idx = (ch_num[i] - BASE_CH_NUM -
-				SB_PGD_OFFSET_OF_RX_SLAVE_DEV_PORTS - 1);
+			SB_PGD_OFFSET_OF_RX_SLAVE_DEV_PORTS - 1);
+		if (idx < 0) {
+			pr_err("%s: Error:-Invalid index found = %d\n",
+				__func__, idx);
+			ret = -EINVAL;
+			goto err;
+		}
 		sph[i] = rx[idx].sph;
 		grph = rx[idx].grph;
 	}
@@ -501,6 +507,12 @@ int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 	pr_debug("%s: ch_cnt[%d]\n", __func__, ch_cnt);
 	for (i = 0; i < ch_cnt; i++) {
 		idx = (ch_num[i] - BASE_CH_NUM);
+		if (idx < 0) {
+			pr_err("%s: Error:- Invalid index found = %d\n",
+				__func__, idx);
+			ret = -EINVAL;
+			goto err;
+		}
 		sph[i] = tx[idx].sph;
 		grph = tx[idx].grph;
 	}
