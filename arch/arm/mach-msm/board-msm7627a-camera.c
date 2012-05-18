@@ -86,8 +86,6 @@ static struct msm_gpio_set_tbl ov7692_cam_gpio_set_tbl[] = {
 	{GPIO_SKU1_CAM_VGA_SHDN, GPIOF_OUT_INIT_LOW, 5000},
 	{GPIO_SKU1_CAM_VGA_RESET_N, GPIOF_OUT_INIT_HIGH, 5000},
 	{GPIO_SKU1_CAM_VGA_RESET_N, GPIOF_OUT_INIT_LOW, 5000},
-	{40, GPIOF_OUT_INIT_HIGH, 5000},
-	{35, GPIOF_OUT_INIT_HIGH, 5000},
 };
 
 static struct msm_camera_gpio_conf gpio_conf_ov7692 = {
@@ -212,6 +210,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov7692_data = {
 	.sensor_name	    = "ov7692",
 	.sensor_reset_enable    = 0,
 	.pmic_gpio_enable  = 1,
+	.sensor_lcd_gpio_onoff = lcd_camera_power_onoff,
 	.sensor_reset	   = GPIO_SKU1_CAM_VGA_RESET_N,
 	.sensor_pwd	     = GPIO_SKU1_CAM_VGA_SHDN,
 	.pdata			= &msm_camera_device_data_csi0[0],
@@ -255,6 +254,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov5647_data = {
 	.sensor_name    = "ov5647",
 	.sensor_reset_enable = 1,
 	.pmic_gpio_enable  = 1,
+	.sensor_lcd_gpio_onoff = lcd_camera_power_onoff,
 	.sensor_reset   = GPIO_SKU3_CAM_5MP_CAMIF_RESET,
 	.sensor_pwd     = GPIO_SKU3_CAM_5MP_SHDN_N,
 	.pdata          = &msm_camera_device_data_csi1[0],
@@ -1099,8 +1099,6 @@ void __init msm7627a_camera_init(void)
 			GPIO_SKU7_CAM_VGA_SHDN;
 		ov7692_cam_gpio_set_tbl[0].gpio = GPIO_SKU7_CAM_VGA_SHDN;
 		ov7692_cam_gpio_set_tbl[1].gpio = GPIO_SKU7_CAM_VGA_SHDN;
-		ov7692_cam_gpio_set_tbl[4].gpio = LCD_CAMERA_LDO_2V8 ;
-		ov7692_cam_gpio_set_tbl[5].gpio = SKU7_LCD_CAMERA_LDO_1V8;
 
 		msm_camera_sensor_ov5647_data.sensor_pwd =
 			GPIO_SKU7_CAM_5MP_SHDN_N;
