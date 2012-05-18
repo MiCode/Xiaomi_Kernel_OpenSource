@@ -625,7 +625,7 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct hal_quantization quantization;
 	struct hal_intra_period intra_period;
 	struct hal_idr_period idr_period;
-	struct HAL_OPERATIONS operations;
+	struct hal_operations operations;
 	struct hal_intra_refresh intra_refresh;
 	struct hal_multi_slice_control multi_slice_control;
 	struct hal_h264_db_control h264_db_control;
