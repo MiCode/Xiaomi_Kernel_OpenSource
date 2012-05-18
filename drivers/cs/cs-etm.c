@@ -29,7 +29,7 @@
 #include <asm/sections.h>
 #include <mach/socinfo.h>
 
-#include "qdss-priv.h"
+#include "cs-priv.h"
 
 #define etm_writel(etm, cpu, val, off)	\
 			__raw_writel((val), etm.base + (SZ_4K * cpu) + off)
@@ -140,7 +140,7 @@ do {									\
 #ifdef MODULE_PARAM_PREFIX
 #undef MODULE_PARAM_PREFIX
 #endif
-#define MODULE_PARAM_PREFIX "qdss."
+#define MODULE_PARAM_PREFIX "cs."
 
 #ifdef CONFIG_MSM_QDSS_ETM_DEFAULT_ENABLE
 static int etm_boot_enable = 1;
