@@ -30,14 +30,10 @@
 
 #include <net/sock.h>
 
-#include <mach/peripheral-loader.h>
-#include <mach/socinfo.h>
-
 #include "ipc_router.h"
 
 #define msm_ipc_sk(sk) ((struct msm_ipc_sock *)(sk))
 #define msm_ipc_sk_port(sk) ((struct msm_ipc_port *)(msm_ipc_sk(sk)->port))
-#define MODEM_LOAD_TIMEOUT (10 * HZ)
 
 static int sockets_enabled;
 static struct proto msm_ipc_proto;
@@ -57,45 +53,6 @@ static inline int check_permissions(void)
 	return 1;
 }
 #endif
-
-static void msm_ipc_router_unload_modem(void *pil)
-{
-	if (pil)
-		pil_put(pil);
-}
-
-static void *msm_ipc_router_load_modem(void)
-{
-	void *pil = NULL;
-	int rc;
-
-	/* Load GNSS for Standalone 8064 but not for Fusion 3 */
-	if (cpu_is_apq8064()) {
-		if (socinfo_get_platform_subtype() == 0x0)
-			pil = pil_get("gss");
-	} else {
-		pil = pil_get("modem");
-	}
-
-	if (IS_ERR(pil) || !pil) {
-		pr_debug("%s: modem load failed\n", __func__);
-		pil = NULL;
-	} else {
-		rc = wait_for_completion_interruptible_timeout(
-						&msm_ipc_remote_router_up,
-						MODEM_LOAD_TIMEOUT);
-		if (!rc)
-			rc = -ETIMEDOUT;
-		if (rc < 0) {
-			pr_err("%s: wait for remote router failed %d\n",
-				__func__, rc);
-			msm_ipc_router_unload_modem(pil);
-			pil = NULL;
-		}
-	}
-
-	return pil;
-}
 
 static struct sk_buff_head *msm_ipc_router_build_msg(unsigned int num_sect,
 					  struct iovec const *msg_sect,
@@ -268,9 +225,9 @@ static int msm_ipc_router_create(struct net *net,
 	sock_init_data(sock, sk);
 	sk->sk_rcvtimeo = DEFAULT_RCV_TIMEO;
 
-	pil = msm_ipc_router_load_modem();
+	pil = msm_ipc_load_default_node();
 	msm_ipc_sk(sk)->port = port_ptr;
-	msm_ipc_sk(sk)->modem_pil = pil;
+	msm_ipc_sk(sk)->default_pil = pil;
 
 	return 0;
 }
@@ -519,12 +476,12 @@ static int msm_ipc_router_close(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct msm_ipc_port *port_ptr = msm_ipc_sk_port(sk);
-	void *pil = msm_ipc_sk(sk)->modem_pil;
+	void *pil = msm_ipc_sk(sk)->default_pil;
 	int ret;
 
 	lock_sock(sk);
 	ret = msm_ipc_router_close_port(port_ptr);
-	msm_ipc_router_unload_modem(pil);
+	msm_ipc_unload_default_node(pil);
 	release_sock(sk);
 	sock_put(sk);
 	sock->sk = NULL;
