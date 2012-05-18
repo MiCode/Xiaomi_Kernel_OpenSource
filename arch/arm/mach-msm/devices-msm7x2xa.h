@@ -32,4 +32,5 @@ void __init msm8625_map_io(void);
 int  ar600x_wlan_power(bool on);
 void __init msm8x25_spm_device_init(void);
 void __init msm8x25_kgsl_3d0_init(void);
+void __iomem *core1_reset_base(void);
 #endif
