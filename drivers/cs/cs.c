@@ -21,7 +21,7 @@
 #include <linux/export.h>
 #include <linux/clk.h>
 
-#include "qdss-priv.h"
+#include "cs-priv.h"
 
 #define MAX_STR_LEN	(65535)
 

@@ -11,7 +11,7 @@
 #include <linux/errno.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
-#include <linux/qdss.h>
+#include <linux/cs.h>
 
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
