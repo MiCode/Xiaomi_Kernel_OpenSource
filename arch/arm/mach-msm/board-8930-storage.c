@@ -24,6 +24,7 @@
 #include "devices.h"
 
 #include "board-8930.h"
+#include "board-storage-common-a.h"
 
 /* MSM8960 has 5 SDCC controllers */
 enum sdcc_controllers {
@@ -235,6 +236,7 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC1_DAT1,
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 #endif
 
@@ -273,6 +275,7 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50 |
 			MMC_CAP_UHS_SDR104 | MMC_CAP_MAX_CURRENT_800),
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC3_DAT1,
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 #endif
 
