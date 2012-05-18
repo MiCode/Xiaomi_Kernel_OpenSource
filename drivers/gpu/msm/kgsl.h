@@ -173,6 +173,7 @@ struct kgsl_mem_entry {
 #endif
 
 void kgsl_mem_entry_destroy(struct kref *kref);
+int kgsl_postmortem_dump(struct kgsl_device *device, int manual);
 
 struct kgsl_mem_entry *kgsl_get_mem_entry(unsigned int ptbase,
 		unsigned int gpuaddr, unsigned int size);

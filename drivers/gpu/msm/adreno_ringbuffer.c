@@ -22,7 +22,6 @@
 #include "adreno.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
-#include "adreno_debugfs.h"
 
 #include "a2xx_reg.h"
 #include "a3xx_reg.h"

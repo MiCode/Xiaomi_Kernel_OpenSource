@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,13 @@
 #define DEVICE_2D0_NAME "kgsl-2d0"
 #define DEVICE_2D1_NAME "kgsl-2d1"
 
+#define Z180_PACKET_SIZE 15
+#define Z180_PACKET_COUNT 8
+#define Z180_RB_SIZE (Z180_PACKET_SIZE*Z180_PACKET_COUNT \
+			  *sizeof(uint32_t))
+#define Z180_DEVICE(device) \
+		KGSL_CONTAINER_OF(device, struct z180_device, dev)
+
 #define Z180_DEFAULT_PWRSCALE_POLICY  NULL
 
 struct z180_ringbuffer {
@@ -33,5 +40,7 @@ struct z180_device {
 	struct z180_ringbuffer ringbuffer;
 	spinlock_t cmdwin_lock;
 };
+
+int z180_dump(struct kgsl_device *, int);
 
 #endif /* __Z180_H */
