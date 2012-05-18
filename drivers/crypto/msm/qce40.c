@@ -2101,32 +2101,33 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	uint32_t authsize = q_req->authsize;
 	uint32_t totallen_in, totallen_out, out_len;
 	uint32_t pad_len_in, pad_len_out;
-	uint32_t pad_mac_len_out, pad_ptx_len_out;
 	int rc = 0;
 	int ce_block_size;
 
 	ce_block_size = pce_dev->ce_dm.ce_block_size;
 	if (q_req->dir == QCE_ENCRYPT) {
+		uint32_t pad_mac_len_out;
+
 		q_req->cryptlen = areq->cryptlen;
 		totallen_in = q_req->cryptlen + areq->assoclen;
-		totallen_out = q_req->cryptlen + authsize + areq->assoclen;
-		out_len = areq->cryptlen + authsize;
 		pad_len_in = ALIGN(totallen_in, ce_block_size) - totallen_in;
-		pad_mac_len_out = ALIGN(authsize, ce_block_size) -
-								authsize;
-		pad_ptx_len_out = ALIGN(q_req->cryptlen, ce_block_size) -
-							q_req->cryptlen;
-		pad_len_out = pad_ptx_len_out + pad_mac_len_out;
-		totallen_out += pad_len_out;
+
+		out_len = areq->cryptlen + authsize;
+		totallen_out = q_req->cryptlen + authsize + areq->assoclen;
+		pad_mac_len_out = ALIGN(authsize, ce_block_size) - authsize;
+		totallen_out += pad_mac_len_out;
+		pad_len_out = ALIGN(totallen_out, ce_block_size) -
+					totallen_out + pad_mac_len_out;
+
 	} else {
 		q_req->cryptlen = areq->cryptlen - authsize;
 		totallen_in = areq->cryptlen + areq->assoclen;
-		totallen_out = q_req->cryptlen + areq->assoclen;
-		out_len = areq->cryptlen - authsize;
-		pad_len_in = ALIGN(areq->cryptlen, ce_block_size) -
-							areq->cryptlen;
-		pad_len_out = pad_len_in + authsize;
-		totallen_out += pad_len_out;
+		pad_len_in = ALIGN(totallen_in, ce_block_size) - totallen_in;
+
+		out_len = q_req->cryptlen;
+		totallen_out = totallen_in;
+		pad_len_out = ALIGN(totallen_out, ce_block_size) - totallen_out;
+		pad_len_out += authsize;
 	}
 
 	_chain_buffer_in_init(pce_dev);
@@ -2605,4 +2606,4 @@ EXPORT_SYMBOL(qce_hw_support);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("2.16");
+MODULE_VERSION("2.17");
