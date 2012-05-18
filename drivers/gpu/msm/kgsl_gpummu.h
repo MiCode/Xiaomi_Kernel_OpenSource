@@ -75,9 +75,4 @@ struct kgsl_ptpool {
 void *kgsl_gpummu_ptpool_init(int entries);
 void kgsl_gpummu_ptpool_destroy(void *ptpool);
 
-static inline unsigned int kgsl_pt_get_base_addr(struct kgsl_pagetable *pt)
-{
-	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
-	return gpummu_pt->base.gpuaddr;
-}
 #endif /* __KGSL_GPUMMU_H */

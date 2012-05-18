@@ -276,7 +276,7 @@ static void adreno_setstate(struct kgsl_device *device,
 
 			/* set page table base */
 			*cmds++ = cp_type0_packet(MH_MMU_PT_BASE, 1);
-			*cmds++ = kgsl_pt_get_base_addr(
+			*cmds++ = kgsl_mmu_pt_get_base_addr(
 					device->mmu.hwpagetable);
 			sizedwords += 4;
 		}
