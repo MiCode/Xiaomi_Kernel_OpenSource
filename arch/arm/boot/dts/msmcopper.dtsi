@@ -44,6 +44,12 @@
 		clock-frequency = <19200000>;
 	};
 
+	qcom,vidc@fdc00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0xfdc00000 0xff000>;
+		interrupts = <0 44 0>;
+	};
+
 	serial@f991f000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991f000 0x1000>;
