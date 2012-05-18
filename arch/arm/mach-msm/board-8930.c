@@ -488,6 +488,7 @@ static void __init reserve_ion_memory(void)
 	msm8930_fmem_pdata.size = 0;
 	msm8930_fmem_pdata.reserved_size_low = 0;
 	msm8930_fmem_pdata.reserved_size_high = 0;
+	msm8930_fmem_pdata.align = PAGE_SIZE;
 	fixed_low_size = 0;
 	fixed_middle_size = 0;
 	fixed_high_size = 0;
