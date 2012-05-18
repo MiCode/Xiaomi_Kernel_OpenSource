@@ -797,6 +797,70 @@ static struct slim_device msm_slim_sitar = {
 	.platform_data = &sitar_platform_data,
 	},
 };
+
+static struct wcd9xxx_pdata sitar1p1_platform_data = {
+		.slimbus_slave_device = {
+		.name = "sitar-slave",
+		.e_addr = {0, 0, 0x70, 0, 0x17, 2},
+	},
+	.irq = MSM_GPIO_TO_INT(62),
+	.irq_base = SITAR_INTERRUPT_BASE,
+	.num_irqs = NR_WCD9XXX_IRQS,
+	.reset_gpio = 42,
+	.micbias = {
+		.ldoh_v = SITAR_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
+		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
+	},
+	.regulator = {
+	{
+		.name = "CDC_VDD_CP",
+		.min_uV = 1950000,
+		.max_uV = 2200000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_CP_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_RX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_RX_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_TX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_TX_CUR_MAX,
+	},
+	{
+		.name = "VDDIO_CDC",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_VDDIO_CDC_CUR_MAX,
+	},
+	{
+		.name = "VDDD_CDC_D",
+		.min_uV = 1200000,
+		.max_uV = 1200000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_A_1P2V",
+		.min_uV = 1200000,
+		.max_uV = 1200000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
+	},
+	},
+};
+
+static struct slim_device msm_slim_sitar1p1 = {
+	.name = "sitar1p1-slim",
+	.e_addr = {0, 1, 0x70, 0, 0x17, 2},
+	.dev = {
+	.platform_data = &sitar1p1_platform_data,
+	},
+};
 #endif
 
 
@@ -805,6 +869,10 @@ static struct slim_boardinfo msm_slim_devices[] = {
 	{
 		.bus_num = 1,
 		.slim_slave = &msm_slim_sitar,
+	},
+	{
+		.bus_num = 1,
+		.slim_slave = &msm_slim_sitar1p1,
 	},
 #endif
 	/* add more slimbus slaves as needed */

@@ -30,6 +30,13 @@
 	(((ver == TABLA_VERSION_1_0) || (ver == TABLA_VERSION_1_1)) ? 1 : 0)
 #define TABLA_IS_2_0(ver) ((ver == TABLA_VERSION_2_0) ? 1 : 0)
 
+#define SITAR_VERSION_1P0 0
+#define SITAR_VERSION_1P1 1
+#define SITAR_IS_1P0(ver) \
+	((ver == SITAR_VERSION_1P0) ? 1 : 0)
+#define SITAR_IS_1P1(ver) \
+	((ver == SITAR_VERSION_1P1) ? 1 : 0)
+
 enum {
 	TABLA_IRQ_SLIMBUS = 0,
 	TABLA_IRQ_MBHC_REMOVAL,

@@ -1054,6 +1054,22 @@ static struct slim_driver sitar_slim_driver = {
 	.suspend = wcd9xxx_slim_suspend,
 };
 
+static const struct slim_device_id sitar1p1_slimtest_id[] = {
+	{"sitar1p1-slim", 0},
+	{}
+};
+static struct slim_driver sitar1p1_slim_driver = {
+	.driver = {
+		.name = "sitar1p1-slim",
+		.owner = THIS_MODULE,
+	},
+	.probe = wcd9xxx_slim_probe,
+	.remove = wcd9xxx_slim_remove,
+	.id_table = sitar1p1_slimtest_id,
+	.resume = wcd9xxx_slim_resume,
+	.suspend = wcd9xxx_slim_suspend,
+};
+
 static const struct slim_device_id slimtest_id[] = {
 	{"tabla-slim", 0},
 	{}
@@ -1116,7 +1132,7 @@ static struct i2c_driver tabla_i2c_driver = {
 
 static int __init wcd9xxx_init(void)
 {
-	int ret1, ret2, ret3, ret4;
+	int ret1, ret2, ret3, ret4, ret5;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);
 	if (ret1 != 0)
@@ -1131,10 +1147,14 @@ static int __init wcd9xxx_init(void)
 		pr_err("failed to add the I2C driver\n");
 
 	ret4 = slim_driver_register(&sitar_slim_driver);
-	if (ret1 != 0)
+	if (ret4 != 0)
 		pr_err("Failed to register sitar SB driver: %d\n", ret4);
 
-	return (ret1 && ret2 && ret3 && ret4) ? -1 : 0;
+	ret5 = slim_driver_register(&sitar1p1_slim_driver);
+	if (ret5 != 0)
+		pr_err("Failed to register sitar SB driver: %d\n", ret5);
+
+	return (ret1 && ret2 && ret3 && ret4 && ret5) ? -1 : 0;
 }
 module_init(wcd9xxx_init);
 
