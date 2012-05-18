@@ -856,6 +856,43 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	kgsl_iommu_disable_clk(mmu);
 }
 
+/*
+ * kgsl_iommu_get_reg_map_desc - Returns an array of pointers that contain
+ * the address of memory descriptors which map the IOMMU registers
+ * @mmu - Pointer to mmu structure
+ * @reg_map_desc - Out parameter in which the address of the array containing
+ * pointers to register map descriptors is returned. The caller is supposed
+ * to free this array
+ *
+ * Return - The number of iommu units which is also the number of register
+ * mapped descriptor arrays which the out parameter will have
+ */
+static int kgsl_iommu_get_reg_map_desc(struct kgsl_mmu *mmu,
+					void **reg_map_desc)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
+	void **reg_desc_ptr;
+	int i;
+
+	/*
+	 * Alocate array of pointers that will hold address of the register map
+	 * descriptors
+	 */
+	reg_desc_ptr = kmalloc(iommu->unit_count *
+			sizeof(struct kgsl_memdesc *), GFP_KERNEL);
+	if (!reg_desc_ptr) {
+		KGSL_CORE_ERR("Failed to kmalloc(%d)\n",
+			iommu->unit_count * sizeof(struct kgsl_memdesc *));
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < iommu->unit_count; i++)
+		reg_desc_ptr[i] = &(iommu->iommu_units[i].reg_map);
+
+	*reg_map_desc = reg_desc_ptr;
+	return i;
+}
+
 struct kgsl_mmu_ops iommu_ops = {
 	.mmu_init = kgsl_iommu_init,
 	.mmu_close = kgsl_iommu_close,
@@ -869,6 +906,7 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_disable_clk = kgsl_iommu_disable_clk,
 	.mmu_get_hwpagetable_asid = kgsl_iommu_get_hwpagetable_asid,
 	.mmu_get_pt_lsb = kgsl_iommu_get_pt_lsb,
+	.mmu_get_reg_map_desc = kgsl_iommu_get_reg_map_desc,
 };
 
 struct kgsl_mmu_pt_ops iommu_pt_ops = {
