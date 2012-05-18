@@ -1063,7 +1063,13 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	struct rb_node *parent = NULL;
 	struct ion_client *entry;
 	pid_t pid;
-	unsigned int name_len = strnlen(name, 64);
+	unsigned int name_len;
+
+	if (!name) {
+		pr_err("%s: Name cannot be null\n", __func__);
+		return ERR_PTR(-EINVAL);
+	}
+	name_len = strnlen(name, 64);
 
 	get_task_struct(current->group_leader);
 	task_lock(current->group_leader);
