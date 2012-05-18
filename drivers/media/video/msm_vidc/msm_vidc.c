@@ -96,6 +96,8 @@ int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 	struct msm_vidc_inst *inst = instance;
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_s_ctrl(instance, control);
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		return msm_venc_s_ctrl(instance, control);
 	return -EINVAL;
 }
 int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
@@ -103,6 +105,8 @@ int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 	struct msm_vidc_inst *inst = instance;
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_g_ctrl(instance, control);
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		return msm_venc_g_ctrl(instance, control);
 	return -EINVAL;
 }
 int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
