@@ -110,6 +110,7 @@ struct kgsl_functable {
 	int (*setproperty) (struct kgsl_device *device,
 		enum kgsl_property_type type, void *value,
 		unsigned int sizebytes);
+	int (*postmortem_dump) (struct kgsl_device *device, int manual);
 };
 
 /* MH register values */
@@ -196,6 +197,10 @@ struct kgsl_device {
 	struct work_struct ts_expired_ws;
 	struct list_head events;
 	s64 on_time;
+
+	/* Postmortem Control switches */
+	int pm_regs_enabled;
+	int pm_ib_enabled;
 };
 
 void kgsl_timestamp_expired(struct work_struct *work);

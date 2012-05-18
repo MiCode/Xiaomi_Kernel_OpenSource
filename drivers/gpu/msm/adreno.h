@@ -49,6 +49,8 @@
 #define ADRENO_DEFAULT_PWRSCALE_POLICY  NULL
 #endif
 
+void adreno_debugfs_init(struct kgsl_device *device);
+
 #define ADRENO_ISTORE_START 0x5000 /* Istore offset */
 
 #define ADRENO_NUM_CTX_SWITCH_ALLOWED_BEFORE_DRAW	50
@@ -165,6 +167,8 @@ void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value);
 void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int value);
+
+int adreno_dump(struct kgsl_device *device, int manual);
 
 struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 						unsigned int pt_base,
