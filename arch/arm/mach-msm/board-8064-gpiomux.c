@@ -363,6 +363,22 @@ static struct gpiomux_setting cdc_mclk = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting audio_auxpcm[] = {
+/* Suspended state */
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+/* Active state */
+	{
+		.func = GPIOMUX_FUNC_1,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+};
+
+
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_2MA,
@@ -842,6 +858,37 @@ static struct msm_gpiomux_config apq8064_audio_codec_configs[] __initdata = {
 		.gpio = 39,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &cdc_mclk,
+		},
+	},
+};
+
+static struct msm_gpiomux_config mpq8064_audio_auxpcm_configs[] __initdata = {
+	{
+		.gpio = 43,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 44,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 45,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
+		},
+	},
+	{
+		.gpio = 46,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_auxpcm[0],
+			[GPIOMUX_ACTIVE] = &audio_auxpcm[1],
 		},
 	},
 };
@@ -1527,6 +1574,10 @@ void __init apq8064_init_gpiomux(void)
 
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv()) {
+
+		msm_gpiomux_install(mpq8064_audio_auxpcm_configs,
+			ARRAY_SIZE(mpq8064_audio_auxpcm_configs));
+
 		msm_gpiomux_install(mpq8064_spkr_i2s_config,
 			ARRAY_SIZE(mpq8064_spkr_i2s_config));
 	}
