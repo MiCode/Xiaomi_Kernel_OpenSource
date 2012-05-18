@@ -580,12 +580,22 @@ void kgsl_mh_start(struct kgsl_device *device)
 	 */
 }
 
+static inline struct gen_pool *
+_get_pool(struct kgsl_pagetable *pagetable, unsigned int flags)
+{
+	if (pagetable->kgsl_pool &&
+		(KGSL_MEMFLAGS_GLOBAL & flags))
+		return pagetable->kgsl_pool;
+	return pagetable->pool;
+}
+
 int
 kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				struct kgsl_memdesc *memdesc,
 				unsigned int protflags)
 {
 	int ret;
+	struct gen_pool *pool;
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
 		if (memdesc->sglen == 1) {
@@ -606,20 +616,14 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	}
 
 	/* Allocate from kgsl pool if it exists for global mappings */
-	if (pagetable->kgsl_pool &&
-		(KGSL_MEMFLAGS_GLOBAL & memdesc->priv))
-		memdesc->gpuaddr = gen_pool_alloc(pagetable->kgsl_pool,
-			memdesc->size);
-	else
-		memdesc->gpuaddr = gen_pool_alloc(pagetable->pool,
-			memdesc->size);
+	pool = _get_pool(pagetable, memdesc->priv);
 
+	memdesc->gpuaddr = gen_pool_alloc(pool, memdesc->size);
 	if (memdesc->gpuaddr == 0) {
 		KGSL_CORE_ERR("gen_pool_alloc(%d) failed from pool: %s\n",
 			memdesc->size,
-			((pagetable->kgsl_pool &&
-			(KGSL_MEMFLAGS_GLOBAL & memdesc->priv)) ?
-			"kgsl_pool" : "general_pool"));
+			(pool == pagetable->kgsl_pool) ?
+			"kgsl_pool" : "general_pool");
 		KGSL_CORE_ERR(" [%d] allocated=%d, entries=%d\n",
 				pagetable->name, pagetable->stats.mapped,
 				pagetable->stats.entries);
@@ -650,7 +654,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 err_free_gpuaddr:
 	spin_unlock(&pagetable->lock);
-	gen_pool_free(pagetable->pool, memdesc->gpuaddr, memdesc->size);
+	gen_pool_free(pool, memdesc->gpuaddr, memdesc->size);
 	memdesc->gpuaddr = 0;
 	return ret;
 }
@@ -660,6 +664,7 @@ int
 kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc)
 {
+	struct gen_pool *pool;
 	if (memdesc->size == 0 || memdesc->gpuaddr == 0)
 		return 0;
 
@@ -678,13 +683,8 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 	spin_unlock(&pagetable->lock);
 
-	if (pagetable->kgsl_pool &&
-		(KGSL_MEMFLAGS_GLOBAL & memdesc->priv))
-		gen_pool_free(pagetable->kgsl_pool,
-			memdesc->gpuaddr, memdesc->size);
-	else
-		gen_pool_free(pagetable->pool,
-			memdesc->gpuaddr, memdesc->size);
+	pool = _get_pool(pagetable, memdesc->priv);
+	gen_pool_free(pool, memdesc->gpuaddr, memdesc->size);
 
 	/*
 	 * Don't clear the gpuaddr on global mappings because they
