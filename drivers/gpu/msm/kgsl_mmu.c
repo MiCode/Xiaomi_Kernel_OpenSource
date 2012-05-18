@@ -39,7 +39,8 @@ static int kgsl_cleanup_pt(struct kgsl_pagetable *pt)
 	/* For IOMMU only unmap the global structures to global pt */
 	if ((KGSL_MMU_TYPE_NONE != kgsl_mmu_type) &&
 		(KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) &&
-		(KGSL_MMU_GLOBAL_PT !=  pt->name))
+		(KGSL_MMU_GLOBAL_PT !=  pt->name) &&
+		(KGSL_MMU_PRIV_BANK_TABLE_NAME !=  pt->name))
 		return 0;
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
 		struct kgsl_device *device = kgsl_driver.devp[i];
@@ -58,7 +59,8 @@ static int kgsl_setup_pt(struct kgsl_pagetable *pt)
 	/* For IOMMU only map the global structures to global pt */
 	if ((KGSL_MMU_TYPE_NONE != kgsl_mmu_type) &&
 		(KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) &&
-		(KGSL_MMU_GLOBAL_PT !=  pt->name))
+		(KGSL_MMU_GLOBAL_PT !=  pt->name) &&
+		(KGSL_MMU_PRIV_BANK_TABLE_NAME !=  pt->name))
 		return 0;
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
 		struct kgsl_device *device = kgsl_driver.devp[i];
@@ -453,9 +455,9 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 	 * just once from this pool of the defaultpagetable
 	 */
 	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) &&
-		(KGSL_MMU_GLOBAL_PT == name)) {
-		pagetable->kgsl_pool = gen_pool_create(KGSL_MMU_ALIGN_SHIFT,
-						       -1);
+		((KGSL_MMU_GLOBAL_PT == name) ||
+		(KGSL_MMU_PRIV_BANK_TABLE_NAME == name))) {
+		pagetable->kgsl_pool = gen_pool_create(PAGE_SHIFT, -1);
 		if (pagetable->kgsl_pool == NULL) {
 			KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
 					KGSL_MMU_ALIGN_SHIFT);

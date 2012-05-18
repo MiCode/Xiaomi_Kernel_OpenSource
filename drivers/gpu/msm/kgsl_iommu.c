@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/iommu.h>
 #include <linux/msm_kgsl.h>
+#include <mach/socinfo.h>
 
 #include "kgsl.h"
 #include "kgsl_device.h"
@@ -268,14 +269,17 @@ static void kgsl_detach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i, j;
 
-	BUG_ON(mmu->hwpagetable == NULL);
-	BUG_ON(mmu->hwpagetable->priv == NULL);
-
-	iommu_pt = mmu->hwpagetable->priv;
-
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
+		iommu_pt = mmu->defaultpagetable->priv;
 		for (j = 0; j < iommu_unit->dev_count; j++) {
+			/*
+			 * If there is a 2nd default pagetable then priv domain
+			 * is attached with this pagetable
+			 */
+			if (mmu->priv_bank_table &&
+				(KGSL_IOMMU_CONTEXT_PRIV == j))
+				iommu_pt = mmu->priv_bank_table->priv;
 			if (iommu_unit->dev[j].attached) {
 				iommu_detach_device(iommu_pt->domain,
 						iommu_unit->dev[j].dev);
@@ -307,18 +311,21 @@ static int kgsl_attach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i, j, ret = 0;
 
-	BUG_ON(mmu->hwpagetable == NULL);
-	BUG_ON(mmu->hwpagetable->priv == NULL);
-
-	iommu_pt = mmu->hwpagetable->priv;
-
 	/*
 	 * Loop through all the iommu devcies under all iommu units and
 	 * attach the domain
 	 */
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
+		iommu_pt = mmu->defaultpagetable->priv;
 		for (j = 0; j < iommu_unit->dev_count; j++) {
+			/*
+			 * If there is a 2nd default pagetable then priv domain
+			 * is attached to this pagetable
+			 */
+			if (mmu->priv_bank_table &&
+				(KGSL_IOMMU_CONTEXT_PRIV == j))
+				iommu_pt = mmu->priv_bank_table->priv;
 			if (!iommu_unit->dev[j].attached) {
 				ret = iommu_attach_device(iommu_pt->domain,
 							iommu_unit->dev[j].dev);
@@ -614,17 +621,32 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 	int i = 0;
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_pt *iommu_pt;
+	struct kgsl_pagetable *pagetable = NULL;
 
+	/* If chip is not 8960 then we use the 2nd context bank for pagetable
+	 * switching on the 3D side for which a separate table is allocated */
+	if (!cpu_is_msm8960()) {
+		mmu->priv_bank_table =
+			kgsl_mmu_getpagetable(KGSL_MMU_PRIV_BANK_TABLE_NAME);
+		if (mmu->priv_bank_table == NULL) {
+			status = -ENOMEM;
+			goto err;
+		}
+		iommu_pt = mmu->priv_bank_table->priv;
+		iommu_pt->asid = 1;
+	}
 	mmu->defaultpagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
 	/* Return error if the default pagetable doesn't exist */
 	if (mmu->defaultpagetable == NULL) {
 		status = -ENOMEM;
 		goto err;
 	}
+	pagetable = mmu->priv_bank_table ? mmu->priv_bank_table :
+				mmu->defaultpagetable;
 	/* Map the IOMMU regsiters to only defaultpagetable */
 	for (i = 0; i < iommu->unit_count; i++) {
 		iommu->iommu_units[i].reg_map.priv |= KGSL_MEMFLAGS_GLOBAL;
-		status = kgsl_mmu_map(mmu->defaultpagetable,
+		status = kgsl_mmu_map(pagetable,
 			&(iommu->iommu_units[i].reg_map),
 			GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
 		if (status) {
@@ -644,9 +666,13 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 	return status;
 err:
 	for (i--; i >= 0; i--) {
-		kgsl_mmu_unmap(mmu->defaultpagetable,
+		kgsl_mmu_unmap(pagetable,
 				&(iommu->iommu_units[i].reg_map));
 		iommu->iommu_units[i].reg_map.priv &= ~KGSL_MEMFLAGS_GLOBAL;
+	}
+	if (mmu->priv_bank_table) {
+		kgsl_mmu_putpagetable(mmu->priv_bank_table);
+		mmu->priv_bank_table = NULL;
 	}
 	if (mmu->defaultpagetable) {
 		kgsl_mmu_putpagetable(mmu->defaultpagetable);
@@ -669,9 +695,9 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		if (status)
 			return -ENOMEM;
 	}
-	/* We use the GPU MMU to control access to IOMMU registers on a225,
-	 * hence we still keep the MMU active on a225 */
-	if (adreno_is_a225(ADRENO_DEVICE(mmu->device))) {
+	/* We use the GPU MMU to control access to IOMMU registers on 8960 with
+	 * a225, hence we still keep the MMU active on 8960 */
+	if (cpu_is_msm8960()) {
 		struct kgsl_mh *mh = &(mmu->device->mh);
 		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000001);
 		kgsl_regwrite(mmu->device, MH_MMU_MPU_END,
@@ -707,6 +733,12 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	 */
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
+		/* Make sure that the ASID of the priv bank is set to 1.
+		 * When we a different pagetable for the priv bank then the
+		 * iommu driver sets the ASID to 0 instead of 1 */
+		KGSL_IOMMU_SET_IOMMU_REG(iommu->iommu_units[i].reg_map.hostptr,
+					KGSL_IOMMU_CONTEXT_PRIV,
+					CONTEXTIDR, 1);
 		for (j = 0; j < iommu_unit->dev_count; j++)
 			iommu_unit->dev[j].pt_lsb = KGSL_IOMMMU_PT_LSB(
 						KGSL_IOMMU_GET_IOMMU_REG(
@@ -816,14 +848,19 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i;
 	for (i = 0; i < iommu->unit_count; i++) {
+		struct kgsl_pagetable *pagetable = (mmu->priv_bank_table ?
+			mmu->priv_bank_table : mmu->defaultpagetable);
 		if (iommu->iommu_units[i].reg_map.gpuaddr)
-			kgsl_mmu_unmap(mmu->defaultpagetable,
+			kgsl_mmu_unmap(pagetable,
 			&(iommu->iommu_units[i].reg_map));
 		if (iommu->iommu_units[i].reg_map.hostptr)
 			iounmap(iommu->iommu_units[i].reg_map.hostptr);
 		kgsl_sg_free(iommu->iommu_units[i].reg_map.sg,
 				iommu->iommu_units[i].reg_map.sglen);
 	}
+
+	if (mmu->priv_bank_table)
+		kgsl_mmu_putpagetable(mmu->priv_bank_table);
 	if (mmu->defaultpagetable)
 		kgsl_mmu_putpagetable(mmu->defaultpagetable);
 	kfree(iommu->asids);
