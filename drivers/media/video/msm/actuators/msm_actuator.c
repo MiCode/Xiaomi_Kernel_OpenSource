@@ -375,38 +375,13 @@ int32_t msm_actuator_set_default_focus(
 int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
-	int16_t step_pos = 0;
-	int16_t i = 0;
-	CDBG("%s called\n", __func__);
-
-	if (a_ctrl->step_position_table) {
-		if (a_ctrl->step_position_table[a_ctrl->curr_step_pos] >=
-			a_ctrl->step_position_table[a_ctrl->pwd_step]) {
-			step_pos = (a_ctrl->
-				step_position_table[a_ctrl->curr_step_pos] -
-				a_ctrl->step_position_table[a_ctrl->
-				pwd_step]) / 10;
-			for (i = 0; i < 10; i++) {
-				rc = a_ctrl->func_tbl->
-					actuator_i2c_write(a_ctrl,
-					i * step_pos, 0);
-				usleep(500);
-			}
-			rc = a_ctrl->func_tbl->actuator_i2c_write(a_ctrl,
-				a_ctrl->step_position_table[a_ctrl->
-				curr_step_pos],
-				0);
-		}
-		CDBG("%s after msm_actuator_set_default_focus\n", __func__);
-		kfree(a_ctrl->step_position_table);
-	}
-
 	if (a_ctrl->vcm_enable) {
 		rc = gpio_direction_output(a_ctrl->vcm_pwd, 0);
 		if (!rc)
 			gpio_free(a_ctrl->vcm_pwd);
 	}
 
+	kfree(a_ctrl->step_position_table);
 	a_ctrl->step_position_table = NULL;
 	return rc;
 }
