@@ -51,7 +51,7 @@
 #else
 #define MSM_ION_SF_SIZE 0x2800000 /* 40 Mbytes */
 #endif
-#define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
+#define MSM_ION_MM_FW_SIZE	0xa00000 /* (10MB) */
 #define MSM_ION_MM_SIZE		0x7800000 /* (120MB) */
 #define MSM_ION_QSECOM_SIZE	0x100000 /* (1MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
