@@ -307,13 +307,13 @@ int msm_camera_flash_external(
 #endif
 		rc = gpio_request(external->led_en, "sc628a");
 		if (!rc) {
-			gpio_direction_output(external->led_en, 1);
+			gpio_direction_output(external->led_en, 0);
 		} else {
 			goto err1;
 		}
 		rc = gpio_request(external->led_flash_en, "sc628a");
 		if (!rc) {
-			gpio_direction_output(external->led_flash_en, 1);
+			gpio_direction_output(external->led_flash_en, 0);
 			break;
 		}
 
