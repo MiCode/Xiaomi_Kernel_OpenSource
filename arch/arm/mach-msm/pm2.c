@@ -65,7 +65,7 @@
 #include "spm.h"
 #include "sirc.h"
 #include "pm-boot.h"
-#define MSM_CORE1_RESET		0xA8600590
+#include "devices-msm7x2xa.h"
 
 /******************************************************************************
  * Debug Definitions
@@ -490,7 +490,7 @@ static void configure_top_csr(void)
 	void __iomem *base_ptr;
 	unsigned int value = 0;
 
-	base_ptr = ioremap_nocache(MSM_CORE1_RESET, SZ_4);
+	base_ptr = core1_reset_base();
 	if (!base_ptr)
 		return;
 
@@ -545,7 +545,6 @@ static void configure_top_csr(void)
 	mb();
 	__raw_writel(0x0, base_ptr);
 	mb();
-	iounmap(base_ptr);
 }
 
 /*
