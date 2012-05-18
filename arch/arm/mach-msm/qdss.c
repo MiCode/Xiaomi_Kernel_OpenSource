@@ -19,9 +19,8 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/export.h>
-#include <mach/rpm.h>
+#include <linux/clk.h>
 
-#include "rpm_resources.h"
 #include "qdss-priv.h"
 
 #define MAX_STR_LEN	(65535)
@@ -47,8 +46,7 @@ struct qdss_ctx {
 	uint8_t				sink_count;	/* I: sink count */
 	struct mutex			sink_mutex;
 	uint8_t				max_clk;
-	uint8_t				clk_count;	/* C: clk count */
-	struct mutex			clk_mutex;
+	struct clk			*clk;
 };
 
 static struct qdss_ctx qdss;
@@ -197,66 +195,31 @@ EXPORT_SYMBOL(qdss_disable_sink);
 /**
  * qdss_clk_enable - enable qdss clocks
  *
- * Enables qdss clocks via RPM if they aren't already enabled, otherwise
- * increments the reference count.
+ * Enables qdss clocks
  *
  * CONTEXT:
- * Might sleep. Uses a mutex lock. Should be called from a non-atomic context.
+ * Might sleep. Should be called from a non-atomic context.
  *
  * RETURNS:
  * 0 on success, non-zero on failure
  */
 int qdss_clk_enable(void)
 {
-	int ret;
-	struct msm_rpm_iv_pair iv;
-
-	mutex_lock(&qdss.clk_mutex);
-	if (qdss.clk_count == 0) {
-		iv.id = MSM_RPM_ID_QDSS_CLK;
-		if (qdss.max_clk)
-			iv.value = QDSS_CLK_ON_HSDBG;
-		else
-			iv.value = QDSS_CLK_ON_DBG;
-		ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
-		if (WARN(ret, "qdss clks not enabled (%d)\n", ret))
-			goto err_clk;
-	}
-	qdss.clk_count++;
-	mutex_unlock(&qdss.clk_mutex);
-	return 0;
-err_clk:
-	mutex_unlock(&qdss.clk_mutex);
-	return ret;
+	return clk_prepare_enable(qdss.clk);
 }
 EXPORT_SYMBOL(qdss_clk_enable);
 
 /**
  * qdss_clk_disable - disable qdss clocks
  *
- * Disables qdss clocks via RPM if the reference count is one, otherwise
- * decrements the reference count.
+ * Disables qdss clocks
  *
  * CONTEXT:
- * Might sleep. Uses a mutex lock. Should be called from a non-atomic context.
+ * Might sleep. Should be called from a non-atomic context.
  */
 void qdss_clk_disable(void)
 {
-	int ret;
-	struct msm_rpm_iv_pair iv;
-
-	mutex_lock(&qdss.clk_mutex);
-	if (WARN(qdss.clk_count == 0, "qdss clks are unbalanced\n"))
-		goto out;
-	if (qdss.clk_count == 1) {
-		iv.id = MSM_RPM_ID_QDSS_CLK;
-		iv.value = QDSS_CLK_OFF;
-		ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, &iv, 1);
-		WARN(ret, "qdss clks not disabled (%d)\n", ret);
-	}
-	qdss.clk_count--;
-out:
-	mutex_unlock(&qdss.clk_mutex);
+	clk_disable_unprepare(qdss.clk);
 }
 EXPORT_SYMBOL(qdss_clk_disable);
 
@@ -329,11 +292,10 @@ static void qdss_sysfs_exit(void)
 
 static int qdss_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret = 0;
 	struct msm_qdss_platform_data *pdata;
 
 	mutex_init(&qdss.sources_mutex);
-	mutex_init(&qdss.clk_mutex);
 	mutex_init(&qdss.sink_mutex);
 
 	INIT_LIST_HEAD(&qdss.sources);
@@ -342,14 +304,29 @@ static int qdss_probe(struct platform_device *pdev)
 	if (!pdata)
 		goto err_pdata;
 
+	qdss.clk = clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(qdss.clk)) {
+		ret = PTR_ERR(qdss.clk);
+		pr_info("clk get failed\n");
+		goto err_clk_get;
+	}
+
+	ret = clk_set_rate(qdss.clk, QDSS_CLK_ON_DBG);
+	if (ret) {
+		pr_info("clk rate failed\n");
+		goto err_clk_rate;
+	}
+
 	qdss.afamily = pdata->afamily;
 	qdss_add_sources(pdata->src_table, pdata->size);
 
 	pr_info("QDSS arch initialized\n");
 	return 0;
+err_clk_rate:
+	clk_put(qdss.clk);
+err_clk_get:
 err_pdata:
 	mutex_destroy(&qdss.sink_mutex);
-	mutex_destroy(&qdss.clk_mutex);
 	mutex_destroy(&qdss.sources_mutex);
 	pr_err("QDSS init failed\n");
 	return ret;
@@ -358,8 +335,8 @@ err_pdata:
 static int qdss_remove(struct platform_device *pdev)
 {
 	qdss_sysfs_exit();
+	clk_put(qdss.clk);
 	mutex_destroy(&qdss.sink_mutex);
-	mutex_destroy(&qdss.clk_mutex);
 	mutex_destroy(&qdss.sources_mutex);
 
 	return 0;
