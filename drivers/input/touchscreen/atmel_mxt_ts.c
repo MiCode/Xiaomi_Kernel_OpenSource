@@ -777,7 +777,7 @@ static void mxt_input_report(struct mxt_data *data, int single_id)
 			input_report_abs(input_dev, ABS_MT_POSITION_Y,
 					finger[id].y);
 			input_report_abs(input_dev, ABS_MT_PRESSURE,
-					finger[id].area);
+					 finger[id].pressure);
 		} else {
 			finger[id].status = 0;
 		}
