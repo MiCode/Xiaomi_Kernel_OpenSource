@@ -1219,18 +1219,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.ignore_suspend = 1,
 		/* .be_id = do not care */
 	},
-	/* MI2S TX Hostless */
-	{
-		.name = "MI2S_TX Hostless",
-		.stream_name = "MI2S_TX Hostless",
-		.cpu_dai_name = "MI2S_TX_HOSTLESS",
-		.platform_name = "msm-pcm-hostless",
-		.dynamic = 1,
-		.dsp_link = &tx_hl_media,
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.no_codec = 1,
-		.ignore_suspend = 1,
-	},
 	/* HDMI Hostless */
 	{
 		.name = "HDMI_RX_HOSTLESS",
@@ -1239,6 +1227,18 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
 		.dsp_link = &rx_hl_media,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.no_codec = 1,
+		.ignore_suspend = 1,
+	},
+	/* MI2S TX Hostless */
+	{
+		.name = "MI2S_TX Hostless",
+		.stream_name = "MI2S_TX Hostless",
+		.cpu_dai_name = "MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dsp_link = &tx_hl_media,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.no_codec = 1,
 		.ignore_suspend = 1,
