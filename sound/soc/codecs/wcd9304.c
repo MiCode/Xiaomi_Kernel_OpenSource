@@ -1950,9 +1950,11 @@ static unsigned int sitar_read(struct snd_soc_codec *codec,
 
 static void sitar_codec_enable_audio_mode_bandgap(struct snd_soc_codec *codec)
 {
+	struct wcd9xxx *sitar_core = dev_get_drvdata(codec->dev->parent);
 
-	snd_soc_update_bits(codec, SITAR_A_LDO_H_MODE_1, 0x0C, 0x04);
-	snd_soc_update_bits(codec, SITAR_A_LDO_H_MODE_1, 0x80, 0x80);
+	if (SITAR_IS_1P0(sitar_core->version))
+		snd_soc_update_bits(codec, SITAR_A_LDO_H_MODE_1, 0x80, 0x80);
+
 	snd_soc_update_bits(codec, SITAR_A_BIAS_CURR_CTL_2, 0x0C, 0x08);
 	usleep_range(1000, 1000);
 	snd_soc_write(codec, SITAR_A_BIAS_REF_CTL, 0x1C);
@@ -1971,6 +1973,7 @@ static void sitar_codec_enable_bandgap(struct snd_soc_codec *codec,
 	enum sitar_bandgap_type choice)
 {
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *sitar_core = dev_get_drvdata(codec->dev->parent);
 
 	/* TODO lock resources accessed by audio streams and threaded
 	* interrupt handlers
@@ -2005,7 +2008,9 @@ static void sitar_codec_enable_bandgap(struct snd_soc_codec *codec,
 	} else if (choice == SITAR_BANDGAP_OFF) {
 		snd_soc_update_bits(codec, SITAR_A_BIAS_CURR_CTL_2, 0x0C, 0x00);
 		snd_soc_write(codec, SITAR_A_BIAS_CENTRAL_BG_CTL, 0x50);
-		snd_soc_update_bits(codec, SITAR_A_LDO_H_MODE_1, 0xFF, 0x65);
+		if (SITAR_IS_1P0(sitar_core->version))
+			snd_soc_update_bits(codec, SITAR_A_LDO_H_MODE_1,
+								0xFF, 0x65);
 		usleep_range(1000, 1000);
 	} else {
 		pr_err("%s: Error, Invalid bandgap settings\n", __func__);
@@ -4327,6 +4332,8 @@ static int sitar_handle_pdata(struct sitar_priv *sitar)
 	}
 
 	/* Set voltage level and always use LDO */
+	snd_soc_update_bits(codec, SITAR_A_LDO_H_MODE_1, 0x0C,
+		(pdata->micbias.ldoh_v << 2));
 
 	snd_soc_update_bits(codec, SITAR_A_MICB_CFILT_1_VAL, 0xFC,
 		(k1 << 2));
