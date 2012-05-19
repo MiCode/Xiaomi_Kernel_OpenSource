@@ -923,7 +923,6 @@ static int msm_mctl_dev_open(struct file *f)
 	struct msm_cam_v4l2_device *pcam  = NULL;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	struct msm_cam_media_controller *pmctl;
-	D("%s : E ", __func__);
 
 	if (f == NULL) {
 		pr_err("%s :: cannot open video driver data", __func__);
@@ -935,8 +934,8 @@ static int msm_mctl_dev_open(struct file *f)
 		pr_err("%s NULL pointer passed in!\n", __func__);
 		return rc;
 	}
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
 
+	D("%s : E use_count %d", __func__, pcam->mctl_node.use_count);
 	mutex_lock(&pcam->mctl_node.dev_lock);
 	for (i = 0; i < MSM_DEV_INST_MAX; i++) {
 		if (pcam->mctl_node.dev_inst[i] == NULL)
@@ -960,6 +959,21 @@ static int msm_mctl_dev_open(struct file *f)
 
 	D("%s pcam_inst %p my_index = %d\n", __func__,
 		pcam_inst, pcam_inst->my_index);
+	rc = msm_cam_server_open_mctl_session(pcam,
+		&pcam->mctl_node.active);
+	if (rc < 0) {
+		pr_err("%s: mctl session open failed %d", __func__, rc);
+		mutex_unlock(&pcam->mctl_node.dev_lock);
+		return rc;
+	}
+
+	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	if (!pmctl) {
+		pr_err("%s mctl NULL!\n", __func__);
+		return rc;
+	}
+
+	D("%s active %d\n", __func__, pcam->mctl_node.active);
 	rc = msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 					pcam->mctl_node.pvdev);
 	if (rc < 0) {
@@ -973,6 +987,7 @@ static int msm_mctl_dev_open(struct file *f)
 	D("f->private_data = 0x%x, pcam = 0x%x\n",
 		(u32)f->private_data, (u32)pcam_inst);
 
+	pcam->mctl_node.use_count++;
 	mutex_unlock(&pcam->mctl_node.dev_lock);
 	D("%s : X ", __func__);
 	return rc;
@@ -1030,6 +1045,17 @@ static int msm_mctl_dev_close(struct file *f)
 
 	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
 	mutex_lock(&pcam->mctl_node.dev_lock);
+	D("%s : active %d ", __func__, pcam->mctl_node.active);
+	if (pcam->mctl_node.active == 1) {
+		rc = msm_cam_server_close_mctl_session(pcam);
+		if (rc < 0) {
+			pr_err("%s: mctl session close failed %d",
+				__func__, rc);
+			mutex_unlock(&pcam->mctl_node.dev_lock);
+			return rc;
+		}
+		pmctl = NULL;
+	}
 	pcam_inst->streamon = 0;
 	pcam->mctl_node.dev_inst_map[pcam_inst->image_mode] = NULL;
 	if (pcam_inst->vbqueue_initialized)
@@ -1040,10 +1066,14 @@ static int msm_mctl_dev_close(struct file *f)
 	v4l2_fh_exit(&pcam_inst->eventHandle);
 
 	kfree(pcam_inst);
-	kref_put(&pmctl->refcount, msm_release_ion_client);
+	if (NULL != pmctl) {
+		D("%s : release ion client", __func__);
+		kref_put(&pmctl->refcount, msm_release_ion_client);
+	}
 	f->private_data = NULL;
 	mutex_unlock(&pcam->mctl_node.dev_lock);
-	D("%s : X ", __func__);
+	pcam->mctl_node.use_count--;
+	D("%s : use_count %d X ", __func__, pcam->mctl_node.use_count);
 	return rc;
 }
 
@@ -1246,6 +1276,11 @@ static int msm_mctl_v4l2_qbuf(struct file *f, void *pctx,
 				pb->m.planes[i].data_offset;
 			pcam_inst->buf_offset[pb->index][i].addr_offset =
 				pb->m.planes[i].reserved[0];
+			pcam_inst->plane_info.plane[i].offset = 0;
+			D("%s, len %d user[%d] %p buf_len %d\n",
+				__func__, pb->length, i,
+				(void *)pb->m.planes[i].m.userptr,
+				pb->m.planes[i].length);
 		}
 	} else {
 		D("%s stored reserved info %d", __func__, pb->reserved);

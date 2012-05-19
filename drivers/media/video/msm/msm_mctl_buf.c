@@ -431,8 +431,8 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 	int pp_divert_type = 0, pp_type = 0;
 
 	msm_mctl_check_pp(p_mctl, image_mode, &pp_divert_type, &pp_type);
-	D("%s: pp_type=%d, pp_divert_type = %d, frame_id = 0x%x",
-		__func__, pp_type, pp_divert_type, frame_id);
+	D("%s: pp_type=%d, pp_divert_type = %d, frame_id = 0x%x image_mode %d",
+		__func__, pp_type, pp_divert_type, frame_id, image_mode);
 	if (pp_type || pp_divert_type)
 		rc = msm_mctl_do_pp_divert(p_mctl,
 		image_mode, fbuf, frame_id, pp_type);
@@ -440,9 +440,26 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 		idx = msm_mctl_img_mode_to_inst_index(
 				p_mctl, image_mode, 0);
 		if (idx < 0) {
-			pr_err("%s Invalid instance, dropping buffer\n",
-				__func__);
-			return idx;
+			/* check mctl node */
+			if ((image_mode >= 0) &&
+				p_mctl->pcam_ptr->mctl_node.
+					dev_inst_map[image_mode]) {
+				int index = p_mctl->pcam_ptr->mctl_node.
+					   dev_inst_map[image_mode]->my_index;
+				pcam_inst = p_mctl->pcam_ptr->mctl_node.
+					dev_inst[index];
+				D("%s: Mctl node index %d inst %p",
+					__func__, index, pcam_inst);
+				rc = msm_mctl_buf_done_proc(p_mctl, pcam_inst,
+					image_mode, fbuf,
+					&frame_id, 1);
+				D("%s mctl node buf done %d\n", __func__, 0);
+				return -EINVAL;
+			} else {
+			  pr_err("%s Invalid instance, dropping buffer\n",
+				  __func__);
+			  return idx;
+			}
 		}
 		pcam_inst = p_mctl->pcam_ptr->dev_inst[idx];
 		rc = msm_mctl_buf_done_proc(p_mctl, pcam_inst,
@@ -573,6 +590,10 @@ int msm_mctl_reserve_free_buf(
 					plane_offset =
 					mem->offset.sp_off.cbcr_off;
 
+				D("%s: data off %d plane off %d",
+					__func__,
+					pcam_inst->buf_offset[buf_idx][i].
+					data_offset, plane_offset);
 				free_buf->ch_paddr[i] =	(uint32_t)
 				videobuf2_to_pmem_contig(&buf->vidbuf, i) +
 				pcam_inst->buf_offset[buf_idx][i].data_offset +

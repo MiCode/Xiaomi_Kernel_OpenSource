@@ -13,6 +13,7 @@ ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   EXTRA_CFLAGS += -Idrivers/media/video/msm/actuators
   obj-$(CONFIG_MSM_CAMERA) += msm_isp.o msm.o msm_mem.o msm_mctl.o msm_mctl_buf.o msm_mctl_pp.o
   obj-$(CONFIG_MSM_CAMERA) += io/ eeprom/ sensors/ actuators/ csi/
+  obj-$(CONFIG_MSM_CAMERA) += msm_gesture.o
 else
   obj-$(CONFIG_MSM_CAMERA) += msm_camera.o
 endif

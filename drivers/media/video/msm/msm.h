@@ -32,6 +32,7 @@
 #include <mach/camera.h>
 #include <media/msm_isp.h>
 #include <linux/ion.h>
+#include <media/msm_gestures.h>
 
 #define MSM_V4L2_DIMENSION_SIZE 96
 #define MAX_DEV_NAME_LEN 50
@@ -69,6 +70,7 @@ enum msm_cam_subdev_type {
 	SENSOR_DEV,
 	ACTUATOR_DEV,
 	EEPROM_DEV,
+	GESTURE_DEV,
 };
 
 /* msm queue management APIs*/
@@ -150,6 +152,8 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_VFE_BUF_FREE_EVT, /* arg = msm_camera_csic_params */
 	NOTIFY_VFE_IRQ,
 	NOTIFY_AXI_IRQ,
+	NOTIFY_GESTURE_EVT, /* arg = v4l2_event */
+	NOTIFY_GESTURE_CAM_EVT, /* arg = int */
 	NOTIFY_INVALID
 };
 
@@ -330,6 +334,8 @@ struct msm_cam_mctl_node {
 	struct msm_cam_v4l2_dev_inst *dev_inst[MSM_DEV_INST_MAX];
 	struct msm_cam_v4l2_dev_inst *dev_inst_map[MSM_MAX_IMG_MODE];
 	struct mutex dev_lock;
+	int active;
+	int use_count;
 };
 
 /* abstract camera device for each sensor successfully probed*/
@@ -384,7 +390,8 @@ struct msm_cam_config_dev {
 	struct msm_mem_map_info mem_map;
 };
 
-#define MAX_NUM_ACTIVE_CAMERA 2
+/* 2 for camera, 1 for gesture */
+#define MAX_NUM_ACTIVE_CAMERA 3
 
 struct msm_cam_server_queue {
 	uint32_t queue_active;
@@ -444,6 +451,7 @@ struct msm_cam_server_dev {
 	struct v4l2_subdev *vfe_device[MAX_NUM_VFE_DEV];
 	struct v4l2_subdev *axi_device[MAX_NUM_AXI_DEV];
 	struct v4l2_subdev *vpe_device[MAX_NUM_VPE_DEV];
+	struct v4l2_subdev *gesture_device;
 };
 
 /* camera server related functions */
@@ -566,6 +574,12 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 uint32_t msm_camera_get_mctl_handle(void);
 struct msm_cam_media_controller *msm_camera_get_mctl(uint32_t handle);
 void msm_camera_free_mctl(uint32_t handle);
+int msm_server_open_client(int *p_qidx);
+int msm_server_send_ctrl(struct msm_ctrl_cmd *out, int ctrl_id);
+int msm_server_close_client(int idx);
+int msm_cam_server_open_mctl_session(struct msm_cam_v4l2_device *pcam,
+	int *p_active);
+int msm_cam_server_close_mctl_session(struct msm_cam_v4l2_device *pcam);
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */
