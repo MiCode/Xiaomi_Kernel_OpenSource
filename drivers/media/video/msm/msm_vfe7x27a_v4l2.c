@@ -258,7 +258,8 @@ struct cmd_id_map cmds_map[] = {
 	{VFE_CMD_DUMMY_9, VFE_MAX, VFE_MAX},
 	{VFE_CMD_STATS_AF_START, VFE_STATS_AUTOFOCUS_CONFIG, QDSP_CMDQUEUE,
 		"VFE_CMD_STATS_AF_START", "VFE_STATS_AUTOFOCUS_CONFIG"},
-	{VFE_CMD_STATS_AF_STOP, VFE_MAX, VFE_MAX},
+	{VFE_CMD_STATS_AF_STOP, VFE_STATS_AUTOFOCUS_CONFIG, QDSP_CMDQUEUE,
+		"VFE_CMD_STATS_AF_STOP", "VFE_STATS_AUTOFOCUS_CONFIG"},
 	{VFE_CMD_STATS_AE_START, VFE_MAX, VFE_MAX},
 	{VFE_CMD_STATS_AE_STOP, VFE_MAX, VFE_MAX},
 	{VFE_CMD_STATS_AWB_START, VFE_MAX, VFE_MAX},
@@ -665,7 +666,9 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 						msgs_map[id].isp_id);
 			break;
 		default:
-			vfe2x_send_isp_msg(vfe2x_ctrl, msgs_map[id].isp_id);
+			if (MSG_TABLE_CMD_ACK != id)
+				vfe2x_send_isp_msg(vfe2x_ctrl,
+						msgs_map[id].isp_id);
 			break;
 		}
 	}
@@ -1268,7 +1271,10 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 				if ((!list_empty(&vfe2x_ctrl->table_q)) ||
 						vfe2x_ctrl->tableack_pending) {
 					CDBG("update pending\n");
-					vfe2x_ctrl->update_pending = 1;
+					vfe2x_ctrl->update_pending = 0;
+					vfe2x_send_isp_msg(vfe2x_ctrl,
+						msgs_map[MSG_UPDATE_ACK].
+						isp_id);
 					spin_unlock_irqrestore(
 							&vfe2x_ctrl->table_lock,
 							flags);
@@ -1586,29 +1592,30 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 
 config_send:
 	CDBG("send adsp command = %d\n", *(uint32_t *)cmd_data);
+	spin_lock_irqsave(&vfe2x_ctrl->table_lock, flags);
 	if (queue == QDSP_TABLEQUEUE &&
 			vfe2x_ctrl->tableack_pending) {
 		CDBG("store table cmd\n");
 		table_pending = kzalloc(sizeof(struct table_cmd), GFP_ATOMIC);
 		if (!table_pending) {
 			rc = -ENOMEM;
+			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 			goto config_done;
 		}
 		table_pending->cmd = kzalloc(vfecmd.length + 4, GFP_ATOMIC);
 		if (!table_pending->cmd) {
 			kfree(table_pending);
 			rc = -ENOMEM;
+			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 			goto config_done;
 		}
 		memcpy(table_pending->cmd, cmd_data, vfecmd.length + 4);
 		table_pending->queue = queue;
 		table_pending->size = vfecmd.length + 4;
-		spin_lock_irqsave(&vfe2x_ctrl->table_lock, flags);
 		list_add_tail(&table_pending->list, &vfe2x_ctrl->table_q);
 		spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 	} else {
 		if (queue == QDSP_TABLEQUEUE) {
-			spin_lock_irqsave(&vfe2x_ctrl->table_lock, flags);
 			CDBG("sending table cmd\n");
 			vfe2x_ctrl->tableack_pending = 1;
 			rc = msm_adsp_write(vfe_mod, queue,
@@ -1619,7 +1626,6 @@ config_send:
 				uint32_t *ptr = cmd_data;
 				CDBG("%x %x %x\n", ptr[0], ptr[1], ptr[2]);
 			}
-			spin_lock_irqsave(&vfe2x_ctrl->table_lock, flags);
 			CDBG("send n-table cmd\n");
 			rc = msm_adsp_write(vfe_mod, queue,
 				cmd_data, vfecmd.length + 4);
