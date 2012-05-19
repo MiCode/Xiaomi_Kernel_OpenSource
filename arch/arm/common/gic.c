@@ -212,10 +212,13 @@ static int gic_suspend_one(struct gic_chip_data *gic)
 {
 	unsigned int i;
 	void __iomem *base = gic_data_dist_base(gic);
+#ifdef CONFIG_ARCH_MSM8625
+	unsigned long flags;
+#endif
 
 	for (i = 0; i * 32 < gic->max_irq; i++) {
 #ifdef CONFIG_ARCH_MSM8625
-		raw_spin_lock(&irq_controller_lock);
+		raw_spin_lock_irqsave(&irq_controller_lock, flags);
 #endif
 		gic->enabled_irqs[i]
 			= readl_relaxed(base + GIC_DIST_ENABLE_SET + i * 4);
@@ -225,7 +228,7 @@ static int gic_suspend_one(struct gic_chip_data *gic)
 		writel_relaxed(gic->wakeup_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 #ifdef CONFIG_ARCH_MSM8625
-		raw_spin_unlock(&irq_controller_lock);
+		raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 #endif
 	}
 	mb();
@@ -248,17 +251,28 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 	u32 enabled;
 	unsigned long pending[32];
 	void __iomem *base = gic_data_dist_base(gic);
+#ifdef CONFIG_ARCH_MSM8625
+	unsigned long flags;
+#endif
 
 	if (!msm_show_resume_irq_mask)
 		return;
 
+#ifdef CONFIG_ARCH_MSM8625
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
+#else
 	raw_spin_lock(&irq_controller_lock);
+#endif
 	for (i = 0; i * 32 < gic->max_irq; i++) {
 		enabled = readl_relaxed(base + GIC_DIST_ENABLE_CLEAR + i * 4);
 		pending[i] = readl_relaxed(base + GIC_DIST_PENDING_SET + i * 4);
 		pending[i] &= enabled;
 	}
-	raw_spin_unlock(&irq_controller_lock);
+#ifdef CONFIG_ARCH_MSM8625
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
+#else
+	raw_spin_lock(&irq_controller_lock);
+#endif
 
 	for (i = find_first_bit(pending, gic->max_irq);
 	     i < gic->max_irq;
@@ -272,11 +286,13 @@ static void gic_resume_one(struct gic_chip_data *gic)
 {
 	unsigned int i;
 	void __iomem *base = gic_data_dist_base(gic);
-
+#ifdef CONFIG_ARCH_MSM8625
+	unsigned long flags;
+#endif
 	gic_show_resume_irq(gic);
 	for (i = 0; i * 32 < gic->max_irq; i++) {
 #ifdef CONFIG_ARCH_MSM8625
-		raw_spin_lock(&irq_controller_lock);
+		raw_spin_lock_irqsave(&irq_controller_lock, flags);
 #endif
 		/* disable all of them */
 		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4);
@@ -284,7 +300,7 @@ static void gic_resume_one(struct gic_chip_data *gic)
 		writel_relaxed(gic->enabled_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 #ifdef CONFIG_ARCH_MSM8625
-		raw_spin_unlock(&irq_controller_lock);
+		raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 #endif
 	}
 	mb();
@@ -1128,8 +1144,9 @@ unsigned int msm_gic_spi_ppi_pending(void)
 	unsigned long value = 0;
 	struct gic_chip_data *gic = &gic_data[0];
 	void __iomem *base = gic_data_dist_base(gic);
+	unsigned long flags;
 
-	raw_spin_lock(&irq_controller_lock);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	/*
 	 * PPI and SGI to be included.
 	 * MSM8625_INT_A9_M2A_5 needs to be ignored, as A9_M2A_5
@@ -1146,13 +1163,14 @@ unsigned int msm_gic_spi_ppi_pending(void)
 			for (bit = 0; bit < 32; bit++) {
 				bit = find_next_bit(&value, 32, bit);
 				if ((bit + 32 * i) != MSM8625_INT_A9_M2A_5) {
-					raw_spin_unlock(&irq_controller_lock);
+					raw_spin_unlock_irqrestore(
+						&irq_controller_lock, flags);
 					return 1;
 				}
 			}
 		}
 	}
-	raw_spin_unlock(&irq_controller_lock);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 
 	return 0;
 }
@@ -1162,16 +1180,19 @@ void msm_gic_save(bool modem_wake, int from_idle)
 	unsigned int i;
 	struct gic_chip_data *gic = &gic_data[0];
 	void __iomem *base = gic_data_dist_base(gic);
+	unsigned long flags;
 
 	gic_cpu_save(0);
 	gic_dist_save(0);
 	 /* Disable all the Interrupts, if we enter from idle pc */
 	if (from_idle) {
 		for (i = 0; (i * 32) < gic->max_irq; i++) {
-			raw_spin_lock(&irq_controller_lock);
+			raw_spin_lock_irqsave(
+					&irq_controller_lock, flags);
 			writel_relaxed(0xffffffff, base
 					+ GIC_DIST_ENABLE_CLEAR + i * 4);
-			raw_spin_unlock(&irq_controller_lock);
+			raw_spin_unlock_irqrestore(
+					&irq_controller_lock, flags);
 		}
 	}
 }
@@ -1193,8 +1214,9 @@ void core1_gic_configure_and_raise(void)
 	struct gic_chip_data *gic = &gic_data[0];
 	void __iomem *base = gic_data_dist_base(gic);
 	unsigned int value = 0;
+	unsigned long flags;
 
-	raw_spin_lock(&irq_controller_lock);
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 
 	value = __raw_readl(base + GIC_DIST_ACTIVE_BIT + 0x4);
 	value |= BIT(8);
@@ -1220,6 +1242,6 @@ void core1_gic_configure_and_raise(void)
 	value |= BIT(8);
 	__raw_writel(value, base + GIC_DIST_PENDING_SET + 0x4);
 	mb();
-	raw_spin_unlock(&irq_controller_lock);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
 #endif
