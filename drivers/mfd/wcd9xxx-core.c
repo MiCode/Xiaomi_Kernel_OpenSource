@@ -41,7 +41,7 @@ struct wcd9xxx_i2c {
 };
 
 struct wcd9xxx_i2c wcd9xxx_modules[MAX_WCD9XXX_DEVICE];
-static int wcd9xxx_intf;
+static int wcd9xxx_intf = -1;
 
 static int wcd9xxx_read(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		       int bytes, void *dest, bool interface_reg)
@@ -331,17 +331,35 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 	pr_info("idbyte_0[%08x] idbyte_1[%08x] idbyte_2[%08x] idbyte_3[%08x]\n",
 			idbyte_0, idbyte_1, idbyte_2, idbyte_3);
 
-	if (!strncmp(wcd9xxx->slim->name, "tabla", 5)) {
+	if (wcd9xxx->slim != NULL) {
+		if (!strncmp(wcd9xxx->slim->name, "tabla", 5)) {
+			if (TABLA_IS_1_X(wcd9xxx->version)) {
+				wcd9xxx_dev = tabla1x_devs;
+				wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
+			} else {
+				wcd9xxx_dev = tabla_devs;
+				wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
+			}
+		} else {
+			wcd9xxx_dev = sitar_devs;
+			wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
+		}
+	} else {
+		/* Need to add here check for Tabla.
+		 * For now the read of version takes
+		 * care of now only tabla.
+		 */
+		pr_debug("%s : Read codec version using I2C\n",	__func__);
 		if (TABLA_IS_1_X(wcd9xxx->version)) {
 			wcd9xxx_dev = tabla1x_devs;
 			wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
-		} else {
+		} else if (TABLA_IS_2_0(wcd9xxx->version)) {
 			wcd9xxx_dev = tabla_devs;
 			wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
+		} else {
+			wcd9xxx_dev = sitar_devs;
+			wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
 		}
-	} else {
-		wcd9xxx_dev = sitar_devs;
-		wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
 	}
 
 	ret = mfd_add_devices(wcd9xxx->dev, -1,
@@ -372,7 +390,8 @@ static void wcd9xxx_device_exit(struct wcd9xxx *wcd9xxx)
 	wake_lock_destroy(&wcd9xxx->wlock);
 	mutex_destroy(&wcd9xxx->io_lock);
 	mutex_destroy(&wcd9xxx->xfer_lock);
-	slim_remove_device(wcd9xxx->slim_slave);
+	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+		slim_remove_device(wcd9xxx->slim_slave);
 	kfree(wcd9xxx);
 }
 
@@ -478,12 +497,11 @@ static const struct file_operations codec_debug_ops = {
 };
 #endif
 
-static int wcd9xxx_enable_supplies(struct wcd9xxx *wcd9xxx)
+static int wcd9xxx_enable_supplies(struct wcd9xxx *wcd9xxx,
+				struct wcd9xxx_pdata *pdata)
 {
 	int ret;
 	int i;
-	struct wcd9xxx_pdata *pdata = wcd9xxx->slim->dev.platform_data;
-
 	wcd9xxx->supplies = kzalloc(sizeof(struct regulator_bulk_data) *
 				   ARRAY_SIZE(pdata->regulator),
 				   GFP_KERNEL);
@@ -695,6 +713,10 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 	int ret = 0;
 	static int device_id;
 
+	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		pr_info("tabla card is already detected in slimbus mode\n");
+		return -ENODEV;
+	}
 	if (device_id > 0) {
 		wcd9xxx_modules[device_id++].client = client;
 		pr_info("probe for other slaves devices of tabla\n");
@@ -721,8 +743,7 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 	dev_set_drvdata(&client->dev, wcd9xxx);
 	wcd9xxx->dev = &client->dev;
 	wcd9xxx->reset_gpio = pdata->reset_gpio;
-
-	ret = wcd9xxx_enable_supplies(wcd9xxx);
+	ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
 	if (ret) {
 		pr_err("%s: Fail to enable Codec supplies\n", __func__);
 		goto err_codec;
@@ -809,7 +830,7 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	wcd9xxx->reset_gpio = pdata->reset_gpio;
 	wcd9xxx->dev = &slim->dev;
 
-	ret = wcd9xxx_enable_supplies(wcd9xxx);
+	ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
 	if (ret)
 		goto err_codec;
 	usleep_range(5, 5);

@@ -51,6 +51,7 @@
 #include "pm.h"
 #include "acpuclock.h"
 #include "pm-boot.h"
+#include <mach/gpiomux.h>
 
 #ifdef CONFIG_ION_MSM
 #define MSM_ION_AUDIO_SIZE	0xAF000
@@ -294,6 +295,95 @@ static void __init msm9615_init_buses(void)
 #ifdef CONFIG_WCD9310_CODEC
 
 #define TABLA_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS)
+
+/*
+ * MDM9x15 I2S.
+ */
+static struct wcd9xxx_pdata wcd9xxx_i2c_platform_data = {
+	.irq = MSM_GPIO_TO_INT(85),
+	.irq_base = TABLA_INTERRUPT_BASE,
+	.num_irqs = NR_TABLA_IRQS,
+	.reset_gpio = 84,
+	.micbias = {
+		.ldoh_v = TABLA_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.cfilt3_mv = 1800,
+		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
+		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
+		.bias3_cfilt_sel = TABLA_CFILT3_SEL,
+		.bias4_cfilt_sel = TABLA_CFILT3_SEL,
+	},
+	.regulator = {
+	{
+		.name = "CDC_VDD_CP",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_CP_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_RX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_RX_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_TX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_TX_CUR_MAX,
+	},
+	{
+		.name = "VDDIO_CDC",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_VDDIO_CDC_CUR_MAX,
+	},
+	{
+		.name = "VDDD_CDC_D",
+		.min_uV = 1225000,
+		.max_uV = 1225000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_A_1P2V",
+		.min_uV = 1225000,
+		.max_uV = 1225000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
+	}
+	},
+};
+
+static struct i2c_board_info wcd9xxx_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("tabla top level", TABLA_I2C_SLAVE_ADDR),
+		.platform_data = &wcd9xxx_i2c_platform_data,
+	},
+	{
+		I2C_BOARD_INFO("tabla analog", TABLA_ANALOG_I2C_SLAVE_ADDR),
+		.platform_data = &wcd9xxx_i2c_platform_data,
+	},
+	{
+		I2C_BOARD_INFO("tabla digital1", TABLA_DIGITAL1_I2C_SLAVE_ADDR),
+		.platform_data = &wcd9xxx_i2c_platform_data,
+	},
+	{
+		I2C_BOARD_INFO("tabla digital2", TABLA_DIGITAL2_I2C_SLAVE_ADDR),
+		.platform_data = &wcd9xxx_i2c_platform_data,
+	},
+};
+
+static struct i2c_registry msm9615_i2c_devices[] __initdata = {
+	{
+		I2C_SURF | I2C_FFA | I2C_FLUID,
+		MSM_9615_GSBI5_QUP_I2C_BUS_ID,
+		wcd9xxx_device_info,
+		ARRAY_SIZE(wcd9xxx_device_info),
+	},
+};
+/*
+ * MDM9x15 I2S.
+ */
 
 /* Micbias setting is based on 8660 CDP/MTP/FLUID requirement
  * 4 micbiases are used to power various analog and digital
@@ -700,6 +790,8 @@ static struct platform_device *common_devices[] = {
 	&msm_stub_codec,
 	&msm_voice,
 	&msm_voip,
+	&msm_i2s_cpudai0,
+	&msm_i2s_cpudai1,
 	&msm_pcm_hostless,
 	&msm_cpudai_afe_01_rx,
 	&msm_cpudai_afe_01_tx,
@@ -728,8 +820,27 @@ static struct platform_device *common_devices[] = {
 
 static void __init msm9615_i2c_init(void)
 {
+	u8 mach_mask = 0;
+	int i;
+	/* Mask is hardcoded to SURF (CDP).
+	 * works on MTP with same configuration.
+	 */
+	mach_mask = I2C_SURF;
+	if (machine_is_msm9615_cdp())
+		mach_mask = I2C_SURF;
+	else if (machine_is_msm9615_mtp())
+		mach_mask = I2C_FFA;
+	else
+		pr_err("unmatched machine ID in register_i2c_devices\n");
 	msm9615_device_qup_i2c_gsbi5.dev.platform_data =
 					&msm9615_i2c_qup_gsbi5_pdata;
+	for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices); ++i) {
+		if (msm9615_i2c_devices[i].machs & mach_mask) {
+			i2c_register_board_info(msm9615_i2c_devices[i].bus,
+						msm9615_i2c_devices[i].info,
+						msm9615_i2c_devices[i].len);
+			}
+	}
 }
 
 static void __init msm9615_reserve(void)
