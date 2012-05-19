@@ -66,7 +66,7 @@ struct vcd_frame_data {
 	u32 alloc_len;
 	u32 data_len;
 	u32 offset;
-	s64 time_stamp;
+	s64 time_stamp; /* in usecs*/
 	u32 flags;
 	u32 frm_clnt_data;
 	struct vcd_property_dec_output_buffer dec_op_prop;
