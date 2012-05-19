@@ -42,6 +42,7 @@
 
 /* Peripheral clock registers. */
 #define ADM0_PBUS_CLK_CTL_REG			REG(0x2208)
+#define SFAB_SATA_S_HCLK_CTL_REG		REG(0x2480)
 #define CE1_HCLK_CTL_REG			REG(0x2720)
 #define CE1_CORE_CLK_CTL_REG			REG(0x2724)
 #define PRNG_CLK_NS_REG				REG(0x2E80)
@@ -108,10 +109,12 @@
 #define TSIF_REF_CLK_MD_REG			REG(0x270C)
 #define TSIF_REF_CLK_NS_REG			REG(0x2710)
 #define TSSC_CLK_CTL_REG			REG(0x2CA0)
+#define SATA_HCLK_CTL_REG			REG(0x2C00)
 #define SATA_CLK_SRC_NS_REG			REG(0x2C08)
 #define SATA_RXOOB_CLK_CTL_REG			REG(0x2C0C)
 #define SATA_PMALIVE_CLK_CTL_REG		REG(0x2C10)
 #define SATA_PHY_REF_CLK_CTL_REG		REG(0x2C14)
+#define SATA_ACLK_CTL_REG			REG(0x2C20)
 #define SATA_PHY_CFG_CLK_CTL_REG		REG(0x2C40)
 #define USB_FSn_HCLK_CTL_REG(n)			REG(0x2960+(0x20*((n)-1)))
 #define USB_FSn_RESET_REG(n)			REG(0x2974+(0x20*((n)-1)))
@@ -1926,6 +1929,69 @@ static struct branch_clk ce3_p_clk = {
 	}
 };
 
+#define F_SATA(f, s, d) \
+	{ \
+		.freq_hz = f, \
+		.src_clk = &s##_clk.c, \
+		.ns_val = NS_DIVSRC(6, 3, d, 2, 0, s##_to_bb_mux), \
+	}
+
+static struct clk_freq_tbl clk_tbl_sata[] = {
+	F_SATA(        0,  gnd, 1),
+	F_SATA( 48000000, pll8, 8),
+	F_SATA(100000000, pll3, 12),
+	F_END
+};
+
+static struct rcg_clk sata_src_clk = {
+	.b = {
+		.ctl_reg = SATA_CLK_SRC_NS_REG,
+		.halt_check = NOCHECK,
+	},
+	.ns_reg = SATA_CLK_SRC_NS_REG,
+	.root_en_mask = BIT(7),
+	.ns_mask = BM(6, 0),
+	.set_rate = set_rate_nop,
+	.freq_tbl = clk_tbl_sata,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "sata_src_clk",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP2(LOW, 50000000, NOMINAL, 100000000),
+		CLK_INIT(sata_src_clk.c),
+	},
+};
+
+static struct branch_clk sata_rxoob_clk = {
+	.b = {
+		.ctl_reg = SATA_RXOOB_CLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_MSS_SMPSS_MISC_STATE_REG,
+		.halt_bit = 26,
+	},
+	.parent = &sata_src_clk.c,
+	.c = {
+		.dbg_name = "sata_rxoob_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(sata_rxoob_clk.c),
+	},
+};
+
+static struct branch_clk sata_pmalive_clk = {
+	.b = {
+		.ctl_reg = SATA_PMALIVE_CLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_MSS_SMPSS_MISC_STATE_REG,
+		.halt_bit = 25,
+	},
+	.parent = &sata_src_clk.c,
+	.c = {
+		.dbg_name = "sata_pmalive_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(sata_pmalive_clk.c),
+	},
+};
+
 static struct branch_clk sata_phy_ref_clk = {
 	.b = {
 		.ctl_reg = SATA_PHY_REF_CLK_CTL_REG,
@@ -1941,6 +2007,47 @@ static struct branch_clk sata_phy_ref_clk = {
 	},
 };
 
+static struct branch_clk sata_a_clk = {
+	.b = {
+		.ctl_reg = SATA_ACLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_AFAB_SFAB_STATEA_REG,
+		.halt_bit = 12,
+	},
+	.c = {
+		.dbg_name = "sata_a_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(sata_a_clk.c),
+	},
+};
+
+static struct branch_clk sata_p_clk = {
+	.b = {
+		.ctl_reg = SATA_HCLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_MSS_SMPSS_MISC_STATE_REG,
+		.halt_bit = 27,
+	},
+	.c = {
+		.dbg_name = "sata_p_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(sata_p_clk.c),
+	},
+};
+
+static struct branch_clk sfab_sata_s_p_clk = {
+	.b = {
+		.ctl_reg = SFAB_SATA_S_HCLK_CTL_REG,
+		.en_mask = BIT(4),
+		.halt_reg = CLK_HALT_AFAB_SFAB_STATEB_REG,
+		.halt_bit = 14,
+	},
+	.c = {
+		.dbg_name = "sfab_sata_s_p_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(sfab_sata_s_p_clk.c),
+	},
+};
 static struct branch_clk pcie_p_clk = {
 	.b = {
 		.ctl_reg = PCIE_HCLK_CTL_REG,
@@ -4550,7 +4657,11 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_LS(0x56), &gsbi7_uart_clk.c },
 	{ TEST_PER_LS(0x58), &gsbi7_qup_clk.c },
 	{ TEST_PER_LS(0x59), &gsbi8_p_clk.c },
+	{ TEST_PER_LS(0x59), &sfab_sata_s_p_clk.c },
 	{ TEST_PER_LS(0x5A), &gsbi8_uart_clk.c },
+	{ TEST_PER_LS(0x5A), &sata_p_clk.c },
+	{ TEST_PER_LS(0x5B), &sata_rxoob_clk.c },
+	{ TEST_PER_LS(0x5C), &sata_pmalive_clk.c },
 	{ TEST_PER_LS(0x5C), &gsbi8_qup_clk.c },
 	{ TEST_PER_LS(0x5D), &gsbi9_p_clk.c },
 	{ TEST_PER_LS(0x5E), &gsbi9_uart_clk.c },
@@ -4606,6 +4717,7 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_PER_HS(0x26), &q6sw_clk },
 	{ TEST_PER_HS(0x27), &q6fw_clk },
 	{ TEST_PER_HS(0x2A), &adm0_clk.c },
+	{ TEST_PER_HS(0x31), &sata_a_clk.c },
 	{ TEST_PER_HS(0x2D), &pcie_phy_ref_clk.c },
 	{ TEST_PER_HS(0x32), &pcie_a_clk.c },
 	{ TEST_PER_HS(0x34), &ebi1_clk.c },
@@ -4967,6 +5079,12 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("sys_clk",		usb_fs1_sys_clk.c,	""),
 	CLK_LOOKUP("ref_clk",		sata_phy_ref_clk.c,	""),
 	CLK_LOOKUP("cfg_clk",		sata_phy_cfg_clk.c,	""),
+	CLK_LOOKUP("src_clk",		sata_src_clk.c,		""),
+	CLK_LOOKUP("core_rxoob_clk",	sata_rxoob_clk.c,	""),
+	CLK_LOOKUP("core_pmalive_clk",	sata_pmalive_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sata_a_clk.c,		""),
+	CLK_LOOKUP("iface_clk",		sata_p_clk.c,		""),
+	CLK_LOOKUP("slave_iface_clk",	sfab_sata_s_p_clk.c,	""),
 	CLK_LOOKUP("iface_clk",		ce3_p_clk.c,		"qce.0"),
 	CLK_LOOKUP("iface_clk",		ce3_p_clk.c,		"qcrypto.0"),
 	CLK_LOOKUP("core_clk",		ce3_core_clk.c,		"qce.0"),
@@ -5982,9 +6100,14 @@ static void __init reg_init(void)
 	if (cpu_is_msm8960() || cpu_is_apq8064())
 		rmwreg(0x2, DSI2_BYTE_NS_REG, 0x7);
 
-	/* Source the sata_phy_ref_clk from PXO */
-	if (cpu_is_apq8064())
+	/*
+	 * Source the sata_phy_ref_clk from PXO and set predivider of
+	 * sata_pmalive_clk to 1.
+	 */
+	if (cpu_is_apq8064()) {
 		rmwreg(0, SATA_PHY_REF_CLK_CTL_REG, 0x1);
+		rmwreg(0, SATA_PMALIVE_CLK_CTL_REG, 0x3);
+	}
 
 	/*
 	 * TODO: Programming below PLLs and prng_clk is temporary and
