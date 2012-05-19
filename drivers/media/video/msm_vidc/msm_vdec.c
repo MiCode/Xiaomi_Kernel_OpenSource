@@ -26,6 +26,7 @@
 #define MAX_NUM_OUTPUT_BUFFERS 6
 
 static const char *const mpeg_video_vidc_divx_format[] = {
+	"DIVX Format 3",
 	"DIVX Format 4",
 	"DIVX Format 5",
 	"DIVX Format 6",
@@ -153,8 +154,7 @@ static const struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 static u32 get_frame_size_nv12(int plane,
 					u32 height, u32 width)
 {
-	int stride = (width + 31) & (~31);
-	return height * stride * 3/2;
+	return (ALIGN(height, 32) * ALIGN(width, 32) * 3) / 2;
 }
 static u32 get_frame_size_nv21(int plane,
 					u32 height, u32 width)
@@ -217,6 +217,14 @@ static const struct msm_vidc_format vdec_formats[] = {
 		.get_frame_size = get_frame_size_nv21,
 		.type = CAPTURE_PORT,
 	},
+	{
+		.name = "DIVX 311",
+		.description = "DIVX 311 compressed format",
+		.fourcc = V4L2_PIX_FMT_DIVX_311,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_compressed,
+		.type = OUTPUT_PORT,
+	}
 };
 
 int msm_vdec_streamon(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
@@ -654,7 +662,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 				break;
 			}
 			if (property_id) {
-				pr_err("Control: HAL property=%d,ctrl_id=%d,ctrl_value=%d\n",
+				pr_err("Control: HAL property=%x,ctrl_id=%x,ctrl_value=%d\n",
 					   property_id,
 					   msm_vdec_ctrls[control_idx].id,
 					   control.value);

@@ -149,7 +149,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 	enum command_response cmd)
 {
 	int rc = 0;
-	rc = wait_for_completion_timeout(
+	rc = wait_for_completion_interruptible_timeout(
 		&inst->completions[SESSION_MSG_INDEX(cmd)],
 		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
 	if (!rc) {
@@ -418,6 +418,33 @@ static void handle_fbd(enum command_response cmd, void *data)
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+	} else {
+		/*
+		 * FIXME:
+		 * Special handling for EOS case: if we sent a 0 length input
+		 * buf with EOS set, Venus doesn't return a valid output buffer.
+		 * So pick up a random buffer that's with us, and send it to
+		 * v4l2 client with EOS flag set.
+		 *
+		 * This would normally be OK unless client decides to send
+		 * frames even after EOS.
+		 *
+		 * This should be fixed in upcoming versions of firmware
+		 */
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS
+			&& fill_buf_done->filled_len1 == 0) {
+			struct vb2_queue *q = &inst->vb2_bufq[CAPTURE_PORT];
+
+			if (!list_empty(&q->queued_list)) {
+				vb = list_first_entry(&q->queued_list,
+					struct vb2_buffer, queued_entry);
+				vb->v4l2_planes[0].bytesused = 0;
+				vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
+				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			}
+
+		}
+
 	}
 }
 
@@ -599,8 +626,10 @@ static enum hal_video_codec get_hal_codec_type(int fourcc)
 	case V4L2_PIX_FMT_VC1_ANNEX_L:
 		codec = HAL_VIDEO_CODEC_VC1;
 		break;
+	case V4L2_PIX_FMT_DIVX_311:
+		codec = HAL_VIDEO_CODEC_DIVX_311;
+		break;
 		/*HAL_VIDEO_CODEC_MVC
-		  HAL_VIDEO_CODEC_DIVX_311
 		  HAL_VIDEO_CODEC_DIVX
 		  HAL_VIDEO_CODEC_SPARK
 		  HAL_VIDEO_CODEC_VP6
