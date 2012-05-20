@@ -26,6 +26,7 @@
 #include <linux/pm_qos.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
+#include <linux/cs.h>
 #include <asm/sections.h>
 #include <mach/socinfo.h>
 
