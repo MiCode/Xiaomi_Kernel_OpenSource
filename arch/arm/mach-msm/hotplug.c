@@ -17,6 +17,7 @@
 #include <asm/smp_plat.h>
 #include <asm/vfp.h>
 
+#include <mach/jtag.h>
 #include <mach/msm_rtb.h>
 
 #include "pm.h"
