@@ -22,6 +22,7 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/cs.h>
 #include <asm/unaligned.h>
 #include <mach/stm.h>
 
