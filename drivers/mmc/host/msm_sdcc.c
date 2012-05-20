@@ -5020,6 +5020,7 @@ msmsdcc_probe(struct platform_device *pdev)
 				MMC_CAP_SET_XPC_180);
 
 	mmc->caps2 |= MMC_CAP2_PACKED_WR;
+	mmc->caps2 |= MMC_CAP2_PACKED_WR_CONTROL;
 	mmc->caps2 |= (MMC_CAP2_BOOTPART_NOACC | MMC_CAP2_DETECT_ON_ERR);
 	if (pdev->dev.of_node) {
 		if (of_get_property((&pdev->dev)->of_node,
