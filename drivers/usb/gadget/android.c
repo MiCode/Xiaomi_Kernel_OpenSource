@@ -223,6 +223,7 @@ static void android_work(struct work_struct *data)
 	char **uevent_envp = NULL;
 	static enum android_device_state last_uevent, next_state;
 	unsigned long flags;
+	int pm_qos_vote = -1;
 
 	spin_lock_irqsave(&cdev->lock, flags);
 	if (cdev->config) {
@@ -232,12 +233,15 @@ static void android_work(struct work_struct *data)
 		uevent_envp = dev->connected ? connected : disconnected;
 		next_state = dev->connected ? USB_CONNECTED : USB_DISCONNECTED;
 		if (dev->connected && strncmp(dev->pm_qos, "low", 3))
-			android_pm_qos_update_latency(dev, 1);
+			pm_qos_vote = 1;
 		else if (!dev->connected || !strncmp(dev->pm_qos, "low", 3))
-			android_pm_qos_update_latency(dev, 0);
+			pm_qos_vote = 0;
 	}
 	dev->sw_connected = dev->connected;
 	spin_unlock_irqrestore(&cdev->lock, flags);
+
+	if (pm_qos_vote != -1)
+		android_pm_qos_update_latency(dev, pm_qos_vote);
 
 	if (uevent_envp) {
 		/*
