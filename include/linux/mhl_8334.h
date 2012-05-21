@@ -17,9 +17,8 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <mach/board.h>
-
-#include "mhl_devcap.h"
-#include "mhl_defs.h"
+#include <linux/mhl_devcap.h>
+#include <linux/mhl_defs.h>
 
 #define MHL_DEVICE_NAME "sii8334"
 #define MHL_DRIVER_NAME "sii8334"
@@ -27,12 +26,48 @@
 #define HPD_UP               1
 #define HPD_DOWN             0
 
+enum discovery_result_enum {
+	MHL_DISCOVERY_RESULT_USB = 0,
+	MHL_DISCOVERY_RESULT_MHL,
+};
+
+/* USB driver interface  */
+
+#ifdef CONFIG_FB_MSM_HDMI_MHL_8334
+ /*  mhl_device_discovery */
+extern int mhl_device_discovery(const char *name, int *result);
+
+/* - register|unregister MHL cable plug callback. */
+extern int mhl_register_callback
+	(const char *name, void (*callback)(int online));
+extern int mhl_unregister_callback(const char *name);
+#else
+static inline int mhl_device_discovery(const char *name, int *result)
+{
+	return -ENODEV;
+}
+
+static inline int
+	mhl_register_callback(const char *name, void (*callback)(int online))
+{
+	return -ENODEV;
+}
+
+static inline int mhl_unregister_callback(const char *name)
+{
+	return -ENODEV;
+}
+#endif
+
 struct mhl_msm_state_t {
 	struct i2c_client *i2c_client;
 	struct i2c_driver *i2c_driver;
 	uint8_t      cur_state;
 	uint8_t chip_rev_id;
 	struct msm_mhl_platform_data *mhl_data;
+	/* Device Discovery stuff */
+	int mhl_mode;
+	struct completion rgnd_done;
 };
 
 enum {

@@ -11,9 +11,9 @@
  *
  */
 #include <linux/i2c.h>
+#include <linux/mhl_8334.h>
 
 #include "mhl_i2c_utils.h"
-#include "mhl_8334.h"
 
 uint8_t slave_addrs[MAX_PAGES] = {
 	DEV_PAGE_TPI_0    ,

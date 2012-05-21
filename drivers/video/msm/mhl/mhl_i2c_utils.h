@@ -16,8 +16,7 @@
 
 #include <linux/i2c.h>
 #include <linux/types.h>
-
-#include "mhl_defs.h"
+#include <linux/mhl_defs.h>
 
 /*
  * I2C command to the adapter to append
