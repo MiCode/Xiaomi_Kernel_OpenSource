@@ -249,20 +249,26 @@ int msm_vdec_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
 		pr_err("Failed to find buffer queue for type = %d\n", i);
 		return -EINVAL;
 	}
-	spin_lock_irqsave(&inst->lock, flags);
-	list_for_each_safe(ptr, next, &inst->internalbufs) {
-		buf = list_entry(ptr, struct internal_buf, list);
-		list_del(&buf->list);
-		msm_smem_free(inst->mem_client, buf->handle);
-		kfree(buf);
+	if (i == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		spin_lock_irqsave(&inst->lock, flags);
+		if (!list_empty(&inst->internalbufs)) {
+			list_for_each_safe(ptr, next, &inst->internalbufs) {
+				buf = list_entry(ptr, struct internal_buf,
+								 list);
+				list_del(&buf->list);
+				msm_smem_free(inst->mem_client, buf->handle);
+				kfree(buf);
+			}
 		}
-	list_for_each_safe(ptr, next, &inst->extradatabufs) {
-		ebuf = list_entry(ptr, struct extradata_buf, list);
-		list_del(&ebuf->list);
-		msm_smem_free(inst->mem_client, ebuf->handle);
-		kfree(ebuf);
+		if (!list_empty(&inst->extradatabufs)) {
+			list_for_each_safe(ptr, next, &inst->extradatabufs) {
+				ebuf = list_entry(ptr, struct extradata_buf,
+								  list);
+				ebuf->device_addr = 0;
+			}
 		}
-	spin_unlock_irqrestore(&inst->lock, flags);
+		spin_unlock_irqrestore(&inst->lock, flags);
+	}
 
 	pr_debug("Calling streamoff\n");
 	rc = vb2_streamoff(q, i);
@@ -330,7 +336,8 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 	switch (b->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
+		struct extradata_buf *addr;
 		for (i = 0; i < b->length; i++) {
 			pr_err("Release device_addr = %ld, size = %d\n",
 				b->m.planes[i].m.userptr,
@@ -340,12 +347,26 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr =
 				 b->m.planes[i].m.userptr;
+			if (!list_empty(&inst->extradatabufs)) {
+				list_for_each_entry(addr, &inst->
+					extradatabufs, list) {
+					if (addr->device_addr ==
+							buffer_info.
+						align_device_addr) {
+						buffer_info.extradata_addr =
+							addr->handle->
+							device_addr;
+						break;
+					}
+				}
+			}
 			rc = vidc_hal_session_release_buffers(
 				(void *)inst->session, &buffer_info);
 			if (rc)
 				pr_err("vidc_hal_session_release_buffers failed");
 		}
 		break;
+	}
 	default:
 		pr_err("Buffer type not recognized: %d\n", b->type);
 		break;

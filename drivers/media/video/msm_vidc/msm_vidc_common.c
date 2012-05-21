@@ -893,18 +893,20 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			pr_debug("Sent etb to HAL\n");
 		} else if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			struct extradata_buf *addr;
-			struct list_head *ptr, *next;
 			frame_data.filled_len = 0;
 			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
 			frame_data.extradata_addr = 0;
-			list_for_each_safe(ptr, next, &inst->extradatabufs) {
-				addr = list_entry(ptr,
-						struct extradata_buf, list);
-				if (addr->device_addr ==
-						frame_data.device_addr) {
-					frame_data.extradata_addr =
-						addr->handle->device_addr;
-					break;
+			if (!list_empty(&inst->extradatabufs)) {
+				list_for_each_entry(addr, &inst->extradatabufs,
+									list) {
+					if (addr->device_addr ==
+							frame_data.
+						device_addr) {
+						frame_data.extradata_addr =
+							addr->
+							handle->device_addr;
+						break;
+					}
 				}
 			}
 			pr_debug("Sending ftb to hal...: Alloc: %d :filled: %d"
