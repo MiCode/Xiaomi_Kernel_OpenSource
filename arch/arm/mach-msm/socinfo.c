@@ -218,7 +218,6 @@ static enum msm_cpu cpu_of_id[] = {
 
 	/* 8064 IDs */
 	[109] = MSM_CPU_8064,
-	[130] = MSM_CPU_8064,
 
 	/* 8930 IDs */
 	[116] = MSM_CPU_8930,
@@ -247,13 +246,16 @@ static enum msm_cpu cpu_of_id[] = {
 	[128] = MSM_CPU_8625,
 	[129] = MSM_CPU_8625,
 
-	/* 9625 IDs */
-	[130] = MSM_CPU_9625,
+	/* 8064 MPQ ID */
+	[130] = MSM_CPU_8064,
 
 	/* 7x25AB IDs */
 	[131] = MSM_CPU_7X25AB,
 	[132] = MSM_CPU_7X25AB,
 	[133] = MSM_CPU_7X25AB,
+
+	/* 9625 IDs */
+	[134] = MSM_CPU_9625,
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -625,7 +627,7 @@ static void * __init setup_dummy_socinfo(void)
 		strlcpy(dummy_socinfo.build_id, "copper - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm9625()) {
-		dummy_socinfo.id = 130;
+		dummy_socinfo.id = 134;
 		strlcpy(dummy_socinfo.build_id, "msm9625 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (machine_is_msm8625_rumi3())
