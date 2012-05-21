@@ -694,29 +694,63 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 		switch (id) {
 		case MSG_SNAPSHOT:
 			msm_camio_set_perf_lvl(S_PREVIEW);
-			vfe_7x_ops(driver_data, MSG_OUTPUT_S, len, getevent);
-			if (!raw_mode)
-				vfe_7x_ops(driver_data, MSG_OUTPUT_T,
+			while (vfe2x_ctrl->snap.frame_cnt <
+				vfe2x_ctrl->num_snap) {
+				vfe_7x_ops(driver_data, MSG_OUTPUT_S, len,
+					getevent);
+				if (!raw_mode)
+					vfe_7x_ops(driver_data, MSG_OUTPUT_T,
 						len, getevent);
+			}
 			vfe2x_send_isp_msg(vfe2x_ctrl, MSG_ID_SNAPSHOT_DONE);
 			kfree(data);
 			return;
 		case MSG_OUTPUT_S:
 			outch = &vfe2x_ctrl->snap;
-			y_phy = outch->ping.ch_paddr[0];
-			cbcr_phy = outch->ping.ch_paddr[1];
-			CDBG("MSG_OUTPUT_S: %x %x\n",
-				(unsigned int)y_phy, (unsigned int)cbcr_phy);
+			if (outch->frame_cnt == 0) {
+				y_phy = outch->ping.ch_paddr[0];
+				cbcr_phy = outch->ping.ch_paddr[1];
+			} else if (outch->frame_cnt == 1) {
+				y_phy = outch->pong.ch_paddr[0];
+				cbcr_phy = outch->pong.ch_paddr[1];
+			} else if (outch->frame_cnt == 2) {
+				y_phy = outch->free_buf.ch_paddr[0];
+				cbcr_phy = outch->free_buf.ch_paddr[1];
+			} else {
+				y_phy = outch->free_buf_arr[outch->frame_cnt
+					- 3].ch_paddr[0];
+				cbcr_phy = outch->free_buf_arr[outch->frame_cnt
+					- 3].ch_paddr[1];
+			}
+			outch->frame_cnt++;
+			CDBG("MSG_OUTPUT_S: %x %x %d\n",
+				(unsigned int)y_phy, (unsigned int)cbcr_phy,
+					outch->frame_cnt);
 			vfe_send_outmsg(&vfe2x_ctrl->subdev,
 					MSG_ID_OUTPUT_PRIMARY,
 						y_phy, cbcr_phy);
 			break;
 		case MSG_OUTPUT_T:
 			outch = &vfe2x_ctrl->thumb;
-			y_phy = outch->ping.ch_paddr[0];
-			cbcr_phy = outch->ping.ch_paddr[1];
-			CDBG("MSG_OUTPUT_T: %x %x\n",
-				(unsigned int)y_phy, (unsigned int)cbcr_phy);
+			if (outch->frame_cnt == 0) {
+				y_phy = outch->ping.ch_paddr[0];
+				cbcr_phy = outch->ping.ch_paddr[1];
+			} else if (outch->frame_cnt == 1) {
+				y_phy = outch->pong.ch_paddr[0];
+				cbcr_phy = outch->pong.ch_paddr[1];
+			} else if (outch->frame_cnt == 2) {
+				y_phy = outch->free_buf.ch_paddr[0];
+				cbcr_phy = outch->free_buf.ch_paddr[1];
+			} else {
+				y_phy = outch->free_buf_arr[outch->frame_cnt
+					- 3].ch_paddr[0];
+				cbcr_phy = outch->free_buf_arr[outch->frame_cnt
+					- 3].ch_paddr[1];
+			}
+			outch->frame_cnt++;
+			CDBG("MSG_OUTPUT_T: %x %x %d\n",
+				(unsigned int)y_phy, (unsigned int)cbcr_phy,
+				outch->frame_cnt);
 			vfe_send_outmsg(&vfe2x_ctrl->subdev,
 						MSG_ID_OUTPUT_SECONDARY,
 							y_phy, cbcr_phy);
@@ -920,8 +954,9 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 			vfe2x_ctrl->vfeFrameId++;
 			if (vfe2x_ctrl->vfeFrameId == 0)
 				vfe2x_ctrl->vfeFrameId = 1; /* wrapped back */
-			if ((op_mode & SNAPSHOT_MASK_MODE) && !raw_mode) {
-				pr_err("Ignore SOF for snapshot\n");
+			if ((op_mode & SNAPSHOT_MASK_MODE) && !raw_mode
+				&& (vfe2x_ctrl->num_snap <= 1)) {
+				CDBG("Ignore SOF for snapshot\n");
 				kfree(data);
 				return;
 			}
@@ -1025,7 +1060,76 @@ static int vfe_7x_config_axi(int mode,
 	if (op_mode & SNAPSHOT_MASK_MODE)
 		o_mode = SNAPSHOT_MASK_MODE;
 
-	if (mode == OUTPUT_SEC) {
+	if ((o_mode == SNAPSHOT_MASK_MODE) && (vfe2x_ctrl->num_snap > 1)) {
+		CDBG("%s: BURST mode freebuf cnt %d", __func__,
+			ad->free_buf_cnt);
+		/* Burst */
+		if (mode == OUTPUT_SEC) {
+			ao->output1buffer1_y_phy = ad->ping.ch_paddr[0];
+			ao->output1buffer1_cbcr_phy = ad->ping.ch_paddr[1];
+			ao->output1buffer2_y_phy = ad->pong.ch_paddr[0];
+			ao->output1buffer2_cbcr_phy = ad->pong.ch_paddr[1];
+			ao->output1buffer3_y_phy = ad->free_buf.ch_paddr[0];
+			ao->output1buffer3_cbcr_phy = ad->free_buf.ch_paddr[1];
+			bptr = &ao->output1buffer4_y_phy;
+			for (cnt = 0; cnt < 5; cnt++) {
+				*bptr = (cnt < ad->free_buf_cnt-3) ?
+					ad->free_buf_arr[cnt].ch_paddr[0] :
+						ad->pong.ch_paddr[0];
+				bptr++;
+				*bptr = (cnt < ad->free_buf_cnt-3) ?
+					ad->free_buf_arr[cnt].ch_paddr[1] :
+						ad->pong.ch_paddr[1];
+				bptr++;
+			}
+			CDBG("%x %x\n", (unsigned int)ao->output1buffer1_y_phy,
+				(unsigned int)ao->output1buffer1_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output1buffer2_y_phy,
+				(unsigned int)ao->output1buffer2_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output1buffer3_y_phy,
+				(unsigned int)ao->output1buffer3_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output1buffer4_y_phy,
+				(unsigned int)ao->output1buffer4_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output1buffer5_y_phy,
+				(unsigned int)ao->output1buffer5_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output1buffer6_y_phy,
+				(unsigned int)ao->output1buffer6_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output1buffer7_y_phy,
+				(unsigned int)ao->output1buffer7_cbcr_phy);
+		} else { /*Primary*/
+			ao->output2buffer1_y_phy = ad->ping.ch_paddr[0];
+			ao->output2buffer1_cbcr_phy = ad->ping.ch_paddr[1];
+			ao->output2buffer2_y_phy = ad->pong.ch_paddr[0];
+			ao->output2buffer2_cbcr_phy = ad->pong.ch_paddr[1];
+			ao->output2buffer3_y_phy = ad->free_buf.ch_paddr[0];
+			ao->output2buffer3_cbcr_phy = ad->free_buf.ch_paddr[1];
+			bptr = &ao->output2buffer4_y_phy;
+			for (cnt = 0; cnt < 5; cnt++) {
+				*bptr = (cnt < ad->free_buf_cnt-3) ?
+					ad->free_buf_arr[cnt].ch_paddr[0] :
+						ad->pong.ch_paddr[0];
+				bptr++;
+				*bptr = (cnt < ad->free_buf_cnt-3) ?
+					ad->free_buf_arr[cnt].ch_paddr[1] :
+						ad->pong.ch_paddr[1];
+				bptr++;
+			}
+			CDBG("%x %x\n", (unsigned int)ao->output2buffer1_y_phy,
+				(unsigned int)ao->output2buffer1_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output2buffer2_y_phy,
+				(unsigned int)ao->output2buffer2_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output2buffer3_y_phy,
+				(unsigned int)ao->output2buffer3_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output2buffer4_y_phy,
+				(unsigned int)ao->output2buffer4_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output2buffer5_y_phy,
+				(unsigned int)ao->output2buffer5_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output2buffer6_y_phy,
+				(unsigned int)ao->output2buffer6_cbcr_phy);
+			CDBG("%x %x\n", (unsigned int)ao->output2buffer7_y_phy,
+				(unsigned int)ao->output2buffer7_cbcr_phy);
+		}
+	} else if (mode == OUTPUT_SEC) {
 		/* Thumbnail */
 		if (vfe2x_ctrl->zsl_mode) {
 			ao->output1buffer1_y_phy = ad->ping.ch_paddr[0];
@@ -1348,7 +1452,20 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_CONFIG_FREE_BUF_ADDR: {
 		int path = *((int *)cmd->value);
 		struct buf_info *outch = vfe2x_get_ch(path);
-		outch->free_buf = *((struct msm_free_buf *)data);
+		if ((op_mode & SNAPSHOT_MASK_MODE) &&
+			(vfe2x_ctrl->num_snap > 1)) {
+			CDBG("%s: CMD_CONFIG_FREE_BUF_ADDR Burst mode %d",
+					__func__, outch->free_buf_cnt);
+			if (outch->free_buf_cnt <= 0)
+				outch->free_buf =
+					*((struct msm_free_buf *)data);
+			else
+				outch->free_buf_arr[outch->free_buf_cnt-1] =
+					*((struct msm_free_buf *)data);
+			++outch->free_buf_cnt;
+		} else {
+			outch->free_buf = *((struct msm_free_buf *)data);
+		}
 	}
 		return 0;
 
@@ -1526,6 +1643,12 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 							vfecmd.length))
 				rc = -EFAULT;
 			op_mode = vfe2x_ctrl->start_cmd.mode_of_operation;
+			vfe2x_ctrl->snap.free_buf_cnt = 0;
+			vfe2x_ctrl->thumb.free_buf_cnt = 0;
+			vfe2x_ctrl->snap.frame_cnt = 0;
+			vfe2x_ctrl->thumb.frame_cnt = 0;
+			vfe2x_ctrl->num_snap =
+				vfe2x_ctrl->start_cmd.snap_number;
 			return rc;
 		}
 		if (vfecmd.id == VFE_CMD_RECONFIG_VFE) {
@@ -1859,10 +1982,21 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			goto config_done;
 		}
 
-		if (!(op_mode & SNAPSHOT_MASK_MODE))
+		if (!(op_mode & SNAPSHOT_MASK_MODE)) {
 			free_buf = vfe2x_check_free_buffer(
 					VFE_MSG_OUTPUT_IRQ,
 					VFE_MSG_OUTPUT_SECONDARY);
+		} else if ((op_mode & SNAPSHOT_MASK_MODE) &&
+				(vfe2x_ctrl->num_snap > 1)) {
+			int i = 0;
+			CDBG("Burst mode AXI config SEC snap cnt %d\n",
+				vfe2x_ctrl->num_snap);
+			for (i = 0; i < vfe2x_ctrl->num_snap - 2; i++) {
+				free_buf = vfe2x_check_free_buffer(
+					VFE_MSG_OUTPUT_IRQ,
+					VFE_MSG_OUTPUT_SECONDARY);
+			}
+		}
 		header = cmds_map[vfecmd.id].vfe_id;
 		queue = cmds_map[vfecmd.id].queue;
 		if (header == -1 && queue == -1) {
@@ -1890,10 +2024,22 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			goto config_done;
 		}
 
-		if (!(op_mode & SNAPSHOT_MASK_MODE))
+		if (!(op_mode & SNAPSHOT_MASK_MODE)) {
 			free_buf = vfe2x_check_free_buffer(
 					VFE_MSG_OUTPUT_IRQ,
 					VFE_MSG_OUTPUT_PRIMARY);
+		} else if ((op_mode & SNAPSHOT_MASK_MODE) &&
+				(vfe2x_ctrl->num_snap > 1)) {
+			int i = 0;
+			CDBG("Burst mode AXI config PRIM snap cnt %d\n",
+				vfe2x_ctrl->num_snap);
+			for (i = 0; i < vfe2x_ctrl->num_snap - 2; i++) {
+				free_buf = vfe2x_check_free_buffer(
+					VFE_MSG_OUTPUT_IRQ,
+					VFE_MSG_OUTPUT_PRIMARY);
+			}
+		}
+
 		if (op_mode & SNAPSHOT_MASK_MODE)
 			vfe_7x_config_axi(OUTPUT_PRIM,
 					&vfe2x_ctrl->snap, axio);
