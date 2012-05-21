@@ -996,19 +996,41 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
 	struct ion_client *client = s->private;
 	struct rb_node *n;
+	struct rb_node *n2;
 
-	seq_printf(s, "%16.16s: %16.16s : %16.16s : %16.16s\n", "heap_name",
-			"size_in_bytes", "handle refcount", "buffer");
+	seq_printf(s, "%16.16s: %16.16s : %16.16s : %12.12s : %12.12s : %s\n",
+			"heap_name", "size_in_bytes", "handle refcount",
+			"buffer", "physical", "[domain,partition] - virt");
+
 	mutex_lock(&client->lock);
 	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
+		enum ion_heap_type type = handle->buffer->heap->type;
 
-		seq_printf(s, "%16.16s: %16x : %16d : %16p\n",
+		seq_printf(s, "%16.16s: %16x : %16d : %12p",
 				handle->buffer->heap->name,
 				handle->buffer->size,
 				atomic_read(&handle->ref.refcount),
 				handle->buffer);
+
+		if (type == ION_HEAP_TYPE_SYSTEM_CONTIG ||
+			type == ION_HEAP_TYPE_CARVEOUT ||
+			type == ION_HEAP_TYPE_CP)
+			seq_printf(s, " : %12lx", handle->buffer->priv_phys);
+		else
+			seq_printf(s, " : %12s", "N/A");
+
+		for (n2 = rb_first(&handle->buffer->iommu_maps); n2;
+				   n2 = rb_next(n2)) {
+			struct ion_iommu_map *imap =
+				rb_entry(n2, struct ion_iommu_map, node);
+			seq_printf(s, " : [%d,%d] - %8lx",
+					imap->domain_info[DI_DOMAIN_NUM],
+					imap->domain_info[DI_PARTITION_NUM],
+					imap->iova_addr);
+		}
+		seq_printf(s, "\n");
 	}
 
 	seq_printf(s, "%16.16s %d\n", "client refcount:",
