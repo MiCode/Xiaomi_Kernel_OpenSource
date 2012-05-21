@@ -30,11 +30,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <linux/mhl_8334.h>
 
 #include "msm_fb.h"
 #include "external_common.h"
 #include "hdmi_msm.h"
-#include "mhl_8334.h"
 #include "mhl_i2c_utils.h"
 
 
@@ -53,6 +53,8 @@ static void force_usb_switch_open(void);
 static void release_usb_switch_open(void);
 static void switch_mode(enum mhl_st_type to_mode);
 static irqreturn_t mhl_tx_isr(int irq, void *dev_id);
+void (*notify_usb_online)(int online);
+static void mhl_drive_hpd(uint8_t to_state);
 
 static struct i2c_driver mhl_sii_i2c_driver = {
 	.driver = {
@@ -227,6 +229,58 @@ bool mhl_is_connected(void)
 	return true;
 }
 
+
+/*  USB_HANDSHAKING FUNCTIONS */
+
+int mhl_device_discovery(const char *name, int *result)
+
+{
+	int timeout ;
+	mhl_i2c_reg_write(TX_PAGE_3, 0x0010, 0x27);
+	msleep(50);
+	if (mhl_msm_state->cur_state == POWER_STATE_D3) {
+		/* give MHL driver chance to handle RGND interrupt */
+		INIT_COMPLETION(mhl_msm_state->rgnd_done);
+		timeout = wait_for_completion_interruptible_timeout
+			(&mhl_msm_state->rgnd_done, HZ/2);
+		if (!timeout) {
+			/* most likely nothing plugged in USB */
+			/* USB HOST connected or already in USB mode */
+			pr_debug("Timedout Returning from discovery mode\n");
+			*result = MHL_DISCOVERY_RESULT_USB;
+			return 0;
+		}
+		*result = mhl_msm_state->mhl_mode ?
+			MHL_DISCOVERY_RESULT_MHL : MHL_DISCOVERY_RESULT_USB;
+	} else
+		/* not in D3. already in MHL mode */
+		*result = MHL_DISCOVERY_RESULT_MHL;
+
+	return 0;
+}
+EXPORT_SYMBOL(mhl_device_discovery);
+
+int mhl_register_callback(const char *name, void (*callback)(int online))
+{
+	pr_debug("%s\n", __func__);
+	if (!callback)
+		return -EINVAL;
+	if (!notify_usb_online)
+		notify_usb_online = callback;
+	return 0;
+}
+EXPORT_SYMBOL(mhl_register_callback);
+
+int mhl_unregister_callback(const char *name)
+{
+	pr_debug("%s\n", __func__);
+	if (notify_usb_online)
+		notify_usb_online = NULL;
+	return 0;
+}
+EXPORT_SYMBOL(mhl_unregister_callback);
+
+
 static void cbus_reset(void)
 {
 	uint8_t i;
@@ -240,7 +294,7 @@ static void cbus_reset(void)
 	/*
 	 * REG_INTR1 and REG_INTR4
 	 */
-	mhl_i2c_reg_write(TX_PAGE_L0, 0x0075, BIT6 | BIT5);
+	mhl_i2c_reg_write(TX_PAGE_L0, 0x0075, BIT6);
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0022,
 		BIT0 | BIT2 | BIT3 | BIT4 | BIT5 | BIT6);
 	/* REG5 */
@@ -340,7 +394,7 @@ static void init_cbus_regs(void)
 /*
  * Configure the initial reg settings
  */
-static void mhl_init_reg_settings(void)
+static void mhl_init_reg_settings(bool mhl_disc_en)
 {
 
 	/*
@@ -419,15 +473,19 @@ static void mhl_init_reg_settings(void)
 	/* Pull-up resistance off for IDLE state */
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0013, 0x8C);
 	/* Enable CBUS Discovery */
-	mhl_i2c_reg_write(TX_PAGE_3, 0x0010, 0x27);
+	if (mhl_disc_en)
+		/* Enable MHL Discovery */
+		mhl_i2c_reg_write(TX_PAGE_3, 0x0010, 0x27);
+	else
+		/* Disable MHL Discovery */
+		mhl_i2c_reg_write(TX_PAGE_3, 0x0010, 0x26);
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0016, 0x20);
 	/* MHL CBUS Discovery - immediate comm.  */
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0012, 0x86);
 	/* Do not force HPD to 0 during wake-up from D3 */
-	if (mhl_msm_state->cur_state != POWER_STATE_D3) {
-		mhl_i2c_reg_modify(TX_PAGE_3, 0x0020,
-			       BIT5 | BIT4, BIT4);
-	}
+	if (mhl_msm_state->cur_state != POWER_STATE_D0_MHL)
+		mhl_drive_hpd(HPD_DOWN);
+
 	/* Enable Auto Soft RESET */
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0000, 0x084);
 	/* HDMI Transcode mode enable */
@@ -452,7 +510,10 @@ static int mhl_chip_init(void)
 	/* MHL spec requires a 100 ms wait here.  */
 	msleep(100);
 
-	mhl_init_reg_settings();
+	/*
+	 * Need to disable MHL discovery
+	 */
+	mhl_init_reg_settings(true);
 
 	/*
 	 * Power down the chip to the
@@ -563,6 +624,7 @@ static int __init mhl_msm_init(void)
 
 	/* MHL SII 8334 chip specific init */
 	mhl_chip_init();
+	init_completion(&mhl_msm_state->rgnd_done);
 	return 0;
 
 init_exit:
@@ -583,10 +645,9 @@ static void switch_mode(enum mhl_st_type to_mode)
 	case POWER_STATE_D0_NO_MHL:
 		break;
 	case POWER_STATE_D0_MHL:
-		mhl_init_reg_settings();
-
+		mhl_init_reg_settings(true);
 		/* REG_DISC_CTRL1 */
-		mhl_i2c_reg_modify(TX_PAGE_3, 0x0010, BIT1, 0);
+		mhl_i2c_reg_modify(TX_PAGE_3, 0x0010, BIT1 | BIT0, BIT0);
 
 		/*
 		 * TPI_DEVICE_POWER_STATE_CTRL_REG
@@ -597,16 +658,15 @@ static void switch_mode(enum mhl_st_type to_mode)
 	case POWER_STATE_D3:
 		if (mhl_msm_state->cur_state != POWER_STATE_D3) {
 			/* Force HPD to 0 when not in MHL mode.  */
-			mhl_i2c_reg_modify(TX_PAGE_3, 0x0020,
-				BIT5 | BIT4, BIT4);
-
+			mhl_drive_hpd(HPD_DOWN);
 			/*
 			 * Change TMDS termination to high impedance
 			 * on disconnection.
 			 */
 			mhl_i2c_reg_write(TX_PAGE_3, 0x0030, 0xD0);
-			mhl_i2c_reg_modify(TX_PAGE_L1, 0x003D,
-				BIT1 | BIT0, BIT0);
+			msleep(50);
+			mhl_i2c_reg_modify(TX_PAGE_3, 0x0010,
+				BIT1 | BIT0, BIT1);
 			spin_lock_irqsave(&mhl_state_lock, flags);
 			mhl_msm_state->cur_state = POWER_STATE_D3;
 			spin_unlock_irqrestore(&mhl_state_lock, flags);
@@ -619,6 +679,11 @@ static void switch_mode(enum mhl_st_type to_mode)
 
 static void mhl_drive_hpd(uint8_t to_state)
 {
+	if (mhl_msm_state->cur_state != POWER_STATE_D0_MHL) {
+		pr_err("MHL: invalid state to ctrl HPD\n");
+		return;
+	}
+
 	pr_debug("%s: To state=[0x%x]\n", __func__, to_state);
 	if (to_state == HPD_UP) {
 		/*
@@ -644,6 +709,7 @@ static void mhl_drive_hpd(uint8_t to_state)
 		 * Disable TMDS Output on REG_TMDS_CCTRL
 		 * Enable/Disable TMDS output (MHL TMDS output only)
 		 */
+		mhl_i2c_reg_modify(TX_PAGE_3, 0x20, BIT4 | BIT5, BIT4);
 		mhl_i2c_reg_modify(TX_PAGE_L0, 0x0080, BIT4, 0x00);
 	}
 	return;
@@ -682,20 +748,11 @@ static void mhl_msm_connection(void)
 
 static void mhl_msm_disconnection(void)
 {
-	uint8_t reg;
-	/* Clear interrupts - REG INTR4 */
-	reg = mhl_i2c_reg_read(TX_PAGE_3, 0x0021);
-	mhl_i2c_reg_write(TX_PAGE_3, 0x0021, reg);
 	/*
 	 * MHL TX CTL1
 	 * Disabling Tx termination
 	 */
 	mhl_i2c_reg_write(TX_PAGE_3, 0x30, 0xD0);
-	/*
-	 * MSC REQUESTOR ABORT REASON
-	 * Clear CBUS_HPD status
-	 */
-	mhl_i2c_reg_modify(TX_PAGE_CBUS, 0x000D, BIT6, 0x00);
 	/* Change HPD line to drive it low */
 	mhl_drive_hpd(HPD_DOWN);
 	/* switch power state to D3 */
@@ -704,11 +761,11 @@ static void mhl_msm_disconnection(void)
 }
 
 /*
- * If hardware detected a change in impedence and raised an INTR
- * We check the range of this impedence to infer if the connected
+ * If hardware detected a change in impedance and raised an INTR
+ * We check the range of this impedance to infer if the connected
  * device is MHL or USB and take appropriate actions.
  */
-static void mhl_msm_read_rgnd_int(void)
+static int  mhl_msm_read_rgnd_int(void)
 {
 	uint8_t rgnd_imp;
 
@@ -720,20 +777,27 @@ static void mhl_msm_read_rgnd_int(void)
 	 * 10  - 1 kOHM ***(MHL)**** It's range 800 - 1200 OHM from MHL spec
 	 * 11  - short (USB)
 	 */
-	rgnd_imp = mhl_i2c_reg_read(TX_PAGE_3, 0x001C);
+	rgnd_imp = (mhl_i2c_reg_read(TX_PAGE_3, 0x001C) & (BIT1 | BIT0));
 	pr_debug("Imp Range read = %02X\n", (int)rgnd_imp);
-
 
 	if (0x02 == rgnd_imp) {
 		pr_debug("MHL: MHL DEVICE!!!\n");
+		mhl_i2c_reg_modify(TX_PAGE_3, 0x0018, BIT0, BIT0);
 		/*
 		 * Handling the MHL event in driver
 		 */
-		mhl_i2c_reg_modify(TX_PAGE_3, 0x0018, BIT0, BIT0);
+		mhl_msm_state->mhl_mode = TRUE;
+		if (notify_usb_online)
+			notify_usb_online(1);
 	} else {
 		pr_debug("MHL: NON-MHL DEVICE!!!\n");
+		mhl_msm_state->mhl_mode = FALSE;
 		mhl_i2c_reg_modify(TX_PAGE_3, 0x0018, BIT3, BIT3);
+		switch_mode(POWER_STATE_D3);
 	}
+	complete(&mhl_msm_state->rgnd_done);
+	return mhl_msm_state->mhl_mode ?
+		MHL_DISCOVERY_RESULT_MHL : MHL_DISCOVERY_RESULT_USB;
 }
 
 static void force_usb_switch_open(void)
@@ -756,7 +820,7 @@ static void release_usb_switch_open(void)
 
 static void int_4_isr(void)
 {
-	uint8_t status;
+	uint8_t status, reg ;
 
 	/* INTR_STATUS4 */
 	status = mhl_i2c_reg_read(TX_PAGE_3, 0x0021);
@@ -767,7 +831,7 @@ static void int_4_isr(void)
 	 * do nothing.
 	 */
 	if ((0x00 == status) && (mhl_msm_state->cur_state == POWER_STATE_D3)) {
-		mhl_chip_init();
+		pr_debug("MHL: spurious interrupt\n");
 		return;
 	}
 	if (0xFF != status) {
@@ -816,8 +880,13 @@ static void int_4_isr(void)
 
 		if (status & BIT5) {
 			mhl_connect_api(false);
+			/* Clear interrupts - REG INTR4 */
+			reg = mhl_i2c_reg_read(TX_PAGE_3, 0x0021);
+			mhl_i2c_reg_write(TX_PAGE_3, 0x0021, reg);
 			mhl_msm_disconnection();
-			pr_debug("MHL Disconn Drv: INT4 Status = %02X\n",
+			if (notify_usb_online)
+				notify_usb_online(0);
+			pr_debug("MHL Disconnect Drv: INT4 Status = %02X\n",
 				(int)status);
 		}
 
@@ -971,6 +1040,122 @@ static void mhl_cbus_isr(void)
 	return;
 }
 
+static void clear_all_intrs(void)
+{
+	uint8_t regval = 0x00;
+	/*
+	* intr status debug
+	*/
+	pr_debug("********* EXITING ISR MASK CHECK ?? *************\n");
+	pr_debug("Drv: INT1 MASK = %02X\n",
+		(int) mhl_i2c_reg_read(TX_PAGE_L0, 0x0071));
+	pr_debug("Drv: INT3 MASK = %02X\n",
+		(int) mhl_i2c_reg_read(TX_PAGE_L0, 0x0077));
+	pr_debug("Drv: INT4 MASK = %02X\n",
+		(int) mhl_i2c_reg_read(TX_PAGE_3, 0x0021));
+	pr_debug("Drv: INT5 MASK = %02X\n",
+		(int) mhl_i2c_reg_read(TX_PAGE_3, 0x0023));
+	pr_debug("Drv: CBUS1 MASK = %02X\n",
+		(int) mhl_i2c_reg_read(TX_PAGE_CBUS, 0x0009));
+	pr_debug("Drv: CBUS2 MASK = %02X\n",
+		(int) mhl_i2c_reg_read(TX_PAGE_CBUS, 0x001F));
+	pr_debug("********* END OF ISR MASK CHECK *************\n");
+
+	pr_debug("********* EXITING IN ISR ?? *************\n");
+	regval = mhl_i2c_reg_read(TX_PAGE_L0, 0x0071);
+	pr_debug("Drv: INT1 Status = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_L0, 0x0071, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_L0, 0x0072);
+	pr_debug("Drv: INT2 Status = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_L0, 0x0072, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_L0, 0x0073);
+	pr_debug("Drv: INT3 Status = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_L0, 0x0073, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_3, 0x0021);
+	pr_debug("Drv: INT4 Status = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_3, 0x0021, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_3, 0x0023);
+	pr_debug("Drv: INT5 Status = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_3, 0x0023, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x0008);
+	pr_debug("Drv: cbusInt Status = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x0008, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x001E);
+	pr_debug("Drv: CBUS INTR_2: %d\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x001E, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00A0);
+	pr_debug("Drv: A0 INT Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00A0, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00A1);
+	pr_debug("Drv: A1 INT Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00A1, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00A2);
+	pr_debug("Drv: A2 INT Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00A2, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00A3);
+	pr_debug("Drv: A3 INT Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00A3, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00B0);
+	pr_debug("Drv: B0 STATUS Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00B0, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00B1);
+	pr_debug("Drv: B1 STATUS Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00B1, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00B2);
+	pr_debug("Drv: B2 STATUS Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00B2, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00B3);
+	pr_debug("Drv: B3 STATUS Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00B3, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00E0);
+	pr_debug("Drv: E0 STATUS Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00E0, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00E1);
+	pr_debug("Drv: E1 STATUS Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00E1, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00E2);
+	pr_debug("Drv: E2 STATUS Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00E2, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00E3);
+	pr_debug("Drv: E3 STATUS Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00E3, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00F0);
+	pr_debug("Drv: F0 INT Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00F0, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00F1);
+	pr_debug("Drv: F1 INT Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00F1, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00F2);
+	pr_debug("Drv: F2 INT Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00F2, regval);
+
+	regval =  mhl_i2c_reg_read(TX_PAGE_CBUS, 0x00F3);
+	pr_debug("Drv: F3 INT Set = %02X\n", (int)regval);
+	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x00F3, regval);
+	pr_debug("********* END OF EXITING IN ISR *************\n");
+}
+
 static irqreturn_t mhl_tx_isr(int irq, void *dev_id)
 {
 	/*
@@ -997,6 +1182,7 @@ static irqreturn_t mhl_tx_isr(int irq, void *dev_id)
 		mhl_cbus_isr();
 		int_1_isr();
 	}
+	clear_all_intrs();
 	return IRQ_HANDLED;
 }
 
