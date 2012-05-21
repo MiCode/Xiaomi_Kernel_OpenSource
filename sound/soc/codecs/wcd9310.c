@@ -68,8 +68,9 @@ enum {
 #define AIF2_PB 3
 #define AIF2_CAP 4
 #define AIF3_CAP 5
+#define AIF3_PB  6
 
-#define NUM_CODEC_DAIS 5
+#define NUM_CODEC_DAIS 6
 #define TABLA_COMP_DIGITAL_GAIN_OFFSET 3
 
 struct tabla_codec_dai_data {
@@ -1183,6 +1184,9 @@ static const struct soc_enum rx_mix1_inp1_chain_enum =
 static const struct soc_enum rx_mix1_inp2_chain_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX1_B1_CTL, 4, 12, rx_mix1_text);
 
+static const struct soc_enum rx_mix1_inp3_chain_enum =
+	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX1_B2_CTL, 0, 12, rx_mix1_text);
+
 static const struct soc_enum rx2_mix1_inp1_chain_enum =
 	SOC_ENUM_SINGLE(TABLA_A_CDC_CONN_RX2_B1_CTL, 0, 12, rx_mix1_text);
 
@@ -1324,6 +1328,9 @@ static const struct snd_kcontrol_new rx_mix1_inp1_mux =
 
 static const struct snd_kcontrol_new rx_mix1_inp2_mux =
 	SOC_DAPM_ENUM("RX1 MIX1 INP2 Mux", rx_mix1_inp2_chain_enum);
+
+static const struct snd_kcontrol_new rx_mix1_inp3_mux =
+	SOC_DAPM_ENUM("RX1 MIX1 INP3 Mux", rx_mix1_inp3_chain_enum);
 
 static const struct snd_kcontrol_new rx2_mix1_inp1_mux =
 	SOC_DAPM_ENUM("RX2 MIX1 INP1 Mux", rx2_mix1_inp1_chain_enum);
@@ -3224,6 +3231,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP1"},
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP2"},
+	{"RX1 MIX1", NULL, "RX1 MIX1 INP3"},
 	{"RX2 MIX1", NULL, "RX2 MIX1 INP1"},
 	{"RX2 MIX1", NULL, "RX2 MIX1 INP2"},
 	{"RX3 MIX1", NULL, "RX3 MIX1 INP1"},
@@ -3250,6 +3258,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX1 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX1 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX1 MIX1 INP1", "RX4", "SLIM RX4"},
+	{"RX1 MIX1 INP1", "RX5", "SLIM RX5"},
 	{"RX1 MIX1 INP1", "RX6", "SLIM RX6"},
 	{"RX1 MIX1 INP1", "RX7", "SLIM RX7"},
 	{"RX1 MIX1 INP1", "IIR1", "IIR1"},
@@ -3257,13 +3266,22 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX1 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX1 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX1 MIX1 INP2", "RX4", "SLIM RX4"},
+	{"RX1 MIX1 INP2", "RX5", "SLIM RX5"},
 	{"RX1 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX1 MIX1 INP2", "RX7", "SLIM RX7"},
 	{"RX1 MIX1 INP2", "IIR1", "IIR1"},
+	{"RX1 MIX1 INP3", "RX1", "SLIM RX1"},
+	{"RX1 MIX1 INP3", "RX2", "SLIM RX2"},
+	{"RX1 MIX1 INP3", "RX3", "SLIM RX3"},
+	{"RX1 MIX1 INP3", "RX4", "SLIM RX4"},
+	{"RX1 MIX1 INP3", "RX5", "SLIM RX5"},
+	{"RX1 MIX1 INP3", "RX6", "SLIM RX6"},
+	{"RX1 MIX1 INP3", "RX7", "SLIM RX7"},
 	{"RX2 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX2 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX2 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX2 MIX1 INP1", "RX4", "SLIM RX4"},
+	{"RX2 MIX1 INP1", "RX5", "SLIM RX5"},
 	{"RX2 MIX1 INP1", "RX6", "SLIM RX6"},
 	{"RX2 MIX1 INP1", "RX7", "SLIM RX7"},
 	{"RX2 MIX1 INP1", "IIR1", "IIR1"},
@@ -3271,6 +3289,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX2 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX2 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX2 MIX1 INP2", "RX4", "SLIM RX4"},
+	{"RX2 MIX1 INP2", "RX5", "SLIM RX5"},
 	{"RX2 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX2 MIX1 INP2", "RX7", "SLIM RX7"},
 	{"RX2 MIX1 INP2", "IIR1", "IIR1"},
@@ -3278,6 +3297,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX3 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX3 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX3 MIX1 INP1", "RX4", "SLIM RX4"},
+	{"RX3 MIX1 INP1", "RX5", "SLIM RX5"},
 	{"RX3 MIX1 INP1", "RX6", "SLIM RX6"},
 	{"RX3 MIX1 INP1", "RX7", "SLIM RX7"},
 	{"RX3 MIX1 INP1", "IIR1", "IIR1"},
@@ -3285,6 +3305,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX3 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX3 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX3 MIX1 INP2", "RX4", "SLIM RX4"},
+	{"RX3 MIX1 INP2", "RX5", "SLIM RX5"},
 	{"RX3 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX3 MIX1 INP2", "RX7", "SLIM RX7"},
 	{"RX3 MIX1 INP2", "IIR1", "IIR1"},
@@ -3292,12 +3313,14 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX4 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX4 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX4 MIX1 INP1", "RX4", "SLIM RX4"},
+	{"RX4 MIX1 INP1", "RX5", "SLIM RX5"},
 	{"RX4 MIX1 INP1", "RX6", "SLIM RX6"},
 	{"RX4 MIX1 INP1", "RX7", "SLIM RX7"},
 	{"RX4 MIX1 INP1", "IIR1", "IIR1"},
 	{"RX4 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX4 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX4 MIX1 INP2", "RX3", "SLIM RX3"},
+	{"RX4 MIX1 INP2", "RX5", "SLIM RX5"},
 	{"RX4 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX4 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX4 MIX1 INP2", "RX7", "SLIM RX7"},
@@ -3306,6 +3329,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX5 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX5 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX5 MIX1 INP1", "RX4", "SLIM RX4"},
+	{"RX5 MIX1 INP1", "RX5", "SLIM RX5"},
 	{"RX5 MIX1 INP1", "RX6", "SLIM RX6"},
 	{"RX5 MIX1 INP1", "RX7", "SLIM RX7"},
 	{"RX5 MIX1 INP1", "IIR1", "IIR1"},
@@ -3313,6 +3337,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX5 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX5 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX5 MIX1 INP2", "RX4", "SLIM RX4"},
+	{"RX5 MIX1 INP2", "RX5", "SLIM RX5"},
 	{"RX5 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX5 MIX1 INP2", "RX7", "SLIM RX7"},
 	{"RX5 MIX1 INP2", "IIR1", "IIR1"},
@@ -3320,6 +3345,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX6 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX6 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX6 MIX1 INP1", "RX4", "SLIM RX4"},
+	{"RX6 MIX1 INP1", "RX5", "SLIM RX5"},
 	{"RX6 MIX1 INP1", "RX6", "SLIM RX6"},
 	{"RX6 MIX1 INP1", "RX7", "SLIM RX7"},
 	{"RX6 MIX1 INP1", "IIR1", "IIR1"},
@@ -3327,6 +3353,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX6 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX6 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX6 MIX1 INP2", "RX4", "SLIM RX4"},
+	{"RX6 MIX1 INP2", "RX5", "SLIM RX5"},
 	{"RX6 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX6 MIX1 INP2", "RX7", "SLIM RX7"},
 	{"RX6 MIX1 INP2", "IIR1", "IIR1"},
@@ -3334,6 +3361,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX7 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX7 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX7 MIX1 INP1", "RX4", "SLIM RX4"},
+	{"RX7 MIX1 INP1", "RX5", "SLIM RX5"},
 	{"RX7 MIX1 INP1", "RX6", "SLIM RX6"},
 	{"RX7 MIX1 INP1", "RX7", "SLIM RX7"},
 	{"RX7 MIX1 INP1", "IIR1", "IIR1"},
@@ -3341,6 +3369,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX7 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX7 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX7 MIX1 INP2", "RX4", "SLIM RX4"},
+	{"RX7 MIX1 INP2", "RX5", "SLIM RX5"},
 	{"RX7 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX7 MIX1 INP2", "RX7", "SLIM RX7"},
 	{"RX7 MIX1 INP2", "IIR1", "IIR1"},
@@ -3821,9 +3850,10 @@ static int tabla_set_channel_map(struct snd_soc_dai *dai,
 		pr_err("%s: Invalid\n", __func__);
 		return -EINVAL;
 	}
-	pr_debug("%s: DAI-ID %x %d %d\n", __func__, dai->id, tx_num, rx_num);
+	pr_debug("%s(): dai_name = %s DAI-ID %x tx_ch %d rx_ch %d\n",
+			__func__, dai->name, dai->id, tx_num, rx_num);
 
-	if (dai->id == AIF1_PB || dai->id == AIF2_PB) {
+	if (dai->id == AIF1_PB || dai->id == AIF2_PB || dai->id == AIF3_PB) {
 		for (i = 0; i < rx_num; i++) {
 			tabla->dai[dai->id - 1].ch_num[i]  = rx_slot[i];
 			tabla->dai[dai->id - 1].ch_act = 0;
@@ -3855,7 +3885,7 @@ static int tabla_get_channel_map(struct snd_soc_dai *dai,
 		pr_err("%s: Invalid\n", __func__);
 		return -EINVAL;
 	}
-	pr_debug("%s: DAI-ID %x\n", __func__, dai->id);
+
 	/* for virtual port, codec driver needs to do
 	 * housekeeping, for now should be ok
 	 */
@@ -3884,11 +3914,20 @@ static int tabla_get_channel_map(struct snd_soc_dai *dai,
 		tx_slot[1] = tx_ch[1 + cnt];
 		tx_slot[2] = tx_ch[5 + cnt];
 		tx_slot[3] = tx_ch[3 + cnt];
+
+	} else if (dai->id == AIF3_PB) {
+		*rx_num = tabla_dai[dai->id - 1].playback.channels_max;
+		rx_slot[0] = rx_ch[3];
+		rx_slot[1] = rx_ch[4];
+
 	} else if (dai->id == AIF3_CAP) {
 		*tx_num = tabla_dai[dai->id - 1].capture.channels_max;
 		tx_slot[cnt] = tx_ch[2 + cnt];
 		tx_slot[cnt + 1] = tx_ch[4 + cnt];
 	}
+	pr_debug("%s(): dai_name = %s DAI-ID %x tx_ch %d rx_ch %d\n",
+			__func__, dai->name, dai->id, *tx_num, *rx_num);
+
 
 	return 0;
 }
@@ -3904,8 +3943,9 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 	u8 tx_fs_rate, rx_fs_rate, rx_state, tx_state;
 	u32 compander_fs;
 
-	pr_debug("%s: DAI-ID %x rate %d\n", __func__, dai->id,
-						params_rate(params));
+	pr_debug("%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n", __func__,
+		 dai->name, dai->id, params_rate(params),
+		 params_channels(params));
 
 	switch (params_rate(params)) {
 	case 8000:
@@ -4002,7 +4042,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 	 * If current dai is a rx dai, set sample rate to
 	 * all the rx paths that are currently not active
 	 */
-	if (dai->id == AIF1_PB || dai->id == AIF2_PB) {
+	if (dai->id == AIF1_PB || dai->id == AIF2_PB || dai->id == AIF3_PB) {
 
 		rx_state = snd_soc_read(codec,
 			TABLA_A_CDC_CLK_RX_B1_CTL);
@@ -4127,6 +4167,20 @@ static struct snd_soc_dai_driver tabla_dai[] = {
 		},
 		.ops = &tabla_dai_ops,
 	},
+	{
+		.name = "tabla_rx3",
+		.id = AIF3_PB,
+		.playback = {
+			.stream_name = "AIF3 Playback",
+			.rates = WCD9310_RATES,
+			.formats = TABLA_FORMATS,
+			.rate_min = 8000,
+			.rate_max = 192000,
+			.channels_min = 1,
+			.channels_max = 2,
+		},
+		.ops = &tabla_dai_ops,
+	},
 };
 
 static struct snd_soc_dai_driver tabla_i2s_dai[] = {
@@ -4173,6 +4227,9 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	/* Execute the callback only if interface type is slimbus */
 	if (tabla_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		return 0;
+
+	pr_debug("%s: %s %d\n", __func__, w->name, event);
+
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
@@ -4241,7 +4298,8 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
 			if (tabla_dai[j].id == AIF1_PB ||
-				tabla_dai[j].id == AIF2_PB)
+				tabla_dai[j].id == AIF2_PB ||
+				tabla_dai[j].id == AIF3_PB)
 				continue;
 			if (!strncmp(w->sname,
 				tabla_dai[j].capture.stream_name, 13)) {
@@ -4258,7 +4316,8 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		for (j = 0; j < ARRAY_SIZE(tabla_dai); j++) {
 			if (tabla_dai[j].id == AIF1_PB ||
-				tabla_dai[j].id == AIF2_PB)
+				tabla_dai[j].id == AIF2_PB ||
+				tabla_dai[j].id == AIF3_PB)
 				continue;
 			if (!strncmp(w->sname,
 				tabla_dai[j].capture.stream_name, 13)) {
@@ -4297,9 +4356,16 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_IN_E("SLIM RX2", "AIF1 Playback", 0, SND_SOC_NOPM, 0,
 				0, tabla_codec_enable_slimrx,
 				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX3", "AIF1 Playback", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_AIF_IN("SLIM RX3", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_IN("SLIM RX4", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX4", "AIF3 Playback", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX5", "AIF3 Playback", 0, SND_SOC_NOPM, 0,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_IN_E("SLIM RX6", "AIF2 Playback", 0, SND_SOC_NOPM, 0,
 				0, tabla_codec_enable_slimrx,
@@ -4408,6 +4474,8 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 		&rx_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX1 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX("RX1 MIX1 INP3", SND_SOC_NOPM, 0, 0,
+		&rx_mix1_inp3_mux),
 	SND_SOC_DAPM_MUX("RX2 MIX1 INP1", SND_SOC_NOPM, 0, 0,
 		&rx2_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX2 MIX1 INP2", SND_SOC_NOPM, 0, 0,
@@ -7547,6 +7615,9 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			break;
 		case AIF2_CAP:
 			ch_cnt = tabla_dai[i].capture.channels_max;
+			break;
+		case AIF3_PB:
+			ch_cnt = tabla_dai[i].playback.channels_max;
 			break;
 		case AIF3_CAP:
 			ch_cnt = tabla_dai[i].capture.channels_max;
