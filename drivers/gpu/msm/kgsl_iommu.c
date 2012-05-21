@@ -94,7 +94,7 @@ static struct kgsl_iommu_device *get_iommu_device(struct kgsl_iommu_unit *unit,
 }
 
 static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
-	struct device *dev, unsigned long addr, int flags)
+	struct device *dev, unsigned long addr, int flags, void *token)
 {
 	int ret = 0;
 	struct kgsl_mmu *mmu;
@@ -387,7 +387,7 @@ void *kgsl_iommu_create_pagetable(void)
 		return NULL;
 	} else {
 		iommu_set_fault_handler(iommu_pt->domain,
-			kgsl_iommu_fault_handler);
+			kgsl_iommu_fault_handler, NULL);
 	}
 
 	return iommu_pt;
