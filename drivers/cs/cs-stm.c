@@ -23,8 +23,8 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/cs.h>
+#include <linux/cs-stm.h>
 #include <asm/unaligned.h>
-#include <mach/stm.h>
 
 #include "cs-priv.h"
 
