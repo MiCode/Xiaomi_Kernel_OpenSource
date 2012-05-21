@@ -45,6 +45,11 @@
 #define TOP_SPK_AMP_POS		0x4
 #define TOP_SPK_AMP_NEG		0x8
 
+#define GPIO_AUX_PCM_DOUT 43
+#define GPIO_AUX_PCM_DIN  44
+#define GPIO_AUX_PCM_SYNC 45
+#define GPIO_AUX_PCM_CLK  46
+
 #define TABLA_EXT_CLK_RATE 12288000
 
 #define TABLA_MBHC_DEF_BUTTONS 8
@@ -942,6 +947,78 @@ static int msm_mi2s_startup(struct snd_pcm_substream *substream)
 	return ret;
 }
 
+static int mpq8064_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	/* PCM only supports mono output with 8khz sample rate */
+	rate->min = rate->max = 8000;
+	channels->min = channels->max = 1;
+
+	return 0;
+}
+
+static int mpq8064_aux_pcm_get_gpios(void)
+{
+	int ret = 0;
+
+	pr_debug("%s\n", __func__);
+
+	ret = gpio_request(GPIO_AUX_PCM_DOUT, "AUX PCM DOUT");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): AUX PCM DOUT",
+				__func__, GPIO_AUX_PCM_DOUT);
+		goto fail_dout;
+	}
+
+	ret = gpio_request(GPIO_AUX_PCM_DIN, "AUX PCM DIN");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): AUX PCM DIN",
+				__func__, GPIO_AUX_PCM_DIN);
+		goto fail_din;
+	}
+
+	ret = gpio_request(GPIO_AUX_PCM_SYNC, "AUX PCM SYNC");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): AUX PCM SYNC",
+				__func__, GPIO_AUX_PCM_SYNC);
+		goto fail_sync;
+	}
+	ret = gpio_request(GPIO_AUX_PCM_CLK, "AUX PCM CLK");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): AUX PCM CLK",
+				__func__, GPIO_AUX_PCM_CLK);
+		goto fail_clk;
+	}
+
+	return 0;
+
+fail_clk:
+	gpio_free(GPIO_AUX_PCM_SYNC);
+fail_sync:
+	gpio_free(GPIO_AUX_PCM_DIN);
+fail_din:
+	gpio_free(GPIO_AUX_PCM_DOUT);
+fail_dout:
+
+	return ret;
+}
+
+static int mpq8064_aux_pcm_free_gpios(void)
+{
+	gpio_free(GPIO_AUX_PCM_DIN);
+	gpio_free(GPIO_AUX_PCM_DOUT);
+	gpio_free(GPIO_AUX_PCM_SYNC);
+	gpio_free(GPIO_AUX_PCM_CLK);
+
+	return 0;
+}
+
 static int msm_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -955,11 +1032,38 @@ static void msm_shutdown(struct snd_pcm_substream *substream)
 		 substream->name, substream->stream);
 }
 
+static int mpq8064_auxpcm_startup(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
+	ret = mpq8064_aux_pcm_get_gpios();
+	if (ret < 0) {
+		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static void mpq8064_auxpcm_shutdown(struct snd_pcm_substream *substream)
+{
+
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
+	mpq8064_aux_pcm_free_gpios();
+}
+
+
 static struct snd_soc_ops msm_be_ops = {
 	.startup = msm_startup,
 	.hw_params = msm_hw_params,
 	.shutdown = msm_shutdown,
 };
+
+static struct snd_soc_ops mpq8064_auxpcm_be_ops = {
+	.startup = mpq8064_auxpcm_startup,
+	.shutdown = mpq8064_auxpcm_shutdown,
+};
+
 
 static int mpq8064_sec_i2s_rx_free_gpios(void)
 {
@@ -1270,6 +1374,20 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+	{
+		.name = "AUXPCM Hostless",
+		.stream_name = "AUXPCM Hostless",
+		.cpu_dai_name	= "AUXPCM_HOSTLESS",
+		.platform_name	= "msm-pcm-hostless",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1, /* dainlink has playback support */
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
 	/* Secondary I2S RX Hostless */
 	{
 		.name = "SEC_I2S_RX Hostless",
@@ -1450,6 +1568,31 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
+	},
+	/* AUX PCM Backend DAI Links */
+	{
+		.name = LPASS_BE_AUXPCM_RX,
+		.stream_name = "AUX PCM Playback",
+		.cpu_dai_name = "msm-dai-q6.2",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
+		.be_hw_params_fixup = mpq8064_auxpcm_be_params_fixup,
+		.ops = &mpq8064_auxpcm_be_ops,
+		.ignore_pmdown_time = 1,
+	},
+	{
+		.name = LPASS_BE_AUXPCM_TX,
+		.stream_name = "AUX PCM Capture",
+		.cpu_dai_name = "msm-dai-q6.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
+		.be_hw_params_fixup = mpq8064_auxpcm_be_params_fixup,
 	},
 };
 
