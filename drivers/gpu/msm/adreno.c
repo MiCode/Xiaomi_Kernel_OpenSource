@@ -158,7 +158,7 @@ static const struct {
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_256K },
 	/* A3XX doesn't use the pix_shader_start */
-	{ ADRENO_REV_A320, 3, 2, 0, 0,
+	{ ADRENO_REV_A320, 3, 2, 0, ANY_ID,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_512K },
 
@@ -362,10 +362,22 @@ a3xx_getchipid(struct kgsl_device *device)
 	 */
 
 	if (cpu_is_apq8064()) {
+		unsigned int version = socinfo_get_version();
+
 		/* A320 */
 		majorid = 2;
 		minorid = 0;
-		patchid = 0;
+
+		/*
+		 * V1.1 has some GPU work arounds that we need to communicate
+		 * up to user space via the patchid
+		 */
+
+		if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
+			(SOCINFO_VERSION_MINOR(version) == 1))
+			patchid = 1;
+		else
+			patchid = 0;
 	} else if (cpu_is_msm8930()) {
 		/* A305 */
 		majorid = 0;
