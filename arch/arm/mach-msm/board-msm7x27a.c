@@ -760,9 +760,9 @@ static void msm7x27a_cfg_uart2dm_serial(void)
 static void msm7x27a_cfg_uart2dm_serial(void) { }
 #endif
 
-struct fmem_platform_data fmem_pdata;
+static struct fmem_platform_data fmem_pdata;
 
-struct platform_device fmem_device = {
+static struct platform_device fmem_device = {
 	.name = "fmem",
 	.id = 1,
 	.dev = { .platform_data = &fmem_pdata },
