@@ -39,6 +39,7 @@
 #include <linux/msm_charm.h>
 #include "msm_watchdog.h"
 #include "mdm_private.h"
+#include "sysmon.h"
 
 #define MDM_MODEM_TIMEOUT	6000
 #define MDM_MODEM_DELTA	100
@@ -47,6 +48,7 @@
 
 static int mdm_debug_on;
 static struct workqueue_struct *mdm_queue;
+static struct workqueue_struct *mdm_sfr_queue;
 
 #define EXTERNAL_MODEM "external_modem"
 
@@ -57,6 +59,36 @@ DECLARE_COMPLETION(mdm_boot);
 DECLARE_COMPLETION(mdm_ram_dumps);
 
 static int first_boot = 1;
+
+#define RD_BUF_SIZE			100
+#define SFR_MAX_RETRIES		10
+#define SFR_RETRY_INTERVAL	1000
+
+static void mdm_restart_reason_fn(struct work_struct *work)
+{
+	int ret, ntries = 0;
+	char sfr_buf[RD_BUF_SIZE];
+
+	do {
+		msleep(SFR_RETRY_INTERVAL);
+		ret = sysmon_get_reason(SYSMON_SS_EXT_MODEM,
+					sfr_buf, sizeof(sfr_buf));
+		if (ret) {
+			/*
+			 * The sysmon device may not have been probed as yet
+			 * after the restart.
+			 */
+			pr_err("%s: Error retrieving mdm restart reason, ret = %d, "
+					"%d/%d tries\n", __func__, ret,
+					ntries + 1,	SFR_MAX_RETRIES);
+		} else {
+			pr_err("mdm restart reason: %s\n", sfr_buf);
+			break;
+		}
+	} while (++ntries < SFR_MAX_RETRIES);
+}
+
+static DECLARE_WORK(sfr_reason_work, mdm_restart_reason_fn);
 
 long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
@@ -253,8 +285,11 @@ static int mdm_subsys_powerup(const struct subsys_data *crashed_subsys)
 			msecs_to_jiffies(MDM_BOOT_TIMEOUT))) {
 		mdm_drv->mdm_boot_status = -ETIMEDOUT;
 		pr_info("%s: mdm modem restart timed out.\n", __func__);
-	} else
+	} else {
 		pr_info("%s: mdm modem has been restarted\n", __func__);
+		/* Log the reason for the restart */
+		queue_work(mdm_sfr_queue, &sfr_reason_work);
+	}
 	INIT_COMPLETION(mdm_boot);
 	return mdm_drv->mdm_boot_status;
 }
@@ -418,6 +453,16 @@ int mdm_common_create(struct platform_device  *pdev,
 				"functionality will be disabled\n",
 			__func__);
 		ret = -ENOMEM;
+		goto fatal_err;
+	}
+
+	mdm_sfr_queue = alloc_workqueue("mdm_sfr_queue", 0, 0);
+	if (!mdm_sfr_queue) {
+		pr_err("%s: could not create workqueue mdm_sfr_queue."
+			" All mdm functionality will be disabled\n",
+			__func__);
+		ret = -ENOMEM;
+		destroy_workqueue(mdm_queue);
 		goto fatal_err;
 	}
 
