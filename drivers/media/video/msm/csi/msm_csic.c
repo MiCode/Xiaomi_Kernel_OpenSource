@@ -435,12 +435,28 @@ static int __devinit csic_probe(struct platform_device *pdev)
 		goto csic_no_resource;
 	}
 	disable_irq(new_csic_dev->irq->start);
-	iounmap(new_csic_dev->base);
-	new_csic_dev->base = NULL;
 
 	new_csic_dev->pdev = pdev;
+
+	rc = msm_cam_clk_enable(&new_csic_dev->pdev->dev, &csic_7x_clk_info[2],
+				new_csic_dev->csic_clk, 1, 1);
+	new_csic_dev->base = ioremap(new_csic_dev->mem->start,
+		resource_size(new_csic_dev->mem));
+	if (!new_csic_dev->base) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	msm_camera_io_w(MIPI_PWR_CNTL_DIS, new_csic_dev->base + MIPI_PWR_CNTL);
+
+	rc = msm_cam_clk_enable(&new_csic_dev->pdev->dev, &csic_7x_clk_info[2],
+				new_csic_dev->csic_clk, 1, 0);
+
+	iounmap(new_csic_dev->base);
+	new_csic_dev->base = NULL;
 	msm_cam_register_subdev_node(
 		&new_csic_dev->subdev, CSIC_DEV, pdev->id);
+
 	return 0;
 
 csic_no_resource:
