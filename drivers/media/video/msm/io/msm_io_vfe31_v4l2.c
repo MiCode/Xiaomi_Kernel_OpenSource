@@ -156,6 +156,11 @@ void msm_camio_vfe_blk_reset(void)
 	return;
 }
 
+void msm_camio_vfe_blk_reset_3(void)
+{
+	return;
+}
+
 static void msm_camio_axi_cfg(enum msm_bus_perf_setting perf_setting)
 {
 	switch (perf_setting) {

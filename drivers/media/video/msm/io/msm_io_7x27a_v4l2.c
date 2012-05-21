@@ -85,27 +85,18 @@ void msm_camio_clk_rate_set(int rate)
 	clk_set_rate(clk, rate);
 }
 
-void msm_camio_vfe_blk_reset_2(int vfe_apps_reset)
+void msm_camio_vfe_blk_reset_2(void)
 {
 	uint32_t val;
 
-	if (apps_reset && !vfe_apps_reset)
-		return;
-
 	/* do apps reset */
 	val = readl_relaxed(appbase + 0x00000210);
-	if (apps_reset)
-		val |= 0x10A0001;
-	else
-		val |= 0x1;
+	val |= 0x1;
 	writel_relaxed(val, appbase + 0x00000210);
 	usleep_range(10000, 11000);
 
 	val = readl_relaxed(appbase + 0x00000210);
-	if (apps_reset)
-		val &= ~(0x10A0001);
-	else
-		val &= ~0x1;
+	val &= ~0x1;
 	writel_relaxed(val, appbase + 0x00000210);
 	usleep_range(10000, 11000);
 
@@ -120,6 +111,26 @@ void msm_camio_vfe_blk_reset_2(int vfe_apps_reset)
 	writel_relaxed(val, appbase + 0x00000208);
 	mb();
 	usleep_range(10000, 11000);
+}
+
+void msm_camio_vfe_blk_reset_3(void)
+{
+	uint32_t val;
+
+	if (!apps_reset)
+		return;
+
+	/* do apps reset */
+	val = readl_relaxed(appbase + 0x00000210);
+	val |= 0x10A0000;
+	writel_relaxed(val, appbase + 0x00000210);
+	usleep_range(10000, 11000);
+
+	val = readl_relaxed(appbase + 0x00000210);
+	val &= ~(0x10A0000);
+	writel_relaxed(val, appbase + 0x00000210);
+	usleep_range(10000, 11000);
+	mb();
 }
 
 void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)

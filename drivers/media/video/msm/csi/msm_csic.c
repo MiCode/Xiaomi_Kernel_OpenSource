@@ -289,6 +289,8 @@ static int msm_csic_init(struct v4l2_subdev *sd, uint32_t *csic_version)
 			return rc;
 		}
 	}
+	if (csic_dev->hw_version == CSIC_7X)
+		msm_camio_vfe_blk_reset_3();
 
 #if DBG_CSIC
 	enable_irq(csic_dev->irq->start);
