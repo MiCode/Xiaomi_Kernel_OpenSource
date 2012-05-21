@@ -455,30 +455,21 @@ enum {
 static void msm_pm_config_hw_before_power_down(void)
 {
 	if (cpu_is_msm7x30() || cpu_is_msm8x55()) {
-		__raw_writel(1, APPS_PWRDOWN);
-		mb();
 		__raw_writel(4, APPS_SECOP);
-		mb();
 	} else if (cpu_is_msm7x27()) {
 		__raw_writel(0x1f, APPS_CLK_SLEEP_EN);
-		mb();
-		__raw_writel(1, APPS_PWRDOWN);
-		mb();
 	} else if (cpu_is_msm7x27a() || cpu_is_msm7x27aa() ||
 		   cpu_is_msm7x25a() || cpu_is_msm7x25aa() ||
 		   cpu_is_msm7x25ab()) {
 		__raw_writel(0x7, APPS_CLK_SLEEP_EN);
-		mb();
-		__raw_writel(1, APPS_PWRDOWN);
-		mb();
-	} else {
+	} else if (cpu_is_qsd8x50()) {
 		__raw_writel(0x1f, APPS_CLK_SLEEP_EN);
 		mb();
-		__raw_writel(1, APPS_PWRDOWN);
-		mb();
 		__raw_writel(0, APPS_STANDBY_CTL);
-		mb();
 	}
+	mb();
+	__raw_writel(1, APPS_PWRDOWN);
+	mb();
 }
 
 /*
@@ -559,13 +550,11 @@ static void msm_pm_config_hw_after_power_up(void)
 		__raw_writel(0, APPS_PWRDOWN);
 		mb();
 		msm_spm_reinit();
-	} else {
+	} else if (cpu_is_msm8625()) {
 		__raw_writel(0, APPS_PWRDOWN);
 		mb();
-		__raw_writel(0, APPS_CLK_SLEEP_EN);
-		mb();
 
-		if (cpu_is_msm8625() && power_collapsed) {
+		if (power_collapsed) {
 			/*
 			 * enable the SCU while coming out of power
 			 * collapse.
@@ -576,6 +565,11 @@ static void msm_pm_config_hw_after_power_up(void)
 			 */
 			configure_top_csr();
 		}
+	} else {
+		__raw_writel(0, APPS_PWRDOWN);
+		mb();
+		__raw_writel(0, APPS_CLK_SLEEP_EN);
+		mb();
 	}
 }
 
