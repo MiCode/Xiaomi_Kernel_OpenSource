@@ -2267,6 +2267,8 @@ static void __init msm8930_cdp_init(void)
 	platform_device_register(&msm8930_device_rpm_regulator);
 	msm_clock_init(&msm8930_clock_init_data);
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
+	android_usb_pdata.swfi_latency =
+			msm_rpmrs_levels[0].latency_us;
 	msm8930_init_gpiomux();
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
