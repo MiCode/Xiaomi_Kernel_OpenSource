@@ -1437,6 +1437,8 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 			dto -= 13;
 		else
 			dto = 0;
+		/* Use the maximum timeout value allowed in the standard of 14
+		   or 0xE */
 		if (dto > 14)
 			dto = 14;
 	}
