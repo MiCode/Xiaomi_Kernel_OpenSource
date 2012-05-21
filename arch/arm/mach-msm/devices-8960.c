@@ -1841,6 +1841,11 @@ struct platform_device msm_cpudai1 = {
 	.id	= 0x4001,
 };
 
+struct platform_device msm8960_cpudai_slimbus_2_rx = {
+	.name = "msm-dai-q6",
+	.id = 0x4004,
+};
+
 struct platform_device msm8960_cpudai_slimbus_2_tx = {
 	.name = "msm-dai-q6",
 	.id = 0x4005,

@@ -46,6 +46,8 @@
 #define BOTTOM_SPK_AMP_NEG	0x2
 #define TOP_SPK_AMP_POS		0x4
 #define TOP_SPK_AMP_NEG		0x8
+#define TOP_SPK_AMP		0x10
+
 
 #define GPIO_AUX_PCM_DOUT 43
 #define GPIO_AUX_PCM_DIN 44
@@ -201,10 +203,14 @@ static void msm_ext_spk_power_amp_on(u32 spk)
 			usleep_range(4000, 4000);
 		}
 
-	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
+	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG | TOP_SPK_AMP)) {
 
-		if ((msm_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
-			(msm_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
+		pr_debug("%s():top_spk_amp_state = 0x%x spk_event = 0x%x\n",
+			__func__, msm_ext_top_spk_pamp, spk);
+
+		if (((msm_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
+			(msm_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) ||
+				(msm_ext_top_spk_pamp & TOP_SPK_AMP)) {
 
 			pr_debug("%s() External Top Speaker Ampl already"
 				"turned on. spk = 0x%08x\n", __func__, spk);
@@ -213,8 +219,9 @@ static void msm_ext_spk_power_amp_on(u32 spk)
 
 		msm_ext_top_spk_pamp |= spk;
 
-		if ((msm_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
-			(msm_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
+		if (((msm_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
+			(msm_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) ||
+				(msm_ext_top_spk_pamp & TOP_SPK_AMP)) {
 
 			msm_enable_ext_spk_amp_gpio(top_spk_pamp_gpio);
 			pr_debug("%s: sleeping 4 ms after turning on "
@@ -245,17 +252,31 @@ static void msm_ext_spk_power_amp_off(u32 spk)
 
 		usleep_range(4000, 4000);
 
-	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
+	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG | TOP_SPK_AMP)) {
+
+		pr_debug("%s: top_spk_amp_state = 0x%x spk_event = 0x%x\n",
+				__func__, msm_ext_top_spk_pamp, spk);
 
 		if (!msm_ext_top_spk_pamp)
+			return;
+
+		if ((spk & TOP_SPK_AMP_POS) || (spk & TOP_SPK_AMP_NEG)) {
+
+			msm_ext_top_spk_pamp &= (~(TOP_SPK_AMP_POS |
+							TOP_SPK_AMP_NEG));
+		} else if (spk & TOP_SPK_AMP) {
+			msm_ext_top_spk_pamp &=  ~TOP_SPK_AMP;
+		}
+
+		if (msm_ext_top_spk_pamp)
 			return;
 
 		gpio_direction_output(top_spk_pamp_gpio, 0);
 		gpio_free(top_spk_pamp_gpio);
 		msm_ext_top_spk_pamp = 0;
 
-		pr_debug("%s: sleeping 4 ms after turning off external Top"
-			" Spkaker Ampl\n", __func__);
+		pr_debug("%s: sleeping 4 ms after ext Top Spek Ampl is off\n",
+				__func__);
 
 		usleep_range(4000, 4000);
 	} else  {
@@ -320,6 +341,8 @@ static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
 			msm_ext_spk_power_amp_on(TOP_SPK_AMP_POS);
 		else if  (!strncmp(w->name, "Ext Spk Top Neg", 15))
 			msm_ext_spk_power_amp_on(TOP_SPK_AMP_NEG);
+		else if  (!strncmp(w->name, "Ext Spk Top", 12))
+			msm_ext_spk_power_amp_on(TOP_SPK_AMP);
 		else {
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
@@ -335,6 +358,8 @@ static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
 			msm_ext_spk_power_amp_off(TOP_SPK_AMP_POS);
 		else if  (!strncmp(w->name, "Ext Spk Top Neg", 15))
 			msm_ext_spk_power_amp_off(TOP_SPK_AMP_NEG);
+		else if  (!strncmp(w->name, "Ext Spk Top", 12))
+			msm_ext_spk_power_amp_off(TOP_SPK_AMP);
 		else {
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
@@ -434,6 +459,7 @@ static const struct snd_soc_dapm_widget apq8064_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SPK("Ext Spk Top Pos", msm_spkramp_event),
 	SND_SOC_DAPM_SPK("Ext Spk Top Neg", msm_spkramp_event),
+	SND_SOC_DAPM_SPK("Ext Spk Top", msm_spkramp_event),
 
 	/************ Analog MICs ************/
 	/**
@@ -468,6 +494,7 @@ static const struct snd_soc_dapm_route apq8064_common_audio_map[] = {
 
 	{"Ext Spk Top Pos", NULL, "LINEOUT2"},
 	{"Ext Spk Top Neg", NULL, "LINEOUT4"},
+	{"Ext Spk Top", NULL, "LINEOUT5"},
 
 	/************   Analog MIC Paths  ************/
 
@@ -814,7 +841,7 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 	unsigned int rx_ch[SLIM_MAX_RX_PORTS], tx_ch[SLIM_MAX_TX_PORTS];
 	unsigned int rx_ch_cnt = 0, tx_ch_cnt = 0;
-	unsigned int user_set_tx_ch = 0;
+	unsigned int num_tx_ch = 0;
 
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -844,19 +871,17 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 	} else {
 
 		if (codec_dai->id  == 2)
-			user_set_tx_ch =  msm_slim_0_tx_ch;
-		else if (codec_dai->id  == 4)
-			user_set_tx_ch =  params_channels(params);
+			num_tx_ch =  msm_slim_0_tx_ch;
 		else if (codec_dai->id == 5) {
 			/* DAI 5 is used for external EC reference from codec.
 			 * Since Rx is fed as reference for EC, the config of
 			 * this DAI is based on that of the Rx path.
 			 */
-			user_set_tx_ch =  msm_slim_0_rx_ch;
+			num_tx_ch =  msm_slim_0_rx_ch;
 		}
 
 		pr_debug("%s: %s_tx_dai_id_%d_ch=%d\n", __func__,
-			codec_dai->name, codec_dai->id, user_set_tx_ch);
+			codec_dai->name, codec_dai->id, num_tx_ch);
 
 		ret = snd_soc_dai_get_channel_map(codec_dai,
 				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
@@ -866,13 +891,13 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 		}
 
 		ret = snd_soc_dai_set_channel_map(cpu_dai,
-				user_set_tx_ch, tx_ch, 0 , 0);
+				num_tx_ch, tx_ch, 0 , 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
 		ret = snd_soc_dai_set_channel_map(codec_dai,
-				user_set_tx_ch, tx_ch, 0, 0);
+				num_tx_ch, tx_ch, 0, 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set codec channel map\n",
 								__func__);
@@ -890,6 +915,77 @@ static int msm_stubrx_init(struct snd_soc_pcm_runtime *rtd)
 	rtd->pmdown_time = 0;
 
 	return 0;
+}
+
+static int msm_slimbus_2_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch[SLIM_MAX_RX_PORTS], tx_ch[SLIM_MAX_TX_PORTS];
+	unsigned int rx_ch_cnt = 0, tx_ch_cnt = 0;
+	unsigned int num_tx_ch = 0;
+	unsigned int num_rx_ch = 0;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+
+		num_rx_ch =  params_channels(params);
+
+		pr_debug("%s: %s rx_dai_id = %d  num_ch = %d\n", __func__,
+			codec_dai->name, codec_dai->id, num_rx_ch);
+
+		ret = snd_soc_dai_get_channel_map(codec_dai,
+				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to get codec chan map\n", __func__);
+			goto end;
+		}
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0,
+				num_rx_ch, rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to set cpu chan map\n", __func__);
+			goto end;
+		}
+		ret = snd_soc_dai_set_channel_map(codec_dai, 0, 0,
+				num_rx_ch, rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to set codec channel map\n",
+								__func__);
+			goto end;
+		}
+	} else {
+
+		num_tx_ch =  params_channels(params);
+
+		pr_debug("%s: %s  tx_dai_id = %d  num_ch = %d\n", __func__,
+			codec_dai->name, codec_dai->id, num_tx_ch);
+
+		ret = snd_soc_dai_get_channel_map(codec_dai,
+				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to get codec chan map\n", __func__);
+			goto end;
+		}
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai,
+				num_tx_ch, tx_ch, 0 , 0);
+		if (ret < 0) {
+			pr_err("%s: failed to set cpu chan map\n", __func__);
+			goto end;
+		}
+		ret = snd_soc_dai_set_channel_map(codec_dai,
+				num_tx_ch, tx_ch, 0, 0);
+		if (ret < 0) {
+			pr_err("%s: failed to set codec channel map\n",
+								__func__);
+			goto end;
+		}
+	}
+end:
+	return ret;
 }
 
 static int msm_slimbus_1_hw_params(struct snd_pcm_substream *substream,
@@ -1263,8 +1359,12 @@ static int msm_aux_pcm_free_gpios(void)
 }
 static int msm_startup(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
-		 substream->name, substream->stream);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	pr_debug("%s(): dai_link_str_name = %s cpu_dai = %s codec_dai = %s\n",
+		__func__, rtd->dai_link->stream_name,
+		rtd->dai_link->cpu_dai_name,
+		 rtd->dai_link->codec_dai_name);
 	return 0;
 }
 
@@ -1290,8 +1390,11 @@ static void msm_auxpcm_shutdown(struct snd_pcm_substream *substream)
 
 static void msm_shutdown(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
-		 substream->name, substream->stream);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	pr_debug("%s(): dai_link_str_name = %s cpu_dai = %s codec_dai = %s\n",
+		__func__, rtd->dai_link->stream_name,
+		rtd->dai_link->cpu_dai_name, rtd->dai_link->codec_dai_name);
 }
 
 static struct snd_soc_ops msm_be_ops = {
@@ -1322,6 +1425,13 @@ static struct snd_soc_ops msm_slimbus_4_be_ops = {
 	.hw_params = msm_slimbus_4_hw_params,
 	.shutdown = msm_shutdown,
 };
+
+static struct snd_soc_ops msm_slimbus_2_be_ops = {
+	.startup = msm_startup,
+	.hw_params = msm_slimbus_2_hw_params,
+	.shutdown = msm_shutdown,
+};
+
 
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link msm_dai[] = {
@@ -1679,18 +1789,30 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_hw_params_fixup =  msm_btsco_be_hw_params_fixup,
 		.ops = &msm_slimbus_1_be_ops,
 	},
+	/* Ultrasound TX Back End DAI Link */
 	{
-		.name = "SLIMBUS_2 Hostless",
-		.stream_name = "SLIMBUS_2 Hostless",
+		.name = "SLIMBUS_2 Hostless Capture",
+		.stream_name = "SLIMBUS_2 Hostless Capture",
 		.cpu_dai_name = "msm-dai-q6.16389",
 		.platform_name = "msm-pcm-hostless",
 		.codec_name = "tabla_codec",
 		.codec_dai_name = "tabla_tx2",
 		.ignore_suspend = 1,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ops = &msm_be_ops,
+		.ops = &msm_slimbus_2_be_ops,
 	},
-
+	/* Ultrasound RX Back End DAI Link */
+	{
+		.name = "SLIMBUS_2 Hostless Playback",
+		.stream_name = "SLIMBUS_2 Hostless Playback",
+		.cpu_dai_name = "msm-dai-q6.16388",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "tabla_codec",
+		.codec_dai_name = "tabla_rx3",
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm_slimbus_2_be_ops,
+	},
 	/* Incall Music Back End DAI Link */
 	{
 		.name = LPASS_BE_SLIMBUS_4_RX,
