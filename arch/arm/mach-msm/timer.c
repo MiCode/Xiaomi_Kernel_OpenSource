@@ -322,6 +322,7 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 			       struct clock_event_device *evt)
 {
 	struct msm_clock *clock;
+	struct msm_clock **cur_clock;
 	struct msm_clock_percpu_data *clock_state, *gpt_state;
 	unsigned long irq_flags;
 	struct irq_chip *chip;
@@ -354,7 +355,9 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 		break;
 	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
-		get_cpu_var(msm_active_clock) = NULL;
+		cur_clock = &get_cpu_var(msm_active_clock);
+		if (*cur_clock == clock)
+			*cur_clock = NULL;
 		put_cpu_var(msm_active_clock);
 		clock_state->in_sync = 0;
 		clock_state->stopped = 1;
