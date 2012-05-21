@@ -654,7 +654,7 @@ kgsl_iommu_unmap(void *mmu_specific_pt,
 		struct kgsl_memdesc *memdesc)
 {
 	int ret;
-	unsigned int range = memdesc->size;
+	unsigned int range = kgsl_sg_size(memdesc->sg, memdesc->sglen);
 	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
 
 	/* All GPU addresses as assigned are page aligned, but some
@@ -684,6 +684,7 @@ kgsl_iommu_map(void *mmu_specific_pt,
 	int ret;
 	unsigned int iommu_virt_addr;
 	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
+	int size = kgsl_sg_size(memdesc->sg, memdesc->sglen);
 
 	BUG_ON(NULL == iommu_pt);
 
@@ -691,11 +692,11 @@ kgsl_iommu_map(void *mmu_specific_pt,
 	iommu_virt_addr = memdesc->gpuaddr;
 
 	ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr, memdesc->sg,
-				memdesc->size, (IOMMU_READ | IOMMU_WRITE));
+				size, (IOMMU_READ | IOMMU_WRITE));
 	if (ret) {
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %d, %d) "
 				"failed with err: %d\n", iommu_pt->domain,
-				iommu_virt_addr, memdesc->sg, memdesc->size,
+				iommu_virt_addr, memdesc->sg, size,
 				(IOMMU_READ | IOMMU_WRITE), ret);
 		return ret;
 	}
