@@ -130,6 +130,8 @@ static void of_spmi_populate_node_resources(struct of_spmi_dev_info *d_info,
 			res->start = be32_to_cpup(addrp);
 			res->end = res->start + size - 1;
 			res->flags = flags;
+			of_property_read_string_index(r_info->node, "reg-names",
+								i, &res->name);
 		}
 		WARN_ON(of_irq_to_resource_table(r_info->node, res, num_irq) !=
 								num_irq);
