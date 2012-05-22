@@ -320,6 +320,39 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 	return rc;
 }
 
+int msm_vdec_release_buf(struct msm_vidc_inst *inst,
+					struct v4l2_buffer *b)
+{
+	int rc = 0;
+	int i;
+	struct vidc_buffer_addr_info buffer_info;
+
+	switch (b->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		for (i = 0; i < b->length; i++) {
+			pr_err("Release device_addr = %ld, size = %d\n",
+				b->m.planes[i].m.userptr,
+				b->m.planes[i].length);
+			buffer_info.buffer_size = b->m.planes[i].length;
+			buffer_info.buffer_type = HAL_BUFFER_OUTPUT;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr =
+				 b->m.planes[i].m.userptr;
+			rc = vidc_hal_session_release_buffers(
+				(void *)inst->session, &buffer_info);
+			if (rc)
+				pr_err("vidc_hal_session_release_buffers failed");
+		}
+		break;
+	default:
+		pr_err("Buffer type not recognized: %d\n", b->type);
+		break;
+	}
+	return rc;
+}
+
 int msm_vdec_qbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 {
 	struct vb2_queue *q = NULL;
@@ -345,7 +378,7 @@ int msm_vdec_dqbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 	}
 	rc = vb2_dqbuf(q, b, true);
 	if (rc)
-		pr_err("Failed to qbuf, %d\n", rc);
+		pr_err("Failed to dqbuf, %d\n", rc);
 	return rc;
 }
 
@@ -385,6 +418,10 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 	if (fmt) {
 		f->fmt.pix_mp.pixelformat = fmt->fourcc;
+		if (inst->in_reconfig == true) {
+			inst->height = inst->reconfig_height;
+			inst->width = inst->reconfig_width;
+		}
 		f->fmt.pix_mp.height = inst->height;
 		f->fmt.pix_mp.width = inst->width;
 		for (i = 0; i < fmt->num_planes; ++i) {
@@ -579,7 +616,6 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	struct hal_nal_stream_format_supported stream_format;
 	struct hal_enable_picture enable_picture;
 	struct hal_enable hal_property;
-	struct hal_enable prop;
 	u32 control_idx = 0;
 	enum hal_property property_id = 0;
 	u32 property_val = 0;
@@ -662,12 +698,6 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		}
 	}
 
-	prop.enable = 1;
-	rc = vidc_hal_session_set_property((void *)inst->session,
-			HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER, &prop);
-	if (rc)
-		pr_err("Failed to set smooth streaming\n");
-
 	rc = msm_comm_try_state(inst, MSM_VIDC_START_DONE);
 	if (rc) {
 		pr_err("Failed to move inst: %p to start done state\n",
@@ -709,6 +739,7 @@ static int msm_vdec_start_streaming(struct vb2_queue *q)
 			rc = start_streaming(inst);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		inst->in_reconfig = false;
 		if (inst->vb2_bufq[OUTPUT_PORT].streaming)
 			rc = start_streaming(inst);
 		break;
@@ -732,9 +763,12 @@ static int msm_vdec_stop_streaming(struct vb2_queue *q)
 	pr_debug("Streamoff called on: %d capability\n", q->type);
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		if (!inst->vb2_bufq[CAPTURE_PORT].streaming)
+			rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
+		if (!inst->vb2_bufq[OUTPUT_PORT].streaming)
+			rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
 		break;
 	default:
 		pr_err("Q-type is not supported: %d\n", q->type);

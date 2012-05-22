@@ -32,7 +32,8 @@
 #define MSM_VIDC_VERSION KERNEL_VERSION(0, 0, 1);
 #define MAX_DEBUGFS_NAME 50
 #define DEFAULT_TIMEOUT 3
-#define V4L2_EVENT_VIDC_BASE  0
+
+#define V4L2_EVENT_VIDC_BASE  10
 
 #define SYS_MSG_START VIDC_EVENT_CHANGE
 #define SYS_MSG_END SYS_DEBUG
@@ -72,6 +73,11 @@ enum instance_state {
 	MSM_VIDC_CLOSE,
 	MSM_VIDC_CLOSE_DONE,
 	MSM_VIDC_CORE_UNINIT,
+};
+
+enum vidc_resposes_id {
+	MSM_VIDC_DECODER_FLUSH_DONE = 0x11,
+	MSM_VIDC_DECODER_EVENT_CHANGE,
 };
 
 struct buf_info {
@@ -149,6 +155,9 @@ struct msm_vidc_inst {
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
 	struct v4l2_fh event_handler;
+	bool in_reconfig;
+	u32 reconfig_width;
+	u32 reconfig_height;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
