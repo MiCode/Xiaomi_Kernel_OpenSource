@@ -1139,8 +1139,17 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		}
 	}
 #if defined(CONFIG_DIAG_OVER_USB)
+	/* Check for the command/respond msg for the maximum packet length */
+	if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
+		(*(uint16_t *)(buf+2) == 0x0055)) {
+		for (i = 0; i < 4; i++)
+			*(driver->apps_rsp_buf+i) = *(buf+i);
+		*(uint32_t *)(driver->apps_rsp_buf+4) = PKT_SIZE;
+		ENCODE_RSP_AND_SEND(7);
+		return 0;
+	}
 	/* Check for Apps Only & get event mask request */
-	if (!(driver->ch) && chk_apps_only() && *buf == 0x81) {
+	else if (!(driver->ch) && chk_apps_only() && *buf == 0x81) {
 		driver->apps_rsp_buf[0] = 0x81;
 		driver->apps_rsp_buf[1] = 0x0;
 		*(uint16_t *)(driver->apps_rsp_buf + 2) = 0x0;
