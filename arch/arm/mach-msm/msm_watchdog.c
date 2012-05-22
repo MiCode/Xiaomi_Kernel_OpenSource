@@ -151,13 +151,43 @@ static struct notifier_block panic_blk = {
 	.notifier_call	= panic_wdog_handler,
 };
 
+struct wdog_disable_work_data {
+	struct work_struct work;
+	struct completion complete;
+};
+
+static void wdog_disable_work(struct work_struct *work)
+{
+	struct wdog_disable_work_data *work_data =
+		container_of(work, struct wdog_disable_work_data, work);
+	__raw_writel(0, msm_tmr0_base + WDT0_EN);
+	mb();
+	if (has_vic) {
+		free_irq(WDT0_ACCSCSSNBARK_INT, 0);
+	} else {
+		disable_percpu_irq(WDT0_ACCSCSSNBARK_INT);
+		if (!appsbark_fiq) {
+			free_percpu_irq(WDT0_ACCSCSSNBARK_INT,
+					percpu_pdata);
+			free_percpu(percpu_pdata);
+		}
+	}
+	enable = 0;
+	atomic_notifier_chain_unregister(&panic_notifier_list, &panic_blk);
+	cancel_delayed_work(&dogwork_struct);
+	/* may be suspended after the first write above */
+	__raw_writel(0, msm_tmr0_base + WDT0_EN);
+	complete(&work_data->complete);
+	pr_info("MSM Watchdog deactivated.\n");
+}
+
 static int wdog_enable_set(const char *val, struct kernel_param *kp)
 {
 	int ret = 0;
 	int old_val = runtime_disable;
+	struct wdog_disable_work_data work_data;
 
 	mutex_lock(&disable_lock);
-
 	if (!enable) {
 		printk(KERN_INFO "MSM Watchdog is not active.\n");
 		ret = -EINVAL;
@@ -165,43 +195,20 @@ static int wdog_enable_set(const char *val, struct kernel_param *kp)
 	}
 
 	ret = param_set_int(val, kp);
-
 	if (ret)
 		goto done;
 
-	switch (runtime_disable) {
-
-	case 1:
-		if (!old_val) {
-			__raw_writel(0, msm_tmr0_base + WDT0_EN);
-			mb();
-			if (has_vic) {
-				free_irq(WDT0_ACCSCSSNBARK_INT, 0);
-			} else {
-				disable_percpu_irq(WDT0_ACCSCSSNBARK_INT);
-				if (!appsbark_fiq) {
-					free_percpu_irq(WDT0_ACCSCSSNBARK_INT,
-							percpu_pdata);
-					free_percpu(percpu_pdata);
-				}
-			}
-			enable = 0;
-			atomic_notifier_chain_unregister(&panic_notifier_list,
-			       &panic_blk);
-			cancel_delayed_work(&dogwork_struct);
-			/* may be suspended after the first write above */
-			__raw_writel(0, msm_tmr0_base + WDT0_EN);
-			printk(KERN_INFO "MSM Watchdog deactivated.\n");
-		}
-	break;
-
-	default:
+	if (runtime_disable == 1) {
+		if (old_val)
+			goto done;
+		init_completion(&work_data.complete);
+		INIT_WORK_ONSTACK(&work_data.work, wdog_disable_work);
+		schedule_work_on(0, &work_data.work);
+		wait_for_completion(&work_data.complete);
+	} else {
 		runtime_disable = old_val;
 		ret = -EINVAL;
-	break;
-
 	}
-
 done:
 	mutex_unlock(&disable_lock);
 	return ret;
@@ -332,9 +339,49 @@ static void configure_bark_dump(void)
 	}
 }
 
+struct fiq_handler wdog_fh = {
+	.name = MODULE_NAME,
+};
+
 static void init_watchdog_work(struct work_struct *work)
 {
 	u64 timeout = (bark_time * WDT_HZ)/1000;
+	void *stack;
+	int ret;
+
+	if (has_vic) {
+		ret = request_irq(WDT0_ACCSCSSNBARK_INT, wdog_bark_handler, 0,
+				  "apps_wdog_bark", NULL);
+		if (ret)
+			return;
+	} else if (appsbark_fiq) {
+		claim_fiq(&wdog_fh);
+		set_fiq_handler(&msm_wdog_fiq_start, msm_wdog_fiq_length);
+		stack = (void *)__get_free_pages(GFP_KERNEL, THREAD_SIZE_ORDER);
+		if (!stack) {
+			pr_info("No free pages available - %s fails\n",
+					__func__);
+			return;
+		}
+
+		msm_wdog_fiq_setup(stack);
+		gic_set_irq_secure(WDT0_ACCSCSSNBARK_INT);
+	} else {
+		percpu_pdata = alloc_percpu(struct msm_watchdog_pdata *);
+		if (!percpu_pdata) {
+			pr_err("%s: memory allocation failed for percpu data\n",
+					__func__);
+			return;
+		}
+
+		/* Must request irq before sending scm command */
+		ret = request_percpu_irq(WDT0_ACCSCSSNBARK_INT,
+			wdog_bark_handler, "apps_wdog_bark", percpu_pdata);
+		if (ret) {
+			free_percpu(percpu_pdata);
+			return;
+		}
+	}
 
 	configure_bark_dump();
 
@@ -358,15 +405,9 @@ static void init_watchdog_work(struct work_struct *work)
 	return;
 }
 
-struct fiq_handler wdog_fh = {
-	.name = MODULE_NAME,
-};
-
 static int msm_watchdog_probe(struct platform_device *pdev)
 {
 	struct msm_watchdog_pdata *pdata = pdev->dev.platform_data;
-	int ret;
-	void *stack;
 
 	if (!enable || !pdata || !pdata->pet_time || !pdata->bark_time) {
 		printk(KERN_INFO "MSM Watchdog Not Initialized\n");
@@ -381,41 +422,6 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 	}
 
 	msm_tmr0_base = msm_timer_get_timer0_base();
-
-	if (has_vic) {
-		ret = request_irq(WDT0_ACCSCSSNBARK_INT, wdog_bark_handler, 0,
-				  "apps_wdog_bark", NULL);
-		if (ret)
-			return ret;
-	} else if (appsbark_fiq) {
-		claim_fiq(&wdog_fh);
-		set_fiq_handler(&msm_wdog_fiq_start, msm_wdog_fiq_length);
-		stack = (void *)__get_free_pages(GFP_KERNEL, THREAD_SIZE_ORDER);
-		if (!stack) {
-			pr_info("No free pages available - %s fails\n",
-					__func__);
-			return -ENOMEM;
-		}
-
-		msm_wdog_fiq_setup(stack);
-		gic_set_irq_secure(WDT0_ACCSCSSNBARK_INT);
-	} else {
-		percpu_pdata = alloc_percpu(struct msm_watchdog_pdata *);
-		if (!percpu_pdata) {
-			pr_err("%s: memory allocation failed for percpu data\n",
-					__func__);
-			return -ENOMEM;
-		}
-
-		*__this_cpu_ptr(percpu_pdata) = pdata;
-		/* Must request irq before sending scm command */
-		ret = request_percpu_irq(WDT0_ACCSCSSNBARK_INT,
-			wdog_bark_handler, "apps_wdog_bark", percpu_pdata);
-		if (ret) {
-			free_percpu(percpu_pdata);
-			return ret;
-		}
-	}
 
 	/*
 	 * This is only temporary till SBLs turn on the XPUs
