@@ -14,7 +14,6 @@
 #define __KGSL_DEVICE_H
 
 #include <linux/idr.h>
-#include <linux/wakelock.h>
 #include <linux/pm_qos.h>
 #include <linux/earlysuspend.h>
 
@@ -190,7 +189,6 @@ struct kgsl_device {
 	int drv_log;
 	int mem_log;
 	int pwr_log;
-	struct wake_lock idle_wakelock;
 	struct kgsl_pwrscale pwrscale;
 	struct kobject pwrscale_kobj;
 	struct pm_qos_request pm_qos_req_dma;
