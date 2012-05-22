@@ -363,33 +363,24 @@ static ssize_t
 show_perf(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct mmc_host *host = dev_get_drvdata(dev);
-	int64_t rtime_mmcq, wtime_mmcq, rtime_drv, wtime_drv;
-	unsigned long rbytes_mmcq, wbytes_mmcq, rbytes_drv, wbytes_drv;
+	int64_t rtime_drv, wtime_drv;
+	unsigned long rbytes_drv, wbytes_drv;
 
 	spin_lock(&host->lock);
 
-	rbytes_mmcq = host->perf.rbytes_mmcq;
-	wbytes_mmcq = host->perf.wbytes_mmcq;
 	rbytes_drv = host->perf.rbytes_drv;
 	wbytes_drv = host->perf.wbytes_drv;
 
-	rtime_mmcq = ktime_to_us(host->perf.rtime_mmcq);
-	wtime_mmcq = ktime_to_us(host->perf.wtime_mmcq);
 	rtime_drv = ktime_to_us(host->perf.rtime_drv);
 	wtime_drv = ktime_to_us(host->perf.wtime_drv);
 
 	spin_unlock(&host->lock);
 
-	return snprintf(buf, PAGE_SIZE, "Write performance at MMCQ Level:"
-					"%lu bytes in %lld microseconds\n"
-					"Read performance at MMCQ Level:"
-					"%lu bytes in %lld microseconds\n"
-					"Write performance at driver Level:"
+	return snprintf(buf, PAGE_SIZE, "Write performance at driver Level:"
 					"%lu bytes in %lld microseconds\n"
 					"Read performance at driver Level:"
 					"%lu bytes in %lld microseconds\n",
-					wbytes_mmcq, wtime_mmcq, rbytes_mmcq,
-					rtime_mmcq, wbytes_drv, wtime_drv,
+					wbytes_drv, wtime_drv,
 					rbytes_drv, rtime_drv);
 }
 
