@@ -153,7 +153,7 @@ static struct usb_cdc_ncm_ntb_parameters ntb_parameters = {
 	.wNdpOutDivisor = cpu_to_le16(4),
 	.wNdpOutPayloadRemainder = cpu_to_le16(0),
 	.wNdpOutAlignment = cpu_to_le16(4),
-	.wNtbOutMaxDatagrams = cpu_to_le16(4),
+	.wNtbOutMaxDatagrams = 0,
 };
 
 /*
