@@ -121,6 +121,8 @@ static void of_spmi_populate_node_resources(struct of_spmi_dev_info *d_info,
 
 	res = d_info->b_info.dev_node[idx].resource;
 	d_info->b_info.dev_node[idx].of_node = r_info->node;
+	of_property_read_string(r_info->node, "label",
+				&d_info->b_info.dev_node[idx].label);
 
 	if ((num_irq || num_reg) && (res != NULL)) {
 		for (i = 0; i < num_reg; i++, res++) {

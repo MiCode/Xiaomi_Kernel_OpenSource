@@ -119,3 +119,30 @@ int spmi_get_irq_byname(struct spmi_device *dev,
 	return r ? r->start : -ENXIO;
 }
 EXPORT_SYMBOL_GPL(spmi_get_irq_byname);
+
+/*
+ * spmi_get_devnode_byname - get a device node resource
+ * @dev: spmi device handle
+ * @label: device name to lookup
+ *
+ * Given a name, find the associated spmi_resource that matches the name.
+ * Return NULL if the lookup fails.
+ */
+struct spmi_resource *spmi_get_dev_container_byname(struct spmi_device *dev,
+						    const char *label)
+{
+	int i;
+
+	if (!label)
+		return NULL;
+
+	for (i = 0; i < dev->num_dev_node; i++) {
+		struct spmi_resource *r = &dev->dev_node[i];
+
+		if (r && r->label && !strncmp(r->label,
+					label, SPMI_MAX_RES_NAME))
+			return r;
+	}
+	return NULL;
+}
+EXPORT_SYMBOL(spmi_get_dev_container_byname);

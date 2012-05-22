@@ -92,11 +92,19 @@ struct spmi_driver {
  * @num_resources: number of resources for this device node
  * @resources: array of resources for this device_node
  * @of_node: device_node of the resource in question
+ * @label: name used to reference the device from the driver
+ *
+ * Note that we explicitly add a 'label' pointer here since per
+ * the ePAPR 2.2.2, the device_node->name should be generic and not
+ * reflect precise programming model. Thus label enables a
+ * platform specific name to be assigned with the 'label' binding to
+ * allow for unique query names.
  */
 struct spmi_resource {
 	struct resource		*resource;
 	u32			num_resources;
 	struct device_node	*of_node;
+	const char		*label;
 };
 
 /**
@@ -443,4 +451,7 @@ extern int spmi_get_irq(struct spmi_device *dev, struct spmi_resource *node,
 
 extern int spmi_get_irq_byname(struct spmi_device *dev,
 			       struct spmi_resource *node, const char *name);
+
+struct spmi_resource *spmi_get_dev_container_byname(struct spmi_device *dev,
+						    const char *label);
 #endif
