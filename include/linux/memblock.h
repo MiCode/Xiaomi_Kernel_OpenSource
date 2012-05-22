@@ -84,6 +84,7 @@ extern phys_addr_t memblock_end_of_DRAM(void);
 extern void memblock_enforce_memory_limit(phys_addr_t memory_limit);
 extern int memblock_is_memory(phys_addr_t addr);
 extern int memblock_is_region_memory(phys_addr_t base, phys_addr_t size);
+extern int memblock_overlaps_memory(phys_addr_t base, phys_addr_t size);
 extern int memblock_is_reserved(phys_addr_t addr);
 extern int memblock_is_region_reserved(phys_addr_t base, phys_addr_t size);
 
