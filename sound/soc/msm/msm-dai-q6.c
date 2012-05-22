@@ -604,6 +604,7 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case SLIMBUS_3_RX:
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_RX:
 	case SLIMBUS_2_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
@@ -1127,17 +1128,16 @@ static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 				unsigned int tx_num, unsigned int *tx_slot,
 				unsigned int rx_num, unsigned int *rx_slot)
-
 {
 	int rc = 0;
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	unsigned int i = 0;
 
-	dev_dbg(dai->dev, "enter %s, id = %d\n", __func__,
-							dai->id);
+	dev_dbg(dai->dev, "%s: dai_id = %d\n", __func__, dai->id);
 	switch (dai->id) {
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
+	case SLIMBUS_2_RX:
 	case SLIMBUS_3_RX:
 	case SLIMBUS_4_RX:
 		/* channel number to be between 128 and 255. For RX port
@@ -1472,6 +1472,22 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_slimbus_2_rx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
+		SNDRV_PCM_RATE_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_min =     8000,
+		.rate_max =	192000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_2_tx_dai = {
 	.capture = {
 		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
@@ -1544,6 +1560,10 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case SLIMBUS_1_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 				&msm_dai_q6_slimbus_1_tx_dai);
+		break;
+	case SLIMBUS_2_RX:
+		rc = snd_soc_register_dai(&pdev->dev,
+				&msm_dai_q6_slimbus_2_rx_dai);
 		break;
 	case SLIMBUS_2_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
