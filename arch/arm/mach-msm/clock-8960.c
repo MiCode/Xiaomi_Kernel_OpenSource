@@ -4605,6 +4605,11 @@ static DEFINE_CLK_VOTER(dfab_msmbus_a_clk, &dfab_a_clk.c, 0);
 static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ebi1_adm_clk, &ebi1_clk.c, 0);
 
+static DEFINE_CLK_VOTER(ebi1_acpu_a_clk, &ebi1_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(ebi1_msmbus_a_clk, &ebi1_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(afab_acpu_a_clk, &afab_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(afab_msmbus_a_clk, &afab_a_clk.c, LONG_MAX);
+
 #ifdef CONFIG_DEBUG_FS
 struct measure_sel {
 	u32 test_vector;
@@ -5048,7 +5053,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("bus_clk",		sfpb_a_clk.c,	""),
 
 	CLK_LOOKUP("bus_clk",		afab_clk.c,		"msm_apps_fab"),
-	CLK_LOOKUP("bus_a_clk",		afab_a_clk.c,		"msm_apps_fab"),
+	CLK_LOOKUP("bus_a_clk",		afab_msmbus_a_clk.c,	"msm_apps_fab"),
 	CLK_LOOKUP("bus_clk",		cfpb_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_a_clk",		cfpb_a_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_clk",		sfab_clk.c,		"msm_sys_fab"),
@@ -5058,7 +5063,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("bus_clk",		mmfab_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("bus_a_clk",		mmfab_a_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c,	"msm_bus"),
-	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,		"msm_bus"),
+	CLK_LOOKUP("mem_a_clk",		ebi1_msmbus_a_clk.c,	"msm_bus"),
 	CLK_LOOKUP("dfab_clk",		dfab_msmbus_clk.c,	"msm_bus"),
 	CLK_LOOKUP("dfab_a_clk",	dfab_msmbus_a_clk.c,	"msm_bus"),
 
@@ -5330,6 +5335,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("smmu_iface_clk",	smmu_p_clk.c,  "pil_vidc"),
 
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
+	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
+	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
@@ -5371,7 +5378,7 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("bus_clk",		sfpb_a_clk.c,	""),
 
 	CLK_LOOKUP("bus_clk",		afab_clk.c,		"msm_apps_fab"),
-	CLK_LOOKUP("bus_a_clk",		afab_a_clk.c,		"msm_apps_fab"),
+	CLK_LOOKUP("bus_a_clk",		afab_msmbus_a_clk.c,	"msm_apps_fab"),
 	CLK_LOOKUP("bus_clk",		cfpb_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_a_clk",		cfpb_a_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_clk",		sfab_clk.c,		"msm_sys_fab"),
@@ -5381,7 +5388,7 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("bus_clk",		mmfab_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("bus_a_clk",		mmfab_a_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c,	"msm_bus"),
-	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,		"msm_bus"),
+	CLK_LOOKUP("mem_a_clk",		ebi1_msmbus_a_clk.c,	"msm_bus"),
 	CLK_LOOKUP("dfab_clk",		dfab_msmbus_clk.c,	"msm_bus"),
 	CLK_LOOKUP("dfab_a_clk",	dfab_msmbus_a_clk.c,	"msm_bus"),
 
@@ -5645,6 +5652,8 @@ static struct clk_lookup msm_clocks_8960[] = {
 	CLK_LOOKUP("bus_clk",		dfab_tzcom_clk.c,	"tzcom"),
 
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
+	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
+	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
@@ -5685,7 +5694,7 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("bus_clk",		sfpb_a_clk.c,	""),
 
 	CLK_LOOKUP("bus_clk",		afab_clk.c,		"msm_apps_fab"),
-	CLK_LOOKUP("bus_a_clk",		afab_a_clk.c,		"msm_apps_fab"),
+	CLK_LOOKUP("bus_a_clk",		afab_msmbus_a_clk.c,	"msm_apps_fab"),
 	CLK_LOOKUP("bus_clk",		cfpb_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_a_clk",		cfpb_a_clk.c,		"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_clk",		sfab_clk.c,		"msm_sys_fab"),
@@ -5695,7 +5704,7 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("bus_clk",		mmfab_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("bus_a_clk",		mmfab_a_clk.c,		"msm_mm_fab"),
 	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c,	"msm_bus"),
-	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,		"msm_bus"),
+	CLK_LOOKUP("mem_a_clk",		ebi1_msmbus_a_clk.c,	"msm_bus"),
 	CLK_LOOKUP("dfab_clk",		dfab_msmbus_clk.c,	"msm_bus"),
 	CLK_LOOKUP("dfab_a_clk",	dfab_msmbus_a_clk.c,	"msm_bus"),
 
@@ -5936,6 +5945,8 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("bus_clk",		dfab_qseecom_clk.c,	"qseecom"),
 
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
+	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
+	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
