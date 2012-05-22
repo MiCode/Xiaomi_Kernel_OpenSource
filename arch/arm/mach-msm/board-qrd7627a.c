@@ -32,6 +32,7 @@
 #include <linux/input/ft5x06_ts.h>
 #include <linux/msm_adc.h>
 #include <linux/fmem.h>
+#include <linux/regulator/gpio-regulator.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -631,6 +632,62 @@ static struct platform_device fmem_device = {
 	.dev = { .platform_data = &fmem_pdata },
 };
 
+#define GPIO_VREG_INIT(_id, _reg_name, _gpio_label, _gpio, _active_low) \
+	[GPIO_VREG_ID_##_id] = { \
+		.init_data = { \
+			.constraints = { \
+				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
+			}, \
+			.num_consumer_supplies	= \
+					ARRAY_SIZE(vreg_consumers_##_id), \
+			.consumer_supplies	= vreg_consumers_##_id, \
+		}, \
+		.regulator_name	= _reg_name, \
+		.active_low	= _active_low, \
+		.gpio_label	= _gpio_label, \
+		.gpio		= _gpio, \
+	}
+
+#define GPIO_VREG_ID_EXT_2P85V	0
+#define GPIO_VREG_ID_EXT_1P8V	1
+
+static struct regulator_consumer_supply vreg_consumers_EXT_2P85V[] = {
+	REGULATOR_SUPPLY("cam0_avdd", "0-006c"),
+	REGULATOR_SUPPLY("cam1_avdd", "0-0078"),
+	REGULATOR_SUPPLY("lcd_vdd", "mipi_dsi.1"),
+};
+
+static struct regulator_consumer_supply vreg_consumers_EXT_1P8V[] = {
+	REGULATOR_SUPPLY("cam0_vdd", "0-006c"),
+	REGULATOR_SUPPLY("cam1_vdd", "0-0078"),
+	REGULATOR_SUPPLY("lcd_vddi", "mipi_dsi.1"),
+};
+
+/* GPIO regulator constraints */
+static struct gpio_regulator_platform_data msm_gpio_regulator_pdata[] = {
+	GPIO_VREG_INIT(EXT_2P85V, "ext_2p85v", "ext_2p85v_en", 35, 0),
+	GPIO_VREG_INIT(EXT_1P8V, "ext_1p8v", "ext_1p8v_en", 40, 0),
+};
+
+/* GPIO regulator */
+static struct platform_device qrd_msm8625_vreg_gpio_ext_2p85v __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= 35,
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_2P85V],
+	},
+};
+
+static struct platform_device qrd_msm8625_vreg_gpio_ext_1p8v __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= 40,
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_1P8V],
+	},
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&android_usb_device,
 	&android_pmem_device,
@@ -672,6 +729,8 @@ static struct platform_device *msm8625_evb_devices[] __initdata = {
 	&msm8625_device_otg,
 	&msm8625_device_gadget_peripheral,
 	&msm8625_kgsl_3d0,
+	&qrd_msm8625_vreg_gpio_ext_2p85v,
+	&qrd_msm8625_vreg_gpio_ext_1p8v,
 };
 
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
