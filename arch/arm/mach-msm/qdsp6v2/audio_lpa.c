@@ -840,6 +840,10 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				.step = SOFT_VOLUME_STEP,
 				.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
 			};
+			if (softpause.rampingcurve == SOFT_PAUSE_CURVE_LINEAR)
+				softpause.step = SOFT_PAUSE_STEP_LINEAR;
+			if (softvol.rampingcurve == SOFT_VOLUME_CURVE_LINEAR)
+				softvol.step = SOFT_VOLUME_STEP_LINEAR;
 			audio->out_enabled = 1;
 			audio->out_needed = 1;
 			rc = q6asm_set_volume(audio->ac, audio->volume);
