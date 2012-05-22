@@ -41,10 +41,48 @@ struct buffer_info {
 };
 
 struct msm_v4l2_vid_inst {
-	void *vidc_inst;
+	struct msm_vidc_inst vidc_inst;
 	void *mem_client;
 	struct list_head registered_bufs;
 };
+
+static inline struct msm_vidc_inst *get_vidc_inst(struct file *filp, void *fh)
+{
+	return container_of(filp->private_data,
+					struct msm_vidc_inst, event_handler);
+}
+
+static inline struct msm_v4l2_vid_inst *get_v4l2_inst(struct file *filp,
+			void *fh)
+{
+	struct msm_vidc_inst *vidc_inst;
+	vidc_inst = container_of(filp->private_data,
+			struct msm_vidc_inst, event_handler);
+	return container_of((void *)vidc_inst,
+			struct msm_v4l2_vid_inst, vidc_inst);
+}
+
+static int msm_vidc_v4l2_setup_event_queue(void *inst,
+				struct video_device *pvdev)
+{
+	int rc = 0;
+	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
+	spin_lock_init(&pvdev->fh_lock);
+	INIT_LIST_HEAD(&pvdev->fh_list);
+	rc = v4l2_fh_init(&vidc_inst->event_handler, pvdev);
+	if (rc < 0)
+		return rc;
+	if (&vidc_inst->event_handler.events == NULL) {
+		rc = v4l2_event_init(&vidc_inst->event_handler);
+		if (rc < 0)
+			return rc;
+	}
+	rc = v4l2_event_alloc(&vidc_inst->event_handler, 32);
+	if (rc < 0)
+		return rc;
+	v4l2_fh_add(&vidc_inst->event_handler);
+	return rc;
+}
 
 struct buffer_info *get_registered_buf(struct list_head *list,
 				int fd, u32 buff_off, u32 size)
@@ -79,7 +117,6 @@ static int msm_v4l2_open(struct file *filp)
 	struct msm_video_device *vid_dev =
 		container_of(vdev, struct msm_video_device, vdev);
 	struct msm_vidc_core *core = video_drvdata(filp);
-	void *inst;
 	struct msm_v4l2_vid_inst *v4l2_inst = kzalloc(sizeof(*v4l2_inst),
 						GFP_KERNEL);
 	if (!v4l2_inst) {
@@ -93,16 +130,17 @@ static int msm_v4l2_open(struct file *filp)
 		rc = -ENOMEM;
 		goto fail_mem_client;
 	}
-	inst = msm_vidc_open(core->id, vid_dev->type);
-	if (!inst) {
+	rc = msm_vidc_open(&v4l2_inst->vidc_inst, core->id, vid_dev->type);
+	if (rc) {
 		pr_err("Failed to create video instance, core: %d, type = %d\n",
 			core->id, vid_dev->type);
 		rc = -ENOMEM;
 		goto fail_open;
 	}
 	INIT_LIST_HEAD(&v4l2_inst->registered_bufs);
-	v4l2_inst->vidc_inst = inst;
-	filp->private_data = v4l2_inst;
+	rc = msm_vidc_v4l2_setup_event_queue(&v4l2_inst->vidc_inst, vdev);
+	clear_bit(V4L2_FL_USES_V4L2_FH, &vdev->flags);
+	filp->private_data = &(v4l2_inst->vidc_inst.event_handler);
 	return rc;
 fail_open:
 	msm_smem_delete_client(v4l2_inst->mem_client);
@@ -117,8 +155,11 @@ static int msm_v4l2_close(struct file *filp)
 	int rc;
 	struct list_head *ptr, *next;
 	struct buffer_info *binfo;
-	struct msm_v4l2_vid_inst *v4l2_inst = filp->private_data;
-	rc = msm_vidc_close(v4l2_inst->vidc_inst);
+	struct msm_vidc_inst *vidc_inst;
+	struct msm_v4l2_vid_inst *v4l2_inst;
+	vidc_inst = get_vidc_inst(filp, NULL);
+	v4l2_inst = get_v4l2_inst(filp, NULL);
+	rc = msm_vidc_close(vidc_inst);
 	list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
 		binfo = list_entry(ptr, struct buffer_info, list);
 		list_del(&binfo->list);
@@ -133,60 +174,62 @@ static int msm_v4l2_close(struct file *filp)
 static int msm_v4l2_querycap(struct file *filp, void *fh,
 			struct v4l2_capability *cap)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = filp->private_data;
-	return msm_vidc_querycap(v4l2_inst->vidc_inst, cap);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(filp, fh);
+	return msm_vidc_querycap((void *)vidc_inst, cap);
 }
 
 int msm_v4l2_enum_fmt(struct file *file, void *fh,
 					struct v4l2_fmtdesc *f)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_enum_fmt(v4l2_inst->vidc_inst, f);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_enum_fmt((void *)vidc_inst, f);
 }
 
 int msm_v4l2_s_fmt(struct file *file, void *fh,
 					struct v4l2_format *f)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_s_fmt(v4l2_inst->vidc_inst, f);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_s_fmt((void *)vidc_inst, f);
 }
 
 int msm_v4l2_g_fmt(struct file *file, void *fh,
 					struct v4l2_format *f)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_g_fmt(v4l2_inst->vidc_inst, f);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_g_fmt((void *)vidc_inst, f);
 }
 
 int msm_v4l2_s_ctrl(struct file *file, void *fh,
 					struct v4l2_control *a)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_s_ctrl(v4l2_inst->vidc_inst, a);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_s_ctrl((void *)vidc_inst, a);
 }
 
 int msm_v4l2_g_ctrl(struct file *file, void *fh,
 					struct v4l2_control *a)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_g_ctrl(v4l2_inst->vidc_inst, a);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_g_ctrl((void *)vidc_inst, a);
 }
 
 int msm_v4l2_reqbufs(struct file *file, void *fh,
 				struct v4l2_requestbuffers *b)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_reqbufs(v4l2_inst->vidc_inst, b);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_reqbufs((void *)vidc_inst, b);
 }
 
 int msm_v4l2_prepare_buf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
 	struct msm_smem *handle;
 	struct buffer_info *binfo;
-	int rc = 0;
-	int i;
+	struct msm_vidc_inst *vidc_inst;
+	struct msm_v4l2_vid_inst *v4l2_inst;
+	int i, rc = 0;
+	vidc_inst = get_vidc_inst(file, fh);
+	v4l2_inst = get_v4l2_inst(file, fh);
 	if (!v4l2_inst->mem_client) {
 		pr_err("Failed to get memory client\n");
 		rc = -ENOMEM;
@@ -229,7 +272,7 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 		list_add_tail(&binfo->list, &v4l2_inst->registered_bufs);
 		b->m.planes[i].m.userptr = handle->device_addr;
 	}
-	rc = msm_vidc_prepare_buf(v4l2_inst->vidc_inst, b);
+	rc = msm_vidc_prepare_buf(&v4l2_inst->vidc_inst, b);
 exit:
 	return rc;
 }
@@ -237,10 +280,13 @@ exit:
 int msm_v4l2_qbuf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
+	struct msm_vidc_inst *vidc_inst;
+	struct msm_v4l2_vid_inst *v4l2_inst;
 	struct buffer_info *binfo;
 	int rc = 0;
 	int i;
+	vidc_inst = get_vidc_inst(file, fh);
+	v4l2_inst = get_v4l2_inst(file, fh);
 	for (i = 0; i < b->length; ++i) {
 		binfo = get_registered_buf(&v4l2_inst->registered_bufs,
 				b->m.planes[i].reserved[0],
@@ -258,7 +304,7 @@ int msm_v4l2_qbuf(struct file *file, void *fh,
 		pr_debug("Queueing device address = %ld\n",
 				binfo->handle->device_addr);
 	}
-	rc = msm_vidc_qbuf(v4l2_inst->vidc_inst, b);
+	rc = msm_vidc_qbuf(&v4l2_inst->vidc_inst, b);
 err_invalid_buff:
 	return rc;
 }
@@ -266,22 +312,40 @@ err_invalid_buff:
 int msm_v4l2_dqbuf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_dqbuf(v4l2_inst->vidc_inst, b);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_dqbuf((void *)vidc_inst, b);
 }
 
 int msm_v4l2_streamon(struct file *file, void *fh,
 				enum v4l2_buf_type i)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_streamon(v4l2_inst->vidc_inst, i);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_streamon((void *)vidc_inst, i);
 }
 
 int msm_v4l2_streamoff(struct file *file, void *fh,
 				enum v4l2_buf_type i)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = file->private_data;
-	return msm_vidc_streamoff(v4l2_inst->vidc_inst, i);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_streamoff((void *)vidc_inst, i);
+}
+
+static int msm_vidc_v4l2_subscribe_event(struct v4l2_fh *fh,
+			struct v4l2_event_subscription *sub)
+{
+	int rc = 0;
+	if (sub->type == V4L2_EVENT_ALL)
+		sub->type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
+	rc = v4l2_event_subscribe(fh, sub);
+	return rc;
+}
+
+static int msm_vidc_v4l2_unsubscribe_event(struct v4l2_fh *fh,
+			struct v4l2_event_subscription *sub)
+{
+	int rc = 0;
+	rc = v4l2_event_unsubscribe(fh, sub);
+	return rc;
 }
 static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_v4l2_querycap,
@@ -299,6 +363,8 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_streamoff = msm_v4l2_streamoff,
 	.vidioc_s_ctrl = msm_v4l2_s_ctrl,
 	.vidioc_g_ctrl = msm_v4l2_g_ctrl,
+	.vidioc_subscribe_event = msm_vidc_v4l2_subscribe_event,
+	.vidioc_unsubscribe_event = msm_vidc_v4l2_unsubscribe_event,
 };
 
 static const struct v4l2_ioctl_ops msm_v4l2_enc_ioctl_ops = {
@@ -307,8 +373,8 @@ static const struct v4l2_ioctl_ops msm_v4l2_enc_ioctl_ops = {
 static unsigned int msm_v4l2_poll(struct file *filp,
 	struct poll_table_struct *pt)
 {
-	struct msm_v4l2_vid_inst *v4l2_inst = filp->private_data;
-	return msm_vidc_poll(v4l2_inst->vidc_inst, filp, pt);
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(filp, NULL);
+	return msm_vidc_poll((void *)vidc_inst, filp, pt);
 }
 
 static const struct v4l2_file_operations msm_v4l2_vidc_fops = {

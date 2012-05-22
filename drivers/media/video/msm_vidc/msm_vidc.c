@@ -34,6 +34,9 @@ int msm_vidc_poll(void *instance, struct file *filp,
 			outq->streaming, capq->streaming);
 		return POLLERR;
 	}
+	poll_wait(filp, &inst->event_handler.events->wait, wait);
+	if (v4l2_event_pending(&inst->event_handler))
+		return POLLPRI;
 	poll_wait(filp, &capq->done_wq, wait);
 	poll_wait(filp, &outq->done_wq, wait);
 	spin_lock_irqsave(&capq->done_lock, flags);
@@ -208,9 +211,9 @@ static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 	return vb2_queue_init(q);
 }
 
-void *msm_vidc_open(int core_id, int session_type)
+int msm_vidc_open(void *vidc_inst, int core_id, int session_type)
 {
-	struct msm_vidc_inst *inst = NULL;
+	struct msm_vidc_inst *inst = (struct msm_vidc_inst *)vidc_inst;
 	struct msm_vidc_core *core = NULL;
 	unsigned long flags;
 	int rc = 0;
@@ -227,11 +230,6 @@ void *msm_vidc_open(int core_id, int session_type)
 		goto err_invalid_core;
 	}
 
-	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
-	if (!inst) {
-		pr_err("Unable to allocate video instance\n");
-		goto err_no_mem;
-	}
 	mutex_init(&inst->sync_lock);
 	spin_lock_init(&inst->lock);
 	inst->session_type = session_type;
@@ -254,6 +252,7 @@ void *msm_vidc_open(int core_id, int session_type)
 		msm_vdec_ctrl_init(inst);
 	} else if (session_type == MSM_VIDC_ENCODER) {
 		msm_venc_inst_init(inst);
+		msm_venc_ctrl_init(inst);
 	}
 	rc = vb2_bufq_init(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 			session_type);
@@ -275,15 +274,14 @@ void *msm_vidc_open(int core_id, int session_type)
 	spin_lock_irqsave(&core->lock, flags);
 	list_add_tail(&inst->list, &core->instances);
 	spin_unlock_irqrestore(&core->lock, flags);
-	return inst;
+	return rc;
 fail_init:
 	msm_smem_delete_client(inst->mem_client);
 fail_mem_client:
 	kfree(inst);
 	inst = NULL;
-err_no_mem:
 err_invalid_core:
-	return inst;
+	return rc;
 }
 
 static void cleanup_instance(struct msm_vidc_inst *inst)
@@ -328,15 +326,13 @@ int msm_vidc_close(void *instance)
 	mutex_lock(&core->sync_lock);
 	list_for_each_safe(ptr, next, &core->instances) {
 		temp = list_entry(ptr, struct msm_vidc_inst, list);
-		if (temp == inst) {
+		if (temp == inst)
 			list_del(&inst->list);
-			kfree(inst);
-		}
 	}
 	mutex_unlock(&core->sync_lock);
 	rc = msm_comm_try_state(inst, MSM_VIDC_CORE_UNINIT);
 	if (rc)
-		pr_err("Failed to move video instance to init state\n");
+		pr_err("Failed to move video instance to uninit state\n");
 	cleanup_instance(inst);
 	pr_debug("Closed the instance\n");
 	return 0;

@@ -21,6 +21,7 @@
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
+#include <media/v4l2-event.h>
 #include <media/v4l2-ctrls.h>
 #include <media/videobuf2-core.h>
 #include <media/msm_vidc.h>
@@ -31,6 +32,7 @@
 #define MSM_VIDC_VERSION KERNEL_VERSION(0, 0, 1);
 #define MAX_DEBUGFS_NAME 50
 #define DEFAULT_TIMEOUT 3
+#define V4L2_EVENT_VIDC_BASE  0
 
 #define SYS_MSG_START VIDC_EVENT_CHANGE
 #define SYS_MSG_END SYS_DEBUG
@@ -146,6 +148,7 @@ struct msm_vidc_inst {
 	void *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
+	struct v4l2_fh event_handler;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
