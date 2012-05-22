@@ -127,6 +127,102 @@ static struct reserve_info msm9615_reserve_info __initdata = {
 };
 #endif
 
+struct pm8xxx_gpio_init {
+	unsigned		gpio;
+	struct pm_gpio		config;
+};
+
+struct pm8xxx_mpp_init {
+	unsigned			mpp;
+	struct pm8xxx_mpp_config_data	config;
+};
+
+#define PM8018_GPIO_INIT(_gpio, _dir, _buf, _val, _pull, _vin, _out_strength, \
+			_func, _inv, _disable) \
+{ \
+	.gpio	= PM8018_GPIO_PM_TO_SYS(_gpio), \
+	.config	= { \
+		.direction	= _dir, \
+		.output_buffer	= _buf, \
+		.output_value	= _val, \
+		.pull		= _pull, \
+		.vin_sel	= _vin, \
+		.out_strength	= _out_strength, \
+		.function	= _func, \
+		.inv_int_pol	= _inv, \
+		.disable_pin	= _disable, \
+	} \
+}
+
+#define PM8018_MPP_INIT(_mpp, _type, _level, _control) \
+{ \
+	.mpp	= PM8018_MPP_PM_TO_SYS(_mpp), \
+	.config	= { \
+		.type		= PM8XXX_MPP_TYPE_##_type, \
+		.level		= _level, \
+		.control	= PM8XXX_MPP_##_control, \
+	} \
+}
+
+#define PM8018_GPIO_DISABLE(_gpio) \
+	PM8018_GPIO_INIT(_gpio, PM_GPIO_DIR_IN, 0, 0, 0, PM8018_GPIO_VIN_S3, \
+			 0, 0, 0, 1)
+
+#define PM8018_GPIO_OUTPUT(_gpio, _val, _strength) \
+	PM8018_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
+			PM_GPIO_PULL_NO, PM8018_GPIO_VIN_S3, \
+			PM_GPIO_STRENGTH_##_strength, \
+			PM_GPIO_FUNC_NORMAL, 0, 0)
+
+#define PM8018_GPIO_INPUT(_gpio, _pull) \
+	PM8018_GPIO_INIT(_gpio, PM_GPIO_DIR_IN, PM_GPIO_OUT_BUF_CMOS, 0, \
+			_pull, PM8018_GPIO_VIN_S3, \
+			PM_GPIO_STRENGTH_NO, \
+			PM_GPIO_FUNC_NORMAL, 0, 0)
+
+#define PM8018_GPIO_OUTPUT_FUNC(_gpio, _val, _func) \
+	PM8018_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
+			PM_GPIO_PULL_NO, PM8018_GPIO_VIN_S3, \
+			PM_GPIO_STRENGTH_HIGH, \
+			_func, 0, 0)
+
+#define PM8018_GPIO_OUTPUT_VIN(_gpio, _val, _vin) \
+	PM8018_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
+			PM_GPIO_PULL_NO, _vin, \
+			PM_GPIO_STRENGTH_HIGH, \
+			PM_GPIO_FUNC_NORMAL, 0, 0)
+
+/* Initial PM8018 GPIO configurations */
+static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
+};
+
+/* Initial PM8018 MPP configurations */
+static struct pm8xxx_mpp_init pm8018_mpps[] __initdata = {
+};
+
+void __init msm9615_pm8xxx_gpio_mpp_init(void)
+{
+	int i, rc;
+
+	for (i = 0; i < ARRAY_SIZE(pm8018_gpios); i++) {
+		rc = pm8xxx_gpio_config(pm8018_gpios[i].gpio,
+					&pm8018_gpios[i].config);
+		if (rc) {
+			pr_err("%s: pm8018_gpio_config: rc=%d\n", __func__, rc);
+			break;
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(pm8018_mpps); i++) {
+		rc = pm8xxx_mpp_config(pm8018_mpps[i].mpp,
+					&pm8018_mpps[i].config);
+		if (rc) {
+			pr_err("%s: pm8018_mpp_config: rc=%d\n", __func__, rc);
+			break;
+		}
+	}
+}
+
 static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
@@ -876,7 +972,7 @@ static void __init msm9615_common_init(void)
 		&msm_hsic_peripheral_pdata;
 	msm_device_usb_bam.dev.platform_data = &msm_usb_bam_pdata;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
-
+	msm9615_pm8xxx_gpio_mpp_init();
 	acpuclk_init(&acpuclk_9615_soc_data);
 
 	/* Ensure ar6000pm device is registered before MMC/SDC */
