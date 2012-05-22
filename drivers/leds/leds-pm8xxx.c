@@ -57,6 +57,7 @@
 #define WLED_OVP_VAL_BIT_SHFT		0x04
 #define WLED_BOOST_LIMIT_MASK		0xE0
 #define WLED_BOOST_LIMIT_BIT_SHFT	0x05
+#define WLED_BOOST_OFF			0x00
 #define WLED_EN_MASK			0x01
 #define WLED_CP_SELECT_MAX		0x03
 #define WLED_CP_SELECT_MASK		0x03
@@ -155,6 +156,7 @@ struct pm8xxx_led_data {
 	struct led_classdev	cdev;
 	int			id;
 	u8			reg;
+	u8			wled_mod_ctrl_val;
 	struct device		*dev;
 	struct work_struct	work;
 	struct mutex		lock;
@@ -236,6 +238,24 @@ led_wled_set(struct pm8xxx_led_data *led, enum led_brightness value)
 
 	if (value > WLED_MAX_LEVEL)
 		value = WLED_MAX_LEVEL;
+
+	if (value == 0) {
+		rc = pm8xxx_writeb(led->dev->parent, WLED_MOD_CTRL_REG,
+				WLED_BOOST_OFF);
+		if (rc) {
+			dev_err(led->dev->parent, "can't write wled ctrl config"
+				" register rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = pm8xxx_writeb(led->dev->parent, WLED_MOD_CTRL_REG,
+				led->wled_mod_ctrl_val);
+		if (rc) {
+			dev_err(led->dev->parent, "can't write wled ctrl config"
+				" register rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	duty = (WLED_MAX_DUTY_CYCLE * value) / WLED_MAX_LEVEL;
 
@@ -629,6 +649,7 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 			" register rc=%d\n", rc);
 		return rc;
 	}
+	led->wled_mod_ctrl_val = val;
 
 	/* dump wled registers */
 	wled_dump_regs(led);
