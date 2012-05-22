@@ -23,10 +23,8 @@
 #include <linux/init.h>
 #include <linux/pm.h>
 #include <linux/pm_qos_params.h>
-#include <linux/proc_fs.h>
 #include <linux/suspend.h>
 #include <linux/reboot.h>
-#include <linux/uaccess.h>
 #include <linux/io.h>
 #include <linux/tick.h>
 #include <linux/memory.h>
@@ -425,6 +423,7 @@ enum {
 	SLEEP_LIMIT_MASK = 0x03,
 };
 
+static uint32_t msm_pm_sleep_limit = SLEEP_LIMIT_NONE;
 #ifdef CONFIG_MSM_MEMORY_LOW_POWER_MODE
 enum {
 	SLEEP_RESOURCE_MEMORY_BIT0 = 0x0200,
@@ -762,238 +761,6 @@ void msm_pm_set_max_sleep_time(int64_t max_sleep_time_ns)
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
-
-
-/******************************************************************************
- * CONFIG_MSM_IDLE_STATS
- *****************************************************************************/
-
-#ifdef CONFIG_MSM_IDLE_STATS
-enum msm_pm_time_stats_id {
-	MSM_PM_STAT_REQUESTED_IDLE,
-	MSM_PM_STAT_IDLE_SPIN,
-	MSM_PM_STAT_IDLE_WFI,
-	MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE,
-	MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE,
-	MSM_PM_STAT_IDLE_POWER_COLLAPSE,
-	MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE,
-	MSM_PM_STAT_SUSPEND,
-	MSM_PM_STAT_FAILED_SUSPEND,
-	MSM_PM_STAT_NOT_IDLE,
-	MSM_PM_STAT_COUNT
-};
-
-struct msm_pm_time_stats {
-	const char *name;
-	int64_t first_bucket_time;
-	int bucket[CONFIG_MSM_IDLE_STATS_BUCKET_COUNT];
-	int64_t min_time[CONFIG_MSM_IDLE_STATS_BUCKET_COUNT];
-	int64_t max_time[CONFIG_MSM_IDLE_STATS_BUCKET_COUNT];
-	int count;
-	int64_t total_time;
-};
-
-struct msm_pm_cpu_time_stats {
-	struct msm_pm_time_stats stats[MSM_PM_STAT_COUNT];
-};
-
-static DEFINE_PER_CPU_SHARED_ALIGNED(
-		struct msm_pm_cpu_time_stats, msm_pm_stats);
-
-static uint32_t msm_pm_sleep_limit = SLEEP_LIMIT_NONE;
-
-static DEFINE_SPINLOCK(msm_pm_stats_lock);
-
-/*
- * Add the given time data to the statistics collection.
- */
-static void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t)
-{
-	unsigned long flags;
-	struct msm_pm_time_stats *stats;
-	int i;
-	int64_t bt;
-
-	spin_lock_irqsave(&msm_pm_stats_lock, flags);
-	stats = __get_cpu_var(msm_pm_stats).stats;
-
-	stats[id].total_time += t;
-	stats[id].count++;
-
-	bt = t;
-	do_div(bt, stats[id].first_bucket_time);
-
-	if (bt < 1ULL << (CONFIG_MSM_IDLE_STATS_BUCKET_SHIFT *
-				(CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1)))
-		i = DIV_ROUND_UP(fls((uint32_t)bt),
-					CONFIG_MSM_IDLE_STATS_BUCKET_SHIFT);
-	else
-		i = CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1;
-
-	if (i >= CONFIG_MSM_IDLE_STATS_BUCKET_COUNT)
-		i = CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1;
-
-	stats[id].bucket[i]++;
-
-	if (t < stats[id].min_time[i] || !stats[id].max_time[i])
-		stats[id].min_time[i] = t;
-	if (t > stats[id].max_time[i])
-		stats[id].max_time[i] = t;
-
-	spin_unlock_irqrestore(&msm_pm_stats_lock, flags);
-}
-
-/*
- * Helper function of snprintf where buf is auto-incremented, size is auto-
- * decremented, and there is no return value.
- *
- * NOTE: buf and size must be l-values (e.g. variables)
- */
-#define SNPRINTF(buf, size, format, ...) \
-	do { \
-		if (size > 0) { \
-			int ret; \
-			ret = snprintf(buf, size, format, ## __VA_ARGS__); \
-			if (ret > size) { \
-				buf += size; \
-				size = 0; \
-			} else { \
-				buf += ret; \
-				size -= ret; \
-			} \
-		} \
-	} while (0)
-
-/*
- * Write out the power management statistics.
- */
-static int msm_pm_read_proc
-	(char *page, char **start, off_t off, int count, int *eof, void *data)
-{
-	unsigned int cpu = off / MSM_PM_STAT_COUNT;
-	int id = off % MSM_PM_STAT_COUNT;
-	char *p = page;
-
-	if (count < 1024) {
-		*start = (char *) 0;
-		*eof = 0;
-		return 0;
-	}
-
-	if (!off) {
-		SNPRINTF(p, count, "Last power collapse voted ");
-		if ((msm_pm_sleep_limit & SLEEP_LIMIT_MASK) ==
-			SLEEP_LIMIT_NONE)
-			SNPRINTF(p, count, "for TCXO shutdown\n\n");
-		else
-			SNPRINTF(p, count, "against TCXO shutdown\n\n");
-	}
-
-	if (cpu < num_possible_cpus()) {
-		unsigned long flags;
-		struct msm_pm_time_stats *stats;
-		int i;
-		int64_t bucket_time;
-		int64_t s;
-		uint32_t ns;
-
-		spin_lock_irqsave(&msm_pm_stats_lock, flags);
-		stats = per_cpu(msm_pm_stats, cpu).stats;
-
-		s = stats[id].total_time;
-		ns = do_div(s, NSEC_PER_SEC);
-		SNPRINTF(p, count,
-			"[cpu %u] %s:\n"
-			"  count: %7d\n"
-			"  total_time: %lld.%09u\n",
-			cpu, stats[id].name,
-			stats[id].count,
-			s, ns);
-
-		bucket_time = stats[id].first_bucket_time;
-		for (i = 0; i < CONFIG_MSM_IDLE_STATS_BUCKET_COUNT - 1; i++) {
-			s = bucket_time;
-			ns = do_div(s, NSEC_PER_SEC);
-			SNPRINTF(p, count,
-				"   <%6lld.%09u: %7d (%lld-%lld)\n",
-				s, ns, stats[id].bucket[i],
-				stats[id].min_time[i],
-				stats[id].max_time[i]);
-
-			bucket_time <<= CONFIG_MSM_IDLE_STATS_BUCKET_SHIFT;
-		}
-
-		SNPRINTF(p, count, "  >=%6lld.%09u: %7d (%lld-%lld)\n",
-			s, ns, stats[id].bucket[i],
-			stats[id].min_time[i],
-			stats[id].max_time[i]);
-
-		*start = (char *) 1;
-		*eof = (off + 1 >= MSM_PM_STAT_COUNT * num_possible_cpus());
-
-		spin_unlock_irqrestore(&msm_pm_stats_lock, flags);
-	}
-
-	return p - page;
-}
-#undef SNPRINTF
-
-#define MSM_PM_STATS_RESET "reset"
-
-/*
- * Reset the power management statistics values.
- */
-static int msm_pm_write_proc(struct file *file, const char __user *buffer,
-	unsigned long count, void *data)
-{
-	char buf[sizeof(MSM_PM_STATS_RESET)];
-	int ret;
-	unsigned long flags;
-	unsigned int cpu;
-
-	if (count < strlen(MSM_PM_STATS_RESET)) {
-		ret = -EINVAL;
-		goto write_proc_failed;
-	}
-
-	if (copy_from_user(buf, buffer, strlen(MSM_PM_STATS_RESET))) {
-		ret = -EFAULT;
-		goto write_proc_failed;
-	}
-
-	if (memcmp(buf, MSM_PM_STATS_RESET, strlen(MSM_PM_STATS_RESET))) {
-		ret = -EINVAL;
-		goto write_proc_failed;
-	}
-
-	spin_lock_irqsave(&msm_pm_stats_lock, flags);
-	for_each_possible_cpu(cpu) {
-		struct msm_pm_time_stats *stats;
-		int i;
-
-		stats = per_cpu(msm_pm_stats, cpu).stats;
-		for (i = 0; i < MSM_PM_STAT_COUNT; i++) {
-			memset(stats[i].bucket,
-				0, sizeof(stats[i].bucket));
-			memset(stats[i].min_time,
-				0, sizeof(stats[i].min_time));
-			memset(stats[i].max_time,
-				0, sizeof(stats[i].max_time));
-			stats[i].count = 0;
-			stats[i].total_time = 0;
-		}
-	}
-	msm_pm_sleep_limit = SLEEP_LIMIT_NONE;
-	spin_unlock_irqrestore(&msm_pm_stats_lock, flags);
-
-	return count;
-
-write_proc_failed:
-	return ret;
-}
-
-#undef MSM_PM_STATS_RESET
-#endif /* CONFIG_MSM_IDLE_STATS */
 
 
 /******************************************************************************
@@ -1501,6 +1268,30 @@ static int msm_pm_swfi(bool ramp_acpu)
 	return 0;
 }
 
+static int64_t msm_pm_timer_enter_suspend(int64_t *period)
+{
+	int time = 0;
+
+	time = msm_timer_get_sclk_time(period);
+	if (!time)
+		pr_err("%s: Unable to read sclk.\n", __func__);
+		return time;
+}
+
+static int64_t msm_pm_timer_exit_suspend(int64_t time, int64_t period)
+{
+
+	if (time != 0) {
+		int64_t end_time = msm_timer_get_sclk_time(NULL);
+		if (end_time != 0) {
+			time = end_time - time;
+			if (time < 0)
+				time += period;
+			} else
+				time = 0;
+		}
+	return time;
+}
 
 /******************************************************************************
  * External Idle/Suspend Functions
@@ -1519,28 +1310,22 @@ void arch_idle(void)
 	int ret;
 	int i;
 	unsigned int cpu;
-
-#ifdef CONFIG_MSM_IDLE_STATS
 	int64_t t1;
 	static DEFINE_PER_CPU(int64_t, t2);
 	int exit_stat;
- #endif
 
 	if (!atomic_read(&msm_pm_init_done))
 		return;
 
 	cpu = smp_processor_id();
-
 	latency_qos = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
 	/* get the next timer expiration */
 	timer_expiration = ktime_to_ns(tick_nohz_get_sleep_length());
 
-#ifdef CONFIG_MSM_IDLE_STATS
 	t1 = ktime_to_ns(ktime_get());
 	msm_pm_add_stat(MSM_PM_STAT_NOT_IDLE, t1 - __get_cpu_var(t2));
 	msm_pm_add_stat(MSM_PM_STAT_REQUESTED_IDLE, timer_expiration);
 	exit_stat = MSM_PM_STAT_IDLE_SPIN;
-#endif
 
 	for (i = 0; i < ARRAY_SIZE(allow); i++)
 		allow[i] = true;
@@ -1621,46 +1406,34 @@ void arch_idle(void)
 		low_power = (ret != -EBUSY && ret != -ETIMEDOUT);
 		msm_timer_exit_idle(low_power);
 
-#ifdef CONFIG_MSM_IDLE_STATS
 		if (ret)
 			exit_stat = MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE;
 		else {
 			exit_stat = MSM_PM_STAT_IDLE_POWER_COLLAPSE;
 			msm_pm_sleep_limit = sleep_limit;
 		}
-#endif
 	} else if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE]) {
 		ret = msm_pm_power_collapse_standalone(true);
-#ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = ret ?
 			MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE :
 			MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE;
-#endif
 	} else if (allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT]) {
 		ret = msm_pm_swfi(true);
 		if (ret)
 			while (!msm_pm_irq_extns->irq_pending())
 				udelay(1);
-#ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = ret ? MSM_PM_STAT_IDLE_SPIN : MSM_PM_STAT_IDLE_WFI;
-#endif
 	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
 		msm_pm_swfi(false);
-#ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_WFI;
-#endif
 	} else {
 		while (!msm_pm_irq_extns->irq_pending())
 			udelay(1);
-#ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_SPIN;
-#endif
 	}
 
-#ifdef CONFIG_MSM_IDLE_STATS
 	__get_cpu_var(t2) = ktime_to_ns(ktime_get());
 	msm_pm_add_stat(exit_stat, __get_cpu_var(t2) - t1);
-#endif
 }
 
 /*
@@ -1681,10 +1454,8 @@ static int msm_pm_enter(suspend_state_t state)
 	uint32_t sleep_limit = SLEEP_LIMIT_NONE;
 	int ret = -EPERM;
 	int i;
-#ifdef CONFIG_MSM_IDLE_STATS
 	int64_t period = 0;
 	int64_t time = 0;
-#endif
 
 	/* Must executed by CORE0 */
 	if (smp_processor_id()) {
@@ -1692,9 +1463,7 @@ static int msm_pm_enter(suspend_state_t state)
 		goto suspend_exit;
 	}
 
-#ifdef CONFIG_MSM_IDLE_STATS
-	time = msm_timer_get_sclk_time(&period);
-#endif
+	time = msm_pm_timer_enter_suspend(&period);
 
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND, KERN_INFO,
 		"%s(): sleep limit %u\n", __func__, sleep_limit);
@@ -1711,10 +1480,7 @@ static int msm_pm_enter(suspend_state_t state)
 
 	if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] ||
 		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN]) {
-#ifdef CONFIG_MSM_IDLE_STATS
 		enum msm_pm_time_stats_id id;
-		int64_t end_time;
-#endif
 
 		clock_debug_print_enabled();
 
@@ -1744,7 +1510,6 @@ static int msm_pm_enter(suspend_state_t state)
 		ret = msm_pm_power_collapse(
 			false, msm_pm_max_sleep_time, sleep_limit);
 
-#ifdef CONFIG_MSM_IDLE_STATS
 		if (ret)
 			id = MSM_PM_STAT_FAILED_SUSPEND;
 		else {
@@ -1752,18 +1517,8 @@ static int msm_pm_enter(suspend_state_t state)
 			msm_pm_sleep_limit = sleep_limit;
 		}
 
-		if (time != 0) {
-			end_time = msm_timer_get_sclk_time(NULL);
-			if (end_time != 0) {
-				time = end_time - time;
-				if (time < 0)
-					time += period;
-			} else
-				time = 0;
-		}
-
+		time = msm_pm_timer_exit_suspend(time, period);
 		msm_pm_add_stat(id, time);
-#endif
 	} else if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE]) {
 		ret = msm_pm_power_collapse_standalone(false);
 	} else if (allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT]) {
@@ -1873,12 +1628,21 @@ static struct notifier_block msm_reboot_notifier = {
  */
 static int __init msm_pm_init(void)
 {
-#ifdef CONFIG_MSM_IDLE_STATS
-	struct proc_dir_entry *d_entry;
-	unsigned int cpu;
-#endif
 	int ret;
 	int val;
+	enum msm_pm_time_stats_id enable_stats[] = {
+		MSM_PM_STAT_REQUESTED_IDLE,
+		MSM_PM_STAT_IDLE_SPIN,
+		MSM_PM_STAT_IDLE_WFI,
+		MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE,
+		MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE,
+		MSM_PM_STAT_IDLE_POWER_COLLAPSE,
+		MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE,
+		MSM_PM_STAT_SUSPEND,
+		MSM_PM_STAT_FAILED_SUSPEND,
+		MSM_PM_STAT_NOT_IDLE,
+	};
+
 #ifdef CONFIG_CPU_V7
 	pgd_t *pc_pgd;
 	pmd_t *pmd;
@@ -1972,70 +1736,9 @@ static int __init msm_pm_init(void)
 	suspend_set_ops(&msm_pm_ops);
 
 	msm_pm_mode_sysfs_add();
-#ifdef CONFIG_MSM_IDLE_STATS
-	for_each_possible_cpu(cpu) {
-		struct msm_pm_time_stats *stats =
-			per_cpu(msm_pm_stats, cpu).stats;
-
-		stats[MSM_PM_STAT_REQUESTED_IDLE].name = "idle-request";
-		stats[MSM_PM_STAT_REQUESTED_IDLE].first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_IDLE_SPIN].name = "idle-spin";
-		stats[MSM_PM_STAT_IDLE_SPIN].first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_IDLE_WFI].name = "idle-wfi";
-		stats[MSM_PM_STAT_IDLE_WFI].first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE].name =
-			"idle-standalone-power-collapse";
-		stats[MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE].
-			first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE].name =
-			"idle-failed-standalone-power-collapse";
-		stats[MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE].
-			first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_IDLE_POWER_COLLAPSE].name =
-			"idle-power-collapse";
-		stats[MSM_PM_STAT_IDLE_POWER_COLLAPSE].first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE].name =
-			"idle-failed-power-collapse";
-		stats[MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE].
-			first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_SUSPEND].name = "suspend";
-		stats[MSM_PM_STAT_SUSPEND].first_bucket_time =
-			CONFIG_MSM_SUSPEND_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_FAILED_SUSPEND].name = "failed-suspend";
-		stats[MSM_PM_STAT_FAILED_SUSPEND].first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-
-		stats[MSM_PM_STAT_NOT_IDLE].name = "not-idle";
-		stats[MSM_PM_STAT_NOT_IDLE].first_bucket_time =
-			CONFIG_MSM_IDLE_STATS_FIRST_BUCKET;
-	}
+	msm_pm_add_stats(enable_stats, ARRAY_SIZE(enable_stats));
 
 	atomic_set(&msm_pm_init_done, 1);
-
-	d_entry = create_proc_entry("msm_pm_stats",
-			S_IRUGO | S_IWUSR | S_IWGRP, NULL);
-	if (d_entry) {
-		d_entry->read_proc = msm_pm_read_proc;
-		d_entry->write_proc = msm_pm_write_proc;
-		d_entry->data = NULL;
-	}
-#endif
-
 	return 0;
 }
 
