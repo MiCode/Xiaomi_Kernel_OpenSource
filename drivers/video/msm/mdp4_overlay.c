@@ -668,12 +668,14 @@ static void mdp4_overlay_vg_get_src_offset(struct mdp4_overlay_pipe *pipe,
 		case MDP_BGR_565:
 		case MDP_XRGB_8888:
 		case MDP_RGB_888:
+		case MDP_YCBCR_H1V1:
+		case MDP_YCRCB_H1V1:
 			*luma_off = pipe->src_x * pipe->bpp;
 			break;
 
 		default:
-			pr_err("Source format %u not supported for x offset adjustment\n",
-				pipe->src_format);
+			pr_err("%s: fmt %u not supported for adjustment\n",
+				__func__, pipe->src_format);
 			break;
 		}
 	}
