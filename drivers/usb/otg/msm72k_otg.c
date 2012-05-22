@@ -889,7 +889,13 @@ static void msm_otg_resume_w(struct work_struct *w)
 	if (can_phy_power_collapse(dev) && dev->pdata->ldo_enable)
 		dev->pdata->ldo_enable(1);
 
-	msm_otg_get_resume(dev);
+	if (pm_runtime_enabled(dev->otg.dev)) {
+		msm_otg_get_resume(dev);
+	} else {
+		pm_runtime_get_noresume(dev->otg.dev);
+		msm_otg_resume(dev);
+		pm_runtime_set_active(dev->otg.dev);
+	}
 
 	if (!is_phy_clk_disabled())
 		goto phy_resumed;
