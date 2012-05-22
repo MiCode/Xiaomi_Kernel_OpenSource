@@ -30,11 +30,19 @@
 		status = "disable";
 	};
 
-	qcom,sdcc@f980b000 {
+	qcom,sdcc@f9824000 {
 		status = "disable";
 	};
 
-	qcom,sdcc@f984b000 {
+	qcom,sdcc@f9864000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f98a4000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f98e4000 {
 		status = "disable";
 	};
 

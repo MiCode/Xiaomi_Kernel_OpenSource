@@ -17,4 +17,22 @@
 / {
 	model = "Qualcomm MSM Copper Simulator";
 	compatible = "qcom,msmcopper-sim", "qcom,msmcopper";
+
+	qcom,sdcc@f9824000 {
+		qcom,sdcc-disable_cmd23;
+	};
+
+	qcom,sdcc@f98a4000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f9864000 {
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,sdcc-sup-voltages = <2950 2950>;
+		qcom,sdcc-disable_cmd23;
+	};
+
+	qcom,sdcc@f98e4000 {
+		status = "disable";
+	};
 };
