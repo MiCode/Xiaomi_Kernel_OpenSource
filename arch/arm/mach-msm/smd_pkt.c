@@ -40,7 +40,7 @@
 #ifdef CONFIG_ARCH_FSM9XXX
 #define NUM_SMD_PKT_PORTS 4
 #else
-#define NUM_SMD_PKT_PORTS 14
+#define NUM_SMD_PKT_PORTS 15
 #endif
 
 #define LOOPBACK_INX (NUM_SMD_PKT_PORTS - 1)
@@ -677,6 +677,7 @@ static char *smd_pkt_dev_name[] = {
 	"apr_apps2",
 	"smdcntl8",
 	"smd_sns_adsp",
+	"smd_cxm_qmi",
 	"smd_pkt_loopback",
 };
 
@@ -694,6 +695,7 @@ static char *smd_ch_name[] = {
 	"apr_apps2",
 	"DATA40_CNTL",
 	"SENSOR",
+	"CXM_QMI_PORT_8064",
 	"LOOPBACK",
 };
 
@@ -711,6 +713,7 @@ static uint32_t smd_ch_edge[] = {
 	SMD_APPS_QDSP,
 	SMD_APPS_MODEM,
 	SMD_APPS_QDSP,
+	SMD_APPS_WCNSS,
 	SMD_APPS_MODEM,
 };
 #endif
