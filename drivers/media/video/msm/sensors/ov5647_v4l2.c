@@ -457,9 +457,8 @@ static int32_t ov5647_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 
 	CDBG(KERN_ERR "snapshot exposure seting 0x%x, 0x%x, %d"
 		, gain, line, line);
-
 	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
-	if (line > 1964) {
+	if (line > 1964 && line <= 1968) {
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_output_reg_addr->frame_length_lines,
 			(uint8_t)((line+4) >> 8),
