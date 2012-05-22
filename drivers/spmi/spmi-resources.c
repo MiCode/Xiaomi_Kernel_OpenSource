@@ -16,6 +16,7 @@
 
 #include <linux/export.h>
 #include <linux/spmi.h>
+#include <linux/string.h>
 
 /**
  * spmi_get_resource - get a resource for a device
@@ -52,6 +53,37 @@ struct resource *spmi_get_resource(struct spmi_device *dev,
 }
 EXPORT_SYMBOL_GPL(spmi_get_resource);
 
+#define SPMI_MAX_RES_NAME 256
+
+/**
+ * spmi_get_resource_byname - get a resource for a device given a name
+ * @dev: spmi device handle
+ * @node: device node resource
+ * @type: resource type
+ * @name: resource name to lookup
+ */
+struct resource *spmi_get_resource_byname(struct spmi_device *dev,
+					  struct spmi_resource *node,
+					  unsigned int type,
+					  const char *name)
+{
+	int i;
+
+	/* if a node is not specified, default to the first node */
+	if (!node)
+		node = &dev->dev_node[0];
+
+	for (i = 0; i < node->num_resources; i++) {
+		struct resource *r = &node->resource[i];
+
+		if (type == resource_type(r) && r->name &&
+				!strncmp(r->name, name, SPMI_MAX_RES_NAME))
+			return r;
+	}
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(spmi_get_resource_byname);
+
 /**
  * spmi_get_irq - get an IRQ for a device
  * @dev: spmi device
@@ -70,3 +102,20 @@ int spmi_get_irq(struct spmi_device *dev, struct spmi_resource *node,
 	return r ? r->start : -ENXIO;
 }
 EXPORT_SYMBOL_GPL(spmi_get_irq);
+
+/**
+ * spmi_get_irq_byname - get an IRQ for a device given a name
+ * @dev: spmi device handle
+ * @node: device node resource
+ * @name: resource name to lookup
+ *
+ * Returns -ENXIO on failure
+ */
+int spmi_get_irq_byname(struct spmi_device *dev,
+			struct spmi_resource *node, const char *name)
+{
+	struct resource *r = spmi_get_resource_byname(dev, node,
+							IORESOURCE_IRQ, name);
+	return r ? r->start : -ENXIO;
+}
+EXPORT_SYMBOL_GPL(spmi_get_irq_byname);

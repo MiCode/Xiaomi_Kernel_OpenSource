@@ -433,6 +433,14 @@ extern struct resource *spmi_get_resource(struct spmi_device *dev,
 				      struct spmi_resource *node,
 				      unsigned int type, unsigned int res_num);
 
+struct resource *spmi_get_resource_byname(struct spmi_device *dev,
+					  struct spmi_resource *node,
+					  unsigned int type,
+					  const char *name);
+
 extern int spmi_get_irq(struct spmi_device *dev, struct spmi_resource *node,
 						 unsigned int res_num);
+
+extern int spmi_get_irq_byname(struct spmi_device *dev,
+			       struct spmi_resource *node, const char *name);
 #endif
