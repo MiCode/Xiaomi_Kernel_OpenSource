@@ -271,3 +271,9 @@ config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	  overlay driver. This allows video rendering
 	  apps to render overlaid video using Video4Linux2
 	  APIs, by using /dev/videoX device
+
+config OV7692
+	bool "Sensor OV7692 (VGA YUV)"
+	depends on MSM_CAMERA
+	---help---
+	  Omni Vision VGA YUV Sensor
