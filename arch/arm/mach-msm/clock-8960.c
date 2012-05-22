@@ -770,6 +770,8 @@ static struct branch_clk vcap_axi_clk = {
 	.b = {
 		.ctl_reg = MAXI_EN5_REG,
 		.en_mask = BIT(12),
+		.hwcg_reg = MAXI_EN5_REG,
+		.hwcg_mask = BIT(11),
 		.reset_reg = SW_RESET_AXI_REG,
 		.reset_mask = BIT(16),
 		.halt_reg = DBG_BUS_VEC_J_REG,
@@ -787,6 +789,8 @@ static struct branch_clk gfx3d_axi_clk_8064 = {
 	.b = {
 		.ctl_reg = MAXI_EN5_REG,
 		.en_mask = BIT(25),
+		.hwcg_reg = MAXI_EN5_REG,
+		.hwcg_mask = BIT(24),
 		.reset_reg = SW_RESET_AXI_REG,
 		.reset_mask = BIT(17),
 		.halt_reg = DBG_BUS_VEC_J_REG,
@@ -1176,6 +1180,8 @@ static struct branch_clk vcap_p_clk = {
 	.b = {
 		.ctl_reg = AHB_EN3_REG,
 		.en_mask = BIT(1),
+		.hwcg_reg = AHB_EN3_REG,
+		.hwcg_mask = BIT(0),
 		.reset_reg = SW_RESET_AHB2_REG,
 		.reset_mask = BIT(2),
 		.halt_reg = DBG_BUS_VEC_J_REG,
@@ -5991,7 +5997,7 @@ static void __init reg_init(void)
 	 * the clock is halted. The sleep and wake-up delays are set to safe
 	 * values.
 	 */
-	if (cpu_is_msm8960()) {
+	if (cpu_is_msm8960() || cpu_is_apq8064()) {
 		rmwreg(0x44000000, AHB_EN_REG,  0x6C000103);
 		writel_relaxed(0x3C7097F9, AHB_EN2_REG);
 	} else {
@@ -5999,7 +6005,7 @@ static void __init reg_init(void)
 		writel_relaxed(0x000007F9, AHB_EN2_REG);
 	}
 	if (cpu_is_apq8064())
-		rmwreg(0x00000000, AHB_EN3_REG, 0x00000001);
+		rmwreg(0x00000001, AHB_EN3_REG, 0x00000001);
 
 	/* Deassert all locally-owned MM AHB resets. */
 	rmwreg(0, SW_RESET_AHB_REG, 0xFFF7DFFF);
@@ -6008,8 +6014,9 @@ static void __init reg_init(void)
 	/* Initialize MM AXI registers: Enable HW gating for all clocks that
 	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
 	 * delays to safe values. */
-	if (cpu_is_msm8960() &&
-			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) {
+	if ((cpu_is_msm8960() &&
+			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) ||
+			cpu_is_apq8064()) {
 		rmwreg(0x0003AFF9, MAXI_EN_REG,  0x0803FFFF);
 		rmwreg(0x3A27FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
 		rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
@@ -6020,10 +6027,10 @@ static void __init reg_init(void)
 	}
 	rmwreg(0x0027FCFF, MAXI_EN3_REG, 0x003FFFFF);
 	if (cpu_is_apq8064())
-		rmwreg(0x009FE4FF, MAXI_EN5_REG, 0x01FFEFFF);
+		rmwreg(0x019FECFF, MAXI_EN5_REG, 0x01FFEFFF);
 	if (cpu_is_msm8930())
 		rmwreg(0x000004FF, MAXI_EN5_REG, 0x00000FFF);
-	if (cpu_is_msm8960())
+	if (cpu_is_msm8960() || cpu_is_apq8064())
 		rmwreg(0x00003C38, SAXI_EN_REG,  0x00003FFF);
 	else
 		rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
