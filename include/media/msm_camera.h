@@ -1678,6 +1678,7 @@ enum msm_cam_subdev_type {
 	GESTURE_DEV,
 	IRQ_ROUTER_DEV,
 	CPP_DEV,
+	CCI_DEV,
 };
 
 struct msm_mctl_set_sdev_data {
