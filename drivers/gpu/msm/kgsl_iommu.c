@@ -23,6 +23,8 @@
 #include "kgsl_mmu.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_iommu.h"
+#include "adreno_pm4types.h"
+#include "adreno.h"
 
 /*
  * kgsl_iommu_disable_clk - Disable iommu clocks
@@ -499,6 +501,12 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (status)
 		goto done;
 
+	/* A nop is required in an indirect buffer when switching
+	 * pagetables in-stream */
+	kgsl_sharedmem_writel(&mmu->setstate_memory,
+				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
+				cp_nop_packet(1));
+
 	dev_info(mmu->device->dev, "|%s| MMU type set for device is IOMMU\n",
 			__func__);
 done:
@@ -580,16 +588,24 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		if (status)
 			return -ENOMEM;
 	}
-	kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
+	/* We use the GPU MMU to control access to IOMMU registers on a225,
+	 * hence we still keep the MMU active on a225 */
+	if (adreno_is_a225(ADRENO_DEVICE(mmu->device))) {
+		struct kgsl_mh *mh = &(mmu->device->mh);
+		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000001);
+		kgsl_regwrite(mmu->device, MH_MMU_MPU_END,
+			mh->mpu_base +
+			iommu->iommu_units[0].reg_map.gpuaddr - PAGE_SIZE);
+	} else {
+		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
+	}
 
 	mmu->hwpagetable = mmu->defaultpagetable;
 
 	status = kgsl_attach_pagetable_iommu_domain(mmu);
-	if (!status) {
-		mmu->flags |= KGSL_FLAGS_STARTED;
-	} else {
-		kgsl_detach_pagetable_iommu_domain(mmu);
+	if (status) {
 		mmu->hwpagetable = NULL;
+		goto done;
 	}
 	status = kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_CONTEXT_USER);
 	if (status) {
@@ -621,6 +637,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 				CONTEXTIDR);
 
 	kgsl_iommu_disable_clk(mmu);
+	mmu->flags |= KGSL_FLAGS_STARTED;
 
 done:
 	if (status) {
@@ -701,6 +718,7 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 	 */
 
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
+		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
 		/* detach iommu attachment */
 		kgsl_detach_pagetable_iommu_domain(mmu);
 		mmu->hwpagetable = NULL;

@@ -261,4 +261,37 @@ static inline int kgsl_mmu_get_reg_map_desc(struct kgsl_mmu *mmu,
 		return 0;
 }
 
+static inline int kgsl_mmu_get_pt_lsb(struct kgsl_mmu *mmu,
+					unsigned int unit_id,
+					enum kgsl_iommu_context_id ctx_id)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_pt_lsb)
+		return mmu->mmu_ops->mmu_get_pt_lsb(mmu, unit_id, ctx_id);
+	else
+		return 0;
+}
+
+static inline int kgsl_mmu_get_hwpagetable_asid(struct kgsl_mmu *mmu)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_hwpagetable_asid)
+		return mmu->mmu_ops->mmu_get_hwpagetable_asid(mmu);
+	else
+		return 0;
+}
+
+static inline int kgsl_mmu_enable_clk(struct kgsl_mmu *mmu,
+					int ctx_id)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_enable_clk)
+		return mmu->mmu_ops->mmu_enable_clk(mmu, ctx_id);
+	else
+		return 0;
+}
+
+static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk)
+		mmu->mmu_ops->mmu_disable_clk(mmu);
+}
+
 #endif /* __KGSL_MMU_H */
