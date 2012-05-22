@@ -20,38 +20,12 @@
 #include <asm/assembler.h>
 
 #include "idle.h"
+#include "idle-macros.S"
 
 #ifdef CONFIG_ARCH_MSM_KRAIT
 #define SCM_SVC_BOOT 0x1
 #define SCM_CMD_TERMINATE_PC 0x2
 #endif
-
-/* Switch between smp_to_amp/amp_to_smp configuration */
-.macro SET_SMP_COHERENCY, on = 0
-ldr     r0, =target_type
-ldr     r0, [r0]
-mov     r1, #TARGET_IS_8625
-cmp     r0, r1
-bne     skip\@
-mrc	p15, 0, r0, c1, c0, 1	/* read ACTLR register */
-.if     \on
-orr	r0, r0, #(1 << 6)	/* Set the SMP bit in ACTLR */
-.else
-bic	r0, r0, #(1 << 6)	/* Clear the SMP bit */
-.endif
-mcr	p15, 0, r0, c1, c0, 1	/* write ACTLR register */
-isb
-skip\@:
-.endm
-
-/* Add NOPs for 8x25 target */
-.macro DELAY_8x25, rept
-#ifdef CONFIG_ARCH_MSM8625
-	.rept	\rept
-	nop
-	.endr
-#endif
-.endm
 
 ENTRY(msm_arch_idle)
 	wfi
@@ -135,16 +109,19 @@ skip:
 	bic     r0, r4, #(1 << 2)        /* clear dcache bit   */
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
-	dsb
+	isb
 
+	SUSPEND_8x25_L2
 	SET_SMP_COHERENCY OFF
 	wfi
 	DELAY_8x25 300
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
-#endif
+	ENABLE_8x25_L2 /* enable only l2, no need to restore the reg back */
 	SET_SMP_COHERENCY ON
+#endif
+
 #if defined(CONFIG_MSM_FIQ_SUPPORT)
 	cpsie   f
 #endif
@@ -237,7 +214,6 @@ msm_pm_pa_to_va:
 	dsb
 	isb
 
-	SET_SMP_COHERENCY ON
 #ifdef CONFIG_ARCH_MSM_KRAIT
 	mrc	p15, 0, r1, c0, c0, 0
 	ldr	r3, =0xff00fc00
@@ -247,7 +223,11 @@ msm_pm_pa_to_va:
 	mrceq	p15, 7, r3, c15, c0, 2
 	biceq	r3, r3, #0x400
 	mcreq	p15, 7, r3, c15, c0, 2
+#else
+	RESUME_8x25_L2
+	SET_SMP_COHERENCY ON
 #endif
+
 #ifdef CONFIG_MSM_JTAG
 	stmfd   sp!, {lr}
 	bl      msm_jtag_restore_state
@@ -302,6 +282,14 @@ msm_pm_boot_vector:
 target_type:
 	.long  0x0
 
+	.globl apps_power_collapse
+apps_power_collapse:
+	.long 0x0
+
+	.globl l2x0_base_addr
+l2x0_base_addr:
+	.long 0x0
+
 /*
  * Default the l2 flush flag to 1 so that caches are flushed during power
  * collapse unless the  L2 driver decides to flush them only during L2
@@ -309,3 +297,13 @@ target_type:
  */
 msm_pm_flush_l2_flag:
 	.long 0x1
+
+/*
+ * Save & restore l2x0 registers while system is entering and resuming
+ * from Power Collapse.
+ * 1. aux_ctrl_save (0x0)
+ * 2. data_latency_ctrl (0x4)
+ * 3. prefetch control (0x8)
+ */
+l2x0_saved_ctrl_reg_val:
+	.space 4 * 3
