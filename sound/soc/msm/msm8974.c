@@ -648,6 +648,21 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA1
 	},
 	{
+		.name = "MSM VoIP",
+		.stream_name = "VoIP",
+		.cpu_dai_name	= "VoIP",
+		.platform_name  = "msm-voip-dsp",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_VOIP,
+	},
+	{
 		.name = "MSM8974 LPA",
 		.stream_name = "LPA",
 		.cpu_dai_name	= "MultiMedia3",
@@ -661,6 +676,21 @@ static struct snd_soc_dai_link msm_dai[] = {
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA3,
+	},
+	{
+		.name = "AUXPCM Hostless",
+		.stream_name = "AUXPCM Hostless",
+		.cpu_dai_name   = "AUXPCM_HOSTLESS",
+		.platform_name  = "msm-pcm-hostless",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
 	},
 
 	/* AUX PCM Backend DAI Links */
