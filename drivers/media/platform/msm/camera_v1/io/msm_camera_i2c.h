@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,37 +25,10 @@
 #define S_I2C_DBG(fmt, args...) CDBG(fmt, ##args)
 #endif
 
-enum msm_camera_i2c_reg_addr_type {
-	MSM_CAMERA_I2C_BYTE_ADDR = 1,
-	MSM_CAMERA_I2C_WORD_ADDR,
-};
-
 struct msm_camera_i2c_client {
 	struct i2c_client *client;
+	struct msm_camera_cci_client *cci_client;
 	enum msm_camera_i2c_reg_addr_type addr_type;
-};
-
-enum msm_camera_i2c_data_type {
-	MSM_CAMERA_I2C_BYTE_DATA = 1,
-	MSM_CAMERA_I2C_WORD_DATA,
-	MSM_CAMERA_I2C_SET_BYTE_MASK,
-	MSM_CAMERA_I2C_UNSET_BYTE_MASK,
-	MSM_CAMERA_I2C_SET_WORD_MASK,
-	MSM_CAMERA_I2C_UNSET_WORD_MASK,
-	MSM_CAMERA_I2C_SET_BYTE_WRITE_MASK_DATA,
-};
-
-enum msm_camera_i2c_cmd_type {
-	MSM_CAMERA_I2C_CMD_WRITE,
-	MSM_CAMERA_I2C_CMD_POLL,
-};
-
-struct msm_camera_i2c_reg_conf {
-	uint16_t reg_addr;
-	uint16_t reg_data;
-	enum msm_camera_i2c_data_type dt;
-	enum msm_camera_i2c_cmd_type cmd_type;
-	int16_t mask;
 };
 
 struct msm_camera_i2c_reg_tbl {

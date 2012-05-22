@@ -184,10 +184,11 @@ enum camera_vreg_type {
 	REG_LDO,
 	REG_VS,
 	REG_GPIO,
+	REG_MAX
 };
 
 struct camera_vreg_t {
-	char *reg_name;
+	const char *reg_name;
 	enum camera_vreg_type type;
 	int min_voltage;
 	int max_voltage;

@@ -60,6 +60,7 @@
 #define MSM_I2C_MUX_DRV_NAME "msm_cam_i2c_mux"
 #define MSM_IRQ_ROUTER_DRV_NAME "msm_cam_irq_router"
 #define MSM_CPP_DRV_NAME "msm_cpp"
+#define MSM_CCI_DRV_NAME "msm_cci"
 
 #define MAX_NUM_SENSOR_DEV 3
 #define MAX_NUM_CSIPHY_DEV 3
@@ -71,6 +72,7 @@
 #define MAX_NUM_VPE_DEV 1
 #define MAX_NUM_JPEG_DEV 3
 #define MAX_NUM_CPP_DEV 1
+#define MAX_NUM_CCI_DEV 1
 
 /* msm queue management APIs*/
 
@@ -536,6 +538,7 @@ struct msm_cam_server_dev {
 	struct v4l2_subdev *gesture_device;
 	struct v4l2_subdev *cpp_device[MAX_NUM_CPP_DEV];
 	struct v4l2_subdev *irqr_device;
+	struct v4l2_subdev *cci_device;
 
 	spinlock_t  intr_table_lock;
 	struct irqmgr_intr_lkup_table irq_lkup_table;
