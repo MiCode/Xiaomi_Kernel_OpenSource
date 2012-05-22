@@ -91,7 +91,10 @@ Recommended properties :
    specified above in the 'reg' property.
  - interrupt-names : a list of strings that map in order to the list of
    interrupts specified in the 'interrupts' property.
-
+ - label: A single name that names the device. This name can be looked up
+   with spmi_get_node_byname(). This is mostly useful in spmi-dev-container
+   configurations where multiple device_nodes are associated with one spmi
+   device.
 Notes :
  - It is considered an error to include spmi-slave-dev at this level.
 
@@ -132,6 +135,7 @@ Notes :
 					qcom,qpnp_gpio = <1>;
 					interrupt-parent = <&qpnp>;
 					interrupts = <0x3 0x15 0x02 0x1 0x47 0x0>;
+					label = "foo-dev";
 				};
 
 				pm8941_gpio2@0xc100 {
