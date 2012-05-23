@@ -285,6 +285,7 @@ struct msm_spi {
 	int                      output_block_size;
 	int                      burst_size;
 	atomic_t                 rx_irq_called;
+	atomic_t                 tx_irq_called;
 	/* Used to pad messages unaligned to block size */
 	u8                       *tx_padding;
 	dma_addr_t               tx_padding_dma;

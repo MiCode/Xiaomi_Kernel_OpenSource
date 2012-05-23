@@ -392,6 +392,7 @@ static void msm_spi_setup_dm_transfer(struct msm_spi *dd)
 	u32 num_transfers;
 
 	atomic_set(&dd->rx_irq_called, 0);
+	atomic_set(&dd->tx_irq_called, 0);
 	if (dd->write_len && !dd->read_len) {
 		/* WR-WR transfer */
 		bytes_sent = dd->cur_msg_len - dd->tx_bytes_remaining;
@@ -712,6 +713,8 @@ static irqreturn_t msm_spi_output_irq(int irq, void *dev_id)
 		    readl_relaxed(dd->base + SPI_OPERATIONAL) &
 		    SPI_OP_MAX_OUTPUT_DONE_FLAG) {
 			msm_spi_ack_transfer(dd);
+			if (atomic_inc_return(&dd->tx_irq_called) == 1)
+				return IRQ_HANDLED;
 			msm_spi_complete(dd);
 			return IRQ_HANDLED;
 		}
@@ -1586,9 +1589,12 @@ static void spi_dmov_tx_complete_func(struct msm_dmov_cmd *cmd,
 	}
 	/* restore original context */
 	dd = container_of(cmd, struct msm_spi, tx_hdr);
-	if (result & DMOV_RSLT_DONE)
+	if (result & DMOV_RSLT_DONE) {
 		dd->stat_dmov_tx++;
-	else {
+		if ((atomic_inc_return(&dd->tx_irq_called) == 1))
+			return;
+		complete(&dd->transfer_complete);
+	} else {
 		/* Error or flush */
 		if (result & DMOV_RSLT_ERROR) {
 			dev_err(dd->dev, "DMA error (0x%08x)\n", result);
