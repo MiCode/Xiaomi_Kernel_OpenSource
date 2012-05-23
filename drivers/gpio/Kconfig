@@ -746,6 +746,7 @@ config GPIO_MSIC
 
 config GPIO_QPNP
 	depends on ARCH_MSMCOPPER
+	depends on SPMI
 	depends on OF_SPMI
 	depends on MSM_QPNP_INT
 	tristate "Qualcomm QPNP GPIO support"
