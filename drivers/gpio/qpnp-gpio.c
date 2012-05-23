@@ -27,8 +27,6 @@
 #include <linux/qpnp/gpio.h>
 #include <linux/export.h>
 
-#include <mach/qpnp.h>
-
 #define Q_REG_ADDR(q_spec, reg_index)	\
 		((q_spec)->offset + reg_index)
 
@@ -921,7 +919,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 
 	/* now scan through again and populate the lookup table */
 	for (i = 0; i < spmi->num_dev_node; i++) {
-		res = qpnp_get_resource(spmi, i, IORESOURCE_MEM, 0);
+		res = spmi_get_resource(spmi, i, IORESOURCE_MEM, 0);
 		if (!res) {
 			dev_err(&spmi->dev, "%s: node %s is missing has no"
 				" base address definition\n",

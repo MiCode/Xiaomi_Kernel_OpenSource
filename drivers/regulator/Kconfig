@@ -419,8 +419,8 @@ config REGULATOR_STUB
 	  constraint checking while the real driver is being developed.
 
 config REGULATOR_QPNP
+	depends on SPMI
 	depends on OF_SPMI
-	depends on MSM_QPNP
 	tristate "Qualcomm QPNP regulator support"
 	help
 	  This driver supports voltage regulators in Qualcomm PMIC chips which

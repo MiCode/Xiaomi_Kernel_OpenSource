@@ -417,4 +417,11 @@ extern int spmi_command_wakeup(struct spmi_controller *ctrl, u8 sid);
  * -ETIMEDOUT if the SPMI transaction times out.
  */
 extern int spmi_command_shutdown(struct spmi_controller *ctrl, u8 sid);
+
+extern struct resource *spmi_get_resource(struct spmi_device *dev,
+				   unsigned int node_idx, unsigned int type,
+				   unsigned int res_num);
+
+extern int spmi_get_irq(struct spmi_device *dev, unsigned int node_idx,
+						 unsigned int res_num);
 #endif

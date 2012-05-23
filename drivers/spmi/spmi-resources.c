@@ -15,15 +15,19 @@
  */
 
 #include <linux/export.h>
-#include <mach/qpnp.h>
+#include <linux/spmi.h>
 
 /**
- * qpnp_get_resource - get a resource for a device
- * @dev: qpnp device
+ * spmi_get_resource - get a resource for a device
+ * @dev: spmi device
+ * @node_idx: dev_node index
  * @type: resource type
- * @num: resource index
+ * @res_num: resource index
+ *
+ * Returns
+ *  NULL on failure.
  */
-struct resource *qpnp_get_resource(struct spmi_device *dev,
+struct resource *spmi_get_resource(struct spmi_device *dev,
 				   unsigned int node_idx, unsigned int type,
 				   unsigned int res_num)
 {
@@ -37,20 +41,24 @@ struct resource *qpnp_get_resource(struct spmi_device *dev,
 	}
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(qpnp_get_resource);
+EXPORT_SYMBOL_GPL(spmi_get_resource);
 
 /**
- * qpnp_get_irq - get an IRQ for a device
- * @dev: qpnp device
- * @num: IRQ number index
+ * spmi_get_irq - get an IRQ for a device
+ * @dev: spmi device
+ * @node_idx: dev_node index
+ * @res_num: IRQ number index
+ *
+ * Returns
+ *  -ENXIO on failure.
  */
-int qpnp_get_irq(struct spmi_device *dev, unsigned int node_idx,
+int spmi_get_irq(struct spmi_device *dev, unsigned int node_idx,
 					  unsigned int res_num)
 {
-	struct resource *r = qpnp_get_resource(dev, node_idx,
+	struct resource *r = spmi_get_resource(dev, node_idx,
 						IORESOURCE_IRQ, res_num);
 
 	return r ? r->start : -ENXIO;
 }
-EXPORT_SYMBOL_GPL(qpnp_get_irq);
+EXPORT_SYMBOL_GPL(spmi_get_irq);
 

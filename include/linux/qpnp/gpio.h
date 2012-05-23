@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <mach/qpnp.h>
-
 #define QPNP_GPIO_DIR_IN			0
 #define QPNP_GPIO_DIR_OUT			1
 #define QPNP_GPIO_DIR_BOTH			2
