@@ -830,9 +830,6 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = 0x00010000;
 
 	if (adreno_is_a22x(adreno_dev)) {
-		*cmds++ = cp_type3_packet(CP_SET_DRAW_INIT_FLAGS, 1);
-		*cmds++ = 0;
-
 		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 		*cmds++ = CP_REG(REG_A220_RB_LRZ_VSC_CONTROL);
 		*cmds++ = 0x0000000;
@@ -1052,9 +1049,6 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = 0x00010000;
 
 	if (adreno_is_a22x(adreno_dev)) {
-		*cmds++ = cp_type3_packet(CP_SET_DRAW_INIT_FLAGS, 1);
-		*cmds++ = 0;
-
 		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 		*cmds++ = CP_REG(REG_A220_RB_LRZ_VSC_CONTROL);
 		*cmds++ = 0x0000000;
