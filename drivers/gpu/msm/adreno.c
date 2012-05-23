@@ -1141,16 +1141,12 @@ void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 static unsigned int _get_context_id(struct kgsl_context *k_ctxt)
 {
 	unsigned int context_id = KGSL_MEMSTORE_GLOBAL;
-
 	if (k_ctxt != NULL) {
 		struct adreno_context *a_ctxt = k_ctxt->devctxt;
-		/*
-		 * if the context was not created with per context timestamp
-		 * support, we must use the global timestamp since issueibcmds
-		 * will be returning that one.
-		 */
-		if (a_ctxt->flags & CTXT_FLAGS_PER_CONTEXT_TS)
-			context_id = a_ctxt->id;
+		if (k_ctxt->id == KGSL_CONTEXT_INVALID || a_ctxt == NULL)
+			context_id = KGSL_CONTEXT_INVALID;
+		else if (a_ctxt->flags & CTXT_FLAGS_PER_CONTEXT_TS)
+			context_id = k_ctxt->id;
 	}
 
 	return context_id;
@@ -1161,11 +1157,22 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 {
 	int status;
 	unsigned int ref_ts, enableflag;
-	unsigned int context_id = _get_context_id(context);
+	unsigned int context_id;
+
+	mutex_lock(&device->mutex);
+	context_id = _get_context_id(context);
+	/*
+	 * If the context ID is invalid, we are in a race with
+	 * the context being destroyed by userspace so bail.
+	 */
+	if (context_id == KGSL_CONTEXT_INVALID) {
+		KGSL_DRV_WARN(device, "context was detached");
+		status = -EINVAL;
+		goto unlock;
+	}
 
 	status = kgsl_check_timestamp(device, context, timestamp);
 	if (!status) {
-		mutex_lock(&device->mutex);
 		kgsl_sharedmem_readl(&device->memstore, &enableflag,
 			KGSL_MEMSTORE_OFFSET(context_id, ts_cmp_enable));
 		mb();
@@ -1199,8 +1206,9 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 			adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
 				&cmds[0], 2);
 		}
-		mutex_unlock(&device->mutex);
 	}
+unlock:
+	mutex_unlock(&device->mutex);
 
 	return status;
 }
@@ -1259,6 +1267,15 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	msecs_first = (msecs <= 100) ? ((msecs + 4) / 5) : 100;
 	msecs_part = (msecs - msecs_first + 3) / 4;
 	for (retries = 0; retries < 5; retries++) {
+		/*
+		 * If the context ID is invalid, we are in a race with
+		 * the context being destroyed by userspace so bail.
+		 */
+		if (context_id == KGSL_CONTEXT_INVALID) {
+			KGSL_DRV_WARN(device, "context was detached");
+			status = -EINVAL;
+			goto done;
+		}
 		if (kgsl_check_timestamp(device, context, timestamp)) {
 			/* if the timestamp happens while we're not
 			 * waiting, there's a chance that an interrupt
@@ -1320,6 +1337,14 @@ static unsigned int adreno_readtimestamp(struct kgsl_device *device,
 	unsigned int timestamp = 0;
 	unsigned int context_id = _get_context_id(context);
 
+	/*
+	 * If the context ID is invalid, we are in a race with
+	 * the context being destroyed by userspace so bail.
+	 */
+	if (context_id == KGSL_CONTEXT_INVALID) {
+		KGSL_DRV_WARN(device, "context was detached");
+		return timestamp;
+	}
 	switch (type) {
 	case KGSL_TIMESTAMP_QUEUED: {
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);

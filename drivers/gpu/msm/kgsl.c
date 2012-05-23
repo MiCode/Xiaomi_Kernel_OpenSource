@@ -363,28 +363,48 @@ kgsl_create_context(struct kgsl_device_private *dev_priv)
 		return NULL;
 	}
 
+	kref_init(&context->refcount);
 	context->id = id;
 	context->dev_priv = dev_priv;
 
 	return context;
 }
 
-static void
-kgsl_destroy_context(struct kgsl_device_private *dev_priv,
-		     struct kgsl_context *context)
+/**
+ * kgsl_context_detach - Release the "master" context reference
+ * @context - The context that will be detached
+ *
+ * This is called when a context becomes unusable, because userspace
+ * has requested for it to be destroyed. The context itself may
+ * exist a bit longer until its reference count goes to zero.
+ * Other code referencing the context can detect that it has been
+ * detached because the context id will be set to KGSL_CONTEXT_INVALID.
+ */
+void
+kgsl_context_detach(struct kgsl_context *context)
 {
 	int id;
-
+	struct kgsl_device *device;
 	if (context == NULL)
 		return;
-
-	/* Fire a bug if the devctxt hasn't been freed */
-	BUG_ON(context->devctxt);
-
+	device = context->dev_priv->device;
+	kgsl_cancel_events_ctxt(device, context);
 	id = context->id;
-	kfree(context);
+	if (device->ftbl->drawctxt_destroy)
+		device->ftbl->drawctxt_destroy(device, context);
+	/*device specific drawctxt_destroy MUST clean up devctxt */
+	BUG_ON(context->devctxt);
+	idr_remove(&device->context_idr, id);
+	context->id = KGSL_CONTEXT_INVALID;
+	kgsl_context_put(context);
+}
 
-	idr_remove(&dev_priv->device->context_idr, id);
+void
+kgsl_context_destroy(struct kref *kref)
+{
+	struct kgsl_context *context = container_of(kref, struct kgsl_context,
+						    refcount);
+	kfree(context);
 }
 
 void kgsl_timestamp_expired(struct work_struct *work)
@@ -768,10 +788,8 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 		if (context == NULL)
 			break;
 
-		if (context->dev_priv == dev_priv) {
-			device->ftbl->drawctxt_destroy(device, context);
-			kgsl_destroy_context(dev_priv, context);
-		}
+		if (context->dev_priv == dev_priv)
+			kgsl_context_detach(context);
 
 		next = next + 1;
 	}
@@ -1034,6 +1052,7 @@ static long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
 {
 	struct kgsl_device_waittimestamp_ctxtid *param = data;
 	struct kgsl_context *context;
+	int result;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
 	if (context == NULL) {
@@ -1041,9 +1060,16 @@ static long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
 			param->context_id);
 		return -EINVAL;
 	}
-
-	return _device_waittimestamp(dev_priv, context,
+	/*
+	 * A reference count is needed here, because waittimestamp may
+	 * block with the device mutex unlocked and userspace could
+	 * request for the context to be destroyed during that time.
+	 */
+	kgsl_context_get(context);
+	result = _device_waittimestamp(dev_priv, context,
 			param->timestamp, param->timeout);
+	kgsl_context_put(context);
+	return result;
 }
 
 static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
@@ -1261,7 +1287,7 @@ static long kgsl_ioctl_drawctxt_create(struct kgsl_device_private *dev_priv,
 	param->drawctxt_id = context->id;
 done:
 	if (result && context)
-		kgsl_destroy_context(dev_priv, context);
+		kgsl_context_detach(context);
 
 	return result;
 }
@@ -1280,14 +1306,7 @@ static long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 		goto done;
 	}
 
-	kgsl_cancel_events_ctxt(dev_priv->device, context);
-
-	if (dev_priv->device->ftbl->drawctxt_destroy)
-		dev_priv->device->ftbl->drawctxt_destroy(dev_priv->device,
-			context);
-
-	kgsl_destroy_context(dev_priv, context);
-
+	kgsl_context_detach(context);
 done:
 	return result;
 }
