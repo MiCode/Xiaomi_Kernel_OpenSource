@@ -528,9 +528,7 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 			if ((open.topology_id ==
 				VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
 			    (open.topology_id ==
-				VPM_TX_DM_FLUENCE_COPP_TOPOLOGY) ||
-			    (open.topology_id ==
-				VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY))
+				VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
 				rate = 16000;
 		}
 
