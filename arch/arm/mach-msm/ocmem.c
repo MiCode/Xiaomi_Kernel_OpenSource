@@ -225,6 +225,8 @@ static int ocmem_zone_init(struct platform_device *pdev)
 		zone->max_regions = 0;
 		INIT_LIST_HEAD(&zone->region_list);
 		zone->z_ops = z_ops;
+		z_ops->allocate = allocate_head;
+		z_ops->free = free_head;
 		active_zones++;
 
 		if (active_zones == 1)
