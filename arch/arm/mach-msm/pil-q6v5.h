@@ -21,14 +21,15 @@ struct platform_device;
 
 struct q6v5_data {
 	void __iomem *reg_base;
-	void __iomem *clk_base;
+	struct clk *xo;
+	struct clk *bus_clk;
+	struct clk *core_clk;
 	void __iomem *axi_halt_base;
 	void __iomem *rmb_base;
 	unsigned long start_addr;
 	struct regulator *vreg;
-	bool vreg_enabled;
+	bool is_booted;
 	int self_auth;
-	struct clk *xo;
 	struct pil_device *pil;
 };
 
@@ -38,6 +39,8 @@ int pil_q6v5_init_image(struct pil_desc *pil, const u8 *metadata,
 			size_t size);
 void pil_q6v5_shutdown(struct pil_desc *pil);
 int pil_q6v5_reset(struct pil_desc *pil);
+int pil_q6v5_enable_clks(struct pil_desc *pil);
+void pil_q6v5_disable_clks(struct pil_desc *pil);
 struct pil_desc *pil_q6v5_init(struct platform_device *pdev);
 
 #endif

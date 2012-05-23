@@ -20,6 +20,8 @@
 #include <linux/of.h>
 #include <linux/clk.h>
 
+#include <mach/clk.h>
+
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 
@@ -75,6 +77,42 @@ int pil_q6v5_init_image(struct pil_desc *pil, const u8 *metadata,
 	return 0;
 }
 EXPORT_SYMBOL(pil_q6v5_init_image);
+
+int pil_q6v5_enable_clks(struct pil_desc *pil)
+{
+	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	int ret;
+
+	ret = clk_reset(drv->core_clk, CLK_RESET_DEASSERT);
+	if (ret)
+		goto err_reset;
+	ret = clk_prepare_enable(drv->core_clk);
+	if (ret)
+		goto err_core_clk;
+	ret = clk_prepare_enable(drv->bus_clk);
+	if (ret)
+		goto err_bus_clk;
+
+	return 0;
+
+err_bus_clk:
+	clk_disable_unprepare(drv->core_clk);
+err_core_clk:
+	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
+err_reset:
+	return ret;
+}
+EXPORT_SYMBOL(pil_q6v5_enable_clks);
+
+void pil_q6v5_disable_clks(struct pil_desc *pil)
+{
+	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+
+	clk_disable_unprepare(drv->bus_clk);
+	clk_disable_unprepare(drv->core_clk);
+	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
+}
+EXPORT_SYMBOL(pil_q6v5_disable_clks);
 
 void pil_q6v5_shutdown(struct pil_desc *pil)
 {
@@ -173,12 +211,6 @@ struct pil_desc __devinit *pil_q6v5_init(struct platform_device *pdev)
 	if (!drv->reg_base)
 		return ERR_PTR(-ENOMEM);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	drv->clk_base = devm_ioremap(&pdev->dev, res->start,
-				     resource_size(res));
-	if (!drv->clk_base)
-		return ERR_PTR(-ENOMEM);
-
 	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return ERR_PTR(-ENOMEM);
@@ -191,6 +223,14 @@ struct pil_desc __devinit *pil_q6v5_init(struct platform_device *pdev)
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);
+
+	drv->bus_clk = devm_clk_get(&pdev->dev, "bus_clk");
+	if (IS_ERR(drv->bus_clk))
+		return ERR_CAST(drv->bus_clk);
+
+	drv->core_clk = devm_clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(drv->core_clk))
+		return ERR_CAST(drv->core_clk);
 
 	desc->dev = &pdev->dev;
 
