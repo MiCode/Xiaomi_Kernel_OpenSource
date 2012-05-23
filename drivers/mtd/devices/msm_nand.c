@@ -1990,20 +1990,74 @@ msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 {
 	int ret;
 	struct mtd_oob_ops ops;
+	int (*read_oob)(struct mtd_info *, loff_t, struct mtd_oob_ops *);
 
-	/* printk("msm_nand_read %llx %x\n", from, len); */
+	if (!dual_nand_ctlr_present)
+		read_oob = msm_nand_read_oob;
+	else
+		read_oob = msm_nand_read_oob_dualnandc;
 
 	ops.mode = MTD_OPS_PLACE_OOB;
-	ops.len = len;
 	ops.retlen = 0;
 	ops.ooblen = 0;
-	ops.datbuf = buf;
 	ops.oobbuf = NULL;
-	if (!dual_nand_ctlr_present)
-		ret =  msm_nand_read_oob(mtd, from, &ops);
-	else
-		ret = msm_nand_read_oob_dualnandc(mtd, from, &ops);
-	*retlen = ops.retlen;
+	ret = 0;
+	*retlen = 0;
+
+	if ((from & (mtd->writesize - 1)) == 0 && len == mtd->writesize) {
+		/* reading a page on page boundary */
+		ops.len = len;
+		ops.datbuf = buf;
+		ret = read_oob(mtd, from, &ops);
+		*retlen = ops.retlen;
+	} else if (len > 0) {
+		/* reading any size on any offset. partial page is supported */
+		u8 *bounce_buf;
+		loff_t aligned_from;
+		loff_t offset;
+		size_t actual_len;
+
+		bounce_buf = kmalloc(mtd->writesize, GFP_KERNEL);
+		if (!bounce_buf) {
+			pr_err("%s: could not allocate memory\n", __func__);
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		ops.len = mtd->writesize;
+		offset = from & (mtd->writesize - 1);
+		aligned_from = from - offset;
+
+		for (;;) {
+			int no_copy;
+
+			actual_len = mtd->writesize - offset;
+			if (actual_len > len)
+				actual_len = len;
+
+			no_copy = (offset == 0 && actual_len == mtd->writesize);
+			ops.datbuf = (no_copy) ? buf : bounce_buf;
+			ret = read_oob(mtd, aligned_from, &ops);
+			if (ret < 0)
+				break;
+
+			if (!no_copy)
+				memcpy(buf, bounce_buf + offset, actual_len);
+
+			len -= actual_len;
+			*retlen += actual_len;
+			if (len == 0)
+				break;
+
+			buf += actual_len;
+			offset = 0;
+			aligned_from += mtd->writesize;
+		}
+
+		kfree(bounce_buf);
+	}
+
+out:
 	return ret;
 }
 
@@ -2963,18 +3017,54 @@ static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 {
 	int ret;
 	struct mtd_oob_ops ops;
+	int (*write_oob)(struct mtd_info *, loff_t, struct mtd_oob_ops *);
+
+	if (!dual_nand_ctlr_present)
+		write_oob = msm_nand_write_oob;
+	else
+		write_oob = msm_nand_write_oob_dualnandc;
 
 	ops.mode = MTD_OPS_PLACE_OOB;
-	ops.len = len;
 	ops.retlen = 0;
 	ops.ooblen = 0;
-	ops.datbuf = (uint8_t *)buf;
 	ops.oobbuf = NULL;
-	if (!dual_nand_ctlr_present)
-		ret =  msm_nand_write_oob(mtd, to, &ops);
-	else
-		ret =  msm_nand_write_oob_dualnandc(mtd, to, &ops);
-	*retlen = ops.retlen;
+	ret = 0;
+	*retlen = 0;
+
+	if (!virt_addr_valid(buf) &&
+	    ((to | len) & (mtd->writesize - 1)) == 0 &&
+	    ((unsigned long) buf & ~PAGE_MASK) + len > PAGE_SIZE) {
+		/*
+		 * Handle writing of large size write buffer in vmalloc
+		 * address space that does not fit in an MMU page.
+		 * The destination address must be on page boundary,
+		 * and the size must be multiple of NAND page size.
+		 * Writing partial page is not supported.
+		 */
+		ops.len = mtd->writesize;
+
+		for (;;) {
+			ops.datbuf = (uint8_t *) buf;
+
+			ret = write_oob(mtd, to, &ops);
+			if (ret < 0)
+				break;
+
+			len -= mtd->writesize;
+			*retlen += mtd->writesize;
+			if (len == 0)
+				break;
+
+			buf += mtd->writesize;
+			to += mtd->writesize;
+		}
+	} else {
+		ops.len = len;
+		ops.datbuf = (uint8_t *) buf;
+		ret = write_oob(mtd, to, &ops);
+		*retlen = ops.retlen;
+	}
+
 	return ret;
 }
 
@@ -6747,6 +6837,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 		mtd->writesize = supported_flash.pagesize * i;
 		mtd->oobsize   = supported_flash.oobsize  * i;
 		mtd->erasesize = supported_flash.blksize  * i;
+		mtd->writebufsize = mtd->writesize;
 
 		if (!interleave_enable)
 			mtd_writesize = mtd->writesize;
