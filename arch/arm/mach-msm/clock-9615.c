@@ -1588,18 +1588,23 @@ static struct clk_lookup msm_clocks_9615[] = {
 
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
+	CLK_LOOKUP("bus_clk",		cfpb_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		cfpb_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		dfab_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		dfab_a_clk.c,	""),
+	CLK_LOOKUP("mem_clk",		ebi1_clk.c,	""),
+	CLK_LOOKUP("mem_clk",		ebi1_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sfab_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sfab_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sfpb_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sfpb_a_clk.c,	""),
+
 	CLK_LOOKUP("bus_clk",		sfab_clk.c,		"msm_sys_fab"),
 	CLK_LOOKUP("bus_a_clk",		sfab_a_clk.c,		"msm_sys_fab"),
 	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c,	"msm_bus"),
 	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,		"msm_bus"),
 	CLK_LOOKUP("dfab_clk",		dfab_msmbus_clk.c,	"msm_bus"),
 	CLK_LOOKUP("dfab_a_clk",	dfab_msmbus_a_clk.c,	"msm_bus"),
-
-	CLK_LOOKUP("bus_clk",		sfpb_clk.c,	NULL),
-	CLK_LOOKUP("bus_a_clk",		sfpb_a_clk.c,	NULL),
-	CLK_LOOKUP("bus_clk",		cfpb_clk.c,	NULL),
-	CLK_LOOKUP("bus_a_clk",		cfpb_a_clk.c,	NULL),
-	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,	NULL),
 
 	CLK_LOOKUP("core_clk",		gp0_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gp1_clk.c,	""),
