@@ -1180,20 +1180,16 @@ void msm_gic_save(bool modem_wake, int from_idle)
 	unsigned int i;
 	struct gic_chip_data *gic = &gic_data[0];
 	void __iomem *base = gic_data_dist_base(gic);
-	unsigned long flags;
 
 	gic_cpu_save(0);
 	gic_dist_save(0);
-	 /* Disable all the Interrupts, if we enter from idle pc */
-	if (from_idle) {
-		for (i = 0; (i * 32) < gic->max_irq; i++) {
-			raw_spin_lock_irqsave(
-					&irq_controller_lock, flags);
-			writel_relaxed(0xffffffff, base
-					+ GIC_DIST_ENABLE_CLEAR + i * 4);
-			raw_spin_unlock_irqrestore(
-					&irq_controller_lock, flags);
-		}
+
+	/* Disable all the Interrupts, before we enter pc */
+	for (i = 0; (i * 32) < gic->max_irq; i++) {
+		raw_spin_lock(&irq_controller_lock);
+		writel_relaxed(0xffffffff, base
+				+ GIC_DIST_ENABLE_CLEAR + i * 4);
+		raw_spin_unlock(&irq_controller_lock);
 	}
 }
 
