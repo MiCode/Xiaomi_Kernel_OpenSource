@@ -55,6 +55,21 @@ static struct gpiomux_setting gsbi3_active_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting external_vfr[] = {
+	/* Suspended state */
+	{
+		.func = GPIOMUX_FUNC_3,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_KEEPER,
+	},
+	/* Active state */
+	{
+		.func = GPIOMUX_FUNC_3,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_KEEPER,
+	},
+};
+
 static struct gpiomux_setting gsbi_uart = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -420,6 +435,16 @@ static struct msm_gpiomux_config msm8960_gsbi5_uart_configs[] __initdata = {
 		.gpio      = 25,        /* GSBI5 UART2 */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi_uart,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm8960_external_vfr_configs[] __initdata = {
+	{
+		.gpio      = 23,        /* EXTERNAL VFR */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &external_vfr[0],
+			[GPIOMUX_ACTIVE] = &external_vfr[1],
 		},
 	},
 };
@@ -953,15 +978,19 @@ int __init msm8960_init_gpiomux(void)
 	else
 		msm_gpiomux_install(msm8960_gsbi5_uart_configs,
 			ARRAY_SIZE(msm8960_gsbi5_uart_configs));
-	/* For 8960 Fusion 2.2 Primary IPC */
-	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		/* For 8960 Fusion 2.2 Primary IPC */
 		msm_gpiomux_install(msm8960_fusion_gsbi_configs,
 			ARRAY_SIZE(msm8960_fusion_gsbi_configs));
+		/* For SGLTE 8960 Fusion External VFR */
+		msm_gpiomux_install(msm8960_external_vfr_configs,
+			ARRAY_SIZE(msm8960_external_vfr_configs));
+	}
 
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
 	msm_gpiomux_install(msm8960_sdcc2_configs,
 		ARRAY_SIZE(msm8960_sdcc2_configs));
 #endif
-
 	return 0;
 }
