@@ -365,9 +365,9 @@ static const struct msm_vidc_ctrl msm_venc_ctrls[] = {
 
 static u32 get_frame_size_nv12(int plane, u32 height, u32 width)
 {
-	int stride = (width + 31) & (~31);
-	return height * stride * 3/2;
+	return ((height + 31) & (~31)) * ((width + 31) & (~31)) * 3/2;
 }
+
 static u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 {
 	return height * width * 2;
@@ -375,8 +375,9 @@ static u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 
 static u32 get_frame_size_compressed(int plane, u32 height, u32 width)
 {
-	return width * height / 2;
+	return ((height + 31) & (~31)) * ((width + 31) & (~31)) * 3/2;
 }
+
 static struct hal_quantization
 	venc_quantization = {I_FRAME_QP, P_FRAME_QP, B_FRAME_QP};
 static struct hal_intra_period

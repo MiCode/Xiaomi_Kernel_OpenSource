@@ -301,25 +301,25 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 	struct list_head *ptr, *next;
 	struct vb2_buf_entry *entry;
 	struct internal_buf *buf;
-	struct extradata_buf *ebuf;
+
 	if (inst) {
 		spin_lock_irqsave(&inst->lock, flags);
-		list_for_each_safe(ptr, next, &inst->pendingq) {
-			entry = list_entry(ptr, struct vb2_buf_entry, list);
-			list_del(&entry->list);
-			kfree(entry);
+		if (!list_empty(&inst->pendingq)) {
+			list_for_each_safe(ptr, next, &inst->pendingq) {
+				entry = list_entry(ptr, struct vb2_buf_entry,
+						list);
+				list_del(&entry->list);
+				kfree(entry);
+			}
 		}
-		list_for_each_safe(ptr, next, &inst->internalbufs) {
-			buf = list_entry(ptr, struct internal_buf, list);
-			list_del(&buf->list);
-			msm_smem_free(inst->mem_client, buf->handle);
-			kfree(buf);
-		}
-		list_for_each_safe(ptr, next, &inst->extradatabufs) {
-			ebuf = list_entry(ptr, struct extradata_buf, list);
-			list_del(&ebuf->list);
-			msm_smem_free(inst->mem_client, ebuf->handle);
-			kfree(ebuf);
+		if (!list_empty(&inst->internalbufs)) {
+			list_for_each_safe(ptr, next, &inst->internalbufs) {
+				buf = list_entry(ptr, struct internal_buf,
+						list);
+				list_del(&buf->list);
+				msm_smem_free(inst->mem_client, buf->handle);
+				kfree(buf);
+			}
 		}
 		spin_unlock_irqrestore(&inst->lock, flags);
 		msm_smem_delete_client(inst->mem_client);
