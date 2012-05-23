@@ -406,6 +406,23 @@ struct platform_device apq_device_tz_log = {
 	.resource	= tzlog_resources,
 };
 
+#ifdef CONFIG_HW_RANDOM_MSM
+/* PRNG device */
+#define MSM_PRNG_PHYS  0xF9BFF000
+static struct resource rng_resources = {
+	.flags = IORESOURCE_MEM,
+	.start = MSM_PRNG_PHYS,
+	.end   = MSM_PRNG_PHYS + SZ_512 - 1,
+};
+
+struct platform_device msm8974_device_rng = {
+	.name          = "msm_rng",
+	.id            = 0,
+	.num_resources = 1,
+	.resource      = &rng_resources,
+};
+#endif
+
 
 void __init msm_copper_add_devices(void)
 {
@@ -417,6 +434,9 @@ void __init msm_copper_add_devices(void)
 	platform_add_devices(msm_copper_stub_regulator_devices,
 					msm_copper_stub_regulator_devices_len);
 	platform_device_register(&apq_device_tz_log);
+#ifdef CONFIG_HW_RANDOM_MSM
+	platform_device_register(&msm8974_device_rng);
+#endif
 }
 
 /*
