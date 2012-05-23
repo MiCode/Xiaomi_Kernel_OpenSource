@@ -1271,9 +1271,11 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 {
 	struct ion_handle *ihandle;	/* Ion handle */
 	struct qseecom_load_img_req load_img_req;
-	int32_t ret;
+	int ret;
+	int set_cpu_ret = 0;
 	ion_phys_addr_t pa = 0;
 	uint32_t len;
+	struct cpumask mask;
 	struct qseecom_load_app_ireq load_req;
 	struct qseecom_command_scm_resp resp;
 
@@ -1302,14 +1304,25 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 	load_req.img_len = load_img_req.img_len;
 	load_req.phy_addr = pa;
 
+	/* SCM_CALL tied to Core0 */
+	mask = CPU_MASK_CPU0;
+	set_cpu_ret = set_cpus_allowed_ptr(current, &mask);
+	if (set_cpu_ret) {
+		pr_err("set_cpus_allowed_ptr failed : ret %d\n",
+				set_cpu_ret);
+		ret = -EFAULT;
+		goto qseecom_load_external_elf_set_cpu_err;
+	}
+
 	/*  SCM_CALL to load the external elf */
 	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &load_req,
 			sizeof(struct qseecom_load_app_ireq),
 			&resp, sizeof(resp));
 	if (ret) {
-		pr_err("scm_call to unload failed : ret %d\n",
+		pr_err("scm_call to load failed : ret %d\n",
 				ret);
 		ret = -EFAULT;
+		goto qseecom_load_external_elf_scm_err;
 	}
 
 	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
@@ -1324,6 +1337,18 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 			ret = -EFAULT;
 		}
 	}
+
+qseecom_load_external_elf_scm_err:
+	/* Restore the CPU mask */
+	mask = CPU_MASK_ALL;
+	set_cpu_ret = set_cpus_allowed_ptr(current, &mask);
+	if (set_cpu_ret) {
+		pr_err("set_cpus_allowed_ptr failed to restore mask: ret %d\n",
+				set_cpu_ret);
+		ret = -EFAULT;
+	}
+
+qseecom_load_external_elf_set_cpu_err:
 	/* Deallocate the handle */
 	if (!IS_ERR_OR_NULL(ihandle))
 		ion_free(qseecom.ion_clnt, ihandle);
@@ -1334,11 +1359,23 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 static int qseecom_unload_external_elf(struct qseecom_dev_handle *data)
 {
 	int ret = 0;
+	int set_cpu_ret = 0;
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_unload_app_ireq req;
+	struct cpumask mask;
 
 	/* Populate the structure for sending scm call to unload image */
 	req.qsee_cmd_id = QSEOS_UNLOAD_EXTERNAL_ELF_COMMAND;
+
+	/* SCM_CALL tied to Core0 */
+	mask = CPU_MASK_CPU0;
+	ret = set_cpus_allowed_ptr(current, &mask);
+	if (ret) {
+		pr_err("set_cpus_allowed_ptr failed : ret %d\n",
+				ret);
+		return -EFAULT;
+	}
+
 	/* SCM_CALL to unload the external elf */
 	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &req,
 			sizeof(struct qseecom_unload_app_ireq),
@@ -1346,7 +1383,8 @@ static int qseecom_unload_external_elf(struct qseecom_dev_handle *data)
 	if (ret) {
 		pr_err("scm_call to unload failed : ret %d\n",
 				ret);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto qseecom_unload_external_elf_scm_err;
 	}
 	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
@@ -1360,6 +1398,17 @@ static int qseecom_unload_external_elf(struct qseecom_dev_handle *data)
 			ret = -EFAULT;
 		}
 	}
+
+qseecom_unload_external_elf_scm_err:
+	/* Restore the CPU mask */
+	mask = CPU_MASK_ALL;
+	set_cpu_ret = set_cpus_allowed_ptr(current, &mask);
+	if (set_cpu_ret) {
+		pr_err("set_cpus_allowed_ptr failed to restore mask: ret %d\n",
+				set_cpu_ret);
+		ret = -EFAULT;
+	}
+
 	return ret;
 }
 
