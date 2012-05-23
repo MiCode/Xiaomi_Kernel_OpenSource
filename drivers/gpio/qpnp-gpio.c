@@ -844,8 +844,9 @@ static int qpnp_gpio_debugfs_create(struct qpnp_gpio_chip *q_chip)
 static int qpnp_gpio_probe(struct spmi_device *spmi)
 {
 	struct qpnp_gpio_chip *q_chip;
-	struct resource *res;
 	struct qpnp_gpio_spec *q_spec;
+	struct resource *res;
+	struct spmi_resource *d_node;
 	int i, rc;
 	int lowest_gpio = UINT_MAX, highest_gpio = 0;
 	u32 intspec[3], gpio;
@@ -867,7 +868,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 	/* first scan through nodes to find the range required for allocation */
 	for (i = 0; i < spmi->num_dev_node; i++) {
 		rc = of_property_read_u32(spmi->dev_node[i].of_node,
-							"qcom,gpio-num", &gpio);
+						"qcom,gpio-num", &gpio);
 		if (rc) {
 			dev_err(&spmi->dev, "%s: unable to get"
 				" qcom,gpio-num property\n", __func__);
@@ -919,14 +920,15 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 
 	/* now scan through again and populate the lookup table */
 	for (i = 0; i < spmi->num_dev_node; i++) {
-		res = spmi_get_resource(spmi, i, IORESOURCE_MEM, 0);
+		d_node = &spmi->dev_node[i];
+		res = spmi_get_resource(spmi, d_node, IORESOURCE_MEM, 0);
 		if (!res) {
 			dev_err(&spmi->dev, "%s: node %s is missing has no"
 				" base address definition\n",
-				__func__, spmi->dev_node[i].of_node->full_name);
+				__func__, d_node->of_node->full_name);
 		}
 
-		rc = of_property_read_u32(spmi->dev_node[i].of_node,
+		rc = of_property_read_u32(d_node->of_node,
 							"qcom,gpio-num", &gpio);
 		if (rc) {
 			dev_err(&spmi->dev, "%s: unable to get"
@@ -948,7 +950,7 @@ static int qpnp_gpio_probe(struct spmi_device *spmi)
 		q_spec->offset = res->start;
 		q_spec->gpio_chip_idx = i;
 		q_spec->pmic_gpio = gpio;
-		q_spec->node = spmi->dev_node[i].of_node;
+		q_spec->node = d_node->of_node;
 		q_spec->q_chip = q_chip;
 
 		rc = spmi_ext_register_readl(spmi->ctrl, q_spec->slave,

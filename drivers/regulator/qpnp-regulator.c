@@ -1187,7 +1187,7 @@ static int qpnp_regulator_get_dt_config(struct spmi_device *spmi,
 	pdata->init_data.constraints.input_uV
 		= pdata->init_data.constraints.max_uV;
 
-	res = spmi_get_resource(spmi, 0, IORESOURCE_MEM, 0);
+	res = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&spmi->dev, "%s: node is missing base address\n",
 			__func__);

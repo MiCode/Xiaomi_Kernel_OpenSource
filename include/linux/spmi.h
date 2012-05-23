@@ -418,10 +418,21 @@ extern int spmi_command_wakeup(struct spmi_controller *ctrl, u8 sid);
  */
 extern int spmi_command_shutdown(struct spmi_controller *ctrl, u8 sid);
 
-extern struct resource *spmi_get_resource(struct spmi_device *dev,
-				   unsigned int node_idx, unsigned int type,
-				   unsigned int res_num);
+/**
+ * spmi_for_each_container_dev - iterate over the array of devnode resources.
+ * @res: spmi_resource pointer used as the array cursor
+ * @spmi_dev: spmi_device to iterate
+ *
+ * Only useable in spmi-dev-container configurations.
+ */
+#define spmi_for_each_container_dev(res, spmi_dev)			      \
+	for (res = ((spmi_dev)->dev_node ? &(spmi_dev)->dev_node[0] : NULL);  \
+	     (res - (spmi_dev)->dev_node) < (spmi_dev)->num_dev_node; res++)
 
-extern int spmi_get_irq(struct spmi_device *dev, unsigned int node_idx,
+extern struct resource *spmi_get_resource(struct spmi_device *dev,
+				      struct spmi_resource *node,
+				      unsigned int type, unsigned int res_num);
+
+extern int spmi_get_irq(struct spmi_device *dev, struct spmi_resource *node,
 						 unsigned int res_num);
 #endif
