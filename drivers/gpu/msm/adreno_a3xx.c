@@ -2335,6 +2335,39 @@ static void a3xx_rb_init(struct adreno_device *adreno_dev,
 	adreno_ringbuffer_submit(rb);
 }
 
+#define VBIF_MAX_CLIENTS 6
+
+static void a3xx_vbif_callback(struct adreno_device *adreno_dev,
+	unsigned int status)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	int i;
+	char str[80], *ptr = str;
+	int slen = sizeof(str) - 1;
+
+	KGSL_DRV_INFO(device, "VBIF error | status=%X\n",
+		status);
+
+	for (i = 0; i < VBIF_MAX_CLIENTS; i++) {
+		if (status & (1 << i)) {
+			unsigned int err;
+			int ret;
+
+			adreno_regwrite(device, A3XX_VBIF_ERR_INFO, i);
+			adreno_regread(device, A3XX_VBIF_ERR_INFO, &err);
+
+			ret = snprintf(ptr, slen, "%d:%8.8X ", i, err);
+			ptr += ret;
+			slen -= ret;
+		}
+	}
+
+	KGSL_DRV_INFO(device, "%s\n", str);
+
+	/* Clear the errors */
+	adreno_regwrite(device, A3XX_VBIF_ERR_CLEAR, status);
+}
+
 static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -2511,6 +2544,15 @@ static irqreturn_t a3xx_irq_handler(struct adreno_device *adreno_dev)
 	if (status)
 		adreno_regwrite(&adreno_dev->dev, A3XX_RBBM_INT_CLEAR_CMD,
 			status);
+
+	/* Check for VBIF errors */
+	adreno_regread(&adreno_dev->dev, A3XX_VBIF_ERR_PENDING, &status);
+
+	if (status) {
+		a3xx_vbif_callback(adreno_dev, status);
+		ret = IRQ_HANDLED;
+	}
+
 	return ret;
 }
 
@@ -2518,10 +2560,17 @@ static void a3xx_irq_control(struct adreno_device *adreno_dev, int state)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	if (state)
+	if (state) {
 		adreno_regwrite(device, A3XX_RBBM_INT_0_MASK, A3XX_INT_MASK);
-	else
+
+		/* Enable VBIF interrupts - write 0 to enable them all */
+		adreno_regwrite(device, A3XX_VBIF_ERR_MASK, 0);
+		/* Clear outstanding VBIF errors */
+		adreno_regwrite(device, A3XX_VBIF_ERR_CLEAR, 0x3F);
+	} else {
 		adreno_regwrite(device, A3XX_RBBM_INT_0_MASK, 0);
+		adreno_regwrite(device, A3XX_VBIF_ERR_MASK, 0xFFFFFFFF);
+	}
 }
 
 static unsigned int a3xx_busy_cycles(struct adreno_device *adreno_dev)
