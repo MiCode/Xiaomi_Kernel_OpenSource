@@ -16,6 +16,7 @@
 #include "kgsl_device.h"
 #include "adreno_drawctxt.h"
 #include "adreno_ringbuffer.h"
+#include "kgsl_iommu.h"
 
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
@@ -221,6 +222,72 @@ static inline int adreno_encode_istore_size(struct adreno_device *adreno_dev)
 		size = adreno_dev->istore_size;
 
 	return (ilog2(size) - 5) << 29;
+}
+
+static inline int __adreno_add_idle_indirect_cmds(unsigned int *cmds,
+						unsigned int nop_gpuaddr)
+{
+	/* Adding an indirect buffer ensures that the prefetch stalls until
+	 * the commands in indirect buffer have completed. We need to stall
+	 * prefetch with a nop indirect buffer when updating pagetables
+	 * because it provides stabler synchronization */
+	*cmds++ = CP_HDR_INDIRECT_BUFFER_PFD;
+	*cmds++ = nop_gpuaddr;
+	*cmds++ = 2;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	return 5;
+}
+
+static inline int adreno_add_change_mh_phys_limit_cmds(unsigned int *cmds,
+						unsigned int new_phys_limit,
+						unsigned int nop_gpuaddr)
+{
+	unsigned int *start = cmds;
+
+	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
+	*cmds++ = cp_type0_packet(MH_MMU_MPU_END, 1);
+	*cmds++ = new_phys_limit;
+	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
+	return cmds - start;
+}
+
+static inline int adreno_add_bank_change_cmds(unsigned int *cmds,
+					int cur_ctx_bank,
+					unsigned int nop_gpuaddr)
+{
+	unsigned int *start = cmds;
+
+	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
+	*cmds++ = cp_type0_packet(REG_CP_STATE_DEBUG_INDEX, 1);
+	*cmds++ = (cur_ctx_bank ? 0 : 0x20);
+	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
+	return cmds - start;
+}
+
+/*
+ * adreno_read_cmds - Add pm4 packets to perform read
+ * @device - Pointer to device structure
+ * @cmds - Pointer to memory where read commands need to be added
+ * @addr - gpu address of the read
+ * @val - The GPU will wait until the data at address addr becomes
+ * equal to value
+ */
+static inline int adreno_add_read_cmds(struct kgsl_device *device,
+				unsigned int *cmds, unsigned int addr,
+				unsigned int val, unsigned int nop_gpuaddr)
+{
+	unsigned int *start = cmds;
+
+	*cmds++ = cp_type3_packet(CP_WAIT_REG_MEM, 5);
+	/* MEM SPACE = memory, FUNCTION = equals */
+	*cmds++ = 0x13;
+	*cmds++ = addr;
+	*cmds++ = val;
+	*cmds++ = 0xFFFFFFFF;
+	*cmds++ = 0xFFFFFFFF;
+	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
+	return cmds - start;
 }
 
 #endif /*__ADRENO_H */

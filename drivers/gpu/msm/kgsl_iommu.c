@@ -595,7 +595,9 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000001);
 		kgsl_regwrite(mmu->device, MH_MMU_MPU_END,
 			mh->mpu_base +
-			iommu->iommu_units[0].reg_map.gpuaddr - PAGE_SIZE);
+			iommu->iommu_units
+				[iommu->unit_count - 1].reg_map.gpuaddr -
+				PAGE_SIZE);
 	} else {
 		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
 	}

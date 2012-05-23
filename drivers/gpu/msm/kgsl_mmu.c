@@ -545,8 +545,7 @@ void kgsl_setstate(struct kgsl_mmu *mmu, uint32_t flags)
 	struct kgsl_device *device = mmu->device;
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return;
-	else if (device->ftbl->setstate && (KGSL_MMU_TYPE_IOMMU !=
-						kgsl_mmu_type))
+	else if (device->ftbl->setstate)
 		device->ftbl->setstate(device, flags);
 	else if (mmu->mmu_ops->mmu_device_setstate)
 		mmu->mmu_ops->mmu_device_setstate(mmu, flags);
