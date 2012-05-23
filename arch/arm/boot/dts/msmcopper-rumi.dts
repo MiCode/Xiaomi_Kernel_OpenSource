@@ -75,15 +75,28 @@
 		};
 	};
 
+	i2c@f9966000 {
+		status = "disable";
+	};
+
+	i2c@f9967000 {
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0Xf9967000 0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 105 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+		gpios = <&msmgpio 83 0>, /* DAT  */
+			<&msmgpio 84 0>; /* CLK */
+	};
+
 	slim@fe12f000 {
 		status = "disable";
 	};
 
 	qcom,spmi@fc4c0000 {
-		status = "disable";
-	};
-
-	i2c@f9966000 {
 		status = "disable";
 	};
 
