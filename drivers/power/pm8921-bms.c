@@ -68,16 +68,6 @@ struct pm8921_soc_params {
 	int		last_good_ocv_uv;
 };
 
-struct pm8921_rbatt_params {
-	uint16_t	ocv_for_rbatt_raw;
-	uint16_t	vsense_for_rbatt_raw;
-	uint16_t	vbatt_for_rbatt_raw;
-
-	int		ocv_for_rbatt_uv;
-	int		vsense_for_rbatt_uv;
-	int		vbatt_for_rbatt_uv;
-};
-
 /**
  * struct pm8921_bms_chip -
  * @bms_output_lock:	lock to prevent concurrent bms reads
@@ -125,8 +115,6 @@ struct pm8921_bms_chip {
 	int			cc_reading_at_100;
 	int			max_voltage_uv;
 
-	int			batt_temp_suspend;
-	int			soc_rbatt_suspend;
 	int			default_rbatt_mohm;
 	int			amux_2_trim_delta;
 	uint16_t		prev_last_good_ocv_raw;
@@ -158,7 +146,6 @@ static int last_charge_increase;
 module_param(last_chargecycles, int, 0644);
 module_param(last_charge_increase, int, 0644);
 
-static int last_rbatt = -EINVAL;
 static int last_soc = -EINVAL;
 static int last_real_fcc_mah = -EINVAL;
 static int last_real_fcc_batt_temp = -EINVAL;
@@ -176,7 +163,6 @@ static struct kernel_param_ops bms_param_ops = {
 	.get = param_get_int,
 };
 
-module_param_cb(last_rbatt, &bms_param_ops, &last_rbatt, 0644);
 module_param_cb(last_soc, &bms_param_ops, &last_soc, 0644);
 
 /*
@@ -877,41 +863,6 @@ int override_mode_simultaneous_battery_voltage_and_current(int *ibat_ua,
 	return 0;
 }
 
-static int read_rbatt_params_raw(struct pm8921_bms_chip *chip,
-				struct pm8921_rbatt_params *raw)
-{
-	int usb_chg;
-
-	mutex_lock(&chip->bms_output_lock);
-	pm_bms_lock_output_data(chip);
-
-	pm_bms_read_output_data(chip,
-			OCV_FOR_RBATT, &raw->ocv_for_rbatt_raw);
-	pm_bms_read_output_data(chip,
-			VBATT_FOR_RBATT, &raw->vbatt_for_rbatt_raw);
-	pm_bms_read_output_data(chip,
-			VSENSE_FOR_RBATT, &raw->vsense_for_rbatt_raw);
-
-	pm_bms_unlock_output_data(chip);
-	mutex_unlock(&chip->bms_output_lock);
-
-	usb_chg = usb_chg_plugged_in();
-	convert_vbatt_raw_to_uv(chip, usb_chg,
-			raw->vbatt_for_rbatt_raw, &raw->vbatt_for_rbatt_uv);
-	convert_vbatt_raw_to_uv(chip, usb_chg,
-			raw->ocv_for_rbatt_raw, &raw->ocv_for_rbatt_uv);
-	convert_vsense_to_uv(chip, raw->vsense_for_rbatt_raw,
-					&raw->vsense_for_rbatt_uv);
-
-	pr_debug("vbatt_for_rbatt_raw = 0x%x, vbatt_for_rbatt= %duV\n",
-			raw->vbatt_for_rbatt_raw, raw->vbatt_for_rbatt_uv);
-	pr_debug("ocv_for_rbatt_raw = 0x%x, ocv_for_rbatt= %duV\n",
-			raw->ocv_for_rbatt_raw, raw->ocv_for_rbatt_uv);
-	pr_debug("vsense_for_rbatt_raw = 0x%x, vsense_for_rbatt= %duV\n",
-			raw->vsense_for_rbatt_raw, raw->vsense_for_rbatt_uv);
-	return 0;
-}
-
 #define MBG_TRANSIENT_ERROR_RAW 51
 static void adjust_pon_ocv_raw(struct pm8921_bms_chip *chip,
 				struct pm8921_soc_params *raw)
@@ -983,7 +934,7 @@ static int get_rbatt(struct pm8921_bms_chip *chip, int soc_rbatt, int batt_temp)
 {
 	int rbatt, scalefactor;
 
-	rbatt = (last_rbatt < 0) ? chip->default_rbatt_mohm : last_rbatt;
+	rbatt = chip->default_rbatt_mohm;
 	pr_debug("rbatt before scaling = %d\n", rbatt);
 	if (chip->rbatt_sf_lut == NULL)  {
 		pr_debug("RBATT = %d\n", rbatt);
@@ -1010,27 +961,6 @@ static int get_rbatt(struct pm8921_bms_chip *chip, int soc_rbatt, int batt_temp)
 
 	pr_debug("RBATT = %d\n", rbatt);
 	return rbatt;
-}
-
-static int calculate_rbatt_resume(struct pm8921_bms_chip *chip,
-				struct pm8921_rbatt_params *raw)
-{
-	unsigned int  r_batt;
-
-	if (raw->ocv_for_rbatt_uv <= 0
-		|| raw->ocv_for_rbatt_uv <= raw->vbatt_for_rbatt_uv
-		|| raw->vsense_for_rbatt_raw <= 0) {
-		pr_debug("rbatt readings unavailable ocv = %d, vbatt = %d,"
-					"vsen = %d\n",
-					raw->ocv_for_rbatt_uv,
-					raw->vbatt_for_rbatt_uv,
-					raw->vsense_for_rbatt_raw);
-		return -EINVAL;
-	}
-	r_batt = ((raw->ocv_for_rbatt_uv - raw->vbatt_for_rbatt_uv)
-			* chip->r_sense) / raw->vsense_for_rbatt_uv;
-	pr_debug("r_batt = %umilliOhms", r_batt);
-	return r_batt;
 }
 
 static int calculate_fcc_uah(struct pm8921_bms_chip *chip, int batt_temp,
@@ -1085,7 +1015,7 @@ static int adc_based_ocv(struct pm8921_bms_chip *chip, int *ocv)
 		return rc;
 	}
 
-	rbatt = (last_rbatt < 0) ? chip->default_rbatt_mohm : last_rbatt;
+	rbatt = chip->default_rbatt_mohm;
 	*ocv = vbatt + (ibatt_ua * rbatt)/1000;
 	return 0;
 }
@@ -2191,94 +2121,6 @@ err_out:
 	return -EINVAL;
 }
 
-static int pm8921_bms_suspend(struct device *dev)
-{
-	int rc;
-	struct pm8xxx_adc_chan_result result;
-	struct pm8921_bms_chip *chip = dev_get_drvdata(dev);
-	struct pm8921_soc_params raw;
-	int fcc_uah;
-	int remaining_charge_uah;
-	int cc_uah;
-
-	chip->batt_temp_suspend = 0;
-	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-					chip->batt_temp_channel, rc);
-	}
-	chip->batt_temp_suspend = (int)result.physical;
-
-	mutex_lock(&chip->last_ocv_uv_mutex);
-	read_soc_params_raw(chip, &raw);
-
-	fcc_uah = calculate_fcc_uah(chip,
-			chip->batt_temp_suspend, last_chargecycles);
-	pr_debug("FCC = %uuAh batt_temp = %d, cycles = %d\n",
-			fcc_uah, chip->batt_temp_suspend, last_chargecycles);
-	/* calculate remainging charge */
-	remaining_charge_uah = calculate_remaining_charge_uah(chip, &raw,
-					fcc_uah, chip->batt_temp_suspend,
-					last_chargecycles);
-	pr_debug("RC = %uuAh\n", remaining_charge_uah);
-
-	/* calculate cc micro_volt_hour */
-	calculate_cc_uah(chip, raw.cc, &cc_uah);
-	pr_debug("cc_uah = %duAh raw->cc = %x cc = %lld after subtracting %x\n",
-				cc_uah, raw.cc,
-				(int64_t)raw.cc - chip->cc_reading_at_100,
-				chip->cc_reading_at_100);
-	chip->soc_rbatt_suspend = ((remaining_charge_uah - cc_uah) * 100)
-						/ fcc_uah;
-	mutex_unlock(&chip->last_ocv_uv_mutex);
-
-	return 0;
-}
-
-#define DELTA_RBATT_PERCENT	10
-static int pm8921_bms_resume(struct device *dev)
-{
-	struct pm8921_rbatt_params raw;
-	struct pm8921_bms_chip *chip = dev_get_drvdata(dev);
-	int rbatt;
-	int expected_rbatt;
-	int scalefactor;
-	int delta_rbatt;
-
-	read_rbatt_params_raw(chip, &raw);
-	rbatt = calculate_rbatt_resume(chip, &raw);
-
-	if (rbatt < 0)
-		return 0;
-
-	expected_rbatt
-		= (last_rbatt < 0) ? chip->default_rbatt_mohm : last_rbatt;
-
-	if (chip->rbatt_sf_lut) {
-		scalefactor = interpolate_scalingfactor(chip,
-						chip->rbatt_sf_lut,
-						chip->batt_temp_suspend / 10,
-						chip->soc_rbatt_suspend);
-		rbatt = rbatt * 100 / scalefactor;
-	}
-
-	delta_rbatt = expected_rbatt - rbatt;
-	if (delta_rbatt)
-		delta_rbatt = -delta_rbatt;
-	/*
-	 * only update last_rbatt if rbatt is within some
-	 * percent of expected_rbatt
-	 */
-	if (delta_rbatt * 100 <= DELTA_RBATT_PERCENT * expected_rbatt)
-		last_rbatt = rbatt;
-
-	return 0;
-}
-
-static const struct dev_pm_ops pm8921_pm_ops = {
-	.suspend	= pm8921_bms_suspend,
-	.resume		= pm8921_bms_resume,
-};
 #define EN_BMS_BIT	BIT(7)
 #define EN_PON_HS_BIT	BIT(0)
 static int __devinit pm8921_bms_hw_init(struct pm8921_bms_chip *chip)
@@ -2393,7 +2235,6 @@ desay:
 }
 
 enum bms_request_operation {
-	CALC_RBATT,
 	CALC_FCC,
 	CALC_PC,
 	CALC_SOC,
@@ -2454,18 +2295,13 @@ static int get_calc(void *data, u64 * val)
 	int ret = 0;
 	int ibat_ua, vbat_uv;
 	struct pm8921_soc_params raw;
-	struct pm8921_rbatt_params rraw;
 
 	read_soc_params_raw(the_chip, &raw);
-	read_rbatt_params_raw(the_chip, &rraw);
 
 	*val = 0;
 
 	/* global irq number passed in via data */
 	switch (param) {
-	case CALC_RBATT:
-		*val = calculate_rbatt_resume(the_chip, &rraw);
-		break;
 	case CALC_FCC:
 		*val = calculate_fcc_uah(the_chip, test_batt_temp,
 							test_chargecycle);
@@ -2524,10 +2360,8 @@ static int get_reading(void *data, u64 * val)
 	int param = (int)data;
 	int ret = 0;
 	struct pm8921_soc_params raw;
-	struct pm8921_rbatt_params rraw;
 
 	read_soc_params_raw(the_chip, &raw);
-	read_rbatt_params_raw(the_chip, &rraw);
 
 	*val = 0;
 
@@ -2538,15 +2372,6 @@ static int get_reading(void *data, u64 * val)
 		break;
 	case LAST_GOOD_OCV_VALUE:
 		*val = raw.last_good_ocv_uv;
-		break;
-	case VBATT_FOR_RBATT:
-		*val = rraw.vbatt_for_rbatt_uv;
-		break;
-	case VSENSE_FOR_RBATT:
-		*val = rraw.vsense_for_rbatt_uv;
-		break;
-	case OCV_FOR_RBATT:
-		*val = rraw.ocv_for_rbatt_uv;
 		break;
 	case VSENSE_AVG:
 		read_vsense_avg(the_chip, (uint *)val);
@@ -2643,8 +2468,6 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 	debugfs_create_file("read_vsense_avg", 0644, chip->dent,
 				(void *)VSENSE_AVG, &reading_fops);
 
-	debugfs_create_file("show_rbatt", 0644, chip->dent,
-				(void *)CALC_RBATT, &calc_fops);
 	debugfs_create_file("show_fcc", 0644, chip->dent,
 				(void *)CALC_FCC, &calc_fops);
 	debugfs_create_file("show_pc", 0644, chip->dent,
@@ -2848,7 +2671,6 @@ static struct platform_driver pm8921_bms_driver = {
 	.driver	= {
 		.name	= PM8921_BMS_DEV_NAME,
 		.owner	= THIS_MODULE,
-		.pm	= &pm8921_pm_ops
 	},
 };
 
