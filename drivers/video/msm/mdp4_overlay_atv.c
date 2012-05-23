@@ -113,11 +113,10 @@ int mdp4_atv_on(struct platform_device *pdev)
 
 	mdp4_overlay_rgb_setup(pipe);
 
-	mdp4_mixer_stage_up(pipe);
-
 	mdp4_overlayproc_cfg(pipe);
 
 	mdp4_overlay_reg_flush(pipe, 1);
+	mdp4_mixer_stage_up(pipe);
 
 	if (ret == 0)
 		mdp_pipe_ctrl(MDP_OVERLAY1_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
@@ -185,8 +184,8 @@ void mdp4_atv_overlay(struct msm_fb_data_type *mfd)
 		pipe->srcp0_addr = (uint32)(buf + buf_offset);
 	}
 	mdp4_overlay_rgb_setup(pipe);
-	mdp4_mixer_stage_up(pipe);
 	mdp4_overlay_reg_flush(pipe, 0);
+	mdp4_mixer_stage_up(pipe);
 
 	printk(KERN_INFO "mdp4_atv_overlay: pipe=%x ndx=%d\n",
 					(int)pipe, pipe->pipe_ndx);
