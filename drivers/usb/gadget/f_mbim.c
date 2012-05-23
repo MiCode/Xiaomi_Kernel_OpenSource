@@ -216,7 +216,7 @@ static struct usb_cdc_mbb_desc mbb_desc = {
 	.wMaxControlMessage =	cpu_to_le16(0x1000),
 	.bNumberFilters =	0x10,
 	.bMaxFilterSize =	0x80,
-	.wMaxSegmentSize =	cpu_to_le16(0x1000),
+	.wMaxSegmentSize =	cpu_to_le16(0xfe0),
 	.bmNetworkCapabilities = 0x20,
 };
 
