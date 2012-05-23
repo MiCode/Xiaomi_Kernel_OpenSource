@@ -160,7 +160,6 @@ static struct msm_clock msm_clocks[] = {
 			.rating         = 200,
 			.read           = msm_gpt_read,
 			.mask           = CLOCKSOURCE_MASK(32),
-			.shift          = 17,
 			.flags          = CLOCK_SOURCE_IS_CONTINUOUS,
 		},
 		.irq = INT_GP_TIMER_EXP,
@@ -183,7 +182,6 @@ static struct msm_clock msm_clocks[] = {
 			.rating         = DG_TIMER_RATING,
 			.read           = msm_dgt_read,
 			.mask           = CLOCKSOURCE_MASK(32),
-			.shift          = 24,
 			.flags          = CLOCK_SOURCE_IS_CONTINUOUS,
 		},
 		.irq = INT_DEBUG_TIMER_EXP,
@@ -1024,7 +1022,6 @@ static void __init msm_timer_init(void)
 		dgt->freq = 19200000 >> MSM_DGT_SHIFT;
 		dgt->clockevent.shift = 32 + MSM_DGT_SHIFT;
 		dgt->clocksource.mask = CLOCKSOURCE_MASK(32 - MSM_DGT_SHIFT);
-		dgt->clocksource.shift = 24 - MSM_DGT_SHIFT;
 		gpt->regbase = MSM_TMR_BASE;
 		dgt->regbase = MSM_TMR_BASE + 0x10;
 		gpt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT
@@ -1114,8 +1111,7 @@ static void __init msm_timer_init(void)
 			clockevent_delta2ns(clock->write_delay + 4, ce);
 		ce->cpumask = cpumask_of(0);
 
-		cs->mult = clocksource_hz2mult(clock->freq, cs->shift);
-		res = clocksource_register(cs);
+		res = clocksource_register_hz(cs, clock->freq);
 		if (res)
 			printk(KERN_ERR "msm_timer_init: clocksource_register "
 			       "failed for %s\n", cs->name);
