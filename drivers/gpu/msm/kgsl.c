@@ -388,12 +388,18 @@ kgsl_context_detach(struct kgsl_context *context)
 	if (context == NULL)
 		return;
 	device = context->dev_priv->device;
-	kgsl_cancel_events_ctxt(device, context);
 	id = context->id;
+
 	if (device->ftbl->drawctxt_destroy)
 		device->ftbl->drawctxt_destroy(device, context);
 	/*device specific drawctxt_destroy MUST clean up devctxt */
 	BUG_ON(context->devctxt);
+	/*
+	 * Cancel events after the device-specific context is
+	 * destroyed, to avoid possibly freeing memory while
+	 * it is still in use by the GPU.
+	 */
+	kgsl_cancel_events_ctxt(device, context);
 	idr_remove(&device->context_idr, id);
 	context->id = KGSL_CONTEXT_INVALID;
 	kgsl_context_put(context);
@@ -778,11 +784,6 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	mutex_lock(&device->mutex);
 	kgsl_check_suspended(device);
 
-	/* clean up any to-be-freed entries that belong to this
-	 * process and this device
-	 */
-	kgsl_cancel_events(device, dev_priv);
-
 	while (1) {
 		context = idr_get_next(&device->context_idr, &next);
 		if (context == NULL)
@@ -793,6 +794,13 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 
 		next = next + 1;
 	}
+	/*
+	 * Clean up any to-be-freed entries that belong to this
+	 * process and this device. This is done after the context
+	 * are destroyed to avoid possibly freeing memory while
+	 * it is still in use by the GPU.
+	 */
+	kgsl_cancel_events(device, dev_priv);
 
 	device->open_count--;
 	if (device->open_count == 0) {
