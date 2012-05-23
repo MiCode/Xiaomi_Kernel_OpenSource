@@ -69,6 +69,7 @@
 #include <sound/cs8427.h>
 #include <media/gpio-ir-recv.h>
 #include <linux/fmem.h>
+#include <mach/msm_pcie.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -113,6 +114,10 @@
 #define MAX_FIXED_AREA_SIZE	0x10000000
 #define MSM_MM_FW_SIZE		0x200000
 #define APQ8064_FW_START	(APQ8064_FIXED_AREA_START - MSM_MM_FW_SIZE)
+
+/* PCIe power enable pmic gpio */
+#define PCIE_PWR_EN_PMIC_GPIO 13
+#define PCIE_RST_N_PMIC_MPP 1
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
@@ -1998,6 +2003,22 @@ static void __init apq8064_init_buses(void)
 	msm_bus_8064_cpss_fpb.dev.platform_data = &msm_bus_8064_cpss_fpb_pdata;
 }
 
+/* PCIe gpios */
+static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
+	{"rst_n", PM8921_MPP_PM_TO_SYS(PCIE_RST_N_PMIC_MPP), 0},
+	{"pwr_en", PM8921_GPIO_PM_TO_SYS(PCIE_PWR_EN_PMIC_GPIO), 1},
+};
+
+static struct msm_pcie_platform msm_pcie_platform_data = {
+	.gpio = msm_pcie_gpio_info,
+};
+
+static void __init mpq8064_pcie_init(void)
+{
+	msm_device_pcie.dev.platform_data = &msm_pcie_platform_data;
+	platform_device_register(&msm_device_pcie);
+}
+
 static struct platform_device apq8064_device_ext_5v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= PM8921_MPP_PM_TO_SYS(7),
@@ -2877,6 +2898,7 @@ static void __init apq8064_cdp_init(void)
 		machine_is_mpq8064_dtv()) {
 		enable_avc_i2c_bus();
 		platform_add_devices(mpq_devices, ARRAY_SIZE(mpq_devices));
+		mpq8064_pcie_init();
 	} else {
 		ethernet_init();
 		platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));

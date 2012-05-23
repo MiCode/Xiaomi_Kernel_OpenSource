@@ -167,6 +167,8 @@ extern struct platform_device msm8625_device_dmov;
 extern struct platform_device msm_device_dmov_adm0;
 extern struct platform_device msm_device_dmov_adm1;
 
+extern struct platform_device msm_device_pcie;
+
 extern struct platform_device msm_device_nand;
 
 extern struct platform_device msm_device_tssc;
