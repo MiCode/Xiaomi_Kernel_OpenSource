@@ -108,6 +108,11 @@ void adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 					unsigned int *cmdaddr,
 					int sizedwords);
 
+void adreno_ringbuffer_issuecmds_intr(struct kgsl_device *device,
+					struct kgsl_context *k_ctxt,
+					unsigned int *cmdaddr,
+					int sizedwords);
+
 void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb);
 
 void kgsl_cp_intrcallback(struct kgsl_device *device);
