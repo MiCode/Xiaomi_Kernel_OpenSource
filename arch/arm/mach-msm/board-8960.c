@@ -1298,68 +1298,10 @@ static struct platform_device qcedev_device = {
 };
 #endif
 
-#define MDM2AP_ERRFATAL			70
-#define AP2MDM_ERRFATAL			95
-#define MDM2AP_STATUS			69
-#define AP2MDM_STATUS			94
-#define AP2MDM_PMIC_RESET_N		80
-#define AP2MDM_KPDPWR_N			81
-
-static struct resource mdm_resources[] = {
-	{
-		.start	= MDM2AP_ERRFATAL,
-		.end	= MDM2AP_ERRFATAL,
-		.name	= "MDM2AP_ERRFATAL",
-		.flags	= IORESOURCE_IO,
-	},
-	{
-		.start	= AP2MDM_ERRFATAL,
-		.end	= AP2MDM_ERRFATAL,
-		.name	= "AP2MDM_ERRFATAL",
-		.flags	= IORESOURCE_IO,
-	},
-	{
-		.start	= MDM2AP_STATUS,
-		.end	= MDM2AP_STATUS,
-		.name	= "MDM2AP_STATUS",
-		.flags	= IORESOURCE_IO,
-	},
-	{
-		.start	= AP2MDM_STATUS,
-		.end	= AP2MDM_STATUS,
-		.name	= "AP2MDM_STATUS",
-		.flags	= IORESOURCE_IO,
-	},
-	{
-		.start	= AP2MDM_PMIC_RESET_N,
-		.end	= AP2MDM_PMIC_RESET_N,
-		.name	= "AP2MDM_PMIC_RESET_N",
-		.flags	= IORESOURCE_IO,
-	},
-	{
-		.start	= AP2MDM_KPDPWR_N,
-		.end	= AP2MDM_KPDPWR_N,
-		.name	= "AP2MDM_KPDPWR_N",
-		.flags	= IORESOURCE_IO,
-	},
-};
-
-static struct mdm_platform_data mdm_platform_data = {
-	.mdm_version = "2.5",
-};
-
-static struct platform_device mdm_device = {
-	.name		= "mdm2_modem",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(mdm_resources),
-	.resource	= mdm_resources,
-	.dev		= {
-		.platform_data = &mdm_platform_data,
-	},
-};
-
-static struct platform_device *mdm_devices[] __initdata = {
-	&mdm_device,
+static struct mdm_platform_data sglte_platform_data = {
+	.mdm_version = "4.0",
+	.ramdump_delay_ms = 1000,
+	.peripheral_platform_device = NULL,
 };
 
 #define MSM_SHARED_RAM_PHYS 0x80000000
@@ -2893,7 +2835,7 @@ static void __init msm8960_init_hsic(void)
 	if (SOCINFO_VERSION_MAJOR(version) == 1)
 		return;
 
-	if (PLATFORM_IS_CHARM25() || machine_is_msm8960_liquid())
+	if (machine_is_msm8960_liquid())
 		platform_device_register(&msm_device_hsic_host);
 #endif
 }
@@ -3167,8 +3109,10 @@ static void __init msm8960_cdp_init(void)
 	change_memory_power = &msm8960_change_memory_power;
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 	msm_pm_init_sleep_status_data(&msm_pm_slp_sts_data);
-	if (PLATFORM_IS_CHARM25())
-		platform_add_devices(mdm_devices, ARRAY_SIZE(mdm_devices));
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		mdm_sglte_device.dev.platform_data = &sglte_platform_data;
+		platform_device_register(&mdm_sglte_device);
+	}
 }
 
 MACHINE_START(MSM8960_SIM, "QCT MSM8960 SIMULATOR")

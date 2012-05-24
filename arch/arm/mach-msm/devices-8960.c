@@ -3643,3 +3643,63 @@ struct platform_device msm8960_cache_dump_device = {
 		.platform_data = &msm8960_cache_dump_pdata,
 	},
 };
+
+#define MDM2AP_ERRFATAL			40
+#define AP2MDM_ERRFATAL			80
+#define MDM2AP_STATUS			24
+#define AP2MDM_STATUS			77
+#define AP2MDM_PMIC_PWR_EN		22
+#define AP2MDM_KPDPWR_N			79
+#define AP2MDM_SOFT_RESET		78
+
+static struct resource sglte_resources[] = {
+	{
+		.start	= MDM2AP_ERRFATAL,
+		.end	= MDM2AP_ERRFATAL,
+		.name	= "MDM2AP_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_ERRFATAL,
+		.end	= AP2MDM_ERRFATAL,
+		.name	= "AP2MDM_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_STATUS,
+		.end	= MDM2AP_STATUS,
+		.name	= "MDM2AP_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_STATUS,
+		.end	= AP2MDM_STATUS,
+		.name	= "AP2MDM_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_PMIC_PWR_EN,
+		.end	= AP2MDM_PMIC_PWR_EN,
+		.name	= "AP2MDM_PMIC_PWR_EN",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_KPDPWR_N,
+		.end	= AP2MDM_KPDPWR_N,
+		.name	= "AP2MDM_KPDPWR_N",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_SOFT_RESET,
+		.end	= AP2MDM_SOFT_RESET,
+		.name	= "AP2MDM_SOFT_RESET",
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+struct platform_device mdm_sglte_device = {
+	.name		= "mdm2_modem",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(sglte_resources),
+	.resource	= sglte_resources,
+};
