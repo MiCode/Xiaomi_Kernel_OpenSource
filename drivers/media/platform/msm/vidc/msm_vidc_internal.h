@@ -243,6 +243,7 @@ struct msm_vidc_inst {
 	bool in_reconfig;
 	u32 reconfig_width;
 	u32 reconfig_height;
+	struct dentry *debugfs_root;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
