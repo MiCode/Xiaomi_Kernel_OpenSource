@@ -1825,6 +1825,8 @@ static irqreturn_t udc_irq(struct ci13xxx *ci)
 				USB_SPEED_HIGH : USB_SPEED_FULL;
 			if (ci->suspended && ci->driver->resume) {
 				spin_unlock(&ci->lock);
+				if (ci->transceiver)
+					usb_phy_set_suspend(ci->transceiver, 0);
 				ci->driver->resume(&ci->gadget);
 				spin_lock(&ci->lock);
 				ci->suspended = 0;
@@ -1843,6 +1845,8 @@ static irqreturn_t udc_irq(struct ci13xxx *ci)
 				if (ci->platdata->notify_event)
 					ci->platdata->notify_event(ci,
 					  CI13XXX_CONTROLLER_SUSPEND_EVENT);
+				if (ci->transceiver)
+					usb_phy_set_suspend(ci->transceiver, 1);
 				spin_lock(&ci->lock);
 			}
 		}
