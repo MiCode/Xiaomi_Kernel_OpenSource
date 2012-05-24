@@ -14,8 +14,8 @@
 #ifndef VCAP_FMT_H
 #define VCAP_FMT_H
 
-#define V4L2_BUF_TYPE_INTERLACED_IN_AFE (V4L2_BUF_TYPE_PRIVATE)
-#define V4L2_BUF_TYPE_INTERLACED_IN_DECODER (V4L2_BUF_TYPE_PRIVATE + 1)
+#define V4L2_BUF_TYPE_INTERLACED_IN_DECODER (V4L2_BUF_TYPE_PRIVATE)
+#define V4L2_BUF_TYPE_VP_OUT (V4L2_BUF_TYPE_PRIVATE + 1)
 
 enum hal_vcap_mode {
 	HAL_VCAP_MODE_PRO = 0,
@@ -32,87 +32,7 @@ enum hal_vcap_color {
 	HAL_VCAP_RGB,
 };
 
-enum hal_vcap_vc_fmt {
-	/* 1080p */
-	HAL_VCAP_YUV_1080p_60_RH = 0,
-	HAL_VCAP_YUV_1080p_60_FL,
-	HAL_VCAP_RGB_1080p_60_FL,
-	HAL_VCAP_YUV_1080p_24_FL,
-	HAL_VCAP_YUV_1080p_24_RH,
-	HAL_VCAP_YUV_1080p_24_RW,
-	HAL_VCAP_YUV_1080p_60_RW,
-	HAL_VCAP_YUV_1080p_50_FL,
-	HAL_VCAP_YUV_1080p_50_RH,
-	HAL_VCAP_YUV_1080p_25_FL,
-	HAL_VCAP_YUV_1080p_25_RH,
-	HAL_VCAP_YUV_1080p_30_RH,
-	HAL_VCAP_RGB_1080p_25_FL,
-	HAL_VCAP_RGB_1080p_25_RH,
-	/* 1080i */
-	HAL_VCAP_YUV_1080i_60_FL,
-	HAL_VCAP_YUV_1080i_60_RH,
-	HAL_VCAP_YUV_1080i_60_RW,
-	HAL_VCAP_YUV_1080i_50_FL,
-	HAL_VCAP_YUV_1080i_50_RH,
-	HAL_VCAP_YUV_1080i_50_RW,
-	HAL_VCAP_RGB_1080i_50_FL,
-	HAL_VCAP_RGB_1080i_50_RH,
-	/* 480i */
-	HAL_VCAP_YUV_480i_60_RH,
-	HAL_VCAP_YUV_480i_60_FL,
-	HAL_VCAP_YUV_480i_60_RW,
-	HAL_VCAP_YUV_2880_480i_60_FL,
-	HAL_VCAP_YUV_2880_480i_60_RH,
-	/* 480p */
-	HAL_VCAP_YUV_480p_60_RH,
-	HAL_VCAP_RGB_480p_60_RH,
-	HAL_VCAP_RGB_480p_60_FL,
-	HAL_VCAP_YUV_480p_60_FL,
-	HAL_VCAP_YUV_480p_60_RW,
-	HAL_VCAP_YUV_2880_480p_60_FL,
-	HAL_VCAP_YUV_2880_480p_60_RH,
-	/* 720p */
-	HAL_VCAP_YUV_720p_60_FL,
-	HAL_VCAP_RGB_720p_60_FL,
-	HAL_VCAP_YUV_720p_60_RW,
-	HAL_VCAP_YUV_720p_60_RH,
-	HAL_VCAP_YUV_720p_50_FL,
-	HAL_VCAP_YUV_720p_50_RW,
-	HAL_VCAP_YUV_720p_50_RH,
-	/* 576p */
-	HAL_VCAP_YUV_576p_50_FL,
-	HAL_VCAP_RGB_576p_50_FL,
-	HAL_VCAP_YUV_576p_50_RW,
-	HAL_VCAP_YUV_576p_50_RH,
-	HAL_VCAP_YUV_1440_576p_50_RH,
-	HAL_VCAP_YUV_2880_576p_50_FL,
-	HAL_VCAP_YUV_2880_576p_50_RH,
-	/* 576i */
-	HAL_VCAP_YUV_576i_50_FL,
-	HAL_VCAP_YUV_576i_50_RW,
-	HAL_VCAP_YUV_576i_50_RH,
-	/* XGA 1024x768 */
-	HAL_VCAP_YUV_XGA_FL,
-	HAL_VCAP_YUV_XGA_RH,
-	HAL_VCAP_YUV_XGA_RB,
-	/* SXGA 1280x1024 */
-	HAL_VCAP_YUV_SXGA_FL,
-	HAL_VCAP_RGB_SXGA_FL,
-	HAL_VCAP_YUV_SXGA_RH,
-	HAL_VCAP_YUV_SXGA_RB,
-	/* UXGA 1600x1200 */
-	HAL_VCAP_YUV_UXGA_FL,
-	HAL_VCAP_RGB_UXGA_FL,
-	HAL_VCAP_YUV_UXGA_RH,
-	HAL_VCAP_YUV_UXGA_RB,
-	/* test odd height */
-	HAL_VCAP_ODD_HEIGHT,
-	/* test odd width RGB only */
-	HAL_VCAP_ODD_WIDTH,
-};
-
 struct v4l2_format_vc_ext {
-	enum hal_vcap_vc_fmt   format;
 	enum hal_vcap_mode     mode;
 	enum hal_vcap_polar    h_polar;
 	enum hal_vcap_polar    v_polar;
@@ -136,5 +56,21 @@ struct v4l2_format_vc_ext {
 	uint32_t f2_vsync_h_end;
 	uint32_t f2_vsync_v_start;
 	uint32_t f2_vsync_v_end;
+	uint32_t sizeimage;
+	uint32_t bytesperline;
+};
+
+enum vcap_type {
+	VC_TYPE,
+	VP_IN_TYPE,
+	VP_OUT_TYPE,
+};
+
+struct vcap_priv_fmt {
+	enum vcap_type type;
+	union {
+		struct v4l2_format_vc_ext timing;
+		/* Once VP is created there will be another type in here */
+	} u;
 };
 #endif
