@@ -1027,6 +1027,18 @@ static int dmx_ts_feed_stop_filtering(struct dmx_ts_feed *ts_feed)
 	return ret;
 }
 
+static int dmx_ts_set_indexing_params(
+	struct dmx_ts_feed *ts_feed,
+	struct dmx_indexing_video_params *params)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
+
+	memcpy(&feed->indexing_params, params,
+			sizeof(struct dmx_indexing_video_params));
+
+	return 0;
+}
+
 static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 				   struct dmx_ts_feed **ts_feed,
 				   dmx_ts_cb callback)
@@ -1048,6 +1060,8 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	feed->pid = 0xffff;
 	feed->peslen = 0xfffa;
 	feed->buffer = NULL;
+	memset(&feed->indexing_params, 0,
+			sizeof(struct dmx_indexing_video_params));
 
 	/* default behaviour - pass first PES data even if it is
 	 * partial PES data from previous PES that we didn't receive its header.
@@ -1063,6 +1077,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->start_filtering = dmx_ts_feed_start_filtering;
 	(*ts_feed)->stop_filtering = dmx_ts_feed_stop_filtering;
 	(*ts_feed)->set = dmx_ts_feed_set;
+	(*ts_feed)->set_indexing_params = dmx_ts_set_indexing_params;
 
 	if (!(feed->filter = dvb_dmx_filter_alloc(demux))) {
 		feed->state = DMX_STATE_FREE;
