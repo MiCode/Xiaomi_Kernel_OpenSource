@@ -90,12 +90,6 @@ struct internal_buf {
 	struct msm_smem *handle;
 };
 
-struct extradata_buf {
-	struct list_head list;
-	struct msm_smem *handle;
-	u32 device_addr;
-};
-
 struct msm_vidc_format {
 	char name[64];
 	u8 description[32];
@@ -149,7 +143,6 @@ struct msm_vidc_inst {
 	spinlock_t lock;
 	struct list_head pendingq;
 	struct list_head internalbufs;
-	struct list_head extradatabufs;
 	struct buffer_requirements buff_req;
 	void *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;

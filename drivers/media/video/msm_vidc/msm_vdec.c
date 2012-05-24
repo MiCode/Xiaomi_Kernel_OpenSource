@@ -239,37 +239,12 @@ int msm_vdec_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
 {
 	int rc = 0;
 	struct vb2_queue *q;
-	unsigned long flags;
-	struct list_head *ptr, *next;
-	struct internal_buf *buf;
-	struct extradata_buf *ebuf;
 
 	q = msm_comm_get_vb2q(inst, i);
 	if (!q) {
 		pr_err("Failed to find buffer queue for type = %d\n", i);
 		return -EINVAL;
 	}
-	if (i == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		spin_lock_irqsave(&inst->lock, flags);
-		if (!list_empty(&inst->internalbufs)) {
-			list_for_each_safe(ptr, next, &inst->internalbufs) {
-				buf = list_entry(ptr, struct internal_buf,
-								 list);
-				list_del(&buf->list);
-				msm_smem_free(inst->mem_client, buf->handle);
-				kfree(buf);
-			}
-		}
-		if (!list_empty(&inst->extradatabufs)) {
-			list_for_each_safe(ptr, next, &inst->extradatabufs) {
-				ebuf = list_entry(ptr, struct extradata_buf,
-								  list);
-				ebuf->device_addr = 0;
-			}
-		}
-		spin_unlock_irqrestore(&inst->lock, flags);
-	}
-
 	pr_debug("Calling streamoff\n");
 	rc = vb2_streamoff(q, i);
 	if (rc)
@@ -286,8 +261,7 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 	switch (b->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
-		struct extradata_buf *binfo;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		for (i = 0; i < b->length; i++) {
 			pr_err("device_addr = %ld, size = %d\n",
 				b->m.planes[i].m.userptr,
@@ -297,19 +271,8 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr =
 				b->m.planes[i].m.userptr;
-			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
-			if (!binfo) {
-				pr_err("Failed to allocate shared mem\n");
-				return -ENOMEM;
-			}
-			binfo->device_addr = b->m.planes[i].m.userptr;
-			rc = msm_comm_allocate_extradata_buffers(inst, binfo);
-			if (rc) {
-				pr_err("msm_comm_allocate_extradata_buffers failed");
-				break;
-			}
-			buffer_info.extradata_size = binfo->handle->size;
-			buffer_info.extradata_addr = binfo->handle->device_addr;
+			buffer_info.extradata_size = 0;
+			buffer_info.extradata_addr = 0;
 			rc = vidc_hal_session_set_buffers((void *)inst->session,
 					&buffer_info);
 			if (rc) {
@@ -318,7 +281,6 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 			}
 		}
 		break;
-	}
 	default:
 		pr_err("Buffer type not recognized: %d\n", b->type);
 		break;
@@ -336,10 +298,9 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 	switch (b->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
-		struct extradata_buf *addr;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		for (i = 0; i < b->length; i++) {
-			pr_err("Release device_addr = %ld, size = %d\n",
+			pr_debug("Release device_addr = %ld, size = %d\n",
 				b->m.planes[i].m.userptr,
 				b->m.planes[i].length);
 			buffer_info.buffer_size = b->m.planes[i].length;
@@ -347,26 +308,13 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr =
 				 b->m.planes[i].m.userptr;
-			if (!list_empty(&inst->extradatabufs)) {
-				list_for_each_entry(addr, &inst->
-					extradatabufs, list) {
-					if (addr->device_addr ==
-							buffer_info.
-						align_device_addr) {
-						buffer_info.extradata_addr =
-							addr->handle->
-							device_addr;
-						break;
-					}
-				}
-			}
+			buffer_info.extradata_addr = 0;
 			rc = vidc_hal_session_release_buffers(
 				(void *)inst->session, &buffer_info);
 			if (rc)
 				pr_err("vidc_hal_session_release_buffers failed");
 		}
 		break;
-	}
 	default:
 		pr_err("Buffer type not recognized: %d\n", b->type);
 		break;
