@@ -629,8 +629,7 @@ static const char *sb_tx4_mux_text[] = {
 };
 
 static const char *sb_tx5_mux_text[] = {
-	"ZERO", "RMIX1", "RMIX2", "RMIX3", "RMIX4", "RMIX5", "RMIX6", "RMIX7",
-		"DEC5"
+	"ZERO", "RMIX1", "RMIX2", "RMIX3", "DEC1", "DEC2", "DEC3", "DEC4"
 };
 
 static const char *dec1_mux_text[] = {
@@ -898,7 +897,7 @@ static int sitar_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	unsigned int dmic;
 	int ret;
 
-	ret = kstrtouint(strpbrk(w->name, "12"), 10, &dmic);
+	ret = kstrtouint(strpbrk(w->name, "1234"), 10, &dmic);
 	if (ret < 0) {
 		pr_err("%s: Invalid DMIC line on the codec\n", __func__);
 		return -EINVAL;
@@ -1713,6 +1712,7 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("SLIM TX2 MUX", SND_SOC_NOPM, 0, 0, &sb_tx2_mux),
 	SND_SOC_DAPM_MUX("SLIM TX3 MUX", SND_SOC_NOPM, 0, 0, &sb_tx3_mux),
 	SND_SOC_DAPM_MUX("SLIM TX4 MUX", SND_SOC_NOPM, 0, 0, &sb_tx4_mux),
+	SND_SOC_DAPM_MUX("SLIM TX5 MUX", SND_SOC_NOPM, 0, 0, &sb_tx5_mux),
 
 	SND_SOC_DAPM_AIF_OUT_E("SLIM TX1", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
 				0, sitar_codec_enable_slimtx,
@@ -1726,6 +1726,10 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 				0, sitar_codec_enable_slimtx,
 				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_OUT_E("SLIM TX4", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
+				0, sitar_codec_enable_slimtx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_OUT_E("SLIM TX5", "AIF1 Capture", 0, SND_SOC_NOPM, 0,
 				0, sitar_codec_enable_slimtx,
 				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
@@ -1841,11 +1845,16 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX2", NULL, "SLIM TX2 MUX"},
 	{"SLIM TX3", NULL, "SLIM TX3 MUX"},
 	{"SLIM TX4", NULL, "SLIM TX4 MUX"},
+	{"SLIM TX5", NULL, "SLIM TX5 MUX"},
 
 	{"SLIM TX1 MUX", "DEC1", "DEC1 MUX"},
 	{"SLIM TX2 MUX", "DEC2", "DEC2 MUX"},
 	{"SLIM TX3 MUX", "DEC3", "DEC3 MUX"},
 	{"SLIM TX4 MUX", "DEC4", "DEC4 MUX"},
+	{"SLIM TX5 MUX", "DEC1", "DEC1 MUX"},
+	{"SLIM TX5 MUX", "DEC2", "DEC2 MUX"},
+	{"SLIM TX5 MUX", "DEC3", "DEC3 MUX"},
+	{"SLIM TX5 MUX", "DEC4", "DEC4 MUX"},
 
 	/* Decimator Inputs */
 	{"DEC1 MUX", "DMIC1", "DMIC1"},
@@ -2329,10 +2338,8 @@ static int sitar_get_channel_map(struct snd_soc_dai *dai,
 		}
 	} else if (dai->id == AIF1_CAP) {
 		*tx_num = sitar_dai[dai->id - 1].capture.channels_max;
-		while (cnt < *tx_num) {
-			tx_slot[cnt] = tx_ch[cnt];
-			cnt++;
-		}
+		tx_slot[0] = tx_ch[cnt];
+		tx_slot[1] = tx_ch[4 + cnt];
 	}
 	return 0;
 }

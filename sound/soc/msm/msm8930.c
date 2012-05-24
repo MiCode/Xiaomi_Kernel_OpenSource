@@ -321,17 +321,17 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	 */
 
 	/**
-	 * Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP.
+	 * Digital Mic1. Front Bottom left Mic on Fluid and MTP.
 	 * Digital Mic GM5 on CDP mainboard.
-	 * Conncted to DMIC2 Input on Sitar codec.
+	 * Conncted to DMIC1 Input on Sitar codec.
 	 */
 	{"DMIC1", NULL, "MIC BIAS1 External"},
 	{"MIC BIAS1 External", NULL, "Digital Mic1"},
 
 	/**
-	 * Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP.
+	 * Digital Mic2. Back top MIC on Fluid.
 	 * Digital Mic GM6 on CDP mainboard.
-	 * Conncted to DMIC1 Input on Sitar codec.
+	 * Conncted to DMIC2 Input on Sitar codec.
 	 */
 	{"DMIC2", NULL, "MIC BIAS1 External"},
 	{"MIC BIAS1 External", NULL, "Digital Mic2"},
