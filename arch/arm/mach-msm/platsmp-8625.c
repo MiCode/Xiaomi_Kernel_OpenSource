@@ -170,6 +170,8 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
 
+	preset_lpj = loops_per_jiffy;
+
 	if (cold_boot_done == false) {
 		if (msm8625_release_secondary()) {
 			pr_err("Failed to release secondary core\n");
