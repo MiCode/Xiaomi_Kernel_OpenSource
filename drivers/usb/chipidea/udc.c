@@ -1562,6 +1562,9 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 		} else {
 			hw_device_state(ci, 0);
 			_gadget_stop_activity(&ci->gadget);
+			if (ci->platdata->notify_event)
+				ci->platdata->notify_event(ci,
+					CI13XXX_CONTROLLER_DISCONNECT_EVENT);
 			pm_runtime_put_sync(&_gadget->dev);
 		}
 	}
@@ -1825,6 +1828,9 @@ static irqreturn_t udc_irq(struct ci13xxx *ci)
 				USB_SPEED_HIGH : USB_SPEED_FULL;
 			if (ci->suspended && ci->driver->resume) {
 				spin_unlock(&ci->lock);
+				if (ci->platdata->notify_event)
+					ci->platdata->notify_event(ci,
+					  CI13XXX_CONTROLLER_RESUME_EVENT);
 				if (ci->transceiver)
 					usb_phy_set_suspend(ci->transceiver, 0);
 				ci->driver->resume(&ci->gadget);

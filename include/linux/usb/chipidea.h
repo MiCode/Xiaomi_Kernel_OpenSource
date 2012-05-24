@@ -26,6 +26,8 @@ struct ci13xxx_platform_data {
 #define CI13XXX_CONTROLLER_CONNECT_EVENT	1
 #define CI13XXX_CONTROLLER_SUSPEND_EVENT		2
 #define CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT	3
+#define CI13XXX_CONTROLLER_RESUME_EVENT		4
+#define CI13XXX_CONTROLLER_DISCONNECT_EVENT	5
 	void	(*notify_event) (struct ci13xxx *ci, unsigned event);
 };
 
