@@ -32,10 +32,10 @@ endmenu
 
 menu "HSIC support for DIAG"
 
-config DIAG_HSIC_PIPE
+config DIAG_BRIDGE_CODE
 	depends on USB_QCOM_DIAG_BRIDGE
 	default y
-	bool "Enable 9K DIAG traffic over HSIC"
+	bool "Enable QSC/9K DIAG traffic over SMUX/HSIC"
 	help
-	 HSIC Transport Layer for DIAG Router
+	 SMUX/HSIC Transport Layer for DIAG Router
 endmenu

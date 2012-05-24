@@ -10,18 +10,16 @@
  * GNU General Public License for more details.
  */
 
-#ifndef DIAGFWD_HSIC_H
-#define DIAGFWD_HSIC_H
+#ifndef DIAGFWD_SMUX_H
+#define DIAGFWD_SMUX_H
 
-#include <mach/diag_bridge.h>
-#define N_MDM_WRITE	1 /* Upgrade to 2 with ping pong buffer */
-#define N_MDM_READ	1
+#include <linux/smux.h>
+#define LCID_VALID	SMUX_USB_DIAG_0
+#define LCID_INVALID	0
 
-int diagfwd_connect_bridge(int);
-int diagfwd_disconnect_bridge(int);
-int diagfwd_write_complete_hsic(void);
-int diagfwd_cancel_hsic(void);
-void diagfwd_bridge_init(void);
-void diagfwd_bridge_exit(void);
+int diagfwd_read_complete_smux(void);
+int diagfwd_write_complete_smux(void);
+int diagfwd_connect_smux(void);
+extern struct platform_driver msm_diagfwd_smux_driver;
 
 #endif
