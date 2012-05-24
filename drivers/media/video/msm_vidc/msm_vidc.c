@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <media/msm_vidc.h>
 #include "msm_vidc_internal.h"
+#include "msm_vidc_debug.h"
 #include "msm_vdec.h"
 #include "msm_venc.h"
 #include "msm_vidc_common.h"
@@ -290,6 +291,8 @@ int msm_vidc_open(void *vidc_inst, int core_id, int session_type)
 		pr_err("Failed to move video instance to init state\n");
 		goto fail_init;
 	}
+	inst->debugfs_root =
+		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
 	spin_lock_irqsave(&core->lock, flags);
 	list_add_tail(&inst->list, &core->instances);
 	spin_unlock_irqrestore(&core->lock, flags);
@@ -341,6 +344,7 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 			msm_smem_free(inst->mem_client, inst->extradata_handle);
 		spin_unlock_irqrestore(&inst->lock, flags);
 		msm_smem_delete_client(inst->mem_client);
+		debugfs_remove_recursive(inst->debugfs_root);
 	}
 }
 

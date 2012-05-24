@@ -26,6 +26,7 @@
 #include <mach/iommu_domains.h>
 #include <media/msm_vidc.h>
 #include "msm_vidc_internal.h"
+#include "msm_vidc_debug.h"
 #include "vidc_hal_api.h"
 #include "msm_smem.h"
 
@@ -1149,7 +1150,6 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	int rc = 0;
 	struct msm_vidc_core *core;
 	unsigned long flags;
-	char debugfs_name[MAX_DEBUGFS_NAME];
 	core = kzalloc(sizeof(*core), GFP_KERNEL);
 	if (!core || !vidc_driver) {
 		pr_err("Failed to allocate memory for device core\n");
@@ -1210,9 +1210,8 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	core->id = vidc_driver->num_cores++;
 	list_add_tail(&core->list, &vidc_driver->cores);
 	spin_unlock_irqrestore(&vidc_driver->lock, flags);
-	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "core%d", core->id);
-	core->debugfs_root = debugfs_create_dir(debugfs_name,
-						vidc_driver->debugfs_root);
+	core->debugfs_root = msm_vidc_debugfs_init_core(
+		core, vidc_driver->debugfs_root);
 	pdev->dev.platform_data = core;
 	return rc;
 
