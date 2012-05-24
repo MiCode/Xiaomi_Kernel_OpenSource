@@ -370,6 +370,7 @@ static struct scalable scalable_8627[] = {
 		},
 	[L2] = {
 			.hfpll_base   = MSM_HFPLL_BASE    + 0x400,
+			.hfpll_vdd_tbl = hfpll_vdd_dig_tbl_8930,
 			.aux_clk_sel  = MSM_APCS_GCC_BASE + 0x028,
 			.l2cpmr_iaddr = L2CPMR_IADDR,
 			.vreg[VREG_HFPLL_B] = { "hfpll_l2", 1800000,
