@@ -754,6 +754,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
 	.vbus_power		= msm_hsusb_vbus_power,
 	.disable_reset_on_disconnect	= true,
+	.enable_lpm_on_dev_suspend	= true,
 };
 
 static struct msm_hsic_peripheral_platform_data msm_hsic_peripheral_pdata = {
