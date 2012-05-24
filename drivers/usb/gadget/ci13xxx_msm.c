@@ -16,6 +16,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/ulpi.h>
+#include <mach/gpio.h>
 
 #include "ci13xxx_udc.c"
 
@@ -24,12 +25,40 @@
 struct ci13xxx_udc_context {
 	int irq;
 	void __iomem *regs;
+	int wake_gpio;
+	int wake_irq;
+	bool wake_irq_state;
 };
+
 static struct ci13xxx_udc_context _udc_ctxt;
 
 static irqreturn_t msm_udc_irq(int irq, void *data)
 {
 	return udc_irq();
+}
+
+static void ci13xxx_msm_suspend(void)
+{
+	struct device *dev = _udc->gadget.dev.parent;
+	dev_dbg(dev, "ci13xxx_msm_suspend\n");
+
+	if (_udc_ctxt.wake_irq && !_udc_ctxt.wake_irq_state) {
+		enable_irq_wake(_udc_ctxt.wake_irq);
+		enable_irq(_udc_ctxt.wake_irq);
+		_udc_ctxt.wake_irq_state = true;
+	}
+}
+
+static void ci13xxx_msm_resume(void)
+{
+	struct device *dev = _udc->gadget.dev.parent;
+	dev_dbg(dev, "ci13xxx_msm_resume\n");
+
+	if (_udc_ctxt.wake_irq && _udc_ctxt.wake_irq_state) {
+		disable_irq_wake(_udc_ctxt.wake_irq);
+		disable_irq(_udc_ctxt.wake_irq);
+		_udc_ctxt.wake_irq_state = false;
+	}
 }
 
 static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
@@ -38,14 +67,39 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 
 	switch (event) {
 	case CI13XXX_CONTROLLER_RESET_EVENT:
-		dev_dbg(dev, "CI13XXX_CONTROLLER_RESET_EVENT received\n");
+		dev_info(dev, "CI13XXX_CONTROLLER_RESET_EVENT received\n");
 		writel(0, USB_AHBBURST);
 		writel_relaxed(0x08, USB_AHBMODE);
 		break;
+	case CI13XXX_CONTROLLER_DISCONNECT_EVENT:
+		dev_info(dev, "CI13XXX_CONTROLLER_DISCONNECT_EVENT received\n");
+		ci13xxx_msm_resume();
+		break;
+	case CI13XXX_CONTROLLER_SUSPEND_EVENT:
+		dev_info(dev, "CI13XXX_CONTROLLER_SUSPEND_EVENT received\n");
+		ci13xxx_msm_suspend();
+		break;
+	case CI13XXX_CONTROLLER_RESUME_EVENT:
+		dev_info(dev, "CI13XXX_CONTROLLER_RESUME_EVENT received\n");
+		ci13xxx_msm_resume();
+		break;
+
 	default:
 		dev_dbg(dev, "unknown ci13xxx_udc event\n");
 		break;
 	}
+}
+
+static irqreturn_t ci13xxx_msm_resume_irq(int irq, void *data)
+{
+	struct ci13xxx *udc = _udc;
+
+	if (udc->transceiver && udc->vbus_active && udc->suspended)
+		otg_set_suspend(udc->transceiver, 0);
+	else if (!udc->suspended)
+		ci13xxx_msm_resume();
+
+	return IRQ_HANDLED;
 }
 
 static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
@@ -59,6 +113,52 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 
 	.notify_event		= ci13xxx_msm_notify_event,
 };
+
+static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
+				struct resource *res)
+{
+	int wake_irq;
+	int ret;
+
+	dev_dbg(&pdev->dev, "ci13xxx_msm_install_wake_gpio\n");
+
+	_udc_ctxt.wake_gpio = res->start;
+	gpio_request(_udc_ctxt.wake_gpio, "USB_RESUME");
+	gpio_direction_input(_udc_ctxt.wake_gpio);
+	wake_irq = MSM_GPIO_TO_INT(_udc_ctxt.wake_gpio);
+	if (wake_irq < 0) {
+		dev_err(&pdev->dev, "could not register USB_RESUME GPIO.\n");
+		return -ENXIO;
+	}
+
+	dev_dbg(&pdev->dev, "_udc_ctxt.gpio_irq = %d and irq = %d\n",
+			_udc_ctxt.wake_gpio, wake_irq);
+	ret = request_irq(wake_irq, ci13xxx_msm_resume_irq,
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "usb resume", NULL);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "could not register USB_RESUME IRQ.\n");
+		goto gpio_free;
+	}
+	disable_irq(wake_irq);
+	_udc_ctxt.wake_irq = wake_irq;
+
+	return 0;
+
+gpio_free:
+	gpio_free(_udc_ctxt.wake_gpio);
+	_udc_ctxt.wake_gpio = 0;
+	return ret;
+}
+
+static void ci13xxx_msm_uninstall_wake_gpio(struct platform_device *pdev)
+{
+	dev_dbg(&pdev->dev, "ci13xxx_msm_uninstall_wake_gpio\n");
+
+	if (_udc_ctxt.wake_gpio) {
+		gpio_free(_udc_ctxt.wake_gpio);
+		_udc_ctxt.wake_gpio = 0;
+	}
+}
 
 static int ci13xxx_msm_probe(struct platform_device *pdev)
 {
@@ -92,11 +192,20 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 		goto udc_remove;
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_IO, "USB_RESUME");
+	if (res) {
+		ret = ci13xxx_msm_install_wake_gpio(pdev, res);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "gpio irq install failed\n");
+			goto udc_remove;
+		}
+	}
+
 	ret = request_irq(_udc_ctxt.irq, msm_udc_irq, IRQF_SHARED, pdev->name,
 					  pdev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "request_irq failed\n");
-		goto udc_remove;
+		goto gpio_uninstall;
 	}
 
 	pm_runtime_no_callbacks(&pdev->dev);
@@ -104,6 +213,8 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 
 	return 0;
 
+gpio_uninstall:
+	ci13xxx_msm_uninstall_wake_gpio(pdev);
 udc_remove:
 	udc_remove();
 iounmap:
@@ -116,6 +227,7 @@ int ci13xxx_msm_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 	free_irq(_udc_ctxt.irq, pdev);
+	ci13xxx_msm_uninstall_wake_gpio(pdev);
 	udc_remove();
 	iounmap(_udc_ctxt.regs);
 	return 0;

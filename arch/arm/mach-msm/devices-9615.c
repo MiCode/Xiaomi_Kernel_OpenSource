@@ -135,6 +135,8 @@ struct platform_device msm_device_otg = {
 	},
 };
 
+#define MSM_HSUSB_RESUME_GPIO	79
+
 static struct resource resources_hsusb[] = {
 	{
 		.start	= MSM9615_HSUSB_PHYS,
@@ -145,6 +147,12 @@ static struct resource resources_hsusb[] = {
 		.start	= USB1_HS_IRQ,
 		.end	= USB1_HS_IRQ,
 		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_HSUSB_RESUME_GPIO,
+		.end	= MSM_HSUSB_RESUME_GPIO,
+		.name	= "USB_RESUME",
+		.flags	= IORESOURCE_IO,
 	},
 };
 
