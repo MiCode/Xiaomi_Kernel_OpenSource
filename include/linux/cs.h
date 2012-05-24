@@ -13,6 +13,8 @@
 #ifndef _LINUX_CS_H
 #define _LINUX_CS_H
 
+#include <linux/device.h>
+
 /* Peripheral id registers (0xFD0-0xFEC) */
 #define CS_PIDR4		(0xFD0)
 #define CS_PIDR5		(0xFD4)
@@ -36,6 +38,58 @@
 #define ETM_ARCH_V3_3		(0x23)
 #define PFT_ARCH_V1_1		(0x31)
 
+enum cs_device_type {
+	CS_DEVICE_TYPE_SOURCE,
+	CS_DEVICE_TYPE_LINK,
+	CS_DEVICE_TYPE_SINK,
+	CS_DEVICE_TYPE_MAX,
+};
+
+struct cs_connection {
+	int child_id;
+	int child_port;
+	struct cs_device *child_dev;
+	struct list_head link;
+};
+
+struct cs_device {
+	int id;
+	struct cs_connection *conns;
+	int nr_conns;
+	const struct cs_ops *ops;
+	struct device dev;
+	struct mutex mutex;
+	int *refcnt;
+	struct list_head link;
+	struct module *owner;
+	bool enable;
+};
+
+#define to_cs_device(d) container_of(d, struct cs_device, dev)
+
+struct cs_ops {
+	int (*enable)(struct cs_device *csdev, int port);
+	void (*disable)(struct cs_device *csdev, int port);
+};
+
+struct cs_platform_data {
+	int id;
+	const char *name;
+	int nr_ports;
+	int *child_ids;
+	int *child_ports;
+	int nr_children;
+};
+
+struct cs_desc {
+	enum cs_device_type type;
+	const struct cs_ops *ops;
+	struct cs_platform_data *pdata;
+	struct device *dev;
+	const struct attribute_group **groups;
+	struct module *owner;
+};
+
 struct qdss_source {
 	struct list_head link;
 	const char *name;
@@ -47,6 +101,12 @@ struct msm_qdss_platform_data {
 	size_t size;
 	uint8_t afamily;
 };
+
+
+extern struct cs_device *cs_register(struct cs_desc *desc);
+extern void cs_unregister(struct cs_device *csdev);
+extern int cs_enable(struct cs_device *csdev, int port);
+extern void cs_disable(struct cs_device *csdev, int port);
 
 #ifdef CONFIG_MSM_QDSS
 extern struct qdss_source *qdss_get(const char *name);

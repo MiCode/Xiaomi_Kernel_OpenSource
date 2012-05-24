@@ -19,6 +19,8 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/export.h>
+#include <linux/slab.h>
+#include <linux/mutex.h>
 #include <linux/clk.h>
 #include <linux/cs.h>
 
@@ -32,6 +34,281 @@ enum {
 	QDSS_CLK_ON_HSDBG,
 };
 
+static LIST_HEAD(cs_orph_conns);
+static DEFINE_MUTEX(cs_orph_conns_mutex);
+static LIST_HEAD(cs_devs);
+static DEFINE_MUTEX(cs_devs_mutex);
+
+
+int cs_enable(struct cs_device *csdev, int port)
+{
+	int i;
+	int ret;
+	struct cs_connection *conn;
+
+	mutex_lock(&csdev->mutex);
+	if (csdev->refcnt[port] == 0) {
+		for (i = 0; i < csdev->nr_conns; i++) {
+			conn = &csdev->conns[i];
+			ret = cs_enable(conn->child_dev, conn->child_port);
+			if (ret)
+				goto err_enable_child;
+		}
+		if (csdev->ops->enable)
+			ret = csdev->ops->enable(csdev, port);
+		if (ret)
+			goto err_enable;
+	}
+	csdev->refcnt[port]++;
+	mutex_unlock(&csdev->mutex);
+	return 0;
+err_enable_child:
+	while (i) {
+		conn = &csdev->conns[--i];
+		cs_disable(conn->child_dev, conn->child_port);
+	}
+err_enable:
+	mutex_unlock(&csdev->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(cs_enable);
+
+void cs_disable(struct cs_device *csdev, int port)
+{
+	int i;
+	struct cs_connection *conn;
+
+	mutex_lock(&csdev->mutex);
+	if (csdev->refcnt[port] == 1) {
+		if (csdev->ops->disable)
+			csdev->ops->disable(csdev, port);
+		for (i = 0; i < csdev->nr_conns; i++) {
+			conn = &csdev->conns[i];
+			cs_disable(conn->child_dev, conn->child_port);
+		}
+	}
+	csdev->refcnt[port]--;
+	mutex_unlock(&csdev->mutex);
+}
+EXPORT_SYMBOL(cs_disable);
+
+static ssize_t cs_show_type(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", dev->type->name);
+}
+
+static struct device_attribute cs_dev_attrs[] = {
+	__ATTR(type, S_IRUGO, cs_show_type, NULL),
+	{ },
+};
+
+struct bus_type cs_bus_type = {
+	.name		= "cs",
+	.dev_attrs	= cs_dev_attrs,
+};
+
+static ssize_t cs_show_enable(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	struct cs_device *csdev = to_cs_device(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", (unsigned)csdev->enable);
+}
+
+static ssize_t cs_store_enable(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t size)
+{
+	int ret = 0;
+	unsigned long val;
+	struct cs_device *csdev = to_cs_device(dev);
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	if (val)
+		ret = cs_enable(csdev, 0);
+	else
+		cs_disable(csdev, 0);
+
+	if (ret)
+		return ret;
+	return size;
+}
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, cs_show_enable, cs_store_enable);
+
+static struct attribute *cs_attrs[] = {
+	&dev_attr_enable.attr,
+	NULL,
+};
+
+static struct attribute_group cs_attr_grp = {
+	.attrs = cs_attrs,
+};
+
+static const struct attribute_group *cs_attr_grps[] = {
+	&cs_attr_grp,
+	NULL,
+};
+
+static struct device_type cs_dev_type[CS_DEVICE_TYPE_MAX] = {
+	{
+		.name = "source",
+		.groups = cs_attr_grps,
+	},
+	{
+		.name = "link",
+	},
+	{
+		.name = "sink",
+		.groups = cs_attr_grps,
+	},
+};
+
+static void cs_device_release(struct device *dev)
+{
+	struct cs_device *csdev = to_cs_device(dev);
+	mutex_destroy(&csdev->mutex);
+	kfree(csdev);
+}
+
+static void cs_fixup_orphan_connections(struct cs_device *csdev)
+{
+	struct cs_connection *conn, *temp;
+
+	mutex_lock(&cs_orph_conns_mutex);
+	list_for_each_entry_safe(conn, temp, &cs_orph_conns, link) {
+		if (conn->child_id == csdev->id) {
+			conn->child_dev = csdev;
+			list_del(&conn->link);
+		}
+	}
+	mutex_unlock(&cs_orph_conns_mutex);
+}
+
+static void cs_fixup_device_connections(struct cs_device *csdev)
+{
+	int i;
+	struct cs_device *cd;
+	bool found;
+
+	for (i = 0; i < csdev->nr_conns; i++) {
+		found = false;
+		mutex_lock(&cs_devs_mutex);
+		list_for_each_entry(cd, &cs_devs, link) {
+			if (csdev->conns[i].child_id == cd->id) {
+				csdev->conns[i].child_dev = cd;
+				found = true;
+				break;
+			}
+		}
+		mutex_unlock(&cs_devs_mutex);
+		if (!found) {
+			mutex_lock(&cs_orph_conns_mutex);
+			list_add_tail(&csdev->conns[i].link, &cs_orph_conns);
+			mutex_unlock(&cs_orph_conns_mutex);
+		}
+	}
+}
+
+struct cs_device *cs_register(struct cs_desc *desc)
+{
+	int i;
+	int ret;
+	int *refcnt;
+	struct cs_device *csdev;
+	struct cs_connection *conns;
+
+	csdev = kzalloc(sizeof(*csdev), GFP_KERNEL);
+	if (!csdev) {
+		ret = -ENOMEM;
+		goto err_kzalloc_csdev;
+	}
+
+	mutex_init(&csdev->mutex);
+	csdev->id = desc->pdata->id;
+
+	refcnt = kzalloc(sizeof(*refcnt) * desc->pdata->nr_ports, GFP_KERNEL);
+	if (!refcnt) {
+		ret = -ENOMEM;
+		goto err_kzalloc_refcnt;
+	}
+	csdev->refcnt = refcnt;
+
+	csdev->nr_conns = desc->pdata->nr_children;
+	conns = kzalloc(sizeof(*conns) * csdev->nr_conns, GFP_KERNEL);
+	if (!conns) {
+		ret = -ENOMEM;
+		goto err_kzalloc_conns;
+	}
+	for (i = 0; i < csdev->nr_conns; i++) {
+		conns[i].child_id = desc->pdata->child_ids[i];
+		conns[i].child_port = desc->pdata->child_ports[i];
+	}
+	csdev->conns = conns;
+
+	csdev->ops = desc->ops;
+	csdev->owner = desc->owner;
+
+	csdev->dev.type = &cs_dev_type[desc->type];
+	csdev->dev.groups = desc->groups;
+	csdev->dev.parent = desc->dev;
+	csdev->dev.bus = &cs_bus_type;
+	csdev->dev.release = cs_device_release;
+	dev_set_name(&csdev->dev, "%s", desc->pdata->name);
+
+	cs_fixup_device_connections(csdev);
+	ret = device_register(&csdev->dev);
+	if (ret)
+		goto err_dev_reg;
+	cs_fixup_orphan_connections(csdev);
+
+	mutex_lock(&cs_devs_mutex);
+	list_add_tail(&csdev->link, &cs_devs);
+	mutex_unlock(&cs_devs_mutex);
+
+	return csdev;
+err_dev_reg:
+	put_device(&csdev->dev);
+	kfree(conns);
+err_kzalloc_conns:
+	kfree(refcnt);
+err_kzalloc_refcnt:
+	mutex_destroy(&csdev->mutex);
+	kfree(csdev);
+err_kzalloc_csdev:
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL(cs_register);
+
+void cs_unregister(struct cs_device *csdev)
+{
+	if (IS_ERR_OR_NULL(csdev))
+		return;
+
+	if (get_device(&csdev->dev)) {
+		mutex_lock(&csdev->mutex);
+		device_unregister(&csdev->dev);
+		mutex_unlock(&csdev->mutex);
+		put_device(&csdev->dev);
+	}
+}
+EXPORT_SYMBOL(cs_unregister);
+
+static int __init cs_init(void)
+{
+	return bus_register(&cs_bus_type);
+}
+subsys_initcall(cs_init);
+
+static void __exit cs_exit(void)
+{
+	bus_unregister(&cs_bus_type);
+}
+module_exit(cs_exit);
+
+MODULE_LICENSE("GPL v2");
 /*
  * Exclusion rules for structure fields.
  *
