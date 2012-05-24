@@ -178,6 +178,9 @@ enum usb_vdd_type {
  * @enable_dcd: Enable Data Contact Detection circuit. if not set
  *              wait for 600msec before proceeding to primary
  *              detection.
+ * @enable_lpm_on_suspend: Enable the USB core to go into Low
+ *              Power Mode, when USB bus is suspended but cable
+ *              is connected.
  * @bus_scale_table: parameters for bus bandwidth requirements
  */
 struct msm_otg_platform_data {
@@ -193,6 +196,7 @@ struct msm_otg_platform_data {
 	bool mhl_enable;
 	bool disable_reset_on_disconnect;
 	bool enable_dcd;
+	bool enable_lpm_on_dev_suspend;
 	struct msm_bus_scale_pdata *bus_scale_table;
 };
 
@@ -323,6 +327,11 @@ struct msm_otg {
 	 * voltage regulator(VDDCX).
 	 */
 #define ALLOW_PHY_RETENTION		BIT(1)
+	  /*
+	   * Allow putting the core in Low Power mode, when
+	   * USB bus is suspended but cable is connected.
+	   */
+#define ALLOW_LPM_ON_DEV_SUSPEND	    BIT(2)
 	unsigned long lpm_flags;
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)

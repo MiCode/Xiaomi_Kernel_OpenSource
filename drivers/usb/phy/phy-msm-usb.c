@@ -685,8 +685,7 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 {
 	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
 
-	if (aca_enabled() || (test_bit(ID, &motg->inputs) &&
-				 !test_bit(ID_A, &motg->inputs)))
+	if (aca_enabled())
 		return 0;
 
 	if (suspend) {
@@ -700,6 +699,14 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 			clear_bit(A_BUS_REQ, &motg->inputs);
 			queue_work(system_nrt_wq, &motg->sm_work);
 			break;
+		case OTG_STATE_B_PERIPHERAL:
+			pr_debug("peripheral bus suspend\n");
+			if (!(motg->caps & ALLOW_LPM_ON_DEV_SUSPEND))
+				break;
+			set_bit(A_BUS_SUSPEND, &motg->inputs);
+			queue_work(system_nrt_wq, &motg->sm_work);
+			break;
+
 		default:
 			break;
 		}
@@ -712,6 +719,13 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 
 			/* ensure hardware is not in low power mode */
 			pm_runtime_resume(phy->dev);
+			break;
+		case OTG_STATE_B_PERIPHERAL:
+			pr_debug("peripheral bus resume\n");
+			if (!(motg->caps & ALLOW_LPM_ON_DEV_SUSPEND))
+				break;
+			clear_bit(A_BUS_SUSPEND, &motg->inputs);
+			queue_work(system_nrt_wq, &motg->sm_work);
 			break;
 		default:
 			break;
@@ -730,7 +744,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	struct usb_bus *bus = phy->otg->host;
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	int cnt = 0;
-	bool host_bus_suspend, dcp;
+	bool host_bus_suspend, device_bus_suspend, dcp;
 	u32 phy_ctrl_val = 0, cmd_val;
 	unsigned ret;
 	u32 portsc;
@@ -740,6 +754,9 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	disable_irq(motg->irq);
 	host_bus_suspend = phy->otg->host && !test_bit(ID, &motg->inputs);
+	device_bus_suspend = phy->otg->gadget && test_bit(ID, &motg->inputs) &&
+		test_bit(A_BUS_SUSPEND, &motg->inputs) &&
+		motg->caps & ALLOW_LPM_ON_DEV_SUSPEND;
 	dcp = motg->chg_type == USB_DCP_CHARGER;
 	/*
 	 * Chipidea 45-nm PHY suspend sequence:
@@ -803,8 +820,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * PMIC notifications are unavailable.
 	 */
 	cmd_val = readl_relaxed(USB_USBCMD);
-	if (host_bus_suspend || (motg->pdata->otg_control == OTG_PHY_CONTROL &&
-				dcp))
+	if (host_bus_suspend || device_bus_suspend ||
+		(motg->pdata->otg_control == OTG_PHY_CONTROL && dcp))
 		cmd_val |= ASYNC_INTR_CTRL | ULPI_STP_CTRL;
 	else
 		cmd_val |= ULPI_STP_CTRL;
@@ -814,7 +831,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * BC1.2 spec mandates PD to enable VDP_SRC when charging from DCP.
 	 * PHY retention and collapse can not happen with VDP_SRC enabled.
 	 */
-	if (motg->caps & ALLOW_PHY_RETENTION && !host_bus_suspend && !dcp) {
+	if (motg->caps & ALLOW_PHY_RETENTION && !host_bus_suspend &&
+		!device_bus_suspend && !dcp) {
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
 		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
 			/* Enable PHY HV interrupts to wake MPM/Link */
@@ -2149,6 +2167,13 @@ static void msm_otg_sm_work(struct work_struct *w)
 			 */
 			otg->host->is_b_host = 1;
 			msm_otg_start_host(otg, 1);
+		} else if (test_bit(A_BUS_SUSPEND, &motg->inputs) &&
+				   test_bit(B_SESS_VLD, &motg->inputs)) {
+			pr_debug("a_bus_suspend && b_sess_vld\n");
+			if (motg->caps & ALLOW_LPM_ON_DEV_SUSPEND) {
+				pm_runtime_put_noidle(otg->phy->dev);
+				pm_runtime_suspend(otg->phy->dev);
+			}
 		} else if (test_bit(ID_C, &motg->inputs)) {
 			msm_otg_notify_charger(motg, IDEV_ACA_CHG_MAX);
 		}
@@ -2585,6 +2610,8 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 		} else {
 			dev_dbg(otg->phy->dev, "BSV clear\n");
 			clear_bit(B_SESS_VLD, &motg->inputs);
+			clear_bit(A_BUS_SUSPEND, &motg->inputs);
+
 			msm_chg_check_aca_intr(motg);
 		}
 		work = 1;
@@ -3412,6 +3439,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
 			motg->caps = ALLOW_PHY_RETENTION;
 	}
+
+	if (motg->pdata->enable_lpm_on_dev_suspend)
+		motg->caps |= ALLOW_LPM_ON_DEV_SUSPEND;
 
 	wake_lock(&motg->wlock);
 	pm_runtime_set_active(&pdev->dev);
