@@ -290,6 +290,7 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	mdp_bus_scale_update_request(0);
 #endif
 
+	mdp4_iommu_detach();
 	return ret;
 }
 
