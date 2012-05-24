@@ -448,6 +448,7 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 
 	conn->power_save = 1;
 	conn->disc_timeout = HCI_DISCONN_TIMEOUT;
+	wake_lock_init(&conn->idle_lock, WAKE_LOCK_SUSPEND, "bt_idle");
 
 	switch (type) {
 	case ACL_LINK:
@@ -521,6 +522,7 @@ int hci_conn_del(struct hci_conn *conn)
 
 	/* Make sure no timers are running */
 	del_timer(&conn->idle_timer);
+	wake_lock_destroy(&conn->idle_lock);
 	del_timer(&conn->disc_timer);
 	del_timer(&conn->smp_timer);
 	__cancel_delayed_work(&conn->rssi_update_work);
@@ -962,9 +964,11 @@ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 	}
 
 timer:
-	if (hdev->idle_timeout > 0)
+	if (hdev->idle_timeout > 0) {
 		mod_timer(&conn->idle_timer,
 			jiffies + msecs_to_jiffies(hdev->idle_timeout));
+		wake_lock(&conn->idle_lock);
+	}
 }
 
 static inline void hci_conn_stop_rssi_timer(struct hci_conn *conn)
