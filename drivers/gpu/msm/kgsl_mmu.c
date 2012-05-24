@@ -595,6 +595,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 {
 	int ret;
 	struct gen_pool *pool;
+	int size;
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
 		if (memdesc->sglen == 1) {
@@ -614,13 +615,15 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		}
 	}
 
+	size = kgsl_sg_size(memdesc->sg, memdesc->sglen);
+
 	/* Allocate from kgsl pool if it exists for global mappings */
 	pool = _get_pool(pagetable, memdesc->priv);
 
-	memdesc->gpuaddr = gen_pool_alloc(pool, memdesc->size);
+	memdesc->gpuaddr = gen_pool_alloc(pool, size);
 	if (memdesc->gpuaddr == 0) {
 		KGSL_CORE_ERR("gen_pool_alloc(%d) failed from pool: %s\n",
-			memdesc->size,
+			size,
 			(pool == pagetable->kgsl_pool) ?
 			"kgsl_pool" : "general_pool");
 		KGSL_CORE_ERR(" [%d] allocated=%d, entries=%d\n",
@@ -644,7 +647,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	KGSL_STATS_ADD(1, pagetable->stats.entries,
 		       pagetable->stats.max_entries);
 
-	KGSL_STATS_ADD(memdesc->size, pagetable->stats.mapped,
+	KGSL_STATS_ADD(size, pagetable->stats.mapped,
 		       pagetable->stats.max_mapped);
 
 	spin_unlock(&pagetable->lock);
@@ -653,7 +656,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 err_free_gpuaddr:
 	spin_unlock(&pagetable->lock);
-	gen_pool_free(pool, memdesc->gpuaddr, memdesc->size);
+	gen_pool_free(pool, memdesc->gpuaddr, size);
 	memdesc->gpuaddr = 0;
 	return ret;
 }
@@ -664,6 +667,8 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc)
 {
 	struct gen_pool *pool;
+	int size;
+
 	if (memdesc->size == 0 || memdesc->gpuaddr == 0)
 		return 0;
 
@@ -671,6 +676,9 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		memdesc->gpuaddr = 0;
 		return 0;
 	}
+
+	size = kgsl_sg_size(memdesc->sg, memdesc->sglen);
+
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 	pagetable->pt_ops->mmu_unmap(pagetable->priv, memdesc);
@@ -678,12 +686,12 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		spin_lock(&pagetable->lock);
 	/* Remove the statistics */
 	pagetable->stats.entries--;
-	pagetable->stats.mapped -= memdesc->size;
+	pagetable->stats.mapped -= size;
 
 	spin_unlock(&pagetable->lock);
 
 	pool = _get_pool(pagetable, memdesc->priv);
-	gen_pool_free(pool, memdesc->gpuaddr, memdesc->size);
+	gen_pool_free(pool, memdesc->gpuaddr, size);
 
 	/*
 	 * Don't clear the gpuaddr on global mappings because they
