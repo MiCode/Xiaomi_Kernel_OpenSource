@@ -1775,6 +1775,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HEADPHONE", NULL, "HPHL"},
 	{"HEADPHONE", NULL, "HPHR"},
 
+	{"HPHL DAC", NULL, "CP"},
+	{"HPHR DAC", NULL, "CP"},
+
 	{"HPHL", NULL, "HPHL DAC"},
 	{"HPHL DAC", "NULL", "DAC4 MUX"},
 	{"HPHR", NULL, "HPHR DAC"},
