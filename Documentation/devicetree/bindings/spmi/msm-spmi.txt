@@ -123,14 +123,14 @@ Notes :
 
 			pm8941_gpios: gpios {
 				spmi-dev-container;
-				compatible = "qcom,qpnp-gpio";
+				compatible = "qcom,qpnp-pin";
 				gpio-controller;
 				#gpio-cells = <1>;
 				#address-cells = <1>;
 				#size-cells = <1>;
 
 				pm8941_gpio1@0xc000 {
-					compatible = "qcom,qpnp-gpio";
+					compatible = "qcom,qpnp-pin";
 					reg = <0xc000 0x100>;
 					qcom,qpnp_gpio = <1>;
 					interrupt-parent = <&qpnp>;
@@ -139,7 +139,7 @@ Notes :
 				};
 
 				pm8941_gpio2@0xc100 {
-					compatible = "qcom,qpnp-gpio";
+					compatible = "qcom,qpnp-pin";
 					reg = <0xc100 0x100>;
 					qcom,qpnp_gpio = <2>;
 					interrupt-parent = <&qpnp>;
@@ -160,7 +160,7 @@ Notes :
 			#address-cells = <1>;
 			#size-cells = <1>;
 			spmi-dev-container;
-			compatible = "qcom,qpnp-gpio";
+			compatible = "qcom,qpnp-pin";
 
 			pm8841_gpio1@0xc000 {
 				reg = <0xc000 0x100>;

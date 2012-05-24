@@ -555,21 +555,24 @@ config GPIO_PM8XXX_RPC
 	  This option enables support for on-chip GPIO found on Qualcomm PM8xxx
 	  PMICs through RPC.
 
-config GPIO_QPNP
+config GPIO_QPNP_PIN
 	depends on ARCH_MSMCOPPER
 	depends on SPMI
 	depends on OF_SPMI
 	depends on MSM_QPNP_INT
-	tristate "Qualcomm QPNP GPIO support"
+	tristate "Qualcomm QPNP gpio support"
 	help
 	  Say 'y' here to include support for the Qualcomm QPNP gpio
-	  support. QPNP is a SPMI based PMIC implementation.
+	  driver. This driver supports Device Tree and allows a
+	  device_node to be registered as a gpio-controller. It
+	  does not handle gpio interrupts directly. That work is handled
+	  by CONFIG_MSM_QPNP_INT.
 
-config GPIO_QPNP_DEBUG
-	depends on GPIO_QPNP
+config GPIO_QPNP_PIN_DEBUG
+	depends on GPIO_QPNP_PIN
 	depends on DEBUG_FS
 	bool "Qualcomm QPNP GPIO debug support"
 	help
 	  Say 'y' here to include debug support for the Qualcomm
-	  QPNP gpio support
+	  QPNP gpio driver.
 endif
