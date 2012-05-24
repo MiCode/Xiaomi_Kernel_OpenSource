@@ -809,7 +809,6 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 			if (!external_common_state->
 					disp_mode_list.num_of_elements)
 				hdmi_msm_read_edid();
-			hdmi_msm_turn_on();
 		}
 	} else {
 		hdmi_msm_state->hpd_cable_chg_detected = FALSE;
@@ -824,16 +823,14 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 		DEV_INFO("Hdmi state switch to %d: %s\n",
 			external_common_state->sdev.state,  __func__);
 		if (hpd_state) {
+			/* Build EDID table */
 			hdmi_msm_read_edid();
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 			hdmi_msm_state->reauth = FALSE ;
 #endif
-			/* Build EDID table */
-			hdmi_msm_turn_on();
 			DEV_INFO("HDMI HPD: sense CONNECTED: send ONLINE\n");
 			kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_ONLINE);
-			hdmi_msm_hdcp_enable();
 #ifndef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 			/* Send Audio for HDMI Compliance Cases*/
 			envp[0] = "HDCP_STATE=PASS";
@@ -4376,10 +4373,11 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 
 	mutex_lock(&external_common_state_hpd_mutex);
 	hdmi_msm_state->panel_power_on = TRUE;
-	if (hdmi_msm_is_power_on()) {
+	if (external_common_state->hpd_state && hdmi_msm_is_power_on()) {
 		DEV_DBG("%s: Turning HDMI on\n", __func__);
 		mutex_unlock(&external_common_state_hpd_mutex);
 		hdmi_msm_turn_on();
+		hdmi_msm_hdcp_enable();
 	} else
 		mutex_unlock(&external_common_state_hpd_mutex);
 
