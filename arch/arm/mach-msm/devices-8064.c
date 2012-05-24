@@ -477,13 +477,24 @@ struct platform_device apq_cpudai_slim_4_tx = {
  */
 struct msm_dai_auxpcm_pdata apq_auxpcm_pdata = {
 	.clk = "pcm_clk",
-	.mode = AFE_PCM_CFG_MODE_PCM,
-	.sync = AFE_PCM_CFG_SYNC_INT,
-	.frame = AFE_PCM_CFG_FRM_256BPF,
-	.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD,
-	.slot = 0,
-	.data = AFE_PCM_CFG_CDATAOE_MASTER,
-	.pcm_clk_rate = 2048000,
+	.mode_8k = {
+		.mode = AFE_PCM_CFG_MODE_PCM,
+		.sync = AFE_PCM_CFG_SYNC_INT,
+		.frame = AFE_PCM_CFG_FRM_256BPF,
+		.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD,
+		.slot = 0,
+		.data = AFE_PCM_CFG_CDATAOE_MASTER,
+		.pcm_clk_rate = 2048000,
+	},
+	.mode_16k = {
+		.mode = AFE_PCM_CFG_MODE_PCM,
+		.sync = AFE_PCM_CFG_SYNC_INT,
+		.frame = AFE_PCM_CFG_FRM_256BPF,
+		.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD,
+		.slot = 0,
+		.data = AFE_PCM_CFG_CDATAOE_MASTER,
+		.pcm_clk_rate = 4096000,
+	}
 };
 
 struct platform_device apq_cpudai_auxpcm_rx = {

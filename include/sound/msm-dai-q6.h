@@ -21,8 +21,7 @@
 #define MSM_MI2S_CAP_RX 0
 #define MSM_MI2S_CAP_TX 1
 
-struct msm_dai_auxpcm_pdata {
-	const char *clk;
+struct msm_dai_auxpcm_config {
 	u16 mode;
 	u16 sync;
 	u16 frame;
@@ -36,4 +35,11 @@ struct msm_mi2s_pdata {
 	u16 rx_sd_lines;
 	u16 tx_sd_lines;
 };
+
+struct msm_dai_auxpcm_pdata {
+	const char *clk;
+	struct msm_dai_auxpcm_config mode_8k;
+	struct msm_dai_auxpcm_config mode_16k;
+};
+
 #endif
