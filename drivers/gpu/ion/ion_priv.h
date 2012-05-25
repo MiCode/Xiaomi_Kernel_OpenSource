@@ -155,7 +155,8 @@ struct ion_heap_ops {
 				unsigned long iova_length,
 				unsigned long flags);
 	void (*unmap_iommu)(struct ion_iommu_map *data);
-	int (*print_debug)(struct ion_heap *heap, struct seq_file *s);
+	int (*print_debug)(struct ion_heap *heap, struct seq_file *s,
+			   const struct rb_root *mem_map);
 	int (*secure_heap)(struct ion_heap *heap);
 	int (*unsecure_heap)(struct ion_heap *heap);
 };
@@ -185,7 +186,22 @@ struct ion_heap {
 	const char *name;
 };
 
-
+/**
+ * struct mem_map_data - represents information about the memory map for a heap
+ * @node:		rb node used to store in the tree of mem_map_data
+ * @addr:		start address of memory region.
+ * @addr:		end address of memory region.
+ * @size:		size of memory region
+ * @client_name:		name of the client who owns this buffer.
+ *
+ */
+struct mem_map_data {
+	struct rb_node node;
+	unsigned long addr;
+	unsigned long addr_end;
+	unsigned long size;
+	const char *client_name;
+};
 
 #define iommu_map_domain(__m)		((__m)->domain_info[1])
 #define iommu_map_partition(__m)	((__m)->domain_info[0])
@@ -297,5 +313,10 @@ void *ion_map_fmem_buffer(struct ion_buffer *buffer, unsigned long phys_base,
 int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *uaddr, unsigned long offset, unsigned long len,
 			unsigned int cmd);
+
+void ion_cp_heap_get_base(struct ion_heap *heap, unsigned long *base,
+			unsigned long *size);
+
+void ion_mem_map_show(struct ion_heap *heap);
 
 #endif /* _ION_PRIV_H */
