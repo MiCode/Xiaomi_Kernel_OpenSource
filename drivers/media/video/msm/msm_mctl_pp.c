@@ -36,18 +36,6 @@
 #define D(fmt, args...) do {} while (0)
 #endif
 
-
-static int msm_mctl_pp_vpe_ioctl(struct v4l2_subdev *vpe_sd,
-	struct msm_mctl_pp_cmd *cmd, void *data)
-{
-	int rc = 0;
-	struct msm_mctl_pp_params parm;
-	parm.cmd = cmd;
-	parm.data = data;
-	rc = v4l2_subdev_call(vpe_sd, core, ioctl, VIDIOC_MSM_VPE_CFG, &parm);
-	return rc;
-}
-
 static int msm_mctl_pp_buf_divert(
 			struct msm_cam_media_controller *pmctl,
 			struct msm_cam_v4l2_dev_inst *pcam_inst,
@@ -384,244 +372,6 @@ static int msm_mctl_pp_path_to_inst_index(struct msm_cam_v4l2_device *pcam,
 		return -EINVAL;
 }
 
-int msm_mctl_pp_proc_vpe_cmd(
-	struct msm_cam_media_controller *p_mctl,
-	struct msm_mctl_pp_cmd *pp_cmd)
-{
-	int rc = 0, idx;
-	void __user *argp = (void __user *)pp_cmd->value;
-	struct msm_cam_v4l2_dev_inst *pcam_inst;
-
-	switch (pp_cmd->id) {
-	case VPE_CMD_INIT:
-	case VPE_CMD_DEINIT:
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		break;
-	case VPE_CMD_DISABLE:
-	case VPE_CMD_RESET:
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		break;
-	case VPE_CMD_ENABLE: {
-		struct msm_vpe_clock_rate clk_rate;
-		if (sizeof(struct msm_vpe_clock_rate) !=
-			pp_cmd->length) {
-			pr_err("%s: vpe cmd size mismatch "
-				"(id=%d, length = %d, expect size = %d",
-				__func__, pp_cmd->id, pp_cmd->length,
-				sizeof(struct msm_vpe_clock_rate));
-				rc = -EINVAL;
-				break;
-		}
-		if (copy_from_user(&clk_rate, pp_cmd->value,
-			sizeof(struct msm_vpe_clock_rate))) {
-			pr_err("%s:clk_rate copy failed", __func__);
-			return -EFAULT;
-		}
-		pp_cmd->value = (void *)&clk_rate;
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		pp_cmd->value = argp;
-		break;
-	}
-	case VPE_CMD_FLUSH: {
-		struct msm_vpe_flush_frame_buffer flush_buf;
-		if (sizeof(struct msm_vpe_flush_frame_buffer) !=
-			pp_cmd->length) {
-			D("%s: size mismatch(id=%d, len = %d, expected = %d",
-				__func__, pp_cmd->id, pp_cmd->length,
-				sizeof(struct msm_vpe_flush_frame_buffer));
-				rc = -EINVAL;
-				break;
-		}
-		if (copy_from_user(
-			&flush_buf, pp_cmd->value, sizeof(flush_buf)))
-			return -EFAULT;
-		pp_cmd->value = (void *)&flush_buf;
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		if (rc == 0) {
-			if (copy_to_user((void *)argp,
-						&flush_buf,
-						sizeof(flush_buf))) {
-				ERR_COPY_TO_USER();
-				rc = -EFAULT;
-			}
-			pp_cmd->value = argp;
-		}
-	}
-	break;
-	case VPE_CMD_OPERATION_MODE_CFG: {
-		struct msm_vpe_op_mode_cfg op_mode_cfg;
-		if (sizeof(struct msm_vpe_op_mode_cfg) !=
-		pp_cmd->length) {
-			D("%s: size mismatch(id=%d, len = %d, expected = %d",
-				__func__, pp_cmd->id, pp_cmd->length,
-				sizeof(struct msm_vpe_op_mode_cfg));
-				rc = -EINVAL;
-				break;
-		}
-		if (copy_from_user(&op_mode_cfg,
-			pp_cmd->value,
-			sizeof(op_mode_cfg)))
-			return -EFAULT;
-		pp_cmd->value = (void *)&op_mode_cfg;
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		break;
-	}
-	case VPE_CMD_INPUT_PLANE_CFG: {
-		struct msm_vpe_input_plane_cfg input_cfg;
-		if (sizeof(struct msm_vpe_input_plane_cfg) !=
-			pp_cmd->length) {
-			D("%s: mismatch(id=%d, len = %d, expected = %d",
-				__func__, pp_cmd->id, pp_cmd->length,
-				sizeof(struct msm_vpe_input_plane_cfg));
-				rc = -EINVAL;
-				break;
-		}
-		if (copy_from_user(
-			&input_cfg, pp_cmd->value, sizeof(input_cfg)))
-			return -EFAULT;
-		pp_cmd->value = (void *)&input_cfg;
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		break;
-	}
-	case VPE_CMD_OUTPUT_PLANE_CFG: {
-		struct msm_vpe_output_plane_cfg output_cfg;
-		if (sizeof(struct msm_vpe_output_plane_cfg) !=
-			pp_cmd->length) {
-			D("%s: size mismatch(id=%d, len = %d, expected = %d",
-				__func__, pp_cmd->id, pp_cmd->length,
-				sizeof(struct msm_vpe_output_plane_cfg));
-				rc = -EINVAL;
-				break;
-		}
-		if (copy_from_user(&output_cfg, pp_cmd->value,
-			sizeof(output_cfg))) {
-			D("%s: cannot copy pp_cmd->value, size=%d",
-				__func__, pp_cmd->length);
-			return -EFAULT;
-		}
-		pp_cmd->value = (void *)&output_cfg;
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		break;
-	}
-	case VPE_CMD_INPUT_PLANE_UPDATE: {
-		struct msm_vpe_input_plane_update_cfg input_update_cfg;
-		if (sizeof(struct msm_vpe_input_plane_update_cfg) !=
-			pp_cmd->length) {
-			D("%s: size mismatch(id=%d, len = %d, expected = %d",
-				__func__, pp_cmd->id, pp_cmd->length,
-				sizeof(struct msm_vpe_input_plane_update_cfg));
-				rc = -EINVAL;
-				break;
-		}
-		if (copy_from_user(&input_update_cfg, pp_cmd->value,
-			sizeof(input_update_cfg)))
-			return -EFAULT;
-		pp_cmd->value = (void *)&input_update_cfg;
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		break;
-	}
-	case VPE_CMD_SCALE_CFG_TYPE: {
-		struct msm_vpe_scaler_cfg scaler_cfg;
-		if (sizeof(struct msm_vpe_scaler_cfg) !=
-			pp_cmd->length) {
-			D("%s: size mismatch(id=%d, len = %d, expected = %d",
-				__func__, pp_cmd->id, pp_cmd->length,
-				sizeof(struct msm_vpe_scaler_cfg));
-				rc = -EINVAL;
-				break;
-		}
-		if (copy_from_user(&scaler_cfg, pp_cmd->value,
-			sizeof(scaler_cfg)))
-			return -EFAULT;
-		pp_cmd->value = (void *)&scaler_cfg;
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, NULL);
-		break;
-	}
-	case VPE_CMD_ZOOM: {
-		struct msm_mctl_pp_frame_info *zoom;
-		zoom = kmalloc(sizeof(struct msm_mctl_pp_frame_info),
-					GFP_ATOMIC);
-		if (!zoom) {
-			rc = -ENOMEM;
-			break;
-		}
-		if (sizeof(zoom->pp_frame_cmd) != pp_cmd->length) {
-			D("%s: size mismatch(id=%d, len = %d, expected = %d",
-				__func__, pp_cmd->id, pp_cmd->length,
-				sizeof(zoom->pp_frame_cmd));
-				rc = -EINVAL;
-				kfree(zoom);
-				break;
-		}
-		if (copy_from_user(&zoom->pp_frame_cmd, pp_cmd->value,
-			sizeof(zoom->pp_frame_cmd))) {
-			kfree(zoom);
-			return -EFAULT;
-		}
-		D("%s: src=0x%x, dest=0x%x,cookie=0x%x,action=0x%x,path=0x%x",
-				__func__, zoom->pp_frame_cmd.src_buf_handle,
-				zoom->pp_frame_cmd.dest_buf_handle,
-				zoom->pp_frame_cmd.cookie,
-				zoom->pp_frame_cmd.vpe_output_action,
-				zoom->pp_frame_cmd.path);
-		idx = msm_mctl_pp_path_to_inst_index(p_mctl->pcam_ptr,
-			zoom->pp_frame_cmd.path);
-		if (idx < 0) {
-			pr_err("%s Invalid path, returning\n", __func__);
-			kfree(zoom);
-			return idx;
-		}
-		pcam_inst = p_mctl->pcam_ptr->dev_inst[idx];
-		if (!pcam_inst) {
-			pr_err("%s Invalid instance, returning\n", __func__);
-			kfree(zoom);
-			return -EINVAL;
-		}
-		zoom->user_cmd = pp_cmd->id;
-		rc = msm_mctl_pp_get_phy_addr(pcam_inst,
-			zoom->pp_frame_cmd.src_buf_handle, &zoom->src_frame);
-		if (rc) {
-			kfree(zoom);
-			break;
-		}
-		rc = msm_mctl_pp_get_phy_addr(pcam_inst,
-			zoom->pp_frame_cmd.dest_buf_handle, &zoom->dest_frame);
-		if (rc) {
-			kfree(zoom);
-			break;
-		}
-		rc = msm_mctl_pp_copy_timestamp_and_frame_id(
-			zoom->pp_frame_cmd.src_buf_handle,
-
-			zoom->pp_frame_cmd.dest_buf_handle);
-		if (rc) {
-			kfree(zoom);
-			break;
-		}
-		rc = msm_mctl_pp_vpe_ioctl(
-			p_mctl->vpe_sdev, pp_cmd, (void *)zoom);
-		if (rc) {
-			kfree(zoom);
-			break;
-		}
-		break;
-	}
-	default:
-		rc = -1;
-		break;
-	}
-	return rc;
-}
-
 static int msm_mctl_pp_path_to_img_mode(int path)
 {
 	switch (path) {
@@ -717,9 +467,6 @@ int msm_mctl_pp_ioctl(struct msm_cam_media_controller *p_mctl,
 		return -EFAULT;
 
 	switch (pp_cmd.type) {
-	case MSM_PP_CMD_TYPE_VPE:
-		rc = msm_mctl_pp_proc_vpe_cmd(p_mctl, &pp_cmd.cmd);
-		break;
 	case MSM_PP_CMD_TYPE_MCTL:
 		rc = msm_mctl_pp_proc_cmd(p_mctl, &pp_cmd.cmd);
 		break;
@@ -737,71 +484,6 @@ int msm_mctl_pp_ioctl(struct msm_cam_media_controller *p_mctl,
 		}
 	}
 	return rc;
-}
-
-int msm_mctl_pp_notify(struct msm_cam_media_controller *p_mctl,
-			struct msm_mctl_pp_frame_info *pp_frame_info)
-{
-		struct msm_mctl_pp_frame_cmd *pp_frame_cmd;
-		pp_frame_cmd = &pp_frame_info->pp_frame_cmd;
-
-		D("%s: msm_cam_evt_divert_frame=%d",
-			__func__, sizeof(struct msm_mctl_pp_event_info));
-		if ((MSM_MCTL_PP_VPE_FRAME_TO_APP &
-			pp_frame_cmd->vpe_output_action)) {
-			struct msm_free_buf done_frame;
-			int img_mode =
-				msm_mctl_pp_path_to_img_mode(
-					pp_frame_cmd->path);
-			if (img_mode < 0) {
-				pr_err("%s Invalid image mode\n", __func__);
-				return img_mode;
-			}
-			done_frame.ch_paddr[0] =
-				pp_frame_info->dest_frame.sp.phy_addr;
-			done_frame.vb =
-				pp_frame_info->dest_frame.handle;
-			msm_mctl_buf_done_pp(
-				p_mctl, img_mode, &done_frame, 0, 0);
-			D("%s: vpe done to app, vb=0x%x, path=%d, phy=0x%x",
-				__func__, done_frame.vb,
-				pp_frame_cmd->path, done_frame.ch_paddr[0]);
-		}
-		if ((MSM_MCTL_PP_VPE_FRAME_ACK &
-			pp_frame_cmd->vpe_output_action)) {
-			struct v4l2_event v4l2_evt;
-			struct msm_mctl_pp_event_info *pp_event_info;
-			struct msm_isp_event_ctrl *isp_event;
-			isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl),
-								GFP_ATOMIC);
-			if (!isp_event) {
-				pr_err("%s Insufficient memory.", __func__);
-				return -ENOMEM;
-			}
-			memset(&v4l2_evt, 0, sizeof(v4l2_evt));
-			*((uint32_t *)v4l2_evt.u.data) = (uint32_t)isp_event;
-
-			/* Get hold of pp event info struct inside event ctrl.*/
-			pp_event_info = &(isp_event->isp_data.pp_event_info);
-
-			pp_event_info->event = MCTL_PP_EVENT_CMD_ACK;
-			pp_event_info->ack.cmd = pp_frame_info->user_cmd;
-			pp_event_info->ack.status = 0;
-			pp_event_info->ack.cookie = pp_frame_cmd->cookie;
-			v4l2_evt.id = 0;
-			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
-						MSM_CAM_RESP_MCTL_PP_EVENT;
-
-			v4l2_event_queue(
-				p_mctl->config_device->
-					config_stat_event_queue.pvdev,
-				&v4l2_evt);
-			D("%s: ack to daemon, cookie=0x%x, event = 0x%x",
-				__func__, pp_frame_info->pp_frame_cmd.cookie,
-				v4l2_evt.type);
-		}
-		kfree(pp_frame_info); /* free mem */
-		return 0;
 }
 
 int msm_mctl_pp_reserve_free_frame(
@@ -1025,5 +707,56 @@ int msm_mctl_pp_mctl_divert_done(
 	if (rc < 0)
 		pr_err("%s Error returning mctl buffer ", __func__);
 
+	return rc;
+}
+
+int msm_mctl_pp_get_vpe_buf_info(struct msm_mctl_pp_frame_info *zoom)
+{
+	struct msm_cam_media_controller *p_mctl;
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+	int rc = 0, idx;
+
+	if (!zoom || !zoom->p_mctl) {
+		pr_err("%s Invalid input, not sending buffer to VPE ",
+			__func__);
+		return -EINVAL;
+	}
+	p_mctl = zoom->p_mctl;
+	idx = msm_mctl_pp_path_to_inst_index(p_mctl->pcam_ptr,
+		zoom->pp_frame_cmd.path);
+	if (idx < 0) {
+		pr_err("%s Invalid path, returning\n", __func__);
+		return idx;
+	}
+	pcam_inst = p_mctl->pcam_ptr->dev_inst[idx];
+	if (!pcam_inst) {
+		pr_err("%s Invalid instance, returning\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = msm_mctl_pp_get_phy_addr(pcam_inst,
+		zoom->pp_frame_cmd.src_buf_handle, &zoom->src_frame);
+	if (rc) {
+		pr_err("%s Error getting buffer address for src frame\n",
+			__func__);
+		return rc;
+	}
+
+	rc = msm_mctl_pp_get_phy_addr(pcam_inst,
+		zoom->pp_frame_cmd.dest_buf_handle, &zoom->dest_frame);
+	if (rc) {
+		pr_err("%s Error getting buffer address for dest frame\n",
+			__func__);
+		return rc;
+	}
+
+	rc = msm_mctl_pp_copy_timestamp_and_frame_id(
+		zoom->pp_frame_cmd.src_buf_handle,
+		zoom->pp_frame_cmd.dest_buf_handle);
+	if (rc < 0) {
+		pr_err("%s Error copying timestamp info\n",
+			__func__);
+		return rc;
+	}
 	return rc;
 }
