@@ -125,9 +125,15 @@ struct msm_camera_sensor_flash_current_driver {
 	const struct pmic8058_leds_platform_data *driver_channel;
 };
 
+enum msm_camera_ext_led_flash_id {
+	MAM_CAMERA_EXT_LED_FLASH_SC628A,
+	MAM_CAMERA_EXT_LED_FLASH_TPS61310,
+};
+
 struct msm_camera_sensor_flash_external {
 	uint32_t led_en;
 	uint32_t led_flash_en;
+	enum msm_camera_ext_led_flash_id flash_id;
 	struct msm_cam_expander_info *expander_info;
 };
 

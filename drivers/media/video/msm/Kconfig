@@ -177,6 +177,15 @@ config MSM_CAMERA_FLASH_SC628A
 	  supports spotlight and flash light modes with
 	  differrent current levels.
 
+config MSM_CAMERA_FLASH_TPS61310
+	bool "Qualcomm MSM camera tps61310 flash support"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Enable support for LED flash for msm camera.
+	  It is a Texas Instruments multiple LED Flash
+	  for camera flash and video light applications.
+
 config IMX072
 	bool "Sensor imx072 (Sony 5M)"
 	default n
