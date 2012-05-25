@@ -701,31 +701,11 @@ static void __init reserve_mdp_memory(void)
 static void __init reserve_cache_dump_memory(void)
 {
 #ifdef CONFIG_MSM_CACHE_DUMP
-	unsigned int spare;
-	unsigned int l1_size;
-	unsigned int l2_size;
 	unsigned int total;
-	int ret;
 
-	ret = scm_call(L1C_SERVICE_ID, L1C_BUFFER_GET_SIZE_COMMAND_ID, &spare,
-		sizeof(spare), &l1_size, sizeof(l1_size));
-
-	if (ret)
-		/* Fall back to something reasonable here */
-		l1_size = L1_BUFFER_SIZE;
-
-	ret = scm_call(L1C_SERVICE_ID, L2C_BUFFER_GET_SIZE_COMMAND_ID, &spare,
-		sizeof(spare), &l2_size, sizeof(l2_size));
-
-	if (ret)
-		/* Fall back to something reasonable here */
-		l2_size = L2_BUFFER_SIZE;
-
-	total = l1_size + l2_size;
-
+	total = msm8960_cache_dump_pdata.l1_size +
+		msm8960_cache_dump_pdata.l2_size;
 	msm8960_reserve_table[MEMTYPE_EBI1].size += total;
-	msm8960_cache_dump_pdata.l1_size = l1_size;
-	msm8960_cache_dump_pdata.l2_size = l2_size;
 #endif
 }
 
