@@ -77,7 +77,7 @@
  */
 #define DEFINE_CLK_MEASURE(name) \
 	struct clk name = { \
-		.ops = &clk_ops_measure, \
+		.ops = &clk_ops_empty, \
 		.dbg_name = #name, \
 		CLK_INIT(name), \
 	}; \
@@ -264,7 +264,7 @@ struct measure_clk {
 	struct clk c;
 };
 
-extern struct clk_ops clk_ops_measure;
+extern struct clk_ops clk_ops_empty;
 
 static inline struct measure_clk *to_measure_clk(struct clk *clk)
 {

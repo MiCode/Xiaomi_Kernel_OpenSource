@@ -3445,7 +3445,7 @@ static unsigned long measure_clk_get_rate(struct clk *clk)
 }
 #endif /* CONFIG_DEBUG_FS */
 
-static struct clk_ops measure_clk_ops = {
+static struct clk_ops clk_ops_measure = {
 	.set_parent = measure_clk_set_parent,
 	.get_rate = measure_clk_get_rate,
 };
@@ -3453,7 +3453,7 @@ static struct clk_ops measure_clk_ops = {
 static struct measure_clk measure_clk = {
 	.c = {
 		.dbg_name = "measure_clk",
-		.ops = &measure_clk_ops,
+		.ops = &clk_ops_measure,
 		CLK_INIT(measure_clk.c),
 	},
 	.multiplier = 1,

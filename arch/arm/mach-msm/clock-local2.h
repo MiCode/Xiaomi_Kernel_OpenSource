@@ -153,8 +153,6 @@ struct measure_clk {
 	struct clk c;
 };
 
-extern struct clk_ops clk_ops_measure;
-
 static inline struct measure_clk *to_measure_clk(struct clk *clk)
 {
 	return container_of(clk, struct measure_clk, c);

@@ -39,7 +39,7 @@ static struct pll_shared_clk pll0_clk = {
 	.id = PLL_0,
 	.mode_reg = PLLn_MODE(0),
 	.c = {
-		.ops = &clk_pll_ops,
+		.ops = &clk_ops_pll,
 		.dbg_name = "pll0_clk",
 		CLK_INIT(pll0_clk.c),
 	},
@@ -49,7 +49,7 @@ static struct pll_shared_clk pll1_clk = {
 	.id = PLL_1,
 	.mode_reg = PLLn_MODE(1),
 	.c = {
-		.ops = &clk_pll_ops,
+		.ops = &clk_ops_pll,
 		.dbg_name = "pll1_clk",
 		CLK_INIT(pll1_clk.c),
 	},
@@ -59,7 +59,7 @@ static struct pll_shared_clk pll2_clk = {
 	.id = PLL_2,
 	.mode_reg = PLLn_MODE(2),
 	.c = {
-		.ops = &clk_pll_ops,
+		.ops = &clk_ops_pll,
 		.dbg_name = "pll2_clk",
 		CLK_INIT(pll2_clk.c),
 	},
@@ -69,7 +69,7 @@ static struct pll_shared_clk pll4_clk = {
 	.id = PLL_4,
 	.mode_reg = PLL4_MODE,
 	.c = {
-		.ops = &clk_pll_ops,
+		.ops = &clk_ops_pll,
 		.dbg_name = "pll4_clk",
 		CLK_INIT(pll4_clk.c),
 	},

@@ -43,7 +43,7 @@ struct pll_shared_clk {
 	void *const __iomem *base;
 };
 
-extern struct clk_ops clk_pll_ops;
+extern struct clk_ops clk_ops_pll;
 
 static inline struct pll_shared_clk *to_pll_shared_clk(struct clk *clk)
 {
