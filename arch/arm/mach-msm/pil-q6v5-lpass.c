@@ -15,7 +15,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <linux/iopoll.h>
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/clk.h>
@@ -23,28 +22,13 @@
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 
-/* Register Offsets */
 #define QDSP6SS_RST_EVB			0x010
-#define AXI_HALTREQ			0x0
-#define AXI_HALTACK			0x4
-#define AXI_IDLE			0x8
-
-#define HALT_ACK_TIMEOUT_US		100000
 
 static int pil_lpass_shutdown(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
-	int ret;
-	u32 status;
 
-	writel_relaxed(1, drv->axi_halt_base + AXI_HALTREQ);
-	ret = readl_poll_timeout(drv->axi_halt_base + AXI_HALTACK,
-		status,	status, 50, HALT_ACK_TIMEOUT_US);
-	if (ret)
-		dev_err(pil->dev, "Port halt timeout\n");
-	else if (!readl_relaxed(drv->axi_halt_base + AXI_IDLE))
-		dev_err(pil->dev, "Port halt failed\n");
-	writel_relaxed(0, drv->axi_halt_base + AXI_HALTREQ);
+	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base);
 
 	/*
 	 * If the shutdown function is called before the reset function, clocks
@@ -98,7 +82,6 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 {
 	struct q6v5_data *drv;
 	struct pil_desc *desc;
-	struct resource *res;
 
 	desc = pil_q6v5_init(pdev);
 	if (IS_ERR(desc))
@@ -110,12 +93,6 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 
 	desc->ops = &pil_lpass_ops;
 	desc->owner = THIS_MODULE;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
-					  resource_size(res));
-	if (!drv->axi_halt_base)
-		return -ENOMEM;
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))
