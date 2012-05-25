@@ -977,6 +977,7 @@ u32 ddl_vidc_decode_set_buffers(struct ddl_client_context *ddl)
 		DDL_MSG_ERROR("STATE-CRITICAL");
 		return VCD_ERR_FAIL;
 	}
+	ddl_set_vidc_timeout(ddl);
 	ddl_vidc_decode_set_metadata_output(decoder);
 	if (decoder->dp_buf.no_of_dec_pic_buf <
 		decoder->client_output_buf_req.actual_count)

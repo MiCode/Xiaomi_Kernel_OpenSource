@@ -49,4 +49,5 @@ int res_trk_enable_footswitch(void);
 int res_trk_disable_footswitch(void);
 void res_trk_release_fw_addr(void);
 u32 res_trk_estimate_perf_level(u32 pn_perf_lvl);
+u32 res_trk_get_clk_rate(unsigned long *phclk_rate);
 #endif

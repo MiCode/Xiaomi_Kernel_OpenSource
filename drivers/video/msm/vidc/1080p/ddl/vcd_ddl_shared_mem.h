@@ -191,4 +191,6 @@ void vidc_sm_set_encoder_batch_config(struct ddl_buf_addr *shared_mem,
 				u32 output_buffer_size);
 void vidc_sm_get_encoder_batch_output_size(struct ddl_buf_addr *shared_mem,
 	u32 *output_buffer_size);
+void vidc_sm_set_video_core_timeout_value(struct ddl_buf_addr *shared_mem,
+	u32 timeout);
 #endif

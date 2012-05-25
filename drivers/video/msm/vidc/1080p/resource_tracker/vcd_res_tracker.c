@@ -382,7 +382,7 @@ static u32 res_trk_sel_clk_rate(unsigned long hclk_rate)
 	return status;
 }
 
-static u32 res_trk_get_clk_rate(unsigned long *phclk_rate)
+u32 res_trk_get_clk_rate(unsigned long *phclk_rate)
 {
 	u32 status = true;
 	mutex_lock(&resource_context.lock);
