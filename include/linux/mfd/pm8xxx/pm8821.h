@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,8 +25,13 @@
 #define PM8821_NR_IRQS		(64)
 #define PM8821_NR_MPPS		(4)
 
-#define PM8821_MPP_BLOCK_START	(16)
-#define PM8821_IRQ_BLOCK_BIT(block, bit) ((block) * 8 + (bit))
+#define PM8821_MPP_BLOCK_START	(4)
+
+/*
+ * Block 0 does not exist in PM8821 IRQ SSBI address space,
+ * IRQ0 is assigned to bit0 of block1
+ */
+#define PM8821_IRQ_BLOCK_BIT(block, bit) ((block-1) * 8 + (bit))
 
 /* MPPs [1,N] */
 #define PM8821_MPP_IRQ(base, mpp)	((base) + \
