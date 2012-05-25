@@ -492,6 +492,8 @@ static ssize_t store_scaling_governor(struct cpufreq_policy *policy,
 	policy->user_policy.policy = policy->policy;
 	policy->user_policy.governor = policy->governor;
 
+	sysfs_notify(&policy->kobj, NULL, "scaling_governor");
+
 	if (ret)
 		return ret;
 	else
