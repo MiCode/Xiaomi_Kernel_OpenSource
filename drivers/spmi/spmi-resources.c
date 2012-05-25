@@ -41,7 +41,7 @@ struct resource *spmi_get_resource(struct spmi_device *dev,
 
 	/* if a node is not specified, default to the first node */
 	if (!node)
-		node = &dev->dev_node[0];
+		node = &dev->res;
 
 	for (i = 0; i < node->num_resources; i++) {
 		struct resource *r = &node->resource[i];
@@ -71,7 +71,7 @@ struct resource *spmi_get_resource_byname(struct spmi_device *dev,
 
 	/* if a node is not specified, default to the first node */
 	if (!node)
-		node = &dev->dev_node[0];
+		node = &dev->res;
 
 	for (i = 0; i < node->num_resources; i++) {
 		struct resource *r = &node->resource[i];
@@ -121,12 +121,15 @@ int spmi_get_irq_byname(struct spmi_device *dev,
 EXPORT_SYMBOL_GPL(spmi_get_irq_byname);
 
 /*
- * spmi_get_devnode_byname - get a device node resource
+ * spmi_get_container_dev_byname - get a device node resource
  * @dev: spmi device handle
  * @label: device name to lookup
  *
- * Given a name, find the associated spmi_resource that matches the name.
- * Return NULL if the lookup fails.
+ * Only useable in spmi-dev-container configurations. Given a name,
+ * find the associated spmi_resource that matches the name.
+ *
+ * Return NULL if the spmi_device is not a dev-container,
+ * or if the lookup fails.
  */
 struct spmi_resource *spmi_get_dev_container_byname(struct spmi_device *dev,
 						    const char *label)

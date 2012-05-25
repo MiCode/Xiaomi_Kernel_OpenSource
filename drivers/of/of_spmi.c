@@ -43,27 +43,12 @@ static inline void of_spmi_init_resource(struct of_spmi_res_info *r_info,
 }
 
 /*
- * Allocate dev_node array for spmi_device
- */
-static inline int of_spmi_alloc_device_store(struct of_spmi_dev_info *d_info,
-					     uint32_t num_dev_node)
-{
-	d_info->b_info.num_dev_node = num_dev_node;
-	d_info->b_info.dev_node = kzalloc(sizeof(struct spmi_resource) *
-						num_dev_node, GFP_KERNEL);
-	if (!d_info->b_info.dev_node)
-		return -ENOMEM;
-
-	return 0;
-}
-
-/*
  * Calculate the number of resources to allocate
  *
  * The caller is responsible for initializing the of_spmi_res_info structure.
  */
-static void of_spmi_sum_node_resources(struct of_spmi_res_info *r_info,
-				       bool has_reg)
+static void of_spmi_sum_resources(struct of_spmi_res_info *r_info,
+				  bool has_reg)
 {
 	struct of_irq oirq;
 	uint64_t size;
@@ -92,9 +77,75 @@ static void of_spmi_sum_node_resources(struct of_spmi_res_info *r_info,
 }
 
 /*
- * free spmi_resource for the spmi_device
+ * Allocate dev_node array for spmi_device - used with spmi-dev-container
  */
-static void of_spmi_free_device_resources(struct of_spmi_dev_info *d_info)
+static inline int of_spmi_alloc_devnode_store(struct of_spmi_dev_info *d_info,
+					      uint32_t num_dev_node)
+{
+	d_info->b_info.num_dev_node = num_dev_node;
+	d_info->b_info.dev_node = kzalloc(sizeof(struct spmi_resource) *
+						num_dev_node, GFP_KERNEL);
+	if (!d_info->b_info.dev_node)
+		return -ENOMEM;
+
+	return 0;
+}
+
+/*
+ * Allocate enough memory to handle the resources associated with the
+ * primary node.
+ */
+static int of_spmi_allocate_node_resources(struct of_spmi_dev_info *d_info,
+					   struct of_spmi_res_info *r_info)
+{
+	uint32_t num_irq = r_info->num_irq, num_reg = r_info->num_reg;
+	struct resource *res = NULL;
+
+	if (num_irq || num_reg) {
+		res = kzalloc(sizeof(*res) * (num_irq + num_reg), GFP_KERNEL);
+		if (!res)
+			return -ENOMEM;
+	}
+	d_info->b_info.res.num_resources = num_reg + num_irq;
+	d_info->b_info.res.resource = res;
+
+	return 0;
+}
+
+/*
+ * Allocate enough memory to handle the resources associated with the
+ * spmi-dev-container nodes.
+ */
+static int of_spmi_allocate_devnode_resources(struct of_spmi_dev_info *d_info,
+					      struct of_spmi_res_info *r_info,
+					      uint32_t idx)
+{
+	uint32_t num_irq = r_info->num_irq, num_reg = r_info->num_reg;
+	struct resource *res = NULL;
+
+	if (num_irq || num_reg) {
+		res = kzalloc(sizeof(*res) * (num_irq + num_reg), GFP_KERNEL);
+		if (!res)
+			return -ENOMEM;
+	}
+	d_info->b_info.dev_node[idx].num_resources = num_reg + num_irq;
+	d_info->b_info.dev_node[idx].resource = res;
+
+	return 0;
+}
+
+/*
+ * free node resources - used with primary node
+ */
+static void of_spmi_free_node_resources(struct of_spmi_dev_info *d_info)
+{
+	kfree(d_info->b_info.res.resource);
+}
+
+/*
+ * free devnode resources - used with spmi-dev-container
+ */
+static void of_spmi_free_devnode_resources(struct of_spmi_dev_info *d_info)
 {
 	int i;
 
@@ -104,25 +155,16 @@ static void of_spmi_free_device_resources(struct of_spmi_dev_info *d_info)
 	kfree(d_info->b_info.dev_node);
 }
 
-/*
- * Gather node resources and populate
- */
-static void of_spmi_populate_node_resources(struct of_spmi_dev_info *d_info,
-					    struct of_spmi_res_info *r_info,
-					    int idx)
+static void of_spmi_populate_resources(struct of_spmi_dev_info *d_info,
+				       struct of_spmi_res_info *r_info,
+				       struct resource *res)
 
 {
 	uint32_t num_irq = r_info->num_irq, num_reg = r_info->num_reg;
 	int i;
-	struct resource *res;
 	const  __be32 *addrp;
 	uint64_t size;
 	uint32_t flags;
-
-	res = d_info->b_info.dev_node[idx].resource;
-	d_info->b_info.dev_node[idx].of_node = r_info->node;
-	of_property_read_string(r_info->node, "label",
-				&d_info->b_info.dev_node[idx].label);
 
 	if ((num_irq || num_reg) && (res != NULL)) {
 		for (i = 0; i < num_reg; i++, res++) {
@@ -141,26 +183,36 @@ static void of_spmi_populate_node_resources(struct of_spmi_dev_info *d_info,
 }
 
 /*
- * Allocate enough memory to handle the resources associated with the
- * device_node. The number of device nodes included in this allocation
- * depends on whether the spmi-dev-container flag is specified or not.
+ * Gather primary node resources and populate.
  */
-static int of_spmi_allocate_node_resources(struct of_spmi_dev_info *d_info,
-					   struct of_spmi_res_info *r_info,
-					   uint32_t idx)
+static void of_spmi_populate_node_resources(struct of_spmi_dev_info *d_info,
+					    struct of_spmi_res_info *r_info)
+
 {
-	uint32_t num_irq = r_info->num_irq, num_reg = r_info->num_reg;
-	struct resource *res = NULL;
+	struct resource *res;
 
-	if (num_irq || num_reg) {
-		res = kzalloc(sizeof(*res) * (num_irq + num_reg), GFP_KERNEL);
-		if (!res)
-			return -ENOMEM;
-	}
-	d_info->b_info.dev_node[idx].num_resources = num_reg + num_irq;
-	d_info->b_info.dev_node[idx].resource = res;
+	res = d_info->b_info.res.resource;
+	d_info->b_info.res.of_node = r_info->node;
+	of_property_read_string(r_info->node, "label",
+				&d_info->b_info.res.label);
+	of_spmi_populate_resources(d_info, r_info, res);
+}
 
-	return 0;
+/*
+ * Gather node devnode resources and populate - used with spmi-dev-container.
+ */
+static void of_spmi_populate_devnode_resources(struct of_spmi_dev_info *d_info,
+					       struct of_spmi_res_info *r_info,
+					       int idx)
+
+{
+	struct resource *res;
+
+	res = d_info->b_info.dev_node[idx].resource;
+	d_info->b_info.dev_node[idx].of_node = r_info->node;
+	of_property_read_string(r_info->node, "label",
+				&d_info->b_info.dev_node[idx].label);
+	of_spmi_populate_resources(d_info, r_info, res);
 }
 
 /*
@@ -220,10 +272,10 @@ static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
 		num_dev_node++;
 	}
 
-	rc = of_spmi_alloc_device_store(d_info, num_dev_node);
+	rc = of_spmi_alloc_devnode_store(d_info, num_dev_node);
 	if (rc) {
-		dev_err(&ctrl->dev, "%s: unable to allocate"
-				" device resources\n", __func__);
+		dev_err(&ctrl->dev, "%s: unable to allocate devnode resources\n",
+								__func__);
 		return;
 	}
 
@@ -232,23 +284,36 @@ static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
 		if (!of_device_is_available(node))
 			continue;
 		of_spmi_init_resource(&r_info, node);
-		of_spmi_sum_node_resources(&r_info, 1);
-		rc = of_spmi_allocate_node_resources(d_info, &r_info, i);
+		of_spmi_sum_resources(&r_info, true);
+		rc = of_spmi_allocate_devnode_resources(d_info, &r_info, i);
 		if (rc) {
 			dev_err(&ctrl->dev, "%s: unable to allocate"
 					" resources\n", __func__);
-			of_spmi_free_device_resources(d_info);
+			of_spmi_free_devnode_resources(d_info);
 			return;
 		}
-		of_spmi_populate_node_resources(d_info, &r_info, i);
+		of_spmi_populate_devnode_resources(d_info, &r_info, i);
 		i++;
 	}
+
+	of_spmi_init_resource(&r_info, container);
+	of_spmi_sum_resources(&r_info, true);
+
+	rc = of_spmi_allocate_node_resources(d_info, &r_info);
+	if (rc) {
+		dev_err(&ctrl->dev, "%s: unable to allocate resources\n",
+								  __func__);
+		of_spmi_free_node_resources(d_info);
+	}
+
+	of_spmi_populate_node_resources(d_info, &r_info);
+
 
 	rc = of_spmi_create_device(d_info, container);
 	if (rc) {
 		dev_err(&ctrl->dev, "%s: unable to create device for"
 				" node %s\n", __func__, container->full_name);
-		of_spmi_free_device_resources(d_info);
+		of_spmi_free_devnode_resources(d_info);
 		return;
 	}
 }
@@ -259,7 +324,7 @@ static void of_spmi_walk_dev_container(struct of_spmi_dev_info *d_info,
  * point all share the same slave_id.
  */
 static void of_spmi_walk_slave_container(struct of_spmi_dev_info *d_info,
-					struct device_node *container)
+					 struct device_node *container)
 {
 	struct spmi_controller *ctrl = d_info->ctrl;
 	struct device_node *node;
@@ -280,24 +345,17 @@ static void of_spmi_walk_slave_container(struct of_spmi_dev_info *d_info,
 			continue;
 		}
 
-		rc = of_spmi_alloc_device_store(d_info, 1);
-		if (rc) {
-			dev_err(&ctrl->dev, "%s: unable to allocate"
-					" device resources\n", __func__);
-			goto slave_err;
-		}
-
 		of_spmi_init_resource(&r_info, node);
-		of_spmi_sum_node_resources(&r_info, 1);
+		of_spmi_sum_resources(&r_info, true);
 
-		rc = of_spmi_allocate_node_resources(d_info, &r_info, 0);
+		rc = of_spmi_allocate_node_resources(d_info, &r_info);
 		if (rc) {
 			dev_err(&ctrl->dev, "%s: unable to allocate"
 						" resources\n", __func__);
 			goto slave_err;
 		}
 
-		of_spmi_populate_node_resources(d_info, &r_info, 0);
+		of_spmi_populate_node_resources(d_info, &r_info);
 
 		rc = of_spmi_create_device(d_info, node);
 		if (rc) {
@@ -309,7 +367,7 @@ static void of_spmi_walk_slave_container(struct of_spmi_dev_info *d_info,
 	return;
 
 slave_err:
-	of_spmi_free_device_resources(d_info);
+	of_spmi_free_node_resources(d_info);
 }
 
 int of_spmi_register_devices(struct spmi_controller *ctrl)
@@ -374,31 +432,23 @@ int of_spmi_register_devices(struct spmi_controller *ctrl)
 			if (!of_device_is_available(node))
 				continue;
 
-			rc = of_spmi_alloc_device_store(&d_info, 1);
-			if (rc) {
-				dev_err(&ctrl->dev, "%s: unable to allocate"
-					" device resources\n", __func__);
-				continue;
-			}
-
 			of_spmi_init_resource(&r_info, node);
-			of_spmi_sum_node_resources(&r_info, 0);
-			rc = of_spmi_allocate_node_resources(&d_info,
-								&r_info, 0);
+			of_spmi_sum_resources(&r_info, false);
+			rc = of_spmi_allocate_node_resources(&d_info, &r_info);
 			if (rc) {
 				dev_err(&ctrl->dev, "%s: unable to allocate"
 						" resources\n", __func__);
-				of_spmi_free_device_resources(&d_info);
+				of_spmi_free_node_resources(&d_info);
 				continue;
 			}
 
-			of_spmi_populate_node_resources(&d_info, &r_info, 0);
+			of_spmi_populate_node_resources(&d_info, &r_info);
 
 			rc = of_spmi_create_device(&d_info, node);
 			if (rc) {
 				dev_err(&ctrl->dev, "%s: unable to create"
 						" device\n", __func__);
-				of_spmi_free_device_resources(&d_info);
+				of_spmi_free_node_resources(&d_info);
 				continue;
 			}
 		}
@@ -408,4 +458,4 @@ int of_spmi_register_devices(struct spmi_controller *ctrl)
 }
 EXPORT_SYMBOL(of_spmi_register_devices);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
