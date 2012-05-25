@@ -1552,15 +1552,14 @@ static void mdp4_mixer_stage_commit(int mixer)
 			       mixer, data, flush_bits);
 
 			outpdw(MDP_BASE + off, data); /* LAYERMIXER_IN_CFG */
-			if (pull_mode)
+			if (pull_mode) {
 				outpdw(MDP_BASE + 0x18000, flush_bits);
+			/* wait for vsync on both pull mode interfaces */
+				msleep(20);
+			}
 		}
 
 		if (ctrl->mixer_cfg[MDP4_MIXER2] != cfg[MDP4_MIXER2]) {
-			/* wait for vsync on both pull mode interfaces */
-			if (pull_mode)
-				msleep(20);
-
 			off = 0x100F0;
 			ctrl->mixer_cfg[MDP4_MIXER2] = cfg[MDP4_MIXER2];
 			data = cfg[MDP4_MIXER2];
@@ -3121,10 +3120,12 @@ int mdp4_v4l2_overlay_play(struct fb_info *info, struct mdp4_overlay_pipe *pipe,
 	else
 		mdp4_overlay_rgb_setup(pipe);
 
+	if (ctrl->panel_mode & MDP4_PANEL_LCDC)
+		mdp4_overlay_reg_flush(pipe, 1);
+
 	mdp4_mixer_stage_up(pipe);
 
 	if (ctrl->panel_mode & MDP4_PANEL_LCDC) {
-		mdp4_overlay_reg_flush(pipe, 1);
 		mdp4_overlay_lcdc_vsync_push(mfd, pipe);
 	} else {
 #ifdef CONFIG_FB_MSM_MIPI_DSI
