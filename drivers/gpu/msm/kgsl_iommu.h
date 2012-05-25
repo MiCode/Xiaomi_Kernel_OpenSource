@@ -18,6 +18,8 @@
 /* IOMMU registers and masks */
 #define KGSL_IOMMU_TTBR0			0x10
 #define KGSL_IOMMU_TTBR1			0x14
+#define KGSL_IOMMU_FSR				0x20
+
 #define KGSL_IOMMU_TTBR0_PA_MASK		0x0003FFFF
 #define KGSL_IOMMU_TTBR0_PA_SHIFT		14
 #define KGSL_IOMMU_CTX_TLBIALL			0x800
@@ -75,6 +77,7 @@ struct kgsl_iommu_device {
 	unsigned int pt_lsb;
 	enum kgsl_iommu_context_id ctx_id;
 	bool clk_enabled;
+	struct kgsl_device *kgsldev;
 };
 
 /*

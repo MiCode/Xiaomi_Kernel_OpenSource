@@ -25,6 +25,79 @@
 #include "kgsl_iommu.h"
 #include "adreno_pm4types.h"
 #include "adreno.h"
+#include "kgsl_trace.h"
+
+static struct kgsl_iommu_unit *get_iommu_unit(struct device *dev)
+{
+	int i, j, k;
+
+	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+		struct kgsl_mmu *mmu;
+		struct kgsl_iommu *iommu;
+
+		if (kgsl_driver.devp[i] == NULL)
+			continue;
+
+		mmu = kgsl_get_mmu(kgsl_driver.devp[i]);
+		if (mmu == NULL || mmu->priv == NULL)
+			continue;
+
+		iommu = mmu->priv;
+
+		for (j = 0; j < iommu->unit_count; j++) {
+			struct kgsl_iommu_unit *iommu_unit =
+				&iommu->iommu_units[j];
+			for (k = 0; k < iommu_unit->dev_count; k++) {
+				if (iommu_unit->dev[k].dev == dev)
+					return iommu_unit;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+static struct kgsl_iommu_device *get_iommu_device(struct kgsl_iommu_unit *unit,
+		struct device *dev)
+{
+	int k;
+
+	for (k = 0; unit && k < unit->dev_count; k++) {
+		if (unit->dev[k].dev == dev)
+			return &(unit->dev[k]);
+	}
+
+	return NULL;
+}
+
+static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
+	struct device *dev, unsigned long addr, int flags)
+{
+	struct kgsl_iommu_unit *iommu_unit = get_iommu_unit(dev);
+	struct kgsl_iommu_device *iommu_dev = get_iommu_device(iommu_unit, dev);
+	unsigned int ptbase, fsr;
+
+	if (!iommu_dev) {
+		KGSL_CORE_ERR("Invalid IOMMU device %p\n", dev);
+		return -ENOSYS;
+	}
+
+	ptbase = iommu_get_pt_base_addr(domain);
+
+	fsr = KGSL_IOMMU_GET_IOMMU_REG(iommu_unit->reg_map.hostptr,
+		iommu_dev->ctx_id, FSR);
+
+	KGSL_MEM_CRIT(iommu_dev->kgsldev,
+		"GPU PAGE FAULT: addr = %lX pid = %d\n",
+		addr, kgsl_mmu_get_ptname_from_ptbase(ptbase));
+	KGSL_MEM_CRIT(iommu_dev->kgsldev, "context = %d FSR = %X\n",
+		iommu_dev->ctx_id, fsr);
+
+	trace_kgsl_mmu_pagefault(iommu_dev->kgsldev, addr,
+			kgsl_mmu_get_ptname_from_ptbase(ptbase), 0);
+
+	return 0;
+}
 
 /*
  * kgsl_iommu_disable_clk - Disable iommu clocks
@@ -167,7 +240,11 @@ void *kgsl_iommu_create_pagetable(void)
 		KGSL_CORE_ERR("Failed to create iommu domain\n");
 		kfree(iommu_pt);
 		return NULL;
+	} else {
+		iommu_set_fault_handler(iommu_pt->domain,
+			kgsl_iommu_fault_handler);
 	}
+
 	return iommu_pt;
 }
 
@@ -304,6 +381,8 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu,
 		}
 		iommu_unit->dev[iommu_unit->dev_count].ctx_id =
 						data->iommu_ctxs[i].ctx_id;
+		iommu_unit->dev[iommu_unit->dev_count].kgsldev = mmu->device;
+
 		KGSL_DRV_INFO(mmu->device,
 				"Obtained dev handle %p for iommu context %s\n",
 				iommu_unit->dev[iommu_unit->dev_count].dev,
