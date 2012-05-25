@@ -3044,6 +3044,9 @@ void mdp4_iommu_detach(void)
 	struct iommu_domain *domain;
 	int i;
 
+	if (!mdp_check_suspended() || mdp4_extn_disp)
+		return;
+
 	if (iommu_enabled) {
 		for (i = 0; i < ARRAY_SIZE(msm_iommu_ctx_names); i++) {
 			int domain_idx;

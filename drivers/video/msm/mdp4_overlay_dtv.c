@@ -268,6 +268,7 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	mdp4_overlay_panel_mode_unset(MDP4_MIXER1, MDP4_PANEL_DTV);
 
 	ret = panel_next_off(pdev);
+	mdp4_iommu_detach();
 	mdp_footswitch_ctrl(FALSE);
 
 	dev_info(&pdev->dev, "mdp4_overlay_dtv: off");
