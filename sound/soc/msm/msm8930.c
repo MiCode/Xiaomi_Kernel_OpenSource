@@ -42,7 +42,7 @@
 #define DEFAULT_PMIC_SPK_GAIN 0x0D
 #define SITAR_EXT_CLK_RATE 12288000
 
-#define SITAR_MBHC_DEF_BUTTONS 3
+#define SITAR_MBHC_DEF_BUTTONS 8
 #define SITAR_MBHC_DEF_RLOADS 5
 
 static int msm8930_spk_control;
@@ -668,7 +668,7 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	err = snd_soc_jack_new(codec, "Button Jack",
-				SND_JACK_BTN_0, &button_jack);
+				SITAR_JACK_BUTTON_MASK, &button_jack);
 	if (err) {
 		pr_err("failed to create new jack\n");
 		return err;
