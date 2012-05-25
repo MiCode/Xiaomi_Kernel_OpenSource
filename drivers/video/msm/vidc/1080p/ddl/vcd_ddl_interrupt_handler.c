@@ -34,6 +34,8 @@ static void ddl_handle_enc_frame_done(struct ddl_client_context *ddl,
 static void ddl_handle_slice_done_slice_batch(struct ddl_client_context *ddl);
 static void ddl_handle_enc_frame_done_slice_mode(
 		struct ddl_client_context *ddl, u32 eos_present);
+static void ddl_handle_enc_skipframe_slice_mode(
+		struct ddl_client_context *ddl, u32 eos_present);
 
 static void ddl_fw_status_done_callback(struct ddl_context *ddl_context)
 {
@@ -511,11 +513,15 @@ static void ddl_encoder_frame_run_callback(
 		if (encoder->enc_frame_info.enc_frame_size ||
 			(encoder->enc_frame_info.enc_frame ==
 			VIDC_1080P_ENCODE_FRAMETYPE_SKIPPED) ||
-			DDLCLIENT_STATE_IS(ddl,
-			DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
+			DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
 			if (encoder->slice_delivery_info.enable) {
-				ddl_handle_enc_frame_done_slice_mode(ddl,
-								eos_present);
+				if (encoder->enc_frame_info.enc_frame ==
+					VIDC_1080P_ENCODE_FRAMETYPE_SKIPPED)
+					ddl_handle_enc_skipframe_slice_mode(
+							ddl, eos_present);
+				else
+					ddl_handle_enc_frame_done_slice_mode(
+							ddl, eos_present);
 			} else {
 				ddl_handle_enc_frame_done(ddl, eos_present);
 			}
@@ -1890,5 +1896,80 @@ static void ddl_handle_enc_frame_done_slice_mode(
 				VCD_S_SUCCESS, &(ddl->input_frame),
 				sizeof(struct ddl_frame_data_tag),
 				(u32 *) ddl, ddl->client_data);
+	}
+}
+
+static void ddl_handle_enc_skipframe_slice_mode(
+		struct ddl_client_context *ddl, u32 eos_present)
+{
+	struct ddl_context       *ddl_context = ddl->ddl_context;
+	struct ddl_encoder_data  *encoder = &(ddl->codec_data.encoder);
+	struct vcd_frame_data    *output_frame = NULL;
+	u32 bottom_frame_tag;
+	u8 *input_buffer_address = NULL;
+	u32 index = 0;
+	DDL_MSG_HIGH("ddl_handle_enc_skipframe_slice_mode: frame skipped");
+	vidc_sm_set_encoder_slice_batch_int_ctrl(
+			&ddl->shared_mem[ddl->command_channel],
+			1);
+	for (index = 0;
+		index < encoder->batch_frame.num_output_frames;
+		index++) {
+		output_frame =
+			&(encoder->batch_frame.output_frame[index].vcd_frm);
+		DDL_MSG_MED("output buffer: vcd_frm = 0x%x "
+				"frmbfr(virtual) = 0x%x frmbfr(physical) = 0x%x",
+				(u32)output_frame, (u32)output_frame->virtual,
+				(u32)output_frame->physical);
+		vidc_sm_get_frame_tags(
+				&ddl->shared_mem[ddl->command_channel],
+				&output_frame->ip_frm_tag,
+				&bottom_frame_tag);
+		ddl_get_encoded_frame(
+				output_frame,
+				encoder->codec.codec,
+				encoder->enc_frame_info.enc_frame);
+		output_frame->data_len = 0;
+		ddl->output_frame.frm_trans_end = false;
+		if (encoder->batch_frame.num_output_frames ==
+			(index + 1)) {
+			DDL_MSG_MED("last output bfr for skip frame, set EOF");
+			output_frame->flags |= VCD_FRAME_FLAG_ENDOFFRAME;
+			ddl_vidc_encode_dynamic_property(ddl, false);
+			if (eos_present)
+				ddl->output_frame.frm_trans_end = false;
+			else
+				ddl->output_frame.frm_trans_end = true;
+		}
+		ddl->output_frame.vcd_frm = *output_frame;
+		ddl_context->ddl_callback(
+				VCD_EVT_RESP_OUTPUT_DONE,
+				VCD_S_SUCCESS,
+				&(ddl->output_frame),
+				sizeof(struct ddl_frame_data_tag),
+				(u32 *)ddl,
+				ddl->client_data);
+
+		if (encoder->batch_frame.num_output_frames ==
+			(index + 1)) {
+			ddl->input_frame.frm_trans_end = false;
+			input_buffer_address =
+				ddl_context->dram_base_a.physical_base_addr +
+				(encoder->enc_frame_info.enc_luma_address);
+			ddl_get_input_frame_from_pool(ddl,
+					input_buffer_address);
+			DDL_MSG_MED("InpBfr: vcd_frm 0x%x frmbfr(virtual) 0x%x"
+					" frmbfr(physical) 0x%x",
+					(u32)&(ddl->input_frame.vcd_frm),
+					(u32)ddl->input_frame.vcd_frm.virtual,
+					(u32)ddl->input_frame.vcd_frm.physical);
+			ddl_context->ddl_callback(
+					VCD_EVT_RESP_INPUT_DONE,
+					VCD_S_SUCCESS,
+					&(ddl->input_frame),
+					sizeof(struct ddl_frame_data_tag),
+					(u32 *)ddl,
+					ddl->client_data);
+		}
 	}
 }
