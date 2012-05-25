@@ -2005,6 +2005,48 @@ __acquires(udc->lock)
 }
 
 /**
+ * isr_resume_handler: USB PCI interrupt handler
+ * @udc: UDC device
+ *
+ */
+static void isr_resume_handler(struct ci13xxx *udc)
+{
+	udc->gadget.speed = hw_port_is_high_speed() ?
+		USB_SPEED_HIGH : USB_SPEED_FULL;
+	if (udc->suspended) {
+		spin_unlock(udc->lock);
+		if (udc->transceiver)
+			otg_set_suspend(udc->transceiver, 0);
+		udc->driver->resume(&udc->gadget);
+		spin_lock(udc->lock);
+		udc->suspended = 0;
+	}
+}
+
+/**
+ * isr_resume_handler: USB SLI interrupt handler
+ * @udc: UDC device
+ *
+ */
+static void isr_suspend_handler(struct ci13xxx *udc)
+{
+	if (udc->gadget.speed != USB_SPEED_UNKNOWN &&
+		udc->vbus_active) {
+		if (udc->suspended == 0) {
+			spin_unlock(udc->lock);
+			udc->driver->suspend(&udc->gadget);
+			if (udc->udc_driver->notify_event)
+				udc->udc_driver->notify_event(udc,
+				CI13XXX_CONTROLLER_SUSPEND_EVENT);
+			if (udc->transceiver)
+				otg_set_suspend(udc->transceiver, 1);
+			spin_lock(udc->lock);
+			udc->suspended = 1;
+		}
+	}
+}
+
+/**
  * isr_get_status_complete: get_status request complete function
  * @ep:  endpoint
  * @req: request handled
@@ -3174,14 +3216,7 @@ static irqreturn_t udc_irq(void)
 		}
 		if (USBi_PCI & intr) {
 			isr_statistics.pci++;
-			udc->gadget.speed = hw_port_is_high_speed() ?
-				USB_SPEED_HIGH : USB_SPEED_FULL;
-			if (udc->suspended) {
-				spin_unlock(udc->lock);
-				udc->driver->resume(&udc->gadget);
-				spin_lock(udc->lock);
-				udc->suspended = 0;
-			}
+			isr_resume_handler(udc);
 		}
 		if (USBi_UEI & intr)
 			isr_statistics.uei++;
@@ -3190,15 +3225,7 @@ static irqreturn_t udc_irq(void)
 			isr_tr_complete_handler(udc);
 		}
 		if (USBi_SLI & intr) {
-			if (udc->gadget.speed != USB_SPEED_UNKNOWN) {
-				udc->suspended = 1;
-				spin_unlock(udc->lock);
-				udc->driver->suspend(&udc->gadget);
-				if (udc->udc_driver->notify_event)
-					udc->udc_driver->notify_event(udc,
-					  CI13XXX_CONTROLLER_SUSPEND_EVENT);
-				spin_lock(udc->lock);
-			}
+			isr_suspend_handler(udc);
 			isr_statistics.sli++;
 		}
 		retval = IRQ_HANDLED;
