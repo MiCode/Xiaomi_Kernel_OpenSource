@@ -408,6 +408,19 @@ static int branch_clk_set_rate(struct clk *c, unsigned long rate)
 	return -EPERM;
 }
 
+static long branch_clk_round_rate(struct clk *c, unsigned long rate)
+{
+	struct branch_clk *branch = to_branch_clk(c);
+
+	if (branch->max_div)
+		return rate <= (branch->max_div) ? rate : -EPERM;
+
+	if (!branch->has_sibling)
+		return clk_round_rate(branch->parent, rate);
+
+	return -EPERM;
+}
+
 static unsigned long branch_clk_get_rate(struct clk *c)
 {
 	struct branch_clk *branch = to_branch_clk(c);
@@ -580,6 +593,7 @@ struct clk_ops clk_ops_branch = {
 	.set_rate = branch_clk_set_rate,
 	.get_rate = branch_clk_get_rate,
 	.list_rate = branch_clk_list_rate,
+	.round_rate = branch_clk_round_rate,
 	.reset = branch_clk_reset,
 	.get_parent = branch_clk_get_parent,
 	.handoff = branch_clk_handoff,
