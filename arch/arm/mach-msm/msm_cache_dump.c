@@ -31,13 +31,12 @@
 static unsigned long msm_cache_dump_addr;
 
 /*
- * These are dummy pointers so the defintion of l1_cache_dump
- * and l2_cache_dump don't get optimized away. If they aren't
- * referenced, the structure definitions don't show up in the
- * debugging information which is needed for post processing.
+ * These should not actually be dereferenced. There's no
+ * need for a virtual mapping, but the physical address is
+ * necessary.
  */
-static struct l1_cache_dump __used *l1_dump;
-static struct l2_cache_dump __used *l2_dump;
+static struct l1_cache_dump *l1_dump;
+static struct l2_cache_dump *l2_dump;
 
 static int msm_cache_dump_panic(struct notifier_block *this,
 				unsigned long event, void *ptr)
@@ -96,6 +95,8 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 		pr_err("%s: could not register L1 buffer ret = %d.\n",
 			__func__, ret);
 
+	l1_dump = (struct l1_cache_dump *)msm_cache_dump_addr;
+
 #if defined(CONFIG_MSM_CACHE_DUMP_ON_PANIC)
 	l1_cache_data.buf = msm_cache_dump_addr + d->l1_size;
 	l1_cache_data.size = d->l2_size;
@@ -109,6 +110,9 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 #endif
 	__raw_writel(msm_cache_dump_addr + d->l1_size,
 			MSM_IMEM_BASE + L2_DUMP_OFFSET);
+
+
+	l2_dump = (struct l2_cache_dump *)(msm_cache_dump_addr + d->l1_size);
 
 	atomic_notifier_chain_register(&panic_notifier_list,
 						&msm_cache_dump_blk);
