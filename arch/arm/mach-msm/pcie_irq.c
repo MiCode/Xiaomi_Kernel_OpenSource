@@ -67,7 +67,7 @@ irqreturn_t handle_msi_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-uint32_t __devinit msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
+uint32_t __init msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 {
 	int i, rc;
 
@@ -93,7 +93,7 @@ uint32_t __devinit msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	return rc;
 }
 
-void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
+void __exit msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 {
 	free_irq(PCIE20_INT_MSI, dev);
 }

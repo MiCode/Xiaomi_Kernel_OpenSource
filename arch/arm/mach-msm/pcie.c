@@ -201,7 +201,7 @@ static struct pci_ops msm_pcie_ops = {
 	.write = msm_pcie_wr_conf,
 };
 
-static int __devinit msm_pcie_gpio_init(void)
+static int __init msm_pcie_gpio_init(void)
 {
 	int rc, i;
 	struct msm_pcie_gpio_info_t *info;
@@ -239,7 +239,7 @@ static void msm_pcie_gpio_deinit(void)
 		gpio_free(msm_pcie_dev.gpio[i].num);
 }
 
-static int __devinit msm_pcie_vreg_init(struct device *dev)
+static int __init msm_pcie_vreg_init(struct device *dev)
 {
 	int i, rc = 0;
 	struct regulator *vreg;
@@ -306,7 +306,7 @@ static void msm_pcie_vreg_deinit(void)
 	}
 }
 
-static int __devinit msm_pcie_clk_init(struct device *dev)
+static int __init msm_pcie_clk_init(struct device *dev)
 {
 	int i, rc = 0;
 	struct clk *clk_hdl;
@@ -346,7 +346,7 @@ static void msm_pcie_clk_deinit(void)
 	}
 }
 
-static void __devinit msm_pcie_config_controller(void)
+static void __init msm_pcie_config_controller(void)
 {
 	struct msm_pcie_dev_t *dev = &msm_pcie_dev;
 	struct msm_pcie_res_info_t *axi_bar = &dev->res[MSM_PCIE_RES_AXI_BAR];
@@ -393,7 +393,7 @@ static void __devinit msm_pcie_config_controller(void)
 	wmb();
 }
 
-static int __devinit msm_pcie_get_resources(struct platform_device *pdev)
+static int __init msm_pcie_get_resources(struct platform_device *pdev)
 {
 	int i, rc = 0;
 	struct resource *res;
@@ -437,7 +437,7 @@ static int __devinit msm_pcie_get_resources(struct platform_device *pdev)
 	return rc;
 }
 
-static void __devexit msm_pcie_release_resources(void)
+static void msm_pcie_release_resources(void)
 {
 	int i;
 
@@ -452,7 +452,7 @@ static void __devexit msm_pcie_release_resources(void)
 	msm_pcie_dev.axi_conf = NULL;
 }
 
-static int __devinit msm_pcie_setup(int nr, struct pci_sys_data *sys)
+static int __init msm_pcie_setup(int nr, struct pci_sys_data *sys)
 {
 	int rc;
 	struct msm_pcie_dev_t *dev = &msm_pcie_dev;
@@ -548,8 +548,8 @@ out:
 	return (rc) ? 0 : 1;
 }
 
-static struct pci_bus __devinit *msm_pcie_scan_bus(int nr,
-						   struct pci_sys_data *sys)
+static struct pci_bus __init *msm_pcie_scan_bus(int nr,
+						struct pci_sys_data *sys)
 {
 	struct pci_bus *bus = NULL;
 
@@ -560,13 +560,13 @@ static struct pci_bus __devinit *msm_pcie_scan_bus(int nr,
 	return bus;
 }
 
-static int __devinit msm_pcie_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
+static int __init msm_pcie_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 {
 	PCIE_DBG("slot %d pin %d\n", slot, pin);
 	return (pin <= 4) ? (PCIE20_INTA + pin - 1) : 0;
 }
 
-static struct hw_pci msm_pci __devinitdata = {
+static struct hw_pci msm_pci __initdata = {
 	.nr_controllers = 1,
 	.swizzle = pci_std_swizzle,
 	.setup = msm_pcie_setup,
@@ -574,7 +574,7 @@ static struct hw_pci msm_pci __devinitdata = {
 	.map_irq = msm_pcie_map_irq,
 };
 
-static int __devinit msm_pcie_probe(struct platform_device *pdev)
+static int __init msm_pcie_probe(struct platform_device *pdev)
 {
 	const struct msm_pcie_platform *pdata;
 	int rc;
@@ -603,7 +603,7 @@ static int __devinit msm_pcie_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit msm_pcie_remove(struct platform_device *pdev)
+static int __exit msm_pcie_remove(struct platform_device *pdev)
 {
 	PCIE_DBG("\n");
 
@@ -621,8 +621,7 @@ static int __devexit msm_pcie_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver msm_pcie_driver = {
-	.probe = msm_pcie_probe,
-	.remove = __devexit_p(msm_pcie_remove),
+	.remove = __exit_p(msm_pcie_remove),
 	.driver = {
 		.name = "msm_pcie",
 		.owner = THIS_MODULE,
@@ -632,7 +631,7 @@ static struct platform_driver msm_pcie_driver = {
 static int __init msm_pcie_init(void)
 {
 	PCIE_DBG("\n");
-	return platform_driver_register(&msm_pcie_driver);
+	return platform_driver_probe(&msm_pcie_driver, msm_pcie_probe);
 }
 subsys_initcall(msm_pcie_init);
 
