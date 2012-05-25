@@ -396,6 +396,7 @@ extern struct platform_device msm8930_rtb_device;
 extern struct platform_device apq8064_rtb_device;
 
 extern struct platform_device msm8960_cache_dump_device;
+extern struct platform_device apq8064_cache_dump_device;
 
 extern struct platform_device copper_device_tz_log;
 
