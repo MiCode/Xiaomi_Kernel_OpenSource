@@ -3631,9 +3631,16 @@ struct platform_device msm8960_rtb_device = {
 	},
 };
 
+#define MSM_8960_L1_SIZE  SZ_1M
+/*
+ * The actual L2 size is smaller but we need a larger buffer
+ * size to store other dump information
+ */
+#define MSM_8960_L2_SIZE  SZ_4M
+
 struct msm_cache_dump_platform_data msm8960_cache_dump_pdata = {
-	.l2_size = L2_BUFFER_SIZE,
-	.l1_size = L1_BUFFER_SIZE,
+	.l2_size = MSM_8960_L2_SIZE,
+	.l1_size = MSM_8960_L1_SIZE,
 };
 
 struct platform_device msm8960_cache_dump_device = {
