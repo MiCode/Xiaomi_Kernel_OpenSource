@@ -723,7 +723,8 @@ static int tsens_resume(struct device *dev)
 	} else if (tmdev->hw_type == APQ_8064) {
 		reg_cntl |= TSENS_8960_SLP_CLK_ENA |
 			(TSENS_MEASURE_PERIOD << 18) |
-			TSENS_8064_SENSORS_EN;
+			(((1 << tmdev->tsens_num_sensor) - 1)
+					<< TSENS_SENSOR0_SHIFT);
 		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
 		reg_status_cntl = readl_relaxed(TSENS_8064_STATUS_CNTL);
 		reg_status_cntl |= TSENS_MIN_STATUS_MASK |
@@ -823,7 +824,8 @@ static void tsens_hw_init(void)
 	} else if (tmdev->hw_type == APQ_8064) {
 		reg_cntl |= TSENS_8960_SLP_CLK_ENA |
 			(TSENS_MEASURE_PERIOD << 18) |
-			TSENS_8064_SENSORS_EN;
+			(((1 << tmdev->tsens_num_sensor) - 1)
+					<< TSENS_SENSOR0_SHIFT);
 		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
 		reg_status_cntl = readl_relaxed(TSENS_8064_STATUS_CNTL);
 		reg_status_cntl |= TSENS_LOWER_STATUS_CLR |
