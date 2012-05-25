@@ -65,28 +65,14 @@ static void lvds_init(struct msm_fb_data_type *mfd)
 	usleep(1000);
 
 	/* LVDS PHY PLL configuration */
-	MDP_OUTP(MDP_BASE + 0xc3000, 0x08);
-	MDP_OUTP(MDP_BASE + 0xc3004, 0x87);
+	MDP_OUTP(MDP_BASE + 0xc3004, 0x62);
 	MDP_OUTP(MDP_BASE + 0xc3008, 0x30);
-	MDP_OUTP(MDP_BASE + 0xc300c, 0x06);
-	MDP_OUTP(MDP_BASE + 0xc3014, 0x20);
-	MDP_OUTP(MDP_BASE + 0xc3018, 0x0F);
-	MDP_OUTP(MDP_BASE + 0xc301c, 0x01);
+	MDP_OUTP(MDP_BASE + 0xc300c, 0xc4);
+	MDP_OUTP(MDP_BASE + 0xc3014, 0x10);
+	MDP_OUTP(MDP_BASE + 0xc3018, 0x05);
+	MDP_OUTP(MDP_BASE + 0xc301c, 0x62);
 	MDP_OUTP(MDP_BASE + 0xc3020, 0x41);
 	MDP_OUTP(MDP_BASE + 0xc3024, 0x0d);
-	MDP_OUTP(MDP_BASE + 0xc3028, 0x07);
-	MDP_OUTP(MDP_BASE + 0xc302c, 0x00);
-	MDP_OUTP(MDP_BASE + 0xc3030, 0x1c);
-	MDP_OUTP(MDP_BASE + 0xc3034, 0x01);
-	MDP_OUTP(MDP_BASE + 0xc3038, 0x00);
-	MDP_OUTP(MDP_BASE + 0xc3040, 0xC0);
-	MDP_OUTP(MDP_BASE + 0xc3044, 0x00);
-	MDP_OUTP(MDP_BASE + 0xc3048, 0x30);
-	MDP_OUTP(MDP_BASE + 0xc304c, 0x00);
-
-	MDP_OUTP(MDP_BASE + 0xc3000, 0x11);
-	MDP_OUTP(MDP_BASE + 0xc3064, 0x05);
-	MDP_OUTP(MDP_BASE + 0xc3050, 0x20);
 
 	MDP_OUTP(MDP_BASE + 0xc3000, 0x01);
 	/* Wait until LVDS PLL is locked and ready */
@@ -209,6 +195,10 @@ static int lvds_off(struct platform_device *pdev)
 
 	if (lvds_clk)
 		clk_disable_unprepare(lvds_clk);
+
+	MDP_OUTP(MDP_BASE +  0xc3100, 0x0);
+	MDP_OUTP(MDP_BASE + 0xc3000, 0x0);
+	usleep(10);
 
 	if (lvds_pdata && lvds_pdata->lcdc_power_save)
 		lvds_pdata->lcdc_power_save(0);
