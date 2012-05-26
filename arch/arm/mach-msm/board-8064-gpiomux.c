@@ -342,6 +342,12 @@ static struct gpiomux_setting gpio_i2c_config_sus = {
 	.pull = GPIOMUX_PULL_KEEPER,
 };
 
+static struct gpiomux_setting mbhc_hs_detect = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting cdc_mclk = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -729,6 +735,12 @@ static struct msm_gpiomux_config mpq8064_spkr_i2s_config[] __initdata = {
 };
 
 static struct msm_gpiomux_config apq8064_audio_codec_configs[] __initdata = {
+	{
+		.gpio = 38,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mbhc_hs_detect,
+		},
+	},
 	{
 		.gpio = 39,
 		.settings = {

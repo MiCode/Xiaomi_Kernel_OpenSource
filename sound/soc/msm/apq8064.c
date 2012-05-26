@@ -58,6 +58,8 @@
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
 
+#define JACK_DETECT_GPIO 38
+
 /* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
 enum {
 	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
@@ -97,6 +99,15 @@ static int msm_headset_gpios_configured;
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
+static int apq8064_hs_detect_use_gpio = -1;
+module_param(apq8064_hs_detect_use_gpio, int, 0444);
+MODULE_PARM_DESC(apq8064_hs_detect_use_gpio, "Use GPIO for headset detection");
+
+static bool apq8064_hs_detect_use_firmware;
+module_param(apq8064_hs_detect_use_firmware, bool, 0444);
+MODULE_PARM_DESC(apq8064_hs_detect_use_firmware, "Use firmware for headset "
+		 "detection");
+
 static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 				    bool dapm);
 
@@ -108,7 +119,7 @@ static struct tabla_mbhc_config mbhc_cfg = {
 	.micbias = TABLA_MICBIAS2,
 	.mclk_cb_fn = msm_enable_codec_ext_clk,
 	.mclk_rate = TABLA_EXT_CLK_RATE,
-	.gpio = 0, /* MBHC GPIO is not configured */
+	.gpio = 0,
 	.gpio_irq = 0,
 	.gpio_level_insert = 1,
 };
@@ -1037,10 +1048,10 @@ static int msm_slimbus_4_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
+	uint32_t revision;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
@@ -1096,6 +1107,48 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+
+	/* APQ8064 Rev 1.1 CDP and Liquid have mechanical switch */
+	revision = socinfo_get_version();
+	if (apq8064_hs_detect_use_gpio != -1) {
+		if (apq8064_hs_detect_use_gpio == 1)
+			pr_debug("%s: MBHC mechanical is enabled by request\n",
+				 __func__);
+		else if (apq8064_hs_detect_use_gpio == 0)
+			pr_debug("%s: MBHC mechanical is disabled by request\n",
+				 __func__);
+		else
+			pr_warn("%s: Invalid hs_detect_use_gpio %d\n", __func__,
+				apq8064_hs_detect_use_gpio);
+	} else if (SOCINFO_VERSION_MAJOR(revision) == 0) {
+		pr_warn("%s: Unknown HW revision detected %d.%d\n", __func__,
+			SOCINFO_VERSION_MAJOR(revision),
+			SOCINFO_VERSION_MINOR(revision));
+	} else if ((SOCINFO_VERSION_MAJOR(revision) == 1 &&
+		    SOCINFO_VERSION_MINOR(revision) >= 1 &&
+		    (machine_is_apq8064_cdp() ||
+		     machine_is_apq8064_liquid())) ||
+		   SOCINFO_VERSION_MAJOR(revision) > 1) {
+		pr_debug("%s: MBHC mechanical switch available APQ8064 "
+			 "detected\n", __func__);
+		apq8064_hs_detect_use_gpio = 1;
+	}
+
+	if (apq8064_hs_detect_use_gpio == 1) {
+		pr_debug("%s: Using MBHC mechanical switch\n", __func__);
+		mbhc_cfg.gpio = JACK_DETECT_GPIO;
+		mbhc_cfg.gpio_irq = gpio_to_irq(JACK_DETECT_GPIO);
+		err = gpio_request(mbhc_cfg.gpio, "MBHC_HS_DETECT");
+		if (err < 0) {
+			pr_err("%s: gpio_request %d failed %d\n", __func__,
+			       mbhc_cfg.gpio, err);
+			return err;
+		}
+		gpio_direction_input(JACK_DETECT_GPIO);
+	} else
+		pr_debug("%s: Not using MBHC mechanical switch\n", __func__);
+
+	mbhc_cfg.read_fw_bin = apq8064_hs_detect_use_firmware;
 
 	err = tabla_hs_detect(codec, &mbhc_cfg);
 
@@ -1857,6 +1910,8 @@ static void __exit msm_audio_exit(void)
 	}
 	msm_free_headset_mic_gpios();
 	platform_device_unregister(msm_snd_device);
+	if (mbhc_cfg.gpio)
+		gpio_free(mbhc_cfg.gpio);
 	kfree(mbhc_cfg.calibration);
 }
 module_exit(msm_audio_exit);
