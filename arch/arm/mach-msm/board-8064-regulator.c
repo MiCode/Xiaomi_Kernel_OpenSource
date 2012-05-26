@@ -549,7 +549,7 @@ msm8064_pm8921_regulator_pdata[] __devinitdata = {
 	 *		ID   name always_on pd min_uV   max_uV   en_t supply
 	 *	system_uA reg_ID
 	 */
-	PM8XXX_NLDO1200(L26, "8921_l26", 0, 1, 1050000, 1050000, 200, "8921_s7",
+	PM8XXX_NLDO1200(L26, "8921_l26", 0, 1, 375000, 1050000, 200, "8921_s7",
 		0, 1),
 
 	/*           ID        name     always_on pd       en_t supply reg_ID */
