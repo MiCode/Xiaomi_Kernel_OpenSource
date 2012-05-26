@@ -39,6 +39,7 @@
 #define SPK_AMP_POS	0x1
 #define SPK_AMP_NEG	0x2
 #define SPKR_BOOST_GPIO 15
+#define DEFAULT_PMIC_SPK_GAIN 0x0D
 #define SITAR_EXT_CLK_RATE 12288000
 
 #define SITAR_MBHC_DEF_BUTTONS 3
@@ -47,6 +48,7 @@
 static int msm8930_spk_control;
 static int msm8930_slim_0_rx_ch = 1;
 static int msm8930_slim_0_tx_ch = 1;
+static int msm8930_pmic_spk_gain = DEFAULT_PMIC_SPK_GAIN;
 
 static int msm8930_ext_spk_pamp;
 static int msm8930_btsco_rate = BTSCO_RATE_8KHZ;
@@ -431,6 +433,39 @@ static int msm8930_btsco_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static const char *pmic_spk_gain_text[] = {
+	"NEG_6_DB", "NEG_4_DB", "NEG_2_DB", "ZERO_DB", "POS_2_DB", "POS_4_DB",
+	"POS_6_DB", "POS_8_DB", "POS_10_DB", "POS_12_DB", "POS_14_DB",
+	"POS_16_DB", "POS_18_DB", "POS_20_DB", "POS_22_DB", "POS_24_DB"
+};
+
+static const struct soc_enum msm8960_pmic_spk_gain_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(pmic_spk_gain_text),
+						pmic_spk_gain_text),
+};
+
+static int msm8930_pmic_gain_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm8930_pmic_spk_gain = %d\n", __func__,
+			 msm8930_pmic_spk_gain);
+	ucontrol->value.integer.value[0] = msm8930_pmic_spk_gain;
+	return 0;
+}
+
+static int msm8930_pmic_gain_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	msm8930_pmic_spk_gain = ucontrol->value.integer.value[0];
+	ret = pm8xxx_spk_gain(msm8930_pmic_spk_gain);
+	pr_debug("%s: msm8930_pmic_spk_gain = %d"
+			 " ucontrol->value.integer.value[0] = %d\n", __func__,
+			 msm8930_pmic_spk_gain,
+			 (int) ucontrol->value.integer.value[0]);
+	return ret;
+}
+
 static const struct snd_kcontrol_new sitar_msm8930_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm8930_enum[0], msm8930_get_spk,
 		msm8930_set_spk),
@@ -438,6 +473,8 @@ static const struct snd_kcontrol_new sitar_msm8930_controls[] = {
 		msm8930_slim_0_rx_ch_get, msm8930_slim_0_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_TX Channels", msm8930_enum[2],
 		msm8930_slim_0_tx_ch_get, msm8930_slim_0_tx_ch_put),
+	SOC_ENUM_EXT("PMIC SPK Gain", msm8960_pmic_spk_gain_enum[0],
+		msm8930_pmic_gain_get, msm8930_pmic_gain_put),
 };
 
 static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
@@ -641,6 +678,9 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	mbhc_cfg.gpio = 37;
 	mbhc_cfg.gpio_irq = gpio_to_irq(mbhc_cfg.gpio);
 	sitar_hs_detect(codec, &mbhc_cfg);
+
+	/* Initialize default PMIC speaker gain */
+	pm8xxx_spk_gain(DEFAULT_PMIC_SPK_GAIN);
 
 	return 0;
 }
