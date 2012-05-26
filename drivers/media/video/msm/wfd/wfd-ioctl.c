@@ -498,7 +498,6 @@ void wfd_vidbuf_buf_cleanup(struct vb2_buffer *vb)
 	if (rc)
 		WFD_MSG_ERR("Failed to free output buffer\n");
 	wfd_unregister_out_buf(inst, minfo);
-	wfd_free_input_buffers(wfd_dev, inst);
 }
 
 static int mdp_output_thread(void *data)
@@ -1344,12 +1343,13 @@ static int wfd_close(struct file *filp)
 	inst = filp->private_data;
 	if (inst) {
 		wfdioc_streamoff(filp, NULL, V4L2_BUF_TYPE_VIDEO_CAPTURE);
-		vb2_queue_release(&inst->vid_bufq);
 		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 				MDP_CLOSE, (void *)inst->mdp_inst);
 		if (rc)
 			WFD_MSG_ERR("Failed to CLOSE mdp subdevice: %d\n", rc);
 
+		vb2_queue_release(&inst->vid_bufq);
+		wfd_free_input_buffers(wfd_dev, inst);
 		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 				CLOSE, (void *)inst->venc_inst);
 
