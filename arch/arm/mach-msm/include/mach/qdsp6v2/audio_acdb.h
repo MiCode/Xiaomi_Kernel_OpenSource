@@ -14,8 +14,11 @@
 #define _AUDIO_ACDB_H
 
 #include <linux/msm_audio_acdb.h>
+#ifdef CONFIG_ARCH_MSMCOPPER
+#include <sound/q6adm-v2.h>
+#else
 #include <sound/q6adm.h>
-
+#endif
 enum {
 	RX_CAL,
 	TX_CAL,

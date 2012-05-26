@@ -15,8 +15,13 @@
 #ifndef __Q6_AUDIO_COMMON_H__
 #define __Q6_AUDIO_COMMON_H__
 
+#ifdef CONFIG_ARCH_MSMCOPPER
+#include <sound/apr_audio-v2.h>
+#include <sound/q6asm-v2.h>
+#else
 #include <sound/apr_audio.h>
 #include <sound/q6asm.h>
+#endif
 
 void q6_audio_cb(uint32_t opcode, uint32_t token,
 		uint32_t *payload, void *priv);
