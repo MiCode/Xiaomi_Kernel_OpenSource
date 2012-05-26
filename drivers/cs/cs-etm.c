@@ -26,6 +26,7 @@
 #include <linux/pm_qos.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
+#include <linux/clk.h>
 #include <linux/cs.h>
 #include <asm/sections.h>
 #include <mach/socinfo.h>
@@ -161,6 +162,7 @@ struct etm_ctx {
 	struct mutex			mutex;
 	struct device			*dev;
 	struct kobject			*kobj;
+	struct clk			*clk;
 	uint8_t				arch;
 	uint8_t				nr_addr_cmp;
 	uint8_t				nr_cntr;
@@ -351,6 +353,10 @@ static int etm_enable(void)
 	 */
 	pm_qos_update_request(&etm.qos_req, 0);
 
+	ret = clk_prepare_enable(etm.clk);
+	if (ret)
+		goto err_clk;
+
 	ret = qdss_enable(etm.src);
 	if (ret)
 		goto err_qdss;
@@ -367,6 +373,8 @@ static int etm_enable(void)
 	return 0;
 
 err_qdss:
+	clk_disable_unprepare(etm.clk);
+err_clk:
 	pm_qos_update_request(&etm.qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&etm.wake_lock);
 err:
@@ -409,9 +417,11 @@ static int etm_disable(void)
 	for_each_online_cpu(cpu)
 		__etm_disable(cpu);
 
+	etm.enabled = false;
+
 	qdss_disable(etm.src);
 
-	etm.enabled = false;
+	clk_disable_unprepare(etm.clk);
 
 	pm_qos_update_request(&etm.qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&etm.wake_lock);
@@ -1253,9 +1263,19 @@ static int etm_probe(struct platform_device *pdev)
 		goto err_qdssget;
 	}
 
-	ret = qdss_clk_enable();
+	etm.clk = clk_get(etm.dev, "core_clk");
+	if (IS_ERR(etm.clk)) {
+		ret = PTR_ERR(etm.clk);
+		goto err_clk_get;
+	}
+
+	ret = clk_set_rate(etm.clk, CS_CLK_RATE_TRACE);
 	if (ret)
-		goto err_clk;
+		goto err_clk_rate;
+
+	ret = clk_prepare_enable(etm.clk);
+	if (ret)
+		goto err_clk_enable;
 
 	ret = etm_arch_init();
 	if (ret)
@@ -1267,7 +1287,7 @@ static int etm_probe(struct platform_device *pdev)
 
 	etm.enabled = false;
 
-	qdss_clk_disable();
+	clk_disable_unprepare(etm.clk);
 
 	dev_info(etm.dev, "ETM initialized\n");
 
@@ -1278,8 +1298,11 @@ static int etm_probe(struct platform_device *pdev)
 
 err_sysfs:
 err_arch:
-	qdss_clk_disable();
-err_clk:
+	clk_disable_unprepare(etm.clk);
+err_clk_enable:
+err_clk_rate:
+	clk_put(etm.clk);
+err_clk_get:
 	qdss_put(etm.src);
 err_qdssget:
 	pm_qos_remove_request(&etm.qos_req);
@@ -1297,6 +1320,7 @@ static int etm_remove(struct platform_device *pdev)
 	if (etm.enabled)
 		etm_disable();
 	etm_sysfs_exit();
+	clk_put(etm.clk);
 	qdss_put(etm.src);
 	pm_qos_remove_request(&etm.qos_req);
 	wake_lock_destroy(&etm.wake_lock);

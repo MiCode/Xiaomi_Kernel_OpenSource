@@ -38,6 +38,12 @@
 #define ETM_ARCH_V3_3		(0x23)
 #define PFT_ARCH_V1_1		(0x31)
 
+enum cs_clk_rate {
+	CS_CLK_RATE_OFF,
+	CS_CLK_RATE_TRACE,
+	CS_CLK_RATE_HSTRACE,
+};
+
 enum cs_device_type {
 	CS_DEVICE_TYPE_SOURCE,
 	CS_DEVICE_TYPE_LINK,
@@ -114,16 +120,12 @@ extern void qdss_put(struct qdss_source *src);
 extern int qdss_enable(struct qdss_source *src);
 extern void qdss_disable(struct qdss_source *src);
 extern void qdss_disable_sink(void);
-extern int qdss_clk_enable(void);
-extern void qdss_clk_disable(void);
 #else
 static inline struct qdss_source *qdss_get(const char *name) { return NULL; }
 static inline void qdss_put(struct qdss_source *src) {}
 static inline int qdss_enable(struct qdss_source *src) { return -ENOSYS; }
 static inline void qdss_disable(struct qdss_source *src) {}
 static inline void qdss_disable_sink(void) {}
-static inline int qdss_clk_enable(void) { return -ENOSYS; }
-static inline void qdss_clk_disable(void) {}
 #endif
 
 #endif

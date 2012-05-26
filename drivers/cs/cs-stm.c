@@ -22,6 +22,7 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
 #include <linux/cs.h>
 #include <linux/cs-stm.h>
 #include <asm/unaligned.h>
@@ -98,6 +99,7 @@ struct stm_ctx {
 	struct qdss_source	*src;
 	struct device		*dev;
 	struct kobject		*kobj;
+	struct clk		*clk;
 	uint32_t		entity;
 	struct channel_space	chs;
 };
@@ -129,9 +131,13 @@ static int stm_enable(void)
 		goto err;
 	}
 
+	ret = clk_prepare_enable(stm.clk);
+	if (ret)
+		goto err_clk;
+
 	ret = qdss_enable(stm.src);
 	if (ret)
-		goto err;
+		goto err_qdss;
 
 	__stm_enable();
 
@@ -140,6 +146,9 @@ static int stm_enable(void)
 	dev_info(stm.dev, "STM tracing enabled\n");
 	return 0;
 
+err_qdss:
+	clk_disable_unprepare(stm.clk);
+err_clk:
 err:
 	return ret;
 }
@@ -167,9 +176,11 @@ static int stm_disable(void)
 
 	__stm_disable();
 
+	stm.enabled = false;
+
 	qdss_disable(stm.src);
 
-	stm.enabled = false;
+	clk_disable_unprepare(stm.clk);
 
 	dev_info(stm.dev, "STM tracing disabled\n");
 	return 0;
@@ -531,6 +542,16 @@ static int stm_probe(struct platform_device *pdev)
 		goto err_qdssget;
 	}
 
+	stm.clk = clk_get(stm.dev, "core_clk");
+	if (IS_ERR(stm.clk)) {
+		ret = PTR_ERR(stm.clk);
+		goto err_clk_get;
+	}
+
+	ret = clk_set_rate(stm.clk, CS_CLK_RATE_TRACE);
+	if (ret)
+		goto err_clk_rate;
+
 	ret = stm_sysfs_init();
 	if (ret)
 		goto err_sysfs;
@@ -542,6 +563,9 @@ static int stm_probe(struct platform_device *pdev)
 	return 0;
 
 err_sysfs:
+err_clk_rate:
+	clk_put(stm.clk);
+err_clk_get:
 	qdss_put(stm.src);
 err_qdssget:
 	misc_deregister(&stm_misc);
@@ -563,6 +587,7 @@ static int stm_remove(struct platform_device *pdev)
 	if (stm.enabled)
 		stm_disable();
 	stm_sysfs_exit();
+	clk_put(stm.clk);
 	qdss_put(stm.src);
 	misc_deregister(&stm_misc);
 	iounmap(stm.chs.base);

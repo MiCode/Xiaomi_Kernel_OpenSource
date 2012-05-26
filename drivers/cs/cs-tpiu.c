@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/clk.h>
 #include <linux/cs.h>
 
 #include "cs-priv.h"
@@ -60,6 +61,7 @@ struct tpiu_ctx {
 	void __iomem	*base;
 	bool		enabled;
 	struct device	*dev;
+	struct clk	*clk;
 };
 
 static struct tpiu_ctx tpiu;
@@ -100,9 +102,23 @@ static int tpiu_probe(struct platform_device *pdev)
 
 	tpiu.dev = &pdev->dev;
 
+	tpiu.clk = clk_get(tpiu.dev, "core_clk");
+	if (IS_ERR(tpiu.clk)) {
+		ret = PTR_ERR(tpiu.clk);
+		goto err_clk_get;
+	}
+
+	ret = clk_set_rate(tpiu.clk, CS_CLK_RATE_TRACE);
+	if (ret)
+		goto err_clk_rate;
+
 	dev_info(tpiu.dev, "TPIU initialized\n");
 	return 0;
 
+err_clk_rate:
+	clk_put(tpiu.clk);
+err_clk_get:
+	iounmap(tpiu.base);
 err_ioremap:
 err_res:
 	dev_err(tpiu.dev, "TPIU init failed\n");
@@ -113,6 +129,7 @@ static int tpiu_remove(struct platform_device *pdev)
 {
 	if (tpiu.enabled)
 		tpiu_disable();
+	clk_put(tpiu.clk);
 	iounmap(tpiu.base);
 
 	return 0;

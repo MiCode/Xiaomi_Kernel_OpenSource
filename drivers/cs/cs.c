@@ -28,11 +28,6 @@
 
 #define MAX_STR_LEN	(65535)
 
-enum {
-	QDSS_CLK_OFF,
-	QDSS_CLK_ON_DBG,
-	QDSS_CLK_ON_HSDBG,
-};
 
 static LIST_HEAD(cs_orph_conns);
 static DEFINE_MUTEX(cs_orph_conns_mutex);
@@ -387,19 +382,12 @@ EXPORT_SYMBOL(qdss_put);
  */
 int qdss_enable(struct qdss_source *src)
 {
-	int ret;
-
 	if (!src)
 		return -EINVAL;
-
-	ret = qdss_clk_enable();
-	if (ret)
-		goto err;
 
 	if (qdss.afamily) {
 		mutex_lock(&qdss.sink_mutex);
 		if (qdss.sink_count == 0) {
-			etb_disable();
 			tpiu_disable();
 			/* enable ETB first to avoid losing any trace data */
 			etb_enable();
@@ -410,8 +398,6 @@ int qdss_enable(struct qdss_source *src)
 
 	funnel_enable(0x0, src->fport_mask);
 	return 0;
-err:
-	return ret;
 }
 EXPORT_SYMBOL(qdss_enable);
 
@@ -443,7 +429,6 @@ void qdss_disable(struct qdss_source *src)
 	}
 
 	funnel_disable(0x0, src->fport_mask);
-	qdss_clk_disable();
 	return;
 out:
 	mutex_unlock(&qdss.sink_mutex);
@@ -469,37 +454,6 @@ void qdss_disable_sink(void)
 	}
 }
 EXPORT_SYMBOL(qdss_disable_sink);
-
-/**
- * qdss_clk_enable - enable qdss clocks
- *
- * Enables qdss clocks
- *
- * CONTEXT:
- * Might sleep. Should be called from a non-atomic context.
- *
- * RETURNS:
- * 0 on success, non-zero on failure
- */
-int qdss_clk_enable(void)
-{
-	return clk_prepare_enable(qdss.clk);
-}
-EXPORT_SYMBOL(qdss_clk_enable);
-
-/**
- * qdss_clk_disable - disable qdss clocks
- *
- * Disables qdss clocks
- *
- * CONTEXT:
- * Might sleep. Should be called from a non-atomic context.
- */
-void qdss_clk_disable(void)
-{
-	clk_disable_unprepare(qdss.clk);
-}
-EXPORT_SYMBOL(qdss_clk_disable);
 
 struct kobject *qdss_get_modulekobj(void)
 {
@@ -582,27 +536,11 @@ static int qdss_probe(struct platform_device *pdev)
 	if (!pdata)
 		goto err_pdata;
 
-	qdss.clk = clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(qdss.clk)) {
-		ret = PTR_ERR(qdss.clk);
-		pr_info("clk get failed\n");
-		goto err_clk_get;
-	}
-
-	ret = clk_set_rate(qdss.clk, QDSS_CLK_ON_DBG);
-	if (ret) {
-		pr_info("clk rate failed\n");
-		goto err_clk_rate;
-	}
-
 	qdss.afamily = pdata->afamily;
 	qdss_add_sources(pdata->src_table, pdata->size);
 
 	pr_info("QDSS arch initialized\n");
 	return 0;
-err_clk_rate:
-	clk_put(qdss.clk);
-err_clk_get:
 err_pdata:
 	mutex_destroy(&qdss.sink_mutex);
 	mutex_destroy(&qdss.sources_mutex);
@@ -613,7 +551,6 @@ err_pdata:
 static int qdss_remove(struct platform_device *pdev)
 {
 	qdss_sysfs_exit();
-	clk_put(qdss.clk);
 	mutex_destroy(&qdss.sink_mutex);
 	mutex_destroy(&qdss.sources_mutex);
 

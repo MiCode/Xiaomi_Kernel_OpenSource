@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/clk.h>
 #include <linux/cs.h>
 
 #include "cs-priv.h"
@@ -74,6 +75,7 @@ struct etb_ctx {
 	atomic_t	in_use;
 	struct device	*dev;
 	struct kobject	*kobj;
+	struct clk	*clk;
 	uint32_t	trigger_cntr;
 };
 
@@ -99,15 +101,22 @@ static void __etb_enable(void)
 	ETB_LOCK();
 }
 
-void etb_enable(void)
+int etb_enable(void)
 {
+	int ret;
 	unsigned long flags;
+
+	ret = clk_prepare_enable(etb.clk);
+	if (ret)
+		return ret;
 
 	spin_lock_irqsave(&etb.spinlock, flags);
 	__etb_enable();
 	etb.enabled = true;
 	dev_info(etb.dev, "ETB enabled\n");
 	spin_unlock_irqrestore(&etb.spinlock, flags);
+
+	return 0;
 }
 
 static void __etb_disable(void)
@@ -147,6 +156,8 @@ void etb_disable(void)
 	etb.enabled = false;
 	dev_info(etb.dev, "ETB disabled\n");
 	spin_unlock_irqrestore(&etb.spinlock, flags);
+
+	clk_disable_unprepare(etb.clk);
 }
 
 static void __etb_dump(void)
@@ -352,6 +363,16 @@ static int etb_probe(struct platform_device *pdev)
 
 	spin_lock_init(&etb.spinlock);
 
+	etb.clk = clk_get(etb.dev, "core_clk");
+	if (IS_ERR(etb.clk)) {
+		ret = PTR_ERR(etb.clk);
+		goto err_clk_get;
+	}
+
+	ret = clk_set_rate(etb.clk, CS_CLK_RATE_TRACE);
+	if (ret)
+		goto err_clk_rate;
+
 	ret = misc_register(&etb_misc);
 	if (ret)
 		goto err_misc;
@@ -370,6 +391,9 @@ static int etb_probe(struct platform_device *pdev)
 err_alloc:
 	misc_deregister(&etb_misc);
 err_misc:
+err_clk_rate:
+	clk_put(etb.clk);
+err_clk_get:
 	iounmap(etb.base);
 err_ioremap:
 err_res:
@@ -384,6 +408,7 @@ static int etb_remove(struct platform_device *pdev)
 	etb_sysfs_exit();
 	kfree(etb.buf);
 	misc_deregister(&etb_misc);
+	clk_put(etb.clk);
 	iounmap(etb.base);
 
 	return 0;
