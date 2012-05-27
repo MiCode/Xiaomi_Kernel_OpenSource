@@ -153,6 +153,8 @@ struct msm_sensor_ctrl_t {
 
 	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;
+	uint16_t prev_gain;
+	uint16_t prev_line;
 
 	uint32_t fps_divider;
 	enum msm_sensor_resolution_t curr_res;

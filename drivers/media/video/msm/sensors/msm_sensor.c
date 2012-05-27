@@ -22,6 +22,13 @@ int32_t msm_sensor_adjust_frame_lines(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t cur_line = 0;
 	uint16_t exp_fl_lines = 0;
 	if (s_ctrl->sensor_exp_gain_info) {
+		if (s_ctrl->prev_gain && s_ctrl->prev_line &&
+			s_ctrl->func_tbl->sensor_write_exp_gain)
+			s_ctrl->func_tbl->sensor_write_exp_gain(
+				s_ctrl,
+				s_ctrl->prev_gain,
+				s_ctrl->prev_line);
+
 		msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
 			s_ctrl->sensor_exp_gain_info->coarse_int_time_addr,
 			&cur_line,
@@ -429,6 +436,8 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 					s_ctrl,
 					cdata.cfg.exp_gain.gain,
 					cdata.cfg.exp_gain.line);
+			s_ctrl->prev_gain = cdata.cfg.exp_gain.gain;
+			s_ctrl->prev_line = cdata.cfg.exp_gain.line;
 			break;
 
 		case CFG_SET_PICT_EXP_GAIN:
