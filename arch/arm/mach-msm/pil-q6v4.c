@@ -116,19 +116,26 @@ static int pil_q6v4_power_up(struct device *dev)
 	int err;
 	struct q6v4_data *drv = dev_get_drvdata(dev);
 
-	err = regulator_set_voltage(drv->vreg, 1050000, 1050000);
+	err = regulator_set_voltage(drv->vreg, 375000, 375000);
 	if (err) {
-		dev_err(dev, "Failed to set regulator's voltage.\n");
-		return err;
-	}
-	err = regulator_set_optimum_mode(drv->vreg, 100000);
-	if (err < 0) {
-		dev_err(dev, "Failed to set regulator's mode.\n");
+		dev_err(dev, "Failed to set regulator's voltage step.\n");
 		return err;
 	}
 	err = regulator_enable(drv->vreg);
 	if (err) {
 		dev_err(dev, "Failed to enable regulator.\n");
+		return err;
+	}
+
+	/*
+	 * Q6 hardware requires a two step voltage ramp-up.
+	 * Delay between the steps.
+	 */
+	udelay(100);
+
+	err = regulator_set_voltage(drv->vreg, 1050000, 1050000);
+	if (err) {
+		dev_err(dev, "Failed to set regulator's voltage.\n");
 		return err;
 	}
 	drv->vreg_enabled = true;
@@ -410,6 +417,12 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	drv->vreg = devm_regulator_get(&pdev->dev, "core_vdd");
 	if (IS_ERR(drv->vreg))
 		return PTR_ERR(drv->vreg);
+
+	ret = regulator_set_optimum_mode(drv->vreg, 100000);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to set regulator's mode.\n");
+		return ret;
+	}
 
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
