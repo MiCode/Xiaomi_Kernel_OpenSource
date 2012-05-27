@@ -32,6 +32,7 @@ static int jack_switch_types[] = {
 	SW_VIDEOOUT_INSERT,
 	SW_HPHL_OVERCURRENT,
 	SW_HPHR_OVERCURRENT,
+	SW_UNSUPPORT_INSERT,
 };
 
 static int snd_jack_dev_free(struct snd_device *device)

@@ -817,7 +817,8 @@ struct input_keymap_entry {
 #define SW_ROTATE_LOCK		0x0c  /* set = rotate locked/disabled */
 #define SW_HPHL_OVERCURRENT	0x0d  /* set = over current on left hph */
 #define SW_HPHR_OVERCURRENT	0x0e  /* set = over current on right hph */
-#define SW_MAX			0x0f
+#define SW_UNSUPPORT_INSERT	0x0f  /* set = unsupported device inserted */
+#define SW_MAX			0x10
 #define SW_CNT			(SW_MAX+1)
 
 /*
