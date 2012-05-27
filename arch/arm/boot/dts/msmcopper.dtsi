@@ -134,7 +134,7 @@
 		compatible = "qcom,spi-qup-v2";
 		reg = <0xf9924000 0x1000>;
 		interrupts = <0 96 0>;
-		spi-max-frequency = <24000000>;
+		spi-max-frequency = <25000000>;
 	};
 
 	slim@fe12f000 {
