@@ -23,6 +23,7 @@
 #include "pil-q6v5.h"
 
 #define QDSP6SS_RST_EVB			0x010
+#define PROXY_TIMEOUT_MS		10000
 
 static int pil_lpass_shutdown(struct pil_desc *pil)
 {
@@ -93,6 +94,7 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 
 	desc->ops = &pil_lpass_ops;
 	desc->owner = THIS_MODULE;
+	desc->proxy_timeout = PROXY_TIMEOUT_MS;
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))
