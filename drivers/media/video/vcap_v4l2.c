@@ -43,6 +43,7 @@
 #include <media/vcap_v4l2.h>
 #include <media/vcap_fmt.h>
 #include "vcap_vc.h"
+#include "vcap_vp.h"
 
 #define NUM_INPUTS 1
 #define MSM_VCAP_DRV_NAME "msm_vcap"
@@ -56,6 +57,28 @@ static unsigned debug;
 		if (debug >= level)					\
 			printk(KERN_DEBUG "VCAP: " fmt, ## arg);	\
 	} while (0)
+
+enum vcap_op_mode determine_mode(struct vcap_client_data *cd)
+{
+	if (cd->set_cap == 1 && cd->set_vp_o == 0 &&
+			cd->set_decode == 0)
+		return VC_VCAP_OP;
+	else if (cd->set_cap == 1 && cd->set_vp_o == 1 &&
+			cd->set_decode == 0)
+		return VC_AND_VP_VCAP_OP;
+	else if (cd->set_cap == 0 && cd->set_vp_o == 1 &&
+			cd->set_decode == 1)
+		return VP_VCAP_OP;
+	else
+		return UNKNOWN_VCAP_OP;
+}
+
+void dealloc_resources(struct vcap_client_data *cd)
+{
+	cd->set_cap = false;
+	cd->set_decode = false;
+	cd->set_vp_o = false;
+}
 
 int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 				  struct v4l2_buffer *b)
@@ -103,6 +126,8 @@ int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 			&buf->paddr, (size_t *)&len);
 	if (rc < 0) {
 		pr_err("%s: Could not get phys addr\n", __func__);
+		ion_free(dev->ion_client, buf->ion_handle);
+		buf->ion_handle = NULL;
 		return -EFAULT;
 	}
 
@@ -148,7 +173,7 @@ int free_ion_handle(struct vcap_dev *dev, struct vb2_queue *q,
 	return 0;
 }
 
-/* Videobuf operations */
+/* VC Videobuf operations */
 
 static int capture_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
 				unsigned int *nplanes, unsigned long sizes[],
@@ -157,7 +182,6 @@ static int capture_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
 	*nbuffers += 2;
 	if (*nbuffers > VIDEO_MAX_FRAME)
 		return -EINVAL;
-
 	*nplanes = 1;
 	return 0;
 }
@@ -240,6 +264,197 @@ static struct vb2_ops capture_video_qops = {
 	.buf_cleanup		= capture_buffer_cleanup,
 };
 
+/* VP I/P Videobuf operations */
+
+static int vp_in_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
+				unsigned int *nplanes, unsigned long sizes[],
+				void *alloc_ctxs[])
+{
+	if (*nbuffers >= VIDEO_MAX_FRAME && *nbuffers < 5)
+		*nbuffers = 5;
+
+	*nplanes = 1;
+	return 0;
+}
+
+static int vp_in_buffer_init(struct vb2_buffer *vb)
+{
+	return 0;
+}
+
+static int vp_in_buffer_prepare(struct vb2_buffer *vb)
+{
+	return 0;
+}
+
+static void vp_in_buffer_queue(struct vb2_buffer *vb)
+{
+	struct vcap_client_data *cd = vb2_get_drv_priv(vb->vb2_queue);
+	struct vcap_buffer *buf = container_of(vb, struct vcap_buffer, vb);
+	struct vp_action *vp_act = &cd->vid_vp_action;
+	struct vb2_queue *q = vb->vb2_queue;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&cd->cap_slock, flags);
+	list_add_tail(&buf->list, &vp_act->in_active);
+	spin_unlock_irqrestore(&cd->cap_slock, flags);
+
+	if (atomic_read(&cd->dev->vp_enabled) == 0) {
+		if (cd->vid_vp_action.vp_state == VP_FRAME1) {
+			if (atomic_read(&q->queued_count) > 1 &&
+				atomic_read(&cd->vp_out_vidq.queued_count) > 0)
+				/* Valid code flow for VC-VP mode */
+				kickoff_vp(cd);
+		} else {
+			/* VP has already kicked off just needs cont */
+			continue_vp(cd);
+		}
+	}
+}
+
+static int vp_in_start_streaming(struct vb2_queue *vq)
+{
+	dprintk(2, "VP IN start streaming\n");
+	return 0;
+}
+
+static int vp_in_stop_streaming(struct vb2_queue *vq)
+{
+	struct vcap_client_data *c_data = vb2_get_drv_priv(vq);
+	struct vb2_buffer *vb;
+
+	dprintk(2, "VP stop streaming\n");
+
+	while (!list_empty(&c_data->vid_vp_action.in_active)) {
+		struct vcap_buffer *buf;
+		buf = list_entry(c_data->vid_vp_action.in_active.next,
+			struct vcap_buffer, list);
+		list_del(&buf->list);
+		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
+	}
+
+	/* clean ion handles */
+	list_for_each_entry(vb, &vq->queued_list, queued_entry)
+		free_ion_handle_work(c_data->dev, vb);
+	return 0;
+}
+
+static int vp_in_buffer_finish(struct vb2_buffer *vb)
+{
+	return 0;
+}
+
+static void vp_in_buffer_cleanup(struct vb2_buffer *vb)
+{
+}
+
+static struct vb2_ops vp_in_video_qops = {
+	.queue_setup		= vp_in_queue_setup,
+	.buf_init			= vp_in_buffer_init,
+	.buf_prepare		= vp_in_buffer_prepare,
+	.buf_queue			= vp_in_buffer_queue,
+	.start_streaming	= vp_in_start_streaming,
+	.stop_streaming		= vp_in_stop_streaming,
+	.buf_finish			= vp_in_buffer_finish,
+	.buf_cleanup		= vp_in_buffer_cleanup,
+};
+
+
+/* VP O/P Videobuf operations */
+
+static int vp_out_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
+				unsigned int *nplanes, unsigned long sizes[],
+				void *alloc_ctxs[])
+{
+	if (*nbuffers >= VIDEO_MAX_FRAME && *nbuffers < 3)
+		*nbuffers = 3;
+
+	*nplanes = 1;
+	return 0;
+}
+
+static int vp_out_buffer_init(struct vb2_buffer *vb)
+{
+	return 0;
+}
+
+static int vp_out_buffer_prepare(struct vb2_buffer *vb)
+{
+	return 0;
+}
+
+static void vp_out_buffer_queue(struct vb2_buffer *vb)
+{
+	struct vcap_client_data *cd = vb2_get_drv_priv(vb->vb2_queue);
+	struct vcap_buffer *buf = container_of(vb, struct vcap_buffer, vb);
+	struct vp_action *vp_act = &cd->vid_vp_action;
+	struct vb2_queue *q = vb->vb2_queue;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&cd->cap_slock, flags);
+	list_add_tail(&buf->list, &vp_act->out_active);
+	spin_unlock_irqrestore(&cd->cap_slock, flags);
+
+	if (atomic_read(&cd->dev->vp_enabled) == 0) {
+		if (cd->vid_vp_action.vp_state == VP_FRAME1) {
+			if (atomic_read(&q->queued_count) > 0 &&
+				atomic_read(&
+					cd->vp_in_vidq.queued_count) > 1)
+				kickoff_vp(cd);
+		} else {
+			/* VP has already kicked off just needs cont */
+			continue_vp(cd);
+		}
+	}
+}
+
+static int vp_out_start_streaming(struct vb2_queue *vq)
+{
+	return 0;
+}
+
+static int vp_out_stop_streaming(struct vb2_queue *vq)
+{
+	struct vcap_client_data *c_data = vb2_get_drv_priv(vq);
+	struct vb2_buffer *vb;
+
+	dprintk(2, "VP out q stop streaming\n");
+	vp_stop_capture(c_data);
+
+	while (!list_empty(&c_data->vid_vp_action.out_active)) {
+		struct vcap_buffer *buf;
+		buf = list_entry(c_data->vid_vp_action.out_active.next,
+			struct vcap_buffer, list);
+		list_del(&buf->list);
+		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
+	}
+
+	/* clean ion handles */
+	list_for_each_entry(vb, &vq->queued_list, queued_entry)
+		free_ion_handle_work(c_data->dev, vb);
+	return 0;
+}
+
+static int vp_out_buffer_finish(struct vb2_buffer *vb)
+{
+	return 0;
+}
+
+static void vp_out_buffer_cleanup(struct vb2_buffer *vb)
+{
+}
+
+static struct vb2_ops vp_out_video_qops = {
+	.queue_setup		= vp_out_queue_setup,
+	.buf_init			= vp_out_buffer_init,
+	.buf_prepare		= vp_out_buffer_prepare,
+	.buf_queue			= vp_out_buffer_queue,
+	.start_streaming	= vp_out_start_streaming,
+	.stop_streaming		= vp_out_stop_streaming,
+	.buf_finish			= vp_out_buffer_finish,
+	.buf_cleanup		= vp_out_buffer_cleanup,
+};
+
 /* IOCTL vidioc handling */
 
 static int vidioc_querycap(struct file *file, void  *priv,
@@ -305,15 +520,41 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 			c_data->vc_format.vactive_start);
 		priv_fmt->u.timing.sizeimage = size;
 		vcap_ctrl->vc_client = c_data;
+		c_data->set_cap = true;
 		break;
 	case VP_IN_TYPE:
-		c_data->vp_buf_type_field = V4L2_BUF_TYPE_INTERLACED_IN_DECODER;
-		c_data->vp_format.field = f->fmt.pix.field;
-		c_data->vp_format.height = f->fmt.pix.height;
-		c_data->vp_format.width = f->fmt.pix.width;
-		c_data->vp_format.pixelformat = f->fmt.pix.pixelformat;
+		vcap_ctrl->vp_client = c_data;
+		c_data->vp_in_fmt.width = priv_fmt->u.pix.width;
+		c_data->vp_in_fmt.height = priv_fmt->u.pix.height;
+		c_data->vp_in_fmt.pixfmt = priv_fmt->u.pix.pixelformat;
+
+		if (priv_fmt->u.pix.priv)
+			c_data->vid_vp_action.nr_enabled = 1;
+
+		size = c_data->vp_in_fmt.width * c_data->vp_in_fmt.height;
+		if (c_data->vp_in_fmt.pixfmt == V4L2_PIX_FMT_NV16)
+			size = size * 2;
+		else
+			size = size / 2 * 3;
+		priv_fmt->u.pix.sizeimage = size;
+		c_data->set_decode = true;
 		break;
 	case VP_OUT_TYPE:
+		vcap_ctrl->vp_client = c_data;
+		c_data->vp_out_fmt.width = priv_fmt->u.pix.width;
+		c_data->vp_out_fmt.height = priv_fmt->u.pix.height;
+		c_data->vp_out_fmt.pixfmt = priv_fmt->u.pix.pixelformat;
+
+		if (priv_fmt->u.pix.priv)
+			c_data->vid_vp_action.nr_enabled = 1;
+
+		size = c_data->vp_out_fmt.width * c_data->vp_out_fmt.height;
+		if (c_data->vp_out_fmt.pixfmt == V4L2_PIX_FMT_NV16)
+			size = size * 2;
+		else
+			size = size / 2 * 3;
+		priv_fmt->u.pix.sizeimage = size;
+		c_data->set_vp_o = true;
 		break;
 	default:
 		break;
@@ -326,9 +567,55 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			  struct v4l2_requestbuffers *rb)
 {
 	struct vcap_client_data *c_data = file->private_data;
+	int rc;
+
+	dprintk(3, "In Req Buf %08x\n", (unsigned int)rb->type);
+	c_data->op_mode = determine_mode(c_data);
+	if (c_data->op_mode == UNKNOWN_VCAP_OP) {
+		pr_err("VCAP Error: %s: VCAP in unknown mode\n", __func__);
+		return -ENOTRECOVERABLE;
+	}
+
 	switch (rb->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		return vb2_reqbufs(&c_data->vc_vidq, rb);
+		if (c_data->op_mode == VC_AND_VP_VCAP_OP) {
+			if (c_data->vc_format.color_space) {
+				pr_err("VCAP Err: %s: VP No RGB support\n",
+					__func__);
+				return -ENOTRECOVERABLE;
+			}
+			if (!c_data->vc_format.mode) {
+				pr_err("VCAP Err: VP No prog support\n");
+				return -ENOTRECOVERABLE;
+			}
+			if (rb->count < 6) {
+				pr_err("VCAP Err: Not enough buf for VC_VP\n");
+				return -EINVAL;
+			}
+			rc = vb2_reqbufs(&c_data->vc_vidq, rb);
+			if (rc < 0)
+				return rc;
+
+			c_data->vp_in_fmt.width =
+				(c_data->vc_format.hactive_end -
+				c_data->vc_format.hactive_start);
+			c_data->vp_in_fmt.height =
+				(c_data->vc_format.vactive_end -
+				c_data->vc_format.vactive_start);
+			/* VC outputs YCbCr 4:2:2 */
+			c_data->vp_in_fmt.pixfmt = V4L2_PIX_FMT_NV16;
+			rb->type = V4L2_BUF_TYPE_INTERLACED_IN_DECODER;
+			rc = vb2_reqbufs(&c_data->vp_in_vidq, rb);
+			rb->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			return rc;
+
+		} else {
+			return vb2_reqbufs(&c_data->vc_vidq, rb);
+		}
+	case V4L2_BUF_TYPE_INTERLACED_IN_DECODER:
+		return vb2_reqbufs(&c_data->vp_in_vidq, rb);
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		return vb2_reqbufs(&c_data->vp_out_vidq, rb);
 	default:
 		pr_err("VCAP Error: %s: Unknown buffer type\n", __func__);
 		return -EINVAL;
@@ -353,15 +640,56 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct vcap_client_data *c_data = file->private_data;
+	struct vb2_buffer *vb;
+	struct vb2_queue *q;
 	int rc;
 
+	dprintk(3, "In Q Buf %08x\n", (unsigned int)p->type);
 	switch (p->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		if (get_phys_addr(c_data->dev, &c_data->vc_vidq, p))
-			return -EINVAL;
+		if (c_data->op_mode == VC_AND_VP_VCAP_OP) {
+			/* If buffer in vp_in_q it will be coming back */
+			q = &c_data->vp_in_vidq;
+			if (p->index >= q->num_buffers) {
+				dprintk(1, "qbuf: buffer index out of range\n");
+				return -EINVAL;
+			}
+
+			vb = q->bufs[p->index];
+			if (NULL == vb) {
+				dprintk(1, "qbuf: buffer is NULL\n");
+				return -EINVAL;
+			}
+
+			if (vb->state != VB2_BUF_STATE_DEQUEUED) {
+				dprintk(1, "qbuf: buffer already in use\n");
+				return -EINVAL;
+			}
+		}
+		rc = get_phys_addr(c_data->dev, &c_data->vc_vidq, p);
+		if (rc < 0)
+			return rc;
 		rc = vb2_qbuf(&c_data->vc_vidq, p);
 		if (rc < 0)
 			free_ion_handle(c_data->dev, &c_data->vc_vidq, p);
+		return rc;
+	case V4L2_BUF_TYPE_INTERLACED_IN_DECODER:
+		if (c_data->op_mode == VC_AND_VP_VCAP_OP)
+			return -EINVAL;
+		rc = get_phys_addr(c_data->dev, &c_data->vp_in_vidq, p);
+		if (rc < 0)
+			return rc;
+		rc = vb2_qbuf(&c_data->vp_in_vidq, p);
+		if (rc < 0)
+			free_ion_handle(c_data->dev, &c_data->vp_in_vidq, p);
+		return rc;
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		rc = get_phys_addr(c_data->dev, &c_data->vp_out_vidq, p);
+		if (rc < 0)
+			return rc;
+		rc = vb2_qbuf(&c_data->vp_out_vidq, p);
+		if (rc < 0)
+			free_ion_handle(c_data->dev, &c_data->vp_out_vidq, p);
 		return rc;
 	default:
 		pr_err("VCAP Error: %s: Unknown buffer type\n", __func__);
@@ -375,12 +703,29 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct vcap_client_data *c_data = file->private_data;
 	int rc;
 
+	dprintk(3, "In DQ Buf %08x\n", (unsigned int)p->type);
 	switch (p->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		if (c_data->op_mode == VC_AND_VP_VCAP_OP)
+			return -EINVAL;
 		rc = vb2_dqbuf(&c_data->vc_vidq, p, file->f_flags & O_NONBLOCK);
 		if (rc < 0)
 			return rc;
 		return free_ion_handle(c_data->dev, &c_data->vc_vidq, p);
+	case V4L2_BUF_TYPE_INTERLACED_IN_DECODER:
+		if (c_data->op_mode == VC_AND_VP_VCAP_OP)
+			return -EINVAL;
+		rc = vb2_dqbuf(&c_data->vp_in_vidq, p, file->f_flags &
+				O_NONBLOCK);
+		if (rc < 0)
+			return rc;
+		return free_ion_handle(c_data->dev, &c_data->vp_in_vidq, p);
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		rc = vb2_dqbuf(&c_data->vp_out_vidq, p, file->f_flags &
+				O_NONBLOCK);
+		if (rc < 0)
+			return rc;
+		return free_ion_handle(c_data->dev, &c_data->vp_out_vidq, p);
 	default:
 		pr_err("VCAP Error: %s: Unknown buffer type", __func__);
 		return -EINVAL;
@@ -388,15 +733,153 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	return 0;
 }
 
+/*
+ * When calling streamon on multiple queues there is a need to first verify
+ * that the steamon will succeed on all queues, similarly for streamoff
+ */
+int streamon_validate_q(struct vb2_queue *q)
+{
+	if (q->fileio) {
+		dprintk(1, "streamon: file io in progress\n");
+		return -EBUSY;
+	}
+
+	if (q->streaming) {
+		dprintk(1, "streamon: already streaming\n");
+		return -EBUSY;
+	}
+
+	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
+		if (list_empty(&q->queued_list)) {
+			dprintk(1, "streamon: no output buffers queued\n");
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct vcap_client_data *c_data = file->private_data;
+	int rc;
 
-	switch (i) {
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	dprintk(3, "In Stream ON\n");
+	if (determine_mode(c_data) != c_data->op_mode) {
+		pr_err("VCAP Error: %s: s_fmt called after req_buf", __func__);
+		return -ENOTRECOVERABLE;
+	}
+
+	switch (c_data->op_mode) {
+	case VC_VCAP_OP:
+		c_data->dev->vc_client = c_data;
+		config_vc_format(c_data);
 		return vb2_streamon(&c_data->vc_vidq, i);
+	case VP_VCAP_OP:
+		rc = streamon_validate_q(&c_data->vp_in_vidq);
+		if (rc < 0)
+			return rc;
+		rc = streamon_validate_q(&c_data->vp_out_vidq);
+		if (rc < 0)
+			return rc;
+
+		c_data->dev->vp_client = c_data;
+
+		rc = config_vp_format(c_data);
+		if (rc < 0)
+			return rc;
+		rc = init_motion_buf(c_data);
+		if (rc < 0)
+			return rc;
+		if (c_data->vid_vp_action.nr_enabled) {
+			rc = init_nr_buf(c_data);
+			if (rc < 0)
+				goto s_on_deinit_m_buf;
+		}
+
+		c_data->vid_vp_action.vp_state = VP_FRAME1;
+
+		rc = vb2_streamon(&c_data->vp_in_vidq,
+				V4L2_BUF_TYPE_INTERLACED_IN_DECODER);
+		if (rc < 0)
+			goto s_on_deinit_nr_buf;
+
+		rc = vb2_streamon(&c_data->vp_out_vidq,
+				V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		if (rc < 0)
+			goto s_on_deinit_nr_buf;
+		return rc;
+	case VC_AND_VP_VCAP_OP:
+		rc = streamon_validate_q(&c_data->vc_vidq);
+		if (rc < 0)
+			return rc;
+		rc = streamon_validate_q(&c_data->vp_in_vidq);
+		if (rc < 0)
+			return rc;
+		rc = streamon_validate_q(&c_data->vp_out_vidq);
+		if (rc < 0)
+			return rc;
+
+		c_data->dev->vc_client = c_data;
+		c_data->dev->vp_client = c_data;
+		c_data->dev->vc_to_vp_work.cd = c_data;
+
+		rc = config_vc_format(c_data);
+		if (rc < 0)
+			return rc;
+		rc = config_vp_format(c_data);
+		if (rc < 0)
+			return rc;
+		rc = init_motion_buf(c_data);
+		if (rc < 0)
+			return rc;
+		if (c_data->vid_vp_action.nr_enabled) {
+			rc = init_nr_buf(c_data);
+			if (rc < 0)
+				goto s_on_deinit_m_buf;
+		}
+		c_data->streaming = 1;
+
+		c_data->vid_vp_action.vp_state = VP_FRAME1;
+
+		/* These stream on calls should not fail */
+		rc = vb2_streamon(&c_data->vc_vidq,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE);
+		if (rc < 0)
+			goto s_on_deinit_nr_buf;
+
+		rc = vb2_streamon(&c_data->vp_in_vidq,
+				V4L2_BUF_TYPE_INTERLACED_IN_DECODER);
+		if (rc < 0)
+			goto s_on_deinit_nr_buf;
+
+		rc = vb2_streamon(&c_data->vp_out_vidq,
+				V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		if (rc < 0)
+			goto s_on_deinit_nr_buf;
+		return rc;
 	default:
-		pr_err("VCAP Error: %s: Unknown buffer type", __func__);
+		pr_err("VCAP Error: %s: Operation Mode type", __func__);
+		return -ENOTRECOVERABLE;
+	}
+	return 0;
+
+s_on_deinit_nr_buf:
+	if (c_data->vid_vp_action.nr_enabled)
+		deinit_nr_buf(c_data);
+s_on_deinit_m_buf:
+	deinit_motion_buf(c_data);
+	return rc;
+}
+
+int streamoff_validate_q(struct vb2_queue *q)
+{
+	if (q->fileio) {
+		dprintk(1, "streamoff: file io in progress\n");
+		return -EBUSY;
+	}
+
+	if (!q->streaming) {
+		dprintk(1, "streamoff: not streaming\n");
 		return -EINVAL;
 	}
 	return 0;
@@ -407,21 +890,78 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	struct vcap_client_data *c_data = file->private_data;
 	int rc;
 
-	switch (i) {
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	switch (c_data->op_mode) {
+	case VC_VCAP_OP:
 		rc = vb2_streamoff(&c_data->vc_vidq, i);
 		if (rc >= 0)
 			atomic_set(&c_data->dev->vc_enabled, 0);
 		return rc;
+	case VP_VCAP_OP:
+		rc = streamoff_validate_q(&c_data->vp_in_vidq);
+		if (rc < 0)
+			return rc;
+		rc = streamoff_validate_q(&c_data->vp_out_vidq);
+		if (rc < 0)
+			return rc;
+
+		/* These stream on calls should not fail */
+		rc = vb2_streamoff(&c_data->vp_in_vidq,
+				V4L2_BUF_TYPE_INTERLACED_IN_DECODER);
+		if (rc < 0)
+			return rc;
+
+		rc = vb2_streamoff(&c_data->vp_out_vidq,
+				V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		if (rc < 0)
+			return rc;
+
+		deinit_motion_buf(c_data);
+		if (c_data->vid_vp_action.nr_enabled)
+			deinit_nr_buf(c_data);
+		atomic_set(&c_data->dev->vp_enabled, 0);
+		return rc;
+	case VC_AND_VP_VCAP_OP:
+		rc = streamoff_validate_q(&c_data->vc_vidq);
+		if (rc < 0)
+			return rc;
+		rc = streamoff_validate_q(&c_data->vp_in_vidq);
+		if (rc < 0)
+			return rc;
+		rc = streamoff_validate_q(&c_data->vp_out_vidq);
+		if (rc < 0)
+			return rc;
+
+		/* These stream on calls should not fail */
+		c_data->streaming = 0;
+		rc = vb2_streamoff(&c_data->vc_vidq,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE);
+		if (rc < 0)
+			return rc;
+
+		rc = vb2_streamoff(&c_data->vp_in_vidq,
+				V4L2_BUF_TYPE_INTERLACED_IN_DECODER);
+		if (rc < 0)
+			return rc;
+
+		rc = vb2_streamoff(&c_data->vp_out_vidq,
+				V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		if (rc < 0)
+			return rc;
+
+		deinit_motion_buf(c_data);
+		if (c_data->vid_vp_action.nr_enabled)
+			deinit_nr_buf(c_data);
+		atomic_set(&c_data->dev->vc_enabled, 0);
+		atomic_set(&c_data->dev->vp_enabled, 0);
+		return rc;
 	default:
-		pr_err("VCAP Error: %s: Unknown buffer type", __func__);
-		break;
+		pr_err("VCAP Error: %s: Unknown Operation mode", __func__);
+		return -ENOTRECOVERABLE;
 	}
 	return 0;
 }
 
 /* VCAP fops */
-
 static void *vcap_ops_get_userptr(void *alloc_ctx, unsigned long vaddr,
 					unsigned long size, int write)
 {
@@ -458,7 +998,7 @@ static int vcap_open(struct file *file)
 
 	spin_lock_init(&c_data->cap_slock);
 
-	/* initialize queue */
+	/* initialize vc queue */
 	q = &c_data->vc_vidq;
 	memset(q, 0, sizeof(c_data->vc_vidq));
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -467,17 +1007,49 @@ static int vcap_open(struct file *file)
 	q->buf_struct_size = sizeof(struct vcap_buffer);
 	q->ops = &capture_video_qops;
 	q->mem_ops = &vcap_mem_ops;
+	ret = vb2_queue_init(q);
+	if (ret < 0)
+		goto vc_q_failed;
+
+	/* initialize vp in queue */
+	q = &c_data->vp_in_vidq;
+	memset(q, 0, sizeof(c_data->vp_in_vidq));
+	q->type = V4L2_BUF_TYPE_INTERLACED_IN_DECODER;
+	q->io_modes = VB2_USERPTR;
+	q->drv_priv = c_data;
+	q->buf_struct_size = sizeof(struct vcap_buffer);
+	q->ops = &vp_in_video_qops;
+	q->mem_ops = &vcap_mem_ops;
+	ret = vb2_queue_init(q);
+	if (ret < 0)
+		goto vp_in_q_failed;
+
+	/* initialize vp out queue */
+	q = &c_data->vp_out_vidq;
+	memset(q, 0, sizeof(c_data->vp_out_vidq));
+	q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	q->io_modes = VB2_USERPTR;
+	q->drv_priv = c_data;
+	q->buf_struct_size = sizeof(struct vcap_buffer);
+	q->ops = &vp_out_video_qops;
+	q->mem_ops = &vcap_mem_ops;
 
 	ret = vb2_queue_init(q);
 	if (ret < 0)
-		goto open_failed;
+		goto vp_out_q_failed;
 
 	INIT_LIST_HEAD(&c_data->vid_vc_action.active);
+	INIT_LIST_HEAD(&c_data->vid_vp_action.in_active);
+	INIT_LIST_HEAD(&c_data->vid_vp_action.out_active);
 	file->private_data = c_data;
 
 	return 0;
 
-open_failed:
+vp_out_q_failed:
+	vb2_queue_release(&c_data->vp_in_vidq);
+vp_in_q_failed:
+	vb2_queue_release(&c_data->vc_vidq);
+vc_q_failed:
 	kfree(c_data);
 	return ret;
 }
@@ -485,6 +1057,8 @@ open_failed:
 static int vcap_close(struct file *file)
 {
 	struct vcap_client_data *c_data = file->private_data;
+	vb2_queue_release(&c_data->vp_out_vidq);
+	vb2_queue_release(&c_data->vp_in_vidq);
 	vb2_queue_release(&c_data->vc_vidq);
 	c_data->dev->vc_client = NULL;
 	c_data->dev->vp_client = NULL;
@@ -492,13 +1066,60 @@ static int vcap_close(struct file *file)
 	return 0;
 }
 
+unsigned int poll_work(struct vb2_queue *q, struct file *file,
+	poll_table *wait, bool write_q)
+{
+	unsigned long flags;
+	struct vb2_buffer *vb = NULL;
+
+	if (q->num_buffers == 0)
+		return POLLERR;
+
+	if (list_empty(&q->queued_list))
+		return POLLERR;
+
+	poll_wait(file, &q->done_wq, wait);
+
+	spin_lock_irqsave(&q->done_lock, flags);
+	if (!list_empty(&q->done_list))
+		vb = list_first_entry(&q->done_list, struct vb2_buffer,
+					done_entry);
+	spin_unlock_irqrestore(&q->done_lock, flags);
+
+	if (vb && (vb->state == VB2_BUF_STATE_DONE
+			|| vb->state == VB2_BUF_STATE_ERROR)) {
+		return (write_q) ? POLLOUT | POLLWRNORM :
+			POLLIN | POLLRDNORM;
+	}
+	return 0;
+}
+
 static unsigned int vcap_poll(struct file *file,
 				  struct poll_table_struct *wait)
 {
 	struct vcap_client_data *c_data = file->private_data;
-	struct vb2_queue *q = &c_data->vc_vidq;
+	struct vb2_queue *q;
+	unsigned int mask = 0;
 
-	return vb2_poll(q, file, wait);
+	switch (c_data->op_mode) {
+	case VC_VCAP_OP:
+		q = &c_data->vc_vidq;
+		return vb2_poll(q, file, wait);
+	case VP_VCAP_OP:
+		q = &c_data->vp_in_vidq;
+		mask = poll_work(q, file, wait, 0);
+		q = &c_data->vp_out_vidq;
+		mask |= poll_work(q, file, wait, 1);
+		return mask;
+	case VC_AND_VP_VCAP_OP:
+		q = &c_data->vp_out_vidq;
+		mask = poll_work(q, file, wait, 0);
+		return mask;
+	default:
+		pr_err("VCAP Error: %s: Unknown operation mode", __func__);
+		return POLLERR;
+	}
+	return 0;
 }
 /* V4L2 and video device structures */
 
@@ -518,6 +1139,8 @@ static const struct v4l2_ioctl_ops vcap_ioctl_ops = {
 	.vidioc_s_fmt_vid_cap     = vidioc_s_fmt_vid_cap,
 	.vidioc_s_fmt_type_private     = vidioc_s_fmt_vid_cap,
 	.vidioc_g_fmt_type_private     = vidioc_g_fmt_vid_cap,
+	.vidioc_s_fmt_vid_out_mplane	= vidioc_s_fmt_vid_cap,
+	.vidioc_g_fmt_vid_out_mplane	= vidioc_g_fmt_vid_cap,
 	.vidioc_reqbufs       = vidioc_reqbufs,
 	.vidioc_querybuf      = vidioc_querybuf,
 	.vidioc_qbuf          = vidioc_qbuf,
@@ -533,9 +1156,9 @@ static struct video_device vcap_template = {
 	.release	= video_device_release,
 };
 
-int vcap_reg_powerup(struct vcap_dev *dev, struct device *ddev)
+int vcap_reg_powerup(struct vcap_dev *dev)
 {
-	dev->fs_vcap = regulator_get(ddev, "vdd");
+	dev->fs_vcap = regulator_get(NULL, "fs_vcap");
 	if (IS_ERR(dev->fs_vcap)) {
 		pr_err("%s: Regulator FS_VCAP get failed %ld\n", __func__,
 			PTR_ERR(dev->fs_vcap));
@@ -711,7 +1334,7 @@ int vcap_enable(struct vcap_dev *dev, struct device *ddev)
 {
 	int rc;
 
-	rc = vcap_reg_powerup(dev, ddev);
+	rc = vcap_reg_powerup(dev);
 	if (rc < 0)
 		goto reg_failed;
 	rc = vcap_clk_powerup(dev, ddev);
@@ -745,6 +1368,11 @@ int vcap_disable(struct vcap_dev *dev)
 	vcap_clk_powerdown(dev);
 	vcap_reg_powerdown(dev);
 	return 0;
+}
+
+static irqreturn_t vcap_vp_handler(int irq_num, void *data)
+{
+	return vp_handler(vcap_ctrl);
 }
 
 static irqreturn_t vcap_vc_handler(int irq_num, void *data)
@@ -789,26 +1417,44 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 		goto free_resource;
 	}
 
-	dev->vcapirq = platform_get_resource_byname(pdev,
-					IORESOURCE_IRQ, "vcap");
-	if (!dev->vcapirq) {
-		pr_err("%s: no irq resource?\n", __func__);
+	dev->vcirq = platform_get_resource_byname(pdev,
+					IORESOURCE_IRQ, "vc_irq");
+	if (!dev->vcirq) {
+		pr_err("%s: no vc irq resource?\n", __func__);
+		ret = -ENODEV;
+		goto free_resource;
+	}
+	dev->vpirq = platform_get_resource_byname(pdev,
+					IORESOURCE_IRQ, "vp_irq");
+	if (!dev->vpirq) {
+		pr_err("%s: no vp irq resource?\n", __func__);
 		ret = -ENODEV;
 		goto free_resource;
 	}
 
-	ret = request_irq(dev->vcapirq->start, vcap_vc_handler,
-		IRQF_TRIGGER_RISING, "vcap", 0);
+
+	ret = request_irq(dev->vcirq->start, vcap_vc_handler,
+		IRQF_TRIGGER_RISING, "vc_irq", 0);
 	if (ret < 0) {
-		pr_err("%s: irq request fail\n", __func__);
+		pr_err("%s: vc irq request fail\n", __func__);
 		ret = -EBUSY;
 		goto free_resource;
 	}
+	disable_irq(dev->vcirq->start);
 
-	disable_irq(dev->vcapirq->start);
+	ret = request_irq(dev->vpirq->start, vcap_vp_handler,
+		IRQF_TRIGGER_RISING, "vp_irq", 0);
+
+	if (ret < 0) {
+		pr_err("%s: vp irq request fail\n", __func__);
+		ret = -EBUSY;
+		goto free_resource;
+	}
+	disable_irq(dev->vpirq->start);
 
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
 			"%s", MSM_VCAP_DRV_NAME);
+
 	ret = v4l2_device_register(NULL, &dev->v4l2_dev);
 	if (ret)
 		goto free_resource;
@@ -838,17 +1484,25 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 	dev->vfd = vfd;
 	video_set_drvdata(vfd, dev);
 
-	dev->ion_client = msm_ion_client_create(-1, "vcap");
-	if (IS_ERR((void *)dev->ion_client)) {
-		pr_err("could not get ion client");
+	dev->vcap_wq = create_workqueue("vcap");
+	if (!dev->vcap_wq) {
+		pr_err("Could not create workqueue");
 		goto rel_vdev;
 	}
 
+	dev->ion_client = msm_ion_client_create(-1, "vcap");
+	if (IS_ERR((void *)dev->ion_client)) {
+		pr_err("could not get ion client");
+		goto rel_vcap_wq;
+	}
+
 	atomic_set(&dev->vc_enabled, 0);
+	atomic_set(&dev->vp_enabled, 0);
 
 	dprintk(1, "Exit probe succesfully");
 	return 0;
-
+rel_vcap_wq:
+	destroy_workqueue(dev->vcap_wq);
 rel_vdev:
 	video_device_release(vfd);
 deinit_vc:
@@ -870,6 +1524,8 @@ static int __devexit vcap_remove(struct platform_device *pdev)
 {
 	struct vcap_dev *dev = vcap_ctrl;
 	ion_client_destroy(dev->ion_client);
+	flush_workqueue(dev->vcap_wq);
+	destroy_workqueue(dev->vcap_wq);
 	video_device_release(dev->vfd);
 	deinit_vc();
 	vcap_disable(dev);
