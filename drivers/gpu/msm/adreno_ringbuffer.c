@@ -928,8 +928,8 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 			" context id is invalid.\n");
 		return -EINVAL;
 	}
-	retired_timestamp = device->ftbl->readtimestamp(device, context,
-				KGSL_TIMESTAMP_RETIRED);
+	retired_timestamp = kgsl_readtimestamp(device, context,
+					       KGSL_TIMESTAMP_RETIRED);
 	KGSL_DRV_ERR(device, "GPU successfully executed till ts: %x\n",
 			retired_timestamp);
 	/*

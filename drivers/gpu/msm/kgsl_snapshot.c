@@ -63,10 +63,10 @@ static int snapshot_context_info(int id, void *ptr, void *data)
 	 * return the global timestamp for all contexts
 	 */
 
-	header->timestamp_queued = device->ftbl->readtimestamp(device,
-		context, KGSL_TIMESTAMP_QUEUED);
-	header->timestamp_retired = device->ftbl->readtimestamp(device,
-		context, KGSL_TIMESTAMP_RETIRED);
+	header->timestamp_queued = kgsl_readtimestamp(device, context,
+						      KGSL_TIMESTAMP_QUEUED);
+	header->timestamp_retired = kgsl_readtimestamp(device, context,
+						       KGSL_TIMESTAMP_RETIRED);
 
 	_ctxtptr += sizeof(struct kgsl_snapshot_linux_context);
 

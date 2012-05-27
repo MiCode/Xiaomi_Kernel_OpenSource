@@ -158,7 +158,6 @@ struct kgsl_mem_entry {
 	int flags;
 	void *priv_data;
 	struct rb_node node;
-	uint32_t free_timestamp;
 	unsigned int context_id;
 	/* back pointer to private structure under whose context this
 	* allocation is made */

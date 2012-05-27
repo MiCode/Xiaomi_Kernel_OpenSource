@@ -78,8 +78,7 @@ static int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 		if (context == NULL)
 			return -EINVAL;
 	}
-	cur_ts = device->ftbl->readtimestamp(device, context,
-				KGSL_TIMESTAMP_RETIRED);
+	cur_ts = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
 
 	/* Check to see if the requested timestamp has already fired */
 
@@ -135,8 +134,7 @@ static void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 	struct kgsl_event *event, *event_tmp;
 	unsigned int id, cur;
 
-	cur = device->ftbl->readtimestamp(device, context,
-			KGSL_TIMESTAMP_RETIRED);
+	cur = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
 	id = context->id;
 
 	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
@@ -173,8 +171,8 @@ static void kgsl_cancel_events(struct kgsl_device *device,
 		if (event->owner != owner)
 			continue;
 
-		cur = device->ftbl->readtimestamp(device, event->context,
-				KGSL_TIMESTAMP_RETIRED);
+		cur = kgsl_readtimestamp(device, event->context,
+					 KGSL_TIMESTAMP_RETIRED);
 
 		id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
 		/*
@@ -388,6 +386,7 @@ kgsl_context_detach(struct kgsl_context *context)
 	if (context == NULL)
 		return;
 	device = context->dev_priv->device;
+	trace_kgsl_context_detach(device, context);
 	id = context->id;
 
 	if (device->ftbl->drawctxt_destroy)
@@ -425,8 +424,8 @@ void kgsl_timestamp_expired(struct work_struct *work)
 
 	/* Process expired events */
 	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
-		ts_processed = device->ftbl->readtimestamp(device,
-				event->context, KGSL_TIMESTAMP_RETIRED);
+		ts_processed = kgsl_readtimestamp(device, event->context,
+						  KGSL_TIMESTAMP_RETIRED);
 		if (timestamp_cmp(ts_processed, event->timestamp) < 0)
 			continue;
 
@@ -521,8 +520,8 @@ int kgsl_check_timestamp(struct kgsl_device *device,
 {
 	unsigned int ts_processed;
 
-	ts_processed = device->ftbl->readtimestamp(device, context,
-		KGSL_TIMESTAMP_RETIRED);
+	ts_processed = kgsl_readtimestamp(device, context,
+					  KGSL_TIMESTAMP_RETIRED);
 
 	return (timestamp_cmp(ts_processed, timestamp) >= 0);
 }
@@ -1021,19 +1020,25 @@ static long _device_waittimestamp(struct kgsl_device_private *dev_priv,
 		unsigned int timeout)
 {
 	int result = 0;
+	struct kgsl_device *device = dev_priv->device;
+	unsigned int context_id = context ? context->id : KGSL_MEMSTORE_GLOBAL;
 
 	/* Set the active count so that suspend doesn't do the wrong thing */
 
-	dev_priv->device->active_cnt++;
+	device->active_cnt++;
 
-	trace_kgsl_waittimestamp_entry(dev_priv->device,
-			context ? context->id : KGSL_MEMSTORE_GLOBAL,
-			timestamp, timeout);
+	trace_kgsl_waittimestamp_entry(device, context_id,
+				       kgsl_readtimestamp(device, context,
+							KGSL_TIMESTAMP_RETIRED),
+				       timestamp, timeout);
 
-	result = dev_priv->device->ftbl->waittimestamp(dev_priv->device,
+	result = device->ftbl->waittimestamp(dev_priv->device,
 					context, timestamp, timeout);
 
-	trace_kgsl_waittimestamp_exit(dev_priv->device, result);
+	trace_kgsl_waittimestamp_exit(device,
+				      kgsl_readtimestamp(device, context,
+							KGSL_TIMESTAMP_RETIRED),
+				      result);
 
 	/* Fire off any pending suspend operations that are in flight */
 
@@ -1050,7 +1055,7 @@ static long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private
 {
 	struct kgsl_device_waittimestamp *param = data;
 
-	return _device_waittimestamp(dev_priv, KGSL_MEMSTORE_GLOBAL,
+	return _device_waittimestamp(dev_priv, NULL,
 			param->timestamp, param->timeout);
 }
 
@@ -1151,7 +1156,7 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 					     &param->timestamp,
 					     param->flags);
 
-	trace_kgsl_issueibcmds(dev_priv->device, param, result);
+	trace_kgsl_issueibcmds(dev_priv->device, param, ibdesc, result);
 
 free_ibdesc:
 	kfree(ibdesc);
@@ -1164,8 +1169,7 @@ static long _cmdstream_readtimestamp(struct kgsl_device_private *dev_priv,
 		struct kgsl_context *context, unsigned int type,
 		unsigned int *timestamp)
 {
-	*timestamp = dev_priv->device->ftbl->readtimestamp(dev_priv->device,
-			context, type);
+	*timestamp = kgsl_readtimestamp(dev_priv->device, context, type);
 
 	trace_kgsl_readtimestamp(dev_priv->device,
 			context ? context->id : KGSL_MEMSTORE_GLOBAL,
@@ -1209,7 +1213,7 @@ static void kgsl_freemem_event_cb(struct kgsl_device *device,
 	spin_lock(&entry->priv->mem_lock);
 	rb_erase(&entry->node, &entry->priv->mem_rb);
 	spin_unlock(&entry->priv->mem_lock);
-	trace_kgsl_mem_timestamp_free(entry, id, timestamp);
+	trace_kgsl_mem_timestamp_free(device, entry, id, timestamp, 0);
 	kgsl_mem_entry_detach_process(entry);
 }
 
@@ -1220,27 +1224,25 @@ static long _cmdstream_freememontimestamp(struct kgsl_device_private *dev_priv,
 	int result = 0;
 	struct kgsl_mem_entry *entry = NULL;
 	struct kgsl_device *device = dev_priv->device;
-	unsigned int cur;
 	unsigned int context_id = context ? context->id : KGSL_MEMSTORE_GLOBAL;
 
 	spin_lock(&dev_priv->process_priv->mem_lock);
 	entry = kgsl_sharedmem_find(dev_priv->process_priv, gpuaddr);
 	spin_unlock(&dev_priv->process_priv->mem_lock);
 
-	if (entry) {
-		cur = device->ftbl->readtimestamp(device, context,
-						KGSL_TIMESTAMP_RETIRED);
-
-		trace_kgsl_mem_timestamp_queue(entry, context_id, cur);
-		result = kgsl_add_event(dev_priv->device, context_id,
-				timestamp, kgsl_freemem_event_cb,
-				entry, dev_priv);
-	} else {
+	if (!entry) {
 		KGSL_DRV_ERR(dev_priv->device,
-			"invalid gpuaddr %08x\n", gpuaddr);
+				"invalid gpuaddr %08x\n", gpuaddr);
 		result = -EINVAL;
+		goto done;
 	}
-
+	trace_kgsl_mem_timestamp_queue(device, entry, context_id,
+				       kgsl_readtimestamp(device, context,
+						  KGSL_TIMESTAMP_RETIRED),
+				       timestamp);
+	result = kgsl_add_event(dev_priv->device, context_id, timestamp,
+				kgsl_freemem_event_cb, entry, dev_priv);
+done:
 	return result;
 }
 
@@ -1287,11 +1289,14 @@ static long kgsl_ioctl_drawctxt_create(struct kgsl_device_private *dev_priv,
 		goto done;
 	}
 
-	if (dev_priv->device->ftbl->drawctxt_create)
+	if (dev_priv->device->ftbl->drawctxt_create) {
 		result = dev_priv->device->ftbl->drawctxt_create(
 			dev_priv->device, dev_priv->process_priv->pagetable,
 			context, param->flags);
-
+		if (result)
+			goto done;
+	}
+	trace_kgsl_context_create(dev_priv->device, context, param->flags);
 	param->drawctxt_id = context->id;
 done:
 	if (result && context)
