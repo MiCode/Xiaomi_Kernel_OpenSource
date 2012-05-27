@@ -257,8 +257,8 @@ config ARCH_MSMCOPPER
 	select MSM_PIL
 	select MSM_SPM_V2
 	select MSM_L2_SPM
-	select MSM_RPM
 	select MSM_PM8X60 if PM
+	select MSM_RPM_SMD
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
