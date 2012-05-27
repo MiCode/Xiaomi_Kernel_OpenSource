@@ -2288,6 +2288,33 @@ static struct platform_device rc_input_loopback_pdev = {
 	.id	= -1,
 };
 
+static int rf4ce_gpio_init(void)
+{
+	if (!machine_is_mpq8064_cdp())
+		return -EINVAL;
+
+	/* CC2533 SRDY Input */
+	if (!gpio_request(SX150X_GPIO(4, 6), "rf4ce_srdy")) {
+		gpio_direction_input(SX150X_GPIO(4, 6));
+		gpio_export(SX150X_GPIO(4, 6), true);
+	}
+
+	/* CC2533 MRDY Output */
+	if (!gpio_request(SX150X_GPIO(4, 5), "rf4ce_mrdy")) {
+		gpio_direction_output(SX150X_GPIO(4, 5), 1);
+		gpio_export(SX150X_GPIO(4, 5), true);
+	}
+
+	/* CC2533 Reset Output */
+	if (!gpio_request(SX150X_GPIO(4, 7), "rf4ce_reset")) {
+		gpio_direction_output(SX150X_GPIO(4, 7), 0);
+		gpio_export(SX150X_GPIO(4, 7), true);
+	}
+
+	return 0;
+}
+late_initcall(rf4ce_gpio_init);
+
 static struct platform_device *mpq_devices[] __initdata = {
 	&msm_device_sps_apq8064,
 	&mpq8064_device_qup_i2c_gsbi5,
