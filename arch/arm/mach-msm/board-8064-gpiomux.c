@@ -777,7 +777,7 @@ static struct gpiomux_setting mdm2ap_errfatal_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-static struct gpiomux_setting ap2mdm_pon_reset_n_cfg = {
+static struct gpiomux_setting ap2mdm_soft_reset_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_DOWN,
@@ -818,11 +818,11 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
 		}
 	},
-	/* AP2MDM_PON_RESET_N */
+	/* AP2MDM_SOFT_RESET, aka AP2MDM_PON_RESET_N */
 	{
 		.gpio = 27,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &ap2mdm_pon_reset_n_cfg,
+			[GPIOMUX_SUSPENDED] = &ap2mdm_soft_reset_cfg,
 		}
 	},
 	/* AP2MDM_WAKEUP */

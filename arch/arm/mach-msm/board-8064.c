@@ -1678,6 +1678,8 @@ static struct platform_device qcedev_device = {
 static struct mdm_platform_data mdm_platform_data = {
 	.mdm_version = "3.0",
 	.ramdump_delay_ms = 2000,
+	.early_power_on = 1,
+	.sfr_query = 1,
 	.peripheral_platform_device = &apq8064_device_hsic_host,
 };
 
