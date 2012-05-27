@@ -865,9 +865,11 @@ static struct msm_usb_host_platform_data msm_ehci_host_pdata4;
 
 static void __init apq8064_ehci_host_init(void)
 {
-	if (machine_is_apq8064_liquid()) {
-		msm_ehci_host_pdata3.dock_connect_irq =
-				PM8921_MPP_IRQ(PM8921_IRQ_BASE, 9);
+	if (machine_is_apq8064_liquid() || machine_is_mpq8064_cdp() ||
+		machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv()) {
+		if (machine_is_apq8064_liquid())
+			msm_ehci_host_pdata3.dock_connect_irq =
+					PM8921_MPP_IRQ(PM8921_IRQ_BASE, 9);
 
 		apq8064_device_ehci_host3.dev.platform_data =
 				&msm_ehci_host_pdata3;
