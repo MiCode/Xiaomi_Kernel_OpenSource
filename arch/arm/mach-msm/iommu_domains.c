@@ -10,27 +10,34 @@
  * GNU General Public License for more details.
  */
 
-#include <mach/msm_subsystem_map.h>
-#include <linux/memory_alloc.h>
+#include <linux/init.h>
 #include <linux/iommu.h>
+#include <linux/memory_alloc.h>
 #include <linux/platform_device.h>
+#include <linux/rbtree.h>
+#include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <asm/sizes.h>
 #include <asm/page.h>
-#include <linux/init.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
 #include <mach/socinfo.h>
+#include <mach/msm_subsystem_map.h>
 
 /* dummy 64K for overmapping */
 char iommu_dummy[2*SZ_64K-4];
 
-struct msm_iommu_domain_state {
-	struct msm_iommu_domain *domains;
-	int ndomains;
+struct msm_iova_data {
+	struct rb_node node;
+	struct mem_pool *pools;
+	int npools;
+	struct iommu_domain *domain;
+	int domain_num;
 };
 
-static struct msm_iommu_domain_state domain_state;
+static struct rb_root domain_root;
+DEFINE_MUTEX(domain_mutex);
+static atomic_t domain_nums = ATOMIC_INIT(-1);
 
 int msm_iommu_map_extra(struct iommu_domain *domain,
 				unsigned long start_iova,
@@ -127,9 +134,10 @@ int msm_iommu_map_contig_buffer(unsigned long phys,
 	if (size & (align - 1))
 		return -EINVAL;
 
-	iova = msm_allocate_iova_address(domain_no, partition_no, size, align);
+	ret = msm_allocate_iova_address(domain_no, partition_no, size, align,
+						&iova);
 
-	if (!iova)
+	if (ret)
 		return -ENOMEM;
 
 	ret = msm_iommu_map_iova_phys(msm_get_iommu_domain(domain_no), iova,
@@ -152,65 +160,202 @@ void msm_iommu_unmap_contig_buffer(unsigned long iova,
 	msm_free_iova_address(iova, domain_no, partition_no, size);
 }
 
+static struct msm_iova_data *find_domain(int domain_num)
+{
+	struct rb_root *root = &domain_root;
+	struct rb_node *p = root->rb_node;
+
+	mutex_lock(&domain_mutex);
+
+	while (p) {
+		struct msm_iova_data *node;
+
+		node = rb_entry(p, struct msm_iova_data, node);
+		if (domain_num < node->domain_num)
+			p = p->rb_left;
+		else if (domain_num > domain_num)
+			p = p->rb_right;
+		else {
+			mutex_unlock(&domain_mutex);
+			return node;
+		}
+	}
+	mutex_unlock(&domain_mutex);
+	return NULL;
+}
+
+static int add_domain(struct msm_iova_data *node)
+{
+	struct rb_root *root = &domain_root;
+	struct rb_node **p = &root->rb_node;
+	struct rb_node *parent = NULL;
+
+	mutex_lock(&domain_mutex);
+	while (*p) {
+		struct msm_iova_data *tmp;
+		parent = *p;
+
+		tmp = rb_entry(parent, struct msm_iova_data, node);
+
+		if (node->domain_num < tmp->domain_num)
+			p = &(*p)->rb_left;
+		else if (node->domain_num > tmp->domain_num)
+			p = &(*p)->rb_right;
+		else
+			BUG();
+	}
+	rb_link_node(&node->node, parent, p);
+	rb_insert_color(&node->node, root);
+	mutex_unlock(&domain_mutex);
+	return 0;
+}
+
 struct iommu_domain *msm_get_iommu_domain(int domain_num)
 {
-	if (domain_num >= 0 && domain_num < domain_state.ndomains)
-		return domain_state.domains[domain_num].domain;
+	struct msm_iova_data *data;
+
+	data = find_domain(domain_num);
+
+	if (data)
+		return data->domain;
 	else
 		return NULL;
 }
 
-unsigned long msm_allocate_iova_address(unsigned int iommu_domain,
+int msm_allocate_iova_address(unsigned int iommu_domain,
 					unsigned int partition_no,
 					unsigned long size,
-					unsigned long align)
+					unsigned long align,
+					unsigned long *iova)
 {
+	struct msm_iova_data *data;
 	struct mem_pool *pool;
-	unsigned long iova;
+	unsigned long va;
 
-	if (iommu_domain >= domain_state.ndomains)
-		return 0;
+	data = find_domain(iommu_domain);
 
-	if (partition_no >= domain_state.domains[iommu_domain].npools)
-		return 0;
+	if (!data)
+		return -EINVAL;
 
-	pool = &domain_state.domains[iommu_domain].iova_pools[partition_no];
+	if (partition_no >= data->npools)
+		return -EINVAL;
+
+	pool = &data->pools[partition_no];
 
 	if (!pool->gpool)
-		return 0;
+		return -EINVAL;
 
-	iova = gen_pool_alloc_aligned(pool->gpool, size, ilog2(align));
-	if (iova)
+	va = gen_pool_alloc_aligned(pool->gpool, size, ilog2(align));
+	if (va) {
 		pool->free -= size;
+		/* Offset because genpool can't handle 0 addresses */
+		if (pool->paddr == 0)
+			va -= SZ_4K;
+		*iova = va;
+		return 0;
+	}
 
-	return iova;
+	return -ENOMEM;
 }
 
 void msm_free_iova_address(unsigned long iova,
-			   unsigned int iommu_domain,
-			   unsigned int partition_no,
-			   unsigned long size)
+				unsigned int iommu_domain,
+				unsigned int partition_no,
+				unsigned long size)
 {
+	struct msm_iova_data *data;
 	struct mem_pool *pool;
 
-	if (iommu_domain >= domain_state.ndomains) {
+	data = find_domain(iommu_domain);
+
+	if (!data) {
 		WARN(1, "Invalid domain %d\n", iommu_domain);
 		return;
 	}
 
-	if (partition_no >= domain_state.domains[iommu_domain].npools) {
+	if (partition_no >= data->npools) {
 		WARN(1, "Invalid partition %d for domain %d\n",
 			partition_no, iommu_domain);
 		return;
 	}
 
-	pool = &domain_state.domains[iommu_domain].iova_pools[partition_no];
+	pool = &data->pools[partition_no];
 
 	if (!pool)
 		return;
 
 	pool->free += size;
+
+	/* Offset because genpool can't handle 0 addresses */
+	if (pool->paddr == 0)
+		iova += SZ_4K;
+
 	gen_pool_free(pool->gpool, iova, size);
+}
+
+int msm_register_domain(struct msm_iova_layout *layout)
+{
+	int i;
+	struct msm_iova_data *data;
+	struct mem_pool *pools;
+
+	if (!layout)
+		return -EINVAL;
+
+	data = kmalloc(sizeof(*data), GFP_KERNEL);
+
+	if (!data)
+		return -ENOMEM;
+
+	pools = kmalloc(sizeof(struct mem_pool) * layout->npartitions,
+			GFP_KERNEL);
+
+	if (!pools)
+		goto out;
+
+	for (i = 0; i < layout->npartitions; i++) {
+		if (layout->partitions[i].size == 0)
+			continue;
+
+		pools[i].gpool = gen_pool_create(PAGE_SHIFT, -1);
+
+		if (!pools[i].gpool)
+			continue;
+
+		pools[i].paddr = layout->partitions[i].start;
+		pools[i].size = layout->partitions[i].size;
+
+		/*
+		 * genalloc can't handle a pool starting at address 0.
+		 * For now, solve this problem by offsetting the value
+		 * put in by 4k.
+		 * gen pool address = actual address + 4k
+		 */
+		if (pools[i].paddr == 0)
+			layout->partitions[i].start += SZ_4K;
+
+		if (gen_pool_add(pools[i].gpool,
+			layout->partitions[i].start,
+			layout->partitions[i].size, -1)) {
+			gen_pool_destroy(pools[i].gpool);
+			pools[i].gpool = NULL;
+			continue;
+		}
+	}
+
+	data->pools = pools;
+	data->npools = layout->npartitions;
+	data->domain_num = atomic_inc_return(&domain_nums);
+	data->domain = iommu_domain_alloc(layout->domain_flags);
+
+	add_domain(data);
+
+	return data->domain_num;
+
+out:
+	kfree(data);
+
+	return -EINVAL;
 }
 
 int msm_use_iommu()
@@ -218,7 +363,7 @@ int msm_use_iommu()
 	/*
 	 * If there are no domains, don't bother trying to use the iommu
 	 */
-	return domain_state.ndomains && iommu_found();
+	return iommu_found();
 }
 
 static int __init iommu_domain_probe(struct platform_device *pdev)
@@ -229,64 +374,52 @@ static int __init iommu_domain_probe(struct platform_device *pdev)
 	if (!p)
 		return -ENODEV;
 
-	domain_state.domains = p->domains;
-	domain_state.ndomains = p->ndomains;
+	for (i = 0; i < p->ndomains; i++) {
+		struct msm_iova_layout l;
+		struct msm_iova_partition *part;
+		struct msm_iommu_domain *domains;
 
-	for (i = 0; i < domain_state.ndomains; i++) {
-		domain_state.domains[i].domain = iommu_domain_alloc(
-							p->domain_alloc_flags);
-		if (!domain_state.domains[i].domain)
+		domains = p->domains;
+		l.npartitions = domains[i].npools;
+		part = kmalloc(
+			sizeof(struct msm_iova_partition) * l.npartitions,
+				GFP_KERNEL);
+
+		if (!part) {
+			pr_info("%s: could not allocate space for domain %d",
+				__func__, i);
 			continue;
-
-		for (j = 0; j < domain_state.domains[i].npools; j++) {
-			struct mem_pool *pool = &domain_state.domains[i].
-							iova_pools[j];
-			mutex_init(&pool->pool_mutex);
-			if (pool->size) {
-				pool->gpool = gen_pool_create(PAGE_SHIFT, -1);
-
-				if (!pool->gpool) {
-					pr_err("%s: could not allocate pool\n",
-						__func__);
-					pr_err("%s: domain %d iova space %d\n",
-						__func__, i, j);
-					continue;
-				}
-
-				if (gen_pool_add(pool->gpool, pool->paddr,
-						pool->size, -1)) {
-					pr_err("%s: could not add memory\n",
-						__func__);
-					pr_err("%s: domain %d pool %d\n",
-						__func__, i, j);
-					gen_pool_destroy(pool->gpool);
-					pool->gpool = NULL;
-					continue;
-				}
-			} else {
-				pool->gpool = NULL;
-			}
 		}
+
+		for (j = 0; j < l.npartitions; j++) {
+			part[j].start = p->domains[i].iova_pools[j].paddr;
+			part[j].size = p->domains[i].iova_pools[j].size;
+		}
+
+		l.partitions = part;
+
+		msm_register_domain(&l);
+
+		kfree(part);
 	}
 
 	for (i = 0; i < p->nnames; i++) {
-		int domain_idx;
 		struct device *ctx = msm_iommu_get_ctx(
 						p->domain_names[i].name);
+		struct iommu_domain *domain;
 
 		if (!ctx)
 			continue;
 
-		domain_idx = p->domain_names[i].domain;
+		domain = msm_get_iommu_domain(p->domain_names[i].domain);
 
-		if (!domain_state.domains[domain_idx].domain)
+		if (!domain)
 			continue;
 
-		if (iommu_attach_device(domain_state.domains[domain_idx].domain,
-					ctx)) {
-			WARN(1, "%s: could not attach domain %d to context %s."
+		if (iommu_attach_device(domain, ctx)) {
+			WARN(1, "%s: could not attach domain %p to context %s."
 				" iommu programming will not occur.\n",
-				__func__, domain_idx,
+				__func__, domain,
 				p->domain_names[i].name);
 			continue;
 		}
