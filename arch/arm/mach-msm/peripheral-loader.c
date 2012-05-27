@@ -578,6 +578,10 @@ struct pil_device *msm_pil_register(struct pil_desc *desc)
 				"invalid proxy voting. ignoring\n"))
 		((struct pil_reset_ops *)desc->ops)->proxy_unvote = NULL;
 
+	WARN(desc->ops->proxy_unvote && !desc->proxy_timeout,
+		"A proxy timeout of 0 ms was specified for %s. Specify one in "
+		"desc->proxy_timeout.\n", desc->name);
+
 	pil = kzalloc(sizeof(*pil), GFP_KERNEL);
 	if (!pil)
 		return ERR_PTR(-ENOMEM);
