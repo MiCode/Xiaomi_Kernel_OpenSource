@@ -134,6 +134,9 @@ struct mmc_host;
 struct mmc_card;
 struct mmc_async_req;
 
+extern int mmc_interrupt_bkops(struct mmc_card *);
+extern int mmc_read_bkops_status(struct mmc_card *);
+extern int mmc_is_exception_event(struct mmc_card *, unsigned int);
 extern struct mmc_async_req *mmc_start_req(struct mmc_host *,
 					   struct mmc_async_req *, int *);
 extern int mmc_interrupt_hpi(struct mmc_card *);
@@ -163,6 +166,7 @@ extern int mmc_can_sanitize(struct mmc_card *card);
 extern int mmc_can_secure_erase_trim(struct mmc_card *card);
 extern int mmc_erase_group_aligned(struct mmc_card *card, unsigned int from,
 				   unsigned int nr);
+extern void mmc_start_bkops(struct mmc_card *card);
 extern unsigned int mmc_calc_max_discard(struct mmc_card *card);
 
 extern int mmc_set_blocklen(struct mmc_card *card, unsigned int blocklen);
