@@ -181,6 +181,20 @@ config LEDS_PMIC_MPP
 	  To compile this driver as a module, choose M here: the
 	  module will be called leds-pmic-mpp.
 
+config LEDS_MSM_TRICOLOR
+        tristate "LED Support for Qualcomm tricolor LEDs"
+        depends on LEDS_CLASS && MSM_SMD
+        help
+          This option enables support for tricolor LEDs connected to
+	  to Qualcomm reference boards. Red, green and blue color leds
+	  are supported. These leds are turned on/off, blink on/off
+	  by Modem upon receiving command through rpc from this driver.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called leds-msm-tricolor.
+
 config LEDS_GPIO_PLATFORM
 	bool "Platform device bindings for GPIO LEDs"
 	depends on LEDS_GPIO
