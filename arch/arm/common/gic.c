@@ -1062,9 +1062,11 @@ int __init gic_of_init(struct device_node *node, struct device_node *parent)
 	return 0;
 }
 #endif
-/* before calling this function the interrupts should be disabled
- * and the irq must be disabled at gic to avoid spurious interrupts */
-bool gic_is_spi_pending(unsigned int irq)
+/*
+ * Before calling this function the interrupts should be disabled
+ * and the irq must be disabled at gic to avoid spurious interrupts
+ */
+bool gic_is_irq_pending(unsigned int irq)
 {
 	struct irq_data *d = irq_get_irq_data(irq);
 	struct gic_chip_data *gic_data = &gic_data[0];
@@ -1083,9 +1085,11 @@ bool gic_is_spi_pending(unsigned int irq)
 	return (bool) (val & mask);
 }
 
-/* before calling this function the interrupts should be disabled
- * and the irq must be disabled at gic to avoid spurious interrupts */
-void gic_clear_spi_pending(unsigned int irq)
+/*
+ * Before calling this function the interrupts should be disabled
+ * and the irq must be disabled at gic to avoid spurious interrupts
+ */
+void gic_clear_irq_pending(unsigned int irq)
 {
 	struct gic_chip_data *gic_data = &gic_data[0];
 	struct irq_data *d = irq_get_irq_data(irq);

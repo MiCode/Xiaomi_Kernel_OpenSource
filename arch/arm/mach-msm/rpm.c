@@ -275,13 +275,13 @@ static void msm_rpm_busy_wait_for_request_completion(
 	int rc;
 
 	do {
-		while (!gic_is_spi_pending(msm_rpm_data.irq_ack) &&
+		while (!gic_is_irq_pending(msm_rpm_data.irq_ack) &&
 				msm_rpm_request) {
 			if (allow_async_completion)
 				spin_unlock(&msm_rpm_irq_lock);
-			if (gic_is_spi_pending(msm_rpm_data.irq_err))
+			if (gic_is_irq_pending(msm_rpm_data.irq_err))
 				msm_rpm_err_fatal();
-			gic_clear_spi_pending(msm_rpm_data.irq_err);
+			gic_clear_irq_pending(msm_rpm_data.irq_err);
 			udelay(1);
 			if (allow_async_completion)
 				spin_lock(&msm_rpm_irq_lock);
@@ -291,7 +291,7 @@ static void msm_rpm_busy_wait_for_request_completion(
 			break;
 
 		rc = msm_rpm_process_ack_interrupt();
-		gic_clear_spi_pending(msm_rpm_data.irq_ack);
+		gic_clear_irq_pending(msm_rpm_data.irq_ack);
 	} while (rc);
 }
 
