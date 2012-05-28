@@ -170,7 +170,60 @@ struct dmx_buffer_status {
 
 typedef struct dmx_caps {
 	__u32 caps;
+
+/* Indicates whether demux support playback from memory in pull mode */
+#define DMX_CAP_PULL_MODE				0x01
+
+/* Indicates whether demux support indexing of recorded video stream */
+#define DMX_CAP_VIDEO_INDEXING			0x02
+
+/* Indicates whether demux support sending data directly to video decoder */
+#define DMX_CAP_VIDEO_DECODER_DATA		0x04
+
+/* Indicates whether demux support sending data directly to audio decoder */
+#define DMX_CAP_AUDIO_DECODER_DATA		0x08
+
+/* Indicates whether demux support sending data directly to subtitle decoder */
+#define DMX_CAP_SUBTITLE_DECODER_DATA	0x10
+
+	/* Number of decoders demux can output data to */
 	int num_decoders;
+
+	/* Number of demux devices */
+	int num_demux_devices;
+
+	/* Max number of PID filters */
+	int num_pid_filters;
+
+	/* Max number of section filters */
+	int num_section_filters;
+
+	/*
+	 * Max number of section filters using same PID,
+	 * 0 if not supported
+	 */
+	int num_section_filters_per_pid;
+
+	/*
+	 * Length of section filter, not including section
+	 * length field (2 bytes).
+	 */
+	int section_filter_length;
+
+	/* Max number of demod based input */
+	int num_demod_inputs;
+
+	/* Max number of memory based input */
+	int num_memory_inputs;
+
+	/* Overall bitrate from all inputs concurrently. Mbit/sec */
+	int max_bitrate;
+
+	/* Max bitrate from single demod input. Mbit/sec */
+	int demod_input_max_bitrate;
+
+	/* Max bitrate from single memory input. Mbit/sec */
+	int memory_input_max_bitrate;
 } dmx_caps_t;
 
 typedef enum {
