@@ -378,9 +378,9 @@ static uint32_t get_iir_band_coeff(struct snd_soc_codec *codec,
 				int coeff_idx)
 {
 	/* Address does not automatically update if reading */
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(SITAR_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
-		0x1F, band_idx * BAND_MAX + coeff_idx);
+		(band_idx * BAND_MAX + coeff_idx) & 0x1F);
 
 	/* Mask bits top 2 bits since they are reserved */
 	return ((snd_soc_read(codec,
@@ -439,27 +439,27 @@ static void set_iir_band_coeff(struct snd_soc_codec *codec,
 {
 	/* Mask top 3 bits, 6-8 are reserved */
 	/* Update address manually each time */
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(SITAR_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
-		0x1F, band_idx * BAND_MAX + coeff_idx);
+		(band_idx * BAND_MAX + coeff_idx) & 0x1F);
 
 	/* Mask top 2 bits, 7-8 are reserved */
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(SITAR_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
-		0x3F, (value >> 24) & 0x3F);
+		(value >> 24) & 0x3F);
 
 	/* Isolate 8bits at a time */
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(SITAR_A_CDC_IIR1_COEF_B3_CTL + 16 * iir_idx),
-		0xFF, (value >> 16) & 0xFF);
+		(value >> 16) & 0xFF);
 
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(SITAR_A_CDC_IIR1_COEF_B4_CTL + 16 * iir_idx),
-		0xFF, (value >> 8) & 0xFF);
+		(value >> 8) & 0xFF);
 
-	snd_soc_update_bits(codec,
+	snd_soc_write(codec,
 		(SITAR_A_CDC_IIR1_COEF_B5_CTL + 16 * iir_idx),
-		0xFF, value & 0xFF);
+		value & 0xFF);
 }
 
 static int sitar_put_iir_band_audio_mixer(
@@ -689,7 +689,7 @@ static const char const *anc1_fb_mux_text[] = {
 	"ZERO", "EAR_HPH_L", "EAR_LINE_1",
 };
 
-static const char *iir1_inp1_text[] = {
+static const char const *iir_inp1_text[] = {
 	"ZERO", "DEC1", "DEC2", "DEC3", "DEC4", "ZERO", "ZERO", "ZERO",
 	"ZERO", "ZERO", "ZERO", "RX1", "RX2", "RX3", "RX4", "RX5",
 };
@@ -761,7 +761,10 @@ static const struct soc_enum anc1_fb_mux_enum =
 	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_ANC_B2_CTL, 0, 3, anc1_fb_mux_text);
 
 static const struct soc_enum iir1_inp1_mux_enum =
-	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_EQ1_B1_CTL, 0, 16, iir1_inp1_text);
+	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_EQ1_B1_CTL, 0, 16, iir_inp1_text);
+
+static const struct soc_enum iir2_inp1_mux_enum =
+	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_EQ2_B1_CTL, 0, 16, iir_inp1_text);
 
 static const struct snd_kcontrol_new rx_mix1_inp1_mux =
 	SOC_DAPM_ENUM("RX1 MIX1 INP1 Mux", rx_mix1_inp1_chain_enum);
@@ -822,6 +825,9 @@ static const struct snd_kcontrol_new dec4_mux =
 
 static const struct snd_kcontrol_new iir1_inp1_mux =
 	SOC_DAPM_ENUM("IIR1 INP1 Mux", iir1_inp1_mux_enum);
+
+static const struct snd_kcontrol_new iir2_inp1_mux =
+	SOC_DAPM_ENUM("IIR2 INP1 Mux", iir2_inp1_mux_enum);
 
 static const struct snd_kcontrol_new anc1_mux =
 	SOC_DAPM_ENUM("ANC1 MUX Mux", anc1_mux_enum);
@@ -1960,6 +1966,8 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 	/* Sidetone */
 	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
 	SND_SOC_DAPM_PGA("IIR1", SITAR_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MUX("IIR2 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir2_inp1_mux),
+	SND_SOC_DAPM_PGA("IIR2", SITAR_A_CDC_CLK_SD_CTL, 1, 0, NULL, 0),
 
 };
 
@@ -2058,31 +2066,37 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX1 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX1 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX1 MIX1 INP1", "IIR1", "IIR1"},
+	{"RX1 MIX1 INP1", "IIR2", "IIR2"},
 	{"RX1 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX1 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX1 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX1 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX1 MIX1 INP2", "IIR1", "IIR1"},
+	{"RX1 MIX1 INP2", "IIR2", "IIR2"},
 	{"RX2 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX2 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX2 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX2 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX2 MIX1 INP1", "IIR1", "IIR1"},
+	{"RX2 MIX1 INP1", "IIR2", "IIR2"},
 	{"RX2 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX2 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX2 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX2 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX2 MIX1 INP2", "IIR1", "IIR1"},
+	{"RX2 MIX1 INP2", "IIR2", "IIR2"},
 	{"RX3 MIX1 INP1", "RX1", "SLIM RX1"},
 	{"RX3 MIX1 INP1", "RX2", "SLIM RX2"},
 	{"RX3 MIX1 INP1", "RX3", "SLIM RX3"},
 	{"RX3 MIX1 INP1", "RX4", "SLIM RX4"},
 	{"RX3 MIX1 INP1", "IIR1", "IIR1"},
+	{"RX3 MIX1 INP1", "IIR2", "IIR2"},
 	{"RX3 MIX1 INP2", "RX1", "SLIM RX1"},
 	{"RX3 MIX1 INP2", "RX2", "SLIM RX2"},
 	{"RX3 MIX1 INP2", "RX3", "SLIM RX3"},
 	{"RX3 MIX1 INP2", "RX4", "SLIM RX4"},
 	{"RX3 MIX1 INP2", "IIR1", "IIR1"},
+	{"RX3 MIX1 INP2", "IIR2", "IIR2"},
 
 
 	/* TX */
@@ -2138,6 +2152,26 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	/* IIR */
 	{"IIR1", NULL, "IIR1 INP1 MUX"},
 	{"IIR1 INP1 MUX", "DEC1", "DEC1 MUX"},
+	{"IIR1 INP1 MUX", "DEC2", "DEC2 MUX"},
+	{"IIR1 INP1 MUX", "DEC3", "DEC3 MUX"},
+	{"IIR1 INP1 MUX", "DEC4", "DEC4 MUX"},
+	{"IIR1 INP1 MUX", "RX1", "SLIM RX1"},
+	{"IIR1 INP1 MUX", "RX2", "SLIM RX2"},
+	{"IIR1 INP1 MUX", "RX3", "SLIM RX3"},
+	{"IIR1 INP1 MUX", "RX4", "SLIM RX4"},
+	{"IIR1 INP1 MUX", "RX5", "SLIM RX5"},
+
+	{"IIR2", NULL, "IIR2 INP1 MUX"},
+	{"IIR2 INP1 MUX", "DEC1", "DEC1 MUX"},
+	{"IIR2 INP1 MUX", "DEC2", "DEC2 MUX"},
+	{"IIR2 INP1 MUX", "DEC3", "DEC3 MUX"},
+	{"IIR2 INP1 MUX", "DEC4", "DEC4 MUX"},
+	{"IIR2 INP1 MUX", "RX1", "SLIM RX1"},
+	{"IIR2 INP1 MUX", "RX2", "SLIM RX2"},
+	{"IIR2 INP1 MUX", "RX3", "SLIM RX3"},
+	{"IIR2 INP1 MUX", "RX4", "SLIM RX4"},
+	{"IIR2 INP1 MUX", "RX5", "SLIM RX5"},
+
 	{"MIC BIAS1 Internal1", NULL, "LDO_H"},
 	{"MIC BIAS1 External", NULL, "LDO_H"},
 	{"MIC BIAS2 Internal1", NULL, "LDO_H"},
