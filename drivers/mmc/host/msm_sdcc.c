@@ -1614,6 +1614,14 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 		cmd->error = -EILSEQ;
 	}
 
+	if (!cmd->error) {
+		if (cmd->cmd_timeout_ms > host->curr.req_tout_ms) {
+			host->curr.req_tout_ms = cmd->cmd_timeout_ms;
+			mod_timer(&host->req_tout_timer, (jiffies +
+				  msecs_to_jiffies(host->curr.req_tout_ms)));
+		}
+	}
+
 	if (!cmd->data || cmd->error) {
 		if (host->curr.data && host->dma.sg &&
 			host->is_dma_mode)
@@ -1949,7 +1957,7 @@ static void
 msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
-	unsigned long		flags, timeout;
+	unsigned long		flags;
 
 	/*
 	 * Get the SDIO AL client out of LPM.
@@ -2006,15 +2014,16 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * Set timeout value to 10 secs (or more in case of buggy cards)
 	 */
 	if ((mmc->card) && (mmc->card->quirks & MMC_QUIRK_INAND_DATA_TIMEOUT))
-		timeout = 20000;
+		host->curr.req_tout_ms = 20000;
 	else
-		timeout = MSM_MMC_REQ_TIMEOUT;
+		host->curr.req_tout_ms = MSM_MMC_REQ_TIMEOUT;
 	/*
 	 * Kick the software request timeout timer here with the timeout
 	 * value identified above
 	 */
 	mod_timer(&host->req_tout_timer,
-			(jiffies + msecs_to_jiffies(timeout)));
+			(jiffies +
+			 msecs_to_jiffies(host->curr.req_tout_ms)));
 
 	host->curr.mrq = mrq;
 	if (mrq->data && (mrq->data->flags & MMC_DATA_WRITE)) {
@@ -4535,10 +4544,11 @@ static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
 	}
 
 	pr_info("%s: got_dataend=%d, prog_enable=%d,"
-		" wait_for_auto_prog_done=%d, got_auto_prog_done=%d\n",
-		mmc_hostname(host->mmc), host->curr.got_dataend,
-		host->prog_enable, host->curr.wait_for_auto_prog_done,
-		host->curr.got_auto_prog_done);
+		" wait_for_auto_prog_done=%d, got_auto_prog_done=%d,"
+		" req_tout_ms=%d\n", mmc_hostname(host->mmc),
+		host->curr.got_dataend, host->prog_enable,
+		host->curr.wait_for_auto_prog_done,
+		host->curr.got_auto_prog_done, host->curr.req_tout_ms);
 	msmsdcc_print_rpm_info(host);
 }
 
