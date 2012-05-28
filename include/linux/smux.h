@@ -247,7 +247,7 @@ int msm_smux_tiocm_set(uint8_t lcid, uint32_t set, uint32_t clear);
 int msm_smux_set_ch_option(uint8_t lcid, uint32_t set, uint32_t clear);
 
 #else
-int msm_smux_open(uint8_t lcid, void *priv,
+static inline int msm_smux_open(uint8_t lcid, void *priv,
 	void (*notify)(void *priv, int event_type, const void *metadata),
 	int (*get_rx_buffer)(void *priv, void **pkt_priv,
 					void **buffer, int size))
@@ -255,37 +255,39 @@ int msm_smux_open(uint8_t lcid, void *priv,
 	return -ENODEV;
 }
 
-int msm_smux_close(uint8_t lcid)
+static inline int msm_smux_close(uint8_t lcid)
 {
 	return -ENODEV;
 }
 
-int msm_smux_write(uint8_t lcid, void *pkt_priv, const void *data, int len)
+static inline int msm_smux_write(uint8_t lcid, void *pkt_priv,
+				const void *data, int len)
 {
 	return -ENODEV;
 }
 
-int msm_smux_is_ch_full(uint8_t lcid);
+static inline int msm_smux_is_ch_full(uint8_t lcid)
 {
 	return -ENODEV;
 }
 
-int msm_smux_is_ch_low(uint8_t lcid);
+static inline int msm_smux_is_ch_low(uint8_t lcid)
 {
 	return -ENODEV;
 }
 
-long msm_smux_tiocm_get(uint8_t lcid)
+static inline long msm_smux_tiocm_get(uint8_t lcid)
 {
 	return 0;
 }
 
-int msm_smux_tiocm_set(uint8_t lcid, uint32_t set, uint32_t clear)
+static inline int msm_smux_tiocm_set(uint8_t lcid, uint32_t set, uint32_t clear)
 {
 	return -ENODEV;
 }
 
-int msm_smux_set_ch_option(uint8_t lcid, uint32_t set, uint32_t clear)
+static inline int msm_smux_set_ch_option(uint8_t lcid, uint32_t set,
+					uint32_t clear)
 {
 	return -ENODEV;
 }
