@@ -32,7 +32,9 @@
 /**
  * TSIF alias name length
  */
-#define TSIF_NAME_LENGTH					10
+#define TSIF_NAME_LENGTH				10
+
+#define MPQ_MAX_FOUND_PATTERNS				5
 
 /**
  * struct mpq_demux - mpq demux information
@@ -252,6 +254,17 @@ struct pes_packet_header {
 } __packed;
 
 /*
+ * mpq_framing_prefix_size_masks - possible prefix sizes.
+ *
+ * @size_mask: a bit mask (per pattern) of possible prefix sizes to use
+ * when searching for a pattern that started in the last buffer.
+ * Updated in mpq_dmx_framing_pattern_search for use in the next lookup
+ */
+struct mpq_framing_prefix_size_masks {
+	u32 size_mask[MPQ_MAX_FOUND_PATTERNS];
+};
+
+/*
  * mpq_video_feed_info - private data used for video feed.
  *
  * @plugin_data: Underlying plugin's own private data.
@@ -270,6 +283,30 @@ struct pes_packet_header {
  * @payload_buff_handle: ION handle for the allocated payload buffer
  * @stream_interface: The ID of the video stream interface registered
  * with this stream buffer.
+ * @patterns: pointer to the framing patterns to look for.
+ * @patterns_num: number of framing patterns.
+ * @last_framing_match_address: Used for saving the raw data address of
+ * the previous pattern match found in this video feed.
+ * @last_framing_match_type: Used for saving the type of
+ * the previous pattern match found in this video feed.
+ * @found_sequence_header_pattern: Flag used to note that an MPEG-2
+ * Sequence Header, H.264 SPS or VC-1 Sequence Header pattern
+ * (whichever is relevant according to the video standard) had already
+ * been found.
+ * @prefix_size: a bit mask representing the size(s) of possible prefixes
+ * to the pattern, already found in the previous buffer. If bit 0 is set,
+ * a prefix of size 1 was found. If bit 1 is set, a prefix of size 2 was
+ * found, etc. This supports a prefix size of up to 32, which is more
+ * than we need. The search function updates prefix_size as needed
+ * for the next buffer search.
+ * @first_pattern_offset: used to save the offset of the first pattern written
+ * to the stream buffer.
+ * @first_prefix_size: used to save the prefix size used to find the first
+ * pattern written to the stream buffer.
+ * @write_pts_dts: Flag used to decide if to write PTS/DTS information
+ * (if it is available in the PES header) in the meta-data passed
+ * to the video decoder. PTS/DTS information is written in the first
+ * packet after it is available.
  */
 struct mpq_video_feed_info {
 	void *plugin_data;
@@ -281,6 +318,15 @@ struct mpq_video_feed_info {
 	int fullness_wait_cancel;
 	struct ion_handle *payload_buff_handle;
 	enum mpq_adapter_stream_if stream_interface;
+	const struct mpq_framing_pattern_lookup_params *patterns;
+	int patterns_num;
+	u32 last_framing_match_address;
+	enum dmx_framing_pattern_type last_framing_match_type;
+	int found_sequence_header_pattern;
+	struct mpq_framing_prefix_size_masks prefix_size;
+	u32 first_pattern_offset;
+	u32 first_prefix_size;
+	int write_pts_dts;
 };
 
 /**
