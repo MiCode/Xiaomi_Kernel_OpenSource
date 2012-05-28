@@ -20,7 +20,6 @@
 #include <linux/platform_device.h>
 #include <linux/memory_alloc.h>
 
-#include <mach/msm_subsystem_map.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/irqs.h>
@@ -39,6 +38,7 @@
 #include <linux/interrupt.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
+#include <mach/iommu_domains.h>
 
 #include <media/vcap_v4l2.h>
 #include <media/vcap_fmt.h>

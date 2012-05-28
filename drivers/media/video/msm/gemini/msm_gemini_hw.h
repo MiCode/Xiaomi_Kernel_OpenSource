@@ -15,8 +15,8 @@
 
 #include <media/msm_gemini.h>
 #include "msm_gemini_hw_reg.h"
-#include <mach/msm_subsystem_map.h>
 #include <linux/ion.h>
+#include <mach/iommu_domains.h>
 
 struct msm_gemini_hw_buf {
 	struct msm_gemini_buf vbuf;
