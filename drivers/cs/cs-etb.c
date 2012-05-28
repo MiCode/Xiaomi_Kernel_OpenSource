@@ -286,13 +286,16 @@ static struct miscdevice etb_misc = {
 	.fops =		&etb_fops,
 };
 
-#define ETB_ATTR(__name)						\
-static struct kobj_attribute __name##_attr =				\
-	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+static ssize_t etb_show_trigger_cntr(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etb.trigger_cntr;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
 
-static ssize_t trigger_cntr_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etb_store_trigger_cntr(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -300,16 +303,10 @@ static ssize_t trigger_cntr_store(struct kobject *kobj,
 		return -EINVAL;
 
 	etb.trigger_cntr = val;
-	return n;
+	return size;
 }
-static ssize_t trigger_cntr_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
-{
-	unsigned long val = etb.trigger_cntr;
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
-}
-ETB_ATTR(trigger_cntr);
+static DEVICE_ATTR(trigger_cntr, S_IRUGO | S_IWUSR, etb_show_trigger_cntr,
+		   etb_store_trigger_cntr);
 
 static int etb_sysfs_init(void)
 {
@@ -322,7 +319,7 @@ static int etb_sysfs_init(void)
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(etb.kobj, &trigger_cntr_attr.attr);
+	ret = sysfs_create_file(etb.kobj, &dev_attr_trigger_cntr.attr);
 	if (ret) {
 		dev_err(etb.dev, "failed to create ETB sysfs trigger_cntr"
 		" attribute\n");
@@ -338,7 +335,7 @@ err_create:
 
 static void etb_sysfs_exit(void)
 {
-	sysfs_remove_file(etb.kobj, &trigger_cntr_attr.attr);
+	sysfs_remove_file(etb.kobj, &dev_attr_trigger_cntr.attr);
 	kobject_put(etb.kobj);
 }
 

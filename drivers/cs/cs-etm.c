@@ -441,39 +441,16 @@ static void etm_os_unlock(void *unused)
 	asm("isb\n\t");
 }
 
-#define ETM_STORE(__name, mask)						\
-static ssize_t __name##_store(struct kobject *kobj,			\
-			struct kobj_attribute *attr,			\
-			const char *buf, size_t n)			\
-{									\
-	unsigned long val;						\
-									\
-	if (sscanf(buf, "%lx", &val) != 1)				\
-		return -EINVAL;						\
-									\
-	etm.__name = val & mask;					\
-	return n;							\
+static ssize_t etm_show_enabled(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.enabled;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
-#define ETM_SHOW(__name)						\
-static ssize_t __name##_show(struct kobject *kobj,			\
-			struct kobj_attribute *attr,			\
-			char *buf)					\
-{									\
-	unsigned long val = etm.__name;					\
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);		\
-}
-
-#define ETM_ATTR(__name)						\
-static struct kobj_attribute __name##_attr =				\
-	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
-#define ETM_ATTR_RO(__name)						\
-static struct kobj_attribute __name##_attr =				\
-	__ATTR(__name, S_IRUGO, __name##_show, NULL)
-
-static ssize_t enabled_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_enabled(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t size)
 {
 	int ret = 0;
 	unsigned long val;
@@ -490,22 +467,46 @@ static ssize_t enabled_store(struct kobject *kobj,
 
 	if (ret)
 		return ret;
-	return n;
+	return size;
 }
-ETM_SHOW(enabled);
-ETM_ATTR(enabled);
+static DEVICE_ATTR(enabled, S_IRUGO | S_IWUSR, etm_show_enabled,
+		   etm_store_enabled);
 
-ETM_SHOW(nr_addr_cmp);
-ETM_ATTR_RO(nr_addr_cmp);
-ETM_SHOW(nr_cntr);
-ETM_ATTR_RO(nr_cntr);
-ETM_SHOW(nr_ctxid_cmp);
-ETM_ATTR_RO(nr_ctxid_cmp);
+static ssize_t etm_show_nr_addr_cmp(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.nr_addr_cmp;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+static DEVICE_ATTR(nr_addr_cmp, S_IRUGO, etm_show_nr_addr_cmp, NULL);
+
+static ssize_t etm_show_nr_cntr(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.nr_cntr;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+static DEVICE_ATTR(nr_cntr, S_IRUGO, etm_show_nr_cntr, NULL);
+
+static ssize_t etm_show_nr_ctxid_cmp(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.nr_ctxid_cmp;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+static DEVICE_ATTR(nr_ctxid_cmp, S_IRUGO, etm_show_nr_ctxid_cmp, NULL);
+
+static ssize_t etm_show_reset(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	unsigned long val = etm.reset;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
 
 /* Reset to trace everything i.e. exclude nothing. */
-static ssize_t reset_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_reset(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t size)
 {
 	int i;
 	unsigned long val;
@@ -554,14 +555,19 @@ static ssize_t reset_store(struct kobject *kobj,
 		etm.timestamp_event = 0x406F;
 	}
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-ETM_SHOW(reset);
-ETM_ATTR(reset);
+static DEVICE_ATTR(reset, S_IRUGO | S_IWUSR, etm_show_reset, etm_store_reset);
 
-static ssize_t mode_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_show_mode(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	unsigned long val = etm.mode;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_mode(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -596,26 +602,86 @@ static ssize_t mode_store(struct kobject *kobj,
 		etm.ctrl &= ~(BIT(14) | BIT(15));
 	mutex_unlock(&etm.mutex);
 
-	return n;
+	return size;
 }
-ETM_SHOW(mode);
-ETM_ATTR(mode);
+static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR, etm_show_mode, etm_store_mode);
 
-ETM_STORE(trigger_event, ETM_EVENT_MASK);
-ETM_SHOW(trigger_event);
-ETM_ATTR(trigger_event);
+static ssize_t etm_show_trigger_event(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.trigger_event;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
 
-ETM_STORE(enable_event, ETM_EVENT_MASK);
-ETM_SHOW(enable_event);
-ETM_ATTR(enable_event);
+static ssize_t etm_store_trigger_event(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t size)
+{
+	unsigned long val;
 
-ETM_STORE(fifofull_level, ETM_ALL_MASK);
-ETM_SHOW(fifofull_level);
-ETM_ATTR(fifofull_level);
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
 
-static ssize_t addr_idx_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+	etm.trigger_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(trigger_event, S_IRUGO | S_IWUSR, etm_show_trigger_event,
+		   etm_store_trigger_event);
+
+static ssize_t etm_show_enable_event(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.enable_event;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_enable_event(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etm.enable_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(enable_event, S_IRUGO | S_IWUSR, etm_show_enable_event,
+		   etm_store_enable_event);
+
+static ssize_t etm_show_fifofull_level(struct device *dev,
+				       struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.fifofull_level;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_fifofull_level(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t size)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etm.fifofull_level = val;
+	return size;
+}
+static DEVICE_ATTR(fifofull_level, S_IRUGO | S_IWUSR, etm_show_fifofull_level,
+		   etm_store_fifofull_level);
+
+static ssize_t etm_show_addr_idx(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.addr_idx;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_addr_idx(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -630,14 +696,33 @@ static ssize_t addr_idx_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.addr_idx = val;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-ETM_SHOW(addr_idx);
-ETM_ATTR(addr_idx);
+static DEVICE_ATTR(addr_idx, S_IRUGO | S_IWUSR, etm_show_addr_idx,
+		   etm_store_addr_idx);
 
-static ssize_t addr_single_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_show_addr_single(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	unsigned long val;
+	uint8_t idx;
+
+	mutex_lock(&etm.mutex);
+	idx = etm.addr_idx;
+	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_SINGLE)) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+
+	val = etm.addr_val[idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_addr_single(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t size)
 {
 	unsigned long val;
 	uint8_t idx;
@@ -656,32 +741,40 @@ static ssize_t addr_single_store(struct kobject *kobj,
 	etm.addr_val[idx] = val;
 	etm.addr_type[idx] = ETM_ADDR_TYPE_SINGLE;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t addr_single_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(addr_single, S_IRUGO | S_IWUSR, etm_show_addr_single,
+		   etm_store_addr_single);
+
+static ssize_t etm_show_addr_range(struct device *dev,
+				   struct device_attribute *attr, char *buf)
 {
-	unsigned long val;
+	unsigned long val1, val2;
 	uint8_t idx;
 
 	mutex_lock(&etm.mutex);
 	idx = etm.addr_idx;
-	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
-	      etm.addr_type[idx] == ETM_ADDR_TYPE_SINGLE)) {
+	if (idx % 2 != 0) {
+		mutex_unlock(&etm.mutex);
+		return -EPERM;
+	}
+	if (!((etm.addr_type[idx] == ETM_ADDR_TYPE_NONE &&
+	       etm.addr_type[idx + 1] == ETM_ADDR_TYPE_NONE) ||
+	      (etm.addr_type[idx] == ETM_ADDR_TYPE_RANGE &&
+	       etm.addr_type[idx + 1] == ETM_ADDR_TYPE_RANGE))) {
 		mutex_unlock(&etm.mutex);
 		return -EPERM;
 	}
 
-	val = etm.addr_val[idx];
+	val1 = etm.addr_val[idx];
+	val2 = etm.addr_val[idx + 1];
 	mutex_unlock(&etm.mutex);
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+	return scnprintf(buf, PAGE_SIZE, "%#lx %#lx\n", val1, val2);
 }
-ETM_ATTR(addr_single);
 
-static ssize_t addr_range_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_addr_range(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
 {
 	unsigned long val1, val2;
 	uint8_t idx;
@@ -712,39 +805,33 @@ static ssize_t addr_range_store(struct kobject *kobj,
 	etm.addr_type[idx + 1] = ETM_ADDR_TYPE_RANGE;
 	etm.enable_ctrl1 |= (1 << (idx/2));
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t addr_range_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(addr_range, S_IRUGO | S_IWUSR, etm_show_addr_range,
+		   etm_store_addr_range);
+
+static ssize_t etm_show_addr_start(struct device *dev,
+				   struct device_attribute *attr, char *buf)
 {
-	unsigned long val1, val2;
+	unsigned long val;
 	uint8_t idx;
 
 	mutex_lock(&etm.mutex);
 	idx = etm.addr_idx;
-	if (idx % 2 != 0) {
-		mutex_unlock(&etm.mutex);
-		return -EPERM;
-	}
-	if (!((etm.addr_type[idx] == ETM_ADDR_TYPE_NONE &&
-	       etm.addr_type[idx + 1] == ETM_ADDR_TYPE_NONE) ||
-	      (etm.addr_type[idx] == ETM_ADDR_TYPE_RANGE &&
-	       etm.addr_type[idx + 1] == ETM_ADDR_TYPE_RANGE))) {
+	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_START)) {
 		mutex_unlock(&etm.mutex);
 		return -EPERM;
 	}
 
-	val1 = etm.addr_val[idx];
-	val2 = etm.addr_val[idx + 1];
+	val = etm.addr_val[idx];
 	mutex_unlock(&etm.mutex);
-	return scnprintf(buf, PAGE_SIZE, "%#lx %#lx\n", val1, val2);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(addr_range);
 
-static ssize_t addr_start_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_addr_start(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
 {
 	unsigned long val;
 	uint8_t idx;
@@ -765,11 +852,13 @@ static ssize_t addr_start_store(struct kobject *kobj,
 	etm.startstop_ctrl |= (1 << idx);
 	etm.enable_ctrl1 |= BIT(25);
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t addr_start_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(addr_start, S_IRUGO | S_IWUSR, etm_show_addr_start,
+		   etm_store_addr_start);
+
+static ssize_t etm_show_addr_stop(struct device *dev,
+				  struct device_attribute *attr, char *buf)
 {
 	unsigned long val;
 	uint8_t idx;
@@ -777,7 +866,7 @@ static ssize_t addr_start_show(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	idx = etm.addr_idx;
 	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
-	      etm.addr_type[idx] == ETM_ADDR_TYPE_START)) {
+	      etm.addr_type[idx] == ETM_ADDR_TYPE_STOP)) {
 		mutex_unlock(&etm.mutex);
 		return -EPERM;
 	}
@@ -786,11 +875,10 @@ static ssize_t addr_start_show(struct kobject *kobj,
 	mutex_unlock(&etm.mutex);
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(addr_start);
 
-static ssize_t addr_stop_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_addr_stop(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t size)
 {
 	unsigned long val;
 	uint8_t idx;
@@ -811,32 +899,25 @@ static ssize_t addr_stop_store(struct kobject *kobj,
 	etm.startstop_ctrl |= (1 << (idx + 16));
 	etm.enable_ctrl1 |= BIT(25);
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t addr_stop_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(addr_stop, S_IRUGO | S_IWUSR, etm_show_addr_stop,
+		   etm_store_addr_stop);
+
+static ssize_t etm_show_addr_acctype(struct device *dev,
+				     struct device_attribute *attr, char *buf)
 {
 	unsigned long val;
-	uint8_t idx;
 
 	mutex_lock(&etm.mutex);
-	idx = etm.addr_idx;
-	if (!(etm.addr_type[idx] == ETM_ADDR_TYPE_NONE ||
-	      etm.addr_type[idx] == ETM_ADDR_TYPE_STOP)) {
-		mutex_unlock(&etm.mutex);
-		return -EPERM;
-	}
-
-	val = etm.addr_val[idx];
+	val = etm.addr_acctype[etm.addr_idx];
 	mutex_unlock(&etm.mutex);
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(addr_stop);
 
-static ssize_t addr_acctype_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_addr_acctype(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -846,24 +927,21 @@ static ssize_t addr_acctype_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.addr_acctype[etm.addr_idx] = val;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t addr_acctype_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
-{
-	unsigned long val;
+static DEVICE_ATTR(addr_acctype, S_IRUGO | S_IWUSR, etm_show_addr_acctype,
+		   etm_store_addr_acctype);
 
-	mutex_lock(&etm.mutex);
-	val = etm.addr_acctype[etm.addr_idx];
-	mutex_unlock(&etm.mutex);
+static ssize_t etm_show_cntr_idx(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.addr_idx;
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(addr_acctype);
 
-static ssize_t cntr_idx_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_cntr_idx(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -878,14 +956,24 @@ static ssize_t cntr_idx_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.cntr_idx = val;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-ETM_SHOW(cntr_idx);
-ETM_ATTR(cntr_idx);
+static DEVICE_ATTR(cntr_idx, S_IRUGO | S_IWUSR, etm_show_cntr_idx,
+		   etm_store_cntr_idx);
 
-static ssize_t cntr_rld_val_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_show_cntr_rld_val(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val;
+	mutex_lock(&etm.mutex);
+	val = etm.cntr_rld_val[etm.cntr_idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_cntr_rld_val(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -895,23 +983,25 @@ static ssize_t cntr_rld_val_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.cntr_rld_val[etm.cntr_idx] = val;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t cntr_rld_val_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(cntr_rld_val, S_IRUGO | S_IWUSR, etm_show_cntr_rld_val,
+		   etm_store_cntr_rld_val);
+
+static ssize_t etm_show_cntr_event(struct device *dev,
+				     struct device_attribute *attr, char *buf)
 {
 	unsigned long val;
+
 	mutex_lock(&etm.mutex);
-	val = etm.cntr_rld_val[etm.cntr_idx];
+	val = etm.cntr_event[etm.cntr_idx];
 	mutex_unlock(&etm.mutex);
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(cntr_rld_val);
 
-static ssize_t cntr_event_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_cntr_event(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -921,24 +1011,25 @@ static ssize_t cntr_event_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.cntr_event[etm.cntr_idx] = val & ETM_EVENT_MASK;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t cntr_event_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(cntr_event, S_IRUGO | S_IWUSR, etm_show_cntr_event,
+		   etm_store_cntr_event);
+
+static ssize_t etm_show_cntr_rld_event(struct device *dev,
+				       struct device_attribute *attr, char *buf)
 {
 	unsigned long val;
 
 	mutex_lock(&etm.mutex);
-	val = etm.cntr_event[etm.cntr_idx];
+	val = etm.cntr_rld_event[etm.cntr_idx];
 	mutex_unlock(&etm.mutex);
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(cntr_event);
 
-static ssize_t cntr_rld_event_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_cntr_rld_event(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -948,24 +1039,25 @@ static ssize_t cntr_rld_event_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.cntr_rld_event[etm.cntr_idx] = val & ETM_EVENT_MASK;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t cntr_rld_event_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(cntr_rld_event, S_IRUGO | S_IWUSR, etm_show_cntr_rld_event,
+		   etm_store_cntr_rld_event);
+
+static ssize_t etm_show_cntr_val(struct device *dev,
+				 struct device_attribute *attr, char *buf)
 {
 	unsigned long val;
 
 	mutex_lock(&etm.mutex);
-	val = etm.cntr_rld_event[etm.cntr_idx];
+	val = etm.cntr_val[etm.cntr_idx];
 	mutex_unlock(&etm.mutex);
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(cntr_rld_event);
 
-static ssize_t cntr_val_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_store_cntr_val(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -975,48 +1067,153 @@ static ssize_t cntr_val_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.cntr_val[etm.cntr_idx] = val;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t cntr_val_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(cntr_val, S_IRUGO | S_IWUSR, etm_show_cntr_val,
+		   etm_store_cntr_val);
+
+static ssize_t etm_show_seq_12_event(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.seq_12_event;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_seq_12_event(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
 {
 	unsigned long val;
 
-	mutex_lock(&etm.mutex);
-	val = etm.cntr_val[etm.cntr_idx];
-	mutex_unlock(&etm.mutex);
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etm.seq_12_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(seq_12_event, S_IRUGO | S_IWUSR, etm_show_seq_12_event,
+		   etm_store_seq_12_event);
+
+static ssize_t etm_show_seq_21_event(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.seq_21_event;
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(cntr_val);
 
-ETM_STORE(seq_12_event, ETM_EVENT_MASK);
-ETM_SHOW(seq_12_event);
-ETM_ATTR(seq_12_event);
+static ssize_t etm_store_seq_21_event(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
+{
+	unsigned long val;
 
-ETM_STORE(seq_21_event, ETM_EVENT_MASK);
-ETM_SHOW(seq_21_event);
-ETM_ATTR(seq_21_event);
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
 
-ETM_STORE(seq_23_event, ETM_EVENT_MASK);
-ETM_SHOW(seq_23_event);
-ETM_ATTR(seq_23_event);
+	etm.seq_21_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(seq_21_event, S_IRUGO | S_IWUSR, etm_show_seq_21_event,
+		   etm_store_seq_21_event);
 
-ETM_STORE(seq_31_event, ETM_EVENT_MASK);
-ETM_SHOW(seq_31_event);
-ETM_ATTR(seq_31_event);
+static ssize_t etm_show_seq_23_event(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.seq_23_event;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
 
-ETM_STORE(seq_32_event, ETM_EVENT_MASK);
-ETM_SHOW(seq_32_event);
-ETM_ATTR(seq_32_event);
+static ssize_t etm_store_seq_23_event(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
+{
+	unsigned long val;
 
-ETM_STORE(seq_13_event, ETM_EVENT_MASK);
-ETM_SHOW(seq_13_event);
-ETM_ATTR(seq_13_event);
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
 
-static ssize_t seq_curr_state_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+	etm.seq_23_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(seq_23_event, S_IRUGO | S_IWUSR, etm_show_seq_23_event,
+		   etm_store_seq_23_event);
+
+static ssize_t etm_show_seq_31_event(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.seq_31_event;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_seq_31_event(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etm.seq_31_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(seq_31_event, S_IRUGO | S_IWUSR, etm_show_seq_31_event,
+		   etm_store_seq_31_event);
+
+static ssize_t etm_show_seq_32_event(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.seq_32_event;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_seq_32_event(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etm.seq_32_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(seq_32_event, S_IRUGO | S_IWUSR, etm_show_seq_32_event,
+		   etm_store_seq_32_event);
+
+static ssize_t etm_show_seq_13_event(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.seq_13_event;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_seq_13_event(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etm.seq_13_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(seq_13_event, S_IRUGO | S_IWUSR, etm_show_seq_13_event,
+		   etm_store_seq_13_event);
+
+static ssize_t etm_show_seq_curr_state(struct device *dev,
+				       struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.seq_curr_state;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_seq_curr_state(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -1026,14 +1223,21 @@ static ssize_t seq_curr_state_store(struct kobject *kobj,
 		return -EINVAL;
 
 	etm.seq_curr_state = val;
-	return n;
+	return size;
 }
-ETM_SHOW(seq_curr_state);
-ETM_ATTR(seq_curr_state);
+static DEVICE_ATTR(seq_curr_state, S_IRUGO | S_IWUSR, etm_show_seq_curr_state,
+		   etm_store_seq_curr_state);
 
-static ssize_t ctxid_idx_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_show_ctxid_idx(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.ctxid_idx;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_ctxid_idx(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -1048,14 +1252,25 @@ static ssize_t ctxid_idx_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.ctxid_idx = val;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-ETM_SHOW(ctxid_idx);
-ETM_ATTR(ctxid_idx);
+static DEVICE_ATTR(ctxid_idx, S_IRUGO | S_IWUSR, etm_show_ctxid_idx,
+		   etm_store_ctxid_idx);
 
-static ssize_t ctxid_val_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etm_show_ctxid_val(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	unsigned long val;
+
+	mutex_lock(&etm.mutex);
+	val = etm.ctxid_val[etm.ctxid_idx];
+	mutex_unlock(&etm.mutex);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_ctxid_val(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -1065,65 +1280,110 @@ static ssize_t ctxid_val_store(struct kobject *kobj,
 	mutex_lock(&etm.mutex);
 	etm.ctxid_val[etm.ctxid_idx] = val;
 	mutex_unlock(&etm.mutex);
-	return n;
+	return size;
 }
-static ssize_t ctxid_val_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(ctxid_val, S_IRUGO | S_IWUSR, etm_show_ctxid_val,
+		   etm_store_ctxid_val);
+
+static ssize_t etm_show_ctxid_mask(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.ctxid_mask;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_ctxid_mask(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
 {
 	unsigned long val;
 
-	mutex_lock(&etm.mutex);
-	val = etm.ctxid_val[etm.ctxid_idx];
-	mutex_unlock(&etm.mutex);
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etm.ctxid_mask = val;
+	return size;
+}
+static DEVICE_ATTR(ctxid_mask, S_IRUGO | S_IWUSR, etm_show_ctxid_mask,
+		   etm_store_ctxid_mask);
+
+static ssize_t etm_show_sync_freq(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etm.sync_freq;
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-ETM_ATTR(ctxid_val);
 
-ETM_STORE(ctxid_mask, ETM_ALL_MASK);
-ETM_SHOW(ctxid_mask);
-ETM_ATTR(ctxid_mask);
+static ssize_t etm_store_sync_freq(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
+{
+	unsigned long val;
 
-ETM_STORE(sync_freq, ETM_SYNC_MASK);
-ETM_SHOW(sync_freq);
-ETM_ATTR(sync_freq);
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
 
-ETM_STORE(timestamp_event, ETM_EVENT_MASK);
-ETM_SHOW(timestamp_event);
-ETM_ATTR(timestamp_event);
+	etm.sync_freq = val & ETM_SYNC_MASK;
+	return size;
+}
+static DEVICE_ATTR(sync_freq, S_IRUGO | S_IWUSR, etm_show_sync_freq,
+		   etm_store_sync_freq);
+
+static ssize_t etm_show_timestamp_event(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	unsigned long val = etm.timestamp_event;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t etm_store_timestamp_event(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t size)
+{
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	etm.timestamp_event = val & ETM_EVENT_MASK;
+	return size;
+}
+static DEVICE_ATTR(timestamp_event, S_IRUGO | S_IWUSR, etm_show_timestamp_event,
+		   etm_store_timestamp_event);
 
 static struct attribute *etm_attrs[] = {
-	&nr_addr_cmp_attr.attr,
-	&nr_cntr_attr.attr,
-	&nr_ctxid_cmp_attr.attr,
-	&reset_attr.attr,
-	&mode_attr.attr,
-	&trigger_event_attr.attr,
-	&enable_event_attr.attr,
-	&fifofull_level_attr.attr,
-	&addr_idx_attr.attr,
-	&addr_single_attr.attr,
-	&addr_range_attr.attr,
-	&addr_start_attr.attr,
-	&addr_stop_attr.attr,
-	&addr_acctype_attr.attr,
-	&cntr_idx_attr.attr,
-	&cntr_rld_val_attr.attr,
-	&cntr_event_attr.attr,
-	&cntr_rld_event_attr.attr,
-	&cntr_val_attr.attr,
-	&seq_12_event_attr.attr,
-	&seq_21_event_attr.attr,
-	&seq_23_event_attr.attr,
-	&seq_31_event_attr.attr,
-	&seq_32_event_attr.attr,
-	&seq_13_event_attr.attr,
-	&seq_curr_state_attr.attr,
-	&ctxid_idx_attr.attr,
-	&ctxid_val_attr.attr,
-	&ctxid_mask_attr.attr,
-	&sync_freq_attr.attr,
-	&timestamp_event_attr.attr,
+	&dev_attr_nr_addr_cmp.attr,
+	&dev_attr_nr_cntr.attr,
+	&dev_attr_nr_ctxid_cmp.attr,
+	&dev_attr_reset.attr,
+	&dev_attr_mode.attr,
+	&dev_attr_trigger_event.attr,
+	&dev_attr_enable_event.attr,
+	&dev_attr_fifofull_level.attr,
+	&dev_attr_addr_idx.attr,
+	&dev_attr_addr_single.attr,
+	&dev_attr_addr_range.attr,
+	&dev_attr_addr_start.attr,
+	&dev_attr_addr_stop.attr,
+	&dev_attr_addr_acctype.attr,
+	&dev_attr_cntr_idx.attr,
+	&dev_attr_cntr_rld_val.attr,
+	&dev_attr_cntr_event.attr,
+	&dev_attr_cntr_rld_event.attr,
+	&dev_attr_cntr_val.attr,
+	&dev_attr_seq_12_event.attr,
+	&dev_attr_seq_21_event.attr,
+	&dev_attr_seq_23_event.attr,
+	&dev_attr_seq_31_event.attr,
+	&dev_attr_seq_32_event.attr,
+	&dev_attr_seq_13_event.attr,
+	&dev_attr_seq_curr_state.attr,
+	&dev_attr_ctxid_idx.attr,
+	&dev_attr_ctxid_val.attr,
+	&dev_attr_ctxid_mask.attr,
+	&dev_attr_sync_freq.attr,
+	&dev_attr_timestamp_event.attr,
 	NULL,
 };
 
@@ -1142,7 +1402,7 @@ static int etm_sysfs_init(void)
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(etm.kobj, &enabled_attr.attr);
+	ret = sysfs_create_file(etm.kobj, &dev_attr_enabled.attr);
 	if (ret) {
 		dev_err(etm.dev, "failed to create ETM sysfs enabled"
 		" attribute\n");
@@ -1162,7 +1422,7 @@ err_create:
 static void etm_sysfs_exit(void)
 {
 	sysfs_remove_group(etm.kobj, &etm_attr_grp);
-	sysfs_remove_file(etm.kobj, &enabled_attr.attr);
+	sysfs_remove_file(etm.kobj, &dev_attr_enabled.attr);
 	kobject_put(etm.kobj);
 }
 

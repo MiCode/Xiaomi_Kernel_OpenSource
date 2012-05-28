@@ -397,13 +397,16 @@ static struct miscdevice stm_misc = {
 	.fops		= &stm_fops,
 };
 
-#define STM_ATTR(__name)						\
-static struct kobj_attribute __name##_attr =				\
-	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+static ssize_t stm_show_enabled(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	unsigned long val = stm.enabled;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
 
-static ssize_t enabled_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t stm_store_enabled(struct device *dev,
+				 struct device_attribute *attr,
+				const char *buf, size_t size)
 {
 	int ret = 0;
 	unsigned long val;
@@ -418,20 +421,21 @@ static ssize_t enabled_store(struct kobject *kobj,
 
 	if (ret)
 		return ret;
-	return n;
+	return size;
 }
-static ssize_t enabled_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
+static DEVICE_ATTR(enabled, S_IRUGO | S_IWUSR, stm_show_enabled,
+		   stm_store_enabled);
+
+static ssize_t stm_show_entity(struct device *dev,
+			       struct device_attribute *attr, char *buf)
 {
-	unsigned long val = stm.enabled;
+	unsigned long val = stm.entity;
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
-STM_ATTR(enabled);
 
-static ssize_t entity_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t stm_store_entity(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -439,16 +443,10 @@ static ssize_t entity_store(struct kobject *kobj,
 		return -EINVAL;
 
 	stm.entity = val;
-	return n;
+	return size;
 }
-static ssize_t entity_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
-{
-	unsigned long val = stm.entity;
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
-}
-STM_ATTR(entity);
+static DEVICE_ATTR(entity, S_IRUGO | S_IWUSR, stm_show_entity,
+		   stm_store_entity);
 
 static int stm_sysfs_init(void)
 {
@@ -461,13 +459,13 @@ static int stm_sysfs_init(void)
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(stm.kobj, &enabled_attr.attr);
+	ret = sysfs_create_file(stm.kobj, &dev_attr_enabled.attr);
 	if (ret) {
 		dev_err(stm.dev, "failed to create STM sysfs enabled attr\n");
 		goto err_file;
 	}
 
-	if (sysfs_create_file(stm.kobj, &entity_attr.attr))
+	if (sysfs_create_file(stm.kobj, &dev_attr_entity.attr))
 		dev_err(stm.dev, "failed to create STM sysfs entity attr\n");
 
 	return 0;
@@ -479,8 +477,8 @@ err_create:
 
 static void stm_sysfs_exit(void)
 {
-	sysfs_remove_file(stm.kobj, &entity_attr.attr);
-	sysfs_remove_file(stm.kobj, &enabled_attr.attr);
+	sysfs_remove_file(stm.kobj, &dev_attr_entity.attr);
+	sysfs_remove_file(stm.kobj, &dev_attr_enabled.attr);
 	kobject_put(stm.kobj);
 }
 

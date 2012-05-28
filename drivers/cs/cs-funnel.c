@@ -122,13 +122,16 @@ void funnel_disable(uint8_t id, uint32_t port_mask)
 	clk_disable_unprepare(funnel.clk);
 }
 
-#define FUNNEL_ATTR(__name)						\
-static struct kobj_attribute __name##_attr =				\
-	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+static ssize_t funnel_show_priority(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	unsigned long val = funnel.priority;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
 
-static ssize_t priority_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t funnel_store_priority(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -136,16 +139,10 @@ static ssize_t priority_store(struct kobject *kobj,
 		return -EINVAL;
 
 	funnel.priority = val;
-	return n;
+	return size;
 }
-static ssize_t priority_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
-{
-	unsigned long val = funnel.priority;
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
-}
-FUNNEL_ATTR(priority);
+static DEVICE_ATTR(priority, S_IRUGO | S_IWUSR, funnel_show_priority,
+		   funnel_store_priority);
 
 static int funnel_sysfs_init(void)
 {
@@ -158,7 +155,7 @@ static int funnel_sysfs_init(void)
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(funnel.kobj, &priority_attr.attr);
+	ret = sysfs_create_file(funnel.kobj, &dev_attr_priority.attr);
 	if (ret) {
 		dev_err(funnel.dev, "failed to create FUNNEL sysfs priority"
 		" attribute\n");
@@ -174,7 +171,7 @@ err_create:
 
 static void funnel_sysfs_exit(void)
 {
-	sysfs_remove_file(funnel.kobj, &priority_attr.attr);
+	sysfs_remove_file(funnel.kobj, &dev_attr_priority.attr);
 	kobject_put(funnel.kobj);
 }
 
