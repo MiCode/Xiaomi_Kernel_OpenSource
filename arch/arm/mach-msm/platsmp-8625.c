@@ -86,7 +86,7 @@ static void clear_pending_spi(unsigned int irq)
 	c->irq_mask(d);
 	local_irq_disable();
 	/* Clear the IRQ from the ENABLE_SET */
-	gic_clear_spi_pending(irq);
+	gic_clear_irq_pending(irq);
 	local_irq_enable();
 }
 
