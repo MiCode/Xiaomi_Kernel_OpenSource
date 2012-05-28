@@ -146,8 +146,13 @@ static void mmc_queue_setup_discard(struct request_queue *q,
 	/* granularity must not be greater than max. discard */
 	if (card->pref_erase > max_discard)
 		q->limits.discard_granularity = 0;
-	if (mmc_can_secure_erase_trim(card) || mmc_can_sanitize(card))
+	if (mmc_can_secure_erase_trim(card))
 		queue_flag_set_unlocked(QUEUE_FLAG_SECDISCARD, q);
+}
+
+static void mmc_queue_setup_sanitize(struct request_queue *q)
+{
+	queue_flag_set_unlocked(QUEUE_FLAG_SANITIZE, q);
 }
 
 /**
@@ -186,6 +191,9 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, mq->queue);
 	if (mmc_can_erase(card))
 		mmc_queue_setup_discard(mq->queue, card);
+
+	if ((mmc_can_sanitize(card) && (host->caps2 & MMC_CAP2_SANITIZE)))
+		mmc_queue_setup_sanitize(mq->queue);
 
 #ifdef CONFIG_MMC_BLOCK_BOUNCE
 	if (host->max_segs == 1) {
