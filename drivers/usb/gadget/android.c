@@ -200,7 +200,8 @@ static void android_pm_qos_update_latency(struct android_dev *dev, int vote)
 	u32 swfi_latency = 0;
 	static int last_vote = -1;
 
-	if (!pdata || vote == last_vote)
+	if (!pdata || vote == last_vote
+		|| !pdata->swfi_latency)
 		return;
 
 	swfi_latency = pdata->swfi_latency + 1;
