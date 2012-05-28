@@ -355,6 +355,7 @@ struct mmc_host {
 	bool perf_enable;
 #endif
 
+	struct mmc_ios saved_ios;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
