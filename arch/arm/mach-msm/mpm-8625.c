@@ -152,7 +152,7 @@ static int msm_gic_set_irq_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
-void __init msm_gic_irq_extn_init(void __iomem *db, void __iomem *cb)
+void __init msm_gic_irq_extn_init(void)
 {
 	gic_arch_extn.irq_mask	= msm_gic_mask_irq;
 	gic_arch_extn.irq_unmask = msm_gic_unmask_irq;
