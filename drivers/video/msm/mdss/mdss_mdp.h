@@ -107,6 +107,7 @@ struct mdss_mdp_ctl {
 
 	u16 width;
 	u16 height;
+	u32 dst_format;
 
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_mixer *mixer_left;
@@ -258,6 +259,7 @@ void mdss_mdp_clk_ctrl(int enable, int isr);
 void mdss_mdp_footswitch_ctrl(int on);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
+int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
 
 int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd);
 int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd);
