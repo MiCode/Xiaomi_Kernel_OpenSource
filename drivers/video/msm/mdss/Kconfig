@@ -1,0 +1,5 @@
+config FB_MSM_MDSS_WRITEBACK
+	bool "MDSS Writeback Panel"
+	---help---
+	The MDSS Writeback Panel provides support for routing the output of
+	MDSS frame buffer driver and MDP processing to memory.

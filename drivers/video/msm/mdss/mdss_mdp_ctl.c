@@ -136,6 +136,7 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 	ctl->mfd = mfd;
 	ctl->width = width;
 	ctl->height = height;
+	ctl->dst_format = mfd->panel_info.out_format;
 
 	ctl->mixer_left = mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
 	if (!ctl->mixer_left) {
@@ -168,6 +169,7 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 	case WRITEBACK_PANEL:
 		ctl->intf_num = MDSS_MDP_NO_INTF;
 		ctl->opmode = MDSS_MDP_CTL_OP_WFD_MODE;
+		ctl->start_fnc = mdss_mdp_writeback_start;
 		break;
 	default:
 		pr_err("unsupported panel type (%d)\n", mfd->panel_info.type);
