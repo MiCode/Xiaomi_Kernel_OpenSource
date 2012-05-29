@@ -39,9 +39,12 @@ struct mdss_mdp_writeback_ctx {
 	u16 height;
 	u8 rot90;
 
-	struct completion comp;
+	int initialized;
+
 	struct mdss_mdp_plane_sizes dst_planes;
-	struct mdss_mdp_data wb_data;
+
+	void (*callback_fnc) (void *arg);
+	void *callback_arg;
 };
 
 static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
@@ -72,8 +75,6 @@ static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 	},
 };
 
-static void *videomemory;
-
 static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 					 struct mdss_mdp_data *data)
 {
@@ -101,7 +102,8 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 {
 	struct mdss_mdp_format_params *fmt;
 	u32 dst_format, pattern, ystride0, ystride1, outsize, chroma_samp;
-	int off, ret;
+	int off;
+	u32 opmode = ctx->opmode;
 
 	pr_debug("wb_num=%d format=%d\n", ctx->wb_num, ctx->format);
 
@@ -111,11 +113,30 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 	fmt = mdss_mdp_get_format_params(ctx->format);
 	if (!fmt) {
 		pr_err("wb format=%d not supported\n", ctx->format);
-		return ret;
+		return -EINVAL;
 	}
 
 	chroma_samp = fmt->chroma_sample;
-	if (ctx->rot90) {
+
+	if (ctx->type != MDSS_MDP_WRITEBACK_TYPE_ROTATOR && fmt->is_yuv) {
+		mdss_mdp_csc_setup(MDSS_MDP_BLOCK_WB, ctx->wb_num, 0,
+				   MDSS_MDP_CSC_RGB2YUV);
+		opmode |= (1 << 8) |	/* CSC_EN */
+			  (0 << 9) |	/* SRC_DATA=RGB */
+			  (1 << 10);	/* DST_DATA=YCBCR */
+
+		switch (chroma_samp) {
+		case MDSS_MDP_CHROMA_RGB:
+		case MDSS_MDP_CHROMA_420:
+		case MDSS_MDP_CHROMA_H2V1:
+			opmode |= (chroma_samp << 11);
+			break;
+		case MDSS_MDP_CHROMA_H1V2:
+		default:
+			pr_err("unsupported wb chroma samp=%d\n", chroma_samp);
+			return -EINVAL;
+		}
+	} else if (ctx->rot90) {
 		if (chroma_samp == MDSS_MDP_CHROMA_H2V1)
 			chroma_samp = MDSS_MDP_CHROMA_H1V2;
 		else if (chroma_samp == MDSS_MDP_CHROMA_H1V2)
@@ -147,7 +168,7 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 
 	off = MDSS_MDP_REG_WB_OFFSET(ctx->wb_num);
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_FORMAT, dst_format);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_OP_MODE, ctx->opmode);
+	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_OP_MODE, opmode);
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_PACK_PATTERN, pattern);
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_YSTRIDE0, ystride0);
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_YSTRIDE1, ystride1);
@@ -156,32 +177,24 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 	return 0;
 }
 
-static int mdss_mdp_writeback_wfd_setup(struct mdss_mdp_ctl *ctl,
-					struct mdss_mdp_writeback_ctx *ctx)
+static int mdss_mdp_writeback_prepare_wfd(struct mdss_mdp_ctl *ctl, void *arg)
 {
-	struct msm_fb_data_type *mfd;
-	struct fb_info *fbi;
+	struct mdss_mdp_writeback_ctx *ctx;
 	int ret;
-	u32 plane_size;
 
-	mfd = ctl->mfd;
-	fbi = mfd->fbi;
+	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
+	if (!ctx)
+		return -ENODEV;
 
-	pr_debug("setup ctl=%d\n", ctl->num);
+	if (ctx->initialized) /* already set */
+		return 0;
+
+	pr_debug("wfd setup ctl=%d\n", ctl->num);
 
 	ctx->opmode = 0;
 	ctx->format = ctl->dst_format;
-	ctx->width = fbi->var.xres;
-	ctx->height = fbi->var.yres;
-
-	plane_size = ctx->width * ctx->height * fbi->var.bits_per_pixel / 8;
-
-	videomemory = (void *) fbi->fix.smem_start + fbi->fix.smem_len -
-		      plane_size;
-
-	ctx->wb_data.num_planes = 1;
-	ctx->wb_data.p[0].addr = (u32) videomemory;
-	ctx->wb_data.p[0].len = plane_size;
+	ctx->width = ctl->width;
+	ctx->height = ctl->height;
 
 	ret = mdss_mdp_writeback_format_setup(ctx);
 	if (ret) {
@@ -189,16 +202,30 @@ static int mdss_mdp_writeback_wfd_setup(struct mdss_mdp_ctl *ctl,
 		return ret;
 	}
 
-	ctl->flush_bits |=  BIT(16); /* WB */
+	ctx->initialized = true;
 
 	return 0;
 }
 
-static int mdss_mdp_writeback_rot_setup(struct mdss_mdp_ctl *ctl,
-					struct mdss_mdp_writeback_ctx *ctx,
-					struct mdss_mdp_rotator_session *rot)
+static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 {
-	pr_debug("rotator wb_num=%d\n", ctx->wb_num);
+	struct mdss_mdp_writeback_ctx *ctx;
+	struct mdss_mdp_writeback_arg *wb_args;
+	struct mdss_mdp_rotator_session *rot;
+
+	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
+	if (!ctx)
+		return -ENODEV;
+	wb_args = (struct mdss_mdp_writeback_arg *) arg;
+	if (!wb_args)
+		return -ENOENT;
+
+	rot = (struct mdss_mdp_rotator_session *) wb_args->priv_data;
+	if (!rot) {
+		pr_err("unable to retrieve rot session ctl=%d\n", ctl->num);
+		return -ENODEV;
+	}
+	pr_debug("rot setup wb_num=%d\n", ctx->wb_num);
 
 	ctx->opmode = BIT(6); /* ROT EN */
 	if (ROT_BLK_SIZE == 128)
@@ -238,27 +265,6 @@ static int mdss_mdp_writeback_stop(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
-static int mdss_mdp_writeback_prepare(struct mdss_mdp_ctl *ctl, void *arg)
-{
-	struct mdss_mdp_writeback_ctx *ctx;
-	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
-	if (!ctx)
-		return -ENODEV;
-
-	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR) {
-		struct mdss_mdp_rotator_session *rot;
-		rot = (struct mdss_mdp_rotator_session *) arg;
-		if (!rot) {
-			pr_err("unable to retrieve rot session ctl=%d\n",
-			       ctl->num);
-			return -ENODEV;
-		}
-		mdss_mdp_writeback_rot_setup(ctl, ctx, rot);
-	}
-
-	return 0;
-}
-
 static void mdss_mdp_writeback_intr_done(void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
@@ -274,14 +280,14 @@ static void mdss_mdp_writeback_intr_done(void *arg)
 	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, true);
 
-	complete_all(&ctx->comp);
+	if (ctx->callback_fnc)
+		ctx->callback_fnc(ctx->callback_arg);
 }
 
 static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
-	struct mdss_mdp_rotator_session *rot = NULL;
-	struct mdss_mdp_data *wb_data;
+	struct mdss_mdp_writeback_arg *wb_args;
 	u32 flush_bits;
 	int ret;
 
@@ -289,28 +295,22 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	if (!ctx)
 		return -ENODEV;
 
-	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR) {
-		rot = (struct mdss_mdp_rotator_session *) arg;
-		if (!rot) {
-			pr_err("unable to retrieve rot session ctl=%d\n",
-			       ctl->num);
-			return -ENODEV;
-		}
-		wb_data = rot->dst_data;
-	} else {
-		wb_data = &ctx->wb_data;
-	}
+	wb_args = (struct mdss_mdp_writeback_arg *) arg;
+	if (!wb_args)
+		return -ENOENT;
 
-	ret = mdss_mdp_writeback_addr_setup(ctx, wb_data);
+	ret = mdss_mdp_writeback_addr_setup(ctx, wb_args->data);
 	if (ret) {
 		pr_err("writeback data setup error ctl=%d\n", ctl->num);
 		return ret;
 	}
 
+	ctx->callback_fnc = wb_args->callback_fnc;
+	ctx->callback_arg = wb_args->priv_data;
+
 	flush_bits = BIT(16); /* WB */
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
 
-	INIT_COMPLETION(ctx->comp);
 	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
 				   mdss_mdp_writeback_intr_done, ctx);
 	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
@@ -318,17 +318,6 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
 	wmb();
-
-	if (rot) {
-		pr_debug("rotator kickoff wb_num=%d\n", ctx->wb_num);
-		mutex_lock(&rot->lock);
-		rot->comp = &ctx->comp;
-		rot->busy = 1;
-		mutex_unlock(&rot->lock);
-	} else {
-		pr_debug("writeback kickoff wb_num=%d\n", ctx->wb_num);
-		wait_for_completion_interruptible(&ctx->comp);
-	}
 
 	return 0;
 }
@@ -355,16 +344,12 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	}
 	ctl->priv_data = ctx;
 	ctx->wb_num = ctl->num;	/* wb num should match ctl num */
+	ctx->initialized = false;
 
-	init_completion(&ctx->comp);
-
-	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_WFD)
-		ret = mdss_mdp_writeback_wfd_setup(ctl, ctx);
-	else if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR)
-		ctl->prepare_fnc = mdss_mdp_writeback_prepare;
-	else /* line mode not supported */
-		return -ENOSYS;
-
+	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR)
+		ctl->prepare_fnc = mdss_mdp_writeback_prepare_rot;
+	else /* wfd or line mode */
+		ctl->prepare_fnc = mdss_mdp_writeback_prepare_wfd;
 	ctl->stop_fnc = mdss_mdp_writeback_stop;
 	ctl->display_fnc = mdss_mdp_writeback_display;
 
