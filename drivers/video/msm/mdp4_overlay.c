@@ -1497,6 +1497,21 @@ static void mdp4_overlay_bg_solidfill_clear(uint32 mixer_num)
 	}
 }
 
+void mdp4_mixer_pipe_cleanup(int mixer)
+{
+	struct mdp4_overlay_pipe *pipe;
+	int j;
+
+	for (j = MDP4_MIXER_STAGE_MAX - 1; j > MDP4_MIXER_STAGE_BASE; j--) {
+		pipe = ctrl->stage[mixer][j];
+		if (pipe == NULL)
+			continue;
+		pr_debug("%s(): pipe %u\n", __func__, pipe->pipe_ndx);
+		mdp4_mixer_stage_down(pipe);
+		mdp4_overlay_pipe_free(pipe);
+	}
+}
+
 static void mdp4_mixer_stage_commit(int mixer)
 {
 	struct mdp4_overlay_pipe *pipe;

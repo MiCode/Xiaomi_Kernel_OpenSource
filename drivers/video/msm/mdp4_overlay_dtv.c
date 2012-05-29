@@ -208,6 +208,8 @@ static int mdp4_dtv_stop(struct msm_fb_data_type *mfd)
 
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	mdp4_mixer_pipe_cleanup(dtv_pipe->mixer_num);
+	msleep(20);
 	MDP_OUTP(MDP_BASE + DTV_BASE, 0);
 	dtv_enabled = 0;
 	/* MDP cmd block disable */
@@ -260,6 +262,10 @@ int mdp4_dtv_off(struct platform_device *pdev)
 
 	if (dtv_pipe != NULL) {
 		mdp4_dtv_stop(mfd);
+
+		/* delay to make sure the last frame finishes */
+		msleep(20);
+
 		mdp4_mixer_stage_down(dtv_pipe);
 		mdp4_overlay_pipe_free(dtv_pipe);
 		mdp4_iommu_unmap(dtv_pipe);

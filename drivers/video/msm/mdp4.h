@@ -516,6 +516,7 @@ void mdp4_mixer_blend_setup(struct mdp4_overlay_pipe *pipe);
 struct mdp4_overlay_pipe *mdp4_overlay_stage_pipe(int mixer, int stage);
 void mdp4_mixer_stage_up(struct mdp4_overlay_pipe *pipe);
 void mdp4_mixer_stage_down(struct mdp4_overlay_pipe *pipe);
+void mdp4_mixer_pipe_cleanup(int mixer);
 int mdp4_mixer_stage_can_run(struct mdp4_overlay_pipe *pipe);
 void mdp4_overlayproc_cfg(struct mdp4_overlay_pipe *pipe);
 void mdp4_mddi_overlay(struct msm_fb_data_type *mfd);
