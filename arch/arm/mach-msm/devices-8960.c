@@ -3246,6 +3246,16 @@ struct platform_device msm_bus_cpss_fpb = {
 /* Sensors DSPS platform data */
 #ifdef CONFIG_MSM_DSPS
 
+#define PPSS_DSPS_TCM_CODE_BASE 0x12000000
+#define PPSS_DSPS_TCM_CODE_SIZE 0x28000
+#define PPSS_DSPS_TCM_BUF_BASE  0x12040000
+#define PPSS_DSPS_TCM_BUF_SIZE  0x4000
+#define PPSS_DSPS_PIPE_BASE     0x12800000
+#define PPSS_DSPS_PIPE_SIZE     0x4000
+#define PPSS_DSPS_DDR_BASE      0x8fe00000
+#define PPSS_DSPS_DDR_SIZE      0x100000
+#define PPSS_SMEM_BASE          0x80000000
+#define PPSS_SMEM_SIZE          0x200000
 #define PPSS_REG_PHYS_BASE	0x12080000
 
 static struct dsps_clk_info dsps_clks[] = {};
@@ -3264,6 +3274,16 @@ struct msm_dsps_platform_data msm_dsps_pdata = {
 	.regs = dsps_regs,
 	.regs_num = ARRAY_SIZE(dsps_regs),
 	.dsps_pwr_ctl_en = 1,
+	.tcm_code_start = PPSS_DSPS_TCM_CODE_BASE,
+	.tcm_code_size = PPSS_DSPS_TCM_CODE_SIZE,
+	.tcm_buf_start = PPSS_DSPS_TCM_BUF_BASE,
+	.tcm_buf_size = PPSS_DSPS_TCM_BUF_SIZE,
+	.pipe_start = PPSS_DSPS_PIPE_BASE,
+	.pipe_size = PPSS_DSPS_PIPE_SIZE,
+	.ddr_start = PPSS_DSPS_DDR_BASE,
+	.ddr_size = PPSS_DSPS_DDR_SIZE,
+	.smem_start = PPSS_SMEM_BASE,
+	.smem_size  = PPSS_SMEM_SIZE,
 	.signature = DSPS_SIGNATURE,
 };
 
@@ -3274,7 +3294,6 @@ static struct resource msm_dsps_resources[] = {
 		.name  = "ppss_reg",
 		.flags = IORESOURCE_MEM,
 	},
-
 	{
 		.start = PPSS_WDOG_TIMER_IRQ,
 		.end   = PPSS_WDOG_TIMER_IRQ,
