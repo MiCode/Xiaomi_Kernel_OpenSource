@@ -2707,7 +2707,6 @@ static int smuxld_open(struct tty_struct *tty)
 	int i;
 	int tmp;
 	unsigned long flags;
-	int ret = 0;
 
 	if (!smux.is_initialized)
 		return -ENODEV;
@@ -2716,14 +2715,14 @@ static int smuxld_open(struct tty_struct *tty)
 	if (smux.ld_open_count) {
 		pr_err("%s: %p multiple instances not supported\n",
 			__func__, tty);
-		ret = -EEXIST;
-		goto out;
+		spin_unlock_irqrestore(&smux.lock_lha0, flags);
+		return -EEXIST;
 	}
 
 	++smux.ld_open_count;
 	if (tty->ops->write == NULL) {
-		ret = -EINVAL;
-		goto out;
+		spin_unlock_irqrestore(&smux.lock_lha0, flags);
+		return -EINVAL;
 	}
 
 	/* connect to TTY */
@@ -2742,6 +2741,7 @@ static int smuxld_open(struct tty_struct *tty)
 	} else {
 		spin_unlock(&smux.tx_lock_lha2);
 	}
+	spin_unlock_irqrestore(&smux.lock_lha0, flags);
 
 	/* register platform devices */
 	for (i = 0; i < ARRAY_SIZE(smux_devs); ++i) {
@@ -2750,10 +2750,7 @@ static int smuxld_open(struct tty_struct *tty)
 			pr_err("%s: error %d registering device %s\n",
 				   __func__, tmp, smux_devs[i].name);
 	}
-
-out:
-	spin_unlock_irqrestore(&smux.lock_lha0, flags);
-	return ret;
+	return 0;
 }
 
 static void smuxld_close(struct tty_struct *tty)
@@ -2765,16 +2762,15 @@ static void smuxld_close(struct tty_struct *tty)
 	if (smux.ld_open_count <= 0) {
 		pr_err("%s: invalid ld count %d\n", __func__,
 			smux.ld_open_count);
-		goto out;
+		spin_unlock_irqrestore(&smux.lock_lha0, flags);
+		return;
 	}
+	spin_unlock_irqrestore(&smux.lock_lha0, flags);
 
 	for (i = 0; i < ARRAY_SIZE(smux_devs); ++i)
 		platform_device_unregister(&smux_devs[i]);
 
 	--smux.ld_open_count;
-
-out:
-	spin_unlock_irqrestore(&smux.lock_lha0, flags);
 }
 
 /**
