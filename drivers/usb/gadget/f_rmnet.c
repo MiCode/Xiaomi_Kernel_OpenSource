@@ -164,6 +164,8 @@ static struct usb_gadget_strings *rmnet_strings[] = {
 	NULL,
 };
 
+static void frmnet_ctrl_response_available(struct f_rmnet *dev);
+
 /* ------- misc functions --------------------*/
 
 static inline struct f_rmnet *func_to_rmnet(struct usb_function *f)
@@ -554,6 +556,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	struct f_rmnet			*dev = func_to_rmnet(f);
 	struct usb_composite_dev	*cdev = dev->cdev;
 	int				ret;
+	struct list_head *cpkt;
 
 	pr_debug("%s:dev:%p port#%d\n", __func__, dev, dev->port_num);
 
@@ -589,6 +592,11 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 
 	atomic_set(&dev->online, 1);
+
+	/* In case notifications were aborted, but there are pending control
+	   packets in the response queue, re-add the notifications */
+	list_for_each(cpkt, &dev->cpkt_resp_q)
+		frmnet_ctrl_response_available(dev);
 
 	return ret;
 }
