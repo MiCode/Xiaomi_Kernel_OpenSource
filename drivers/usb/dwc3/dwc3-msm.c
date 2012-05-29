@@ -26,6 +26,9 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/regulator/consumer.h>
+
+#include <mach/rpm-regulator.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -95,6 +98,49 @@ struct dwc3_msm {
 	u8 ep_num_mapping[DBM_MAX_EPS];
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
 	struct list_head req_complete_list;
+	struct regulator	*hsusb_3p3;
+	struct regulator	*hsusb_1p8;
+	struct regulator	*hsusb_vddcx;
+	struct regulator	*ssusb_1p8;
+	struct regulator	*ssusb_vddcx;
+	enum usb_vdd_type	ss_vdd_type;
+	enum usb_vdd_type	hs_vdd_type;
+};
+
+#define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
+#define USB_HSPHY_3P3_VOL_MAX		3300000 /* uV */
+#define USB_HSPHY_3P3_HPM_LOAD		16000	/* uA */
+
+#define USB_HSPHY_1P8_VOL_MIN		1800000 /* uV */
+#define USB_HSPHY_1P8_VOL_MAX		1800000 /* uV */
+#define USB_HSPHY_1P8_HPM_LOAD		19000	/* uA */
+
+#define USB_SSPHY_1P8_VOL_MIN		1800000 /* uV */
+#define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
+#define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
+
+#define USB_PHY_VDD_DIG_VOL_NONE	0	/* uV */
+#define USB_PHY_VDD_DIG_VOL_MIN		1045000 /* uV */
+#define USB_PHY_VDD_DIG_VOL_MAX		1320000 /* uV */
+
+enum usb_vdd_value {
+	VDD_NONE = 0,
+	VDD_MIN,
+	VDD_MAX,
+	VDD_VAL_MAX,
+};
+
+static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
+		{  /* VDD_CX CORNER Voting */
+			[VDD_NONE]	= RPM_VREG_CORNER_NONE,
+			[VDD_MIN]	= RPM_VREG_CORNER_NOMINAL,
+			[VDD_MAX]	= RPM_VREG_CORNER_HIGH,
+		},
+		{ /* VDD_CX Voltage Voting */
+			[VDD_NONE]	= USB_PHY_VDD_DIG_VOL_NONE,
+			[VDD_MIN]	= USB_PHY_VDD_DIG_VOL_MIN,
+			[VDD_MAX]	= USB_PHY_VDD_DIG_VOL_MAX,
+		},
 };
 
 static struct dwc3_msm *context;
@@ -750,6 +796,213 @@ int msm_ep_unconfig(struct usb_ep *ep)
 }
 EXPORT_SYMBOL(msm_ep_unconfig);
 
+/* HSPHY */
+static int dwc3_hsusb_config_vddcx(int high)
+{
+	int min_vol, ret;
+	struct dwc3_msm *dwc = context;
+	enum usb_vdd_type vdd_type = context->hs_vdd_type;
+	int max_vol = vdd_val[vdd_type][VDD_MAX];
+
+	min_vol = vdd_val[vdd_type][high ? VDD_MIN : VDD_NONE];
+	ret = regulator_set_voltage(dwc->hsusb_vddcx, min_vol, max_vol);
+	if (ret) {
+		dev_err(dwc->dev, "unable to set voltage for HSUSB_VDDCX\n");
+		return ret;
+	}
+
+	dev_dbg(dwc->dev, "%s: min_vol:%d max_vol:%d\n", __func__,
+							min_vol, max_vol);
+
+	return ret;
+}
+
+static int dwc3_hsusb_ldo_init(int init)
+{
+	int rc = 0;
+	struct dwc3_msm *dwc = context;
+
+	if (!init) {
+		regulator_set_voltage(dwc->hsusb_1p8, 0, USB_HSPHY_1P8_VOL_MAX);
+		regulator_set_voltage(dwc->hsusb_3p3, 0, USB_HSPHY_3P3_VOL_MAX);
+		return 0;
+	}
+
+	dwc->hsusb_3p3 = devm_regulator_get(dwc->dev, "HSUSB_3p3");
+	if (IS_ERR(dwc->hsusb_3p3)) {
+		dev_err(dwc->dev, "unable to get hsusb 3p3\n");
+		return PTR_ERR(dwc->hsusb_3p3);
+	}
+
+	rc = regulator_set_voltage(dwc->hsusb_3p3,
+			USB_HSPHY_3P3_VOL_MIN, USB_HSPHY_3P3_VOL_MAX);
+	if (rc) {
+		dev_err(dwc->dev, "unable to set voltage for hsusb 3p3\n");
+		return rc;
+	}
+	dwc->hsusb_1p8 = devm_regulator_get(dwc->dev, "HSUSB_1p8");
+	if (IS_ERR(dwc->hsusb_1p8)) {
+		dev_err(dwc->dev, "unable to get hsusb 1p8\n");
+		rc = PTR_ERR(dwc->hsusb_1p8);
+		goto devote_3p3;
+	}
+	rc = regulator_set_voltage(dwc->hsusb_1p8,
+			USB_HSPHY_1P8_VOL_MIN, USB_HSPHY_1P8_VOL_MAX);
+	if (rc) {
+		dev_err(dwc->dev, "unable to set voltage for hsusb 1p8\n");
+		goto devote_3p3;
+	}
+
+	return 0;
+
+devote_3p3:
+	regulator_set_voltage(dwc->hsusb_3p3, 0, USB_HSPHY_3P3_VOL_MAX);
+
+	return rc;
+}
+
+static int dwc3_hsusb_ldo_enable(int on)
+{
+	int rc = 0;
+	struct dwc3_msm *dwc = context;
+
+	dev_dbg(dwc->dev, "reg (%s)\n", on ? "HPM" : "LPM");
+
+	if (!on)
+		goto disable_regulators;
+
+
+	rc = regulator_set_optimum_mode(dwc->hsusb_1p8, USB_HSPHY_1P8_HPM_LOAD);
+	if (rc < 0) {
+		dev_err(dwc->dev, "Unable to set HPM of regulator HSUSB_1p8\n");
+		return rc;
+	}
+
+	rc = regulator_enable(dwc->hsusb_1p8);
+	if (rc) {
+		dev_err(dwc->dev, "Unable to enable HSUSB_1p8\n");
+		goto put_1p8_lpm;
+	}
+
+	rc = regulator_set_optimum_mode(dwc->hsusb_3p3,	USB_HSPHY_3P3_HPM_LOAD);
+	if (rc < 0) {
+		dev_err(dwc->dev, "Unable to set HPM of regulator HSUSB_3p3\n");
+		goto disable_1p8;
+	}
+
+	rc = regulator_enable(dwc->hsusb_3p3);
+	if (rc) {
+		dev_err(dwc->dev, "Unable to enable HSUSB_3p3\n");
+		goto put_3p3_lpm;
+	}
+
+	return 0;
+
+disable_regulators:
+	rc = regulator_disable(dwc->hsusb_3p3);
+	if (rc)
+		dev_err(dwc->dev, "Unable to disable HSUSB_3p3\n");
+
+put_3p3_lpm:
+	rc = regulator_set_optimum_mode(dwc->hsusb_3p3, 0);
+	if (rc < 0)
+		dev_err(dwc->dev, "Unable to set LPM of regulator HSUSB_3p3\n");
+
+disable_1p8:
+	rc = regulator_disable(dwc->hsusb_1p8);
+	if (rc)
+		dev_err(dwc->dev, "Unable to disable HSUSB_1p8\n");
+
+put_1p8_lpm:
+	rc = regulator_set_optimum_mode(dwc->hsusb_1p8, 0);
+	if (rc < 0)
+		dev_err(dwc->dev, "Unable to set LPM of regulator HSUSB_1p8\n");
+
+	return rc < 0 ? rc : 0;
+}
+
+/* SSPHY */
+static int dwc3_ssusb_config_vddcx(int high)
+{
+	int min_vol, ret;
+	struct dwc3_msm *dwc = context;
+	enum usb_vdd_type vdd_type = context->ss_vdd_type;
+	int max_vol = vdd_val[vdd_type][VDD_MAX];
+
+	min_vol = vdd_val[vdd_type][high ? VDD_MIN : VDD_NONE];
+	ret = regulator_set_voltage(dwc->ssusb_vddcx, min_vol, max_vol);
+	if (ret) {
+		dev_err(dwc->dev, "unable to set voltage for SSUSB_VDDCX\n");
+		return ret;
+	}
+
+	dev_dbg(dwc->dev, "%s: min_vol:%d max_vol:%d\n", __func__,
+							min_vol, max_vol);
+	return ret;
+}
+
+/* 3.3v supply not needed for SS PHY */
+static int dwc3_ssusb_ldo_init(int init)
+{
+	int rc = 0;
+	struct dwc3_msm *dwc = context;
+
+	if (!init) {
+		regulator_set_voltage(dwc->ssusb_1p8, 0, USB_SSPHY_1P8_VOL_MAX);
+		return 0;
+	}
+
+	dwc->ssusb_1p8 = devm_regulator_get(dwc->dev, "SSUSB_1p8");
+	if (IS_ERR(dwc->ssusb_1p8)) {
+		dev_err(dwc->dev, "unable to get ssusb 1p8\n");
+		return PTR_ERR(dwc->ssusb_1p8);
+	}
+	rc = regulator_set_voltage(dwc->ssusb_1p8,
+			USB_SSPHY_1P8_VOL_MIN, USB_SSPHY_1P8_VOL_MAX);
+	if (rc)
+		dev_err(dwc->dev, "unable to set voltage for ssusb 1p8\n");
+
+	return rc;
+}
+
+static int dwc3_ssusb_ldo_enable(int on)
+{
+	int rc = 0;
+	struct dwc3_msm *dwc = context;
+
+	dev_dbg(context->dev, "reg (%s)\n", on ? "HPM" : "LPM");
+
+	if (!on)
+		goto disable_regulators;
+
+
+	rc = regulator_set_optimum_mode(dwc->ssusb_1p8, USB_SSPHY_1P8_HPM_LOAD);
+	if (rc < 0) {
+		dev_err(dwc->dev, "Unable to set HPM of SSUSB_1p8\n");
+		return rc;
+	}
+
+	rc = regulator_enable(dwc->ssusb_1p8);
+	if (rc) {
+		dev_err(dwc->dev, "Unable to enable SSUSB_1p8\n");
+		goto put_1p8_lpm;
+	}
+
+	return 0;
+
+disable_regulators:
+	rc = regulator_disable(dwc->ssusb_1p8);
+	if (rc)
+		dev_err(dwc->dev, "Unable to disable SSUSB_1p8\n");
+
+put_1p8_lpm:
+	rc = regulator_set_optimum_mode(dwc->ssusb_1p8, 0);
+	if (rc < 0)
+		dev_err(dwc->dev, "Unable to set LPM of SSUSB_1p8\n");
+
+	return rc < 0 ? rc : 0;
+}
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -766,26 +1019,107 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, msm);
 	context = msm;
+	msm->dev = &pdev->dev;
 
 	INIT_LIST_HEAD(&msm->req_complete_list);
+
+	/* SS PHY */
+	msm->ss_vdd_type = VDDCX_CORNER;
+	msm->ssusb_vddcx = devm_regulator_get(&pdev->dev, "ssusb_vdd_dig");
+	if (IS_ERR(msm->ssusb_vddcx)) {
+		msm->ssusb_vddcx = devm_regulator_get(&pdev->dev,
+							"SSUSB_VDDCX");
+		if (IS_ERR(msm->ssusb_vddcx)) {
+			dev_err(&pdev->dev, "unable to get ssusb vddcx\n");
+			return PTR_ERR(msm->ssusb_vddcx);
+		}
+		msm->ss_vdd_type = VDDCX;
+		dev_dbg(&pdev->dev, "ss_vdd_type: VDDCX\n");
+	}
+
+	ret = dwc3_ssusb_config_vddcx(1);
+	if (ret) {
+		dev_err(&pdev->dev, "ssusb vddcx configuration failed\n");
+		return ret;
+	}
+
+	ret = regulator_enable(context->ssusb_vddcx);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to enable the ssusb vddcx\n");
+		goto unconfig_ss_vddcx;
+	}
+
+	ret = dwc3_ssusb_ldo_init(1);
+	if (ret) {
+		dev_err(&pdev->dev, "ssusb vreg configuration failed\n");
+		goto disable_ss_vddcx;
+	}
+
+	ret = dwc3_ssusb_ldo_enable(1);
+	if (ret) {
+		dev_err(&pdev->dev, "ssusb vreg enable failed\n");
+		goto free_ss_ldo_init;
+	}
+
+	/* HS PHY */
+	msm->hs_vdd_type = VDDCX_CORNER;
+	msm->hsusb_vddcx = devm_regulator_get(&pdev->dev, "hsusb_vdd_dig");
+	if (IS_ERR(msm->hsusb_vddcx)) {
+		msm->hsusb_vddcx = devm_regulator_get(&pdev->dev,
+							"HSUSB_VDDCX");
+		if (IS_ERR(msm->hsusb_vddcx)) {
+			dev_err(&pdev->dev, "unable to get hsusb vddcx\n");
+			ret = PTR_ERR(msm->ssusb_vddcx);
+			goto disable_ss_ldo;
+		}
+		msm->hs_vdd_type = VDDCX;
+		dev_dbg(&pdev->dev, "hs_vdd_type: VDDCX\n");
+	}
+
+	ret = dwc3_hsusb_config_vddcx(1);
+	if (ret) {
+		dev_err(&pdev->dev, "hsusb vddcx configuration failed\n");
+		goto disable_ss_ldo;
+	}
+
+	ret = regulator_enable(context->hsusb_vddcx);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to enable the hsusb vddcx\n");
+		goto unconfig_hs_vddcx;
+	}
+
+	ret = dwc3_hsusb_ldo_init(1);
+	if (ret) {
+		dev_err(&pdev->dev, "hsusb vreg configuration failed\n");
+		goto disable_hs_vddcx;
+	}
+
+	ret = dwc3_hsusb_ldo_enable(1);
+	if (ret) {
+		dev_err(&pdev->dev, "hsusb vreg enable failed\n");
+		goto free_hs_ldo_init;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto disable_hs_ldo;
 	}
 
 	msm->base = devm_ioremap_nocache(&pdev->dev, res->start,
 		resource_size(res));
 	if (!msm->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto disable_hs_ldo;
 	}
 
 	dwc3 = platform_device_alloc("dwc3", -1);
 	if (!dwc3) {
 		dev_err(&pdev->dev, "couldn't allocate dwc3 device\n");
-		return -ENOMEM;
+		ret = -ENODEV;
+		goto disable_hs_ldo;
 	}
 
 	dma_set_coherent_mask(&dwc3->dev, pdev->dev.coherent_dma_mask);
@@ -794,7 +1128,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	dwc3->dev.dma_mask = pdev->dev.dma_mask;
 	dwc3->dev.dma_parms = pdev->dev.dma_parms;
 	msm->resource_size = resource_size(res);
-	msm->dev = &pdev->dev;
 	msm->dwc3 = dwc3;
 
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-dbm-eps",
@@ -810,20 +1143,20 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			"max: %d, dbm_num_eps: %d\n",
 			DBM_MAX_EPS, msm->dbm_num_eps);
 		ret = -ENODEV;
-		goto err1;
+		goto put_pdev;
 	}
 
 	ret = platform_device_add_resources(dwc3, pdev->resource,
 		pdev->num_resources);
 	if (ret) {
 		dev_err(&pdev->dev, "couldn't add resources to dwc3 device\n");
-		goto err1;
+		goto put_pdev;
 	}
 
 	ret = platform_device_add(dwc3);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register dwc3 device\n");
-		goto err1;
+		goto put_pdev;
 	}
 
 	/* Reset the DBM */
@@ -831,8 +1164,24 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	return 0;
 
-err1:
+put_pdev:
 	platform_device_put(dwc3);
+disable_hs_ldo:
+	dwc3_hsusb_ldo_enable(0);
+free_hs_ldo_init:
+	dwc3_hsusb_ldo_init(0);
+disable_hs_vddcx:
+	regulator_disable(context->hsusb_vddcx);
+unconfig_hs_vddcx:
+	dwc3_hsusb_config_vddcx(0);
+disable_ss_ldo:
+	dwc3_ssusb_ldo_enable(0);
+free_ss_ldo_init:
+	dwc3_ssusb_ldo_init(0);
+disable_ss_vddcx:
+	regulator_disable(context->ssusb_vddcx);
+unconfig_ss_vddcx:
+	dwc3_ssusb_config_vddcx(0);
 
 	return ret;
 }
@@ -842,6 +1191,15 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	struct dwc3_msm	*msm = platform_get_drvdata(pdev);
 
 	platform_device_unregister(msm->dwc3);
+
+	dwc3_hsusb_ldo_enable(0);
+	dwc3_hsusb_ldo_init(0);
+	regulator_disable(msm->hsusb_vddcx);
+	dwc3_hsusb_config_vddcx(0);
+	dwc3_ssusb_ldo_enable(0);
+	dwc3_ssusb_ldo_init(0);
+	regulator_disable(msm->ssusb_vddcx);
+	dwc3_ssusb_config_vddcx(0);
 
 	return 0;
 }
