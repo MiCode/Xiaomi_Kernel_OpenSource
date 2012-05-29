@@ -42,7 +42,6 @@
 #define SMUX_CTL_MAX_BUF_SIZE 2048
 #define SMUX_CTL_MODULE_NAME "smux_ctl"
 #define DEBUG
-#define DEBUG_LOOPBACK
 
 static int msm_smux_ctl_debug_mask;
 module_param_named(debug_mask, msm_smux_ctl_debug_mask,
