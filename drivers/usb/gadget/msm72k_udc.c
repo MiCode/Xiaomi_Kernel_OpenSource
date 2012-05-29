@@ -2018,10 +2018,14 @@ static void usb_debugfs_init(struct usb_info *ui) {}
 static int
 msm72k_enable(struct usb_ep *_ep, const struct usb_endpoint_descriptor *desc)
 {
-	struct msm_endpoint *ept = to_msm_endpoint(_ep);
-	unsigned char ep_type =
-			desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+	struct msm_endpoint *ept;
+	unsigned char ep_type;
 
+	if (_ep == NULL || desc == NULL)
+		return -EINVAL;
+
+	ept = to_msm_endpoint(_ep);
+	ep_type = desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
 	_ep->maxpacket = le16_to_cpu(desc->wMaxPacketSize);
 	config_ept(ept);
 	ept->wedged = 0;
