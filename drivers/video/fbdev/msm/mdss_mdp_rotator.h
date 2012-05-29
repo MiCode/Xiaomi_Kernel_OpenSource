@@ -33,12 +33,11 @@ struct mdss_mdp_rotator_session {
 
 	u32 bwc_mode;
 	struct mdss_mdp_pipe *pipe;
-	struct mdss_mdp_data *dst_data;
 
 	struct mutex lock;
+	struct completion comp;
 	u8 busy;
 	u8 no_wait;
-	struct completion *comp;
 
 	struct list_head head;
 };

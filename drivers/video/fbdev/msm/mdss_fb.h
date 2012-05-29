@@ -55,6 +55,7 @@ struct msm_fb_data_type {
 
 	int op_enable;
 	u32 fb_imgType;
+	u32 dst_format;
 
 	int hw_refresh;
 
@@ -90,6 +91,7 @@ struct msm_fb_data_type {
 	struct ion_client *iclient;
 
 	struct mdss_mdp_ctl *ctl;
+	struct mdss_mdp_wb *wb;
 };
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);

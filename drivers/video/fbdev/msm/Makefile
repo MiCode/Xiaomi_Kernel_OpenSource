@@ -4,6 +4,7 @@ mdss-mdp-objs += mdss_mdp_intf_video.o
 mdss-mdp-objs += mdss_mdp_intf_writeback.o
 mdss-mdp-objs += mdss_mdp_rotator.o
 mdss-mdp-objs += mdss_mdp_overlay.o
+mdss-mdp-objs += mdss_mdp_wb.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss-mdp.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_fb.o
 obj-$(CONFIG_FB_MSM_MDSS_WRITEBACK) += mdss_wb.o

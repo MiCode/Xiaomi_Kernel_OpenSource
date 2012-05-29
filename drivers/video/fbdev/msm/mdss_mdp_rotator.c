@@ -39,6 +39,7 @@ struct mdss_mdp_rotator_session *mdss_mdp_rotator_session_alloc(void)
 			rot->ref_cnt++;
 			rot->session_id = i | MDSS_MDP_ROT_SESSION_MASK;
 			mutex_init(&rot->lock);
+			init_completion(&rot->comp);
 			break;
 		}
 	}
@@ -63,19 +64,6 @@ struct mdss_mdp_rotator_session *mdss_mdp_rotator_session_get(u32 session_id)
 			return rot;
 	}
 	return NULL;
-}
-
-static int mdss_mdp_rotator_busy_wait(struct mdss_mdp_rotator_session *rot)
-{
-	mutex_lock(&rot->lock);
-	if (rot->busy) {
-		pr_debug("waiting for rot=%d to complete\n", rot->pipe->num);
-		wait_for_completion_interruptible(rot->comp);
-		rot->busy = 0;
-	}
-	mutex_unlock(&rot->lock);
-
-	return 0;
 }
 
 static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
@@ -108,6 +96,52 @@ done:
 		mdss_mdp_wb_mixer_destroy(mixer);
 
 	return pipe;
+}
+
+static int mdss_mdp_rotator_busy_wait(struct mdss_mdp_rotator_session *rot)
+{
+	mutex_lock(&rot->lock);
+	if (rot->busy) {
+		pr_debug("waiting for rot=%d to complete\n", rot->pipe->num);
+		wait_for_completion_interruptible(&rot->comp);
+		rot->busy = false;
+
+	}
+	mutex_unlock(&rot->lock);
+
+	return 0;
+}
+
+static void mdss_mdp_rotator_callback(void *arg)
+{
+	struct mdss_mdp_rotator_session *rot;
+
+	rot = (struct mdss_mdp_rotator_session *) arg;
+	if (rot)
+		complete(&rot->comp);
+}
+
+static int mdss_mdp_rotator_kickoff(struct mdss_mdp_ctl *ctl,
+				    struct mdss_mdp_rotator_session *rot,
+				    struct mdss_mdp_data *dst_data)
+{
+	int ret;
+	struct mdss_mdp_writeback_arg wb_args = {
+		.callback_fnc = mdss_mdp_rotator_callback,
+		.data = dst_data,
+		.priv_data = rot,
+	};
+
+	mutex_lock(&rot->lock);
+	INIT_COMPLETION(rot->comp);
+	rot->busy = true;
+	ret = mdss_mdp_display_commit(ctl, &wb_args);
+	if (ret) {
+		rot->busy = false;
+		pr_err("problem with kickoff rot pipe=%d", rot->pipe->num);
+	}
+	mutex_unlock(&rot->lock);
+	return ret;
 }
 
 static int mdss_mdp_rotator_pipe_dequeue(struct mdss_mdp_rotator_session *rot)
@@ -182,15 +216,13 @@ int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
 		rot_pipe->params_changed++;
 	}
 
-	rot->dst_data = dst_data;
-
 	ret = mdss_mdp_pipe_queue_data(rot->pipe, src_data);
 	if (ret) {
 		pr_err("unable to queue rot data\n");
 		goto done;
 	}
 
-	ret = mdss_mdp_display_commit(ctl, rot);
+	ret = mdss_mdp_rotator_kickoff(ctl, rot, dst_data);
 
 done:
 	mutex_unlock(&rotator_lock);
