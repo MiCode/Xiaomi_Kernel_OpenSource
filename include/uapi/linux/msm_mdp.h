@@ -72,6 +72,8 @@ enum {
 	MDP_YCRYCB_H2V1,  /* YCrYCb interleave */
 	MDP_Y_CRCB_H2V1,  /* Y and CrCb, pseduo planer w/ Cr is in MSB */
 	MDP_Y_CBCR_H2V1,   /* Y and CrCb, pseduo planer w/ Cr is in MSB */
+	MDP_Y_CRCB_H1V2,
+	MDP_Y_CBCR_H1V2,
 	MDP_RGBA_8888,    /* ARGB 888 */
 	MDP_BGRA_8888,	  /* ABGR 888 */
 	MDP_RGBX_8888,	  /* RGBX 888 */
@@ -84,10 +86,10 @@ enum {
 	MDP_Y_CBCR_H1V1,  /* Y and CbCr, pseduo planer w/ Cb is in MSB */
 	MDP_YCRCB_H1V1,   /* YCrCb interleave */
 	MDP_YCBCR_H1V1,   /* YCbCr interleave */
+	MDP_BGR_565,      /* BGR 565 planer */
 	MDP_IMGTYPE_LIMIT,
 	MDP_RGB_BORDERFILL,	/* border fill pipe */
-	MDP_BGR_565 = MDP_IMGTYPE2_START,      /* BGR 565 planer */
-	MDP_FB_FORMAT,    /* framebuffer format */
+	MDP_FB_FORMAT = MDP_IMGTYPE2_START,    /* framebuffer format */
 	MDP_IMGTYPE_LIMIT2 /* Non valid image type after this enum */
 };
 
@@ -103,6 +105,8 @@ enum {
 	HSIC_CON,
 	NUM_HSIC_PARAM,
 };
+
+#define MDSS_MDP_RIGHT_MIXER		0x100
 
 /* mdp_blit_req flag values */
 #define MDP_ROT_NOP 0
