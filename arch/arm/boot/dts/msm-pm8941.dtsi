@@ -30,6 +30,7 @@
 				#gpio-cells = <2>;
 				#address-cells = <1>;
 				#size-cells = <1>;
+				label = "pm8941-gpio";
 
 				gpio@c000 {
 					reg = <0xc000 0x100>;

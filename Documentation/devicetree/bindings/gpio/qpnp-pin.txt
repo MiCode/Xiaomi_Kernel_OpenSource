@@ -19,6 +19,8 @@ Required properties :
  - #address-cells: Specify one address field. This must be set to '1'.
  - #size-cells: Specify one size-cell. This must be set to '1'.
  - compatible = "qcom,qpnp-pin" : Specify driver matching for this driver.
+ - label: String giving the name for the gpio_chip device. This name
+   should be unique on the system and portray the specifics of the device.
 
 -Child Nodes-
 

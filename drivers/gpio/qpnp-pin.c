@@ -285,8 +285,8 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 			      Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
 			      &q_spec->regs[Q_REG_I_MODE_CTL], Q_NUM_CTL_REGS);
 	if (rc) {
-		dev_err(&q_chip->spmi->dev, "%s: unable to write master"
-						" enable\n", __func__);
+		dev_err(&q_chip->spmi->dev, "%s: unable to write master enable\n",
+								__func__);
 		goto gpio_cfg;
 	}
 
@@ -331,14 +331,16 @@ int qpnp_pin_config(int gpio, struct qpnp_pin_cfg *param)
 }
 EXPORT_SYMBOL(qpnp_pin_config);
 
-int qpnp_pin_map(uint16_t slave_id, uint32_t pmic_pin)
+#define Q_MAX_CHIP_NAME 128
+int qpnp_pin_map(const char *name, uint32_t pmic_pin)
 {
 	struct qpnp_pin_chip *q_chip;
 	struct qpnp_pin_spec *q_spec = NULL;
 
 	mutex_lock(&qpnp_pin_chips_lock);
 	list_for_each_entry(q_chip, &qpnp_pin_chips, chip_list) {
-		if (q_chip->spmi->sid != slave_id)
+		if (strncmp(q_chip->gpio_chip.label, name,
+							Q_MAX_CHIP_NAME) != 0)
 			continue;
 		if (q_chip->pmic_pin_lowest <= pmic_pin &&
 		    q_chip->pmic_pin_highest >= pmic_pin) {
@@ -794,7 +796,7 @@ static int qpnp_pin_debugfs_create(struct qpnp_pin_chip *q_chip)
 
 	BUG_ON(Q_NUM_PARAMS != ARRAY_SIZE(dfs_args));
 
-	q_chip->dfs_dir = debugfs_create_dir(dev->of_node->name,
+	q_chip->dfs_dir = debugfs_create_dir(q_chip->gpio_chip.label,
 							driver_dfs_dir);
 	if (q_chip->dfs_dir == NULL) {
 		dev_err(dev, "%s: cannot register chip debugfs directory %s\n",
@@ -828,9 +830,8 @@ static int qpnp_pin_debugfs_create(struct qpnp_pin_chip *q_chip)
 	}
 	return 0;
 dfs_err:
-	dev_err(dev, "%s: cannot register debugfs for pmic gpio %u on"
-				     " chip %s\n", __func__,
-				     q_spec->pmic_pin, dev->of_node->name);
+	dev_err(dev, "%s: cannot register debugfs for pmic gpio %u on chip %s\n",
+			__func__, q_spec->pmic_pin, dev->of_node->name);
 	debugfs_remove_recursive(q_chip->dfs_dir);
 	return -ENFILE;
 }
@@ -851,6 +852,14 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 	int lowest_gpio = UINT_MAX, highest_gpio = 0;
 	u32 intspec[3], gpio;
 	char buf[2];
+	const char *dev_name;
+
+	dev_name = spmi_get_primary_dev_name(spmi);
+	if (!dev_name) {
+		dev_err(&spmi->dev, "%s: label binding undefined for node %s\n",
+					__func__, spmi->dev.of_node->full_name);
+		return -EINVAL;
+	}
 
 	q_chip = kzalloc(sizeof(*q_chip), GFP_KERNEL);
 	if (!q_chip) {
@@ -882,8 +891,8 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 	}
 
 	if (highest_gpio < lowest_gpio) {
-		dev_err(&spmi->dev, "%s: no device nodes specified in"
-					" topology\n", __func__);
+		dev_err(&spmi->dev, "%s: no device nodes specified in topology\n",
+								__func__);
 		rc = -EINVAL;
 		goto err_probe;
 	} else if (lowest_gpio == 0) {
@@ -923,8 +932,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		d_node = &spmi->dev_node[i];
 		res = spmi_get_resource(spmi, d_node, IORESOURCE_MEM, 0);
 		if (!res) {
-			dev_err(&spmi->dev, "%s: node %s is missing has no"
-				" base address definition\n",
+			dev_err(&spmi->dev, "%s: node %s is missing has no base address definition\n",
 				__func__, d_node->of_node->full_name);
 		}
 
@@ -939,9 +947,8 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		q_spec = kzalloc(sizeof(struct qpnp_pin_spec),
 							GFP_KERNEL);
 		if (!q_spec) {
-			dev_err(&spmi->dev, "%s: unable to allocate"
-						" memory\n",
-					__func__);
+			dev_err(&spmi->dev, "%s: unable to allocate memory\n",
+								__func__);
 			rc = -ENOMEM;
 			goto err_probe;
 		}
@@ -970,8 +977,8 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		q_spec->irq = irq_create_of_mapping(q_chip->int_ctrl,
 							intspec, 3);
 		if (!q_spec->irq) {
-			dev_err(&spmi->dev, "%s: invalid irq for gpio"
-					" %u\n", __func__, gpio);
+			dev_err(&spmi->dev, "%s: invalid irq for gpio %u\n",
+								__func__, gpio);
 			rc = -EINVAL;
 			goto err_probe;
 		}
@@ -982,7 +989,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 
 	q_chip->gpio_chip.base = -1;
 	q_chip->gpio_chip.ngpio = spmi->num_dev_node;
-	q_chip->gpio_chip.label = "qpnp-pin";
+	q_chip->gpio_chip.label = dev_name;
 	q_chip->gpio_chip.direction_input = qpnp_pin_direction_input;
 	q_chip->gpio_chip.direction_output = qpnp_pin_direction_output;
 	q_chip->gpio_chip.to_irq = qpnp_pin_to_irq;
