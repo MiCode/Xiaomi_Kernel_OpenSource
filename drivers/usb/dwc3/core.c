@@ -590,15 +590,24 @@ static int dwc3_probe(struct platform_device *pdev)
 		break;
 	case DWC3_MODE_DRD:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+		ret = dwc3_otg_init(dwc);
+		if (ret) {
+			dev_err(dev, "failed to initialize otg\n");
+			goto err1;
+		}
+
 		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize host\n");
+			dwc3_otg_exit(dwc);
 			goto err2;
 		}
 
 		ret = dwc3_gadget_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize gadget\n");
+			dwc3_host_exit(dwc);
+			dwc3_otg_exit(dwc);
 			goto err2;
 		}
 		break;
@@ -627,8 +636,9 @@ err3:
 		dwc3_host_exit(dwc);
 		break;
 	case DWC3_MODE_DRD:
-		dwc3_host_exit(dwc);
 		dwc3_gadget_exit(dwc);
+		dwc3_host_exit(dwc);
+		dwc3_otg_exit(dwc);
 		break;
 	default:
 		/* do nothing */
@@ -667,8 +677,9 @@ static int dwc3_remove(struct platform_device *pdev)
 		dwc3_host_exit(dwc);
 		break;
 	case DWC3_MODE_DRD:
-		dwc3_host_exit(dwc);
 		dwc3_gadget_exit(dwc);
+		dwc3_host_exit(dwc);
+		dwc3_otg_exit(dwc);
 		break;
 	default:
 		/* do nothing */

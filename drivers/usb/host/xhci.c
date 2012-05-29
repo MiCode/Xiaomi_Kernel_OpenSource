@@ -610,6 +610,13 @@ int xhci_run(struct usb_hcd *hcd)
 
 	xhci_dbg(xhci, "xhci_run\n");
 
+	xhci_dbg(xhci, "Calling HCD init\n");
+	/* Initialize HCD and host controller data structures. */
+	ret = xhci_init(hcd);
+	if (ret)
+		return ret;
+	xhci_dbg(xhci, "Called HCD init\n");
+
 	ret = xhci_try_enable_msi(hcd);
 	if (ret)
 		return ret;
@@ -4720,12 +4727,6 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 		dma_set_mask(hcd->self.controller, DMA_BIT_MASK(32));
 	}
 
-	xhci_dbg(xhci, "Calling HCD init\n");
-	/* Initialize HCD and host controller data structures. */
-	retval = xhci_init(hcd);
-	if (retval)
-		goto error;
-	xhci_dbg(xhci, "Called HCD init\n");
 	return 0;
 error:
 	kfree(xhci);
