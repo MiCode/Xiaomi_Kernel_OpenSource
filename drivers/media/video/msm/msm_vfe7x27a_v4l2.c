@@ -396,7 +396,7 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 		void (*getevent)(void *ptr, size_t len))
 {
 	uint32_t evt_buf[3];
-	void *data;
+	void *data = NULL;
 	struct buf_info *outch = NULL;
 	uint32_t y_phy, cbcr_phy;
 	struct table_cmd *table_pending = NULL;
@@ -432,6 +432,7 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 				vfe_7x_ops(driver_data, MSG_OUTPUT_T,
 						len, getevent);
 			vfe2x_send_isp_msg(vfe2x_ctrl, MSG_ID_SNAPSHOT_DONE);
+			kfree(data);
 			return;
 		case MSG_OUTPUT_S:
 			outch = &vfe2x_ctrl->snap;
@@ -712,24 +713,30 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 				vfe2x_ctrl->update_pending = 0;
 			}
 			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
+			kfree(data);
 			return;
 		}
 		table_pending = list_first_entry(&vfe2x_ctrl->table_q,
 					struct table_cmd, list);
 		if (!table_pending) {
 			spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
+			kfree(data);
 			return;
 		}
 		msm_adsp_write(vfe_mod, table_pending->queue,
 				table_pending->cmd, table_pending->size);
 		list_del(&table_pending->list);
 		kfree(table_pending->cmd);
+		kfree(table_pending);
 		vfe2x_ctrl->tableack_pending = 1;
 		spin_unlock_irqrestore(&vfe2x_ctrl->table_lock, flags);
 	} else if (!vfe2x_ctrl->tableack_pending) {
-		if (!list_empty(&vfe2x_ctrl->table_q))
+		if (!list_empty(&vfe2x_ctrl->table_q)) {
+			kfree(data);
 			return;
+		}
 	}
+	kfree(data);
 }
 
 static struct msm_adsp_ops vfe_7x_sync = {
@@ -1640,6 +1647,7 @@ config_done:
 config_failure:
 	kfree(scfg);
 	kfree(axio);
+	kfree(sfcfg);
 	return rc;
 }
 
