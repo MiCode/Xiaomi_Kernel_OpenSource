@@ -316,7 +316,7 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 
 	/*	 ID    a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
 	RPM_LDO(L2,      1, 1, 0, 1800000, 1800000, NULL,      0, 10000),
-	RPM_LDO(L3,      0, 1, 0, 1800000, 1800000, NULL,      0, 0),
+	RPM_LDO(L3,      1, 1, 0, 1800000, 1800000, NULL,      0, 0),
 	RPM_LDO(L4,      0, 1, 0, 3075000, 3075000, NULL,      0, 0),
 	RPM_LDO(L5,      0, 1, 0, 2850000, 2850000, NULL,      0, 0),
 	RPM_LDO(L6,      0, 1, 0, 1800000, 2850000, NULL,      0, 0),
