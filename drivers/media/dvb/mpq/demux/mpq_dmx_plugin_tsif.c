@@ -18,12 +18,18 @@
 #include "mpq_dvb_debug.h"
 #include "mpq_dmx_plugin_common.h"
 
+
 /* TSIF HW configuration: */
 #define TSIF_COUNT				2
+
+/* Max number of section filters */
+#define DMX_TSIF_MAX_SECTION_FILTER_NUM	64
+
 /* When TSIF driver notifies demux that new packets are received */
 #define DMX_TSIF_PACKETS_IN_CHUNK_DEF		16
 #define DMX_TSIF_CHUNKS_IN_BUF			8
 #define DMX_TSIF_TIME_LIMIT			10000
+
 /* TSIF_DRIVER_MODE: 3 means manual control from debugfs. use 1 normally. */
 #define DMX_TSIF_DRIVER_MODE_DEF		1
 
@@ -542,6 +548,42 @@ static int mpq_tsif_dmx_write_to_decoder(
 	return 0;
 }
 
+/**
+ * Returns demux capabilities of TSIF plugin
+ *
+ * @demux: demux device
+ * @caps: Returned capbabilities
+ *
+ * Return     error code
+ */
+static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
+				struct dmx_caps *caps)
+{
+	struct dvb_demux *dvb_demux = (struct dvb_demux *)demux->priv;
+
+	if ((dvb_demux == NULL) || (caps == NULL)) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: invalid parameters\n",
+			__func__);
+
+		return -EINVAL;
+	}
+
+	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA;
+	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
+	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
+	caps->num_pid_filters = dvb_demux->feednum;
+	caps->num_section_filters = dvb_demux->filternum;
+	caps->num_section_filters_per_pid = dvb_demux->filternum;
+	caps->section_filter_length = DMX_FILTER_SIZE;
+	caps->num_demod_inputs = TSIF_COUNT;
+	caps->num_memory_inputs = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
+	caps->max_bitrate = 144;
+	caps->demod_input_max_bitrate = 72;
+	caps->memory_input_max_bitrate = 72;
+
+	return 0;
+}
 
 /**
  * Initialize a single demux device.
@@ -570,8 +612,8 @@ static int mpq_tsif_dmx_init(
 
 	/* Set dvb-demux "virtual" function pointers */
 	mpq_demux->demux.priv = (void *)mpq_demux;
-	mpq_demux->demux.filternum = MPQ_DMX_MAX_NUM_OF_FILTERS;
-	mpq_demux->demux.feednum = MPQ_DMX_MAX_NUM_OF_FILTERS;
+	mpq_demux->demux.filternum = DMX_TSIF_MAX_SECTION_FILTER_NUM;
+	mpq_demux->demux.feednum = MPQ_MAX_DMX_FILES;
 	mpq_demux->demux.start_feed = mpq_tsif_dmx_start_filtering;
 	mpq_demux->demux.stop_feed = mpq_tsif_dmx_stop_filtering;
 	mpq_demux->demux.write_to_decoder = mpq_tsif_dmx_write_to_decoder;
@@ -593,7 +635,7 @@ static int mpq_tsif_dmx_init(
 	}
 
 	/* Now initailize the dmx-dev object */
-	mpq_demux->dmxdev.filternum = MPQ_DMX_MAX_NUM_OF_FILTERS;
+	mpq_demux->dmxdev.filternum = MPQ_MAX_DMX_FILES;
 	mpq_demux->dmxdev.demux = &mpq_demux->demux.dmx;
 	mpq_demux->dmxdev.capabilities =
 		DMXDEV_CAP_DUPLEX |
@@ -602,6 +644,7 @@ static int mpq_tsif_dmx_init(
 		DMXDEV_CAP_INDEXING;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;
+	mpq_demux->dmxdev.demux->get_caps = mpq_tsif_dmx_get_caps;
 
 	result = dvb_dmxdev_init(&mpq_demux->dmxdev, mpq_adapter);
 	if (result < 0) {
