@@ -16,11 +16,11 @@
 /** All interfaces in this header should only be used by OCMEM driver
  *  Client drivers should use wrappers available in ocmem.h
  **/
-
-#include "ocmem.h"
-#include <mach/msm_iomap.h>
-#include <asm/io.h>
 #include <linux/platform_device.h>
+#include <asm/io.h>
+#include <mach/msm_iomap.h>
+#include "ocmem.h"
+
 
 #define OCMEM_PHYS_BASE 0xFEC00000
 #define OCMEM_PHYS_SIZE 0x180000
@@ -62,6 +62,13 @@ enum op_code {
 	SCHED_DUMP,
 };
 
+/* Operational modes of each region */
+enum region_mode {
+	WIDE_MODE = 0x0,
+	THIN_MODE,
+	MODE_DEFAULT = WIDE_MODE,
+};
+
 struct ocmem_plat_data {
 	void __iomem *vbase;
 	unsigned long size;
@@ -77,6 +84,8 @@ struct ocmem_plat_data {
 	int ocmem_irq;
 	int dm_irq;
 	bool interleaved;
+	bool rpm_pwr_ctrl;
+	unsigned rpm_rsc_type;
 };
 
 struct ocmem_eviction_data {
@@ -113,6 +122,8 @@ struct ocmem_req {
 	unsigned long req_start;
 	unsigned long req_end;
 	unsigned long req_sz;
+	/* Request Power State */
+	unsigned power_state;
 	struct ocmem_eviction_data *edata;
 };
 
@@ -154,6 +165,18 @@ static inline struct ocmem_handle *req_to_handle(struct ocmem_req *req)
 		return NULL;
 }
 
+/* Simple wrappers which will have debug features added later */
+static inline int ocmem_read(void *at)
+{
+	return readl_relaxed(at);
+}
+
+static inline int ocmem_write(unsigned long val, void *at)
+{
+	writel_relaxed(val, at);
+	return 0;
+}
+
 struct ocmem_zone *get_zone(unsigned);
 unsigned long offset_to_phys(unsigned long);
 unsigned long phys_to_offset(unsigned long);
@@ -170,6 +193,7 @@ int dispatch_notification(int, enum ocmem_notif_type, struct ocmem_buf *);
 
 int ocmem_sched_init(void);
 int ocmem_rdm_init(struct platform_device *);
+int ocmem_core_init(struct platform_device *);
 int process_allocate(int, struct ocmem_handle *, unsigned long, unsigned long,
 			unsigned long, bool, bool);
 int process_free(int, struct ocmem_handle *);
@@ -180,4 +204,6 @@ int process_shrink(int, struct ocmem_handle *, unsigned long);
 int ocmem_rdm_transfer(int, struct ocmem_map_list *,
 				unsigned long, int);
 unsigned long process_quota(int);
+int ocmem_memory_off(int, unsigned long, unsigned long);
+int ocmem_memory_on(int, unsigned long, unsigned long);
 #endif

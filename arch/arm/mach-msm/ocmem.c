@@ -24,14 +24,8 @@
 #include <linux/seq_file.h>
 #include <mach/ocmem_priv.h>
 
-/* This code is to temporarily work around the default state of OCMEM
-   regions in Virtio. These registers will be read from DT in a subsequent
-   patch which initializes the regions to appropriate default state.
-*/
-
 #define OCMEM_REGION_CTL_BASE 0xFDD0003C
 #define OCMEM_REGION_CTL_SIZE 0xFD0
-#define REGION_ENABLE 0x00003333
 #define GRAPHICS_REGION_CTL (0x17F000)
 
 struct ocmem_partition {
@@ -269,6 +263,30 @@ int of_ocmem_parse_regions(struct device *dev,
 	return i;
 }
 
+#if defined(CONFIG_MSM_OCMEM_LOCAL_POWER_CTRL)
+static int parse_power_ctrl_config(struct ocmem_plat_data *pdata,
+					struct device_node *node)
+{
+	pdata->rpm_pwr_ctrl = false;
+	pdata->rpm_rsc_type = ~0x0;
+	return 0;
+}
+#else
+static int parse_power_ctrl_config(struct ocmem_plat_data *pdata,
+					struct device_node *node)
+{
+	unsigned rsc_type = ~0x0;
+	pdata->rpm_pwr_ctrl = false;
+	if (of_property_read_u32(node, "qcom,resource-type",
+					&rsc_type))
+		return -EINVAL;
+	pdata->rpm_pwr_ctrl = true;
+	pdata->rpm_rsc_type = rsc_type;
+	return 0;
+
+}
+#endif /* CONFIG_MSM_OCMEM_LOCAL_POWER_CTRL */
+
 static struct ocmem_plat_data *parse_dt_config(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
@@ -393,6 +411,11 @@ static struct ocmem_plat_data *parse_dt_config(struct platform_device *pdev)
 	} else
 		dev_dbg(dev, "Found %d ocmem partitions\n", nr_parts);
 
+	if (parse_power_ctrl_config(pdata, node)) {
+		dev_err(dev, "No OCMEM RPM Resource specified\n");
+		return NULL;
+	}
+
 	pdata->nr_parts = nr_parts;
 	pdata->parts = parts;
 	pdata->nr_regions = nr_regions;
@@ -516,6 +539,9 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ocmem_pdata);
 
+	if (ocmem_core_init(pdev))
+		return -EBUSY;
+
 	if (ocmem_zone_init(pdev))
 		return -EBUSY;
 
@@ -529,10 +555,7 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 							OCMEM_REGION_CTL_SIZE);
 	if (!ocmem_region_vbase)
 		return -EBUSY;
-	/* Enable all the 3 regions until we have support for power features */
-	writel_relaxed(REGION_ENABLE, ocmem_region_vbase);
-	writel_relaxed(REGION_ENABLE, ocmem_region_vbase + 4);
-	writel_relaxed(REGION_ENABLE, ocmem_region_vbase + 8);
+
 	/* Enable the ocmem graphics mpU as a workaround in Virtio */
 	/* This will be programmed by TZ after TZ support is integrated */
 	writel_relaxed(GRAPHICS_REGION_CTL, ocmem_region_vbase + 0xFCC);

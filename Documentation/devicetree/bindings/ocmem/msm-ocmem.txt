@@ -18,6 +18,7 @@ Required Properties:
 		    "ocmem_irq" corresponds to OCMEM Error Interrupt.
 		    "dm_irq" corresponds to DM Interrupt.
 - qcom,ocmem-num-regions: The number of OCMEM hardware memory regions.
+- qcom,resource-type: The hardware resource type of the OCMEM core.
 
 In addition to the information on the OCMEM core, the
 device tree contains additional information describing partitions
@@ -51,6 +52,7 @@ Example:
 		interrupts = <0 76 0 0 77 0>;
 		interrupt-names = "ocmem_irq", "dm_irq";
 		qcom,ocmem-num-regions = <0x3>;
+		qcom,resource-type = <0x706d636f>
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0xfec00000 0x180000>;

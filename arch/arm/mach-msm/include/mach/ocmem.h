@@ -47,6 +47,24 @@ struct ocmem_map_list {
 	struct ocmem_chunk chunks[OCMEM_MAX_CHUNKS];
 };
 
+enum ocmem_power_state {
+	OCMEM_OFF = 0x0,
+	OCMEM_RETENTION,
+	OCMEM_ON,
+	OCMEM_MAX = OCMEM_ON,
+};
+
+struct ocmem_resource {
+	unsigned resource_id;
+	unsigned num_keys;
+	unsigned int *keys;
+};
+
+struct ocmem_vectors {
+	unsigned num_resources;
+	struct ocmem_resource *r;
+};
+
 /* List of clients that allocate/interact with OCMEM */
 /* Must be in sync with client_names */
 enum ocmem_client {
@@ -120,4 +138,14 @@ int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 int ocmem_evict(int client_id);
 
 int ocmem_restore(int client_id);
+
+/* Power Control APIs */
+int ocmem_set_power_state(int client_id, struct ocmem_buf *buf,
+				enum ocmem_power_state new_state);
+
+enum ocmem_power_state ocmem_get_power_state(int client_id,
+				struct ocmem_buf *buf);
+
+struct ocmem_vectors *ocmem_get_vectors(int client_id,
+						struct ocmem_buf *buf);
 #endif
