@@ -276,6 +276,11 @@
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xF9200000 0xCCFF>;
 		interrupts = <0 131 0>;
+		SSUSB_VDDCX-supply = <&pm8841_s2>;
+		SSUSB_1p8-supply = <&pm8941_l6>;
+		HSUSB_VDDCX-supply = <&pm8841_s2>;
+		HSUSB_1p8-supply = <&pm8941_l6>;
+		HSUSB_3p3-supply = <&pm8941_l24>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
 	};
 
