@@ -106,11 +106,11 @@ int qpnp_pin_config(int gpio, struct qpnp_pin_cfg *param);
 
 /**
  * qpnp_pin_map - Obtain Linux GPIO number from device spec
- * @slave_id: slave_id of the spmi_device for the gpio in question.
+ * @name: Name assigned by the 'label' binding for the primary node.
  * @pmic_pin: PMIC pin number to lookup.
  *
  * This routine is used in legacy configurations that do not support
  * Device Tree. If you are using Device Tree, you should not use this.
- * For such cases, use of_get_gpio() instead.
+ * For such cases, use of_get_gpio() or friends instead.
  */
-int qpnp_pin_map(uint16_t slave_id, uint32_t pmic_pin);
+int qpnp_pin_map(const char *name, uint32_t pmic_pin);
