@@ -662,6 +662,11 @@ int sps_phy2h(u32 phys_addr, u32 *handle)
 {
 	struct sps_bam *bam;
 
+	if (handle == NULL) {
+		SPS_ERR("sps:%s:handle is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	list_for_each_entry(bam, &sps->bams_q, list) {
 		if (bam->props.phys_addr == phys_addr) {
 			*handle = (u32) bam;
@@ -816,6 +821,14 @@ int sps_connect(struct sps_pipe *h, struct sps_connect *connect)
 	struct sps_bam *bam;
 	int result;
 
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (connect == NULL) {
+		SPS_ERR("sps:%s:connection is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	if (sps == NULL)
 		return -ENODEV;
 
@@ -959,6 +972,14 @@ int sps_register_event(struct sps_pipe *h, struct sps_register_event *reg)
 
 	SPS_DBG2("sps:%s.", __func__);
 
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (reg == NULL) {
+		SPS_ERR("sps:%s:registered event is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	if (sps == NULL)
 		return -ENODEV;
 
@@ -993,6 +1014,11 @@ int sps_flow_on(struct sps_pipe *h)
 
 	SPS_DBG2("sps:%s.", __func__);
 
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
 		return SPS_ERROR;
@@ -1016,6 +1042,11 @@ int sps_flow_off(struct sps_pipe *h, enum sps_flow_off mode)
 	int result;
 
 	SPS_DBG2("sps:%s.", __func__);
+
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
 
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
@@ -1041,6 +1072,14 @@ int sps_transfer(struct sps_pipe *h, struct sps_transfer *transfer)
 
 	SPS_DBG("sps:%s.", __func__);
 
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (transfer == NULL) {
+		SPS_ERR("sps:%s:transfer is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
 		return SPS_ERROR;
@@ -1065,6 +1104,11 @@ int sps_transfer_one(struct sps_pipe *h, u32 addr, u32 size,
 	int result;
 
 	SPS_DBG("sps:%s.", __func__);
+
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
 
 	if ((flags & SPS_IOVEC_FLAG_NWD) &&
 		!(flags & (SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_CMD))) {
@@ -1119,6 +1163,14 @@ int sps_get_event(struct sps_pipe *h, struct sps_event_notify *notify)
 
 	SPS_DBG("sps:%s.", __func__);
 
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (notify == NULL) {
+		SPS_ERR("sps:%s:event_notify is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
 		return SPS_ERROR;
@@ -1141,6 +1193,14 @@ int sps_is_pipe_empty(struct sps_pipe *h, u32 *empty)
 	int result;
 
 	SPS_DBG("sps:%s.", __func__);
+
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (empty == NULL) {
+		SPS_ERR("sps:%s:result pointer is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
 
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
@@ -1165,6 +1225,14 @@ int sps_get_free_count(struct sps_pipe *h, u32 *count)
 
 	SPS_DBG("sps:%s.", __func__);
 
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (count == NULL) {
+		SPS_ERR("sps:%s:result pointer is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
 		return SPS_ERROR;
@@ -1186,6 +1254,11 @@ int sps_device_reset(u32 dev)
 	int result;
 
 	SPS_DBG2("sps:%s: dev = 0x%x", __func__, dev);
+
+	if (dev == 0) {
+		SPS_ERR("sps:%s:device handle should not be 0.\n", __func__);
+		return SPS_ERROR;
+	}
 
 	mutex_lock(&sps->lock);
 	/* Search for the target BAM device */
@@ -1219,8 +1292,11 @@ int sps_get_config(struct sps_pipe *h, struct sps_connect *config)
 {
 	struct sps_pipe *pipe = h;
 
-	if (config == NULL) {
-		SPS_ERR("sps:Config pointer is NULL");
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (config == NULL) {
+		SPS_ERR("sps:%s:config pointer is NULL.\n", __func__);
 		return SPS_ERROR;
 	}
 
@@ -1242,6 +1318,14 @@ int sps_set_config(struct sps_pipe *h, struct sps_connect *config)
 	int result;
 
 	SPS_DBG("sps:%s.", __func__);
+
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (config == NULL) {
+		SPS_ERR("sps:%s:config pointer is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
 
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
@@ -1267,6 +1351,14 @@ int sps_set_owner(struct sps_pipe *h, enum sps_owner owner,
 	struct sps_pipe *pipe = h;
 	struct sps_bam *bam;
 	int result;
+
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (connect == NULL) {
+		SPS_ERR("sps:%s:connection is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
 
 	if (owner != SPS_OWNER_REMOTE) {
 		SPS_ERR("sps:Unsupported ownership state: %d", owner);
@@ -1309,6 +1401,11 @@ EXPORT_SYMBOL(sps_set_owner);
 int sps_alloc_mem(struct sps_pipe *h, enum sps_mem mem,
 		  struct sps_mem_buffer *mem_buffer)
 {
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	if (sps == NULL)
 		return -ENODEV;
 
@@ -1340,6 +1437,11 @@ EXPORT_SYMBOL(sps_alloc_mem);
  */
 int sps_free_mem(struct sps_pipe *h, struct sps_mem_buffer *mem_buffer)
 {
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	if (mem_buffer == NULL || mem_buffer->phys_base == SPS_ADDR_INVALID) {
 		SPS_ERR("sps:invalid memory to free");
 		return SPS_ERROR;
@@ -1363,6 +1465,14 @@ int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num)
 	int result;
 
 	SPS_DBG("sps:%s.", __func__);
+
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (desc_num == NULL) {
+		SPS_ERR("sps:%s:result pointer is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
 
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
@@ -1390,6 +1500,14 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 	int ok;
 	int result;
 
+	if (bam_props == NULL) {
+		SPS_ERR("sps:%s:bam_props is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (dev_handle == NULL) {
+		SPS_ERR("sps:%s:device handle is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	if (sps == NULL)
 		return SPS_ERROR;
 
@@ -1398,9 +1516,6 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 		SPS_ERR("sps:sps_register_bam_device:sps driver not ready.\n");
 		return -EAGAIN;
 	}
-
-	if (bam_props == NULL || dev_handle == NULL)
-		return SPS_ERROR;
 
 	/* Check BAM parameters */
 	manage = bam_props->manage & SPS_BAM_MGR_ACCESS_MASK;
@@ -1532,6 +1647,11 @@ int sps_deregister_bam_device(u32 dev_handle)
 {
 	struct sps_bam *bam;
 
+	if (dev_handle == 0) {
+		SPS_ERR("sps:%s:device handle should not be 0.\n", __func__);
+		return SPS_ERROR;
+	}
+
 	bam = sps_h2bam(dev_handle);
 	if (bam == NULL) {
 		SPS_ERR("sps:did not find a BAM for this handle");
@@ -1578,12 +1698,15 @@ int sps_get_iovec(struct sps_pipe *h, struct sps_iovec *iovec)
 	struct sps_bam *bam;
 	int result;
 
-	if (h == NULL || iovec == NULL) {
-		SPS_ERR("sps:invalid pipe or iovec");
+	SPS_DBG("sps:%s.", __func__);
+
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (iovec == NULL) {
+		SPS_ERR("sps:%s:iovec pointer is NULL.\n", __func__);
 		return SPS_ERROR;
 	}
-
-	SPS_DBG("sps:%s.", __func__);
 
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
@@ -1611,8 +1734,14 @@ int sps_timer_ctrl(struct sps_pipe *h,
 
 	SPS_DBG("sps:%s.", __func__);
 
-	if (h == NULL || timer_ctrl == NULL) {
-		SPS_ERR("sps:invalid pipe or timer ctrl");
+	if (h == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (timer_ctrl == NULL) {
+		SPS_ERR("sps:%s:timer_ctrl pointer is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (timer_result == NULL) {
+		SPS_ERR("sps:%s:result pointer is NULL.\n", __func__);
 		return SPS_ERROR;
 	}
 
@@ -1656,6 +1785,11 @@ EXPORT_SYMBOL(sps_alloc_endpoint);
 int sps_free_endpoint(struct sps_pipe *ctx)
 {
 	int res;
+
+	if (ctx == NULL) {
+		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
 
 	res = sps_client_de_init(ctx);
 
