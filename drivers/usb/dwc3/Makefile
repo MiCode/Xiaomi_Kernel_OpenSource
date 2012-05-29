@@ -1,11 +1,13 @@
 ccflags-$(CONFIG_USB_DWC3_DEBUG)	:= -DDEBUG
 ccflags-$(CONFIG_USB_DWC3_VERBOSE)	+= -DVERBOSE_DEBUG
+ccflags-y += -Idrivers/usb/host
 
 obj-$(CONFIG_USB_DWC3)			+= dwc3.o
 
 dwc3-y					:= core.o
 dwc3-y					+= host.o
 dwc3-y					+= gadget.o ep0.o
+dwc3-y					+= dwc3_otg.o
 
 ifneq ($(CONFIG_DEBUG_FS),)
 	dwc3-y				+= debugfs.o
