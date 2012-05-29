@@ -801,6 +801,7 @@ int mdp_histogram_block2mgmt(uint32_t block, struct mdp_hist_mgmt **mgmt);
 void mdp_histogram_handle_isr(struct mdp_hist_mgmt *mgmt);
 void __mdp_histogram_kickoff(struct mdp_hist_mgmt *mgmt);
 void __mdp_histogram_reset(struct mdp_hist_mgmt *mgmt);
+unsigned int mdp_check_suspended(void);
 void mdp_footswitch_ctrl(boolean on);
 
 #ifdef CONFIG_FB_MSM_MDP303
@@ -827,6 +828,10 @@ static inline int mdp4_overlay_dsi_state_get(void)
 static inline void mdp_dsi_cmd_overlay_suspend(void)
 {
 	/* empty */
+}
+static inline void mdp4_iommu_detach(void)
+{
+    /* empty */
 }
 #endif
 
