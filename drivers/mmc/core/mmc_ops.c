@@ -565,14 +565,14 @@ int mmc_send_hpi_cmd(struct mmc_card *card, u32 *status)
 {
 	struct mmc_command cmd = {0};
 	unsigned int opcode;
-	unsigned int flags;
+	unsigned int flags = MMC_CMD_AC;
 	int err;
 
 	opcode = card->ext_csd.hpi_cmd;
 	if (opcode == MMC_STOP_TRANSMISSION)
-		flags = MMC_RSP_R1 | MMC_CMD_AC;
+		flags |= MMC_RSP_R1B;
 	else if (opcode == MMC_SEND_STATUS)
-		flags = MMC_RSP_R1 | MMC_CMD_AC;
+		flags |= MMC_RSP_R1;
 
 	cmd.opcode = opcode;
 	cmd.arg = card->rca << 16 | 1;

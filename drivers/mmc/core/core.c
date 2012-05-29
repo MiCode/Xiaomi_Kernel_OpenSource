@@ -269,9 +269,16 @@ void mmc_start_bkops(struct mmc_card *card)
 
 	spin_lock_irqsave(&card->host->lock, flags);
 	mmc_card_clr_need_bkops(card);
-	mmc_card_set_doing_bkops(card);
+
+	/*
+	 * For urgent bkops status (LEVEL_2 and more)
+	 * bkops executed synchronously, otherwise
+	 * the operation is in progress
+	 */
 	if (card->ext_csd.raw_bkops_status >= EXT_CSD_BKOPS_LEVEL_2)
 		mmc_card_set_check_bkops(card);
+	else
+		mmc_card_set_doing_bkops(card);
 
 	spin_unlock_irqrestore(&card->host->lock, flags);
 out:
@@ -2537,8 +2544,12 @@ int mmc_suspend_host(struct mmc_host *host)
 				err = -EBUSY;
 
 		if (!err) {
-			if (host->bus_ops->suspend)
+			if (host->bus_ops->suspend) {
+				if (mmc_card_doing_bkops(host->card))
+					mmc_interrupt_bkops(host->card);
+
 				err = host->bus_ops->suspend(host);
+			}
 			if (!(host->card && mmc_card_sdio(host->card)))
 				mmc_do_release_host(host);
 
