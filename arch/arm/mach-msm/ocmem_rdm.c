@@ -109,19 +109,6 @@ struct ocmem_dm_table {
 	unsigned int ctrl;
 } dm_table[RDM_MAX_ENTRIES];
 
-/* Wrapper that will shadow these values later */
-static int ocmem_read(void *at)
-{
-	return readl_relaxed(at);
-}
-
-/* Wrapper that will shadow these values later */
-static int ocmem_write(unsigned long val, void *at)
-{
-	writel_relaxed(val, at);
-	return 0;
-}
-
 static inline int client_ctrl_id(int id)
 {
 	return (id == OCMEM_SENSORS) ? 1 : 0;

@@ -1083,6 +1083,7 @@ err_op_fail:
 static int process_grow(struct ocmem_req *req)
 {
 	int rc = 0;
+	unsigned long offset = 0;
 
 	/* Attempt to grow the region */
 	rc = do_grow(req);
@@ -1097,6 +1098,15 @@ static int process_grow(struct ocmem_req *req)
 			return -EINVAL;
 	}
 
+	offset = phys_to_offset(req->req_start);
+
+	rc = ocmem_memory_on(req->owner, offset, req->req_sz);
+
+	if (rc < 0) {
+		pr_err("Failed to switch ON memory macros\n");
+		goto power_ctl_error;
+	}
+
 	/* Notify the client about the buffer growth */
 	rc = dispatch_notification(req->owner, OCMEM_ALLOC_GROW, req->buffer);
 	if (rc < 0) {
@@ -1105,6 +1115,8 @@ static int process_grow(struct ocmem_req *req)
 		BUG();
 	}
 	return 0;
+power_ctl_error:
+	return -EINVAL;
 }
 
 static int do_shrink(struct ocmem_req *req, unsigned long shrink_size)
@@ -1187,6 +1199,7 @@ int process_free(int id, struct ocmem_handle *handle)
 {
 	struct ocmem_req *req = NULL;
 	struct ocmem_buf *buffer = NULL;
+	unsigned long offset = 0;
 	int rc = 0;
 
 	if (is_blocked(id)) {
@@ -1209,6 +1222,20 @@ int process_free(int id, struct ocmem_handle *handle)
 		rc = process_unmap(req, req->req_start, req->req_end);
 		if (rc < 0)
 			return -EINVAL;
+	}
+
+
+	if (req->req_sz != 0) {
+
+		offset = phys_to_offset(req->req_start);
+
+		rc = ocmem_memory_off(req->owner, offset, req->req_sz);
+
+		if (rc < 0) {
+			pr_err("Failed to switch OFF memory macros\n");
+			return -EINVAL;
+		}
+
 	}
 
 	rc = do_free(req);
@@ -1244,7 +1271,6 @@ static void ocmem_rdm_worker(struct work_struct *work)
 		event = (rc == 0) ? OCMEM_MAP_DONE : OCMEM_MAP_FAIL;
 	else
 		event = (rc == 0) ? OCMEM_UNMAP_DONE : OCMEM_UNMAP_FAIL;
-
 	up_write(&req->rw_sem);
 	kfree(work_data);
 	dispatch_notification(id, event, buffer);
@@ -1299,6 +1325,7 @@ int process_xfer_out(int id, struct ocmem_handle *handle,
 		pr_err("Failed to queue rdm transfer to DDR\n");
 		goto transfer_out_error;
 	}
+
 
 	return 0;
 
@@ -1538,6 +1565,7 @@ int process_allocate(int id, struct ocmem_handle *handle,
 	struct ocmem_req *req = NULL;
 	struct ocmem_buf *buffer = NULL;
 	int rc = 0;
+	unsigned long offset = 0;
 
 	/* sanity checks */
 	if (is_blocked(id)) {
@@ -1579,8 +1607,21 @@ int process_allocate(int id, struct ocmem_handle *handle,
 			goto map_error;
 	}
 
+	if (req->req_sz != 0) {
+
+		offset = phys_to_offset(req->req_start);
+
+		rc = ocmem_memory_on(req->owner, offset, req->req_sz);
+
+		if (rc < 0) {
+			pr_err("Failed to switch ON memory macros\n");
+			goto power_ctl_error;
+		}
+	}
+
 	return 0;
 
+power_ctl_error:
 map_error:
 	handle->req = NULL;
 	do_free(req);
@@ -1595,6 +1636,7 @@ int process_delayed_allocate(struct ocmem_req *req)
 	struct ocmem_handle *handle = NULL;
 	int rc = 0;
 	int id = req->owner;
+	unsigned long offset = 0;
 
 	handle = req_to_handle(req);
 	BUG_ON(handle == NULL);
@@ -1611,6 +1653,18 @@ int process_delayed_allocate(struct ocmem_req *req)
 			goto map_error;
 	}
 
+	if (req->req_sz != 0) {
+
+		offset = phys_to_offset(req->req_start);
+
+		rc = ocmem_memory_on(req->owner, offset, req->req_sz);
+
+		if (rc < 0) {
+			pr_err("Failed to switch ON memory macros\n");
+			goto power_ctl_error;
+		}
+	}
+
 	/* Notify the client about the buffer growth */
 	rc = dispatch_notification(id, OCMEM_ALLOC_GROW, req->buffer);
 	if (rc < 0) {
@@ -1620,6 +1674,7 @@ int process_delayed_allocate(struct ocmem_req *req)
 	}
 	return 0;
 
+power_ctl_error:
 map_error:
 	handle->req = NULL;
 	do_free(req);

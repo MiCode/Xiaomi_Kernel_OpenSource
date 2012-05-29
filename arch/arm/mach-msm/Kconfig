@@ -2298,6 +2298,33 @@ config MSM_OCMEM
 	  Enable support for On-Chip Memory available on certain MSM chipsets.
 	  OCMEM is a low latency, high performance pool shared by subsystems.
 
+config MSM_OCMEM_LOCAL_POWER_CTRL
+	bool "OCMEM Local Power Control"
+	depends on MSM_OCMEM
+	help
+	  Enable direct power management of the OCMEM core by the
+	  OCMEM driver. By default power management is delegated to
+	  the RPM. Selecting this option causes the OCMEM driver to
+	  directly handle the various macro power transitions.
+
+config MSM_OCMEM_DEBUG
+	bool "OCMEM Debug Support"
+	depends on MSM_OCMEM
+	help
+	  Enable debug options for On-chip Memory (OCMEM) driver.
+	  Various debug options include memory, power and latency.
+	  Choosing one of these options allows debugging of each
+	  individual subsystem separately.
+
+config MSM_OCMEM_POWER_DEBUG
+	bool "OCMEM Power Debug Support"
+	depends on MSM_OCMEM_DEBUG
+	help
+	  Enable debug support for OCMEM power management.
+	  This adds support for verifying all power management
+	  related operations of OCMEM. Both local power management
+	  and RPM assisted power management operations are supported.
+
 config MSM_RTB
 	bool "Register tracing"
 	help
