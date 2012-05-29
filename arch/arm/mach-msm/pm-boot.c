@@ -41,7 +41,7 @@ static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
 }
 
 #ifdef CONFIG_MSM_SCM
-static int __init msm_pm_tz_boot_init(void)
+static int __devinit msm_pm_tz_boot_init(void)
 {
 	int flag = 0;
 	if (num_possible_cpus() == 1)
@@ -72,7 +72,7 @@ static inline void msm_pm_config_tz_before_pc(unsigned int cpu,
 		unsigned long entry) {}
 #endif
 
-static int __init msm_pm_boot_reset_vector_init(uint32_t *reset_vector)
+static int __devinit msm_pm_boot_reset_vector_init(uint32_t *reset_vector)
 {
 	if (!reset_vector)
 		return -ENODEV;
@@ -110,7 +110,7 @@ void msm_pm_boot_config_after_pc(unsigned int cpu)
 }
 #define BOOT_REMAP_ENABLE  BIT(0)
 
-int __init msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
+int __devinit msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 {
 	int ret = 0;
 	unsigned long entry;
