@@ -627,13 +627,16 @@ static int bluetooth_switch_regulators(int on)
 
 	for (i = 0; i < ARRAY_SIZE(bt_vregs); i++) {
 		if (IS_ERR_OR_NULL(bt_vregs[i].reg)) {
-			rc = bt_vregs[i].reg ?
-				PTR_ERR(bt_vregs[i].reg) :
-				-ENODEV;
-			dev_err(&msm_bt_power_device.dev,
-				"%s: invalid regulator handle for %s: %d\n",
+			bt_vregs[i].reg =
+				regulator_get(&msm_bt_power_device.dev,
+						bt_vregs[i].name);
+			if (IS_ERR(bt_vregs[i].reg)) {
+				rc = PTR_ERR(bt_vregs[i].reg);
+				dev_err(&msm_bt_power_device.dev,
+					"%s: could not get regulator %s: %d\n",
 					__func__, bt_vregs[i].name, rc);
-			goto reg_disable;
+				goto reg_disable;
+			}
 		}
 
 		rc = on ? regulator_set_voltage(bt_vregs[i].reg,
@@ -687,6 +690,7 @@ reg_disable:
 			i--;
 			regulator_disable(bt_vregs[i].reg);
 			regulator_put(bt_vregs[i].reg);
+			bt_vregs[i].reg = NULL;
 		}
 	}
 	return rc;
