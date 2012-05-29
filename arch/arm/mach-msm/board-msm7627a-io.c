@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/atmel_maxtouch.h>
 #include <linux/input/ft5x06_ts.h>
+#include <linux/leds-msm-tricolor.h>
 #include <asm/gpio.h>
 #include <asm/mach-types.h>
 #include <mach/rpc_server_handset.h>
@@ -162,32 +163,6 @@ static struct platform_device kp_pdev_8625 = {
 };
 
 #define LED_GPIO_PDM 96
-#define LED_RED_GPIO_8625 49
-#define LED_GREEN_GPIO_8625 34
-
-static struct gpio_led gpio_leds_config_8625[] = {
-	{
-		.name = "green",
-		.gpio = LED_GREEN_GPIO_8625,
-	},
-	{
-		.name = "red",
-		.gpio = LED_RED_GPIO_8625,
-	},
-};
-
-static struct gpio_led_platform_data gpio_leds_pdata_8625 = {
-	.num_leds = ARRAY_SIZE(gpio_leds_config_8625),
-	.leds = gpio_leds_config_8625,
-};
-
-static struct platform_device gpio_leds_8625 = {
-	.name          = "leds-gpio",
-	.id            = -1,
-	.dev           = {
-		.platform_data = &gpio_leds_pdata_8625,
-	},
-};
 
 #define MXT_TS_IRQ_GPIO         48
 #define MXT_TS_RESET_GPIO       26
@@ -772,6 +747,30 @@ static struct platform_device pmic_mpp_leds_pdev = {
 	},
 };
 
+static struct led_info tricolor_led_info[] = {
+	[0] = {
+		.name           = "red",
+		.flags          = LED_COLOR_RED,
+	},
+	[1] = {
+		.name           = "green",
+		.flags          = LED_COLOR_GREEN,
+	},
+};
+
+static struct led_platform_data tricolor_led_pdata = {
+	.leds = tricolor_led_info,
+	.num_leds = ARRAY_SIZE(tricolor_led_info),
+};
+
+static struct platform_device tricolor_leds_pdev = {
+	.name   = "msm-tricolor-leds",
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &tricolor_led_pdata,
+	},
+};
+
 void __init msm7627a_add_io_devices(void)
 {
 	/* touchscreen */
@@ -868,24 +867,9 @@ void __init qrd7627a_add_io_devices(void)
 		platform_device_register(&kp_pdev_sku3);
 
 	/* leds */
-	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
-		rc = gpio_tlmm_config(GPIO_CFG(LED_RED_GPIO_8625, 0,
-				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
-				GPIO_CFG_16MA), GPIO_CFG_ENABLE);
-		if (rc) {
-			pr_err("%s: gpio_tlmm_config for %d failed\n",
-				__func__, LED_RED_GPIO_8625);
-		}
-
-		rc = gpio_tlmm_config(GPIO_CFG(LED_GREEN_GPIO_8625, 0,
-				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
-				GPIO_CFG_16MA), GPIO_CFG_ENABLE);
-		if (rc) {
-			pr_err("%s: gpio_tlmm_config for %d failed\n",
-				__func__, LED_GREEN_GPIO_8625);
-		}
-
-		platform_device_register(&gpio_leds_8625);
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb() ||
+						machine_is_msm8625_evt()) {
 		platform_device_register(&pmic_mpp_leds_pdev);
+		platform_device_register(&tricolor_leds_pdev);
 	}
 }
