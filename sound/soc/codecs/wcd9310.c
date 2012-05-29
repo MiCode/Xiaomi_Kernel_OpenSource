@@ -6732,17 +6732,70 @@ static irqreturn_t tabla_mechanical_plug_detect_irq(int irq, void *data)
 	return r;
 }
 
+static int tabla_mbhc_init_and_calibrate(struct tabla_priv *tabla)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = tabla->codec;
+
+	tabla->mbhc_cfg.mclk_cb_fn(codec, 1, false);
+	tabla_mbhc_init(codec);
+	tabla_mbhc_cal(codec);
+	tabla_mbhc_calc_thres(codec);
+	tabla->mbhc_cfg.mclk_cb_fn(codec, 0, false);
+	tabla_codec_calibrate_hs_polling(codec);
+	if (!tabla->mbhc_cfg.gpio) {
+		ret = tabla_codec_enable_hs_detect(codec, 1,
+						   MBHC_USE_MB_TRIGGER |
+						   MBHC_USE_HPHL_TRIGGER,
+						   false);
+
+		if (IS_ERR_VALUE(ret))
+			pr_err("%s: Failed to setup MBHC detection\n",
+			       __func__);
+	} else {
+		/* Enable Mic Bias pull down and HPH Switch to GND */
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.ctl_reg,
+				    0x01, 0x01);
+		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x01, 0x01);
+		INIT_WORK(&tabla->hs_correct_plug_work,
+			  tabla_hs_correct_gpio_plug);
+	}
+
+	if (!IS_ERR_VALUE(ret)) {
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10, 0x10);
+		wcd9xxx_enable_irq(codec->control_data,
+				 TABLA_IRQ_HPH_PA_OCPL_FAULT);
+		wcd9xxx_enable_irq(codec->control_data,
+				 TABLA_IRQ_HPH_PA_OCPR_FAULT);
+
+		if (tabla->mbhc_cfg.gpio) {
+			ret = request_threaded_irq(tabla->mbhc_cfg.gpio_irq,
+					       NULL,
+					       tabla_mechanical_plug_detect_irq,
+					       (IRQF_TRIGGER_RISING |
+						IRQF_TRIGGER_FALLING),
+					       "tabla-gpio", codec);
+			if (!IS_ERR_VALUE(ret)) {
+				ret = enable_irq_wake(tabla->mbhc_cfg.gpio_irq);
+				/* Bootup time detection */
+				tabla_hs_gpio_handler(codec);
+			}
+		}
+	}
+
+	return ret;
+}
+
 static void mbhc_fw_read(struct work_struct *work)
 {
 	struct delayed_work *dwork;
 	struct tabla_priv *tabla;
 	struct snd_soc_codec *codec;
 	const struct firmware *fw;
-	int ret = -1, retry = 0, rc;
+	int ret = -1, retry = 0;
 
 	dwork = to_delayed_work(work);
-	tabla = container_of(dwork, struct tabla_priv,
-				mbhc_firmware_dwork);
+	tabla = container_of(dwork, struct tabla_priv, mbhc_firmware_dwork);
 	codec = tabla->codec;
 
 	while (retry < MBHC_FW_READ_ATTEMPTS) {
@@ -6754,7 +6807,7 @@ static void mbhc_fw_read(struct work_struct *work)
 
 		if (ret != 0) {
 			usleep_range(MBHC_FW_READ_TIMEOUT,
-					MBHC_FW_READ_TIMEOUT);
+				     MBHC_FW_READ_TIMEOUT);
 		} else {
 			pr_info("%s: MBHC Firmware read succesful\n", __func__);
 			break;
@@ -6773,30 +6826,7 @@ static void mbhc_fw_read(struct work_struct *work)
 		tabla->mbhc_fw = fw;
 	}
 
-	tabla->mbhc_cfg.mclk_cb_fn(codec, 1, false);
-	tabla_mbhc_init(codec);
-	tabla_mbhc_cal(codec);
-	tabla_mbhc_calc_thres(codec);
-	tabla->mbhc_cfg.mclk_cb_fn(codec, 0, false);
-	tabla_codec_calibrate_hs_polling(codec);
-	if (!tabla->mbhc_cfg.gpio) {
-		rc = tabla_codec_enable_hs_detect(codec, 1,
-						  MBHC_USE_MB_TRIGGER |
-						  MBHC_USE_HPHL_TRIGGER,
-						  false);
-
-		if (IS_ERR_VALUE(rc))
-			pr_err("%s: Failed to setup MBHC detection\n",
-			       __func__);
-	} else {
-		/* Enable Mic Bias pull down and HPH Switch to GND */
-		snd_soc_update_bits(codec,
-				    tabla->mbhc_bias_regs.ctl_reg, 0x01, 0x01);
-		snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x01, 0x01);
-		INIT_WORK(&tabla->hs_correct_plug_work,
-			  tabla_hs_correct_gpio_plug);
-	}
-
+	(void) tabla_mbhc_init_and_calibrate(tabla);
 }
 
 int tabla_hs_detect(struct snd_soc_codec *codec,
@@ -6836,53 +6866,11 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 	INIT_WORK(&tabla->hphrocp_work, hphrocp_off_report);
 	INIT_DELAYED_WORK(&tabla->mbhc_insert_dwork, mbhc_insert_work);
 
-	if (!tabla->mbhc_cfg.read_fw_bin) {
-		tabla->mbhc_cfg.mclk_cb_fn(codec, 1, false);
-		tabla_mbhc_init(codec);
-		tabla_mbhc_cal(codec);
-		tabla_mbhc_calc_thres(codec);
-		tabla->mbhc_cfg.mclk_cb_fn(codec, 0, false);
-		tabla_codec_calibrate_hs_polling(codec);
-		if (!tabla->mbhc_cfg.gpio) {
-			rc =  tabla_codec_enable_hs_detect(codec, 1,
-							  MBHC_USE_MB_TRIGGER |
-							  MBHC_USE_HPHL_TRIGGER,
-							  false);
-		} else {
-			/* Enable Mic Bias pull down and HPH Switch to GND */
-			snd_soc_update_bits(codec,
-					    tabla->mbhc_bias_regs.ctl_reg, 0x01,
-					    0x01);
-			snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x01,
-					    0x01);
-			INIT_WORK(&tabla->hs_correct_plug_work,
-				  tabla_hs_correct_gpio_plug);
-		}
-	} else {
+	if (!tabla->mbhc_cfg.read_fw_bin)
+		rc = tabla_mbhc_init_and_calibrate(tabla);
+	else
 		schedule_delayed_work(&tabla->mbhc_firmware_dwork,
 				      usecs_to_jiffies(MBHC_FW_READ_TIMEOUT));
-	}
-
-	if (!IS_ERR_VALUE(rc)) {
-		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10, 0x10);
-		wcd9xxx_enable_irq(codec->control_data,
-				 TABLA_IRQ_HPH_PA_OCPL_FAULT);
-		wcd9xxx_enable_irq(codec->control_data,
-				 TABLA_IRQ_HPH_PA_OCPR_FAULT);
-	}
-
-	if (!IS_ERR_VALUE(rc) && tabla->mbhc_cfg.gpio) {
-		rc = request_threaded_irq(tabla->mbhc_cfg.gpio_irq, NULL,
-					   tabla_mechanical_plug_detect_irq,
-					   (IRQF_TRIGGER_RISING |
-					    IRQF_TRIGGER_FALLING),
-					   "tabla-gpio", codec);
-		if (!IS_ERR_VALUE(rc)) {
-			rc = enable_irq_wake(tabla->mbhc_cfg.gpio_irq);
-			/* Bootup time detection */
-			tabla_hs_gpio_handler(codec);
-		}
-	}
 
 	return rc;
 }
