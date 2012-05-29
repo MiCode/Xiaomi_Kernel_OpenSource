@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/uaccess.h>
 #include <linux/user.h>
+#include <linux/proc_fs.h>
 
 #include <asm/cp15.h>
 #include <asm/cputype.h>
@@ -85,6 +86,11 @@ static void vfp_force_reload(unsigned int cpu, struct thread_info *thread)
 	thread->vfpstate.hard.cpu = NR_CPUS;
 #endif
 }
+
+/*
+ * Used for reporting emulation statistics via /proc
+ */
+static atomic64_t vfp_bounce_count = ATOMIC64_INIT(0);
 
 /*
  * Per-thread VFP initialization.
@@ -337,6 +343,7 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 	u32 fpscr, orig_fpscr, fpsid, exceptions;
 
 	pr_debug("VFP: bounce: trigger %08x fpexc %08x\n", trigger, fpexc);
+	atomic64_inc(&vfp_bounce_count);
 
 	/*
 	 * At this point, FPEXC can have the following configuration:
@@ -648,6 +655,26 @@ static int vfp_hotplug(struct notifier_block *b, unsigned long action,
 	return NOTIFY_OK;
 }
 
+#ifdef CONFIG_PROC_FS
+static int proc_read_status(char *page, char **start, off_t off, int count,
+			    int *eof, void *data)
+{
+	char *p = page;
+	int len;
+
+	p += snprintf(p, PAGE_SIZE, "%llu\n", atomic64_read(&vfp_bounce_count));
+
+	len = (p - page) - off;
+	if (len < 0)
+		len = 0;
+
+	*eof = (len <= count) ? 1 : 0;
+	*start = page + off;
+
+	return len;
+}
+#endif
+
 /*
  * VFP support code initialisation.
  */
@@ -655,7 +682,9 @@ static int __init vfp_init(void)
 {
 	unsigned int vfpsid;
 	unsigned int cpu_arch = cpu_architecture();
-
+#ifdef CONFIG_PROC_FS
+	static struct proc_dir_entry *procfs_entry;
+#endif
 	if (cpu_arch >= CPU_ARCH_ARMv6)
 		on_each_cpu(vfp_enable, NULL, 1);
 
@@ -729,6 +758,16 @@ static int __init vfp_init(void)
 #endif
 		}
 	}
+
+#ifdef CONFIG_PROC_FS
+	procfs_entry = create_proc_entry("cpu/vfp_bounce", S_IRUGO, NULL);
+
+	if (procfs_entry)
+		procfs_entry->read_proc = proc_read_status;
+	else
+		pr_err("Failed to create procfs node for VFP bounce reporting\n");
+#endif
+
 	return 0;
 }
 
