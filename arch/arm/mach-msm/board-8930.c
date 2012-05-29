@@ -78,6 +78,7 @@
 #include <mach/mdm2.h>
 #include <mach/msm_rtb.h>
 #include <linux/fmem.h>
+#include <mach/msm_cache_dump.h>
 
 #ifdef CONFIG_INPUT_MPU3050
 #include <linux/input/mpu3050.h>
@@ -629,6 +630,19 @@ static void __init reserve_mdp_memory(void)
 	msm8930_mdp_writeback(msm8930_reserve_table);
 }
 
+#ifdef CONFIG_MSM_CACHE_DUMP
+static void __init reserve_cache_dump_memory(void)
+{
+	unsigned int total;
+
+	total = msm8930_cache_dump_pdata.l1_size +
+		msm8930_cache_dump_pdata.l2_size;
+	msm8930_reserve_table[MEMTYPE_EBI1].size += total;
+}
+#else
+static void __init reserve_cache_dump_memory(void) { }
+#endif
+
 static void __init msm8930_calculate_reserve_sizes(void)
 {
 	size_pmem_devices();
@@ -636,6 +650,7 @@ static void __init msm8930_calculate_reserve_sizes(void)
 	reserve_ion_memory();
 	reserve_mdp_memory();
 	reserve_rtb_memory();
+	reserve_cache_dump_memory();
 }
 
 static struct reserve_info msm8930_reserve_info __initdata = {
@@ -2149,6 +2164,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_cache_erp,
 	&msm8930_iommu_domain_device,
 	&msm_tsens_device,
+	&msm8930_cache_dump_device,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
