@@ -106,6 +106,7 @@ enum {
 	NUM_HSIC_PARAM,
 };
 
+#define MDSS_MDP_ROT_ONLY		0x80
 #define MDSS_MDP_RIGHT_MIXER		0x100
 
 /* mdp_blit_req flag values */
@@ -235,6 +236,7 @@ struct msmfb_overlay_data {
 	uint32_t version_key;
 	struct msmfb_data plane1_data;
 	struct msmfb_data plane2_data;
+	struct msmfb_data dst_data;
 };
 
 struct msmfb_img {

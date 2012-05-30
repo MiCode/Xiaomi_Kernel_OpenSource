@@ -227,6 +227,71 @@ static int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer)
 	return 0;
 }
 
+struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
+{
+	struct mdss_mdp_ctl *ctl = NULL;
+	struct mdss_mdp_mixer *mixer = NULL;
+
+	ctl = mdss_mdp_ctl_alloc();
+
+	if (!ctl)
+		return NULL;
+
+	mixer = mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_WRITEBACK);
+	if (!mixer)
+		goto error;
+
+	mixer->rotator_mode = rotator;
+
+	switch (mixer->num) {
+	case MDSS_MDP_LAYERMIXER3:
+		ctl->opmode = (rotator ? MDSS_MDP_CTL_OP_ROT0_MODE :
+			       MDSS_MDP_CTL_OP_WB0_MODE);
+		break;
+	case MDSS_MDP_LAYERMIXER4:
+		ctl->opmode = (rotator ? MDSS_MDP_CTL_OP_ROT1_MODE :
+			       MDSS_MDP_CTL_OP_WB1_MODE);
+		break;
+	default:
+		pr_err("invalid layer mixer=%d\n", mixer->num);
+		goto error;
+	}
+
+	ctl->mixer_left = mixer;
+	mixer->ctl = ctl;
+
+	ctl->start_fnc = mdss_mdp_writeback_start;
+
+	if (ctl->start_fnc)
+		ctl->start_fnc(ctl);
+
+	return mixer;
+error:
+	if (mixer)
+		mdss_mdp_mixer_free(mixer);
+	if (ctl)
+		mdss_mdp_ctl_free(ctl);
+
+	return NULL;
+}
+
+int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_ctl *ctl;
+
+	ctl = mixer->ctl;
+
+	pr_debug("destroy ctl=%d mixer=%d\n", ctl->num, mixer->num);
+
+	if (ctl->stop_fnc)
+		ctl->stop_fnc(ctl);
+
+	mdss_mdp_mixer_free(mixer);
+	mdss_mdp_ctl_free(ctl);
+
+	return 0;
+}
+
 static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_ctl *ctl;
