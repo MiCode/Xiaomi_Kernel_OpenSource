@@ -39,13 +39,12 @@
 #include <mach/board.h>
 #include <mach/clk.h>
 #include <mach/hardware.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 
 #include "mdss.h"
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
-
-/* 1.15 mdp clk factor */
-#define MDP_CLK_FACTOR(rate) (((rate) * 23) / 20)
 
 unsigned char *mdss_reg_base;
 
@@ -74,6 +73,99 @@ u32 mdss_mdp_mixer_type_map[MDSS_MDP_MAX_LAYERMIXER] = {
 	MDSS_MDP_MIXER_TYPE_WRITEBACK,
 	MDSS_MDP_MIXER_TYPE_WRITEBACK,
 };
+
+#define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val) \
+	{ \
+		.src = MSM_BUS_MASTER_MDP_PORT0,	\
+		.dst = MSM_BUS_SLAVE_EBI_CH0,		\
+		.ab = (ab_val),				\
+		.ib = (ib_val),				\
+	}
+
+#define MDP_BUS_VECTOR_ENTRY_NDX(n) \
+		MDP_BUS_VECTOR_ENTRY((n) * 100000000, (n) * 200000000)
+
+static struct msm_bus_vectors mdp_bus_vectors[] = {
+	MDP_BUS_VECTOR_ENTRY_NDX(0),
+	MDP_BUS_VECTOR_ENTRY_NDX(1),
+	MDP_BUS_VECTOR_ENTRY_NDX(2),
+	MDP_BUS_VECTOR_ENTRY_NDX(3),
+	MDP_BUS_VECTOR_ENTRY_NDX(4),
+	MDP_BUS_VECTOR_ENTRY_NDX(5),
+	MDP_BUS_VECTOR_ENTRY_NDX(6),
+	MDP_BUS_VECTOR_ENTRY_NDX(7),
+	MDP_BUS_VECTOR_ENTRY_NDX(8),
+	MDP_BUS_VECTOR_ENTRY_NDX(9),
+	MDP_BUS_VECTOR_ENTRY_NDX(10),
+	MDP_BUS_VECTOR_ENTRY(200000000, 200000000)
+};
+static struct msm_bus_paths mdp_bus_usecases[ARRAY_SIZE(mdp_bus_vectors)];
+static struct msm_bus_scale_pdata mdp_bus_scale_table = {
+	.usecase = mdp_bus_usecases,
+	.num_usecases = ARRAY_SIZE(mdp_bus_usecases),
+	.name = "mdss_mdp",
+};
+
+static int mdss_mdp_bus_scale_register(void)
+{
+	if (!mdss_res->bus_hdl) {
+		struct msm_bus_scale_pdata *bus_pdata = &mdp_bus_scale_table;
+		int i;
+
+		for (i = 0; i < bus_pdata->num_usecases; i++) {
+			mdp_bus_usecases[i].num_paths = 1;
+			mdp_bus_usecases[i].vectors = &mdp_bus_vectors[i];
+		}
+
+		mdss_res->bus_hdl = msm_bus_scale_register_client(bus_pdata);
+		if (!mdss_res->bus_hdl) {
+			pr_err("not able to get bus scale\n");
+			return -ENOMEM;
+		}
+
+		pr_debug("register bus_hdl=%x\n", mdss_res->bus_hdl);
+	}
+	return 0;
+}
+
+static void mdss_mdp_bus_scale_unregister(void)
+{
+	pr_debug("unregister bus_hdl=%x\n", mdss_res->bus_hdl);
+
+	if (mdss_res->bus_hdl)
+		msm_bus_scale_unregister_client(mdss_res->bus_hdl);
+}
+
+int mdss_mdp_bus_scale_set_min_quota(u32 quota)
+{
+	struct msm_bus_scale_pdata *bus_pdata = &mdp_bus_scale_table;
+	struct msm_bus_vectors *vect = NULL;
+	int lvl;
+
+	if (mdss_res->bus_hdl < 1) {
+		pr_err("invalid bus handle %d\n", mdss_res->bus_hdl);
+		return -EINVAL;
+	}
+
+	for (lvl = 0; lvl < bus_pdata->num_usecases; lvl++) {
+		if (bus_pdata->usecase[lvl].num_paths) {
+			vect = &bus_pdata->usecase[lvl].vectors[0];
+			if (vect->ab >= quota) {
+				pr_debug("lvl=%d quota=%u ab=%u\n", lvl, quota,
+						vect->ab);
+				break;
+			}
+		}
+	}
+
+	if (lvl == bus_pdata->num_usecases) {
+		pr_warn("cannot match quota=%u try with max level\n", quota);
+		lvl--;
+	}
+
+	return msm_bus_scale_client_update_request(mdss_res->bus_hdl, lvl);
+}
+
 
 irqreturn_t mdss_irq_handler(int mdss_irq, void *ptr)
 {
@@ -172,13 +264,99 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 	spin_unlock(&mdp_lock);
 }
 
+static inline struct clk *mdss_mdp_get_clk(u32 clk_idx)
+{
+	if (clk_idx < MDSS_MAX_CLK)
+		return mdss_res->mdp_clk[clk_idx];
+	return NULL;
+}
+
+static int mdss_mdp_clk_update(u32 clk_idx, u32 enable)
+{
+	int ret = -ENODEV;
+	struct clk *clk = mdss_mdp_get_clk(clk_idx);
+
+	if (clk) {
+		pr_debug("clk=%d en=%d\n", clk_idx, enable);
+		if (enable) {
+			ret = clk_prepare_enable(clk);
+		} else {
+			clk_disable_unprepare(clk);
+			ret = 0;
+		}
+	}
+	return ret;
+}
+
+int mdss_mdp_vsync_clk_enable(int enable)
+{
+	int ret = 0;
+	pr_debug("clk enable=%d\n", enable);
+	mutex_lock(&mdp_clk_lock);
+	if (mdss_res->vsync_ena != enable) {
+		mdss_res->vsync_ena = enable;
+		ret = mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
+	}
+	mutex_unlock(&mdp_clk_lock);
+	return ret;
+}
+
+void mdss_mdp_set_clk_rate(unsigned long min_clk_rate)
+{
+	unsigned long clk_rate;
+	struct clk *clk = mdss_mdp_get_clk(MDSS_CLK_MDP_SRC);
+	if (clk) {
+		mutex_lock(&mdp_clk_lock);
+		clk_rate = clk_round_rate(clk, min_clk_rate);
+		if (IS_ERR_VALUE(clk_rate)) {
+			pr_err("unable to round rate err=%ld\n", clk_rate);
+		} else if (clk_rate != clk_get_rate(clk)) {
+			if (IS_ERR_VALUE(clk_set_rate(clk, clk_rate)))
+				pr_err("clk_set_rate failed\n");
+			else
+				pr_debug("mdp clk rate=%lu\n", clk_rate);
+		}
+		mutex_unlock(&mdp_clk_lock);
+	}
+}
+
+unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
+{
+	unsigned long clk_rate = 0;
+	struct clk *clk = mdss_mdp_get_clk(clk_idx);
+	mutex_lock(&mdp_clk_lock);
+	if (clk)
+		clk_rate = clk_get_rate(clk);
+	mutex_unlock(&mdp_clk_lock);
+
+	return clk_rate;
+}
+
 static void mdss_mdp_clk_ctrl_update(int enable)
 {
 	if (mdss_res->clk_ena == enable)
 		return;
 
 	pr_debug("MDP CLKS %s\n", (enable ? "Enable" : "Disable"));
+
+	mutex_lock(&mdp_clk_lock);
 	mdss_res->clk_ena = enable;
+	mb();
+
+	mdss_mdp_clk_update(MDSS_CLK_AHB, enable);
+	mdss_mdp_clk_update(MDSS_CLK_AXI, enable);
+
+	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, enable);
+	mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, enable);
+	if (mdss_res->vsync_ena)
+		mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
+
+	mutex_unlock(&mdp_clk_lock);
+}
+
+static void mdss_mdp_clk_ctrl_workqueue_handler(struct work_struct *work)
+{
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 }
 
 void mdss_mdp_clk_ctrl(int enable, int isr)
@@ -233,14 +411,30 @@ void mdss_mdp_clk_ctrl(int enable, int isr)
 	}
 }
 
-static void mdss_mdp_clk_ctrl_workqueue_handler(struct work_struct *work)
+static inline int mdss_mdp_irq_clk_register(struct platform_device *pdev,
+					    char *clk_name, int clk_idx)
 {
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	struct clk *tmp;
+	if (clk_idx >= MDSS_MAX_CLK) {
+		pr_err("invalid clk index %d\n", clk_idx);
+		return -EINVAL;
+	}
+
+
+	tmp = clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(tmp)) {
+		pr_err("unable to get clk: %s\n", clk_name);
+		return PTR_ERR(tmp);
+	}
+
+	mdss_res->mdp_clk[clk_idx] = tmp;
+	return 0;
 }
 
-static int mdss_mdp_irq_clk_setup(void)
+static int mdss_mdp_irq_clk_setup(struct platform_device *pdev)
 {
 	int ret;
+	int i;
 
 	ret = request_irq(mdss_res->irq, mdss_irq_handler, IRQF_DISABLED,
 			  "MDSS", 0);
@@ -250,16 +444,38 @@ static int mdss_mdp_irq_clk_setup(void)
 	}
 	disable_irq(mdss_res->irq);
 
-	mdss_res->fs = regulator_get(NULL, "fs_mdp");
-	if (IS_ERR(mdss_res->fs))
+	mdss_res->fs = regulator_get(NULL, "gdsc_mdss");
+	if (IS_ERR_OR_NULL(mdss_res->fs)) {
 		mdss_res->fs = NULL;
-	else {
-		regulator_enable(mdss_res->fs);
-		mdss_res->fs_ena = true;
+		pr_err("unable to get gdsc_mdss regulator\n");
+		goto error;
 	}
 	regulator_enable(mdss_res->fs);
 
+	if (mdss_mdp_irq_clk_register(pdev, "bus_clk", MDSS_CLK_AXI) ||
+	    mdss_mdp_irq_clk_register(pdev, "iface_clk", MDSS_CLK_AHB) ||
+	    mdss_mdp_irq_clk_register(pdev, "core_clk_src", MDSS_CLK_MDP_SRC) ||
+	    mdss_mdp_irq_clk_register(pdev, "core_clk", MDSS_CLK_MDP_CORE) ||
+	    mdss_mdp_irq_clk_register(pdev, "lut_clk", MDSS_CLK_MDP_LUT) ||
+	    mdss_mdp_irq_clk_register(pdev, "vsync_clk", MDSS_CLK_MDP_VSYNC))
+		goto error;
+
+	mdss_mdp_set_clk_rate(MDP_CLK_DEFAULT_RATE);
+	pr_debug("mdp clk rate=%ld\n", mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC));
+
 	return 0;
+error:
+	for (i = 0; i < MDSS_MAX_CLK; i++) {
+		if (mdss_res->mdp_clk[i])
+			clk_put(mdss_res->mdp_clk[i]);
+	}
+	if (mdss_res->fs)
+		regulator_put(mdss_res->fs);
+	if (mdss_res->irq)
+		free_irq(mdss_res->irq, 0);
+
+	return -EINVAL;
+
 }
 
 static struct msm_panel_common_pdata *mdss_mdp_populate_pdata(
@@ -273,11 +489,11 @@ static struct msm_panel_common_pdata *mdss_mdp_populate_pdata(
 	return pdata;
 }
 
-static u32 mdss_mdp_res_init(void)
+static u32 mdss_mdp_res_init(struct platform_device *pdev)
 {
 	u32 rc;
 
-	rc = mdss_mdp_irq_clk_setup();
+	rc = mdss_mdp_irq_clk_setup(pdev);
 	if (rc)
 		return rc;
 
@@ -366,12 +582,12 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 
-	rc = mdss_mdp_res_init();
+	rc = mdss_mdp_res_init(pdev);
 	if (rc) {
 		pr_err("unable to initialize mdss mdp resources\n");
 		goto probe_done;
 	}
-
+	rc = mdss_mdp_bus_scale_register();
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
 		if (mdss_res) {
@@ -449,6 +665,7 @@ static int mdss_mdp_remove(struct platform_device *pdev)
 		regulator_put(mdss_res->fs);
 	iounmap(mdss_reg_base);
 	pm_runtime_disable(&pdev->dev);
+	mdss_mdp_bus_scale_unregister();
 	return 0;
 }
 
