@@ -482,6 +482,11 @@ static int mipi_nt35510_lcd_on(struct platform_device *pdev)
 
 	mipi  = &mfd->panel_info.mipi;
 
+	if (!mfd->cont_splash_done) {
+		mfd->cont_splash_done = 1;
+		return 0;
+	}
+
 	if (mipi_nt35510_pdata && mipi_nt35510_pdata->rotate_panel)
 		rotate = mipi_nt35510_pdata->rotate_panel();
 
