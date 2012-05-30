@@ -24,7 +24,6 @@
 #include <linux/smp.h>
 #include <linux/suspend.h>
 #include <linux/tick.h>
-#include <linux/wakelock.h>
 #include <linux/delay.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
@@ -667,12 +666,6 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 				allow = false;
 				break;
 			}
-#ifdef CONFIG_HAS_WAKELOCK
-			if (has_wake_lock(WAKE_LOCK_IDLE)) {
-				allow = false;
-				break;
-			}
-#endif
 			/* fall through */
 
 		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
