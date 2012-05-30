@@ -394,6 +394,12 @@ mode_sysfs_add_exit:
 	return ret;
 }
 
+s32 msm_cpuidle_get_deep_idle_latency(void)
+{
+	int i = MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN);
+	return msm_pm_modes[i].latency - 1;
+}
+
 void __init msm_pm_set_platform_data(
 	struct msm_pm_platform_data *data, int count)
 {

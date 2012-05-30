@@ -51,6 +51,29 @@ void msm_rpmrs_show_resources(void)
 	return;
 }
 
+s32 msm_cpuidle_get_deep_idle_latency(void)
+{
+	int i;
+	struct msm_rpmrs_level *level = msm_lpm_levels, *best = level;
+
+	if (!level)
+		return 0;
+
+	for (i = 0; i < msm_lpm_level_count; i++, level++) {
+		if (!level->available)
+			continue;
+		if (level->sleep_mode != MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
+			continue;
+		/* Pick the first power collapse mode by default */
+		if (best->sleep_mode != MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
+			best = level;
+		/* Find the lowest latency for power collapse */
+		if (level->latency_us < best->latency_us)
+			best = level;
+	}
+	return best->latency_us - 1;
+}
+
 static void *msm_lpm_lowest_limits(bool from_idle,
 		enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
 		uint32_t sleep_us, uint32_t *power)
