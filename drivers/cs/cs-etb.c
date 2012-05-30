@@ -29,8 +29,8 @@
 
 #include "cs-priv.h"
 
-#define etb_writel(etb, val, off)	__raw_writel((val), etb.base + off)
-#define etb_readl(etb, off)		__raw_readl(etb.base + off)
+#define etb_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
+#define etb_readl(drvdata, off)		__raw_readl(drvdata->base + off)
 
 #define ETB_RAM_DEPTH_REG	(0x004)
 #define ETB_STATUS_REG		(0x00C)
@@ -58,15 +58,15 @@
 #define ETB_LOCK()							\
 do {									\
 	mb();								\
-	etb_writel(etb, 0x0, CS_LAR);					\
+	etb_writel(drvdata, 0x0, CS_LAR);				\
 } while (0)
 #define ETB_UNLOCK()							\
 do {									\
-	etb_writel(etb, CS_UNLOCK_MAGIC, CS_LAR);			\
+	etb_writel(drvdata, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 
-struct etb_ctx {
+struct etb_drvdata {
 	uint8_t		*buf;
 	void __iomem	*base;
 	bool		enabled;
@@ -79,7 +79,7 @@ struct etb_ctx {
 	uint32_t	trigger_cntr;
 };
 
-static struct etb_ctx etb;
+static struct etb_drvdata *drvdata;
 
 static void __etb_enable(void)
 {
@@ -87,16 +87,16 @@ static void __etb_enable(void)
 
 	ETB_UNLOCK();
 
-	etb_writel(etb, 0x0, ETB_RAM_WRITE_POINTER);
+	etb_writel(drvdata, 0x0, ETB_RAM_WRITE_POINTER);
 	for (i = 0; i < ETB_SIZE_WORDS; i++)
-		etb_writel(etb, 0x0, ETB_RWD_REG);
+		etb_writel(drvdata, 0x0, ETB_RWD_REG);
 
-	etb_writel(etb, 0x0, ETB_RAM_WRITE_POINTER);
-	etb_writel(etb, 0x0, ETB_RAM_READ_POINTER);
+	etb_writel(drvdata, 0x0, ETB_RAM_WRITE_POINTER);
+	etb_writel(drvdata, 0x0, ETB_RAM_READ_POINTER);
 
-	etb_writel(etb, etb.trigger_cntr, ETB_TRG);
-	etb_writel(etb, BIT(13) | BIT(0), ETB_FFCR);
-	etb_writel(etb, BIT(0), ETB_CTL_REG);
+	etb_writel(drvdata, drvdata->trigger_cntr, ETB_TRG);
+	etb_writel(drvdata, BIT(13) | BIT(0), ETB_FFCR);
+	etb_writel(drvdata, BIT(0), ETB_CTL_REG);
 
 	ETB_LOCK();
 }
@@ -106,15 +106,15 @@ int etb_enable(void)
 	int ret;
 	unsigned long flags;
 
-	ret = clk_prepare_enable(etb.clk);
+	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
 
-	spin_lock_irqsave(&etb.spinlock, flags);
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	__etb_enable();
-	etb.enabled = true;
-	dev_info(etb.dev, "ETB enabled\n");
-	spin_unlock_irqrestore(&etb.spinlock, flags);
+	drvdata->enabled = true;
+	dev_info(drvdata->dev, "ETB enabled\n");
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	return 0;
 }
@@ -126,23 +126,23 @@ static void __etb_disable(void)
 
 	ETB_UNLOCK();
 
-	ffcr = etb_readl(etb, ETB_FFCR);
+	ffcr = etb_readl(drvdata, ETB_FFCR);
 	ffcr |= (BIT(12) | BIT(6));
-	etb_writel(etb, ffcr, ETB_FFCR);
+	etb_writel(drvdata, ffcr, ETB_FFCR);
 
-	for (count = TIMEOUT_US; BVAL(etb_readl(etb, ETB_FFCR), 6) != 0
+	for (count = TIMEOUT_US; BVAL(etb_readl(drvdata, ETB_FFCR), 6) != 0
 				&& count > 0; count--)
 		udelay(1);
-	WARN(count == 0, "timeout while flushing ETB, ETB_FFCR: %#x\n",
-	     etb_readl(etb, ETB_FFCR));
+	WARN(count == 0, "timeout while flushing DRVDATA, ETB_FFCR: %#x\n",
+	     etb_readl(drvdata, ETB_FFCR));
 
-	etb_writel(etb, 0x0, ETB_CTL_REG);
+	etb_writel(drvdata, 0x0, ETB_CTL_REG);
 
-	for (count = TIMEOUT_US; BVAL(etb_readl(etb, ETB_FFSR), 1) != 1
+	for (count = TIMEOUT_US; BVAL(etb_readl(drvdata, ETB_FFSR), 1) != 1
 				&& count > 0; count--)
 		udelay(1);
-	WARN(count == 0, "timeout while disabling ETB, ETB_FFSR: %#x\n",
-	     etb_readl(etb, ETB_FFSR));
+	WARN(count == 0, "timeout while disabling DRVDATA, ETB_FFSR: %#x\n",
+	     etb_readl(drvdata, ETB_FFSR));
 
 	ETB_LOCK();
 }
@@ -151,13 +151,13 @@ void etb_disable(void)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&etb.spinlock, flags);
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	__etb_disable();
-	etb.enabled = false;
-	dev_info(etb.dev, "ETB disabled\n");
-	spin_unlock_irqrestore(&etb.spinlock, flags);
+	drvdata->enabled = false;
+	dev_info(drvdata->dev, "ETB disabled\n");
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-	clk_disable_unprepare(etb.clk);
+	clk_disable_unprepare(drvdata->clk);
 }
 
 static void __etb_dump(void)
@@ -172,27 +172,27 @@ static void __etb_dump(void)
 
 	ETB_UNLOCK();
 
-	read_ptr = etb_readl(etb, ETB_RAM_READ_POINTER);
-	write_ptr = etb_readl(etb, ETB_RAM_WRITE_POINTER);
+	read_ptr = etb_readl(drvdata, ETB_RAM_READ_POINTER);
+	write_ptr = etb_readl(drvdata, ETB_RAM_WRITE_POINTER);
 
 	frame_off = write_ptr % FRAME_SIZE_WORDS;
 	frame_endoff = FRAME_SIZE_WORDS - frame_off;
 	if (frame_off) {
-		dev_err(etb.dev, "write_ptr: %lu not aligned to formatter "
+		dev_err(drvdata->dev, "write_ptr: %lu not aligned to formatter "
 				"frame size\n", (unsigned long)write_ptr);
-		dev_err(etb.dev, "frameoff: %lu, frame_endoff: %lu\n",
+		dev_err(drvdata->dev, "frameoff: %lu, frame_endoff: %lu\n",
 			(unsigned long)frame_off, (unsigned long)frame_endoff);
 		write_ptr += frame_endoff;
 	}
 
-	if ((etb_readl(etb, ETB_STATUS_REG) & BIT(0)) == 0)
-		etb_writel(etb, 0x0, ETB_RAM_READ_POINTER);
+	if ((etb_readl(drvdata, ETB_STATUS_REG) & BIT(0)) == 0)
+		etb_writel(drvdata, 0x0, ETB_RAM_READ_POINTER);
 	else
-		etb_writel(etb, write_ptr, ETB_RAM_READ_POINTER);
+		etb_writel(drvdata, write_ptr, ETB_RAM_READ_POINTER);
 
-	buf_ptr = etb.buf;
+	buf_ptr = drvdata->buf;
 	for (i = 0; i < ETB_SIZE_WORDS; i++) {
-		read_data = etb_readl(etb, ETB_RAM_READ_DATA_REG);
+		read_data = etb_readl(drvdata, ETB_RAM_READ_DATA_REG);
 		*buf_ptr++ = read_data >> 0;
 		*buf_ptr++ = read_data >> 8;
 		*buf_ptr++ = read_data >> 16;
@@ -209,7 +209,7 @@ static void __etb_dump(void)
 		}
 	}
 
-	etb_writel(etb, read_ptr, ETB_RAM_READ_POINTER);
+	etb_writel(drvdata, read_ptr, ETB_RAM_READ_POINTER);
 
 	ETB_LOCK();
 }
@@ -218,45 +218,45 @@ void etb_dump(void)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&etb.spinlock, flags);
-	if (etb.enabled) {
+	spin_lock_irqsave(&drvdata->spinlock, flags);
+	if (drvdata->enabled) {
 		__etb_disable();
 		__etb_dump();
 		__etb_enable();
 
-		dev_info(etb.dev, "ETB dumped\n");
+		dev_info(drvdata->dev, "ETB dumped\n");
 	}
-	spin_unlock_irqrestore(&etb.spinlock, flags);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 }
 
 static int etb_open(struct inode *inode, struct file *file)
 {
-	if (atomic_cmpxchg(&etb.in_use, 0, 1))
+	if (atomic_cmpxchg(&drvdata->in_use, 0, 1))
 		return -EBUSY;
 
-	dev_dbg(etb.dev, "%s: successfully opened\n", __func__);
+	dev_dbg(drvdata->dev, "%s: successfully opened\n", __func__);
 	return 0;
 }
 
 static ssize_t etb_read(struct file *file, char __user *data,
 				size_t len, loff_t *ppos)
 {
-	if (etb.reading == false) {
+	if (drvdata->reading == false) {
 		etb_dump();
-		etb.reading = true;
+		drvdata->reading = true;
 	}
 
 	if (*ppos + len > ETB_SIZE_WORDS * BYTES_PER_WORD)
 		len = ETB_SIZE_WORDS * BYTES_PER_WORD - *ppos;
 
-	if (copy_to_user(data, etb.buf + *ppos, len)) {
-		dev_dbg(etb.dev, "%s: copy_to_user failed\n", __func__);
+	if (copy_to_user(data, drvdata->buf + *ppos, len)) {
+		dev_dbg(drvdata->dev, "%s: copy_to_user failed\n", __func__);
 		return -EFAULT;
 	}
 
 	*ppos += len;
 
-	dev_dbg(etb.dev, "%s: %d bytes copied, %d bytes left\n",
+	dev_dbg(drvdata->dev, "%s: %d bytes copied, %d bytes left\n",
 		__func__, len, (int) (ETB_SIZE_WORDS * BYTES_PER_WORD - *ppos));
 
 	return len;
@@ -264,11 +264,11 @@ static ssize_t etb_read(struct file *file, char __user *data,
 
 static int etb_release(struct inode *inode, struct file *file)
 {
-	etb.reading = false;
+	drvdata->reading = false;
 
-	atomic_set(&etb.in_use, 0);
+	atomic_set(&drvdata->in_use, 0);
 
-	dev_dbg(etb.dev, "%s: released\n", __func__);
+	dev_dbg(drvdata->dev, "%s: released\n", __func__);
 
 	return 0;
 }
@@ -289,7 +289,7 @@ static struct miscdevice etb_misc = {
 static ssize_t etb_show_trigger_cntr(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
-	unsigned long val = etb.trigger_cntr;
+	unsigned long val = drvdata->trigger_cntr;
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
@@ -302,7 +302,7 @@ static ssize_t etb_store_trigger_cntr(struct device *dev,
 	if (sscanf(buf, "%lx", &val) != 1)
 		return -EINVAL;
 
-	etb.trigger_cntr = val;
+	drvdata->trigger_cntr = val;
 	return size;
 }
 static DEVICE_ATTR(trigger_cntr, S_IRUGO | S_IWUSR, etb_show_trigger_cntr,
@@ -312,31 +312,31 @@ static int etb_sysfs_init(void)
 {
 	int ret;
 
-	etb.kobj = kobject_create_and_add("etb", qdss_get_modulekobj());
-	if (!etb.kobj) {
-		dev_err(etb.dev, "failed to create ETB sysfs kobject\n");
+	drvdata->kobj = kobject_create_and_add("etb", qdss_get_modulekobj());
+	if (!drvdata->kobj) {
+		dev_err(drvdata->dev, "failed to create ETB sysfs kobject\n");
 		ret = -ENOMEM;
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(etb.kobj, &dev_attr_trigger_cntr.attr);
+	ret = sysfs_create_file(drvdata->kobj, &dev_attr_trigger_cntr.attr);
 	if (ret) {
-		dev_err(etb.dev, "failed to create ETB sysfs trigger_cntr"
+		dev_err(drvdata->dev, "failed to create ETB sysfs trigger_cntr"
 		" attribute\n");
 		goto err_file;
 	}
 
 	return 0;
 err_file:
-	kobject_put(etb.kobj);
+	kobject_put(drvdata->kobj);
 err_create:
 	return ret;
 }
 
 static void etb_sysfs_exit(void)
 {
-	sysfs_remove_file(etb.kobj, &dev_attr_trigger_cntr.attr);
-	kobject_put(etb.kobj);
+	sysfs_remove_file(drvdata->kobj, &dev_attr_trigger_cntr.attr);
+	kobject_put(drvdata->kobj);
 }
 
 static int etb_probe(struct platform_device *pdev)
@@ -344,29 +344,35 @@ static int etb_probe(struct platform_device *pdev)
 	int ret;
 	struct resource *res;
 
+	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata) {
+		ret = -ENOMEM;
+		goto err_kzalloc_drvdata;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = -EINVAL;
 		goto err_res;
 	}
 
-	etb.base = ioremap_nocache(res->start, resource_size(res));
-	if (!etb.base) {
+	drvdata->base = ioremap_nocache(res->start, resource_size(res));
+	if (!drvdata->base) {
 		ret = -EINVAL;
 		goto err_ioremap;
 	}
 
-	etb.dev = &pdev->dev;
+	drvdata->dev = &pdev->dev;
 
-	spin_lock_init(&etb.spinlock);
+	spin_lock_init(&drvdata->spinlock);
 
-	etb.clk = clk_get(etb.dev, "core_clk");
-	if (IS_ERR(etb.clk)) {
-		ret = PTR_ERR(etb.clk);
+	drvdata->clk = clk_get(drvdata->dev, "core_clk");
+	if (IS_ERR(drvdata->clk)) {
+		ret = PTR_ERR(drvdata->clk);
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(etb.clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
 
@@ -374,39 +380,42 @@ static int etb_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_misc;
 
-	etb.buf = kzalloc(ETB_SIZE_WORDS * BYTES_PER_WORD, GFP_KERNEL);
-	if (!etb.buf) {
+	drvdata->buf = kzalloc(ETB_SIZE_WORDS * BYTES_PER_WORD, GFP_KERNEL);
+	if (!drvdata->buf) {
 		ret = -ENOMEM;
 		goto err_alloc;
 	}
 
 	etb_sysfs_init();
 
-	dev_info(etb.dev, "ETB initialized\n");
+	dev_info(drvdata->dev, "ETB initialized\n");
 	return 0;
 
 err_alloc:
 	misc_deregister(&etb_misc);
 err_misc:
 err_clk_rate:
-	clk_put(etb.clk);
+	clk_put(drvdata->clk);
 err_clk_get:
-	iounmap(etb.base);
+	iounmap(drvdata->base);
 err_ioremap:
 err_res:
-	dev_err(etb.dev, "ETB init failed\n");
+	kfree(drvdata);
+err_kzalloc_drvdata:
+	dev_err(drvdata->dev, "ETB init failed\n");
 	return ret;
 }
 
 static int etb_remove(struct platform_device *pdev)
 {
-	if (etb.enabled)
+	if (drvdata->enabled)
 		etb_disable();
 	etb_sysfs_exit();
-	kfree(etb.buf);
+	kfree(drvdata->buf);
 	misc_deregister(&etb_misc);
-	clk_put(etb.clk);
-	iounmap(etb.base);
+	clk_put(drvdata->clk);
+	iounmap(drvdata->base);
+	kfree(drvdata);
 
 	return 0;
 }

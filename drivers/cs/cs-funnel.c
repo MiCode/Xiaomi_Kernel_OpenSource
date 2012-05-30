@@ -18,15 +18,16 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/cs.h>
 
 #include "cs-priv.h"
 
-#define funnel_writel(funnel, id, val, off)	\
-			__raw_writel((val), funnel.base + (SZ_4K * id) + off)
-#define funnel_readl(funnel, id, off)		\
-			__raw_readl(funnel.base + (SZ_4K * id) + off)
+#define funnel_writel(drvdata, id, val, off)	\
+			__raw_writel((val), drvdata->base + (SZ_4K * id) + off)
+#define funnel_readl(drvdata, id, off)		\
+			__raw_readl(drvdata->base + (SZ_4K * id) + off)
 
 #define FUNNEL_FUNCTL			(0x000)
 #define FUNNEL_PRICTL			(0x004)
@@ -39,11 +40,11 @@
 #define FUNNEL_LOCK(id)							\
 do {									\
 	mb();								\
-	funnel_writel(funnel, id, 0x0, CS_LAR);				\
+	funnel_writel(drvdata, id, 0x0, CS_LAR);			\
 } while (0)
 #define FUNNEL_UNLOCK(id)						\
 do {									\
-	funnel_writel(funnel, id, CS_UNLOCK_MAGIC, CS_LAR);		\
+	funnel_writel(drvdata, id, CS_UNLOCK_MAGIC, CS_LAR);		\
 	mb();								\
 } while (0)
 
@@ -51,7 +52,7 @@ do {									\
 #define FUNNEL_HOLDTIME_SHFT		(0x8)
 #define FUNNEL_HOLDTIME			(0x7 << FUNNEL_HOLDTIME_SHFT)
 
-struct funnel_ctx {
+struct funnel_drvdata {
 	void __iomem	*base;
 	bool		enabled;
 	struct mutex	mutex;
@@ -61,7 +62,7 @@ struct funnel_ctx {
 	uint32_t	priority;
 };
 
-static struct funnel_ctx funnel;
+static struct funnel_drvdata *drvdata;
 
 static void __funnel_enable(uint8_t id, uint32_t port_mask)
 {
@@ -69,12 +70,12 @@ static void __funnel_enable(uint8_t id, uint32_t port_mask)
 
 	FUNNEL_UNLOCK(id);
 
-	functl = funnel_readl(funnel, id, FUNNEL_FUNCTL);
+	functl = funnel_readl(drvdata, id, FUNNEL_FUNCTL);
 	functl &= ~FUNNEL_HOLDTIME_MASK;
 	functl |= FUNNEL_HOLDTIME;
 	functl |= port_mask;
-	funnel_writel(funnel, id, functl, FUNNEL_FUNCTL);
-	funnel_writel(funnel, id, funnel.priority, FUNNEL_PRICTL);
+	funnel_writel(drvdata, id, functl, FUNNEL_FUNCTL);
+	funnel_writel(drvdata, id, drvdata->priority, FUNNEL_PRICTL);
 
 	FUNNEL_LOCK(id);
 }
@@ -83,16 +84,16 @@ int funnel_enable(uint8_t id, uint32_t port_mask)
 {
 	int ret;
 
-	ret = clk_prepare_enable(funnel.clk);
+	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
 
-	mutex_lock(&funnel.mutex);
+	mutex_lock(&drvdata->mutex);
 	__funnel_enable(id, port_mask);
-	funnel.enabled = true;
-	dev_info(funnel.dev, "FUNNEL port mask 0x%lx enabled\n",
+	drvdata->enabled = true;
+	dev_info(drvdata->dev, "FUNNEL port mask 0x%lx enabled\n",
 					(unsigned long) port_mask);
-	mutex_unlock(&funnel.mutex);
+	mutex_unlock(&drvdata->mutex);
 
 	return 0;
 }
@@ -103,29 +104,29 @@ static void __funnel_disable(uint8_t id, uint32_t port_mask)
 
 	FUNNEL_UNLOCK(id);
 
-	functl = funnel_readl(funnel, id, FUNNEL_FUNCTL);
+	functl = funnel_readl(drvdata, id, FUNNEL_FUNCTL);
 	functl &= ~port_mask;
-	funnel_writel(funnel, id, functl, FUNNEL_FUNCTL);
+	funnel_writel(drvdata, id, functl, FUNNEL_FUNCTL);
 
 	FUNNEL_LOCK(id);
 }
 
 void funnel_disable(uint8_t id, uint32_t port_mask)
 {
-	mutex_lock(&funnel.mutex);
+	mutex_lock(&drvdata->mutex);
 	__funnel_disable(id, port_mask);
-	funnel.enabled = false;
-	dev_info(funnel.dev, "FUNNEL port mask 0x%lx disabled\n",
+	drvdata->enabled = false;
+	dev_info(drvdata->dev, "FUNNEL port mask 0x%lx disabled\n",
 					(unsigned long) port_mask);
-	mutex_unlock(&funnel.mutex);
+	mutex_unlock(&drvdata->mutex);
 
-	clk_disable_unprepare(funnel.clk);
+	clk_disable_unprepare(drvdata->clk);
 }
 
 static ssize_t funnel_show_priority(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
-	unsigned long val = funnel.priority;
+	unsigned long val = drvdata->priority;
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
@@ -138,7 +139,7 @@ static ssize_t funnel_store_priority(struct device *dev,
 	if (sscanf(buf, "%lx", &val) != 1)
 		return -EINVAL;
 
-	funnel.priority = val;
+	drvdata->priority = val;
 	return size;
 }
 static DEVICE_ATTR(priority, S_IRUGO | S_IWUSR, funnel_show_priority,
@@ -148,31 +149,31 @@ static int funnel_sysfs_init(void)
 {
 	int ret;
 
-	funnel.kobj = kobject_create_and_add("funnel", qdss_get_modulekobj());
-	if (!funnel.kobj) {
-		dev_err(funnel.dev, "failed to create FUNNEL sysfs kobject\n");
+	drvdata->kobj = kobject_create_and_add("funnel", qdss_get_modulekobj());
+	if (!drvdata->kobj) {
+		dev_err(drvdata->dev, "failed to create FUNNEL sysfs kobject\n");
 		ret = -ENOMEM;
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(funnel.kobj, &dev_attr_priority.attr);
+	ret = sysfs_create_file(drvdata->kobj, &dev_attr_priority.attr);
 	if (ret) {
-		dev_err(funnel.dev, "failed to create FUNNEL sysfs priority"
+		dev_err(drvdata->dev, "failed to create FUNNEL sysfs priority"
 		" attribute\n");
 		goto err_file;
 	}
 
 	return 0;
 err_file:
-	kobject_put(funnel.kobj);
+	kobject_put(drvdata->kobj);
 err_create:
 	return ret;
 }
 
 static void funnel_sysfs_exit(void)
 {
-	sysfs_remove_file(funnel.kobj, &dev_attr_priority.attr);
-	kobject_put(funnel.kobj);
+	sysfs_remove_file(drvdata->kobj, &dev_attr_priority.attr);
+	kobject_put(drvdata->kobj);
 }
 
 static int funnel_probe(struct platform_device *pdev)
@@ -180,56 +181,65 @@ static int funnel_probe(struct platform_device *pdev)
 	int ret;
 	struct resource *res;
 
+	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata) {
+		ret = -ENOMEM;
+		goto err_kzalloc_drvdata;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = -EINVAL;
 		goto err_res;
 	}
 
-	funnel.base = ioremap_nocache(res->start, resource_size(res));
-	if (!funnel.base) {
+	drvdata->base = ioremap_nocache(res->start, resource_size(res));
+	if (!drvdata->base) {
 		ret = -EINVAL;
 		goto err_ioremap;
 	}
 
-	funnel.dev = &pdev->dev;
+	drvdata->dev = &pdev->dev;
 
-	mutex_init(&funnel.mutex);
+	mutex_init(&drvdata->mutex);
 
-	funnel.clk = clk_get(funnel.dev, "core_clk");
-	if (IS_ERR(funnel.clk)) {
-		ret = PTR_ERR(funnel.clk);
+	drvdata->clk = clk_get(drvdata->dev, "core_clk");
+	if (IS_ERR(drvdata->clk)) {
+		ret = PTR_ERR(drvdata->clk);
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(funnel.clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
 
 	funnel_sysfs_init();
 
-	dev_info(funnel.dev, "FUNNEL initialized\n");
+	dev_info(drvdata->dev, "FUNNEL initialized\n");
 	return 0;
 
 err_clk_rate:
-	clk_put(funnel.clk);
+	clk_put(drvdata->clk);
 err_clk_get:
-	mutex_destroy(&funnel.mutex);
-	iounmap(funnel.base);
+	mutex_destroy(&drvdata->mutex);
+	iounmap(drvdata->base);
 err_ioremap:
 err_res:
-	dev_err(funnel.dev, "FUNNEL init failed\n");
+	kfree(drvdata);
+err_kzalloc_drvdata:
+	dev_err(drvdata->dev, "FUNNEL init failed\n");
 	return ret;
 }
 
 static int funnel_remove(struct platform_device *pdev)
 {
-	if (funnel.enabled)
+	if (drvdata->enabled)
 		funnel_disable(0x0, 0xFF);
 	funnel_sysfs_exit();
-	clk_put(funnel.clk);
-	mutex_destroy(&funnel.mutex);
-	iounmap(funnel.base);
+	clk_put(drvdata->clk);
+	mutex_destroy(&drvdata->mutex);
+	iounmap(drvdata->base);
+	kfree(drvdata);
 
 	return 0;
 }

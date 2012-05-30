@@ -29,10 +29,10 @@
 
 #include "cs-priv.h"
 
-#define stm_writel(stm, val, off)	\
-			__raw_writel((val), stm.base + off)
-#define stm_readl(stm, val, off)	\
-			__raw_readl(stm.base + off)
+#define stm_writel(drvdata, val, off)	\
+			__raw_writel((val), drvdata->base + off)
+#define stm_readl(drvdata, val, off)	\
+			__raw_readl(drvdata->base + off)
 
 #define NR_STM_CHANNEL		(32)
 #define BYTES_PER_CHANNEL	(256)
@@ -53,17 +53,17 @@ enum {
 #define OST_VERSION		(0x1)
 
 #define stm_channel_addr(ch)						\
-				(stm.chs.base + (ch * BYTES_PER_CHANNEL))
+				(drvdata->chs.base + (ch * BYTES_PER_CHANNEL))
 #define stm_channel_off(type, opts)	(type & ~opts)
 
 #define STM_LOCK()							\
 do {									\
 	mb();								\
-	stm_writel(stm, 0x0, CS_LAR);					\
+	stm_writel(drvdata, 0x0, CS_LAR);				\
 } while (0)
 #define STM_UNLOCK()							\
 do {									\
-	stm_writel(stm, CS_UNLOCK_MAGIC, CS_LAR);			\
+	stm_writel(drvdata, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 
@@ -93,7 +93,7 @@ struct channel_space {
 	unsigned long		*bitmap;
 };
 
-struct stm_ctx {
+struct stm_drvdata {
 	void __iomem		*base;
 	bool			enabled;
 	struct qdss_source	*src;
@@ -104,19 +104,16 @@ struct stm_ctx {
 	struct channel_space	chs;
 };
 
-static struct stm_ctx stm = {
-	.entity		= OST_ENTITY_ALL,
-};
-
+static struct stm_drvdata *drvdata;
 
 static void __stm_enable(void)
 {
 	STM_UNLOCK();
 
-	stm_writel(stm, 0x80, STMSYNCR);
-	stm_writel(stm, 0xFFFFFFFF, STMSPTER);
-	stm_writel(stm, 0xFFFFFFFF, STMSPER);
-	stm_writel(stm, 0x30003, STMTCSR);
+	stm_writel(drvdata, 0x80, STMSYNCR);
+	stm_writel(drvdata, 0xFFFFFFFF, STMSPTER);
+	stm_writel(drvdata, 0xFFFFFFFF, STMSPER);
+	stm_writel(drvdata, 0x30003, STMTCSR);
 
 	STM_LOCK();
 }
@@ -125,29 +122,29 @@ static int stm_enable(void)
 {
 	int ret;
 
-	if (stm.enabled) {
-		dev_err(stm.dev, "STM tracing already enabled\n");
+	if (drvdata->enabled) {
+		dev_err(drvdata->dev, "STM tracing already enabled\n");
 		ret = -EINVAL;
 		goto err;
 	}
 
-	ret = clk_prepare_enable(stm.clk);
+	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		goto err_clk;
 
-	ret = qdss_enable(stm.src);
+	ret = qdss_enable(drvdata->src);
 	if (ret)
 		goto err_qdss;
 
 	__stm_enable();
 
-	stm.enabled = true;
+	drvdata->enabled = true;
 
-	dev_info(stm.dev, "STM tracing enabled\n");
+	dev_info(drvdata->dev, "STM tracing enabled\n");
 	return 0;
 
 err_qdss:
-	clk_disable_unprepare(stm.clk);
+	clk_disable_unprepare(drvdata->clk);
 err_clk:
 err:
 	return ret;
@@ -157,9 +154,9 @@ static void __stm_disable(void)
 {
 	STM_UNLOCK();
 
-	stm_writel(stm, 0x30000, STMTCSR);
-	stm_writel(stm, 0x0, STMSPER);
-	stm_writel(stm, 0x0, STMSPTER);
+	stm_writel(drvdata, 0x30000, STMTCSR);
+	stm_writel(drvdata, 0x0, STMSPER);
+	stm_writel(drvdata, 0x0, STMSPTER);
 
 	STM_LOCK();
 }
@@ -168,21 +165,21 @@ static int stm_disable(void)
 {
 	int ret;
 
-	if (!stm.enabled) {
-		dev_err(stm.dev, "STM tracing already disabled\n");
+	if (!drvdata->enabled) {
+		dev_err(drvdata->dev, "STM tracing already disabled\n");
 		ret = -EINVAL;
 		goto err;
 	}
 
 	__stm_disable();
 
-	stm.enabled = false;
+	drvdata->enabled = false;
 
-	qdss_disable(stm.src);
+	qdss_disable(drvdata->src);
 
-	clk_disable_unprepare(stm.clk);
+	clk_disable_unprepare(drvdata->clk);
 
-	dev_info(stm.dev, "STM tracing disabled\n");
+	dev_info(drvdata->dev, "STM tracing disabled\n");
 	return 0;
 
 err:
@@ -194,15 +191,17 @@ static uint32_t stm_channel_alloc(uint32_t off)
 	uint32_t ch;
 
 	do {
-		ch = find_next_zero_bit(stm.chs.bitmap,	NR_STM_CHANNEL, off);
-	} while ((ch < NR_STM_CHANNEL) && test_and_set_bit(ch, stm.chs.bitmap));
+		ch = find_next_zero_bit(drvdata->chs.bitmap,
+					NR_STM_CHANNEL, off);
+	} while ((ch < NR_STM_CHANNEL) &&
+		 test_and_set_bit(ch, drvdata->chs.bitmap));
 
 	return ch;
 }
 
 static void stm_channel_free(uint32_t ch)
 {
-	clear_bit(ch, stm.chs.bitmap);
+	clear_bit(ch, drvdata->chs.bitmap);
 }
 
 static int stm_send(void *addr, const void *data, uint32_t size)
@@ -346,7 +345,7 @@ int stm_trace(uint32_t options, uint8_t entity_id, uint8_t proto_id,
 	      const void *data, uint32_t size)
 {
 	/* we don't support sizes more than 24bits (0 to 23) */
-	if (!(stm.enabled && (stm.entity & entity_id) &&
+	if (!(drvdata->enabled && (drvdata->entity & entity_id) &&
 	      (size < 0x1000000)))
 		return 0;
 
@@ -359,10 +358,10 @@ static ssize_t stm_write(struct file *file, const char __user *data,
 {
 	char *buf;
 
-	if (!stm.enabled)
+	if (!drvdata->enabled)
 		return -EINVAL;
 
-	if (!(stm.entity & OST_ENTITY_DEV_NODE))
+	if (!(drvdata->entity & OST_ENTITY_DEV_NODE))
 		return size;
 
 	if (size > STM_TRACE_BUF_SIZE)
@@ -374,7 +373,7 @@ static ssize_t stm_write(struct file *file, const char __user *data,
 
 	if (copy_from_user(buf, data, size)) {
 		kfree(buf);
-		dev_dbg(stm.dev, "%s: copy_from_user failed\n", __func__);
+		dev_dbg(drvdata->dev, "%s: copy_from_user failed\n", __func__);
 		return -EFAULT;
 	}
 
@@ -400,7 +399,7 @@ static struct miscdevice stm_misc = {
 static ssize_t stm_show_enabled(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	unsigned long val = stm.enabled;
+	unsigned long val = drvdata->enabled;
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
@@ -429,7 +428,7 @@ static DEVICE_ATTR(enabled, S_IRUGO | S_IWUSR, stm_show_enabled,
 static ssize_t stm_show_entity(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
-	unsigned long val = stm.entity;
+	unsigned long val = drvdata->entity;
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
@@ -442,7 +441,7 @@ static ssize_t stm_store_entity(struct device *dev,
 	if (sscanf(buf, "%lx", &val) != 1)
 		return -EINVAL;
 
-	stm.entity = val;
+	drvdata->entity = val;
 	return size;
 }
 static DEVICE_ATTR(entity, S_IRUGO | S_IWUSR, stm_show_entity,
@@ -452,34 +451,34 @@ static int stm_sysfs_init(void)
 {
 	int ret;
 
-	stm.kobj = kobject_create_and_add("stm", qdss_get_modulekobj());
-	if (!stm.kobj) {
-		dev_err(stm.dev, "failed to create STM sysfs kobject\n");
+	drvdata->kobj = kobject_create_and_add("stm", qdss_get_modulekobj());
+	if (!drvdata->kobj) {
+		dev_err(drvdata->dev, "failed to create STM sysfs kobject\n");
 		ret = -ENOMEM;
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(stm.kobj, &dev_attr_enabled.attr);
+	ret = sysfs_create_file(drvdata->kobj, &dev_attr_enabled.attr);
 	if (ret) {
-		dev_err(stm.dev, "failed to create STM sysfs enabled attr\n");
+		dev_err(drvdata->dev, "failed to create STM sysfs enabled attr\n");
 		goto err_file;
 	}
 
-	if (sysfs_create_file(stm.kobj, &dev_attr_entity.attr))
-		dev_err(stm.dev, "failed to create STM sysfs entity attr\n");
+	if (sysfs_create_file(drvdata->kobj, &dev_attr_entity.attr))
+		dev_err(drvdata->dev, "failed to create STM sysfs entity attr\n");
 
 	return 0;
 err_file:
-	kobject_put(stm.kobj);
+	kobject_put(drvdata->kobj);
 err_create:
 	return ret;
 }
 
 static void stm_sysfs_exit(void)
 {
-	sysfs_remove_file(stm.kobj, &dev_attr_entity.attr);
-	sysfs_remove_file(stm.kobj, &dev_attr_enabled.attr);
-	kobject_put(stm.kobj);
+	sysfs_remove_file(drvdata->kobj, &dev_attr_entity.attr);
+	sysfs_remove_file(drvdata->kobj, &dev_attr_enabled.attr);
+	kobject_put(drvdata->kobj);
 }
 
 static int stm_probe(struct platform_device *pdev)
@@ -488,14 +487,20 @@ static int stm_probe(struct platform_device *pdev)
 	struct resource *res;
 	size_t res_size, bitmap_size;
 
+	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata) {
+		ret = -ENOMEM;
+		goto err_kzalloc_drvdata;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = -EINVAL;
 		goto err_res0;
 	}
 
-	stm.base = ioremap_nocache(res->start, resource_size(res));
-	if (!stm.base) {
+	drvdata->base = ioremap_nocache(res->start, resource_size(res));
+	if (!drvdata->base) {
 		ret = -EINVAL;
 		goto err_ioremap0;
 	}
@@ -516,39 +521,41 @@ static int stm_probe(struct platform_device *pdev)
 		bitmap_size = NR_STM_CHANNEL * sizeof(long);
 	}
 
-	stm.chs.bitmap = kzalloc(bitmap_size, GFP_KERNEL);
-	if (!stm.chs.bitmap) {
+	drvdata->chs.bitmap = kzalloc(bitmap_size, GFP_KERNEL);
+	if (!drvdata->chs.bitmap) {
 		ret = -ENOMEM;
 		goto err_bitmap;
 	}
 
-	stm.chs.base = ioremap_nocache(res->start, res_size);
-	if (!stm.chs.base) {
+	drvdata->chs.base = ioremap_nocache(res->start, res_size);
+	if (!drvdata->chs.base) {
 		ret = -EINVAL;
 		goto err_ioremap1;
 	}
 
-	stm.dev = &pdev->dev;
+	drvdata->dev = &pdev->dev;
 
 	ret = misc_register(&stm_misc);
 	if (ret)
 		goto err_misc;
 
-	stm.src = qdss_get("msm_stm");
-	if (IS_ERR(stm.src)) {
-		ret = PTR_ERR(stm.src);
+	drvdata->src = qdss_get("msm_stm");
+	if (IS_ERR(drvdata->src)) {
+		ret = PTR_ERR(drvdata->src);
 		goto err_qdssget;
 	}
 
-	stm.clk = clk_get(stm.dev, "core_clk");
-	if (IS_ERR(stm.clk)) {
-		ret = PTR_ERR(stm.clk);
+	drvdata->clk = clk_get(drvdata->dev, "core_clk");
+	if (IS_ERR(drvdata->clk)) {
+		ret = PTR_ERR(drvdata->clk);
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(stm.clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
+
+	drvdata->entity = OST_ENTITY_ALL;
 
 	ret = stm_sysfs_init();
 	if (ret)
@@ -557,40 +564,44 @@ static int stm_probe(struct platform_device *pdev)
 	if (stm_boot_enable)
 		stm_enable();
 
-	dev_info(stm.dev, "STM initialized\n");
+	dev_info(drvdata->dev, "STM initialized\n");
 	return 0;
 
 err_sysfs:
 err_clk_rate:
-	clk_put(stm.clk);
+	clk_put(drvdata->clk);
 err_clk_get:
-	qdss_put(stm.src);
+	qdss_put(drvdata->src);
 err_qdssget:
 	misc_deregister(&stm_misc);
 err_misc:
-	iounmap(stm.chs.base);
+	iounmap(drvdata->chs.base);
 err_ioremap1:
-	kfree(stm.chs.bitmap);
+	kfree(drvdata->chs.bitmap);
 err_bitmap:
 err_res1:
-	iounmap(stm.base);
+	iounmap(drvdata->base);
 err_ioremap0:
 err_res0:
-	dev_err(stm.dev, "STM init failed\n");
+	kfree(drvdata);
+err_kzalloc_drvdata:
+
+	dev_err(drvdata->dev, "STM init failed\n");
 	return ret;
 }
 
 static int stm_remove(struct platform_device *pdev)
 {
-	if (stm.enabled)
+	if (drvdata->enabled)
 		stm_disable();
 	stm_sysfs_exit();
-	clk_put(stm.clk);
-	qdss_put(stm.src);
+	clk_put(drvdata->clk);
+	qdss_put(drvdata->src);
 	misc_deregister(&stm_misc);
-	iounmap(stm.chs.base);
-	kfree(stm.chs.bitmap);
-	iounmap(stm.base);
+	iounmap(drvdata->chs.base);
+	kfree(drvdata->chs.bitmap);
+	iounmap(drvdata->base);
+	kfree(drvdata);
 
 	return 0;
 }

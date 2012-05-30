@@ -17,13 +17,14 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/cs.h>
 
 #include "cs-priv.h"
 
-#define tpiu_writel(tpiu, val, off)	__raw_writel((val), tpiu.base + off)
-#define tpiu_readl(tpiu, off)		__raw_readl(tpiu.base + off)
+#define tpiu_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
+#define tpiu_readl(drvdata, off)	__raw_readl(drvdata->base + off)
 
 #define TPIU_SUPP_PORTSZ				(0x000)
 #define TPIU_CURR_PORTSZ				(0x004)
@@ -49,29 +50,29 @@
 #define TPIU_LOCK()							\
 do {									\
 	mb();								\
-	tpiu_writel(tpiu, 0x0, CS_LAR);					\
+	tpiu_writel(drvdata, 0x0, CS_LAR);				\
 } while (0)
 #define TPIU_UNLOCK()							\
 do {									\
-	tpiu_writel(tpiu, CS_UNLOCK_MAGIC, CS_LAR);			\
+	tpiu_writel(drvdata, CS_UNLOCK_MAGIC, CS_LAR);			\
 	mb();								\
 } while (0)
 
-struct tpiu_ctx {
+struct tpiu_drvdata {
 	void __iomem	*base;
 	bool		enabled;
 	struct device	*dev;
 	struct clk	*clk;
 };
 
-static struct tpiu_ctx tpiu;
+static struct tpiu_drvdata *drvdata;
 
 static void __tpiu_disable(void)
 {
 	TPIU_UNLOCK();
 
-	tpiu_writel(tpiu, 0x3000, TPIU_FFCR);
-	tpiu_writel(tpiu, 0x3040, TPIU_FFCR);
+	tpiu_writel(drvdata, 0x3000, TPIU_FFCR);
+	tpiu_writel(drvdata, 0x3040, TPIU_FFCR);
 
 	TPIU_LOCK();
 }
@@ -79,8 +80,8 @@ static void __tpiu_disable(void)
 void tpiu_disable(void)
 {
 	__tpiu_disable();
-	tpiu.enabled = false;
-	dev_info(tpiu.dev, "TPIU disabled\n");
+	drvdata->enabled = false;
+	dev_info(drvdata->dev, "TPIU disabled\n");
 }
 
 static int tpiu_probe(struct platform_device *pdev)
@@ -88,49 +89,58 @@ static int tpiu_probe(struct platform_device *pdev)
 	int ret;
 	struct resource *res;
 
+	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata) {
+		ret = -ENOMEM;
+		goto err_kzalloc_drvdata;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = -EINVAL;
 		goto err_res;
 	}
 
-	tpiu.base = ioremap_nocache(res->start, resource_size(res));
-	if (!tpiu.base) {
+	drvdata->base = ioremap_nocache(res->start, resource_size(res));
+	if (!drvdata->base) {
 		ret = -EINVAL;
 		goto err_ioremap;
 	}
 
-	tpiu.dev = &pdev->dev;
+	drvdata->dev = &pdev->dev;
 
-	tpiu.clk = clk_get(tpiu.dev, "core_clk");
-	if (IS_ERR(tpiu.clk)) {
-		ret = PTR_ERR(tpiu.clk);
+	drvdata->clk = clk_get(drvdata->dev, "core_clk");
+	if (IS_ERR(drvdata->clk)) {
+		ret = PTR_ERR(drvdata->clk);
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(tpiu.clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
 
-	dev_info(tpiu.dev, "TPIU initialized\n");
+	dev_info(drvdata->dev, "TPIU initialized\n");
 	return 0;
 
 err_clk_rate:
-	clk_put(tpiu.clk);
+	clk_put(drvdata->clk);
 err_clk_get:
-	iounmap(tpiu.base);
+	iounmap(drvdata->base);
 err_ioremap:
 err_res:
-	dev_err(tpiu.dev, "TPIU init failed\n");
+	kfree(drvdata);
+err_kzalloc_drvdata:
+	dev_err(drvdata->dev, "TPIU init failed\n");
 	return ret;
 }
 
 static int tpiu_remove(struct platform_device *pdev)
 {
-	if (tpiu.enabled)
+	if (drvdata->enabled)
 		tpiu_disable();
-	clk_put(tpiu.clk);
-	iounmap(tpiu.base);
+	clk_put(drvdata->clk);
+	iounmap(drvdata->base);
+	kfree(drvdata);
 
 	return 0;
 }
