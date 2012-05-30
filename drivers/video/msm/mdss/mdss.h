@@ -23,13 +23,20 @@
 
 extern unsigned char *mdss_reg_base;
 
+enum mdss_mdp_clk_type {
+	MDSS_CLK_AHB,
+	MDSS_CLK_AXI,
+	MDSS_CLK_MDP_SRC,
+	MDSS_CLK_MDP_CORE,
+	MDSS_CLK_MDP_LUT,
+	MDSS_CLK_MDP_VSYNC,
+	MDSS_MAX_CLK
+};
+
 struct mdss_res_type {
 	u32 rev;
 	u32 mdp_rev;
-	struct clk *mdp_clk;
-	struct clk *mdp_pclk;
-	struct clk *mdp_lut_clk;
-	struct clk *vsync_clk;
+	struct clk *mdp_clk[MDSS_MAX_CLK];
 	struct regulator *fs;
 
 	struct workqueue_struct *clk_ctrl_wq;
