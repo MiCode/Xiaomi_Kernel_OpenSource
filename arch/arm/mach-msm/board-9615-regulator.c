@@ -117,6 +117,8 @@ VREG_CONSUMERS(EXT_2P95V) = {
 	REGULATOR_SUPPLY("ext_2p95v",		NULL),
 	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.1"),
 };
+VREG_CONSUMERS(VDD_DIG_CORNER) = {
+};
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
 			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
@@ -262,6 +264,16 @@ VREG_CONSUMERS(EXT_2P95V) = {
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, 0)
 
+#define RPM_CORNER(_id, _always_on, _sleep_selectable, _min_uV, _max_uV, \
+		_supply_regulator) \
+	RPM_INIT(_id, _min_uV, _max_uV, 0, REGULATOR_CHANGE_VOLTAGE \
+		 | REGULATOR_CHANGE_STATUS, 0, _max_uV, 0, 0, 0, \
+		 RPM_VREG_PIN_CTRL_NONE, NONE, RPM_VREG_PIN_FN_9615_NONE, \
+		 RPM_VREG_FORCE_MODE_9615_NONE, \
+		 RPM_VREG_FORCE_MODE_9615_NONE, RPM_VREG_POWER_MODE_9615_PWM, \
+		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
+		 _supply_regulator, 0)
+
 /* Pin control initialization */
 #define RPM_PC_INIT(_id, _always_on, _pin_fn, _pin_ctrl, _supply_regulator) \
 	{ \
@@ -331,6 +343,10 @@ msm_rpm_regulator_init_data[] = {
 
 	/*	ID    a_on pd ss		    supply */
 	RPM_VS(LVS1,    0, 1, 0,		    "8018_s3"),
+
+	/*	   ID            a_on ss min_corner  max_corner  supply */
+	RPM_CORNER(VDD_DIG_CORNER, 0, 1, RPM_VREG_CORNER_NONE,
+		RPM_VREG_CORNER_HIGH, NULL),
 };
 
 int msm_pm8018_regulator_pdata_len =
@@ -342,5 +358,5 @@ msm_rpm_regulator_9615_pdata = {
 	.num_regulators		= ARRAY_SIZE(msm_rpm_regulator_init_data),
 	.version		= RPM_VREG_VERSION_9615,
 	.vreg_id_vdd_mem	= RPM_VREG_ID_PM8018_L9,
-	.vreg_id_vdd_dig	= RPM_VREG_ID_PM8018_S1,
+	.vreg_id_vdd_dig	= RPM_VREG_ID_PM8018_VDD_DIG_CORNER,
 };
