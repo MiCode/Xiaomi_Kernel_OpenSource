@@ -150,6 +150,7 @@ static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
 };
 
 static struct dwc3_msm *context;
+static u64 dwc3_msm_dma_mask = DMA_BIT_MASK(64);
 
 /**
  *
@@ -1115,10 +1116,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_hs_ldo;
 	}
 
-	dma_set_coherent_mask(&dwc3->dev, pdev->dev.coherent_dma_mask);
-
 	dwc3->dev.parent = &pdev->dev;
-	dwc3->dev.dma_mask = pdev->dev.dma_mask;
+	dwc3->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	dwc3->dev.dma_mask = &dwc3_msm_dma_mask;
 	dwc3->dev.dma_parms = pdev->dev.dma_parms;
 	msm->resource_size = resource_size(res);
 	msm->dwc3 = dwc3;
