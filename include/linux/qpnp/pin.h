@@ -10,17 +10,25 @@
  * GNU General Public License for more details.
  */
 
-#define QPNP_PIN_DIR_IN				0
-#define QPNP_PIN_DIR_OUT			1
-#define QPNP_PIN_DIR_BOTH			2
+/* Mode select */
+#define QPNP_PIN_MODE_DIG_IN			0
+#define QPNP_PIN_MODE_DIG_OUT			1
+#define QPNP_PIN_MODE_DIG_IN_OUT		2
+#define QPNP_PIN_MODE_BIDIR			3
+#define QPNP_PIN_MODE_AIN			4
+#define QPNP_PIN_MODE_AOUT			5
+#define QPNP_PIN_MODE_SINK			6
 
+/* Invert source select (GPIO, MPP) */
 #define QPNP_PIN_INVERT_DISABLE			0
 #define QPNP_PIN_INVERT_ENABLE			1
 
+/* Output type (GPIO) */
 #define QPNP_PIN_OUT_BUF_CMOS			0
 #define QPNP_PIN_OUT_BUF_OPEN_DRAIN_NMOS	1
 #define QPNP_PIN_OUT_BUF_OPEN_DRAIN_PMOS	2
 
+/* Voltage select (GPIO, MPP) */
 #define QPNP_PIN_VIN0				0
 #define QPNP_PIN_VIN1				1
 #define QPNP_PIN_VIN2				2
@@ -30,66 +38,132 @@
 #define QPNP_PIN_VIN6				6
 #define QPNP_PIN_VIN7				7
 
-#define QPNP_PIN_PULL_UP_30			0
-#define QPNP_PIN_PULL_UP_1P5			1
-#define QPNP_PIN_PULL_UP_31P5			2
-#define QPNP_PIN_PULL_UP_1P5_30			3
-#define QPNP_PIN_PULL_DN			4
-#define QPNP_PIN_PULL_NO			5
+/* Pull Up Values (GPIO) */
+#define QPNP_PIN_GPIO_PULL_UP_30		0
+#define QPNP_PIN_GPIO_PULL_UP_1P5		1
+#define QPNP_PIN_GPIO_PULL_UP_31P5		2
+#define QPNP_PIN_GPIO_PULL_UP_1P5_30		3
+#define QPNP_PIN_GPIO_PULL_DN			4
+#define QPNP_PIN_GPIO_PULL_NO			5
 
+/* Pull Up Values (MPP) */
+#define QPNP_PIN_MPP_PULL_UP_0P6KOHM		0
+#define QPNP_PIN_MPP_PULL_UP_OPEN		1
+#define QPNP_PIN_MPP_PULL_UP_10KOHM		2
+#define QPNP_PIN_MPP_PULL_UP_30KOHM		3
+
+/* Out Strength (GPIO) */
 #define QPNP_PIN_OUT_STRENGTH_LOW		1
 #define QPNP_PIN_OUT_STRENGTH_MED		2
 #define QPNP_PIN_OUT_STRENGTH_HIGH		3
 
-#define QPNP_PIN_SRC_FUNC_NORMAL		0
-#define QPNP_PIN_SRC_FUNC_PAIRED		1
-#define QPNP_PIN_SRC_FUNC_1			2
-#define QPNP_PIN_SRC_FUNC_2			3
-#define QPNP_PIN_SRC_DTEST1			4
-#define QPNP_PIN_SRC_DTEST2			5
-#define QPNP_PIN_SRC_DTEST3			6
-#define QPNP_PIN_SRC_DTEST4			7
+/* Source Select (GPIO) / Enable Select (MPP) */
+#define QPNP_PIN_SEL_FUNC_CONSTANT		0
+#define QPNP_PIN_SEL_FUNC_PAIRED		1
+#define QPNP_PIN_SEL_FUNC_1			2
+#define QPNP_PIN_SEL_FUNC_2			3
+#define QPNP_PIN_SEL_DTEST1			4
+#define QPNP_PIN_SEL_DTEST2			5
+#define QPNP_PIN_SEL_DTEST3			6
+#define QPNP_PIN_SEL_DTEST4			7
 
+/* Master enable (GPIO, MPP) */
 #define QPNP_PIN_MASTER_DISABLE			0
 #define QPNP_PIN_MASTER_ENABLE			1
 
+/* Analog Output (MPP) */
+#define QPNP_PIN_AOUT_1V25			0
+#define QPNP_PIN_AOUT_0V625			1
+#define QPNP_PIN_AOUT_0V3125			2
+#define QPNP_PIN_AOUT_MPP			3
+#define QPNP_PIN_AOUT_ABUS1			4
+#define QPNP_PIN_AOUT_ABUS2			5
+#define QPNP_PIN_AOUT_ABUS3			6
+#define QPNP_PIN_AOUT_ABUS4			7
+
+/* Analog Input (MPP) */
+#define QPNP_PIN_AIN_AMUX_CH5			0
+#define QPNP_PIN_AIN_AMUX_CH6			1
+#define QPNP_PIN_AIN_AMUX_CH7			2
+#define QPNP_PIN_AIN_AMUX_CH8			3
+#define QPNP_PIN_AIN_AMUX_ABUS1			4
+#define QPNP_PIN_AIN_AMUX_ABUS2			5
+#define QPNP_PIN_AIN_AMUX_ABUS3			6
+#define QPNP_PIN_AIN_AMUX_ABUS4			7
+
+/* Current Sink (MPP) */
+#define QPNP_PIN_CS_OUT_5MA			0
+#define QPNP_PIN_CS_OUT_10MA			1
+#define QPNP_PIN_CS_OUT_15MA			2
+#define QPNP_PIN_CS_OUT_20MA			3
+#define QPNP_PIN_CS_OUT_25MA			4
+#define QPNP_PIN_CS_OUT_30MA			5
+#define QPNP_PIN_CS_OUT_35MA			6
+#define QPNP_PIN_CS_OUT_40MA			7
+
 /**
  * struct qpnp_pin_cfg - structure to specify pin configurtion values
- * @direction:		indicates whether the pin should be input, output, or
- *			both. Should be of the type QPNP_PIN_DIR_*
+ * @mode:		indicates whether the pin should be input, output, or
+ *			both for gpios. mpp pins also support bidirectional,
+ *			analog in, analog out and current sink. This value
+ *			should be of type QPNP_PIN_MODE_*.
  * @output_type:	indicates pin should be configured as CMOS or open
- *			drain. Should be of the type QPNP_PIN_OUT_BUF_*
+ *			drain. Should be of the type QPNP_PIN_OUT_BUF_*. This
+ *			setting applies for gpios only.
  * @invert:		Invert the signal of the line -
- *			QPNP_PIN_INVERT_DISABLE or QPNP_PIN_INVERT_ENABLE
- * @pull:		Indicates whether a pull up or pull down should be
- *			applied. If a pullup is required the current strength
- *			needs to be specified. Current values of 30uA, 1.5uA,
- *			31.5uA, 1.5uA with 30uA boost are supported. This value
- *			should be one of the QPNP_PIN_PULL_*
+ *			QPNP_PIN_INVERT_DISABLE or QPNP_PIN_INVERT_ENABLE.
+ * @pull:		This parameter should be programmed to different values
+ *			depending on whether it's GPIO or MPP.
+ *			For GPIO, it indicates whether a pull up or pull down
+ *			should be applied. If a pullup is required the
+ *			current strength needs to be specified.
+ *			Current values of 30uA, 1.5uA, 31.5uA, 1.5uA with 30uA
+ *			boost are supported. This value should be one of
+ *			the QPNP_PIN_GPIO_PULL_*. Note that the hardware ignores
+ *			this configuration if the GPIO is not set to input or
+ *			output open-drain mode.
+ *			For MPP, it indicates whether a pullup should be
+ *			applied for bidirectitional mode only. The hardware
+ *			ignores the configuration when operating in other modes.
+ *			This value should be one of the QPNP_PIN_MPP_PULL_*.
  * @vin_sel:		specifies the voltage level when the output is set to 1.
  *			For an input gpio specifies the voltage level at which
  *			the input is interpreted as a logical 1.
  * @out_strength:	the amount of current supplied for an output gpio,
- *			should be of the type QPNP_PIN_STRENGTH_*
- * @source_sel:		choose alternate function for the gpio. Certain gpios
- *			can be paired (shorted) with each other. Some gpio pin
- *			can act as alternate functions. This parameter should
- *			be of type QPNP_PIN_SRC_*.
+ *			should be of the type QPNP_PIN_STRENGTH_*.
+ * @select:		select alternate function for the pin. Certain pins
+ *			can be paired (shorted) with each other. Some pins
+ *			can act as alternate functions. In the context of
+ *			gpio, this acts as a source select. For mpps,
+ *			this is an enable select.
+ *			This parameter should be of type QPNP_PIN_SEL_*.
  * @master_en:		QPNP_PIN_MASTER_ENABLE = Enable features within the
  *			pin block based on configurations.
  *			QPNP_PIN_MASTER_DISABLE = Completely disable the pin
  *			block and let the pin float with high impedance
  *			regardless of other settings.
+ * @aout_ref:		Set the analog output reference. This parameter should
+ *			be of type QPNP_PIN_AOUT_*. This parameter only applies
+ *			to mpp pins.
+ * @ain_route:		Set the source for analog input. This parameter
+ *			should be of type QPNP_PIN_AIN_*. This parameter only
+ *			applies to mpp pins.
+ * @cs_out:		Set the the amount of current to sync in mA. This
+ *			parameter should be of type QPNP_PIN_CS_OUT_*. This
+ *			parameter only applies to mpp pins.
  */
 struct qpnp_pin_cfg {
-	unsigned int direction;
-	unsigned int output_type;
-	unsigned int invert;
-	unsigned int pull;
-	unsigned int vin_sel;
-	unsigned int out_strength;
-	unsigned int src_select;
-	unsigned int master_en;
+	int mode;
+	int output_type;
+	int invert;
+	int pull;
+	int vin_sel;
+	int out_strength;
+	int select;
+	int master_en;
+	int aout_ref;
+	int ain_route;
+	int cs_out;
 };
 
 /**
