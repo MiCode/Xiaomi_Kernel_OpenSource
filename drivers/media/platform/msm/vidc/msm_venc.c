@@ -477,7 +477,14 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		rc = vidc_hal_session_set_property((void *)inst->session,
 				HAL_PARAM_FRAME_SIZE, &frame_sz);
 		if (rc) {
-			pr_err("Failed to set hal property for framesize\n");
+			pr_err("Failed to set framesize for Output port\n");
+			break;
+		}
+		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+		rc = vidc_hal_session_set_property((void *)inst->session,
+				HAL_PARAM_FRAME_SIZE, &frame_sz);
+		if (rc) {
+			pr_err("Failed to set framesize for Capture port\n");
 			break;
 		}
 		rc = msm_comm_try_get_bufreqs(inst);
@@ -743,6 +750,8 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 		venc_profile_level.profile = control.value;
 		profile_level.level = venc_profile_level.level;
 		pdata = &profile_level;
+		pr_debug("\nprofile: %d\n",
+			   profile_level.profile);
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		property_id =
@@ -804,6 +813,8 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 		venc_profile_level.level = control.value;
 		profile_level.profile = venc_profile_level.profile;
 		pdata = &profile_level;
+		pr_debug("\nLevel: %d\n",
+			   profile_level.level);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
 		property_id =
@@ -895,7 +906,7 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA:
 		property_id =
 			HAL_PARAM_VENC_H264_DEBLOCK_CONTROL;
-		h264_db_control.slicebeta_offset = control.value;
+		h264_db_control.slice_beta_offset = control.value;
 		pdata = &h264_db_control;
 	default:
 		break;
@@ -1164,7 +1175,7 @@ int msm_venc_dqbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 	}
 	rc = vb2_dqbuf(q, b, true);
 	if (rc)
-		pr_err("Failed to qbuf, %d\n", rc);
+		pr_err("Failed to dqbuf, %d\n", rc);
 	return rc;
 }
 

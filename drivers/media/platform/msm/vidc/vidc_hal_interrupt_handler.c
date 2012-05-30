@@ -15,7 +15,7 @@
 #include <linux/list.h>
 #include "vidc_hal.h"
 
-static enum vidc_status vidc_map_hal_err_status(enum HFI_ERROR hfi_err)
+static enum vidc_status vidc_map_hal_err_status(int hfi_err)
 {
 	enum vidc_status vidc_err;
 	switch (hfi_err) {
@@ -64,8 +64,6 @@ static enum vidc_status vidc_map_hal_err_status(enum HFI_ERROR hfi_err)
 	case HFI_ERR_SESSION_SYNC_FRAME_NOT_DETECTED:
 		vidc_err = VIDC_ERR_IFRAME_EXPECTED;
 		break;
-	case HFI_ERR_SYS_UNKNOWN:
-	case HFI_ERR_SESSION_UNKNOWN:
 	case HFI_ERR_SESSION_EMPTY_BUFFER_DONE_OUTPUT_PENDING:
 	default:
 		vidc_err = VIDC_ERR_FAIL;
@@ -82,7 +80,7 @@ void hal_process_sess_evt_seq_changed(struct hal_device *device,
 	int num_properties_changed;
 	struct hfi_frame_size frame_sz;
 	u8 *data_ptr;
-	enum HFI_PROPERTY prop_id;
+	int prop_id;
 	HAL_MSG_LOW("RECEIVED:EVENT_NOTIFY");
 	if (sizeof(struct hfi_msg_event_notify_packet)
 		> pkt->size) {
@@ -103,12 +101,11 @@ void hal_process_sess_evt_seq_changed(struct hal_device *device,
 	if (num_properties_changed) {
 		data_ptr = (u8 *) &pkt->rg_ext_event_data[0];
 		do {
-			prop_id = (enum HFI_PROPERTY) *((u32 *)data_ptr);
+			prop_id = (int) *((u32 *)data_ptr);
 			switch (prop_id) {
 			case HFI_PROPERTY_PARAM_FRAME_SIZE:
-				frame_sz.buffer =
-					(enum HFI_BUFFER)
-						*((((u32 *)data_ptr)+1));
+				frame_sz.buffer_type =
+					(int) *((((u32 *)data_ptr)+1));
 				frame_sz.width =
 					event_notify.width =
 						*((((u32 *)data_ptr)+2));
@@ -165,7 +162,7 @@ static void hal_process_sys_init_done(struct hal_device *device,
 	struct vidc_hal_sys_init_done sys_init_done;
 	u32 rem_bytes, bytes_read = 0, num_properties;
 	u8 *data_ptr;
-	enum HFI_PROPERTY prop_id;
+	int prop_id;
 	enum vidc_status status = VIDC_ERR_NONE;
 
 	HAL_MSG_LOW("RECEIVED:SYS_INIT_DONE");
@@ -202,7 +199,7 @@ static void hal_process_sys_init_done(struct hal_device *device,
 		num_properties = pkt->num_properties;
 
 		while ((num_properties != 0) && (rem_bytes >= sizeof(u32))) {
-			prop_id = (enum HFI_PROPERTY) *((u32 *)data_ptr);
+			prop_id = *((u32 *)data_ptr);
 			data_ptr = data_ptr + 4;
 
 			switch (prop_id) {
@@ -282,8 +279,8 @@ static void hal_process_sess_get_prop_buf_req(
 			rc = VIDC_ERR_FAIL;
 		}
 		HAL_MSG_LOW("got buffer requirements for: %d",
-					hfi_buf_req->buffer);
-		switch (hfi_buf_req->buffer) {
+					hfi_buf_req->buffer_type);
+		switch (hfi_buf_req->buffer_type) {
 		case HFI_BUFFER_INPUT:
 			memcpy(&buffreq->buffer[0], hfi_buf_req,
 				sizeof(struct hfi_buffer_requirements));
@@ -330,8 +327,8 @@ static void hal_process_sess_get_prop_buf_req(
 				HAL_BUFFER_INTERNAL_PERSIST;
 			break;
 		default:
-			HAL_MSG_ERROR("hal_process_sess_get_prop_buf_req:"
-			"bad_buffer_type: %d", hfi_buf_req->buffer);
+			HAL_MSG_ERROR("%s: bad_buffer_type: %d",
+				__func__, hfi_buf_req->buffer_type);
 			break;
 		}
 		req_bytes -= sizeof(struct hfi_buffer_requirements);
@@ -525,8 +522,8 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 		data_done.size = sizeof(struct msm_vidc_cb_data_done);
 		data_done.clnt_data = (void *) pkt->input_tag;
 
-		data_done.output_done.timestamp_hi = pkt->timestamp_hi;
-		data_done.output_done.timestamp_lo = pkt->timestamp_lo;
+		data_done.output_done.timestamp_hi = pkt->time_stamp_hi;
+		data_done.output_done.timestamp_lo = pkt->time_stamp_lo;
 		data_done.output_done.flags1 = pkt->flags;
 		data_done.output_done.mark_target = pkt->mark_target;
 		data_done.output_done.mark_data = pkt->mark_data;
@@ -559,20 +556,20 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 
 		data_done.output_done.stream_id = pkt->stream_id;
 		data_done.output_done.view_id = pkt->view_id;
-		data_done.output_done.timestamp_hi = pkt->timestamp_hi;
-		data_done.output_done.timestamp_lo = pkt->timestamp_lo;
+		data_done.output_done.timestamp_hi = pkt->time_stamp_hi;
+		data_done.output_done.timestamp_lo = pkt->time_stamp_lo;
 		data_done.output_done.flags1 = pkt->flags;
 		data_done.output_done.mark_target = pkt->mark_target;
 		data_done.output_done.mark_data = pkt->mark_data;
 		data_done.output_done.stats = pkt->stats;
 		data_done.output_done.alloc_len1 = pkt->alloc_len;
 		data_done.output_done.filled_len1 = pkt->filled_len;
-		data_done.output_done.offset1 = pkt->oofset;
+		data_done.output_done.offset1 = pkt->offset;
 		data_done.output_done.frame_width = pkt->frame_width;
 		data_done.output_done.frame_height = pkt->frame_height;
-		data_done.output_done.start_xCoord = pkt->start_xCoord;
-		data_done.output_done.start_yCoord = pkt->start_yCoord;
-		data_done.output_done.input_tag1 = pkt->input_tag1;
+		data_done.output_done.start_xCoord = pkt->start_x_coord;
+		data_done.output_done.start_yCoord = pkt->start_y_coord;
+		data_done.output_done.input_tag1 = pkt->input_tag;
 		data_done.output_done.picture_type = pkt->picture_type;
 		data_done.output_done.packet_buffer1 = pkt->packet_buffer;
 		data_done.output_done.extra_data_buffer =

@@ -813,7 +813,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		if (rc || state == inst->state)
 			break;
 	default:
-		pr_err("State not recognized\n");
+		pr_err("State not recognized: %d\n", flipped_state);
 		rc = -EINVAL;
 		break;
 	}
@@ -855,6 +855,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 		frame_data.alloc_len = vb->v4l2_planes[0].length;
 		frame_data.filled_len = vb->v4l2_planes[0].bytesused;
 		frame_data.device_addr = vb->v4l2_planes[0].m.userptr;
+		frame_data.timestamp = vb->v4l2_buf.timestamp.tv_usec;
 		frame_data.clnt_data = (u32)vb;
 		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			frame_data.buffer_type = HAL_BUFFER_INPUT;
@@ -871,10 +872,8 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			frame_data.filled_len = 0;
 			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
 			frame_data.extradata_addr = 0;
-			pr_debug("Sending ftb to hal...: Alloc: %d :filled: %d"
-				" extradata_addr: %d\n", frame_data.alloc_len,
-				   frame_data.filled_len,
-				   frame_data.extradata_addr);
+			pr_debug("Sending ftb to hal..: Alloc: %d :filled: %d\n",
+				frame_data.alloc_len, frame_data.filled_len);
 			rc = vidc_hal_session_ftb((void *) inst->session,
 					&frame_data);
 		} else {

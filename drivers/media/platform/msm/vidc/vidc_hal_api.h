@@ -40,6 +40,12 @@
 #define HAL_BUFFERFLAG_READONLY         0x00000200
 #define HAL_BUFFERFLAG_ENDOFSUBFRAME    0x00000400
 
+#define HAL_DEBUG_MSG_LOW				0x00000001
+#define HAL_DEBUG_MSG_MEDIUM			0x00000002
+#define HAL_DEBUG_MSG_HIGH				0x00000004
+#define HAL_DEBUG_MSG_ERROR				0x00000008
+#define HAL_DEBUG_MSG_FATAL				0x00000010
+
 enum vidc_status {
 	VIDC_ERR_NONE = 0x0,
 	VIDC_ERR_FAIL = 0x80000000,
@@ -242,11 +248,12 @@ enum hal_mpeg4_level {
 enum hal_h264_profile {
 	HAL_H264_PROFILE_BASELINE = 0x00000001,
 	HAL_H264_PROFILE_MAIN     = 0x00000002,
-	HAL_H264_PROFILE_EXTENDED = 0x00000004,
-	HAL_H264_PROFILE_HIGH     = 0x00000008,
+	HAL_H264_PROFILE_HIGH     = 0x00000004,
+	HAL_H264_PROFILE_EXTENDED = 0x00000008,
 	HAL_H264_PROFILE_HIGH10   = 0x00000010,
 	HAL_H264_PROFILE_HIGH422  = 0x00000020,
 	HAL_H264_PROFILE_HIGH444  = 0x00000040,
+	HAL_H264_PROFILE_CONSTRAINED_HIGH  = 0x00000080,
 	HAL_UNUSED_H264_PROFILE = 0x10000000,
 };
 
@@ -541,7 +548,7 @@ enum hal_h264_db_mode {
 struct hal_h264_db_control {
 	enum hal_h264_db_mode mode;
 	int slice_alpha_offset;
-	int slicebeta_offset;
+	int slice_beta_offset;
 };
 
 struct hal_temporal_spatial_tradeoff {
