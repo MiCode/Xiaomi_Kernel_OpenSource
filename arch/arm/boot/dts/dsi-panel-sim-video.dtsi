@@ -1,0 +1,41 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_dsi {
+
+	qcom,mdss_dsi_sim_video {
+		compatible = "qcom,mdss-dsi-panel";
+		label = "simulator video mode dsi panel";
+		status = "disable";
+		qcom,mdss-pan-res = <640 480>;
+		qcom,mdss-pan-bpp = <24>;
+		qcom,mdss-pan-porch-values = <6 2 6 6 2 6>;
+		qcom,mdss-pan-underflow-clr = <0xff>;
+		qcom,mdss-pan-bl-levels = <1 15>;
+		qcom,mdss-pan-dsi-mode = <0>;
+		qcom,mdss-pan-dsi-h-pulse-mode = <1>;
+		qcom,mdss-pan-dsi-h-power-stop = <1 1 1>;
+		qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
+		qcom,mdss-pan-dsi-traffic-mode = <0>;
+		qcom,mdss-pan-dsi-dst-format = <3>;
+		qcom,mdss-pan-dsi-vc = <0>;
+		qcom,mdss-pan-dsi-rgb-swap = <0>;
+		qcom,mdss-pan-dsi-data-lanes = <1 1 0 0>;
+		qcom,mdss-pan-dsi-t-clk = <0x24 0x03>;
+		qcom,mdss-pan-dsi-stream = <0>;
+		qcom,mdss-pan-dsi-mdp-tr = <0x04>;
+		qcom,mdss-pan-dsi-dma-tr = <0x04>;
+		qcom,mdss-pan-frame-rate = <60>;
+		qcom,panel-on-cmds = [32 01 00 00 00 02 00 00];
+		qcom,panel-off-cmds = [22 01 00 00 00 02 00 00];
+	};
+};
