@@ -45,6 +45,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/cpuidle.h>
 #include <mach/usb_bam.h>
+#include <mach/restart.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
@@ -1018,6 +1019,7 @@ MACHINE_START(MSM9615_CDP, "QCT MSM9615 CDP")
 #ifdef CONFIG_FB_MSM
 	.init_early = mdm9615_allocate_memory_regions,
 #endif
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM9615_MTP, "QCT MSM9615 MTP")
@@ -1027,4 +1029,5 @@ MACHINE_START(MSM9615_MTP, "QCT MSM9615 MTP")
 	.timer = &msm_timer,
 	.init_machine = msm9615_mtp_init,
 	.reserve = msm9615_reserve,
+	.restart = msm_restart,
 MACHINE_END

@@ -3100,6 +3100,7 @@ MACHINE_START(MSM8960_SIM, "QCT MSM8960 SIMULATOR")
 	.init_machine = msm8960_sim_init,
 	.init_early = msm8960_allocate_memory_regions,
 	.init_very_early = msm8960_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8960_RUMI3, "QCT MSM8960 RUMI3")
@@ -3111,6 +3112,7 @@ MACHINE_START(MSM8960_RUMI3, "QCT MSM8960 RUMI3")
 	.init_machine = msm8960_rumi3_init,
 	.init_early = msm8960_allocate_memory_regions,
 	.init_very_early = msm8960_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8960_CDP, "QCT MSM8960 CDP")
@@ -3122,6 +3124,7 @@ MACHINE_START(MSM8960_CDP, "QCT MSM8960 CDP")
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
 	.init_very_early = msm8960_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8960_MTP, "QCT MSM8960 MTP")
@@ -3133,6 +3136,7 @@ MACHINE_START(MSM8960_MTP, "QCT MSM8960 MTP")
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
 	.init_very_early = msm8960_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8960_FLUID, "QCT MSM8960 FLUID")
@@ -3144,6 +3148,7 @@ MACHINE_START(MSM8960_FLUID, "QCT MSM8960 FLUID")
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
 	.init_very_early = msm8960_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8960_LIQUID, "QCT MSM8960 LIQUID")
@@ -3155,4 +3160,5 @@ MACHINE_START(MSM8960_LIQUID, "QCT MSM8960 LIQUID")
 	.init_machine = msm8960_cdp_init,
 	.init_early = msm8960_allocate_memory_regions,
 	.init_very_early = msm8960_early_memory,
+	.restart = msm_restart,
 MACHINE_END

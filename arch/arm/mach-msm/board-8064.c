@@ -70,6 +70,7 @@
 #include <media/gpio-ir-recv.h>
 #include <linux/fmem.h>
 #include <mach/msm_pcie.h>
+#include <mach/restart.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -2990,6 +2991,7 @@ MACHINE_START(APQ8064_SIM, "QCT APQ8064 SIMULATOR")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_sim_init,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(APQ8064_RUMI3, "QCT APQ8064 RUMI3")
@@ -3000,6 +3002,7 @@ MACHINE_START(APQ8064_RUMI3, "QCT APQ8064 RUMI3")
 	.timer = &msm_timer,
 	.init_machine = apq8064_rumi3_init,
 	.init_early = apq8064_allocate_memory_regions,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(APQ8064_CDP, "QCT APQ8064 CDP")
@@ -3011,6 +3014,7 @@ MACHINE_START(APQ8064_CDP, "QCT APQ8064 CDP")
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
@@ -3022,6 +3026,7 @@ MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(APQ8064_LIQUID, "QCT APQ8064 LIQUID")
@@ -3033,6 +3038,7 @@ MACHINE_START(APQ8064_LIQUID, "QCT APQ8064 LIQUID")
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MPQ8064_CDP, "QCT MPQ8064 CDP")
@@ -3044,6 +3050,7 @@ MACHINE_START(MPQ8064_CDP, "QCT MPQ8064 CDP")
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MPQ8064_HRD, "QCT MPQ8064 HRD")
@@ -3055,6 +3062,7 @@ MACHINE_START(MPQ8064_HRD, "QCT MPQ8064 HRD")
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MPQ8064_DTV, "QCT MPQ8064 DTV")
@@ -3066,5 +3074,6 @@ MACHINE_START(MPQ8064_DTV, "QCT MPQ8064 DTV")
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
+	.restart = msm_restart,
 MACHINE_END
 

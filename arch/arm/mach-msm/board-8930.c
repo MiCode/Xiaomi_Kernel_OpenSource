@@ -2392,6 +2392,7 @@ MACHINE_START(MSM8930_CDP, "QCT MSM8930 CDP")
 	.init_machine = msm8930_cdp_init,
 	.init_early = msm8930_allocate_memory_regions,
 	.init_very_early = msm8930_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8930_MTP, "QCT MSM8930 MTP")
@@ -2403,6 +2404,7 @@ MACHINE_START(MSM8930_MTP, "QCT MSM8930 MTP")
 	.init_machine = msm8930_cdp_init,
 	.init_early = msm8930_allocate_memory_regions,
 	.init_very_early = msm8930_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8930_FLUID, "QCT MSM8930 FLUID")
@@ -2414,6 +2416,7 @@ MACHINE_START(MSM8930_FLUID, "QCT MSM8930 FLUID")
 	.init_machine = msm8930_cdp_init,
 	.init_early = msm8930_allocate_memory_regions,
 	.init_very_early = msm8930_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8627_CDP, "QCT MSM8627 CDP")
@@ -2425,6 +2428,7 @@ MACHINE_START(MSM8627_CDP, "QCT MSM8627 CDP")
 	.init_machine = msm8930_cdp_init,
 	.init_early = msm8930_allocate_memory_regions,
 	.init_very_early = msm8930_early_memory,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8627_MTP, "QCT MSM8627 MTP")
@@ -2436,4 +2440,5 @@ MACHINE_START(MSM8627_MTP, "QCT MSM8627 MTP")
 	.init_machine = msm8930_cdp_init,
 	.init_early = msm8930_allocate_memory_regions,
 	.init_very_early = msm8930_early_memory,
+	.restart = msm_restart,
 MACHINE_END

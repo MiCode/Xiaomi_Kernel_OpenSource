@@ -33,6 +33,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/dma.h>
 #include <mach/sirc.h>
+#include <mach/restart.h>
 
 #include <mach/socinfo.h>
 #include "devices.h"
@@ -923,4 +924,5 @@ MACHINE_START(FSM9XXX_SURF, "QCT FSM9XXX")
 	.handle_irq = vic_handle_irq,
 	.init_machine = fsm9xxx_init,
 	.timer = &msm_timer,
+	.restart = fsm_restart,
 MACHINE_END

@@ -177,7 +177,7 @@ static irqreturn_t resout_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void arch_reset(char mode, const char *cmd)
+void msm_restart(char mode, const char *cmd)
 {
 
 #ifdef CONFIG_MSM_DLOAD_MODE

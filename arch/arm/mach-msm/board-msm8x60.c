@@ -10558,6 +10558,7 @@ MACHINE_START(MSM8X60_RUMI3, "QCT MSM8X60 RUMI3")
 	.init_machine = msm8x60_rumi3_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8X60_SIM, "QCT MSM8X60 SIMULATOR")
@@ -10568,6 +10569,7 @@ MACHINE_START(MSM8X60_SIM, "QCT MSM8X60 SIMULATOR")
 	.init_machine = msm8x60_sim_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8X60_SURF, "QCT MSM8X60 SURF")
@@ -10578,6 +10580,7 @@ MACHINE_START(MSM8X60_SURF, "QCT MSM8X60 SURF")
 	.init_machine = msm8x60_surf_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8X60_FFA, "QCT MSM8X60 FFA")
@@ -10588,6 +10591,7 @@ MACHINE_START(MSM8X60_FFA, "QCT MSM8X60 FFA")
 	.init_machine = msm8x60_ffa_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8X60_FLUID, "QCT MSM8X60 FLUID")
@@ -10598,6 +10602,7 @@ MACHINE_START(MSM8X60_FLUID, "QCT MSM8X60 FLUID")
 	.init_machine = msm8x60_fluid_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8X60_FUSION, "QCT MSM8X60 FUSION SURF")
@@ -10608,6 +10613,7 @@ MACHINE_START(MSM8X60_FUSION, "QCT MSM8X60 FUSION SURF")
 	.init_machine = msm8x60_charm_surf_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8X60_FUSN_FFA, "QCT MSM8X60 FUSION FFA")
@@ -10618,6 +10624,7 @@ MACHINE_START(MSM8X60_FUSN_FFA, "QCT MSM8X60 FUSION FFA")
 	.init_machine = msm8x60_charm_ffa_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
+	.restart = msm_restart,
 MACHINE_END
 
 MACHINE_START(MSM8X60_DRAGON, "QCT MSM8X60 DRAGON")
@@ -10628,4 +10635,5 @@ MACHINE_START(MSM8X60_DRAGON, "QCT MSM8X60 DRAGON")
 	.init_machine = msm8x60_dragon_init,
 	.timer = &msm_timer,
 	.init_early = msm8x60_charm_init_early,
+	.restart = msm_restart,
 MACHINE_END
