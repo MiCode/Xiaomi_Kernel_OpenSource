@@ -1768,7 +1768,6 @@ static int msm_open(struct file *f)
 	pcam->use_count++;
 	D("%s use_count %d\n", __func__, pcam->use_count);
 	if (pcam->use_count == 1) {
-		struct msm_cam_server_queue *queue;
 		int ges_evt = MSM_V4L2_GES_CAM_OPEN;
 		pcam->server_queue_idx = server_q_idx;
 		queue = &g_server_dev.server_queue[server_q_idx];
