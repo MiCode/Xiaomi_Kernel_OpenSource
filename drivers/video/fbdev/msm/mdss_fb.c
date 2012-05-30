@@ -1126,7 +1126,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	void __user *argp = (void __user *)arg;
 	struct mdp_page_protection fb_page_protection;
-	int ret = 0;
+	int ret = -ENOSYS;
 
 	switch (cmd) {
 	case MSMFB_CURSOR:
@@ -1147,10 +1147,13 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	default:
-		pr_info("MDP: unknown ioctl (cmd=%x) received!\n", cmd);
-		ret = -ENOSYS;
+		if (mfd->ioctl_handler)
+			ret = mfd->ioctl_handler(mfd, cmd, argp);
 		break;
 	}
+
+	if (ret == -ENOSYS)
+		pr_err("unsupported ioctl (%x)\n", cmd);
 
 	return ret;
 }

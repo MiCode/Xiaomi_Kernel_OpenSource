@@ -25,6 +25,23 @@
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
 
+static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
+				struct mdp_overlay *req)
+{
+	struct mdss_mdp_pipe *pipe;
+
+	pipe = mdss_mdp_pipe_get_locked(req->id);
+	if (pipe == NULL) {
+		pr_err("invalid pipe ndx=%x\n", req->id);
+		return -ENODEV;
+	}
+
+	*req = pipe->req_data;
+	mdss_mdp_pipe_unlock(pipe);
+
+	return 0;
+}
+
 static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 				      struct mdp_overlay *req,
 				      struct mdss_mdp_format_params *fmt)
@@ -235,6 +252,125 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
+				struct mdp_overlay *req)
+{
+	int ret;
+	struct mdss_mdp_pipe *pipe;
+
+	/* userspace zorder start with stage 0 */
+	req->z_order += MDSS_MDP_STAGE_0;
+
+	ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe);
+
+	req->z_order -= MDSS_MDP_STAGE_0;
+
+	return ret;
+}
+
+static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
+{
+	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_pipe *cleanup_pipes[MDSS_MDP_MAX_SSPP];
+	int i, ret = 0, clean_cnt = 0;
+	u32 pipe_ndx, unset_ndx = 0;
+
+	if (!mfd || !mfd->ctl)
+		return -ENODEV;
+
+	pr_debug("unset ndx=%x\n", ndx);
+
+	for (i = 0; unset_ndx != ndx && i < MDSS_MDP_MAX_SSPP; i++) {
+		pipe_ndx = BIT(i);
+		if (pipe_ndx & ndx) {
+			unset_ndx |= pipe_ndx;
+			pipe = mdss_mdp_pipe_get_locked(pipe_ndx);
+			if (pipe) {
+				mdss_mdp_mixer_pipe_unstage(pipe);
+				cleanup_pipes[clean_cnt++] = pipe;
+			} else {
+				pr_warn("unknown pipe ndx=%x\n", pipe_ndx);
+			}
+		}
+	}
+
+	if (clean_cnt) {
+		ret = mfd->kickoff_fnc(mfd->ctl);
+
+		for (i = 0; i < clean_cnt; i++)
+			mdss_mdp_pipe_destroy(cleanup_pipes[i]);
+	}
+
+	return ret;
+}
+
+static int mdss_mdp_overlay_play_wait(struct msm_fb_data_type *mfd,
+				      struct msmfb_overlay_data *req)
+{
+	int ret;
+
+	if (!mfd || !mfd->ctl)
+		return -ENODEV;
+
+	ret = mfd->kickoff_fnc(mfd->ctl);
+	if (!ret)
+		pr_err("error displaying\n");
+
+	return ret;
+}
+
+static int mdss_mdp_overlay_queue(struct msmfb_overlay_data *req,
+				  struct mdss_mdp_data *src_data)
+{
+	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_ctl *ctl;
+	int ret;
+
+	pipe = mdss_mdp_pipe_get_locked(req->id);
+	if (pipe == NULL) {
+		pr_err("pipe ndx=%x doesn't exist\n", req->id);
+		return -ENODEV;
+	}
+
+	pr_debug("ov queue pnum=%d\n", pipe->num);
+
+	ret = mdss_mdp_pipe_queue_data(pipe, src_data);
+	ctl = pipe->mixer->ctl;
+	mdss_mdp_pipe_unlock(pipe);
+
+	if (ret == 0 && !(pipe->flags & MDP_OV_PLAY_NOWAIT))
+		ret = ctl->mfd->kickoff_fnc(ctl);
+
+
+	return ret;
+}
+
+static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
+				 struct msmfb_overlay_data *req)
+{
+	struct mdss_mdp_data src_data;
+	int ret = 0;
+
+	if (mfd == NULL)
+		return -ENODEV;
+
+	pr_debug("play req id=%x\n", req->id);
+
+	memset(&src_data, 0, sizeof(src_data));
+	mdss_mdp_get_img(mfd->iclient, &req->data, &src_data.p[0]);
+	if (src_data.p[0].len == 0) {
+		pr_err("src data pmem error\n");
+		return -ENOMEM;
+	}
+	src_data.num_planes = 1;
+
+	ret = mdss_mdp_overlay_queue(req, &src_data);
+
+	mdss_mdp_put_img(&src_data.p[0]);
+
+	return ret;
+}
+
 static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 					struct mdss_mdp_pipe **ppipe,
 					int mixer_mux)
@@ -347,7 +483,8 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	mdss_mdp_display_commit(mfd->ctl, NULL);
+	if (fbi->var.activate & FB_ACTIVATE_VBL)
+		mfd->kickoff_fnc(mfd->ctl);
 }
 
 static int mdss_mdp_hw_cursor_update(struct fb_info *info,
@@ -450,6 +587,103 @@ static int mdss_mdp_hw_cursor_update(struct fb_info *info,
 	return 0;
 }
 
+static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
+{
+	return mdss_mdp_display_commit(ctl, NULL);
+}
+
+static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
+					  u32 cmd, void __user *argp)
+{
+	struct mdp_overlay req;
+	int val, ret = -ENOSYS;
+
+	switch (cmd) {
+	case MSMFB_OVERLAY_GET:
+		ret = copy_from_user(&req, argp, sizeof(req));
+		if (!ret) {
+			ret = mdss_mdp_overlay_get(mfd, &req);
+
+			if (!IS_ERR_VALUE(ret))
+				ret = copy_to_user(argp, &req, sizeof(req));
+		}
+
+		if (ret) {
+			pr_err("OVERLAY_GET failed (%d)\n", ret);
+			ret = -EFAULT;
+		}
+		break;
+
+	case MSMFB_OVERLAY_SET:
+		ret = copy_from_user(&req, argp, sizeof(req));
+		if (!ret) {
+			ret = mdss_mdp_overlay_set(mfd, &req);
+
+			if (!IS_ERR_VALUE(ret))
+				ret = copy_to_user(argp, &req, sizeof(req));
+		}
+		if (ret) {
+			pr_err("OVERLAY_SET failed (%d)\n", ret);
+			ret = -EFAULT;
+		}
+		break;
+
+
+	case MSMFB_OVERLAY_UNSET:
+		if (!IS_ERR_VALUE(copy_from_user(&val, argp, sizeof(val))))
+			ret = mdss_mdp_overlay_unset(mfd, val);
+		break;
+
+	case MSMFB_OVERLAY_PLAY_ENABLE:
+		if (!copy_from_user(&val, argp, sizeof(val))) {
+			mfd->overlay_play_enable = val;
+		} else {
+			pr_err("OVERLAY_PLAY_ENABLE failed (%d)\n", ret);
+			ret = -EFAULT;
+		}
+		break;
+
+	case MSMFB_OVERLAY_PLAY:
+		if (mfd->overlay_play_enable) {
+			struct msmfb_overlay_data data;
+
+			ret = copy_from_user(&data, argp, sizeof(data));
+			if (!ret) {
+				ret = mdss_mdp_overlay_play(mfd, &data);
+				if (!IS_ERR_VALUE(ret))
+					mdss_fb_update_backlight(mfd);
+			}
+
+			if (ret) {
+				pr_err("OVERLAY_PLAY failed (%d)\n", ret);
+				ret = -EFAULT;
+			}
+		} else {
+			ret = 0;
+		}
+		break;
+
+	case MSMFB_OVERLAY_PLAY_WAIT:
+		if (mfd->overlay_play_enable) {
+			struct msmfb_overlay_data data;
+
+			ret = copy_from_user(&data, argp, sizeof(data));
+			if (!ret)
+				ret = mdss_mdp_overlay_play_wait(mfd, &data);
+
+			if (ret) {
+				pr_err("OVERLAY_PLAY_WAIT failed (%d)\n", ret);
+				ret = -EFAULT;
+			}
+		} else {
+			ret = 0;
+		}
+		break;
+	}
+
+	return ret;
+}
+
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 {
 	mfd->on_fnc = mdss_mdp_ctl_on;
@@ -457,9 +691,11 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mfd->hw_refresh = true;
 	mfd->lut_update = NULL;
 	mfd->do_histogram = NULL;
-	mfd->overlay_play_enable = false;
+	mfd->overlay_play_enable = true;
 	mfd->cursor_update = mdss_mdp_hw_cursor_update;
 	mfd->dma_fnc = mdss_mdp_overlay_pan_display;
+	mfd->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
+	mfd->kickoff_fnc = mdss_mdp_overlay_kickoff;
 
 	return 0;
 }
