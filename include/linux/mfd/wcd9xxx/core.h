@@ -14,7 +14,7 @@
 #define __MFD_TABLA_CORE_H__
 
 #include <linux/interrupt.h>
-#include <linux/wakelock.h>
+#include <linux/pm_qos.h>
 
 #define WCD9XXX_NUM_IRQ_REGS 3
 
@@ -124,7 +124,7 @@ struct wcd9xxx {
 	struct mutex pm_lock;
 	/* pm_wq notifies change of pm_state */
 	wait_queue_head_t pm_wq;
-	struct wake_lock wlock;
+	struct pm_qos_request pm_qos_req;
 	int wlock_holders;
 
 	int num_rx_port;

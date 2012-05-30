@@ -24,12 +24,15 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/msm_audio.h>
+#include <linux/pm_qos.h>
+
 #include <asm/atomic.h>
 #include <mach/debug_mm.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <sound/q6asm.h>
 #include <sound/apr_audio.h>
 #include <linux/wakelock.h>
+#include <mach/cpuidle.h>
 
 #define MAX_BUF 4
 #define BUFSZ (480 * 8)
@@ -55,7 +58,7 @@ struct pcm {
 	atomic_t in_opened;
 	atomic_t in_stopped;
 	struct wake_lock wakelock;
-	struct wake_lock idlelock;
+	struct pm_qos_request pm_qos_req;
 };
 
 static void pcm_in_get_dsp_buffers(struct pcm*,
@@ -84,14 +87,15 @@ static void pcm_in_prevent_sleep(struct pcm *audio)
 {
 	pr_debug("%s:\n", __func__);
 	wake_lock(&audio->wakelock);
-	wake_lock(&audio->idlelock);
+	pm_qos_update_request(&audio->pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 }
 
 static void pcm_in_allow_sleep(struct pcm *audio)
 {
 	pr_debug("%s:\n", __func__);
+	pm_qos_update_request(&audio->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&audio->wakelock);
-	wake_unlock(&audio->idlelock);
 }
 
 static void pcm_in_get_dsp_buffers(struct pcm *pcm,
@@ -353,7 +357,8 @@ static int pcm_in_open(struct inode *inode, struct file *file)
 	snprintf(name, sizeof name, "pcm_in_%x", pcm->ac->session);
 	wake_lock_init(&pcm->wakelock, WAKE_LOCK_SUSPEND, name);
 	snprintf(name, sizeof name, "pcm_in_idle_%x", pcm->ac->session);
-	wake_lock_init(&pcm->idlelock, WAKE_LOCK_IDLE, name);
+	pm_qos_add_request(&pcm->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
 
 	pcm->rec_mode = VOC_REC_NONE;
 
@@ -462,7 +467,7 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	q6asm_audio_client_free(pcm->ac);
 	pcm_in_allow_sleep(pcm);
 	wake_lock_destroy(&pcm->wakelock);
-	wake_lock_destroy(&pcm->idlelock);
+	pm_qos_remove_request(&pcm->pm_qos_req);
 	kfree(pcm);
 	return rc;
 }

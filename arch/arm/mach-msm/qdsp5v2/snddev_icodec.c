@@ -16,6 +16,8 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/debugfs.h>
+#include <linux/pm_qos.h>
+
 #include <asm/uaccess.h>
 #include <mach/qdsp5v2/snddev_icodec.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
@@ -31,6 +33,7 @@
 #include <mach/rpc_pmapp.h>
 #include <mach/qdsp5v2/audio_acdb_def.h>
 #include <linux/slab.h>
+#include <mach/cpuidle.h>
 
 #define SMPS_AUDIO_PLAYBACK_ID	"AUPB"
 #define SMPS_AUDIO_RECORD_ID	"AURC"
@@ -159,8 +162,8 @@ struct snddev_icodec_drv_state {
 	struct clk *lpa_p_clk;
 	struct lpa_drv *lpa;
 
-	struct wake_lock rx_idlelock;
-	struct wake_lock tx_idlelock;
+	struct pm_qos_request rx_pm_qos_req;
+	struct pm_qos_request tx_pm_qos_req;
 };
 
 static struct snddev_icodec_drv_state snddev_icodec_drv;
@@ -173,7 +176,8 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
 	struct lpa_codec_config lpa_config;
 
-	wake_lock(&drv->rx_idlelock);
+	pm_qos_update_request(&drv->rx_pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 
 	if ((icodec->data->acdb_id == ACDB_ID_HEADSET_SPKR_MONO) ||
 		(icodec->data->acdb_id == ACDB_ID_HEADSET_SPKR_STEREO)) {
@@ -250,7 +254,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 
 	icodec->enabled = 1;
 
-	wake_unlock(&drv->rx_idlelock);
+	pm_qos_update_request(&drv->rx_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	return 0;
 
 error_afe:
@@ -268,7 +272,7 @@ error_invalid_freq:
 
 	MM_ERR("encounter error\n");
 
-	wake_unlock(&drv->rx_idlelock);
+	pm_qos_update_request(&drv->rx_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	return -ENODEV;
 }
 
@@ -279,7 +283,8 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	struct msm_afe_config afe_config;
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;;
 
-	wake_lock(&drv->tx_idlelock);
+	pm_qos_update_request(&drv->tx_pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 
 	/* Vote for PWM mode*/
 	err = pmapp_smps_mode_vote(SMPS_AUDIO_RECORD_ID,
@@ -332,7 +337,7 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 
 	icodec->enabled = 1;
 
-	wake_unlock(&drv->tx_idlelock);
+	pm_qos_update_request(&drv->tx_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	return 0;
 
 error_afe:
@@ -354,7 +359,7 @@ error_invalid_freq:
 
 	MM_ERR("encounter error\n");
 
-	wake_unlock(&drv->tx_idlelock);
+	pm_qos_update_request(&drv->tx_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	return -ENODEV;
 }
 
@@ -381,7 +386,8 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 	int err;
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
 
-	wake_lock(&drv->rx_idlelock);
+	pm_qos_update_request(&drv->rx_pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 
 	/* Remove the vote for SMPS mode*/
 	err = pmapp_smps_mode_vote(SMPS_AUDIO_PLAYBACK_ID,
@@ -419,7 +425,7 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 
 	icodec->enabled = 0;
 
-	wake_unlock(&drv->rx_idlelock);
+	pm_qos_update_request(&drv->rx_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	return 0;
 }
 
@@ -428,7 +434,8 @@ static int snddev_icodec_close_tx(struct snddev_icodec_state *icodec)
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
 	int i, err;
 
-	wake_lock(&drv->tx_idlelock);
+	pm_qos_update_request(&drv->tx_pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 
 	/* Remove the vote for SMPS mode*/
 	err = pmapp_smps_mode_vote(SMPS_AUDIO_RECORD_ID,
@@ -460,7 +467,7 @@ static int snddev_icodec_close_tx(struct snddev_icodec_state *icodec)
 
 	icodec->enabled = 0;
 
-	wake_unlock(&drv->tx_idlelock);
+	pm_qos_update_request(&drv->tx_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	return 0;
 }
 
@@ -1156,10 +1163,10 @@ static int __init snddev_icodec_init(void)
 	icodec_drv->rx_active = 0;
 	icodec_drv->tx_active = 0;
 	icodec_drv->lpa = NULL;
-	wake_lock_init(&icodec_drv->tx_idlelock, WAKE_LOCK_IDLE,
-			"snddev_tx_idle");
-	wake_lock_init(&icodec_drv->rx_idlelock, WAKE_LOCK_IDLE,
-			"snddev_rx_idle");
+	pm_qos_add_request(&icodec_drv->tx_pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
+	pm_qos_add_request(&icodec_drv->rx_pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
 	return 0;
 
 error_lpa_p_clk:

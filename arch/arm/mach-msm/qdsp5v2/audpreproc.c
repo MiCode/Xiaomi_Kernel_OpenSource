@@ -20,15 +20,18 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/wakelock.h>
+#include <linux/pm_qos.h>
+
 #include <mach/msm_adsp.h>
 #include <mach/qdsp5v2/audio_acdbi.h>
 #include <mach/qdsp5v2/audpreproc.h>
 #include <mach/debug_mm.h>
 #include <mach/qdsp5v2/qdsp5audpreprocmsg.h>
+#include <mach/cpuidle.h>
 
 static DEFINE_MUTEX(audpreproc_lock);
 static struct wake_lock audpre_wake_lock;
-static struct wake_lock audpre_idle_wake_lock;
+static struct pm_qos_request audpre_pm_qos_req;
 
 struct msm_adspenc_info {
 	const char *module_name;
@@ -106,12 +109,13 @@ static struct audpreproc_state the_audpreproc_state = {
 static inline void prevent_suspend(void)
 {
 	wake_lock(&audpre_wake_lock);
-	wake_lock(&audpre_idle_wake_lock);
+	pm_qos_update_request(&audpre_pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 }
 static inline void allow_suspend(void)
 {
+	pm_qos_update_request(&audpre_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&audpre_wake_lock);
-	wake_unlock(&audpre_idle_wake_lock);
 }
 
 /* DSP preproc event handler */
@@ -413,8 +417,8 @@ int audpreproc_aenc_alloc(unsigned enc_type, const char **module_name,
 
 	if (!wakelock_init) {
 		wake_lock_init(&audpre_wake_lock, WAKE_LOCK_SUSPEND, "audpre");
-		wake_lock_init(&audpre_idle_wake_lock, WAKE_LOCK_IDLE,
-				"audpre_idle");
+		pm_qos_add_request(&audpre_pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+					PM_QOS_DEFAULT_VALUE);
 		wakelock_init = 1;
 	}
 

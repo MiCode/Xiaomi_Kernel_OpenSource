@@ -20,12 +20,12 @@
 #include <linux/wait.h>
 #include <linux/dma-mapping.h>
 #include <linux/clk.h>
-
 #include <linux/delay.h>
 #include <linux/wakelock.h>
 #include <linux/android_pmem.h>
 #include <linux/firmware.h>
 #include <linux/miscdevice.h>
+#include <linux/pm_qos.h>
 
 #include "dal.h"
 #include "dal_audio.h"
@@ -33,6 +33,7 @@
 #include "dal_acdb.h"
 #include "dal_adie.h"
 #include <mach/msm_qdsp6_audio.h>
+#include <mach/cpuidle.h>
 
 #include <linux/msm_audio_aac.h>
 
@@ -77,7 +78,7 @@ static struct q6_hw_info q6_audio_hw[Q6_HW_COUNT] = {
 };
 
 static struct wake_lock wakelock;
-static struct wake_lock idlelock;
+static struct pm_qos_request pm_qos_req;
 static int idlecount;
 static DEFINE_MUTEX(idlecount_lock);
 
@@ -86,7 +87,8 @@ void audio_prevent_sleep(void)
 	mutex_lock(&idlecount_lock);
 	if (++idlecount == 1) {
 		wake_lock(&wakelock);
-		wake_lock(&idlelock);
+		pm_qos_update_request(&pm_qos_req,
+				      msm_cpuidle_get_deep_idle_latency());
 	}
 	mutex_unlock(&idlecount_lock);
 }
@@ -95,7 +97,7 @@ void audio_allow_sleep(void)
 {
 	mutex_lock(&idlecount_lock);
 	if (--idlecount == 0) {
-		wake_unlock(&idlelock);
+		pm_qos_update_request(&pm_qos_req, PM_QOS_DEFAULT_VALUE);
 		wake_unlock(&wakelock);
 	}
 	mutex_unlock(&idlecount_lock);
@@ -959,7 +961,8 @@ static int q6audio_init(void)
 	res = 0;
 	ac_control = ac;
 
-	wake_lock_init(&idlelock, WAKE_LOCK_IDLE, "audio_pcm_idle");
+	pm_qos_add_request(&pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
 	wake_lock_init(&wakelock, WAKE_LOCK_SUSPEND, "audio_pcm_suspend");
 done:
 	if ((res < 0) && ac)

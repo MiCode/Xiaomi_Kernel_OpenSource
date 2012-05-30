@@ -18,7 +18,7 @@
 #include <linux/poll.h>
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
-#include <linux/wakelock.h>
+#include <linux/pm_qos.h>
 #include <linux/regulator/consumer.h>
 #include "linux/types.h"
 
@@ -414,7 +414,7 @@ struct msm_sync {
 	struct msm_camvpe_fn vpefn;
 	struct msm_sensor_ctrl sctrl;
 	struct msm_strobe_flash_ctrl sfctrl;
-	struct wake_lock wake_lock;
+	struct pm_qos_request idle_pm_qos;
 	struct platform_device *pdev;
 	int16_t ignore_qcmd_type;
 	uint8_t ignore_qcmd;

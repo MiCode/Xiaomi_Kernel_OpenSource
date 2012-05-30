@@ -20,7 +20,10 @@
 #include <linux/wakelock.h>
 #include <linux/msm_audio_mvs.h>
 #include <linux/slab.h>
+#include <linux/pm_qos.h>
+
 #include <mach/msm_rpcrouter.h>
+#include <mach/cpuidle.h>
 
 #define MVS_PROG 0x30000014
 #define MVS_VERS 0x00030001
@@ -326,7 +329,7 @@ struct audio_mvs_info_type {
 	struct mutex out_lock;
 
 	struct wake_lock suspend_lock;
-	struct wake_lock idle_lock;
+	struct pm_qos_request pm_qos_req;
 };
 
 static struct audio_mvs_info_type audio_mvs_info;
@@ -699,7 +702,8 @@ static int audio_mvs_start(struct audio_mvs_info_type *audio)
 
 	/* Prevent sleep. */
 	wake_lock(&audio->suspend_lock);
-	wake_lock(&audio->idle_lock);
+	pm_qos_update_request(&audio->pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 
 	/* Acquire MVS. */
 	memset(&acquire_msg, 0, sizeof(acquire_msg));
@@ -789,8 +793,8 @@ static int audio_mvs_stop(struct audio_mvs_info_type *audio)
 	}
 
 	/* Allow sleep. */
+	pm_qos_update_request(&audio->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&audio->suspend_lock);
-	wake_unlock(&audio->idle_lock);
 
 	return rc;
 }
@@ -1677,9 +1681,8 @@ static int __init audio_mvs_init(void)
 	wake_lock_init(&audio_mvs_info.suspend_lock,
 		       WAKE_LOCK_SUSPEND,
 		       "audio_mvs_suspend");
-	wake_lock_init(&audio_mvs_info.idle_lock,
-		       WAKE_LOCK_IDLE,
-		       "audio_mvs_idle");
+	pm_qos_add_request(&audio_mvs_info.pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
 
 	audio_mvs_info.rpc_endpt = msm_rpc_connect_compatible(MVS_PROG,
 					MVS_VERS_COMP_VER5,

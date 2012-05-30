@@ -307,7 +307,8 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 	wcd9xxx->wlock_holders = 0;
 	wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
 	init_waitqueue_head(&wcd9xxx->pm_wq);
-	wake_lock_init(&wcd9xxx->wlock, WAKE_LOCK_IDLE, "wcd9310-irq");
+	pm_qos_add_request(&wcd9xxx->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
 
 	dev_set_drvdata(wcd9xxx->dev, wcd9xxx);
 
@@ -374,7 +375,7 @@ err_irq:
 	wcd9xxx_irq_exit(wcd9xxx);
 err:
 	wcd9xxx_bring_down(wcd9xxx);
-	wake_lock_destroy(&wcd9xxx->wlock);
+	pm_qos_remove_request(&wcd9xxx->pm_qos_req);
 	mutex_destroy(&wcd9xxx->pm_lock);
 	mutex_destroy(&wcd9xxx->io_lock);
 	mutex_destroy(&wcd9xxx->xfer_lock);
@@ -387,7 +388,7 @@ static void wcd9xxx_device_exit(struct wcd9xxx *wcd9xxx)
 	wcd9xxx_bring_down(wcd9xxx);
 	wcd9xxx_free_reset(wcd9xxx);
 	mutex_destroy(&wcd9xxx->pm_lock);
-	wake_lock_destroy(&wcd9xxx->wlock);
+	pm_qos_remove_request(&wcd9xxx->pm_qos_req);
 	mutex_destroy(&wcd9xxx->io_lock);
 	mutex_destroy(&wcd9xxx->xfer_lock);
 	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
@@ -986,8 +987,10 @@ static int wcd9xxx_suspend(struct wcd9xxx *wcd9xxx, pm_message_t pmesg)
 	int ret = 0;
 
 	pr_debug("%s: enter\n", __func__);
-	/* wake_lock() can be called after this suspend chain call started.
-	 * thus suspend can be called while wlock is being held */
+	/*
+	 * pm_qos_update_request() can be called after this suspend chain call
+	 * started. thus suspend can be called while lock is being held
+	 */
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (wcd9xxx->pm_state == WCD9XXX_PM_SLEEPABLE) {
 		pr_debug("%s: suspending system, state %d, wlock %d\n",

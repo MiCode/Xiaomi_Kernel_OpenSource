@@ -20,6 +20,8 @@
 #include <linux/mfd/wcd9xxx/wcd9310_registers.h>
 #include <linux/interrupt.h>
 
+#include <mach/cpuidle.h>
+
 #define BYTE_BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr)			((nr) / BITS_PER_BYTE)
 
@@ -113,7 +115,8 @@ bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (wcd9xxx->wlock_holders++ == 0) {
 		pr_debug("%s: holding wake lock\n", __func__);
-		wake_lock(&wcd9xxx->wlock);
+		pm_qos_update_request(&wcd9xxx->pm_qos_req,
+				      msm_cpuidle_get_deep_idle_latency());
 	}
 	mutex_unlock(&wcd9xxx->pm_lock);
 	if (!wait_event_timeout(wcd9xxx->pm_wq,
@@ -140,7 +143,8 @@ void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx)
 	if (--wcd9xxx->wlock_holders == 0) {
 		wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
 		pr_debug("%s: releasing wake lock\n", __func__);
-		wake_unlock(&wcd9xxx->wlock);
+		pm_qos_update_request(&wcd9xxx->pm_qos_req,
+				PM_QOS_DEFAULT_VALUE);
 	}
 	mutex_unlock(&wcd9xxx->pm_lock);
 	wake_up_all(&wcd9xxx->pm_wq);

@@ -29,9 +29,9 @@
 #include <linux/delay.h>
 #include <linux/wakelock.h>
 #include <linux/memory_alloc.h>
-
 #include <linux/msm_audio.h>
 #include <linux/android_pmem.h>
+#include <linux/pm_qos.h>
 
 #include <mach/msm_adsp.h>
 #include <mach/iommu.h>
@@ -42,7 +42,7 @@
 #include <mach/qdsp5v2/audpp.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/msm_memtypes.h>
-
+#include <mach/cpuidle.h>
 
 #include <mach/htc_pwrsink.h>
 #include <mach/debug_mm.h>
@@ -95,7 +95,7 @@ struct audio {
 	int voice_state;
 
 	struct wake_lock wakelock;
-	struct wake_lock idlelock;
+	struct pm_qos_request pm_qos_req;
 
 	struct audpp_cmd_cfg_object_params_volume vol_pan;
 };
@@ -148,13 +148,14 @@ static void audio_prevent_sleep(struct audio *audio)
 {
 	MM_DBG("\n"); /* Macro prints the file name and function */
 	wake_lock(&audio->wakelock);
-	wake_lock(&audio->idlelock);
+	pm_qos_update_request(&audio->pm_qos_req,
+			      msm_cpuidle_get_deep_idle_latency());
 }
 
 static void audio_allow_sleep(struct audio *audio)
 {
+	pm_qos_update_request(&audio->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&audio->wakelock);
-	wake_unlock(&audio->idlelock);
 	MM_DBG("\n"); /* Macro prints the file name and function */
 }
 
@@ -721,7 +722,8 @@ static int __init audio_init(void)
 	spin_lock_init(&the_audio.dsp_lock);
 	init_waitqueue_head(&the_audio.wait);
 	wake_lock_init(&the_audio.wakelock, WAKE_LOCK_SUSPEND, "audio_pcm");
-	wake_lock_init(&the_audio.idlelock, WAKE_LOCK_IDLE, "audio_pcm_idle");
+	pm_qos_add_request(&the_audio.pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
 	return misc_register(&audio_misc);
 }
 
