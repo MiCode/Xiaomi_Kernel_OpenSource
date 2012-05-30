@@ -281,6 +281,9 @@ static struct map_desc apq8064_io_desc[] __initdata = {
 	},
 	MSM_CHIP_DEVICE(QFPROM, APQ8064),
 	MSM_CHIP_DEVICE(SIC_NON_SECURE, APQ8064),
+#ifdef CONFIG_DEBUG_APQ8064_UART
+	MSM_DEVICE(DEBUG_UART),
+#endif
 };
 
 void __init msm_map_apq8064_io(void)

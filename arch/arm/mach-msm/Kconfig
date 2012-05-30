@@ -945,14 +945,6 @@ config MSM_HAS_DEBUG_UART_HS_V14
 	help
 	  Say Y here if high speed MSM UART v1.4 is present.
 
-config DEBUG_MSM8930_UART
-	bool "Kernel low-level debugging messages via MSM 8930 UART"
-	depends on ARCH_MSM8930 && DEBUG_LL
-	select MSM_HAS_DEBUG_UART_HS
-	help
-	  Say Y here if you want the debug print routines to direct
-	  their output to the serial port on MSM 8930 devices.
-
 config MSM_DEBUG_UART_PHYS
 	hex
 	default 0xA9A00000 if (ARCH_MSM7X27 || ARCH_QSD8X50) && DEBUG_MSM_UART1
@@ -999,12 +991,28 @@ choice
 
 	config DEBUG_MSM8960_UART
 		bool "Kernel low-level debugging messages via MSM 8960 UART"
-		depends on ARCH_MSM8960
+		depends on ARCH_MSM8960 && DEBUG_LL
 		select DEBUG_MSM8930_UART
 		select MSM_HAS_DEBUG_UART_HS
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8960 devices.
+
+	config DEBUG_MSM8930_UART
+		bool "Kernel low-level debugging messages via MSM 8930 UART"
+		depends on ARCH_MSM8930 && DEBUG_LL
+		select MSM_HAS_DEBUG_UART_HS
+		help
+		Say Y here if you want the debug print routines to direct
+		their output to the serial port on MSM 8930 devices.
+
+	config DEBUG_APQ8064_UART
+		bool "Kernel low-level debugging messages via APQ 8064 UART"
+		depends on ARCH_APQ8064 && DEBUG_LL
+		select MSM_HAS_DEBUG_UART_HS
+		help
+		Say Y here if you want the debug print routines to direct
+		their output to the serial port on APQ 8064 devices.
 
 	config DEBUG_MSMCOPPER_UART
 		bool "Kernel low-level debugging messages via MSM Copper UART"
