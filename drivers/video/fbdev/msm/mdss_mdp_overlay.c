@@ -21,6 +21,7 @@
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
+#include "mdss_mdp_rotator.h"
 
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
@@ -85,28 +86,30 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		dst_h = req->dst_rect.h;
 	}
 
-	if ((req->src_rect.w * MAX_UPSCALE_RATIO) < dst_w) {
-		pr_err("too much upscaling Width %d->%d\n",
-		       req->src_rect.w, req->dst_rect.w);
-		return -EINVAL;
-	}
+	if (!(req->flags & MDSS_MDP_ROT_ONLY)) {
+		if ((req->src_rect.w * MAX_UPSCALE_RATIO) < dst_w) {
+			pr_err("too much upscaling Width %d->%d\n",
+			       req->src_rect.w, req->dst_rect.w);
+			return -EINVAL;
+		}
 
-	if ((req->src_rect.h * MAX_UPSCALE_RATIO) < dst_h) {
-		pr_err("too much upscaling. Height %d->%d\n",
-		       req->src_rect.h, req->dst_rect.h);
-		return -EINVAL;
-	}
+		if ((req->src_rect.h * MAX_UPSCALE_RATIO) < dst_h) {
+			pr_err("too much upscaling. Height %d->%d\n",
+			       req->src_rect.h, req->dst_rect.h);
+			return -EINVAL;
+		}
 
-	if (req->src_rect.w > (dst_w * MAX_DOWNSCALE_RATIO)) {
-		pr_err("too much downscaling. Width %d->%d\n",
-		       req->src_rect.w, req->dst_rect.w);
-		return -EINVAL;
-	}
+		if (req->src_rect.w > (dst_w * MAX_DOWNSCALE_RATIO)) {
+			pr_err("too much downscaling. Width %d->%d\n",
+			       req->src_rect.w, req->dst_rect.w);
+			return -EINVAL;
+		}
 
-	if (req->src_rect.h > (dst_h * MAX_DOWNSCALE_RATIO)) {
-		pr_err("too much downscaling. Height %d->%d\n",
-		       req->src_rect.h, req->dst_rect.h);
-		return -EINVAL;
+		if (req->src_rect.h > (dst_h * MAX_DOWNSCALE_RATIO)) {
+			pr_err("too much downscaling. Height %d->%d\n",
+			       req->src_rect.h, req->dst_rect.h);
+			return -EINVAL;
+		}
 	}
 
 	if (fmt->is_yuv) {
@@ -139,6 +142,61 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 	}
 
 	return 0;
+}
+
+static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
+					  struct mdp_overlay *req)
+{
+	struct mdss_mdp_rotator_session *rot;
+	struct mdss_mdp_format_params *fmt;
+	int ret = 0;
+
+	pr_debug("rot ctl=%u req id=%x\n", mfd->ctl->num, req->id);
+
+	fmt = mdss_mdp_get_format_params(req->src.format);
+	if (!fmt) {
+		pr_err("invalid rot format %d\n", req->src.format);
+		return -EINVAL;
+	}
+
+	ret = mdss_mdp_overlay_req_check(mfd, req, fmt);
+	if (ret)
+		return ret;
+
+	if (req->id == MSMFB_NEW_REQUEST) {
+		rot = mdss_mdp_rotator_session_alloc();
+
+		if (!rot) {
+			pr_err("unable to allocate rotator session\n");
+			return -ENOMEM;
+		}
+	} else if (req->id & MDSS_MDP_ROT_SESSION_MASK) {
+		rot = mdss_mdp_rotator_session_get(req->id);
+
+		if (!rot) {
+			pr_err("rotator session=%x not found\n", req->id);
+			return -ENODEV;
+		}
+	} else {
+		pr_err("invalid rotator session id=%x\n", req->id);
+		return -EINVAL;
+	}
+
+	rot->rotations = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD);
+
+	rot->format = fmt->format;
+	rot->img_width = req->src.width;
+	rot->img_height = req->src.height;
+	rot->src_rect.x = req->src_rect.x;
+	rot->src_rect.y = req->src_rect.y;
+	rot->src_rect.w = req->src_rect.w;
+	rot->src_rect.h = req->src_rect.h;
+
+	rot->params_changed++;
+
+	req->id = rot->session_id;
+
+	return ret;
 }
 
 static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
@@ -256,14 +314,19 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 				struct mdp_overlay *req)
 {
 	int ret;
-	struct mdss_mdp_pipe *pipe;
 
-	/* userspace zorder start with stage 0 */
-	req->z_order += MDSS_MDP_STAGE_0;
+	if (req->flags & MDSS_MDP_ROT_ONLY) {
+		ret = mdss_mdp_overlay_rotator_setup(mfd, req);
+	} else {
+		struct mdss_mdp_pipe *pipe;
 
-	ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe);
+		/* userspace zorder start with stage 0 */
+		req->z_order += MDSS_MDP_STAGE_0;
 
-	req->z_order -= MDSS_MDP_STAGE_0;
+		ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe);
+
+		req->z_order -= MDSS_MDP_STAGE_0;
+	}
 
 	return ret;
 }
@@ -279,6 +342,19 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 		return -ENODEV;
 
 	pr_debug("unset ndx=%x\n", ndx);
+
+	if (ndx & MDSS_MDP_ROT_SESSION_MASK) {
+		struct mdss_mdp_rotator_session *rot;
+		rot = mdss_mdp_rotator_session_get(ndx);
+		if (rot) {
+			mdss_mdp_rotator_finish(rot);
+		} else {
+			pr_warn("unknown session id=%x\n", ndx);
+			ret = -ENODEV;
+		}
+
+		return ret;
+	}
 
 	for (i = 0; unset_ndx != ndx && i < MDSS_MDP_MAX_SSPP; i++) {
 		pipe_ndx = BIT(i);
@@ -317,6 +393,28 @@ static int mdss_mdp_overlay_play_wait(struct msm_fb_data_type *mfd,
 		pr_err("error displaying\n");
 
 	return ret;
+}
+
+static int mdss_mdp_overlay_rotate(struct msmfb_overlay_data *req,
+				   struct mdss_mdp_data *src_data,
+				   struct mdss_mdp_data *dst_data)
+{
+	struct mdss_mdp_rotator_session *rot;
+	int ret;
+
+	rot = mdss_mdp_rotator_session_get(req->id);
+	if (!rot) {
+		pr_err("invalid session id=%x\n", req->id);
+		return -ENODEV;
+	}
+
+	ret = mdss_mdp_rotator_queue(rot, src_data, dst_data);
+	if (ret) {
+		pr_err("rotator queue error session id=%x\n", req->id);
+		return ret;
+	}
+
+	return 0;
 }
 
 static int mdss_mdp_overlay_queue(struct msmfb_overlay_data *req,
@@ -364,7 +462,23 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 	}
 	src_data.num_planes = 1;
 
-	ret = mdss_mdp_overlay_queue(req, &src_data);
+	if (req->id & MDSS_MDP_ROT_SESSION_MASK) {
+		struct mdss_mdp_data dst_data;
+		memset(&dst_data, 0, sizeof(dst_data));
+
+		mdss_mdp_get_img(mfd->iclient, &req->dst_data, &dst_data.p[0]);
+		if (dst_data.p[0].len == 0) {
+			pr_err("dst data pmem error\n");
+			return -ENOMEM;
+		}
+		dst_data.num_planes = 1;
+
+		ret = mdss_mdp_overlay_rotate(req, &src_data, &dst_data);
+
+		mdss_mdp_put_img(&dst_data.p[0]);
+	} else {
+		ret = mdss_mdp_overlay_queue(req, &src_data);
+	}
 
 	mdss_mdp_put_img(&src_data.p[0]);
 
