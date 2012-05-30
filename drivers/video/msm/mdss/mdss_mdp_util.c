@@ -21,6 +21,7 @@
 #include <linux/msm_kgsl.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+#include <linux/major.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -275,4 +276,75 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 	}
 
 	return 0;
+}
+
+int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
+{
+	/* only source may use frame buffer */
+	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
+		fput_light(data->srcp_file, data->p_need);
+		return 0;
+	}
+	if (data->srcp_file) {
+		put_pmem_file(data->srcp_file);
+		data->srcp_file = NULL;
+		return 0;
+	}
+	if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
+		ion_free(data->iclient, data->srcp_ihdl);
+		data->iclient = NULL;
+		data->srcp_ihdl = NULL;
+		return 0;
+	}
+
+	return -ENOMEM;
+}
+
+int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
+		     struct mdss_mdp_img_data *data)
+{
+	struct file *file;
+	int ret = -EINVAL;
+	int fb_num;
+	unsigned long *start, *len;
+
+	start = (unsigned long *) &data->addr;
+	len = (unsigned long *) &data->len;
+	data->flags = img->flags;
+	data->p_need = 0;
+
+	if (img->flags & MDP_BLIT_SRC_GEM) {
+		data->srcp_file = NULL;
+		ret = kgsl_gem_obj_addr(img->memory_id, (int) img->priv,
+					start, len);
+	} else if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
+		file = fget_light(img->memory_id, &data->p_need);
+		if (file && FB_MAJOR ==
+				MAJOR(file->f_dentry->d_inode->i_rdev)) {
+			data->srcp_file = file;
+			fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
+			ret = mdss_fb_get_phys_info(start, len, fb_num);
+		}
+	} else if (iclient) {
+		data->iclient = iclient;
+		data->srcp_ihdl = ion_import_fd(iclient, img->memory_id);
+		if (IS_ERR_OR_NULL(data->srcp_ihdl))
+			return PTR_ERR(data->srcp_ihdl);
+		ret = ion_phys(iclient, data->srcp_ihdl,
+			       start, (size_t *) len);
+	} else {
+		unsigned long vstart;
+		ret = get_pmem_file(img->memory_id, start, &vstart, len,
+				    &data->srcp_file);
+	}
+
+	if (!ret && (img->offset < data->len)) {
+		data->addr += img->offset;
+		data->len -= img->offset;
+	} else {
+		mdss_mdp_put_img(data);
+		ret = -EINVAL;
+	}
+
+	return ret;
 }

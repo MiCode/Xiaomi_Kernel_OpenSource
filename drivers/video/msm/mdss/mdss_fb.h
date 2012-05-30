@@ -65,6 +65,8 @@ struct msm_fb_data_type {
 
 	int (*on_fnc) (struct msm_fb_data_type *mfd);
 	int (*off_fnc) (struct msm_fb_data_type *mfd);
+	int (*kickoff_fnc) (struct mdss_mdp_ctl *ctl);
+	int (*ioctl_handler) (struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 	void (*dma_fnc) (struct msm_fb_data_type *mfd);
 	int (*cursor_update) (struct fb_info *info,
 			      struct fb_cursor *cursor);
