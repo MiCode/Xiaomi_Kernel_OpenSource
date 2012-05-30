@@ -84,6 +84,7 @@ struct msm_sensor_reg_t {
 	struct msm_camera_i2c_conf_array *init_settings;
 	uint8_t init_size;
 	struct msm_camera_i2c_conf_array *mode_settings;
+	struct msm_camera_i2c_conf_array *no_effect_settings;
 	struct msm_sensor_output_info_t *output_settings;
 	uint8_t num_conf;
 };
