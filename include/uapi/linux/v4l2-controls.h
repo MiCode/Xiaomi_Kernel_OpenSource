@@ -140,6 +140,8 @@ enum v4l2_colorfx {
 
 /* last CID + 1 */
 #define V4L2_CID_LASTP1                         (V4L2_CID_BASE+43)
+#define V4L2_CID_SPECIAL_EFFECT			(V4L2_CID_BASE+44)
+/* Minimum number of buffer neede by the device */
 
 /* USER-class private control IDs */
 
