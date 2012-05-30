@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,9 @@
 struct mdm_platform_data {
 	char *mdm_version;
 	int ramdump_delay_ms;
+	int soft_reset_inverted;
+	int early_power_on;
+	int sfr_query;
 	struct platform_device *peripheral_platform_device;
 };
 
