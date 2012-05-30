@@ -1,0 +1,409 @@
+Introduction
+============
+MPQ DVB Adapter implements Digital Video Broadcasting devices according
+to LinuxTV (linuxtv.org) defined API and infrastructure.
+
+The implemented devices are dvb/demux devices, dvb/dvr devices and
+dvb/video devices.
+
+These devices are used in Qualcomm's MPQ chipsets that support
+broadcast applications.
+
+dvb/demux is responsible to receive a digital stream broadcasted over
+the air from a hardware unit (TSPP - Transport stream packet processor,
+or TSIF - Transport Stream Interface) and separates the stream into its
+various sub-streams such as video, audio and auxiliary data.
+The separation operation is named demuxing.
+
+dvb/dvr is used in conjunction with dvb/demux to re-play a digital
+stream from memory or to record stream to memory.
+
+dvb/video is used to handle the video decoding, it receives compressed
+video from dvb/demux through a stream-buffer interface and interacts
+with the existing HW video driver to perform the decoding.
+
+For more information on the TSIF interface, please refer to TSIF
+documentation under "Documentation/arm/msm/tsif.txt".
+For more information on the TSPP interface, please refer to TSPP
+documentation under "Documentation/arm/msm/tspp.txt".
+For more information on DVB-API definition, please refer dvb
+documentation under "Documentation/dvb/readme.txt".
+
+Hardware description
+====================
+dvb/demux, dvb/dvr and dvb/video do not interact with a hardware directly;
+The implementation of these drivers is done using the kernel API of TSPP,
+TSIF and video drivers.
+
+Software description
+====================
+
+Terminology
+-----------
+Stream: A stream is a TS packet source
+  - For example, MPEG2 Transport Stream from TSIF0
+Filter: Enables TS packet filtering and routing according to PID (packet ID)
+  - The decision regarding which PIDs in the stream will be routed
+    is done via filters, each demux open request corresponds to a filter.
+  - Filters can pass TS packets as-is (for recording), assemble them into
+    "other" PES packets (for PES packets read by client), assemble and send
+    them to decoder (for decoder PES), or assemble them into sections.
+Service: A service is a set of PIDs as defined in the service PMT.
+  Each service may be carried in a different transport stream or part of the
+  same transport stream. Processing a service means either preparing the
+  data for display and/or for recording.
+
+Requirments
+-----------
+1. Demuxing from different sources:
+   - Live transport stream inputs (TSIF)
+   - Memory inputs
+2. Support different packet formats:
+   - 188-bytes transport packets
+   - 192-bytes transport packets
+3. PID filtering
+4. Output of the following data:
+   - Decoder PES: PES (video and/or audio) that can be directed to HW decoders
+     in tunneling mode (without interaction of user-space).
+   - Other PES: a non-decoder PES, such as subtitle, teletext. The consumer
+     of this data is user-space that reads the data through standard read
+     calls.
+   - Sections: Sections are used by user-space to acquire different kinds of
+     information such as channels list, program user guide, etc.
+   - Transport Stream Packets: Transport stream packets of specific PIDs as
+     they were received in the input stream. User-space can use those to
+     record specific services and/or to perform time-shift buffer.
+   - PCR/STC: Pairs of PCR/STC can be used by user-space to perform
+     clock-recovery.
+   - Frame-indexing: For recorded stream, demux provides indexing of the
+     I-frames within the stream that can be used for trick-modes operations
+     while playing a recorded file.
+5. Support decryption of scrambled transport packets.
+6. Support recording of scrambled streams.
+8. Section filtering.
+
+Control path
+------------
+1. Client opens a demux device. Open request is done on the same demux
+   device for each filter.
+2. Client may configure the demux's internal ring-buffer size used to
+   hold the data for user-space (or default is used).
+3. Client configures the opened filter either to capture sections,
+   TS packets (for recording) or PES (decoder or non-decoder PES).
+   - The demux configures the underlying HW accordingly through
+     TSPP or TSIF kernel APIs
+   - demux receives notification of new data from the underlying HW and
+     performs demuxing operation based on the configuration.
+4. Client can then read data received from the selected filter.
+
+Data path
+---------
+For each filter that is opened, demux manages a circular buffer that
+holds the captured filter data; Client read commands extract data from
+the relevant ring buffer. Data loss can occur if a client cannot keep up
+with stream bandwidth.
+
+For PES data tunneled to decoder, demux manages a stream-buffer used to
+transfer the PES data to the decoder. The stream-buffer is built from
+two ring-buffers: One holding the PES payload (elementary stream) and
+the other holding PES parameters extracted from the PES header. The
+ring-buffer with PES parameters points to the location of respective PES
+payload in the PES payload ring-buffer.
+
+To allow concurrency of multiple stream processing, multiple demux/dvr
+devices exist. Each demux devices handles a single stream input. The
+number of demux devices is configurable depending on the required number
+of concurrent stream processing.
+
+The client configures each demux device with the stream to process,
+by default, all devices are configured to process stream from memory.
+The default setting can be changed by issuing ioctl that configures
+the demux source to either TSIF0 or TSIF1. For specific TSIF input,
+only one demux device may process it at a time.
+
+Background Processing
+---------------------
+When demux receives notifications from underlying HW drivers about new
+data, it schedules work to a single-threaded workqueue to process the
+notification.
+
+The processing is the action of demuxing of the new data; it may sleep
+as it locks against the demux data-structure that may be accessed by
+user-space in the meanwhile.
+
+A single threaded workqueue exists for each live input (TSIF0 or TSIF1)
+to process the inputs in parallel.
+
+Dependencies
+------------
+The demux driver depends on the following kernel drivers and subsystems:
+1. TSIF driver: Used to receive TS packets from TSIF interface for
+   targets supporting TSIF only.
+2. TSPP driver: Used to receive TS packets and/or PES from TSPP
+   interface for targets supporting TSPP.
+3. TZ-COM: Used to communicate with TrustZone to handle scrambled
+   streams.
+4. ION: Used to allocate memory for buffers holding decoder-data in
+   case the data is tunneled between demux and decoders.
+   Also used to allocate memory for TSPP/TSIF output pipes.
+5. dvb-core: Existing Linux infrastructure used for implementation of
+   dvb devices.
+
+Design
+======
+
+Goals
+-----
+The demux driver is designed to:
+1. Fulfil the requirements listed above.
+2. Be able to work on different chipsets having different HW
+   capabilities. For example, some chipsets are equipped with TSIF only,
+   others are equipped with TSPP of different versions.
+
+Design Blocks
+-------------
+Demux implementation hooks to the existing Linux dvb-core
+infrastructure as follows:
+
+     +----------+  +------------------------------------------+
+     |          |  |             MPQ Demux Driver             |
+     |          |  | +----------+  +----------+  +----------+ |
+     |          |  | | MPQ DMX  |  | MPQ DMX  |  | MPQ DMX  | |
+     | QCOM MPQ |  | | TSIF     |  | TSPPv1   |  | TSPPv2   | |
+     |  Adapter |  | | Plugin   |  | Plugin   |  | Plugin   | |
+     |          |  | +----------+  +----------+  +----------+ |
+     |          |  | +--------------------------------------+ |
+     |          |  | |       MPQ Demux Common Services      | |
+     |          |  | +--------------------------------------+ |
+     +----------+  +------------------------------------------+
+     +--------------------------------------------------------+
+     |                    Linux DVB Core                      |
+     |     +----------+      +----------+       +----------+  |
+     |     |   DVB    |      | DVB DMX  |       |  DVB     |  |
+     |     |  Demux   |      |  Device  |       |  Device  |  |
+     |     +----------+      +----------+       +----------+  |
+     +--------------------------------------------------------+
+
+The new developed code is QCOM MPQ Adapter and the MPQ Demux driver
+with the various MPQ-DMX Plugins.
+
+QCOM MPQ Adapter registers a new DVB adapter to Linux dvb-core.
+The MPQ DVB adapter is built as a separate kernel module. Using it
+demux and video devices can register themselves to the adapter.
+
+MPQ-DMX plugins exist to hook to dvb-core demux implementation
+depending on the HW capabilities. Only one of these plugins might be
+compiled and run at a time on the target.
+As the name of each plugin implies, one plugin implements demux
+functionality for targets supporting TSIF only, and the others
+implement pluging for targets supporting TSPP in different versions.
+
+The plugin implementation is not hooked to specific chipset as
+different chipsets might have the same HW capability.
+
+The MPQ-DMX Plugin Common Services provides common services that are
+used by all plugins, such as registrations of demux devices to
+the dvb-core.
+
+The demux plugin is built as a separate kernel module. Each plugin
+hooks to the DVB-Demux by providing set of pointers to functions
+required for DVB-Demux and dvb-core operation. The actual
+implementation of these function differs between the plugins depending
+on the HW capabilities. The plugins may be viewed as "classes"
+inheriting from DVB-Demux "class".
+
+Interface to TSPP/TSIF Drivers
+------------------------------
+Each demux plugin interacts with the kernel API of the relevant driver
+(either TSIF or TSPP) to receive TS packets or other kinds of data
+depending on the HW capabilities.
+
+The demux uses the kernel API of TSIF and TSPP drivers and registers
+callback triggered when new data is received. The callback schedules
+work to a single-threaded workqueue to process the data. The actual
+processing of the data depends on the HW capabilities.
+
+Interface to TZ-COM Driver
+--------------------------
+For cases HW does not support descrambling, the descrambling is
+performed by communicating with TZ using TZ-COM kernel API.
+
+ION driver is used to allocate input and output buffers provided to TZ.
+
+Interface to Decoders
+---------------------
+The interface to the decoders is done through a stream-buffer interface.
+The design aims not to have direct calls between dvb/demux and
+dvb/video for de-coupling and generality. dvb/demux and dvb/video
+interact only with stream-buffer API.
+
+Stream buffer is built of two ring-buffers, one holding the PES payload
+(the video elementary stream) and the other holding parameters from PES
+headers required by decoders.
+
+The separation to two ring-buffers allows locking the payload buffer
+as secured buffer that only the decoder's HW may access while allowing
+the software to access the PES headers which are not required to be
+secured. Locking of the payload buffer is done when the data should be
+secured (scrambled video stream for example).
+
+The stream-buffer API make use of dvb-ring buffer implementation that
+is part of dvb-core.
+
+SMP/multi-core
+==============
+Driver is fully SMP aware.
+
+Interface
+=========
+
+User-space API
+--------------
+dvb/demux and dvb/dvr each expose a char device interface to user-space
+as defined by linuxtv.org. Extension to this interface is done to add
+new features required by MPQ use-cases. The extensions preserve backward
+compatibility of the API defined by linuxtv.org
+
+The devices appear in file-system under:
+/dev/dvb/adapter0/demuxN
+/dev/dvb/adapter0/dvrN
+
+Where "N" ranges between 0 to total number of demux devices defined.
+The default configuration is 4 devices.
+
+Extensions to this API (through new ioctl) exist to provide the
+following functionality:
+
+1. DMX_SET_TS_PACKET_FORMAT: Set the transport stream TS packet format.
+   Configures whether the stream fed to demux from memory is with TS packet
+   of 188 bytes long, 192 bytes long, etc.
+   Default is 188 bytes long to preserve backward compatibility.
+
+   Returns the following values:
+   0 in case of success.
+   -EINVAL if the parameter is invalid.
+   -EBUSY if demux is already running.
+
+2. DMX_SET_DECODER_BUFFER_SIZE: Set the decoder's buffer size.
+   For data tunneled to decoder, client can configure the size of the buffer
+   holding the PES payload.
+   Default is set to the fixed size value that exists in current dvb-core to
+   preserve backward compatibility.
+
+   Returns the following values:
+   0 in case of success.
+   -EINVAL if the parameter is invalid.
+   -EBUSY if demux is already running.
+
+3. DMX_SET_TS_OUT_FORMAT: Set the TS packet recording format.
+   Indicates whether the TS packet used for recording should be in 188 or 192
+   bytes long format. In case of 192-packets output, 4 bytes zero timestamp
+   is attached to the original 188 packet.
+   Default is set for 188 to preserve backward compatibility.
+
+   Returns the following values:
+   0 in case of success.
+   -EINVAL if the parameter is invalid.
+   -EBUSY if demux is already running.
+
+4. Added support for mmap for direct access to input/output buffers.
+   User can either use the original read/write syscalls or use mmap
+   on the specific file-handle. Several ioctls were exposed so that
+   user can find-out the status of the buffers (DMX_GET_BUFFER_STATUS),
+   to notify demux when data is consumed (DMX_RELEASE_DATA) or notify
+   dvr when data is fed (DMX_FEED_DATA).
+
+5. DMX_SET_PLAYBACK_MODE: Set playback mode in memory input.
+   In memory input, contrary to live input, playback can be in pull mode,
+   where if one of output buffers is full, demux stalls waiting for free space,
+   this would cause DVR input buffer fullness to accumulate.
+
+   Returns the following values:
+   0 in case of success.
+   -EINVAL if the parameter is invalid.
+   -EBUSY if demux is already running.
+
+debugfs
+-------
+debugfs is used for debug purposes.
+
+Directory in debugfs is created for each demux device.
+
+Each directory includes several performance counters of the specific demux:
+Total demuxing time, total CRC time, HW notification rate, HW notification
+buffer size.
+
+
+Exported Kernel API
+-------------------
+MPQ adapter exports the following kernel API:
+1. Getter API for the registered MPQ adapter handle.
+   This is used by demux plugin as well as dvb/video implementation to
+   register their devices to that adapter.
+2. Stream buffer API: Used to tunnel the data between dvb/demux and
+   decoders. The API is used by dvb/demux and by decoders to write/read
+   tunneled data.
+3. Stream buffer interface registration: Used to register stream-buffer
+   interfaces. When demux driver is asked to tunnel data to a decoder,
+   the demux allocates a stream-buffer to be shared between demux and
+   the decoder. For the decoder to retrieve the info of the
+   stream-buffer it should connect to, stream-buffer registration API
+   exist.
+   The demux registers the new allocated stream buffer handle to MPQ
+   Adapter, and the decoder may query the registered interface through
+   MPQ Adapter.
+
+Driver parameters
+=================
+There are three kernel modules required for DVB API operation:
+1. dvb-core.ko: This is an existing Linux module for dvb functionality.
+   The parameters for this module are the one defined by linuxtv.org.
+   An additional parameter was added to specify whether to collect
+   performance debug information exposed through debugfs.
+   Parameter name: dvb_demux_performancecheck
+
+2. mpq-adapter.ko: MPQ DVB adapter module. Has a parameter to
+   specify the adapter number, the number (X) is the same as the one
+   that appears in /dev/dvb/adapterX. Default is 0.
+   Parameter name: adapter_nr
+
+3. mpq-dmx-hw-plugin.ko: Module for demux HW plugin. Receives as a
+   parameter the number of required demux devices. Default is set to the
+   number specified in kernel configuration.
+   Parameter name: mpq_demux_device_num
+
+Config options
+==============
+New kernel configurations is available (through make menuconfig) to
+enable MPQ based adapter functionality. The following configurations
+exist:
+1. Control whether to enable QCOM MPQ DVB adapter (tri-state).
+   It depends on having dvb-core enabled.
+2. If MPQ adapter is enabled:
+   2.1. Control whether to enable MPQ dvb/demux (tri-state)
+   2.2. Control whether to enable MPQ dvb/video (tri-state)
+   2.3. If dvb/demux is enabled:
+        2.3.1. Configure the number of demux devices. Default is 4.
+        2.3.2. Select the desired demux plugin. Each plugin would appear
+               in the list of options depending whether the respective
+               driver (TSIF/TSPP) is enabled or not.
+
+Dependencies
+============
+1. The implementation depends on having dvb-core enabled.
+2. Each demux plugin depends on whether the relevant driver it uses
+   is enabled. TSIF plugin depends on TSIF driver and TSPP plugins
+   depend on TSPP driver.
+3. There's no communication to other processors.
+
+User space utilities
+====================
+N/A
+
+Other
+=====
+N/A
+
+Known issues
+============
+N/A
