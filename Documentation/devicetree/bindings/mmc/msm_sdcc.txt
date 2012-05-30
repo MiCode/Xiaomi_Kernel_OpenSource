@@ -23,7 +23,9 @@ Optional Properties:
 	- qcom,sdcc-nonremovable - specifies whether the card in slot is
 				hot pluggable or hard wired.
 	- qcom,sdcc-disable_cmd23 - disable sending CMD23 to card when controller can't support it.
-	- qcom,sdcc-hs200 - enable eMMC4.5 HS200 bus speed mode
+	- qcom,sdcc-bus-speed-mode - specifies supported bus speed modes by host.
+	- qcom,sdcc-current-limit - specifies max. current the host can drive.
+	- qcom,sdcc-xpc - specifies if the host can supply more than 150mA for SDXC cards.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,sdcc-<supply>-always_on - specifies whether supply should be kept "on" always.
