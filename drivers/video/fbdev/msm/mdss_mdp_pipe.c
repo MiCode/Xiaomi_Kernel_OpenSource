@@ -581,6 +581,11 @@ static int mdss_mdp_vig_setup(struct mdss_mdp_pipe *pipe)
 			  (1 << 18) |	/* SRC_DATA=YCBCR */
 			  (1 << 17);	/* CSC_1_EN */
 
+	/* only need to program once */
+	if (pipe->play_cnt == 0) {
+		mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1,
+				   MDSS_MDP_CSC_YUV2RGB);
+	}
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_OP_MODE, opmode);
 
 	return 0;
