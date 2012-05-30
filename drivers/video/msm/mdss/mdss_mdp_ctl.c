@@ -729,6 +729,9 @@ static int mdss_mdp_mixer_update(struct mdss_mdp_mixer *mixer)
 {
 	mixer->params_changed = 0;
 
+	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
+		mdss_mdp_dspp_setup(mixer->ctl, mixer);
+
 	/* skip mixer setup for rotator */
 	if (!mixer->rotator_mode)
 		mdss_mdp_mixer_setup(mixer->ctl, mixer);
