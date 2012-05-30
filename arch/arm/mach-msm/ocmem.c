@@ -37,7 +37,7 @@ struct ocmem_plat_data {
 	unsigned long size;
 	unsigned long base;
 	struct ocmem_partition *parts;
-	int nr_parts;
+	unsigned nr_parts;
 };
 
 struct ocmem_zone zones[OCMEM_CLIENT_MAX];
@@ -102,7 +102,7 @@ static struct ocmem_plat_data *parse_static_config(struct platform_device *pdev)
 	struct ocmem_plat_data *pdata = NULL;
 	struct ocmem_partition *parts = NULL;
 	struct device   *dev = &pdev->dev;
-	int nr_parts;
+	unsigned nr_parts = 0;
 	int i;
 	int j;
 
