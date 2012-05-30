@@ -660,7 +660,7 @@ enum iris_region_t {
 	IRIS_REGION_OTHER
 };
 
-#define STD_BUF_SIZE        (64)
+#define STD_BUF_SIZE        (128)
 
 enum iris_buf_t {
 	IRIS_BUF_SRCH_LIST,
