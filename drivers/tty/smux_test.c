@@ -93,7 +93,7 @@ int get_rx_buffer(void *priv, void **pkt_priv, void **buffer, int size)
 {
 	void *rx_buf;
 
-	rx_buf = kmalloc(size, GFP_ATOMIC);
+	rx_buf = kmalloc(size, GFP_KERNEL);
 	*pkt_priv = (void *)0x1234;
 	*buffer = rx_buf;
 
@@ -268,83 +268,101 @@ void smux_mock_cb(void *priv, int event, const void *metadata)
 		return;
 	}
 
-	spin_lock_irqsave(&cb_data_ptr->lock, flags);
 	switch (event) {
 	case SMUX_CONNECTED:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
 		++cb_data_ptr->event_connected;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	case SMUX_DISCONNECTED:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
 		++cb_data_ptr->event_disconnected;
 		cb_data_ptr->event_disconnected_ssr =
 			((struct smux_meta_disconnected *)metadata)->is_ssr;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	case SMUX_READ_DONE:
-		++cb_data_ptr->event_read_done;
 		read_event_meta = kmalloc(sizeof(struct mock_read_event),
-						GFP_ATOMIC);
+						GFP_KERNEL);
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
+		++cb_data_ptr->event_read_done;
 		if (read_event_meta) {
 			read_event_meta->meta =
 				*(struct smux_meta_read *)metadata;
 			list_add_tail(&read_event_meta->list,
 						&cb_data_ptr->read_events);
 		}
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	case SMUX_READ_FAIL:
-		++cb_data_ptr->event_read_failed;
 		read_event_meta = kmalloc(sizeof(struct mock_read_event),
-						GFP_ATOMIC);
+						GFP_KERNEL);
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
+		++cb_data_ptr->event_read_failed;
 		if (read_event_meta) {
 			read_event_meta->meta =
 					*(struct smux_meta_read *)metadata;
 			list_add_tail(&read_event_meta->list,
 					&cb_data_ptr->read_events);
 		}
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	case SMUX_WRITE_DONE:
-		++cb_data_ptr->event_write_done;
 		write_event_meta = kmalloc(sizeof(struct mock_write_event),
-						GFP_ATOMIC);
+						GFP_KERNEL);
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
+		++cb_data_ptr->event_write_done;
 		if (write_event_meta) {
 			write_event_meta->meta =
 					*(struct smux_meta_write *)metadata;
 			list_add_tail(&write_event_meta->list,
 					&cb_data_ptr->write_events);
 		}
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	case SMUX_WRITE_FAIL:
-		++cb_data_ptr->event_write_failed;
 		write_event_meta = kmalloc(sizeof(struct mock_write_event),
-						GFP_ATOMIC);
+						GFP_KERNEL);
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
+		++cb_data_ptr->event_write_failed;
 		if (write_event_meta) {
 			write_event_meta->meta =
 				*(struct smux_meta_write *)metadata;
 			list_add_tail(&write_event_meta->list,
 					&cb_data_ptr->write_events);
 		}
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	case SMUX_LOW_WM_HIT:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
 		++cb_data_ptr->event_low_wm;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	case SMUX_HIGH_WM_HIT:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
 		++cb_data_ptr->event_high_wm;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	case SMUX_TIOCM_UPDATE:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
 		++cb_data_ptr->event_tiocm;
 		cb_data_ptr->tiocm_meta = *(struct smux_meta_tiocm *)metadata;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
 
 	default:
 		pr_err("%s: unknown event %d\n", __func__, event);
 	};
 
+	spin_lock_irqsave(&cb_data_ptr->lock, flags);
 	++cb_data_ptr->cb_count;
 	complete(&cb_data_ptr->cb_completion);
 	spin_unlock_irqrestore(&cb_data_ptr->lock, flags);

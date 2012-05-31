@@ -198,6 +198,20 @@ struct smux_notify_handle {
 };
 
 /**
+ * Receive worker data structure.
+ *
+ * One instance is created for every call to smux_rx_state_machine.
+ */
+struct smux_rx_worker_data {
+	const unsigned char *data;
+	int len;
+	int flag;
+
+	struct work_struct work;
+	struct completion work_complete;
+};
+
+/**
  * Line discipline and module structure.
  *
  * Only one instance since multiple instances of line discipline are not
@@ -211,12 +225,14 @@ struct smux_ldisc_t {
 	int ld_open_count;
 	struct tty_struct *tty;
 
-	/* RX State Machine */
-	spinlock_t rx_lock_lha1;
+	/* RX State Machine (singled-threaded access by smux_rx_wq) */
 	unsigned char recv_buf[SMUX_MAX_PKT_SIZE];
 	unsigned int recv_len;
 	unsigned int pkt_remain;
 	unsigned rx_state;
+
+	/* RX Activity - accessed by multiple threads */
+	spinlock_t rx_lock_lha1;
 	unsigned rx_activity_flag;
 
 	/* TX / Power */
@@ -259,10 +275,12 @@ static int queued_fifo_notifications;
 static DEFINE_SPINLOCK(notify_lock_lhc1);
 
 static struct workqueue_struct *smux_tx_wq;
+static struct workqueue_struct *smux_rx_wq;
 static void smux_tx_worker(struct work_struct *work);
 static DECLARE_WORK(smux_tx_work, smux_tx_worker);
 
 static void smux_wakeup_worker(struct work_struct *work);
+static void smux_rx_worker(struct work_struct *work);
 static DECLARE_WORK(smux_wakeup_work, smux_wakeup_worker);
 static DECLARE_DELAYED_WORK(smux_wakeup_delayed_work, smux_wakeup_worker);
 
@@ -321,6 +339,7 @@ static int lch_init(void)
 
 	smux_notify_wq = create_singlethread_workqueue("smux_notify_wq");
 	smux_tx_wq = create_singlethread_workqueue("smux_tx_wq");
+	smux_rx_wq = create_singlethread_workqueue("smux_rx_wq");
 
 	if (IS_ERR(smux_notify_wq) || IS_ERR(smux_tx_wq)) {
 		SMUX_DBG("%s: create_singlethread_workqueue ENOMEM\n",
@@ -888,8 +907,6 @@ static void smux_send_byte(char ch)
  * @lcid Logical channel ID for packet
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 locked.
  */
 static int smux_receive_byte(char ch, int lcid)
 {
@@ -931,8 +948,6 @@ static void smux_tx_queue(struct smux_pkt_t *pkt_ptr, struct smux_lch_t *ch,
  * @pkt  Received packet
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 already locked.
  */
 static int smux_handle_rx_open_ack(struct smux_pkt_t *pkt)
 {
@@ -1021,8 +1036,6 @@ static int smux_handle_close_ack(struct smux_pkt_t *pkt)
  * @pkt  Received packet
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 already locked.
  */
 static int smux_handle_rx_open_cmd(struct smux_pkt_t *pkt)
 {
@@ -1030,6 +1043,7 @@ static int smux_handle_rx_open_cmd(struct smux_pkt_t *pkt)
 	int ret;
 	struct smux_lch_t *ch;
 	struct smux_pkt_t *ack_pkt;
+	unsigned long flags;
 	int tx_ready = 0;
 	int enable_powerdown = 0;
 
@@ -1039,7 +1053,7 @@ static int smux_handle_rx_open_cmd(struct smux_pkt_t *pkt)
 	lcid = pkt->hdr.lcid;
 	ch = &smux_lch[lcid];
 
-	spin_lock(&ch->state_lock_lhb1);
+	spin_lock_irqsave(&ch->state_lock_lhb1, flags);
 
 	if (ch->remote_state == SMUX_LCH_REMOTE_CLOSED) {
 		SMUX_DBG("lcid %d remote state 0x%x -> 0x%x\n", lcid,
@@ -1100,13 +1114,13 @@ static int smux_handle_rx_open_cmd(struct smux_pkt_t *pkt)
 	}
 
 out:
-	spin_unlock(&ch->state_lock_lhb1);
+	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 
 	if (enable_powerdown) {
-		spin_lock(&smux.tx_lock_lha2);
+		spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 		smux.powerdown_enabled = 1;
 		SMUX_DBG("%s: enabling power-collapse support\n", __func__);
-		spin_unlock(&smux.tx_lock_lha2);
+		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 	}
 
 	if (tx_ready)
@@ -1121,8 +1135,6 @@ out:
  * @pkt  Received packet
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 already locked.
  */
 static int smux_handle_rx_close_cmd(struct smux_pkt_t *pkt)
 {
@@ -1131,6 +1143,7 @@ static int smux_handle_rx_close_cmd(struct smux_pkt_t *pkt)
 	struct smux_lch_t *ch;
 	struct smux_pkt_t *ack_pkt;
 	union notifier_metadata meta_disconnected;
+	unsigned long flags;
 	int tx_ready = 0;
 
 	if (pkt->hdr.flags & SMUX_CMD_CLOSE_ACK)
@@ -1140,7 +1153,7 @@ static int smux_handle_rx_close_cmd(struct smux_pkt_t *pkt)
 	ch = &smux_lch[lcid];
 	meta_disconnected.disconnected.is_ssr = 0;
 
-	spin_lock(&ch->state_lock_lhb1);
+	spin_lock_irqsave(&ch->state_lock_lhb1, flags);
 	if (ch->remote_state == SMUX_LCH_REMOTE_OPENED) {
 		SMUX_DBG("lcid %d remote state 0x%x -> 0x%x\n", lcid,
 				SMUX_LCH_REMOTE_OPENED,
@@ -1191,7 +1204,7 @@ static int smux_handle_rx_close_cmd(struct smux_pkt_t *pkt)
 		ret = -EINVAL;
 	}
 out:
-	spin_unlock(&ch->state_lock_lhb1);
+	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 	if (tx_ready)
 		list_channel(ch);
 
@@ -1204,8 +1217,6 @@ out:
  * @pkt  Received packet
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 already locked.
  */
 static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 {
@@ -1217,12 +1228,13 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 	struct smux_lch_t *ch;
 	union notifier_metadata metadata;
 	int remote_loopback;
-	int tx_ready = 0;
 	struct smux_pkt_t *ack_pkt;
 	unsigned long flags;
 
-	if (!pkt || smux_assert_lch_id(pkt->hdr.lcid))
-		return -ENXIO;
+	if (!pkt || smux_assert_lch_id(pkt->hdr.lcid)) {
+		ret = -ENXIO;
+		goto out;
+	}
 
 	lcid = pkt->hdr.lcid;
 	ch = &smux_lch[lcid];
@@ -1234,6 +1246,7 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 		pr_err("smux: ch %d error data on local state 0x%x",
 					lcid, ch->local_state);
 		ret = -EIO;
+		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 		goto out;
 	}
 
@@ -1241,8 +1254,10 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 		pr_err("smux: ch %d error data on remote state 0x%x",
 					lcid, ch->remote_state);
 		ret = -EIO;
+		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 		goto out;
 	}
+	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 
 	rx_len = pkt->hdr.payload_len;
 	if (rx_len == 0) {
@@ -1290,7 +1305,7 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 				ack_pkt->payload = pkt->payload;
 				ack_pkt->hdr.pad_len = pkt->hdr.pad_len;
 				smux_tx_queue(ack_pkt, ch, 0);
-				tx_ready = 1;
+				list_channel(ch);
 			} else {
 				pr_err("%s: Remote loopack allocation failure\n",
 						__func__);
@@ -1299,11 +1314,6 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 	}
 
 out:
-	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
-
-	if (tx_ready)
-		list_channel(ch);
-
 	return ret;
 }
 
@@ -1359,8 +1369,6 @@ out:
  * @pkt  Received packet
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 already locked.
  */
 static int smux_handle_rx_status_cmd(struct smux_pkt_t *pkt)
 {
@@ -1416,15 +1424,14 @@ static int smux_handle_rx_status_cmd(struct smux_pkt_t *pkt)
  * @pkt  Received packet
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 already locked.
  */
 static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 {
 	int tx_ready = 0;
 	struct smux_pkt_t *ack_pkt;
+	unsigned long flags;
 
-	spin_lock(&smux.tx_lock_lha2);
+	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (pkt->hdr.flags & SMUX_CMD_PWR_CTL_ACK) {
 		/* local sleep request ack */
 		if (smux.power_state == SMUX_PWR_TURNING_OFF) {
@@ -1465,7 +1472,7 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 					__func__, smux.power_state);
 		}
 	}
-	spin_unlock(&smux.tx_lock_lha2);
+	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
 	if (tx_ready)
 		list_channel(&smux_lch[ack_pkt->hdr.lcid]);
@@ -1479,8 +1486,6 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
  * @pkt Packet to process
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 already locked.
  */
 static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
 {
@@ -1527,8 +1532,6 @@ static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
  * @len     Length of the data
  *
  * @returns 0 for success
- *
- * Called with rx_lock_lha1 already locked.
  */
 static int smux_deserialize(unsigned char *data, int len)
 {
@@ -1562,12 +1565,12 @@ static int smux_deserialize(unsigned char *data, int len)
 
 /**
  * Handle wakeup request byte.
- *
- * Called with rx_lock_lha1 already locked.
  */
 static void smux_handle_wakeup_req(void)
 {
-	spin_lock(&smux.tx_lock_lha2);
+	unsigned long flags;
+
+	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (smux.power_state == SMUX_PWR_OFF
 		|| smux.power_state == SMUX_PWR_TURNING_ON) {
 		/* wakeup system */
@@ -1582,17 +1585,17 @@ static void smux_handle_wakeup_req(void)
 	} else {
 		smux_send_byte(SMUX_WAKEUP_ACK);
 	}
-	spin_unlock(&smux.tx_lock_lha2);
+	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 }
 
 /**
  * Handle wakeup request ack.
- *
- * Called with rx_lock_lha1 already locked.
  */
 static void smux_handle_wakeup_ack(void)
 {
-	spin_lock(&smux.tx_lock_lha2);
+	unsigned long flags;
+
+	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (smux.power_state == SMUX_PWR_TURNING_ON) {
 		/* received response to wakeup request */
 		SMUX_DBG("%s: Power %d->%d\n", __func__,
@@ -1607,7 +1610,7 @@ static void smux_handle_wakeup_ack(void)
 		pr_err("%s: wakeup request ack invalid in state %d\n",
 				__func__, smux.power_state);
 	}
-	spin_unlock(&smux.tx_lock_lha2);
+	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 }
 
 /**
@@ -1617,8 +1620,6 @@ static void smux_handle_wakeup_ack(void)
  * @len   Length of the data
  * @used  Return value of length processed
  * @flag  Error flag - TTY_NORMAL 0 for no failure
- *
- * Called with rx_lock_lha1 locked.
  */
 static void smux_rx_handle_idle(const unsigned char *data,
 		int len, int *used, int flag)
@@ -1666,8 +1667,6 @@ static void smux_rx_handle_idle(const unsigned char *data,
  * @len   Length of the data
  * @used  Return value of length processed
  * @flag  Error flag - TTY_NORMAL 0 for no failure
- *
- * Called with rx_lock_lha1 locked.
  */
 static void smux_rx_handle_magic(const unsigned char *data,
 		int len, int *used, int flag)
@@ -1707,8 +1706,6 @@ static void smux_rx_handle_magic(const unsigned char *data,
  * @len   Length of the data
  * @used  Return value of length processed
  * @flag  Error flag - TTY_NORMAL 0 for no failure
- *
- * Called with rx_lock_lha1 locked.
  */
 static void smux_rx_handle_hdr(const unsigned char *data,
 		int len, int *used, int flag)
@@ -1744,8 +1741,6 @@ static void smux_rx_handle_hdr(const unsigned char *data,
  * @len   Length of the data
  * @used  Return value of length processed
  * @flag  Error flag - TTY_NORMAL 0 for no failure
- *
- * Called with rx_lock_lha1 locked.
  */
 static void smux_rx_handle_pkt_payload(const unsigned char *data,
 		int len, int *used, int flag)
@@ -1784,47 +1779,20 @@ static void smux_rx_handle_pkt_payload(const unsigned char *data,
  * @data Pointer to data block
  * @len  Length of data
  * @flag TTY_NORMAL (0) for no error, otherwise TTY Error Flag
- *
- * Called with rx_lock_lha1 locked.
  */
 void smux_rx_state_machine(const unsigned char *data,
 						int len, int flag)
 {
-	unsigned long flags;
-	int used;
-	int initial_rx_state;
+	struct smux_rx_worker_data work;
 
+	work.data = data;
+	work.len = len;
+	work.flag = flag;
+	INIT_WORK_ONSTACK(&work.work, smux_rx_worker);
+	work.work_complete = COMPLETION_INITIALIZER_ONSTACK(work.work_complete);
 
-	SMUX_DBG("%s: %p, len=%d, flag=%d\n", __func__, data, len, flag);
-	spin_lock_irqsave(&smux.rx_lock_lha1, flags);
-	used = 0;
-	smux.rx_activity_flag = 1;
-	do {
-		SMUX_DBG("%s: state %d; %d of %d\n",
-				__func__, smux.rx_state, used, len);
-		initial_rx_state = smux.rx_state;
-
-		switch (smux.rx_state) {
-		case SMUX_RX_IDLE:
-			smux_rx_handle_idle(data, len, &used, flag);
-			break;
-		case SMUX_RX_MAGIC:
-			smux_rx_handle_magic(data, len, &used, flag);
-			break;
-		case SMUX_RX_HDR:
-			smux_rx_handle_hdr(data, len, &used, flag);
-			break;
-		case SMUX_RX_PAYLOAD:
-			smux_rx_handle_pkt_payload(data, len, &used, flag);
-			break;
-		default:
-			SMUX_DBG("%s: invalid state %d\n",
-					__func__, smux.rx_state);
-			smux.rx_state = SMUX_RX_IDLE;
-			break;
-		}
-	} while (used < len || smux.rx_state != initial_rx_state);
-	spin_unlock_irqrestore(&smux.rx_lock_lha1, flags);
+	queue_work(smux_rx_wq, &work.work);
+	wait_for_completion(&work.work_complete);
 }
 
 /**
@@ -2048,6 +2016,61 @@ static void smux_inactivity_worker(struct work_struct *work)
 	if (smux.power_state != SMUX_PWR_OFF)
 		queue_delayed_work(smux_tx_wq, &smux_delayed_inactivity_work,
 			msecs_to_jiffies(SMUX_INACTIVITY_TIMEOUT_MS));
+}
+
+/**
+ * RX worker handles all receive operations.
+ *
+ * @work  Work structure contained in TBD structure
+ */
+static void smux_rx_worker(struct work_struct *work)
+{
+	unsigned long flags;
+	int used;
+	int initial_rx_state;
+	struct smux_rx_worker_data *w;
+	const unsigned char *data;
+	int len;
+	int flag;
+
+	w =  container_of(work, struct smux_rx_worker_data, work);
+	data = w->data;
+	len = w->len;
+	flag = w->flag;
+
+	spin_lock_irqsave(&smux.rx_lock_lha1, flags);
+	smux.rx_activity_flag = 1;
+	spin_unlock_irqrestore(&smux.rx_lock_lha1, flags);
+
+	SMUX_DBG("%s: %p, len=%d, flag=%d\n", __func__, data, len, flag);
+	used = 0;
+	do {
+		SMUX_DBG("%s: state %d; %d of %d\n",
+				__func__, smux.rx_state, used, len);
+		initial_rx_state = smux.rx_state;
+
+		switch (smux.rx_state) {
+		case SMUX_RX_IDLE:
+			smux_rx_handle_idle(data, len, &used, flag);
+			break;
+		case SMUX_RX_MAGIC:
+			smux_rx_handle_magic(data, len, &used, flag);
+			break;
+		case SMUX_RX_HDR:
+			smux_rx_handle_hdr(data, len, &used, flag);
+			break;
+		case SMUX_RX_PAYLOAD:
+			smux_rx_handle_pkt_payload(data, len, &used, flag);
+			break;
+		default:
+			SMUX_DBG("%s: invalid state %d\n",
+					__func__, smux.rx_state);
+			smux.rx_state = SMUX_RX_IDLE;
+			break;
+		}
+	} while (used < len || smux.rx_state != initial_rx_state);
+
+	complete(&w->work_complete);
 }
 
 /**
