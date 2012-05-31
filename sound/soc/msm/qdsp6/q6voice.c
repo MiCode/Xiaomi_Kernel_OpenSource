@@ -3383,7 +3383,7 @@ int voc_end_voice_call(uint16_t session_id)
 
 	mutex_lock(&v->lock);
 
-	if (v->voc_state == VOC_RUN) {
+	if (v->voc_state == VOC_RUN || v->voc_state == VOC_STANDBY) {
 		if (v->dev_tx.port_id != RT_PROXY_PORT_001_TX &&
 			v->dev_rx.port_id != RT_PROXY_PORT_001_RX)
 			afe_sidetone(v->dev_tx.port_id, v->dev_rx.port_id,
@@ -3397,6 +3397,51 @@ int voc_end_voice_call(uint16_t session_id)
 	}
 	mutex_unlock(&v->lock);
 	return ret;
+}
+
+int voc_resume_voice_call(uint16_t session_id)
+{
+	struct voice_data *v = voice_get_session(session_id);
+	struct apr_hdr mvm_start_voice_cmd;
+	int ret = 0;
+	void *apr_mvm;
+	u16 mvm_handle;
+
+	pr_debug("%s:\n", __func__);
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	apr_mvm = common.apr_q6_mvm;
+
+	if (!apr_mvm) {
+		pr_err("%s: apr_mvm is NULL.\n", __func__);
+		return -EINVAL;
+	}
+	mvm_handle = voice_get_mvm_handle(v);
+
+	mvm_start_voice_cmd.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						APR_HDR_LEN(APR_HDR_SIZE),
+						APR_PKT_VER);
+	mvm_start_voice_cmd.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(mvm_start_voice_cmd) - APR_HDR_SIZE);
+	pr_debug("send mvm_start_voice_cmd pkt size = %d\n",
+				mvm_start_voice_cmd.pkt_size);
+	mvm_start_voice_cmd.src_port = v->session_id;
+	mvm_start_voice_cmd.dest_port = mvm_handle;
+	mvm_start_voice_cmd.token = 0;
+	mvm_start_voice_cmd.opcode = VSS_IMVM_CMD_START_VOICE;
+
+	v->mvm_state = CMD_STATUS_FAIL;
+	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_start_voice_cmd);
+	if (ret < 0) {
+		pr_err("Fail in sending VSS_IMVM_CMD_START_VOICE\n");
+		goto fail;
+	}
+	v->voc_state = VOC_RUN;
+	return 0;
+fail:
+	return -EINVAL;
 }
 
 int voc_start_voice_call(uint16_t session_id)
@@ -3452,8 +3497,59 @@ int voc_start_voice_call(uint16_t session_id)
 		}
 
 		v->voc_state = VOC_RUN;
+	} else if (v->voc_state == VOC_STANDBY) {
+		pr_err("Error: PCM Prepare when in Standby\n");
+		ret = -EINVAL;
+		goto fail;
 	}
 fail:	mutex_unlock(&v->lock);
+	return ret;
+}
+
+int voc_standby_voice_call(uint16_t session_id)
+{
+	struct voice_data *v = voice_get_session(session_id);
+	struct apr_hdr mvm_standby_voice_cmd;
+	void *apr_mvm;
+	u16 mvm_handle;
+	int ret = 0;
+
+	pr_debug("%s: voc state=%d", __func__, v->voc_state);
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (v->voc_state == VOC_RUN) {
+		apr_mvm = common.apr_q6_mvm;
+		if (!apr_mvm) {
+			pr_err("%s: apr_mvm is NULL.\n", __func__);
+			ret = -EINVAL;
+			goto fail;
+		}
+		mvm_handle = voice_get_mvm_handle(v);
+		mvm_standby_voice_cmd.hdr_field =
+			APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		mvm_standby_voice_cmd.pkt_size =
+			APR_PKT_SIZE(APR_HDR_SIZE,
+			sizeof(mvm_standby_voice_cmd) - APR_HDR_SIZE);
+		pr_debug("send mvm_standby_voice_cmd pkt size = %d\n",
+					mvm_standby_voice_cmd.pkt_size);
+		mvm_standby_voice_cmd.src_port = v->session_id;
+		mvm_standby_voice_cmd.dest_port = mvm_handle;
+		mvm_standby_voice_cmd.token = 0;
+		mvm_standby_voice_cmd.opcode = VSS_IMVM_CMD_STANDBY_VOICE;
+		v->mvm_state = CMD_STATUS_FAIL;
+		ret = apr_send_pkt(apr_mvm,
+				(uint32_t *)&mvm_standby_voice_cmd);
+		if (ret < 0) {
+			pr_err("Fail in sending VSS_IMVM_CMD_STANDBY_VOICE\n");
+			ret = -EINVAL;
+			goto fail;
+		}
+		v->voc_state = VOC_STANDBY;
+	}
+fail:
 	return ret;
 }
 
@@ -3551,6 +3647,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 			case VSS_ICOMMON_CMD_SET_VOICE_TIMING:
 			case VSS_IWIDEVOICE_CMD_SET_WIDEVOICE:
 			case VSS_IMVM_CMD_SET_POLICY_DUAL_CONTROL:
+			case VSS_IMVM_CMD_STANDBY_VOICE:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
