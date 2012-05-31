@@ -3034,6 +3034,7 @@ MACHINE_START(MPQ8064_HRD, "QCT MPQ8064 HRD")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
+	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
 MACHINE_END
 
@@ -3044,6 +3045,7 @@ MACHINE_START(MPQ8064_DTV, "QCT MPQ8064 DTV")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
 	.init_machine = apq8064_cdp_init,
+	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
 MACHINE_END
 
