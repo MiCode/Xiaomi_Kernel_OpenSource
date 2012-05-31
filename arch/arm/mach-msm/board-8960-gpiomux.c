@@ -710,49 +710,56 @@ static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 	},
 };
 
-static struct msm_gpiomux_config mdm_configs[] __initdata = {
+static struct msm_gpiomux_config sglte_configs[] __initdata = {
 	/* AP2MDM_STATUS */
 	{
-		.gpio = 94,
+		.gpio = 77,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
 		}
 	},
 	/* MDM2AP_STATUS */
 	{
-		.gpio = 69,
+		.gpio = 24,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &mdm2ap_status_cfg,
 		}
 	},
 	/* MDM2AP_ERRFATAL */
 	{
-		.gpio = 70,
+		.gpio = 40,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &mdm2ap_errfatal_cfg,
 		}
 	},
 	/* AP2MDM_ERRFATAL */
 	{
-		.gpio = 95,
+		.gpio = 80,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
 		}
 	},
 	/* AP2MDM_KPDPWR_N */
 	{
-		.gpio = 81,
+		.gpio = 79,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_kpdpwr_n_cfg,
 		}
 	},
-	/* AP2MDM_PMIC_RESET_N */
+	/* AP2MDM_PMIC_PWR_EN */
 	{
-		.gpio = 80,
+		.gpio = 22,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_kpdpwr_n_cfg,
 		}
-	}
+	},
+	/* AP2MDM_SOFT_RESET */
+	{
+		.gpio = 78,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+		}
+	},
 };
 
 static struct msm_gpiomux_config msm8960_mdp_vsync_configs[] __initdata = {
@@ -948,13 +955,9 @@ int __init msm8960_init_gpiomux(void)
 		msm_gpiomux_install(hap_lvl_shft_config,
 			ARRAY_SIZE(hap_lvl_shft_config));
 
-	if (PLATFORM_IS_CHARM25())
-		msm_gpiomux_install(mdm_configs,
-			ARRAY_SIZE(mdm_configs));
-
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1) &&
-		(PLATFORM_IS_CHARM25() || machine_is_msm8960_liquid()))
+		machine_is_msm8960_liquid())
 		msm_gpiomux_install(msm8960_hsic_configs,
 			ARRAY_SIZE(msm8960_hsic_configs));
 
@@ -992,5 +995,10 @@ int __init msm8960_init_gpiomux(void)
 	msm_gpiomux_install(msm8960_sdcc2_configs,
 		ARRAY_SIZE(msm8960_sdcc2_configs));
 #endif
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		msm_gpiomux_install(sglte_configs,
+			ARRAY_SIZE(sglte_configs));
+
 	return 0;
 }
