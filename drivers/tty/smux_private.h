@@ -78,7 +78,6 @@ enum {
 /* Power command flags */
 enum {
 	SMUX_CMD_PWR_CTL_ACK =  1 << 0,
-	SMUX_CMD_PWR_CTL_SLEEP_REQ =  1 << 1,
 };
 
 /* Local logical channel states */
