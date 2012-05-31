@@ -59,6 +59,8 @@ MODULE_ALIAS("mmc:block");
 #define INAND_CMD38_ARG_SECTRIM1 0x81
 #define INAND_CMD38_ARG_SECTRIM2 0x88
 
+#define MMC_SANITIZE_REQ_TIMEOUT 240000 /* msec */
+
 static DEFINE_MUTEX(block_mutex);
 
 /*
@@ -871,7 +873,8 @@ static int mmc_blk_issue_sanitize_rq(struct mmc_queue *mq,
 		mmc_hostname(card->host), __func__);
 
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-					 EXT_CSD_SANITIZE_START, 1, 0);
+					EXT_CSD_SANITIZE_START, 1,
+					MMC_SANITIZE_REQ_TIMEOUT);
 
 	if (err)
 		pr_err("%s: %s - mmc_switch() with "
