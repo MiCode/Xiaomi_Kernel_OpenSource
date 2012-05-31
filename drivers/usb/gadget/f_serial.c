@@ -27,7 +27,7 @@
  * CDC ACM driver.  However, for many purposes it's just as functional
  * if you can arrange appropriate host side drivers.
  */
-#define GSERIAL_NO_PORTS 2
+#define GSERIAL_NO_PORTS 3
 
 
 struct f_gser {
@@ -67,6 +67,7 @@ static unsigned int no_tty_ports;
 static unsigned int no_sdio_ports;
 static unsigned int no_smd_ports;
 static unsigned int no_hsic_sports;
+static unsigned int no_hsuart_sports;
 static unsigned int nr_ports;
 
 static struct port_info {
@@ -249,9 +250,9 @@ static int gport_setup(struct usb_configuration *c)
 	int i;
 
 	pr_debug("%s: no_tty_ports: %u no_sdio_ports: %u"
-		" no_smd_ports: %u no_hsic_sports: %u nr_ports: %u\n",
+		" no_smd_ports: %u no_hsic_sports: %u no_hsuart_ports: %u nr_ports: %u\n",
 			__func__, no_tty_ports, no_sdio_ports, no_smd_ports,
-			no_hsic_sports, nr_ports);
+			no_hsic_sports, no_hsuart_sports, nr_ports);
 
 	if (no_tty_ports)
 		ret = gserial_setup(c->cdev->gadget, no_tty_ports);
@@ -276,6 +277,22 @@ static int gport_setup(struct usb_configuration *c)
 		ret = ghsic_ctrl_setup(no_hsic_sports, USB_GADGET_SERIAL);
 		if (ret < 0)
 			return ret;
+		return 0;
+	}
+	if (no_hsuart_sports) {
+		port_idx = ghsuart_data_setup(no_hsuart_sports,
+					USB_GADGET_SERIAL);
+		if (port_idx < 0)
+			return port_idx;
+
+		for (i = 0; i < nr_ports; i++) {
+			if (gserial_ports[i].transport ==
+					USB_GADGET_XPORT_HSUART) {
+				gserial_ports[i].client_port_num = port_idx;
+				port_idx++;
+			}
+		}
+
 		return 0;
 	}
 	return ret;
@@ -317,6 +334,14 @@ static int gport_connect(struct f_gser *gser)
 			return ret;
 		}
 		break;
+	case USB_GADGET_XPORT_HSUART:
+		ret = ghsuart_data_connect(&gser->port, port_num);
+		if (ret) {
+			pr_err("%s: ghsuart_data_connect failed: err:%d\n",
+					__func__, ret);
+			return ret;
+		}
+		break;
 	default:
 		pr_err("%s: Un-supported transport: %s\n", __func__,
 				xport_to_str(gser->transport));
@@ -349,6 +374,9 @@ static int gport_disconnect(struct f_gser *gser)
 	case USB_GADGET_XPORT_HSIC:
 		ghsic_ctrl_disconnect(&gser->port, port_num);
 		ghsic_data_disconnect(&gser->port, port_num);
+		break;
+	case USB_GADGET_XPORT_HSUART:
+		ghsuart_data_disconnect(&gser->port, port_num);
 		break;
 	default:
 		pr_err("%s: Un-supported transport:%s\n", __func__,
@@ -854,11 +882,13 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 	gser->port.func.disable = gser_disable;
 	gser->transport		= gserial_ports[port_num].transport;
 #ifdef CONFIG_MODEM_SUPPORT
-	/* We support only two ports for now */
+	/* We support only three ports for now */
 	if (port_num == 0)
 		gser->port.func.name = "modem";
-	else
+	else if (port_num == 1)
 		gser->port.func.name = "nmea";
+	else
+		gser->port.func.name = "modem2";
 	gser->port.func.setup = gser_setup;
 	gser->port.connect = gser_connect;
 	gser->port.get_dtr = gser_get_dtr;
@@ -909,6 +939,10 @@ static int gserial_init_port(int port_num, const char *name)
 	case USB_GADGET_XPORT_HSIC:
 		/*client port number will be updated in gport_setup*/
 		no_hsic_sports++;
+		break;
+	case USB_GADGET_XPORT_HSUART:
+		/*client port number will be updated in gport_setup*/
+		no_hsuart_sports++;
 		break;
 	default:
 		pr_err("%s: Un-supported transport transport: %u\n",
