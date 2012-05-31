@@ -106,6 +106,7 @@
 
 #include <linux/ion.h>
 #include <mach/ion.h>
+#include <mach/msm_rtb.h>
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
 #define MDM2AP_SYNC 129
@@ -4860,6 +4861,29 @@ static struct platform_device msm_adc_device = {
 	},
 };
 
+static struct msm_rtb_platform_data msm_rtb_pdata = {
+	.size = SZ_1M,
+};
+
+static int __init msm_rtb_set_buffer_size(char *p)
+{
+	int s;
+
+	s = memparse(p, NULL);
+	msm_rtb_pdata.size = ALIGN(s, SZ_4K);
+	return 0;
+}
+early_param("msm_rtb_size", msm_rtb_set_buffer_size);
+
+
+static struct platform_device msm_rtb_device = {
+	.name           = "msm_rtb",
+	.id             = -1,
+	.dev            = {
+		.platform_data = &msm_rtb_pdata,
+	},
+};
+
 static void pmic8058_xoadc_mpp_config(void)
 {
 	int rc, i;
@@ -5261,7 +5285,7 @@ static struct platform_device *surf_devices[] __initdata = {
 #endif
 	&msm8660_device_watchdog,
 	&msm_device_tz_log,
-
+	&msm_rtb_device,
 };
 
 #ifdef CONFIG_ION_MSM
@@ -5507,12 +5531,20 @@ static void __init reserve_pmem_memory(void)
 
 static void __init reserve_mdp_memory(void);
 
+static void __init reserve_rtb_memory(void)
+{
+#if defined(CONFIG_MSM_RTB)
+	msm8x60_reserve_table[MEMTYPE_EBI1].size += msm_rtb_pdata.size;
+#endif
+}
+
 static void __init msm8x60_calculate_reserve_sizes(void)
 {
 	size_pmem_devices();
 	reserve_pmem_memory();
 	reserve_ion_memory();
 	reserve_mdp_memory();
+	reserve_rtb_memory();
 }
 
 static int msm8x60_paddr_to_memtype(unsigned int paddr)
