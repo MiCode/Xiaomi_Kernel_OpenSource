@@ -3020,6 +3020,12 @@ static struct {
 };
 
 static int iommu_enabled;
+static int mdp_iommu_fault_handler(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags)
+{
+	pr_err("MDP IOMMU page fault: iova 0x%lx", iova);
+	return 0;
+}
 
 void mdp4_iommu_attach(void)
 {
@@ -3041,6 +3047,8 @@ void mdp4_iommu_attach(void)
 			if (!domain)
 				continue;
 
+			iommu_set_fault_handler(domain,
+				mdp_iommu_fault_handler);
 			if (iommu_attach_device(domain,	ctx)) {
 				WARN(1, "%s: could not attach domain %d to context %s."
 					" iommu programming will not occur.\n",
