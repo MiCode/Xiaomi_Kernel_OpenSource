@@ -166,6 +166,8 @@ source "drivers/irqchip/Kconfig"
 
 source "drivers/ipack/Kconfig"
 
+source "drivers/gud/Kconfig"
+
 source "drivers/reset/Kconfig"
 
 endmenu
