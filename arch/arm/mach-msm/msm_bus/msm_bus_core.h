@@ -29,6 +29,17 @@
 #define MSM_FAB_ERR(msg, ...) \
 	dev_err(&fabric->fabdev.dev, msg, ## __VA_ARGS__)
 
+#define IS_MASTER_VALID(mas) \
+	(((mas >= MSM_BUS_MASTER_FIRST) && (mas <= MSM_BUS_MASTER_LAST)) \
+	 ? 1 : 0)
+#define IS_SLAVE_VALID(slv) \
+	(((slv >= MSM_BUS_SLAVE_FIRST) && (slv <= MSM_BUS_SLAVE_LAST)) ? 1 : 0)
+
+#define INTERLEAVED_BW(fab_pdata, bw, ports) \
+	((fab_pdata->il_flag) ? DIV_ROUND_UP((bw), (ports)) : (bw))
+#define INTERLEAVED_VAL(fab_pdata, n) \
+	((fab_pdata->il_flag) ? (n) : 1)
+
 enum msm_bus_dbg_op_type {
 	MSM_BUS_DBG_UNREGISTER = -2,
 	MSM_BUS_DBG_REGISTER,
@@ -48,9 +59,12 @@ struct msm_bus_node_info {
 	int *tier;
 	int num_tiers;
 	int ahb;
+	int hw_sel;
 	const char *slaveclk[NUM_CTX];
 	const char *memclk;
 	unsigned int buswidth;
+	unsigned int ws;
+	unsigned int mode;
 };
 
 struct path_node {
@@ -88,6 +102,27 @@ struct msm_bus_inode_info {
 	int commit_index;
 	struct nodeclk nodeclk[NUM_CTX];
 	struct nodeclk memclk;
+	void *hw_data;
+};
+
+struct msm_bus_hw_algorithm {
+	int (*allocate_commit_data)(struct msm_bus_fabric_registration
+		*fab_pdata, void **cdata, int ctx);
+	void *(*allocate_hw_data)(struct platform_device *pdev,
+		struct msm_bus_fabric_registration *fab_pdata);
+	void (*node_init)(void *hw_data, struct msm_bus_inode_info *info);
+	void (*free_commit_data)(void *cdata);
+	void (*update_bw)(struct msm_bus_inode_info *hop,
+		struct msm_bus_inode_info *info,
+		struct msm_bus_fabric_registration *fab_pdata,
+		void *sel_cdata, int *master_tiers,
+		long int add_bw);
+	void (*fill_cdata_buffer)(int *curr, char *buf, const int max_size,
+		void *cdata, int nmasters, int nslaves, int ntslaves);
+	int (*commit)(struct msm_bus_fabric_registration
+		*fab_pdata, void *hw_data, void **cdata);
+	int (*port_unhalt)(uint32_t haltid, uint8_t mport);
+	int (*port_halt)(uint32_t haltid, uint8_t mport);
 };
 
 struct msm_bus_fabric_device {
@@ -96,6 +131,7 @@ struct msm_bus_fabric_device {
 	struct device dev;
 	const struct msm_bus_fab_algorithm *algo;
 	const struct msm_bus_board_algorithm *board_algo;
+	struct msm_bus_hw_algorithm hw_algo;
 	int visited;
 };
 #define to_msm_bus_fabric_device(d) container_of(d, \
@@ -150,22 +186,17 @@ void msm_bus_fabric_device_unregister(struct msm_bus_fabric_device *fabric);
 struct msm_bus_fabric_device *msm_bus_get_fabric_device(int fabid);
 int msm_bus_get_num_fab(void);
 
-int allocate_commit_data(struct msm_bus_fabric_registration *fab_pdata,
-	void **cdata);
-struct msm_rpm_iv_pair *allocate_rpm_data(struct msm_bus_fabric_registration
-	*fab_pdata);
-int msm_bus_rpm_commit(struct msm_bus_fabric_registration
-	*fab_pdata, struct msm_rpm_iv_pair *rpm_data, void **cdata);
-void free_commit_data(void *cdata);
-void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
-	struct msm_bus_inode_info *info,
-	struct msm_bus_fabric_registration *fab_pdata,
-	void *sel_cdata, int *master_tiers,
-	long int add_bw);
 void msm_bus_rpm_fill_cdata_buffer(int *curr, char *buf, const int max_size,
 	void *cdata, int nmasters, int nslaves, int ntslaves);
-bool msm_bus_rpm_is_mem_interleaved(void);
 
+int msm_bus_hw_fab_init(struct msm_bus_fabric_registration *pdata,
+	struct msm_bus_hw_algorithm *hw_algo);
+int msm_bus_rpm_hw_init(struct msm_bus_fabric_registration *pdata,
+	struct msm_bus_hw_algorithm *hw_algo);
+int msm_bus_noc_hw_init(struct msm_bus_fabric_registration *pdata,
+	struct msm_bus_hw_algorithm *hw_algo);
+int msm_bus_bimc_hw_init(struct msm_bus_fabric_registration *pdata,
+	struct msm_bus_hw_algorithm *hw_algo);
 #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_MSM_BUS_SCALING)
 void msm_bus_dbg_client_data(struct msm_bus_scale_pdata *pdata, int index,
 	uint32_t cl);
