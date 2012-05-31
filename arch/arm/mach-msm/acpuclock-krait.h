@@ -91,18 +91,17 @@ enum vregs {
  * struct vreg - Voltage regulator data.
  * @name: Name of requlator.
  * @max_vdd: Limit the maximum-settable voltage.
- * @rpm_vreg_id: ID to use with rpm_vreg_*() APIs.
  * @reg: Regulator handle.
+ * @rpm_reg: RPM Regulator handle.
  * @cur_vdd: Last-set voltage in uV.
  * @peak_ua: Maximum current draw expected in uA.
  */
 struct vreg {
-	const char name[15];
+	const char *name;
 	const int max_vdd;
 	const int peak_ua;
-	const int rpm_vreg_voter;
-	const int rpm_vreg_id;
 	struct regulator *reg;
+	struct rpm_regulator *rpm_reg;
 	int cur_vdd;
 };
 
