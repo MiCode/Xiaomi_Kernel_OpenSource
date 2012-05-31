@@ -29,14 +29,17 @@
  *
  */
 
-#include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/mm.h>
-#include <linux/oom.h>
-#include <linux/sched.h>
-#include <linux/notifier.h>
+#include <linux/kobject.h>
 #include <linux/memory.h>
 #include <linux/memory_hotplug.h>
+#include <linux/mm.h>
+#include <linux/module.h>
+#include <linux/notifier.h>
+#include <linux/oom.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
+#include <linux/sysfs.h>
 
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
@@ -54,9 +57,12 @@ static size_t lowmem_minfree[6] = {
 };
 static int lowmem_minfree_size = 4;
 
+static size_t lowmem_minfree_notif_trigger;
+
 static unsigned int offlining;
 static struct task_struct *lowmem_deathpending;
 static unsigned long lowmem_deathpending_timeout;
+static struct kobject *lowmem_kobj;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -108,6 +114,29 @@ static int lmk_hotplug_callback(struct notifier_block *self,
 
 
 
+static void lowmem_notify_killzone_approach(void);
+
+static inline void get_free_ram(int *other_free, int *other_file)
+{
+	struct zone *zone;
+	*other_free = global_page_state(NR_FREE_PAGES);
+	*other_file = global_page_state(NR_FILE_PAGES) -
+						global_page_state(NR_SHMEM);
+
+	if (offlining) {
+		/* Discount all free space in the section being offlined */
+		for_each_zone(zone) {
+			 if (zone_idx(zone) == ZONE_MOVABLE) {
+				*other_free -= zone_page_state(zone,
+						NR_FREE_PAGES);
+				lowmem_print(4, "lowmem_shrink discounted "
+					"%lu pages in movable zone\n",
+					zone_page_state(zone, NR_FREE_PAGES));
+			}
+		}
+	}
+}
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *p;
@@ -119,23 +148,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int selected_tasksize = 0;
 	int selected_oom_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	int other_free = global_page_state(NR_FREE_PAGES);
-	int other_file = global_page_state(NR_FILE_PAGES) -
-						global_page_state(NR_SHMEM);
-	struct zone *zone;
-
-	if (offlining) {
-		/* Discount all free space in the section being offlined */
-		for_each_zone(zone) {
-			 if (zone_idx(zone) == ZONE_MOVABLE) {
-				other_free -= zone_page_state(zone,
-						NR_FREE_PAGES);
-				lowmem_print(4, "lowmem_shrink discounted "
-					"%lu pages in movable zone\n",
-					zone_page_state(zone, NR_FREE_PAGES));
-			}
-		}
-	}
+	int other_free;
+	int other_file;
 	/*
 	 * If we already have a death outstanding, then
 	 * bail out right away; indicating to vmscan
@@ -146,6 +160,13 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (lowmem_deathpending &&
 	    time_before_eq(jiffies, lowmem_deathpending_timeout))
 		return 0;
+
+	get_free_ram(&other_free, &other_file);
+
+	if (other_free < lowmem_minfree_notif_trigger &&
+			other_file < lowmem_minfree_notif_trigger) {
+		lowmem_notify_killzone_approach();
+	}
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -228,18 +249,91 @@ static struct shrinker lowmem_shrinker = {
 	.seeks = DEFAULT_SEEKS * 16
 };
 
+static void lowmem_notify_killzone_approach(void)
+{
+	lowmem_print(3, "notification trigger activated\n");
+	sysfs_notify(lowmem_kobj, NULL, "notify_trigger_active");
+}
+
+static ssize_t lowmem_notify_trigger_active_show(struct kobject *k,
+		struct kobj_attribute *attr, char *buf)
+{
+	int other_free, other_file;
+	get_free_ram(&other_free, &other_file);
+	if (other_free < lowmem_minfree_notif_trigger &&
+			other_file < lowmem_minfree_notif_trigger)
+		return snprintf(buf, 3, "1\n");
+	else
+		return snprintf(buf, 3, "0\n");
+}
+
+static struct kobj_attribute lowmem_notify_trigger_active_attr =
+	__ATTR(notify_trigger_active, S_IRUGO,
+			lowmem_notify_trigger_active_show, NULL);
+
+static struct attribute *lowmem_default_attrs[] = {
+	&lowmem_notify_trigger_active_attr.attr,
+	NULL,
+};
+
+static ssize_t lowmem_show(struct kobject *k, struct attribute *attr, char *buf)
+{
+	struct kobj_attribute *kobj_attr;
+	kobj_attr = container_of(attr, struct kobj_attribute, attr);
+	return kobj_attr->show(k, kobj_attr, buf);
+}
+
+static const struct sysfs_ops lowmem_ops = {
+	.show = lowmem_show,
+};
+
+static void lowmem_kobj_release(struct kobject *kobj)
+{
+	/* Nothing to be done here */
+}
+
+static struct kobj_type lowmem_kobj_type = {
+	.release = lowmem_kobj_release,
+	.sysfs_ops = &lowmem_ops,
+	.default_attrs = lowmem_default_attrs,
+};
+
 static int __init lowmem_init(void)
 {
+	int rc;
 	task_free_register(&task_nb);
 	register_shrinker(&lowmem_shrinker);
 #ifdef CONFIG_MEMORY_HOTPLUG
 	hotplug_memory_notifier(lmk_hotplug_callback, 0);
 #endif
+
+	lowmem_kobj = kzalloc(sizeof(*lowmem_kobj), GFP_KERNEL);
+	if (!lowmem_kobj) {
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	rc = kobject_init_and_add(lowmem_kobj, &lowmem_kobj_type,
+			mm_kobj, "lowmemkiller");
+	if (rc)
+		goto err_kobj;
+
 	return 0;
+
+err_kobj:
+	kfree(lowmem_kobj);
+
+err:
+	unregister_shrinker(&lowmem_shrinker);
+	task_free_unregister(&task_nb);
+
+	return rc;
 }
 
 static void __exit lowmem_exit(void)
 {
+	kobject_put(lowmem_kobj);
+	kfree(lowmem_kobj);
 	unregister_shrinker(&lowmem_shrinker);
 	task_free_unregister(&task_nb);
 }
@@ -250,6 +344,8 @@ module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
+module_param_named(notify_trigger, lowmem_minfree_notif_trigger, uint,
+			 S_IRUGO | S_IWUSR);
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);
