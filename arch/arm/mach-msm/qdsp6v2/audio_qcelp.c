@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,23 +18,6 @@
 #include "audio_utils_aio.h"
 
 #define FRAME_SIZE_DEC_QCELP  ((32) + sizeof(struct dec_meta_in))
-
-static void q6_audio_qcelp_cb(uint32_t opcode, uint32_t token,
-		uint32_t *payload, void *priv)
-{
-	struct q6audio_aio *audio = (struct q6audio_aio *)priv;
-
-	switch (opcode) {
-	case ASM_DATA_EVENT_WRITE_DONE:
-	case ASM_DATA_EVENT_READ_DONE:
-	case ASM_DATA_CMDRSP_EOS:
-		audio_aio_cb(opcode, token, payload, audio);
-		break;
-	default:
-		pr_debug("%s:Unhandled event = 0x%8x\n", __func__, opcode);
-		break;
-	}
-}
 
 #ifdef CONFIG_DEBUG_FS
 static const struct file_operations audio_qcelp_debug_fops = {
@@ -113,7 +96,7 @@ static int audio_open(struct inode *inode, struct file *file)
 	audio->pcm_cfg.sample_rate = 8000;
 	audio->pcm_cfg.channel_count = 1;
 
-	audio->ac = q6asm_audio_client_alloc((app_cb) q6_audio_qcelp_cb,
+	audio->ac = q6asm_audio_client_alloc((app_cb) q6_audio_cb,
 					     (void *)audio);
 
 	if (!audio->ac) {

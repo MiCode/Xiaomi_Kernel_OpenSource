@@ -23,8 +23,6 @@
 #include <linux/slab.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
-#include <sound/q6asm.h>
-#include <sound/apr_audio.h>
 #include <linux/debugfs.h>
 #include "audio_utils_aio.h"
 
@@ -295,8 +293,8 @@ void audio_aio_async_write_ack(struct q6audio_aio *audio, uint32_t token,
 		kfree(used_buf);
 		if (list_empty(&audio->out_queue) &&
 			(audio->drv_status & ADRV_STATUS_FSYNC)) {
-			pr_debug("%s[%p]: list is empty, reached EOS in\
-				Tunnel\n", __func__, audio);
+			pr_debug("%s[%p]: list is empty, reached EOS in"
+				"Tunnel\n", __func__, audio);
 			wake_up(&audio->write_wait);
 		}
 	} else {
@@ -421,72 +419,6 @@ void audio_aio_async_in_flush(struct q6audio_aio *audio)
 		kfree(buf_node);
 		pr_debug("%s[%p]: Propagate READ_DONE during flush\n",
 				__func__, audio);
-	}
-}
-
-void audio_aio_cb(uint32_t opcode, uint32_t token,
-		uint32_t *payload,  struct q6audio_aio *audio)
-{
-	union msm_audio_event_payload e_payload;
-
-	switch (opcode) {
-	case ASM_DATA_EVENT_WRITE_DONE:
-		pr_debug("%s[%p]:ASM_DATA_EVENT_WRITE_DONE token = 0x%x\n",
-			__func__, audio, token);
-		audio_aio_async_write_ack(audio, token, payload);
-		break;
-	case ASM_DATA_EVENT_READ_DONE:
-		pr_debug("%s[%p]:ASM_DATA_EVENT_READ_DONE token = 0x%x\n",
-			__func__, audio, token);
-		audio_aio_async_read_ack(audio, token, payload);
-		break;
-	case ASM_DATA_CMDRSP_EOS:
-		/* EOS Handle */
-		pr_debug("%s[%p]:ASM_DATA_CMDRSP_EOS\n", __func__, audio);
-		if (audio->feedback) { /* Non-Tunnel mode */
-			audio->eos_rsp = 1;
-			/* propagate input EOS i/p buffer,
-			after receiving DSP acknowledgement */
-			if (audio->eos_flag &&
-				(audio->eos_write_payload.aio_buf.buf_addr)) {
-				audio_aio_post_event(audio,
-						AUDIO_EVENT_WRITE_DONE,
-						audio->eos_write_payload);
-				memset(&audio->eos_write_payload , 0,
-					sizeof(union msm_audio_event_payload));
-				audio->eos_flag = 0;
-			}
-		} else { /* Tunnel mode */
-			audio->eos_rsp = 1;
-			wake_up(&audio->write_wait);
-			wake_up(&audio->cmd_wait);
-		}
-		break;
-	case ASM_DATA_CMD_MEDIA_FORMAT_UPDATE:
-	case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
-		pr_debug("%s[%p]:payload0[%x] payloa1d[%x]opcode= 0x%x\n",
-			__func__, audio, payload[0], payload[1], opcode);
-		break;
-	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
-	case ASM_DATA_EVENT_ENC_SR_CM_NOTIFY:
-		pr_debug("%s[%p]: ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY, "
-
-				"payload[0]-sr = %d, payload[1]-chl = %d, "
-				"payload[2] = %d, payload[3] = %d\n", __func__,
-				audio, payload[0], payload[1], payload[2],
-				payload[3]);
-		pr_debug("%s[%p]: ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY, "
-				"sr(prev) = %d, chl(prev) = %d,",
-				__func__, audio, audio->pcm_cfg.sample_rate,
-		audio->pcm_cfg.channel_count);
-		audio->pcm_cfg.sample_rate = payload[0];
-		audio->pcm_cfg.channel_count = payload[1] & 0xFFFF;
-		e_payload.stream_info.chan_info = audio->pcm_cfg.channel_count;
-		e_payload.stream_info.sample_rate = audio->pcm_cfg.sample_rate;
-		audio_aio_post_event(audio, AUDIO_EVENT_STREAM_INFO, e_payload);
-		break;
-	default:
-		break;
 	}
 }
 
@@ -1041,8 +973,8 @@ static int audio_aio_buf_add(struct q6audio_aio *audio, unsigned dir,
 		return -EFAULT;
 	}
 
-	pr_debug("%s[%p]:node %p dir %x buf_addr %p buf_len %d data_len \
-		%d\n", __func__, audio, buf_node, dir, buf_node->buf.buf_addr,
+	pr_debug("%s[%p]:node %p dir %x buf_addr %p buf_len %d data_len"
+		"%d\n", __func__, audio, buf_node, dir, buf_node->buf.buf_addr,
 		buf_node->buf.buf_len, buf_node->buf.data_len);
 	buf_node->paddr = audio_aio_ion_fixup(audio, buf_node->buf.buf_addr,
 						buf_node->buf.buf_len, 1,
@@ -1447,8 +1379,8 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case AUDIO_GET_BUF_CFG: {
-		pr_debug("%s[%p]:session id %d: Get-buf-cfg: meta[%d]\
-			framesperbuf[%d]\n", __func__, audio,
+		pr_debug("%s[%p]:session id %d: Get-buf-cfg: meta[%d]"
+			"framesperbuf[%d]\n", __func__, audio,
 			audio->ac->session, audio->buf_cfg.meta_info_enable,
 			audio->buf_cfg.frames_per_buf);
 

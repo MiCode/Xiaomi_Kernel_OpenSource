@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +19,6 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
-#include <sound/apr_audio.h>
-#include <sound/q6asm.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
 #include "audio_utils.h"
@@ -30,44 +28,6 @@
 
 /* Maximum 10 frames in buffer with meta */
 #define FRAME_SIZE		(1 + ((61+sizeof(struct meta_out_dsp)) * 10))
-
-void q6asm_amrwb_in_cb(uint32_t opcode, uint32_t token,
-		uint32_t *payload, void *priv)
-{
-	struct q6audio_in * audio = (struct q6audio_in *)priv;
-	unsigned long flags;
-
-	pr_debug("%s:session id %d: opcode - %d\n", __func__,
-			audio->ac->session, opcode);
-
-	spin_lock_irqsave(&audio->dsp_lock, flags);
-	switch (opcode) {
-	case ASM_DATA_EVENT_READ_DONE:
-		audio_in_get_dsp_frames(audio, token, payload);
-		break;
-	case ASM_DATA_EVENT_WRITE_DONE:
-		atomic_inc(&audio->in_count);
-		wake_up(&audio->write_wait);
-		break;
-	case ASM_DATA_CMDRSP_EOS:
-		audio->eos_rsp = 1;
-		wake_up(&audio->read_wait);
-		break;
-	case ASM_STREAM_CMDRSP_GET_ENCDEC_PARAM:
-		break;
-	case ASM_STREAM_CMDRSP_GET_PP_PARAMS:
-		break;
-	case ASM_SESSION_EVENT_TX_OVERFLOW:
-		pr_err("%s:session id %d: ASM_SESSION_EVENT_TX_OVERFLOW\n",
-			__func__, audio->ac->session);
-		break;
-	default:
-		pr_err("%s:session id %d: Ignore opcode[0x%x]\n", __func__,
-				audio->ac->session, opcode);
-		break;
-	}
-	spin_unlock_irqrestore(&audio->dsp_lock, flags);
-}
 
 /* ------------------- device --------------------- */
 static long amrwb_in_ioctl(struct file *file,
@@ -231,7 +191,7 @@ static int amrwb_in_open(struct inode *inode, struct file *file)
 	audio->buf_cfg.meta_info_enable = 0x01;
 	audio->buf_cfg.frames_per_buf = 0x01;
 
-	audio->ac = q6asm_audio_client_alloc((app_cb)q6asm_amrwb_in_cb,
+	audio->ac = q6asm_audio_client_alloc((app_cb)q6asm_in_cb,
 				(void *)audio);
 
 	if (!audio->ac) {
