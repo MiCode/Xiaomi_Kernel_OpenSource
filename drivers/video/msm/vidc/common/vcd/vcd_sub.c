@@ -1900,9 +1900,10 @@ struct vcd_transc *vcd_get_free_trans_tbl_entry
 	} else {
 		memset(&dev_ctxt->trans_tbl[i], 0,
 			   sizeof(struct vcd_transc));
-
 		dev_ctxt->trans_tbl[i].in_use = true;
-
+		VCD_MSG_LOW("%s: Get transc = 0x%x, in_use = %u\n",
+			__func__, (u32)(&dev_ctxt->trans_tbl[i]),
+			dev_ctxt->trans_tbl[i].in_use);
 		return &dev_ctxt->trans_tbl[i];
 	}
 }
@@ -1911,7 +1912,8 @@ void vcd_release_trans_tbl_entry(struct vcd_transc *trans_entry)
 {
 	if (trans_entry) {
 		trans_entry->in_use = false;
-		VCD_MSG_LOW("%s in_use set to false\n", __func__);
+		VCD_MSG_LOW("%s: Free transc = 0x%x, in_use = %u\n",
+			__func__, (u32)trans_entry, trans_entry->in_use);
 	}
 }
 

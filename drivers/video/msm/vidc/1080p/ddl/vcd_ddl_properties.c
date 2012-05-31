@@ -983,8 +983,7 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 			DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_OPEN)) {
 			encoder->slice_delivery_info.enable
 				= *(u32 *)property_value;
-			DDL_MSG_HIGH("set encoder->slice_delivery_mode"
-				"  = %u\n",
+			DDL_MSG_HIGH("set encoder->slice_delivery_mode = %u\n",
 				encoder->slice_delivery_info.enable);
 			output_buf_size =
 				encoder->client_output_buf_req.sz;
@@ -998,8 +997,26 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 			encoder->slice_delivery_info.num_slices =
 				num_slices;
 			if (num_slices <= DDL_MAX_NUM_BFRS_FOR_SLICE_BATCH) {
-				encoder->client_output_buf_req.min_count
-				= ((DDL_ENC_SLICE_BATCH_FACTOR * num_slices + 2)
+				DDL_MSG_HIGH("%s: currently slice info "
+					"metadata is not supported when slice "
+					"delivery mode is enabled. hence "
+					"disabling slice info metadata.\n",
+					__func__);
+				slice_property_hdr.prop_id =
+					VCD_I_METADATA_ENABLE;
+				slice_property_hdr.sz =
+					sizeof(struct \
+					vcd_property_meta_data_enable);
+				ddl_get_metadata_params(ddl,
+						&slice_property_hdr,
+						&slice_meta_data);
+				slice_meta_data.meta_data_enable_flag
+					&= ~VCD_METADATA_ENC_SLICE;
+				ddl_set_metadata_params(ddl,
+						&slice_property_hdr,
+						&slice_meta_data);
+				encoder->client_output_buf_req.min_count =
+				((DDL_ENC_SLICE_BATCH_FACTOR * num_slices + 2)
 				> DDL_MAX_BUFFER_COUNT)
 				? DDL_MAX_BUFFER_COUNT :
 				(DDL_ENC_SLICE_BATCH_FACTOR * num_slices + 2);
@@ -1016,18 +1033,6 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 				encoder->client_output_buf_req.min_count,
 				output_buf_size,
 				encoder->client_output_buf_req.sz);
-				slice_property_hdr.prop_id =
-					VCD_I_METADATA_ENABLE;
-				slice_property_hdr.sz =
-				sizeof(struct vcd_property_meta_data_enable);
-				ddl_get_metadata_params(ddl,
-						&slice_property_hdr,
-						&slice_meta_data);
-				slice_meta_data.meta_data_enable_flag
-					&= ~VCD_METADATA_ENC_SLICE;
-				ddl_set_metadata_params(ddl,
-						&slice_property_hdr,
-						&slice_meta_data);
 				vcd_status = VCD_S_SUCCESS;
 			}
 		}
