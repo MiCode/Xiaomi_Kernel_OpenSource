@@ -4925,7 +4925,7 @@ static struct clk_lookup msm_clocks_copper[] = {
 	CLK_LOOKUP("bus_clk",  q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
 	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c, ""),
 	CLK_LOOKUP("bus_clk",  gcc_mss_cfg_ahb_clk.c, ""),
-	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng.0"),
+	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
 	/* TODO: Remove dummy clocks as soon as they become unnecessary */
 	CLK_DUMMY("phy_clk",       NULL,    "msm_otg", OFF),

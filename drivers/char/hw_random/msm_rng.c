@@ -231,12 +231,19 @@ static int __devexit msm_rng_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id qrng_match[] = {
+	{	.compatible = "qcom,msm-rng",
+	},
+	{}
+};
+
 static struct platform_driver rng_driver = {
 	.probe      = msm_rng_probe,
 	.remove     = __devexit_p(msm_rng_remove),
 	.driver     = {
 		.name   = DRIVER_NAME,
 		.owner  = THIS_MODULE,
+		.of_match_table = qrng_match,
 	}
 };
 
