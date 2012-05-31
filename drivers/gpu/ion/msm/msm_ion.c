@@ -282,6 +282,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
 		msm_ion_allocate(heap_data);
 
+		heap_data->has_outer_cache = pdata->has_outer_cache;
 		heaps[i] = ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			heaps[i] = 0;

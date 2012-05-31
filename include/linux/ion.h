@@ -44,6 +44,7 @@ struct ion_buffer;
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
  * @memory_type:Memory type used for the heap
+ * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
  * @extra_data:	Extra data specific to each heap type
  */
 struct ion_platform_heap {
@@ -53,6 +54,7 @@ struct ion_platform_heap {
 	ion_phys_addr_t base;
 	size_t size;
 	enum ion_memory_types memory_type;
+	unsigned int has_outer_cache;
 	void *extra_data;
 };
 
@@ -124,6 +126,7 @@ struct ion_co_heap_pdata {
 
 /**
  * struct ion_platform_data - array of platform heaps passed from board file
+ * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
  * @nr:    number of structures in the array
  * @request_region: function to be called when the number of allocations goes
  *						from 0 -> 1
@@ -135,6 +138,7 @@ struct ion_co_heap_pdata {
  * Provided by the board file in the form of platform data to a platform device.
  */
 struct ion_platform_data {
+	unsigned int has_outer_cache;
 	int nr;
 	int (*request_region)(void *);
 	int (*release_region)(void *);

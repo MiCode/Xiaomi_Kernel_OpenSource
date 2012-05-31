@@ -30,6 +30,7 @@
 
 #include <mach/iommu_domains.h>
 #include <asm/mach/map.h>
+#include <asm/cacheflush.h>
 
 struct ion_carveout_heap {
 	struct ion_heap heap;
@@ -41,6 +42,7 @@ struct ion_carveout_heap {
 	int (*release_region)(void *);
 	atomic_t map_count;
 	void *bus_id;
+	unsigned int has_outer_cache;
 };
 
 ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
@@ -238,25 +240,31 @@ int ion_carveout_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 			void *vaddr, unsigned int offset, unsigned int length,
 			unsigned int cmd)
 {
-	unsigned long vstart, pstart;
-
-	pstart = buffer->priv_phys + offset;
-	vstart = (unsigned long)vaddr;
+	void (*outer_cache_op)(phys_addr_t, phys_addr_t);
+	struct ion_carveout_heap *carveout_heap =
+	     container_of(heap, struct  ion_carveout_heap, heap);
 
 	switch (cmd) {
 	case ION_IOC_CLEAN_CACHES:
-		clean_caches(vstart, length, pstart);
+		dmac_clean_range(vaddr, vaddr + length);
+		outer_cache_op = outer_clean_range;
 		break;
 	case ION_IOC_INV_CACHES:
-		invalidate_caches(vstart, length, pstart);
+		dmac_inv_range(vaddr, vaddr + length);
+		outer_cache_op = outer_inv_range;
 		break;
 	case ION_IOC_CLEAN_INV_CACHES:
-		clean_and_invalidate_caches(vstart, length, pstart);
+		dmac_flush_range(vaddr, vaddr + length);
+		outer_cache_op = outer_flush_range;
 		break;
 	default:
 		return -EINVAL;
 	}
 
+	if (carveout_heap->has_outer_cache) {
+		unsigned long pstart = buffer->priv_phys + offset;
+		outer_cache_op(pstart, pstart + length);
+	}
 	return 0;
 }
 
@@ -456,6 +464,7 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
 	carveout_heap->allocated_bytes = 0;
 	carveout_heap->total_size = heap_data->size;
+	carveout_heap->has_outer_cache = heap_data->has_outer_cache;
 
 	if (heap_data->extra_data) {
 		struct ion_co_heap_pdata *extra_data =
