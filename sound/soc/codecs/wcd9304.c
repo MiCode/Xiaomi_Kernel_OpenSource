@@ -641,11 +641,11 @@ static const char *dec2_mux_text[] = {
 };
 
 static const char *dec3_mux_text[] = {
-	"ZERO", "DMIC2", "DMIC3", "DMIC4", "ADC1", "ADC2", "ADC3", "MBADC",
+	"ZERO", "DMIC3", "ADC1", "ADC2", "ADC3", "MBADC", "DMIC2", "DMIC4"
 };
 
 static const char *dec4_mux_text[] = {
-	"ZERO", "DMIC1", "DMIC2", "DMIC3", "DMIC4", "ADC1", "ADC2", "ADC3",
+	"ZERO", "DMIC4", "ADC1", "ADC2", "ADC3", "DMIC3", "DMIC2", "DMIC1"
 };
 
 static const char *iir1_inp1_text[] = {
@@ -1249,7 +1249,7 @@ static int sitar_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		if (sitar->mbhc_polling_active &&
-		    sitar->micbias == micb_line) {
+		    sitar->mbhc_cfg.micbias == micb_line) {
 			SITAR_ACQUIRE_LOCK(sitar->codec_resource_lock);
 			sitar_codec_pause_hs_polling(codec);
 			sitar_codec_start_hs_polling(codec);
@@ -1874,7 +1874,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"DEC3 MUX", "ADC2", "ADC2"},
 	{"DEC3 MUX", "ADC3", "ADC3"},
 	{"DEC3 MUX", "DMIC2", "DMIC2"},
-	{"DEC3 MUX", "DMIC3", "DMIC4"},
+	{"DEC3 MUX", "DMIC4", "DMIC4"},
 	{"DEC3 MUX", NULL, "CDC_CONN"},
 	{"DEC4 MUX", "DMIC4", "DMIC4"},
 	{"DEC4 MUX", "ADC1", "ADC1"},
@@ -2341,6 +2341,8 @@ static int sitar_get_channel_map(struct snd_soc_dai *dai,
 		*tx_num = sitar_dai[dai->id - 1].capture.channels_max;
 		tx_slot[0] = tx_ch[cnt];
 		tx_slot[1] = tx_ch[4 + cnt];
+		tx_slot[2] = tx_ch[2 + cnt];
+		tx_slot[3] = tx_ch[3 + cnt];
 	}
 	return 0;
 }
