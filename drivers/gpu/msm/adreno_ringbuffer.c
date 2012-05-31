@@ -947,8 +947,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 }
 
 int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
-				unsigned int *temp_rb_buffer,
-				int *rb_size)
+				struct adreno_recovery_data *rec_data)
 {
 	struct kgsl_device *device = rb->device;
 	unsigned int rb_rptr;
@@ -961,6 +960,7 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 	unsigned int copy_rb_contents = 0;
 	struct kgsl_context *context;
 	unsigned int context_id;
+	unsigned int *temp_rb_buffer = rec_data->rb_buffer;
 
 	GSL_RB_GET_READPTR(rb, &rb->rptr);
 
@@ -1121,7 +1121,7 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 			temp_rb_buffer[temp_idx++] = value;
 	}
 
-	*rb_size = temp_idx;
+	rec_data->rb_size = temp_idx;
 	return 0;
 }
 
