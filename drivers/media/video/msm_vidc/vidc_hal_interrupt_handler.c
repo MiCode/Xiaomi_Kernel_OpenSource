@@ -510,9 +510,12 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 		if (sizeof(struct
 			hfi_msg_session_fill_buffer_done_compressed_packet)
 			!= pkt->size) {
-			HAL_MSG_ERROR("hal_process_session_ftb_done:"
-						"bad_pkt_size");
+			HAL_MSG_ERROR("%s: bad_pkt_size", __func__);
 			return;
+		} else if (pkt->error_type != HFI_ERR_NONE) {
+			HAL_MSG_ERROR("%s: got buffer back with error %x",
+					__func__, pkt->error_type);
+			/* Proceed with the FBD */
 		}
 
 		data_done.device_id = device->device_id;
