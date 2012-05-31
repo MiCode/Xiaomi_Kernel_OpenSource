@@ -393,7 +393,7 @@ static struct platform_device android_usb_device = {
 };
 
 #define SHARED_IMEM_TZ_BASE 0xFE805720
-static struct resource tzlog_resources[] = {
+static struct resource copper_tzlog_resources[] = {
 	{
 		.start = SHARED_IMEM_TZ_BASE,
 		.end = SHARED_IMEM_TZ_BASE + SZ_4K - 1,
@@ -401,11 +401,11 @@ static struct resource tzlog_resources[] = {
 	},
 };
 
-struct platform_device apq_device_tz_log = {
+struct platform_device copper_device_tz_log = {
 	.name		= "tz_log",
 	.id		= 0,
-	.num_resources	= ARRAY_SIZE(tzlog_resources),
-	.resource	= tzlog_resources,
+	.num_resources	= ARRAY_SIZE(copper_tzlog_resources),
+	.resource	= copper_tzlog_resources,
 };
 
 #ifdef CONFIG_HW_RANDOM_MSM
@@ -435,7 +435,7 @@ void __init msm_copper_add_devices(void)
 	platform_device_register(&android_usb_device);
 	platform_add_devices(msm_copper_stub_regulator_devices,
 					msm_copper_stub_regulator_devices_len);
-	platform_device_register(&apq_device_tz_log);
+	platform_device_register(&copper_device_tz_log);
 #ifdef CONFIG_HW_RANDOM_MSM
 	platform_device_register(&msm8974_device_rng);
 #endif
