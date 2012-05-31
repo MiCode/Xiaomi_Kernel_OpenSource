@@ -490,8 +490,10 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 					len = sizeof(fack);
 					msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
 						cmd_data, len);
-					kfree(data);
-					return;
+					if (!vfe2x_ctrl->zsl_mode) {
+						kfree(data);
+						return;
+					}
 				}
 			}
 			y_phy = ((struct vfe_endframe *)data)->y_address;
@@ -560,8 +562,10 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 					len = sizeof(fack);
 					msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
 						cmd_data, len);
-					kfree(data);
-					return;
+					if (!vfe2x_ctrl->zsl_mode) {
+						kfree(data);
+						return;
+					}
 				}
 			}
 			y_phy = ((struct vfe_endframe *)data)->y_address;
