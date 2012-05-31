@@ -17,7 +17,7 @@
 #include <linux/io.h>
 #include <linux/android_pmem.h>
 #include <mach/camera.h>
-#include <mach/msm_subsystem_map.h>
+#include <mach/iommu_domains.h>
 
 #include "msm_gemini_platform.h"
 #include "msm_gemini_sync.h"
