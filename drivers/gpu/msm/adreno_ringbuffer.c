@@ -493,7 +493,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	*/
 	total_sizedwords += flags & KGSL_CMD_FLAGS_PMODE ? 4 : 0;
 	total_sizedwords += !(flags & KGSL_CMD_FLAGS_NO_TS_CMP) ? 7 : 0;
-	total_sizedwords += !(flags & KGSL_CMD_FLAGS_NOT_KERNEL_CMD) ? 2 : 0;
+	/* 2 dwords to store the start of command sequence */
+	total_sizedwords += 2;
 
 	if (adreno_is_a3xx(adreno_dev))
 		total_sizedwords += 7;
@@ -521,10 +522,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	rcmd_gpu = rb->buffer_desc.gpuaddr
 		+ sizeof(uint)*(rb->wptr-total_sizedwords);
 
-	if (!(flags & KGSL_CMD_FLAGS_NOT_KERNEL_CMD)) {
-		GSL_RB_WRITE(ringcmds, rcmd_gpu, cp_nop_packet(1));
-		GSL_RB_WRITE(ringcmds, rcmd_gpu, KGSL_CMD_IDENTIFIER);
-	}
+	GSL_RB_WRITE(ringcmds, rcmd_gpu, cp_nop_packet(1));
+	GSL_RB_WRITE(ringcmds, rcmd_gpu, KGSL_CMD_IDENTIFIER);
+
 	if (flags & KGSL_CMD_FLAGS_PMODE) {
 		/* disable protected mode error checking */
 		GSL_RB_WRITE(ringcmds, rcmd_gpu,
@@ -926,8 +926,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	adreno_drawctxt_switch(adreno_dev, drawctxt, flags);
 
 	*timestamp = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
-					drawctxt,
-					KGSL_CMD_FLAGS_NOT_KERNEL_CMD,
+					drawctxt, 0,
 					&link[0], (cmds - link));
 
 	KGSL_CMD_INFO(device, "ctxt %d g %08x numibs %d ts %d\n",
