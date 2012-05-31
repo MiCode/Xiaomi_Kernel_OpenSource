@@ -2140,11 +2140,12 @@ struct msm_mpm_device_data apq8064_mpm_dev_data __initdata = {
 };
 #endif
 
+/* AP2MDM_SOFT_RESET is implemented by the PON_RESET_N gpio */
 #define MDM2AP_ERRFATAL			19
 #define AP2MDM_ERRFATAL			18
 #define MDM2AP_STATUS			49
 #define AP2MDM_STATUS			48
-#define AP2MDM_PMIC_RESET_N		27
+#define AP2MDM_SOFT_RESET		27
 #define AP2MDM_WAKEUP			35
 
 static struct resource mdm_resources[] = {
@@ -2173,9 +2174,9 @@ static struct resource mdm_resources[] = {
 		.flags	= IORESOURCE_IO,
 	},
 	{
-		.start	= AP2MDM_PMIC_RESET_N,
-		.end	= AP2MDM_PMIC_RESET_N,
-		.name	= "AP2MDM_PMIC_RESET_N",
+		.start	= AP2MDM_SOFT_RESET,
+		.end	= AP2MDM_SOFT_RESET,
+		.name	= "AP2MDM_SOFT_RESET",
 		.flags	= IORESOURCE_IO,
 	},
 	{
