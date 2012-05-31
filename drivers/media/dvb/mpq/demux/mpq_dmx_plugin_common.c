@@ -719,9 +719,16 @@ int mpq_dmx_set_source(
 	int i;
 	int dvr_index;
 	int dmx_index;
-	struct mpq_demux *mpq_demux = (struct mpq_demux *)demux->priv;
+	struct dvb_demux *dvb_demux = (struct dvb_demux *)demux->priv;
+	struct mpq_demux *mpq_demux;
 
-	if ((mpq_dmx_info.devices == NULL) || (mpq_demux == NULL)) {
+	if ((mpq_dmx_info.devices == NULL) || (dvb_demux == NULL)) {
+		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	mpq_demux = (struct mpq_demux *)dvb_demux->priv;
+	if (mpq_demux == NULL) {
 		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
 		return -EINVAL;
 	}

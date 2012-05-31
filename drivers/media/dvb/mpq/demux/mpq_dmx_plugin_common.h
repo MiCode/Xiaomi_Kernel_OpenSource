@@ -23,11 +23,9 @@
 #include "mpq_adapter.h"
 
 
-/**
- * Total number of filters per demux,
- * including section and PES feeds
- */
-#define MPQ_DMX_MAX_NUM_OF_FILTERS			64
+/* Max number open() request can be done on demux device */
+#define MPQ_MAX_DMX_FILES				128
+
 
 /**
  * TSIF alias name length

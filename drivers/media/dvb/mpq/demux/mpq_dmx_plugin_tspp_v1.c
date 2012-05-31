@@ -18,9 +18,12 @@
 #include "mpq_dmx_plugin_common.h"
 
 
-#define TSIF_COUNT						2
+#define TSIF_COUNT					2
 
-#define TSPP_FILTERS_COUNT				16
+#define TSPP_MAX_PID_FILTER_NUM		16
+
+/* Max number of section filters */
+#define TSPP_MAX_SECTION_FILTER_NUM		64
 
 /* For each TSIF we allocate two pipes, one for PES and one for sections */
 #define TSPP_PES_CHANNEL				0
@@ -44,8 +47,12 @@
 
 #define TSPP_RAW_TTS_SIZE				192
 
-/* Size of single descriptor */
-#define TSPP_BUFFER_SIZE				(TSPP_RAW_TTS_SIZE * 35)
+/* Size of single descriptor.
+ * Assuming 20MBit/sec stream, with 200 packets
+ * per descriptor there would be about 68 descriptors.
+ * Meanning about 68 interrupts per second.
+ */
+#define TSPP_BUFFER_SIZE			(TSPP_RAW_TTS_SIZE * 200)
 
 /* Number of descriptors, total size: TSPP_BUFFER_SIZE*TSPP_BUFFER_COUNT */
 #define TSPP_BUFFER_COUNT				(16)
@@ -100,7 +107,7 @@ static struct
 		struct {
 			int pid;
 			int ref_count;
-		} filters[TSPP_FILTERS_COUNT];
+		} filters[TSPP_MAX_PID_FILTER_NUM];
 
 		/* workqueue that processes TS packets from specific TSIF */
 		struct workqueue_struct *workqueue;
@@ -136,11 +143,11 @@ static int mpq_tspp_get_free_filter_slot(int tsif, int channel_id)
 	int i;
 
 	if (TSPP_IS_PES_CHANNEL(channel_id)) {
-		for (i = 0; i < TSPP_FILTERS_COUNT; i++)
+		for (i = 0; i < TSPP_MAX_PID_FILTER_NUM; i++)
 			if (mpq_dmx_tspp_info.tsif[tsif].filters[i].pid == -1)
 				return i;
 	} else {
-		for (i = TSPP_FILTERS_COUNT-1; i >= 0; i--)
+		for (i = TSPP_MAX_PID_FILTER_NUM-1; i >= 0; i--)
 			if (mpq_dmx_tspp_info.tsif[tsif].filters[i].pid == -1)
 				return i;
 	}
@@ -160,7 +167,7 @@ static int mpq_tspp_get_filter_slot(int tsif, int pid)
 {
 	int i;
 
-	for (i = 0; i < TSPP_FILTERS_COUNT; i++)
+	for (i = 0; i < TSPP_MAX_PID_FILTER_NUM; i++)
 		if (mpq_dmx_tspp_info.tsif[tsif].filters[i].pid == pid)
 			return i;
 
@@ -640,6 +647,7 @@ static int mpq_tspp_dmx_write_to_decoder(
 					const u8 *buf,
 					size_t len)
 {
+
 	/*
 	 * It is assumed that this function is called once for each
 	 * TS packet of the relevant feed.
@@ -654,6 +662,43 @@ static int mpq_tspp_dmx_write_to_decoder(
 
 	if (mpq_dmx_is_pcr_feed(feed))
 		return mpq_dmx_process_pcr_packet(feed, buf);
+
+	return 0;
+}
+
+/**
+ * Returns demux capabilities of TSPPv1 plugin
+ *
+ * @demux: demux device
+ * @caps: Returned capbabilities
+ *
+ * Return     error code
+ */
+static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
+				struct dmx_caps *caps)
+{
+	struct dvb_demux *dvb_demux = (struct dvb_demux *)demux->priv;
+
+	if ((dvb_demux == NULL) || (caps == NULL)) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: invalid parameters\n",
+			__func__);
+
+		return -EINVAL;
+	}
+
+	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA;
+	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
+	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
+	caps->num_pid_filters = TSPP_MAX_PID_FILTER_NUM;
+	caps->num_section_filters = dvb_demux->filternum;
+	caps->num_section_filters_per_pid = dvb_demux->filternum;
+	caps->section_filter_length = DMX_FILTER_SIZE;
+	caps->num_demod_inputs = TSIF_COUNT;
+	caps->num_memory_inputs = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
+	caps->max_bitrate = 144;
+	caps->demod_input_max_bitrate = 72;
+	caps->memory_input_max_bitrate = 72;
 
 	return 0;
 }
@@ -677,8 +722,8 @@ static int mpq_tspp_dmx_init(
 
 	/* Set dvb-demux "virtual" function pointers */
 	mpq_demux->demux.priv = (void *)mpq_demux;
-	mpq_demux->demux.filternum = MPQ_DMX_MAX_NUM_OF_FILTERS;
-	mpq_demux->demux.feednum = MPQ_DMX_MAX_NUM_OF_FILTERS;
+	mpq_demux->demux.filternum = TSPP_MAX_SECTION_FILTER_NUM;
+	mpq_demux->demux.feednum = MPQ_MAX_DMX_FILES;
 	mpq_demux->demux.start_feed = mpq_tspp_dmx_start_filtering;
 	mpq_demux->demux.stop_feed = mpq_tspp_dmx_stop_filtering;
 	mpq_demux->demux.write_to_decoder = mpq_tspp_dmx_write_to_decoder;
@@ -700,7 +745,7 @@ static int mpq_tspp_dmx_init(
 	}
 
 	/* Now initailize the dmx-dev object */
-	mpq_demux->dmxdev.filternum = MPQ_DMX_MAX_NUM_OF_FILTERS;
+	mpq_demux->dmxdev.filternum = MPQ_MAX_DMX_FILES;
 	mpq_demux->dmxdev.demux = &mpq_demux->demux.dmx;
 	mpq_demux->dmxdev.capabilities =
 		DMXDEV_CAP_DUPLEX |
@@ -709,6 +754,7 @@ static int mpq_tspp_dmx_init(
 		DMXDEV_CAP_INDEXING;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;
+	mpq_demux->dmxdev.demux->get_caps = mpq_tspp_dmx_get_caps;
 
 	result = dvb_dmxdev_init(&mpq_demux->dmxdev, mpq_adapter);
 	if (result < 0) {
@@ -754,7 +800,7 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 		INIT_WORK(&mpq_dmx_tspp_info.tsif[i].section_work.work,
 				  mpq_dmx_tspp_work);
 
-		for (j = 0; j < TSPP_FILTERS_COUNT; j++) {
+		for (j = 0; j < TSPP_MAX_PID_FILTER_NUM; j++) {
 			mpq_dmx_tspp_info.tsif[i].filters[j].pid = -1;
 			mpq_dmx_tspp_info.tsif[i].filters[j].ref_count = 0;
 		}
