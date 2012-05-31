@@ -363,11 +363,22 @@ static bool pll4_clk_is_local(struct clk *clk)
 	return false;
 }
 
+static enum handoff pll4_clk_handoff(struct clk *clk)
+{
+	struct msm_rpm_iv_pair iv = { MSM_RPM_ID_PLL_4 };
+	int rc = msm_rpm_get_status(&iv, 1);
+	if (rc < 0 || !iv.value)
+		return HANDOFF_DISABLED_CLK;
+
+	return HANDOFF_ENABLED_CLK;
+}
+
 static struct clk_ops clk_ops_pll4 = {
 	.enable = pll4_clk_enable,
 	.disable = pll4_clk_disable,
 	.get_parent = pll4_clk_get_parent,
 	.is_local = pll4_clk_is_local,
+	.handoff = pll4_clk_handoff,
 };
 
 static struct fixed_clk pll4_clk = {
