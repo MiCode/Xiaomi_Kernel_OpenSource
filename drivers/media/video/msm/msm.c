@@ -1863,14 +1863,15 @@ mctl_open_failed:
 	}
 msm_cam_server_open_session_failed:
 	if (pcam->use_count == 1) {
-		queue->queue_active = 0;
-		msm_drain_eventq(&queue->eventData_q);
-		kfree(queue->ctrl_data);
-		queue->ctrl_data = NULL;
-		msm_queue_drain(&queue->ctrl_q, list_control);
-		msm_drain_eventq(&queue->eventData_q);
-		queue = NULL;
-
+		if (queue != NULL) {
+			queue->queue_active = 0;
+			msm_drain_eventq(&queue->eventData_q);
+			kfree(queue->ctrl_data);
+			queue->ctrl_data = NULL;
+			msm_queue_drain(&queue->ctrl_q, list_control);
+			msm_drain_eventq(&queue->eventData_q);
+			queue = NULL;
+		}
 		pcam->dev_inst[i] = NULL;
 		pcam->use_count = 0;
 	}
