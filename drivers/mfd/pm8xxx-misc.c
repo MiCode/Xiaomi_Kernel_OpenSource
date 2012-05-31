@@ -564,6 +564,7 @@ int pm8xxx_smpl_control(int enable)
 					   : SLEEP_CTRL_SMPL_EN_PWR_OFF));
 			break;
 		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8917:
 			rc = pm8xxx_misc_masked_write(chip,
 				REG_PM8921_SLEEP_CTRL, SLEEP_CTRL_SMPL_EN_MASK,
 				(enable ? SLEEP_CTRL_SMPL_EN_RESET
@@ -624,6 +625,7 @@ int pm8xxx_smpl_set_delay(enum pm8xxx_smpl_delay delay)
 				delay);
 			break;
 		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8917:
 			rc = pm8xxx_misc_masked_write(chip,
 				REG_PM8921_SLEEP_CTRL, SLEEP_CTRL_SMPL_SEL_MASK,
 				delay);
@@ -703,6 +705,7 @@ int pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config)
 					REG_PM8058_COIN_CHG, reg);
 			break;
 		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8917:
 			rc = pm8xxx_writeb(chip->dev->parent,
 					REG_PM8921_COIN_CHG, reg);
 			break;
@@ -747,6 +750,7 @@ int pm8xxx_watchdog_reset_control(int enable)
 		case PM8XXX_VERSION_8018:
 		case PM8XXX_VERSION_8058:
 		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8917:
 			rc = pm8xxx_misc_masked_write(chip,
 				REG_PM8XXX_PON_CTRL_1, PON_CTRL_1_WD_EN_MASK,
 				(enable ? PON_CTRL_1_WD_EN_RESET
@@ -793,6 +797,7 @@ int pm8xxx_stay_on(void)
 		case PM8XXX_VERSION_8018:
 		case PM8XXX_VERSION_8058:
 		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8917:
 			rc = pm8xxx_writeb(chip->dev->parent,
 				REG_PM8XXX_GP_TEST_1, PM8XXX_STAY_ON_CFG);
 			break;
@@ -884,6 +889,7 @@ int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config)
 				REG_PM8901_PON_CNTL_4, REG_PM8901_PON_CNTL_5);
 			break;
 		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8917:
 			__pm8xxx_hard_reset_config(chip, config,
 				REG_PM8921_PON_CNTL_4, REG_PM8921_PON_CNTL_5);
 			break;
@@ -941,6 +947,7 @@ int pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel)
 		case PM8XXX_VERSION_8018:
 		case PM8XXX_VERSION_8058:
 		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8917:
 			rc = pm8xxx_misc_masked_write(chip,
 				REG_PM8XXX_GPIO_MUX_CTRL, UART_PATH_SEL_MASK,
 				uart_path_sel << UART_PATH_SEL_SHIFT);
@@ -1091,6 +1098,7 @@ int pm8xxx_aux_clk_control(enum pm8xxx_aux_clk_id clk_id,
 		switch (chip->version) {
 		case PM8XXX_VERSION_8038:
 		case PM8XXX_VERSION_8921:
+		case PM8XXX_VERSION_8917:
 			pm8xxx_misc_masked_write(chip,
 					REG_PM8XXX_XO_CNTRL_2, clk_mask, value);
 			break;
