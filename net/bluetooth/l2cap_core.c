@@ -5397,9 +5397,6 @@ static void l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 
 	BT_DBG("sk %p", sk);
 
-	if (!sk)
-		return;
-
 	lock_sock(sk);
 
 	if (sk->sk_state != BT_CONNECTED && !l2cap_pi(sk)->amp_id) {
@@ -5539,8 +5536,11 @@ static void l2cap_logical_link_worker(struct work_struct *work)
 		container_of(work, struct l2cap_logical_link_work, work);
 	struct sock *sk = log_link_work->chan->l2cap_sk;
 
-	l2cap_logical_link_complete(log_link_work->chan, log_link_work->status);
-	sock_put(sk);
+	if (sk) {
+		l2cap_logical_link_complete(log_link_work->chan,
+							log_link_work->status);
+		sock_put(sk);
+	}
 	hci_chan_put(log_link_work->chan);
 	kfree(log_link_work);
 }
