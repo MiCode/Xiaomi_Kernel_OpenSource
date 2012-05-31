@@ -851,9 +851,7 @@ static struct platform_device *common_devices[] = {
 #ifdef CONFIG_LTC4088_CHARGER
 	&msm_device_charger,
 #endif
-#ifndef CONFIG_USB_CI13XXX_MSM_HSIC
 	&msm_device_otg,
-#endif
 	&msm_device_hsic_peripheral,
 	&msm_device_gadget_peripheral,
 	&msm_device_hsusb_host,

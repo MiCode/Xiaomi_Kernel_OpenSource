@@ -3306,9 +3306,8 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	udc->gadget.dev.parent   = dev;
 	udc->gadget.dev.release  = udc_release;
 
-	udc->transceiver = otg_get_transceiver();
-
 	if (udc->udc_driver->flags & CI13XXX_REQUIRE_TRANSCEIVER) {
+		udc->transceiver = otg_get_transceiver();
 		if (udc->transceiver == NULL) {
 			retval = -ENODEV;
 			goto free_udc;
