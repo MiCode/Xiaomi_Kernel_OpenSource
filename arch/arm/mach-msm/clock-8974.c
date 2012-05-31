@@ -20,6 +20,7 @@
 #include <linux/clk.h>
 
 #include <mach/clk.h>
+#include <mach/rpm-regulator-smd.h>
 
 #include "clock-local2.h"
 #include "clock-pll.h"
@@ -580,10 +581,19 @@ enum vdd_dig_levels {
 	VDD_DIG_HIGH
 };
 
+static const int vdd_corner[] = {
+	[VDD_DIG_NONE]	  = RPM_REGULATOR_CORNER_NONE,
+	[VDD_DIG_LOW]	  = RPM_REGULATOR_CORNER_SVS_SOC,
+	[VDD_DIG_NOMINAL] = RPM_REGULATOR_CORNER_NORMAL,
+	[VDD_DIG_HIGH]	  = RPM_REGULATOR_CORNER_SUPER_TURBO,
+};
+
+static struct rpm_regulator *vdd_dig_reg;
+
 static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
 {
-	/* TODO: Actually call into regulator APIs to set VDD_DIG here. */
-	return 0;
+	return rpm_regulator_set_voltage(vdd_dig_reg, vdd_corner[level],
+					RPM_REGULATOR_CORNER_SUPER_TURBO);
 }
 
 static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
@@ -5172,7 +5182,25 @@ static void __init msm8974_clock_pre_init(void)
 
 	clk_ops_local_pll.enable = msm8974_pll_clk_enable;
 
+	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
+	if (IS_ERR(vdd_dig_reg))
+		panic("clock-copper: Unable to get the vdd_dig regulator!");
+
+	/*
+	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
+	 * until late_init. This may not be necessary with clock handoff;
+	 * Investigate this code on a real non-simulator target to determine
+	 * its necessity.
+	 */
+	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	rpm_regulator_enable(vdd_dig_reg);
+
 	reg_init();
+}
+
+static int __init msm8974_clock_late_init(void)
+{
+	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 }
 
 struct clock_init_data msm8974_clock_init_data __initdata = {
@@ -5180,4 +5208,5 @@ struct clock_init_data msm8974_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clocks_8974),
 	.pre_init = msm8974_clock_pre_init,
 	.post_init = msm8974_clock_post_init,
+	.late_init = msm8974_clock_late_init,
 };
