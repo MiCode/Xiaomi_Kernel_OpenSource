@@ -22,16 +22,16 @@
  *			 regulator name		consumer dev_name
  */
 VREG_CONSUMERS(K0) = {
-	REGULATOR_SUPPLY("krait0",		NULL),
+	REGULATOR_SUPPLY("krait0",		"f9000000.qcom,acpuclk"),
 };
 VREG_CONSUMERS(K1) = {
-	REGULATOR_SUPPLY("krait1",		NULL),
+	REGULATOR_SUPPLY("krait1",		"f9000000.qcom,acpuclk"),
 };
 VREG_CONSUMERS(K2) = {
-	REGULATOR_SUPPLY("krait2",		NULL),
+	REGULATOR_SUPPLY("krait2",		"f9000000.qcom,acpuclk"),
 };
 VREG_CONSUMERS(K3) = {
-	REGULATOR_SUPPLY("krait3",		NULL),
+	REGULATOR_SUPPLY("krait3",		"f9000000.qcom,acpuclk"),
 };
 
 #define PM8X41_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \

@@ -509,7 +509,8 @@ static void __init rpm_regulator_init(struct scalable *sc, enum vregs vreg,
 }
 
 /* Voltage regulator initialization. */
-static void __init regulator_init(const struct acpu_level *lvl)
+static void __init regulator_init(struct device *dev,
+				  const struct acpu_level *lvl)
 {
 	int cpu, ret;
 	struct scalable *sc;
@@ -534,7 +535,7 @@ static void __init regulator_init(const struct acpu_level *lvl)
 				   sc->vreg[VREG_HFPLL_B].max_vdd, false);
 
 		/* Setup Krait CPU regulators and initial core voltage. */
-		sc->vreg[VREG_CORE].reg = regulator_get(NULL,
+		sc->vreg[VREG_CORE].reg = regulator_get(dev,
 					  sc->vreg[VREG_CORE].name);
 		if (IS_ERR(sc->vreg[VREG_CORE].reg)) {
 			dev_err(drv.dev, "regulator_get(%s) failed (%ld)\n",
@@ -770,7 +771,7 @@ int __init acpuclk_krait_init(struct device *dev,
 
 	max_acpu_level = select_freq_plan(params->pvs_acpu_freq_tbl,
 					  params->qfprom_phys_base);
-	regulator_init(max_acpu_level);
+	regulator_init(dev, max_acpu_level);
 	bus_init(params->bus_scale_data, max_acpu_level->l2_level->bw_level);
 	init_clock_sources(&drv.scalable[L2], &max_acpu_level->l2_level->speed);
 	for_each_online_cpu(cpu)
