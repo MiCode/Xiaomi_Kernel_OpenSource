@@ -75,6 +75,7 @@ static struct regulator *hsusb_1p8;
 static struct regulator *hsusb_vddcx;
 static struct regulator *vbus_otg;
 static struct regulator *mhl_analog_switch;
+static struct power_supply *psy;
 
 static bool aca_id_turned_on;
 static inline bool aca_enabled(void)
@@ -994,9 +995,7 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 
 static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
 {
-	struct power_supply *psy;
 
-	psy = power_supply_get_by_name("usb");
 	if (!psy)
 		goto psy_not_supported;
 
@@ -2001,6 +2000,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 	case OTG_STATE_UNDEFINED:
 		msm_otg_reset(otg);
 		msm_otg_init_sm(motg);
+		psy = power_supply_get_by_name("usb");
+		if (!psy)
+			pr_err("couldn't get usb power supply\n");
 		otg->state = OTG_STATE_B_IDLE;
 		if (!test_bit(B_SESS_VLD, &motg->inputs) &&
 				test_bit(ID, &motg->inputs)) {
