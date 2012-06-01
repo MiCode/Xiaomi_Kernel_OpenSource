@@ -2325,6 +2325,16 @@ config MSM_L1_ERR_PANIC
 
 	  For production builds, you should probably say 'N' here.
 
+config MSM_L1_ERR_LOG
+	bool "Log CPU ERP events to system memory"
+	depends on MSM_CACHE_ERP
+	help
+	  Enable logging CPU ERP events to an area of memory that will be
+	  preserved across a system reset. This may be useful for detecting and
+	  troubleshooting ERP-related system crashes in the field.
+
+	  For production builds, you may want to say 'Y' here.
+
 config MSM_L2_ERP_PRINT_ACCESS_ERRORS
 	bool "Report L2 master port slave/decode errors in kernel log"
 	depends on MSM_CACHE_ERP
