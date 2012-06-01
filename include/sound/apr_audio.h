@@ -59,6 +59,9 @@
 #define INT_FM_TX 0x3005		/* index = 29 */
 #define RT_PROXY_PORT_001_RX	0x2000    /* index = 30 */
 #define RT_PROXY_PORT_001_TX	0x2001    /* index = 31 */
+#define SECONDARY_PCM_RX 12			/* index = 32 */
+#define SECONDARY_PCM_TX 13			/* index = 33 */
+
 
 #define AFE_PORT_INVALID 0xFFFF
 #define SLIMBUS_EXTPROC_RX AFE_PORT_INVALID

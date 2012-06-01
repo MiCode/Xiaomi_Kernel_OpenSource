@@ -142,6 +142,7 @@ int afe_get_port_type(u16 port_id)
 	switch (port_id) {
 	case PRIMARY_I2S_RX:
 	case PCM_RX:
+	case SECONDARY_PCM_RX:
 	case SECONDARY_I2S_RX:
 	case MI2S_RX:
 	case HDMI_RX:
@@ -160,6 +161,7 @@ int afe_get_port_type(u16 port_id)
 
 	case PRIMARY_I2S_TX:
 	case PCM_TX:
+	case SECONDARY_PCM_TX:
 	case SECONDARY_I2S_TX:
 	case MI2S_TX:
 	case DIGI_MIC_TX:
@@ -193,6 +195,8 @@ int afe_validate_port(u16 port_id)
 	case PRIMARY_I2S_TX:
 	case PCM_RX:
 	case PCM_TX:
+	case SECONDARY_PCM_RX:
+	case SECONDARY_PCM_TX:
 	case SECONDARY_I2S_RX:
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
@@ -261,6 +265,8 @@ int afe_get_port_index(u16 port_id)
 	case PRIMARY_I2S_TX: return IDX_PRIMARY_I2S_TX;
 	case PCM_RX: return IDX_PCM_RX;
 	case PCM_TX: return IDX_PCM_TX;
+	case SECONDARY_PCM_RX: return IDX_SECONDARY_PCM_RX;
+	case SECONDARY_PCM_TX: return IDX_SECONDARY_PCM_TX;
 	case SECONDARY_I2S_RX: return IDX_SECONDARY_I2S_RX;
 	case SECONDARY_I2S_TX: return IDX_SECONDARY_I2S_TX;
 	case MI2S_RX: return IDX_MI2S_RX;
@@ -327,6 +333,8 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 		break;
 	case PCM_RX:
 	case PCM_TX:
+	case SECONDARY_PCM_RX:
+	case SECONDARY_PCM_TX:
 	default:
 		ret_size = SIZEOF_CFG_CMD(afe_port_pcm_cfg);
 		break;
