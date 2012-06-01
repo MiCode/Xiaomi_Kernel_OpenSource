@@ -664,7 +664,14 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		goto err_add_controller;
 
 	/* Register the interrupt enable/disable functions */
-	qpnpint_register_controller(cell_index, &spmi_pmic_arb_intr_cb);
+	ret = qpnpint_register_controller(pmic_arb->controller.dev.of_node,
+					  &pmic_arb->controller,
+					  &spmi_pmic_arb_intr_cb);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to register controller %d\n",
+					cell_index);
+		goto err_reg_controller;
+	}
 
 	/* Register device(s) from the device tree */
 	of_spmi_register_devices(&pmic_arb->controller);
@@ -674,6 +681,8 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_reg_controller:
+	spmi_del_controller(&pmic_arb->controller);
 err_add_controller:
 	platform_set_drvdata(pdev, NULL);
 	return ret;
