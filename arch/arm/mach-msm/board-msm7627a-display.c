@@ -1140,6 +1140,7 @@ static int qrd3_dsi_gpio_initialized;
 static int mipi_dsi_panel_qrd3_power(int on)
 {
 	int rc = 0;
+	static struct regulator *gpio_reg_2p85v, *gpio_reg_1p8v;
 
 	if (!qrd3_dsi_gpio_initialized) {
 		rc = gpio_request(GPIO_QRD3_LCD_BACKLIGHT_EN,
@@ -1147,47 +1148,21 @@ static int mipi_dsi_panel_qrd3_power(int on)
 		if (rc < 0)
 			return rc;
 
-		rc = gpio_request(GPIO_QRD3_LCD_EXT_2V85_EN,
-			"qrd3_gpio_ext_2v85_en");
-		if (rc < 0)
-			return rc;
-
-		rc = gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_EXT_2V85_EN, 0,
-			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-			GPIO_CFG_ENABLE);
-		if (rc < 0) {
-			pr_err("failed QRD3 GPIO_QRD3_LCD_EXT_2V85_EN tlmm config\n");
-			return rc;
+		gpio_reg_2p85v = regulator_get(&msm8625_mipi_dsi_device.dev,
+								"lcd_vdd");
+		if (IS_ERR(gpio_reg_2p85v)) {
+			pr_err("%s:ext_2p85v regulator get failed", __func__);
+			return -EINVAL;
 		}
 
-		rc = gpio_direction_output(GPIO_QRD3_LCD_EXT_2V85_EN, 1);
-		if (rc < 0) {
-			pr_err("failed to enable external 2V85\n");
-			gpio_free(GPIO_QRD3_LCD_EXT_2V85_EN);
-			return rc;
+		gpio_reg_1p8v = regulator_get(&msm8625_mipi_dsi_device.dev,
+								"lcd_vddi");
+		if (IS_ERR(gpio_reg_1p8v)) {
+			pr_err("%s:ext_1p8v regulator get failed", __func__);
+			return -EINVAL;
 		}
 
-		rc = gpio_request(GPIO_QRD3_LCD_EXT_1V8_EN,
-			"qrd3_gpio_ext_1v8_en");
-		if (rc < 0)
-			return rc;
-
-		rc = gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_EXT_1V8_EN, 0,
-			GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-			GPIO_CFG_ENABLE);
-		if (rc < 0) {
-			pr_err("failed QRD3 GPIO_QRD3_LCD_EXT_1V8_EN tlmm config\n");
-			return rc;
-		}
-
-		rc = gpio_direction_output(GPIO_QRD3_LCD_EXT_1V8_EN, 1);
-		if (rc < 0) {
-			pr_err("failed to enable external 1v8\n");
-			gpio_free(GPIO_QRD3_LCD_EXT_1V8_EN);
-			return rc;
-		}
-
-			qrd3_dsi_gpio_initialized = 1;
+		qrd3_dsi_gpio_initialized = 1;
 	}
 
 	if (on) {
@@ -1204,7 +1179,7 @@ static int mipi_dsi_panel_qrd3_power(int on)
 			gpio_free(GPIO_QRD3_LCD_BACKLIGHT_EN);
 			return rc;
 		}
-
+		/*Toggle Backlight GPIO*/
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
 		udelay(190);
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 0);
@@ -1212,18 +1187,17 @@ static int mipi_dsi_panel_qrd3_power(int on)
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
 		/* 1 wire mode starts from this low to high transition */
 		udelay(50);
-	} else {
-		gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BACKLIGHT_EN, 0,
-			GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-			GPIO_CFG_DISABLE);
-	}
 
-	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_2V85_EN, !!on);
-	gpio_set_value_cansleep(GPIO_QRD3_LCD_EXT_1V8_EN, !!on);
+		/*Enable EXT_2.85 and 1.8 regulators*/
+		rc = regulator_enable(gpio_reg_2p85v);
+		if (rc < 0)
+			pr_err("%s: reg enable failed\n", __func__);
+		rc = regulator_enable(gpio_reg_1p8v);
+		if (rc < 0)
+			pr_err("%s: reg enable failed\n", __func__);
 
-	if (on) {
+		/*Configure LCD Bridge reset*/
 		rc = gpio_tlmm_config(qrd3_mipi_dsi_gpio[0], GPIO_CFG_ENABLE);
-
 		if (rc < 0) {
 			pr_err("Failed to enable LCD Bridge reset enable\n");
 			return rc;
@@ -1237,18 +1211,32 @@ static int mipi_dsi_panel_qrd3_power(int on)
 			return rc;
 		}
 
+		/*Toggle Bridge Reset GPIO*/
 		msleep(20);
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BRDG_RESET_N, 0);
 		msleep(20);
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BRDG_RESET_N, 1);
 		msleep(20);
+
 	} else {
+		gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BACKLIGHT_EN, 0,
+			GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+			GPIO_CFG_DISABLE);
+
 		gpio_tlmm_config(GPIO_CFG(GPIO_QRD3_LCD_BRDG_RESET_N, 0,
 			GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 			GPIO_CFG_DISABLE);
+
+		rc = regulator_disable(gpio_reg_2p85v);
+		if (rc < 0)
+			pr_err("%s: reg disable failed\n", __func__);
+		rc = regulator_disable(gpio_reg_1p8v);
+		if (rc < 0)
+			pr_err("%s: reg disable failed\n", __func__);
+
 	}
 
-		return rc;
+	return rc;
 }
 
 static int mipi_dsi_panel_power(int on)
