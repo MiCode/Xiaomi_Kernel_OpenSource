@@ -1,0 +1,6 @@
+MobiCore is an operating system being shipped with TZBSP
+on msm chipsets. MobiCore consists of several components in
+the secure world(TrustZone) and non-secure world(linux
+kernel, Android user space). The MobiCore driver
+communicates with the MobiCore kernel that exists in
+TrustZone.
