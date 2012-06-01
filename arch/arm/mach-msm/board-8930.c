@@ -2239,14 +2239,11 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8930_ion_dev,
 #endif
 	&msm_device_tz_log,
-
-#ifdef CONFIG_MSM_QDSS
-	&msm_qdss_device,
-	&msm_etb_device,
-	&msm_tpiu_device,
-	&msm_funnel_device,
-	&msm_etm_device,
-#endif
+	&coresight_tpiu_device,
+	&coresight_etb_device,
+	&coresight_funnel_device,
+	&coresight_etm0_device,
+	&coresight_etm1_device,
 	&msm_device_dspcrashd_8960,
 	&msm8960_device_watchdog,
 #ifdef MSM8930_PHASE_2

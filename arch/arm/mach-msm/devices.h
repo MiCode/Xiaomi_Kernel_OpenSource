@@ -363,13 +363,14 @@ extern struct platform_device msm8064_device_watchdog;
 extern struct platform_device msm9615_device_watchdog;
 extern struct platform_device fsm9xxx_device_watchdog;
 
-extern struct platform_device apq8064_qdss_device;
-extern struct platform_device msm_qdss_device;
-extern struct platform_device msm_etb_device;
-extern struct platform_device msm_tpiu_device;
-extern struct platform_device msm_funnel_device;
-extern struct platform_device msm_etm_device;
-extern struct platform_device apq8064_etm_device;
+extern struct platform_device coresight_tpiu_device;
+extern struct platform_device coresight_etb_device;
+extern struct platform_device coresight_funnel_device;
+extern struct platform_device apq8064_coresight_funnel_device;
+extern struct platform_device coresight_etm0_device;
+extern struct platform_device coresight_etm1_device;
+extern struct platform_device coresight_etm2_device;
+extern struct platform_device coresight_etm3_device;
 #endif
 
 extern struct platform_device msm_bus_8064_apps_fabric;

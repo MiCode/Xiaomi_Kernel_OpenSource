@@ -2666,43 +2666,105 @@ struct platform_device apq8064_device_cache_erp = {
 	.resource	= msm_cache_erp_resources,
 };
 
-#define MSM_QDSS_PHYS_BASE		0x01A00000
-#define MSM_ETM_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1C000)
+#define CORESIGHT_PHYS_BASE		0x01A00000
+#define CORESIGHT_FUNNEL_PHYS_BASE	(CORESIGHT_PHYS_BASE + 0x4000)
+#define CORESIGHT_ETM2_PHYS_BASE	(CORESIGHT_PHYS_BASE + 0x1E000)
+#define CORESIGHT_ETM3_PHYS_BASE	(CORESIGHT_PHYS_BASE + 0x1F000)
 
-#define QDSS_SOURCE(src_name, fpm) { .name = src_name, .fport_mask = fpm, }
-
-static struct qdss_source msm_qdss_sources[] = {
-	QDSS_SOURCE("msm_etm", 0x33),
-	QDSS_SOURCE("msm_oxili", 0x80),
-};
-
-static struct msm_qdss_platform_data qdss_pdata = {
-	.src_table = msm_qdss_sources,
-	.size = ARRAY_SIZE(msm_qdss_sources),
-	.afamily = 1,
-};
-
-struct platform_device apq8064_qdss_device = {
-	.name          = "msm_qdss",
-	.id            = -1,
-	.dev           = {
-		.platform_data = &qdss_pdata,
-	},
-};
-
-static struct resource msm_etm_resources[] = {
+static struct resource coresight_funnel_resources[] = {
 	{
-		.start = MSM_ETM_PHYS_BASE,
-		.end   = MSM_ETM_PHYS_BASE + (SZ_4K * 4) - 1,
+		.start = CORESIGHT_FUNNEL_PHYS_BASE,
+		.end   = CORESIGHT_FUNNEL_PHYS_BASE + SZ_4K - 1,
 		.flags = IORESOURCE_MEM,
 	},
 };
 
-struct platform_device apq8064_etm_device = {
-	.name          = "msm_etm",
+static const int coresight_funnel_outports[] = { 0, 1 };
+static const int coresight_funnel_child_ids[] = { 0, 1 };
+static const int coresight_funnel_child_ports[] = { 0, 0 };
+
+static struct coresight_platform_data coresight_funnel_pdata = {
+	.id		= 2,
+	.name		= "coresight-funnel",
+	.nr_inports	= 4,
+	.outports	= coresight_funnel_outports,
+	.child_ids	= coresight_funnel_child_ids,
+	.child_ports	= coresight_funnel_child_ports,
+	.nr_outports	= ARRAY_SIZE(coresight_funnel_outports),
+};
+
+struct platform_device apq8064_coresight_funnel_device = {
+	.name          = "coresight-funnel",
 	.id            = 0,
-	.num_resources = ARRAY_SIZE(msm_etm_resources),
-	.resource      = msm_etm_resources,
+	.num_resources = ARRAY_SIZE(coresight_funnel_resources),
+	.resource      = coresight_funnel_resources,
+	.dev = {
+		.platform_data = &coresight_funnel_pdata,
+	},
+};
+
+static struct resource coresight_etm2_resources[] = {
+	{
+		.start = CORESIGHT_ETM2_PHYS_BASE,
+		.end   = CORESIGHT_ETM2_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static const int coresight_etm2_outports[] = { 0 };
+static const int coresight_etm2_child_ids[] = { 2 };
+static const int coresight_etm2_child_ports[] = { 4 };
+
+static struct coresight_platform_data coresight_etm2_pdata = {
+	.id		= 6,
+	.name		= "coresight-etm2",
+	.nr_inports	= 1,
+	.outports	= coresight_etm2_outports,
+	.child_ids	= coresight_etm2_child_ids,
+	.child_ports	= coresight_etm2_child_ports,
+	.nr_outports	= ARRAY_SIZE(coresight_etm2_outports),
+};
+
+struct platform_device coresight_etm2_device = {
+	.name          = "coresight-etm",
+	.id            = 2,
+	.num_resources = ARRAY_SIZE(coresight_etm2_resources),
+	.resource      = coresight_etm2_resources,
+	.dev = {
+		.platform_data = &coresight_etm2_pdata,
+	},
+};
+
+static struct resource coresight_etm3_resources[] = {
+	{
+		.start = CORESIGHT_ETM3_PHYS_BASE,
+		.end   = CORESIGHT_ETM3_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static const int coresight_etm3_outports[] = { 0 };
+static const int coresight_etm3_child_ids[] = { 2 };
+static const int coresight_etm3_child_ports[] = { 5 };
+
+static struct coresight_platform_data coresight_etm3_pdata = {
+	.id		= 7,
+	.name		= "coresight-etm3",
+	.nr_inports	= 3,
+	.outports	= coresight_etm3_outports,
+	.child_ids	= coresight_etm3_child_ids,
+	.child_ports	= coresight_etm3_child_ports,
+	.nr_outports	= ARRAY_SIZE(coresight_etm3_outports),
+};
+
+struct platform_device coresight_etm3_device = {
+	.name          = "coresight-etm",
+	.id            = 3,
+	.num_resources = ARRAY_SIZE(coresight_etm3_resources),
+	.resource      = coresight_etm3_resources,
+	.dev = {
+		.platform_data = &coresight_etm3_pdata,
+	},
 };
 
 struct msm_iommu_domain_name apq8064_iommu_ctx_names[] = {

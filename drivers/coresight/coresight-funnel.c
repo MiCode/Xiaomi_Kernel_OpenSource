@@ -24,109 +24,118 @@
 
 #include "coresight-priv.h"
 
-#define funnel_writel(drvdata, id, val, off)	\
-			__raw_writel((val), drvdata->base + (SZ_4K * id) + off)
-#define funnel_readl(drvdata, id, off)		\
-			__raw_readl(drvdata->base + (SZ_4K * id) + off)
 
-#define FUNNEL_FUNCTL			(0x000)
-#define FUNNEL_PRICTL			(0x004)
-#define FUNNEL_ITATBDATA0		(0xEEC)
-#define FUNNEL_ITATBCTR2		(0xEF0)
-#define FUNNEL_ITATBCTR1		(0xEF4)
-#define FUNNEL_ITATBCTR0		(0xEF8)
+#define funnel_writel(drvdata, val, off)	\
+			__raw_writel((val), drvdata->base + off)
+#define funnel_readl(drvdata, off)		\
+			__raw_readl(drvdata->base + off)
 
-
-#define FUNNEL_LOCK(id)							\
+#define FUNNEL_LOCK(drvdata)						\
 do {									\
 	mb();								\
-	funnel_writel(drvdata, id, 0x0, CORESIGHT_LAR);			\
+	funnel_writel(drvdata, 0x0, CORESIGHT_LAR);			\
 } while (0)
-#define FUNNEL_UNLOCK(id)						\
+#define FUNNEL_UNLOCK(drvdata)						\
 do {									\
-	funnel_writel(drvdata, id, CORESIGHT_UNLOCK, CORESIGHT_LAR);	\
+	funnel_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);	\
 	mb();								\
 } while (0)
 
-#define FUNNEL_HOLDTIME_MASK		(0xF00)
-#define FUNNEL_HOLDTIME_SHFT		(0x8)
-#define FUNNEL_HOLDTIME			(0x7 << FUNNEL_HOLDTIME_SHFT)
+
+#define FUNNEL_FUNCTL		(0x000)
+#define FUNNEL_PRICTL		(0x004)
+#define FUNNEL_ITATBDATA0	(0xEEC)
+#define FUNNEL_ITATBCTR2	(0xEF0)
+#define FUNNEL_ITATBCTR1	(0xEF4)
+#define FUNNEL_ITATBCTR0	(0xEF8)
+
+
+#define FUNNEL_HOLDTIME_MASK	(0xF00)
+#define FUNNEL_HOLDTIME_SHFT	(0x8)
+#define FUNNEL_HOLDTIME		(0x7 << FUNNEL_HOLDTIME_SHFT)
+
 
 struct funnel_drvdata {
-	void __iomem	*base;
-	bool		enabled;
-	struct mutex	mutex;
-	struct device	*dev;
-	struct kobject	*kobj;
-	struct clk	*clk;
-	uint32_t	priority;
+	void __iomem		*base;
+	struct device		*dev;
+	struct coresight_device	*csdev;
+	struct clk		*clk;
+	uint32_t		priority;
 };
 
-static struct funnel_drvdata *drvdata;
 
-static void __funnel_enable(uint8_t id, uint32_t port_mask)
+static void __funnel_enable(struct funnel_drvdata *drvdata, int port)
 {
 	uint32_t functl;
 
-	FUNNEL_UNLOCK(id);
+	FUNNEL_UNLOCK(drvdata);
 
-	functl = funnel_readl(drvdata, id, FUNNEL_FUNCTL);
+	functl = funnel_readl(drvdata, FUNNEL_FUNCTL);
 	functl &= ~FUNNEL_HOLDTIME_MASK;
 	functl |= FUNNEL_HOLDTIME;
-	functl |= port_mask;
-	funnel_writel(drvdata, id, functl, FUNNEL_FUNCTL);
-	funnel_writel(drvdata, id, drvdata->priority, FUNNEL_PRICTL);
+	functl |= (1 << port);
+	funnel_writel(drvdata, functl, FUNNEL_FUNCTL);
+	funnel_writel(drvdata, drvdata->priority, FUNNEL_PRICTL);
 
-	FUNNEL_LOCK(id);
+	FUNNEL_LOCK(drvdata);
 }
 
-int funnel_enable(uint8_t id, uint32_t port_mask)
+static int funnel_enable(struct coresight_device *csdev, int inport,
+			 int outport)
 {
+	struct funnel_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	int ret;
 
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
 
-	mutex_lock(&drvdata->mutex);
-	__funnel_enable(id, port_mask);
-	drvdata->enabled = true;
-	dev_info(drvdata->dev, "FUNNEL port mask 0x%lx enabled\n",
-					(unsigned long) port_mask);
-	mutex_unlock(&drvdata->mutex);
+	__funnel_enable(drvdata, inport);
 
+	dev_info(drvdata->dev, "FUNNEL inport %d enabled\n", inport);
 	return 0;
 }
 
-static void __funnel_disable(uint8_t id, uint32_t port_mask)
+static void __funnel_disable(struct funnel_drvdata *drvdata, int inport)
 {
 	uint32_t functl;
 
-	FUNNEL_UNLOCK(id);
+	FUNNEL_UNLOCK(drvdata);
 
-	functl = funnel_readl(drvdata, id, FUNNEL_FUNCTL);
-	functl &= ~port_mask;
-	funnel_writel(drvdata, id, functl, FUNNEL_FUNCTL);
+	functl = funnel_readl(drvdata, FUNNEL_FUNCTL);
+	functl &= ~(1 << inport);
+	funnel_writel(drvdata, functl, FUNNEL_FUNCTL);
 
-	FUNNEL_LOCK(id);
+	FUNNEL_LOCK(drvdata);
 }
 
-void funnel_disable(uint8_t id, uint32_t port_mask)
+static void funnel_disable(struct coresight_device *csdev, int inport,
+			   int outport)
 {
-	mutex_lock(&drvdata->mutex);
-	__funnel_disable(id, port_mask);
-	drvdata->enabled = false;
-	dev_info(drvdata->dev, "FUNNEL port mask 0x%lx disabled\n",
-					(unsigned long) port_mask);
-	mutex_unlock(&drvdata->mutex);
+	struct funnel_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+
+	__funnel_disable(drvdata, inport);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	dev_info(drvdata->dev, "FUNNEL inport %d disabled\n", inport);
 }
+
+static const struct coresight_ops_link funnel_link_ops = {
+	.enable		= funnel_enable,
+	.disable	= funnel_disable,
+};
+
+static const struct coresight_ops funnel_cs_ops = {
+	.link_ops	= &funnel_link_ops,
+};
 
 static ssize_t funnel_show_priority(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
+	struct funnel_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val = drvdata->priority;
+
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
@@ -134,6 +143,7 @@ static ssize_t funnel_store_priority(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t size)
 {
+	struct funnel_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
 	if (sscanf(buf, "%lx", &val) != 1)
@@ -145,63 +155,44 @@ static ssize_t funnel_store_priority(struct device *dev,
 static DEVICE_ATTR(priority, S_IRUGO | S_IWUSR, funnel_show_priority,
 		   funnel_store_priority);
 
-static int funnel_sysfs_init(void)
-{
-	int ret;
+static struct attribute *funnel_attrs[] = {
+	&dev_attr_priority.attr,
+	NULL,
+};
 
-	drvdata->kobj = kobject_create_and_add("funnel", qdss_get_modulekobj());
-	if (!drvdata->kobj) {
-		dev_err(drvdata->dev, "failed to create FUNNEL sysfs kobject\n");
-		ret = -ENOMEM;
-		goto err_create;
-	}
+static struct attribute_group funnel_attr_grp = {
+	.attrs = funnel_attrs,
+};
 
-	ret = sysfs_create_file(drvdata->kobj, &dev_attr_priority.attr);
-	if (ret) {
-		dev_err(drvdata->dev, "failed to create FUNNEL sysfs priority"
-		" attribute\n");
-		goto err_file;
-	}
-
-	return 0;
-err_file:
-	kobject_put(drvdata->kobj);
-err_create:
-	return ret;
-}
-
-static void funnel_sysfs_exit(void)
-{
-	sysfs_remove_file(drvdata->kobj, &dev_attr_priority.attr);
-	kobject_put(drvdata->kobj);
-}
+static const struct attribute_group *funnel_attr_grps[] = {
+	&funnel_attr_grp,
+	NULL,
+};
 
 static int funnel_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct funnel_drvdata *drvdata;
 	struct resource *res;
+	struct coresight_desc *desc;
 
 	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata) {
 		ret = -ENOMEM;
 		goto err_kzalloc_drvdata;
 	}
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = -EINVAL;
 		goto err_res;
 	}
-
 	drvdata->base = ioremap_nocache(res->start, resource_size(res));
 	if (!drvdata->base) {
 		ret = -EINVAL;
 		goto err_ioremap;
 	}
-
 	drvdata->dev = &pdev->dev;
-
-	mutex_init(&drvdata->mutex);
+	platform_set_drvdata(pdev, drvdata);
 
 	drvdata->clk = clk_get(drvdata->dev, "core_clk");
 	if (IS_ERR(drvdata->clk)) {
@@ -213,15 +204,33 @@ static int funnel_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_clk_rate;
 
-	funnel_sysfs_init();
+	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
+	if (!desc) {
+		ret = -ENOMEM;
+		goto err_kzalloc_desc;
+	}
+	desc->type = CORESIGHT_DEV_TYPE_LINK;
+	desc->subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_MERG;
+	desc->ops = &funnel_cs_ops;
+	desc->pdata = pdev->dev.platform_data;
+	desc->dev = &pdev->dev;
+	desc->groups = funnel_attr_grps;
+	desc->owner = THIS_MODULE;
+	drvdata->csdev = coresight_register(desc);
+	if (IS_ERR(drvdata->csdev)) {
+		ret = PTR_ERR(drvdata->csdev);
+		goto err_coresight_register;
+	}
+	kfree(desc);
 
 	dev_info(drvdata->dev, "FUNNEL initialized\n");
 	return 0;
-
+err_coresight_register:
+	kfree(desc);
+err_kzalloc_desc:
 err_clk_rate:
 	clk_put(drvdata->clk);
 err_clk_get:
-	mutex_destroy(&drvdata->mutex);
 	iounmap(drvdata->base);
 err_ioremap:
 err_res:
@@ -233,19 +242,17 @@ err_kzalloc_drvdata:
 
 static int funnel_remove(struct platform_device *pdev)
 {
-	if (drvdata->enabled)
-		funnel_disable(0x0, 0xFF);
-	funnel_sysfs_exit();
+	struct funnel_drvdata *drvdata = platform_get_drvdata(pdev);
+
+	coresight_unregister(drvdata->csdev);
 	clk_put(drvdata->clk);
-	mutex_destroy(&drvdata->mutex);
 	iounmap(drvdata->base);
 	kfree(drvdata);
-
 	return 0;
 }
 
 static struct of_device_id funnel_match[] = {
-	{.compatible = "qcom,msm-funnel"},
+	{.compatible = "coresight-funnel"},
 	{}
 };
 
@@ -253,7 +260,7 @@ static struct platform_driver funnel_driver = {
 	.probe          = funnel_probe,
 	.remove         = funnel_remove,
 	.driver         = {
-		.name   = "msm_funnel",
+		.name   = "coresight-funnel",
 		.owner	= THIS_MODULE,
 		.of_match_table = funnel_match,
 	},
