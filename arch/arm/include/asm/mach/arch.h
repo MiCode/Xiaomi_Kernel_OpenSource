@@ -27,7 +27,7 @@ struct machine_desc {
 	const char *const 	*dt_compat;	/* array of device tree
 						 * 'compatible' strings	*/
 
-	int			nr_irqs;	/* number of IRQs */
+	unsigned int		nr_irqs;	/* number of IRQs */
 
 #ifdef CONFIG_ZONE_DMA
 	unsigned long		dma_zone_size;	/* size of DMA-able area */
