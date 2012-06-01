@@ -4716,6 +4716,7 @@ static struct measure_clk measure_clk = {
 static struct clk_lookup msm_clocks_copper[] = {
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"msm_otg"),
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-q6v5-lpass"),
+	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil_pronto"),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
 	CLK_LOOKUP("dma_bam_pclk", gcc_bam_dma_ahb_clk.c, "msm_sps"),
