@@ -1281,6 +1281,7 @@ static struct platform_device qcedev_device = {
 static struct mdm_platform_data sglte_platform_data = {
 	.mdm_version = "4.0",
 	.ramdump_delay_ms = 1000,
+	.soft_reset_inverted = 1,
 	.peripheral_platform_device = NULL,
 };
 
