@@ -39,7 +39,6 @@
 #define REG_CLKDIV_1	(MSM_APCS_GLB_BASE + 0x14)
 #define REG_CLKOUTSEL	(MSM_APCS_GLB_BASE + 0x18)
 
-#define MAX_VDD_CPU	1150000
 #define MAX_VDD_MEM	1150000
 
 enum clk_src {
@@ -111,12 +110,12 @@ static struct msm_bus_scale_pdata bus_client_pdata = {
 static uint32_t bus_perf_client;
 
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 0,  19200, SRC_CXO,  0, 0,  950000, 1050000, 0 },
-	{ 1, 138000, SRC_PLL0, 6, 1,  950000, 1050000, 2 },
-	{ 1, 276000, SRC_PLL0, 6, 0, 1050000, 1050000, 2 },
-	{ 1, 384000, SRC_PLL8, 3, 0, 1150000, 1150000, 4 },
+	{ 0,  19200, SRC_CXO,  0, 0, RPM_VREG_CORNER_LOW,     1050000, 0 },
+	{ 1, 138000, SRC_PLL0, 6, 1, RPM_VREG_CORNER_LOW,     1050000, 2 },
+	{ 1, 276000, SRC_PLL0, 6, 0, RPM_VREG_CORNER_NOMINAL, 1050000, 2 },
+	{ 1, 384000, SRC_PLL8, 3, 0, RPM_VREG_CORNER_HIGH,    1150000, 4 },
 	/* The row below may be changed at runtime depending on hw rev. */
-	{ 1, 440000, SRC_PLL9, 2, 0, 1150000, 1150000, 4 },
+	{ 1, 440000, SRC_PLL9, 2, 0, RPM_VREG_CORNER_HIGH,    1150000, 4 },
 	{ 0 }
 };
 
@@ -171,8 +170,8 @@ static int increase_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 		return rc;
 	}
 
-	rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_S1, RPM_VREG_VOTER1,
-				  vdd_cpu, MAX_VDD_CPU, 0);
+	rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_VDD_DIG_CORNER,
+			RPM_VREG_VOTER1, vdd_cpu, RPM_VREG_CORNER_HIGH, 0);
 	if (rc)
 		pr_err("vdd_cpu increase failed (%d)\n", rc);
 
@@ -185,8 +184,9 @@ static void decrease_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 	int ret;
 
 	/* Update CPU voltage. */
-	ret = rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_S1, RPM_VREG_VOTER1,
-				  vdd_cpu, MAX_VDD_CPU, 0);
+	ret = rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_VDD_DIG_CORNER,
+		RPM_VREG_VOTER1, vdd_cpu, RPM_VREG_CORNER_HIGH, 0);
+
 	if (ret) {
 		pr_err("vdd_cpu decrease failed (%d)\n", ret);
 		return;
