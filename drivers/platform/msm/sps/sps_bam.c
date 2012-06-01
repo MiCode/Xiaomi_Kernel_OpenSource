@@ -221,7 +221,7 @@ int sps_bam_enable(struct sps_bam *dev)
 				    IRQF_TRIGGER_HIGH, "sps", dev);
 
 		if (result) {
-			SPS_ERR("sps:Failed to register BAM 0x%x IRQ %d",
+			SPS_ERR("sps:Failed to enable BAM 0x%x IRQ %d",
 				BAM_ID(dev), dev->props.irq);
 			return SPS_ERROR;
 		}

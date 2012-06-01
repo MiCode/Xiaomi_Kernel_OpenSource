@@ -193,6 +193,9 @@ void print_bam_selected_reg(void *);
 
 /* output the content of selected BAM pipe registers */
 void print_bam_pipe_selected_reg(void *, u32);
+
+/* output descriptor FIFO of a pipe */
+void print_bam_pipe_desc_fifo(void *, u32);
 #endif
 
 /**

@@ -327,6 +327,26 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 		print_bam_pipe_selected_reg(vir_addr, 4);
 		print_bam_pipe_selected_reg(vir_addr, 5);
 		break;
+	case 6: /* output desc FIFO of all active pipes */
+		for (i = 0; i < num_pipes; i++)
+			print_bam_pipe_desc_fifo(vir_addr, i);
+		break;
+	case 7: /* output desc FIFO of some pipes */
+		print_bam_pipe_desc_fifo(vir_addr, 4);
+		print_bam_pipe_desc_fifo(vir_addr, 5);
+		break;
+	case 8: /* output selected registers and valid desc FIFO of all pipes */
+		for (i = 0; i < num_pipes; i++) {
+			print_bam_pipe_selected_reg(vir_addr, i);
+			print_bam_pipe_desc_fifo(vir_addr, i);
+		}
+		break;
+	case 9: /* output selected registers and desc FIFO of some pipes */
+		print_bam_pipe_selected_reg(vir_addr, 4);
+		print_bam_pipe_desc_fifo(vir_addr, 4);
+		print_bam_pipe_selected_reg(vir_addr, 5);
+		print_bam_pipe_desc_fifo(vir_addr, 5);
+		break;
 	default:
 		pr_info("sps:no dump option is chosen yet.");
 	}
@@ -455,7 +475,7 @@ static int sps_device_init(void)
 	struct sps_bam_props bamdma_props = {0};
 #endif
 
-	SPS_DBG("sps:sps_device_init");
+	SPS_DBG2("sps:%s.", __func__);
 
 	success = false;
 
@@ -581,6 +601,8 @@ static void sps_device_de_init(void)
  */
 static int sps_client_init(struct sps_pipe *client)
 {
+	SPS_DBG("sps:%s.", __func__);
+
 	if (client == NULL)
 		return -EINVAL;
 
@@ -609,6 +631,8 @@ static int sps_client_init(struct sps_pipe *client)
  */
 static int sps_client_de_init(struct sps_pipe *client)
 {
+	SPS_DBG("sps:%s.", __func__);
+
 	if (client->client_state != SPS_STATE_DISCONNECT) {
 		SPS_ERR("sps:De-init client in connected state: 0x%x",
 				   client->client_state);
@@ -637,6 +661,8 @@ static struct sps_bam *phy2bam(u32 phys_addr)
 {
 	struct sps_bam *bam;
 
+	SPS_DBG("sps:%s.", __func__);
+
 	list_for_each_entry(bam, &sps->bams_q, list) {
 		if (bam->props.phys_addr == phys_addr)
 			return bam;
@@ -661,6 +687,8 @@ static struct sps_bam *phy2bam(u32 phys_addr)
 int sps_phy2h(u32 phys_addr, u32 *handle)
 {
 	struct sps_bam *bam;
+
+	SPS_DBG("sps:%s.", __func__);
 
 	if (handle == NULL) {
 		SPS_ERR("sps:%s:handle is NULL.\n", __func__);
@@ -697,6 +725,8 @@ EXPORT_SYMBOL(sps_phy2h);
 int sps_setup_bam2bam_fifo(struct sps_mem_buffer *mem_buffer,
 		  u32 addr, u32 size, int use_offset)
 {
+	SPS_DBG("sps:%s.", __func__);
+
 	if ((mem_buffer == NULL) || (size == 0)) {
 		SPS_ERR("sps:invalid buffer address or size.");
 		return SPS_ERROR;
@@ -745,6 +775,8 @@ EXPORT_SYMBOL(sps_setup_bam2bam_fifo);
 struct sps_bam *sps_h2bam(u32 h)
 {
 	struct sps_bam *bam;
+
+	SPS_DBG("sps:%s.", __func__);
 
 	if (h == SPS_DEV_HANDLE_MEM || h == SPS_DEV_HANDLE_INVALID)
 		return NULL;
@@ -820,6 +852,8 @@ int sps_connect(struct sps_pipe *h, struct sps_connect *connect)
 	u32 dev;
 	struct sps_bam *bam;
 	int result;
+
+	SPS_DBG2("sps:%s.", __func__);
 
 	if (h == NULL) {
 		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
@@ -914,6 +948,8 @@ int sps_disconnect(struct sps_pipe *h)
 	struct sps_pipe *check;
 	struct sps_bam *bam;
 	int result;
+
+	SPS_DBG2("sps:%s.", __func__);
 
 	if (pipe == NULL) {
 		SPS_ERR("sps:Invalid pipe.");
@@ -1292,6 +1328,8 @@ int sps_get_config(struct sps_pipe *h, struct sps_connect *config)
 {
 	struct sps_pipe *pipe = h;
 
+	SPS_DBG("sps:%s.", __func__);
+
 	if (h == NULL) {
 		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
 		return SPS_ERROR;
@@ -1352,6 +1390,8 @@ int sps_set_owner(struct sps_pipe *h, enum sps_owner owner,
 	struct sps_bam *bam;
 	int result;
 
+	SPS_DBG("sps:%s.", __func__);
+
 	if (h == NULL) {
 		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
 		return SPS_ERROR;
@@ -1401,6 +1441,8 @@ EXPORT_SYMBOL(sps_set_owner);
 int sps_alloc_mem(struct sps_pipe *h, enum sps_mem mem,
 		  struct sps_mem_buffer *mem_buffer)
 {
+	SPS_DBG("sps:%s.", __func__);
+
 	if (h == NULL) {
 		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
 		return SPS_ERROR;
@@ -1437,6 +1479,8 @@ EXPORT_SYMBOL(sps_alloc_mem);
  */
 int sps_free_mem(struct sps_pipe *h, struct sps_mem_buffer *mem_buffer)
 {
+	SPS_DBG("sps:%s.", __func__);
+
 	if (h == NULL) {
 		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
 		return SPS_ERROR;
@@ -1499,6 +1543,8 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 	u32 manage;
 	int ok;
 	int result;
+
+	SPS_DBG2("sps:%s.", __func__);
 
 	if (bam_props == NULL) {
 		SPS_ERR("sps:%s:bam_props is NULL.\n", __func__);
@@ -1647,6 +1693,8 @@ int sps_deregister_bam_device(u32 dev_handle)
 {
 	struct sps_bam *bam;
 
+	SPS_DBG2("sps:%s.", __func__);
+
 	if (dev_handle == 0) {
 		SPS_ERR("sps:%s:device handle should not be 0.\n", __func__);
 		return SPS_ERROR;
@@ -1766,6 +1814,8 @@ struct sps_pipe *sps_alloc_endpoint(void)
 {
 	struct sps_pipe *ctx = NULL;
 
+	SPS_DBG("sps:%s.", __func__);
+
 	ctx = kzalloc(sizeof(struct sps_pipe), GFP_KERNEL);
 	if (ctx == NULL) {
 		SPS_ERR("sps:Fail to allocate pipe context.");
@@ -1785,6 +1835,8 @@ EXPORT_SYMBOL(sps_alloc_endpoint);
 int sps_free_endpoint(struct sps_pipe *ctx)
 {
 	int res;
+
+	SPS_DBG("sps:%s.", __func__);
 
 	if (ctx == NULL) {
 		SPS_ERR("sps:%s:pipe is NULL.\n", __func__);
@@ -1807,6 +1859,8 @@ static int get_platform_data(struct platform_device *pdev)
 {
 	struct resource *resource;
 	struct msm_sps_platform_data *pdata;
+
+	SPS_DBG("sps:%s.", __func__);
 
 	pdata = pdev->dev.platform_data;
 
@@ -1870,6 +1924,8 @@ static int get_device_tree_data(struct platform_device *pdev)
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
 	struct resource *resource;
 
+	SPS_DBG("sps:%s.", __func__);
+
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,bam-dma-res-pipes",
 				&sps->bamdma_restricted_pipes)) {
@@ -1920,7 +1976,7 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	SPS_DBG("sps:msm_sps_probe.");
+	SPS_DBG2("sps:%s.", __func__);
 
 	if (pdev->dev.of_node) {
 		if (get_device_tree_data(pdev)) {
