@@ -1793,7 +1793,7 @@ static int vidc_hal_check_core_registered(
 
 static void vidc_hal_core_work_handler(struct work_struct *work)
 {
-	struct hal_device *device =	list_first_entry(
+	struct hal_device *device = list_first_entry(
 		&hal_ctxt.dev_head, struct hal_device, list);
 
 	HAL_MSG_INFO(" GOT INTERRUPT %s() ", __func__);
