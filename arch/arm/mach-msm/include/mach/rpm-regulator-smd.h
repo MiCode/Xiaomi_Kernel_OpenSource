@@ -17,7 +17,7 @@
 
 struct rpm_regulator;
 
-#ifdef CONFIG_MSM_RPM_REGULATOR_SMD
+#if defined(CONFIG_MSM_RPM_REGULATOR_SMD) || defined(CONFIG_MSM_RPM_REGULATOR)
 
 struct rpm_regulator *rpm_regulator_get(struct device *dev, const char *supply);
 
