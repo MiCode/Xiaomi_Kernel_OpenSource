@@ -52,7 +52,8 @@ int __init qpnpint_of_init(struct device_node *node,
  * Used by the PMIC Arbiter driver or equivalent to register
  * callbacks for interrupt events.
  */
-int qpnpint_register_controller(unsigned int busno,
+int qpnpint_register_controller(struct device_node *node,
+				struct spmi_controller *ctrl,
 				struct qpnp_local_int *li_cb);
 
 /**
@@ -68,8 +69,11 @@ static inline int __init qpnpint_of_init(struct device_node *node,
 {
 	return -ENXIO;
 }
-static inline int qpnpint_register_controller(unsigned int busno,
-				struct qpnp_local_int *li_cb)
+
+static inline int qpnpint_register_controller(struct device_node *node,
+					      struct spmi_controller *ctrl,
+					      struct qpnp_local_int *li_cb)
+
 {
 	return -ENXIO;
 }

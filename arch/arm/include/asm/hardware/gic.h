@@ -40,7 +40,7 @@ struct device_node;
 extern struct irq_chip gic_arch_extn;
 
 void gic_init_bases(unsigned int, int, void __iomem *, void __iomem *,
-		    u32 offset);
+		    u32 offset, struct device_node *);
 int gic_of_init(struct device_node *node, struct device_node *parent);
 void gic_secondary_init(unsigned int);
 void gic_handle_irq(struct pt_regs *regs);
@@ -56,7 +56,7 @@ static inline void gic_set_irq_secure(unsigned int irq) { }
 static inline void gic_init(unsigned int nr, int start,
 			    void __iomem *dist , void __iomem *cpu)
 {
-	gic_init_bases(nr, start, dist, cpu, 0);
+	gic_init_bases(nr, start, dist, cpu, 0, NULL);
 }
 void gic_set_irq_secure(unsigned int irq);
 #endif
