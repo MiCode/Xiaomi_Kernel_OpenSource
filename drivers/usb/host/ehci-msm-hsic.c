@@ -56,8 +56,11 @@ struct msm_hsic_hcd {
 	struct wake_lock	wlock;
 	int			peripheral_status_irq;
 	int			wakeup_irq;
+	int			wakeup_gpio;
 	bool			wakeup_irq_enabled;
+	atomic_t		pm_usage_cnt;
 	uint32_t		bus_perf_client;
+	uint32_t		wakeup_int_cnt;
 };
 
 static bool debug_bus_voting_enabled = true;
@@ -186,9 +189,20 @@ static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
 		goto free_strobe;
 		}
 
+	if (mehci->wakeup_gpio) {
+		rc = gpio_request(mehci->wakeup_gpio, "HSIC_WAKEUP_GPIO");
+		if (rc < 0) {
+			dev_err(mehci->dev, "gpio request failed for HSIC WAKEUP\n");
+			goto free_data;
+		}
+	}
+
 	return 0;
 
 free_gpio:
+	if (mehci->wakeup_gpio)
+		gpio_free(mehci->wakeup_gpio);
+free_data:
 	gpio_free(pdata->data);
 free_strobe:
 	gpio_free(pdata->strobe);
@@ -321,6 +335,9 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 		ulpi_write(mehci, 0xA9, 0x30);
 	}
 
+	/*disable auto resume*/
+	ulpi_write(mehci, ULPI_IFC_CTRL_AUTORESUME, ULPI_CLR(ULPI_IFC_CTRL));
+
 	return 0;
 }
 
@@ -408,6 +425,11 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 
 	atomic_set(&mehci->in_lpm, 1);
 	enable_irq(hcd->irq);
+
+	mehci->wakeup_irq_enabled = 1;
+	enable_irq_wake(mehci->wakeup_irq);
+	enable_irq(mehci->wakeup_irq);
+
 	wake_unlock(&mehci->wlock);
 
 	dev_info(mehci->dev, "HSIC-USB in low power mode\n");
@@ -424,6 +446,12 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	if (!atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "%s called in !in_lpm\n", __func__);
 		return 0;
+	}
+
+	if (mehci->wakeup_irq_enabled) {
+		disable_irq_wake(mehci->wakeup_irq);
+		disable_irq_nosync(mehci->wakeup_irq);
+		mehci->wakeup_irq_enabled = 0;
 	}
 
 	wake_lock(&mehci->wlock);
@@ -478,12 +506,19 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 
 skip_phy_resume:
 
+	usb_hcd_resume_root_hub(hcd);
+
 	atomic_set(&mehci->in_lpm, 0);
 
 	if (mehci->async_int) {
 		mehci->async_int = false;
 		pm_runtime_put_noidle(mehci->dev);
 		enable_irq(hcd->irq);
+	}
+
+	if (atomic_read(&mehci->pm_usage_cnt)) {
+		atomic_set(&mehci->pm_usage_cnt, 0);
+		pm_runtime_put_noidle(mehci->dev);
 	}
 
 	dev_info(mehci->dev, "HSIC-USB exited from low power mode\n");
@@ -687,12 +722,21 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 {
 	struct msm_hsic_hcd *mehci = data;
 
-	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt\n", __func__);
+	mehci->wakeup_int_cnt++;
+	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt cnt: %u\n",
+			__func__, mehci->wakeup_int_cnt);
+
+	wake_lock(&mehci->wlock);
 
 	if (mehci->wakeup_irq_enabled) {
 		mehci->wakeup_irq_enabled = 0;
 		disable_irq_wake(irq);
 		disable_irq_nosync(irq);
+	}
+
+	if (!atomic_read(&mehci->pm_usage_cnt)) {
+		atomic_set(&mehci->pm_usage_cnt, 1);
+		pm_runtime_get(mehci->dev);
 	}
 
 	return IRQ_HANDLED;
@@ -751,6 +795,27 @@ const struct file_operations ehci_hsic_msm_bus_fops = {
 	.release = single_release,
 };
 
+static int ehci_hsic_msm_wakeup_cnt_show(struct seq_file *s, void *unused)
+{
+	struct msm_hsic_hcd *mehci = s->private;
+
+	seq_printf(s, "%u\n", mehci->wakeup_int_cnt);
+
+	return 0;
+}
+
+static int ehci_hsic_msm_wakeup_cnt_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, ehci_hsic_msm_wakeup_cnt_show, inode->i_private);
+}
+
+const struct file_operations ehci_hsic_msm_wakeup_cnt_fops = {
+	.open = ehci_hsic_msm_wakeup_cnt_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static struct dentry *ehci_hsic_msm_dbg_root;
 static int ehci_hsic_msm_debugfs_init(struct msm_hsic_hcd *mehci)
 {
@@ -765,6 +830,16 @@ static int ehci_hsic_msm_debugfs_init(struct msm_hsic_hcd *mehci)
 		S_IRUGO | S_IWUSR,
 		ehci_hsic_msm_dbg_root, mehci,
 		&ehci_hsic_msm_bus_fops);
+
+	if (!ehci_hsic_msm_dentry) {
+		debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
+		return -ENODEV;
+	}
+
+	ehci_hsic_msm_dentry = debugfs_create_file("wakeup_cnt",
+		S_IRUGO,
+		ehci_hsic_msm_dbg_root, mehci,
+		&ehci_hsic_msm_wakeup_cnt_fops);
 
 	if (!ehci_hsic_msm_dentry) {
 		debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
@@ -836,6 +911,13 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	if (res)
 		mehci->peripheral_status_irq = res->start;
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_IO, "wakeup");
+	if (res) {
+		mehci->wakeup_gpio = res->start;
+		mehci->wakeup_irq = MSM_GPIO_TO_INT(res->start);
+		dev_dbg(mehci->dev, "wakeup_irq: %d\n", mehci->wakeup_irq);
+	}
+
 	ret = msm_hsic_init_clocks(mehci, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize clocks\n");
@@ -878,12 +960,9 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	}
 
 	/* configure wakeup irq */
-	ret = platform_get_irq(pdev, 2);
-	if (ret > 0) {
-		mehci->wakeup_irq = ret;
-		dev_dbg(&pdev->dev, "wakeup_irq: %d\n", mehci->wakeup_irq);
+	if (mehci->wakeup_irq) {
 		ret = request_irq(mehci->wakeup_irq, msm_hsic_wakeup_irq,
-				IRQF_TRIGGER_LOW,
+				IRQF_TRIGGER_HIGH,
 				"msm_hsic_wakeup", mehci);
 		if (!ret) {
 			disable_irq_nosync(mehci->wakeup_irq);
@@ -999,38 +1078,14 @@ static int msm_hsic_pm_suspend(struct device *dev)
 	return ret;
 }
 
-static int msm_hsic_pm_suspend_noirq(struct device *dev)
-{
-	struct usb_hcd *hcd = dev_get_drvdata(dev);
-	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
-
-	dev_dbg(dev, "ehci-msm-hsic PM suspend_noirq\n");
-
-	if (device_may_wakeup(dev) && !mehci->wakeup_irq_enabled) {
-		enable_irq(mehci->wakeup_irq);
-		enable_irq_wake(mehci->wakeup_irq);
-		mehci->wakeup_irq_enabled = 1;
-	}
-
-	return 0;
-}
-
 static int msm_hsic_pm_resume(struct device *dev)
 {
 	int ret;
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 
-	dev_dbg(dev, "ehci-msm-hsic PM resume\n");
-
 	if (device_may_wakeup(dev))
 		disable_irq_wake(hcd->irq);
-
-	if (mehci->wakeup_irq_enabled) {
-		mehci->wakeup_irq_enabled = 0;
-		disable_irq_wake(mehci->wakeup_irq);
-		disable_irq_nosync(mehci->wakeup_irq);
-	}
 
 	ret = msm_hsic_resume(mehci);
 	if (ret)
@@ -1074,7 +1129,6 @@ static int msm_hsic_runtime_resume(struct device *dev)
 #ifdef CONFIG_PM
 static const struct dev_pm_ops msm_hsic_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(msm_hsic_pm_suspend, msm_hsic_pm_resume)
-	.suspend_noirq = msm_hsic_pm_suspend_noirq,
 	SET_RUNTIME_PM_OPS(msm_hsic_runtime_suspend, msm_hsic_runtime_resume,
 				msm_hsic_runtime_idle)
 };
