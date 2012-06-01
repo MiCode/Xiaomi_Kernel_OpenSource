@@ -4,7 +4,7 @@
 #include <linux/ioport.h>
 
 struct arch_timer {
-	struct resource	res[2];
+	struct resource	res[3];
 };
 
 #ifdef CONFIG_ARM_ARCH_TIMER
