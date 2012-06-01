@@ -805,7 +805,8 @@ struct ehci_driver_overrides {
 	int	(*bus_suspend)(struct usb_hcd *);
 	int	(*bus_resume)(struct usb_hcd *);
 	int	(*start) (struct usb_hcd *hcd);
-	.log_urb_complete	= dbg_log_event,
+	void	(*log_urb_complete)(struct urb *urb, char * event,
+			unsigned extra);
 };
 
 extern void	ehci_init_driver(struct hc_driver *drv,

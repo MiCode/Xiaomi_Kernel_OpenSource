@@ -1662,6 +1662,9 @@ void usb_hcd_giveback_urb(struct usb_hcd *hcd, struct urb *urb, int status)
 	usbmon_urb_complete(&hcd->self, urb, status);
 	usb_unanchor_urb(urb);
 
+	if (hcd->driver->log_urb_complete)
+		hcd->driver->log_urb_complete(urb, "C", status);
+
 	/* pass ownership to the completion handler */
 	urb->status = status;
 	urb->complete (urb);
