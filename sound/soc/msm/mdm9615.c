@@ -48,10 +48,10 @@
 #define TOP_SPK_AMP_POS		0x4
 #define TOP_SPK_AMP_NEG		0x8
 
-#define GPIO_AUX_PCM_DOUT 63
-#define GPIO_AUX_PCM_DIN 64
-#define GPIO_AUX_PCM_SYNC 65
-#define GPIO_AUX_PCM_CLK 66
+#define GPIO_AUX_PCM_DOUT 23
+#define GPIO_AUX_PCM_DIN 22
+#define GPIO_AUX_PCM_SYNC 21
+#define GPIO_AUX_PCM_CLK 20
 
 #define GPIO_SEC_AUX_PCM_DOUT 28
 #define GPIO_SEC_AUX_PCM_DIN 27
@@ -192,6 +192,8 @@ static int msm9615_i2s_spk_control;
 static u32 spare_shadow;
 static u32 sif_shadow;
 
+static atomic_t msm9615_auxpcm_ref;
+static atomic_t msm9615_sec_auxpcm_ref;
 
 struct msm_i2s_mux_ctl {
 	const u8 sifconfig;
@@ -262,7 +264,6 @@ static int mdm9615_slim_0_tx_ch = 1;
 
 static int mdm9615_btsco_rate = BTSCO_RATE_8KHZ;
 static int mdm9615_btsco_ch = 1;
-static atomic_t msm9615_sec_auxpcm_ref;
 
 static struct clk *codec_clk;
 static int clk_users;
@@ -1750,10 +1751,12 @@ static int mdm9615_auxpcm_startup(struct snd_pcm_substream *substream)
 	int ret = 0;
 
 	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	ret = mdm9615_aux_pcm_get_gpios();
-	if (ret < 0) {
-		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
-		return -EINVAL;
+	if (atomic_inc_return(&msm9615_auxpcm_ref) == 1) {
+		ret = mdm9615_aux_pcm_get_gpios();
+		if (ret < 0) {
+			pr_err("%s: Aux PCM GPIO request failed\n", __func__);
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
@@ -1762,7 +1765,8 @@ static void mdm9615_auxpcm_shutdown(struct snd_pcm_substream *substream)
 {
 
 	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	mdm9615_aux_pcm_free_gpios();
+	if (atomic_dec_return(&msm9615_auxpcm_ref) == 0)
+		mdm9615_aux_pcm_free_gpios();
 }
 
 static int mdm9615_sec_auxpcm_startup(struct snd_pcm_substream *substream)
@@ -1976,6 +1980,7 @@ static struct snd_soc_dai_link mdm9615_dai_common[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
+		.ops = &mdm9615_auxpcm_be_ops,
 	},
 
 	/* SECONDARY AUX PCM Backend DAI Links */
@@ -2176,7 +2181,12 @@ static int __init mdm9615_audio_init(void)
 		snd_soc_card_mdm9615.dai_link = mdm9615_i2s_dai;
 		snd_soc_card_mdm9615.num_links =
 				ARRAY_SIZE(mdm9615_i2s_dai);
+	} else{
+		snd_soc_card_mdm9615.dai_link = mdm9615_dai_common;
+		snd_soc_card_mdm9615.num_links =
+				ARRAY_SIZE(mdm9615_dai_common);
 	}
+
 	platform_set_drvdata(mdm9615_snd_device, &snd_soc_card_mdm9615);
 	ret = platform_device_add(mdm9615_snd_device);
 	if (ret) {
@@ -2190,14 +2200,14 @@ static int __init mdm9615_audio_init(void)
 	} else
 		mdm9615_headset_gpios_configured = 1;
 
+	atomic_set(&msm9615_auxpcm_ref, 0);
+	atomic_set(&msm9615_sec_auxpcm_ref, 0);
 	msm9x15_i2s_ctl.sif_virt_addr = ioremap(LPASS_SIF_MUX_ADDR, 4);
 	msm9x15_i2s_ctl.spare_virt_addr = ioremap(LPAIF_SPARE_ADDR, 4);
-	atomic_set(&msm9615_sec_auxpcm_ref, 0);
 	sif_virt_addr = ioremap(LPASS_SIF_MUX_ADDR, 4);
 	secpcm_portslc_virt_addr = ioremap(SEC_PCM_PORT_SLC_ADDR, 4);
 
 	return ret;
-
 }
 module_init(mdm9615_audio_init);
 
