@@ -343,6 +343,10 @@ struct hc_driver {
 		 * address is set
 		 */
 	int	(*update_device)(struct usb_hcd *, struct usb_device *);
+
+	/* to log completion events*/
+	void	(*log_urb_complete)(struct urb *urb, char * event,
+			unsigned extra);
 };
 
 extern int usb_hcd_link_urb_to_ep(struct usb_hcd *hcd, struct urb *urb);
