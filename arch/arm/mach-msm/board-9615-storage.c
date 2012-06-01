@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,10 +54,10 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 };
 
 /* All SDCC controllers may require voting for VDD PAD voltage */
-static struct msm_mmc_reg_data mmc_vddp_reg_data[MAX_SDCC_CONTROLLER] = {
+static struct msm_mmc_reg_data mmc_vdd_io_reg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC1 : External card slot connected */
 	[SDCC1] = {
-		.name = "sdc_vddp",
+		.name = "sdc_vdd_io",
 		.high_vol_level = 2950000,
 		.low_vol_level = 1850000,
 		.always_on = true,
@@ -77,7 +77,7 @@ static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC1 : External card slot connected */
 	[SDCC1] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC1],
-		.vddp_data = &mmc_vddp_reg_data[SDCC1],
+		.vdd_io_data = &mmc_vdd_io_reg_data[SDCC1],
 	}
 };
 

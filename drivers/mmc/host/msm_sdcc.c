@@ -2136,7 +2136,7 @@ static int msmsdcc_vreg_init(struct msmsdcc_host *host, bool is_init)
 {
 	int rc = 0;
 	struct msm_mmc_slot_reg_data *curr_slot;
-	struct msm_mmc_reg_data *curr_vdd_reg, *curr_vccq_reg, *curr_vddp_reg;
+	struct msm_mmc_reg_data *curr_vdd_reg, *curr_vdd_io_reg;
 	struct device *dev = mmc_dev(host->mmc);
 
 	curr_slot = host->plat->vreg_data;
@@ -2144,8 +2144,7 @@ static int msmsdcc_vreg_init(struct msmsdcc_host *host, bool is_init)
 		goto out;
 
 	curr_vdd_reg = curr_slot->vdd_data;
-	curr_vccq_reg = curr_slot->vccq_data;
-	curr_vddp_reg = curr_slot->vddp_data;
+	curr_vdd_io_reg = curr_slot->vdd_io_data;
 
 	if (is_init) {
 		/*
@@ -2157,15 +2156,10 @@ static int msmsdcc_vreg_init(struct msmsdcc_host *host, bool is_init)
 			if (rc)
 				goto out;
 		}
-		if (curr_vccq_reg) {
-			rc = msmsdcc_vreg_init_reg(curr_vccq_reg, dev);
+		if (curr_vdd_io_reg) {
+			rc = msmsdcc_vreg_init_reg(curr_vdd_io_reg, dev);
 			if (rc)
 				goto vdd_reg_deinit;
-		}
-		if (curr_vddp_reg) {
-			rc = msmsdcc_vreg_init_reg(curr_vddp_reg, dev);
-			if (rc)
-				goto vccq_reg_deinit;
 		}
 		rc = msmsdcc_vreg_reset(host);
 		if (rc)
@@ -2174,14 +2168,11 @@ static int msmsdcc_vreg_init(struct msmsdcc_host *host, bool is_init)
 		goto out;
 	} else {
 		/* Deregister all regulators from regulator framework */
-		goto vddp_reg_deinit;
+		goto vdd_io_reg_deinit;
 	}
-vddp_reg_deinit:
-	if (curr_vddp_reg)
-		msmsdcc_vreg_deinit_reg(curr_vddp_reg);
-vccq_reg_deinit:
-	if (curr_vccq_reg)
-		msmsdcc_vreg_deinit_reg(curr_vccq_reg);
+vdd_io_reg_deinit:
+	if (curr_vdd_io_reg)
+		msmsdcc_vreg_deinit_reg(curr_vdd_io_reg);
 vdd_reg_deinit:
 	if (curr_vdd_reg)
 		msmsdcc_vreg_deinit_reg(curr_vdd_reg);
@@ -2254,16 +2245,14 @@ static int msmsdcc_setup_vreg(struct msmsdcc_host *host, bool enable)
 {
 	int rc = 0, i;
 	struct msm_mmc_slot_reg_data *curr_slot;
-	struct msm_mmc_reg_data *curr_vdd_reg, *curr_vccq_reg, *curr_vddp_reg;
-	struct msm_mmc_reg_data *vreg_table[3];
+	struct msm_mmc_reg_data *vreg_table[2];
 
 	curr_slot = host->plat->vreg_data;
 	if (!curr_slot)
 		goto out;
 
-	curr_vdd_reg = vreg_table[0] = curr_slot->vdd_data;
-	curr_vccq_reg = vreg_table[1] = curr_slot->vccq_data;
-	curr_vddp_reg = vreg_table[2] = curr_slot->vddp_data;
+	vreg_table[0] = curr_slot->vdd_data;
+	vreg_table[1] = curr_slot->vdd_io_data;
 
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
@@ -2294,70 +2283,53 @@ static int msmsdcc_vreg_reset(struct msmsdcc_host *host)
 	return rc;
 }
 
-static int msmsdcc_set_vddp_level(struct msmsdcc_host *host, int level)
+enum vdd_io_level {
+	/* set vdd_io_data->low_vol_level */
+	VDD_IO_LOW,
+	/* set vdd_io_data->high_vol_level */
+	VDD_IO_HIGH,
+	/*
+	 * set whatever there in voltage_level (third argument) of
+	 * msmsdcc_set_vdd_io_vol() function.
+	 */
+	VDD_IO_SET_LEVEL,
+};
+
+static int msmsdcc_set_vdd_io_vol(struct msmsdcc_host *host,
+				  enum vdd_io_level level,
+				  unsigned int voltage_level)
 {
 	int rc = 0;
+	int set_level;
 
 	if (host->plat->vreg_data) {
-		struct msm_mmc_reg_data *vddp_reg =
-			host->plat->vreg_data->vddp_data;
+		struct msm_mmc_reg_data *vdd_io_reg =
+			host->plat->vreg_data->vdd_io_data;
 
-		if (vddp_reg && vddp_reg->is_enabled)
-			rc = msmsdcc_vreg_set_voltage(vddp_reg, level, level);
+		if (vdd_io_reg && vdd_io_reg->is_enabled) {
+			switch (level) {
+			case VDD_IO_LOW:
+				set_level = vdd_io_reg->low_vol_level;
+				break;
+			case VDD_IO_HIGH:
+				set_level = vdd_io_reg->high_vol_level;
+				break;
+			case VDD_IO_SET_LEVEL:
+				set_level = voltage_level;
+				break;
+			default:
+				pr_err("%s: %s: invalid argument level = %d",
+				       mmc_hostname(host->mmc), __func__,
+				       level);
+				rc = -EINVAL;
+				goto out;
+			}
+			rc = msmsdcc_vreg_set_voltage(vdd_io_reg,
+						      set_level, set_level);
+		}
 	}
 
-	return rc;
-}
-
-static inline int msmsdcc_set_vddp_low_vol(struct msmsdcc_host *host)
-{
-	struct msm_mmc_slot_reg_data *curr_slot = host->plat->vreg_data;
-	int rc = 0;
-
-	if (curr_slot && curr_slot->vddp_data) {
-		rc = msmsdcc_set_vddp_level(host,
-			curr_slot->vddp_data->low_vol_level);
-
-		if (rc)
-			pr_err("%s: %s: failed to change vddp level to %d",
-				mmc_hostname(host->mmc), __func__,
-				curr_slot->vddp_data->low_vol_level);
-	}
-
-	return rc;
-}
-
-static inline int msmsdcc_set_vddp_high_vol(struct msmsdcc_host *host)
-{
-	struct msm_mmc_slot_reg_data *curr_slot = host->plat->vreg_data;
-	int rc = 0;
-
-	if (curr_slot && curr_slot->vddp_data) {
-		rc = msmsdcc_set_vddp_level(host,
-			curr_slot->vddp_data->high_vol_level);
-
-		if (rc)
-			pr_err("%s: %s: failed to change vddp level to %d",
-				mmc_hostname(host->mmc), __func__,
-				curr_slot->vddp_data->high_vol_level);
-	}
-
-	return rc;
-}
-
-static inline int msmsdcc_set_vccq_vol(struct msmsdcc_host *host, int level)
-{
-	struct msm_mmc_slot_reg_data *curr_slot = host->plat->vreg_data;
-	int rc = 0;
-
-	if (curr_slot && curr_slot->vccq_data) {
-		rc = msmsdcc_vreg_set_voltage(curr_slot->vccq_data,
-				level, level);
-		if (rc)
-			pr_err("%s: %s: failed to change vccq level to %d",
-				mmc_hostname(host->mmc), __func__, level);
-	}
-
+out:
 	return rc;
 }
 
@@ -2582,11 +2554,11 @@ static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 		pwr = MCI_PWR_OFF;
 		msmsdcc_cfg_mpm_sdiowakeup(host, SDC_DAT1_DISABLE);
 		/*
-		 * As VDD pad rail is always on, set low voltage for VDD
-		 * pad rail when slot is unused (when card is not present
-		 * or during system suspend).
+		 * If VDD IO rail is always on, set low voltage for VDD
+		 * IO rail when slot is not in use (like when card is not
+		 * present or during system suspend).
 		 */
-		msmsdcc_set_vddp_low_vol(host);
+		msmsdcc_set_vdd_io_vol(host, VDD_IO_LOW, 0);
 		msmsdcc_setup_pins(host, false);
 		break;
 	case MMC_POWER_UP:
@@ -2594,7 +2566,7 @@ static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 		pwr = MCI_PWR_UP;
 		msmsdcc_cfg_mpm_sdiowakeup(host, SDC_DAT1_ENABLE);
 
-		msmsdcc_set_vddp_high_vol(host);
+		msmsdcc_set_vdd_io_vol(host, VDD_IO_HIGH, 0);
 		msmsdcc_setup_pins(host, true);
 		break;
 	case MMC_POWER_ON:
@@ -3298,8 +3270,8 @@ out:
 }
 #endif
 
-static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
-						struct mmc_ios *ios)
+static int msmsdcc_switch_io_voltage(struct mmc_host *mmc,
+				     struct mmc_ios *ios)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
@@ -3309,31 +3281,32 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	host->io_pad_pwr_switch = 0;
 	spin_unlock_irqrestore(&host->lock, flags);
 
-	/*
-	 * For eMMC cards, VccQ voltage range must be changed
-	 * only if it operates in HS200 SDR 1.2V mode or in
-	 * DDR 1.2V mode.
-	 */
-	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_120) {
-		rc = msmsdcc_set_vccq_vol(host, 1200000);
+	switch (ios->signal_voltage) {
+	case MMC_SIGNAL_VOLTAGE_330:
+		/* Set VDD IO to high voltage range (2.7v - 3.6v) */
+		rc = msmsdcc_set_vdd_io_vol(host, VDD_IO_HIGH, 0);
 		goto out;
-	 }
-
-	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
-		/* Change voltage level of VDDPX to high voltage */
-		rc = msmsdcc_set_vddp_high_vol(host);
+	case MMC_SIGNAL_VOLTAGE_180:
+		break;
+	case MMC_SIGNAL_VOLTAGE_120:
+		/*
+		 * For eMMC cards, VDD_IO voltage range must be changed
+		 * only if it operates in HS200 SDR 1.2V mode or in
+		 * DDR 1.2V mode.
+		 */
+		rc = msmsdcc_set_vdd_io_vol(host, VDD_IO_SET_LEVEL, 1200000);
 		goto out;
-	} else if (ios->signal_voltage != MMC_SIGNAL_VOLTAGE_180) {
+	default:
 		/* invalid selection. don't do anything */
 		rc = -EINVAL;
 		goto out;
 	}
 
-	spin_lock_irqsave(&host->lock, flags);
 	/*
 	 * If we are here means voltage switch from high voltage to
 	 * low voltage is required
 	 */
+	spin_lock_irqsave(&host->lock, flags);
 
 	/*
 	 * Poll on MCIDATIN_3_0 and MCICMDIN bits of MCI_TEST_INPUT
@@ -3353,10 +3326,10 @@ static int msmsdcc_start_signal_voltage_switch(struct mmc_host *mmc,
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	/*
-	 * Switch VDDPX from high voltage to low voltage
-	 * to change the VDD of the SD IO pads.
+	 * Switch VDD Io from high voltage range (2.7v - 3.6v) to
+	 * low voltage range (1.7v - 1.95v).
 	 */
-	rc = msmsdcc_set_vddp_low_vol(host);
+	rc = msmsdcc_set_vdd_io_vol(host, VDD_IO_LOW, 0);
 	if (rc)
 		goto out;
 
@@ -3855,7 +3828,7 @@ static const struct mmc_host_ops msmsdcc_ops = {
 	.set_ios	= msmsdcc_set_ios,
 	.get_ro		= msmsdcc_get_ro,
 	.enable_sdio_irq = msmsdcc_enable_sdio_irq,
-	.start_signal_voltage_switch = msmsdcc_start_signal_voltage_switch,
+	.start_signal_voltage_switch = msmsdcc_switch_io_voltage,
 	.execute_tuning = msmsdcc_execute_tuning
 };
 

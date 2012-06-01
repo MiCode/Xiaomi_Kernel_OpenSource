@@ -56,23 +56,19 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 	}
 };
 
-/* Only slots having eMMC card will require VCCQ voltage */
-static struct msm_mmc_reg_data mmc_vccq_reg_data[1] = {
+/* SDCC controllers may require voting for VDD IO voltage */
+static struct msm_mmc_reg_data mmc_vdd_io_reg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {
-		.name = "sdc_vccq",
+		.name = "sdc_vdd_io",
 		.always_on = 1,
 		.high_vol_level = 1800000,
 		.low_vol_level = 1800000,
 		.hpm_uA = 200000, /* 200mA */
-	}
-};
-
-/* All SDCC controllers may require voting for VDD PAD voltage */
-static struct msm_mmc_reg_data mmc_vddp_reg_data[MAX_SDCC_CONTROLLER] = {
+	},
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
-		.name = "sdc_vddp",
+		.name = "sdc_vdd_io",
 		.high_vol_level = 2950000,
 		.low_vol_level = 1850000,
 		.always_on = 1,
@@ -92,12 +88,12 @@ static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
 	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC1],
-		.vccq_data = &mmc_vccq_reg_data[SDCC1],
+		.vdd_io_data = &mmc_vdd_io_reg_data[SDCC1],
 	},
 	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC3],
-		.vddp_data = &mmc_vddp_reg_data[SDCC3],
+		.vdd_io_data = &mmc_vdd_io_reg_data[SDCC3],
 	}
 };
 

@@ -61,7 +61,7 @@ VREG_CONSUMERS(L12) = {
 };
 VREG_CONSUMERS(L13) = {
 	REGULATOR_SUPPLY("8018_l13",		NULL),
-	REGULATOR_SUPPLY("sdc_vddp",		"msm_sdcc.1"),
+	REGULATOR_SUPPLY("sdc_vdd_io",		"msm_sdcc.1"),
 };
 VREG_CONSUMERS(L14) = {
 	REGULATOR_SUPPLY("8018_l14",		NULL),
