@@ -448,6 +448,9 @@ struct msm_camera_cfg_cmd {
 #define CMD_AXI_CFG_SEC			0xF4
 #define CMD_AXI_CFG_SEC_ALL_CHNLS	0xF8
 
+#define CMD_AXI_START  0xE1
+#define CMD_AXI_STOP   0xE2
+
 /* vfe config command: config command(from config thread)*/
 struct msm_vfe_cfg_cmd {
 	int cmd_type;
