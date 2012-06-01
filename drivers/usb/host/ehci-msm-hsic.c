@@ -356,6 +356,12 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 		return 0;
 	}
 
+	if (!(readl_relaxed(USB_PORTSC) & PORT_PE)) {
+		dev_dbg(mehci->dev, "%s:port is not enabled skip suspend\n",
+				__func__);
+		return -EAGAIN;
+	}
+
 	disable_irq(hcd->irq);
 
 	/* make sure we don't race against a remote wakeup */
