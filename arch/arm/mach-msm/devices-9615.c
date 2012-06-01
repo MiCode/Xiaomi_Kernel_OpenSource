@@ -492,6 +492,44 @@ struct platform_device msm_cpudai_auxpcm_tx = {
 	},
 };
 
+struct msm_dai_auxpcm_pdata sec_auxpcm_pdata = {
+	.clk = "sec_pcm_clk",
+	.mode_8k = {
+		.mode = AFE_PCM_CFG_MODE_PCM,
+		.sync = AFE_PCM_CFG_SYNC_INT,
+		.frame = AFE_PCM_CFG_FRM_256BPF,
+		.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD,
+		.slot = 0,
+		.data = AFE_PCM_CFG_CDATAOE_MASTER,
+		.pcm_clk_rate = 2048000,
+	},
+	.mode_16k = {
+		.mode = AFE_PCM_CFG_MODE_PCM,
+		.sync = AFE_PCM_CFG_SYNC_INT,
+		.frame = AFE_PCM_CFG_FRM_256BPF,
+		.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD,
+		.slot = 0,
+		.data = AFE_PCM_CFG_CDATAOE_MASTER,
+		.pcm_clk_rate = 4096000,
+	}
+};
+
+struct platform_device msm_cpudai_sec_auxpcm_rx = {
+	.name = "msm-dai-q6",
+	.id = 12,
+	.dev = {
+		.platform_data = &sec_auxpcm_pdata,
+	},
+};
+
+struct platform_device msm_cpudai_sec_auxpcm_tx = {
+	.name = "msm-dai-q6",
+	.id = 13,
+	.dev = {
+		.platform_data = &sec_auxpcm_pdata,
+	},
+};
+
 struct platform_device msm_cpu_fe = {
 	.name	= "msm-dai-fe",
 	.id	= -1,
