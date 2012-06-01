@@ -2364,16 +2364,16 @@ static int mc_kernel_module_mmap(
 
 		/* set response in allocated buffer */
 		{
-			struct mc_mmap_resp *mmapResp =
+			struct mc_mmap_resp *mmap_resp =
 				(struct mc_mmap_resp *)virt_kernel_addr_stack;
 			/* TODO: do this for daemon only, otherwise set NULL */
-			mmapResp->phys_addr = (uint32_t)phys_addr;
-			mmapResp->handle = handle;
+			mmap_resp->phys_addr = (uint32_t)phys_addr;
+			mmap_resp->handle = handle;
 			if ((request == MC_DRV_KMOD_MMAP_MCI) &&
 				(mci_base != 0)) {
-				mmapResp->is_reused = 1;
+				mmap_resp->is_reused = 1;
 			} else
-				mmapResp->is_reused = 0;
+				mmap_resp->is_reused = 0;
 		}
 
 		/* store MCI pointer */
