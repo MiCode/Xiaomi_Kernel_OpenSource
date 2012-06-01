@@ -57,9 +57,6 @@ struct msm_cache_dump_platform_data {
 	unsigned int l2_size;
 };
 
-#define L1_BUFFER_SIZE	SZ_1M
-#define L2_BUFFER_SIZE	SZ_4M
-
 #define CACHE_BUFFER_DUMP_SIZE (L1_BUFFER_SIZE + L2_BUFFER_SIZE)
 
 #define L1C_SERVICE_ID 3
