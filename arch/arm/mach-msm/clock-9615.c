@@ -187,15 +187,15 @@ enum vdd_dig_levels {
 
 static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
 {
-	static const int vdd_uv[] = {
-		[VDD_DIG_NONE]    =       0,
-		[VDD_DIG_LOW]     =  945000,
-		[VDD_DIG_NOMINAL] = 1050000,
-		[VDD_DIG_HIGH]    = 1150000
+	static const int vdd_corner[] = {
+		[VDD_DIG_NONE]    = RPM_VREG_CORNER_NONE,
+		[VDD_DIG_LOW]     = RPM_VREG_CORNER_LOW,
+		[VDD_DIG_NOMINAL] = RPM_VREG_CORNER_NOMINAL,
+		[VDD_DIG_HIGH]    = RPM_VREG_CORNER_HIGH,
 	};
 
-	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_S1, RPM_VREG_VOTER3,
-				    vdd_uv[level], vdd_uv[VDD_DIG_HIGH], 1);
+	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_VDD_DIG_CORNER,
+		RPM_VREG_VOTER3, vdd_corner[level], RPM_VREG_CORNER_HIGH, 1);
 }
 
 static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
