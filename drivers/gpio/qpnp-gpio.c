@@ -22,6 +22,8 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
+#include <linux/export.h>
+#include <linux/module.h>
 #include <linux/qpnp/gpio.h>
 #include <linux/export.h>
 
@@ -504,27 +506,26 @@ static int qpnp_gpio_direction_output(struct gpio_chip *gpio_chip,
 }
 
 static int qpnp_gpio_of_gpio_xlate(struct gpio_chip *gpio_chip,
-				   struct device_node *np,
-				   const void *gpio_spec, u32 *flags)
+				   const struct of_phandle_args *gpio_spec,
+				   u32 *flags)
 {
 	struct qpnp_gpio_chip *q_chip = dev_get_drvdata(gpio_chip->dev);
 	struct qpnp_gpio_spec *q_spec;
-	const __be32 *gpio = gpio_spec;
-	u32 n = be32_to_cpup(gpio);
 
 	if (WARN_ON(gpio_chip->of_gpio_n_cells < 2)) {
 		pr_err("of_gpio_n_cells < 2\n");
 		return -EINVAL;
 	}
 
-	q_spec = qpnp_pmic_gpio_get_spec(q_chip, n);
+	q_spec = qpnp_pmic_gpio_get_spec(q_chip, gpio_spec->args[0]);
 	if (!q_spec) {
-		pr_err("no such PMIC gpio %u in device topology\n", n);
+		pr_err("no such PMIC gpio %u in device topology\n",
+							gpio_spec->args[0]);
 		return -EINVAL;
 	}
 
 	if (flags)
-		*flags = be32_to_cpu(gpio[1]);
+		*flags = gpio_spec->args[1];
 
 	return q_spec->gpio_chip_idx;
 }
