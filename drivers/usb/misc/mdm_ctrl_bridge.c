@@ -255,7 +255,7 @@ resubmit_int_urb:
 	}
 }
 
-int ctrl_bridge_start_read(struct ctrl_bridge *dev)
+static int ctrl_bridge_start_read(struct ctrl_bridge *dev)
 {
 	int	retval = 0;
 
@@ -281,7 +281,6 @@ int ctrl_bridge_start_read(struct ctrl_bridge *dev)
 int ctrl_bridge_open(struct bridge *brdg)
 {
 	struct ctrl_bridge	*dev;
-	int			ret;
 
 	if (!brdg) {
 		err("bridge is null\n");
@@ -304,16 +303,10 @@ int ctrl_bridge_open(struct bridge *brdg)
 	dev->set_ctrl_line_sts = 0;
 	dev->notify_ser_state = 0;
 
-	ret = usb_autopm_get_interface(dev->intf);
-	if (ret < 0) {
-		dev_err(&dev->udev->dev, "%s autopm_get fail: %d\n",
-			__func__, ret);
-		return ret;
-	}
+	if (brdg->ops.send_cbits)
+		brdg->ops.send_cbits(brdg->ctx, dev->cbits_tohost);
 
-	ret = ctrl_bridge_start_read(dev);
-	usb_autopm_put_interface(dev->intf);
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(ctrl_bridge_open);
 
@@ -504,11 +497,7 @@ int ctrl_bridge_resume(unsigned int id)
 		}
 	}
 
-	/* if the bridge is open, resume reading */
-	if (dev->brdg)
-		return ctrl_bridge_start_read(dev);
-
-	return 0;
+	return ctrl_bridge_start_read(dev);
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -711,7 +700,7 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 
 	ch_id++;
 
-	return retval;
+	return ctrl_bridge_start_read(dev);
 
 free_rbuf:
 	kfree(dev->readbuf);
