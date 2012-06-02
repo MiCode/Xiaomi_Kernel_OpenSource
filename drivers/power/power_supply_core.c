@@ -76,10 +76,27 @@ int power_supply_set_scope(struct power_supply *psy, int scope)
 	if (psy->set_property)
 		return psy->set_property(psy, POWER_SUPPLY_PROP_SCOPE,
 								&ret);
-
 	return -ENXIO;
 }
 EXPORT_SYMBOL_GPL(power_supply_set_scope);
+
+/**
+ * power_supply_set_supply_type - set type of the power supply
+ * @psy:	the power supply to control
+ * @supply_type:	sets type property of power supply
+ */
+int power_supply_set_supply_type(struct power_supply *psy,
+				enum power_supply_type supply_type)
+{
+	const union power_supply_propval ret = {supply_type,};
+
+	if (psy->set_property)
+		return psy->set_property(psy, POWER_SUPPLY_PROP_TYPE,
+								&ret);
+
+	return -ENXIO;
+}
+EXPORT_SYMBOL_GPL(power_supply_set_supply_type);
 
 /**
  * power_supply_set_charge_type - set charge type of the power supply
