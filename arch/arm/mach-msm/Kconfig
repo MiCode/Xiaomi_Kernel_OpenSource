@@ -2017,7 +2017,7 @@ config MSM_RPM_STATS_LOG
 
 config MSM_IOMMU
 	bool "MSM IOMMU Support"
-	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064
+	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSMCOPPER
 	select IOMMU_API
 	default n
 	help
