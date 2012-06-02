@@ -19,18 +19,19 @@
 #include <linux/of.h>
 #include <mach/mpm.h>
 #include "rpm_resources.h"
+#include "pm.h"
 
 static struct msm_rpmrs_level *msm_lpm_levels;
 static int msm_lpm_level_count;
 
-int msm_rpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
+static int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 		bool from_idle, bool notify_rpm)
 {
 	/* TODO */
 	return 0;
 }
 
-void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits, bool from_idle,
+static void msm_lpm_exit_sleep(void *limits, bool from_idle,
 		bool notify_rpm, bool collapsed)
 {
 	/* TODO */
@@ -50,14 +51,15 @@ void msm_rpmrs_show_resources(void)
 	return;
 }
 
-struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
-	bool from_idle, enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
-	uint32_t sleep_us)
+static void *msm_lpm_lowest_limits(bool from_idle,
+		enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
+		uint32_t sleep_us, uint32_t *power)
 {
 	unsigned int cpu = smp_processor_id();
 	struct msm_rpmrs_level *best_level = NULL;
 	bool irqs_detectable = false;
 	bool gpio_detectable = false;
+	uint32_t pwr;
 	int i;
 
 	if (!msm_lpm_levels)
@@ -70,7 +72,6 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 
 	for (i = 0; i < msm_lpm_level_count; i++) {
 		struct msm_rpmrs_level *level = &msm_lpm_levels[i];
-		uint32_t power;
 
 		if (!level->available)
 			continue;
@@ -86,28 +87,36 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 			continue;
 
 		if (sleep_us <= 1) {
-			power = level->energy_overhead;
+			pwr = level->energy_overhead;
 		} else if (sleep_us <= level->time_overhead_us) {
-			power = level->energy_overhead / sleep_us;
+			pwr = level->energy_overhead / sleep_us;
 		} else if ((sleep_us >> 10) > level->time_overhead_us) {
-			power = level->steady_state_power;
+			pwr = level->steady_state_power;
 		} else {
-			power = level->steady_state_power;
-			power -= (level->time_overhead_us *
+			pwr = level->steady_state_power;
+			pwr -= (level->time_overhead_us *
 					level->steady_state_power)/sleep_us;
-			power += level->energy_overhead / sleep_us;
+			pwr += level->energy_overhead / sleep_us;
 		}
 
-		if (!best_level ||
-				best_level->rs_limits.power[cpu] >= power) {
+		if (!best_level || best_level->rs_limits.power[cpu] >= pwr) {
+
 			level->rs_limits.latency_us[cpu] = level->latency_us;
-			level->rs_limits.power[cpu] = power;
+			level->rs_limits.power[cpu] = pwr;
 			best_level = level;
+
+			if (power)
+				*power = pwr;
 		}
 	}
 
 	return best_level ? &best_level->rs_limits : NULL;
 }
+static struct msm_pm_sleep_ops msm_lpm_ops = {
+	.lowest_limits = msm_lpm_lowest_limits,
+	.enter_sleep = msm_lpm_enter_sleep,
+	.exit_sleep = msm_lpm_exit_sleep,
+};
 
 static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 {
@@ -203,6 +212,8 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 
 	msm_lpm_levels = levels;
 	msm_lpm_level_count = idx;
+
+	msm_pm_set_sleep_ops(&msm_lpm_ops);
 
 	return 0;
 fail:

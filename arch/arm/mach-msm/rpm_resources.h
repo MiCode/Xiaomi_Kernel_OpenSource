@@ -137,16 +137,6 @@ static inline int msm_rpmrs_clear_nosleep(
 }
 
 void msm_rpmrs_show_resources(void);
-
-struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
-	bool from_idle, enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
-	uint32_t sleep_us);
-
-int msm_rpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
-		bool from_idle, bool notify_rpm);
-void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits, bool from_idle,
-		bool notify_rpm, bool collapsed);
-
 int msm_rpmrs_levels_init(struct msm_rpmrs_platform_data *data);
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H */
