@@ -1573,7 +1573,8 @@ void mdp_histogram_handle_isr(struct mdp_hist_mgmt *mgmt)
 		__mdp_histogram_kickoff(mgmt);
 
 	if (isr & INTR_HIST_DONE) {
-		if (waitqueue_active(&mgmt->mdp_hist_comp.wait)) {
+		if ((waitqueue_active(&mgmt->mdp_hist_comp.wait))
+			 && (mgmt->hist != NULL)) {
 			if (!queue_work(mdp_hist_wq,
 						&mgmt->mdp_histogram_worker)) {
 				pr_err("%s %d- can't queue hist_read\n",
