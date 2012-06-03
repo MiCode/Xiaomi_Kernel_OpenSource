@@ -12,7 +12,6 @@
 #include <linux/smp.h>
 #include <linux/cpu.h>
 #include <linux/notifier.h>
-#include <linux/cs.h>
 
 #include <asm/smp_plat.h>
 #include <asm/vfp.h>

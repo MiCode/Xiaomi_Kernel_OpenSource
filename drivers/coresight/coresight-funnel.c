@@ -20,9 +20,9 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
-#include <linux/cs.h>
+#include <linux/coresight.h>
 
-#include "cs-priv.h"
+#include "coresight-priv.h"
 
 #define funnel_writel(drvdata, id, val, off)	\
 			__raw_writel((val), drvdata->base + (SZ_4K * id) + off)

@@ -22,9 +22,9 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
-#include <linux/cs.h>
+#include <linux/coresight.h>
 
-#include "cs-priv.h"
+#include "coresight-priv.h"
 
 #define MAX_STR_LEN	(65535)
 

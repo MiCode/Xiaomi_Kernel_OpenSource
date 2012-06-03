@@ -27,11 +27,11 @@
 #include <linux/sysfs.h>
 #include <linux/stat.h>
 #include <linux/clk.h>
-#include <linux/cs.h>
+#include <linux/coresight.h>
 #include <asm/sections.h>
 #include <mach/socinfo.h>
 
-#include "cs-priv.h"
+#include "coresight-priv.h"
 
 #define etm_writel(drvdata, cpu, val, off)	\
 			__raw_writel((val), drvdata->base + (SZ_4K * cpu) + off)
@@ -142,7 +142,7 @@ do {									\
 #ifdef MODULE_PARAM_PREFIX
 #undef MODULE_PARAM_PREFIX
 #endif
-#define MODULE_PARAM_PREFIX "cs."
+#define MODULE_PARAM_PREFIX "coresight."
 
 #ifdef CONFIG_MSM_QDSS_ETM_DEFAULT_ENABLE
 static int etm_boot_enable = 1;

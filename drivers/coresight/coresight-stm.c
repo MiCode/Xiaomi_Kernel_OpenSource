@@ -23,11 +23,11 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
-#include <linux/cs.h>
-#include <linux/cs-stm.h>
+#include <linux/coresight.h>
+#include <linux/coresight-stm.h>
 #include <asm/unaligned.h>
 
-#include "cs-priv.h"
+#include "coresight-priv.h"
 
 #define stm_writel(drvdata, val, off)	\
 			__raw_writel((val), drvdata->base + off)
