@@ -29,23 +29,24 @@
 #define MAX_STR_LEN	(65535)
 
 
-static LIST_HEAD(cs_orph_conns);
-static DEFINE_MUTEX(cs_orph_conns_mutex);
-static LIST_HEAD(cs_devs);
-static DEFINE_MUTEX(cs_devs_mutex);
+static LIST_HEAD(coresight_orph_conns);
+static DEFINE_MUTEX(coresight_conns_mutex);
+static LIST_HEAD(coresight_devs);
+static DEFINE_MUTEX(coresight_devs_mutex);
 
 
-int cs_enable(struct cs_device *csdev, int port)
+int coresight_enable(struct coresight_device *csdev, int port)
 {
 	int i;
 	int ret;
-	struct cs_connection *conn;
+	struct coresight_connection *conn;
 
 	mutex_lock(&csdev->mutex);
 	if (csdev->refcnt[port] == 0) {
 		for (i = 0; i < csdev->nr_conns; i++) {
 			conn = &csdev->conns[i];
-			ret = cs_enable(conn->child_dev, conn->child_port);
+			ret = coresight_enable(conn->child_dev,
+					       conn->child_port);
 			if (ret)
 				goto err_enable_child;
 		}
@@ -60,18 +61,18 @@ int cs_enable(struct cs_device *csdev, int port)
 err_enable_child:
 	while (i) {
 		conn = &csdev->conns[--i];
-		cs_disable(conn->child_dev, conn->child_port);
+		coresight_disable(conn->child_dev, conn->child_port);
 	}
 err_enable:
 	mutex_unlock(&csdev->mutex);
 	return ret;
 }
-EXPORT_SYMBOL(cs_enable);
+EXPORT_SYMBOL(coresight_enable);
 
-void cs_disable(struct cs_device *csdev, int port)
+void coresight_disable(struct coresight_device *csdev, int port)
 {
 	int i;
-	struct cs_connection *conn;
+	struct coresight_connection *conn;
 
 	mutex_lock(&csdev->mutex);
 	if (csdev->refcnt[port] == 1) {
@@ -79,141 +80,143 @@ void cs_disable(struct cs_device *csdev, int port)
 			csdev->ops->disable(csdev, port);
 		for (i = 0; i < csdev->nr_conns; i++) {
 			conn = &csdev->conns[i];
-			cs_disable(conn->child_dev, conn->child_port);
+			coresight_disable(conn->child_dev, conn->child_port);
 		}
 	}
 	csdev->refcnt[port]--;
 	mutex_unlock(&csdev->mutex);
 }
-EXPORT_SYMBOL(cs_disable);
+EXPORT_SYMBOL(coresight_disable);
 
-static ssize_t cs_show_type(struct device *dev, struct device_attribute *attr,
-		char *buf)
+static ssize_t coresight_show_type(struct device *dev,
+				   struct device_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%s\n", dev->type->name);
 }
 
-static struct device_attribute cs_dev_attrs[] = {
-	__ATTR(type, S_IRUGO, cs_show_type, NULL),
+static struct device_attribute coresight_dev_attrs[] = {
+	__ATTR(type, S_IRUGO, coresight_show_type, NULL),
 	{ },
 };
 
-struct bus_type cs_bus_type = {
-	.name		= "cs",
-	.dev_attrs	= cs_dev_attrs,
+struct bus_type coresight_bus_type = {
+	.name		= "coresight",
+	.dev_attrs	= coresight_dev_attrs,
 };
 
-static ssize_t cs_show_enable(struct device *dev, struct device_attribute *attr,
-			      char *buf)
+static ssize_t coresight_show_enable(struct device *dev,
+				     struct device_attribute *attr, char *buf)
 {
-	struct cs_device *csdev = to_cs_device(dev);
+	struct coresight_device *csdev = to_coresight_device(dev);
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n", (unsigned)csdev->enable);
 }
 
-static ssize_t cs_store_enable(struct device *dev,
-			       struct device_attribute *attr, const char *buf,
-			       size_t size)
+static ssize_t coresight_store_enable(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
 {
 	int ret = 0;
 	unsigned long val;
-	struct cs_device *csdev = to_cs_device(dev);
+	struct coresight_device *csdev = to_coresight_device(dev);
 
 	if (sscanf(buf, "%lx", &val) != 1)
 		return -EINVAL;
 
 	if (val)
-		ret = cs_enable(csdev, 0);
+		ret = coresight_enable(csdev, 0);
 	else
-		cs_disable(csdev, 0);
+		coresight_disable(csdev, 0);
 
 	if (ret)
 		return ret;
 	return size;
 }
-static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, cs_show_enable, cs_store_enable);
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, coresight_show_enable,
+		   coresight_store_enable);
 
-static struct attribute *cs_attrs[] = {
+static struct attribute *coresight_attrs[] = {
 	&dev_attr_enable.attr,
 	NULL,
 };
 
-static struct attribute_group cs_attr_grp = {
-	.attrs = cs_attrs,
+static struct attribute_group coresight_attr_grp = {
+	.attrs = coresight_attrs,
 };
 
-static const struct attribute_group *cs_attr_grps[] = {
-	&cs_attr_grp,
+static const struct attribute_group *coresight_attr_grps[] = {
+	&coresight_attr_grp,
 	NULL,
 };
 
-static struct device_type cs_dev_type[CS_DEVICE_TYPE_MAX] = {
+static struct device_type coresight_dev_type[CORESIGHT_DEV_TYPE_MAX] = {
 	{
 		.name = "source",
-		.groups = cs_attr_grps,
+		.groups = coresight_attr_grps,
 	},
 	{
 		.name = "link",
 	},
 	{
 		.name = "sink",
-		.groups = cs_attr_grps,
+		.groups = coresight_attr_grps,
 	},
 };
 
-static void cs_device_release(struct device *dev)
+static void coresight_device_release(struct device *dev)
 {
-	struct cs_device *csdev = to_cs_device(dev);
+	struct coresight_device *csdev = to_coresight_device(dev);
 	mutex_destroy(&csdev->mutex);
 	kfree(csdev);
 }
 
-static void cs_fixup_orphan_connections(struct cs_device *csdev)
+static void coresight_fixup_orphan_conns(struct coresight_device *csdev)
 {
-	struct cs_connection *conn, *temp;
+	struct coresight_connection *conn, *temp;
 
-	mutex_lock(&cs_orph_conns_mutex);
-	list_for_each_entry_safe(conn, temp, &cs_orph_conns, link) {
+	mutex_lock(&coresight_conns_mutex);
+	list_for_each_entry_safe(conn, temp, &coresight_orph_conns, link) {
 		if (conn->child_id == csdev->id) {
 			conn->child_dev = csdev;
 			list_del(&conn->link);
 		}
 	}
-	mutex_unlock(&cs_orph_conns_mutex);
+	mutex_unlock(&coresight_conns_mutex);
 }
 
-static void cs_fixup_device_connections(struct cs_device *csdev)
+static void coresight_fixup_device_conns(struct coresight_device *csdev)
 {
 	int i;
-	struct cs_device *cd;
+	struct coresight_device *cd;
 	bool found;
 
 	for (i = 0; i < csdev->nr_conns; i++) {
 		found = false;
-		mutex_lock(&cs_devs_mutex);
-		list_for_each_entry(cd, &cs_devs, link) {
+		mutex_lock(&coresight_devs_mutex);
+		list_for_each_entry(cd, &coresight_devs, link) {
 			if (csdev->conns[i].child_id == cd->id) {
 				csdev->conns[i].child_dev = cd;
 				found = true;
 				break;
 			}
 		}
-		mutex_unlock(&cs_devs_mutex);
+		mutex_unlock(&coresight_devs_mutex);
 		if (!found) {
-			mutex_lock(&cs_orph_conns_mutex);
-			list_add_tail(&csdev->conns[i].link, &cs_orph_conns);
-			mutex_unlock(&cs_orph_conns_mutex);
+			mutex_lock(&coresight_conns_mutex);
+			list_add_tail(&csdev->conns[i].link,
+				      &coresight_orph_conns);
+			mutex_unlock(&coresight_conns_mutex);
 		}
 	}
 }
 
-struct cs_device *cs_register(struct cs_desc *desc)
+struct coresight_device *coresight_register(struct coresight_desc *desc)
 {
 	int i;
 	int ret;
 	int *refcnt;
-	struct cs_device *csdev;
-	struct cs_connection *conns;
+	struct coresight_device *csdev;
+	struct coresight_connection *conns;
 
 	csdev = kzalloc(sizeof(*csdev), GFP_KERNEL);
 	if (!csdev) {
@@ -246,22 +249,22 @@ struct cs_device *cs_register(struct cs_desc *desc)
 	csdev->ops = desc->ops;
 	csdev->owner = desc->owner;
 
-	csdev->dev.type = &cs_dev_type[desc->type];
+	csdev->dev.type = &coresight_dev_type[desc->type];
 	csdev->dev.groups = desc->groups;
 	csdev->dev.parent = desc->dev;
-	csdev->dev.bus = &cs_bus_type;
-	csdev->dev.release = cs_device_release;
+	csdev->dev.bus = &coresight_bus_type;
+	csdev->dev.release = coresight_device_release;
 	dev_set_name(&csdev->dev, "%s", desc->pdata->name);
 
-	cs_fixup_device_connections(csdev);
+	coresight_fixup_device_conns(csdev);
 	ret = device_register(&csdev->dev);
 	if (ret)
 		goto err_dev_reg;
-	cs_fixup_orphan_connections(csdev);
+	coresight_fixup_orphan_conns(csdev);
 
-	mutex_lock(&cs_devs_mutex);
-	list_add_tail(&csdev->link, &cs_devs);
-	mutex_unlock(&cs_devs_mutex);
+	mutex_lock(&coresight_devs_mutex);
+	list_add_tail(&csdev->link, &coresight_devs);
+	mutex_unlock(&coresight_devs_mutex);
 
 	return csdev;
 err_dev_reg:
@@ -275,9 +278,9 @@ err_kzalloc_refcnt:
 err_kzalloc_csdev:
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL(cs_register);
+EXPORT_SYMBOL(coresight_register);
 
-void cs_unregister(struct cs_device *csdev)
+void coresight_unregister(struct coresight_device *csdev)
 {
 	if (IS_ERR_OR_NULL(csdev))
 		return;
@@ -289,19 +292,19 @@ void cs_unregister(struct cs_device *csdev)
 		put_device(&csdev->dev);
 	}
 }
-EXPORT_SYMBOL(cs_unregister);
+EXPORT_SYMBOL(coresight_unregister);
 
-static int __init cs_init(void)
+static int __init coresight_init(void)
 {
-	return bus_register(&cs_bus_type);
+	return bus_register(&coresight_bus_type);
 }
-subsys_initcall(cs_init);
+subsys_initcall(coresight_init);
 
-static void __exit cs_exit(void)
+static void __exit coresight_exit(void)
 {
-	bus_unregister(&cs_bus_type);
+	bus_unregister(&coresight_bus_type);
 }
-module_exit(cs_exit);
+module_exit(coresight_exit);
 
 MODULE_LICENSE("GPL v2");
 /*
