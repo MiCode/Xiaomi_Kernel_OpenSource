@@ -17,7 +17,7 @@
 #include <linux/msm_rotator.h>
 #include <linux/ion.h>
 #include <linux/gpio.h>
-#include <linux/cs.h>
+#include <linux/coresight.h>
 #include <asm/clkdev.h>
 #include <linux/msm_kgsl.h>
 #include <linux/android_pmem.h>

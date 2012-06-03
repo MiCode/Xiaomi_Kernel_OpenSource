@@ -19,7 +19,7 @@
 #include <linux/export.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
-#include <linux/cs.h>
+#include <linux/coresight.h>
 #include <mach/scm.h>
 #include <mach/jtag.h>
 

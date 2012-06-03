@@ -19,9 +19,9 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
-#include <linux/cs.h>
+#include <linux/coresight.h>
 
-#include "cs-priv.h"
+#include "coresight-priv.h"
 
 #define tpiu_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tpiu_readl(drvdata, off)	__raw_readl(drvdata->base + off)
