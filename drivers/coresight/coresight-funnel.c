@@ -40,11 +40,11 @@
 #define FUNNEL_LOCK(id)							\
 do {									\
 	mb();								\
-	funnel_writel(drvdata, id, 0x0, CS_LAR);			\
+	funnel_writel(drvdata, id, 0x0, CORESIGHT_LAR);			\
 } while (0)
 #define FUNNEL_UNLOCK(id)						\
 do {									\
-	funnel_writel(drvdata, id, CS_UNLOCK_MAGIC, CS_LAR);		\
+	funnel_writel(drvdata, id, CORESIGHT_UNLOCK, CORESIGHT_LAR);	\
 	mb();								\
 } while (0)
 
@@ -209,7 +209,7 @@ static int funnel_probe(struct platform_device *pdev)
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
 

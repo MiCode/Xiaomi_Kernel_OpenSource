@@ -50,11 +50,11 @@
 #define TPIU_LOCK()							\
 do {									\
 	mb();								\
-	tpiu_writel(drvdata, 0x0, CS_LAR);				\
+	tpiu_writel(drvdata, 0x0, CORESIGHT_LAR);			\
 } while (0)
 #define TPIU_UNLOCK()							\
 do {									\
-	tpiu_writel(drvdata, CS_UNLOCK_MAGIC, CS_LAR);			\
+	tpiu_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
 	mb();								\
 } while (0)
 
@@ -115,7 +115,7 @@ static int tpiu_probe(struct platform_device *pdev)
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
 

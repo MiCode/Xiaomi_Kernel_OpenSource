@@ -130,11 +130,11 @@ enum {
 #define ETM_LOCK(cpu)							\
 do {									\
 	mb();								\
-	etm_writel(drvdata, cpu, 0x0, CS_LAR);				\
+	etm_writel(drvdata, cpu, 0x0, CORESIGHT_LAR);			\
 } while (0)
 #define ETM_UNLOCK(cpu)							\
 do {									\
-	etm_writel(drvdata, cpu, CS_UNLOCK_MAGIC, CS_LAR);		\
+	etm_writel(drvdata, cpu, CORESIGHT_UNLOCK, CORESIGHT_LAR);	\
 	mb();								\
 } while (0)
 
@@ -1549,7 +1549,7 @@ static int etm_probe(struct platform_device *pdev)
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
 

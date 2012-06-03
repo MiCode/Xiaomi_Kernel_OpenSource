@@ -58,11 +58,11 @@
 #define ETB_LOCK()							\
 do {									\
 	mb();								\
-	etb_writel(drvdata, 0x0, CS_LAR);				\
+	etb_writel(drvdata, 0x0, CORESIGHT_LAR);			\
 } while (0)
 #define ETB_UNLOCK()							\
 do {									\
-	etb_writel(drvdata, CS_UNLOCK_MAGIC, CS_LAR);			\
+	etb_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
 	mb();								\
 } while (0)
 
@@ -372,7 +372,7 @@ static int etb_probe(struct platform_device *pdev)
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
 

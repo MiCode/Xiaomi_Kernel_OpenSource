@@ -59,11 +59,11 @@ enum {
 #define STM_LOCK()							\
 do {									\
 	mb();								\
-	stm_writel(drvdata, 0x0, CS_LAR);				\
+	stm_writel(drvdata, 0x0, CORESIGHT_LAR);			\
 } while (0)
 #define STM_UNLOCK()							\
 do {									\
-	stm_writel(drvdata, CS_UNLOCK_MAGIC, CS_LAR);			\
+	stm_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
 	mb();								\
 } while (0)
 
@@ -342,7 +342,7 @@ static inline int __stm_trace(uint32_t options, uint8_t entity_id,
  * number of bytes transfered over STM
  */
 int stm_trace(uint32_t options, uint8_t entity_id, uint8_t proto_id,
-	      const void *data, uint32_t size)
+			const void *data, uint32_t size)
 {
 	/* we don't support sizes more than 24bits (0 to 23) */
 	if (!(drvdata->enabled && (drvdata->entity & entity_id) &&
@@ -551,7 +551,7 @@ static int stm_probe(struct platform_device *pdev)
 		goto err_clk_get;
 	}
 
-	ret = clk_set_rate(drvdata->clk, CS_CLK_RATE_TRACE);
+	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		goto err_clk_rate;
 
