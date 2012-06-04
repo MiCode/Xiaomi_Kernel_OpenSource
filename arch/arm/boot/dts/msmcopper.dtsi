@@ -111,6 +111,7 @@
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
 		qcom,sdcc-sup-voltages = <1800 1800>;
 		qcom,sdcc-bus-width = <4>;
+		status = "disable";
 	};
 
 	qcom,sdcc@f98e4000 {
@@ -122,6 +123,7 @@
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
 		qcom,sdcc-sup-voltages = <1800 1800>;
 		qcom,sdcc-bus-width = <4>;
+		status = "disable";
 	};
 
 	qcom,sps@f9980000 {
