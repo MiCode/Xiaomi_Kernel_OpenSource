@@ -138,6 +138,9 @@ struct dmx_ts_feed {
 	int (*stop_filtering) (struct dmx_ts_feed* feed);
 	int (*set_indexing_params) (struct dmx_ts_feed *feed,
 				struct dmx_indexing_video_params *params);
+	int (*get_decoder_buff_status)(
+			struct dmx_ts_feed *feed,
+			struct dmx_buffer_status *dmx_buffer_status);
 };
 
 /*--------------------------------------------------------------------------*/
