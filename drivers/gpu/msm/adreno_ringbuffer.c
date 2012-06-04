@@ -1045,6 +1045,104 @@ static int _find_cmd_seq_after_eop_ts(struct adreno_ringbuffer *rb,
 	return status;
 }
 
+static int _find_hanging_ib_sequence(struct adreno_ringbuffer *rb,
+				unsigned int *rb_rptr,
+				unsigned int ib1)
+{
+	int status = -EINVAL;
+	unsigned int temp_rb_rptr = *rb_rptr;
+	unsigned int size = rb->buffer_desc.size;
+	unsigned int val[2];
+	int i = 0;
+	bool check = false;
+	bool ctx_switch = false;
+
+	while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr) {
+		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i], temp_rb_rptr);
+
+		if (check && val[i] == ib1) {
+			/* decrement i, i.e i = (i - 1 + 2) % 2 */
+			i = (i + 1) % 2;
+			if (adreno_cmd_is_ib(val[i])) {
+				/* go till start of command sequence */
+				status = _find_start_of_cmd_seq(rb,
+						&temp_rb_rptr, false);
+				KGSL_DRV_ERR(rb->device,
+				"Found the hanging IB at offset 0x%x\n",
+				temp_rb_rptr / sizeof(unsigned int));
+				break;
+			}
+			/* if no match the increment i since we decremented
+			 * before checking */
+			i = (i + 1) % 2;
+		}
+		/* Make sure you do not encounter a context switch twice, we can
+		 * encounter it once for the bad context as the start of search
+		 * can point to the context switch */
+		if (val[i] == KGSL_CONTEXT_TO_MEM_IDENTIFIER) {
+			if (ctx_switch) {
+				KGSL_DRV_ERR(rb->device,
+				"Context switch encountered before bad "
+				"IB found\n");
+				break;
+			}
+			ctx_switch = true;
+		}
+		i = (i + 1) % 2;
+		if (1 == i)
+			check = true;
+		temp_rb_rptr = adreno_ringbuffer_inc_wrapped(temp_rb_rptr,
+								size);
+	}
+	if  (!status)
+		*rb_rptr = temp_rb_rptr;
+	return status;
+}
+
+static void _turn_preamble_on_for_ib_seq(struct adreno_ringbuffer *rb,
+				unsigned int rb_rptr)
+{
+	unsigned int temp_rb_rptr = rb_rptr;
+	unsigned int size = rb->buffer_desc.size;
+	unsigned int val[2];
+	int i = 0;
+	bool check = false;
+	bool cmd_start = false;
+
+	/* Go till the start of the ib sequence and turn on preamble */
+	while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr) {
+		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i], temp_rb_rptr);
+		if (check && KGSL_START_OF_IB_IDENTIFIER == val[i]) {
+			/* decrement i */
+			i = (i + 1) % 2;
+			if (val[i] == cp_nop_packet(4)) {
+				temp_rb_rptr = adreno_ringbuffer_dec_wrapped(
+						temp_rb_rptr, size);
+				kgsl_sharedmem_writel(&rb->buffer_desc,
+					temp_rb_rptr, cp_nop_packet(1));
+			}
+			KGSL_DRV_ERR(rb->device,
+			"Turned preamble on at offset 0x%x\n",
+			temp_rb_rptr / 4);
+			break;
+		}
+		/* If you reach beginning of next command sequence then exit
+		 * First command encountered is the current one so don't break
+		 * on that. */
+		if (KGSL_CMD_IDENTIFIER == val[i]) {
+			if (cmd_start)
+				break;
+			cmd_start = true;
+		}
+
+		i = (i + 1) % 2;
+		if (1 == i)
+			check = true;
+		temp_rb_rptr = adreno_ringbuffer_inc_wrapped(temp_rb_rptr,
+								size);
+	}
+}
+
 static void _copy_valid_rb_content(struct adreno_ringbuffer *rb,
 		unsigned int rb_rptr, unsigned int *temp_rb_buffer,
 		int *rb_size, unsigned int *bad_rb_buffer,
@@ -1133,33 +1231,45 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 	struct kgsl_device *device = rb->device;
 	unsigned int rb_rptr = rb->wptr * sizeof(unsigned int);
 	struct kgsl_context *context;
+	struct adreno_context *adreno_context;
 
-	KGSL_DRV_ERR(device, "Last context id: %d\n", rec_data->context_id);
 	context = idr_find(&device->context_idr, rec_data->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(device,
-			"GPU recovery from hang not possible because last"
-			" context id is invalid.\n");
-		return -EINVAL;
-	}
-	KGSL_DRV_ERR(device, "GPU successfully executed till ts: %x\n",
-			rec_data->global_eop);
 
 	status = _find_cmd_seq_after_eop_ts(rb, &rb_rptr, rec_data->global_eop,
 						false);
 	if (status)
-		return status;
+		goto done;
 
-	KGSL_DRV_ERR(rb->device, "Hang recovery start: %x\n", rb_rptr / 4);
+	if (context) {
+		/* Mark context as hung */
+		adreno_context = context->devctxt;
+		adreno_context->flags |= CTXT_FLAGS_GPU_HANG;
+
+		if (adreno_context->flags & CTXT_FLAGS_PREAMBLE) {
+			if (rec_data->ib1) {
+				status = _find_hanging_ib_sequence(rb, &rb_rptr,
+								rec_data->ib1);
+				if (status)
+					goto copy_rb_contents;
+			}
+			_turn_preamble_on_for_ib_seq(rb, rb_rptr);
+		}
+	}
+
+copy_rb_contents:
 	_copy_valid_rb_content(rb, rb_rptr, rec_data->rb_buffer,
 				&rec_data->rb_size,
 				rec_data->bad_rb_buffer,
 				&rec_data->bad_rb_size,
 				&rec_data->last_valid_ctx_id);
-	/* Do not replay bad commands until we change the code to
-	 * handle this in adreno.c */
-	rec_data->bad_rb_size = 0;
-	return 0;
+	/* If we failed to get the hanging IB sequence then we cannot execute
+	 * commands from the bad context */
+	if (status) {
+		rec_data->bad_rb_size = 0;
+		status = 0;
+	}
+done:
+	return status;
 }
 
 void
