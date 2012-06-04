@@ -946,6 +946,105 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
+static int _find_start_of_cmd_seq(struct adreno_ringbuffer *rb,
+					unsigned int *ptr,
+					bool inc)
+{
+	int status = -EINVAL;
+	unsigned int val1;
+	unsigned int size = rb->buffer_desc.size;
+	unsigned int start_ptr = *ptr;
+
+	while ((start_ptr / sizeof(unsigned int)) != rb->wptr) {
+		if (inc)
+			start_ptr = adreno_ringbuffer_inc_wrapped(start_ptr,
+									size);
+		else
+			start_ptr = adreno_ringbuffer_dec_wrapped(start_ptr,
+									size);
+		kgsl_sharedmem_readl(&rb->buffer_desc, &val1, start_ptr);
+		if (KGSL_CMD_IDENTIFIER == val1) {
+			if ((start_ptr / sizeof(unsigned int)) != rb->wptr)
+				start_ptr = adreno_ringbuffer_dec_wrapped(
+							start_ptr, size);
+				*ptr = start_ptr;
+				status = 0;
+				break;
+		}
+	}
+	return status;
+}
+
+static int _find_cmd_seq_after_eop_ts(struct adreno_ringbuffer *rb,
+					unsigned int *rb_rptr,
+					unsigned int global_eop,
+					bool inc)
+{
+	int status = -EINVAL;
+	unsigned int temp_rb_rptr = *rb_rptr;
+	unsigned int size = rb->buffer_desc.size;
+	unsigned int val[3];
+	int i = 0;
+	bool check = false;
+
+	if (inc && temp_rb_rptr / sizeof(unsigned int) != rb->wptr)
+		return status;
+
+	do {
+		/* when decrementing we need to decrement first and
+		 * then read make sure we cover all the data */
+		if (!inc)
+			temp_rb_rptr = adreno_ringbuffer_dec_wrapped(
+					temp_rb_rptr, size);
+		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i],
+					temp_rb_rptr);
+
+		if (check && ((inc && val[i] == global_eop) ||
+			(!inc && (val[i] ==
+			cp_type3_packet(CP_MEM_WRITE, 2) ||
+			val[i] == CACHE_FLUSH_TS)))) {
+			/* decrement i, i.e i = (i - 1 + 3) % 3 if
+			 * we are going forward, else increment i */
+			i = (i + 2) % 3;
+			if (val[i] == rb->device->memstore.gpuaddr +
+				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+						eoptimestamp)) {
+				int j = ((i + 2) % 3);
+				if ((inc && (val[j] == CACHE_FLUSH_TS ||
+						val[j] == cp_type3_packet(
+							CP_MEM_WRITE, 2))) ||
+					(!inc && val[j] == global_eop)) {
+						/* Found the global eop */
+						status = 0;
+						break;
+				}
+			}
+			/* if no match found then increment i again
+			 * since we decremented before matching */
+			i = (i + 1) % 3;
+		}
+		if (inc)
+			temp_rb_rptr = adreno_ringbuffer_inc_wrapped(
+						temp_rb_rptr, size);
+
+		i = (i + 1) % 3;
+		if (2 == i)
+			check = true;
+	} while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr);
+	/* temp_rb_rptr points to the global eop, move forward till
+	 * the next command */
+	if (!status) {
+		status = _find_start_of_cmd_seq(rb, &temp_rb_rptr, true);
+		if (!status) {
+			*rb_rptr = temp_rb_rptr;
+			KGSL_DRV_ERR(rb->device,
+			"Offset of cmd sequence after eop timestamp: 0x%x\n",
+			temp_rb_rptr / sizeof(unsigned int));
+		}
+	}
+	return status;
+}
+
 static void _copy_valid_rb_content(struct adreno_ringbuffer *rb,
 		unsigned int rb_rptr, unsigned int *temp_rb_buffer,
 		int *rb_size, unsigned int *bad_rb_buffer,
@@ -1030,12 +1129,9 @@ static void _copy_valid_rb_content(struct adreno_ringbuffer *rb,
 int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 				struct adreno_recovery_data *rec_data)
 {
+	int status;
 	struct kgsl_device *device = rb->device;
 	unsigned int rb_rptr = rb->wptr * sizeof(unsigned int);
-	unsigned int value;
-	unsigned int val1;
-	unsigned int val2;
-	unsigned int val3;
 	struct kgsl_context *context;
 
 	KGSL_DRV_ERR(device, "Last context id: %d\n", rec_data->context_id);
@@ -1048,68 +1144,11 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 	}
 	KGSL_DRV_ERR(device, "GPU successfully executed till ts: %x\n",
 			rec_data->global_eop);
-	/*
-	 * We need to go back in history by 4 dwords from the current location
-	 * of read pointer as 4 dwords are read to match the end of a command.
-	 * Also, take care of wrap around when moving back
-	 */
-	if (rb->rptr >= 4)
-		rb_rptr = (rb->rptr - 4) * sizeof(unsigned int);
-	else
-		rb_rptr = rb->buffer_desc.size -
-			((4 - rb->rptr) * sizeof(unsigned int));
-	/* Read the rb contents going backwards to locate end of last
-	 * sucessfully executed command */
-	while ((rb_rptr / sizeof(unsigned int)) != rb->wptr) {
-		kgsl_sharedmem_readl(&rb->buffer_desc, &value, rb_rptr);
-		if (value == rec_data->global_eop) {
-			rb_rptr = adreno_ringbuffer_inc_wrapped(rb_rptr,
-							rb->buffer_desc.size);
-			kgsl_sharedmem_readl(&rb->buffer_desc, &val1, rb_rptr);
-			rb_rptr = adreno_ringbuffer_inc_wrapped(rb_rptr,
-							rb->buffer_desc.size);
-			kgsl_sharedmem_readl(&rb->buffer_desc, &val2, rb_rptr);
-			rb_rptr = adreno_ringbuffer_inc_wrapped(rb_rptr,
-							rb->buffer_desc.size);
-			kgsl_sharedmem_readl(&rb->buffer_desc, &val3, rb_rptr);
-			/* match the pattern found at the end of a command */
-			if ((val1 == 2 &&
-				val2 == cp_type3_packet(CP_INTERRUPT, 1)
-				&& val3 == CP_INT_CNTL__RB_INT_MASK) ||
-				(val1 == cp_type3_packet(CP_EVENT_WRITE, 3)
-				&& val2 == CACHE_FLUSH_TS &&
-				val3 == (rb->device->memstore.gpuaddr +
-				KGSL_MEMSTORE_OFFSET(rec_data->context_id,
-					eoptimestamp)))) {
-				rb_rptr = adreno_ringbuffer_inc_wrapped(rb_rptr,
-							rb->buffer_desc.size);
-				KGSL_DRV_ERR(device,
-					"Found end of last executed "
-					"command at offset: %x\n",
-					rb_rptr / sizeof(unsigned int));
-				break;
-			} else {
-				if (rb_rptr < (3 * sizeof(unsigned int)))
-					rb_rptr = rb->buffer_desc.size -
-						(3 * sizeof(unsigned int))
-							+ rb_rptr;
-				else
-					rb_rptr -= (3 * sizeof(unsigned int));
-			}
-		}
 
-		if (rb_rptr == 0)
-			rb_rptr = rb->buffer_desc.size - sizeof(unsigned int);
-		else
-			rb_rptr -= sizeof(unsigned int);
-	}
-
-	if ((rb_rptr / sizeof(unsigned int)) == rb->wptr) {
-		KGSL_DRV_ERR(device,
-			"GPU recovery from hang not possible because last"
-			" successful timestamp is overwritten\n");
-		return -EINVAL;
-	}
+	status = _find_cmd_seq_after_eop_ts(rb, &rb_rptr, rec_data->global_eop,
+						false);
+	if (status)
+		return status;
 
 	KGSL_DRV_ERR(rb->device, "Hang recovery start: %x\n", rb_rptr / 4);
 	_copy_valid_rb_content(rb, rb_rptr, rec_data->rb_buffer,
