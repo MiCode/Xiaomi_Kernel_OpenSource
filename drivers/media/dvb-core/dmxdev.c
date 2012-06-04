@@ -849,6 +849,42 @@ static int dvb_dmxdev_get_buffer_status(
 
 	spin_lock_irq(&dmxdevfilter->dev->lock);
 
+	if ((dmxdevfilter->type == DMXDEV_TYPE_PES) &&
+		(dmxdevfilter->params.pes.output == DMX_OUT_DECODER)) {
+		struct dmxdev_feed *feed;
+		int ret;
+
+		/*
+		 * Ask for status of decoder's buffer from underlying HW.
+		 * In case of PCR/STC extraction, the filter's ring-buffer
+		 * is used to gather the PCR/STC data and not using
+		 * an internal decoder buffer.
+		 */
+		if (!(dmxdevfilter->dev->capabilities &
+			DMXDEV_CAP_PCR_EXTRACTION) ||
+			((dmxdevfilter->params.pes.pes_type != DMX_PES_PCR0) &&
+			(dmxdevfilter->params.pes.pes_type != DMX_PES_PCR1) &&
+			(dmxdevfilter->params.pes.pes_type != DMX_PES_PCR2) &&
+			(dmxdevfilter->params.pes.pes_type != DMX_PES_PCR3))) {
+			list_for_each_entry(feed, &dmxdevfilter->feed.ts,
+								next) {
+				if (feed->ts->get_decoder_buff_status)
+					ret = feed->ts->get_decoder_buff_status(
+							feed->ts,
+							dmx_buffer_status);
+				else
+					ret = -ENODEV;
+
+				/*
+				 * There should not be more than one ts feed
+				 * in the list as this is DECODER feed.
+				 */
+				spin_unlock_irq(&dmxdevfilter->dev->lock);
+				return ret;
+			}
+		}
+	}
+
 	dmx_buffer_status->error = buf->error;
 	if (buf->error)
 		dvb_ringbuffer_flush(buf);
