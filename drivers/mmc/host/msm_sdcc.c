@@ -5022,6 +5022,8 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->caps2 |= MMC_CAP2_PACKED_WR;
 	mmc->caps2 |= MMC_CAP2_PACKED_WR_CONTROL;
 	mmc->caps2 |= (MMC_CAP2_BOOTPART_NOACC | MMC_CAP2_DETECT_ON_ERR);
+	mmc->caps2 |= MMC_CAP2_SANITIZE;
+
 	if (pdev->dev.of_node) {
 		if (of_get_property((&pdev->dev)->of_node,
 					"qcom,sdcc-hs200", NULL))
