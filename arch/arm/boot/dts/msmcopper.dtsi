@@ -18,6 +18,7 @@
 /include/ "msmcopper-regulator.dtsi"
 /include/ "msmcopper-gpio.dtsi"
 /include/ "msmcopper-iommu.dtsi"
+/include/ "msm-gdsc.dtsi"
 
 / {
 	model = "Qualcomm MSM Copper";
@@ -273,6 +274,10 @@
 		reg = <0xF9200000 0xCCFF>;
 		interrupts = <0 131 0>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
+	};
+
+	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
+		parent-supply = <&pm8841_s4>;
 	};
 
 	qcom,lpass@fe200000 {
