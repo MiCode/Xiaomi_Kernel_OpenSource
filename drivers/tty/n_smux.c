@@ -31,7 +31,6 @@
 
 #define SMUX_NOTIFY_FIFO_SIZE	128
 #define SMUX_TX_QUEUE_SIZE	256
-#define SMUX_GET_RX_BUFF_MAX_RETRY_CNT 2
 #define SMUX_WM_LOW 2
 #define SMUX_WM_HIGH 4
 #define SMUX_PKT_LOG_SIZE 80
@@ -48,6 +47,10 @@
 
 /* inactivity timeout for no rx/tx activity */
 #define SMUX_INACTIVITY_TIMEOUT_MS 1000
+
+/* RX get_rx_buffer retry timeout values */
+#define SMUX_RX_RETRY_MIN_MS (1 << 0)  /* 1 ms */
+#define SMUX_RX_RETRY_MAX_MS (1 << 10) /* 1024 ms */
 
 enum {
 	MSM_SMUX_DEBUG = 1U << 0,
@@ -175,6 +178,11 @@ struct smux_lch_t {
 	int (*get_rx_buffer)(void *priv, void **pkt_priv, void **buffer,
 								int size);
 
+	/* RX Info */
+	struct list_head rx_retry_queue;
+	unsigned rx_retry_queue_cnt;
+	struct delayed_work rx_retry_work;
+
 	/* TX Info */
 	spinlock_t tx_lock_lhb2;
 	struct list_head tx_queue;
@@ -195,6 +203,19 @@ struct smux_notify_handle {
 	void *priv;
 	int event_type;
 	union notifier_metadata *metadata;
+};
+
+/**
+ * Get RX Buffer Retry structure.
+ *
+ * This is used for clients that are unable to provide an RX buffer
+ * immediately.  This temporary structure will be used to temporarily hold the
+ * data and perform a retry.
+ */
+struct smux_rx_pkt_retry {
+	struct smux_pkt_t *pkt;
+	struct list_head rx_retry_list;
+	unsigned timeout_in_ms;
 };
 
 /**
@@ -280,6 +301,7 @@ static void smux_tx_worker(struct work_struct *work);
 static DECLARE_WORK(smux_tx_work, smux_tx_worker);
 
 static void smux_wakeup_worker(struct work_struct *work);
+static void smux_rx_retry_worker(struct work_struct *work);
 static void smux_rx_worker(struct work_struct *work);
 static DECLARE_WORK(smux_wakeup_work, smux_wakeup_worker);
 static DECLARE_DELAYED_WORK(smux_wakeup_delayed_work, smux_wakeup_worker);
@@ -372,6 +394,10 @@ static int lch_init(void)
 		ch->priv = 0;
 		ch->notify = 0;
 		ch->get_rx_buffer = 0;
+
+		INIT_LIST_HEAD(&ch->rx_retry_queue);
+		ch->rx_retry_queue_cnt = 0;
+		INIT_DELAYED_WORK(&ch->rx_retry_work, smux_rx_retry_worker);
 
 		spin_lock_init(&ch->tx_lock_lhb2);
 		INIT_LIST_HEAD(&ch->tx_queue);
@@ -1224,8 +1250,8 @@ out:
 static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 {
 	uint8_t lcid;
-	int ret;
-	int i;
+	int ret = 0;
+	int do_retry = 0;
 	int tmp;
 	int rx_len;
 	struct smux_lch_t *ch;
@@ -1236,6 +1262,12 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 
 	if (!pkt || smux_assert_lch_id(pkt->hdr.lcid)) {
 		ret = -ENXIO;
+		goto out;
+	}
+
+	rx_len = pkt->hdr.payload_len;
+	if (rx_len == 0) {
+		ret = -EINVAL;
 		goto out;
 	}
 
@@ -1260,60 +1292,104 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 		goto out;
 	}
+
+	if (!list_empty(&ch->rx_retry_queue)) {
+		do_retry = 1;
+		if ((ch->rx_retry_queue_cnt + 1) > SMUX_RX_RETRY_MAX_PKTS) {
+			/* retry queue full */
+			schedule_notify(lcid, SMUX_READ_FAIL, NULL);
+			ret = -ENOMEM;
+			spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+			goto out;
+		}
+	}
 	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 
-	rx_len = pkt->hdr.payload_len;
-	if (rx_len == 0) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	for (i = 0; i < SMUX_GET_RX_BUFF_MAX_RETRY_CNT; ++i) {
+	if (remote_loopback) {
+		/* Echo the data back to the remote client. */
+		ack_pkt = smux_alloc_pkt();
+		if (ack_pkt) {
+			ack_pkt->hdr.lcid = lcid;
+			ack_pkt->hdr.cmd = SMUX_CMD_DATA;
+			ack_pkt->hdr.flags = 0;
+			ack_pkt->hdr.payload_len = pkt->hdr.payload_len;
+			if (ack_pkt->hdr.payload_len) {
+				smux_alloc_pkt_payload(ack_pkt);
+				memcpy(ack_pkt->payload, pkt->payload,
+						ack_pkt->hdr.payload_len);
+			}
+			ack_pkt->hdr.pad_len = pkt->hdr.pad_len;
+			smux_tx_queue(ack_pkt, ch, 0);
+			list_channel(ch);
+		} else {
+			pr_err("%s: Remote loopack allocation failure\n",
+					__func__);
+		}
+	} else if (!do_retry) {
+		/* request buffer from client */
 		metadata.read.pkt_priv = 0;
 		metadata.read.buffer = 0;
+		tmp = ch->get_rx_buffer(ch->priv,
+				(void **)&metadata.read.pkt_priv,
+				(void **)&metadata.read.buffer,
+				rx_len);
 
-		if (!remote_loopback) {
-			tmp = ch->get_rx_buffer(ch->priv,
-					(void **)&metadata.read.pkt_priv,
-					(void **)&metadata.read.buffer,
+		if (tmp == 0 && metadata.read.buffer) {
+			/* place data into RX buffer */
+			memcpy(metadata.read.buffer, pkt->payload,
 					rx_len);
-			if (tmp == 0 && metadata.read.buffer) {
-				/* place data into RX buffer */
-				memcpy(metadata.read.buffer, pkt->payload,
-								rx_len);
-				metadata.read.len = rx_len;
-				schedule_notify(lcid, SMUX_READ_DONE,
-								&metadata);
-				ret = 0;
-				break;
-			} else if (tmp == -EAGAIN) {
-				ret = -ENOMEM;
-			} else if (tmp < 0) {
-				schedule_notify(lcid, SMUX_READ_FAIL, NULL);
-				ret = -ENOMEM;
-				break;
-			} else if (!metadata.read.buffer) {
-				pr_err("%s: get_rx_buffer() buffer is NULL\n",
-					__func__);
-				ret = -ENOMEM;
-			}
-		} else {
-			/* Echo the data back to the remote client. */
-			ack_pkt = smux_alloc_pkt();
-			if (ack_pkt) {
-				ack_pkt->hdr.lcid = lcid;
-				ack_pkt->hdr.cmd = SMUX_CMD_DATA;
-				ack_pkt->hdr.flags = 0;
-				ack_pkt->hdr.payload_len = pkt->hdr.payload_len;
-				ack_pkt->payload = pkt->payload;
-				ack_pkt->hdr.pad_len = pkt->hdr.pad_len;
-				smux_tx_queue(ack_pkt, ch, 0);
-				list_channel(ch);
-			} else {
-				pr_err("%s: Remote loopack allocation failure\n",
-						__func__);
-			}
+			metadata.read.len = rx_len;
+			schedule_notify(lcid, SMUX_READ_DONE,
+							&metadata);
+		} else if (tmp == -EAGAIN ||
+				(tmp == 0 && !metadata.read.buffer)) {
+			/* buffer allocation failed - add to retry queue */
+			do_retry = 1;
+		} else if (tmp < 0) {
+			schedule_notify(lcid, SMUX_READ_FAIL, NULL);
+			ret = -ENOMEM;
 		}
+	}
+
+	if (do_retry) {
+		struct smux_rx_pkt_retry *retry;
+
+		retry = kmalloc(sizeof(struct smux_rx_pkt_retry), GFP_KERNEL);
+		if (!retry) {
+			pr_err("%s: retry alloc failure\n", __func__);
+			ret = -ENOMEM;
+			schedule_notify(lcid, SMUX_READ_FAIL, NULL);
+			goto out;
+		}
+		INIT_LIST_HEAD(&retry->rx_retry_list);
+		retry->timeout_in_ms = SMUX_RX_RETRY_MIN_MS;
+
+		/* copy packet */
+		retry->pkt = smux_alloc_pkt();
+		if (!retry->pkt) {
+			kfree(retry);
+			pr_err("%s: pkt alloc failure\n", __func__);
+			ret = -ENOMEM;
+			schedule_notify(lcid, SMUX_READ_FAIL, NULL);
+			goto out;
+		}
+		retry->pkt->hdr.lcid = lcid;
+		retry->pkt->hdr.payload_len = pkt->hdr.payload_len;
+		retry->pkt->hdr.pad_len = pkt->hdr.pad_len;
+		if (retry->pkt->hdr.payload_len) {
+			smux_alloc_pkt_payload(retry->pkt);
+			memcpy(retry->pkt->payload, pkt->payload,
+					retry->pkt->hdr.payload_len);
+		}
+
+		/* add to retry queue */
+		spin_lock_irqsave(&ch->state_lock_lhb1, flags);
+		list_add_tail(&retry->rx_retry_list, &ch->rx_retry_queue);
+		++ch->rx_retry_queue_cnt;
+		if (ch->rx_retry_queue_cnt == 1)
+			queue_delayed_work(smux_rx_wq, &ch->rx_retry_work,
+				msecs_to_jiffies(retry->timeout_in_ms));
+		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 	}
 
 out:
@@ -2022,6 +2098,23 @@ static void smux_inactivity_worker(struct work_struct *work)
 }
 
 /**
+ * Remove RX retry packet from channel and free it.
+ *
+ * Must be called with state_lock_lhb1 locked.
+ *
+ * @ch    Channel for retry packet
+ * @retry Retry packet to remove
+ */
+void smux_remove_rx_retry(struct smux_lch_t *ch,
+		struct smux_rx_pkt_retry *retry)
+{
+	list_del(&retry->rx_retry_list);
+	--ch->rx_retry_queue_cnt;
+	smux_free_pkt(retry->pkt);
+	kfree(retry);
+}
+
+/**
  * RX worker handles all receive operations.
  *
  * @work  Work structure contained in TBD structure
@@ -2074,6 +2167,95 @@ static void smux_rx_worker(struct work_struct *work)
 	} while (used < len || smux.rx_state != initial_rx_state);
 
 	complete(&w->work_complete);
+}
+
+/**
+ * RX Retry worker handles retrying get_rx_buffer calls that previously failed
+ * because the client was not ready (-EAGAIN).
+ *
+ * @work  Work structure contained in smux_lch_t structure
+ */
+static void smux_rx_retry_worker(struct work_struct *work)
+{
+	struct smux_lch_t *ch;
+	struct smux_rx_pkt_retry *retry;
+	union notifier_metadata metadata;
+	int tmp;
+	unsigned long flags;
+
+	ch = container_of(work, struct smux_lch_t, rx_retry_work.work);
+
+	/* get next retry packet */
+	spin_lock_irqsave(&ch->state_lock_lhb1, flags);
+	if (ch->local_state != SMUX_LCH_LOCAL_OPENED) {
+		/* port has been closed - remove all retries */
+		while (!list_empty(&ch->rx_retry_queue)) {
+			retry = list_first_entry(&ch->rx_retry_queue,
+						struct smux_rx_pkt_retry,
+						rx_retry_list);
+			smux_remove_rx_retry(ch, retry);
+		}
+	}
+
+	if (list_empty(&ch->rx_retry_queue)) {
+		SMUX_DBG("%s: retry list empty for channel %d\n",
+				__func__, ch->lcid);
+		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+		return;
+	}
+	retry = list_first_entry(&ch->rx_retry_queue,
+					struct smux_rx_pkt_retry,
+					rx_retry_list);
+	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+
+	SMUX_DBG("%s: retrying rx pkt %p\n", __func__, retry);
+	metadata.read.pkt_priv = 0;
+	metadata.read.buffer = 0;
+	tmp = ch->get_rx_buffer(ch->priv,
+			(void **)&metadata.read.pkt_priv,
+			(void **)&metadata.read.buffer,
+			retry->pkt->hdr.payload_len);
+	if (tmp == 0 && metadata.read.buffer) {
+		/* have valid RX buffer */
+		memcpy(metadata.read.buffer, retry->pkt->payload,
+						retry->pkt->hdr.payload_len);
+		metadata.read.len = retry->pkt->hdr.payload_len;
+
+		spin_lock_irqsave(&ch->state_lock_lhb1, flags);
+		smux_remove_rx_retry(ch, retry);
+		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+
+		schedule_notify(ch->lcid, SMUX_READ_DONE, &metadata);
+	} else if (tmp == -EAGAIN ||
+			(tmp == 0 && !metadata.read.buffer)) {
+		/* retry again */
+		retry->timeout_in_ms <<= 1;
+		if (retry->timeout_in_ms > SMUX_RX_RETRY_MAX_MS) {
+			/* timed out */
+			spin_lock_irqsave(&ch->state_lock_lhb1, flags);
+			smux_remove_rx_retry(ch, retry);
+			schedule_notify(ch->lcid, SMUX_READ_FAIL, NULL);
+			spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+		}
+	} else {
+		/* client error - drop packet */
+		spin_lock_irqsave(&ch->state_lock_lhb1, flags);
+		smux_remove_rx_retry(ch, retry);
+		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+
+		schedule_notify(ch->lcid, SMUX_READ_FAIL, NULL);
+	}
+
+	/* schedule next retry */
+	spin_lock_irqsave(&ch->state_lock_lhb1, flags);
+	if (!list_empty(&ch->rx_retry_queue)) {
+		retry = list_first_entry(&ch->rx_retry_queue,
+						struct smux_rx_pkt_retry,
+						rx_retry_list);
+		queue_delayed_work(smux_rx_wq, &ch->rx_retry_work,
+				msecs_to_jiffies(retry->timeout_in_ms));
+	}
+	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 }
 
 /**
@@ -2428,6 +2610,10 @@ int msm_smux_close(uint8_t lcid)
 			pr_err("%s: pkt allocation failed\n", __func__);
 			ret = -ENOMEM;
 		}
+
+		/* Purge RX retry queue */
+		if (ch->rx_retry_queue_cnt)
+			queue_delayed_work(smux_rx_wq, &ch->rx_retry_work, 0);
 	}
 	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 
