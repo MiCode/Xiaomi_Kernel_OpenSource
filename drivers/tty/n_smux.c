@@ -1118,8 +1118,11 @@ out:
 
 	if (enable_powerdown) {
 		spin_lock_irqsave(&smux.tx_lock_lha2, flags);
-		smux.powerdown_enabled = 1;
-		SMUX_DBG("%s: enabling power-collapse support\n", __func__);
+		if (!smux.powerdown_enabled) {
+			smux.powerdown_enabled = 1;
+			SMUX_DBG("%s: enabling power-collapse support\n",
+					__func__);
+		}
 		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 	}
 
