@@ -1064,20 +1064,10 @@ void ddl_fill_dec_desc_buffer(struct ddl_client_context *ddl)
 
 void ddl_set_vidc_timeout(struct ddl_client_context *ddl)
 {
-	unsigned long core_clk_rate;
 	u32 vidc_time_out = 0;
-	if (ddl->codec_data.decoder.idr_only_decoding) {
+	if (ddl->codec_data.decoder.idr_only_decoding)
 		vidc_time_out = 2 * DDL_VIDC_1080P_200MHZ_TIMEOUT_VALUE;
-	} else {
-		res_trk_get_clk_rate(&core_clk_rate);
-		if (core_clk_rate == DDL_VIDC_1080P_48MHZ)
-			vidc_time_out = DDL_VIDC_1080P_48MHZ_TIMEOUT_VALUE;
-		else if (core_clk_rate == DDL_VIDC_1080P_133MHZ)
-			vidc_time_out = DDL_VIDC_1080P_133MHZ_TIMEOUT_VALUE;
-		else
-			vidc_time_out = DDL_VIDC_1080P_200MHZ_TIMEOUT_VALUE;
-	}
-	DDL_MSG_HIGH("%s Video core time out value = 0x%x"
+	DDL_MSG_HIGH("%s Video core time out value = 0x%x",
 		 __func__, vidc_time_out);
 	vidc_sm_set_video_core_timeout_value(
 		&ddl->shared_mem[ddl->command_channel], vidc_time_out);
