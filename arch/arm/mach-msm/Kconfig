@@ -994,7 +994,6 @@ choice
 	config DEBUG_MSM8960_UART
 		bool "Kernel low-level debugging messages via MSM 8960 UART"
 		depends on ARCH_MSM8960 && DEBUG_LL
-		select DEBUG_MSM8930_UART
 		select MSM_HAS_DEBUG_UART_HS
 		help
 		  Say Y here if you want the debug print routines to direct
