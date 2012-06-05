@@ -91,6 +91,7 @@
 #endif
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+#define HOLE_SIZE		0x20000
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x65000
 #ifdef CONFIG_MSM_IOMMU
 #define MSM_ION_MM_SIZE		0x3800000
@@ -103,7 +104,7 @@
 #define MSM_ION_QSECOM_SIZE	0x600000 /* (6MB) */
 #define MSM_ION_HEAP_NUM	8
 #endif
-#define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
+#define MSM_ION_MM_FW_SIZE	(0x200000 - HOLE_SIZE) /* (2MB - 128KB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
 #define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 #else
@@ -111,10 +112,11 @@
 #define MSM_ION_HEAP_NUM	1
 #endif
 
-#define APQ8064_FIXED_AREA_START 0xa0000000
+#define APQ8064_FIXED_AREA_START (0xa0000000 - (MSM_ION_MM_FW_SIZE + \
+							HOLE_SIZE))
 #define MAX_FIXED_AREA_SIZE	0x10000000
-#define MSM_MM_FW_SIZE		0x200000
-#define APQ8064_FW_START	(APQ8064_FIXED_AREA_START - MSM_MM_FW_SIZE)
+#define MSM_MM_FW_SIZE		(0x200000 - HOLE_SIZE)
+#define APQ8064_FW_START	APQ8064_FIXED_AREA_START
 
 /* PCIe power enable pmic gpio */
 #define PCIE_PWR_EN_PMIC_GPIO 13
@@ -505,19 +507,20 @@ static void __init reserve_ion_memory(void)
 		return;
 
 	if (apq8064_fmem_pdata.size) {
-		apq8064_fmem_pdata.reserved_size_low = fixed_low_size;
+		apq8064_fmem_pdata.reserved_size_low = fixed_low_size +
+								HOLE_SIZE;
 		apq8064_fmem_pdata.reserved_size_high = fixed_high_size;
 	}
 
 	/* Since the fixed area may be carved out of lowmem,
 	 * make sure the length is a multiple of 1M.
 	 */
-	fixed_size = (fixed_size + MSM_MM_FW_SIZE + SECTION_SIZE - 1)
+	fixed_size = (fixed_size + HOLE_SIZE + SECTION_SIZE - 1)
 		& SECTION_MASK;
 	apq8064_reserve_fixed_area(fixed_size);
 
 	fixed_low_start = APQ8064_FIXED_AREA_START;
-	fixed_middle_start = fixed_low_start + fixed_low_size;
+	fixed_middle_start = fixed_low_start + fixed_low_size + HOLE_SIZE;
 	fixed_high_start = fixed_middle_start + fixed_middle_size;
 
 	for (i = 0; i < apq8064_ion_pdata.nr; ++i) {
@@ -525,11 +528,13 @@ static void __init reserve_ion_memory(void)
 
 		if (heap->extra_data) {
 			int fixed_position = NOT_FIXED;
+			struct ion_cp_heap_pdata *pdata;
 
 			switch (heap->type) {
 			case ION_HEAP_TYPE_CP:
-				fixed_position = ((struct ion_cp_heap_pdata *)
-					heap->extra_data)->fixed_position;
+				pdata =
+				(struct ion_cp_heap_pdata *)heap->extra_data;
+				fixed_position = pdata->fixed_position;
 				break;
 			case ION_HEAP_TYPE_CARVEOUT:
 				fixed_position = ((struct ion_co_heap_pdata *)
@@ -545,6 +550,9 @@ static void __init reserve_ion_memory(void)
 				break;
 			case FIXED_MIDDLE:
 				heap->base = fixed_middle_start;
+				pdata->secure_base = fixed_middle_start
+								- HOLE_SIZE;
+				pdata->secure_size = HOLE_SIZE + heap->size;
 				break;
 			case FIXED_HIGH:
 				heap->base = fixed_high_start;

@@ -136,9 +136,11 @@ static void allocate_co_memory(struct ion_platform_heap *heap,
 				}
 
 				cp_data->virt_addr = fmem_info->virt;
-				cp_data->secure_base = heap->base;
-				cp_data->secure_size =
+				if (!cp_data->secure_base) {
+					cp_data->secure_base = heap->base;
+					cp_data->secure_size =
 						heap->size + shared_heap->size;
+				}
 			} else if (!heap->base) {
 				ion_set_base_address(heap, shared_heap,
 					co_heap_data, cp_data);
