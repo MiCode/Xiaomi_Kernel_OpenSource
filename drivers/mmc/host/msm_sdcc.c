@@ -378,8 +378,7 @@ msmsdcc_stop_data(struct msmsdcc_host *host)
 	host->curr.got_dataend = 0;
 	host->curr.wait_for_auto_prog_done = false;
 	host->curr.got_auto_prog_done = false;
-	writel_relaxed(readl_relaxed(host->base + MMCIDATACTRL) &
-			(~(MCI_DPSM_ENABLE)), host->base + MMCIDATACTRL);
+	writel_relaxed(0, host->base + MMCIDATACTRL);
 	msmsdcc_sync_reg_wr(host); /* Allow the DPSM to be reset */
 }
 
