@@ -29,6 +29,7 @@
 #include <linux/ion.h>
 #include <linux/memory.h>
 #include <linux/memblock.h>
+#include <linux/msm_thermal.h>
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/cyttsp-qc.h>
 #include <linux/i2c/isa1200.h>
@@ -1716,6 +1717,14 @@ static struct platform_device msm_tsens_device = {
 	.id = -1,
 };
 
+static struct msm_thermal_data msm_thermal_pdata = {
+	.sensor_id = 7,
+	.poll_ms = 1000,
+	.limit_temp = 60,
+	.temp_hysteresis = 10,
+	.limit_freq = 918000,
+};
+
 #define MSM_SHARED_RAM_PHYS 0x80000000
 static void __init apq8064_map_io(void)
 {
@@ -2864,6 +2873,7 @@ static void enable_avc_i2c_bus(void)
 static void __init apq8064_common_init(void)
 {
 	msm_tsens_early_init(&apq_tsens_pdata);
+	msm_thermal_init(&msm_thermal_pdata);
 	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 	BUG_ON(msm_rpm_init(&apq8064_rpm_data));
