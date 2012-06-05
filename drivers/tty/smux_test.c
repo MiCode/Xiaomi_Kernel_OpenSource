@@ -75,8 +75,43 @@
 	} \
 	do {} while (0)
 
+/**
+ * In-range unit test assertion for test cases.
+ *
+ * @a lval
+ * @minv Minimum value
+ * @maxv Maximum value
+ *
+ * Assertion fails if @a is not on the exclusive range minv, maxv
+ * ((@a < @minv) or (@a > @maxv)).  In the failure case, the macro
+ * logs the function and line number where the error occurred along
+ * with the values of @a and @minv, @maxv.
+ *
+ * Assumes that the following local variables exist:
+ * @buf - buffer to write failure message to
+ * @i - number of bytes written to buffer
+ * @max - maximum size of the buffer
+ * @failed - set to true if test fails
+ */
+#define UT_ASSERT_INT_IN_RANGE(a, minv, maxv) \
+	if (((a) < (minv)) || ((a) > (maxv))) { \
+		i += scnprintf(buf + i, max - i, \
+			"%s:%d Fail: " #a "(%d) < " #minv "(%d) or " \
+				 #a "(%d) > " #maxv "(%d)\n", \
+				__func__, __LINE__, \
+				a, minv, a, maxv); \
+		failed = 1; \
+		break; \
+	} \
+	do {} while (0)
+
+
 static unsigned char test_array[] = {1, 1, 2, 3, 5, 8, 13, 21, 34, 55,
 					89, 144, 233};
+
+/* when 1, forces failure of get_rx_buffer_mock function */
+static int get_rx_buffer_mock_fail;
+
 
 /* Used for mapping local to remote TIOCM signals */
 struct tiocm_test_vector {
@@ -118,6 +153,13 @@ struct mock_write_event {
 	struct smux_meta_write meta;
 };
 
+/* Mock object metadata for get_rx_buffer failure event */
+struct mock_get_rx_buff_event {
+	struct list_head list;
+	int size;
+	unsigned long jiffies;
+};
+
 /* Mock object for all SMUX callback events */
 struct smux_mock_callback {
 	int cb_count;
@@ -140,6 +182,10 @@ struct smux_mock_callback {
 	int event_read_failed;
 	struct list_head read_events;
 
+	/* read retry data */
+	int get_rx_buff_retry_count;
+	struct list_head get_rx_buff_retry_events;
+
 	/* write event data */
 	int event_write_done;
 	int event_write_failed;
@@ -156,6 +202,7 @@ void mock_cb_data_init(struct smux_mock_callback *cb)
 	init_completion(&cb->cb_completion);
 	spin_lock_init(&cb->lock);
 	INIT_LIST_HEAD(&cb->read_events);
+	INIT_LIST_HEAD(&cb->get_rx_buff_retry_events);
 	INIT_LIST_HEAD(&cb->write_events);
 }
 
@@ -187,6 +234,16 @@ void mock_cb_data_reset(struct smux_mock_callback *cb)
 				struct mock_read_event,
 				list);
 		kfree(meta->meta.buffer);
+		list_del(&meta->list);
+		kfree(meta);
+	}
+
+	cb->get_rx_buff_retry_count = 0;
+	while (!list_empty(&cb->get_rx_buff_retry_events)) {
+		struct mock_get_rx_buff_event *meta;
+		meta = list_first_entry(&cb->get_rx_buff_retry_events,
+				struct mock_get_rx_buff_event,
+				list);
 		list_del(&meta->list);
 		kfree(meta);
 	}
@@ -229,6 +286,8 @@ static int mock_cb_data_print(const struct smux_mock_callback *cb,
 		"\tevent_read_done=%d\n"
 		"\tevent_read_failed=%d\n"
 		"\tread_events=%d\n"
+		"\tget_rx_retry=%d\n"
+		"\tget_rx_retry_events=%d\n"
 		"\tevent_write_done=%d\n"
 		"\tevent_write_failed=%d\n"
 		"\twrite_events=%d\n",
@@ -243,6 +302,8 @@ static int mock_cb_data_print(const struct smux_mock_callback *cb,
 		cb->event_read_done,
 		cb->event_read_failed,
 		!list_empty(&cb->read_events),
+		cb->get_rx_buff_retry_count,
+		!list_empty(&cb->get_rx_buff_retry_events),
 		cb->event_write_done,
 		cb->event_write_failed,
 		list_empty(&cb->write_events)
@@ -303,8 +364,12 @@ void smux_mock_cb(void *priv, int event, const void *metadata)
 		spin_lock_irqsave(&cb_data_ptr->lock, flags);
 		++cb_data_ptr->event_read_failed;
 		if (read_event_meta) {
-			read_event_meta->meta =
+			if (metadata)
+				read_event_meta->meta =
 					*(struct smux_meta_read *)metadata;
+			else
+				memset(&read_event_meta->meta, 0x0,
+						sizeof(struct smux_meta_read));
 			list_add_tail(&read_event_meta->list,
 					&cb_data_ptr->read_events);
 		}
@@ -1171,6 +1236,338 @@ static int smux_ut_local_smuxld_receive_buf(char *buf, int max)
 	return i;
 }
 
+/**
+ * Allocates a new buffer or returns a failure based upon the
+ * global @get_rx_buffer_mock_fail.
+ */
+static int get_rx_buffer_mock(void *priv, void **pkt_priv,
+		void **buffer, int size)
+{
+	void *rx_buf;
+	unsigned long flags;
+	struct smux_mock_callback *cb_ptr;
+
+	cb_ptr = (struct smux_mock_callback *)priv;
+	if (!cb_ptr) {
+		pr_err("%s: no callback data\n", __func__);
+		return -ENXIO;
+	}
+
+	if (get_rx_buffer_mock_fail) {
+		/* force failure and log failure event */
+		struct mock_get_rx_buff_event *meta;
+		meta = kmalloc(sizeof(struct mock_get_rx_buff_event),
+				GFP_KERNEL);
+		if (!meta) {
+			pr_err("%s: unable to allocate metadata\n", __func__);
+			return -ENOMEM;
+		}
+		INIT_LIST_HEAD(&meta->list);
+		meta->size = size;
+		meta->jiffies = jiffies;
+
+		spin_lock_irqsave(&cb_ptr->lock, flags);
+		++cb_ptr->get_rx_buff_retry_count;
+		list_add_tail(&meta->list, &cb_ptr->get_rx_buff_retry_events);
+		++cb_ptr->cb_count;
+		complete(&cb_ptr->cb_completion);
+		spin_unlock_irqrestore(&cb_ptr->lock, flags);
+		return -EAGAIN;
+	} else {
+		rx_buf = kmalloc(size, GFP_KERNEL);
+		*pkt_priv = (void *)0x1234;
+		*buffer = rx_buf;
+		return 0;
+	}
+	return 0;
+}
+
+/**
+ * Verify get_rx_buffer callback retry.
+ *
+ * @buf  Buffer for status message
+ * @max  Size of buffer
+ *
+ * @returns Number of bytes written to @buf
+ */
+static int smux_ut_local_get_rx_buff_retry(char *buf, int max)
+{
+	static struct smux_mock_callback cb_data;
+	static int cb_initialized;
+	int i = 0;
+	int failed = 0;
+	char try_two[] = "try 2";
+	int ret;
+	unsigned long start_j;
+	struct mock_get_rx_buff_event *event;
+	struct mock_read_event *read_event;
+	int try;
+
+	i += scnprintf(buf + i, max - i, "Running %s\n", __func__);
+	pr_err("%s", buf);
+
+	if (!cb_initialized)
+		mock_cb_data_init(&cb_data);
+
+	mock_cb_data_reset(&cb_data);
+	smux_byte_loopback = SMUX_TEST_LCID;
+	while (!failed) {
+		/* open port for loopback */
+		ret = msm_smux_set_ch_option(SMUX_TEST_LCID,
+				SMUX_CH_OPTION_LOCAL_LOOPBACK,
+				0);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		ret = msm_smux_open(SMUX_TEST_LCID, &cb_data,
+				smux_mock_cb, get_rx_buffer_mock);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ), >, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_connected, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/*
+		 * Force get_rx_buffer failure for a single RX packet
+		 *
+		 * The get_rx_buffer calls should follow an exponential
+		 * back-off with a maximum timeout of 1024 ms after which we
+		 * will get a failure notification.
+		 *
+		 * Try   Post Delay (ms)
+		 *  0      -
+		 *  1      1
+		 *  2      2
+		 *  3      4
+		 *  4      8
+		 *  5     16
+		 *  6     32
+		 *  7     64
+		 *  8    128
+		 *  9    256
+		 * 10    512
+		 * 11   1024
+		 * 12   Fail
+		 *
+		 * All times are limited by the precision of the timer
+		 * framework, so ranges are used in the test
+		 * verification.
+		 */
+		get_rx_buffer_mock_fail = 1;
+		start_j = jiffies;
+		ret = msm_smux_write(SMUX_TEST_LCID, (void *)1,
+					test_array, sizeof(test_array));
+		UT_ASSERT_INT(ret, ==, 0);
+		ret = msm_smux_write(SMUX_TEST_LCID, (void *)2,
+					try_two, sizeof(try_two));
+		UT_ASSERT_INT(ret, ==, 0);
+
+		/* wait for RX failure event */
+		while (cb_data.event_read_failed == 0) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, 2*HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		if (failed)
+			break;
+
+		/* verify retry attempts */
+		UT_ASSERT_INT(cb_data.get_rx_buff_retry_count, ==, 12);
+		event = list_first_entry(&cb_data.get_rx_buff_retry_events,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				0, 0 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				1, 1 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				2, 2 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				4, 4 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				8, 8 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				16, 16 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				32 - 20, 32 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				64 - 20, 64 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				128 - 20, 128 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				256 - 20, 256 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				512 - 20, 512 + 20);
+		start_j = event->jiffies;
+
+		event = list_first_entry(&event->list,
+				struct mock_get_rx_buff_event, list);
+		pr_err("%s: event->jiffies = %d (ms)\n", __func__,
+				jiffies_to_msecs(event->jiffies - start_j));
+		UT_ASSERT_INT_IN_RANGE(
+				jiffies_to_msecs(event->jiffies - start_j),
+				1024 - 20, 1024 + 20);
+		mock_cb_data_reset(&cb_data);
+
+		/* verify 2nd pending RX packet goes through */
+		get_rx_buffer_mock_fail = 0;
+		INIT_COMPLETION(cb_data.cb_completion);
+		if (cb_data.event_read_done == 0)
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+		UT_ASSERT_INT(cb_data.event_read_done, ==, 1);
+		UT_ASSERT_INT(list_empty(&cb_data.read_events), ==, 0);
+		read_event = list_first_entry(&cb_data.read_events,
+				struct mock_read_event, list);
+		UT_ASSERT_PTR(read_event->meta.pkt_priv, ==, (void *)0x1234);
+		UT_ASSERT_PTR(read_event->meta.buffer, !=, NULL);
+		UT_ASSERT_INT(0, ==, memcmp(read_event->meta.buffer, try_two,
+				sizeof(try_two)));
+		mock_cb_data_reset(&cb_data);
+
+		/* Test maximum retry queue size */
+		get_rx_buffer_mock_fail = 1;
+		for (try = 0; try < (SMUX_RX_RETRY_MAX_PKTS + 1); ++try) {
+			mock_cb_data_reset(&cb_data);
+			ret = msm_smux_write(SMUX_TEST_LCID, (void *)1,
+						test_array, sizeof(test_array));
+			UT_ASSERT_INT(ret, ==, 0);
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+		}
+
+		/* should have 32 successful rx packets and 1 failed */
+		while (cb_data.event_read_failed == 0) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, 2*HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		if (failed)
+			break;
+
+		get_rx_buffer_mock_fail = 0;
+		while (cb_data.event_read_done < SMUX_RX_RETRY_MAX_PKTS) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, 2*HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		if (failed)
+			break;
+
+		UT_ASSERT_INT(1, ==, cb_data.event_read_failed);
+		UT_ASSERT_INT(SMUX_RX_RETRY_MAX_PKTS, ==,
+				cb_data.event_read_done);
+		mock_cb_data_reset(&cb_data);
+
+		/* close port */
+		ret = msm_smux_close(SMUX_TEST_LCID);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+				&cb_data.cb_completion, HZ),
+			>, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
+		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		break;
+	}
+
+	if (!failed) {
+		i += scnprintf(buf + i, max - i, "\tOK\n");
+	} else {
+		pr_err("%s: Failed\n", __func__);
+		i += scnprintf(buf + i, max - i, "\tFailed\n");
+		i += mock_cb_data_print(&cb_data, buf + i, max - i);
+		msm_smux_close(SMUX_TEST_LCID);
+	}
+	smux_byte_loopback = 0;
+	mock_cb_data_reset(&cb_data);
+	return i;
+}
+
 static char debug_buffer[DEBUG_BUFMAX];
 
 static ssize_t debug_read(struct file *file, char __user *buf,
@@ -1232,6 +1629,8 @@ static int __init smux_debugfs_init(void)
 	debug_create("ut_local_wm", 0444, dent, smux_ut_local_wm);
 	debug_create("ut_local_smuxld_receive_buf", 0444, dent,
 			smux_ut_local_smuxld_receive_buf);
+	debug_create("ut_local_get_rx_buff_retry", 0444, dent,
+			smux_ut_local_get_rx_buff_retry);
 
 	return 0;
 }

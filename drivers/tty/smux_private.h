@@ -29,6 +29,9 @@
 #define SMUX_UT_ECHO_ACK_OK 0xF1
 #define SMUX_UT_ECHO_ACK_FAIL 0xF2
 
+/* Maximum number of packets in retry queue */
+#define SMUX_RX_RETRY_MAX_PKTS 32
+
 struct tty_struct;
 
 /* Packet header. */
