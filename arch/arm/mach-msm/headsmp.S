@@ -27,10 +27,6 @@ ENTRY(msm_secondary_startup)
 	sub	r4, r4, r5		@ determine virtual/phys offsets
 	add	r6, r6, r4		@ apply
 pen:
-	wfe
-	dsb				@ ensure subsequent access is
-					@ after event
-
 	ldr	r7, [r6]		@ pen_rel has cpu to remove from reset
 	cmp	r7, r0			@ are we lucky?
 	bne	pen
