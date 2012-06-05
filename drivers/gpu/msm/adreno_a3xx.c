@@ -2409,30 +2409,29 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 
 static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 {
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	struct kgsl_device *device = &adreno_dev->dev;
 
 	if (irq == A3XX_INT_CP_RB_INT) {
 		unsigned int context_id;
-		kgsl_sharedmem_readl(&adreno_dev->dev.memstore,
-				&context_id,
+		kgsl_sharedmem_readl(&device->memstore, &context_id,
 				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 					current_context));
 		if (context_id < KGSL_MEMSTORE_MAX) {
-			kgsl_sharedmem_writel(&rb->device->memstore,
+			kgsl_sharedmem_writel(&device->memstore,
 					KGSL_MEMSTORE_OFFSET(context_id,
 						ts_cmp_enable), 0);
 			wmb();
 		}
-		KGSL_CMD_WARN(rb->device, "ringbuffer rb interrupt\n");
+		KGSL_CMD_WARN(device, "ringbuffer rb interrupt\n");
 	}
 
-	wake_up_interruptible_all(&rb->device->wait_queue);
+	wake_up_interruptible_all(&device->wait_queue);
 
 	/* Schedule work to free mem and issue ibs */
-	queue_work(rb->device->work_queue, &rb->device->ts_expired_ws);
+	queue_work(device->work_queue, &device->ts_expired_ws);
 
-	atomic_notifier_call_chain(&rb->device->ts_notifier_list,
-				   rb->device->id, NULL);
+	atomic_notifier_call_chain(&device->ts_notifier_list,
+				   device->id, NULL);
 }
 
 #define A3XX_IRQ_CALLBACK(_c) { .func = _c }
