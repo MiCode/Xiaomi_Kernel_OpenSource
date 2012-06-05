@@ -2226,6 +2226,7 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm8930_rpm_device,
 	&msm8930_rpm_log_device,
+	&msm8930_rpm_rbcpr_device,
 	&msm8930_rpm_stat_device,
 #ifdef CONFIG_ION_MSM
 	&msm8930_ion_dev,

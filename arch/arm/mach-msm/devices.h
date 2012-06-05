@@ -328,6 +328,7 @@ extern struct platform_device msm8960_rpm_log_device;
 extern struct platform_device msm8930_rpm_device;
 extern struct platform_device msm8930_rpm_stat_device;
 extern struct platform_device msm8930_rpm_log_device;
+extern struct platform_device msm8930_rpm_rbcpr_device;
 
 extern struct platform_device msm8660_rpm_device;
 extern struct platform_device msm8660_rpm_stat_device;
