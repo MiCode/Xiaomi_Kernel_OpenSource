@@ -69,7 +69,7 @@ struct device *msm_iommu_get_ctx(const char *ctx_name)
 	r.name = ctx_name;
 	found = device_for_each_child(&msm_iommu_root_dev->dev, &r, each_iommu);
 
-	if (!found || !dev_get_drvdata(r.dev)) {
+	if (found <= 0 || !dev_get_drvdata(r.dev)) {
 		pr_err("Could not find context <%s>\n", ctx_name);
 		goto fail;
 	}
