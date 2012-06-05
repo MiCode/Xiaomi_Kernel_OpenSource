@@ -446,6 +446,7 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 void mdp4_dma_e_done_dtv(void);
 void mdp4_overlay_dtv_wait4vsync(void);
+void mdp4_dtv_base_swap(struct mdp4_overlay_pipe *pipe);
 #else
 static inline void mdp4_overlay_dtv_start(void)
 {
@@ -488,6 +489,10 @@ static inline void mdp4_dtv_overlay_blt_stop(struct msm_fb_data_type *mfd)
 {
 	return;
 }
+static inline void mdp4_dtv_base_swap(struct mdp4_overlay_pipe *pipe)
+{
+	/* empty */
+}
 #endif
 
 void mdp4_dtv_set_black_screen(void);
@@ -505,7 +510,6 @@ int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
-void mdp4_dtv_base_swap(struct mdp4_overlay_pipe *pipe);
 void mdp4_dtv_overlay(struct msm_fb_data_type *mfd);
 int mdp4_dtv_on(struct platform_device *pdev);
 int mdp4_dtv_off(struct platform_device *pdev);
