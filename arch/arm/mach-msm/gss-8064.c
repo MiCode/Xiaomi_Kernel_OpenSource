@@ -23,6 +23,7 @@
 #include <linux/fs.h>
 
 #include <mach/irqs.h>
+#include <mach/msm_smsm.h>
 #include <mach/scm.h>
 #include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
@@ -42,6 +43,32 @@ static struct gss_8064_data {
 
 static int crash_shutdown;
 
+#define MAX_SSR_REASON_LEN 81U
+
+static void log_gss_sfr(void)
+{
+	u32 size;
+	char *smem_reason, reason[MAX_SSR_REASON_LEN];
+
+	smem_reason = smem_get_entry(SMEM_SSR_REASON_MSS0, &size);
+	if (!smem_reason || !size) {
+		pr_err("GSS subsystem failure reason: (unknown, smem_get_entry failed).\n");
+		return;
+	}
+	if (!smem_reason[0]) {
+		pr_err("GSS subsystem failure reason: (unknown, init string found).\n");
+		return;
+	}
+
+	size = min(size, MAX_SSR_REASON_LEN-1);
+	memcpy(reason, smem_reason, size);
+	reason[size] = '\0';
+	pr_err("GSS subsystem failure reason: %s.\n", reason);
+
+	smem_reason[0] = '\0';
+	wmb();
+}
+
 static void gss_fatal_fn(struct work_struct *work)
 {
 	uint32_t panic_smsm_states = SMSM_RESET | SMSM_SYSTEM_DOWNLOAD;
@@ -58,6 +85,7 @@ static void gss_fatal_fn(struct work_struct *work)
 		pr_err("GSS SMSM state changed to SMSM_RESET.\n"
 			"Probable err_fatal on the GSS. "
 			"Calling subsystem restart...\n");
+		log_gss_sfr();
 		subsystem_restart("gss");
 
 	} else if (gss_state & reset_smsm_states) {
@@ -68,6 +96,7 @@ static void gss_fatal_fn(struct work_struct *work)
 		kernel_restart(NULL);
 	} else {
 		/* TODO: Bus unlock code/sequence goes _here_ */
+		log_gss_sfr();
 		subsystem_restart("gss");
 	}
 }
@@ -84,6 +113,7 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 		pr_err("GSS SMSM state changed to SMSM_RESET.\n"
 			"Probable err_fatal on the GSS. "
 			"Calling subsystem restart...\n");
+		log_gss_sfr();
 		subsystem_restart("gss");
 	}
 }
