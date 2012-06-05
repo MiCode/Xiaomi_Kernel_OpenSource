@@ -210,9 +210,9 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	case VFE_MSG_V32_JPEG_CAPTURE:
 		D("%s:VFE_MSG_V32_JPEG_CAPTURE vdata->type %d\n", __func__,
 			vdata->type);
-		free_buf.num_planes = 1;
-		free_buf.ch_paddr[0] = IMEM_Y_PING_OFFSET;
-		free_buf.ch_paddr[1] = IMEM_CBCR_PING_OFFSET;
+		free_buf.num_planes = 2;
+		free_buf.ch_paddr[0] = pmctl->ping_imem_y;
+		free_buf.ch_paddr[1] = pmctl->ping_imem_cbcr;
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -221,8 +221,8 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 			__func__, free_buf.ch_paddr[0], free_buf.ch_paddr[1]);
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		/* Write the same buffer into PONG */
-		free_buf.ch_paddr[0] = IMEM_Y_PONG_OFFSET;
-		free_buf.ch_paddr[1] = IMEM_CBCR_PONG_OFFSET;
+		free_buf.ch_paddr[0] = pmctl->pong_imem_y;
+		free_buf.ch_paddr[1] = pmctl->pong_imem_cbcr;
 		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -464,19 +464,54 @@ static int msm_isp_open(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
+	rc = msm_iommu_map_contig_buffer(
+		(unsigned long)IMEM_Y_PING_OFFSET, CAMERA_DOMAIN, GEN_POOL,
+		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)),
+		SZ_4K, IOMMU_WRITE | IOMMU_READ,
+		(unsigned long *)&mctl->ping_imem_y);
+	mctl->ping_imem_cbcr = mctl->ping_imem_y + IMEM_Y_SIZE;
+	if (rc < 0) {
+		pr_err("%s: ping iommu mapping returned error %d\n",
+			__func__, rc);
+		mctl->ping_imem_y = 0;
+		mctl->ping_imem_cbcr = 0;
+	}
+	msm_iommu_map_contig_buffer(
+		(unsigned long)IMEM_Y_PONG_OFFSET, CAMERA_DOMAIN, GEN_POOL,
+		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)),
+		SZ_4K, IOMMU_WRITE | IOMMU_READ,
+		(unsigned long *)&mctl->pong_imem_y);
+	mctl->pong_imem_cbcr = mctl->pong_imem_y + IMEM_Y_SIZE;
+	if (rc < 0) {
+		pr_err("%s: pong iommu mapping returned error %d\n",
+			 __func__, rc);
+		mctl->pong_imem_y = 0;
+		mctl->pong_imem_cbcr = 0;
+	}
+
 	rc = msm_vfe_subdev_init(sd, mctl);
 	if (rc < 0) {
 		pr_err("%s: vfe_init failed at %d\n",
-					__func__, rc);
+			__func__, rc);
 	}
 	return rc;
 }
 
-static void msm_isp_release(
+static void msm_isp_release(struct msm_cam_media_controller *mctl,
 	struct v4l2_subdev *sd)
 {
 	D("%s\n", __func__);
 	msm_vfe_subdev_release(sd);
+	msm_iommu_unmap_contig_buffer(mctl->ping_imem_y,
+		CAMERA_DOMAIN, GEN_POOL,
+		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)));
+	msm_iommu_unmap_contig_buffer(mctl->pong_imem_y,
+		CAMERA_DOMAIN, GEN_POOL,
+		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)));
+	mctl->ping_imem_y = 0;
+	mctl->ping_imem_cbcr = 0;
+	mctl->pong_imem_y = 0;
+	mctl->pong_imem_cbcr = 0;
 }
 
 static int msm_config_vfe(struct v4l2_subdev *sd,
