@@ -1023,7 +1023,7 @@ static int msm_camera_v4l2_qbuf(struct file *f, void *pctx,
 static int msm_camera_v4l2_dqbuf(struct file *f, void *pctx,
 					struct v4l2_buffer *pb)
 {
-	int rc = 0;
+	int rc = 0, i = 0;
 	/* get the camera device */
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	pcam_inst = container_of(f->private_data,
@@ -1034,6 +1034,27 @@ static int msm_camera_v4l2_dqbuf(struct file *f, void *pctx,
 
 	rc = vb2_dqbuf(&pcam_inst->vid_bufq, pb,  f->f_flags & O_NONBLOCK);
 	D("%s, videobuf_dqbuf returns %d\n", __func__, rc);
+
+	if (pb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		/* Reject the buffer if planes array was not allocated */
+		if (pb->m.planes == NULL) {
+			pr_err("%s Planes array is null\n", __func__);
+			return -EINVAL;
+		}
+		for (i = 0; i < pcam_inst->plane_info.num_planes; i++) {
+			pb->m.planes[i].data_offset =
+				pcam_inst->buf_offset[pb->index][i].data_offset;
+			pb->m.planes[i].reserved[0] =
+				pcam_inst->buf_offset[pb->index][i].addr_offset;
+			D("%s stored offsets for plane %d as "
+				"addr offset %d, data offset %d\n",
+				__func__, i, pb->m.planes[i].reserved[0],
+				pb->m.planes[i].data_offset);
+		}
+	} else {
+		D("%s stored reserved info %d\n", __func__, pb->reserved);
+		pb->reserved = pcam_inst->buf_offset[pb->index][0].addr_offset;
+	}
 
 	return rc;
 }
