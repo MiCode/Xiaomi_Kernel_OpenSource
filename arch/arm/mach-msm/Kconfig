@@ -2064,6 +2064,16 @@ config MSM_RPM_STATS_LOG
 	  the low power modes that RPM enters. The drivers outputs the message
 	  via a debugfs node.
 
+config MSM_RPM_RBCPR_STATS_LOG
+        tristate "MSM Resource Power Manager RPBCPR Stat Driver"
+        depends on DEBUG_FS
+        depends on MSM_RPM
+          help
+          This option enables a driver which reads RPM messages from a shared
+          memory location. These messages provide statistical information about
+          RBCPR (Rapid Bridge Core Power Reduction) information . The drivers
+          outputs the message via a debugfs node.
+
 config MSM_DIRECT_SCLK_ACCESS
 	bool "Direct access to the SCLK timer"
 	default n
