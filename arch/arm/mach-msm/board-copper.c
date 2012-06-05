@@ -408,23 +408,6 @@ struct platform_device copper_device_tz_log = {
 	.resource	= copper_tzlog_resources,
 };
 
-#ifdef CONFIG_HW_RANDOM_MSM
-/* PRNG device */
-#define MSM_PRNG_PHYS  0xF9BFF000
-static struct resource rng_resources = {
-	.flags = IORESOURCE_MEM,
-	.start = MSM_PRNG_PHYS,
-	.end   = MSM_PRNG_PHYS + SZ_512 - 1,
-};
-
-struct platform_device msm8974_device_rng = {
-	.name          = "msm_rng",
-	.id            = 0,
-	.num_resources = 1,
-	.resource      = &rng_resources,
-};
-#endif
-
 
 void __init msm_copper_add_devices(void)
 {
@@ -436,9 +419,6 @@ void __init msm_copper_add_devices(void)
 	platform_add_devices(msm_copper_stub_regulator_devices,
 					msm_copper_stub_regulator_devices_len);
 	platform_device_register(&copper_device_tz_log);
-#ifdef CONFIG_HW_RANDOM_MSM
-	platform_device_register(&msm8974_device_rng);
-#endif
 }
 
 /*
@@ -517,6 +497,8 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 			"pil-q6v5-lpass", NULL),
 	OF_DEV_AUXDATA("qcom,pil-pronto", 0xFB21B000, \
 			"pil_pronto", NULL),
+	OF_DEV_AUXDATA("qcom,msm-rng", 0xF9BFF000, \
+			"msm_rng", NULL),
 	{}
 };
 

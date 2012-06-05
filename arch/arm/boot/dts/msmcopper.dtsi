@@ -133,6 +133,7 @@
 		qcom,bam-dma-res-pipes = <6>;
 	};
 
+
 	spi@f9924000 {
 		compatible = "qcom,spi-qup-v2";
 		reg = <0xf9924000 0x1000>;
@@ -307,4 +308,9 @@
 		rpm-channel-name = "rpm_requests";
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 	};
+
+        qcom,msm-rng@f9bff000 {
+               compatible = "qcom,msm-rng";
+               reg = <0xf9bff000 0x200>;
+        };
 };
