@@ -55,7 +55,7 @@ static struct gpiomux_setting gpio_spi_cs_config = {
 
 /* Chip selects for EPM SPI clients */
 static struct gpiomux_setting gpio_epm_spi_cs_config = {
-	.func = GPIOMUX_FUNC_3,
+	.func = GPIOMUX_FUNC_6,
 	.drv = GPIOMUX_DRV_12MA,
 	.pull = GPIOMUX_PULL_UP,
 };
