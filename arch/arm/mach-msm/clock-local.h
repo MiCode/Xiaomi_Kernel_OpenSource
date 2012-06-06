@@ -156,8 +156,8 @@ extern struct clk_ops clk_ops_branch;
 extern struct clk_ops clk_ops_reset;
 
 int branch_reset(struct branch *b, enum clk_reset_action action);
-void __branch_clk_enable_reg(const struct branch *b, const char *name);
-u32 __branch_clk_disable_reg(const struct branch *b, const char *name);
+void __branch_enable_reg(const struct branch *b, const char *name);
+u32 __branch_disable_reg(const struct branch *b, const char *name);
 enum handoff branch_handoff(struct branch *b, struct clk *c);
 
 /*

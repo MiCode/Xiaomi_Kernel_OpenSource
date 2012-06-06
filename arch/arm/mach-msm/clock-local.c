@@ -276,7 +276,7 @@ static int branch_in_hwcg_mode(const struct branch *b)
 	return !!(readl_relaxed(b->hwcg_reg) & b->hwcg_mask);
 }
 
-void __branch_clk_enable_reg(const struct branch *b, const char *name)
+void __branch_enable_reg(const struct branch *b, const char *name)
 {
 	u32 reg_val;
 
@@ -347,11 +347,11 @@ static void __rcg_clk_enable_reg(struct rcg_clk *rcg)
 		reg_val |= rcg->root_en_mask;
 		writel_relaxed(reg_val, reg);
 	}
-	__branch_clk_enable_reg(&rcg->b, rcg->c.dbg_name);
+	__branch_enable_reg(&rcg->b, rcg->c.dbg_name);
 }
 
 /* Perform any register operations required to disable the branch. */
-u32 __branch_clk_disable_reg(const struct branch *b, const char *name)
+u32 __branch_disable_reg(const struct branch *b, const char *name)
 {
 	u32 reg_val;
 
@@ -396,7 +396,7 @@ static void __rcg_clk_disable_reg(struct rcg_clk *rcg)
 	void __iomem *const reg = rcg->b.ctl_reg;
 	uint32_t reg_val;
 
-	reg_val = __branch_clk_disable_reg(&rcg->b, rcg->c.dbg_name);
+	reg_val = __branch_disable_reg(&rcg->b, rcg->c.dbg_name);
 	/* Disable root. */
 	if (rcg->root_en_mask) {
 		reg_val &= ~(rcg->root_en_mask);
@@ -486,7 +486,7 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 			 * only modified within lock.
 			 */
 			if (x->enabled)
-				__branch_clk_disable_reg(&x->b, x->c.dbg_name);
+				__branch_disable_reg(&x->b, x->c.dbg_name);
 		}
 		if (rcg->enabled)
 			__rcg_clk_disable_reg(rcg);
@@ -510,7 +510,7 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 		list_for_each_entry(chld, &rcg->c.children, siblings) {
 			struct branch_clk *x = to_branch_clk(chld);
 			if (x->enabled)
-				__branch_clk_enable_reg(&x->b, x->c.dbg_name);
+				__branch_enable_reg(&x->b, x->c.dbg_name);
 		}
 	}
 
@@ -638,7 +638,7 @@ static int branch_clk_enable(struct clk *c)
 	struct branch_clk *br = to_branch_clk(c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__branch_clk_enable_reg(&br->b, br->c.dbg_name);
+	__branch_enable_reg(&br->b, br->c.dbg_name);
 	br->enabled = true;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
@@ -651,7 +651,7 @@ static void branch_clk_disable(struct clk *c)
 	struct branch_clk *br = to_branch_clk(c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__branch_clk_disable_reg(&br->b, br->c.dbg_name);
+	__branch_disable_reg(&br->b, br->c.dbg_name);
 	br->enabled = false;
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
@@ -845,7 +845,7 @@ static int cdiv_clk_enable(struct clk *c)
 	struct cdiv_clk *cdiv = to_cdiv_clk(c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__branch_clk_enable_reg(&cdiv->b, cdiv->c.dbg_name);
+	__branch_enable_reg(&cdiv->b, cdiv->c.dbg_name);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	return 0;
@@ -857,7 +857,7 @@ static void cdiv_clk_disable(struct clk *c)
 	struct cdiv_clk *cdiv = to_cdiv_clk(c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__branch_clk_disable_reg(&cdiv->b, cdiv->c.dbg_name);
+	__branch_disable_reg(&cdiv->b, cdiv->c.dbg_name);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 

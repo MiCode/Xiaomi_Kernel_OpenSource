@@ -2934,7 +2934,7 @@ static int pix_rdi_clk_enable(struct clk *c)
 	struct pix_rdi_clk *rdi = to_pix_rdi_clk(c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__branch_clk_enable_reg(&rdi->b, rdi->c.dbg_name);
+	__branch_enable_reg(&rdi->b, rdi->c.dbg_name);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 	rdi->enabled = true;
 
@@ -2947,7 +2947,7 @@ static void pix_rdi_clk_disable(struct clk *c)
 	struct pix_rdi_clk *rdi = to_pix_rdi_clk(c);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	__branch_clk_disable_reg(&rdi->b, rdi->c.dbg_name);
+	__branch_disable_reg(&rdi->b, rdi->c.dbg_name);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 	rdi->enabled = false;
 }
