@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -206,9 +206,11 @@ static int pm_power_set_property(struct power_supply *psy,
 	struct ltc4088_chg_chip *chip;
 
 	if (psy->type == POWER_SUPPLY_TYPE_USB) {
-		chip = container_of(psy, struct ltc4088_chg_chip,
-						usb_psy);
+		chip = container_of(psy, struct ltc4088_chg_chip, usb_psy);
 		switch (psp) {
+		case POWER_SUPPLY_PROP_TYPE:
+			psy.type = val->intval;
+			break;
 		case POWER_SUPPLY_PROP_ONLINE:
 			ltc4088_set_charging(chip, val->intval);
 			break;
