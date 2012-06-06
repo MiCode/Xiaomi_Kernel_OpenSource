@@ -18,7 +18,6 @@
 #include "msm_ispif.h"
 #include "msm_sensor.h"
 #include "msm_actuator.h"
-#include "msm_vfe32.h"
 #include "msm_csi_register.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG

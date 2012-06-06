@@ -1,9 +1,7 @@
 GCC_VERSION      := $(shell $(CONFIG_SHELL) $(PWD)/scripts/gcc-version.sh $(CROSS_COMPILE)gcc)
-ifeq ($(GCC_VERSION),0404)
-CFLAGS_REMOVE_msm_vfe8x.o = -Wframe-larger-than=1024
-endif
 
-EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/io
+ccflags-y += -Idrivers/media/platform/msm/camera_v1/io
+ccflags-y += -Idrivers/media/platform/msm/camera_v1/vfe
 obj-$(CONFIG_MSM_CAMERA) += io/
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/csi
@@ -11,7 +9,7 @@ ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/sensors
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/actuators
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/server
-  obj-$(CONFIG_MSM_CAMERA) += msm_isp.o msm.o msm_mem.o msm_mctl.o msm_mctl_buf.o msm_mctl_pp.o msm_vfe_stats_buf.o
+  obj-$(CONFIG_MSM_CAMERA) += msm_isp.o msm.o msm_mem.o msm_mctl.o msm_mctl_buf.o msm_mctl_pp.o
   obj-$(CONFIG_MSM_CAMERA) += server/
   obj-$(CONFIG_MSM_CAM_IRQ_ROUTER) += msm_camirq_router.o
   obj-$(CONFIG_MSM_CAMERA) += eeprom/ sensors/ actuators/ csi/
@@ -20,23 +18,17 @@ ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
 else
   obj-$(CONFIG_MSM_CAMERA) += msm_camera.o
 endif
+obj-$(CONFIG_MSM_CAMERA) += vfe/
 obj-$(CONFIG_MSM_CAMERA) += msm_axi_qos.o gemini/ mercury/
 obj-$(CONFIG_MSM_CAMERA_FLASH) += flash.o
-obj-$(CONFIG_ARCH_MSM_ARM11) += msm_vfe7x.o
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
-  obj-$(CONFIG_ARCH_MSM7X27A) += msm_vfe7x27a_v4l2.o
+  obj-$(CONFIG_ARCH_MSM8X60) += msm_vpe.o
+  obj-$(CONFIG_ARCH_MSM7X30) += msm_vpe.o msm_axi_qos.o
 else
-  obj-$(CONFIG_ARCH_MSM7X27A) += msm_vfe7x27a.o
+  obj-$(CONFIG_ARCH_MSM8X60) += msm_vpe1.o
+  obj-$(CONFIG_ARCH_MSM7X30) += msm_vpe1.o
 endif
-obj-$(CONFIG_ARCH_QSD8X50) += msm_vfe8x.o msm_vfe8x_proc.o
-ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
-  obj-$(CONFIG_ARCH_MSM8X60) += msm_vfe31_v4l2.o msm_vpe.o
-  obj-$(CONFIG_ARCH_MSM7X30) += msm_vfe31_v4l2.o msm_vpe.o msm_axi_qos.o
-else
-  obj-$(CONFIG_ARCH_MSM8X60) += msm_vfe31.o msm_vpe1.o
-  obj-$(CONFIG_ARCH_MSM7X30) += msm_vfe31.o msm_vpe1.o
-endif
-obj-$(CONFIG_ARCH_MSM8960) += msm_vfe32.o msm_vpe.o
+obj-$(CONFIG_ARCH_MSM8960) += msm_vpe.o
 obj-$(CONFIG_MT9T013) += mt9t013.o mt9t013_reg.o
 obj-$(CONFIG_SN12M0PZ) += sn12m0pz.o sn12m0pz_reg.o
 obj-$(CONFIG_MT9P012) += mt9p012_reg.o
