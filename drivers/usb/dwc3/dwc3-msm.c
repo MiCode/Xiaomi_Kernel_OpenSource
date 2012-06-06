@@ -82,6 +82,12 @@
 
 #define DBM_MAX_EPS		4
 
+/* DBM TRB configurations */
+#define DBM_TRB_BIT		0x80000000
+#define DBM_TRB_DATA_SRC	0x40000000
+#define DBM_TRB_DMA		0x20000000
+#define DBM_TRB_EP_NUM(ep)	(ep<<24)
+
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
 	struct usb_request *req;
@@ -507,25 +513,11 @@ static void dwc3_msm_req_complete_func(struct usb_ep *ep,
 */
 static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 {
-	struct dwc3_trb_hw *trb_hw;
-	struct dwc3_trb_hw *trb_link_hw;
-	struct dwc3_trb trb;
+	struct dwc3_trb *trb;
+	struct dwc3_trb *trb_link;
 	struct dwc3_gadget_ep_cmd_params params;
 	u32 cmd;
 	int ret = 0;
-
-	if ((req->request.udc_priv & MSM_IS_FINITE_TRANSFER) &&
-	    (req->request.length > 0)) {
-		/* Map the request to a DMA. */
-		ret = usb_gadget_map_request(&dep->dwc->gadget,
-					     &req->request,
-					     dep->direction);
-		if (ret) {
-			dev_err(dep->dwc->dev,
-			"%s: failed to map the request to dma\n", __func__);
-			return ret;
-		}
-	}
 
 	/* We push the request to the dep->req_queued list to indicate that
 	 * this request is issued with start transfer. The request will be out
@@ -538,31 +530,26 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	list_add_tail(&req->list, &dep->req_queued);
 
 	/* First, prepare a normal TRB, point to the fake buffer */
-	trb_hw = &dep->trb_pool[dep->free_slot & DWC3_TRB_MASK];
+	trb = &dep->trb_pool[dep->free_slot & DWC3_TRB_MASK];
 	dep->free_slot++;
-	memset(&trb, 0, sizeof(trb));
+	memset(trb, 0, sizeof(*trb));
 
-	req->trb = trb_hw;
-
-	trb.bplh = req->request.dma;
-	trb.lst = 0;
-	trb.trbctl = DWC3_TRBCTL_NORMAL;
-	trb.length = req->request.length;
-	trb.hwo = true;
-
-	dwc3_trb_to_hw(&trb, trb_hw);
-	req->trb_dma = dep->trb_pool_dma;
+	req->trb = trb;
+	req->trb_dma = dwc3_trb_dma_offset(dep, trb);
+	trb->bph = DBM_TRB_BIT | DBM_TRB_DATA_SRC |
+		   DBM_TRB_DMA | DBM_TRB_EP_NUM(dep->number);
+	trb->size = DWC3_TRB_SIZE_LENGTH(req->request.length);
+	trb->ctrl = DWC3_TRBCTL_NORMAL | DWC3_TRB_CTRL_HWO | DWC3_TRB_CTRL_CHN;
 
 	/* Second, prepare a Link TRB that points to the first TRB*/
-	trb_link_hw = &dep->trb_pool[dep->free_slot & DWC3_TRB_MASK];
+	trb_link = &dep->trb_pool[dep->free_slot & DWC3_TRB_MASK];
 	dep->free_slot++;
-	memset(&trb, 0, sizeof(trb));
 
-	trb.bplh = dep->trb_pool_dma;
-	trb.trbctl = DWC3_TRBCTL_LINK_TRB;
-	trb.hwo = true;
-
-	dwc3_trb_to_hw(&trb, trb_link_hw);
+	trb_link->bpl = lower_32_bits(req->trb_dma);
+	trb_link->bph = DBM_TRB_BIT | DBM_TRB_DATA_SRC |
+			DBM_TRB_DMA | DBM_TRB_EP_NUM(dep->number);
+	trb_link->size = 0;
+	trb_link->ctrl = DWC3_TRBCTL_LINK_TRB | DWC3_TRB_CTRL_HWO;
 
 	/*
 	 * Now start the transfer
@@ -577,11 +564,6 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 			"%s: failed to send STARTTRANSFER command\n",
 			__func__);
 
-		if ((req->request.udc_priv & MSM_IS_FINITE_TRANSFER) &&
-		    (req->request.length > 0))
-			usb_gadget_unmap_request(&dep->dwc->gadget,
-						 &req->request,
-						 dep->direction);
 		list_del(&req->list);
 		return ret;
 	}
