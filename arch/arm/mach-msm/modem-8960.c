@@ -258,13 +258,9 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 
 	case Q6SW_WDOG_EXPIRED_IRQ:
 		ret = schedule_work(&modem_sw_fatal_work);
-		disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
-		disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
 		break;
 	case Q6FW_WDOG_EXPIRED_IRQ:
 		ret = schedule_work(&modem_fw_fatal_work);
-		disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
-		disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
 		break;
 	break;
 
