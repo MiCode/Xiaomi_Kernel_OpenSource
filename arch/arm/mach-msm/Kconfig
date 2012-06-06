@@ -1914,13 +1914,25 @@ config MSM_PIL_QDSP6V3
 	  Support for booting and shutting down QDSP6v3 processors (hexagon).
 	  The QDSP6 is a low power DSP used in audio software applications.
 
-config MSM_PIL_QDSP6V4
-	tristate "QDSP6v4 (Hexagon) Boot Support"
+config MSM_PIL_LPASS_QDSP6V4
+	tristate "LPASS QDSP6v4 (Hexagon) Boot Support"
 	depends on MSM_PIL
 	help
-	  Support for booting and shutting down QDSP6v4 processors (hexagon).
-	  The QDSP6 is a low power DSP used in audio, modem firmware, and modem
-	  software applications.
+	  Support for booting and shutting down QDSP6v4 processors (hexagon)
+	  in low power audio subsystems. If you would like to record or
+	  play audio then say Y here.
+
+	  If unsure, say N.
+
+config MSM_PIL_MODEM_QDSP6V4
+	tristate "Modem QDSP6v4 (Hexagon) Boot Support"
+	depends on MSM_PIL
+	help
+	  Support for booting and shutting down QDSP6v4 processors (hexagon)
+	  in modem subsystems. If you would like to make or receive phone
+	  calls then say Y here.
+
+	  If unsure, say N.
 
 config MSM_PIL_LPASS_QDSP6V5
        tristate "LPASS QDSP6v5 (Hexagon) Boot Support"
