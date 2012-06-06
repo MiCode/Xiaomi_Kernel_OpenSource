@@ -86,33 +86,9 @@ static DECLARE_DELAYED_WORK(modem_wdog_check_work, modem_wdog_check);
 
 static void modem_sw_fatal_fn(struct work_struct *work)
 {
-	uint32_t panic_smsm_states = SMSM_RESET | SMSM_SYSTEM_DOWNLOAD;
-	uint32_t reset_smsm_states = SMSM_SYSTEM_REBOOT_USR |
-					SMSM_SYSTEM_PWRDWN_USR;
-	uint32_t modem_state;
-
 	pr_err("Watchdog bite received from modem SW!\n");
-
-	modem_state = smsm_get_state(SMSM_MODEM_STATE);
-
-	if (modem_state & panic_smsm_states) {
-
-		pr_err("Modem SMSM state changed to SMSM_RESET.\n"
-			"Probable err_fatal on the modem. "
-			"Calling subsystem restart...\n");
-		log_modem_sfr();
-		subsystem_restart("modem");
-
-	} else if (modem_state & reset_smsm_states) {
-
-		pr_err("%s: User-invoked system reset/powerdown. "
-			"Resetting the SoC now.\n",
-			__func__);
-		kernel_restart(NULL);
-	} else {
-		log_modem_sfr();
-		subsystem_restart("modem");
-	}
+	log_modem_sfr();
+	subsystem_restart("modem");
 }
 
 static void modem_fw_fatal_fn(struct work_struct *work)
