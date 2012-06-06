@@ -796,6 +796,37 @@ static int adreno_stop(struct kgsl_device *device)
 	return 0;
 }
 
+static void adreno_mark_context_status(struct kgsl_device *device,
+					int recovery_status)
+{
+	struct kgsl_context *context;
+	int next = 0;
+	/*
+	 * Set the reset status of all contexts to
+	 * INNOCENT_CONTEXT_RESET_EXT except for the bad context
+	 * since thats the guilty party, if recovery failed then
+	 * mark all as guilty
+	 */
+	while ((context = idr_get_next(&device->context_idr, &next))) {
+		struct adreno_context *adreno_context = context->devctxt;
+		if (recovery_status) {
+			context->reset_status =
+					KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
+			adreno_context->flags |= CTXT_FLAGS_GPU_HANG;
+		} else if (KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT !=
+			context->reset_status) {
+			if (adreno_context->flags & (CTXT_FLAGS_GPU_HANG ||
+				CTXT_FLAGS_GPU_HANG_RECOVERED))
+				context->reset_status =
+				KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
+			else
+				context->reset_status =
+				KGSL_CTX_STAT_INNOCENT_CONTEXT_RESET_EXT;
+		}
+		next = next + 1;
+	}
+}
+
 static int
 adreno_recover_hang(struct kgsl_device *device,
 			struct adreno_recovery_data *rec_data)
@@ -806,7 +837,6 @@ adreno_recover_hang(struct kgsl_device *device,
 	unsigned int timestamp;
 	struct kgsl_context *context;
 	struct adreno_context *adreno_context;
-	int next = 0;
 
 	KGSL_DRV_ERR(device,
 	"Starting recovery from 3D GPU hang. Recovery parameters: IB1: 0x%X, "
@@ -852,30 +882,13 @@ adreno_recover_hang(struct kgsl_device *device,
 
 	adreno_context->flags |= CTXT_FLAGS_GPU_HANG;
 
-	/*
-	 * Set the reset status of all contexts to
-	 * INNOCENT_CONTEXT_RESET_EXT except for the bad context
-	 * since thats the guilty party
-	 */
-	while ((context = idr_get_next(&device->context_idr, &next))) {
-		if (KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT !=
-			context->reset_status) {
-			if (context->id != rec_data->context_id)
-				context->reset_status =
-				KGSL_CTX_STAT_INNOCENT_CONTEXT_RESET_EXT;
-			else
-				context->reset_status =
-				KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
-		}
-		next = next + 1;
-	}
-
 	/* Restore valid commands in ringbuffer */
 	adreno_ringbuffer_restore(rb, rec_data->rb_buffer, rec_data->rb_size);
 	rb->timestamp[KGSL_MEMSTORE_GLOBAL] = timestamp;
 	/* wait for idle */
 	ret = adreno_idle(device, KGSL_TIMEOUT_DEFAULT);
 done:
+	adreno_mark_context_status(device, ret);
 	return ret;
 }
 
