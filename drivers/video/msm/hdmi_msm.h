@@ -61,7 +61,7 @@ struct hdmi_msm_state_type {
 	boolean hpd_cable_chg_detected;
 	boolean full_auth_done;
 	boolean hpd_during_auth;
-	struct work_struct hpd_state_work, hpd_read_work;
+	struct work_struct hpd_state_work;
 	struct timer_list hpd_state_timer;
 	struct completion ddc_sw_done;
 
