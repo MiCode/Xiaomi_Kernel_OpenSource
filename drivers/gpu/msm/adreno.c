@@ -827,6 +827,30 @@ static void adreno_mark_context_status(struct kgsl_device *device,
 	}
 }
 
+static void adreno_set_max_ts_for_bad_ctxs(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	struct kgsl_context *context;
+	struct adreno_context *temp_adreno_context;
+	int next = 0;
+
+	while ((context = idr_get_next(&device->context_idr, &next))) {
+		temp_adreno_context = context->devctxt;
+		if (temp_adreno_context->flags & CTXT_FLAGS_GPU_HANG) {
+			kgsl_sharedmem_writel(&device->memstore,
+				KGSL_MEMSTORE_OFFSET(context->id,
+				soptimestamp),
+				rb->timestamp[context->id]);
+			kgsl_sharedmem_writel(&device->memstore,
+				KGSL_MEMSTORE_OFFSET(context->id,
+				eoptimestamp),
+				rb->timestamp[context->id]);
+		}
+		next = next + 1;
+	}
+}
+
 static int
 adreno_recover_hang(struct kgsl_device *device,
 			struct adreno_recovery_data *rec_data)
@@ -879,6 +903,11 @@ adreno_recover_hang(struct kgsl_device *device,
 	/* wait for idle */
 	ret = adreno_idle(device, KGSL_TIMEOUT_DEFAULT);
 done:
+	kgsl_sharedmem_writel(&device->memstore,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+			eoptimestamp),
+			rb->timestamp[KGSL_MEMSTORE_GLOBAL]);
+	adreno_set_max_ts_for_bad_ctxs(device);
 	adreno_mark_context_status(device, ret);
 	return ret;
 }
