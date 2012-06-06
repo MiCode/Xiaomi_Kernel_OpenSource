@@ -4650,14 +4650,14 @@ static struct clk_lookup msm_clocks_copper[] = {
 	CLK_LOOKUP("iface_clk", gcc_tsif_ahb_clk.c, ""),
 	CLK_LOOKUP("ref_clk", gcc_tsif_ref_clk.c, ""),
 
-	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c, ""),
-	CLK_LOOKUP("core_clk", gcc_usb30_mock_utmi_clk.c, ""),
-	CLK_LOOKUP("iface_clk", gcc_usb_hs_ahb_clk.c, "msm_otg"),
-	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c, ""),
-	CLK_LOOKUP("iface_clk", gcc_usb_hsic_ahb_clk.c, ""),
-	CLK_LOOKUP("core_clk", gcc_usb_hsic_clk.c, ""),
-	CLK_LOOKUP("core_clk", gcc_usb_hsic_io_cal_clk.c, ""),
-	CLK_LOOKUP("core_clk", gcc_usb_hsic_system_clk.c, ""),
+	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c,    "msm_dwc3"),
+	CLK_LOOKUP("utmi_clk", gcc_usb30_mock_utmi_clk.c, "msm_dwc3"),
+	CLK_LOOKUP("iface_clk", gcc_usb_hs_ahb_clk.c,     "msm_otg"),
+	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c,   "msm_otg"),
+	CLK_LOOKUP("iface_clk", gcc_usb_hsic_ahb_clk.c,	  "msm_hsic_host"),
+	CLK_LOOKUP("phy_clk", gcc_usb_hsic_clk.c,	  "msm_hsic_host"),
+	CLK_LOOKUP("cal_clk", gcc_usb_hsic_io_cal_clk.c,  "msm_hsic_host"),
+	CLK_LOOKUP("core_clk", gcc_usb_hsic_system_clk.c, "msm_hsic_host"),
 
 	/* Multimedia clocks */
 	CLK_LOOKUP("bus_clk_src", axi_clk_src.c, ""),
@@ -4782,8 +4782,6 @@ static struct clk_lookup msm_clocks_copper[] = {
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
 	/* TODO: Remove dummy clocks as soon as they become unnecessary */
-	CLK_DUMMY("phy_clk",       NULL,    "msm_otg", OFF),
-	CLK_DUMMY("core_clk",      NULL,    "msm_otg", OFF),
 	CLK_DUMMY("dfab_clk",  DFAB_CLK,    "msm_sps", OFF),
 	CLK_DUMMY("mem_clk",       NULL,    "msm_sps", OFF),
 	CLK_DUMMY("bus_clk",       NULL,        "scm", OFF),
