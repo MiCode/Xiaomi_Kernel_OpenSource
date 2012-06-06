@@ -1288,6 +1288,8 @@ static int pm_power_set_property_usb(struct power_supply *psy,
 		else
 			return -EINVAL;
 		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		return pm8921_set_usb_power_supply_type(val->intval);
 	default:
 		return -EINVAL;
 	}
