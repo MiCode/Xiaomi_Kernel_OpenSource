@@ -318,16 +318,6 @@ static void xhci_cleanup_msix(struct xhci_hcd *xhci)
 	return;
 }
 
-static void xhci_msix_sync_irqs(struct xhci_hcd *xhci)
-{
-	int i;
-
-	if (xhci->msix_entries) {
-		for (i = 0; i < xhci->msix_count; i++)
-			synchronize_irq(xhci->msix_entries[i].vector);
-	}
-}
-
 static int xhci_try_enable_msi(struct usb_hcd *hcd)
 {
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
@@ -383,11 +373,7 @@ static void xhci_cleanup_msix(struct xhci_hcd *xhci)
 {
 }
 
-static void xhci_msix_sync_irqs(struct xhci_hcd *xhci)
-{
-}
-
-#endif
+#endif /* CONFIG_PCI */
 
 /*
  * Initialize memory for HCD and xHC (one-time init).
@@ -668,6 +654,23 @@ void xhci_shutdown(struct usb_hcd *hcd)
 }
 
 #ifdef CONFIG_PM
+
+#ifdef CONFIG_PCI
+static void xhci_msix_sync_irqs(struct xhci_hcd *xhci)
+{
+	int i;
+
+	if (xhci->msix_entries) {
+		for (i = 0; i < xhci->msix_count; i++)
+			synchronize_irq(xhci->msix_entries[i].vector);
+	}
+}
+#else
+static void xhci_msix_sync_irqs(struct xhci_hcd *xhci)
+{
+}
+#endif /* CONFIG_PCI */
+
 static void xhci_save_registers(struct xhci_hcd *xhci)
 {
 	xhci->s3.command = xhci_readl(xhci, &xhci->op_regs->command);
