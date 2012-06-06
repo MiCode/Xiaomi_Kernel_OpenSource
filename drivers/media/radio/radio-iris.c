@@ -88,6 +88,7 @@ struct iris_device {
 	unsigned char power_mode;
 	int search_on;
 	unsigned int tone_freq;
+	unsigned char spur_table_size;
 	unsigned char g_scan_time;
 	unsigned int g_antenna;
 	unsigned int g_rds_grp_proc_ps;
@@ -101,11 +102,13 @@ struct iris_device {
 	struct hci_fm_sig_threshold_rsp sig_th;
 	struct hci_fm_ch_det_threshold ch_det_threshold;
 	struct hci_fm_data_rd_rsp default_data;
+	struct hci_fm_spur_data spur_data;
 };
 
 static struct video_device *priv_videodev;
 static int iris_do_calibration(struct iris_device *radio);
 
+static int update_spur_table(struct iris_device *radio);
 static struct v4l2_queryctrl iris_v4l2_queryctrl[] = {
 	{
 	.id	= V4L2_CID_AUDIO_VOLUME,
@@ -2896,6 +2899,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 				FMDERR("get frequency failed %d\n", retval);
 			break;
 		case FM_OFF:
+			radio->spur_table_size = 0;
 			switch (radio->mode) {
 			case FM_RECV:
 				retval = hci_cmd(HCI_FM_DISABLE_RECV_CMD,
@@ -3248,9 +3252,113 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		*/
 		retval = 0;
 		break;
+	case V4L2_CID_PRIVATE_SPUR_FREQ:
+		if (radio->spur_table_size >= MAX_SPUR_FREQ_LIMIT) {
+			FMDERR("%s: Spur Table Full!\n", __func__);
+			retval = -1;
+		} else
+			radio->spur_data.freq[radio->spur_table_size] =
+				ctrl->value;
+		break;
+	case V4L2_CID_PRIVATE_SPUR_FREQ_RMSSI:
+		if (radio->spur_table_size >= MAX_SPUR_FREQ_LIMIT) {
+			FMDERR("%s: Spur Table Full!\n", __func__);
+			retval = -1;
+		} else
+			radio->spur_data.rmssi[radio->spur_table_size] =
+				ctrl->value;
+		break;
+	case V4L2_CID_PRIVATE_SPUR_SELECTION:
+		if (radio->spur_table_size >= MAX_SPUR_FREQ_LIMIT) {
+			FMDERR("%s: Spur Table Full!\n", __func__);
+			retval = -1;
+		} else {
+			radio->spur_data.enable[radio->spur_table_size] =
+				ctrl->value;
+			radio->spur_table_size++;
+		}
+		break;
+	case V4L2_CID_PRIVATE_UPDATE_SPUR_TABLE:
+		update_spur_table(radio);
+		break;
 	default:
 		retval = -EINVAL;
 	}
+	return retval;
+}
+
+static int update_spur_table(struct iris_device *radio)
+{
+	struct hci_fm_def_data_wr_req default_data;
+	int len = 0, index = 0, offset = 0, i = 0;
+	int retval = 0, temp = 0, cnt = 0;
+
+	memset(&default_data, 0, sizeof(default_data));
+
+	/* Pass the mode of SPUR_CLK */
+	default_data.mode = CKK_SPUR;
+
+	temp = radio->spur_table_size;
+	for (cnt = 0; cnt < (temp / 5); cnt++) {
+		offset = 0;
+		/*
+		 * Program the spur entries in spur table in following order:
+		 *    Spur index
+		 *    Length of the spur data
+		 *    Spur Data:
+		 *        MSB of the spur frequency
+		 *        LSB of the spur frequency
+		 *        Enable/Disable the spur frequency
+		 *        RMSSI value of the spur frequency
+		 */
+		default_data.data[offset++] = ENTRY_0 + cnt;
+		for (i = 0; i < SPUR_ENTRIES_PER_ID; i++) {
+			default_data.data[offset++] = GET_FREQ(COMPUTE_SPUR(
+				radio->spur_data.freq[index]), 0);
+			default_data.data[offset++] = GET_FREQ(COMPUTE_SPUR(
+				radio->spur_data.freq[index]), 1);
+			default_data.data[offset++] =
+				radio->spur_data.enable[index];
+			default_data.data[offset++] =
+				radio->spur_data.rmssi[index];
+			index++;
+		}
+		len = (SPUR_ENTRIES_PER_ID * SPUR_DATA_SIZE);
+		default_data.length = (len + 1);
+		retval = hci_def_data_write(&default_data, radio->fm_hdev);
+		if (retval < 0) {
+			FMDBG("%s: Failed to configure entries for ID : %d\n",
+				__func__, default_data.data[0]);
+			return retval;
+		}
+	}
+
+	/* Compute balance SPUR frequencies to be programmed */
+	temp %= SPUR_ENTRIES_PER_ID;
+	if (temp > 0) {
+		offset = 0;
+		default_data.data[offset++] = (radio->spur_table_size / 5);
+		for (i = 0; i < temp; i++) {
+			default_data.data[offset++] = GET_FREQ(COMPUTE_SPUR(
+				radio->spur_data.freq[index]), 0);
+			default_data.data[offset++] = GET_FREQ(COMPUTE_SPUR(
+				radio->spur_data.freq[index]), 1);
+			default_data.data[offset++] =
+				radio->spur_data.enable[index];
+			default_data.data[offset++] =
+				radio->spur_data.rmssi[index];
+			index++;
+		}
+		len = (temp * SPUR_DATA_SIZE);
+		default_data.length = (len + 1);
+		retval = hci_def_data_write(&default_data, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("%s: Failed to configure entries for ID : %d\n",
+				__func__, default_data.data[0]);
+			return retval;
+		}
+	}
+
 	return retval;
 }
 

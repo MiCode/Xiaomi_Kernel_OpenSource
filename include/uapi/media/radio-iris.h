@@ -489,6 +489,29 @@ struct hci_fm_dbg_param_rsp {
 	__u8    in_det_out;
 } __packed;
 
+#define CLKSPURID_INDEX0	0
+#define CLKSPURID_INDEX1	5
+#define CLKSPURID_INDEX2	10
+#define CLKSPURID_INDEX3	15
+#define CLKSPURID_INDEX4	20
+#define CLKSPURID_INDEX5	25
+
+#define MAX_SPUR_FREQ_LIMIT	30
+#define CKK_SPUR		0x3B
+#define SPUR_DATA_SIZE		0x4
+#define SPUR_ENTRIES_PER_ID	0x5
+
+#define COMPUTE_SPUR(val)         ((((val) - (76000)) / (50)))
+#define GET_FREQ(val, bit)        ((bit == 1) ? ((val) >> 8) : ((val) & 0xFF))
+#define GET_SPUR_ENTRY_LEVEL(val) ((val) / (5))
+
+struct hci_fm_spur_data {
+	__u32	freq[MAX_SPUR_FREQ_LIMIT];
+	__s8	rmssi[MAX_SPUR_FREQ_LIMIT];
+	__u8	enable[MAX_SPUR_FREQ_LIMIT];
+} __packed;
+
+
 /* HCI dev events */
 #define RADIO_HCI_DEV_REG			1
 #define RADIO_HCI_DEV_WRITE			2
@@ -572,6 +595,10 @@ enum v4l2_cid_private_iris_t {
 	V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD,
 	V4L2_CID_PRIVATE_SINR_THRESHOLD,
 	V4L2_CID_PRIVATE_SINR_SAMPLES,
+	V4L2_CID_PRIVATE_SPUR_FREQ,
+	V4L2_CID_PRIVATE_SPUR_FREQ_RMSSI,
+	V4L2_CID_PRIVATE_SPUR_SELECTION,
+	V4L2_CID_PRIVATE_UPDATE_SPUR_TABLE,
 
 	/*using private CIDs under userclass*/
 	V4L2_CID_PRIVATE_IRIS_READ_DEFAULT = 0x00980928,
@@ -680,6 +707,14 @@ enum search_t {
 	RDS_AF_JUMP,
 };
 
+enum spur_entry_levels {
+	ENTRY_0,
+	ENTRY_1,
+	ENTRY_2,
+	ENTRY_3,
+	ENTRY_4,
+	ENTRY_5,
+};
 
 /* Band limits */
 #define REGION_US_EU_BAND_LOW              87500
@@ -774,6 +809,7 @@ struct hci_cc_do_calibration_rsp {
 #define RDS_SYNC_INTR   (1 << 1)
 #define AUDIO_CTRL_INTR (1 << 2)
 #define AF_JUMP_ENABLE  (1 << 4)
+
 int hci_def_data_read(struct hci_fm_def_data_rd_req *arg,
 	struct radio_hci_dev *hdev);
 int hci_def_data_write(struct hci_fm_def_data_wr_req *arg,
