@@ -22,6 +22,7 @@
 #include <mach/clk.h>
 #include <linux/clk.h>
 
+#include <media/v4l2-event.h>
 #include <media/vcap_v4l2.h>
 #include <media/vcap_fmt.h>
 #include "vcap_vc.h"
@@ -113,14 +114,40 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 	struct vcap_buffer *buf;
 	struct vb2_buffer *vb = NULL;
 	struct vcap_client_data *c_data;
-
+	struct v4l2_event v4l2_evt;
 
 	irq = readl_relaxed(VCAP_VC_INT_STATUS);
 
 	dprintk(1, "%s: irq=0x%08x\n", __func__, irq);
 
-	vc_buf_status = irq & VC_BUFFER_WRITTEN;
+	v4l2_evt.id = 0;
+	if (irq & 0x8000200) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VC_PIX_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
+	if (irq & 0x40000200) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VC_LINE_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
+	if (irq & 0x20000200) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VC_VSYNC_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
+	if (irq & 0x00000800) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VC_NPL_OFLOW_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
+	if (irq & 0x00000400) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VC_LBUF_OFLOW_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
 
+	vc_buf_status = irq & VC_BUFFER_WRITTEN;
 	dprintk(1, "Done buf status = %d\n", vc_buf_status);
 
 	if (vc_buf_status == VC_NO_BUF) {
@@ -166,6 +193,9 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 		spin_lock(&dev->vc_client->cap_slock);
 		if (list_empty(&dev->vc_client->vid_vc_action.active)) {
 			spin_unlock(&dev->vc_client->cap_slock);
+			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+				VCAP_VC_BUF_OVERWRITE_EVENT;
+			v4l2_event_queue(dev->vfd, &v4l2_evt);
 			writel_relaxed(irq, VCAP_VC_INT_CLEAR);
 			return IRQ_HANDLED;
 		}
@@ -187,8 +217,11 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 		spin_lock(&dev->vc_client->cap_slock);
 		vb = &dev->vc_client->vid_vc_action.buf2->vb;
 		if (list_empty(&dev->vc_client->vid_vc_action.active)) {
-			writel_relaxed(irq, VCAP_VC_INT_CLEAR);
 			spin_unlock(&dev->vc_client->cap_slock);
+			writel_relaxed(irq, VCAP_VC_INT_CLEAR);
+			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+				VCAP_VC_BUF_OVERWRITE_EVENT;
+			v4l2_event_queue(dev->vfd, &v4l2_evt);
 			return IRQ_HANDLED;
 		}
 		buf = list_entry(dev->vc_client->vid_vc_action.active.next,

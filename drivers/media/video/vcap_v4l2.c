@@ -32,6 +32,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-event.h>
 #include <linux/regulator/consumer.h>
 #include <mach/clk.h>
 #include <linux/clk.h>
@@ -502,7 +503,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	int size;
 	struct vcap_priv_fmt *priv_fmt;
 	struct v4l2_format_vc_ext *vc_format;
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 
 	priv_fmt = (struct vcap_priv_fmt *) f->fmt.raw_data;
 
@@ -572,7 +573,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 static int vidioc_reqbufs(struct file *file, void *priv,
 			  struct v4l2_requestbuffers *rb)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	int rc;
 
 	dprintk(3, "In Req Buf %08x\n", (unsigned int)rb->type);
@@ -631,7 +632,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 
 static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 
 	switch (p->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -645,7 +646,7 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	struct vb2_buffer *vb;
 	struct vb2_queue *q;
 	int rc;
@@ -706,7 +707,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	int rc;
 
 	dprintk(3, "In DQ Buf %08x\n", (unsigned int)p->type);
@@ -766,7 +767,7 @@ int streamon_validate_q(struct vb2_queue *q)
 
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	int rc;
 
 	dprintk(3, "In Stream ON\n");
@@ -893,7 +894,7 @@ int streamoff_validate_q(struct vb2_queue *q)
 
 static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	int rc;
 
 	switch (c_data->op_mode) {
@@ -965,6 +966,36 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -ENOTRECOVERABLE;
 	}
 	return 0;
+}
+
+static int vidioc_subscribe_event(struct v4l2_fh *fh,
+			struct v4l2_event_subscription *sub)
+{
+	int rc;
+	if (sub->type == V4L2_EVENT_ALL) {
+		sub->type = V4L2_EVENT_PRIVATE_START +
+				VCAP_GENERIC_NOTIFY_EVENT;
+		sub->id = 0;
+		do {
+			rc = v4l2_event_subscribe(fh, sub, 16);
+			if (rc < 0) {
+				sub->type = V4L2_EVENT_ALL;
+				v4l2_event_unsubscribe(fh, sub);
+				return rc;
+			}
+			sub->type++;
+		} while (sub->type !=
+			V4L2_EVENT_PRIVATE_START + VCAP_MAX_NOTIFY_EVENT);
+	} else {
+		rc = v4l2_event_subscribe(fh, sub, 16);
+	}
+	return rc;
+}
+
+static int vidioc_unsubscribe_event(struct v4l2_fh *fh,
+			struct v4l2_event_subscription *sub)
+{
+	return v4l2_event_unsubscribe(fh, sub);
 }
 
 /* VCAP fops */
@@ -1047,8 +1078,10 @@ static int vcap_open(struct file *file)
 	INIT_LIST_HEAD(&c_data->vid_vc_action.active);
 	INIT_LIST_HEAD(&c_data->vid_vp_action.in_active);
 	INIT_LIST_HEAD(&c_data->vid_vp_action.out_active);
-	file->private_data = c_data;
 
+	v4l2_fh_init(&c_data->vfh, dev->vfd);
+	v4l2_fh_add(&c_data->vfh);
+	file->private_data = &c_data->vfh;
 	return 0;
 
 vp_out_q_failed:
@@ -1062,12 +1095,18 @@ vc_q_failed:
 
 static int vcap_close(struct file *file)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
+	if (c_data == NULL)
+		return 0;
+	v4l2_fh_del(&c_data->vfh);
+	v4l2_fh_exit(&c_data->vfh);
 	vb2_queue_release(&c_data->vp_out_vidq);
 	vb2_queue_release(&c_data->vp_in_vidq);
 	vb2_queue_release(&c_data->vc_vidq);
-	c_data->dev->vc_client = NULL;
-	c_data->dev->vp_client = NULL;
+	if (c_data->dev->vc_client == c_data)
+		c_data->dev->vc_client = NULL;
+	if (c_data->dev->vp_client == c_data)
+		c_data->dev->vp_client = NULL;
 	kfree(c_data);
 	return 0;
 }
@@ -1103,29 +1142,35 @@ unsigned int poll_work(struct vb2_queue *q, struct file *file,
 static unsigned int vcap_poll(struct file *file,
 				  struct poll_table_struct *wait)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	struct vb2_queue *q;
 	unsigned int mask = 0;
+
+	dprintk(1, "Enter slect/poll\n");
 
 	switch (c_data->op_mode) {
 	case VC_VCAP_OP:
 		q = &c_data->vc_vidq;
-		return vb2_poll(q, file, wait);
+		mask = vb2_poll(q, file, wait);
+		break;
 	case VP_VCAP_OP:
 		q = &c_data->vp_in_vidq;
 		mask = poll_work(q, file, wait, 0);
 		q = &c_data->vp_out_vidq;
 		mask |= poll_work(q, file, wait, 1);
-		return mask;
+		break;
 	case VC_AND_VP_VCAP_OP:
 		q = &c_data->vp_out_vidq;
 		mask = poll_work(q, file, wait, 0);
-		return mask;
+		break;
 	default:
 		pr_err("VCAP Error: %s: Unknown operation mode", __func__);
 		return POLLERR;
 	}
-	return 0;
+	if (v4l2_event_pending(&c_data->vfh))
+		mask |= POLLPRI;
+	poll_wait(file, &(c_data->vfh.wait), wait);
+	return mask;
 }
 /* V4L2 and video device structures */
 
@@ -1153,6 +1198,9 @@ static const struct v4l2_ioctl_ops vcap_ioctl_ops = {
 	.vidioc_dqbuf         = vidioc_dqbuf,
 	.vidioc_streamon      = vidioc_streamon,
 	.vidioc_streamoff     = vidioc_streamoff,
+
+	.vidioc_subscribe_event = vidioc_subscribe_event,
+	.vidioc_unsubscribe_event = vidioc_unsubscribe_event,
 };
 
 static struct video_device vcap_template = {

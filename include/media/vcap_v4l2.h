@@ -29,6 +29,8 @@
 #include <media/vcap_fmt.h>
 #include <mach/board.h>
 
+#define to_client_data(val)     container_of(val, struct vcap_client_data, vfh)
+
 #define writel_iowmb(val, addr)		\
 	do {							\
 		__iowmb();					\
@@ -204,6 +206,8 @@ struct vcap_client_data {
 
 	spinlock_t				cap_slock;
 	bool					streaming;
+
+	struct v4l2_fh			vfh;
 };
 
 struct vcap_hacked_vals {
