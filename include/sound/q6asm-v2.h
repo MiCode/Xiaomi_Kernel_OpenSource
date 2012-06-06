@@ -64,8 +64,11 @@
 /* Enable Sample_Rate/Channel_Mode notification event from Decoder */
 #define SR_CM_NOTIFY_ENABLE	0x0004
 
-#define ASYNC_IO_MODE	0x0002
 #define SYNC_IO_MODE	0x0001
+#define ASYNC_IO_MODE	0x0002
+#define NT_MODE        0x0400
+
+
 #define NO_TIMESTAMP    0xFF00
 #define SET_TIMESTAMP   0x0000
 
@@ -229,6 +232,9 @@ int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 
 int q6asm_set_encdec_chan_map(struct audio_client *ac,
 		uint32_t num_channels);
+
+int q6asm_enc_cfg_blk_pcm_native(struct audio_client *ac,
+			uint32_t rate, uint32_t channels);
 
 int q6asm_enable_sbrps(struct audio_client *ac,
 			uint32_t sbr_ps);

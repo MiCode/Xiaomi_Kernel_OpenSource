@@ -239,6 +239,9 @@ int q6asm_enc_cfg_blk_aac(struct audio_client *ac,
 int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 			uint32_t rate, uint32_t channels);
 
+int q6asm_enc_cfg_blk_pcm_native(struct audio_client *ac,
+			uint32_t rate, uint32_t channels);
+
 int q6asm_enc_cfg_blk_multi_ch_pcm(struct audio_client *ac,
 			uint32_t rate, uint32_t channels);
 

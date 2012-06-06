@@ -195,6 +195,12 @@ void audio_aio_async_write_ack(struct q6audio_aio *audio, uint32_t token,
 void audio_aio_async_read_ack(struct q6audio_aio *audio, uint32_t token,
 			uint32_t *payload);
 
+int insert_eos_buf(struct q6audio_aio *audio,
+		struct audio_aio_buffer_node *buf_node);
+
+void extract_meta_out_info(struct q6audio_aio *audio,
+		struct audio_aio_buffer_node *buf_node, int dir);
+
 int audio_aio_open(struct q6audio_aio *audio, struct file *file);
 int audio_aio_enable(struct q6audio_aio  *audio);
 void audio_aio_post_event(struct q6audio_aio *audio, int type,
@@ -206,6 +212,6 @@ void audio_aio_async_out_flush(struct q6audio_aio *audio);
 void audio_aio_async_in_flush(struct q6audio_aio *audio);
 #ifdef CONFIG_DEBUG_FS
 ssize_t audio_aio_debug_open(struct inode *inode, struct file *file);
-ssize_t audio_aio_debug_read(struct file *file, char __user * buf,
+ssize_t audio_aio_debug_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos);
 #endif
