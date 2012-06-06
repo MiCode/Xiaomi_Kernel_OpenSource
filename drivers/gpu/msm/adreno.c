@@ -843,27 +843,27 @@ adreno_recover_hang(struct kgsl_device *device,
 	"Bad context_id: %u, global_eop: 0x%x\n", rec_data->ib1,
 	rec_data->context_id, rec_data->global_eop);
 
-	/* Extract valid contents from rb which can stil be executed after
-	 * hang */
-	ret = adreno_ringbuffer_extract(rb, rec_data);
-	if (ret)
-		goto done;
-
 	context = idr_find(&device->context_idr, rec_data->context_id);
 	if (context == NULL) {
 		KGSL_DRV_ERR(device, "Last context unknown id:%d\n",
 				rec_data->context_id);
 		rec_data->context_id = KGSL_MEMSTORE_GLOBAL;
+	} else {
+		adreno_context = context->devctxt;
+		adreno_context->flags |= CTXT_FLAGS_GPU_HANG;
 	}
+	/* Extract valid contents from rb which can still be executed after
+	 * hang */
+	ret = adreno_ringbuffer_extract(rb, rec_data);
+	if (ret)
+		goto done;
 
 	timestamp = rb->timestamp[KGSL_MEMSTORE_GLOBAL];
 	KGSL_DRV_ERR(device, "Last issued global timestamp: %x\n", timestamp);
 
 	/* Make sure memory is synchronized before restarting the GPU */
 	mb();
-	KGSL_CTXT_ERR(device,
-		"Context id that caused a GPU hang: %d\n",
-		rec_data->context_id);
+
 	/* restart device */
 	ret = adreno_stop(device);
 	if (ret)
@@ -872,15 +872,6 @@ adreno_recover_hang(struct kgsl_device *device,
 	if (ret)
 		goto done;
 	KGSL_DRV_ERR(device, "Device has been restarted after hang\n");
-	/* Mark the invalid context so no more commands are accepted from
-	 * that context */
-
-	adreno_context = context->devctxt;
-
-	KGSL_CTXT_ERR(device,
-		"Context that caused a GPU hang: %d\n", adreno_context->id);
-
-	adreno_context->flags |= CTXT_FLAGS_GPU_HANG;
 
 	/* Restore valid commands in ringbuffer */
 	adreno_ringbuffer_restore(rb, rec_data->rb_buffer, rec_data->rb_size);

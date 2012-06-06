@@ -1241,9 +1241,7 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 		goto done;
 
 	if (context) {
-		/* Mark context as hung */
 		adreno_context = context->devctxt;
-		adreno_context->flags |= CTXT_FLAGS_GPU_HANG;
 
 		if (adreno_context->flags & CTXT_FLAGS_PREAMBLE) {
 			if (rec_data->ib1) {
