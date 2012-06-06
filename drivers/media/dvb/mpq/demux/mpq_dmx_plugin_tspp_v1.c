@@ -264,7 +264,7 @@ static void mpq_tspp_callback(u32 channel_id, void *user)
  */
 static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 {
-	struct mpq_demux *mpq_demux = (struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 	enum tspp_source tspp_source;
 	struct tspp_filter tspp_filter;
 	int tsif;
@@ -455,7 +455,7 @@ static int mpq_tspp_dmx_remove_channel(struct dvb_demux_feed *feed)
 	int channel_id;
 	int *channel_ref_count;
 	struct tspp_filter tspp_filter;
-	struct mpq_demux *mpq_demux = (struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 
 	/* determine the TSIF we are reading from */
 	if (mpq_demux->source == DMX_SOURCE_FRONT0) {
@@ -559,8 +559,7 @@ remove_channel_failed:
 static int mpq_tspp_dmx_start_filtering(struct dvb_demux_feed *feed)
 {
 	int ret;
-	struct mpq_demux *mpq_demux =
-		(struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 
 	MPQ_DVB_DBG_PRINT(
 		"%s(%d) executed\n",
@@ -620,7 +619,7 @@ static int mpq_tspp_dmx_start_filtering(struct dvb_demux_feed *feed)
 static int mpq_tspp_dmx_stop_filtering(struct dvb_demux_feed *feed)
 {
 	int ret = 0;
-	struct mpq_demux *mpq_demux = (struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 
 	MPQ_DVB_DBG_PRINT(
 		"%s(%d) executed\n",
@@ -677,7 +676,7 @@ static int mpq_tspp_dmx_write_to_decoder(
 static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 				struct dmx_caps *caps)
 {
-	struct dvb_demux *dvb_demux = (struct dvb_demux *)demux->priv;
+	struct dvb_demux *dvb_demux = demux->priv;
 
 	if ((dvb_demux == NULL) || (caps == NULL)) {
 		MPQ_DVB_ERR_PRINT(
@@ -736,6 +735,9 @@ static int mpq_tspp_dmx_init(
 
 	mpq_demux->demux.decoder_fullness_abort =
 		mpq_dmx_decoder_fullness_abort;
+
+	mpq_demux->demux.decoder_buffer_status =
+		mpq_dmx_decoder_buffer_status;
 
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);

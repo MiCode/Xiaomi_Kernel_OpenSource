@@ -426,6 +426,18 @@ int mpq_dmx_decoder_fullness_abort(
 		struct dvb_demux_feed *feed);
 
 /**
+ * mpq_dmx_decoder_buffer_status - Returns the
+ * status of the decoder's buffer.
+ *
+ * @feed: The decoder's feed
+ * @dmx_buffer_status: Status of decoder's buffer
+ *
+ * Return     error code.
+ */
+int mpq_dmx_decoder_buffer_status(struct dvb_demux_feed *feed,
+		struct dmx_buffer_status *dmx_buffer_status);
+
+/**
  * mpq_dmx_process_video_packet - Assemble PES data and output it
  * to the stream-buffer connected to the decoder.
  *
