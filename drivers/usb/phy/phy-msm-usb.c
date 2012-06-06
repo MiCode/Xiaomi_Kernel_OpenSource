@@ -850,10 +850,14 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	clk_disable_unprepare(motg->core_clk);
 
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
-	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
-	if (ret)
-		dev_err(phy->dev, "%s failed to devote for "
-			"TCXO D0 buffer%d\n", __func__, ret);
+	if (!host_bus_suspend) {
+		ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
+		if (ret)
+			dev_err(phy->dev, "%s failed to devote for "
+				"TCXO D0 buffer%d\n", __func__, ret);
+		else
+			motg->lpm_flags |= XO_SHUTDOWN;
+	}
 
 	if (motg->caps & ALLOW_PHY_POWER_COLLAPSE &&
 			!host_bus_suspend && !dcp) {
@@ -898,10 +902,13 @@ static int msm_otg_resume(struct msm_otg *motg)
 	wake_lock(&motg->wlock);
 
 	/* Vote for TCXO when waking up the phy */
-	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
-	if (ret)
-		dev_err(phy->dev, "%s failed to vote for "
-			"TCXO D0 buffer%d\n", __func__, ret);
+	if (motg->lpm_flags & XO_SHUTDOWN) {
+		ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
+		if (ret)
+			dev_err(phy->dev, "%s failed to vote for "
+				"TCXO D0 buffer%d\n", __func__, ret);
+		motg->lpm_flags &= ~XO_SHUTDOWN;
+	}
 
 	clk_prepare_enable(motg->core_clk);
 
