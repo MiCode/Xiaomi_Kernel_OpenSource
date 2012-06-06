@@ -188,12 +188,49 @@ static struct msm_mmc_pad_data mmc_pad_data[MAX_SDCC_CONTROLLER] = {
 	},
 };
 
+static struct msm_mmc_gpio sdc2_gpio[] = {
+	{59, "sdc2_clk"},
+	{57, "sdc2_cmd"},
+	{62, "sdc2_dat_0"},
+	{61, "sdc2_dat_1"},
+	{60, "sdc2_dat_2"},
+	{58, "sdc2_dat_3"},
+};
+
+static struct msm_mmc_gpio sdc4_gpio[] = {
+	{68, "sdc4_clk"},
+	{67, "sdc4_cmd"},
+	{66, "sdc4_dat_0"},
+	{65, "sdc4_dat_1"},
+	{64, "sdc4_dat_2"},
+	{63, "sdc4_dat_3"},
+};
+
+static struct msm_mmc_gpio_data mmc_gpio_data[MAX_SDCC_CONTROLLER] = {
+	[SDCC2] = {
+		.gpio = sdc2_gpio,
+		.size = ARRAY_SIZE(sdc2_gpio),
+	},
+	[SDCC4] = {
+		.gpio = sdc4_gpio,
+		.size = ARRAY_SIZE(sdc4_gpio),
+	}
+};
+
 static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 	[SDCC1] = {
 		.pad_data = &mmc_pad_data[SDCC1],
 	},
+	[SDCC2] = {
+		.is_gpio = 1,
+		.gpio_data = &mmc_gpio_data[SDCC2],
+	},
 	[SDCC3] = {
 		.pad_data = &mmc_pad_data[SDCC3],
+	},
+	[SDCC4] = {
+		.is_gpio = 1,
+		.gpio_data = &mmc_gpio_data[SDCC4],
 	},
 };
 
@@ -227,6 +264,26 @@ static struct mmc_platform_data *apq8064_sdc1_pdata = &sdc1_data;
 static struct mmc_platform_data *apq8064_sdc1_pdata;
 #endif
 
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+static unsigned int sdc2_sup_clk_rates[] = {
+	400000, 24000000, 48000000
+};
+
+static struct mmc_platform_data sdc2_data = {
+	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table	= sdc2_sup_clk_rates,
+	.sup_clk_cnt	= ARRAY_SIZE(sdc2_sup_clk_rates),
+	.pclk_src_dfab	= 1,
+	.pin_data	= &mmc_slot_pin_data[SDCC2],
+	.sdiowakeup_irq = MSM_GPIO_TO_INT(61),
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
+};
+static struct mmc_platform_data *apq8064_sdc2_pdata = &sdc2_data;
+#else
+static struct mmc_platform_data *apq8064_sdc2_pdata;
+#endif
+
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 static unsigned int sdc3_sup_clk_rates[] = {
 	400000, 24000000, 48000000, 96000000, 192000000
@@ -258,6 +315,27 @@ static struct mmc_platform_data *apq8064_sdc3_pdata = &sdc3_data;
 static struct mmc_platform_data *apq8064_sdc3_pdata;
 #endif
 
+
+#ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
+static unsigned int sdc4_sup_clk_rates[] = {
+	400000, 24000000, 48000000
+};
+
+static struct mmc_platform_data sdc4_data = {
+	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table	= sdc4_sup_clk_rates,
+	.sup_clk_cnt	= ARRAY_SIZE(sdc4_sup_clk_rates),
+	.pclk_src_dfab	= 1,
+	.pin_data	= &mmc_slot_pin_data[SDCC4],
+	.sdiowakeup_irq = MSM_GPIO_TO_INT(65),
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
+};
+static struct mmc_platform_data *apq8064_sdc4_pdata = &sdc4_data;
+#else
+static struct mmc_platform_data *apq8064_sdc4_pdata;
+#endif
+
 void __init apq8064_init_mmc(void)
 {
 	if ((machine_is_apq8064_rumi3()) || machine_is_apq8064_sim()) {
@@ -278,6 +356,9 @@ void __init apq8064_init_mmc(void)
 	if (apq8064_sdc1_pdata)
 		apq8064_add_sdcc(1, apq8064_sdc1_pdata);
 
+	if (apq8064_sdc2_pdata)
+		apq8064_add_sdcc(2, apq8064_sdc2_pdata);
+
 	if (apq8064_sdc3_pdata) {
 		if (!machine_is_apq8064_cdp()) {
 			apq8064_sdc3_pdata->wpswitch_gpio = 0;
@@ -292,4 +373,7 @@ void __init apq8064_init_mmc(void)
 		}
 		apq8064_add_sdcc(3, apq8064_sdc3_pdata);
 	}
+
+	if (apq8064_sdc4_pdata)
+		apq8064_add_sdcc(4, apq8064_sdc4_pdata);
 }
