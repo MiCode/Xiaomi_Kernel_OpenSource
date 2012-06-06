@@ -381,7 +381,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 	} while (1);
 }
 
-static dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
+dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
 		struct dwc3_trb *trb)
 {
 	u32		offset = (char *) trb - (char *) dep->trb_pool;
