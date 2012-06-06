@@ -617,6 +617,8 @@ static int smb349_probe(struct i2c_client *client,
 
 	the_smb349_chg = smb349_chg;
 
+	spin_lock_init(&smb349_chg->lock);
+
 	create_debugfs_entries(smb349_chg);
 	INIT_WORK(&smb349_chg->chg_work, chg_worker);
 
