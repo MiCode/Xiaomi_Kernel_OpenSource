@@ -517,7 +517,14 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	if ((req->request.udc_priv & MSM_IS_FINITE_TRANSFER) &&
 	    (req->request.length > 0)) {
 		/* Map the request to a DMA. */
-		dwc3_map_buffer_to_dma(req);
+		ret = usb_gadget_map_request(&dep->dwc->gadget,
+					     &req->request,
+					     dep->direction);
+		if (ret) {
+			dev_err(dep->dwc->dev,
+			"%s: failed to map the request to dma\n", __func__);
+			return ret;
+		}
 	}
 
 	/* We push the request to the dep->req_queued list to indicate that
@@ -570,7 +577,11 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 			"%s: failed to send STARTTRANSFER command\n",
 			__func__);
 
-		dwc3_unmap_buffer_from_dma(req);
+		if ((req->request.udc_priv & MSM_IS_FINITE_TRANSFER) &&
+		    (req->request.length > 0))
+			usb_gadget_unmap_request(&dep->dwc->gadget,
+						 &req->request,
+						 dep->direction);
 		list_del(&req->list);
 		return ret;
 	}
