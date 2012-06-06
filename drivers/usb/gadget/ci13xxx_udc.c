@@ -1914,7 +1914,7 @@ __acquires(mEp->lock)
 			dma_unmap_single(mEp->device, mReq->req.dma,
 				mReq->req.length,
 				mEp->dir ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-			mReq->req.dma = 0;
+			mReq->req.dma = DMA_ADDR_INVALID;
 			mReq->map     = 0;
 		}
 
