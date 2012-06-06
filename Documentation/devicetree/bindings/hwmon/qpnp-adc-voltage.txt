@@ -1,0 +1,98 @@
+Qualcomm's QPNP PMIC Voltage ADC Arbiter
+
+QPNP PMIC Voltage ADC (VADC) provides interface to clients to read
+Voltage. A 15 bit ADC is used for Voltage measurements. There are multiple
+peripherals to the VADC and the scope of the driver is to provide interface
+for the USR peripheral of the VADC.
+
+VADC node
+
+Required properties:
+- compatible : should be "qcom,qpnp-vadc" for Voltage ADC driver.
+- reg : offset and length of the PMIC Aribter register map.
+- interrupts : The USR bank peripheral VADC interrupt.
+- qcom,adc-bit-resolution : Bit resolution of the ADC.
+- qcom,adc-vdd-reference : Voltage reference used by the ADC.
+
+Channel nodes
+NOTE: Atleast one Channel node is required.
+
+Required properties:
+- label : Channel name used for sysfs entry.
+- qcom,channel-num : Channel number associated to the AMUX input.
+- qcom,decimation : Sampling rate to use for the individual channel measurement.
+		    Select from following unsigned int.
+		    0 : 512
+		    1 : 1K
+		    2 : 2K
+		    3 : 4K
+- qcom,pre-div-channel-scaling : Pre-div used for the channel before the signal
+				 is being measured.
+- qcom,calibration-type : Reference voltage to use for channel calibration.
+			  Channel calibration is dependendent on the channel.
+			  Certain channels like XO_THERM, BATT_THERM use ratiometric
+			  calibration. Most other channels fall under absolute calibration.
+			  Select from the following strings.
+			  "absolute" : Uses the 625mv and 1.25V reference channels.
+			  "ratiometric" : Uses the reference Voltage/GND for calibration.
+- qcom,scale-function : Scaling function used to convert raw ADC code to units specific to
+			a given channel.
+			Select from the following unsigned int.
+			0 : Default scaling to convert raw adc code to voltage.
+			1 : Conversion to temperature based on btm parameters.
+			2 : Returns result in milli degree's Centigrade.
+			3 : Returns current across 0.1 ohm resistor.
+			4 : Returns XO thermistor voltage in degree's Centigrade.
+- qcom,hw-settle-time : Settling period for the channel before ADC read.
+			Select from the following unsigned int.
+			0 : 0us
+			1 : 100us
+			2 : 200us
+			3 : 300us
+			4 : 400us
+			5 : 500us
+			6 : 600us
+			7 : 700us
+			8 : 800us
+			9 : 900us
+			0xa : 1ms
+			0xb : 2ms
+			0xc : 4ms
+			0xd : 6ms
+			0xe : 8ms
+			0xf : 10ms
+- qcom,fast-avg-setup : Average number of samples to be used for measurement. Fast averaging
+			provides the option to obtain a single measurement from the ADC that
+			is an average of multiple samples. The value selected is 2^(value)
+			Select from the following unsigned int.
+			0 : 1
+			1 : 2
+			2 : 4
+			3 : 8
+			4 : 16
+			5 : 32
+			6 : 64
+			7 : 128
+			8 : 256
+
+Example:
+	/* Main Node */
+	qcom,vadc@3100 {
+                        compatible = "qcom,qpnp-vadc";
+                        reg = <0x3100 0x100>;
+                        interrupts = <0x0 0x31 0x0>;
+                        qcom,adc-bit-resolution = <15>;
+                        qcom,adc-vdd-reference = <1800>;
+
+			/* Channel Node */
+                        chan@0 {
+                                label = "usb_in";
+                                qcom,channel-num = <0>;
+                                qcom,decimation = <0>;
+                                qcom,pre-div-channel-scaling = <20>;
+                                qcom,calibration-type = "absolute";
+                                qcom,scale-function = <0>;
+                                qcom,hw-settle-time = <0>;
+                                qcom,fast-avg-setup = <0>;
+                        };
+	};
