@@ -2471,7 +2471,6 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 
 #define A3XX_INT_MASK \
 	((1 << A3XX_INT_RBBM_AHB_ERROR) |        \
-	 (1 << A3XX_INT_RBBM_REG_TIMEOUT) |      \
 	 (1 << A3XX_INT_RBBM_ATB_BUS_OVERFLOW) | \
 	 (1 << A3XX_INT_CP_T0_PACKET_IN_IB) |    \
 	 (1 << A3XX_INT_CP_OPCODE_ERROR) |       \
