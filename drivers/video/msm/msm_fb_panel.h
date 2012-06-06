@@ -82,6 +82,7 @@ struct lcdc_panel_info {
 	uint32 xres_pad;
 	/* Pad height */
 	uint32 yres_pad;
+	boolean is_sync_active_high;
 };
 
 struct mddi_panel_info {
