@@ -121,8 +121,6 @@ VREG_CONSUMERS(L22) = {
 };
 VREG_CONSUMERS(L23) = {
 	REGULATOR_SUPPLY("8921_l23",		NULL),
-	REGULATOR_SUPPLY("pll_vdd",		"pil_qdsp6v4.1"),
-	REGULATOR_SUPPLY("pll_vdd",		"pil_qdsp6v4.2"),
 	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_ehci_host.0"),
 	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_ehci_host.1"),
 };
@@ -141,15 +139,13 @@ VREG_CONSUMERS(L25) = {
 };
 VREG_CONSUMERS(L26) = {
 	REGULATOR_SUPPLY("8921_l26",		NULL),
-	REGULATOR_SUPPLY("core_vdd",		"pil_qdsp6v4.0"),
+	REGULATOR_SUPPLY("core_vdd",		"pil-q6v4-lpass"),
 };
 VREG_CONSUMERS(L27) = {
 	REGULATOR_SUPPLY("8921_l27",		NULL),
-	REGULATOR_SUPPLY("core_vdd",		"pil_qdsp6v4.2"),
 };
 VREG_CONSUMERS(L28) = {
 	REGULATOR_SUPPLY("8921_l28",		NULL),
-	REGULATOR_SUPPLY("core_vdd",		"pil_qdsp6v4.1"),
 };
 VREG_CONSUMERS(L29) = {
 	REGULATOR_SUPPLY("8921_l29",		NULL),
