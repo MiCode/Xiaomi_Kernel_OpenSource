@@ -26,6 +26,7 @@
 #include <linux/android_pmem.h>
 
 #include "msm.h"
+#include "msm_cam_server.h"
 #include "msm_ispif.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
@@ -113,7 +114,7 @@ static int msm_vb2_ops_buf_init(struct vb2_buffer *vb)
 			pcam_inst->plane_info.plane[0].offset;
 	}
 	buf_idx = vb->v4l2_buf.index;
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
 		if (buf_type == VIDEOBUF2_MULTIPLE_PLANES)
@@ -251,7 +252,7 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 		}
 		spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	}
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
 		videobuf2_pmem_contig_user_put(mem, pmctl->client);
@@ -472,7 +473,7 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam)
 {
 	struct msm_cam_media_controller *pmctl;
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	pmctl->mctl_vbqueue_init = msm_vbqueue_init;
 	return 0;
 }

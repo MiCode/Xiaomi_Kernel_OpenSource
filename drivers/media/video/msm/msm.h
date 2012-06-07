@@ -397,7 +397,6 @@ struct msm_cam_server_queue {
 	uint32_t queue_active;
 	struct msm_device_queue ctrl_q;
 	struct msm_device_queue eventData_q;
-	struct msm_ctrl_cmd *ctrl;
 	uint8_t *ctrl_data;
 	uint32_t evt_id;
 };
@@ -455,7 +454,6 @@ struct msm_cam_server_dev {
 };
 
 /* camera server related functions */
-
 
 /* ISP related functions */
 void msm_isp_vfe_dev_init(struct v4l2_subdev *vd);
@@ -571,15 +569,14 @@ int msm_mctl_pp_mctl_divert_done(struct msm_cam_media_controller *p_mctl,
 void msm_release_ion_client(struct kref *ref);
 int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 			enum msm_cam_subdev_type sdev_type, uint8_t index);
-uint32_t msm_camera_get_mctl_handle(void);
-struct msm_cam_media_controller *msm_camera_get_mctl(uint32_t handle);
-void msm_camera_free_mctl(uint32_t handle);
 int msm_server_open_client(int *p_qidx);
 int msm_server_send_ctrl(struct msm_ctrl_cmd *out, int ctrl_id);
 int msm_server_close_client(int idx);
 int msm_cam_server_open_mctl_session(struct msm_cam_v4l2_device *pcam,
 	int *p_active);
 int msm_cam_server_close_mctl_session(struct msm_cam_v4l2_device *pcam);
+long msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
+		unsigned int cmd, unsigned long evt);
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */

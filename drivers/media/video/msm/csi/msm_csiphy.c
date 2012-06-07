@@ -68,6 +68,9 @@ int msm_csiphy_config(struct csiphy_cfg_params *cfg_params)
 	void __iomem *csiphybase;
 	csiphy_dev = v4l2_get_subdevdata(cfg_params->subdev);
 	csiphybase = csiphy_dev->base;
+	if (csiphybase == NULL)
+		return -ENOMEM;
+
 	csiphy_params = cfg_params->parms;
 	lane_mask = csiphy_params->lane_mask;
 	lane_cnt = csiphy_params->lane_cnt;
