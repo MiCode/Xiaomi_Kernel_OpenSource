@@ -443,7 +443,7 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata = {
 	.i_test			= 2500,
 	.v_failure		= 3000,
 	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
-	.rconn_mohm		= 30,
+	.rconn_mohm		= 18,
 };
 
 #define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */
