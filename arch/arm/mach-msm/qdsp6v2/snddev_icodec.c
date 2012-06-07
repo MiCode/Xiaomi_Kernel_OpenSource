@@ -319,7 +319,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 		goto error_invalid_freq;
 	}
 
-	clk_enable(drv->rx_osrclk);
+	clk_prepare_enable(drv->rx_osrclk);
 	drv->rx_bitclk = clk_get_sys(NULL, "i2s_spkr_bit_clk");
 	if (IS_ERR(drv->rx_bitclk))
 		pr_err("%s clock Error\n", __func__);
@@ -339,7 +339,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 		pr_err("ERROR setting m clock1\n");
 		goto error_adie;
 	}
-	clk_enable(drv->rx_bitclk);
+	clk_prepare_enable(drv->rx_bitclk);
 
 	if (icodec->data->voltage_on)
 		icodec->data->voltage_on();
@@ -406,7 +406,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 
 error_pamp:
 error_adie:
-	clk_disable(drv->rx_osrclk);
+	clk_disable_unprepare(drv->rx_osrclk);
 error_invalid_freq:
 
 	pr_err("%s: encounter error\n", __func__);
@@ -448,7 +448,7 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 		goto error_invalid_freq;
 	}
 
-	clk_enable(drv->tx_osrclk);
+	clk_prepare_enable(drv->tx_osrclk);
 	drv->tx_bitclk = clk_get_sys(NULL, "i2s_mic_bit_clk");
 	if (IS_ERR(drv->tx_bitclk))
 		pr_err("%s clock Error\n", __func__);
@@ -464,7 +464,7 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	} else
 		trc =  clk_set_rate(drv->tx_bitclk, 8);
 
-	clk_enable(drv->tx_bitclk);
+	clk_prepare_enable(drv->tx_bitclk);
 
 	/* Enable ADIE */
 	trc = adie_codec_open(icodec->data->profile, &icodec->adie_path);
@@ -572,8 +572,8 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 	if (icodec->data->voltage_off)
 		icodec->data->voltage_off();
 
-	clk_disable(drv->rx_bitclk);
-	clk_disable(drv->rx_osrclk);
+	clk_disable_unprepare(drv->rx_bitclk);
+	clk_disable_unprepare(drv->rx_osrclk);
 
 	msm_snddev_rx_mclk_free();
 
@@ -602,8 +602,8 @@ static int snddev_icodec_close_tx(struct snddev_icodec_state *icodec)
 
 	afe_close(icodec->data->copp_id);
 
-	clk_disable(drv->tx_bitclk);
-	clk_disable(drv->tx_osrclk);
+	clk_disable_unprepare(drv->tx_bitclk);
+	clk_disable_unprepare(drv->tx_osrclk);
 
 	msm_snddev_tx_mclk_free();
 

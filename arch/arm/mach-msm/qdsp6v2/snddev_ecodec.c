@@ -220,7 +220,7 @@ static int snddev_ecodec_open(struct msm_snddev_info *dev_info)
 		goto err_clk;
 	}
 
-	clk_enable(drv->ecodec_clk);
+	clk_prepare_enable(drv->ecodec_clk);
 
 	clk_reset(drv->ecodec_clk, CLK_RESET_DEASSERT);
 
@@ -260,7 +260,7 @@ int snddev_ecodec_close(struct msm_snddev_info *dev_info)
 
 		pr_info("%s: closing all devices\n", __func__);
 
-		clk_disable(drv->ecodec_clk);
+		clk_disable_unprepare(drv->ecodec_clk);
 		aux_pcm_gpios_free();
 
 		afe_close(PCM_RX);

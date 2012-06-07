@@ -194,7 +194,7 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 		pr_err("ERROR setting osr clock\n");
 		return -ENODEV;
 	}
-	clk_enable(drv->tx_osrclk);
+	clk_prepare_enable(drv->tx_osrclk);
 
 	/* set up bit clk */
 	drv->tx_bitclk = clk_get_sys(NULL, "mi2s_bit_clk");
@@ -204,10 +204,10 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 	rc =  clk_set_rate(drv->tx_bitclk, 8);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("ERROR setting bit clock\n");
-		clk_disable(drv->tx_osrclk);
+		clk_disable_unprepare(drv->tx_osrclk);
 		return -ENODEV;
 	}
-	clk_enable(drv->tx_bitclk);
+	clk_prepare_enable(drv->tx_bitclk);
 
 	afe_config.mi2s.bitwidth = 16;
 
@@ -336,8 +336,8 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 
 error_invalid_data:
 
-	clk_disable(drv->tx_bitclk);
-	clk_disable(drv->tx_osrclk);
+	clk_disable_unprepare(drv->tx_bitclk);
+	clk_disable_unprepare(drv->tx_osrclk);
 	return -EINVAL;
 }
 
@@ -358,8 +358,8 @@ static int snddev_mi2s_close(struct msm_snddev_info *dev_info)
 		return -EIO;
 	}
 	afe_close(snddev_mi2s_data->copp_id);
-	clk_disable(mi2s_drv->tx_bitclk);
-	clk_disable(mi2s_drv->tx_osrclk);
+	clk_disable_unprepare(mi2s_drv->tx_bitclk);
+	clk_disable_unprepare(mi2s_drv->tx_osrclk);
 
 	mi2s_gpios_free();
 
