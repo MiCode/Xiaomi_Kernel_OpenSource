@@ -44,10 +44,11 @@
 #include <mach/clk.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
+#include <mach/rpm-regulator.h>
 
 #include "ehci.h"
 
-#define DRIVER_DESC "Qualcomm EHCI Hose Controller using HSIC"
+#define DRIVER_DESC "Qualcomm EHCI Host Controller using HSIC"
 
 #define MSM_USB_BASE (hcd->regs)
 
@@ -70,6 +71,7 @@ struct msm_hsic_hcd {
 	atomic_t		pm_usage_cnt;
 	uint32_t		bus_perf_client;
 	uint32_t		wakeup_int_cnt;
+	enum usb_vdd_type	vdd_type;
 };
 
 static const char hcd_name[] = "ehci-msm";
@@ -264,41 +266,57 @@ static inline struct usb_hcd *hsic_to_hcd(struct msm_hsic_hcd *mehci)
 
 #define ULPI_IO_TIMEOUT_USEC	(10 * 1000)
 
-#define USB_PHY_VDD_DIG_VOL_SUSP_MIN	500000 /* uV */
+#define USB_PHY_VDD_DIG_VOL_NONE	0 /*uV */
 #define USB_PHY_VDD_DIG_VOL_MIN		1000000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX		1320000 /* uV */
-#define USB_PHY_VDD_DIG_LOAD		49360	/* uA */
 
 #define HSIC_DBG1_REG		0x38
+
+static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
+		{   /* VDD_CX CORNER Voting */
+			[VDD_NONE]	= RPM_VREG_CORNER_NONE,
+			[VDD_MIN]	= RPM_VREG_CORNER_NOMINAL,
+			[VDD_MAX]	= RPM_VREG_CORNER_HIGH,
+		},
+		{   /* VDD_CX Voltage Voting */
+			[VDD_NONE]	= USB_PHY_VDD_DIG_VOL_NONE,
+			[VDD_MIN]	= USB_PHY_VDD_DIG_VOL_MIN,
+			[VDD_MAX]	= USB_PHY_VDD_DIG_VOL_MAX,
+		},
+};
 
 static int msm_hsic_init_vddcx(struct msm_hsic_hcd *mehci, int init)
 {
 	int ret = 0;
+	int none_vol, min_vol, max_vol;
+
+	if (!mehci->hsic_vddcx) {
+		mehci->vdd_type = VDDCX_CORNER;
+		mehci->hsic_vddcx = devm_regulator_get(mehci->dev,
+			"hsic_vdd_dig");
+		if (IS_ERR(mehci->hsic_vddcx)) {
+			mehci->hsic_vddcx = devm_regulator_get(mehci->dev,
+				"HSIC_VDDCX");
+			if (IS_ERR(mehci->hsic_vddcx)) {
+				dev_err(mehci->dev, "unable to get hsic vddcx\n");
+				return PTR_ERR(mehci->hsic_vddcx);
+			}
+			mehci->vdd_type = VDDCX;
+		}
+	}
+
+	none_vol = vdd_val[mehci->vdd_type][VDD_NONE];
+	min_vol = vdd_val[mehci->vdd_type][VDD_MIN];
+	max_vol = vdd_val[mehci->vdd_type][VDD_MAX];
 
 	if (!init)
 		goto disable_reg;
 
-	mehci->hsic_vddcx = devm_regulator_get(mehci->dev, "HSIC_VDDCX");
-	if (IS_ERR(mehci->hsic_vddcx)) {
-		dev_err(mehci->dev, "unable to get hsic vddcx\n");
-		return PTR_ERR(mehci->hsic_vddcx);
-	}
-
-	ret = regulator_set_voltage(mehci->hsic_vddcx,
-			USB_PHY_VDD_DIG_VOL_MIN,
-			USB_PHY_VDD_DIG_VOL_MAX);
+	ret = regulator_set_voltage(mehci->hsic_vddcx, min_vol, max_vol);
 	if (ret) {
 		dev_err(mehci->dev, "unable to set the voltage"
 				"for hsic vddcx\n");
 		return ret;
-	}
-
-	ret = regulator_set_optimum_mode(mehci->hsic_vddcx,
-				USB_PHY_VDD_DIG_LOAD);
-	if (ret < 0) {
-		pr_err("%s: Unable to set optimum mode of the regulator:"
-					"VDDCX\n", __func__);
-		goto reg_optimum_mode_err;
 	}
 
 	ret = regulator_enable(mehci->hsic_vddcx);
@@ -312,10 +330,8 @@ static int msm_hsic_init_vddcx(struct msm_hsic_hcd *mehci, int init)
 disable_reg:
 	regulator_disable(mehci->hsic_vddcx);
 reg_enable_err:
-	regulator_set_optimum_mode(mehci->hsic_vddcx, 0);
-reg_optimum_mode_err:
-	regulator_set_voltage(mehci->hsic_vddcx, 0,
-				USB_PHY_VDD_DIG_VOL_MIN);
+	regulator_set_voltage(mehci->hsic_vddcx, none_vol, max_vol);
+
 	return ret;
 
 }
@@ -538,6 +554,7 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
 	int cnt = 0, ret;
 	u32 val;
+	int none_vol, max_vol;
 
 	if (atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "%s called in lpm\n", __func__);
@@ -603,11 +620,12 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	clk_disable_unprepare(mehci->cal_clk);
 	clk_disable_unprepare(mehci->ahb_clk);
 
-	ret = regulator_set_voltage(mehci->hsic_vddcx,
-				USB_PHY_VDD_DIG_VOL_SUSP_MIN,
-				USB_PHY_VDD_DIG_VOL_MAX);
+	none_vol = vdd_val[mehci->vdd_type][VDD_NONE];
+	max_vol = vdd_val[mehci->vdd_type][VDD_MAX];
+
+	ret = regulator_set_voltage(mehci->hsic_vddcx, none_vol, max_vol);
 	if (ret < 0)
-		dev_err(mehci->dev, "unable to set vddcx voltage: min:0.5v max:1.3v\n");
+		dev_err(mehci->dev, "unable to set vddcx voltage for VDD MIN\n");
 
 	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
 		ret = msm_bus_scale_client_update_request(
@@ -636,6 +654,7 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
 	int cnt = 0, ret;
 	unsigned temp;
+	int min_vol, max_vol;
 
 	if (!atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "%s called in !in_lpm\n", __func__);
@@ -658,11 +677,12 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 				   "bus bandwidth %d\n", __func__, ret);
 	}
 
-	ret = regulator_set_voltage(mehci->hsic_vddcx,
-				USB_PHY_VDD_DIG_VOL_MIN,
-				USB_PHY_VDD_DIG_VOL_MAX);
+	min_vol = vdd_val[mehci->vdd_type][VDD_MIN];
+	max_vol = vdd_val[mehci->vdd_type][VDD_MAX];
+
+	ret = regulator_set_voltage(mehci->hsic_vddcx, min_vol, max_vol);
 	if (ret < 0)
-		dev_err(mehci->dev, "unable to set vddcx voltage: min:1v max:1.3v\n");
+		dev_err(mehci->dev, "unable to set nominal vddcx voltage (no VDD MIN)\n");
 
 	clk_prepare_enable(mehci->core_clk);
 	clk_prepare_enable(mehci->phy_clk);
