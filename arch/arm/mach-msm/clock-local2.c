@@ -503,7 +503,7 @@ static int branch_clk_reset(struct clk *c, enum clk_reset_action action)
  */
 static int local_vote_clk_reset(struct clk *c, enum clk_reset_action action)
 {
-	struct branch_clk *vclk = to_branch_clk(c);
+	struct local_vote_clk *vclk = to_local_vote_clk(c);
 	return __branch_clk_reset(BCR_REG(vclk), action);
 }
 
