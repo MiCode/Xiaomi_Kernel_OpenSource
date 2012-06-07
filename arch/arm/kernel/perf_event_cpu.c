@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/cpu_pm.h>
 
 #include <asm/cputype.h>
 #include <asm/irq_regs.h>
@@ -174,6 +175,72 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 
 static struct notifier_block __cpuinitdata cpu_pmu_hotplug_notifier = {
 	.notifier_call = cpu_pmu_notify,
+};
+
+static void armpmu_update_counters(void)
+{
+	struct pmu_hw_events *hw_events;
+	int idx;
+
+	if (!cpu_pmu)
+		return;
+
+	hw_events = cpu_pmu->get_hw_events();
+
+	for (idx = 0; idx <= cpu_pmu->num_events; ++idx) {
+		struct perf_event *event = hw_events->events[idx];
+
+		if (!event)
+			continue;
+
+		armpmu_read(event);
+	}
+}
+
+static int cpu_has_active_perf(void)
+{
+	struct pmu_hw_events *hw_events;
+	int enabled;
+
+	if (!cpu_pmu)
+		return 0;
+
+	hw_events = cpu_pmu->get_hw_events();
+	enabled = bitmap_weight(hw_events->used_mask, cpu_pmu->num_events);
+
+	if (enabled)
+		/*Even one event's existence is good enough.*/
+		return 1;
+
+	return 0;
+}
+
+/*TODO: Unify with pending patch from ARM */
+static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
+		void *v)
+{
+	switch (cmd) {
+	case CPU_PM_ENTER:
+		if (cpu_has_active_perf()) {
+			armpmu_update_counters();
+			perf_pmu_disable(&cpu_pmu->pmu);
+		}
+		break;
+
+	case CPU_PM_ENTER_FAILED:
+	case CPU_PM_EXIT:
+		if (cpu_has_active_perf() && cpu_pmu->reset) {
+			cpu_pmu->reset(NULL);
+			perf_pmu_enable(&cpu_pmu->pmu);
+		}
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block perf_cpu_pm_notifier_block = {
+	.notifier_call = perf_cpu_pm_notifier,
 };
 
 /*
@@ -333,10 +400,20 @@ static int __init register_pmu_driver(void)
 	if (err)
 		return err;
 
+	err = cpu_pm_register_notifier(&perf_cpu_pm_notifier_block);
+	if (err)
+		goto err_cpu_pm;
+
 	err = platform_driver_register(&cpu_pmu_driver);
 	if (err)
-		unregister_cpu_notifier(&cpu_pmu_hotplug_notifier);
+		goto err_driver;
 
+	return 0;
+
+err_driver:
+	cpu_pm_unregister_notifier(&perf_cpu_pm_notifier_block);
+err_cpu_pm:
+	unregister_cpu_notifier(&cpu_pmu_hotplug_notifier);
 	return err;
 }
 device_initcall(register_pmu_driver);
