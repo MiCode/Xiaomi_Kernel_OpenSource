@@ -100,8 +100,6 @@ struct pm8921_bms_chip {
 	struct sf_lut		*rbatt_sf_lut;
 	int			delta_rbatt_mohm;
 	struct work_struct	calib_hkadc_work;
-	struct delayed_work	calib_ccadc_work;
-	unsigned int		calib_delay_ms;
 	unsigned int		revision;
 	unsigned int		xoadc_v0625_usb_present;
 	unsigned int		xoadc_v0625_usb_absent;
@@ -1604,18 +1602,6 @@ void pm8921_bms_calibrate_hkadc(void)
 	schedule_work(&the_chip->calib_hkadc_work);
 }
 
-static void calibrate_ccadc_work(struct work_struct *work)
-{
-	struct pm8921_bms_chip *chip = container_of(work,
-				struct pm8921_bms_chip, calib_ccadc_work.work);
-
-	pm8xxx_calib_ccadc();
-	calib_hkadc(chip);
-	schedule_delayed_work(&chip->calib_ccadc_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(chip->calib_delay_ms)));
-}
-
 int pm8921_bms_get_vsense_avg(int *result)
 {
 	int rc = -EINVAL;
@@ -2601,7 +2587,6 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->r_sense = pdata->r_sense;
 	chip->i_test = pdata->i_test;
 	chip->v_failure = pdata->v_failure;
-	chip->calib_delay_ms = pdata->calib_delay_ms;
 	chip->max_voltage_uv = pdata->max_voltage_uv;
 	chip->batt_type = pdata->battery_type;
 	chip->rconn_mohm = pdata->rconn_mohm;
@@ -2654,11 +2639,6 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		goto free_irqs;
 	}
 	check_initial_ocv(chip);
-
-	INIT_DELAYED_WORK(&chip->calib_ccadc_work, calibrate_ccadc_work);
-	/* begin calibration only on chips > 2.0 */
-	if (chip->revision >= PM8XXX_REVISION_8921_2p0)
-		schedule_delayed_work(&chip->calib_ccadc_work, 0);
 
 	/* initial hkadc calibration */
 	schedule_work(&chip->calib_hkadc_work);
