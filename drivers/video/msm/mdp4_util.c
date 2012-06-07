@@ -522,7 +522,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		}
 #else
 		else { /* MDDI */
-			mdp4_dma_p_done_mddi();
+			mdp4_dma_p_done_mddi(dma);
 			mdp_pipe_ctrl(MDP_DMA2_BLOCK,
 				MDP_BLOCK_POWER_OFF, TRUE);
 			complete(&dma->comp);
