@@ -2502,10 +2502,14 @@ int mmc_suspend_host(struct mmc_host *host)
 				err = -EBUSY;
 
 		if (!err) {
-			if (host->bus_ops->suspend)
+			if (host->bus_ops->suspend) {
+				if (mmc_card_doing_bkops(host->card))
+					mmc_interrupt_bkops(host->card);
+
 				err = host->bus_ops->suspend(host);
+			}
 			if (!(host->card && mmc_card_sdio(host->card)))
-				mmc_do_release_host(host);
+				mmc_release_host(host);
 
 			if (err == -ENOSYS || !host->bus_ops->resume) {
 				/*
