@@ -173,7 +173,7 @@ static struct msm_iova_data *find_domain(int domain_num)
 		node = rb_entry(p, struct msm_iova_data, node);
 		if (domain_num < node->domain_num)
 			p = p->rb_left;
-		else if (domain_num > domain_num)
+		else if (domain_num > node->domain_num)
 			p = p->rb_right;
 		else {
 			mutex_unlock(&domain_mutex);
