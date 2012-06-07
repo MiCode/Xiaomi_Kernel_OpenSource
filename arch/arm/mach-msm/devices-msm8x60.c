@@ -1568,6 +1568,16 @@ struct platform_device msm_rotator_device = {
 /* Sensors DSPS platform data */
 #ifdef CONFIG_MSM_DSPS
 
+#define PPSS_DSPS_TCM_CODE_BASE 0x12000000
+#define PPSS_DSPS_TCM_CODE_SIZE 0x28000
+#define PPSS_DSPS_TCM_BUF_BASE  0x12040000
+#define PPSS_DSPS_TCM_BUF_SIZE  0x4000
+#define PPSS_DSPS_PIPE_BASE     0x12800000
+#define PPSS_DSPS_PIPE_SIZE     0x0 /* 8660 V2 does not use PIPE memory */
+#define PPSS_DSPS_DDR_BASE      0x8fe00000
+#define PPSS_DSPS_DDR_SIZE      0x0 /* 8660 V2 does not use DDR memory */
+#define PPSS_SMEM_BASE          0x40000000
+#define PPSS_SMEM_SIZE          0x4000
 #define PPSS_REG_PHYS_BASE	0x12080000
 
 #define MHZ (1000*1000)
@@ -1631,6 +1641,16 @@ struct msm_dsps_platform_data msm_dsps_pdata = {
 	.regs = dsps_regs,
 	.regs_num = ARRAY_SIZE(dsps_regs),
 	.init = dsps_init1,
+	.tcm_code_start = PPSS_DSPS_TCM_CODE_BASE,
+	.tcm_code_size = PPSS_DSPS_TCM_CODE_SIZE,
+	.tcm_buf_start = PPSS_DSPS_TCM_BUF_BASE,
+	.tcm_buf_size = PPSS_DSPS_TCM_BUF_SIZE,
+	.pipe_start = PPSS_DSPS_PIPE_BASE,
+	.pipe_size = PPSS_DSPS_PIPE_SIZE,
+	.ddr_start = PPSS_DSPS_DDR_BASE,
+	.ddr_size = PPSS_DSPS_DDR_SIZE,
+	.smem_start = PPSS_SMEM_BASE,
+	.smem_size  = PPSS_SMEM_SIZE,
 	.signature = DSPS_SIGNATURE,
 };
 
