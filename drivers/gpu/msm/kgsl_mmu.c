@@ -685,7 +685,8 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
-	pagetable->pt_ops->mmu_unmap(pagetable->priv, memdesc);
+	pagetable->pt_ops->mmu_unmap(pagetable->priv, memdesc,
+					&pagetable->tlb_flags);
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 	/* Remove the statistics */

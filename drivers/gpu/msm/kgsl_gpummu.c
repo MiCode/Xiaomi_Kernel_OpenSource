@@ -592,7 +592,8 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 
 static int
 kgsl_gpummu_unmap(void *mmu_specific_pt,
-		struct kgsl_memdesc *memdesc)
+		struct kgsl_memdesc *memdesc,
+		unsigned int *tlb_flags)
 {
 	unsigned int numpages;
 	unsigned int pte, ptefirst, ptelast, superpte;
