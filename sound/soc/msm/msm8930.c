@@ -312,11 +312,11 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"MIC BIAS2 Internal1", NULL, "Headset Mic"},
 
 	/* Microphone path */
-	{"AMIC1", NULL, "MIC BIAS2 Internal1"},
-	{"MIC BIAS2 Internal1", NULL, "ANCLeft Headset Mic"},
+	{"AMIC1", NULL, "MIC BIAS2 External"},
+	{"MIC BIAS2 External", NULL, "ANCLeft Headset Mic"},
 
-	{"AMIC3", NULL, "MIC BIAS2 Internal1"},
-	{"MIC BIAS2 Internal1", NULL, "ANCRight Headset Mic"},
+	{"AMIC3", NULL, "MIC BIAS2 External"},
+	{"MIC BIAS2 External", NULL, "ANCRight Headset Mic"},
 
 	{"HEADPHONE", NULL, "LDO_H"},
 
@@ -531,7 +531,7 @@ static void *def_sitar_mbhc_cal(void)
 #undef S
 #define S(X, Y) ((SITAR_MBHC_CAL_PLUG_TYPE_PTR(sitar_cal)->X) = (Y))
 	S(v_no_mic, 30);
-	S(v_hs_max, 1550);
+	S(v_hs_max, 1650);
 #undef S
 #define S(X, Y) ((SITAR_MBHC_CAL_BTN_DET_PTR(sitar_cal)->X) = (Y))
 	S(c[0], 62);
