@@ -23,6 +23,8 @@
 #include <linux/iommu.h>
 #include <linux/clk.h>
 #include <linux/scatterlist.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include <asm/sizes.h>
 
@@ -112,6 +114,42 @@ static int __flush_iotlb(struct iommu_domain *domain)
 	return 0;
 }
 
+static void __reset_iommu(void __iomem *base)
+{
+	int i;
+
+	SET_ACR(base, 0);
+	SET_NSACR(base, 0);
+	SET_CR2(base, 0);
+	SET_NSCR2(base, 0);
+	SET_GFAR(base, 0);
+	SET_GFSRRESTORE(base, 0);
+	SET_TLBIALLNSNH(base, 0);
+	SET_PMCR(base, 0);
+	SET_SCR1(base, 0);
+	SET_SSDR_N(base, 0, 0);
+
+	for (i = 0; i < MAX_NUM_SMR; i++)
+		SET_SMR_VALID(base, i, 0);
+
+	mb();
+}
+
+static void __program_iommu(void __iomem *base)
+{
+	__reset_iommu(base);
+
+	SET_CR0_SMCFCFG(base, 1);
+	SET_CR0_USFCFG(base, 1);
+	SET_CR0_STALLD(base, 1);
+	SET_CR0_GCFGFIE(base, 1);
+	SET_CR0_GCFGFRE(base, 1);
+	SET_CR0_GFIE(base, 1);
+	SET_CR0_GFRE(base, 1);
+	SET_CR0_CLIENTPD(base, 0);
+	mb();	/* Make sure writes complete before returning */
+}
+
 static void __reset_context(void __iomem *base, int ctx)
 {
 	SET_ACTLR(base, ctx, 0);
@@ -129,11 +167,12 @@ static void __reset_context(void __iomem *base, int ctx)
 }
 
 static void __program_context(void __iomem *base, int ctx, int ncb,
-				phys_addr_t pgtable, int redirect)
+				phys_addr_t pgtable, int redirect,
+				u32 *sids, int len)
 {
 	unsigned int prrr, nmrr;
 	unsigned int pn;
-	int i, j, found;
+	int i, j, found, num = 0;
 
 	__reset_context(base, ctx);
 
@@ -170,6 +209,30 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 		SET_CB_TTBR0_IRGN1(base, ctx, 0); /* WB, WA */
 		SET_CB_TTBR0_IRGN0(base, ctx, 1);
 		SET_CB_TTBR0_RGN(base, ctx, 1);   /* WB, WA */
+	}
+
+	/* Program the M2V tables for this context */
+	for (i = 0; i < len / sizeof(*sids); i++) {
+		for (; num < MAX_NUM_SMR; num++)
+			if (GET_SMR_VALID(base, num) == 0)
+				break;
+		BUG_ON(num >= MAX_NUM_SMR);
+
+		SET_SMR_VALID(base, num, 1);
+		SET_SMR_MASK(base, num, 0);
+		SET_SMR_ID(base, num, sids[i]);
+
+		/* Set VMID = 0 */
+		SET_S2CR_N(base, num, 0);
+		SET_S2CR_CBNDX(base, num, ctx);
+		/* Set security bit override to be Non-secure */
+		SET_S2CR_NSCFG(base, sids[i], 3);
+
+		SET_CBAR_N(base, ctx, 0);
+		/* Stage 1 Context with Stage 2 bypass */
+		SET_CBAR_TYPE(base, ctx, 1);
+		/* Route page faults to the non-secure interrupt */
+		SET_CBAR_IRPTNDX(base, ctx, 1);
 	}
 
        /* Find if this page table is used elsewhere, and re-use ASID */
@@ -244,13 +307,33 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 	mutex_unlock(&msm_iommu_lock);
 }
 
+static int msm_iommu_ctx_attached(struct device *dev)
+{
+	struct platform_device *pdev;
+	struct device_node *child;
+	struct msm_iommu_ctx_drvdata *ctx;
+
+	for_each_child_of_node(dev->of_node, child) {
+		pdev = of_find_device_by_node(child);
+
+		ctx = dev_get_drvdata(&pdev->dev);
+		if (ctx->attached_domain) {
+			of_node_put(child);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	struct msm_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
-	int ret = 0;
+	u32 sids[MAX_NUM_SMR];
+	int len = 0, ret = 0;
 
 	mutex_lock(&msm_iommu_lock);
 
@@ -278,15 +361,25 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			goto fail;
 		}
 
-	ret = __enable_clocks(iommu_drvdata);
-	if (ret)
+	of_get_property(dev->of_node, "qcom,iommu-ctx-sids", &len);
+	BUG_ON(len >= sizeof(sids));
+	if (of_property_read_u32_array(dev->of_node, "qcom,iommu-ctx-sids",
+					sids, len / sizeof(*sids))) {
+		ret = -EINVAL;
 		goto fail;
+	}
+
+	if (!msm_iommu_ctx_attached(dev->parent)) {
+		ret = __enable_clocks(iommu_drvdata);
+		if (ret)
+			goto fail;
+		__program_iommu(iommu_drvdata->base);
+	}
 
 	__program_context(iommu_drvdata->base, ctx_drvdata->num,
 		iommu_drvdata->ncb, __pa(priv->pt.fl_table),
-		priv->pt.redirect);
+		priv->pt.redirect, sids, len);
 
-	__disable_clocks(iommu_drvdata);
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 	ctx_drvdata->attached_domain = domain;
 
@@ -301,7 +394,6 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	struct msm_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
-	int ret;
 
 	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
@@ -313,17 +405,15 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	if (!iommu_drvdata || !ctx_drvdata || !ctx_drvdata->attached_domain)
 		goto fail;
 
-	ret = __enable_clocks(iommu_drvdata);
-	if (ret)
-		goto fail;
-
 	SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num,
 		GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_drvdata->num));
 
 	__reset_context(iommu_drvdata->base, ctx_drvdata->num);
-	__disable_clocks(iommu_drvdata);
 	list_del_init(&ctx_drvdata->attached_elm);
 	ctx_drvdata->attached_domain = NULL;
+
+	if (!msm_iommu_ctx_attached(dev->parent))
+		__disable_clocks(iommu_drvdata);
 
 fail:
 	mutex_unlock(&msm_iommu_lock);
