@@ -29,27 +29,6 @@
 #include <mach/iommu_hw-v2.h>
 #include <mach/iommu.h>
 
-static void msm_iommu_reset(void __iomem *base)
-{
-	int i;
-
-	SET_ACR(base, 0);
-	SET_NSACR(base, 0);
-	SET_CR2(base, 0);
-	SET_NSCR2(base, 0);
-	SET_GFAR(base, 0);
-	SET_GFSRRESTORE(base, 0);
-	SET_TLBIALLNSNH(base, 0);
-	SET_PMCR(base, 0);
-	SET_SCR1(base, 0);
-	SET_SSDR_N(base, 0, 0);
-
-	for (i = 0; i < MAX_NUM_SMR; i++)
-		SET_SMR_VALID(base, i, 0);
-
-	mb();
-}
-
 static int msm_iommu_parse_dt(struct platform_device *pdev,
 				struct msm_iommu_drvdata *drvdata)
 {
@@ -119,17 +98,6 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	} else
 		drvdata->clk = NULL;
 
-	msm_iommu_reset(drvdata->base);
-
-	SET_CR0_SMCFCFG(drvdata->base, 1);
-	SET_CR0_USFCFG(drvdata->base, 1);
-	SET_CR0_STALLD(drvdata->base, 1);
-	SET_CR0_GCFGFIE(drvdata->base, 1);
-	SET_CR0_GCFGFRE(drvdata->base, 1);
-	SET_CR0_GFIE(drvdata->base, 1);
-	SET_CR0_GFRE(drvdata->base, 1);
-	SET_CR0_CLIENTPD(drvdata->base, 0);
-
 	ret = msm_iommu_parse_dt(pdev, drvdata);
 	if (ret)
 		goto fail_clk;
@@ -173,13 +141,10 @@ static int msm_iommu_remove(struct platform_device *pdev)
 }
 
 static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
-				struct msm_iommu_drvdata *drvdata,
 				struct msm_iommu_ctx_drvdata *ctx_drvdata)
 {
 	struct resource *r, rp;
-	u32 sids[MAX_NUM_SMR];
-	int num = 0;
-	int irq, i, ret, len = 0;
+	int irq, ret;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq > 0) {
@@ -212,52 +177,16 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 					&ctx_drvdata->name))
 		ctx_drvdata->name = dev_name(&pdev->dev);
 
-	of_get_property(pdev->dev.of_node, "qcom,iommu-ctx-sids", &len);
-	BUG_ON(len >= sizeof(sids));
-	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,iommu-ctx-sids",
-					sids, len / sizeof(*sids)))
-		return -EINVAL;
-
-	/* Program the M2V tables for this context */
-	for (i = 0; i < len / sizeof(*sids); i++) {
-		for (; num < MAX_NUM_SMR; num++)
-			if (GET_SMR_VALID(drvdata->base, num) == 0)
-				break;
-		BUG_ON(num >= MAX_NUM_SMR);
-
-		SET_SMR_VALID(drvdata->base, num, 1);
-		SET_SMR_MASK(drvdata->base, num, 0);
-		SET_SMR_ID(drvdata->base, num, sids[i]);
-
-		/* Set VMID = 0 */
-		SET_S2CR_N(drvdata->base, num, 0);
-		SET_S2CR_CBNDX(drvdata->base, num, ctx_drvdata->num);
-		/* Set security bit override to be Non-secure */
-		SET_S2CR_NSCFG(drvdata->base, sids[i], 3);
-
-		SET_CBAR_N(drvdata->base, ctx_drvdata->num, 0);
-		/* Stage 1 Context with Stage 2 bypass */
-		SET_CBAR_TYPE(drvdata->base, ctx_drvdata->num, 1);
-		/* Route page faults to the non-secure interrupt */
-		SET_CBAR_IRPTNDX(drvdata->base, ctx_drvdata->num, 1);
-	}
-	mb();
-
 	return 0;
 }
 
 static int msm_iommu_ctx_probe(struct platform_device *pdev)
 {
-	struct msm_iommu_drvdata *drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata = NULL;
 	int ret;
 
 	if (!pdev->dev.parent)
 		return -EINVAL;
-
-	drvdata = dev_get_drvdata(pdev->dev.parent);
-	if (!drvdata)
-		return -ENODEV;
 
 	ctx_drvdata = devm_kzalloc(&pdev->dev, sizeof(*ctx_drvdata),
 					GFP_KERNEL);
@@ -268,26 +197,10 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&ctx_drvdata->attached_elm);
 	platform_set_drvdata(pdev, ctx_drvdata);
 
-	ret = clk_prepare_enable(drvdata->pclk);
-	if (ret)
-		return ret;
-
-	if (drvdata->clk) {
-		ret = clk_prepare_enable(drvdata->clk);
-		if (ret) {
-			clk_disable_unprepare(drvdata->pclk);
-			return ret;
-		}
-	}
-
-	ret = msm_iommu_ctx_parse_dt(pdev, drvdata, ctx_drvdata);
+	ret = msm_iommu_ctx_parse_dt(pdev, ctx_drvdata);
 	if (!ret)
 		dev_info(&pdev->dev, "context %s using bank %d\n",
 				dev_name(&pdev->dev), ctx_drvdata->num);
-
-	if (drvdata->clk)
-		clk_disable_unprepare(drvdata->clk);
-	clk_disable_unprepare(drvdata->pclk);
 
 	return ret;
 }
