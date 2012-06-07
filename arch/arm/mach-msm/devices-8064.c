@@ -850,6 +850,22 @@ struct platform_device apq8064_device_ehci_host4 = {
 	},
 };
 
+#define SHARED_IMEM_TZ_BASE 0x2a03f720
+static struct resource tzlog_resources[] = {
+	{
+		.start = SHARED_IMEM_TZ_BASE,
+		.end = SHARED_IMEM_TZ_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device apq_device_tz_log = {
+	.name		= "tz_log",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(tzlog_resources),
+	.resource	= tzlog_resources,
+};
+
 /* MSM Video core device */
 #ifdef CONFIG_MSM_BUS_SCALING
 static struct msm_bus_vectors vidc_init_vectors[] = {
