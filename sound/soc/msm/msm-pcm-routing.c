@@ -69,7 +69,7 @@ static int msm_route_compressed_vol_control;
 static const DECLARE_TLV_DB_LINEAR(compressed_rx_vol_gain, 0,
 			INT_RX_VOL_MAX_STEPS);
 
-
+static int msm_route_ec_ref_rx;
 
 /* Equal to Frontend after last of the MULTIMEDIA SESSIONS */
 #define MAX_EQ_SESSIONS		MSM_FRONTEND_DAI_CS_VOICE
@@ -1045,6 +1045,45 @@ static int msm_routing_put_eq_band_audio_mixer(struct snd_kcontrol *kcontrol,
 					ucontrol->value.integer.value[4];
 	return 0;
 }
+
+static int msm_routing_ec_ref_rx_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: ec_ref_rx  = %d", __func__, msm_route_ec_ref_rx);
+	ucontrol->value.integer.value[0] = msm_route_ec_ref_rx;
+	return 0;
+}
+
+static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm_route_ec_ref_rx = SLIMBUS_0_RX;
+		break;
+	case 1:
+		msm_route_ec_ref_rx = PRIMARY_I2S_RX;
+		break;
+	default:
+		msm_route_ec_ref_rx = 0;
+		break;
+	}
+	adm_ec_ref_rx_id(msm_route_ec_ref_rx);
+	pr_debug("%s: msm_route_ec_ref_rx = %d\n",
+			__func__, msm_route_ec_ref_rx);
+	return 0;
+}
+
+static const char * const ec_ref_rx[] = {"SLIM_RX", "I2S_RX", "PROXY_RX",
+								"NONE"};
+static const struct soc_enum msm_route_ec_ref_rx_enum[] = {
+				SOC_ENUM_SINGLE_EXT(4, ec_ref_rx),
+};
+
+static const struct snd_kcontrol_new ec_ref_rx_mixer_controls[] = {
+	SOC_ENUM_EXT("EC_REF_RX", msm_route_ec_ref_rx_enum[0],
+	msm_routing_ec_ref_rx_get, msm_routing_ec_ref_rx_put),
+};
 
 static const struct snd_kcontrol_new pri_i2s_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_PRI_I2S_RX ,
@@ -2599,6 +2638,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 				lpa_SRS_trumedia_controls_I2S,
 			ARRAY_SIZE(lpa_SRS_trumedia_controls_I2S));
 
+	snd_soc_add_platform_controls(platform,
+				ec_ref_rx_mixer_controls,
+			ARRAY_SIZE(ec_ref_rx_mixer_controls));
 	return 0;
 }
 
