@@ -477,6 +477,13 @@ struct _mmc_csd {
 #define MMC_SWITCH_MODE_WRITE_BYTE	0x03	/* Set target to value */
 
 /*
+ * MMC Poweroff Notify types
+ */
+#define MMC_PW_OFF_NOTIFY_NONE		0
+#define MMC_PW_OFF_NOTIFY_SHORT		1
+#define MMC_PW_OFF_NOTIFY_LONG		2
+
+/*
  * BKOPS status level
  */
 #define EXT_CSD_BKOPS_LEVEL_2		0x2
