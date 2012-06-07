@@ -28,6 +28,8 @@
 #include <asm/pmu.h>
 #include <asm/stacktrace.h>
 
+#include <linux/cpu_pm.h>
+
 /*
  * ARMv6 supports a maximum of 3 events, starting from index 0. If we add
  * another platform that supports more, we need to increase this to be the
@@ -383,10 +385,7 @@ armpmu_release_hardware(struct arm_pmu *armpmu)
 {
 	int i, irq, irqs;
 	struct platform_device *pmu_device = armpmu->plat_device;
-#if 0
-	struct arm_pmu_platdata *plat =
-		dev_get_platdata(&pmu_device->dev);
-#endif
+
 	irqs = min(pmu_device->num_resources, num_possible_cpus());
 
 	for (i = 0; i < irqs; ++i) {
@@ -394,13 +393,6 @@ armpmu_release_hardware(struct arm_pmu *armpmu)
 			continue;
 		irq = platform_get_irq(pmu_device, i);
 		armpmu->free_pmu_irq(irq);
-#if 0
-		if (irq >= 0) {
-			if (plat && plat->disable_irq)
-				plat->disable_irq(irq);
-			free_irq(irq, armpmu);
-		}
-#endif
 	}
 
 	release_pmu(armpmu->type);
@@ -461,19 +453,6 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 			armpmu_release_hardware(cpu_pmu);
                         return err;
                 }
-
-#if 0
-		err = request_irq(irq, handle_irq,
-				  IRQF_DISABLED | IRQF_NOBALANCING,
-				  "arm-pmu", armpmu);
-		if (err) {
-			pr_err("unable to request IRQ%d for ARM PMU counters\n",
-				irq);
-			armpmu_release_hardware(armpmu);
-			return err;
-		} else if (plat && plat->enable_irq)
-			plat->enable_irq(irq);
-#endif
 
 		cpumask_set_cpu(i, &armpmu->active_irqs);
 	}
@@ -734,8 +713,74 @@ static int __cpuinit pmu_cpu_notify(struct notifier_block *b,
 	return NOTIFY_OK;
 }
 
+static void armpmu_update_counters(void)
+{
+	struct pmu_hw_events *hw_events;
+	int idx;
+
+	if (!cpu_pmu)
+		return;
+
+	hw_events = cpu_pmu->get_hw_events();
+
+	for (idx = 0; idx <= cpu_pmu->num_events; ++idx) {
+		struct perf_event *event = hw_events->events[idx];
+
+		if (!event)
+			continue;
+
+		armpmu_read(event);
+	}
+}
+
+static int cpu_has_active_perf(void)
+{
+	struct pmu_hw_events *hw_events;
+	int enabled;
+
+	if (!cpu_pmu)
+		return 0;
+
+	hw_events = cpu_pmu->get_hw_events();
+	enabled = bitmap_weight(hw_events->used_mask, cpu_pmu->num_events);
+
+	if (enabled)
+		/*Even one event's existence is good enough.*/
+		return 1;
+
+	return 0;
+}
+
 static struct notifier_block __cpuinitdata pmu_cpu_notifier = {
 	.notifier_call = pmu_cpu_notify,
+};
+
+/*TODO: Unify with pending patch from ARM */
+static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
+		void *v)
+{
+	switch (cmd) {
+	case CPU_PM_ENTER:
+		if (cpu_has_active_perf()) {
+			armpmu_update_counters();
+			perf_pmu_disable(&cpu_pmu->pmu);
+		}
+		break;
+
+	case CPU_PM_ENTER_FAILED:
+	case CPU_PM_EXIT:
+		if (cpu_has_active_perf() && cpu_pmu->reset) {
+			cpu_pmu->reset(NULL);
+			perf_pmu_enable(&cpu_pmu->pmu);
+		}
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block perf_cpu_pm_notifier_block = {
+	.notifier_call = perf_cpu_pm_notifier,
 };
 
 /*
@@ -814,6 +859,7 @@ init_hw_perf_events(void)
 		cpu_pmu_init(cpu_pmu);
 		register_cpu_notifier(&pmu_cpu_notifier);
 		armpmu_register(cpu_pmu, "cpu", PERF_TYPE_RAW);
+		cpu_pm_register_notifier(&perf_cpu_pm_notifier_block);
 	} else {
 		pr_info("no hardware support available\n");
 	}
