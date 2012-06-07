@@ -19,10 +19,10 @@
 #define __MFD_PM8821_H
 
 #include <linux/device.h>
-#include <linux/mfd/pm8xxx/irq.h>
+#include <linux/mfd/pm8xxx/pm8821-irq.h>
 #include <linux/mfd/pm8xxx/mpp.h>
 
-#define PM8821_NR_IRQS		(64)
+#define PM8821_NR_IRQS		(112)
 #define PM8821_NR_MPPS		(4)
 
 #define PM8821_MPP_BLOCK_START	(4)
