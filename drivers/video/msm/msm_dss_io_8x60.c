@@ -548,7 +548,6 @@ void hdmi_phy_reset(void)
 
 void hdmi_msm_reset_core(void)
 {
-	hdmi_msm_set_mode(FALSE);
 	hdmi_msm_clk(0);
 	udelay(5);
 	hdmi_msm_clk(1);

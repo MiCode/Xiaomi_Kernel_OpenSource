@@ -1312,7 +1312,8 @@ void hdmi_msm_set_mode(boolean power_on)
 
 	/* HDMI_CTRL */
 	HDMI_OUTP(0x0000, reg_val);
-	DEV_DBG("HDMI Core: %s\n", power_on ? "Enable" : "Disable");
+	DEV_DBG("HDMI Core: %s, HDMI_CTRL=0x%08x\n",
+			power_on ? "Enable" : "Disable", reg_val);
 }
 
 static void msm_hdmi_init_ddc(void)
@@ -4231,22 +4232,24 @@ static void hdmi_msm_hpd_read_work(struct work_struct *work)
 
 static void hdmi_msm_hpd_off(void)
 {
+	int rc = 0;
+
 	if (!hdmi_msm_state->hpd_initialized) {
 		DEV_DBG("%s: HPD is already OFF, returning\n", __func__);
 		return;
 	}
 
-	DEV_DBG("%s: (timer, clk, 5V, core, IRQ off)\n", __func__);
+	DEV_DBG("%s: (timer, 5V, IRQ off)\n", __func__);
 	del_timer(&hdmi_msm_state->hpd_state_timer);
 	disable_irq(hdmi_msm_state->irq);
 
 	hdmi_msm_set_mode(FALSE);
-	hdmi_msm_state->hpd_initialized = FALSE;
-	hdmi_msm_powerdown_phy();
-	hdmi_msm_state->pd->cec_power(0);
 	hdmi_msm_state->pd->enable_5v(0);
-	hdmi_msm_state->pd->core_power(0, 1);
 	hdmi_msm_clk(0);
+	rc = hdmi_msm_state->pd->gpio_config(0);
+	if (rc != 0)
+		DEV_INFO("%s: Failed to disable GPIOs. Error=%d\n",
+				__func__, rc);
 	hdmi_msm_state->hpd_initialized = FALSE;
 }
 
@@ -4262,16 +4265,33 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 {
 	static int phy_reset_done;
 	uint32 hpd_ctrl;
+	int rc = 0;
 
 	if (hdmi_msm_state->hpd_initialized) {
-		DEV_DBG("%s: HPD is already ON, returning\n", __func__);
+		DEV_DBG("%s: HPD is already ON\n", __func__);
 		return 0;
 	}
 
-	hdmi_msm_clk(1);
-	hdmi_msm_state->pd->core_power(1, 1);
-	hdmi_msm_state->pd->enable_5v(1);
-	hdmi_msm_state->pd->cec_power(1);
+	rc = hdmi_msm_state->pd->gpio_config(1);
+	if (rc) {
+		DEV_ERR("%s: Failed to enable GPIOs. Error=%d\n",
+				__func__, rc);
+		goto error1;
+	}
+
+	rc = hdmi_msm_clk(1);
+	if (rc) {
+		DEV_ERR("%s: Failed to enable clocks. Error=%d\n",
+				__func__, rc);
+		goto error2;
+	}
+
+	rc = hdmi_msm_state->pd->enable_5v(1);
+	if (rc) {
+		DEV_ERR("%s: Failed to enable 5V regulator. Error=%d\n",
+				__func__, rc);
+		goto error3;
+	}
 	hdmi_msm_dump_regs("HDMI-INIT: ");
 	hdmi_msm_set_mode(FALSE);
 
@@ -4279,6 +4299,7 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 		hdmi_phy_reset();
 		phy_reset_done = 1;
 	}
+	hdmi_msm_set_mode(TRUE);
 
 	/* HDMI_USEC_REFTIMER[0x0208] */
 	HDMI_OUTP(0x0208, 0x0001001B);
@@ -4312,9 +4333,14 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 
 	hdmi_msm_state->hpd_initialized = TRUE;
 
-	hdmi_msm_set_mode(TRUE);
-
 	return 0;
+
+error3:
+	hdmi_msm_clk(0);
+error2:
+	hdmi_msm_state->pd->gpio_config(0);
+error1:
+	return rc;
 }
 
 static int hdmi_msm_power_ctrl(boolean enable)
