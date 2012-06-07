@@ -143,6 +143,7 @@ static int __init mipi_chimei_wuxga_init(void)
 	pinfo->mipi.data_lane1 = true;
 	pinfo->mipi.data_lane2 = true;
 	pinfo->mipi.data_lane3 = true;
+	pinfo->mipi.esc_byte_ratio = 6;
 
 	pinfo->mipi.mode = DSI_VIDEO_MODE;
 	/*
