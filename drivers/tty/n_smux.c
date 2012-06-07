@@ -25,6 +25,8 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <mach/subsystem_notif.h>
+#include <mach/subsystem_restart.h>
 #include <mach/msm_serial_hs.h>
 #include "smux_private.h"
 #include "smux_loopback.h"
@@ -239,7 +241,7 @@ struct smux_rx_worker_data {
  * allowed.
  */
 struct smux_ldisc_t {
-	spinlock_t lock_lha0;
+	struct mutex mutex_lha0;
 
 	int is_initialized;
 	int in_reset;
@@ -315,6 +317,12 @@ static long msm_smux_tiocm_get_atomic(struct smux_lch_t *ch);
 static void list_channel(struct smux_lch_t *ch);
 static int smux_send_status_cmd(struct smux_lch_t *ch);
 static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt);
+static void smux_purge_ch_tx_queue(struct smux_lch_t *ch);
+static int schedule_notify(uint8_t lcid, int event,
+			const union notifier_metadata *metadata);
+static int ssr_notifier_cb(struct notifier_block *this,
+				unsigned long code,
+				void *data);
 
 /**
  * Convert TTY Error Flags to string for logging purposes.
@@ -407,6 +415,70 @@ static int lch_init(void)
 	}
 
 	return 0;
+}
+
+/**
+ * Empty and cleanup all SMUX logical channels for subsystem restart or line
+ * discipline disconnect.
+ */
+static void smux_lch_purge(void)
+{
+	struct smux_lch_t *ch;
+	unsigned long flags;
+	int i;
+
+	/* Empty TX ready list */
+	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
+	while (!list_empty(&smux.lch_tx_ready_list)) {
+		SMUX_DBG("%s: emptying ready list %p\n",
+				__func__, smux.lch_tx_ready_list.next);
+		ch = list_first_entry(&smux.lch_tx_ready_list,
+						struct smux_lch_t,
+						tx_ready_list);
+		list_del(&ch->tx_ready_list);
+		INIT_LIST_HEAD(&ch->tx_ready_list);
+	}
+	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
+
+	/* Close all ports */
+	for (i = 0 ; i < SMUX_NUM_LOGICAL_CHANNELS; i++) {
+		ch = &smux_lch[i];
+		SMUX_DBG("%s: cleaning up lcid %d\n", __func__, i);
+
+		spin_lock_irqsave(&ch->state_lock_lhb1, flags);
+
+		/* Purge TX queue */
+		spin_lock(&ch->tx_lock_lhb2);
+		smux_purge_ch_tx_queue(ch);
+		spin_unlock(&ch->tx_lock_lhb2);
+
+		/* Notify user of disconnect and reset channel state */
+		if (ch->local_state == SMUX_LCH_LOCAL_OPENED ||
+			ch->local_state == SMUX_LCH_LOCAL_CLOSING) {
+			union notifier_metadata meta;
+
+			meta.disconnected.is_ssr = smux.in_reset;
+			schedule_notify(ch->lcid, SMUX_DISCONNECTED, &meta);
+		}
+
+		ch->local_state = SMUX_LCH_LOCAL_CLOSED;
+		ch->local_mode = SMUX_LCH_MODE_NORMAL;
+		ch->remote_state = SMUX_LCH_REMOTE_CLOSED;
+		ch->remote_mode = SMUX_LCH_MODE_NORMAL;
+		ch->tx_flow_control = 0;
+
+		/* Purge RX retry queue */
+		if (ch->rx_retry_queue_cnt)
+			queue_delayed_work(smux_rx_wq, &ch->rx_retry_work, 0);
+
+		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+	}
+
+	/* Flush TX/RX workqueues */
+	SMUX_DBG("%s: flushing tx wq\n", __func__);
+	flush_workqueue(smux_tx_wq);
+	SMUX_DBG("%s: flushing rx wq\n", __func__);
+	flush_workqueue(smux_rx_wq);
 }
 
 int smux_assert_lch_id(uint32_t lcid)
@@ -830,7 +902,7 @@ static int write_to_tty(char *data, unsigned len)
 	if (!data)
 		return 0;
 
-	while (len > 0) {
+	while (len > 0 && !smux.in_reset) {
 		data_written = smux.tty->ops->write(smux.tty, data, len);
 		if (data_written >= 0) {
 			len -= data_written;
@@ -844,8 +916,6 @@ static int write_to_tty(char *data, unsigned len)
 		if (len)
 			tty_wait_until_sent(smux.tty,
 				msecs_to_jiffies(TTY_BUFFER_FULL_WAIT_MS));
-
-		/* FUTURE - add SSR logic */
 	}
 	return 0;
 }
@@ -1936,6 +2006,50 @@ static void smux_tx_pkt(struct smux_lch_t *ch, struct smux_pkt_t *pkt)
 }
 
 /**
+ * Purge TX queue for logical channel.
+ *
+ * @ch     Logical channel pointer
+ *
+ * Must be called with the following spinlocks locked:
+ *  state_lock_lhb1
+ *  tx_lock_lhb2
+ */
+static void smux_purge_ch_tx_queue(struct smux_lch_t *ch)
+{
+	struct smux_pkt_t *pkt;
+	int send_disconnect = 0;
+
+	while (!list_empty(&ch->tx_queue)) {
+		pkt = list_first_entry(&ch->tx_queue, struct smux_pkt_t,
+							list);
+		list_del(&pkt->list);
+
+		if (pkt->hdr.cmd == SMUX_CMD_OPEN_LCH) {
+			/* Open was never sent, just force to closed state */
+			ch->local_state = SMUX_LCH_LOCAL_CLOSED;
+			send_disconnect = 1;
+		} else if (pkt->hdr.cmd == SMUX_CMD_DATA) {
+			/* Notify client of failed write */
+			union notifier_metadata meta_write;
+
+			meta_write.write.pkt_priv = pkt->priv;
+			meta_write.write.buffer = pkt->payload;
+			meta_write.write.len = pkt->hdr.payload_len;
+			schedule_notify(ch->lcid, SMUX_WRITE_FAIL, &meta_write);
+		}
+		smux_free_pkt(pkt);
+	}
+
+	if (send_disconnect) {
+		union notifier_metadata meta_disconnected;
+
+		meta_disconnected.disconnected.is_ssr = smux.in_reset;
+		schedule_notify(ch->lcid, SMUX_DISCONNECTED,
+			&meta_disconnected);
+	}
+}
+
+/**
  * Power-up the UART.
  */
 static void smux_uart_power_on(void)
@@ -1981,7 +2095,7 @@ static void smux_wakeup_worker(struct work_struct *work)
 	unsigned wakeup_delay;
 	int complete = 0;
 
-	for (;;) {
+	while (!smux.in_reset) {
 		spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 		if (smux.power_state == SMUX_PWR_ON) {
 			/* wakeup complete */
@@ -2286,7 +2400,7 @@ static void smux_tx_worker(struct work_struct *work)
 	 * inserting after the tail.  The locks can then be released
 	 * while the packet is processed.
 	 */
-	for (;;) {
+	while (!smux.in_reset) {
 		pkt = NULL;
 		low_wm_notif = 0;
 
@@ -2563,30 +2677,7 @@ int msm_smux_close(uint8_t lcid)
 
 	/* Purge TX queue */
 	spin_lock(&ch->tx_lock_lhb2);
-	while (!list_empty(&ch->tx_queue)) {
-		pkt = list_first_entry(&ch->tx_queue, struct smux_pkt_t,
-							list);
-		list_del(&pkt->list);
-
-		if (pkt->hdr.cmd == SMUX_CMD_OPEN_LCH) {
-			/* Open was never sent, just force to closed state */
-			union notifier_metadata meta_disconnected;
-
-			ch->local_state = SMUX_LCH_LOCAL_CLOSED;
-			meta_disconnected.disconnected.is_ssr = 0;
-			schedule_notify(lcid, SMUX_DISCONNECTED,
-				&meta_disconnected);
-		} else if (pkt->hdr.cmd == SMUX_CMD_DATA) {
-			/* Notify client of failed write */
-			union notifier_metadata meta_write;
-
-			meta_write.write.pkt_priv = pkt->priv;
-			meta_write.write.buffer = pkt->payload;
-			meta_write.write.len = pkt->hdr.payload_len;
-			schedule_notify(ch->lcid, SMUX_WRITE_FAIL, &meta_write);
-		}
-		smux_free_pkt(pkt);
-	}
+	smux_purge_ch_tx_queue(ch);
 	spin_unlock(&ch->tx_lock_lhb2);
 
 	/* Send Close Command */
@@ -2912,8 +3003,59 @@ int msm_smux_tiocm_set(uint8_t lcid, uint32_t set, uint32_t clear)
 }
 
 /**********************************************************************/
+/* Subsystem Restart                                                  */
+/**********************************************************************/
+static struct notifier_block ssr_notifier = {
+	.notifier_call = ssr_notifier_cb,
+};
+
+/**
+ * Handle Subsystem Restart (SSR) notifications.
+ *
+ * @this Pointer to ssr_notifier
+ * @code SSR Code
+ * @data Data pointer (not used)
+ */
+static int ssr_notifier_cb(struct notifier_block *this,
+				unsigned long code,
+				void *data)
+{
+	unsigned long flags;
+	int power_off_uart = 0;
+
+	if (code != SUBSYS_AFTER_SHUTDOWN)
+		return NOTIFY_DONE;
+
+	/* Cleanup channels */
+	smux_lch_purge();
+
+	/* Power-down UART */
+	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
+	if (smux.power_state != SMUX_PWR_OFF) {
+		SMUX_DBG("%s: SSR - turning off UART\n", __func__);
+		smux.power_state = SMUX_PWR_OFF;
+		power_off_uart = 1;
+	}
+	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
+
+	if (power_off_uart)
+		smux_uart_power_off();
+
+	return NOTIFY_DONE;
+}
+
+/**********************************************************************/
 /* Line Discipline Interface                                          */
 /**********************************************************************/
+static void smux_pdev_release(struct device *dev)
+{
+	struct platform_device *pdev;
+
+	pdev = container_of(dev, struct platform_device, dev);
+	SMUX_DBG("%s: releasing pdev %p '%s'\n", __func__, pdev, pdev->name);
+	memset(&pdev->dev, 0x0, sizeof(pdev->dev));
+}
+
 static int smuxld_open(struct tty_struct *tty)
 {
 	int i;
@@ -2923,66 +3065,98 @@ static int smuxld_open(struct tty_struct *tty)
 	if (!smux.is_initialized)
 		return -ENODEV;
 
-	spin_lock_irqsave(&smux.lock_lha0, flags);
+	mutex_lock(&smux.mutex_lha0);
 	if (smux.ld_open_count) {
 		pr_err("%s: %p multiple instances not supported\n",
 			__func__, tty);
-		spin_unlock_irqrestore(&smux.lock_lha0, flags);
+		mutex_unlock(&smux.mutex_lha0);
 		return -EEXIST;
 	}
 
-	++smux.ld_open_count;
 	if (tty->ops->write == NULL) {
-		spin_unlock_irqrestore(&smux.lock_lha0, flags);
+		pr_err("%s: tty->ops->write already NULL\n", __func__);
+		mutex_unlock(&smux.mutex_lha0);
 		return -EINVAL;
 	}
 
 	/* connect to TTY */
+	++smux.ld_open_count;
+	smux.in_reset = 0;
 	smux.tty = tty;
 	tty->disc_data = &smux;
 	tty->receive_room = TTY_RECEIVE_ROOM;
 	tty_driver_flush_buffer(tty);
 
 	/* power-down the UART if we are idle */
-	spin_lock(&smux.tx_lock_lha2);
+	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (smux.power_state == SMUX_PWR_OFF) {
 		SMUX_DBG("%s: powering off uart\n", __func__);
 		smux.power_state = SMUX_PWR_OFF_FLUSH;
-		spin_unlock(&smux.tx_lock_lha2);
+		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 		queue_work(smux_tx_wq, &smux_inactivity_work);
 	} else {
-		spin_unlock(&smux.tx_lock_lha2);
+		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 	}
-	spin_unlock_irqrestore(&smux.lock_lha0, flags);
 
 	/* register platform devices */
 	for (i = 0; i < ARRAY_SIZE(smux_devs); ++i) {
+		SMUX_DBG("%s: register pdev '%s'\n",
+				__func__, smux_devs[i].name);
+		smux_devs[i].dev.release = smux_pdev_release;
 		tmp = platform_device_register(&smux_devs[i]);
 		if (tmp)
 			pr_err("%s: error %d registering device %s\n",
 				   __func__, tmp, smux_devs[i].name);
 	}
+	mutex_unlock(&smux.mutex_lha0);
 	return 0;
 }
 
 static void smuxld_close(struct tty_struct *tty)
 {
 	unsigned long flags;
+	int power_up_uart = 0;
 	int i;
 
-	spin_lock_irqsave(&smux.lock_lha0, flags);
+	SMUX_DBG("%s: ldisc unload\n", __func__);
+	mutex_lock(&smux.mutex_lha0);
 	if (smux.ld_open_count <= 0) {
 		pr_err("%s: invalid ld count %d\n", __func__,
 			smux.ld_open_count);
-		spin_unlock_irqrestore(&smux.lock_lha0, flags);
+		mutex_unlock(&smux.mutex_lha0);
 		return;
 	}
-	spin_unlock_irqrestore(&smux.lock_lha0, flags);
-
-	for (i = 0; i < ARRAY_SIZE(smux_devs); ++i)
-		platform_device_unregister(&smux_devs[i]);
-
+	smux.in_reset = 1;
 	--smux.ld_open_count;
+
+	/* Cleanup channels */
+	smux_lch_purge();
+
+	/* Unregister platform devices */
+	for (i = 0; i < ARRAY_SIZE(smux_devs); ++i) {
+		SMUX_DBG("%s: unregister pdev '%s'\n",
+				__func__, smux_devs[i].name);
+		platform_device_unregister(&smux_devs[i]);
+	}
+
+	/* Schedule UART power-up if it's down */
+	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
+	if (smux.power_state == SMUX_PWR_OFF ||
+		smux.power_state == SMUX_PWR_OFF_FLUSH) {
+		smux.power_state = SMUX_PWR_OFF;
+		power_up_uart = 1;
+	} else {
+		smux.power_state = SMUX_PWR_OFF;
+	}
+	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
+
+	if (power_up_uart)
+		smux_uart_power_on();
+
+	/* Disconnect from TTY */
+	smux.tty = NULL;
+	mutex_unlock(&smux.mutex_lha0);
+	SMUX_DBG("%s: ldisc complete\n", __func__);
 }
 
 /**
@@ -3091,7 +3265,7 @@ static int __init smux_init(void)
 {
 	int ret;
 
-	spin_lock_init(&smux.lock_lha0);
+	mutex_init(&smux.mutex_lha0);
 
 	spin_lock_init(&smux.rx_lock_lha1);
 	smux.rx_state = SMUX_RX_IDLE;
@@ -3116,6 +3290,8 @@ static int __init smux_init(void)
 				__func__, ret);
 		return ret;
 	}
+
+	subsys_notif_register_notifier("qsc", &ssr_notifier);
 
 	ret = lch_init();
 	if (ret != 0) {
