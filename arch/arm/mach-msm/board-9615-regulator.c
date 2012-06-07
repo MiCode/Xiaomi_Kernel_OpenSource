@@ -69,9 +69,6 @@ VREG_CONSUMERS(L14) = {
 };
 VREG_CONSUMERS(S1) = {
 	REGULATOR_SUPPLY("8018_s1",		NULL),
-	REGULATOR_SUPPLY("HSUSB_VDDCX",		"msm_otg"),
-	REGULATOR_SUPPLY("HSIC_VDDCX",		"msm_hsic_peripheral"),
-	REGULATOR_SUPPLY("HSIC_VDDCX",		"msm_hsic_host"),
 };
 VREG_CONSUMERS(S2) = {
 	REGULATOR_SUPPLY("8018_s2",		NULL),
@@ -118,6 +115,9 @@ VREG_CONSUMERS(EXT_2P95V) = {
 	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.1"),
 };
 VREG_CONSUMERS(VDD_DIG_CORNER) = {
+	REGULATOR_SUPPLY("hsusb_vdd_dig",	"msm_otg"),
+	REGULATOR_SUPPLY("hsic_vdd_dig",	"msm_hsic_peripheral"),
+	REGULATOR_SUPPLY("hsic_vdd_dig",	"msm_hsic_host"),
 };
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
