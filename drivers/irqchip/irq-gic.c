@@ -851,6 +851,22 @@ static void __init gic_pm_init(struct gic_chip_data *gic)
 static void __init gic_pm_init(struct gic_chip_data *gic)
 {
 }
+
+static void gic_cpu_restore(unsigned int gic_nr)
+{
+}
+
+static void gic_cpu_save(unsigned int gic_nr)
+{
+}
+
+static void gic_dist_restore(unsigned int gic_nr)
+{
+}
+
+static void gic_dist_save(unsigned int gic_nr)
+{
+}
 #endif
 
 #ifdef CONFIG_SMP
@@ -1202,6 +1218,7 @@ unsigned int msm_gic_spi_ppi_pending(void)
 
 	return 0;
 }
+#endif
 
 void msm_gic_save(bool modem_wake, int from_idle)
 {
@@ -1261,4 +1278,3 @@ void gic_configure_and_raise(unsigned int irq, unsigned int cpu)
 
 	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
-#endif
