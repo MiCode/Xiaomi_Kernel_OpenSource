@@ -358,7 +358,6 @@ static const char * const vfe32_general_cmd[] = {
 
 static void vfe32_stop(void)
 {
-	uint8_t  axiBusyFlag = true;
 	unsigned long flags;
 
 	atomic_set(&vfe32_ctrl->vstate, 0);
@@ -389,31 +388,6 @@ static void vfe32_stop(void)
 	msm_camera_io_w(CAMIF_COMMAND_STOP_IMMEDIATELY,
 		vfe32_ctrl->vfebase + VFE_CAMIF_COMMAND);
 
-	/* axi halt command. */
-	msm_camera_io_w(AXI_HALT,
-		vfe32_ctrl->vfebase + VFE_AXI_CMD);
-	wmb();
-	while (axiBusyFlag) {
-		if (msm_camera_io_r(vfe32_ctrl->vfebase + VFE_AXI_STATUS) & 0x1)
-			axiBusyFlag = false;
-	}
-	/* Ensure the write order while writing
-	to the command register using the barrier */
-	msm_camera_io_w_mb(AXI_HALT_CLEAR,
-		vfe32_ctrl->vfebase + VFE_AXI_CMD);
-
-	/* after axi halt, then ok to apply global reset. */
-	/* enable reset_ack and async timer interrupt only while
-	stopping the pipeline.*/
-	msm_camera_io_w(0xf0000000,
-		vfe32_ctrl->vfebase + VFE_IRQ_MASK_0);
-	msm_camera_io_w(VFE_IMASK_WHILE_STOPPING_1,
-		vfe32_ctrl->vfebase + VFE_IRQ_MASK_1);
-
-	/* Ensure the write order while writing
-	to the command register using the barrier */
-	msm_camera_io_w_mb(VFE_RESET_UPON_STOP_CMD,
-		vfe32_ctrl->vfebase + VFE_GLOBAL_RESET);
 }
 
 static void vfe32_subdev_notify(int id, int path)
@@ -910,7 +884,6 @@ static int vfe32_capture(
 static int vfe32_start(struct msm_cam_media_controller *pmctl)
 {
 	uint32_t irq_comp_mask = 0;
-
 	irq_comp_mask	=
 		msm_camera_io_r(vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 
@@ -933,44 +906,6 @@ static int vfe32_start(struct msm_cam_media_controller *pmctl)
 			0x1 << (vfe32_ctrl->outpath.out1.ch2 + 8));
 	}
 	msm_camera_io_w(irq_comp_mask, vfe32_ctrl->vfebase + VFE_IRQ_COMP_MASK);
-
-	switch (vfe32_ctrl->operation_mode) {
-	case VFE_OUTPUTS_PREVIEW:
-	case VFE_OUTPUTS_PREVIEW_AND_VIDEO:
-		if (vfe32_ctrl->outpath.output_mode &
-			VFE32_OUTPUT_MODE_PRIMARY) {
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
-		} else if (vfe32_ctrl->outpath.output_mode &
-				VFE32_OUTPUT_MODE_PRIMARY_ALL_CHNLS) {
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch2]);
-		}
-		break;
-	default:
-		if (vfe32_ctrl->outpath.output_mode &
-			VFE32_OUTPUT_MODE_SECONDARY) {
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch0]);
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch1]);
-		} else if (vfe32_ctrl->outpath.output_mode &
-			VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS) {
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch0]);
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch1]);
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch2]);
-		}
-		break;
-	}
 
 	msm_camio_bus_scale_cfg(
 		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
@@ -3998,23 +3933,97 @@ void msm_vfe_subdev_release(struct v4l2_subdev *sd)
 	vfe32_ctrl->vfebase = 0;
 }
 
+void axi_start(void)
+{
+	switch (vfe32_ctrl->operation_mode) {
+	case VFE_OUTPUTS_PREVIEW:
+	case VFE_OUTPUTS_PREVIEW_AND_VIDEO:
+		if (vfe32_ctrl->outpath.output_mode &
+			VFE32_OUTPUT_MODE_PRIMARY) {
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
+		} else if (vfe32_ctrl->outpath.output_mode &
+				VFE32_OUTPUT_MODE_PRIMARY_ALL_CHNLS) {
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch2]);
+		}
+		break;
+	default:
+		if (vfe32_ctrl->outpath.output_mode &
+			VFE32_OUTPUT_MODE_SECONDARY) {
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch0]);
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch1]);
+		} else if (vfe32_ctrl->outpath.output_mode &
+			VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS) {
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch0]);
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch1]);
+			msm_camera_io_w(1, vfe32_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out1.ch2]);
+		}
+		break;
+	}
+}
+
+void axi_stop(void)
+{
+	uint8_t  axiBusyFlag = true;
+		/* axi halt command. */
+	msm_camera_io_w(AXI_HALT,
+		vfe32_ctrl->vfebase + VFE_AXI_CMD);
+	wmb();
+	while (axiBusyFlag) {
+		if (msm_camera_io_r(vfe32_ctrl->vfebase + VFE_AXI_STATUS) & 0x1)
+			axiBusyFlag = false;
+	}
+	/* Ensure the write order while writing
+	to the command register using the barrier */
+	msm_camera_io_w_mb(AXI_HALT_CLEAR,
+		vfe32_ctrl->vfebase + VFE_AXI_CMD);
+
+	/* after axi halt, then ok to apply global reset. */
+	/* enable reset_ack and async timer interrupt only while
+	stopping the pipeline.*/
+	msm_camera_io_w(0xf0000000,
+		vfe32_ctrl->vfebase + VFE_IRQ_MASK_0);
+	msm_camera_io_w(VFE_IMASK_WHILE_STOPPING_1,
+		vfe32_ctrl->vfebase + VFE_IRQ_MASK_1);
+
+	/* Ensure the write order while writing
+	to the command register using the barrier */
+	msm_camera_io_w_mb(VFE_RESET_UPON_STOP_CMD,
+		vfe32_ctrl->vfebase + VFE_GLOBAL_RESET);
+}
+
 static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 {
 	struct msm_vfe_cfg_cmd cfgcmd;
 	struct msm_isp_cmd vfecmd;
 	int rc = 0;
 
-	if (copy_from_user(&cfgcmd, arg, sizeof(cfgcmd))) {
-		ERR_COPY_FROM_USER();
-		return -EFAULT;
+	if (NULL != arg) {
+		if (copy_from_user(&cfgcmd, arg, sizeof(cfgcmd))) {
+			ERR_COPY_FROM_USER();
+			return -EFAULT;
+		}
 	}
-
-	if (copy_from_user(&vfecmd,
-			(void __user *)(cfgcmd.value),
-			sizeof(vfecmd))) {
-		pr_err("%s %d: copy_from_user failed\n", __func__,
-			__LINE__);
-		return -EFAULT;
+	if (NULL != cfgcmd.value) {
+		if (copy_from_user(&vfecmd,
+				(void __user *)(cfgcmd.value),
+				sizeof(vfecmd))) {
+			pr_err("%s %d: copy_from_user failed\n", __func__,
+				__LINE__);
+			return -EFAULT;
+		}
 	}
 
 	switch (cfgcmd.cmd_type) {
@@ -4116,6 +4125,12 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 	case CMD_AXI_CFG_PRIM_ALL_CHNLS|CMD_AXI_CFG_SEC_ALL_CHNLS:
 		pr_err("%s Invalid/Unsupported AXI configuration %x",
 			__func__, cfgcmd.cmd_type);
+		break;
+	case CMD_AXI_START:
+		axi_start();
+		break;
+	case CMD_AXI_STOP:
+		axi_stop();
 		break;
 	default:
 		pr_err("%s Unsupported AXI configuration %x ", __func__,
