@@ -257,10 +257,10 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x128, 0x0001);/* start phy sw reset */
 	wmb();
-	usleep(10);
+	usleep(1000);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x128, 0x0000);/* end phy w reset */
 	wmb();
-	usleep(10);
+	usleep(1000);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x2cc, 0x0003);/* regulator_ctrl_0 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x2d0, 0x0001);/* regulator_ctrl_1 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x2d4, 0x0001);/* regulator_ctrl_2 */
