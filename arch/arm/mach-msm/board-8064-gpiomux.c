@@ -428,6 +428,20 @@ static struct gpiomux_setting hdmi_active_2_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting hdmi_active_3_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+static struct gpiomux_setting hdmi_active_4_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_OUT_HIGH,
+};
+
 static struct gpiomux_setting gsbi5_suspended_cfg = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_12MA,
@@ -613,6 +627,23 @@ static struct msm_gpiomux_config apq8064_hdmi_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &hdmi_active_2_cfg,
 			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+};
+
+static struct msm_gpiomux_config apq8064_mhl_configs[] __initdata = {
+	{
+		.gpio = 30,
+		.settings = {
+		[GPIOMUX_ACTIVE]    = &hdmi_active_3_cfg,
+		[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 35,
+		.settings = {
+		[GPIOMUX_ACTIVE]    = &hdmi_active_4_cfg,
+		[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
 		},
 	},
 };
@@ -1356,6 +1387,10 @@ void __init apq8064_init_gpiomux(void)
 
 	msm_gpiomux_install(apq8064_hdmi_configs,
 			ARRAY_SIZE(apq8064_hdmi_configs));
+
+	if (apq8064_mhl_display_enabled())
+		msm_gpiomux_install(apq8064_mhl_configs,
+				ARRAY_SIZE(apq8064_mhl_configs));
 
 	 if (machine_is_mpq8064_cdp())
 		msm_gpiomux_install(mpq8064_ir_configs,
