@@ -2316,13 +2316,21 @@ static struct msm_bus_vectors vcap_init_vectors[]  = {
 	},
 };
 
-
 static struct msm_bus_vectors vcap_480_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_CAP,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 1280 * 720 * 3 * 60,
-		.ib = 1280 * 720 * 3 * 60 * 1.5,
+		.ab = 480 * 720 * 3 * 60,
+		.ib = 480 * 720 * 3 * 60 * 1.5,
+	},
+};
+
+static struct msm_bus_vectors vcap_576_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_CAP,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 576 * 720 * 3 * 60,
+		.ib = 576 * 720 * 3 * 60 * 1.5,
 	},
 };
 
@@ -2352,6 +2360,10 @@ static struct msm_bus_paths vcap_bus_usecases[]  = {
 	{
 		ARRAY_SIZE(vcap_480_vectors),
 		vcap_480_vectors,
+	},
+	{
+		ARRAY_SIZE(vcap_576_vectors),
+		vcap_576_vectors,
 	},
 	{
 		ARRAY_SIZE(vcap_720_vectors),

@@ -51,7 +51,8 @@ struct v4l2_format_vc_ext {
 	enum hal_vcap_polar    d_polar;
 	enum hal_vcap_color    color_space;
 
-	float  clk_freq;
+	uint32_t clk_freq;
+	uint32_t frame_rate;
 	uint32_t vtotal;
 	uint32_t htotal;
 	uint32_t hactive_start;
