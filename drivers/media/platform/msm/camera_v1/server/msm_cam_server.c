@@ -1894,8 +1894,17 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 	case GESTURE_DEV:
 		g_server_dev.gesture_device = sd;
 		break;
+
 	case IRQ_ROUTER_DEV:
 		g_server_dev.irqr_device = sd;
+
+	case CPP_DEV:
+		if (index >= MAX_NUM_CPP_DEV) {
+			pr_err("%s Invalid CPP idx %d", __func__, index);
+			err = -EINVAL;
+			break;
+		}
+		g_server_dev.cpp_device[index] = sd;
 		break;
 	default:
 		break;

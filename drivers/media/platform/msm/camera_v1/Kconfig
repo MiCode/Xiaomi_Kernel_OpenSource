@@ -271,6 +271,15 @@ config MSM_CAM_IRQ_ROUTER
 	cores and composite them into a single
 	interrupt to the MSM.
 
+config MSM_CPP
+        bool "Qualcomm MSM Camera Post Processing Engine support"
+        depends on MSM_CAMERA && MSM_CAMERA_V4L2
+        ---help---
+          Enable support for Camera Post-processing Engine
+          The Post processing engine is capable of scaling
+          and cropping image. The driver support V4L2 subdev
+          APIs.
+
 config QUP_EXCLUSIVE_TO_CAMERA
 	bool "QUP exclusive to camera"
 	depends on MSM_CAMERA
