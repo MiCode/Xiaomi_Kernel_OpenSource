@@ -67,6 +67,9 @@ enum pm8xxx_vreg_pin_function {
  * @enable_time:	time in us taken to enable a regulator to the maximum
  *			allowed voltage for the system.  This is dependent upon
  *			the load and capacitance for a regulator on the board.
+ * @slew_rate:		worst case rate of change of regulator output voltage
+ *			in units of uV/us (V/s).  This is dependent upon the
+ *			load and capacitance for a regulator on the board.
  * @ocp_enable:		enable over current protection logic (available for
  *			LVS and MVS type switches)
  * @ocp_enable_time:	time in us to delay between enabling the switch and then
@@ -81,6 +84,7 @@ struct pm8xxx_regulator_platform_data {
 	enum pm8xxx_vreg_pin_function	pin_fn;
 	int				system_uA;
 	int				enable_time;
+	int				slew_rate;
 	unsigned			ocp_enable;
 	int				ocp_enable_time;
 };

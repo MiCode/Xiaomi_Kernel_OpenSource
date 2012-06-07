@@ -108,6 +108,8 @@ static int msm_csid_config(struct csid_cfg_params *cfg_params)
 	void __iomem *csidbase;
 	csid_dev = v4l2_get_subdevdata(cfg_params->subdev);
 	csidbase = csid_dev->base;
+	if (csidbase == NULL)
+		return -ENOMEM;
 	csid_params = cfg_params->parms;
 
 	val = csid_params->lane_cnt - 1;

@@ -6107,6 +6107,9 @@ static void __init reg_init(void)
 	if (cpu_is_msm8960() || cpu_is_apq8064())
 		rmwreg(0x2, DSI2_BYTE_NS_REG, 0x7);
 
+	/* Source the dsi1_esc_clk from the DSI1 PHY PLLs */
+	rmwreg(0x1, DSI1_ESC_NS_REG, 0x7);
+
 	/*
 	 * Source the sata_phy_ref_clk from PXO and set predivider of
 	 * sata_pmalive_clk to 1.

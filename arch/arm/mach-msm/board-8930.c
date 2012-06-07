@@ -1789,6 +1789,7 @@ static struct gpio_keys_button keys_8930[] = {
 		.gpio = GPIO_VOLUME_UP,
 		.wakeup = 1,
 		.active_low = 1,
+		.debounce_interval = 15,
 	},
 	{
 		.code = KEY_VOLUMEDOWN,
@@ -1797,6 +1798,7 @@ static struct gpio_keys_button keys_8930[] = {
 		.gpio = GPIO_VOLUME_DOWN,
 		.wakeup = 1,
 		.active_low = 1,
+		.debounce_interval = 15,
 	},
 	{
 		.code = KEY_CAMERA_FOCUS,
@@ -1805,6 +1807,7 @@ static struct gpio_keys_button keys_8930[] = {
 		.gpio = GPIO_CAMERA_FOCUS,
 		.wakeup = 1,
 		.active_low = 1,
+		.debounce_interval = 15,
 	},
 	{
 		.code = KEY_CAMERA_SNAPSHOT,
@@ -1813,6 +1816,7 @@ static struct gpio_keys_button keys_8930[] = {
 		.gpio = GPIO_CAMERA_SNAPSHOT,
 		.wakeup = 1,
 		.active_low = 1,
+		.debounce_interval = 15,
 	},
 };
 

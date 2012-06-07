@@ -53,6 +53,7 @@ struct msm_ipc_router_smd_xprt {
 	struct delayed_work read_work;
 	spinlock_t ss_reset_lock;	/*Subsystem reset lock*/
 	int ss_reset;
+	void *pil;
 };
 
 struct msm_ipc_router_smd_xprt_work {
@@ -203,10 +204,16 @@ static int msm_ipc_router_smd_remote_write(void *data,
 
 static int msm_ipc_router_smd_remote_close(struct msm_ipc_router_xprt *xprt)
 {
+	int rc;
 	struct msm_ipc_router_smd_xprt *smd_xprtp =
 		container_of(xprt, struct msm_ipc_router_smd_xprt, xprt);
 
-	return smd_close(smd_xprtp->channel);
+	rc = smd_close(smd_xprtp->channel);
+	if (smd_xprtp->pil) {
+		pil_put(smd_xprtp->pil);
+		smd_xprtp->pil = NULL;
+	}
+	return rc;
 }
 
 static void smd_xprt_read_data(struct work_struct *work)
@@ -388,6 +395,23 @@ static void msm_ipc_router_smd_remote_notify(void *_dev, unsigned event)
 	}
 }
 
+static void *msm_ipc_load_subsystem(uint32_t edge)
+{
+	void *pil = NULL;
+	const char *peripheral;
+
+	peripheral = smd_edge_to_subsystem(edge);
+	if (peripheral) {
+		pil = pil_get(peripheral);
+		if (IS_ERR(pil)) {
+			pr_err("%s: Failed to load %s\n",
+				__func__, peripheral);
+			pil = NULL;
+		}
+	}
+	return pil;
+}
+
 static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -425,6 +449,8 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 	spin_lock_init(&smd_remote_xprt[id].ss_reset_lock);
 	smd_remote_xprt[id].ss_reset = 0;
 
+	smd_remote_xprt[id].pil = msm_ipc_load_subsystem(
+					smd_xprt_cfg[id].edge);
 	rc = smd_named_open_on_edge(smd_xprt_cfg[id].ch_name,
 				    smd_xprt_cfg[id].edge,
 				    &smd_remote_xprt[id].channel,
@@ -433,6 +459,10 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		pr_err("%s: Channel open failed for %s\n",
 			__func__, smd_xprt_cfg[id].ch_name);
+		if (smd_remote_xprt[id].pil) {
+			pil_put(smd_remote_xprt[id].pil);
+			smd_remote_xprt[id].pil = NULL;
+		}
 		destroy_workqueue(smd_remote_xprt[id].smd_xprt_wq);
 		return rc;
 	}

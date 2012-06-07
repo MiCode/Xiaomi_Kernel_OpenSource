@@ -200,32 +200,31 @@ static int msm_gesture_handle_event(struct v4l2_subdev *sd,
 	D("%s: Received gesture evt 0x%x ", __func__, evt->type);
 	p_gesture_ctrl->event.evt_len = 0;
 	p_gesture_ctrl->event.evt_data = NULL;
-	if (0 != evt->u.data[0]) {
-		p_ges_evt = (struct msm_ges_evt *)evt->u.data;
-		D("%s: event data %p len %d", __func__,
-			p_ges_evt->evt_data,
-			p_ges_evt->evt_len);
 
-		if (p_ges_evt->evt_len > 0) {
-			p_gesture_ctrl->event.evt_data =
-				kzalloc(p_ges_evt->evt_len, GFP_KERNEL);
+	p_ges_evt = (struct msm_ges_evt *)evt->u.data;
+	D("%s: event data %p len %d", __func__,
+		p_ges_evt->evt_data,
+		p_ges_evt->evt_len);
 
-			if (NULL == p_gesture_ctrl->event.evt_data) {
-				pr_err("%s: cannot allocate event", __func__);
-				rc = -ENOMEM;
+	if (p_ges_evt->evt_len > 0) {
+		p_gesture_ctrl->event.evt_data =
+			kzalloc(p_ges_evt->evt_len, GFP_KERNEL);
+
+		if (NULL == p_gesture_ctrl->event.evt_data) {
+			pr_err("%s: cannot allocate event", __func__);
+			rc = -ENOMEM;
+		} else {
+			if (copy_from_user(
+				(void *)p_gesture_ctrl->event.evt_data,
+				(void __user *)p_ges_evt->evt_data,
+				p_ges_evt->evt_len)) {
+				pr_err("%s: copy_from_user failed",
+					__func__);
+				rc = -EFAULT;
 			} else {
-				if (copy_from_user(
-					(void *)p_gesture_ctrl->event.evt_data,
-					(void __user *)p_ges_evt->evt_data,
-					p_ges_evt->evt_len)) {
-					pr_err("%s: copy_from_user failed",
-							__func__);
-					rc = -EFAULT;
-				} else {
-					D("%s: copied the event", __func__);
-					p_gesture_ctrl->event.evt_len =
-						p_ges_evt->evt_len;
-				}
+				D("%s: copied the event", __func__);
+				p_gesture_ctrl->event.evt_len =
+					p_ges_evt->evt_len;
 			}
 		}
 	}

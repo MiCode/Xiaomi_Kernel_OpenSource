@@ -227,7 +227,7 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 };
 
 static int mdp_core_clk_rate_table[] = {
-	85330000,
+	59080000,
 	128000000,
 	160000000,
 	200000000,
@@ -235,7 +235,7 @@ static int mdp_core_clk_rate_table[] = {
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
-	.mdp_core_clk_rate = 85330000,
+	.mdp_core_clk_rate = 59080000,
 	.mdp_core_clk_table = mdp_core_clk_rate_table,
 	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,

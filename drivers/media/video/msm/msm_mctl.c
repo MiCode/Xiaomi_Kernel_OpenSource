@@ -30,6 +30,7 @@
 #include <mach/cpuidle.h>
 
 #include "msm.h"
+#include "msm_cam_server.h"
 #include "msm_csid.h"
 #include "msm_csic.h"
 #include "msm_csiphy.h"
@@ -852,13 +853,13 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 		pr_err("%s: param is NULL", __func__);
 		return -EINVAL;
 	}
-	pcam->mctl_handle = msm_camera_get_mctl_handle();
+	pcam->mctl_handle = msm_cam_server_get_mctl_handle();
 	if (pcam->mctl_handle == 0) {
 		pr_err("%s: cannot get mctl handle", __func__);
 		return -EINVAL;
 	}
 
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	if (!pmctl) {
 		pr_err("%s: invalid mctl controller", __func__);
 		return -EINVAL;
@@ -898,7 +899,7 @@ int msm_mctl_free(struct msm_cam_v4l2_device *pcam)
 	struct msm_cam_media_controller *pmctl = NULL;
 	D("%s\n", __func__);
 
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	if (!pmctl) {
 		pr_err("%s: invalid mctl controller", __func__);
 		return -EINVAL;
@@ -906,7 +907,7 @@ int msm_mctl_free(struct msm_cam_v4l2_device *pcam)
 
 	mutex_destroy(&pmctl->lock);
 	pm_qos_remove_request(&pmctl->idle_pm_qos);
-	msm_camera_free_mctl(pcam->mctl_handle);
+	msm_cam_server_free_mctl(pcam->mctl_handle);
 	return rc;
 }
 
@@ -962,7 +963,7 @@ static int msm_mctl_dev_open(struct file *f)
 		return rc;
 	}
 
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	if (!pmctl) {
 		pr_err("%s mctl NULL!\n", __func__);
 		return rc;
@@ -1038,7 +1039,7 @@ static int msm_mctl_dev_close(struct file *f)
 		return -EINVAL;
 	}
 
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	mutex_lock(&pcam->mctl_node.dev_lock);
 	D("%s : active %d ", __func__, pcam->mctl_node.active);
 	if (pcam->mctl_node.active == 1) {
@@ -1473,7 +1474,7 @@ static int msm_mctl_v4l2_s_fmt_cap(struct file *f, void *pctx,
 		(void *)pfmt->fmt.pix.priv);
 	WARN_ON(pctx != f->private_data);
 
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	if (!pcam_inst->vbqueue_initialized) {
 		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
 					V4L2_BUF_TYPE_VIDEO_CAPTURE);
@@ -1497,7 +1498,7 @@ static int msm_mctl_v4l2_s_fmt_cap_mplane(struct file *f, void *pctx,
 		pcam_inst, pcam_inst->vbqueue_initialized);
 	WARN_ON(pctx != f->private_data);
 
-	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	if (!pcam_inst->vbqueue_initialized) {
 		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);

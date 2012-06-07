@@ -62,7 +62,7 @@ static int mpq_tspp_dmx_stop_filtering(struct dvb_demux_feed *feed)
 static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 				struct dmx_caps *caps)
 {
-	struct dvb_demux *dvb_demux = (struct dvb_demux *)demux->priv;
+	struct dvb_demux *dvb_demux = demux->priv;
 
 	if ((dvb_demux == NULL) || (caps == NULL)) {
 		MPQ_DVB_ERR_PRINT(
@@ -124,6 +124,7 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->demux.decoder_fullness_init = NULL;
 	mpq_demux->demux.decoder_fullness_wait = NULL;
 	mpq_demux->demux.decoder_fullness_abort = NULL;
+	mpq_demux->demux.decoder_buffer_status = NULL;
 
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);

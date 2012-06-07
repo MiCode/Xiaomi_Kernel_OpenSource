@@ -44,6 +44,11 @@
 #define SITAR_MBHC_DEF_BUTTONS 8
 #define SITAR_MBHC_DEF_RLOADS 5
 
+#define GPIO_AUX_PCM_DOUT 63
+#define GPIO_AUX_PCM_DIN 64
+#define GPIO_AUX_PCM_SYNC 65
+#define GPIO_AUX_PCM_CLK 66
+
 static int msm8930_spk_control;
 static int msm8930_slim_0_rx_ch = 1;
 static int msm8930_slim_0_tx_ch = 1;
@@ -734,11 +739,105 @@ static int msm8930_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm8930_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					 SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	/* PCM only supports mono output with 8khz sample rate */
+	rate->min = rate->max = 8000;
+	channels->min = channels->max = 1;
+
+	return 0;
+}
+
+static int msm8930_aux_pcm_get_gpios(void)
+{
+	int ret = 0;
+
+	pr_debug("%s\n", __func__);
+
+	ret = gpio_request(GPIO_AUX_PCM_DOUT, "AUX PCM DOUT");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): AUX PCM DOUT",
+				__func__, GPIO_AUX_PCM_DOUT);
+
+		goto fail_dout;
+	}
+
+	ret = gpio_request(GPIO_AUX_PCM_DIN, "AUX PCM DIN");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): AUX PCM DIN",
+				 __func__, GPIO_AUX_PCM_DIN);
+		goto fail_din;
+	}
+
+	ret = gpio_request(GPIO_AUX_PCM_SYNC, "AUX PCM SYNC");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): AUX PCM SYNC",
+				__func__, GPIO_AUX_PCM_SYNC);
+		goto fail_sync;
+	}
+
+	ret = gpio_request(GPIO_AUX_PCM_CLK, "AUX PCM CLK");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): AUX PCM CLK",
+				 __func__, GPIO_AUX_PCM_CLK);
+		goto fail_clk;
+	}
+
+	return 0;
+
+fail_clk:
+	gpio_free(GPIO_AUX_PCM_SYNC);
+fail_sync:
+	gpio_free(GPIO_AUX_PCM_DIN);
+fail_din:
+	gpio_free(GPIO_AUX_PCM_DOUT);
+fail_dout:
+
+	return ret;
+}
+
+static int msm8930_aux_pcm_free_gpios(void)
+{
+	gpio_free(GPIO_AUX_PCM_DIN);
+	gpio_free(GPIO_AUX_PCM_DOUT);
+	gpio_free(GPIO_AUX_PCM_SYNC);
+	gpio_free(GPIO_AUX_PCM_CLK);
+
+	return 0;
+}
+
 static int msm8930_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 	return 0;
+}
+
+static int msm8930_auxpcm_startup(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
+	ret = msm8930_aux_pcm_get_gpios();
+	if (ret < 0) {
+		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
+		return -EINVAL;
+	}
+	return 0;
+
+}
+
+static void msm8930_auxpcm_shutdown(struct snd_pcm_substream *substream)
+{
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
+	msm8930_aux_pcm_free_gpios();
 }
 
 static void msm8930_shutdown(struct snd_pcm_substream *substream)
@@ -751,6 +850,11 @@ static struct snd_soc_ops msm8930_be_ops = {
 	.startup = msm8930_startup,
 	.hw_params = msm8930_hw_params,
 	.shutdown = msm8930_shutdown,
+};
+
+static struct snd_soc_ops msm8930_auxpcm_be_ops = {
+	.startup = msm8930_auxpcm_startup,
+	.shutdown = msm8930_auxpcm_shutdown,
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -1018,6 +1122,30 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
+	},
+	/* AUX PCM Backend DAI Links */
+	{
+		.name = LPASS_BE_AUXPCM_RX,
+		.stream_name = "AUX PCM Playback",
+		.cpu_dai_name = "msm-dai-q6.2",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
+		.be_hw_params_fixup = msm8930_auxpcm_be_params_fixup,
+		.ops = &msm8930_auxpcm_be_ops,
+	},
+	{
+		.name = LPASS_BE_AUXPCM_TX,
+		.stream_name = "AUX PCM Capture",
+		.cpu_dai_name = "msm-dai-q6.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
+		.be_hw_params_fixup = msm8930_auxpcm_be_params_fixup,
 	},
 	/* Incall Music BACK END DAI Link */
 	{

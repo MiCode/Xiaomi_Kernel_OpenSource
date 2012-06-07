@@ -262,8 +262,7 @@ static void smux_loopback_rx_worker(struct work_struct *work)
 			smux_init_pkt(&reply_pkt);
 			reply_pkt.hdr.lcid = lcid;
 			reply_pkt.hdr.cmd = SMUX_CMD_PWR_CTL;
-			reply_pkt.hdr.flags = SMUX_CMD_PWR_CTL_SLEEP_REQ
-				| SMUX_CMD_PWR_CTL_ACK;
+			reply_pkt.hdr.flags = SMUX_CMD_PWR_CTL_ACK;
 			reply_pkt.hdr.payload_len = 0;
 			reply_pkt.payload = NULL;
 			reply_pkt.hdr.pad_len = pkt->hdr.pad_len;

@@ -39,6 +39,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 #include <linux/spinlock.h>
+#include <linux/cpu.h>
 
 #define MSM_USB_BASE (hcd->regs)
 
@@ -64,6 +65,183 @@ struct msm_hsic_hcd {
 };
 
 static bool debug_bus_voting_enabled = true;
+
+static unsigned int enable_dbg_log = 1;
+module_param(enable_dbg_log, uint, S_IRUGO | S_IWUSR);
+/*by default log ep0 and efs sync ep*/
+static unsigned int ep_addr_rxdbg_mask = 9;
+module_param(ep_addr_rxdbg_mask, uint, S_IRUGO | S_IWUSR);
+static unsigned int ep_addr_txdbg_mask = 9;
+module_param(ep_addr_txdbg_mask, uint, S_IRUGO | S_IWUSR);
+
+/* Maximum debug message length */
+#define DBG_MSG_LEN   100UL
+
+/* Maximum number of messages */
+#define DBG_MAX_MSG   256UL
+
+#define TIME_BUF_LEN  20
+
+enum event_type {
+	EVENT_UNDEF = -1,
+	URB_SUBMIT,
+	URB_COMPLETE,
+	EVENT_NONE,
+};
+
+#define EVENT_STR_LEN	5
+
+static char *event_to_str(enum event_type e)
+{
+	switch (e) {
+	case URB_SUBMIT:
+		return "S";
+	case URB_COMPLETE:
+		return "C";
+	case EVENT_NONE:
+		return "NONE";
+	default:
+		return "UNDEF";
+	}
+}
+
+static enum event_type str_to_event(const char *name)
+{
+	if (!strncasecmp("S", name, EVENT_STR_LEN))
+		return URB_SUBMIT;
+	if (!strncasecmp("C", name, EVENT_STR_LEN))
+		return URB_COMPLETE;
+	if (!strncasecmp("", name, EVENT_STR_LEN))
+		return EVENT_NONE;
+
+	return EVENT_UNDEF;
+}
+
+/*log ep0 activity*/
+static struct {
+	char     (buf[DBG_MAX_MSG])[DBG_MSG_LEN];   /* buffer */
+	unsigned idx;   /* index */
+	rwlock_t lck;   /* lock */
+} dbg_hsic_ctrl = {
+	.idx = 0,
+	.lck = __RW_LOCK_UNLOCKED(lck)
+};
+
+static struct {
+	char     (buf[DBG_MAX_MSG])[DBG_MSG_LEN];   /* buffer */
+	unsigned idx;   /* index */
+	rwlock_t lck;   /* lock */
+} dbg_hsic_data = {
+	.idx = 0,
+	.lck = __RW_LOCK_UNLOCKED(lck)
+};
+
+/**
+ * dbg_inc: increments debug event index
+ * @idx: buffer index
+ */
+static void dbg_inc(unsigned *idx)
+{
+	*idx = (*idx + 1) & (DBG_MAX_MSG-1);
+}
+
+/*get_timestamp - returns time of day in us */
+static char *get_timestamp(char *tbuf)
+{
+	unsigned long long t;
+	unsigned long nanosec_rem;
+
+	t = cpu_clock(smp_processor_id());
+	nanosec_rem = do_div(t, 1000000000)/1000;
+	scnprintf(tbuf, TIME_BUF_LEN, "[%5lu.%06lu] ", (unsigned long)t,
+		nanosec_rem);
+	return tbuf;
+}
+
+static int allow_dbg_log(int ep_addr)
+{
+	int dir, num;
+
+	dir = ep_addr & USB_DIR_IN ? USB_DIR_IN : USB_DIR_OUT;
+	num = ep_addr & ~USB_DIR_IN;
+	num = 1 << num;
+
+	if ((dir == USB_DIR_IN) && (num & ep_addr_rxdbg_mask))
+		return 1;
+	if ((dir == USB_DIR_OUT) && (num & ep_addr_txdbg_mask))
+		return 1;
+
+	return 0;
+}
+
+static void dbg_log_event(struct urb *urb, char * event, unsigned extra)
+{
+	unsigned long flags;
+	int ep_addr;
+	char tbuf[TIME_BUF_LEN];
+
+	if (!enable_dbg_log)
+		return;
+
+	if (!urb) {
+		write_lock_irqsave(&dbg_hsic_ctrl.lck, flags);
+		scnprintf(dbg_hsic_ctrl.buf[dbg_hsic_ctrl.idx], DBG_MSG_LEN,
+			"%s: %s : %u\n", get_timestamp(tbuf), event, extra);
+		dbg_inc(&dbg_hsic_ctrl.idx);
+		write_unlock_irqrestore(&dbg_hsic_ctrl.lck, flags);
+		return;
+	}
+
+	ep_addr = urb->ep->desc.bEndpointAddress;
+	if (!allow_dbg_log(ep_addr))
+		return;
+
+	if ((ep_addr & 0x0f) == 0x0) {
+		/*submit event*/
+		if (!str_to_event(event)) {
+			write_lock_irqsave(&dbg_hsic_ctrl.lck, flags);
+			scnprintf(dbg_hsic_ctrl.buf[dbg_hsic_ctrl.idx],
+				DBG_MSG_LEN, "%s: [%s : %p]:[%s] "
+				  "%02x %02x %04x %04x %04x  %u %d\n",
+				  get_timestamp(tbuf), event, urb,
+				  (ep_addr & USB_DIR_IN) ? "in" : "out",
+				  urb->setup_packet[0], urb->setup_packet[1],
+				  (urb->setup_packet[3] << 8) |
+				  urb->setup_packet[2],
+				  (urb->setup_packet[5] << 8) |
+				  urb->setup_packet[4],
+				  (urb->setup_packet[7] << 8) |
+				  urb->setup_packet[6],
+				  urb->transfer_buffer_length, urb->status);
+
+			dbg_inc(&dbg_hsic_ctrl.idx);
+			write_unlock_irqrestore(&dbg_hsic_ctrl.lck, flags);
+		} else {
+			write_lock_irqsave(&dbg_hsic_ctrl.lck, flags);
+			scnprintf(dbg_hsic_ctrl.buf[dbg_hsic_ctrl.idx],
+				DBG_MSG_LEN, "%s: [%s : %p]:[%s] %u %d\n",
+				  get_timestamp(tbuf), event, urb,
+				  (ep_addr & USB_DIR_IN) ? "in" : "out",
+				  urb->actual_length, extra);
+
+			dbg_inc(&dbg_hsic_ctrl.idx);
+			write_unlock_irqrestore(&dbg_hsic_ctrl.lck, flags);
+		}
+	} else {
+		write_lock_irqsave(&dbg_hsic_data.lck, flags);
+		scnprintf(dbg_hsic_data.buf[dbg_hsic_data.idx], DBG_MSG_LEN,
+			  "%s: [%s : %p]:ep%d[%s]  %u %d\n",
+			  get_timestamp(tbuf), event, urb, ep_addr & 0x0f,
+			  (ep_addr & USB_DIR_IN) ? "in" : "out",
+			  str_to_event(event) ? urb->actual_length :
+			  urb->transfer_buffer_length,
+			  str_to_event(event) ?  extra : urb->status);
+
+		dbg_inc(&dbg_hsic_data.idx);
+		write_unlock_irqrestore(&dbg_hsic_data.lck, flags);
+	}
+}
+
 static inline struct msm_hsic_hcd *hcd_to_hsic(struct usb_hcd *hcd)
 {
 	return (struct msm_hsic_hcd *) (hcd->hcd_priv);
@@ -589,6 +767,25 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 	return 0;
 }
 
+static int ehci_hsic_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
+		gfp_t mem_flags)
+{
+	dbg_log_event(urb, event_to_str(URB_SUBMIT), 0);
+	return ehci_urb_enqueue(hcd, urb, mem_flags);
+}
+
+static int ehci_hsic_bus_suspend(struct usb_hcd *hcd)
+{
+	dbg_log_event(NULL, "Suspend RH", 0);
+	return ehci_bus_suspend(hcd);
+}
+
+static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
+{
+	dbg_log_event(NULL, "Resume RH", 0);
+	return ehci_bus_resume(hcd);
+}
+
 static struct hc_driver msm_hsic_driver = {
 	.description		= hcd_name,
 	.product_desc		= "Qualcomm EHCI Host Controller using HSIC",
@@ -609,7 +806,7 @@ static struct hc_driver msm_hsic_driver = {
 	/*
 	 * managing i/o requests and associated device resources
 	 */
-	.urb_enqueue		= ehci_urb_enqueue,
+	.urb_enqueue		= ehci_hsic_urb_enqueue,
 	.urb_dequeue		= ehci_urb_dequeue,
 	.endpoint_disable	= ehci_endpoint_disable,
 	.endpoint_reset		= ehci_endpoint_reset,
@@ -631,8 +828,10 @@ static struct hc_driver msm_hsic_driver = {
 	/*
 	 * PM support
 	 */
-	.bus_suspend		= ehci_bus_suspend,
-	.bus_resume		= ehci_bus_resume,
+	.bus_suspend		= ehci_hsic_bus_suspend,
+	.bus_resume		= ehci_hsic_bus_resume,
+
+	.log_urb_complete	= dbg_log_event,
 };
 
 static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
@@ -729,6 +928,7 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	struct msm_hsic_hcd *mehci = data;
 
 	mehci->wakeup_int_cnt++;
+	dbg_log_event(NULL, "Remote Wakeup IRQ", mehci->wakeup_int_cnt);
 	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt cnt: %u\n",
 			__func__, mehci->wakeup_int_cnt);
 
@@ -822,6 +1022,68 @@ const struct file_operations ehci_hsic_msm_wakeup_cnt_fops = {
 	.release = single_release,
 };
 
+static int ehci_hsic_msm_data_events_show(struct seq_file *s, void *unused)
+{
+	unsigned long	flags;
+	unsigned	i;
+
+	read_lock_irqsave(&dbg_hsic_data.lck, flags);
+
+	i = dbg_hsic_data.idx;
+	for (dbg_inc(&i); i != dbg_hsic_data.idx; dbg_inc(&i)) {
+		if (!strnlen(dbg_hsic_data.buf[i], DBG_MSG_LEN))
+			continue;
+		seq_printf(s, "%s\n", dbg_hsic_data.buf[i]);
+	}
+
+	read_unlock_irqrestore(&dbg_hsic_data.lck, flags);
+
+	return 0;
+}
+
+static int ehci_hsic_msm_data_events_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, ehci_hsic_msm_data_events_show, inode->i_private);
+}
+
+const struct file_operations ehci_hsic_msm_dbg_data_fops = {
+	.open = ehci_hsic_msm_data_events_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int ehci_hsic_msm_ctrl_events_show(struct seq_file *s, void *unused)
+{
+	unsigned long	flags;
+	unsigned	i;
+
+	read_lock_irqsave(&dbg_hsic_ctrl.lck, flags);
+
+	i = dbg_hsic_ctrl.idx;
+	for (dbg_inc(&i); i != dbg_hsic_ctrl.idx; dbg_inc(&i)) {
+		if (!strnlen(dbg_hsic_ctrl.buf[i], DBG_MSG_LEN))
+			continue;
+		seq_printf(s, "%s\n", dbg_hsic_ctrl.buf[i]);
+	}
+
+	read_unlock_irqrestore(&dbg_hsic_ctrl.lck, flags);
+
+	return 0;
+}
+
+static int ehci_hsic_msm_ctrl_events_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, ehci_hsic_msm_ctrl_events_show, inode->i_private);
+}
+
+const struct file_operations ehci_hsic_msm_dbg_ctrl_fops = {
+	.open = ehci_hsic_msm_ctrl_events_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static struct dentry *ehci_hsic_msm_dbg_root;
 static int ehci_hsic_msm_debugfs_init(struct msm_hsic_hcd *mehci)
 {
@@ -846,6 +1108,26 @@ static int ehci_hsic_msm_debugfs_init(struct msm_hsic_hcd *mehci)
 		S_IRUGO,
 		ehci_hsic_msm_dbg_root, mehci,
 		&ehci_hsic_msm_wakeup_cnt_fops);
+
+	if (!ehci_hsic_msm_dentry) {
+		debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
+		return -ENODEV;
+	}
+
+	ehci_hsic_msm_dentry = debugfs_create_file("show_ctrl_events",
+		S_IRUGO,
+		ehci_hsic_msm_dbg_root, mehci,
+		&ehci_hsic_msm_dbg_ctrl_fops);
+
+	if (!ehci_hsic_msm_dentry) {
+		debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
+		return -ENODEV;
+	}
+
+	ehci_hsic_msm_dentry = debugfs_create_file("show_data_events",
+		S_IRUGO,
+		ehci_hsic_msm_dbg_root, mehci,
+		&ehci_hsic_msm_dbg_data_fops);
 
 	if (!ehci_hsic_msm_dentry) {
 		debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
@@ -912,6 +1194,8 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	mehci->dev = &pdev->dev;
 
 	mehci->ehci.susp_sof_bug = 1;
+
+	mehci->ehci.max_log2_irq_thresh = 6;
 
 	res = platform_get_resource_byname(pdev,
 			IORESOURCE_IRQ,
@@ -1075,6 +1359,8 @@ static int msm_hsic_pm_suspend(struct device *dev)
 
 	dev_dbg(dev, "ehci-msm-hsic PM suspend\n");
 
+	dbg_log_event(NULL, "PM Suspend", 0);
+
 	if (device_may_wakeup(dev))
 		enable_irq_wake(hcd->irq);
 
@@ -1091,6 +1377,8 @@ static int msm_hsic_pm_resume(struct device *dev)
 	int ret;
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+
+	dbg_log_event(NULL, "PM Resume", 0);
 
 	if (device_may_wakeup(dev))
 		disable_irq_wake(hcd->irq);
@@ -1121,6 +1409,9 @@ static int msm_hsic_runtime_suspend(struct device *dev)
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 
 	dev_dbg(dev, "EHCI runtime suspend\n");
+
+	dbg_log_event(NULL, "Run Time PM Suspend", 0);
+
 	return msm_hsic_suspend(mehci);
 }
 
@@ -1130,6 +1421,9 @@ static int msm_hsic_runtime_resume(struct device *dev)
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 
 	dev_dbg(dev, "EHCI runtime resume\n");
+
+	dbg_log_event(NULL, "Run Time PM Resume", 0);
+
 	return msm_hsic_resume(mehci);
 }
 #endif

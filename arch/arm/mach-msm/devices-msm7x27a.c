@@ -417,7 +417,9 @@ static struct resource resources_nand[] = {
 	},
 };
 
-struct flash_platform_data msm_nand_data;
+struct flash_platform_data msm_nand_data = {
+	.version = VERSION_2,
+};
 
 struct platform_device msm_device_nand = {
 	.name		= "msm_nand",

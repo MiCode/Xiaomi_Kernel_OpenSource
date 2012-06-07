@@ -1027,6 +1027,32 @@ static int dmx_ts_feed_stop_filtering(struct dmx_ts_feed *ts_feed)
 	return ret;
 }
 
+static int dmx_ts_feed_decoder_buff_status(struct dmx_ts_feed *ts_feed,
+			struct dmx_buffer_status *dmx_buffer_status)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
+	struct dvb_demux *demux = feed->demux;
+	int ret;
+
+	spin_lock_irq(&demux->lock);
+
+	if (feed->state < DMX_STATE_GO) {
+		spin_unlock_irq(&demux->lock);
+		return -EINVAL;
+	}
+
+	if (!demux->decoder_buffer_status) {
+		spin_unlock_irq(&demux->lock);
+		return -ENODEV;
+	}
+
+	ret = demux->decoder_buffer_status(feed, dmx_buffer_status);
+
+	spin_unlock_irq(&demux->lock);
+
+	return ret;
+}
+
 static int dmx_ts_set_indexing_params(
 	struct dmx_ts_feed *ts_feed,
 	struct dmx_indexing_video_params *params)
@@ -1078,6 +1104,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->stop_filtering = dmx_ts_feed_stop_filtering;
 	(*ts_feed)->set = dmx_ts_feed_set;
 	(*ts_feed)->set_indexing_params = dmx_ts_set_indexing_params;
+	(*ts_feed)->get_decoder_buff_status = dmx_ts_feed_decoder_buff_status;
 
 	if (!(feed->filter = dvb_dmx_filter_alloc(demux))) {
 		feed->state = DMX_STATE_FREE;

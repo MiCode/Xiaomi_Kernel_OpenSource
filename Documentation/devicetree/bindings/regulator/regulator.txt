@@ -10,6 +10,11 @@ Optional properties:
 - regulator-always-on: boolean, regulator should never be disabled
 - regulator-boot-on: bootloader/firmware enabled regulator
 - <name>-supply: phandle to the parent supply/regulator node
+- qcom,consumer-supplies: flattened list of supply and dev_name pairs
+	This property is used to support regulator consumers that have no device
+	tree node.  An empty string, "", can be used to specify a null device
+	name.  A null device name is used to allow calls such as:
+	regulator_get(NULL, "pll_vdd").
 
 Example:
 
@@ -18,6 +23,7 @@ Example:
 		regulator-max-microvolt = <2500000>;
 		regulator-always-on;
 		vin-supply = <&vin>;
+		qcom,consumer-supplies = "pll_vdd", "", "lcd_vcc", "foo.1";
 	};
 
 Regulator Consumers:

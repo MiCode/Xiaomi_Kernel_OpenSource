@@ -462,14 +462,16 @@ static enum handoff branch_clk_handoff(struct clk *c)
 }
 
 static int __branch_clk_reset(void __iomem *bcr_reg,
-				enum clk_reset_action action)
+				enum clk_reset_action action, const char *name)
 {
 	int ret = 0;
 	unsigned long flags;
 	u32 reg_val;
 
-	if (!bcr_reg)
+	if (!bcr_reg) {
+		WARN("clk_reset called on an unsupported clock (%s)\n", name);
 		return -EPERM;
+	}
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	reg_val = readl_relaxed(bcr_reg);
@@ -495,7 +497,7 @@ static int __branch_clk_reset(void __iomem *bcr_reg,
 static int branch_clk_reset(struct clk *c, enum clk_reset_action action)
 {
 	struct branch_clk *branch = to_branch_clk(c);
-	return __branch_clk_reset(BCR_REG(branch), action);
+	return __branch_clk_reset(BCR_REG(branch), action, c->dbg_name);
 }
 
 /*
@@ -503,8 +505,8 @@ static int branch_clk_reset(struct clk *c, enum clk_reset_action action)
  */
 static int local_vote_clk_reset(struct clk *c, enum clk_reset_action action)
 {
-	struct branch_clk *vclk = to_branch_clk(c);
-	return __branch_clk_reset(BCR_REG(vclk), action);
+	struct local_vote_clk *vclk = to_local_vote_clk(c);
+	return __branch_clk_reset(BCR_REG(vclk), action, c->dbg_name);
 }
 
 static int local_vote_clk_enable(struct clk *c)

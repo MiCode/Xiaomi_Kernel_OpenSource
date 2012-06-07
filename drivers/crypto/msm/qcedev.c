@@ -352,7 +352,7 @@ static int qcedev_release(struct inode *inode, struct file *file)
 	}
 	kzfree(handle);
 	file->private_data = NULL;
-	if (podev->platform_support.bus_scale_table != NULL)
+	if (podev != NULL && podev->platform_support.bus_scale_table != NULL)
 		qcedev_ce_high_bw_req(podev, false);
 	return 0;
 }

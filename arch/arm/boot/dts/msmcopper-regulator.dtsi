@@ -41,7 +41,7 @@
 				status = "okay";
 			};
 
-			pm8941_boost: regulator@1d00 {
+			pm8941_boost: regulator@a000 {
 				regulator-min-microvolt = <5000000>;
 				regulator-max-microvolt = <5000000>;
 				qcom,enable-time = <500>;
