@@ -22,6 +22,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/errno.h>
+#include <linux/semaphore.h>
 #include <linux/string.h>
 #include <linux/skbuff.h>
 #include <linux/wakelock.h>
@@ -43,7 +44,9 @@
 
 
 static int hcismd_set;
-static DEFINE_MUTEX(hci_smd_enable);
+static DEFINE_SEMAPHORE(hci_smd_enable);
+
+static int restart_in_progress;
 
 static int hcismd_set_enable(const char *val, struct kernel_param *kp);
 module_param_call(hcismd_set, hcismd_set_enable, NULL, &hcismd_set, 0644);
@@ -496,18 +499,24 @@ static void hci_smd_deregister_dev(struct hci_smd_data *hsmd)
 
 static void hci_dev_restart(struct work_struct *worker)
 {
-	mutex_lock(&hci_smd_enable);
+	down(&hci_smd_enable);
+	restart_in_progress = 1;
 	hci_smd_deregister_dev(&hs);
 	hci_smd_register_smd(&hs);
-	mutex_unlock(&hci_smd_enable);
+	up(&hci_smd_enable);
 	kfree(worker);
 }
 
 static void hci_dev_smd_open(struct work_struct *worker)
 {
-	mutex_lock(&hci_smd_enable);
+	down(&hci_smd_enable);
+	if (restart_in_progress == 1) {
+		/* Allow wcnss to initialize */
+		restart_in_progress = 0;
+		msleep(10000);
+	}
 	hci_smd_hci_register_dev(&hs);
-	mutex_unlock(&hci_smd_enable);
+	up(&hci_smd_enable);
 	kfree(worker);
 }
 
@@ -515,7 +524,9 @@ static int hcismd_set_enable(const char *val, struct kernel_param *kp)
 {
 	int ret = 0;
 
-	mutex_lock(&hci_smd_enable);
+	pr_err("hcismd_set_enable %d", hcismd_set);
+
+	down(&hci_smd_enable);
 
 	ret = param_set_int(val, kp);
 
@@ -525,7 +536,8 @@ static int hcismd_set_enable(const char *val, struct kernel_param *kp)
 	switch (hcismd_set) {
 
 	case 1:
-		hci_smd_register_smd(&hs);
+		if (hs.hdev == NULL)
+			hci_smd_register_smd(&hs);
 	break;
 	case 0:
 		hci_smd_deregister_dev(&hs);
@@ -535,7 +547,7 @@ static int hcismd_set_enable(const char *val, struct kernel_param *kp)
 	}
 
 done:
-	mutex_unlock(&hci_smd_enable);
+	up(&hci_smd_enable);
 	return ret;
 }
 static int  __init hci_smd_init(void)
@@ -544,6 +556,8 @@ static int  __init hci_smd_init(void)
 			 "msm_smd_Rx");
 	wake_lock_init(&hs.wake_lock_tx, WAKE_LOCK_SUSPEND,
 			 "msm_smd_Tx");
+	restart_in_progress = 0;
+	hs.hdev = NULL;
 	return 0;
 }
 module_init(hci_smd_init);
