@@ -560,55 +560,52 @@ int msm_server_streamoff(struct msm_cam_v4l2_device *pcam, int idx)
 }
 
 int msm_server_proc_ctrl_cmd(struct msm_cam_v4l2_device *pcam,
-				 struct v4l2_control *ctrl, int is_set_cmd)
+		struct msm_camera_v4l2_ioctl_t *ioctl_ptr, int is_set_cmd)
 {
 	int rc = 0;
-	struct msm_ctrl_cmd ctrlcmd, *tmp_cmd;
+	struct msm_ctrl_cmd ctrlcmd, tmp_cmd, *cmd_ptr;
 	uint8_t *ctrl_data = NULL;
-	void __user *uptr_cmd;
-	void __user *uptr_value;
 	uint32_t cmd_len = sizeof(struct msm_ctrl_cmd);
 	uint32_t value_len;
 
-	tmp_cmd = (struct msm_ctrl_cmd *)ctrl->value;
-	uptr_cmd = (void __user *)ctrl->value;
-	uptr_value = (void __user *)tmp_cmd->value;
-	value_len = tmp_cmd->length;
-
-	D("%s: cmd type = %d, up1=0x%x, ulen1=%d, up2=0x%x, ulen2=%d\n",
-		__func__, tmp_cmd->type, (uint32_t)uptr_cmd, cmd_len,
-		(uint32_t)uptr_value, tmp_cmd->length);
-
-	ctrl_data = kzalloc(value_len+cmd_len, GFP_KERNEL);
-	if (ctrl_data == 0) {
-		pr_err("%s could not allocate memory\n", __func__);
-		rc = -ENOMEM;
-		goto end;
-	}
-	tmp_cmd = (struct msm_ctrl_cmd *)ctrl_data;
-	if (copy_from_user((void *)ctrl_data, uptr_cmd,
-					cmd_len)) {
+	if (copy_from_user(&tmp_cmd,
+		(void __user *)ioctl_ptr->ioctl_ptr, cmd_len)) {
 		pr_err("%s: copy_from_user failed.\n", __func__);
 		rc = -EINVAL;
 		goto end;
 	}
-	tmp_cmd->value = (void *)(ctrl_data+cmd_len);
-	if (uptr_value && tmp_cmd->length > 0) {
-		if (copy_from_user((void *)tmp_cmd->value, uptr_value,
-						value_len)) {
-			pr_err("%s: copy_from_user failed, size=%d\n",
-				__func__, value_len);
+	value_len = tmp_cmd.length;
+	ctrl_data = kzalloc(value_len+cmd_len, GFP_KERNEL);
+	if (!ctrl_data) {
+		pr_err("%s could not allocate memory\n", __func__);
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	cmd_ptr = (struct msm_ctrl_cmd *) ctrl_data;
+	*cmd_ptr = tmp_cmd;
+	if (tmp_cmd.value && tmp_cmd.length > 0) {
+		cmd_ptr->value = (void *)(ctrl_data+cmd_len);
+		if (copy_from_user((void *)cmd_ptr->value,
+				   (void __user *)tmp_cmd.value,
+				   value_len)) {
+			pr_err("%s: copy_from_user failed.\n", __func__);
 			rc = -EINVAL;
 			goto end;
 		}
-	} else
-	tmp_cmd->value = NULL;
+	} else {
+		cmd_ptr->value = NULL;
+	}
+
+	D("%s: cmd type = %d, up1=0x%x, ulen1=%d, up2=0x%x, ulen2=%d\n",
+		__func__, tmp_cmd.type, (uint32_t)ioctl_ptr->ioctl_ptr, cmd_len,
+		(uint32_t)tmp_cmd.value, tmp_cmd.length);
 
 	ctrlcmd.type = MSM_V4L2_SET_CTRL_CMD;
 	ctrlcmd.length = cmd_len + value_len;
 	ctrlcmd.value = (void *)ctrl_data;
-	if (tmp_cmd->timeout_ms > 0)
-		ctrlcmd.timeout_ms = tmp_cmd->timeout_ms;
+	if (tmp_cmd.timeout_ms > 0)
+		ctrlcmd.timeout_ms = tmp_cmd.timeout_ms;
 	else
 		ctrlcmd.timeout_ms = 1000;
 	ctrlcmd.vnode_id = pcam->vnode_id;
@@ -618,17 +615,17 @@ int msm_server_proc_ctrl_cmd(struct msm_cam_v4l2_device *pcam,
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
 	D("%s: msm_server_control rc=%d\n", __func__, rc);
 	if (rc == 0) {
-		if (uptr_value && tmp_cmd->length > 0 &&
-			copy_to_user((void __user *)uptr_value,
-				(void *)(ctrl_data+cmd_len), tmp_cmd->length)) {
+		if (tmp_cmd.value && tmp_cmd.length > 0 &&
+			copy_to_user((void __user *)tmp_cmd.value,
+				(void *)(ctrl_data+cmd_len), tmp_cmd.length)) {
 			pr_err("%s: copy_to_user failed, size=%d\n",
-				__func__, tmp_cmd->length);
+				__func__, tmp_cmd.length);
 			rc = -EINVAL;
 			goto end;
 		}
-		tmp_cmd->value = uptr_value;
-		if (copy_to_user((void __user *)uptr_cmd,
-			(void *)tmp_cmd, cmd_len)) {
+
+		if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
+			(void *)&tmp_cmd, cmd_len)) {
 			pr_err("%s: copy_to_user failed in cpy, size=%d\n",
 				__func__, cmd_len);
 			rc = -EINVAL;
@@ -637,8 +634,8 @@ int msm_server_proc_ctrl_cmd(struct msm_cam_v4l2_device *pcam,
 	}
 end:
 	D("%s: END, type = %d, vaddr = 0x%x, vlen = %d, status = %d, rc = %d\n",
-		__func__, tmp_cmd->type, (uint32_t)tmp_cmd->value,
-		tmp_cmd->length, tmp_cmd->status, rc);
+		__func__, tmp_cmd.type, (uint32_t)tmp_cmd.value,
+		tmp_cmd.length, tmp_cmd.status, rc);
 	kfree(ctrl_data);
 	return rc;
 }
@@ -655,8 +652,6 @@ int msm_server_s_ctrl(struct msm_cam_v4l2_device *pcam,
 		pr_err("%s Invalid control\n", __func__);
 		return -EINVAL;
 	}
-	if (ctrl->id == MSM_V4L2_PID_CTRL_CMD)
-		return msm_server_proc_ctrl_cmd(pcam, ctrl, 1);
 
 	memset(ctrl_data, 0, sizeof(ctrl_data));
 
@@ -687,8 +682,6 @@ int msm_server_g_ctrl(struct msm_cam_v4l2_device *pcam,
 		pr_err("%s Invalid control\n", __func__);
 		return -EINVAL;
 	}
-	if (ctrl->id == MSM_V4L2_PID_CTRL_CMD)
-		return msm_server_proc_ctrl_cmd(pcam, ctrl, 0);
 
 	memset(ctrl_data, 0, sizeof(ctrl_data));
 
