@@ -374,9 +374,19 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
 	sizedwords += (cmds - &link[0]);
-	if (sizedwords)
-		adreno_ringbuffer_issuecmds(device,
-			KGSL_CMD_FLAGS_PMODE, &link[0], sizedwords);
+	if (sizedwords) {
+		unsigned int ts;
+		/*
+		 * add an interrupt at the end of commands so that the smmu
+		 * disable clock off function will get called
+		 */
+		*cmds++ = cp_type3_packet(CP_INTERRUPT, 1);
+		*cmds++ = CP_INT_CNTL__RB_INT_MASK;
+		sizedwords += 2;
+		ts = adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
+			&link[0], sizedwords);
+		kgsl_mmu_disable_clk_on_ts(&device->mmu, ts, true);
+	}
 done:
 	if (num_iommu_units)
 		kfree(reg_map_array);

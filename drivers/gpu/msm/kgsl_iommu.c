@@ -130,6 +130,89 @@ static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu)
 }
 
 /*
+ * kgsl_iommu_disable_clk_event - An event function that is executed when
+ * the required timestamp is reached. It disables the IOMMU clocks if
+ * the timestamp on which the clocks can be disabled has expired.
+ * @device - The kgsl device pointer
+ * @data - The data passed during event creation, it is the MMU pointer
+ * @id - Context ID, should always be KGSL_MEMSTORE_GLOBAL
+ * @ts - The current timestamp that has expired for the device
+ *
+ * Disables IOMMU clocks if timestamp has expired
+ * Return - void
+ */
+static void kgsl_iommu_clk_disable_event(struct kgsl_device *device, void *data,
+					unsigned int id, unsigned int ts)
+{
+	struct kgsl_mmu *mmu = data;
+	struct kgsl_iommu *iommu = mmu->priv;
+
+	if (!iommu->clk_event_queued) {
+		if (0 > timestamp_cmp(ts, iommu->iommu_last_cmd_ts))
+			KGSL_DRV_ERR(device,
+			"IOMMU disable clock event being cancelled, "
+			"iommu_last_cmd_ts: %x, retired ts: %x\n",
+			iommu->iommu_last_cmd_ts, ts);
+		return;
+	}
+
+	if (0 <= timestamp_cmp(ts, iommu->iommu_last_cmd_ts)) {
+		kgsl_iommu_disable_clk(mmu);
+		iommu->clk_event_queued = false;
+	} else {
+		/* add new event to fire when ts is reached, this can happen
+		 * if we queued an event and someone requested the clocks to
+		 * be disbaled on a later timestamp */
+		if (kgsl_add_event(device, id, iommu->iommu_last_cmd_ts,
+			kgsl_iommu_clk_disable_event, mmu, mmu)) {
+				KGSL_DRV_ERR(device,
+				"Failed to add IOMMU disable clk event\n");
+				iommu->clk_event_queued = false;
+		}
+	}
+}
+
+/*
+ * kgsl_iommu_disable_clk_on_ts - Sets up event to disable IOMMU clocks
+ * @mmu - The kgsl MMU pointer
+ * @ts - Timestamp on which the clocks should be disabled
+ * @ts_valid - Indicates whether ts parameter is valid, if this parameter
+ * is false then it means that the calling function wants to disable the
+ * IOMMU clocks immediately without waiting for any timestamp
+ *
+ * Creates an event to disable the IOMMU clocks on timestamp and if event
+ * already exists then updates the timestamp of disabling the IOMMU clocks
+ * with the passed in ts if it is greater than the current value at which
+ * the clocks will be disabled
+ * Return - void
+ */
+static void
+kgsl_iommu_disable_clk_on_ts(struct kgsl_mmu *mmu, unsigned int ts,
+				bool ts_valid)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
+
+	if (iommu->clk_event_queued) {
+		if (ts_valid && (0 <
+			timestamp_cmp(ts, iommu->iommu_last_cmd_ts)))
+			iommu->iommu_last_cmd_ts = ts;
+	} else {
+		if (ts_valid) {
+			iommu->iommu_last_cmd_ts = ts;
+			iommu->clk_event_queued = true;
+			if (kgsl_add_event(mmu->device, KGSL_MEMSTORE_GLOBAL,
+				ts, kgsl_iommu_clk_disable_event, mmu, mmu)) {
+				KGSL_DRV_ERR(mmu->device,
+				"Failed to add IOMMU disable clk event\n");
+				iommu->clk_event_queued = false;
+			}
+		} else {
+			kgsl_iommu_disable_clk(mmu);
+		}
+	}
+}
+
+/*
  * kgsl_iommu_enable_clk - Enable iommu clocks
  * @mmu - Pointer to mmu structure
  * @ctx_id - The context bank whose clocks are to be turned on
@@ -751,12 +834,12 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 				KGSL_IOMMU_CONTEXT_USER,
 				CONTEXTIDR);
 
-	kgsl_iommu_disable_clk(mmu);
+	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 	mmu->flags |= KGSL_FLAGS_STARTED;
 
 done:
 	if (status) {
-		kgsl_iommu_disable_clk(mmu);
+		kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 		kgsl_detach_pagetable_iommu_domain(mmu);
 	}
 	return status;
@@ -827,6 +910,7 @@ kgsl_iommu_map(void *mmu_specific_pt,
 
 static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 {
+	struct kgsl_iommu *iommu = mmu->priv;
 	/*
 	 *  stop device mmu
 	 *
@@ -841,6 +925,11 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 
 		mmu->flags &= ~KGSL_FLAGS_STARTED;
 	}
+
+	/* switch off MMU clocks and cancel any events it has queued */
+	iommu->clk_event_queued = false;
+	kgsl_cancel_events(mmu->device, mmu);
+	kgsl_iommu_disable_clk(mmu);
 }
 
 static int kgsl_iommu_close(struct kgsl_mmu *mmu)
@@ -883,7 +972,7 @@ kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu)
 	pt_base = readl_relaxed(iommu->iommu_units[0].reg_map.hostptr +
 			(KGSL_IOMMU_CONTEXT_USER << KGSL_IOMMU_CTX_SHIFT) +
 			KGSL_IOMMU_TTBR0);
-	kgsl_iommu_disable_clk(mmu);
+	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 	return pt_base & (KGSL_IOMMU_TTBR0_PA_MASK <<
 				KGSL_IOMMU_TTBR0_PA_SHIFT);
 }
@@ -996,7 +1085,7 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 		}
 	}
 	/* Disable smmu clock */
-	kgsl_iommu_disable_clk(mmu);
+	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 }
 
 /*
@@ -1046,7 +1135,7 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_pagefault = NULL,
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
-	.mmu_disable_clk = kgsl_iommu_disable_clk,
+	.mmu_disable_clk_on_ts = kgsl_iommu_disable_clk_on_ts,
 	.mmu_get_hwpagetable_asid = kgsl_iommu_get_hwpagetable_asid,
 	.mmu_get_pt_lsb = kgsl_iommu_get_pt_lsb,
 	.mmu_get_reg_map_desc = kgsl_iommu_get_reg_map_desc,

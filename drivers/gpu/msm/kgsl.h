@@ -179,6 +179,13 @@ struct kgsl_mem_entry *kgsl_sharedmem_find_region(
 	struct kgsl_process_private *private, unsigned int gpuaddr,
 	size_t size);
 
+int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
+	void (*cb)(struct kgsl_device *, void *, u32, u32), void *priv,
+	void *owner);
+
+void kgsl_cancel_events(struct kgsl_device *device,
+	void *owner);
+
 extern const struct dev_pm_ops kgsl_pm_ops;
 
 struct early_suspend;

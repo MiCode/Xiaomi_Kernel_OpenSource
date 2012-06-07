@@ -61,9 +61,9 @@ static struct ion_client *kgsl_ion_client;
  * @returns - 0 on success or error code on failure
  */
 
-static int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
+int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	void (*cb)(struct kgsl_device *, void *, u32, u32), void *priv,
-	struct kgsl_device_private *owner)
+	void *owner)
 {
 	struct kgsl_event *event;
 	struct list_head *n;
@@ -121,6 +121,7 @@ static int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	queue_work(device->work_queue, &device->ts_expired_ws);
 	return 0;
 }
+EXPORT_SYMBOL(kgsl_add_event);
 
 /**
  * kgsl_cancel_events_ctxt - Cancel all events for a context
@@ -161,8 +162,8 @@ static void kgsl_cancel_events_ctxt(struct kgsl_device *device,
  * @owner - driver instance that owns the events to cancel
  *
  */
-static void kgsl_cancel_events(struct kgsl_device *device,
-	struct kgsl_device_private *owner)
+void kgsl_cancel_events(struct kgsl_device *device,
+	void *owner)
 {
 	struct kgsl_event *event, *event_tmp;
 	unsigned int id, cur;
@@ -188,6 +189,7 @@ static void kgsl_cancel_events(struct kgsl_device *device,
 		kfree(event);
 	}
 }
+EXPORT_SYMBOL(kgsl_cancel_events);
 
 /* kgsl_get_mem_entry - get the mem_entry structure for the specified object
  * @ptbase - the pagetable base of the object

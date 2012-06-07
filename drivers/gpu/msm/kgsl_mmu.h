@@ -131,8 +131,8 @@ struct kgsl_mmu_ops {
 	void (*mmu_pagefault) (struct kgsl_mmu *mmu);
 	unsigned int (*mmu_get_current_ptbase)
 			(struct kgsl_mmu *mmu);
-	void (*mmu_disable_clk)
-		(struct kgsl_mmu *mmu);
+	void (*mmu_disable_clk_on_ts)
+		(struct kgsl_mmu *mmu, uint32_t ts, bool ts_valid);
 	int (*mmu_enable_clk)
 		(struct kgsl_mmu *mmu, int ctx_id);
 	int (*mmu_get_hwpagetable_asid)(struct kgsl_mmu *mmu);
@@ -291,10 +291,11 @@ static inline int kgsl_mmu_enable_clk(struct kgsl_mmu *mmu,
 		return 0;
 }
 
-static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
+static inline void kgsl_mmu_disable_clk_on_ts(struct kgsl_mmu *mmu,
+						unsigned int ts, bool ts_valid)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk)
-		mmu->mmu_ops->mmu_disable_clk(mmu);
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk_on_ts)
+		mmu->mmu_ops->mmu_disable_clk_on_ts(mmu, ts, ts_valid);
 }
 
 #endif /* __KGSL_MMU_H */

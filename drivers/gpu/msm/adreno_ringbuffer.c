@@ -591,7 +591,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	return timestamp;
 }
 
-void
+unsigned int
 adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 						unsigned int flags,
 						unsigned int *cmds,
@@ -601,8 +601,9 @@ adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
 	if (device->state & KGSL_STATE_HUNG)
-		return;
-	adreno_ringbuffer_addcmds(rb, NULL, flags, cmds, sizedwords);
+		return kgsl_readtimestamp(device, KGSL_MEMSTORE_GLOBAL,
+					KGSL_TIMESTAMP_RETIRED);
+	return adreno_ringbuffer_addcmds(rb, NULL, flags, cmds, sizedwords);
 }
 
 static bool _parse_ibs(struct kgsl_device_private *dev_priv, uint gpuaddr,
