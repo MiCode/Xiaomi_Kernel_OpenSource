@@ -293,8 +293,8 @@ struct msmsdcc_curr_req {
 	unsigned int		xfer_remain;	/* Bytes remaining to send */
 	unsigned int		data_xfered;	/* Bytes acked by BLKEND irq */
 	int			got_dataend;
-	int			wait_for_auto_prog_done;
-	int			got_auto_prog_done;
+	bool			wait_for_auto_prog_done;
+	bool			got_auto_prog_done;
 	bool			use_wr_data_pend;
 	int			user_pages;
 	u32			req_tout_ms;
