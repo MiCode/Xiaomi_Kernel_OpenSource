@@ -166,8 +166,11 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 	spin_lock(&dev->vc_client->cap_slock);
 	if (list_empty(&dev->vc_client->vid_vc_action.active)) {
 		/* Just leave we have no new queued buffers */
-		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
 		spin_unlock(&dev->vc_client->cap_slock);
+		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VC_BUF_OVERWRITE_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
 		dprintk(1, "We have no more avilable buffers\n");
 		return IRQ_HANDLED;
 	}

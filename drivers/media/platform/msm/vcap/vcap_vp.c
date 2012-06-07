@@ -283,7 +283,7 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 	}
 
 	dprintk(1, "%s: irq=0x%08x\n", __func__, irq);
-	if (!irq & VP_PIC_DONE) {
+	if (!(irq & VP_PIC_DONE)) {
 		writel_relaxed(irq, VCAP_VP_INT_CLEAR);
 		pr_err("VP IRQ shows some error\n");
 		return IRQ_HANDLED;
@@ -553,7 +553,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 			chroma_fmt << 11 | 0x2 << 4, VCAP_VP_IN_CONFIG);
 
 	chroma_fmt = 0;
-	if (c_data->vp_in_fmt.pixfmt == V4L2_PIX_FMT_NV16)
+	if (c_data->vp_out_fmt.pixfmt == V4L2_PIX_FMT_NV16)
 		chroma_fmt = 1;
 
 	writel_relaxed((c_data->vp_in_fmt.width / 16) << 20 |

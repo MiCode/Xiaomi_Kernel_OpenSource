@@ -148,6 +148,7 @@ struct vcap_dev {
 	struct clk				*vcap_clk;
 	struct clk				*vcap_p_clk;
 	struct clk				*vcap_npl_clk;
+	struct device			*ddev;
 	/*struct platform_device	*pdev;*/
 
 	uint32_t				bus_client_handle;
@@ -158,8 +159,10 @@ struct vcap_dev {
 	atomic_t			    vc_enabled;
 	atomic_t			    vp_enabled;
 
-	atomic_t				vc_resource;
-	atomic_t				vp_resource;
+	spinlock_t				dev_slock;
+	atomic_t			    open_clients;
+	bool					vc_resource;
+	bool					vp_resource;
 
 	struct workqueue_struct	*vcap_wq;
 	struct vp_work_t		vp_work;
