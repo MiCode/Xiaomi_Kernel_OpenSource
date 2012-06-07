@@ -951,10 +951,12 @@ int adreno_dump_and_recover(struct kgsl_device *device)
 		kgsl_device_snapshot(device, 1);
 
 		result = adreno_recover_hang(device);
-		if (result)
+		if (result) {
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_HUNG);
-		else
+		} else {
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
+			mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
+		}
 		complete_all(&device->recovery_gate);
 	}
 done:
