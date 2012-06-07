@@ -91,7 +91,9 @@ SECTIONS
 
 #ifndef CONFIG_XIP_KERNEL
 	. = ALIGN(PAGE_SIZE);
+#ifndef CONFIG_STRICT_MEMORY_RWX
 	__init_end = .;
+#endif
 #endif
 
 	/*
@@ -115,6 +117,7 @@ SECTIONS
 
 #ifdef CONFIG_STRICT_MEMORY_RWX
 	. = ALIGN(1<<SECTION_SHIFT);
+	__init_end = .;
 #endif
 	.text : {			/* Real text segment		*/
 		_text = .;		/* Text and read-only data	*/
