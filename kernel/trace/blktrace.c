@@ -1788,6 +1788,8 @@ void blk_fill_rwbs(char *rwbs, u32 rw, int bytes)
 		rwbs[i++] = 'W';
 	else if (rw & REQ_DISCARD)
 		rwbs[i++] = 'D';
+	else if (rw & REQ_SANITIZE)
+		rwbs[i++] = 'Z';
 	else if (bytes)
 		rwbs[i++] = 'R';
 	else

@@ -55,6 +55,18 @@ config TOUCHSCREEN_AD7877
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7877.
 
+config TOUCHSCREEN_ATMEL_MAXTOUCH
+       tristate "Atmel maXTouch based touchscreens"
+       depends on I2C
+       default n
+       help
+         Say Y here if you have an Atmel Maxtouch based touchscreen.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called maXTouch.
+
 config TOUCHSCREEN_AD7879
 	tristate "Analog Devices AD7879-1/AD7889-1 touchscreen interface"
 	help
@@ -431,6 +443,15 @@ config TOUCHSCREEN_PENMOUNT
 	  To compile this driver as a module, choose M here: the
 	  module will be called penmount.
 
+config TOUCHSCREEN_MSM
+	bool "Qualcomm MSM touchscreen controller"
+	depends on ARCH_MSM7X30 && MARIMBA_TSADC
+	default n
+	help
+	  Say Y here if you have a 4-wire resistive touchscreen panel
+	  connected to the TSSC touchscreen controller on a
+	  Qualcomm MSM/QSD based SoC.
+
 config TOUCHSCREEN_MIGOR
 	tristate "Renesas MIGO-R touchscreen"
 	depends on SH_MIGOR && I2C
@@ -456,6 +477,18 @@ config TOUCHSCREEN_SYNAPTICS_I2C_RMI
 	depends on I2C
 	help
 	  This enables support for Synaptics RMI over I2C based touchscreens.
+
+config TOUCHSCREEN_SYNAPTICS_RMI4_I2C
+	tristate "Synaptics i2c touchscreen(ClearPad 3000)"
+	depends on I2C
+	select SYNA_MULTI_TOUCH
+	help
+	  This enables support for Synaptics RMI over I2C based touchscreens(ClearPad 3000).
+
+config SYNA_MULTI_TOUCH
+	tristate "Synaptics i2c touchscreen(ClearPad 3000) MutilTouch support"
+	depends on TOUCHSCREEN_SYNAPTICS_RMI4_I2C
+	default y
 
 config TOUCHSCREEN_TOUCHRIGHT
 	tristate "Touchright serial touchscreen"
@@ -798,6 +831,27 @@ config TOUCHSCREEN_TSC2007
 	  To compile this driver as a module, choose M here: the
 	  module will be called tsc2007.
 
+config TOUCHSCREEN_MSM_LEGACY
+	default n
+	tristate "MSM Touchscreen"
+	depends on ARCH_MSM && !ARCH_MSM7X30
+	help
+	  Say Y here if you have a touchscreen interface using MSM
+	  touchscreen controller.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called msm_touch.
+
+config ANDROID_TOUCHSCREEN_MSM_HACKS
+	default y
+	depends on TOUCHSCREEN_MSM_LEGACY
+	bool "Android MSM Touchscreen hacks"
+	help
+	  Say Y here if you are running Android framework on Qualcomm
+	  MSM/QSD based Surf or FFAs. These hacks are required inorder
+	  to Android framework to receive adjusted x, y co-ordinates
+	  until proper calibration framework is in place.
+
 config TOUCHSCREEN_W90X900
 	tristate "W90P910 touchscreen driver"
 	depends on HAVE_CLK
@@ -850,5 +904,46 @@ config TOUCHSCREEN_TPS6507X
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
+
+config TOUCHSCREEN_CY8C_TS
+	tristate "Cypress TMA300-TMG200 based touchscreens"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you have a Cypress TMA300/TMG200 based touchscreen.
+	  TMA300 is a multi-touch screen which can report upto 10
+	  touches at a time. TMG200 supports 2 touches.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cy8c_ts.
+
+config TOUCHSCREEN_CYTTSP_I2C_QC
+       tristate "Cypress TTSP based touchscreens"
+       depends on I2C
+       default n
+       help
+         Say Y here if you have a Cypress TTSP based touchscreen.
+         TMA300 is a multi-touch screen which can report upto 10
+         touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called cyttsp-i2c.
+
+config TOUCHSCREEN_FT5X06
+       tristate "FocalTech touchscreens"
+       depends on I2C
+       help
+         Say Y here if you have a ft5X06 touchscreen.
+	 Ft5x06 controllers are multi touch controllers which can
+	 report 5 touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called ft5x06_ts.
 
 endif

@@ -1,0 +1,214 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,spmi@fc4c0000 {
+
+		qcom,pm8941@0 {
+
+			pm8941_gpios: pm8941_gpios {
+
+				gpio@c000 {
+					qcom,gpio-num = <1>;
+					status = "ok";
+				};
+
+				gpio@c100 {
+					qcom,gpio-num = <2>;
+					status = "ok";
+				};
+
+				gpio@c200 {
+					qcom,gpio-num = <3>;
+					status = "ok";
+				};
+
+				gpio@c300 {
+					qcom,gpio-num = <4>;
+					status = "ok";
+				};
+
+				gpio@c400 {
+					qcom,gpio-num = <5>;
+					status = "ok";
+				};
+
+				gpio@c500 {
+					qcom,gpio-num = <6>;
+					status = "ok";
+				};
+
+				gpio@c600 {
+					qcom,gpio-num = <7>;
+					status = "ok";
+				};
+
+				gpio@c700 {
+					qcom,gpio-num = <8>;
+					status = "ok";
+				};
+
+				gpio@c800 {
+					qcom,gpio-num = <9>;
+					status = "ok";
+				};
+
+				gpio@c900 {
+					qcom,gpio-num = <10>;
+					status = "ok";
+				};
+
+				gpio@ca00 {
+					qcom,gpio-num = <11>;
+					status = "ok";
+				};
+
+				gpio@cb00 {
+					qcom,gpio-num = <12>;
+					status = "ok";
+				};
+
+				gpio@cc00 {
+					qcom,gpio-num = <13>;
+					status = "ok";
+				};
+
+				gpio@cd00 {
+					qcom,gpio-num = <14>;
+					status = "ok";
+				};
+
+				gpio@ce00 {
+					qcom,gpio-num = <15>;
+					status = "ok";
+				};
+
+				gpio@cf00 {
+					qcom,gpio-num = <16>;
+					status = "ok";
+				};
+
+				gpio@d000 {
+					qcom,gpio-num = <17>;
+					status = "ok";
+				};
+
+				gpio@d100 {
+					qcom,gpio-num = <18>;
+					status = "ok";
+				};
+
+				gpio@d200 {
+					qcom,gpio-num = <19>;
+					status = "ok";
+				};
+
+				gpio@d300 {
+					qcom,gpio-num = <20>;
+					status = "ok";
+				};
+
+				gpio@d400 {
+					qcom,gpio-num = <21>;
+					status = "ok";
+				};
+
+				gpio@d500 {
+					qcom,gpio-num = <22>;
+					status = "ok";
+				};
+
+				gpio@d600 {
+					qcom,gpio-num = <23>;
+					status = "ok";
+				};
+
+				gpio@d700 {
+					qcom,gpio-num = <24>;
+					status = "ok";
+				};
+
+				gpio@d800 {
+					qcom,gpio-num = <25>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@d900 {
+					qcom,gpio-num = <26>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@da00 {
+					qcom,gpio-num = <27>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@db00 {
+					qcom,gpio-num = <28>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@dc00 {
+					qcom,gpio-num = <29>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@dd00 {
+					qcom,gpio-num = <30>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@de00 {
+					qcom,gpio-num = <31>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@df00 {
+					qcom,gpio-num = <32>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@e000 {
+					qcom,gpio-num = <33>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@e100 {
+					qcom,gpio-num = <34>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@e200 {
+					qcom,gpio-num = <35>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+
+				gpio@e300 {
+					qcom,gpio-num = <36>;
+					qcom,out-strength = <1>;
+					status = "ok";
+				};
+			};
+		};
+	};
+};

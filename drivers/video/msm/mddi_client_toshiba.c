@@ -21,7 +21,6 @@
 #include <linux/interrupt.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
-#include <linux/slab.h>
 #include <mach/msm_fb.h>
 
 
@@ -60,6 +59,7 @@ struct panel_info {
 	struct msm_panel_data panel_data;
 	struct msmfb_callback *toshiba_callback;
 	int toshiba_got_int;
+	int irq;
 };
 
 
@@ -175,42 +175,6 @@ irqreturn_t toshiba_vsync_interrupt(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int setup_vsync(struct panel_info *panel,
-		       int init)
-{
-	int ret;
-	int gpio = 97;
-	unsigned int irq;
-
-	if (!init) {
-		ret = 0;
-		goto uninit;
-	}
-	ret = gpio_request_one(gpio, GPIOF_IN, "vsync");
-	if (ret)
-		goto err_request_gpio_failed;
-
-	ret = irq = gpio_to_irq(gpio);
-	if (ret < 0)
-		goto err_get_irq_num_failed;
-
-	ret = request_irq(irq, toshiba_vsync_interrupt, IRQF_TRIGGER_RISING,
-			  "vsync", panel);
-	if (ret)
-		goto err_request_irq_failed;
-	printk(KERN_INFO "vsync on gpio %d now %d\n",
-	       gpio, gpio_get_value(gpio));
-	return 0;
-
-uninit:
-	free_irq(gpio_to_irq(gpio), panel);
-err_request_irq_failed:
-err_get_irq_num_failed:
-	gpio_free(gpio);
-err_request_gpio_failed:
-	return ret;
-}
-
 static int mddi_toshiba_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -227,10 +191,16 @@ static int mddi_toshiba_probe(struct platform_device *pdev)
 	client_data->remote_write(client_data, GPIOSEL_VWAKEINT, GPIOSEL);
 	client_data->remote_write(client_data, INTMASK_VWAKEOUT, INTMASK);
 
-	ret = setup_vsync(panel, 1);
+	ret = platform_get_irq_byname(pdev, "vsync");
+	if (ret < 0)
+		goto err_plat_get_irq;
+
+	panel->irq = ret;
+	ret = request_irq(panel->irq, toshiba_vsync_interrupt,
+			  IRQF_TRIGGER_RISING, "vsync", panel);
 	if (ret) {
 		dev_err(&pdev->dev, "mddi_bridge_setup_vsync failed\n");
-		return ret;
+		goto err_req_irq;
 	}
 
 	panel->client_data = client_data;
@@ -253,13 +223,19 @@ static int mddi_toshiba_probe(struct platform_device *pdev)
 	platform_device_register(&panel->pdev);
 
 	return 0;
+
+err_req_irq:
+err_plat_get_irq:
+	kfree(panel);
+	return ret;
 }
 
 static int mddi_toshiba_remove(struct platform_device *pdev)
 {
 	struct panel_info *panel = platform_get_drvdata(pdev);
 
-	setup_vsync(panel, 0);
+	platform_set_drvdata(pdev, NULL);
+	free_irq(panel->irq, panel);
 	kfree(panel);
 	return 0;
 }

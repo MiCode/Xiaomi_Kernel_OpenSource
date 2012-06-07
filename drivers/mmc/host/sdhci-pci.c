@@ -367,6 +367,8 @@ static int o2_probe(struct sdhci_pci_chip *chip)
 		pci_write_config_byte(chip->pdev, O2_SD_LOCK_WP, scratch);
 	}
 
+	slot->host->mmc->caps2 = MMC_CAP2_BOOTPART_NOACC;
+
 	return 0;
 }
 

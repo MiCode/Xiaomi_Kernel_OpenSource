@@ -322,6 +322,14 @@ config MOUSE_SYNAPTICS_I2C
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_i2c.
 
+config MOUSE_QCITP
+	tristate "Quanta Computer Inc. Touchpad"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you want to use the Quanta touchpad driver for Quanta
+	  smartbook platforms.
+
 config MOUSE_SYNAPTICS_USB
 	tristate "Synaptics USB device support"
 	depends on USB_ARCH_HAS_HCD

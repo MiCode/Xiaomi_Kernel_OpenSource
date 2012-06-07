@@ -5,6 +5,8 @@
  * Copyright (C) 2003 Oliver Endriss
  * Copyright (C) 2004 Andrew de Quincey
  *
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
  * based on code originally found in av7110.c & dvb_ci.c:
  * Copyright (C) 1999-2003 Ralph Metzler & Marcus Metzler
  *                         for convergence integrated media GmbH
@@ -134,6 +136,8 @@ extern void dvb_ringbuffer_read(struct dvb_ringbuffer *rbuf,
 extern ssize_t dvb_ringbuffer_write(struct dvb_ringbuffer *rbuf, const u8 *buf,
 				    size_t len);
 
+extern ssize_t dvb_ringbuffer_write_user(struct dvb_ringbuffer *rbuf,
+					const u8 *buf, size_t len);
 
 /**
  * Write a packet into the ringbuffer.
@@ -181,6 +185,32 @@ extern void dvb_ringbuffer_pkt_dispose(struct dvb_ringbuffer *rbuf, size_t idx);
  * returns Packet index (if >=0), or -1 if no packets available.
  */
 extern ssize_t dvb_ringbuffer_pkt_next(struct dvb_ringbuffer *rbuf, size_t idx, size_t* pktlen);
+
+
+/**
+ * Start a new packet that will be written directly by the user to the packet buffer.
+ * The function only writes the header of the packet into the packet buffer,
+ * and the packet is in pending state (can't be read by the reader) until it is
+ * closed using dvb_ringbuffer_pkt_close. You must write the data into the
+ * packet buffer using dvb_ringbuffer_write followed by
+ * dvb_ringbuffer_pkt_close.
+ *
+ * <rbuf> Ringbuffer concerned.
+ * <len> Size of the packet's data
+ * returns Index of the packet's header that was started.
+ */
+extern ssize_t dvb_ringbuffer_pkt_start(struct dvb_ringbuffer *rbuf,
+						size_t len);
+
+/**
+ * Close a packet that was started using dvb_ringbuffer_pkt_start.
+ * The packet will be marked as ready to be ready.
+ *
+ * <rbuf> Ringbuffer concerned.
+ * <idx> Packet index that was returned by dvb_ringbuffer_pkt_start
+ * returns error status, -EINVAL if the provided index is invalid
+ */
+extern int dvb_ringbuffer_pkt_close(struct dvb_ringbuffer *rbuf, ssize_t idx);
 
 
 #endif /* _DVB_RINGBUFFER_H_ */

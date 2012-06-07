@@ -1,0 +1,187 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+
+		qcom,pm8841@5 {
+			spmi-slave-container;
+			reg = <0x5>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			regulator@1400 {
+				regulator-name = "8841_s1";
+				spmi-dev-container;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x1400 0x300>;
+				status = "disabled";
+
+				qcom,ctl@1400 {
+					reg = <0x1400 0x100>;
+				};
+				qcom,ps@1500 {
+					reg = <0x1500 0x100>;
+				};
+				qcom,freq@1600 {
+					reg = <0x1600 0x100>;
+				};
+			};
+
+			regulator@1700 {
+				regulator-name = "8841_s2";
+				spmi-dev-container;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x1700 0x300>;
+				status = "disabled";
+
+				qcom,ctl@1700 {
+					reg = <0x1700 0x100>;
+				};
+				qcom,ps@1800 {
+					reg = <0x1800 0x100>;
+				};
+				qcom,freq@1900 {
+					reg = <0x1900 0x100>;
+				};
+			};
+
+			regulator@1a00 {
+				regulator-name = "8841_s3";
+				spmi-dev-container;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x1a00 0x300>;
+				status = "disabled";
+
+				qcom,ctl@1a00 {
+					reg = <0x1a00 0x100>;
+				};
+				qcom,ps@1b00 {
+					reg = <0x1b00 0x100>;
+				};
+				qcom,freq@1c00 {
+					reg = <0x1c00 0x100>;
+				};
+			};
+
+			regulator@1d00 {
+				regulator-name = "8841_s4";
+				spmi-dev-container;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x1d00 0x300>;
+				status = "disabled";
+
+				qcom,ctl@1d00 {
+					reg = <0x1d00 0x100>;
+				};
+				qcom,ps@1e00 {
+					reg = <0x1e00 0x100>;
+				};
+				qcom,freq@1f00 {
+					reg = <0x1f00 0x100>;
+				};
+			};
+
+			regulator@2000 {
+				regulator-name = "8841_s5";
+				spmi-dev-container;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x2000 0x300>;
+				status = "disabled";
+
+				qcom,ctl@0 {
+					reg = <0x2000 0x100>;
+				};
+				qcom,ps@100 {
+					reg = <0x2100 0x100>;
+				};
+				qcom,freq@200 {
+					reg = <0x2200 0x100>;
+				};
+			};
+
+			regulator@2300 {
+				regulator-name = "8841_s6";
+				spmi-dev-container;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x2300 0x300>;
+				status = "disabled";
+
+				qcom,ctl@2300 {
+					reg = <0x2300 0x100>;
+				};
+				qcom,ps@2400 {
+					reg = <0x2400 0x100>;
+				};
+				qcom,freq@2500 {
+					reg = <0x2500 0x100>;
+				};
+			};
+
+			regulator@2600 {
+				regulator-name = "8841_s7";
+				spmi-dev-container;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x2600 0x300>;
+				status = "disabled";
+
+				qcom,ctl@2600 {
+					reg = <0x2300 0x100>;
+				};
+				qcom,ps@2700 {
+					reg = <0x2400 0x100>;
+				};
+				qcom,freq@2800 {
+					reg = <0x2500 0x100>;
+				};
+			};
+
+			regulator@2900 {
+				regulator-name = "8841_s8";
+				spmi-dev-container;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x2900 0x300>;
+				status = "disabled";
+
+				qcom,ctl@2900 {
+					reg = <0x2900 0x100>;
+				};
+				qcom,ps@2a000 {
+					reg = <0x2a00 0x100>;
+				};
+				qcom,freq@2b00 {
+					reg = <0x2b00 0x100>;
+				};
+			};
+		};
+	};
+};

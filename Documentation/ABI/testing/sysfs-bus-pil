@@ -1,0 +1,18 @@
+What:		/sys/bus/pil/devices/.../name
+Date:		March 2012
+Contact:	Stephen Boyd <sboyd@codeaurora.org>
+Description:
+		Shows the name of the peripheral used in pil_get().
+
+What:		/sys/bus/pil/devices/.../state
+Date:		March 2012
+Contact:	Stephen Boyd <sboyd@codeaurora.org>
+Description:
+		Shows the state state of a peripheral. Current states
+		supported are:
+
+			OFFLINE - peripheral is offline
+			ONLINE - peripheral is online
+
+		This file supports poll() to detect when a peripheral changes
+		state.

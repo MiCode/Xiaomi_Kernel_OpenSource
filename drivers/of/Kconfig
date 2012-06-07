@@ -91,8 +91,20 @@ config OF_PCI_IRQ
 	help
 	  OpenFirmware PCI IRQ routing helpers
 
+config OF_SPMI
+	def_tristate SPMI
+	depends on SPMI
+	help
+	  OpenFirmware SPMI bus accessors
+
 config OF_MTD
 	depends on MTD
 	def_bool y
+
+config OF_SLIMBUS
+	def_tristate SLIMBUS
+	depends on SLIMBUS
+	help
+	  OpenFirmware SLIMBUS accessors
 
 endmenu # OF

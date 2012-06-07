@@ -26,6 +26,7 @@
 */
 
 #include <linux/module.h>
+#include <linux/interrupt.h>
 
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -56,8 +57,8 @@
 
 #define VERSION "1.3"
 
-static bool compress_src = true;
-static bool compress_dst = true;
+static bool compress_src = 1;
+static bool compress_dst = 1;
 
 static LIST_HEAD(bnep_session_list);
 static DECLARE_RWSEM(bnep_session_sem);
@@ -65,24 +66,31 @@ static DECLARE_RWSEM(bnep_session_sem);
 static struct bnep_session *__bnep_get_session(u8 *dst)
 {
 	struct bnep_session *s;
+	struct list_head *p;
 
 	BT_DBG("");
 
-	list_for_each_entry(s, &bnep_session_list, list)
+	list_for_each(p, &bnep_session_list) {
+		s = list_entry(p, struct bnep_session, list);
 		if (!compare_ether_addr(dst, s->eh.h_source))
 			return s;
-
+	}
 	return NULL;
 }
 
 static void __bnep_link_session(struct bnep_session *s)
 {
+	/* It's safe to call __module_get() here because sessions are added
+	   by the socket layer which has to hold the reference to this module.
+	 */
+	__module_get(THIS_MODULE);
 	list_add(&s->list, &bnep_session_list);
 }
 
 static void __bnep_unlink_session(struct bnep_session *s)
 {
 	list_del(&s->list);
+	module_put(THIS_MODULE);
 }
 
 static int bnep_send(struct bnep_session *s, void *data, size_t len)
@@ -502,7 +510,7 @@ static int bnep_session(void *arg)
 
 		schedule();
 	}
-	__set_current_state(TASK_RUNNING);
+	set_current_state(TASK_RUNNING);
 	remove_wait_queue(sk_sleep(sk), &wait);
 
 	/* Cleanup session */
@@ -523,7 +531,6 @@ static int bnep_session(void *arg)
 
 	up_write(&bnep_session_sem);
 	free_netdev(dev);
-	module_put_and_exit(0);
 	return 0;
 }
 
@@ -610,11 +617,9 @@ int bnep_add_connection(struct bnep_connadd_req *req, struct socket *sock)
 
 	__bnep_link_session(s);
 
-	__module_get(THIS_MODULE);
 	s->task = kthread_run(bnep_session, s, "kbnepd %s", dev->name);
 	if (IS_ERR(s->task)) {
 		/* Session thread start failed, gotta cleanup. */
-		module_put(THIS_MODULE);
 		unregister_netdev(dev);
 		__bnep_unlink_session(s);
 		err = PTR_ERR(s->task);
@@ -663,13 +668,16 @@ static void __bnep_copy_ci(struct bnep_conninfo *ci, struct bnep_session *s)
 
 int bnep_get_connlist(struct bnep_connlist_req *req)
 {
-	struct bnep_session *s;
+	struct list_head *p;
 	int err = 0, n = 0;
 
 	down_read(&bnep_session_sem);
 
-	list_for_each_entry(s, &bnep_session_list, list) {
+	list_for_each(p, &bnep_session_list) {
+		struct bnep_session *s;
 		struct bnep_conninfo ci;
+
+		s = list_entry(p, struct bnep_session, list);
 
 		__bnep_copy_ci(&ci, s);
 

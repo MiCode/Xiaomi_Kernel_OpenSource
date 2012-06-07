@@ -878,9 +878,9 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 		int ro = -1;
 
 		if (host->ops->get_ro) {
-			mmc_host_clk_hold(card->host);
+			mmc_host_clk_hold(host);
 			ro = host->ops->get_ro(host);
-			mmc_host_clk_release(card->host);
+			mmc_host_clk_release(host);
 		}
 
 		if (ro < 0) {
@@ -1001,9 +1001,9 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		 * value registers for UHS-I cards.
 		 */
 		if (host->ops->enable_preset_value) {
-			mmc_host_clk_hold(card->host);
+			mmc_host_clk_hold(host);
 			host->ops->enable_preset_value(host, true);
-			mmc_host_clk_release(card->host);
+			mmc_host_clk_release(host);
 		}
 	} else {
 		/*
@@ -1052,7 +1052,10 @@ static void mmc_sd_remove(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_remove_card(host->card);
+
+	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_release_host(host);
 }
 
 /*
@@ -1152,8 +1155,11 @@ static int mmc_sd_resume(struct mmc_host *host)
 		if (err) {
 			printk(KERN_ERR "%s: Re-init card rc = %d (retries = %d)\n",
 			       mmc_hostname(host), err, retries);
-			mdelay(5);
 			retries--;
+			mmc_power_off(host);
+			usleep_range(5000, 5500);
+			mmc_power_up(host);
+			mmc_select_voltage(host, host->ocr);
 			continue;
 		}
 		break;
@@ -1285,6 +1291,10 @@ int mmc_attach_sd(struct mmc_host *host)
 		err = mmc_sd_init_card(host, host->ocr, NULL);
 		if (err) {
 			retries--;
+			mmc_power_off(host);
+			usleep_range(5000, 5500);
+			mmc_power_up(host);
+			mmc_select_voltage(host, host->ocr);
 			continue;
 		}
 		break;

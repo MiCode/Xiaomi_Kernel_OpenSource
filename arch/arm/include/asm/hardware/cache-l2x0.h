@@ -91,6 +91,7 @@
 #define L2X0_AUX_CTRL_WAY_SIZE_SHIFT		17
 #define L2X0_AUX_CTRL_WAY_SIZE_MASK		(0x7 << 17)
 #define L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT	22
+#define L2X0_AUX_CTRL_L2_FORCE_NWA_SHIFT	23
 #define L2X0_AUX_CTRL_NS_LOCKDOWN_SHIFT		26
 #define L2X0_AUX_CTRL_NS_INT_CTRL_SHIFT		27
 #define L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT	28
@@ -105,7 +106,18 @@
 
 #define REV_PL310_R2P0				4
 
+#define L2X0_LATENCY_CTRL_SETUP_SHIFT	0
+#define L2X0_LATENCY_CTRL_RD_SHIFT	4
+#define L2X0_LATENCY_CTRL_WR_SHIFT	8
+
+#define L2X0_PREFETCH_CTRL_OFFSET_SHIFT		0
+#define L2X0_PREFETCH_CTRL_WRAP8_INC_SHIFT	23
+#define L2X0_PREFETCH_CTRL_WRAP8_SHIFT		30
+
 #ifndef __ASSEMBLY__
+extern void l2cc_suspend(void);
+extern void l2cc_resume(void);
+extern void l2x0_cache_sync(void);
 extern void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask);
 #if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_OF)
 extern int l2x0_of_init(u32 aux_val, u32 aux_mask);

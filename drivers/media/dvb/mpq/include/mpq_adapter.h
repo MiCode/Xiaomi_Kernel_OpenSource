@@ -1,0 +1,193 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef _MPQ_ADAPTER_H
+#define _MPQ_ADAPTER_H
+
+#include "dvbdev.h"
+#include "mpq_stream_buffer.h"
+
+
+
+/** IDs of interfaces holding stream-buffers */
+enum mpq_adapter_stream_if {
+	/** Interface holding stream-buffer for video0 stream */
+	MPQ_ADAPTER_VIDEO0_STREAM_IF = 0,
+
+	/** Interface holding stream-buffer for video1 stream */
+	MPQ_ADAPTER_VIDEO1_STREAM_IF = 1,
+
+	/** Interface holding stream-buffer for video1 stream */
+	MPQ_ADAPTER_VIDEO2_STREAM_IF = 2,
+
+	/** Interface holding stream-buffer for video1 stream */
+	MPQ_ADAPTER_VIDEO3_STREAM_IF = 3,
+
+	/** Maximum number of interfaces holding stream-buffers */
+	MPQ_ADAPTER_MAX_NUM_OF_INTERFACES,
+};
+
+
+enum dmx_framing_pattern_type {
+	/* MPEG-2 */
+	DMX_FRM_MPEG2_SEQUENCE_HEADER,
+	DMX_FRM_MPEG2_GOP_HEADER,
+	DMX_FRM_MPEG2_I_PIC,
+	DMX_FRM_MPEG2_P_PIC,
+	DMX_FRM_MPEG2_B_PIC,
+	/* H.264 */
+	DMX_FRM_H264_SPS,
+	DMX_FRM_H264_PPS,
+	/* H.264 First Coded slice of an IDR Picture */
+	DMX_FRM_H264_IDR_PIC,
+	/* H.264 First Coded slice of a non-IDR Picture */
+	DMX_FRM_H264_NON_IDR_PIC,
+	/* VC-1 Sequence Header*/
+	DMX_FRM_VC1_SEQUENCE_HEADER,
+	/* VC-1 Entry Point Header (Advanced Profile only) */
+	DMX_FRM_VC1_ENTRY_POINT_HEADER,
+	/* VC-1 Frame Start Code */
+	DMX_FRM_VC1_FRAME_START_CODE,
+	/* Unknown or invalid framing information */
+	DMX_FRM_UNKNOWN
+};
+
+enum dmx_packet_type {
+	DMX_PADDING_PACKET,
+	DMX_PES_PACKET,
+	DMX_FRAMING_INFO_PACKET,
+	DMX_EOS_PACKET
+};
+
+struct dmx_pts_dts_info {
+	/** Indication whether PTS exist */
+	int pts_exist;
+
+	/** Indication whether DTS exist */
+	int dts_exist;
+
+	/** PTS value associated with the PES data if any */
+	u64 pts;
+
+	/** DTS value associated with the PES data if any */
+	u64 dts;
+};
+
+struct dmx_framing_packet_info {
+	/** framing pattern type */
+	enum dmx_framing_pattern_type pattern_type;
+	/** PTS/DTS information */
+	struct dmx_pts_dts_info pts_dts_info;
+};
+
+struct dmx_pes_packet_info {
+	/** PTS/DTS information */
+	struct dmx_pts_dts_info pts_dts_info;
+};
+
+/** The meta-data used for video interface */
+struct mpq_adapter_video_meta_data {
+	/** meta-data packet type */
+	enum dmx_packet_type packet_type;
+
+	/** packet-type specific information */
+	union {
+		struct dmx_framing_packet_info framing;
+		struct dmx_pes_packet_info pes;
+	} info;
+} __packed;
+
+
+/** Callback function to notify on registrations of specific interfaces */
+typedef void (*mpq_adapter_stream_if_callback)(
+				enum mpq_adapter_stream_if interface_id,
+				void *user_param);
+
+
+/**
+ * mpq_adapter_get - Returns pointer to Qualcomm DVB adapter
+ *
+ * Return     dvb adapter or NULL if not exist.
+ */
+struct dvb_adapter *mpq_adapter_get(void);
+
+
+/**
+ * mpq_adapter_register_stream_if - Register a stream interface.
+ *
+ * @interface_id: The interface id
+ * @stream_buffer: The buffer used for the interface
+ *
+ * Return     error status
+ *
+ * Stream interface used to connect between two units in tunneling
+ * mode using mpq_streambuffer implementation.
+ * The producer of the interface should register the new interface,
+ * consumer may get the interface using mpq_adapter_get_stream_if.
+ *
+ * Note that the function holds a pointer to this interface,
+ * stream_buffer pointer assumed to be valid as long as interface
+ * is active.
+ */
+int mpq_adapter_register_stream_if(
+		enum mpq_adapter_stream_if interface_id,
+		struct mpq_streambuffer *stream_buffer);
+
+
+/**
+ * mpq_adapter_unregister_stream_if - Un-register a stream interface.
+ *
+ * @interface_id: The interface id
+ *
+ * Return     error status
+ */
+int mpq_adapter_unregister_stream_if(
+		enum mpq_adapter_stream_if interface_id);
+
+
+/**
+ * mpq_adapter_get_stream_if - Get buffer used for a stream interface.
+ *
+ * @interface_id: The interface id
+ * @stream_buffer: The returned stream buffer
+ *
+ * Return     error status
+ */
+int mpq_adapter_get_stream_if(
+		enum mpq_adapter_stream_if interface_id,
+		struct mpq_streambuffer **stream_buffer);
+
+
+/**
+ * mpq_adapter_notify_stream_if - Register notification
+ * to be triggered when a stream interface is registered.
+ *
+ * @interface_id: The interface id
+ * @callback: The callback to be triggered when the interface is registered
+ * @user_param: A parameter that is passed back to the callback function
+ *				when triggered.
+ *
+ * Return     error status
+ *
+ * Producer may use this to register notification when desired
+ * interface registered in the system and query its information
+ * afterwards using mpq_adapter_get_stream_if.
+ * To remove the callback, this function should be called with NULL
+ * value in callback parameter.
+ */
+int mpq_adapter_notify_stream_if(
+		enum mpq_adapter_stream_if interface_id,
+		mpq_adapter_stream_if_callback callback,
+		void *user_param);
+
+#endif /* _MPQ_ADAPTER_H */
+

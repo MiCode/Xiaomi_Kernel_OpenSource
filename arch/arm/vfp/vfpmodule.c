@@ -445,7 +445,7 @@ static void vfp_enable(void *unused)
 }
 
 #ifdef CONFIG_CPU_PM
-static int vfp_pm_suspend(void)
+int vfp_pm_suspend(void)
 {
 	struct thread_info *ti = current_thread_info();
 	u32 fpexc = fmrx(FPEXC);
@@ -471,7 +471,7 @@ static int vfp_pm_suspend(void)
 	return 0;
 }
 
-static void vfp_pm_resume(void)
+void vfp_pm_resume(void)
 {
 	/* ensure we have access to the vfp */
 	vfp_enable(NULL);
@@ -719,7 +719,8 @@ static int __init vfp_init(void)
 			if ((fmrx(MVFR1) & 0x000fff00) == 0x00011100)
 				elf_hwcap |= HWCAP_NEON;
 #endif
-			if ((fmrx(MVFR1) & 0xf0000000) == 0x10000000)
+			if ((fmrx(MVFR1) & 0xf0000000) == 0x10000000 ||
+			    (read_cpuid_id() & 0xff00fc00) == 0x51000400)
 				elf_hwcap |= HWCAP_VFPv4;
 		}
 	}

@@ -1,0 +1,45 @@
+config DVB_MPQ_DEMUX
+	tristate "DVB Demux Device"
+	depends on DVB_MPQ && ION && ION_MSM
+	default n
+
+	help
+	  Support for Qualcomm based dvb demux device.
+	  Say Y or M if you own such a device and want to use it.
+
+config DVB_MPQ_NUM_DMX_DEVICES
+	int "Number of demux devices"
+	depends on DVB_MPQ_DEMUX
+	default 4
+	range 1 255
+
+	help
+	  Configure number of demux devices. Depends on your use-cases for maximum concurrent stream playback.
+
+choice
+	prompt "Demux Hardware Plugin"
+	depends on DVB_MPQ_DEMUX
+	default DVB_MPQ_TSIF
+	help
+	  Enable support of specific demux HW plugin depending on the existing HW support.
+	  Depending on the enabled HW, demux may take advantage of HW capbailities to perform some tasks in HW instead of SW.
+
+	config DVB_MPQ_TSPP1
+		bool "TSPPv1 plugin"
+		depends on TSPP
+		help
+			Use this option of your HW has Transport Stream Packet Processor (TSPP) version1 support
+
+	config DVB_MPQ_TSPP2
+		bool "TSPPv2 plugin"
+		depends on TSPP
+		help
+			Use this option of your HW has Transport Stream Packet Processor (TSPP) version2 support
+
+	config DVB_MPQ_TSIF
+		bool "TSIF plugin"
+		depends on TSIF
+		help
+			Use this option of your HW has only TSIF input without any Transport Stream Packet Processor (TSPP) support
+endchoice
+

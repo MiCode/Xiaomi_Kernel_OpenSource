@@ -5,6 +5,8 @@
  *                  & Ralph  Metzler <ralph@convergence.de>
  *                    for convergence integrated media GmbH
  *
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
  * as published by the Free Software Foundation; either version 2.1
@@ -97,16 +99,40 @@ typedef struct dmx_filter
 } dmx_filter_t;
 
 
+/* Filter flags */
+#define DMX_CHECK_CRC		0x01
+#define DMX_ONESHOT		0x02
+#define DMX_IMMEDIATE_START	0x04
+#define DMX_ENABLE_INDEXING	0x08
+#define DMX_KERNEL_CLIENT	0x8000
+
 struct dmx_sct_filter_params
 {
 	__u16          pid;
 	dmx_filter_t   filter;
 	__u32          timeout;
 	__u32          flags;
-#define DMX_CHECK_CRC       1
-#define DMX_ONESHOT         2
-#define DMX_IMMEDIATE_START 4
-#define DMX_KERNEL_CLIENT   0x8000
+};
+
+
+/* Indexing: supported video standards */
+enum dmx_indexing_video_standard {
+	DMX_INDEXING_MPEG2,
+	DMX_INDEXING_H264,
+	DMX_INDEXING_VC1
+};
+
+/* Indexing: Supported video profiles */
+enum dmx_indexing_video_profile {
+	DMX_INDEXING_MPEG2_ANY,
+	DMX_INDEXING_H264_ANY,
+	DMX_INDEXING_VC1_ANY
+};
+
+/* Indexing: video configuration parameters */
+struct dmx_indexing_video_params {
+	enum dmx_indexing_video_standard standard;
+	enum dmx_indexing_video_profile profile;
 };
 
 
@@ -117,11 +143,89 @@ struct dmx_pes_filter_params
 	dmx_output_t   output;
 	dmx_pes_type_t pes_type;
 	__u32          flags;
+
+	struct dmx_indexing_video_params video_params;
+};
+
+struct dmx_buffer_status {
+	/* size of buffer in bytes */
+	unsigned int size;
+
+	/* fullness of buffer in bytes */
+	unsigned int fullness;
+
+	/*
+	 * How many bytes are free
+	 * It's the same as: size-fullness-1
+	 */
+	unsigned int free_bytes;
+
+	/* read pointer offset in bytes */
+	unsigned int read_offset;
+
+	/* write pointer offset in bytes */
+	unsigned int write_offset;
+
+	/* non-zero if data error occured */
+	int error;
 };
 
 typedef struct dmx_caps {
 	__u32 caps;
+
+/* Indicates whether demux support playback from memory in pull mode */
+#define DMX_CAP_PULL_MODE				0x01
+
+/* Indicates whether demux support indexing of recorded video stream */
+#define DMX_CAP_VIDEO_INDEXING			0x02
+
+/* Indicates whether demux support sending data directly to video decoder */
+#define DMX_CAP_VIDEO_DECODER_DATA		0x04
+
+/* Indicates whether demux support sending data directly to audio decoder */
+#define DMX_CAP_AUDIO_DECODER_DATA		0x08
+
+/* Indicates whether demux support sending data directly to subtitle decoder */
+#define DMX_CAP_SUBTITLE_DECODER_DATA	0x10
+
+	/* Number of decoders demux can output data to */
 	int num_decoders;
+
+	/* Number of demux devices */
+	int num_demux_devices;
+
+	/* Max number of PID filters */
+	int num_pid_filters;
+
+	/* Max number of section filters */
+	int num_section_filters;
+
+	/*
+	 * Max number of section filters using same PID,
+	 * 0 if not supported
+	 */
+	int num_section_filters_per_pid;
+
+	/*
+	 * Length of section filter, not including section
+	 * length field (2 bytes).
+	 */
+	int section_filter_length;
+
+	/* Max number of demod based input */
+	int num_demod_inputs;
+
+	/* Max number of memory based input */
+	int num_memory_inputs;
+
+	/* Overall bitrate from all inputs concurrently. Mbit/sec */
+	int max_bitrate;
+
+	/* Max bitrate from single demod input. Mbit/sec */
+	int demod_input_max_bitrate;
+
+	/* Max bitrate from single memory input. Mbit/sec */
+	int memory_input_max_bitrate;
 } dmx_caps_t;
 
 typedef enum {
@@ -134,6 +238,34 @@ typedef enum {
 	DMX_SOURCE_DVR2,
 	DMX_SOURCE_DVR3
 } dmx_source_t;
+
+enum dmx_tsp_format_t {
+	DMX_TSP_FORMAT_188 = 0,
+	DMX_TSP_FORMAT_192_TAIL,
+	DMX_TSP_FORMAT_192_HEAD,
+	DMX_TSP_FORMAT_204,
+};
+
+enum dmx_playback_mode_t {
+	/*
+	 * In push mode, if one of output buffers
+	 * is full, the buffer would overflow
+	 * and demux continue processing incoming stream.
+	 * This is the default mode. When playing from frontend,
+	 * this is the only mode that is allowed.
+	 */
+	DMX_PB_MODE_PUSH = 0,
+
+	/*
+	 * In pull mode, if one of output buffers
+	 * is full, demux stalls waiting for free space,
+	 * this would cause DVR input buffer fullness
+	 * to accumulate.
+	 * This mode is possible only when playing
+	 * from DVR.
+	 */
+	DMX_PB_MODE_PULL,
+};
 
 struct dmx_stc {
 	unsigned int num;	/* input : which STC? 0..N */
@@ -153,5 +285,12 @@ struct dmx_stc {
 #define DMX_GET_STC              _IOWR('o', 50, struct dmx_stc)
 #define DMX_ADD_PID              _IOW('o', 51, __u16)
 #define DMX_REMOVE_PID           _IOW('o', 52, __u16)
+#define DMX_SET_TS_PACKET_FORMAT _IOW('o', 53, enum dmx_tsp_format_t)
+#define DMX_SET_TS_OUT_FORMAT	 _IOW('o', 54, enum dmx_tsp_format_t)
+#define DMX_SET_DECODER_BUFFER_SIZE	_IO('o', 55)
+#define DMX_GET_BUFFER_STATUS	 _IOR('o', 56, struct dmx_buffer_status)
+#define DMX_RELEASE_DATA		 _IO('o', 57)
+#define DMX_FEED_DATA			 _IO('o', 58)
+#define DMX_SET_PLAYBACK_MODE	 _IOW('o', 59, enum dmx_playback_mode_t)
 
 #endif /*_DVBDMX_H_*/

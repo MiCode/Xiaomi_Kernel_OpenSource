@@ -21,6 +21,10 @@
 
 struct mddi_info;
 
+/* output interface format */
+#define MSM_MDP_OUT_IF_FMT_RGB565 0
+#define MSM_MDP_OUT_IF_FMT_RGB666 1
+
 struct msm_fb_data {
 	int xres;	/* x resolution in pixels */
 	int yres;	/* y resolution in pixels */
@@ -34,9 +38,12 @@ struct msmfb_callback {
 };
 
 enum {
-	MSM_MDDI_PMDH_INTERFACE,
+	MSM_MDDI_PMDH_INTERFACE = 0,
 	MSM_MDDI_EMDH_INTERFACE,
 	MSM_EBI2_INTERFACE,
+	MSM_LCDC_INTERFACE,
+
+	MSM_MDP_NUM_INTERFACES = MSM_LCDC_INTERFACE + 1,
 };
 
 #define MSMFB_CAP_PARTIAL_UPDATES	(1 << 0)
@@ -85,6 +92,8 @@ struct msm_mddi_platform_data {
 	/* fixup the mfr name, product id */
 	void (*fixup)(uint16_t *mfr_name, uint16_t *product_id);
 
+	int vsync_irq;
+
 	struct resource *fb_resource; /*optional*/
 	/* number of clients in the list that follows */
 	int num_clients;
@@ -110,17 +119,50 @@ struct msm_mddi_platform_data {
 	} client_platform_data[];
 };
 
+struct msm_lcdc_timing {
+	unsigned int clk_rate;		/* dclk freq */
+	unsigned int hsync_pulse_width;	/* in dclks */
+	unsigned int hsync_back_porch;	/* in dclks */
+	unsigned int hsync_front_porch;	/* in dclks */
+	unsigned int hsync_skew;	/* in dclks */
+	unsigned int vsync_pulse_width;	/* in lines */
+	unsigned int vsync_back_porch;	/* in lines */
+	unsigned int vsync_front_porch;	/* in lines */
+
+	/* control signal polarity */
+	unsigned int vsync_act_low:1;
+	unsigned int hsync_act_low:1;
+	unsigned int den_act_low:1;
+};
+
+struct msm_lcdc_panel_ops {
+	int	(*init)(struct msm_lcdc_panel_ops *);
+	int	(*uninit)(struct msm_lcdc_panel_ops *);
+	int	(*blank)(struct msm_lcdc_panel_ops *);
+	int	(*unblank)(struct msm_lcdc_panel_ops *);
+};
+
+struct msm_lcdc_platform_data {
+	struct msm_lcdc_panel_ops	*panel_ops;
+	struct msm_lcdc_timing		*timing;
+	int				fb_id;
+	struct msm_fb_data		*fb_data;
+	struct resource			*fb_resource;
+};
+
 struct mdp_blit_req;
 struct fb_info;
 struct mdp_device {
 	struct device dev;
-	void (*dma)(struct mdp_device *mpd, uint32_t addr,
+	void (*dma)(struct mdp_device *mdp, uint32_t addr,
 		    uint32_t stride, uint32_t w, uint32_t h, uint32_t x,
 		    uint32_t y, struct msmfb_callback *callback, int interface);
-	void (*dma_wait)(struct mdp_device *mdp);
+	void (*dma_wait)(struct mdp_device *mdp, int interface);
 	int (*blit)(struct mdp_device *mdp, struct fb_info *fb,
 		    struct mdp_blit_req *req);
 	void (*set_grp_disp)(struct mdp_device *mdp, uint32_t disp_id);
+	int (*check_output_format)(struct mdp_device *mdp, int bpp);
+	int (*set_output_format)(struct mdp_device *mdp, int bpp);
 };
 
 struct class_interface;
@@ -140,8 +182,17 @@ struct msm_mddi_bridge_platform_data {
 	int (*unblank)(struct msm_mddi_bridge_platform_data *,
 		       struct msm_mddi_client_data *);
 	struct msm_fb_data fb_data;
+
+	/* board file will identify what capabilities the panel supports */
+	uint32_t panel_caps;
 };
 
 
+struct mdp_v4l2_req;
+int msm_fb_v4l2_enable(struct mdp_overlay *req, bool enable, void **par);
+int msm_fb_v4l2_update(void *par,
+	unsigned long srcp0_addr, unsigned long srcp0_size,
+	unsigned long srcp1_addr, unsigned long srcp1_size,
+	unsigned long srcp2_addr, unsigned long srcp2_size);
 
 #endif

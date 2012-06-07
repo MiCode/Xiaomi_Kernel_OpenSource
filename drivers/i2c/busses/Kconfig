@@ -470,6 +470,32 @@ config I2C_MPC
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-mpc.
 
+config I2C_MSM
+	tristate "MSM"
+	depends on I2C && (ARCH_MSM || ARCH_QSD)
+	default y
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in I2C interface on the MSM or QSD family processors.
+
+config I2C_QUP
+	tristate "I2C_QUP"
+	depends on ARCH_MSM
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in I2C interface on the MSM family processors.
+
+config I2C_SSBI
+	tristate "Qualcomm Single-wire Serial Bus Interface (SSBI)"
+	depends on I2C && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_FSM9XXX)
+	default n
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in SSBI interface on the MSM family processors.
+
+          Note that SSBI is not an I2C device, but is functionally related
+          enough such that it is able to leverages the I2C framework.
+
 config I2C_MV64XXX
 	tristate "Marvell mv64xxx I2C Controller"
 	depends on (MV64X60 || PLAT_ORION) && EXPERIMENTAL

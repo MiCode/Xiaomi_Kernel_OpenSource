@@ -1,0 +1,250 @@
+Introduction
+============
+The TSPP (Transport stream packet processor) is a hardware accelerator
+designed to process MPEG2 TS (transport stream) data. It is mainly used for
+broadcast terrestrial services to off-load the host CPU from real-time
+sensitive TS processing for high bandwidth streams (~20Mbps). Data is received
+either via TSIF (Transport stream interface) or system memory.
+The TSPP driver manages the TSIF 12Seg HW core, which consists of a TSPP, a
+BAM (Bus access manager, used for DMA) and two TSIF inputs.
+It is applicable to the TSIF 12Seg core found on select Qualcomm MSM chips.
+
+For more information on the TSIF interface, please refer to TSIF documentation
+(Documentation/arm/msm/tsif.txt).
+For more information on the BAM interface, please refer to SPS documentation
+(Documentation/dma/sps/sps_architecture.txt).
+
+Hardware description
+====================
+The TSPP unit expands the capabilities of the TSIF interface by adding MPEG2
+stream processing such as:
+	- Elementary Stream PID filtering and de-multiplexing
+	- Several TSP processing operation modes:
+		- TSP Raw processing (with or w/o suffix)
+		- TSP PES assembly
+	- Error handling
+	- Multi2 decryption
+
+    +-------------+  +------+
+  +>|ARM subsystem|  |Memory|
+  | +-------------+  +------+
+  |        |            |
+ I|        |            |
+ R|  ========================== System bus
+ Q|             |
+ s|             |  TSIF 12Seg
+  | +-----------------------+
+  | |  +---+                |
+  | |  |BAM|                |
+  | |  +---+                |  GPIOs
+  | |    |        +------+--|-------- TSIF 0 clk
+  | |  +----+     |TSIF 0|--|-------- TSIF 0 data
+  +-|  |    |-----+------+--|-------- TSIF 0 en
+    |  |TSPP|               |
+    |  |    |-----+------+--|-------- TSIF 1 clk
+    |  +----+     |TSIF 1|--|-------- TSIF 1 data
+    |             +------+--|-------- TSIF 1 en
+    +-----------------------+
+
+   The TSPP unit receives an MPEG2 transport stream either via the two TSIF
+	interfaces, or via system memory.
+   It uses the BAM interface to transfer data to and from system memory.
+   The ARM subsystem receives interrupts on various error conditions from TSPP
+   and TSIF units, and on data transfer events from the BAM.
+
+Software Description
+====================
+The TSPP driver is responsible for:
+ - TSPP/TSIF hardware configuration (using SPS driver to configure BAM
+   hardware)
+ - TSIF GPIO/Clocks configuration
+ - Memory resource management
+ - Handling TSIF/TSPP interrupts and BAM events
+ - TSPP Power management
+
+TSPP Terminology
+----------------
+Device - the TSPP hardware instance
+  - the device contains many streams
+Stream: All data that is received from a particular TS packet source
+  - For example, MPEG2 Transport Stream from TSIF0
+  - A stream can consist of many channels
+Channel: A channel routes part of a stream to a specified memory location
+  - For example, video and audio can be routed to different memory locations
+    using different channels
+  - Channel contents are defined by filters
+Filter: Enables TS packet filtering and routing according to PID (packet ID)
+  - The decision regarding which PIDs in the stream will be routed to a
+    channel is done via filters
+  - Several filters can be registered to the same channel
+  - Filters can pass TS packets as-is (Raw mode) or assemble them into PES
+    packets (PES mode)
+  - Groups of contiguous PIDs can be filtered together (i.e. PSI/SI 0x0-0x2F,
+    1Seg PMTs 0x1FC8-0x1FCF)
+  - Filters can be used to discard packets (e.g. eliminate processing of
+    unwanted channels)
+
+Init flow:
+----------
+Driver registers BAM (via SPS driver) and initializes TSIF/TSPP hardware.
+
+Control path:
+-------------
+1. Client opens a TSPP stream and channel
+2. Client notifies the driver of the source stream (TSIF0/TSIF1/Memory)
+  - TSPP driver allocates memory for the channel (circular buffer)
+  - As the amount of memory varies according to stream bandwidth (which the
+    driver doesn't know), a client can hint to the driver about the required
+	 memory or stream bandwidth
+  - TSPP driver configures TSIF/BAM hardware according to selected stream
+3. Client notifies the driver to filter a set of PIDs for the selected channel
+  - TSPP driver configures TSPP hardware filters accordingly
+4. Client can now read data received from the selected channel
+
+Optional: Scrambling keys can be configured for a filter to decrypt Multi2
+encrypted streams.  The scrambling keys are received encrypted in-stream every
+~2 seconds. The client uses a smart card and master key to decrypt the
+received scrambling keys.  The master key remains inside the smart card and is
+never revealed to software.
+
+Conceptual flow:
+Client                  TSPP Driver                 SPS Driver         Hardware
+ |                           |                           |                   |
+ |                           | Init TSIF/TSPP            |                   |
+ |                           |---------------------------|------------------>|
+ |                           | Register BAM              |                   |
+ |                           |-------------------------->|                   |
+ |                           |                           |                   |
+ | open(tspp.5)              |                           |                   |
+ |-------------------------->|                           |                   |
+ | ioctl(tspp.5,SOURCE,TSIF0)|                           |                   |
+ |-------------------------->|                           |                   |
+ |                           | buff[0..N] = alloc()      |                   |
+ |                           |---------->                |                   |
+ |                           | Connect(TSPP,MEM)         |                   |
+ |                           |-------------------------->|                   |
+ |                           | Transfer(buff[0..N])      |                   |
+ |                           |-------------------------->|                   |
+ |                           |                           |                   |
+ |                           | Configure TSIF0           |                   |
+ |                           |---------------------------|------------------>|
+ |                           |                           |                   |
+ | ioctl(tspp.5,FILTER,pid)  |                           |                   |
+ |-------------------------->|                           |                   |
+ |                           | Configure TSPP filters    |                   |
+ |                           |---------------------------|------------------>|
+ |                           |                           |                   |
+ |                           |                           |               INT |
+ |                           |                           |<------------------|
+ |                           |       notify(EOT,buff[x]) |                   |
+ |                           |<--------------------------|                   |
+ |                           | Transfer(buff[y])         |                   |
+ |                           |-------------------------->|                   |
+ |                           |                           |                   |
+ | read(tspp.5)              |                           |                   |
+ |-------------------------->|                           |                   |
+ |                           |                           |                   |
+
+
+Data path:
+----------
+The TSPP driver is not involved in data transfer, other than managing the
+circular buffer pointers when a transfer is complete.  Data loss can occur if
+a client cannot keep up with stream bandwidth.
+The driver does not notify the application if there is data loss.  It is
+assumed that the application will read data when the data is ready, and when
+the application is able.
+
+API
+===
+int tspp_open_stream(tspp_device *dev, void *stream, void *channel, tspp_mode
+	mode);
+int tspp_close_stream(tspp_device *dev, void *stream);
+int tspp_open_channel(tspp_device *dev, int dest, int bufsize, void *channel);
+int tspp_close_channel(tspp_device *dev, void *channel);
+int tspp_register_filter(tspp_device *dev, void *channel, tspp_filter *filter);
+int tspp_unregister_filter(tspp_device *dev, void *channel, int pid);
+
+Refer to chrdev implementation in kernel/drivers/misc/tspp.c for an example of
+how to use this api.
+
+Each stream is represented by a chrdev device
+16 available devices: /dev/tspp00 - /dev/tspp15
+Each device implements these functions:
+open()
+close()
+read()
+ioctl()
+
+ioctl() contains several sub-functions:
+0: select source
+1: add filter
+2: remove filter
+3: set decryption keys
+4: set initial cbc values (IV)
+5: set system keys
+6: set buffer size
+
+You can refer to include/linux/tspp.h for the details on the structures
+associated with these IOCTL calls.
+
+Design
+======
+Design is based on the existing TSIF driver, with added control functionality
+for the extra hardware features.
+
+Power Management
+===============
+TSPP driver prevents MSM from sleeping while TSPP hardware is active.
+To achieve this, the driver holds the wake lock.  When no channels are
+configured to receive data, the driver stops the clocks to save power.
+It will register for suspend/resume in the future.
+
+SMP/multi-core
+==============
+Driver is fully SMP aware.
+
+Performance
+===========
+Control flows are rare.
+Data path only involves maintaining the circular buffer pointers.
+
+Interface
+=========
+Driver exposes a char device interface to user-space for each channel.
+Control transactions are performed via ioctl on the channel. Data is read as
+any regular char device (blocking and non-blocking).  Please see sequence
+under software description for more info.
+
+Debugfs may be used for debug purposes.  Through debugfs, all of the TSIF
+registers can be accessed under /sys/kernel/debug/tsif0 and tsif1.  The
+TSPP registers are found under /sys/kernel/debug/tspp0.  If you cannot
+see these devices, then either the driver has been built without debugfs
+support (check the define TSPP_USE_DEBUGFS in tspp.c) or the debugfs has
+not been mounted correctly (or mounted in a different location).
+
+Driver Parameters
+=================
+TSPP driver has target-specific parameters:
+- Memory base addresses for TSIF/TSPP/BAM
+- TSIF/TSPP/BAM IRQ numbers
+- TSIF GPIO numbers
+
+Config Options
+==============
+To enable the driver, set CONFIG_TSPP (=y or =m) in the appropriate
+config file for the platform.
+
+Dependencies
+============
+The TSPP driver depends on the SPS driver to configure BAM hardware.
+
+User space utilities
+====================
+The TSPP test suite can be found in:
+vendor/qcom/proprietary/kernel-tests/tspp
+
+Known Issues
+============
+Currently PES processing mode cannot be configured for streams in which the PES
+length is 0. This is a HW limitation.

@@ -83,7 +83,7 @@ config USB_GADGET_DEBUG_FS
 config USB_GADGET_VBUS_DRAW
 	int "Maximum VBUS Power usage (2-500 mA)"
 	range 2 500
-	default 2
+	default 500
 	help
 	   Some devices need to draw power from USB when they are
 	   configured, perhaps to operate circuitry or to recharge
@@ -494,9 +494,32 @@ config USB_CI13XXX_MSM
 	  dynamically linked module called "ci13xxx_msm" and force all
 	  gadget drivers to also be dynamically linked.
 
+config USB_CI13XXX_MSM_HSIC
+	tristate "MIPS HSIC CI13xxx for MSM"
+	depends on ARCH_MSM
+	select USB_GADGET_DUALSPEED
+	help
+	  MSM SoC has chipidea USB controller.  This driver uses
+	  ci13xxx_udc core. Support USB-HSIC core.
+
+	  Say "y" to link the driver statically, or "m" to build a
+	  dynamically linked module called "ci13xxx_msm_hsic" and force all
+	  gadget drivers to also be dynamically linked.
+
 #
 # LAST -- dummy/emulated controller
 #
+
+config USB_MSM_72K
+	tristate "MSM 72K Device Controller"
+	depends on ARCH_MSM
+	select USB_GADGET_DUALSPEED
+	help
+	   USB gadget driver for Qualcomm MSM 72K architecture.
+
+	   Say "y" to link the driver statically, or "m" to build a
+	   dynamically linked module called "msm72k" and force all
+	   gadget drivers to also be dynamically linked.
 
 config USB_DUMMY_HCD
 	tristate "Dummy HCD (DEVELOPMENT)"
@@ -985,5 +1008,91 @@ config USB_G_WEBCAM
 	  dynamically linked module called "g_webcam".
 
 endchoice
+
+config USB_CSW_HACK
+	boolean "USB Mass storage csw hack Feature"
+	default y
+	help
+	 This csw hack feature is for increasing the performance of the mass
+	 storage
+
+config USB_MSC_PROFILING
+	bool "USB MSC performance profiling"
+	help
+	  If you say Y here, support will be added for collecting
+	  Mass-storage performance numbers at the VFS level.
+
+config MODEM_SUPPORT
+	boolean "modem support in generic serial function driver"
+	depends on USB_G_ANDROID
+	default y
+	help
+          This feature enables the modem functionality in the
+	  generic serial.
+	  adds interrupt endpoint support to send modem notifications
+	  to host.
+	  adds CDC descriptors to enumerate the generic serial as MODEM.
+	  adds CDC class requests to configure MODEM line settings.
+	  Say "y" to enable MODEM support in the generic serial driver.
+
+config RMNET_SMD_CTL_CHANNEL
+	string "RMNET control SMD channel name"
+	depends on USB_G_ANDROID && MSM_SMD
+	default ""
+	help
+	  Control SMD channel for transferring QMI messages
+
+config RMNET_SMD_DATA_CHANNEL
+	string "RMNET Data SMD channel name"
+	depends on USB_G_ANDROID && MSM_SMD
+	default ""
+	help
+	  Data SMD channel for transferring network data
+
+config RMNET_SDIO_CTL_CHANNEL
+       int "RMNET control SDIO channel id"
+       default 8
+       depends on MSM_SDIO_CMUX && MSM_SDIO_DMUX
+       help
+         Control SDIO channel for transferring RMNET QMI messages
+
+config RMNET_SDIO_DATA_CHANNEL
+       int "RMNET Data SDIO channel id"
+       default 8
+       depends on MSM_SDIO_CMUX && MSM_SDIO_DMUX
+       help
+         Data SDIO channel for transferring network data
+
+config RMNET_SMD_SDIO_CTL_CHANNEL
+       int "RMNET(sdio_smd) Control SDIO channel id"
+       depends on MSM_SDIO_CMUX && MSM_SDIO_DMUX
+       default 8
+       help
+         Control SDIO channel for transferring QMI messages
+
+config RMNET_SMD_SDIO_DATA_CHANNEL
+       int "RMNET(sdio_smd) Data SDIO channel id"
+       default 8
+       depends on MSM_SDIO_CMUX && MSM_SDIO_DMUX
+       help
+         Data SDIO channel for transferring network data
+
+config RMNET_SDIO_SMD_DATA_CHANNEL
+       string "RMNET(sdio_smd) Data SMD channel name"
+       depends on MSM_SDIO_CMUX && MSM_SDIO_DMUX
+       default "DATA40"
+       help
+	  Data SMD channel for transferring network data
+
+config USB_ANDROID_RMNET_CTRL_SMD
+       boolean "RmNet(BAM) control over SMD driver"
+       depends on MSM_SMD
+       help
+         Enabling this option adds rmnet control over SMD
+	 support to the android gadget. Rmnet is an
+	 alternative to CDC-ECM and Windows RNDIS.
+	 It uses QUALCOMM MSM Interface for control
+	 transfers. This option enables only control interface.
+	 Data interface used is BAM.
 
 endif # USB_GADGET

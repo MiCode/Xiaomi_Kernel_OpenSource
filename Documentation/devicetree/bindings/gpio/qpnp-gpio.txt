@@ -1,0 +1,143 @@
+* msm-qpnp-gpio
+
+msm-qpnp-gpio is a GPIO chip driver for the MSM SPMI implementation.
+It creates a spmi_device for every spmi-dev-container block of device_nodes.
+These device_nodes contained within specify the PMIC GPIO number associated
+with each GPIO chip. The driver will map these to Linux GPIO numbers.
+
+[PMIC GPIO Device Declarations]
+
+-Root Node-
+
+Required properties :
+ - spmi-dev-container : Used to specify the following child nodes as part of the
+   same SPMI device.
+ - gpio-controller : Specify as gpio-contoller. All child nodes will belong to this
+   gpio_chip.
+ - #gpio-cells: We encode a PMIC GPIO number and a 32-bit flag field to
+   specify the gpio configuration. This must be set to '2'.
+ - #address-cells: Specify one address field. This must be set to '1'.
+ - #size-cells: Specify one size-cell. This must be set to '1'.
+ - compatible = "qcom,qpnp-gpio" : Specify driver matching for this driver.
+
+-Child Nodes-
+
+Required properties :
+ - reg : Specify the spmi offset and size for this gpio device.
+ - qcom,gpio-num : Specify the PMIC GPIO number for this gpio device.
+
+Optional configuration properties :
+ -  qcom,direction:	indicates whether the gpio should be input, output, or
+			both.
+			QPNP_GPIO_DIR_IN   = 0,
+			QPNP_GPIO_DIR_OUT  = 1,
+			QPNP_GPIO_DIR_BOTH = 2
+
+ - qcom,output-type:	indicates gpio should be configured as CMOS or open
+			drain.
+			QPNP_GPIO_OUT_BUF_CMOS = 0
+			QPNP_GPIO_OUT_BUF_OPEN_DRAIN_NMOS = 1,
+			QPNP_GPIO_OUT_BUF_OPEN_DRAIN_PMOS = 2,
+
+ - qcom,invert:		Invert the signal of the gpio line -
+			QPNP_GPIO_INVERT_DISABLE = 0
+			QPNP_GPIO_INVERT_ENABLE = 1
+
+ - qcom,pull:		Indicates whether a pull up or pull down should be
+			applied. If a pullup is required the current strength
+			needs to be specified. Current values of 30uA, 1.5uA,
+			31.5uA, 1.5uA with 30uA boost are supported.
+			QPNP_GPIO_PULL_UP_30	 = 0,
+			QPNP_GPIO_PULL_UP_1P5	 = 1,
+			QPNP_GPIO_PULL_UP_31P5	 = 2,
+			QPNP_GPIO_PULL_UP_1P5_30 = 3,
+			QPNP_GPIO_PULL_DN	 = 4,
+			QPNP_GPIO_PULL_NO	 = 5
+
+  - qcom,vin-sel:	specifies the voltage level when the output is set to 1.
+			For an input gpio specifies the voltage level at which
+			the input is interpreted as a logical 1.
+			QPNP_GPIO_VIN0 = 0,
+			QPNP_GPIO_VIN1 = 1,
+			QPNP_GPIO_VIN2 = 2,
+			QPNP_GPIO_VIN3 = 3,
+			QPNP_GPIO_VIN4 = 4,
+			QPNP_GPIO_VIN5 = 5,
+			QPNP_GPIO_VIN6 = 6,
+			QPNP_GPIO_VIN7 = 7
+
+  - qcom,out-strength:	the amount of current supplied for an output gpio.
+			QPNP_GPIO_OUT_STRENGTH_LOW  = 1
+			QPNP_GPIO_OUT_STRENGTH_MED  = 2,
+			QPNP_GPIO_OUT_STRENGTH_HIGH = 3,
+
+  - qcom,source-sel:	choose alternate function for the gpio. Certain gpios
+			can be paired (shorted) with each other. Some gpio pin
+			can act as alternate functions.
+			QPNP_GPIO_FUNC_NORMAL   = 0,
+			QPNP_GPIO_FUNC_PAIRED   = 1
+			QPNP_GPIO_FUNC_1	= 2,
+			QPNP_GPIO_FUNC_2	= 3,
+			QPNP_GPIO_DTEST1	= 4,
+			QPNP_GPIO_DTEST2	= 5,
+			QPNP_GPIO_DTEST3	= 6,
+			QPNP_GPIO_DTEST4	= 7
+
+ - qcom,master-en:	1 = Enable features within the
+			GPIO block based on configurations.
+			0 = Completely disable the GPIO
+			block and let the pin float with high impedance
+			regardless of other settings.
+
+*Note: If any of the configuration properties are not specified, then the
+       qpnp-gpio driver will not modify that respective configuration in
+       hardware.
+
+[PMIC GPIO clients]
+
+Required properties :
+ - gpios : Contains 3 fields of the form <&gpio_controller pmic_gpio_num flags>
+
+[Example]
+
+qpnp: qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+
+		qcom,pm8941@0 {
+			spmi-slave-container;
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			pm8941_gpios: gpios {
+				spmi-dev-container;
+				compatible = "qcom,qpnp-gpio";
+				gpio-controller;
+				#gpio-cells = <2>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				gpio@c000 {
+					reg = <0xc000 0x100>;
+					qcom,gpio-num = <62>;
+				};
+
+				gpio@c100 {
+					reg = <0xc100 0x100>;
+					qcom,gpio-num = <20>;
+					qcom,source_sel = <2>;
+					qcom,pull = <5>;
+				};
+			};
+
+			qcom,testgpio@1000 {
+				compatible = "qcom,qpnp-testgpio";
+				reg = <0x1000 0x1000>;
+				gpios = <&pm8941_gpios 62 0x0 &pm8941_gpios 20 0x1>;
+			};
+		};
+	};
+};

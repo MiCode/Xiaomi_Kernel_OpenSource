@@ -22,7 +22,7 @@ struct machine_desc {
 	const char *const 	*dt_compat;	/* array of device tree
 						 * 'compatible' strings	*/
 
-	unsigned int		nr_irqs;	/* number of IRQs */
+	int			nr_irqs;	/* number of IRQs */
 
 #ifdef CONFIG_ZONE_DMA
 	unsigned long		dma_zone_size;	/* size of DMA-able area */
@@ -39,6 +39,7 @@ struct machine_desc {
 					 struct meminfo *);
 	void			(*reserve)(void);/* reserve mem blocks	*/
 	void			(*map_io)(void);/* IO mapping function	*/
+	void			(*init_very_early)(void);
 	void			(*init_early)(void);
 	void			(*init_irq)(void);
 	struct sys_timer	*timer;		/* system tick timer	*/

@@ -72,7 +72,43 @@ static int elv_iosched_allow_merge(struct request *rq, struct bio *bio)
  */
 bool elv_rq_merge_ok(struct request *rq, struct bio *bio)
 {
-	if (!blk_rq_merge_ok(rq, bio))
+	if (!rq_mergeable(rq))
+		return 0;
+
+	/*
+	 * Don't merge file system requests and discard requests
+	 */
+	if ((bio->bi_rw & REQ_DISCARD) != (rq->bio->bi_rw & REQ_DISCARD))
+		return 0;
+
+	/*
+	 * Don't merge discard requests and secure discard requests
+	 */
+	if ((bio->bi_rw & REQ_SECURE) != (rq->bio->bi_rw & REQ_SECURE))
+		return 0;
+
+	/*
+	 * Don't merge sanitize requests
+	 */
+	if ((bio->bi_rw & REQ_SANITIZE) != (rq->bio->bi_rw & REQ_SANITIZE))
+		return 0;
+
+	/*
+	 * different data direction or already started, don't merge
+	 */
+	if (bio_data_dir(bio) != rq_data_dir(rq))
+		return 0;
+
+	/*
+	 * must be same device and not a special request
+	 */
+	if (rq->rq_disk != bio->bi_bdev->bd_disk || rq->special)
+		return 0;
+
+	/*
+	 * only merge integrity protected bio into ditto rq
+	 */
+	if (bio_integrity(bio) != blk_integrity_rq(rq))
 		return 0;
 
 	if (!elv_iosched_allow_merge(rq, bio))
@@ -592,7 +628,7 @@ void __elv_add_request(struct request_queue *q, struct request *rq, int where)
 	if (rq->cmd_flags & REQ_SOFTBARRIER) {
 		/* barriers are scheduling boundary, update end_sector */
 		if (rq->cmd_type == REQ_TYPE_FS ||
-		    (rq->cmd_flags & REQ_DISCARD)) {
+		    (rq->cmd_flags & (REQ_DISCARD | REQ_SANITIZE))) {
 			q->end_sector = rq_end_sector(rq);
 			q->boundary_rq = rq;
 		}

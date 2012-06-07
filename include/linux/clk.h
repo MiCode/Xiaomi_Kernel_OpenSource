@@ -101,6 +101,16 @@ int clk_notifier_unregister(struct clk *clk, struct notifier_block *nb);
 struct clk *clk_get(struct device *dev, const char *id);
 
 /**
+ * devm_clk_get - Resource managed clk_get()
+ * @dev: device for clk "consumer"
+ * @id: clk ID.
+ *
+ * Managed clk_get(). Clocks returned from this function are
+ * automatically clk_put() on driver detach.
+ */
+struct clk *devm_clk_get(struct device *dev, const char *id);
+
+/**
  * clk_prepare - prepare a clock source
  * @clk: clock source
  *

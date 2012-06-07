@@ -56,6 +56,9 @@ ENTRY(cpu_v7_reset)
 	bic	r1, r1, #0x1			@ ...............m
  THUMB(	bic	r1, r1, #1 << 30 )		@ SCTLR.TE (Thumb exceptions)
 	mcr	p15, 0, r1, c1, c0, 0		@ disable MMU
+	mcr     p15, 0, ip, c8, c7, 0           @ invalidate I & D,flush TLB
+	mcr     p15, 0, ip, c7, c5, 6           @ flush BTC
+	dsb
 	isb
 	mov	pc, r0
 ENDPROC(cpu_v7_reset)
@@ -255,6 +258,31 @@ __v7_setup:
 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
 	mcr	p15, 0, r6, c10, c2, 1		@ write NMRR
 #endif
+
+#if defined(CONFIG_ARCH_MSM_SCORPION) && !defined(CONFIG_MSM_SMP)
+	mov     r0, #0x33
+	mcr     p15, 3, r0, c15, c0, 3          @ set L2CR1
+#endif
+#if defined (CONFIG_ARCH_MSM_SCORPION)
+	mrc     p15, 0, r0, c1, c0, 1           @ read ACTLR
+#ifdef CONFIG_CPU_CACHE_ERR_REPORT
+	orr     r0, r0, #0x37                   @ turn on L1/L2 error reporting
+#else
+	bic     r0, r0, #0x37
+#endif
+#if defined (CONFIG_ARCH_MSM_SCORPIONMP)
+	orr    r0, r0, #0x1 << 24     @ optimal setting for Scorpion MP
+#endif
+#ifndef CONFIG_ARCH_MSM_KRAIT
+	mcr     p15, 0, r0, c1, c0, 1           @ write ACTLR
+#endif
+#endif
+#if defined (CONFIG_ARCH_MSM_SCORPIONMP)
+	mrc     p15, 3, r0, c15, c0, 2  @ optimal setting for Scorpion MP
+	orr         r0, r0, #0x1 << 21
+	mcr     p15, 3, r0, c15, c0, 2
+#endif
+
 #ifndef CONFIG_ARM_THUMBEE
 	mrc	p15, 0, r0, c0, c1, 0		@ read ID_PFR0 for ThumbEE
 	and	r0, r0, #(0xf << 12)		@ ThumbEE enabled field

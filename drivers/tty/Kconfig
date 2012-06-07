@@ -323,6 +323,25 @@ config N_GSM
 	  This line discipline provides support for the GSM MUX protocol and
 	  presents the mux as a set of 61 individual tty devices.
 
+config N_SMUX
+	tristate "SMUX line discipline support"
+	depends on NET && SERIAL_MSM_HS
+	help
+	  This line discipline provides support for the Serial MUX protocol
+	  and provides a TTY and kernel API for multiple logical channels.
+
+config N_SMUX_LOOPBACK
+	tristate "SMUX line discipline loopback support"
+	depends on N_SMUX
+	help
+	  Provides loopback and unit testing support for the Serial MUX Protocol.
+
+config SMUX_CTL
+	tristate "SMUX control driver"
+	depends on N_SMUX
+	help
+	  Support for SMUX control driver on top of serial MUX.
+
 config TRACE_ROUTER
 	tristate "Trace data router for MIPI P1149.7 cJTAG standard"
 	depends on TRACE_SINK

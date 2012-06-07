@@ -49,6 +49,12 @@ ENTRY(cpu_v7_switch_mm)
 #ifdef CONFIG_ARM_ERRATA_754322
 	dsb
 #endif
+#ifdef CONFIG_PID_IN_CONTEXTIDR
+	mrc     p15, 0, r2, c13, c0, 1          @ read current context ID
+	bic     r2, r2, #0xff                   @ extract the PID
+	and     r1, r1, #0xff
+	orr     r1, r1, r2                      @ insert the PID into r1
+#endif
 	mcr	p15, 0, r2, c13, c0, 1		@ set reserved context ID
 	isb
 1:	mcr	p15, 0, r0, c2, c0, 0		@ set TTB 0
@@ -140,7 +146,11 @@ ENDPROC(cpu_v7_set_pte_ext)
 	 *   NOS = PRRR[24+n] = 1	- not outer shareable
 	 */
 .equ	PRRR,	0xff0a81a8
+#ifdef CONFIG_ARCH_MSM_SCORPIONMP
+.equ	NMRR,	0x40e080e0
+#else
 .equ	NMRR,	0x40e040e0
+#endif
 
 	/*
 	 * Macro for setting up the TTBRx and TTBCR registers.

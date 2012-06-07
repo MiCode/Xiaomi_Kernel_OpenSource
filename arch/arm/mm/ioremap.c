@@ -46,6 +46,14 @@ int ioremap_page(unsigned long virt, unsigned long phys,
 }
 EXPORT_SYMBOL(ioremap_page);
 
+int ioremap_pages(unsigned long virt, unsigned long phys, unsigned long size,
+		 const struct mem_type *mtype)
+{
+	return ioremap_page_range(virt, virt + size, phys,
+				  __pgprot(mtype->prot_pte));
+}
+EXPORT_SYMBOL(ioremap_pages);
+
 void __check_kvm_seq(struct mm_struct *mm)
 {
 	unsigned int seq;

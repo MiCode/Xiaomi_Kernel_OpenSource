@@ -285,6 +285,49 @@ config CRYPTO_DEV_S5P
 	  Select this to offload Samsung S5PV210 or S5PC110 from AES
 	  algorithms execution.
 
+config CRYPTO_DEV_QCE40
+	bool
+
+config CRYPTO_DEV_QCRYPTO
+	tristate "Qualcomm Crypto accelerator"
+	select CRYPTO_DES
+	select CRYPTO_ALGAPI
+	select CRYPTO_AUTHENC
+	select CRYPTO_BLKCIPHER
+	default n
+	help
+          This driver supports Qualcomm crypto acceleration.
+          To compile this driver as a module, choose M here: the
+          module will be called qcrypto.
+
+config CRYPTO_DEV_QCE
+	tristate "Qualcomm Crypto Engine (QCE) module"
+	select  CRYPTO_DEV_QCE40 if ARCH_MSM8960 || ARCH_MSM9615
+	default n
+	help
+          This driver supports Qualcomm Crypto Engine in MSM7x30, MSM8660
+	  MSM8x55, MSM8960 and MSM9615
+	  To compile this driver as a module, choose M here: the
+	  For MSM7x30 MSM8660 and MSM8x55 the module is called qce
+	  For MSM8960 and MSM9615 the module is called qce40
+
+config CRYPTO_DEV_QCEDEV
+	tristate "QCEDEV Interface to CE module"
+	default n
+	help
+          This driver supports Qualcomm QCEDEV Crypto in MSM7x30, MSM8660,
+          MSM8960 and MSM9615.
+          This exposes the interface to the QCE hardware accelerator via IOCTLs
+	  To compile this driver as a module, choose M here: the
+	  module will be called qcedev.
+
+config CRYPTO_DEV_OTA_CRYPTO
+	tristate "OTA Crypto module"
+	help
+          This driver supports Qualcomm OTA Crypto in the FSM9xxx.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ota_crypto.
+
 config CRYPTO_DEV_TEGRA_AES
 	tristate "Support for TEGRA AES hw engine"
 	depends on ARCH_TEGRA

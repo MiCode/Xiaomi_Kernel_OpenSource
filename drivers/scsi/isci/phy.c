@@ -293,6 +293,18 @@ sci_phy_link_layer_initialization(struct isci_phy *iphy,
 
 	writel(sp_timeouts, &llr->sas_phy_timeouts);
 
+	sp_timeouts = readl(&iphy->link_layer_registers->sas_phy_timeouts);
+
+	/* Clear the default 0x36 (54us) RATE_CHANGE timeout value. */
+	sp_timeouts &= ~SCU_SAS_PHYTOV_GEN_VAL(RATE_CHANGE, 0xFF);
+
+	/* Set RATE_CHANGE timeout value to 0x3B (59us).  This ensures SCU can
+	 * lock with 3Gb drive when SCU max rate is set to 1.5Gb.
+	 */
+	sp_timeouts |= SCU_SAS_PHYTOV_GEN_VAL(RATE_CHANGE, 0x3B);
+
+	writel(sp_timeouts, &iphy->link_layer_registers->sas_phy_timeouts);
+
 	if (is_a2(ihost->pdev)) {
 		/* Program the max ARB time for the PHY to 700us so we
 		 * inter-operate with the PMC expander which shuts down

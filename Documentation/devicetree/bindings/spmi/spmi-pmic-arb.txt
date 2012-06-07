@@ -1,0 +1,41 @@
+Qualcomm SPMI Controller (PMIC Arbiter)
+
+Required properties:
+- cell-index : the bus identifier.
+- compatible : should be "qcom,spmi-pmic-arb".
+- reg : offset and length of the PMIC Arbiter Core register map.
+- reg : offset and length of the PMIC Arbiter Interrupt controller register map.
+- interrupts : the PMIC Arbiter interrupt.
+- qcom,pmic-arb-ee : the execution environment (EE) identifier.
+- qcom,pmic-arb-channel : the assigned channel number for channel registers.
+- qcom,pmic-arb-ppid-map : an array used to map a 12-bit PPID to 8-bit APID.
+
+Peripherals on the SPMI bus are identified with a 12-bit identifier (PPID)
+which is composed of a 4-bit slave address and an 8-bit peripheral identifier.
+The PMIC Arbiter hardware uses an 8-bit APID (Arbiter Peripheral Identifier)
+internally.  Software needs the mapping between the APID and the PPID.
+Up to a maximum of 256 peripherals are supported and the mapping is target
+specific.
+
+Data format of pmic-arb-ppid-map:
+<0x13100001>
+value is 32 bit.
+MSB 12 bits are the PPID
+12 bits padding
+LSB 8 bit are the APID
+
+Example:
+
+	qcom,spmi@fc4c0000 {
+		cell-index = <0>;
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0xfc4cf000 0x1000>,
+		      <0Xfc4cb000 0x1000>;
+		interrupts = <0>;
+		qcom,pmic-arb-ee = <0>;
+		qcom,pmic-arb-channel = <0>;
+		qcom,pmic-arb-ppid-map = <0x13000000>, /* PPID 0x130, APID 0 */
+					 <0x13100001>, /* PPID 0x131, APID 1 */
+	};
+
+

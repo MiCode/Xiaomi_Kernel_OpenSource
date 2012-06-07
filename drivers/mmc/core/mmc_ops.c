@@ -335,6 +335,7 @@ int mmc_send_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	return mmc_send_cxd_data(card, card->host, MMC_SEND_EXT_CSD,
 			ext_csd, 512);
 }
+EXPORT_SYMBOL_GPL(mmc_send_ext_csd);
 
 int mmc_spi_read_ocr(struct mmc_host *host, int highcap, u32 *ocrp)
 {
@@ -392,13 +393,23 @@ int mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		  (index << 16) |
 		  (value << 8) |
 		  set;
-	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+		cmd.flags = MMC_CMD_AC;
+	if (index == EXT_CSD_BKOPS_START &&
+	    card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2)
+		cmd.flags |= MMC_RSP_SPI_R1 | MMC_RSP_R1;
+	else
+		cmd.flags |= MMC_RSP_SPI_R1B | MMC_RSP_R1B;
 	cmd.cmd_timeout_ms = timeout_ms;
 
 	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
 	if (err)
 		return err;
 
+	/* No need to check card status in case of BKOPS switch*/
+	if (index == EXT_CSD_BKOPS_START)
+		return 0;
+
+	mmc_delay(1);
 	/* Must check status to be sure of no errors */
 	do {
 		err = mmc_send_status(card, &status);
@@ -507,6 +518,9 @@ mmc_send_bus_test(struct mmc_card *card, struct mmc_host *host, u8 opcode,
 
 	data.sg = &sg;
 	data.sg_len = 1;
+	data.timeout_ns = 1000000;
+	data.timeout_clks = 0;
+
 	sg_init_one(&sg, data_buf, len);
 	mmc_wait_for_req(host, &mrq);
 	err = 0;

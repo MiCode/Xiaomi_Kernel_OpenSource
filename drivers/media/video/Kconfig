@@ -66,6 +66,12 @@ config VIDEOBUF2_DMA_SG
 	select VIDEOBUF2_CORE
 	select VIDEOBUF2_MEMOPS
 	tristate
+
+config VIDEOBUF2_MSM_MEM
+	tristate "MSM videobuf2 extensions"
+	select VIDEOBUF2_DMA_SG
+	select VIDEOBUF2_DMA_CONTIG
+	select VIDEOBUF2_VMALLOC
 #
 # Multimedia Video device configuration
 #
@@ -633,6 +639,14 @@ config VIDEO_VIVI
 	  Say Y here if you want to test video apps or debug V4L devices.
 	  In doubt, say N.
 
+config MSM_VCAP
+	tristate "Qualcomm MSM VCAP"
+	depends on VIDEO_DEV && VIDEO_V4L2
+	default y
+	---help---
+		Enables VCAP driver. This device allows for video capture and
+		video processing using the v4l2 api
+
 #
 # USB Multimedia device configuration
 #
@@ -1160,6 +1174,30 @@ config VIDEO_S5P_MIPI_CSIS
 
 source "drivers/media/video/s5p-tv/Kconfig"
 
+#
+# MSM camera configuration
+#
+
+comment "Qualcomm MSM Camera And Video"
+
+menuconfig MSM_CAMERA
+	bool "Qualcomm MSM camera and video capture support"
+	depends on ARCH_MSM && VIDEO_V4L2 && I2C
+	default y
+	help
+	  Say Y here to enable selecting the video adapters for
+	  Qualcomm msm camera and video encoding
+
+config MSM_CAMERA_DEBUG
+	bool "Qualcomm MSM camera debugging with printk"
+	depends on MSM_CAMERA
+	default n
+	help
+	  Enable printk() debug for msm camera
+
+
+source "drivers/media/video/msm/Kconfig"
+
 endif # V4L_PLATFORM_DRIVERS
 endif # VIDEO_CAPTURE_DRIVERS
 
@@ -1222,3 +1260,5 @@ config VIDEO_MX2_EMMAPRP
 	    conversion.
 
 endif # V4L_MEM2MEM_DRIVERS
+
+source "drivers/media/video/msm_vidc/Kconfig"

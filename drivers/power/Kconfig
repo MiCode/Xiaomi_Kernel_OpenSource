@@ -288,6 +288,133 @@ config CHARGER_MAX8998
 	  Say Y to enable support for the battery charger control sysfs and
 	  platform data of MAX8998/LP3974 PMICs.
 
+config BATTERY_MSM
+	tristate "MSM battery"
+	depends on ARCH_MSM
+	default m
+	help
+	  Say Y to enable support for the battery in Qualcomm MSM.
+
+config BATTERY_MSM8X60
+	tristate "MSM8X60 battery"
+	select PMIC8XXX_BATTALARM
+	help
+	  Some MSM boards have dual charging paths to charge the battery.
+	  Say Y to enable support for the battery charging in
+	  such devices.
+
+config PM8058_CHARGER
+	tristate "pmic8058 charger"
+	depends on BATTERY_MSM8X60
+	depends on PMIC8058
+	help
+	  Say Y to enable support for battery charging from the pmic8058.
+	  pmic8058 provides a linear charging circuit connected to the usb
+	  cable on Qualcomm's msm8x60 surf board.
+
+config ISL9519_CHARGER
+	tristate "isl9519 charger"
+	depends on (BATTERY_MSM8X60 || PM8921_CHARGER)
+	depends on I2C
+	default n
+	help
+	  The isl9519q charger chip from intersil is connected to an external
+	  charger cable and is preferred way of charging the battery because
+	  of its high current rating.
+	  Choose Y if you are compiling for Qualcomm's msm8x60 surf/ffa board.
+
+config SMB137B_CHARGER
+	tristate "smb137b charger"
+	default n
+	depends on I2C
+	help
+	  The smb137b charger chip from summit is a switching mode based
+	  charging solution.
+	  Choose Y if you are compiling for Qualcomm's msm8x60 fluid board.
+	  To compile this driver as a module, choose M here: the module will
+	  be called smb137b.
+
+config SMB349_CHARGER
+	tristate "smb349 charger"
+	depends on I2C
+	help
+	  Say Y to enable support for the SMB349 switching mode based charger
+	  and sysfs. The driver supports controlling charger-enable and
+	  current limiting capabilities. The driver also lets the
+	  SMB349 be operated as a slave device via the power supply
+	  framework.
+
+config BATTERY_MSM_FAKE
+	tristate "Fake MSM battery"
+	depends on ARCH_MSM && BATTERY_MSM
+	default n
+	help
+	  Say Y to bypass actual battery queries.
+
+config PM8058_FIX_USB
+	tristate "pmic8058 software workaround for usb removal"
+	depends on PMIC8058
+	depends on !PM8058_CHARGER
+	help
+	  Say Y to enable the software workaround to USB Vbus line
+	  staying high even when USB cable is removed. This option
+	  is in lieu of a complete pm8058 charging driver.
+
+config BATTERY_QCIBAT
+	tristate "Quanta Computer Inc. Battery"
+	depends on SENSORS_WPCE775X
+	default n
+	help
+	  Say Y here if you want to use the Quanta battery driver for ST15
+	  platform.
+
+config BATTERY_BQ27520
+	tristate "BQ27520 battery driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable support for batteries with BQ27520 (I2C) chips.
+
+config BATTERY_BQ27541
+	tristate "BQ27541 battery driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable support for batteries with BQ27541 (I2C) chips.
+
+config BQ27520_TEST_ENABLE
+	bool "Enable BQ27520 Fuel Gauge Chip Test"
+	depends on BATTERY_BQ27520
+	default n
+	help
+	  Say Y here to enable Test sysfs Interface for BQ27520 Drivers.
+
+config PM8921_CHARGER
+	tristate "PM8921 Charger driver"
+	depends on MFD_PM8921_CORE
+	help
+	  Say Y here to enable support for pm8921 chip charger subdevice
+
+config PM8XXX_CCADC
+	tristate "PM8XXX battery current adc driver"
+	depends on MFD_PM8921_CORE
+	help
+	  Say Y here to enable support for pm8921 chip bms subdevice
+
+config LTC4088_CHARGER
+	tristate "LTC4088 Charger driver"
+	depends on GPIOLIB
+	help
+	  Say Y here to enable support for ltc4088 chip charger. It controls the
+	  operations through GPIO pins.
+
+config PM8921_BMS
+	select PM8XXX_CCADC
+	tristate "PM8921 Battery Monitoring System driver"
+	depends on MFD_PM8921_CORE
+	help
+	  Say Y here to enable support for pm8921 chip bms subdevice
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C

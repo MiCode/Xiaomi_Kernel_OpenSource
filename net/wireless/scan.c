@@ -1014,6 +1014,8 @@ int cfg80211_wext_siwscan(struct net_device *dev,
 		if (wreq->scan_type == IW_SCAN_TYPE_PASSIVE)
 			creq->n_ssids = 0;
 	}
+	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
+		creq->rates[i] = (1 << wiphy->bands[i]->n_bitrates) - 1;
 
 	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
 		if (wiphy->bands[i])

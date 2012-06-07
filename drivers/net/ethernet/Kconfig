@@ -98,6 +98,7 @@ config MIPS_SIM_NET
 	  emulated by the MIPS Simulator.
 	  If you are not using a MIPSsim or are unsure, say N.
 
+source "drivers/net/ethernet/msm/Kconfig"
 source "drivers/net/ethernet/myricom/Kconfig"
 
 config FEALNX

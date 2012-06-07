@@ -29,7 +29,7 @@
  */
 
 /* big enough to hold our biggest descriptor */
-#define USB_BUFSIZ	1024
+#define USB_BUFSIZ	4096
 
 static struct usb_composite_driver *composite;
 static int (*composite_gadget_bind)(struct usb_composite_dev *cdev);
@@ -175,12 +175,13 @@ ep_found:
 	_ep->comp_desc = comp_desc;
 	if (g->speed == USB_SPEED_SUPER) {
 		switch (usb_endpoint_type(_ep->desc)) {
-		case USB_ENDPOINT_XFER_ISOC:
-			/* mult: bits 1:0 of bmAttributes */
-			_ep->mult = comp_desc->bmAttributes & 0x3;
 		case USB_ENDPOINT_XFER_BULK:
 		case USB_ENDPOINT_XFER_INT:
 			_ep->maxburst = comp_desc->bMaxBurst;
+			break;
+		case USB_ENDPOINT_XFER_ISOC:
+			/* mult: bits 1:0 of bmAttributes */
+			_ep->mult = comp_desc->bmAttributes & 0x3;
 			break;
 		default:
 			/* Do nothing for control endpoints */
@@ -687,6 +688,7 @@ static int set_config(struct usb_composite_dev *cdev,
 	power = c->bMaxPower ? (2 * c->bMaxPower) : CONFIG_USB_GADGET_VBUS_DRAW;
 done:
 	usb_gadget_vbus_draw(gadget, power);
+
 	if (result >= 0 && cdev->delayed_status)
 		result = USB_GADGET_DELAYED_STATUS;
 	return result;
@@ -1080,6 +1082,11 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	u16				w_length = le16_to_cpu(ctrl->wLength);
 	struct usb_function		*f = NULL;
 	u8				endp;
+	struct usb_configuration *c;
+
+
+	if (w_length > USB_BUFSIZ)
+		return value;
 
 	/* partial re-init of the response message; the function or the
 	 * gadget might need to intercept e.g. a control-OUT completion
@@ -1132,6 +1139,16 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			value = config_desc(cdev, w_value);
 			if (value >= 0)
 				value = min(w_length, (u16) value);
+			break;
+		case USB_DT_OTG:
+			if (!gadget_is_otg(gadget))
+				break;
+			c = list_first_entry(&cdev->configs,
+				struct usb_configuration, list);
+			if (c && c->descriptors)
+				value = usb_find_descriptor_fillbuf(req->buf,
+						USB_BUFSIZ, c->descriptors,
+						USB_DT_OTG);
 			break;
 		case USB_DT_STRING:
 			value = get_string(cdev, req->buf,
@@ -1606,6 +1623,8 @@ static struct usb_gadget_driver composite_driver = {
 int usb_composite_probe(struct usb_composite_driver *driver,
 			       int (*bind)(struct usb_composite_dev *cdev))
 {
+	int retval;
+
 	if (!driver || !driver->dev || !bind || composite)
 		return -EINVAL;
 
@@ -1620,7 +1639,10 @@ int usb_composite_probe(struct usb_composite_driver *driver,
 	composite = driver;
 	composite_gadget_bind = bind;
 
-	return usb_gadget_probe_driver(&composite_driver, composite_bind);
+	retval = usb_gadget_probe_driver(&composite_driver, composite_bind);
+	if (retval)
+		composite = NULL;
+	return retval;
 }
 
 /**

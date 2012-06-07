@@ -1,0 +1,181 @@
+Introduction
+============
+
+The tzcom (TrustZone Communicator) device driver provides IOCTLs for userspace
+to communicate with TrustZone Operating Environment (TZBSP) using Secure
+Channel Manager (SCM) interface. It also provides a way for TZBSP to utilize
+services in HLOS.
+
+Hardware description
+====================
+
+The hardware interaction is specified in Secure Channel Manager for TZBSP design
+document. This driver exercises the SCM interface (scm_call).
+
+Software description
+====================
+
+This driver is a character device driver and following operations are registered:
+- tzcom_open()
+- tzcom_release()
+- tzcom_ioctl()
+
+
+This driver provides following IOCTL methods:
+  TZCOM_IOCTL_REGISTER_SERVICE_REQ - to register HLOS service
+  TZCOM_IOCTL_UNREGISTER_SERVICE_REQ - to unregister HLOS service
+  TZCOM_IOCTL_SEND_CMD_REQ - send a command to a service
+  TZCOM_IOCTL_READ_NEXT_CMD_REQ - wait for a cmd from TZBSP to use HLOS service
+  TZCOM_IOCTL_CONTINUE_CMD_REQ - continue the last incomplete cmd on TZBSP
+
+TZCOM_IOCTL_REGISTER_SERVICE_REQ sequence diagram:
+
+    +--------------+  +---------------+
+    |   USERSPACE  |  |    TZCOM      |
+    +------+-------+  +-------+-------+
+           | REGISTER_SERVICE |
+           |----------------->|   ___
+           |                  |,-'   ``.
+           |                  + verify &`.
+           |                  |  add     |
+           |                  | service  |
+           |                  | to a list|
+           |   registered     |<-.._,,,,/
+           |<-----------------|
+           |                  |
+
+TZCOM_IOCTL_READ_NEXT_CMD_REQ, TZCOM_IOCTL_SEND_CMD_REQ and
+TZCOM_IOCTL_CONTINUE_CMD_REQ sequence:
+
+     +--------------+  +---------------+  +-------------+  +----------------+
+     |   USERSPACE  |  |    TZCOM      |  |     SCM     |  |     TZBSP      |
+     +---+--+-------+  +-------+-------+  +------+------+  +-------+--------+
+         |  |  READ_NEXT_CMD   |                 |                 |
+         +--|----------------->|                 |                 |
+         |  |                  |.--------.       |                 |
+         |  |                  || BLOCKED|       |                 |
+         |  |                  |`--------'       |                 |
+         |  |                  |                 |                 |
+         |  |                  |                 |                 |
+         |  |    SEND_CMD      |                 |                 |
+         |  +----------------->|                 |                 |
+         |  |                  |    scm_call     |                 |
+         |  |                  +---------------->|    SEND_CMD     |
+         |  |                  |                 +---------------->|
+         |  |                  |                 |  cmd incomplete |
+         |  |                  | scm_call returns|<----------------+
+         |  |                  |<----------------+                 |
+         |  |                  |                 |                 |
+         |  |                  |,-'''-.          |                 |
+         |  |                  + READ  `.        |                 |
+         |  |                  | NEXT   |        |                 |
+         |  |                  |  CMD   /        |                 |
+         |  | READ_NEXT_CMD ret|<.____,'         |                 |
+         |<-|------------------+                 |                 |
+  ,---.  |  |                  |                 |                 |
+ /     \ |  |                  |                 |                 |
+/perform\|  |                  |                 |                 |
+ received)  |                  |                 |                 |
+\command/|  |                  |                 |                 |
+ \     / |  |                  |                 |                 |
+  `---'  |  |                  |                 |                 |
+         |  |                  |                 |                 |
+         |  | CONTINUE_CMD     |                 |                 |
+         +--|----------------->|                 |                 |
+         |  | returns          | _,...           |                 |
+         |  |  immediately     |'     `.         |                 |
+         |  |                  | fill in`.       |                 |
+         |  |                  | incomplete      |                 |
+         |  |                  | cmd     ;       |                 |
+            |                  |<-...---'        |                 |
+            |                  |   scm_call      |                 |
+            |                  +---------------->|   SEND_CMD      |
+            |                  |                 +---------------->|
+            |                  |                 |  cmd complete   |
+            |                  | scm_call returns|<----------------+
+            |SEND_CMD return   |<----------------+                 |
+            |<-----------------+                 |                 |
+            |                  |                 |                 |
+
+
+
+There are three shared buffers between TZCOM driver and TZBSP.
+1) For command and response buffers for SEND_CMD requests
+2) For commands originated from TZBSP and their corresponding responses
+3) For debug service
+
+When calling IOCTL_SEND_CMD_REQ from userspace, command request and response
+buffers are initialized and provided in the IOCTL arguments. Where request and
+response buffers will be passed as an arguments to the smc_call method.
+
+The requests are synchronous. The driver will put the process to sleep,
+waiting for the completion of the requests using wait_for_completion().
+
+This driver uses kmalloc for shared buffer pools which get initialized at driver
+initialization. There are three buffers each 20 KB. If any of the buffers fail
+to initialize then driver will fail to load. Assumption is the allocated
+memory for buffers is contiguous.
+
+
+Design
+======
+
+The goal of this driver is to provide a communication API for the userspace
+application to execute services in TrustZone as well as TrustZone operating
+environment to access services in HLOS.
+
+Currently TZ->HLOS communication happens from a blocking call to READ_NEXT_CMD
+that is initiated from the userspace and on receiving a command request from TZ
+service, command is placed on a queue to unblock READ_NEXT_CMD call. This could
+have been solved by using a callback, but the practice of invoking callbacks in
+userspace from kernel is discouraged.
+
+Power Management
+================
+
+n/a
+
+SMP/multi-core
+==============
+
+TZCOM allows multiple services being registered from HLOS and multiple processes
+or threads can call IOCTL_READ_NEXT_MSG. These services will block until new
+data arrives on the shared buffer (buffer #2 as mentioned in Software
+Description). This is achieved using wait queues.
+
+Security
+========
+
+Please refer to Security Channel Manager design document.
+
+Performance
+===========
+
+Every scm_call is a context switch between non-trusted and trusted operating
+environment. There are no performance related matrix for scm_call available as
+of now.
+
+Interface
+=========
+
+This driver will have a /dev/tzcom node and following IOCTL calls can be made.
+
+Userspace API (ioctl calls):
+  TZCOM_IOCTL_REGISTER_SERVICE_REQ - to register HLOS service
+  TZCOM_IOCTL_UNREGISTER_SERVICE_REQ - to unregister HLOS service
+  TZCOM_IOCTL_SEND_CMD_REQ - send a command to a service
+  TZCOM_IOCTL_READ_NEXT_CMD_REQ - wait for a cmd from TZBSP to use HLOS service
+  TZCOM_IOCTL_CONTINUE_CMD_REQ - continue the last incomplete cmd on TZBSP
+
+
+Dependencies
+============
+
+This driver interacts with Trustzone operating environment, thus depends on
+the TZBSP supported architecture.
+
+
+To do
+=====
+
+TBD

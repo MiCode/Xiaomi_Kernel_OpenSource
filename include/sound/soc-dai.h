@@ -2,6 +2,7 @@
  * linux/sound/soc-dai.h -- ALSA SoC Layer
  *
  * Copyright:	2005-2008 Wolfson Microelectronics. PLC.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -122,6 +123,10 @@ int snd_soc_dai_set_channel_map(struct snd_soc_dai *dai,
 	unsigned int tx_num, unsigned int *tx_slot,
 	unsigned int rx_num, unsigned int *rx_slot);
 
+int snd_soc_dai_get_channel_map(struct snd_soc_dai *dai,
+	unsigned int *tx_num, unsigned int *tx_slot,
+	unsigned int *rx_num, unsigned int *rx_slot);
+
 int snd_soc_dai_set_tristate(struct snd_soc_dai *dai, int tristate);
 
 /* Digital Audio Interface mute */
@@ -151,6 +156,9 @@ struct snd_soc_dai_ops {
 		unsigned int rx_num, unsigned int *rx_slot);
 	int (*set_tristate)(struct snd_soc_dai *dai, int tristate);
 
+	int (*get_channel_map)(struct snd_soc_dai *dai,
+		unsigned int *tx_num, unsigned int *tx_slot,
+		unsigned int *rx_num, unsigned int *rx_slot);
 	/*
 	 * DAI digital mute - optional.
 	 * Called by soc-core to minimise any pops.
@@ -172,6 +180,8 @@ struct snd_soc_dai_ops {
 	int (*prepare)(struct snd_pcm_substream *,
 		struct snd_soc_dai *);
 	int (*trigger)(struct snd_pcm_substream *, int,
+		struct snd_soc_dai *);
+	int (*bespoke_trigger)(struct snd_pcm_substream *, int,
 		struct snd_soc_dai *);
 	/*
 	 * For hardware based FIFO caused delay reporting.
@@ -257,6 +267,13 @@ struct snd_soc_dai {
 
 	struct list_head list;
 	struct list_head card_list;
+
+	/* runtime AIF widget and channel mmap updates */
+	u64 playback_channel_map;
+	u64 capture_channel_map;
+	struct snd_soc_dapm_widget *playback_aif;
+	struct snd_soc_dapm_widget *capture_aif;
+	bool channel_map_instanciated;
 };
 
 static inline void *snd_soc_dai_get_dma_data(const struct snd_soc_dai *dai,
@@ -287,4 +304,98 @@ static inline void *snd_soc_dai_get_drvdata(struct snd_soc_dai *dai)
 	return dev_get_drvdata(dai->dev);
 }
 
+/* Backend DAI PCM ops */
+static inline int snd_soc_dai_startup(struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int ret = 0;
+
+	mutex_lock(&rtd->pcm_mutex);
+
+	if (dai->driver->ops->startup)
+		ret = dai->driver->ops->startup(substream, dai);
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dai->playback_active++;
+	else
+		dai->capture_active++;
+
+	dai->active++;
+
+	mutex_unlock(&rtd->pcm_mutex);
+	return ret;
+}
+
+static inline void snd_soc_dai_shutdown(struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	mutex_lock(&rtd->pcm_mutex);
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dai->playback_active--;
+	else
+		dai->capture_active--;
+
+	dai->active--;
+
+	if (dai->driver->ops->shutdown)
+		dai->driver->ops->shutdown(substream, dai);
+	mutex_unlock(&rtd->pcm_mutex);
+}
+
+static inline int snd_soc_dai_hw_params(struct snd_pcm_substream * substream,
+		struct snd_pcm_hw_params *hw_params, struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int ret = 0;
+
+	mutex_lock(&rtd->pcm_mutex);
+
+	if (dai->driver->ops->hw_params)
+		ret = dai->driver->ops->hw_params(substream, hw_params, dai);
+
+	mutex_unlock(&rtd->pcm_mutex);
+	return ret;
+}
+
+static inline int snd_soc_dai_hw_free(struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int ret = 0;
+
+	mutex_lock(&rtd->pcm_mutex);
+
+	if (dai->driver->ops->hw_free)
+		ret = dai->driver->ops->hw_free(substream, dai);
+
+	mutex_unlock(&rtd->pcm_mutex);
+	return ret;
+}
+
+static inline int snd_soc_dai_prepare(struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int ret = 0;
+
+	mutex_lock(&rtd->pcm_mutex);
+
+	if (dai->driver->ops->prepare)
+		ret = dai->driver->ops->prepare(substream, dai);
+
+	mutex_unlock(&rtd->pcm_mutex);
+	return ret;
+}
+
+static inline int snd_soc_dai_trigger(struct snd_pcm_substream *substream,
+	int cmd, struct snd_soc_dai *dai)
+{
+	if (dai->driver->ops->trigger)
+		return dai->driver->ops->trigger(substream, cmd, dai);
+	return 0;
+}
 #endif

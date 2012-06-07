@@ -1,0 +1,189 @@
+Introduction
+============
+The Char SDIO Device Driver is an interface which exposes an SDIO
+card/function from kernel space as a char device in user space.
+
+The driver doesn't interact with any HW directly. It relies on SDIO
+card/function interface provided as a part of Linux kernel.
+
+Hardware description
+====================
+Each SDIO device/card contains an SDIO client HW block.
+The host interacts with the device by sending byte sequences called
+command (CMD). Some commands can be followed by data blocks. The
+device sends back a byte sequence called response (R) and a data
+block if required. CMD3, CMD5 and CMD7 are used to initialize the
+device. CMD52 and CMD53 are used to access the device. Command
+format and properties are defined by SDIO Specification document
+published by SD Association:
+    http://www.sdcard.org/developers/tech/sdio/.
+
+CMD52 and CMD53 can access up to 8 address spaces called Functions.
+Function 0 contains system information predefined by SD/SDIO
+standard and Functions 1-7 are defined by the SDIO device
+manufacturer.
+
+An SDIO device/card can send an interrupt to SDIO host. This
+interrupt is intercepted and handled by SDIO host.
+
+Software description
+====================
+Linux provides a framework for handling SDIO devices. It implements
+kind of plug-and-play model in which the Linux SDIO Host Driver is
+responsible for initializing an SDIO device upon insertion. It also
+reads device/card identification information and enumerates functions
+provided by the device and then looks up in the list of
+preregistered user SDIO drivers for a suitable one.
+
+During its lifecycle the user SDIO driver interacts with the Linux
+SDIO Host Driver in order to send/receive information to/from SDIO
+device/card. The user SDIO driver doesn't work with CMD52/CMD53
+directly. Instead it uses an abstraction provided by the Linux SDIO
+Host Driver.
+
+The Linux SDIO Host Driver is also in charge of handling SDIO
+interrupts. User SDIO driver can register its own callback in SDIO
+Host Driver and get a notification about interrupt event.
+
+The Char SDIO Device Driver follows the design guidelines mentioned
+above. It provides the following functionality:
+
+ - Register itself in the user SDIO drivers list;
+ - Handle Probe event upon insertion of supported card/device;
+ - Creates and maintains a char device driver for each SDIO Function
+   found in the card/device;
+ - Translates read/write/ioctl calls to appropriate SDIO call
+   sequences;
+
+In order to handle general SDIO configuration functionality and
+Function 0 the Char SDIO Device Driver provides additional
+simplified char device driver.
+
+The Manufacturer and Device IDs of handled SDIO device should be
+provided as parameters for kernel module or as configuration
+parameters in case of statically linked driver.
+
+Design
+======
+The main goal of the Char SDIO Device Driver is to expose an SDIO
+card/device from kernel space to user space as a char device driver.
+The driver should be generic and simple as far as possible.
+
+The biggest design tradeoff is maintaining a balance between the
+system call overhead required to initiate an SDIO transaction from
+user space and overall SDIO communication performance. But luckily,
+because of nature of SDIO protocol, this overhead is negligible
+comparing to time required to execute SDIO transaction itself. So,
+each CMD52 (read or write) consists from single ioctl system call.
+And each CMD53 invokes single ioctl system call followed by read or
+write system call.
+
+The Char SDIO Device Driver registers its own class of the devices
+called 'csdio'. This class will serve as a common roof for all SDIO
+devices served by different instances of the Char SDIO Device Driver.
+Additional benefit from maintaining its own class is the driver
+ability to overwrite default permissions of the dev nodes created by
+the driver.
+
+Power Management
+================
+None
+
+SMP/multi-core
+==============
+The driver does not anticipate any issues related to multi-core
+since it is expected to run on one core only.
+
+Security
+========
+None
+
+Performance
+===========
+None
+
+Interface
+=========
+The Char SDIO Device Driver has two char device interfaces:
+ - Control Interface;
+ - Function Interface.
+
+Char SDIO Device Driver Control Interface consists of:
+ - open()   - device node is /dev/csdio0;
+ - close()
+ - ioctl()  - the following options are available:
+   - CSDIO_IOC_ENABLE_HIGHSPEED_MODE;
+   - CSDIO_IOC_SET_DATA_TRANSFER_CLOCKS;
+   - CSDIO_IOC_ENABLE_ISR;
+   - CSDIO_IOC_DISABLE_ISR.
+
+Char SDIO Device Driver Function Interface consists of:
+ - open()  - device node is /dev/csdiofX, where X is Function Id;
+ - close()
+ - read()  - send CMD53 read;
+ - write() - send CMD53 write;
+ - ioctl() - the following options are available:
+   - CSDIO_IOC_SET_OP_CODE - 0 fixed adrress, 1 autoincrement.
+   - CSDIO_IOC_FUNCTION_SET_BLOCK_SIZE;
+   - CSDIO_IOC_SET_BLOCK_MODE - 0 byte mode, 1 block mode;
+   - CSDIO_IOC_CMD52 - execute CMD52, receives the
+        following structure as a parameter:
+            struct csdio_cmd52_ctrl_t {
+	            uint32_t    m_write; // 0 - read, 1 -write
+	            uint32_t    m_address;
+	            uint32_t    m_data;  // data to write or read data
+	            uint32_t    m_ret;   // command execution status
+            }__attribute__ ((packed));
+   - CSDIO_IOC_CMD53 - setup CMD53 data transfer, receives the
+        following structure as a parameter:
+            struct csdio_cmd53_ctrl_t {
+	            uint32_t    m_block_mode;
+	            uint32_t    m_op_code;
+	            uint32_t    m_address;
+            }__attribute__ ((packed));
+   - CSDIO_IOC_CONNECT_ISR;
+   - CSDIO_IOC_DISCONNECT_ISR;
+   - CSDIO_IOC_GET_VDD;
+   - CSDIO_IOC_SET_VDD.
+
+Additionally, user space application can use fcntl system call with
+parameters F_SETOWN and F_SETFL in order to set an asynchronous
+callback for SDIO interrupt.
+
+Driver parameters
+=================
+If the driver is compiled as a kernel module, the following
+parameters can be used in order to provide Manufacturer and Device IDs
+upon module download:
+ - csdio_vendor_id;
+ - csdio_device_id.
+If the driver is intended to work with specific SDIO host the
+host_name parameter should be added followed by the name of the MMC
+host platform device.
+
+Config options
+==============
+These are the kernel configuration options:
+ - CONFIG_CSDIO_VENDOR_ID;
+ - CONFIG_CSDIO_DEVICE_ID.
+
+Dependencies
+============
+The Char SDIO Device Driver depends on Linux SDIO Host Driver.
+
+User space utilities
+====================
+None
+
+Other
+=====
+None
+
+Known issues
+============
+None
+
+To do
+=====
+Provide mechanism to support a number of SDIO devices simultaneously
+connected to different SDIO hosts.

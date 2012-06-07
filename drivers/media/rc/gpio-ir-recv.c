@@ -26,14 +26,14 @@
 
 struct gpio_rc_dev {
 	struct rc_dev *rcdev;
-	int gpio_nr;
+	unsigned int gpio_nr;
 	bool active_low;
 };
 
 static irqreturn_t gpio_ir_recv_irq(int irq, void *dev_id)
 {
 	struct gpio_rc_dev *gpio_dev = dev_id;
-	int gval;
+	unsigned int gval;
 	int rc = 0;
 	enum raw_event_type type = IR_SPACE;
 
@@ -87,7 +87,7 @@ static int __devinit gpio_ir_recv_probe(struct platform_device *pdev)
 	rcdev->input_name = GPIO_IR_DEVICE_NAME;
 	rcdev->input_id.bustype = BUS_HOST;
 	rcdev->driver_name = GPIO_IR_DRIVER_NAME;
-	rcdev->map_name = RC_MAP_EMPTY;
+	rcdev->map_name = RC_MAP_SAMSUNG_NECX;
 
 	gpio_dev->rcdev = rcdev;
 	gpio_dev->gpio_nr = pdata->gpio_nr;
@@ -114,6 +114,8 @@ static int __devinit gpio_ir_recv_probe(struct platform_device *pdev)
 					"gpio-ir-recv-irq", gpio_dev);
 	if (rc < 0)
 		goto err_request_irq;
+
+	device_init_wakeup(&pdev->dev, pdata->can_wakeup);
 
 	return 0;
 

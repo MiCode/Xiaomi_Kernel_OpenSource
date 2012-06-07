@@ -1,0 +1,38 @@
+Qualcomm SLIMBUS controller
+
+Required properties:
+
+ - reg : Offset and length of the register region(s) for the device
+ - reg-names : Register region name(s) referenced in reg above
+	 Required register resource entries are:
+	 "slimbus_physical": Physical adderss of controller register blocks
+	 "slimbus_bam_physical": Physical address of Bus Access Module (BAM)
+				 for this controller
+ - compatible : should be "qcom,slim-msm"
+ - cell-index : SLIMBUS number used for this controller
+ - interrupts : Interrupt numbers used by this controller
+ - interrupt-names : Required interrupt resource entries are:
+	"slimbus_irq" : Interrupt for SLIMBUS core
+	"slimbus_bam_irq" : Interrupt for controller core's BAM
+
+Optional property:
+ - reg entry for slew rate : If slew rate control register is provided, this
+	 entry should be used.
+ - reg-name for slew rate: "slimbus_slew_reg"
+ - qcom,min-clk-gear : Minimum clock gear at which this controller can be run
+		 (range: 1-10)
+		 Default value will be 1 if this entry is not specified
+ - qcom,max-clk-gear: Maximum clock gear at which this controller can be run
+		 (range: 1-10)
+		 Default value will be 10 if this entry is not specified
+Example:
+	slim@fe12f000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-msm";
+		reg = <0xfe12f000 0x35000>,
+		      <0xfe104000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0 0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,min-clk-gear = <10>;
+	};

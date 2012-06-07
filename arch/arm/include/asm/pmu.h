@@ -21,6 +21,7 @@
  */
 enum arm_pmu_type {
 	ARM_PMU_DEVICE_CPU	= 0,
+	ARM_PMU_DEVICE_L2	= 1,
 	ARM_NUM_PMU_DEVICES,
 };
 
@@ -108,7 +109,9 @@ struct arm_pmu {
 	cpumask_t	active_irqs;
 	const char	*name;
 	irqreturn_t	(*handle_irq)(int irq_num, void *dev);
-	void		(*enable)(struct hw_perf_event *evt, int idx);
+	int     	(*request_pmu_irq)(int irq, irq_handler_t *irq_h);
+	void    	(*free_pmu_irq)(int irq);
+	void		(*enable)(struct hw_perf_event *evt, int idx, int cpu);
 	void		(*disable)(struct hw_perf_event *evt, int idx);
 	int		(*get_event_idx)(struct pmu_hw_events *hw_events,
 					 struct hw_perf_event *hwc);

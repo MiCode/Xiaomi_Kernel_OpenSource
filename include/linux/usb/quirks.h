@@ -30,4 +30,6 @@
    descriptor */
 #define USB_QUIRK_DELAY_INIT		0x00000040
 
+#define USB_QUIRK_OTG_PET		0x00000080
+
 #endif /* __LINUX_USB_QUIRKS_H */

@@ -265,6 +265,18 @@ static inline void suspend_thaw_processes(void)
 }
 #endif
 
+#ifdef CONFIG_WAKELOCK
+/* kernel/power/wakelock.c */
+extern struct workqueue_struct *suspend_work_queue;
+extern struct wake_lock main_wake_lock;
+extern suspend_state_t requested_suspend_state;
+extern void suspend_sys_sync_queue(void);
+extern int suspend_sys_sync_wait(void);
+#else
+static inline void suspend_sys_sync_queue(void) {}
+static inline int suspend_sys_sync_wait(void) { return 0; }
+#endif
+
 #ifdef CONFIG_USER_WAKELOCK
 ssize_t wake_lock_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf);
@@ -274,4 +286,10 @@ ssize_t wake_unlock_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf);
 ssize_t  wake_unlock_store(struct kobject *kobj, struct kobj_attribute *attr,
 			const char *buf, size_t n);
+#endif
+
+#ifdef CONFIG_EARLYSUSPEND
+/* kernel/power/earlysuspend.c */
+void request_suspend_state(suspend_state_t state);
+suspend_state_t get_suspend_state(void);
 #endif

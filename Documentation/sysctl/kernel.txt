@@ -23,6 +23,7 @@ show up in /proc/sys/kernel:
 - auto_msgmni
 - bootloader_type	     [ X86 only ]
 - bootloader_version	     [ X86 only ]
+- boot_reason		     [ ARM only ]
 - callhome		     [ S390 only ]
 - cap_last_cap
 - core_pattern
@@ -139,6 +140,19 @@ file will contain the value 564 = 0x234.
 
 See the type_of_loader and ext_loader_ver fields in
 Documentation/x86/boot.txt for additional information.
+
+==============================================================
+
+boot_reason:
+
+ARM -- reason for device boot
+
+A single bit will be set in the unsigned integer value to identify the
+reason the device was booted / powered on. The value will be zero if this
+feature is not supported on the ARM device being booted.
+
+See the power-on-status field definitions in
+Documentation/arm/msm/boot.txt for Qualcomm's family of devices.
 
 ==============================================================
 

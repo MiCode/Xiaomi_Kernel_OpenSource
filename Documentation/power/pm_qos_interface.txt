@@ -19,7 +19,7 @@ Each parameters have defined units:
 
 The infrastructure exposes multiple misc device nodes one per implemented
 parameter.  The set of parameters implement is defined by pm_qos_power_init()
-and pm_qos_params.h.  This is done because having the available parameters
+and pm_qos.h.  This is done because having the available parameters
 being runtime configurable or changeable from a driver was seen as too easy to
 abuse.
 

@@ -1,0 +1,40 @@
+* Power Management boot configuration (pm-boot)
+
+Low power management drivers need to specify the warmboot entry path for the
+application processors to resume from sleep/suspend. The boot configuration
+can vary if the core does/does not support a secure boot mode. The secure
+boot configuration boots the core sets up the core sub system registers and
+calls into the kernel entry point. In the absence of a secure boot mode, the
+core when powered on from reset will need to be configured with the warmboot
+entry pointer. The physical and the virtual address for the entry pointer
+need to provided to the driver.
+
+
+The device tree parameters for pm-boot are:
+
+Required parameters:
+
+- compatible: Must be "qcom,pm-boot"
+- qcom,mode: The mode that the target will use for booting
+	MSM_PM_BOOT_CONFIG_TZ                = 0,
+	MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS = 1,
+	MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT = 2,
+	MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR   = 3,
+
+Optional parameters (based on the mode chosen):
+
+- qcom,phy-addr: The physical address that will be used for warmboot entry if
+	the processor remap register can be programmed.
+	Needed for modes = { MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS,
+				MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR }
+- qcom,virt-addr: The virtual address at which the processor start booting from
+	Needed for modes = { MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT,
+				MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR }
+
+
+Example:
+
+	qcom,pm-boot {
+		compatible = "qcom,pm-boot";
+		qcom,mode = <0>; /* MSM_PM_BOOT_CONFIG_TZ */
+	};

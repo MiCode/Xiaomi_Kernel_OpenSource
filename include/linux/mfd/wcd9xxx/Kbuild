@@ -1,0 +1,2 @@
+header-y += wcd9xxx_registers.h
+header-y += wcd9310_registers.h

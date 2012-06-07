@@ -1,8 +1,8 @@
-/* Copyright (c) 2010 Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011 Code Aurora Forum. All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,9 +17,8 @@
 /* MSM ACPU Interrupt Numbers */
 
 /* 0-15:  STI/SGI (software triggered/generated interrupts)
- * 16-31: PPI (private peripheral interrupts)
- * 32+:   SPI (shared peripheral interrupts)
- */
+   16-31: PPI (private peripheral interrupts)
+   32+:   SPI (shared peripheral interrupts) */
 
 #define GIC_PPI_START 16
 #define GIC_SPI_START 32
@@ -33,7 +32,7 @@
 #define AVS_SVICINTSWDONE			(GIC_PPI_START + 6)
 #define CPU_DBGCPUXCOMMRXFULL			(GIC_PPI_START + 7)
 #define CPU_DBGCPUXCOMMTXEMPTY			(GIC_PPI_START + 8)
-#define CPU_SICCPUXPERFMONIRPTREQ		(GIC_PPI_START + 9)
+#define INT_ARMQC_PERFMON			(GIC_PPI_START + 9)
 #define SC_AVSCPUXDOWN				(GIC_PPI_START + 10)
 #define SC_AVSCPUXUP				(GIC_PPI_START + 11)
 #define SC_SICCPUXACGIRPTREQ			(GIC_PPI_START + 12)
@@ -42,21 +41,21 @@
 
 #define SC_SICMPUIRPTREQ			(GIC_SPI_START + 0)
 #define SC_SICL2IRPTREQ				(GIC_SPI_START + 1)
-#define SC_SICL2ACGIRPTREQ			(GIC_SPI_START + 2)
+#define SC_SICL2PERFMONIRPTREQ			(GIC_SPI_START + 2)
 #define NC					(GIC_SPI_START + 3)
-#define TLMM_SCSS_DIR_CONN_IRQ_0		(GIC_SPI_START + 4)
-#define TLMM_SCSS_DIR_CONN_IRQ_1		(GIC_SPI_START + 5)
-#define TLMM_SCSS_DIR_CONN_IRQ_2		(GIC_SPI_START + 6)
-#define TLMM_SCSS_DIR_CONN_IRQ_3		(GIC_SPI_START + 7)
-#define TLMM_SCSS_DIR_CONN_IRQ_4		(GIC_SPI_START + 8)
-#define TLMM_SCSS_DIR_CONN_IRQ_5		(GIC_SPI_START + 9)
-#define TLMM_SCSS_DIR_CONN_IRQ_6		(GIC_SPI_START + 10)
-#define TLMM_SCSS_DIR_CONN_IRQ_7		(GIC_SPI_START + 11)
-#define TLMM_SCSS_DIR_CONN_IRQ_8		(GIC_SPI_START + 12)
-#define TLMM_SCSS_DIR_CONN_IRQ_9		(GIC_SPI_START + 13)
+#define TLMM_MSM_DIR_CONN_IRQ_0			(GIC_SPI_START + 4)
+#define TLMM_MSM_DIR_CONN_IRQ_1			(GIC_SPI_START + 5)
+#define TLMM_MSM_DIR_CONN_IRQ_2			(GIC_SPI_START + 6)
+#define TLMM_MSM_DIR_CONN_IRQ_3			(GIC_SPI_START + 7)
+#define TLMM_MSM_DIR_CONN_IRQ_4			(GIC_SPI_START + 8)
+#define TLMM_MSM_DIR_CONN_IRQ_5			(GIC_SPI_START + 9)
+#define TLMM_MSM_DIR_CONN_IRQ_6			(GIC_SPI_START + 10)
+#define TLMM_MSM_DIR_CONN_IRQ_7			(GIC_SPI_START + 11)
+#define TLMM_MSM_DIR_CONN_IRQ_8			(GIC_SPI_START + 12)
+#define TLMM_MSM_DIR_CONN_IRQ_9			(GIC_SPI_START + 13)
 #define PM8058_SEC_IRQ_N			(GIC_SPI_START + 14)
 #define PM8901_SEC_IRQ_N			(GIC_SPI_START + 15)
-#define TLMM_SCSS_SUMMARY_IRQ			(GIC_SPI_START + 16)
+#define TLMM_MSM_SUMMARY_IRQ			(GIC_SPI_START + 16)
 #define SPDM_RT_1_IRQ				(GIC_SPI_START + 17)
 #define SPDM_DIAG_IRQ				(GIC_SPI_START + 18)
 #define RPM_SCSS_CPU0_GP_HIGH_IRQ		(GIC_SPI_START + 19)
@@ -87,7 +86,7 @@
 #define MARM_SCSS_GP_IRQ_7			(GIC_SPI_START + 44)
 #define MARM_SCSS_GP_IRQ_8			(GIC_SPI_START + 45)
 #define MARM_SCSS_GP_IRQ_9			(GIC_SPI_START + 46)
-#define VPE_IRQ					(GIC_SPI_START + 47)
+#define INT_VPE					(GIC_SPI_START + 47)
 #define VFE_IRQ					(GIC_SPI_START + 48)
 #define VCODEC_IRQ				(GIC_SPI_START + 49)
 #define TV_ENC_IRQ				(GIC_SPI_START + 50)
@@ -115,9 +114,9 @@
 #define SMMU_GFX2D0_CB_SC_NON_SECURE_IRQ	(GIC_SPI_START + 72)
 #define ROT_IRQ					(GIC_SPI_START + 73)
 #define MMSS_FABRIC_IRQ				(GIC_SPI_START + 74)
-#define MDP_IRQ					(GIC_SPI_START + 75)
+#define INT_MDP					(GIC_SPI_START + 75)
 #define JPEGD_IRQ				(GIC_SPI_START + 76)
-#define JPEG_IRQ				(GIC_SPI_START + 77)
+#define INT_JPEG				(GIC_SPI_START + 77)
 #define MMSS_IMEM_IRQ				(GIC_SPI_START + 78)
 #define HDMI_IRQ				(GIC_SPI_START + 79)
 #define GFX3D_IRQ				(GIC_SPI_START + 80)
@@ -186,21 +185,21 @@
 #define TSSC_SSBI_IRQ				(GIC_SPI_START + 143)
 #define TSSC_SAMPLE_IRQ				(GIC_SPI_START + 144)
 #define TSSC_PENUP_IRQ				(GIC_SPI_START + 145)
-#define INT_UART1DM_IRQ				(GIC_SPI_START + 146)
-#define GSBI1_QUP_IRQ				(GIC_SPI_START + 147)
-#define INT_UART2DM_IRQ				(GIC_SPI_START + 148)
-#define GSBI2_QUP_IRQ				(GIC_SPI_START + 149)
-#define INT_UART3DM_IRQ				(GIC_SPI_START + 150)
+#define GSBI1_UARTDM_IRQ			(GIC_SPI_START + 146)
+#define GSBI1_QUP_IRQ		         	(GIC_SPI_START + 147)
+#define GSBI2_UARTDM_IRQ			(GIC_SPI_START + 148)
+#define GSBI2_QUP_IRQ			        (GIC_SPI_START + 149)
+#define GSBI3_UARTDM_IRQ			(GIC_SPI_START + 150)
 #define GSBI3_QUP_IRQ				(GIC_SPI_START + 151)
-#define INT_UART4DM_IRQ				(GIC_SPI_START + 152)
+#define GSBI4_UARTDM_IRQ			(GIC_SPI_START + 152)
 #define GSBI4_QUP_IRQ				(GIC_SPI_START + 153)
-#define INT_UART5DM_IRQ				(GIC_SPI_START + 154)
+#define GSBI5_UARTDM_IRQ			(GIC_SPI_START + 154)
 #define GSBI5_QUP_IRQ				(GIC_SPI_START + 155)
-#define INT_UART6DM_IRQ				(GIC_SPI_START + 156)
+#define GSBI6_UARTDM_IRQ			(GIC_SPI_START + 156)
 #define GSBI6_QUP_IRQ				(GIC_SPI_START + 157)
-#define INT_UART7DM_IRQ				(GIC_SPI_START + 158)
+#define GSBI7_UARTDM_IRQ			(GIC_SPI_START + 158)
 #define GSBI7_QUP_IRQ				(GIC_SPI_START + 159)
-#define INT_UART8DM_IRQ				(GIC_SPI_START + 160)
+#define GSBI8_UARTDM_IRQ			(GIC_SPI_START + 160)
 #define GSBI8_QUP_IRQ				(GIC_SPI_START + 161)
 #define TSIF_TSPP_IRQ				(GIC_SPI_START + 162)
 #define TSIF_BAM_IRQ				(GIC_SPI_START + 163)
@@ -229,20 +228,19 @@
 #define HSDDRX_EBI1_IRQ				(GIC_SPI_START + 186)
 #define SDC5_BAM_IRQ				(GIC_SPI_START + 187)
 #define SDC5_IRQ_0				(GIC_SPI_START + 188)
-#define INT_UART9DM_IRQ				(GIC_SPI_START + 189)
+#define GSBI9_UARTDM_IRQ			(GIC_SPI_START + 189)
 #define GSBI9_QUP_IRQ				(GIC_SPI_START + 190)
-#define INT_UART10DM_IRQ			(GIC_SPI_START + 191)
+#define GSBI10_UARTDM_IRQ			(GIC_SPI_START + 191)
 #define GSBI10_QUP_IRQ				(GIC_SPI_START + 192)
-#define INT_UART11DM_IRQ			(GIC_SPI_START + 193)
+#define GSBI11_UARTDM_IRQ			(GIC_SPI_START + 193)
 #define GSBI11_QUP_IRQ				(GIC_SPI_START + 194)
-#define INT_UART12DM_IRQ			(GIC_SPI_START + 195)
+#define GSBI12_UARTDM_IRQ			(GIC_SPI_START + 195)
 #define GSBI12_QUP_IRQ				(GIC_SPI_START + 196)
 
-/*SPI 197 to 209 arent used in 8x60*/
-#define SMMU_GFX2D1_CB_SC_SECURE_IRQ            (GIC_SPI_START + 210)
-#define SMMU_GFX2D1_CB_SC_NON_SECURE_IRQ        (GIC_SPI_START + 211)
+#define SMMU_GFX2D1_CB_SC_SECURE_IRQ		(GIC_SPI_START + 210)
+#define SMMU_GFX2D1_CB_SC_NON_SECURE_IRQ	(GIC_SPI_START + 211)
+#define GFX2D1_IRQ				(GIC_SPI_START + 212)
 
-/*SPI 212 to 216 arent used in 8x60*/
 #define SMPSS_SPARE_1				(GIC_SPI_START + 217)
 #define SMPSS_SPARE_2				(GIC_SPI_START + 218)
 #define SMPSS_SPARE_3				(GIC_SPI_START + 219)
@@ -251,8 +249,21 @@
 #define SMPSS_SPARE_6				(GIC_SPI_START + 222)
 #define SMPSS_SPARE_7				(GIC_SPI_START + 223)
 
+#define NR_TLMM_MSM_DIR_CONN_IRQ 10
 #define NR_GPIO_IRQS 173
+#define NR_MSM_GPIOS NR_GPIO_IRQS
 #define NR_MSM_IRQS 256
-#define NR_BOARD_IRQS 0
+#define NR_PMIC8058_IRQS 256
+#define NR_PMIC8901_IRQS 72
+#define NR_GPIO_EXPANDER_IRQS 98
+#define NR_BOARD_IRQS (NR_PMIC8058_IRQS + NR_PMIC8901_IRQS +\
+		NR_GPIO_EXPANDER_IRQS)
+
+/* smd/smsm interrupts */
+#define INT_A9_M2A_0                    MARM_SCSS_GP_IRQ_0
+#define INT_A9_M2A_5                    MARM_SCSS_GP_IRQ_1
+#define INT_ADSP_A11                    LPASS_SCSS_GP_HIGH_IRQ
+#define INT_ADSP_A11_SMSM               LPASS_SCSS_GP_MEDIUM_IRQ
+#define INT_DSPS_A11                    SPS_MTI_31
 
 #endif

@@ -409,7 +409,7 @@ local_flush_tlb_page(struct vm_area_struct *vma, unsigned long uaddr)
 	tlb_op(TLB_V6_U_PAGE, "c8, c7, 1", uaddr);
 	tlb_op(TLB_V6_D_PAGE, "c8, c6, 1", uaddr);
 	tlb_op(TLB_V6_I_PAGE, "c8, c5, 1", uaddr);
-#ifdef CONFIG_ARM_ERRATA_720789
+#if defined(CONFIG_ARM_ERRATA_720789) || defined(CONFIG_ARCH_MSM8X60)
 	tlb_op(TLB_V7_UIS_PAGE, "c8, c3, 3", uaddr & PAGE_MASK);
 #else
 	tlb_op(TLB_V7_UIS_PAGE, "c8, c3, 1", uaddr);
@@ -439,7 +439,11 @@ static inline void local_flush_tlb_kernel_page(unsigned long kaddr)
 	tlb_op(TLB_V6_U_PAGE, "c8, c7, 1", kaddr);
 	tlb_op(TLB_V6_D_PAGE, "c8, c6, 1", kaddr);
 	tlb_op(TLB_V6_I_PAGE, "c8, c5, 1", kaddr);
+#ifdef CONFIG_ARCH_MSM8X60
+	tlb_op(TLB_V7_UIS_PAGE, "c8, c3, 3", kaddr);
+#else
 	tlb_op(TLB_V7_UIS_PAGE, "c8, c3, 1", kaddr);
+#endif
 
 	if (tlb_flag(TLB_BARRIER)) {
 		dsb();

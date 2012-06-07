@@ -62,4 +62,18 @@ config TCG_INFINEON
 	  Further information on this driver and the supported hardware
 	  can be found at http://www.trust.rub.de/projects/linux-device-driver-infineon-tpm/ 
 
+config TCG_ST_I2C
+	tristate "ST Micro ST19NP18-TPM-I2C TPM interface"
+	depends on I2C
+	default n
+	---help---
+	  If you have a ST19NP18-TPM-I2C TPM security chip from ST Micro
+	  say Yes and it will be accessible from Linux.
+
+config TCG_TPMD_DEV
+	tristate "tpmd_dev TPM Emulator driver"
+	default n
+	---help---
+	  Enables the TPM emulator driver
+
 endif # TCG_TPM

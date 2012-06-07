@@ -218,6 +218,21 @@ config USB_TEST
 	  See <http://www.linux-usb.org/usbtest/> for more information,
 	  including sample test device firmware and "how to use it".
 
+config USB_EHSET_TEST_FIXTURE
+	tristate "USB EHSET Test Fixture Driver"
+	depends on USB && USB_EHCI_EHSET
+	default n
+	help
+	  Say Y here if you want to use EHSET Test Fixture device for host
+	  compliance testing.
+
+	  This driver initiates test modes on the downstream port to which the
+	  test fixture is attached.
+
+	  See <http://www.usb.org/developers/onthego/EHSET_v1.01.pdf>
+	  for more information.
+
+
 config USB_ISIGHTFW
 	tristate "iSight firmware loading support"
 	depends on USB
@@ -244,3 +259,37 @@ config USB_YUREX
 	  To compile this driver as a module, choose M here: the
 	  module will be called yurex.
 
+config USB_QCOM_DIAG_BRIDGE
+	tristate "USB Qualcomm diagnostic bridge driver"
+	depends on USB
+	help
+	  Say Y here if you have a Qualcomm modem device connected via USB that
+	  will be bridged in kernel space. This driver communicates with the
+	  diagnostic interface and allows for bridging with the diag forwarding
+	  driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called diag_bridge.  If unsure, choose N.
+
+config USB_QCOM_DIAG_BRIDGE_TEST
+	tristate "USB Qualcomm diagnostic bridge driver test"
+	depends on USB && USB_QCOM_DIAG_BRIDGE
+	help
+	  Say Y here if you want to enable the test hook for the
+	  Qualcomm diag bridge driver. When enabled, this will create
+	  a debugfs file entry named "diag_bridge_test" which can be used
+	  to send a ping command to the diag port of the modem over USB.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called diag_bridge_test.  If unsure, choose N.
+
+config USB_QCOM_MDM_BRIDGE
+	tristate "USB Qualcomm modem bridge driver for DUN and RMNET"
+	depends on USB
+	help
+	  Say Y here if you have a Qualcomm modem device connected via USB that
+	  will be bridged in kernel space. This driver works as a bridge to pass
+	  control and data packets between the modem and peripheral usb gadget
+	  driver for dial up network and RMNET.
+	  To compile this driver as a module, choose M here: the module
+	  will be called mdm_bridge. If unsure, choose N.

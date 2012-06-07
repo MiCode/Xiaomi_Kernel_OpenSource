@@ -371,6 +371,13 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"Gray",
 		NULL,
 	};
+	static const char *const mpeg_video_intra_refresh_mode[] = {
+		"No Intra Refresh",
+		"AIR MBS",
+		"AIR REF",
+		"CIR MBS",
+		NULL
+	};
 
 	switch (id) {
 	case V4L2_CID_MPEG_AUDIO_SAMPLING_FREQ:
@@ -438,7 +445,8 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		return mpeg4_profile;
 	case V4L2_CID_JPEG_CHROMA_SUBSAMPLING:
 		return jpeg_chroma_subsampling;
-
+	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE:
+		return mpeg_video_intra_refresh_mode;
 	default:
 		return NULL;
 	}
@@ -575,6 +583,14 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_VIDEO_VBV_SIZE:			return "VBV Buffer Size";
 	case V4L2_CID_MPEG_VIDEO_DEC_PTS:			return "Video Decoder PTS";
 	case V4L2_CID_MPEG_VIDEO_DEC_FRAME:			return "Video Decoder Frame Count";
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION: return "Rotation";
+	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL: return "Rate Control";
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL: return "CABAC Model";
+	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE:
+		return "Intra Refresh Mode";
+	case V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS: return "Intra Refresh AIR MBS";
+	case V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF: return "Intra Refresh AIR REF";
+	case V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS: return "Intra Refresh CIR MBS";
 
 	/* CAMERA controls */
 	/* Keep the order of the 'case's the same as in videodev2.h! */
@@ -733,6 +749,9 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
 	case V4L2_CID_JPEG_CHROMA_SUBSAMPLING:
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
+	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL:
 		*type = V4L2_CTRL_TYPE_MENU;
 		break;
 	case V4L2_CID_RDS_TX_PS_NAME:
@@ -751,7 +770,12 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 		*min = *max = *step = *def = 0;
 		break;
 	case V4L2_CID_BG_COLOR:
-		*type = V4L2_CTRL_TYPE_INTEGER;
+	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP:
+	case V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP:
+	case V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP:
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
+	*type = V4L2_CTRL_TYPE_INTEGER;
 		*step = 1;
 		*min = 0;
 		/* Max is calculated as RGB888 that is 2^24 */

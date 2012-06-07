@@ -211,7 +211,8 @@ extern struct meminfo meminfo;
 	for (iter = 0; iter < (mi)->nr_banks; iter++)
 
 #define bank_pfn_start(bank)	__phys_to_pfn((bank)->start)
-#define bank_pfn_end(bank)	__phys_to_pfn((bank)->start + (bank)->size)
+#define bank_pfn_end(bank)	(__phys_to_pfn((bank)->start) + \
+						__phys_to_pfn((bank)->size))
 #define bank_pfn_size(bank)	((bank)->size >> PAGE_SHIFT)
 #define bank_phys_start(bank)	(bank)->start
 #define bank_phys_end(bank)	((bank)->start + (bank)->size)
@@ -220,6 +221,18 @@ extern struct meminfo meminfo;
 extern int arm_add_memory(phys_addr_t start, unsigned long size);
 extern void early_print(const char *str, ...);
 extern void dump_machine_table(void);
+
+/*
+ * Early command line parameters.
+ */
+struct early_params {
+	const char *arg;
+	void (*fn)(char **p);
+};
+
+#define __early_param(name,fn)					\
+static struct early_params __early_##fn __used			\
+__attribute__((__section__(".early_param.init"))) = { name, fn }
 
 #endif  /*  __KERNEL__  */
 

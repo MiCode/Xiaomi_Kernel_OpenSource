@@ -263,7 +263,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 
 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
 	if (card->ext_csd.rev > 6) {
-		pr_err("%s: unrecognised EXT_CSD revision %d\n",
+		printk(KERN_ERR "%s: unrecognised EXT_CSD revision %d\n",
 			mmc_hostname(card->host), card->ext_csd.rev);
 		err = -EINVAL;
 		goto out;
@@ -480,6 +480,24 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	if (card->ext_csd.rev >= 5) {
+		/* check whether the eMMC card support BKOPS */
+		if (ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) {
+			card->ext_csd.bkops = 1;
+			card->ext_csd.bkops_en = ext_csd[EXT_CSD_BKOPS_EN];
+			card->ext_csd.raw_bkops_status =
+				ext_csd[EXT_CSD_BKOPS_STATUS];
+			if (!card->ext_csd.bkops_en &&
+				card->host->caps2 & MMC_CAP2_INIT_BKOPS) {
+				err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+					EXT_CSD_BKOPS_EN, 1, 0);
+				if (err)
+					pr_warning("%s: Enabling BKOPS failed\n",
+						mmc_hostname(card->host));
+				else
+					card->ext_csd.bkops_en = 1;
+			}
+		}
+
 		/* check whether the eMMC card supports HPI */
 		if (ext_csd[EXT_CSD_HPI_FEATURES] & 0x1) {
 			card->ext_csd.hpi = 1;
@@ -533,6 +551,10 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		} else {
 			card->ext_csd.data_tag_unit_size = 0;
 		}
+		card->ext_csd.max_packed_writes =
+			ext_csd[EXT_CSD_MAX_PACKED_WRITES];
+		card->ext_csd.max_packed_reads =
+			ext_csd[EXT_CSD_MAX_PACKED_READS];
 	}
 
 out:
@@ -951,6 +973,9 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 		/* Erase size depends on CSD and Extended CSD */
 		mmc_set_erase_size(card);
+
+		if (card->ext_csd.sectors && (rocr & MMC_CARD_SECTOR_ADDR))
+			mmc_card_set_blockaddr(card);
 	}
 
 	/*
@@ -1267,6 +1292,43 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 
+	if ((host->caps2 & MMC_CAP2_PACKED_CMD) &&
+			(card->ext_csd.max_packed_writes > 0) &&
+			(card->ext_csd.max_packed_reads > 0)) {
+		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+				EXT_CSD_EXP_EVENTS_CTRL,
+				EXT_CSD_PACKED_EVENT_EN,
+				card->ext_csd.generic_cmd6_time);
+		if (err && err != -EBADMSG)
+			goto free_card;
+		if (err) {
+			pr_warning("%s: Enabling packed event failed\n",
+					mmc_hostname(card->host));
+			card->ext_csd.packed_event_en = 0;
+			err = 0;
+		} else {
+			card->ext_csd.packed_event_en = 1;
+		}
+
+	}
+
+	if (!oldcard) {
+		if ((host->caps2 & MMC_CAP2_PACKED_CMD) &&
+		    (card->ext_csd.max_packed_writes > 0)) {
+			/*
+			 * We would like to keep the statistics in an index
+			 * that equals the num of packed requests
+			 * (1 to max_packed_writes)
+			 */
+			card->wr_pack_stats.packing_events = kzalloc(
+				(card->ext_csd.max_packed_writes + 1) *
+				sizeof(*card->wr_pack_stats.packing_events),
+				GFP_KERNEL);
+			if (!card->wr_pack_stats.packing_events)
+				goto free_card;
+		}
+	}
+
 	if (!oldcard)
 		host->card = card;
 
@@ -1291,7 +1353,10 @@ static void mmc_remove(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_remove_card(host->card);
+
+	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_release_host(host);
 }
 
 /*

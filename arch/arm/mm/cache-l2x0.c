@@ -2,6 +2,7 @@
  * arch/arm/mm/cache-l2x0.c - L210/L220 cache controller support
  *
  * Copyright (C) 2007 ARM Limited
+ * Copyright (c) 2009, 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -36,6 +37,7 @@ static u32 l2x0_cache_id;
 static unsigned int l2x0_sets;
 static unsigned int l2x0_ways;
 static unsigned long sync_reg_offset = L2X0_CACHE_SYNC;
+static void pl310_save(void);
 
 static inline bool is_pl310_rev(int rev)
 {
@@ -131,7 +133,7 @@ static inline void l2x0_flush_line(unsigned long addr)
 }
 #endif
 
-static void l2x0_cache_sync(void)
+void l2x0_cache_sync(void)
 {
 	unsigned long flags;
 
@@ -418,9 +420,9 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		writel_relaxed(1, l2x0_base + L2X0_CTRL);
 	}
 
-	outer_cache.inv_range = l2x0_inv_range;
-	outer_cache.clean_range = l2x0_clean_range;
-	outer_cache.flush_range = l2x0_flush_range;
+		outer_cache.inv_range = l2x0_inv_range;
+		outer_cache.clean_range = l2x0_clean_range;
+		outer_cache.flush_range = l2x0_flush_range;
 	outer_cache.sync = l2x0_cache_sync;
 	outer_cache.flush_all = l2x0_flush_all;
 	outer_cache.inv_all = l2x0_inv_all;
@@ -429,6 +431,9 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 	printk(KERN_INFO "%s cache controller enabled\n", type);
 	printk(KERN_INFO "l2x0: %d ways, CACHE_ID 0x%08x, AUX_CTRL 0x%08x, Cache size: %d B\n",
 			l2x0_ways, l2x0_cache_id, aux, l2x0_size);
+
+	/* Save the L2X0 contents, as they are not modified else where */
+	pl310_save();
 }
 
 #ifdef CONFIG_OF
@@ -499,8 +504,9 @@ static void __init pl310_of_setup(const struct device_node *np,
 			       l2x0_base + L2X0_ADDR_FILTER_START);
 	}
 }
+#endif
 
-static void __init pl310_save(void)
+static void pl310_save(void)
 {
 	u32 l2x0_revision = readl_relaxed(l2x0_base + L2X0_CACHE_ID) &
 		L2X0_CACHE_ID_RTL_MASK;
@@ -574,6 +580,7 @@ static void pl310_resume(void)
 	l2x0_resume();
 }
 
+#ifdef CONFIG_OF
 static const struct l2x0_of_data pl310_data = {
 	pl310_of_setup,
 	pl310_save,
@@ -629,3 +636,15 @@ int __init l2x0_of_init(u32 aux_val, u32 aux_mask)
 	return 0;
 }
 #endif
+
+void l2cc_suspend(void)
+{
+	l2x0_disable();
+	dmb();
+}
+
+void l2cc_resume(void)
+{
+	pl310_resume();
+	dmb();
+}

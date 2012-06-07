@@ -14,14 +14,12 @@
 #include <asm/io.h>
 
 #include <mach/vreg.h>
-
+#include <mach/proc_comm.h>
 #include <mach/mmc.h>
 
 #include "devices.h"
 
 #include "board-trout.h"
-
-#include "proc_comm.h"
 
 #define DEBUG_SDSLOT_VDD 1
 

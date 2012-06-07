@@ -63,6 +63,19 @@ config USB_EHCI_HCD
 	  To compile this driver as a module, choose M here: the
 	  module will be called ehci-hcd.
 
+config USB_EHCI_EHSET
+	bool "Embedded High-speed Host Electrical Test Support"
+	depends on USB_EHCI_HCD
+	---help---
+	  This option is required for EHSET Host Compliance Tests support on an
+	  embedded Hi-speed USB Host or OTG port.
+
+	  This enables the software support for the "Single Step Set Featue" test.
+	  Apart from this test, other EHSET tests TEST_SE0/J/K/PACKET are part
+	  of EHCI specification and their support already exists in the EHCI driver.
+
+	  If unsure, say N.
+
 config USB_EHCI_ROOT_HUB_TT
 	bool "Root Hub Transaction Translators"
 	depends on USB_EHCI_HCD
@@ -169,6 +182,24 @@ config USB_EHCI_MSM
 	  This driver is not supported on boards like trout which
 	  has an external PHY.
 
+config USB_EHCI_MSM_HSIC
+	bool "Support for HSIC based MSM on-chip EHCI USB controller"
+	depends on USB_EHCI_HCD && ARCH_MSM
+	---help---
+	  Enables support for the HSIC (High Speed Inter-Chip) based
+	  USB Host controller present on the Qualcomm chipsets.
+
+	  HSIC is a supplement to USB 2.0 specification and is preferred
+	  for chip-to-chip interconnect (having maximum circuit length of
+	  10cm) as it removes the analog transceivers.
+
+config USB_EHCI_MSM_HOST4
+	bool "Support for MSM on-chip EHCI USB controller# 4"
+	depends on USB_EHCI_HCD && ARCH_MSM && ARCH_APQ8064
+	---help---
+	  Enables support for the EHCI Compliant USB Host controller# 4
+	  present on the Qualcomm chipsets.
+
 config USB_EHCI_TEGRA
        boolean "NVIDIA Tegra HCD support"
        depends on USB_EHCI_HCD && ARCH_TEGRA
@@ -246,6 +277,21 @@ config USB_OXU210HP_HCD
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called oxu210hp-hcd.
+
+config USB_EHCI_MSM_72K
+	bool "Support for Legacy Qualcomm on-chip EHCI USB controller"
+	depends on USB_EHCI_HCD && USB_MSM_OTG_72K && ARCH_MSM
+	---help---
+	  This driver enables support for USB host controller
+	  in pre 8660 qualcomm chipsets(8660, 7X30, 8X50 and 7X27).
+
+config USB_FS_HOST
+	bool "Support for Full Speed Host Mode"
+	depends on USB_EHCI_MSM_72K && ARCH_QSD8X50
+	default n
+	---help---
+	  Enables support for the full speed USB controller core present
+	  on the Qualcomm chipsets
 
 config USB_ISP116X_HCD
 	tristate "ISP116X HCD support"
@@ -587,6 +633,15 @@ config USB_WHCI_HCD
 
 	  To compile this driver a module, choose M here: the module
 	  will be called "whci-hcd".
+
+config USB_PEHCI_HCD
+	tristate "ST-E ISP1763A Host Controller"
+	depends on USB
+	help
+	  Driver for ST-E isp1763A USB Host 2.0 Controllers.
+
+	  To compile this driver a module, choose M here: the module
+	  will be called "pehci".
 
 config USB_HWA_HCD
 	tristate "Host Wire Adapter (HWA) driver (EXPERIMENTAL)"

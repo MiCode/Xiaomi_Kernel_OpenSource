@@ -74,6 +74,34 @@ config TWL4030_USB
 	  This transceiver supports high and full speed devices plus,
 	  in host mode, low speed.
 
+config USB_MSM_OTG_72K
+	bool "OTG support for Legcay Qualcomm on-chip USB controller"
+	depends on ARCH_MSM
+	select USB_OTG_UTILS
+	default USB_MSM_72K
+	help
+	  Enable this to support the USB OTG transceiver on MSM chips. It
+	  handles PHY initialization, clock management, low power mode and
+	  workarounds required after resetting the hardware. This driver is
+	  required for even peripheral only or host only mode configuration.
+	  Supports SRP and HNP when both gadget and Host are selected.
+
+config MSM_OTG_ENABLE_A_WAIT_BCON_TIMEOUT
+	bool "Enable A-device timeout for B-device connection"
+	depends on USB_MSM_OTG_72K
+	default n
+	help
+	   OTG specification allows A-device to turn off VBUS if B-device
+	   fails to signal connect event before TA_WAIT_BCON (1.1 - 30 sec).
+	   SRP detection is enabled and hardware is put into low power mode
+	   upon this timeout.
+
+	   If you say yes, VBUS will be turned off if B-device does not signal
+	   connect in 30 sec. Otherwise VBUS is not turned off when Micro-A
+	   cable is connected. But hardware is put into LPM. Say no if leakage
+	   currents in your system are minimum.
+
+
 config TWL6030_USB
 	tristate "TWL6030 USB Transceiver Driver"
 	depends on TWL4030_CORE
@@ -106,6 +134,25 @@ config USB_MSM_OTG
 	  mode configurations.
 	  This driver is not supported on boards like trout which
 	  has an external PHY.
+
+config USB_MSM_ACA
+	bool "Support for Accessory Charger Adapter (ACA)"
+	depends on (USB_MSM_OTG || USB_MSM_OTG_72K) && ARCH_MSM
+	default n
+	help
+	  Accesory Charger Adapter is a charger specified in USB Battery
+	  Charging Specification(1.1). It enables OTG devices to charge
+	  while operating as a host or peripheral at the same time.
+
+config USB_MSM_STANDARD_ACA
+	bool "Support for Standard ACA"
+	depends on USB_MSM_ACA
+	default USB_MSM_OTG_72K
+	help
+	  A Standard ACA has a Standard-A receptacle on the Accessory Port,
+	  and can only be attached to a B-device.  RID_A and RID_GND states
+	  are only possible with Standard ACA.  Select this feature if the
+	  board is intended to support only Standard ACA.
 
 config AB8500_USB
 	tristate "AB8500 USB Transceiver Driver"

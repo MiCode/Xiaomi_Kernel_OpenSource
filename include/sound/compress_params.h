@@ -51,8 +51,6 @@
 #ifndef __SND_COMPRESS_PARAMS_H
 #define __SND_COMPRESS_PARAMS_H
 
-#include <linux/types.h>
-
 /* AUDIO CODECS SUPPORTED */
 #define MAX_NUM_CODECS 32
 #define MAX_NUM_CODEC_DESCRIPTORS 32
@@ -72,7 +70,10 @@
 #define SND_AUDIOCODEC_IEC61937              ((__u32) 0x0000000B)
 #define SND_AUDIOCODEC_G723_1                ((__u32) 0x0000000C)
 #define SND_AUDIOCODEC_G729                  ((__u32) 0x0000000D)
-
+#define SND_AUDIOCODEC_AC3		     ((__u32) 0x0000000E)
+#define SND_AUDIOCODEC_DTS		     ((__u32) 0x0000000F)
+#define SND_AUDIOCODEC_AC3_PASS_THROUGH		((__u32) 0x00000010)
+#define SND_AUDIOCODEC_WMA_PRO		     ((__u32) 0x00000011)
 /*
  * Profile and modes are listed with bit masks. This allows for a
  * more compact representation of fields that will not evolve
@@ -237,6 +238,9 @@
 
 struct snd_enc_wma {
 	__u32 super_block_align; /* WMA Type-specific data */
+	__u32 bits_per_sample;
+	__u32 channelmask;
+	__u32 encodeopt;
 };
 
 

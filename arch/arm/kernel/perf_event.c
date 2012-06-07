@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
+#include <linux/irq.h>
 
 #include <asm/cputype.h>
 #include <asm/irq.h>
@@ -78,7 +79,7 @@ EXPORT_SYMBOL_GPL(perf_num_counters);
 #define CACHE_OP_UNSUPPORTED		0xFFFF
 
 static int
-armpmu_map_cache_event(const unsigned (*cache_map)
+armpmu_map_cache_event(unsigned (*cache_map)
 				      [PERF_COUNT_HW_CACHE_MAX]
 				      [PERF_COUNT_HW_CACHE_OP_MAX]
 				      [PERF_COUNT_HW_CACHE_RESULT_MAX],
@@ -121,7 +122,7 @@ armpmu_map_raw_event(u32 raw_event_mask, u64 config)
 
 static int map_cpu_event(struct perf_event *event,
 			 const unsigned (*event_map)[PERF_COUNT_HW_MAX],
-			 const unsigned (*cache_map)
+			 unsigned (*cache_map)
 					[PERF_COUNT_HW_CACHE_MAX]
 					[PERF_COUNT_HW_CACHE_OP_MAX]
 					[PERF_COUNT_HW_CACHE_RESULT_MAX],
@@ -253,7 +254,7 @@ armpmu_start(struct perf_event *event, int flags)
 	 * happened since disabling.
 	 */
 	armpmu_event_set_period(event, hwc, hwc->idx);
-	armpmu->enable(hwc, hwc->idx);
+	armpmu->enable(hwc, hwc->idx, event->cpu);
 }
 
 static void
@@ -362,25 +363,44 @@ static irqreturn_t armpmu_platform_irq(int irq, void *dev)
 	return plat->handle_irq(irq, dev, armpmu->handle_irq);
 }
 
+int
+armpmu_generic_request_irq(int irq, irq_handler_t *handle_irq)
+{
+        return request_irq(irq, *handle_irq,
+                        IRQF_DISABLED | IRQF_NOBALANCING,
+                        "armpmu", NULL);
+}
+
+void
+armpmu_generic_free_irq(int irq)
+{
+        if (irq >= 0)
+                free_irq(irq, NULL);
+}
+
 static void
 armpmu_release_hardware(struct arm_pmu *armpmu)
 {
 	int i, irq, irqs;
 	struct platform_device *pmu_device = armpmu->plat_device;
+#if 0
 	struct arm_pmu_platdata *plat =
 		dev_get_platdata(&pmu_device->dev);
-
+#endif
 	irqs = min(pmu_device->num_resources, num_possible_cpus());
 
 	for (i = 0; i < irqs; ++i) {
 		if (!cpumask_test_and_clear_cpu(i, &armpmu->active_irqs))
 			continue;
 		irq = platform_get_irq(pmu_device, i);
+		armpmu->free_pmu_irq(irq);
+#if 0
 		if (irq >= 0) {
 			if (plat && plat->disable_irq)
 				plat->disable_irq(irq);
 			free_irq(irq, armpmu);
 		}
+#endif
 	}
 
 	release_pmu(armpmu->type);
@@ -432,6 +452,17 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 			continue;
 		}
 
+		err = armpmu->request_pmu_irq(irq, &handle_irq);
+
+                if (err) {
+                        pr_warning("unable to request IRQ%d for %s perf "
+                                "counters\n", irq, armpmu->name);
+
+			armpmu_release_hardware(cpu_pmu);
+                        return err;
+                }
+
+#if 0
 		err = request_irq(irq, handle_irq,
 				  IRQF_DISABLED | IRQF_NOBALANCING,
 				  "arm-pmu", armpmu);
@@ -442,6 +473,7 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 			return err;
 		} else if (plat && plat->enable_irq)
 			plat->enable_irq(irq);
+#endif
 
 		cpumask_set_cpu(i, &armpmu->active_irqs);
 	}
@@ -611,6 +643,7 @@ int __init armpmu_register(struct arm_pmu *armpmu, char *name, int type)
 #include "perf_event_xscale.c"
 #include "perf_event_v6.c"
 #include "perf_event_v7.c"
+#include "perf_event_msm_krait.c"
 
 /*
  * Ensure the PMU has sane values out of reset.
@@ -637,7 +670,7 @@ static struct of_device_id armpmu_of_device_ids[] = {
 };
 
 static struct platform_device_id armpmu_plat_device_ids[] = {
-	{.name = "arm-pmu"},
+	{.name = "cpu-arm-pmu"},
 	{},
 };
 
@@ -652,7 +685,7 @@ static int __devinit armpmu_device_probe(struct platform_device *pdev)
 
 static struct platform_driver armpmu_driver = {
 	.driver		= {
-		.name	= "arm-pmu",
+		.name	= "cpu-arm-pmu",
 		.of_match_table = armpmu_of_device_ids,
 	},
 	.probe		= armpmu_device_probe,
@@ -753,7 +786,27 @@ init_hw_perf_events(void)
 			cpu_pmu = xscale2pmu_init();
 			break;
 		}
+	/* Qualcomm CPUs */
+	} else if (0x51 == implementor) {
+		switch (part_number) {
+		case 0x00F0:    /* 8x50 & 7x30*/
+//			cpu_pmu = armv7_scorpion_pmu_init();
+			break;
+		case 0x02D0:    /* 8x60 */
+//			fabricmon_pmu_init();
+//			cpu_pmu = armv7_scorpionmp_pmu_init();
+//			scorpionmp_l2_pmu_init();
+			break;
+		case 0x0490:    /* 8960 sim */
+		case 0x04D0:    /* 8960 */
+		case 0x06F0:    /* 8064 */
+//			fabricmon_pmu_init();
+			cpu_pmu = armv7_krait_pmu_init();
+//			krait_l2_pmu_init();
+			break;
+		}
 	}
+
 
 	if (cpu_pmu) {
 		pr_info("enabled with %s PMU driver, %d counters available\n",

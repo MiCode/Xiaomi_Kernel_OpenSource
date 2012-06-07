@@ -1,0 +1,37 @@
+Qualcomm I2C controller
+
+Required properties:
+
+ - reg : Offset and length of the register region(s) for the device
+	 For GSBI based controller, GSBI and QUP regions are expected
+	 For BLSP based controller, QUP region offset is expected
+ - reg-names : Register region name(s) referenced in reg above
+	 BLSP based controller expects QUP region name ("qup_phys_addr")
+	 GSBI controller expects QUP region name and GSBI region name
+	 ("gsbi_qup_i2c_addr")
+ - compatible : should be "qcom,i2c-qup"
+ - cell-index : I2C bus number used for this controller
+ - interrupts : QUP core interrupt(s). Core may have 1 error interrupt and flags
+	 for input/output service, or 3 separate interrupts for the 3 services
+ - interrupt-names: QUP core interrupt name(s) referenced in interrupts above
+	 Expected interrupt resource name(s) are: "qup_err_irq", "qup_in_irq",
+	 and "qup_out_irq"
+ - qcom,i2c-bus-freq : desired I2C bus clock frequency is Hz
+
+Optional property:
+ - qcom,i2c-src-freq : Frequency of the source clocking this bus in Hz.
+		      Divider value is set based on soruce-frequency and
+		      desired I2C bus frequency. If this value is not
+		      provided, the source clock is assumed to be running
+		      at 19.2 MHz.
+Example:
+	i2c@f9966000 {
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9966000 0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 104 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+	};

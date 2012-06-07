@@ -55,6 +55,13 @@ struct smp_cmd_pairing {
 #define SMP_AUTH_BONDING	0x01
 #define SMP_AUTH_MITM		0x04
 
+#define SMP_JUST_WORKS		0x00
+#define SMP_JUST_CFM		0x01
+#define SMP_REQ_PASSKEY		0x02
+#define SMP_CFM_PASSKEY		0x03
+#define SMP_REQ_OOB		0x04
+#define SMP_OVERLAP		0xFF
+
 #define SMP_CMD_PAIRING_CONFIRM	0x03
 struct smp_cmd_pairing_confirm {
 	__u8	confirm_val[16];
@@ -115,32 +122,10 @@ struct smp_cmd_security_req {
 #define SMP_MIN_ENC_KEY_SIZE		7
 #define SMP_MAX_ENC_KEY_SIZE		16
 
-#define SMP_FLAG_TK_VALID	1
-#define SMP_FLAG_CFM_PENDING	2
-#define SMP_FLAG_MITM_AUTH	3
-
-struct smp_chan {
-	struct l2cap_conn *conn;
-	u8		preq[7]; /* SMP Pairing Request */
-	u8		prsp[7]; /* SMP Pairing Response */
-	u8              prnd[16]; /* SMP Pairing Random (local) */
-	u8              rrnd[16]; /* SMP Pairing Random (remote) */
-	u8		pcnf[16]; /* SMP Pairing Confirm */
-	u8		tk[16]; /* SMP Temporary Key */
-	u8		enc_key_size;
-	unsigned long	smp_flags;
-	struct crypto_blkcipher	*tfm;
-	struct work_struct confirm;
-	struct work_struct random;
-
-};
-
 /* SMP Commands */
 int smp_conn_security(struct l2cap_conn *conn, __u8 sec_level);
 int smp_sig_channel(struct l2cap_conn *conn, struct sk_buff *skb);
-int smp_distribute_keys(struct l2cap_conn *conn, __u8 force);
-int smp_user_confirm_reply(struct hci_conn *conn, u16 mgmt_op, __le32 passkey);
-
-void smp_chan_destroy(struct l2cap_conn *conn);
+int smp_link_encrypt_cmplt(struct l2cap_conn *conn, __u8 status, __u8 encrypt);
+void smp_timeout(unsigned long l2cap_conn);
 
 #endif /* __SMP_H */

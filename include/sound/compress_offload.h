@@ -70,6 +70,7 @@ struct snd_compr_tstamp {
 	snd_pcm_uframes_t pcm_frames;
 	snd_pcm_uframes_t pcm_io_frames;
 	__u32 sampling_rate;
+	uint64_t timestamp;
 };
 
 /**

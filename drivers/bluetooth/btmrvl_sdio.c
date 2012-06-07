@@ -23,7 +23,6 @@
 
 #include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/sdio_func.h>
-#include <linux/module.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -65,7 +64,7 @@ static const struct btmrvl_sdio_card_reg btmrvl_reg_8688 = {
 	.io_port_1 = 0x01,
 	.io_port_2 = 0x02,
 };
-static const struct btmrvl_sdio_card_reg btmrvl_reg_87xx = {
+static const struct btmrvl_sdio_card_reg btmrvl_reg_8787 = {
 	.cfg = 0x00,
 	.host_int_mask = 0x02,
 	.host_intstatus = 0x03,
@@ -82,7 +81,7 @@ static const struct btmrvl_sdio_card_reg btmrvl_reg_87xx = {
 	.io_port_2 = 0x7a,
 };
 
-static const struct btmrvl_sdio_device btmrvl_sdio_sd8688 = {
+static const struct btmrvl_sdio_device btmrvl_sdio_sd6888 = {
 	.helper		= "sd8688_helper.bin",
 	.firmware	= "sd8688.bin",
 	.reg		= &btmrvl_reg_8688,
@@ -92,27 +91,17 @@ static const struct btmrvl_sdio_device btmrvl_sdio_sd8688 = {
 static const struct btmrvl_sdio_device btmrvl_sdio_sd8787 = {
 	.helper		= NULL,
 	.firmware	= "mrvl/sd8787_uapsta.bin",
-	.reg		= &btmrvl_reg_87xx,
-	.sd_blksz_fw_dl	= 256,
-};
-
-static const struct btmrvl_sdio_device btmrvl_sdio_sd8797 = {
-	.helper		= NULL,
-	.firmware	= "mrvl/sd8797_uapsta.bin",
-	.reg		= &btmrvl_reg_87xx,
+	.reg		= &btmrvl_reg_8787,
 	.sd_blksz_fw_dl	= 256,
 };
 
 static const struct sdio_device_id btmrvl_sdio_ids[] = {
 	/* Marvell SD8688 Bluetooth device */
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x9105),
-			.driver_data = (unsigned long) &btmrvl_sdio_sd8688 },
+			.driver_data = (unsigned long) &btmrvl_sdio_sd6888 },
 	/* Marvell SD8787 Bluetooth device */
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x911A),
 			.driver_data = (unsigned long) &btmrvl_sdio_sd8787 },
-	/* Marvell SD8797 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x912A),
-			.driver_data = (unsigned long) &btmrvl_sdio_sd8797 },
 
 	{ }	/* Terminating entry */
 };
@@ -1086,4 +1075,3 @@ MODULE_LICENSE("GPL v2");
 MODULE_FIRMWARE("sd8688_helper.bin");
 MODULE_FIRMWARE("sd8688.bin");
 MODULE_FIRMWARE("mrvl/sd8787_uapsta.bin");
-MODULE_FIRMWARE("mrvl/sd8797_uapsta.bin");

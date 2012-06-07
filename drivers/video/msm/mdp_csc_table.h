@@ -1,4 +1,4 @@
-/* drivers/video/msm_fb/mdp_csc_table.h
+/* drivers/video/msm/mdp_csc_table.h
  *
  * Copyright (C) 2007 QUALCOMM Incorporated
  * Copyright (C) 2007 Google Incorporated
@@ -16,57 +16,116 @@
 static struct {
 	uint32_t reg;
 	uint32_t val;
-} csc_table[] = {
-	{ 0x40400, 0x83 },
-	{ 0x40404, 0x102 },
-	{ 0x40408, 0x32 },
-	{ 0x4040c, 0xffffffb5 },
-	{ 0x40410, 0xffffff6c },
-	{ 0x40414, 0xe1 },
-	{ 0x40418, 0xe1 },
-	{ 0x4041c, 0xffffff45 },
-	{ 0x40420, 0xffffffdc },
-	{ 0x40440, 0x254 },
-	{ 0x40444, 0x0 },
-	{ 0x40448, 0x331 },
-	{ 0x4044c, 0x254 },
-	{ 0x40450, 0xffffff38 },
-	{ 0x40454, 0xfffffe61 },
-	{ 0x40458, 0x254 },
-	{ 0x4045c, 0x409 },
-	{ 0x40460, 0x0 },
-	{ 0x40480, 0x5d },
-	{ 0x40484, 0x13a },
-	{ 0x40488, 0x20 },
-	{ 0x4048c, 0xffffffcd },
-	{ 0x40490, 0xffffff54 },
-	{ 0x40494, 0xe1 },
-	{ 0x40498, 0xe1 },
-	{ 0x4049c, 0xffffff35 },
-	{ 0x404a0, 0xffffffec },
-	{ 0x404c0, 0x254 },
-	{ 0x404c4, 0x0 },
-	{ 0x404c8, 0x396 },
-	{ 0x404cc, 0x254 },
-	{ 0x404d0, 0xffffff94 },
-	{ 0x404d4, 0xfffffef0 },
-	{ 0x404d8, 0x254 },
-	{ 0x404dc, 0x43a },
-	{ 0x404e0, 0x0 },
-	{ 0x40500, 0x10 },
-	{ 0x40504, 0x80 },
-	{ 0x40508, 0x80 },
-	{ 0x40540, 0x10 },
-	{ 0x40544, 0x80 },
-	{ 0x40548, 0x80 },
-	{ 0x40580, 0x10 },
-	{ 0x40584, 0xeb },
-	{ 0x40588, 0x10 },
-	{ 0x4058c, 0xf0 },
-	{ 0x405c0, 0x10 },
-	{ 0x405c4, 0xeb },
-	{ 0x405c8, 0x10 },
-	{ 0x405cc, 0xf0 },
+} csc_matrix_config_table[] = {
+	/* RGB -> YUV primary forward matrix (set1). */
+	{ MDP_CSC_PFMVn(0), 0x83 },
+	{ MDP_CSC_PFMVn(1), 0x102 },
+	{ MDP_CSC_PFMVn(2), 0x32 },
+	{ MDP_CSC_PFMVn(3), 0xffffffb5 },
+	{ MDP_CSC_PFMVn(4), 0xffffff6c },
+	{ MDP_CSC_PFMVn(5), 0xe1 },
+	{ MDP_CSC_PFMVn(6), 0xe1 },
+	{ MDP_CSC_PFMVn(7), 0xffffff45 },
+	{ MDP_CSC_PFMVn(8), 0xffffffdc },
+
+	/* YUV -> RGB primary reverse matrix (set2) */
+	{ MDP_CSC_PRMVn(0), 0x254 },
+	{ MDP_CSC_PRMVn(1), 0x0 },
+	{ MDP_CSC_PRMVn(2), 0x331 },
+	{ MDP_CSC_PRMVn(3), 0x254 },
+	{ MDP_CSC_PRMVn(4), 0xffffff38 },
+	{ MDP_CSC_PRMVn(5), 0xfffffe61 },
+	{ MDP_CSC_PRMVn(6), 0x254 },
+	{ MDP_CSC_PRMVn(7), 0x409 },
+	{ MDP_CSC_PRMVn(8), 0x0 },
+
+#ifndef CONFIG_MSM_MDP31
+	/* For MDP 2.2/3.0 */
+
+	/* primary limit vector */
+	{ MDP_CSC_PLVn(0), 0x10 },
+	{ MDP_CSC_PLVn(1), 0xeb },
+	{ MDP_CSC_PLVn(2), 0x10 },
+	{ MDP_CSC_PLVn(3), 0xf0 },
+
+	/* primary bias vector */
+	{ MDP_CSC_PBVn(0), 0x10 },
+	{ MDP_CSC_PBVn(1), 0x80 },
+	{ MDP_CSC_PBVn(2), 0x80 },
+
+#else /* CONFIG_MSM_MDP31 */
+
+	/* limit vectors configuration */
+	/* rgb -> yuv (set1) pre-limit vector */
+	{ MDP_PPP_CSC_PRE_LV1n(0), 0x10 },
+	{ MDP_PPP_CSC_PRE_LV1n(1), 0xeb },
+	{ MDP_PPP_CSC_PRE_LV1n(2), 0x10 },
+	{ MDP_PPP_CSC_PRE_LV1n(3), 0xf0 },
+	{ MDP_PPP_CSC_PRE_LV1n(4), 0x10 },
+	{ MDP_PPP_CSC_PRE_LV1n(5), 0xf0 },
+
+	/* rgb -> yuv (set1) post-limit vector */
+	{ MDP_PPP_CSC_POST_LV1n(0), 0x0 },
+	{ MDP_PPP_CSC_POST_LV1n(1), 0xff },
+	{ MDP_PPP_CSC_POST_LV1n(2), 0x0 },
+	{ MDP_PPP_CSC_POST_LV1n(3), 0xff },
+	{ MDP_PPP_CSC_POST_LV1n(4), 0x0 },
+	{ MDP_PPP_CSC_POST_LV1n(5), 0xff },
+
+	/* yuv -> rgb (set2) pre-limit vector */
+	{ MDP_PPP_CSC_PRE_LV2n(0), 0x0 },
+	{ MDP_PPP_CSC_PRE_LV2n(1), 0xff },
+	{ MDP_PPP_CSC_PRE_LV2n(2), 0x0 },
+	{ MDP_PPP_CSC_PRE_LV2n(3), 0xff },
+	{ MDP_PPP_CSC_PRE_LV2n(4), 0x0 },
+	{ MDP_PPP_CSC_PRE_LV2n(5), 0xff },
+
+	/* yuv -> rgb (set2) post-limit vector */
+	{ MDP_PPP_CSC_POST_LV2n(0), 0x10 },
+	{ MDP_PPP_CSC_POST_LV2n(1), 0xeb },
+	{ MDP_PPP_CSC_POST_LV2n(2), 0x10 },
+	{ MDP_PPP_CSC_POST_LV2n(3), 0xf0 },
+	{ MDP_PPP_CSC_POST_LV2n(4), 0x10 },
+	{ MDP_PPP_CSC_POST_LV2n(5), 0xf0 },
+
+	/* bias vectors configuration */
+
+	/* XXX: why is set2 used for rgb->yuv, but set1 */
+	/* used for yuv -> rgb??!? Seems to be the reverse of the
+	 * other vectors. */
+
+	/* RGB -> YUV pre-bias vector... */
+	{ MDP_PPP_CSC_PRE_BV2n(0), 0 },
+	{ MDP_PPP_CSC_PRE_BV2n(1), 0 },
+	{ MDP_PPP_CSC_PRE_BV2n(2), 0 },
+
+	/* RGB -> YUV post-bias vector */
+	{ MDP_PPP_CSC_POST_BV2n(0), 0x10 },
+	{ MDP_PPP_CSC_POST_BV2n(1), 0x80 },
+	{ MDP_PPP_CSC_POST_BV2n(2), 0x80 },
+
+	/* YUV -> RGB pre-bias vector... */
+	{ MDP_PPP_CSC_PRE_BV1n(0), 0x1f0 },
+	{ MDP_PPP_CSC_PRE_BV1n(1), 0x180 },
+	{ MDP_PPP_CSC_PRE_BV1n(2), 0x180 },
+
+	/* YUV -> RGB post-bias vector */
+	{ MDP_PPP_CSC_POST_BV1n(0), 0 },
+	{ MDP_PPP_CSC_POST_BV1n(1), 0 },
+	{ MDP_PPP_CSC_POST_BV1n(2), 0 },
+
+	/* luma filter coefficients */
+	{ MDP_PPP_DEINT_COEFFn(0), 0x3e0 },
+	{ MDP_PPP_DEINT_COEFFn(1), 0x360 },
+	{ MDP_PPP_DEINT_COEFFn(2), 0x120 },
+	{ MDP_PPP_DEINT_COEFFn(3), 0x140 },
+#endif
+};
+
+static struct {
+	uint32_t reg;
+	uint32_t val;
+} csc_color_lut[] = {
 	{ 0x40800, 0x0 },
 	{ 0x40804, 0x151515 },
 	{ 0x40808, 0x1d1d1d },

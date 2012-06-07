@@ -1,0 +1,46 @@
+Qualcomm Serial Peripheral Interface (SPI)
+
+Required properties:
+- compatible : should be "qcom,spi-qup-v2".
+- reg : offset and length of the QUP register map.
+- interrupts : should contain the QUP core interrupt.
+- spi-max-frequency : specifies maximum SPI clock frequency, Units - Hz.
+
+Optional properties:
+- gpios : specifies the gpio pins to be used for SPI CLK, MISO, MOSI in
+  that order.
+- cs-gpios : specifies the gpio pins to be used for chipselects.
+
+SPI slave nodes must be children of the SPI master node and contain
+the following properties.
+- reg : (required) chip select address of device.
+- compatible : (required) name of SPI device following generic names
+  recommended practice
+- spi-max-frequency : (required) Maximum SPI clocking speed of device in Hz
+- interrupts : (recommended) should contain the SPI slave interrupt number
+  encoded depending on the type of the interrupt controller.
+- interrupt-parent : (recommended) the phandle for the interrupt controller
+  that services interrupts for this device.
+- spi-cpol : (optional) Empty property indicating device requires inverse
+  clock polarity (CPOL) mode
+- spi-cpha : (optional) Empty property indicating device requires shifted
+  clock phase (CPHA) mode
+- spi-cs-high : (optional) Empty property indicating device requires
+  chip select active high
+
+Example:
+	spi@f9924000 {
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9924000 0x1000>;
+		interrupts = <0 96 0>;
+		spi-max-frequency = <24000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		device@0 {
+			compatible = "spidev";
+			reg = <0>;
+			spi-max-frequency = <5000000>;
+		};
+	};
+

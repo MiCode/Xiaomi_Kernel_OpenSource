@@ -337,7 +337,6 @@ __turn_mmu_on_loc:
 	.long	__turn_mmu_on_end
 
 #if defined(CONFIG_SMP)
-	__CPUINIT
 ENTRY(secondary_startup)
 	/*
 	 * Common entry point for secondary CPUs.
@@ -422,10 +421,17 @@ __enable_mmu:
 	mov	r5, #0
 	mcrr	p15, 0, r4, r5, c2		@ load TTBR0
 #else
-	mov	r5, #(domain_val(DOMAIN_USER, DOMAIN_MANAGER) | \
-		      domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) | \
-		      domain_val(DOMAIN_TABLE, DOMAIN_MANAGER) | \
+#ifdef CONFIG_EMULATE_DOMAIN_MANAGER_V7
+	mov	r5, #(domain_val(DOMAIN_USER, DOMAIN_CLIENT) | \
+		      domain_val(DOMAIN_KERNEL, DOMAIN_CLIENT) | \
+		      domain_val(DOMAIN_TABLE, DOMAIN_CLIENT) | \
 		      domain_val(DOMAIN_IO, DOMAIN_CLIENT))
+#else
+	mov	r5, #(domain_val(DOMAIN_USER, DOMAIN_CLIENT) | \
+		      domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) | \
+		      domain_val(DOMAIN_TABLE, DOMAIN_CLIENT) | \
+		      domain_val(DOMAIN_IO, DOMAIN_CLIENT))
+#endif
 	mcr	p15, 0, r5, c3, c0, 0		@ load domain access register
 	mcr	p15, 0, r4, c2, c0, 0		@ load page table pointer
 #endif
@@ -455,6 +461,15 @@ ENTRY(__turn_mmu_on)
 	mrc	p15, 0, r3, c0, c0, 0		@ read id reg
 	instr_sync
 	mov	r3, r3
+#ifdef CONFIG_ARCH_MSM_KRAIT
+	ldr	r3, =0xff00fc00
+	and	r3, r9, r3
+	ldr 	r4, =0x51000400
+	cmp	r3, r4
+	mrceq	p15, 7, r3, c15, c0, 2
+	biceq	r3, r3, #0x400
+	mcreq	p15, 7, r3, c15, c0, 2
+#endif
 	mov	r3, r13
 	mov	pc, r3
 __turn_mmu_on_end:

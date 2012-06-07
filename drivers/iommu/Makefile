@@ -1,5 +1,8 @@
 obj-$(CONFIG_IOMMU_API) += iommu.o
 obj-$(CONFIG_MSM_IOMMU) += msm_iommu.o msm_iommu_dev.o
+ifdef CONFIG_OF
+obj-$(CONFIG_MSM_IOMMU) += msm_iommu-v2.o msm_iommu_dev-v2.o msm_iommu_pagetable.o
+endif
 obj-$(CONFIG_AMD_IOMMU) += amd_iommu.o amd_iommu_init.o
 obj-$(CONFIG_AMD_IOMMU_V2) += amd_iommu_v2.o
 obj-$(CONFIG_DMAR_TABLE) += dmar.o

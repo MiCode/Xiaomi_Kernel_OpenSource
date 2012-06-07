@@ -1,0 +1,66 @@
+* MSM Subsystem Power Manager (spm-v2)
+
+S4 generation of MSMs have SPM hardware blocks to control the Application
+Processor Sub-System power. These SPM blocks run individual state machine
+to determine what the core (L2 or Krait/Scorpion) would do when the WFI
+instruction is executed by the core. The SAW hardware block handles SPM and
+AVS functionality for the cores.
+
+The devicetree representation of the SPM block should be:
+
+Required properties
+
+- compatible: "qcom,spm-v2"
+- reg: The physical address and the size of the SPM's memory mapped registers
+- qcom, core-id: The core id the SPM block is attached to.
+	{0..n} for cores {0..n}
+	{0xffff} for L2
+- qcom,saw2-ver-reg: The location of the version register
+- qcom,saw2-cfg: SAW2 configuration register
+- qcom,saw2-avs-ctl: The AVS control register
+- qcom,saw2-avs-hysterisis: The AVS hysterisis register to delay the AVS
+	controller requests
+- qcom,saw2-spm-dly: Provides the values for the SPM delay command in the SPM
+	sequence
+- qcom,saw2-spm-ctl: The SPM control register
+- qcom,saw2-vctl-timeout-us: The timeout value to wait for voltage to change
+	after sending the voltage command to the PMIC
+
+Optional properties
+
+- qcom,saw2-avs-limit: The AVS limit register
+- qcom,saw2-avs-dly: The AVS delay register is used to specify the delay values
+	between AVS controller requests
+- qcom,saw2-pmic-dly: The delay values for waiting on PMIC response
+- qcom,saw2-pmic-data0..7: Specify the pmic data value and the associated FTS
+	index to send the PMIC data to
+- qcom,saw2-vctl-port: The FTS port used for changing voltage
+- qcom,saw2-phase-port: The FTS port used for changing the number of phases
+- qcom,saw2-spm-cmd-wfi: The WFI command sequence
+- qcom,saw2-spm-cmd-ret: The Retention command sequence
+- qcom,saw2-spm-cmd-spc: The Standalone PC command sequence
+- qcom,saw2-spm-cmd-pc: The Power Collapse command sequence
+
+Example:
+	qcom,spm@f9089000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xf9089000 0x1000>;
+		qcom,core-id = <0>;
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,saw2-cfg = <0x1b>;
+		qcom,saw2-avs-ctl = <0>;
+		qcom,saw2-avs-hysteresis = <0>;
+		qcom,saw2-avs-limit = <0>;
+		qcom,saw2-avs-dly= <0>;
+		qcom,saw2-spm-dly= <0x20000400>;
+		qcom,saw2-spm-ctl = <0x1>;
+		qcom,spm-cmd-wfi = [03 0b 0f];
+		qcom,spm-cmd-spc = [00 20 50 80 60 70 10 92
+				a0 b0 03 68 70 3b 92 a0 b0
+				82 2b 50 10 30 02 22 30 0f];
+		qcom,spm-cmd-pc = [00 20 10 92 a0 b0 07 3b 92
+				a0 b0 82 10 30 02 22 30 0f];
+	};
+

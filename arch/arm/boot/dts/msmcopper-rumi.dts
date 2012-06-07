@@ -1,0 +1,114 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msmcopper.dtsi"
+
+/ {
+	model = "Qualcomm MSM Copper RUMI";
+	compatible = "qcom,msmcopper-rumi", "qcom,msmcopper";
+
+	timer {
+		clock-frequency = <5000000>;
+	};
+
+	serial@f991f000 {
+		status = "disable";
+	};
+
+	usb@f9a55000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f9824000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f9864000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f98a4000 {
+		status = "disable";
+	};
+
+	qcom,sdcc@f98e4000 {
+		status = "disable";
+	};
+
+	qcom,sps@f998000 {
+		status = "disable";
+	};
+
+	spi@f9924000 {
+		status = "disable";
+	};
+
+	spi@f9923000 {
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9923000 0x1000>;
+		interrupts = <0 95 0>;
+		spi-max-frequency = <24000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&msmgpio 3 0>, /* CLK  */
+			<&msmgpio 1 0>, /* MISO */
+			<&msmgpio 0 0>; /* MOSI */
+		cs-gpios = <&msmgpio 9 0>;
+
+		ethernet-switch@2 {
+			compatible = "simtec,ks8851";
+			reg = <2>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <90 0>;
+			spi-max-frequency = <5000000>;
+		};
+	};
+
+	i2c@f9966000 {
+		status = "disable";
+	};
+
+	i2c@f9967000 {
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0Xf9967000 0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 105 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+		gpios = <&msmgpio 83 0>, /* DAT  */
+			<&msmgpio 84 0>; /* CLK */
+	};
+
+	slim@fe12f000 {
+		status = "disable";
+	};
+
+	qcom,spmi@fc4c0000 {
+		status = "disable";
+	};
+
+	qcom,ssusb@F9200000 {
+		status = "disable";
+	};
+
+	qcom,lpass@fe200000 {
+		status = "disable";
+	};
+
+	qcom,pronto@fb21b000 {
+		status = "disable";
+	};
+};

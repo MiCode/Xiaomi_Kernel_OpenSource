@@ -17,6 +17,7 @@
  *
  */
 
+#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/list.h>
@@ -29,8 +30,8 @@
 #include <linux/io.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include <mach/proc_comm.h>
 
-#include "proc_comm.h"
 #include "acpuclock.h"
 
 
@@ -97,7 +98,7 @@ struct clkctl_acpu_speed {
 
 /*
  * ACPU speed table. Complete table is shown but certain speeds are commented
- * out to optimized speed switching. Initialize loops_per_jiffy to 0.
+ * out to optimized speed switching. Initalize loops_per_jiffy to 0.
  *
  * Table stepping up/down is optimized for 256mhz jumps while staying on the
  * same PLL.
@@ -493,7 +494,7 @@ uint32_t acpuclk_get_switch_time(void)
  * Clock driver initialization
  *---------------------------------------------------------------------------*/
 
-/* Initialize the lpj field in the acpu_freq_tbl. */
+/* Initalize the lpj field in the acpu_freq_tbl. */
 static void __init lpj_init(void)
 {
 	int i;

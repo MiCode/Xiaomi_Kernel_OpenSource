@@ -403,6 +403,26 @@ config SPI_NUC900
 	help
 	  SPI driver for Nuvoton NUC900 series ARM SoCs
 
+config SPI_QSD
+	tristate "Qualcomm MSM SPI support"
+	default n
+	depends on ARCH_MSM_SCORPION && !MSM_SMP
+	help
+	  Support for Serial Peripheral Interface for Qualcomm MSM
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called spi_qsd.
+
+config SPI_QUP
+	tristate "Qualcomm MSM SPI QUPe Support"
+	depends on ARCH_MSM && !SPI_QSD
+	default n
+	help
+	  Support for Serial Peripheral Interface for Qualcomm Universal
+          Peripheral.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called spi_qsd.
 #
 # Add new SPI master controllers in alphabetical order above this line
 #

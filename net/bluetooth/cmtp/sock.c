@@ -39,6 +39,7 @@
 
 #include <linux/isdn/capilli.h>
 
+#include <asm/system.h>
 
 #include "cmtp.h"
 
@@ -136,10 +137,10 @@ static int cmtp_sock_compat_ioctl(struct socket *sock, unsigned int cmd, unsigne
 {
 	if (cmd == CMTPGETCONNLIST) {
 		struct cmtp_connlist_req cl;
-		u32 uci;
+		uint32_t uci;
 		int err;
 
-		if (get_user(cl.cnum, (u32 __user *) arg) ||
+		if (get_user(cl.cnum, (uint32_t __user *) arg) ||
 				get_user(uci, (u32 __user *) (arg + 4)))
 			return -EFAULT;
 
@@ -150,7 +151,7 @@ static int cmtp_sock_compat_ioctl(struct socket *sock, unsigned int cmd, unsigne
 
 		err = cmtp_get_connlist(&cl);
 
-		if (!err && put_user(cl.cnum, (u32 __user *) arg))
+		if (!err && put_user(cl.cnum, (uint32_t __user *) arg))
 			err = -EFAULT;
 
 		return err;

@@ -2,6 +2,16 @@
 menu "Bluetooth device drivers"
 	depends on BT
 
+config BT_HCISMD
+	tristate "HCI SMD driver"
+	help
+	  Bluetooth HCI SMD driver.
+          This driver is required if you want to use Bluetoth device with
+	  SMD interface.
+
+	  Say Y here to compile support for Bluetooth USB devices into the
+          kernel or say M to compile is as a module (hci_smd).
+
 config BT_HCIBTUSB
 	tristate "HCI USB driver"
 	depends on USB
@@ -81,6 +91,17 @@ config BT_HCIUART_LL
 
 	  Say Y here to compile support for HCILL protocol.
 
+config BT_HCIUART_IBS
+	bool "HCI_IBS protocol support"
+	depends on BT_HCIUART
+	default n
+	help
+	  HCI_IBS (HCI In-Band Sleep) is a serial protocol for communication
+	  between Bluetooth device and host. This protocol is required for
+	  UART clock control for some Qualcomm Bluetooth devices.
+
+	  Say Y here to compile support for HCI_IBS protocol.
+
 config BT_HCIBCM203X
 	tristate "HCI BCM203x USB driver"
 	depends on USB
@@ -103,6 +124,14 @@ config BT_HCIBPA10X
 
 	  Say Y here to compile support for HCI BPA10x devices into the
 	  kernel or say M to compile it as module (bpa10x).
+
+config BT_MSM_SLEEP
+	tristate "MSM Bluesleep driver"
+	depends on BT && SERIAL_MSM_HS
+	default n
+	help
+	  Bluetooth MSM bluesleep driver.
+	  This driver provides support for BTS sleep.
 
 config BT_HCIBFUSB
 	tristate "HCI BlueFRITZ! USB driver"
@@ -188,7 +217,7 @@ config BT_MRVL
 	  The core driver to support Marvell Bluetooth devices.
 
 	  This driver is required if you want to support
-	  Marvell Bluetooth devices, such as 8688/8787/8797.
+	  Marvell Bluetooth devices, such as 8688/8787.
 
 	  Say Y here to compile Marvell Bluetooth driver
 	  into the kernel or say M to compile it as module.
@@ -201,11 +230,19 @@ config BT_MRVL_SDIO
 	  The driver for Marvell Bluetooth chipsets with SDIO interface.
 
 	  This driver is required if you want to use Marvell Bluetooth
-	  devices with SDIO interface. Currently SD8688/SD8787/SD8797
-	  chipsets are supported.
+	  devices with SDIO interface. Currently SD8688/SD8787 chipsets are
+	  supported.
 
 	  Say Y here to compile support for Marvell BT-over-SDIO driver
 	  into the kernel or say M to compile it as module.
+
+config MSM_BT_POWER
+	tristate "MSM Bluetooth Power Control"
+	depends on ARCH_MSM && RFKILL
+	default m
+	help
+	  Provides a parameter to switch on/off power from PMIC
+	  to Bluetooth device.
 
 config BT_ATH3K
 	tristate "Atheros firmware download driver"

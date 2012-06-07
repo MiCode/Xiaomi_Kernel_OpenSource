@@ -351,7 +351,7 @@ ENDPROC(__aeabi_idivmod)
 
 #endif
 
-Ldiv0:
+ENTRY(Ldiv0)
 UNWIND(.fnstart)
 UNWIND(.pad #4)
 UNWIND(.save {lr})

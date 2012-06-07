@@ -19,3 +19,5 @@ obj-y        := dvb-core/	\
 		ddbridge/
 
 obj-$(CONFIG_DVB_FIREDTV)	+= firewire/
+obj-$(CONFIG_DVB_MPQ)		+= mpq/
+

@@ -770,6 +770,11 @@ static int parse_features(struct dm_arg_set *as, struct multipath *m)
 	if (!argc)
 		return 0;
 
+	if (argc > as->argc) {
+		ti->error = "not enough arguments for features";
+		return -EINVAL;
+	}
+
 	do {
 		arg_name = dm_shift_arg(as);
 		argc--;

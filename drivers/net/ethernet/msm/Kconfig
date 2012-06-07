@@ -1,0 +1,52 @@
+#
+# msm network device configuration
+#
+
+config MSM_RMNET
+	tristate "MSM RMNET Virtual Network Device"
+	depends on ARCH_MSM
+	default y
+	help
+	  Virtual ethernet interface for MSM RMNET transport.
+
+config MSM_RMNET_SDIO
+	bool "RMNET SDIO Driver"
+	depends on MSM_SDIO_DMUX
+	default n
+	help
+	  Implements RMNET over SDIO interface.
+
+config MSM_RMNET_BAM
+	bool "RMNET BAM Driver"
+	depends on MSM_BAM_DMUX
+	default n
+	help
+	  Implements RMNET over BAM interface.
+	  RMNET provides a virtual ethernet interface
+	  for routing IP packets within the MSM using
+	  BAM as a physical transport.
+
+config MSM_RMNET_SMUX
+	bool "RMNET SMUX Driver"
+	depends on N_SMUX
+	help
+	  Implements RMNET over SMUX interface.
+	  RMNET provides a virtual ethernet interface
+	  for routing IP packets within the MSM using
+	  HSUART as a physical transport.
+
+config MSM_RMNET_DEBUG
+	bool "MSM RMNET debug interface"
+	depends on MSM_RMNET
+	default n
+	help
+	  Debug stats on wakeup counts.
+
+config QFEC
+	tristate "QFEC ethernet driver"
+	select MII
+	depends on ARM
+	help
+	  This driver supports Ethernet in the FSM9xxx.
+	  To compile this driver as a module, choose M here: the
+	  module will be called qfec.

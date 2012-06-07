@@ -1,0 +1,167 @@
+Introduction
+
+'genlock' is an in-kernel API and optional userspace interface for a generic
+cross-process locking mechanism. The API is designed for situations where
+multiple user space processes and/or kernel drivers need to coordinate access
+to a shared resource, such as a graphics buffer. The API was designed with
+graphics buffers in mind, but is sufficiently generic to allow it to be
+independently used with different types of resources. The chief advantage
+of genlock over other cross-process locking mechanisms is that the resources
+can be accessed by both userspace and kernel drivers which allows resources
+to be locked or unlocked by asynchronous events in the kernel without the
+intervention of user space.
+
+As an example, consider a graphics buffer that is shared between a rendering
+application and a compositing window manager. The application renders into a
+buffer. That buffer is reused by the compositing window manager as a texture.
+To avoid corruption, access to the buffer needs to be restricted so that one
+is not drawing on the surface while the other is reading. Locks can be
+explicitly added between the rendering stages in the processes, but explicit
+locks require that the application wait for rendering and purposely release the
+lock. An implicit release triggered by an asynchronous event from the GPU
+kernel driver, however, will let execution continue without requiring the
+intercession of user space.
+
+SW Goals
+
+The genlock API implements exclusive write locks and shared read locks meaning
+that there can only be one writer at a time, but multiple readers. Processes
+that are unable to acquire a lock can be optionally blocked until the resource
+becomes available.
+
+Locks are shared between processes. Each process will have its own private
+instance for a lock known as a handle. Handles can be shared between user
+space and kernel space to allow a kernel driver to unlock or lock a buffer
+on behalf of a user process.
+
+Locks within a process using a single genlock handle follow the same rules for
+exclusive write locks with multiple readers. Genlock cannot provide deadlock
+protection because the same handle can be used simultaneously by a producer and
+consumer. In practice in the event that the client creates a deadlock an error
+will still be generated when the timeout expires.
+
+Kernel API
+
+Access to the genlock API can either be via the in-kernel API or via an
+optional character device (/dev/genlock). The character device is primarily
+to be used for legacy resource sharing APIs that cannot be easily changed.
+New resource sharing APIs from this point should implement a scheme specific
+wrapper for locking.
+
+To create or attach to an existing lock, a process or kernel driver must first
+create a handle. Each handle is linked to a single lock at any time. An entityi
+may have multiple handles, each associated with a different lock. Once a handle
+has been created, the owner may create a new lock or attach an existing lock
+that has been exported from a different handle.
+
+Once the handle has a lock attached, the owning process may attempt to lock the
+buffer for read or write. Write locks are exclusive, meaning that only one
+process may acquire it at any given time. Read locks are shared, meaning that
+multiple readers can hold the lock at the same time. Attempts to acquire a read
+lock with a writer active or a write lock with one or more readers or writers
+active will typically cause the process to block until the lock is acquired.
+When the lock is released, all waiting processes will be woken up. Ownership
+of the lock is reference counted, meaning that any one owner can "lock"
+multiple times. The lock will only be released from the owner when all the
+references to the lock are released via unlock.
+
+The owner of a write lock may atomically convert the lock into a read lock
+(which will wake up other processes waiting for a read lock) without first
+releasing the lock. The owner would simply issue a new request for a read lock.
+However, the owner of a read lock cannot convert it into a write lock in the
+same manner. To switch from a read lock to a write lock, the owner must
+release the lock and then try to reacquire it.
+
+These are the in-kernel API calls that drivers can use to create and
+manipulate handles and locks. Handles can either be created and managed
+completely inside of kernel space, or shared from user space via a file
+descriptor.
+
+* struct genlock_handle *genlock_get_handle(void)
+Create a new handle.
+
+* struct genlock_handle * genlock_get_handle_fd(int fd)
+Given a valid file descriptor, return the handle associated with that
+descriptor.
+
+* void genlock_put_handle(struct genlock_handle *)
+Release a handle.
+
+* struct genlock * genlock_create_lock(struct genlock_handle *)
+Create a new lock and attach it to the handle.  Once a lock is attached to a
+handle it stays attached until the handle is destroyed.
+
+* struct genlock * genlock_attach_lock(struct genlock_handle *handle, int fd)
+Given a valid file descriptor, get the lock associated with it and attach it to
+the handle.
+
+* int genlock_lock(struct genlock_handle *, int op, int flags, u32 timeout)
+Lock or unlock the lock attached to the handle. A zero timeout value will
+be treated just like if the GENOCK_NOBLOCK flag is passed; if the lock
+can be acquired without blocking then do so otherwise return -EAGAIN.
+Function returns -ETIMEDOUT if the timeout expired or 0 if the lock was
+acquired.
+
+* int genlock_wait(struct genloc_handle *, u32 timeout)
+Wait for a lock held by the handle to go to the unlocked state. A non-zero
+timeout value must be passed. Returns -ETIMEDOUT if the timeout expired or
+0 if the lock is in an unlocked state.
+
+Character Device
+
+Opening an instance to the /dev/genlock character device will automatically
+create a new handle. All ioctl functions with the exception of NEW and
+RELEASE use the following parameter structure:
+
+struct genlock_lock {
+	int fd; /* Returned by EXPORT, used by ATTACH */
+	int op;	/* Used by LOCK */
+	int flags;	/* used by LOCK */
+	u32 timeout;	/* Used by LOCK and WAIT */
+}
+
+*GENLOCK_IOC_NEW
+Create a new lock and attaches it to the handle. Returns -EINVAL if the handle
+already has a lock attached (use GENLOCK_IOC_RELEASE to remove it). Returns
+-ENOMEM if the memory for the lock can not be allocated. No data is passed
+from the user for this ioctl.
+
+*GENLOCK_IOC_EXPORT
+Export the currently attached lock to a file descriptor. The file descriptor
+is returned in genlock_lock.fd.
+
+*GENLOCK_IOC_ATTACH
+Attach an exported lock file descriptor to the current handle. Return -EINVAL
+if the handle already has a lock attached (use GENLOCK_IOC_RELEASE to remove
+it). Pass the file descriptor in genlock_lock.fd.
+
+*GENLOCK_IOC_LOCK
+Lock or unlock the attached lock. Pass the desired operation in
+genlock_lock.op:
+ * GENLOCK_WRLOCK - write lock
+ * GENLOCK_RDLOCK - read lock
+ * GENLOCK_UNLOCK - unlock an existing lock
+
+Pass flags in genlock_lock.flags:
+ * GENLOCK_NOBLOCK       - Do not block if the lock is already taken
+ * GENLOCK_WRITE_TO_READ - Convert a write lock that the handle owns to a read
+                           lock. For instance graphics may hold a write lock
+                           while rendering the back buffer then when swapping
+                           convert the lock to a read lock to copy the front
+                           buffer in the next frame for preserved buffers.
+
+Pass a timeout value in milliseconds in genlock_lock.timeout.
+genlock_lock.flags and genlock_lock.timeout are not used for UNLOCK.
+Returns -EINVAL if no lock is attached, -EAGAIN if the lock is taken and
+NOBLOCK is specified or if the timeout value is zero, -ETIMEDOUT if the timeout
+expires or 0 if the lock was successful.
+
+* GENLOCK_IOC_WAIT
+Wait for the lock attached to the handle to be released (i.e. goes to unlock).
+This is mainly used for a thread that needs to wait for a peer to release a
+lock on the same shared handle. A non-zero timeout value in milliseconds is
+passed in genlock_lock.timeout. Returns 0 when the lock has been released,
+-EINVAL if a zero timeout is passed, or -ETIMEDOUT if the timeout expires.
+
+* GENLOCK_IOC_RELEASE
+This ioctl has been deprecated.  Do not use.

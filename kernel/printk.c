@@ -44,6 +44,7 @@
 
 #include <asm/uaccess.h>
 
+#include <mach/msm_rtb.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
@@ -55,10 +56,6 @@ void asmlinkage __attribute__((weak)) early_printk(const char *fmt, ...)
 }
 
 #define __LOG_BUF_LEN	(1 << CONFIG_LOG_BUF_SHIFT)
-
-#ifdef        CONFIG_DEBUG_LL
-extern void printascii(char *);
-#endif
 
 /* printk's without a loglevel use this.. */
 #define DEFAULT_MESSAGE_LOGLEVEL CONFIG_DEFAULT_MESSAGE_LOGLEVEL
@@ -799,6 +796,11 @@ asmlinkage int printk(const char *fmt, ...)
 {
 	va_list args;
 	int r;
+#ifdef CONFIG_MSM_RTB
+	void *caller = __builtin_return_address(0);
+
+	uncached_logk_pc(LOGK_LOGBUF, caller, (void *)log_end);
+#endif
 
 #ifdef CONFIG_KGDB_KDB
 	if (unlikely(kdb_trap_printk)) {
@@ -935,9 +937,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	printed_len += vscnprintf(printk_buf + printed_len,
 				  sizeof(printk_buf) - printed_len, fmt, args);
 
-#ifdef	CONFIG_DEBUG_LL
-	printascii(printk_buf);
-#endif
 
 	p = printk_buf;
 
@@ -1199,6 +1198,14 @@ void resume_console(void)
 	console_unlock();
 }
 
+static void __cpuinit console_flush(struct work_struct *work)
+{
+	console_lock();
+	console_unlock();
+}
+
+static __cpuinitdata DECLARE_WORK(console_cpu_notify_work, console_flush);
+
 /**
  * console_cpu_notify - print deferred console messages after CPU hotplug
  * @self: notifier struct
@@ -1209,6 +1216,9 @@ void resume_console(void)
  * will be spooled but will not show up on the console.  This function is
  * called when a new CPU comes online (or fails to come up), and ensures
  * that any such output gets printed.
+ *
+ * Special handling must be done for cases invoked from an atomic context,
+ * as we can't be taking the console semaphore here.
  */
 static int __cpuinit console_cpu_notify(struct notifier_block *self,
 	unsigned long action, void *hcpu)
@@ -1220,6 +1230,13 @@ static int __cpuinit console_cpu_notify(struct notifier_block *self,
 	case CPU_UP_CANCELED:
 		console_lock();
 		console_unlock();
+		break;
+	case CPU_DYING:
+		/* invoked with preemption disabled, so defer */
+		if (!console_trylock())
+			schedule_work(&console_cpu_notify_work);
+		else
+			console_unlock();
 	}
 	return NOTIFY_OK;
 }

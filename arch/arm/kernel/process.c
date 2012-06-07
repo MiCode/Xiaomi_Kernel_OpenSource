@@ -154,6 +154,9 @@ static void __soft_restart(void *addr)
 	/* Push out any further dirty data, and ensure cache is empty */
 	flush_cache_all();
 
+	/* Push out the dirty data from external caches */
+	outer_disable();
+
 	/* Switch to the identity mapping. */
 	phys_reset = (phys_reset_t)(unsigned long)virt_to_phys(cpu_reset);
 	phys_reset((unsigned long)addr);
@@ -218,7 +221,8 @@ EXPORT_SYMBOL_GPL(cpu_idle_wait);
  * This is our default idle handler.
  */
 
-void (*arm_pm_idle)(void);
+extern void arch_idle(void);
+void (*arm_pm_idle)(void) = arch_idle;
 
 static void default_idle(void)
 {

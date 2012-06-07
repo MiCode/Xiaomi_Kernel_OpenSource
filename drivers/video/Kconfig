@@ -25,6 +25,8 @@ source "drivers/gpu/stub/Kconfig"
 
 source "drivers/gpu/ion/Kconfig"
 
+source "drivers/gpu/msm/Kconfig"
+
 config VGASTATE
        tristate
        default n
@@ -2351,13 +2353,6 @@ config FB_PRE_INIT_FB
 	  Select this option if display contents should be inherited as set by
 	  the bootloader.
 
-config FB_MSM
-	tristate "MSM Framebuffer support"
-	depends on FB && ARCH_MSM
-	select FB_CFB_FILLRECT
-	select FB_CFB_COPYAREA
-	select FB_CFB_IMAGEBLIT
-
 config FB_MX3
 	tristate "MX3 Framebuffer support"
 	depends on FB && MX3_IPU
@@ -2412,6 +2407,8 @@ config FB_PUV3_UNIGFX
 	help
 	  Choose this option if you want to use the Unigfx device as a
 	  framebuffer device. Without the support of PCI & AGP.
+
+source "drivers/video/msm/Kconfig"
 
 source "drivers/video/omap/Kconfig"
 source "drivers/video/omap2/Kconfig"

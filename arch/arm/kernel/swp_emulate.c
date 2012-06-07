@@ -174,6 +174,57 @@ static int emulate_swpX(unsigned int address, unsigned int *data,
 	return res;
 }
 
+static int check_condition(struct pt_regs *regs, unsigned int insn)
+{
+	unsigned int base_cond, neg, cond = 0;
+	unsigned int cpsr_z, cpsr_c, cpsr_n, cpsr_v;
+
+	cpsr_n = (regs->ARM_cpsr & PSR_N_BIT) ? 1 : 0;
+	cpsr_z = (regs->ARM_cpsr & PSR_Z_BIT) ? 1 : 0;
+	cpsr_c = (regs->ARM_cpsr & PSR_C_BIT) ? 1 : 0;
+	cpsr_v = (regs->ARM_cpsr & PSR_V_BIT) ? 1 : 0;
+
+	/* Upper 3 bits indicate condition, lower bit incicates negation */
+	base_cond = insn >> 29;
+	neg = insn & BIT(28) ? 1 : 0;
+
+	switch (base_cond) {
+	case 0x0:	/* equal */
+		cond = cpsr_z;
+		break;
+
+	case 0x1:	/* carry set */
+		cond = cpsr_c;
+		break;
+
+	case 0x2:	/* minus / negative */
+		cond = cpsr_n;
+		break;
+
+	case 0x3:	/* overflow */
+		cond = cpsr_v;
+		break;
+
+	case 0x4:	/* unsigned higher */
+		cond = (cpsr_c == 1) && (cpsr_z == 0);
+		break;
+
+	case 0x5:	/* signed greater / equal */
+		cond = (cpsr_n == cpsr_v);
+		break;
+
+	case 0x6:	/* signed greater */
+		cond = (cpsr_z == 0) && (cpsr_n == cpsr_v);
+		break;
+
+	case 0x7:	/* always */
+		cond = 1;
+		break;
+	};
+
+	return cond && !neg;
+}
+
 /*
  * swp_handler logs the id of calling process, dissects the instruction, sanity
  * checks the memory location, calls emulate_swpX for the actual operation and
@@ -205,6 +256,12 @@ static int swp_handler(struct pt_regs *regs, unsigned int instr)
 		pr_debug("\"%s\" (%ld) uses deprecated SWP{B} instruction\n",
 			 current->comm, (unsigned long)current->pid);
 		previous_pid = current->pid;
+	}
+
+	/* Ignore the instruction if it fails its condition code check */
+	if (!check_condition(regs, instr)) {
+		regs->ARM_pc += 4;
+		return 0;
 	}
 
 	address = regs->uregs[EXTRACT_REG_NUM(instr, RN_OFFSET)];

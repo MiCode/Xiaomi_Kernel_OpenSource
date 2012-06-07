@@ -1,0 +1,316 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "skeleton.dtsi"
+/include/ "msmcopper_pm.dtsi"
+/include/ "msm-pm8x41-rpm-regulator.dtsi"
+/include/ "msm-pm8841.dtsi"
+/include/ "msm-pm8941.dtsi"
+/include/ "msmcopper-regulator.dtsi"
+/include/ "msmcopper-gpio.dtsi"
+/include/ "msmcopper-iommu.dtsi"
+/include/ "msm-gdsc.dtsi"
+
+/ {
+	model = "Qualcomm MSM Copper";
+	compatible = "qcom,msmcopper";
+	interrupt-parent = <&intc>;
+
+	intc: interrupt-controller@F9000000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0xF9000000 0x1000>,
+		      <0xF9002000 0x1000>;
+	};
+
+	msmgpio: gpio@fd510000 {
+		compatible = "qcom,msm-gpio";
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		reg = <0xfd510000 0x4000>;
+		#gpio-cells = <2>;
+	};
+
+	timer {
+		compatible = "qcom,msm-qtimer", "arm,armv7-timer";
+		interrupts = <1 2 0 1 3 0>;
+		clock-frequency = <19200000>;
+	};
+
+	qcom,vidc@fdc00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0xfdc00000 0xff000>;
+		interrupts = <0 44 0>;
+	};
+
+	serial@f991f000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991f000 0x1000>;
+		interrupts = <0 109 0>;
+	};
+
+	serial@f995e000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf995e000 0x1000>;
+		interrupts = <0 114 0>;
+	};
+
+	usb@f9a55000 {
+		compatible = "qcom,hsusb-otg";
+		reg = <0xf9a55000 0x400>;
+		interrupts = <0 134 0>;
+		HSUSB_VDDCX-supply = <&pm8841_s2>;
+		HSUSB_1p8-supply = <&pm8941_l6>;
+		HSUSB_3p3-supply = <&pm8941_l24>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+	};
+
+	qcom,sdcc@f9824000 {
+		cell-index = <1>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf9824000 0x1000>;
+		interrupts = <0 123 0>;
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,sdcc-sup-voltages = <2950 2950>;
+		qcom,sdcc-bus-width = <8>;
+		qcom,sdcc-hs200;
+		qcom,sdcc-nonremovable;
+	};
+
+	qcom,sdcc@f98a4000 {
+		cell-index = <2>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf98a4000 0x1000>;
+		interrupts = <0 125 0>;
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,sdcc-sup-voltages = <2950 2950>;
+		qcom,sdcc-bus-width = <4>;
+	};
+
+	qcom,sdcc@f9864000 {
+		cell-index = <3>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf9864000 0x1000>;
+		interrupts = <0 127 0>;
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
+		qcom,sdcc-sup-voltages = <1800 1800>;
+		qcom,sdcc-bus-width = <4>;
+	};
+
+	qcom,sdcc@f98e4000 {
+		cell-index = <4>;
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf98e4000 0x1000>;
+		interrupts = <0 129 0>;
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
+		qcom,sdcc-sup-voltages = <1800 1800>;
+		qcom,sdcc-bus-width = <4>;
+	};
+
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>;
+		interrupts = <0 94 0>;
+
+		qcom,bam-dma-res-pipes = <6>;
+	};
+
+
+	spi@f9924000 {
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9924000 0x1000>;
+		interrupts = <0 96 0>;
+		spi-max-frequency = <25000000>;
+	};
+
+	slim@fe12f000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-msm";
+		reg = <0xfe12f000 0x35000>,
+		      <0xfe104000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0 0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,min-clk-gear = <10>;
+	};
+
+	qcom,spmi@fc4c0000 {
+		cell-index = <0>;
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0xfc4cf000 0x1000>,
+		      <0Xfc4cb000 0x1000>;
+		/* 190,ee0_krait_hlos_spmi_periph_irq */
+		/* 187,channel_0_krait_hlos_trans_done_irq */
+		interrupts = <0 190 0 0 187 0>;
+		qcom,pmic-arb-ee = <0>;
+		qcom,pmic-arb-channel = <0>;
+		qcom,pmic-arb-ppid-map = <0x13000000>, /* PM8941_LDO1 */
+					 <0x13100001>, /* PM8941_LDO2 */
+					 <0x13200002>, /* PM8941_LDO3 */
+					 <0x13300003>, /* PM8941_LDO4 */
+					 <0x13400004>, /* PM8941_LDO5 */
+					 <0x13500005>, /* PM8941_LDO6 */
+					 <0x13600006>, /* PM8941_LDO7 */
+					 <0x13700007>, /* PM8941_LDO8 */
+					 <0x13800008>, /* PM8941_LDO9 */
+					 <0x13900009>, /* PM8941_LDO10 */
+					 <0x13a0000a>, /* PM8941_LDO11 */
+					 <0x13b0000b>, /* PM8941_LDO12 */
+					 <0x13c0000c>, /* PM8941_LDO13 */
+					 <0x13d0000d>, /* PM8941_LDO14 */
+					 <0x13e0000e>, /* PM8941_LDO15 */
+					 <0x13f0000f>, /* PM8941_LDO16 */
+					 <0x14000010>, /* PM8941_LDO17 */
+					 <0x14100011>, /* PM8941_LDO18 */
+					 <0x14200012>, /* PM8941_LDO19 */
+					 <0x14300013>, /* PM8941_LDO20 */
+					 <0x14400014>, /* PM8941_LDO21 */
+					 <0x14500015>, /* PM8941_LDO22 */
+					 <0x14600016>, /* PM8941_LDO23 */
+					 <0x14700017>, /* PM8941_LDO24 */
+					 <0x14800018>, /* PM8941_LDO25 */
+					 <0x14900019>, /* PM8941_LDO26 */
+					 <0x0c00001a>, /* PM8941_GPIO1 */
+					 <0x0c10001b>, /* PM8941_GPIO2 */
+					 <0x0c20001c>, /* PM8941_GPIO3 */
+					 <0x0c30001d>, /* PM8941_GPIO4 */
+					 <0x0c40001e>, /* PM8941_GPIO5 */
+					 <0x0c50001f>, /* PM8941_GPIO6 */
+					 <0x0c600020>, /* PM8941_GPIO7 */
+					 <0x0c700021>, /* PM8941_GPIO8 */
+					 <0x0c800022>, /* PM8941_GPIO9 */
+					 <0x0c900023>, /* PM8941_GPIO10 */
+					 <0x0ca00024>, /* PM8941_GPIO11 */
+					 <0x0cb00025>, /* PM8941_GPIO12 */
+					 <0x0cc00026>, /* PM8941_GPIO13 */
+					 <0x0cd00027>, /* PM8941_GPIO14 */
+					 <0x0ce00028>, /* PM8941_GPIO15 */
+					 <0x0cf00029>, /* PM8941_GPIO16 */
+					 <0x0d00002a>, /* PM8941_GPIO17 */
+					 <0x0d10002b>, /* PM8941_GPIO18 */
+					 <0x0d20002c>, /* PM8941_GPIO19 */
+					 <0x0d30002d>, /* PM8941_GPIO20 */
+					 <0x0d40002e>, /* PM8941_GPIO21 */
+					 <0x0d50002f>, /* PM8941_GPIO22 */
+					 <0x0d600030>, /* PM8941_GPIO23 */
+					 <0x0d700031>, /* PM8941_GPIO24 */
+					 <0x0d800032>, /* PM8941_GPIO25 */
+					 <0x0d900033>, /* PM8941_GPIO26 */
+					 <0x0da00034>, /* PM8941_GPIO27 */
+					 <0x0db00035>, /* PM8941_GPIO28 */
+					 <0x0dc00036>, /* PM8941_GPIO29 */
+					 <0x0dd00037>, /* PM8941_GPIO30 */
+					 <0x0de00038>, /* PM8941_GPIO31 */
+					 <0x0df00039>, /* PM8941_GPIO32 */
+					 <0x0e00003a>, /* PM8941_GPIO33 */
+					 <0x0e10003b>, /* PM8941_GPIO34 */
+					 <0x0e20003c>, /* PM8941_GPIO35 */
+					 <0x0e30003d>, /* PM8941_GPIO36 */
+					 <0x0280003e>, /* COINCELL */
+					 <0x0100003f>, /* SMBC_OVP */
+					 <0x01100040>, /* SMBC_CHG */
+					 <0x01200041>, /* SMBC_BIF */
+					 <0x00500042>, /* INTERRUPT */
+					 <0x00100043>, /* PM8941_0 */
+					 <0x20100044>, /* PM8841_0 */
+					 <0x10100045>, /* PM8941_1 */
+					 <0x30100046>, /* PM8841_1 */
+					 <0x00800047>, /* PON0 */
+					 <0x20800048>, /* PON1 */
+					 <0x11000049>, /* PM8941_SMPS1 */
+					 <0x1110004a>, /* PM8941_SMPS2 */
+					 <0x1120004b>, /* PM8941_SMPS3 */
+					 <0x3100004c>, /* PM8841_SMPS1 */
+					 <0x3110004d>, /* PM8841_SMPS2 */
+					 <0x3120004e>, /* PM8841_SMPS3 */
+					 <0x3130004f>, /* PM8841_SMPS4 */
+					 <0x31400050>, /* PM8841_SMPS5 */
+					 <0x31500051>, /* PM8841_SMPS6 */
+					 <0x31600052>, /* PM8841_SMPS7 */
+					 <0x31700053>, /* PM8841_SMPS8 */
+					 <0x05000054>, /* SHARED_XO */
+					 <0x05100055>, /* BB_CLK1 */
+					 <0x05200056>, /* BB_CLK2 */
+					 <0x05900057>, /* SLEEP_CLK */
+					 <0x07000058>, /* PBS_CORE */
+					 <0x07100059>, /* PBS_CLIENT1 */
+					 <0x0720005a>; /* PBS_CLIENT2 */
+	};
+
+	i2c@f9966000 {
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0Xf9966000 0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 104 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+	};
+
+	qcom,acpuclk@f9000000 {
+		compatible = "qcom,acpuclk-copper";
+	};
+
+	qcom,ssusb@F9200000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xF9200000 0xCCFF>;
+		interrupts = <0 131 0>;
+		qcom,dwc-usb3-msm-dbm-eps = <4>;
+	};
+
+	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
+		parent-supply = <&pm8841_s4>;
+	};
+
+	qcom,lpass@fe200000 {
+		compatible = "qcom,pil-q6v5-lpass";
+		reg = <0xfe200000 0x00100>,
+		      <0xfd485100 0x00010>;
+
+		qcom,firmware-name = "adsp";
+	};
+
+	qcom,pronto@fb21b000 {
+		compatible = "qcom,pil-pronto";
+		reg = <0xfb21b000 0x3000>,
+		      <0xfc401700 0x4>,
+		      <0xfd485300 0xc>;
+		vdd_pronto_pll-supply = <&pm8941_l12>;
+
+		qcom,firmware-name = "wcnss";
+	};
+
+	qcom,ocmem@fdd00000 {
+		compatible = "qcom,msm_ocmem";
+	};
+
+	qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
+
+        qcom,msm-rng@f9bff000 {
+               compatible = "qcom,msm-rng";
+               reg = <0xf9bff000 0x200>;
+        };
+};
