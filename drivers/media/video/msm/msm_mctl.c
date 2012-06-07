@@ -700,7 +700,7 @@ vpe_init_failed:
 			pr_err("%s: axi release failed %d\n", __func__, rc);
 axi_init_failed:
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
-		p_mctl->isp_sdev->isp_release(p_mctl->isp_sdev->sd);
+		p_mctl->isp_sdev->isp_release(p_mctl, p_mctl->isp_sdev->sd);
 isp_open_failed:
 	if (camdev->is_csic)
 		if (v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
@@ -763,7 +763,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	}
 
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
-		p_mctl->isp_sdev->isp_release(
+		p_mctl->isp_sdev->isp_release(p_mctl,
 			p_mctl->isp_sdev->sd);
 
 	if (camdev->is_csid) {

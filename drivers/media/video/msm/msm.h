@@ -32,6 +32,7 @@
 #include <mach/camera.h>
 #include <media/msm_isp.h>
 #include <linux/ion.h>
+#include <linux/iommu.h>
 #include <media/msm_gestures.h>
 
 #define MSM_V4L2_DIMENSION_SIZE 96
@@ -271,6 +272,12 @@ struct msm_cam_media_controller {
 
 	/*sensor info*/
 	struct msm_camera_sensor_info *sdata;
+
+	/*IOMMU mapped IMEM addresses*/
+	uint32_t ping_imem_y;
+	uint32_t ping_imem_cbcr;
+	uint32_t pong_imem_y;
+	uint32_t pong_imem_cbcr;
 };
 
 /* abstract camera device represents a VFE and connected sensor */
@@ -284,7 +291,8 @@ struct msm_isp_ops {
 		 unsigned int cmd, unsigned long arg);
 	int (*isp_notify)(struct v4l2_subdev *sd,
 		unsigned int notification, void *arg);
-	void (*isp_release)(struct v4l2_subdev *sd);
+	void (*isp_release)(struct msm_cam_media_controller *mctl,
+		struct v4l2_subdev *sd);
 	int (*isp_pp_cmd)(struct msm_cam_media_controller *pmctl,
 		 struct msm_mctl_pp_cmd, void *data);
 
