@@ -616,7 +616,7 @@ static void armpmu_disable(struct pmu *pmu)
 	armpmu->stop();
 }
 
-static void __init armpmu_init(struct arm_pmu *armpmu)
+static void armpmu_init(struct arm_pmu *armpmu)
 {
 	atomic_set(&armpmu->active_events, 0);
 	mutex_init(&armpmu->reserve_mutex);
@@ -633,7 +633,7 @@ static void __init armpmu_init(struct arm_pmu *armpmu)
 	};
 }
 
-int __init armpmu_register(struct arm_pmu *armpmu, char *name, int type)
+int armpmu_register(struct arm_pmu *armpmu, char *name, int type)
 {
 	armpmu_init(armpmu);
 	return perf_pmu_register(&armpmu->pmu, name, type);

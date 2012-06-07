@@ -33,7 +33,7 @@ static struct resource l2_pmu_resource[] = {
 
 static struct platform_device l2_pmu_device = {
 	.name		= "l2-arm-pmu",
-	.id		= ARM_PMU_DEVICE_L2,
+	.id		= ARM_PMU_DEVICE_L2CC,
 	.resource	= l2_pmu_resource,
 	.num_resources	= ARRAY_SIZE(l2_pmu_resource),
 };

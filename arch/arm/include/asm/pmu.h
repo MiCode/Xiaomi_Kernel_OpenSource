@@ -21,7 +21,7 @@
  */
 enum arm_pmu_type {
 	ARM_PMU_DEVICE_CPU	= 0,
-	ARM_PMU_DEVICE_L2	= 1,
+	ARM_PMU_DEVICE_L2CC	= 1,
 	ARM_NUM_PMU_DEVICES,
 };
 
@@ -133,7 +133,7 @@ struct arm_pmu {
 
 #define to_arm_pmu(p) (container_of(p, struct arm_pmu, pmu))
 
-int __init armpmu_register(struct arm_pmu *armpmu, char *name, int type);
+int armpmu_register(struct arm_pmu *armpmu, char *name, int type);
 
 u64 armpmu_event_update(struct perf_event *event,
 			struct hw_perf_event *hwc,
