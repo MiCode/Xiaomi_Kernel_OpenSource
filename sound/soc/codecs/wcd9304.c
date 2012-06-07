@@ -257,6 +257,23 @@ struct sitar_priv {
 struct sitar_priv *debug_sitar_priv;
 #endif
 
+static int sitar_get_anc_slot(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
+	ucontrol->value.integer.value[0] = sitar->anc_slot;
+	return 0;
+}
+
+static int sitar_put_anc_slot(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
+	sitar->anc_slot = ucontrol->value.integer.value[0];
+	return 0;
+}
 
 static int sitar_pa_gain_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
@@ -536,6 +553,9 @@ static const struct snd_kcontrol_new sitar_snd_controls[] = {
 	SOC_SINGLE("MICBIAS1 CAPLESS Switch", SITAR_A_MICB_1_CTL, 4, 1, 1),
 	SOC_SINGLE("MICBIAS2 CAPLESS Switch", SITAR_A_MICB_2_CTL, 4, 1, 1),
 
+	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 0, 100, sitar_get_anc_slot,
+				   sitar_put_anc_slot),
+
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
 
 	SOC_SINGLE("TX1 HPF Switch", SITAR_A_CDC_TX1_MUX_CTL, 3, 1, 0),
@@ -633,11 +653,11 @@ static const char *sb_tx5_mux_text[] = {
 };
 
 static const char *dec1_mux_text[] = {
-	"ZERO", "DMIC1", "ADC1", "ADC2", "ADC3", "MBADC", "DMIC4", "ANCFB1",
+	"ZERO", "DMIC1", "ADC1", "ADC2", "ADC3", "MBADC", "DMIC4", "ANC1_FB",
 };
 
 static const char *dec2_mux_text[] = {
-	"ZERO", "DMIC2", "ADC1", "ADC2", "ADC3", "MBADC", "DMIC3", "ANCFB2",
+	"ZERO", "DMIC2", "ADC1", "ADC2", "ADC3", "MBADC", "DMIC3", "ANC2_FB",
 };
 
 static const char *dec3_mux_text[] = {
@@ -646,6 +666,15 @@ static const char *dec3_mux_text[] = {
 
 static const char *dec4_mux_text[] = {
 	"ZERO", "DMIC4", "ADC1", "ADC2", "ADC3", "DMIC3", "DMIC2", "DMIC1"
+};
+
+static const char const *anc_mux_text[] = {
+	"ZERO", "ADC1", "ADC2", "ADC3", "RSVD1", "RSVD2", "RSVD3",
+	"MBADC", "RSVD4", "DMIC1", "DMIC2",	"DMIC3", "DMIC4"
+};
+
+static const char const *anc1_fb_mux_text[] = {
+	"ZERO", "EAR_HPH_L", "EAR_LINE_1",
 };
 
 static const char *iir1_inp1_text[] = {
@@ -710,6 +739,15 @@ static const struct soc_enum dec3_mux_enum =
 static const struct soc_enum dec4_mux_enum =
 	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_TX_B2_CTL, 3, 8, dec4_mux_text);
 
+static const struct soc_enum anc1_mux_enum =
+	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_ANC_B1_CTL, 0, 13, anc_mux_text);
+
+static const struct soc_enum anc2_mux_enum =
+	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_ANC_B1_CTL, 4, 13, anc_mux_text);
+
+static const struct soc_enum anc1_fb_mux_enum =
+	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_ANC_B2_CTL, 0, 3, anc1_fb_mux_text);
+
 static const struct soc_enum iir1_inp1_mux_enum =
 	SOC_ENUM_SINGLE(SITAR_A_CDC_CONN_EQ1_B1_CTL, 0, 16, iir1_inp1_text);
 
@@ -773,6 +811,15 @@ static const struct snd_kcontrol_new dec4_mux =
 static const struct snd_kcontrol_new iir1_inp1_mux =
 	SOC_DAPM_ENUM("IIR1 INP1 Mux", iir1_inp1_mux_enum);
 
+static const struct snd_kcontrol_new anc1_mux =
+	SOC_DAPM_ENUM("ANC1 MUX Mux", anc1_mux_enum);
+
+static const struct snd_kcontrol_new anc2_mux =
+	SOC_DAPM_ENUM("ANC2 MUX Mux", anc2_mux_enum);
+
+static const struct snd_kcontrol_new anc1_fb_mux =
+	SOC_DAPM_ENUM("ANC1 FB MUX Mux", anc1_fb_mux_enum);
+
 static const struct snd_kcontrol_new dac1_switch[] = {
 	SOC_DAPM_SINGLE("Switch", SITAR_A_RX_EAR_EN, 5, 1, 0),
 };
@@ -803,27 +850,39 @@ static int sitar_codec_enable_adc(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	u16 adc_reg;
+	u8 init_bit_shift;
 
 	pr_debug("%s %d\n", __func__, event);
 
 	if (w->reg == SITAR_A_TX_1_2_EN)
 		adc_reg = SITAR_A_TX_1_2_TEST_CTL;
+	else if (w->reg == SITAR_A_TX_3_EN)
+		adc_reg = SITAR_A_TX_3_TEST_CTL;
 	else {
 		pr_err("%s: Error, invalid adc register\n", __func__);
+		return -EINVAL;
+	}
+
+	if (w->shift == 3)
+		init_bit_shift = 6;
+	else if (w->shift == 7)
+		init_bit_shift = 7;
+	else {
+		pr_err("%s: Error, invalid init bit postion adc register\n",
+				__func__);
 		return -EINVAL;
 	}
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		sitar_codec_enable_adc_block(codec, 1);
+		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
+							1 << init_bit_shift);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		snd_soc_update_bits(codec, adc_reg, 1 << w->shift,
-			1 << w->shift);
-		usleep_range(1000, 1000);
-		snd_soc_update_bits(codec, adc_reg, 1 << w->shift, 0x00);
-		usleep_range(1000, 1000);
-		snd_soc_update_bits(codec, adc_reg, 0x08, 0x08);
+
+		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
+
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		sitar_codec_enable_adc_block(codec, 0);
@@ -948,6 +1007,115 @@ static int sitar_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	}
 	return 0;
 }
+
+static int sitar_codec_enable_anc(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	const char *filename;
+	const struct firmware *fw;
+	int i;
+	int ret;
+	int num_anc_slots;
+	struct anc_header *anc_head;
+	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
+	u32 anc_writes_size = 0;
+	int anc_size_remaining;
+	u32 *anc_ptr;
+	u16 reg;
+	u8 mask, val, old_val;
+
+	pr_debug("%s %d\n", __func__, event);
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+
+		/* Use the same firmware file as that of WCD9310,
+		 * since the register sequences are same for
+		 * WCD9310 and WCD9304
+		 */
+		filename = "wcd9310/wcd9310_anc.bin";
+
+		ret = request_firmware(&fw, filename, codec->dev);
+		if (ret != 0) {
+			dev_err(codec->dev, "Failed to acquire ANC data: %d\n",
+				ret);
+			return -ENODEV;
+		}
+
+		if (fw->size < sizeof(struct anc_header)) {
+			dev_err(codec->dev, "Not enough data\n");
+			release_firmware(fw);
+			return -ENOMEM;
+		}
+
+		/* First number is the number of register writes */
+		anc_head = (struct anc_header *)(fw->data);
+		anc_ptr = (u32 *)((u32)fw->data + sizeof(struct anc_header));
+		anc_size_remaining = fw->size - sizeof(struct anc_header);
+		num_anc_slots = anc_head->num_anc_slots;
+
+		if (sitar->anc_slot >= num_anc_slots) {
+			dev_err(codec->dev, "Invalid ANC slot selected\n");
+			release_firmware(fw);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < num_anc_slots; i++) {
+
+			if (anc_size_remaining < SITAR_PACKED_REG_SIZE) {
+				dev_err(codec->dev, "Invalid register format\n");
+				release_firmware(fw);
+				return -EINVAL;
+			}
+			anc_writes_size = (u32)(*anc_ptr);
+			anc_size_remaining -= sizeof(u32);
+			anc_ptr += 1;
+
+			if (anc_writes_size * SITAR_PACKED_REG_SIZE
+				> anc_size_remaining) {
+				dev_err(codec->dev, "Invalid register format\n");
+				release_firmware(fw);
+				return -ENOMEM;
+			}
+
+			if (sitar->anc_slot == i)
+				break;
+
+			anc_size_remaining -= (anc_writes_size *
+				SITAR_PACKED_REG_SIZE);
+			anc_ptr += anc_writes_size;
+		}
+		if (i == num_anc_slots) {
+			dev_err(codec->dev, "Selected ANC slot not present\n");
+			release_firmware(fw);
+			return -ENOMEM;
+		}
+
+		for (i = 0; i < anc_writes_size; i++) {
+			SITAR_CODEC_UNPACK_ENTRY(anc_ptr[i], reg,
+				mask, val);
+			old_val = snd_soc_read(codec, reg);
+			snd_soc_write(codec, reg, (old_val & ~mask) |
+				(val & mask));
+		}
+
+		release_firmware(fw);
+
+		/* For Sitar, it is required to enable both Feed-forward
+		 * and Feed back clocks to enable ANC
+		 */
+		snd_soc_write(codec, SITAR_A_CDC_CLK_ANC_CLK_EN_CTL, 0x0F);
+
+		break;
+
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_write(codec, SITAR_A_CDC_CLK_ANC_RESET_CTL, 0xFF);
+		snd_soc_write(codec, SITAR_A_CDC_CLK_ANC_CLK_EN_CTL, 0x00);
+		break;
+	}
+	return 0;
+}
+
 
 static void sitar_codec_start_hs_polling(struct snd_soc_codec *codec)
 {
@@ -1708,6 +1876,15 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX_E("DEC4 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 3, 0,
 		&dec4_mux, sitar_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
 
+	SND_SOC_DAPM_MUX("ANC1 MUX", SND_SOC_NOPM, 0, 0, &anc1_mux),
+	SND_SOC_DAPM_MUX("ANC2 MUX", SND_SOC_NOPM, 0, 0, &anc2_mux),
+
+	SND_SOC_DAPM_MIXER_E("ANC", SND_SOC_NOPM, 0, 0, NULL, 0,
+		sitar_codec_enable_anc, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("ANC1 FB MUX", SND_SOC_NOPM, 0, 0, &anc1_fb_mux),
+
 	SND_SOC_DAPM_MUX("SLIM TX1 MUX", SND_SOC_NOPM, 0, 0, &sb_tx1_mux),
 	SND_SOC_DAPM_MUX("SLIM TX2 MUX", SND_SOC_NOPM, 0, 0, &sb_tx2_mux),
 	SND_SOC_DAPM_MUX("SLIM TX3 MUX", SND_SOC_NOPM, 0, 0, &sb_tx3_mux),
@@ -1774,6 +1951,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT1 PA", NULL, "LINEOUT1 DAC"},
 	{"LINEOUT1 DAC", NULL, "DAC2 MUX"},
 
+	{"ANC1 FB MUX", "EAR_HPH_L", "RX2 MIX1"},
+	{"ANC1 FB MUX", "EAR_LINE_1", "RX3 MIX1"},
+	{"ANC", NULL, "ANC1 FB MUX"},
+
 
 	/* Headset (RX MIX1 and RX MIX2) */
 	{"HEADPHONE", NULL, "HPHL"},
@@ -1804,6 +1985,21 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX2 MIX1", NULL, "RX2 MIX1 INP2"},
 	{"RX3 MIX1", NULL, "RX3 MIX1 INP1"},
 	{"RX3 MIX1", NULL, "RX3 MIX1 INP2"},
+
+	/* ANC */
+	{"ANC", NULL, "ANC1 MUX"},
+	{"ANC", NULL, "ANC2 MUX"},
+	{"ANC1 MUX", "ADC1", "ADC1"},
+	{"ANC1 MUX", "ADC2", "ADC2"},
+	{"ANC1 MUX", "ADC3", "ADC3"},
+	{"ANC2 MUX", "ADC1", "ADC1"},
+	{"ANC2 MUX", "ADC2", "ADC2"},
+	{"ANC2 MUX", "ADC3", "ADC3"},
+
+	{"ANC", NULL, "CDC_CONN"},
+
+	{"RX2 MIX1", NULL, "ANC"},
+	{"RX3 MIX1", NULL, "ANC"},
 
 	/* SLIMBUS Connections */
 
