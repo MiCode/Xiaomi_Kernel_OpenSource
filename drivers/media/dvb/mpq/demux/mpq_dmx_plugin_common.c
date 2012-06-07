@@ -719,7 +719,7 @@ int mpq_dmx_set_source(
 	int i;
 	int dvr_index;
 	int dmx_index;
-	struct dvb_demux *dvb_demux = (struct dvb_demux *)demux->priv;
+	struct dvb_demux *dvb_demux = demux->priv;
 	struct mpq_demux *mpq_demux;
 
 	if ((mpq_dmx_info.devices == NULL) || (dvb_demux == NULL)) {
@@ -727,7 +727,7 @@ int mpq_dmx_set_source(
 		return -EINVAL;
 	}
 
-	mpq_demux = (struct mpq_demux *)dvb_demux->priv;
+	mpq_demux = dvb_demux->priv;
 	if (mpq_demux == NULL) {
 		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
 		return -EINVAL;
@@ -781,8 +781,7 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 	void *packet_buffer;
 	void *payload_buffer;
 	struct mpq_video_feed_info *feed_data;
-	struct mpq_demux *mpq_demux =
-		(struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 	struct mpq_streambuffer *stream_buffer;
 	int actual_buffer_size;
 
@@ -993,11 +992,8 @@ int mpq_dmx_terminate_video_feed(struct dvb_demux_feed *feed)
 		return -EINVAL;
 	}
 
-	mpq_demux =
-		(struct mpq_demux *)feed->demux->priv;
-
-	feed_data =
-		(struct mpq_video_feed_info *)feed->priv;
+	mpq_demux = feed->demux->priv;
+	feed_data = feed->priv;
 
 	spin_lock(&mpq_demux->feed_lock);
 	feed->priv = NULL;
@@ -1024,10 +1020,7 @@ EXPORT_SYMBOL(mpq_dmx_terminate_video_feed);
 
 int mpq_dmx_decoder_fullness_init(struct dvb_demux_feed *feed)
 {
-	struct mpq_demux *mpq_demux;
-
-	mpq_demux =
-		(struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 
 	if (mpq_dmx_is_video_feed(feed)) {
 		struct mpq_video_feed_info *feed_data;
@@ -1042,9 +1035,7 @@ int mpq_dmx_decoder_fullness_init(struct dvb_demux_feed *feed)
 			return -EINVAL;
 		}
 
-		feed_data =
-			(struct mpq_video_feed_info *)feed->priv;
-
+		feed_data = feed->priv;
 		feed_data->fullness_wait_cancel = 0;
 
 		spin_unlock(&mpq_demux->feed_lock);
@@ -1066,10 +1057,7 @@ int mpq_dmx_decoder_fullness_wait(
 		struct dvb_demux_feed *feed,
 		size_t required_space)
 {
-	struct mpq_demux *mpq_demux;
-
-	mpq_demux =
-		(struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 
 	if (mpq_dmx_is_video_feed(feed)) {
 		int ret;
@@ -1083,11 +1071,8 @@ int mpq_dmx_decoder_fullness_wait(
 			return -EINVAL;
 		}
 
-		feed_data =
-			(struct mpq_video_feed_info *)feed->priv;
-
-		video_buff =
-			&feed_data->video_buffer->raw_data;
+		feed_data = feed->priv;
+		video_buff = &feed_data->video_buffer->raw_data;
 
 		ret = 0;
 		if ((feed_data != NULL) &&
@@ -1145,10 +1130,7 @@ EXPORT_SYMBOL(mpq_dmx_decoder_fullness_wait);
 
 int mpq_dmx_decoder_fullness_abort(struct dvb_demux_feed *feed)
 {
-	struct mpq_demux *mpq_demux;
-
-	mpq_demux =
-		(struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 
 	if (mpq_dmx_is_video_feed(feed)) {
 		struct mpq_video_feed_info *feed_data;
@@ -1164,11 +1146,9 @@ int mpq_dmx_decoder_fullness_abort(struct dvb_demux_feed *feed)
 			return -EINVAL;
 		}
 
-		feed_data =
-			(struct mpq_video_feed_info *)feed->priv;
+		feed_data = feed->priv;
 
-		video_buff =
-			&feed_data->video_buffer->raw_data;
+		video_buff = &feed_data->video_buffer->raw_data;
 
 		feed_data->fullness_wait_cancel = 1;
 		spin_unlock(&mpq_demux->feed_lock);
@@ -1402,12 +1382,11 @@ static int mpq_dmx_process_video_packet_framing(
 	u32 pattern_addr = 0;
 	int is_video_frame = 0;
 
-	mpq_demux = (struct mpq_demux *)feed->demux->priv;
+	mpq_demux = feed->demux->priv;
 
 	spin_lock(&mpq_demux->feed_lock);
 
-	feed_data = (struct mpq_video_feed_info *)feed->priv;
-
+	feed_data = feed->priv;
 	if (unlikely(feed_data == NULL)) {
 		spin_unlock(&mpq_demux->feed_lock);
 		return 0;
@@ -1713,12 +1692,11 @@ static int mpq_dmx_process_video_packet_no_framing(
 	struct pes_packet_header *pes_header;
 	struct mpq_demux *mpq_demux;
 
-	mpq_demux = (struct mpq_demux *)feed->demux->priv;
+	mpq_demux = feed->demux->priv;
 
 	spin_lock(&mpq_demux->feed_lock);
 
-	feed_data = (struct mpq_video_feed_info *)feed->priv;
-
+	feed_data = feed->priv;
 	if (unlikely(feed_data == NULL)) {
 		spin_unlock(&mpq_demux->feed_lock);
 		return 0;
@@ -1869,6 +1847,50 @@ static int mpq_dmx_process_video_packet_no_framing(
 	return 0;
 }
 
+int mpq_dmx_decoder_buffer_status(struct dvb_demux_feed *feed,
+		struct dmx_buffer_status *dmx_buffer_status)
+{
+	struct mpq_demux *mpq_demux = feed->demux->priv;
+
+	if (mpq_dmx_is_video_feed(feed)) {
+		struct mpq_video_feed_info *feed_data;
+		struct dvb_ringbuffer *video_buff;
+
+		spin_lock(&mpq_demux->feed_lock);
+
+		if (feed->priv == NULL) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: invalid feed, feed->priv is NULL\n",
+				__func__);
+			spin_unlock(&mpq_demux->feed_lock);
+			return -EINVAL;
+		}
+
+		feed_data = feed->priv;
+		video_buff = &feed_data->video_buffer->raw_data;
+
+		dmx_buffer_status->error = video_buff->error;
+		dmx_buffer_status->fullness = dvb_ringbuffer_avail(video_buff);
+		dmx_buffer_status->free_bytes = dvb_ringbuffer_free(video_buff);
+		dmx_buffer_status->read_offset = video_buff->pread;
+		dmx_buffer_status->write_offset = video_buff->pwrite;
+		dmx_buffer_status->size = video_buff->size;
+
+		spin_unlock(&mpq_demux->feed_lock);
+
+		return 0;
+	}
+
+	/* else */
+	MPQ_DVB_ERR_PRINT(
+		"%s: Invalid feed type %d\n",
+		__func__,
+		feed->pes_type);
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(mpq_dmx_decoder_buffer_status);
+
 int mpq_dmx_process_video_packet(
 			struct dvb_demux_feed *feed,
 			const u8 *buf)
@@ -1888,8 +1910,7 @@ int mpq_dmx_process_pcr_packet(
 	u64 pcr;
 	u64 stc;
 	u8 output[PCR_STC_LEN];
-	struct mpq_demux *mpq_demux =
-		(struct mpq_demux *)feed->demux->priv;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
 	const struct ts_packet_header *ts_header;
 	const struct ts_adaptation_field *adaptation_field;
 
