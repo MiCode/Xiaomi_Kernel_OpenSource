@@ -293,12 +293,16 @@ static struct resource hdmi_msm_resources[] = {
 static int hdmi_enable_5v(int on);
 static int hdmi_core_power(int on, int show);
 static int hdmi_cec_power(int on);
+static int hdmi_gpio_config(int on);
+static int hdmi_panel_power(int on);
 
 static struct msm_hdmi_platform_data hdmi_msm_data = {
 	.irq = HDMI_IRQ,
 	.enable_5v = hdmi_enable_5v,
 	.core_power = hdmi_core_power,
 	.cec_power = hdmi_cec_power,
+	.panel_power = hdmi_panel_power,
+	.gpio_config = hdmi_gpio_config,
 };
 
 static struct platform_device hdmi_msm_device = {
@@ -716,7 +720,21 @@ static struct msm_bus_scale_pdata dtv_bus_scale_pdata = {
 
 static struct lcdc_platform_data dtv_pdata = {
 	.bus_scale_table = &dtv_bus_scale_pdata,
+	.lcdc_power_save = hdmi_panel_power,
 };
+
+static int hdmi_panel_power(int on)
+{
+	int rc;
+
+	pr_debug("%s: HDMI Core: %s\n", __func__, (on ? "ON" : "OFF"));
+	rc = hdmi_core_power(on, 1);
+	if (rc)
+		rc = hdmi_cec_power(on);
+
+	pr_debug("%s: HDMI Core: %s Success\n", __func__, (on ? "ON" : "OFF"));
+	return rc;
+}
 
 static int hdmi_enable_5v(int on)
 {
@@ -765,7 +783,6 @@ static int hdmi_core_power(int on, int show)
 	static struct regulator *reg_8921_lvs7, *reg_8921_s4, *reg_ext_3p3v;
 	static int prev_on;
 	int rc;
-	int pmic_gpio14 = PM8921_GPIO_PM_TO_SYS(14);
 
 	if (on == prev_on)
 		return 0;
@@ -822,20 +839,61 @@ static int hdmi_core_power(int on, int show)
 		rc = regulator_enable(reg_ext_3p3v);
 		if (rc) {
 			pr_err("enable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
+			return rc;
 		}
 		rc = regulator_enable(reg_8921_lvs7);
 		if (rc) {
 			pr_err("'%s' regulator enable failed, rc=%d\n",
 				"hdmi_vdda", rc);
-			return rc;
+			goto error1;
 		}
 		rc = regulator_enable(reg_8921_s4);
 		if (rc) {
 			pr_err("'%s' regulator enable failed, rc=%d\n",
 				"hdmi_lvl_tsl", rc);
-			return rc;
+			goto error2;
 		}
+		pr_debug("%s(on): success\n", __func__);
+	} else {
+		rc = regulator_disable(reg_ext_3p3v);
+		if (rc) {
+			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_8921_lvs7);
+		if (rc) {
+			pr_err("disable reg_8921_l23 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_8921_s4);
+		if (rc) {
+			pr_err("disable reg_8921_s4 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		pr_debug("%s(off): success\n", __func__);
+	}
+
+	prev_on = on;
+
+	return 0;
+
+error2:
+	regulator_disable(reg_8921_lvs7);
+error1:
+	regulator_disable(reg_ext_3p3v);
+	return rc;
+}
+
+static int hdmi_gpio_config(int on)
+{
+	int rc = 0;
+	static int prev_on;
+	int pmic_gpio14 = PM8921_GPIO_PM_TO_SYS(14);
+
+	if (on == prev_on)
+		return 0;
+
+	if (on) {
 		rc = gpio_request(HDMI_DDC_CLK_GPIO, "HDMI_DDC_CLK");
 		if (rc) {
 			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
@@ -873,27 +931,10 @@ static int hdmi_core_power(int on, int show)
 			gpio_set_value_cansleep(pmic_gpio14, 1);
 			gpio_free(pmic_gpio14);
 		}
-
-		rc = regulator_disable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-		rc = regulator_disable(reg_8921_lvs7);
-		if (rc) {
-			pr_err("disable reg_8921_l23 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-		rc = regulator_disable(reg_8921_s4);
-		if (rc) {
-			pr_err("disable reg_8921_s4 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
 		pr_debug("%s(off): success\n", __func__);
 	}
 
 	prev_on = on;
-
 	return 0;
 
 error4:
@@ -903,8 +944,6 @@ error3:
 error2:
 	gpio_free(HDMI_DDC_CLK_GPIO);
 error1:
-	regulator_disable(reg_8921_lvs7);
-	regulator_disable(reg_8921_s4);
 	return rc;
 }
 
