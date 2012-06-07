@@ -117,7 +117,6 @@ enum battery_type {
  * @i_test:		current at which the unusable charger cutoff is to be
  *			calculated or the peak system current (mA)
  * @v_failure:		the voltage at which the battery is considered empty(mV)
- * @calib_delay_ms:	how often should the adc calculate gain and offset
  * @enable_fcc_learning:	if set the driver will learn full charge
  *				capacity of the battery upon end of charge
  */
@@ -127,7 +126,6 @@ struct pm8921_bms_platform_data {
 	unsigned int			r_sense;
 	unsigned int			i_test;
 	unsigned int			v_failure;
-	unsigned int			calib_delay_ms;
 	unsigned int			max_voltage_uv;
 	unsigned int			rconn_mohm;
 	int				enable_fcc_learning;
