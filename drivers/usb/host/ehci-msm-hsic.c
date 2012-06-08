@@ -690,6 +690,13 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 
 skip_phy_resume:
 
+	if (!(readl_relaxed(USB_USBCMD) & CMD_RUN) &&
+			(readl_relaxed(USB_PORTSC) & PORT_SUSPEND)) {
+		writel_relaxed(readl_relaxed(USB_USBCMD) | CMD_RUN ,
+				USB_USBCMD);
+		dbg_log_event(NULL, "Set RS", readl_relaxed(USB_USBCMD));
+	}
+
 	usb_hcd_resume_root_hub(hcd);
 
 	atomic_set(&mehci->in_lpm, 0);
