@@ -605,6 +605,7 @@ struct msm_frame {
 
 	struct ion_allocation_data ion_alloc;
 	struct ion_fd_data fd_data;
+	int ion_dev_fd;
 };
 
 enum msm_st_frame_packing {
