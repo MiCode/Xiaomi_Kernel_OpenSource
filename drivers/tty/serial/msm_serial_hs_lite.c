@@ -1220,6 +1220,9 @@ static int msm_hsl_console_setup(struct console *co, char *options)
 	msm_hsl_write(port, CR_PROTECTION_EN, regmap[vid][UARTDM_CR]);
 	msm_hsl_write(port, UARTDM_CR_TX_EN_BMSK, regmap[vid][UARTDM_CR]);
 
+	msm_hsl_write(port, 1, regmap[vid][UARTDM_NCF_TX]);
+	msm_hsl_read(port, regmap[vid][UARTDM_NCF_TX]);
+
 	printk(KERN_INFO "msm_serial_hsl: console setup on port #%d\n",
 	       port->line);
 
