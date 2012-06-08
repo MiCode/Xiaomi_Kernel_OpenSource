@@ -121,9 +121,16 @@ int pil_q6v5_enable_clks(struct pil_desc *pil)
 	ret = clk_prepare_enable(drv->bus_clk);
 	if (ret)
 		goto err_bus_clk;
+	if (drv->mem_clk) {
+		ret = clk_prepare_enable(drv->mem_clk);
+		if (ret)
+			goto err_mem_clk;
+	}
 
 	return 0;
 
+err_mem_clk:
+	clk_disable_unprepare(drv->bus_clk);
 err_bus_clk:
 	clk_disable_unprepare(drv->core_clk);
 err_core_clk:
@@ -139,6 +146,7 @@ void pil_q6v5_disable_clks(struct pil_desc *pil)
 
 	clk_disable_unprepare(drv->bus_clk);
 	clk_disable_unprepare(drv->core_clk);
+	clk_disable_unprepare(drv->mem_clk);
 	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
 }
 EXPORT_SYMBOL(pil_q6v5_disable_clks);

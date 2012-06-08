@@ -289,6 +289,27 @@
 		qcom,firmware-name = "adsp";
 	};
 
+	qcom,mss@fc880000 {
+		compatible = "qcom,pil-q6v5-mss";
+		reg = <0xfc880000 0x100>,
+		      <0xfd485000 0x400>,
+		      <0xfc820000 0x020>,
+		      <0xfc401680 0x004>;
+		vdd_mss-supply = <&pm8841_s3>;
+
+		qcom,firmware-name = "mba";
+		qcom,pil-self-auth = <1>;
+	};
+
+	qcom,mba@fc820000 {
+		compatible = "qcom,pil-mba";
+		reg = <0xfc820000 0x0020>,
+		      <0x0d1fc000 0x4000>;
+
+		qcom,firmware-name = "modem";
+		qcom,depends-on    = "mba";
+	};
+
 	qcom,pronto@fb21b000 {
 		compatible = "qcom,pil-pronto";
 		reg = <0xfb21b000 0x3000>,

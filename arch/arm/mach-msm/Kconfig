@@ -1857,8 +1857,22 @@ config MSM_PIL_LPASS_QDSP6V5
        tristate "LPASS QDSP6v5 (Hexagon) Boot Support"
        depends on MSM_PIL
        help
-         Support for booting and shutting down QDSP6v5 processors (Hexagon)
-	 processors in low power audio subsystems.
+         Support for booting and shutting down QDSP6v5 (Hexagon) processors
+	 in low power audio subsystems.
+
+config MSM_PIL_MSS_QDSP6V5
+       tristate "MSS QDSP6v5 (Hexagon) Boot Support"
+       depends on MSM_PIL
+       help
+         Support for booting and shutting down QDSP6v5 (Hexagon) processors
+	 in modem subsystems.
+
+config MSM_PIL_MBA
+	tristate "Support for modem self-authentication"
+	depends on MSM_PIL_MSS_QDSP6V5
+	help
+	  Support for booting self-authenticating modems using the Modem Boot
+	  Authenticator.
 
 config MSM_PIL_RIVA
 	tristate "RIVA (WCNSS) Boot Support"
