@@ -4106,7 +4106,6 @@ int hdmi_msm_clk(int on)
 
 static void hdmi_msm_turn_on(void)
 {
-	uint32 hpd_ctrl;
 	uint32 audio_pkt_ctrl, audio_cfg;
 	/*
 	 * Number of wait iterations for QDSP to disable Audio Engine
@@ -4129,6 +4128,7 @@ static void hdmi_msm_turn_on(void)
 		msleep(20);
 	}
 
+	hdmi_msm_set_mode(FALSE);
 	mutex_lock(&hdcp_auth_state_mutex);
 	hdmi_msm_reset_core();
 	mutex_unlock(&hdcp_auth_state_mutex);
@@ -4148,14 +4148,7 @@ static void hdmi_msm_turn_on(void)
 #endif
 	hdmi_msm_spd_infoframe_packetsetup();
 
-	/* set timeout to 4.1ms (max) for hardware debounce */
-	hpd_ctrl = (HDMI_INP(0x0258) & ~0xFFF) | 0xFFF;
-
-	/* Toggle HPD circuit to trigger HPD sense */
-	HDMI_OUTP(0x0258, ~(1 << 28) & hpd_ctrl);
-	HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
-
-	/* Setup HPD IRQ */
+	/* Set IRQ for HPD */
 	HDMI_OUTP(0x0254, 4 | (external_common_state->hpd_state ? 0 : 2));
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
@@ -4269,53 +4262,51 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 
 	if (hdmi_msm_state->hpd_initialized) {
 		DEV_DBG("%s: HPD is already ON\n", __func__);
-		return 0;
+	} else {
+		rc = hdmi_msm_state->pd->gpio_config(1);
+		if (rc) {
+			DEV_ERR("%s: Failed to enable GPIOs. Error=%d\n",
+					__func__, rc);
+			goto error1;
+		}
+
+		rc = hdmi_msm_clk(1);
+		if (rc) {
+			DEV_ERR("%s: Failed to enable clocks. Error=%d\n",
+					__func__, rc);
+			goto error2;
+		}
+
+		rc = hdmi_msm_state->pd->enable_5v(1);
+		if (rc) {
+			DEV_ERR("%s: Failed to enable 5V regulator. Error=%d\n",
+					__func__, rc);
+			goto error3;
+		}
+		hdmi_msm_dump_regs("HDMI-INIT: ");
+
+		hdmi_msm_set_mode(FALSE);
+		if (!phy_reset_done) {
+			hdmi_phy_reset();
+			phy_reset_done = 1;
+		}
+		hdmi_msm_set_mode(TRUE);
+
+		/* HDMI_USEC_REFTIMER[0x0208] */
+		HDMI_OUTP(0x0208, 0x0001001B);
+
+		/* set timeout to 4.1ms (max) for hardware debounce */
+		hpd_ctrl = HDMI_INP(0x0258) | 0x1FFF;
+
+		/* Toggle HPD circuit to trigger HPD sense */
+		HDMI_OUTP(0x0258, ~(1 << 28) & hpd_ctrl);
+		HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
+
+		hdmi_msm_state->hpd_initialized = TRUE;
+
+		/* Check HPD State */
+		enable_irq(hdmi_msm_state->irq);
 	}
-
-	rc = hdmi_msm_state->pd->gpio_config(1);
-	if (rc) {
-		DEV_ERR("%s: Failed to enable GPIOs. Error=%d\n",
-				__func__, rc);
-		goto error1;
-	}
-
-	rc = hdmi_msm_clk(1);
-	if (rc) {
-		DEV_ERR("%s: Failed to enable clocks. Error=%d\n",
-				__func__, rc);
-		goto error2;
-	}
-
-	rc = hdmi_msm_state->pd->enable_5v(1);
-	if (rc) {
-		DEV_ERR("%s: Failed to enable 5V regulator. Error=%d\n",
-				__func__, rc);
-		goto error3;
-	}
-	hdmi_msm_dump_regs("HDMI-INIT: ");
-	hdmi_msm_set_mode(FALSE);
-
-	if (!phy_reset_done) {
-		hdmi_phy_reset();
-		phy_reset_done = 1;
-	}
-	hdmi_msm_set_mode(TRUE);
-
-	/* HDMI_USEC_REFTIMER[0x0208] */
-	HDMI_OUTP(0x0208, 0x0001001B);
-
-	/* Check HPD State */
-	enable_irq(hdmi_msm_state->irq);
-
-	/* set timeout to 4.1ms (max) for hardware debounce */
-	hpd_ctrl = (HDMI_INP(0x0258) & ~0xFFF) | 0xFFF;
-
-	/* Toggle HPD circuit to trigger HPD sense */
-	HDMI_OUTP(0x0258, ~(1 << 28) & hpd_ctrl);
-	HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
-
-	DEV_DBG("%s: (clk, 5V, core, IRQ on) <trigger:%s>\n", __func__,
-		trigger_handler ? "true" : "false");
 
 	if (trigger_handler) {
 		/* Set HPD state machine: ensure at least 2 readouts */
@@ -4331,8 +4322,8 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 			jiffies + HZ/2);
 	}
 
-	hdmi_msm_state->hpd_initialized = TRUE;
-
+	DEV_DBG("%s: (IRQ, 5V on) <trigger:%s>\n", __func__,
+		trigger_handler ? "true" : "false");
 	return 0;
 
 error3:
@@ -4345,15 +4336,19 @@ error1:
 
 static int hdmi_msm_power_ctrl(boolean enable)
 {
-	if (!external_common_state->hpd_feature_on)
+	int rc = 0;
+	if (!hdmi_prim_display && !external_common_state->hpd_feature_on)
 		return 0;
 
-	if (enable)
-		hdmi_msm_hpd_on(true);
-	else
+	if (enable) {
+		DEV_DBG("%s: Turning HPD ciruitry on\n", __func__);
+		rc = hdmi_msm_hpd_on(true);
+	} else {
+		DEV_DBG("%s: Turning HPD ciruitry off\n", __func__);
 		hdmi_msm_hpd_off();
+	}
 
-	return 0;
+	return rc;
 }
 
 static int hdmi_msm_power_on(struct platform_device *pdev)
@@ -4377,20 +4372,12 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
 	changed = hdmi_common_get_video_format_from_drv_data(mfd);
-	if (!external_common_state->hpd_feature_on || mfd->ref_cnt) {
-		int rc = hdmi_msm_hpd_on(true);
-		DEV_INFO("HPD: panel power without 'hpd' feature on\n");
-		if (rc) {
-			DEV_WARN("HPD: activation failed: rc=%d\n", rc);
-			return rc;
-		}
-	}
 	hdmi_msm_audio_info_setup(TRUE, 0, 0, 0, FALSE);
 
 	mutex_lock(&external_common_state_hpd_mutex);
 	hdmi_msm_state->panel_power_on = TRUE;
-	if ((external_common_state->hpd_state && !hdmi_msm_is_power_on())
-		|| changed) {
+	if (hdmi_msm_is_power_on()) {
+		DEV_DBG("%s: Turning HDMI on\n", __func__);
 		mutex_unlock(&external_common_state_hpd_mutex);
 		hdmi_msm_turn_on();
 	} else
@@ -4412,8 +4399,6 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
  */
 static int hdmi_msm_power_off(struct platform_device *pdev)
 {
-	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
-
 	if (!hdmi_msm_state->hdmi_app_clk)
 		return -ENODEV;
 
@@ -4433,15 +4418,7 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	hdcp_deauthenticate();
 #endif
-	hdmi_msm_hpd_off();
 	hdmi_msm_powerdown_phy();
-	hdmi_msm_dump_regs("HDMI-OFF: ");
-	hdmi_msm_hpd_on(true);
-
-	mutex_lock(&external_common_state_hpd_mutex);
-	if (!external_common_state->hpd_feature_on || mfd->ref_cnt)
-		hdmi_msm_hpd_off();
-	mutex_unlock(&external_common_state_hpd_mutex);
 
 	hdmi_msm_state->panel_power_on = FALSE;
 	return 0;
@@ -4587,11 +4564,10 @@ static int hdmi_msm_probe(struct platform_device *pdev)
 	} else
 		DEV_ERR("Init FAILED: failed to add fb device\n");
 
-	DEV_INFO("HDMI HPD: ON\n");
-
 	rc = hdmi_msm_hpd_on(true);
 	if (rc)
 		goto error;
+	DEV_INFO("HDMI HPD: ON\n");
 
 	if (hdmi_msm_has_hdcp()) {
 		/* Don't Set Encryption in case of non HDCP builds */
