@@ -240,7 +240,7 @@ static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 		if (flow_type & IRQF_TRIGGER_HIGH)
 			per_d->pol_high |= irq_d->mask_shift;
 		else
-			per_d->pol_high &= ~irq_d->mask_shift;
+			per_d->pol_low |= irq_d->mask_shift;
 	}
 
 	buf[0] = per_d->type;
