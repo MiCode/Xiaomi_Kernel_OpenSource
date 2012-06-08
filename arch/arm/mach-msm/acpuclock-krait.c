@@ -53,7 +53,7 @@ static DEFINE_MUTEX(driver_lock);
 static DEFINE_SPINLOCK(l2_lock);
 
 static struct drv_data {
-	const struct acpu_level *acpu_freq_tbl;
+	struct acpu_level *acpu_freq_tbl;
 	const struct l2_level *l2_freq_tbl;
 	struct scalable *scalable;
 	u32 bus_perf_client;
@@ -473,6 +473,11 @@ static void __init hfpll_init(struct scalable *sc,
 	writel_relaxed(0, sc->hfpll_base + sc->hfpll_data->m_offset);
 	writel_relaxed(1, sc->hfpll_base + sc->hfpll_data->n_offset);
 
+	/* Program droop controller, if supported */
+	if (sc->hfpll_data->has_droop_ctl)
+		writel_relaxed(sc->hfpll_data->droop_val,
+			       sc->hfpll_base + sc->hfpll_data->droop_offset);
+
 	/* Set an initial rate and enable the PLL. */
 	hfpll_set_rate(sc, tgt_s);
 	hfpll_enable(sc, false);
@@ -573,10 +578,15 @@ static void __init init_clock_sources(struct scalable *sc,
 				      const struct core_speed *tgt_s)
 {
 	u32 regval;
+	void __iomem *aux_reg;
 
 	/* Program AUX source input to the secondary MUX. */
-	if (sc->aux_clk_sel_addr)
-		writel_relaxed(sc->aux_clk_sel, sc->aux_clk_sel_addr);
+	if (sc->aux_clk_sel_phys) {
+		aux_reg = ioremap(sc->aux_clk_sel_phys, 4);
+		BUG_ON(!aux_reg);
+		writel_relaxed(sc->aux_clk_sel, aux_reg);
+		iounmap(aux_reg);
+	}
 
 	/* Switch away from the HFPLL while it's re-initialized. */
 	set_sec_clk_src(sc, SEC_SRC_SEL_AUX);
@@ -693,8 +703,27 @@ static struct notifier_block __cpuinitdata acpuclk_cpu_notifier = {
 	.notifier_call = acpuclk_cpu_callback,
 };
 
+static const int krait_needs_vmin(void)
+{
+	switch (read_cpuid_id()) {
+	case 0x511F04D0: /* KR28M2A20 */
+	case 0x511F04D1: /* KR28M2A21 */
+	case 0x510F06F0: /* KR28M4A10 */
+		return 1;
+	default:
+		return 0;
+	};
+}
+
+static void krait_apply_vmin(struct acpu_level *tbl)
+{
+	for (; tbl->speed.khz != 0; tbl++)
+		if (tbl->vdd_core < 1150000)
+			tbl->vdd_core = 1150000;
+}
+
 static const struct acpu_level __init *select_freq_plan(
-		const struct acpu_level *const *pvs_tbl, u32 qfprom_phys)
+		struct acpu_level *const *pvs_tbl, u32 qfprom_phys)
 {
 	const struct acpu_level *l, *max_acpu_level = NULL;
 	void __iomem *qfprom_base;
@@ -736,6 +765,9 @@ static const struct acpu_level __init *select_freq_plan(
 			 pvs_names[tbl_idx]);
 	}
 	drv.acpu_freq_tbl = pvs_tbl[tbl_idx];
+
+	if (krait_needs_vmin())
+		krait_apply_vmin(drv.acpu_freq_tbl);
 
 	/* Find the max supported scaling frequency. */
 	for (l = drv.acpu_freq_tbl; l->speed.khz != 0; l++)
