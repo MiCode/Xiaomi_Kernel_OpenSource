@@ -760,7 +760,7 @@ int kgsl_mmu_pt_get_flags(struct kgsl_pagetable *pt,
 		return 0;
 
 	spin_lock(&pt->lock);
-	if (pt->tlb_flags && (1<<id)) {
+	if (pt->tlb_flags & (1<<id)) {
 		result = KGSL_MMUFLAGS_TLBFLUSH;
 		pt->tlb_flags &= ~(1<<id);
 	}
