@@ -312,6 +312,20 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 					return process_further;
 				}
 			break;
+		case VCD_CODEC_VC1:
+		case VCD_CODEC_VC1_RCV:
+			if ((seq_hdr_info.img_size_x >
+					DDL_MAX_VC1_FRAME_WIDTH) ||
+				(seq_hdr_info.img_size_y >
+					DDL_MAX_VC1_FRAME_HEIGHT)) {
+				DDL_MSG_ERROR("Unsupported VC1 clip: "
+					"Resolution X=%d and Y=%d",
+					seq_hdr_info.img_size_x,
+					seq_hdr_info.img_size_y);
+					ddl_client_fatal_cb(ddl);
+					return process_further;
+			}
+			break;
 		default:
 			break;
 		}
