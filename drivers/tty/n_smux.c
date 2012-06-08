@@ -78,6 +78,11 @@ module_param_named(simulate_wakeup_delay, smux_simulate_wakeup_delay,
 			pr_info(x);  \
 } while (0)
 
+#define SMUX_PWR(x...) do {                              \
+	if (smux_debug_mask & MSM_SMUX_POWER_INFO) \
+			pr_info(x);  \
+} while (0)
+
 #define SMUX_LOG_PKT_RX(pkt) do { \
 	if (smux_debug_mask & MSM_SMUX_PKT) \
 			smux_log_pkt(pkt, 1); \
@@ -1600,7 +1605,7 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 		/* local sleep request ack */
 		if (smux.power_state == SMUX_PWR_TURNING_OFF) {
 			/* Power-down complete, turn off UART */
-			SMUX_DBG("%s: Power %d->%d\n", __func__,
+			SMUX_PWR("%s: Power %d->%d\n", __func__,
 					smux.power_state, SMUX_PWR_OFF_FLUSH);
 			smux.power_state = SMUX_PWR_OFF_FLUSH;
 			queue_work(smux_tx_wq, &smux_inactivity_work);
@@ -1624,7 +1629,7 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 			|| smux.power_state == SMUX_PWR_TURNING_OFF) {
 			ack_pkt = smux_alloc_pkt();
 			if (ack_pkt) {
-				SMUX_DBG("%s: Power %d->%d\n", __func__,
+				SMUX_PWR("%s: Power %d->%d\n", __func__,
 						smux.power_state,
 						SMUX_PWR_TURNING_OFF_FLUSH);
 
@@ -1742,7 +1747,7 @@ static void smux_handle_wakeup_req(void)
 	if (smux.power_state == SMUX_PWR_OFF
 		|| smux.power_state == SMUX_PWR_TURNING_ON) {
 		/* wakeup system */
-		SMUX_DBG("%s: Power %d->%d\n", __func__,
+		SMUX_PWR("%s: Power %d->%d\n", __func__,
 				smux.power_state, SMUX_PWR_ON);
 		smux.power_state = SMUX_PWR_ON;
 		queue_work(smux_tx_wq, &smux_wakeup_work);
@@ -1766,7 +1771,7 @@ static void smux_handle_wakeup_ack(void)
 	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (smux.power_state == SMUX_PWR_TURNING_ON) {
 		/* received response to wakeup request */
-		SMUX_DBG("%s: Power %d->%d\n", __func__,
+		SMUX_PWR("%s: Power %d->%d\n", __func__,
 				smux.power_state, SMUX_PWR_ON);
 		smux.power_state = SMUX_PWR_ON;
 		queue_work(smux_tx_wq, &smux_tx_work);
@@ -2200,7 +2205,7 @@ static void smux_inactivity_worker(struct work_struct *work)
 				/* start power-down sequence */
 				pkt = smux_alloc_pkt();
 				if (pkt) {
-					SMUX_DBG("%s: Power %d->%d\n", __func__,
+					SMUX_PWR("%s: Power %d->%d\n", __func__,
 						smux.power_state,
 						SMUX_PWR_TURNING_OFF);
 					smux.power_state = SMUX_PWR_TURNING_OFF;
@@ -2227,9 +2232,9 @@ static void smux_inactivity_worker(struct work_struct *work)
 
 	if (smux.power_state == SMUX_PWR_OFF_FLUSH) {
 		/* ready to power-down the UART */
-		smux.power_state = SMUX_PWR_OFF;
-		SMUX_DBG("%s: Power %d->%d\n", __func__,
+		SMUX_PWR("%s: Power %d->%d\n", __func__,
 				smux.power_state, SMUX_PWR_OFF);
+		smux.power_state = SMUX_PWR_OFF;
 
 		/* if data is pending, schedule a new wakeup */
 		if (!list_empty(&smux.lch_tx_ready_list) ||
@@ -2454,7 +2459,7 @@ static void smux_tx_worker(struct work_struct *work)
 			   !list_empty(&smux.power_queue)) {
 				/* data to transmit, do wakeup */
 				smux.pwr_wakeup_delay_us = 1;
-				SMUX_DBG("%s: Power %d->%d\n", __func__,
+				SMUX_PWR("%s: Power %d->%d\n", __func__,
 						smux.power_state,
 						SMUX_PWR_TURNING_ON);
 				smux.power_state = SMUX_PWR_TURNING_ON;
@@ -2491,7 +2496,7 @@ static void smux_tx_worker(struct work_struct *work)
 			if (smux.power_state == SMUX_PWR_TURNING_OFF_FLUSH &&
 				pkt->hdr.cmd == SMUX_CMD_PWR_CTL &&
 				(pkt->hdr.flags & SMUX_CMD_PWR_CTL_ACK)) {
-				SMUX_DBG("%s: Power %d->%d\n", __func__,
+				SMUX_PWR("%s: Power %d->%d\n", __func__,
 						smux.power_state,
 						SMUX_PWR_OFF_FLUSH);
 				smux.power_state = SMUX_PWR_OFF_FLUSH;
@@ -3114,7 +3119,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 	/* Power-down UART */
 	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (smux.power_state != SMUX_PWR_OFF) {
-		SMUX_DBG("%s: SSR - turning off UART\n", __func__);
+		SMUX_PWR("%s: SSR - turning off UART\n", __func__);
 		smux.power_state = SMUX_PWR_OFF;
 		power_off_uart = 1;
 	}
@@ -3172,7 +3177,7 @@ static int smuxld_open(struct tty_struct *tty)
 	/* power-down the UART if we are idle */
 	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (smux.power_state == SMUX_PWR_OFF) {
-		SMUX_DBG("%s: powering off uart\n", __func__);
+		SMUX_PWR("%s: powering off uart\n", __func__);
 		smux.power_state = SMUX_PWR_OFF_FLUSH;
 		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 		queue_work(smux_tx_wq, &smux_inactivity_work);
