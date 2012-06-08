@@ -16,6 +16,7 @@
 #define SMUX_PRIVATE_H
 
 #define SMUX_MAX_PKT_SIZE   8192
+#define SMUX_BROADCAST_LCID 0xFF
 
 /* SMUX Protocol Characters */
 #define SMUX_MAGIC          0x33FC
