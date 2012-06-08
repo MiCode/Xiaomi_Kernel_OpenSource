@@ -32,8 +32,9 @@
 #ifdef CONFIG_DIAG_SDIO_PIPE
 #include "diagfwd_sdio.h"
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
 #include "diagfwd_hsic.h"
+#include "diagfwd_smux.h"
 #endif
 #include <linux/timer.h>
 
@@ -234,9 +235,9 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	if (driver->logging_process_id == current->tgid) {
 		driver->logging_mode = USB_MODE;
 		diagfwd_connect();
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
 		diagfwd_cancel_hsic();
-		diagfwd_connect_hsic(0);
+		diagfwd_connect_bridge(0);
 #endif
 	}
 #endif /* DIAG over USB */
@@ -481,8 +482,8 @@ long diagchar_ioctl(struct file *filp,
 #ifdef CONFIG_DIAG_SDIO_PIPE
 			driver->in_busy_sdio = 1;
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
-			diagfwd_disconnect_hsic(0);
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+			diagfwd_disconnect_bridge(0);
 #endif
 		} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
@@ -509,22 +510,22 @@ long diagchar_ioctl(struct file *filp,
 				queue_work(driver->diag_sdio_wq,
 					&(driver->diag_read_sdio_work));
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
-			diagfwd_connect_hsic(0);
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+			diagfwd_connect_bridge(0);
 #endif
 		}
 #ifdef CONFIG_DIAG_OVER_USB
 		else if (temp == USB_MODE && driver->logging_mode
 							 == NO_LOGGING_MODE) {
 			diagfwd_disconnect();
-#ifdef CONFIG_DIAG_HSIC_PIPE
-			diagfwd_disconnect_hsic(0);
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+			diagfwd_disconnect_bridge(0);
 #endif
 		} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 								== USB_MODE) {
 			diagfwd_connect();
-#ifdef CONFIG_DIAG_HSIC_PIPE
-			diagfwd_connect_hsic(0);
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+			diagfwd_connect_bridge(0);
 #endif
 		} else if (temp == USB_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
@@ -552,16 +553,16 @@ long diagchar_ioctl(struct file *filp,
 				queue_work(driver->diag_sdio_wq,
 					&(driver->diag_read_sdio_work));
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
 			diagfwd_cancel_hsic();
-			diagfwd_connect_hsic(0);
+			diagfwd_connect_bridge(0);
 #endif
 		} else if (temp == MEMORY_DEVICE_MODE &&
 				 driver->logging_mode == USB_MODE) {
 			diagfwd_connect();
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
 			diagfwd_cancel_hsic();
-			diagfwd_connect_hsic(0);
+			diagfwd_connect_bridge(0);
 #endif
 		}
 #endif /* DIAG over USB */
@@ -720,7 +721,7 @@ drop:
 			driver->in_busy_sdio = 0;
 		}
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
 		pr_debug("diag: Copy data to user space %d\n",
 			 driver->in_busy_hsic_write_on_device);
 		if (driver->in_busy_hsic_write_on_device == 1) {
@@ -898,7 +899,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			}
 		}
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
 		/* send masks to 9k too */
 		if (driver->hsic_ch && (payload_size > 0)) {
 			/* wait sending mask updates if HSIC ch not ready */
@@ -1199,16 +1200,16 @@ void diag_sdio_fn(int type)
 inline void diag_sdio_fn(int type) {}
 #endif
 
-#ifdef CONFIG_DIAG_HSIC_PIPE
-void diag_hsic_fn(int type)
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+void diag_bridge_fn(int type)
 {
 	if (type == INIT)
-		diagfwd_hsic_init();
+		diagfwd_bridge_init();
 	else if (type == EXIT)
-		diagfwd_hsic_exit();
+		diagfwd_bridge_exit();
 }
 #else
-inline void diag_hsic_fn(int type) {}
+inline void diag_bridge_fn(int type) {}
 #endif
 
 static int __init diagchar_init(void)
@@ -1255,7 +1256,7 @@ static int __init diagchar_init(void)
 		diagfwd_cntl_init();
 		driver->dci_state = diag_dci_init();
 		diag_sdio_fn(INIT);
-		diag_hsic_fn(INIT);
+		diag_bridge_fn(INIT);
 		pr_debug("diagchar initializing ..\n");
 		driver->num = 1;
 		driver->name = ((void *)driver) + sizeof(struct diagchar_dev);
@@ -1289,7 +1290,7 @@ fail:
 	diagfwd_exit();
 	diagfwd_cntl_exit();
 	diag_sdio_fn(EXIT);
-	diag_hsic_fn(EXIT);
+	diag_bridge_fn(EXIT);
 	return -1;
 }
 
@@ -1302,7 +1303,7 @@ static void __exit diagchar_exit(void)
 	diagfwd_exit();
 	diagfwd_cntl_exit();
 	diag_sdio_fn(EXIT);
-	diag_hsic_fn(EXIT);
+	diag_bridge_fn(EXIT);
 	diag_debugfs_cleanup();
 	diagchar_cleanup();
 	printk(KERN_INFO "done diagchar exit\n");

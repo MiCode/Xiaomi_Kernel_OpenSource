@@ -41,6 +41,7 @@
 #define SDIO_DATA		4
 #define WCNSS_DATA		5
 #define HSIC_DATA		6
+#define SMUX_DATA		7
 #define MODEM_PROC		0
 #define APPS_PROC		1
 #define QDSP_PROC		2
@@ -254,24 +255,30 @@ struct diagchar_dev {
 	struct diag_request *usb_read_mdm_ptr;
 	struct diag_request *write_ptr_mdm;
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+	/* SGLTE variables */
+	int lcid;
+	unsigned char *buf_in_smux;
+	int in_busy_smux;
+	int diag_smux_enabled;
+	/* HSIC variables */
 	unsigned char *buf_in_hsic;
-	unsigned char *usb_buf_mdm_out;
-	int hsic_initialized;
 	int hsic_ch;
 	int hsic_device_enabled;
 	int hsic_device_opened;
 	int hsic_suspend;
-	int read_len_mdm;
 	int in_busy_hsic_read_on_device;
 	int in_busy_hsic_write_on_device;
 	int in_busy_hsic_write;
 	int in_busy_hsic_read;
-	int usb_mdm_connected;
-	struct usb_diag_ch *mdm_ch;
-	struct workqueue_struct *diag_hsic_wq;
-	struct work_struct diag_read_mdm_work;
 	struct work_struct diag_read_hsic_work;
+	/* USB MDM channel variables */
+	int usb_mdm_connected;
+	int read_len_mdm;
+	unsigned char *usb_buf_mdm_out;
+	struct usb_diag_ch *mdm_ch;
+	struct workqueue_struct *diag_bridge_wq;
+	struct work_struct diag_read_mdm_work;
 	struct work_struct diag_disconnect_work;
 	struct work_struct diag_usb_read_complete_work;
 	struct diag_request *usb_read_mdm_ptr;
