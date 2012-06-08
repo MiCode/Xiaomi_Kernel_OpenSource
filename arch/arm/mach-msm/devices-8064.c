@@ -618,6 +618,11 @@ struct platform_device apq_cpudai_slimbus_3_rx = {
 	.id = 0x4006,
 };
 
+struct platform_device apq_cpudai_slimbus_3_tx = {
+	.name = "msm-dai-q6",
+	.id = 0x4007,
+};
+
 static struct resource resources_ssbi_pmic1[] = {
 	{
 		.start  = MSM_PMIC1_SSBI_CMD_PHYS,
