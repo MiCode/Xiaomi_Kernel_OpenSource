@@ -228,6 +228,7 @@ struct ddl_batch_frame_data {
 			[DDL_MAX_NUM_BFRS_FOR_SLICE_BATCH];
 	u32 num_output_frames;
 	u32 out_frm_next_frmindex;
+	u32  first_output_frame_tag;
 };
 struct ddl_encoder_data{
 	struct ddl_codec_data_hdr   hdr;

@@ -1774,6 +1774,27 @@ static void ddl_handle_slice_done_slice_batch(struct ddl_client_context *ddl)
 		vidc_sm_get_frame_tags(&ddl->shared_mem
 			[ddl->command_channel],
 			&output_frame->ip_frm_tag, &bottom_frame_tag);
+
+		if (start_bfr_idx == 0) {
+			encoder->batch_frame.first_output_frame_tag =
+				output_frame->ip_frm_tag;
+			DDL_MSG_LOW("%s: first_output_frame_tag[0x%x]",
+				__func__, output_frame->ip_frm_tag);
+			if (!output_frame->ip_frm_tag) {
+				DDL_MSG_ERROR("%s: first_output_frame_tag "\
+					"is zero", __func__);
+			}
+		}
+		if (output_frame->ip_frm_tag !=
+			encoder->batch_frame.first_output_frame_tag) {
+			DDL_MSG_ERROR("%s: output_frame->ip_frm_tag[0x%x] is "\
+				"not equal to the first_output_frame_tag[0x%x]\n",
+				__func__, output_frame->ip_frm_tag,
+				encoder->batch_frame.first_output_frame_tag);
+			output_frame->ip_frm_tag =
+				encoder->batch_frame.first_output_frame_tag;
+		}
+
 		ddl_get_encoded_frame(output_frame,
 				encoder->codec.codec,
 				encoder->enc_frame_info.enc_frame);
@@ -1856,6 +1877,27 @@ static void ddl_handle_enc_frame_done_slice_mode(
 		vidc_sm_get_frame_tags(&ddl->shared_mem
 			[ddl->command_channel],
 			&output_frame->ip_frm_tag, &bottom_frame_tag);
+
+		if (start_bfr_idx == 0) {
+			encoder->batch_frame.first_output_frame_tag =
+				output_frame->ip_frm_tag;
+			DDL_MSG_LOW("%s: first_output_frame_tag[0x%x]",
+				__func__, output_frame->ip_frm_tag);
+			if (!output_frame->ip_frm_tag) {
+				DDL_MSG_ERROR("%s: first_output_frame_tag "\
+					"is zero", __func__);
+			}
+		}
+		if (output_frame->ip_frm_tag !=
+			encoder->batch_frame.first_output_frame_tag) {
+			DDL_MSG_ERROR("%s: output_frame->ip_frm_tag[0x%x] is "\
+				"not equal to the first_output_frame_tag[0x%x]\n",
+				__func__, output_frame->ip_frm_tag,
+				encoder->batch_frame.first_output_frame_tag);
+			output_frame->ip_frm_tag =
+				encoder->batch_frame.first_output_frame_tag;
+		}
+
 		ddl_get_encoded_frame(output_frame,
 				encoder->codec.codec,
 				encoder->enc_frame_info.enc_frame);
@@ -1925,6 +1967,10 @@ static void ddl_handle_enc_skipframe_slice_mode(
 				&ddl->shared_mem[ddl->command_channel],
 				&output_frame->ip_frm_tag,
 				&bottom_frame_tag);
+		if (!output_frame->ip_frm_tag) {
+			DDL_MSG_ERROR("%s: output frame tag is zero",
+				__func__);
+		}
 		ddl_get_encoded_frame(
 				output_frame,
 				encoder->codec.codec,
