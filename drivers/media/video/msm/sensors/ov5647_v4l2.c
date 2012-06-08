@@ -556,10 +556,10 @@ static int32_t ov5647_write_pict_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 static int32_t ov5647_write_prev_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 						uint16_t gain, uint32_t line)
 {
-
-	static uint16_t max_line = 984;
 	u8 intg_time_hsb, intg_time_msb, intg_time_lsb;
 	uint8_t gain_lsb, gain_hsb;
+	uint32_t fl_lines = s_ctrl->curr_frame_length_lines;
+	uint8_t offset = s_ctrl->sensor_exp_gain_info->vert_offset;
 
 	CDBG(KERN_ERR "preview exposure setting 0x%x, 0x%x, %d",
 		 gain, line, line);
@@ -567,33 +567,23 @@ static int32_t ov5647_write_prev_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	gain_lsb = (uint8_t) (gain);
 	gain_hsb = (uint8_t)((gain & 0x300)>>8);
 
+	fl_lines = (fl_lines * s_ctrl->fps_divider) / Q10;
+
 	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 
 	/* adjust frame rate */
-	if (line > 980) {
-		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+	if (line > (fl_lines - offset))
+		fl_lines = line + offset;
+
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_output_reg_addr->frame_length_lines,
-		(uint8_t)((line+4) >> 8),
+		(uint8_t)(fl_lines >> 8),
 		MSM_CAMERA_I2C_BYTE_DATA);
 
-		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_output_reg_addr->frame_length_lines + 1,
-		(uint8_t)((line+4) & 0x00FF),
+		(uint8_t)(fl_lines & 0x00FF),
 		MSM_CAMERA_I2C_BYTE_DATA);
-		max_line = line + 4;
-	} else if (max_line > 984) {
-
-		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		s_ctrl->sensor_output_reg_addr->frame_length_lines,
-		(uint8_t)(984 >> 8),
-		MSM_CAMERA_I2C_BYTE_DATA);
-
-		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		s_ctrl->sensor_output_reg_addr->frame_length_lines + 1 ,
-		(uint8_t)(984 & 0x00FF),
-		MSM_CAMERA_I2C_BYTE_DATA);
-		max_line = 984;
-	}
 
 	line = line<<4;
 	/* ov5647 need this operation */
