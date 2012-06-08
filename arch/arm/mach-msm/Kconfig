@@ -2257,6 +2257,16 @@ config MSM_RTB_SEPARATE_CPUS
 	  separately. This will guarantee that the last acesses for each cpu
 	  will be logged but there will be fewer entries per cpu
 
+config MSM_EBI_ERP
+	bool "External Bus Interface (EBI) error reporting"
+	help
+	  Say 'Y' here to enable reporting of external bus interface errors to
+	  the kernel log. Information such as the offending address and
+	  transaction type will be logged. This may be useful for debugging
+	  seemingly broken memory accesses.
+
+	  For production builds, you should probably say 'N' here.
+
 config MSM_CACHE_ERP
 	bool "Cache / CPU error reporting"
 	depends on ARCH_MSM_KRAIT
