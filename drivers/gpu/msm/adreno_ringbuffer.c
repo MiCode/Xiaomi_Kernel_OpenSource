@@ -53,6 +53,9 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 	unsigned int freecmds;
 	unsigned int *cmds;
 	uint cmds_gpu;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
+	unsigned long wait_timeout = msecs_to_jiffies(adreno_dev->wait_timeout);
+	unsigned long wait_time;
 
 	/* if wptr ahead, fill the remaining with NOPs */
 	if (wptr_ahead) {
@@ -79,13 +82,27 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 		rb->wptr = 0;
 	}
 
+	wait_time = jiffies + wait_timeout;
 	/* wait for space in ringbuffer */
-	do {
+	while (1) {
 		GSL_RB_GET_READPTR(rb, &rb->rptr);
 
 		freecmds = rb->rptr - rb->wptr;
 
-	} while ((freecmds != 0) && (freecmds <= numcmds));
+		if (freecmds == 0 || freecmds > numcmds)
+			break;
+
+		if (time_after(jiffies, wait_time)) {
+			KGSL_DRV_ERR(rb->device,
+			"Timed out while waiting for freespace in ringbuffer "
+			"rptr: 0x%x, wptr: 0x%x\n", rb->rptr, rb->wptr);
+			if (!adreno_dump_and_recover(rb->device))
+				wait_time = jiffies + wait_timeout;
+			else
+				/* GPU is hung and we cannot recover */
+				BUG();
+		}
+	}
 }
 
 unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
@@ -439,15 +456,13 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	unsigned int context_id = KGSL_MEMSTORE_GLOBAL;
 	unsigned int gpuaddr = rb->device->memstore.gpuaddr;
 
-	if (context != NULL) {
-		/*
-		 * if the context was not created with per context timestamp
-		 * support, we must use the global timestamp since issueibcmds
-		 * will be returning that one.
-		 */
-		if (context->flags & CTXT_FLAGS_PER_CONTEXT_TS)
-			context_id = context->id;
-	}
+	/*
+	 * if the context was not created with per context timestamp
+	 * support, we must use the global timestamp since issueibcmds
+	 * will be returning that one.
+	 */
+	if (context->flags & CTXT_FLAGS_PER_CONTEXT_TS)
+		context_id = context->id;
 
 	/* reserve space to temporarily turn off protected mode
 	*  error checking if needed
@@ -460,7 +475,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		total_sizedwords += 7;
 
 	total_sizedwords += 2; /* scratchpad ts for recovery */
-	if (context) {
+	if (context->flags & CTXT_FLAGS_PER_CONTEXT_TS) {
 		total_sizedwords += 3; /* sop timestamp */
 		total_sizedwords += 4; /* eop timestamp */
 		total_sizedwords += 3; /* global timestamp without cache
@@ -470,6 +485,15 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	}
 
 	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
+	/* GPU may hang during space allocation, if thats the case the current
+	 * context may have hung the GPU */
+	if (context->flags & CTXT_FLAGS_GPU_HANG) {
+		KGSL_CTXT_WARN(rb->device,
+		"Context %p caused a gpu hang. Will not accept commands for context %d\n",
+		context, context->id);
+		return rb->timestamp[context_id];
+	}
+
 	rcmd_gpu = rb->buffer_desc.gpuaddr
 		+ sizeof(uint)*(rb->wptr-total_sizedwords);
 
@@ -525,7 +549,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		GSL_RB_WRITE(ringcmds, rcmd_gpu, 0x00);
 	}
 
-	if (context) {
+	if (context->flags & CTXT_FLAGS_PER_CONTEXT_TS) {
 		/* start-of-pipeline timestamp */
 		GSL_RB_WRITE(ringcmds, rcmd_gpu,
 			cp_type3_packet(CP_MEM_WRITE, 2));
@@ -593,6 +617,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 unsigned int
 adreno_ringbuffer_issuecmds(struct kgsl_device *device,
+						struct adreno_context *drawctxt,
 						unsigned int flags,
 						unsigned int *cmds,
 						int sizedwords)
@@ -603,7 +628,7 @@ adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 	if (device->state & KGSL_STATE_HUNG)
 		return kgsl_readtimestamp(device, KGSL_MEMSTORE_GLOBAL,
 					KGSL_TIMESTAMP_RETIRED);
-	return adreno_ringbuffer_addcmds(rb, NULL, flags, cmds, sizedwords);
+	return adreno_ringbuffer_addcmds(rb, drawctxt, flags, cmds, sizedwords);
 }
 
 static bool _parse_ibs(struct kgsl_device_private *dev_priv, uint gpuaddr,
@@ -870,7 +895,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	*cmds++ = cp_nop_packet(1);
 	*cmds++ = KGSL_END_OF_IB_IDENTIFIER;
 
-	kgsl_setstate(&device->mmu,
+	kgsl_setstate(&device->mmu, context->id,
 		      kgsl_mmu_pt_get_flags(device->mmu.hwpagetable,
 					device->id));
 

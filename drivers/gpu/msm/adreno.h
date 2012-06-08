@@ -99,7 +99,8 @@ struct adreno_gpudev {
 	int (*ctxt_create)(struct adreno_device *, struct adreno_context *);
 	void (*ctxt_save)(struct adreno_device *, struct adreno_context *);
 	void (*ctxt_restore)(struct adreno_device *, struct adreno_context *);
-	void (*ctxt_draw_workaround)(struct adreno_device *);
+	void (*ctxt_draw_workaround)(struct adreno_device *,
+					struct adreno_context *);
 	irqreturn_t (*irq_handler)(struct adreno_device *);
 	void (*irq_control)(struct adreno_device *, int);
 	void * (*snapshot)(struct adreno_device *, void *, int *, int);
@@ -142,6 +143,8 @@ struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
 
 void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 		int hang);
+
+int adreno_dump_and_recover(struct kgsl_device *device);
 
 static inline int adreno_is_a200(struct adreno_device *adreno_dev)
 {
