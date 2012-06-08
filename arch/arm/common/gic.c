@@ -1139,7 +1139,7 @@ unsigned int msm_gic_spi_ppi_pending(void)
 }
 #endif
 
-void msm_gic_save(bool modem_wake, int from_idle)
+void msm_gic_save(void)
 {
 	unsigned int i;
 	struct gic_chip_data *gic = &gic_data[0];
