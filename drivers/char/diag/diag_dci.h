@@ -22,6 +22,12 @@ struct diag_dci_tbl {
 	int tag;
 };
 
+struct dci_notification_tbl {
+	struct task_struct *client;
+	uint16_t list; /* bit mask */
+	int signal_type;
+};
+
 #define DIAG_CON_APSS (0x0001)	/* Bit mask for APSS */
 #define DIAG_CON_MPSS (0x0002)	/* Bit mask for MPSS */
 #define DIAG_CON_LPASS (0x0004)	/* Bit mask for LPASS */

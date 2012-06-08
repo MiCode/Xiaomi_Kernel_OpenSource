@@ -343,6 +343,7 @@ long diagchar_ioctl(struct file *filp,
 	int success = -1;
 	void *temp_buf;
 	uint16_t support_list = 0;
+	struct dci_notification_tbl *notify_params;
 
 	if (iocmd == DIAG_IOCTL_COMMAND_REG) {
 		struct bindpkt_params_per_process *pkt_params =
@@ -413,13 +414,23 @@ long diagchar_ioctl(struct file *filp,
 	} else if (iocmd == DIAG_IOCTL_DCI_REG) {
 		if (driver->dci_state == DIAG_DCI_NO_REG)
 			return DIAG_DCI_NO_REG;
-		/* use the 'list' later on to notify user space */
 		if (driver->num_dci_client >= MAX_DCI_CLIENT)
 			return DIAG_DCI_NO_REG;
+		notify_params = (struct dci_notification_tbl *) ioarg;
 		mutex_lock(&driver->dci_mutex);
 		driver->num_dci_client++;
 		pr_debug("diag: id = %d\n", driver->dci_client_id);
 		driver->dci_client_id++;
+		for (i = 0; i < MAX_DCI_CLIENT; i++) {
+			if (driver->dci_notify_tbl[i].client == NULL) {
+				driver->dci_notify_tbl[i].client = current;
+				driver->dci_notify_tbl[i].list =
+							 notify_params->list;
+				driver->dci_notify_tbl[i].signal_type =
+					 notify_params->signal_type;
+				break;
+			}
+		}
 		mutex_unlock(&driver->dci_mutex);
 		return driver->dci_client_id;
 	} else if (iocmd == DIAG_IOCTL_DCI_DEINIT) {
@@ -431,6 +442,12 @@ long diagchar_ioctl(struct file *filp,
 				pr_debug("diag: delete %d\n", current->tgid);
 				driver->dci_tbl[i].pid = 0;
 				success = i;
+			}
+		}
+		for (i = 0; i < MAX_DCI_CLIENT; i++) {
+			if (driver->dci_notify_tbl[i].client == current) {
+				driver->dci_notify_tbl[i].client = NULL;
+				break;
 			}
 		}
 		/* if any registrations were deleted successfully OR a valid

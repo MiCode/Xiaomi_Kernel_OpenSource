@@ -16,6 +16,7 @@
 #include <linux/diagchar.h>
 #include <linux/sched.h>
 #include <linux/err.h>
+#include <linux/delay.h>
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
@@ -115,6 +116,23 @@ static void diag_smd_dci_notify(void *ctxt, unsigned event)
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_dci_work));
 }
 
+void diag_dci_notify_client(int peripheral_mask)
+{
+	int i, stat;
+
+	/* Notify the DCI process that the peripheral DCI Channel is up */
+	for (i = 0; i < MAX_DCI_CLIENT; i++) {
+		if (driver->dci_notify_tbl[i].list & peripheral_mask) {
+			pr_debug("diag: sending signal now\n");
+			stat = send_sig(driver->dci_notify_tbl[i].signal_type,
+					 driver->dci_notify_tbl[i].client, 0);
+			if (stat)
+				pr_err("diag: Err send sig stat: %d\n", stat);
+			break;
+		}
+	} /* end of loop for all DCI clients */
+}
+
 static int diag_dci_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -125,6 +143,8 @@ static int diag_dci_probe(struct platform_device *pdev)
 		if (err)
 			pr_err("diag: cannot open DCI port, Id = %d, err ="
 				" %d\n", pdev->id, err);
+		else
+			diag_dci_notify_client(DIAG_CON_MPSS);
 	}
 	return err;
 }
@@ -302,6 +322,12 @@ int diag_dci_init(void)
 		if (driver->dci_tbl == NULL)
 			goto err;
 	}
+	if (driver->dci_notify_tbl == NULL) {
+		driver->dci_notify_tbl = kzalloc(MAX_DCI_CLIENT *
+			sizeof(struct dci_notification_tbl), GFP_KERNEL);
+		if (driver->dci_notify_tbl == NULL)
+			goto err;
+	}
 	if (driver->apps_dci_buf == NULL) {
 		driver->apps_dci_buf = kzalloc(APPS_BUF_SIZE, GFP_KERNEL);
 		if (driver->apps_dci_buf == NULL)
@@ -316,6 +342,7 @@ int diag_dci_init(void)
 err:
 	pr_err("diag: Could not initialize diag DCI buffers");
 	kfree(driver->dci_tbl);
+	kfree(driver->dci_notify_tbl);
 	kfree(driver->apps_dci_buf);
 	kfree(driver->buf_in_dci);
 	kfree(driver->write_ptr_dci);
@@ -328,6 +355,7 @@ void diag_dci_exit(void)
 	driver->ch_dci = 0;
 	platform_driver_unregister(&msm_diag_dci_driver);
 	kfree(driver->dci_tbl);
+	kfree(driver->dci_notify_tbl);
 	kfree(driver->apps_dci_buf);
 	kfree(driver->buf_in_dci);
 	kfree(driver->write_ptr_dci);
