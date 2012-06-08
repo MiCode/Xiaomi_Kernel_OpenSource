@@ -852,6 +852,11 @@ struct platform_device apq8064_device_ehci_host4 = {
 	},
 };
 
+struct platform_device apq8064_device_acpuclk = {
+	.name		= "acpuclk-8064",
+	.id		= -1,
+};
+
 #define SHARED_IMEM_TZ_BASE 0x2a03f720
 static struct resource tzlog_resources[] = {
 	{
