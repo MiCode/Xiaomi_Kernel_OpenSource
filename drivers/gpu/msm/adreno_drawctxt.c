@@ -274,7 +274,7 @@ void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		if (adreno_dev->gpudev->ctxt_draw_workaround &&
 			adreno_is_a225(adreno_dev))
 				adreno_dev->gpudev->ctxt_draw_workaround(
-					adreno_dev);
+					adreno_dev, drawctxt);
 		return;
 	}
 

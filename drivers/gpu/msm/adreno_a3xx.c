@@ -2226,16 +2226,17 @@ static void a3xx_drawctxt_save(struct adreno_device *adreno_dev,
 
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
 		/* Fixup self modifying IBs for save operations */
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
-			context->save_fixup, 3);
+		adreno_ringbuffer_issuecmds(device, context,
+			KGSL_CMD_FLAGS_NONE, context->save_fixup, 3);
 
 		/* save registers and constants. */
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
+		adreno_ringbuffer_issuecmds(device, context,
+			KGSL_CMD_FLAGS_NONE,
 			context->regconstant_save, 3);
 
 		if (context->flags & CTXT_FLAGS_SHADER_SAVE) {
 			/* Save shader instructions */
-			adreno_ringbuffer_issuecmds(device,
+			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_PMODE, context->shader_save, 3);
 
 			context->flags |= CTXT_FLAGS_SHADER_RESTORE;
@@ -2249,7 +2250,8 @@ static void a3xx_drawctxt_save(struct adreno_device *adreno_dev,
 		 * already be saved.)
 		 */
 
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
+		adreno_ringbuffer_issuecmds(device, context,
+					KGSL_CMD_FLAGS_PMODE,
 					    context->context_gmem_shadow.
 					    gmem_save, 3);
 		context->flags |= CTXT_FLAGS_GMEM_RESTORE;
@@ -2264,7 +2266,8 @@ static void a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 
 	if (context == NULL) {
 		/* No context - set the default pagetable and thats it */
-		kgsl_mmu_setstate(&device->mmu, device->mmu.defaultpagetable);
+		kgsl_mmu_setstate(&device->mmu, device->mmu.defaultpagetable,
+				adreno_dev->drawctxt_active->id);
 		return;
 	}
 
@@ -2276,8 +2279,9 @@ static void a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	cmds[3] = device->memstore.gpuaddr +
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context);
 	cmds[4] = context->id;
-	adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE, cmds, 5);
-	kgsl_mmu_setstate(&device->mmu, context->pagetable);
+	adreno_ringbuffer_issuecmds(device, context, KGSL_CMD_FLAGS_NONE,
+					cmds, 5);
+	kgsl_mmu_setstate(&device->mmu, context->pagetable, context->id);
 
 	/*
 	 * Restore GMEM.  (note: changes shader.
@@ -2285,29 +2289,34 @@ static void a3xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	 */
 
 	if (context->flags & CTXT_FLAGS_GMEM_RESTORE) {
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
+		adreno_ringbuffer_issuecmds(device, context,
+					KGSL_CMD_FLAGS_PMODE,
 					    context->context_gmem_shadow.
 					    gmem_restore, 3);
 		context->flags &= ~CTXT_FLAGS_GMEM_RESTORE;
 	}
 
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
-			context->reg_restore, 3);
+		adreno_ringbuffer_issuecmds(device, context,
+			KGSL_CMD_FLAGS_NONE, context->reg_restore, 3);
 
 		/* Fixup self modifying IBs for restore operations */
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
+		adreno_ringbuffer_issuecmds(device, context,
+			KGSL_CMD_FLAGS_NONE,
 			context->restore_fixup, 3);
 
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
+		adreno_ringbuffer_issuecmds(device, context,
+			KGSL_CMD_FLAGS_NONE,
 			context->constant_restore, 3);
 
 		if (context->flags & CTXT_FLAGS_SHADER_RESTORE)
-			adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
+			adreno_ringbuffer_issuecmds(device, context,
+				KGSL_CMD_FLAGS_NONE,
 				context->shader_restore, 3);
 
 		/* Restore HLSQ_CONTROL_0 register */
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
+		adreno_ringbuffer_issuecmds(device, context,
+			KGSL_CMD_FLAGS_NONE,
 			context->hlsqcontrol_restore, 3);
 	}
 }

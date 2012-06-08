@@ -97,7 +97,8 @@ struct kgsl_functable {
 	/* Optional functions - these functions are not mandatory.  The
 	   driver will check that the function pointer is not NULL before
 	   calling the hook */
-	void (*setstate) (struct kgsl_device *device, uint32_t flags);
+	void (*setstate) (struct kgsl_device *device, unsigned int context_id,
+			uint32_t flags);
 	int (*drawctxt_create) (struct kgsl_device *device,
 		struct kgsl_pagetable *pagetable, struct kgsl_context *context,
 		uint32_t flags);

@@ -617,7 +617,8 @@ static int kgsl_iommu_get_pt_lsb(struct kgsl_mmu *mmu,
 }
 
 static void kgsl_iommu_setstate(struct kgsl_mmu *mmu,
-				struct kgsl_pagetable *pagetable)
+				struct kgsl_pagetable *pagetable,
+				unsigned int context_id)
 {
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
 		struct kgsl_iommu *iommu = mmu->priv;
@@ -634,7 +635,8 @@ static void kgsl_iommu_setstate(struct kgsl_mmu *mmu,
 				flags |= KGSL_MMUFLAGS_TLBFLUSH;
 			flags |= kgsl_mmu_pt_get_flags(mmu->hwpagetable,
 							mmu->device->id);
-			kgsl_setstate(mmu, KGSL_MMUFLAGS_PTUPDATE | flags);
+			kgsl_setstate(mmu, context_id,
+				KGSL_MMUFLAGS_PTUPDATE | flags);
 		}
 	}
 }

@@ -246,6 +246,7 @@ error:
 }
 
 static void adreno_iommu_setstate(struct kgsl_device *device,
+					unsigned int context_id,
 					uint32_t flags)
 {
 	unsigned int pt_val, reg_pt_val;
@@ -256,11 +257,17 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	struct kgsl_memdesc **reg_map_desc;
 	void *reg_map_array = NULL;
 	int num_iommu_units, i;
+	struct kgsl_context *context;
+	struct adreno_context *adreno_ctx = NULL;
 
 	if (!adreno_dev->drawctxt_active)
 		return kgsl_mmu_device_setstate(&device->mmu, flags);
 	num_iommu_units = kgsl_mmu_get_reg_map_desc(&device->mmu,
 							&reg_map_array);
+
+	context = idr_find(&device->context_idr, context_id);
+	adreno_ctx = context->devctxt;
+
 	reg_map_desc = reg_map_array;
 
 	if (kgsl_mmu_enable_clk(&device->mmu,
@@ -375,7 +382,6 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 
 	sizedwords += (cmds - &link[0]);
 	if (sizedwords) {
-		unsigned int ts;
 		/*
 		 * add an interrupt at the end of commands so that the smmu
 		 * disable clock off function will get called
@@ -383,9 +389,13 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 		*cmds++ = cp_type3_packet(CP_INTERRUPT, 1);
 		*cmds++ = CP_INT_CNTL__RB_INT_MASK;
 		sizedwords += 2;
-		ts = adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
+		/* This returns the per context timestamp but we need to
+		 * use the global timestamp for iommu clock disablement */
+		adreno_ringbuffer_issuecmds(device, adreno_ctx,
+			KGSL_CMD_FLAGS_PMODE,
 			&link[0], sizedwords);
-		kgsl_mmu_disable_clk_on_ts(&device->mmu, ts, true);
+		kgsl_mmu_disable_clk_on_ts(&device->mmu,
+		adreno_dev->ringbuffer.timestamp[KGSL_MEMSTORE_GLOBAL], true);
 	}
 done:
 	if (num_iommu_units)
@@ -393,6 +403,7 @@ done:
 }
 
 static void adreno_gpummu_setstate(struct kgsl_device *device,
+					unsigned int context_id,
 					uint32_t flags)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -400,6 +411,8 @@ static void adreno_gpummu_setstate(struct kgsl_device *device,
 	unsigned int *cmds = &link[0];
 	int sizedwords = 0;
 	unsigned int mh_mmu_invalidate = 0x00000003; /*invalidate all and tc */
+	struct kgsl_context *context;
+	struct adreno_context *adreno_ctx = NULL;
 
 	/*
 	 * Fix target freeze issue by adding TLB flush for each submit
@@ -414,6 +427,9 @@ static void adreno_gpummu_setstate(struct kgsl_device *device,
 	 * easier to filter out the mmu accesses from the dump
 	 */
 	if (!kgsl_cff_dump_enable && adreno_dev->drawctxt_active) {
+		context = idr_find(&device->context_idr, context_id);
+		adreno_ctx = context->devctxt;
+
 		if (flags & KGSL_MMUFLAGS_PTUPDATE) {
 			/* wait for graphics pipe to be idle */
 			*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
@@ -486,7 +502,8 @@ static void adreno_gpummu_setstate(struct kgsl_device *device,
 			sizedwords += 2;
 		}
 
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
+		adreno_ringbuffer_issuecmds(device, adreno_ctx,
+					KGSL_CMD_FLAGS_PMODE,
 					&link[0], sizedwords);
 	} else {
 		kgsl_mmu_device_setstate(&device->mmu, flags);
@@ -494,13 +511,14 @@ static void adreno_gpummu_setstate(struct kgsl_device *device,
 }
 
 static void adreno_setstate(struct kgsl_device *device,
+			unsigned int context_id,
 			uint32_t flags)
 {
 	/* call the mmu specific handler */
 	if (KGSL_MMU_TYPE_GPU == kgsl_mmu_get_mmutype())
-		return adreno_gpummu_setstate(device, flags);
+		return adreno_gpummu_setstate(device, context_id, flags);
 	else if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
-		return adreno_iommu_setstate(device, flags);
+		return adreno_iommu_setstate(device, context_id, flags);
 }
 
 static unsigned int
@@ -896,8 +914,7 @@ done:
 	return ret;
 }
 
-static int
-adreno_dump_and_recover(struct kgsl_device *device)
+int adreno_dump_and_recover(struct kgsl_device *device)
 {
 	int result = -ETIMEDOUT;
 
@@ -937,6 +954,7 @@ adreno_dump_and_recover(struct kgsl_device *device)
 done:
 	return result;
 }
+EXPORT_SYMBOL(adreno_dump_and_recover);
 
 static int adreno_getproperty(struct kgsl_device *device,
 				enum kgsl_property_type type,
@@ -1325,6 +1343,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 	int status;
 	unsigned int ref_ts, enableflag;
 	unsigned int context_id;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	mutex_lock(&device->mutex);
 	context_id = _get_context_id(context);
@@ -1370,8 +1389,15 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 			* get an interrupt */
 			cmds[0] = cp_type3_packet(CP_NOP, 1);
 			cmds[1] = 0;
-			adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
-				&cmds[0], 2);
+
+			if (adreno_dev->drawctxt_active)
+				adreno_ringbuffer_issuecmds(device,
+					adreno_dev->drawctxt_active,
+					KGSL_CMD_FLAGS_NONE, &cmds[0], 2);
+			else
+				/* We would never call this function if there
+				 * was no active contexts running */
+				BUG();
 		}
 	}
 unlock:

@@ -485,7 +485,8 @@ static void kgsl_gpummu_default_setstate(struct kgsl_mmu *mmu,
 }
 
 static void kgsl_gpummu_setstate(struct kgsl_mmu *mmu,
-				struct kgsl_pagetable *pagetable)
+				struct kgsl_pagetable *pagetable,
+				unsigned int context_id)
 {
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
 		/* page table not current, then setup mmu to use new
@@ -499,7 +500,7 @@ static void kgsl_gpummu_setstate(struct kgsl_mmu *mmu,
 			kgsl_mmu_pt_get_flags(pagetable, mmu->device->id);
 
 			/* call device specific set page table */
-			kgsl_setstate(mmu, KGSL_MMUFLAGS_TLBFLUSH |
+			kgsl_setstate(mmu, context_id, KGSL_MMUFLAGS_TLBFLUSH |
 				KGSL_MMUFLAGS_PTUPDATE);
 		}
 	}
@@ -583,7 +584,7 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 	kgsl_regwrite(mmu->device, MH_MMU_VA_RANGE,
 		      (KGSL_PAGETABLE_BASE |
 		      (CONFIG_MSM_KGSL_PAGE_TABLE_SIZE >> 16)));
-	kgsl_setstate(mmu, KGSL_MMUFLAGS_TLBFLUSH);
+	kgsl_setstate(mmu, KGSL_MEMSTORE_GLOBAL, KGSL_MMUFLAGS_TLBFLUSH);
 	mmu->flags |= KGSL_FLAGS_STARTED;
 
 	return 0;
