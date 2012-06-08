@@ -2162,7 +2162,6 @@ static struct platform_device msm8930_device_rpm_regulator = {
 };
 
 static struct platform_device *common_devices[] __initdata = {
-	&msm8960_device_acpuclk,
 	&msm8960_device_dmov,
 	&msm_device_smd,
 	&msm8960_device_uart_gsbi5,
@@ -2576,6 +2575,10 @@ static void __init msm8930_cdp_init(void)
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm8930_init_buses();
 	platform_add_devices(msm8930_footswitch, msm8930_num_footswitch);
+	if (cpu_is_msm8627())
+		platform_device_register(&msm8960_device_acpuclk);
+	else if (cpu_is_msm8930() || cpu_is_msm8930aa())
+		platform_device_register(&msm8930_device_acpuclk);
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8930_add_vidc_device();
 	/*
