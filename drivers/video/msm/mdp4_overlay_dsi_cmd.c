@@ -114,6 +114,11 @@ void mdp4_mipi_vsync_enable(struct msm_fb_data_type *mfd,
 	}
 }
 
+void mdp4_dsi_cmd_base_swap(struct mdp4_overlay_pipe *pipe)
+{
+	dsi_pipe = pipe;
+}
+
 void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 {
 	MDPIBUF *iBuf = &mfd->ibuf;
@@ -162,6 +167,14 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 	} else {
 		pipe = dsi_pipe;
 	}
+
+	if (pipe->pipe_used == 0 ||
+			pipe->mixer_stage != MDP4_MIXER_STAGE_BASE) {
+		pr_err("%s: NOT baselayer\n", __func__);
+		mutex_unlock(&mfd->dma->ov_mutex);
+		return;
+	}
+
 	/*
 	 * configure dsi stream id
 	 * dma_p = 0, dma_s = 1
@@ -207,6 +220,8 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 
 	mdp4_overlay_rgb_setup(pipe);
 
+	mdp4_overlay_reg_flush(pipe, 1);
+
 	mdp4_mixer_stage_up(pipe);
 
 	mdp4_overlayproc_cfg(pipe);
@@ -240,6 +255,12 @@ void mdp4_dsi_cmd_3d_sbys(struct msm_fb_data_type *mfd,
 	dsi_pipe->src_width_3d = r3d->width;
 
 	pipe = dsi_pipe;
+	if (pipe->pipe_used == 0 ||
+			pipe->mixer_stage != MDP4_MIXER_STAGE_BASE) {
+		pr_err("%s: NOT baselayer\n", __func__);
+		mutex_unlock(&mfd->dma->ov_mutex);
+		return;
+	}
 
 	if (pipe->is_3d)
 		mdp4_overlay_panel_3d(pipe->mixer_num, MDP4_3D_SIDE_BY_SIDE);
@@ -281,6 +302,8 @@ void mdp4_dsi_cmd_3d_sbys(struct msm_fb_data_type *mfd,
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	mdp4_overlay_rgb_setup(pipe);
+
+	mdp4_overlay_reg_flush(pipe, 1);
 
 	mdp4_mixer_stage_up(pipe);
 
@@ -651,12 +674,22 @@ void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdp4_stat.kickoff_ov0++;
 }
 
-void mdp_dsi_cmd_overlay_suspend(void)
+void mdp_dsi_cmd_overlay_suspend(struct msm_fb_data_type *mfd)
 {
 	/* dis-engage rgb0 from mixer0 */
 	if (dsi_pipe) {
-		mdp4_mixer_stage_down(dsi_pipe);
-		mdp4_iommu_unmap(dsi_pipe);
+		if (mfd->ref_cnt == 0) {
+			/* adb stop */
+			if (dsi_pipe->pipe_type == OVERLAY_TYPE_BF)
+				mdp4_overlay_borderfill_stage_down(dsi_pipe);
+
+			/* dsi_pipe == rgb1 */
+			mdp4_overlay_unset_mixer(dsi_pipe->mixer_num);
+			dsi_pipe = NULL;
+		} else {
+			mdp4_mixer_stage_down(dsi_pipe);
+			mdp4_iommu_unmap(dsi_pipe);
+		}
 	}
 }
 
