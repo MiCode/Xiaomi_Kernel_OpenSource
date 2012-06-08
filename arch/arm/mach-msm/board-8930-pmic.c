@@ -212,6 +212,7 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata = {
 	.update_time		= 60000,
 	.max_voltage		= MAX_VOLTAGE_MV,
 	.min_voltage		= 3200,
+	.uvd_thresh_voltage	= 4050,
 	.resume_voltage_delta	= 100,
 	.term_current		= 100,
 	.cool_temp		= 10,
