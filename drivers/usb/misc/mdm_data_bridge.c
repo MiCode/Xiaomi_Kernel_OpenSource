@@ -479,7 +479,7 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	result = usb_autopm_get_interface(dev->intf);
 	if (result < 0) {
 		dev_err(&dev->udev->dev, "%s: resume failure\n", __func__);
-		goto error;
+		goto pm_error;
 	}
 
 	txurb = usb_alloc_urb(0, GFP_KERNEL);
@@ -536,7 +536,7 @@ free_urb:
 error:
 	dev->txurb_drp_cnt++;
 	usb_autopm_put_interface(dev->intf);
-
+pm_error:
 	return result;
 }
 EXPORT_SYMBOL(data_bridge_write);
