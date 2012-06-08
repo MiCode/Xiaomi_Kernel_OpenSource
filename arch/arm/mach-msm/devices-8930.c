@@ -355,6 +355,11 @@ struct platform_device msm_bus_8930_cpss_fpb = {
 	.id    = MSM_BUS_FAB_CPSS_FPB,
 };
 
+struct platform_device msm8930_device_acpuclk = {
+	.name		= "acpuclk-8930",
+	.id		= -1,
+};
+
 static struct fs_driver_data gfx3d_fs_data = {
 	.clks = (struct fs_clk_data[]){
 		{ .name = "core_clk", .reset_rate = 27000000 },
