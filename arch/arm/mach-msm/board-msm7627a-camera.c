@@ -268,6 +268,37 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov5647_data = {
 };
 
 #endif
+
+static struct msm_camera_gpio_conf gpio_conf_ov8825 = {
+	.camera_off_table = camera_off_gpio_table,
+	.camera_on_table = camera_on_gpio_table,
+	.gpio_no_mux = 1,
+};
+
+static struct msm_camera_sensor_flash_data flash_ov8825 = {
+	.flash_type     = MSM_CAMERA_FLASH_NONE,
+};
+
+static struct msm_camera_sensor_platform_info sensor_board_info_ov8825 = {
+	.mount_angle  = 90,
+	.cam_vreg = msm_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_cam_vreg),
+	.gpio_conf = &gpio_conf_ov8825,
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_ov8825_data = {
+	.sensor_name    = "ov8825",
+	.sensor_reset_enable    = 1,
+	.pmic_gpio_enable = 1,
+	.sensor_reset           = GPIO_SKU3_CAM_5MP_CAMIF_RESET,
+	.sensor_pwd     = GPIO_SKU3_CAM_5MP_SHDN_N,
+	.pdata  = &msm_camera_device_data_csi1[1],
+	.flash_data     = &flash_ov8825,
+	.sensor_platform_info = &sensor_board_info_ov8825,
+	.csi_if = 1,
+	.camera_type = BACK_CAMERA_2D,
+};
+
 #ifdef CONFIG_MT9E013
 static struct msm_camera_sensor_flash_data flash_mt9e013 = {
 	.flash_type             = MSM_CAMERA_FLASH_LED,
@@ -340,6 +371,9 @@ static void __init msm7x27a_init_cam(void)
 		sensor_board_info_ov7692.num_vreg = 0;
 		sensor_board_info_ov5647.cam_vreg = NULL;
 		sensor_board_info_ov5647.num_vreg = 0;
+		sensor_board_info_ov8825.cam_vreg = NULL;
+		sensor_board_info_ov8825.num_vreg = 0;
+
 	}
 	platform_device_register(&msm_camera_server);
 	if (machine_is_msm8625_surf() || machine_is_msm8625_evb()
@@ -379,6 +413,10 @@ static struct i2c_board_info i2c_camera_devices[] = {
 	{
 		I2C_BOARD_INFO("ov5647", 0x36 << 1),
 		.platform_data = &msm_camera_sensor_ov5647_data,
+	},
+	{
+		I2C_BOARD_INFO("ov8825", 0x6C >> 3),
+		.platform_data = &msm_camera_sensor_ov8825_data,
 	},
 	{
 		I2C_BOARD_INFO("sc628a", 0x6E),
@@ -955,6 +993,7 @@ static struct platform_device *camera_devices_evb[] __initdata = {
 #ifdef CONFIG_WEBCAM_OV7692_QRD
 	&msm_camera_sensor_ov7692,
 #endif
+	&msm_camera_sensor_ov8825,
 };
 #endif
 
