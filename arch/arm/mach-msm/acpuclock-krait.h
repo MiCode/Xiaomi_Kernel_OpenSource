@@ -50,6 +50,7 @@ enum pvs {
 	PVS_SLOW = 0,
 	PVS_NOMINAL,
 	PVS_FAST,
+	PVS_FASTER,
 	PVS_UNKNOWN,
 	NUM_PVS
 };

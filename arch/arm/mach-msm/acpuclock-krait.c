@@ -798,7 +798,7 @@ static void __init select_freq_plan(struct acpu_level *const *pvs_tbl,
 	const struct acpu_level *l;
 	void __iomem *qfprom_base;
 	u32 pte_efuse, pvs, tbl_idx;
-	char *pvs_names[] = { "Slow", "Nominal", "Fast", "Unknown" };
+	char *pvs_names[] = { "Slow", "Nominal", "Fast", "Faster", "Unknown" };
 
 	qfprom_base = ioremap(qfprom_phys, SZ_256);
 	/* Select frequency tables. */
@@ -820,6 +820,9 @@ static void __init select_freq_plan(struct acpu_level *const *pvs_tbl,
 		case 0x3:
 			tbl_idx = PVS_FAST;
 			break;
+		case 0x4:
+			tbl_idx = PVS_FASTER;
+			break;
 		default:
 			tbl_idx = PVS_UNKNOWN;
 			break;
@@ -828,13 +831,15 @@ static void __init select_freq_plan(struct acpu_level *const *pvs_tbl,
 		tbl_idx = PVS_UNKNOWN;
 		dev_err(drv.dev, "Unable to map QFPROM base\n");
 	}
-	dev_info(drv.dev, "ACPU PVS: %s\n", pvs_names[tbl_idx]);
-	if (tbl_idx == PVS_UNKNOWN) {
+	if (tbl_idx == PVS_UNKNOWN || !pvs_tbl[tbl_idx]) {
 		tbl_idx = PVS_SLOW;
 		dev_warn(drv.dev, "ACPU PVS: Defaulting to %s\n",
 			 pvs_names[tbl_idx]);
+	} else {
+		dev_info(drv.dev, "ACPU PVS: %s\n", pvs_names[tbl_idx]);
 	}
 	drv.acpu_freq_tbl = pvs_tbl[tbl_idx];
+	BUG_ON(!drv.acpu_freq_tbl);
 
 	if (krait_needs_vmin())
 		krait_apply_vmin(drv.acpu_freq_tbl);
