@@ -4381,7 +4381,7 @@ show_polling(struct device *dev, struct device_attribute *attr, char *buf)
 }
 
 static ssize_t
-set_polling(struct device *dev, struct device_attribute *attr,
+store_polling(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
@@ -4405,9 +4405,6 @@ set_polling(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static DEVICE_ATTR(polling, S_IRUGO | S_IWUSR,
-		show_polling, set_polling);
-
 static ssize_t
 show_sdcc_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
 			char *buf)
@@ -4420,7 +4417,7 @@ show_sdcc_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
 }
 
 static ssize_t
-set_sdcc_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
+store_sdcc_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
@@ -4436,20 +4433,6 @@ set_sdcc_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
 
 	return count;
 }
-
-static DEVICE_ATTR(max_bus_bw, S_IRUGO | S_IWUSR,
-		show_sdcc_to_mem_max_bus_bw, set_sdcc_to_mem_max_bus_bw);
-
-static struct attribute *dev_attrs[] = {
-	&dev_attr_max_bus_bw.attr,
-	/* if polling is enabled, this will be filled with dev_attr_polling */
-	NULL,
-	NULL,
-};
-
-static struct attribute_group dev_attr_grp = {
-	.attrs = dev_attrs,
-};
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void msmsdcc_early_suspend(struct early_suspend *h)
@@ -5212,14 +5195,30 @@ msmsdcc_probe(struct platform_device *pdev)
 #if defined(CONFIG_DEBUG_FS)
 	msmsdcc_dbg_createhost(host);
 #endif
-	if (!plat->status_irq)
-		dev_attrs[1] = &dev_attr_polling.attr;
 
-	ret = sysfs_create_group(&pdev->dev.kobj, &dev_attr_grp);
+	host->max_bus_bw.show = show_sdcc_to_mem_max_bus_bw;
+	host->max_bus_bw.store = store_sdcc_to_mem_max_bus_bw;
+	sysfs_attr_init(&host->max_bus_bw.attr);
+	host->max_bus_bw.attr.name = "max_bus_bw";
+	host->max_bus_bw.attr.mode = S_IRUGO | S_IWUSR;
+	ret = device_create_file(&pdev->dev, &host->max_bus_bw);
 	if (ret)
 		goto platform_irq_free;
+
+	if (!plat->status_irq) {
+		host->polling.show = show_polling;
+		host->polling.store = store_polling;
+		sysfs_attr_init(&host->polling.attr);
+		host->polling.attr.name = "polling";
+		host->polling.attr.mode = S_IRUGO | S_IWUSR;
+		ret = device_create_file(&pdev->dev, &host->polling);
+		if (ret)
+			goto remove_max_bus_bw_file;
+	}
 	return 0;
 
+ remove_max_bus_bw_file:
+	device_remove_file(&pdev->dev, &host->max_bus_bw);
  platform_irq_free:
 	del_timer_sync(&host->req_tout_timer);
 	pm_runtime_disable(&(pdev)->dev);
@@ -5296,8 +5295,9 @@ static int msmsdcc_remove(struct platform_device *pdev)
 	DBG(host, "Removing SDCC device = %d\n", pdev->id);
 	plat = host->plat;
 
+	device_remove_file(&pdev->dev, &host->max_bus_bw);
 	if (!plat->status_irq)
-		sysfs_remove_group(&pdev->dev.kobj, &dev_attr_grp);
+		device_remove_file(&pdev->dev, &host->polling);
 
 	del_timer_sync(&host->req_tout_timer);
 	tasklet_kill(&host->dma_tlet);
