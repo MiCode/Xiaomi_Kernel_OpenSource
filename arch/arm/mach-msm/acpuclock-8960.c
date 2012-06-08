@@ -1261,10 +1261,10 @@ static int __cpuinit acpuclock_cpu_callback(struct notifier_block *nfb,
 	case CPU_DYING:
 	case CPU_DYING_FROZEN:
 		/*
-		 * On Krait v1 and 8064v1, the primary and secondary muxes must
-		 * be set to QSB before L2 power collapse and restored after.
+		 * On Krait v1, the primary and secondary muxes must be set to
+		 * QSB before L2 power collapse and restored after.
 		 */
-		if (cpu_is_krait_v1() || cpu_is_apq8064()) {
+		if (cpu_is_krait_v1()) {
 			prev_sec_src[cpu] = get_sec_clk_src(&scalable[cpu]);
 			prev_pri_src[cpu] = get_pri_clk_src(&scalable[cpu]);
 			set_sec_clk_src(&scalable[cpu], SEC_SRC_SEL_QSB);
@@ -1293,7 +1293,7 @@ static int __cpuinit acpuclock_cpu_callback(struct notifier_block *nfb,
 	case CPU_STARTING_FROZEN:
 		if (!scalable[cpu].clocks_initialized) {
 			per_cpu_init(NULL);
-		} else if (cpu_is_krait_v1() || cpu_is_apq8064()) {
+		} else if (cpu_is_krait_v1()) {
 			set_sec_clk_src(&scalable[cpu], prev_sec_src[cpu]);
 			set_pri_clk_src(&scalable[cpu], prev_pri_src[cpu]);
 		}
