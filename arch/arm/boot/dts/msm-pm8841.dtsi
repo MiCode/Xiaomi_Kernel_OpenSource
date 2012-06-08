@@ -153,13 +153,13 @@
 				status = "disabled";
 
 				qcom,ctl@2600 {
-					reg = <0x2300 0x100>;
+					reg = <0x2600 0x100>;
 				};
 				qcom,ps@2700 {
-					reg = <0x2400 0x100>;
+					reg = <0x2700 0x100>;
 				};
 				qcom,freq@2800 {
-					reg = <0x2500 0x100>;
+					reg = <0x2800 0x100>;
 				};
 			};
 
