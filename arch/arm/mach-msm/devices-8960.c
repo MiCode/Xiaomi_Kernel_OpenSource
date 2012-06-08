@@ -3488,6 +3488,44 @@ struct platform_device msm_etm_device = {
 
 #endif
 
+static struct resource msm_ebi1_ch0_erp_resources[] = {
+	{
+		.start = HSDDRX_EBI1CH0_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = 0x00A40000,
+		.end   = 0x00A40000 + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm8960_device_ebi1_ch0_erp = {
+	.name		= "msm_ebi_erp",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(msm_ebi1_ch0_erp_resources),
+	.resource	= msm_ebi1_ch0_erp_resources,
+};
+
+static struct resource msm_ebi1_ch1_erp_resources[] = {
+	{
+		.start = HSDDRX_EBI1CH1_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = 0x00D40000,
+		.end   = 0x00D40000 + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm8960_device_ebi1_ch1_erp = {
+	.name		= "msm_ebi_erp",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(msm_ebi1_ch1_erp_resources),
+	.resource	= msm_ebi1_ch1_erp_resources,
+};
+
 static int msm8960_LPM_latency = 1000; /* >100 usec for WFI */
 
 struct platform_device msm8960_cpu_idle_device = {

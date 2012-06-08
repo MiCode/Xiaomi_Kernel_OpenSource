@@ -2587,6 +2587,8 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_cpu_idle_device,
 	&msm8960_msm_gov_device,
 	&msm8960_device_cache_erp,
+	&msm8960_device_ebi1_ch0_erp,
+	&msm8960_device_ebi1_ch1_erp,
 	&msm8960_cache_dump_device,
 	&msm8960_iommu_domain_device,
 	&msm_tsens_device,
