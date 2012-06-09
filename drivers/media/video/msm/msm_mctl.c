@@ -673,12 +673,11 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			}
 		}
 
-		if (camdev->is_ispif) {
-			pm_qos_add_request(&p_mctl->pm_qos_req_list,
-				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-			pm_qos_update_request(&p_mctl->pm_qos_req_list,
-				MSM_V4L2_SWFI_LATENCY);
-		}
+		pm_qos_add_request(&p_mctl->pm_qos_req_list,
+			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		pm_qos_update_request(&p_mctl->pm_qos_req_list,
+			MSM_V4L2_SWFI_LATENCY);
+
 		p_mctl->apps_id = apps_id;
 		p_mctl->opencnt++;
 	} else {
@@ -776,16 +775,14 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 	}
 
-	if (camdev->is_ispif) {
-		pm_qos_update_request(&p_mctl->pm_qos_req_list,
-				PM_QOS_DEFAULT_VALUE);
-		pm_qos_remove_request(&p_mctl->pm_qos_req_list);
-	}
-
 	if (p_mctl->act_sdev)
 		v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);
 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
+
+	pm_qos_update_request(&p_mctl->pm_qos_req_list,
+				PM_QOS_DEFAULT_VALUE);
+	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 
 	wake_unlock(&p_mctl->wake_lock);
 	return rc;
@@ -871,7 +868,7 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 		return -EINVAL;
 	}
 
-	wake_lock_init(&pmctl->wake_lock, WAKE_LOCK_IDLE, "msm_camera");
+	wake_lock_init(&pmctl->wake_lock, WAKE_LOCK_SUSPEND, "msm_camera");
 	mutex_init(&pmctl->lock);
 	pmctl->opencnt = 0;
 

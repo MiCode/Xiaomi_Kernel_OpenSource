@@ -3958,7 +3958,7 @@ static int msm_sync_init(struct msm_sync *sync,
 	msm_queue_init(&sync->pict_q, "pict");
 	msm_queue_init(&sync->vpe_q, "vpe");
 
-	wake_lock_init(&sync->wake_lock, WAKE_LOCK_IDLE, "msm_camera");
+	wake_lock_init(&sync->wake_lock, WAKE_LOCK_SUSPEND, "msm_camera");
 
 	rc = msm_camio_probe_on(pdev);
 	if (rc < 0) {
