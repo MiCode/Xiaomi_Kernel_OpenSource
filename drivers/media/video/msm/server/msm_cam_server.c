@@ -637,6 +637,7 @@ end:
 		__func__, tmp_cmd.type, (uint32_t)tmp_cmd.value,
 		tmp_cmd.length, tmp_cmd.status, rc);
 	kfree(ctrl_data);
+	ctrl_data = NULL;
 	return rc;
 }
 
@@ -2405,6 +2406,7 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 		/* Next, copy the userspace event ctrl structure */
 		if (copy_from_user((void *)&u_isp_event, user_ptr,
 				   sizeof(struct msm_isp_event_ctrl))) {
+			rc = -EFAULT;
 			break;
 		}
 		/* Save the pointer of the user allocated command buffer*/
@@ -2416,6 +2418,7 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 			&ev, fp->f_flags & O_NONBLOCK);
 		if (rc < 0) {
 			pr_err("no pending events?");
+			rc = -EFAULT;
 			break;
 		}
 		/* Use k_isp_event to point to the event_ctrl structure
@@ -2445,6 +2448,7 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 						break;
 					}
 					kfree(k_msg_value);
+					k_msg_value = NULL;
 				}
 			}
 		}
@@ -2457,6 +2461,7 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 			break;
 		}
 		kfree(k_isp_event);
+		k_isp_event = NULL;
 
 		/* Copy the v4l2_event structure back to the user*/
 		if (copy_to_user((void __user *)arg, &ev,

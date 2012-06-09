@@ -347,6 +347,7 @@ struct msm_cam_v4l2_dev_inst {
 	int is_mem_map_inst;
 	struct img_plane_info plane_info;
 	int vbqueue_initialized;
+	struct mutex inst_lock;
 };
 
 struct msm_cam_mctl_node {
