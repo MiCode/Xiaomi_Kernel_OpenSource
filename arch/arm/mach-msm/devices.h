@@ -210,6 +210,8 @@ extern struct platform_device msm_cpudai_fm_rx;
 extern struct platform_device msm_cpudai_fm_tx;
 extern struct platform_device msm_cpudai_auxpcm_rx;
 extern struct platform_device msm_cpudai_auxpcm_tx;
+extern struct platform_device msm_cpudai_sec_auxpcm_rx;
+extern struct platform_device msm_cpudai_sec_auxpcm_tx;
 extern struct platform_device msm_cpu_fe;
 extern struct platform_device msm_stub_codec;
 extern struct platform_device msm_voice;

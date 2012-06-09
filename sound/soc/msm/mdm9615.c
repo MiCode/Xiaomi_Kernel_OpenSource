@@ -48,10 +48,15 @@
 #define TOP_SPK_AMP_POS		0x4
 #define TOP_SPK_AMP_NEG		0x8
 
-#define GPIO_AUX_PCM_DOUT 63
-#define GPIO_AUX_PCM_DIN 64
-#define GPIO_AUX_PCM_SYNC 65
-#define GPIO_AUX_PCM_CLK 66
+#define GPIO_AUX_PCM_DOUT 23
+#define GPIO_AUX_PCM_DIN 22
+#define GPIO_AUX_PCM_SYNC 21
+#define GPIO_AUX_PCM_CLK 20
+
+#define GPIO_SEC_AUX_PCM_DOUT 28
+#define GPIO_SEC_AUX_PCM_DIN 27
+#define GPIO_SEC_AUX_PCM_SYNC 26
+#define GPIO_SEC_AUX_PCM_CLK 25
 
 #define TABLA_EXT_CLK_RATE 12288000
 
@@ -145,6 +150,9 @@ static struct msm_gpiomux_config msm9615_audio_prim_i2s_codec_configs[] = {
 #define LPA_IF_REG_BASE (LPA_IF_BASE + 0x00000000)
 #define LPASS_SIF_MUX_ADDR  (SIF_MUX_REG_BASE + 0x00004000)
 #define LPAIF_SPARE_ADDR (LPA_IF_REG_BASE + 0x00000070)
+#define SEC_PCM_PORT_SLC_ADDR 0x00802074
+/* bits 2:0 should be updated with 100 to select SDC2 */
+#define SEC_PCM_PORT_SLC_VALUE 0x4
 /* SIF & SPARE MUX Values */
 #define MSM_SIF_FUNC_PCM              0
 #define MSM_SIF_FUNC_I2S_MIC        1
@@ -169,6 +177,7 @@ static struct msm_gpiomux_config msm9615_audio_prim_i2s_codec_configs[] = {
 static int msm9615_i2s_rx_ch = 1;
 static int msm9615_i2s_tx_ch = 1;
 static int msm9615_i2s_spk_control;
+
 /* SIF mux bit mask & shift */
 #define LPASS_SIF_MUX_CTL_PRI_MUX_SEL_BMSK                   0x30000
 #define LPASS_SIF_MUX_CTL_PRI_MUX_SEL_SHFT                      0x10
@@ -183,6 +192,8 @@ static int msm9615_i2s_spk_control;
 static u32 spare_shadow;
 static u32 sif_shadow;
 
+static atomic_t msm9615_auxpcm_ref;
+static atomic_t msm9615_sec_auxpcm_ref;
 
 struct msm_i2s_mux_ctl {
 	const u8 sifconfig;
@@ -241,6 +252,10 @@ enum msm9x15_set_i2s_clk {
 
 static u32 top_spk_pamp_gpio  = PM8018_GPIO_PM_TO_SYS(3);
 static u32 bottom_spk_pamp_gpio = PM8018_GPIO_PM_TO_SYS(5);
+
+void *sif_virt_addr;
+void *secpcm_portslc_virt_addr;
+
 static int mdm9615_spk_control;
 static int mdm9615_ext_bottom_spk_pamp;
 static int mdm9615_ext_top_spk_pamp;
@@ -1647,6 +1662,63 @@ static int mdm9615_aux_pcm_free_gpios(void)
 	return 0;
 }
 
+static int mdm9615_sec_aux_pcm_get_gpios(void)
+{
+	int ret = 0;
+
+	pr_debug("%s\n", __func__);
+
+	ret = gpio_request(GPIO_SEC_AUX_PCM_DOUT, "SEC_AUX PCM DOUT");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): SEC_AUX PCM DOUT",
+		       __func__, GPIO_SEC_AUX_PCM_DOUT);
+		goto fail_dout;
+	}
+
+	ret = gpio_request(GPIO_SEC_AUX_PCM_DIN, "SEC_AUX PCM DIN");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): SEC_AUX PCM DIN",
+		       __func__, GPIO_SEC_AUX_PCM_DIN);
+		goto fail_din;
+	}
+
+	ret = gpio_request(GPIO_SEC_AUX_PCM_SYNC, "SEC_AUX PCM SYNC");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): SEC_AUX PCM SYNC",
+		       __func__, GPIO_SEC_AUX_PCM_SYNC);
+		goto fail_sync;
+	}
+
+	ret = gpio_request(GPIO_SEC_AUX_PCM_CLK, "SEC_AUX PCM CLK");
+	if (ret < 0) {
+		pr_err("%s: Failed to request gpio(%d): SEC_AUX PCM CLK",
+		       __func__, GPIO_SEC_AUX_PCM_CLK);
+		goto fail_clk;
+	}
+
+	return 0;
+
+fail_clk:
+	gpio_free(GPIO_SEC_AUX_PCM_SYNC);
+fail_sync:
+	gpio_free(GPIO_SEC_AUX_PCM_DIN);
+fail_din:
+	gpio_free(GPIO_SEC_AUX_PCM_DOUT);
+fail_dout:
+
+	return ret;
+}
+
+static int mdm9615_sec_aux_pcm_free_gpios(void)
+{
+	gpio_free(GPIO_SEC_AUX_PCM_DIN);
+	gpio_free(GPIO_SEC_AUX_PCM_DOUT);
+	gpio_free(GPIO_SEC_AUX_PCM_SYNC);
+	gpio_free(GPIO_SEC_AUX_PCM_CLK);
+
+	return 0;
+}
+
 static int mdm9615_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -1654,15 +1726,37 @@ static int mdm9615_startup(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+void msm9615_config_sif_mux(u8 value)
+{
+	u32 sif_shadow  = 0x00000;
+
+	sif_shadow = (sif_shadow & LPASS_SIF_MUX_CTL_SEC_MUX_SEL_BMSK) |
+		     (value << LPASS_SIF_MUX_CTL_SEC_MUX_SEL_SHFT);
+	iowrite32(sif_shadow, sif_virt_addr);
+	/* Dont read SIF register. Device crashes. */
+	pr_debug("%s() SIF Reg = 0x%x\n", __func__, sif_shadow);
+}
+
+void msm9615_config_port_select(void)
+{
+	pr_debug("%s() port select defualt = 0x%x\n",
+		 __func__, ioread32(secpcm_portslc_virt_addr));
+	iowrite32(SEC_PCM_PORT_SLC_VALUE, secpcm_portslc_virt_addr);
+	pr_debug("%s() port select after updating = 0x%x\n",
+		 __func__, ioread32(secpcm_portslc_virt_addr));
+}
+
 static int mdm9615_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 
 	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	ret = mdm9615_aux_pcm_get_gpios();
-	if (ret < 0) {
-		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
-		return -EINVAL;
+	if (atomic_inc_return(&msm9615_auxpcm_ref) == 1) {
+		ret = mdm9615_aux_pcm_get_gpios();
+		if (ret < 0) {
+			pr_err("%s: Aux PCM GPIO request failed\n", __func__);
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
@@ -1671,7 +1765,33 @@ static void mdm9615_auxpcm_shutdown(struct snd_pcm_substream *substream)
 {
 
 	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	mdm9615_aux_pcm_free_gpios();
+	if (atomic_dec_return(&msm9615_auxpcm_ref) == 0)
+		mdm9615_aux_pcm_free_gpios();
+}
+
+static int mdm9615_sec_auxpcm_startup(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
+	if (atomic_inc_return(&msm9615_sec_auxpcm_ref) == 1) {
+		ret = mdm9615_sec_aux_pcm_get_gpios();
+		if (ret < 0) {
+			pr_err("%s: SEC Aux PCM GPIO request failed\n",
+			       __func__);
+			return -EINVAL;
+		}
+		msm9615_config_sif_mux(MSM_SIF_FUNC_PCM);
+		msm9615_config_port_select();
+	}
+	return 0;
+}
+
+static void mdm9615_sec_auxpcm_shutdown(struct snd_pcm_substream *substream)
+{
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
+	if (atomic_dec_return(&msm9615_sec_auxpcm_ref) == 0)
+		mdm9615_sec_aux_pcm_free_gpios();
 }
 
 static void mdm9615_shutdown(struct snd_pcm_substream *substream)
@@ -1690,6 +1810,12 @@ static struct snd_soc_ops mdm9615_auxpcm_be_ops = {
 	.startup = mdm9615_auxpcm_startup,
 	.shutdown = mdm9615_auxpcm_shutdown,
 };
+
+static struct snd_soc_ops mdm9615_sec_auxpcm_be_ops = {
+	.startup = mdm9615_sec_auxpcm_startup,
+	.shutdown = mdm9615_sec_auxpcm_shutdown,
+};
+
 
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link mdm9615_dai_common[] = {
@@ -1854,8 +1980,34 @@ static struct snd_soc_dai_link mdm9615_dai_common[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
+		.ops = &mdm9615_auxpcm_be_ops,
 	},
 
+	/* SECONDARY AUX PCM Backend DAI Links */
+	{
+		.name = LPASS_BE_SEC_AUXPCM_RX,
+		.stream_name = "SEC AUX PCM Playback",
+		.cpu_dai_name = "msm-dai-q6.12",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_RX,
+		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
+		.ops = &mdm9615_sec_auxpcm_be_ops,
+	},
+	{
+		.name = LPASS_BE_SEC_AUXPCM_TX,
+		.stream_name = "SEC AUX PCM Capture",
+		.cpu_dai_name = "msm-dai-q6.13",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
+		.ops = &mdm9615_sec_auxpcm_be_ops,
+	},
 };
 
 static struct snd_soc_dai_link mdm9615_dai_i2s_tabla[] = {
@@ -2029,7 +2181,12 @@ static int __init mdm9615_audio_init(void)
 		snd_soc_card_mdm9615.dai_link = mdm9615_i2s_dai;
 		snd_soc_card_mdm9615.num_links =
 				ARRAY_SIZE(mdm9615_i2s_dai);
+	} else{
+		snd_soc_card_mdm9615.dai_link = mdm9615_dai_common;
+		snd_soc_card_mdm9615.num_links =
+				ARRAY_SIZE(mdm9615_dai_common);
 	}
+
 	platform_set_drvdata(mdm9615_snd_device, &snd_soc_card_mdm9615);
 	ret = platform_device_add(mdm9615_snd_device);
 	if (ret) {
@@ -2043,11 +2200,14 @@ static int __init mdm9615_audio_init(void)
 	} else
 		mdm9615_headset_gpios_configured = 1;
 
+	atomic_set(&msm9615_auxpcm_ref, 0);
+	atomic_set(&msm9615_sec_auxpcm_ref, 0);
 	msm9x15_i2s_ctl.sif_virt_addr = ioremap(LPASS_SIF_MUX_ADDR, 4);
 	msm9x15_i2s_ctl.spare_virt_addr = ioremap(LPAIF_SPARE_ADDR, 4);
+	sif_virt_addr = ioremap(LPASS_SIF_MUX_ADDR, 4);
+	secpcm_portslc_virt_addr = ioremap(SEC_PCM_PORT_SLC_ADDR, 4);
 
 	return ret;
-
 }
 module_init(mdm9615_audio_init);
 
@@ -2062,6 +2222,8 @@ static void __exit mdm9615_audio_exit(void)
 	kfree(mbhc_cfg.calibration);
 	iounmap(msm9x15_i2s_ctl.sif_virt_addr);
 	iounmap(msm9x15_i2s_ctl.spare_virt_addr);
+	iounmap(sif_virt_addr);
+	iounmap(secpcm_portslc_virt_addr);
 
 }
 module_exit(mdm9615_audio_exit);

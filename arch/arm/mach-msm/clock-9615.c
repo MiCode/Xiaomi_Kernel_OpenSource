@@ -135,6 +135,9 @@
 #define LCC_PCM_MD_REG				REG_LPA(0x0058)
 #define LCC_PCM_NS_REG				REG_LPA(0x0054)
 #define LCC_PCM_STATUS_REG			REG_LPA(0x005C)
+#define LCC_SEC_PCM_MD_REG			REG_LPA(0x00F4)
+#define LCC_SEC_PCM_NS_REG			REG_LPA(0x00F0)
+#define LCC_SEC_PCM_STATUS_REG			REG_LPA(0x00F8)
 #define LCC_PLL0_STATUS_REG			REG_LPA(0x0018)
 #define LCC_SPARE_I2S_MIC_MD_REG		REG_LPA(0x007C)
 #define LCC_SPARE_I2S_MIC_NS_REG		REG_LPA(0x0078)
@@ -1267,6 +1270,32 @@ static struct rcg_clk pcm_clk = {
 	},
 };
 
+static struct rcg_clk sec_pcm_clk = {
+	.b = {
+		.ctl_reg = LCC_SEC_PCM_NS_REG,
+		.en_mask = BIT(11),
+		.reset_reg = LCC_SEC_PCM_NS_REG,
+		.reset_mask = BIT(13),
+		.halt_reg = LCC_SEC_PCM_STATUS_REG,
+		.halt_check = ENABLE,
+		.halt_bit = 0,
+	},
+	.ns_reg = LCC_SEC_PCM_NS_REG,
+	.md_reg = LCC_SEC_PCM_MD_REG,
+	.root_en_mask = BIT(9),
+	.ns_mask = BM(31, 16) | BIT(10) | BM(6, 0),
+	.mnd_en_mask = BIT(8),
+	.set_rate = set_rate_mnd,
+	.freq_tbl = clk_tbl_pcm,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "sec_pcm_clk",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP1(LOW, 24576000),
+		CLK_INIT(sec_pcm_clk.c),
+	},
+};
+
 static struct rcg_clk audio_slimbus_clk = {
 	.b = {
 		.ctl_reg = LCC_SLIMBUS_NS_REG,
@@ -1682,6 +1711,8 @@ static struct clk_lookup msm_clocks_9615[] = {
 			   "msm-dai-q6.4"),
 	CLK_LOOKUP("pcm_clk",		pcm_clk.c,	"msm-dai-q6.2"),
 	CLK_LOOKUP("pcm_clk",		pcm_clk.c,	"msm-dai-q6.3"),
+	CLK_LOOKUP("sec_pcm_clk",	sec_pcm_clk.c,	"msm-dai-q6.12"),
+	CLK_LOOKUP("sec_pcm_clk",	sec_pcm_clk.c,	"msm-dai-q6.13"),
 
 	CLK_LOOKUP("sps_slimbus_clk",	sps_slimbus_clk.c,	NULL),
 	CLK_LOOKUP("core_clk",		audio_slimbus_clk.c, "msm_slim_ctrl.1"),
