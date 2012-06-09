@@ -95,7 +95,6 @@ static struct msm_bus_scale_pdata bus_scale_data = {
 };
 
 /* TODO: Update vdd_dig, vdd_mem and bw when data is available. */
-#define L2(x) (&l2_freq_tbl[(x)])
 static struct l2_level l2_freq_tbl[] = {
 	[0]  = { {STBY_KHZ, QSB,   0, 0, 0x00 },  LVL_NOM, 1050000, 0 },
 	[1]  = { {  384000, PLL_8, 0, 2, 0x00 },  LVL_NOM, 1050000, 1 },

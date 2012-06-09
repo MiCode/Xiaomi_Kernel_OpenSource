@@ -15,7 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_ACPUCLOCK_KRAIT_H
 
 #define STBY_KHZ		1
-
+#define L2(x) (x)
 #define BW_MBPS(_bw) \
 	{ \
 		.vectors = (struct msm_bus_vectors[]){ \
@@ -147,7 +147,7 @@ struct l2_level {
 struct acpu_level {
 	const int use_for_scaling;
 	const struct core_speed speed;
-	const struct l2_level *l2_level;
+	const unsigned int l2_level;
 	int vdd_core;
 };
 
@@ -200,7 +200,7 @@ struct scalable {
 	const u32 l2cpmr_iaddr;
 	const struct hfpll_data *hfpll_data;
 	const struct core_speed *cur_speed;
-	const struct l2_level *l2_vote;
+	unsigned int l2_vote;
 	struct vreg vreg[NUM_VREG];
 	bool initialized;
 };

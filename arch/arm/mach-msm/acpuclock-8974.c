@@ -121,7 +121,6 @@ static struct msm_bus_scale_pdata bus_scale_data = {
 	.name = "acpuclk-8974",
 };
 
-#define L2(x) (&l2_freq_tbl[(x)])
 static struct l2_level l2_freq_tbl[] = {
 	[0]  = { {STBY_KHZ, QSB,   0, 0,   0 }, LVL_LOW, 1050000, 0 },
 	[1]  = { {  300000, PLL_0, 0, 2,   0 }, LVL_LOW, 1050000, 2 },

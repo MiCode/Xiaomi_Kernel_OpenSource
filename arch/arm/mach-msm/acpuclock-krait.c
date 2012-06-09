@@ -174,15 +174,13 @@ static void hfpll_set_rate(struct scalable *sc, const struct core_speed *tgt_s)
 }
 
 /* Return the L2 speed that should be applied. */
-static const struct l2_level *compute_l2_level(struct scalable *sc,
-					       const struct l2_level *vote_l)
+static unsigned int compute_l2_level(struct scalable *sc, unsigned int vote_l)
 {
-	const struct l2_level *new_l;
+	unsigned int new_l = 0;
 	int cpu;
 
 	/* Find max L2 speed vote. */
 	sc->l2_vote = vote_l;
-	new_l = drv.l2_freq_tbl;
 	for_each_present_cpu(cpu)
 		new_l = max(new_l, drv.scalable[cpu].l2_vote);
 
@@ -350,7 +348,7 @@ static void decrease_vdd(int cpu, int vdd_core, int vdd_mem, int vdd_dig,
 
 static int calculate_vdd_mem(const struct acpu_level *tgt)
 {
-	return tgt->l2_level->vdd_mem;
+	return drv.l2_freq_tbl[tgt->l2_level].vdd_mem;
 }
 
 static int calculate_vdd_dig(const struct acpu_level *tgt)
@@ -359,14 +357,14 @@ static int calculate_vdd_dig(const struct acpu_level *tgt)
 	const int *hfpll_vdd = drv.scalable[L2].hfpll_data->vdd;
 	const u32 low_vdd_l_max = drv.scalable[L2].hfpll_data->low_vdd_l_max;
 
-	if (tgt->l2_level->speed.src != HFPLL)
+	if (drv.l2_freq_tbl[tgt->l2_level].speed.src != HFPLL)
 		pll_vdd_dig = hfpll_vdd[HFPLL_VDD_NONE];
-	else if (tgt->l2_level->speed.pll_l_val > low_vdd_l_max)
+	else if (drv.l2_freq_tbl[tgt->l2_level].speed.pll_l_val > low_vdd_l_max)
 		pll_vdd_dig = hfpll_vdd[HFPLL_VDD_NOM];
 	else
 		pll_vdd_dig = hfpll_vdd[HFPLL_VDD_LOW];
 
-	return max(tgt->l2_level->vdd_dig, pll_vdd_dig);
+	return max(drv.l2_freq_tbl[tgt->l2_level].vdd_dig, pll_vdd_dig);
 }
 
 static int calculate_vdd_core(const struct acpu_level *tgt)
@@ -379,8 +377,8 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 				  enum setrate_reason reason)
 {
 	const struct core_speed *strt_acpu_s, *tgt_acpu_s;
-	const struct l2_level *tgt_l2_l;
 	const struct acpu_level *tgt;
+	int tgt_l2_l;
 	int vdd_mem, vdd_dig, vdd_core;
 	unsigned long flags;
 	int rc = 0;
@@ -436,7 +434,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	 */
 	spin_lock_irqsave(&l2_lock, flags);
 	tgt_l2_l = compute_l2_level(&drv.scalable[cpu], tgt->l2_level);
-	set_speed(&drv.scalable[L2], &tgt_l2_l->speed);
+	set_speed(&drv.scalable[L2], &drv.l2_freq_tbl[tgt_l2_l].speed);
 	spin_unlock_irqrestore(&l2_lock, flags);
 
 	/* Nothing else to do for power collapse or SWFI. */
@@ -444,7 +442,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 		goto out;
 
 	/* Update bus bandwith request. */
-	set_bus_bw(tgt_l2_l->bw_level);
+	set_bus_bw(drv.l2_freq_tbl[tgt_l2_l].bw_level);
 
 	/* Drop VDD levels if we can. */
 	decrease_vdd(cpu, vdd_core, vdd_mem, vdd_dig, reason);
@@ -690,7 +688,7 @@ static void __init bus_init(struct msm_bus_scale_pdata *bus_scale_data)
 	}
 
 	ret = msm_bus_scale_client_update_request(drv.bus_perf_client,
-					drv.max_acpu_lvl->l2_level->bw_level);
+			drv.l2_freq_tbl[drv.max_acpu_lvl->l2_level].bw_level);
 	if (ret)
 		dev_err(drv.dev, "initial bandwidth req failed (%d)\n", ret);
 }
@@ -883,8 +881,8 @@ int __init acpuclk_krait_init(struct device *dev,
 	rc = rpm_regulator_init(l2, VREG_HFPLL_B,
 				l2->vreg[VREG_HFPLL_B].max_vdd, false);
 	BUG_ON(rc);
-
-	rc = init_clock_sources(l2, &drv.max_acpu_lvl->l2_level->speed);
+	rc = init_clock_sources(l2,
+			&drv.l2_freq_tbl[drv.max_acpu_lvl->l2_level].speed);
 	BUG_ON(rc);
 
 	for_each_online_cpu(cpu) {
