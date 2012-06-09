@@ -4256,7 +4256,8 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 				continue;
 			if (!strncmp(w->sname,
 				tabla_dai[j].playback.stream_name, 13)) {
-				--tabla_p->dai[j].ch_act;
+				if (tabla_p->dai[j].ch_act)
+					--tabla_p->dai[j].ch_act;
 				break;
 			}
 		}
