@@ -28,7 +28,7 @@
 #define LVL_NOM		RPM_REGULATOR_CORNER_NORMAL
 #define LVL_HIGH	RPM_REGULATOR_CORNER_SUPER_TURBO
 
-static struct hfpll_data hfpll_data = {
+static struct hfpll_data hfpll_data __initdata = {
 	.mode_offset = 0x00,
 	.l_offset = 0x04,
 	.m_offset = 0x08,
@@ -42,10 +42,9 @@ static struct hfpll_data hfpll_data = {
 	.vdd[HFPLL_VDD_NOM]  = LVL_NOM,
 };
 
-static struct scalable scalable[] = {
+static struct scalable scalable[] __initdata = {
 	[CPU0] = {
 		.hfpll_phys_base = 0xF908A000,
-		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x4501,
 		.vreg[VREG_CORE] = { "krait0",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait0_mem", 1050000 },
@@ -55,7 +54,6 @@ static struct scalable scalable[] = {
 	},
 	[CPU1] = {
 		.hfpll_phys_base = 0xF909A000,
-		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x5501,
 		.vreg[VREG_CORE] = { "krait1",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait1_mem", 1050000 },
@@ -65,7 +63,6 @@ static struct scalable scalable[] = {
 	},
 	[CPU2] = {
 		.hfpll_phys_base = 0xF90AA000,
-		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x6501,
 		.vreg[VREG_CORE] = { "krait2",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait2_mem", 1050000 },
@@ -75,7 +72,6 @@ static struct scalable scalable[] = {
 	},
 	[CPU3] = {
 		.hfpll_phys_base = 0xF90BA000,
-		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x7501,
 		.vreg[VREG_CORE] = { "krait3",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait3_mem", 1050000 },
@@ -85,14 +81,13 @@ static struct scalable scalable[] = {
 	},
 	[L2] = {
 		.hfpll_phys_base = 0xF9016000,
-		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x0500,
 		.vreg[VREG_HFPLL_A] = { "l2_hfpll_a", 2150000 },
 		.vreg[VREG_HFPLL_B] = { "l2_hfpll_b", 1800000 },
 	},
 };
 
-static struct msm_bus_paths bw_level_tbl[] = {
+static struct msm_bus_paths bw_level_tbl[] __initdata = {
 	[0] =  BW_MBPS(400), /* At least  50 MHz on bus. */
 	[1] =  BW_MBPS(800), /* At least 100 MHz on bus. */
 	[2] = BW_MBPS(1334), /* At least 167 MHz on bus. */
@@ -100,14 +95,14 @@ static struct msm_bus_paths bw_level_tbl[] = {
 	[4] = BW_MBPS(3200), /* At least 333 MHz on bus. */
 };
 
-static struct msm_bus_scale_pdata bus_scale_data = {
+static struct msm_bus_scale_pdata bus_scale_data __initdata = {
 	.usecase = bw_level_tbl,
 	.num_usecases = ARRAY_SIZE(bw_level_tbl),
 	.active_only = 1,
 	.name = "acpuclk-8974",
 };
 
-static struct l2_level l2_freq_tbl[] = {
+static struct l2_level l2_freq_tbl[] __initdata = {
 	[0]  = { {STBY_KHZ, QSB,   0, 0,   0 }, LVL_LOW, 1050000, 0 },
 	[1]  = { {  300000, PLL_0, 0, 2,   0 }, LVL_LOW, 1050000, 2 },
 	[2]  = { {  384000, HFPLL, 2, 0,  40 }, LVL_NOM, 1050000, 2 },
@@ -122,7 +117,7 @@ static struct l2_level l2_freq_tbl[] = {
 	[11] = { { 1036800, HFPLL, 1, 0,  54 }, LVL_NOM, 1050000, 4 },
 };
 
-static struct acpu_level acpu_freq_tbl[] = {
+static struct acpu_level acpu_freq_tbl[] __initdata = {
 	{ 0, {STBY_KHZ, QSB,   0, 0,   0 }, L2(0),  1050000 },
 	{ 1, {  300000, PLL_0, 0, 2,   0 }, L2(1),  1050000 },
 	{ 1, {  384000, HFPLL, 2, 0,  40 }, L2(2),  1050000 },
@@ -138,14 +133,20 @@ static struct acpu_level acpu_freq_tbl[] = {
 	{ 0, { 0 } }
 };
 
-static struct acpuclk_krait_params acpuclk_8974_params = {
+static struct pvs_table pvs_tables[NUM_PVS]  __initdata = {
+	[PVS_SLOW]    = { acpu_freq_tbl, sizeof(acpu_freq_tbl) },
+	[PVS_NOMINAL] = { acpu_freq_tbl, sizeof(acpu_freq_tbl)  },
+	[PVS_FAST]    = { acpu_freq_tbl, sizeof(acpu_freq_tbl) },
+};
+
+static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
 	.scalable = scalable,
-	.pvs_acpu_freq_tbl[PVS_SLOW] = acpu_freq_tbl,
-	.pvs_acpu_freq_tbl[PVS_NOMINAL] = acpu_freq_tbl,
-	.pvs_acpu_freq_tbl[PVS_FAST] = acpu_freq_tbl,
+	.scalable_size = sizeof(scalable),
+	.hfpll_data = &hfpll_data,
+	.pvs_tables = pvs_tables,
 	.l2_freq_tbl = l2_freq_tbl,
-	.l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl),
-	.bus_scale_data = &bus_scale_data,
+	.l2_freq_tbl_size = sizeof(l2_freq_tbl),
+	.bus_scale = &bus_scale_data,
 	.qfprom_phys_base = 0xFC4A8000,
 };
 

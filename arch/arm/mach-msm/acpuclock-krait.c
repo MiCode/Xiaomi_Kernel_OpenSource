@@ -57,7 +57,9 @@ static struct drv_data {
 	const struct acpu_level *max_acpu_lvl;
 	const struct l2_level *l2_freq_tbl;
 	struct scalable *scalable;
+	struct hfpll_data *hfpll_data;
 	u32 bus_perf_client;
+	struct msm_bus_scale_pdata *bus_scale;
 	struct device *dev;
 } drv;
 
@@ -130,7 +132,7 @@ static void hfpll_enable(struct scalable *sc, bool skip_regulators)
 	}
 
 	/* Disable PLL bypass mode. */
-	writel_relaxed(0x2, sc->hfpll_base + sc->hfpll_data->mode_offset);
+	writel_relaxed(0x2, sc->hfpll_base + drv.hfpll_data->mode_offset);
 
 	/*
 	 * H/W requires a 5us delay between disabling the bypass and
@@ -140,14 +142,14 @@ static void hfpll_enable(struct scalable *sc, bool skip_regulators)
 	udelay(10);
 
 	/* De-assert active-low PLL reset. */
-	writel_relaxed(0x6, sc->hfpll_base + sc->hfpll_data->mode_offset);
+	writel_relaxed(0x6, sc->hfpll_base + drv.hfpll_data->mode_offset);
 
 	/* Wait for PLL to lock. */
 	mb();
 	udelay(60);
 
 	/* Enable PLL output. */
-	writel_relaxed(0x7, sc->hfpll_base + sc->hfpll_data->mode_offset);
+	writel_relaxed(0x7, sc->hfpll_base + drv.hfpll_data->mode_offset);
 }
 
 /* Disable a HFPLL for power-savings or while it's being reprogrammed. */
@@ -157,7 +159,7 @@ static void hfpll_disable(struct scalable *sc, bool skip_regulators)
 	 * Disable the PLL output, disable test mode, enable the bypass mode,
 	 * and assert the reset.
 	 */
-	writel_relaxed(0, sc->hfpll_base + sc->hfpll_data->mode_offset);
+	writel_relaxed(0, sc->hfpll_base + drv.hfpll_data->mode_offset);
 
 	if (!skip_regulators) {
 		/* Remove voltage votes required by the HFPLL. */
@@ -170,7 +172,7 @@ static void hfpll_disable(struct scalable *sc, bool skip_regulators)
 static void hfpll_set_rate(struct scalable *sc, const struct core_speed *tgt_s)
 {
 	writel_relaxed(tgt_s->pll_l_val,
-		sc->hfpll_base + sc->hfpll_data->l_offset);
+		sc->hfpll_base + drv.hfpll_data->l_offset);
 }
 
 /* Return the L2 speed that should be applied. */
@@ -354,8 +356,8 @@ static int calculate_vdd_mem(const struct acpu_level *tgt)
 static int calculate_vdd_dig(const struct acpu_level *tgt)
 {
 	int pll_vdd_dig;
-	const int *hfpll_vdd = drv.scalable[L2].hfpll_data->vdd;
-	const u32 low_vdd_l_max = drv.scalable[L2].hfpll_data->low_vdd_l_max;
+	const int *hfpll_vdd = drv.hfpll_data->vdd;
+	const u32 low_vdd_l_max = drv.hfpll_data->low_vdd_l_max;
 
 	if (drv.l2_freq_tbl[tgt->l2_level].speed.src != HFPLL)
 		pll_vdd_dig = hfpll_vdd[HFPLL_VDD_NONE];
@@ -465,15 +467,15 @@ static void __init hfpll_init(struct scalable *sc,
 	hfpll_disable(sc, true);
 
 	/* Configure PLL parameters for integer mode. */
-	writel_relaxed(sc->hfpll_data->config_val,
-		       sc->hfpll_base + sc->hfpll_data->config_offset);
-	writel_relaxed(0, sc->hfpll_base + sc->hfpll_data->m_offset);
-	writel_relaxed(1, sc->hfpll_base + sc->hfpll_data->n_offset);
+	writel_relaxed(drv.hfpll_data->config_val,
+		       sc->hfpll_base + drv.hfpll_data->config_offset);
+	writel_relaxed(0, sc->hfpll_base + drv.hfpll_data->m_offset);
+	writel_relaxed(1, sc->hfpll_base + drv.hfpll_data->n_offset);
 
 	/* Program droop controller, if supported */
-	if (sc->hfpll_data->has_droop_ctl)
-		writel_relaxed(sc->hfpll_data->droop_val,
-			       sc->hfpll_base + sc->hfpll_data->droop_offset);
+	if (drv.hfpll_data->has_droop_ctl)
+		writel_relaxed(drv.hfpll_data->droop_val,
+			       sc->hfpll_base + drv.hfpll_data->droop_offset);
 
 	/* Set an initial rate and enable the PLL. */
 	hfpll_set_rate(sc, tgt_s);
@@ -677,11 +679,11 @@ err_ioremap:
 }
 
 /* Register with bus driver. */
-static void __init bus_init(struct msm_bus_scale_pdata *bus_scale_data)
+static void __init bus_init(void)
 {
 	int ret;
 
-	drv.bus_perf_client = msm_bus_scale_register_client(bus_scale_data);
+	drv.bus_perf_client = msm_bus_scale_register_client(drv.bus_scale);
 	if (!drv.bus_perf_client) {
 		dev_err(drv.dev, "unable to register bus client\n");
 		BUG();
@@ -790,10 +792,8 @@ static void krait_apply_vmin(struct acpu_level *tbl)
 			tbl->vdd_core = 1150000;
 }
 
-static void __init select_freq_plan(struct acpu_level *const *pvs_tbl,
-				    u32 qfprom_phys)
+static int __init select_freq_plan(u32 qfprom_phys)
 {
-	const struct acpu_level *l;
 	void __iomem *qfprom_base;
 	u32 pte_efuse, pvs, tbl_idx;
 	char *pvs_names[] = { "Slow", "Nominal", "Fast", "Faster", "Unknown" };
@@ -829,26 +829,29 @@ static void __init select_freq_plan(struct acpu_level *const *pvs_tbl,
 		tbl_idx = PVS_UNKNOWN;
 		dev_err(drv.dev, "Unable to map QFPROM base\n");
 	}
-	if (tbl_idx == PVS_UNKNOWN || !pvs_tbl[tbl_idx]) {
+	if (tbl_idx == PVS_UNKNOWN) {
 		tbl_idx = PVS_SLOW;
 		dev_warn(drv.dev, "ACPU PVS: Defaulting to %s\n",
 			 pvs_names[tbl_idx]);
 	} else {
 		dev_info(drv.dev, "ACPU PVS: %s\n", pvs_names[tbl_idx]);
 	}
-	drv.acpu_freq_tbl = pvs_tbl[tbl_idx];
-	BUG_ON(!drv.acpu_freq_tbl);
 
-	if (krait_needs_vmin())
-		krait_apply_vmin(drv.acpu_freq_tbl);
+	return tbl_idx;
+}
 
-	/* Find the max supported scaling frequency. */
-	for (l = drv.acpu_freq_tbl; l->speed.khz != 0; l++)
+static const struct acpu_level __init *find_max_acpu_lvl(struct acpu_level *tbl)
+{
+	struct acpu_level *l, *max_lvl = NULL;
+
+	for (l = tbl; l->speed.khz != 0; l++)
 		if (l->use_for_scaling)
-			drv.max_acpu_lvl = l;
-	BUG_ON(!drv.max_acpu_lvl);
-	dev_info(drv.dev, "Max ACPU freq: %lu KHz\n",
-		 drv.max_acpu_lvl->speed.khz);
+			max_lvl = l;
+
+	BUG_ON(!max_lvl);
+	dev_info(drv.dev, "Max CPU freq: %lu KHz\n", max_lvl->speed.khz);
+
+	return max_lvl;
 }
 
 static struct acpuclk_data acpuclk_krait_data = {
@@ -858,20 +861,51 @@ static struct acpuclk_data acpuclk_krait_data = {
 	.wait_for_irq_khz = STBY_KHZ,
 };
 
-int __init acpuclk_krait_init(struct device *dev,
-			      const struct acpuclk_krait_params *params)
+static void __init drv_data_init(struct device *dev,
+				 const struct acpuclk_krait_params *params)
 {
-	struct scalable *l2;
+	int tbl_idx;
+
+	drv.dev = dev;
+	drv.scalable = kmemdup(params->scalable, params->scalable_size,
+				GFP_KERNEL);
+	BUG_ON(!drv.scalable);
+
+	drv.hfpll_data = kmemdup(params->hfpll_data, sizeof(*drv.hfpll_data),
+				GFP_KERNEL);
+	BUG_ON(!drv.hfpll_data);
+
+	drv.l2_freq_tbl = kmemdup(params->l2_freq_tbl, params->l2_freq_tbl_size,
+				GFP_KERNEL);
+	BUG_ON(!drv.l2_freq_tbl);
+
+	drv.bus_scale = kmemdup(params->bus_scale, sizeof(*drv.bus_scale),
+				GFP_KERNEL);
+	BUG_ON(!drv.bus_scale);
+	drv.bus_scale->usecase = kmemdup(drv.bus_scale->usecase,
+		drv.bus_scale->num_usecases * sizeof(*drv.bus_scale->usecase),
+		GFP_KERNEL);
+	BUG_ON(!drv.bus_scale->usecase);
+
+	tbl_idx = select_freq_plan(params->qfprom_phys_base);
+	drv.acpu_freq_tbl = kmemdup(params->pvs_tables[tbl_idx].table,
+				    params->pvs_tables[tbl_idx].size,
+				    GFP_KERNEL);
+	BUG_ON(!drv.acpu_freq_tbl);
+
+	drv.max_acpu_lvl = find_max_acpu_lvl(drv.acpu_freq_tbl);
+}
+
+static void __init hw_init(void)
+{
+	struct scalable *l2 = &drv.scalable[L2];
 	int cpu, rc;
 
-	drv.scalable = params->scalable;
-	drv.l2_freq_tbl = params->l2_freq_tbl;
-	drv.dev = dev;
+	if (krait_needs_vmin())
+		krait_apply_vmin(drv.acpu_freq_tbl);
 
-	select_freq_plan(params->pvs_acpu_freq_tbl, params->qfprom_phys_base);
-	bus_init(params->bus_scale_data);
+	bus_init();
 
-	l2 = &drv.scalable[L2];
 	l2->hfpll_base = ioremap(l2->hfpll_phys_base, SZ_32);
 	BUG_ON(!l2->hfpll_base);
 
@@ -889,9 +923,15 @@ int __init acpuclk_krait_init(struct device *dev,
 		rc = per_cpu_init(cpu);
 		BUG_ON(rc);
 	}
+}
+
+int __init acpuclk_krait_init(struct device *dev,
+			      const struct acpuclk_krait_params *params)
+{
+	drv_data_init(dev, params);
+	hw_init();
 
 	cpufreq_table_init();
-
 	acpuclk_register(&acpuclk_krait_data);
 	register_hotcpu_notifier(&acpuclk_cpu_notifier);
 

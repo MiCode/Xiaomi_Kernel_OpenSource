@@ -21,7 +21,7 @@
 #include "acpuclock.h"
 #include "acpuclock-krait.h"
 
-static struct hfpll_data hfpll_data = {
+static struct hfpll_data hfpll_data __initdata = {
 	.mode_offset = 0x00,
 	.l_offset = 0x08,
 	.m_offset = 0x0C,
@@ -37,10 +37,9 @@ static struct hfpll_data hfpll_data = {
 	.vdd[HFPLL_VDD_NOM]  = 1050000,
 };
 
-static struct scalable scalable[] = {
+static struct scalable scalable[] __initdata = {
 	[CPU0] = {
 		.hfpll_phys_base = 0x00903200,
-		.hfpll_data = &hfpll_data,
 		.aux_clk_sel_phys = 0x02088014,
 		.aux_clk_sel = 3,
 		.l2cpmr_iaddr = 0x4501,
@@ -52,7 +51,6 @@ static struct scalable scalable[] = {
 	},
 	[CPU1] = {
 		.hfpll_phys_base = 0x00903300,
-		.hfpll_data = &hfpll_data,
 		.aux_clk_sel_phys = 0x02098014,
 		.aux_clk_sel = 3,
 		.l2cpmr_iaddr = 0x5501,
@@ -64,7 +62,6 @@ static struct scalable scalable[] = {
 	},
 	[L2] = {
 		.hfpll_phys_base = 0x00903400,
-		.hfpll_data = &hfpll_data,
 		.aux_clk_sel_phys = 0x02011028,
 		.aux_clk_sel = 3,
 		.l2cpmr_iaddr = 0x0500,
@@ -73,7 +70,7 @@ static struct scalable scalable[] = {
 	},
 };
 
-static struct msm_bus_paths bw_level_tbl[] = {
+static struct msm_bus_paths bw_level_tbl[] __initdata = {
 	[0] =  BW_MBPS(640), /* At least  80 MHz on bus. */
 	[1] = BW_MBPS(1064), /* At least 133 MHz on bus. */
 	[2] = BW_MBPS(1600), /* At least 200 MHz on bus. */
@@ -83,14 +80,14 @@ static struct msm_bus_paths bw_level_tbl[] = {
 	[6] = BW_MBPS(3936), /* At least 492 MHz on bus. */
 };
 
-static struct msm_bus_scale_pdata bus_scale_data = {
+static struct msm_bus_scale_pdata bus_scale_data __initdata = {
 	.usecase = bw_level_tbl,
 	.num_usecases = ARRAY_SIZE(bw_level_tbl),
 	.active_only = 1,
 	.name = "acpuclk-8960",
 };
 
-static struct l2_level l2_freq_tbl[] = {
+static struct l2_level l2_freq_tbl[] __initdata = {
 	[0]  = { {STBY_KHZ, QSB,   0, 0, 0x00 }, 1050000, 1050000, 0 },
 	[1]  = { {  384000, PLL_8, 0, 2, 0x00 }, 1050000, 1050000, 1 },
 	[2]  = { {  432000, HFPLL, 2, 0, 0x20 }, 1050000, 1050000, 2 },
@@ -113,7 +110,7 @@ static struct l2_level l2_freq_tbl[] = {
 	[19] = { { 1350000, HFPLL, 1, 0, 0x32 }, 1150000, 1150000, 6 },
 };
 
-static struct acpu_level acpu_freq_tbl_slow[] = {
+static struct acpu_level acpu_freq_tbl_slow[] __initdata = {
 	{ 0, { STBY_KHZ, QSB,   0, 0, 0x00 }, L2(0),   950000 },
 	{ 1, {   384000, PLL_8, 0, 2, 0x00 }, L2(1),   950000 },
 	{ 0, {   432000, HFPLL, 2, 0, 0x20 }, L2(7),   975000 },
@@ -140,7 +137,7 @@ static struct acpu_level acpu_freq_tbl_slow[] = {
 	{ 0, { 0 } }
 };
 
-static struct acpu_level acpu_freq_tbl_nom[] = {
+static struct acpu_level acpu_freq_tbl_nom[] __initdata = {
 	{ 0, { STBY_KHZ, QSB,   0, 0, 0x00 }, L2(0),   900000 },
 	{ 1, {   384000, PLL_8, 0, 2, 0x00 }, L2(1),   900000 },
 	{ 0, {   432000, HFPLL, 2, 0, 0x20 }, L2(7),   925000 },
@@ -167,7 +164,7 @@ static struct acpu_level acpu_freq_tbl_nom[] = {
 	{ 0, { 0 } }
 };
 
-static struct acpu_level acpu_freq_tbl_fast[] = {
+static struct acpu_level acpu_freq_tbl_fast[] __initdata = {
 	{ 0, { STBY_KHZ, QSB,   0, 0, 0x00 }, L2(0),   850000 },
 	{ 1, {   384000, PLL_8, 0, 2, 0x00 }, L2(1),   850000 },
 	{ 0, {   432000, HFPLL, 2, 0, 0x20 }, L2(7),   875000 },
@@ -194,14 +191,20 @@ static struct acpu_level acpu_freq_tbl_fast[] = {
 	{ 0, { 0 } }
 };
 
-static struct acpuclk_krait_params acpuclk_8960_params = {
+static struct pvs_table pvs_tables[NUM_PVS] __initdata = {
+	[PVS_SLOW]    = { acpu_freq_tbl_slow, sizeof(acpu_freq_tbl_slow) },
+	[PVS_NOMINAL] = { acpu_freq_tbl_nom,  sizeof(acpu_freq_tbl_nom)  },
+	[PVS_FAST]    = { acpu_freq_tbl_fast, sizeof(acpu_freq_tbl_fast) },
+};
+
+static struct acpuclk_krait_params acpuclk_8960_params __initdata = {
 	.scalable = scalable,
-	.pvs_acpu_freq_tbl[PVS_SLOW] = acpu_freq_tbl_slow,
-	.pvs_acpu_freq_tbl[PVS_NOMINAL] = acpu_freq_tbl_nom,
-	.pvs_acpu_freq_tbl[PVS_FAST] = acpu_freq_tbl_fast,
+	.scalable_size = sizeof(scalable),
+	.hfpll_data = &hfpll_data,
+	.pvs_tables = pvs_tables,
 	.l2_freq_tbl = l2_freq_tbl,
-	.l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl),
-	.bus_scale_data = &bus_scale_data,
+	.l2_freq_tbl_size = sizeof(l2_freq_tbl),
+	.bus_scale = &bus_scale_data,
 	.qfprom_phys_base = 0x00700000,
 };
 
