@@ -118,7 +118,10 @@ struct mdss_mdp_ctl {
 	u16 height;
 	u32 dst_format;
 
+	u32 bus_ab_quota;
+	u32 bus_ib_quota;
 	u32 bus_quota;
+	u32 clk_rate;
 
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_mixer *mixer_left;
@@ -143,8 +146,6 @@ struct mdss_mdp_mixer {
 	u16 height;
 	u8 cursor_enabled;
 	u8 rotator_mode;
-
-	u32 bus_quota;
 
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_pipe *stage_pipe[MDSS_MDP_MAX_STAGE];
@@ -231,7 +232,6 @@ struct mdss_mdp_pipe {
 	struct mdss_mdp_format_params *src_fmt;
 	struct mdss_mdp_plane_sizes src_planes;
 
-	u32 bus_quota;
 	u8 mixer_stage;
 	u8 is_fg;
 	u8 alpha;
@@ -273,7 +273,7 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num);
 int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);
 
-int mdss_mdp_bus_scale_set_min_quota(u32 quota);
+int mdss_mdp_bus_scale_set_quota(u32 ab_quota, u32 ib_quota);
 void mdss_mdp_set_clk_rate(unsigned long min_clk_rate);
 unsigned long mdss_mdp_get_clk_rate(u32 clk_idx);
 int mdss_mdp_vsync_clk_enable(int enable);

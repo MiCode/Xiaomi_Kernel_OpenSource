@@ -630,7 +630,8 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		return -ENODEV;
 	}
 
-	pr_debug("pnum=%x mixer=%d\n", pipe->num, pipe->mixer->num);
+	pr_debug("pnum=%x mixer=%d play_cnt=%u\n", pipe->num,
+		 pipe->mixer->num, pipe->play_cnt);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
