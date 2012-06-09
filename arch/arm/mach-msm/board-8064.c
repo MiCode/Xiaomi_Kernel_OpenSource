@@ -2245,16 +2245,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 };
 
 static struct platform_device
-mpq8064_device_ext_5v_frc_vreg __devinitdata = {
-	.name	= GPIO_REGULATOR_DEV_NAME,
-	.id	= SX150X_GPIO(4, 10),
-	.dev	= {
-		.platform_data =
-			&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_FRC_5V],
-	},
-};
-
-static struct platform_device
 mpq8064_device_ext_1p2_buck_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= SX150X_GPIO(4, 2),
@@ -2343,7 +2333,6 @@ static struct platform_device *mpq_devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&gpio_ir_recv_pdev,
-	&mpq8064_device_ext_5v_frc_vreg,
 	&mpq8064_device_ext_1p2_buck_vreg,
 	&mpq8064_device_ext_1p8_buck_vreg,
 	&mpq8064_device_ext_2p2_buck_vreg,
