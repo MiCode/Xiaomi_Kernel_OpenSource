@@ -65,7 +65,7 @@ struct workqueue_struct *ssr_wq;
 
 static LIST_HEAD(restart_log_list);
 static LIST_HEAD(subsystem_list);
-static DEFINE_MUTEX(subsystem_list_lock);
+static DEFINE_SPINLOCK(subsystem_list_lock);
 static DEFINE_MUTEX(soc_order_reg_lock);
 static DEFINE_MUTEX(restart_log_mutex);
 
@@ -157,15 +157,16 @@ module_param_call(restart_level, restart_level_set, param_get_int,
 static struct subsys_data *_find_subsystem(const char *subsys_name)
 {
 	struct subsys_data *subsys;
+	unsigned long flags;
 
-	mutex_lock(&subsystem_list_lock);
+	spin_lock_irqsave(&subsystem_list_lock, flags);
 	list_for_each_entry(subsys, &subsystem_list, list)
 		if (!strncmp(subsys->name, subsys_name,
 				SUBSYS_NAME_MAX_LENGTH)) {
-			mutex_unlock(&subsystem_list_lock);
+			spin_unlock_irqrestore(&subsystem_list_lock, flags);
 			return subsys;
 		}
-	mutex_unlock(&subsystem_list_lock);
+	spin_unlock_irqrestore(&subsystem_list_lock, flags);
 
 	return NULL;
 }
@@ -488,6 +489,8 @@ EXPORT_SYMBOL(subsystem_restart);
 
 int ssr_register_subsystem(struct subsys_data *subsys)
 {
+	unsigned long flags;
+
 	if (!subsys)
 		goto err;
 
@@ -504,9 +507,9 @@ int ssr_register_subsystem(struct subsys_data *subsys)
 	mutex_init(&subsys->shutdown_lock);
 	mutex_init(&subsys->powerup_lock);
 
-	mutex_lock(&subsystem_list_lock);
+	spin_lock_irqsave(&subsystem_list_lock, flags);
 	list_add(&subsys->list, &subsystem_list);
-	mutex_unlock(&subsystem_list_lock);
+	spin_unlock_irqrestore(&subsystem_list_lock, flags);
 
 	return 0;
 
