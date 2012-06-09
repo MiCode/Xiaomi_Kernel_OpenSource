@@ -163,7 +163,7 @@ struct acpu_level {
  * @droop_offset: Droop controller register offset from base address.
  * @droop_val: Value to initialize the @config_offset register to.
  * @low_vdd_l_max: Maximum "L" value supported at HFPLL_VDD_LOW.
- * @vdd: voltage requirements for each VDD level.
+ * @vdd: voltage requirements for each VDD level for the L2 PLL.
  */
 struct hfpll_data {
 	const u32 mode_offset;
@@ -186,7 +186,6 @@ struct hfpll_data {
  * @aux_clk_sel_phys: Physical address of auxiliary MUX.
  * @aux_clk_sel: Auxiliary mux input to select at boot.
  * @l2cpmr_iaddr: Indirect address of the CPMR MUX/divider CP15 register.
- * @hfpll_data: Descriptive data of HFPLL hardware.
  * @cur_speed: Pointer to currently-set speed.
  * @l2_vote: L2 performance level vote associate with the current CPU speed.
  * @vreg: Array of voltage regulators needed by the scalable.
@@ -198,7 +197,6 @@ struct scalable {
 	const phys_addr_t aux_clk_sel_phys;
 	const u32 aux_clk_sel;
 	const u32 l2cpmr_iaddr;
-	const struct hfpll_data *hfpll_data;
 	const struct core_speed *cur_speed;
 	unsigned int l2_vote;
 	struct vreg vreg[NUM_VREG];
@@ -206,21 +204,35 @@ struct scalable {
 };
 
 /**
+ * struct pvs_table - CPU performance level table and size.
+ * @table: CPU performance level table
+ * @size: sizeof(@table)
+ */
+struct pvs_table {
+	struct acpu_level *table;
+	size_t size;
+};
+
+/**
  * struct acpuclk_krait_params - SoC specific driver parameters.
  * @scalable: Array of scalables.
- * @pvs_acpu_freq_tbl: Array of CPU frequency tables.
+ * @scalable_size: Size of @scalable.
+ * @hfpll_data: HFPLL configuration data.
+ * @pvs_tables: CPU frequency tables.
  * @l2_freq_tbl: L2 frequency table.
- * @l2_freq_tbl_size: Number of rows in @l2_freq_tbl.
+ * @l2_freq_tbl_size: Size of @l2_freq_tbl.
  * @qfprom_phys_base: Physical base address of QFPROM.
- * @bus_scale_data: MSM bus driver parameters.
+ * @bus_scale: MSM bus driver parameters.
  */
 struct acpuclk_krait_params {
 	struct scalable *scalable;
-	struct acpu_level *pvs_acpu_freq_tbl[NUM_PVS];
-	const struct l2_level *l2_freq_tbl;
-	const size_t l2_freq_tbl_size;
-	const phys_addr_t qfprom_phys_base;
-	struct msm_bus_scale_pdata *bus_scale_data;
+	size_t scalable_size;
+	struct hfpll_data *hfpll_data;
+	struct pvs_table *pvs_tables;
+	struct l2_level *l2_freq_tbl;
+	size_t l2_freq_tbl_size;
+	phys_addr_t qfprom_phys_base;
+	struct msm_bus_scale_pdata *bus_scale;
 };
 
 /**
