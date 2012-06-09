@@ -105,6 +105,14 @@ enum hfpll_vdd_levels {
 	HFPLL_VDD_NOM
 };
 
+enum pvs {
+	PVS_SLOW,
+	PVS_NOM,
+	PVS_FAST,
+	PVS_FASTER,
+	NUM_PVS
+};
+
 struct vreg {
 	const char name[15];
 	const unsigned int max_vdd;
@@ -602,7 +610,7 @@ static struct l2_level l2_freq_tbl_8064[] = {
 };
 
 /* TODO: Update core voltages when data is available. */
-static struct acpu_level acpu_freq_tbl_8064[] = {
+static struct acpu_level acpu_freq_tbl_8064_slow[] = {
 	{ 0, { STBY_KHZ, QSB,   0, 0, 0x00 }, L2(0),   950000 },
 	{ 1, {   384000, PLL_8, 0, 2, 0x00 }, L2(1),   950000 },
 	{ 0, {   432000, HFPLL, 2, 0, 0x20 }, L2(7),   975000 },
@@ -626,6 +634,60 @@ static struct acpu_level acpu_freq_tbl_8064[] = {
 	{ 0, {  1404000, HFPLL, 1, 0, 0x34 }, L2(15), 1237500 },
 	{ 1, {  1458000, HFPLL, 1, 0, 0x36 }, L2(15), 1237500 },
 	{ 1, {  1512000, HFPLL, 1, 0, 0x38 }, L2(15), 1250000 },
+	{ 0, { 0 } }
+};
+
+static struct acpu_level acpu_freq_tbl_8064_nom[] = {
+	{ 0, { STBY_KHZ, QSB,   0, 0, 0x00 }, L2(0),   900000 },
+	{ 1, {   384000, PLL_8, 0, 2, 0x00 }, L2(1),   900000 },
+	{ 0, {   432000, HFPLL, 2, 0, 0x20 }, L2(7),   925000 },
+	{ 1, {   486000, HFPLL, 2, 0, 0x24 }, L2(7),   925000 },
+	{ 0, {   540000, HFPLL, 2, 0, 0x28 }, L2(7),   950000 },
+	{ 1, {   594000, HFPLL, 1, 0, 0x16 }, L2(7),   950000 },
+	{ 0, {   648000, HFPLL, 1, 0, 0x18 }, L2(7),   975000 },
+	{ 1, {   702000, HFPLL, 1, 0, 0x1A }, L2(7),   975000 },
+	{ 0, {   756000, HFPLL, 1, 0, 0x1C }, L2(7),  1025000 },
+	{ 1, {   810000, HFPLL, 1, 0, 0x1E }, L2(7),  1025000 },
+	{ 0, {   864000, HFPLL, 1, 0, 0x20 }, L2(7),  1050000 },
+	{ 1, {   918000, HFPLL, 1, 0, 0x22 }, L2(7),  1050000 },
+	{ 0, {   972000, HFPLL, 1, 0, 0x24 }, L2(7),  1075000 },
+	{ 1, {  1026000, HFPLL, 1, 0, 0x26 }, L2(7),  1075000 },
+	{ 0, {  1080000, HFPLL, 1, 0, 0x28 }, L2(15), 1125000 },
+	{ 1, {  1134000, HFPLL, 1, 0, 0x2A }, L2(15), 1125000 },
+	{ 0, {  1188000, HFPLL, 1, 0, 0x2C }, L2(15), 1150000 },
+	{ 1, {  1242000, HFPLL, 1, 0, 0x2E }, L2(15), 1150000 },
+	{ 0, {  1296000, HFPLL, 1, 0, 0x30 }, L2(15), 1175000 },
+	{ 1, {  1350000, HFPLL, 1, 0, 0x32 }, L2(15), 1175000 },
+	{ 0, {  1404000, HFPLL, 1, 0, 0x34 }, L2(15), 1187500 },
+	{ 1, {  1458000, HFPLL, 1, 0, 0x36 }, L2(15), 1187500 },
+	{ 1, {  1512000, HFPLL, 1, 0, 0x38 }, L2(15), 1212500 },
+	{ 0, { 0 } }
+};
+
+static struct acpu_level acpu_freq_tbl_8064_fast[] = {
+	{ 0, { STBY_KHZ, QSB,   0, 0, 0x00 }, L2(0),   850000 },
+	{ 1, {   384000, PLL_8, 0, 2, 0x00 }, L2(1),   850000 },
+	{ 0, {   432000, HFPLL, 2, 0, 0x20 }, L2(7),   875000 },
+	{ 1, {   486000, HFPLL, 2, 0, 0x24 }, L2(7),   875000 },
+	{ 0, {   540000, HFPLL, 2, 0, 0x28 }, L2(7),   900000 },
+	{ 1, {   594000, HFPLL, 1, 0, 0x16 }, L2(7),   900000 },
+	{ 0, {   648000, HFPLL, 1, 0, 0x18 }, L2(7),   925000 },
+	{ 1, {   702000, HFPLL, 1, 0, 0x1A }, L2(7),   925000 },
+	{ 0, {   756000, HFPLL, 1, 0, 0x1C }, L2(7),   975000 },
+	{ 1, {   810000, HFPLL, 1, 0, 0x1E }, L2(7),   975000 },
+	{ 0, {   864000, HFPLL, 1, 0, 0x20 }, L2(7),  1000000 },
+	{ 1, {   918000, HFPLL, 1, 0, 0x22 }, L2(7),  1000000 },
+	{ 0, {   972000, HFPLL, 1, 0, 0x24 }, L2(7),  1025000 },
+	{ 1, {  1026000, HFPLL, 1, 0, 0x26 }, L2(7),  1025000 },
+	{ 0, {  1080000, HFPLL, 1, 0, 0x28 }, L2(15), 1075000 },
+	{ 1, {  1134000, HFPLL, 1, 0, 0x2A }, L2(15), 1075000 },
+	{ 0, {  1188000, HFPLL, 1, 0, 0x2C }, L2(15), 1100000 },
+	{ 1, {  1242000, HFPLL, 1, 0, 0x2E }, L2(15), 1100000 },
+	{ 0, {  1296000, HFPLL, 1, 0, 0x30 }, L2(15), 1125000 },
+	{ 1, {  1350000, HFPLL, 1, 0, 0x32 }, L2(15), 1125000 },
+	{ 0, {  1404000, HFPLL, 1, 0, 0x34 }, L2(15), 1137500 },
+	{ 1, {  1458000, HFPLL, 1, 0, 0x36 }, L2(15), 1137500 },
+	{ 1, {  1512000, HFPLL, 1, 0, 0x38 }, L2(15), 1175000 },
 	{ 0, { 0 } }
 };
 
@@ -709,6 +771,26 @@ static struct acpu_level acpu_freq_tbl_8627[] = {
 	{ 1, {   918000, HFPLL, 1, 0, 0x22 }, L2(12), 1087500 },
 	{ 1, {   972000, HFPLL, 1, 0, 0x24 }, L2(12), 1100000 },
 	{ 0, { 0 } }
+};
+
+static struct acpu_level *acpu_freq_tbl_8960_v1[NUM_PVS] __initdata = {
+	[PVS_SLOW] = acpu_freq_tbl_8960_kraitv1_slow,
+	[PVS_NOM] = acpu_freq_tbl_8960_kraitv1_nom_fast,
+	[PVS_FAST] = acpu_freq_tbl_8960_kraitv1_nom_fast,
+};
+
+static struct acpu_level *acpu_freq_tbl_8960_v2[NUM_PVS] __initdata = {
+	[PVS_SLOW] = acpu_freq_tbl_8960_kraitv2_slow,
+	[PVS_NOM] = acpu_freq_tbl_8960_kraitv2_nom,
+	[PVS_FAST] = acpu_freq_tbl_8960_kraitv2_fast,
+};
+
+/* TODO: update the faster table when data is available */
+static struct acpu_level *acpu_freq_tbl_8064[NUM_PVS] __initdata = {
+	[PVS_SLOW] = acpu_freq_tbl_8064_slow,
+	[PVS_NOM] = acpu_freq_tbl_8064_nom,
+	[PVS_FAST] = acpu_freq_tbl_8064_fast,
+	[PVS_FASTER] = acpu_freq_tbl_8064_fast,
 };
 
 static unsigned long acpuclk_8960_get_rate(int cpu)
@@ -1416,57 +1498,60 @@ static void kraitv2_apply_vmin(struct acpu_level *tbl)
 			tbl->vdd_core = 1150000;
 }
 
+static enum pvs __init get_pvs(void)
+{
+	uint32_t pte_efuse, pvs;
+
+	pte_efuse = readl_relaxed(QFPROM_PTE_EFUSE_ADDR);
+	pvs = (pte_efuse >> 10) & 0x7;
+	if (pvs == 0x7)
+		pvs = (pte_efuse >> 13) & 0x7;
+
+	switch (pvs) {
+	case 0x0:
+	case 0x7:
+		pr_info("ACPU PVS: Slow\n");
+		return PVS_SLOW;
+	case 0x1:
+		pr_info("ACPU PVS: Nominal\n");
+		return PVS_NOM;
+	case 0x3:
+		pr_info("ACPU PVS: Fast\n");
+		return PVS_FAST;
+	case 0x4:
+		if (cpu_is_apq8064()) {
+			pr_info("ACPU PVS: Faster\n");
+			return  PVS_FASTER;
+		}
+	default:
+		pr_warn("ACPU PVS: Unknown. Defaulting to slow\n");
+		return PVS_SLOW;
+	}
+}
+
 static struct acpu_level * __init select_freq_plan(void)
 {
 	struct acpu_level *l, *max_acpu_level = NULL;
 
 	/* Select frequency tables. */
 	if (cpu_is_msm8960()) {
-		uint32_t pte_efuse, pvs;
-		struct acpu_level *v1, *v2;
-
-		pte_efuse = readl_relaxed(QFPROM_PTE_EFUSE_ADDR);
-		pvs = (pte_efuse >> 10) & 0x7;
-		if (pvs == 0x7)
-			pvs = (pte_efuse >> 13) & 0x7;
-
-		switch (pvs) {
-		case 0x0:
-		case 0x7:
-			pr_info("ACPU PVS: Slow\n");
-			v1 = acpu_freq_tbl_8960_kraitv1_slow;
-			v2 = acpu_freq_tbl_8960_kraitv2_slow;
-			break;
-		case 0x1:
-			pr_info("ACPU PVS: Nominal\n");
-			v1 = acpu_freq_tbl_8960_kraitv1_nom_fast;
-			v2 = acpu_freq_tbl_8960_kraitv2_nom;
-			break;
-		case 0x3:
-			pr_info("ACPU PVS: Fast\n");
-			v1 = acpu_freq_tbl_8960_kraitv1_nom_fast;
-			v2 = acpu_freq_tbl_8960_kraitv2_fast;
-			break;
-		default:
-			pr_warn("ACPU PVS: Unknown. Defaulting to slow.\n");
-			v1 = acpu_freq_tbl_8960_kraitv1_slow;
-			v2 = acpu_freq_tbl_8960_kraitv2_slow;
-			break;
-		}
+		enum pvs pvs_id = get_pvs();
 
 		scalable = scalable_8960;
 		if (cpu_is_krait_v1()) {
-			acpu_freq_tbl = v1;
+			acpu_freq_tbl = acpu_freq_tbl_8960_v1[pvs_id];
 			l2_freq_tbl = l2_freq_tbl_8960_kraitv1;
 			l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960_kraitv1);
 		} else {
-			acpu_freq_tbl = v2;
+			acpu_freq_tbl = acpu_freq_tbl_8960_v2[pvs_id];
 			l2_freq_tbl = l2_freq_tbl_8960_kraitv2;
 			l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960_kraitv2);
 		}
 	} else if (cpu_is_apq8064()) {
+		enum pvs pvs_id = get_pvs();
+
 		scalable = scalable_8064;
-		acpu_freq_tbl = acpu_freq_tbl_8064;
+		acpu_freq_tbl = acpu_freq_tbl_8064[pvs_id];
 		l2_freq_tbl = l2_freq_tbl_8064;
 		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8064);
 	} else if (cpu_is_msm8627()) {
@@ -1482,6 +1567,7 @@ static struct acpu_level * __init select_freq_plan(void)
 	} else {
 		BUG();
 	}
+	BUG_ON(!acpu_freq_tbl);
 	if (krait_needs_vmin())
 		kraitv2_apply_vmin(acpu_freq_tbl);
 
