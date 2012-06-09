@@ -49,7 +49,7 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 struct diag_master_table entry;
-smd_channel_t *ch_temp, *chqdsp_temp, *ch_wcnss_temp;
+smd_channel_t *ch_temp = NULL, *chqdsp_temp = NULL, *ch_wcnss_temp = NULL;
 int diag_event_num_bytes;
 int diag_event_config;
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
@@ -1733,7 +1733,8 @@ static void diag_smd_notify(void *ctxt, unsigned event)
 		driver->ch = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
-		driver->ch = ch_temp;
+		if (ch_temp)
+			driver->ch = ch_temp;
 	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
 }
@@ -1747,7 +1748,8 @@ static void diag_smd_qdsp_notify(void *ctxt, unsigned event)
 		driver->chqdsp = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
-		driver->chqdsp = chqdsp_temp;
+		if (chqdsp_temp)
+			driver->chqdsp = chqdsp_temp;
 	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
 }
@@ -1761,7 +1763,8 @@ static void diag_smd_wcnss_notify(void *ctxt, unsigned event)
 		driver->ch_wcnss = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
-		driver->ch_wcnss = ch_wcnss_temp;
+		if (ch_wcnss_temp)
+			driver->ch_wcnss = ch_wcnss_temp;
 	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_work));
 }
