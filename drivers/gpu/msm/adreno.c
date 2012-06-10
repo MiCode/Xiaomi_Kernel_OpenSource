@@ -253,7 +253,7 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	int sizedwords = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_memdesc **reg_map_desc;
-	void *reg_map_array;
+	void *reg_map_array = NULL;
 	int num_iommu_units, i;
 
 	if (!adreno_dev->drawctxt_active)
