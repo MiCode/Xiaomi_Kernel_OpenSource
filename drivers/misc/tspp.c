@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1687,7 +1687,7 @@ static int msm_tspp_probe(struct platform_device *pdev)
 
 	/* map clocks */
 	if (data->tsif_pclk) {
-		device->tsif_pclk = clk_get(NULL, data->tsif_pclk);
+		device->tsif_pclk = clk_get(&pdev->dev, data->tsif_pclk);
 		if (IS_ERR(device->tsif_pclk)) {
 			pr_err("tspp: failed to get %s",
 				data->tsif_pclk);
@@ -1697,7 +1697,7 @@ static int msm_tspp_probe(struct platform_device *pdev)
 		}
 	}
 	if (data->tsif_ref_clk) {
-		device->tsif_ref_clk = clk_get(NULL, data->tsif_ref_clk);
+		device->tsif_ref_clk = clk_get(&pdev->dev, data->tsif_ref_clk);
 		if (IS_ERR(device->tsif_ref_clk)) {
 			pr_err("tspp: failed to get %s",
 				data->tsif_ref_clk);
