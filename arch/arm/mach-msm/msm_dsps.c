@@ -226,7 +226,7 @@ static int dsps_power_on_handler(void)
 
 		}
 
-		ret = clk_enable(clock);
+		ret = clk_prepare_enable(clock);
 		if (ret) {
 			pr_err("%s: enable clk %s err %d.",
 			       __func__, name, ret);
@@ -315,7 +315,7 @@ clk_err:
 		if (clock == NULL)
 			continue;
 
-		clk_disable(clock);
+		clk_disable_unprepare(clock);
 	}
 
 	return -ENODEV;
@@ -345,7 +345,7 @@ static int dsps_power_off_handler(void)
 			const char *name = drv->pdata->clks[i].name;
 
 			pr_debug("%s: set clk %s off.", __func__, name);
-			clk_disable(drv->pdata->clks[i].clock);
+			clk_disable_unprepare(drv->pdata->clks[i].clock);
 		}
 
 	for (i = 0; i < drv->pdata->regs_num; i++)
