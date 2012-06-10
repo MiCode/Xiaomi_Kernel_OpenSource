@@ -63,6 +63,12 @@ static void log_modem_sfr(void)
 	wmb();
 }
 
+static void restart_modem(void)
+{
+	log_modem_sfr();
+	subsystem_restart("modem");
+}
+
 static void modem_wdog_check(struct work_struct *work)
 {
 	void __iomem *q6_sw_wdog_addr;
@@ -75,55 +81,13 @@ static void modem_wdog_check(struct work_struct *work)
 	regval = readl_relaxed(q6_sw_wdog_addr);
 	if (!regval) {
 		pr_err("modem-8960: Modem watchdog wasn't activated!. Restarting the modem now.\n");
-		log_modem_sfr();
-		subsystem_restart("modem");
+		restart_modem();
 	}
 
 	iounmap(q6_sw_wdog_addr);
 }
 
 static DECLARE_DELAYED_WORK(modem_wdog_check_work, modem_wdog_check);
-
-static void modem_sw_fatal_fn(struct work_struct *work)
-{
-	uint32_t panic_smsm_states = SMSM_RESET | SMSM_SYSTEM_DOWNLOAD;
-	uint32_t reset_smsm_states = SMSM_SYSTEM_REBOOT_USR |
-					SMSM_SYSTEM_PWRDWN_USR;
-	uint32_t modem_state;
-
-	pr_err("Watchdog bite received from modem SW!\n");
-
-	modem_state = smsm_get_state(SMSM_MODEM_STATE);
-
-	if (modem_state & panic_smsm_states) {
-
-		pr_err("Modem SMSM state changed to SMSM_RESET.\n"
-			"Probable err_fatal on the modem. "
-			"Calling subsystem restart...\n");
-		log_modem_sfr();
-		subsystem_restart("modem");
-
-	} else if (modem_state & reset_smsm_states) {
-
-		pr_err("%s: User-invoked system reset/powerdown. "
-			"Resetting the SoC now.\n",
-			__func__);
-		kernel_restart(NULL);
-	} else {
-		log_modem_sfr();
-		subsystem_restart("modem");
-	}
-}
-
-static void modem_fw_fatal_fn(struct work_struct *work)
-{
-	pr_err("Watchdog bite received from modem FW!\n");
-	log_modem_sfr();
-	subsystem_restart("modem");
-}
-
-static DECLARE_WORK(modem_sw_fatal_work, modem_sw_fatal_fn);
-static DECLARE_WORK(modem_fw_fatal_work, modem_fw_fatal_fn);
 
 static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 {
@@ -133,8 +97,7 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 
 	if (new_state & SMSM_RESET) {
 		pr_err("Probable fatal error on the modem.\n");
-		log_modem_sfr();
-		subsystem_restart("modem");
+		restart_modem();
 	}
 }
 
@@ -252,19 +215,15 @@ out:
 
 static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 {
-	int ret;
-
 	switch (irq) {
 
 	case Q6SW_WDOG_EXPIRED_IRQ:
-		ret = schedule_work(&modem_sw_fatal_work);
-		disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
-		disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
+		pr_err("Watchdog bite received from modem software!\n");
+		restart_modem();
 		break;
 	case Q6FW_WDOG_EXPIRED_IRQ:
-		ret = schedule_work(&modem_fw_fatal_work);
-		disable_irq_nosync(Q6SW_WDOG_EXPIRED_IRQ);
-		disable_irq_nosync(Q6FW_WDOG_EXPIRED_IRQ);
+		pr_err("Watchdog bite received from modem firmware!\n");
+		restart_modem();
 		break;
 	break;
 
