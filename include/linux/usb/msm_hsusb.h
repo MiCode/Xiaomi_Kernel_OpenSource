@@ -24,6 +24,7 @@
 #include <linux/usb/otg.h>
 #include <linux/wakelock.h>
 #include <linux/pm_qos.h>
+#include <linux/hrtimer.h>
 
 /*
  * The following are bit fields describing the usb_request.udc_priv word.
