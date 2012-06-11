@@ -10,35 +10,34 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifdef CONFIG_ARCH_MSM8X60
-
 #include <linux/irq.h>
+#include <asm/pmu.h>
+#include <linux/platform_device.h>
 
-#define MAX_BB_L2_PERIOD	((1ULL << 32) - 1)
-#define MAX_BB_L2_CTRS 5
-#define BB_L2CYCLE_CTR_BIT 31
-#define BB_L2CYCLE_CTR_EVENT_IDX 4
-#define BB_L2CYCLE_CTR_RAW_CODE 0xfe
+
+#define MAX_SCORPION_L2_CTRS 5
+#define SCORPION_L2CYCLE_CTR_BIT 31
+#define SCORPION_L2CYCLE_CTR_EVENT_IDX 4
+#define SCORPION_L2CYCLE_CTR_RAW_CODE 0xfe
 #define SCORPIONL2_PMNC_E       (1 << 0)	/* Enable all counters */
 #define SCORPION_L2_EVT_PREFIX 3
 #define SCORPION_MAX_L2_REG 4
 
-/*
- * Lock to protect r/m/w sequences to the L2 PMU.
- */
-DEFINE_RAW_SPINLOCK(bb_l2_pmu_lock);
+static u32 pmu_type;
 
-static struct platform_device *bb_l2_pmu_device;
+static struct arm_pmu scorpion_l2_pmu;
 
-struct hw_bb_l2_pmu {
-	struct perf_event *events[MAX_BB_L2_CTRS];
-	unsigned long active_mask[BITS_TO_LONGS(MAX_BB_L2_CTRS)];
-	raw_spinlock_t lock;
+static struct perf_event *l2_events[MAX_SCORPION_L2_CTRS];
+static unsigned long l2_used_mask[BITS_TO_LONGS(MAX_SCORPION_L2_CTRS)];
+
+static struct pmu_hw_events scorpion_l2_pmu_hw_events = {
+	.events = l2_events,
+	.used_mask = l2_used_mask,
+	.pmu_lock =
+		__RAW_SPIN_LOCK_UNLOCKED(scorpion_l2_pmu_hw_events.pmu_lock),
 };
 
-struct hw_bb_l2_pmu hw_bb_l2_pmu;
-
-struct bb_l2_scorp_evt {
+struct scorpion_l2_scorp_evt {
 	u32 evt_type;
 	u32 val;
 	u8 grp;
@@ -147,10 +146,10 @@ enum scorpion_perf_types {
 	SCORPIONL2_SNOOPED_BP = 0xf1,
 	SCORPIONL2_SNOOPED_BARRIERS = 0xf2,
 	SCORPIONL2_SNOOPED_TLB = 0xf3,
-	BB_L2_MAX_EVT,
+	SCORPION_L2_MAX_EVT,
 };
 
-static const struct bb_l2_scorp_evt sc_evt[] = {
+static const struct scorpion_l2_scorp_evt sc_evt[] = {
 	{SCORPIONL2_TOTAL_BANK_REQ, 0x80000001, 0, 0x00},
 	{SCORPIONL2_DSIDE_READ, 0x80000100, 0, 0x01},
 	{SCORPIONL2_DSIDE_WRITE, 0x80010000, 0, 0x02},
@@ -257,86 +256,90 @@ static const struct bb_l2_scorp_evt sc_evt[] = {
 	{SCORPIONL2_SNOOPED_TLB, 0x82000000, 4, 0x13},
 };
 
-static u32 bb_l2_read_l2pm0(void)
+static struct pmu_hw_events *scorpion_l2_get_hw_events(void)
+{
+	return &scorpion_l2_pmu_hw_events;
+}
+static u32 scorpion_l2_read_l2pm0(void)
 {
 	u32 val;
 	asm volatile ("mrc p15, 3, %0, c15, c7, 0" : "=r" (val));
 	return val;
 }
 
-static void bb_l2_write_l2pm0(u32 val)
+static void scorpion_l2_write_l2pm0(u32 val)
 {
 	asm volatile ("mcr p15, 3, %0, c15, c7, 0" : : "r" (val));
 }
 
-static u32 bb_l2_read_l2pm1(void)
+static u32 scorpion_l2_read_l2pm1(void)
 {
 	u32 val;
 	asm volatile ("mrc p15, 3, %0, c15, c7, 1" : "=r" (val));
 	return val;
 }
 
-static void bb_l2_write_l2pm1(u32 val)
+static void scorpion_l2_write_l2pm1(u32 val)
 {
 	asm volatile ("mcr p15, 3, %0, c15, c7, 1" : : "r" (val));
 }
 
-static u32 bb_l2_read_l2pm2(void)
+static u32 scorpion_l2_read_l2pm2(void)
 {
 	u32 val;
 	asm volatile ("mrc p15, 3, %0, c15, c7, 2" : "=r" (val));
 	return val;
 }
 
-static void bb_l2_write_l2pm2(u32 val)
+static void scorpion_l2_write_l2pm2(u32 val)
 {
 	asm volatile ("mcr p15, 3, %0, c15, c7, 2" : : "r" (val));
 }
 
-static u32 bb_l2_read_l2pm3(void)
+static u32 scorpion_l2_read_l2pm3(void)
 {
 	u32 val;
 	asm volatile ("mrc p15, 3, %0, c15, c7, 3" : "=r" (val));
 	return val;
 }
 
-static void bb_l2_write_l2pm3(u32 val)
+static void scorpion_l2_write_l2pm3(u32 val)
 {
 	asm volatile ("mcr p15, 3, %0, c15, c7, 3" : : "r" (val));
 }
 
-static u32 bb_l2_read_l2pm4(void)
+static u32 scorpion_l2_read_l2pm4(void)
 {
 	u32 val;
 	asm volatile ("mrc p15, 3, %0, c15, c7, 4" : "=r" (val));
 	return val;
 }
 
-static void bb_l2_write_l2pm4(u32 val)
+static void scorpion_l2_write_l2pm4(u32 val)
 {
 	asm volatile ("mcr p15, 3, %0, c15, c7, 4" : : "r" (val));
 }
 
-struct bb_scorpion_access_funcs {
+struct scorpion_scorpion_access_funcs {
 	u32(*read) (void);
 	void (*write) (u32);
 	void (*pre) (void);
 	void (*post) (void);
 };
 
-struct bb_scorpion_access_funcs bb_l2_func[] = {
-	{bb_l2_read_l2pm0, bb_l2_write_l2pm0, NULL, NULL},
-	{bb_l2_read_l2pm1, bb_l2_write_l2pm1, NULL, NULL},
-	{bb_l2_read_l2pm2, bb_l2_write_l2pm2, NULL, NULL},
-	{bb_l2_read_l2pm3, bb_l2_write_l2pm3, NULL, NULL},
-	{bb_l2_read_l2pm4, bb_l2_write_l2pm4, NULL, NULL},
+struct scorpion_scorpion_access_funcs scorpion_l2_func[] = {
+	{scorpion_l2_read_l2pm0, scorpion_l2_write_l2pm0, NULL, NULL},
+	{scorpion_l2_read_l2pm1, scorpion_l2_write_l2pm1, NULL, NULL},
+	{scorpion_l2_read_l2pm2, scorpion_l2_write_l2pm2, NULL, NULL},
+	{scorpion_l2_read_l2pm3, scorpion_l2_write_l2pm3, NULL, NULL},
+	{scorpion_l2_read_l2pm4, scorpion_l2_write_l2pm4, NULL, NULL},
 };
 
 #define COLMN0MASK 0x000000ff
 #define COLMN1MASK 0x0000ff00
 #define COLMN2MASK 0x00ff0000
 
-static u32 bb_l2_get_columnmask(u32 setval)
+static u32 scorpion_l2_get_columnmask(u32 setval)
 {
 	if (setval & COLMN0MASK)
 		return 0xffffff00;
@@ -348,23 +351,23 @@ static u32 bb_l2_get_columnmask(u32 setval)
 		return 0x80ffffff;
 }
 
-static void bb_l2_evt_setup(u32 gr, u32 setval)
+static void scorpion_l2_evt_setup(u32 gr, u32 setval)
 {
 	u32 val;
-	if (bb_l2_func[gr].pre)
-		bb_l2_func[gr].pre();
-	val = bb_l2_get_columnmask(setval) & bb_l2_func[gr].read();
+	if (scorpion_l2_func[gr].pre)
+		scorpion_l2_func[gr].pre();
+	val = scorpion_l2_get_columnmask(setval) & scorpion_l2_func[gr].read();
 	val = val | setval;
-	bb_l2_func[gr].write(val);
-	if (bb_l2_func[gr].post)
-		bb_l2_func[gr].post();
+	scorpion_l2_func[gr].write(val);
+	if (scorpion_l2_func[gr].post)
+		scorpion_l2_func[gr].post();
 }
 
-#define BB_L2_EVT_START_IDX 0x90
-#define BB_L2_INV_EVTYPE 0
+#define SCORPION_L2_EVT_START_IDX 0x90
+#define SCORPION_L2_INV_EVTYPE 0
 
-static unsigned int get_bb_l2_evtinfo(unsigned int evt_type,
-				      struct bb_l2_scorp_evt *evtinfo)
+static unsigned int get_scorpion_l2_evtinfo(unsigned int evt_type,
+				      struct scorpion_l2_scorp_evt *evtinfo)
 {
 	u32 idx;
 	u8 prefix;
@@ -379,7 +382,7 @@ static unsigned int get_bb_l2_evtinfo(unsigned int evt_type,
 		group =  evt_type & 0x0000F;
 
 		if ((group > 3) || (reg > SCORPION_MAX_L2_REG))
-			return BB_L2_INV_EVTYPE;
+			return SCORPION_L2_INV_EVTYPE;
 
 		evtinfo->val = 0x80000000 | (code << (group * 8));
 		evtinfo->grp = reg;
@@ -387,38 +390,41 @@ static unsigned int get_bb_l2_evtinfo(unsigned int evt_type,
 		return evtinfo->evt_type_act;
 	}
 
-	if (evt_type < BB_L2_EVT_START_IDX || evt_type >= BB_L2_MAX_EVT)
-		return BB_L2_INV_EVTYPE;
-	idx = evt_type - BB_L2_EVT_START_IDX;
+	if (evt_type < SCORPION_L2_EVT_START_IDX
+			|| evt_type >= SCORPION_L2_MAX_EVT)
+		return SCORPION_L2_INV_EVTYPE;
+
+	idx = evt_type - SCORPION_L2_EVT_START_IDX;
+
 	if (sc_evt[idx].evt_type == evt_type) {
 		evtinfo->val = sc_evt[idx].val;
 		evtinfo->grp = sc_evt[idx].grp;
 		evtinfo->evt_type_act = sc_evt[idx].evt_type_act;
 		return sc_evt[idx].evt_type_act;
 	}
-	return BB_L2_INV_EVTYPE;
+	return SCORPION_L2_INV_EVTYPE;
 }
 
-static inline void bb_l2_pmnc_write(unsigned long val)
+static inline void scorpion_l2_pmnc_write(unsigned long val)
 {
 	val &= 0xff;
 	asm volatile ("mcr p15, 3, %0, c15, c4, 0" : : "r" (val));
 }
 
-static inline unsigned long bb_l2_pmnc_read(void)
+static inline unsigned long scorpion_l2_pmnc_read(void)
 {
 	u32 val;
 	asm volatile ("mrc p15, 3, %0, c15, c4, 0" : "=r" (val));
 	return val;
 }
 
-static void bb_l2_set_evcntcr(void)
+static void scorpion_l2_set_evcntcr(void)
 {
 	u32 val = 0x0;
 	asm volatile ("mcr p15, 3, %0, c15, c6, 4" : : "r" (val));
 }
 
-static inline void bb_l2_set_evtyper(int ctr, int val)
+static inline void scorpion_l2_set_evtyper(int ctr, int val)
 {
 	/* select ctr */
 	asm volatile ("mcr p15, 3, %0, c15, c6, 0" : : "r" (ctr));
@@ -427,344 +433,195 @@ static inline void bb_l2_set_evtyper(int ctr, int val)
 	asm volatile ("mcr p15, 3, %0, c15, c6, 7" : : "r" (val));
 }
 
-static void bb_l2_set_evfilter_task_mode(void)
+static void scorpion_l2_set_evfilter_task_mode(void)
 {
 	u32 filter_val = 0x000f0030 | 1 << smp_processor_id();
 
 	asm volatile ("mcr p15, 3, %0, c15, c6, 3" : : "r" (filter_val));
 }
 
-static void bb_l2_set_evfilter_sys_mode(void)
+static void scorpion_l2_set_evfilter_sys_mode(void)
 {
 	u32 filter_val = 0x000f003f;
 
 	asm volatile ("mcr p15, 3, %0, c15, c6, 3" : : "r" (filter_val));
 }
 
-static void bb_l2_enable_intenset(u32 idx)
+static void scorpion_l2_enable_intenset(u32 idx)
 {
-	if (idx == BB_L2CYCLE_CTR_EVENT_IDX) {
+	if (idx == SCORPION_L2CYCLE_CTR_EVENT_IDX) {
 		asm volatile ("mcr p15, 3, %0, c15, c5, 1" : : "r"
-			      (1 << BB_L2CYCLE_CTR_BIT));
+			      (1 << SCORPION_L2CYCLE_CTR_BIT));
 	} else {
 		asm volatile ("mcr p15, 3, %0, c15, c5, 1" : : "r" (1 << idx));
 	}
 }
 
-static void bb_l2_disable_intenclr(u32 idx)
+static void scorpion_l2_disable_intenclr(u32 idx)
 {
-	if (idx == BB_L2CYCLE_CTR_EVENT_IDX) {
+	if (idx == SCORPION_L2CYCLE_CTR_EVENT_IDX) {
 		asm volatile ("mcr p15, 3, %0, c15, c5, 0" : : "r"
-			      (1 << BB_L2CYCLE_CTR_BIT));
+			      (1 << SCORPION_L2CYCLE_CTR_BIT));
 	} else {
 		asm volatile ("mcr p15, 3, %0, c15, c5, 0" : : "r" (1 << idx));
 	}
 }
 
-static void bb_l2_enable_counter(u32 idx)
+static void scorpion_l2_enable_counter(u32 idx)
 {
-	if (idx == BB_L2CYCLE_CTR_EVENT_IDX) {
+	if (idx == SCORPION_L2CYCLE_CTR_EVENT_IDX) {
 		asm volatile ("mcr p15, 3, %0, c15, c4, 3" : : "r"
-			      (1 << BB_L2CYCLE_CTR_BIT));
+			      (1 << SCORPION_L2CYCLE_CTR_BIT));
 	} else {
 		asm volatile ("mcr p15, 3, %0, c15, c4, 3" : : "r" (1 << idx));
 	}
 }
 
-static void bb_l2_disable_counter(u32 idx)
+static void scorpion_l2_disable_counter(u32 idx)
 {
-	if (idx == BB_L2CYCLE_CTR_EVENT_IDX) {
+	if (idx == SCORPION_L2CYCLE_CTR_EVENT_IDX) {
 		asm volatile ("mcr p15, 3, %0, c15, c4, 2" : : "r"
-			      (1 << BB_L2CYCLE_CTR_BIT));
-
+			      (1 << SCORPION_L2CYCLE_CTR_BIT));
 	} else {
 		asm volatile ("mcr p15, 3, %0, c15, c4, 2" : : "r" (1 << idx));
 	}
 }
 
-static u64 bb_l2_read_counter(u32 idx)
+static u32 scorpion_l2_read_counter(int idx)
 {
 	u32 val;
-	unsigned long flags;
+	unsigned long iflags;
 
-	if (idx == BB_L2CYCLE_CTR_EVENT_IDX) {
+	if (idx == SCORPION_L2CYCLE_CTR_EVENT_IDX) {
 		asm volatile ("mrc p15, 3, %0, c15, c4, 5" : "=r" (val));
 	} else {
-		raw_spin_lock_irqsave(&bb_l2_pmu_lock, flags);
+		raw_spin_lock_irqsave(&scorpion_l2_pmu_hw_events.pmu_lock,
+				iflags);
 		asm volatile ("mcr p15, 3, %0, c15, c6, 0" : : "r" (idx));
 
 		/* read val from counter */
 		asm volatile ("mrc p15, 3, %0, c15, c6, 5" : "=r" (val));
-		raw_spin_unlock_irqrestore(&bb_l2_pmu_lock, flags);
+		raw_spin_unlock_irqrestore(&scorpion_l2_pmu_hw_events.pmu_lock,
+				iflags);
 	}
 
 	return val;
 }
 
-static void bb_l2_write_counter(u32 idx, u32 val)
+static void scorpion_l2_write_counter(int idx, u32 val)
 {
-	unsigned long flags;
+	unsigned long iflags;
 
-	if (idx == BB_L2CYCLE_CTR_EVENT_IDX) {
+	if (idx == SCORPION_L2CYCLE_CTR_EVENT_IDX) {
 		asm volatile ("mcr p15, 3, %0, c15, c4, 5" : : "r" (val));
 	} else {
-		raw_spin_lock_irqsave(&bb_l2_pmu_lock, flags);
+		raw_spin_lock_irqsave(&scorpion_l2_pmu_hw_events.pmu_lock,
+				iflags);
+
 		/* select counter */
 		asm volatile ("mcr p15, 3, %0, c15, c6, 0" : : "r" (idx));
 
 		/* write val into counter */
 		asm volatile ("mcr p15, 3, %0, c15, c6, 5" : : "r" (val));
-		raw_spin_unlock_irqrestore(&bb_l2_pmu_lock, flags);
+		raw_spin_unlock_irqrestore(&scorpion_l2_pmu_hw_events.pmu_lock,
+				iflags);
 	}
 }
 
-static int
-bb_pmu_event_set_period(struct perf_event *event,
-			struct hw_perf_event *hwc, int idx)
+static void scorpion_l2_stop_counter(struct hw_perf_event *hwc, int idx)
 {
-	s64 left = local64_read(&hwc->period_left);
-	s64 period = hwc->sample_period;
-	int ret = 0;
-
-	if (unlikely(left <= -period)) {
-		left = period;
-		local64_set(&hwc->period_left, left);
-		hwc->last_period = period;
-		ret = 1;
-	}
-
-	if (unlikely(left <= 0)) {
-		left += period;
-		local64_set(&hwc->period_left, left);
-		hwc->last_period = period;
-		ret = 1;
-	}
-
-	if (left > (s64) MAX_BB_L2_PERIOD)
-		left = MAX_BB_L2_PERIOD;
-
-	local64_set(&hwc->prev_count, (u64)-left);
-
-	bb_l2_write_counter(idx, (u64) (-left) & 0xffffffff);
-
-	perf_event_update_userpage(event);
-
-	return ret;
+	scorpion_l2_disable_intenclr(idx);
+	scorpion_l2_disable_counter(idx);
+	pr_debug("%s: event: %ld ctr: %d stopped\n", __func__,
+			hwc->config_base, idx);
 }
 
-static u64
-bb_pmu_event_update(struct perf_event *event, struct hw_perf_event *hwc,
-		    int idx, int overflow)
+static void scorpion_l2_enable(struct hw_perf_event *hwc, int idx, int cpu)
 {
-	u64 prev_raw_count, new_raw_count;
-	u64 delta;
-
-again:
-	prev_raw_count = local64_read(&hwc->prev_count);
-	new_raw_count = bb_l2_read_counter(idx);
-
-	if (local64_cmpxchg(&hwc->prev_count, prev_raw_count,
-			    new_raw_count) != prev_raw_count)
-		goto again;
-
-	new_raw_count &= MAX_BB_L2_PERIOD;
-	prev_raw_count &= MAX_BB_L2_PERIOD;
-
-	if (overflow) {
-		delta = MAX_BB_L2_PERIOD - prev_raw_count + new_raw_count;
-		pr_err("%s: delta: %lld\n", __func__, delta);
-	} else
-		delta = new_raw_count - prev_raw_count;
-
-	local64_add(delta, &event->count);
-	local64_sub(delta, &hwc->period_left);
-
-	pr_debug("%s: new: %lld, prev: %lld, event: %ld count: %lld\n",
-		 __func__, new_raw_count, prev_raw_count,
-		 hwc->config_base, local64_read(&event->count));
-
-	return new_raw_count;
-}
-
-static void bb_l2_read(struct perf_event *event)
-{
-	struct hw_perf_event *hwc = &event->hw;
-
-	bb_pmu_event_update(event, hwc, hwc->idx, 0);
-}
-
-static void bb_l2_stop_counter(struct perf_event *event, int flags)
-{
-	struct hw_perf_event *hwc = &event->hw;
-	int idx = hwc->idx;
-
-	if (!(hwc->state & PERF_HES_STOPPED)) {
-		bb_l2_disable_intenclr(idx);
-		bb_l2_disable_counter(idx);
-
-		bb_pmu_event_update(event, hwc, idx, 0);
-		hwc->state |= PERF_HES_STOPPED | PERF_HES_UPTODATE;
-	}
-
-	pr_debug("%s: event: %ld ctr: %d stopped\n", __func__, hwc->config_base,
-		 idx);
-}
-
-static void bb_l2_start_counter(struct perf_event *event, int flags)
-{
-	struct hw_perf_event *hwc = &event->hw;
-	int idx = hwc->idx;
-	struct bb_l2_scorp_evt evtinfo;
+	struct scorpion_l2_scorp_evt evtinfo;
 	int evtype = hwc->config_base;
 	int ev_typer;
 	unsigned long iflags;
-	int cpu_id = smp_processor_id();
 
-	if (flags & PERF_EF_RELOAD)
-		WARN_ON_ONCE(!(hwc->state & PERF_HES_UPTODATE));
+	raw_spin_lock_irqsave(&scorpion_l2_pmu_hw_events.pmu_lock, iflags);
 
-	hwc->state = 0;
-
-	bb_pmu_event_set_period(event, hwc, idx);
-
-	if (hwc->config_base == BB_L2CYCLE_CTR_RAW_CODE)
+	if (hwc->config_base == SCORPION_L2CYCLE_CTR_RAW_CODE)
 		goto out;
 
 	memset(&evtinfo, 0, sizeof(evtinfo));
 
-	ev_typer = get_bb_l2_evtinfo(evtype, &evtinfo);
+	ev_typer = get_scorpion_l2_evtinfo(evtype, &evtinfo);
 
-	raw_spin_lock_irqsave(&bb_l2_pmu_lock, iflags);
+	scorpion_l2_set_evtyper(idx, ev_typer);
 
-	bb_l2_set_evtyper(idx, ev_typer);
+	scorpion_l2_set_evcntcr();
 
-	bb_l2_set_evcntcr();
-
-	if (event->cpu < 0)
-		bb_l2_set_evfilter_task_mode();
+	if (cpu < 0)
+		scorpion_l2_set_evfilter_task_mode();
 	else
-		bb_l2_set_evfilter_sys_mode();
+		scorpion_l2_set_evfilter_sys_mode();
 
-	bb_l2_evt_setup(evtinfo.grp, evtinfo.val);
-
-	raw_spin_unlock_irqrestore(&bb_l2_pmu_lock, iflags);
+	scorpion_l2_evt_setup(evtinfo.grp, evtinfo.val);
 
 out:
 
-	bb_l2_enable_intenset(idx);
+	scorpion_l2_enable_intenset(idx);
 
-	bb_l2_enable_counter(idx);
+	scorpion_l2_enable_counter(idx);
 
-	pr_debug("%s: idx: %d, event: %d, val: %x, cpu: %d\n",
-		 __func__, idx, evtype, evtinfo.val, cpu_id);
+	raw_spin_unlock_irqrestore(&scorpion_l2_pmu_hw_events.pmu_lock, iflags);
+
+	pr_debug("%s: ctr: %d group: %ld group_code: %lld started from cpu:%d\n",
+	     __func__, idx, hwc->config_base, hwc->config, smp_processor_id());
 }
 
-static void bb_l2_del_event(struct perf_event *event, int flags)
+static void scorpion_l2_disable(struct hw_perf_event *hwc, int idx)
 {
-	struct hw_perf_event *hwc = &event->hw;
-	int idx = hwc->idx;
 	unsigned long iflags;
 
-	raw_spin_lock_irqsave(&hw_bb_l2_pmu.lock, iflags);
+	raw_spin_lock_irqsave(&scorpion_l2_pmu_hw_events.pmu_lock, iflags);
 
-	clear_bit(idx, (long unsigned int *)(&hw_bb_l2_pmu.active_mask));
+	scorpion_l2_stop_counter(hwc, idx);
 
-	bb_l2_stop_counter(event, PERF_EF_UPDATE);
-	hw_bb_l2_pmu.events[idx] = NULL;
-	hwc->idx = -1;
-
-	raw_spin_unlock_irqrestore(&hw_bb_l2_pmu.lock, iflags);
+	raw_spin_unlock_irqrestore(&scorpion_l2_pmu_hw_events.pmu_lock, iflags);
 
 	pr_debug("%s: event: %ld deleted\n", __func__, hwc->config_base);
-
-	perf_event_update_userpage(event);
 }
 
-static int bb_l2_add_event(struct perf_event *event, int flags)
+static int scorpion_l2_get_event_idx(struct pmu_hw_events *cpuc,
+				  struct hw_perf_event *hwc)
 {
 	int ctr = 0;
-	struct hw_perf_event *hwc = &event->hw;
-	unsigned long iflags;
-	int err = 0;
 
-	perf_pmu_disable(event->pmu);
-
-	raw_spin_lock_irqsave(&hw_bb_l2_pmu.lock, iflags);
-
-	/* Cycle counter has a resrvd index */
-	if (hwc->config_base == BB_L2CYCLE_CTR_RAW_CODE) {
-		if (hw_bb_l2_pmu.events[BB_L2CYCLE_CTR_EVENT_IDX]) {
-			pr_err("%s: Stale cycle ctr event ptr !\n", __func__);
-			err = -EINVAL;
-			goto out;
-		}
-		hwc->idx = BB_L2CYCLE_CTR_EVENT_IDX;
-		hw_bb_l2_pmu.events[BB_L2CYCLE_CTR_EVENT_IDX] = event;
-		set_bit(BB_L2CYCLE_CTR_EVENT_IDX,
-			(long unsigned int *)&hw_bb_l2_pmu.active_mask);
-		goto skip_ctr_loop;
+	if (hwc->config_base == SCORPION_L2CYCLE_CTR_RAW_CODE) {
+		if (!test_and_set_bit(SCORPION_L2CYCLE_CTR_EVENT_IDX,
+					cpuc->used_mask))
+			return SCORPION_L2CYCLE_CTR_EVENT_IDX;
 	}
 
-	for (ctr = 0; ctr < MAX_BB_L2_CTRS - 1; ctr++) {
-		if (!hw_bb_l2_pmu.events[ctr]) {
-			hwc->idx = ctr;
-			hw_bb_l2_pmu.events[ctr] = event;
-			set_bit(ctr, (long unsigned int *)
-				&hw_bb_l2_pmu.active_mask);
-			break;
-		}
+	for (ctr = 0; ctr < MAX_SCORPION_L2_CTRS - 1; ctr++) {
+		if (!test_and_set_bit(ctr, cpuc->used_mask))
+			return ctr;
 	}
 
-	if (hwc->idx < 0) {
-		err = -ENOSPC;
-		pr_err("%s: No space for event: %llx!!\n", __func__,
-		       event->attr.config);
-		goto out;
-	}
-
-skip_ctr_loop:
-
-	bb_l2_disable_counter(hwc->idx);
-
-	hwc->state = PERF_HES_STOPPED | PERF_HES_UPTODATE;
-
-	if (flags & PERF_EF_START)
-		bb_l2_start_counter(event, PERF_EF_RELOAD);
-
-	perf_event_update_userpage(event);
-
-	pr_debug("%s: event: %ld, ctr: %d added from cpu:%d\n",
-		 __func__, hwc->config_base, hwc->idx, smp_processor_id());
-out:
-	raw_spin_unlock_irqrestore(&hw_bb_l2_pmu.lock, iflags);
-
-	/* Resume the PMU even if this event could not be added */
-	perf_pmu_enable(event->pmu);
-
-	return err;
+	return -EAGAIN;
 }
 
-static void bb_l2_pmu_enable(struct pmu *pmu)
+static void scorpion_l2_start(void)
 {
-	unsigned long flags;
 	isb();
-	raw_spin_lock_irqsave(&bb_l2_pmu_lock, flags);
 	/* Enable all counters */
-	bb_l2_pmnc_write(bb_l2_pmnc_read() | SCORPIONL2_PMNC_E);
-	raw_spin_unlock_irqrestore(&bb_l2_pmu_lock, flags);
+	scorpion_l2_pmnc_write(scorpion_l2_pmnc_read() | SCORPIONL2_PMNC_E);
 }
 
-static void bb_l2_pmu_disable(struct pmu *pmu)
+static void scorpion_l2_stop(void)
 {
-	unsigned long flags;
-	raw_spin_lock_irqsave(&bb_l2_pmu_lock, flags);
 	/* Disable all counters */
-	bb_l2_pmnc_write(bb_l2_pmnc_read() & ~SCORPIONL2_PMNC_E);
-	raw_spin_unlock_irqrestore(&bb_l2_pmu_lock, flags);
+	scorpion_l2_pmnc_write(scorpion_l2_pmnc_read() & ~SCORPIONL2_PMNC_E);
 	isb();
 }
 
-static inline u32 bb_l2_get_reset_pmovsr(void)
+static inline u32 scorpion_l2_get_reset_pmovsr(void)
 {
 	u32 val;
 
@@ -778,7 +635,7 @@ static inline u32 bb_l2_get_reset_pmovsr(void)
 	return val;
 }
 
-static irqreturn_t bb_l2_handle_irq(int irq_num, void *dev)
+static irqreturn_t scorpion_l2_handle_irq(int irq_num, void *dev)
 {
 	unsigned long pmovsr;
 	struct perf_sample_data data;
@@ -788,7 +645,7 @@ static irqreturn_t bb_l2_handle_irq(int irq_num, void *dev)
 	int bitp;
 	int idx = 0;
 
-	pmovsr = bb_l2_get_reset_pmovsr();
+	pmovsr = scorpion_l2_get_reset_pmovsr();
 
 	if (!(pmovsr & 0xffffffff))
 		return IRQ_NONE;
@@ -797,217 +654,107 @@ static irqreturn_t bb_l2_handle_irq(int irq_num, void *dev)
 
 	perf_sample_data_init(&data, 0);
 
-	raw_spin_lock(&hw_bb_l2_pmu.lock);
-
 	while (pmovsr) {
 		bitp = __ffs(pmovsr);
 
-		if (bitp == BB_L2CYCLE_CTR_BIT)
-			idx = BB_L2CYCLE_CTR_EVENT_IDX;
+		if (bitp == SCORPION_L2CYCLE_CTR_BIT)
+			idx = SCORPION_L2CYCLE_CTR_EVENT_IDX;
 		else
 			idx = bitp;
 
-		event = hw_bb_l2_pmu.events[idx];
+		event = scorpion_l2_pmu_hw_events.events[idx];
 
 		if (!event)
 			goto next;
 
-		if (!test_bit(idx, hw_bb_l2_pmu.active_mask))
+		if (!test_bit(idx, scorpion_l2_pmu_hw_events.used_mask))
 			goto next;
 
 		hwc = &event->hw;
-		bb_pmu_event_update(event, hwc, idx, 1);
+
+		armpmu_event_update(event, hwc, idx);
+
 		data.period = event->hw.last_period;
 
-		if (!bb_pmu_event_set_period(event, hwc, idx))
+		if (!armpmu_event_set_period(event, hwc, idx))
 			goto next;
 
-		if (perf_event_overflow(event, 0, &data, regs))
-			bb_l2_disable_counter(hwc->idx);
+		if (perf_event_overflow(event, &data, regs))
+			scorpion_l2_disable_counter(hwc->idx);
 next:
 		pmovsr &= (pmovsr - 1);
 	}
-
-	raw_spin_unlock(&hw_bb_l2_pmu.lock);
 
 	irq_work_run();
 
 	return IRQ_HANDLED;
 }
 
-static atomic_t active_bb_l2_events = ATOMIC_INIT(0);
-static DEFINE_MUTEX(bb_pmu_reserve_mutex);
-
-static int bb_pmu_reserve_hardware(void)
+static int scorpion_l2_map_event(struct perf_event *event)
 {
-	int i, err = -ENODEV, irq;
-
-	bb_l2_pmu_device = reserve_pmu(ARM_PMU_DEVICE_L2);
-
-	if (IS_ERR(bb_l2_pmu_device)) {
-		pr_warning("unable to reserve pmu\n");
-		return PTR_ERR(bb_l2_pmu_device);
-	}
-
-	if (bb_l2_pmu_device->num_resources < 1) {
-		pr_err("no irqs for PMUs defined\n");
-		return -ENODEV;
-	}
-
-	if (strncmp(bb_l2_pmu_device->name, "l2-arm-pmu", 6)) {
-		pr_err("Incorrect pdev reserved !\n");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < bb_l2_pmu_device->num_resources; ++i) {
-		irq = platform_get_irq(bb_l2_pmu_device, i);
-		if (irq < 0)
-			continue;
-
-		err = request_irq(irq, bb_l2_handle_irq,
-				  IRQF_DISABLED | IRQF_NOBALANCING,
-				  "bb-l2-pmu", NULL);
-		if (err) {
-			pr_warning("unable to request IRQ%d for Krait L2 perf "
-				   "counters\n", irq);
-			break;
-		}
-
-		irq_get_chip(irq)->irq_unmask(irq_get_irq_data(irq));
-	}
-
-	if (err) {
-		for (i = i - 1; i >= 0; --i) {
-			irq = platform_get_irq(bb_l2_pmu_device, i);
-			if (irq >= 0)
-				free_irq(irq, NULL);
-		}
-		release_pmu(bb_l2_pmu_device);
-		bb_l2_pmu_device = NULL;
-	}
-
-	return err;
-}
-
-static void bb_pmu_release_hardware(void)
-{
-	int i, irq;
-
-	for (i = bb_l2_pmu_device->num_resources - 1; i >= 0; --i) {
-		irq = platform_get_irq(bb_l2_pmu_device, i);
-		if (irq >= 0)
-			free_irq(irq, NULL);
-	}
-
-	bb_l2_pmu_disable(NULL);
-
-	release_pmu(bb_l2_pmu_device);
-	bb_l2_pmu_device = NULL;
-}
-
-static void bb_pmu_perf_event_destroy(struct perf_event *event)
-{
-	if (atomic_dec_and_mutex_lock
-	    (&active_bb_l2_events, &bb_pmu_reserve_mutex)) {
-		bb_pmu_release_hardware();
-		mutex_unlock(&bb_pmu_reserve_mutex);
-	}
-}
-
-static int bb_l2_event_init(struct perf_event *event)
-{
-	int err = 0;
-	struct hw_perf_event *hwc = &event->hw;
-	int status = 0;
-
-	switch (event->attr.type) {
-	case PERF_TYPE_SHARED:
-		break;
-
-	default:
-		return -ENOENT;
-	}
-
-	hwc->idx = -1;
-
-	event->destroy = bb_pmu_perf_event_destroy;
-
-	if (!atomic_inc_not_zero(&active_bb_l2_events)) {
-		/* 0 active events */
-		mutex_lock(&bb_pmu_reserve_mutex);
-		err = bb_pmu_reserve_hardware();
-		mutex_unlock(&bb_pmu_reserve_mutex);
-		if (!err)
-			atomic_inc(&active_bb_l2_events);
-		else
-			return err;
-	}
-
-	hwc->config = 0;
-	hwc->event_base = 0;
-
-	/* Check if we came via perf default syms */
-	if (event->attr.config == PERF_COUNT_HW_L2_CYCLES)
-		hwc->config_base = BB_L2CYCLE_CTR_RAW_CODE;
+	if (pmu_type > 0 && pmu_type == event->attr.type)
+		return event->attr.config & 0xfffff;
 	else
-		hwc->config_base = event->attr.config;
-
-	/* Only one CPU can control the cycle counter */
-	if (hwc->config_base == BB_L2CYCLE_CTR_RAW_CODE) {
-		/* Check if its already running */
-		asm volatile ("mrc p15, 3, %0, c15, c4, 6" : "=r" (status));
-		if (status == 0x2) {
-			err = -ENOSPC;
-			goto out;
-		}
-	}
-
-	if (!hwc->sample_period) {
-		hwc->sample_period = MAX_BB_L2_PERIOD;
-		hwc->last_period = hwc->sample_period;
-		local64_set(&hwc->period_left, hwc->sample_period);
-	}
-
-	pr_debug("%s: event: %lld init'd\n", __func__, event->attr.config);
-
-out:
-	if (err < 0)
-		bb_pmu_perf_event_destroy(event);
-
-	return err;
+		return -ENOENT;
 }
 
-static struct pmu bb_l2_pmu = {
-	.pmu_enable = bb_l2_pmu_enable,
-	.pmu_disable = bb_l2_pmu_disable,
-	.event_init = bb_l2_event_init,
-	.add = bb_l2_add_event,
-	.del = bb_l2_del_event,
-	.start = bb_l2_start_counter,
-	.stop = bb_l2_stop_counter,
-	.read = bb_l2_read,
+static int
+scorpion_l2_pmu_generic_request_irq(int irq, irq_handler_t *handle_irq)
+{
+	return request_irq(irq, *handle_irq,
+			IRQF_DISABLED | IRQF_NOBALANCING,
+			"scorpion-l2-armpmu", NULL);
+}
+
+static void
+scorpion_l2_pmu_generic_free_irq(int irq)
+{
+	if (irq >= 0)
+		free_irq(irq, NULL);
+}
+
+static struct arm_pmu scorpion_l2_pmu = {
+	.id		=	ARM_PERF_PMU_ID_SCORPIONMP_L2,
+	.type		=	ARM_PMU_DEVICE_L2CC,
+	.name		=	"Scorpion L2CC PMU",
+	.start		=	scorpion_l2_start,
+	.stop		=	scorpion_l2_stop,
+	.handle_irq	=	scorpion_l2_handle_irq,
+	.request_pmu_irq	= scorpion_l2_pmu_generic_request_irq,
+	.free_pmu_irq		= scorpion_l2_pmu_generic_free_irq,
+	.enable		=	scorpion_l2_enable,
+	.disable	=	scorpion_l2_disable,
+	.read_counter	=	scorpion_l2_read_counter,
+	.get_event_idx	=	scorpion_l2_get_event_idx,
+	.write_counter	=	scorpion_l2_write_counter,
+	.map_event	=	scorpion_l2_map_event,
+	.max_period	=	(1LLU << 32) - 1,
+	.get_hw_events	=	scorpion_l2_get_hw_events,
+	.num_events	=	MAX_SCORPION_L2_CTRS,
 };
 
-static const struct arm_pmu *__init scorpionmp_l2_pmu_init(void)
+static int scorpion_l2_pmu_device_probe(struct platform_device *pdev)
 {
-	/* Register our own PMU here */
-	perf_pmu_register(&bb_l2_pmu, "BB L2", PERF_TYPE_SHARED);
+	scorpion_l2_pmu.plat_device = pdev;
 
-	memset(&hw_bb_l2_pmu, 0, sizeof(hw_bb_l2_pmu));
+	if (!armpmu_register(&scorpion_l2_pmu, "scorpion-l2", -1))
+		pmu_type = scorpion_l2_pmu.pmu.type;
 
-	/* Avoid spurious interrupts at startup */
-	bb_l2_get_reset_pmovsr();
-
-	raw_spin_lock_init(&hw_bb_l2_pmu.lock);
-
-	/* Don't return an arm_pmu here */
-	return NULL;
-}
-#else
-
-static const struct arm_pmu *__init scorpionmp_l2_pmu_init(void)
-{
-	return NULL;
+	return 0;
 }
 
-#endif
+static struct platform_driver scorpion_l2_pmu_driver = {
+	.driver		= {
+		.name	= "l2-arm-pmu",
+	},
+	.probe		= scorpion_l2_pmu_device_probe,
+};
+
+static int __init register_scorpion_l2_pmu_driver(void)
+{
+	/* Avoid spurious interrupt if any */
+	scorpion_l2_get_reset_pmovsr();
+
+	return platform_driver_register(&scorpion_l2_pmu_driver);
+}
+device_initcall(register_scorpion_l2_pmu_driver);
