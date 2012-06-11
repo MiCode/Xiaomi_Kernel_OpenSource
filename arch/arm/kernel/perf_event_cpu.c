@@ -67,6 +67,7 @@ EXPORT_SYMBOL_GPL(perf_num_counters);
 #include "perf_event_v6.c"
 #include "perf_event_v7.c"
 #include "perf_event_msm_krait.c"
+#include "perf_event_msm.c"
 
 static struct pmu_hw_events *cpu_pmu_get_cpu_events(void)
 {
@@ -316,11 +317,11 @@ static int probe_current_pmu(struct arm_pmu *pmu)
 	} else if (implementor == ARM_CPU_IMP_QUALCOMM) {
 		switch (part_number) {
 		case 0x00F0:    /* 8x50 & 7x30*/
-//			cpu_pmu = armv7_scorpion_pmu_init();
+			cpu_pmu = armv7_scorpion_pmu_init();
 			break;
 		case 0x02D0:    /* 8x60 */
 //			fabricmon_pmu_init();
-//			cpu_pmu = armv7_scorpionmp_pmu_init();
+			cpu_pmu = armv7_scorpionmp_pmu_init();
 //			scorpionmp_l2_pmu_init();
 			break;
 		case 0x0490:    /* 8960 sim */
