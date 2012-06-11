@@ -16,23 +16,14 @@
 #include "msm_csi_register.h"
 
 int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index,
-	int (*msm_mctl_subdev_match_core)(struct device *, void *))
+	int core_index, struct msm_cam_server_dev *server_dev)
 {
 	int rc = -ENODEV;
-	struct device_driver *driver;
-	struct device *dev;
 
-	driver = driver_find(MSM_CSIC_DRV_NAME, &platform_bus_type);
-	if (!driver)
+	p_mctl->csic_sdev = server_dev->csic_device[core_index];
+	if (!p_mctl->csic_sdev)
 		goto out;
-
-	dev = driver_find_device(driver, NULL, (void *)core_index,
-			msm_mctl_subdev_match_core);
-	if (!dev)
-		goto out;
-
-	p_mctl->csic_sdev = dev_get_drvdata(dev);
+	v4l2_set_subdev_hostdata(p_mctl->csic_sdev, p_mctl);
 
 	rc = 0;
 	p_mctl->ispif_sdev = NULL;

@@ -13,4 +13,4 @@
 
 int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
 	int core_index,
-	int (*msm_mctl_subdev_match_core)(struct device *, void *));
+	struct msm_cam_server_dev *server_dev);

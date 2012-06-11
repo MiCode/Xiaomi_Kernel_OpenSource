@@ -498,32 +498,8 @@ static int msm_isp_open(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	rc = msm_iommu_map_contig_buffer(
-		(unsigned long)IMEM_Y_PING_OFFSET, CAMERA_DOMAIN, GEN_POOL,
-		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)),
-		SZ_4K, IOMMU_WRITE | IOMMU_READ,
-		(unsigned long *)&mctl->ping_imem_y);
-	mctl->ping_imem_cbcr = mctl->ping_imem_y + IMEM_Y_SIZE;
-	if (rc < 0) {
-		pr_err("%s: ping iommu mapping returned error %d\n",
-			__func__, rc);
-		mctl->ping_imem_y = 0;
-		mctl->ping_imem_cbcr = 0;
-	}
-	msm_iommu_map_contig_buffer(
-		(unsigned long)IMEM_Y_PONG_OFFSET, CAMERA_DOMAIN, GEN_POOL,
-		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)),
-		SZ_4K, IOMMU_WRITE | IOMMU_READ,
-		(unsigned long *)&mctl->pong_imem_y);
-	mctl->pong_imem_cbcr = mctl->pong_imem_y + IMEM_Y_SIZE;
-	if (rc < 0) {
-		pr_err("%s: pong iommu mapping returned error %d\n",
-			 __func__, rc);
-		mctl->pong_imem_y = 0;
-		mctl->pong_imem_cbcr = 0;
-	}
-
-	rc = msm_vfe_subdev_init(sd, mctl);
+	rc = v4l2_subdev_call(sd, core, ioctl,
+				VIDIOC_MSM_VFE_INIT, NULL);
 	if (rc < 0) {
 		pr_err("%s: vfe_init failed at %d\n",
 			__func__, rc);
@@ -535,17 +511,8 @@ static void msm_isp_release(struct msm_cam_media_controller *mctl,
 	struct v4l2_subdev *sd)
 {
 	D("%s\n", __func__);
-	msm_vfe_subdev_release(sd);
-	msm_iommu_unmap_contig_buffer(mctl->ping_imem_y,
-		CAMERA_DOMAIN, GEN_POOL,
-		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)));
-	msm_iommu_unmap_contig_buffer(mctl->pong_imem_y,
-		CAMERA_DOMAIN, GEN_POOL,
-		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)));
-	mctl->ping_imem_y = 0;
-	mctl->ping_imem_cbcr = 0;
-	mctl->pong_imem_y = 0;
-	mctl->pong_imem_cbcr = 0;
+	v4l2_subdev_call(sd, core, ioctl,
+				VIDIOC_MSM_VFE_RELEASE, NULL);
 }
 
 static int msm_config_vfe(struct v4l2_subdev *sd,

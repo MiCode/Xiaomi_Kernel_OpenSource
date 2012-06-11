@@ -61,6 +61,7 @@
 #define MSM_IRQ_ROUTER_DRV_NAME "msm_cam_irq_router"
 #define MSM_CPP_DRV_NAME "msm_cpp"
 
+#define MAX_NUM_SENSOR_DEV 3
 #define MAX_NUM_CSIPHY_DEV 3
 #define MAX_NUM_CSID_DEV 4
 #define MAX_NUM_CSIC_DEV 3
@@ -70,22 +71,6 @@
 #define MAX_NUM_VPE_DEV 1
 #define MAX_NUM_JPEG_DEV 3
 #define MAX_NUM_CPP_DEV 1
-
-enum msm_cam_subdev_type {
-	CSIPHY_DEV,
-	CSID_DEV,
-	CSIC_DEV,
-	ISPIF_DEV,
-	VFE_DEV,
-	AXI_DEV,
-	VPE_DEV,
-	SENSOR_DEV,
-	ACTUATOR_DEV,
-	EEPROM_DEV,
-	GESTURE_DEV,
-	IRQ_ROUTER_DEV,
-	CPP_DEV,
-};
 
 /* msm queue management APIs*/
 
@@ -315,7 +300,6 @@ struct msm_isp_ops {
 
 	/* vfe subdevice */
 	struct v4l2_subdev *sd;
-	struct v4l2_subdev *sd_vpe;
 };
 
 struct msm_isp_buf_info {
@@ -540,10 +524,11 @@ struct msm_cam_server_dev {
 	struct mutex server_lock;
 	struct mutex server_queue_lock;
 	/*v4l2 subdevs*/
+	struct v4l2_subdev *sensor_device[MAX_NUM_SENSOR_DEV];
 	struct v4l2_subdev *csiphy_device[MAX_NUM_CSIPHY_DEV];
 	struct v4l2_subdev *csid_device[MAX_NUM_CSID_DEV];
 	struct v4l2_subdev *csic_device[MAX_NUM_CSIC_DEV];
-	struct v4l2_subdev *ispif_device;
+	struct v4l2_subdev *ispif_device[MAX_NUM_ISPIF_DEV];
 	struct v4l2_subdev *vfe_device[MAX_NUM_VFE_DEV];
 	struct v4l2_subdev *axi_device[MAX_NUM_AXI_DEV];
 	struct v4l2_subdev *vpe_device[MAX_NUM_VPE_DEV];
@@ -608,14 +593,12 @@ unsigned long msm_pmem_stats_ptov_lookup(
 	struct msm_cam_media_controller *mctl,
 	unsigned long addr, int *fd);
 
-int msm_vfe_subdev_init(struct v4l2_subdev *sd,
-			struct msm_cam_media_controller *mctl);
+int msm_vfe_subdev_init(struct v4l2_subdev *sd);
 void msm_vfe_subdev_release(struct v4l2_subdev *sd);
 
 int msm_isp_subdev_ioctl(struct v4l2_subdev *sd,
 	struct msm_vfe_cfg_cmd *cfgcmd, void *data);
-int msm_vpe_subdev_init(struct v4l2_subdev *sd,
-			struct msm_cam_media_controller *mctl);
+int msm_vpe_subdev_init(struct v4l2_subdev *sd);
 int msm_gemini_subdev_init(struct v4l2_subdev *gemini_sd);
 void msm_vpe_subdev_release(void);
 void msm_gemini_subdev_release(struct v4l2_subdev *gemini_sd);
@@ -676,6 +659,8 @@ int msm_mctl_pp_mctl_divert_done(struct msm_cam_media_controller *p_mctl,
 void msm_release_ion_client(struct kref *ref);
 int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 	struct msm_cam_subdev_info *sd_info);
+int msm_mctl_find_sensor_subdevs(struct msm_cam_media_controller *p_mctl,
+	int core_index);
 int msm_server_open_client(int *p_qidx);
 int msm_server_send_ctrl(struct msm_ctrl_cmd *out, int ctrl_id);
 int msm_server_close_client(int idx);
