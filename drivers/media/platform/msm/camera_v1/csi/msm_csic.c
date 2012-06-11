@@ -463,6 +463,12 @@ static int csic_probe(struct platform_device *pdev)
 	msm_cam_register_subdev_node(
 		&new_csic_dev->subdev, &sd_info);
 
+	media_entity_init(&new_csic_dev->subdev.entity, 0, NULL, 0);
+	new_csic_dev->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	new_csic_dev->subdev.entity.group_id = CSIC_DEV;
+	new_csic_dev->subdev.entity.name = pdev->name;
+	new_csic_dev->subdev.entity.revision =
+		new_csic_dev->subdev.devnode->num;
 	return 0;
 
 csic_no_resource:

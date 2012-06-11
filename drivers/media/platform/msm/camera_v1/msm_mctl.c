@@ -418,94 +418,6 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	return rc;
 }
 
-static int msm_mctl_subdev_match_core(struct device *dev, void *data)
-{
-	int core_index = (int)data;
-	struct platform_device *pdev = to_platform_device(dev);
-
-	if (pdev->id == core_index)
-		return 1;
-	else
-		return 0;
-}
-
-static int msm_mctl_register_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index)
-{
-	struct device_driver *driver;
-	struct device *dev;
-	int rc = -ENODEV;
-
-	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
-	struct msm_camera_sensor_info *sinfo =
-		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-	struct msm_camera_device_platform_data *pdata = sinfo->pdata;
-
-	rc = msm_csi_register_subdevs(p_mctl, core_index,
-				msm_mctl_subdev_match_core);
-
-	if (rc < 0)
-			goto out;
-
-	/* register vfe subdev */
-	driver = driver_find(MSM_VFE_DRV_NAME, &platform_bus_type);
-	if (!driver)
-		goto out;
-
-	dev = driver_find_device(driver, NULL, 0,
-				msm_mctl_subdev_match_core);
-	if (!dev)
-		goto out;
-
-	p_mctl->isp_sdev->sd = dev_get_drvdata(dev);
-
-	if (pdata->is_vpe) {
-		/* register vfe subdev */
-		driver = driver_find(MSM_VPE_DRV_NAME, &platform_bus_type);
-		if (!driver)
-			goto out;
-
-		dev = driver_find_device(driver, NULL, 0,
-				msm_mctl_subdev_match_core);
-		if (!dev)
-			goto out;
-
-		p_mctl->vpe_sdev = dev_get_drvdata(dev);
-	}
-
-	rc = 0;
-
-
-	/* register gemini subdev */
-	driver = driver_find(MSM_GEMINI_DRV_NAME, &platform_bus_type);
-	if (!driver) {
-		pr_err("%s:%d:Gemini: Failure: goto out\n",
-			__func__, __LINE__);
-		goto out;
-	}
-	pr_debug("%s:%d:Gemini: driver_find_device Gemini driver 0x%x\n",
-		__func__, __LINE__, (uint32_t)driver);
-	dev = driver_find_device(driver, NULL, NULL,
-				msm_mctl_subdev_match_core);
-	if (!dev) {
-		pr_err("%s:%d:Gemini: Failure goto out\n",
-			__func__, __LINE__);
-		goto out;
-	}
-	p_mctl->gemini_sdev = dev_get_drvdata(dev);
-	pr_debug("%s:%d:Gemini: After dev_get_drvdata gemini_sdev=0x%x\n",
-		__func__, __LINE__, (uint32_t)p_mctl->gemini_sdev);
-
-	if (p_mctl->gemini_sdev == NULL) {
-		pr_err("%s:%d:Gemini: Failure gemini_sdev is null\n",
-			__func__, __LINE__);
-		goto out;
-	}
-	rc = 0;
-out:
-	return rc;
-}
-
 static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 				 const char *const apps_id)
 {
@@ -529,9 +441,9 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		wake_lock(&p_mctl->wake_lock);
 
 		csid_core = camdev->csid_core;
-		rc = msm_mctl_register_subdevs(p_mctl, csid_core);
+		rc = msm_mctl_find_sensor_subdevs(p_mctl, csid_core);
 		if (rc < 0) {
-			pr_err("%s: msm_mctl_register_subdevs failed:%d\n",
+			pr_err("%s: msm_mctl_find_sensor_subdevs failed:%d\n",
 				__func__, rc);
 			goto register_sdev_failed;
 		}
@@ -592,38 +504,6 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto msm_csi_version;
 		}
 
-		/* ISP first*/
-		if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_open) {
-			rc = p_mctl->isp_sdev->isp_open(
-				p_mctl->isp_sdev->sd, p_mctl);
-			if (rc < 0) {
-				pr_err("%s: isp init failed: %d\n",
-					__func__, rc);
-				goto isp_open_failed;
-			}
-		}
-
-		if (p_mctl->axi_sdev) {
-			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
-				VIDIOC_MSM_AXI_INIT, p_mctl);
-			if (rc < 0) {
-				pr_err("%s: axi initialization failed %d\n",
-					__func__, rc);
-				goto axi_init_failed;
-			}
-		}
-
-		if (camdev->is_vpe) {
-			rc = v4l2_subdev_call(p_mctl->vpe_sdev, core, ioctl,
-				VIDIOC_MSM_VPE_INIT, p_mctl);
-			if (rc < 0) {
-				pr_err("%s: vpe initialization failed %d\n",
-				__func__, rc);
-				goto vpe_init_failed;
-			}
-		}
-
-
 		pm_qos_add_request(&p_mctl->pm_qos_req_list,
 			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 		pm_qos_update_request(&p_mctl->pm_qos_req_list,
@@ -635,19 +515,9 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		D("%s: camera is already open", __func__);
 	}
 	mutex_unlock(&p_mctl->lock);
-
 	return rc;
 
-vpe_init_failed:
-	if (p_mctl->axi_sdev)
-		if (v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
-			VIDIOC_MSM_AXI_RELEASE, NULL) < 0)
-			pr_err("%s: axi release failed %d\n", __func__, rc);
-axi_init_failed:
-	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
-		p_mctl->isp_sdev->isp_release(p_mctl, p_mctl->isp_sdev->sd);
 msm_csi_version:
-isp_open_failed:
 	if (p_mctl->csic_sdev)
 		if (v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
 			VIDIOC_MSM_CSIC_RELEASE, NULL) < 0)
@@ -684,7 +554,6 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
 		VIDIOC_MSM_SENSOR_RELEASE, NULL);
@@ -694,7 +563,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_CSIC_RELEASE, NULL);
 	}
 
-	if (camdev->is_vpe) {
+	if (p_mctl->vpe_sdev) {
 		v4l2_subdev_call(p_mctl->vpe_sdev, core, ioctl,
 			VIDIOC_MSM_VPE_RELEASE, NULL);
 	}
@@ -704,7 +573,8 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_AXI_RELEASE, NULL);
 	}
 
-	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
+	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release
+		&& p_mctl->isp_sdev->sd)
 		p_mctl->isp_sdev->isp_release(p_mctl,
 			p_mctl->isp_sdev->sd);
 
@@ -832,6 +702,7 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 	pmctl->eeprom_sdev = pcam->eeprom_sdev;
 	pmctl->sensor_sdev = pcam->sensor_sdev;
 	pmctl->sdata = pcam->sdata;
+	v4l2_set_subdev_hostdata(pcam->sensor_sdev, pmctl);
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	pmctl->client = msm_ion_client_create(-1, "camera");
@@ -855,6 +726,8 @@ int msm_mctl_free(struct msm_cam_v4l2_device *pcam)
 
 	mutex_destroy(&pmctl->lock);
 	wake_lock_destroy(&pmctl->wake_lock);
+	/*clear out mctl fields*/
+	memset(pmctl, 0, sizeof(struct msm_cam_media_controller));
 	msm_cam_server_free_mctl(pcam->mctl_handle);
 	return rc;
 }

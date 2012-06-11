@@ -517,7 +517,6 @@ static int msm_ispif_init(const uint32_t *csid_version)
 		if (rc < 0)
 			return rc;
 	}
-
 	rc = msm_ispif_reset();
 	return rc;
 }
@@ -693,6 +692,12 @@ static int ispif_probe(struct platform_device *pdev)
 	sd_info.sd_index = pdev->id;
 	sd_info.irq_num = ispif->irq->start;
 	msm_cam_register_subdev_node(&ispif->subdev, &sd_info);
+
+	media_entity_init(&ispif->subdev.entity, 0, NULL, 0);
+	ispif->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	ispif->subdev.entity.group_id = ISPIF_DEV;
+	ispif->subdev.entity.name = pdev->name;
+	ispif->subdev.entity.revision = ispif->subdev.devnode->num;
 	return 0;
 
 ispif_no_mem:

@@ -284,7 +284,6 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
 	int32_t rc = 0;
-
 	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
 	msleep(30);
 	if (update_type == MSM_SENSOR_REG_INIT) {
@@ -792,8 +791,15 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 		sizeof(s_ctrl->sensor_v4l2_subdev.name), "%s", id->name);
 	v4l2_i2c_subdev_init(&s_ctrl->sensor_v4l2_subdev, client,
 		s_ctrl->sensor_v4l2_subdev_ops);
-
+	s_ctrl->sensor_v4l2_subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	media_entity_init(&s_ctrl->sensor_v4l2_subdev.entity, 0, NULL, 0);
+	s_ctrl->sensor_v4l2_subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	s_ctrl->sensor_v4l2_subdev.entity.group_id = SENSOR_DEV;
+	s_ctrl->sensor_v4l2_subdev.entity.name =
+		s_ctrl->sensor_v4l2_subdev.name;
 	msm_sensor_register(&s_ctrl->sensor_v4l2_subdev);
+	s_ctrl->sensor_v4l2_subdev.entity.revision =
+		s_ctrl->sensor_v4l2_subdev.devnode->num;
 	goto power_down;
 probe_fail:
 	pr_err("%s %s_i2c_probe failed\n", __func__, client->name);

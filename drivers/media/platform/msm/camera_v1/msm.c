@@ -1201,7 +1201,7 @@ static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)
 	pvdev->fops	     = &g_msm_fops;
 	pvdev->ioctl_ops = &g_msm_ioctl_ops;
 	pvdev->minor	 = -1;
-	pvdev->vfl_type  = 1;
+	pvdev->vfl_type  = VFL_TYPE_GRABBER;
 
 	media_entity_init(&pvdev->entity, 0, NULL, 0);
 	pvdev->entity.type = MEDIA_ENT_T_DEVNODE_V4L;

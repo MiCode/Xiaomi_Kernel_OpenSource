@@ -3541,14 +3541,24 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	struct msm_cam_media_controller *pmctl =
 		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	struct msm_isp_cmd vfecmd;
-	struct msm_camvfe_params *vfe_params =
-		(struct msm_camvfe_params *)arg;
-	struct msm_vfe_cfg_cmd *cmd = vfe_params->vfe_cfg;
-	void *data = vfe_params->data;
+	struct msm_camvfe_params *vfe_params;
+	struct msm_vfe_cfg_cmd *cmd;
+	void *data;
 
 	long rc = 0;
 	struct vfe_cmd_stats_buf *scfg = NULL;
 	struct vfe_cmd_stats_ack *sack = NULL;
+
+	if (subdev_cmd == VIDIOC_MSM_VFE_INIT) {
+		CDBG("%s init\n", __func__);
+		return msm_vfe_subdev_init(sd);
+	} else if (subdev_cmd == VIDIOC_MSM_VFE_RELEASE) {
+		msm_vfe_subdev_release(sd);
+		return 0;
+	}
+	vfe_params = (struct msm_camvfe_params *)arg;
+	cmd = vfe_params->vfe_cfg;
+	data = vfe_params->data;
 
 	switch (cmd->cmd_type) {
 	case VFE_CMD_STATS_REQBUF:
@@ -3575,186 +3585,190 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 					return -EFAULT;
 				}
 		} else {
-		/* here eith stats release or frame release. */
-		if (cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
-			cmd->cmd_type != CMD_CONFIG_PONG_ADDR &&
-			cmd->cmd_type != CMD_CONFIG_FREE_BUF_ADDR) {
-			/* then must be stats release. */
-			if (!data) {
-				pr_err("%s: data = NULL, cmd->cmd_type = %d",
-					__func__, cmd->cmd_type);
-				return -EFAULT;
-			}
-			sack = kmalloc(sizeof(struct vfe_cmd_stats_ack),
+			/* here eith stats release or frame release. */
+			if (cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
+				cmd->cmd_type != CMD_CONFIG_PONG_ADDR &&
+				cmd->cmd_type != CMD_CONFIG_FREE_BUF_ADDR) {
+				/* then must be stats release. */
+				if (!data) {
+					pr_err("%s: data = NULL," \
+						"cmd->cmd_type = %d\n",
+						__func__, cmd->cmd_type);
+					return -EFAULT;
+				}
+				sack = kmalloc(sizeof(struct vfe_cmd_stats_ack),
 							GFP_ATOMIC);
-			if (!sack) {
-				pr_err("%s: no mem for cmd->cmd_type = %d",
-					 __func__, cmd->cmd_type);
-				return -ENOMEM;
+				if (!sack) {
+					pr_err("%s: no mem for" \
+						"cmd->cmd_type = %d\n",
+						__func__, cmd->cmd_type);
+					return -ENOMEM;
+				}
+
+				sack->nextStatsBuf = *(uint32_t *)data;
+			}
+		}
+
+		CDBG("%s: cmdType = %d\n", __func__, cmd->cmd_type);
+
+		if ((cmd->cmd_type == CMD_STATS_AF_ENABLE)    ||
+			(cmd->cmd_type == CMD_STATS_AWB_ENABLE)   ||
+			(cmd->cmd_type == CMD_STATS_IHIST_ENABLE) ||
+			(cmd->cmd_type == CMD_STATS_RS_ENABLE)    ||
+			(cmd->cmd_type == CMD_STATS_CS_ENABLE)    ||
+			(cmd->cmd_type == CMD_STATS_AEC_ENABLE)) {
+			scfg = NULL;
+			goto vfe31_config_done;
+		}
+		switch (cmd->cmd_type) {
+		case CMD_GENERAL: {
+			rc = vfe31_proc_general(pmctl, &vfecmd);
+			}
+			break;
+		case CMD_CONFIG_PING_ADDR: {
+			int path = *((int *)cmd->value);
+			struct vfe31_output_ch *outch = vfe31_get_ch(path);
+			outch->ping = *((struct msm_free_buf *)data);
+			}
+			break;
+
+		case CMD_CONFIG_PONG_ADDR: {
+			int path = *((int *)cmd->value);
+			struct vfe31_output_ch *outch = vfe31_get_ch(path);
+			outch->pong = *((struct msm_free_buf *)data);
+			}
+			break;
+
+		case CMD_CONFIG_FREE_BUF_ADDR: {
+			int path = *((int *)cmd->value);
+			struct vfe31_output_ch *outch = vfe31_get_ch(path);
+			outch->free_buf = *((struct msm_free_buf *)data);
+			}
+			break;
+
+		case CMD_SNAP_BUF_RELEASE:
+			break;
+
+		case CMD_AXI_CFG_PRIM: {
+			uint32_t *axio = NULL;
+			axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
+				GFP_ATOMIC);
+			if (!axio) {
+				rc = -ENOMEM;
+				break;
 			}
 
-			sack->nextStatsBuf = *(uint32_t *)data;
-		}
-	  }
-
-	CDBG("%s: cmdType = %d\n", __func__, cmd->cmd_type);
-
-	if ((cmd->cmd_type == CMD_STATS_AF_ENABLE)    ||
-		(cmd->cmd_type == CMD_STATS_AWB_ENABLE)   ||
-		(cmd->cmd_type == CMD_STATS_IHIST_ENABLE) ||
-		(cmd->cmd_type == CMD_STATS_RS_ENABLE)    ||
-		(cmd->cmd_type == CMD_STATS_CS_ENABLE)    ||
-		(cmd->cmd_type == CMD_STATS_AEC_ENABLE)) {
-		scfg = NULL;
-		goto vfe31_config_done;
-	}
-	switch (cmd->cmd_type) {
-	case CMD_GENERAL: {
-		rc = vfe31_proc_general(pmctl, &vfecmd);
-		}
-		break;
-	case CMD_CONFIG_PING_ADDR: {
-		int path = *((int *)cmd->value);
-		struct vfe31_output_ch *outch = vfe31_get_ch(path);
-		outch->ping = *((struct msm_free_buf *)data);
-		}
-		break;
-
-	case CMD_CONFIG_PONG_ADDR: {
-		int path = *((int *)cmd->value);
-		struct vfe31_output_ch *outch = vfe31_get_ch(path);
-		outch->pong = *((struct msm_free_buf *)data);
-		}
-		break;
-
-	case CMD_CONFIG_FREE_BUF_ADDR: {
-		int path = *((int *)cmd->value);
-		struct vfe31_output_ch *outch = vfe31_get_ch(path);
-		outch->free_buf = *((struct msm_free_buf *)data);
-		}
-		break;
-
-	case CMD_SNAP_BUF_RELEASE:
-		break;
-
-	case CMD_AXI_CFG_PRIM: {
-		uint32_t *axio = NULL;
-		axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
-				GFP_ATOMIC);
-		if (!axio) {
-			rc = -ENOMEM;
-			break;
-		}
-
-		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+			if (copy_from_user(axio, (void __user *)(vfecmd.value),
 				vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
+				kfree(axio);
+				rc = -EFAULT;
+				break;
+			}
+			vfe31_config_axi(OUTPUT_PRIM, axio);
 			kfree(axio);
-			rc = -EFAULT;
+			}
 			break;
-		}
-		vfe31_config_axi(OUTPUT_PRIM, axio);
-		kfree(axio);
-		}
-		break;
 
-	case CMD_AXI_CFG_PRIM_ALL_CHNLS: {
-		uint32_t *axio = NULL;
-		axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
-				GFP_ATOMIC);
-		if (!axio) {
-			rc = -ENOMEM;
-			break;
-		}
+		case CMD_AXI_CFG_PRIM_ALL_CHNLS: {
+			uint32_t *axio = NULL;
+			axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
+					GFP_ATOMIC);
+			if (!axio) {
+				rc = -ENOMEM;
+				break;
+			}
 
-		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+			if (copy_from_user(axio, (void __user *)(vfecmd.value),
 				vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
+				kfree(axio);
+				rc = -EFAULT;
+				break;
+			}
+			vfe31_config_axi(OUTPUT_PRIM_ALL_CHNLS, axio);
 			kfree(axio);
-			rc = -EFAULT;
+		}
 			break;
-		}
-		vfe31_config_axi(OUTPUT_PRIM_ALL_CHNLS, axio);
-		kfree(axio);
-		}
-		break;
 
-	case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC: {
-		uint32_t *axio = NULL;
-		axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
-				GFP_ATOMIC);
-		if (!axio) {
-			rc = -ENOMEM;
-			break;
-		}
+		case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC: {
+			uint32_t *axio = NULL;
+			axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
+					GFP_ATOMIC);
+			if (!axio) {
+				rc = -ENOMEM;
+				break;
+			}
 
-		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+			if (copy_from_user(axio, (void __user *)(vfecmd.value),
 				vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
+				kfree(axio);
+				rc = -EFAULT;
+				break;
+			}
+			vfe31_config_axi(OUTPUT_PRIM|OUTPUT_SEC, axio);
 			kfree(axio);
-			rc = -EFAULT;
+			}
 			break;
-		}
-		vfe31_config_axi(OUTPUT_PRIM|OUTPUT_SEC, axio);
-		kfree(axio);
-		}
-		break;
 
-	case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC_ALL_CHNLS: {
-		uint32_t *axio = NULL;
-		axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
-				GFP_ATOMIC);
-		if (!axio) {
-			rc = -ENOMEM;
-			break;
-		}
+		case CMD_AXI_CFG_PRIM|CMD_AXI_CFG_SEC_ALL_CHNLS: {
+			uint32_t *axio = NULL;
+			axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
+					GFP_ATOMIC);
+			if (!axio) {
+				rc = -ENOMEM;
+				break;
+			}
 
-		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+			if (copy_from_user(axio, (void __user *)(vfecmd.value),
 				vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
+				kfree(axio);
+				rc = -EFAULT;
+				break;
+			}
+			vfe31_config_axi
+				(OUTPUT_PRIM|OUTPUT_SEC_ALL_CHNLS, axio);
 			kfree(axio);
-			rc = -EFAULT;
+			}
 			break;
-		}
-		vfe31_config_axi(OUTPUT_PRIM|OUTPUT_SEC_ALL_CHNLS, axio);
-		kfree(axio);
-		}
-		break;
 
-	case CMD_AXI_CFG_PRIM_ALL_CHNLS|CMD_AXI_CFG_SEC: {
-		uint32_t *axio = NULL;
-		axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
+		case CMD_AXI_CFG_PRIM_ALL_CHNLS|CMD_AXI_CFG_SEC: {
+			uint32_t *axio = NULL;
+			axio = kmalloc(vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
-		if (!axio) {
-			rc = -ENOMEM;
-			break;
-		}
+			if (!axio) {
+				rc = -ENOMEM;
+				break;
+			}
 
-		if (copy_from_user(axio, (void __user *)(vfecmd.value),
+			if (copy_from_user(axio, (void __user *)(vfecmd.value),
 				vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
+				kfree(axio);
+				rc = -EFAULT;
+				break;
+			}
+			vfe31_config_axi
+				(OUTPUT_PRIM_ALL_CHNLS|OUTPUT_SEC, axio);
 			kfree(axio);
-			rc = -EFAULT;
+			}
 			break;
-		}
-		vfe31_config_axi(OUTPUT_PRIM_ALL_CHNLS|OUTPUT_SEC, axio);
-		kfree(axio);
-		}
-		break;
 
-	case CMD_AXI_CFG_PRIM_ALL_CHNLS|CMD_AXI_CFG_SEC_ALL_CHNLS: {
-		pr_err("%s Invalid/Unsupported AXI configuration %x",
-			__func__, cmd->cmd_type);
-		}
-		break;
+		case CMD_AXI_CFG_PRIM_ALL_CHNLS|CMD_AXI_CFG_SEC_ALL_CHNLS: {
+			pr_err("%s Invalid/Unsupported AXI configuration %x",
+				__func__, cmd->cmd_type);
+			}
+			break;
 
-	case CMD_AXI_START:
-		/* No need to decouple AXI/VFE for VFE3.1*/
-		break;
+		case CMD_AXI_START:
+			/* No need to decouple AXI/VFE for VFE3.1*/
+			break;
 
-	case CMD_AXI_STOP:
-		/* No need to decouple AXI/VFE for VFE3.1*/
-		break;
+		case CMD_AXI_STOP:
+			/* No need to decouple AXI/VFE for VFE3.1*/
+			break;
 
-	default:
-		pr_err("%s Unsupported AXI configuration %x ", __func__,
-			cmd->cmd_type);
-		break;
+		default:
+			pr_err("%s Unsupported AXI configuration %x ", __func__,
+				cmd->cmd_type);
+			break;
 		}
 	}
 vfe31_config_done:
@@ -3855,11 +3869,15 @@ static void msm_vfe_camif_pad_reg_reset(void)
 	usleep_range(10000, 15000);
 }
 
-int msm_vfe_subdev_init(struct v4l2_subdev *sd,
-		struct msm_cam_media_controller *mctl)
+int msm_vfe_subdev_init(struct v4l2_subdev *sd)
 {
 	int rc = 0;
-	v4l2_set_subdev_hostdata(sd, mctl);
+	struct msm_cam_media_controller *mctl;
+	mctl = v4l2_get_subdev_hostdata(sd);
+	if (mctl == NULL) {
+		rc = -EINVAL;
+		goto mctl_failed;
+	}
 
 	spin_lock_init(&vfe31_ctrl->stop_flag_lock);
 	spin_lock_init(&vfe31_ctrl->state_lock);
@@ -3939,6 +3957,7 @@ camif_remap_failed:
 	iounmap(vfe31_ctrl->vfebase);
 vfe_remap_failed:
 	disable_irq(vfe31_ctrl->vfeirq->start);
+mctl_failed:
 	return rc;
 }
 
@@ -4064,6 +4083,12 @@ static int vfe31_probe(struct platform_device *pdev)
 	sd_info.sd_index = 0;
 	sd_info.irq_num = vfe31_ctrl->vfeirq->start;
 	msm_cam_register_subdev_node(&vfe31_ctrl->subdev, &sd_info);
+
+	media_entity_init(&vfe31_ctrl->subdev.entity, 0, NULL, 0);
+	vfe31_ctrl->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	vfe31_ctrl->subdev.entity.group_id = VFE_DEV;
+	vfe31_ctrl->subdev.entity.name = pdev->name;
+	vfe31_ctrl->subdev.entity.revision = vfe31_ctrl->subdev.devnode->num;
 	return 0;
 
 vfe31_no_resource:

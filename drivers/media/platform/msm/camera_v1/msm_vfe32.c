@@ -4519,10 +4519,9 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	struct vfe32_ctrl_type *vfe32_ctrl =
 		(struct vfe32_ctrl_type *)v4l2_get_subdevdata(sd);
 	struct msm_isp_cmd vfecmd;
-	struct msm_camvfe_params *vfe_params =
-		(struct msm_camvfe_params *)arg;
-	struct msm_vfe_cfg_cmd *cmd = vfe_params->vfe_cfg;
-	void *data = vfe_params->data;
+	struct msm_camvfe_params *vfe_params;
+	struct msm_vfe_cfg_cmd *cmd;
+	void *data;
 
 	long rc = 0;
 	struct vfe_cmd_stats_buf *scfg = NULL;
@@ -4533,6 +4532,17 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		return -EFAULT;
 	}
 
+	CDBG("%s\n", __func__);
+	if (subdev_cmd == VIDIOC_MSM_VFE_INIT) {
+		CDBG("%s init\n", __func__);
+		return msm_vfe_subdev_init(sd);
+	} else if (subdev_cmd == VIDIOC_MSM_VFE_RELEASE) {
+		msm_vfe_subdev_release(sd);
+		return 0;
+	}
+	vfe_params = (struct msm_camvfe_params *)arg;
+	cmd = vfe_params->vfe_cfg;
+	data = vfe_params->data;
 	switch (cmd->cmd_type) {
 	case CMD_VFE_PROCESS_IRQ:
 		vfe32_process_irq(vfe32_ctrl, (uint32_t) data);
@@ -4672,12 +4682,17 @@ static const struct v4l2_subdev_ops msm_vfe_subdev_ops = {
 	.core = &msm_vfe_subdev_core_ops,
 };
 
-int msm_axi_subdev_init(struct v4l2_subdev *sd,
-			struct msm_cam_media_controller *mctl)
+int msm_axi_subdev_init(struct v4l2_subdev *sd)
 {
 	int rc = 0;
 	struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
-	v4l2_set_subdev_hostdata(sd, mctl);
+	struct msm_cam_media_controller *mctl;
+	mctl = v4l2_get_subdev_hostdata(sd);
+	if (mctl == NULL) {
+		pr_err("%s: mctl is NULL\n", __func__);
+		rc = -EINVAL;
+		goto mctl_failed;
+	}
 	spin_lock_init(&axi_ctrl->tasklet_lock);
 	INIT_LIST_HEAD(&axi_ctrl->tasklet_q);
 	spin_lock_init(&axi_ctrl->share_ctrl->sd_notify_lock);
@@ -4725,16 +4740,15 @@ fs_failed:
 	axi_ctrl->share_ctrl->vfebase = NULL;
 remap_failed:
 	disable_irq(axi_ctrl->vfeirq->start);
+mctl_failed:
 	return rc;
 }
 
-int msm_vfe_subdev_init(struct v4l2_subdev *sd,
-			struct msm_cam_media_controller *mctl)
+int msm_vfe_subdev_init(struct v4l2_subdev *sd)
 {
 	int rc = 0;
 	struct vfe32_ctrl_type *vfe32_ctrl =
 		(struct vfe32_ctrl_type *)v4l2_get_subdevdata(sd);
-	v4l2_set_subdev_hostdata(sd, mctl);
 
 	spin_lock_init(&vfe32_ctrl->share_ctrl->stop_flag_lock);
 	spin_lock_init(&vfe32_ctrl->state_lock);
@@ -5202,8 +5216,7 @@ static long msm_axi_subdev_ioctl(struct v4l2_subdev *sd,
 	int rc = -ENOIOCTLCMD;
 	switch (cmd) {
 	case VIDIOC_MSM_AXI_INIT:
-		rc = msm_axi_subdev_init(sd,
-			(struct msm_cam_media_controller *)arg);
+		rc = msm_axi_subdev_init(sd);
 		break;
 	case VIDIOC_MSM_AXI_CFG:
 		rc = msm_axi_config(sd, arg);
@@ -5292,6 +5305,12 @@ static int vfe32_probe(struct platform_device *pdev)
 	sd_info.irq_num = 0;
 	msm_cam_register_subdev_node(&axi_ctrl->subdev, &sd_info);
 
+	media_entity_init(&axi_ctrl->subdev.entity, 0, NULL, 0);
+	axi_ctrl->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	axi_ctrl->subdev.entity.group_id = AXI_DEV;
+	axi_ctrl->subdev.entity.name = pdev->name;
+	axi_ctrl->subdev.entity.revision = axi_ctrl->subdev.devnode->num;
+
 	v4l2_subdev_init(&vfe32_ctrl->subdev, &msm_vfe_subdev_ops);
 	vfe32_ctrl->subdev.internal_ops = &msm_vfe_internal_ops;
 	vfe32_ctrl->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
@@ -5336,6 +5355,12 @@ static int vfe32_probe(struct platform_device *pdev)
 	sd_info.sd_index = 0;
 	sd_info.irq_num = axi_ctrl->vfeirq->start;
 	msm_cam_register_subdev_node(&vfe32_ctrl->subdev, &sd_info);
+
+	media_entity_init(&vfe32_ctrl->subdev.entity, 0, NULL, 0);
+	vfe32_ctrl->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	vfe32_ctrl->subdev.entity.group_id = VFE_DEV;
+	vfe32_ctrl->subdev.entity.name = pdev->name;
+	vfe32_ctrl->subdev.entity.revision = vfe32_ctrl->subdev.devnode->num;
 
 	/* Request for this device irq from the camera server. If the
 	 * IRQ Router is present on this target, the interrupt will be

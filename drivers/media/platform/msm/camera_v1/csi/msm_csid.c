@@ -320,6 +320,13 @@ static int csid_probe(struct platform_device *pdev)
 	sd_info.sd_index = pdev->id;
 	sd_info.irq_num = new_csid_dev->irq->start;
 	msm_cam_register_subdev_node(&new_csid_dev->subdev, &sd_info);
+
+	media_entity_init(&new_csid_dev->subdev.entity, 0, NULL, 0);
+	new_csid_dev->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	new_csid_dev->subdev.entity.group_id = CSID_DEV;
+	new_csid_dev->subdev.entity.name = pdev->name;
+	new_csid_dev->subdev.entity.revision =
+		new_csid_dev->subdev.devnode->num;
 	return 0;
 
 csid_no_resource:

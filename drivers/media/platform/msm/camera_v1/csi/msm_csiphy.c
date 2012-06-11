@@ -341,6 +341,13 @@ static int csiphy_probe(struct platform_device *pdev)
 	sd_info.irq_num = new_csiphy_dev->irq->start;
 	msm_cam_register_subdev_node(
 		&new_csiphy_dev->subdev, &sd_info);
+
+	media_entity_init(&new_csiphy_dev->subdev.entity, 0, NULL, 0);
+	new_csiphy_dev->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	new_csiphy_dev->subdev.entity.group_id = CSIPHY_DEV;
+	new_csiphy_dev->subdev.entity.name = pdev->name;
+	new_csiphy_dev->subdev.entity.revision =
+		new_csiphy_dev->subdev.devnode->num;
 	return 0;
 
 csiphy_no_resource:

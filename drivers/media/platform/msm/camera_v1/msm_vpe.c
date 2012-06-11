@@ -603,10 +603,11 @@ static int msm_vpe_do_pp(struct msm_mctl_pp_frame_info *pp_frame_info)
 
 static int msm_vpe_resource_init(void);
 
-int msm_vpe_subdev_init(struct v4l2_subdev *sd,
-		struct msm_cam_media_controller *mctl)
+int msm_vpe_subdev_init(struct v4l2_subdev *sd)
 {
 	int rc = 0;
+	struct msm_cam_media_controller *mctl;
+	mctl = v4l2_get_subdev_hostdata(sd);
 	D("%s:begin", __func__);
 	if (atomic_read(&vpe_init_done)) {
 		pr_err("%s: VPE has been initialized", __func__);
@@ -619,7 +620,6 @@ int msm_vpe_subdev_init(struct v4l2_subdev *sd,
 		atomic_set(&vpe_init_done, 0);
 		return rc;
 	}
-	v4l2_set_subdev_hostdata(sd, mctl);
 	spin_lock_init(&vpe_ctrl->lock);
 	D("%s:end", __func__);
 	return rc;
@@ -843,9 +843,7 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 
 	switch (cmd) {
 	case VIDIOC_MSM_VPE_INIT: {
-		struct msm_cam_media_controller *mctl =
-			(struct msm_cam_media_controller *)arg;
-		msm_vpe_subdev_init(sd, mctl);
+		msm_vpe_subdev_init(sd);
 		break;
 		}
 
@@ -980,7 +978,7 @@ static int msm_vpe_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &vpe_ctrl->subdev);
 
 	media_entity_init(&vpe_ctrl->subdev.entity, 0, NULL, 0);
-	vpe_ctrl->subdev.entity.type = MEDIA_ENT_T_DEVNODE_V4L;
+	vpe_ctrl->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	vpe_ctrl->subdev.entity.group_id = VPE_DEV;
 	vpe_ctrl->subdev.entity.name = vpe_ctrl->subdev.name;
 

@@ -1182,12 +1182,11 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int subdev_cmd, void *arg)
 {
 	struct msm_isp_cmd vfecmd;
-	struct msm_camvfe_params *vfe_params =
-		(struct msm_camvfe_params *)arg;
-	struct msm_vfe_cfg_cmd *cmd = vfe_params->vfe_cfg;
+	struct msm_camvfe_params *vfe_params;
+	struct msm_vfe_cfg_cmd *cmd;
 	struct table_cmd *table_pending;
 	long rc = 0;
-	void *data = vfe_params->data;
+	void *data;
 
 	struct msm_pmem_region *regptr;
 	unsigned char buf[256];
@@ -1208,6 +1207,18 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	struct vfe_outputack fack;
 
 	CDBG("msm_vfe_subdev_ioctl is called\n");
+	if (subdev_cmd == VIDIOC_MSM_VFE_INIT) {
+		CDBG("%s init\n", __func__);
+		return msm_vfe_subdev_init(sd);
+	} else if (subdev_cmd == VIDIOC_MSM_VFE_RELEASE) {
+		msm_vfe_subdev_release(sd);
+		return 0;
+	}
+
+	vfe_params = (struct msm_camvfe_params *)arg;
+	cmd = vfe_params->vfe_cfg;
+	data = vfe_params->data;
+
 	if (cmd->cmd_type != CMD_FRAME_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_AF_BUF_RELEASE &&
@@ -1954,11 +1965,16 @@ static struct msm_cam_clk_info vfe2x_clk_info[] = {
 	{"vfe_clk", 192000000},
 };
 
-int msm_vfe_subdev_init(struct v4l2_subdev *sd,
-		struct msm_cam_media_controller *mctl)
+int msm_vfe_subdev_init(struct v4l2_subdev *sd)
 {
 	int rc = 0;
-	v4l2_set_subdev_hostdata(sd, mctl);
+	struct msm_cam_media_controller *mctl;
+	mctl = v4l2_get_subdev_hostdata(sd);
+	if (mctl == NULL) {
+		pr_err("%s: mctl is NULL\n", __func__);
+		rc = -EINVAL;
+		goto mctl_failed;
+	}
 
 	spin_lock_init(&vfe2x_ctrl->sd_notify_lock);
 	spin_lock_init(&vfe2x_ctrl->table_lock);
@@ -2011,11 +2027,11 @@ get_qcam_fail:
 	kfree(extdata);
 init_fail:
 	extlen = 0;
+mctl_failed:
 	return rc;
 }
 
-int msm_vpe_subdev_init(struct v4l2_subdev *sd,
-			struct msm_cam_media_controller *mctl)
+int msm_vpe_subdev_init(struct v4l2_subdev *sd)
 {
 	return 0;
 }
@@ -2101,6 +2117,12 @@ static int vfe2x_probe(struct platform_device *pdev)
 	sd_info.sd_index = 0;
 	sd_info.irq_num = 0;
 	msm_cam_register_subdev_node(&vfe2x_ctrl->subdev, &sd_info);
+
+	media_entity_init(&vfe2x_ctrl->subdev.entity, 0, NULL, 0);
+	vfe2x_ctrl->subdev.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	vfe2x_ctrl->subdev.entity.group_id = VFE_DEV;
+	vfe2x_ctrl->subdev.entity.name = pdev->name;
+	vfe2x_ctrl->subdev.entity.revision = vfe2x_ctrl->subdev.devnode->num;
 	return 0;
 }
 
