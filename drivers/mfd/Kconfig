@@ -1043,6 +1043,18 @@ config WCD9310_CODEC
           read/write capability to registers which are part of the
           WCD9310 core and gives the ability to use the WCD9310 codec.
 
+config WCD9320_CODEC
+	tristate "WCD9320 Codec"
+	select SLIMBUS
+	select MFD_CORE
+	help
+	  Enables the WCD9xxx codec core driver. The core driver provides
+	  read/write capability to registers which are part of the
+	  WCD9320 core and gives the ability to use the WCD9320 codec.
+	  The WCD9320 codec support either I2C/I2S or Slimbus for
+	  control and data exchnage with master processor.
+
+
 config MFD_RC5T583
 	bool "Ricoh RC5T583 Power Management system device"
 	depends on I2C=y && GENERIC_HARDIRQS
