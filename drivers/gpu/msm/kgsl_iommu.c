@@ -82,7 +82,8 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		return -ENOSYS;
 	}
 
-	ptbase = iommu_get_pt_base_addr(domain);
+	ptbase = KGSL_IOMMU_GET_IOMMU_REG(iommu_unit->reg_map.hostptr,
+					iommu_dev->ctx_id, TTBR0);
 
 	fsr = KGSL_IOMMU_GET_IOMMU_REG(iommu_unit->reg_map.hostptr,
 		iommu_dev->ctx_id, FSR);
