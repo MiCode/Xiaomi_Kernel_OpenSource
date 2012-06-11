@@ -837,6 +837,10 @@ kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu)
 {
 	unsigned int pt_base;
 	struct kgsl_iommu *iommu = mmu->priv;
+	/* We cannot enable or disable the clocks in interrupt context, this
+	 function is called from interrupt context if there is an axi error */
+	if (in_interrupt())
+		return 0;
 	/* Return the current pt base by reading IOMMU pt_base register */
 	kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_CONTEXT_USER);
 	pt_base = readl_relaxed(iommu->iommu_units[0].reg_map.hostptr +
