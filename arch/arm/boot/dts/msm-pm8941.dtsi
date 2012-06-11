@@ -248,6 +248,64 @@
 					status = "disabled";
 				};
 			};
+
+			pm8941_mpps {
+				spmi-dev-container;
+				compatible = "qcom,qpnp-pin";
+				gpio-controller;
+				#gpio-cells = <2>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				label = "pm8941-mpp";
+
+				mpp@a000 {
+					reg = <0xa000 0x100>;
+					qcom,pin-num = <1>;
+					status = "disabled";
+				};
+
+				mpp@a100 {
+					reg = <0xa100 0x100>;
+					qcom,pin-num = <2>;
+					status = "disabled";
+				};
+
+				mpp@a200 {
+					reg = <0xa200 0x100>;
+					qcom,pin-num = <3>;
+					status = "disabled";
+				};
+
+				mpp@a300 {
+					reg = <0xa300 0x100>;
+					qcom,pin-num = <4>;
+					status = "disabled";
+				};
+
+				mpp@a400 {
+					reg = <0xa400 0x100>;
+					qcom,pin-num = <5>;
+					status = "disabled";
+				};
+
+				mpp@a500 {
+					reg = <0xa500 0x100>;
+					qcom,pin-num = <6>;
+					status = "disabled";
+				};
+
+				mpp@a600 {
+					reg = <0xa600 0x100>;
+					qcom,pin-num = <7>;
+					status = "disabled";
+				};
+
+				mpp@a700 {
+					reg = <0xa700 0x100>;
+					qcom,pin-num = <8>;
+					status = "disabled";
+				};
+			};
 		};
 
 		qcom,pm8941@1 {

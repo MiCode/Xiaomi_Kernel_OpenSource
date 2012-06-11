@@ -173,6 +173,63 @@
 					status = "ok";
 				};
 			};
+
+			pm8941_mpps: pm8941_mpps {
+
+				mpp@a000 {
+					status = "ok";
+				};
+
+				mpp@a100 {
+					status = "ok";
+				};
+
+				mpp@a200 {
+					status = "ok";
+				};
+
+				mpp@a300 {
+					status = "ok";
+				};
+
+				mpp@a400 {
+					status = "ok";
+				};
+
+				mpp@a500 {
+					status = "ok";
+				};
+
+				mpp@a600 {
+					status = "ok";
+				};
+
+				mpp@a700 {
+					status = "ok";
+				};
+			};
+		};
+
+		qcom,pm8841@4 {
+
+			pm8841_mpps: pm8841_mpps {
+
+				mpp@a000 {
+					status = "ok";
+				};
+
+				mpp@a100 {
+					status = "ok";
+				};
+
+				mpp@a200 {
+					status = "ok";
+				};
+
+				mpp@a300 {
+					status = "ok";
+				};
+			};
 		};
 	};
 };
