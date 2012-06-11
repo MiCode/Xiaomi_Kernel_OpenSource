@@ -387,9 +387,10 @@ static int audvoicememo_disable(struct audio_voicememo *audio)
 		msm_rpc_setup_req(&rhdr, audio->rpc_prog, audio->rpc_ver,
 				SND_VOC_REC_STOP_PROC);
 		rc = msm_rpc_write(audio->sndept, &rhdr, sizeof(rhdr));
-		wait_event_timeout(audio->wait, audio->stopped == 0,
+		rc = wait_event_timeout(audio->wait, audio->stopped == 1,
 				1 * HZ);
-		audio->stopped = 1;
+		if (rc == 0)
+			audio->stopped = 1;
 		wake_up(&audio->read_wait);
 		audmgr_disable(&audio->audmgr);
 		audio->enabled = 0;
@@ -456,7 +457,9 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 		if ((rec_status == RPC_VOC_REC_STAT_DATA) ||
 		(rec_status == RPC_VOC_REC_STAT_DONE)) {
 			if (datacb_data->pkt.fw_data.fw_ptr_status &&
-			be32_to_cpu(datacb_data->pkt.fw_data.rec_length)) {
+			be32_to_cpu(datacb_data->pkt.fw_data.rec_length) &&
+			be32_to_cpu(datacb_data->pkt.fw_data.rec_length)
+			<= MAX_FRAME_SIZE) {
 
 				MM_DBG("Copy FW link:rec_buf_size \
 				= 0x%08x, rec_length=0x%08x\n",
@@ -479,7 +482,10 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 				datacb_data->pkt.fw_data.rec_num_frames);
 				mutex_unlock(&audio->dsp_lock);
 			} else if (datacb_data->pkt.rw_data.rw_ptr_status &&
-			be32_to_cpu(datacb_data->pkt.rw_data.rec_length)) {
+			be32_to_cpu(datacb_data->pkt.rw_data.rec_length) &&
+			be32_to_cpu(datacb_data->pkt.rw_data.rec_length)
+			<= MAX_FRAME_SIZE) {
+
 				MM_DBG("Copy RW link:rec_buf_size \
 				=0x%08x, rec_length=0x%08x\n",
 				be32_to_cpu( \
@@ -500,6 +506,15 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 				be32_to_cpu(
 				datacb_data->pkt.rw_data.rec_num_frames);
 				mutex_unlock(&audio->dsp_lock);
+			} else {
+				MM_ERR("FW: ptr_status %d, rec_length=0x%08x,"
+				"RW: ptr_status %d, rec_length=0x%08x\n",
+				datacb_data->pkt.rw_data.fw_ptr_status, \
+				be32_to_cpu( \
+				datacb_data->pkt.fw_data.rec_length), \
+				datacb_data->pkt.rw_data.fw_ptr_status, \
+				be32_to_cpu( \
+				datacb_data->pkt.fw_data.rec_length));
 			}
 			if (rec_status != RPC_VOC_REC_STAT_DONE) {
 				/* Not end of record */
@@ -521,6 +536,7 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 			} else {
 				/* Indication record stopped gracefully */
 				MM_DBG("End Of Voice Record\n");
+				audio->stopped = 1;
 				wake_up(&audio->wait);
 			}
 		} else if (rec_status == RPC_VOC_REC_STAT_PAUSED) {
