@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2010, 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,5 +30,6 @@ extern void modem_notify(void *data, unsigned int state);
 extern void modem_queue_start_reset_notify(void);
 extern void modem_queue_end_reset_notify(void);
 extern void modem_queue_smsm_init_notify(void);
+extern int __init msm_init_modem_notifier_list(void);
 
 #endif /* _MODEM_NOTIFIER_H */
