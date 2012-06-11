@@ -291,6 +291,54 @@ config QUP_EXCLUSIVE_TO_CAMERA
 	  by QUP in the board file as QUP is used by
 	  applications other than camera.
 
+config MSM_CSI20_HEADER
+        bool "Qualcomm MSM CSI 2.0 Header"
+        depends on MSM_CAMERA
+        ---help---
+          Enable support for CSI drivers to include 2.0
+          header. This header has register macros and its
+          values and bit mask for register configuration bits
+          This config macro is required targets based on 8960,
+          8930 and 8064 platforms.
+
+config MSM_CSI30_HEADER
+        bool "Qualcomm MSM CSI 3.0 Header"
+        depends on MSM_CAMERA
+        ---help---
+          Enable support for CSI drivers to include 3.0
+          header. This header has register macros and its
+          values and bit mask for register configuration bits
+          This config macro is required for targets based on
+          8064 platforms.
+
+config MSM_CSIPHY
+        bool "Qualcomm MSM Camera Serial Interface Physical receiver support"
+        depends on MSM_CAMERA
+        ---help---
+          Enable support for Camera Serial Interface
+          Physical receiver. It deserializes packets and
+          supports detection of packet start and stop
+          signalling.
+
+config MSM_CSID
+        bool "Qualcomm MSM Camera Serial Interface decoder support"
+        depends on MSM_CAMERA
+        ---help---
+          Enable support for Camera Serial Interface decoder.
+          It supports lane merging and decoding of packets
+          based on cid which is mapped to a virtual channel
+          and datatype.
+
+config MSM_CSI2_REGISTER
+        bool "Qualcomm MSM CSI2 Register"
+        depends on MSM_CAMERA
+        ---help---
+          Register CSIPHY, CSID and ISPIF subdevices during
+          msm_open. Different CSI components are registered
+          based on platform. This macro specifies registering
+          of CSIPHY, CSID and ISPIF subdevices to receive data
+          from sensor.
+
 config S5K3L1YX
 	bool "Sensor S5K3L1YX (BAYER 12M)"
 	depends on MSM_CAMERA
