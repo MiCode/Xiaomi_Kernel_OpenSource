@@ -660,7 +660,8 @@ csic_init_failed:
 csid_init_failed:
 	if (p_mctl->csiphy_sdev)
 		if (v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-			VIDIOC_MSM_CSIPHY_RELEASE, NULL) < 0)
+			VIDIOC_MSM_CSIPHY_RELEASE,
+			sinfo->sensor_platform_info->csi_lane_params) < 0)
 			pr_err("%s: csiphy release failed %d\n", __func__, rc);
 csiphy_init_failed:
 	if (p_mctl->act_sdev)
@@ -714,7 +715,8 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 
 	if (p_mctl->csiphy_sdev) {
 		v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-			VIDIOC_MSM_CSIPHY_RELEASE, NULL);
+			VIDIOC_MSM_CSIPHY_RELEASE,
+			sinfo->sensor_platform_info->csi_lane_params);
 	}
 
 	if (p_mctl->act_sdev) {

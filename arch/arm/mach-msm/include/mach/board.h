@@ -201,8 +201,8 @@ struct msm_gpio_set_tbl {
 };
 
 struct msm_camera_csi_lane_params {
-	uint8_t csi_lane_assign;
-	uint8_t csi_lane_mask;
+	uint16_t csi_lane_assign;
+	uint16_t csi_lane_mask;
 };
 
 struct msm_camera_gpio_conf {

@@ -14,46 +14,15 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <mach/board.h>
 #include <mach/camera.h>
 #include <media/msm_isp.h>
 #include "msm_csid.h"
+#include "msm_csid_hwreg.h"
 #include "msm.h"
 
 #define V4L2_IDENT_CSID                            50002
-
-/* MIPI	CSID registers */
-#define CSID_HW_VERSION_ADDR                        0x0
-#define CSID_CORE_CTRL_ADDR                         0x4
-#define CSID_RST_CMD_ADDR                           0x8
-#define CSID_CID_LUT_VC_0_ADDR                      0xc
-#define CSID_CID_LUT_VC_1_ADDR                      0x10
-#define CSID_CID_LUT_VC_2_ADDR                      0x14
-#define CSID_CID_LUT_VC_3_ADDR                      0x18
-#define CSID_CID_n_CFG_ADDR                         0x1C
-#define CSID_IRQ_CLEAR_CMD_ADDR                     0x5c
-#define CSID_IRQ_MASK_ADDR                          0x60
-#define CSID_IRQ_STATUS_ADDR                        0x64
-#define CSID_CAPTURED_UNMAPPED_LONG_PKT_HDR_ADDR    0x68
-#define CSID_CAPTURED_MMAPPED_LONG_PKT_HDR_ADDR     0x6c
-#define CSID_CAPTURED_SHORT_PKT_ADDR                0x70
-#define CSID_CAPTURED_LONG_PKT_HDR_ADDR             0x74
-#define CSID_CAPTURED_LONG_PKT_FTR_ADDR             0x78
-#define CSID_PIF_MISR_DL0_ADDR                      0x7C
-#define CSID_PIF_MISR_DL1_ADDR                      0x80
-#define CSID_PIF_MISR_DL2_ADDR                      0x84
-#define CSID_PIF_MISR_DL3_ADDR                      0x88
-#define CSID_STATS_TOTAL_PKTS_RCVD_ADDR             0x8C
-#define CSID_STATS_ECC_ADDR                         0x90
-#define CSID_STATS_CRC_ADDR                         0x94
-#define CSID_TG_CTRL_ADDR                           0x9C
-#define CSID_TG_VC_CFG_ADDR                         0xA0
-#define CSID_TG_DT_n_CFG_0_ADDR                     0xA8
-#define CSID_TG_DT_n_CFG_1_ADDR                     0xAC
-#define CSID_TG_DT_n_CFG_2_ADDR                     0xB0
-#define CSID_TG_DT_n_CFG_3_ADDR                     0xD8
-#define CSID_RST_DONE_IRQ_BITSHIFT                  11
-#define CSID_RST_STB_ALL                            0x7FFF
 
 #define DBG_CSID 0
 
@@ -64,7 +33,7 @@ static int msm_csid_cid_lut(
 	int rc = 0, i = 0;
 	uint32_t val = 0;
 
-	for (i = 0; i < csid_lut_params->num_cid && i < 4; i++) {
+	for (i = 0; i < csid_lut_params->num_cid && i < 16; i++) {
 		if (csid_lut_params->vc_cfg[i].dt < 0x12 ||
 			csid_lut_params->vc_cfg[i].dt > 0x37) {
 			CDBG("%s: unsupported data type 0x%x\n",
@@ -72,13 +41,13 @@ static int msm_csid_cid_lut(
 			return rc;
 		}
 		val = msm_camera_io_r(csidbase + CSID_CID_LUT_VC_0_ADDR +
-		(csid_lut_params->vc_cfg[i].cid >> 2) * 4)
-		& ~(0xFF << csid_lut_params->vc_cfg[i].cid * 8);
-		val |= csid_lut_params->vc_cfg[i].dt <<
-			csid_lut_params->vc_cfg[i].cid * 8;
+			(csid_lut_params->vc_cfg[i].cid >> 2) * 4)
+			& ~(0xFF << ((csid_lut_params->vc_cfg[i].cid % 4) * 8));
+		val |= (csid_lut_params->vc_cfg[i].dt <<
+			((csid_lut_params->vc_cfg[i].cid % 4) * 8));
 		msm_camera_io_w(val, csidbase + CSID_CID_LUT_VC_0_ADDR +
 			(csid_lut_params->vc_cfg[i].cid >> 2) * 4);
-		val = csid_lut_params->vc_cfg[i].decode_format << 4 | 0x3;
+		val = (csid_lut_params->vc_cfg[i].decode_format << 4) | 0x3;
 		msm_camera_io_w(val, csidbase + CSID_CID_n_CFG_ADDR +
 			(csid_lut_params->vc_cfg[i].cid * 4));
 	}
@@ -113,13 +82,16 @@ static int msm_csid_config(struct csid_cfg_params *cfg_params)
 	csid_params = cfg_params->parms;
 
 	val = csid_params->lane_cnt - 1;
-	val |= csid_params->lane_assign << 2;
-	val |= 0x1 << 10;
-	val |= 0x1 << 11;
-	val |= 0x1 << 12;
-	val |= 0x1 << 13;
-	val |= 0x1 << 28;
-	msm_camera_io_w(val, csidbase + CSID_CORE_CTRL_ADDR);
+	val |= csid_params->lane_assign << CSID_DL_INPUT_SEL_SHIFT;
+	if (csid_dev->hw_version < 0x30000000) {
+		val |= (0xF << 10);
+		msm_camera_io_w(val, csidbase + CSID_CORE_CTRL_0_ADDR);
+	} else {
+		msm_camera_io_w(val, csidbase + CSID_CORE_CTRL_0_ADDR);
+		val = csid_params->phy_sel << CSID_PHY_SEL_SHIFT;
+		val |= 0xF;
+		msm_camera_io_w(val, csidbase + CSID_CORE_CTRL_1_ADDR);
+	}
 
 	rc = msm_csid_cid_lut(&csid_params->lut_params, csidbase);
 	if (rc < 0)
@@ -317,6 +289,10 @@ static int csid_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &new_csid_dev->subdev);
 	mutex_init(&new_csid_dev->mutex);
 
+	if (pdev->dev.of_node)
+		of_property_read_u32((&pdev->dev)->of_node,
+			"cell-index", &pdev->id);
+
 	new_csid_dev->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "csid");
 	if (!new_csid_dev->mem) {
@@ -352,11 +328,19 @@ csid_no_resource:
 	return 0;
 }
 
+static const struct of_device_id msm_csid_dt_match[] = {
+	{.compatible = "qcom,csid"},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, msm_csid_dt_match);
+
 static struct platform_driver csid_driver = {
 	.probe = csid_probe,
 	.driver = {
 		.name = MSM_CSID_DRV_NAME,
 		.owner = THIS_MODULE,
+		.of_match_table = msm_csid_dt_match,
 	},
 };
 
