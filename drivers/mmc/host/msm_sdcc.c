@@ -4940,9 +4940,10 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->f_min = msmsdcc_get_min_sup_clk_rate(host);
 	mmc->f_max = msmsdcc_get_max_sup_clk_rate(host);
 	mmc->ocr_avail = plat->ocr_mask;
+	mmc->clkgate_delay = MSM_MMC_CLK_GATE_DELAY;
+
 	mmc->pm_caps |= MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ;
 	mmc->caps |= plat->mmc_bus_width;
-
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
 	mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE;
 
