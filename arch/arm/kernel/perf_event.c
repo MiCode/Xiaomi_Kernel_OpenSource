@@ -623,6 +623,7 @@ int armpmu_register(struct arm_pmu *armpmu, char *name, int type)
 #include "perf_event_v6.c"
 #include "perf_event_v7.c"
 #include "perf_event_msm_krait.c"
+#include "perf_event_msm.c"
 
 /*
  * Ensure the PMU has sane values out of reset.
@@ -835,11 +836,11 @@ init_hw_perf_events(void)
 	} else if (0x51 == implementor) {
 		switch (part_number) {
 		case 0x00F0:    /* 8x50 & 7x30*/
-//			cpu_pmu = armv7_scorpion_pmu_init();
+			cpu_pmu = armv7_scorpion_pmu_init();
 			break;
 		case 0x02D0:    /* 8x60 */
 //			fabricmon_pmu_init();
-//			cpu_pmu = armv7_scorpionmp_pmu_init();
+			cpu_pmu = armv7_scorpionmp_pmu_init();
 //			scorpionmp_l2_pmu_init();
 			break;
 		case 0x0490:    /* 8960 sim */
