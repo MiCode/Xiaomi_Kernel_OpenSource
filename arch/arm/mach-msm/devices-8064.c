@@ -608,6 +608,11 @@ struct platform_device apq_cpudai_slimbus_1_tx = {
 	.id = 0x4003,
 };
 
+struct platform_device apq_cpudai_slimbus_2_rx = {
+	.name = "msm-dai-q6",
+	.id = 0x4004,
+};
+
 struct platform_device apq_cpudai_slimbus_2_tx = {
 	.name = "msm-dai-q6",
 	.id = 0x4005,
