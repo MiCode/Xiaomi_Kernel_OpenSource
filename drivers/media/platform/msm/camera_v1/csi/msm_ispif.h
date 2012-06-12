@@ -34,6 +34,7 @@ struct ispif_device {
 	struct completion reset_complete;
 	uint32_t csid_version;
 	struct clk *ispif_clk[5];
+	uint32_t pix_sof_count;
 };
 
 struct ispif_isr_queue_cmd {

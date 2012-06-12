@@ -24,6 +24,7 @@
 #define V4L2_IDENT_ISPIF                     50001
 #define CSID_VERSION_V2                      0x02000011
 #define CSID_VERSION_V3                      0x30000000
+
 #define MAX_CID 15
 
 static atomic_t ispif_irq_cnt;
@@ -52,6 +53,7 @@ static int msm_ispif_intf_reset(struct ispif_device *ispif,
 			else
 				data1 |= (0x1 << PIX_0_VFE_RST_STB) |
 					(0x1 << PIX_0_CSID_RST_STB);
+			ispif->pix_sof_count = 0;
 			break;
 
 		case RDI0:
@@ -127,7 +129,7 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 			(0x1 << PIX_1_CSID_RST_STB) |
 			(0x1 << RDI_2_VFE_RST_STB) |
 			(0x1 << RDI_2_CSID_RST_STB);
-	return 0;
+	ispif->pix_sof_count = 0;
 	msm_camera_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
 	rc = wait_for_completion_interruptible(&ispif->reset_complete);
 	if (ispif->csid_version >= CSID_VERSION_V3) {
@@ -568,7 +570,8 @@ static void ispif_do_tasklet(unsigned long data)
 
 DECLARE_TASKLET(ispif_tasklet, ispif_do_tasklet, 0);
 
-static void ispif_process_irq(struct ispif_irq_status *out)
+static void ispif_process_irq(struct ispif_device *ispif,
+	struct ispif_irq_status *out)
 {
 	unsigned long flags;
 	struct ispif_isr_queue_cmd *qcmd;
@@ -582,6 +585,13 @@ static void ispif_process_irq(struct ispif_irq_status *out)
 	}
 	qcmd->ispifInterruptStatus0 = out->ispifIrqStatus0;
 	qcmd->ispifInterruptStatus1 = out->ispifIrqStatus1;
+
+	if (qcmd->ispifInterruptStatus0 & ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
+		CDBG("%s: ispif PIX sof irq\n", __func__);
+		ispif->pix_sof_count++;
+		v4l2_subdev_notify(&ispif->subdev, NOTIFY_VFE_SOF_COUNT,
+			(void *)&ispif->pix_sof_count);
+	}
 
 	spin_lock_irqsave(&ispif_tasklet_lock, flags);
 	list_add_tail(&qcmd->list, &ispif_tasklet_q);
@@ -605,7 +615,7 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 	msm_camera_io_w(out->ispifIrqStatus1,
 		ispif->base + ISPIF_IRQ_CLEAR_1_ADDR);
 
-	CDBG("ispif->irq: Irq_status0 = 0x%x\n",
+	CDBG("%s: irq ispif->irq: Irq_status0 = 0x%x\n", __func__,
 		out->ispifIrqStatus0);
 	if (out->ispifIrqStatus0 & ISPIF_IRQ_STATUS_MASK) {
 		if (out->ispifIrqStatus0 & (0x1 << RESET_DONE_IRQ))
@@ -614,10 +624,10 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 			pr_err("%s: pix intf 0 overflow.\n", __func__);
 		if (out->ispifIrqStatus0 & (0x1 << RAW_INTF_0_OVERFLOW_IRQ))
 			pr_err("%s: rdi intf 0 overflow.\n", __func__);
-		if ((out->ispifIrqStatus0 & ISPIF_IRQ_STATUS_RDI_SOF_MASK) ||
+		if ((out->ispifIrqStatus0 & ISPIF_IRQ_STATUS_SOF_MASK) ||
 			(out->ispifIrqStatus1 &
-				ISPIF_IRQ_STATUS_RDI_SOF_MASK)) {
-			ispif_process_irq(out);
+				ISPIF_IRQ_STATUS_SOF_MASK)) {
+			ispif_process_irq(ispif, out);
 		}
 	}
 	msm_camera_io_w(ISPIF_IRQ_GLOBAL_CLEAR_CMD, ispif->base +
@@ -648,7 +658,6 @@ static int msm_ispif_init(struct ispif_device *ispif,
 	INIT_LIST_HEAD(&ispif_tasklet_q);
 	rc = request_irq(ispif->irq->start, msm_io_ispif_irq,
 		IRQF_TRIGGER_RISING, "ispif", ispif);
-
 	init_completion(&ispif->reset_complete);
 
 	ispif->csid_version = *csid_version;

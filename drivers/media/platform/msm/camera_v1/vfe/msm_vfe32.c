@@ -599,6 +599,7 @@ static void vfe32_reset_internal_variables(
 
 	/* this is unsigned 32 bit integer. */
 	vfe32_ctrl->share_ctrl->vfeFrameId = 0;
+
 	/* Stats control variables. */
 	memset(&(vfe32_ctrl->afbfStatsControl), 0,
 		sizeof(struct vfe_stats_control));
@@ -3543,11 +3544,14 @@ static void vfe32_process_camif_sof_irq(
 			VFE_MODE_OF_OPERATION_VIDEO) &&
 		(vfe32_ctrl->share_ctrl->vfeFrameId %
 			vfe32_ctrl->hfr_mode != 0)) {
-		vfe32_ctrl->share_ctrl->vfeFrameId++;
+		if (vfe32_ctrl->vfe_sof_count_enable)
+			vfe32_ctrl->share_ctrl->vfeFrameId++;
 		CDBG("Skip the SOF notification when HFR enabled\n");
 		return;
 	}
-	vfe32_ctrl->share_ctrl->vfeFrameId++;
+	if (vfe32_ctrl->vfe_sof_count_enable)
+		vfe32_ctrl->share_ctrl->vfeFrameId++;
+
 	vfe32_send_isp_msg(&vfe32_ctrl->subdev,
 		vfe32_ctrl->share_ctrl->vfeFrameId, MSG_ID_SOF_ACK);
 	CDBG("camif_sof_irq, frameId = %d\n",
@@ -4373,7 +4377,6 @@ static void vfe32_process_stats_irq(
 	struct vfe32_ctrl_type *vfe32_ctrl, uint32_t irqstatus)
 {
 	uint32_t status_bits = VFE_COM_STATUS & irqstatus;
-
 	if ((vfe32_ctrl->hfr_mode != HFR_MODE_OFF) &&
 		(vfe32_ctrl->share_ctrl->vfeFrameId %
 		 vfe32_ctrl->hfr_mode != 0)) {
@@ -4845,7 +4848,9 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		cmd->cmd_type != CMD_STATS_AF_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_BG_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_BF_BUF_RELEASE &&
-		cmd->cmd_type != CMD_STATS_BHIST_BUF_RELEASE) {
+		cmd->cmd_type != CMD_STATS_BHIST_BUF_RELEASE &&
+		cmd->cmd_type != CMD_VFE_SOF_COUNT_UPDATE &&
+		cmd->cmd_type != CMD_VFE_COUNT_SOF_ENABLE) {
 			if (copy_from_user(&vfecmd,
 					(void __user *)(cmd->value),
 					sizeof(vfecmd))) {
@@ -4924,6 +4929,19 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd->cmd_type) {
 	case CMD_GENERAL:
 		rc = vfe32_proc_general(pmctl, &vfecmd, vfe32_ctrl);
+	break;
+	case CMD_VFE_COUNT_SOF_ENABLE: {
+		int enable = *((int *)cmd->value);
+		if (enable)
+			vfe32_ctrl->vfe_sof_count_enable = TRUE;
+		else
+			vfe32_ctrl->vfe_sof_count_enable = false;
+	}
+	break;
+	case CMD_VFE_SOF_COUNT_UPDATE:
+		if (!vfe32_ctrl->vfe_sof_count_enable)
+			vfe32_ctrl->share_ctrl->vfeFrameId =
+			*((uint32_t *)vfe_params->data);
 	break;
 	case CMD_CONFIG_PING_ADDR: {
 		int path = *((int *)cmd->value);
@@ -5081,6 +5099,7 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd)
 	vfe32_ctrl->update_rolloff = false;
 	vfe32_ctrl->update_la = false;
 	vfe32_ctrl->update_gamma = false;
+	vfe32_ctrl->vfe_sof_count_enable = false;
 	vfe32_ctrl->hfr_mode = HFR_MODE_OFF;
 
 	memset(&vfe32_ctrl->stats_ctrl, 0, sizeof(struct msm_stats_bufq_ctrl));
