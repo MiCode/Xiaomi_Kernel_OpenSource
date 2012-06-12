@@ -804,6 +804,7 @@
 		reg = <0xfc820000 0x0020>,
 		      <0x0d1fc000 0x4000>;
 		reg-names = "rmb_base", "metadata_base";
+		interrupts = <0 56 1>;
 
 		qcom,firmware-name = "modem";
 		qcom,depends-on    = "mba";
