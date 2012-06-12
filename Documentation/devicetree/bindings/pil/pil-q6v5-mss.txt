@@ -1,0 +1,32 @@
+Qualcomm MSS QDSP6v5 Peripheral Image Loader
+
+pil-qdsp6v5-mss is a peripheral image loader (PIL) driver. It is used for
+loading QDSP6v5 (Hexagon) firmware images for modem subsystems into memory and
+preparing the subsystem's processor to execute code. It's also responsible for
+shutting down the processor when it's not needed.
+
+Required properties:
+- compatible:	      Must be "qcom,pil-q6v5-mss"
+- reg:		      Four pairs of physical base addresses and region sizes of
+		      memory mapped registers. The first region corresponds to
+		      QDSP6SS_PUB, the second to the bus port halt register
+		      base, the third to the MSS_RELAY_MSG_BUFFER base, and the
+		      fourth to the MSS_RESTART register.
+- vdd_mss-supply:     Reference to the regulator that supplies the processor.
+- qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
+- qcom,pil-self-auth: <0> if the hardware does not require self-authenticating
+		      images and self-authentication is not desired;
+		      <1> if the hardware requires self-authenticating images.
+
+Example:
+	qcom,mss@fc880000 {
+		compatible = "qcom,pil-q6v5-mss";
+		reg = <0xfc880000 0x100>,
+		      <0xfd485000 0x400>,
+		      <0xfc820000 0x020>,
+		      <0xfc401680 0x004>;
+		vdd_mss-supply = <&pm8841_s3>;
+
+		qcom,firmware-name = "mba";
+		qcom,pil-self-auth = <1>;
+	};

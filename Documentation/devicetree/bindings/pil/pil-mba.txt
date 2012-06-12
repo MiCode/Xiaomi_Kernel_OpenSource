@@ -1,0 +1,27 @@
+Qualcomm Modem Boot Authenticator Peripheral Image Loader
+
+pil-mba is a peripheral image loader (PIL) driver. It is used for loading
+modem images using the self-authenticating hardware and software features
+of the Modem Boot Authenticator.
+
+Required properties:
+- compatible:	      Must be "qcom,pil-mba"
+- reg:		      Two pairs of physical base addresses and sizes. The
+		      first corresponds to the Relay Message Buffer (RMB)
+		      register base. The second specifies the address at which
+		      the primary modem image metadata should be stored.
+- qcom,firmware-name: Base name of the firmware image. Ex. "modem"
+
+Optional properties:
+- qcom,depends-on:    firmware-name of a prerequisite image that must already
+		      be running.
+
+Example:
+	qcom,mba@fc820000 {
+		compatible = "qcom,pil-mba";
+		reg = <0xfc820000 0x0020>,
+		      <0x0d1f0000 0x4000>;
+
+		qcom,firmware-name = "modem";
+		qcom,depends-on    = "mba";
+	};

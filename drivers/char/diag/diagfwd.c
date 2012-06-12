@@ -49,7 +49,7 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 struct diag_master_table entry;
-smd_channel_t *ch_temp, *chqdsp_temp, *ch_wcnss_temp;
+smd_channel_t *ch_temp = NULL, *chqdsp_temp = NULL, *ch_wcnss_temp = NULL;
 int diag_event_num_bytes;
 int diag_event_config;
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
@@ -300,12 +300,12 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 				&(driver->diag_read_sdio_work));
 		}
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
 		else if (proc_num == HSIC_DATA) {
 			driver->in_busy_hsic_read = 0;
 			driver->in_busy_hsic_write_on_device = 0;
 			if (driver->hsic_ch)
-				queue_work(driver->diag_hsic_wq,
+				queue_work(driver->diag_bridge_wq,
 					&(driver->diag_read_hsic_work));
 		}
 #endif
@@ -352,7 +352,7 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 						"while USB write\n");
 		}
 #endif
-#ifdef CONFIG_DIAG_HSIC_PIPE
+#ifdef CONFIG_DIAG_BRIDGE_CODE
 		else if (proc_num == HSIC_DATA) {
 			if (driver->hsic_device_enabled) {
 				write_ptr->buf = buf;
@@ -360,6 +360,10 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			} else
 				pr_err("diag: Incorrect hsic data "
 						"while USB write\n");
+		} else if (proc_num == SMUX_DATA) {
+				write_ptr->buf = buf;
+				pr_debug("diag: writing SMUX data\n");
+				err = usb_diag_write(driver->mdm_ch, write_ptr);
 		}
 #endif
 		APPEND_DEBUG('d');
@@ -922,8 +926,10 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 {
 	uint16_t subsys_cmd_code;
 	int subsys_id, ssid_first, ssid_last, ssid_range;
-	int packet_type = 1, i, cmd_code, rt_mask;
+	int packet_type = 1, i, cmd_code;
+	int rt_mask, rt_first_ssid, rt_last_ssid, rt_mask_size;
 	unsigned char *temp = buf;
+	uint8_t *rt_mask_ptr;
 	int data_type;
 #if defined(CONFIG_DIAG_OVER_USB)
 	int payload_length;
@@ -982,6 +988,38 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			ENCODE_RSP_AND_SEND(7);
 			return 0;
 		}
+#endif
+	} /* Get runtime message mask  */
+	else if ((*buf == 0x7d) && (*(buf+1) == 0x3)) {
+		ssid_first = *(uint16_t *)(buf + 2);
+		ssid_last = *(uint16_t *)(buf + 4);
+#if defined(CONFIG_DIAG_OVER_USB)
+		if (!(driver->ch) && chk_apps_only()) {
+			driver->apps_rsp_buf[0] = 0x7d;
+			driver->apps_rsp_buf[1] = 0x3;
+			*(uint16_t *)(driver->apps_rsp_buf+2) = ssid_first;
+			*(uint16_t *)(driver->apps_rsp_buf+4) = ssid_last;
+			driver->apps_rsp_buf[6] = 0x1; /* Success Status */
+			driver->apps_rsp_buf[7] = 0x0;
+			rt_mask_ptr = driver->msg_masks;
+			while (*(uint32_t *)(rt_mask_ptr + 4)) {
+				rt_first_ssid = *(uint32_t *)rt_mask_ptr;
+				rt_mask_ptr += 4;
+				rt_last_ssid = *(uint32_t *)rt_mask_ptr;
+				rt_mask_ptr += 4;
+				if (ssid_first == rt_first_ssid && ssid_last ==
+								 rt_last_ssid) {
+					rt_mask_size = 4 * (rt_last_ssid -
+							 rt_first_ssid + 1);
+					memcpy(driver->apps_rsp_buf+8,
+						 rt_mask_ptr, rt_mask_size);
+					ENCODE_RSP_AND_SEND(8+rt_mask_size-1);
+					return 0;
+				}
+				ptr += MAX_SSID_PER_RANGE*4;
+			}
+		} else
+			buf = temp;
 #endif
 	} /* Set runtime message mask  */
 	else if ((*buf == 0x7d) && (*(buf+1) == 0x4)) {
@@ -1695,7 +1733,8 @@ static void diag_smd_notify(void *ctxt, unsigned event)
 		driver->ch = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
-		driver->ch = ch_temp;
+		if (ch_temp)
+			driver->ch = ch_temp;
 	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
 }
@@ -1709,7 +1748,8 @@ static void diag_smd_qdsp_notify(void *ctxt, unsigned event)
 		driver->chqdsp = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
-		driver->chqdsp = chqdsp_temp;
+		if (chqdsp_temp)
+			driver->chqdsp = chqdsp_temp;
 	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
 }
@@ -1723,7 +1763,8 @@ static void diag_smd_wcnss_notify(void *ctxt, unsigned event)
 		driver->ch_wcnss = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
-		driver->ch_wcnss = ch_wcnss_temp;
+		if (ch_wcnss_temp)
+			driver->ch_wcnss = ch_wcnss_temp;
 	}
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_work));
 }

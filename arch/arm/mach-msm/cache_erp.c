@@ -35,6 +35,9 @@
 /* Print a message for everything but TLB MH events */
 #define CESR_PRINT_MASK		0x000000FF
 
+/* Log everything but TLB MH events */
+#define CESR_LOG_EVENT_MASK	0x000000FF
+
 #define L2ESR_IND_ADDR		0x204
 #define L2ESYNR0_IND_ADDR	0x208
 #define L2ESYNR1_IND_ADDR	0x209
@@ -87,6 +90,9 @@
 
 #define MODULE_NAME "msm_cache_erp"
 
+#define ERP_LOG_MAGIC_ADDR	0x748
+#define ERP_LOG_MAGIC		0x11C39893
+
 struct msm_l1_err_stats {
 	unsigned int dctpe;
 	unsigned int dcdpe;
@@ -113,6 +119,10 @@ static struct msm_l2_err_stats msm_l2_erp_stats;
 
 static int l1_erp_irq, l2_erp_irq;
 static struct proc_dir_entry *procfs_entry;
+
+#ifdef CONFIG_MSM_L1_ERR_LOG
+static struct proc_dir_entry *procfs_log_entry;
+#endif
 
 static inline unsigned int read_cesr(void)
 {
@@ -192,6 +202,48 @@ static int proc_read_status(char *page, char **start, off_t off, int count,
 	return len;
 }
 
+#ifdef CONFIG_MSM_L1_ERR_LOG
+static int proc_read_log(char *page, char **start, off_t off, int count,
+	int *eof, void *data)
+{
+	char *p = page;
+	int len, log_value;
+	log_value = __raw_readl(MSM_IMEM_BASE + ERP_LOG_MAGIC_ADDR) ==
+			ERP_LOG_MAGIC ? 1 : 0;
+
+	p += snprintf(p, PAGE_SIZE, "%d\n", log_value);
+
+	len = (p - page) - off;
+	if (len < 0)
+		len = 0;
+
+	*eof = (len <= count) ? 1 : 0;
+	*start = page + off;
+
+	return len;
+}
+
+static void log_cpu_event(void)
+{
+	__raw_writel(ERP_LOG_MAGIC, MSM_IMEM_BASE + ERP_LOG_MAGIC_ADDR);
+	mb();
+}
+
+static int procfs_event_log_init(void)
+{
+	procfs_log_entry = create_proc_entry("cpu/msm_erp_log", S_IRUGO, NULL);
+
+	if (!procfs_log_entry)
+		return -ENODEV;
+	procfs_log_entry->read_proc = proc_read_log;
+	return 0;
+}
+
+#else
+static inline void log_cpu_event(void) { }
+static inline int procfs_event_log_init(void) { return 0; }
+#endif
+
 static irqreturn_t msm_l1_erp_irq(int irq, void *dev_id)
 {
 	struct msm_l1_err_stats *l1_stats = dev_id;
@@ -199,6 +251,7 @@ static irqreturn_t msm_l1_erp_irq(int irq, void *dev_id)
 	unsigned int i_cesynr, d_cesynr;
 	unsigned int cpu = smp_processor_id();
 	int print_regs = cesr & CESR_PRINT_MASK;
+	int log_event = cesr & CESR_LOG_EVENT_MASK;
 
 	void *const saw_bases[] = {
 		MSM_SAW0_BASE,
@@ -270,6 +323,9 @@ static irqreturn_t msm_l1_erp_irq(int irq, void *dev_id)
 		d_cesynr = read_cesynr();
 		pr_alert("D-side CESYNR = 0x%08x\n", d_cesynr);
 	}
+
+	if (log_event)
+		log_cpu_event();
 
 	/* Clear the interrupt bits we processed */
 	write_cesr(cesr);
@@ -459,6 +515,11 @@ static int msm_cache_erp_probe(struct platform_device *pdev)
 	put_online_cpus();
 
 	procfs_entry->read_proc = proc_read_status;
+
+	ret = procfs_event_log_init();
+	if (ret)
+		pr_err("Failed to create procfs node for ERP log access\n");
+
 	return 0;
 
 fail_l2:

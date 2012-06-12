@@ -109,8 +109,11 @@ static void event_handler(uint32_t opcode,
 			break;
 		} else
 			atomic_set(&prtd->pending_buffer, 0);
-		if (runtime->status->hw_ptr >= runtime->control->appl_ptr)
-			break;
+		if (runtime->status->hw_ptr >= runtime->control->appl_ptr) {
+			memset((void *)buf[0].phys +
+				(prtd->out_head * prtd->pcm_count),
+				0, prtd->pcm_count);
+		}
 		pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
 				__func__, prtd->pcm_count);
 

@@ -3117,6 +3117,11 @@ static DEFINE_CLK_VOTER(dfab_qseecom_clk, &dfab_clk.c, 0);
 static DEFINE_CLK_VOTER(ebi1_msmbus_clk, &ebi1_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ebi1_adm0_clk,   &ebi1_clk.c, 0);
 static DEFINE_CLK_VOTER(ebi1_adm1_clk,   &ebi1_clk.c, 0);
+static DEFINE_CLK_VOTER(ebi1_acpu_a_clk,   &ebi1_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(ebi1_msmbus_a_clk, &ebi1_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(afab_acpu_a_clk,   &afab_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(afab_msmbus_a_clk, &afab_a_clk.c, LONG_MAX);
+
 static DEFINE_CLK_MEASURE(sc0_m_clk);
 static DEFINE_CLK_MEASURE(sc1_m_clk);
 static DEFINE_CLK_MEASURE(l2_m_clk);
@@ -3479,8 +3484,27 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("pll4",		pll4_clk.c,	"pil_qdsp6v3"),
 	CLK_LOOKUP("measure",		measure_clk.c,	"debug"),
 
+	CLK_LOOKUP("bus_clk",		afab_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		afab_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		cfpb_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		cfpb_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		dfab_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		dfab_a_clk.c,	""),
+	CLK_LOOKUP("mem_clk",		ebi1_clk.c,	""),
+	CLK_LOOKUP("mem_clk",		ebi1_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		mmfab_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		mmfab_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		mmfpb_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		mmfpb_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sfab_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sfab_a_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sfpb_clk.c,	""),
+	CLK_LOOKUP("bus_clk",		sfpb_a_clk.c,	""),
+	CLK_LOOKUP("mem_clk",		smi_clk.c,	""),
+	CLK_LOOKUP("mem_clk",		smi_a_clk.c,	""),
+
 	CLK_LOOKUP("bus_clk",		afab_clk.c,	"msm_apps_fab"),
-	CLK_LOOKUP("bus_a_clk",		afab_a_clk.c,	"msm_apps_fab"),
+	CLK_LOOKUP("bus_a_clk",		afab_msmbus_a_clk.c, "msm_apps_fab"),
 	CLK_LOOKUP("bus_clk",		sfab_clk.c,	"msm_sys_fab"),
 	CLK_LOOKUP("bus_a_clk",		sfab_a_clk.c,	"msm_sys_fab"),
 	CLK_LOOKUP("bus_clk",		sfpb_clk.c,	"msm_sys_fpb"),
@@ -3490,15 +3514,9 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("bus_clk",		cfpb_clk.c,	"msm_cpss_fpb"),
 	CLK_LOOKUP("bus_a_clk",		cfpb_a_clk.c,	"msm_cpss_fpb"),
 	CLK_LOOKUP("mem_clk",		ebi1_msmbus_clk.c, "msm_bus"),
-	CLK_LOOKUP("mem_a_clk",		ebi1_a_clk.c,	"msm_bus"),
+	CLK_LOOKUP("mem_a_clk",		ebi1_msmbus_a_clk.c, "msm_bus"),
 	CLK_LOOKUP("smi_clk",		smi_clk.c,	"msm_bus"),
 	CLK_LOOKUP("smi_a_clk",		smi_a_clk.c,	"msm_bus"),
-
-	CLK_LOOKUP("ebi1_clk",		ebi1_clk.c,	NULL),
-	CLK_LOOKUP("dfab_clk",		dfab_clk.c,	NULL),
-	CLK_LOOKUP("dfab_a_clk",	dfab_a_clk.c,	NULL),
-	CLK_LOOKUP("mmfpb_clk",		mmfpb_clk.c,	NULL),
-	CLK_LOOKUP("mmfpb_a_clk",	mmfpb_a_clk.c,	NULL),
 
 	CLK_LOOKUP("core_clk",		gp0_clk.c,		""),
 	CLK_LOOKUP("core_clk",		gp1_clk.c,		""),
@@ -3713,6 +3731,8 @@ static struct clk_lookup msm_clocks_8x60[] = {
 
 	CLK_LOOKUP("mem_clk",		ebi1_adm0_clk.c, "msm_dmov.0"),
 	CLK_LOOKUP("mem_clk",		ebi1_adm1_clk.c, "msm_dmov.1"),
+	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
+	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
 
 	CLK_LOOKUP("sc0_mclk",		sc0_m_clk, ""),
 	CLK_LOOKUP("sc1_mclk",		sc1_m_clk, ""),

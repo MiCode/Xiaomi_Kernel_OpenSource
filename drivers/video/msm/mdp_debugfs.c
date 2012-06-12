@@ -437,38 +437,38 @@ static ssize_t mdp_stat_read(
 	len = snprintf(bp, dlen, "frame_push:\n");
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "rgb1:  %08lu\t\t",
+	len = snprintf(bp, dlen, "rgb1:   %08lu\t",
 		       mdp4_stat.pipe[OVERLAY_PIPE_RGB1]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "rgb2:  %08lu\n",
+	len = snprintf(bp, dlen, "rgb2:   %08lu\n",
 		       mdp4_stat.pipe[OVERLAY_PIPE_RGB2]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "vg1:   %08lu\t\t",
+	len = snprintf(bp, dlen, "vg1 :   %08lu\t",
 		       mdp4_stat.pipe[OVERLAY_PIPE_VG1]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "vg2:   %08lu\n",
+	len = snprintf(bp, dlen, "vg2 :   %08lu\n",
 		       mdp4_stat.pipe[OVERLAY_PIPE_VG2]);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "err_mixer: %08lu\t", mdp4_stat.err_mixer);
+	len = snprintf(bp, dlen, "err_mixer : %08lu\t", mdp4_stat.err_mixer);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "err_size : %08lu\n", mdp4_stat.err_size);
+	len = snprintf(bp, dlen, "err_size  : %08lu\n", mdp4_stat.err_size);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "err_scale: %08lu\t", mdp4_stat.err_scale);
+	len = snprintf(bp, dlen, "err_scale : %08lu\t", mdp4_stat.err_scale);
 	bp += len;
 	dlen -= len;
 	len = snprintf(bp, dlen, "err_format: %08lu\n", mdp4_stat.err_format);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "err_play:  %08lu\t", mdp4_stat.err_play);
+	len = snprintf(bp, dlen, "err_play  : %08lu\t", mdp4_stat.err_play);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "err_stage: %08lu\n", mdp4_stat.err_stage);
+	len = snprintf(bp, dlen, "err_stage : %08lu\n", mdp4_stat.err_stage);
 	bp += len;
 	dlen -= len;
 	len = snprintf(bp, dlen, "err_underflow: %08lu\n\n",

@@ -16,6 +16,7 @@
 #define SMUX_PRIVATE_H
 
 #define SMUX_MAX_PKT_SIZE   8192
+#define SMUX_BROADCAST_LCID 0xFF
 
 /* SMUX Protocol Characters */
 #define SMUX_MAGIC          0x33FC
@@ -28,6 +29,9 @@
 #define SMUX_UT_ECHO_REQ    0xF0
 #define SMUX_UT_ECHO_ACK_OK 0xF1
 #define SMUX_UT_ECHO_ACK_FAIL 0xF2
+
+/* Maximum number of packets in retry queue */
+#define SMUX_RX_RETRY_MAX_PKTS 32
 
 struct tty_struct;
 

@@ -99,6 +99,7 @@ enum vcd_perf_level {
 	VCD_PERF_LEVEL0,
 	VCD_PERF_LEVEL1,
 	VCD_PERF_LEVEL2,
+	VCD_PERF_LEVEL_TURBO,
 };
 
 #define VCD_METADATA_DATANONE       0x001

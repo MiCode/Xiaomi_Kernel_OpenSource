@@ -510,7 +510,6 @@ int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 		sph[i] = tx[idx].sph;
 		grph = tx[idx].grph;
 	}
-
 	/* slim_control_ch (REMOVE) */
 	ret = slim_control_ch(wcd9xxx->slim, grph, SLIM_CH_REMOVE, true);
 	if (ret < 0) {

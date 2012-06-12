@@ -78,4 +78,8 @@ unsigned long allocate_head(struct ocmem_zone *, unsigned long);
 int free_head(struct ocmem_zone *, unsigned long, unsigned long);
 unsigned long allocate_tail(struct ocmem_zone *, unsigned long);
 int free_tail(struct ocmem_zone *, unsigned long, unsigned long);
+
+int ocmem_notifier_init(void);
+int check_notifier(int);
+int dispatch_notification(int, enum ocmem_notif_type, struct ocmem_buf *);
 #endif

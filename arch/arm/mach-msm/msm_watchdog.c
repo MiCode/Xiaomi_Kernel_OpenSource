@@ -247,29 +247,6 @@ static void pet_watchdog_work(struct work_struct *work)
 		schedule_delayed_work_on(0, &dogwork_struct, delay_time);
 }
 
-static int msm_watchdog_remove(struct platform_device *pdev)
-{
-	if (enable) {
-		__raw_writel(0, msm_tmr0_base + WDT0_EN);
-		mb();
-		if (has_vic) {
-			free_irq(WDT0_ACCSCSSNBARK_INT, 0);
-		} else {
-			disable_percpu_irq(WDT0_ACCSCSSNBARK_INT);
-			if (!appsbark_fiq) {
-				free_percpu_irq(WDT0_ACCSCSSNBARK_INT,
-						percpu_pdata);
-				free_percpu(percpu_pdata);
-			}
-		}
-		enable = 0;
-		/* In case we got suspended mid-exit */
-		__raw_writel(0, msm_tmr0_base + WDT0_EN);
-	}
-	printk(KERN_INFO "MSM Watchdog Exit - Deactivated\n");
-	return 0;
-}
-
 static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 {
 	unsigned long nanosec_rem;
@@ -445,7 +422,6 @@ static const struct dev_pm_ops msm_watchdog_dev_pm_ops = {
 
 static struct platform_driver msm_watchdog_driver = {
 	.probe = msm_watchdog_probe,
-	.remove = msm_watchdog_remove,
 	.driver = {
 		.name = MODULE_NAME,
 		.owner = THIS_MODULE,

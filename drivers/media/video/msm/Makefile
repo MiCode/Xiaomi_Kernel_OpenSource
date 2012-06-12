@@ -18,7 +18,7 @@ ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
 else
   obj-$(CONFIG_MSM_CAMERA) += msm_camera.o
 endif
-obj-$(CONFIG_MSM_CAMERA) += msm_axi_qos.o gemini/
+obj-$(CONFIG_MSM_CAMERA) += msm_axi_qos.o gemini/ mercury/
 obj-$(CONFIG_MSM_CAMERA_FLASH) += flash.o
 obj-$(CONFIG_ARCH_MSM_ARM11) += msm_vfe7x.o
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)

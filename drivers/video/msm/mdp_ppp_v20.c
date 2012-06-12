@@ -2403,7 +2403,10 @@ void mdp_adjust_start_addr(uint8 **src0,
 			   uint32 width,
 			   uint32 height, int bpp, MDPIBUF *iBuf, int layer)
 {
-	*src0 += (x + y * width) * bpp;
+	if (iBuf->mdpImg.imgType == MDP_Y_CBCR_H2V2_ADRENO && layer == 0)
+		*src0 += (x + y * ALIGN(width, 32)) * bpp;
+	else
+		*src0 += (x + y * width) * bpp;
 
 	/* if it's dest/bg buffer, we need to adjust it for rotation */
 	if (layer != 0)
@@ -2414,9 +2417,14 @@ void mdp_adjust_start_addr(uint8 **src0,
 		 * MDP_Y_CBCR_H2V2/MDP_Y_CRCB_H2V2 cosite for now
 		 * we need to shift x direction same as y dir for offsite
 		 */
-		*src1 +=
-		    ((x / h_slice) * h_slice +
-		     ((y == 0) ? 0 : ((y + 1) / v_slice - 1) * width)) * bpp;
+		if (iBuf->mdpImg.imgType == MDP_Y_CBCR_H2V2_ADRENO
+							&& layer == 0)
+			*src1 += ((x / h_slice) * h_slice + ((y == 0) ? 0 :
+			(((y + 1) / v_slice - 1) * (ALIGN(width/2, 32) * 2))))
+									* bpp;
+		else
+			*src1 += ((x / h_slice) * h_slice +
+			((y == 0) ? 0 : ((y + 1) / v_slice - 1) * width)) * bpp;
 
 		/* if it's dest/bg buffer, we need to adjust it for rotation */
 		if (layer != 0)

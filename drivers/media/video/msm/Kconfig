@@ -248,6 +248,12 @@ config MSM_GEMINI
 	---help---
 	  Enable support for Gemini Jpeg Engine
 
+config MSM_MERCURY
+        tristate "Qualcomm MSM Mercury Jpeg Decoder Engine support"
+        depends on MSM_CAMERA && ARCH_MSM8960
+        ---help---
+          Enable support for Mercury Jpeg Engine
+
 config MSM_VPE
 	tristate "Qualcomm MSM Video Pre-processing Engine support"
 	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60)

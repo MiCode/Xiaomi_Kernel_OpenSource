@@ -936,6 +936,14 @@ config MFD_PM8XXX_IRQ
 	  This is required to use certain other PM 8xxx features, such as GPIO
 	  and MPP.
 
+config MFD_PM8821_IRQ
+	bool "Support for Qualcomm PM8821 IRQ features"
+	default y if MFD_PM8821_CORE
+	help
+	  This is the IRQ driver for Qualcomm PM 8821 PMIC chips.
+
+	  This is required to use certain other PM 8821 features, such as MPPs.
+
 config TPS65911_COMPARATOR
 	tristate
 

@@ -1027,13 +1027,13 @@ static struct wcd9xxx_pdata apq8064_tabla_platform_data = {
 	{
 		.name = "VDDD_CDC_D",
 		.min_uV = 1225000,
-		.max_uV = 1225000,
+		.max_uV = 1250000,
 		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
 	},
 	{
 		.name = "CDC_VDDA_A_1P2V",
 		.min_uV = 1225000,
-		.max_uV = 1225000,
+		.max_uV = 1250000,
 		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
 	},
 	},
@@ -1094,13 +1094,13 @@ static struct wcd9xxx_pdata apq8064_tabla20_platform_data = {
 	{
 		.name = "VDDD_CDC_D",
 		.min_uV = 1225000,
-		.max_uV = 1225000,
+		.max_uV = 1250000,
 		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
 	},
 	{
 		.name = "CDC_VDDA_A_1P2V",
 		.min_uV = 1225000,
-		.max_uV = 1225000,
+		.max_uV = 1250000,
 		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
 	},
 	},
@@ -2190,6 +2190,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_cpudai_slimbus_2_rx,
 	&apq_cpudai_slimbus_2_tx,
 	&apq_cpudai_slimbus_3_rx,
+	&apq_cpudai_slimbus_3_tx,
 	&apq8064_rpm_device,
 	&apq8064_rpm_log_device,
 	&apq8064_rpm_stat_device,
@@ -2245,16 +2246,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
-};
-
-static struct platform_device
-mpq8064_device_ext_5v_frc_vreg __devinitdata = {
-	.name	= GPIO_REGULATOR_DEV_NAME,
-	.id	= SX150X_GPIO(4, 10),
-	.dev	= {
-		.platform_data =
-			&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_FRC_5V],
-	},
 };
 
 static struct platform_device
@@ -2346,7 +2337,6 @@ static struct platform_device *mpq_devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&gpio_ir_recv_pdev,
-	&mpq8064_device_ext_5v_frc_vreg,
 	&mpq8064_device_ext_1p2_buck_vreg,
 	&mpq8064_device_ext_1p8_buck_vreg,
 	&mpq8064_device_ext_2p2_buck_vreg,

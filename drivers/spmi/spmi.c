@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/spmi.h>
 #include <linux/module.h>
+#include <linux/pm_runtime.h>
 
 struct spmii_boardinfo {
 	struct list_head	list;

@@ -252,6 +252,8 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 		/* Timestamp pass-through from input frame */
 		venc_msg->venc_msg_info.buf.timestamp =
 			vcd_frame_data->time_stamp;
+		venc_msg->venc_msg_info.buf.sz =
+			vcd_frame_data->alloc_len;
 
 		/* Decoded picture width and height */
 		venc_msg->venc_msg_info.msgdata_size =
@@ -269,7 +271,7 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 			msm_ion_do_cache_op(client_ctx->user_ion_client,
 				buff_handle,
 				(unsigned long *) kernel_vaddr,
-				(unsigned long)venc_msg->venc_msg_info.buf.len,
+				(unsigned long)venc_msg->venc_msg_info.buf.sz,
 				ION_IOC_CLEAN_INV_CACHES);
 		}
 	}

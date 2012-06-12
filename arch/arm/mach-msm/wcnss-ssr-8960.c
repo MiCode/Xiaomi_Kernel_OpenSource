@@ -28,6 +28,7 @@
 #include "ramdump.h"
 
 #define MODULE_NAME			"wcnss_8960"
+#define MAX_BUF_SIZE			0x51
 
 static void riva_smsm_cb_fn(struct work_struct *);
 static DECLARE_WORK(riva_smsm_cb_work, riva_smsm_cb_fn);
@@ -52,11 +53,36 @@ static void riva_smsm_cb_fn(struct work_struct *work)
 static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 					uint32_t new_state)
 {
+	char *smem_reset_reason;
+	char buffer[MAX_BUF_SIZE];
+	unsigned smem_reset_size;
+	unsigned size;
+
 	if (!(new_state & SMSM_RESET))
 		return;
 
 	riva_crash = true;
 	pr_err("%s: smsm state changed to smsm reset\n", MODULE_NAME);
+
+	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_WCNSS0,
+		&smem_reset_size);
+
+	if (!smem_reset_reason || !smem_reset_size) {
+		pr_err("%s: wcnss subsystem failure reason: %s\n", __func__,
+				"(unknown, smem_get_entry failed)");
+	} else if (!smem_reset_reason[0]) {
+		pr_err("%s: wcnss subsystem failure reason: %s\n", __func__,
+				"(unknown, init string found)");
+	} else {
+		size = smem_reset_size < MAX_BUF_SIZE ? smem_reset_size :
+				(MAX_BUF_SIZE - 1);
+		memcpy(buffer, smem_reset_reason, size);
+		buffer[size] = '\0';
+		pr_err("%s: wcnss subsystem failure reason: %s\n", __func__,
+				buffer);
+		memset(smem_reset_reason, 0, smem_reset_size);
+		wmb();
+	}
 
 	if (ss_restart_inprogress) {
 		pr_err("%s: Ignoring smsm reset req, restart in progress\n",

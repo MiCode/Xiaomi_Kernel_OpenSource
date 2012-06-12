@@ -20,6 +20,7 @@
 #include <linux/i2c.h>
 #include <linux/videodev2.h>
 #include <linux/pm_qos.h>
+#include <linux/wakelock.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-device.h>
@@ -32,6 +33,7 @@
 #include <mach/camera.h>
 #include <media/msm_isp.h>
 #include <linux/ion.h>
+#include <linux/iommu.h>
 #include <media/msm_gestures.h>
 
 #define MSM_V4L2_DIMENSION_SIZE 96
@@ -49,6 +51,7 @@
 #define MSM_VFE_DRV_NAME "msm_vfe"
 #define MSM_VPE_DRV_NAME "msm_vpe"
 #define MSM_GEMINI_DRV_NAME "msm_gemini"
+#define MSM_MERCURY_DRV_NAME "msm_mercury"
 #define MSM_I2C_MUX_DRV_NAME "msm_cam_i2c_mux"
 
 #define MAX_NUM_CSIPHY_DEV 3
@@ -258,7 +261,7 @@ struct msm_cam_media_controller {
 	uint8_t opencnt; /*mctl ref count*/
 	const char *apps_id; /*ID for app that open this session*/
 	struct mutex lock;
-	struct pm_qos_request idle_pm_qos; /*avoid low power mode when active*/
+	struct wake_lock wake_lock; /*avoid low power mode when active*/
 	struct pm_qos_request pm_qos_req_list;
 	struct msm_mctl_pp_info pp_info;
 	struct msm_mctl_stats_t stats_info; /*stats pmem info*/
@@ -271,6 +274,12 @@ struct msm_cam_media_controller {
 
 	/*sensor info*/
 	struct msm_camera_sensor_info *sdata;
+
+	/*IOMMU mapped IMEM addresses*/
+	uint32_t ping_imem_y;
+	uint32_t ping_imem_cbcr;
+	uint32_t pong_imem_y;
+	uint32_t pong_imem_cbcr;
 };
 
 /* abstract camera device represents a VFE and connected sensor */
@@ -284,7 +293,8 @@ struct msm_isp_ops {
 		 unsigned int cmd, unsigned long arg);
 	int (*isp_notify)(struct v4l2_subdev *sd,
 		unsigned int notification, void *arg);
-	void (*isp_release)(struct v4l2_subdev *sd);
+	void (*isp_release)(struct msm_cam_media_controller *mctl,
+		struct v4l2_subdev *sd);
 	int (*isp_pp_cmd)(struct msm_cam_media_controller *pmctl,
 		 struct msm_mctl_pp_cmd, void *data);
 

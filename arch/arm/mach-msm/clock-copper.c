@@ -4577,6 +4577,8 @@ static struct measure_clk measure_clk = {
 static struct clk_lookup msm_clocks_copper[] = {
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"msm_otg"),
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-q6v5-lpass"),
+	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-q6v5-mss"),
+	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-mba"),
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil_pronto"),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
@@ -4773,12 +4775,12 @@ static struct clk_lookup msm_clocks_copper[] = {
 	CLK_LOOKUP("ebit_clk", audio_core_lpaif_pcm1_ebit_clk.c, ""),
 	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pcm1_ibit_clk.c, ""),
 
-	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c, ""),
-	CLK_LOOKUP("bus_clk",       mss_bus_q6_clk.c, ""),
+	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c, "pil-q6v5-mss"),
+	CLK_LOOKUP("bus_clk",       mss_bus_q6_clk.c, "pil-q6v5-mss"),
+	CLK_LOOKUP("bus_clk",  gcc_mss_cfg_ahb_clk.c, ""),
+	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c, "pil-q6v5-mss"),
 	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c, "pil-q6v5-lpass"),
 	CLK_LOOKUP("bus_clk",  q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
-	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c, ""),
-	CLK_LOOKUP("bus_clk",  gcc_mss_cfg_ahb_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
 	/* TODO: Remove dummy clocks as soon as they become unnecessary */

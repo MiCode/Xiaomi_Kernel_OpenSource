@@ -53,7 +53,19 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		.name = "sdc_vdd",
 		.high_vol_level = 2950000,
 		.low_vol_level = 2950000,
+		/*
+		 * Normally this is not an always ON regulator. On this
+		 * platform, unfortunately the sd detect line is connected
+		 * to this via esd circuit and so turn this off/on while card
+		 * is not present causes the sd detect line to toggle
+		 * continuously. This is expected to be fixed in the newer
+		 * hardware revisions - maybe once that is done, this can be
+		 * reverted.
+		 */
+		.always_on = 1,
+		.lpm_sup = 1,
 		.hpm_uA = 800000, /* 800mA */
+		.lpm_uA = 9000,
 	}
 };
 

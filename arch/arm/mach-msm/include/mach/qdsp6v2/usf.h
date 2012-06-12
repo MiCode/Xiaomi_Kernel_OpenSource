@@ -68,12 +68,23 @@ enum us_detect_mode_enum {
 #define USF_POINT_EPOS_FORMAT	0
 #define USF_RAW_FORMAT		1
 
+/* Indexes of event types, produced by the calculators */
+#define USF_TSC_EVENT_IND      0
+#define USF_TSC_PTR_EVENT_IND  1
+#define USF_MOUSE_EVENT_IND    2
+#define USF_KEYBOARD_EVENT_IND 3
+#define USF_MAX_EVENT_IND      4
+
 /* Types of events, produced by the calculators */
 #define USF_NO_EVENT 0
-#define USF_TSC_EVENT 1
-#define USF_MOUSE_EVENT 2
-#define USF_KEYBOARD_EVENT 4
-#define USF_ALL_EVENTS (USF_TSC_EVENT | USF_MOUSE_EVENT | USF_KEYBOARD_EVENT)
+#define USF_TSC_EVENT      (1 << USF_TSC_EVENT_IND)
+#define USF_TSC_PTR_EVENT  (1 << USF_TSC_PTR_EVENT_IND)
+#define USF_MOUSE_EVENT    (1 << USF_MOUSE_EVENT_IND)
+#define USF_KEYBOARD_EVENT (1 << USF_KEYBOARD_EVENT_IND)
+#define USF_ALL_EVENTS         (USF_TSC_EVENT |\
+				USF_TSC_PTR_EVENT |\
+				USF_MOUSE_EVENT |\
+				USF_KEYBOARD_EVENT)
 
 /* min, max array dimension */
 #define MIN_MAX_DIM 2
@@ -152,9 +163,6 @@ struct us_rx_info_type {
 	/* Info specific for RX*/
 };
 
-
-#define	USF_PIX_COORDINATE  0 /* unit is pixel */
-#define	USF_CMM_COORDINATE  1 /* unit is 0.01 mm */
 struct point_event_type {
 /* Pen coordinates (x, y, z) in units, defined by <coordinates_type>  */
 	int coordinates[COORDINATES_DIM];
@@ -162,8 +170,6 @@ struct point_event_type {
 	int inclinations[TILTS_DIM];
 /* [0-1023] (10bits); 0 - pen up */
 	uint32_t pressure;
-/* 0 - mapped in the display pixel. 1 - raw in 0.01 mm (only for log); */
-	uint8_t coordinates_type;
 };
 
 /* Mouse buttons, supported by USF */
@@ -189,8 +195,8 @@ struct usf_event_type {
 	uint32_t seq_num;
 /* Event generation system time */
 	uint32_t timestamp;
-/* Destination input event type (e.g. touch screen, mouse, key) */
-	uint16_t event_type;
+/* Destination input event type index (e.g. touch screen, mouse, key) */
+	uint16_t event_type_ind;
 	union {
 		struct point_event_type point_event;
 		struct mouse_event_type mouse_event;

@@ -20,14 +20,13 @@
 #include <linux/videodev2.h>
 #include <linux/proc_fs.h>
 #include <linux/vmalloc.h>
+#include <linux/wakelock.h>
 
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-device.h>
 
 #include <linux/android_pmem.h>
-
-#include <mach/cpuidle.h>
 
 #include "msm.h"
 #include "msm_cam_server.h"
@@ -570,8 +569,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	/* open sub devices - once only*/
 	if (!p_mctl->opencnt) {
 		uint32_t csid_version;
-		pm_qos_update_request(&p_mctl->idle_pm_qos,
-				      msm_cpuidle_get_deep_idle_latency());
+		wake_lock(&p_mctl->wake_lock);
 
 		csid_core = camdev->csid_core;
 		rc = msm_mctl_register_subdevs(p_mctl, csid_core);
@@ -667,12 +665,11 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			}
 		}
 
-		if (camdev->is_ispif) {
-			pm_qos_add_request(&p_mctl->pm_qos_req_list,
-				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-			pm_qos_update_request(&p_mctl->pm_qos_req_list,
-				MSM_V4L2_SWFI_LATENCY);
-		}
+		pm_qos_add_request(&p_mctl->pm_qos_req_list,
+			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		pm_qos_update_request(&p_mctl->pm_qos_req_list,
+			MSM_V4L2_SWFI_LATENCY);
+
 		p_mctl->apps_id = apps_id;
 		p_mctl->opencnt++;
 	} else {
@@ -694,7 +691,7 @@ vpe_init_failed:
 			pr_err("%s: axi release failed %d\n", __func__, rc);
 axi_init_failed:
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
-		p_mctl->isp_sdev->isp_release(p_mctl->isp_sdev->sd);
+		p_mctl->isp_sdev->isp_release(p_mctl, p_mctl->isp_sdev->sd);
 isp_open_failed:
 	if (camdev->is_csic)
 		if (v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
@@ -720,7 +717,7 @@ act_power_up_failed:
 		pr_err("%s: sensor powerdown failed: %d\n", __func__, rc);
 sensor_sdev_failed:
 register_sdev_failed:
-	pm_qos_update_request(&p_mctl->idle_pm_qos, PM_QOS_DEFAULT_VALUE);
+	wake_unlock(&p_mctl->wake_lock);
 	mutex_unlock(&p_mctl->lock);
 	return rc;
 }
@@ -757,7 +754,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	}
 
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
-		p_mctl->isp_sdev->isp_release(
+		p_mctl->isp_sdev->isp_release(p_mctl,
 			p_mctl->isp_sdev->sd);
 
 	if (camdev->is_csid) {
@@ -770,18 +767,16 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 	}
 
-	if (camdev->is_ispif) {
-		pm_qos_update_request(&p_mctl->pm_qos_req_list,
-				PM_QOS_DEFAULT_VALUE);
-		pm_qos_remove_request(&p_mctl->pm_qos_req_list);
-	}
-
 	if (p_mctl->act_sdev)
 		v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);
 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
 
-	pm_qos_update_request(&p_mctl->idle_pm_qos, PM_QOS_DEFAULT_VALUE);
+	pm_qos_update_request(&p_mctl->pm_qos_req_list,
+				PM_QOS_DEFAULT_VALUE);
+	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
+
+	wake_unlock(&p_mctl->wake_lock);
 	return rc;
 }
 
@@ -865,8 +860,7 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 		return -EINVAL;
 	}
 
-	pm_qos_add_request(&pmctl->idle_pm_qos, PM_QOS_CPU_DMA_LATENCY,
-				PM_QOS_DEFAULT_VALUE);
+	wake_lock_init(&pmctl->wake_lock, WAKE_LOCK_SUSPEND, "msm_camera");
 	mutex_init(&pmctl->lock);
 	pmctl->opencnt = 0;
 
@@ -906,7 +900,7 @@ int msm_mctl_free(struct msm_cam_v4l2_device *pcam)
 	}
 
 	mutex_destroy(&pmctl->lock);
-	pm_qos_remove_request(&pmctl->idle_pm_qos);
+	wake_lock_destroy(&pmctl->wake_lock);
 	msm_cam_server_free_mctl(pcam->mctl_handle);
 	return rc;
 }
