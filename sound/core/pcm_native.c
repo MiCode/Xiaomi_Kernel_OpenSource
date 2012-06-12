@@ -2914,7 +2914,7 @@ static long snd_pcm_capture_ioctl(struct file *file, unsigned int cmd,
 
 	pcm_file = file->private_data;
 
-	if (((cmd >> 8) & 0xff) != 'A')
+	if ((((cmd >> 8) & 0xff) != 'A') && (((cmd >> 8) & 0xff) != 'C'))
 		return -ENOTTY;
 
 	return snd_pcm_capture_ioctl1(file, pcm_file->substream, cmd,
