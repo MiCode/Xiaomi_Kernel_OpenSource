@@ -1143,7 +1143,7 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 	reg->set_active = !!(val & RPM_SET_CONFIG_ACTIVE);
 	reg->set_sleep = !!(val & RPM_SET_CONFIG_SLEEP);
 
-	init_data = of_get_regulator_init_data(dev);
+	init_data = of_get_regulator_init_data(dev, node);
 	if (init_data == NULL) {
 		dev_err(dev, "%s: unable to allocate memory\n", __func__);
 		rc = -ENOMEM;
