@@ -367,7 +367,7 @@ static const char * const vfe31_general_cmd[] = {
 
 static void vfe31_stop(void)
 {
-
+	uint8_t  axiBusyFlag = true;
 	unsigned long flags;
 
 	atomic_set(&vfe31_ctrl->vstate, 0);
@@ -397,52 +397,6 @@ static void vfe31_stop(void)
 	 * at any time. stop camif immediately. */
 	msm_camera_io_w_mb(CAMIF_COMMAND_STOP_IMMEDIATELY,
 		vfe31_ctrl->vfebase + VFE_CAMIF_COMMAND);
-}
-
-void axi_start(void)
-{
-	switch (vfe31_ctrl->operation_mode) {
-	case VFE_OUTPUTS_PREVIEW:
-	case VFE_OUTPUTS_PREVIEW_AND_VIDEO:
-		if (vfe31_ctrl->outpath.output_mode &
-			VFE31_OUTPUT_MODE_PRIMARY) {
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch0]);
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch1]);
-		} else if (vfe31_ctrl->outpath.output_mode &
-			VFE31_OUTPUT_MODE_PRIMARY_ALL_CHNLS) {
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch0]);
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch1]);
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch2]);
-		}
-		break;
-	default:
-		if (vfe31_ctrl->outpath.output_mode &
-			VFE31_OUTPUT_MODE_SECONDARY) {
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch0]);
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch1]);
-		} else if (vfe31_ctrl->outpath.output_mode &
-			VFE31_OUTPUT_MODE_SECONDARY_ALL_CHNLS) {
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch0]);
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch1]);
-			msm_camera_io_w(1, vfe31_ctrl->vfebase +
-			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch2]);
-		}
-		break;
-	}
-}
-
-void axi_stop(void)
-{
-	uint8_t  axiBusyFlag = true;
 	/* axi halt command. */
 	msm_camera_io_w(AXI_HALT,
 		vfe31_ctrl->vfebase + VFE_AXI_CMD);
@@ -999,6 +953,43 @@ static int vfe31_start(struct msm_cam_media_controller *pmctl)
 	}
 	msm_camera_io_w(irq_comp_mask, vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 
+	switch (vfe31_ctrl->operation_mode) {
+	case VFE_OUTPUTS_PREVIEW:
+	case VFE_OUTPUTS_PREVIEW_AND_VIDEO:
+		if (vfe31_ctrl->outpath.output_mode &
+			VFE31_OUTPUT_MODE_PRIMARY) {
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch0]);
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch1]);
+		} else if (vfe31_ctrl->outpath.output_mode &
+			VFE31_OUTPUT_MODE_PRIMARY_ALL_CHNLS) {
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch0]);
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch1]);
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out0.ch2]);
+		}
+		break;
+	default:
+		if (vfe31_ctrl->outpath.output_mode &
+			VFE31_OUTPUT_MODE_SECONDARY) {
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch0]);
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch1]);
+		} else if (vfe31_ctrl->outpath.output_mode &
+			VFE31_OUTPUT_MODE_SECONDARY_ALL_CHNLS) {
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch0]);
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch1]);
+			msm_camera_io_w(1, vfe31_ctrl->vfebase +
+			vfe31_AXI_WM_CFG[vfe31_ctrl->outpath.out1.ch2]);
+		}
+		break;
+	}
 	msm_camio_bus_scale_cfg(
 		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	vfe31_start_common();
@@ -3582,11 +3573,11 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 
 	case CMD_AXI_START:
-		axi_start();
+		/* No need to decouple AXI/VFE for VFE3.1*/
 		break;
 
 	case CMD_AXI_STOP:
-		axi_stop();
+		/* No need to decouple AXI/VFE for VFE3.1*/
 		break;
 
 	default:
