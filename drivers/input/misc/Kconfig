@@ -687,4 +687,11 @@ config INPUT_PMIC8058_VIBRA_MEMLESS
 	  To compile this driver as module, choose M here: the
 	  module will be called pmic8058-vib-memless.
 
+config STM_LIS3DH
+        tristate "STM LIS3DH acceleration sensor support"
+        depends on I2C=y
+        help
+          If you say yes here you get support for STMicroelectronics's
+          acceleration sensors LIS3DH.
+
 endif
