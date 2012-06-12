@@ -363,64 +363,6 @@ unsigned long allocate_contiguous_ebi_nomap(unsigned long size,
 }
 EXPORT_SYMBOL(allocate_contiguous_ebi_nomap);
 
-/* emulation of the deprecated pmem_kalloc and pmem_kfree */
-int32_t pmem_kalloc(const size_t size, const uint32_t flags)
-{
-	int pmem_memtype;
-	int memtype = MEMTYPE_NONE;
-	int ebi1_memtype = MEMTYPE_EBI1;
-	unsigned int align;
-	int32_t paddr;
-
-	switch (flags & PMEM_ALIGNMENT_MASK) {
-	case PMEM_ALIGNMENT_4K:
-		align = SZ_4K;
-		break;
-	case PMEM_ALIGNMENT_1M:
-		align = SZ_1M;
-		break;
-	default:
-		pr_alert("Invalid alignment %x\n",
-			(flags & PMEM_ALIGNMENT_MASK));
-		return -EINVAL;
-	}
-
-	/* on 7x30 and 8x55 "EBI1 kernel PMEM" is really on EBI0 */
-	if (cpu_is_msm7x30() || cpu_is_msm8x55())
-			ebi1_memtype = MEMTYPE_EBI0;
-
-	pmem_memtype = flags & PMEM_MEMTYPE_MASK;
-	if (pmem_memtype == PMEM_MEMTYPE_EBI1)
-		memtype = ebi1_memtype;
-	else if (pmem_memtype == PMEM_MEMTYPE_SMI)
-		memtype = MEMTYPE_SMI_KERNEL;
-	else {
-		pr_alert("Invalid memory type %x\n",
-			flags & PMEM_MEMTYPE_MASK);
-		return -EINVAL;
-	}
-
-	paddr = _allocate_contiguous_memory_nomap(size, memtype, align,
-		__builtin_return_address(0));
-
-	if (!paddr && pmem_memtype == PMEM_MEMTYPE_SMI)
-		paddr = _allocate_contiguous_memory_nomap(size,
-			ebi1_memtype, align, __builtin_return_address(0));
-
-	if (!paddr)
-		return -ENOMEM;
-	return paddr;
-}
-EXPORT_SYMBOL(pmem_kalloc);
-
-int pmem_kfree(const int32_t physaddr)
-{
-	free_contiguous_memory_by_paddr(physaddr);
-
-	return 0;
-}
-EXPORT_SYMBOL(pmem_kfree);
-
 unsigned int msm_ttbr0;
 
 void store_ttbr0(void)
