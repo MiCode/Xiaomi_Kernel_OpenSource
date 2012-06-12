@@ -278,6 +278,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			case ADM_CMD_MEMORY_UNMAP_REGIONS:
 			case ADM_CMD_MATRIX_MAP_ROUTINGS:
 			case ADM_CMD_CONNECT_AFE_PORT:
+			case ADM_CMD_DISCONNECT_AFE_PORT:
 				atomic_set(&this_adm.copp_stat[index], 1);
 				wake_up(&this_adm.wait);
 				break;
@@ -516,6 +517,76 @@ int adm_connect_afe_port(int mode, int session_id, int port_id)
 		goto fail_cmd;
 	}
 	atomic_inc(&this_adm.copp_cnt[index]);
+	return 0;
+
+fail_cmd:
+
+	return ret;
+}
+
+int adm_disconnect_afe_port(int mode, int session_id, int port_id)
+{
+	struct adm_cmd_connect_afe_port	cmd;
+	int ret = 0;
+	int index;
+
+	pr_debug("%s: port %d session id:%d mode:%d\n", __func__,
+				port_id, session_id, mode);
+
+	port_id = afe_convert_virtual_to_portid(port_id);
+
+	if (afe_validate_port(port_id) < 0) {
+		pr_err("%s port idi[%d] is invalid\n", __func__, port_id);
+		return -ENODEV;
+	}
+	if (this_adm.apr == NULL) {
+		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
+						0xFFFFFFFF, &this_adm);
+		if (this_adm.apr == NULL) {
+			pr_err("%s: Unable to register ADM\n", __func__);
+			ret = -ENODEV;
+			return ret;
+		}
+		rtac_set_adm_handle(this_adm.apr);
+	}
+	index = afe_get_port_index(port_id);
+	pr_debug("%s: Port ID %d, index %d\n", __func__, port_id, index);
+
+	cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cmd.hdr.pkt_size = sizeof(cmd);
+	cmd.hdr.src_svc = APR_SVC_ADM;
+	cmd.hdr.src_domain = APR_DOMAIN_APPS;
+	cmd.hdr.src_port = port_id;
+	cmd.hdr.dest_svc = APR_SVC_ADM;
+	cmd.hdr.dest_domain = APR_DOMAIN_ADSP;
+	cmd.hdr.dest_port = port_id;
+	cmd.hdr.token = port_id;
+	cmd.hdr.opcode = ADM_CMD_DISCONNECT_AFE_PORT;
+
+	cmd.mode = mode;
+	cmd.session_id = session_id;
+	cmd.afe_port_id = port_id;
+
+	atomic_set(&this_adm.copp_stat[index], 0);
+	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&cmd);
+	if (ret < 0) {
+		pr_err("%s:ADM enable for port %d failed\n",
+					__func__, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	/* Wait for the callback with copp id */
+	ret = wait_event_timeout(this_adm.wait,
+		atomic_read(&this_adm.copp_stat[index]),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s ADM connect AFE failed for port %d\n", __func__,
+							port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	atomic_dec(&this_adm.copp_cnt[index]);
 	return 0;
 
 fail_cmd:
