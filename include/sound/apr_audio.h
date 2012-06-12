@@ -1176,6 +1176,7 @@ struct asm_stream_cmd_open_read_write {
 } __attribute__((packed));
 
 #define ADM_CMD_CONNECT_AFE_PORT 0x00010320
+#define ADM_CMD_DISCONNECT_AFE_PORT 0x00010321
 
 struct adm_cmd_connect_afe_port {
 	struct apr_hdr     hdr;
