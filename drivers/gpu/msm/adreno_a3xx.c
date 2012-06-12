@@ -2558,11 +2558,6 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	/* Reset the core */
-	adreno_regwrite(device, A3XX_RBBM_SW_RESET_CMD,
-		0x00000001);
-	msleep(20);
-
 	/* Set up 16 deep read/write request queues */
 
 	adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010);
