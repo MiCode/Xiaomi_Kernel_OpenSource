@@ -238,7 +238,7 @@ int __init msm_spm_l2_init(struct msm_spm_platform_data *data)
 }
 #endif
 
-static int __init msm_spm_dev_probe(struct platform_device *pdev)
+static int __devinit msm_spm_dev_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int cpu = 0;
@@ -374,12 +374,12 @@ fail:
 	return -EFAULT;
 }
 
-static __initdata struct of_device_id msm_spm_match_table[] = {
+static struct of_device_id msm_spm_match_table[] = {
 	{.compatible = "qcom,spm-v2"},
 	{},
 };
 
-static __initdata struct platform_driver msm_spm_device_driver = {
+static struct platform_driver msm_spm_device_driver = {
 	.probe = msm_spm_dev_probe,
 	.driver = {
 		.name = "spm-v2",
