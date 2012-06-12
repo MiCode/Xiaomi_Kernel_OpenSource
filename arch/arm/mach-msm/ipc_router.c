@@ -2023,7 +2023,7 @@ int msm_ipc_router_bind_control_port(struct msm_ipc_port *port_ptr)
 }
 
 int msm_ipc_router_lookup_server_name(struct msm_ipc_port_name *srv_name,
-				struct msm_ipc_port_addr *srv_addr,
+				struct msm_ipc_server_info *srv_info,
 				int num_entries_in_array,
 				uint32_t lookup_mask)
 {
@@ -2036,8 +2036,8 @@ int msm_ipc_router_lookup_server_name(struct msm_ipc_port_name *srv_name,
 		return -EINVAL;
 	}
 
-	if (num_entries_in_array && !srv_addr) {
-		pr_err("%s: srv_addr NULL\n", __func__);
+	if (num_entries_in_array && !srv_info) {
+		pr_err("%s: srv_info NULL\n", __func__);
 		return -EINVAL;
 	}
 
@@ -2054,10 +2054,14 @@ int msm_ipc_router_lookup_server_name(struct msm_ipc_port_name *srv_name,
 			list_for_each_entry(server_port,
 				&server->server_port_list, list) {
 				if (i < num_entries_in_array) {
-					srv_addr[i].node_id =
+					srv_info[i].node_id =
 					  server_port->server_addr.node_id;
-					srv_addr[i].port_id =
+					srv_info[i].port_id =
 					  server_port->server_addr.port_id;
+					srv_info[i].service =
+					  server->name.service;
+					srv_info[i].instance =
+					  server->name.instance;
 				}
 				i++;
 			}

@@ -62,12 +62,19 @@ struct sockaddr_msm_ipc {
 #define IPC_ROUTER_IOCTL_BIND_CONTROL_PORT \
 	_IOR(IPC_ROUTER_IOCTL_MAGIC, 4, unsigned int)
 
+struct msm_ipc_server_info {
+	uint32_t node_id;
+	uint32_t port_id;
+	uint32_t service;
+	uint32_t instance;
+};
+
 struct server_lookup_args {
 	struct msm_ipc_port_name port_name;
 	int num_entries_in_array;
 	int num_entries_found;
 	uint32_t lookup_mask;
-	struct msm_ipc_port_addr port_addr[0];
+	struct msm_ipc_server_info srv_info[0];
 };
 
 #endif
