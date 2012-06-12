@@ -737,6 +737,9 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		cnt++;
 	}
 	ac->port[dir].max_buf_cnt = cnt;
+
+	pr_debug("%s ac->port[%d].max_buf_cnt[%d]\n", __func__, dir,
+			 ac->port[dir].max_buf_cnt);
 	mutex_unlock(&ac->cmd_lock);
 	rc = q6asm_memory_map(ac, buf[0].phys, dir, bufsz, cnt);
 	if (rc < 0) {
@@ -857,6 +860,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_DATA_CMD_MEDIA_FORMAT_UPDATE:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 		case ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED:
+		case ASM_STREAM_CMD_OPEN_READ_COMPRESSED:
 			if (atomic_read(&ac->cmd_state)) {
 				atomic_set(&ac->cmd_state, 0);
 				wake_up(&ac->cmd_wait);
@@ -1253,6 +1257,42 @@ int q6asm_open_read(struct audio_client *ac,
 	if (!rc) {
 		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
 			rc);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_open_read_compressed(struct audio_client *ac, uint32_t format)
+{
+	int rc = 0x00;
+	struct asm_stream_cmd_open_read_compressed open;
+#ifdef CONFIG_DEBUG_FS
+	in_cont_index = 0;
+#endif
+	if ((ac == NULL) || (ac->apr == NULL)) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("%s:session[%d]", __func__, ac->session);
+
+	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
+	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READ_COMPRESSED;
+	/* hardcoded as following*/
+	open.frame_per_buf = 1;
+	open.uMode = 0;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
+	if (rc < 0) {
+		pr_err("open failed op[0x%x]rc[%d]\n", open.hdr.opcode, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+		(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout. waited for OPEN_READ_COMPRESSED rc[%d]\n",
+				 __func__, rc);
 		goto fail_cmd;
 	}
 	return 0;

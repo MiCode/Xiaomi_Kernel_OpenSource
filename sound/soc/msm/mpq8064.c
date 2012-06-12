@@ -850,7 +850,7 @@ static int msm_mi2s_free_gpios(void)
 static void msm_mi2s_shutdown(struct snd_pcm_substream *substream)
 {
 	if (mi2s_bit_clk) {
-		clk_disable(mi2s_bit_clk);
+		clk_disable_unprepare(mi2s_bit_clk);
 		clk_put(mi2s_bit_clk);
 		mi2s_bit_clk = NULL;
 	}
@@ -892,7 +892,7 @@ static int msm_mi2s_startup(struct snd_pcm_substream *substream)
 	if (IS_ERR(mi2s_bit_clk))
 		return PTR_ERR(mi2s_bit_clk);
 	clk_set_rate(mi2s_bit_clk, 0);
-	ret = clk_enable(mi2s_bit_clk);
+	ret = clk_prepare_enable(mi2s_bit_clk);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("Unable to enable mi2s_bit_clk\n");
 		clk_put(mi2s_bit_clk);
