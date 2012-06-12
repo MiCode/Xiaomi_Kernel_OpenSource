@@ -1286,6 +1286,12 @@ int adreno_idle(struct kgsl_device *device, unsigned int timeout)
 
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
+	/* Restrict timeout value between adreno_dev->wait_timeout and 0 */
+	if ((timeout == 0) || (timeout > adreno_dev->wait_timeout))
+		msecs = adreno_dev->wait_timeout;
+	else
+		msecs = timeout;
+
 	kgsl_cffdump_regpoll(device->id,
 		adreno_dev->gpudev->reg_rbbm_status << 2,
 		0x00000000, 0x80000000);
@@ -1294,7 +1300,6 @@ int adreno_idle(struct kgsl_device *device, unsigned int timeout)
 	 */
 retry:
 	if (rb->flags & KGSL_FLAGS_STARTED) {
-		msecs = adreno_dev->wait_timeout;
 		msecs_first = (msecs <= 100) ? ((msecs + 4) / 5) : 100;
 		wait_time = jiffies + wait_timeout;
 		wait_time_part = jiffies + msecs_to_jiffies(msecs_first);
