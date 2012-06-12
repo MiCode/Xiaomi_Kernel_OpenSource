@@ -76,6 +76,7 @@ struct smd_pkt_dev {
 	struct wake_lock pa_wake_lock;		/* Packet Arrival Wake lock*/
 	struct work_struct packet_arrival_work;
 	struct spinlock pa_spinlock;
+	int wakelock_locked;
 } *smd_pkt_devp[NUM_SMD_PKT_PORTS];
 
 struct class *smd_pkt_classp;
@@ -233,16 +234,19 @@ static void loopback_probe_worker(struct work_struct *work)
 static void packet_arrival_worker(struct work_struct *work)
 {
 	struct smd_pkt_dev *smd_pkt_devp;
+	unsigned long flags;
 
 	smd_pkt_devp = container_of(work, struct smd_pkt_dev,
 				    packet_arrival_work);
 	mutex_lock(&smd_pkt_devp->ch_lock);
-	if (smd_pkt_devp->ch) {
+	spin_lock_irqsave(&smd_pkt_devp->pa_spinlock, flags);
+	if (smd_pkt_devp->ch && smd_pkt_devp->wakelock_locked) {
 		D_READ("%s locking smd_pkt_dev id:%d wakelock\n",
 			__func__, smd_pkt_devp->i);
 		wake_lock_timeout(&smd_pkt_devp->pa_wake_lock,
 				  WAKELOCK_TIMEOUT);
 	}
+	spin_unlock_irqrestore(&smd_pkt_devp->pa_spinlock, flags);
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 }
 
@@ -398,6 +402,7 @@ wait_for_packet:
 	if (smd_pkt_devp->poll_mode &&
 	    !smd_cur_packet_size(smd_pkt_devp->ch)) {
 		wake_unlock(&smd_pkt_devp->pa_wake_lock);
+		smd_pkt_devp->wakelock_locked = 0;
 		smd_pkt_devp->poll_mode = 0;
 		D_READ("%s unlocked smd_pkt_dev id:%d wakelock\n",
 			__func__, smd_pkt_devp->i);
@@ -570,10 +575,11 @@ static void check_and_wakeup_reader(struct smd_pkt_dev *smd_pkt_devp)
 	}
 
 	/* here we have a packet of size sz ready */
-	wake_up(&smd_pkt_devp->ch_read_wait_queue);
 	spin_lock_irqsave(&smd_pkt_devp->pa_spinlock, flags);
 	wake_lock(&smd_pkt_devp->pa_wake_lock);
+	smd_pkt_devp->wakelock_locked = 1;
 	spin_unlock_irqrestore(&smd_pkt_devp->pa_spinlock, flags);
+	wake_up(&smd_pkt_devp->ch_read_wait_queue);
 	schedule_work(&smd_pkt_devp->packet_arrival_work);
 	D_READ("%s: wake_up smd_pkt_dev id:%d\n", __func__, smd_pkt_devp->i);
 }
@@ -907,6 +913,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 
 	smd_pkt_devp->has_reset = 0;
 	smd_pkt_devp->do_reset_notification = 0;
+	smd_pkt_devp->wakelock_locked = 0;
 	wake_lock_destroy(&smd_pkt_devp->pa_wake_lock);
 	D_STATUS("Finished %s on smd_pkt_dev id:%d\n",
 		 __func__, smd_pkt_devp->i);
@@ -962,6 +969,7 @@ static int __init smd_pkt_init(void)
 		init_waitqueue_head(&smd_pkt_devp[i]->ch_write_wait_queue);
 		smd_pkt_devp[i]->is_open = 0;
 		smd_pkt_devp[i]->poll_mode = 0;
+		smd_pkt_devp[i]->wakelock_locked = 0;
 		init_waitqueue_head(&smd_pkt_devp[i]->ch_opened_wait_queue);
 
 		spin_lock_init(&smd_pkt_devp[i]->pa_spinlock);
