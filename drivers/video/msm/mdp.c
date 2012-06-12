@@ -914,6 +914,7 @@ int mdp_histogram_start(struct mdp_histogram_start_req *req)
 		goto error;
 	}
 
+	mutex_lock(&mgmt->mdp_do_hist_mutex);
 	mutex_lock(&mgmt->mdp_hist_mutex);
 	if (mgmt->mdp_is_hist_start == TRUE) {
 		pr_err("%s histogram already started\n", __func__);
@@ -933,6 +934,7 @@ int mdp_histogram_start(struct mdp_histogram_start_req *req)
 
 error_lock:
 	mutex_unlock(&mgmt->mdp_hist_mutex);
+	mutex_unlock(&mgmt->mdp_do_hist_mutex);
 error:
 	return ret;
 }
@@ -949,6 +951,7 @@ int mdp_histogram_stop(struct fb_info *info, uint32_t block)
 		goto error;
 	}
 
+	mutex_lock(&mgmt->mdp_do_hist_mutex);
 	mutex_lock(&mgmt->mdp_hist_mutex);
 	if (mgmt->mdp_is_hist_start == FALSE) {
 		pr_err("%s histogram already stopped\n", __func__);
@@ -969,10 +972,12 @@ int mdp_histogram_stop(struct fb_info *info, uint32_t block)
 
 	mutex_unlock(&mgmt->mdp_hist_mutex);
 	cancel_work_sync(&mgmt->mdp_histogram_worker);
+	mutex_unlock(&mgmt->mdp_do_hist_mutex);
 	return ret;
 
 error_lock:
 	mutex_unlock(&mgmt->mdp_hist_mutex);
+	mutex_unlock(&mgmt->mdp_do_hist_mutex);
 error:
 	return ret;
 }
@@ -1168,11 +1173,13 @@ err:
 	return ret;
 }
 
+#define MDP_HISTOGRAM_TIMEOUT_MS	84 /*5 Frames*/
 static int mdp_do_histogram(struct fb_info *info,
 					struct mdp_histogram_data *hist)
 {
 	struct mdp_hist_mgmt *mgmt = NULL;
 	int ret = 0;
+	unsigned long timeout = (MDP_HISTOGRAM_TIMEOUT_MS * HZ) / 1000;
 
 	ret = mdp_histogram_block2mgmt(hist->block, &mgmt);
 	if (ret) {
@@ -1217,9 +1224,17 @@ static int mdp_do_histogram(struct fb_info *info,
 	mgmt->hist = hist;
 	mutex_unlock(&mgmt->mdp_hist_mutex);
 
-	if (wait_for_completion_killable(&mgmt->mdp_hist_comp)) {
-		pr_err("%s(): histogram bin collection killed", __func__);
-		ret = -EINVAL;
+	ret = wait_for_completion_killable_timeout(&mgmt->mdp_hist_comp,
+								timeout);
+	if (ret <= 0) {
+		if (!ret) {
+			mgmt->hist = NULL;
+			ret = -ETIMEDOUT;
+			pr_debug("%s: bin collection timedout", __func__);
+		} else {
+			mgmt->hist = NULL;
+			pr_debug("%s: bin collection interrupted", __func__);
+		}
 		goto error;
 	}
 
