@@ -1768,14 +1768,43 @@ int q6asm_enc_cfg_blk_multi_ch_pcm(struct audio_client *ac,
 	enc_cfg.enc_blk.cfg.mpcm.sample_rate = rate;
 	enc_cfg.enc_blk.cfg.mpcm.is_signed = 1;
 	enc_cfg.enc_blk.cfg.mpcm.is_interleaved = 1;
-	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[0] = PCM_CHANNEL_FL;
-	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[1] = PCM_CHANNEL_FR;
-	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[2] = PCM_CHANNEL_RB;
-	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[3] = PCM_CHANNEL_LB;
-	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[4] = 0;
-	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[5] = 0;
-	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[6] = 0;
-	enc_cfg.enc_blk.cfg.mpcm.channel_mapping[7] = 0;
+	if (channels == 2) {
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[0] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[1] = PCM_CHANNEL_FR;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[2] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[3] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[4] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[5] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[6] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[7] = 0;
+	} else if (channels == 4) {
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[0] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[1] = PCM_CHANNEL_FR;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[2] = PCM_CHANNEL_RB;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[3] = PCM_CHANNEL_LB;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[4] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[5] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[6] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[7] = 0;
+	} else if (channels == 6) {
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[0] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[1] = PCM_CHANNEL_FR;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[2] = PCM_CHANNEL_LFE;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[3] = PCM_CHANNEL_FC;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[4] = PCM_CHANNEL_LB;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[5] = PCM_CHANNEL_RB;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[6] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[7] = 0;
+	} else if (channels == 8) {
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[0] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[1] = PCM_CHANNEL_FR;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[2] = PCM_CHANNEL_LFE;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[3] = PCM_CHANNEL_FC;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[4] = PCM_CHANNEL_LB;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[5] = PCM_CHANNEL_RB;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[6] = PCM_CHANNEL_FLC;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[7] = PCM_CHANNEL_FRC;
+	}
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
 	if (rc < 0) {
