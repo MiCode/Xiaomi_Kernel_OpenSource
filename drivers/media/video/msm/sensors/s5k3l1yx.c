@@ -80,7 +80,7 @@ static struct msm_camera_i2c_reg_conf s5k3l1yx_prev_settings[] = {
 	{0x0202, 0x06}, /* coarse_integration_time */
 	{0x0203, 0x00}, /* coarse_integration_time */
 	{0x0340, 0x09}, /* frame_length_lines */
-	{0x0341, 0x98}, /* frame_length_lines */
+	{0x0341, 0x6C}, /* frame_length_lines */
 	{0x0342, 0x11}, /* line_length_pck */
 	{0x0343, 0x80}, /* line_length_pck */
 	{0x0344, 0x00}, /* x_addr_start */
@@ -489,7 +489,7 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 		.x_output = 1984,
 		.y_output = 1508,
 		.line_length_pclk = 4480,
-		.frame_length_lines = 2456,
+		.frame_length_lines = 2412,
 		.vt_pixel_clk = 330000000,
 		.op_pixel_clk = 320000000,
 		.binning_factor = 1,
