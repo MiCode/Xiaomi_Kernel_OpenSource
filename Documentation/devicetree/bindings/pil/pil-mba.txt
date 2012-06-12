@@ -12,6 +12,7 @@ Required properties:
 		      the primary modem image metadata should be stored.
 - reg-names:	      Names for the above base addresses. "rmb_base" and
 	              "metadata_base" are expected.
+- interrupts:         The modem watchdog interrupt
 - qcom,firmware-name: Base name of the firmware image. Ex. "modem"
 
 Optional properties:
@@ -24,6 +25,7 @@ Example:
 		reg = <0xfc820000 0x0020>,
 		      <0x0d1f0000 0x4000>;
 		reg-names = "rmb_base", "metadata_base";
+		interrupts = <0 56 1>;
 
 		qcom,firmware-name = "modem";
 		qcom,depends-on    = "mba";

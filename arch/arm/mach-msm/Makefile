@@ -207,7 +207,6 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += ramdump.o
 endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
-obj-$(CONFIG_MSM_MODEM_SSR_8974) += modem-ssr-8974.o
 obj-$(CONFIG_MSM_ADSP_SSR_8974) += adsp-8974.o
 obj-$(CONFIG_MSM_WCNSS_SSR_8974) += wcnss-ssr-8974.o
 
