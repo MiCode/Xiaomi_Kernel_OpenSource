@@ -21,7 +21,6 @@
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
-#include <sound/soc-dsp.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
 #include <asm/mach-types.h>
@@ -123,8 +122,8 @@ static void msm_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 		}
 		ret = pm8xxx_gpio_config(bottom_spk_pamp_gpio, &param);
 		if (ret)
-			pr_err("%s: Failed to configure Bottom Spk Ampl"
-				" gpio %u\n", __func__, bottom_spk_pamp_gpio);
+			pr_err("%s: Failed to configure Bottom Spk Ampl gpio %u\n",
+				__func__, bottom_spk_pamp_gpio);
 		else {
 			pr_debug("%s: enable Bottom spkr amp gpio\n", __func__);
 			gpio_direction_output(bottom_spk_pamp_gpio, 1);
@@ -140,15 +139,15 @@ static void msm_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 		}
 		ret = pm8xxx_gpio_config(top_spk_pamp_gpio, &param);
 		if (ret)
-			pr_err("%s: Failed to configure Top Spk Ampl"
-				" gpio %u\n", __func__, top_spk_pamp_gpio);
+			pr_err("%s: Failed to configure Top Spk Ampl gpio %u\n",
+				__func__, top_spk_pamp_gpio);
 		else {
 			pr_debug("%s: enable Top spkr amp gpio\n", __func__);
 			gpio_direction_output(top_spk_pamp_gpio, 1);
 		}
 	} else {
-		pr_err("%s: ERROR : Invalid External Speaker Ampl GPIO."
-			" gpio = %u\n", __func__, spk_amp_gpio);
+		pr_err("%s: ERROR : Invalid External Speaker Ampl GPIO. gpio = %u\n",
+			__func__, spk_amp_gpio);
 		return;
 	}
 }
@@ -160,8 +159,8 @@ static void msm_ext_spk_power_amp_on(u32 spk)
 		if ((msm_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
 			(msm_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
 
-			pr_debug("%s() External Bottom Speaker Ampl already "
-				"turned on. spk = 0x%08x\n", __func__, spk);
+			pr_debug("%s() External Bottom Speaker Ampl already turned on. spk = 0x%08x\n",
+						__func__, spk);
 			return;
 		}
 
@@ -171,8 +170,8 @@ static void msm_ext_spk_power_amp_on(u32 spk)
 			(msm_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
 
 			msm_enable_ext_spk_amp_gpio(bottom_spk_pamp_gpio);
-			pr_debug("%s: slepping 4 ms after turning on external "
-				" Bottom Speaker Ampl\n", __func__);
+			pr_debug("%s: slepping 4 ms after turning on external Bottom Speaker Ampl\n",
+							__func__);
 			usleep_range(4000, 4000);
 		}
 
@@ -181,8 +180,8 @@ static void msm_ext_spk_power_amp_on(u32 spk)
 		if ((msm_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
 			(msm_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
 
-			pr_debug("%s() External Top Speaker Ampl already"
-				"turned on. spk = 0x%08x\n", __func__, spk);
+			pr_debug("%s() External Top Speaker Ampl already turned on. spk = 0x%08x\n",
+						__func__, spk);
 			return;
 		}
 
@@ -192,8 +191,8 @@ static void msm_ext_spk_power_amp_on(u32 spk)
 			(msm_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
 
 			msm_enable_ext_spk_amp_gpio(top_spk_pamp_gpio);
-			pr_debug("%s: sleeping 4 ms after turning on "
-				" external Top Speaker Ampl\n", __func__);
+			pr_debug("%s: sleeping 4 ms after turning on external Top Speaker Ampl\n",
+						__func__);
 			usleep_range(4000, 4000);
 		}
 	} else  {
@@ -215,8 +214,8 @@ static void msm_ext_spk_power_amp_off(u32 spk)
 		gpio_free(bottom_spk_pamp_gpio);
 		msm_ext_bottom_spk_pamp = 0;
 
-		pr_debug("%s: sleeping 4 ms after turning off external Bottom"
-			" Speaker Ampl\n", __func__);
+		pr_debug("%s: sleeping 4 ms after turning off external Bottom Speaker Ampl\n",
+					__func__);
 
 		usleep_range(4000, 4000);
 
@@ -229,8 +228,8 @@ static void msm_ext_spk_power_amp_off(u32 spk)
 		gpio_free(top_spk_pamp_gpio);
 		msm_ext_top_spk_pamp = 0;
 
-		pr_debug("%s: sleeping 4 ms after turning off external Top"
-			" Spkaker Ampl\n", __func__);
+		pr_debug("%s: sleeping 4 ms after turning off external Top Spkaker Ampl\n",
+					__func__);
 
 		usleep_range(4000, 4000);
 	} else  {
@@ -442,9 +441,9 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"MIC BIAS4 External", NULL, "Digital Mic6"},
 };
 
-static const char *spk_function[] = {"Off", "On"};
-static const char *slim0_rx_ch_text[] = {"One", "Two"};
-static const char *slim0_tx_ch_text[] = {"One", "Two", "Three", "Four"};
+static const char *const spk_function[] = {"Off", "On"};
+static const char *const slim0_rx_ch_text[] = {"One", "Two"};
+static const char *const slim0_tx_ch_text[] = {"One", "Two", "Three", "Four"};
 
 static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
@@ -452,7 +451,7 @@ static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
 };
 
-static const char *btsco_rate_text[] = {"8000", "16000"};
+static const char *const btsco_rate_text[] = {"8000", "16000"};
 static const struct soc_enum msm_btsco_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
 };
@@ -537,21 +536,6 @@ static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
 		msm_btsco_rate_get, msm_btsco_rate_put),
 };
 
-static struct snd_soc_dsp_link lpa_fe_media = {
-	.playback = true,
-	.trigger = {
-		SND_SOC_DSP_TRIGGER_POST,
-		SND_SOC_DSP_TRIGGER_POST
-	},
-};
-static struct snd_soc_dsp_link fe_media = {
-	.playback = true,
-	.capture = true,
-	.trigger = {
-		SND_SOC_DSP_TRIGGER_POST,
-		SND_SOC_DSP_TRIGGER_POST
-	},
-};
 static int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
 {
@@ -654,7 +638,13 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.cpu_dai_name	= "MultiMedia1",
 		.platform_name  = "msm-pcm-dsp",
 		.dynamic = 1,
-		.dsp_link = &fe_media,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA1
 	},
 	{
@@ -663,7 +653,13 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.cpu_dai_name	= "MultiMedia3",
 		.platform_name  = "msm-pcm-lpa",
 		.dynamic = 1,
-		.dsp_link = &lpa_fe_media,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA3,
 	},
 
@@ -679,6 +675,8 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
 		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
 		.ops = &msm_auxpcm_be_ops,
+		.ignore_pmdown_time = 1,
+		/* this dainlink has playback support */
 	},
 	{
 		.name = LPASS_BE_AUXPCM_TX,

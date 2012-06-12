@@ -27,7 +27,7 @@
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/android_pmem.h>
-#include <sound/snd_compress_params.h>
+#include <sound/compress_params.h>
 #include <sound/compress_offload.h>
 #include <sound/compress_driver.h>
 #include <sound/timer.h>
@@ -148,8 +148,7 @@ static void event_handler(uint32_t opcode,
 			if (runtime->status->hw_ptr >=
 				runtime->control->appl_ptr)
 				break;
-			pr_debug("%s:writing %d bytes"
-				" of buffer to dsp\n",
+			pr_debug("%s:writing %d bytes of buffer to dsp\n",
 				__func__, prtd->pcm_count);
 			buf = prtd->audio_client->port[IN].buf;
 			param.paddr = (unsigned long)buf[prtd->out_head].phys;
@@ -340,8 +339,8 @@ int lpa_set_volume(unsigned volume)
 	if (lpa_audio.prtd && lpa_audio.prtd->audio_client) {
 		rc = q6asm_set_volume(lpa_audio.prtd->audio_client, volume);
 		if (rc < 0) {
-			pr_err("%s: Send Volume command failed"
-					" rc=%d\n", __func__, rc);
+			pr_err("%s: Send Volume command failed rc=%d\n",
+					__func__, rc);
 		}
 	}
 	lpa_audio.volume = volume;
@@ -461,8 +460,8 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 			runtime->hw.period_bytes_min,
 			runtime->hw.periods_max);
 	if (ret < 0) {
-		pr_err("Audio Start: Buffer Allocation failed "
-					"rc = %d\n", ret);
+		pr_err("Audio Start: Buffer Allocation failed rc = %d\n",
+						ret);
 		return -ENOMEM;
 	}
 	buf = prtd->audio_client->port[dir].buf;
@@ -509,12 +508,9 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 		temp = temp * (runtime->rate/1000);
 		temp = div_u64(temp, 1000);
 		tstamp.sampling_rate = runtime->rate;
-		tstamp.rendered = (size_t)(temp & 0xFFFFFFFF);
-		tstamp.decoded  = (size_t)((temp >> 32) & 0xFFFFFFFF);
 		tstamp.timestamp = timestamp;
-		pr_debug("%s: bytes_consumed:lsb = %d, msb = %d,"
-			"timestamp = %lld,\n",
-			__func__, tstamp.rendered, tstamp.decoded,
+		pr_debug("%s: bytes_consumed:timestamp = %lld,\n",
+					__func__,
 			tstamp.timestamp);
 		if (copy_to_user((void *) arg, &tstamp,
 			sizeof(struct snd_compr_tstamp)))
