@@ -1373,9 +1373,29 @@ static struct resource msm_8960_q6_mss_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	{
+		.start  = 0x08882000,
+		.end    = 0x08882000 + SZ_256 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
 		.start  = 0x08900000,
 		.end    = 0x08900000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = 0x08982000,
+		.end    = 0x08982000 + SZ_256 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = Q6FW_WDOG_EXPIRED_IRQ,
+		.end    = Q6FW_WDOG_EXPIRED_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.start  = Q6SW_WDOG_EXPIRED_IRQ,
+		.end    = Q6SW_WDOG_EXPIRED_IRQ,
+		.flags  = IORESOURCE_IRQ,
 	},
 };
 

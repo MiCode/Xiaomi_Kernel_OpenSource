@@ -35,6 +35,7 @@ struct regulator;
  */
 struct q6v4_data {
 	void __iomem *base;
+	void __iomem *wdog_base;
 	unsigned long start_addr;
 	unsigned long strap_tcm_base;
 	unsigned long strap_ahb_upper;
@@ -43,6 +44,7 @@ struct q6v4_data {
 	void __iomem *jtag_clk_reg;
 	unsigned pas_id;
 	int bus_port;
+	int wdog_irq;
 
 	struct regulator *vreg;
 	struct regulator *pll_supply;
