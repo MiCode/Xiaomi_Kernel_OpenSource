@@ -471,14 +471,6 @@ static struct i2c_board_info wcd9xxx_device_info[] __initdata = {
 	},
 };
 
-static struct i2c_registry msm9615_i2c_devices[] __initdata = {
-	{
-		I2C_SURF | I2C_FFA | I2C_FLUID,
-		MSM_9615_GSBI5_QUP_I2C_BUS_ID,
-		wcd9xxx_device_info,
-		ARRAY_SIZE(wcd9xxx_device_info),
-	},
-};
 /*
  * MDM9x15 I2S.
  */
@@ -560,6 +552,17 @@ static struct slim_device msm_slim_tabla20 = {
 	},
 };
 #endif
+
+static struct i2c_registry msm9615_i2c_devices[] __initdata = {
+#ifdef CONFIG_WCD9310_CODEC
+	{
+		I2C_SURF | I2C_FFA | I2C_FLUID,
+		MSM_9615_GSBI5_QUP_I2C_BUS_ID,
+		wcd9xxx_device_info,
+		ARRAY_SIZE(wcd9xxx_device_info),
+	},
+#endif
+};
 
 static struct slim_boardinfo msm_slim_devices[] = {
 	/* add slimbus slaves as needed */
