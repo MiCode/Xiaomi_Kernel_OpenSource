@@ -290,7 +290,6 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 #endif
 	.sup_clk_table	= sdc1_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
-	.pclk_src_dfab	= 1,
 	.nonremovable	= 1,
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
@@ -309,7 +308,6 @@ static struct mmc_platform_data msm8960_sdc2_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table  = sdc2_sup_clk_rates,
 	.sup_clk_cnt    = ARRAY_SIZE(sdc2_sup_clk_rates),
-	.pclk_src_dfab  = 1,
 	.vreg_data      = &mmc_slot_vreg_data[SDCC2],
 	.pin_data       = &mmc_slot_pin_data[SDCC2],
 	.sdiowakeup_irq = MSM_GPIO_TO_INT(90),
@@ -323,7 +321,6 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc3_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc3_sup_clk_rates),
-	.pclk_src_dfab	= 1,
 #ifdef CONFIG_MMC_MSM_SDC3_WP_SUPPORT
 	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
 #endif
@@ -354,7 +351,6 @@ static struct mmc_platform_data msm8960_sdc4_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table  = sdc4_sup_clk_rates,
 	.sup_clk_cnt    = ARRAY_SIZE(sdc4_sup_clk_rates),
-	.pclk_src_dfab  = 1,
 	.vreg_data      = &mmc_slot_vreg_data[SDCC4],
 	.pin_data       = &mmc_slot_pin_data[SDCC4],
 	.sdiowakeup_irq = MSM_GPIO_TO_INT(85),
