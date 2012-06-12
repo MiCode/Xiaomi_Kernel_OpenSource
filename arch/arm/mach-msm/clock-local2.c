@@ -166,10 +166,7 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 	if (nf->freq_hz == FREQ_END)
 		return -EINVAL;
 
-	/* Check if frequency is actually changed. */
 	cf = rcg->current_freq;
-	if (nf == cf)
-		return 0;
 
 	if (rcg->c.count) {
 		/* TODO: Modify to use the prepare API */

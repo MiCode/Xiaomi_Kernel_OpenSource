@@ -320,7 +320,7 @@ EXPORT_SYMBOL(clk_get_rate);
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	unsigned long start_rate, flags;
-	int rc;
+	int rc = 0;
 
 	if (IS_ERR_OR_NULL(clk))
 		return -EINVAL;
@@ -329,6 +329,11 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 		return -ENOSYS;
 
 	spin_lock_irqsave(&clk->lock, flags);
+
+	/* Return early if the rate isn't going to change */
+	if (clk->rate == rate)
+		goto out;
+
 	trace_clock_set_rate(clk->dbg_name, rate, smp_processor_id());
 	if (clk->count) {
 		start_rate = clk->rate;
@@ -347,7 +352,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 
 	if (!rc)
 		clk->rate = rate;
-
+out:
 	spin_unlock_irqrestore(&clk->lock, flags);
 	return rc;
 
