@@ -227,7 +227,7 @@ config ARCH_APQ8064
 config ARCH_MSMCOPPER
 	bool "MSM Copper"
 	select ARCH_MSM_KRAITMP
-	select GPIO_MSM_V2
+	select GPIO_MSM_V3
 	select ARM_GIC
 	select CPU_V7
 	select MSM_SCM if SMP
