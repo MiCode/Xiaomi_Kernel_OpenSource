@@ -1,0 +1,30 @@
+* Qualcomm Secure Service Module (SSM)
+
+SSM provides an interface for OEM driver to communicate with Modem and
+trustzone.
+
+This module provides following features:
+ - Keyexchange between Modem and trustzone for encryption/Decryption
+ of mode information
+ - Interface to third party driver to send mode updates to modem
+ - Interface for loading the trustzone application
+
+Required properties:
+- compatible:		Must be "qcom,ssm"
+
+Optional properties:
+- qcom,channel-name:	Name of the SMD channel used for communication
+			between MODEM and SSM driver.
+- qcom,need-keyexhg	This property controls initial key exchange
+			between APPS(application processor) and MODEM.
+			If not mentioned the initial key exchange is
+			not required.
+			If this property is mentioned then it is mandatory
+			for modem to perform initial key exchange with APPS.
+
+Example:
+	qcom,ssm {
+		compatible = "qcom,ssm";
+		qcom,channel-name = "SSM_RTR";
+		qcom,need-keyexhg;
+	}

@@ -101,4 +101,14 @@ config MSM_AVTIMER
 		This driver gets the Q6 out of power collapsed state and
 		exposes ioctl control to read avtimer tick.
 
+config SSM
+	tristate "Qualcomm Secure Service Module"
+	depends on QSEECOM
+	depends on MSM_SMD
+	help
+	  Provides an interface for OEM driver to communicate with Trustzone
+	  and modem for key exchange and mode change.
+	  This driver uses Secure Channel Manager interface for trustzone
+	  communication and communicates with modem over SMD channel.
+
 endmenu
