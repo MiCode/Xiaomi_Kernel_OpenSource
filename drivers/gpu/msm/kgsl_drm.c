@@ -238,11 +238,8 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 	}
 
 	if (TYPE_IS_PMEM(priv->type)) {
-		int type;
-
 		if (priv->type == DRM_KGSL_GEM_TYPE_EBI ||
 		    priv->type & DRM_KGSL_GEM_PMEM_EBI) {
-				type = PMEM_MEMTYPE_EBI1;
 				result = kgsl_sharedmem_ebimem_user(
 						&priv->memdesc,
 						priv->pagetable,
