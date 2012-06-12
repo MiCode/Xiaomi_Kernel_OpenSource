@@ -595,7 +595,12 @@ static u32 msm_calculate_batt_capacity(u32 current_voltage)
 	u32 low_voltage	 = msm_psy_batt_data.voltage_min_design;
 	u32 high_voltage = msm_psy_batt_data.voltage_max_design;
 
-	return (current_voltage - low_voltage) * 100
+	if (current_voltage <= low_voltage)
+		return 0;
+	else if (current_voltage >= high_voltage)
+		return 100;
+	else
+		return (current_voltage - low_voltage) * 100
 			/ (high_voltage - low_voltage);
 }
 
