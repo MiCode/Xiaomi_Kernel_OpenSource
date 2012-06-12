@@ -178,11 +178,9 @@ static struct mmc_platform_data sdc1_data = {
 	.sup_clk_cnt	= ARRAY_SIZE(sdc1_sup_clk_rates),
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
 	.pin_data	= &mmc_slot_pin_data[SDCC1],
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	.status_gpio	= GPIO_SDC1_HW_DET,
 	.status_irq	= MSM_GPIO_TO_INT(GPIO_SDC1_HW_DET),
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-#endif
 	.xpc_cap	= 1,
 	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
 			   MMC_CAP_MAX_CURRENT_400),

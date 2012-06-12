@@ -265,7 +265,6 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 #endif
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 /*TODO: Insert right replacement for PM8038 */
 #ifndef MSM8930_PHASE_2
 	.status_gpio	= PM8921_GPIO_PM_TO_SYS(26),
@@ -276,7 +275,6 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 #endif
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 	.is_status_gpio_active_low = true,
-#endif
 	.xpc_cap	= 1,
 	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
 			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50 |

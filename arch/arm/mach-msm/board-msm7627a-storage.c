@@ -233,8 +233,7 @@ out:
 	return rc;
 }
 
-#if defined(CONFIG_MMC_MSM_SDC1_SUPPORT) \
-	&& defined(CONFIG_MMC_MSM_CARD_HW_DETECTION)
+#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 static unsigned int msm7627a_sdcc_slot_status(struct device *dev)
 {
 	int status;
@@ -266,9 +265,7 @@ static unsigned int msm7627a_sdcc_slot_status(struct device *dev)
 	}
 	return status;
 }
-#endif
 
-#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 static struct mmc_platform_data sdc1_plat_data = {
 	.ocr_mask       = MMC_VDD_28_29,
 	.translate_vdd  = msm_sdcc_setup_power,
@@ -276,10 +273,8 @@ static struct mmc_platform_data sdc1_plat_data = {
 	.msmsdcc_fmin   = 144000,
 	.msmsdcc_fmid   = 24576000,
 	.msmsdcc_fmax   = 49152000,
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	.status      = msm7627a_sdcc_slot_status,
 	.irq_flags   = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-#endif
 };
 #endif
 
@@ -382,13 +377,11 @@ void __init msm7627a_init_mmc(void)
 	gpio_sdc1_config();
 	if (mmc_regulator_init(1, "mmc", 2850000))
 		return;
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	/* 8x25 EVT do not use hw detector */
 	if (!(machine_is_msm8625_evt()))
 		sdc1_plat_data.status_irq = MSM_GPIO_TO_INT(gpio_sdc1_hw_det);
 	if (machine_is_msm8625_evt())
 		sdc1_plat_data.status = NULL;
-#endif
 
 	msm_add_sdcc(1, &sdc1_plat_data);
 #endif
