@@ -2877,12 +2877,13 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	DBG(host, "ios->clock = %u\n", ios->clock);
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->sdcc_irq_disabled) {
-		spin_unlock_irqrestore(&host->lock, flags);
-		disable_irq(host->core_irqres->start);
-		spin_lock_irqsave(&host->lock, flags);
+		disable_irq_nosync(host->core_irqres->start);
 		host->sdcc_irq_disabled = 1;
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
+
+	/* Make sure sdcc core irq is synchronized */
+	synchronize_irq(host->core_irqres->start);
 
 	pwr = msmsdcc_setup_pwr(host, ios);
 
