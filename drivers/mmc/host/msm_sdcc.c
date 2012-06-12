@@ -1173,6 +1173,9 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 	clks = (unsigned long long)data->timeout_ns * host->clk_rate;
 	do_div(clks, 1000000000UL);
 	timeout = data->timeout_clks + (unsigned int)clks*2 ;
+	WARN(!timeout,
+	     "%s: data timeout is zero. timeout_ns=0x%x, timeout_clks=0x%x\n",
+	     mmc_hostname(host->mmc), data->timeout_ns, data->timeout_clks);
 
 	if (host->is_dma_mode && (datactrl & MCI_DPSM_DMAENABLE)) {
 		/* Use ADM (Application Data Mover) HW for Data transfer */
