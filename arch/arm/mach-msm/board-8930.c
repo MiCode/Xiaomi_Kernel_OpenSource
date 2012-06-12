@@ -47,6 +47,10 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 
+#ifdef CONFIG_STM_LIS3DH
+#include <linux/input/lis3dh.h>
+#endif
+
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/setup.h>
@@ -2452,6 +2456,31 @@ static struct i2c_board_info isl_charger_i2c_info[] __initdata = {
 };
 #endif /* CONFIG_ISL9519_CHARGER */
 
+#ifdef CONFIG_STM_LIS3DH
+static struct lis3dh_acc_platform_data lis3dh_accel = {
+	.poll_interval = 200,
+	.min_interval = 10,
+	.g_range = LIS3DH_ACC_G_2G,
+	.axis_map_x = 1,
+	.axis_map_y = 0,
+	.axis_map_z = 2,
+	.negate_x = 0,
+	.negate_y = 0,
+	.negate_z = 1,
+	.init = NULL,
+	.exit = NULL,
+	.gpio_int1 = -EINVAL,
+	.gpio_int2 = -EINVAL,
+};
+
+static struct i2c_board_info __initdata lis3dh_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO(LIS3DH_ACC_DEV_NAME, 0x18),
+		.platform_data = &lis3dh_accel,
+	},
+};
+#endif /* CONFIG_STM_LIS3DH */
+
 static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 #ifdef CONFIG_ISL9519_CHARGER
 	{
@@ -2487,6 +2516,14 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		sii_device_info,
 		ARRAY_SIZE(sii_device_info),
 	},
+#ifdef CONFIG_STM_LIS3DH
+	{
+		I2C_FFA | I2C_FLUID,
+		MSM_8930_GSBI12_QUP_I2C_BUS_ID,
+		lis3dh_i2c_boardinfo,
+		ARRAY_SIZE(lis3dh_i2c_boardinfo),
+	},
+#endif
 };
 #endif /* CONFIG_I2C */
 
