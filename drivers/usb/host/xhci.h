@@ -1516,6 +1516,21 @@ struct xhci_hcd {
 #define XHCI_SPURIOUS_REBOOT	(1 << 13)
 #define XHCI_COMP_MODE_QUIRK	(1 << 14)
 #define XHCI_AVOID_BEI		(1 << 15)
+/*
+ * In Synopsis DWC3 controller, PORTSC register access involves multiple clock
+ * domains. When the software does a PORTSC write, handshakes are needed
+ * across these clock domains. This results in long access times, especially
+ * for USB 2.0 ports. In order to solve this issue, when the PORTSC write
+ * operations happen on the system bus, the command is latched and system bus
+ * is released immediately. However, the real PORTSC write access will take
+ * some time internally to complete. If the software quickly does a read to the
+ * PORTSC, some fields (port status change related fields like OCC, etc.) may
+ * not have correct value due to the current way of handling these bits.
+ *
+ * The workaround is to give some delay (5 mac2_clk -> UTMI clock = 60 MHz ->
+ * (16.66 ns x 5 = 84ns) ~100ns after writing to the PORTSC register.
+ */
+#define XHCI_PORTSC_DELAY	(1 << 16)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
@@ -1710,6 +1725,11 @@ void xhci_unregister_pci(void);
 static inline int xhci_register_pci(void) { return 0; }
 static inline void xhci_unregister_pci(void) {}
 #endif
+
+struct xhci_plat_data {
+	unsigned vendor;
+	unsigned revision;
+};
 
 #if defined(CONFIG_USB_XHCI_PLATFORM) \
 	|| defined(CONFIG_USB_XHCI_PLATFORM_MODULE)

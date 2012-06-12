@@ -18,16 +18,26 @@
 
 #include "xhci.h"
 
+#define SYNOPSIS_DWC3_VENDOR	0x5533
+
 static struct usb_phy *phy;
 
 static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
+	struct xhci_plat_data *pdata = dev->platform_data;
+
 	/*
 	 * As of now platform drivers don't provide MSI support so we ensure
 	 * here that the generic code does not try to make a pci_dev from our
 	 * dev struct in order to setup MSI
 	 */
 	xhci->quirks |= XHCI_BROKEN_MSI;
+
+	if (!pdata)
+		return;
+	else if (pdata->vendor == SYNOPSIS_DWC3_VENDOR &&
+			pdata->revision < 0x230A)
+		xhci->quirks |= XHCI_PORTSC_DELAY;
 }
 
 /* called during probe() after chip reset completes */
