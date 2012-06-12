@@ -38,14 +38,6 @@
                 qcom,sdcc-clk-rates = <400000 19200000>;
         };
 
-	qcom,sdcc@f9864000 {
-		status = "disable";
-	};
-
-	qcom,sdcc@f98e4000 {
-		status = "disable";
-	};
-
 	qcom,sps@f998000 {
 		status = "disable";
 	};
