@@ -1463,6 +1463,7 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	switch (notification) {
 	case NOTIFY_ISP_MSG_EVT:
 	case NOTIFY_VFE_MSG_OUT:
+	case NOTIFY_VFE_SOF_COUNT:
 	case NOTIFY_VFE_MSG_STATS:
 	case NOTIFY_VFE_MSG_COMP_STATS:
 	case NOTIFY_VFE_BUF_EVT:

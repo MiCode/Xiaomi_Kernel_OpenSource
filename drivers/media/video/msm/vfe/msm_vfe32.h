@@ -988,6 +988,7 @@ struct vfe32_ctrl_type {
 	uint32_t extlen;
 	void *extdata;
 
+	int8_t vfe_sof_count_enable;
 	int8_t start_ack_pending;
 	int8_t update_ack_pending;
 	bool is_reset_blocking;
