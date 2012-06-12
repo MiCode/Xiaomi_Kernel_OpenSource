@@ -497,11 +497,9 @@ static int msm_fb_detect_panel(const char *name)
 	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		if (!strncmp(name, "lcdc_truly_hvga_ips3p2335_pt", 28))
 			ret = 0;
-	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()) {
+	} else if (machine_is_msm7627a_evb() || machine_is_msm8625_evb() ||
+			machine_is_msm8625_evt()) {
 		if (!strncmp(name, "mipi_cmd_nt35510_wvga", 21))
-			ret = 0;
-	} else if (machine_is_msm8625_evt()) {
-		if (!strncmp(name, "mipi_video_nt35510_wvga", 23))
 			ret = 0;
 	}
 
