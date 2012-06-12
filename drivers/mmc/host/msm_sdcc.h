@@ -350,7 +350,7 @@ struct msmsdcc_host {
 	struct mmc_host		*mmc;
 	struct clk		*clk;		/* main MMC bus clock */
 	struct clk		*pclk;		/* SDCC peripheral bus clock */
-	struct clk		*dfab_pclk;	/* Daytona Fabric SDCC clock */
+	struct clk		*bus_clk;	/* SDCC bus voter clock */
 	unsigned int		clks_on;	/* set if clocks are enabled */
 
 	unsigned int		eject;		/* eject state */
