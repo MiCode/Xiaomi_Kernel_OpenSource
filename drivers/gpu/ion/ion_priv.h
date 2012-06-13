@@ -145,8 +145,8 @@ struct ion_heap_ops {
 	void (*unmap_iommu)(struct ion_iommu_map *data);
 	int (*print_debug)(struct ion_heap *heap, struct seq_file *s,
 			   const struct rb_root *mem_map);
-	int (*secure_heap)(struct ion_heap *heap);
-	int (*unsecure_heap)(struct ion_heap *heap);
+	int (*secure_heap)(struct ion_heap *heap, int version, void *data);
+	int (*unsecure_heap)(struct ion_heap *heap, int version, void *data);
 };
 
 /**

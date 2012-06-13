@@ -358,22 +358,28 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
  *
  * @client - a client that has allocated from the heap heap_id
  * @heap_id - heap id to secure.
+ * @version - version of content protection
+ * @data - extra data needed for protection
  *
  * Secure a heap
  * Returns 0 on success
  */
-int ion_secure_heap(struct ion_device *dev, int heap_id);
+int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
+			void *data);
 
 /**
  * ion_unsecure_heap - un-secure a heap
  *
  * @client - a client that has allocated from the heap heap_id
  * @heap_id - heap id to un-secure.
+ * @version - version of content protection
+ * @data - extra data needed for protection
  *
  * Un-secure a heap
  * Returns 0 on success
  */
-int ion_unsecure_heap(struct ion_device *dev, int heap_id);
+int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
+			void *data);
 
 /**
  * msm_ion_secure_heap - secure a heap. Wrapper around ion_secure_heap.
@@ -394,6 +400,30 @@ int msm_ion_secure_heap(int heap_id);
  * Returns 0 on success
  */
 int msm_ion_unsecure_heap(int heap_id);
+
+/**
+ * msm_ion_secure_heap_2_0 - secure a heap using 2.0 APIs
+ *  Wrapper around ion_secure_heap.
+ *
+ * @heap_id - heap id to secure.
+ * @usage - usage hint to TZ
+ *
+ * Secure a heap
+ * Returns 0 on success
+ */
+int msm_ion_secure_heap_2_0(int heap_id, enum cp_mem_usage usage);
+
+/**
+ * msm_ion_unsecure_heap - unsecure a heap secured with 3.0 APIs.
+ * Wrapper around ion_unsecure_heap.
+ *
+ * @heap_id - heap id to secure.
+ * @usage - usage hint to TZ
+ *
+ * Un-secure a heap
+ * Returns 0 on success
+ */
+int msm_ion_unsecure_heap_2_0(int heap_id, enum cp_mem_usage usage);
 
 /**
  * msm_ion_do_cache_op - do cache operations.
@@ -497,13 +527,15 @@ static inline void ion_unmap_iommu(struct ion_client *client,
 	return;
 }
 
-static inline int ion_secure_heap(struct ion_device *dev, int heap_id)
+static inline int ion_secure_heap(struct ion_device *dev, int heap_id,
+					int version, void *data)
 {
 	return -ENODEV;
 
 }
 
-static inline int ion_unsecure_heap(struct ion_device *dev, int heap_id)
+static inline int ion_unsecure_heap(struct ion_device *dev, int heap_id,
+					int version, void *data)
 {
 	return -ENODEV;
 }
@@ -515,6 +547,17 @@ static inline int msm_ion_secure_heap(int heap_id)
 }
 
 static inline int msm_ion_unsecure_heap(int heap_id)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ion_secure_heap_2_0(int heap_id, enum cp_mem_usage usage)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ion_unsecure_heap_2_0(int heap_id,
+					enum cp_mem_usage usage)
 {
 	return -ENODEV;
 }

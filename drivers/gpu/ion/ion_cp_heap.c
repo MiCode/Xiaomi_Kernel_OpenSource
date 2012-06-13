@@ -40,6 +40,7 @@
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
 
+#include "msm/ion_cp_common.h"
 /**
  * struct ion_cp_heap - container for the heap and shared heap data
 
@@ -106,10 +107,12 @@ enum {
 };
 
 static int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,
-			unsigned int permission_type);
+			unsigned int permission_type, int version,
+			void *data);
 
 static int ion_cp_unprotect_mem(unsigned int phy_base, unsigned int size,
-				unsigned int permission_type);
+				unsigned int permission_type, int version,
+				void *data);
 
 /**
  * Get the total number of kernel mappings.
@@ -126,7 +129,7 @@ static unsigned long ion_cp_get_total_kmap_count(
  * the correct FMEM state if this heap is a reusable heap.
  * Must be called with heap->lock locked.
  */
-static int ion_cp_protect(struct ion_heap *heap)
+static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 {
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
@@ -141,7 +144,8 @@ static int ion_cp_protect(struct ion_heap *heap)
 		}
 
 		ret_value = ion_cp_protect_mem(cp_heap->secure_base,
-				cp_heap->secure_size, cp_heap->permission_type);
+				cp_heap->secure_size, cp_heap->permission_type,
+				version, data);
 		if (ret_value) {
 			pr_err("Failed to protect memory for heap %s - "
 				"error code: %d\n", heap->name, ret_value);
@@ -170,7 +174,7 @@ out:
  * the correct FMEM state if this heap is a reusable heap.
  * Must be called with heap->lock locked.
  */
-static void ion_cp_unprotect(struct ion_heap *heap)
+static void ion_cp_unprotect(struct ion_heap *heap, int version, void *data)
 {
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
@@ -178,7 +182,7 @@ static void ion_cp_unprotect(struct ion_heap *heap)
 	if (atomic_dec_and_test(&cp_heap->protect_cnt)) {
 		int error_code = ion_cp_unprotect_mem(
 			cp_heap->secure_base, cp_heap->secure_size,
-			cp_heap->permission_type);
+			cp_heap->permission_type, version, data);
 		if (error_code) {
 			pr_err("Failed to un-protect memory for heap %s - "
 				"error code: %d\n", heap->name, error_code);
@@ -656,14 +660,14 @@ static int ion_cp_print_debug(struct ion_heap *heap, struct seq_file *s,
 	return 0;
 }
 
-int ion_cp_secure_heap(struct ion_heap *heap)
+int ion_cp_secure_heap(struct ion_heap *heap, int version, void *data)
 {
 	int ret_value;
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 	mutex_lock(&cp_heap->lock);
 	if (cp_heap->umap_count == 0 && cp_heap->kmap_cached_count == 0) {
-		ret_value = ion_cp_protect(heap);
+		ret_value = ion_cp_protect(heap, version, data);
 	} else {
 		pr_err("ION cannot secure heap with outstanding mappings: "
 		       "User space: %lu, kernel space (cached): %lu\n",
@@ -675,13 +679,13 @@ int ion_cp_secure_heap(struct ion_heap *heap)
 	return ret_value;
 }
 
-int ion_cp_unsecure_heap(struct ion_heap *heap)
+int ion_cp_unsecure_heap(struct ion_heap *heap, int version, void *data)
 {
 	int ret_value = 0;
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 	mutex_lock(&cp_heap->lock);
-	ion_cp_unprotect(heap);
+	ion_cp_unprotect(heap, version, data);
 	mutex_unlock(&cp_heap->lock);
 	return ret_value;
 }
@@ -998,8 +1002,7 @@ struct cp_lock_msg {
 	unsigned char lock;
 } __attribute__ ((__packed__));
 
-
-static int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,
+static int ion_cp_protect_mem_v1(unsigned int phy_base, unsigned int size,
 			      unsigned int permission_type)
 {
 	struct cp_lock_msg cmd;
@@ -1012,7 +1015,7 @@ static int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,
 			&cmd, sizeof(cmd), NULL, 0);
 }
 
-static int ion_cp_unprotect_mem(unsigned int phy_base, unsigned int size,
+static int ion_cp_unprotect_mem_v1(unsigned int phy_base, unsigned int size,
 				unsigned int permission_type)
 {
 	struct cp_lock_msg cmd;
@@ -1023,4 +1026,71 @@ static int ion_cp_unprotect_mem(unsigned int phy_base, unsigned int size,
 
 	return scm_call(SCM_SVC_CP, SCM_CP_LOCK_CMD_ID,
 			&cmd, sizeof(cmd), NULL, 0);
+}
+
+#define V2_CHUNK_SIZE	SZ_1M
+
+static int ion_cp_change_mem_v2(unsigned int phy_base, unsigned int size,
+			      void *data, int lock)
+{
+	enum cp_mem_usage usage = (enum cp_mem_usage) data;
+	unsigned long *chunk_list;
+	int nchunks;
+	int ret;
+	int i;
+
+	if (usage < 0 || usage >= MAX_USAGE)
+		return -EINVAL;
+
+	if (!IS_ALIGNED(size, V2_CHUNK_SIZE)) {
+		pr_err("%s: heap size is not aligned to %x\n",
+			__func__, V2_CHUNK_SIZE);
+		return -EINVAL;
+	}
+
+	nchunks = size / V2_CHUNK_SIZE;
+
+	chunk_list = allocate_contiguous_ebi(sizeof(unsigned long)*nchunks,
+						SZ_4K, 0);
+	if (!chunk_list)
+		return -ENOMEM;
+
+	for (i = 0; i < nchunks; i++)
+		chunk_list[i] = phy_base + i * V2_CHUNK_SIZE;
+
+	ret = ion_cp_change_chunks_state(memory_pool_node_paddr(chunk_list),
+					nchunks, V2_CHUNK_SIZE, usage, lock);
+
+	free_contiguous_memory(chunk_list);
+	return ret;
+}
+
+static int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,
+			      unsigned int permission_type, int version,
+			      void *data)
+{
+	switch (version) {
+	case ION_CP_V1:
+		return ion_cp_protect_mem_v1(phy_base, size, permission_type);
+	case ION_CP_V2:
+		return ion_cp_change_mem_v2(phy_base, size, data,
+						SCM_CP_PROTECT);
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ion_cp_unprotect_mem(unsigned int phy_base, unsigned int size,
+			      unsigned int permission_type, int version,
+			      void *data)
+{
+	switch (version) {
+	case ION_CP_V1:
+		return ion_cp_unprotect_mem_v1(phy_base, size, permission_type);
+	case ION_CP_V2:
+		return ion_cp_change_mem_v2(phy_base, size, data,
+						SCM_CP_UNPROTECT);
+	default:
+		return -EINVAL;
+	}
 }
