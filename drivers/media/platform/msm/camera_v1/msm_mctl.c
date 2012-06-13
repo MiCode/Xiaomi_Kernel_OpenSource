@@ -767,8 +767,10 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 	}
 
-	if (p_mctl->act_sdev)
+	if (p_mctl->act_sdev) {
 		v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);
+		p_mctl->act_sdev = NULL;
+	}
 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
 
