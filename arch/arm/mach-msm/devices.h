@@ -294,6 +294,8 @@ extern struct platform_device *apq8064_footswitch[];
 extern unsigned apq8064_num_footswitch;
 extern struct platform_device *msm8930_footswitch[];
 extern unsigned msm8930_num_footswitch;
+extern struct platform_device *msm8627_footswitch[];
+extern unsigned msm8627_num_footswitch;
 
 extern struct platform_device fsm_qfp_fuse_device;
 
