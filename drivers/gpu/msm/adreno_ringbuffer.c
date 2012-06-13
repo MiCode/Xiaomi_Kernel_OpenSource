@@ -1036,10 +1036,10 @@ static int _find_cmd_seq_after_eop_ts(struct adreno_ringbuffer *rb,
 		if (2 == i)
 			check = true;
 	} while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr);
-	/* temp_rb_rptr points to the global eop, move forward till
-	 * the next command */
+	/* temp_rb_rptr points to the command stream after global eop,
+	 * move backward till the start of command sequence */
 	if (!status) {
-		status = _find_start_of_cmd_seq(rb, &temp_rb_rptr, true);
+		status = _find_start_of_cmd_seq(rb, &temp_rb_rptr, false);
 		if (!status) {
 			*rb_rptr = temp_rb_rptr;
 			KGSL_DRV_ERR(rb->device,
@@ -1243,8 +1243,9 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 
 	context = idr_find(&device->context_idr, rec_data->context_id);
 
-	status = _find_cmd_seq_after_eop_ts(rb, &rb_rptr, rec_data->global_eop,
-						false);
+	/* Look for the command stream that is right after the global eop */
+	status = _find_cmd_seq_after_eop_ts(rb, &rb_rptr,
+				rec_data->global_eop + 1, false);
 	if (status)
 		goto done;
 
