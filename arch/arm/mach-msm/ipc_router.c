@@ -472,19 +472,19 @@ struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
 	return port_ptr;
 }
 
+/*
+ * Should be called with local_ports_lock locked
+ */
 static struct msm_ipc_port *msm_ipc_router_lookup_local_port(uint32_t port_id)
 {
 	int key = (port_id & (LP_HASH_SIZE - 1));
 	struct msm_ipc_port *port_ptr;
 
-	mutex_lock(&local_ports_lock);
 	list_for_each_entry(port_ptr, &local_ports[key], list) {
 		if (port_ptr->this_port.port_id == port_id) {
-			mutex_unlock(&local_ports_lock);
 			return port_ptr;
 		}
 	}
-	mutex_unlock(&local_ports_lock);
 	return NULL;
 }
 
@@ -1432,16 +1432,19 @@ static void do_read_data(struct work_struct *work)
 	resume_tx_node_id = hdr->dst_node_id;
 	resume_tx_port_id = hdr->dst_port_id;
 
+	rport_ptr = msm_ipc_router_lookup_remote_port(hdr->src_node_id,
+						      hdr->src_port_id);
+
+	mutex_lock(&local_ports_lock);
 	port_ptr = msm_ipc_router_lookup_local_port(hdr->dst_port_id);
 	if (!port_ptr) {
 		pr_err("%s: No local port id %08x\n", __func__,
 			hdr->dst_port_id);
+		mutex_unlock(&local_ports_lock);
 		release_pkt(pkt);
 		goto process_done;
 	}
 
-	rport_ptr = msm_ipc_router_lookup_remote_port(hdr->src_node_id,
-						      hdr->src_port_id);
 	if (!rport_ptr) {
 		rport_ptr = msm_ipc_router_create_remote_port(
 							hdr->src_node_id,
@@ -1449,6 +1452,7 @@ static void do_read_data(struct work_struct *work)
 		if (!rport_ptr) {
 			pr_err("%s: Remote port %08x:%08x creation failed\n",
 				__func__, hdr->src_node_id, hdr->src_port_id);
+			mutex_unlock(&local_ports_lock);
 			goto process_done;
 		}
 	}
@@ -1459,7 +1463,9 @@ static void do_read_data(struct work_struct *work)
 		list_add_tail(&pkt->list, &port_ptr->port_rx_q);
 		wake_up(&port_ptr->port_rx_wait_q);
 		mutex_unlock(&port_ptr->port_rx_q_lock);
+		mutex_unlock(&local_ports_lock);
 	} else {
+		mutex_lock(&port_ptr->port_rx_q_lock);
 		src_addr = kmalloc(sizeof(struct msm_ipc_port_addr),
 				   GFP_KERNEL);
 		if (src_addr) {
@@ -1467,8 +1473,10 @@ static void do_read_data(struct work_struct *work)
 			src_addr->port_id = hdr->src_port_id;
 		}
 		skb_pull(head_skb, IPC_ROUTER_HDR_SIZE);
+		mutex_unlock(&local_ports_lock);
 		port_ptr->notify(MSM_IPC_ROUTER_READ_CB, pkt->pkt_fragment_q,
 				 src_addr, port_ptr->priv);
+		mutex_unlock(&port_ptr->port_rx_q_lock);
 		pkt->pkt_fragment_q = NULL;
 		src_addr = NULL;
 		release_pkt(pkt);
@@ -1628,9 +1636,11 @@ static int loopback_data(struct msm_ipc_port *src,
 	hdr->dst_port_id = port_id;
 	pkt->length += IPC_ROUTER_HDR_SIZE;
 
+	mutex_lock(&local_ports_lock);
 	port_ptr = msm_ipc_router_lookup_local_port(port_id);
 	if (!port_ptr) {
 		pr_err("%s: Local port %d not present\n", __func__, port_id);
+		mutex_unlock(&local_ports_lock);
 		release_pkt(pkt);
 		return -ENODEV;
 	}
@@ -1640,6 +1650,7 @@ static int loopback_data(struct msm_ipc_port *src,
 	list_add_tail(&pkt->list, &port_ptr->port_rx_q);
 	wake_up(&port_ptr->port_rx_wait_q);
 	mutex_unlock(&port_ptr->port_rx_q_lock);
+	mutex_unlock(&local_ports_lock);
 
 	return pkt->length;
 }
@@ -1932,6 +1943,10 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		return -EINVAL;
 
 	if (port_ptr->type == SERVER_PORT || port_ptr->type == CLIENT_PORT) {
+		mutex_lock(&local_ports_lock);
+		list_del(&port_ptr->list);
+		mutex_unlock(&local_ports_lock);
+
 		if (port_ptr->type == SERVER_PORT) {
 			msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 			msg.srv.service = port_ptr->port_name.service;
@@ -1950,6 +1965,10 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		}
 		broadcast_ctl_msg(&msg);
 		broadcast_ctl_msg_locally(&msg);
+	} else if (port_ptr->type == CONTROL_PORT) {
+		mutex_lock(&control_ports_lock);
+		list_del(&port_ptr->list);
+		mutex_unlock(&control_ports_lock);
 	}
 
 	mutex_lock(&port_ptr->port_rx_q_lock);
@@ -1969,17 +1988,6 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 			msm_ipc_router_destroy_server(server,
 				port_ptr->this_port.node_id,
 				port_ptr->this_port.port_id);
-		mutex_lock(&local_ports_lock);
-		list_del(&port_ptr->list);
-		mutex_unlock(&local_ports_lock);
-	} else if (port_ptr->type == CLIENT_PORT) {
-		mutex_lock(&local_ports_lock);
-		list_del(&port_ptr->list);
-		mutex_unlock(&local_ports_lock);
-	} else if (port_ptr->type == CONTROL_PORT) {
-		mutex_lock(&control_ports_lock);
-		list_del(&port_ptr->list);
-		mutex_unlock(&control_ports_lock);
 	}
 
 	wake_lock_destroy(&port_ptr->port_rx_wake_lock);
