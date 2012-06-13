@@ -200,7 +200,6 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += ramdump.o
 endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
-obj-$(CONFIG_MSM_WCNSS_SSR_8974) += wcnss-ssr-8974.o
 
 ifdef CONFIG_CPU_IDLE
 	obj-$(CONFIG_ARCH_APQ8064) += cpuidle.o
