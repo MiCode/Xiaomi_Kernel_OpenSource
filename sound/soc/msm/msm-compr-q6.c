@@ -235,7 +235,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 		memset(&wma_cfg, 0x0, sizeof(struct asm_wma_cfg));
 		wma_cfg.format_tag = compr->info.codec_param.codec.format;
 		wma_cfg.ch_cfg = runtime->channels;
-		wma_cfg.sample_rate = runtime->rate;
+		wma_cfg.sample_rate = compr->info.codec_param.codec.sample_rate;
 		wma_cfg.avg_bytes_per_sec =
 			compr->info.codec_param.codec.bit_rate/8;
 		wma_cfg.block_align = compr->info.codec_param.codec.align;
@@ -255,7 +255,8 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 		memset(&wma_pro_cfg, 0x0, sizeof(struct asm_wmapro_cfg));
 		wma_pro_cfg.format_tag = compr->info.codec_param.codec.format;
 		wma_pro_cfg.ch_cfg = compr->info.codec_param.codec.ch_in;
-		wma_pro_cfg.sample_rate = runtime->rate;
+		wma_pro_cfg.sample_rate =
+			compr->info.codec_param.codec.sample_rate;
 		wma_pro_cfg.avg_bytes_per_sec =
 			compr->info.codec_param.codec.bit_rate/8;
 		wma_pro_cfg.block_align = compr->info.codec_param.codec.align;
@@ -266,6 +267,10 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 			compr->info.codec_param.codec.options.wma.channelmask;
 		wma_pro_cfg.encode_opt =
 			compr->info.codec_param.codec.options.wma.encodeopt;
+		wma_pro_cfg.adv_encode_opt =
+			compr->info.codec_param.codec.options.wma.encodeopt1;
+		wma_pro_cfg.adv_encode_opt2 =
+			compr->info.codec_param.codec.options.wma.encodeopt2;
 		ret = q6asm_media_format_block_wmapro(prtd->audio_client,
 				&wma_pro_cfg);
 		if (ret < 0)
