@@ -17,7 +17,7 @@
 #include <linux/proc_fs.h>
 #include <linux/ioctl.h>
 #include <mach/camera.h>
-#include "msm.h"
+#include "../msm.h"
 
 uint32_t msm_cam_server_get_mctl_handle(void);
 struct msm_cam_media_controller *msm_cam_server_get_mctl(uint32_t handle);
