@@ -17,6 +17,9 @@
 #include <asm-generic/errno-base.h>
 #include <linux/ion.h>
 
+#define ION_CP_V1	1
+#define ION_CP_V2	2
+
 #if defined(CONFIG_ION_MSM)
 /*
  * ion_cp2_protect_mem - secures memory via trustzone
