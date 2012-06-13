@@ -1,2 +1,2 @@
 
-obj-$(CONFIG_MSM_QDSS) += coresight.o coresight-etb.o coresight-tpiu.o coresight-funnel.o coresight-stm.o coresight-etm.o
+obj-$(CONFIG_MSM_QDSS) += coresight.o coresight-tpiu.o coresight-etb.o coresight-funnel.o coresight-replicator.o coresight-stm.o coresight-etm.o
