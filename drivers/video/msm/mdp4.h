@@ -337,7 +337,8 @@ struct mdp4_overlay_pipe {
 	uint32 element1; /* 0 = C0, 1 = C1, 2 = C2, 3 = C3 */
 	uint32 element0; /* 0 = C0, 1 = C1, 2 = C2, 3 = C3 */
 	struct completion comp;
-	ulong blt_addr; /* blt mode addr */
+	ulong ov_blt_addr; /* blt mode addr */
+	ulong dma_blt_addr; /* blt mode addr */
 	ulong blt_base;
 	ulong blt_offset;
 	uint32 blt_cnt;
