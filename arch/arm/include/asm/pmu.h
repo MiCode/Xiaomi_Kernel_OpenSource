@@ -97,6 +97,8 @@ struct arm_pmu {
 	u64		max_period;
 	struct platform_device	*plat_device;
 	struct pmu_hw_events	*(*get_hw_events)(void);
+	int	(*test_set_event_constraints)(struct perf_event *event);
+	int	(*clear_event_constraints)(struct perf_event *event);
 };
 
 #define to_arm_pmu(p) (container_of(p, struct arm_pmu, pmu))

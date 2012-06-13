@@ -206,6 +206,10 @@ armpmu_del(struct perf_event *event, int flags)
 	hw_events->events[idx] = NULL;
 	clear_bit(idx, hw_events->used_mask);
 
+	/* Clear event constraints. */
+	if (armpmu->clear_event_constraints)
+		armpmu->clear_event_constraints(event);
+
 	perf_event_update_userpage(event);
 }
 
@@ -219,6 +223,17 @@ armpmu_add(struct perf_event *event, int flags)
 	int err = 0;
 
 	perf_pmu_disable(event->pmu);
+	/*
+	 * Tests if event is constrained. If not sets it so that next
+	 * collision can be detected.
+	 */
+	if (armpmu->test_set_event_constraints)
+		if (armpmu->test_set_event_constraints(event) < 0) {
+			pr_err("Event: %llx failed constraint check.\n",
+					event->attr.config);
+			event->state = PERF_EVENT_STATE_OFF;
+			goto out;
+		}
 
 	/* If we don't have a space for the counter then finish early. */
 	idx = armpmu->get_event_idx(hw_events, event);
@@ -385,6 +400,7 @@ __hw_perf_event_init(struct perf_event *event)
 			 "mode exclusion\n");
 		return -EOPNOTSUPP;
 	}
+
 
 	/*
 	 * Store the event encoding into the config_base field.

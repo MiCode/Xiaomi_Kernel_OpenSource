@@ -58,6 +58,17 @@ u32 evt_type_base[][4] = {
 static u32 krait_ver, evt_index;
 static u32 krait_max_l1_reg;
 
+
+/*
+ * Every 4 bytes represents a prefix.
+ * Every nibble represents a register.
+ * Every bit represents a group within a register.
+ *
+ * This supports up to 4 groups per register, upto 8
+ * registers per prefix and upto 2 prefixes.
+ */
+static DEFINE_PER_CPU(u64, pmu_bitmap);
+
 static const unsigned armv7_krait_perf_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CPU_CYCLES]	    = ARMV7_PERFCTR_CPU_CYCLES,
 	[PERF_COUNT_HW_INSTRUCTIONS]	    = ARMV7_PERFCTR_INSTR_EXECUTED,
@@ -556,6 +567,58 @@ msm_free_irq(int irq)
         }
 }
 
+/*
+ * We check for column exclusion constraints here.
+ * Two events cant have same reg and same group.
+ */
+static int msm_test_set_ev_constraint(struct perf_event *event)
+{
+	u32 krait_evt_type = event->attr.config & KRAIT_EVENT_MASK;
+	u8 prefix = (krait_evt_type & 0xF0000) >> 16;
+	u8 reg = (krait_evt_type & 0x0F000) >> 12;
+	u8 group = krait_evt_type & 0x0000F;
+	u64 cpu_pmu_bitmap = __get_cpu_var(pmu_bitmap);
+	u64 bitmap_t;
+
+	/* Return if non MSM event. */
+	if (!prefix)
+		return 0;
+
+	bitmap_t = 1 << (((prefix - 1) * 32) + (reg * 4) + group);
+
+	/* Set it if not already set. */
+	if (!(cpu_pmu_bitmap & bitmap_t)) {
+		cpu_pmu_bitmap |= bitmap_t;
+		__get_cpu_var(pmu_bitmap) = cpu_pmu_bitmap;
+		return 1;
+	}
+	/* Bit is already set. Constraint failed. */
+	return -EPERM;
+}
+
+static int msm_clear_ev_constraint(struct perf_event *event)
+{
+	u32 krait_evt_type = event->attr.config & KRAIT_EVENT_MASK;
+	u8 prefix = (krait_evt_type & 0xF0000) >> 16;
+	u8 reg = (krait_evt_type & 0x0F000) >> 12;
+	u8 group = krait_evt_type & 0x0000F;
+	u64 cpu_pmu_bitmap = __get_cpu_var(pmu_bitmap);
+	u64 bitmap_t;
+
+	/* Return if non MSM event. */
+	if (!prefix)
+		return 0;
+
+	bitmap_t = 1 << (((prefix - 1) * 32) + (reg * 4) + group);
+
+	/* Clear constraint bit. */
+	cpu_pmu_bitmap &= ~(bitmap_t);
+
+	__get_cpu_var(pmu_bitmap) = cpu_pmu_bitmap;
+
+	return 1;
+}
+
 static struct arm_pmu krait_pmu = {
 	.handle_irq		= armv7pmu_handle_irq,
 	.request_pmu_irq	= msm_request_irq,
@@ -568,6 +631,8 @@ static struct arm_pmu krait_pmu = {
 	.start			= armv7pmu_start,
 	.stop			= armv7pmu_stop,
 	.reset			= krait_pmu_reset,
+	.test_set_event_constraints	= msm_test_set_ev_constraint,
+	.clear_event_constraints	= msm_clear_ev_constraint,
 	.max_period		= (1LLU << 32) - 1,
 };
 
