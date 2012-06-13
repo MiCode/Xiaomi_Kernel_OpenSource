@@ -428,7 +428,7 @@ static void diag_bridge_disconnect(struct usb_interface *ifc)
 
 	dev_dbg(&dev->ifc->dev, "%s:\n", __func__);
 
-	platform_device_del(dev->pdev);
+	platform_device_unregister(dev->pdev);
 	dev->ifc = NULL;
 	diag_bridge_debugfs_cleanup();
 	kref_put(&dev->kref, diag_bridge_delete);

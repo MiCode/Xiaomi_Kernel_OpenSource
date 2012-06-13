@@ -918,11 +918,11 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 		return -EINVAL;
 	}
 
-	udev = interface_to_usbdev(iface);
-	usb_get_dev(udev);
-
 	if (!test_bit(iface_num, &id->driver_info))
 		return -ENODEV;
+
+	udev = interface_to_usbdev(iface);
+	usb_get_dev(udev);
 
 	numends = iface->cur_altsetting->desc.bNumEndpoints;
 	for (i = 0; i < numends; i++) {
@@ -965,7 +965,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	return 0;
 
 free_data_bridge:
-	platform_device_del(__dev[ch_id]->pdev);
+	platform_device_unregister(__dev[ch_id]->pdev);
 	usb_set_intfdata(iface, NULL);
 	kfree(__dev[ch_id]);
 	__dev[ch_id] = NULL;
@@ -989,7 +989,7 @@ static void bridge_disconnect(struct usb_interface *intf)
 
 	ch_id--;
 	ctrl_bridge_disconnect(ch_id);
-	platform_device_del(dev->pdev);
+	platform_device_unregister(dev->pdev);
 	usb_set_intfdata(intf, NULL);
 	__dev[ch_id] = NULL;
 

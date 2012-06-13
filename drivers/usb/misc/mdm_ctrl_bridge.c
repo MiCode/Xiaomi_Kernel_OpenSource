@@ -703,7 +703,7 @@ free_intbuf:
 free_inturb:
 	usb_free_urb(dev->inturb);
 pdev_del:
-	platform_device_del(dev->pdev);
+	platform_device_unregister(dev->pdev);
 nomem:
 	kfree(dev);
 
@@ -716,7 +716,7 @@ void ctrl_bridge_disconnect(unsigned int id)
 
 	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
-	platform_device_del(dev->pdev);
+	platform_device_unregister(dev->pdev);
 
 	kfree(dev->in_ctlreq);
 	kfree(dev->readbuf);
