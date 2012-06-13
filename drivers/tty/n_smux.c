@@ -1005,7 +1005,6 @@ static void smux_send_byte(char ch)
 	pkt->hdr.cmd = SMUX_CMD_BYTE;
 	pkt->hdr.flags = ch;
 	pkt->hdr.lcid = SMUX_BROADCAST_LCID;
-	pkt->hdr.flags = ch;
 
 	list_add_tail(&pkt->list, &smux.power_queue);
 	queue_work(smux_tx_wq, &smux_tx_work);
