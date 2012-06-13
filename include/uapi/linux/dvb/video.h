@@ -55,6 +55,19 @@ typedef enum {
 	VIDEO_CENTER_CUT_OUT  /* use center cut out format */
 } video_displayformat_t;
 
+enum video_codec_t {
+	VIDEO_CODECTYPE_NONE,
+	VIDEO_CODECTYPE_MPEG2,
+	VIDEO_CODECTYPE_MPEG4,
+	VIDEO_CODECTYPE_H264,
+	VIDEO_CODECTYPE_VC1
+};
+
+enum video_out_format_t {
+	VIDEO_YUV_FORMAT_NV12,
+	VIDEO_YUV_FORMAT_TILE_4x2
+};
+
 typedef struct {
 	int w;
 	int h;
@@ -82,18 +95,85 @@ typedef enum {
 #define VIDEO_CMD_FREEZE      (2)
 #define VIDEO_CMD_CONTINUE    (3)
 
+#define VIDEO_CMD_SET_CODEC           (4)
+#define VIDEO_CMD_GET_CODEC           (5)
+#define VIDEO_CMD_SET_OUTPUT_FORMAT   (6)
+#define VIDEO_CMD_GET_OUTPUT_FORMAT   (7)
+#define VIDEO_CMD_GET_BUFFER_REQ      (8)
+#define VIDEO_CMD_SET_INPUT_BUFFERS   (9)
+#define VIDEO_CMD_SET_OUTPUT_BUFFERS  (10)
+#define VIDEO_CMD_READ_RAW_OUTPUT     (11)
+#define VIDEO_CMD_GET_PIC_RES         (12)
+#define VIDEO_CMD_FREE_INPUT_BUFFERS  (13)
+#define VIDEO_CMD_FREE_OUTPUT_BUFFERS (14)
+#define VIDEO_CMD_GET_H264_MV_BUFFER  (15)
+#define VIDEO_CMD_SET_H264_MV_BUFFER  (16)
+#define VIDEO_CMD_FREE_H264_MV_BUFFER (17)
+#define VIDEO_CMD_CLEAR_INPUT_BUFFER  (18)
+#define VIDEO_CMD_CLEAR_OUTPUT_BUFFER (19)
+
 /* Flags for VIDEO_CMD_FREEZE */
-#define VIDEO_CMD_FREEZE_TO_BLACK     	(1 << 0)
+#define VIDEO_CMD_FREEZE_TO_BLACK	(1 << 0)
 
 /* Flags for VIDEO_CMD_STOP */
-#define VIDEO_CMD_STOP_TO_BLACK      	(1 << 0)
-#define VIDEO_CMD_STOP_IMMEDIATELY     	(1 << 1)
+#define VIDEO_CMD_STOP_TO_BLACK		(1 << 0)
+#define VIDEO_CMD_STOP_IMMEDIATELY	(1 << 1)
 
 /* Play input formats: */
 /* The decoder has no special format requirements */
 #define VIDEO_PLAY_FMT_NONE         (0)
 /* The decoder requires full GOPs */
 #define VIDEO_PLAY_FMT_GOP          (1)
+
+/* Picture Resolution for Video Data */
+struct video_pic_res {
+	unsigned int width;
+	unsigned int height;
+	unsigned int stride;
+	unsigned int scan_lines;
+};
+
+/* Video Buffer Properties */
+struct video_buffer_prop {
+	unsigned int alignment;
+	unsigned int buf_poolid;
+	size_t buf_size;
+};
+
+/* Buffer Requirements from Video Decoder */
+struct video_buffer_req {
+	unsigned int num_input_buffers;  /* Number of Input Buffers */
+	unsigned int num_output_buffers; /* Number of Output Buffers */
+	struct video_buffer_prop input_buf_prop; /* Input Buffer Properties */
+	struct video_buffer_prop output_buf_prop; /* Output Buffer Prop */
+};
+
+/* Video Data Buffer Structure for Input and Output */
+struct video_data_buffer {
+	void __user *bufferaddr; /* Pointer to Buffer */
+	size_t buffer_len;       /* Length of Buffer */
+	int ion_fd;             /* file Descriptor */
+	size_t offset;
+	size_t mmaped_size;
+	void *client_data;
+	void *ip_buffer_tag;
+	__u64 pts;
+};
+
+struct video_h264_mv {
+	size_t size;
+	int count;
+	int ion_fd;
+	int offset;
+};
+
+struct video_mv_buff_size {
+	int width;
+	int height;
+	int size;
+	int alignment;
+};
+
 
 /* The structure must be zeroed before use by the application
    This ensures it can be extended safely in the future. */
@@ -110,10 +190,22 @@ struct video_command {
 			   1 specifies forward single stepping,
 			   -1 specifies backward single stepping,
 			   >1: playback at speed/1000 of the normal speed,
-			   <-1: reverse playback at (-speed/1000) of the normal speed. */
+			   <-1: reverse playback at (-speed/1000) of
+				the normal speed. */
 			__s32 speed;
 			__u32 format;
 		} play;
+
+		union {
+			enum video_codec_t codec; /* Video Codec Type */
+			enum video_out_format_t format; /* YUV Format */
+			struct video_pic_res frame_res; /* Frame Resolution */
+			/* Buffer Requirements for Video Decoder */
+			struct video_buffer_req buf_req;
+			struct video_data_buffer buffer; /* Buffer Details */
+			struct video_mv_buff_size mv_buffer_req;
+			struct video_h264_mv mv_buffer_prop;
+		};
 
 		struct {
 			__u32 data[16];
@@ -124,22 +216,47 @@ struct video_command {
 /* FIELD_UNKNOWN can be used if the hardware does not know whether
    the Vsync is for an odd, even or progressive (i.e. non-interlaced)
    field. */
-#define VIDEO_VSYNC_FIELD_UNKNOWN  	(0)
-#define VIDEO_VSYNC_FIELD_ODD 		(1)
+#define VIDEO_VSYNC_FIELD_UNKNOWN	(0)
+#define VIDEO_VSYNC_FIELD_ODD		(1)
 #define VIDEO_VSYNC_FIELD_EVEN		(2)
 #define VIDEO_VSYNC_FIELD_PROGRESSIVE	(3)
 
 struct video_event {
 	__s32 type;
-#define VIDEO_EVENT_SIZE_CHANGED	1
-#define VIDEO_EVENT_FRAME_RATE_CHANGED	2
-#define VIDEO_EVENT_DECODER_STOPPED 	3
-#define VIDEO_EVENT_VSYNC 		4
+#define VIDEO_EVENT_SIZE_CHANGED	(1)
+#define VIDEO_EVENT_FRAME_RATE_CHANGED	(2)
+#define VIDEO_EVENT_DECODER_STOPPED	(3)
+#define VIDEO_EVENT_VSYNC		(4)
+#define VIDEO_EVENT_DECODER_PLAYING     (5)
+#define VIDEO_EVENT_DECODER_FREEZED     (6)
+#define VIDEO_EVENT_DECODER_RESUMED     (7)
+#define VIDEO_EVENT_INPUT_BUFFER_DONE   (8)
+#define VIDEO_EVENT_SEQ_HDR_FOUND       (9)
+#define VIDEO_EVENT_OUTPUT_BUFFER_DONE  (10)
+#define VIDEO_EVENT_OUTPUT_FLUSH_DONE   (11)
+#define VIDEO_EVENT_INPUT_FLUSH_DONE    (12)
+#define VIDEO_EVENT_INPUT_FLUSHED       (13)
+#define VIDEO_EVENT_OUTPUT_FLUSHED      (14)
+
+
+	unsigned int    status;
+#define VIDEO_STATUS_SUCESS             0
+#define VIDEO_STATUS_BITSTREAM_ERROR    1
+#define VIDEO_STATUS_FAILED             2
+#define VIDEO_STATUS_NORESOURCE         3
+#define VIDEO_STATUS_INVALID_CMD        4
+#define VIDEO_STATUS_INVALID_PARAM      5
+#define VIDEO_STATUS_INVALID_STATE      6
+#define VIDEO_STATUS_BUSY               7
+#define VIDEO_STATUS_INVALID_HANDLE     8
+#define VIDEO_STATUS_NO_SUPPORT         9
 	__kernel_time_t timestamp;
+
 	union {
 		video_size_t size;
 		unsigned int frame_rate;	/* in frames per 1000sec */
-		unsigned char vsync_field;	/* unknown/odd/even/progressive */
+		unsigned char vsync_field; /* unknown/odd/even/progressive */
+		struct video_data_buffer buffer; /* Output Buffer Details */
 	} u;
 };
 
@@ -147,8 +264,8 @@ struct video_event {
 struct video_status {
 	int                   video_blank;   /* blank video on freeze? */
 	video_play_state_t    play_state;    /* current state of playback */
-	video_stream_source_t stream_source; /* current source (demux/memory) */
-	video_format_t        video_format;  /* current aspect ratio of stream*/
+	video_stream_source_t stream_source;/* current source (demux/memory) */
+	video_format_t        video_format; /* current aspect ratio of stream*/
 	video_displayformat_t display_format;/* selected cropping mode */
 };
 
@@ -157,7 +274,6 @@ struct video_still_picture {
 	char __user *iFrame;        /* pointer to a single iframe in memory */
 	__s32 size;
 };
-
 
 typedef
 struct video_highlight {
@@ -266,9 +382,9 @@ typedef __u16 video_attributes_t;
 #define VIDEO_GET_PTS              _IOR('o', 57, __u64)
 
 /* Read the number of displayed frames since the decoder was started */
-#define VIDEO_GET_FRAME_COUNT  	   _IOR('o', 58, __u64)
+#define VIDEO_GET_FRAME_COUNT	   _IOR('o', 58, __u64)
 
-#define VIDEO_COMMAND     	   _IOWR('o', 59, struct video_command)
-#define VIDEO_TRY_COMMAND 	   _IOWR('o', 60, struct video_command)
+#define VIDEO_COMMAND		   _IOWR('o', 59, struct video_command)
+#define VIDEO_TRY_COMMAND	   _IOWR('o', 60, struct video_command)
 
 #endif /* _UAPI_DVBVIDEO_H_ */
