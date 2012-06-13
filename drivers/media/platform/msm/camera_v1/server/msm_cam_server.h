@@ -17,7 +17,7 @@
 #include <linux/proc_fs.h>
 #include <linux/ioctl.h>
 #include <mach/camera.h>
-#include "msm.h"
+#include "../msm.h"
 
 uint32_t msm_cam_server_get_mctl_handle(void);
 struct iommu_domain *msm_cam_server_get_domain(void);
