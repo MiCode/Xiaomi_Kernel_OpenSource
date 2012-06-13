@@ -39,6 +39,62 @@
 
 struct tty_struct;
 
+/**
+ * Logical Channel Structure.  One instance per channel.
+ *
+ * Locking Hierarchy
+ * Each lock has a postfix that describes the locking level.  If multiple locks
+ * are required, only increasing lock hierarchy numbers may be locked which
+ * ensures avoiding a deadlock.
+ *
+ * Locking Example
+ * If state_lock_lhb1 is currently held and the TX list needs to be
+ * manipulated, then tx_lock_lhb2 may be locked since it's locking hierarchy
+ * is greater.  However, if tx_lock_lhb2 is held, then state_lock_lhb1 may
+ * not be acquired since it would result in a deadlock.
+ *
+ * Note that the Line Discipline locks (*_lha) should always be acquired
+ * before the logical channel locks.
+ */
+struct smux_lch_t {
+	/* channel state */
+	spinlock_t state_lock_lhb1;
+	uint8_t lcid;
+	unsigned local_state;
+	unsigned local_mode;
+	uint8_t local_tiocm;
+	unsigned options;
+
+	unsigned remote_state;
+	unsigned remote_mode;
+	uint8_t remote_tiocm;
+
+	int tx_flow_control;
+	int rx_flow_control_auto;
+	int rx_flow_control_client;
+
+	/* client callbacks and private data */
+	void *priv;
+	void (*notify)(void *priv, int event_type, const void *metadata);
+	int (*get_rx_buffer)(void *priv, void **pkt_priv, void **buffer,
+								int size);
+
+	/* RX Info */
+	struct list_head rx_retry_queue;
+	unsigned rx_retry_queue_cnt;
+	struct delayed_work rx_retry_work;
+
+	/* TX Info */
+	spinlock_t tx_lock_lhb2;
+	struct list_head tx_queue;
+	struct list_head tx_ready_list;
+	unsigned tx_pending_data_cnt;
+	unsigned notify_lwm;
+};
+
+/* Each instance of smux_lch_t */
+extern struct smux_lch_t smux_lch[SMUX_NUM_LOGICAL_CHANNELS];
+
 /* Packet header. */
 struct smux_hdr_t {
 	uint16_t magic;
@@ -102,6 +158,16 @@ enum {
 	SMUX_LCH_REMOTE_OPENED,
 };
 
+/* Enum used to report various undefined actions */
+enum {
+	SMUX_UNDEF_LONG,
+	SMUX_UNDEF_SHORT,
+};
+
+long msm_smux_tiocm_get_atomic(struct smux_lch_t *ch);
+const char *local_lch_state(unsigned state);
+const char *remote_lch_state(unsigned state);
+const char *lch_mode(unsigned mode);
 
 int smux_assert_lch_id(uint32_t lcid);
 void smux_init_pkt(struct smux_pkt_t *pkt);

@@ -1961,7 +1961,7 @@ static int __init smux_debugfs_init(void)
 {
 	struct dentry *dent;
 
-	dent = debugfs_create_dir("n_smux", 0);
+	dent = debugfs_create_dir("n_smux_test", 0);
 	if (IS_ERR(dent))
 		return PTR_ERR(dent);
 
