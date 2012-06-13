@@ -1624,7 +1624,8 @@ sub process {
 			if ($shorttext == IN_SHORTTEXT_BLANKLINE && $line=~/\S/) {
 				# the subject line was just processed,
 				# a blank line must be next
-				WARN("non-blank line after summary line\n" . $herecurr);
+				WARN("NONBLANK_AFTER_SUMMARY",
+				     "non-blank line after summary line\n" . $herecurr);
 				$shorttext = IN_SHORTTEXT;
 				# this non-blank line may or may not be commit text -
 				# a warning has been generated so assume it is commit
@@ -1635,7 +1636,8 @@ sub process {
 			if ($shorttext == IN_SHORTTEXT) {
 				if ($line=~/^---/ || $line=~/^diff.*/) {
 					if ($commit_text_present == 0) {
-						WARN("please add commit text explaining " .
+						WARN("NO_COMMIT_TEXT",
+						     "please add commit text explaining " .
 						     "*why* the change is needed\n" .
 						     $herecurr);
 					}
@@ -1645,7 +1647,8 @@ sub process {
 					 && $line !~ /^:([0-7]{6}\s){2}
 						      ([[:xdigit:]]+\.*
 						       \s){2}\w+\s\w+/xms) {
-					WARN("commit text line over " .
+					WARN("LONG_COMMIT_TEXT",
+					     "commit text line over " .
 					     SHORTTEXT_LIMIT .
 					     " characters\n" . $herecurr);
 				} elsif ($line=~/^\s*change-id:/i ||
@@ -1655,7 +1658,8 @@ sub process {
 					# this is a tag, there must be commit
 					# text by now
 					if ($commit_text_present == 0) {
-						WARN("please add commit text explaining " .
+						WARN("NO_COMMIT_TEXT",
+						     "please add commit text explaining " .
 						     "*why* the change is needed\n" .
 						     $herecurr);
 						# prevent duplicate warnings
@@ -1676,7 +1680,8 @@ sub process {
 					$shorttext = IN_SHORTTEXT;
 					# Check for Subject line followed by a blank line.
 					if (length($line) != 0) {
-						WARN("non-blank line after " .
+						WARN("NONBLANK_AFTER_SUMMARY",
+						     "non-blank line after " .
 						     "summary line\n" .
 						     $sublinenr . $here .
 						     "\n" . $subjectline .
@@ -1698,7 +1703,8 @@ sub process {
 				$sublinenr = "#$linenr & ";
 # Check for Subject line less than line limit
 				if (length($1) > SHORTTEXT_LIMIT) {
-					WARN("summary line over " .
+					WARN("LONG_SUMMARY_LINE",
+					     "summary line over " .
 					     SHORTTEXT_LIMIT .
 					     " characters\n" . $herecurr);
 				}
@@ -1709,7 +1715,8 @@ sub process {
 				$shorttext = IN_SHORTTEXT_BLANKLINE;
 				$shorttext_exspc = 4;
 				if (length($1) > SHORTTEXT_LIMIT) {
-					WARN("summary line over " .
+					WARN("LONG_SUMMARY_LINE",
+					     "summary line over " .
 					     SHORTTEXT_LIMIT .
 					     " characters\n" . $herecurr);
 				}
@@ -1779,13 +1786,14 @@ sub process {
 				}
 			}
 			if ($line =~ /^\s*signed-off-by:.*(quicinc|qualcomm)\.com/i) {
-				WARN("invalid Signed-off-by identity\n" . $line );
+				WARN("BAD_SIGN_OFF",
+				     "invalid Signed-off-by identity\n" . $line );
 			}
 		}
 
 #check the patch for invalid author credentials
 		if ($line =~ /^From:.*(quicinc|qualcomm)\.com/) {
-			WARN("invalid author identity\n" . $line );
+			WARN("BAD_AUTHOR", "invalid author identity\n" . $line );
 		}
 
 # Check for wrappage within a valid hunk of the file
@@ -3401,19 +3409,20 @@ sub process {
 
 # sys_open/read/write/close are not allowed in the kernel
 		if ($line =~ /\b(sys_(?:open|read|write|close))\b/) {
-			ERROR("$1 is inappropriate in kernel code.\n" .
+			ERROR("FILE_OPS", "$1 is inappropriate in kernel code.\n" .
 			      $herecurr);
 		}
 
 # filp_open is a backdoor for sys_open
 		if ($line =~ /\b(filp_open)\b/) {
-			ERROR("$1 is inappropriate in kernel code.\n" .
+			ERROR("FILE_OPS", "$1 is inappropriate in kernel code.\n" .
 			      $herecurr);
 		}
 
 # read[bwl] & write[bwl] use too many barriers, use the _relaxed variants
 		if ($line =~ /\b((?:read|write)[bwl])\b/) {
-			ERROR("Use of $1 is deprecated: use $1_relaxed\n\t" .
+			ERROR("NON_RELAXED_IO",
+			      "Use of $1 is deprecated: use $1_relaxed\n\t" .
 			      "with appropriate memory barriers instead.\n" .
 			      $herecurr);
 		}
@@ -3423,7 +3432,8 @@ sub process {
 			my ($all, $pref, $suf) = ($1, $2, $3);
 			$pref =~ s/in/read/;
 			$pref =~ s/out/write/;
-			ERROR("Use of $all is deprecated: use " .
+			ERROR("NON_RELAXED_IO",
+			      "Use of $all is deprecated: use " .
 			      "__raw_$pref$suf\n\t" .
 			      "with appropriate memory barriers instead.\n" .
 			      $herecurr);
@@ -3431,7 +3441,8 @@ sub process {
 
 # dsb is too ARMish, and should usually be mb.
 		if ($line =~ /\bdsb\b/) {
-			WARN("Use of dsb is discouranged: prefer mb.\n" .
+			WARN("ARM_BARRIER",
+			     "Use of dsb is discouranged: prefer mb.\n" .
 			     $herecurr);
 		}
 
@@ -3439,12 +3450,13 @@ sub process {
 	if ($realfile =~ /\/mach-msm\/board-[0-9]+/ &&
 	    $realfile !~ /camera/ && $realfile !~ /gpiomux/ &&
 	    $line =~ /\s*struct msm_gpiomux_config\s*/ ) {
-		WARN("Non gpiomux board file cannot have a gpiomux config declarations. Please declare gpiomux configs in board-*-gpiomux.c file.\n" . $herecurr);
+		WARN("GPIOMUX_IN_BOARD",
+		     "Non gpiomux board file cannot have a gpiomux config declarations. Please declare gpiomux configs in board-*-gpiomux.c file.\n" . $herecurr);
 	}
 
 # MSM - check if vreg_xxx function are used
 	if ($line =~ /\b(vreg_(get|put|set_level|enable|disable))\b/) {
-		WARN("Use of $1 API is deprecated: " .
+		WARN("DEPRECATED_VREG_APIS", "Use of $1 API is deprecated: " .
 			"use regulator APIs\n" . $herecurr);
 	}
 
@@ -3461,7 +3473,8 @@ sub process {
 		);
 		foreach my $k (keys %str_fns) {
 			if ($line =~ /\b$k\b/) {
-				ERROR("Use of $k is deprecated: " .
+				ERROR("UNBOUNDED_STRING_FNS",
+				      "Use of $k is deprecated: " .
 				      "use $str_fns{$k} instead.\n" .
 				      $herecurr);
 			}
@@ -3469,13 +3482,15 @@ sub process {
 
 # warn about #if 0
 		if ($line =~ /^.\s*\#\s*if\s+0\b/) {
-			WARN("if this code is redundant consider removing it\n"
+			WARN("IF_0",
+			     "if this code is redundant consider removing it\n"
 				.  $herecurr);
 		}
 
 # warn about #if 1
 		if ($line =~ /^.\s*\#\s*if\s+1\b/) {
-			WARN("if this code is required consider removing"
+			WARN("IF_1",
+			     "if this code is required consider removing"
 				. " #if 1\n" .  $herecurr);
 		}
 
@@ -3507,7 +3522,8 @@ sub process {
 
 # check the patch for use of mdelay
 		if ($line =~ /\bmdelay\s*\(/) {
-			WARN("use of mdelay() found: msleep() is the preferred API.\n" . $line );
+			WARN("MDELAY",
+			     "use of mdelay() found: msleep() is the preferred API.\n" . $line );
 		}
 
 # warn about #ifdefs in C files
@@ -3761,7 +3777,8 @@ sub process {
 
 # check for return codes on error paths
 		if ($line =~ /\breturn\s+-\d+/) {
-			ERROR("illegal return value, please use an error code\n" . $herecurr);
+			ERROR("NO_ERROR_CODE",
+			      "illegal return value, please use an error code\n" . $herecurr);
 		}
 
 # check for gcc specific __FUNCTION__
