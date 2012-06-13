@@ -1329,6 +1329,9 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format)
 	case FORMAT_DTS:
 		open.format = DTS;
 		break;
+	case FORMAT_DTS_LBR:
+		open.format = DTS_LBR;
+		break;
 	case FORMAT_AAC:
 		open.format = MPEG4_AAC;
 		break;
@@ -1411,6 +1414,12 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 		break;
 	case FORMAT_MP3:
 		open.format = MP3;
+		break;
+	case FORMAT_DTS:
+		open.format = DTS;
+		break;
+	case FORMAT_DTS_LBR:
+		open.format = DTS_LBR;
 		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
@@ -2302,6 +2311,12 @@ int q6asm_media_format_block(struct audio_client *ac, uint32_t format)
 		break;
 	case FORMAT_MP3:
 		fmt.format = MP3;
+		break;
+	case FORMAT_DTS:
+		fmt.format = DTS;
+		break;
+	case FORMAT_DTS_LBR:
+		fmt.format = DTS_LBR;
 		break;
 	default:
 		pr_err("Invalid format[%d]\n", format);
