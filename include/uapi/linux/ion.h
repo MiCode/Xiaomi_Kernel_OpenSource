@@ -84,6 +84,14 @@ enum ion_fixed_position {
 	FIXED_HIGH,
 };
 
+enum cp_mem_usage {
+	VIDEO_BITSTREAM = 0x1,
+	VIDEO_PIXEL = 0x2,
+	VIDEO_NONPIXEL = 0x3,
+	MAX_USAGE = 0x4,
+	UNKNOWN = 0x7FFFFFFF,
+};
+
 /**
  * Flag to use when allocating to indicate that a heap is secure.
  */
