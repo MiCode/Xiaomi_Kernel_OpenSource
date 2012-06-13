@@ -42,11 +42,13 @@ static int gpio_vreg_request_gpio(struct gpio_vreg *vreg)
 	/* Request GPIO now if it hasn't been requested before. */
 	if (!vreg->gpio_requested) {
 		rc = gpio_request(vreg->gpio, vreg->gpio_label);
-		if (rc < 0)
+		if (rc < 0) {
 			pr_err("failed to request gpio %u (%s), rc=%d\n",
 				vreg->gpio, vreg->gpio_label, rc);
-		else
+			return rc;
+		} else {
 			vreg->gpio_requested = true;
+		}
 
 		rc = gpio_sysfs_set_active_low(vreg->gpio, vreg->active_low);
 		if (rc < 0)
