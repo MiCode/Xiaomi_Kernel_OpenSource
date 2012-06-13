@@ -10,6 +10,7 @@ Required properties:
 - reg: offset and length of the register set for the device.
 - reg-names: names of the bases for the above registers. "pmu_base", "clk_base",
              and "halt_base" are expected.
+- interrupts: WCNSS to Apps watchdog bite interrupt
 - vdd_pronto_pll-supply: regulator to supply pronto pll.
 - qcom,firmware-name: Base name of the firmware image. Ex. "wcnss"
 
@@ -21,6 +22,7 @@ Example:
 		      <0xfd485300 0xc>;
 		reg-names = "pmu_base", "clk_base", "halt_base";
 		vdd_pronto_pll-supply = <&pm8941_l12>;
+		interrupts = <0 231 1>;
 
 		qcom,firmware-name = "wcnss";
 	};
