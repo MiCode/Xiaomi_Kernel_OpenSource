@@ -1,0 +1,106 @@
+* CoreSight Components
+
+CoreSight components are compliant with the ARM CoreSight architecture
+specification and can be connected in various topologies to suite a particular
+SoCs tracing needs. These trace components can generally be classified as sinks,
+links and sources. Trace data produced by one or more sources flows through the
+intermediate links connecting the source to the currently selected sink. Each
+CoreSight component device should use these properties to describe its hardware
+characteristcs.
+
+Required properties:
+
+- compatible : name of the component used for driver matching
+- reg : physical base address and length of the register set(s) of the component
+- coresight-id : unique integer identifier for the component
+- coresight-name : unique descriptive name of the component
+- coresight-nr-inports : number of input ports on the component
+
+coresight-outports, coresight-child-list and coresight-child-ports lists will
+be of the same length and will have a one to one correspondence among the
+elements at the same list index.
+
+coresight-default-sink must be specified for one of the sink devices that is
+intended to be made the default sink. Other sink devices must not have this
+specified. Not specifying this property on any of the sinks is invalid.
+
+Optional properties:
+
+- coresight-outports : list of output port numbers of this component
+- coresight-child-list : list of phandles pointing to the children of this
+			 component
+- coresight-child-ports : list of input port numbers of the children
+- coresight-default-sink : represents the default compile time CoreSight sink
+
+Examples:
+
+1. Sinks
+	tmc_etr: tmc@fc322000 {
+		compatible = "arm,coresight-tmc";
+		reg = <0xfc322000 0x1000>;
+
+		coresight-id = <0>;
+		coresight-name = "coresight-tmc-etr";
+		coresight-nr-inports = <1>;
+		coresight-default-sink;
+	};
+
+	tpiu: tpiu@fc318000 {
+		compatible = "arm,coresight-tpiu";
+		reg = <0xfc318000 0x1000>;
+
+		coresight-id = <1>;
+		coresight-name = "coresight-tpiu";
+		coresight-nr-inports = <1>;
+	};
+
+2. Links
+	funnel_merg: funnel@fc31b000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc31b000 0x1000>;
+
+		coresight-id = <4>;
+		coresight-name = "coresight-funnel-merg";
+		coresight-nr-inports = <2>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tmc_etf>;
+		coresight-child-ports = <0>;
+	};
+
+	funnel_in0: funnel@fc319000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc319000 0x1000>;
+
+		coresight-id = <5>;
+		coresight-name = "coresight-funnel-in0";
+		coresight-nr-inports = <8>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_merg>;
+		coresight-child-ports = <0>;
+	};
+
+3. Sources
+	stm: stm@fc321000 {
+		compatible = "arm,coresight-stm";
+		reg = <0xfc321000 0x1000>,
+		      <0xfa280000 0x180000>;
+
+		coresight-id = <9>;
+		coresight-name = "coresight-stm";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <7>;
+	};
+
+	etm0: etm@fc33c000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc33c000 0x1000>;
+
+		coresight-id = <10>;
+		coresight-name = "coresight-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <0>;
+	};
