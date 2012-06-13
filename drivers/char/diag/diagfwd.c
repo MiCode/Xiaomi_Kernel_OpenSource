@@ -1016,7 +1016,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 					ENCODE_RSP_AND_SEND(8+rt_mask_size-1);
 					return 0;
 				}
-				ptr += MAX_SSID_PER_RANGE*4;
+				rt_mask_ptr += MAX_SSID_PER_RANGE*4;
 			}
 		} else
 			buf = temp;
