@@ -419,14 +419,60 @@ EXPORT_SYMBOL(clk_set_flags);
 
 static struct clock_init_data __initdata *clk_init_data;
 
+static enum handoff __init __handoff_clk(struct clk *clk)
+{
+	enum handoff ret;
+	struct handoff_clk *h;
+	int err = 0;
+
+	/*
+	 * Tree roots don't have parents, but need to be handed off. So,
+	 * terminate recursion by returning "enabled". Also return "enabled"
+	 * for clocks with non-zero enable counts since they must have already
+	 * been handed off.
+	 */
+	if (clk == NULL || clk->count)
+		return HANDOFF_ENABLED_CLK;
+
+	/* Clocks without handoff functions are assumed to be disabled. */
+	if (!clk->ops->handoff || (clk->flags & CLKFLAG_SKIP_HANDOFF))
+		return HANDOFF_DISABLED_CLK;
+
+	/*
+	 * Handoff functions for children must be called before their parents'
+	 * so that the correct parent is returned by the clk_get_parent() below.
+	 */
+	ret = clk->ops->handoff(clk);
+	if (ret == HANDOFF_ENABLED_CLK) {
+		ret = __handoff_clk(clk_get_parent(clk));
+		if (ret == HANDOFF_ENABLED_CLK) {
+			h = kmalloc(sizeof(*h), GFP_KERNEL);
+			if (!h) {
+				err = -ENOMEM;
+				goto out;
+			}
+			err = clk_prepare_enable(clk);
+			if (err)
+				goto out;
+			h->clk = clk;
+			list_add_tail(&h->list, &handoff_list);
+		}
+	}
+out:
+	if (err) {
+		pr_err("%s handoff failed (%d)\n", clk->dbg_name, err);
+		kfree(h);
+		ret = HANDOFF_DISABLED_CLK;
+	}
+	return ret;
+}
+
 void __init msm_clock_init(struct clock_init_data *data)
 {
 	unsigned n;
 	struct clk_lookup *clock_tbl;
-	struct handoff_clk *h;
 	size_t num_clocks;
 	struct clk *clk;
-	int ret;
 
 	clk_init_data = data;
 	if (clk_init_data->pre_init)
@@ -447,32 +493,8 @@ void __init msm_clock_init(struct clock_init_data *data)
 	 * Detect and preserve initial clock state until clock_late_init() or
 	 * a driver explicitly changes it, whichever is first.
 	 */
-	for (n = 0; n < num_clocks; n++) {
-		clk = clock_tbl[n].clk;
-		/*
-		 * Perform the handoffs, skipping clocks that don't support it
-		 * or have already been handed off because they have multiple
-		 * entries in the clock table.
-		 */
-		if (clk->ops->handoff && !clk->count &&
-		    !(clk->flags & CLKFLAG_SKIP_HANDOFF) &&
-		    clk->ops->handoff(clk) == HANDOFF_ENABLED_CLK) {
-			h = kmalloc(sizeof(*h), GFP_KERNEL);
-			if (!h)
-				ret = -ENOMEM;
-			else
-				ret = clk_prepare_enable(clk);
-
-			if (ret) {
-				pr_err("%s handoff failed (%d)\n",
-				       clk->dbg_name, ret);
-				kfree(h);
-			} else {
-				h->clk = clk;
-				list_add_tail(&h->list, &handoff_list);
-			}
-		}
-	}
+	for (n = 0; n < num_clocks; n++)
+		__handoff_clk(clock_tbl[n].clk);
 
 	clkdev_add_table(clock_tbl, num_clocks);
 
