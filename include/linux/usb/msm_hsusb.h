@@ -199,6 +199,7 @@ enum usb_vdd_value {
  * @core_clk_always_on_workaround: Don't disable core_clk when
  *              USB enters LPM.
  * @bus_scale_table: parameters for bus bandwidth requirements
+ * @mhl_dev_name: MHL device name used to register with MHL driver.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -216,6 +217,7 @@ struct msm_otg_platform_data {
 	bool enable_lpm_on_dev_suspend;
 	bool core_clk_always_on_workaround;
 	struct msm_bus_scale_pdata *bus_scale_table;
+	const char *mhl_dev_name;
 };
 
 /* Timeout (in msec) values (min - max) associated with OTG timers */
@@ -287,6 +289,7 @@ struct msm_otg_platform_data {
  * @id_timer: The timer used for polling ID line to detect ACA states.
  * @xo_handle: TCXO buffer handle
  * @bus_perf_client: Bus performance client handle to request BUS bandwidth
+ * @mhl_enabled: MHL driver registration successful and MHL enabled.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -314,6 +317,7 @@ struct msm_otg {
 #define A_BUS_SUSPEND	14
 #define A_CONN		15
 #define B_BUS_REQ	16
+#define MHL	        17
 	unsigned long inputs;
 	struct work_struct sm_work;
 	bool sm_work_pending;
@@ -333,6 +337,7 @@ struct msm_otg {
 	unsigned long caps;
 	struct msm_xo_voter *xo_handle;
 	uint32_t bus_perf_client;
+	bool mhl_enabled;
 	/*
 	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v
 	 * analog regulators while going to low power mode.
