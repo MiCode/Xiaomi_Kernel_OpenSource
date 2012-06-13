@@ -174,13 +174,15 @@ static void smux_loopback_rx_worker(struct work_struct *work)
 		}
 
 		lcid = pkt->hdr.lcid;
-		if (smux_assert_lch_id(lcid)) {
-			pr_err("%s: invalid channel id %d\n", __func__, lcid);
-			return;
-		}
 
 		switch (pkt->hdr.cmd) {
 		case SMUX_CMD_OPEN_LCH:
+			if (smux_assert_lch_id(lcid)) {
+				pr_err("%s: invalid channel id %d\n",
+						__func__, lcid);
+				break;
+			}
+
 			if (pkt->hdr.flags & SMUX_CMD_OPEN_ACK)
 				break;
 
@@ -207,6 +209,12 @@ static void smux_loopback_rx_worker(struct work_struct *work)
 			break;
 
 		case SMUX_CMD_CLOSE_LCH:
+			if (smux_assert_lch_id(lcid)) {
+				pr_err("%s: invalid channel id %d\n",
+						__func__, lcid);
+				break;
+			}
+
 			if (pkt->hdr.flags == SMUX_CMD_CLOSE_ACK)
 				break;
 
@@ -232,6 +240,12 @@ static void smux_loopback_rx_worker(struct work_struct *work)
 			break;
 
 		case SMUX_CMD_DATA:
+			if (smux_assert_lch_id(lcid)) {
+				pr_err("%s: invalid channel id %d\n",
+						__func__, lcid);
+				break;
+			}
+
 			/* Echo back received data */
 			smux_init_pkt(&reply_pkt);
 			reply_pkt.hdr.lcid = lcid;
@@ -245,6 +259,12 @@ static void smux_loopback_rx_worker(struct work_struct *work)
 			break;
 
 		case SMUX_CMD_STATUS:
+			if (smux_assert_lch_id(lcid)) {
+				pr_err("%s: invalid channel id %d\n",
+						__func__, lcid);
+				break;
+			}
+
 			/* Echo back received status */
 			smux_init_pkt(&reply_pkt);
 			reply_pkt.hdr.lcid = lcid;
@@ -260,7 +280,7 @@ static void smux_loopback_rx_worker(struct work_struct *work)
 		case SMUX_CMD_PWR_CTL:
 			/* reply with ack */
 			smux_init_pkt(&reply_pkt);
-			reply_pkt.hdr.lcid = lcid;
+			reply_pkt.hdr.lcid = SMUX_BROADCAST_LCID;
 			reply_pkt.hdr.cmd = SMUX_CMD_PWR_CTL;
 			reply_pkt.hdr.flags = SMUX_CMD_PWR_CTL_ACK;
 			reply_pkt.hdr.payload_len = 0;

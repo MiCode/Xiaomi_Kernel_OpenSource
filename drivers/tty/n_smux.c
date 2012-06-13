@@ -1662,24 +1662,44 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
  */
 static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
 {
-	int ret;
+	int ret = -ENXIO;
 
 	SMUX_LOG_PKT_RX(pkt);
 
 	switch (pkt->hdr.cmd) {
 	case SMUX_CMD_OPEN_LCH:
+		if (smux_assert_lch_id(pkt->hdr.lcid)) {
+			pr_err("%s: invalid channel id %d\n",
+					__func__, pkt->hdr.lcid);
+			break;
+		}
 		ret = smux_handle_rx_open_cmd(pkt);
 		break;
 
 	case SMUX_CMD_DATA:
+		if (smux_assert_lch_id(pkt->hdr.lcid)) {
+			pr_err("%s: invalid channel id %d\n",
+					__func__, pkt->hdr.lcid);
+			break;
+		}
 		ret = smux_handle_rx_data_cmd(pkt);
 		break;
 
 	case SMUX_CMD_CLOSE_LCH:
+		if (smux_assert_lch_id(pkt->hdr.lcid)) {
+			pr_err("%s: invalid channel id %d\n",
+					__func__, pkt->hdr.lcid);
+			break;
+		}
 		ret = smux_handle_rx_close_cmd(pkt);
 		break;
 
 	case SMUX_CMD_STATUS:
+		if (smux_assert_lch_id(pkt->hdr.lcid)) {
+			pr_err("%s: invalid channel id %d\n",
+					__func__, pkt->hdr.lcid);
+			break;
+		}
 		ret = smux_handle_rx_status_cmd(pkt);
 		break;
 
@@ -1709,7 +1729,6 @@ static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
 static int smux_deserialize(unsigned char *data, int len)
 {
 	struct smux_pkt_t recv;
-	uint8_t lcid;
 
 	smux_init_pkt(&recv);
 
@@ -1722,12 +1741,6 @@ static int smux_deserialize(unsigned char *data, int len)
 	if (recv.hdr.magic != SMUX_MAGIC) {
 		pr_err("%s: invalid header magic\n", __func__);
 		return -EINVAL;
-	}
-
-	lcid = recv.hdr.lcid;
-	if (smux_assert_lch_id(lcid)) {
-		pr_err("%s: invalid channel id %d\n", __func__, lcid);
-		return -ENXIO;
 	}
 
 	if (recv.hdr.payload_len)
