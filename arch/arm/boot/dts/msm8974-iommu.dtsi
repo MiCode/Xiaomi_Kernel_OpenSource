@@ -88,4 +88,27 @@
 			qcom,iommu-ctx-name = "venus_fw";
 		};
 	};
+
+	kgsl: qcom,iommu@fdb10000 {
+		compatible = "qcom,msm-smmu-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfdb10000 0x10000>;
+		vdd-supply = <&gdsc_oxili_cx>;
+		qcom,iommu-smt-size = <32>;
+
+		qcom,iommu-ctx@fdb18000 {
+			reg = <0xfdb18000 0x1000>;
+			interrupts = <0 240 0>;
+			qcom,iommu-ctx-sids = <0>;
+			qcom,iommu-ctx-name = "gfx3d_user";
+		};
+		qcom,iommu-ctx@fdb19000 {
+			reg = <0xfdb19000 0x1000>;
+			interrupts = <0 241 0>;
+			qcom,iommu-ctx-sids = <1>;
+			qcom,iommu-ctx-name = "gfx3d_priv";
+		};
+	};
 };
