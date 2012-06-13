@@ -178,59 +178,6 @@ enum {
 	SMUX_PWR_OFF_FLUSH,
 };
 
-/**
- * Logical Channel Structure.  One instance per channel.
- *
- * Locking Hierarchy
- * Each lock has a postfix that describes the locking level.  If multiple locks
- * are required, only increasing lock hierarchy numbers may be locked which
- * ensures avoiding a deadlock.
- *
- * Locking Example
- * If state_lock_lhb1 is currently held and the TX list needs to be
- * manipulated, then tx_lock_lhb2 may be locked since it's locking hierarchy
- * is greater.  However, if tx_lock_lhb2 is held, then state_lock_lhb1 may
- * not be acquired since it would result in a deadlock.
- *
- * Note that the Line Discipline locks (*_lha) should always be acquired
- * before the logical channel locks.
- */
-struct smux_lch_t {
-	/* channel state */
-	spinlock_t state_lock_lhb1;
-	uint8_t lcid;
-	unsigned local_state;
-	unsigned local_mode;
-	uint8_t local_tiocm;
-	unsigned options;
-
-	unsigned remote_state;
-	unsigned remote_mode;
-	uint8_t remote_tiocm;
-
-	int tx_flow_control;
-	int rx_flow_control_auto;
-	int rx_flow_control_client;
-
-	/* client callbacks and private data */
-	void *priv;
-	void (*notify)(void *priv, int event_type, const void *metadata);
-	int (*get_rx_buffer)(void *priv, void **pkt_priv, void **buffer,
-								int size);
-
-	/* RX Info */
-	struct list_head rx_retry_queue;
-	unsigned rx_retry_queue_cnt;
-	struct delayed_work rx_retry_work;
-
-	/* TX Info */
-	spinlock_t tx_lock_lhb2;
-	struct list_head tx_queue;
-	struct list_head tx_ready_list;
-	unsigned tx_pending_data_cnt;
-	unsigned notify_lwm;
-};
-
 union notifier_metadata {
 	struct smux_meta_disconnected disconnected;
 	struct smux_meta_read read;
@@ -310,7 +257,7 @@ struct smux_ldisc_t {
 
 
 /* data structures */
-static struct smux_lch_t smux_lch[SMUX_NUM_LOGICAL_CHANNELS];
+struct smux_lch_t smux_lch[SMUX_NUM_LOGICAL_CHANNELS];
 static struct smux_ldisc_t smux;
 static const char *tty_error_type[] = {
 	[TTY_NORMAL] = "normal",
@@ -320,7 +267,7 @@ static const char *tty_error_type[] = {
 	[TTY_FRAME] = "framing",
 };
 
-static const char *smux_cmds[] = {
+static const char * const smux_cmds[] = {
 	[SMUX_CMD_DATA] = "DATA",
 	[SMUX_CMD_OPEN_LCH] = "OPEN",
 	[SMUX_CMD_CLOSE_LCH] = "CLOSE",
@@ -343,8 +290,30 @@ static const char * const smux_events[] = {
 	[SMUX_RX_RETRY_LOW_WM_HIT] = "RX_RETRY_LOW_WM_HIT",
 };
 
-static void *log_ctx;
+static const char * const smux_local_state[] = {
+	[SMUX_LCH_LOCAL_CLOSED] = "CLOSED",
+	[SMUX_LCH_LOCAL_OPENING] = "OPENING",
+	[SMUX_LCH_LOCAL_OPENED] = "OPENED",
+	[SMUX_LCH_LOCAL_CLOSING] = "CLOSING",
+};
 
+static const char * const smux_remote_state[] = {
+	[SMUX_LCH_REMOTE_CLOSED] = "CLOSED",
+	[SMUX_LCH_REMOTE_OPENED] = "OPENED",
+};
+
+static const char * const smux_mode[] = {
+	[SMUX_LCH_MODE_NORMAL] = "N",
+	[SMUX_LCH_MODE_LOCAL_LOOPBACK] = "L",
+	[SMUX_LCH_MODE_REMOTE_LOOPBACK] = "R",
+};
+
+static const char * const smux_undef[] = {
+	[SMUX_UNDEF_LONG] = "UNDEF",
+	[SMUX_UNDEF_SHORT] = "U",
+};
+
+static void *log_ctx;
 static void smux_notify_local_fn(struct work_struct *work);
 static DECLARE_WORK(smux_notify_local, smux_notify_local_fn);
 
@@ -370,7 +339,6 @@ static DECLARE_WORK(smux_inactivity_work, smux_inactivity_worker);
 static DECLARE_DELAYED_WORK(smux_delayed_inactivity_work,
 		smux_inactivity_worker);
 
-static long msm_smux_tiocm_get_atomic(struct smux_lch_t *ch);
 static void list_channel(struct smux_lch_t *ch);
 static int smux_send_status_cmd(struct smux_lch_t *ch);
 static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt);
@@ -385,6 +353,45 @@ static void smux_uart_power_on_atomic(void);
 static int smux_rx_flow_control_updated(struct smux_lch_t *ch);
 static void smux_flush_workqueues(void);
 static void smux_pdev_release(struct device *dev);
+
+/**
+ * local_lch_state() - Return human readable form of local logical state.
+ * @state:  Local logical channel state enum.
+ *
+ */
+const char *local_lch_state(unsigned state)
+{
+	if (state < ARRAY_SIZE(smux_local_state))
+		return smux_local_state[state];
+	else
+		return smux_undef[SMUX_UNDEF_LONG];
+}
+
+/**
+ * remote_lch_state() - Return human readable for of remote logical state.
+ * @state:  Remote logical channel state enum.
+ *
+ */
+const char *remote_lch_state(unsigned state)
+{
+	if (state < ARRAY_SIZE(smux_remote_state))
+		return smux_remote_state[state];
+	else
+		return smux_undef[SMUX_UNDEF_LONG];
+}
+
+/**
+ * lch_mode() - Return human readable form of mode.
+ * @mode:  Mode of the logical channel.
+ *
+ */
+const char *lch_mode(unsigned mode)
+{
+	if (mode < ARRAY_SIZE(smux_mode))
+		return smux_mode[mode];
+	else
+		return smux_undef[SMUX_UNDEF_SHORT];
+}
 
 /**
  * Convert TTY Error Flags to string for logging purposes.
@@ -434,6 +441,9 @@ static void smux_enter_reset(void)
 	smux.in_reset = 1;
 }
 
+/**
+ * Initialize the lch_structs.
+ */
 static int lch_init(void)
 {
 	unsigned int id;
@@ -3307,7 +3317,7 @@ static int smux_send_status_cmd(struct smux_lch_t *ch)
  *
  * @returns TIOCM status
  */
-static long msm_smux_tiocm_get_atomic(struct smux_lch_t *ch)
+long msm_smux_tiocm_get_atomic(struct smux_lch_t *ch)
 {
 	long status = 0x0;
 
