@@ -19,6 +19,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
+#include <linux/of_coresight.h>
 #include <linux/coresight.h>
 
 #include "coresight-priv.h"
@@ -126,9 +127,17 @@ static int tpiu_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device *dev = &pdev->dev;
+	struct coresight_platform_data *pdata;
 	struct tpiu_drvdata *drvdata;
 	struct resource *res;
 	struct coresight_desc *desc;
+
+	if (pdev->dev.of_node) {
+		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+		pdev->dev.platform_data = pdata;
+	}
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -183,7 +192,7 @@ static int tpiu_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id tpiu_match[] = {
-	{.compatible = "coresight-tpiu"},
+	{.compatible = "arm,coresight-tpiu"},
 	{}
 };
 

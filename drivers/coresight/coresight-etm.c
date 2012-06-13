@@ -28,6 +28,7 @@
 #include <linux/stat.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
+#include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <asm/sections.h>
 #include <mach/socinfo.h>
@@ -1506,10 +1507,18 @@ static int etm_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device *dev = &pdev->dev;
+	struct coresight_platform_data *pdata;
 	struct etm_drvdata *drvdata;
 	struct resource *res;
 	static int etm_count;
 	struct coresight_desc *desc;
+
+	if (pdev->dev.of_node) {
+		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+		pdev->dev.platform_data = pdata;
+	}
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -1594,7 +1603,7 @@ static int etm_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id etm_match[] = {
-	{.compatible = "coresight-etm"},
+	{.compatible = "arm,coresight-etm"},
 	{}
 };
 
