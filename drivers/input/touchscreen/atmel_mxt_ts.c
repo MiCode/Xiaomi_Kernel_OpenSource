@@ -266,6 +266,9 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_X_INVERT		(1 << 1)
 #define MXT_Y_INVERT		(1 << 2)
 
+/* Touch suppression */
+#define MXT_TCHSUP_ACTIVE      (1 << 0)
+
 /* Touchscreen absolute values */
 #define MXT_MAX_AREA		0xff
 
@@ -343,6 +346,8 @@ struct mxt_data {
 	u8 t9_min_reportid;
 	u8 t15_max_reportid;
 	u8 t15_min_reportid;
+	u8 t42_max_reportid;
+	u8 t42_min_reportid;
 	u8 cfg_version[MXT_CFG_VERSION_LEN];
 	int cfg_version_idx;
 	int t38_start_addr;
@@ -887,6 +892,25 @@ static void mxt_handle_key_array(struct mxt_data *data,
 	data->keyarray_old = data->keyarray_new;
 }
 
+static void mxt_release_all(struct mxt_data *data)
+{
+	int id;
+
+	for (id = 0; id < MXT_MAX_FINGER; id++)
+		if (data->finger[id].status)
+			data->finger[id].status = MXT_RELEASE;
+
+	mxt_input_report(data, 0);
+}
+
+static void mxt_handle_touch_supression(struct mxt_data *data, u8 status)
+{
+	dev_dbg(&data->client->dev, "touch suppression\n");
+	/* release all touches */
+	if (status & MXT_TCHSUP_ACTIVE)
+		mxt_release_all(data);
+}
+
 static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 {
 	struct mxt_data *data = dev_id;
@@ -921,6 +945,9 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 		else if (reportid >= data->t15_min_reportid &&
 					reportid <= data->t15_max_reportid)
 			mxt_handle_key_array(data, &message);
+		else if (reportid >= data->t42_min_reportid &&
+					reportid <= data->t42_max_reportid)
+			mxt_handle_touch_supression(data, message.message[0]);
 		else
 			mxt_dump_message(dev, &message);
 	} while (reportid != 0xff);
@@ -1283,6 +1310,7 @@ static int mxt_save_objects(struct mxt_data *data)
 	struct mxt_object *t7_object;
 	struct mxt_object *t9_object;
 	struct mxt_object *t15_object;
+	struct mxt_object *t42_object;
 	int error;
 
 	/* Store T7 and T9 locally, used in suspend/resume operations */
@@ -1320,6 +1348,16 @@ static int mxt_save_objects(struct mxt_data *data)
 			data->t15_min_reportid = t15_object->max_reportid -
 						t15_object->num_report_ids + 1;
 		}
+	}
+
+	/* Store T42 min and max report ids */
+	t42_object = mxt_get_object(data, MXT_PROCI_TOUCHSUPPRESSION_T42);
+	if (!t42_object)
+		dev_dbg(&client->dev, "T42 object is not available\n");
+	else {
+		data->t42_max_reportid = t42_object->max_reportid;
+		data->t42_min_reportid = t42_object->max_reportid -
+					t42_object->num_report_ids + 1;
 	}
 
 	return 0;
