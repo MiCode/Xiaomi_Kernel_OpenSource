@@ -423,6 +423,7 @@ static enum handoff __init __handoff_clk(struct clk *clk)
 {
 	enum handoff ret;
 	struct handoff_clk *h;
+	unsigned long rate;
 	int err = 0;
 
 	/*
@@ -454,6 +455,9 @@ static enum handoff __init __handoff_clk(struct clk *clk)
 			err = clk_prepare_enable(clk);
 			if (err)
 				goto out;
+			rate = clk_get_rate(clk);
+			if (rate)
+				pr_debug("%s rate=%lu\n", clk->dbg_name, rate);
 			h->clk = clk;
 			list_add_tail(&h->list, &handoff_list);
 		}

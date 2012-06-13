@@ -610,10 +610,8 @@ static enum handoff rcg_clk_handoff(struct clk *c)
 	ns_val = readl_relaxed(clk->ns_reg) & ns_mask;
 	for (freq = clk->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
 		if ((freq->ns_val & ns_mask) == ns_val &&
-		    (!freq->md_val || freq->md_val == md_val)) {
-			pr_info("%s rate=%d\n", clk->c.dbg_name, freq->freq_hz);
+		    (!freq->md_val || freq->md_val == md_val))
 			break;
-		}
 	}
 	if (freq->freq_hz == FREQ_END)
 		return HANDOFF_UNKNOWN_RATE;
