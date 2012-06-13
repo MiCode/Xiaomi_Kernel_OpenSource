@@ -1944,10 +1944,12 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT2 DAC", NULL, "RX_BIAS"},
 
 	{"LINEOUT2", NULL, "LINEOUT2 PA"},
+	{"LINEOUT2 PA", NULL, "CP"},
 	{"LINEOUT2 PA", NULL, "LINEOUT2 DAC"},
 	{"LINEOUT2 DAC", NULL, "DAC3 MUX"},
 
 	{"LINEOUT1", NULL, "LINEOUT1 PA"},
+	{"LINEOUT2 PA", NULL, "CP"},
 	{"LINEOUT1 PA", NULL, "LINEOUT1 DAC"},
 	{"LINEOUT1 DAC", NULL, "DAC2 MUX"},
 
