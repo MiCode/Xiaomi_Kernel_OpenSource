@@ -1127,6 +1127,7 @@ struct asm_stream_cmd_open_read {
 #define AC3_DECODER  0x00010BF6
 #define EAC3_DECODER 0x00010C3C
 #define DTS	0x00010D88
+#define DTS_LBR	0x00010DBB
 #define ATRAC	0x00010D89
 #define MAT	0x00010D8A
 #define G711_ALAW_FS 0x00010BF7

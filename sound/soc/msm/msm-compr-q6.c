@@ -304,6 +304,9 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 		pr_debug("compressd playback, no need to send"
 			" the decoder params\n");
 		break;
+	case SND_AUDIOCODEC_DTS_PASS_THROUGH:
+		pr_debug("compressd DTS playback,dont send the decoder params\n");
+		break;
 	case SND_AUDIOCODEC_WMA:
 		pr_debug("SND_AUDIOCODEC_WMA\n");
 		memset(&wma_cfg, 0x0, sizeof(struct asm_wma_cfg));
@@ -349,6 +352,16 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 				&wma_pro_cfg);
 		if (ret < 0)
 			pr_err("%s: CMD Format block failed\n", __func__);
+		break;
+	case SND_AUDIOCODEC_DTS:
+	case SND_AUDIOCODEC_DTS_LBR:
+		pr_debug("SND_AUDIOCODEC_DTS\n");
+		ret = q6asm_media_format_block(prtd->audio_client,
+				compr->codec);
+		if (ret < 0) {
+			pr_err("%s: CMD Format block failed\n", __func__);
+			return ret;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -412,7 +425,9 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 		prtd->pcm_irq_pos = 0;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			if (compr->info.codec_param.codec.id ==
-					SND_AUDIOCODEC_AC3_PASS_THROUGH) {
+				SND_AUDIOCODEC_AC3_PASS_THROUGH ||
+					compr->info.codec_param.codec.id ==
+					SND_AUDIOCODEC_DTS_PASS_THROUGH) {
 				msm_pcm_routing_reg_psthr_stream(
 					soc_prtd->dai_link->be_id,
 					prtd->session_id, substream->stream,
@@ -476,6 +491,9 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.codecs[2] = SND_AUDIOCODEC_AC3_PASS_THROUGH;
 	compr->info.compr_cap.codecs[3] = SND_AUDIOCODEC_WMA;
 	compr->info.compr_cap.codecs[4] = SND_AUDIOCODEC_WMA_PRO;
+	compr->info.compr_cap.codecs[5] = SND_AUDIOCODEC_DTS;
+	compr->info.compr_cap.codecs[6] = SND_AUDIOCODEC_DTS_LBR;
+	compr->info.compr_cap.codecs[7] = SND_AUDIOCODEC_DTS_PASS_THROUGH;
 	/* Add new codecs here */
 }
 
@@ -705,6 +723,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		switch (compr->info.codec_param.codec.id) {
 		case SND_AUDIOCODEC_AC3_PASS_THROUGH:
+		case SND_AUDIOCODEC_DTS_PASS_THROUGH:
 			ret = q6asm_open_write_compressed(prtd->audio_client,
 					compr->codec);
 
@@ -846,6 +865,18 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_WMA_PRO:
 			pr_debug("SND_AUDIOCODEC_WMA_PRO\n");
 			compr->codec = FORMAT_WMA_V10PRO;
+			break;
+		case SND_AUDIOCODEC_DTS_PASS_THROUGH:
+			pr_debug("SND_AUDIOCODEC_DTS_PASS_THROUGH\n");
+			compr->codec = FORMAT_DTS;
+			break;
+		case SND_AUDIOCODEC_DTS:
+			pr_debug("SND_AUDIOCODEC_DTS\n");
+			compr->codec = FORMAT_DTS;
+			break;
+		case SND_AUDIOCODEC_DTS_LBR:
+			pr_debug("SND_AUDIOCODEC_DTS\n");
+			compr->codec = FORMAT_DTS_LBR;
 			break;
 		default:
 			pr_debug("FORMAT_LINEAR_PCM\n");
