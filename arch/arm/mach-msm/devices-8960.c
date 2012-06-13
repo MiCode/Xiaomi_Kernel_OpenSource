@@ -1341,6 +1341,11 @@ static struct resource msm_8960_q6_lpass_resources[] = {
 		.end    = 0x28800000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
+	{
+		.start  = LPASS_Q6SS_WDOG_EXPIRED,
+		.end    = LPASS_Q6SS_WDOG_EXPIRED,
+		.flags  = IORESOURCE_IRQ,
+	},
 };
 
 static struct pil_q6v4_pdata msm_8960_q6_lpass_data = {

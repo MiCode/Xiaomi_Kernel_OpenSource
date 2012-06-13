@@ -705,6 +705,21 @@ struct platform_device msm_device_bam_dmux = {
 	.id		= -1,
 };
 
+static struct resource msm_9615_q6_lpass_resources[] = {
+	{
+		.start  = LPASS_Q6SS_WDOG_EXPIRED,
+		.end    = LPASS_Q6SS_WDOG_EXPIRED,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_9615_q6_lpass = {
+	.name = "pil-q6v4-lpass",
+	.id = -1,
+	.num_resources  = ARRAY_SIZE(msm_9615_q6_lpass_resources),
+	.resource       = msm_9615_q6_lpass_resources,
+};
+
 static struct resource msm_9615_q6_mss_resources[] = {
 	{
 		.start  = Q6FW_WDOG_EXPIRED_IRQ,
