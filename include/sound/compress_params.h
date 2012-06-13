@@ -241,6 +241,8 @@ struct snd_enc_wma {
 	__u32 bits_per_sample;
 	__u32 channelmask;
 	__u32 encodeopt;
+	__u32 encodeopt1;
+	__u32 encodeopt2;
 };
 
 
