@@ -421,33 +421,6 @@ void __init msm_copper_add_devices(void)
 	platform_device_register(&copper_device_tz_log);
 }
 
-/*
- * Used to satisfy dependencies for devices that need to be
- * run early or in a particular order. Most likely your device doesn't fall
- * into this category, and thus the driver should not be added here. The
- * EPROBE_DEFER can satisfy most dependency problems.
- */
-void __init msm_copper_add_drivers(void)
-{
-	msm_smd_init();
-	msm_rpm_driver_init();
-	rpm_regulator_smd_driver_init();
-	msm_spm_device_init();
-	regulator_stub_init();
-}
-
-static struct of_device_id irq_match[] __initdata  = {
-	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
-	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
-	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
-	{}
-};
-
-void __init msm_copper_init_irq(void)
-{
-	of_irq_init(irq_match);
-}
-
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("xo",		XO_CLK,		NULL,	OFF),
 	CLK_DUMMY("xo",		XO_CLK,		"pil_pronto",		OFF),
@@ -475,6 +448,37 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
 	.table = msm_clocks_dummy,
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };
+
+/*
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
+ */
+void __init msm_copper_add_drivers(void)
+{
+	msm_smd_init();
+	msm_rpm_driver_init();
+	rpm_regulator_smd_driver_init();
+	msm_spm_device_init();
+	regulator_stub_init();
+	if (machine_is_copper_rumi())
+		msm_clock_init(&msm_dummy_clock_init_data);
+	else
+		msm_clock_init(&msmcopper_clock_init_data);
+}
+
+static struct of_device_id irq_match[] __initdata  = {
+	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
+	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
+	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
+	{}
+};
+
+void __init msm_copper_init_irq(void)
+{
+	of_irq_init(irq_match);
+}
 
 static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
@@ -509,11 +513,6 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 void __init msm_copper_init(struct of_dev_auxdata **adata)
 {
 	msm_copper_init_gpiomux();
-
-	if (machine_is_copper_rumi())
-		msm_clock_init(&msm_dummy_clock_init_data);
-	else
-		msm_clock_init(&msmcopper_clock_init_data);
 
 	*adata = msm_copper_auxdata_lookup;
 
