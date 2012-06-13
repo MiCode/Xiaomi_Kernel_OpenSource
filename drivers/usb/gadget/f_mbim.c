@@ -794,6 +794,7 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		spin_unlock(&mbim->lock);
 		mbim_clear_queues(mbim);
 		mbim_reset_function_queue(mbim);
+		spin_lock(&mbim->lock);
 		break;
 	default:
 		pr_err("Unknown event %02x --> %d\n",
@@ -1449,8 +1450,6 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 
 	mbim->cdev = c->cdev;
 
-	spin_lock_init(&mbim->lock);
-
 	mbim_reset_values(mbim);
 
 	mbim->function.name = "usb_mbim";
@@ -1614,6 +1613,7 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 	pr_debug("Exit(%d)", count);
 
 	return count;
+
 }
 
 static int mbim_open(struct inode *ip, struct file *fp)
