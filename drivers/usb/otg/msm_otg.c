@@ -40,6 +40,7 @@
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/power_supply.h>
+#include <linux/mhl_8334.h>
 
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
@@ -69,6 +70,7 @@ static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
 static bool debug_bus_voting_enabled;
+static bool mhl_det_in_progress;
 
 static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
@@ -738,7 +740,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		return 0;
 
 	disable_irq(motg->irq);
-	host_bus_suspend = phy->otg->host && !test_bit(ID, &motg->inputs);
+	host_bus_suspend = !test_bit(MHL, &motg->inputs) && phy->otg->host &&
+		!test_bit(ID, &motg->inputs);
 	device_bus_suspend = phy->otg->gadget && test_bit(ID, &motg->inputs) &&
 		test_bit(A_BUS_SUSPEND, &motg->inputs) &&
 		motg->caps & ALLOW_LPM_ON_DEV_SUSPEND;
@@ -1402,6 +1405,102 @@ static int msm_otg_set_peripheral(struct usb_otg *otg,
 	return 0;
 }
 
+static int msm_otg_mhl_register_callback(struct msm_otg *motg,
+						void (*callback)(int on))
+{
+	struct usb_phy *phy = &motg->phy;
+	int ret;
+
+	if (motg->pdata->otg_control != OTG_PMIC_CONTROL ||
+			!motg->pdata->pmic_id_irq) {
+		dev_dbg(phy->dev, "MHL can not be supported without PMIC Id\n");
+		return -ENODEV;
+	}
+
+	if (!motg->pdata->mhl_dev_name) {
+		dev_dbg(phy->dev, "MHL device name does not exist.\n");
+		return -ENODEV;
+	}
+
+	if (callback)
+		ret = mhl_register_callback(motg->pdata->mhl_dev_name,
+								callback);
+	else
+		ret = mhl_unregister_callback(motg->pdata->mhl_dev_name);
+
+	if (ret)
+		dev_dbg(phy->dev, "mhl_register_callback(%s) return error=%d\n",
+						motg->pdata->mhl_dev_name, ret);
+	else
+		motg->mhl_enabled = true;
+
+	return ret;
+}
+
+static void msm_otg_mhl_notify_online(int on)
+{
+	struct msm_otg *motg = the_msm_otg;
+	struct usb_phy *phy = &motg->phy;
+	bool queue = false;
+
+	dev_dbg(phy->dev, "notify MHL %s%s\n", on ? "" : "dis", "connected");
+
+	if (on) {
+		set_bit(MHL, &motg->inputs);
+	} else {
+		clear_bit(MHL, &motg->inputs);
+		queue = true;
+	}
+
+	if (queue && phy->state != OTG_STATE_UNDEFINED)
+		schedule_work(&motg->sm_work);
+}
+
+static bool msm_otg_is_mhl(struct msm_otg *motg)
+{
+	struct usb_phy *phy = &motg->phy;
+	int is_mhl, ret;
+
+	ret = mhl_device_discovery(motg->pdata->mhl_dev_name, &is_mhl);
+	if (ret || is_mhl != MHL_DISCOVERY_RESULT_MHL) {
+		/*
+		 * MHL driver calls our callback saying that MHL connected
+		 * if RID_GND is detected.  But at later part of discovery
+		 * it may figure out MHL is not connected and returns
+		 * false. Hence clear MHL input here.
+		 */
+		clear_bit(MHL, &motg->inputs);
+		dev_dbg(phy->dev, "MHL device not found\n");
+		return false;
+	}
+
+	set_bit(MHL, &motg->inputs);
+	dev_dbg(phy->dev, "MHL device found\n");
+	return true;
+}
+
+static bool msm_chg_mhl_detect(struct msm_otg *motg)
+{
+	bool ret, id;
+	unsigned long flags;
+
+	if (!motg->mhl_enabled)
+		return false;
+
+	local_irq_save(flags);
+	id = irq_read_line(motg->pdata->pmic_id_irq);
+	local_irq_restore(flags);
+
+	if (id)
+		return false;
+
+	mhl_det_in_progress = true;
+	ret = msm_otg_is_mhl(motg);
+	mhl_det_in_progress = false;
+
+	return ret;
+}
+
 static bool msm_chg_aca_detect(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
@@ -1844,6 +1943,12 @@ static void msm_chg_detect_work(struct work_struct *w)
 	unsigned long delay;
 
 	dev_dbg(phy->dev, "chg detection work\n");
+
+	if (test_bit(MHL, &motg->inputs)) {
+		dev_dbg(phy->dev, "detected MHL, escape chg detection work\n");
+		return;
+	}
+
 	switch (motg->chg_state) {
 	case USB_CHG_STATE_UNDEFINED:
 		msm_chg_block_on(motg);
@@ -1855,6 +1960,13 @@ static void msm_chg_detect_work(struct work_struct *w)
 		delay = MSM_CHG_DCD_POLL_TIME;
 		break;
 	case USB_CHG_STATE_WAIT_FOR_DCD:
+		if (msm_chg_mhl_detect(motg)) {
+			msm_chg_block_off(motg);
+			motg->chg_state = USB_CHG_STATE_DETECTED;
+			motg->chg_type = USB_INVALID_CHARGER;
+			queue_work(system_nrt_wq, &motg->sm_work);
+			return;
+		}
 		is_aca = msm_chg_aca_detect(motg);
 		if (is_aca) {
 			/*
@@ -2048,9 +2160,17 @@ static void msm_otg_sm_work(struct work_struct *w)
 		}
 		/* FALL THROUGH */
 	case OTG_STATE_B_IDLE:
-		if ((!test_bit(ID, &motg->inputs) ||
+		if (test_bit(MHL, &motg->inputs)) {
+			/* allow LPM */
+			pm_runtime_put_noidle(otg->phy->dev);
+			pm_runtime_suspend(otg->phy->dev);
+		} else if ((!test_bit(ID, &motg->inputs) ||
 				test_bit(ID_A, &motg->inputs)) && otg->host) {
 			pr_debug("!id || id_A\n");
+			if (msm_chg_mhl_detect(motg)) {
+				work = 1;
+				break;
+			}
 			clear_bit(B_BUS_REQ, &motg->inputs);
 			set_bit(A_BUS_REQ, &motg->inputs);
 			otg->phy->state = OTG_STATE_A_IDLE;
@@ -2760,6 +2880,12 @@ static void msm_otg_set_vbus_state(int online)
 		return;
 	}
 
+	if (test_bit(MHL, &motg->inputs) ||
+			mhl_det_in_progress) {
+		pr_debug("PMIC: BSV interrupt ignored in MHL\n");
+		return;
+	}
+
 	if (atomic_read(&motg->pm_suspended))
 		motg->sm_work_pending = true;
 	else
@@ -2801,6 +2927,12 @@ static void msm_pmic_id_status_w(struct work_struct *w)
 static irqreturn_t msm_pmic_id_irq(int irq, void *data)
 {
 	struct msm_otg *motg = data;
+
+	if (test_bit(MHL, &motg->inputs) ||
+			mhl_det_in_progress) {
+		pr_debug("PMIC: Id interrupt ignored in MHL\n");
+		return IRQ_HANDLED;
+	}
 
 	if (!aca_id_turned_on)
 		/*schedule delayed work for 5msec for ID line state to settle*/
@@ -3416,6 +3548,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	/* Ensure that above STOREs are completed before enabling interrupts */
 	mb();
 
+	ret = msm_otg_mhl_register_callback(motg, msm_otg_mhl_notify_online);
+	if (ret)
+		dev_dbg(&pdev->dev, "MHL can not be supported\n");
 	wake_lock_init(&motg->wlock, WAKE_LOCK_SUSPEND, "msm_otg");
 	msm_otg_init_timer(motg);
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
@@ -3563,6 +3698,7 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_unregister_vbus_sn(0);
+	msm_otg_mhl_register_callback(motg, NULL);
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_delayed_work_sync(&motg->pmic_id_status_work);

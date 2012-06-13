@@ -1489,6 +1489,9 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table	= &usb_bus_scale_pdata,
 #endif
+#ifdef CONFIG_FB_MSM_HDMI_MHL_8334
+	.mhl_dev_name		= "sii8334",
+#endif
 };
 #endif
 
