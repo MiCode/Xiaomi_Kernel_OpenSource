@@ -236,7 +236,10 @@ int msm_sensor_write_res_settings
 int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t res);
 
-int32_t msm_sensor_adjust_frame_lines(struct msm_sensor_ctrl_t *s_ctrl,
+int32_t msm_sensor_adjust_frame_lines1(struct msm_sensor_ctrl_t *s_ctrl,
+	uint16_t res);
+
+int32_t msm_sensor_adjust_frame_lines2(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t res);
 
 int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
