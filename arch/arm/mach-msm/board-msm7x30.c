@@ -104,7 +104,7 @@
  */
 #define MSM_V4L2_VIDEO_OVERLAY_BUF_SIZE 2764800
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL
 #define MSM_FB_EXT_BUF_SIZE (1280 * 720 * 2 * 1) /* 2 bpp x 1 page */
 #else
 #define MSM_FB_EXT_BUF_SIZE    0
