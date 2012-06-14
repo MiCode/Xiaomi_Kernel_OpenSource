@@ -5265,16 +5265,37 @@ static void btn_lpress_fn(struct work_struct *work)
 	wcd9xxx_unlock_sleep(core);
 }
 
+static u16 tabla_get_cfilt_reg(struct snd_soc_codec *codec, u8 cfilt)
+{
+	u16 reg;
+
+	switch (cfilt) {
+	case TABLA_CFILT1_SEL:
+		reg = TABLA_A_MICB_CFILT_1_CTL;
+		break;
+	case TABLA_CFILT2_SEL:
+		reg = TABLA_A_MICB_CFILT_2_CTL;
+		break;
+	case TABLA_CFILT3_SEL:
+		reg = TABLA_A_MICB_CFILT_3_CTL;
+		break;
+	default:
+		BUG();
+	}
+	return reg;
+}
+
 void tabla_mbhc_cal(struct snd_soc_codec *codec)
 {
 	struct tabla_priv *tabla;
 	struct tabla_mbhc_btn_detect_cfg *btn_det;
-	u8 cfilt_mode, bg_mode;
+	u8 cfilt_mode, micbias2_cfilt_mode, bg_mode;
 	u8 ncic, nmeas, navg;
 	u32 mclk_rate;
 	u32 dce_wait, sta_wait;
 	u8 *n_cic;
 	void *calibration;
+	u16 bias2_ctl;
 
 	tabla = snd_soc_codec_get_drvdata(codec);
 	calibration = tabla->mbhc_cfg.calibration;
@@ -5303,7 +5324,16 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	 * Need to restore defaults once calculation is done.
 	 */
 	cfilt_mode = snd_soc_read(codec, tabla->mbhc_bias_regs.cfilt_ctl);
-	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.cfilt_ctl, 0x40, 0x00);
+	micbias2_cfilt_mode =
+	    snd_soc_read(codec, tabla_get_cfilt_reg(codec,
+					tabla->pdata->micbias.bias2_cfilt_sel));
+	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.cfilt_ctl, 0x40,
+			    TABLA_CFILT_FAST_MODE);
+	snd_soc_update_bits(codec,
+			    tabla_get_cfilt_reg(codec,
+					 tabla->pdata->micbias.bias2_cfilt_sel),
+			    0x40, TABLA_CFILT_FAST_MODE);
+
 	bg_mode = snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x02,
 				      0x02);
 
@@ -5316,6 +5346,12 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_LDO_H_MODE_1, 0x60, 0x60);
 	snd_soc_write(codec, TABLA_A_TX_7_MBHC_TEST_CTL, 0x78);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x04, 0x04);
+
+	/* MICBIAS2 routing for calibration */
+	bias2_ctl = snd_soc_read(codec, TABLA_A_MICB_2_CTL);
+	snd_soc_update_bits(codec, TABLA_A_MICB_1_MBHC, 0x03, TABLA_MICBIAS2);
+	snd_soc_write(codec, TABLA_A_MICB_2_CTL,
+		      snd_soc_read(codec, tabla->mbhc_bias_regs.ctl_reg));
 
 	/* DCE measurement for 0 volts */
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x0A);
@@ -5354,7 +5390,15 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	tabla->mbhc_data.sta_mb = tabla_codec_read_sta_result(codec);
 
 	/* Restore default settings. */
+	snd_soc_write(codec, TABLA_A_MICB_2_CTL, bias2_ctl);
+	snd_soc_update_bits(codec, TABLA_A_MICB_1_MBHC, 0x03,
+			    tabla->mbhc_cfg.micbias);
+
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x04, 0x00);
+	snd_soc_update_bits(codec,
+			    tabla_get_cfilt_reg(codec,
+				   tabla->pdata->micbias.bias2_cfilt_sel), 0x40,
+			    micbias2_cfilt_mode);
 	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.cfilt_ctl, 0x40,
 			    cfilt_mode);
 	snd_soc_update_bits(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x02, bg_mode);
@@ -5538,6 +5582,10 @@ void tabla_mbhc_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_B1_CTL, 0x02, 0x02);
 
 	snd_soc_update_bits(codec, TABLA_A_MBHC_SCALING_MUX_2, 0xF0, 0xF0);
+
+	/* override mbhc's micbias */
+	snd_soc_update_bits(codec, TABLA_A_MICB_1_MBHC, 0x03,
+			    tabla->mbhc_cfg.micbias);
 }
 
 static bool tabla_mbhc_fw_validate(const struct firmware *fw)
