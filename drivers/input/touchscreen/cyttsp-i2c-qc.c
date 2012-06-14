@@ -2263,7 +2263,7 @@ bypass:
 	/* switch to System Information mode to read versions
 	 * and set interval registers */
 	if (!(retval < CY_OK)) {
-		cyttsp_debug("switch to sysinfo mode \n");
+		cyttsp_debug("switch to sysinfo mode\n");
 		host_reg = CY_SYSINFO_MODE;
 		retval = i2c_smbus_write_i2c_block_data(ts->client,
 			CY_REG_BASE, sizeof(host_reg), &host_reg);
@@ -2274,29 +2274,30 @@ bypass:
 				CY_REG_BASE,
 				sizeof(struct cyttsp_sysinfo_data_t),
 				(u8 *)&g_sysinfo_data);
-			cyttsp_debug("SI2: hst_mode=0x%02X mfg_cmd=0x%02X mfg_stat=0x%02X\n", \
-				g_sysinfo_data.hst_mode, \
-				g_sysinfo_data.mfg_cmd, \
+			cyttsp_debug("SI2: hst_mode=0x%02X mfg_cmd=0x%02X"\
+				"mfg_stat=0x%02X\n",
+				g_sysinfo_data.hst_mode,
+				g_sysinfo_data.mfg_cmd,
 				g_sysinfo_data.mfg_stat);
-			cyttsp_debug("SI2: bl_ver=0x%02X%02X\n", \
-				g_sysinfo_data.bl_verh, \
+			cyttsp_debug("SI2: bl_ver=0x%02X%02X\n",
+				g_sysinfo_data.bl_verh,
 				g_sysinfo_data.bl_verl);
-			cyttsp_debug("SI2: sysinfo act_int=0x%02X tch_tmout=0x%02X lp_int=0x%02X\n", \
-				g_sysinfo_data.act_intrvl, \
-				g_sysinfo_data.tch_tmout, \
+			pr_debug("SI2: sysinfo act_int=0x%02X tch_tmout=0x%02X lp_int=0x%02X\n",
+				g_sysinfo_data.act_intrvl,
+				g_sysinfo_data.tch_tmout,
 				g_sysinfo_data.lp_intrvl);
-			cyttsp_info("SI%d: tver=%02X%02X a_id=%02X%02X aver=%02X%02X\n", \
-				102, \
-				g_sysinfo_data.tts_verh, \
-				g_sysinfo_data.tts_verl, \
-				g_sysinfo_data.app_idh, \
-				g_sysinfo_data.app_idl, \
-				g_sysinfo_data.app_verh, \
+			pr_info("SI%d: tver=%02X%02X a_id=%02X%02X aver=%02X%02X\n",
+				102,
+				g_sysinfo_data.tts_verh,
+				g_sysinfo_data.tts_verl,
+				g_sysinfo_data.app_idh,
+				g_sysinfo_data.app_idl,
+				g_sysinfo_data.app_verh,
 				g_sysinfo_data.app_verl);
-			cyttsp_info("SI%d: c_id=%02X%02X%02X\n", \
-				103, \
-				g_sysinfo_data.cid[0], \
-				g_sysinfo_data.cid[1], \
+			cyttsp_info("SI%d: c_id=%02X%02X%02X\n",
+				103,
+				g_sysinfo_data.cid[0],
+				g_sysinfo_data.cid[1],
 				g_sysinfo_data.cid[2]);
 			if (!(retval < CY_OK) &&
 				(CY_DIFF(ts->platform_data->act_intrvl,
@@ -2306,9 +2307,12 @@ bypass:
 				CY_DIFF(ts->platform_data->lp_intrvl,
 					CY_LP_INTRVL_DFLT))) {
 				if (!(retval < CY_OK)) {
-					u8 intrvl_ray[sizeof(ts->platform_data->act_intrvl) +
-						sizeof(ts->platform_data->tch_tmout) +
-						sizeof(ts->platform_data->lp_intrvl)];
+					u8 intrvl_ray[sizeof(\
+						ts->platform_data->act_intrvl) +
+						sizeof(\
+						ts->platform_data->tch_tmout) +
+						sizeof(\
+						ts->platform_data->lp_intrvl)];
 					u8 i = 0;
 
 					intrvl_ray[i++] =
@@ -2318,9 +2322,9 @@ bypass:
 					intrvl_ray[i++] =
 						ts->platform_data->lp_intrvl;
 
-					cyttsp_debug("SI2: platinfo act_intrvl=0x%02X tch_tmout=0x%02X lp_intrvl=0x%02X\n", \
-						ts->platform_data->act_intrvl, \
-						ts->platform_data->tch_tmout, \
+					pr_debug("SI2: platinfo act_intrvl=0x%02X tch_tmout=0x%02X lp_intrvl=0x%02X\n",
+						ts->platform_data->act_intrvl,
+						ts->platform_data->tch_tmout,
 						ts->platform_data->lp_intrvl);
 					/* set intrvl registers */
 					retval = i2c_smbus_write_i2c_block_data(
@@ -2332,7 +2336,7 @@ bypass:
 			}
 		}
 		/* switch back to Operational mode */
-		cyttsp_debug("switch back to operational mode \n");
+		cyttsp_debug("switch back to operational mode\n");
 		if (!(retval < CY_OK)) {
 			host_reg = CY_OP_MODE/* + CY_LOW_PWR_MODE*/;
 			retval = i2c_smbus_write_i2c_block_data(ts->client,
@@ -2348,7 +2352,7 @@ bypass:
 	 * in order to set the active distance */
 	if (!(retval < CY_OK)) {
 		u8 gesture_setup;
-		cyttsp_debug("init gesture setup \n");
+		cyttsp_debug("init gesture setup\n");
 		gesture_setup = ts->platform_data->gest_set;
 		retval = i2c_smbus_write_i2c_block_data(ts->client,
 			CY_REG_GEST_SET,
