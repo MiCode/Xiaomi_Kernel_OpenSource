@@ -314,6 +314,8 @@ static inline void hsic_sysmon_debugfs_init(void) { }
 static inline void hsic_sysmon_debugfs_cleanup(void) { }
 #endif
 
+static void hsic_sysmon_pdev_release(struct device *dev) { }
+
 static int
 hsic_sysmon_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 {
@@ -371,6 +373,7 @@ hsic_sysmon_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 
 	hs->pdev.name = "sys_mon";
 	hs->pdev.id = SYSMON_SS_EXT_MODEM;
+	hs->pdev.dev.release = hsic_sysmon_pdev_release;
 	platform_device_register(&hs->pdev);
 
 	pr_debug("complete");
