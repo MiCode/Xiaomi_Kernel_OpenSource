@@ -7,7 +7,6 @@ EXTRA_CFLAGS += -Idrivers/media/video/msm/io
 obj-$(CONFIG_MSM_CAMERA) += io/
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   EXTRA_CFLAGS += -Idrivers/media/video/msm/csi
-  EXTRA_CFLAGS += -Idrivers/media/video/msm/io
   EXTRA_CFLAGS += -Idrivers/media/video/msm/eeprom
   EXTRA_CFLAGS += -Idrivers/media/video/msm/sensors
   EXTRA_CFLAGS += -Idrivers/media/video/msm/actuators

@@ -17,62 +17,22 @@
 #include <linux/pwm.h>
 #include <linux/pmic8058-pwm.h>
 #include <linux/hrtimer.h>
-#include <linux/i2c.h>
 #include <linux/export.h>
 #include <mach/pmic.h>
 #include <mach/camera.h>
 #include <mach/gpio.h>
+#include "msm_camera_i2c.h"
 
 struct i2c_client *sx150x_client;
 struct timer_list timer_flash;
 static struct msm_camera_sensor_info *sensor_data;
+static struct msm_camera_i2c_client i2c_client;
 enum msm_cam_flash_stat{
 	MSM_CAM_FLASH_OFF,
 	MSM_CAM_FLASH_ON,
 };
 
 static struct i2c_client *sc628a_client;
-
-static int32_t flash_i2c_txdata(struct i2c_client *client,
-		unsigned char *txdata, int length)
-{
-	struct i2c_msg msg[] = {
-		{
-			.addr = client->addr >> 1,
-			.flags = 0,
-			.len = length,
-			.buf = txdata,
-		},
-	};
-	if (i2c_transfer(client->adapter, msg, 1) < 0) {
-		CDBG("flash_i2c_txdata faild 0x%x\n", client->addr >> 1);
-		return -EIO;
-	}
-
-	return 0;
-}
-
-static int32_t flash_i2c_write_b(struct i2c_client *client,
-	uint8_t baddr, uint8_t bdata)
-{
-	int32_t rc = -EFAULT;
-	unsigned char buf[2];
-	if (!client)
-		return  -ENOTSUPP;
-
-	memset(buf, 0, sizeof(buf));
-	buf[0] = baddr;
-	buf[1] = bdata;
-
-	rc = flash_i2c_txdata(client, buf, 2);
-	if (rc < 0) {
-		CDBG("i2c_write_b failed, addr = 0x%x, val = 0x%x!\n",
-				baddr, bdata);
-	}
-	usleep_range(4000, 5000);
-
-	return rc;
-}
 
 static const struct i2c_device_id sc628a_i2c_id[] = {
 	{"sc628a", 0},
@@ -128,8 +88,10 @@ static int tps61310_i2c_probe(struct i2c_client *client,
 	}
 
 	tps61310_client = client;
-
-	rc = flash_i2c_write_b(tps61310_client, 0x01, 0x00);
+	i2c_client.client = tps61310_client;
+	i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+	rc = msm_camera_i2c_write(&i2c_client, 0x01, 0x00,
+		MSM_CAMERA_I2C_BYTE_DATA);
 	if (rc < 0) {
 		tps61310_client = NULL;
 		goto probe_failure;
@@ -431,10 +393,18 @@ error:
 		break;
 
 	case MSM_CAMERA_LED_OFF:
-		if (sc628a_client)
-			rc = flash_i2c_write_b(sc628a_client, 0x02, 0x00);
-		if (tps61310_client)
-			rc = flash_i2c_write_b(tps61310_client, 0x01, 0x00);
+		if (sc628a_client) {
+			i2c_client.client = sc628a_client;
+			i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+			rc = msm_camera_i2c_write(&i2c_client, 0x02, 0x00,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
+		if (tps61310_client) {
+			i2c_client.client = tps61310_client;
+			i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+			rc = msm_camera_i2c_write(&i2c_client, 0x01, 0x00,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
 		gpio_set_value_cansleep(external->led_en, 0);
 		gpio_set_value_cansleep(external->led_flash_en, 0);
 		break;
@@ -443,20 +413,36 @@ error:
 		gpio_set_value_cansleep(external->led_en, 1);
 		gpio_set_value_cansleep(external->led_flash_en, 1);
 		usleep_range(2000, 3000);
-		if (sc628a_client)
-			rc = flash_i2c_write_b(sc628a_client, 0x02, 0x06);
-		if (tps61310_client)
-			rc = flash_i2c_write_b(tps61310_client, 0x01, 0x86);
+		if (sc628a_client) {
+			i2c_client.client = sc628a_client;
+			i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+			rc = msm_camera_i2c_write(&i2c_client, 0x02, 0x06,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
+		if (tps61310_client) {
+			i2c_client.client = tps61310_client;
+			i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+			rc = msm_camera_i2c_write(&i2c_client, 0x01, 0x86,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
 		break;
 
 	case MSM_CAMERA_LED_HIGH:
 		gpio_set_value_cansleep(external->led_en, 1);
 		gpio_set_value_cansleep(external->led_flash_en, 1);
 		usleep_range(2000, 3000);
-		if (sc628a_client)
-			rc = flash_i2c_write_b(sc628a_client, 0x02, 0x49);
-		if (tps61310_client)
-			rc = flash_i2c_write_b(tps61310_client, 0x01, 0x8B);
+		if (sc628a_client) {
+			i2c_client.client = sc628a_client;
+			i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+			rc = msm_camera_i2c_write(&i2c_client, 0x02, 0x49,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
+		if (tps61310_client) {
+			i2c_client.client = tps61310_client;
+			i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+			rc = msm_camera_i2c_write(&i2c_client, 0x01, 0x8B,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
 		break;
 
 	default:
