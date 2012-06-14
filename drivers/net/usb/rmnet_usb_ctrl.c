@@ -521,8 +521,6 @@ static int rmnet_ctl_release(struct inode *inode, struct file *file)
 	dev->is_opened = 0;
 	mutex_unlock(&dev->dev_lock);
 
-	rmnet_usb_ctrl_stop_rx(dev);
-
 	if (is_dev_connected(dev))
 		usb_kill_anchored_urbs(&dev->tx_submitted);
 
