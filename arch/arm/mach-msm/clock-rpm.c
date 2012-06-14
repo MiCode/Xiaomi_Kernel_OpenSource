@@ -54,6 +54,25 @@ static int clk_rpmrs_get_rate(struct rpm_clk *r)
 	return (rc < 0) ? rc : iv.value * 1000;
 }
 
+#define RPM_SMD_KEY_CLOCK_SET_RATE	0x007A484B
+
+static int clk_rpmrs_set_rate_smd(struct rpm_clk *r, uint32_t value,
+				uint32_t context, int noirq)
+{
+	struct msm_rpm_kvp kvp = {
+		.key = RPM_SMD_KEY_CLOCK_SET_RATE,
+		.data = (void *)&value,
+		.length = sizeof(value),
+	};
+
+	if (noirq)
+		return msm_rpm_send_message_noirq(context,
+				r->rpm_res_type, r->rpm_clk_id, &kvp, 1);
+	else
+		return msm_rpm_send_message(context, r->rpm_res_type,
+						r->rpm_clk_id, &kvp, 1);
+}
+
 struct clk_rpmrs_data {
 	int (*set_rate_fn)(struct rpm_clk *r, uint32_t value,
 				uint32_t context, int noirq);
@@ -67,6 +86,12 @@ struct clk_rpmrs_data clk_rpmrs_data = {
 	.get_rate_fn = clk_rpmrs_get_rate,
 	.ctx_active_id = MSM_RPM_CTX_SET_0,
 	.ctx_sleep_id = MSM_RPM_CTX_SET_SLEEP,
+};
+
+struct clk_rpmrs_data clk_rpmrs_data_smd = {
+	.set_rate_fn = clk_rpmrs_set_rate_smd,
+	.ctx_active_id = MSM_RPM_CTX_ACTIVE_SET,
+	.ctx_sleep_id = MSM_RPM_CTX_SLEEP_SET,
 };
 
 static DEFINE_SPINLOCK(rpm_clock_lock);
