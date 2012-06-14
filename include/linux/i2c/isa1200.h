@@ -49,6 +49,7 @@ struct isa1200_platform_data {
 	bool smart_en; /* smart mode enable/disable */
 	bool is_erm;
 	bool ext_clk_en;
+	bool need_pwm_clk;
 	unsigned int chip_en;
 	unsigned int duty;
 	struct isa1200_regulator *regulator_info;
