@@ -1,0 +1,10 @@
+* QSEECOM (Qualcomm Secure Execution Environment Communicator)
+
+Required properties:
+- compatible : Should be "qcom,qseecom"
+
+Example:
+
+	qcom,qseecom@fe806000 {
+		compatible = "qcom,qseecom";
+	};
