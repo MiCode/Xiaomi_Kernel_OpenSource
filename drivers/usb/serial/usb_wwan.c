@@ -252,10 +252,12 @@ int usb_wwan_write(struct tty_struct *tty, struct usb_serial_port *port,
 		} else {
 			intfdata->in_flight++;
 			spin_unlock_irqrestore(&intfdata->susp_lock, flags);
+			usb_anchor_urb(this_urb, &portdata->submitted);
 			err = usb_submit_urb(this_urb, GFP_ATOMIC);
 			if (err) {
 				dbg("usb_submit_urb %p (write bulk) failed "
 				    "(%d)", this_urb, err);
+				usb_unanchor_urb(this_urb);
 				clear_bit(i, &portdata->out_busy);
 				spin_lock_irqsave(&intfdata->susp_lock, flags);
 				intfdata->in_flight--;
@@ -281,6 +283,7 @@ static void usb_wwan_indat_callback(struct urb *urb)
 {
 	int err;
 	int endpoint;
+	struct usb_wwan_port_private *portdata;
 	struct usb_serial_port *port;
 	struct tty_struct *tty;
 	unsigned char *data = urb->transfer_buffer;
@@ -290,6 +293,7 @@ static void usb_wwan_indat_callback(struct urb *urb)
 
 	endpoint = usb_pipeendpoint(urb->pipe);
 	port = urb->context;
+	portdata = usb_get_serial_port_data(port);
 
 	if (status) {
 		dbg("%s: nonzero status: %d on endpoint %02x.",
@@ -308,8 +312,10 @@ static void usb_wwan_indat_callback(struct urb *urb)
 
 		/* Resubmit urb so we continue receiving */
 		if (status != -ESHUTDOWN) {
+			usb_anchor_urb(urb, &portdata->submitted);
 			err = usb_submit_urb(urb, GFP_ATOMIC);
 			if (err) {
+				usb_unanchor_urb(urb);
 				if (err != -EPERM) {
 					printk(KERN_ERR "%s: resubmit read urb failed. "
 						"(%d)", __func__, err);
@@ -418,8 +424,10 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 		urb = portdata->in_urbs[i];
 		if (!urb)
 			continue;
+		usb_anchor_urb(urb, &portdata->submitted);
 		err = usb_submit_urb(urb, GFP_KERNEL);
 		if (err) {
+			usb_unanchor_urb(urb);
 			dbg("%s: submit urb %d failed (%d) %d",
 			    __func__, i, err, urb->transfer_buffer_length);
 		}
@@ -551,6 +559,7 @@ int usb_wwan_startup(struct usb_serial *serial)
 			return 1;
 		}
 		init_usb_anchor(&portdata->delayed);
+		init_usb_anchor(&portdata->submitted);
 
 		for (j = 0; j < N_IN_URB; j++) {
 			buffer = kmalloc(IN_BUFLEN, GFP_KERNEL);
@@ -590,7 +599,7 @@ EXPORT_SYMBOL(usb_wwan_startup);
 
 static void stop_read_write_urbs(struct usb_serial *serial)
 {
-	int i, j;
+	int i;
 	struct usb_serial_port *port;
 	struct usb_wwan_port_private *portdata;
 
@@ -598,10 +607,7 @@ static void stop_read_write_urbs(struct usb_serial *serial)
 	for (i = 0; i < serial->num_ports; ++i) {
 		port = serial->port[i];
 		portdata = usb_get_serial_port_data(port);
-		for (j = 0; j < N_IN_URB; j++)
-			usb_kill_urb(portdata->in_urbs[j]);
-		for (j = 0; j < N_OUT_URB; j++)
-			usb_kill_urb(portdata->out_urbs[j]);
+		usb_kill_anchored_urbs(&portdata->submitted);
 	}
 }
 
@@ -694,10 +700,12 @@ static void play_delayed(struct usb_serial_port *port)
 	portdata = usb_get_serial_port_data(port);
 	data = port->serial->private;
 	while ((urb = usb_get_from_anchor(&portdata->delayed))) {
+		usb_anchor_urb(urb, &portdata->submitted);
 		err = usb_submit_urb(urb, GFP_ATOMIC);
 		if (!err) {
 			data->in_flight++;
 		} else {
+			usb_unanchor_urb(urb);
 			/* we have to throw away the rest */
 			do {
 				unbusy_queued_urb(urb, portdata);
@@ -736,33 +744,32 @@ int usb_wwan_resume(struct usb_serial *serial)
 
 	spin_lock_irq(&intfdata->susp_lock);
 	intfdata->suspended = 0;
-	spin_unlock_irq(&intfdata->susp_lock);
-
 	for (i = 0; i < serial->num_ports; i++) {
 		/* walk all ports */
 		port = serial->port[i];
 		portdata = usb_get_serial_port_data(port);
 
 		/* skip closed ports */
-		spin_lock_irq(&intfdata->susp_lock);
-		if (!portdata->opened) {
-			spin_unlock_irq(&intfdata->susp_lock);
+		if (!portdata->opened)
 			continue;
-		}
 
 		for (j = 0; j < N_IN_URB; j++) {
 			urb = portdata->in_urbs[j];
+			usb_anchor_urb(urb, &portdata->submitted);
 			err = usb_submit_urb(urb, GFP_ATOMIC);
 			if (err < 0) {
 				err("%s: Error %d for bulk URB %d",
 				    __func__, err, i);
+				usb_unanchor_urb(urb);
+				intfdata->suspended = 1;
 				spin_unlock_irq(&intfdata->susp_lock);
 				goto err_out;
 			}
 		}
 		play_delayed(port);
-		spin_unlock_irq(&intfdata->susp_lock);
 	}
+	spin_unlock_irq(&intfdata->susp_lock);
+
 err_out:
 	return err;
 }
