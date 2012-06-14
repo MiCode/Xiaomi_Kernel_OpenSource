@@ -58,6 +58,12 @@ struct msm_camera_i2c_reg_conf {
 	enum msm_camera_i2c_cmd_type cmd_type;
 };
 
+struct msm_camera_i2c_reg_tbl {
+	uint16_t reg_addr;
+	uint16_t reg_data;
+	uint16_t delay;
+};
+
 struct msm_camera_i2c_conf_array {
 	struct msm_camera_i2c_reg_conf *conf;
 	uint16_t size;
@@ -105,6 +111,11 @@ int32_t msm_camera_i2c_compare(struct msm_camera_i2c_client *client,
 
 int32_t msm_camera_i2c_poll(struct msm_camera_i2c_client *client,
 	uint16_t addr, uint16_t data,
+	enum msm_camera_i2c_data_type data_type);
+
+int32_t msm_camera_i2c_write_table_w_microdelay(
+	struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_tbl *reg_tbl, uint16_t size,
 	enum msm_camera_i2c_data_type data_type);
 
 int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
