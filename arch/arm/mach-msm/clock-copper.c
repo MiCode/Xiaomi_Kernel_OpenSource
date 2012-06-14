@@ -4819,6 +4819,7 @@ static struct clk_lookup msm_clocks_copper[] = {
 	CLK_DUMMY("dfab_clk",  DFAB_CLK,    "msm_sps", OFF),
 	CLK_DUMMY("mem_clk",       NULL,    "msm_sps", OFF),
 	CLK_DUMMY("bus_clk",       NULL,        "scm", OFF),
+	CLK_DUMMY("bus_clk",       NULL,    "qseecom", OFF),
 
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),

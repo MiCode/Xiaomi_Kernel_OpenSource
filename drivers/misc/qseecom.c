@@ -1717,19 +1717,22 @@ static int qseecom_probe(struct platform_device *pdev)
 	}
 
 	/* register client for bus scaling */
-	qseecom_platform_support = (struct msm_bus_scale_pdata *)
-					pdev->dev.platform_data;
-	qsee_perf_client = msm_bus_scale_register_client(
-					qseecom_platform_support);
-	if (!qsee_perf_client) {
-		pr_err("Unable to register bus client\n");
-	} else {
-		qseecom_bus_clk = clk_get(class_dev, "bus_clk");
-		if (IS_ERR(qseecom_bus_clk)) {
-			qseecom_bus_clk = NULL;
-		} else if (qseecom_bus_clk != NULL) {
-			pr_debug("Enabled DFAB clock");
-			clk_set_rate(qseecom_bus_clk, 64000000);
+	if (!pdev->dev.of_node) {
+		qseecom_platform_support = (struct msm_bus_scale_pdata *)
+						pdev->dev.platform_data;
+		qsee_perf_client = msm_bus_scale_register_client(
+						qseecom_platform_support);
+
+		if (!qsee_perf_client) {
+			pr_err("Unable to register bus client\n");
+		} else {
+			qseecom_bus_clk = clk_get(class_dev, "bus_clk");
+			if (IS_ERR(qseecom_bus_clk)) {
+				qseecom_bus_clk = NULL;
+			} else if (qseecom_bus_clk != NULL) {
+				pr_debug("Enabled DFAB clock");
+				clk_set_rate(qseecom_bus_clk, 64000000);
+			}
 		}
 	}
 	return 0;
@@ -1750,12 +1753,20 @@ static int qseecom_remove(struct platform_device *pdev)
 	return 0;
 };
 
+static struct of_device_id qseecom_match[] = {
+	{
+		.compatible = "qcom,qseecom",
+	},
+	{}
+};
+
 static struct platform_driver qseecom_plat_driver = {
 	.probe = qseecom_probe,
 	.remove = qseecom_remove,
 	.driver = {
 		.name = "qseecom",
 		.owner = THIS_MODULE,
+		.of_match_table = qseecom_match,
 	},
 };
 
