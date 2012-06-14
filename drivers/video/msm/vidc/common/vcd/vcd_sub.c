@@ -2045,10 +2045,12 @@ u32 vcd_handle_input_done_in_eos(
 		transc->in_use = true;
 		if ((codec_config &&
 			 (status != VCD_ERR_BITSTREAM_ERR)) ||
-			((status == VCD_ERR_BITSTREAM_ERR) &&
+			(codec_config && (status == VCD_ERR_BITSTREAM_ERR) &&
 			 !(cctxt->status.mask & VCD_FIRST_IP_DONE) &&
-			 (core_type == VCD_CORE_720P)))
+			(core_type == VCD_CORE_720P))) {
+			VCD_MSG_HIGH("handle EOS for codec config");
 			vcd_handle_eos_done(cctxt, transc, VCD_S_SUCCESS);
+		}
 	}
 	return rc;
 }
