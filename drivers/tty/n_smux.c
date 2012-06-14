@@ -3389,7 +3389,7 @@ static int __init smux_init(void)
 		return ret;
 	}
 
-	subsys_notif_register_notifier("qsc", &ssr_notifier);
+	subsys_notif_register_notifier("external_modem", &ssr_notifier);
 
 	ret = lch_init();
 	if (ret != 0) {
