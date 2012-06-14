@@ -282,14 +282,22 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		uint32_t notify_rpm;
 	};
 
-	struct mode_of mode_of_data[] = {
-		{"qcom,spm-cmd-wfi", MSM_SPM_MODE_CLOCK_GATING, 0},
-		{"qcom,spm-cmd-ret", MSM_SPM_MODE_POWER_RETENTION, 0},
-		{"qcom,spm-cmd-spc", MSM_SPM_MODE_POWER_COLLAPSE, 0},
-		{"qcom,spm-cmd-pc", MSM_SPM_MODE_POWER_COLLAPSE, 1},
+	struct mode_of of_cpu_modes[] = {
+		{"qcom,saw2-spm-cmd-wfi", MSM_SPM_MODE_CLOCK_GATING, 0},
+		{"qcom,saw2-spm-cmd-ret", MSM_SPM_MODE_POWER_RETENTION, 0},
+		{"qcom,saw2-spm-cmd-spc", MSM_SPM_MODE_POWER_COLLAPSE, 0},
+		{"qcom,saw2-spm-cmd-pc", MSM_SPM_MODE_POWER_COLLAPSE, 1},
 	};
 
-	BUG_ON(ARRAY_SIZE(mode_of_data) > MSM_SPM_MODE_NR);
+	struct mode_of of_l2_modes[] = {
+		{"qcom,saw2-spm-cmd-ret", MSM_SPM_L2_MODE_RETENTION, 1},
+		{"qcom,saw2-spm-cmd-gdhs", MSM_SPM_L2_MODE_GDHS, 1},
+		{"qcom,saw2-spm-cmd-pc", MSM_SPM_L2_MODE_POWER_COLLAPSE, 1},
+	};
+
+	struct mode_of *mode_of_data;
+	int num_modes;
+
 	memset(&spm_data, 0, sizeof(struct msm_spm_platform_data));
 	memset(&modes, 0,
 		(MSM_SPM_MODE_NR - 2) * sizeof(struct msm_spm_seq_entry));
@@ -339,7 +347,22 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		spm_data.reg_init_values[spm_of_data[i].id] = val;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(mode_of_data); i++) {
+	/*
+	 * Device with id 0..NR_CPUS are SPM for apps cores
+	 * Device with id 0xFFFF is for L2 SPM.
+	 */
+	if (cpu >= 0 && cpu < num_possible_cpus()) {
+		mode_of_data = of_cpu_modes;
+		num_modes = ARRAY_SIZE(of_cpu_modes);
+		dev = &per_cpu(msm_cpu_spm_device, cpu);
+
+	} else {
+		mode_of_data = of_l2_modes;
+		num_modes = ARRAY_SIZE(of_l2_modes);
+		dev = &msm_spm_l2_device;
+	}
+
+	for (i = 0; i < num_modes; i++) {
 		key = mode_of_data[i].key;
 		modes[mode_count].cmd =
 			(uint8_t *)of_get_property(node, key, &len);
@@ -353,16 +376,8 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	spm_data.modes = modes;
 	spm_data.num_modes = mode_count;
 
-	/*
-	 * Device with id 0..NR_CPUS are SPM for apps cores
-	 * Device with id 0xFFFF is for L2 SPM.
-	 */
-	if (cpu >= 0 && cpu < num_possible_cpus())
-		dev = &per_cpu(msm_cpu_spm_device, cpu);
-	else
-		dev = &msm_spm_l2_device;
-
 	ret = msm_spm_dev_init(dev, &spm_data);
+
 	if (ret < 0)
 		pr_warn("%s():failed core-id:%u ret:%d\n", __func__, cpu, ret);
 
