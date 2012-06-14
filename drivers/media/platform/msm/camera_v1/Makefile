@@ -6,7 +6,6 @@ endif
 EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/io
 obj-$(CONFIG_MSM_CAMERA) += io/
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
-  EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/cci
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/csi
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/eeprom
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/sensors
