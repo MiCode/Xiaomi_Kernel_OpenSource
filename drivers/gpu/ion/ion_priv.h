@@ -98,6 +98,8 @@ struct ion_buffer {
 	void *vaddr;
 	int dmap_cnt;
 	struct sg_table *sg_table;
+	unsigned long *dirty;
+	struct list_head vmas;
 	unsigned int iommu_map_cnt;
 	struct rb_root iommu_maps;
 	int marked;
