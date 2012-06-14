@@ -39,6 +39,8 @@ enum {
 
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
+static int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer);
+
 static inline void mdp_mixer_write(struct mdss_mdp_mixer *mixer,
 				   u32 reg, u32 val)
 {
@@ -265,8 +267,14 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 
 	mutex_lock(&mdss_mdp_ctl_lock);
 	ctl->ref_cnt--;
-	ctl->mixer_left = NULL;
-	ctl->mixer_right = NULL;
+	if (ctl->mixer_left) {
+		mdss_mdp_mixer_free(ctl->mixer_left);
+		ctl->mixer_left = NULL;
+	}
+	if (ctl->mixer_right) {
+		mdss_mdp_mixer_free(ctl->mixer_right);
+		ctl->mixer_right = NULL;
+	}
 	ctl->power_on = false;
 	ctl->start_fnc = NULL;
 	ctl->stop_fnc = NULL;
@@ -517,6 +525,50 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
+static int mdss_mdp_ctl_setup_wfd(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_mdp_mixer *mixer;
+	int mixer_type;
+
+	/* if WB2 is supported, try to allocate it first */
+	if (mdata->nmixers_intf >= MDSS_MDP_INTF_LAYERMIXER2)
+		mixer_type = MDSS_MDP_MIXER_TYPE_INTF;
+	else
+		mixer_type = MDSS_MDP_MIXER_TYPE_WRITEBACK;
+
+	mixer = mdss_mdp_mixer_alloc(ctl, mixer_type, false);
+	if (!mixer && mixer_type == MDSS_MDP_MIXER_TYPE_INTF)
+		mixer = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_WRITEBACK,
+				false);
+
+	if (!mixer) {
+		pr_err("Unable to allocate writeback mixer\n");
+		return -ENOMEM;
+	}
+
+	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+		ctl->opmode = MDSS_MDP_CTL_OP_WFD_MODE;
+	} else {
+		switch (mixer->num) {
+		case MDSS_MDP_WB_LAYERMIXER0:
+			ctl->opmode = MDSS_MDP_CTL_OP_WB0_MODE;
+			break;
+		case MDSS_MDP_WB_LAYERMIXER1:
+			ctl->opmode = MDSS_MDP_CTL_OP_WB1_MODE;
+			break;
+		default:
+			pr_err("Incorrect writeback config num=%d\n",
+					mixer->num);
+			mdss_mdp_mixer_free(mixer);
+			return -EINVAL;
+		}
+	}
+	ctl->mixer_left = mixer;
+
+	return 0;
+}
+
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 				       struct msm_fb_data_type *mfd)
 {
@@ -555,8 +607,10 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 		break;
 	case WRITEBACK_PANEL:
 		ctl->intf_num = MDSS_MDP_NO_INTF;
-		ctl->opmode = MDSS_MDP_CTL_OP_WFD_MODE;
 		ctl->start_fnc = mdss_mdp_writeback_start;
+		ret = mdss_mdp_ctl_setup_wfd(ctl);
+		if (ret)
+			goto ctl_init_fail;
 		break;
 	default:
 		pr_err("unsupported panel type (%d)\n", pdata->panel_info.type);
@@ -966,9 +1020,13 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 
 	ctl->flush_bits |= BIT(6) << mixer->num;	/* LAYER_MIXER */
 
-	off = MDSS_MDP_REG_LM_OFFSET(mixer->num);
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OP_MODE, blend_color_out);
-	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(mixer->num), mixercfg);
+	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
+		off = MDSS_MDP_REG_CTL_LAYER(mixer->num);
+	else
+		off = MDSS_MDP_REG_CTL_LAYER(mixer->num +
+				MDSS_MDP_INTF_MAX_LAYERMIXER);
+	mdss_mdp_ctl_write(ctl, off, mixercfg);
 
 	return 0;
 }
