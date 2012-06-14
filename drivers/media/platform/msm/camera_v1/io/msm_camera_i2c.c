@@ -267,6 +267,35 @@ int32_t msm_camera_i2c_poll(struct msm_camera_i2c_client *client,
 	return rc;
 }
 
+int32_t msm_camera_i2c_write_table_w_microdelay(
+	struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_tbl *reg_tbl, uint16_t size,
+	enum msm_camera_i2c_data_type data_type)
+{
+	int i;
+	int32_t rc = -EFAULT;
+
+	if (!client || !reg_tbl)
+		return rc;
+
+	if ((client->addr_type != MSM_CAMERA_I2C_BYTE_ADDR
+		&& client->addr_type != MSM_CAMERA_I2C_WORD_ADDR)
+		|| (data_type != MSM_CAMERA_I2C_BYTE_DATA
+		&& data_type != MSM_CAMERA_I2C_WORD_DATA))
+		return rc;
+
+	for (i = 0; i < size; i++) {
+		rc = msm_camera_i2c_write(client, reg_tbl->reg_addr,
+			reg_tbl->reg_data, data_type);
+		if (rc < 0)
+			break;
+		if (reg_tbl->delay)
+			usleep_range(reg_tbl->delay, reg_tbl->delay + 1000);
+		reg_tbl++;
+	}
+	return rc;
+}
+
 int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_conf *reg_conf_tbl, uint16_t size,
 	enum msm_camera_i2c_data_type data_type)
