@@ -282,7 +282,6 @@ static enum handoff _rcg_clk_handoff(struct rcg_clk *rcg, int has_mnd)
 			if (freq->d_val != d_regval)
 				continue;
 		}
-		pr_info("%s rate=%lu\n", rcg->c.dbg_name, freq->freq_hz);
 		break;
 	}
 
@@ -448,7 +447,6 @@ static enum handoff branch_clk_handoff(struct clk *c)
 	cbcr_regval = readl_relaxed(CBCR_REG(branch));
 	if ((cbcr_regval & CBCR_BRANCH_OFF_BIT))
 		return HANDOFF_DISABLED_CLK;
-	pr_info("%s enabled.\n", branch->c.dbg_name);
 
 	if (branch->parent) {
 		if (branch->parent->ops->handoff)
@@ -546,7 +544,6 @@ static enum handoff local_vote_clk_handoff(struct clk *c)
 	vote_regval = readl_relaxed(VOTE_REG(vclk));
 	if (!(vote_regval & vclk->en_mask))
 		return HANDOFF_DISABLED_CLK;
-	pr_info("%s enabled.\n", vclk->c.dbg_name);
 
 	return HANDOFF_ENABLED_CLK;
 }
