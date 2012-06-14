@@ -5025,6 +5025,7 @@ static struct measure_clk measure_clk = {
 static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("xo",		cxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",		pxo_a_clk.c,	""),
+	CLK_LOOKUP("pwm_clk",		cxo_clk.c,	"0-0048"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"wcnss_wlan.0"),
 	CLK_LOOKUP("cxo",		cxo_clk.c,	"pil_riva"),
 	CLK_LOOKUP("xo",		pxo_clk.c,	"pil_qdsp6v4.0"),
