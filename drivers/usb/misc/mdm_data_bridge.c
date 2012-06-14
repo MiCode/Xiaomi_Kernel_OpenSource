@@ -208,7 +208,7 @@ static void data_bridge_read_cb(struct urb *urb)
 	/*do not resubmit*/
 	case -EPIPE:
 		set_bit(RX_HALT, &dev->flags);
-		dev_err(&dev->udev->dev, "%s: epout halted\n", __func__);
+		dev_err(&dev->intf->dev, "%s: epout halted\n", __func__);
 		schedule_work(&dev->kevent);
 		/* FALLTHROUGH */
 	case -ESHUTDOWN:
@@ -309,7 +309,7 @@ int data_bridge_open(struct bridge *brdg)
 		return -ENODEV;
 	}
 
-	dev_dbg(&dev->udev->dev, "%s: dev:%p\n", __func__, dev);
+	dev_dbg(&dev->intf->dev, "%s: dev:%p\n", __func__, dev);
 
 	dev->brdg = brdg;
 	dev->err = 0;
@@ -341,7 +341,7 @@ void data_bridge_close(unsigned int id)
 	if (!dev || !dev->brdg)
 		return;
 
-	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
+	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
 	usb_unlink_anchored_urbs(&dev->tx_active);
 	usb_unlink_anchored_urbs(&dev->rx_active);
@@ -370,7 +370,7 @@ static void defer_kevent(struct work_struct *work)
 
 		status = usb_autopm_get_interface(dev->intf);
 		if (status < 0) {
-			dev_err(&dev->udev->dev,
+			dev_err(&dev->intf->dev,
 				"can't acquire interface, status %d\n", status);
 			return;
 		}
@@ -378,7 +378,7 @@ static void defer_kevent(struct work_struct *work)
 		status = usb_clear_halt(dev->udev, dev->bulk_out);
 		usb_autopm_put_interface(dev->intf);
 		if (status < 0 && status != -EPIPE && status != -ESHUTDOWN)
-			dev_err(&dev->udev->dev,
+			dev_err(&dev->intf->dev,
 				"can't clear tx halt, status %d\n", status);
 		else
 			clear_bit(TX_HALT, &dev->flags);
@@ -389,7 +389,7 @@ static void defer_kevent(struct work_struct *work)
 
 		status = usb_autopm_get_interface(dev->intf);
 		if (status < 0) {
-			dev_err(&dev->udev->dev,
+			dev_err(&dev->intf->dev,
 				"can't acquire interface, status %d\n", status);
 			return;
 		}
@@ -397,7 +397,7 @@ static void defer_kevent(struct work_struct *work)
 		status = usb_clear_halt(dev->udev, dev->bulk_in);
 		usb_autopm_put_interface(dev->intf);
 		if (status < 0 && status != -EPIPE && status != -ESHUTDOWN)
-			dev_err(&dev->udev->dev,
+			dev_err(&dev->intf->dev,
 				"can't clear rx halt, status %d\n", status);
 		else {
 			clear_bit(RX_HALT, &dev->flags);
@@ -426,7 +426,7 @@ static void data_bridge_write_cb(struct urb *urb)
 		break;
 	case -EPIPE:
 		set_bit(TX_HALT, &dev->flags);
-		dev_err(&dev->udev->dev, "%s: epout halted\n", __func__);
+		dev_err(&dev->intf->dev, "%s: epout halted\n", __func__);
 		schedule_work(&dev->kevent);
 		/* FALLTHROUGH */
 	case -ESHUTDOWN:
@@ -474,17 +474,17 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	if (!brdg)
 		return -ENODEV;
 
-	dev_dbg(&dev->udev->dev, "%s: write (%d bytes)\n", __func__, skb->len);
+	dev_dbg(&dev->intf->dev, "%s: write (%d bytes)\n", __func__, skb->len);
 
 	result = usb_autopm_get_interface(dev->intf);
 	if (result < 0) {
-		dev_err(&dev->udev->dev, "%s: resume failure\n", __func__);
+		dev_err(&dev->intf->dev, "%s: resume failure\n", __func__);
 		goto pm_error;
 	}
 
 	txurb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!txurb) {
-		dev_err(&dev->udev->dev, "%s: error allocating read urb\n",
+		dev_err(&dev->intf->dev, "%s: error allocating read urb\n",
 			__func__);
 		result = -ENOMEM;
 		goto error;
@@ -512,13 +512,13 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	if (result < 0) {
 		usb_unanchor_urb(txurb);
 		atomic_dec(&dev->pending_txurbs);
-		dev_err(&dev->udev->dev, "%s: submit URB error %d\n",
+		dev_err(&dev->intf->dev, "%s: submit URB error %d\n",
 			__func__, result);
 		goto free_urb;
 	}
 
 	dev->to_modem++;
-	dev_dbg(&dev->udev->dev, "%s: pending_txurbs: %u\n", __func__, pending);
+	dev_dbg(&dev->intf->dev, "%s: pending_txurbs: %u\n", __func__, pending);
 
 	/* flow control: last urb submitted but return -EBUSY */
 	if (fctrl_support && pending > fctrl_en_thld) {
@@ -928,7 +928,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	for (i = 0; i < numends; i++) {
 		endpoint = iface->cur_altsetting->endpoint + i;
 		if (!endpoint) {
-			dev_err(&udev->dev, "%s: invalid endpoint %u\n",
+			dev_err(&iface->dev, "%s: invalid endpoint %u\n",
 					__func__, i);
 			status = -EINVAL;
 			goto out;
@@ -943,20 +943,20 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	}
 
 	if (!bulk_in || !bulk_out || !int_in) {
-		dev_err(&udev->dev, "%s: invalid endpoints\n", __func__);
+		dev_err(&iface->dev, "%s: invalid endpoints\n", __func__);
 		status = -EINVAL;
 		goto out;
 	}
 
 	status = data_bridge_probe(iface, bulk_in, bulk_out, ch_id);
 	if (status < 0) {
-		dev_err(&udev->dev, "data_bridge_probe failed %d\n", status);
+		dev_err(&iface->dev, "data_bridge_probe failed %d\n", status);
 		goto out;
 	}
 
 	status = ctrl_bridge_probe(iface, int_in, ch_id);
 	if (status < 0) {
-		dev_err(&udev->dev, "ctrl_bridge_probe failed %d\n", status);
+		dev_err(&iface->dev, "ctrl_bridge_probe failed %d\n", status);
 		goto free_data_bridge;
 	}
 

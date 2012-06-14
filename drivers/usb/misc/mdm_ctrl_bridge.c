@@ -128,12 +128,10 @@ EXPORT_SYMBOL(ctrl_bridge_set_cbits);
 static void resp_avail_cb(struct urb *urb)
 {
 	struct ctrl_bridge	*dev = urb->context;
-	struct usb_device	*udev;
 	int			status = 0;
 	int			resubmit_urb = 1;
 	struct bridge		*brdg = dev->brdg;
 
-	udev = interface_to_usbdev(dev->intf);
 	switch (urb->status) {
 	case 0:
 		/*success*/
@@ -154,7 +152,7 @@ static void resp_avail_cb(struct urb *urb)
 	/*resubmit*/
 	case -EOVERFLOW:
 	default:
-		dev_dbg(&udev->dev, "%s: non zero urb status = %d\n",
+		dev_dbg(&dev->intf->dev, "%s: non zero urb status = %d\n",
 			__func__, urb->status);
 	}
 
@@ -163,7 +161,7 @@ static void resp_avail_cb(struct urb *urb)
 		usb_anchor_urb(dev->inturb, &dev->tx_submitted);
 		status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
 		if (status) {
-			dev_err(&udev->dev,
+			dev_err(&dev->intf->dev,
 				"%s: Error re-submitting Int URB %d\n",
 				__func__, status);
 			usb_unanchor_urb(dev->inturb);
@@ -175,13 +173,10 @@ static void notification_available_cb(struct urb *urb)
 {
 	int				status;
 	struct usb_cdc_notification	*ctrl;
-	struct usb_device		*udev;
 	struct ctrl_bridge		*dev = urb->context;
 	struct bridge			*brdg = dev->brdg;
 	unsigned int			ctrl_bits;
 	unsigned char			*data;
-
-	udev = interface_to_usbdev(dev->intf);
 
 	switch (urb->status) {
 	case 0:
@@ -194,7 +189,8 @@ static void notification_available_cb(struct urb *urb)
 		 /* unplug */
 		 return;
 	case -EPIPE:
-		dev_err(&udev->dev, "%s: stall on int endpoint\n", __func__);
+		dev_err(&dev->intf->dev,
+			"%s: stall on int endpoint\n", __func__);
 		/* TBD : halt to be cleared in work */
 	case -EOVERFLOW:
 	default:
@@ -209,8 +205,8 @@ static void notification_available_cb(struct urb *urb)
 	switch (ctrl->bNotificationType) {
 	case USB_CDC_NOTIFY_RESPONSE_AVAILABLE:
 		dev->resp_avail++;
-		usb_fill_control_urb(dev->readurb, udev,
-					usb_rcvctrlpipe(udev, 0),
+		usb_fill_control_urb(dev->readurb, dev->udev,
+					usb_rcvctrlpipe(dev->udev, 0),
 					(unsigned char *)dev->in_ctlreq,
 					dev->readbuf,
 					DEFAULT_READ_URB_LENGTH,
@@ -219,7 +215,7 @@ static void notification_available_cb(struct urb *urb)
 		usb_anchor_urb(dev->readurb, &dev->tx_submitted);
 		status = usb_submit_urb(dev->readurb, GFP_ATOMIC);
 		if (status) {
-			dev_err(&udev->dev,
+			dev_err(&dev->intf->dev,
 				"%s: Error submitting Read URB %d\n",
 				__func__, status);
 			usb_unanchor_urb(dev->readurb);
@@ -227,19 +223,19 @@ static void notification_available_cb(struct urb *urb)
 		}
 		return;
 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
-		dev_dbg(&udev->dev, "%s network\n", ctrl->wValue ?
+		dev_dbg(&dev->intf->dev, "%s network\n", ctrl->wValue ?
 					"connected to" : "disconnected from");
 		break;
 	case USB_CDC_NOTIFY_SERIAL_STATE:
 		dev->notify_ser_state++;
 		ctrl_bits = get_unaligned_le16(data);
-		dev_dbg(&udev->dev, "serial state: %d\n", ctrl_bits);
+		dev_dbg(&dev->intf->dev, "serial state: %d\n", ctrl_bits);
 		dev->cbits_tohost = ctrl_bits;
 		if (brdg && brdg->ops.send_cbits)
 			brdg->ops.send_cbits(brdg->ctx, ctrl_bits);
 		break;
 	default:
-		dev_err(&udev->dev, "%s: unknown notification %d received:"
+		dev_err(&dev->intf->dev, "%s: unknown notification %d received:"
 			"index %d len %d data0 %d data1 %d",
 			__func__, ctrl->bNotificationType, ctrl->wIndex,
 			ctrl->wLength, data[0], data[1]);
@@ -249,7 +245,7 @@ resubmit_int_urb:
 	usb_anchor_urb(urb, &dev->tx_submitted);
 	status = usb_submit_urb(urb, GFP_ATOMIC);
 	if (status) {
-		dev_err(&udev->dev, "%s: Error re-submitting Int URB %d\n",
+		dev_err(&dev->intf->dev, "%s: Error re-submitting Int URB %d\n",
 		__func__, status);
 		usb_unanchor_urb(urb);
 	}
@@ -260,7 +256,7 @@ static int ctrl_bridge_start_read(struct ctrl_bridge *dev)
 	int	retval = 0;
 
 	if (!dev->inturb) {
-		dev_err(&dev->udev->dev, "%s: inturb is NULL\n", __func__);
+		dev_err(&dev->intf->dev, "%s: inturb is NULL\n", __func__);
 		return -ENODEV;
 	}
 
@@ -268,7 +264,7 @@ static int ctrl_bridge_start_read(struct ctrl_bridge *dev)
 		usb_anchor_urb(dev->inturb, &dev->tx_submitted);
 		retval = usb_submit_urb(dev->inturb, GFP_KERNEL);
 		if (retval < 0) {
-			dev_err(&dev->udev->dev,
+			dev_err(&dev->intf->dev,
 				"%s error submitting int urb %d\n",
 				__func__, retval);
 			usb_unanchor_urb(dev->inturb);
@@ -321,7 +317,7 @@ void ctrl_bridge_close(unsigned int id)
 	if (!dev || !dev->brdg)
 		return;
 
-	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
+	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
 	ctrl_bridge_set_cbits(dev->brdg->ch_id, 0);
 	usb_unlink_anchored_urbs(&dev->tx_submitted);
@@ -350,7 +346,6 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 	int			result;
 	struct urb		*writeurb;
 	struct usb_ctrlrequest	*out_ctlreq;
-	struct usb_device	*udev;
 	struct ctrl_bridge	*dev;
 
 	if (id >= MAX_BRIDGE_DEVICES) {
@@ -365,14 +360,12 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 		goto free_data;
 	}
 
-	udev = interface_to_usbdev(dev->intf);
-
-	dev_dbg(&udev->dev, "%s:[id]:%u: write (%d bytes)\n",
+	dev_dbg(&dev->intf->dev, "%s:[id]:%u: write (%d bytes)\n",
 		__func__, id, size);
 
 	writeurb = usb_alloc_urb(0, GFP_ATOMIC);
 	if (!writeurb) {
-		dev_err(&udev->dev, "%s: error allocating read urb\n",
+		dev_err(&dev->intf->dev, "%s: error allocating read urb\n",
 			__func__);
 		result = -ENOMEM;
 		goto free_data;
@@ -380,7 +373,7 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 
 	out_ctlreq = kmalloc(sizeof(*out_ctlreq), GFP_ATOMIC);
 	if (!out_ctlreq) {
-		dev_err(&udev->dev,
+		dev_err(&dev->intf->dev,
 			"%s: error allocating setup packet buffer\n",
 			__func__);
 		result = -ENOMEM;
@@ -403,15 +396,15 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 		dev->intf->cur_altsetting->desc.bInterfaceNumber;
 	out_ctlreq->wLength = cpu_to_le16(size);
 
-	usb_fill_control_urb(writeurb, udev,
-				 usb_sndctrlpipe(udev, 0),
+	usb_fill_control_urb(writeurb, dev->udev,
+				 usb_sndctrlpipe(dev->udev, 0),
 				 (unsigned char *)out_ctlreq,
 				 (void *)data, size,
 				 ctrl_write_callback, dev);
 
 	result = usb_autopm_get_interface_async(dev->intf);
 	if (result < 0) {
-		dev_err(&udev->dev, "%s: unable to resume interface: %d\n",
+		dev_err(&dev->intf->dev, "%s: unable to resume interface: %d\n",
 			__func__, result);
 
 		/*
@@ -430,7 +423,7 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 	usb_anchor_urb(writeurb, &dev->tx_submitted);
 	result = usb_submit_urb(writeurb, GFP_ATOMIC);
 	if (result < 0) {
-		dev_err(&udev->dev, "%s: submit URB error %d\n",
+		dev_err(&dev->intf->dev, "%s: submit URB error %d\n",
 			__func__, result);
 		usb_autopm_put_interface_async(dev->intf);
 		goto unanchor_urb;
@@ -614,14 +607,14 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
-		dev_err(&udev->dev, "%s: unable to allocate dev\n",
+		dev_err(&ifc->dev, "%s: unable to allocate dev\n",
 			__func__);
 		return -ENOMEM;
 	}
 	dev->pdev = platform_device_alloc(ctrl_bridge_names[id], id);
 	if (!dev->pdev) {
-		dev_err(&dev->udev->dev,
-			"%s: unable to allocate platform device\n", __func__);
+		dev_err(&ifc->dev, "%s: unable to allocate platform device\n",
+			__func__);
 		retval = -ENOMEM;
 		goto nomem;
 	}
@@ -639,7 +632,7 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 
 	dev->inturb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->inturb) {
-		dev_err(&udev->dev, "%s: error allocating int urb\n", __func__);
+		dev_err(&ifc->dev, "%s: error allocating int urb\n", __func__);
 		retval = -ENOMEM;
 		goto pdev_del;
 	}
@@ -648,7 +641,7 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 
 	dev->intbuf = kmalloc(wMaxPacketSize, GFP_KERNEL);
 	if (!dev->intbuf) {
-		dev_err(&udev->dev, "%s: error allocating int buffer\n",
+		dev_err(&ifc->dev, "%s: error allocating int buffer\n",
 			__func__);
 		retval = -ENOMEM;
 		goto free_inturb;
@@ -663,7 +656,7 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 
 	dev->readurb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->readurb) {
-		dev_err(&udev->dev, "%s: error allocating read urb\n",
+		dev_err(&ifc->dev, "%s: error allocating read urb\n",
 			__func__);
 		retval = -ENOMEM;
 		goto free_intbuf;
@@ -671,7 +664,7 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 
 	dev->readbuf = kmalloc(DEFAULT_READ_URB_LENGTH, GFP_KERNEL);
 	if (!dev->readbuf) {
-		dev_err(&udev->dev, "%s: error allocating read buffer\n",
+		dev_err(&ifc->dev, "%s: error allocating read buffer\n",
 			__func__);
 		retval = -ENOMEM;
 		goto free_rurb;
@@ -679,8 +672,7 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 
 	dev->in_ctlreq = kmalloc(sizeof(*dev->in_ctlreq), GFP_KERNEL);
 	if (!dev->in_ctlreq) {
-		dev_err(&udev->dev,
-			"%s:error allocating setup packet buffer\n",
+		dev_err(&ifc->dev, "%s:error allocating setup packet buffer\n",
 			__func__);
 		retval = -ENOMEM;
 		goto free_rbuf;
@@ -722,7 +714,7 @@ void ctrl_bridge_disconnect(unsigned int id)
 {
 	struct ctrl_bridge	*dev = __dev[id];
 
-	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
+	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
 	platform_device_del(dev->pdev);
 

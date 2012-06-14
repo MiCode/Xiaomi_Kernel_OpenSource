@@ -139,14 +139,13 @@ static int hsic_sysmon_readwrite(enum hsic_sysmon_device_id id, void *data,
 	}
 
 	if (!hs->ifc) {
-		dev_err(&hs->udev->dev, "can't %s, device disconnected\n",
-				opstr);
+		pr_err("can't %s, device disconnected", opstr);
 		return -ENODEV;
 	}
 
 	ret = usb_autopm_get_interface(hs->ifc);
 	if (ret < 0) {
-		dev_err(&hs->udev->dev, "can't %s, autopm_get failed:%d\n",
+		dev_err(&hs->ifc->dev, "can't %s, autopm_get failed:%d\n",
 			opstr, ret);
 		return ret;
 	}
@@ -159,7 +158,7 @@ static int hsic_sysmon_readwrite(enum hsic_sysmon_device_id id, void *data,
 	atomic_dec(&hs->dbg_pending[op]);
 
 	if (ret)
-		dev_err(&hs->udev->dev,
+		dev_err(&hs->ifc->dev,
 			"can't %s, usb_bulk_msg failed, err:%d\n", opstr, ret);
 	else
 		atomic_add(*actual_len, &hs->dbg_bytecnt[op]);
