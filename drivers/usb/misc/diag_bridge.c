@@ -80,7 +80,7 @@ void diag_bridge_close(void)
 {
 	struct diag_bridge	*dev = __dev;
 
-	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
+	dev_dbg(&dev->ifc->dev, "%s:\n", __func__);
 
 	usb_kill_anchored_urbs(&dev->submitted);
 	dev->ops = 0;
@@ -93,11 +93,11 @@ static void diag_bridge_read_cb(struct urb *urb)
 	struct diag_bridge	*dev = urb->context;
 	struct diag_bridge_ops	*cbs = dev->ops;
 
-	dev_dbg(&dev->udev->dev, "%s: status:%d actual:%d\n", __func__,
+	dev_dbg(&dev->ifc->dev, "%s: status:%d actual:%d\n", __func__,
 			urb->status, urb->actual_length);
 
 	if (urb->status == -EPROTO) {
-		dev_err(&dev->udev->dev, "%s: proto error\n", __func__);
+		dev_err(&dev->ifc->dev, "%s: proto error\n", __func__);
 		/* save error so that subsequent read/write returns ENODEV */
 		dev->err = urb->status;
 		kref_put(&dev->kref, diag_bridge_delete);
@@ -135,7 +135,7 @@ int diag_bridge_read(char *data, int size)
 	}
 
 	if (!size) {
-		dev_err(&dev->udev->dev, "invalid size:%d\n", size);
+		dev_err(&dev->ifc->dev, "invalid size:%d\n", size);
 		return -EINVAL;
 	}
 
@@ -147,7 +147,7 @@ int diag_bridge_read(char *data, int size)
 
 	urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!urb) {
-		dev_err(&dev->udev->dev, "unable to allocate urb\n");
+		dev_err(&dev->ifc->dev, "unable to allocate urb\n");
 		ret = -ENOMEM;
 		goto error;
 	}
@@ -186,12 +186,12 @@ static void diag_bridge_write_cb(struct urb *urb)
 	struct diag_bridge	*dev = urb->context;
 	struct diag_bridge_ops	*cbs = dev->ops;
 
-	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
+	dev_dbg(&dev->ifc->dev, "%s:\n", __func__);
 
 	usb_autopm_put_interface_async(dev->ifc);
 
 	if (urb->status == -EPROTO) {
-		dev_err(&dev->udev->dev, "%s: proto error\n", __func__);
+		dev_err(&dev->ifc->dev, "%s: proto error\n", __func__);
 		/* save error so that subsequent read/write returns ENODEV */
 		dev->err = urb->status;
 		kref_put(&dev->kref, diag_bridge_delete);
@@ -229,7 +229,7 @@ int diag_bridge_write(char *data, int size)
 	}
 
 	if (!size) {
-		dev_err(&dev->udev->dev, "invalid size:%d\n", size);
+		dev_err(&dev->ifc->dev, "invalid size:%d\n", size);
 		return -EINVAL;
 	}
 
@@ -241,7 +241,7 @@ int diag_bridge_write(char *data, int size)
 
 	urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!urb) {
-		dev_err(&dev->udev->dev, "unable to allocate urb\n");
+		dev_err(&dev->ifc->dev, "unable to allocate urb\n");
 		ret = -ENOMEM;
 		goto error;
 	}
@@ -411,7 +411,7 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	diag_bridge_debugfs_init();
 	platform_device_add(dev->pdev);
 
-	dev_dbg(&dev->udev->dev, "%s: complete\n", __func__);
+	dev_dbg(&dev->ifc->dev, "%s: complete\n", __func__);
 
 	return 0;
 
@@ -426,7 +426,7 @@ static void diag_bridge_disconnect(struct usb_interface *ifc)
 {
 	struct diag_bridge	*dev = usb_get_intfdata(ifc);
 
-	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
+	dev_dbg(&dev->ifc->dev, "%s:\n", __func__);
 
 	platform_device_del(dev->pdev);
 	dev->ifc = NULL;
@@ -444,7 +444,7 @@ static int diag_bridge_suspend(struct usb_interface *ifc, pm_message_t message)
 	if (cbs && cbs->suspend) {
 		ret = cbs->suspend(cbs->ctxt);
 		if (ret) {
-			dev_dbg(&dev->udev->dev,
+			dev_dbg(&dev->ifc->dev,
 				"%s: diag veto'd suspend\n", __func__);
 			return ret;
 		}
