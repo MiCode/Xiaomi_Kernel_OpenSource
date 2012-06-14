@@ -1911,18 +1911,9 @@ static struct cyttsp_platform_data cyttsp_pdata = {
 	.gest_set = CY_GEST_GRP1 | CY_GEST_GRP2 |
 				CY_GEST_GRP3 | CY_GEST_GRP4 |
 				CY_ACT_DIST,
-	/* change act_intrvl to customize the Active power state
-	 * scanning/processing refresh interval for Operating mode
-	 */
-	.act_intrvl = CY_ACT_INTRVL_DFLT,
-	/* change tch_tmout to customize the touch timeout for the
-	 * Active power state for Operating mode
-	 */
-	.tch_tmout = CY_TCH_TMOUT_DFLT,
-	/* change lp_intrvl to customize the Low Power power state
-	 * scanning/processing refresh interval for Operating mode
-	 */
-	.lp_intrvl = CY_LP_INTRVL_DFLT,
+	.act_intrvl = 10,
+	.tch_tmout = 200,
+	.lp_intrvl = 30,
 	.sleep_gpio = CYTTSP_TS_SLEEP_GPIO,
 	.resout_gpio = CYTTSP_TS_RESOUT_N_GPIO,
 	.irq_gpio = CYTTSP_TS_GPIO_IRQ,
