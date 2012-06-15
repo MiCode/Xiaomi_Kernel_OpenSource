@@ -19,48 +19,20 @@
 #ifndef _MC_DRV_KMOD_H_
 #define _MC_DRV_KMOD_H_
 
-#include "mc_drv_module_linux_api.h"
+#include <asm/pgtable.h>
+#include <linux/semaphore.h>
+
 #include "public/mc_drv_module_api.h"
 /** Platform specific settings */
 #include "platform.h"
 
-/** ARM Specific masks and modes */
-#define ARM_CPSR_MASK 0x1F
+/** ARM Trustzone specific masks and modes
+ * Vanilla Linux is unaware of TrustZone extension.
+ * I.e. arch/arm/include/asm/ptrace.h does not define monitor mode.
+ * Also TZ bits in cpuid is not defined, ARM port uses magic numbers,
+ * see arch/arm/kernel/setup.c */
 #define ARM_MONITOR_MODE 0b10110
 #define ARM_SECURITY_EXTENSION_MASK 0x30
-
-/**
- * Number of page table entries in one L2 table. This is ARM specific, an
- *  L2 table covers 1 MiB by using 256 entry referring to 4KiB pages each.
- */
-#define MC_ARM_L2_TABLE_ENTRIES		256
-
-/** Maximum number of contiguous buffer allocations for one driver instance. */
-#define MC_DRV_KMOD_CONTG_BUFFER_MAX	16
-
-/** Number of pages for L2 tables. There are 4 table in each page. */
-#define MC_DRV_KMOD_L2_TABLE_PER_PAGES	4
-
-/** ARM level 2 (L2) table with 256 entries. Size: 1k */
-struct l2table {
-	pte_t	table_entries[MC_ARM_L2_TABLE_ENTRIES];
-};
-
-#define INVALID_ADDRESS     ((void *)(-1))
-
-/** ARM L2 PTE bits */
-#define L2_FLAG_SMALL_XN    (1U <<  0)
-#define L2_FLAG_SMALL       (1U <<  1)
-#define L2_FLAG_B           (1U <<  2)
-#define L2_FLAG_C           (1U <<  3)
-#define L2_FLAG_AP0         (1U <<  4)
-#define L2_FLAG_AP1         (1U <<  5)
-#define L2_FLAG_SMALL_TEX0  (1U <<  6)
-#define L2_FLAG_SMALL_TEX1  (1U <<  7)
-#define L2_FLAG_SMALL_TEX2  (1U <<  8)
-#define L2_FLAG_APX         (1U <<  9)
-#define L2_FLAG_S           (1U << 10)
-#define L2_FLAG_NG          (1U << 11)
 
 /**
  * Contiguous buffer allocated to TLCs.
@@ -73,8 +45,12 @@ struct mc_contg_buffer {
 	void		*virt_user_addr; /**< virtual User start address */
 	void		*virt_kernel_addr; /**< virtual Kernel start address */
 	void		*phys_addr; /**< physical start address */
-	unsigned int	num_pages; /**< number of pages */
+	unsigned int	order; /**< order of number of pages */
 };
+
+/** Maximum number of contiguous buffer allocations that one process can get via
+ * mmap. */
+#define MC_DRV_KMOD_CONTG_BUFFER_MAX	16
 
 /** Instance data for MobiCore Daemon and TLCs. */
 struct mc_instance {
@@ -86,6 +62,23 @@ struct mc_instance {
 		its virtual client address */
 	struct mc_contg_buffer	contg_buffers[MC_DRV_KMOD_CONTG_BUFFER_MAX];
 };
+
+/** MobiCore specific page tables for world shared memory.
+ * Linux uses shadow page tables, see arch/arm/include/asm/pgtable-2level.
+ * MobiCore uses the default ARM format.
+ *
+ * Number of page table entries in one L2 table. This is ARM specific, an
+ * L2 table covers 1 MiB by using 256 entry referring to 4KiB pages each.
+ */
+#define MC_ARM_L2_TABLE_ENTRIES		256
+
+/** ARM level 2 (L2) table with 256 entries. Size: 1k */
+struct l2table {
+	pte_t	table_entries[MC_ARM_L2_TABLE_ENTRIES];
+};
+
+/** Number of pages for L2 tables. There are 4 table in each page. */
+#define MC_DRV_KMOD_L2_TABLE_PER_PAGES	4
 
 /** Store for four L2 tables in one 4kb page*/
 struct mc_l2_table_store {
@@ -129,7 +122,6 @@ struct mc_used_l2_table {
 
 #define MC_WSM_L2_CONTAINER_WSM_LOCKED_BY_APP   (1U << 0)
 #define MC_WSM_L2_CONTAINER_WSM_LOCKED_BY_MC    (1U << 1)
-
 
 /** MobiCore S-SIQ interrupt context data. */
 struct mc_ssiq_ctx {
@@ -232,7 +224,6 @@ void mobicore_log_free(void);
 #define MCDRV_ASSERT(...)	DUMMY_FUNCTION()
 
 #endif /* [not] defined(DEBUG) */
-
 
 #endif /* _MC_DRV_KMOD_H_ */
 /** @} */

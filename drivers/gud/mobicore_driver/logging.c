@@ -13,8 +13,13 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <linux/miscdevice.h>
+#include <linux/moduleparam.h>
+#include <linux/kthread.h>
+#include <linux/slab.h>
+#include <linux/mm.h>
+
 #include "mc_drv_module.h"
-#include "mc_drv_module_linux_api.h"
 #include "mc_drv_module_fastcalls.h"
 
 /* Default len of the log ring buffer 256KB*/
@@ -28,7 +33,6 @@ module_param(log_size, uint, 0);
 MODULE_PARM_DESC(log_size, " Size of the MobiCore log ringbuffer "
 						"(or 256KB default).");
 
-/*----------------------------------------------------------------------------*/
 /* Definitions for log version 2 */
 #define LOG_TYPE_MASK				(0x0007)
 #define LOG_TYPE_CHAR				0
@@ -58,40 +62,38 @@ static struct mc_trace_buf *log_buf;
 struct task_struct *log_thread;
 /** Log Line buffer */
 static char *log_line;
+/** Log Line buffer current len */
+static uint32_t log_line_len;
 
-static void log_msg(struct logmsg_struct *msg);
-
-/*----------------------------------------------------------------------------*/
 static void log_eol(void)
 {
 	if (!strnlen(log_line, LOG_LINE_SIZE))
 		return;
 	printk(KERN_INFO "%s\n", log_line);
+	log_line_len = 0;
 	log_line[0] = 0;
 }
-/*----------------------------------------------------------------------------*/
 /**
  * Put a char to the log line if there is enough space if not then also
  * output the line. Assume nobody else is updating the line! */
 static void log_char(char ch)
 {
-	uint32_t len;
 	if (ch == '\n' || ch == '\r') {
 		log_eol();
 		return;
 	}
 
-	if (strnlen(log_line, LOG_LINE_SIZE) >= LOG_LINE_SIZE - 1) {
+	if (log_line_len >= LOG_LINE_SIZE - 1) {
 		printk(KERN_INFO "%s\n", log_line);
+		log_line_len = 0;
 		log_line[0] = 0;
 	}
 
-	len = strnlen(log_line, LOG_LINE_SIZE);
-	log_line[len] = ch;
-	log_line[len + 1] = 0;
+	log_line[log_line_len] = ch;
+	log_line[log_line_len + 1] = 0;
+	log_line_len++;
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * Put a string to the log line if there is enough space if not then also
  * output the line. Assume nobody else is updating the line! */
@@ -102,7 +104,6 @@ static void log_str(const char *s)
 		log_char(s[i]);
 }
 
-/*----------------------------------------------------------------------------*/
 static uint32_t process_v1log(void)
 {
 	char *last_char = log_buf->buff + log_buf->write_pos;
@@ -116,36 +117,19 @@ static uint32_t process_v1log(void)
 	return buff - log_buf->buff;
 }
 
-/*----------------------------------------------------------------------------*/
-static uint32_t process_v2log(void)
-{
-	char *last_msg = log_buf->buff + log_buf->write_pos;
-	char *buff = log_buf->buff + log_pos;
-	while (buff != last_msg) {
-		log_msg((struct logmsg_struct *)buff);
-		buff += sizeof(struct logmsg_struct);
-		/* Wrap around */
-		if (buff + sizeof(struct logmsg_struct) >
-			(char *)log_buf + log_size)
-			buff = log_buf->buff;
-	}
-	return buff - log_buf->buff;
-}
-
 static const uint8_t HEX2ASCII[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
 				'8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
 
-/*----------------------------------------------------------------------------*/
 static void dbg_raw_nro(uint32_t format, uint32_t value)
 {
 	int digits = 1;
 	uint32_t base = (format & LOG_INTEGER_DECIMAL) ? 10 : 16;
 	int width = (format & LOG_LENGTH_MASK) >> LOG_LENGTH_SHIFT;
-	int negative = FALSE;
+	int negative = 0;
 	uint32_t digit_base = 1;
 
 	if ((format & LOG_INTEGER_SIGNED) != 0 && ((signed int)value) < 0) {
-			negative = TRUE;
+			negative = 1;
 			value = (uint32_t)(-(signed int)value);
 			width--;
 	}
@@ -175,7 +159,6 @@ static void dbg_raw_nro(uint32_t format, uint32_t value)
 	}
 }
 
-/*----------------------------------------------------------------------------*/
 static void log_msg(struct logmsg_struct *msg)
 {
 	unsigned char msgtxt[5];
@@ -203,12 +186,23 @@ static void log_msg(struct logmsg_struct *msg)
 		log_eol();
 }
 
-/*----------------------------------------------------------------------------*/
+static uint32_t process_v2log(void)
+{
+	char *last_msg = log_buf->buff + log_buf->write_pos;
+	char *buff = log_buf->buff + log_pos;
+	while (buff != last_msg) {
+		log_msg((struct logmsg_struct *)buff);
+		buff += sizeof(struct logmsg_struct);
+		/* Wrap around */
+		if (buff + sizeof(struct logmsg_struct) >
+			(char *)log_buf + log_size)
+			buff = log_buf->buff;
+	}
+	return buff - log_buf->buff;
+}
+
 static int log_worker(void *p)
 {
-	if (log_buf == NULL)
-		return -EFAULT;
-
 	/* The thread should have never started */
 	if (log_buf == NULL)
 		return -EFAULT;
@@ -238,8 +232,6 @@ static int log_worker(void *p)
 	return 0;
 }
 
-
-/*----------------------------------------------------------------------------*/
 /**
  * Wakeup the log reader thread
  * This should be called from the places where calls into MobiCore have
@@ -253,7 +245,6 @@ void mobicore_log_read(void)
 	wake_up_process(log_thread);
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * Setup mobicore kernel log. It assumes it's running on CORE 0!
  * The fastcall will complain is that is not the case!
@@ -263,17 +254,18 @@ long mobicore_log_setup(void *data)
 	unsigned long phys_log_buf;
 	union fc_generic fc_log;
 
+	long ret;
 	log_pos = 0;
 	log_buf = NULL;
 	log_thread = NULL;
 	log_line = NULL;
+	log_line_len = 0;
 
 	/* Sanity check for the log size */
 	if (log_size < PAGE_SIZE)
 		return -EFAULT;
 	else
-		log_size =
-			get_nr_of_pages_for_buffer(NULL, log_size) * PAGE_SIZE;
+		log_size = PAGE_ALIGN(log_size);
 
 	log_line = kzalloc(LOG_LINE_SIZE, GFP_KERNEL);
 	if (IS_ERR(log_line)) {
@@ -284,15 +276,18 @@ long mobicore_log_setup(void *data)
 	log_thread = kthread_create(log_worker, NULL, "mobicore_log");
 	if (IS_ERR(log_thread)) {
 		MCDRV_DBG_ERROR("mobicore log thread creation failed!");
-		return -EFAULT;
+		ret = -EFAULT;
+		goto mobicore_log_setup_log_line;
 	}
 
-	log_pos = 0;
+	/* We are going to map this buffer into virtual address space in SWd.
+	 * To reduce complexity there, we use a contiguous buffer. */
 	log_buf = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
-					size_to_order(log_size));
+					get_order(log_size));
 	if (!log_buf) {
 		MCDRV_DBG_ERROR("Failed to get page for logger!");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto mobicore_log_setup_kthread;
 	}
 	phys_log_buf = virt_to_phys(log_buf);
 
@@ -307,19 +302,24 @@ long mobicore_log_setup(void *data)
 	/* If the setup failed we must free the memory allocated */
 	if (fc_log.as_out.ret) {
 		MCDRV_DBG_ERROR("MobiCore shared traces setup failed!");
-		kthread_stop(log_thread);
-		free_pages((unsigned long)log_buf, size_to_order(log_size));
-
+		free_pages((unsigned long)log_buf, get_order(log_size));
 		log_buf = NULL;
-		log_thread = NULL;
-		return -EIO;
+		ret = -EIO;
+		goto mobicore_log_setup_kthread;
 	}
 
 	MCDRV_DBG("fc_log Logger version %u\n", log_buf->version);
 	return 0;
+
+mobicore_log_setup_kthread:
+	kthread_stop(log_thread);
+	log_thread = NULL;
+mobicore_log_setup_log_line:
+	kfree(log_line);
+	log_line = NULL;
+	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * Free kernel log componenets.
  * ATTN: We can't free the log buffer because it's also in use by MobiCore and

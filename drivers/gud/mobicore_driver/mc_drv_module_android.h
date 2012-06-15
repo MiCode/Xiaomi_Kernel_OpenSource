@@ -18,6 +18,7 @@
 #ifndef _MC_DRV_MODULE_ANDROID_H_
 #define _MC_DRV_MODULE_ANDROID_H_
 
+#ifdef CONFIG_ANDROID
 /* Defines needed to identify the Daemon in Android systems
  * For the full list see:
  * platform_system_core/include/private/android_filesystem_config.h in the
@@ -32,6 +33,8 @@
 #define AID_NOBODY	9999
 /* first app user */
 #define AID_APP		10000
+
+#endif /* CONFIG_ANDROID */
 
 #endif /* _MC_DRV_MODULE_ANDROID_H_ */
 /** @} */

@@ -100,11 +100,11 @@ union mc_ioctl_info_params {
  * Mmap allocates and maps contiguous memory into a process.
  * We use the third parameter, void *offset, to distinguish between some cases
  * offset = MC_DRV_KMOD_MMAP_WSM	usual operation, pages are registered in
-					device structure and freed later.
+ *					device structure and freed later.
  * offset = MC_DRV_KMOD_MMAP_MCI	get Instance of MCI, allocates or mmaps
-					the MCI to daemon
+ *					the MCI to daemon
  * offset = MC_DRV_KMOD_MMAP_PERSISTENTWSM	special operation, without
-						registration of pages
+ *						registration of pages
  *
  * In mmap(), the offset specifies which of several device I/O pages is
  *  requested. Linux only transfers the page number, i.e. the upper 20 bits to
@@ -201,6 +201,7 @@ struct mc_ioctl_daemon_unlock_wsm_l2_params {
 
 /**
  * Data exchange structure of the MC_DRV_MODULE_FC_EXECUTE ioctl command.
+ * internal, unsupported
  */
 union mc_ioctl_fc_execute_params {
 	struct {
@@ -228,8 +229,9 @@ struct mc_ioctl_get_version_params {
 
 
 
-/* TODO: use IOCTL macros like _IOWR. See Documentation/ioctl/ioctl-number.txt,
-	Documentation/ioctl/ioctl-decoding.txt */
+/* TODO: use IOCTL macros like _IOWR.
+ * See Documentation/ioctl/ioctl-number.txt,
+ * Documentation/ioctl/ioctl-decoding.txt */
 /**
  * defines for the ioctl mobicore driver module function call from user space.
  */
@@ -237,6 +239,7 @@ enum mc_kmod_ioctl {
 
 	/*
 	 * get detailed MobiCore Status
+	 * internal, unsupported
 	 */
 	MC_DRV_KMOD_IOCTL_DUMP_STATUS  = 200,
 
@@ -266,6 +269,7 @@ enum mc_kmod_ioctl {
 	 * ioctl parameter to tzbsp to start Mobicore binary from DDR.
 	 * Only possible in Privileged Mode
 	 * ioctl(fd, MC_DRV_KMOD_IOCTL_FC_EXECUTE)
+	 * internal, unsupported
 	 */
 	MC_DRV_KMOD_IOCTL_FC_EXECUTE =  205,
 

@@ -18,9 +18,14 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <linux/miscdevice.h>
+#include <linux/interrupt.h>
+#include <linux/highmem.h>
+#include <linux/slab.h>
+#include <linux/kthread.h>
+#include <asm/ptrace.h>
 
 #include "mc_drv_module.h"
-#include "mc_drv_module_linux_api.h"
 #include "mc_drv_module_android.h"
 #include "mc_drv_module_fastcalls.h"
 #include "public/mc_kernel_api.h"
@@ -42,8 +47,6 @@ static uint32_t mci_base;
 static int goto_cpu0(void);
 static int goto_all_cpu(void) __attribute__ ((unused));
 
-
-/*----------------------------------------------------------------------------*/
 static void init_and_add_to_list(
 	struct list_head *item,
 	struct list_head *list_head
@@ -54,9 +57,8 @@ static void init_and_add_to_list(
 	list_add(item, list_head);
 }
 
-/*----------------------------------------------------------------------------*/
 /** check if CPU supports the ARM TrustZone Security Extensions
- *	@return int TRUE or FALSE */
+ *	@return int 1 or 0 */
 static int has_security_extensions(
 	void
 )
@@ -77,9 +79,8 @@ static int has_security_extensions(
 	return 1;
 }
 
-/*----------------------------------------------------------------------------*/
 /** check if running in secure mode
- *	@return int TRUE or FALSE */
+ *	@return int 1 or 0 */
 static int is_secure_mode(
 	void
 )
@@ -91,22 +92,22 @@ static int is_secure_mode(
 		[nsacr]"=r" (nsacr),
 		[cpsr]"=r"(cpsr));
 
-	MCDRV_DBG_VERBOSE("CPRS.M = set to 0x%X\n", cpsr & ARM_CPSR_MASK);
+	MCDRV_DBG_VERBOSE("CPRS.M = set to 0x%X\n", cpsr & MODE_MASK);
 	MCDRV_DBG_VERBOSE("SCR.NS = set to 0x%X\n", nsacr);
 
 	/* If the NSACR contains the reset value(=0) then most likely we are
 	 * running in Secure MODE.
 	 * If the cpsr mode is set to monitor mode then we cannot load!
 	 */
-	if (nsacr == 0 || ((cpsr & ARM_CPSR_MASK) == ARM_MONITOR_MODE))
+	if (nsacr == 0 || ((cpsr & MODE_MASK) == ARM_MONITOR_MODE))
 		return 1;
 
 	return 0;
 }
 
-/*----------------------------------------------------------------------------*/
 /** check if userland caller is privileged (aka has "root" access rights).
-	@return int TRUE or FALSE */
+ * @return int 1 or 0
+ */
 static int is_userland_caller_privileged(
 	void
 ) {
@@ -120,7 +121,7 @@ static int is_userland_caller_privileged(
 	 * the Android source tree for all UIDs and their meaning:
 	 * http://android-dls.com/wiki/index.php?title=Android_UIDs_and_GIDs
 	 */
-#ifdef MC_ANDROID_UID_CHECK
+#if defined(CONFIG_ANDROID) && defined(MC_ANDROID_UID_CHECK)
 	return current_euid() <= AID_SYSTEM;
 #else
 	/* capable should cover all possibilities, root or sudo, uid checking
@@ -129,9 +130,6 @@ static int is_userland_caller_privileged(
 #endif
 }
 
-
-
-/*----------------------------------------------------------------------------*/
 static void unlock_page_from_used_l2_table(
 	struct page *page
 ){
@@ -143,31 +141,27 @@ static void unlock_page_from_used_l2_table(
 	put_page(page);
 }
 
-/*----------------------------------------------------------------------------*/
 /* convert L2 PTE to page pointer */
 static struct page *l2_pte_to_page(
 	pte_t pte
 ) {
 	void *phys_page_addr	= (void *)((unsigned int)pte & PAGE_MASK);
-	unsigned int pfn	= addr_to_pfn(phys_page_addr);
+	unsigned int pfn	= (unsigned int)phys_page_addr >> PAGE_SHIFT;
 	struct page *page	= pfn_to_page(pfn);
 	return page;
 }
 
-/*----------------------------------------------------------------------------*/
 /* convert page pointer to L2 PTE */
 static pte_t page_to_l2_pte(
 	struct page *page
 )
 {
 	unsigned int pfn	= page_to_pfn(page);
-	void *phys_addr		= pfn_to_addr(pfn);
+	void *phys_addr		= (void *)(pfn << PAGE_SHIFT);
 	pte_t pte		= (pte_t)((unsigned int)phys_addr & PAGE_MASK);
 	return pte;
 }
 
-
-/*----------------------------------------------------------------------------*/
 static inline int lock_user_pages(
 	struct task_struct	*task,
 	void			*virt_start_page_addr,
@@ -190,7 +184,7 @@ static inline int lock_user_pages(
 					  nr_of_pages,
 					  1, /* write access */
 					  0, /* they say drivers should always
-						pass 0 here..... */
+					      * pass 0 here..... */
 					  pages,
 					  NULL); /* we don't need the VMAs */
 		up_read(&(task->mm->mmap_sem));
@@ -214,8 +208,7 @@ static inline int lock_user_pages(
 		for (i = 0; i < nr_of_pages; i++)
 			flush_dcache_page(pages[i]);
 
-	} while (FALSE);
-
+	} while (0);
 
 	if (ret != 0) {
 		/* release all locked pages. */
@@ -234,7 +227,6 @@ static inline int lock_user_pages(
 ## Driver implementation functions
 ##
 #############################################################################*/
-/*----------------------------------------------------------------------------*/
 /* check if caller is MobiCore Daemon */
 static unsigned int is_caller_mc_daemon(
 	struct mc_instance *instance
@@ -244,8 +236,6 @@ static unsigned int is_caller_mc_daemon(
 		&& (mc_drv_kmod_ctx.daemon_inst == instance));
 }
 
-
-/*----------------------------------------------------------------------------*/
 /* Get process context from file pointer */
 static struct mc_instance *get_instance(
 	struct file *file
@@ -255,8 +245,6 @@ static struct mc_instance *get_instance(
 	return (struct mc_instance *)(file->private_data);
 }
 
-
-/*----------------------------------------------------------------------------*/
 /* Get a unique ID */
 static unsigned int get_mc_kmod_unique_id(
 	void
@@ -266,8 +254,6 @@ static unsigned int get_mc_kmod_unique_id(
 			   &(mc_drv_kmod_ctx.unique_counter));
 }
 
-
-/*----------------------------------------------------------------------------*/
 /* Get kernel pointer to shared L2 table given a per-process reference */
 static struct l2table *get_l2_table_kernel_virt(
 	struct mc_used_l2_table	*used_l2table
@@ -279,7 +265,6 @@ static struct l2table *get_l2_table_kernel_virt(
 	return &(used_l2table->set->kernel_virt->table[used_l2table->idx]);
 }
 
-/*----------------------------------------------------------------------------*/
 /* Get physical address of a shared L2 table given a per-process reference */
 static struct l2table *get_l2_table_phys(
 	struct mc_used_l2_table  *used_l2table
@@ -291,7 +276,6 @@ static struct l2table *get_l2_table_phys(
 	return &(used_l2table->set->phys->table[used_l2table->idx]);
 }
 
-/*----------------------------------------------------------------------------*/
 static unsigned int is_in_use_used_l2_table(
 	struct mc_used_l2_table	*used_l2table
 )
@@ -301,9 +285,6 @@ static unsigned int is_in_use_used_l2_table(
 			   | MC_WSM_L2_CONTAINER_WSM_LOCKED_BY_MC)) != 0);
 }
 
-
-
-/*----------------------------------------------------------------------------*/
 static struct mc_used_l2_table *find_used_l2_table_by_handle(
 	unsigned int	handle
 ) {
@@ -331,7 +312,6 @@ static struct mc_used_l2_table *find_used_l2_table_by_handle(
 ##
 #############################################################################*/
 
-/*----------------------------------------------------------------------------*/
 static struct mc_used_l2_table *allocate_used_l2_table(
 	struct mc_instance	*instance
 ) {
@@ -370,7 +350,7 @@ static struct mc_used_l2_table *allocate_used_l2_table(
 				if ((l2table_set->usage_bitmap & (1U << i))
 					== 0) {
 					/* found a set,
-						l2table_set and i are set. */
+					 * l2table_set and i are set. */
 					l2table_store =
 						l2table_set->kernel_virt;
 					break;
@@ -389,8 +369,8 @@ static struct mc_used_l2_table *allocate_used_l2_table(
 			}
 
 			/* Actually, locking is not necessary, because kernel
-				memory is not supposed to get swapped out. But
-				we play safe.... */
+			 * memory is not supposed to get swapped out. But we
+			 * play safe.... */
 			page = virt_to_page(l2table_store);
 			SetPageReserved(page);
 
@@ -428,7 +408,7 @@ static struct mc_used_l2_table *allocate_used_l2_table(
 			"chunkPhys=%p,idx=%d\n",
 			l2table_set->phys, i);
 
-	} while (FALSE);
+	} while (0);
 
 	if (ret != 0) {
 		if (used_l2table != NULL) {
@@ -443,7 +423,6 @@ static struct mc_used_l2_table *allocate_used_l2_table(
 	return used_l2table;
 }
 
-/*----------------------------------------------------------------------------*/
 static void free_used_l2_table(
 	struct mc_used_l2_table *used_l2table
 )
@@ -479,9 +458,6 @@ static void free_used_l2_table(
 	return;
 }
 
-
-
-/*----------------------------------------------------------------------------*/
 /**
  * Create a L2 table in a WSM container that has been allocates previously.
  *
@@ -499,10 +475,13 @@ static int map_buffer_into_used_l2_table(
 {
 	int		ret = 0;
 	unsigned int	i, nr_of_pages;
+	/* start address of the 4 KiB page of wsm_buffer */
 	void		*virt_addr_page;
 	struct page	*page;
 	struct l2table	*l2table;
 	struct page	**l2table_as_array_of_pointers_to_page;
+	/* page offset in wsm buffer */
+	unsigned int offset;
 
 	/* task can be null when called from kernel space */
 	MCDRV_ASSERT(wsm_buffer != NULL);
@@ -520,8 +499,8 @@ static int map_buffer_into_used_l2_table(
 
 	l2table = get_l2_table_kernel_virt(used_l2table);
 	/* We use the memory for the L2 table to hold the pointer
-	and convert them later. This works, as everything comes
-	down to a 32 bit value. */
+	 * and convert them later. This works, as everything comes
+	 * down to a 32 bit value. */
 	l2table_as_array_of_pointers_to_page = (struct page **)l2table;
 
 	do {
@@ -534,11 +513,13 @@ static int map_buffer_into_used_l2_table(
 		}
 
 		/* calculate page usage */
-		virt_addr_page = get_page_start(wsm_buffer);
-		nr_of_pages  = get_nr_of_pages_for_buffer(wsm_buffer, wsm_len);
+		virt_addr_page = (void *)
+				(((unsigned long)(wsm_buffer)) & PAGE_MASK);
+		offset = (unsigned int)
+				(((unsigned long)(wsm_buffer)) & (~PAGE_MASK));
+		nr_of_pages  = PAGE_ALIGN(offset + wsm_len) / PAGE_SIZE;
 
-
-		MCDRV_DBG_VERBOSE("virt addr pageStart=0x%p,pages=%d\n",
+		MCDRV_DBG_VERBOSE("virt addr page start=0x%p, pages=%d\n",
 				  virt_addr_page,
 				  nr_of_pages);
 
@@ -596,26 +577,28 @@ static int map_buffer_into_used_l2_table(
 		used_l2table->nr_of_pages = nr_of_pages;
 		used_l2table->flags |= MC_WSM_L2_CONTAINER_WSM_LOCKED_BY_APP;
 
-		/* create L2 Table entries. used_l2table->table contains a list
-		of page pointers here. For a proper cleanup we have to ensure
-		that the following code either works and used_l2table contains
-		a valid L2 table - or fails and used_l2table->table contains the
-		list of page pointers. Any mixed contents will make cleanup
-		difficult.*/
-
+		/* create L2 Table entries.
+		 * used_l2table->table contains a list of page pointers here.
+		 * For a proper cleanup we have to ensure that the following
+		 * code either works and used_l2table contains a valid L2 table
+		 * - or fails and used_l2table->table contains the list of page
+		 * pointers.
+		 * Any mixed contents will make cleanup difficult.*/
 		for (i = 0; i < nr_of_pages; i++) {
 			pte_t pte;
 			page = l2table_as_array_of_pointers_to_page[i];
 
 			/* create L2 table entry, see ARM MMU docu for details
-			about flags stored in the lowest 12 bits. As a side
-			reference, the Article "ARM's multiply-mapped memory
-			mess" found in the collection at at
-			http://lwn.net/Articles/409032/ is also worth reading.*/
+			 * about flags stored in the lowest 12 bits.
+			 * As a side reference, the Article
+			 * "ARM's multiply-mapped memory mess"
+			 * found in the collection at
+			 * http://lwn.net/Articles/409032/
+			 * is also worth reading.*/
 			pte = page_to_l2_pte(page)
-					| L2_FLAG_AP1 | L2_FLAG_AP0
-					| L2_FLAG_C | L2_FLAG_B
-					| L2_FLAG_SMALL | L2_FLAG_SMALL_XN
+					| PTE_EXT_AP1 | PTE_EXT_AP0
+					| PTE_CACHEABLE | PTE_BUFFERABLE
+					| PTE_TYPE_SMALL | PTE_TYPE_EXT
 			/* Linux uses different mappings for SMP systems(the
 			 * sharing flag is set for the pte. In order not to
 			 * confuse things too much in Mobicore make sure the
@@ -623,7 +606,7 @@ static int map_buffer_into_used_l2_table(
 			 * This should also be done in SWD side
 			 */
 #ifdef CONFIG_SMP
-					| L2_FLAG_S | L2_FLAG_SMALL_TEX0
+					| PTE_EXT_SHARED | PTE_EXT_TEX(1)
 #endif
 				  ;
 
@@ -636,20 +619,17 @@ static int map_buffer_into_used_l2_table(
 		while (i < 255)
 			l2table->table_entries[i++] = (pte_t)0;
 
-	} while (FALSE);
+	} while (0);
 
 	return ret;
 }
 
-
-/*----------------------------------------------------------------------------*/
 /**
  * Remove a L2 table in a WSM container. Afterwards the container may be
  * released.
  *
  * @param used_l2table	Pointer to L2 table details
  */
-
 static void unmap_buffers_from_used_l2_table(
 	struct mc_used_l2_table	*used_l2table
 )
@@ -683,16 +663,14 @@ static void unmap_buffers_from_used_l2_table(
 	return;
 }
 
-
 /*
 #############################################################################
 ##
 ## Helper functions
 ##
 #############################################################################*/
-/*----------------------------------------------------------------------------*/
-#define FREE_FROM_SWD	TRUE
-#define FREE_FROM_NWD	FALSE
+#define FREE_FROM_SWD	1
+#define FREE_FROM_NWD	0
 /** Delete a used l2 table. */
 static void delete_used_l2_table(
 	struct mc_used_l2_table	*used_l2table,
@@ -726,9 +704,9 @@ static void delete_used_l2_table(
 	return;
 }
 
-/*----------------------------------------------------------------------------*/
-/** Allocate L2 table and map buffer into it. That is, create respective table
-	entries. Must hold Semaphore mc_drv_kmod_ctx.wsm_l2_sem */
+/** Allocate L2 table and map buffer into it.
+ * That is, create respective table entries.
+ * Must hold Semaphore mc_drv_kmod_ctx.wsm_l2_sem */
 static struct mc_used_l2_table *new_used_l2_table(
 	struct mc_instance	*instance,
 	struct task_struct	*task,
@@ -760,8 +738,7 @@ static struct mc_used_l2_table *new_used_l2_table(
 			break;
 		}
 
-	} while (FALSE);
-
+	} while (0);
 
 	return used_l2table;
 }
@@ -784,7 +761,6 @@ static struct mc_used_l2_table *new_used_l2_table(
  * @return 0 if no error
  *
  */
-/*----------------------------------------------------------------------------*/
 int mobicore_map_vmem(
 	struct mc_instance	*instance,
 	void			*addr,
@@ -836,19 +812,19 @@ int mobicore_map_vmem(
 					  *handle,
 					  (void *)(*phys_wsm_l2_table));
 
-		} while (FALSE);
+		} while (0);
 
 		/* release semaphore */
 		up(&(mc_drv_kmod_ctx.wsm_l2_sem));
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 EXPORT_SYMBOL(mobicore_map_vmem);
-/*----------------------------------------------------------------------------*/
+
 /**
  *
  * @param instance
@@ -926,14 +902,13 @@ static int handle_ioctl_app_register_wsm_l2(
 			memset(&params.out, 0, sizeof(params.out));
 			params.out.handle = used_l2table->handle;
 			/* TODO: return the physical address for daemon only,
-				otherwise set NULL */
+			 * otherwise set NULL */
 			params.out.phys_wsm_l2_table =
 				(uint32_t)get_l2_table_phys(used_l2table);
 
 			MCDRV_DBG_VERBOSE("handle: %d, phys=%p\n",
 					params.out.handle,
 					(void *)(params.out.phys_wsm_l2_table));
-
 
 			/* copy L2Table to user space */
 			ret = copy_to_user(
@@ -943,8 +918,8 @@ static int handle_ioctl_app_register_wsm_l2(
 			if (ret != 0) {
 				MCDRV_DBG_ERROR("copy_to_user() failed\n");
 
-				/* free the table again, as app does not know
-					about anything. */
+				/* free the table again,
+				 * app does not know anything about it. */
 				if (is_caller_mc_daemon(instance)) {
 					used_l2table->flags &=
 					~MC_WSM_L2_CONTAINER_WSM_LOCKED_BY_MC;
@@ -955,27 +930,22 @@ static int handle_ioctl_app_register_wsm_l2(
 				break;
 			}
 
-		} while (FALSE);
+		} while (0);
 
 		/* release semaphore */
 		up(&(mc_drv_kmod_ctx.wsm_l2_sem));
 
-	} while (FALSE);
-
-
+	} while (0);
 
 	/* release PID struct reference */
 	if (pid_struct != NULL)
 		put_pid(pid_struct);
-
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-
-/*----------------------------------------------------------------------------*/
 /**
  * Unmap a virtual memory buffer from mobicore
  * @param instance
@@ -1023,18 +993,18 @@ int mobicore_unmap_vmem(
 			delete_used_l2_table(used_l2table, FREE_FROM_NWD);
 			used_l2table = NULL;
 			/* there are no out parameters */
-		} while (FALSE);
+		} while (0);
 		/* release semaphore */
 		up(&(mc_drv_kmod_ctx.wsm_l2_sem));
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 EXPORT_SYMBOL(mobicore_unmap_vmem);
-/*----------------------------------------------------------------------------*/
+
 /**
  *
  * @param instance
@@ -1093,7 +1063,7 @@ static int handle_ioctl_app_unregister_wsm_l2(
 
 			if (is_caller_mc_daemon(instance)) {
 				/* if daemon does this, we have to release the
-					MobiCore lock. */
+				 * MobiCore lock. */
 				used_l2table->flags &=
 					~MC_WSM_L2_CONTAINER_WSM_LOCKED_BY_MC;
 			} else if (instance != used_l2table->owner) {
@@ -1108,20 +1078,18 @@ static int handle_ioctl_app_unregister_wsm_l2(
 
 			/* there are no out parameters */
 
-		} while (FALSE);
+		} while (0);
 
 		/* release semaphore */
 		up(&(mc_drv_kmod_ctx.wsm_l2_sem));
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-
-/*----------------------------------------------------------------------------*/
 static int handle_ioctl_daemon_lock_wsm_l2(
 	struct mc_instance				*instance,
 	struct mc_ioctl_daemon_lock_wsm_l2_params	*user_params
@@ -1200,20 +1168,18 @@ static int handle_ioctl_daemon_lock_wsm_l2(
 				break;
 			}
 
-		} while (FALSE);
+		} while (0);
 
 		/* release semaphore */
 		up(&(mc_drv_kmod_ctx.wsm_l2_sem));
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-
-/*----------------------------------------------------------------------------*/
 static int handle_ioctl_daemon_unlock_wsm_l2(
 	struct mc_instance				*instance,
 	struct mc_ioctl_daemon_unlock_wsm_l2_params	*user_params
@@ -1277,35 +1243,33 @@ static int handle_ioctl_daemon_unlock_wsm_l2(
 
 			/* there are no out parameters */
 
-		} while (FALSE);
+		} while (0);
 
-	} while (FALSE);
-
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
 /** Clears the reserved bit of each page and frees the pages */
 static inline void free_continguous_pages(
 	void		*addr,
-	unsigned int	size
+	unsigned int	order
 )
 {
 	struct page *page = virt_to_page(addr);
 	int i;
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < (1<<order); i++) {
 		MCDRV_DBG_VERBOSE("free page at 0x%p\n", page);
 		ClearPageReserved(page);
 		page++;
 	}
 	/* REV luh: see man kmalloc */
-	free_pages((unsigned long)addr, size_to_order(size));
+	MCDRV_DBG("freeing addr:%p, order:%x\n", addr, order);
+	free_pages((unsigned long)addr, order);
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * Free a WSM buffer allocated with mobicore_allocate_wsm
  * @param instance
@@ -1341,19 +1305,17 @@ int mobicore_free(
 				contg_buffer->virt_kernel_addr);
 
 		free_continguous_pages(contg_buffer->virt_kernel_addr,
-					contg_buffer->num_pages);
+					contg_buffer->order);
 
 		memset(contg_buffer, 0, sizeof(*contg_buffer));
 
 		/* there are no out parameters */
 
-	} while (FALSE);
-
+	} while (0);
 
 	return ret;
 }
 EXPORT_SYMBOL(mobicore_free);
-/*----------------------------------------------------------------------------*/
 
 /**
  *
@@ -1370,7 +1332,6 @@ static int handle_ioctl_free(
 {
 	int				ret = 0;
 	union mc_ioctl_free_params	params;
-
 
 	MCDRV_ASSERT(instance != NULL);
 	MCDRV_DBG_VERBOSE("enter\n");
@@ -1397,7 +1358,7 @@ static int handle_ioctl_free(
 
 		/* there are no out parameters */
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
@@ -1405,8 +1366,6 @@ static int handle_ioctl_free(
 
 }
 
-
-/*----------------------------------------------------------------------------*/
 /**
  *
  * @param instance
@@ -1423,7 +1382,6 @@ static int handle_ioctl_info(
 	int			ret = 0;
 	union mc_ioctl_info_params	params;
 	union mc_fc_info		fc_info;
-
 
 	MCDRV_ASSERT(instance != NULL);
 	MCDRV_DBG_VERBOSE("enter\n");
@@ -1445,7 +1403,6 @@ static int handle_ioctl_info(
 			MCDRV_DBG_ERROR("copy_from_user\n");
 			break;
 		}
-
 
 		memset(&fc_info, 0, sizeof(fc_info));
 		fc_info.as_in.cmd	   = MC_FC_INFO;
@@ -1486,14 +1443,13 @@ static int handle_ioctl_info(
 			MCDRV_DBG_ERROR("copy_to_user\n");
 			break;
 		}
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  *
  * @param instance
@@ -1529,14 +1485,13 @@ static int handle_ioctl_yield(
 		if (ret != 0)
 			break;
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * handle ioctl and call common notify
  *
@@ -1571,89 +1526,13 @@ static int handle_ioctl_nsiq(
 		ret = convert_fc_ret(fc_nsiq.as_out.ret);
 		if (ret != 0)
 			break;
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
-/**
- *
- * @param instance
- * @param arg
- *
- * @return 0 if no error
- *
- */
-static int handle_ioctl_dump_status(
-	struct mc_instance	*instance,
-	unsigned long		arg
-)
-{
-	int		ret = 0;
-	int		i = 0;
-	union mc_fc_info	fc_info;
-
-	MCDRV_ASSERT(instance != NULL);
-	MCDRV_DBG_VERBOSE("enter\n");
-
-	do {
-		/* anybody with root access can do this. */
-		if (!is_userland_caller_privileged()) {
-			MCDRV_DBG_ERROR("caller must have root privileges\n");
-			ret = -EFAULT;
-			break;
-		}
-
-		/* loop ext_info */
-		while (TRUE) {
-			memset(&fc_info, 0, sizeof(fc_info));
-			fc_info.as_in.cmd	   = MC_FC_INFO;
-			fc_info.as_in.ext_info_id = i;
-
-			MCDRV_DBG(
-				"fc_info in cmd=0x%08x, ext_info_id=0x%08x "
-				"rfu=(0x%08x, 0x%08x)\n",
-				fc_info.as_in.cmd,
-				fc_info.as_in.ext_info_id,
-				fc_info.as_in.rfu[0],
-				fc_info.as_in.rfu[1]);
-
-			mc_fastcall(&(fc_info.as_generic));
-
-			MCDRV_DBG(
-				"fc_info out resp=0x%08x, ret=0x%08x "
-				"state=0x%08x, ext_info=0x%08x\n",
-				fc_info.as_out.resp,
-				fc_info.as_out.ret,
-				fc_info.as_out.state,
-				fc_info.as_out.ext_info);
-
-			ret = convert_fc_ret(fc_info.as_out.ret);
-			if (ret != 0)
-				break;
-
-			MCDRV_DBG("state=%08X, idx=%02d: ext_info=%08X\n",
-				fc_info.as_out.state,
-				i,
-				fc_info.as_out.ext_info);
-			i++;
-		};
-
-		if (ret != 0)
-			break;
-
-
-	} while (FALSE);
-
-	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
-
-	return ret;
-}
-
-/*----------------------------------------------------------------------------*/
 /**
  *
  * @param instance
@@ -1704,7 +1583,7 @@ static int handle_ioctl_init(
 					  | (params.in.mcp_length & 0xFFFF);
 
 		/* Set KMOD notification queue to start of MCI
-			mciInfo was already set up in mmap */
+		 * mciInfo was already set up in mmap */
 		if (!mci_base) {
 			MCDRV_DBG_ERROR("No MCI set yet.\n");
 			return -EFAULT;
@@ -1730,83 +1609,13 @@ static int handle_ioctl_init(
 
 		/* no ioctl response parameters */
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
-/**
- *
- * @param instance
- * @param arg
- *
- * @return 0 if no error
- *
- */
-static int handle_ioctl_fc_execute(
-	struct mc_instance		*instance,
-	union mc_ioctl_fc_execute_params	*user_params
-)
-{
-	int				ret = 0;
-	union mc_ioctl_fc_execute_params	params;
-	union fc_generic			fc_params;
-
-	MCDRV_ASSERT(instance != NULL);
-	MCDRV_DBG_VERBOSE("enter\n");
-
-	do {
-		/* only the MobiCore Daemon is allowed to call this function */
-		if (!is_caller_mc_daemon(instance)) {
-			MCDRV_DBG_ERROR("caller not MobiCore Daemon\n");
-			ret = -EFAULT;
-			break;
-		}
-
-		ret = copy_from_user(
-				  &(params.in),
-				  &(user_params->in),
-				  sizeof(params.in));
-		if (ret != 0) {
-			MCDRV_DBG_ERROR("copy_from_user failed\n");
-			break;
-		}
-
-		fc_params.as_in.cmd = -4;/*FC_EXECUTE */
-		fc_params.as_in.param[0] = params.in.phys_start_addr;
-		fc_params.as_in.param[1] = params.in.length;
-		fc_params.as_in.param[2] = 0;
-
-		MCDRV_DBG("in cmd=0x%08x, startAddr=0x%08x, length=0x%08x\n",
-			  fc_params.as_in.cmd,
-			  fc_params.as_in.param[0],
-			  fc_params.as_in.param[1]);
-
-		mc_fastcall(&fc_params);
-
-		MCDRV_DBG("out cmd=0x%08x, ret=0x%08x rfu=(0x%08x, 0x%08x)\n",
-			  fc_params.as_out.resp,
-			  fc_params.as_out.ret,
-			  fc_params.as_out.param[0],
-			  fc_params.as_out.param[1]);
-
-		ret = convert_fc_ret(fc_params.as_out.ret);
-		if (ret != 0)
-			break;
-
-		/* no ioctl response parameters */
-
-	} while (FALSE);
-
-	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
-
-	return ret;
-}
-
-/*----------------------------------------------------------------------------*/
 #define MC_MAKE_VERSION(major, minor) \
 		(((major & 0x0000ffff) << 16) | (minor & 0x0000ffff))
 /**
@@ -1846,14 +1655,13 @@ static int handle_ioctl_get_version(
 		if (ret != 0)
 			MCDRV_DBG_ERROR("copy_to_user() failed\n");
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * This function will be called from user space as ioctl(...).
  * @param file	pointer to file
@@ -1874,54 +1682,40 @@ static long mc_kernel_module_ioctl(
 	MCDRV_ASSERT(instance != NULL);
 
 	switch (cmd) {
-	/*--------------------------------------------------------------------*/
-	case MC_DRV_KMOD_IOCTL_DUMP_STATUS:
-		ret = handle_ioctl_dump_status(
-				instance,
-				arg);
-		break;
-
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_FC_INIT:
 		ret = handle_ioctl_init(
 				instance,
 				(union mc_ioctl_init_params *)arg);
 		break;
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_FC_INFO:
 		ret = handle_ioctl_info(
 				instance,
 				(union mc_ioctl_info_params *)arg);
 		break;
 
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_FC_YIELD:
 		ret = handle_ioctl_yield(
 				instance);
 		break;
 
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_FC_NSIQ:
 		ret = handle_ioctl_nsiq(
 				instance,
 				arg);
 		break;
 
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_DAEMON_LOCK_WSM_L2:
 		ret = handle_ioctl_daemon_lock_wsm_l2(
 			instance,
 			(struct mc_ioctl_daemon_lock_wsm_l2_params *)arg);
 		break;
 
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_DAEMON_UNLOCK_WSM_L2:
 		ret = handle_ioctl_daemon_unlock_wsm_l2(
 			instance,
 			(struct mc_ioctl_daemon_unlock_wsm_l2_params *)arg);
 		break;
 
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_FREE:
 		/* called by ClientLib */
 		ret = handle_ioctl_free(
@@ -1929,7 +1723,6 @@ static long mc_kernel_module_ioctl(
 				(union mc_ioctl_free_params *)arg);
 		break;
 
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_APP_REGISTER_WSM_L2:
 		/* called by ClientLib */
 		ret = handle_ioctl_app_register_wsm_l2(
@@ -1937,7 +1730,6 @@ static long mc_kernel_module_ioctl(
 				(union mc_ioctl_app_reg_wsm_l2_params *)arg);
 		break;
 
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_APP_UNREGISTER_WSM_L2:
 		/* called by ClientLib */
 		ret = handle_ioctl_app_unregister_wsm_l2(
@@ -1945,21 +1737,12 @@ static long mc_kernel_module_ioctl(
 				(struct mc_ioctl_app_unreg_wsm_l2_params *)arg);
 		break;
 
-	/*--------------------------------------------------------------------*/
-	case MC_DRV_KMOD_IOCTL_FC_EXECUTE:
-		ret = handle_ioctl_fc_execute(
-				instance,
-				(union mc_ioctl_fc_execute_params *)arg);
-		break;
-
-	/*--------------------------------------------------------------------*/
 	case MC_DRV_KMOD_IOCTL_GET_VERSION:
 		ret = handle_ioctl_get_version(
 				instance,
 				(struct mc_ioctl_get_version_params *)arg);
 		break;
 
-	/*--------------------------------------------------------------------*/
 	default:
 		MCDRV_DBG_ERROR("unsupported cmd=%d\n", cmd);
 		ret = -EFAULT;
@@ -1974,8 +1757,6 @@ static long mc_kernel_module_ioctl(
 	return (int)ret;
 }
 
-
-/*----------------------------------------------------------------------------*/
 /**
  * This function will be called from user space as read(...).
  * The read function is blocking until a interrupt occurs. In that case the
@@ -1984,8 +1765,8 @@ static long mc_kernel_module_ioctl(
  * @param *buffer  buffer where to copy to(userspace)
  * @param buffer_len	 number of requested data
  * @param *pos	 not used
- * @return ssize_t  ok case: number of copied data
- *				error case: return errno
+ * @return ssize_t	ok case: number of copied data
+ *			error case: return errno
  */
 static ssize_t mc_kernel_module_read(
 	struct file	*file,
@@ -2056,8 +1837,8 @@ static ssize_t mc_kernel_module_read(
 
 		}
 
-		/* we are here if an event occurred or we had an
-			error.*/
+		/* we are here if an event occurred
+		 * or if we had an error.*/
 		if (ret != 0)
 			break;
 
@@ -2067,7 +1848,6 @@ static ssize_t mc_kernel_module_read(
 				  &(mc_drv_kmod_ctx.daemon_ctx.ssiq_counter),
 				  sizeof(unsigned int));
 
-
 		if (ret != 0) {
 			MCDRV_DBG_ERROR("copy_to_user failed\n");
 			ret = (ssize_t)(-EFAULT);
@@ -2076,7 +1856,7 @@ static ssize_t mc_kernel_module_read(
 
 		retLen = sizeof(s32);
 
-	} while (FALSE);
+	} while (0);
 
 	/* avoid debug on non-error. */
 	if (ret == 0)
@@ -2087,7 +1867,6 @@ static ssize_t mc_kernel_module_read(
 	return (ssize_t)ret;
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * Allocate WSM for given instance
  *
@@ -2112,20 +1891,17 @@ int mobicore_allocate_wsm(
 	unsigned long	allocated_size;
 	int		ret = 0;
 	struct mc_contg_buffer	*contg_buffer = 0;
-	void		*virt_kernel_addr_stack;
-	void		*phys_addr_stack;
+	void		*kaddr_buffer;
+	void		*paddr_buffer;
 
 	MCDRV_ASSERT(instance != NULL);
 	MCDRV_DBG("%s (size=%ld)\n", __func__, requested_size);
 
-	order = size_to_order(requested_size);
-	if (order == INVALID_ORDER) {
-		MCDRV_DBG_ERROR(
-			"size to order converting failed for size %ld\n",
-			requested_size);
-		return INVALID_ORDER;
+	if (requested_size == 0) {
+		MCDRV_DBG_ERROR("cannot allocate size 0\n");
+		return -ENOMEM;
 	}
-
+	order = get_order(requested_size);
 	allocated_size = (1<<order)*PAGE_SIZE;
 
 	MCDRV_DBG("size %ld -> order %d --> %ld (2^n pages)\n",
@@ -2149,39 +1925,37 @@ int mobicore_allocate_wsm(
 		}
 
 		/* Common code for all allocation paths */
-		virt_kernel_addr_stack = (void *)__get_free_pages(
-							GFP_USER | __GFP_COMP,
+		kaddr_buffer = (void *)__get_free_pages(GFP_USER | __GFP_COMP,
 							order);
-		if (virt_kernel_addr_stack == NULL) {
+		if (kaddr_buffer == NULL) {
 			MCDRV_DBG_ERROR("get_free_pages failed\n");
 			ret = -ENOMEM;
 			break;
 		}
 
 		/* Get physical address to instance data */
-		phys_addr_stack = (void *)virt_to_phys(virt_kernel_addr_stack);
-		/* TODO: check for INVALID_ADDRESS? */
+		paddr_buffer = (void *)virt_to_phys(kaddr_buffer);
 
 		MCDRV_DBG(
 			"allocated phys=0x%p - 0x%p, "
 			"size=%ld, kernel_virt=0x%p, handle=%d\n",
-			phys_addr_stack,
-			(void *)((unsigned int)phys_addr_stack+allocated_size),
+			paddr_buffer,
+			(void *)((unsigned int)paddr_buffer+allocated_size),
 			allocated_size,
-			virt_kernel_addr_stack,
+			kaddr_buffer,
 			contg_buffer->handle);
 
 		/* Usual Wsm request, allocate contg_buffer.
-		 *		Also, we never free a persistent Tci */
-		contg_buffer->phys_addr	 = phys_addr_stack;
-		contg_buffer->virt_kernel_addr = virt_kernel_addr_stack;
-		contg_buffer->virt_user_addr   = virt_kernel_addr_stack;
-		contg_buffer->num_pages	 = (1U << order);
+		 * Also, we never free a persistent Tci */
+		contg_buffer->phys_addr	 = paddr_buffer;
+		contg_buffer->virt_kernel_addr = kaddr_buffer;
+		contg_buffer->virt_user_addr   = kaddr_buffer;
+		contg_buffer->order	 = order;
 		*handle = contg_buffer->handle;
-		*virt_kernel_addr = virt_kernel_addr_stack;
-		*phys_addr = phys_addr_stack;
+		*virt_kernel_addr = kaddr_buffer;
+		*phys_addr = paddr_buffer;
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("%s: exit with 0x%08X\n", __func__, ret);
 
@@ -2189,8 +1963,6 @@ int mobicore_allocate_wsm(
 }
 EXPORT_SYMBOL(mobicore_allocate_wsm);
 
-
-/*----------------------------------------------------------------------------*/
 /**
  * This function will be called from user space as address = mmap(...).
  *
@@ -2205,191 +1977,177 @@ static int mc_kernel_module_mmap(
 	struct vm_area_struct	*vmarea
 )
 {
-	unsigned int		i;
-	unsigned int		order;
-	void			*virt_kernel_addr_stack = 0;
-	void			*phys_addr = 0;
-	unsigned long		requested_size =
-					vmarea->vm_end - vmarea->vm_start;
-	unsigned long		allocated_size;
 	int			ret = 0;
-	struct mc_contg_buffer	*contg_buffer = 0;
-	unsigned int		handle = 0;
+	unsigned int		i;
 	struct mc_instance	*instance = get_instance(file);
 	unsigned int		request = vmarea->vm_pgoff * 4096;
-#if defined(DEBUG)
-	bool release = false;
-#else
-	bool release = true;
-#endif
+	unsigned long		requested_size =
+					vmarea->vm_end - vmarea->vm_start;
+	unsigned int		order;
+	unsigned long		allocated_size;
+	void			*kaddr_buffer = 0;
+	void			*paddr_buffer = 0;
+	unsigned int		pfn;
+	struct mc_contg_buffer	*contg_buffer = 0;
+	unsigned int		uq_handle_buffer = 0;
+	bool			allocate_buffer = false;
 
 	MCDRV_ASSERT(instance != NULL);
-	MCDRV_DBG("enter (vmaStart=0x%p, size=%ld, request=0x%x, mci=0x%x)\n",
+	MCDRV_DBG("enter (vma start=0x%p, size=%ld, request=0x%x, mci=0x%x)\n",
 		  (void *)vmarea->vm_start,
 		  requested_size,
 		  request,
 		  mci_base);
 
-	order = size_to_order(requested_size);
-	if (order == INVALID_ORDER) {
-		MCDRV_DBG_ERROR(
-			"size to order converting failed for size %ld\n",
-			requested_size);
-		return -ENOMEM;
+	if (requested_size == 0) {
+		MCDRV_DBG_ERROR("cannot allocate size 0\n");
+		ret = -ENOMEM;
+		goto mc_kernel_module_mmap_end;
 	}
-
+	order = get_order(requested_size);
 	allocated_size = (1<<order)*PAGE_SIZE;
 
 	MCDRV_DBG("size %ld -> order %d --> %ld (2^n pages)\n",
-		  requested_size, order, allocated_size);
+		requested_size, order, allocated_size);
 
-	do {
-		/* Daemon tries to get an existing MCI */
-		if ((request == MC_DRV_KMOD_MMAP_MCI) && (mci_base != 0)) {
-			MCDRV_DBG("Request MCI, it is at (%x)\n", mci_base);
+	switch (request) {
 
-			if (!is_caller_mc_daemon(instance)) {
-				ret = -EPERM;
-				break;
-			}
-			virt_kernel_addr_stack = (void *)mci_base;
-			phys_addr =
-				(void *)virt_to_phys(virt_kernel_addr_stack);
+	/* Daemon tries to get the MCI - the MobiCore Interface buffer */
+	case MC_DRV_KMOD_MMAP_MCI:
+		if (!is_caller_mc_daemon(instance)) {
+			ret = -EPERM;
+			goto mc_kernel_module_mmap_end;
+		}
+
+		if (mci_base == 0) {
+			allocate_buffer = true;
 		} else {
-			/* Usual Wsm request, allocate buffer. */
-			if (request == MC_DRV_KMOD_MMAP_WSM) {
-				/* search for a free entry in the buffer list
-				REV axh: serialize this over multiple instances.
-				*/
-				for (i = 0; i < MC_DRV_KMOD_CONTG_BUFFER_MAX;
-					i++) {
-					contg_buffer =
-						&(instance->contg_buffers[i]);
-					if (contg_buffer->handle == 0) {
-						contg_buffer->handle =
-							get_mc_kmod_unique_id();
-						break;
-					}
-				}
-				if (i == MC_DRV_KMOD_CONTG_BUFFER_MAX) {
-					MCDRV_DBG_ERROR(
-						"no free contigous buffer\n");
-					ret = -EFAULT;
-					break;
-				}
-			} else {
-				if (request <= MC_DRV_KMOD_MMAP_PERSISTENTWSM
-					|| release) {
-					/* Special Wsm request
-						--> only Daemon is allowed */
-					if (!is_caller_mc_daemon(instance)) {
-						ret = -EPERM;
-						break;
-					}
-				}
-			}
-			if (request <= MC_DRV_KMOD_MMAP_PERSISTENTWSM) {
-				/* Common code for all allocation paths
-					*  get physical address, */
-				virt_kernel_addr_stack =
-					(void *)__get_free_pages(
-							GFP_USER | __GFP_COMP,
-							order);
-				if (virt_kernel_addr_stack == NULL) {
-					MCDRV_DBG_ERROR(
-						"get_free_pages failed\n");
-					ret = -ENOMEM;
-					break;
-				}
-				if (request == MC_DRV_KMOD_MMAP_WSM)
-					handle = contg_buffer->handle;
-				/* Get physical address to instance data */
-				/* TODO: check for INVALID_ADDRESS? */
-				phys_addr = (void *)virt_to_phys(
-							virt_kernel_addr_stack);
-			} else {
+			MCDRV_DBG("Request MCI, it is at (%x)\n", mci_base);
+			kaddr_buffer = (void *)mci_base;
+			paddr_buffer = (void *)virt_to_phys(kaddr_buffer);
+			allocate_buffer = false;
+		}
+		break;
+
+	/* Usual Wsm request, find free buffer slot. */
+	case MC_DRV_KMOD_MMAP_WSM:
+		/* search for a free slot in the buffer list. */
+		for (i = 0; i < MC_DRV_KMOD_CONTG_BUFFER_MAX; i++) {
+			contg_buffer = &(instance->contg_buffers[i]);
+			if (contg_buffer->handle == 0)
+				break;
+		}
+		if (i == MC_DRV_KMOD_CONTG_BUFFER_MAX) {
+			MCDRV_DBG_WARN("MMAP_WSM request: "
+				"no free slot for wsm buffer available\n");
+			ret = -EFAULT;
+			goto mc_kernel_module_mmap_end;
+		}
+		uq_handle_buffer =
+		contg_buffer->handle = get_mc_kmod_unique_id();
+		allocate_buffer = true;
+		break;
+
+	/* Special Wsm request that is not bound to a process. */
+	case MC_DRV_KMOD_MMAP_PERSISTENTWSM:
+		if (!is_caller_mc_daemon(instance)) {
+			ret = -EPERM;
+			goto mc_kernel_module_mmap_end;
+		}
+		allocate_buffer = true;
+		break;
+
+	default:
 #if defined(DEBUG)
-				phys_addr = (void *)request;
-				virt_kernel_addr_stack = phys_to_virt(request);
+		/* In debug version, allow mapping of arbitry physical memory to
+		 * a process to allow testing of TZASC/XPU memory protection set
+		 * up by SWd. */
+		paddr_buffer = (void *)request;
+		kaddr_buffer = phys_to_virt(request);
+		allocate_buffer = false;
+#else
+		ret = -EPERM;
+		goto mc_kernel_module_mmap_end;
 #endif
-			}
+		break;
+	} /* switch(request) */
+
+	/* Allocate memory */
+	if (allocate_buffer) {
+		kaddr_buffer = (void *)__get_free_pages(GFP_USER | __GFP_COMP,
+							order);
+		if (kaddr_buffer == NULL) {
+			MCDRV_DBG_WARN("get_free_pages failed, "
+					"no contiguous region available.\n");
+			ret = -ENOMEM;
+			goto mc_kernel_module_mmap_end;
 		}
-		/* Common code for all mmap calls:
-		 * map page to user
-		 * store data in page */
+		paddr_buffer = (void *)virt_to_phys(kaddr_buffer);
+	}
 
-		MCDRV_DBG("allocated phys=0x%p - 0x%p, "
-			"size=%ld, kernel_virt=0x%p, handle=%d\n",
-			phys_addr,
-			(void *)((unsigned int)phys_addr+allocated_size),
-			allocated_size, virt_kernel_addr_stack, handle);
+	/* Common code for all mmap calls:
+	 *  map page to user
+	 *  store data in page */
 
-		vmarea->vm_flags |= VM_RESERVED;
-		/* convert Kernel address to User Address. Kernel address begins
-			at PAGE_OFFSET, user Address range is below PAGE_OFFSET.
-			Remapping the area is always done, so multiple mappings
-			of one region are possible. Now remap kernel address
-			space into user space */
-		ret = (int)remap_pfn_range(
-				vmarea,
-				(vmarea->vm_start),
-				addr_to_pfn(phys_addr),
-				requested_size,
-				vmarea->vm_page_prot);
-		if (ret != 0) {
-			MCDRV_DBG_ERROR("remapPfnRange failed\n");
+	MCDRV_DBG("allocated phys=0x%p - 0x%p, "
+		"size=%ld, kernel_virt=0x%p, handle=%d\n",
+		paddr_buffer,
+		(void *)((unsigned int)paddr_buffer+allocated_size),
+		allocated_size, kaddr_buffer, uq_handle_buffer);
 
-			/* free allocated pages when mmap fails, however, do not
-				do it, when daemon tried to get an MCI that
-				existed */
-			if (!((request == MC_DRV_KMOD_MMAP_MCI) &&
-				  (mci_base != 0)))
-				free_continguous_pages(virt_kernel_addr_stack,
-							(1U << order));
-			break;
-		}
+	vmarea->vm_flags |= VM_RESERVED;
+	/* Convert kernel address to user address. Kernel address begins
+	 * at PAGE_OFFSET, user address range is below PAGE_OFFSET.
+	 * Remapping the area is always done, so multiple mappings
+	 * of one region are possible. Now remap kernel address
+	 * space into user space */
+	pfn = (unsigned int)paddr_buffer >> PAGE_SHIFT;
+	ret = (int)remap_pfn_range(
+			vmarea,
+			vmarea->vm_start,
+			pfn,
+			requested_size,
+			vmarea->vm_page_prot);
+	if (ret != 0) {
+		MCDRV_DBG_WARN("remap_pfn_range failed\n");
 
-		/* Usual Wsm request, allocate contg_buffer.
-			When requesting Mci, we do not associate the page with
-			the process.
-			Note: we also never free the Mci
-			Also, we never free a persistent Tci */
-		if (request == MC_DRV_KMOD_MMAP_WSM) {
-			contg_buffer->phys_addr = phys_addr;
-			contg_buffer->virt_kernel_addr = virt_kernel_addr_stack;
-			contg_buffer->virt_user_addr =
-						(void *)(vmarea->vm_start);
-			contg_buffer->num_pages = (1U << order);
-		}
+		if (allocate_buffer)
+			free_continguous_pages(kaddr_buffer, order);
 
-		/* set response in allocated buffer */
-		{
-			struct mc_mmap_resp *mmap_resp =
-				(struct mc_mmap_resp *)virt_kernel_addr_stack;
-			/* TODO: do this for daemon only, otherwise set NULL */
-			mmap_resp->phys_addr = (uint32_t)phys_addr;
-			mmap_resp->handle = handle;
-			if ((request == MC_DRV_KMOD_MMAP_MCI) &&
-				(mci_base != 0)) {
-				mmap_resp->is_reused = 1;
-			} else
-				mmap_resp->is_reused = 0;
-		}
+		goto mc_kernel_module_mmap_end;
+	}
 
-		/* store MCI pointer */
-		if ((request == MC_DRV_KMOD_MMAP_MCI) && (mci_base == 0)) {
-			mci_base = (uint32_t)virt_kernel_addr_stack;
-			MCDRV_DBG("MCI base set to 0x%x\n", mci_base);
-		}
-	} while (FALSE);
+	/* Usual wsm request, store reference to buffer for later freeing. */
+	if (request == MC_DRV_KMOD_MMAP_WSM) {
+		contg_buffer->phys_addr = paddr_buffer;
+		contg_buffer->virt_kernel_addr = kaddr_buffer;
+		contg_buffer->virt_user_addr = (void *)(vmarea->vm_start);
+		contg_buffer->order = order;
+	}
 
+	/* set response in allocated buffer */
+	{
+		struct mc_mmap_resp *mmap_resp =
+					(struct mc_mmap_resp *)kaddr_buffer;
+		/* TODO: do this for daemon only, otherwise set NULL */
+		mmap_resp->phys_addr = (uint32_t)paddr_buffer;
+		mmap_resp->handle = uq_handle_buffer;
+		mmap_resp->is_reused = (request == MC_DRV_KMOD_MMAP_MCI) &&
+					(mci_base != 0);
+	}
+
+	/* store MCI pointer */
+	if ((request == MC_DRV_KMOD_MMAP_MCI) && (mci_base == 0)) {
+		mci_base = (uint32_t)kaddr_buffer;
+		MCDRV_DBG("MCI base set to 0x%x\n", mci_base);
+	}
+
+mc_kernel_module_mmap_end:
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
-	return (int)ret;
+	return ret;
 }
 
-#ifdef CONFIG_SMP
-/*----------------------------------------------------------------------------*/
 /**
  * Force migration of current task to CPU0(where the monitor resides)
  *
@@ -2418,7 +2176,6 @@ static int goto_cpu0(
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * Restore CPU mask for current to ALL Cpus(reverse of goto_cpu0)
  *
@@ -2448,19 +2205,6 @@ static int goto_all_cpu(
 	return ret;
 }
 
-#else
-static int goto_cpu0(void)
-{
-	return 0;
-}
-
-static int goto_all_cpu(void)
-{
-	return 0;
-}
-#endif
-
-/*----------------------------------------------------------------------------*/
 /**
  * Initialize a new mobicore API instance object
  *
@@ -2489,7 +2233,6 @@ struct mc_instance *mobicore_open(
 }
 EXPORT_SYMBOL(mobicore_open);
 
-/*----------------------------------------------------------------------------*/
 /**
  * This function will be called from user space as fd = open(...).
  * A set of internal instance data are created and initialized.
@@ -2514,7 +2257,7 @@ static int mc_kernel_module_open(
 			return -ENOMEM;
 
 		/* check if Daemon. We simply assume that the first to open us
-			with root privileges must be the daemon. */
+		 * with root privileges must be the daemon. */
 		if ((is_userland_caller_privileged())
 			&& (mc_drv_kmod_ctx.daemon_inst == NULL)) {
 			MCDRV_DBG("accept this as MobiCore Daemon\n");
@@ -2551,7 +2294,7 @@ static int mc_kernel_module_open(
 
 		/* TODO axh: link all instances to allow clean up? */
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
@@ -2559,7 +2302,6 @@ static int mc_kernel_module_open(
 
 }
 
-/*----------------------------------------------------------------------------*/
 /**
  * Release a mobicore instance object and all objects related to it
  * @param instance instance
@@ -2579,7 +2321,7 @@ int mobicore_release(
 		if (ret != 0) {
 			MCDRV_DBG_ERROR(
 				"down_interruptible() failed with %d\n", ret);
-			/* TODO: can be block here? */
+			/* TODO: can we block here? */
 			ret = -ERESTARTSYS;
 		} else {
 			/* Check if some WSM is still in use. */
@@ -2597,7 +2339,7 @@ int mobicore_release(
 						used_l2table->nr_of_pages);
 
 					/* unlock app usage and free if MobiCore
-					does not use it */
+					 * does not use it */
 					delete_used_l2_table(used_l2table,
 							FREE_FROM_NWD);
 				}
@@ -2607,7 +2349,6 @@ int mobicore_release(
 			up(&(mc_drv_kmod_ctx.wsm_l2_sem));
 		}
 
-
 		/* release all mapped data */
 		for (i = 0; i < MC_DRV_KMOD_CONTG_BUFFER_MAX; i++) {
 			struct mc_contg_buffer *contg_buffer =
@@ -2616,19 +2357,18 @@ int mobicore_release(
 			if (contg_buffer->virt_user_addr != 0) {
 				free_continguous_pages(
 					contg_buffer->virt_kernel_addr,
-					contg_buffer->num_pages);
+					contg_buffer->order);
 			}
 		}
 
 		/* release instance context */
 		kfree(instance);
-	} while (FALSE);
+	} while (0);
 
 	return ret;
 }
 EXPORT_SYMBOL(mobicore_release);
 
-/*----------------------------------------------------------------------------*/
 /**
  * This function will be called from user space as close(...).
  * The instance data are freed and the associated memory pages are unreserved.
@@ -2652,22 +2392,20 @@ static int mc_kernel_module_release(
 		/* check if daemon closes us. */
 		if (is_caller_mc_daemon(instance)) {
 			/* TODO: cleanup?
-				* mc_drv_kmod_ctx.mc_used_l2_tables remains */
+			 * mc_drv_kmod_ctx.mc_used_l2_tables remains */
 			MCDRV_DBG_WARN("WARNING: MobiCore Daemon died\n");
 			mc_drv_kmod_ctx.daemon_inst = NULL;
 		}
 
 		ret = mobicore_release(instance);
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return (int)ret;
 }
 
-
-/*----------------------------------------------------------------------------*/
 /**
  * This function represents the interrupt function of the mcDrvModule.
  * It signals by incrementing of an event counter and the start of the read
@@ -2691,8 +2429,8 @@ static irqreturn_t mc_kernel_module_intr_ssiq(
 	do {
 		if (intr != MC_INTR_SSIQ) {
 			/* this should not happen, as we did no register for any
-				other interrupt. For debugging, we print a
-				message, but continue */
+			 * other interrupt. For debugging, we print a message,
+			 * but continue */
 			MCDRV_DBG_WARN(
 				"unknown interrupt %d, expecting only %d\n",
 				intr, MC_INTR_SSIQ);
@@ -2706,15 +2444,13 @@ static irqreturn_t mc_kernel_module_intr_ssiq(
 		/* signal the daemon */
 		up(&mc_drv_kmod_ctx.daemon_ctx.sem);
 
-
 		ret = IRQ_HANDLED;
 
-	} while (FALSE);
+	} while (0);
 
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
 /** function table structure of this device driver. */
 static const struct file_operations mc_kernel_module_file_operations = {
 	.owner		= THIS_MODULE, /**< driver owner */
@@ -2725,7 +2461,6 @@ static const struct file_operations mc_kernel_module_file_operations = {
 	.read		= mc_kernel_module_read, /**< driver read function */
 };
 
-/*----------------------------------------------------------------------------*/
 /** registration structure as miscdevice. */
 static struct miscdevice mc_kernel_module_device = {
 	.name	= MC_DRV_MOD_DEVNODE, /**< device name */
@@ -2734,8 +2469,6 @@ static struct miscdevice mc_kernel_module_device = {
 	.fops	= &mc_kernel_module_file_operations,
 };
 
-
-/*----------------------------------------------------------------------------*/
 /**
  * This function is called the kernel during startup or by a insmod command.
  * This device is installed and registered as miscdevice, then interrupt and
@@ -2758,7 +2491,7 @@ static int __init mc_kernel_module_init(
 #endif
 	do {
 		/* Hardware does not support ARM TrustZone
-			-> Cannot continue! */
+		 * -> Cannot continue! */
 		if (!has_security_extensions()) {
 			MCDRV_DBG_ERROR(
 				"Hardware does't support ARM TrustZone!\n");
@@ -2804,9 +2537,9 @@ static int __init mc_kernel_module_init(
 		sema_init(&(mc_drv_kmod_ctx.wsm_l2_sem), 1);
 
 		/* initialize unique number counter which we can use for
-			handles. It is limited to 2^32, but this should be
-			enough to be roll-over safe for us. We start with 1
-			instead of 0. */
+		 * handles. It is limited to 2^32, but this should be
+		 * enough to be roll-over safe for us. We start with 1
+		 * instead of 0. */
 		atomic_set(&(mc_drv_kmod_ctx.unique_counter), 1);
 
 		mci_base = 0;
@@ -2814,16 +2547,13 @@ static int __init mc_kernel_module_init(
 
 		ret = 0;
 
-	} while (FALSE);
+	} while (0);
 
 	MCDRV_DBG_VERBOSE("exit with %d/0x%08X\n", ret, ret);
 
 	return (int)ret;
 }
 
-
-
-/*----------------------------------------------------------------------------*/
 /**
  * This function removes this device driver from the Linux device manager .
  */
@@ -2855,8 +2585,6 @@ static void __exit mc_kernel_module_exit(
 	MCDRV_DBG_VERBOSE("exit");
 }
 
-
-/*----------------------------------------------------------------------------*/
 /* Linux Driver Module Macros */
 module_init(mc_kernel_module_init);
 module_exit(mc_kernel_module_exit);
@@ -2865,4 +2593,3 @@ MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MobiCore driver");
 
 /** @} */
-

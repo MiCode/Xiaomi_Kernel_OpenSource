@@ -50,9 +50,7 @@ enum mc_fast_calls_result {
 
 
 
-/*------------------------------------------------------------------------------
-	structure wrappers for specific fastcalls
-------------------------------------------------------------------------------*/
+/* structure wrappers for specific fastcalls */
 
 /** generic fast call parameters */
 union fc_generic {
@@ -132,7 +130,6 @@ union mc_fc_nsiq {
 };
 
 
-/*----------------------------------------------------------------------------*/
 /**
  * fast call to MobiCore
  *
@@ -169,10 +166,10 @@ static inline void mc_fastcall(
 #define __STR(x)    __STR2(x)
 
 		/* compiler does not support certain instructions
-		"SMC": secure monitor call.*/
+		 * "SMC": secure monitor call.*/
 #define ASM_ARM_SMC         0xE1600070
-		/*   "BPKT": debugging breakpoint. We keep this, as is comes
-				quite handy for debugging. */
+		/*   "BPKT": debugging breakpoint.
+		 * We keep this, as is comes quite handy for debugging. */
 #define ASM_ARM_BPKT        0xE1200070
 #define ASM_THUMB_BPKT      0xBE00
 
@@ -191,8 +188,6 @@ static inline void mc_fastcall(
 #endif
 }
 
-
-/*----------------------------------------------------------------------------*/
 /**
  * convert fast call return code to linux driver module error code
  *
