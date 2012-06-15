@@ -327,5 +327,10 @@ struct msm_mctl_pp_frame_cmd {
 #define VFE_OUTPUTS_JPEG_AND_THUMB	BIT(9)
 #define VFE_OUTPUTS_THUMB_AND_JPEG	BIT(10)
 
+struct msm_frame_info {
+	uint32_t image_mode;
+	uint32_t path;
+};
+
 #endif /*__MSM_ISP_H__*/
 
