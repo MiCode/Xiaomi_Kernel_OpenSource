@@ -933,12 +933,56 @@ int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec)
 {
 	int rc = 0;
 	struct msm_vidc_inst *inst = (struct msm_vidc_inst *)instance;
+	bool ip_flush = false,
+	     op_flush = false;
+
 	mutex_lock(&inst->sync_lock);
-	if (dec->cmd != V4L2_DEC_CMD_STOP)
-		return -EINVAL;
-	rc = vidc_hal_session_flush((void *)inst->session, HAL_FLUSH_OUTPUT);
+
+	switch (dec->cmd) {
+	case V4L2_DEC_QCOM_CMD_FLUSH:
+		ip_flush = dec->flags & V4L2_DEC_QCOM_CMD_FLUSH_OUTPUT;
+		op_flush = dec->flags & V4L2_DEC_QCOM_CMD_FLUSH_CAPTURE;
+		/* Only support flush on decoder (for now)*/
+		if (inst->session_type == MSM_VIDC_ENCODER) {
+			pr_err("Buffer flushing not supported for encoder\n");
+			rc = -ENOTSUPP;
+			break;
+		}
+
+		/* Certain types of flushes aren't supported such as: */
+		/* 1) Input only flush */
+		if (ip_flush && !op_flush) {
+			pr_err("Input only flush not supported\n");
+			rc = -ENOTSUPP;
+			break;
+		}
+
+		/* 2) Output only flush when in reconfig */
+		if (!ip_flush && op_flush && !inst->in_reconfig) {
+			pr_err("Output only flush only supported when reconfiguring\n");
+			rc = -ENOTSUPP;
+			break;
+		}
+
+		/* Finally flush */
+		if (op_flush && ip_flush)
+			rc = vidc_hal_session_flush(inst->session,
+					HAL_FLUSH_ALL);
+		else if (ip_flush)
+			rc = vidc_hal_session_flush(inst->session,
+					HAL_FLUSH_INPUT);
+		else if (op_flush)
+			rc = vidc_hal_session_flush(inst->session,
+					HAL_FLUSH_OUTPUT);
+
+		break;
+	default:
+		rc = -ENOTSUPP;
+		goto exit;
+	}
+
 	if (rc) {
-		pr_err("Failed to get property\n");
+		pr_err("Failed to exec decoder cmd %d\n", dec->cmd);
 		goto exit;
 	}
 exit:
