@@ -186,7 +186,7 @@ int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 void *vidc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 				unsigned long size, int write)
 {
-	return NULL;
+	return (void *)0xdeadbeef;
 }
 
 void vidc_put_userptr(void *buf_priv)

@@ -75,11 +75,6 @@ enum instance_state {
 	MSM_VIDC_CORE_UNINIT,
 };
 
-enum vidc_resposes_id {
-	MSM_VIDC_DECODER_FLUSH_DONE = 0x11,
-	MSM_VIDC_DECODER_EVENT_CHANGE,
-};
-
 struct buf_info {
 	struct list_head list;
 	struct vb2_buffer *buf;
