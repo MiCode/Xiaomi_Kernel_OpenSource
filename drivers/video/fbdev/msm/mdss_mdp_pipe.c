@@ -354,11 +354,12 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	u32 chroma_sample;
 
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA) {
-		if (!(pipe->flags & MDP_ROT_90) && (pipe->dst.h != pipe->src.h
-						|| pipe->dst.w != pipe->src.w))
-			return -EINVAL;	/* no scaling supported on dma pipes */
-		else
+		if (pipe->dst.h != pipe->src.h || pipe->dst.w != pipe->src.w) {
+			pr_err("no scaling supported on dma pipe\n");
+			return -EINVAL;
+		} else {
 			return 0;
+		}
 	}
 
 	chroma_sample = pipe->src_fmt->chroma_sample;
@@ -535,10 +536,10 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 	pr_debug("pnum=%d format=%d opmode=%x\n", pipe->num, fmt->format,
 			opmode);
 
-	rot90 = !!(pipe->flags & MDP_SOURCE_ROTATED_90);
+	rot90 = !!(pipe->flags & MDP_ROT_90);
 
 	chroma_samp = fmt->chroma_sample;
-	if (rot90) {
+	if (pipe->flags & MDP_SOURCE_ROTATED_90) {
 		if (chroma_samp == MDSS_MDP_CHROMA_H2V1)
 			chroma_samp = MDSS_MDP_CHROMA_H1V2;
 		else if (chroma_samp == MDSS_MDP_CHROMA_H1V2)
