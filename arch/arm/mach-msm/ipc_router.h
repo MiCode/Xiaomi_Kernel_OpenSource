@@ -185,7 +185,7 @@ int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 int msm_ipc_router_get_curr_pkt_size(struct msm_ipc_port *port_ptr);
 int msm_ipc_router_bind_control_port(struct msm_ipc_port *port_ptr);
 int msm_ipc_router_lookup_server_name(struct msm_ipc_port_name *srv_name,
-				      struct msm_ipc_port_addr *port_addr,
+				      struct msm_ipc_server_info *srv_info,
 				      int num_entries_in_array,
 				      uint32_t lookup_mask);
 int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr);
