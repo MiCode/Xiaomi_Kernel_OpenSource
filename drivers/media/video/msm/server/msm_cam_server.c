@@ -1760,16 +1760,20 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 
 	struct v4l2_event v4l2_evt;
 	struct msm_isp_event_ctrl *isp_event;
-	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_KERNEL);
-	if (!isp_event) {
-		pr_err("%s Insufficient memory. return", __func__);
-		return -ENOMEM;
-	}
+	void *ctrlcmd_data;
+
 	event_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
 	if (!event_qcmd) {
 		pr_err("%s Insufficient memory. return", __func__);
-		kfree(isp_event);
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto event_qcmd_alloc_fail;
+	}
+
+	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_KERNEL);
+	if (!isp_event) {
+		pr_err("%s Insufficient memory. return", __func__);
+		rc = -ENOMEM;
+		goto isp_event_alloc_fail;
 	}
 
 	D("%s\n", __func__);
@@ -1782,11 +1786,22 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 	server_dev->server_queue[out->queue_idx].evt_id =
 		server_dev->server_evt_id;
 	v4l2_evt.type = V4L2_EVENT_PRIVATE_START + ctrl_id;
+	v4l2_evt.id = 0;
 	v4l2_evt.u.data[0] = out->queue_idx;
 	/* setup event object to transfer the command; */
 	isp_event->resptype = MSM_CAM_RESP_V4L2;
 	isp_event->isp_data.ctrl = *out;
 	isp_event->isp_data.ctrl.evt_id = server_dev->server_evt_id;
+
+	if (out->value != NULL && out->length != 0) {
+		ctrlcmd_data = kzalloc(out->length, GFP_KERNEL);
+		if (!ctrlcmd_data) {
+			rc = -ENOMEM;
+			goto ctrlcmd_alloc_fail;
+		}
+		memcpy(ctrlcmd_data, out->value, out->length);
+		isp_event->isp_data.ctrl.value = ctrlcmd_data;
+	}
 
 	atomic_set(&event_qcmd->on_heap, 1);
 	event_qcmd->command = isp_event;
@@ -1811,7 +1826,8 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 		if (!rc)
 			rc = -ETIMEDOUT;
 		if (rc < 0) {
-			kfree(isp_event);
+			if (++server_dev->server_evt_id == 0)
+				server_dev->server_evt_id++;
 			pr_err("%s: wait_event error %d\n", __func__, rc);
 			return rc;
 		}
@@ -1832,7 +1848,6 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 
 	kfree(ctrlcmd);
 	free_qcmd(rcmd);
-	kfree(isp_event);
 	D("%s: rc %d\n", __func__, rc);
 	/* rc is the time elapsed. */
 	if (rc >= 0) {
@@ -1844,6 +1859,13 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 		else
 			rc = -EINVAL;
 	}
+	return rc;
+
+ctrlcmd_alloc_fail:
+	kfree(isp_event);
+isp_event_alloc_fail:
+	kfree(event_qcmd);
+event_qcmd_alloc_fail:
 	return rc;
 }
 
