@@ -89,6 +89,7 @@ struct audio {
 	uint32_t device_events;
 
 	struct list_head ion_region_queue; /* protected by lock */
+	struct ion_client *client;
 
 	int eq_enable;
 	int eq_needs_commit;
