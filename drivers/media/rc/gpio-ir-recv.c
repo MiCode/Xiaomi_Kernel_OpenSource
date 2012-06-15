@@ -28,6 +28,7 @@ struct gpio_rc_dev {
 	struct rc_dev *rcdev;
 	unsigned int gpio_nr;
 	bool active_low;
+	int can_sleep;
 };
 
 static irqreturn_t gpio_ir_recv_irq(int irq, void *dev_id)
@@ -37,7 +38,10 @@ static irqreturn_t gpio_ir_recv_irq(int irq, void *dev_id)
 	int rc = 0;
 	enum raw_event_type type = IR_SPACE;
 
-	gval = gpio_get_value_cansleep(gpio_dev->gpio_nr);
+	if (gpio_dev->can_sleep)
+		gval = gpio_get_value_cansleep(gpio_dev->gpio_nr);
+	else
+		gval = gpio_get_value(gpio_dev->gpio_nr);
 
 	if (gval < 0)
 		goto err_get_value;
@@ -96,6 +100,9 @@ static int __devinit gpio_ir_recv_probe(struct platform_device *pdev)
 	rc = gpio_request(pdata->gpio_nr, "gpio-ir-recv");
 	if (rc < 0)
 		goto err_gpio_request;
+
+	gpio_dev->can_sleep = gpio_cansleep(pdata->gpio_nr);
+
 	rc  = gpio_direction_input(pdata->gpio_nr);
 	if (rc < 0)
 		goto err_gpio_direction_input;
