@@ -140,9 +140,12 @@ static inline void mc_fastcall(
 )
 {
 	MCDRV_ASSERT(fc_generic != NULL);
+
 	/* We only expect to make smc calls on CPU0 otherwise something wrong
 	 * will happen */
 	MCDRV_ASSERT(raw_smp_processor_id() == 0);
+
+	/* Required by an old version of MobiCore, subject to be removed. */
 	mb();
 #ifdef MC_SMC_FASTCALL
 	{

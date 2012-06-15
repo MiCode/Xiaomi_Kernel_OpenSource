@@ -23,7 +23,7 @@
 #include <linux/highmem.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
-#include <asm/ptrace.h>
+#include <linux/ptrace.h>
 
 #include "mc_drv_module.h"
 #include "mc_drv_module_android.h"
