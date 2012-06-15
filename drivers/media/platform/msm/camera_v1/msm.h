@@ -129,6 +129,7 @@ struct isp_msg_stats {
 
 struct msm_free_buf {
 	uint8_t num_planes;
+	int32_t image_mode;
 	uint32_t ch_paddr[VIDEO_MAX_PLANES];
 	uint32_t vb;
 };
