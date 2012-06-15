@@ -3716,7 +3716,8 @@ static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
 static struct branch_clk mmss_mmssnoc_axi_clk = {
 	.cbcr_reg = MMSS_MMSSNOC_AXI_CBCR,
 	.parent = &axi_clk_src.c,
-	.has_sibling = 1,
+	/* The bus driver needs set_rate to go through to the parent */
+	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "mmss_mmssnoc_axi_clk",
@@ -4837,8 +4838,8 @@ static struct clk_lookup msm_clocks_copper[] = {
 	CLK_LOOKUP("ocmem_a_clk", ocmemgx_msmbus_a_clk.c, "msm_bus"),
 	CLK_LOOKUP("bus_clk",	ocmemnoc_clk.c,		"msm_ocmem_noc"),
 	CLK_LOOKUP("bus_a_clk",	ocmemnoc_clk.c,		"msm_ocmem_noc"),
-	CLK_LOOKUP("bus_clk",	axi_clk_src.c,		"msm_mmss_noc"),
-	CLK_LOOKUP("bus_a_clk",	axi_clk_src.c,		"msm_mmss_noc"),
+	CLK_LOOKUP("bus_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
+	CLK_LOOKUP("bus_a_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
 };
 
 static struct pll_config_regs gpll0_regs __initdata = {
