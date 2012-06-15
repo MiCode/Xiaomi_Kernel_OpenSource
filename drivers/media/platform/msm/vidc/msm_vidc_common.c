@@ -183,21 +183,9 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	struct video_device *vdev;
-	struct v4l2_event dqevent;
-	struct msm_vidc_core *core;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
-		core = inst->core;
-		if (inst->session_type == MSM_VIDC_ENCODER)
-			vdev = &core->vdev[MSM_VIDC_ENCODER].vdev;
-		else
-			vdev = &core->vdev[MSM_VIDC_DECODER].vdev;
-		dqevent.type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
-		dqevent.u.data[0] = (uint8_t)MSM_VIDC_OPEN_DONE;
-		v4l2_event_queue(vdev, &dqevent);
-		return;
 	} else {
 		pr_err("Failed to get valid response for session init\n");
 	}
@@ -207,24 +195,17 @@ static void handle_event_change(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	struct video_device *vdev;
 	struct v4l2_event dqevent;
 	struct msm_vidc_cb_event *event_notify;
-	struct msm_vidc_core *core;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
-		core = inst->core;
-		if (inst->session_type == MSM_VIDC_ENCODER)
-			vdev = &core->vdev[MSM_VIDC_ENCODER].vdev;
-		else
-			vdev = &core->vdev[MSM_VIDC_DECODER].vdev;
-		dqevent.type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
-		dqevent.u.data[0] = (uint8_t)MSM_VIDC_DECODER_EVENT_CHANGE;
+		dqevent.type = V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED;
+		dqevent.id = 0;
 		event_notify = (struct msm_vidc_cb_event *) response->data;
 		inst->reconfig_height = event_notify->height;
 		inst->reconfig_width = event_notify->width;
 		inst->in_reconfig = true;
-		v4l2_event_queue(vdev, &dqevent);
+		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
 		return;
 	} else {
 		pr_err("Failed to get valid response for event_change\n");
@@ -262,20 +243,9 @@ static void handle_start_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	struct video_device *vdev;
-	struct v4l2_event dqevent;
-	struct msm_vidc_core *core;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
-		core = inst->core;
-		if (inst->session_type == MSM_VIDC_ENCODER)
-			vdev = &core->vdev[MSM_VIDC_ENCODER].vdev;
-		else
-			vdev = &core->vdev[MSM_VIDC_DECODER].vdev;
-		dqevent.type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
-		dqevent.u.data[0] = (uint8_t)MSM_VIDC_START_DONE;
-		v4l2_event_queue(vdev, &dqevent);
 	} else {
 		pr_err("Failed to get valid response for start\n");
 	}
@@ -285,20 +255,9 @@ static void handle_stop_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	struct video_device *vdev;
-	struct v4l2_event dqevent;
-	struct msm_vidc_core *core;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
-		core = inst->core;
-		if (inst->session_type == MSM_VIDC_ENCODER)
-			vdev = &core->vdev[MSM_VIDC_ENCODER].vdev;
-		else
-			vdev = &core->vdev[MSM_VIDC_DECODER].vdev;
-		dqevent.type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
-		dqevent.u.data[0] = (uint8_t)MSM_VIDC_STOP_DONE;
-		v4l2_event_queue(vdev, &dqevent);
 	} else {
 		pr_err("Failed to get valid response for stop\n");
 	}
@@ -320,19 +279,12 @@ static void handle_session_flush(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	struct video_device *vdev;
 	struct v4l2_event dqevent;
-	struct msm_vidc_core *core;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
-		core = inst->core;
-		if (inst->session_type == MSM_VIDC_ENCODER)
-			vdev = &core->vdev[MSM_VIDC_ENCODER].vdev;
-		else
-			vdev = &core->vdev[MSM_VIDC_DECODER].vdev;
-		dqevent.type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
-		dqevent.u.data[0] = (uint8_t)MSM_VIDC_DECODER_FLUSH_DONE;
-		v4l2_event_queue(vdev, &dqevent);
+		dqevent.type = V4L2_EVENT_MSM_VIDC_FLUSH_DONE;
+		dqevent.id = 0;
+		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
 	} else {
 		pr_err("Failed to get valid response for flush\n");
 	}
@@ -343,20 +295,13 @@ static void handle_session_close(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	struct video_device *vdev;
 	struct v4l2_event dqevent;
-	struct msm_vidc_core *core;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
-		core = inst->core;
-		if (inst->session_type == MSM_VIDC_ENCODER)
-			vdev = &core->vdev[MSM_VIDC_ENCODER].vdev;
-		else
-			vdev = &core->vdev[MSM_VIDC_DECODER].vdev;
-		dqevent.type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
-		dqevent.u.data[0] = (uint8_t)MSM_VIDC_CLOSE_DONE;
-		v4l2_event_queue(vdev, &dqevent);
+		dqevent.type = V4L2_EVENT_MSM_VIDC_CLOSE_DONE;
+		dqevent.id = 0;
+		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
 	} else {
 		pr_err("Failed to get valid response for session close\n");
 	}

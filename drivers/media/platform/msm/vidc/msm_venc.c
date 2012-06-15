@@ -348,7 +348,7 @@ static const struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE,
 		.name = "H.264 Loop Filter Mode",
-		.type = V4L2_CTRL_TYPE_INTEGER,
+		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_ENABLED,
 		.maximum = L_MODE,
 		.default_value = V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_ENABLED,
@@ -375,7 +375,9 @@ static u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 
 static u32 get_frame_size_compressed(int plane, u32 height, u32 width)
 {
-	return ((height + 31) & (~31)) * ((width + 31) & (~31)) * 3/2;
+	int sz = ((height + 31) & (~31)) * ((width + 31) & (~31)) * 3/2;
+	sz = (sz + 4095) & (~4095);
+	return sz;
 }
 
 static struct hal_quantization

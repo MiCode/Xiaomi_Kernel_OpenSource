@@ -28,6 +28,7 @@
 #include "msm_smem.h"
 
 #define BASE_DEVICE_NUMBER 32
+#define MAX_EVENTS 30
 
 struct msm_vidc_drv *vidc_driver;
 
@@ -215,21 +216,20 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 	int rc;
 	struct buffer_info *bi;
 	struct v4l2_buffer buffer_info;
+	struct v4l2_plane plane;
 	v4l2_inst = get_v4l2_inst(file, NULL);
 	if (b->count == 0) {
 		list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
 			bi = list_entry(ptr, struct buffer_info, list);
 			if (bi->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				buffer_info.type = bi->type;
-				buffer_info.m.planes[0].reserved[0] =
-					bi->fd;
-				buffer_info.m.planes[0].reserved[1] =
-					bi->buff_off;
-				buffer_info.m.planes[0].length = bi->size;
-				buffer_info.m.planes[0].m.userptr =
-					bi->uvaddr;
+				plane.reserved[0] = bi->fd;
+				plane.reserved[1] = bi->buff_off;
+				plane.length = bi->size;
+				plane.m.userptr = bi->uvaddr;
+				buffer_info.m.planes = &plane;
 				buffer_info.length = 1;
-				pr_err("Releasing buffer: %d, %d, %d\n",
+				pr_info("Releasing buffer: %d, %d, %d\n",
 				buffer_info.m.planes[0].reserved[0],
 				buffer_info.m.planes[0].reserved[1],
 				buffer_info.m.planes[0].length);
@@ -359,9 +359,7 @@ static int msm_v4l2_subscribe_event(struct v4l2_fh *fh,
 				struct v4l2_event_subscription *sub)
 {
 	int rc = 0;
-	if (sub->type == V4L2_EVENT_ALL)
-		sub->type = V4L2_EVENT_PRIVATE_START + V4L2_EVENT_VIDC_BASE;
-	rc = v4l2_event_subscribe(fh, sub, 0);
+	rc = v4l2_event_subscribe(fh, sub, MAX_EVENTS);
 	return rc;
 }
 
@@ -445,7 +443,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	INIT_LIST_HEAD(&core->instances);
 	mutex_init(&core->sync_lock);
 	spin_lock_init(&core->lock);
-	core->base_addr = 0x34f00000;
+	core->base_addr = 0x14f00000;
 	core->state = VIDC_CORE_UNINIT;
 	for (i = SYS_MSG_INDEX(SYS_MSG_START);
 		i <= SYS_MSG_INDEX(SYS_MSG_END); i++) {
