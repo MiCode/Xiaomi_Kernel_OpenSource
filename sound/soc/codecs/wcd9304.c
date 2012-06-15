@@ -4840,6 +4840,10 @@ static const struct sitar_reg_mask_val sitar_codec_reg_init_val[] = {
 	{SITAR_A_RX_LINE_1_GAIN, 0x10, 0x10},
 	{SITAR_A_RX_LINE_2_GAIN, 0x10, 0x10},
 
+	/* Set the MICBIAS default output as pull down*/
+	{SITAR_A_MICB_1_CTL, 0x01, 0x01},
+	{SITAR_A_MICB_2_CTL, 0x01, 0x01},
+
 	/* Initialize mic biases to differential mode */
 	{SITAR_A_MICB_1_INT_RBIAS, 0x24, 0x24},
 	{SITAR_A_MICB_2_INT_RBIAS, 0x24, 0x24},
