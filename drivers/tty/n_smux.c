@@ -3124,11 +3124,22 @@ static int ssr_notifier_cb(struct notifier_block *this,
 	unsigned long flags;
 	int power_off_uart = 0;
 
-	if (code != SUBSYS_AFTER_SHUTDOWN)
+	if (code == SUBSYS_BEFORE_SHUTDOWN) {
+		SMUX_DBG("%s: ssr - before shutdown\n", __func__);
+		mutex_lock(&smux.mutex_lha0);
+		smux.in_reset = 1;
+		mutex_unlock(&smux.mutex_lha0);
 		return NOTIFY_DONE;
+	} else if (code != SUBSYS_AFTER_SHUTDOWN) {
+		return NOTIFY_DONE;
+	}
+	SMUX_DBG("%s: ssr - after shutdown\n", __func__);
 
 	/* Cleanup channels */
+	mutex_lock(&smux.mutex_lha0);
 	smux_lch_purge();
+	if (smux.tty)
+		tty_driver_flush_buffer(smux.tty);
 
 	/* Power-down UART */
 	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
@@ -3137,10 +3148,14 @@ static int ssr_notifier_cb(struct notifier_block *this,
 		smux.power_state = SMUX_PWR_OFF;
 		power_off_uart = 1;
 	}
+	smux.powerdown_enabled = 0;
 	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
 	if (power_off_uart)
 		smux_uart_power_off();
+
+	smux.in_reset = 0;
+	mutex_unlock(&smux.mutex_lha0);
 
 	return NOTIFY_DONE;
 }
@@ -3245,6 +3260,7 @@ static void smuxld_close(struct tty_struct *tty)
 	if (smux.power_state == SMUX_PWR_OFF)
 		power_up_uart = 1;
 	smux.power_state = SMUX_PWR_OFF;
+	smux.powerdown_enabled = 0;
 	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
 	if (power_up_uart)
