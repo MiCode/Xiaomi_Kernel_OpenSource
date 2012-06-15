@@ -362,10 +362,19 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 static int msm_bus_fabric_clk_set(int enable, struct msm_bus_inode_info *info)
 {
 	int i, status = 0;
+	long rounded_rate;
+
 	for (i = 0; i < NUM_CTX; i++) {
 		if (info->nodeclk[i].dirty) {
-			status = clk_set_rate(info->nodeclk[i].clk, info->
-				nodeclk[i].rate);
+			if (info->nodeclk[i].rate != 0) {
+				rounded_rate = clk_round_rate(info->
+					nodeclk[i].clk, info->nodeclk[i].rate);
+				status = clk_set_rate(info->nodeclk[i].clk,
+					rounded_rate);
+				MSM_BUS_DBG("AXI: node: %d set_rate: %ld\n",
+					info->node_info->id, rounded_rate);
+			}
+
 			if (enable && !(info->nodeclk[i].enable)) {
 				clk_prepare_enable(info->nodeclk[i].clk);
 				info->nodeclk[i].dirty = false;
@@ -379,8 +388,15 @@ static int msm_bus_fabric_clk_set(int enable, struct msm_bus_inode_info *info)
 		}
 
 		if (info->memclk[i].dirty) {
-			status = clk_set_rate(info->memclk[i].clk, info->
-				memclk[i].rate);
+			if (info->nodeclk[i].rate != 0) {
+				rounded_rate = clk_round_rate(info->
+					memclk[i].clk, info->memclk[i].rate);
+				status = clk_set_rate(info->memclk[i].clk,
+					rounded_rate);
+				MSM_BUS_DBG("AXI: node: %d set_rate: %ld\n",
+					info->node_info->id, rounded_rate);
+			}
+
 			if (enable && !(info->memclk[i].enable)) {
 				clk_prepare_enable(info->memclk[i].clk);
 				info->memclk[i].dirty = false;
