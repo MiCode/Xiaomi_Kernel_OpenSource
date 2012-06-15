@@ -27,6 +27,7 @@
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/android_pmem.h>
+#include <linux/of_device.h>
 #include <sound/compress_params.h>
 #include <sound/compress_offload.h>
 #include <sound/compress_driver.h>
@@ -562,6 +563,9 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static int msm_pcm_probe(struct platform_device *pdev)
 {
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s", "msm-pcm-lpa");
+
 	dev_info(&pdev->dev, "%s: dev name %s\n",
 			__func__, dev_name(&pdev->dev));
 	return snd_soc_register_platform(&pdev->dev,
@@ -574,10 +578,17 @@ static int msm_pcm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id msm_pcm_lpa_dt_match[] = {
+	{.compatible = "qcom,msm-pcm-lpa"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, msm_pcm_lpa_dt_match);
+
 static struct platform_driver msm_pcm_driver = {
 	.driver = {
 		.name = "msm-pcm-lpa",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_pcm_lpa_dt_match,
 	},
 	.probe = msm_pcm_probe,
 	.remove = msm_pcm_remove,

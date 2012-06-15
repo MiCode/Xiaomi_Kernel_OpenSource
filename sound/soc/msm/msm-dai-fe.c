@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <linux/of_device.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -469,8 +470,11 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 
 static int msm_fe_dai_dev_probe(struct platform_device *pdev)
 {
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s", "msm-dai-fe");
+
 	dev_dbg(&pdev->dev, "%s: dev name %s\n", __func__,
-	dev_name(&pdev->dev));
+		dev_name(&pdev->dev));
 	return snd_soc_register_dais(&pdev->dev, msm_fe_dais,
 		ARRAY_SIZE(msm_fe_dais));
 }
@@ -481,12 +485,18 @@ static int msm_fe_dai_dev_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id msm_dai_fe_dt_match[] = {
+	{.compatible = "qcom,msm-dai-fe"},
+	{}
+};
+
 static struct platform_driver msm_fe_dai_driver = {
 	.probe  = msm_fe_dai_dev_probe,
 	.remove = msm_fe_dai_dev_remove,
 	.driver = {
 		.name = "msm-dai-fe",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_dai_fe_dt_match,
 	},
 };
 

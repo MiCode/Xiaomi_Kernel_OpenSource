@@ -28,6 +28,7 @@
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/android_pmem.h>
+#include <linux/of_device.h>
 
 #include "msm-pcm-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
@@ -163,8 +164,7 @@ static void event_handler(uint32_t opcode,
 				break;
 			}
 			if (prtd->mmap_flag) {
-				pr_debug("%s:writing %d bytes"
-					" of buffer to dsp\n",
+				pr_debug("%s:writing %d bytes of buffer to dsp\n",
 					__func__,
 					prtd->pcm_count);
 				q6asm_write_nolock(prtd->audio_client,
@@ -172,8 +172,7 @@ static void event_handler(uint32_t opcode,
 					0, 0, NO_TIMESTAMP);
 			} else {
 				while (atomic_read(&prtd->out_needed)) {
-					pr_debug("%s:writing %d bytes"
-						 " of buffer to dsp\n",
+					pr_debug("%s:writing %d bytes of buffer to dsp\n",
 						__func__,
 						prtd->pcm_count);
 					q6asm_write_nolock(prtd->audio_client,
@@ -626,17 +625,17 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		dir = IN;
 	else
 		dir = OUT;
-pr_err("%s: before buf alloc\n", __func__);
+	pr_debug("%s: before buf alloc\n", __func__);
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
 			prtd->audio_client,
 			runtime->hw.period_bytes_min,
 			runtime->hw.periods_max);
 	if (ret < 0) {
-		pr_err("Audio Start: Buffer Allocation failed "
-					"rc = %d\n", ret);
+		pr_err("Audio Start: Buffer Allocation failed rc = %d\n",
+							ret);
 		return -ENOMEM;
 	}
-pr_err("%s: after buf alloc\n", __func__);
+	pr_debug("%s: after buf alloc\n", __func__);
 	buf = prtd->audio_client->port[dir].buf;
 	if (buf == NULL || buf[0].data == NULL)
 		return -ENOMEM;
@@ -684,6 +683,9 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static int msm_pcm_probe(struct platform_device *pdev)
 {
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s", "msm-pcm-dsp");
+
 	pr_info("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	return snd_soc_register_platform(&pdev->dev,
 				   &msm_soc_platform);
@@ -694,11 +696,17 @@ static int msm_pcm_remove(struct platform_device *pdev)
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
 }
+static const struct of_device_id msm_pcm_dt_match[] = {
+	{.compatible = "qcom,msm-pcm-dsp"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, msm_pcm_dt_match);
 
 static struct platform_driver msm_pcm_driver = {
 	.driver = {
 		.name = "msm-pcm-dsp",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_pcm_dt_match,
 	},
 	.probe = msm_pcm_probe,
 	.remove = msm_pcm_remove,

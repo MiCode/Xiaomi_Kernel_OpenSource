@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -44,6 +45,11 @@ static struct snd_soc_codec_driver soc_msm_stub = {};
 
 static int msm_stub_dev_probe(struct platform_device *pdev)
 {
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s.%d", "msm-stub-codec", 1);
+
+	dev_dbg(&pdev->dev, "dev name %s\n", dev_name(&pdev->dev));
+
 	return snd_soc_register_codec(&pdev->dev,
 	&soc_msm_stub, msm_stub_dais, ARRAY_SIZE(msm_stub_dais));
 }
@@ -53,11 +59,16 @@ static int msm_stub_dev_remove(struct platform_device *pdev)
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
+static const struct of_device_id msm_stub_codec_dt_match[] = {
+	{ .compatible = "qcom,msm-stub-codec", },
+	{}
+};
 
 static struct platform_driver msm_stub_driver = {
 	.driver = {
 		.name = "msm-stub-codec",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_stub_codec_dt_match,
 	},
 	.probe = msm_stub_dev_probe,
 	.remove = msm_stub_dev_remove,

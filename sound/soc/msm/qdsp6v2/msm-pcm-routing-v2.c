@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/bitops.h>
 #include <linux/mutex.h>
+#include <linux/of_device.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -2153,6 +2154,9 @@ static struct snd_soc_platform_driver msm_soc_routing_platform = {
 
 static int msm_routing_pcm_probe(struct platform_device *pdev)
 {
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s", "msm-pcm-routing");
+
 	dev_dbg(&pdev->dev, "dev name %s\n", dev_name(&pdev->dev));
 	return snd_soc_register_platform(&pdev->dev,
 				  &msm_soc_routing_platform);
@@ -2164,10 +2168,17 @@ static int msm_routing_pcm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id msm_pcm_routing_dt_match[] = {
+	{.compatible = "qcom,msm-pcm-routing"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, msm_pcm_routing_dt_match);
+
 static struct platform_driver msm_routing_pcm_driver = {
 	.driver = {
 		.name = "msm-pcm-routing",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_pcm_routing_dt_match,
 	},
 	.probe = msm_routing_pcm_probe,
 	.remove = msm_routing_pcm_remove,
