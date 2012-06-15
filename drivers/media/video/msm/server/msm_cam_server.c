@@ -34,7 +34,7 @@ static long msm_server_send_v4l2_evt(void *evt);
 static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	unsigned int notification, void *arg);
 
-static void msm_queue_init(struct msm_device_queue *queue, const char *name)
+void msm_queue_init(struct msm_device_queue *queue, const char *name)
 {
 	D("%s\n", __func__);
 	spin_lock_init(&queue->lock);
@@ -45,7 +45,7 @@ static void msm_queue_init(struct msm_device_queue *queue, const char *name)
 	init_waitqueue_head(&queue->wait);
 }
 
-static void msm_enqueue(struct msm_device_queue *queue,
+void msm_enqueue(struct msm_device_queue *queue,
 			struct list_head *entry)
 {
 	unsigned long flags;
@@ -62,7 +62,7 @@ static void msm_enqueue(struct msm_device_queue *queue,
 	spin_unlock_irqrestore(&queue->lock, flags);
 }
 
-static void msm_drain_eventq(struct msm_device_queue *queue)
+void msm_drain_eventq(struct msm_device_queue *queue)
 {
 	unsigned long flags;
 	struct msm_queue_cmd *qcmd;
@@ -1421,16 +1421,6 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 				g_server_dev.vfe_device[0], notification, arg);
 		}
 		break;
-	case NOTIFY_VPE_MSG_EVT: {
-		struct msm_cam_media_controller *pmctl =
-		(struct msm_cam_media_controller *)
-		v4l2_get_subdev_hostdata(sd);
-		struct msm_vpe_resp *vdata = (struct msm_vpe_resp *)arg;
-		msm_mctl_pp_notify(pmctl,
-		(struct msm_mctl_pp_frame_info *)
-		vdata->extdata);
-		break;
-	}
 	case NOTIFY_VFE_IRQ:{
 		struct msm_vfe_cfg_cmd cfg_cmd;
 		struct msm_camvfe_params vfe_params;

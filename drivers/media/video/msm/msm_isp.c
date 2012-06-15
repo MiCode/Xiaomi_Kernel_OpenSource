@@ -742,13 +742,6 @@ static int msm_isp_config(struct msm_cam_media_controller *pmctl,
 
 	D("%s: cmd %d\n", __func__, _IOC_NR(cmd));
 	switch (cmd) {
-	case MSM_CAM_IOCTL_PICT_PP_DONE:
-		/* Release the preview of snapshot frame
-		 * that was grabbed.
-		 */
-		/*rc = msm_pp_release(pmsm->sync, arg);*/
-		break;
-
 	case MSM_CAM_IOCTL_CONFIG_VFE:
 		/* Coming from config thread for update */
 		rc = msm_config_vfe(sd, pmctl, argp);

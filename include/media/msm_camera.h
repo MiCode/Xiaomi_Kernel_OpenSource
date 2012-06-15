@@ -1467,6 +1467,9 @@ struct img_plane_info {
 #define MSM_CAM_IOCTL_SEND_EVENT \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct v4l2_event)
 
+#define MSM_CAM_V4L2_IOCTL_CFG_VPE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct msm_vpe_cfg_cmd)
+
 struct msm_camera_v4l2_ioctl_t {
 	void __user *ioctl_ptr;
 };
