@@ -54,6 +54,14 @@ Optional properties:
 - parent-supply:               phandle to the parent supply/regulator node
 - qcom,system-load:            Load in uA present on regulator that is not
 				captured by any consumer request
+- qcom,use-voltage-corner:     Flag that signifies if regulator_set_voltage
+				calls should modify the corner parameter instead
+				of the voltage parameter.  When used, voltages
+				specified inside of the regulator framework
+				represent corners that have been incremented by
+				1.  This value shift is necessary to work around
+				limitations in the regulator framework which
+				treat 0 uV as an error.
 The following properties specify initial values for parameters to be sent to the
 RPM in regulator requests.
 - qcom,init-enable:            0 = regulator disabled
@@ -120,6 +128,24 @@ RPM in regulator requests.
 					2 = GPS
 					4 = WLAN
 					8 = WAN
+- qcom,init-voltage-corner:    Performance corner to use in order to determine
+				voltage set point.  This value corresponds to
+				the actual value that will be sent and is not
+				incremented by 1 like the values used inside of
+				the regulator framework.  The meaning of corner
+				values is set by the RPM.  It is possible that
+				different regulators on a given platform or
+				similar regulators on different platforms will
+				utilize different corner values.  These are
+				corner values supported on MSM8974 for PMIC
+				PM8841 SMPS 2 (VDD_Dig); nominal voltages for
+				these corners are also shown:
+					0 = Retention    (0.5000 V)
+					1 = SVS Krait    (0.7250 V)
+					2 = SVS SOC      (0.8125 V)
+					3 = Normal       (0.9000 V)
+					4 = Turbo        (0.9875 V)
+					5 = Super Turbo  (1.0500 V)
 
 All properties specified within the core regulator framework can also be used in
 second level nodes.  These bindings can be found in:
@@ -148,6 +174,15 @@ rpm-regulator-smpb1 {
 		qcom,set = <1>;
 		regulator-min-microvolt = <900000>;
 		regulator-max-microvolt = <1150000>;
+		compatible = "qcom,rpm-regulator-smd";
+	};
+	pm8841_s1_corner: regulator-s1-corner {
+		regulator-name = "8841_s1_corner";
+		qcom,set = <3>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <6>;
+		qcom,init-voltage-corner = <3>;
+		qcom,use-voltage-corner;
 		compatible = "qcom,rpm-regulator-smd";
 	};
 };
