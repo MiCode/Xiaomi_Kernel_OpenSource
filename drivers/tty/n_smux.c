@@ -453,6 +453,7 @@ static void smux_lch_purge(void)
 		pkt =  list_first_entry(&smux.power_queue,
 						struct smux_pkt_t,
 						list);
+		list_del(&pkt->list);
 		SMUX_DBG("%s: emptying power queue pkt=%p\n",
 				__func__, pkt);
 		smux_free_pkt(pkt);
