@@ -29,19 +29,16 @@ int msm_vidc_poll(void *instance, struct file *filp,
 	struct vb2_buffer *out_vb = NULL;
 	struct vb2_buffer *cap_vb = NULL;
 	unsigned long flags;
-	poll_wait(filp, &inst->event_handler.wait, wait);
-	if (v4l2_event_pending(&inst->event_handler))
-		return POLLPRI;
 	if (!outq->streaming && !capq->streaming) {
 		pr_err("Returning POLLERR from here: %d, %d\n",
 			outq->streaming, capq->streaming);
 		return POLLERR;
 	}
 	poll_wait(filp, &inst->event_handler.wait, wait);
-	if (v4l2_event_pending(&inst->event_handler))
-		return POLLPRI;
 	poll_wait(filp, &capq->done_wq, wait);
 	poll_wait(filp, &outq->done_wq, wait);
+	if (v4l2_event_pending(&inst->event_handler))
+		rc |= POLLPRI;
 	spin_lock_irqsave(&capq->done_lock, flags);
 	if (!list_empty(&capq->done_list))
 		cap_vb = list_first_entry(&capq->done_list, struct vb2_buffer,
