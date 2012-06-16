@@ -174,6 +174,8 @@ static void notification_available_cb(struct urb *urb)
 			goto resubmit_int_urb;
 		}
 
+		usb_mark_last_busy(udev);
+
 		if (!dev->resp_available) {
 			dev->resp_available = true;
 			wake_up(&dev->open_wait_queue);
@@ -261,6 +263,7 @@ static void resp_avail_cb(struct urb *urb)
 
 resubmit_int_urb:
 	/*re-submit int urb to check response available*/
+	usb_mark_last_busy(udev);
 	status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
 	if (status)
 		dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
@@ -796,6 +799,7 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 			 dev->intbuf, wMaxPacketSize,
 			 notification_available_cb, dev, interval);
 
+	usb_mark_last_busy(udev);
 	return rmnet_usb_ctrl_start_rx(dev);
 }
 
