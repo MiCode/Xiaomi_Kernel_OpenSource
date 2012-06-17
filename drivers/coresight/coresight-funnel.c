@@ -172,43 +172,34 @@ static const struct attribute_group *funnel_attr_grps[] = {
 static int funnel_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device *dev = &pdev->dev;
 	struct funnel_drvdata *drvdata;
 	struct resource *res;
 	struct coresight_desc *desc;
 
-	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
-	if (!drvdata) {
-		ret = -ENOMEM;
-		goto err_kzalloc_drvdata;
-	}
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		ret = -EINVAL;
-		goto err_res;
-	}
-	drvdata->base = ioremap_nocache(res->start, resource_size(res));
-	if (!drvdata->base) {
-		ret = -EINVAL;
-		goto err_ioremap;
-	}
+	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
-	drvdata->clk = clk_get(drvdata->dev, "core_clk");
-	if (IS_ERR(drvdata->clk)) {
-		ret = PTR_ERR(drvdata->clk);
-		goto err_clk_get;
-	}
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -ENODEV;
+	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
+	if (!drvdata->base)
+		return -ENOMEM;
 
+	drvdata->clk = devm_clk_get(dev, "core_clk");
+	if (IS_ERR(drvdata->clk))
+		return PTR_ERR(drvdata->clk);
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
-		goto err_clk_rate;
+		return ret;
 
-	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
-	if (!desc) {
-		ret = -ENOMEM;
-		goto err_kzalloc_desc;
-	}
+	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return -ENOMEM;
 	desc->type = CORESIGHT_DEV_TYPE_LINK;
 	desc->subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_MERG;
 	desc->ops = &funnel_cs_ops;
@@ -217,27 +208,11 @@ static int funnel_probe(struct platform_device *pdev)
 	desc->groups = funnel_attr_grps;
 	desc->owner = THIS_MODULE;
 	drvdata->csdev = coresight_register(desc);
-	if (IS_ERR(drvdata->csdev)) {
-		ret = PTR_ERR(drvdata->csdev);
-		goto err_coresight_register;
-	}
-	kfree(desc);
+	if (IS_ERR(drvdata->csdev))
+		return PTR_ERR(drvdata->csdev);
 
-	dev_info(drvdata->dev, "FUNNEL initialized\n");
+	dev_info(dev, "FUNNEL initialized\n");
 	return 0;
-err_coresight_register:
-	kfree(desc);
-err_kzalloc_desc:
-err_clk_rate:
-	clk_put(drvdata->clk);
-err_clk_get:
-	iounmap(drvdata->base);
-err_ioremap:
-err_res:
-	kfree(drvdata);
-err_kzalloc_drvdata:
-	dev_err(drvdata->dev, "FUNNEL init failed\n");
-	return ret;
 }
 
 static int funnel_remove(struct platform_device *pdev)
@@ -245,9 +220,6 @@ static int funnel_remove(struct platform_device *pdev)
 	struct funnel_drvdata *drvdata = platform_get_drvdata(pdev);
 
 	coresight_unregister(drvdata->csdev);
-	clk_put(drvdata->clk);
-	iounmap(drvdata->base);
-	kfree(drvdata);
 	return 0;
 }
 

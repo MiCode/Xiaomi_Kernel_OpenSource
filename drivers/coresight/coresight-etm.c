@@ -1505,59 +1505,54 @@ static void etm_init_default_data(struct etm_drvdata *drvdata)
 static int etm_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device *dev = &pdev->dev;
 	struct etm_drvdata *drvdata;
 	struct resource *res;
 	static int etm_count;
 	struct coresight_desc *desc;
 
-	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
-	if (!drvdata) {
-		ret = -ENOMEM;
-		goto err_kzalloc_drvdata;
-	}
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		ret = -EINVAL;
-		goto err_res;
-	}
-	drvdata->base = ioremap_nocache(res->start, resource_size(res));
-	if (!drvdata->base) {
-		ret = -EINVAL;
-		goto err_ioremap;
-	}
+	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -ENODEV;
+	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
+	if (!drvdata->base)
+		return -ENOMEM;
 
 	mutex_init(&drvdata->mutex);
 	wake_lock_init(&drvdata->wake_lock, WAKE_LOCK_SUSPEND, "coresight-etm");
 	pm_qos_add_request(&drvdata->qos_req, PM_QOS_CPU_DMA_LATENCY,
 			   PM_QOS_DEFAULT_VALUE);
-	drvdata->cpu = etm_count++;
 
-	drvdata->clk = clk_get(drvdata->dev, "core_clk");
+	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk)) {
 		ret = PTR_ERR(drvdata->clk);
-		goto err_clk_get;
+		goto err0;
 	}
-
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
-		goto err_clk_rate;
+		goto err0;
+
+	drvdata->cpu = etm_count++;
+
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
-		goto err_clk_enable;
-
+		goto err0;
 	ret = etm_init_arch_data(drvdata);
 	if (ret)
-		goto err_arch;
+		goto err1;
 	etm_init_default_data(drvdata);
-
 	clk_disable_unprepare(drvdata->clk);
 
-	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
+	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc) {
 		ret = -ENOMEM;
-		goto err_kzalloc_desc;
+		goto err0;
 	}
 	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
 	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
@@ -1569,34 +1564,21 @@ static int etm_probe(struct platform_device *pdev)
 	drvdata->csdev = coresight_register(desc);
 	if (IS_ERR(drvdata->csdev)) {
 		ret = PTR_ERR(drvdata->csdev);
-		goto err_coresight_register;
+		goto err0;
 	}
-	kfree(desc);
 
-	dev_info(drvdata->dev, "ETM initialized\n");
+	dev_info(dev, "ETM initialized\n");
 
 	if (boot_enable)
 		coresight_enable(drvdata->csdev);
 
 	return 0;
-err_coresight_register:
-	kfree(desc);
-err_kzalloc_desc:
-err_arch:
+err1:
 	clk_disable_unprepare(drvdata->clk);
-err_clk_enable:
-err_clk_rate:
-	clk_put(drvdata->clk);
-err_clk_get:
+err0:
 	pm_qos_remove_request(&drvdata->qos_req);
 	wake_lock_destroy(&drvdata->wake_lock);
 	mutex_destroy(&drvdata->mutex);
-	iounmap(drvdata->base);
-err_ioremap:
-err_res:
-	kfree(drvdata);
-err_kzalloc_drvdata:
-	dev_err(drvdata->dev, "ETM init failed\n");
 	return ret;
 }
 
@@ -1605,12 +1587,9 @@ static int etm_remove(struct platform_device *pdev)
 	struct etm_drvdata *drvdata = platform_get_drvdata(pdev);
 
 	coresight_unregister(drvdata->csdev);
-	clk_put(drvdata->clk);
 	pm_qos_remove_request(&drvdata->qos_req);
 	wake_lock_destroy(&drvdata->wake_lock);
 	mutex_destroy(&drvdata->mutex);
-	iounmap(drvdata->base);
-	kfree(drvdata);
 	return 0;
 }
 

@@ -343,58 +343,41 @@ static const struct attribute_group *etb_attr_grps[] = {
 static int etb_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device *dev = &pdev->dev;
 	struct etb_drvdata *drvdata;
 	struct resource *res;
 	struct coresight_desc *desc;
 
-	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
-	if (!drvdata) {
-		ret = -ENOMEM;
-		goto err_kzalloc_drvdata;
-	}
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		ret = -EINVAL;
-		goto err_res;
-	}
-	drvdata->base = ioremap_nocache(res->start, resource_size(res));
-	if (!drvdata->base) {
-		ret = -EINVAL;
-		goto err_ioremap;
-	}
+	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -ENODEV;
+	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
+	if (!drvdata->base)
+		return -ENOMEM;
+
 	spin_lock_init(&drvdata->spinlock);
 
-	drvdata->clk = clk_get(drvdata->dev, "core_clk");
-	if (IS_ERR(drvdata->clk)) {
-		ret = PTR_ERR(drvdata->clk);
-		goto err_clk_get;
-	}
-
+	drvdata->clk = devm_clk_get(dev, "core_clk");
+	if (IS_ERR(drvdata->clk))
+		return PTR_ERR(drvdata->clk);
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
-		goto err_clk_rate;
+		return ret;
 
-	drvdata->buf = kzalloc(ETB_SIZE_WORDS * BYTES_PER_WORD, GFP_KERNEL);
-	if (!drvdata->buf) {
-		ret = -ENOMEM;
-		goto err_kzalloc_buf;
-	}
-	drvdata->miscdev.name = ((struct coresight_platform_data *)
-				 (pdev->dev.platform_data))->name;
-	drvdata->miscdev.minor = MISC_DYNAMIC_MINOR;
-	drvdata->miscdev.fops = &etb_fops;
-	ret = misc_register(&drvdata->miscdev);
-	if (ret)
-		goto err_misc_register;
+	drvdata->buf = devm_kzalloc(dev, ETB_SIZE_WORDS * BYTES_PER_WORD,
+				    GFP_KERNEL);
+	if (!drvdata->buf)
+		return -ENOMEM;
 
-	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
-	if (!desc) {
-		ret = -ENOMEM;
-		goto err_kzalloc_desc;
-	}
+	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return -ENOMEM;
 	desc->type = CORESIGHT_DEV_TYPE_SINK;
 	desc->subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 	desc->ops = &etb_cs_ops;
@@ -403,30 +386,21 @@ static int etb_probe(struct platform_device *pdev)
 	desc->groups = etb_attr_grps;
 	desc->owner = THIS_MODULE;
 	drvdata->csdev = coresight_register(desc);
-	if (IS_ERR(drvdata->csdev)) {
-		ret = PTR_ERR(drvdata->csdev);
-		goto err_coresight_register;
-	}
-	kfree(desc);
+	if (IS_ERR(drvdata->csdev))
+		return PTR_ERR(drvdata->csdev);
 
-	dev_info(drvdata->dev, "ETB initialized\n");
+	drvdata->miscdev.name = ((struct coresight_platform_data *)
+				 (pdev->dev.platform_data))->name;
+	drvdata->miscdev.minor = MISC_DYNAMIC_MINOR;
+	drvdata->miscdev.fops = &etb_fops;
+	ret = misc_register(&drvdata->miscdev);
+	if (ret)
+		goto err;
+
+	dev_info(dev, "ETB initialized\n");
 	return 0;
-err_coresight_register:
-	kfree(desc);
-err_kzalloc_desc:
-	misc_deregister(&drvdata->miscdev);
-err_misc_register:
-	kfree(drvdata->buf);
-err_kzalloc_buf:
-err_clk_rate:
-	clk_put(drvdata->clk);
-err_clk_get:
-	iounmap(drvdata->base);
-err_ioremap:
-err_res:
-	kfree(drvdata);
-err_kzalloc_drvdata:
-	dev_err(drvdata->dev, "ETB init failed\n");
+err:
+	coresight_unregister(drvdata->csdev);
 	return ret;
 }
 
@@ -434,12 +408,8 @@ static int etb_remove(struct platform_device *pdev)
 {
 	struct etb_drvdata *drvdata = platform_get_drvdata(pdev);
 
-	coresight_unregister(drvdata->csdev);
 	misc_deregister(&drvdata->miscdev);
-	kfree(drvdata->buf);
-	clk_put(drvdata->clk);
-	iounmap(drvdata->base);
-	kfree(drvdata);
+	coresight_unregister(drvdata->csdev);
 	return 0;
 }
 

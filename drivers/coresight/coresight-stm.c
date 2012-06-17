@@ -426,34 +426,30 @@ static const struct attribute_group *stm_attr_grps[] = {
 static int stm_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device *dev = &pdev->dev;
 	struct stm_drvdata *drvdata;
 	struct resource *res;
 	size_t res_size, bitmap_size;
 	struct coresight_desc *desc;
 
-	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
-	if (!drvdata) {
-		ret = -ENOMEM;
-		goto err_kzalloc_drvdata;
-	}
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		ret = -EINVAL;
-		goto err_res0;
-	}
-	drvdata->base = ioremap_nocache(res->start, resource_size(res));
-	if (!drvdata->base) {
-		ret = -EINVAL;
-		goto err_ioremap0;
-	}
+	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
+	/* Store the driver data pointer for use in exported functions */
+	stmdrvdata = drvdata;
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -ENODEV;
+	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
+	if (!drvdata->base)
+		return -ENOMEM;
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res) {
-		ret = -EINVAL;
-		goto err_res1;
-	}
+	if (!res)
+		return -ENODEV;
 	if (boot_nr_channel) {
 		res_size = min((resource_size_t)(boot_nr_channel *
 				  BYTES_PER_CHANNEL), resource_size(res));
@@ -463,44 +459,25 @@ static int stm_probe(struct platform_device *pdev)
 				 BYTES_PER_CHANNEL), resource_size(res));
 		bitmap_size = NR_STM_CHANNEL * sizeof(long);
 	}
-	drvdata->chs.bitmap = kzalloc(bitmap_size, GFP_KERNEL);
-	if (!drvdata->chs.bitmap) {
-		ret = -ENOMEM;
-		goto err_kzalloc_bitmap;
-	}
-	drvdata->chs.base = ioremap_nocache(res->start, res_size);
-	if (!drvdata->chs.base) {
-		ret = -EINVAL;
-		goto err_ioremap1;
-	}
-	/* Store the driver data pointer for use in exported functions */
-	stmdrvdata = drvdata;
+	drvdata->chs.base = devm_ioremap(dev, res->start, res_size);
+	if (!drvdata->chs.base)
+		return -ENOMEM;
+	drvdata->chs.bitmap = devm_kzalloc(dev, bitmap_size, GFP_KERNEL);
+	if (!drvdata->chs.bitmap)
+		return -ENOMEM;
 
-	drvdata->clk = clk_get(drvdata->dev, "core_clk");
-	if (IS_ERR(drvdata->clk)) {
-		ret = PTR_ERR(drvdata->clk);
-		goto err_clk_get;
-	}
-
+	drvdata->clk = devm_clk_get(dev, "core_clk");
+	if (IS_ERR(drvdata->clk))
+		return PTR_ERR(drvdata->clk);
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
-		goto err_clk_rate;
-
-	drvdata->miscdev.name = ((struct coresight_platform_data *)
-				 (pdev->dev.platform_data))->name;
-	drvdata->miscdev.minor = MISC_DYNAMIC_MINOR;
-	drvdata->miscdev.fops = &stm_fops;
-	ret = misc_register(&drvdata->miscdev);
-	if (ret)
-		goto err_misc_register;
+		return ret;
 
 	drvdata->entity = OST_ENTITY_ALL;
 
-	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
-	if (!desc) {
-		ret = -ENOMEM;
-		goto err_kzalloc_desc;
-	}
+	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return -ENOMEM;
 	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
 	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_SOFTWARE;
 	desc->ops = &stm_cs_ops;
@@ -509,11 +486,16 @@ static int stm_probe(struct platform_device *pdev)
 	desc->groups = stm_attr_grps;
 	desc->owner = THIS_MODULE;
 	drvdata->csdev = coresight_register(desc);
-	if (IS_ERR(drvdata->csdev)) {
-		ret = PTR_ERR(drvdata->csdev);
-		goto err_coresight_register;
-	}
-	kfree(desc);
+	if (IS_ERR(drvdata->csdev))
+		return PTR_ERR(drvdata->csdev);
+
+	drvdata->miscdev.name = ((struct coresight_platform_data *)
+				 (pdev->dev.platform_data))->name;
+	drvdata->miscdev.minor = MISC_DYNAMIC_MINOR;
+	drvdata->miscdev.fops = &stm_fops;
+	ret = misc_register(&drvdata->miscdev);
+	if (ret)
+		goto err;
 
 	dev_info(drvdata->dev, "STM initialized\n");
 
@@ -521,25 +503,8 @@ static int stm_probe(struct platform_device *pdev)
 		coresight_enable(drvdata->csdev);
 
 	return 0;
-err_coresight_register:
-	kfree(desc);
-err_kzalloc_desc:
-	misc_deregister(&drvdata->miscdev);
-err_misc_register:
-err_clk_rate:
-	clk_put(drvdata->clk);
-err_clk_get:
-	iounmap(drvdata->chs.base);
-err_ioremap1:
-	kfree(drvdata->chs.bitmap);
-err_kzalloc_bitmap:
-err_res1:
-	iounmap(drvdata->base);
-err_ioremap0:
-err_res0:
-	kfree(drvdata);
-err_kzalloc_drvdata:
-	dev_err(drvdata->dev, "STM init failed\n");
+err:
+	coresight_unregister(drvdata->csdev);
 	return ret;
 }
 
@@ -547,13 +512,8 @@ static int stm_remove(struct platform_device *pdev)
 {
 	struct stm_drvdata *drvdata = platform_get_drvdata(pdev);
 
-	coresight_unregister(drvdata->csdev);
 	misc_deregister(&drvdata->miscdev);
-	clk_put(drvdata->clk);
-	iounmap(drvdata->chs.base);
-	kfree(drvdata->chs.bitmap);
-	iounmap(drvdata->base);
-	kfree(drvdata);
+	coresight_unregister(drvdata->csdev);
 	return 0;
 }
 
