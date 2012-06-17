@@ -643,8 +643,6 @@ int32_t ov5647_sensor_i2c_probe(struct i2c_client *client,
 	}
 
 	s_ctrl = client->dev.platform_data;
-	if (s_ctrl->sensordata->pmic_gpio_enable)
-		lcd_camera_power_onoff(0);
 
 	return rc;
 }
@@ -715,11 +713,6 @@ int32_t ov5647_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	info = s_ctrl->sensordata;
 	gpio_direction_output(info->sensor_pwd, 1);
 	gpio_direction_output(info->sensor_reset, 0);
-	usleep_range(10000, 11000);
-	if (info->pmic_gpio_enable) {
-		info->pmic_gpio_enable = 0;
-		lcd_camera_power_onoff(1);
-	}
 	usleep_range(10000, 11000);
 	rc = msm_sensor_power_up(s_ctrl);
 	if (rc < 0) {

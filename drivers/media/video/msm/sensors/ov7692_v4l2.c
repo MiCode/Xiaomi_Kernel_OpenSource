@@ -861,44 +861,6 @@ static struct v4l2_subdev_ops ov7692_subdev_ops = {
 	.video  = &ov7692_subdev_video_ops,
 };
 
-int32_t ov7692_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	int32_t rc = 0;
-	struct msm_camera_sensor_info *info = NULL;
-
-	info = s_ctrl->sensordata;
-	if (info->pmic_gpio_enable) {
-		info->sensor_lcd_gpio_onoff(1);
-		usleep_range(5000, 5100);
-	}
-
-	rc = msm_sensor_power_up(s_ctrl);
-	if (rc < 0) {
-		CDBG("%s: msm_sensor_power_up failed\n", __func__);
-		return rc;
-	}
-
-	return rc;
-}
-
-int32_t ov7692_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	int32_t rc = 0;
-	struct msm_camera_sensor_info *info = NULL;
-
-	rc = msm_sensor_power_down(s_ctrl);
-	if (rc < 0)
-		CDBG("%s: msm_sensor_power_down failed\n", __func__);
-
-	info = s_ctrl->sensordata;
-	if (info->pmic_gpio_enable) {
-		info->pmic_gpio_enable = 0;
-		info->sensor_lcd_gpio_onoff(0);
-		usleep_range(5000, 5100);
-	}
-	return rc;
-}
-
 static struct msm_sensor_fn_t ov7692_func_tbl = {
 	.sensor_start_stream = msm_sensor_start_stream,
 	.sensor_stop_stream = msm_sensor_stop_stream,
@@ -907,8 +869,8 @@ static struct msm_sensor_fn_t ov7692_func_tbl = {
 	.sensor_mode_init = msm_sensor_mode_init,
 	.sensor_get_output_info = msm_sensor_get_output_info,
 	.sensor_config = msm_sensor_config,
-	.sensor_power_up = ov7692_sensor_power_up,
-	.sensor_power_down = ov7692_sensor_power_down,
+	.sensor_power_up = msm_sensor_power_up,
+	.sensor_power_down = msm_sensor_power_down,
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
 };
 
