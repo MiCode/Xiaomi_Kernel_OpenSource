@@ -108,6 +108,25 @@ static int msm_camera_v4l2_g_ctrl(struct file *f, void *pctx,
 	return rc;
 }
 
+static int msm_camera_v4l2_private_s_ctrl(struct file *f, void *pctx,
+			struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
+{
+	int rc = -EINVAL;
+	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+	pcam_inst = container_of(f->private_data,
+		struct msm_cam_v4l2_dev_inst, eventHandle);
+	WARN_ON(pctx != f->private_data);
+	mutex_lock(&pcam->vid_lock);
+	switch (ioctl_ptr->id) {
+	case MSM_V4L2_PID_CTRL_CMD:
+		rc = msm_server_proc_ctrl_cmd(pcam, ioctl_ptr, 1);
+		break;
+	}
+	mutex_unlock(&pcam->vid_lock);
+	return rc;
+}
+
 static int msm_camera_v4l2_s_ctrl(struct file *f, void *pctx,
 					struct v4l2_control *ctrl)
 {
@@ -126,17 +145,6 @@ static int msm_camera_v4l2_s_ctrl(struct file *f, void *pctx,
 		D("%s: mmap_inst=(0x%p, %d)\n",
 			 __func__, pcam_inst, pcam_inst->my_index);
 		pcam_inst->is_mem_map_inst = 1;
-		break;
-	case MSM_V4L2_PID_MMAP_ENTRY:
-		if (copy_from_user(&pcam_inst->mem_map,
-			(void *)ctrl->value,
-			sizeof(struct msm_mem_map_info))) {
-			rc = -EFAULT;
-		} else
-			D("%s:mmap entry:cookie=0x%x,mem_type=%d,len=%d\n",
-				__func__, pcam_inst->mem_map.cookie,
-				pcam_inst->mem_map.mem_type,
-				pcam_inst->mem_map.length);
 		break;
 	default:
 		if (ctrl->id == MSM_V4L2_PID_CAM_MODE)
@@ -685,6 +693,22 @@ static int msm_camera_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 	return rc;
 }
 
+static long msm_camera_v4l2_private_ioctl(struct file *file, void *fh,
+					  bool valid_prio, int cmd,
+					  void *arg)
+{
+	int rc = -EINVAL;
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr = arg;
+	D("%s: cmd %d\n", __func__, _IOC_NR(cmd));
+
+	switch (cmd) {
+	case MSM_CAM_V4L2_IOCTL_PRIVATE_S_CTRL:
+		rc = msm_camera_v4l2_private_s_ctrl(file, fh, ioctl_ptr);
+		break;
+	}
+	return rc;
+}
+
 /* v4l2_ioctl_ops */
 static const struct v4l2_ioctl_ops g_msm_ioctl_ops = {
 	.vidioc_querycap = msm_camera_v4l2_querycap,
@@ -724,6 +748,7 @@ static const struct v4l2_ioctl_ops g_msm_ioctl_ops = {
 	/* event subscribe/unsubscribe */
 	.vidioc_subscribe_event = msm_camera_v4l2_subscribe_event,
 	.vidioc_unsubscribe_event = msm_camera_v4l2_unsubscribe_event,
+	.vidioc_default = msm_camera_v4l2_private_ioctl,
 };
 
 /* v4l2_file_operations */

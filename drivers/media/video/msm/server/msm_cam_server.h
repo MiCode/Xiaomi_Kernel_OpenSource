@@ -36,7 +36,7 @@ int msm_server_streamoff(struct msm_cam_v4l2_device *pcam, int idx);
 int msm_server_get_usecount(void);
 int32_t msm_find_free_queue(void);
 int msm_server_proc_ctrl_cmd(struct msm_cam_v4l2_device *pcam,
-	struct v4l2_control *ctrl, int is_set_cmd);
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr, int is_set_cmd);
 int msm_server_s_ctrl(struct msm_cam_v4l2_device *pcam,
 	struct v4l2_control *ctrl);
 int msm_server_g_ctrl(struct msm_cam_v4l2_device *pcam,
