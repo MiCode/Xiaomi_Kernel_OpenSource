@@ -255,10 +255,6 @@ int32_t msm_sensor_get_csi_params(struct msm_sensor_ctrl_t *s_ctrl,
 
 struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd);
 
-#if defined(CONFIG_OV5647)
-	extern int lcd_camera_power_onoff(int on);
-#endif
-
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, void __user *)
 

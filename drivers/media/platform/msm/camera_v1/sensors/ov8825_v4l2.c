@@ -808,33 +808,12 @@ static const struct i2c_device_id ov8825_i2c_id[] = {
 	{ }
 };
 
-int32_t ov8825_sensor_i2c_probe(struct i2c_client *client,
-		const struct i2c_device_id *id)
-{
-	int32_t rc = 0;
-	struct msm_sensor_ctrl_t *s_ctrl;
-
-	CDBG("\n in ov8825_sensor_i2c_probe\n");
-	rc = msm_sensor_i2c_probe(client, id);
-	if (client->dev.platform_data == NULL) {
-		pr_err("%s: NULL sensor data\n", __func__);
-		return -EFAULT;
-	}
-	s_ctrl = client->dev.platform_data;
-	if (s_ctrl->sensordata->pmic_gpio_enable)
-		lcd_camera_power_onoff(0);
-	return rc;
-}
-
 int32_t ov8825_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *info = NULL;
+
 	info = s_ctrl->sensordata;
-	if (info->pmic_gpio_enable) {
-		info->pmic_gpio_enable = 0;
-		lcd_camera_power_onoff(1);
-	}
 	gpio_direction_output(info->sensor_pwd, 0);
 	gpio_direction_output(info->sensor_reset, 0);
 	usleep_range(10000, 11000);
@@ -853,7 +832,7 @@ int32_t ov8825_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 static struct i2c_driver ov8825_i2c_driver = {
 	.id_table = ov8825_i2c_id,
-	.probe  = ov8825_sensor_i2c_probe,
+	.probe  = msm_sensor_i2c_probe,
 	.driver = {
 		.name = SENSOR_NAME,
 	},
