@@ -34,7 +34,7 @@
 		.virtual = (unsigned long) MSM_##name##_BASE, \
 		.pfn = __phys_to_pfn(chip##_##name##_PHYS), \
 		.length = chip##_##name##_SIZE, \
-		.type = MT_DEVICE_NONSHARED, \
+		.type = MT_DEVICE, \
 	 }
 
 #define MSM_DEVICE(name) MSM_CHIP_DEVICE(name, MSM)
