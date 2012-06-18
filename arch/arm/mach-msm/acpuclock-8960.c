@@ -154,6 +154,8 @@ struct scalable {
 	struct l2_level *l2_vote;
 	struct vreg vreg[NUM_VREG];
 	unsigned int *hfpll_vdd_tbl;
+	bool regulators_initialized;
+	bool clocks_initialized;
 };
 
 static unsigned int hfpll_vdd_tbl_8960[] = {
@@ -842,6 +844,8 @@ static struct acpu_level *acpu_freq_tbl_8930_pvs[NUM_PVS] __initdata = {
 	[PVS_FAST] = acpu_freq_tbl_8930_fast,
 };
 
+static struct acpu_level *max_acpu_level;
+
 static unsigned long acpuclk_8960_get_rate(int cpu)
 {
 	return scalable[cpu].current_speed->khz;
@@ -1305,7 +1309,7 @@ out:
 }
 
 /* Initialize a HFPLL at a given rate and enable it. */
-static void __init hfpll_init(struct scalable *sc, struct core_speed *tgt_s)
+static void __cpuinit hfpll_init(struct scalable *sc, struct core_speed *tgt_s)
 {
 	pr_debug("Initializing HFPLL%d\n", sc - scalable);
 
@@ -1326,69 +1330,66 @@ static void __init hfpll_init(struct scalable *sc, struct core_speed *tgt_s)
 }
 
 /* Voltage regulator initialization. */
-static void __init regulator_init(struct acpu_level *lvl)
+static void __cpuinit regulator_init(int cpu, struct acpu_level *lvl)
 {
-	int cpu, ret;
-	struct scalable *sc;
+	int ret;
+	struct scalable *sc = &scalable[cpu];
 	unsigned int vdd_mem, vdd_dig, vdd_core;
 
 	vdd_mem = calculate_vdd_mem(lvl);
 	vdd_dig = calculate_vdd_dig(lvl);
 
-	for_each_possible_cpu(cpu) {
-		sc = &scalable[cpu];
-
-		/* Set initial vdd_mem vote. */
-		ret = rpm_vreg_set_voltage(sc->vreg[VREG_MEM].rpm_vreg_id,
-				sc->vreg[VREG_MEM].rpm_vreg_voter, vdd_mem,
-				sc->vreg[VREG_MEM].max_vdd, 0);
-		if (ret) {
-			pr_err("%s initialization failed (%d)\n",
-				sc->vreg[VREG_MEM].name, ret);
-			BUG();
-		}
-		sc->vreg[VREG_MEM].cur_vdd  = vdd_mem;
-
-		/* Set initial vdd_dig vote. */
-		ret = rpm_vreg_set_voltage(sc->vreg[VREG_DIG].rpm_vreg_id,
-				sc->vreg[VREG_DIG].rpm_vreg_voter, vdd_dig,
-				sc->vreg[VREG_DIG].max_vdd, 0);
-		if (ret) {
-			pr_err("%s initialization failed (%d)\n",
-				sc->vreg[VREG_DIG].name, ret);
-			BUG();
-		}
-		sc->vreg[VREG_DIG].cur_vdd  = vdd_dig;
-
-		/* Setup Krait CPU regulators and initial core voltage. */
-		sc->vreg[VREG_CORE].reg = regulator_get(NULL,
-					  sc->vreg[VREG_CORE].name);
-		if (IS_ERR(sc->vreg[VREG_CORE].reg)) {
-			pr_err("regulator_get(%s) failed (%ld)\n",
-			       sc->vreg[VREG_CORE].name,
-			       PTR_ERR(sc->vreg[VREG_CORE].reg));
-			BUG();
-		}
-		vdd_core = calculate_vdd_core(lvl);
-		ret = regulator_set_voltage(sc->vreg[VREG_CORE].reg, vdd_core,
-					    sc->vreg[VREG_CORE].max_vdd);
-		if (ret) {
-			pr_err("%s initialization failed (%d)\n",
-				sc->vreg[VREG_CORE].name, ret);
-			BUG();
-		}
-		sc->vreg[VREG_CORE].cur_vdd = vdd_core;
-		ret = regulator_enable(sc->vreg[VREG_CORE].reg);
-		if (ret) {
-			pr_err("regulator_enable(%s) failed (%d)\n",
-			       sc->vreg[VREG_CORE].name, ret);
-			BUG();
-		}
+	/* Set initial vdd_mem vote. */
+	ret = rpm_vreg_set_voltage(sc->vreg[VREG_MEM].rpm_vreg_id,
+			sc->vreg[VREG_MEM].rpm_vreg_voter, vdd_mem,
+			sc->vreg[VREG_MEM].max_vdd, 0);
+	if (ret) {
+		pr_err("%s initialization failed (%d)\n",
+			sc->vreg[VREG_MEM].name, ret);
+		BUG();
 	}
+	sc->vreg[VREG_MEM].cur_vdd  = vdd_mem;
+
+	/* Set initial vdd_dig vote. */
+	ret = rpm_vreg_set_voltage(sc->vreg[VREG_DIG].rpm_vreg_id,
+			sc->vreg[VREG_DIG].rpm_vreg_voter, vdd_dig,
+			sc->vreg[VREG_DIG].max_vdd, 0);
+	if (ret) {
+		pr_err("%s initialization failed (%d)\n",
+			sc->vreg[VREG_DIG].name, ret);
+		BUG();
+	}
+	sc->vreg[VREG_DIG].cur_vdd  = vdd_dig;
+
+	/* Setup Krait CPU regulators and initial core voltage. */
+	sc->vreg[VREG_CORE].reg = regulator_get(NULL,
+				  sc->vreg[VREG_CORE].name);
+	if (IS_ERR(sc->vreg[VREG_CORE].reg)) {
+		pr_err("regulator_get(%s) failed (%ld)\n",
+		       sc->vreg[VREG_CORE].name,
+		       PTR_ERR(sc->vreg[VREG_CORE].reg));
+		BUG();
+	}
+	vdd_core = calculate_vdd_core(lvl);
+	ret = regulator_set_voltage(sc->vreg[VREG_CORE].reg, vdd_core,
+				    sc->vreg[VREG_CORE].max_vdd);
+	if (ret) {
+		pr_err("%s initialization failed (%d)\n",
+			sc->vreg[VREG_CORE].name, ret);
+		BUG();
+	}
+	sc->vreg[VREG_CORE].cur_vdd = vdd_core;
+	ret = regulator_enable(sc->vreg[VREG_CORE].reg);
+	if (ret) {
+		pr_err("regulator_enable(%s) failed (%d)\n",
+		       sc->vreg[VREG_CORE].name, ret);
+		BUG();
+	}
+	sc->regulators_initialized = true;
 }
 
 /* Set initial rate for a given core. */
-static void __init init_clock_sources(struct scalable *sc,
+static void __cpuinit init_clock_sources(struct scalable *sc,
 				      struct core_speed *tgt_s)
 {
 	uint32_t regval;
@@ -1412,13 +1413,13 @@ static void __init init_clock_sources(struct scalable *sc,
 	sc->current_speed = tgt_s;
 }
 
-static void __init per_cpu_init(void *data)
+static void __cpuinit per_cpu_init(void *data)
 {
-	struct acpu_level *max_acpu_level = data;
 	int cpu = smp_processor_id();
 
 	init_clock_sources(&scalable[cpu], &max_acpu_level->speed);
 	scalable[cpu].l2_vote = max_acpu_level->l2_level;
+	scalable[cpu].clocks_initialized = true;
 }
 
 /* Register with bus driver. */
@@ -1502,17 +1503,23 @@ static int __cpuinit acpuclock_cpu_callback(struct notifier_block *nfb,
 		/* Fall through. */
 	case CPU_UP_CANCELED:
 	case CPU_UP_CANCELED_FROZEN:
-		acpuclk_8960_set_rate(cpu, HOT_UNPLUG_KHZ, SETRATE_HOTPLUG);
+		if (scalable[cpu].clocks_initialized)
+			acpuclk_8960_set_rate(cpu, HOT_UNPLUG_KHZ,
+					      SETRATE_HOTPLUG);
 		break;
 	case CPU_UP_PREPARE:
 	case CPU_UP_PREPARE_FROZEN:
-		if (WARN_ON(!prev_khz[cpu]))
-			return NOTIFY_BAD;
-		acpuclk_8960_set_rate(cpu, prev_khz[cpu], SETRATE_HOTPLUG);
+		if (scalable[cpu].clocks_initialized)
+			acpuclk_8960_set_rate(cpu, prev_khz[cpu],
+					      SETRATE_HOTPLUG);
+		if (!scalable[cpu].regulators_initialized)
+			regulator_init(cpu, max_acpu_level);
 		break;
 	case CPU_STARTING:
 	case CPU_STARTING_FROZEN:
-		if (cpu_is_krait_v1() || cpu_is_apq8064()) {
+		if (!scalable[cpu].clocks_initialized) {
+			per_cpu_init(NULL);
+		} else if (cpu_is_krait_v1() || cpu_is_apq8064()) {
 			set_sec_clk_src(&scalable[cpu], prev_sec_src[cpu]);
 			set_pri_clk_src(&scalable[cpu], prev_pri_src[cpu]);
 		}
@@ -1578,9 +1585,9 @@ static enum pvs __init get_pvs(void)
 	}
 }
 
-static struct acpu_level * __init select_freq_plan(void)
+static void __init select_freq_plan(void)
 {
-	struct acpu_level *l, *max_acpu_level = NULL;
+	struct acpu_level *l;
 
 	/* Select frequency tables. */
 	if (cpu_is_msm8960()) {
@@ -1628,8 +1635,6 @@ static struct acpu_level * __init select_freq_plan(void)
 			max_acpu_level = l;
 	BUG_ON(!max_acpu_level);
 	pr_info("Max ACPU freq: %u KHz\n", max_acpu_level->speed.khz);
-
-	return max_acpu_level;
 }
 
 static struct acpuclk_data acpuclk_8960_data = {
@@ -1641,13 +1646,16 @@ static struct acpuclk_data acpuclk_8960_data = {
 
 static int __init acpuclk_8960_probe(struct platform_device *pdev)
 {
-	struct acpu_level *max_acpu_level = select_freq_plan();
+	int cpu;
 
-	regulator_init(max_acpu_level);
+	select_freq_plan();
+
+	for_each_online_cpu(cpu)
+		regulator_init(cpu, max_acpu_level);
 	bus_init(max_acpu_level->l2_level->bw_level);
 
 	init_clock_sources(&scalable[L2], &max_acpu_level->l2_level->speed);
-	on_each_cpu(per_cpu_init, max_acpu_level, true);
+	on_each_cpu(per_cpu_init, NULL, true);
 
 	cpufreq_table_init();
 
