@@ -119,9 +119,17 @@ static int tpiu_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_clk_rate;
 
+	/* Disable tpiu to support older targets that need this */
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		goto err_clk_enable;
+	__tpiu_disable();
+	clk_disable_unprepare(drvdata->clk);
+
 	dev_info(drvdata->dev, "TPIU initialized\n");
 	return 0;
 
+err_clk_enable:
 err_clk_rate:
 	clk_put(drvdata->clk);
 err_clk_get:
