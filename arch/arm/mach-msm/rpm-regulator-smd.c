@@ -762,10 +762,11 @@ struct rpm_regulator *rpm_regulator_get(struct device *dev, const char *supply)
 	struct rpm_vreg *rpm_vreg;
 
 	regulator = regulator_get(dev, supply);
-	if (regulator == NULL) {
-		pr_err("could not find regulator for: dev=%s, id=%s\n",
-			(dev ? dev_name(dev) : ""), (supply ? supply : ""));
-		return ERR_PTR(-ENODEV);
+	if (IS_ERR(regulator)) {
+		pr_err("could not find regulator for: dev=%s, supply=%s, rc=%ld\n",
+			(dev ? dev_name(dev) : ""), (supply ? supply : ""),
+			PTR_ERR(regulator));
+		return ERR_CAST(regulator);
 	}
 
 	framework_reg = regulator_get_drvdata(regulator);
@@ -818,7 +819,7 @@ EXPORT_SYMBOL_GPL(rpm_regulator_get);
 
 static int rpm_regulator_check_input(struct rpm_regulator *regulator)
 {
-	if (regulator == NULL || regulator->rpm_vreg == NULL) {
+	if (IS_ERR_OR_NULL(regulator) || regulator->rpm_vreg == NULL) {
 		pr_err("invalid rpm_regulator pointer\n");
 		return -EINVAL;
 	}
