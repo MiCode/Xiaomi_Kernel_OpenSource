@@ -374,8 +374,10 @@ static int __init arch_timer_common_register(void)
 {
 	int err;
 
-	if (!local_timer_is_architected())
+	if (timer_base)
 		arch_specific_timer = &arch_timer_ops_mem;
+	else if (!local_timer_is_architected())
+		return -ENXIO;
 
 	err = arch_timer_available();
 	if (err)
@@ -490,10 +492,12 @@ int __init arch_timer_of_register(void)
 		return -ENODEV;
 	}
 
-	timer_base = of_iomap(np, 0);
-	if (!timer_base) {
-		pr_err("arch_timer: cant map timer base\n");
-		return -ENOMEM;
+	if (of_get_address(np, 0, NULL, NULL)) {
+		timer_base = of_iomap(np, 0);
+		if (!timer_base) {
+			pr_err("arch_timer: cant map timer base\n");
+			return -ENOMEM;
+		}
 	}
 
 	if (of_get_property(np, "irq-is-not-percpu", NULL))
