@@ -6077,18 +6077,19 @@ static void __init reg_init(void)
 	 */
 	/*
 	 * Initialize MM AHB registers: Enable the FPB clock and disable HW
-	 * gating on non-8960 for all clocks. Also set VFE_AHB's
+	 * gating on 8627 for all clocks. Also set VFE_AHB's
 	 * FORCE_CORE_ON bit to prevent its memory from being collapsed when
 	 * the clock is halted. The sleep and wake-up delays are set to safe
 	 * values.
 	 */
-	if (cpu_is_msm8960() || cpu_is_apq8064()) {
-		rmwreg(0x44000000, AHB_EN_REG,  0x6C000103);
-		writel_relaxed(0x3C7097F9, AHB_EN2_REG);
-	} else {
+	if (cpu_is_msm8627()) {
 		rmwreg(0x00000003, AHB_EN_REG,  0x6C000103);
 		writel_relaxed(0x000007F9, AHB_EN2_REG);
+	} else {
+		rmwreg(0x44000000, AHB_EN_REG,  0x6C000103);
+		writel_relaxed(0x3C7097F9, AHB_EN2_REG);
 	}
+
 	if (cpu_is_apq8064())
 		rmwreg(0x00000001, AHB_EN3_REG, 0x00000001);
 
@@ -6100,25 +6101,26 @@ static void __init reg_init(void)
 	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
 	 * delays to safe values. */
 	if ((cpu_is_msm8960() &&
-			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) ||
-			cpu_is_apq8064()) {
-		rmwreg(0x0003AFF9, MAXI_EN_REG,  0x0803FFFF);
-		rmwreg(0x3A27FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
-		rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
-	} else {
+			SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 3) ||
+			cpu_is_msm8627()) {
 		rmwreg(0x000007F9, MAXI_EN_REG,  0x0803FFFF);
 		rmwreg(0x3027FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
-		rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
+	} else {
+		rmwreg(0x0003AFF9, MAXI_EN_REG,  0x0803FFFF);
+		rmwreg(0x3A27FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
 	}
+
 	rmwreg(0x0027FCFF, MAXI_EN3_REG, 0x003FFFFF);
+	rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
+
 	if (cpu_is_apq8064())
 		rmwreg(0x019FECFF, MAXI_EN5_REG, 0x01FFEFFF);
 	if (cpu_is_msm8930())
 		rmwreg(0x000004FF, MAXI_EN5_REG, 0x00000FFF);
-	if (cpu_is_msm8960() || cpu_is_apq8064())
-		rmwreg(0x00003C38, SAXI_EN_REG,  0x00003FFF);
-	else
+	if (cpu_is_msm8627())
 		rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
+	else
+		rmwreg(0x00003C38, SAXI_EN_REG,  0x00003FFF);
 
 	/* Enable IMEM's clk_on signal */
 	imem_reg = ioremap(0x04b00040, 4);
