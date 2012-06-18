@@ -381,7 +381,7 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 	 */
 	mb();
 
-	if (!mhsic->pdata->keep_core_clk_on_suspend_workaround) {
+	if (!mhsic->pdata->core_clk_always_on_workaround) {
 		clk_disable(mhsic->iface_clk);
 		clk_disable(mhsic->core_clk);
 	}
@@ -438,7 +438,7 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 		dev_err(mhsic->dev, "%s failed to vote for TCXO %d\n",
 				__func__, ret);
 
-	if (!mhsic->pdata->keep_core_clk_on_suspend_workaround) {
+	if (!mhsic->pdata->core_clk_always_on_workaround) {
 		clk_enable(mhsic->iface_clk);
 		clk_enable(mhsic->core_clk);
 	}

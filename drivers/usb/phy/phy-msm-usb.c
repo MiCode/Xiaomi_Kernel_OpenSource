@@ -834,8 +834,10 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	/* Ensure that above operation is completed before turning off clocks */
 	mb();
-	clk_disable_unprepare(motg->pclk);
-	clk_disable_unprepare(motg->core_clk);
+	if (!motg->pdata->core_clk_always_on_workaround) {
+		clk_disable_unprepare(motg->pclk);
+		clk_disable_unprepare(motg->core_clk);
+	}
 
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
 	if (!host_bus_suspend) {
@@ -898,9 +900,10 @@ static int msm_otg_resume(struct msm_otg *motg)
 		motg->lpm_flags &= ~XO_SHUTDOWN;
 	}
 
-	clk_prepare_enable(motg->core_clk);
-
-	clk_prepare_enable(motg->pclk);
+	if (!motg->pdata->core_clk_always_on_workaround) {
+		clk_prepare_enable(motg->core_clk);
+		clk_prepare_enable(motg->pclk);
+	}
 
 	if (motg->lpm_flags & PHY_PWR_COLLAPSED) {
 		msm_hsusb_ldo_enable(motg, 1);
