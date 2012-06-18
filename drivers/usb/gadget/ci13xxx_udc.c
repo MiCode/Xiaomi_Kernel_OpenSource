@@ -1720,6 +1720,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 			if (!mReq->req.no_interrupt)
 				mReq->ptr->token |= MSM_ETD_IOC;
 		}
+		mReq->req.dma = 0;
 	}
 
 	mReq->ptr->page[0]  = mReq->req.dma;
