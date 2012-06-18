@@ -26,6 +26,8 @@
 #include <linux/seq_file.h>
 #include <linux/regulator/consumer.h>
 #include <linux/string.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 /* Family ID */
 #define MXT224_ID	0x80
@@ -291,6 +293,8 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_CFG_VERSION_EQUAL	0
 #define MXT_CFG_VERSION_LESS	1
 #define MXT_CFG_VERSION_GREATER	2
+
+#define MXT_COORDS_ARR_SIZE	4
 
 #define MXT_DEBUGFS_DIR		"atmel_mxt_ts"
 #define MXT_DEBUGFS_FILE	"object"
@@ -2149,14 +2153,228 @@ static void mxt_debugfs_init(struct mxt_data *data)
 	}
 }
 
+#ifdef CONFIG_OF
+static int mxt_get_dt_coords(struct device *dev, char *name,
+				struct mxt_platform_data *pdata)
+{
+	u32 coords[MXT_COORDS_ARR_SIZE];
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+	int coords_size, rc;
+
+	prop = of_find_property(np, name, NULL);
+	if (!prop)
+		return -EINVAL;
+	if (!prop->value)
+		return -ENODATA;
+
+	coords_size = prop->length / sizeof(u32);
+	if (coords_size != MXT_COORDS_ARR_SIZE) {
+		dev_err(dev, "invalid %s\n", name);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(np, name, coords, coords_size);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read %s\n", name);
+		return rc;
+	}
+
+	if (strncmp(name, "atmel,panel-coords",
+			sizeof("atmel,panel-coords")) == 0) {
+		pdata->panel_minx = coords[0];
+		pdata->panel_miny = coords[1];
+		pdata->panel_maxx = coords[2];
+		pdata->panel_maxy = coords[3];
+	} else if (strncmp(name, "atmel,display-coords",
+			sizeof("atmel,display-coords")) == 0) {
+		pdata->disp_minx = coords[0];
+		pdata->disp_miny = coords[1];
+		pdata->disp_maxx = coords[2];
+		pdata->disp_maxy = coords[3];
+	} else {
+		dev_err(dev, "unsupported property %s\n", name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mxt_parse_config(struct device *dev, struct device_node *np,
+				struct mxt_config_info *info)
+{
+	struct property *prop;
+	u8 *temp_cfg;
+
+	prop = of_find_property(np, "atmel,config", &info->config_length);
+	if (!prop) {
+		dev_err(dev, "Looking up %s property in node %s failed",
+			"atmel,config", np->full_name);
+		return -ENODEV;
+	} else if (!info->config_length) {
+		dev_err(dev, "Invalid length of configuration data\n");
+		return -EINVAL;
+	}
+
+	temp_cfg = devm_kzalloc(dev,
+			info->config_length * sizeof(u8), GFP_KERNEL);
+	if (!temp_cfg) {
+		dev_err(dev, "Unable to allocate memory to store cfg\n");
+		return -ENOMEM;
+	}
+
+	memcpy(temp_cfg, prop->value, info->config_length);
+	info->config = temp_cfg;
+
+	return 0;
+}
+
+static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
+{
+	int rc;
+	struct mxt_config_info *info;
+	struct device_node *temp, *np = dev->of_node;
+	struct property *prop;
+	u32 temp_val;
+
+	rc = mxt_get_dt_coords(dev, "atmel,panel-coords", pdata);
+	if (rc)
+		return rc;
+
+	rc = mxt_get_dt_coords(dev, "atmel,display-coords", pdata);
+	if (rc)
+		return rc;
+
+	/* regulator info */
+	pdata->i2c_pull_up = of_property_read_bool(np, "atmel,i2c-pull-up");
+	pdata->digital_pwr_regulator = of_property_read_bool(np,
+						"atmel,dig-reg-support");
+	/* reset, irq gpio info */
+	pdata->reset_gpio = of_get_named_gpio_flags(np, "atmel,reset-gpio",
+				0, &pdata->reset_gpio_flags);
+	pdata->irq_gpio = of_get_named_gpio_flags(np, "atmel,irq-gpio",
+				0, &pdata->irq_gpio_flags);
+
+	/* keycodes for keyarray object*/
+	prop = of_find_property(np, "atmel,key-codes", NULL);
+	if (prop) {
+		pdata->key_codes = devm_kzalloc(dev,
+				sizeof(int) * MXT_KEYARRAY_MAX_KEYS,
+				GFP_KERNEL);
+		if (!pdata->key_codes)
+			return -ENOMEM;
+		if ((prop->length/sizeof(u32)) == MXT_KEYARRAY_MAX_KEYS) {
+			rc = of_property_read_u32_array(np, "atmel,key-codes",
+				pdata->key_codes, MXT_KEYARRAY_MAX_KEYS);
+			if (rc) {
+				dev_err(dev, "Unable to read key codes\n");
+				return rc;
+			}
+		} else
+			return -EINVAL;
+	}
+
+	/* config array size */
+	pdata->config_array_size = 0;
+	temp = NULL;
+	while ((temp = of_get_next_child(np, temp)))
+		pdata->config_array_size++;
+
+	if (!pdata->config_array_size)
+		return 0;
+
+	info = devm_kzalloc(dev, pdata->config_array_size *
+				sizeof(struct mxt_config_info), GFP_KERNEL);
+	if (!info) {
+		dev_err(dev, "Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	pdata->config_array  = info;
+
+	for_each_child_of_node(np, temp) {
+		rc = of_property_read_string(temp, "atmel,fw-name",
+			&info->fw_name);
+		if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read fw name\n");
+			return rc;
+		}
+
+		rc = of_property_read_u32(temp, "atmel,family-id", &temp_val);
+		if (rc) {
+			dev_err(dev, "Unable to read family id\n");
+			return rc;
+		} else
+			info->family_id = (u8) temp_val;
+
+		rc  = of_property_read_u32(temp, "atmel,variant-id", &temp_val);
+		if (rc) {
+			dev_err(dev, "Unable to read variant id\n");
+			return rc;
+		} else
+			info->variant_id = (u8) temp_val;
+
+		rc = of_property_read_u32(temp, "atmel,version", &temp_val);
+		if (rc) {
+			dev_err(dev, "Unable to read controller version\n");
+			return rc;
+		} else
+			info->version = (u8) temp_val;
+
+		rc = of_property_read_u32(temp, "atmel,build", &temp_val);
+		if (rc) {
+			dev_err(dev, "Unable to read build id\n");
+			return rc;
+		} else
+			info->build = (u8) temp_val;
+
+		info->bootldr_id = of_property_read_u32(temp,
+					"atmel,bootldr-id", &temp_val);
+		if (rc) {
+			dev_err(dev, "Unable to read bootldr-id\n");
+			return rc;
+		} else
+			info->bootldr_id = (u8) temp_val;
+
+		rc = mxt_parse_config(dev, temp, info);
+		if (rc) {
+			dev_err(dev, "Unable to parse config data\n");
+			return rc;
+		}
+		info++;
+	}
+
+	return 0;
+}
+#else
+static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
+{
+	return -ENODEV;
+}
+#endif
+
 static int mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
-	const struct mxt_platform_data *pdata = client->dev.platform_data;
+	struct mxt_platform_data *pdata;
 	struct mxt_data *data;
 	struct input_dev *input_dev;
 	int error, i;
 	unsigned int num_mt_slots;
+
+	if (client->dev.of_node) {
+		pdata = devm_kzalloc(&client->dev,
+			sizeof(struct mxt_platform_data), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&client->dev, "Failed to allocate memory\n");
+			return -ENOMEM;
+		}
+
+		error = mxt_parse_dt(&client->dev, pdata);
+		if (error)
+			return error;
+	} else
+		pdata = client->dev.platform_data;
 
 	if (!pdata)
 		return -EINVAL;
@@ -2186,7 +2404,6 @@ static int mxt_probe(struct i2c_client *client,
 	data->client = client;
 	data->input_dev = input_dev;
 	data->pdata = pdata;
-	data->irq = client->irq;
 
 	if (pdata->init_hw)
 		error = pdata->init_hw(true);
@@ -2208,42 +2425,44 @@ static int mxt_probe(struct i2c_client *client,
 
 	if (gpio_is_valid(pdata->irq_gpio)) {
 		/* configure touchscreen irq gpio */
-		error = gpio_request(pdata->irq_gpio,
-							"mxt_irq_gpio");
+		error = gpio_request(pdata->irq_gpio, "mxt_irq_gpio");
 		if (error) {
-			pr_err("%s: unable to request gpio [%d]\n", __func__,
+			dev_err(&client->dev, "unable to request gpio [%d]\n",
 						pdata->irq_gpio);
 			goto err_power_on;
 		}
 		error = gpio_direction_input(pdata->irq_gpio);
 		if (error) {
-			pr_err("%s: unable to set_direction for gpio [%d]\n",
-					__func__, pdata->irq_gpio);
+			dev_err(&client->dev,
+				"unable to set direction for gpio [%d]\n",
+				pdata->irq_gpio);
 			goto err_irq_gpio_req;
 		}
+		data->irq = client->irq = gpio_to_irq(pdata->irq_gpio);
+	} else {
+		dev_err(&client->dev, "irq gpio not provided\n");
+		goto err_power_on;
 	}
 
 	if (gpio_is_valid(pdata->reset_gpio)) {
 		/* configure touchscreen reset out gpio */
-		error = gpio_request(pdata->reset_gpio,
-						"mxt_reset_gpio");
+		error = gpio_request(pdata->reset_gpio, "mxt_reset_gpio");
 		if (error) {
-			pr_err("%s: unable to request reset gpio %d\n",
-				__func__, pdata->reset_gpio);
+			dev_err(&client->dev, "unable to request gpio [%d]\n",
+						pdata->reset_gpio);
 			goto err_irq_gpio_req;
 		}
 
-		error = gpio_direction_output(
-					pdata->reset_gpio, 1);
+		error = gpio_direction_output(pdata->reset_gpio, 1);
 		if (error) {
-			pr_err("%s: unable to set direction for gpio %d\n",
-				__func__, pdata->reset_gpio);
+			dev_err(&client->dev,
+				"unable to set direction for gpio [%d]\n",
+				pdata->reset_gpio);
 			goto err_reset_gpio_req;
 		}
 	}
 
 	mxt_reset_delay(data);
-
 	error = mxt_initialize(data);
 	if (error)
 		goto err_reset_gpio_req;
@@ -2560,10 +2779,18 @@ static const struct i2c_device_id mxt_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mxt_id);
 
+#ifdef CONFIG_OF
+static struct of_device_id mxt_match_table[] = {
+	{ .compatible = "atmel,mxt-ts",},
+	{ },
+};
+#endif
+
 static struct i2c_driver mxt_driver = {
 	.driver = {
 		.name	= "atmel_mxt_ts",
 		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(mxt_match_table),
 		.pm	= &mxt_pm_ops,
 	},
 	.probe		= mxt_probe,
