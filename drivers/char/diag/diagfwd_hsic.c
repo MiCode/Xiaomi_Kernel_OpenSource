@@ -16,6 +16,7 @@
 #include <linux/diagchar.h>
 #include <linux/sched.h>
 #include <linux/err.h>
+#include <linux/ratelimit.h>
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
@@ -55,7 +56,7 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 		err = diag_bridge_read((char *)driver->buf_in_hsic,
 					IN_BUF_SIZE);
 		if (err) {
-			pr_err("DIAG: Error initiating HSIC read, err: %d\n",
+			pr_err_ratelimited("DIAG: Error initiating HSIC read, err: %d\n",
 				err);
 			/*
 			 * If the error is recoverable, then clear
@@ -63,7 +64,7 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 			 * read on the next frame.  Otherwise, don't
 			 * resubmit a read on the next frame.
 			 */
-			if ((-ESHUTDOWN) != err)
+			if ((-ENODEV) != err)
 				driver->in_busy_hsic_read = 0;
 		}
 	}
@@ -373,14 +374,15 @@ static int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 		err = diag_bridge_write(driver->usb_buf_mdm_out,
 					driver->read_len_mdm);
 		if (err) {
-			pr_err("DIAG: mdm data on hsic write err: %d\n", err);
+			pr_err_ratelimited("DIAG: mdm data on hsic write err: %d\n",
+					err);
 			/*
 			 * If the error is recoverable, then clear
 			 * the write flag, so we will resubmit a
 			 * write on the next frame.  Otherwise, don't
 			 * resubmit a write on the next frame.
 			 */
-			if ((-ESHUTDOWN) != err)
+			if ((-ENODEV) != err)
 				driver->in_busy_hsic_write = 0;
 		}
 	}

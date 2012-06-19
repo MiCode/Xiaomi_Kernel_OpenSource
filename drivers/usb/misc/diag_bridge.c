@@ -21,6 +21,7 @@
 #include <linux/module.h>
 #include <linux/kref.h>
 #include <linux/platform_device.h>
+#include <linux/ratelimit.h>
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/debugfs.h>
@@ -97,7 +98,7 @@ static void diag_bridge_read_cb(struct urb *urb)
 
 	if (urb->status == -EPROTO) {
 		dev_err(&dev->udev->dev, "%s: proto error\n", __func__);
-		/* save error so that subsequent read/write returns ESHUTDOWN */
+		/* save error so that subsequent read/write returns ENODEV */
 		dev->err = urb->status;
 		kref_put(&dev->kref, diag_bridge_delete);
 		return;
@@ -140,7 +141,7 @@ int diag_bridge_read(char *data, int size)
 
 	/* if there was a previous unrecoverable error, just quit */
 	if (dev->err)
-		return -ESHUTDOWN;
+		return -ENODEV;
 
 	kref_get(&dev->kref);
 
@@ -152,8 +153,8 @@ int diag_bridge_read(char *data, int size)
 	}
 
 	ret = usb_autopm_get_interface(dev->ifc);
-	if (ret < 0) {
-		dev_err(&dev->udev->dev, "autopm_get failed:%d\n", ret);
+	if (ret < 0 && ret != -EAGAIN && ret != -EACCES) {
+		pr_err_ratelimited("read: autopm_get failed:%d", ret);
 		goto free_error;
 	}
 
@@ -165,7 +166,7 @@ int diag_bridge_read(char *data, int size)
 
 	ret = usb_submit_urb(urb, GFP_KERNEL);
 	if (ret) {
-		dev_err(&dev->udev->dev, "submitting urb failed err:%d\n", ret);
+		pr_err_ratelimited("submitting urb failed err:%d", ret);
 		dev->pending_reads--;
 		usb_unanchor_urb(urb);
 	}
@@ -191,7 +192,7 @@ static void diag_bridge_write_cb(struct urb *urb)
 
 	if (urb->status == -EPROTO) {
 		dev_err(&dev->udev->dev, "%s: proto error\n", __func__);
-		/* save error so that subsequent read/write returns ESHUTDOWN */
+		/* save error so that subsequent read/write returns ENODEV */
 		dev->err = urb->status;
 		kref_put(&dev->kref, diag_bridge_delete);
 		return;
@@ -234,7 +235,7 @@ int diag_bridge_write(char *data, int size)
 
 	/* if there was a previous unrecoverable error, just quit */
 	if (dev->err)
-		return -ESHUTDOWN;
+		return -ENODEV;
 
 	kref_get(&dev->kref);
 
@@ -246,8 +247,8 @@ int diag_bridge_write(char *data, int size)
 	}
 
 	ret = usb_autopm_get_interface(dev->ifc);
-	if (ret < 0) {
-		dev_err(&dev->udev->dev, "autopm_get failed:%d\n", ret);
+	if (ret < 0 && ret != -EAGAIN && ret != -EACCES) {
+		pr_err_ratelimited("write: autopm_get failed:%d", ret);
 		goto free_error;
 	}
 
@@ -259,7 +260,7 @@ int diag_bridge_write(char *data, int size)
 
 	ret = usb_submit_urb(urb, GFP_KERNEL);
 	if (ret) {
-		dev_err(&dev->udev->dev, "submitting urb failed err:%d\n", ret);
+		pr_err_ratelimited("submitting urb failed err:%d", ret);
 		dev->pending_writes--;
 		usb_unanchor_urb(urb);
 		usb_autopm_put_interface(dev->ifc);
