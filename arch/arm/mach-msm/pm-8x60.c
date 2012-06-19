@@ -1039,8 +1039,6 @@ static int __init msm_pm_init(void)
 	msm_pm_mode_sysfs_add();
 	msm_pm_add_stats(enable_stats, ARRAY_SIZE(enable_stats));
 
-	msm_spm_allow_x_cpu_set_vdd(false);
-
 	suspend_set_ops(&msm_pm_ops);
 	msm_pm_qtimer_available();
 	msm_cpuidle_init();

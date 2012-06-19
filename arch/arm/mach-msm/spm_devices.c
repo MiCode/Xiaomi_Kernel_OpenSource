@@ -40,31 +40,15 @@ struct msm_spm_device {
 
 static struct msm_spm_device msm_spm_l2_device;
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_spm_device, msm_cpu_spm_device);
-static atomic_t msm_spm_set_vdd_x_cpu_allowed = ATOMIC_INIT(1);
-
-void msm_spm_allow_x_cpu_set_vdd(bool allowed)
-{
-	atomic_set(&msm_spm_set_vdd_x_cpu_allowed, allowed ? 1 : 0);
-}
-EXPORT_SYMBOL(msm_spm_allow_x_cpu_set_vdd);
 
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 {
-	unsigned long flags;
 	struct msm_spm_device *dev;
 	int ret = -EIO;
-
-	local_irq_save(flags);
-	if (!atomic_read(&msm_spm_set_vdd_x_cpu_allowed) &&
-				unlikely(smp_processor_id() != cpu)) {
-		goto set_vdd_x_cpu_bail;
-	}
 
 	dev = &per_cpu(msm_cpu_spm_device, cpu);
 	ret = msm_spm_drv_set_vdd(&dev->reg_data, vlevel);
 
-set_vdd_x_cpu_bail:
-	local_irq_restore(flags);
 	return ret;
 }
 EXPORT_SYMBOL(msm_spm_set_vdd);
