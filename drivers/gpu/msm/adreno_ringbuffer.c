@@ -56,6 +56,11 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 	unsigned long wait_timeout = msecs_to_jiffies(adreno_dev->wait_timeout);
 	unsigned long wait_time;
+	unsigned long wait_time_part;
+	unsigned int msecs_part = KGSL_TIMEOUT_PART;
+	unsigned int prev_reg_val[hang_detect_regs_count];
+
+	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
 	/* if wptr ahead, fill the remaining with NOPs */
 	if (wptr_ahead) {
@@ -83,6 +88,7 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 	}
 
 	wait_time = jiffies + wait_timeout;
+	wait_time_part = jiffies + msecs_to_jiffies(msecs_part);
 	/* wait for space in ringbuffer */
 	while (1) {
 		GSL_RB_GET_READPTR(rb, &rb->rptr);
@@ -92,16 +98,34 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 		if (freecmds == 0 || freecmds > numcmds)
 			break;
 
+		/* Dont wait for timeout, detect hang faster.
+		 */
+		if (time_after(jiffies, wait_time_part)) {
+			wait_time_part = jiffies +
+				msecs_to_jiffies(msecs_part);
+			if ((adreno_hang_detect(rb->device,
+						prev_reg_val))){
+				KGSL_DRV_ERR(rb->device,
+				"Hang detected while waiting for freespace in"
+				"ringbuffer rptr: 0x%x, wptr: 0x%x\n",
+				rb->rptr, rb->wptr);
+				goto err;
+			}
+		}
+
 		if (time_after(jiffies, wait_time)) {
 			KGSL_DRV_ERR(rb->device,
 			"Timed out while waiting for freespace in ringbuffer "
 			"rptr: 0x%x, wptr: 0x%x\n", rb->rptr, rb->wptr);
-			if (!adreno_dump_and_recover(rb->device))
+			goto err;
+		}
+
+err:
+		if (!adreno_dump_and_recover(rb->device))
 				wait_time = jiffies + wait_timeout;
 			else
 				/* GPU is hung and we cannot recover */
 				BUG();
-		}
 	}
 }
 
