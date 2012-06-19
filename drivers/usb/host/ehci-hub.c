@@ -313,7 +313,7 @@ static int ehci_bus_suspend (struct usb_hcd *hcd)
 	if (!ehci->susp_sof_bug)
 		ehci_halt(ehci); /* turn off now-idle HC */
 
-	hcd->state = HC_STATE_SUSPENDED;
+	ehci->rh_state = EHCI_RH_SUSPENDED;
 
 	if (ehci->reclaim)
 		end_unlink_async(ehci);
@@ -561,6 +561,10 @@ ehci_hub_status_data (struct usb_hcd *hcd, char *buf)
 	int		ports, i, retval = 1;
 	unsigned long	flags;
 	u32		ppcd = 0;
+
+	/* if !USB_SUSPEND, root hub timers won't get shut down ... */
+	if (ehci->rh_state != EHCI_RH_RUNNING)
+		return 0;
 
 	/* init status to no-changes */
 	buf [0] = 0;
