@@ -78,6 +78,7 @@ struct smux_ctl_dev {
 	uint32_t read_avail;
 	struct list_head rx_list;
 
+	int abort_wait;
 	wait_queue_head_t read_wait_queue;
 	wait_queue_head_t write_wait_queue;
 
@@ -359,7 +360,8 @@ int smux_ctl_open(struct inode *inode, struct file *file)
 
 		r = wait_event_interruptible_timeout(
 				devp->write_wait_queue,
-				(devp->state == SMUX_CONNECTED),
+				(devp->state == SMUX_CONNECTED ||
+				 devp->abort_wait),
 				(5 * HZ));
 		if (r == 0)
 			r = -ETIMEDOUT;
@@ -372,6 +374,13 @@ int smux_ctl_open(struct inode *inode, struct file *file)
 			msm_smux_close(devp->id);
 			return r;
 
+		} else if (devp->abort_wait) {
+			pr_err("%s: %s: Open command aborted\n",
+					SMUX_CTL_MODULE_NAME, __func__);
+			r = -EIO;
+			atomic_dec(&devp->ref_count);
+			msm_smux_close(devp->id);
+			return r;
 		} else if (devp->state != SMUX_CONNECTED) {
 			pr_err(SMUX_CTL_MODULE_NAME ": %s: "
 				"Invalid open notification\n", __func__);
@@ -440,8 +449,9 @@ static int smux_ctl_readable(int id)
 
 	if (signal_pending(current))
 		r = -ERESTARTSYS;
-
-	if (smux_ctl_devp[dev_index]->state == SMUX_DISCONNECTED &&
+	else if (smux_ctl_devp[dev_index]->abort_wait)
+		r = -ENETRESET;
+	else if (smux_ctl_devp[dev_index]->state == SMUX_DISCONNECTED &&
 	    smux_ctl_devp[dev_index]->is_channel_reset != 0)
 		r = -ENETRESET;
 
@@ -560,6 +570,9 @@ static int smux_ctl_writeable(int id)
 
 	if (signal_pending(current))
 		r = -ERESTARTSYS;
+
+	else if (smux_ctl_devp[dev_index]->abort_wait)
+		r = -ENETRESET;
 	else if (smux_ctl_devp[dev_index]->state == SMUX_DISCONNECTED &&
 	    smux_ctl_devp[dev_index]->is_channel_reset != 0)
 		r = -ENETRESET;
@@ -645,6 +658,13 @@ ssize_t smux_ctl_write(struct file *file,
 
 	r = wait_event_interruptible(devp->write_wait_queue,
 			0 != (write_err = smux_ctl_writeable(id)));
+
+	if (-EIO == r) {
+		pr_err("%s: %s: wait_event_interruptible ret %i\n",
+				SMUX_CTL_MODULE_NAME, __func__, r);
+		return -EIO;
+	}
+
 	if (r < 0) {
 		pr_err(SMUX_CTL_MODULE_NAME " :%s: wait_event_interruptible "
 				"ret %i\n", __func__, r);
@@ -699,6 +719,25 @@ static const struct file_operations smux_ctl_fops = {
 	.unlocked_ioctl = smux_ctl_ioctl,
 };
 
+static void smux_ctl_reset_channel(struct smux_ctl_dev *devp)
+{
+	devp->is_high_wm = 0;
+	devp->write_pending = 0;
+	devp->is_channel_reset = 0;
+	devp->state = SMUX_DISCONNECTED;
+	devp->read_avail = 0;
+
+	devp->stats.bytes_tx = 0;
+	devp->stats.bytes_rx = 0;
+	devp->stats.pkts_tx = 0;
+	devp->stats.pkts_rx = 0;
+	devp->stats.cnt_ssr = 0;
+	devp->stats.cnt_read_fail = 0;
+	devp->stats.cnt_write_fail = 0;
+	devp->stats.cnt_high_wm_hit = 0;
+	devp->abort_wait = 0;
+}
+
 static int smux_ctl_probe(struct platform_device *pdev)
 {
 	int i;
@@ -706,6 +745,27 @@ static int smux_ctl_probe(struct platform_device *pdev)
 
 	SMUXCTL_DBG(SMUX_CTL_MODULE_NAME ": %s Begins\n", __func__);
 
+	if (smux_ctl_inited) {
+		/* Already loaded once - reinitialize channels */
+		for (i = 0; i < SMUX_CTL_NUM_CHANNELS; ++i) {
+			struct smux_ctl_dev *devp = smux_ctl_devp[i];
+
+			smux_ctl_reset_channel(devp);
+
+			if (atomic_read(&devp->ref_count)) {
+				r = msm_smux_open(devp->id,
+						devp,
+						smux_ctl_notify_cb,
+						smux_ctl_get_rx_buf_cb);
+				if (r)
+					pr_err("%s: unable to reopen ch %d, ret %d\n",
+							__func__, devp->id, r);
+			}
+		}
+		return 0;
+	}
+
+	/* Create character devices */
 	for (i = 0; i < SMUX_CTL_NUM_CHANNELS; ++i) {
 		smux_ctl_devp[i] = kzalloc(sizeof(struct smux_ctl_dev),
 							GFP_KERNEL);
@@ -718,26 +778,13 @@ static int smux_ctl_probe(struct platform_device *pdev)
 
 		smux_ctl_devp[i]->id = smux_ctl_ch_id[i];
 		atomic_set(&smux_ctl_devp[i]->ref_count, 0);
-		smux_ctl_devp[i]->is_high_wm = 0;
-		smux_ctl_devp[i]->write_pending = 0;
-		smux_ctl_devp[i]->is_channel_reset = 0;
-		smux_ctl_devp[i]->state = SMUX_DISCONNECTED;
-		smux_ctl_devp[i]->read_avail = 0;
-
-		smux_ctl_devp[i]->stats.bytes_tx = 0;
-		smux_ctl_devp[i]->stats.bytes_rx = 0;
-		smux_ctl_devp[i]->stats.pkts_tx = 0;
-		smux_ctl_devp[i]->stats.pkts_rx = 0;
-		smux_ctl_devp[i]->stats.cnt_ssr = 0;
-		smux_ctl_devp[i]->stats.cnt_read_fail = 0;
-		smux_ctl_devp[i]->stats.cnt_write_fail = 0;
-		smux_ctl_devp[i]->stats.cnt_high_wm_hit = 0;
 
 		mutex_init(&smux_ctl_devp[i]->dev_lock);
 		init_waitqueue_head(&smux_ctl_devp[i]->read_wait_queue);
 		init_waitqueue_head(&smux_ctl_devp[i]->write_wait_queue);
 		mutex_init(&smux_ctl_devp[i]->rx_lock);
 		INIT_LIST_HEAD(&smux_ctl_devp[i]->rx_list);
+		smux_ctl_reset_channel(smux_ctl_devp[i]);
 	}
 
 	r = alloc_chrdev_region(&smux_ctl_number, 0, SMUX_CTL_NUM_CHANNELS,
@@ -761,7 +808,8 @@ static int smux_ctl_probe(struct platform_device *pdev)
 		cdev_init(&smux_ctl_devp[i]->cdev, &smux_ctl_fops);
 		smux_ctl_devp[i]->cdev.owner = THIS_MODULE;
 
-		r = cdev_add(&smux_ctl_devp[i]->cdev, (smux_ctl_number + i), 1);
+		r = cdev_add(&smux_ctl_devp[i]->cdev,
+				(smux_ctl_number + i), 1);
 
 		if (IS_ERR_VALUE(r)) {
 			pr_err(SMUX_CTL_MODULE_NAME ": %s: "
@@ -818,15 +866,32 @@ static int smux_ctl_remove(struct platform_device *pdev)
 	SMUXCTL_DBG(SMUX_CTL_MODULE_NAME ": %s Begins\n", __func__);
 
 	for (i = 0; i < SMUX_CTL_NUM_CHANNELS; ++i) {
-		cdev_del(&smux_ctl_devp[i]->cdev);
-		kfree(smux_ctl_devp[i]);
-		device_destroy(smux_ctl_classp,
-			MKDEV(MAJOR(smux_ctl_number), i));
-	}
-	class_destroy(smux_ctl_classp);
-	unregister_chrdev_region(MAJOR(smux_ctl_number),
-			SMUX_CTL_NUM_CHANNELS);
+		struct smux_ctl_dev *devp = smux_ctl_devp[i];
 
+		mutex_lock(&devp->dev_lock);
+		devp->abort_wait = 1;
+		wake_up(&devp->write_wait_queue);
+		wake_up(&devp->read_wait_queue);
+		mutex_unlock(&devp->dev_lock);
+
+		/* Empty RX queue */
+		mutex_lock(&devp->rx_lock);
+		while (!list_empty(&devp->rx_list)) {
+			struct smux_ctl_list_elem *list_elem;
+
+			list_elem = list_first_entry(
+					&devp->rx_list,
+					struct smux_ctl_list_elem,
+					list);
+			list_del(&list_elem->list);
+			kfree(list_elem->ctl_pkt.data);
+			kfree(list_elem);
+		}
+		devp->read_avail = 0;
+		mutex_unlock(&devp->rx_lock);
+	}
+
+	SMUXCTL_DBG(SMUX_CTL_MODULE_NAME ": %s Ends\n", __func__);
 	return 0;
 }
 
