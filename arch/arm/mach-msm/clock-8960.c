@@ -4017,6 +4017,7 @@ static struct cdiv_clk tv_src_div_clk = {
 		.dbg_name = "tv_src_div_clk",
 		.ops = &clk_ops_cdiv,
 		CLK_INIT(tv_src_div_clk.c),
+		.rate = ULONG_MAX,
 	},
 };
 
@@ -4423,6 +4424,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 			.dbg_name = #i "_clk", \
 			.ops = &clk_ops_cdiv, \
 			CLK_INIT(i##_clk.c), \
+			.rate = ULONG_MAX, \
 		}, \
 	}
 
@@ -4442,6 +4444,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 			.dbg_name = #i "_clk", \
 			.ops = &clk_ops_cdiv, \
 			CLK_INIT(i##_clk.c), \
+			.rate = ULONG_MAX, \
 		}, \
 	}
 
