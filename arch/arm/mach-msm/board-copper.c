@@ -507,6 +507,8 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 			"pil_pronto", NULL),
 	OF_DEV_AUXDATA("qcom,msm-rng", 0xF9BFF000, \
 			"msm_rng", NULL),
+	OF_DEV_AUXDATA("qcom,qseecom", 0xFE806000, \
+			"qseecom", NULL),
 	{}
 };
 

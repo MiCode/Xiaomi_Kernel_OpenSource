@@ -341,4 +341,8 @@
                compatible = "qcom,msm-rng";
                reg = <0xf9bff000 0x200>;
         };
+
+	qcom,qseecom@fe806000 {
+		compatible = "qcom,qseecom";
+	};
 };
