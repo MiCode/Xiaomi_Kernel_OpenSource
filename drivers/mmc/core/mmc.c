@@ -1541,7 +1541,7 @@ static int mmc_sleep(struct mmc_host *host)
 	if (card && card->ext_csd.rev >= 3) {
 		err = mmc_card_sleepawake(host, 1);
 		if (err < 0)
-			pr_debug("%s: Error %d while putting card into sleep",
+			pr_warn("%s: Error %d while putting card into sleep",
 				 mmc_hostname(host), err);
 	}
 
