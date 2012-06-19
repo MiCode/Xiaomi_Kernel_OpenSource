@@ -1584,6 +1584,7 @@ struct platform_device msm_rotator_device = {
 #define PPSS_SMEM_BASE          0x40000000
 #define PPSS_SMEM_SIZE          0x4000
 #define PPSS_REG_PHYS_BASE	0x12080000
+#define PPSS_PAUSE_REG          0x1804
 
 #define MHZ (1000*1000)
 
@@ -1656,6 +1657,7 @@ struct msm_dsps_platform_data msm_dsps_pdata = {
 	.ddr_size = PPSS_DSPS_DDR_SIZE,
 	.smem_start = PPSS_SMEM_BASE,
 	.smem_size  = PPSS_SMEM_SIZE,
+	.ppss_pause_reg = PPSS_PAUSE_REG,
 	.signature = DSPS_SIGNATURE,
 };
 
