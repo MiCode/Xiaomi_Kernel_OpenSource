@@ -18,6 +18,8 @@
 #include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/slab.h>
+#include <linux/pm_runtime.h>
+#include <linux/slimbus/slimbus.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -1417,6 +1419,19 @@ static int msm_auxpcm_startup(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+static int msm_slimbus_1_startup(struct snd_pcm_substream *substream)
+{
+	struct slim_controller *slim = slim_busnum_to_ctrl(1);
+
+	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
+		 substream->name, substream->stream);
+
+	if (slim != NULL)
+		pm_runtime_get_sync(slim->dev.parent);
+
+	return 0;
+}
+
 static void msm_auxpcm_shutdown(struct snd_pcm_substream *substream)
 {
 
@@ -1433,6 +1448,19 @@ static void msm_shutdown(struct snd_pcm_substream *substream)
 		rtd->dai_link->cpu_dai_name, rtd->dai_link->codec_dai_name);
 }
 
+static void msm_slimbus_1_shutdown(struct snd_pcm_substream *substream)
+{
+	struct slim_controller *slim = slim_busnum_to_ctrl(1);
+
+	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
+		 substream->name, substream->stream);
+
+	if (slim != NULL) {
+		pm_runtime_mark_last_busy(slim->dev.parent);
+		pm_runtime_put(slim->dev.parent);
+	}
+}
+
 static struct snd_soc_ops msm_be_ops = {
 	.startup = msm_startup,
 	.hw_params = msm_hw_params,
@@ -1445,9 +1473,9 @@ static struct snd_soc_ops msm_auxpcm_be_ops = {
 };
 
 static struct snd_soc_ops msm_slimbus_1_be_ops = {
-	.startup = msm_startup,
+	.startup = msm_slimbus_1_startup,
 	.hw_params = msm_slimbus_1_hw_params,
-	.shutdown = msm_shutdown,
+	.shutdown = msm_slimbus_1_shutdown,
 };
 
 static struct snd_soc_ops msm_slimbus_3_be_ops = {
