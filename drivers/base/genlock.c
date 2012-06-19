@@ -56,7 +56,7 @@ struct genlock_handle {
  * released while another process tries to attach it
  */
 
-static DEFINE_SPINLOCK(genlock_file_lock);
+static DEFINE_SPINLOCK(genlock_ref_lock);
 
 static void genlock_destroy(struct kref *kref)
 {
@@ -68,10 +68,8 @@ static void genlock_destroy(struct kref *kref)
 	 * still active after the lock gets released
 	 */
 
-	spin_lock(&genlock_file_lock);
 	if (lock->file)
 		lock->file->private_data = NULL;
-	spin_unlock(&genlock_file_lock);
 
 	kfree(lock);
 }
@@ -203,19 +201,20 @@ struct genlock *genlock_attach_lock(struct genlock_handle *handle, int fd)
 	 * released and then attached
 	 */
 
-	spin_lock(&genlock_file_lock);
+	spin_lock(&genlock_ref_lock);
 	lock = file->private_data;
-	spin_unlock(&genlock_file_lock);
 
 	fput(file);
 
 	if (lock == NULL) {
+		spin_unlock(&genlock_ref_lock);
 		GENLOCK_LOG_ERR("File descriptor is invalid\n");
 		return ERR_PTR(-EINVAL);
 	}
 
 	handle->lock = lock;
 	kref_get(&lock->refcount);
+	spin_unlock(&genlock_ref_lock);
 
 	return lock;
 }
@@ -595,7 +594,9 @@ static void genlock_release_lock(struct genlock_handle *handle)
 	}
 	spin_unlock_irqrestore(&handle->lock->lock, flags);
 
+	spin_lock(&genlock_ref_lock);
 	kref_put(&handle->lock->refcount, genlock_destroy);
+	spin_unlock(&genlock_ref_lock);
 	handle->lock = NULL;
 	handle->active = 0;
 }
