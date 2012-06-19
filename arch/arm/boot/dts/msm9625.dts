@@ -55,4 +55,14 @@
 		reg = <0xf991f000 0x1000>;
 		interrupts = <0 109 0>;
 	};
+
+	qcom,nand@f9ac0000 {
+		compatible = "qcom,msm-nand";
+		reg = <0xf9ac0000 0x1000>,
+		      <0xf9ac4000 0x8000>;
+		reg-names = "nand_phys",
+			    "bam_phys";
+		interrupts = <0 247 0>;
+		interrupt-names = "bam_irq";
+	};
 };
