@@ -628,8 +628,8 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 		break;
 	}
 
-	/* Set timeout to be ~100x the character transmit time */
-	msm_hsl_port->tx_timeout = 1000000000 / baud;
+	/* Set timeout to be ~600x the character transmit time */
+	msm_hsl_port->tx_timeout = (1000000000 / baud) * 6;
 
 	vid = msm_hsl_port->ver_id;
 	msm_hsl_write(port, baud_code, regmap[vid][UARTDM_CSR]);
