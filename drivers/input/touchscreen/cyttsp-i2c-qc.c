@@ -2510,6 +2510,8 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 	set_bit(EV_ABS, input_device->evbit);
 	set_bit(BTN_TOUCH, input_device->keybit);
 	set_bit(BTN_2, input_device->keybit);
+	set_bit(INPUT_PROP_DIRECT, input_device->propbit);
+
 	if (ts->platform_data->use_gestures)
 		set_bit(BTN_3, input_device->keybit);
 
