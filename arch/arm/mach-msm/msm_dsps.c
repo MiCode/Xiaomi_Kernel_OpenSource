@@ -45,9 +45,8 @@
 #include "timer.h"
 
 #define DRV_NAME	"msm_dsps"
-#define DRV_VERSION	"4.01"
+#define DRV_VERSION	"4.02"
 
-#define PPSS_PAUSE_REG	0x1804
 
 #define PPSS_TIMER0_32KHZ_REG	0x1004
 #define PPSS_TIMER0_20MHZ_REG	0x0804
@@ -137,23 +136,29 @@ static void dsps_unload(void)
 
 /**
  *  Suspend DSPS CPU.
+ *
+ * Only call if dsps_pwr_ctl_en is false.
+ * If dsps_pwr_ctl_en is true, then DSPS will control its own power state.
  */
 static void dsps_suspend(void)
 {
 	pr_debug("%s.\n", __func__);
 
-	writel_relaxed(1, drv->ppss_base + PPSS_PAUSE_REG);
+	writel_relaxed(1, drv->ppss_base + drv->pdata->ppss_pause_reg);
 	mb(); /* Make sure write commited before ioctl returns. */
 }
 
 /**
  *  Resume DSPS CPU.
+ *
+ * Only call if dsps_pwr_ctl_en is false.
+ * If dsps_pwr_ctl_en is true, then DSPS will control its own power state.
  */
 static void dsps_resume(void)
 {
 	pr_debug("%s.\n", __func__);
 
-	writel_relaxed(0, drv->ppss_base + PPSS_PAUSE_REG);
+	writel_relaxed(0, drv->ppss_base + drv->pdata->ppss_pause_reg);
 	mb(); /* Make sure write commited before ioctl returns. */
 }
 
@@ -425,8 +430,10 @@ static long dsps_ioctl(struct file *file,
 
 	switch (cmd) {
 	case DSPS_IOCTL_ON:
-		ret = dsps_power_on_handler();
-		dsps_resume();
+		if (!drv->pdata->dsps_pwr_ctl_en) {
+			ret = dsps_power_on_handler();
+			dsps_resume();
+		}
 		break;
 	case DSPS_IOCTL_OFF:
 		if (!drv->pdata->dsps_pwr_ctl_en) {
@@ -634,7 +641,8 @@ static int dsps_open(struct inode *ip, struct file *fp)
 			return ret;
 		}
 
-		dsps_resume();
+		if (!drv->pdata->dsps_pwr_ctl_en)
+			dsps_resume();
 	}
 	drv->ref_count++;
 
@@ -761,7 +769,6 @@ static int dsps_shutdown(const struct subsys_data *subsys)
 {
 	pr_debug("%s\n", __func__);
 	disable_irq_nosync(drv->wdog_irq);
-	dsps_suspend();
 	pil_force_shutdown(drv->pdata->pil_name);
 	dsps_power_off_handler();
 	return 0;
@@ -779,7 +786,6 @@ static int dsps_powerup(const struct subsys_data *subsys)
 	pil_force_boot(drv->pdata->pil_name);
 	atomic_set(&drv->crash_in_progress, 0);
 	enable_irq(drv->wdog_irq);
-	dsps_resume();
 	return 0;
 }
 
