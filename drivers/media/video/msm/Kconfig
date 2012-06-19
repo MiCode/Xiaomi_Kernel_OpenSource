@@ -261,6 +261,16 @@ config MSM_VPE
 	---help---
 	  Enable support for Video Pre-processing Engine
 
+config MSM_CAM_IRQ_ROUTER
+	bool "Enable MSM CAM IRQ Router"
+	depends on MSM_CAMERA
+	---help---
+	Enable IRQ Router for Camera. Depending on the
+	configuration, this module can handle the
+	interrupts from multiple camera hardware
+	cores and composite them into a single
+	interrupt to the MSM.
+
 config QUP_EXCLUSIVE_TO_CAMERA
 	bool "QUP exclusive to camera"
 	depends on MSM_CAMERA

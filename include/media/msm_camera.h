@@ -1594,4 +1594,66 @@ struct msm_camera_v4l2_ioctl_t {
 	uint32_t len;
 };
 
+enum msm_camss_irq_idx {
+	CAMERA_SS_IRQ_0,
+	CAMERA_SS_IRQ_1,
+	CAMERA_SS_IRQ_2,
+	CAMERA_SS_IRQ_3,
+	CAMERA_SS_IRQ_4,
+	CAMERA_SS_IRQ_5,
+	CAMERA_SS_IRQ_6,
+	CAMERA_SS_IRQ_7,
+	CAMERA_SS_IRQ_8,
+	CAMERA_SS_IRQ_9,
+	CAMERA_SS_IRQ_10,
+	CAMERA_SS_IRQ_11,
+	CAMERA_SS_IRQ_12,
+	CAMERA_SS_IRQ_MAX
+};
+
+enum msm_cam_hw_idx {
+	MSM_CAM_HW_MICRO,
+	MSM_CAM_HW_CCI,
+	MSM_CAM_HW_CSI0,
+	MSM_CAM_HW_CSI1,
+	MSM_CAM_HW_CSI2,
+	MSM_CAM_HW_CSI3,
+	MSM_CAM_HW_ISPIF,
+	MSM_CAM_HW_CPP,
+	MSM_CAM_HW_VFE0,
+	MSM_CAM_HW_VFE1,
+	MSM_CAM_HW_JPEG0,
+	MSM_CAM_HW_JPEG1,
+	MSM_CAM_HW_JPEG2,
+	MSM_CAM_HW_MAX
+};
+
+struct msm_camera_irq_cfg {
+	/* Bit mask of all the camera hardwares that needs to
+	 * be composited into a single IRQ to the MSM.
+	 * Current usage: (may be updated based on hw changes)
+	 * Bits 31:13 - Reserved.
+	 * Bits 12:0
+	 * 12 - MSM_CAM_HW_JPEG2
+	 * 11 - MSM_CAM_HW_JPEG1
+	 * 10 - MSM_CAM_HW_JPEG0
+	 *  9 - MSM_CAM_HW_VFE1
+	 *  8 - MSM_CAM_HW_VFE0
+	 *  7 - MSM_CAM_HW_CPP
+	 *  6 - MSM_CAM_HW_ISPIF
+	 *  5 - MSM_CAM_HW_CSI3
+	 *  4 - MSM_CAM_HW_CSI2
+	 *  3 - MSM_CAM_HW_CSI1
+	 *  2 - MSM_CAM_HW_CSI0
+	 *  1 - MSM_CAM_HW_CCI
+	 *  0 - MSM_CAM_HW_MICRO
+	 */
+	uint32_t cam_hw_mask;
+	uint8_t  irq_idx;
+	uint8_t  num_hwcore;
+};
+
+#define MSM_IRQROUTER_CFG_COMPIRQ \
+	_IOWR('V', BASE_VIDIOC_PRIVATE, void __user *)
+
 #endif /* __LINUX_MSM_CAMERA_H */
