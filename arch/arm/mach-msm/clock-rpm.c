@@ -237,7 +237,7 @@ static unsigned long rpm_clk_get_rate(struct clk *clk)
 	if (r->rpmrs_data->get_rate_fn)
 		return r->rpmrs_data->get_rate_fn(r);
 	else
-		return 0;
+		return clk->rate;
 }
 
 static int rpm_clk_is_enabled(struct clk *clk)
