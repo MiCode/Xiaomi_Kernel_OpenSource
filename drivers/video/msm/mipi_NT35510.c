@@ -174,6 +174,9 @@ static char cmd18[2] = {
 static char cmd19[3] = {
 	0xB1, 0xEC, 0x00,
 };
+static char cmd19_rotate[3] = {
+	0xB1, 0xEC, 0x06,
+};
 static char cmd20[4] = {
 	0xBC, 0x05, 0x05, 0x05,
 };
@@ -244,6 +247,11 @@ static struct dsi_cmd_desc nt35510_cmd_display_on_cmds[] = {
 		sizeof(config_MADCTL), config_MADCTL},
 
 	{DTYPE_DCS_WRITE, 1, 0, 0, 10,	sizeof(write_ram), write_ram},
+};
+
+static struct dsi_cmd_desc nt35510_cmd_display_on_cmds_rotate[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 50,
+		sizeof(cmd19_rotate), cmd19_rotate},
 };
 
 static char video0[6] = {
@@ -489,6 +497,12 @@ static int mipi_nt35510_lcd_on(struct platform_device *pdev)
 		mipi_dsi_cmds_tx(mfd, &nt35510_tx_buf,
 			nt35510_cmd_display_on_cmds,
 			ARRAY_SIZE(nt35510_cmd_display_on_cmds));
+
+		if (rotate) {
+			mipi_dsi_cmds_tx(mfd, &nt35510_tx_buf,
+				nt35510_cmd_display_on_cmds_rotate,
+			ARRAY_SIZE(nt35510_cmd_display_on_cmds_rotate));
+		}
 	}
 
 	return 0;
