@@ -34,7 +34,15 @@
 #define GENLOCK_LOG_ERR(fmt, args...) \
 pr_err("genlock: %s: " fmt, __func__, ##args)
 
+/* The genlock magic stored in the kernel private data is used to protect
+ * against the possibility of user space passing a valid fd to a
+ * non-genlock file for genlock_attach_lock()
+ */
+#define GENLOCK_MAGIC_OK  0xD2EAD10C
+#define GENLOCK_MAGIC_BAD 0xD2EADBAD
+
 struct genlock {
+	unsigned int magic;       /* Magic for attach verification */
 	struct list_head active;  /* List of handles holding lock */
 	spinlock_t lock;          /* Spinlock to protect the lock internals */
 	wait_queue_head_t queue;  /* Holding pen for processes pending lock */
@@ -70,6 +78,7 @@ static void genlock_destroy(struct kref *kref)
 
 	if (lock->file)
 		lock->file->private_data = NULL;
+	lock->magic = GENLOCK_MAGIC_BAD;
 
 	kfree(lock);
 }
@@ -128,6 +137,7 @@ struct genlock *genlock_create_lock(struct genlock_handle *handle)
 	init_waitqueue_head(&lock->queue);
 	spin_lock_init(&lock->lock);
 
+	lock->magic = GENLOCK_MAGIC_OK;
 	lock->state = _UNLOCKED;
 
 	/*
@@ -207,9 +217,13 @@ struct genlock *genlock_attach_lock(struct genlock_handle *handle, int fd)
 	fput(file);
 
 	if (lock == NULL) {
-		spin_unlock(&genlock_ref_lock);
 		GENLOCK_LOG_ERR("File descriptor is invalid\n");
-		return ERR_PTR(-EINVAL);
+		goto fail_invalid;
+	}
+
+	if (lock->magic != GENLOCK_MAGIC_OK) {
+		GENLOCK_LOG_ERR("Magic is invalid - 0x%X\n", lock->magic);
+		goto fail_invalid;
 	}
 
 	handle->lock = lock;
@@ -217,6 +231,10 @@ struct genlock *genlock_attach_lock(struct genlock_handle *handle, int fd)
 	spin_unlock(&genlock_ref_lock);
 
 	return lock;
+
+fail_invalid:
+	spin_unlock(&genlock_ref_lock);
+	return ERR_PTR(-EINVAL);
 }
 EXPORT_SYMBOL(genlock_attach_lock);
 
