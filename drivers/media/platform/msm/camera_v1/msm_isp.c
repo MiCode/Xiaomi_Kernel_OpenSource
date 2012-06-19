@@ -188,9 +188,9 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	}
 
 	switch (vdata->type) {
-	case VFE_MSG_V32_START:
-	case VFE_MSG_V32_START_RECORDING:
-	case VFE_MSG_V2X_PREVIEW:
+	case VFE_MSG_START:
+	case VFE_MSG_START_RECORDING:
+	case VFE_MSG_PREVIEW:
 		D("%s Got V32_START_*: Getting ping addr id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(pmctl, NULL,
@@ -208,8 +208,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		vfe_params.data = (void *)&free_buf;
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
-	case VFE_MSG_V32_CAPTURE:
-	case VFE_MSG_V2X_CAPTURE:
+	case VFE_MSG_CAPTURE:
 		pr_debug("%s Got V32_CAPTURE: getting buffer for id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(pmctl, NULL,
@@ -231,8 +230,8 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		vfe_params.data = (void *)&free_buf;
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
-	case VFE_MSG_V32_JPEG_CAPTURE:
-		D("%s:VFE_MSG_V32_JPEG_CAPTURE vdata->type %d\n", __func__,
+	case VFE_MSG_JPEG_CAPTURE:
+		D("%s:VFE_MSG_JPEG_CAPTURE vdata->type %d\n", __func__,
 			vdata->type);
 		free_buf.num_planes = 2;
 		free_buf.ch_paddr[0] = pmctl->ping_imem_y;
@@ -241,7 +240,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
 		vfe_params.data = (void *)&free_buf;
-		D("%s:VFE_MSG_V32_JPEG_CAPTURE y_ping=%x cbcr_ping=%x\n",
+		D("%s:VFE_MSG_JPEG_CAPTURE y_ping=%x cbcr_ping=%x\n",
 			__func__, free_buf.ch_paddr[0], free_buf.ch_paddr[1]);
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		/* Write the same buffer into PONG */
@@ -251,7 +250,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
 		vfe_params.data = (void *)&free_buf;
-		D("%s:VFE_MSG_V32_JPEG_CAPTURE y_pong=%x cbcr_pong=%x\n",
+		D("%s:VFE_MSG_JPEG_CAPTURE y_pong=%x cbcr_pong=%x\n",
 			__func__, free_buf.ch_paddr[0], free_buf.ch_paddr[1]);
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;

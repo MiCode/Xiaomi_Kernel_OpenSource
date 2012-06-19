@@ -63,12 +63,6 @@ struct vfe31_isr_queue_cmd {
 	uint32_t		vfeInterruptStatus1;
 };
 
-/*TODO: Why is V32 reference in arch/arm/mach-msm/include/mach/camera.h?*/
-#define VFE_MSG_V31_START VFE_MSG_V32_START
-#define VFE_MSG_V31_CAPTURE VFE_MSG_V32_CAPTURE
-#define VFE_MSG_V31_JPEG_CAPTURE VFE_MSG_V32_JPEG_CAPTURE
-#define VFE_MSG_V31_START_RECORDING VFE_MSG_V32_START_RECORDING
-
 static struct vfe31_cmd_type vfe31_cmd[] = {
 /* 0*/	{VFE_CMD_DUMMY_0},
 		{VFE_CMD_SET_CLK},
@@ -1420,11 +1414,11 @@ static int vfe31_proc_general(
 				VFE_OUTPUTS_PREVIEW))
 			/* Configure primary channel */
 			rc = vfe31_configure_pingpong_buffers(
-				VFE_MSG_V31_START, VFE_MSG_OUTPUT_PRIMARY);
+				VFE_MSG_START, VFE_MSG_OUTPUT_PRIMARY);
 		else
 			/* Configure secondary channel */
 			rc = vfe31_configure_pingpong_buffers(
-				VFE_MSG_V31_START, VFE_MSG_OUTPUT_SECONDARY);
+				VFE_MSG_START, VFE_MSG_OUTPUT_SECONDARY);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
 				" for preview", __func__);
@@ -1443,7 +1437,7 @@ static int vfe31_proc_general(
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
-		rc = vfe31_configure_pingpong_buffers(VFE_MSG_V31_CAPTURE,
+		rc = vfe31_configure_pingpong_buffers(VFE_MSG_CAPTURE,
 			VFE_MSG_OUTPUT_PRIMARY);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -1469,12 +1463,12 @@ static int vfe31_proc_general(
 			}
 			/* Configure primary channel for JPEG */
 			rc = vfe31_configure_pingpong_buffers(
-				VFE_MSG_V31_JPEG_CAPTURE,
+				VFE_MSG_JPEG_CAPTURE,
 				VFE_MSG_OUTPUT_PRIMARY);
 		} else {
 			/* Configure primary channel */
 			rc = vfe31_configure_pingpong_buffers(
-				VFE_MSG_V31_CAPTURE,
+				VFE_MSG_CAPTURE,
 				VFE_MSG_OUTPUT_PRIMARY);
 		}
 		if (rc < 0) {
@@ -1484,7 +1478,7 @@ static int vfe31_proc_general(
 			goto proc_general_done;
 		}
 		/* Configure secondary channel */
-		rc = vfe31_configure_pingpong_buffers(VFE_MSG_V31_CAPTURE,
+		rc = vfe31_configure_pingpong_buffers(VFE_MSG_CAPTURE,
 			VFE_MSG_OUTPUT_SECONDARY);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -1508,13 +1502,13 @@ static int vfe31_proc_general(
 			VFE_OUTPUTS_PREVIEW_AND_VIDEO) {
 			vfe31_ctrl->outpath.out1.inst_handle = temp1;
 			rc = vfe31_configure_pingpong_buffers(
-				VFE_MSG_V31_START_RECORDING,
+				VFE_MSG_START_RECORDING,
 				VFE_MSG_OUTPUT_SECONDARY);
 		} else if (vfe31_ctrl->operation_mode ==
 			VFE_OUTPUTS_VIDEO_AND_PREVIEW) {
 			vfe31_ctrl->outpath.out0.inst_handle = temp1;
 			rc = vfe31_configure_pingpong_buffers(
-				VFE_MSG_V31_START_RECORDING,
+				VFE_MSG_START_RECORDING,
 				VFE_MSG_OUTPUT_PRIMARY);
 		}
 		if (rc < 0) {
@@ -1955,7 +1949,7 @@ static int vfe31_proc_general(
 		}
 		vfe31_ctrl->outpath.out0.inst_handle = temp1;
 		/* Configure primary channel */
-		rc = vfe31_configure_pingpong_buffers(VFE_MSG_V31_CAPTURE,
+		rc = vfe31_configure_pingpong_buffers(VFE_MSG_CAPTURE,
 			VFE_MSG_OUTPUT_PRIMARY);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -2261,11 +2255,11 @@ static int vfe31_proc_general(
 		break;
 
 	case VFE_CMD_ZSL:
-		rc = vfe31_configure_pingpong_buffers(VFE_MSG_V31_START,
+		rc = vfe31_configure_pingpong_buffers(VFE_MSG_START,
 			VFE_MSG_OUTPUT_PRIMARY);
 		if (rc < 0)
 			goto proc_general_done;
-		rc = vfe31_configure_pingpong_buffers(VFE_MSG_V31_START,
+		rc = vfe31_configure_pingpong_buffers(VFE_MSG_START,
 			VFE_MSG_OUTPUT_SECONDARY);
 		if (rc < 0)
 			goto proc_general_done;

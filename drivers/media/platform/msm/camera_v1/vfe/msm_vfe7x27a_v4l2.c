@@ -1786,11 +1786,11 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 		if (op_mode & SNAPSHOT_MASK_MODE)
 			rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_CAPTURE,
+						VFE_MSG_CAPTURE,
 						VFE_MSG_OUTPUT_SECONDARY);
 		else
 			rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_PREVIEW,
+						VFE_MSG_PREVIEW,
 						VFE_MSG_OUTPUT_SECONDARY);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -1840,11 +1840,11 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		if (!vfe2x_ctrl->reconfig_vfe) {
 			if (op_mode & SNAPSHOT_MASK_MODE)
 				rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_CAPTURE,
+						VFE_MSG_CAPTURE,
 						VFE_MSG_OUTPUT_PRIMARY);
 			else
 				rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_PREVIEW,
+						VFE_MSG_PREVIEW,
 						VFE_MSG_OUTPUT_PRIMARY);
 			if (rc < 0) {
 				pr_err("%s error configuring pingpong buffers"
@@ -1905,10 +1905,10 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 		if (!vfe2x_ctrl->reconfig_vfe) {
 				rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_PREVIEW,
+						VFE_MSG_PREVIEW,
 						VFE_MSG_OUTPUT_PRIMARY);
 				rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_PREVIEW,
+						VFE_MSG_PREVIEW,
 						VFE_MSG_OUTPUT_SECONDARY);
 			if (rc < 0) {
 				pr_err("%s error configuring pingpong buffers"
@@ -1969,11 +1969,11 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 		if (op_mode & SNAPSHOT_MASK_MODE)
 			rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_CAPTURE,
+						VFE_MSG_CAPTURE,
 						VFE_MSG_OUTPUT_SECONDARY);
 		else
 			rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_PREVIEW,
+						VFE_MSG_PREVIEW,
 						VFE_MSG_OUTPUT_SECONDARY);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -2011,11 +2011,11 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 
 		if (op_mode & SNAPSHOT_MASK_MODE)
 			rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_CAPTURE,
+						VFE_MSG_CAPTURE,
 						VFE_MSG_OUTPUT_PRIMARY);
 		else
 			rc = vfe2x_configure_pingpong_buffers(
-						VFE_MSG_V2X_PREVIEW,
+						VFE_MSG_PREVIEW,
 						VFE_MSG_OUTPUT_PRIMARY);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -2066,7 +2066,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 		header = cmds_map[vfecmd.id].vfe_id;
 		queue = cmds_map[vfecmd.id].queue;
-		rc = vfe2x_configure_pingpong_buffers(VFE_MSG_V2X_CAPTURE,
+		rc = vfe2x_configure_pingpong_buffers(VFE_MSG_CAPTURE,
 						VFE_MSG_OUTPUT_PRIMARY);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
