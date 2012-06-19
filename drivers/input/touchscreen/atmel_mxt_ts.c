@@ -2296,6 +2296,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
+	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
 	/* For single touch */
 	input_set_abs_params(input_dev, ABS_X,
