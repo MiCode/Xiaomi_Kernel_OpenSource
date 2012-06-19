@@ -117,6 +117,11 @@ void adreno_debugfs_init(struct kgsl_device *device)
 	debugfs_create_u32("ib_check", 0644, device->d_debugfs,
 			   &adreno_dev->ib_check_level);
 
+	/* By Default enable fast hang detection */
+	adreno_dev->fast_hang_detect = 1;
+	debugfs_create_u32("fast_hang_detect", 0644, device->d_debugfs,
+			   &adreno_dev->fast_hang_detect);
+
 	/* Create post mortem control files */
 
 	pm_d_debugfs = debugfs_create_dir("postmortem", device->d_debugfs);
