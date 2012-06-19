@@ -1795,6 +1795,8 @@ static const struct v4l2_subdev_internal_ops msm_vfe_internal_ops;
 
 static int vfe2x_probe(struct platform_device *pdev)
 {
+	struct msm_cam_subdev_info sd_info;
+
 	CDBG("%s: device id = %d\n", __func__, pdev->id);
 	vfe2x_ctrl = kzalloc(sizeof(struct vfe2x_ctrl_type), GFP_KERNEL);
 	if (!vfe2x_ctrl) {
@@ -1811,7 +1813,10 @@ static int vfe2x_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &vfe2x_ctrl->subdev);
 
 	vfe2x_ctrl->pdev = pdev;
-	msm_cam_register_subdev_node(&vfe2x_ctrl->subdev, VFE_DEV, 0);
+	sd_info.sdev_type = VFE_DEV;
+	sd_info.sd_index = 0;
+	sd_info.irq_num = 0;
+	msm_cam_register_subdev_node(&vfe2x_ctrl->subdev, &sd_info);
 	return 0;
 }
 

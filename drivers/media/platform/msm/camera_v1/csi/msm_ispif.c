@@ -640,6 +640,8 @@ static const struct v4l2_subdev_internal_ops msm_ispif_internal_ops;
 static int ispif_probe(struct platform_device *pdev)
 {
 	int rc = 0;
+	struct msm_cam_subdev_info sd_info;
+
 	CDBG("%s\n", __func__);
 	ispif = kzalloc(sizeof(struct ispif_device), GFP_KERNEL);
 	if (!ispif) {
@@ -687,7 +689,10 @@ static int ispif_probe(struct platform_device *pdev)
 	}
 
 	ispif->pdev = pdev;
-	msm_cam_register_subdev_node(&ispif->subdev, ISPIF_DEV, pdev->id);
+	sd_info.sdev_type = ISPIF_DEV;
+	sd_info.sd_index = pdev->id;
+	sd_info.irq_num = ispif->irq->start;
+	msm_cam_register_subdev_node(&ispif->subdev, &sd_info);
 	return 0;
 
 ispif_no_mem:

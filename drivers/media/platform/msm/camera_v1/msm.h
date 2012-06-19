@@ -58,14 +58,16 @@
 #define MSM_GEMINI_DRV_NAME "msm_gemini"
 #define MSM_MERCURY_DRV_NAME "msm_mercury"
 #define MSM_I2C_MUX_DRV_NAME "msm_cam_i2c_mux"
+#define MSM_IRQ_ROUTER_DRV_NAME "msm_cam_irq_router"
 
 #define MAX_NUM_CSIPHY_DEV 3
-#define MAX_NUM_CSID_DEV 3
+#define MAX_NUM_CSID_DEV 4
 #define MAX_NUM_CSIC_DEV 3
 #define MAX_NUM_ISPIF_DEV 1
 #define MAX_NUM_VFE_DEV 2
 #define MAX_NUM_AXI_DEV 2
 #define MAX_NUM_VPE_DEV 1
+#define MAX_NUM_JPEG_DEV 3
 
 enum msm_cam_subdev_type {
 	CSIPHY_DEV,
@@ -79,6 +81,7 @@ enum msm_cam_subdev_type {
 	ACTUATOR_DEV,
 	EEPROM_DEV,
 	GESTURE_DEV,
+	IRQ_ROUTER_DEV,
 };
 
 /* msm queue management APIs*/
@@ -405,6 +408,15 @@ struct msm_cam_config_dev {
 	struct msm_mem_map_info mem_map;
 };
 
+struct msm_cam_subdev_info {
+	uint8_t sdev_type;
+	/* Subdev index. For eg: CSIPHY0, CSIPHY1 etc */
+	uint8_t sd_index;
+	/* This device/subdev's interrupt number, assigned
+	 * from the hardware document. */
+	uint8_t irq_num;
+};
+
 /* 2 for camera, 1 for gesture */
 #define MAX_NUM_ACTIVE_CAMERA 3
 
@@ -419,6 +431,68 @@ struct msm_cam_server_queue {
 struct msm_cam_server_mctl_inst {
 	struct msm_cam_media_controller mctl;
 	uint32_t handle;
+};
+
+struct msm_cam_server_irqmap_entry {
+	int irq_num;
+	int irq_idx;
+	uint8_t cam_hw_idx;
+	uint8_t is_composite;
+};
+
+struct intr_table_entry {
+	/* irq_num as understood by msm.
+	 * Unique for every camera hw core & target. Use a mapping function
+	 * to map this irq number to its equivalent index in camera side. */
+	int irq_num;
+	/* Camera hw core idx, in case of non-composite IRQs*/
+	uint8_t cam_hw_idx;
+	/* Camera hw core mask, in case of composite IRQs. */
+	uint32_t cam_hw_mask;
+	/* Each interrupt is mapped to an index, which is used
+	 * to add/delete entries into the lookup table. Both the information
+	 * are needed in the lookup table to avoid another subdev call into
+	 * the IRQ Router subdev to get the irq_idx in the interrupt context */
+	int irq_idx;
+	/* Is this irq composite? */
+	uint8_t is_composite;
+	/* IRQ Trigger type: TRIGGER_RAISING, TRIGGER_HIGH, etc. */
+	uint32_t irq_trigger_type;
+	/* If IRQ Router hw is present,
+	 * this field holds the number of camera hw core
+	 * which are bundled together in the above
+	 * interrupt. > 1 in case of composite irqs.
+	 * If IRQ Router hw is not present, this field should be set to 1. */
+	int num_hwcore;
+	/* Pointers to the subdevs composited in this
+	 * irq. If not composite, the 0th index stores the subdev to which
+	 * this irq needs to be dispatched to. */
+	struct v4l2_subdev *subdev_list[CAMERA_SS_IRQ_MAX];
+	/* Device requesting the irq. */
+	const char *dev_name;
+	/* subdev private data, if any */
+	void *data;
+};
+
+struct irqmgr_intr_lkup_table {
+	/* Individual(hw) interrupt lookup table:
+	 * This table is populated during initialization and doesnt
+	 * change, unless the IRQ Router has been configured
+	 * for composite IRQs. If the IRQ Router has been configured
+	 * for composite IRQs, the is_composite field of that IRQ will
+	 * be set to 1(default 0). And when there is an interrupt on
+	 * that line, the composite interrupt lookup table is used
+	 * for handling the interrupt. */
+	struct intr_table_entry ind_intr_tbl[CAMERA_SS_IRQ_MAX];
+
+	/* Composite interrupt lookup table:
+	 * This table can be dynamically modified based on the usecase.
+	 * If the usecase requires two or more HW core IRQs to be bundled
+	 * into a single composite IRQ, then this table is populated
+	 * accordingly. Also when this is done, the composite field
+	 * in the intr_lookup_table has to be updated to reflect that
+	 * the irq 'irq_num' will now  be triggered in composite mode. */
+	struct intr_table_entry comp_intr_tbl[CAMERA_SS_IRQ_MAX];
 };
 
 /* abstract camera server device for all sensor successfully probed*/
@@ -466,9 +540,18 @@ struct msm_cam_server_dev {
 	struct v4l2_subdev *axi_device[MAX_NUM_AXI_DEV];
 	struct v4l2_subdev *vpe_device[MAX_NUM_VPE_DEV];
 	struct v4l2_subdev *gesture_device;
-};
+	struct v4l2_subdev *irqr_device;
 
-/* camera server related functions */
+	spinlock_t  intr_table_lock;
+	struct irqmgr_intr_lkup_table irq_lkup_table;
+	/* Stores the pointer to the subdev when the individual
+	 * subdevices register themselves with the server. This
+	 * will be used while dispatching composite irqs. The
+	 * cam_hw_idx will serve as the index into this array to
+	 * dispatch the irq to the corresponding subdev. */
+	struct v4l2_subdev *subdev_table[MSM_CAM_HW_MAX];
+	struct msm_cam_server_irqmap_entry hw_irqmap[CAMERA_SS_IRQ_MAX];
+};
 
 /* ISP related functions */
 void msm_isp_vfe_dev_init(struct v4l2_subdev *vd);
@@ -583,7 +666,7 @@ int msm_mctl_pp_mctl_divert_done(struct msm_cam_media_controller *p_mctl,
 					void __user *arg);
 void msm_release_ion_client(struct kref *ref);
 int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
-			enum msm_cam_subdev_type sdev_type, uint8_t index);
+	struct msm_cam_subdev_info *sd_info);
 int msm_server_open_client(int *p_qidx);
 int msm_server_send_ctrl(struct msm_ctrl_cmd *out, int ctrl_id);
 int msm_server_close_client(int idx);

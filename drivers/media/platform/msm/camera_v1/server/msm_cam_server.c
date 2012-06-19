@@ -1444,11 +1444,370 @@ void msm_cam_release_subdev_node(struct video_device *vdev)
 	kfree(vdev);
 }
 
-int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
-	enum msm_cam_subdev_type sdev_type, uint8_t index)
+/* Helper function to get the irq_idx corresponding
+ * to the irq_num. */
+int get_irq_idx_from_irq_num(int irq_num)
 {
+	int i;
+	for (i = 0; i < CAMERA_SS_IRQ_MAX; i++)
+		if (irq_num == g_server_dev.hw_irqmap[i].irq_num)
+			return g_server_dev.hw_irqmap[i].irq_idx;
+
+	return -EINVAL;
+}
+
+static irqreturn_t msm_camera_server_parse_irq(int irq_num, void *data)
+{
+	unsigned long flags;
+	int irq_idx, i, rc;
+	u32 status = 0;
+	struct intr_table_entry *ind_irq_tbl;
+	struct intr_table_entry *comp_irq_tbl;
+	bool subdev_handled = 0;
+
+	irq_idx = get_irq_idx_from_irq_num(irq_num);
+	if (irq_idx < 0) {
+		pr_err("server_parse_irq: no clients for irq #%d. returning ",
+			irq_num);
+		return IRQ_HANDLED;
+	}
+
+	spin_lock_irqsave(&g_server_dev.intr_table_lock, flags);
+	ind_irq_tbl = &g_server_dev.irq_lkup_table.ind_intr_tbl[0];
+	comp_irq_tbl = &g_server_dev.irq_lkup_table.comp_intr_tbl[0];
+	if (ind_irq_tbl[irq_idx].is_composite) {
+		for (i = 0; i < comp_irq_tbl[irq_idx].num_hwcore; i++) {
+			if (comp_irq_tbl[irq_idx].subdev_list[i]) {
+				rc = v4l2_subdev_call(
+					comp_irq_tbl[irq_idx].subdev_list[i],
+					core, interrupt_service_routine,
+					status, &subdev_handled);
+				if ((rc < 0) || !subdev_handled) {
+					pr_err("server_parse_irq:Error\n"
+						"handling irq %d rc = %d",
+						irq_num, rc);
+					/* Dispatch the irq to the remaining
+					 * subdevs in the list. */
+					continue;
+				}
+			}
+		}
+	} else {
+		rc = v4l2_subdev_call(ind_irq_tbl[irq_idx].subdev_list[0],
+			core, interrupt_service_routine,
+			status, &subdev_handled);
+		if ((rc < 0) || !subdev_handled) {
+			pr_err("server_parse_irq: Error handling irq %d rc = %d",
+				irq_num, rc);
+			spin_unlock_irqrestore(&g_server_dev.intr_table_lock,
+				flags);
+			return IRQ_HANDLED;
+		}
+	}
+	spin_unlock_irqrestore(&g_server_dev.intr_table_lock, flags);
+	return IRQ_HANDLED;
+}
+
+/* Helper function to get the irq_idx corresponding
+ * to the camera hwcore. This function should _only_
+ * be invoked when the IRQ Router is configured
+ * non-composite mode. */
+int get_irq_idx_from_camhw_idx(int cam_hw_idx)
+{
+	int i;
+	for (i = 0; i < MSM_CAM_HW_MAX; i++)
+		if (cam_hw_idx == g_server_dev.hw_irqmap[i].cam_hw_idx)
+			return g_server_dev.hw_irqmap[i].irq_idx;
+
+	return -EINVAL;
+}
+
+static inline void update_compirq_subdev_info(
+	struct intr_table_entry *irq_entry,
+	uint32_t cam_hw_mask, uint8_t cam_hw_id,
+	int *num_hwcore)
+{
+	if (cam_hw_mask & (0x1 << cam_hw_id)) {
+		/* If the mask has been set for this cam hwcore
+		 * update the subdev ptr......*/
+		irq_entry->subdev_list[cam_hw_id] =
+			g_server_dev.subdev_table[cam_hw_id];
+		(*num_hwcore)++;
+	} else {
+		/*....else, just clear it, so that the irq will
+		 * not be dispatched to this hw. */
+		irq_entry->subdev_list[cam_hw_id] = NULL;
+	}
+}
+
+static int msm_server_update_composite_irq_info(
+	struct intr_table_entry *irq_req)
+{
+	int num_hwcore = 0, rc = 0;
+	struct intr_table_entry *comp_irq_tbl =
+		&g_server_dev.irq_lkup_table.comp_intr_tbl[0];
+
+	comp_irq_tbl[irq_req->irq_idx].is_composite = 1;
+	comp_irq_tbl[irq_req->irq_idx].irq_trigger_type =
+		irq_req->irq_trigger_type;
+	comp_irq_tbl[irq_req->irq_idx].num_hwcore = irq_req->num_hwcore;
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_MICRO, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_CCI, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_CSI0, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_CSI1, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_CSI2, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_CSI3, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_ISPIF, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_CPP, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_VFE0, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_VFE1, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_JPEG0, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_JPEG1, &num_hwcore);
+
+	update_compirq_subdev_info(&comp_irq_tbl[irq_req->irq_idx],
+		irq_req->cam_hw_mask, MSM_CAM_HW_JPEG2, &num_hwcore);
+
+	if (num_hwcore != irq_req->num_hwcore) {
+		pr_warn("%s Mismatch!! requested cam hwcores: %d, Mask set %d",
+			__func__, irq_req->num_hwcore, num_hwcore);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
+int msm_cam_server_request_irq(void *arg)
+{
+	unsigned long flags;
+	int rc = 0;
+	struct intr_table_entry *irq_req =  (struct intr_table_entry *)arg;
+	struct intr_table_entry *ind_irq_tbl =
+		&g_server_dev.irq_lkup_table.ind_intr_tbl[0];
+	struct intr_table_entry *comp_irq_tbl =
+		&g_server_dev.irq_lkup_table.comp_intr_tbl[0];
+
+	if (!irq_req || !irq_req->irq_num || !irq_req->num_hwcore) {
+		pr_err("%s Invalid input ", __func__);
+		return -EINVAL;
+	}
+
+	if (!g_server_dev.irqr_device) {
+		/* This either means, the current target does not
+		 * have a IRQ Router hw or the IRQ Router device is
+		 * not probed yet. The latter should not happen.
+		 * In any case, just return back without updating
+		 * the interrupt lookup table. */
+		pr_info("%s IRQ Router hw is not present. ", __func__);
+		return -ENXIO;
+	}
+
+	if (irq_req->is_composite) {
+		if (irq_req->irq_idx >= CAMERA_SS_IRQ_0 &&
+				irq_req->irq_idx < CAMERA_SS_IRQ_MAX) {
+			spin_lock_irqsave(&g_server_dev.intr_table_lock, flags);
+			/* Update the composite irq information into
+			 * the composite irq lookup table.... */
+			if (msm_server_update_composite_irq_info(irq_req)) {
+				pr_err("%s Invalid configuration", __func__);
+				spin_unlock_irqrestore(
+					&g_server_dev.intr_table_lock, flags);
+				return -EINVAL;
+			}
+			spin_unlock_irqrestore(&g_server_dev.intr_table_lock,
+				flags);
+			/*...and then update the corresponding entry
+			 * in the individual irq lookup table to indicate
+			 * that this IRQ is a composite irq and needs to be
+			 * sent to multiple subdevs. */
+			ind_irq_tbl[irq_req->irq_idx].is_composite = 1;
+			rc = request_irq(comp_irq_tbl[irq_req->irq_idx].irq_num,
+				msm_camera_server_parse_irq,
+				irq_req->irq_trigger_type,
+				ind_irq_tbl[irq_req->irq_idx].dev_name,
+				ind_irq_tbl[irq_req->irq_idx].data);
+			if (rc < 0) {
+				pr_err("%s: request_irq failed for %s\n",
+					__func__, irq_req->dev_name);
+				return -EBUSY;
+			}
+		} else {
+			pr_err("%s Invalid irq_idx %d ",
+				__func__, irq_req->irq_idx);
+			return -EINVAL;
+		}
+	} else {
+		if (irq_req->cam_hw_idx >= MSM_CAM_HW_MICRO &&
+				irq_req->cam_hw_idx < MSM_CAM_HW_MAX) {
+			/* Update the irq information into
+			 * the individual irq lookup table.... */
+			irq_req->irq_idx =
+				get_irq_idx_from_camhw_idx(irq_req->cam_hw_idx);
+			if (irq_req->cam_hw_idx < 0) {
+				pr_err("%s Invalid hw index %d ", __func__,
+					irq_req->cam_hw_idx);
+				return -EINVAL;
+			}
+			spin_lock_irqsave(&g_server_dev.intr_table_lock, flags);
+			/* Make sure the composite irq is not configured for
+			 * this IRQ already. */
+			BUG_ON(ind_irq_tbl[irq_req->irq_idx].is_composite);
+
+			ind_irq_tbl[irq_req->irq_idx] = *irq_req;
+			/* irq_num is stored inside the server's hw_irqmap
+			 * during the device subdevice registration. */
+			ind_irq_tbl[irq_req->irq_idx].irq_num =
+			g_server_dev.hw_irqmap[irq_req->irq_idx].irq_num;
+
+			/*...and clear the corresponding entry in the
+			 * compsoite irq lookup table to indicate that this
+			 * IRQ will only be dispatched to single subdev. */
+			memset(&comp_irq_tbl[irq_req->irq_idx], 0,
+					sizeof(struct intr_table_entry));
+			D("%s Saving Entry %d %d %d %p",
+			__func__,
+			ind_irq_tbl[irq_req->cam_hw_idx].irq_num,
+			ind_irq_tbl[irq_req->cam_hw_idx].cam_hw_idx,
+			ind_irq_tbl[irq_req->cam_hw_idx].is_composite,
+			ind_irq_tbl[irq_req->cam_hw_idx].subdev_list[0]);
+
+			spin_unlock_irqrestore(&g_server_dev.intr_table_lock,
+				flags);
+
+			rc = request_irq(ind_irq_tbl[irq_req->irq_idx].irq_num,
+				msm_camera_server_parse_irq,
+				irq_req->irq_trigger_type,
+				ind_irq_tbl[irq_req->irq_idx].dev_name,
+				ind_irq_tbl[irq_req->irq_idx].data);
+			if (rc < 0) {
+				pr_err("%s: request_irq failed for %s\n",
+					__func__, irq_req->dev_name);
+				return -EBUSY;
+			}
+		} else {
+			pr_err("%s Invalid hw index %d ", __func__,
+				irq_req->cam_hw_idx);
+			return -EINVAL;
+		}
+	}
+	D("%s Successfully requested for IRQ for device %s ", __func__,
+		irq_req->dev_name);
+	return rc;
+}
+
+int msm_cam_server_update_irqmap(
+	struct msm_cam_server_irqmap_entry *irqmap_entry)
+{
+	if (!irqmap_entry || (irqmap_entry->irq_idx < CAMERA_SS_IRQ_0 ||
+		irqmap_entry->irq_idx >= CAMERA_SS_IRQ_MAX)) {
+		pr_err("%s Invalid irqmap entry ", __func__);
+		return -EINVAL;
+	}
+	g_server_dev.hw_irqmap[irqmap_entry->irq_idx] = *irqmap_entry;
+	return 0;
+}
+
+static int msm_cam_server_register_subdev(struct v4l2_device *v4l2_dev,
+	struct v4l2_subdev *sd)
+{
+	int rc = 0;
 	struct video_device *vdev;
-	int err = 0;
+
+	if (v4l2_dev == NULL || sd == NULL || !sd->name[0]) {
+		pr_err("%s Invalid input ", __func__);
+		return -EINVAL;
+	}
+
+	rc = v4l2_device_register_subdev(v4l2_dev, sd);
+	if (rc < 0) {
+		pr_err("%s v4l2 subdev register failed for %s ret = %d",
+			__func__, sd->name, rc);
+		return rc;
+	}
+
+	/* Register a device node for every subdev marked with the
+	 * V4L2_SUBDEV_FL_HAS_DEVNODE flag.
+	 */
+	if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
+		return rc;
+
+	vdev = kzalloc(sizeof(*vdev), GFP_KERNEL);
+	if (!vdev) {
+		pr_err("%s Not enough memory ", __func__);
+		rc = -ENOMEM;
+		goto clean_up;
+	}
+
+	video_set_drvdata(vdev, sd);
+	strlcpy(vdev->name, sd->name, sizeof(vdev->name));
+	vdev->v4l2_dev = v4l2_dev;
+	vdev->fops = &v4l2_subdev_fops;
+	vdev->release = msm_cam_release_subdev_node;
+	rc = __video_register_device(vdev, VFL_TYPE_SUBDEV, -1, 1,
+						  sd->owner);
+	if (rc < 0) {
+		pr_err("%s Error registering video device %s", __func__,
+			sd->name);
+		kfree(vdev);
+		goto clean_up;
+	}
+#if defined(CONFIG_MEDIA_CONTROLLER)
+	sd->entity.info.v4l.major = VIDEO_MAJOR;
+	sd->entity.info.v4l.minor = vdev->minor;
+#endif
+	sd->devnode = vdev;
+	return 0;
+
+clean_up:
+	if (sd->devnode)
+		video_unregister_device(sd->devnode);
+	return rc;
+}
+
+static int msm_cam_server_fill_sdev_irqnum(int cam_hw_idx,
+	int irq_num)
+{
+	int rc = 0, irq_idx;
+	irq_idx = get_irq_idx_from_camhw_idx(cam_hw_idx);
+	if (irq_idx < 0) {
+		pr_err("%s Invalid cam_hw_idx %d ", __func__, cam_hw_idx);
+		rc = -EINVAL;
+	} else {
+		g_server_dev.hw_irqmap[irq_idx].irq_num = irq_num;
+	}
+	return rc;
+}
+
+int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
+	struct msm_cam_subdev_info *sd_info)
+{
+	int err = 0, cam_hw_idx;
+	uint8_t sdev_type, index;
+
+	sdev_type = sd_info->sdev_type;
+	index     = sd_info->sd_index;
 
 	switch (sdev_type) {
 	case CSIPHY_DEV:
@@ -1466,7 +1825,13 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 			err = -EINVAL;
 			break;
 		}
+		cam_hw_idx = MSM_CAM_HW_CSI0 + index;
 		g_server_dev.csid_device[index] = sd;
+		if (g_server_dev.irqr_device) {
+			g_server_dev.subdev_table[cam_hw_idx] = sd;
+			err = msm_cam_server_fill_sdev_irqnum(cam_hw_idx,
+				sd_info->irq_num);
+		}
 		break;
 
 	case CSIC_DEV:
@@ -1480,6 +1845,11 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 
 	case ISPIF_DEV:
 		g_server_dev.ispif_device = sd;
+		if (g_server_dev.irqr_device) {
+			g_server_dev.subdev_table[cam_hw_idx] = sd;
+			err = msm_cam_server_fill_sdev_irqnum(MSM_CAM_HW_ISPIF,
+				sd_info->irq_num);
+		}
 		break;
 
 	case VFE_DEV:
@@ -1488,7 +1858,13 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 			err = -EINVAL;
 			break;
 		}
+		cam_hw_idx = MSM_CAM_HW_VFE0 + index;
 		g_server_dev.vfe_device[index] = sd;
+		if (g_server_dev.irqr_device) {
+			g_server_dev.subdev_table[cam_hw_idx] = sd;
+			err = msm_cam_server_fill_sdev_irqnum(cam_hw_idx,
+				sd_info->irq_num);
+		}
 		break;
 
 	case VPE_DEV:
@@ -1512,6 +1888,9 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 	case GESTURE_DEV:
 		g_server_dev.gesture_device = sd;
 		break;
+	case IRQ_ROUTER_DEV:
+		g_server_dev.irqr_device = sd;
+		break;
 	default:
 		break;
 	}
@@ -1519,48 +1898,10 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 	if (err < 0)
 		return err;
 
-	err = v4l2_device_register_subdev(&g_server_dev.v4l2_dev, sd);
-	if (err < 0) {
-		pr_err("%s v4l2 subdev register failed for %d ret = %d",
-			__func__, sdev_type, err);
-		return err;
-	}
-
-	/* Register a device node for every subdev marked with the
-	 * V4L2_SUBDEV_FL_HAS_DEVNODE flag.
-	 */
-	if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
-		return err;
-
-	vdev = kzalloc(sizeof(*vdev), GFP_KERNEL);
-	if (!vdev) {
-		err = -ENOMEM;
-		goto clean_up;
-	}
-
-	video_set_drvdata(vdev, sd);
-	strlcpy(vdev->name, sd->name, sizeof(vdev->name));
-	vdev->v4l2_dev = &g_server_dev.v4l2_dev;
-	vdev->fops = &v4l2_subdev_fops;
-	vdev->release = msm_cam_release_subdev_node;
-	err = __video_register_device(vdev, VFL_TYPE_SUBDEV, -1, 1,
-						  sd->owner);
-	if (err < 0) {
-		kfree(vdev);
-		goto clean_up;
-	}
-#if defined(CONFIG_MEDIA_CONTROLLER)
-	sd->entity.info.v4l.major = VIDEO_MAJOR;
-	sd->entity.info.v4l.minor = vdev->minor;
-#endif
-	sd->devnode = vdev;
-	return 0;
-
-clean_up:
-	if (sd->devnode)
-		video_unregister_device(sd->devnode);
+	err = msm_cam_server_register_subdev(&g_server_dev.v4l2_dev, sd);
 	return err;
 }
+
 
 static int msm_setup_server_dev(struct platform_device *pdev)
 {
@@ -1604,6 +1945,9 @@ static int msm_setup_server_dev(struct platform_device *pdev)
 
 	mutex_init(&g_server_dev.server_lock);
 	mutex_init(&g_server_dev.server_queue_lock);
+	spin_lock_init(&g_server_dev.intr_table_lock);
+	memset(&g_server_dev.irq_lkup_table, 0,
+			sizeof(struct irqmgr_intr_lkup_table));
 	g_server_dev.pcam_active = NULL;
 	g_server_dev.camera_info.num_cameras = 0;
 	atomic_set(&g_server_dev.number_pcam_active, 0);

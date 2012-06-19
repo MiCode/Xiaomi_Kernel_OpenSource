@@ -970,6 +970,8 @@ static const struct v4l2_subdev_internal_ops msm_vpe_internal_ops = {
 static int msm_vpe_probe(struct platform_device *pdev)
 {
 	int rc = 0;
+	struct msm_cam_subdev_info sd_info;
+
 	D("%s: device id = %d\n", __func__, pdev->id);
 	vpe_ctrl = kzalloc(sizeof(struct vpe_ctrl_type), GFP_KERNEL);
 	if (!vpe_ctrl) {
@@ -1028,7 +1030,10 @@ static int msm_vpe_probe(struct platform_device *pdev)
 
 	atomic_set(&vpe_ctrl->active, 0);
 	vpe_ctrl->pdev = pdev;
-	msm_cam_register_subdev_node(&vpe_ctrl->subdev, VPE_DEV, pdev->id);
+	sd_info.sdev_type = VPE_DEV;
+	sd_info.sd_index = pdev->id;
+	sd_info.irq_num = vpe_ctrl->vpeirq->start;
+	msm_cam_register_subdev_node(&vpe_ctrl->subdev, &sd_info);
 	vpe_ctrl->subdev.entity.revision = vpe_ctrl->subdev.devnode->num;
 	msm_queue_init(&vpe_ctrl->eventData_q, "ackevents");
 

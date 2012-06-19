@@ -25,6 +25,7 @@
 #include <media/msm_isp.h>
 
 #include "msm.h"
+#include "msm_cam_server.h"
 #include "msm_vfe32.h"
 
 atomic_t irq_cnt;
@@ -3979,6 +3980,17 @@ static irqreturn_t vfe32_parse_irq(int irq_num, void *data)
 	return IRQ_HANDLED;
 }
 
+int msm_axi_subdev_isr_routine(struct v4l2_subdev *sd,
+	u32 status, bool *handled)
+{
+	struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
+	irqreturn_t ret;
+	pr_info("%s E ", __func__);
+	ret = vfe32_parse_irq(axi_ctrl->vfeirq->start, axi_ctrl);
+	*handled = TRUE;
+	return 0;
+}
+
 static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int subdev_cmd, void *arg)
 {
@@ -4678,6 +4690,7 @@ static long msm_axi_subdev_ioctl(struct v4l2_subdev *sd,
 
 static const struct v4l2_subdev_core_ops msm_axi_subdev_core_ops = {
 	.ioctl = msm_axi_subdev_ioctl,
+	.interrupt_service_routine = msm_axi_subdev_isr_routine,
 };
 
 static const struct v4l2_subdev_video_ops msm_axi_subdev_video_ops = {
@@ -4697,6 +4710,9 @@ static int vfe32_probe(struct platform_device *pdev)
 	struct axi_ctrl_t *axi_ctrl;
 	struct vfe32_ctrl_type *vfe32_ctrl;
 	struct vfe_share_ctrl_t *share_ctrl;
+	struct intr_table_entry irq_req;
+	struct msm_cam_subdev_info sd_info;
+
 	CDBG("%s: device id = %d\n", __func__, pdev->id);
 
 	share_ctrl = kzalloc(sizeof(struct vfe_share_ctrl_t), GFP_KERNEL);
@@ -4732,7 +4748,11 @@ static int vfe32_probe(struct platform_device *pdev)
 			 sizeof(axi_ctrl->subdev.name), "axi");
 	v4l2_set_subdevdata(&axi_ctrl->subdev, axi_ctrl);
 	axi_ctrl->pdev = pdev;
-	msm_cam_register_subdev_node(&axi_ctrl->subdev, AXI_DEV, 0);
+
+	sd_info.sdev_type = AXI_DEV;
+	sd_info.sd_index = 0;
+	sd_info.irq_num = 0;
+	msm_cam_register_subdev_node(&axi_ctrl->subdev, &sd_info);
 
 	v4l2_subdev_init(&vfe32_ctrl->subdev, &msm_vfe_subdev_ops);
 	vfe32_ctrl->subdev.internal_ops = &msm_vfe_internal_ops;
@@ -4765,23 +4785,49 @@ static int vfe32_probe(struct platform_device *pdev)
 		goto vfe32_no_resource;
 	}
 
-	rc = request_irq(axi_ctrl->vfeirq->start, vfe32_parse_irq,
-		IRQF_TRIGGER_RISING, "vfe", axi_ctrl);
-	if (rc < 0) {
-		release_mem_region(axi_ctrl->vfemem->start,
-			resource_size(axi_ctrl->vfemem));
-		pr_err("%s: irq request fail\n", __func__);
-		rc = -EBUSY;
+	/* Request for this device irq from the camera server. If the
+	 * IRQ Router is present on this target, the interrupt will be
+	 * handled by the camera server and the interrupt service
+	 * routine called. If the request_irq call returns ENXIO, then
+	 * the IRQ Router hardware is not present on this target. We
+	 * have to request for the irq ourselves and register the
+	 * appropriate interrupt handler. */
+	irq_req.cam_hw_idx       = MSM_CAM_HW_VFE0;
+	irq_req.dev_name         = "vfe";
+	irq_req.irq_idx          = CAMERA_SS_IRQ_8;
+	irq_req.irq_num          = axi_ctrl->vfeirq->start;
+	irq_req.is_composite     = 0;
+	irq_req.irq_trigger_type = IRQF_TRIGGER_RISING;
+	irq_req.num_hwcore       = 1;
+	irq_req.subdev_list[0]   = &axi_ctrl->subdev;
+	irq_req.data             = (void *)axi_ctrl;
+	rc = msm_cam_server_request_irq(&irq_req);
+	if (rc == -ENXIO) {
+		/* IRQ Router hardware is not present on this hardware.
+		 * Request for the IRQ and register the interrupt handler. */
+		rc = request_irq(axi_ctrl->vfeirq->start, vfe32_parse_irq,
+			IRQF_TRIGGER_RISING, "vfe", axi_ctrl);
+		if (rc < 0) {
+			release_mem_region(axi_ctrl->vfemem->start,
+				resource_size(axi_ctrl->vfemem));
+			pr_err("%s: irq request fail\n", __func__);
+			rc = -EBUSY;
+			goto vfe32_no_resource;
+		}
+		disable_irq(axi_ctrl->vfeirq->start);
+	} else if (rc < 0) {
+		pr_err("%s Error registering irq ", __func__);
 		goto vfe32_no_resource;
 	}
-
-	disable_irq(axi_ctrl->vfeirq->start);
 
 	tasklet_init(&axi_ctrl->vfe32_tasklet,
 		axi32_do_tasklet, (unsigned long)axi_ctrl);
 
 	vfe32_ctrl->pdev = pdev;
-	msm_cam_register_subdev_node(&vfe32_ctrl->subdev, VFE_DEV, 0);
+	sd_info.sdev_type = VFE_DEV;
+	sd_info.sd_index = 0;
+	sd_info.irq_num = axi_ctrl->vfeirq->start;
+	msm_cam_register_subdev_node(&vfe32_ctrl->subdev, &sd_info);
 	return 0;
 
 vfe32_no_resource:

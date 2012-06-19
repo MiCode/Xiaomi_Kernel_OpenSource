@@ -3844,7 +3844,10 @@ static const struct v4l2_subdev_internal_ops msm_vfe_internal_ops;
 static int vfe31_probe(struct platform_device *pdev)
 {
 	int rc = 0;
+	struct msm_cam_subdev_info sd_info;
+
 	CDBG("%s: device id = %d\n", __func__, pdev->id);
+
 	vfe31_ctrl = kzalloc(sizeof(struct vfe31_ctrl_type), GFP_KERNEL);
 	if (!vfe31_ctrl) {
 		pr_err("%s: no enough memory\n", __func__);
@@ -3916,7 +3919,10 @@ static int vfe31_probe(struct platform_device *pdev)
 	disable_irq(vfe31_ctrl->vfeirq->start);
 
 	vfe31_ctrl->pdev = pdev;
-	msm_cam_register_subdev_node(&vfe31_ctrl->subdev, VFE_DEV, 0);
+	sd_info.sdev_type = VFE_DEV;
+	sd_info.sd_index = 0;
+	sd_info.irq_num = vfe31_ctrl->vfeirq->start;
+	msm_cam_register_subdev_node(&vfe31_ctrl->subdev, &sd_info);
 	return 0;
 
 vfe31_no_resource:

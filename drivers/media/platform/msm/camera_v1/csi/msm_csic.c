@@ -388,6 +388,8 @@ static int csic_probe(struct platform_device *pdev)
 {
 	struct csic_device *new_csic_dev;
 	int rc = 0;
+	struct msm_cam_subdev_info sd_info;
+
 	CDBG("%s: device id = %d\n", __func__, pdev->id);
 	new_csic_dev = kzalloc(sizeof(struct csic_device), GFP_KERNEL);
 	if (!new_csic_dev) {
@@ -455,8 +457,11 @@ static int csic_probe(struct platform_device *pdev)
 
 	iounmap(new_csic_dev->base);
 	new_csic_dev->base = NULL;
+	sd_info.sdev_type = CSIC_DEV;
+	sd_info.sd_index = pdev->id;
+	sd_info.irq_num = new_csic_dev->irq->start;
 	msm_cam_register_subdev_node(
-		&new_csic_dev->subdev, CSIC_DEV, pdev->id);
+		&new_csic_dev->subdev, &sd_info);
 
 	return 0;
 

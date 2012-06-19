@@ -1277,6 +1277,7 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	struct msm_camera_sensor_info *sdata;
 	struct msm_cam_v4l2_device *pcam;
 	struct msm_sensor_ctrl_t *s_ctrl;
+	struct msm_cam_subdev_info sd_info;
 
 	D("%s for %s\n", __func__, sensor_sd->name);
 
@@ -1321,8 +1322,11 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	}
 	msm_server_update_sensor_info(pcam, sdata);
 
+	sd_info.sdev_type = SENSOR_DEV;
+	sd_info.sd_index = vnode_count;
+	sd_info.irq_num = 0;
 	/* register the subdevice, must be done for callbacks */
-	rc = msm_cam_register_subdev_node(sensor_sd, SENSOR_DEV, vnode_count);
+	rc = msm_cam_register_subdev_node(sensor_sd, &sd_info);
 	if (rc < 0) {
 		D("%s sensor sub device register failed\n",
 			__func__);

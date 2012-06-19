@@ -282,6 +282,8 @@ static int csiphy_probe(struct platform_device *pdev)
 {
 	struct csiphy_device *new_csiphy_dev;
 	int rc = 0;
+	struct msm_cam_subdev_info sd_info;
+
 	CDBG("%s: device id = %d\n", __func__, pdev->id);
 	new_csiphy_dev = kzalloc(sizeof(struct csiphy_device), GFP_KERNEL);
 	if (!new_csiphy_dev) {
@@ -333,8 +335,11 @@ static int csiphy_probe(struct platform_device *pdev)
 	disable_irq(new_csiphy_dev->irq->start);
 
 	new_csiphy_dev->pdev = pdev;
+	sd_info.sdev_type = CSIPHY_DEV;
+	sd_info.sd_index = pdev->id;
+	sd_info.irq_num = new_csiphy_dev->irq->start;
 	msm_cam_register_subdev_node(
-		&new_csiphy_dev->subdev, CSIPHY_DEV, pdev->id);
+		&new_csiphy_dev->subdev, &sd_info);
 	return 0;
 
 csiphy_no_resource:
