@@ -585,7 +585,8 @@ static struct msm_camera_i2c_enum_conf_array ov7692_antibanding_enum_confs = {
 static struct msm_camera_i2c_reg_conf ov7692_wb_oem[][4] = {
 	{{-1, -1, -1}, {-1, -1, -1}, {-1, -1, -1},
 		{-1, -1, -1},},/*WHITEBALNACE OFF*/
-	{{0x13, 0xf7}, {0x15, 0x00},},		/*WHITEBALNACE AUTO*/
+	{{0x13, 0xf7}, {0x15, 0x00}, {-1, -1, -1},
+		{-1, -1, -1},}, /*WHITEBALNACE AUTO*/
 	{{0x13, 0xf5}, {0x01, 0x56}, {0x02, 0x50},
 		{0x15, 0x00},},	/*WHITEBALNACE CUSTOM*/
 	{{0x13, 0xf5}, {0x01, 0x66}, {0x02, 0x40},
