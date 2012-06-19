@@ -72,8 +72,6 @@ struct msm_spm_device {
 };
 
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_spm_device, msm_spm_devices);
-static atomic_t msm_spm_set_vdd_x_cpu_allowed = ATOMIC_INIT(1);
-
 /******************************************************************************
  * Internal helper functions
  *****************************************************************************/
@@ -189,19 +187,8 @@ int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 {
-	unsigned long flags;
 	struct msm_spm_device *dev;
 	uint32_t timeout_us;
-
-	local_irq_save(flags);
-
-	if (!atomic_read(&msm_spm_set_vdd_x_cpu_allowed) &&
-				unlikely(smp_processor_id() != cpu)) {
-		if (msm_spm_debug_mask & MSM_SPM_DEBUG_VCTL)
-			pr_info("%s: attempting to set vdd of cpu %u from "
-				"cpu %u\n", __func__, cpu, smp_processor_id());
-		goto set_vdd_x_cpu_bail;
-	}
 
 	dev = &per_cpu(msm_spm_devices, cpu);
 
@@ -239,15 +226,12 @@ int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 		pr_info("%s: cpu %u done, remaining timeout %uus\n",
 			__func__, cpu, timeout_us);
 
-	local_irq_restore(flags);
 	return 0;
 
 set_vdd_bail:
 	pr_err("%s: cpu %u failed, remaining timeout %uus, vlevel 0x%x\n",
 	       __func__, cpu, timeout_us, msm_spm_get_sts_curr_pmic_data(dev));
 
-set_vdd_x_cpu_bail:
-	local_irq_restore(flags);
 	return -EIO;
 }
 
@@ -261,11 +245,6 @@ void msm_spm_reinit(void)
 
 	/* Ensure that the registers are written before returning */
 	mb();
-}
-
-void msm_spm_allow_x_cpu_set_vdd(bool allowed)
-{
-	atomic_set(&msm_spm_set_vdd_x_cpu_allowed, allowed ? 1 : 0);
 }
 
 int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
