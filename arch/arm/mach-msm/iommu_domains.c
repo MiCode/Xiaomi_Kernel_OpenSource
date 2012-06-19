@@ -46,31 +46,57 @@ int msm_iommu_map_extra(struct iommu_domain *domain,
 				unsigned long page_size,
 				int cached)
 {
-	int i, ret_value = 0;
-	unsigned long order = get_order(page_size);
-	unsigned long aligned_size = ALIGN(size, page_size);
-	unsigned long nrpages = aligned_size >> (PAGE_SHIFT + order);
+	int ret = 0;
+	int i = 0;
 	unsigned long phy_addr = ALIGN(virt_to_phys(iommu_dummy), page_size);
 	unsigned long temp_iova = start_iova;
+	if (page_size == SZ_4K) {
+		struct scatterlist *sglist;
+		unsigned int nrpages = PFN_ALIGN(size) >> PAGE_SHIFT;
+		struct page *dummy_page = phys_to_page(phy_addr);
 
-	for (i = 0; i < nrpages; i++) {
-		int ret = iommu_map(domain, temp_iova, phy_addr, page_size,
-					cached);
-		if (ret) {
-			pr_err("%s: could not map %lx in domain %p, error: %d\n",
-				__func__, start_iova, domain, ret);
-			ret_value = -EAGAIN;
+		sglist = vmalloc(sizeof(*sglist) * nrpages);
+		if (!sglist) {
+			ret = -ENOMEM;
 			goto out;
 		}
-		temp_iova += page_size;
+
+		sg_init_table(sglist, nrpages);
+
+		for (i = 0; i < nrpages; i++)
+			sg_set_page(&sglist[i], dummy_page, PAGE_SIZE, 0);
+
+		ret = iommu_map_range(domain, temp_iova, sglist, size, cached);
+		if (ret) {
+			pr_err("%s: could not map extra %lx in domain %p\n",
+				__func__, start_iova, domain);
+		}
+
+		vfree(sglist);
+	} else {
+		unsigned long order = get_order(page_size);
+		unsigned long aligned_size = ALIGN(size, page_size);
+		unsigned long nrpages = aligned_size >> (PAGE_SHIFT + order);
+
+		for (i = 0; i < nrpages; i++) {
+			ret = iommu_map(domain, temp_iova, phy_addr, page_size,
+						cached);
+			if (ret) {
+				pr_err("%s: could not map %lx in domain %p, error: %d\n",
+					__func__, start_iova, domain, ret);
+				ret = -EAGAIN;
+				goto out;
+			}
+			temp_iova += page_size;
+		}
 	}
-	return ret_value;
+	return ret;
 out:
 	for (; i > 0; --i) {
 		temp_iova -= page_size;
 		iommu_unmap(domain, start_iova, page_size);
 	}
-	return ret_value;
+	return ret;
 }
 
 void msm_iommu_unmap_extra(struct iommu_domain *domain,
