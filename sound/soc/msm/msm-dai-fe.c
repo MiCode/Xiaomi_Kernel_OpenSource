@@ -182,6 +182,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 	{
 		.playback = {
 			.stream_name = "MultiMedia5 Playback",
+			.aif_name = "MM_DL5",
 			.rates = (SNDRV_PCM_RATE_8000_48000 |
 					SNDRV_PCM_RATE_KNOT),
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
@@ -196,6 +197,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 	{
 		.playback = {
 			.stream_name = "MultiMedia6 Playback",
+			.aif_name = "MM_DL6",
 			.rates = (SNDRV_PCM_RATE_8000_48000 |
 					SNDRV_PCM_RATE_KNOT),
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
@@ -210,6 +212,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 	{
 		.playback = {
 			.stream_name = "MultiMedia7 Playback",
+			.aif_name = "MM_DL7",
 			.rates = (SNDRV_PCM_RATE_8000_48000 |
 					SNDRV_PCM_RATE_KNOT),
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
@@ -224,6 +227,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 	{
 		.playback = {
 			.stream_name = "MultiMedia8 Playback",
+			.aif_name = "MM_DL8",
 			.rates = (SNDRV_PCM_RATE_8000_48000 |
 					SNDRV_PCM_RATE_KNOT),
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
