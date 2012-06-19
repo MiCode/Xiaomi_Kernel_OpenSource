@@ -137,6 +137,12 @@ static int dtv_on(struct platform_device *pdev)
 		clk_prepare_enable(ebi1_clk);
 	}
 #endif
+
+	if (dtv_pdata && dtv_pdata->lcdc_power_save)
+		dtv_pdata->lcdc_power_save(1);
+	if (dtv_pdata && dtv_pdata->lcdc_gpio_config)
+		ret = dtv_pdata->lcdc_gpio_config(1);
+
 	mfd = platform_get_drvdata(pdev);
 
 	ret = clk_set_rate(tv_src_clk, mfd->fbi->var.pixclock);
@@ -157,11 +163,6 @@ static int dtv_on(struct platform_device *pdev)
 
 	if (mdp_tv_clk)
 		clk_prepare_enable(mdp_tv_clk);
-
-	if (dtv_pdata && dtv_pdata->lcdc_power_save)
-		dtv_pdata->lcdc_power_save(1);
-	if (dtv_pdata && dtv_pdata->lcdc_gpio_config)
-		ret = dtv_pdata->lcdc_gpio_config(1);
 
 	ret = panel_next_on(pdev);
 	return ret;
