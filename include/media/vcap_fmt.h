@@ -15,7 +15,19 @@
 #define VCAP_FMT_H
 
 #define V4L2_BUF_TYPE_INTERLACED_IN_DECODER (V4L2_BUF_TYPE_PRIVATE)
-#define V4L2_BUF_TYPE_VP_OUT (V4L2_BUF_TYPE_PRIVATE + 1)
+
+#define VCAP_GENERIC_NOTIFY_EVENT 0
+#define VCAP_VC_PIX_ERR_EVENT 1
+#define VCAP_VC_LINE_ERR_EVENT 2
+#define VCAP_VC_VSYNC_ERR_EVENT 3
+#define VCAP_VC_NPL_OFLOW_ERR_EVENT 4
+#define VCAP_VC_LBUF_OFLOW_ERR_EVENT 5
+#define VCAP_VC_BUF_OVERWRITE_EVENT 6
+#define VCAP_VP_REG_R_ERR_EVENT 7
+#define VCAP_VP_REG_W_ERR_EVENT 8
+#define VCAP_VP_IN_HEIGHT_ERR_EVENT 9
+#define VCAP_VP_IN_WIDTH_ERR_EVENT 10
+#define VCAP_MAX_NOTIFY_EVENT 11
 
 enum hal_vcap_mode {
 	HAL_VCAP_MODE_PRO = 0,
@@ -39,7 +51,8 @@ struct v4l2_format_vc_ext {
 	enum hal_vcap_polar    d_polar;
 	enum hal_vcap_color    color_space;
 
-	float  clk_freq;
+	uint32_t clk_freq;
+	uint32_t frame_rate;
 	uint32_t vtotal;
 	uint32_t htotal;
 	uint32_t hactive_start;

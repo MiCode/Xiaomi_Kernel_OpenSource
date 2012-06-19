@@ -20,6 +20,7 @@
 #include <mach/clk.h>
 #include <linux/clk.h>
 
+#include <media/v4l2-event.h>
 #include <media/vcap_v4l2.h>
 #include <media/vcap_fmt.h>
 #include "vcap_vp.h"
@@ -254,13 +255,35 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 {
 	struct vcap_client_data *c_data;
 	struct vp_action *vp_act;
+	struct v4l2_event v4l2_evt;
 	uint32_t irq;
 	int rc;
 
 	irq = readl_relaxed(VCAP_VP_INT_STATUS);
 
+	if (irq & 0x02000000) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VP_REG_R_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
+	if (irq & 0x01000000) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VC_LINE_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
+	if (irq & 0x00020000) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VP_IN_HEIGHT_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
+	if (irq & 0x00010000) {
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VP_IN_WIDTH_ERR_EVENT;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
+
 	dprintk(1, "%s: irq=0x%08x\n", __func__, irq);
-	if (!irq & VP_PIC_DONE) {
+	if (!(irq & VP_PIC_DONE)) {
 		writel_relaxed(irq, VCAP_VP_INT_CLEAR);
 		pr_err("VP IRQ shows some error\n");
 		return IRQ_HANDLED;
@@ -530,7 +553,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 			chroma_fmt << 11 | 0x2 << 4, VCAP_VP_IN_CONFIG);
 
 	chroma_fmt = 0;
-	if (c_data->vp_in_fmt.pixfmt == V4L2_PIX_FMT_NV16)
+	if (c_data->vp_out_fmt.pixfmt == V4L2_PIX_FMT_NV16)
 		chroma_fmt = 1;
 
 	writel_relaxed((c_data->vp_in_fmt.width / 16) << 20 |

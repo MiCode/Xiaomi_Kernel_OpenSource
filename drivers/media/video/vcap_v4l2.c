@@ -32,6 +32,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-event.h>
 #include <linux/regulator/consumer.h>
 #include <mach/clk.h>
 #include <linux/clk.h>
@@ -57,6 +58,228 @@ static unsigned debug;
 		if (debug >= level)					\
 			printk(KERN_DEBUG "VCAP: " fmt, ## arg);	\
 	} while (0)
+
+int vcap_reg_powerup(struct vcap_dev *dev)
+{
+	dev->fs_vcap = regulator_get(NULL, "fs_vcap");
+	if (IS_ERR(dev->fs_vcap)) {
+		pr_err("%s: Regulator FS_VCAP get failed %ld\n", __func__,
+			PTR_ERR(dev->fs_vcap));
+		dev->fs_vcap = NULL;
+		return -EINVAL;
+	} else if (regulator_enable(dev->fs_vcap)) {
+		pr_err("%s: Regulator FS_VCAP enable failed\n", __func__);
+		regulator_put(dev->fs_vcap);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+void vcap_reg_powerdown(struct vcap_dev *dev)
+{
+	if (dev->fs_vcap == NULL)
+		return;
+	regulator_disable(dev->fs_vcap);
+	regulator_put(dev->fs_vcap);
+	dev->fs_vcap = NULL;
+	return;
+}
+
+int config_gpios(int on, struct vcap_platform_data *pdata)
+{
+	int i, ret;
+	int num_gpios = pdata->num_gpios;
+	unsigned *gpios = pdata->gpios;
+
+	dprintk(4, "GPIO config start\n");
+	if (on) {
+		for (i = 0; i < num_gpios; i++) {
+			ret = gpio_request(gpios[i], "vcap:vc");
+			if (ret) {
+				pr_err("VCAP: failed at GPIO %d to request\n",
+						gpios[i]);
+				goto gpio_failed;
+			}
+			ret = gpio_direction_input(gpios[i]);
+			if (ret) {
+				pr_err("VCAP: failed at GPIO %d to set to input\n",
+					gpios[i]);
+				i++;
+				goto gpio_failed;
+			}
+		}
+	} else {
+		for (i = 0; i < num_gpios; i++)
+			gpio_free(gpios[i]);
+	}
+	dprintk(4, "GPIO config exit\n");
+	return 0;
+gpio_failed:
+	for (i--; i >= 0; i--)
+		gpio_free(gpios[i]);
+	return -EINVAL;
+}
+
+int vcap_clk_powerup(struct vcap_dev *dev, struct device *ddev,
+		unsigned long rate)
+{
+	int ret = 0;
+
+	dev->vcap_clk = clk_get(ddev, "core_clk");
+	if (IS_ERR(dev->vcap_clk)) {
+		dev->vcap_clk = NULL;
+		pr_err("%s: Could not clk_get core_clk\n", __func__);
+		clk_put(dev->vcap_clk);
+		dev->vcap_clk = NULL;
+		return -EINVAL;
+	}
+
+	clk_prepare(dev->vcap_clk);
+	ret = clk_enable(dev->vcap_clk);
+	if (ret) {
+		pr_err("%s: Failed core clk_enable %d\n", __func__, ret);
+		goto fail_vcap_clk_unprep;
+	}
+
+	rate = clk_round_rate(dev->vcap_clk, rate);
+	if (rate < 0) {
+		pr_err("%s: Failed core rnd_rate\n", __func__);
+		goto fail_vcap_clk;
+	}
+	ret = clk_set_rate(dev->vcap_clk, rate);
+	if (ret < 0) {
+		pr_err("%s: Failed core set_rate %d\n", __func__, ret);
+		goto fail_vcap_clk;
+	}
+
+	dev->vcap_npl_clk = clk_get(ddev, "vcap_npl_clk");
+	if (IS_ERR(dev->vcap_npl_clk)) {
+		dev->vcap_npl_clk = NULL;
+		pr_err("%s: Could not clk_get npl\n", __func__);
+		clk_put(dev->vcap_npl_clk);
+		dev->vcap_npl_clk = NULL;
+		goto fail_vcap_clk;
+	}
+
+	clk_prepare(dev->vcap_npl_clk);
+	ret = clk_enable(dev->vcap_npl_clk);
+	if (ret) {
+		pr_err("%s:Failed npl clk_enable %d\n", __func__, ret);
+		goto fail_vcap_npl_clk_unprep;
+	}
+
+	dev->vcap_p_clk = clk_get(ddev, "iface_clk");
+	if (IS_ERR(dev->vcap_p_clk)) {
+		dev->vcap_p_clk = NULL;
+		pr_err("%s: Could not clk_get pix(AHB)\n", __func__);
+		clk_put(dev->vcap_p_clk);
+		dev->vcap_p_clk = NULL;
+		goto fail_vcap_npl_clk;
+	}
+
+	clk_prepare(dev->vcap_p_clk);
+	ret = clk_enable(dev->vcap_p_clk);
+	if (ret) {
+		pr_err("%s: Failed pix(AHB) clk_enable %d\n", __func__, ret);
+		goto fail_vcap_p_clk_unprep;
+	}
+	return 0;
+
+fail_vcap_p_clk_unprep:
+	clk_unprepare(dev->vcap_p_clk);
+	clk_put(dev->vcap_p_clk);
+	dev->vcap_p_clk = NULL;
+
+fail_vcap_npl_clk:
+	clk_disable(dev->vcap_npl_clk);
+fail_vcap_npl_clk_unprep:
+	clk_unprepare(dev->vcap_npl_clk);
+	clk_put(dev->vcap_npl_clk);
+	dev->vcap_npl_clk = NULL;
+
+fail_vcap_clk:
+	clk_disable(dev->vcap_clk);
+fail_vcap_clk_unprep:
+	clk_unprepare(dev->vcap_clk);
+	clk_put(dev->vcap_clk);
+	dev->vcap_clk = NULL;
+	return -EINVAL;
+}
+
+void vcap_clk_powerdown(struct vcap_dev *dev)
+{
+	if (dev->vcap_p_clk != NULL) {
+		clk_disable(dev->vcap_p_clk);
+		clk_unprepare(dev->vcap_p_clk);
+		clk_put(dev->vcap_p_clk);
+		dev->vcap_p_clk = NULL;
+	}
+
+	if (dev->vcap_npl_clk != NULL) {
+		clk_disable(dev->vcap_npl_clk);
+		clk_unprepare(dev->vcap_npl_clk);
+		clk_put(dev->vcap_npl_clk);
+		dev->vcap_npl_clk = NULL;
+	}
+
+	if (dev->vcap_clk != NULL) {
+		clk_disable(dev->vcap_clk);
+		clk_unprepare(dev->vcap_clk);
+		clk_put(dev->vcap_clk);
+		dev->vcap_clk = NULL;
+	}
+}
+
+int vcap_get_bus_client_handle(struct vcap_dev *dev)
+{
+	struct msm_bus_scale_pdata *vcap_axi_client_pdata =
+			dev->vcap_pdata->bus_client_pdata;
+	dev->bus_client_handle =
+			msm_bus_scale_register_client(vcap_axi_client_pdata);
+
+	return 0;
+}
+
+int vcap_enable(struct vcap_dev *dev, struct device *ddev,
+		unsigned long rate)
+{
+	int rc;
+
+	rc = vcap_reg_powerup(dev);
+	if (rc < 0)
+		goto reg_failed;
+	rc = vcap_clk_powerup(dev, ddev, rate);
+	if (rc < 0)
+		goto clk_failed;
+	rc = vcap_get_bus_client_handle(dev);
+	if (rc < 0)
+		goto bus_r_failed;
+	rc = config_gpios(1, dev->vcap_pdata);
+	if (rc < 0)
+		goto gpio_failed;
+	return 0;
+
+gpio_failed:
+	msm_bus_scale_unregister_client(dev->bus_client_handle);
+	dev->bus_client_handle = 0;
+bus_r_failed:
+	vcap_clk_powerdown(dev);
+clk_failed:
+	vcap_reg_powerdown(dev);
+reg_failed:
+	return rc;
+}
+
+int vcap_disable(struct vcap_dev *dev)
+{
+	config_gpios(0, dev->vcap_pdata);
+
+	msm_bus_scale_unregister_client(dev->bus_client_handle);
+	dev->bus_client_handle = 0;
+	vcap_clk_powerdown(dev);
+	vcap_reg_powerdown(dev);
+	return 0;
+}
 
 enum vcap_op_mode determine_mode(struct vcap_client_data *cd)
 {
@@ -502,7 +725,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	int size;
 	struct vcap_priv_fmt *priv_fmt;
 	struct v4l2_format_vc_ext *vc_format;
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 
 	priv_fmt = (struct vcap_priv_fmt *) f->fmt.raw_data;
 
@@ -510,8 +733,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	case VC_TYPE:
 		vc_format = (struct v4l2_format_vc_ext *) &priv_fmt->u.timing;
 		c_data->vc_format = *vc_format;
-
-		config_vc_format(c_data);
 
 		size = (c_data->vc_format.hactive_end -
 			c_data->vc_format.hactive_start);
@@ -525,11 +746,9 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		size *= (c_data->vc_format.vactive_end -
 			c_data->vc_format.vactive_start);
 		priv_fmt->u.timing.sizeimage = size;
-		vcap_ctrl->vc_client = c_data;
 		c_data->set_cap = true;
 		break;
 	case VP_IN_TYPE:
-		vcap_ctrl->vp_client = c_data;
 		c_data->vp_in_fmt.width = priv_fmt->u.pix.width;
 		c_data->vp_in_fmt.height = priv_fmt->u.pix.height;
 		c_data->vp_in_fmt.pixfmt = priv_fmt->u.pix.pixelformat;
@@ -546,7 +765,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		c_data->set_decode = true;
 		break;
 	case VP_OUT_TYPE:
-		vcap_ctrl->vp_client = c_data;
 		c_data->vp_out_fmt.width = priv_fmt->u.pix.width;
 		c_data->vp_out_fmt.height = priv_fmt->u.pix.height;
 		c_data->vp_out_fmt.pixfmt = priv_fmt->u.pix.pixelformat;
@@ -572,7 +790,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 static int vidioc_reqbufs(struct file *file, void *priv,
 			  struct v4l2_requestbuffers *rb)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	int rc;
 
 	dprintk(3, "In Req Buf %08x\n", (unsigned int)rb->type);
@@ -631,7 +849,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 
 static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 
 	switch (p->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -645,7 +863,7 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	struct vb2_buffer *vb;
 	struct vb2_queue *q;
 	int rc;
@@ -706,7 +924,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	int rc;
 
 	dprintk(3, "In DQ Buf %08x\n", (unsigned int)p->type);
@@ -764,10 +982,33 @@ int streamon_validate_q(struct vb2_queue *q)
 	return 0;
 }
 
+int request_bus_bw(struct vcap_dev *dev, unsigned long rate)
+{
+	struct msm_bus_paths *bus_vectors;
+	int idx, length;
+	bus_vectors = dev->vcap_pdata->bus_client_pdata->usecase;
+	length = dev->vcap_pdata->bus_client_pdata->num_usecases;
+	idx = 0;
+	do {
+		if (rate <= bus_vectors[idx].vectors[0].ab)
+			break;
+		idx++;
+	} while (idx < length);
+	if (idx == length) {
+		pr_err("VCAP: Defaulting to highest BW request\n");
+		idx--;
+	}
+	msm_bus_scale_client_update_request(dev->bus_client_handle, idx);
+	return 0;
+}
+
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
+	struct vcap_dev *dev = c_data->dev;
+	unsigned long flags;
 	int rc;
+	unsigned long rate;
 
 	dprintk(3, "In Stream ON\n");
 	if (determine_mode(c_data) != c_data->op_mode) {
@@ -777,25 +1018,97 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 
 	switch (c_data->op_mode) {
 	case VC_VCAP_OP:
+		spin_lock_irqsave(&dev->dev_slock, flags);
+		if (dev->vc_resource) {
+			pr_err("VCAP Err: %s: VC resource taken", __func__);
+			spin_unlock_irqrestore(&dev->dev_slock, flags);
+			return -EBUSY;
+		}
+		dev->vc_resource = 1;
+		spin_unlock_irqrestore(&dev->dev_slock, flags);
+
 		c_data->dev->vc_client = c_data;
+
+		if (!c_data->vc_format.clk_freq) {
+			rc = -EINVAL;
+			goto free_res;
+		}
+
+		rate = c_data->vc_format.clk_freq;
+		rate = clk_round_rate(dev->vcap_clk, rate);
+		if (rate <= 0) {
+			pr_err("%s: Failed core rnd_rate\n", __func__);
+			rc = -EINVAL;
+			goto free_res;
+		}
+		rc = clk_set_rate(dev->vcap_clk, rate);
+		if (rc < 0)
+			goto free_res;
+
+		rate = (c_data->vc_format.hactive_end -
+			c_data->vc_format.hactive_start);
+
+		if (c_data->vc_format.color_space)
+			rate *= 3;
+		else
+			rate *= 2;
+
+		rate *= (c_data->vc_format.vactive_end -
+			c_data->vc_format.vactive_start);
+		rate *= c_data->vc_format.frame_rate;
+		if (rate == 0)
+			goto free_res;
+
+		rc = request_bus_bw(dev, rate);
+		if (rc < 0)
+			goto free_res;
+
 		config_vc_format(c_data);
-		return vb2_streamon(&c_data->vc_vidq, i);
+		rc = vb2_streamon(&c_data->vc_vidq, i);
+		if (rc < 0)
+			goto free_res;
+		break;
 	case VP_VCAP_OP:
+		spin_lock_irqsave(&dev->dev_slock, flags);
+		if (dev->vp_resource) {
+			pr_err("VCAP Err: %s: VP resource taken", __func__);
+			spin_unlock_irqrestore(&dev->dev_slock, flags);
+			return -EBUSY;
+		}
+		dev->vp_resource = 1;
+		spin_unlock_irqrestore(&dev->dev_slock, flags);
+		c_data->dev->vp_client = c_data;
+
+		rate = 160000000;
+		rate = clk_round_rate(dev->vcap_clk, rate);
+		if (rate <= 0) {
+			pr_err("%s: Failed core rnd_rate\n", __func__);
+			rc = -EINVAL;
+			goto free_res;
+		}
+		rc = clk_set_rate(dev->vcap_clk, rate);
+		if (rc < 0)
+			goto free_res;
+
+		rate = c_data->vp_out_fmt.width *
+			c_data->vp_out_fmt.height * 240;
+		rc = request_bus_bw(dev, rate);
+		if (rc < 0)
+			goto free_res;
+
 		rc = streamon_validate_q(&c_data->vp_in_vidq);
 		if (rc < 0)
-			return rc;
+			goto free_res;
 		rc = streamon_validate_q(&c_data->vp_out_vidq);
 		if (rc < 0)
-			return rc;
-
-		c_data->dev->vp_client = c_data;
+			goto free_res;
 
 		rc = config_vp_format(c_data);
 		if (rc < 0)
-			return rc;
+			goto free_res;
 		rc = init_motion_buf(c_data);
 		if (rc < 0)
-			return rc;
+			goto free_res;
 		if (c_data->vid_vp_action.nr_enabled) {
 			rc = init_nr_buf(c_data);
 			if (rc < 0)
@@ -803,6 +1116,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		}
 
 		c_data->vid_vp_action.vp_state = VP_FRAME1;
+		c_data->streaming = 1;
 
 		rc = vb2_streamon(&c_data->vp_in_vidq,
 				V4L2_BUF_TYPE_INTERLACED_IN_DECODER);
@@ -813,39 +1127,85 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 				V4L2_BUF_TYPE_VIDEO_OUTPUT);
 		if (rc < 0)
 			goto s_on_deinit_nr_buf;
-		return rc;
+		break;
 	case VC_AND_VP_VCAP_OP:
+		spin_lock_irqsave(&dev->dev_slock, flags);
+		if (dev->vc_resource || dev->vp_resource) {
+			pr_err("VCAP Err: %s: VC/VP resource taken",
+				__func__);
+			spin_unlock_irqrestore(&dev->dev_slock, flags);
+			return -EBUSY;
+		}
+		dev->vc_resource = 1;
+		dev->vp_resource = 1;
+		spin_unlock_irqrestore(&dev->dev_slock, flags);
+		c_data->dev->vc_client = c_data;
+		c_data->dev->vp_client = c_data;
+
+		if (!c_data->vc_format.clk_freq) {
+			rc = -EINVAL;
+			goto free_res;
+		}
+
+		rate = c_data->vc_format.clk_freq;
+		rate = clk_round_rate(dev->vcap_clk, rate);
+		if (rate <= 0) {
+			pr_err("%s: Failed core rnd_rate\n", __func__);
+			rc = -EINVAL;
+			goto free_res;
+		}
+		rc = clk_set_rate(dev->vcap_clk, rate);
+		if (rc < 0)
+			goto free_res;
+
+		rate = (c_data->vc_format.hactive_end -
+			c_data->vc_format.hactive_start);
+
+		if (c_data->vc_format.color_space)
+			rate *= 3;
+		else
+			rate *= 2;
+
+		rate *= (c_data->vc_format.vactive_end -
+			c_data->vc_format.vactive_start);
+		rate *= c_data->vc_format.frame_rate;
+		rate *= 2;
+		if (rate == 0)
+			goto free_res;
+
+		rc = request_bus_bw(dev, rate);
+		if (rc < 0)
+			goto free_res;
+
 		rc = streamon_validate_q(&c_data->vc_vidq);
 		if (rc < 0)
 			return rc;
 		rc = streamon_validate_q(&c_data->vp_in_vidq);
 		if (rc < 0)
-			return rc;
+			goto free_res;
 		rc = streamon_validate_q(&c_data->vp_out_vidq);
 		if (rc < 0)
-			return rc;
-
-		c_data->dev->vc_client = c_data;
-		c_data->dev->vp_client = c_data;
-		c_data->dev->vc_to_vp_work.cd = c_data;
+			goto free_res;
 
 		rc = config_vc_format(c_data);
 		if (rc < 0)
-			return rc;
+			goto free_res;
 		rc = config_vp_format(c_data);
 		if (rc < 0)
-			return rc;
+			goto free_res;
 		rc = init_motion_buf(c_data);
 		if (rc < 0)
-			return rc;
+			goto free_res;
+
 		if (c_data->vid_vp_action.nr_enabled) {
 			rc = init_nr_buf(c_data);
 			if (rc < 0)
 				goto s_on_deinit_m_buf;
 		}
-		c_data->streaming = 1;
 
+		c_data->dev->vc_to_vp_work.cd = c_data;
 		c_data->vid_vp_action.vp_state = VP_FRAME1;
+		c_data->streaming = 1;
 
 		/* These stream on calls should not fail */
 		rc = vb2_streamon(&c_data->vc_vidq,
@@ -862,7 +1222,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 				V4L2_BUF_TYPE_VIDEO_OUTPUT);
 		if (rc < 0)
 			goto s_on_deinit_nr_buf;
-		return rc;
+		break;
 	default:
 		pr_err("VCAP Error: %s: Operation Mode type", __func__);
 		return -ENOTRECOVERABLE;
@@ -874,6 +1234,21 @@ s_on_deinit_nr_buf:
 		deinit_nr_buf(c_data);
 s_on_deinit_m_buf:
 	deinit_motion_buf(c_data);
+free_res:
+	spin_lock_irqsave(&dev->dev_slock, flags);
+	if (c_data->op_mode == VC_VCAP_OP) {
+		dev->vc_resource = 0;
+		c_data->dev->vc_client = NULL;
+	} else if (c_data->op_mode == VP_VCAP_OP) {
+		dev->vp_resource = 0;
+		c_data->dev->vp_client = NULL;
+	} else if (c_data->op_mode == VC_AND_VP_VCAP_OP) {
+		c_data->dev->vc_client = NULL;
+		c_data->dev->vp_client = NULL;
+		dev->vc_resource = 0;
+		dev->vp_resource = 0;
+	}
+	spin_unlock_irqrestore(&dev->dev_slock, flags);
 	return rc;
 }
 
@@ -893,22 +1268,51 @@ int streamoff_validate_q(struct vb2_queue *q)
 
 static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
+	struct vcap_dev *dev = c_data->dev;
+	unsigned long flags;
 	int rc;
 
 	switch (c_data->op_mode) {
 	case VC_VCAP_OP:
+		if (c_data != dev->vc_client) {
+			pr_err("VCAP Err: %s: VC held by other client",
+				__func__);
+			return -EBUSY;
+		}
+		spin_lock_irqsave(&dev->dev_slock, flags);
+		if (!dev->vc_resource) {
+			pr_err("VCAP Err: %s: VC res not acquired", __func__);
+			spin_unlock_irqrestore(&dev->dev_slock, flags);
+			return -EBUSY;
+		}
+		dev->vc_resource = 0;
+		spin_unlock_irqrestore(&dev->dev_slock, flags);
 		rc = vb2_streamoff(&c_data->vc_vidq, i);
 		if (rc >= 0)
 			atomic_set(&c_data->dev->vc_enabled, 0);
 		return rc;
 	case VP_VCAP_OP:
+		if (c_data != dev->vp_client) {
+			pr_err("VCAP Err: %s: VP held by other client",
+				__func__);
+			return -EBUSY;
+		}
+		spin_lock_irqsave(&dev->dev_slock, flags);
+		if (!dev->vp_resource) {
+			pr_err("VCAP Err: %s: VP res not acquired", __func__);
+			spin_unlock_irqrestore(&dev->dev_slock, flags);
+			return -EBUSY;
+		}
+		dev->vp_resource = 0;
+		spin_unlock_irqrestore(&dev->dev_slock, flags);
 		rc = streamoff_validate_q(&c_data->vp_in_vidq);
 		if (rc < 0)
 			return rc;
 		rc = streamoff_validate_q(&c_data->vp_out_vidq);
 		if (rc < 0)
 			return rc;
+		c_data->streaming = 0;
 
 		/* These stream on calls should not fail */
 		rc = vb2_streamoff(&c_data->vp_in_vidq,
@@ -927,6 +1331,21 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		atomic_set(&c_data->dev->vp_enabled, 0);
 		return rc;
 	case VC_AND_VP_VCAP_OP:
+		if (c_data != dev->vp_client || c_data != dev->vc_client) {
+			pr_err("VCAP Err: %s: VC/VP held by other client",
+				__func__);
+			return -EBUSY;
+		}
+		spin_lock_irqsave(&dev->dev_slock, flags);
+		if (!(dev->vc_resource || dev->vp_resource)) {
+			pr_err("VCAP Err: %s: VC or VP res not acquired",
+				__func__);
+			spin_unlock_irqrestore(&dev->dev_slock, flags);
+			return -EBUSY;
+		}
+		dev->vc_resource = 0;
+		dev->vp_resource = 0;
+		spin_unlock_irqrestore(&dev->dev_slock, flags);
 		rc = streamoff_validate_q(&c_data->vc_vidq);
 		if (rc < 0)
 			return rc;
@@ -967,6 +1386,36 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	return 0;
 }
 
+static int vidioc_subscribe_event(struct v4l2_fh *fh,
+			struct v4l2_event_subscription *sub)
+{
+	int rc;
+	if (sub->type == V4L2_EVENT_ALL) {
+		sub->type = V4L2_EVENT_PRIVATE_START +
+				VCAP_GENERIC_NOTIFY_EVENT;
+		sub->id = 0;
+		do {
+			rc = v4l2_event_subscribe(fh, sub, 16);
+			if (rc < 0) {
+				sub->type = V4L2_EVENT_ALL;
+				v4l2_event_unsubscribe(fh, sub);
+				return rc;
+			}
+			sub->type++;
+		} while (sub->type !=
+			V4L2_EVENT_PRIVATE_START + VCAP_MAX_NOTIFY_EVENT);
+	} else {
+		rc = v4l2_event_subscribe(fh, sub, 16);
+	}
+	return rc;
+}
+
+static int vidioc_unsubscribe_event(struct v4l2_fh *fh,
+			struct v4l2_event_subscription *sub)
+{
+	return v4l2_event_unsubscribe(fh, sub);
+}
+
 /* VCAP fops */
 static void *vcap_ops_get_userptr(void *alloc_ctx, unsigned long vaddr,
 					unsigned long size, int write)
@@ -995,6 +1444,7 @@ static int vcap_open(struct file *file)
 	struct vcap_dev *dev = video_drvdata(file);
 	struct vcap_client_data *c_data;
 	struct vb2_queue *q;
+	unsigned long flags;
 	int ret;
 	c_data = kzalloc(sizeof(*c_data), GFP_KERNEL);
 	if (!dev)
@@ -1047,10 +1497,29 @@ static int vcap_open(struct file *file)
 	INIT_LIST_HEAD(&c_data->vid_vc_action.active);
 	INIT_LIST_HEAD(&c_data->vid_vp_action.in_active);
 	INIT_LIST_HEAD(&c_data->vid_vp_action.out_active);
-	file->private_data = c_data;
 
+	v4l2_fh_init(&c_data->vfh, dev->vfd);
+	v4l2_fh_add(&c_data->vfh);
+
+	spin_lock_irqsave(&dev->dev_slock, flags);
+	atomic_inc(&dev->open_clients);
+	ret = atomic_read(&dev->open_clients);
+	spin_unlock_irqrestore(&dev->dev_slock, flags);
+	if (ret == 1) {
+		ret = vcap_enable(dev, dev->ddev, 54860000);
+		if (ret < 0) {
+			pr_err("Err: %s: Power on vcap failed", __func__);
+			goto vcap_power_failed;
+		}
+	}
+
+	file->private_data = &c_data->vfh;
 	return 0;
 
+vcap_power_failed:
+	v4l2_fh_del(&c_data->vfh);
+	v4l2_fh_exit(&c_data->vfh);
+	vb2_queue_release(&c_data->vp_out_vidq);
 vp_out_q_failed:
 	vb2_queue_release(&c_data->vp_in_vidq);
 vp_in_q_failed:
@@ -1062,12 +1531,29 @@ vc_q_failed:
 
 static int vcap_close(struct file *file)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_dev *dev = video_drvdata(file);
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
+	unsigned long flags;
+	int ret;
+
+	if (c_data == NULL)
+		return 0;
+
+	spin_lock_irqsave(&dev->dev_slock, flags);
+	atomic_dec(&dev->open_clients);
+	ret = atomic_read(&dev->open_clients);
+	spin_unlock_irqrestore(&dev->dev_slock, flags);
+	if (ret == 0)
+		vcap_disable(dev);
+	v4l2_fh_del(&c_data->vfh);
+	v4l2_fh_exit(&c_data->vfh);
 	vb2_queue_release(&c_data->vp_out_vidq);
 	vb2_queue_release(&c_data->vp_in_vidq);
 	vb2_queue_release(&c_data->vc_vidq);
-	c_data->dev->vc_client = NULL;
-	c_data->dev->vp_client = NULL;
+	if (c_data->dev->vc_client == c_data)
+		c_data->dev->vc_client = NULL;
+	if (c_data->dev->vp_client == c_data)
+		c_data->dev->vp_client = NULL;
 	kfree(c_data);
 	return 0;
 }
@@ -1103,29 +1589,35 @@ unsigned int poll_work(struct vb2_queue *q, struct file *file,
 static unsigned int vcap_poll(struct file *file,
 				  struct poll_table_struct *wait)
 {
-	struct vcap_client_data *c_data = file->private_data;
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	struct vb2_queue *q;
 	unsigned int mask = 0;
+
+	dprintk(1, "Enter slect/poll\n");
 
 	switch (c_data->op_mode) {
 	case VC_VCAP_OP:
 		q = &c_data->vc_vidq;
-		return vb2_poll(q, file, wait);
+		mask = vb2_poll(q, file, wait);
+		break;
 	case VP_VCAP_OP:
 		q = &c_data->vp_in_vidq;
 		mask = poll_work(q, file, wait, 0);
 		q = &c_data->vp_out_vidq;
 		mask |= poll_work(q, file, wait, 1);
-		return mask;
+		break;
 	case VC_AND_VP_VCAP_OP:
 		q = &c_data->vp_out_vidq;
 		mask = poll_work(q, file, wait, 0);
-		return mask;
+		break;
 	default:
 		pr_err("VCAP Error: %s: Unknown operation mode", __func__);
 		return POLLERR;
 	}
-	return 0;
+	if (v4l2_event_pending(&c_data->vfh))
+		mask |= POLLPRI;
+	poll_wait(file, &(c_data->vfh.wait), wait);
+	return mask;
 }
 /* V4L2 and video device structures */
 
@@ -1153,6 +1645,9 @@ static const struct v4l2_ioctl_ops vcap_ioctl_ops = {
 	.vidioc_dqbuf         = vidioc_dqbuf,
 	.vidioc_streamon      = vidioc_streamon,
 	.vidioc_streamoff     = vidioc_streamoff,
+
+	.vidioc_subscribe_event = vidioc_subscribe_event,
+	.vidioc_unsubscribe_event = vidioc_unsubscribe_event,
 };
 
 static struct video_device vcap_template = {
@@ -1161,220 +1656,6 @@ static struct video_device vcap_template = {
 	.ioctl_ops	= &vcap_ioctl_ops,
 	.release	= video_device_release,
 };
-
-int vcap_reg_powerup(struct vcap_dev *dev)
-{
-	dev->fs_vcap = regulator_get(NULL, "fs_vcap");
-	if (IS_ERR(dev->fs_vcap)) {
-		pr_err("%s: Regulator FS_VCAP get failed %ld\n", __func__,
-			PTR_ERR(dev->fs_vcap));
-		dev->fs_vcap = NULL;
-		return -EINVAL;
-	} else if (regulator_enable(dev->fs_vcap)) {
-		pr_err("%s: Regulator FS_VCAP enable failed\n", __func__);
-		regulator_put(dev->fs_vcap);
-		return -EINVAL;
-	}
-	return 0;
-}
-
-void vcap_reg_powerdown(struct vcap_dev *dev)
-{
-	if (dev->fs_vcap == NULL)
-		return;
-	regulator_disable(dev->fs_vcap);
-	regulator_put(dev->fs_vcap);
-	dev->fs_vcap = NULL;
-	return;
-}
-
-int config_gpios(int on, struct vcap_platform_data *pdata)
-{
-	int i, ret;
-	int num_gpios = pdata->num_gpios;
-	unsigned *gpios = pdata->gpios;
-
-	if (on) {
-		for (i = 0; i < num_gpios; i++) {
-			ret = gpio_request(gpios[i], "vcap:vc");
-			if (ret) {
-				pr_err("VCAP: failed at GPIO %d to request\n",
-						gpios[i]);
-				goto gpio_failed;
-			}
-			ret = gpio_direction_input(gpios[i]);
-			if (ret) {
-				pr_err("VCAP: failed at GPIO %d to set to input\n",
-					gpios[i]);
-				i++;
-				goto gpio_failed;
-			}
-		}
-	} else {
-		for (i = 0; i < num_gpios; i++)
-			gpio_free(gpios[i]);
-	}
-	dprintk(2, "GPIO config done\n");
-	return 0;
-gpio_failed:
-	for (i--; i >= 0; i--)
-		gpio_free(gpios[i]);
-	return -EINVAL;
-}
-
-int vcap_clk_powerup(struct vcap_dev *dev, struct device *ddev)
-{
-	int ret = 0;
-
-	dev->vcap_clk = clk_get(ddev, "core_clk");
-	if (IS_ERR(dev->vcap_clk)) {
-		dev->vcap_clk = NULL;
-		pr_err("%s: Could not clk_get core_clk\n", __func__);
-		clk_put(dev->vcap_clk);
-		dev->vcap_clk = NULL;
-		return -EINVAL;
-	}
-
-	clk_prepare(dev->vcap_clk);
-	ret = clk_enable(dev->vcap_clk);
-	if (ret) {
-		pr_err("%s: Failed core clk_enable %d\n", __func__, ret);
-		goto fail_vcap_clk_unprep;
-	}
-
-	clk_set_rate(dev->vcap_clk, 160000000);
-	if (ret) {
-		pr_err("%s: Failed core set_rate %d\n", __func__, ret);
-		goto fail_vcap_clk;
-	}
-
-	dev->vcap_npl_clk = clk_get(ddev, "vcap_npl_clk");
-	if (IS_ERR(dev->vcap_npl_clk)) {
-		dev->vcap_npl_clk = NULL;
-		pr_err("%s: Could not clk_get npl\n", __func__);
-		clk_put(dev->vcap_npl_clk);
-		dev->vcap_npl_clk = NULL;
-		goto fail_vcap_clk;
-	}
-
-	clk_prepare(dev->vcap_npl_clk);
-	ret = clk_enable(dev->vcap_npl_clk);
-	if (ret) {
-		pr_err("%s:Failed npl clk_enable %d\n", __func__, ret);
-		goto fail_vcap_npl_clk_unprep;
-	}
-
-	dev->vcap_p_clk = clk_get(ddev, "iface_clk");
-	if (IS_ERR(dev->vcap_p_clk)) {
-		dev->vcap_p_clk = NULL;
-		pr_err("%s: Could not clk_get pix(AHB)\n", __func__);
-		clk_put(dev->vcap_p_clk);
-		dev->vcap_p_clk = NULL;
-		goto fail_vcap_npl_clk;
-	}
-
-	clk_prepare(dev->vcap_p_clk);
-	ret = clk_enable(dev->vcap_p_clk);
-	if (ret) {
-		pr_err("%s: Failed pix(AHB) clk_enable %d\n", __func__, ret);
-		goto fail_vcap_p_clk_unprep;
-	}
-	return 0;
-
-fail_vcap_p_clk_unprep:
-	clk_unprepare(dev->vcap_p_clk);
-	clk_put(dev->vcap_p_clk);
-	dev->vcap_p_clk = NULL;
-
-fail_vcap_npl_clk:
-	clk_disable(dev->vcap_npl_clk);
-fail_vcap_npl_clk_unprep:
-	clk_unprepare(dev->vcap_npl_clk);
-	clk_put(dev->vcap_npl_clk);
-	dev->vcap_npl_clk = NULL;
-
-fail_vcap_clk:
-	clk_disable(dev->vcap_clk);
-fail_vcap_clk_unprep:
-	clk_unprepare(dev->vcap_clk);
-	clk_put(dev->vcap_clk);
-	dev->vcap_clk = NULL;
-	return -EINVAL;
-}
-
-void vcap_clk_powerdown(struct vcap_dev *dev)
-{
-	if (dev->vcap_p_clk != NULL) {
-		clk_disable(dev->vcap_p_clk);
-		clk_unprepare(dev->vcap_p_clk);
-		clk_put(dev->vcap_p_clk);
-		dev->vcap_p_clk = NULL;
-	}
-
-	if (dev->vcap_npl_clk != NULL) {
-		clk_disable(dev->vcap_npl_clk);
-		clk_unprepare(dev->vcap_npl_clk);
-		clk_put(dev->vcap_npl_clk);
-		dev->vcap_npl_clk = NULL;
-	}
-
-	if (dev->vcap_clk != NULL) {
-		clk_disable(dev->vcap_clk);
-		clk_unprepare(dev->vcap_clk);
-		clk_put(dev->vcap_clk);
-		dev->vcap_clk = NULL;
-	}
-}
-
-int vcap_get_bus_client_handle(struct vcap_dev *dev)
-{
-	struct msm_bus_scale_pdata *vcap_axi_client_pdata =
-			dev->vcap_pdata->bus_client_pdata;
-	dev->bus_client_handle =
-			msm_bus_scale_register_client(vcap_axi_client_pdata);
-
-	return 0;
-}
-
-int vcap_enable(struct vcap_dev *dev, struct device *ddev)
-{
-	int rc;
-
-	rc = vcap_reg_powerup(dev);
-	if (rc < 0)
-		goto reg_failed;
-	rc = vcap_clk_powerup(dev, ddev);
-	if (rc < 0)
-		goto clk_failed;
-	rc = vcap_get_bus_client_handle(dev);
-	if (rc < 0)
-		goto bus_r_failed;
-	config_gpios(1, dev->vcap_pdata);
-	if (rc < 0)
-		goto gpio_failed;
-	return 0;
-
-gpio_failed:
-	msm_bus_scale_unregister_client(dev->bus_client_handle);
-	dev->bus_client_handle = 0;
-bus_r_failed:
-	vcap_clk_powerdown(dev);
-clk_failed:
-	vcap_reg_powerdown(dev);
-reg_failed:
-	return rc;
-}
-
-int vcap_disable(struct vcap_dev *dev)
-{
-	config_gpios(0, dev->vcap_pdata);
-
-	msm_bus_scale_unregister_client(dev->bus_client_handle);
-	dev->bus_client_handle = 0;
-	vcap_clk_powerdown(dev);
-	vcap_reg_powerdown(dev);
-	return 0;
-}
 
 static irqreturn_t vcap_vp_handler(int irq_num, void *data)
 {
@@ -1465,10 +1746,10 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_resource;
 
-	ret = vcap_enable(dev, &pdev->dev);
+	ret = vcap_enable(dev, &pdev->dev, 54860000);
 	if (ret)
 		goto unreg_dev;
-	msm_bus_scale_client_update_request(dev->bus_client_handle, 3);
+	msm_bus_scale_client_update_request(dev->bus_client_handle, 0);
 
 	ret = detect_vc(dev);
 
@@ -1504,6 +1785,10 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 
 	atomic_set(&dev->vc_enabled, 0);
 	atomic_set(&dev->vp_enabled, 0);
+	atomic_set(&dev->open_clients, 0);
+	dev->ddev = &pdev->dev;
+	spin_lock_init(&dev->dev_slock);
+	vcap_disable(dev);
 
 	dprintk(1, "Exit probe succesfully");
 	return 0;
