@@ -2189,6 +2189,7 @@ static int mxt_probe(struct i2c_client *client,
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
+	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
 	if (data->is_tp) {
 		int i;
