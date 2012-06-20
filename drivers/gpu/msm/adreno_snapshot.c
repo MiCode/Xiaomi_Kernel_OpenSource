@@ -546,7 +546,6 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	unsigned int ptbase, rptr, *rbptr, ibbase;
 	int index, size, i;
 	int parse_ibs = 0, ib_parse_start;
-	int skip_pktsize = 1;
 
 	/* Get the physical address of the MMU pagetable */
 	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
@@ -654,18 +653,15 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		 * try to adust for that by modifying the rptr to match a
 		 * packet boundary. Unfortunately for us, it is hard to tell
 		 * which dwords are legitimate type0 header and which are just
-		 * random data so just walk over type0 packets until we get
-		 * to the first type3, and from that point on start checking the
-		 * size of the packet and adjusting accordingly
+		 * random data so only do the adjustments for type3 packets
 		 */
 
-		if (skip_pktsize && pkt_is_type3(rbptr[index]))
-			skip_pktsize = 0;
-
-		if (skip_pktsize == 0) {
-			unsigned int pktsize = type3_pkt_size(rbptr[index]);
+		if (pkt_is_type3(rbptr[index])) {
+			unsigned int pktsize =
+				type3_pkt_size(rbptr[index]);
 			if (index +  pktsize > rptr)
-				rptr = (index + pktsize) % rb->sizedwords;
+				rptr = (index + pktsize) %
+					rb->sizedwords;
 		}
 
 		/*
