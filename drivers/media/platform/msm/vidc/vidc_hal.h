@@ -1153,7 +1153,7 @@ struct hfi_cmd_session_set_property_packet {
 	enum HFI_COMMAND packet_type;
 	u32 session_id;
 	u32 num_properties;
-	u32 rg_property_data[1];
+	u32 rg_property_data[0];
 };
 
 struct hfi_cmd_session_get_property_packet {
