@@ -5404,6 +5404,49 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 #endif
 
 #ifdef CONFIG_PM
+#ifdef CONFIG_MMC_CLKGATE
+static inline void msmsdcc_gate_clock(struct msmsdcc_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+	unsigned long flags;
+
+	mmc_host_clk_hold(mmc);
+	spin_lock_irqsave(&mmc->clk_lock, flags);
+	mmc->clk_old = mmc->ios.clock;
+	mmc->ios.clock = 0;
+	mmc->clk_gated = true;
+	spin_unlock_irqrestore(&mmc->clk_lock, flags);
+	mmc_set_ios(mmc);
+	mmc_host_clk_release(mmc);
+}
+
+static inline void msmsdcc_ungate_clock(struct msmsdcc_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+
+	mmc_host_clk_hold(mmc);
+	mmc->ios.clock = host->clk_rate;
+	mmc_set_ios(mmc);
+	mmc_host_clk_release(mmc);
+}
+#else
+static inline void msmsdcc_gate_clock(struct msmsdcc_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+
+	mmc->ios.clock = 0;
+	mmc_set_ios(mmc);
+}
+
+static inline void msmsdcc_ungate_clock(struct msmsdcc_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+
+	mmc->ios.clock = host->clk_rate;
+	mmc_set_ios(mmc);
+}
+#endif
+
 static int
 msmsdcc_runtime_suspend(struct device *dev)
 {
@@ -5450,21 +5493,12 @@ msmsdcc_runtime_suspend(struct device *dev)
 			spin_unlock_irqrestore(&host->lock, flags);
 			if (mmc->card && mmc_card_sdio(mmc->card) &&
 				mmc->ios.clock) {
-#ifdef CONFIG_MMC_CLKGATE
 				/*
 				 * If SDIO function driver doesn't want
 				 * to power off the card, atleast turn off
 				 * clocks to allow deep sleep (TCXO shutdown).
 				 */
-				mmc_host_clk_hold(mmc);
-				spin_lock_irqsave(&mmc->clk_lock, flags);
-				mmc->clk_old = mmc->ios.clock;
-				mmc->ios.clock = 0;
-				mmc->clk_gated = true;
-				spin_unlock_irqrestore(&mmc->clk_lock, flags);
-				mmc_set_ios(mmc);
-				mmc_host_clk_release(mmc);
-#endif
+				msmsdcc_gate_clock(host);
 			}
 		}
 		host->sdcc_suspending = 0;
@@ -5493,10 +5527,7 @@ msmsdcc_runtime_resume(struct device *dev)
 	if (mmc) {
 		if (mmc->card && mmc_card_sdio(mmc->card) &&
 				mmc_card_keep_power(mmc)) {
-			mmc_host_clk_hold(mmc);
-			mmc->ios.clock = host->clk_rate;
-			mmc_set_ios(mmc);
-			mmc_host_clk_release(mmc);
+			msmsdcc_ungate_clock(host);
 		}
 
 		mmc_resume_host(mmc);
