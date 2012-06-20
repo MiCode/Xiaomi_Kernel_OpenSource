@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,6 +220,17 @@ void *create_ramdump_device(const char *dev_name)
 	}
 
 	return (void *)rd_dev;
+}
+
+void destroy_ramdump_device(void *dev)
+{
+	struct ramdump_device *rd_dev = dev;
+
+	if (IS_ERR_OR_NULL(rd_dev))
+		return;
+
+	misc_deregister(&rd_dev->device);
+	kfree(rd_dev);
 }
 
 int do_ramdump(void *handle, struct ramdump_segment *segments,
