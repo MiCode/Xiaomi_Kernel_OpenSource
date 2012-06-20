@@ -36,7 +36,16 @@ int hdmi_audio_enable(bool on , u32 fifo_water_mark);
 int hdmi_audio_packet_enable(bool on);
 void hdmi_msm_audio_sample_rate_reset(int rate);
 int hdmi_msm_audio_get_sample_rate(void);
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 int hdmi_msm_audio_info_setup(bool enabled, u32 num_of_channels,
 	u32 channel_allocation, u32 level_shift, bool down_mix);
-
+#else
+static inline int hdmi_msm_audio_info_setup(bool enabled,
+	u32 num_of_channels, u32 channel_allocation, u32 level_shift,
+	bool down_mix)
+{
+	return 0;
+}
+#endif
 #endif /* __MSM_HDMI_AUDIO_H*/
