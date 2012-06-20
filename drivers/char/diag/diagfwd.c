@@ -1735,8 +1735,8 @@ void diag_usb_legacy_notifier(void *priv, unsigned event,
 static void diag_smd_notify(void *ctxt, unsigned event)
 {
 	if (event == SMD_EVENT_CLOSE) {
-		pr_info("diag: clean modem registration\n");
-		diag_clear_reg(MODEM_PROC);
+		queue_work(driver->diag_cntl_wq,
+			 &(driver->diag_clean_modem_reg_work));
 		driver->ch = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
@@ -1750,8 +1750,8 @@ static void diag_smd_notify(void *ctxt, unsigned event)
 static void diag_smd_qdsp_notify(void *ctxt, unsigned event)
 {
 	if (event == SMD_EVENT_CLOSE) {
-		pr_info("diag: clean lpass registration\n");
-		diag_clear_reg(QDSP_PROC);
+		queue_work(driver->diag_cntl_wq,
+			 &(driver->diag_clean_lpass_reg_work));
 		driver->chqdsp = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
@@ -1765,8 +1765,8 @@ static void diag_smd_qdsp_notify(void *ctxt, unsigned event)
 static void diag_smd_wcnss_notify(void *ctxt, unsigned event)
 {
 	if (event == SMD_EVENT_CLOSE) {
-		pr_info("diag: clean wcnss registration\n");
-		diag_clear_reg(WCNSS_PROC);
+		queue_work(driver->diag_cntl_wq,
+			 &(driver->diag_clean_wcnss_reg_work));
 		driver->ch_wcnss = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
