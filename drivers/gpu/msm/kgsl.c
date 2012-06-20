@@ -2523,7 +2523,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	}
 
 	status = kgsl_allocate_contiguous(&device->memstore,
-		sizeof(struct kgsl_devmemstore));
+		KGSL_MEMSTORE_SIZE);
 
 	if (status != 0) {
 		KGSL_DRV_ERR(device, "kgsl_allocate_contiguous failed %d\n",
