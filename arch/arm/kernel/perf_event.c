@@ -616,16 +616,14 @@ static void armpmu_init(struct arm_pmu *armpmu)
 	atomic_set(&armpmu->active_events, 0);
 	mutex_init(&armpmu->reserve_mutex);
 
-	armpmu->pmu = (struct pmu) {
-		.pmu_enable	= armpmu_enable,
-		.pmu_disable	= armpmu_disable,
-		.event_init	= armpmu_event_init,
-		.add		= armpmu_add,
-		.del		= armpmu_del,
-		.start		= armpmu_start,
-		.stop		= armpmu_stop,
-		.read		= armpmu_read,
-	};
+	armpmu->pmu.pmu_enable = armpmu_enable;
+	armpmu->pmu.pmu_disable = armpmu_disable;
+	armpmu->pmu.event_init = armpmu_event_init;
+	armpmu->pmu.add = armpmu_add;
+	armpmu->pmu.del = armpmu_del;
+	armpmu->pmu.start = armpmu_start;
+	armpmu->pmu.stop = armpmu_stop;
+	armpmu->pmu.read = armpmu_read;
 }
 
 int armpmu_register(struct arm_pmu *armpmu, char *name, int type)
@@ -857,14 +855,12 @@ init_hw_perf_events(void)
 		case 0x02D0:    /* 8x60 */
 //			fabricmon_pmu_init();
 			cpu_pmu = armv7_scorpionmp_pmu_init();
-//			scorpionmp_l2_pmu_init();
 			break;
 		case 0x0490:    /* 8960 sim */
 		case 0x04D0:    /* 8960 */
 		case 0x06F0:    /* 8064 */
 //			fabricmon_pmu_init();
 			cpu_pmu = armv7_krait_pmu_init();
-//			krait_l2_pmu_init();
 			break;
 		}
 	}
