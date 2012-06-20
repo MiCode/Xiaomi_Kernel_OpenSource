@@ -20,8 +20,33 @@
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
 #endif
-
+/* tracks which peripheral is undergoing SSR */
+static uint16_t reg_dirty;
 #define HDR_SIZ 8
+
+void diag_clean_modem_reg_fn(struct work_struct *work)
+{
+	pr_debug("diag: clean modem registration\n");
+	reg_dirty |= DIAG_CON_MPSS;
+	diag_clear_reg(MODEM_PROC);
+	reg_dirty ^= DIAG_CON_MPSS;
+}
+
+void diag_clean_lpass_reg_fn(struct work_struct *work)
+{
+	pr_debug("diag: clean lpass registration\n");
+	reg_dirty |= DIAG_CON_LPASS;
+	diag_clear_reg(QDSP_PROC);
+	reg_dirty ^= DIAG_CON_LPASS;
+}
+
+void diag_clean_wcnss_reg_fn(struct work_struct *work)
+{
+	pr_debug("diag: clean wcnss registration\n");
+	reg_dirty |= DIAG_CON_WCNSS;
+	diag_clear_reg(WCNSS_PROC);
+	reg_dirty ^= DIAG_CON_WCNSS;
+}
 
 void diag_smd_cntl_notify(void *ctxt, unsigned event)
 {
@@ -105,6 +130,8 @@ static void diag_smd_cntl_send_req(int proc_num)
 	struct bindpkt_params *temp;
 	void *buf = NULL;
 	smd_channel_t *smd_ch = NULL;
+	/* tracks which peripheral is sending registration */
+	uint16_t reg_mask = 0;
 
 	if (pkt_params == NULL) {
 		pr_alert("diag: Memory allocation failure\n");
@@ -114,12 +141,15 @@ static void diag_smd_cntl_send_req(int proc_num)
 	if (proc_num == MODEM_PROC) {
 		buf = driver->buf_in_cntl;
 		smd_ch = driver->ch_cntl;
+		reg_mask = DIAG_CON_MPSS;
 	} else if (proc_num == QDSP_PROC) {
 		buf = driver->buf_in_qdsp_cntl;
 		smd_ch = driver->chqdsp_cntl;
+		reg_mask = DIAG_CON_LPASS;
 	} else if (proc_num == WCNSS_PROC) {
 		buf = driver->buf_in_wcnss_cntl;
 		smd_ch = driver->ch_wcnss_cntl;
+		reg_mask = DIAG_CON_WCNSS;
 	}
 
 	if (!smd_ch || !buf) {
@@ -180,8 +210,16 @@ static void diag_smd_cntl_send_req(int proc_num)
 				temp -= pkt_params->count;
 				pkt_params->params = temp;
 				flag = 1;
-				diagchar_ioctl(NULL, DIAG_IOCTL_COMMAND_REG,
-						 (unsigned long)pkt_params);
+				/* peripheral undergoing SSR should not
+				 * record new registration
+				 */
+				if (!(reg_dirty & reg_mask))
+					diagchar_ioctl(NULL,
+					 DIAG_IOCTL_COMMAND_REG, (unsigned long)
+								pkt_params);
+				else
+					pr_err("diag: drop reg proc %d\n",
+								 proc_num);
 				kfree(temp);
 			}
 			buf = buf + HDR_SIZ + data_len;
@@ -275,6 +313,7 @@ static struct platform_driver diag_smd_lite_cntl_driver = {
 
 void diagfwd_cntl_init(void)
 {
+	reg_dirty = 0;
 	driver->polling_reg_flag = 0;
 	driver->diag_cntl_wq = create_singlethread_workqueue("diag_cntl_wq");
 	if (driver->buf_in_cntl == NULL) {
