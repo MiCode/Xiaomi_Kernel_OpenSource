@@ -32,6 +32,7 @@
 #include <linux/memory_alloc.h>
 #include <mach/msm_subsystem_map.h>
 #include "msm-pcm-afe.h"
+#include "msm-pcm-q6.h"
 
 #define MIN_PERIOD_SIZE (128 * 2)
 #define MAX_PERIOD_SIZE (128 * 2 * 2 * 6)
@@ -58,6 +59,10 @@ static struct snd_pcm_hardware msm_afe_hardware = {
 static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt);
 static enum hrtimer_restart afe_hrtimer_rec_callback(struct hrtimer *hrt);
 
+static void q6asm_event_handler(uint32_t opcode,
+		uint32_t token, uint32_t *payload, void *priv)
+{
+}
 static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt)
 {
 	struct pcm_afe_info *prtd =
@@ -319,12 +324,21 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 	runtime->hw = msm_afe_hardware;
 	prtd->substream = substream;
 	runtime->private_data = prtd;
-	mutex_unlock(&prtd->lock);
+	prtd->audio_client = q6asm_audio_client_alloc(
+				(app_cb)q6asm_event_handler, prtd);
+	if (!prtd->audio_client) {
+		pr_debug("%s: Could not allocate memory\n", __func__);
+		kfree(prtd);
+		mutex_unlock(&prtd->lock);
+		return -ENOMEM;
+	}
 	hrtimer_init(&prtd->hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		prtd->hrt.function = afe_hrtimer_callback;
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		prtd->hrt.function = afe_hrtimer_rec_callback;
+
+	mutex_unlock(&prtd->lock);
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0,
 				SNDRV_PCM_HW_PARAM_RATE,
@@ -348,6 +362,7 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 	struct pcm_afe_info *prtd;
 	struct snd_soc_pcm_runtime *rtd = NULL;
 	struct snd_soc_dai *dai = NULL;
+	int dir = IN;
 	int ret = 0;
 
 	pr_debug("%s\n", __func__);
@@ -363,10 +378,12 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 	mutex_lock(&prtd->lock);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		dir = IN;
 		ret =  afe_unregister_get_events(dai->id);
 		if (ret < 0)
 			pr_err("AFE unregister for events failed\n");
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		dir = OUT;
 		ret =  afe_unregister_get_events(dai->id);
 		if (ret < 0)
 			pr_err("AFE unregister for events failed\n");
@@ -385,17 +402,14 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 	}
 
 	if (dma_buf->area) {
-		if (msm_subsystem_unmap_buffer(prtd->mem_buffer) < 0) {
-			pr_err("%s: unmap buffer failed\n", __func__);
-			prtd->mem_buffer = NULL;
 			dma_buf->area = NULL;
 		}
-	}
 
-	if (dma_buf->addr)
-		free_contiguous_memory_by_paddr(dma_buf->addr);
+	q6asm_audio_client_buf_free_contiguous(dir,
+				prtd->audio_client);
 done:
 	pr_debug("%s: dai->id =%x\n", __func__, dai->id);
+	q6asm_audio_client_free(prtd->audio_client);
 	mutex_unlock(&prtd->lock);
 	prtd->prepared--;
 	kfree(prtd);
@@ -470,57 +484,45 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	struct pcm_afe_info *prtd = runtime->private_data;
-	int rc;
-	unsigned int flags = 0;
+	struct audio_buffer *buf;
+	int dir, ret;
 
 	pr_debug("%s:\n", __func__);
 
 	mutex_lock(&prtd->lock);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dir = IN;
+	else
+		dir = OUT;
+	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
+			prtd->audio_client,
+			runtime->hw.period_bytes_min,
+			runtime->hw.periods_max);
+	if (ret < 0) {
+		pr_err("Audio Start: Buffer Allocation failed rc = %d\n", ret);
+		mutex_unlock(&prtd->lock);
+		return -ENOMEM;
+	}
+	buf = prtd->audio_client->port[dir].buf;
 
+	if (buf == NULL || buf[0].data == NULL) {
+		mutex_unlock(&prtd->lock);
+		return -ENOMEM;
+	}
+
+	pr_debug("%s:buf = %p\n", __func__, buf);
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;
-
-	dma_buf->addr = allocate_contiguous_ebi_nomap(
-				runtime->hw.buffer_bytes_max, SZ_4K);
-	if (!dma_buf->addr) {
+	dma_buf->area = buf[0].data;
+	dma_buf->addr =  buf[0].phys;
+	dma_buf->bytes = runtime->hw.buffer_bytes_max;
+	if (!dma_buf->area) {
 		pr_err("%s:MSM AFE physical memory allocation failed\n",
 							__func__);
 		mutex_unlock(&prtd->lock);
 		return -ENOMEM;
 	}
-
-	flags = MSM_SUBSYSTEM_MAP_KADDR | MSM_SUBSYSTEM_MAP_CACHED;
-
-	prtd->mem_buffer = msm_subsystem_map_buffer(dma_buf->addr,
-				runtime->hw.buffer_bytes_max, flags,
-				NULL, 0);
-	if (IS_ERR((void *) prtd->mem_buffer)) {
-		pr_err("%s: map_buffer failed error = %ld\n", __func__,
-				PTR_ERR((void *)prtd->mem_buffer));
-		free_contiguous_memory_by_paddr(dma_buf->addr);
-		mutex_unlock(&prtd->lock);
-		return -ENOMEM;
-	}
-
-	dma_buf->area = prtd->mem_buffer->vaddr;
-
-	pr_debug("%s: dma_buf->area: 0x%p, dma_buf->addr: 0x%x", __func__,
-			(unsigned int *) dma_buf->area, dma_buf->addr);
-
-	if (!dma_buf->area) {
-		pr_err("%s: Invalid Virtual address\n", __func__);
-		if (prtd->mem_buffer) {
-			msm_subsystem_unmap_buffer(prtd->mem_buffer);
-			prtd->mem_buffer = NULL;
-			dma_buf->area = NULL;
-		}
-		free_contiguous_memory_by_paddr(dma_buf->addr);
-		mutex_unlock(&prtd->lock);
-		return -ENOMEM;
-	}
-
-	dma_buf->bytes = runtime->hw.buffer_bytes_max;
 	memset(dma_buf->area, 0, runtime->hw.buffer_bytes_max);
 	prtd->dma_addr = (u32) dma_buf->addr;
 
@@ -528,11 +530,11 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 
-	rc = afe_cmd_memory_map(dma_buf->addr, dma_buf->bytes);
-	if (rc < 0)
+	ret = afe_cmd_memory_map(dma_buf->addr, dma_buf->bytes);
+	if (ret < 0)
 		pr_err("fail to map memory to DSP\n");
 
-	return rc;
+	return ret;
 }
 static snd_pcm_uframes_t msm_afe_pointer(struct snd_pcm_substream *substream)
 {
