@@ -906,8 +906,6 @@ static struct platform_driver smux_ctl_driver = {
 
 static int __init smux_ctl_init(void)
 {
-	msm_smux_ctl_debug_mask = MSM_SMUX_CTL_DEBUG | MSM_SMUX_CTL_DUMP_BUFFER;
-
 	SMUXCTL_DBG(SMUX_CTL_MODULE_NAME ": %s Begins\n", __func__);
 	return platform_driver_register(&smux_ctl_driver);
 }
