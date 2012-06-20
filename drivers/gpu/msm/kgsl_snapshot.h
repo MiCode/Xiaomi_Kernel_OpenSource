@@ -18,7 +18,8 @@
 
 /* Snapshot header */
 
-#define SNAPSHOT_MAGIC 0x504D0001
+/* High word is static, low word is snapshot version ID */
+#define SNAPSHOT_MAGIC 0x504D0002
 
 /* GPU ID scheme:
  * [16:31] - core identifer (0x0002 for 2D or 0x0003 for 3D)
@@ -28,6 +29,8 @@
 struct kgsl_snapshot_header {
 	__u32 magic; /* Magic identifier */
 	__u32 gpuid; /* GPU ID - see above */
+	/* Added in snapshot version 2 */
+	__u32 chipid; /* Chip ID from the GPU */
 } __packed;
 
 /* Section header */
