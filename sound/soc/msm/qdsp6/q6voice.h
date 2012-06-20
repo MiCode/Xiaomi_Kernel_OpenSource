@@ -16,7 +16,7 @@
 #include <linux/ion.h>
 
 #define MAX_VOC_PKT_SIZE 642
-#define SESSION_NAME_LEN 20
+#define SESSION_NAME_LEN 21
 
 #define VOC_REC_UPLINK		0x00
 #define VOC_REC_DOWNLINK	0x01
@@ -918,7 +918,7 @@ struct cal_mem {
 	void *buf;
 };
 
-#define MAX_VOC_SESSIONS 3
+#define MAX_VOC_SESSIONS 4
 #define SESSION_ID_BASE 0xFFF0
 
 struct common_data {
@@ -990,6 +990,7 @@ uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
 #define VOICE_SESSION_NAME "Voice session"
 #define VOIP_SESSION_NAME "VoIP session"
 #define VOLTE_SESSION_NAME "VoLTE session"
+#define SGLTE_SESSION_NAME "SGLTE session"
 uint16_t voc_get_session_id(char *name);
 
 int voc_start_playback(uint32_t set);
