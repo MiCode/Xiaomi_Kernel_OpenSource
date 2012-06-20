@@ -19,6 +19,29 @@
 #define DEBUG_SECTION_SZ(_dwords) (((_dwords) * sizeof(unsigned int)) \
 		+ sizeof(struct kgsl_snapshot_debug))
 
+#define SHADER_MEMORY_SIZE 0x4000
+
+static int a3xx_snapshot_shader_memory(struct kgsl_device *device,
+	void *snapshot, int remain, void *priv)
+{
+	struct kgsl_snapshot_debug *header = snapshot;
+	unsigned int *data = snapshot + sizeof(*header);
+	int i;
+
+	if (remain < DEBUG_SECTION_SZ(SHADER_MEMORY_SIZE)) {
+		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_SHADER_MEMORY;
+	header->size = SHADER_MEMORY_SIZE;
+
+	for (i = 0; i < SHADER_MEMORY_SIZE; i++)
+		adreno_regread(device, 0x4000 + i, &data[i]);
+
+	return DEBUG_SECTION_SZ(SHADER_MEMORY_SIZE);
+}
+
 #define VPC_MEMORY_BANKS 4
 #define VPC_MEMORY_SIZE 512
 
@@ -271,6 +294,12 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	snapshot = kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a3xx_snapshot_cp_meq, NULL);
+
+	/* Shader working/shadow memory */
+	snapshot = kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
+			a3xx_snapshot_shader_memory, NULL);
+
 
 	/* CP PFP and PM4 */
 	/* Reading these will hang the GPU if it isn't already hung */
