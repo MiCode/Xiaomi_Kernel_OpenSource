@@ -330,14 +330,14 @@ static int probe_current_pmu(struct arm_pmu *pmu)
 		case 0x02D0:    /* 8x60 */
 //			fabricmon_pmu_init();
 			cpu_pmu = armv7_scorpionmp_pmu_init();
-//			scorpionmp_l2_pmu_init();
+			scorpionmp_l2_pmu_init();
 			break;
 		case 0x0490:    /* 8960 sim */
 		case 0x04D0:    /* 8960 */
 		case 0x06F0:    /* 8064 */
 //			fabricmon_pmu_init();
 			cpu_pmu = armv7_krait_pmu_init();
-//			krait_l2_pmu_init();
+			krait_l2_pmu_init();
 			break;
 		}
 	}

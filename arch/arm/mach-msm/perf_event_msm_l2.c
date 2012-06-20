@@ -37,6 +37,34 @@ struct pmu_constraints {
 	.lock = __RAW_SPIN_LOCK_UNLOCKED(l2_pmu_constraints.lock),
 };
 
+/* NRCCG format for perf RAW codes. */
+PMU_FORMAT_ATTR(l2_prefix,	"config:16-19");
+PMU_FORMAT_ATTR(l2_reg,		"config:12-15");
+PMU_FORMAT_ATTR(l2_code,	"config:4-11");
+PMU_FORMAT_ATTR(l2_grp,		"config:0-3");
+
+static struct attribute *msm_l2_ev_formats[] = {
+	&format_attr_l2_prefix.attr,
+	&format_attr_l2_reg.attr,
+	&format_attr_l2_code.attr,
+	&format_attr_l2_grp.attr,
+	NULL,
+};
+
+/*
+ * Format group is essential to access PMU's from userspace
+ * via their .name field.
+ */
+static struct attribute_group msm_l2_pmu_format_group = {
+	.name = "format",
+	.attrs = msm_l2_ev_formats,
+};
+
+static const struct attribute_group *msm_l2_pmu_attr_grps[] = {
+	&msm_l2_pmu_format_group,
+	NULL,
+};
+
 static u32 pmu_type;
 
 static struct arm_pmu scorpion_l2_pmu;
@@ -797,16 +825,17 @@ static struct arm_pmu scorpion_l2_pmu = {
 	.map_event	=	scorpion_l2_map_event,
 	.max_period	=	(1LLU << 32) - 1,
 	.get_hw_events	=	scorpion_l2_get_hw_events,
+	.num_events	=	MAX_SCORPION_L2_CTRS,
 	.test_set_event_constraints	= msm_l2_test_set_ev_constraint,
 	.clear_event_constraints	= msm_l2_clear_ev_constraint,
-	.num_events	=	MAX_SCORPION_L2_CTRS,
+	.pmu.attr_groups		= msm_l2_pmu_attr_grps,
 };
 
 static int scorpion_l2_pmu_device_probe(struct platform_device *pdev)
 {
 	scorpion_l2_pmu.plat_device = pdev;
 
-	if (!armpmu_register(&scorpion_l2_pmu, "scorpion-l2", -1))
+	if (!armpmu_register(&scorpion_l2_pmu, "scorpionl2", -1))
 		pmu_type = scorpion_l2_pmu.pmu.type;
 
 	return 0;
