@@ -238,7 +238,7 @@ static struct completion dfab_unvote_completion;
 static DEFINE_SPINLOCK(wakelock_reference_lock);
 static int wakelock_reference_count;
 static int a2_pc_disabled_wakelock_skipped;
-static int disconnect_ack;
+static int disconnect_ack = 1;
 static LIST_HEAD(bam_other_notify_funcs);
 static DEFINE_MUTEX(smsm_cb_lock);
 static DEFINE_MUTEX(delayed_ul_vote_lock);
@@ -561,9 +561,9 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 		bam_dmux_log("%s: opening cid %d PC enabled\n", __func__,
 				rx_hdr->ch_id);
 		handle_bam_mux_cmd_open(rx_hdr);
-		if (rx_hdr->reserved & ENABLE_DISCONNECT_ACK) {
-			bam_dmux_log("%s: activating disconnect ack\n");
-			disconnect_ack = 1;
+		if (!(rx_hdr->reserved & ENABLE_DISCONNECT_ACK)) {
+			bam_dmux_log("%s: deactivating disconnect ack\n");
+			disconnect_ack = 0;
 		}
 		dev_kfree_skb_any(rx_skb);
 		break;
