@@ -23,7 +23,8 @@ struct kgsl_pwrscale_policy  {
 	void (*close)(struct kgsl_device *device,
 		struct kgsl_pwrscale *pwrscale);
 	void (*idle)(struct kgsl_device *device,
-		struct kgsl_pwrscale *pwrscale);
+		struct kgsl_pwrscale *pwrscale,
+		unsigned int ignore_idle);
 	void (*busy)(struct kgsl_device *device,
 		struct kgsl_pwrscale *pwrscale);
 	void (*sleep)(struct kgsl_device *device,
@@ -36,7 +37,6 @@ struct kgsl_pwrscale {
 	struct kgsl_pwrscale_policy *policy;
 	struct kobject kobj;
 	void *priv;
-	int gpu_busy;
 	int enabled;
 };
 
@@ -64,7 +64,8 @@ int kgsl_pwrscale_attach_policy(struct kgsl_device *device,
 	struct kgsl_pwrscale_policy *policy);
 void kgsl_pwrscale_detach_policy(struct kgsl_device *device);
 
-void kgsl_pwrscale_idle(struct kgsl_device *device);
+void kgsl_pwrscale_idle(struct kgsl_device *device,
+				unsigned int ignore_idle);
 void kgsl_pwrscale_busy(struct kgsl_device *device);
 void kgsl_pwrscale_sleep(struct kgsl_device *device);
 void kgsl_pwrscale_wake(struct kgsl_device *device);

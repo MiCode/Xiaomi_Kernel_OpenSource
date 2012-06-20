@@ -119,16 +119,19 @@ static void tz_wake(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale)
 					device->pwrctrl.default_pwrlevel);
 }
 
-static void tz_idle(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale)
+static void tz_idle(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale,
+						unsigned int ignore_idle)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct tz_priv *priv = pwrscale->priv;
 	struct kgsl_power_stats stats;
 	int val, idle;
 
+	if (ignore_idle)
+		return;
+
 	/* In "performance" mode the clock speed always stays
 	   the same */
-
 	if (priv->governor == TZ_GOVERNOR_PERFORMANCE)
 		return;
 
