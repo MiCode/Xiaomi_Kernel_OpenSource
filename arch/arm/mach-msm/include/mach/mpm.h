@@ -38,14 +38,108 @@ extern struct msm_mpm_device_data apq8064_mpm_dev_data;
 
 void msm_mpm_irq_extn_init(struct msm_mpm_device_data *mpm_data);
 
-#ifdef CONFIG_MSM_MPM
+#if defined(CONFIG_MSM_MPM) || defined(CONFIG_MSM_MPM_OF)
+/**
+ * msm_mpm_enable_pin() -  Enable/Disable a MPM pin for idle wakeups.
+ *
+ * @pin:	MPM pin to set
+ * @enable:	enable/disable the pin
+ *
+ * returns 0 on success or errorno
+ *
+ * Drivers can call the function to configure MPM pins for wakeup from idle low
+ * power modes. The API provides a direct access to the configuring MPM pins
+ * that are not connected to a IRQ/GPIO
+ */
 int msm_mpm_enable_pin(unsigned int pin, unsigned int enable);
+
+/**
+ * msm_mpm_set_pin_wake() -  Enable/Disable a MPM pin during suspend
+ *
+ * @pin:	MPM pin to set
+ * @enable:	enable/disable the pin as wakeup
+ *
+ * returns 0 on success or errorno
+ *
+ * Drivers can call the function to configure MPM pins for wakeup from suspend
+ * low power modes. The API provides a direct access to the configuring MPM pins
+ * that are not connected to a IRQ/GPIO
+ */
 int msm_mpm_set_pin_wake(unsigned int pin, unsigned int on);
+/**
+ * msm_mpm_set_pin_type() - Set the flowtype of a MPM pin.
+ *
+ * @pin:	MPM pin to configure
+ * @flow_type:	flowtype of the MPM pin.
+ *
+ * returns 0 on success or errorno
+ *
+ * Drivers can call the function to configure the flowtype of the MPM pins
+ * The API provides a direct access to the configuring MPM pins that are not
+ * connected to a IRQ/GPIO
+ */
 int msm_mpm_set_pin_type(unsigned int pin, unsigned int flow_type);
+/**
+ * msm_mpm_irqs_detectable() - Check if active irqs can be monitored by MPM
+ *
+ * @from_idle: indicates if the sytem is entering low power mode as a part of
+ *		suspend/idle task.
+ *
+ * returns true if all active interrupts can be monitored by the MPM
+ *
+ * Low power management code calls into this API to check if all active
+ * interrupts can be monitored by MPM and choose a level such that all active
+ * interrupts can wake the system up from low power mode.
+ */
 bool msm_mpm_irqs_detectable(bool from_idle);
+/**
+ * msm_mpm_gpio_detectable() - Check if active gpio irqs can be monitored by
+ *				MPM
+ *
+ * @from_idle: indicates if the sytem is entering low power mode as a part of
+ *		suspend/idle task.
+ *
+ * returns true if all active GPIO interrupts can be monitored by the MPM
+ *
+ * Low power management code calls into this API to check if all active
+ * GPIO interrupts can be monitored by MPM and choose a level such that all
+ * active interrupts can wake the system up from low power mode.
+ */
 bool msm_mpm_gpio_irqs_detectable(bool from_idle);
+/**
+ * msm_mpm_enter_sleep() -Called from PM code before entering low power mode
+ *
+ * @from_idle: indicates if the sytem is entering low power mode as a part of
+ *		suspend/idle task.
+ *
+ * Low power management code calls into this API to configure the MPM to
+ * monitor the active irqs before going to sleep.
+ */
 void msm_mpm_enter_sleep(bool from_idle);
+/**
+ * msm_mpm_exit_sleep() -Called from PM code after resuming from low power mode
+ *
+ * @from_idle: indicates if the sytem is entering low power mode as a part of
+ *		suspend/idle task.
+ *
+ * Low power management code calls into this API to query the MPM for the
+ * wakeup source and retriggering the appropriate interrupt.
+ */
 void msm_mpm_exit_sleep(bool from_idle);
+/**
+ * of_mpm_init() - Device tree initialization function
+ *
+ * @node: MPM device tree node.
+ *
+ * The initialization function is called from the machine irq function after
+ * GPIO/GIC device initialization routines are called. MPM driver keeps track
+ * of all enabled/wakeup interrupts in the system to be able to configure MPM
+ * when entering a system wide low power mode. The MPM is a alway-on low power
+ * hardware block that monitors 64 wakeup interrupts when the system is in a
+ * low power mode. The initialization function constructs the MPM mapping
+ * between the IRQs and the MPM pin based on data in the device tree.
+ */
+void __init of_mpm_init(struct device_node *node);
 #else
 static inline int msm_mpm_enable_irq(unsigned int irq, unsigned int enable)
 { return -ENODEV; }
@@ -66,6 +160,7 @@ static inline bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 { return false; }
 static inline void msm_mpm_enter_sleep(bool from_idle) {}
 static inline void msm_mpm_exit_sleep(bool from_idle) {}
+static inline void __init of_mpm_init(struct device_node *node) {}
 #endif
 
 
