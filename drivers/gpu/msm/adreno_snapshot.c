@@ -558,13 +558,14 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 
 	/*
 	 * Figure out the window of ringbuffer data to dump.  First we need to
-	 * find where the last processed IB ws submitted
+	 * find where the last processed IB ws submitted.  Start walking back
+	 * from the rptr
 	 */
 
 	index = rptr;
 	rbptr = rb->buffer_desc.hostptr;
 
-	while (index != rb->wptr) {
+	do {
 		index--;
 
 		if (index < 0) {
@@ -580,7 +581,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		if (adreno_cmd_is_ib(rbptr[index]) &&
 			rbptr[index + 1] == ibbase)
 			break;
-	}
+	} while (index != rb->wptr);
 
 	/*
 	 * index points at the last submitted IB. We can only trust that the
