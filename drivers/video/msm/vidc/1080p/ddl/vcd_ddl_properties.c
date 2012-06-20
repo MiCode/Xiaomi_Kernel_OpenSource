@@ -294,6 +294,11 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 		}
 	}
 	break;
+	case VCD_I_SET_TURBO_CLK:
+	{
+		vcd_status = VCD_S_SUCCESS;
+	}
+	break;
 	case VCD_I_BUFFER_FORMAT:
 	{
 		struct vcd_property_buffer_format *tile =
