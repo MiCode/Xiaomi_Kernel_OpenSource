@@ -35,6 +35,56 @@ struct kgsl_snapshot_object {
 	struct list_head node;
 };
 
+struct snapshot_obj_itr {
+	void *buf;      /* Buffer pointer to write to */
+	int pos;        /* Current position in the sequence */
+	loff_t offset;  /* file offset to start writing from */
+	size_t remain;  /* Bytes remaining in buffer */
+	size_t write;   /* Bytes written so far */
+};
+
+static void obj_itr_init(struct snapshot_obj_itr *itr, void *buf,
+	loff_t offset, size_t remain)
+{
+	itr->buf = buf;
+	itr->offset = offset;
+	itr->remain = remain;
+	itr->pos = 0;
+	itr->write = 0;
+}
+
+static int obj_itr_out(struct snapshot_obj_itr *itr, void *src, int size)
+{
+	if (itr->remain == 0)
+		return 0;
+
+	if ((itr->pos + size) <= itr->offset)
+		goto done;
+
+	/* Handle the case that offset is in the middle of the buffer */
+
+	if (itr->offset > itr->pos) {
+		src += (itr->offset - itr->pos);
+		size -= (itr->offset - itr->pos);
+
+		/* Advance pos to the offset start */
+		itr->pos = itr->offset;
+	}
+
+	if (size > itr->remain)
+		size = itr->remain;
+
+	memcpy(itr->buf, src, size);
+
+	itr->buf += size;
+	itr->write += size;
+	itr->remain -= size;
+
+done:
+	itr->pos += size;
+	return size;
+}
+
 /* idr_for_each function to count the number of contexts */
 
 static int snapshot_context_count(int id, void *ptr, void *data)
@@ -182,76 +232,46 @@ static int kgsl_snapshot_dump_indexed_regs(struct kgsl_device *device,
 	(sizeof(struct kgsl_snapshot_section_header) + \
 	 sizeof(struct kgsl_snapshot_gpu_object))
 
-#define GPU_OBJ_SECTION_SIZE(_o) \
-	(GPU_OBJ_HEADER_SZ + ((_o)->size))
-
 static int kgsl_snapshot_dump_object(struct kgsl_device *device,
-		struct kgsl_snapshot_object *obj, void *buf,
-		unsigned int off, unsigned int count)
+	struct kgsl_snapshot_object *obj, struct snapshot_obj_itr *itr)
 {
-	unsigned char headers[GPU_OBJ_HEADER_SZ];
-	struct kgsl_snapshot_section_header *sect =
-		(struct kgsl_snapshot_section_header *) headers;
-	struct kgsl_snapshot_gpu_object *header =
-		(struct kgsl_snapshot_gpu_object *) (headers + sizeof(*sect));
-	int ret = 0;
+	struct kgsl_snapshot_section_header sect;
+	struct kgsl_snapshot_gpu_object header;
+	int ret;
 
-	/* Construct a local copy of the headers */
+	sect.magic = SNAPSHOT_SECTION_MAGIC;
+	sect.id = KGSL_SNAPSHOT_SECTION_GPU_OBJECT;
 
-	sect->magic = SNAPSHOT_SECTION_MAGIC;
-	sect->id = KGSL_SNAPSHOT_SECTION_GPU_OBJECT;
-	sect->size = GPU_OBJ_SECTION_SIZE(obj);
+	/*
+	 * Header size is in dwords, object size is in bytes -
+	 * round up if the object size isn't dword aligned
+	 */
 
-	header->type = obj->type;
+	sect.size = GPU_OBJ_HEADER_SZ + ALIGN(obj->size, 4);
 
-	/* Header size is in dwords, object size is in bytes */
-	header->size = obj->size >> 2;
-	header->gpuaddr = obj->gpuaddr;
-	header->ptbase = obj->ptbase;
+	ret = obj_itr_out(itr, &sect, sizeof(sect));
+	if (ret == 0)
+		return 0;
 
-	/* Copy out any part of the header block that is needed */
+	header.size = ALIGN(obj->size, 4) >> 2;
+	header.gpuaddr = obj->gpuaddr;
+	header.ptbase = obj->ptbase;
+	header.type = obj->type;
 
-	if (off < GPU_OBJ_HEADER_SZ) {
-		int size = count < GPU_OBJ_HEADER_SZ - off ?
-			count : GPU_OBJ_HEADER_SZ - off;
+	ret = obj_itr_out(itr, &header, sizeof(header));
+	if (ret == 0)
+		return 0;
 
-		memcpy(buf, headers + off, size);
+	ret = obj_itr_out(itr, obj->entry->memdesc.hostptr + obj->offset,
+		obj->size);
+	if (ret == 0)
+		return 0;
 
-		count -= size;
-		ret += size;
-	}
+	/* Pad the end to a dword boundary if we need to */
 
-	/* Now copy whatever part of the data is needed */
-
-	if (off < (GPU_OBJ_HEADER_SZ + obj->size)) {
-		int offset;
-		int size = count < obj->size ? count : obj->size;
-
-		/*
-		 * If the desired gpuaddr isn't at the beginning of the region,
-		 * then offset the source pointer
-		 */
-
-		offset = obj->offset;
-
-		/*
-		 * Then  adjust it to account for the offset for the output
-		 * buffer.
-		 */
-
-		if (off > GPU_OBJ_HEADER_SZ) {
-			int loff = (off - GPU_OBJ_HEADER_SZ);
-
-			/* Adjust the size so we don't walk off the end */
-
-			if ((loff + size) > obj->size)
-				size = obj->size - loff;
-
-			offset += loff;
-		}
-
-		memcpy(buf + ret, obj->entry->memdesc.hostptr + offset, size);
-		ret += size;
+	if (obj->size % 4) {
+		unsigned int dummy = 0;
+		ret = obj_itr_out(itr, &dummy, obj->size % 4);
 	}
 
 	return ret;
@@ -539,7 +559,9 @@ static ssize_t snapshot_show(struct file *filep, struct kobject *kobj,
 {
 	struct kgsl_device *device = kobj_to_device(kobj);
 	struct kgsl_snapshot_object *obj, *tmp;
-	unsigned int size, src, dst = 0;
+	struct kgsl_snapshot_section_header head;
+	struct snapshot_obj_itr itr;
+	int ret;
 
 	if (device == NULL)
 		return 0;
@@ -551,80 +573,46 @@ static ssize_t snapshot_show(struct file *filep, struct kobject *kobj,
 	/* Get the mutex to keep things from changing while we are dumping */
 	mutex_lock(&device->mutex);
 
-	if (off < device->snapshot_size) {
-		size = count < (device->snapshot_size - off) ?
-			count : device->snapshot_size - off;
+	obj_itr_init(&itr, buf, off, count);
 
-		memcpy(buf, device->snapshot + off, size);
+	ret = obj_itr_out(&itr, device->snapshot, device->snapshot_size);
 
-		count -= size;
-		dst += size;
-	}
-
-	if (count == 0)
+	if (ret == 0)
 		goto done;
 
-	src = device->snapshot_size;
+	list_for_each_entry(obj, &device->snapshot_obj_list, node)
+		kgsl_snapshot_dump_object(device, obj, &itr);
 
-	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
+	{
+		head.magic = SNAPSHOT_SECTION_MAGIC;
+		head.id = KGSL_SNAPSHOT_SECTION_END;
+		head.size = sizeof(head);
 
-		int objsize = GPU_OBJ_SECTION_SIZE(obj);
-		int offset;
-
-		/* If the offset is beyond this object, then move on */
-
-		if (off >= (src + objsize)) {
-			src += objsize;
-			continue;
-		}
-
-		/* Adjust the offset to be relative to the object */
-		offset = (off >= src) ? (off - src) : 0;
-
-		size = kgsl_snapshot_dump_object(device, obj, buf + dst,
-			offset, count);
-
-		count -= size;
-		dst += size;
-
-		if (count == 0)
-			goto done;
-
-		/* Move on to the next object - update src accordingly */
-		src += objsize;
+		obj_itr_out(&itr, &head, sizeof(head));
 	}
 
-	/* Add the end section */
+	/*
+	 * Make sure everything has been written out before destroying things.
+	 * The best way to confirm this is to go all the way through without
+	 * writing any bytes - so only release if we get this far and
+	 * itr->write is 0
+	 */
 
-	if (off < (src + sizeof(struct kgsl_snapshot_section_header))) {
-		if (count >= sizeof(struct kgsl_snapshot_section_header)) {
-			struct kgsl_snapshot_section_header *head =
-				(void *) (buf + dst);
+	if (itr.write == 0) {
+		list_for_each_entry_safe(obj, tmp, &device->snapshot_obj_list,
+			node)
+			kgsl_snapshot_put_object(device, obj);
 
-			head->magic = SNAPSHOT_SECTION_MAGIC;
-			head->id = KGSL_SNAPSHOT_SECTION_END;
-			head->size = sizeof(*head);
+		if (device->snapshot_frozen)
+			KGSL_DRV_ERR(device, "Snapshot objects released\n");
 
-			dst += sizeof(*head);
-		} else {
-			goto done;
-		}
+		device->snapshot_frozen = 0;
 	}
-
-	/* Release the buffers and unfreeze the snapshot */
-
-	list_for_each_entry_safe(obj, tmp, &device->snapshot_obj_list, node)
-		kgsl_snapshot_put_object(device, obj);
-
-	if (device->snapshot_frozen)
-		KGSL_DRV_ERR(device, "Snapshot objects released\n");
-
-	device->snapshot_frozen = 0;
 
 done:
 	mutex_unlock(&device->mutex);
 
-	return dst;
+	return itr.write;
 }
 
 /* Show the timestamp of the last collected snapshot */
