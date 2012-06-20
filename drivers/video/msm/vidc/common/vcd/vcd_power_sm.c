@@ -341,6 +341,18 @@ u32 vcd_update_clnt_perf_lvl(
 	u32 new_perf_lvl;
 	new_perf_lvl = frm_p_units *\
 		(fps->fps_numerator / fps->fps_denominator);
+
+	if ((fps->fps_numerator * 1000) / fps->fps_denominator
+		 > VCD_MAXPERF_FPS_THRESHOLD_X_1000) {
+		u32 max_perf_level = 0;
+		if (res_trk_get_max_perf_level(&max_perf_level)) {
+			new_perf_lvl = max_perf_level;
+			VCD_MSG_HIGH("Using max perf level(%d) for >60fps\n",
+						 new_perf_lvl);
+		} else {
+			VCD_MSG_ERROR("Failed to get max perf level\n");
+		}
+	}
 	if (cctxt->status.req_perf_lvl) {
 		dev_ctxt->reqd_perf_lvl =
 		    dev_ctxt->reqd_perf_lvl - cctxt->reqd_perf_lvl +
