@@ -122,9 +122,15 @@ static struct of_device_id msm_hsl_match_table[] = {
 	},
 	{}
 };
+
+#ifdef CONFIG_SERIAL_MSM_HSL_CONSOLE
+static int get_console_state(struct uart_port *port);
+#else
+static inline int get_console_state(struct uart_port *port) { return -ENODEV; };
+#endif
+
 static struct dentry *debug_base;
 static inline void wait_for_xmitr(struct uart_port *port);
-static int get_console_state(struct uart_port *port);
 static inline void msm_hsl_write(struct uart_port *port,
 				 unsigned int val, unsigned int off)
 {
