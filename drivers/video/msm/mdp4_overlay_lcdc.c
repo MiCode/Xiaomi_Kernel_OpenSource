@@ -551,9 +551,12 @@ static void mdp4_lcdc_do_blt(struct msm_fb_data_type *mfd, int enable)
 	if (!change)
 		return;
 
-	mdp4_overlay_lcdc_wait4event(mfd, INTR_DMA_P_DONE);
-	MDP_OUTP(MDP_BASE + LCDC_BASE, 0);	/* stop lcdc */
-	msleep(20);
+	if (lcdc_enabled) {
+		mdp4_overlay_lcdc_wait4event(mfd, INTR_DMA_P_DONE);
+		MDP_OUTP(MDP_BASE + LCDC_BASE, 0);	/* stop lcdc */
+		msleep(20);
+	}
+
 	mdp4_overlayproc_cfg(lcdc_pipe);
 	mdp4_overlay_dmap_xy(lcdc_pipe);
 	if (lcdc_pipe->blt_addr) {
