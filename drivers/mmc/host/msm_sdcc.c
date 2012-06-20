@@ -3188,6 +3188,9 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 			pm_runtime_get_noresume(dev);
 			goto out;
 		}
+	} else if (dev->power.runtime_status == RPM_RESUMING) {
+		pm_runtime_get_noresume(dev);
+		goto out;
 	}
 
 	rc = pm_runtime_get_sync(dev);
