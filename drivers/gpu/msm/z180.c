@@ -896,8 +896,11 @@ static void z180_irqctrl(struct kgsl_device *device, int state)
 	}
 }
 
-static unsigned int z180_gpuid(struct kgsl_device *device)
+static unsigned int z180_gpuid(struct kgsl_device *device, unsigned int *chipid)
 {
+	if (chipid != NULL)
+		*chipid = 0;
+
 	/* Standard KGSL gpuid format:
 	 * top word is 0x0002 for 2D or 0x0003 for 3D
 	 * Bottom word is core specific identifer

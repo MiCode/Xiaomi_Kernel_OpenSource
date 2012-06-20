@@ -1592,9 +1592,16 @@ void adreno_irqctrl(struct kgsl_device *device, int state)
 	adreno_dev->gpudev->irq_control(adreno_dev, state);
 }
 
-static unsigned int adreno_gpuid(struct kgsl_device *device)
+static unsigned int adreno_gpuid(struct kgsl_device *device,
+	unsigned int *chipid)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	/* Some applications need to know the chip ID too, so pass
+	 * that as a parameter */
+
+	if (chipid != NULL)
+		*chipid = adreno_dev->chip_id;
 
 	/* Standard KGSL gpuid format:
 	 * top word is 0x0002 for 2D or 0x0003 for 3D
