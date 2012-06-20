@@ -543,7 +543,7 @@ static inline void __free_one_page(struct page *page,
 	unsigned long page_idx;
 	unsigned long combined_idx;
 	unsigned long uninitialized_var(buddy_idx);
-	struct page *buddy;
+	struct page *buddy = NULL;
 
 	VM_BUG_ON(!zone_is_initialized(zone));
 
