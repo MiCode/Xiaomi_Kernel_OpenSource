@@ -1148,6 +1148,84 @@ static struct slim_device apq8064_slim_tabla20 = {
 	},
 };
 
+static struct wcd9xxx_pdata apq8064_tabla_i2c_platform_data = {
+	.irq = MSM_GPIO_TO_INT(77),
+	.irq_base = TABLA_INTERRUPT_BASE,
+	.num_irqs = NR_WCD9XXX_IRQS,
+	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
+	.micbias = {
+		.ldoh_v = TABLA_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.cfilt3_mv = 1800,
+		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
+		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
+		.bias3_cfilt_sel = TABLA_CFILT3_SEL,
+		.bias4_cfilt_sel = TABLA_CFILT3_SEL,
+	},
+	.regulator = {
+	{
+		.name = "CDC_VDD_CP",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_CP_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_RX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_RX_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_TX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_TX_CUR_MAX,
+	},
+	{
+		.name = "VDDIO_CDC",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_VDDIO_CDC_CUR_MAX,
+	},
+	{
+		.name = "VDDD_CDC_D",
+		.min_uV = 1225000,
+		.max_uV = 1250000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_A_1P2V",
+		.min_uV = 1225000,
+		.max_uV = 1250000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
+	},
+	},
+};
+
+static struct i2c_board_info apq8064_tabla_i2c_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("tabla top level",
+				APQ_8064_TABLA_I2C_SLAVE_ADDR),
+		.platform_data = &apq8064_tabla_i2c_platform_data,
+	},
+	{
+		I2C_BOARD_INFO("tabla analog",
+				APQ_8064_TABLA_ANALOG_I2C_SLAVE_ADDR),
+		.platform_data = &apq8064_tabla_i2c_platform_data,
+	},
+	{
+		I2C_BOARD_INFO("tabla digital1",
+				APQ_8064_TABLA_DIGITAL1_I2C_SLAVE_ADDR),
+		.platform_data = &apq8064_tabla_i2c_platform_data,
+	},
+	{
+		I2C_BOARD_INFO("tabla digital2",
+				APQ_8064_TABLA_DIGITAL2_I2C_SLAVE_ADDR),
+		.platform_data = &apq8064_tabla_i2c_platform_data,
+	},
+};
+
 /* enable the level shifter for cs8427 to make sure the I2C
  * clock is running at 100KHz and voltage levels are at 3.3
  * and 5 volts
@@ -2249,6 +2327,17 @@ static struct platform_device *common_not_mpq_devices[] __initdata = {
 	&apq8064_device_qup_i2c_gsbi4,
 };
 
+static struct platform_device *common_mpq_devices[] __initdata = {
+	&mpq_cpudai_sec_i2s_rx,
+	&mpq_cpudai_mi2s_tx,
+};
+
+static struct platform_device *common_i2s_devices[] __initdata = {
+	&apq_cpudai_mi2s,
+	&apq_cpudai_i2s_rx,
+	&apq_cpudai_i2s_tx,
+};
+
 static struct platform_device *early_common_devices[] __initdata = {
 	&apq8064_device_acpuclk,
 	&apq8064_device_dmov,
@@ -2320,8 +2409,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq_pcm_routing,
 	&apq_cpudai0,
 	&apq_cpudai1,
-	&mpq_cpudai_sec_i2s_rx,
-	&mpq_cpudai_mi2s_tx,
 	&apq_cpudai_hdmi_rx,
 	&apq_cpudai_bt_rx,
 	&apq_cpudai_bt_tx,
@@ -2935,6 +3022,14 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 	}
 };
 
+static struct i2c_registry apq8064_tabla_i2c_devices[] __initdata = {
+	{
+		.bus = APQ_8064_GSBI1_QUP_I2C_BUS_ID,
+		.info = apq8064_tabla_i2c_device_info,
+		.len = ARRAY_SIZE(apq8064_tabla_i2c_device_info),
+	},
+};
+
 #define SX150X_EXP1_INT_N	PM8921_MPP_IRQ(PM8921_IRQ_BASE, 9)
 #define SX150X_EXP2_INT_N	MSM_GPIO_TO_INT(81)
 
@@ -3013,6 +3108,7 @@ static void __init register_i2c_devices(void)
 {
 	u8 mach_mask = 0;
 	int i;
+	u32 version;
 
 #ifdef CONFIG_MSM_CAMERA
 	struct i2c_registry apq8064_camera_i2c_devices = {
@@ -3055,6 +3151,18 @@ static void __init register_i2c_devices(void)
 					mpq8064_i2c_devices[i].info,
 					mpq8064_i2c_devices[i].len);
 	}
+
+	if (machine_is_apq8064_mtp()) {
+		version = socinfo_get_platform_version();
+		if (SOCINFO_VERSION_MINOR(version) == 1)
+			for (i = 0; i < ARRAY_SIZE(apq8064_tabla_i2c_devices);
+				 ++i)
+				i2c_register_board_info(
+				apq8064_tabla_i2c_devices[i].bus,
+				apq8064_tabla_i2c_devices[i].info,
+				apq8064_tabla_i2c_devices[i].len);
+	}
+
 }
 
 static void enable_ddr3_regulator(void)
@@ -3093,7 +3201,7 @@ static void __init apq8064_pm8917_pdata_fixup(void)
 
 static void __init apq8064_common_init(void)
 {
-	u32 platform_version;
+	u32 platform_version = socinfo_get_platform_version();
 
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		apq8064_pm8917_pdata_fixup();
@@ -3146,6 +3254,18 @@ static void __init apq8064_common_init(void)
 			machine_is_mpq8064_dtv()))
 		platform_add_devices(common_not_mpq_devices,
 			ARRAY_SIZE(common_not_mpq_devices));
+
+	if ((machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+			machine_is_mpq8064_dtv()))
+		platform_add_devices(common_mpq_devices,
+			ARRAY_SIZE(common_mpq_devices));
+
+	if (machine_is_apq8064_mtp()) {
+		if (SOCINFO_VERSION_MINOR(platform_version) == 1)
+			platform_add_devices(common_i2s_devices,
+			ARRAY_SIZE(common_i2s_devices));
+	}
+
 	enable_ddr3_regulator();
 	if (machine_is_apq8064_mtp()) {
 		msm_hsic_pdata.log2_irq_thresh = 5,
@@ -3157,7 +3277,6 @@ static void __init apq8064_common_init(void)
 
 	if (machine_is_apq8064_mtp()) {
 		mdm_8064_device.dev.platform_data = &mdm_platform_data;
-		platform_version = socinfo_get_platform_version();
 		if (SOCINFO_VERSION_MINOR(platform_version) == 1) {
 			i2s_mdm_8064_device.dev.platform_data =
 				&mdm_platform_data;
