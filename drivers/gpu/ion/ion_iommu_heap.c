@@ -196,7 +196,7 @@ int ion_iommu_heap_map_iommu(struct ion_buffer *buffer,
 						data->mapped_size, align,
 						&data->iova_addr);
 
-	if (!data->iova_addr)
+	if (ret)
 		goto out;
 
 	domain = msm_get_iommu_domain(domain_num);
