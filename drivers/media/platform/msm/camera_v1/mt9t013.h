@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #define MT9T013_H
 
 #include <linux/types.h>
+#include <mach/board.h>
 
 extern struct mt9t013_reg mt9t013_regs; /* from mt9t013_reg.c */
 

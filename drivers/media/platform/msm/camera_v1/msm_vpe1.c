@@ -16,6 +16,7 @@
 #include <mach/irqs.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 #include "msm_vpe1.h"
 #include <linux/pm_qos.h>
 #include <linux/clk.h>
