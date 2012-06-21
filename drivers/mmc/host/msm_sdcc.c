@@ -162,7 +162,7 @@ static inline unsigned short msmsdcc_get_nr_sg(struct msmsdcc_host *host)
 {
 	unsigned short ret = NR_SG;
 
-	if (host->is_sps_mode) {
+	if (is_sps_mode(host)) {
 		ret = SPS_MAX_DESCS;
 	} else { /* DMA or PIO mode */
 		if (NR_SG > MAX_NR_SG_DMA_PIO)
@@ -263,41 +263,89 @@ static void msmsdcc_sps_pipes_reset_and_restore(struct msmsdcc_host *host)
 static void msmsdcc_soft_reset(struct msmsdcc_host *host)
 {
 	/*
-	 * Reset SDCC controller's DPSM (data path state machine
-	 * and CPSM (command path state machine).
+	 * Reset controller state machines without resetting
+	 * configuration registers (MCI_POWER, MCI_CLK, MCI_INT_MASKn).
 	 */
-	writel_relaxed(0, host->base + MMCICOMMAND);
-	msmsdcc_sync_reg_wr(host);
-	writel_relaxed(0, host->base + MMCIDATACTRL);
-	msmsdcc_sync_reg_wr(host);
+	if (is_sw_reset_save_config(host)) {
+		ktime_t start;
+
+		writel_relaxed(readl_relaxed(host->base + MMCIPOWER)
+				| MCI_SW_RST_CFG, host->base + MMCIPOWER);
+		msmsdcc_sync_reg_wr(host);
+
+		start = ktime_get();
+		while (readl_relaxed(host->base + MMCIPOWER) & MCI_SW_RST_CFG) {
+			/*
+			 * SW reset can take upto 10HCLK + 15MCLK cycles.
+			 * Calculating based on min clk rates (hclk = 27MHz,
+			 * mclk = 400KHz) it comes to ~40us. Let's poll for
+			 * max. 1ms for reset completion.
+			 */
+			if (ktime_to_us(ktime_sub(ktime_get(), start)) > 1000) {
+				pr_err("%s: %s failed\n",
+					mmc_hostname(host->mmc), __func__);
+				BUG();
+			}
+		}
+	} else {
+		writel_relaxed(0, host->base + MMCICOMMAND);
+		msmsdcc_sync_reg_wr(host);
+		writel_relaxed(0, host->base + MMCIDATACTRL);
+		msmsdcc_sync_reg_wr(host);
+	}
 }
 
 static void msmsdcc_hard_reset(struct msmsdcc_host *host)
 {
 	int ret;
 
-	/* Reset the controller */
-	ret = clk_reset(host->clk, CLK_RESET_ASSERT);
-	if (ret)
-		pr_err("%s: Clock assert failed at %u Hz"
-			" with err %d\n", mmc_hostname(host->mmc),
+	/*
+	 * Reset SDCC controller to power on default state.
+	 * Don't issue a reset request to clock control block if
+	 * SDCC controller itself can support hard reset.
+	 */
+	if (is_sw_hard_reset(host)) {
+		ktime_t start;
+
+		writel_relaxed(readl_relaxed(host->base + MMCIPOWER)
+				| MCI_SW_RST, host->base + MMCIPOWER);
+		msmsdcc_sync_reg_wr(host);
+
+		start = ktime_get();
+		while (readl_relaxed(host->base + MMCIPOWER) & MCI_SW_RST) {
+			/*
+			 * See comment in msmsdcc_soft_reset() on choosing 1ms
+			 * poll timeout.
+			 */
+			if (ktime_to_us(ktime_sub(ktime_get(), start)) > 1000) {
+				pr_err("%s: %s failed\n",
+					mmc_hostname(host->mmc), __func__);
+				BUG();
+			}
+		}
+	} else {
+		ret = clk_reset(host->clk, CLK_RESET_ASSERT);
+		if (ret)
+			pr_err("%s: Clock assert failed at %u Hz" \
+				" with err %d\n", mmc_hostname(host->mmc),
 				host->clk_rate, ret);
 
-	ret = clk_reset(host->clk, CLK_RESET_DEASSERT);
-	if (ret)
-		pr_err("%s: Clock deassert failed at %u Hz"
-			" with err %d\n", mmc_hostname(host->mmc),
-			host->clk_rate, ret);
+		ret = clk_reset(host->clk, CLK_RESET_DEASSERT);
+		if (ret)
+			pr_err("%s: Clock deassert failed at %u Hz" \
+				" with err %d\n", mmc_hostname(host->mmc),
+				host->clk_rate, ret);
 
-	mb();
-	/* Give some delay for clock reset to propogate to controller */
-	msmsdcc_delay(host);
+		mb();
+		/* Give some delay for clock reset to propogate to controller */
+		msmsdcc_delay(host);
+	}
 }
 
 static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 {
-	if (host->sdcc_version) {
-		if (host->is_sps_mode) {
+	if (is_soft_reset(host)) {
+		if (is_sps_mode(host)) {
 			/* Reset DML first */
 			msmsdcc_dml_reset(host);
 			/*
@@ -313,7 +361,7 @@ static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 		pr_debug("%s: Applied soft reset to Controller\n",
 				mmc_hostname(host->mmc));
 
-		if (host->is_sps_mode)
+		if (is_sps_mode(host))
 			msmsdcc_dml_init(host);
 	} else {
 		/* Give Clock reset (hard reset) to controller */
@@ -393,7 +441,7 @@ static inline unsigned int msmsdcc_get_min_sup_clk_rate(
 static inline void msmsdcc_sync_reg_wr(struct msmsdcc_host *host)
 {
 	mb();
-	if (!host->sdcc_version)
+	if (!is_wait_for_reg_write(host))
 		udelay(host->reg_write_delay);
 	else if (readl_relaxed(host->base + MCI_STATUS2) &
 			MCI_MCLK_REG_WR_ACTIVE) {
@@ -773,14 +821,14 @@ static bool msmsdcc_is_dma_possible(struct msmsdcc_host *host,
 	bool ret = true;
 	u32 xfer_size = data->blksz * data->blocks;
 
-	if (host->is_sps_mode) {
+	if (is_sps_mode(host)) {
 		/*
 		 * BAM Mode: Fall back on PIO if size is less
 		 * than or equal to SPS_MIN_XFER_SIZE bytes.
 		 */
 		if (xfer_size <= SPS_MIN_XFER_SIZE)
 			ret = false;
-	} else if (host->is_dma_mode) {
+	} else if (is_dma_mode(host)) {
 		/*
 		 * ADM Mode: Fall back on PIO if size is less than FIFO size
 		 * or not integer multiple of FIFO size
@@ -1125,9 +1173,9 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 		datactrl |= MCI_AUTO_PROG_DONE;
 
 	if (msmsdcc_is_dma_possible(host, data)) {
-		if (host->is_dma_mode && !msmsdcc_config_dma(host, data)) {
+		if (is_dma_mode(host) && !msmsdcc_config_dma(host, data)) {
 			datactrl |= MCI_DPSM_DMAENABLE;
-		} else if (host->is_sps_mode) {
+		} else if (is_sps_mode(host)) {
 			if (!msmsdcc_is_dml_busy(host)) {
 				if (!msmsdcc_sps_start_xfer(host, data)) {
 					/* Now kick start DML transfer */
@@ -1176,7 +1224,7 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 	     "%s: data timeout is zero. timeout_ns=0x%x, timeout_clks=0x%x\n",
 	     mmc_hostname(host->mmc), data->timeout_ns, data->timeout_clks);
 
-	if (host->is_dma_mode && (datactrl & MCI_DPSM_DMAENABLE)) {
+	if (is_dma_mode(host) && (datactrl & MCI_DPSM_DMAENABLE)) {
 		/* Use ADM (Application Data Mover) HW for Data transfer */
 		/* Save parameters for the dma exec function */
 		host->cmd_timeout = timeout;
@@ -1626,10 +1674,10 @@ static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
 
 	if (!cmd->data || cmd->error) {
 		if (host->curr.data && host->dma.sg &&
-			host->is_dma_mode)
+			is_dma_mode(host))
 			msm_dmov_flush(host->dma.channel, 0);
 		else if (host->curr.data && host->sps.sg &&
-			host->is_sps_mode){
+			is_sps_mode(host)) {
 			/* Stop current SPS transfer */
 			msmsdcc_sps_exit_curr_xfer(host);
 		}
@@ -1782,9 +1830,9 @@ msmsdcc_irq(int irq, void *dev_id)
 				      MCI_TXUNDERRUN|MCI_RXOVERRUN)) {
 				msmsdcc_data_err(host, data, status);
 				host->curr.data_xfered = 0;
-				if (host->dma.sg && host->is_dma_mode)
+				if (host->dma.sg && is_dma_mode(host))
 					msm_dmov_flush(host->dma.channel, 0);
-				else if (host->sps.sg && host->is_sps_mode) {
+				else if (host->sps.sg && is_sps_mode(host)) {
 					/* Stop current SPS transfer */
 					msmsdcc_sps_exit_curr_xfer(host);
 				} else {
@@ -1969,7 +2017,7 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		msmsdcc_sdio_al_lpm(mmc, false);
 
 	/* check if sps pipe reset is pending? */
-	if (host->is_sps_mode && host->sps.pipe_reset_pending) {
+	if (is_sps_mode(host) && host->sps.pipe_reset_pending) {
 		msmsdcc_sps_pipes_reset_and_restore(host);
 		host->sps.pipe_reset_pending = false;
 	}
@@ -2035,7 +2083,7 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	if (mrq->data && (mrq->data->flags & MMC_DATA_WRITE)) {
-		if (host->sdcc_version) {
+		if (is_auto_prog_done(host)) {
 			if (!mrq->stop)
 				host->curr.wait_for_auto_prog_done = true;
 		} else {
@@ -4523,11 +4571,11 @@ static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
 	if (host->curr.data) {
 		if (!msmsdcc_is_dma_possible(host, host->curr.data))
 			pr_info("%s: PIO mode\n", mmc_hostname(host->mmc));
-		else if (host->is_dma_mode)
+		else if (is_dma_mode(host))
 			pr_info("%s: ADM mode: busy=%d, chnl=%d, crci=%d\n",
 				mmc_hostname(host->mmc), host->dma.busy,
 				host->dma.channel, host->dma.crci);
-		else if (host->is_sps_mode) {
+		else if (is_sps_mode(host)) {
 			if (host->sps.busy && atomic_read(&host->clks_on))
 				msmsdcc_print_regs("SDCC-DML", host->dml_base,
 						   host->dml_memres->start,
@@ -4577,9 +4625,9 @@ static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
 			if (mrq->data && !mrq->data->error)
 				mrq->data->error = -ETIMEDOUT;
 			host->curr.data_xfered = 0;
-			if (host->dma.sg && host->is_dma_mode) {
+			if (host->dma.sg && is_dma_mode(host)) {
 				msm_dmov_flush(host->dma.channel, 0);
-			} else if (host->sps.sg && host->is_sps_mode) {
+			} else if (host->sps.sg && is_sps_mode(host)) {
 				/* Stop current SPS transfer */
 				msmsdcc_sps_exit_curr_xfer(host);
 			} else {
@@ -4951,9 +4999,9 @@ msmsdcc_probe(struct platform_device *pdev)
 	host->curr.cmd = NULL;
 
 	if (!plat->disable_bam && bam_memres && dml_memres && bam_irqres)
-		host->is_sps_mode = 1;
+		set_hw_caps(host, MSMSDCC_SPS_BAM_SUP);
 	else if (dmares)
-		host->is_dma_mode = 1;
+		set_hw_caps(host, MSMSDCC_DMA_SUP);
 
 	host->base = ioremap(core_memres->start,
 			resource_size(core_memres));
@@ -4986,7 +5034,7 @@ msmsdcc_probe(struct platform_device *pdev)
 
 	tasklet_init(&host->sps.tlet, msmsdcc_sps_complete_tlet,
 			(unsigned long)host);
-	if (host->is_dma_mode) {
+	if (is_dma_mode(host)) {
 		/* Setup DMA */
 		ret = msmsdcc_init_dma(host);
 		if (ret)
@@ -5045,13 +5093,8 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (!host->clk_rate)
 		dev_err(&pdev->dev, "Failed to read MCLK\n");
 
-	/*
-	* Lookup the Controller Version, to identify the supported features
-	* Version number read as 0 would indicate SDCC3 or earlier versions
-	*/
-	host->sdcc_version = readl_relaxed(host->base + MCI_VERSION);
-	pr_info("%s: mci-version: %x\n", mmc_hostname(host->mmc),
-		host->sdcc_version);
+	set_default_hw_caps(host);
+
 	/*
 	 * Set the register write delay according to min. clock frequency
 	 * supported and update later when the host->clk_rate changes.
@@ -5089,7 +5132,7 @@ msmsdcc_probe(struct platform_device *pdev)
 
 
 	/* Clocks has to be running before accessing SPS/DML HW blocks */
-	if (host->is_sps_mode) {
+	if (is_sps_mode(host)) {
 		/* Initialize SPS */
 		ret = msmsdcc_sps_init(host);
 		if (ret)
@@ -5122,7 +5165,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * status is to use the AUTO_PROG_DONE status provided by SDCC4
 	 * controller. So let's enable the CMD23 for SDCC4 only.
 	 */
-	if (!plat->disable_cmd23 && host->sdcc_version)
+	if (!plat->disable_cmd23 && is_auto_prog_done(host))
 		mmc->caps |= MMC_CAP_CMD23;
 
 	mmc->caps |= plat->uhs_caps;
@@ -5297,6 +5340,8 @@ msmsdcc_probe(struct platform_device *pdev)
 		(unsigned int) plat->status_irq, host->dma.channel,
 		host->dma.crci);
 
+	pr_info("%s: Controller capabilities: 0x%.8x\n",
+			mmc_hostname(mmc), host->hw_caps);
 	pr_info("%s: 8 bit data mode %s\n", mmc_hostname(mmc),
 		(mmc->caps & MMC_CAP_8_BIT_DATA ? "enabled" : "disabled"));
 	pr_info("%s: 4 bit data mode %s\n", mmc_hostname(mmc),
@@ -5311,14 +5356,14 @@ msmsdcc_probe(struct platform_device *pdev)
 	pr_info("%s: Power save feature enable = %d\n",
 	       mmc_hostname(mmc), msmsdcc_pwrsave);
 
-	if (host->is_dma_mode && host->dma.channel != -1
+	if (is_dma_mode(host) && host->dma.channel != -1
 			&& host->dma.crci != -1) {
 		pr_info("%s: DM non-cached buffer at %p, dma_addr 0x%.8x\n",
 		       mmc_hostname(mmc), host->dma.nc, host->dma.nc_busaddr);
 		pr_info("%s: DM cmd busaddr 0x%.8x, cmdptr busaddr 0x%.8x\n",
 		       mmc_hostname(mmc), host->dma.cmd_busaddr,
 		       host->dma.cmdptr_busaddr);
-	} else if (host->is_sps_mode) {
+	} else if (is_sps_mode(host)) {
 		pr_info("%s: SPS-BAM data transfer mode available\n",
 			mmc_hostname(mmc));
 	} else
@@ -5369,10 +5414,10 @@ msmsdcc_probe(struct platform_device *pdev)
  irq_free:
 	free_irq(core_irqres->start, host);
  dml_exit:
-	if (host->is_sps_mode)
+	if (is_sps_mode(host))
 		msmsdcc_dml_exit(host);
  sps_exit:
-	if (host->is_sps_mode)
+	if (is_sps_mode(host))
 		msmsdcc_sps_exit(host);
  vreg_deinit:
 	msmsdcc_vreg_init(host, false);
@@ -5395,7 +5440,7 @@ msmsdcc_probe(struct platform_device *pdev)
  bus_clk_put:
 	if (!IS_ERR_OR_NULL(host->bus_clk))
 		clk_put(host->bus_clk);
-	if (host->is_dma_mode) {
+	if (is_dma_mode(host)) {
 		if (host->dmares)
 			dma_free_coherent(NULL,
 				sizeof(struct msmsdcc_nc_dmadata),
@@ -5464,14 +5509,14 @@ static int msmsdcc_remove(struct platform_device *pdev)
 
 	msmsdcc_vreg_init(host, false);
 
-	if (host->is_dma_mode) {
+	if (is_dma_mode(host)) {
 		if (host->dmares)
 			dma_free_coherent(NULL,
 					sizeof(struct msmsdcc_nc_dmadata),
 					host->dma.nc, host->dma.nc_busaddr);
 	}
 
-	if (host->is_sps_mode) {
+	if (is_sps_mode(host)) {
 		msmsdcc_dml_exit(host);
 		msmsdcc_sps_exit(host);
 	}
