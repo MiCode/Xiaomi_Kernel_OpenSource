@@ -1232,6 +1232,11 @@ void ehci_init_driver(struct hc_driver *drv,
 			drv->start = over->start;
 		if (over->log_urb_complete)
 			drv->log_urb_complete = over->log_urb_complete;
+		if (over->enable_ulpi_control)
+			drv->enable_ulpi_control = over->enable_ulpi_control;
+		if (over->disable_ulpi_control)
+			drv->disable_ulpi_control = over->disable_ulpi_control;
+		drv->flags |= over->flags;
 	}
 }
 EXPORT_SYMBOL_GPL(ehci_init_driver);

@@ -336,6 +336,29 @@ reg_enable_err:
 
 }
 
+static int ulpi_read(struct msm_hsic_hcd *mehci, u32 reg)
+{
+	struct usb_hcd *hcd = hsic_to_hcd(mehci);
+	unsigned long timeout;
+
+	/* initiate read operation */
+	writel_relaxed(ULPI_RUN | ULPI_READ | ULPI_ADDR(reg),
+	       USB_ULPI_VIEWPORT);
+
+	/* wait for completion */
+	timeout = jiffies + usecs_to_jiffies(ULPI_IO_TIMEOUT_USEC);
+	while (readl_relaxed(USB_ULPI_VIEWPORT) & ULPI_RUN) {
+		if (time_after(jiffies, timeout)) {
+			dev_err(mehci->dev, "ulpi_read: timeout %08x\n",
+				readl_relaxed(USB_ULPI_VIEWPORT));
+			return -ETIMEDOUT;
+		}
+		udelay(1);
+	}
+
+	return ULPI_DATA_READ(readl_relaxed(USB_ULPI_VIEWPORT));
+}
+
 static int ulpi_write(struct msm_hsic_hcd *mehci, u32 val, u32 reg)
 {
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
@@ -360,6 +383,37 @@ static int ulpi_write(struct msm_hsic_hcd *mehci, u32 val, u32 reg)
 	}
 
 	return 0;
+}
+
+#define HSIC_DBG1		0X38
+#define ULPI_MANUAL_ENABLE	BIT(4)
+#define ULPI_LINESTATE_DATA	BIT(5)
+#define ULPI_LINESTATE_STROBE	BIT(6)
+static void ehci_msm_enable_ulpi_control(struct usb_hcd *hcd, u32 linestate)
+{
+	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+	int val;
+
+	switch (linestate) {
+	case PORT_RESET:
+		val = ulpi_read(mehci, HSIC_DBG1);
+		val |= ULPI_MANUAL_ENABLE;
+		val &= ~(ULPI_LINESTATE_DATA | ULPI_LINESTATE_STROBE);
+		ulpi_write(mehci, val, HSIC_DBG1);
+		break;
+	default:
+		pr_info("%s: Unknown linestate:%0x\n", __func__, linestate);
+	}
+}
+
+static void ehci_msm_disable_ulpi_control(struct usb_hcd *hcd)
+{
+	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+	int val;
+
+	val = ulpi_read(mehci, HSIC_DBG1);
+	val &= ~ULPI_MANUAL_ENABLE;
+	ulpi_write(mehci, val, HSIC_DBG1);
 }
 
 static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
@@ -788,6 +842,8 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 }
 
 static const struct ehci_driver_overrides ehci_msm_hsic_overrides __initdata = {
+	.flags			= HCD_OLD_ENUM,
+
 	.reset			= ehci_hsic_reset,
 	.extra_priv_size	= sizeof(struct msm_hsic_hcd),
 	.irq			= msm_hsic_irq,
@@ -795,6 +851,9 @@ static const struct ehci_driver_overrides ehci_msm_hsic_overrides __initdata = {
 	.bus_suspend		= ehci_hsic_bus_suspend,
 	.bus_resume		= ehci_hsic_bus_resume,
 	.log_urb_complete	= dbg_log_event,
+
+	.enable_ulpi_control	= ehci_msm_enable_ulpi_control,
+	.disable_ulpi_control	= ehci_msm_disable_ulpi_control,
 };
 
 static struct hc_driver __read_mostly ehci_msm_hsic_hc_driver;
@@ -1160,6 +1219,7 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, hcd);
 
 	mehci->ehci.susp_sof_bug = 1;
+	mehci->ehci.reset_sof_bug = 1;
 
 	mehci->ehci.max_log2_irq_thresh = 6;
 
