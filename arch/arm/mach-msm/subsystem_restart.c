@@ -26,6 +26,7 @@
 #include <linux/suspend.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 
 #include <asm/current.h>
 
@@ -45,13 +46,6 @@ struct subsys_soc_restart_order {
 	struct subsys_device *subsys_ptrs[];
 };
 
-struct restart_wq_data {
-	struct subsys_device *dev;
-	struct wake_lock ssr_wake_lock;
-	char wlname[64];
-	struct work_struct work;
-};
-
 struct restart_log {
 	struct timeval time;
 	struct subsys_device *dev;
@@ -61,6 +55,11 @@ struct restart_log {
 struct subsys_device {
 	struct subsys_desc *desc;
 	struct list_head list;
+	struct wake_lock wake_lock;
+	char wlname[64];
+	struct work_struct work;
+	spinlock_t restart_lock;
+	bool restarting;
 
 	void *notify;
 
@@ -315,17 +314,15 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 
 static void subsystem_restart_wq_func(struct work_struct *work)
 {
-	struct restart_wq_data *r_work = container_of(work,
-						struct restart_wq_data, work);
+	struct subsys_device *dev = container_of(work,
+						struct subsys_device, work);
 	struct subsys_device **list;
-	struct subsys_device *dev = r_work->dev;
 	struct subsys_desc *desc = dev->desc;
 	struct subsys_soc_restart_order *soc_restart_order = NULL;
-
 	struct mutex *powerup_lock;
 	struct mutex *shutdown_lock;
-
 	unsigned count;
+	unsigned long flags;
 
 	if (restart_level != RESET_SUBSYS_INDEPENDENT)
 		soc_restart_order = dev->restart_order;
@@ -408,31 +405,27 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	pr_debug("[%p]: Released powerup lock!\n", current);
 
 out:
-	wake_unlock(&r_work->ssr_wake_lock);
-	wake_lock_destroy(&r_work->ssr_wake_lock);
-	kfree(r_work);
+	spin_lock_irqsave(&dev->restart_lock, flags);
+	wake_unlock(&dev->wake_lock);
+	dev->restarting = false;
+	spin_unlock_irqrestore(&dev->restart_lock, flags);
 }
 
 static void __subsystem_restart_dev(struct subsys_device *dev)
 {
-	struct restart_wq_data *data = NULL;
 	struct subsys_desc *desc = dev->desc;
+	unsigned long flags;
 
-	pr_debug("Restarting %s [level=%d]!\n", desc->name, restart_level);
+	spin_lock_irqsave(&dev->restart_lock, flags);
+	if (!dev->restarting) {
+		pr_debug("Restarting %s [level=%d]!\n", desc->name,
+				restart_level);
 
-	data = kzalloc(sizeof(struct restart_wq_data), GFP_ATOMIC);
-	if (!data)
-		panic("%s: Unable to allocate memory to restart %s.",
-		      __func__, desc->name);
-
-	data->dev = dev;
-
-	snprintf(data->wlname, sizeof(data->wlname), "ssr(%s)", desc->name);
-	wake_lock_init(&data->ssr_wake_lock, WAKE_LOCK_SUSPEND, data->wlname);
-	wake_lock(&data->ssr_wake_lock);
-
-	INIT_WORK(&data->work, subsystem_restart_wq_func);
-	queue_work(ssr_wq, &data->work);
+		dev->restarting = true;
+		wake_lock(&dev->wake_lock);
+		queue_work(ssr_wq, &dev->work);
+	}
+	spin_unlock_irqrestore(&dev->restart_lock, flags);
 }
 
 int subsystem_restart_dev(struct subsys_device *dev)
@@ -489,6 +482,11 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	dev->notify = subsys_notif_add_subsys(desc->name);
 	dev->restart_order = update_restart_order(dev);
 
+	snprintf(dev->wlname, sizeof(dev->wlname), "ssr(%s)", desc->name);
+	wake_lock_init(&dev->wake_lock, WAKE_LOCK_SUSPEND, dev->wlname);
+	INIT_WORK(&dev->work, subsystem_restart_wq_func);
+	spin_lock_init(&dev->restart_lock);
+
 	mutex_init(&dev->shutdown_lock);
 	mutex_init(&dev->powerup_lock);
 
@@ -507,6 +505,7 @@ void subsys_unregister(struct subsys_device *dev)
 	mutex_lock(&subsystem_list_lock);
 	list_del(&dev->list);
 	mutex_unlock(&subsystem_list_lock);
+	wake_lock_destroy(&dev->wake_lock);
 	kfree(dev);
 }
 EXPORT_SYMBOL(subsys_unregister);
