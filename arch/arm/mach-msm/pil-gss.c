@@ -356,6 +356,8 @@ static int pil_gss_probe(struct platform_device *pdev)
 		desc->ops = &pil_gss_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
+	/* Force into low power mode because hardware doesn't do this */
+	desc->ops->shutdown(desc);
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil)) {
