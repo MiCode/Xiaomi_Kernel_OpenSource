@@ -579,9 +579,11 @@ int dwc3_otg_init(struct dwc3 *dwc)
 		return -ENOMEM;
 	}
 
-	dotg->irq = platform_get_irq(to_platform_device(dwc->dev), 0);
+	/* DWC3 has separate IRQ line for OTG events (ID/BSV etc.) */
+	dotg->irq = platform_get_irq_byname(to_platform_device(dwc->dev),
+								"otg_irq");
 	if (dotg->irq < 0) {
-		dev_err(dwc->dev, "%s: missing IRQ\n", __func__);
+		dev_err(dwc->dev, "%s: missing OTG IRQ\n", __func__);
 		ret = -ENODEV;
 		goto err1;
 	}
