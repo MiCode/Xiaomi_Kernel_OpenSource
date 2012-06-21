@@ -23,6 +23,15 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 
+/* This code is to temporarily work around the default state of OCMEM
+   regions in Virtio. These registers will be read from DT in a subsequent
+   patch which initializes the regions to appropriate default state.
+*/
+
+#define OCMEM_REGION_CTL_BASE 0xFDD0003C
+#define OCMEM_REGION_CTL_SIZE 0xC
+#define REGION_ENABLE 0x00003333
+
 struct ocmem_partition {
 	const char *name;
 	int id;
@@ -271,6 +280,7 @@ static int ocmem_zone_init(struct platform_device *pdev)
 static int msm_ocmem_probe(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
+	void *ocmem_region_vbase = NULL;
 
 	if (!pdev->dev.of_node->child) {
 		dev_info(dev, "Missing Configuration in Device Tree\n");
@@ -297,6 +307,15 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 
 	if (ocmem_sched_init())
 		return -EBUSY;
+
+	ocmem_region_vbase = devm_ioremap_nocache(dev, OCMEM_REGION_CTL_BASE,
+							OCMEM_REGION_CTL_SIZE);
+	if (!ocmem_region_vbase)
+		return -EBUSY;
+	/* Enable all the 3 regions until we have support for power features */
+	writel_relaxed(REGION_ENABLE, ocmem_region_vbase);
+	writel_relaxed(REGION_ENABLE, ocmem_region_vbase + 4);
+	writel_relaxed(REGION_ENABLE, ocmem_region_vbase + 8);
 	dev_info(dev, "initialized successfully\n");
 	return 0;
 }
