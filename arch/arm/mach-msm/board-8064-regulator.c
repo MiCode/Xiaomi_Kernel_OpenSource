@@ -221,6 +221,7 @@ VREG_CONSUMERS(LVS7) = {
 	REGULATOR_SUPPLY("8921_lvs7",		NULL),
 	REGULATOR_SUPPLY("pll_vdd",		"pil_riva"),
 	REGULATOR_SUPPLY("lvds_vdda",		"lvds.0"),
+	REGULATOR_SUPPLY("hdmi_pll_fs",		"mdp.0"),
 	REGULATOR_SUPPLY("dsi1_vddio",		"mipi_dsi.1"),
 	REGULATOR_SUPPLY("hdmi_vdda",		"hdmi_msm.0"),
 };
