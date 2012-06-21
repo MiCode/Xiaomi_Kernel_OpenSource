@@ -746,6 +746,29 @@ struct platform_device mpq_cpudai_mi2s_tx = {
 	},
 };
 
+struct msm_mi2s_pdata apq_mi2s_data = {
+	.rx_sd_lines = MSM_MI2S_SD0,
+	.tx_sd_lines = MSM_MI2S_SD3,
+};
+
+struct platform_device apq_cpudai_mi2s = {
+	.name	= "msm-dai-q6-mi2s",
+	.id	= -1,
+	.dev = {
+		.platform_data = &apq_mi2s_data,
+	},
+};
+
+struct platform_device apq_cpudai_i2s_rx = {
+	.name	= "msm-dai-q6",
+	.id	= PRIMARY_I2S_RX,
+};
+
+struct platform_device apq_cpudai_i2s_tx = {
+	.name	= "msm-dai-q6",
+	.id	= PRIMARY_I2S_TX,
+};
+
 struct platform_device apq_cpu_fe = {
 	.name	= "msm-dai-fe",
 	.id	= -1,
