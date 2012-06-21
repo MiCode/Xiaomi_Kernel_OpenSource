@@ -49,7 +49,6 @@ struct restart_wq_data {
 	struct subsys_device *dev;
 	struct wake_lock ssr_wake_lock;
 	char wlname[64];
-	int use_restart_order;
 	struct work_struct work;
 };
 
@@ -328,7 +327,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 	unsigned count;
 
-	if (r_work->use_restart_order)
+	if (restart_level != RESET_SUBSYS_INDEPENDENT)
 		soc_restart_order = dev->restart_order;
 
 	/*
@@ -427,9 +426,6 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 		      __func__, desc->name);
 
 	data->dev = dev;
-
-	if (restart_level != RESET_SUBSYS_INDEPENDENT)
-		data->use_restart_order = 1;
 
 	snprintf(data->wlname, sizeof(data->wlname), "ssr(%s)", desc->name);
 	wake_lock_init(&data->ssr_wake_lock, WAKE_LOCK_SUSPEND, data->wlname);
