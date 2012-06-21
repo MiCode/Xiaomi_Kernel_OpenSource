@@ -2201,44 +2201,16 @@ static void smux_wakeup_worker(struct work_struct *work)
 {
 	unsigned long flags;
 	unsigned wakeup_delay;
-	int complete = 0;
 
-	while (!smux.in_reset) {
-		spin_lock_irqsave(&smux.tx_lock_lha2, flags);
-		if (smux.power_state == SMUX_PWR_ON) {
-			/* wakeup complete */
-			complete = 1;
-			spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
-			break;
-		} else {
-			/* retry */
-			wakeup_delay = smux.pwr_wakeup_delay_us;
-			smux.pwr_wakeup_delay_us <<= 1;
-			if (smux.pwr_wakeup_delay_us > SMUX_WAKEUP_DELAY_MAX)
-				smux.pwr_wakeup_delay_us =
-					SMUX_WAKEUP_DELAY_MAX;
-		}
+	if (smux.in_reset)
+		return;
+
+	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
+	if (smux.power_state == SMUX_PWR_ON) {
+		/* wakeup complete */
 		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
-		SMUX_DBG("%s: triggering wakeup\n", __func__);
-		smux_send_byte(SMUX_WAKEUP_REQ);
-
-		if (wakeup_delay < SMUX_WAKEUP_DELAY_MIN) {
-			SMUX_DBG("%s: sleeping for %u us\n", __func__,
-					wakeup_delay);
-			usleep_range(wakeup_delay, 2*wakeup_delay);
-		} else {
-			/* schedule delayed work */
-			SMUX_DBG("%s: scheduling delayed wakeup in %u ms\n",
-					__func__, wakeup_delay / 1000);
-			queue_delayed_work(smux_tx_wq,
-					&smux_wakeup_delayed_work,
-					msecs_to_jiffies(wakeup_delay / 1000));
-			break;
-		}
-	}
-
-	if (complete) {
 		SMUX_DBG("%s: wakeup complete\n", __func__);
+
 		/*
 		 * Cancel any pending retry.  This avoids a race condition with
 		 * a new power-up request because:
@@ -2247,6 +2219,31 @@ static void smux_wakeup_worker(struct work_struct *work)
 		 *    workqueue as new TX wakeup requests
 		 */
 		cancel_delayed_work(&smux_wakeup_delayed_work);
+	} else {
+		/* retry wakeup */
+		wakeup_delay = smux.pwr_wakeup_delay_us;
+		smux.pwr_wakeup_delay_us <<= 1;
+		if (smux.pwr_wakeup_delay_us > SMUX_WAKEUP_DELAY_MAX)
+			smux.pwr_wakeup_delay_us =
+				SMUX_WAKEUP_DELAY_MAX;
+
+		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
+		SMUX_DBG("%s: triggering wakeup\n", __func__);
+		smux_send_byte(SMUX_WAKEUP_REQ);
+
+		if (wakeup_delay < SMUX_WAKEUP_DELAY_MIN) {
+			SMUX_DBG("%s: sleeping for %u us\n", __func__,
+					wakeup_delay);
+			usleep_range(wakeup_delay, 2*wakeup_delay);
+			queue_work(smux_tx_wq, &smux_wakeup_work);
+		} else {
+			/* schedule delayed work */
+			SMUX_DBG("%s: scheduling delayed wakeup in %u ms\n",
+					__func__, wakeup_delay / 1000);
+			queue_delayed_work(smux_tx_wq,
+					&smux_wakeup_delayed_work,
+					msecs_to_jiffies(wakeup_delay / 1000));
+		}
 	}
 }
 
