@@ -38,8 +38,9 @@
 /* Allocate the worst case frame size for compressed audio */
 #define COMPRE_CAPTURE_HEADER_SIZE	(sizeof(struct snd_compr_audio_info))
 #define COMPRE_CAPTURE_MAX_FRAME_SIZE	(6144)
-#define COMPRE_CAPTURE_PERIOD_SIZE	(COMPRE_CAPTURE_MAX_FRAME_SIZE + \
-					 COMPRE_CAPTURE_HEADER_SIZE)
+#define COMPRE_CAPTURE_PERIOD_SIZE	((COMPRE_CAPTURE_MAX_FRAME_SIZE + \
+					  COMPRE_CAPTURE_HEADER_SIZE) * \
+					  MAX_NUM_FRAMES_PER_BUFFER)
 
 struct snd_msm {
 	struct msm_audio *prtd;
@@ -205,6 +206,31 @@ static void compr_event_handler(uint32_t opcode,
 			snd_pcm_period_elapsed(substream);
 
 		q6asm_async_read(prtd->audio_client, &read_param);
+		break;
+	}
+	case ASM_DATA_EVENT_READ_COMPRESSED_DONE: {
+		pr_debug("ASM_DATA_EVENT_READ_COMPRESSED_DONE\n");
+		pr_debug("buf = %p, data = 0x%X, *data = %p,\n"
+			 "prtd->pcm_irq_pos = %d\n",
+				prtd->audio_client->port[OUT].buf,
+			 *(uint32_t *)prtd->audio_client->port[OUT].buf->data,
+				prtd->audio_client->port[OUT].buf->data,
+				prtd->pcm_irq_pos);
+
+		if (!atomic_read(&prtd->start))
+			break;
+		buf = prtd->audio_client->port[OUT].buf;
+		pr_debug("pcm_irq_pos=%d, buf[0].phys = 0x%X\n",
+				prtd->pcm_irq_pos, (uint32_t)buf[0].phys);
+		read_param.len = prtd->pcm_count;
+		read_param.paddr = (unsigned long)(buf[0].phys) +
+			prtd->pcm_irq_pos;
+		prtd->pcm_irq_pos += prtd->pcm_count;
+
+		if (atomic_read(&prtd->start))
+			snd_pcm_period_elapsed(substream);
+
+		q6asm_async_read_compressed(prtd->audio_client, &read_param);
 		break;
 	}
 	case APR_BASIC_RSP_RESULT: {
@@ -392,7 +418,7 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 
 	if (prtd->enabled)
 		return ret;
-	read_param.len = prtd->pcm_count - COMPRE_CAPTURE_HEADER_SIZE;
+	read_param.len = prtd->pcm_count;
 	pr_debug("%s: Samp_rate = %d, Channel = %d, pcm_size = %d,\n"
 			 "pcm_count = %d, periods = %d\n",
 			 __func__, prtd->samp_rate, prtd->channel_mode,
@@ -400,9 +426,8 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 
 	for (i = 0; i < runtime->periods; i++) {
 		read_param.uid = i;
-		read_param.paddr = ((unsigned long)(buf[i].phys) +
-					COMPRE_CAPTURE_HEADER_SIZE);
-		q6asm_async_read(prtd->audio_client, &read_param);
+		read_param.paddr = (unsigned long)(buf[i].phys);
+		q6asm_async_read_compressed(prtd->audio_client, &read_param);
 	}
 	prtd->periods = runtime->periods;
 
@@ -749,7 +774,8 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		}
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		ret = q6asm_open_read_compressed(prtd->audio_client,
-					compr->codec);
+					MAX_NUM_FRAMES_PER_BUFFER,
+					COMPRESSED_META_DATA_MODE);
 
 		if (ret < 0) {
 			pr_err("%s: compressed Session out open failed\n",

@@ -183,7 +183,8 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 
 int q6asm_open_read(struct audio_client *ac, uint32_t format);
 
-int q6asm_open_read_compressed(struct audio_client *ac, uint32_t format);
+int q6asm_open_read_compressed(struct audio_client *ac,
+			 uint32_t frames_per_buffer, uint32_t meta_data_mode);
 
 int q6asm_open_write(struct audio_client *ac, uint32_t format);
 
@@ -202,6 +203,9 @@ int q6asm_async_write(struct audio_client *ac,
 					  struct audio_aio_write_param *param);
 
 int q6asm_async_read(struct audio_client *ac,
+					  struct audio_aio_read_param *param);
+
+int q6asm_async_read_compressed(struct audio_client *ac,
 					  struct audio_aio_read_param *param);
 
 int q6asm_read(struct audio_client *ac);
