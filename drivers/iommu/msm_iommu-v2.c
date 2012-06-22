@@ -25,7 +25,7 @@
 #include <linux/scatterlist.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
-
+#include <linux/regulator/consumer.h>
 #include <asm/sizes.h>
 
 #include <mach/iommu_hw-v2.h>
@@ -383,9 +383,15 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 	}
 
-	ret = __enable_clocks(iommu_drvdata);
+	ret = regulator_enable(iommu_drvdata->gdsc);
 	if (ret)
 		goto fail;
+
+	ret = __enable_clocks(iommu_drvdata);
+	if (ret) {
+		regulator_disable(iommu_drvdata->gdsc);
+		goto fail;
+	}
 
 	if (!msm_iommu_ctx_attached(dev->parent))
 		__program_iommu(iommu_drvdata->base);
@@ -430,6 +436,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	__reset_context(iommu_drvdata->base, ctx_drvdata->num);
 	__disable_clocks(iommu_drvdata);
+
+	regulator_disable(iommu_drvdata->gdsc);
 
 	list_del_init(&ctx_drvdata->attached_elm);
 	ctx_drvdata->attached_domain = NULL;

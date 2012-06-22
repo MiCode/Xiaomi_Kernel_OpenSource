@@ -75,6 +75,10 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (!drvdata->base)
 		return -ENOMEM;
 
+	drvdata->gdsc = devm_regulator_get(&pdev->dev, "vdd");
+	if (IS_ERR(drvdata->gdsc))
+		return -EINVAL;
+
 	drvdata->pclk = clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(drvdata->pclk))
 		return PTR_ERR(drvdata->pclk);
