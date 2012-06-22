@@ -6129,14 +6129,14 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 	int scaled;
 	struct tabla_mbhc_plug_type_cfg *plug_type_ptr;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-	const bool vddio = (tabla->mbhc_data.micb_mv != VDDIO_MICBIAS_MV);
-	int num_det = (MBHC_NUM_DCE_PLUG_DETECT + vddio);
+	int num_det = MBHC_NUM_DCE_PLUG_DETECT + 1;
 	enum tabla_mbhc_plug_type plug_type[num_det];
 	s16 mb_v[num_det];
 	s32 mic_mv[num_det];
 	bool inval;
 	bool highdelta;
 	bool ahighv = false, highv;
+	bool gndmicswapped = false;
 
 	/* make sure override is on */
 	WARN_ON(!(snd_soc_read(codec, TABLA_A_CDC_MBHC_B1_CTL) & 0x04));
@@ -6153,11 +6153,10 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 	 * 1st: check if voltage is in invalid range
 	 * 2nd - N-2nd: check voltage range and delta
 	 * N-1st: check voltage range, delta with HPHR GND switch
-	 * Nth: check voltage range with VDDIO switch if micbias V != vddio V*/
+	 * Nth: check voltage range with VDDIO switch */
 	for (i = 0; i < num_det; i++) {
-		gndswitch = (i == (num_det - 1 - vddio));
-		vddioswitch = (vddio && ((i == num_det - 1) ||
-					 (i == num_det - 2)));
+		gndswitch = (i == (num_det - 2));
+		vddioswitch = (i == (num_det - 1)) || (i == (num_det - 2));
 		if (i == 0) {
 			mb_v[i] = tabla_codec_setup_hs_polling(codec);
 			mic_mv[i] = tabla_codec_sta_dce_v(codec, 1 , mb_v[i]);
@@ -6183,7 +6182,7 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 			 * was done with gndswitch, don't compare with DCE
 			 * with gndswitch */
 			highdelta = tabla_is_inval_ins_delta(codec, scaled,
-					mic_mv[i - !gndswitch - vddioswitch],
+					mic_mv[i - 1],
 					TABLA_MBHC_FAKE_INS_DELTA_SCALED_MV);
 			inval = (tabla_is_inval_ins_range(codec, mic_mv[i],
 							  highhph, &highv) ||
@@ -6198,9 +6197,13 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 			 * good headset is detected but HPHR GND switch makes
 			 * delta difference */
 			if (i == (num_det - 2) && highdelta && !ahighv)
-				plug_type[0] = PLUG_TYPE_GND_MIC_SWAP;
-			else if (i == (num_det - 1) && inval)
-				plug_type[0] = PLUG_TYPE_INVALID;
+				gndmicswapped = true;
+			else if (i == (num_det - 1) && inval) {
+				if (gndmicswapped)
+					plug_type[0] = PLUG_TYPE_GND_MIC_SWAP;
+				else
+					plug_type[0] = PLUG_TYPE_INVALID;
+			}
 		}
 		pr_debug("%s: DCE #%d, %04x, V %d, scaled V %d, GND %d, "
 			 "VDDIO %d, inval %d\n", __func__,
