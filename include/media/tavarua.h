@@ -172,6 +172,10 @@ enum v4l2_cid_private_tavarua_t {
 	V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD, /* 0x800002E */
 	V4L2_CID_PRIVATE_SINR_THRESHOLD,  /* 0x800002F : IRIS */
 	V4L2_CID_PRIVATE_SINR_SAMPLES,  /* 0x8000030 : IRIS */
+	V4L2_CID_PRIVATE_SPUR_FREQ,
+	V4L2_CID_PRIVATE_SPUR_FREQ_RMSSI,
+	V4L2_CID_PRIVATE_SPUR_SELECTION,
+	V4L2_CID_PRIVATE_UPDATE_SPUR_TABLE,
 
 };
 
@@ -483,5 +487,48 @@ enum tavarua_region_t {
 	TAVARUA_REGION_JAPAN_WIDE,
 	TAVARUA_REGION_OTHER
 };
+
+enum {
+	ONE_BYTE = 1,
+	TWO_BYTE,
+	THREE_BYTE,
+	FOUR_BYTE,
+	FIVE_BYTE,
+	SIX_BYTE,
+	SEVEN_BYTE,
+	EIGHT_BYTE,
+	NINE_BYTE,
+	TEN_BYTE,
+	ELEVEN_BYTE,
+	TWELVE_BYTE,
+	THIRTEEN_BYTE
+};
+#define XFR_READ		(0)
+#define XFR_WRITE		(1)
+#define XFR_MODE_OFFSET		(0)
+#define XFR_ADDR_MSB_OFFSET	(1)
+#define XFR_ADDR_LSB_OFFSET	(2)
+#define XFR_DATA_OFFSET		(3)
+#define SPUR_DATA_SIZE		(3)
+#define MAX_SPUR_FREQ_LIMIT	(30)
+#define READ_COMPLETE		(0x20)
+#define SPUR_TABLE_ADDR		(0x0BB7)
+#define SPUR_TABLE_START_ADDR	(SPUR_TABLE_ADDR + 1)
+#define XFR_PEEK_COMPLETE	(XFR_PEEK_MODE | READ_COMPLETE)
+#define XFR_POKE_COMPLETE	(XFR_POKE_MODE)
+
+#define COMPUTE_SPUR(val)	((((val) - (76000)) / (50)))
+#define GET_FREQ(val, bit)	((bit == 1) ? ((val) >> 8) : ((val) & 0xFF))
+
+struct fm_spur_data {
+	int freq[MAX_SPUR_FREQ_LIMIT];
+	__s8 rmssi[MAX_SPUR_FREQ_LIMIT];
+} __packed;
+
+struct fm_def_data_wr_req {
+	__u8    mode;
+	__u8    length;
+	__u8   data[XFR_REG_NUM];
+} __packed;
 
 #endif /* __LINUX_TAVARUA_H */
