@@ -1,0 +1,18 @@
+What:		/sys/bus/msm_subsys/devices/.../name
+Date:		July 2012
+Contact:	Stephen Boyd <sboyd@codeaurora.org>
+Description:
+		Shows the name of the subsystem.
+
+What:		/sys/bus/msm_subsys/devices/.../state
+Date:		July 2012
+Contact:	Stephen Boyd <sboyd@codeaurora.org>
+Description:
+		Shows the state state of a subsystem. Current states
+		supported are:
+
+			OFFLINE - subsystem is offline
+			ONLINE  - subsystem is online
+
+		This file supports poll(3) to detect when a subsystem changes
+		state. Use POLLPRI to detect state changes.

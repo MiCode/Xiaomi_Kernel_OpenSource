@@ -27,8 +27,21 @@ enum {
 	RESET_LEVEL_MAX
 };
 
+struct device;
+struct module;
+
+/**
+ * struct subsys_desc - subsystem descriptor
+ * @name: name of subsystem
+ * @depends_on: subsystem this subsystem depends on to operate
+ * @dev: parent device
+ * @owner: module the descriptor belongs to
+ */
 struct subsys_desc {
 	const char *name;
+	const char *depends_on;
+	struct device *dev;
+	struct module *owner;
 
 	int (*shutdown)(const struct subsys_desc *desc);
 	int (*powerup)(const struct subsys_desc *desc);
