@@ -3308,6 +3308,9 @@ static int pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 	int rc;
 	int vdd_safe;
 
+	/* forcing 19p2mhz before accessing any charger registers */
+	pm8921_chg_force_19p2mhz_clk(chip);
+
 	rc = pm_chg_masked_write(chip, SYS_CONFIG_2,
 					BOOT_DONE_BIT, BOOT_DONE_BIT);
 	if (rc) {
@@ -3500,8 +3503,6 @@ static int pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 
 	/* Disable EOC FSM processing */
 	pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0x91);
-
-	pm8921_chg_force_19p2mhz_clk(chip);
 
 	rc = pm_chg_masked_write(chip, CHG_CNTRL, VREF_BATT_THERM_FORCE_ON,
 						VREF_BATT_THERM_FORCE_ON);
