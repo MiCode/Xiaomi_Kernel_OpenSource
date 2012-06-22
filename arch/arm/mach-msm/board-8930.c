@@ -106,6 +106,11 @@ static struct platform_device msm_fm_platform_init = {
 #define KS8851_IRQ_GPIO		90
 #define HAP_SHIFT_LVL_OE_GPIO	47
 
+#define HDMI_MHL_MUX_GPIO       73
+#define MHL_GPIO_INT            72
+#define MHL_GPIO_RESET          71
+#define MHL_GPIO_PWR_EN         5
+
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 
 struct sx150x_platform_data msm8930_sx150x_data[] = {
@@ -1861,6 +1866,28 @@ static struct i2c_board_info mxt_device_info_8930[] __initdata = {
 	},
 };
 
+#define MHL_POWER_GPIO       PM8038_GPIO_PM_TO_SYS(MHL_GPIO_PWR_EN)
+static struct msm_mhl_platform_data mhl_platform_data = {
+	.irq = MSM_GPIO_TO_INT(MHL_GPIO_INT),
+	.gpio_mhl_int = MHL_GPIO_INT,
+	.gpio_mhl_reset = MHL_GPIO_RESET,
+	.gpio_mhl_power = MHL_POWER_GPIO,
+	.gpio_hdmi_mhl_mux = HDMI_MHL_MUX_GPIO,
+};
+
+static struct i2c_board_info sii_device_info[] __initdata = {
+	{
+		/*
+		 * keeps SI 8334 as the default
+		 * MHL TX
+		 */
+		I2C_BOARD_INFO("sii8334", 0x39),
+		.platform_data = &mhl_platform_data,
+		.flags = I2C_CLIENT_WAKE,
+	},
+};
+
+
 #ifdef MSM8930_PHASE_2
 
 #define GPIO_VOLUME_UP		PM8038_GPIO_PM_TO_SYS(3)
@@ -2394,6 +2421,12 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		MSM_8930_GSBI3_QUP_I2C_BUS_ID,
 		mxt_device_info_8930,
 		ARRAY_SIZE(mxt_device_info_8930),
+	},
+	{
+		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_FLUID,
+		MSM_8930_GSBI9_QUP_I2C_BUS_ID,
+		sii_device_info,
+		ARRAY_SIZE(sii_device_info),
 	},
 };
 #endif /* CONFIG_I2C */

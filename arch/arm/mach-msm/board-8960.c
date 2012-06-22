@@ -2280,60 +2280,13 @@ static struct i2c_board_info mxt_device_info[] __initdata = {
 	},
 };
 
-#ifdef CONFIG_FB_MSM_HDMI_MHL_8334
-static void mhl_sii_reset_gpio(int on)
-{
-	gpio_set_value(MHL_GPIO_RESET, on);
-	return;
-}
-
-/*
- * Request for GPIO allocations
- * Set appropriate GPIO directions
- */
-static int mhl_sii_gpio_setup(int on)
-{
-	int ret;
-
-	if (on) {
-		ret = gpio_request(MHL_GPIO_RESET, "W_RST#");
-		if (ret < 0) {
-			pr_err("GPIO RESET request failed: %d\n", ret);
-			return -EBUSY;
-		}
-		ret = gpio_direction_output(MHL_GPIO_RESET, 1);
-		if (ret < 0) {
-			pr_err("SET GPIO RESET direction failed: %d\n", ret);
-			gpio_free(MHL_GPIO_RESET);
-			return -EBUSY;
-		}
-		ret = gpio_request(MHL_GPIO_INT, "W_INT");
-		if (ret < 0) {
-			pr_err("GPIO INT request failed: %d\n", ret);
-			gpio_free(MHL_GPIO_RESET);
-			return -EBUSY;
-		}
-		ret = gpio_direction_input(MHL_GPIO_INT);
-		if (ret < 0) {
-			pr_err("SET GPIO INTR direction failed: %d\n", ret);
-			gpio_free(MHL_GPIO_RESET);
-			gpio_free(MHL_GPIO_INT);
-			return -EBUSY;
-		}
-	} else {
-		gpio_free(MHL_GPIO_RESET);
-		gpio_free(MHL_GPIO_INT);
-	}
-
-	return 0;
-}
-
 static struct msm_mhl_platform_data mhl_platform_data = {
 	.irq = MSM_GPIO_TO_INT(4),
-	.gpio_setup = mhl_sii_gpio_setup,
-	.reset_pin = mhl_sii_reset_gpio,
+	.gpio_mhl_int = MHL_GPIO_INT,
+	.gpio_mhl_reset = MHL_GPIO_RESET,
+	.gpio_mhl_power = 0,
+	.gpio_hdmi_mhl_mux = 0,
 };
-#endif
 
 static struct i2c_board_info sii_device_info[] __initdata = {
 	{
@@ -3040,6 +2993,10 @@ static void __init register_i2c_devices(void)
 						msm8960_i2c_devices[i].info,
 						msm8960_i2c_devices[i].len);
 	}
+
+	if (!mhl_platform_data.gpio_mhl_power)
+		pr_debug("mhl device configured for ext debug board\n");
+
 #ifdef CONFIG_MSM_CAMERA
 	if (msm8960_camera_i2c_devices.machs & mach_mask)
 		i2c_register_board_info(msm8960_camera_i2c_devices.bus,
