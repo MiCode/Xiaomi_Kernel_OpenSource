@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,9 +20,11 @@
 /**
  * struct pm8xxx_ccadc_platform_data -
  * @r_sense:		sense resistor value in (mOhms)
+ * @calib_delay_ms:	how often should the adc calculate gain and offset
  */
 struct pm8xxx_ccadc_platform_data {
-	int r_sense;
+	int		r_sense;
+	unsigned int	calib_delay_ms;
 };
 
 #define CCADC_READING_RESOLUTION_N_V1	1085069

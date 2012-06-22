@@ -70,8 +70,10 @@ struct pm8xxx_ccadc_chip {
 	u16			ccadc_offset;
 	int			ccadc_gain_uv;
 	unsigned int		revision;
+	unsigned int		calib_delay_ms;
 	int			eoc_irq;
 	int			r_sense;
+	struct delayed_work	calib_ccadc_work;
 };
 
 static struct pm8xxx_ccadc_chip *the_chip;
@@ -334,6 +336,11 @@ void pm8xxx_calib_ccadc(void)
 	u16 result;
 	int i, rc;
 
+	if (!the_chip) {
+		pr_err("chip not initialized\n");
+		return;
+	}
+
 	rc = pm8xxx_readb(the_chip->dev->parent,
 					ADC_ARB_SECP_CNTRL, &sec_cntrl);
 	if (rc < 0) {
@@ -472,6 +479,17 @@ bail:
 	pm8xxx_writeb(the_chip->dev->parent, ADC_ARB_SECP_CNTRL, sec_cntrl);
 }
 EXPORT_SYMBOL(pm8xxx_calib_ccadc);
+
+static void calibrate_ccadc_work(struct work_struct *work)
+{
+	struct pm8xxx_ccadc_chip *chip = container_of(work,
+			struct pm8xxx_ccadc_chip, calib_ccadc_work.work);
+
+	pm8xxx_calib_ccadc();
+	schedule_delayed_work(&chip->calib_ccadc_work,
+			round_jiffies_relative(msecs_to_jiffies
+			(chip->calib_delay_ms)));
+}
 
 static irqreturn_t pm8921_bms_ccadc_eoc_handler(int irq, void *data)
 {
@@ -671,6 +689,7 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 	chip->revision = pm8xxx_get_revision(chip->dev->parent);
 	chip->eoc_irq = res->start;
 	chip->r_sense = pdata->r_sense;
+	chip->calib_delay_ms = pdata->calib_delay_ms;
 
 	calib_ccadc_read_offset_and_gain(chip,
 					&chip->ccadc_gain_uv,
@@ -682,6 +701,10 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 		pr_err("failed to request %d irq rc= %d\n", chip->eoc_irq, rc);
 		goto free_chip;
 	}
+
+	INIT_DELAYED_WORK(&chip->calib_ccadc_work, calibrate_ccadc_work);
+	schedule_delayed_work(&chip->calib_ccadc_work, 0);
+
 	disable_irq_nosync(chip->eoc_irq);
 
 	platform_set_drvdata(pdev, chip);
