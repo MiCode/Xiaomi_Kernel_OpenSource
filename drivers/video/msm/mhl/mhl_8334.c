@@ -27,15 +27,15 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/fs.h>
+#include <linux/regulator/consumer.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
 
 #include "msm_fb.h"
 #include "external_common.h"
+#include "hdmi_msm.h"
 #include "mhl_8334.h"
 #include "mhl_i2c_utils.h"
-
-#define DEBUG
 
 
 static struct i2c_device_id mhl_sii_i2c_id[] = {
@@ -64,6 +64,163 @@ static struct i2c_driver mhl_sii_i2c_driver = {
 	.remove =  mhl_i2c_remove,
 	.id_table = mhl_sii_i2c_id,
 };
+
+static void mhl_sii_reset_pin(int on)
+{
+	gpio_set_value(mhl_msm_state->mhl_data->gpio_mhl_reset, on);
+	return;
+}
+
+static int mhl_sii_reg_enable(void)
+{
+	static struct regulator *reg_8038_l20;
+	static struct regulator *reg_8038_l11;
+	int rc;
+
+	pr_debug("Inside %s\n", __func__);
+	if (!reg_8038_l20) {
+		reg_8038_l20 = regulator_get(&mhl_msm_state->i2c_client->dev,
+			"mhl_avcc12");
+		if (IS_ERR(reg_8038_l20)) {
+			pr_err("could not get reg_8038_l20, rc = %ld\n",
+				PTR_ERR(reg_8038_l20));
+			return -ENODEV;
+		}
+		rc = regulator_enable(reg_8038_l20);
+		if (rc) {
+			pr_err("'%s' regulator enable failed, rc=%d\n",
+				"mhl_l20", rc);
+			return rc;
+		} else
+		       pr_debug("REGULATOR L20 ENABLED\n");
+	}
+
+	if (!reg_8038_l11) {
+		reg_8038_l11 = regulator_get(&mhl_msm_state->i2c_client->dev,
+			"mhl_iovcc18");
+		if (IS_ERR(reg_8038_l11)) {
+			pr_err("could not get reg_8038_l11, rc = %ld\n",
+				PTR_ERR(reg_8038_l11));
+			return -ENODEV;
+		}
+		rc = regulator_enable(reg_8038_l11);
+		if (rc) {
+			pr_err("'%s' regulator enable failed, rc=%d\n",
+				"mhl_l11", rc);
+			return rc;
+		} else
+			pr_debug("REGULATOR L11 ENABLED\n");
+	}
+
+	return rc;
+}
+
+
+static void mhl_sii_power_on(void)
+{
+	int ret;
+	pr_debug("MHL SII POWER ON\n");
+	if (!mhl_msm_state->mhl_data->gpio_mhl_power) {
+		pr_warn("%s: no power reqd for this platform\n", __func__);
+		return;
+	}
+
+	ret = gpio_request(mhl_msm_state->mhl_data->gpio_mhl_power, "W_PWR");
+	if (ret < 0) {
+		pr_err("MHL_POWER_GPIO req failed: %d\n",
+			ret);
+		return;
+	}
+	ret = gpio_direction_output(mhl_msm_state->mhl_data->gpio_mhl_power,
+		1);
+	if (ret < 0) {
+		pr_err(
+		"SET GPIO MHL_POWER_GPIO direction failed: %d\n",
+			ret);
+		gpio_free(mhl_msm_state->mhl_data->gpio_mhl_power);
+		return;
+	}
+	gpio_set_value(mhl_msm_state->mhl_data->gpio_mhl_power, 1);
+
+	if (mhl_sii_reg_enable())
+		pr_err("Regulator enable failed\n");
+
+	pr_debug("MHL SII POWER ON Successful\n");
+	return;
+}
+
+/*
+ * Request for GPIO allocations
+ * Set appropriate GPIO directions
+ */
+static int mhl_sii_gpio_setup(int on)
+{
+	int ret;
+	if (on) {
+		if (mhl_msm_state->mhl_data->gpio_hdmi_mhl_mux) {
+			ret = gpio_request(mhl_msm_state->\
+				mhl_data->gpio_hdmi_mhl_mux, "W_MUX");
+			if (ret < 0) {
+				pr_err("GPIO HDMI_MHL MUX req failed:%d\n",
+					ret);
+				return -EBUSY;
+			}
+			ret = gpio_direction_output(
+				mhl_msm_state->mhl_data->gpio_hdmi_mhl_mux, 0);
+			if (ret < 0) {
+				pr_err("SET GPIO HDMI_MHL dir failed:%d\n",
+					ret);
+				gpio_free(mhl_msm_state->\
+					mhl_data->gpio_hdmi_mhl_mux);
+				return -EBUSY;
+			}
+			msleep(50);
+			gpio_set_value(mhl_msm_state->\
+				mhl_data->gpio_hdmi_mhl_mux, 0);
+			pr_debug("SET GPIO HDMI MHL MUX %d to 0\n",
+				mhl_msm_state->mhl_data->gpio_hdmi_mhl_mux);
+		}
+
+		ret = gpio_request(mhl_msm_state->mhl_data->gpio_mhl_reset,
+			"W_RST#");
+		if (ret < 0) {
+			pr_err("GPIO RESET request failed: %d\n", ret);
+			return -EBUSY;
+		}
+		ret = gpio_direction_output(mhl_msm_state->\
+			mhl_data->gpio_mhl_reset, 1);
+		if (ret < 0) {
+			pr_err("SET GPIO RESET direction failed: %d\n", ret);
+			gpio_free(mhl_msm_state->mhl_data->gpio_mhl_reset);
+			gpio_free(mhl_msm_state->mhl_data->gpio_hdmi_mhl_mux);
+			return -EBUSY;
+		}
+		ret = gpio_request(mhl_msm_state->mhl_data->gpio_mhl_int,
+			"W_INT");
+		if (ret < 0) {
+			pr_err("GPIO INT request failed: %d\n", ret);
+			gpio_free(mhl_msm_state->mhl_data->gpio_mhl_reset);
+			gpio_free(mhl_msm_state->mhl_data->gpio_hdmi_mhl_mux);
+			return -EBUSY;
+		}
+		ret = gpio_direction_input(mhl_msm_state->\
+			mhl_data->gpio_mhl_int);
+		if (ret < 0) {
+			pr_err("SET GPIO INTR direction failed: %d\n", ret);
+			gpio_free(mhl_msm_state->mhl_data->gpio_mhl_reset);
+			gpio_free(mhl_msm_state->mhl_data->gpio_mhl_int);
+			gpio_free(mhl_msm_state->mhl_data->gpio_hdmi_mhl_mux);
+			return -EBUSY;
+		}
+	} else {
+		gpio_free(mhl_msm_state->mhl_data->gpio_mhl_reset);
+		gpio_free(mhl_msm_state->mhl_data->gpio_mhl_int);
+		gpio_free(mhl_msm_state->mhl_data->gpio_hdmi_mhl_mux);
+		gpio_free(mhl_msm_state->mhl_data->gpio_mhl_power);
+	}
+
+	return 0;
+}
 
 bool mhl_is_connected(void)
 {
@@ -194,6 +351,11 @@ static void mhl_init_reg_settings(void)
 
 	/* Power up 1.2V core */
 	mhl_i2c_reg_write(TX_PAGE_L1, 0x003D, 0x3F);
+	/*
+	 * Wait for the source power to be enabled
+	 * before enabling pll clocks.
+	 */
+	msleep(50);
 	/* Enable Tx PLL Clock */
 	mhl_i2c_reg_write(TX_PAGE_2, 0x0011, 0x01);
 	/* Enable Tx Clock Path and Equalizer */
@@ -255,7 +417,7 @@ static void mhl_init_reg_settings(void)
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0017, 0x82);
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0018, 0x24);
 	/* Pull-up resistance off for IDLE state */
-	mhl_i2c_reg_write(TX_PAGE_3, 0x0013, 0x84);
+	mhl_i2c_reg_write(TX_PAGE_3, 0x0013, 0x8C);
 	/* Enable CBUS Discovery */
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0010, 0x27);
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0016, 0x20);
@@ -282,9 +444,11 @@ static int mhl_chip_init(void)
 	pr_debug("MHL: chip rev ID read=[%x]\n", mhl_msm_state->chip_rev_id);
 
 	/* Reset the TX chip */
-	mhl_msm_state->mhl_data->reset_pin(0);
+	mhl_sii_reset_pin(1);
 	msleep(20);
-	mhl_msm_state->mhl_data->reset_pin(1);
+	mhl_sii_reset_pin(0);
+	msleep(20);
+	mhl_sii_reset_pin(1);
 	/* MHL spec requires a 100 ms wait here.  */
 	msleep(100);
 
@@ -305,34 +469,40 @@ static int mhl_chip_init(void)
 static int mhl_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
-	int ret;
+	int ret = -ENODEV;
 	mhl_msm_state->mhl_data = kzalloc(sizeof(struct msm_mhl_platform_data),
 		GFP_KERNEL);
 	if (!(mhl_msm_state->mhl_data)) {
 		ret = -ENOMEM;
+		pr_err("MHL I2C Probe failed - no mem\n");
 		goto probe_exit;
 	}
-	pr_debug("Inside probe\n");
 	mhl_msm_state->i2c_client = client;
 
 	spin_lock_init(&mhl_state_lock);
 
 	i2c_set_clientdata(client, mhl_msm_state);
 	mhl_msm_state->mhl_data = client->dev.platform_data;
+	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
+		mhl_msm_state->mhl_data->irq);
 
 	/* Init GPIO stuff here */
-	ret = mhl_msm_state->mhl_data->gpio_setup(1);
+	ret = mhl_sii_gpio_setup(1);
 	if (ret == -1) {
 		pr_err("MHL: mhl_gpio_init has failed\n");
 		ret = -ENODEV;
 		goto probe_exit;
 	}
+
+	mhl_sii_power_on();
+
+	pr_debug("I2C PROBE successful\n");
 	return 0;
 
 probe_exit:
 	if (mhl_msm_state->mhl_data) {
 		/* free the gpios */
-		mhl_msm_state->mhl_data->gpio_setup(0);
+		mhl_sii_gpio_setup(0);
 		kfree(mhl_msm_state->mhl_data);
 		mhl_msm_state->mhl_data = NULL;
 	}
@@ -341,8 +511,8 @@ probe_exit:
 
 static int mhl_i2c_remove(struct i2c_client *client)
 {
-	pr_debug("inside i2c remove\n");
-	mhl_msm_state->mhl_data->gpio_setup(0);
+	pr_debug("%s\n", __func__);
+	mhl_sii_gpio_setup(0);
 	kfree(mhl_msm_state->mhl_data);
 	return 0;
 }
@@ -351,6 +521,7 @@ static int __init mhl_msm_init(void)
 {
 	int32_t     ret;
 
+	pr_debug("%s\n", __func__);
 	mhl_msm_state = kzalloc(sizeof(struct mhl_msm_state_t), GFP_KERNEL);
 	if (!mhl_msm_state) {
 		pr_err("mhl_msm_init FAILED: out of memory\n");
@@ -366,11 +537,11 @@ static int __init mhl_msm_init(void)
 		goto init_exit;
 	} else {
 		if (mhl_msm_state->i2c_client == NULL) {
-			pr_err("JSR: I2C driver add failed\n");
+			pr_err("MHL: I2C driver add failed\n");
 			ret = -ENODEV;
 			goto init_exit;
 		}
-		pr_debug("MHL: I2C driver added\n");
+		pr_info("MHL: I2C driver added\n");
 	}
 
 	/* Request IRQ stuff here */
@@ -385,7 +556,8 @@ static int __init mhl_msm_init(void)
 			ret);
 		ret = -EACCES; /* Error code???? */
 		goto init_exit;
-	}
+	} else
+		pr_debug("request_threaded_irq succeeded\n");
 
 	mhl_msm_state->cur_state = POWER_STATE_D0_MHL;
 
@@ -482,7 +654,8 @@ static void mhl_msm_connection(void)
 	uint8_t val;
 	unsigned long flags;
 
-	pr_err("%s: cur state = [0x%x]\n", __func__, mhl_msm_state->cur_state);
+	pr_debug("%s: cur state = [0x%x]\n", __func__,
+		mhl_msm_state->cur_state);
 
 	if (mhl_msm_state->cur_state == POWER_STATE_D0_MHL) {
 		/* Already in D0 - MHL power state */
@@ -510,7 +683,6 @@ static void mhl_msm_connection(void)
 static void mhl_msm_disconnection(void)
 {
 	uint8_t reg;
-
 	/* Clear interrupts - REG INTR4 */
 	reg = mhl_i2c_reg_read(TX_PAGE_3, 0x0021);
 	mhl_i2c_reg_write(TX_PAGE_3, 0x0021, reg);
@@ -594,7 +766,10 @@ static void int_4_isr(void)
 	 * a previous interrupt brought us here,
 	 * do nothing.
 	 */
-	pr_debug("MHL: MRR Interrupt status is = %02X\n", (int) status);
+	if ((0x00 == status) && (mhl_msm_state->cur_state == POWER_STATE_D3)) {
+		mhl_chip_init();
+		return;
+	}
 	if (0xFF != status) {
 		if ((status & BIT0) && (mhl_msm_state->chip_rev_id < 1)) {
 			uint8_t tmds_cstat;
@@ -624,23 +799,25 @@ static void int_4_isr(void)
 		}
 
 		if (status & BIT1)
-			pr_err("MHL: INT4 BIT1 is set\n");
+			pr_debug("MHL: INT4 BIT1 is set\n");
 
 		/* MHL_EST interrupt */
 		if (status & BIT2) {
-			pr_err("MHL: Calling mhl_msm_connection() from ISR\n");
+			pr_debug("mhl_msm_connection() from ISR\n");
+			mhl_connect_api(true);
 			mhl_msm_connection();
-			pr_err("MHL Connect  Drv: INT4 Status = %02X\n",
+			pr_debug("MHL Connect  Drv: INT4 Status = %02X\n",
 				(int) status);
 		} else if (status & BIT3) {
-			pr_err("MHL: uUSB-A type device detected.\n");
+			pr_debug("MHL: uUSB-A type device detected.\n");
 			mhl_i2c_reg_write(TX_PAGE_3, 0x001C, 0x80);
 			switch_mode(POWER_STATE_D3);
 		}
 
 		if (status & BIT5) {
+			mhl_connect_api(false);
 			mhl_msm_disconnection();
-			pr_err("MHL Disconnect Drv: INT4 Status = %02X\n",
+			pr_debug("MHL Disconn Drv: INT4 Status = %02X\n",
 				(int)status);
 		}
 
@@ -734,7 +911,7 @@ static void mhl_cbus_isr(void)
 	if (regval)
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x08, regval);
 
-	pr_err("%s: CBUS_INT = %02x\n", __func__, regval);
+	pr_debug("%s: CBUS_INT = %02x\n", __func__, regval);
 
 	/* MSC_MSG (RCP/RAP) */
 	if (regval & BIT(3)) {
@@ -755,7 +932,7 @@ static void mhl_cbus_isr(void)
 	if (regval)
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x1E, regval);
 
-	pr_err("%s: CBUS_MSC_INT2 = %02x\n", __func__, regval);
+	pr_debug("%s: CBUS_MSC_INT2 = %02x\n", __func__, regval);
 
 	/* received SET_INT */
 	if (regval & BIT(2)) {
@@ -774,9 +951,9 @@ static void mhl_cbus_isr(void)
 	if (regval & BIT(3)) {
 		uint8_t stat;
 		stat = mhl_i2c_reg_read(TX_PAGE_CBUS, 0xB0);
-		pr_err("%s: MHL_STATUS_0 = %02x\n", __func__, stat);
+		pr_debug("%s: MHL_STATUS_0 = %02x\n", __func__, stat);
 		stat = mhl_i2c_reg_read(TX_PAGE_CBUS, 0xB1);
-		pr_err("%s: MHL_STATUS_1 = %02x\n", __func__, stat);
+		pr_debug("%s: MHL_STATUS_1 = %02x\n", __func__, stat);
 
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0xB0, 0xFF);
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0xB1, 0xFF);
@@ -796,12 +973,6 @@ static void mhl_cbus_isr(void)
 
 static irqreturn_t mhl_tx_isr(int irq, void *dev_id)
 {
-	/*
-	 * Check discovery interrupt
-	 * if not yet connected
-	 */
-	pr_debug("MHL: Current POWER state is [0x%x]\n",
-		mhl_msm_state->cur_state);
 	/*
 	 * Check RGND, MHL_EST, CBUS_LOCKOUT, SCDT
 	 * interrupts. In D3, we get only RGND
