@@ -17,6 +17,7 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfda64000 0x10000>;
+		vdd-supply = <&gdsc_jpeg>;
 
 		qcom,iommu-ctx@fda6c000 {
 			reg = <0xfda6c000 0x1000>;
@@ -44,6 +45,7 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfd928000 0x10000>;
+		vdd-supply = <&gdsc_mdss>;
 
 		qcom,iommu-ctx@fd930000 {
 			reg = <0xfd930000 0x1000>;
@@ -65,6 +67,7 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfdc84000 0x10000>;
+		vdd-supply = <&gdsc_venus>;
 
 		qcom,iommu-ctx@fdc8c000 {
 			reg = <0xfdc8c000 0x1000>;
