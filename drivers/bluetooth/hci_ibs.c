@@ -5,7 +5,7 @@
  *  protocol extension to H4.
  *
  *  Copyright (C) 2007 Texas Instruments, Inc.
- *  Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2010, 2012 Code Aurora Forum. All rights reserved.
  *
  *  Acknowledgements:
  *  This file is based on hci_ll.c, which was...
@@ -37,7 +37,9 @@
 #include <linux/fcntl.h>
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
+#include <linux/ftrace.h>
 #include <linux/poll.h>
+#include <linux/workqueue.h>
 
 #include <linux/slab.h>
 #include <linux/tty.h>
@@ -92,6 +94,15 @@ enum hci_ibs_clock_state_vote_e {
 	HCI_IBS_RX_VOTE_CLOCK_OFF,
 };
 
+/* HCI_IBS state for the WorkQueue */
+enum hci_ibs_wq_state_e {
+	HCI_IBS_WQ_INIT_STATE = 0,
+	HCI_IBS_WQ_TX_VOTE_OFF,
+	HCI_IBS_WQ_RX_VOTE_OFF,
+	HCI_IBS_WQ_AWAKE_RX,
+	HCI_IBS_WQ_AWAKE_DEVICE,
+};
+
 static unsigned long wake_retrans = 1;
 static unsigned long tx_idle_delay = (HZ * 2);
 
@@ -112,6 +123,11 @@ struct ibs_struct {
 	unsigned long rx_vote;		/* clock must be on for RX */
 	struct	timer_list tx_idle_timer;
 	struct	timer_list wake_retrans_timer;
+	struct	workqueue_struct *workqueue;
+	struct	work_struct ws_ibs;
+	unsigned long ibs_wq_state;
+	void *ibs_hu; /* keeps the hci_uart pointer for reference */
+
 	/* debug */
 	unsigned long ibs_sent_wacks;
 	unsigned long ibs_sent_slps;
@@ -242,6 +258,56 @@ out:
 	return err;
 }
 
+static void ibs_wq(struct work_struct *work)
+{
+	unsigned long flags = 0;
+	struct ibs_struct *ibs = container_of(work, struct ibs_struct,
+						ws_ibs);
+	struct hci_uart *hu = (struct hci_uart *)ibs->ibs_hu;
+
+	BT_DBG("hu %p, ibs_wq state: %lu\n", hu, ibs->ibs_wq_state);
+
+	/* lock hci_ibs state */
+	spin_lock_irqsave(&ibs->hci_ibs_lock, flags);
+
+	switch (ibs->ibs_wq_state) {
+	case HCI_IBS_WQ_AWAKE_DEVICE:
+		/* Vote for serial clock */
+		ibs_msm_serial_clock_vote(HCI_IBS_TX_VOTE_CLOCK_ON, hu);
+
+		/* send wake indication to device */
+		if (send_hci_ibs_cmd(HCI_IBS_WAKE_IND, hu) < 0)
+			BT_ERR("cannot send WAKE to device");
+
+		ibs->ibs_sent_wakes++; /* debug */
+
+		/* start retransmit timer */
+		mod_timer(&ibs->wake_retrans_timer, jiffies + wake_retrans);
+		break;
+	case HCI_IBS_WQ_AWAKE_RX:
+		ibs_msm_serial_clock_vote(HCI_IBS_RX_VOTE_CLOCK_ON, hu);
+		ibs->rx_ibs_state = HCI_IBS_RX_AWAKE;
+
+		if (send_hci_ibs_cmd(HCI_IBS_WAKE_ACK, hu) < 0)
+			BT_ERR("cannot acknowledge device wake up");
+
+		ibs->ibs_sent_wacks++; /* debug */
+		/* actually send the packets */
+		hci_uart_tx_wakeup(hu);
+		break;
+	case HCI_IBS_WQ_RX_VOTE_OFF:
+		ibs_msm_serial_clock_vote(HCI_IBS_RX_VOTE_CLOCK_OFF, hu);
+		break;
+	case HCI_IBS_WQ_TX_VOTE_OFF:
+		ibs_msm_serial_clock_vote(HCI_IBS_TX_VOTE_CLOCK_OFF, hu);
+		break;
+	default:
+		BT_DBG("Invalid state in ibs workqueue");
+		break;
+	}
+	spin_unlock_irqrestore(&ibs->hci_ibs_lock, flags);
+}
+
 static void hci_ibs_tx_idle_timeout(unsigned long arg)
 {
 	struct hci_uart *hu = (struct hci_uart *) arg;
@@ -282,7 +348,9 @@ static void hci_ibs_tx_idle_timeout(unsigned long arg)
 
 	spin_lock_irqsave_nested(&ibs->hci_ibs_lock,
 					flags, SINGLE_DEPTH_NESTING);
-	ibs_msm_serial_clock_vote(HCI_IBS_TX_VOTE_CLOCK_OFF, hu);
+	/* vote off tx clock */
+	ibs->ibs_wq_state = HCI_IBS_WQ_TX_VOTE_OFF;
+	queue_work(ibs->workqueue, &ibs->ws_ibs);
 out:
 	spin_unlock_irqrestore(&ibs->hci_ibs_lock, flags);
 }
@@ -336,6 +404,16 @@ static int ibs_open(struct hci_uart *hu)
 	skb_queue_head_init(&ibs->txq);
 	skb_queue_head_init(&ibs->tx_wait_q);
 	spin_lock_init(&ibs->hci_ibs_lock);
+	ibs->workqueue = create_singlethread_workqueue("ibs_wq");
+	if (!ibs->workqueue) {
+		BT_ERR("IBS Workqueue not initialized properly");
+		kfree(ibs);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&ibs->ws_ibs, ibs_wq);
+	ibs->ibs_hu = (void *)hu;
+	ibs->ibs_wq_state = HCI_IBS_WQ_INIT_STATE;
 
 	/* Assume we start with both sides asleep -- extra wakes OK */
 	ibs->tx_ibs_state = HCI_IBS_TX_ASLEEP;
@@ -432,6 +510,8 @@ static int ibs_close(struct hci_uart *hu)
 	skb_queue_purge(&ibs->txq);
 	del_timer(&ibs->tx_idle_timer);
 	del_timer(&ibs->wake_retrans_timer);
+	destroy_workqueue(ibs->workqueue);
+	ibs->ibs_hu = NULL;
 
 	kfree_skb(ibs->rx_skb);
 
@@ -463,9 +543,11 @@ static void ibs_device_want_to_wakeup(struct hci_uart *hu)
 		/* Make sure clock is on - we may have turned clock off since
 		 * receiving the wake up indicator
 		 */
-		ibs_msm_serial_clock_vote(HCI_IBS_RX_VOTE_CLOCK_ON, hu);
-		ibs->rx_ibs_state = HCI_IBS_RX_AWAKE;
-		/* deliberate fall-through */
+		/* awake rx clock */
+		ibs->ibs_wq_state = HCI_IBS_WQ_AWAKE_RX;
+		queue_work(ibs->workqueue, &ibs->ws_ibs);
+		spin_unlock_irqrestore(&ibs->hci_ibs_lock, flags);
+		return;
 	case HCI_IBS_RX_AWAKE:
 		/* Always acknowledge device wake up,
 		 * sending IBS message doesn't count as TX ON.
@@ -510,7 +592,9 @@ static void ibs_device_want_to_sleep(struct hci_uart *hu)
 	case HCI_IBS_RX_AWAKE:
 		/* update state */
 		ibs->rx_ibs_state = HCI_IBS_RX_ASLEEP;
-		ibs_msm_serial_clock_vote(HCI_IBS_RX_VOTE_CLOCK_OFF, hu);
+		/* vote off rx clock under workqueue */
+		ibs->ibs_wq_state = HCI_IBS_WQ_RX_VOTE_OFF;
+		queue_work(ibs->workqueue, &ibs->ws_ibs);
 		break;
 	case HCI_IBS_RX_ASLEEP:
 		/* deliberate fall-through */
@@ -595,20 +679,12 @@ static int ibs_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 
 	case HCI_IBS_TX_ASLEEP:
 		BT_DBG("device asleep, waking up and queueing packet");
-		ibs_msm_serial_clock_vote(HCI_IBS_TX_VOTE_CLOCK_ON, hu);
 		/* save packet for later */
 		skb_queue_tail(&ibs->tx_wait_q, skb);
-		/* awake device */
-		if (send_hci_ibs_cmd(HCI_IBS_WAKE_IND, hu) < 0) {
-			BT_ERR("cannot send WAKE to device");
-			break;
-		}
-		ibs->ibs_sent_wakes++; /* debug */
-
-		/* start retransmit timer */
-		mod_timer(&ibs->wake_retrans_timer, jiffies + wake_retrans);
-
 		ibs->tx_ibs_state = HCI_IBS_TX_WAKING;
+		/* schedule a work queue to wake up device */
+		ibs->ibs_wq_state = HCI_IBS_WQ_AWAKE_DEVICE;
+		queue_work(ibs->workqueue, &ibs->ws_ibs);
 		break;
 
 	case HCI_IBS_TX_WAKING:
