@@ -212,10 +212,10 @@
 #define NR_SG		128
 
 #define MSM_MMC_IDLE_TIMEOUT	5000 /* msecs */
+#define MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
 
 /* Set the request timeout to 10secs */
 #define MSM_MMC_REQ_TIMEOUT	10000 /* msecs */
-#define MSM_MMC_DISABLE_TIMEOUT        200 /* msecs */
 
 /*
  * Controller HW limitations
