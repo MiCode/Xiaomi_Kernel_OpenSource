@@ -168,6 +168,28 @@ u32 ddl_decoder_dpb_transact(struct ddl_decoder_data *decoder,
 			} else if (operation == DDL_DPB_OP_MARK_FREE) {
 				dpb_mask->client_mask |= (0x1 << loopc);
 				*found_frame = *in_out_frame;
+				if ((decoder->meta_data_enable_flag) &&
+				    (in_out_frame->vcd_frm.buff_ion_handle)) {
+					struct ddl_context *ddl_context =
+						ddl_get_context();
+					unsigned long *vaddr =
+						(unsigned long *)((u32)
+						in_out_frame->vcd_frm.virtual +
+						decoder->meta_data_offset);
+					DDL_MSG_LOW("%s: Cache clean: vaddr"\
+						" (%p), offset %u, size %u",
+						__func__,
+						in_out_frame->vcd_frm.virtual,
+						decoder->meta_data_offset,
+						decoder->suffix);
+					msm_ion_do_cache_op(
+						ddl_context->video_ion_client,
+						in_out_frame->vcd_frm.\
+						buff_ion_handle,
+						vaddr,
+						(unsigned long)decoder->suffix,
+						ION_IOC_CLEAN_CACHES);
+				}
 			}
 		} else {
 			in_out_frame->vcd_frm.physical = NULL;
