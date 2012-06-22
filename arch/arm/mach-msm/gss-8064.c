@@ -71,34 +71,9 @@ static void log_gss_sfr(void)
 
 static void gss_fatal_fn(struct work_struct *work)
 {
-	uint32_t panic_smsm_states = SMSM_RESET | SMSM_SYSTEM_DOWNLOAD;
-	uint32_t reset_smsm_states = SMSM_SYSTEM_REBOOT_USR |
-					SMSM_SYSTEM_PWRDWN_USR;
-	uint32_t gss_state;
-
 	pr_err("Watchdog bite received from GSS!\n");
-
-	gss_state = smsm_get_state(SMSM_MODEM_STATE);
-
-	if (gss_state & panic_smsm_states) {
-
-		pr_err("GSS SMSM state changed to SMSM_RESET.\n"
-			"Probable err_fatal on the GSS. "
-			"Calling subsystem restart...\n");
-		log_gss_sfr();
-		subsystem_restart("gss");
-
-	} else if (gss_state & reset_smsm_states) {
-
-		pr_err("%s: User-invoked system reset/powerdown. "
-			"Resetting the SoC now.\n",
-			__func__);
-		kernel_restart(NULL);
-	} else {
-		/* TODO: Bus unlock code/sequence goes _here_ */
-		log_gss_sfr();
-		subsystem_restart("gss");
-	}
+	log_gss_sfr();
+	subsystem_restart("gss");
 }
 
 static DECLARE_WORK(gss_fatal_work, gss_fatal_fn);
