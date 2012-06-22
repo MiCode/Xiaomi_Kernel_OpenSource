@@ -203,6 +203,7 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		frame_index_bug:1; /* MosChip (AKA NetMos) */
 	unsigned		need_oc_pp_cycle:1; /* MPC834X port power */
 	unsigned		susp_sof_bug:1; /*Chip Idea HC*/
+	unsigned		resume_sof_bug:1;/*Chip Idea HC*/
 	unsigned		reset_sof_bug:1; /*Chip Idea HC*/
 
 	/* required for usb32 quirk */

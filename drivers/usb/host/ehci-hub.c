@@ -400,6 +400,9 @@ static int __maybe_unused ehci_bus_resume(struct usb_hcd *hcd)
 	ehci_writel(ehci, ehci->periodic_dma, &ehci->regs->frame_list);
 	ehci_writel(ehci, (u32) ehci->async->qh_dma, &ehci->regs->async_next);
 
+	/*CMD_RUN will be set after, PORT_RESUME gets cleared*/
+	if (ehci->resume_sof_bug)
+		ehci->command &= ~CMD_RUN;
 	/* restore CMD_RUN, framelist size, and irq threshold */
 	ehci->command |= CMD_RUN;
 	ehci_writel(ehci, ehci->command, &ehci->regs->command);
@@ -459,6 +462,17 @@ static int __maybe_unused ehci_bus_resume(struct usb_hcd *hcd)
 		ehci_writel(ehci, temp, &ehci->regs->port_status [i]);
 	}
 
+	if (ehci->resume_sof_bug && resume_needed) {
+		/* root hub has only one port.
+		 * PORT_RESUME gets cleared automatically. */
+		handshake(ehci, &ehci->regs->port_status[0], PORT_RESUME, 0,
+				20000);
+		ehci_writel(ehci, ehci_readl(ehci,
+				&ehci->regs->command) | CMD_RUN,
+				&ehci->regs->command);
+		goto skip_clear_resume;
+	}
+
 	/* msleep for 20ms only if code is trying to resume port */
 	if (resume_needed) {
 		spin_unlock_irq(&ehci->lock);
@@ -478,6 +492,7 @@ static int __maybe_unused ehci_bus_resume(struct usb_hcd *hcd)
 		}
 	}
 
+skip_clear_resume:
 	ehci->next_statechange = jiffies + msecs_to_jiffies(5);
 	spin_unlock_irq(&ehci->lock);
 
