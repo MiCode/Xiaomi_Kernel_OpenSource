@@ -45,6 +45,7 @@
 #define MDM_MODEM_DELTA	100
 #define MDM_BOOT_TIMEOUT	60000L
 #define MDM_RDUMP_TIMEOUT	60000L
+#define MDM2AP_STATUS_TIMEOUT_MS 60000L
 
 static int mdm_debug_on;
 static struct workqueue_struct *mdm_queue;
@@ -90,6 +91,22 @@ static void mdm_restart_reason_fn(struct work_struct *work)
 
 static DECLARE_WORK(sfr_reason_work, mdm_restart_reason_fn);
 
+static void mdm2ap_status_check(struct work_struct *work)
+{
+	/*
+	 * If the mdm modem did not pull the MDM2AP_STATUS gpio
+	 * high then call subsystem_restart.
+	 */
+	if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0) {
+		pr_err("%s: MDM2AP_STATUS gpio did not go high\n",
+			   __func__);
+		mdm_drv->mdm_ready = 0;
+		subsystem_restart(EXTERNAL_MODEM);
+	}
+}
+
+static DECLARE_DELAYED_WORK(mdm2ap_status_check_work, mdm2ap_status_check);
+
 long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
 {
@@ -131,6 +148,14 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 			complete(&mdm_boot);
 		else
 			first_boot = 0;
+
+		/* Start a timer to check that the mdm2ap_status gpio
+		 * goes high.
+		 */
+
+		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
+			schedule_delayed_work(&mdm2ap_status_check_work,
+				msecs_to_jiffies(MDM2AP_STATUS_TIMEOUT_MS));
 		break;
 	case RAM_DUMP_DONE:
 		pr_debug("%s: mdm done collecting RAM dumps\n", __func__);
@@ -256,6 +281,7 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		mdm_drv->mdm_ready = 0;
 		subsystem_restart(EXTERNAL_MODEM);
 	} else if (value == 1) {
+		cancel_delayed_work(&mdm2ap_status_check_work);
 		pr_info("%s: status = 1: mdm is now ready\n", __func__);
 		queue_work(mdm_queue, &mdm_status_work);
 	}
