@@ -24,6 +24,7 @@
 #define MEMORY_DEVICE_MODE		2
 #define NO_LOGGING_MODE			3
 #define UART_MODE			4
+#define SOCKET_MODE			5
 
 /* different values that go in for diag_data_type */
 #define DATA_TYPE_EVENT         	0

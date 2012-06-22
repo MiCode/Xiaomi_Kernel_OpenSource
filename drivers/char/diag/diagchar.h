@@ -251,6 +251,7 @@ struct diagchar_dev {
 	int logging_mode;
 	int mask_check;
 	int logging_process_id;
+	struct task_struct *socket_process;
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	unsigned char *buf_in_sdio;
 	unsigned char *usb_buf_mdm_out;

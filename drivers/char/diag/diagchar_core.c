@@ -230,6 +230,13 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	* This call will remove any pending registrations of such client
 	*/
 	diagchar_ioctl(NULL, DIAG_IOCTL_DCI_DEINIT, 0);
+
+	/* If the exiting process is the socket process */
+	if (driver->socket_process &&
+		(driver->socket_process->tgid == current->tgid)) {
+		driver->socket_process = NULL;
+	}
+
 #ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */
 	if (driver->logging_process_id == current->tgid) {
@@ -344,6 +351,7 @@ long diagchar_ioctl(struct file *filp,
 	void *temp_buf;
 	uint16_t support_list = 0;
 	struct dci_notification_tbl *notify_params;
+	int status;
 
 	if (iocmd == DIAG_IOCTL_COMMAND_REG) {
 		struct bindpkt_params_per_process *pkt_params =
@@ -480,9 +488,29 @@ long diagchar_ioctl(struct file *filp,
 		mutex_lock(&driver->diagchar_mutex);
 		temp = driver->logging_mode;
 		driver->logging_mode = (int)ioarg;
-		if (driver->logging_mode == MEMORY_DEVICE_MODE)
+		if (driver->logging_mode == MEMORY_DEVICE_MODE) {
 			driver->mask_check = 1;
+			if (driver->socket_process) {
+				/*
+				 * Notify the socket logging process that we
+				 * are switching to MEMORY_DEVICE_MODE
+				 */
+				status = send_sig(SIGCONT,
+					 driver->socket_process, 0);
+				if (status) {
+					pr_err("diag: %s, Error notifying ",
+						__func__);
+					pr_err("socket process, status: %d\n",
+						status);
+				}
+			}
+		}
 		if (driver->logging_mode == UART_MODE) {
+			driver->mask_check = 0;
+			driver->logging_mode = MEMORY_DEVICE_MODE;
+		}
+		if (driver->logging_mode == SOCKET_MODE) {
+			driver->socket_process = current;
 			driver->mask_check = 0;
 			driver->logging_mode = MEMORY_DEVICE_MODE;
 		}
@@ -1251,6 +1279,7 @@ static int __init diagchar_init(void)
 		driver->poolsize_write_struct = poolsize_write_struct;
 		driver->num_clients = max_clients;
 		driver->logging_mode = USB_MODE;
+		driver->socket_process = NULL;
 		driver->mask_check = 0;
 		mutex_init(&driver->diagchar_mutex);
 		init_waitqueue_head(&driver->wait_q);
