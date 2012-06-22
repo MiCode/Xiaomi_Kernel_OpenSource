@@ -3062,7 +3062,7 @@ static int msmsdcc_get_ro(struct mmc_host *mmc)
 				msleep(300);
 				status = gpio_get_value_cansleep(
 						host->plat->wpswitch_gpio);
-				status ^= !host->plat->wpswitch_polarity;
+				status ^= !host->plat->is_wpswitch_active_low;
 			}
 			gpio_free(host->plat->wpswitch_gpio);
 		}
