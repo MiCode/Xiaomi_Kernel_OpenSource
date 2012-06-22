@@ -181,7 +181,6 @@ out:
 static irqreturn_t gss_wdog_bite_irq(int irq, void *dev_id)
 {
 	schedule_work(&gss_fatal_work);
-	disable_irq_nosync(GSS_A5_WDOG_EXPIRED);
 
 	return IRQ_HANDLED;
 }
