@@ -43,25 +43,7 @@ struct ispif_isr_queue_cmd {
 };
 
 #define VIDIOC_MSM_ISPIF_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct msm_ispif_params)
-
-#define VIDIOC_MSM_ISPIF_INIT \
-	_IO('V', BASE_VIDIOC_PRIVATE + 2)
-
-#define VIDIOC_MSM_ISPIF_RELEASE \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct v4l2_subdev*)
-
-#define ISPIF_STREAM(intf, action) (((intf)<<ISPIF_S_STREAM_SHIFT)+(action))
-#define ISPIF_ON_FRAME_BOUNDARY	(0x01 << 0)
-#define ISPIF_OFF_FRAME_BOUNDARY    (0x01 << 1)
-#define ISPIF_OFF_IMMEDIATELY       (0x01 << 2)
-#define ISPIF_S_STREAM_SHIFT	4
-
-
-#define PIX_0 (0x01 << 0)
-#define RDI_0 (0x01 << 1)
-#define PIX_1 (0x01 << 2)
-#define RDI_1 (0x01 << 3)
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct ispif_cfg_data*)
 
 void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num);
 

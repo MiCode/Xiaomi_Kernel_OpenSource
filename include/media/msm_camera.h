@@ -190,6 +190,9 @@
 #define MSM_CAM_IOCTL_EEPROM_IO_CFG \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 53, struct msm_eeprom_cfg_data *)
 
+#define MSM_CAM_IOCTL_ISPIF_IO_CFG \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 54, struct ispif_cfg_data *)
+
 struct msm_mctl_pp_cmd {
 	int32_t  id;
 	uint16_t length;
@@ -797,7 +800,10 @@ struct msm_snapshot_pp_status {
 #define CFG_SET_AUTOFLASH             41
 #define CFG_SET_EXPOSURE_COMPENSATION 42
 #define CFG_SET_ISO                   43
-#define CFG_MAX			44
+#define CFG_START_STREAM              44
+#define CFG_STOP_STREAM               45
+#define CFG_GET_CSI_PARAMS            46
+#define CFG_MAX			47
 
 
 #define MOVE_NEAR	0
@@ -1127,6 +1133,112 @@ struct msm_eeprom_data_t {
 	uint16_t index;
 };
 
+struct msm_camera_csid_vc_cfg {
+	uint8_t cid;
+	uint8_t dt;
+	uint8_t decode_format;
+};
+
+struct csi_lane_params_t {
+	uint8_t csi_lane_assign;
+	uint8_t csi_lane_mask;
+	uint8_t csi_if;
+	uint8_t csid_core;
+	uint32_t csid_version;
+};
+
+#define CSI_EMBED_DATA 0x12
+#define CSI_RESERVED_DATA_0 0x13
+#define CSI_YUV422_8  0x1E
+#define CSI_RAW8    0x2A
+#define CSI_RAW10   0x2B
+#define CSI_RAW12   0x2C
+
+#define CSI_DECODE_6BIT 0
+#define CSI_DECODE_8BIT 1
+#define CSI_DECODE_10BIT 2
+#define CSI_DECODE_DPCM_10_8_10 5
+
+#define ISPIF_STREAM(intf, action) (((intf)<<ISPIF_S_STREAM_SHIFT)+(action))
+#define ISPIF_ON_FRAME_BOUNDARY	(0x01 << 0)
+#define ISPIF_OFF_FRAME_BOUNDARY    (0x01 << 1)
+#define ISPIF_OFF_IMMEDIATELY       (0x01 << 2)
+#define ISPIF_S_STREAM_SHIFT	4
+
+
+#define PIX_0 (0x01 << 0)
+#define RDI_0 (0x01 << 1)
+#define PIX_1 (0x01 << 2)
+#define RDI_1 (0x01 << 3)
+#define PIX_2 (0x01 << 4)
+#define RDI_2 (0x01 << 5)
+
+
+enum msm_ispif_intftype {
+	PIX0,
+	RDI0,
+	PIX1,
+	RDI1,
+	PIX2,
+	RDI2,
+	INTF_MAX,
+};
+
+enum msm_ispif_vc {
+	VC0,
+	VC1,
+	VC2,
+	VC3,
+};
+
+enum msm_ispif_cid {
+	CID0,
+	CID1,
+	CID2,
+	CID3,
+	CID4,
+	CID5,
+	CID6,
+	CID7,
+	CID8,
+	CID9,
+	CID10,
+	CID11,
+	CID12,
+	CID13,
+	CID14,
+	CID15,
+};
+
+struct msm_ispif_params {
+	uint8_t intftype;
+	uint16_t cid_mask;
+	uint8_t csid;
+};
+
+struct msm_ispif_params_list {
+	uint32_t len;
+	struct msm_ispif_params params[4];
+};
+
+enum ispif_cfg_type_t {
+	ISPIF_INIT,
+	ISPIF_SET_CFG,
+	ISPIF_SET_ON_FRAME_BOUNDARY,
+	ISPIF_SET_OFF_FRAME_BOUNDARY,
+	ISPIF_SET_OFF_IMMEDIATELY,
+	ISPIF_RELEASE,
+};
+
+struct ispif_cfg_data {
+	enum ispif_cfg_type_t cfgtype;
+	union {
+		uint32_t csid_version;
+		int cmd;
+		struct msm_ispif_params_list ispif_params;
+	} cfg;
+};
+
 struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
@@ -1153,6 +1265,7 @@ struct sensor_cfg_data {
 		struct sensor_calib_data calib_info;
 		struct sensor_output_info_t output_info;
 		struct msm_eeprom_data_t eeprom_data;
+		struct csi_lane_params_t csi_lane_params;
 		/* QRD */
 		uint16_t antibanding;
 		uint8_t contrast;
@@ -1410,6 +1523,7 @@ struct msm_camsensor_info {
 	uint8_t flash_enabled;
 	uint8_t strobe_flash_enabled;
 	uint8_t actuator_enabled;
+	uint8_t ispif_supported;
 	int8_t total_steps;
 	uint8_t support_3d;
 	enum flash_type flashtype;
