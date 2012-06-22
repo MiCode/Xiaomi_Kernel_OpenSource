@@ -188,18 +188,19 @@ static int msm_pm_write_proc(struct file *file, const char __user *buffer,
 	int ret;
 	unsigned long flags;
 	unsigned int cpu;
+	size_t len = strnlen(MSM_PM_STATS_RESET, sizeof(MSM_PM_STATS_RESET));
 
 	if (count < sizeof(MSM_PM_STATS_RESET)) {
 		ret = -EINVAL;
 		goto write_proc_failed;
 	}
 
-	if (copy_from_user(buf, buffer, sizeof(MSM_PM_STATS_RESET))) {
+	if (copy_from_user(buf, buffer, len)) {
 		ret = -EFAULT;
 		goto write_proc_failed;
 	}
 
-	if (memcmp(buf, MSM_PM_STATS_RESET, sizeof(MSM_PM_STATS_RESET))) {
+	if (strncmp(buf, MSM_PM_STATS_RESET, len)) {
 		ret = -EINVAL;
 		goto write_proc_failed;
 	}
