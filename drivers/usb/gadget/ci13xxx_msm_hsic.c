@@ -30,16 +30,16 @@
 #include <mach/clk.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
+#include <mach/rpm-regulator.h>
 
 #include "ci13xxx_udc.c"
 
 #define MSM_USB_BASE	(mhsic->regs)
 
 #define ULPI_IO_TIMEOUT_USEC			(10 * 1000)
-#define USB_PHY_VDD_DIG_VOL_SUSP_MIN	500000 /* uV */
+#define USB_PHY_VDD_DIG_VOL_NONE		0 /*uV */
 #define USB_PHY_VDD_DIG_VOL_MIN			1045000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX			1320000 /* uV */
-#define USB_PHY_VDD_DIG_LOAD			49360	/* uA */
 #define LINK_RESET_TIMEOUT_USEC			(250 * 1000)
 #define PHY_SUSPEND_TIMEOUT_USEC		(500 * 1000)
 #define PHY_RESUME_TIMEOUT_USEC			(100 * 1000)
@@ -66,36 +66,54 @@ struct msm_hsic_per {
 	struct workqueue_struct *wq;
 	struct work_struct	suspend_w;
 	struct msm_hsic_peripheral_platform_data *pdata;
+	enum usb_vdd_type	vdd_type;
+};
+
+static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
+		{   /* VDD_CX CORNER Voting */
+			[VDD_NONE]	= RPM_VREG_CORNER_NONE,
+			[VDD_MIN]	= RPM_VREG_CORNER_NOMINAL,
+			[VDD_MAX]	= RPM_VREG_CORNER_HIGH,
+		},
+		{   /* VDD_CX Voltage Voting */
+			[VDD_NONE]	= USB_PHY_VDD_DIG_VOL_NONE,
+			[VDD_MIN]	= USB_PHY_VDD_DIG_VOL_MIN,
+			[VDD_MAX]	= USB_PHY_VDD_DIG_VOL_MAX,
+		},
 };
 
 static int msm_hsic_init_vddcx(struct msm_hsic_per *mhsic, int init)
 {
 	int ret = 0;
+	int none_vol, min_vol, max_vol;
+
+	if (!mhsic->hsic_vddcx) {
+		mhsic->vdd_type = VDDCX_CORNER;
+		mhsic->hsic_vddcx = devm_regulator_get(mhsic->dev,
+			"hsic_vdd_dig");
+		if (IS_ERR(mhsic->hsic_vddcx)) {
+			mhsic->hsic_vddcx = devm_regulator_get(mhsic->dev,
+				"HSIC_VDDCX");
+			if (IS_ERR(mhsic->hsic_vddcx)) {
+				dev_err(mhsic->dev, "unable to get hsic vddcx\n");
+				return PTR_ERR(mhsic->hsic_vddcx);
+			}
+			mhsic->vdd_type = VDDCX;
+		}
+	}
+
+	none_vol = vdd_val[mhsic->vdd_type][VDD_NONE];
+	min_vol = vdd_val[mhsic->vdd_type][VDD_MIN];
+	max_vol = vdd_val[mhsic->vdd_type][VDD_MAX];
 
 	if (!init)
 		goto disable_reg;
 
-	mhsic->hsic_vddcx = regulator_get(mhsic->dev, "HSIC_VDDCX");
-	if (IS_ERR(mhsic->hsic_vddcx)) {
-		dev_err(mhsic->dev, "unable to get hsic vddcx\n");
-		return PTR_ERR(mhsic->hsic_vddcx);
-	}
-
-	ret = regulator_set_voltage(mhsic->hsic_vddcx,
-			USB_PHY_VDD_DIG_VOL_MIN,
-			USB_PHY_VDD_DIG_VOL_MAX);
+	ret = regulator_set_voltage(mhsic->hsic_vddcx, min_vol, max_vol);
 	if (ret) {
 		dev_err(mhsic->dev, "unable to set the voltage"
 				"for hsic vddcx\n");
 		goto reg_set_voltage_err;
-	}
-
-	ret = regulator_set_optimum_mode(mhsic->hsic_vddcx,
-				USB_PHY_VDD_DIG_LOAD);
-	if (ret < 0) {
-		pr_err("%s: Unable to set optimum mode of the regulator:"
-					"VDDCX\n", __func__);
-		goto reg_optimum_mode_err;
 	}
 
 	ret = regulator_enable(mhsic->hsic_vddcx);
@@ -109,12 +127,8 @@ static int msm_hsic_init_vddcx(struct msm_hsic_per *mhsic, int init)
 disable_reg:
 	regulator_disable(mhsic->hsic_vddcx);
 reg_enable_err:
-	regulator_set_optimum_mode(mhsic->hsic_vddcx, 0);
-reg_optimum_mode_err:
-	regulator_set_voltage(mhsic->hsic_vddcx, 0,
-				USB_PHY_VDD_DIG_VOL_MIN);
+	regulator_set_voltage(mhsic->hsic_vddcx, none_vol, max_vol);
 reg_set_voltage_err:
-	regulator_put(mhsic->hsic_vddcx);
 
 	return ret;
 
@@ -323,6 +337,7 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 {
 	int cnt = 0, ret;
 	u32 val;
+	int none_vol, max_vol;
 
 	if (atomic_read(&mhsic->in_lpm)) {
 		dev_dbg(mhsic->dev, "%s called while in lpm\n", __func__);
@@ -378,11 +393,12 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 		dev_err(mhsic->dev, "%s failed to devote for TCXO %d\n"
 				, __func__, ret);
 
-	ret = regulator_set_voltage(mhsic->hsic_vddcx,
-				USB_PHY_VDD_DIG_VOL_SUSP_MIN,
-				USB_PHY_VDD_DIG_VOL_MAX);
+	none_vol = vdd_val[mhsic->vdd_type][VDD_NONE];
+	max_vol = vdd_val[mhsic->vdd_type][VDD_MAX];
+
+	ret = regulator_set_voltage(mhsic->hsic_vddcx, none_vol, max_vol);
 	if (ret < 0)
-		dev_err(mhsic->dev, "unable to set vddcx voltage: min:0.5v max:1.32v\n");
+		dev_err(mhsic->dev, "unable to set vddcx voltage for VDD MIN\n");
 
 	if (device_may_wakeup(mhsic->dev))
 		enable_irq_wake(mhsic->irq);
@@ -400,6 +416,7 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 {
 	int cnt = 0, ret;
 	unsigned temp;
+	int min_vol, max_vol;
 
 	if (!atomic_read(&mhsic->in_lpm)) {
 		dev_dbg(mhsic->dev, "%s called while not in lpm\n", __func__);
@@ -407,12 +424,14 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 	}
 
 	wake_lock(&mhsic->wlock);
-	ret = regulator_set_voltage(mhsic->hsic_vddcx,
-				USB_PHY_VDD_DIG_VOL_MIN,
-				USB_PHY_VDD_DIG_VOL_MAX);
+
+	min_vol = vdd_val[mhsic->vdd_type][VDD_MIN];
+	max_vol = vdd_val[mhsic->vdd_type][VDD_MAX];
+
+	ret = regulator_set_voltage(mhsic->hsic_vddcx, min_vol, max_vol);
 	if (ret < 0)
 		dev_err(mhsic->dev,
-				"unable to set vddcx voltage: min:1.045v max:1.32v\n");
+			"unable to set nominal vddcx voltage (no VDD MIN)\n");
 
 	ret = msm_xo_mode_vote(mhsic->xo_handle, MSM_XO_MODE_ON);
 	if (ret)
