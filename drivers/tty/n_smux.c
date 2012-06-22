@@ -165,7 +165,7 @@ enum {
 	SMUX_PWR_OFF,
 	SMUX_PWR_TURNING_ON,
 	SMUX_PWR_ON,
-	SMUX_PWR_TURNING_OFF_FLUSH,
+	SMUX_PWR_TURNING_OFF_FLUSH, /* power-off req/ack in TX queue */
 	SMUX_PWR_TURNING_OFF,
 	SMUX_PWR_OFF_FLUSH,
 };
@@ -295,6 +295,7 @@ struct smux_ldisc_t {
 	unsigned pwr_wakeup_delay_us;
 	unsigned tx_activity_flag;
 	unsigned powerdown_enabled;
+	unsigned power_ctl_remote_req_received;
 	struct list_head power_queue;
 };
 
@@ -1662,6 +1663,7 @@ static int smux_handle_rx_status_cmd(struct smux_pkt_t *pkt)
 static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 {
 	struct smux_pkt_t *ack_pkt;
+	int power_down = 0;
 	unsigned long flags;
 
 	SMUX_PWR_PKT_RX(pkt);
@@ -1669,16 +1671,12 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (pkt->hdr.flags & SMUX_CMD_PWR_CTL_ACK) {
 		/* local sleep request ack */
-		if (smux.power_state == SMUX_PWR_TURNING_OFF) {
+		if (smux.power_state == SMUX_PWR_TURNING_OFF)
 			/* Power-down complete, turn off UART */
-			SMUX_PWR("%s: Power %d->%d\n", __func__,
-					smux.power_state, SMUX_PWR_OFF_FLUSH);
-			smux.power_state = SMUX_PWR_OFF_FLUSH;
-			queue_work(smux_tx_wq, &smux_inactivity_work);
-		} else {
+			power_down = 1;
+		else
 			pr_err("%s: sleep request ack invalid in state %d\n",
 					__func__, smux.power_state);
-		}
 	} else {
 		/*
 		 * Remote sleep request
@@ -1690,9 +1688,10 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 		 * The state here is set to SMUX_PWR_TURNING_OFF_FLUSH and
 		 * the TX thread will set the state to SMUX_PWR_TURNING_OFF
 		 * when it sends the packet.
+		 *
+		 * If we are already powering down, then no ACK is sent.
 		 */
-		if (smux.power_state == SMUX_PWR_ON
-			|| smux.power_state == SMUX_PWR_TURNING_OFF) {
+		if (smux.power_state == SMUX_PWR_ON) {
 			ack_pkt = smux_alloc_pkt();
 			if (ack_pkt) {
 				SMUX_PWR("%s: Power %d->%d\n", __func__,
@@ -1709,10 +1708,30 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 						&smux.power_queue);
 				queue_work(smux_tx_wq, &smux_tx_work);
 			}
+		} else if (smux.power_state == SMUX_PWR_TURNING_OFF_FLUSH) {
+			/* Local power-down request still in TX queue */
+			SMUX_PWR("%s: Power-down shortcut - no ack\n",
+					__func__);
+			smux.power_ctl_remote_req_received = 1;
+		} else if (smux.power_state == SMUX_PWR_TURNING_OFF) {
+			/*
+			 * Local power-down request already sent to remote
+			 * side, so this request gets treated as an ACK.
+			 */
+			SMUX_PWR("%s: Power-down shortcut - no ack\n",
+					__func__);
+			power_down = 1;
 		} else {
 			pr_err("%s: sleep request invalid in state %d\n",
 					__func__, smux.power_state);
 		}
+	}
+
+	if (power_down) {
+		SMUX_PWR("%s: Power %d->%d\n", __func__,
+				smux.power_state, SMUX_PWR_OFF_FLUSH);
+		smux.power_state = SMUX_PWR_OFF_FLUSH;
+		queue_work(smux_tx_wq, &smux_inactivity_work);
 	}
 	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
@@ -1838,8 +1857,12 @@ static void smux_handle_wakeup_req(void)
 		queue_delayed_work(smux_tx_wq, &smux_delayed_inactivity_work,
 			msecs_to_jiffies(SMUX_INACTIVITY_TIMEOUT_MS));
 		smux_send_byte(SMUX_WAKEUP_ACK);
-	} else {
+	} else if (smux.power_state == SMUX_PWR_ON) {
 		smux_send_byte(SMUX_WAKEUP_ACK);
+	} else {
+		/* stale wakeup request from previous wakeup */
+		SMUX_PWR("%s: stale Wakeup REQ in state %d\n",
+				__func__, smux.power_state);
 	}
 	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 }
@@ -1863,7 +1886,7 @@ static void smux_handle_wakeup_ack(void)
 
 	} else if (smux.power_state != SMUX_PWR_ON) {
 		/* invalid message */
-		pr_err("%s: wakeup request ack invalid in state %d\n",
+		SMUX_PWR("%s: stale Wakeup REQ ACK in state %d\n",
 				__func__, smux.power_state);
 	}
 	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
@@ -2245,6 +2268,7 @@ static void smux_wakeup_worker(struct work_struct *work)
 	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (smux.power_state == SMUX_PWR_ON) {
 		/* wakeup complete */
+		smux.pwr_wakeup_delay_us = 1;
 		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 		SMUX_DBG("%s: wakeup complete\n", __func__);
 
@@ -2256,7 +2280,7 @@ static void smux_wakeup_worker(struct work_struct *work)
 		 *    workqueue as new TX wakeup requests
 		 */
 		cancel_delayed_work(&smux_wakeup_delayed_work);
-	} else {
+	} else if (smux.power_state == SMUX_PWR_TURNING_ON) {
 		/* retry wakeup */
 		wakeup_delay = smux.pwr_wakeup_delay_us;
 		smux.pwr_wakeup_delay_us <<= 1;
@@ -2265,7 +2289,7 @@ static void smux_wakeup_worker(struct work_struct *work)
 				SMUX_WAKEUP_DELAY_MAX;
 
 		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
-		SMUX_DBG("%s: triggering wakeup\n", __func__);
+		SMUX_PWR("%s: triggering wakeup\n", __func__);
 		smux_send_byte(SMUX_WAKEUP_REQ);
 
 		if (wakeup_delay < SMUX_WAKEUP_DELAY_MIN) {
@@ -2281,6 +2305,12 @@ static void smux_wakeup_worker(struct work_struct *work)
 					&smux_wakeup_delayed_work,
 					msecs_to_jiffies(wakeup_delay / 1000));
 		}
+	} else {
+		/* wakeup aborted */
+		smux.pwr_wakeup_delay_us = 1;
+		spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
+		SMUX_PWR("%s: wakeup aborted\n", __func__);
+		cancel_delayed_work(&smux_wakeup_delayed_work);
 	}
 }
 
@@ -2308,8 +2338,9 @@ static void smux_inactivity_worker(struct work_struct *work)
 				if (pkt) {
 					SMUX_PWR("%s: Power %d->%d\n", __func__,
 						smux.power_state,
-						SMUX_PWR_TURNING_OFF);
-					smux.power_state = SMUX_PWR_TURNING_OFF;
+						SMUX_PWR_TURNING_OFF_FLUSH);
+					smux.power_state =
+						SMUX_PWR_TURNING_OFF_FLUSH;
 
 					/* send power-down request */
 					pkt->hdr.cmd = SMUX_CMD_PWR_CTL;
@@ -2323,9 +2354,6 @@ static void smux_inactivity_worker(struct work_struct *work)
 							__func__);
 				}
 			}
-		} else {
-			SMUX_DBG("%s: link inactive, but powerdown disabled\n",
-					__func__);
 		}
 	}
 	smux.tx_activity_flag = 0;
@@ -2591,14 +2619,12 @@ static void smux_tx_worker(struct work_struct *work)
 			if (!list_empty(&smux.lch_tx_ready_list) ||
 			   !list_empty(&smux.power_queue)) {
 				/* data to transmit, do wakeup */
-				smux.pwr_wakeup_delay_us = 1;
 				SMUX_PWR("%s: Power %d->%d\n", __func__,
 						smux.power_state,
 						SMUX_PWR_TURNING_ON);
 				smux.power_state = SMUX_PWR_TURNING_ON;
 				spin_unlock_irqrestore(&smux.tx_lock_lha2,
 						flags);
-				smux_uart_power_on();
 				queue_work(smux_tx_wq, &smux_wakeup_work);
 			} else {
 				/* no activity -- stay asleep */
@@ -2615,7 +2641,38 @@ static void smux_tx_worker(struct work_struct *work)
 			list_del(&pkt->list);
 			spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
+			/* Adjust power state if this is a flush command */
+			spin_lock_irqsave(&smux.tx_lock_lha2, flags);
+			if (smux.power_state == SMUX_PWR_TURNING_OFF_FLUSH &&
+				pkt->hdr.cmd == SMUX_CMD_PWR_CTL) {
+				if (pkt->hdr.flags & SMUX_CMD_PWR_CTL_ACK ||
+					smux.power_ctl_remote_req_received) {
+					/*
+					 * Sending remote power-down request ACK
+					 * or sending local power-down request
+					 * and we already received a remote
+					 * power-down request.
+					 */
+					SMUX_PWR("%s: Power %d->%d\n", __func__,
+							smux.power_state,
+							SMUX_PWR_OFF_FLUSH);
+					smux.power_state = SMUX_PWR_OFF_FLUSH;
+					smux.power_ctl_remote_req_received = 0;
+					queue_work(smux_tx_wq,
+							&smux_inactivity_work);
+				} else {
+					/* sending local power-down request */
+					SMUX_PWR("%s: Power %d->%d\n", __func__,
+							smux.power_state,
+							SMUX_PWR_TURNING_OFF);
+					smux.power_state = SMUX_PWR_TURNING_OFF;
+				}
+			}
+			spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
+
 			/* send the packet */
+			smux_uart_power_on();
+			smux.tx_activity_flag = 1;
 			SMUX_PWR_PKT_TX(pkt);
 			if (!smux_byte_loopback) {
 				smux_tx_tty(pkt);
@@ -2623,19 +2680,6 @@ static void smux_tx_worker(struct work_struct *work)
 			} else {
 				smux_tx_loopback(pkt);
 			}
-
-			/* Adjust power state if this is a flush command */
-			spin_lock_irqsave(&smux.tx_lock_lha2, flags);
-			if (smux.power_state == SMUX_PWR_TURNING_OFF_FLUSH &&
-				pkt->hdr.cmd == SMUX_CMD_PWR_CTL &&
-				(pkt->hdr.flags & SMUX_CMD_PWR_CTL_ACK)) {
-				SMUX_PWR("%s: Power %d->%d\n", __func__,
-						smux.power_state,
-						SMUX_PWR_OFF_FLUSH);
-				smux.power_state = SMUX_PWR_OFF_FLUSH;
-				queue_work(smux_tx_wq, &smux_inactivity_work);
-			}
-			spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
 			smux_free_pkt(pkt);
 			continue;
@@ -3545,6 +3589,7 @@ static int __init smux_init(void)
 	smux.power_state = SMUX_PWR_OFF;
 	smux.pwr_wakeup_delay_us = 1;
 	smux.powerdown_enabled = 0;
+	smux.power_ctl_remote_req_received = 0;
 	INIT_LIST_HEAD(&smux.power_queue);
 	smux.rx_activity_flag = 0;
 	smux.tx_activity_flag = 0;
