@@ -534,6 +534,7 @@ struct l2cap_pinfo {
 
 	__u16		tx_win;
 	__u16		tx_win_max;
+	__u16		ack_win;
 	__u8		max_tx;
 	__u8		amp_pref;
 	__u16		remote_tx_win;
