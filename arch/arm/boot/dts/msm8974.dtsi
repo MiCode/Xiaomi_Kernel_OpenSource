@@ -573,6 +573,12 @@
 		qcom,slope = <1134 1122 1142 1123 1176 1176 1176 1186 1176
 				1176 1176>;
 	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
+	};
 };
 
 /include/ "msm-pm8x41-rpm-regulator.dtsi"
