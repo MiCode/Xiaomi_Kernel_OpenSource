@@ -152,6 +152,7 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		has_synopsys_hc_bug:1; /* Synopsys HC */
 	unsigned		frame_index_bug:1; /* MosChip (AKA NetMos) */
 	unsigned		susp_sof_bug:1; /*Chip Idea HC*/
+	unsigned		resume_sof_bug:1;/*Chip Idea HC*/
 	unsigned		reset_sof_bug:1; /*Chip Idea HC*/
 
 	/* required for usb32 quirk */
