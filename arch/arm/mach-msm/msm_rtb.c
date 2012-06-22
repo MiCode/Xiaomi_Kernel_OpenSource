@@ -16,11 +16,13 @@
 #include <linux/kernel.h>
 #include <linux/memory_alloc.h>
 #include <linux/module.h>
+#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/atomic.h>
+#include <linux/of.h>
 #include <asm/io.h>
 #include <asm-generic/sizes.h>
 #include <mach/memory.h>
@@ -29,6 +31,8 @@
 #define SENTINEL_BYTE_1 0xFF
 #define SENTINEL_BYTE_2 0xAA
 #define SENTINEL_BYTE_3 0xFF
+
+#define RTB_COMPAT_STR	"qcom,msm-rtb"
 
 /* Write
  * 1) 3 bytes sentinel
@@ -226,8 +230,22 @@ int msm_rtb_probe(struct platform_device *pdev)
 #if defined(CONFIG_MSM_RTB_SEPARATE_CPUS)
 	unsigned int cpu;
 #endif
+	int ret;
 
-	msm_rtb.size = d->size;
+	if (!pdev->dev.of_node) {
+		msm_rtb.size = d->size;
+	} else {
+		int size;
+
+		ret = of_property_read_u32((&pdev->dev)->of_node,
+					"qcom,memory-reservation-size",
+					&size);
+
+		if (ret < 0)
+			return ret;
+
+		msm_rtb.size = size;
+	}
 
 	if (msm_rtb.size <= 0 || msm_rtb.size > SZ_1M)
 		return -EINVAL;
@@ -274,10 +292,17 @@ int msm_rtb_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id msm_match_table[] = {
+	{.compatible = RTB_COMPAT_STR},
+	{},
+};
+EXPORT_COMPAT(RTB_COMPAT_STR);
+
 static struct platform_driver msm_rtb_driver = {
 	.driver         = {
 		.name = "msm_rtb",
-		.owner = THIS_MODULE
+		.owner = THIS_MODULE,
+		.of_match_table = msm_match_table
 	},
 };
 
