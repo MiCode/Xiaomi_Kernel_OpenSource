@@ -588,39 +588,29 @@ static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
 
 static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 
-static int cxo_clk_enable(struct clk *clk)
-{
-	/* TODO: Remove from here once the rpm xo clock is ready. */
-	return 0;
-}
+#define RPM_MISC_CLK_TYPE 0x306b6c63
+#define RPM_BUS_CLK_TYPE  0x316b6c63
+#define RPM_MEM_CLK_TYPE  0x326b6c63
 
-static void cxo_clk_disable(struct clk *clk)
-{
-	/* TODO: Remove from here once the rpm xo clock is ready. */
-	return;
-}
+#define CXO_ID		0x0
 
-static enum handoff cxo_clk_handoff(struct clk *clk)
-{
-	/* TODO: Remove from here once the rpm xo clock is ready. */
-	return HANDOFF_ENABLED_CLK;
-}
+#define PNOC_ID		0x0
+#define SNOC_ID		0x1
+#define CNOC_ID		0x2
 
-static struct clk_ops clk_ops_cxo = {
-	.enable = cxo_clk_enable,
-	.disable = cxo_clk_disable,
-	.handoff = cxo_clk_handoff,
-};
+#define BIMC_ID		0x0
+#define OCMEM_ID	0x1
 
-static struct fixed_clk cxo_clk_src = {
-	.c = {
-		.rate = 19200000,
-		.dbg_name = "cxo_clk_src",
-		.ops = &clk_ops_cxo,
-		.warned = true,
-		CLK_INIT(cxo_clk_src.c),
-	},
-};
+DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
+DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
+DEFINE_CLK_RPM_SMD(cnoc_clk, cnoc_a_clk, RPM_BUS_CLK_TYPE, CNOC_ID, NULL);
+
+DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
+DEFINE_CLK_RPM_SMD(ocmemgx_clk, ocmemgx_a_clk, RPM_MEM_CLK_TYPE, OCMEM_ID,
+			NULL);
+
+DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_a_clk_src,
+				RPM_MISC_CLK_TYPE, CXO_ID, 19200000);
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
@@ -714,24 +704,6 @@ static struct pll_clk mmpll3_clk_src = {
 		CLK_INIT(mmpll3_clk_src.c),
 	},
 };
-
-#define RPM_BUS_CLK_TYPE  0x316b6c63
-#define RPM_MEM_CLK_TYPE  0x326b6c63
-
-#define PNOC_ID		0x0
-#define SNOC_ID		0x1
-#define CNOC_ID		0x2
-
-#define BIMC_ID		0x0
-#define OCMEM_ID	0x1
-
-DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
-DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
-DEFINE_CLK_RPM_SMD(cnoc_clk, cnoc_a_clk, RPM_BUS_CLK_TYPE, CNOC_ID, NULL);
-
-DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
-DEFINE_CLK_RPM_SMD(ocmemgx_clk, ocmemgx_a_clk, RPM_MEM_CLK_TYPE, OCMEM_ID,
-			NULL);
 
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_clk, &snoc_clk.c, LONG_MAX);
