@@ -2607,6 +2607,10 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
 			(1 << 16) | 0xFFF);
 
+	/* Enable Clock gating */
+	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL,
+			A3XX_RBBM_CLOCK_CTL_DEFAULT);
+
 }
 
 /* Defined in adreno_a3xx_snapshot.c */

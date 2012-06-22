@@ -285,6 +285,9 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 			remain, REG_CP_ME_CNTL, REG_CP_ME_STATUS,
 			64, 44);
 
+	/* Disable Clock gating temporarily for the debug bus to work */
+	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL, 0x00);
+
 	/* VPC memory */
 	snapshot = kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
@@ -320,6 +323,10 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 			a3xx_snapshot_cp_roq, NULL);
 
 	snapshot = a3xx_snapshot_debugbus(device, snapshot, remain);
+
+	/* Enable Clock gating */
+	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL,
+			A3XX_RBBM_CLOCK_CTL_DEFAULT);
 
 	return snapshot;
 }

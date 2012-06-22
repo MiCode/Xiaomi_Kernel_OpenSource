@@ -509,6 +509,6 @@
 #define RBBM_BLOCK_ID_MARB_3           0x2b
 
 /* RBBM_CLOCK_CTL default value */
-#define A3XX_RBBM_CLOCK_CTL_DEFAULT 0x00000000
+#define A3XX_RBBM_CLOCK_CTL_DEFAULT 0xBFFFFFFF
 
 #endif
