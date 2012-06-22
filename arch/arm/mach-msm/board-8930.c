@@ -1018,6 +1018,55 @@ static struct platform_device qseecom_device = {
 #define QCE_SHARE_CE_RESOURCE	1
 #define QCE_CE_SHARED		0
 
+/* Begin Bus scaling definitions */
+static struct msm_bus_vectors crypto_hw_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_ADM_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_ADM_PORT1,
+		.dst = MSM_BUS_SLAVE_GSBI1_UART,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors crypto_hw_active_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_ADM_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 70000000UL,
+		.ib = 70000000UL,
+	},
+	{
+		.src = MSM_BUS_MASTER_ADM_PORT1,
+		.dst = MSM_BUS_SLAVE_GSBI1_UART,
+		.ab = 2480000000UL,
+		.ib = 2480000000UL,
+	},
+};
+
+static struct msm_bus_paths crypto_hw_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(crypto_hw_init_vectors),
+		crypto_hw_init_vectors,
+	},
+	{
+		ARRAY_SIZE(crypto_hw_active_vectors),
+		crypto_hw_active_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata crypto_hw_bus_scale_pdata = {
+		crypto_hw_bus_scale_usecases,
+		ARRAY_SIZE(crypto_hw_bus_scale_usecases),
+		.name = "cryptohw",
+};
+/* End Bus Scaling Definitions*/
+
 static struct resource qcrypto_resources[] = {
 	[0] = {
 		.start = QCE_0_BASE,
@@ -1080,6 +1129,7 @@ static struct msm_ce_hw_support qcrypto_ce_hw_suppport = {
 	.shared_ce_resource = QCE_SHARE_CE_RESOURCE,
 	.hw_key_support = QCE_HW_KEY_SUPPORT,
 	.sha_hmac = QCE_SHA_HMAC_SUPPORT,
+	.bus_scale_table = &crypto_hw_bus_scale_pdata,
 };
 
 static struct platform_device qcrypto_device = {
@@ -1102,6 +1152,7 @@ static struct msm_ce_hw_support qcedev_ce_hw_suppport = {
 	.shared_ce_resource = QCE_SHARE_CE_RESOURCE,
 	.hw_key_support = QCE_HW_KEY_SUPPORT,
 	.sha_hmac = QCE_SHA_HMAC_SUPPORT,
+	.bus_scale_table = &crypto_hw_bus_scale_pdata,
 };
 
 static struct platform_device qcedev_device = {
