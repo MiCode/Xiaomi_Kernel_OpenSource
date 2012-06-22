@@ -1140,18 +1140,6 @@ int gsdio_setup(struct usb_gadget *g, unsigned count)
 			goto free_sdio_ports;
 		}
 
-#ifdef DEBUG
-		/* REVISIT: create one file per port
-		 * or do not create any file
-		 */
-		if (i == 0) {
-			ret = device_create_file(&g->dev, &dev_attr_input);
-			if (ret)
-				pr_err("%s: unable to create device file\n",
-						__func__);
-		}
-#endif
-
 	}
 
 	gsdio_debugfs_init();
