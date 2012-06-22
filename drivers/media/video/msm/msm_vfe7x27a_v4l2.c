@@ -1264,6 +1264,16 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 				vfestopped = 1;
 				spin_lock_irqsave(&vfe2x_ctrl->table_lock,
 						flags);
+				if (op_mode & SNAPSHOT_MASK_MODE) {
+					vfe2x_ctrl->stop_pending = 0;
+					vfe2x_send_isp_msg(vfe2x_ctrl,
+						msgs_map[MSG_STOP_ACK].
+						isp_id);
+					spin_unlock_irqrestore(
+							&vfe2x_ctrl->table_lock,
+							flags);
+					return 0;
+				}
 				if ((!list_empty(&vfe2x_ctrl->table_q)) ||
 						vfe2x_ctrl->tableack_pending) {
 					CDBG("stop pending\n");
