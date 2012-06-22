@@ -72,6 +72,7 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 	struct msm_priv *priv = domain->priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
+	int ret = 0;
 	int asid;
 
 	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
@@ -79,6 +80,11 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 
 		iommu_drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
 		BUG_ON(!iommu_drvdata);
+
+
+		ret = __enable_clocks(iommu_drvdata);
+		if (ret)
+			goto fail;
 
 		asid = GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base,
 					   ctx_drvdata->num);
@@ -86,9 +92,10 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 		SET_TLBIVA(iommu_drvdata->base, ctx_drvdata->num,
 			   asid | (va & CB_TLBIVA_VA));
 		mb();
+		__disable_clocks(iommu_drvdata);
 	}
-
-	return 0;
+fail:
+	return ret;
 }
 
 static int __flush_iotlb(struct iommu_domain *domain)
@@ -96,6 +103,7 @@ static int __flush_iotlb(struct iommu_domain *domain)
 	struct msm_priv *priv = domain->priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
+	int ret = 0;
 	int asid;
 
 	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
@@ -104,14 +112,20 @@ static int __flush_iotlb(struct iommu_domain *domain)
 		iommu_drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
 		BUG_ON(!iommu_drvdata);
 
+		ret = __enable_clocks(iommu_drvdata);
+		if (ret)
+			goto fail;
+
 		asid = GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base,
 					   ctx_drvdata->num);
 
 		SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num, asid);
 		mb();
+		__disable_clocks(iommu_drvdata);
 	}
 
-	return 0;
+fail:
+	return ret;
 }
 
 static void __reset_iommu(void __iomem *base)
@@ -333,7 +347,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
 	u32 sids[MAX_NUM_SMR];
-	int len = 0, ret = 0;
+	int len = 0, ret;
 
 	mutex_lock(&msm_iommu_lock);
 
@@ -369,16 +383,17 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 	}
 
-	if (!msm_iommu_ctx_attached(dev->parent)) {
-		ret = __enable_clocks(iommu_drvdata);
-		if (ret)
-			goto fail;
+	ret = __enable_clocks(iommu_drvdata);
+	if (ret)
+		goto fail;
+
+	if (!msm_iommu_ctx_attached(dev->parent))
 		__program_iommu(iommu_drvdata->base);
-	}
 
 	__program_context(iommu_drvdata->base, ctx_drvdata->num,
 		iommu_drvdata->ncb, __pa(priv->pt.fl_table),
 		priv->pt.redirect, sids, len);
+	__disable_clocks(iommu_drvdata);
 
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 	ctx_drvdata->attached_domain = domain;
@@ -394,6 +409,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	struct msm_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
+	int ret;
 
 	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
@@ -405,15 +421,18 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	if (!iommu_drvdata || !ctx_drvdata || !ctx_drvdata->attached_domain)
 		goto fail;
 
+	ret = __enable_clocks(iommu_drvdata);
+	if (ret)
+		goto fail;
+
 	SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num,
 		GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_drvdata->num));
 
 	__reset_context(iommu_drvdata->base, ctx_drvdata->num);
+	__disable_clocks(iommu_drvdata);
+
 	list_del_init(&ctx_drvdata->attached_elm);
 	ctx_drvdata->attached_domain = NULL;
-
-	if (!msm_iommu_ctx_attached(dev->parent))
-		__disable_clocks(iommu_drvdata);
 
 fail:
 	mutex_unlock(&msm_iommu_lock);
@@ -517,7 +536,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	unsigned int par;
 	void __iomem *base;
-	phys_addr_t pa = 0;
+	phys_addr_t ret = 0;
 	int ctx;
 
 	mutex_lock(&msm_iommu_lock);
@@ -533,25 +552,33 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	base = iommu_drvdata->base;
 	ctx = ctx_drvdata->num;
 
+	ret = __enable_clocks(iommu_drvdata);
+	if (ret) {
+		ret = 0;	/* 0 indicates translation failed */
+		goto fail;
+	}
+
 	SET_ATS1PR(base, ctx, va & CB_ATS1PR_ADDR);
 	mb();
 	while (GET_CB_ATSR_ACTIVE(base, ctx))
 		cpu_relax();
 
 	par = GET_PAR(base, ctx);
+	__disable_clocks(iommu_drvdata);
+
 	if (par & CB_PAR_F) {
-		pa = 0;
+		ret = 0;
 	} else {
 		/* We are dealing with a supersection */
-		if (par & CB_PAR_SS)
-			pa = (par & 0xFF000000) | (va & 0x00FFFFFF);
+		if (ret & CB_PAR_SS)
+			ret = (par & 0xFF000000) | (va & 0x00FFFFFF);
 		else /* Upper 20 bits from PAR, lower 12 from VA */
-			pa = (par & 0xFFFFF000) | (va & 0x00000FFF);
+			ret = (par & 0xFFFFF000) | (va & 0x00000FFF);
 	}
 
 fail:
 	mutex_unlock(&msm_iommu_lock);
-	return pa;
+	return ret;
 }
 
 static int msm_iommu_domain_has_cap(struct iommu_domain *domain,
@@ -591,7 +618,7 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 	struct msm_iommu_drvdata *drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	unsigned int fsr;
-	int ret = IRQ_NONE;
+	int ret;
 
 	mutex_lock(&msm_iommu_lock);
 
@@ -602,6 +629,12 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 
 	ctx_drvdata = dev_get_drvdata(&pdev->dev);
 	BUG_ON(!ctx_drvdata);
+
+	ret = __enable_clocks(drvdata);
+	if (ret) {
+		ret = IRQ_NONE;
+		goto fail;
+	}
 
 	fsr = GET_FSR(drvdata->base, ctx_drvdata->num);
 	if (fsr) {
@@ -627,6 +660,8 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 	} else
 		ret = IRQ_NONE;
 
+	__disable_clocks(drvdata);
+fail:
 	mutex_unlock(&msm_iommu_lock);
 	return ret;
 }
