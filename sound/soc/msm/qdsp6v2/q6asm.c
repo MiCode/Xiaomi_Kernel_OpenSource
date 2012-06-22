@@ -2265,7 +2265,7 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 	q6asm_add_mmaphdr(ac, &mmap_regions->hdr, cmd_size,
 			TRUE, ((ac->session << 8) | dir));
 	mmap_regions->hdr.opcode = ASM_CMD_SHARED_MEM_MAP_REGIONS;
-	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_EBI_POOL;
+	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
 	mmap_regions->num_regions = bufcnt & 0x00ff;
 	mmap_regions->property_flag = 0x00;
 	payload = ((u8 *) mmap_region_cmd +
@@ -2408,7 +2408,7 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 		mmap_regions, ((ac->session << 8) | dir));
 
 	mmap_regions->hdr.opcode = ASM_CMD_SHARED_MEM_MAP_REGIONS;
-	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_EBI_POOL;
+	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
 	mmap_regions->num_regions = 1; /*bufcnt & 0x00ff; */
 	mmap_regions->property_flag = 0x00;
 	pr_debug("map_regions->nregions = %d\n", mmap_regions->num_regions);

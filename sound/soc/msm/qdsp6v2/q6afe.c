@@ -867,7 +867,7 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 	mregion->hdr.dest_port = 0;
 	mregion->hdr.token = 0;
 	mregion->hdr.opcode = AFE_SERVICE_CMD_SHARED_MEM_MAP_REGIONS;
-	mregion->mem_pool_id = ADSP_MEMORY_MAP_EBI_POOL;
+	mregion->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
 	mregion->num_regions = 1;
 	mregion->property_flag = 0x00;
 	/* Todo */
@@ -946,7 +946,7 @@ int afe_cmd_memory_map_nowait(int port_id, u32 dma_addr_p, u32 dma_buf_sz)
 	mregion->hdr.dest_port = 0;
 	mregion->hdr.token = 0;
 	mregion->hdr.opcode = AFE_SERVICE_CMD_SHARED_MEM_MAP_REGIONS;
-	mregion->mem_pool_id = ADSP_MEMORY_MAP_EBI_POOL;
+	mregion->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
 	mregion->num_regions = 1;
 	mregion->property_flag = 0x00;
 
