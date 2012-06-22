@@ -433,7 +433,7 @@ int adm_memory_map_regions(int port_id,
 	mmap_regions->hdr.dest_port = 0;
 	mmap_regions->hdr.token = 0;
 	mmap_regions->hdr.opcode = ADM_CMD_SHARED_MEM_MAP_REGIONS;
-	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_EBI_POOL & 0x00ff;
+	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL & 0x00ff;
 	mmap_regions->num_regions = bufcnt & 0x00ff;
 	mmap_regions->property_flag = 0x00;
 
