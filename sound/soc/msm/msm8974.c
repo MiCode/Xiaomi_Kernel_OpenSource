@@ -954,7 +954,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 	},
 };
 
-struct snd_soc_card snd_soc_card_msm = {
+static struct snd_soc_card snd_soc_card_msm = {
 	.name		= "msm8974-taiko-snd-card",
 	.dai_link	= msm_dai,
 	.num_links	= ARRAY_SIZE(msm_dai),
@@ -976,7 +976,7 @@ static int __init msm_audio_init(void)
 
 	mutex_init(&cdc_mclk_mutex);
 	if (!machine_is_msm8974_sim()) {
-		pr_err("%s: Not the right machine type\n", __func__);
+		pr_info("%s: Not msm8974 machine type\n", __func__);
 		return -ENODEV;
 	}
 	msm_snd_device = platform_device_alloc("soc-audio", 0);
