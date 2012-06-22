@@ -3998,7 +3998,6 @@ static struct branch_clk audio_core_lpaif_codec_spkr_osr_clk = {
 
 static struct branch_clk audio_core_lpaif_codec_spkr_ebit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_CODEC_SPKR_EBIT_CBCR,
-	.parent = &audio_core_lpaif_codec_spkr_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
@@ -4035,7 +4034,6 @@ static struct branch_clk audio_core_lpaif_pri_osr_clk = {
 
 static struct branch_clk audio_core_lpaif_pri_ebit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PRI_EBIT_CBCR,
-	.parent = &audio_core_lpaif_pri_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
@@ -4072,7 +4070,6 @@ static struct branch_clk audio_core_lpaif_sec_osr_clk = {
 
 static struct branch_clk audio_core_lpaif_sec_ebit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_SEC_EBIT_CBCR,
-	.parent = &audio_core_lpaif_sec_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
@@ -4109,7 +4106,6 @@ static struct branch_clk audio_core_lpaif_ter_osr_clk = {
 
 static struct branch_clk audio_core_lpaif_ter_ebit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_TER_EBIT_CBCR,
-	.parent = &audio_core_lpaif_ter_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
@@ -4146,7 +4142,6 @@ static struct branch_clk audio_core_lpaif_quad_osr_clk = {
 
 static struct branch_clk audio_core_lpaif_quad_ebit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_QUAD_EBIT_CBCR,
-	.parent = &audio_core_lpaif_quad_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
@@ -4171,7 +4166,6 @@ static struct branch_clk audio_core_lpaif_quad_ibit_clk = {
 
 static struct branch_clk audio_core_lpaif_pcm0_ebit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PCM0_EBIT_CBCR,
-	.parent = &audio_core_lpaif_pcm0_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
@@ -4185,7 +4179,6 @@ static struct branch_clk audio_core_lpaif_pcm0_ibit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PCM0_IBIT_CBCR,
 	.parent = &audio_core_lpaif_pcm0_clk_src.c,
 	.has_sibling = 1,
-	.max_div = 16,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
 		.dbg_name = "audio_core_lpaif_pcm0_ibit_clk",
@@ -4210,7 +4203,6 @@ static struct branch_clk audio_core_lpaif_pcm1_ibit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PCM1_IBIT_CBCR,
 	.parent = &audio_core_lpaif_pcm1_clk_src.c,
 	.has_sibling = 1,
-	.max_div = 16,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
 		.dbg_name = "audio_core_lpaif_pcm1_ibit_clk",
