@@ -21,9 +21,6 @@
 #include "mhl_devcap.h"
 #include "mhl_defs.h"
 
-#define GPIO_MHL_RESET       15
-#define GPIO_MHL_INT         4
-
 #define MHL_DEVICE_NAME "sii8334"
 #define MHL_DRIVER_NAME "sii8334"
 
