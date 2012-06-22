@@ -433,6 +433,9 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	unsigned int *cmds = tmp_ctx.cmd;
 	unsigned int *start = cmds;
 
+	*cmds++ = cp_type0_packet(A3XX_RBBM_CLOCK_CTL, 1);
+	*cmds++ = A3XX_RBBM_CLOCK_CTL_DEFAULT;
+
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(A3XX_RB_MODE_CONTROL);
 
@@ -1161,6 +1164,9 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 {
 	unsigned int *cmds = tmp_ctx.cmd;
 	unsigned int *start = cmds;
+
+	*cmds++ = cp_type0_packet(A3XX_RBBM_CLOCK_CTL, 1);
+	*cmds++ = A3XX_RBBM_CLOCK_CTL_DEFAULT;
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 5);
 	*cmds++ = CP_REG(A3XX_HLSQ_CONTROL_0_REG);
