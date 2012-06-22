@@ -32,7 +32,7 @@ static struct rc_map_table samsung_necx[] = {
 	{ 0x70707, KEY_VOLUMEUP},
 	{ 0x7070b, KEY_VOLUMEDOWN},
 	{ 0x70760, KEY_UP},
-	{ 0x70768, KEY_ENTER},		/* ok */
+	{ 0x70768, KEY_ENTER},
 	{ 0x70761, KEY_DOWN},
 	{ 0x70765, KEY_LEFT},
 	{ 0x70762, KEY_RIGHT},
@@ -44,15 +44,18 @@ static struct rc_map_table samsung_necx[] = {
 	{ 0x70748, KEY_FORWARD},
 	{ 0x7074a, KEY_PAUSE},
 	{ 0x70703, KEY_SLEEP},
-	{ 0x7076c, KEY_A},		/* search */
-	{ 0x70714, KEY_B},		/* camera */
-	{ 0x70715, KEY_C},
-	{ 0x70716, KEY_D},
+	{ 0x7076c, KEY_RED},
+	{ 0x70714, KEY_GREEN},
+	{ 0x70715, KEY_YELLOW},
+	{ 0x70716, KEY_BLUE},
 	{ 0x70758, KEY_BACK},
 	{ 0x7071a, KEY_MENU},
 	{ 0x7076b, KEY_LIST},
-	{ 0x70701, KEY_SCREENLOCK},
-	{ 0x7071f, KEY_HOME},
+	{ 0x70701, KEY_TV2},
+	{ 0x7071f, KEY_INFO},
+	{ 0x7071b, KEY_TV},
+	{ 0x7078b, KEY_AUX},
+	{ 0x7078c, KEY_MEDIA},
 
 };
 
