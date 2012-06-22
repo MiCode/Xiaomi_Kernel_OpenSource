@@ -69,14 +69,11 @@ static void log_gss_sfr(void)
 	wmb();
 }
 
-static void gss_fatal_fn(struct work_struct *work)
+static void restart_gss(void)
 {
-	pr_err("Watchdog bite received from GSS!\n");
 	log_gss_sfr();
 	subsystem_restart("gss");
 }
-
-static DECLARE_WORK(gss_fatal_work, gss_fatal_fn);
 
 static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 {
@@ -88,8 +85,7 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 		pr_err("GSS SMSM state changed to SMSM_RESET.\n"
 			"Probable err_fatal on the GSS. "
 			"Calling subsystem restart...\n");
-		log_gss_sfr();
-		subsystem_restart("gss");
+		restart_gss();
 	}
 }
 
@@ -155,7 +151,8 @@ out:
 
 static irqreturn_t gss_wdog_bite_irq(int irq, void *dev_id)
 {
-	schedule_work(&gss_fatal_work);
+	pr_err("Watchdog bite received from GSS!\n");
+	restart_gss();
 
 	return IRQ_HANDLED;
 }
