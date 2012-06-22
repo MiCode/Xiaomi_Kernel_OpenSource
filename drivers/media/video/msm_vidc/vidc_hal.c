@@ -84,8 +84,8 @@ static void hal_virtio_modify_cmd_packet(u8 *packet)
 	{
 		struct hfi_cmd_session_release_buffer_packet *pkt =
 			(struct hfi_cmd_session_release_buffer_packet *)packet;
-		if ((pkt->buffer_type == HAL_BUFFER_OUTPUT) ||
-			(pkt->buffer_type == HAL_BUFFER_OUTPUT2)) {
+		if ((pkt->buffer_type == HFI_BUFFER_OUTPUT) ||
+			(pkt->buffer_type == HFI_BUFFER_OUTPUT2)) {
 			struct hfi_buffer_info *buff;
 			buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
 			buff->buffer_addr -= HFI_VIRTIO_FW_BIAS;
@@ -824,8 +824,7 @@ int vidc_hal_session_set_property(void *sess,
 	}
 
 	HAL_MSG_INFO("IN func: %s, with property id: %d", __func__, ptype);
-	pkt->size = sizeof(struct hfi_cmd_session_set_property_packet)
-		- sizeof(u32);
+	pkt->size = sizeof(struct hfi_cmd_session_set_property_packet);
 	pkt->packet_type = HFI_CMD_SESSION_SET_PROPERTY;
 	pkt->session_id = (u32) session;
 	pkt->num_properties = 1;
