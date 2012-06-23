@@ -161,6 +161,22 @@ static unsigned int vfd_control_0;
 static unsigned int sp_vs_pvt_mem_addr;
 static unsigned int sp_fs_pvt_mem_addr;
 
+/*
+ * Each load state block has two possible types.  Each type has a different
+ * number of dwords per unit.  Use this handy lookup table to make sure
+ * we dump the right amount of data from the indirect buffer
+ */
+
+static int load_state_unit_sizes[7][2] = {
+	{ 2, 4 },
+	{ 0, 1 },
+	{ 2, 4 },
+	{ 0, 1 },
+	{ 8, 2 },
+	{ 8, 2 },
+	{ 8, 2 },
+};
+
 static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
 	unsigned int ptbase)
 {
@@ -170,11 +186,9 @@ static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
 	 * The object here is to find indirect shaders i.e - shaders loaded from
 	 * GPU memory instead of directly in the command.  These should be added
 	 * to the list of memory objects to dump. So look at the load state
-	 * call and see if 1) the shader block is a shader (block = 4, 5 or 6)
-	 * 2) that the block is indirect (source = 4). If these all match then
-	 * add the memory address to the list.  The size of the object will
-	 * differ depending on the type.  Type 0 (instructions) are 8 dwords per
-	 * unit and type 1 (constants) are 2 dwords per unit.
+	 * if the block is indirect (source = 4). If so then add the memory
+	 * address to the list.  The size of the object differs depending on the
+	 * type per the load_state_unit_sizes array above.
 	 */
 
 	if (type3_pkt_size(pkt[0]) < 2)
@@ -192,9 +206,13 @@ static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
 	source = (pkt[1] >> 16) & 0x07;
 	type = pkt[2] & 0x03;
 
-	if ((block == 4 || block == 5 || block == 6) && source == 4) {
-		int unitsize = (type == 0) ? 8 : 2;
-		int ret;
+	if (source == 4) {
+		int unitsize, ret;
+
+		if (type == 0)
+			unitsize = load_state_unit_sizes[block][0];
+		else
+			unitsize = load_state_unit_sizes[block][1];
 
 		/* Freeze the GPU buffer containing the shader */
 
@@ -528,7 +546,6 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	unsigned int ptbase, rptr, *rbptr, ibbase;
 	int index, size, i;
 	int parse_ibs = 0, ib_parse_start;
-	int skip_pktsize = 1;
 
 	/* Get the physical address of the MMU pagetable */
 	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
@@ -636,18 +653,15 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		 * try to adust for that by modifying the rptr to match a
 		 * packet boundary. Unfortunately for us, it is hard to tell
 		 * which dwords are legitimate type0 header and which are just
-		 * random data so just walk over type0 packets until we get
-		 * to the first type3, and from that point on start checking the
-		 * size of the packet and adjusting accordingly
+		 * random data so only do the adjustments for type3 packets
 		 */
 
-		if (skip_pktsize && pkt_is_type3(rbptr[index]))
-			skip_pktsize = 0;
-
-		if (skip_pktsize == 0) {
-			unsigned int pktsize = type3_pkt_size(rbptr[index]);
+		if (pkt_is_type3(rbptr[index])) {
+			unsigned int pktsize =
+				type3_pkt_size(rbptr[index]);
 			if (index +  pktsize > rptr)
-				rptr = (index + pktsize) % rb->sizedwords;
+				rptr = (index + pktsize) %
+					rb->sizedwords;
 		}
 
 		/*
