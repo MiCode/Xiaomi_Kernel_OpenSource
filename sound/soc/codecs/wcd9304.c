@@ -4642,7 +4642,7 @@ static const struct sitar_reg_mask_val sitar_codec_reg_init_val[] = {
 	/* Initialize current threshold to 350MA
 	* number of wait and run cycles to 4096
 	*/
-	{SITAR_A_RX_HPH_OCP_CTL, 0xF8, 0x60},
+	{SITAR_A_RX_HPH_OCP_CTL, 0xE0, 0x60},
 	{SITAR_A_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 
 	{SITAR_A_QFUSE_CTL, 0xFF, 0x03},
