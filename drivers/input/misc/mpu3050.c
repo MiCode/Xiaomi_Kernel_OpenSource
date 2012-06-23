@@ -40,6 +40,8 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
+#include <linux/input/mpu3050.h>
+#include <linux/regulator/consumer.h>
 
 #define MPU3050_CHIP_ID		0x69
 
@@ -112,7 +114,80 @@ struct mpu3050_sensor {
 	struct i2c_client *client;
 	struct device *dev;
 	struct input_dev *idev;
+	struct mpu3050_gyro_platform_data *platform_data;
+	struct delayed_work input_work;
+	u32    use_poll;
 };
+
+struct sensor_regulator {
+	struct regulator *vreg;
+	const char *name;
+	u32	min_uV;
+	u32	max_uV;
+};
+
+struct sensor_regulator mpu_vreg[] = {
+	{NULL, "vdd", 2100000, 3600000},
+	{NULL, "vlogic", 1800000, 1800000},
+};
+
+static int mpu3050_config_regulator(struct i2c_client *client, bool on)
+{
+	int rc = 0, i;
+	int num_reg = sizeof(mpu_vreg) / sizeof(struct sensor_regulator);
+
+	if (on) {
+		for (i = 0; i < num_reg; i++) {
+			mpu_vreg[i].vreg = regulator_get(&client->dev,
+						mpu_vreg[i].name);
+			if (IS_ERR(mpu_vreg[i].vreg)) {
+				rc = PTR_ERR(mpu_vreg[i].vreg);
+				pr_err("%s:regulator get failed rc=%d\n",
+						__func__, rc);
+				goto error_vdd;
+			}
+
+			if (regulator_count_voltages(mpu_vreg[i].vreg) > 0) {
+				rc = regulator_set_voltage(mpu_vreg[i].vreg,
+					mpu_vreg[i].min_uV, mpu_vreg[i].max_uV);
+				if (rc) {
+					pr_err("%s:set_voltage failed rc=%d\n",
+						__func__, rc);
+					regulator_put(mpu_vreg[i].vreg);
+					goto error_vdd;
+				}
+			}
+
+			rc = regulator_enable(mpu_vreg[i].vreg);
+			if (rc) {
+				pr_err("%s: regulator_enable failed rc =%d\n",
+						__func__,
+						rc);
+
+				if (regulator_count_voltages(
+					mpu_vreg[i].vreg) > 0) {
+					regulator_set_voltage(mpu_vreg[i].vreg,
+						0, mpu_vreg[i].max_uV);
+				}
+				regulator_put(mpu_vreg[i].vreg);
+				goto error_vdd;
+			}
+		}
+		return rc;
+	} else {
+		i = num_reg;
+	}
+error_vdd:
+	while (--i >= 0) {
+		if (regulator_count_voltages(mpu_vreg[i].vreg) > 0) {
+			regulator_set_voltage(mpu_vreg[i].vreg, 0,
+						mpu_vreg[i].max_uV);
+		}
+		regulator_disable(mpu_vreg[i].vreg);
+		regulator_put(mpu_vreg[i].vreg);
+	}
+	return rc;
+}
 
 /**
  *	mpu3050_xyz_read_reg	-	read the axes values
@@ -179,11 +254,21 @@ static void mpu3050_set_power_mode(struct i2c_client *client, u8 val)
 {
 	u8 value;
 
+	if (val) {
+		mpu3050_config_regulator(client, 1);
+		udelay(10);
+	}
+
 	value = i2c_smbus_read_byte_data(client, MPU3050_PWR_MGM);
 	value = (value & ~MPU3050_PWR_MGM_MASK) |
 		(((val << MPU3050_PWR_MGM_POS) & MPU3050_PWR_MGM_MASK) ^
 		 MPU3050_PWR_MGM_MASK);
 	i2c_smbus_write_byte_data(client, MPU3050_PWR_MGM, value);
+
+	if (!val) {
+		udelay(10);
+		mpu3050_config_regulator(client, 0);
+	}
 }
 
 /**
@@ -210,6 +295,9 @@ static int mpu3050_input_open(struct input_dev *input)
 		pm_runtime_put(sensor->dev);
 		return error;
 	}
+	if (sensor->use_poll)
+		schedule_delayed_work(&sensor->input_work,
+			msecs_to_jiffies(MPU3050_DEFAULT_POLL_INTERVAL));
 
 	return 0;
 }
@@ -224,6 +312,9 @@ static int mpu3050_input_open(struct input_dev *input)
 static void mpu3050_input_close(struct input_dev *input)
 {
 	struct mpu3050_sensor *sensor = input_get_drvdata(input);
+
+	if (sensor->use_poll)
+		cancel_delayed_work_sync(&sensor->input_work);
 
 	pm_runtime_put(sensor->dev);
 }
@@ -249,6 +340,33 @@ static irqreturn_t mpu3050_interrupt_thread(int irq, void *data)
 	input_sync(sensor->idev);
 
 	return IRQ_HANDLED;
+}
+
+/**
+ *	mpu3050_input_work_fn -		polling work
+ *	@work: the work struct
+ *
+ *	Called by the work queue; read sensor data and generate an input
+ *	event
+ */
+static void mpu3050_input_work_fn(struct work_struct *work)
+{
+	struct mpu3050_sensor *sensor;
+	struct axis_data axis;
+
+	sensor = container_of((struct delayed_work *)work,
+				struct mpu3050_sensor, input_work);
+
+	mpu3050_read_xyz(sensor->client, &axis);
+
+	input_report_abs(sensor->idev, ABS_X, axis.x);
+	input_report_abs(sensor->idev, ABS_Y, axis.y);
+	input_report_abs(sensor->idev, ABS_Z, axis.z);
+	input_sync(sensor->idev);
+
+	if (sensor->use_poll)
+		schedule_delayed_work(&sensor->input_work,
+			msecs_to_jiffies(MPU3050_DEFAULT_POLL_INTERVAL));
 }
 
 /**
@@ -325,6 +443,7 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 	sensor->client = client;
 	sensor->dev = &client->dev;
 	sensor->idev = idev;
+	sensor->platform_data = client->dev.platform_data;
 
 	mpu3050_set_power_mode(client, 1);
 	msleep(10);
@@ -365,14 +484,22 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 	if (error)
 		goto err_pm_set_suspended;
 
-	error = request_threaded_irq(client->irq,
+	if (client->irq == 0) {
+		INIT_DELAYED_WORK(&sensor->input_work, mpu3050_input_work_fn);
+		sensor->use_poll = 1;
+	} else {
+		sensor->use_poll = 0;
+
+		error = request_threaded_irq(client->irq,
 				     NULL, mpu3050_interrupt_thread,
 				     IRQF_TRIGGER_RISING,
 				     "mpu3050", sensor);
-	if (error) {
-		dev_err(&client->dev,
-			"can't get IRQ %d, error %d\n", client->irq, error);
-		goto err_pm_set_suspended;
+		if (error) {
+			dev_err(&client->dev,
+				"can't get IRQ %d, error %d\n",
+				client->irq, error);
+			goto err_pm_set_suspended;
+		}
 	}
 
 	error = input_register_device(idev);
@@ -387,7 +514,8 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 	return 0;
 
 err_free_irq:
-	free_irq(client->irq, sensor);
+	if (client->irq > 0)
+		free_irq(client->irq, sensor);
 err_pm_set_suspended:
 	pm_runtime_set_suspended(&client->dev);
 err_free_mem:
