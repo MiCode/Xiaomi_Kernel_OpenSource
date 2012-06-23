@@ -56,7 +56,7 @@ static void ci13xxx_msm_resume(void)
 
 	if (_udc_ctxt.wake_irq && _udc_ctxt.wake_irq_state) {
 		disable_irq_wake(_udc_ctxt.wake_irq);
-		disable_irq(_udc_ctxt.wake_irq);
+		disable_irq_nosync(_udc_ctxt.wake_irq);
 		_udc_ctxt.wake_irq_state = false;
 	}
 }
@@ -134,7 +134,7 @@ static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
 	dev_dbg(&pdev->dev, "_udc_ctxt.gpio_irq = %d and irq = %d\n",
 			_udc_ctxt.wake_gpio, wake_irq);
 	ret = request_irq(wake_irq, ci13xxx_msm_resume_irq,
-		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "usb resume", NULL);
+		IRQF_TRIGGER_RISING | IRQF_ONESHOT, "usb resume", NULL);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "could not register USB_RESUME IRQ.\n");
 		goto gpio_free;
