@@ -272,9 +272,11 @@ static enum handoff rpm_clk_handoff(struct clk *clk)
 	if (rc < 0)
 		return HANDOFF_DISABLED_CLK;
 
-	r->last_set_khz = iv.value;
-	r->last_set_sleep_khz = iv.value;
-	clk->rate = iv.value * 1000;
+	if (!r->branch) {
+		r->last_set_khz = iv.value;
+		r->last_set_sleep_khz = iv.value;
+		clk->rate = iv.value * 1000;
+	}
 
 	return HANDOFF_ENABLED_CLK;
 }
