@@ -24,7 +24,7 @@ do { \
 
 %}
 
-%token PE_VALUE PE_VALUE_SYM PE_RAW PE_TERM
+%token PE_VALUE PE_VALUE_SYM PE_RAW PE_SH_RAW PE_FAB_RAW PE_TERM
 %token PE_NAME
 %token PE_MODIFIER_EVENT PE_MODIFIER_BP
 %token PE_NAME_CACHE_TYPE PE_NAME_CACHE_OP_RESULT
@@ -33,6 +33,8 @@ do { \
 %type <num> PE_VALUE
 %type <num> PE_VALUE_SYM
 %type <num> PE_RAW
+%type <num> PE_SH_RAW
+%type <num> PE_FAB_RAW
 %type <num> PE_TERM
 %type <str> PE_NAME
 %type <str> PE_NAME_CACHE_TYPE
@@ -77,7 +79,9 @@ event_def: event_pmu |
 	   event_legacy_mem |
 	   event_legacy_tracepoint sep_dc |
 	   event_legacy_numeric sep_dc |
-	   event_legacy_raw sep_dc
+	   event_legacy_raw sep_dc |
+	   event_legacy_shared_raw sep_dc |
+	   event_legacy_fabric_raw sep_dc
 
 event_pmu:
 PE_NAME '/' event_config '/'
@@ -147,6 +151,18 @@ event_legacy_raw:
 PE_RAW
 {
 	ABORT_ON(parse_events_add_numeric(list_event, idx, PERF_TYPE_RAW, $1, NULL));
+}
+
+event_legacy_shared_raw:
+PE_SH_RAW
+{
+	ABORT_ON(parse_events_add_numeric(list_event, idx, 6, $1, NULL));
+}
+
+event_legacy_fabric_raw:
+PE_FAB_RAW
+{
+	ABORT_ON(parse_events_add_numeric(list_event, idx, 7, $1, NULL));
 }
 
 event_config:

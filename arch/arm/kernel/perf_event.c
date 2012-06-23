@@ -273,6 +273,10 @@ armpmu_del(struct perf_event *event, int flags)
 	hw_events->events[idx] = NULL;
 	clear_bit(idx, hw_events->used_mask);
 
+	/* Clear event constraints. */
+	if (armpmu->clear_event_constraints)
+		armpmu->clear_event_constraints(event);
+
 	perf_event_update_userpage(event);
 }
 
@@ -286,6 +290,17 @@ armpmu_add(struct perf_event *event, int flags)
 	int err = 0;
 
 	perf_pmu_disable(event->pmu);
+	/*
+	 * Tests if event is constrained. If not sets it so that next
+	 * collision can be detected.
+	 */
+	if (armpmu->test_set_event_constraints)
+		if (armpmu->test_set_event_constraints(event) < 0) {
+			pr_err("Event: %llx failed constraint check.\n",
+					event->attr.config);
+			event->state = PERF_EVENT_STATE_OFF;
+			goto out;
+		}
 
 	/* If we don't have a space for the counter then finish early. */
 	idx = armpmu->get_event_idx(hw_events, hwc);
@@ -517,6 +532,7 @@ __hw_perf_event_init(struct perf_event *event)
 		return -EPERM;
 	}
 
+
 	/*
 	 * Store the event encoding into the config_base field.
 	 */
@@ -623,6 +639,7 @@ int armpmu_register(struct arm_pmu *armpmu, char *name, int type)
 #include "perf_event_v6.c"
 #include "perf_event_v7.c"
 #include "perf_event_msm_krait.c"
+#include "perf_event_msm.c"
 
 /*
  * Ensure the PMU has sane values out of reset.
@@ -835,11 +852,11 @@ init_hw_perf_events(void)
 	} else if (0x51 == implementor) {
 		switch (part_number) {
 		case 0x00F0:    /* 8x50 & 7x30*/
-//			cpu_pmu = armv7_scorpion_pmu_init();
+			cpu_pmu = armv7_scorpion_pmu_init();
 			break;
 		case 0x02D0:    /* 8x60 */
 //			fabricmon_pmu_init();
-//			cpu_pmu = armv7_scorpionmp_pmu_init();
+			cpu_pmu = armv7_scorpionmp_pmu_init();
 //			scorpionmp_l2_pmu_init();
 			break;
 		case 0x0490:    /* 8960 sim */
