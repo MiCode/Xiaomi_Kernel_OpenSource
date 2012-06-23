@@ -23,7 +23,7 @@
 #define REG_ADDR_OFFSET_BITMASK	0x000FFFFF
 
 /*Workaround for virtio */
-#define HFI_VIRTIO_FW_BIAS		0x14f00000
+#define HFI_VIRTIO_FW_BIAS		0x0
 
 struct hal_device_data hal_ctxt;
 
@@ -300,7 +300,8 @@ static int read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 	return 0;
 }
 
-static int vidc_hal_alloc(void *mem, void *clnt, u32 size, u32 align, u32 flags)
+static int vidc_hal_alloc(void *mem, void *clnt, u32 size, u32 align, u32 flags,
+		int domain)
 {
 	struct vidc_mem_addr *vmem;
 	struct msm_smem *alloc;
@@ -312,7 +313,7 @@ static int vidc_hal_alloc(void *mem, void *clnt, u32 size, u32 align, u32 flags)
 	vmem = (struct vidc_mem_addr *)mem;
 	HAL_MSG_HIGH("start to alloc: size:%d, Flags: %d", size, flags);
 
-	alloc  = msm_smem_alloc(clnt, size, align, flags);
+	alloc  = msm_smem_alloc(clnt, size, align, flags, domain, 0);
 	HAL_MSG_LOW("Alloc done");
 	if (!alloc) {
 		HAL_MSG_HIGH("Alloc fail in %s", __func__);
@@ -503,7 +504,7 @@ static void vidc_hal_interface_queues_release(struct hal_device *device)
 	device->hal_client = NULL;
 }
 
-static int vidc_hal_interface_queues_init(struct hal_device *dev)
+static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 {
 	struct hfi_queue_table_header *q_tbl_hdr;
 	struct hfi_queue_header *q_hdr;
@@ -513,7 +514,7 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev)
 
 	rc = vidc_hal_alloc((void *) &dev->iface_q_table,
 					dev->hal_client,
-			VIDC_IFACEQ_TABLE_SIZE, 1, 0);
+			VIDC_IFACEQ_TABLE_SIZE, 1, 0, domain);
 	if (rc) {
 		HAL_MSG_ERROR("%s:iface_q_table_alloc_fail", __func__);
 		return -ENOMEM;
@@ -533,7 +534,7 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev)
 		iface_q = &dev->iface_queues[i];
 		rc = vidc_hal_alloc((void *) &iface_q->q_array,
 				dev->hal_client, VIDC_IFACEQ_QUEUE_SIZE,
-				1, 0);
+				1, 0, domain);
 		if (rc) {
 			HAL_MSG_ERROR("%s:iface_q_table_alloc[%d]_fail",
 						__func__, i);
@@ -592,7 +593,7 @@ static int vidc_hal_core_start_cpu(struct hal_device *device)
 	return rc;
 }
 
-int vidc_hal_core_init(void *device)
+int vidc_hal_core_init(void *device, int domain)
 {
 	struct hfi_cmd_sys_init_packet pkt;
 	int rc = 0;
@@ -619,10 +620,10 @@ int vidc_hal_core_init(void *device)
 
 		HAL_MSG_ERROR("Device_Virt_Address : 0x%x,"
 		"Register_Virt_Addr: 0x%x",
-		(u32) dev->hal_data->device_base_addr,
+		dev->hal_data->device_base_addr,
 		(u32) dev->hal_data->register_base_addr);
 
-		rc = vidc_hal_interface_queues_init(dev);
+		rc = vidc_hal_interface_queues_init(dev, domain);
 		if (rc) {
 			HAL_MSG_ERROR("failed to init queues");
 			rc = -ENOMEM;
@@ -1989,11 +1990,11 @@ static int vidc_hal_check_core_registered(
 		list_for_each_safe(curr, next, &core.dev_head) {
 			device = list_entry(curr, struct hal_device, list);
 			if (device && device->hal_data->irq == irq &&
-				(CONTAINS((u32)device->hal_data->
+				(CONTAINS(device->hal_data->
 						device_base_addr,
 						FIRMWARE_SIZE, fw_addr) ||
 				CONTAINS(fw_addr, FIRMWARE_SIZE,
-						(u32)device->hal_data->
+						device->hal_data->
 						device_base_addr) ||
 				CONTAINS((u32)device->hal_data->
 						register_base_addr,
@@ -2007,12 +2008,12 @@ static int vidc_hal_check_core_registered(
 				OVERLAPS(reg_addr, reg_size,
 						(u32)device->hal_data->
 						register_base_addr, reg_size) ||
-				OVERLAPS((u32)device->hal_data->
+				OVERLAPS(device->hal_data->
 						device_base_addr,
 						FIRMWARE_SIZE, fw_addr,
 						FIRMWARE_SIZE) ||
 				OVERLAPS(fw_addr, FIRMWARE_SIZE,
-						(u32)device->hal_data->
+						device->hal_data->
 						device_base_addr,
 						FIRMWARE_SIZE))) {
 				return 0;
@@ -2062,7 +2063,7 @@ void *vidc_hal_add_device(u32 device_id, u32 fw_base_addr, u32 reg_base,
 	struct hal_data *hal = NULL;
 	int rc = 0;
 
-	if (device_id || !fw_base_addr || !reg_base || !reg_size ||
+	if (device_id || !reg_base || !reg_size ||
 			!irq || !callback) {
 		HAL_MSG_ERROR("Invalid Paramters");
 		return NULL;
@@ -2080,13 +2081,7 @@ void *vidc_hal_add_device(u32 device_id, u32 fw_base_addr, u32 reg_base,
 			return NULL;
 		}
 		hal->irq = irq;
-		hal->device_base_addr =
-			ioremap_nocache(fw_base_addr, FIRMWARE_SIZE);
-		if (!hal->device_base_addr) {
-			HAL_MSG_ERROR("could not map fw addr %d of size %d",
-						  fw_base_addr, FIRMWARE_SIZE);
-			goto err_map;
-		}
+		hal->device_base_addr = fw_base_addr;
 		hal->register_base_addr =
 			ioremap_nocache(reg_base, reg_size);
 		if (!hal->register_base_addr) {

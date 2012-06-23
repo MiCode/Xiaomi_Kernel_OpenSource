@@ -834,7 +834,7 @@ struct vidc_iface_q_info {
 
 struct hal_data {
 	u32 irq;
-	u8 *device_base_addr;
+	u32 device_base_addr;
 	u8 *register_base_addr;
 };
 

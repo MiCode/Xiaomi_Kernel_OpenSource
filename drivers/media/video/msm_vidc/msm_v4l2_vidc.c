@@ -21,7 +21,9 @@
 #include <linux/debugfs.h>
 #include <linux/version.h>
 #include <linux/slab.h>
-
+#include <linux/of.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
 #include <media/msm_vidc.h>
 #include "msm_vidc_internal.h"
 #include "vidc_hal_api.h"
@@ -277,8 +279,10 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 			goto exit;
 		}
 		handle = msm_smem_user_to_kernel(v4l2_inst->mem_client,
-				b->m.planes[i].reserved[0],
-				b->m.planes[i].reserved[1]);
+			b->m.planes[i].reserved[0],
+			b->m.planes[i].reserved[1],
+			vidc_inst->core->resources.io_map[NS_MAP].domain,
+			0);
 		if (!handle) {
 			pr_err("Failed to get device buffer address\n");
 			kfree(binfo);
@@ -420,11 +424,92 @@ void msm_vidc_release_video_device(struct video_device *pvdev)
 {
 }
 
+static size_t read_u32_array(struct platform_device *pdev,
+		char *name, u32 *arr, size_t size)
+{
+	int len;
+	size_t sz = 0;
+	struct device_node *np = pdev->dev.of_node;
+	if (!of_get_property(np, name, &len)) {
+		pr_err("Failed to read %s from device tree\n",
+			name);
+		goto fail_read;
+	}
+	sz = len / sizeof(u32);
+	if (sz <= 0) {
+		pr_err("%s not specified in device tree\n", name);
+		goto fail_read;
+	}
+	if (sz > size) {
+		pr_err("Not enough memory to store %s values\n", name);
+		goto fail_read;
+	}
+	if (of_property_read_u32_array(np, name, arr, sz)) {
+		pr_err("error while reading %s from device tree\n",
+			name);
+		goto fail_read;
+	}
+	return sz;
+fail_read:
+	sz = 0;
+	return sz;
+}
+
+static int register_iommu_domains(struct platform_device *pdev,
+	struct msm_vidc_core *core)
+{
+	size_t len;
+	struct msm_iova_partition partition;
+	struct msm_iova_layout layout;
+	int rc = 0;
+	int i;
+	struct iommu_info *io_map = core->resources.io_map;
+	strlcpy(io_map[CP_MAP].name, "vidc-cp-map",
+			sizeof(io_map[CP_MAP].name));
+	strlcpy(io_map[CP_MAP].ctx, "venus_cp",
+			sizeof(io_map[CP_MAP].ctx));
+	strlcpy(io_map[NS_MAP].name, "vidc-ns-map",
+			sizeof(io_map[NS_MAP].name));
+	strlcpy(io_map[NS_MAP].ctx, "venus_ns",
+			sizeof(io_map[NS_MAP].ctx));
+
+	for (i = 0; i < MAX_MAP; i++) {
+		len = read_u32_array(pdev, io_map[i].name,
+				io_map[i].addr_range,
+				(sizeof(io_map[i].addr_range)/sizeof(u32)));
+		if (!len) {
+			pr_err("Error in reading cp address range\n");
+			rc = -EINVAL;
+			break;
+		}
+		partition.start = io_map[i].addr_range[0];
+		partition.size = io_map[i].addr_range[1];
+		layout.partitions = &partition;
+		layout.npartitions = 1;
+		layout.client_name = io_map[i].name;
+		layout.domain_flags = 0;
+		pr_debug("Registering domain with: %lx, %lx, %s\n",
+			partition.start, partition.size, layout.client_name);
+		io_map[i].domain = msm_register_domain(&layout);
+		if (io_map[i].domain < 0) {
+			pr_err("Failed to register cp domain\n");
+			rc = -EINVAL;
+			break;
+		}
+	}
+	/* There is no api provided as msm_unregister_domain, so
+	 * we are not able to unregister the previously
+	 * registered domains if any domain registration fails.*/
+	BUG_ON(i < MAX_MAP);
+	return rc;
+}
+
 static int msm_vidc_initialize_core(struct platform_device *pdev,
 				struct msm_vidc_core *core)
 {
 	struct resource *res;
 	int i = 0;
+	int rc = 0;
 	if (!core)
 		return -EINVAL;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -443,13 +528,19 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	INIT_LIST_HEAD(&core->instances);
 	mutex_init(&core->sync_lock);
 	spin_lock_init(&core->lock);
-	core->base_addr = 0x14f00000;
+	core->base_addr = 0x0;
 	core->state = VIDC_CORE_UNINIT;
 	for (i = SYS_MSG_INDEX(SYS_MSG_START);
 		i <= SYS_MSG_INDEX(SYS_MSG_END); i++) {
 		init_completion(&core->completions[i]);
 	}
-	return 0;
+	rc = register_iommu_domains(pdev, core);
+	if (rc) {
+		pr_err("Failed to register iommu domains: %d\n", rc);
+		goto fail_domain_register;
+	}
+fail_domain_register:
+	return rc;
 }
 
 static int __devinit msm_vidc_probe(struct platform_device *pdev)
