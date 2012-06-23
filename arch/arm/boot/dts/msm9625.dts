@@ -26,6 +26,15 @@
 		      <0xF9002000 0x1000>;
 	};
 
+	l2: cache-controller@f9040000 {
+		compatible = "arm,pl310-cache";
+		reg = <0xf9040000 0x1000>;
+		arm,data-latency = <1 1 1>;
+		arm,tag-latency = <1 1 1>;
+		cache-unified;
+		cache-level = <2>;
+	};
+
 	msmgpio: gpio@fd510000 {
 		compatible = "qcom,msm-gpio";
 		interrupt-controller;
