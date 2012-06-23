@@ -505,6 +505,7 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 {
 	struct usbnet		*unet;
 	struct driver_info	*info;
+	struct usb_device	*udev;
 	unsigned int		iface_num;
 	static int		first_rmnet_iface_num = -EINVAL;
 	int			status = 0;
@@ -555,8 +556,17 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 	if (status)
 		dev_dbg(&iface->dev, "mode debugfs file is not available\n");
 
+	udev = unet->udev;
+
 	/* allow modem to wake up suspended system */
-	device_set_wakeup_enable(&unet->udev->dev, 1);
+	device_set_wakeup_enable(&udev->dev, 1);
+
+	/* set default autosuspend timeout for modem and roothub */
+	if (udev->parent && !udev->parent->parent) {
+		pm_runtime_set_autosuspend_delay(&udev->dev, 1000);
+		pm_runtime_set_autosuspend_delay(&udev->parent->dev, 200);
+	}
+
 out:
 	return status;
 }
