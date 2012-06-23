@@ -60,7 +60,7 @@
 #define MSG_ID_OUTPUT_SECONDARY         41
 #define MSG_ID_STATS_COMPOSITE          42
 #define MSG_ID_OUTPUT_TERTIARY1         43
-
+#define MSG_ID_STOP_LS_ACK              44
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
