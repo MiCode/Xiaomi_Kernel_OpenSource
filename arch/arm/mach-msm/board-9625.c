@@ -21,6 +21,7 @@
 #include <linux/of_irq.h>
 #include <linux/memory.h>
 #include <asm/mach/map.h>
+#include <asm/hardware/cache-l2x0.h>
 #include <asm/hardware/gic.h>
 #include <asm/arch_timer.h>
 #include <asm/mach/arch.h>
@@ -29,6 +30,10 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include "clock.h"
+
+#define L2CC_AUX_CTRL	((0x1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) | \
+			(0x2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
+			(0x1 << L2X0_AUX_CTRL_EVNT_MON_BUS_EN_SHIFT))
 
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
@@ -72,6 +77,7 @@ static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
 
 void __init msm9625_init_irq(void)
 {
+	l2x0_of_init(L2CC_AUX_CTRL, L2X0_AUX_CTRL_MASK);
 	of_irq_init(irq_match);
 }
 
