@@ -370,6 +370,7 @@ static void vfe_send_outmsg(struct v4l2_subdev *sd, uint8_t msgid,
 	struct isp_msg_output msg;
 
 	msg.output_id = msgid;
+	msg.buf.image_mode = -1;
 	msg.buf.ch_paddr[0]     = ch0_paddr;
 	msg.buf.ch_paddr[1]     = ch1_paddr;
 	msg.frameCounter = vfe2x_ctrl->vfeFrameId;
@@ -859,6 +860,7 @@ static void vfe2x_subdev_notify(int id, int path)
 	CDBG("vfe2x_subdev_notify : msgId = %d\n", id);
 	rp.evt_msg.type   = MSM_CAMERA_MSG;
 	rp.evt_msg.msg_id = path;
+	rp.evt_msg.data = NULL;
 	rp.type	   = id;
 	v4l2_subdev_notify(&vfe2x_ctrl->subdev, NOTIFY_VFE_BUF_EVT, &rp);
 	spin_unlock_irqrestore(&vfe2x_ctrl->sd_notify_lock, flags);

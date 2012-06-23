@@ -146,7 +146,7 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 
 static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 {
-	int rc = -EINVAL, image_mode;
+	int rc = -EINVAL;
 	struct msm_vfe_resp *vdata = (struct msm_vfe_resp *)arg;
 	struct msm_free_buf free_buf, temp_free_buf;
 	struct msm_camvfe_params vfe_params;
@@ -154,16 +154,22 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	struct msm_cam_media_controller *pmctl =
 		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	struct msm_cam_v4l2_device *pcam = pmctl->pcam_ptr;
-
-	int vfe_id = vdata->evt_msg.msg_id;
+	struct msm_frame_info *frame_info =
+		(struct msm_frame_info *)vdata->evt_msg.data;
+	uint32_t vfe_id, image_mode;
 	if (!pcam) {
 		pr_debug("%s pcam is null. return\n", __func__);
 		msm_isp_sync_free(vdata);
 		return rc;
 	}
-	/* Convert the vfe msg to the image mode */
-	image_mode = msm_isp_vfe_msg_to_img_mode(pmctl, vfe_id);
-	BUG_ON(image_mode < 0);
+	if (frame_info) {
+		vfe_id = frame_info->path;
+		image_mode = frame_info->image_mode;
+	} else {
+		vfe_id = vdata->evt_msg.msg_id;
+		image_mode = msm_isp_vfe_msg_to_img_mode(pmctl, vfe_id);
+	}
+
 	switch (vdata->type) {
 	case VFE_MSG_V32_START:
 	case VFE_MSG_V32_START_RECORDING:
@@ -302,45 +308,49 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	}
 	case NOTIFY_VFE_MSG_OUT: {
 		uint8_t msgid;
+		int32_t image_mode = -1;
 		struct isp_msg_output *isp_output =
 				(struct isp_msg_output *)arg;
-		switch (isp_output->output_id) {
-		case MSG_ID_OUTPUT_P:
-			msgid = VFE_MSG_OUTPUT_P;
-			break;
-		case MSG_ID_OUTPUT_V:
-			msgid = VFE_MSG_OUTPUT_V;
-			break;
-		case MSG_ID_OUTPUT_T:
-			msgid = VFE_MSG_OUTPUT_T;
-			break;
-		case MSG_ID_OUTPUT_S:
-			msgid = VFE_MSG_OUTPUT_S;
-			break;
-		case MSG_ID_OUTPUT_PRIMARY:
-			msgid = VFE_MSG_OUTPUT_PRIMARY;
-			break;
-		case MSG_ID_OUTPUT_SECONDARY:
-			msgid = VFE_MSG_OUTPUT_SECONDARY;
-			break;
-		default:
-			pr_err("%s: Invalid VFE output id: %d\n",
-				__func__, isp_output->output_id);
-			rc = -EINVAL;
-			break;
+		if (isp_output->buf.image_mode < 0) {
+			switch (isp_output->output_id) {
+			case MSG_ID_OUTPUT_P:
+				msgid = VFE_MSG_OUTPUT_P;
+				break;
+			case MSG_ID_OUTPUT_V:
+				msgid = VFE_MSG_OUTPUT_V;
+				break;
+			case MSG_ID_OUTPUT_T:
+				msgid = VFE_MSG_OUTPUT_T;
+				break;
+			case MSG_ID_OUTPUT_S:
+				msgid = VFE_MSG_OUTPUT_S;
+				break;
+			case MSG_ID_OUTPUT_PRIMARY:
+				msgid = VFE_MSG_OUTPUT_PRIMARY;
+				break;
+			case MSG_ID_OUTPUT_SECONDARY:
+				msgid = VFE_MSG_OUTPUT_SECONDARY;
+				break;
+			default:
+				pr_err("%s: Invalid VFE output id: %d\n",
+					   __func__, isp_output->output_id);
+				rc = -EINVAL;
+				break;
+			}
+			if (!rc)
+				image_mode =
+				msm_isp_vfe_msg_to_img_mode(pmctl, msgid);
+		} else {
+			image_mode = isp_output->buf.image_mode;
 		}
-
-		if (!rc) {
-			isp_event->isp_data.isp_msg.msg_id =
-				isp_output->output_id;
-			isp_event->isp_data.isp_msg.frame_id =
-				isp_output->frameCounter;
-			buf = isp_output->buf;
-			msgid = msm_isp_vfe_msg_to_img_mode(pmctl, msgid);
-			BUG_ON(msgid < 0);
-			msm_mctl_buf_done(pmctl, msgid,
-				&buf, isp_output->frameCounter);
-		}
+		isp_event->isp_data.isp_msg.msg_id =
+			isp_output->output_id;
+		isp_event->isp_data.isp_msg.frame_id =
+			isp_output->frameCounter;
+		buf = isp_output->buf;
+		BUG_ON(image_mode < 0);
+		msm_mctl_buf_done(pmctl, image_mode,
+			&buf, isp_output->frameCounter);
 		}
 		break;
 	case NOTIFY_VFE_MSG_COMP_STATS: {

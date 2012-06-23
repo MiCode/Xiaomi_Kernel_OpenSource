@@ -389,16 +389,19 @@ static void vfe32_stop(struct vfe32_ctrl_type *vfe32_ctrl)
 		vfe32_ctrl->share_ctrl->vfebase + VFE_CAMIF_COMMAND);
 }
 
-static void vfe32_subdev_notify(int id, int path,
+static void vfe32_subdev_notify(int id, int path, int image_mode,
 	struct v4l2_subdev *sd, struct vfe_share_ctrl_t *share_ctrl)
 {
 	struct msm_vfe_resp rp;
+	struct msm_frame_info frame_info;
 	unsigned long flags = 0;
 	spin_lock_irqsave(&share_ctrl->sd_notify_lock, flags);
 	CDBG("vfe32_subdev_notify : msgId = %d\n", id);
 	memset(&rp, 0, sizeof(struct msm_vfe_resp));
 	rp.evt_msg.type   = MSM_CAMERA_MSG;
-	rp.evt_msg.msg_id = path;
+	frame_info.image_mode = image_mode;
+	frame_info.path = path;
+	rp.evt_msg.data = &frame_info;
 	rp.type	   = id;
 	v4l2_subdev_notify(sd, NOTIFY_VFE_BUF_EVT, &rp);
 	spin_unlock_irqrestore(&share_ctrl->sd_notify_lock, flags);
@@ -415,11 +418,15 @@ static int vfe32_config_axi(
 	axi_ctrl->share_ctrl->outpath.out0.ch0 = 0x0000FFFF & *ch_info;
 	axi_ctrl->share_ctrl->outpath.out0.ch1 =
 		0x0000FFFF & (*ch_info++ >> 16);
-	axi_ctrl->share_ctrl->outpath.out0.ch2 = 0x0000FFFF & *ch_info++;
+	axi_ctrl->share_ctrl->outpath.out0.ch2 = 0x0000FFFF & *ch_info;
+	axi_ctrl->share_ctrl->outpath.out0.image_mode =
+		0x0000FFFF & (*ch_info++ >> 16);
 	axi_ctrl->share_ctrl->outpath.out1.ch0 = 0x0000FFFF & *ch_info;
 	axi_ctrl->share_ctrl->outpath.out1.ch1 =
 		0x0000FFFF & (*ch_info++ >> 16);
-	axi_ctrl->share_ctrl->outpath.out1.ch2 = 0x0000FFFF & *ch_info++;
+	axi_ctrl->share_ctrl->outpath.out1.ch2 = 0x0000FFFF & *ch_info;
+	axi_ctrl->share_ctrl->outpath.out1.image_mode =
+		0x0000FFFF & (*ch_info++ >> 16);
 	axi_ctrl->share_ctrl->outpath.out2.ch0 = 0x0000FFFF & *ch_info;
 	axi_ctrl->share_ctrl->outpath.out2.ch1 =
 		0x0000FFFF & (*ch_info++ >> 16);
@@ -1239,7 +1246,14 @@ static struct msm_free_buf *vfe32_check_free_buffer(
 {
 	struct vfe32_output_ch *outch = NULL;
 	struct msm_free_buf *b = NULL;
-	vfe32_subdev_notify(id, path,
+	uint32_t image_mode = 0;
+
+	if (path == VFE_MSG_OUTPUT_PRIMARY)
+		image_mode = axi_ctrl->share_ctrl->outpath.out0.image_mode;
+	else
+		image_mode = axi_ctrl->share_ctrl->outpath.out1.image_mode;
+
+	vfe32_subdev_notify(id, path, image_mode,
 		&axi_ctrl->subdev, axi_ctrl->share_ctrl);
 	outch = vfe32_get_ch(path, axi_ctrl->share_ctrl);
 	if (outch->free_buf.ch_paddr[0])
@@ -1251,7 +1265,13 @@ static int vfe32_configure_pingpong_buffers(
 {
 	struct vfe32_output_ch *outch = NULL;
 	int rc = 0;
-	vfe32_subdev_notify(id, path,
+	uint32_t image_mode = 0;
+	if (path == VFE_MSG_OUTPUT_PRIMARY)
+		image_mode = vfe32_ctrl->share_ctrl->outpath.out0.image_mode;
+	else
+		image_mode = vfe32_ctrl->share_ctrl->outpath.out1.image_mode;
+
+	vfe32_subdev_notify(id, path, image_mode,
 		&vfe32_ctrl->subdev, vfe32_ctrl->share_ctrl);
 	outch = vfe32_get_ch(path, vfe32_ctrl->share_ctrl);
 	if (outch->ping.ch_paddr[0] && outch->pong.ch_paddr[0]) {
@@ -3163,11 +3183,13 @@ static void vfe32_process_error_irq(
 
 static void vfe_send_outmsg(
 	struct axi_ctrl_t *axi_ctrl, uint8_t msgid,
-	uint32_t ch0_paddr, uint32_t ch1_paddr, uint32_t ch2_paddr)
+	uint32_t ch0_paddr, uint32_t ch1_paddr,
+	uint32_t ch2_paddr, uint32_t image_mode)
 {
 	struct isp_msg_output msg;
 
 	msg.output_id = msgid;
+	msg.buf.image_mode = image_mode;
 	msg.buf.ch_paddr[0]	= ch0_paddr;
 	msg.buf.ch_paddr[1]	= ch1_paddr;
 	msg.buf.ch_paddr[2]	= ch2_paddr;
@@ -3268,7 +3290,8 @@ static void vfe32_process_output_path_irq_0(
 
 		vfe_send_outmsg(axi_ctrl,
 			MSG_ID_OUTPUT_PRIMARY, ch0_paddr,
-			ch1_paddr, ch2_paddr);
+			ch1_paddr, ch2_paddr,
+			axi_ctrl->share_ctrl->outpath.out0.image_mode);
 
 		if (axi_ctrl->share_ctrl->liveshot_state == VFE_STATE_STOPPED)
 			axi_ctrl->share_ctrl->liveshot_state = VFE_STATE_IDLE;
@@ -3348,7 +3371,9 @@ static void vfe32_process_output_path_irq_1(
 
 		vfe_send_outmsg(axi_ctrl,
 			MSG_ID_OUTPUT_SECONDARY, ch0_paddr,
-			ch1_paddr, ch2_paddr);
+			ch1_paddr, ch2_paddr,
+			axi_ctrl->share_ctrl->outpath.out1.image_mode);
+
 	} else {
 		axi_ctrl->share_ctrl->outpath.out1.frame_drop_cnt++;
 		CDBG("path_irq_1 - no free buffer!\n");
