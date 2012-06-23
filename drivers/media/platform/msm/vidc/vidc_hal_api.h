@@ -943,7 +943,7 @@ struct buffer_requirements {
 };
 
 /* VIDC_HAL CORE API's */
-int vidc_hal_core_init(void *device);
+int vidc_hal_core_init(void *device, int domain);
 int vidc_hal_core_release(void *device);
 int vidc_hal_core_pc_prep(void *device);
 int vidc_hal_core_set_resource(void *device,

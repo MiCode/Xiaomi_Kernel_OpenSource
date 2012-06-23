@@ -316,6 +316,8 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 				kfree(buf);
 			}
 		}
+		if (inst->extradata_handle)
+			msm_smem_free(inst->mem_client, inst->extradata_handle);
 		spin_unlock_irqrestore(&inst->lock, flags);
 		msm_smem_delete_client(inst->mem_client);
 	}

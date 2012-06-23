@@ -106,6 +106,29 @@ struct msm_video_device {
 	struct video_device vdev;
 };
 
+struct msm_vidc_fw {
+	void *cookie;
+};
+
+struct iommu_info {
+	u32 addr_range[2];
+	char name[64];
+	char ctx[64];
+	int domain;
+	int partition;
+};
+
+enum io_maps {
+	CP_MAP,
+	NS_MAP,
+	MAX_MAP
+};
+
+struct msm_vidc_resources {
+	struct msm_vidc_fw fw;
+	struct iommu_info io_map[MAX_MAP];
+};
+
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex sync_lock;
@@ -121,6 +144,7 @@ struct msm_vidc_core {
 	u32 register_size;
 	u32 irq;
 	enum vidc_core_state state;
+	struct msm_vidc_resources resources;
 	struct completion completions[SYS_MSG_END - SYS_MSG_START + 1];
 };
 
@@ -146,6 +170,7 @@ struct msm_vidc_inst {
 	bool in_reconfig;
 	u32 reconfig_width;
 	u32 reconfig_height;
+	struct msm_smem *extradata_handle;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
