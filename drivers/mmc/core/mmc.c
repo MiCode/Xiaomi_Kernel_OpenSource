@@ -1455,7 +1455,15 @@ static int mmc_suspend(struct mmc_host *host)
 		err = mmc_poweroff_notify(host, MMC_PW_OFF_NOTIFY_SHORT);
 	} else {
 		if (mmc_card_can_sleep(host))
-			err = mmc_card_sleep(host);
+			/*
+			 * If sleep command has error it doesn't mean host
+			 * cannot suspend, but a deeper low power state
+			 * transition for the card has failed. Ignore
+			 * sleep errors so that the suspend is not aborted.
+			 * In error case, mmc_resume() takes care of
+			 * complete intialization of the card.
+			 */
+			mmc_card_sleep(host);
 		else if (!mmc_host_is_spi(host))
 			mmc_deselect_cards(host);
 	}
@@ -1512,7 +1520,7 @@ static int mmc_sleep(struct mmc_host *host)
 	if (card && card->ext_csd.rev >= 3) {
 		err = mmc_card_sleepawake(host, 1);
 		if (err < 0)
-			pr_debug("%s: Error %d while putting card into sleep",
+			pr_warn("%s: Error %d while putting card into sleep",
 				 mmc_hostname(host), err);
 	}
 
