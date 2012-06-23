@@ -1450,43 +1450,55 @@ done:
 	return ret;
 }
 
-static void a2xx_drawctxt_draw_workaround(struct adreno_device *adreno_dev)
+static void a2xx_drawctxt_workaround(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int cmd[11];
 	unsigned int *cmds = &cmd[0];
 
-	adreno_dev->gpudev->ctx_switches_since_last_draw++;
-	/* If there have been > than ADRENO_NUM_CTX_SWITCH_ALLOWED_BEFORE_DRAW
-	 * calls to context switches w/o gmem being saved then we need to
-	 * execute this workaround */
-	if (adreno_dev->gpudev->ctx_switches_since_last_draw >
-		ADRENO_NUM_CTX_SWITCH_ALLOWED_BEFORE_DRAW)
-		adreno_dev->gpudev->ctx_switches_since_last_draw = 0;
-	else
-		return;
-	/*
-	 * Issue an empty draw call to avoid possible hangs due to
-	 * repeated idles without intervening draw calls.
-	 * On adreno 225 the PC block has a cache that is only
-	 * flushed on draw calls and repeated idles can make it
-	 * overflow. The gmem save path contains draw calls so
-	 * this workaround isn't needed there.
-	 */
-	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
-	*cmds++ = (0x4 << 16) | (REG_PA_SU_SC_MODE_CNTL - 0x2000);
-	*cmds++ = 0;
-	*cmds++ = cp_type3_packet(CP_DRAW_INDX, 5);
-	*cmds++ = 0;
-	*cmds++ = 1<<14;
-	*cmds++ = 0;
-	*cmds++ = device->mmu.setstate_memory.gpuaddr;
-	*cmds++ = 0;
-	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
-	*cmds++ = 0x00000000;
+	if (adreno_is_a225(adreno_dev)) {
+		adreno_dev->gpudev->ctx_switches_since_last_draw++;
+		/* If there have been > than
+		 * ADRENO_NUM_CTX_SWITCH_ALLOWED_BEFORE_DRAW calls to context
+		 * switches w/o gmem being saved then we need to execute
+		 * this workaround */
+		if (adreno_dev->gpudev->ctx_switches_since_last_draw >
+				ADRENO_NUM_CTX_SWITCH_ALLOWED_BEFORE_DRAW)
+			adreno_dev->gpudev->ctx_switches_since_last_draw = 0;
+		else
+			return;
+		/*
+		 * Issue an empty draw call to avoid possible hangs due to
+		 * repeated idles without intervening draw calls.
+		 * On adreno 225 the PC block has a cache that is only
+		 * flushed on draw calls and repeated idles can make it
+		 * overflow. The gmem save path contains draw calls so
+		 * this workaround isn't needed there.
+		 */
+		*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
+		*cmds++ = (0x4 << 16) | (REG_PA_SU_SC_MODE_CNTL - 0x2000);
+		*cmds++ = 0;
+		*cmds++ = cp_type3_packet(CP_DRAW_INDX, 5);
+		*cmds++ = 0;
+		*cmds++ = 1<<14;
+		*cmds++ = 0;
+		*cmds++ = device->mmu.setstate_memory.gpuaddr;
+		*cmds++ = 0;
+		*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+		*cmds++ = 0x00000000;
+	} else {
+		/* On Adreno 20x/220, if the events for shader space reuse
+		 * gets dropped, the CP block would wait indefinitely.
+		 * Sending CP_SET_SHADER_BASES packet unblocks the CP from
+		 * this wait.
+		 */
+		*cmds++ = cp_type3_packet(CP_SET_SHADER_BASES, 1);
+		*cmds++ = adreno_encode_istore_size(adreno_dev)
+					| adreno_dev->pix_shader_start;
+	}
 
 	adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
-				    &cmd[0], 11);
+			&cmd[0], cmds - cmd);
 }
 
 static void a2xx_drawctxt_save(struct adreno_device *adreno_dev,
@@ -1540,8 +1552,8 @@ static void a2xx_drawctxt_save(struct adreno_device *adreno_dev,
 		adreno_dev->gpudev->ctx_switches_since_last_draw = 0;
 
 		context->flags |= CTXT_FLAGS_GMEM_RESTORE;
-	} else if (adreno_is_a225(adreno_dev))
-		a2xx_drawctxt_draw_workaround(adreno_dev);
+	} else if (adreno_is_a2xx(adreno_dev))
+		a2xx_drawctxt_workaround(adreno_dev);
 }
 
 static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
@@ -1999,7 +2011,7 @@ struct adreno_gpudev adreno_a2xx_gpudev = {
 	.ctxt_create = a2xx_drawctxt_create,
 	.ctxt_save = a2xx_drawctxt_save,
 	.ctxt_restore = a2xx_drawctxt_restore,
-	.ctxt_draw_workaround = a2xx_drawctxt_draw_workaround,
+	.ctxt_draw_workaround = a2xx_drawctxt_workaround,
 	.irq_handler = a2xx_irq_handler,
 	.irq_control = a2xx_irq_control,
 	.snapshot = a2xx_snapshot,
