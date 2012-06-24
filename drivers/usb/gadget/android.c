@@ -1801,6 +1801,9 @@ static int __devinit android_probe(struct platform_device *pdev)
 		goto err_dev;
 	}
 
+	if (pdata)
+		composite_driver.usb_core_id = pdata->usb_core_id;
+
 	ret = usb_composite_probe(&android_usb_driver, android_bind);
 	if (ret) {
 		pr_err("%s(): Failed to register android "
