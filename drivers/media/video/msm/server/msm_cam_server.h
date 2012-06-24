@@ -61,5 +61,7 @@ int msm_server_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 	struct v4l2_event_subscription *sub);
 int msm_server_get_crop(struct msm_cam_v4l2_device *pcam,
 	int idx, struct v4l2_crop *crop);
-
+int msm_cam_server_request_irq(void *arg);
+int msm_cam_server_update_irqmap(
+	struct msm_cam_server_irqmap_entry *entry);
 #endif /* _MSM_CAM_SERVER_H */
