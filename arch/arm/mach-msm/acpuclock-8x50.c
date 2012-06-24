@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -20,6 +21,7 @@
 #include <linux/cpufreq.h>
 #include <linux/clk.h>
 #include <linux/mfd/tps65023.h>
+#include <linux/platform_device.h>
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -130,7 +132,7 @@ static struct clkctl_acpu_speed *acpu_freq_tbl = acpu_freq_tbl_998;
 #ifdef CONFIG_CPU_FREQ_MSM
 static struct cpufreq_frequency_table freq_table[20];
 
-static void __init cpufreq_table_init(void)
+static void __devinit cpufreq_table_init(void)
 {
 	unsigned int i;
 	unsigned int freq_cnt = 0;
@@ -504,7 +506,7 @@ out:
 	return rc;
 }
 
-static void __init acpuclk_hw_init(void)
+static void __devinit acpuclk_hw_init(void)
 {
 	struct clkctl_acpu_speed *speed;
 	uint32_t div, sel, regval;
@@ -582,7 +584,7 @@ static unsigned long acpuclk_8x50_get_rate(int cpu)
 
 #define PLL0_M_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x308)
 
-static void __init acpu_freq_tbl_fixup(void)
+static void __devinit acpu_freq_tbl_fixup(void)
 {
 	void __iomem *ct_csr_base;
 	uint32_t tcsr_spare2, pll0_m_val;
@@ -645,7 +647,7 @@ skip_efuse_fixup:
 }
 
 /* Initalize the lpj field in the acpu_freq_tbl. */
-static void __init lpj_init(void)
+static void __devinit lpj_init(void)
 {
 	int i;
 	const struct clkctl_acpu_speed *base_clk = drv_state.current_speed;
@@ -657,7 +659,7 @@ static void __init lpj_init(void)
 }
 
 #ifdef CONFIG_MSM_CPU_AVS
-static int __init acpu_avs_init(int (*set_vdd) (int), int khz)
+static int __devinit acpu_avs_init(int (*set_vdd) (int), int khz)
 {
 	int i;
 	int freq_count = 0;
@@ -704,7 +706,7 @@ static struct acpuclk_data acpuclk_8x50_data = {
 	.switch_time_us = 20,
 };
 
-static int __init acpuclk_8x50_init(struct acpuclk_soc_data *soc_data)
+static int __devinit acpuclk_8x50_probe(struct platform_device *pdev)
 {
 	mutex_init(&drv_state.lock);
 	drv_state.acpu_set_vdd = qsd8x50_tps65023_set_dcdc1;
@@ -736,6 +738,16 @@ static int __init acpuclk_8x50_init(struct acpuclk_soc_data *soc_data)
 	return 0;
 }
 
-struct acpuclk_soc_data acpuclk_8x50_soc_data __initdata = {
-	.init = acpuclk_8x50_init,
+static struct platform_driver acpuclk_8x50_driver = {
+	.probe = acpuclk_8x50_probe,
+	.driver = {
+		.name = "acpuclk-8x50",
+		.owner = THIS_MODULE,
+	},
 };
+
+static int __init acpuclk_8x50_init(void)
+{
+	return platform_driver_register(&acpuclk_8x50_driver);
+}
+postcore_initcall(acpuclk_8x50_init);

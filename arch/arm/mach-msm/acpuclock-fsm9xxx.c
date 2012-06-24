@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,8 +11,10 @@
  *
  */
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
 #include <mach/board.h>
 
 #include "acpuclock.h"
@@ -40,13 +42,22 @@ static struct acpuclk_data acpuclk_9xxx_data = {
 	.get_rate = acpuclk_9xxx_get_rate,
 };
 
-static int __init acpuclk_9xxx_init(struct acpuclk_soc_data *soc_data)
+static int __init acpuclk_9xxx_probe(struct platform_device *pdev)
 {
 	acpuclk_register(&acpuclk_9xxx_data);
 	pr_info("ACPU running at %lu KHz\n", acpuclk_get_rate(0));
 	return 0;
 }
 
-struct acpuclk_soc_data acpuclk_9xxx_soc_data __initdata = {
-	.init = acpuclk_9xxx_init,
+static struct platform_driver acpuclk_9xxx_driver = {
+	.driver = {
+		.name = "acpuclk-9xxx",
+		.owner = THIS_MODULE,
+	},
 };
+
+static int __init acpuclk_9xxx_init(void)
+{
+	return platform_driver_probe(&acpuclk_9xxx_driver, acpuclk_9xxx_probe);
+}
+device_initcall(acpuclk_9xxx_init);

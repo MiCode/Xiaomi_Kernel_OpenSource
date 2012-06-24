@@ -65,7 +65,6 @@
 #include "board-msm7627-regulator.h"
 #include "devices.h"
 #include "clock.h"
-#include "acpuclock.h"
 #include "msm-keypad-devices.h"
 #include "pm.h"
 #include "pm-boot.h"
@@ -1775,7 +1774,7 @@ static void __init msm7x2x_init(void)
 		}
 	}
 #endif
-	acpuclk_init(&acpuclk_7x27_soc_data);
+	platform_device_register(&msm7x27_device_acpuclk);
 
 	usb_mpp_init();
 

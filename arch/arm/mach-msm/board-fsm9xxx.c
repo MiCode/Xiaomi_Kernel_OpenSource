@@ -38,7 +38,6 @@
 #include <mach/socinfo.h>
 #include "devices.h"
 #include "timer.h"
-#include "acpuclock.h"
 #include "pm.h"
 #include "spm.h"
 #include <linux/regulator/consumer.h>
@@ -804,11 +803,17 @@ struct platform_device ota_qcrypto_device = {
 	},
 };
 
+static struct platform_device fsm9xxx_device_acpuclk = {
+	.name		= "acpuclk-9xxx",
+	.id		= -1,
+};
+
 /*
  * Devices
  */
 
 static struct platform_device *devices[] __initdata = {
+	&fsm9xxx_device_acpuclk,
 	&msm_device_smd,
 	&msm_device_dmov,
 	&msm_device_nand,
@@ -873,8 +878,6 @@ static struct msm_spm_platform_data msm_spm_data __initdata = {
 
 static void __init fsm9xxx_init(void)
 {
-	acpuclk_init(&acpuclk_9xxx_soc_data);
-
 	regulator_has_full_constraints();
 
 #if defined(CONFIG_I2C_SSBI) || defined(CONFIG_MSM_SSBI)
