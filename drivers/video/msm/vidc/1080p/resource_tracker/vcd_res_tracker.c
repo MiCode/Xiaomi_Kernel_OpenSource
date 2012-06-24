@@ -590,6 +590,12 @@ u32 res_trk_set_perf_level(u32 req_perf_lvl, u32 *pn_set_perf_lvl,
 			__func__, dev_ctxt);
 		return false;
 	}
+	if (dev_ctxt->turbo_mode_set &&
+			(req_perf_lvl < RESTRK_1080P_TURBO_PERF_LEVEL)) {
+		VCDRES_MSG_MED("%s(): TURBO MODE!!\n", __func__);
+		return true;
+	}
+
 	VCDRES_MSG_LOW("%s(), req_perf_lvl = %d", __func__, req_perf_lvl);
 
 	if (resource_context.vidc_platform_data->disable_turbo
