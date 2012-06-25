@@ -410,7 +410,6 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 	struct device		*dev = &pdev->dev;
 
 	int			ret = -ENOMEM;
-	int			irq;
 
 	void __iomem		*regs;
 	void			*mem;
@@ -425,16 +424,30 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 	dwc = PTR_ALIGN(mem, DWC3_ALIGN_MASK + 1);
 	dwc->mem = mem;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
-		dev_err(dev, "missing resource\n");
+		dev_err(dev, "missing IRQ\n");
 		return -ENODEV;
 	}
+	dwc->xhci_resources[1] = *res;
 
-	dwc->res = res;
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(dev, "missing memory resource\n");
+		return -ENODEV;
+	}
+	dwc->xhci_resources[0] = *res;
+	dwc->xhci_resources[0].end = dwc->xhci_resources[0].start +
+					DWC3_XHCI_REGS_END;
 
-	res = devm_request_mem_region(dev, res->start, resource_size(res),
+	 /*
+	  * Request memory region but exclude xHCI regs,
+	  * since it will be requested by the xhci-plat driver.
+	  */
+	res = devm_request_mem_region(dev, res->start + DWC3_GLOBALS_REGS_START,
+			resource_size(res) - DWC3_GLOBALS_REGS_START,
 			dev_name(dev));
+
 	if (!res) {
 		dev_err(dev, "can't request mem region\n");
 		return -ENOMEM;
@@ -446,19 +459,12 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(dev, "missing IRQ\n");
-		return -ENODEV;
-	}
-
 	spin_lock_init(&dwc->lock);
 	platform_set_drvdata(pdev, dwc);
 
 	dwc->regs	= regs;
 	dwc->regs_size	= resource_size(res);
 	dwc->dev	= dev;
-	dwc->irq	= irq;
 
 	if (!strncmp("super", maximum_speed, 5))
 		dwc->maximum_speed = DWC3_DCFG_SUPERSPEED;
@@ -505,15 +511,24 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 		break;
 	case DWC3_MODE_DRD:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+		ret = dwc3_otg_init(dwc);
+		if (ret) {
+			dev_err(dev, "failed to initialize otg\n");
+			goto err1;
+		}
+
 		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize host\n");
+			dwc3_otg_exit(dwc);
 			goto err1;
 		}
 
 		ret = dwc3_gadget_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize gadget\n");
+			dwc3_host_exit(dwc);
+			dwc3_otg_exit(dwc);
 			goto err1;
 		}
 		break;
@@ -542,8 +557,9 @@ err2:
 		dwc3_host_exit(dwc);
 		break;
 	case DWC3_MODE_DRD:
-		dwc3_host_exit(dwc);
 		dwc3_gadget_exit(dwc);
+		dwc3_host_exit(dwc);
+		dwc3_otg_exit(dwc);
 		break;
 	default:
 		/* do nothing */
@@ -576,8 +592,9 @@ static int __devexit dwc3_remove(struct platform_device *pdev)
 		dwc3_host_exit(dwc);
 		break;
 	case DWC3_MODE_DRD:
-		dwc3_host_exit(dwc);
 		dwc3_gadget_exit(dwc);
+		dwc3_host_exit(dwc);
+		dwc3_otg_exit(dwc);
 		break;
 	default:
 		/* do nothing */

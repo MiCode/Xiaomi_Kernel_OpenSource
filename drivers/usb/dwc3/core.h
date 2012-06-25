@@ -50,8 +50,11 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
+#include "dwc3_otg.h"
+
 /* Global constants */
 #define DWC3_ENDPOINTS_NUM	32
+#define DWC3_XHCI_RESOURCES_NUM	2
 
 #define DWC3_EVENT_BUFFERS_SIZE	PAGE_SIZE
 #define DWC3_EVENT_TYPE_MASK	0xfe
@@ -74,6 +77,16 @@
 #define DWC3_GEVNTCOUNT_MASK	0xfffc
 #define DWC3_GSNPSID_MASK	0xffff0000
 #define DWC3_GSNPSREV_MASK	0xffff
+
+/* DWC3 registers memory space boundries */
+#define DWC3_XHCI_REGS_START		0x0
+#define DWC3_XHCI_REGS_END		0x7fff
+#define DWC3_GLOBALS_REGS_START		0xc100
+#define DWC3_GLOBALS_REGS_END		0xc6ff
+#define DWC3_DEVICE_REGS_START		0xc700
+#define DWC3_DEVICE_REGS_END		0xcbff
+#define DWC3_OTG_REGS_START		0xcc00
+#define DWC3_OTG_REGS_END		0xccff
 
 /* Global Registers */
 #define DWC3_GSBUSCFG0		0xc100
@@ -139,8 +152,9 @@
 /* OTG Registers */
 #define DWC3_OCFG		0xcc00
 #define DWC3_OCTL		0xcc04
-#define DWC3_OEVTEN		0xcc08
-#define DWC3_OSTS		0xcc0C
+#define DWC3_OEVT		0xcc08
+#define DWC3_OEVTEN		0xcc0c
+#define DWC3_OSTS		0xcc10
 
 /* Bit fields */
 
@@ -181,6 +195,9 @@
 #define DWC3_GHWPARAMS1_EN_PWROPT(n)	(((n) & (3 << 24)) >> 24)
 #define DWC3_GHWPARAMS1_EN_PWROPT_NO	0
 #define DWC3_GHWPARAMS1_EN_PWROPT_CLK	1
+
+/* Global HWPARAMS6 Register */
+#define DWC3_GHWPARAMS6_SRP_SUPPORT	(1 << 10)
 
 /* Device Configuration Register */
 #define DWC3_DCFG_DEVADDR(addr)	((addr) << 3)
@@ -299,6 +316,37 @@
 #define DWC3_DEPCMD_TYPE_ISOC		1
 #define DWC3_DEPCMD_TYPE_BULK		2
 #define DWC3_DEPCMD_TYPE_INTR		3
+
+/* OTG Events Register */
+#define DWC3_OEVT_DEVICEMODE			(1 << 31)
+#define DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT		(1 << 24)
+#define DWC3_OEVTEN_OTGADEVBHOSTENDEVNT		(1 << 20)
+#define DWC3_OEVTEN_OTGADEVHOSTEVNT		(1 << 19)
+#define DWC3_OEVTEN_OTGADEVHNPCHNGEVNT		(1 << 18)
+#define DWC3_OEVTEN_OTGADEVSRPDETEVNT		(1 << 17)
+#define DWC3_OEVTEN_OTGADEVSESSENDDETEVNT	(1 << 16)
+#define DWC3_OEVTEN_OTGBDEVBHOSTENDEVNT		(1 << 11)
+#define DWC3_OEVTEN_OTGBDEVHNPCHNGEVNT		(1 << 10)
+#define DWC3_OEVTEN_OTGBDEVSESSVLDDETEVNT	(1 << 9)
+#define DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT		(1 << 8)
+
+/* OTG OSTS register */
+#define DWC3_OTG_OSTS_OTGSTATE_SHIFT	(8)
+#define DWC3_OTG_OSTS_OTGSTATE		(0xF << DWC3_OTG_OSTS_OTGSTATE_SHIFT)
+#define DWC3_OTG_OSTS_PERIPHERALSTATE	(1 << 4)
+#define DWC3_OTG_OSTS_XHCIPRTPOWER	(1 << 3)
+#define DWC3_OTG_OSTS_BSESVALID		(1 << 2)
+#define DWC3_OTG_OSTS_VBUSVALID		(1 << 1)
+#define DWC3_OTG_OSTS_CONIDSTS		(1 << 0)
+
+/* OTG OSTS register */
+#define DWC3_OTG_OCTL_PERIMODE		(1 << 6)
+#define DWC3_OTG_OCTL_PRTPWRCTL		(1 << 5)
+#define DWC3_OTG_OCTL_HNPREQ		(1 << 4)
+#define DWC3_OTG_OCTL_SESREQ		(1 << 3)
+#define DWC3_OTG_OCTL_TERMSELDLPULSE	(1 << 2)
+#define DWC3_OTG_OCTL_DEVSETHNPEN	(1 << 1)
+#define DWC3_OTG_OCTL_HSTSETHNPEN	(1 << 0)
 
 /* Structures */
 
@@ -582,8 +630,9 @@ struct dwc3 {
 	spinlock_t		lock;
 	struct device		*dev;
 
+	struct dwc3_otg		*dotg;
 	struct platform_device	*xhci;
-	struct resource		*res;
+	struct resource		xhci_resources[DWC3_XHCI_RESOURCES_NUM];
 
 	struct dwc3_event_buffer **ev_buffs;
 	struct dwc3_ep		*eps[DWC3_ENDPOINTS_NUM];
@@ -593,8 +642,6 @@ struct dwc3 {
 
 	void __iomem		*regs;
 	size_t			regs_size;
-
-	int			irq;
 
 	u32			num_event_buffers;
 	u32			u1u2;
@@ -633,6 +680,12 @@ struct dwc3 {
 
 	u8			test_mode;
 	u8			test_mode_nr;
+
+	/* Indicate if the gadget was powered by the otg driver */
+	bool			vbus_active;
+
+	/* Indicate if software connect was issued by the usb_gadget_driver */
+	bool			softconnect;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -771,6 +824,9 @@ union dwc3_event {
 /* prototypes */
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
+
+int dwc3_otg_init(struct dwc3 *dwc);
+void dwc3_otg_exit(struct dwc3 *dwc);
 
 int dwc3_host_init(struct dwc3 *dwc);
 void dwc3_host_exit(struct dwc3 *dwc);
