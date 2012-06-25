@@ -18,6 +18,7 @@
 #include <linux/mempool.h>
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
+#include <linux/sched.h>
 #include <mach/msm_smd.h>
 #include <asm/atomic.h>
 #include <asm/mach-types.h>
@@ -139,6 +140,7 @@ struct diagchar_dev {
 	int use_device_tree;
 	/* DCI related variables */
 	struct diag_dci_tbl *dci_tbl;
+	struct dci_notification_tbl *dci_notify_tbl;
 	int dci_tag;
 	int dci_client_id;
 	struct mutex dci_mutex;
