@@ -758,10 +758,11 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.vbus_power		= msm_hsusb_vbus_power,
 	.disable_reset_on_disconnect	= true,
 	.enable_lpm_on_dev_suspend	= true,
+	.core_clk_always_on_workaround = true,
 };
 
 static struct msm_hsic_peripheral_platform_data msm_hsic_peripheral_pdata = {
-	.keep_core_clk_on_suspend_workaround = true,
+	.core_clk_always_on_workaround = true,
 };
 
 #define PID_MAGIC_ID		0x71432909
