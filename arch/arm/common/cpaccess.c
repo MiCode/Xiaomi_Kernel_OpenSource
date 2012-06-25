@@ -63,6 +63,8 @@ static struct sysdev_class cpaccess_sysclass = {
 	.name = "cpaccess",
 };
 
+void cpaccess_dummy_inst(void);
+
 #ifdef CONFIG_ARCH_MSM_KRAIT
 /*
  * do_read_il2 - Read indirect L2 registers
@@ -143,9 +145,12 @@ static void do_il2_rw(char *str_tmp)
  */
 static noinline unsigned long cpaccess_dummy(unsigned long write_val)
 {
-	asm("mrc p15, 0, r0, c0, c0, 0\n\t");
-	asm("bx	lr\n\t");
-	return 0xBEEF;
+	unsigned long ret = 0xBEEF;
+
+	asm volatile (".globl cpaccess_dummy_inst\n"
+			"cpaccess_dummy_inst:\n\t"
+			"mrc p15, 0, %0, c0, c0, 0\n\t" : "=r" (ret));
+	return ret;
 } __attribute__((aligned(32)))
 
 /*
@@ -195,7 +200,7 @@ static unsigned long do_cpregister_rw(int write)
 	 * Grab address of the Dummy function, write the MRC/MCR
 	 * instruction, ensuring cache coherency.
 	 */
-	p_opcode = (unsigned long *)&cpaccess_dummy;
+	p_opcode = (unsigned long *)&cpaccess_dummy_inst;
 	mem_text_write_kernel_word(p_opcode, opcode);
 
 #ifdef CONFIG_SMP
