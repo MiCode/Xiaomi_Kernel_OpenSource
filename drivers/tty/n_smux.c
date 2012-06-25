@@ -330,6 +330,7 @@ static int schedule_notify(uint8_t lcid, int event,
 static int ssr_notifier_cb(struct notifier_block *this,
 				unsigned long code,
 				void *data);
+static void smux_uart_power_on_atomic(void);
 
 /**
  * Convert TTY Error Flags to string for logging purposes.
@@ -2048,8 +2049,10 @@ static void smux_tx_pkt(struct smux_lch_t *ch, struct smux_pkt_t *pkt)
  */
 static void smux_flush_tty(void)
 {
+	mutex_lock(&smux.mutex_lha0);
 	if (!smux.tty) {
 		pr_err("%s: ldisc not loaded\n", __func__);
+		mutex_unlock(&smux.mutex_lha0);
 		return;
 	}
 
@@ -2058,6 +2061,8 @@ static void smux_flush_tty(void)
 
 	if (tty_chars_in_buffer(smux.tty) > 0)
 		pr_err("%s: unable to flush UART queue\n", __func__);
+
+	mutex_unlock(&smux.mutex_lha0);
 }
 
 /**
@@ -2106,8 +2111,10 @@ static void smux_purge_ch_tx_queue(struct smux_lch_t *ch)
 
 /**
  * Power-up the UART.
+ *
+ * Must be called with smux.mutex_lha0 already locked.
  */
-static void smux_uart_power_on(void)
+static void smux_uart_power_on_atomic(void)
 {
 	struct uart_state *state;
 
@@ -2121,19 +2128,32 @@ static void smux_uart_power_on(void)
 }
 
 /**
+ * Power-up the UART.
+ */
+static void smux_uart_power_on(void)
+{
+	mutex_lock(&smux.mutex_lha0);
+	smux_uart_power_on_atomic();
+	mutex_unlock(&smux.mutex_lha0);
+}
+
+/**
  * Power down the UART.
  */
 static void smux_uart_power_off(void)
 {
 	struct uart_state *state;
 
+	mutex_lock(&smux.mutex_lha0);
 	if (!smux.tty || !smux.tty->driver_data) {
 		pr_err("%s: unable to find UART port for tty %p\n",
 				__func__, smux.tty);
+		mutex_unlock(&smux.mutex_lha0);
 		return;
 	}
 	state = smux.tty->driver_data;
 	msm_hs_request_clock_off(state->uart_port);
+	mutex_unlock(&smux.mutex_lha0);
 }
 
 /**
@@ -3264,7 +3284,7 @@ static void smuxld_close(struct tty_struct *tty)
 	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
 	if (power_up_uart)
-		smux_uart_power_on();
+		smux_uart_power_on_atomic();
 
 	/* Disconnect from TTY */
 	smux.tty = NULL;
