@@ -259,7 +259,7 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 	.wpswitch_gpio	= PM8921_GPIO_PM_TO_SYS(16),
 #else
 	.wpswitch_gpio	= 66,
-	.wpswitch_polarity = 1,
+	.is_wpswitch_active_low = true,
 #endif
 #endif
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
@@ -305,7 +305,7 @@ void __init msm8930_init_mmc(void)
 	/* SDC3: External card slot */
 	if (!machine_is_msm8930_cdp()) {
 		msm8960_sdc3_data.wpswitch_gpio = 0;
-		msm8960_sdc3_data.wpswitch_polarity = 0;
+		msm8960_sdc3_data.is_wpswitch_active_low = false;
 	}
 	msm_add_sdcc(3, &msm8960_sdc3_data);
 #endif
