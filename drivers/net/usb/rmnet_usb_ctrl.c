@@ -111,7 +111,7 @@ static int is_dev_connected(struct rmnet_ctrl_dev *dev)
 {
 	if (dev) {
 		mutex_lock(&dev->dev_lock);
-		if (!dev->intf) {
+		if (!dev->is_connected) {
 			mutex_unlock(&dev->dev_lock);
 			return 0;
 		}
@@ -761,9 +761,16 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 	dev->tx_ctrl_err_cnt = 0;
 	dev->set_ctrl_line_state_cnt = 0;
 
-	ret = rmnet_usb_ctrl_write_cmd(dev);
+	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
+			USB_CDC_REQ_SET_CONTROL_LINE_STATE,
+			(USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE),
+			dev->cbits_tomdm,
+			dev->intf->cur_altsetting->desc.bInterfaceNumber,
+			NULL, 0, USB_CTRL_SET_TIMEOUT);
 	if (ret < 0)
 		return ret;
+
+	dev->set_ctrl_line_state_cnt++;
 
 	dev->inturb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->inturb) {
@@ -800,7 +807,11 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 			 notification_available_cb, dev, interval);
 
 	usb_mark_last_busy(udev);
-	return rmnet_usb_ctrl_start_rx(dev);
+	ret = rmnet_usb_ctrl_start_rx(dev);
+	if (!ret)
+		dev->is_connected = true;
+
+	return ret;
 }
 
 void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
@@ -813,7 +824,7 @@ void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 	dev->cbits_tolocal = ~ACM_CTRL_CD;
 
 	dev->cbits_tomdm = ~ACM_CTRL_DTR;
-	dev->intf = NULL;
+	dev->is_connected = false;
 	mutex_unlock(&dev->dev_lock);
 
 	wake_up(&dev->read_wait_queue);
