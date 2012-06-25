@@ -11,7 +11,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/pm_qos_params.h>
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/android_pmem.h>
