@@ -93,6 +93,14 @@ enum mdss_mdp_block_type {
 	MDSS_MDP_BLOCK_MAX
 };
 
+enum mdss_mdp_csc_type {
+	MDSS_MDP_CSC_RGB2RGB,
+	MDSS_MDP_CSC_YUV2RGB,
+	MDSS_MDP_CSC_RGB2YUV,
+	MDSS_MDP_CSC_YUV2YUV,
+	MDSS_MDP_MAX_CSC
+};
+
 struct mdss_mdp_ctl {
 	u32 num;
 	u32 ref_cnt;
@@ -272,12 +280,17 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd);
 int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd);
 
+struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator);
+int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer);
 struct mdss_mdp_mixer *mdss_mdp_mixer_get(struct mdss_mdp_ctl *ctl, int mux);
 struct mdss_mdp_pipe *mdss_mdp_mixer_stage_pipe(struct mdss_mdp_ctl *ctl,
 						int mux, int stage);
 int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed);
 int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg);
+
+int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type);
+int mdss_mdp_dspp_setup(struct mdss_mdp_ctl *ctl, struct mdss_mdp_mixer *mixer);
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum);
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_locked(u32 type);
