@@ -47,6 +47,8 @@ struct mdss_res_type {
 	u32 irq_ena;
 	u32 irq_buzy;
 
+	u32 mdp_irq_mask;
+
 	u32 clk_ena;
 	u32 suspend;
 	u32 timeout;
@@ -67,4 +69,22 @@ struct mdss_res_type {
 	u32 *mixer_type_map;
 };
 extern struct mdss_res_type *mdss_res;
+
+enum mdss_hw_index {
+	MDSS_HW_MDP,
+	MDSS_HW_DSI0,
+	MDSS_HW_DSI1,
+	MDSS_HW_HDMI,
+	MDSS_HW_EDP,
+	MDSS_MAX_HW_BLK
+};
+
+struct mdss_hw {
+	u32 hw_ndx;
+	irqreturn_t (*irq_handler)(int irq, void *ptr);
+};
+
+void mdss_enable_irq(struct mdss_hw *hw);
+void mdss_disable_irq(struct mdss_hw *hw);
+void mdss_disable_irq_nosync(struct mdss_hw *hw);
 #endif /* MDSS_H */
