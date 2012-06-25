@@ -186,6 +186,7 @@
 /* Global USB3 PIPE Control Register */
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST (1 << 31)
 #define DWC3_GUSB3PIPECTL_SUSPHY (1 << 17)
+#define DWC3_GUSB3PIPECTL_DELAY_P1P2P3 (7 << 19)
 
 /* Global TX Fifo Size Register */
 #define DWC3_GTXFIFOSIZ_TXFDEF(n) ((n) & 0xffff)
@@ -656,6 +657,7 @@ struct dwc3 {
 #define DWC3_REVISION_185A	0x5533185a
 #define DWC3_REVISION_188A	0x5533188a
 #define DWC3_REVISION_190A	0x5533190a
+#define DWC3_REVISION_230A	0x5533230a
 
 	unsigned		is_selfpowered:1;
 	unsigned		three_stage_setup:1;

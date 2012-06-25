@@ -235,6 +235,47 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 }
 
 /**
+ * dwc3_ext_chg_det_done - callback to handle charger detection completion
+ * @otg: Pointer to the otg transceiver structure
+ * @charger: Pointer to the external charger structure
+ *
+ * Returns 0 on success
+ */
+static void dwc3_ext_chg_det_done(struct usb_otg *otg, struct dwc3_charger *chg)
+{
+	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+
+	/*
+	 * Ignore chg_detection notification if BSV has gone off by this time.
+	 * STOP chg_det as part of !BSV handling would reset the chg_det flags
+	 */
+	if (test_bit(B_SESS_VLD, &dotg->inputs))
+		schedule_work(&dotg->sm_work);
+}
+
+/**
+ * dwc3_set_charger - bind/unbind external charger driver
+ * @otg: Pointer to the otg transceiver structure
+ * @charger: Pointer to the external charger structure
+ *
+ * Returns 0 on success
+ */
+int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger)
+{
+	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+
+	dotg->charger = charger;
+	if (charger)
+		charger->notify_detection_complete = dwc3_ext_chg_det_done;
+
+	return 0;
+}
+
+/* IRQs which OTG driver is interested in handling */
+#define DWC3_OEVT_MASK		(DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT | \
+				 DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT)
+
+/**
  * dwc3_otg_interrupt - interrupt handler for dwc3 otg events.
  * @_dotg: Pointer to out controller context structure
  *
@@ -243,41 +284,76 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 static irqreturn_t dwc3_otg_interrupt(int irq, void *_dotg)
 {
 	struct dwc3_otg *dotg = (struct dwc3_otg *)_dotg;
-	u32 oevt_reg;
+	u32 osts, oevt_reg;
 	int ret = IRQ_NONE;
 	int handled_irqs = 0;
 
 	oevt_reg = dwc3_readl(dotg->regs, DWC3_OEVT);
 
-	if (oevt_reg & DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT) {
+	if (!(oevt_reg & DWC3_OEVT_MASK))
+		return IRQ_NONE;
+
+	osts = dwc3_readl(dotg->regs, DWC3_OSTS);
+
+	if ((oevt_reg & DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT) ||
+	    (oevt_reg & DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT)) {
 		/*
-		 * ID sts has changed, read it and later, in the workqueue
+		 * ID sts has changed, set inputs later, in the workqueue
 		 * function, switch from A to B or from B to A.
 		 */
-		dotg->osts = dwc3_readl(dotg->regs, DWC3_OSTS);
-		if ((dotg->otg.phy->state == OTG_STATE_B_IDLE) ||
-		    (dotg->otg.phy->state == OTG_STATE_A_IDLE)) {
 
-			/*
-			 * OTG state is ABOUT to change to A or B device, but
-			 * since ID sts was chnaged, then we return the state
-			 * machine to the start point.
-			 */
-			 dotg->otg.phy->state = OTG_STATE_UNDEFINED;
-		}
+		if (osts & DWC3_OTG_OSTS_CONIDSTS)
+			set_bit(ID, &dotg->inputs);
+		else
+			clear_bit(ID, &dotg->inputs);
+
+		if (osts & DWC3_OTG_OSTS_BSESVALID)
+			set_bit(B_SESS_VLD, &dotg->inputs);
+		else
+			clear_bit(B_SESS_VLD, &dotg->inputs);
+
 		schedule_work(&dotg->sm_work);
 
-		handled_irqs |= DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT;
+		handled_irqs |= (oevt_reg & DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT) ?
+				DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT : 0;
+		handled_irqs |= (oevt_reg & DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT) ?
+				DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT : 0;
+
 		ret = IRQ_HANDLED;
+
+		/* Clear the interrupts we handled */
+		dwc3_writel(dotg->regs, DWC3_OEVT, handled_irqs);
 	}
 
-	/*
-	 * Clear the interrupts we handled.
-	 */
-	if (ret == IRQ_HANDLED)
-		dwc3_writel(dotg->regs, DWC3_OEVT, handled_irqs);
-
 	return ret;
+}
+
+/**
+ * dwc3_otg_init_sm - initialize OTG statemachine input
+ * @dotg: Pointer to the dwc3_otg structure
+ *
+ */
+void dwc3_otg_init_sm(struct dwc3_otg *dotg)
+{
+	u32 osts = dwc3_readl(dotg->regs, DWC3_OSTS);
+	struct usb_phy *phy = dotg->otg.phy;
+
+	/*
+	 * TODO: If using external notifications then wait here till initial
+	 * state is reported
+	 */
+
+	dev_dbg(phy->dev, "Initialize OTG inputs, osts: 0x%x\n", osts);
+
+	if (osts & DWC3_OTG_OSTS_CONIDSTS)
+		set_bit(ID, &dotg->inputs);
+	else
+		clear_bit(ID, &dotg->inputs);
+
+	if (osts & DWC3_OTG_OSTS_BSESVALID)
+		set_bit(B_SESS_VLD, &dotg->inputs);
+	else
+		clear_bit(B_SESS_VLD, &dotg->inputs);
 }
 
 /**
@@ -292,67 +368,144 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 {
 	struct dwc3_otg *dotg = container_of(w, struct dwc3_otg, sm_work);
 	struct usb_phy *phy = dotg->otg.phy;
+	struct dwc3_charger *charger = dotg->charger;
+	bool work = 0;
 
 	dev_dbg(phy->dev, "%s state\n", otg_state_string(phy->state));
 
 	/* Check OTG state */
 	switch (phy->state) {
 	case OTG_STATE_UNDEFINED:
-		/* Switch to A or B-Device according to IDSTS */
-		if (dotg->osts & DWC3_OTG_OSTS_CONIDSTS)
+		dwc3_otg_init_sm(dotg);
+		/* Switch to A or B-Device according to ID / BSV */
+		if (!test_bit(ID, &dotg->inputs) && phy->otg->host) {
+			dev_dbg(phy->dev, "!id\n");
+			phy->state = OTG_STATE_A_IDLE;
+			work = 1;
+		} else if (test_bit(B_SESS_VLD, &dotg->inputs)) {
+			dev_dbg(phy->dev, "b_sess_vld\n");
 			phy->state = OTG_STATE_B_IDLE;
-		else
-			phy->state = OTG_STATE_A_IDLE;
-
-		schedule_work(&dotg->sm_work);
-		break;
-	case OTG_STATE_B_IDLE:
-		if (dwc3_otg_start_peripheral(&dotg->otg, 1)) {
-			/*
-			 * Probably set_peripheral was not called yet.
-			 * We will re-try as soon as it will be called
-			 */
-			dev_err(phy->dev,
-				"unable to start B-device\n");
-			phy->state = OTG_STATE_UNDEFINED;
-		} else
-			phy->state = OTG_STATE_B_PERIPHERAL;
-
-		schedule_work(&dotg->sm_work);
-		break;
-	case OTG_STATE_B_PERIPHERAL:
-		if (!(dotg->osts & DWC3_OTG_OSTS_CONIDSTS)) {
-			dwc3_otg_start_peripheral(&dotg->otg, 0);
-			phy->state = OTG_STATE_A_IDLE;
-			schedule_work(&dotg->sm_work);
+			work = 1;
+		} else {
+			phy->state = OTG_STATE_B_IDLE;
+			/* TODO: Enter low power state */
 		}
 		break;
+
+	case OTG_STATE_B_IDLE:
+		if (!test_bit(ID, &dotg->inputs) && phy->otg->host) {
+			dev_dbg(phy->dev, "!id\n");
+			phy->state = OTG_STATE_A_IDLE;
+			work = 1;
+			if (charger) {
+				if (charger->chg_type == DWC3_INVALID_CHARGER)
+					charger->start_detection(dotg->charger,
+									false);
+				else
+					charger->chg_type =
+							DWC3_INVALID_CHARGER;
+			}
+		} else if (test_bit(B_SESS_VLD, &dotg->inputs)) {
+			dev_dbg(phy->dev, "b_sess_vld\n");
+			if (charger) {
+				/* Has charger been detected? If no detect it */
+				switch (charger->chg_type) {
+				case DWC3_DCP_CHARGER:
+					/* TODO: initiate LPM */
+					break;
+				case DWC3_CDP_CHARGER:
+					dwc3_otg_start_peripheral(&dotg->otg,
+									1);
+					phy->state = OTG_STATE_B_PERIPHERAL;
+					work = 1;
+					break;
+				case DWC3_SDP_CHARGER:
+					dwc3_otg_start_peripheral(&dotg->otg,
+									1);
+					phy->state = OTG_STATE_B_PERIPHERAL;
+					work = 1;
+					break;
+				default:
+					dev_dbg(phy->dev, "chg_det started\n");
+					charger->start_detection(charger, true);
+					break;
+				}
+			} else {
+				/* no charger registered, start peripheral */
+				if (dwc3_otg_start_peripheral(&dotg->otg, 1)) {
+					/*
+					 * Probably set_peripheral not called
+					 * yet. We will re-try as soon as it
+					 * will be called
+					 */
+					dev_err(phy->dev,
+						"unable to start B-device\n");
+					phy->state = OTG_STATE_UNDEFINED;
+					return;
+				}
+			}
+		} else {
+			if (charger) {
+				if (charger->chg_type == DWC3_INVALID_CHARGER)
+					charger->start_detection(dotg->charger,
+									false);
+				else
+					charger->chg_type =
+							DWC3_INVALID_CHARGER;
+			}
+			/* TODO: Enter low power state */
+		}
+		break;
+
+	case OTG_STATE_B_PERIPHERAL:
+		if (!test_bit(B_SESS_VLD, &dotg->inputs) ||
+				!test_bit(ID, &dotg->inputs)) {
+			dev_dbg(phy->dev, "!id || !bsv\n");
+			dwc3_otg_start_peripheral(&dotg->otg, 0);
+			phy->state = OTG_STATE_B_IDLE;
+			if (charger)
+				charger->chg_type = DWC3_INVALID_CHARGER;
+			work = 1;
+		}
+		break;
+
 	case OTG_STATE_A_IDLE:
 		/* Switch to A-Device*/
-		if (dwc3_otg_start_host(&dotg->otg, 1)) {
-			/*
-			 * Probably set_host was not called yet.
-			 * We will re-try as soon as it will be called
-			 */
-			dev_err(phy->dev,
-				"unable to start A-device\n");
-			phy->state = OTG_STATE_UNDEFINED;
-		} else
-			phy->state = OTG_STATE_A_HOST;
-
-		schedule_work(&dotg->sm_work);
-		break;
-	case OTG_STATE_A_HOST:
-		if (dotg->osts & DWC3_OTG_OSTS_CONIDSTS) {
-			dwc3_otg_start_host(&dotg->otg, 0);
+		if (test_bit(ID, &dotg->inputs)) {
+			dev_dbg(phy->dev, "id\n");
 			phy->state = OTG_STATE_B_IDLE;
-			schedule_work(&dotg->sm_work);
+			work = 1;
+		} else {
+			 if (dwc3_otg_start_host(&dotg->otg, 1)) {
+				/*
+				 * Probably set_host was not called yet.
+				 * We will re-try as soon as it will be called
+				 */
+				dev_dbg(phy->dev,
+					"unable to start A-device\n");
+				phy->state = OTG_STATE_UNDEFINED;
+				return;
+			}
+			phy->state = OTG_STATE_A_HOST;
 		}
 		break;
+
+	case OTG_STATE_A_HOST:
+		if (test_bit(ID, &dotg->inputs)) {
+			dev_dbg(phy->dev, "id\n");
+			dwc3_otg_start_host(&dotg->otg, 0);
+			phy->state = OTG_STATE_B_IDLE;
+			work = 1;
+		}
+		break;
+
 	default:
 		dev_err(phy->dev, "%s: invalid otg-state\n", __func__);
 
 	}
+
+	if (work)
+		schedule_work(&dotg->sm_work);
 }
 
 
@@ -384,13 +537,10 @@ static void dwc3_otg_reset(struct dwc3_otg *dotg)
 	/* Clear all otg events (interrupts) indications  */
 	dwc3_writel(dotg->regs, DWC3_OEVT, 0xFFFF);
 
-	/* Enable only the ConIDStsChngEn event*/
+	/* Enable ID/BSV StsChngEn event*/
 	dwc3_writel(dotg->regs, DWC3_OEVTEN,
-				DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT);
-
-	/* Read OSTS  */
-	dotg->osts = dwc3_readl(dotg->regs, DWC3_OSTS);
-
+			DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT |
+			DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT);
 }
 
 /**
@@ -502,6 +652,8 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 
 	/* dotg is null when GHWPARAMS6[10]=SRPSupport=0, see dwc3_otg_init */
 	if (dotg) {
+		if (dotg->charger)
+			dotg->charger->start_detection(dotg->charger, false);
 		cancel_work_sync(&dotg->sm_work);
 		usb_set_transceiver(NULL);
 		free_irq(dotg->irq, dotg);
