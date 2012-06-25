@@ -32,6 +32,8 @@ struct msm_pcie_gpio_info_t {
 /* msm pcie platfrom data */
 struct msm_pcie_platform {
 	struct msm_pcie_gpio_info_t  *gpio;
+	uint32_t                      axi_addr;
+	uint32_t                      axi_size;
 };
 
 #endif

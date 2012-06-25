@@ -45,10 +45,9 @@ struct msm_pcie_clk_info_t {
 
 /* resource info structure */
 struct msm_pcie_res_info_t {
-	char          *name;
-	uint32_t       start;
-	uint32_t       end;
-	void __iomem  *base;
+	char            *name;
+	struct resource *resource;
+	void __iomem    *base;
 };
 
 /* msm pcie device structure */
@@ -64,6 +63,11 @@ struct msm_pcie_dev_t {
 	void __iomem                 *elbi;
 	void __iomem                 *pcie20;
 	void __iomem                 *axi_conf;
+
+	uint32_t                      axi_bar_start;
+	uint32_t                      axi_bar_end;
+
+	struct resource               dev_mem_res;
 };
 
 extern uint32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev);
