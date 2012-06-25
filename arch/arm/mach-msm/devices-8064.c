@@ -95,14 +95,6 @@
 #define PCIE20_PHYS   0x1b500000
 #define PCIE20_SIZE   SZ_4K
 
-/* AXI address for PCIE device BAR resources */
-#define PCIE_AXI_BAR_PHYS   0x08000000
-#define PCIE_AXI_BAR_SIZE   SZ_8M
-
-/* AXI address for PCIE device config space */
-#define PCIE_AXI_CONF_PHYS   0x08c00000
-#define PCIE_AXI_CONF_SIZE   SZ_4K
-
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
 	.bark_time = 11000,
@@ -1639,13 +1631,13 @@ struct platform_device msm_device_smd_apq8064 = {
 
 static struct resource resources_msm_pcie[] = {
 	{
-		.name   = "parf",
+		.name   = "pcie_parf",
 		.start  = PCIE20_PARF_PHYS,
 		.end    = PCIE20_PARF_PHYS + PCIE20_PARF_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 	{
-		.name   = "elbi",
+		.name   = "pcie_elbi",
 		.start  = PCIE20_ELBI_PHYS,
 		.end    = PCIE20_ELBI_PHYS + PCIE20_ELBI_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
@@ -1654,18 +1646,6 @@ static struct resource resources_msm_pcie[] = {
 		.name   = "pcie20",
 		.start  = PCIE20_PHYS,
 		.end    = PCIE20_PHYS + PCIE20_SIZE - 1,
-		.flags  = IORESOURCE_MEM,
-	},
-	{
-		.name   = "axi_bar",
-		.start  = PCIE_AXI_BAR_PHYS,
-		.end    = PCIE_AXI_BAR_PHYS + PCIE_AXI_BAR_SIZE - 1,
-		.flags  = IORESOURCE_MEM,
-	},
-	{
-		.name   = "axi_conf",
-		.start  = PCIE_AXI_CONF_PHYS,
-		.end    = PCIE_AXI_CONF_PHYS + PCIE_AXI_CONF_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 };
