@@ -2220,6 +2220,21 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 		if (dwc->revision < DWC3_REVISION_230A)
 			dev_warn(dwc->dev, "Unacknowledged event overwritten\n");
 		break;
+	case DWC3_DEVICE_EVENT_VENDOR_DEV_TEST_LMP:
+		/*
+		 * Controllers prior to 2.30a revision has a bug, due to which
+		 * a vendor device test LMP event can not be filtered.  But
+		 * this event is not handled in the current code.  This is a
+		 * special event and 8 bytes of data will follow the event.
+		 * Handling this event is tricky when event buffer is almost
+		 * full. Moreover this event will not occur in normal scenario
+		 * and can only happen with special hosts in testing scenarios.
+		 * Add a warning message to indicate that this event is received
+		 * which means that event buffer might have corrupted.
+		 */
+		if (dwc->revision < DWC3_REVISION_230A)
+			dev_warn(dwc->dev, "Vendor Device Test LMP Received\n");
+		break;
 	default:
 		dev_dbg(dwc->dev, "UNKNOWN IRQ %d\n", event->type);
 	}
@@ -2380,8 +2395,7 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 	}
 
 	/* Enable all but Start and End of Frame IRQs */
-	reg = (DWC3_DEVTEN_VNDRDEVTSTRCVEDEN |
-			DWC3_DEVTEN_EVNTOVERFLOWEN |
+	reg = (DWC3_DEVTEN_EVNTOVERFLOWEN |
 			DWC3_DEVTEN_CMDCMPLTEN |
 			DWC3_DEVTEN_ERRTICERREN |
 			DWC3_DEVTEN_WKUPEVTEN |
