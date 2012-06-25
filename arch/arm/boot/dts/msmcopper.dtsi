@@ -410,4 +410,13 @@
 		qcom,mdss_pan_res = <640 480>;
 		qcom,mdss_pan_bpp = <24>;
 	};
+
+	qcom,wdt@f9017000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0xf9017000 0x1000>;
+		interrupts = <0 3 0 0 4 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+		qcom,ipi-ping = <1>;
+	};
 };
