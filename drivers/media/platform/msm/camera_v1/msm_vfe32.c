@@ -4489,19 +4489,10 @@ int msm_axi_subdev_init(struct v4l2_subdev *sd,
 		goto remap_failed;
 	}
 
-	if (axi_ctrl->fs_vfe == NULL) {
-		axi_ctrl->fs_vfe =
-			regulator_get(&axi_ctrl->pdev->dev, "fs_vfe");
-		if (IS_ERR(axi_ctrl->fs_vfe)) {
-			pr_err("%s: Regulator FS_VFE get failed %ld\n",
-				__func__, PTR_ERR(axi_ctrl->fs_vfe));
-			axi_ctrl->fs_vfe = NULL;
-			goto fs_failed;
-		} else if (regulator_enable(axi_ctrl->fs_vfe)) {
-			pr_err("%s: Regulator FS_VFE enable failed\n",
-							__func__);
-			regulator_put(axi_ctrl->fs_vfe);
-			axi_ctrl->fs_vfe = NULL;
+	if (axi_ctrl->fs_vfe) {
+		rc = regulator_enable(axi_ctrl->fs_vfe);
+		if (rc) {
+			pr_err("%s: Regulator enable failed\n",	__func__);
 			goto fs_failed;
 		}
 	}
@@ -4528,8 +4519,6 @@ int msm_axi_subdev_init(struct v4l2_subdev *sd,
 	return rc;
 clk_enable_failed:
 	regulator_disable(axi_ctrl->fs_vfe);
-	regulator_put(axi_ctrl->fs_vfe);
-	axi_ctrl->fs_vfe = NULL;
 fs_failed:
 	iounmap(axi_ctrl->share_ctrl->vfebase);
 	axi_ctrl->share_ctrl->vfebase = NULL;
@@ -4584,11 +4573,9 @@ void msm_axi_subdev_release(struct v4l2_subdev *sd)
 	tasklet_kill(&axi_ctrl->vfe32_tasklet);
 	msm_cam_clk_enable(&axi_ctrl->pdev->dev, vfe32_clk_info,
 			axi_ctrl->vfe_clk, ARRAY_SIZE(vfe32_clk_info), 0);
-	if (axi_ctrl->fs_vfe) {
+	if (axi_ctrl->fs_vfe)
 		regulator_disable(axi_ctrl->fs_vfe);
-		regulator_put(axi_ctrl->fs_vfe);
-		axi_ctrl->fs_vfe = NULL;
-	}
+
 	iounmap(axi_ctrl->share_ctrl->vfebase);
 	axi_ctrl->share_ctrl->vfebase = NULL;
 
@@ -5137,6 +5124,13 @@ static int vfe32_probe(struct platform_device *pdev)
 		pr_err("%s: no valid mem region\n", __func__);
 		rc = -EBUSY;
 		goto vfe32_no_resource;
+	}
+
+	axi_ctrl->fs_vfe = regulator_get(&pdev->dev, "vdd");
+	if (IS_ERR(axi_ctrl->fs_vfe)) {
+		pr_err("%s: Regulator get failed %ld\n", __func__,
+			PTR_ERR(axi_ctrl->fs_vfe));
+		axi_ctrl->fs_vfe = NULL;
 	}
 
 	/* Request for this device irq from the camera server. If the

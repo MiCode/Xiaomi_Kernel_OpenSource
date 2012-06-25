@@ -3751,19 +3751,11 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd,
 		}
 	}
 
-	if (vfe31_ctrl->fs_vfe == NULL) {
-		vfe31_ctrl->fs_vfe =
-			regulator_get(&vfe31_ctrl->pdev->dev, "fs_vfe");
-		if (IS_ERR(vfe31_ctrl->fs_vfe)) {
-			pr_err("%s: Regulator FS_VFE get failed %ld\n",
-				__func__, PTR_ERR(vfe31_ctrl->fs_vfe));
-			vfe31_ctrl->fs_vfe = NULL;
-			goto vfe_fs_failed;
-		} else if (regulator_enable(vfe31_ctrl->fs_vfe)) {
+	if (vfe31_ctrl->fs_vfe) {
+		rc = regulator_enable(vfe31_ctrl->fs_vfe);
+		if (rc) {
 			pr_err("%s: Regulator FS_VFE enable failed\n",
 							__func__);
-			regulator_put(vfe31_ctrl->fs_vfe);
-			vfe31_ctrl->fs_vfe = NULL;
 			goto vfe_fs_failed;
 		}
 	}
@@ -3795,8 +3787,6 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd,
 
 vfe_clk_enable_failed:
 	regulator_disable(vfe31_ctrl->fs_vfe);
-	regulator_put(vfe31_ctrl->fs_vfe);
-	vfe31_ctrl->fs_vfe = NULL;
 vfe_fs_failed:
 	if (!mctl->sdata->csi_if)
 		iounmap(vfe31_ctrl->camifbase);
@@ -3822,12 +3812,11 @@ void msm_vfe_subdev_release(struct v4l2_subdev *sd)
 
 	msm_cam_clk_enable(&vfe31_ctrl->pdev->dev, vfe_clk_info,
 		vfe31_ctrl->vfe_clk, ARRAY_SIZE(vfe_clk_info), 0);
-	if (vfe31_ctrl->fs_vfe) {
+
+	if (vfe31_ctrl->fs_vfe)
 		regulator_disable(vfe31_ctrl->fs_vfe);
-		regulator_put(vfe31_ctrl->fs_vfe);
-		vfe31_ctrl->fs_vfe = NULL;
-	}
-	CDBG("%s, 31ee_irq\n", __func__);
+
+	CDBG("%s Releasing resources\n", __func__);
 	if (!pmctl->sdata->csi_if)
 		iounmap(vfe31_ctrl->camifbase);
 	iounmap(vfe31_ctrl->vfebase);
@@ -3919,6 +3908,13 @@ static int vfe31_probe(struct platform_device *pdev)
 	disable_irq(vfe31_ctrl->vfeirq->start);
 
 	vfe31_ctrl->pdev = pdev;
+	vfe31_ctrl->fs_vfe = regulator_get(&vfe31_ctrl->pdev->dev, "vdd");
+	if (IS_ERR(vfe31_ctrl->fs_vfe)) {
+		pr_err("%s: Regulator get failed %ld\n", __func__,
+			PTR_ERR(vfe31_ctrl->fs_vfe));
+		vfe31_ctrl->fs_vfe = NULL;
+	}
+
 	sd_info.sdev_type = VFE_DEV;
 	sd_info.sd_index = 0;
 	sd_info.irq_num = vfe31_ctrl->vfeirq->start;

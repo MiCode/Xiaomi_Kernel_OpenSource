@@ -528,16 +528,13 @@ int vpe_enable(uint32_t clk_rate)
 	vpe_ctrl->state = VPE_STATE_INIT;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	enable_irq(vpe_ctrl->vpeirq->start);
-	vpe_ctrl->fs_vpe = regulator_get(NULL, "fs_vpe");
-	if (IS_ERR(vpe_ctrl->fs_vpe)) {
-		pr_err("%s: Regulator FS_VPE get failed %ld\n", __func__,
-			PTR_ERR(vpe_ctrl->fs_vpe));
-		vpe_ctrl->fs_vpe = NULL;
-		goto vpe_fs_failed;
-	} else if (regulator_enable(vpe_ctrl->fs_vpe)) {
-		pr_err("%s: Regulator FS_VPE enable failed\n", __func__);
-		regulator_put(vpe_ctrl->fs_vpe);
-		goto vpe_fs_failed;
+
+	if (vpe_ctrl->fs_vpe) {
+		rc = regulator_enable(vpe_ctrl->fs_vpe);
+		if (rc) {
+			pr_err("%s: Regulator enable failed\n", __func__);
+			goto vpe_fs_failed;
+		}
 	}
 
 	rc = msm_cam_clk_enable(&vpe_ctrl->pdev->dev, vpe_clk_info,
@@ -549,8 +546,6 @@ int vpe_enable(uint32_t clk_rate)
 
 vpe_clk_failed:
 	regulator_disable(vpe_ctrl->fs_vpe);
-	regulator_put(vpe_ctrl->fs_vpe);
-	vpe_ctrl->fs_vpe = NULL;
 vpe_fs_failed:
 	disable_irq(vpe_ctrl->vpeirq->start);
 	vpe_ctrl->state = VPE_STATE_IDLE;
@@ -576,8 +571,6 @@ int vpe_disable(void)
 			vpe_ctrl->vpe_clk, ARRAY_SIZE(vpe_clk_info), 0);
 
 	regulator_disable(vpe_ctrl->fs_vpe);
-	regulator_put(vpe_ctrl->fs_vpe);
-	vpe_ctrl->fs_vpe = NULL;
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	vpe_ctrl->state = VPE_STATE_IDLE;
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
@@ -1026,6 +1019,13 @@ static int msm_vpe_probe(struct platform_device *pdev)
 		goto vpe_no_resource;
 	}
 
+	vpe_ctrl->fs_vpe = regulator_get(&pdev->dev, "vdd");
+	if (IS_ERR(vpe_ctrl->fs_vpe)) {
+		pr_err("%s: Regulator FS_VPE get failed %ld\n", __func__,
+			PTR_ERR(vpe_ctrl->fs_vpe));
+		vpe_ctrl->fs_vpe = NULL;
+	}
+
 	disable_irq(vpe_ctrl->vpeirq->start);
 
 	atomic_set(&vpe_ctrl->active, 0);
@@ -1042,7 +1042,7 @@ static int msm_vpe_probe(struct platform_device *pdev)
 vpe_no_resource:
 	pr_err("%s: VPE Probe failed.\n", __func__);
 	kfree(vpe_ctrl);
-	return 0;
+	return rc;
 }
 
 struct platform_driver msm_vpe_driver = {
