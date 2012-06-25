@@ -116,6 +116,10 @@ static int msm_vb2_ops_buf_init(struct vb2_buffer *vb)
 	}
 	buf_idx = vb->v4l2_buf.index;
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+	if (pmctl == NULL) {
+		pr_err("%s No mctl found\n", __func__);
+		return -EINVAL;
+	}
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
 		if (buf_type == VIDEOBUF2_MULTIPLE_PLANES)
@@ -147,13 +151,14 @@ static int msm_vb2_ops_buf_prepare(struct vb2_buffer *vb)
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	struct msm_cam_v4l2_device *pcam;
 	struct msm_frame_buffer *buf;
-	struct vb2_queue	*vq = vb->vb2_queue;
+	struct vb2_queue *vq;
 
 	D("%s\n", __func__);
-	if (!vb || !vq) {
+	if (!vb || !vb->vb2_queue) {
 		pr_err("%s error : input is NULL\n", __func__);
 		return -EINVAL;
 	}
+	vq = vb->vb2_queue;
 	pcam_inst = vb2_get_drv_priv(vq);
 	pcam = pcam_inst->pcam;
 	buf = container_of(vb, struct msm_frame_buffer, vidbuf);
@@ -207,6 +212,12 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	pcam = pcam_inst->pcam;
 	buf = container_of(vb, struct msm_frame_buffer, vidbuf);
 
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+	if (pmctl == NULL) {
+		pr_err("%s No mctl found\n", __func__);
+		return;
+	}
+
 	if (pcam_inst->vid_fmt.type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		for (i = 0; i < vb->num_planes; i++) {
 			mem = vb2_plane_cookie(vb, i);
@@ -251,7 +262,6 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 		}
 		spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	}
-	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
 		videobuf2_pmem_contig_user_put(mem, pmctl->client);
@@ -274,13 +284,14 @@ static void msm_vb2_ops_buf_queue(struct vb2_buffer *vb)
 	struct msm_cam_v4l2_dev_inst *pcam_inst = NULL;
 	struct msm_cam_v4l2_device *pcam = NULL;
 	unsigned long flags = 0;
-	struct vb2_queue *vq = vb->vb2_queue;
+	struct vb2_queue *vq;
 	struct msm_frame_buffer *buf;
 	D("%s\n", __func__);
-	if (!vb || !vq) {
+	if (!vb || !vb->vb2_queue) {
 		pr_err("%s error : input is NULL\n", __func__);
 		return ;
 	}
+	vq = vb->vb2_queue;
 	pcam_inst = vb2_get_drv_priv(vq);
 	pcam = pcam_inst->pcam;
 	D("%s pcam_inst=%p,(vb=0x%p),idx=%d,len=%d\n",
@@ -473,6 +484,10 @@ int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam)
 {
 	struct msm_cam_media_controller *pmctl;
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+	if (pmctl == NULL) {
+		pr_err("%s No mctl found\n", __func__);
+		return -EINVAL;
+	}
 	pmctl->mctl_vbqueue_init = msm_vbqueue_init;
 	return 0;
 }

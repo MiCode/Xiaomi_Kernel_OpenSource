@@ -899,6 +899,12 @@ static int msm_cam_server_open_session(struct msm_cam_server_dev *ps,
 	/*for single VFE msms (8660, 8960v1), just populate the session
 	with our VFE devices that registered*/
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+	if (pmctl == NULL) {
+		pr_err("%s: cannot find mctl\n", __func__);
+		msm_mctl_free(pcam);
+		atomic_dec(&ps->number_pcam_active);
+		return -ENODEV;
+	}
 	pmctl->axi_sdev = ps->axi_device[0];
 	pmctl->isp_sdev = ps->isp_subdev[0];
 	return rc;
@@ -2019,7 +2025,7 @@ int msm_cam_server_open_mctl_session(struct msm_cam_v4l2_device *pcam,
 	}
 
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
-	if (!pmctl->mctl_open) {
+	if (!pmctl || !pmctl->mctl_open) {
 		D("%s: media contoller is not inited\n",
 			 __func__);
 		rc = -ENODEV;
@@ -2297,7 +2303,10 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 	/* assume there is only one active camera possible*/
 	config_cam->p_mctl =
 		msm_cam_server_get_mctl(g_server_dev.pcam_active->mctl_handle);
-
+	if (!config_cam->p_mctl) {
+		pr_err("%s: cannot find mctl\n", __func__);
+		return -ENODEV;
+	}
 	INIT_HLIST_HEAD(&config_cam->p_mctl->stats_info.pmem_stats_list);
 	spin_lock_init(&config_cam->p_mctl->stats_info.pmem_stats_spinlock);
 
