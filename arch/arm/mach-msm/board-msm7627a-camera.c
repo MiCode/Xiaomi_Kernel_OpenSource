@@ -120,6 +120,21 @@ static struct camera_vreg_t msm_cam_vreg[] = {
 	{"usb2", REG_LDO, 1800000, 1800000, 0},
 };
 
+static struct camera_vreg_t ov5647_gpio_vreg[] = {
+	{"cam_ov5647_avdd", REG_GPIO, 0, 0, 0},
+	{"cam_ov5647_vdd", REG_GPIO, 0, 0, 0},
+};
+
+static struct camera_vreg_t ov8825_gpio_vreg[] = {
+	{"cam_ov8825_avdd", REG_GPIO, 0, 0, 0},
+	{"cam_ov8825_vdd", REG_GPIO, 0, 0, 0},
+};
+
+static struct camera_vreg_t ov7692_gpio_vreg[] = {
+	{"cam_ov7692_avdd", REG_GPIO, 0, 0, 0},
+	{"cam_ov7692_vdd", REG_GPIO, 0, 0, 0},
+};
+
 static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data;
 
 struct msm_camera_device_platform_data msm_camera_device_data_csi1[] = {
@@ -180,7 +195,6 @@ static struct msm_camera_sensor_platform_info sensor_board_info_s5k4e1 = {
 static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data = {
 	.sensor_name    = "s5k4e1",
 	.sensor_reset_enable = 1,
-	.pmic_gpio_enable    = 0,
 	.pdata                  = &msm_camera_device_data_csi1[0],
 	.flash_data             = &flash_s5k4e1,
 	.sensor_platform_info   = &sensor_board_info_s5k4e1,
@@ -206,8 +220,6 @@ static struct msm_camera_sensor_flash_data flash_ov7692 = {
 static struct msm_camera_sensor_info msm_camera_sensor_ov7692_data = {
 	.sensor_name	    = "ov7692",
 	.sensor_reset_enable    = 0,
-	.pmic_gpio_enable  = 1,
-	.sensor_lcd_gpio_onoff = lcd_camera_power_onoff,
 	.sensor_reset	   = GPIO_SKU1_CAM_VGA_RESET_N,
 	.sensor_pwd	     = GPIO_SKU1_CAM_VGA_SHDN,
 	.pdata			= &msm_camera_device_data_csi0[0],
@@ -250,8 +262,6 @@ static struct msm_camera_sensor_flash_data flash_ov5647 = {
 static struct msm_camera_sensor_info msm_camera_sensor_ov5647_data = {
 	.sensor_name    = "ov5647",
 	.sensor_reset_enable = 1,
-	.pmic_gpio_enable  = 1,
-	.sensor_lcd_gpio_onoff = lcd_camera_power_onoff,
 	.sensor_reset   = GPIO_SKU3_CAM_5MP_CAMIF_RESET,
 	.sensor_pwd     = GPIO_SKU3_CAM_5MP_SHDN_N,
 	.pdata          = &msm_camera_device_data_csi1[0],
@@ -311,7 +321,6 @@ static struct msm_camera_sensor_platform_info sensor_board_info_mt9e013 = {
 static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
 	.sensor_name    = "mt9e013",
 	.sensor_reset_enable = 1,
-	.pmic_gpio_enable    = 0,
 	.pdata                  = &msm_camera_device_data_csi1[1],
 	.flash_data             = &flash_mt9e013,
 	.sensor_platform_info   = &sensor_board_info_mt9e013,
@@ -337,7 +346,6 @@ static struct msm_camera_sensor_platform_info sensor_board_info_ov9726 = {
 static struct msm_camera_sensor_info msm_camera_sensor_ov9726_data = {
 	.sensor_name    = "ov9726",
 	.sensor_reset_enable = 0,
-	.pmic_gpio_enable  = 0,
 	.pdata                  = &msm_camera_device_data_csi0[0],
 	.flash_data             = &flash_ov9726,
 	.sensor_platform_info   = &sensor_board_info_ov9726,
@@ -370,6 +378,21 @@ static void __init msm7x27a_init_cam(void)
 		sensor_board_info_ov8825.cam_vreg = NULL;
 		sensor_board_info_ov8825.num_vreg = 0;
 
+	}
+	if (machine_is_msm8625_evb()
+			|| machine_is_msm8625_evt()) {
+		sensor_board_info_ov7692.cam_vreg =
+			ov7692_gpio_vreg;
+		sensor_board_info_ov7692.num_vreg =
+			ARRAY_SIZE(ov7692_gpio_vreg);
+		sensor_board_info_ov5647.cam_vreg =
+			ov5647_gpio_vreg;
+		sensor_board_info_ov5647.num_vreg =
+			ARRAY_SIZE(ov5647_gpio_vreg);
+		sensor_board_info_ov8825.cam_vreg =
+			ov8825_gpio_vreg;
+		sensor_board_info_ov8825.num_vreg =
+			ARRAY_SIZE(ov8825_gpio_vreg);
 	}
 	platform_device_register(&msm_camera_server);
 	if (machine_is_msm8625_surf() || machine_is_msm8625_evb()
@@ -1022,6 +1045,7 @@ static void __init register_i2c_devices(void)
 				ARRAY_SIZE(cam_exp_i2c_info));
 }
 
+#ifndef CONFIG_MSM_CAMERA_V4L2
 #define LCD_CAMERA_LDO_2V8 35 /* SKU1&SKU3 2.8V LDO */
 #define SKU3_LCD_CAMERA_LDO_1V8 40 /* SKU3 1.8V LDO */
 #define SKU7_LCD_CAMERA_LDO_1V8 58 /* SKU7 1.8V LDO */
@@ -1120,6 +1144,7 @@ int lcd_camera_power_onoff(int on)
 	return rc;
 }
 EXPORT_SYMBOL(lcd_camera_power_onoff);
+#endif
 
 void __init msm7627a_camera_init(void)
 {
@@ -1140,7 +1165,6 @@ void __init msm7627a_camera_init(void)
 			GPIO_SKU7_CAM_5MP_SHDN_N;
 		msm_camera_sensor_ov5647_data.sensor_reset =
 			GPIO_SKU7_CAM_5MP_CAMIF_RESET;
-
 	}
 
 	/* LCD and camera power (VREG & LDO) init */
@@ -1148,8 +1172,9 @@ void __init msm7627a_camera_init(void)
 			|| machine_is_msm8625_evt()
 			|| machine_is_msm7627a_qrd3()
 			|| machine_is_msm8625_qrd7()) {
-
+#ifndef CONFIG_MSM_CAMERA_V4L2
 		lcd_camera_power_init();
+#endif
 		evb_camera_gpio_cfg();
 	}
 
