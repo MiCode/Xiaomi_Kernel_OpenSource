@@ -573,10 +573,10 @@ msm_free_irq(int irq)
  */
 static int msm_test_set_ev_constraint(struct perf_event *event)
 {
-	u32 krait_evt_type = event->attr.config & KRAIT_EVENT_MASK;
-	u8 prefix = (krait_evt_type & 0xF0000) >> 16;
-	u8 reg = (krait_evt_type & 0x0F000) >> 12;
-	u8 group = krait_evt_type & 0x0000F;
+	u32 evt_type = event->attr.config & KRAIT_EVENT_MASK;
+	u8 prefix = (evt_type & 0xF0000) >> 16;
+	u8 reg = (evt_type & 0x0F000) >> 12;
+	u8 group = evt_type & 0x0000F;
 	u64 cpu_pmu_bitmap = __get_cpu_var(pmu_bitmap);
 	u64 bitmap_t;
 
@@ -598,10 +598,10 @@ static int msm_test_set_ev_constraint(struct perf_event *event)
 
 static int msm_clear_ev_constraint(struct perf_event *event)
 {
-	u32 krait_evt_type = event->attr.config & KRAIT_EVENT_MASK;
-	u8 prefix = (krait_evt_type & 0xF0000) >> 16;
-	u8 reg = (krait_evt_type & 0x0F000) >> 12;
-	u8 group = krait_evt_type & 0x0000F;
+	u32 evt_type = event->attr.config & KRAIT_EVENT_MASK;
+	u8 prefix = (evt_type & 0xF0000) >> 16;
+	u8 reg = (evt_type & 0x0F000) >> 12;
+	u8 group = evt_type & 0x0000F;
 	u64 cpu_pmu_bitmap = __get_cpu_var(pmu_bitmap);
 	u64 bitmap_t;
 
