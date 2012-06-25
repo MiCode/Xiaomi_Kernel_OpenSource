@@ -127,9 +127,9 @@ static int __devinit msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 					PRNG_HW_ENABLE;
 	/* PRNG H/W is not ON */
 	if (val != PRNG_HW_ENABLE) {
-		val = readl_relaxed(msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET) &
-					PRNG_LFSR_CFG_MASK;
-		val |= PRNG_LFSR_CFG_MASK;
+		val = readl_relaxed(msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET);
+		val &= PRNG_LFSR_CFG_MASK;
+		val |= PRNG_LFSR_CFG_CLOCKS;
 		writel_relaxed(val, msm_rng_dev->base + PRNG_LFSR_CFG_OFFSET);
 
 		/* The PRNG CONFIG register should be first written */
