@@ -51,6 +51,7 @@
 static int mdm_debug_on;
 static struct workqueue_struct *mdm_queue;
 static struct workqueue_struct *mdm_sfr_queue;
+static unsigned int dump_timeout_ms;
 
 #define EXTERNAL_MODEM "external_modem"
 
@@ -395,7 +396,7 @@ static int mdm_subsys_ramdumps(int want_dumps,
 		mdm_drv->boot_type = CHARM_RAM_DUMPS;
 		complete(&mdm_needs_reload);
 		if (!wait_for_completion_timeout(&mdm_ram_dumps,
-				msecs_to_jiffies(MDM_RDUMP_TIMEOUT))) {
+				msecs_to_jiffies(dump_timeout_ms))) {
 			mdm_drv->mdm_ram_dump_status = -ETIMEDOUT;
 			pr_info("%s: mdm modem ramdumps timed out.\n",
 					__func__);
@@ -516,6 +517,8 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 
 	mdm_drv->ops      = mdm_ops;
 	mdm_drv->pdata    = pdev->dev.platform_data;
+	dump_timeout_ms = mdm_drv->pdata->ramdump_timeout_ms > 0 ?
+		mdm_drv->pdata->ramdump_timeout_ms : MDM_RDUMP_TIMEOUT;
 }
 
 int mdm_common_create(struct platform_device  *pdev,

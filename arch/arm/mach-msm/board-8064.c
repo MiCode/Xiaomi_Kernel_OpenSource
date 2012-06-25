@@ -1712,6 +1712,7 @@ static struct mdm_platform_data mdm_platform_data = {
 	.sfr_query = 1,
 	.vddmin_resource = &mdm_vddmin_rscs,
 	.peripheral_platform_device = &apq8064_device_hsic_host,
+	.ramdump_timeout_ms = 120000,
 };
 
 static struct tsens_platform_data apq_tsens_pdata  = {
