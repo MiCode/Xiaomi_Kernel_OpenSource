@@ -147,13 +147,6 @@ struct dwc3_msm {
 #define USB_PHY_VDD_DIG_VOL_MIN		1045000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX		1320000 /* uV */
 
-enum usb_vdd_value {
-	VDD_NONE = 0,
-	VDD_MIN,
-	VDD_MAX,
-	VDD_VAL_MAX,
-};
-
 static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
 		{  /* VDD_CX CORNER Voting */
 			[VDD_NONE]	= RPM_VREG_CORNER_NONE,
