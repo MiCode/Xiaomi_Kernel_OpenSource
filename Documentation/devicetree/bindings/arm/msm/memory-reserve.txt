@@ -1,0 +1,42 @@
+* Memory reservations for MSM targets
+
+Large contiguous allocations (generally sizes greater than 64KB) must be
+allocated from a carved out memory pool. The size of the carved out pools
+is based on the sizes drivers need. To properly size the pools, devices
+must specify the size and type of the memory needed. Any driver wanting to
+allocate contiguous memory should indicate this via device tree bindings:
+
+Required parameters:
+- qcom,memory-reservation-type: type of memory to be reserved. This is a
+string defined in arch/arm/mach-msm/memory.c
+- qcom,memory-reservation-size: size of memory to be reserved
+
+Example:
+
+	qcom,a-driver {
+		compatible = "qcom,a-driver";
+		qcom,memory-reservation-type = "EBI1" /* reserve EBI memory */
+		qcom,memory-reservation-size = <0x400000>; /* size 4MB */
+	};
+
+Under some circumstances, it may be necessary to remove a chunk of memory
+from the kernel completely using memblock remove. Note this is different
+than adjusting the memory tags passed in via the bootloader as the virtual
+range is not affected. Any driver needing to remove a block of memory should
+add the appropriate binding:
+
+Required parameters:
+- qcom,memblock-remove: base and size of block to be removed
+
+	qcom,a-driver {
+		compatible = "qcom,a-driver";
+		/* Remove 4MB at 0x200000*/
+		qcom,memblock-remove = <0x200000 0x400000>;
+	};
+
+In order to ensure memory is only reserved when a driver is actually enabled,
+drivers are required to add EXPORT_COMPAT(<name of compatible string>) some
+where in the driver. For the examples above, the driver must add
+EXPORT_COMPAT("qcom,a-driver") to the driver, similar to EXPORT_SYMBOL.
+The EXPORT_COMPAT is to ensure that memory is only carved out if the
+driver is actually enabled, otherwise the memory will not be used.
