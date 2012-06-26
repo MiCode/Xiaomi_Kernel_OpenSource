@@ -240,8 +240,8 @@ enum vfe_output_state {
 #define V32_OPERATION_CFG_LEN     44
 
 #define V32_AXI_OUT_OFF           0x00000038
-#define V32_AXI_OUT_LEN           216
-#define V32_AXI_CH_INF_LEN        24
+#define V32_AXI_OUT_LEN           224
+#define V32_AXI_CH_INF_LEN        32
 #define V32_AXI_CFG_LEN           47
 #define V32_AXI_BUS_FMT_OFF    1
 #define V32_AXI_BUS_FMT_LEN    4
@@ -803,6 +803,7 @@ struct vfe32_output_path {
 	struct vfe32_output_ch out0; /* preview and thumbnail */
 	struct vfe32_output_ch out1; /* snapshot */
 	struct vfe32_output_ch out2; /* rdi0    */
+	struct vfe32_output_ch out3; /* rdi01   */
 };
 
 struct vfe32_frame_extra {
@@ -908,6 +909,7 @@ struct vfe32_frame_extra {
 #define VFE32_OUTPUT_MODE_SECONDARY		BIT(8)
 #define VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS	BIT(9)
 #define VFE32_OUTPUT_MODE_TERTIARY1		BIT(10)
+#define VFE32_OUTPUT_MODE_TERTIARY2		BIT(11)
 
 struct vfe_stats_control {
 	uint8_t  ackPending;

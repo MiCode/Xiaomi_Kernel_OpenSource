@@ -181,7 +181,7 @@ enum isp_vfe_cmd_id {
 
 struct msm_cam_v4l2_device;
 struct msm_cam_v4l2_dev_inst;
-#define MSM_MAX_IMG_MODE                8
+#define MSM_MAX_IMG_MODE                MSM_V4L2_EXT_CAPTURE_MODE_MAX
 
 enum msm_buffer_state {
 	MSM_BUFFER_STATE_UNUSED,

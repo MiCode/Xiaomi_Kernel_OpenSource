@@ -1559,6 +1559,10 @@ static int msm_mctl_vidbuf_get_path(u32 extendedmode)
 		return OUTPUT_TYPE_S;
 	case MSM_V4L2_EXT_CAPTURE_MODE_VIDEO:
 		return OUTPUT_TYPE_V;
+	case MSM_V4L2_EXT_CAPTURE_MODE_RDI:
+		return OUTPUT_TYPE_R;
+	case MSM_V4L2_EXT_CAPTURE_MODE_RDI1:
+		return OUTPUT_TYPE_R1;
 	case MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT:
 	case MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW:
 	default:

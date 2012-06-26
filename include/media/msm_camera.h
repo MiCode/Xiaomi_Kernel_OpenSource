@@ -29,6 +29,8 @@
 
 #include <linux/ion.h>
 
+#define BIT(nr)   (1UL << (nr))
+
 #define MSM_CAM_IOCTL_MAGIC 'm'
 
 #define MSM_CAM_IOCTL_GET_SENSOR_INFO \
@@ -446,12 +448,12 @@ struct msm_camera_cfg_cmd {
 #define CMD_VFE_BUFFER_RELEASE 51
 #define CMD_VFE_PROCESS_IRQ 52
 
-#define CMD_AXI_CFG_PRIM		0xc1
-#define CMD_AXI_CFG_PRIM_ALL_CHNLS	0xc2
-#define CMD_AXI_CFG_SEC			0xc4
-#define CMD_AXI_CFG_SEC_ALL_CHNLS	0xc8
-#define CMD_AXI_CFG_TERT1		0xd0
-
+#define CMD_AXI_CFG_PRIM               BIT(8)
+#define CMD_AXI_CFG_PRIM_ALL_CHNLS     BIT(9)
+#define CMD_AXI_CFG_SEC                BIT(10)
+#define CMD_AXI_CFG_SEC_ALL_CHNLS      BIT(11)
+#define CMD_AXI_CFG_TERT1              BIT(12)
+#define CMD_AXI_CFG_TERT2              BIT(13)
 
 #define CMD_AXI_START  0xE1
 #define CMD_AXI_STOP   0xE2
@@ -551,25 +553,31 @@ struct outputCfg {
 #define OUTPUT_ZSL_ALL_CHNLS 10
 #define LAST_AXI_OUTPUT_MODE_ENUM = OUTPUT_ZSL_ALL_CHNLS
 
-#define OUTPUT_PRIM		0xC1
-#define OUTPUT_PRIM_ALL_CHNLS	0xC2
-#define OUTPUT_SEC		0xC4
-#define OUTPUT_SEC_ALL_CHNLS	0xC8
-#define OUTPUT_TERT1		0xD0
+#define OUTPUT_PRIM              BIT(8)
+#define OUTPUT_PRIM_ALL_CHNLS    BIT(9)
+#define OUTPUT_SEC               BIT(10)
+#define OUTPUT_SEC_ALL_CHNLS     BIT(11)
+#define OUTPUT_TERT1             BIT(12)
+#define OUTPUT_TERT2             BIT(13)
+
 
 
 #define MSM_FRAME_PREV_1	0
 #define MSM_FRAME_PREV_2	1
 #define MSM_FRAME_ENC		2
 
-#define OUTPUT_TYPE_P    (1<<0)
-#define OUTPUT_TYPE_T    (1<<1)
-#define OUTPUT_TYPE_S    (1<<2)
-#define OUTPUT_TYPE_V    (1<<3)
-#define OUTPUT_TYPE_L    (1<<4)
-#define OUTPUT_TYPE_ST_L (1<<5)
-#define OUTPUT_TYPE_ST_R (1<<6)
-#define OUTPUT_TYPE_ST_D (1<<7)
+#define OUTPUT_TYPE_P    BIT(0)
+#define OUTPUT_TYPE_T    BIT(1)
+#define OUTPUT_TYPE_S    BIT(2)
+#define OUTPUT_TYPE_V    BIT(3)
+#define OUTPUT_TYPE_L    BIT(4)
+#define OUTPUT_TYPE_ST_L BIT(5)
+#define OUTPUT_TYPE_ST_R BIT(6)
+#define OUTPUT_TYPE_ST_D BIT(7)
+#define OUTPUT_TYPE_R    BIT(8)
+#define OUTPUT_TYPE_R1   BIT(9)
+
+
 
 struct fd_roi_info {
 	void *info;
@@ -685,7 +693,13 @@ struct msm_stats_buf {
 	(MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+4)
 #define MSM_V4L2_EXT_CAPTURE_MODE_RAW \
 	(MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+5)
-#define MSM_V4L2_EXT_CAPTURE_MODE_MAX (MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+6)
+#define MSM_V4L2_EXT_CAPTURE_MODE_RDI \
+	(MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+6)
+#define MSM_V4L2_EXT_CAPTURE_MODE_RDI1 \
+	(MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+7)
+#define MSM_V4L2_EXT_CAPTURE_MODE_RDI2 \
+	(MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+8)
+#define MSM_V4L2_EXT_CAPTURE_MODE_MAX (MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+9)
 
 
 #define MSM_V4L2_PID_MOTION_ISO              V4L2_CID_PRIVATE_BASE
