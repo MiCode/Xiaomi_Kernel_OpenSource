@@ -81,6 +81,7 @@ VREG_CONSUMERS(L11) = {
 	REGULATOR_SUPPLY("cam_vana",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vana",            "4-0020"),
+	REGULATOR_SUPPLY("sdc_vdd",             "msm_sdcc.2"),
 };
 VREG_CONSUMERS(L12) = {
 	REGULATOR_SUPPLY("8917_l12",		NULL),
