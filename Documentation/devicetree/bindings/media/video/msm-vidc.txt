@@ -11,6 +11,8 @@ Required properties:
 - vidc-ns-map : start and size of device virtual address range for non-secure buffers.
   Video hardware uses this address range to identify if the buffers are secure
   or non-secure.
+- load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec clock
+  required for optimal performance in descending order.
 
 Example:
 
@@ -21,4 +23,10 @@ Example:
 		interrupts = <0 44 0>;
 		vidc-cp-map = <0x1000000 0x40000000>;
 		vidc-ns-map = <0x40000000 0x40000000>;
+		load-freq-tbl = <979200 410000000>,
+				<560145 266670000>,
+				<421161 200000000>,
+				<243000 133330000>,
+				<108000 100000000>,
+				<36000 50000000>;
 	};
