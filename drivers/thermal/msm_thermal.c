@@ -28,15 +28,38 @@ static struct msm_thermal_data msm_thermal_info;
 static uint32_t limited_max_freq = MSM_CPUFREQ_NO_LIMIT;
 static struct delayed_work check_temp_work;
 
+static int limit_idx;
+static int limit_idx_low;
+static int limit_idx_high;
+static struct cpufreq_frequency_table *table;
+
+static int msm_thermal_get_freq_table(void)
+{
+	int ret = 0;
+	int i = 0;
+
+	table = cpufreq_frequency_get_table(0);
+	if (table == NULL) {
+		pr_debug("%s: error reading cpufreq table\n", __func__);
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	while (table[i].frequency != CPUFREQ_TABLE_END)
+		i++;
+
+	limit_idx_low = 0;
+	limit_idx_high = limit_idx = i - 1;
+	BUG_ON(limit_idx_high <= 0 || limit_idx_high <= limit_idx_low);
+fail:
+	return ret;
+}
+
 static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 {
 	int ret = 0;
 
 	ret = msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, max_freq);
-	if (ret)
-		return ret;
-
-	ret = cpufreq_update_policy(cpu);
 	if (ret)
 		return ret;
 
@@ -47,11 +70,14 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 	else
 		pr_info("msm_thermal: Max frequency reset for cpu%d\n", cpu);
 
+	ret = cpufreq_update_policy(cpu);
+
 	return ret;
 }
 
 static void check_temp(struct work_struct *work)
 {
+	static int limit_init;
 	struct tsens_device tsens_dev;
 	unsigned long temp = 0;
 	uint32_t max_freq = limited_max_freq;
@@ -66,12 +92,34 @@ static void check_temp(struct work_struct *work)
 		goto reschedule;
 	}
 
-	if (temp >= msm_thermal_info.limit_temp)
-		max_freq = msm_thermal_info.limit_freq;
-	else if (temp <
-		msm_thermal_info.limit_temp - msm_thermal_info.temp_hysteresis)
-		max_freq = MSM_CPUFREQ_NO_LIMIT;
+	if (!limit_init) {
+		ret = msm_thermal_get_freq_table();
+		if (ret)
+			goto reschedule;
+		else
+			limit_init = 1;
+	}
 
+	if (temp >= msm_thermal_info.limit_temp_degC) {
+		if (limit_idx == limit_idx_low)
+			goto reschedule;
+
+		limit_idx -= msm_thermal_info.freq_step;
+		if (limit_idx < limit_idx_low)
+			limit_idx = limit_idx_low;
+		max_freq = table[limit_idx].frequency;
+	} else if (temp < msm_thermal_info.limit_temp_degC -
+		 msm_thermal_info.temp_hysteresis_degC) {
+		if (limit_idx == limit_idx_high)
+			goto reschedule;
+
+		limit_idx += msm_thermal_info.freq_step;
+		if (limit_idx >= limit_idx_high) {
+			limit_idx = limit_idx_high;
+			max_freq = MSM_CPUFREQ_NO_LIMIT;
+		} else
+			max_freq = table[limit_idx].frequency;
+	}
 	if (max_freq == limited_max_freq)
 		goto reschedule;
 
