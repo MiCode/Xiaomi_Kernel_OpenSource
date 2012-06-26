@@ -5132,6 +5132,81 @@ static struct platform_device *asoc_devices[] __initdata = {
 	&asoc_msm_dai1,
 };
 
+/* qseecom bus scaling */
+static struct msm_bus_vectors qseecom_clks_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ib = 0,
+		.ab = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_SPDM,
+		.dst = MSM_BUS_SLAVE_SPDM,
+		.ib = 0,
+		.ab = 0,
+	},
+};
+
+static struct msm_bus_vectors qseecom_enable_dfab_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ib = (492 * 8) * 1000000UL,
+		.ab = (492 * 8) *  100000UL,
+	},
+	{
+		.src = MSM_BUS_MASTER_SPDM,
+		.dst = MSM_BUS_SLAVE_SPDM,
+		.ib = 0,
+		.ab = 0,
+	},
+};
+
+static struct msm_bus_vectors qseecom_enable_sfpb_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ib = 0,
+		.ab = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_SPDM,
+		.dst = MSM_BUS_SLAVE_SPDM,
+		.ib = (64 * 8) * 1000000UL,
+		.ab = (64 * 8) *  100000UL,
+	},
+};
+
+static struct msm_bus_paths qseecom_hw_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(qseecom_clks_init_vectors),
+		qseecom_clks_init_vectors,
+	},
+	{
+		ARRAY_SIZE(qseecom_enable_dfab_vectors),
+		qseecom_enable_sfpb_vectors,
+	},
+	{
+		ARRAY_SIZE(qseecom_enable_sfpb_vectors),
+		qseecom_enable_sfpb_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata qseecom_bus_pdata = {
+	.usecase = qseecom_hw_bus_scale_usecases,
+	.num_usecases = ARRAY_SIZE(qseecom_hw_bus_scale_usecases),
+	.name = "qsee",
+};
+
+static struct platform_device qseecom_device = {
+	.name		= "qseecom",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &qseecom_bus_pdata,
+	},
+};
+
 static struct platform_device *surf_devices[] __initdata = {
 	&msm8x60_device_acpuclk,
 	&msm_device_smd,
@@ -5140,6 +5215,7 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_pil_modem,
 	&msm_pil_tzapps,
 	&msm_pil_dsps,
+	&qseecom_device,
 #ifdef CONFIG_I2C_QUP
 	&msm_gsbi3_qup_i2c_device,
 	&msm_gsbi4_qup_i2c_device,
