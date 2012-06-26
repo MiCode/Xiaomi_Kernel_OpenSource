@@ -2190,6 +2190,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&qseecom_device,
 #endif
 
+	&msm_8064_device_tsif[0],
+	&msm_8064_device_tsif[1],
+
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
 	&qcrypto_device,

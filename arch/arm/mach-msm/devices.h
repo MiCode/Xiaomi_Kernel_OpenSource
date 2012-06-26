@@ -189,6 +189,7 @@ extern struct msm_bus_scale_pdata rotator_bus_scale_pdata;
 #endif
 
 extern struct platform_device msm_device_tsif[2];
+extern struct platform_device msm_8064_device_tsif[2];
 
 extern struct platform_device msm_device_ssbi_pmic1;
 extern struct platform_device msm_device_ssbi_pmic2;
