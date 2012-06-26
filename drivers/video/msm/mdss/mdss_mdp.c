@@ -554,10 +554,10 @@ static int mdss_mdp_irq_clk_setup(struct platform_device *pdev)
 	}
 	disable_irq(mdss_res->irq);
 
-	mdss_res->fs = regulator_get(NULL, "gdsc_mdss");
+	mdss_res->fs = regulator_get(&pdev->dev, "vdd");
 	if (IS_ERR_OR_NULL(mdss_res->fs)) {
 		mdss_res->fs = NULL;
-		pr_err("unable to get gdsc_mdss regulator\n");
+		pr_err("unable to get gdsc regulator\n");
 		goto error;
 	}
 	regulator_enable(mdss_res->fs);
