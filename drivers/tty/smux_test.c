@@ -185,6 +185,8 @@ struct smux_mock_callback {
 	int event_disconnected_ssr;
 	int event_low_wm;
 	int event_high_wm;
+	int event_rx_retry_high_wm;
+	int event_rx_retry_low_wm;
 
 	/* TIOCM changes */
 	int event_tiocm;
@@ -235,6 +237,8 @@ void mock_cb_data_reset(struct smux_mock_callback *cb)
 	cb->event_disconnected_ssr = 0;
 	cb->event_low_wm = 0;
 	cb->event_high_wm = 0;
+	cb->event_rx_retry_high_wm = 0;
+	cb->event_rx_retry_low_wm = 0;
 	cb->event_tiocm = 0;
 	cb->tiocm_meta.tiocm_old = 0;
 	cb->tiocm_meta.tiocm_new = 0;
@@ -295,6 +299,8 @@ static int mock_cb_data_print(const struct smux_mock_callback *cb,
 		"\tevent_disconnected_ssr=%d\n"
 		"\tevent_low_wm=%d\n"
 		"\tevent_high_wm=%d\n"
+		"\tevent_rx_retry_high_wm=%d\n"
+		"\tevent_rx_retry_low_wm=%d\n"
 		"\tevent_tiocm=%d\n"
 		"\tevent_read_done=%d\n"
 		"\tevent_read_failed=%d\n"
@@ -311,6 +317,8 @@ static int mock_cb_data_print(const struct smux_mock_callback *cb,
 		cb->event_disconnected_ssr,
 		cb->event_low_wm,
 		cb->event_high_wm,
+		cb->event_rx_retry_high_wm,
+		cb->event_rx_retry_low_wm,
 		cb->event_tiocm,
 		cb->event_read_done,
 		cb->event_read_failed,
@@ -428,6 +436,19 @@ void smux_mock_cb(void *priv, int event, const void *metadata)
 		++cb_data_ptr->event_high_wm;
 		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 		break;
+
+	case SMUX_RX_RETRY_HIGH_WM_HIT:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
+		++cb_data_ptr->event_rx_retry_high_wm;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
+		break;
+
+	case SMUX_RX_RETRY_LOW_WM_HIT:
+		spin_lock_irqsave(&cb_data_ptr->lock, flags);
+		++cb_data_ptr->event_rx_retry_low_wm;
+		spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
+		break;
+
 
 	case SMUX_TIOCM_UPDATE:
 		spin_lock_irqsave(&cb_data_ptr->lock, flags);
@@ -1328,7 +1349,7 @@ static int smux_ut_local_get_rx_buff_retry(char *buf, int max)
 		/* open port for loopback */
 		ret = msm_smux_set_ch_option(SMUX_TEST_LCID,
 				SMUX_CH_OPTION_LOCAL_LOOPBACK,
-				0);
+				SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP);
 		UT_ASSERT_INT(ret, ==, 0);
 
 		ret = msm_smux_open(SMUX_TEST_LCID, &cb_data,
@@ -1581,6 +1602,132 @@ static int smux_ut_local_get_rx_buff_retry(char *buf, int max)
 	return i;
 }
 
+/**
+ * Verify get_rx_buffer callback retry for auto-rx flow control.
+ *
+ * @buf  Buffer for status message
+ * @max  Size of buffer
+ *
+ * @returns Number of bytes written to @buf
+ */
+static int smux_ut_local_get_rx_buff_retry_auto(char *buf, int max)
+{
+	static struct smux_mock_callback cb_data;
+	static int cb_initialized;
+	int i = 0;
+	int failed = 0;
+	int ret;
+	int try;
+	int try_rx_retry_wm;
+
+	i += scnprintf(buf + i, max - i, "Running %s\n", __func__);
+	pr_err("%s", buf);
+
+	if (!cb_initialized)
+		mock_cb_data_init(&cb_data);
+
+	mock_cb_data_reset(&cb_data);
+	smux_byte_loopback = SMUX_TEST_LCID;
+	while (!failed) {
+		/* open port for loopback */
+		ret = msm_smux_set_ch_option(SMUX_TEST_LCID,
+				SMUX_CH_OPTION_LOCAL_LOOPBACK
+				| SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP,
+				0);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		ret = msm_smux_open(SMUX_TEST_LCID, &cb_data,
+				smux_mock_cb, get_rx_buffer_mock);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ), >, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_connected, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/* Test high rx-retry watermark */
+		get_rx_buffer_mock_fail = 1;
+		try_rx_retry_wm = 0;
+		for (try = 0; try < SMUX_RX_RETRY_MAX_PKTS; ++try) {
+			pr_err("%s: try %d\n", __func__, try);
+			ret = msm_smux_write(SMUX_TEST_LCID, (void *)1,
+						test_array, sizeof(test_array));
+			UT_ASSERT_INT(ret, ==, 0);
+			if (failed)
+				break;
+
+			if (!try_rx_retry_wm &&
+					cb_data.event_rx_retry_high_wm) {
+				/* RX high watermark hit */
+				try_rx_retry_wm = try + 1;
+				break;
+			}
+
+			while (cb_data.event_write_done <= try) {
+				UT_ASSERT_INT(
+					(int)wait_for_completion_timeout(
+						&cb_data.cb_completion, HZ),
+					>, 0);
+				INIT_COMPLETION(cb_data.cb_completion);
+			}
+			if (failed)
+				break;
+		}
+		if (failed)
+			break;
+
+		/* RX retry high watermark should have been set */
+		UT_ASSERT_INT(cb_data.event_rx_retry_high_wm, ==, 1);
+		UT_ASSERT_INT(try_rx_retry_wm, ==, SMUX_RX_WM_HIGH);
+
+		/*
+		 * Disabled RX buffer allocation failure and wait for
+		 * the SMUX_RX_WM_HIGH count successful packets.
+		 */
+		get_rx_buffer_mock_fail = 0;
+		while (cb_data.event_read_done < SMUX_RX_WM_HIGH) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, 2*HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		if (failed)
+			break;
+
+		UT_ASSERT_INT(0, ==, cb_data.event_read_failed);
+		UT_ASSERT_INT(SMUX_RX_WM_HIGH, ==,
+				cb_data.event_read_done);
+		UT_ASSERT_INT(cb_data.event_rx_retry_low_wm, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/* close port */
+		ret = msm_smux_close(SMUX_TEST_LCID);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+				&cb_data.cb_completion, HZ),
+			>, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
+		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 0);
+		break;
+	}
+
+	if (!failed) {
+		i += scnprintf(buf + i, max - i, "\tOK\n");
+	} else {
+		pr_err("%s: Failed\n", __func__);
+		i += scnprintf(buf + i, max - i, "\tFailed\n");
+		i += mock_cb_data_print(&cb_data, buf + i, max - i);
+		msm_smux_close(SMUX_TEST_LCID);
+	}
+	smux_byte_loopback = 0;
+	mock_cb_data_reset(&cb_data);
+	return i;
+}
+
 static char debug_buffer[DEBUG_BUFMAX];
 
 static ssize_t debug_read(struct file *file, char __user *buf,
@@ -1644,6 +1791,8 @@ static int __init smux_debugfs_init(void)
 			smux_ut_local_smuxld_receive_buf);
 	debug_create("ut_local_get_rx_buff_retry", 0444, dent,
 			smux_ut_local_get_rx_buff_retry);
+	debug_create("ut_local_get_rx_buff_retry_auto", 0444, dent,
+			smux_ut_local_get_rx_buff_retry_auto);
 
 	return 0;
 }

@@ -33,8 +33,6 @@
 
 #define SMUX_NOTIFY_FIFO_SIZE	128
 #define SMUX_TX_QUEUE_SIZE	256
-#define SMUX_WM_LOW 2
-#define SMUX_WM_HIGH 4
 #define SMUX_PKT_LOG_SIZE 80
 
 /* Maximum size we can accept in a single RX buffer */
@@ -172,12 +170,15 @@ struct smux_lch_t {
 	unsigned local_state;
 	unsigned local_mode;
 	uint8_t local_tiocm;
+	unsigned options;
 
 	unsigned remote_state;
 	unsigned remote_mode;
 	uint8_t remote_tiocm;
 
 	int tx_flow_control;
+	int rx_flow_control_auto;
+	int rx_flow_control_client;
 
 	/* client callbacks and private data */
 	void *priv;
@@ -331,6 +332,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 				unsigned long code,
 				void *data);
 static void smux_uart_power_on_atomic(void);
+static int smux_rx_flow_control_updated(struct smux_lch_t *ch);
 
 /**
  * Convert TTY Error Flags to string for logging purposes.
@@ -403,10 +405,13 @@ static int lch_init(void)
 		ch->local_state = SMUX_LCH_LOCAL_CLOSED;
 		ch->local_mode = SMUX_LCH_MODE_NORMAL;
 		ch->local_tiocm = 0x0;
+		ch->options = SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP;
 		ch->remote_state = SMUX_LCH_REMOTE_CLOSED;
 		ch->remote_mode = SMUX_LCH_MODE_NORMAL;
 		ch->remote_tiocm = 0x0;
 		ch->tx_flow_control = 0;
+		ch->rx_flow_control_auto = 0;
+		ch->rx_flow_control_client = 0;
 		ch->priv = 0;
 		ch->notify = 0;
 		ch->get_rx_buffer = 0;
@@ -487,6 +492,8 @@ static void smux_lch_purge(void)
 		ch->remote_state = SMUX_LCH_REMOTE_CLOSED;
 		ch->remote_mode = SMUX_LCH_MODE_NORMAL;
 		ch->tx_flow_control = 0;
+		ch->rx_flow_control_auto = 0;
+		ch->rx_flow_control_client = 0;
 
 		/* Purge RX retry queue */
 		if (ch->rx_retry_queue_cnt)
@@ -1352,6 +1359,7 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 	uint8_t lcid;
 	int ret = 0;
 	int do_retry = 0;
+	int tx_ready = 0;
 	int tmp;
 	int rx_len;
 	struct smux_lch_t *ch;
@@ -1395,8 +1403,20 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 
 	if (!list_empty(&ch->rx_retry_queue)) {
 		do_retry = 1;
+
+		if ((ch->options & SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP) &&
+			!ch->rx_flow_control_auto &&
+			((ch->rx_retry_queue_cnt + 1) >= SMUX_RX_WM_HIGH)) {
+			/* need to flow control RX */
+			ch->rx_flow_control_auto = 1;
+			tx_ready |= smux_rx_flow_control_updated(ch);
+			schedule_notify(ch->lcid, SMUX_RX_RETRY_HIGH_WM_HIT,
+					NULL);
+		}
 		if ((ch->rx_retry_queue_cnt + 1) > SMUX_RX_RETRY_MAX_PKTS) {
 			/* retry queue full */
+			pr_err("%s: ch %d RX retry queue full\n",
+					__func__, lcid);
 			schedule_notify(lcid, SMUX_READ_FAIL, NULL);
 			ret = -ENOMEM;
 			spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
@@ -1420,7 +1440,7 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 			}
 			ack_pkt->hdr.pad_len = pkt->hdr.pad_len;
 			smux_tx_queue(ack_pkt, ch, 0);
-			list_channel(ch);
+			tx_ready = 1;
 		} else {
 			pr_err("%s: Remote loopack allocation failure\n",
 					__func__);
@@ -1446,6 +1466,8 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 			/* buffer allocation failed - add to retry queue */
 			do_retry = 1;
 		} else if (tmp < 0) {
+			pr_err("%s: ch %d Client RX buffer alloc failed %d\n",
+					__func__, lcid, tmp);
 			schedule_notify(lcid, SMUX_READ_FAIL, NULL);
 			ret = -ENOMEM;
 		}
@@ -1492,6 +1514,8 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 	}
 
+	if (tx_ready)
+		list_channel(ch);
 out:
 	return ret;
 }
@@ -2304,18 +2328,32 @@ static void smux_inactivity_worker(struct work_struct *work)
 /**
  * Remove RX retry packet from channel and free it.
  *
- * Must be called with state_lock_lhb1 locked.
- *
  * @ch    Channel for retry packet
  * @retry Retry packet to remove
+ *
+ * @returns 1 if flow control updated; 0 otherwise
+ *
+ * Must be called with state_lock_lhb1 locked.
  */
-void smux_remove_rx_retry(struct smux_lch_t *ch,
+int smux_remove_rx_retry(struct smux_lch_t *ch,
 		struct smux_rx_pkt_retry *retry)
 {
+	int tx_ready = 0;
+
 	list_del(&retry->rx_retry_list);
 	--ch->rx_retry_queue_cnt;
 	smux_free_pkt(retry->pkt);
 	kfree(retry);
+
+	if ((ch->options & SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP) &&
+			(ch->rx_retry_queue_cnt <= SMUX_RX_WM_LOW) &&
+			ch->rx_flow_control_auto) {
+		ch->rx_flow_control_auto = 0;
+		smux_rx_flow_control_updated(ch);
+		schedule_notify(ch->lcid, SMUX_RX_RETRY_LOW_WM_HIT, NULL);
+		tx_ready = 1;
+	}
+	return tx_ready;
 }
 
 /**
@@ -2386,6 +2424,8 @@ static void smux_rx_retry_worker(struct work_struct *work)
 	union notifier_metadata metadata;
 	int tmp;
 	unsigned long flags;
+	int immediate_retry = 0;
+	int tx_ready = 0;
 
 	ch = container_of(work, struct smux_lch_t, rx_retry_work.work);
 
@@ -2397,7 +2437,7 @@ static void smux_rx_retry_worker(struct work_struct *work)
 			retry = list_first_entry(&ch->rx_retry_queue,
 						struct smux_rx_pkt_retry,
 						rx_retry_list);
-			smux_remove_rx_retry(ch, retry);
+			(void)smux_remove_rx_retry(ch, retry);
 		}
 	}
 
@@ -2412,7 +2452,8 @@ static void smux_rx_retry_worker(struct work_struct *work)
 					rx_retry_list);
 	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 
-	SMUX_DBG("%s: retrying rx pkt %p\n", __func__, retry);
+	SMUX_DBG("%s: ch %d retrying rx pkt %p\n",
+			__func__, ch->lcid, retry);
 	metadata.read.pkt_priv = 0;
 	metadata.read.buffer = 0;
 	tmp = ch->get_rx_buffer(ch->priv,
@@ -2421,33 +2462,44 @@ static void smux_rx_retry_worker(struct work_struct *work)
 			retry->pkt->hdr.payload_len);
 	if (tmp == 0 && metadata.read.buffer) {
 		/* have valid RX buffer */
+
 		memcpy(metadata.read.buffer, retry->pkt->payload,
 						retry->pkt->hdr.payload_len);
 		metadata.read.len = retry->pkt->hdr.payload_len;
 
 		spin_lock_irqsave(&ch->state_lock_lhb1, flags);
-		smux_remove_rx_retry(ch, retry);
+		tx_ready = smux_remove_rx_retry(ch, retry);
 		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
-
 		schedule_notify(ch->lcid, SMUX_READ_DONE, &metadata);
+		if (tx_ready)
+			list_channel(ch);
+
+		immediate_retry = 1;
 	} else if (tmp == -EAGAIN ||
 			(tmp == 0 && !metadata.read.buffer)) {
 		/* retry again */
 		retry->timeout_in_ms <<= 1;
 		if (retry->timeout_in_ms > SMUX_RX_RETRY_MAX_MS) {
 			/* timed out */
+			pr_err("%s: ch %d RX retry client timeout\n",
+					__func__, ch->lcid);
 			spin_lock_irqsave(&ch->state_lock_lhb1, flags);
-			smux_remove_rx_retry(ch, retry);
-			schedule_notify(ch->lcid, SMUX_READ_FAIL, NULL);
+			tx_ready = smux_remove_rx_retry(ch, retry);
 			spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+			schedule_notify(ch->lcid, SMUX_READ_FAIL, NULL);
+			if (tx_ready)
+				list_channel(ch);
 		}
 	} else {
 		/* client error - drop packet */
+		pr_err("%s: ch %d RX retry client failed (%d)\n",
+				__func__, ch->lcid, tmp);
 		spin_lock_irqsave(&ch->state_lock_lhb1, flags);
-		smux_remove_rx_retry(ch, retry);
+		tx_ready = smux_remove_rx_retry(ch, retry);
 		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
-
 		schedule_notify(ch->lcid, SMUX_READ_FAIL, NULL);
+		if (tx_ready)
+			list_channel(ch);
 	}
 
 	/* schedule next retry */
@@ -2456,8 +2508,12 @@ static void smux_rx_retry_worker(struct work_struct *work)
 		retry = list_first_entry(&ch->rx_retry_queue,
 						struct smux_rx_pkt_retry,
 						rx_retry_list);
-		queue_delayed_work(smux_rx_wq, &ch->rx_retry_work,
-				msecs_to_jiffies(retry->timeout_in_ms));
+
+		if (immediate_retry)
+			queue_delayed_work(smux_rx_wq, &ch->rx_retry_work, 0);
+		else
+			queue_delayed_work(smux_rx_wq, &ch->rx_retry_work,
+					msecs_to_jiffies(retry->timeout_in_ms));
 	}
 	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 }
@@ -2563,7 +2619,7 @@ static void smux_tx_worker(struct work_struct *work)
 
 		if (smux.power_state != SMUX_PWR_ON) {
 			/* channel not ready to transmit */
-			SMUX_DBG("%s: can not tx with power state %d\n",
+			SMUX_DBG("%s: waiting for link up (state %d)\n",
 					__func__,
 					smux.power_state);
 			spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
@@ -2606,7 +2662,7 @@ static void smux_tx_worker(struct work_struct *work)
 				--ch->tx_pending_data_cnt;
 				if (ch->notify_lwm &&
 					ch->tx_pending_data_cnt
-						<= SMUX_WM_LOW) {
+						<= SMUX_TX_WM_LOW) {
 					ch->notify_lwm = 0;
 					low_wm_notif = 1;
 				}
@@ -2633,6 +2689,34 @@ static void smux_tx_worker(struct work_struct *work)
 	}
 }
 
+/**
+ * Update the RX flow control (sent in the TIOCM Status command).
+ *
+ * @ch  Channel for update
+ *
+ * @returns 1 for updated, 0 for not updated
+ *
+ * Must be called with ch->state_lock_lhb1 locked.
+ */
+static int smux_rx_flow_control_updated(struct smux_lch_t *ch)
+{
+	int updated = 0;
+	int prev_state;
+
+	prev_state = ch->local_tiocm & SMUX_CMD_STATUS_FLOW_CNTL;
+
+	if (ch->rx_flow_control_client || ch->rx_flow_control_auto)
+		ch->local_tiocm |= SMUX_CMD_STATUS_FLOW_CNTL;
+	else
+		ch->local_tiocm &= ~SMUX_CMD_STATUS_FLOW_CNTL;
+
+	if (prev_state != (ch->local_tiocm & SMUX_CMD_STATUS_FLOW_CNTL)) {
+		smux_send_status_cmd(ch);
+		updated = 1;
+	}
+
+	return updated;
+}
 
 /**********************************************************************/
 /* Kernel API                                                         */
@@ -2675,17 +2759,30 @@ int msm_smux_set_ch_option(uint8_t lcid, uint32_t set, uint32_t clear)
 	if (clear & SMUX_CH_OPTION_REMOTE_LOOPBACK)
 		ch->local_mode = SMUX_LCH_MODE_NORMAL;
 
-	/* Flow control */
+	/* RX Flow control */
 	if (set & SMUX_CH_OPTION_REMOTE_TX_STOP) {
-		ch->local_tiocm |= SMUX_CMD_STATUS_FLOW_CNTL;
-		ret = smux_send_status_cmd(ch);
-		tx_ready = 1;
+		ch->rx_flow_control_client = 1;
+		tx_ready |= smux_rx_flow_control_updated(ch);
 	}
 
 	if (clear & SMUX_CH_OPTION_REMOTE_TX_STOP) {
-		ch->local_tiocm &= ~SMUX_CMD_STATUS_FLOW_CNTL;
-		ret = smux_send_status_cmd(ch);
-		tx_ready = 1;
+		ch->rx_flow_control_client = 0;
+		tx_ready |= smux_rx_flow_control_updated(ch);
+	}
+
+	/* Auto RX Flow Control */
+	if (set & SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP) {
+		SMUX_DBG("%s: auto rx flow control option enabled\n",
+			__func__);
+		ch->options |= SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP;
+	}
+
+	if (clear & SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP) {
+		SMUX_DBG("%s: auto rx flow control option disabled\n",
+			__func__);
+		ch->options &= ~SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP;
+		ch->rx_flow_control_auto = 0;
+		tx_ready |= smux_rx_flow_control_updated(ch);
 	}
 
 	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
@@ -2909,16 +3006,16 @@ int msm_smux_write(uint8_t lcid, void *pkt_priv, const void *data, int len)
 	/* verify high watermark */
 	SMUX_DBG("%s: pending %d", __func__, ch->tx_pending_data_cnt);
 
-	if (ch->tx_pending_data_cnt >= SMUX_WM_HIGH) {
+	if (ch->tx_pending_data_cnt >= SMUX_TX_WM_HIGH) {
 		pr_err("%s: ch %d high watermark %d exceeded %d\n",
-				__func__, lcid, SMUX_WM_HIGH,
+				__func__, lcid, SMUX_TX_WM_HIGH,
 				ch->tx_pending_data_cnt);
 		ret = -EAGAIN;
 		goto out_inner;
 	}
 
 	/* queue packet for transmit */
-	if (++ch->tx_pending_data_cnt == SMUX_WM_HIGH) {
+	if (++ch->tx_pending_data_cnt == SMUX_TX_WM_HIGH) {
 		ch->notify_lwm = 1;
 		pr_err("%s: high watermark hit\n", __func__);
 		schedule_notify(lcid, SMUX_HIGH_WM_HIT, NULL);
@@ -2965,7 +3062,7 @@ int msm_smux_is_ch_full(uint8_t lcid)
 	ch = &smux_lch[lcid];
 
 	spin_lock_irqsave(&ch->tx_lock_lhb2, flags);
-	if (ch->tx_pending_data_cnt >= SMUX_WM_HIGH)
+	if (ch->tx_pending_data_cnt >= SMUX_TX_WM_HIGH)
 		is_full = 1;
 	spin_unlock_irqrestore(&ch->tx_lock_lhb2, flags);
 
@@ -2993,7 +3090,7 @@ int msm_smux_is_ch_low(uint8_t lcid)
 	ch = &smux_lch[lcid];
 
 	spin_lock_irqsave(&ch->tx_lock_lhb2, flags);
-	if (ch->tx_pending_data_cnt <= SMUX_WM_LOW)
+	if (ch->tx_pending_data_cnt <= SMUX_TX_WM_LOW)
 		is_low = 1;
 	spin_unlock_irqrestore(&ch->tx_lock_lhb2, flags);
 

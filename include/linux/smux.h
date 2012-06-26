@@ -77,6 +77,8 @@ enum {
 	SMUX_TIOCM_UPDATE,
 	SMUX_LOW_WM_HIT,      /* @metadata is NULL */
 	SMUX_HIGH_WM_HIT,     /* @metadata is NULL */
+	SMUX_RX_RETRY_HIGH_WM_HIT,  /* @metadata is NULL */
+	SMUX_RX_RETRY_LOW_WM_HIT,   /* @metadata is NULL */
 };
 
 /**
@@ -86,6 +88,7 @@ enum {
 	SMUX_CH_OPTION_LOCAL_LOOPBACK = 1 << 0,
 	SMUX_CH_OPTION_REMOTE_LOOPBACK = 1 << 1,
 	SMUX_CH_OPTION_REMOTE_TX_STOP = 1 << 2,
+	SMUX_CH_OPTION_AUTO_REMOTE_TX_STOP = 1 << 3,
 };
 
 /**
