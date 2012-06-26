@@ -139,7 +139,7 @@ struct subsys_device {
 	struct module *owner;
 	int count;
 	int id;
-	void *restart_order;
+	struct subsys_soc_restart_order *restart_order;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
 #endif
@@ -444,6 +444,127 @@ static struct subsys_device *find_subsys(const char *str)
 	return dev ? to_subsys(dev) : NULL;
 }
 
+static int subsys_start(struct subsys_device *subsys)
+{
+	int ret;
+
+	ret = subsys->desc->start(subsys->desc);
+	if (!ret)
+		subsys_set_state(subsys, SUBSYS_ONLINE);
+
+	return ret;
+}
+
+static void subsys_stop(struct subsys_device *subsys)
+{
+	subsys->desc->stop(subsys->desc);
+	subsys_set_state(subsys, SUBSYS_OFFLINE);
+}
+
+static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
+{
+	struct subsys_soc_restart_order *order = subsys->restart_order;
+
+	if (restart_level != RESET_SUBSYS_INDEPENDENT && order)
+		return &order->track;
+	else
+		return &subsys->track;
+}
+
+/**
+ * subsytem_get() - Boot a subsystem
+ * @name: pointer to a string containing the name of the subsystem to boot
+ *
+ * This function returns a pointer if it succeeds. If an error occurs an
+ * ERR_PTR is returned.
+ *
+ * If this feature is disable, the value %NULL will be returned.
+ */
+void *subsystem_get(const char *name)
+{
+	struct subsys_device *subsys;
+	struct subsys_device *subsys_d;
+	int ret;
+	void *retval;
+	struct subsys_tracking *track;
+
+	if (!name)
+		return NULL;
+
+	subsys = retval = find_subsys(name);
+	if (!subsys)
+		return ERR_PTR(-ENODEV);
+	if (!try_module_get(subsys->owner)) {
+		retval = ERR_PTR(-ENODEV);
+		goto err_module;
+	}
+
+	subsys_d = subsystem_get(subsys->desc->depends_on);
+	if (IS_ERR(subsys_d)) {
+		retval = subsys_d;
+		goto err_depends;
+	}
+
+	track = subsys_get_track(subsys);
+	mutex_lock(&track->lock);
+	if (!subsys->count) {
+		ret = subsys_start(subsys);
+		if (ret) {
+			retval = ERR_PTR(ret);
+			goto err_start;
+		}
+	}
+	subsys->count++;
+	mutex_unlock(&track->lock);
+	return retval;
+err_start:
+	mutex_unlock(&track->lock);
+	subsystem_put(subsys_d);
+err_depends:
+	module_put(subsys->owner);
+err_module:
+	put_device(&subsys->dev);
+	return retval;
+}
+EXPORT_SYMBOL(subsystem_get);
+
+/**
+ * subsystem_put() - Shutdown a subsystem
+ * @peripheral_handle: pointer from a previous call to subsystem_get()
+ *
+ * This doesn't imply that a subsystem is shutdown until all callers of
+ * subsystem_get() have called subsystem_put().
+ */
+void subsystem_put(void *subsystem)
+{
+	struct subsys_device *subsys_d, *subsys = subsystem;
+	struct subsys_tracking *track;
+
+	if (IS_ERR_OR_NULL(subsys))
+		return;
+
+	track = subsys_get_track(subsys);
+	mutex_lock(&track->lock);
+	if (WARN(!subsys->count, "%s: %s: Reference count mismatch\n",
+			subsys->desc->name, __func__))
+		goto err_out;
+	if (!--subsys->count)
+		subsys_stop(subsys);
+	mutex_unlock(&track->lock);
+
+	subsys_d = find_subsys(subsys->desc->depends_on);
+	if (subsys_d) {
+		subsystem_put(subsys_d);
+		put_device(&subsys_d->dev);
+	}
+	module_put(subsys->owner);
+	put_device(&subsys->dev);
+	return;
+err_out:
+	mutex_unlock(&track->lock);
+}
+EXPORT_SYMBOL(subsystem_put);
+
 static void subsystem_restart_wq_func(struct work_struct *work)
 {
 	struct subsys_device *dev = container_of(work,
@@ -513,17 +634,12 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 {
 	struct subsys_desc *desc = dev->desc;
 	const char *name = dev->desc->name;
-	struct subsys_soc_restart_order *order = dev->restart_order;
 	struct subsys_tracking *track;
 	unsigned long flags;
 
-	if (restart_level != RESET_SUBSYS_INDEPENDENT && order)
-		track = &order->track;
-	else
-		track = &dev->track;
-
 	pr_debug("Restarting %s [level=%d]!\n", desc->name, restart_level);
 
+	track = subsys_get_track(dev);
 	/*
 	 * Allow drivers to call subsystem_restart{_dev}() as many times as
 	 * they want up until the point where the subsystem is shutdown.
@@ -620,6 +736,11 @@ static ssize_t subsys_debugfs_write(struct file *filp,
 	if (!strcmp(cmp, "restart")) {
 		if (subsystem_restart_dev(subsys))
 			return -EIO;
+	} else if (!strcmp(cmp, "get")) {
+		if (subsystem_get(subsys->desc->name))
+			return -EIO;
+	} else if (!strcmp(cmp, "put")) {
+		subsystem_put(subsys);
 	} else {
 		return -EINVAL;
 	}
