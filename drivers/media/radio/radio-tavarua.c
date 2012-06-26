@@ -1214,7 +1214,7 @@ static int optimized_search_algorithm(struct tavarua_device *radio,
 	unsigned char adie_type_bahma;
 	int retval = 0;
 	unsigned int rdsMask = 0;
-	unsigned char value;
+	unsigned char value = 0;
 
 	adie_type_bahma = is_bahama();
 
