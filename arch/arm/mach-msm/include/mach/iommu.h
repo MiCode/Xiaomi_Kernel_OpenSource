@@ -15,6 +15,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 #include <mach/socinfo.h>
 
 extern pgprot_t     pgprot_kernel;
@@ -79,6 +80,7 @@ struct msm_iommu_drvdata {
 	struct clk *clk;
 	struct clk *pclk;
 	const char *name;
+	struct regulator *gdsc;
 };
 
 /**
