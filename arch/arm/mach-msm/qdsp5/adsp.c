@@ -1262,7 +1262,7 @@ static int msm_adsp_probe(struct platform_device *pdev)
 			clk_set_rate(mod->clk, adsp_info.module[i].clk_rate);
 		mod->verify_cmd = adsp_info.module[i].verify_cmd;
 		mod->patch_event = adsp_info.module[i].patch_event;
-		INIT_HLIST_HEAD(&mod->pmem_regions);
+		INIT_HLIST_HEAD(&mod->ion_regions);
 		mod->pdev.name = adsp_info.module[i].pdev_name;
 		mod->pdev.id = -1;
 		adsp_info.id_to_module[i] = mod;
