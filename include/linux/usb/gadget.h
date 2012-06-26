@@ -506,6 +506,8 @@ struct usb_gadget_ops {
  * @dev: Driver model state for this abstract device.
  * @out_epnum: last used out ep number
  * @in_epnum: last used in ep number
+ * @usb_core_id: Identifies the usb core controlled by this usb_gadget.
+ *		 Used in case of more then one core operates concurrently.
  *
  * Gadgets have a mostly-portable "gadget driver" implementing device
  * functions, handling all usb configurations and interfaces.  Gadget
@@ -547,6 +549,7 @@ struct usb_gadget {
 	unsigned			out_epnum;
 	unsigned			in_epnum;
 	bool				l1_supported;
+	u8				usb_core_id;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 
@@ -784,6 +787,8 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
  * @suspend: Invoked on USB suspend.  May be called in_interrupt.
  * @resume: Invoked on USB resume.  May be called in_interrupt.
  * @driver: Driver model state for this driver.
+ * @usb_core_id: Identifies the usb core controlled by this usb_gadget_driver.
+ *               Used in case of more then one core operates concurrently.
  *
  * Devices are disabled till a gadget driver successfully bind()s, which
  * means the driver will handle setup() requests needed to enumerate (and
@@ -843,6 +848,8 @@ struct usb_gadget_driver {
 
 	/* FIXME support safe rmmod */
 	struct device_driver	driver;
+
+	u8			usb_core_id;
 };
 
 
