@@ -281,6 +281,7 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 
 	ret = panel_next_on(pdev);
 	if (ret == 0) {
+		mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		if (display_on != NULL) {
 			msleep(50);
 			display_on(pdev);
@@ -515,7 +516,6 @@ void mdp4_overlay_dsi_video_start(void)
 		mdp4_iommu_attach();
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 1);
-		mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 		dsi_video_enabled = 1;
 	}
