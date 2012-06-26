@@ -71,6 +71,9 @@
 #include "u_ether.c"
 #include "u_bam_data.c"
 #include "f_mbim.c"
+#ifdef CONFIG_TARGET_CORE
+#include "f_tcm.c"
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -1201,6 +1204,51 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+static int android_uasp_connect_cb(bool connect)
+{
+	/*
+	 * TODO
+	 * We may have to disable gadget till UASP configfs nodes
+	 * are configured which includes mapping LUN with the
+	 * backing file. It is a fundamental difference between
+	 * f_mass_storage and f_tcp. That means UASP can not be
+	 * in default composition.
+	 *
+	 * For now, assume that UASP configfs nodes are configured
+	 * before enabling android gadget. Or cable should be
+	 * reconnected after mapping the LUN.
+	 *
+	 * Also consider making UASP to respond to Host requests when
+	 * Lun is not mapped.
+	 */
+	pr_debug("UASP %s\n", connect ? "connect" : "disconnect");
+
+	return 0;
+}
+
+static int uasp_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+	return f_tcm_init(&android_uasp_connect_cb);
+}
+
+static void uasp_function_cleanup(struct android_usb_function *f)
+{
+	f_tcm_exit();
+}
+
+static int uasp_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	return tcm_bind_config(c);
+}
+
+static struct android_usb_function uasp_function = {
+	.name		= "uasp",
+	.init		= uasp_function_init,
+	.cleanup	= uasp_function_cleanup,
+	.bind_config	= uasp_function_bind_config,
+};
 
 static struct android_usb_function *supported_functions[] = {
 	&mbim_function,
@@ -1218,6 +1266,7 @@ static struct android_usb_function *supported_functions[] = {
 	&rndis_function,
 	&mass_storage_function,
 	&accessory_function,
+	&uasp_function,
 	NULL
 };
 
