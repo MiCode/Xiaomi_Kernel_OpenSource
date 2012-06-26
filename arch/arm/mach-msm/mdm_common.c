@@ -351,6 +351,7 @@ static irqreturn_t mdm_pblrdy_change(int irq, void *dev_id)
 
 static int mdm_subsys_shutdown(const struct subsys_data *crashed_subsys)
 {
+	mdm_drv->mdm_ready = 0;
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
 	if (mdm_drv->pdata->ramdump_delay_ms > 0) {
 		/* Wait for the external modem to complete
