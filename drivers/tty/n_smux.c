@@ -81,6 +81,30 @@ module_param_named(simulate_wakeup_delay, smux_simulate_wakeup_delay,
 			pr_info(x);  \
 } while (0)
 
+#define SMUX_PWR_PKT_RX(pkt) do { \
+	if (smux_debug_mask & MSM_SMUX_POWER_INFO) \
+			smux_log_pkt(pkt, 1); \
+} while (0)
+
+#define SMUX_PWR_PKT_TX(pkt) do { \
+	if (smux_debug_mask & MSM_SMUX_POWER_INFO) { \
+			if (pkt->hdr.cmd == SMUX_CMD_BYTE && \
+					pkt->hdr.flags == SMUX_WAKEUP_ACK) \
+				pr_info("smux: TX Wakeup ACK\n"); \
+			else if (pkt->hdr.cmd == SMUX_CMD_BYTE && \
+					pkt->hdr.flags == SMUX_WAKEUP_REQ) \
+				pr_info("smux: TX Wakeup REQ\n"); \
+			else \
+				smux_log_pkt(pkt, 0); \
+	} \
+} while (0)
+
+#define SMUX_PWR_BYTE_TX(pkt) do { \
+	if (smux_debug_mask & MSM_SMUX_POWER_INFO) { \
+			smux_log_pkt(pkt, 0); \
+	} \
+} while (0)
+
 #define SMUX_LOG_PKT_RX(pkt) do { \
 	if (smux_debug_mask & MSM_SMUX_PKT) \
 			smux_log_pkt(pkt, 1); \
@@ -628,6 +652,11 @@ static void smux_log_pkt(struct smux_pkt_t *pkt, int is_recv)
 		if (pkt->hdr.flags & SMUX_CMD_CLOSE_ACK)
 			snprintf(cmd_extra, sizeof(cmd_extra), " ACK");
 		break;
+
+	case SMUX_CMD_PWR_CTL:
+	   if (pkt->hdr.flags & SMUX_CMD_PWR_CTL_ACK)
+			snprintf(cmd_extra, sizeof(cmd_extra), " ACK");
+	   break;
 	};
 
 	i += snprintf(logbuf + i, SMUX_PKT_LOG_SIZE - i,
@@ -1635,6 +1664,8 @@ static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 	struct smux_pkt_t *ack_pkt;
 	unsigned long flags;
 
+	SMUX_PWR_PKT_RX(pkt);
+
 	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
 	if (pkt->hdr.flags & SMUX_CMD_PWR_CTL_ACK) {
 		/* local sleep request ack */
@@ -1699,10 +1730,9 @@ static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
 {
 	int ret = -ENXIO;
 
-	SMUX_LOG_PKT_RX(pkt);
-
 	switch (pkt->hdr.cmd) {
 	case SMUX_CMD_OPEN_LCH:
+		SMUX_LOG_PKT_RX(pkt);
 		if (smux_assert_lch_id(pkt->hdr.lcid)) {
 			pr_err("%s: invalid channel id %d\n",
 					__func__, pkt->hdr.lcid);
@@ -1712,6 +1742,7 @@ static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
 		break;
 
 	case SMUX_CMD_DATA:
+		SMUX_LOG_PKT_RX(pkt);
 		if (smux_assert_lch_id(pkt->hdr.lcid)) {
 			pr_err("%s: invalid channel id %d\n",
 					__func__, pkt->hdr.lcid);
@@ -1721,6 +1752,7 @@ static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
 		break;
 
 	case SMUX_CMD_CLOSE_LCH:
+		SMUX_LOG_PKT_RX(pkt);
 		if (smux_assert_lch_id(pkt->hdr.lcid)) {
 			pr_err("%s: invalid channel id %d\n",
 					__func__, pkt->hdr.lcid);
@@ -1730,6 +1762,7 @@ static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
 		break;
 
 	case SMUX_CMD_STATUS:
+		SMUX_LOG_PKT_RX(pkt);
 		if (smux_assert_lch_id(pkt->hdr.lcid)) {
 			pr_err("%s: invalid channel id %d\n",
 					__func__, pkt->hdr.lcid);
@@ -1743,10 +1776,12 @@ static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt)
 		break;
 
 	case SMUX_CMD_BYTE:
+		SMUX_LOG_PKT_RX(pkt);
 		ret = smux_handle_rx_byte_cmd(pkt);
 		break;
 
 	default:
+		SMUX_LOG_PKT_RX(pkt);
 		pr_err("%s: command %d unknown\n", __func__, pkt->hdr.cmd);
 		ret = -EINVAL;
 	}
@@ -1862,9 +1897,11 @@ static void smux_rx_handle_idle(const unsigned char *data,
 			smux.rx_state = SMUX_RX_MAGIC;
 			break;
 		case SMUX_WAKEUP_REQ:
+			SMUX_PWR("smux: RX Wakeup REQ\n");
 			smux_handle_wakeup_req();
 			break;
 		case SMUX_WAKEUP_ACK:
+			SMUX_PWR("smux: RX Wakeup ACK\n");
 			smux_handle_wakeup_ack();
 			break;
 		default:
@@ -2579,7 +2616,7 @@ static void smux_tx_worker(struct work_struct *work)
 			spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
 			/* send the packet */
-			SMUX_LOG_PKT_TX(pkt);
+			SMUX_PWR_PKT_TX(pkt);
 			if (!smux_byte_loopback) {
 				smux_tx_tty(pkt);
 				smux_flush_tty();
