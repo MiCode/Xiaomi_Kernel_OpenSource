@@ -136,6 +136,15 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 			image_mode = -1;
 			break;
 		}
+	} else if (vfe_msg == VFE_MSG_OUTPUT_TERTIARY1) {
+		switch (pmctl->vfe_output_mode) {
+		case VFE_OUTPUTS_RDI0:
+			image_mode = MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW;
+			break;
+		default:
+			image_mode = -1;
+			break;
+		}
 	} else
 		image_mode = -1;
 
@@ -330,6 +339,9 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 				break;
 			case MSG_ID_OUTPUT_SECONDARY:
 				msgid = VFE_MSG_OUTPUT_SECONDARY;
+				break;
+			case MSG_ID_OUTPUT_TERTIARY1:
+				msgid = VFE_MSG_OUTPUT_TERTIARY1;
 				break;
 			default:
 				pr_err("%s: Invalid VFE output id: %d\n",
@@ -673,6 +685,7 @@ static int msm_axi_config(struct v4l2_subdev *sd,
 	case CMD_AXI_CFG_PRIM_ALL_CHNLS|CMD_AXI_CFG_SEC:
 	case CMD_AXI_START:
 	case CMD_AXI_STOP:
+	case CMD_AXI_CFG_TERT1:
 		/* Dont need to pass buffer information.
 		 * subdev will get the buffer from media
 		 * controller free queue.
