@@ -473,11 +473,18 @@ static int mipi_dsi_panel_power(int on)
 			}
 		}
 
+		rc = regulator_disable(reg_l11);
+		if (rc) {
+			pr_err("disable reg_l1 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
 		rc = regulator_disable(reg_lvs7);
 		if (rc) {
 			pr_err("disable reg_lvs7 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
+
 		rc = regulator_disable(reg_l2);
 		if (rc) {
 			pr_err("disable reg_l2 failed, rc=%d\n", rc);
