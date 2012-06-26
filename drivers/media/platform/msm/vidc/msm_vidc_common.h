@@ -29,6 +29,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state);
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst);
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct vb2_buffer *vb);
+int msm_comm_scale_clocks(struct msm_vidc_core *core);
 #define IS_PRIV_CTRL(idx) (\
 		(V4L2_CTRL_ID2CLASS(idx) == V4L2_CTRL_CLASS_MPEG) && \
 		V4L2_CTRL_DRIVER_PRIV(idx))
