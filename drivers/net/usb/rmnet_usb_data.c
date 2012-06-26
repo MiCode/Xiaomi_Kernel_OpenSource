@@ -604,6 +604,7 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 
 static const struct driver_info rmnet_info_pid9034 = {
 	.description   = "RmNET net device",
+	.flags         = FLAG_SEND_ZLP,
 	.bind          = rmnet_usb_bind,
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
@@ -613,6 +614,7 @@ static const struct driver_info rmnet_info_pid9034 = {
 
 static const struct driver_info rmnet_info_pid9048 = {
 	.description   = "RmNET net device",
+	.flags         = FLAG_SEND_ZLP,
 	.bind          = rmnet_usb_bind,
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
@@ -622,6 +624,7 @@ static const struct driver_info rmnet_info_pid9048 = {
 
 static const struct driver_info rmnet_info_pid904c = {
 	.description   = "RmNET net device",
+	.flags         = FLAG_SEND_ZLP,
 	.bind          = rmnet_usb_bind,
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
