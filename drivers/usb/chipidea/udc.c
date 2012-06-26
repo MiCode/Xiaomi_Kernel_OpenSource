@@ -31,6 +31,7 @@
 #include "debug.h"
 
 #define ATDTW_SET_DELAY		100 /* 100msec delay */
+#define REMOTE_WAKEUP_DELAY	msecs_to_jiffies(200)
 
 /* Turns on streaming. overrides CI13XXX_DISABLE_STREAMING */
 static unsigned int streaming;
@@ -477,6 +478,18 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 
 	wmb();
 
+	/* Remote Wakeup */
+	if (ci->suspended) {
+		if (!ci->remote_wakeup) {
+			mReq->req.status = -EAGAIN;
+			dev_dbg(mEp->device, "%s: queue failed (suspend) ept #%d\n",
+				__func__, mEp->num);
+			return -EAGAIN;
+		}
+		usb_phy_set_suspend(ci->transceiver, 0);
+		schedule_delayed_work(&ci->rw_work, REMOTE_WAKEUP_DELAY);
+	}
+
 	if (!list_empty(&mEp->qh.queue)) {
 		struct ci13xxx_req *mReqPrev;
 		int n = hw_ep_bit(mEp->num, mEp->dir);
@@ -704,6 +717,8 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	gadget->a_hnp_support = 0;
 	gadget->host_request = 0;
 	gadget->otg_srp_reqd = 0;
+
+	cancel_delayed_work_sync(&ci->rw_work);
 
 	/* flush all endpoints */
 	gadget_for_each_ep(ep, gadget) {
@@ -1605,6 +1620,15 @@ out:
 }
 EXPORT_SYMBOL_GPL(ci13xxx_wakeup);
 
+static void usb_do_remote_wakeup(struct work_struct *w)
+{
+	struct ci13xxx *ci;
+
+	ci = container_of(to_delayed_work(w), struct ci13xxx, rw_work);
+
+	ci13xxx_wakeup(&ci->gadget);
+}
+
 static int ci13xxx_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 {
 	struct ci13xxx *ci = container_of(_gadget, struct ci13xxx, gadget);
@@ -1903,6 +1927,8 @@ static int udc_start(struct ci13xxx *ci)
 		retval = -ENOMEM;
 		goto free_qh_pool;
 	}
+
+	INIT_DELAYED_WORK(&ci->rw_work, usb_do_remote_wakeup);
 
 	retval = init_eps(ci);
 	if (retval)

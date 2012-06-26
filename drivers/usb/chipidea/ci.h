@@ -162,6 +162,7 @@ struct ci13xxx {
 	u8				configured; /* is device configured */
 	u8				test_mode;
 
+	struct delayed_work		rw_work; /* remote wakeup */
 	struct ci13xxx_platform_data	*platdata;
 	int				vbus_active;
 	/* FIXME: some day, we'll not use global phy */
