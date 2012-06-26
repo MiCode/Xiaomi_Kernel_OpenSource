@@ -158,6 +158,11 @@ struct ci13xxx {
 	struct usb_phy            *transceiver; /* Transceiver struct */
 };
 
+struct ci13xxx_platform_data {
+	u8 usb_core_id;
+	void *prv_data;
+};
+
 /******************************************************************************
  * REGISTERS
  *****************************************************************************/
