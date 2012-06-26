@@ -996,6 +996,10 @@ static void tavarua_handle_interrupts(struct tavarua_device *radio)
 			FMDBG("read PHY_TXGAIN is successful");
 			complete(&radio->sync_req_done);
 			break;
+		case (XFR_EXT | 0x80):
+			FMDBG("Set tone generator successful\n");
+			complete(&radio->sync_req_done);
+			break;
 		case (0x80 | RX_CONFIG):
 		case (0x80 | RADIO_CONFIG):
 		case (0x80 | RDS_CONFIG):
@@ -3459,7 +3463,6 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_SSBI_ACCS_ADDR:
 	case V4L2_CID_PRIVATE_SSBI_PEEK:
 	case V4L2_CID_PRIVATE_SSBI_POKE:
-	case V4L2_CID_PRIVATE_TX_TONE:
 	case V4L2_CID_PRIVATE_RDS_GRP_COUNTERS:
 	case V4L2_CID_PRIVATE_SET_NOTCH_FILTER:
 	case V4L2_CID_PRIVATE_TAVARUA_DO_CALIBRATION:
@@ -3478,6 +3481,54 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_PRIVATE_UPDATE_SPUR_TABLE:
 		retval = update_spur_table(radio);
+		break;
+	case V4L2_CID_PRIVATE_TX_TONE:
+		retval = 0;
+		memset(xfr_buf, 0, sizeof(xfr_buf));
+		switch (ctrl->value) {
+		case ONE_KHZ_LR_EQUA_0DBFS:
+			xfr_buf[TONE_CHANNEL_EN_AND_SCALING_BYTE]
+				= TONE_LEFT_RIGHT_CH_ENABLED;
+			xfr_buf[TONE_LEFT_FREQ_BYTE] = 0x01;
+			xfr_buf[TONE_RIGHT_FREQ_BYTE] = 0x01;
+			break;
+		case ONE_KHZ_LEFTONLY_EQUA_0DBFS:
+			xfr_buf[TONE_CHANNEL_EN_AND_SCALING_BYTE]
+				 = TONE_LEFT_CH_ENABLED;
+			xfr_buf[TONE_LEFT_FREQ_BYTE] = 0x01;
+			break;
+		case ONE_KHZ_RIGHTONLY_EQUA_0DBFS:
+			xfr_buf[TONE_CHANNEL_EN_AND_SCALING_BYTE]
+				 = TONE_RIGHT_CH_ENABLED;
+			xfr_buf[TONE_RIGHT_FREQ_BYTE] = 0x01;
+			break;
+		case ONE_KHZ_LR_EQUA_l8DBFS:
+			xfr_buf[TONE_CHANNEL_EN_AND_SCALING_BYTE]
+				 = (LSH_DATA(TONE_SCALE_IND_12,
+						 TONE_SCALING_SHIFT)
+					 | TONE_LEFT_RIGHT_CH_ENABLED);
+			xfr_buf[TONE_LEFT_FREQ_BYTE] = 0x01;
+			xfr_buf[TONE_RIGHT_FREQ_BYTE] = 0x01;
+			break;
+		case FIFTEEN_KHZ_LR_EQUA_l8DBFS:
+			xfr_buf[TONE_CHANNEL_EN_AND_SCALING_BYTE]
+				 = (LSH_DATA(TONE_SCALE_IND_12,
+						 TONE_SCALING_SHIFT)
+					 | TONE_LEFT_RIGHT_CH_ENABLED);
+			xfr_buf[TONE_LEFT_FREQ_BYTE] = 0x0F;
+			xfr_buf[TONE_RIGHT_FREQ_BYTE] = 0x0F;
+			break;
+		default:
+			retval = -1;
+			FMDERR("tone generator value not valid\n");
+			break;
+		}
+		if (retval >= 0) {
+			xfr_buf[TONE_GEN_CTRL_BYTE] = 0x01;
+			retval = sync_write_xfr(radio, XFR_EXT, xfr_buf);
+		}
+		if (retval < 0)
+			FMDERR("Tone generator failed\n");
 		break;
 	default:
 		retval = -EINVAL;

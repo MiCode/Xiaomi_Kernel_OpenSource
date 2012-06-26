@@ -395,6 +395,22 @@ enum radio_state_t {
 
 #define	FM_TX_PWR_LVL_0		0 /* Lowest power lvl that can be set for Tx */
 #define	FM_TX_PWR_LVL_MAX	7 /* Max power lvl for Tx */
+
+/* Tone Generator control value */
+#define TONE_GEN_CTRL_BYTE		 0x00
+#define TONE_CHANNEL_EN_AND_SCALING_BYTE 0x01
+#define TONE_LEFT_FREQ_BYTE		 0x02
+#define TONE_RIGHT_FREQ_BYTE		 0x03
+#define TONE_LEFT_PHASE			 0x04
+#define TONE_RIGHT_PHASE		 0x05
+
+#define TONE_LEFT_CH_ENABLED		 0x01
+#define TONE_RIGHT_CH_ENABLED		 0x02
+#define TONE_LEFT_RIGHT_CH_ENABLED	 (TONE_LEFT_CH_ENABLED\
+						 | TONE_RIGHT_CH_ENABLED)
+
+#define TONE_SCALING_SHIFT		 0x02
+
 /* Transfer */
 enum tavarua_xfr_ctrl_t {
 	RDS_PS_0 = 0x01,
@@ -453,6 +469,7 @@ enum tavarua_xfr_ctrl_t {
 	PHY_CONFIG,
 	PHY_TXBLOCK,
 	PHY_TCB,
+	XFR_EXT,
 	XFR_PEEK_MODE = 0x40,
 	XFR_POKE_MODE = 0xC0,
 	TAVARUA_XFR_CTRL_MAX
@@ -503,6 +520,7 @@ enum {
 	TWELVE_BYTE,
 	THIRTEEN_BYTE
 };
+
 #define XFR_READ		(0)
 #define XFR_WRITE		(1)
 #define XFR_MODE_OFFSET		(0)
@@ -530,5 +548,29 @@ struct fm_def_data_wr_req {
 	__u8    length;
 	__u8   data[XFR_REG_NUM];
 } __packed;
+
+enum Internal_tone_gen_vals {
+	ONE_KHZ_LR_EQUA_0DBFS = 1,
+	ONE_KHZ_LEFTONLY_EQUA_0DBFS,
+	ONE_KHZ_RIGHTONLY_EQUA_0DBFS,
+	ONE_KHZ_LR_EQUA_l8DBFS,
+	FIFTEEN_KHZ_LR_EQUA_l8DBFS
+};
+
+enum Tone_scaling_indexes {
+	TONE_SCALE_IND_0,
+	TONE_SCALE_IND_1,
+	TONE_SCALE_IND_2,
+	TONE_SCALE_IND_3,
+	TONE_SCALE_IND_4,
+	TONE_SCALE_IND_5,
+	TONE_SCALE_IND_6,
+	TONE_SCALE_IND_7,
+	TONE_SCALE_IND_8,
+	TONE_SCALE_IND_9,
+	TONE_SCALE_IND_10,
+	TONE_SCALE_IND_11,
+	TONE_SCALE_IND_12
+};
 
 #endif /* __LINUX_TAVARUA_H */
