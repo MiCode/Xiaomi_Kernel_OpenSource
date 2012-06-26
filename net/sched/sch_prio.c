@@ -18,6 +18,7 @@
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <linux/skbuff.h>
+#include <linux/netdevice.h>
 #include <net/netlink.h>
 #include <net/pkt_sched.h>
 
@@ -176,6 +177,7 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
 	struct prio_sched_data *q = qdisc_priv(sch);
 	struct tc_prio_qopt *qopt;
 	int i;
+	int flow_change = 0;
 
 	if (nla_len(opt) < sizeof(*qopt))
 		return -EINVAL;
@@ -190,7 +192,10 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
 	}
 
 	sch_tree_lock(sch);
-	q->enable_flow = qopt->enable_flow;
+	if (q->enable_flow != qopt->enable_flow) {
+		q->enable_flow = qopt->enable_flow;
+		flow_change = 1;
+	}
 	q->bands = qopt->bands;
 	memcpy(q->prio2band, qopt->priomap, TC_PRIO_MAX+1);
 
@@ -224,6 +229,13 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
 				sch_tree_unlock(sch);
 			}
 		}
+	}
+
+	/* Schedule qdisc when flow re-enabled */
+	if (flow_change && q->enable_flow) {
+		if (!test_bit(__QDISC_STATE_DEACTIVATED,
+			      &sch->state))
+			__netif_schedule(qdisc_root(sch));
 	}
 	return 0;
 }
