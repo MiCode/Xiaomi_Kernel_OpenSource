@@ -677,6 +677,9 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 	if (aca_enabled())
 		return 0;
 
+	if (atomic_read(&motg->in_lpm) == suspend)
+		return 0;
+
 	if (suspend) {
 		switch (phy->state) {
 		case OTG_STATE_A_WAIT_BCON:
