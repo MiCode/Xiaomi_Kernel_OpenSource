@@ -36,8 +36,8 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/msm_audio_amrnb.h>
-#include <linux/android_pmem.h>
 #include <linux/memory_alloc.h>
+#include <linux/ion.h>
 
 #include "audmgr.h"
 
@@ -151,6 +151,9 @@ struct audio_amrnb_in {
 	uint8_t enabled;
 	uint8_t running;
 	uint8_t stopped; /* set when stopped, cleared on flush */
+	struct ion_client *client;
+	struct ion_handle *input_buff_handle;
+
 };
 
 struct audio_frame {
@@ -1207,8 +1210,8 @@ static int audamrnb_in_release(struct inode *inode, struct file *file)
 	audio->opened = 0;
 	if ((audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) && \
 	   (audio->out_data)) {
-		iounmap(audio->map_v_write);
-		free_contiguous_memory_by_paddr(audio->out_phys);
+		ion_unmap_kernel(audio->client, audio->input_buff_handle);
+		ion_free(audio->client, audio->input_buff_handle);
 		audio->out_data = NULL;
 	}
 	if (audio->data) {
@@ -1221,6 +1224,7 @@ static int audamrnb_in_release(struct inode *inode, struct file *file)
 			dma_size, audio->data, audio->phys);
 		audio->data = NULL;
 	}
+	ion_client_destroy(audio->client);
 	mutex_unlock(&audio->lock);
 	return 0;
 }
@@ -1233,6 +1237,11 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 	int32_t rc;
 	int encid;
 	int32_t dma_size = 0;
+	int len = 0;
+	unsigned long ionflag = 0;
+	ion_phys_addr_t addr = 0;
+	struct ion_handle *handle = NULL;
+	struct ion_client *client = NULL;
 
 	mutex_lock(&audio->lock);
 	if (audio->opened) {
@@ -1320,33 +1329,59 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 		goto evt_error;
 	}
 
+	client = msm_ion_client_create(UINT_MAX, "Audio_AMRNB_in_client");
+	if (IS_ERR_OR_NULL(client)) {
+		MM_ERR("Unable to create ION client\n");
+		rc = -ENOMEM;
+		goto client_create_error;
+	}
+	audio->client = client;
+
 	audio->out_data = NULL;
 	if (audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) {
-		audio->out_phys = allocate_contiguous_ebi_nomap(BUFFER_SIZE,
-								SZ_4K);
-		if (!audio->out_phys) {
-			MM_ERR("could not allocate write buffers\n");
+		MM_DBG("allocating BUFFER_SIZE  %d\n", BUFFER_SIZE);
+		handle = ion_alloc(client, BUFFER_SIZE,
+				SZ_4K, ION_HEAP(ION_AUDIO_HEAP_ID));
+		if (IS_ERR_OR_NULL(handle)) {
+			MM_ERR("Unable to create allocate write buffers\n");
 			rc = -ENOMEM;
-			dma_free_coherent(NULL,
-				dma_size, audio->data, audio->phys);
-			goto evt_error;
-		} else {
-			audio->map_v_write = ioremap(
-					audio->out_phys, BUFFER_SIZE);
-			if (IS_ERR(audio->map_v_write)) {
-				MM_ERR("could not map write phys address\n");
-				rc = -ENOMEM;
-				dma_free_coherent(NULL,
-					dma_size, audio->data, audio->phys);
-				free_contiguous_memory_by_paddr(\
-						audio->out_phys);
-				goto evt_error;
-			}
-			audio->out_data = audio->map_v_write;
-			MM_DBG("wr buf: phy addr 0x%08x kernel addr 0x%08x\n",
-					audio->out_phys,
-					(uint32_t)audio->out_data);
+			goto input_buff_alloc_error;
 		}
+
+		audio->input_buff_handle = handle;
+
+		rc = ion_phys(client , handle, &addr, &len);
+		if (rc) {
+			MM_ERR("I/P buffers:Invalid phy: %x sz: %x\n",
+				(unsigned int) addr, (unsigned int) len);
+			rc = -ENOMEM;
+			goto input_buff_get_phys_error;
+		} else {
+			MM_INFO("Got valid phy: %x sz: %x\n",
+				(unsigned int) addr,
+				(unsigned int) len);
+		}
+		audio->out_phys = (int32_t)addr;
+
+		rc = ion_handle_get_flags(client,
+			handle, &ionflag);
+		if (rc) {
+			MM_ERR("could not get flags for the handle\n");
+			rc = -ENOMEM;
+			goto input_buff_get_flags_error;
+		}
+
+		audio->map_v_write = ion_map_kernel(client,
+			handle, ionflag);
+		if (IS_ERR(audio->map_v_write)) {
+			MM_ERR("could not map write buffers\n");
+			rc = -ENOMEM;
+			goto input_buff_map_error;
+		}
+		audio->out_data = audio->map_v_write;
+		MM_DBG("write buf: phy addr 0x%08x kernel addr 0x%08x\n",
+					(unsigned int)addr,
+					(unsigned int)audio->out_data);
 
 		/* Initialize buffer */
 		audio->out[0].data = audio->out_data + 0;
@@ -1369,6 +1404,14 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 done:
 	mutex_unlock(&audio->lock);
 	return rc;
+input_buff_map_error:
+input_buff_get_phys_error:
+input_buff_get_flags_error:
+	ion_free(client, audio->input_buff_handle);
+input_buff_alloc_error:
+	ion_client_destroy(client);
+client_create_error:
+	dma_free_coherent(NULL, dma_size, audio->data, audio->phys);
 evt_error:
 	msm_adsp_put(audio->audrec);
 	if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL)
