@@ -35,6 +35,7 @@ struct mdm_modem_drv {
 	unsigned ap2mdm_kpdpwr_n_gpio;
 	unsigned ap2mdm_soft_reset_gpio;
 	unsigned ap2mdm_pmic_pwr_en_gpio;
+	unsigned mdm2ap_pblrdy;
 
 	int mdm_errfatal_irq;
 	int mdm_status_irq;
