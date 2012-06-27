@@ -73,7 +73,7 @@ static int __init kernel_ebi1_mem_size_setup(char *p)
 early_param("kernel_ebi1_mem_size", kernel_ebi1_mem_size_setup);
 #endif
 
-static struct memtype_reserve msm_copper_reserve_table[] __initdata = {
+static struct memtype_reserve msm_8974_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
 	[MEMTYPE_EBI0] = {
@@ -84,7 +84,7 @@ static struct memtype_reserve msm_copper_reserve_table[] __initdata = {
 	},
 };
 
-static int msm_copper_paddr_to_memtype(unsigned int paddr)
+static int msm_8974_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
 }
@@ -193,14 +193,14 @@ static struct platform_device ion_dev = {
 
 static void __init reserve_ion_memory(void)
 {
-	msm_copper_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_SIZE;
-	msm_copper_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_FW_SIZE;
-	msm_copper_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
-	msm_copper_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
-	msm_copper_reserve_table[MEMTYPE_EBI1].size += MSM_ION_QSECOM_SIZE;
-	msm_copper_reserve_table[MEMTYPE_EBI1].size += MSM_ION_AUDIO_SIZE;
+	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_SIZE;
+	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_FW_SIZE;
+	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
+	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
+	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_QSECOM_SIZE;
+	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_AUDIO_SIZE;
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
-	msm_copper_reserve_table[MEMTYPE_EBI1].size += kernel_ebi1_mem_size;
+	msm_8974_reserve_table[MEMTYPE_EBI1].size += kernel_ebi1_mem_size;
 #endif
 }
 #endif
@@ -357,7 +357,7 @@ static struct smd_platform smd_platform_data = {
 	.smd_smem_areas = aux_smem_areas,
 };
 
-struct platform_device msm_device_smd_copper = {
+struct platform_device msm_device_smd_8974 = {
 	.name	= "msm_smd",
 	.id	= -1,
 	.resource = smd_resource,
@@ -367,25 +367,25 @@ struct platform_device msm_device_smd_copper = {
 	}
 };
 
-static void __init msm_copper_calculate_reserve_sizes(void)
+static void __init msm_8974_calculate_reserve_sizes(void)
 {
 #ifdef CONFIG_ION_MSM
 	reserve_ion_memory();
 #endif
 }
 
-static struct reserve_info msm_copper_reserve_info __initdata = {
-	.memtype_reserve_table = msm_copper_reserve_table,
-	.calculate_reserve_sizes = msm_copper_calculate_reserve_sizes,
-	.paddr_to_memtype = msm_copper_paddr_to_memtype,
+static struct reserve_info msm_8974_reserve_info __initdata = {
+	.memtype_reserve_table = msm_8974_reserve_table,
+	.calculate_reserve_sizes = msm_8974_calculate_reserve_sizes,
+	.paddr_to_memtype = msm_8974_paddr_to_memtype,
 };
 
-static void __init msm_copper_early_memory(void)
+static void __init msm_8974_early_memory(void)
 {
-	reserve_info = &msm_copper_reserve_info;
+	reserve_info = &msm_8974_reserve_info;
 }
 
-void __init msm_copper_reserve(void)
+void __init msm_8974_reserve(void)
 {
 	msm_reserve();
 }
@@ -396,7 +396,7 @@ static struct platform_device android_usb_device = {
 };
 
 #define SHARED_IMEM_TZ_BASE 0xFE805720
-static struct resource copper_tzlog_resources[] = {
+static struct resource msm8974_tzlog_resources[] = {
 	{
 		.start = SHARED_IMEM_TZ_BASE,
 		.end = SHARED_IMEM_TZ_BASE + SZ_4K - 1,
@@ -404,11 +404,11 @@ static struct resource copper_tzlog_resources[] = {
 	},
 };
 
-struct platform_device copper_device_tz_log = {
+struct platform_device msm8974_device_tz_log = {
 	.name		= "tz_log",
 	.id		= 0,
-	.num_resources	= ARRAY_SIZE(copper_tzlog_resources),
-	.resource	= copper_tzlog_resources,
+	.num_resources	= ARRAY_SIZE(msm8974_tzlog_resources),
+	.resource	= msm8974_tzlog_resources,
 };
 
 #define BIMC_BASE	0xfc380000
@@ -521,7 +521,7 @@ static struct platform_device msm_bus_ocmem_vnoc = {
 	.id    = MSM_BUS_FAB_OCMEM_VNOC,
 };
 
-static struct platform_device *msm_bus_copper_devices[] = {
+static struct platform_device *msm_bus_8974_devices[] = {
 	&msm_bus_sys_noc,
 	&msm_bus_bimc,
 	&msm_bus_mmss_noc,
@@ -531,32 +531,32 @@ static struct platform_device *msm_bus_copper_devices[] = {
 	&msm_bus_ocmem_vnoc,
 };
 
-static void __init msmcopper_init_buses(void)
+static void __init msm8974_init_buses(void)
 {
 #ifdef CONFIG_MSM_BUS_SCALING
 	msm_bus_sys_noc.dev.platform_data =
-		&msm_bus_copper_sys_noc_pdata;
-	msm_bus_bimc.dev.platform_data = &msm_bus_copper_bimc_pdata;
-	msm_bus_mmss_noc.dev.platform_data = &msm_bus_copper_mmss_noc_pdata;
-	msm_bus_ocmem_noc.dev.platform_data = &msm_bus_copper_ocmem_noc_pdata;
-	msm_bus_periph_noc.dev.platform_data = &msm_bus_copper_periph_noc_pdata;
-	msm_bus_config_noc.dev.platform_data = &msm_bus_copper_config_noc_pdata;
-	msm_bus_ocmem_vnoc.dev.platform_data = &msm_bus_copper_ocmem_vnoc_pdata;
+		&msm_bus_8974_sys_noc_pdata;
+	msm_bus_bimc.dev.platform_data = &msm_bus_8974_bimc_pdata;
+	msm_bus_mmss_noc.dev.platform_data = &msm_bus_8974_mmss_noc_pdata;
+	msm_bus_ocmem_noc.dev.platform_data = &msm_bus_8974_ocmem_noc_pdata;
+	msm_bus_periph_noc.dev.platform_data = &msm_bus_8974_periph_noc_pdata;
+	msm_bus_config_noc.dev.platform_data = &msm_bus_8974_config_noc_pdata;
+	msm_bus_ocmem_vnoc.dev.platform_data = &msm_bus_8974_ocmem_vnoc_pdata;
 #endif
-	platform_add_devices(msm_bus_copper_devices,
-				ARRAY_SIZE(msm_bus_copper_devices));
+	platform_add_devices(msm_bus_8974_devices,
+				ARRAY_SIZE(msm_bus_8974_devices));
 };
 
-void __init msm_copper_add_devices(void)
+void __init msm_8974_add_devices(void)
 {
 #ifdef CONFIG_ION_MSM
 	platform_device_register(&ion_dev);
 #endif
-	platform_device_register(&msm_device_smd_copper);
+	platform_device_register(&msm_device_smd_8974);
 	platform_device_register(&android_usb_device);
-	platform_add_devices(msm_copper_stub_regulator_devices,
-					msm_copper_stub_regulator_devices_len);
-	platform_device_register(&copper_device_tz_log);
+	platform_add_devices(msm_8974_stub_regulator_devices,
+					msm_8974_stub_regulator_devices_len);
+	platform_device_register(&msm8974_device_tz_log);
 }
 
 static struct clk_lookup msm_clocks_dummy[] = {
@@ -599,7 +599,7 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-void __init msm_copper_add_drivers(void)
+void __init msm_8974_add_drivers(void)
 {
 	msm_init_modem_notifier_list();
 	msm_smd_init();
@@ -608,11 +608,11 @@ void __init msm_copper_add_drivers(void)
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	regulator_stub_init();
-	if (machine_is_copper_rumi())
+	if (machine_is_msm8974_rumi())
 		msm_clock_init(&msm_dummy_clock_init_data);
 	else
-		msm_clock_init(&msmcopper_clock_init_data);
-	msmcopper_init_buses();
+		msm_clock_init(&msm8974_clock_init_data);
+	msm8974_init_buses();
 }
 
 static struct of_device_id irq_match[] __initdata  = {
@@ -622,12 +622,12 @@ static struct of_device_id irq_match[] __initdata  = {
 	{}
 };
 
-void __init msm_copper_init_irq(void)
+void __init msm_8974_init_irq(void)
 {
 	of_irq_init(irq_match);
 }
 
-static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
+static struct of_dev_auxdata msm_8974_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
 			"msm_serial_hsl.0", NULL),
 	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
@@ -660,16 +660,16 @@ static struct of_dev_auxdata msm_copper_auxdata_lookup[] __initdata = {
 	{}
 };
 
-void __init msm_copper_init(struct of_dev_auxdata **adata)
+void __init msm_8974_init(struct of_dev_auxdata **adata)
 {
-	msm_copper_init_gpiomux();
+	msm_8974_init_gpiomux();
 
-	*adata = msm_copper_auxdata_lookup;
+	*adata = msm_8974_auxdata_lookup;
 
 	regulator_has_full_constraints();
 }
 
-void __init msm_copper_very_early(void)
+void __init msm_8974_very_early(void)
 {
-	msm_copper_early_memory();
+	msm_8974_early_memory();
 }

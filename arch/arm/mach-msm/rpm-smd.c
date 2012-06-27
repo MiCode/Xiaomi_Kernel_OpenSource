@@ -736,7 +736,7 @@ bail:
 EXPORT_SYMBOL(msm_rpm_send_message_noirq);
 static bool msm_rpm_set_standalone(void)
 {
-	if (machine_is_copper()) {
+	if (machine_is_msm8974()) {
 		pr_warn("%s(): Running in standalone mode, requests "
 				"will not be sent to RPM\n", __func__);
 		standalone = true;

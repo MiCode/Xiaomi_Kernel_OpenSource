@@ -240,8 +240,8 @@ static enum msm_cpu cpu_of_id[] = {
 	/* 8060A ID */
 	[124] = MSM_CPU_8960,
 
-	/* Copper IDs */
-	[126] = MSM_CPU_COPPER,
+	/* 8974 IDs */
+	[126] = MSM_CPU_8974,
 
 	/* 8625 IDs */
 	[127] = MSM_CPU_8625,
@@ -624,9 +624,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 109;
 	else if (machine_is_msm9615_mtp() || machine_is_msm9615_cdp())
 		dummy_socinfo.id = 104;
-	else if (early_machine_is_copper()) {
+	else if (early_machine_is_msm8974()) {
 		dummy_socinfo.id = 126;
-		strlcpy(dummy_socinfo.build_id, "copper - ",
+		strlcpy(dummy_socinfo.build_id, "msm8974 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm9625()) {
 		dummy_socinfo.id = 134;

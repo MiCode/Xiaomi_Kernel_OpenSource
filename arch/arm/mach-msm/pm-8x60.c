@@ -567,7 +567,7 @@ static bool msm_pm_power_collapse(bool from_idle)
 
 static void msm_pm_qtimer_available(void)
 {
-	if (machine_is_copper())
+	if (machine_is_msm8974())
 		msm_pm_use_qtimer = true;
 }
 

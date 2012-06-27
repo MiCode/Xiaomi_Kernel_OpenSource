@@ -201,4 +201,4 @@ static void __exit gdsc_exit(void)
 module_exit(gdsc_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Copper GDSC power rail regulator driver");
+MODULE_DESCRIPTION("MSM8974 GDSC power rail regulator driver");

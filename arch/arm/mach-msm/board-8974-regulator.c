@@ -71,25 +71,25 @@ KRAIT_PWR(K1, "krait1", 0, 850000,  1100000, NULL,     100000, 0);
 KRAIT_PWR(K2, "krait2", 0, 850000,  1100000, NULL,     100000, 0);
 KRAIT_PWR(K3, "krait3", 0, 850000,  1100000, NULL,     100000, 0);
 
-#define VREG_DEVICE(_name, _devid)					       \
-		vreg_device_##_name =			       \
-		{							       \
-			.name = STUB_REGULATOR_DRIVER_NAME,		       \
-			.id = _devid,					       \
-			.dev = { .platform_data = &vreg_dev_##_name##_pdata }, \
-		}
+#define VREG_DEVICE(_name, _devid) \
+	static struct platform_device vreg_device_##_name = \
+	{ \
+		.name = STUB_REGULATOR_DRIVER_NAME, \
+		.id = _devid, \
+		.dev = { .platform_data = &vreg_dev_##_name##_pdata }, \
+	}
 
-static struct platform_device VREG_DEVICE(K0, 0);
-static struct platform_device VREG_DEVICE(K1, 1);
-static struct platform_device VREG_DEVICE(K2, 2);
-static struct platform_device VREG_DEVICE(K3, 3);
+VREG_DEVICE(K0, 0);
+VREG_DEVICE(K1, 1);
+VREG_DEVICE(K2, 2);
+VREG_DEVICE(K3, 3);
 
-struct platform_device *msm_copper_stub_regulator_devices[] = {
+struct platform_device *msm_8974_stub_regulator_devices[] = {
 	&vreg_device_K0,
 	&vreg_device_K1,
 	&vreg_device_K2,
 	&vreg_device_K3,
 };
 
-int msm_copper_stub_regulator_devices_len =
-			ARRAY_SIZE(msm_copper_stub_regulator_devices);
+int msm_8974_stub_regulator_devices_len =
+			ARRAY_SIZE(msm_8974_stub_regulator_devices);

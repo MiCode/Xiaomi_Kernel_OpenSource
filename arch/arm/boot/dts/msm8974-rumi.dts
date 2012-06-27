@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-/include/ "msmcopper.dtsi"
+/include/ "msm8974.dtsi"
 
 / {
-	model = "Qualcomm MSM Copper RUMI";
-	compatible = "qcom,msmcopper-rumi", "qcom,msmcopper";
+	model = "Qualcomm MSM 8974 RUMI";
+	compatible = "qcom,msm8974-rumi", "qcom,msm8974";
 
 	timer {
 		clock-frequency = <5000000>;

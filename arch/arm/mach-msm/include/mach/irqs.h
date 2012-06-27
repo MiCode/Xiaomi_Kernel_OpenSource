@@ -58,8 +58,8 @@
 
 #else
 
-#if defined(CONFIG_ARCH_MSMCOPPER)
-#include "irqs-copper.h"
+#if defined(CONFIG_ARCH_MSM8974)
+#include "irqs-8974.h"
 #elif defined(CONFIG_ARCH_MSM9615)
 #include "irqs-9615.h"
 #elif defined(CONFIG_ARCH_MSM9625)

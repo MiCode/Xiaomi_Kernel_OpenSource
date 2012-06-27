@@ -541,11 +541,11 @@ struct isp1763_platform_data {
 /* common init routines for use by arch/arm/mach-msm/board-*.c */
 
 #ifdef CONFIG_OF_DEVICE
-void msm_copper_init(struct of_dev_auxdata **);
+void msm_8974_init(struct of_dev_auxdata **);
 #endif
 void msm_add_devices(void);
-void msm_copper_add_devices(void);
-void msm_copper_add_drivers(void);
+void msm_8974_add_devices(void);
+void msm_8974_add_drivers(void);
 void msm_map_common_io(void);
 void msm_map_qsd8x50_io(void);
 void msm_map_msm8x60_io(void);
@@ -554,15 +554,15 @@ void msm_map_msm8930_io(void);
 void msm_map_apq8064_io(void);
 void msm_map_msm7x30_io(void);
 void msm_map_fsm9xxx_io(void);
-void msm_map_copper_io(void);
+void msm_map_8974_io(void);
 void msm_map_msm8625_io(void);
 void msm_map_msm9625_io(void);
 void msm_init_irq(void);
-void msm_copper_init_irq(void);
+void msm_8974_init_irq(void);
 void vic_handle_irq(struct pt_regs *regs);
-void msm_copper_reserve(void);
-void msm_copper_very_early(void);
-void msm_copper_init_gpiomux(void);
+void msm_8974_reserve(void);
+void msm_8974_very_early(void);
+void msm_8974_init_gpiomux(void);
 
 struct mmc_platform_data;
 int msm_add_sdcc(unsigned int controller,

@@ -300,28 +300,28 @@ void __init msm_map_apq8064_io(void)
 }
 #endif /* CONFIG_ARCH_APQ8064 */
 
-#ifdef CONFIG_ARCH_MSMCOPPER
-static struct map_desc msm_copper_io_desc[] __initdata = {
-	MSM_CHIP_DEVICE(QGIC_DIST, COPPER),
-	MSM_CHIP_DEVICE(QGIC_CPU, COPPER),
-	MSM_CHIP_DEVICE(APCS_GCC, COPPER),
-	MSM_CHIP_DEVICE(TLMM, COPPER),
+#ifdef CONFIG_ARCH_MSM8974
+static struct map_desc msm_8974_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(QGIC_DIST, MSM8974),
+	MSM_CHIP_DEVICE(QGIC_CPU, MSM8974),
+	MSM_CHIP_DEVICE(APCS_GCC, MSM8974),
+	MSM_CHIP_DEVICE(TLMM, MSM8974),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
 		.type =     MT_DEVICE,
 	},
-#ifdef CONFIG_DEBUG_MSMCOPPER_UART
+#ifdef CONFIG_DEBUG_MSM8974_UART
 	MSM_DEVICE(DEBUG_UART),
 #endif
 };
 
-void __init msm_map_copper_io(void)
+void __init msm_map_8974_io(void)
 {
-	msm_shared_ram_phys = COPPER_MSM_SHARED_RAM_PHYS;
-	msm_map_io(msm_copper_io_desc, ARRAY_SIZE(msm_copper_io_desc));
+	msm_shared_ram_phys = MSM8974_MSM_SHARED_RAM_PHYS;
+	msm_map_io(msm_8974_io_desc, ARRAY_SIZE(msm_8974_io_desc));
 }
-#endif /* CONFIG_ARCH_MSMCOPPER */
+#endif /* CONFIG_ARCH_MSM8974 */
 
 #ifdef CONFIG_ARCH_MSM7X30
 static struct map_desc msm7x30_io_desc[] __initdata = {

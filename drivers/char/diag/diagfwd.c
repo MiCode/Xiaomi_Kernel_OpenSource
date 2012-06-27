@@ -120,7 +120,7 @@ int chk_config_get_id(void)
 		return 0;
 
 	if (driver->use_device_tree) {
-		if (machine_is_copper())
+		if (machine_is_msm8974())
 			return MSM8974_TOOLS_ID;
 		else
 			return 0;
@@ -134,7 +134,7 @@ int chk_config_get_id(void)
 			return APQ8064_TOOLS_ID;
 		case MSM_CPU_8930:
 			return MSM8930_TOOLS_ID;
-		case MSM_CPU_COPPER:
+		case MSM_CPU_8974:
 			return MSM8974_TOOLS_ID;
 		case MSM_CPU_8625:
 			return MSM8625_TOOLS_ID;
@@ -159,7 +159,7 @@ int chk_apps_only(void)
 	case MSM_CPU_8930:
 	case MSM_CPU_8627:
 	case MSM_CPU_9615:
-	case MSM_CPU_COPPER:
+	case MSM_CPU_8974:
 		return 1;
 	default:
 		return 0;

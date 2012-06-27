@@ -111,7 +111,7 @@ static inline struct pll_clk *to_pll_clk(struct clk *c)
 }
 
 int sr_pll_clk_enable(struct clk *c);
-int copper_pll_clk_enable(struct clk *c);
+int msm8974_pll_clk_enable(struct clk *c);
 
 /*
  * PLL vote clock APIs

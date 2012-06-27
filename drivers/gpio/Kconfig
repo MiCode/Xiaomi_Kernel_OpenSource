@@ -745,7 +745,7 @@ config GPIO_MSIC
 	  intel MID devices
 
 config GPIO_QPNP_PIN
-	depends on ARCH_MSMCOPPER
+	depends on ARCH_MSM8974
 	depends on SPMI
 	depends on OF_SPMI
 	depends on MSM_QPNP_INT

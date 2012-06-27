@@ -172,7 +172,7 @@ extern struct clock_init_data msm8x60_clock_init_data;
 extern struct clock_init_data qds8x50_clock_init_data;
 extern struct clock_init_data msm8625_dummy_clock_init_data;
 extern struct clock_init_data msm8930_clock_init_data;
-extern struct clock_init_data msmcopper_clock_init_data;
+extern struct clock_init_data msm8974_clock_init_data;
 
 void msm_clock_init(struct clock_init_data *data);
 int vote_vdd_level(struct clk_vdd_class *vdd_class, int level);

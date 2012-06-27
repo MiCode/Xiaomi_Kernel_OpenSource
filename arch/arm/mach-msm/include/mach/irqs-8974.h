@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ASM_ARCH_MSM_IRQS_COPPER_H
-#define __ASM_ARCH_MSM_IRQS_COPPER_H
+#ifndef __ASM_ARCH_MSM_IRQS_8974_H
+#define __ASM_ARCH_MSM_IRQS_8974_H
 
 /* MSM ACPU Interrupt Numbers */
 

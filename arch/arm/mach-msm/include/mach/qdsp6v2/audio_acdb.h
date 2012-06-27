@@ -14,7 +14,7 @@
 #define _AUDIO_ACDB_H
 
 #include <linux/msm_audio_acdb.h>
-#ifdef CONFIG_ARCH_MSMCOPPER
+#ifdef CONFIG_ARCH_MSM8974
 #include <sound/q6adm-v2.h>
 #else
 #include <sound/q6adm.h>

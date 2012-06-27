@@ -106,10 +106,10 @@ config SND_SOC_MSM_QDSP6_INTF
 	 To add support for SoC audio on MSM8960.
 
 config SND_SOC_MSM_QDSP6V2_INTF
-	bool "SoC Q6 audio driver for MSMCOPPER"
+	bool "SoC Q6 audio driver for MSM8974"
 	depends on MSM_QDSP6_APR
 	help
-	 To add support for SoC audio on MSMCOPPER.
+	 To add support for SoC audio on MSM8974.
 	 This will enable all the platform specific
 	 interactions towards DSP. It includes asm,
 	 adm and afe interfaces on the DSP.
@@ -154,14 +154,14 @@ config SND_SOC_MSM8960
 	 To add support for SoC audio on MSM8960 and APQ8064 boards
 
 config SND_SOC_MSM8974
-	tristate "SoC Machine driver for MSMCOPPER boards"
-	depends on ARCH_MSMCOPPER
+	tristate "SoC Machine driver for MSM8974 boards"
+	depends on ARCH_MSM8974
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_DYNAMIC_MINORS
 	help
-	 To add support for SoC audio on MSMCOPPER.
+	 To add support for SoC audio on MSM8974.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable
 	 the machine drivers and the corresponding
