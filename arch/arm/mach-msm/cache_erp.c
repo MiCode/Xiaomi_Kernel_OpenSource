@@ -90,7 +90,7 @@
 
 #define MODULE_NAME "msm_cache_erp"
 
-#define ERP_LOG_MAGIC_ADDR	0x748
+#define ERP_LOG_MAGIC_ADDR	0x6A4
 #define ERP_LOG_MAGIC		0x11C39893
 
 struct msm_l1_err_stats {
