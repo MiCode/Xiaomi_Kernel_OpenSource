@@ -288,7 +288,7 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		mdp_mregion->ion_handle = enc_mregion->ion_handle;
 
 		rc = ion_map_iommu(wfd_dev->ion_client, mdp_mregion->ion_handle,
-				DISPLAY_WRITE_DOMAIN, GEN_POOL, SZ_4K,
+				DISPLAY_DOMAIN, GEN_POOL, SZ_4K,
 				0, (unsigned long *)&mdp_mregion->paddr,
 				(unsigned long *)&mdp_mregion->size, 0, 0);
 		if (rc) {
@@ -363,7 +363,7 @@ void wfd_free_input_buffers(struct wfd_device *wfd_dev,
 			if (mpair->mdp->paddr)
 				ion_unmap_iommu(wfd_dev->ion_client,
 						mpair->mdp->ion_handle,
-						DISPLAY_WRITE_DOMAIN, GEN_POOL);
+						DISPLAY_DOMAIN, GEN_POOL);
 
 			if (mpair->enc->paddr)
 				ion_unmap_iommu(wfd_dev->ion_client,

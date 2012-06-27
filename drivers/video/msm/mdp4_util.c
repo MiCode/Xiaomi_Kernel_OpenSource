@@ -2591,20 +2591,11 @@ u32 mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 		buf->ihdl = ion_alloc(mfd->iclient, buffer_size, SZ_4K,
 			mfd->mem_hid);
 		if (!IS_ERR_OR_NULL(buf->ihdl)) {
-			if (mfd->mem_hid & ION_SECURE) {
-				if (ion_phys(mfd->iclient, buf->ihdl,
-					&addr, (unsigned *)&len)) {
-					pr_err("%s:%d: ion_phys map failed\n",
-						 __func__, __LINE__);
-					return -ENOMEM;
-				}
-			} else {
-				if (ion_map_iommu(mfd->iclient, buf->ihdl,
-					DISPLAY_WRITE_DOMAIN, GEN_POOL, SZ_4K,
-					0, &addr, &len, 0, 0)) {
-					pr_err("ion_map_iommu() failed\n");
-					return -ENOMEM;
-				}
+			if (ion_map_iommu(mfd->iclient, buf->ihdl,
+				DISPLAY_DOMAIN, GEN_POOL, SZ_4K, 0, &addr,
+				&len, 0, 0)) {
+				pr_err("ion_map_iommu() failed\n");
+				return -ENOMEM;
 			}
 		} else {
 			pr_err("%s:%d: ion_alloc failed\n", __func__,
@@ -2638,9 +2629,8 @@ void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 
 	if (!IS_ERR_OR_NULL(mfd->iclient)) {
 		if (!IS_ERR_OR_NULL(buf->ihdl)) {
-			if (!(mfd->mem_hid & ION_SECURE))
-				ion_unmap_iommu(mfd->iclient, buf->ihdl,
-					DISPLAY_WRITE_DOMAIN, GEN_POOL);
+			ion_unmap_iommu(mfd->iclient, buf->ihdl,
+				DISPLAY_DOMAIN, GEN_POOL);
 			ion_free(mfd->iclient, buf->ihdl);
 			pr_debug("%s:%d free writeback imem\n", __func__,
 				__LINE__);
