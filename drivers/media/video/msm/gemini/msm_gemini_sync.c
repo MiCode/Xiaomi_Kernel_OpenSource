@@ -280,6 +280,7 @@ int msm_gemini_we_pingpong_irq(struct msm_gemini_device *pgmn_dev,
 		GMN_DBG("%s:%d] no output return buffer\n", __func__,
 			__LINE__);
 		rc = -1;
+		return rc;
 	}
 
 	buf_out = msm_gemini_q_out(&pgmn_dev->output_buf_q);
