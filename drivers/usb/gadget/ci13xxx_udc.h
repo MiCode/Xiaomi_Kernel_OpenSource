@@ -149,6 +149,7 @@ struct ci13xxx {
 	u8                         configured;  /* is device configured */
 	u8                         test_mode;  /* the selected test mode */
 
+	struct delayed_work        rw_work;    /* remote wakeup delayed work */
 	struct usb_gadget_driver  *driver;     /* 3rd party gadget driver */
 	struct ci13xxx_udc_driver *udc_driver; /* device controller driver */
 	int                        vbus_active; /* is VBUS active */

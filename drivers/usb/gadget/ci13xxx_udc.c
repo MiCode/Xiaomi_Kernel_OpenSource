@@ -48,7 +48,6 @@
  * - Handle requests which spawns into several TDs
  * - GET_STATUS(device) - always reports 0
  * - Gadget API (majority of optional features)
- * - Suspend & Remote Wakeup
  */
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -169,6 +168,8 @@ static struct {
 #define CAP_ENDPTCOMPLETE   (hw_bank.lpm ? 0x0E8UL : 0x07CUL)
 #define CAP_ENDPTCTRL       (hw_bank.lpm ? 0x0ECUL : 0x080UL)
 #define CAP_LAST            (hw_bank.lpm ? 0x12CUL : 0x0C0UL)
+
+#define REMOTE_WAKEUP_DELAY	msecs_to_jiffies(200)
 
 /* maximum number of enpoints: valid only after hw_device_reset() */
 static unsigned hw_ep_max;
@@ -1523,6 +1524,13 @@ out:
 	return ret;
 }
 
+static void usb_do_remote_wakeup(struct work_struct *w)
+{
+	struct ci13xxx *udc = _udc;
+
+	ci13xxx_wakeup(&udc->gadget);
+}
+
 static ssize_t usb_remote_wakeup(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1652,6 +1660,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	unsigned i;
 	int ret = 0;
 	unsigned length = mReq->req.length;
+	struct ci13xxx *udc = _udc;
 
 	trace("%p, %p", mEp, mReq);
 
@@ -1727,6 +1736,18 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	for (i = 1; i < 5; i++)
 		mReq->ptr->page[i] =
 			(mReq->req.dma + i * CI13XXX_PAGE_SIZE) & ~TD_RESERVED_MASK;
+
+	/* Remote Wakeup */
+	if (udc->suspended) {
+		if (!udc->remote_wakeup) {
+			mReq->req.status = -EAGAIN;
+			dev_dbg(mEp->device, "%s: queue failed (suspend) ept #%d\n",
+				__func__, mEp->num);
+			return -EAGAIN;
+		}
+		usb_phy_set_suspend(udc->transceiver, 0);
+		schedule_delayed_work(&udc->rw_work, REMOTE_WAKEUP_DELAY);
+	}
 
 	if (!list_empty(&mEp->qh.queue)) {
 		struct ci13xxx_req *mReqPrev;
@@ -1959,6 +1980,8 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	gadget->a_hnp_support = 0;
 	gadget->host_request = 0;
 	gadget->otg_srp_reqd = 0;
+
+	cancel_delayed_work_sync(&udc->rw_work);
 
 	/* flush all endpoints */
 	gadget_for_each_ep(ep, gadget) {
@@ -3340,6 +3363,8 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 			goto free_udc;
 		}
 	}
+
+	INIT_DELAYED_WORK(&udc->rw_work, usb_do_remote_wakeup);
 
 	retval = hw_device_init(regs);
 	if (retval < 0)
