@@ -351,6 +351,221 @@ static uint32_t op_mode;
 static uint32_t raw_mode;
 static struct vfe2x_ctrl_type *vfe2x_ctrl;
 
+static unsigned long vfe2x_stats_dqbuf(enum msm_stats_enum_type stats_type)
+{
+	struct msm_stats_meta_buf *buf = NULL;
+	int rc = 0;
+
+	rc = vfe2x_ctrl->stats_ops.dqbuf(vfe2x_ctrl->stats_ops.stats_ctrl,
+							  stats_type, &buf);
+	if (rc < 0) {
+		pr_err("%s: dq stats buf (type = %d) err = %d",
+			   __func__, stats_type, rc);
+		return 0;
+	}
+	return buf->paddr;
+}
+
+static unsigned long vfe2x_stats_flush_enqueue(
+	enum msm_stats_enum_type stats_type)
+{
+	struct msm_stats_bufq *bufq = NULL;
+	struct msm_stats_meta_buf *stats_buf = NULL;
+	int rc = 0;
+	int i;
+
+	/*
+	 * Passing NULL for ion client as the buffers are already
+	 * mapped at this stage, client is not required, flush all
+	 * the buffers, and buffers move to PREPARE state
+	 */
+	rc = vfe2x_ctrl->stats_ops.bufq_flush(
+			vfe2x_ctrl->stats_ops.stats_ctrl,
+			stats_type, NULL);
+	if (rc < 0) {
+		pr_err("%s: dq stats buf (type = %d) err = %d",
+			 __func__, stats_type, rc);
+		return 0L;
+	}
+
+	/* Queue all the buffers back to QUEUED state */
+	bufq = vfe2x_ctrl->stats_ctrl.bufq[stats_type];
+	for (i = 0; i < bufq->num_bufs; i++) {
+		stats_buf = &bufq->bufs[i];
+		rc = vfe2x_ctrl->stats_ops.enqueue_buf(
+				vfe2x_ctrl->stats_ops.stats_ctrl,
+				&(stats_buf->info), NULL);
+			if (rc < 0) {
+				pr_err("%s: dq stats buf (type = %d) err = %d",
+					 __func__, stats_type, rc);
+				return rc;
+			}
+	}
+	return 0L;
+}
+
+static int vfe2x_stats_buf_init(enum msm_stats_enum_type type)
+{
+	unsigned long flags;
+	int i = 0, rc = 0;
+	if (type == MSM_STATS_TYPE_AF) {
+		spin_lock_irqsave(&vfe2x_ctrl->stats_bufq_lock, flags);
+		rc = vfe2x_stats_flush_enqueue(MSM_STATS_TYPE_AF);
+		if (rc < 0) {
+			pr_err("%s: dq stats buf err = %d",
+				 __func__, rc);
+			spin_unlock_irqrestore(&vfe2x_ctrl->stats_bufq_lock,
+				flags);
+			return -EINVAL;
+		}
+		spin_unlock_irqrestore(&vfe2x_ctrl->stats_bufq_lock, flags);
+	}
+	for (i = 0; i < 3; i++) {
+		spin_lock_irqsave(&vfe2x_ctrl->stats_bufq_lock, flags);
+		if (type == MSM_STATS_TYPE_AE_AW)
+			vfe2x_ctrl->stats_we_buf_ptr[i] =
+				vfe2x_stats_dqbuf(type);
+		else
+			vfe2x_ctrl->stats_af_buf_ptr[i] =
+				vfe2x_stats_dqbuf(type);
+		spin_unlock_irqrestore(&vfe2x_ctrl->stats_bufq_lock, flags);
+		if (!vfe2x_ctrl->stats_we_buf_ptr[i]) {
+			pr_err("%s: dq error type %d ", __func__, type);
+			return -ENOMEM;
+		}
+	}
+	return rc;
+}
+
+static unsigned long vfe2x_stats_enqueuebuf(
+	struct msm_stats_buf_info *info, struct vfe_stats_ack *sack)
+{
+	struct msm_stats_bufq *bufq = NULL;
+	struct msm_stats_meta_buf *stats_buf = NULL;
+	struct msm_stats_meta_buf *buf = NULL;
+	int rc = 0;
+
+	bufq = vfe2x_ctrl->stats_ctrl.bufq[info->type];
+	stats_buf = &bufq->bufs[info->buf_idx];
+
+	CDBG("vfe2x_stats_enqueuebuf: %d\n", stats_buf->state);
+	if (stats_buf->state == MSM_STATS_BUFFER_STATE_INITIALIZED ||
+		stats_buf->state == MSM_STATS_BUFFER_STATE_PREPARED) {
+		rc = vfe2x_ctrl->stats_ops.enqueue_buf(
+				&vfe2x_ctrl->stats_ctrl,
+				info, vfe2x_ctrl->stats_ops.client);
+		if (rc < 0) {
+			pr_err("%s: enqueue_buf (type = %d), index : %d, err = %d",
+				 __func__, info->type, info->buf_idx, rc);
+			return rc;
+		}
+
+	} else {
+		rc = vfe2x_ctrl->stats_ops.querybuf(
+				vfe2x_ctrl->stats_ops.stats_ctrl, info, &buf);
+		if (rc < 0) {
+			pr_err("%s: querybuf (type = %d), index : %d, err = %d",
+				__func__, info->type, info->buf_idx, rc);
+			return rc;
+	}
+		stats_buf->state = MSM_STATS_BUFFER_STATE_DEQUEUED;
+	if (info->type == MSM_STATS_TYPE_AE_AW) {
+		sack->header = VFE_STATS_WB_EXP_ACK;
+		sack->bufaddr = (void *)(uint32_t *)buf->paddr;
+	} else if (info->type == MSM_STATS_TYPE_AF) {
+		sack->header = VFE_STATS_AUTOFOCUS_ACK;
+		sack->bufaddr = (void *)(uint32_t *)buf->paddr;
+	} else
+		pr_err("%s: Invalid stats: should never come here\n", __func__);
+	}
+	return 0L;
+}
+
+static long vfe2x_stats_bufq_sub_ioctl(struct msm_vfe_cfg_cmd *cmd,
+	void *ion_client)
+{
+	long rc = 0;
+
+	switch (cmd->cmd_type) {
+	case VFE_CMD_STATS_REQBUF:
+		if (!vfe2x_ctrl->stats_ops.stats_ctrl) {
+			/* stats_ctrl has not been init yet */
+			rc = msm_stats_buf_ops_init(
+					&vfe2x_ctrl->stats_ctrl,
+					(struct ion_client *)ion_client,
+					&vfe2x_ctrl->stats_ops);
+			if (rc < 0) {
+				pr_err("%s: cannot init stats ops", __func__);
+				goto end;
+			}
+			rc = vfe2x_ctrl->stats_ops.stats_ctrl_init(
+					&vfe2x_ctrl->stats_ctrl);
+			if (rc < 0) {
+				pr_err("%s: cannot init stats_ctrl ops",
+					 __func__);
+				memset(&vfe2x_ctrl->stats_ops, 0,
+				sizeof(vfe2x_ctrl->stats_ops));
+				goto end;
+			}
+			if (sizeof(struct msm_stats_reqbuf) != cmd->length) {
+				/* error. the length not match */
+				pr_err("%s: stats reqbuf input size = %d,\n"
+					"struct size = %d, mismatch\n",
+					__func__, cmd->length,
+					sizeof(struct msm_stats_reqbuf));
+				rc = -EINVAL;
+				goto end;
+			}
+		}
+		rc = vfe2x_ctrl->stats_ops.reqbuf(
+				&vfe2x_ctrl->stats_ctrl,
+				(struct msm_stats_reqbuf *)cmd->value,
+				vfe2x_ctrl->stats_ops.client);
+		break;
+		case VFE_CMD_STATS_ENQUEUEBUF: {
+			if (sizeof(struct msm_stats_buf_info) != cmd->length) {
+				/* error. the length not match */
+				pr_err("%s: stats enqueuebuf input size = %d,\n"
+					"struct size = %d, mismatch\n",
+					 __func__, cmd->length,
+					sizeof(struct msm_stats_buf_info));
+				rc = -EINVAL;
+				goto end;
+		}
+		rc = vfe2x_ctrl->stats_ops.enqueue_buf(
+				&vfe2x_ctrl->stats_ctrl,
+				(struct msm_stats_buf_info *)cmd->value,
+				vfe2x_ctrl->stats_ops.client);
+	}
+	break;
+	case VFE_CMD_STATS_FLUSH_BUFQ: {
+		struct msm_stats_flush_bufq *flush_req = NULL;
+		flush_req = (struct msm_stats_flush_bufq *)cmd->value;
+		if (sizeof(struct msm_stats_flush_bufq) != cmd->length) {
+			/* error. the length not match */
+			pr_err("%s: stats flush queue input size = %d,\n"
+				"struct size = %d, mismatch\n",
+				__func__, cmd->length,
+				sizeof(struct msm_stats_flush_bufq));
+				rc = -EINVAL;
+				goto end;
+		}
+		rc = vfe2x_ctrl->stats_ops.bufq_flush(
+				&vfe2x_ctrl->stats_ctrl,
+				(enum msm_stats_enum_type)flush_req->stats_type,
+				vfe2x_ctrl->stats_ops.client);
+	}
+	break;
+	default:
+		rc = -1;
+		pr_err("%s: cmd_type %d not supported",
+			 __func__, cmd->cmd_type);
+	break;
+	}
+end:
+	return rc;
+}
+
 static void vfe2x_send_isp_msg(
 	struct vfe2x_ctrl_type *vctrl,
 	uint32_t isp_msg_id)
@@ -384,10 +599,25 @@ static void vfe_send_outmsg(struct v4l2_subdev *sd, uint8_t msgid,
 static void vfe_send_stats_msg(uint32_t buf_addr, uint32_t msg_id)
 {
 	struct isp_msg_stats msg_stats;
+	void *vaddr = NULL;
+	int rc;
 
 	msg_stats.frameCounter = vfe2x_ctrl->vfeFrameId;
 	msg_stats.buffer       = buf_addr;
 	msg_stats.id           = msg_id;
+
+	if (MSG_ID_STATS_AWB_AEC == msg_id)
+		rc = vfe2x_ctrl->stats_ops.dispatch(
+			vfe2x_ctrl->stats_ops.stats_ctrl,
+			MSM_STATS_TYPE_AE_AW, buf_addr,
+			&msg_stats.buf_idx, &vaddr, &msg_stats.fd,
+			vfe2x_ctrl->stats_ops.client);
+	else if (MSG_ID_STATS_AF == msg_id)
+		rc = vfe2x_ctrl->stats_ops.dispatch(
+			vfe2x_ctrl->stats_ops.stats_ctrl,
+			MSM_STATS_TYPE_AF, buf_addr,
+			&msg_stats.buf_idx, &vaddr, &msg_stats.fd,
+			vfe2x_ctrl->stats_ops.client);
 
 	v4l2_subdev_notify(&vfe2x_ctrl->subdev,
 				NOTIFY_VFE_MSG_STATS,
@@ -979,21 +1209,54 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 
 	CDBG("msm_vfe_subdev_ioctl is called\n");
 	if (cmd->cmd_type != CMD_FRAME_BUF_RELEASE &&
-	    cmd->cmd_type != CMD_STATS_BUF_RELEASE &&
-	    cmd->cmd_type != CMD_STATS_AF_BUF_RELEASE &&
+		cmd->cmd_type != CMD_STATS_BUF_RELEASE &&
+		cmd->cmd_type != CMD_STATS_AF_BUF_RELEASE &&
 		cmd->cmd_type != CMD_CONFIG_PING_ADDR &&
 		cmd->cmd_type != CMD_CONFIG_PONG_ADDR &&
 		cmd->cmd_type != CMD_CONFIG_FREE_BUF_ADDR &&
-		cmd->cmd_type != CMD_VFE_BUFFER_RELEASE) {
+		cmd->cmd_type != CMD_VFE_BUFFER_RELEASE &&
+		cmd->cmd_type != VFE_CMD_STATS_REQBUF &&
+		cmd->cmd_type != VFE_CMD_STATS_FLUSH_BUFQ &&
+		cmd->cmd_type != VFE_CMD_STATS_ENQUEUEBUF) {
 		if (copy_from_user(&vfecmd,
-				(void __user *)(cmd->value),
-				sizeof(vfecmd))) {
+			   (void __user *)(cmd->value),
+			   sizeof(vfecmd))) {
 			pr_err("copy_from_user in msm_vfe_subdev_ioctl fail\n");
 			return -EFAULT;
 		}
 	}
-
 	switch (cmd->cmd_type) {
+	case VFE_CMD_STATS_REQBUF:
+	case VFE_CMD_STATS_FLUSH_BUFQ:
+		/* for easy porting put in one envelope */
+		rc = vfe2x_stats_bufq_sub_ioctl(cmd, vfe_params->data);
+		return rc;
+	case VFE_CMD_STATS_ENQUEUEBUF:
+		if (sizeof(struct msm_stats_buf_info) != cmd->length) {
+			/* error. the length not match */
+			pr_err("%s: stats enqueuebuf input size = %d,\n"
+				"struct size = %d, mitch match\n",\
+				__func__, cmd->length,
+				sizeof(struct msm_stats_buf_info));
+			rc = -EINVAL;
+			return rc;
+		}
+		sack.header = 0;
+		sack.bufaddr = NULL;
+		rc = vfe2x_stats_enqueuebuf(cmd->value, &sack);
+		if (rc < 0) {
+			pr_err("%s: error", __func__);
+			rc = -EINVAL;
+			return rc;
+		}
+		if (sack.header != 0 && sack.bufaddr != NULL) {
+			queue  = QDSP_CMDQUEUE;
+			vfecmd.length = sizeof(struct vfe_stats_ack) - 4;
+			cmd_data = &sack;
+		} else {
+			return 0;
+		}
+	break;
 	case CMD_VFE_BUFFER_RELEASE: {
 		if (!(vfe2x_ctrl->vfe_started) || op_mode == 1)
 			return 0;
@@ -1041,7 +1304,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 		return 0;
 
-	case CMD_STATS_AEC_AWB_ENABLE:
 	case CMD_STATS_AXI_CFG: {
 		axid = data;
 		if (!axid) {
@@ -1096,15 +1358,49 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 	}
 		break;
-	case CMD_STATS_AF_ENABLE:
-	case CMD_STATS_AF_AXI_CFG: {
-		CDBG("CMD_STATS_AF_ENABLE CMD_STATS_AF_AXI_CFG\n");
-		axid = data;
-		if (!axid) {
-			rc = -EFAULT;
+	case CMD_STATS_AEC_AWB_ENABLE: {
+		pr_err("CMD_STATS_AEC_AWB_ENABLE\n");
+		scfg =
+			kmalloc(sizeof(struct vfe_stats_we_cfg),
+				GFP_ATOMIC);
+		if (!scfg) {
+			rc = -ENOMEM;
 			goto config_failure;
 		}
 
+		if (copy_from_user((char *)scfg + 4,
+					(void __user *)(vfecmd.value),
+					vfecmd.length)) {
+
+			rc = -EFAULT;
+			goto config_done;
+		}
+
+		header = cmds_map[vfecmd.id].vfe_id;
+		queue = cmds_map[vfecmd.id].queue;
+		if (header == -1 && queue == -1) {
+			rc = -EFAULT;
+			goto config_failure;
+		}
+		*(uint32_t *)scfg = header;
+		rc = vfe2x_stats_buf_init(MSM_STATS_TYPE_AE_AW);
+		if (rc < 0) {
+			pr_err("%s: cannot config ping/pong address of AWB",
+				 __func__);
+			goto config_failure;
+		}
+		scfg->wb_expstatoutputbuffer[0] =
+			(void *)vfe2x_ctrl->stats_we_buf_ptr[0];
+		scfg->wb_expstatoutputbuffer[1] =
+			(void *)vfe2x_ctrl->stats_we_buf_ptr[1];
+		scfg->wb_expstatoutputbuffer[2] =
+			(void *)vfe2x_ctrl->stats_we_buf_ptr[2];
+		cmd_data = scfg;
+	}
+	break;
+	case CMD_STATS_AF_ENABLE:
+	case CMD_STATS_AF_AXI_CFG: {
+		CDBG("CMD_STATS_AF_ENABLE CMD_STATS_AF_AXI_CFG\n");
 		sfcfg =
 			kmalloc(sizeof(struct vfe_stats_af_cfg),
 				GFP_ATOMIC);
@@ -1122,9 +1418,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			goto config_done;
 		}
 
-		CDBG("AF_ENABLE: bufnum = %d, enabling = %d\n",
-			axid->bufnum1, sfcfg->af_enable);
-
 		header = cmds_map[vfecmd.id].vfe_id;
 		queue = cmds_map[vfecmd.id].queue;
 		if (header == -1 && queue == -1) {
@@ -1132,27 +1425,16 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			goto config_failure;
 		}
 		*(uint32_t *)sfcfg = header;
-		CDBG("Number of buffers = %d\n", axid->bufnum1);
-		if (axid->bufnum1 > 0) {
-			regptr = &axid->region[0];
-
-			for (i = 0; i < axid->bufnum1; i++) {
-
-				CDBG("STATS_ENABLE, phy = 0x%lx\n",
-					regptr->paddr);
-
-				sfcfg->af_outbuf[i] =
-					(void *)regptr->paddr;
-
-				regptr++;
-			}
-
-			cmd_data = sfcfg;
-
-		} else {
-			rc = -EINVAL;
-			goto config_done;
+		rc = vfe2x_stats_buf_init(MSM_STATS_TYPE_AF);
+		sfcfg->af_outbuf[0] = (void *)vfe2x_ctrl->stats_af_buf_ptr[0];
+		sfcfg->af_outbuf[1] = (void *)vfe2x_ctrl->stats_af_buf_ptr[1];
+		sfcfg->af_outbuf[2] = (void *)vfe2x_ctrl->stats_af_buf_ptr[2];
+		if (rc < 0) {
+			pr_err("%s: cannot config ping/pong address of AWB",
+				__func__);
+			goto config_failure;
 		}
+		cmd_data = sfcfg;
 	}
 		break;
 	case CMD_SNAP_BUF_RELEASE:

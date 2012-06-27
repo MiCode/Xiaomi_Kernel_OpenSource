@@ -195,6 +195,24 @@
 #define MSM_CAM_IOCTL_ISPIF_IO_CFG \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 54, struct ispif_cfg_data *)
 
+#define MSM_CAM_IOCTL_STATS_REQBUF \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 55, struct msm_stats_reqbuf *)
+
+#define MSM_CAM_IOCTL_STATS_ENQUEUEBUF \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 56, struct msm_stats_buf_info *)
+
+#define MSM_CAM_IOCTL_STATS_FLUSH_BUFQ \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 57, struct msm_stats_flush_bufq *)
+
+struct msm_stats_reqbuf {
+	int num_buf;		/* how many buffers requested */
+	int stats_type;	/* stats type */
+};
+
+struct msm_stats_flush_bufq {
+	int stats_type;	/* enum msm_stats_enum_type */
+};
+
 struct msm_mctl_pp_cmd {
 	int32_t  id;
 	uint16_t length;
@@ -515,6 +533,36 @@ struct camera_enable_cmd {
 #define FRAME_RAW_SNAPSHOT		4
 #define FRAME_MAX			5
 
+enum msm_stats_enum_type {
+	MSM_STATS_TYPE_AEC, /* legacy based AEC */
+	MSM_STATS_TYPE_AF,  /* legacy based AF */
+	MSM_STATS_TYPE_AWB, /* legacy based AWB */
+	MSM_STATS_TYPE_RS,  /* legacy based RS */
+	MSM_STATS_TYPE_CS,  /* legacy based CS */
+	MSM_STATS_TYPE_IHIST,   /* legacy based HIST */
+	MSM_STATS_TYPE_SKIN,    /* legacy based SKIN */
+	MSM_STATS_TYPE_BG,  /* Bayer Grids */
+	MSM_STATS_TYPE_BF,  /* Bayer Focus */
+	MSM_STATS_TYPE_BHIST,   /* Bayer Hist */
+	MSM_STATS_TYPE_AE_AW,   /* legacy stats for vfe 2.x*/
+	MSM_STATS_TYPE_MAX  /* MAX */
+};
+
+struct msm_stats_buf_info {
+	int type; /* msm_stats_enum_type */
+	int fd;
+	void *vaddr;
+	uint32_t offset;
+	uint32_t len;
+	uint32_t y_off;
+	uint32_t cbcr_off;
+	uint32_t planar0_off;
+	uint32_t planar1_off;
+	uint32_t planar2_off;
+	uint8_t active;
+	int buf_idx;
+};
+
 struct msm_pmem_info {
 	int type;
 	int fd;
@@ -678,6 +726,7 @@ struct msm_stats_buf {
 	int length;
 	struct ion_handle *handle;
 	uint32_t frame_id;
+	int buf_idx;
 };
 #define MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT 0
 /* video capture mode in VIDIOC_S_PARM */
