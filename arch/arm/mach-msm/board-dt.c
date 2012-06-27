@@ -85,7 +85,6 @@ DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
 	.dt_compat = msm_dt_match,
-	.nr_irqs = -1,
 	.reserve = msm_dt_reserve,
 	.init_very_early = msm_dt_init_very_early,
 MACHINE_END
