@@ -785,9 +785,6 @@ _slumber(struct kgsl_device *device)
 	case KGSL_STATE_NAP:
 	case KGSL_STATE_SLEEP:
 		del_timer_sync(&device->idle_timer);
-		if (!device->pwrctrl.strtstp_sleepwake)
-			kgsl_pwrctrl_pwrlevel_change(device,
-					KGSL_PWRLEVEL_NOMINAL);
 		device->pwrctrl.restore_slumber = true;
 		device->ftbl->suspend_context(device);
 		device->ftbl->stop(device);
