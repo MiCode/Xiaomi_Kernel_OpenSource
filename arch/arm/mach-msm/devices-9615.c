@@ -1348,7 +1348,9 @@ uint32_t __init msm9615_rpm_get_swfi_latency(void)
 	return 0;
 }
 
-struct android_usb_platform_data msm_android_usb_pdata;
+struct android_usb_platform_data msm_android_usb_pdata = {
+	.usb_core_id = 0,
+};
 
 struct platform_device msm_android_usb_device = {
 	.name	= "android_usb",
@@ -1358,12 +1360,27 @@ struct platform_device msm_android_usb_device = {
 	},
 };
 
+struct android_usb_platform_data msm_android_usb_hsic_pdata  = {
+	.usb_core_id = 1,
+};
+
+struct platform_device msm_android_usb_hsic_device = {
+	.name	= "android_usb_hsic",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &msm_android_usb_hsic_pdata,
+	},
+};
+
+
 void __init msm9615_device_init(void)
 {
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	BUG_ON(msm_rpm_init(&msm9615_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 	msm_android_usb_pdata.swfi_latency =
+		msm_rpmrs_levels[0].latency_us;
+	msm_android_usb_hsic_pdata.swfi_latency =
 		msm_rpmrs_levels[0].latency_us;
 
 }

@@ -52,6 +52,7 @@
 #include "pm.h"
 #include "pm-boot.h"
 #include <mach/gpiomux.h>
+#include "ci13xxx_udc.h"
 
 #ifdef CONFIG_ION_MSM
 #define MSM_ION_AUDIO_SIZE	0xAF000
@@ -762,8 +763,19 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.core_clk_always_on_workaround = true,
 };
 
-static struct msm_hsic_peripheral_platform_data msm_hsic_peripheral_pdata = {
+
+static struct ci13xxx_platform_data msm_peripheral_pdata = {
+	.usb_core_id = 0,
+};
+
+static struct msm_hsic_peripheral_platform_data
+			msm_hsic_peripheral_pdata_private = {
 	.core_clk_always_on_workaround = true,
+};
+
+static struct ci13xxx_platform_data msm_hsic_peripheral_pdata = {
+	.usb_core_id = 1,
+	.prv_data = &msm_hsic_peripheral_pdata_private,
 };
 
 #define PID_MAGIC_ID		0x71432909
@@ -864,6 +876,7 @@ static struct platform_device *common_devices[] = {
 	&msm_device_hsic_host,
 	&msm_device_usb_bam,
 	&msm_android_usb_device,
+	&msm_android_usb_hsic_device,
 	&msm9615_device_uart_gsbi4,
 	&msm9615_device_ext_2p95v_vreg,
 	&msm9615_device_ssbi_pmic1,
@@ -959,6 +972,8 @@ static void __init msm9615_common_init(void)
 {
 	struct android_usb_platform_data *android_pdata =
 				msm_android_usb_device.dev.platform_data;
+	struct android_usb_platform_data *android_hsic_pdata =
+				msm_android_usb_hsic_device.dev.platform_data;
 
 	msm9615_device_init();
 	msm9615_init_gpiomux();
@@ -976,6 +991,8 @@ static void __init msm9615_common_init(void)
 
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm_otg_pdata.phy_init_seq = shelby_phy_init_seq;
+	msm_device_gadget_peripheral.dev.platform_data =
+		&msm_peripheral_pdata;
 	msm_device_hsic_peripheral.dev.platform_data =
 		&msm_hsic_peripheral_pdata;
 	msm_device_usb_bam.dev.platform_data = &msm_usb_bam_pdata;
@@ -988,8 +1005,12 @@ static void __init msm9615_common_init(void)
 	msm9615_init_mmc();
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));
+
 	android_pdata->update_pid_and_serial_num =
 					usb_diag_update_pid_and_serial_num;
+	android_hsic_pdata->update_pid_and_serial_num =
+					usb_diag_update_pid_and_serial_num;
+
 	msm_pm_boot_pdata.p_addr = allocate_contiguous_ebi_nomap(SZ_8, SZ_64K);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 	msm_tsens_early_init(&msm_tsens_pdata);
