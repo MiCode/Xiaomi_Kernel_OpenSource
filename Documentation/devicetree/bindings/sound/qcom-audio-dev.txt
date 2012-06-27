@@ -103,6 +103,22 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-hostless"
 
+* msm-ocmem-audio
+
+Required properties:
+
+ - compatible :                            "qcom,msm-ocmem-audio"
+
+ - qcom,msm-ocmem-audio-src-id:            Master port id
+
+ - qcom,msm-ocmem-audio-dst-id:            Slave port id
+
+ - qcom,msm-ocmem-audio-ab:                arbitrated bandwidth
+                                           in Bytes/s
+
+ - qcom,msm-ocmem-audio-ib:                instantaneous bandwidth
+                                           in Bytes/s
+
 Example:
 
         qcom,msm-pcm {
@@ -171,4 +187,12 @@ Example:
         qcom,msm-pcm-hostless {
                 compatible = "qcom,msm-pcm-hostless";
         };
+
+	qcom,msm-ocmem-audio {
+		compatible = "qcom,msm-ocmem-audio";
+		qcom,msm-ocmem-audio-src-id = <11>;
+		qcom,msm-ocmem-audio-dst-id = <604>;
+		qcom,msm-ocmem-audio-ab = <209715200>;
+		qcom,msm-ocmem-audio-ib = <471859200>;
+	};
 
