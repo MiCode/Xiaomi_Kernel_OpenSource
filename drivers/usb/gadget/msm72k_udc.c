@@ -119,6 +119,7 @@ struct msm_endpoint {
 	unsigned long dTD_update_fail_count;
 	unsigned long false_prime_fail_count;
 	unsigned actual_prime_fail_count;
+	unsigned long dTD_workaround_fail_count;
 
 	unsigned wedged:1;
 	/* pointers to DMA transfer list area */
@@ -199,6 +200,7 @@ struct usb_info {
 	unsigned phy_fail_count;
 	unsigned prime_fail_count;
 	unsigned long dTD_update_fail_count;
+	unsigned long dTD_workaround_fail_count;
 
 	struct usb_gadget		gadget;
 	struct usb_gadget_driver	*driver;
@@ -1110,6 +1112,8 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 	struct msm_request *req;
 	unsigned long flags;
 	int req_dequeue = 1;
+	int dtd_update_fail_count_chk = 10;
+	int check_bit = 0;
 	unsigned info;
 
 	/*
@@ -1136,12 +1140,22 @@ dequeue:
 		/* if the transaction is still in-flight, stop here */
 		if (info & INFO_ACTIVE) {
 			if (req_dequeue) {
-				req_dequeue = 0;
 				ui->dTD_update_fail_count++;
 				ept->dTD_update_fail_count++;
-				udelay(10);
+				udelay(1);
+				if (!dtd_update_fail_count_chk--) {
+					req_dequeue = 0;
+					check_bit = 1;
+				}
 				goto dequeue;
 			} else {
+				if (check_bit) {
+					pr_debug("%s: Delay Workaround Failed\n",
+						 __func__);
+					check_bit = 0;
+					ui->dTD_workaround_fail_count++;
+					ept->dTD_workaround_fail_count++;
+				}
 				break;
 			}
 		}
@@ -1965,11 +1979,14 @@ static ssize_t debug_prime_fail_read(struct file *file, char __user *ubuf,
 			continue;
 
 		i += scnprintf(buf + i, PAGE_SIZE - i,
-			"ept%d %s false_prime_count=%lu prime_fail_count=%d dtd_fail_count=%lu\n",
+			"ept%d %s false_prime_count=%lu prime_fail_count=%d "
+					 "dtd_fail_count=%lu "
+					 "dTD_workaround_fail_count=%lu\n",
 			ept->num, (ept->flags & EPT_FLAG_IN) ? "in " : "out",
 			ept->false_prime_fail_count,
 			ept->actual_prime_fail_count,
-			ept->dTD_update_fail_count);
+			ept->dTD_update_fail_count,
+			ept->dTD_workaround_fail_count);
 	}
 
 	i += scnprintf(buf + i, PAGE_SIZE - i,
@@ -1978,6 +1995,10 @@ static ssize_t debug_prime_fail_read(struct file *file, char __user *ubuf,
 
 	i += scnprintf(buf + i, PAGE_SIZE - i,
 			   "prime_fail count: %d\n", ui->prime_fail_count);
+
+	i += scnprintf(buf + i, PAGE_SIZE - i,
+			   "dtd_workaround_fail count: %lu\n",
+			   ui->dTD_workaround_fail_count);
 
 	spin_unlock_irqrestore(&ui->lock, flags);
 
