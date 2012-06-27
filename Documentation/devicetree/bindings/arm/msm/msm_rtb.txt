@@ -1,0 +1,21 @@
+Register Trace Buffer (RTB)
+
+The RTB is used to log discrete events in the system in an uncached buffer that
+can be post processed from RAM dumps. The RTB must reserve memory using
+the msm specific memory reservation bindings (see
+Documentation/devicetree/bindings/arm/msm/memory-reserve.txt).
+
+Required properties
+
+- compatible: "qcom,msm-rtb"
+- qcom,memory-reservation-size: size of reserved memory for the RTB buffer
+- qcom,memory-reservation-type: type of memory to be reserved
+(see memory-reserve.txt for information about memory reservations)
+
+Example:
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
+	};
