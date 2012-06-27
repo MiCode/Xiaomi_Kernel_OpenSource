@@ -439,6 +439,14 @@
 		compatible = "qcom,msm-pcm-hostless";
 	};
 
+	qcom,msm-ocmem-audio {
+		compatible = "qcom,msm-ocmem-audio";
+		qcom,msm-ocmem-audio-src-id = <11>;
+		qcom,msm-ocmem-audio-dst-id = <604>;
+		qcom,msm-ocmem-audio-ab = <32505856>;
+		qcom,msm-ocmem-audio-ib = <32505856>;
+	};
+
 	qcom,mss@fc880000 {
 		compatible = "qcom,pil-q6v5-mss";
 		reg = <0xfc880000 0x100>,
