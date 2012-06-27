@@ -270,6 +270,10 @@
 
 	qcom,acpuclk@f9000000 {
 		compatible = "qcom,acpuclk-copper";
+		krait0-supply = <&krait0_vreg>;
+		krait1-supply = <&krait1_vreg>;
+		krait2-supply = <&krait2_vreg>;
+		krait3-supply = <&krait3_vreg>;
 	};
 
 	qcom,ssusb@F9200000 {
