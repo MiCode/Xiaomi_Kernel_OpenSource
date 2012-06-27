@@ -66,7 +66,8 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		.lpm_sup = 1,
 		.hpm_uA = 800000, /* 800mA */
 		.lpm_uA = 9000,
-	}
+		.reset_at_init = true,
+	},
 };
 
 /* All SDCC controllers may require voting for VDD PAD voltage */

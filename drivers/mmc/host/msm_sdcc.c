@@ -2203,7 +2203,7 @@ out:
 	return rc;
 }
 
-static int msmsdcc_vreg_disable(struct msm_mmc_reg_data *vreg)
+static int msmsdcc_vreg_disable(struct msm_mmc_reg_data *vreg, bool is_init)
 {
 	int rc = 0;
 
@@ -2225,17 +2225,33 @@ static int msmsdcc_vreg_disable(struct msm_mmc_reg_data *vreg)
 		rc = msmsdcc_vreg_set_voltage(vreg, 0, vreg->high_vol_level);
 		if (rc)
 			goto out;
-	} else if (vreg->is_enabled && vreg->always_on && vreg->lpm_sup) {
-		/* Put always_on regulator in LPM (low power mode) */
-		rc = msmsdcc_vreg_set_optimum_mode(vreg, vreg->lpm_uA);
-		if (rc < 0)
-			goto out;
+	} else if (vreg->is_enabled && vreg->always_on) {
+		if (!is_init && vreg->lpm_sup) {
+			/* Put always_on regulator in LPM (low power mode) */
+			rc = msmsdcc_vreg_set_optimum_mode(vreg, vreg->lpm_uA);
+			if (rc < 0)
+				goto out;
+		} else if (is_init && vreg->reset_at_init) {
+			/**
+			 * The regulator might not actually be disabled if it
+			 * is shared and in use by other drivers.
+			 */
+			rc = regulator_disable(vreg->reg);
+			if (rc) {
+				pr_err("%s: regulator_disable(%s) failed at " \
+					"bootup. rc=%d\n", __func__,
+					vreg->name, rc);
+				goto out;
+			}
+			vreg->is_enabled = false;
+		}
 	}
 out:
 	return rc;
 }
 
-static int msmsdcc_setup_vreg(struct msmsdcc_host *host, bool enable)
+static int msmsdcc_setup_vreg(struct msmsdcc_host *host, bool enable,
+		bool is_init)
 {
 	int rc = 0, i;
 	struct msm_mmc_slot_reg_data *curr_slot;
@@ -2253,7 +2269,8 @@ static int msmsdcc_setup_vreg(struct msmsdcc_host *host, bool enable)
 			if (enable)
 				rc = msmsdcc_vreg_enable(vreg_table[i]);
 			else
-				rc = msmsdcc_vreg_disable(vreg_table[i]);
+				rc = msmsdcc_vreg_disable(vreg_table[i],
+						is_init);
 			if (rc)
 				goto out;
 		}
@@ -2270,10 +2287,10 @@ static int msmsdcc_vreg_reset(struct msmsdcc_host *host)
 {
 	int rc;
 
-	rc = msmsdcc_setup_vreg(host, 1);
+	rc = msmsdcc_setup_vreg(host, 1, true);
 	if (rc)
 		return rc;
-	rc = msmsdcc_setup_vreg(host, 0);
+	rc = msmsdcc_setup_vreg(host, 0, true);
 	return rc;
 }
 
@@ -2566,7 +2583,7 @@ static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 	if (host->plat->translate_vdd && !host->sdio_gpio_lpm)
 		ret = host->plat->translate_vdd(mmc_dev(mmc), ios->vdd);
 	else if (!host->plat->translate_vdd && !host->sdio_gpio_lpm)
-		ret = msmsdcc_setup_vreg(host, !!ios->vdd);
+		ret = msmsdcc_setup_vreg(host, !!ios->vdd, false);
 
 	if (ret) {
 		pr_err("%s: Failed to setup voltage regulators\n",

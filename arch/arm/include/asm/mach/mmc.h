@@ -51,6 +51,15 @@ struct msm_mmc_reg_data {
 	bool always_on;
 	/* is low power mode setting required for this regulator? */
 	bool lpm_sup;
+	/*
+	 * Use to indicate if the regulator should be reset at boot time.
+	 * Its needed only when sd card's vdd regulator is always on
+	 * since always on regulators dont get reset at boot time.
+	 *
+	 * It is needed for sd 3.0 card to be detected as a sd 3.0 card
+	 * on device reboot.
+	 */
+	bool reset_at_init;
 };
 
 /*
