@@ -67,7 +67,6 @@ static int pil_vidc_driver_probe(struct platform_device *pdev)
 {
 	struct pil_desc *desc;
 	struct vidc_data *drv;
-	int ret;
 
 	if (pas_supported(PAS_VIDC) < 0)
 		return -ENOSYS;
@@ -80,44 +79,29 @@ static int pil_vidc_driver_probe(struct platform_device *pdev)
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
-	drv->smmu_iface = clk_get(&pdev->dev, "smmu_iface_clk");
-	if (IS_ERR(drv->smmu_iface)) {
-		dev_err(&pdev->dev, "failed to get smmu interface clock\n");
-		ret = PTR_ERR(drv->smmu_iface);
-		goto err_smmu;
-	}
-	drv->core = clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(drv->core)) {
-		dev_err(&pdev->dev, "failed to get core clock\n");
-		ret = PTR_ERR(drv->core);
-		goto err_core;
-	}
+
+	drv->smmu_iface = devm_clk_get(&pdev->dev, "smmu_iface_clk");
+	if (IS_ERR(drv->smmu_iface))
+		return PTR_ERR(drv->smmu_iface);
+
+	drv->core = devm_clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(drv->core))
+		return PTR_ERR(drv->core);
 
 	desc->name = "vidc";
 	desc->dev = &pdev->dev;
 	desc->ops = &pil_vidc_ops;
 	desc->owner = THIS_MODULE;
 	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil)) {
-		ret = PTR_ERR(drv->pil);
-		goto err_register;
-	}
+	if (IS_ERR(drv->pil))
+		return PTR_ERR(drv->pil);
 	return 0;
-
-err_register:
-	clk_put(drv->core);
-err_core:
-	clk_put(drv->smmu_iface);
-err_smmu:
-	return ret;
 }
 
 static int pil_vidc_driver_exit(struct platform_device *pdev)
 {
 	struct vidc_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
-	clk_put(drv->smmu_iface);
-	clk_put(drv->core);
 	return 0;
 }
 
