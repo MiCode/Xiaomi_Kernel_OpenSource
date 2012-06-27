@@ -631,21 +631,29 @@ static unsigned int virtaddr_to_physaddr(unsigned int virtaddr)
 {
 	unsigned int physaddr = 0;
 	pgd_t *pgd_ptr = NULL;
+	pud_t *pud_ptr = NULL;
 	pmd_t *pmd_ptr = NULL;
 	pte_t *pte_ptr = NULL, pte;
 
 	spin_lock(&current->mm->page_table_lock);
 	pgd_ptr = pgd_offset(current->mm, virtaddr);
-	if (pgd_none(*pgd) || pgd_bad(*pgd)) {
+	if (pgd_none(*pgd_ptr) || pgd_bad(*pgd_ptr)) {
 		pr_err("Failed to convert virtaddr %x to pgd_ptr\n",
 			virtaddr);
 		goto done;
 	}
 
-	pmd_ptr = pmd_offset(pgd_ptr, virtaddr);
-	if (pmd_none(*pmd_ptr) || pmd_bad(*pmd_ptr)) {
-		pr_err("Failed to convert pgd_ptr %p to pmd_ptr\n",
+	pud_ptr = pud_offset(pgd_ptr, virtaddr);
+	if (pud_none(*pud_ptr) || pud_bad(*pud_ptr)) {
+		pr_err("Failed to convert pgd_ptr %p to pud_ptr\n",
 			(void *)pgd_ptr);
+		goto done;
+	}
+
+	pmd_ptr = pmd_offset(pud_ptr, virtaddr);
+	if (pmd_none(*pmd_ptr) || pmd_bad(*pmd_ptr)) {
+		pr_err("Failed to convert pud_ptr %p to pmd_ptr\n",
+			(void *)pud_ptr);
 		goto done;
 	}
 
