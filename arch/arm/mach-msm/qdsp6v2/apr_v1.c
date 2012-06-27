@@ -19,7 +19,6 @@
 #include <mach/qdsp6v2/apr.h>
 #include <mach/qdsp6v2/apr_tal.h>
 #include <mach/qdsp6v2/dsp_debug.h>
-#include <mach/peripheral-loader.h>
 
 static const char *lpass_subsys_name = "lpass";
 

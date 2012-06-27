@@ -27,7 +27,7 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <asm/mach-types.h>
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 #include <mach/msm_smd.h>
 #include <mach/qdsp6v2/apr.h>
 #include <mach/qdsp6v2/apr_tal.h>
@@ -223,7 +223,7 @@ int apr_load_adsp_image(void)
 	int rc = 0;
 	mutex_lock(&q6.lock);
 	if (apr_get_q6_state() == APR_SUBSYS_UP) {
-		q6.pil = pil_get("q6");
+		q6.pil = subsystem_get("adsp");
 		if (IS_ERR(q6.pil)) {
 			rc = PTR_ERR(q6.pil);
 			pr_err("APR: Unable to load q6 image, error:%d\n", rc);

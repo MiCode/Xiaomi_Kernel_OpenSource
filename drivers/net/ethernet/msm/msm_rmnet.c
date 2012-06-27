@@ -3,7 +3,7 @@
  * Virtual Ethernet Interface for MSM7K Networking
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -37,7 +37,7 @@
 #endif
 
 #include <mach/msm_smd.h>
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 
 /* Debug message support */
 static int msm_rmnet_debug_mask;
@@ -403,7 +403,7 @@ static void _rmnet_resume_flow(unsigned long param)
 static void msm_rmnet_unload_modem(void *pil)
 {
 	if (pil)
-		pil_put(pil);
+		subsystem_put(pil);
 }
 
 static void *msm_rmnet_load_modem(struct net_device *dev)
@@ -412,7 +412,7 @@ static void *msm_rmnet_load_modem(struct net_device *dev)
 	int rc;
 	struct rmnet_private *p = netdev_priv(dev);
 
-	pil = pil_get("modem");
+	pil = subsystem_get("modem");
 	if (IS_ERR(pil))
 		pr_err("[%s] %s: modem load failed\n",
 			dev->name, __func__);

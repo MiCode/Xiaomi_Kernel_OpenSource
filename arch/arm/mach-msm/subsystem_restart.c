@@ -228,7 +228,7 @@ static DEFINE_MUTEX(restart_log_mutex);
 
 /* MSM 8x60 restart ordering info */
 static const char * const _order_8x60_all[] = {
-	"external_modem",  "modem", "lpass"
+	"external_modem",  "modem", "adsp"
 };
 DEFINE_SINGLE_RESTART_ORDER(orders_8x60_all, _order_8x60_all);
 
@@ -839,7 +839,6 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->dev.parent = desc->dev;
 	subsys->dev.bus = &subsys_bus_type;
 	subsys->dev.release = subsys_device_release;
-	subsys->track.state = SUBSYS_ONLINE; /* Until proper refcounting */
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 	subsys->restart_order = update_restart_order(subsys);

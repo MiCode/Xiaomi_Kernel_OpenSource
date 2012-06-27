@@ -467,8 +467,10 @@ static int gss_open(struct inode *inode, struct file *filp)
 	struct gss_data *drv = container_of(c, struct gss_data, misc_dev);
 
 	drv->subsys_handle = subsystem_get("gss");
-	if (!drv->subsys_handle)
-		pr_debug("%s - subsystem_get returned NULL\n", __func__);
+	if (IS_ERR(drv->subsys_handle)) {
+		pr_debug("%s - subsystem_get returned error\n", __func__);
+		return PTR_ERR(drv->subsys_handle);
+	}
 
 	return 0;
 }

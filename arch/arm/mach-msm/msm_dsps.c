@@ -585,7 +585,7 @@ static void dsps_free_resources(void)
  *
  * If the DSPS is running, then we must reset DSPS CPU & HW before
  * setting the clocks off.
- * The DSPS reset should be done as part of the pil_put().
+ * The DSPS reset should be done as part of the subsystem_put().
  * The DSPS reset should be used for error recovery if the DSPS firmware
  * has crashed and re-loading the firmware is required.
  */

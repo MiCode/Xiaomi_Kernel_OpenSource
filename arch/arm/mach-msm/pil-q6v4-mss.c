@@ -416,7 +416,7 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 	}
 
 	drv->subsys_desc.name = "modem";
-	drv->subsys_desc.depends_on = "lpass";
+	drv->subsys_desc.depends_on = "adsp";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
 	drv->subsys_desc.start = modem_start;
