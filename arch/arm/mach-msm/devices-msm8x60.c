@@ -231,6 +231,11 @@ struct platform_device msm_pil_dsps = {
 	.dev.platform_data = "dsps",
 };
 
+struct platform_device msm_pil_vidc = {
+	.name = "pil_vidc",
+	.id = -1,
+};
+
 static struct resource msm_uart1_dm_resources[] = {
 	{
 		.start = MSM_UART1DM_PHYS,
