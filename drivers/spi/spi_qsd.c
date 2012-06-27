@@ -405,9 +405,17 @@ static void msm_spi_setup_dm_transfer(struct msm_spi *dd)
 			bytes_sent = 0;
 	}
 
-	/* We'll send in chunks of SPI_MAX_LEN if larger */
-	bytes_to_send = dd->tx_bytes_remaining / SPI_MAX_LEN ?
-			  SPI_MAX_LEN : dd->tx_bytes_remaining;
+	/* We'll send in chunks of SPI_MAX_LEN if larger than
+	 * 4K bytes for targets that doesn't support infinite
+	 * mode. Make sure this doesn't happen on targets that
+	 * support infinite mode.
+	 */
+	if (!dd->pdata->infinite_mode)
+		bytes_to_send = dd->tx_bytes_remaining / SPI_MAX_LEN ?
+				SPI_MAX_LEN : dd->tx_bytes_remaining;
+	else
+		bytes_to_send = dd->tx_bytes_remaining;
+
 	num_transfers = DIV_ROUND_UP(bytes_to_send, dd->bytes_per_word);
 	dd->unaligned_len = bytes_to_send % dd->burst_size;
 	num_rows = bytes_to_send / dd->burst_size;
@@ -512,12 +520,11 @@ static void msm_spi_enqueue_dm_commands(struct msm_spi *dd)
 		msm_dmov_enqueue_cmd(dd->rx_dma_chan, &dd->rx_hdr);
 }
 
-/* SPI core can send maximum of 4K transfers, because there is HW problem
-   with infinite mode.
-   Therefore, we are sending several chunks of 3K or less (depending on how
-   much is left).
-   Upon completion we send the next chunk, or complete the transfer if
-   everything is finished.
+/* SPI core on targets that does not support infinite mode can send maximum of
+   4K transfers, Therefore, we are sending several chunks of 3K or less
+   (depending on how much is left). Upon completion we send the next chunk,
+   or complete the transfer if everything is finished. On targets that support
+   infinite mode, we send all the bytes in as single chunk.
 */
 static int msm_spi_dm_send_next(struct msm_spi *dd)
 {
@@ -527,8 +534,10 @@ static int msm_spi_dm_send_next(struct msm_spi *dd)
 	if (dd->mode != SPI_DMOV_MODE)
 		return 0;
 
-	/* We need to send more chunks, if we sent max last time */
-	if (dd->tx_bytes_remaining > SPI_MAX_LEN) {
+	/* On targets which does not support infinite mode,
+	   We need to send more chunks, if we sent max last time  */
+	if ((!dd->pdata->infinite_mode) &&
+	    (dd->tx_bytes_remaining > SPI_MAX_LEN)) {
 		dd->tx_bytes_remaining -= SPI_MAX_LEN;
 		if (msm_spi_set_state(dd, SPI_OP_STATE_RESET))
 			return 0;
@@ -1766,6 +1775,8 @@ struct msm_spi_platform_data *msm_spi_dt_to_pdata(struct platform_device *pdev)
 
 	of_property_read_u32(node, "spi-max-frequency",
 			&pdata->max_clock_speed);
+	of_property_read_u32(node, "infinite_mode",
+			&pdata->infinite_mode);
 
 	return pdata;
 }
