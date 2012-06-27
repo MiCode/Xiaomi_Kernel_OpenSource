@@ -639,14 +639,14 @@ static int __init msm_pcie_init(void)
 subsys_initcall(msm_pcie_init);
 
 /* RC do not represent the right class; set it to PCI_CLASS_BRIDGE_PCI */
-static void __devinit msm_pcie_fixup_header(struct pci_dev *dev)
+static void __devinit msm_pcie_fixup_early(struct pci_dev *dev)
 {
 	PCIE_DBG("hdr_type %d\n", dev->hdr_type);
 	if (dev->hdr_type == 1)
 		dev->class = (dev->class & 0xff) | (PCI_CLASS_BRIDGE_PCI << 8);
 }
-DECLARE_PCI_FIXUP_HEADER(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
-			 msm_pcie_fixup_header);
+DECLARE_PCI_FIXUP_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+			msm_pcie_fixup_early);
 
 /*
  * actual physical (BAR) address of the device resources starts from 0x10xxxxxx;
