@@ -32,7 +32,6 @@
 #include <linux/msm_dsps.h>
 
 #include <mach/irqs.h>
-#include <mach/peripheral-loader.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_smsm.h>
 #include <mach/msm_dsps.h>
@@ -90,14 +89,13 @@ static struct dsps_drv *drv;
 /**
  *  Load DSPS Firmware.
  */
-static int dsps_load(const char *name)
+static int dsps_load(void)
 {
 	pr_debug("%s.\n", __func__);
 
-	drv->pil = pil_get(name);
-
+	drv->pil = subsystem_get("dsps");
 	if (IS_ERR(drv->pil)) {
-		pr_err("%s: fail to load DSPS firmware %s.\n", __func__, name);
+		pr_err("%s: fail to load DSPS firmware.\n", __func__);
 		return -ENODEV;
 	}
 	msleep(20);
@@ -111,7 +109,7 @@ static void dsps_unload(void)
 {
 	pr_debug("%s.\n", __func__);
 
-	pil_put(drv->pil);
+	subsystem_put(drv->pil);
 }
 
 /**
@@ -531,7 +529,7 @@ static int dsps_open(struct inode *ip, struct file *fp)
 		if (ret)
 			return ret;
 
-		ret = dsps_load(drv->pdata->pil_name);
+		ret = dsps_load();
 
 		if (ret) {
 			dsps_power_off_handler();
