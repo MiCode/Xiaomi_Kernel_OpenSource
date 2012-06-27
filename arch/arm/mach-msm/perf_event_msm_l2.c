@@ -24,6 +24,11 @@
 #define SCORPION_L2_EVT_PREFIX 3
 #define SCORPION_MAX_L2_REG 4
 
+#define L2_EVT_MASK 0xfffff
+#define L2_EVT_PREFIX_MASK 0xf0000
+#define L2_EVT_PREFIX_SHIFT 16
+#define L2_SLAVE_EVT_PREFIX 4
+
 
 /*
  * The L2 PMU is shared between all CPU's, so protect
@@ -68,6 +73,11 @@ static const struct attribute_group *msm_l2_pmu_attr_grps[] = {
 static u32 pmu_type;
 
 static struct arm_pmu scorpion_l2_pmu;
+
+static u32 l2_orig_filter_prefix = 0x000f0030;
+
+/* L2 slave port traffic filtering */
+static u32 l2_slv_filter_prefix = 0x000f0010;
 
 static struct perf_event *l2_events[MAX_SCORPION_L2_CTRS];
 static unsigned long l2_used_mask[BITS_TO_LONGS(MAX_SCORPION_L2_CTRS)];
@@ -418,7 +428,8 @@ static unsigned int get_scorpion_l2_evtinfo(unsigned int evt_type,
 	u8 group;
 
 	prefix = (evt_type & 0xF0000) >> 16;
-	if (prefix == SCORPION_L2_EVT_PREFIX) {
+	if (prefix == SCORPION_L2_EVT_PREFIX ||
+			prefix == L2_SLAVE_EVT_PREFIX) {
 		reg   = (evt_type & 0x0F000) >> 12;
 		code  = (evt_type & 0x00FF0) >> 4;
 		group =  evt_type & 0x0000F;
@@ -475,16 +486,22 @@ static inline void scorpion_l2_set_evtyper(int ctr, int val)
 	asm volatile ("mcr p15, 3, %0, c15, c6, 7" : : "r" (val));
 }
 
-static void scorpion_l2_set_evfilter_task_mode(void)
+static void scorpion_l2_set_evfilter_task_mode(unsigned int is_slv)
 {
-	u32 filter_val = 0x000f0030 | 1 << smp_processor_id();
+	u32 filter_val = l2_orig_filter_prefix | 1 << smp_processor_id();
+
+	if (is_slv)
+		filter_val = l2_slv_filter_prefix;
 
 	asm volatile ("mcr p15, 3, %0, c15, c6, 3" : : "r" (filter_val));
 }
 
-static void scorpion_l2_set_evfilter_sys_mode(void)
+static void scorpion_l2_set_evfilter_sys_mode(unsigned int is_slv)
 {
-	u32 filter_val = 0x000f003f;
+	u32 filter_val = l2_orig_filter_prefix | 0xf;
+
+	if (is_slv)
+		filter_val = l2_slv_filter_prefix;
 
 	asm volatile ("mcr p15, 3, %0, c15, c6, 3" : : "r" (filter_val));
 }
@@ -584,11 +601,20 @@ static void scorpion_l2_enable(struct hw_perf_event *hwc, int idx, int cpu)
 	int evtype = hwc->config_base;
 	int ev_typer;
 	unsigned long iflags;
+	unsigned int is_slv = 0;
+	unsigned int evt_prefix;
 
 	raw_spin_lock_irqsave(&scorpion_l2_pmu_hw_events.pmu_lock, iflags);
 
 	if (hwc->config_base == SCORPION_L2CYCLE_CTR_RAW_CODE)
 		goto out;
+
+	/* Check if user requested any special origin filtering. */
+	evt_prefix = (hwc->config_base &
+			L2_EVT_PREFIX_MASK) >> L2_EVT_PREFIX_SHIFT;
+
+	if (evt_prefix == L2_SLAVE_EVT_PREFIX)
+		is_slv = 1;
 
 	memset(&evtinfo, 0, sizeof(evtinfo));
 
@@ -599,9 +625,9 @@ static void scorpion_l2_enable(struct hw_perf_event *hwc, int idx, int cpu)
 	scorpion_l2_set_evcntcr();
 
 	if (cpu < 0)
-		scorpion_l2_set_evfilter_task_mode();
+		scorpion_l2_set_evfilter_task_mode(is_slv);
 	else
-		scorpion_l2_set_evfilter_sys_mode();
+		scorpion_l2_set_evfilter_sys_mode(is_slv);
 
 	scorpion_l2_evt_setup(evtinfo.grp, evtinfo.val);
 
@@ -735,7 +761,7 @@ next:
 static int scorpion_l2_map_event(struct perf_event *event)
 {
 	if (pmu_type > 0 && pmu_type == event->attr.type)
-		return event->attr.config & 0xfffff;
+		return event->attr.config & L2_EVT_MASK;
 	else
 		return -ENOENT;
 }
@@ -757,7 +783,7 @@ scorpion_l2_pmu_generic_free_irq(int irq)
 
 static int msm_l2_test_set_ev_constraint(struct perf_event *event)
 {
-	u32 evt_type = event->attr.config & 0xfffff;
+	u32 evt_type = event->attr.config & L2_EVT_MASK;
 	u8 prefix = (evt_type & 0xF0000) >> 16;
 	u8 reg   = (evt_type & 0x0F000) >> 12;
 	u8 group =  evt_type & 0x0000F;
@@ -787,7 +813,7 @@ out:
 
 static int msm_l2_clear_ev_constraint(struct perf_event *event)
 {
-	u32 evt_type = event->attr.config & 0xfffff;
+	u32 evt_type = event->attr.config & L2_EVT_MASK;
 	u8 prefix = (evt_type & 0xF0000) >> 16;
 	u8 reg   = (evt_type & 0x0F000) >> 12;
 	u8 group =  evt_type & 0x0000F;
