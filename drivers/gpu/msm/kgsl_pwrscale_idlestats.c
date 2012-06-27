@@ -89,6 +89,7 @@ static void idlestats_busy(struct kgsl_device *device,
 			struct kgsl_pwrscale *pwrscale)
 {
 	struct idlestats_priv *priv = pwrscale->priv;
+	struct kgsl_power_stats stats;
 	int i, busy, nr_cpu = 1;
 
 	if (priv->pulse.busy_start_time != 0) {
@@ -111,6 +112,19 @@ static void idlestats_busy(struct kgsl_device *device,
 			spin_unlock(&priv->cpu_info.lock);
 		}
 		priv->pulse.wait_interval /= nr_cpu;
+
+		/* This is called from within a mutex protected function, so
+		   no additional locking required */
+		device->ftbl->power_stats(device, &stats);
+
+		/* If total_time is zero, then we don't have
+		   any interesting statistics to store */
+		if (stats.total_time == 0) {
+			priv->pulse.busy_start_time = 0;
+			return;
+		}
+
+		priv->pulse.busy_interval = stats.busy_time;
 		msm_idle_stats_idle_end(&priv->idledev, &priv->pulse);
 	}
 	priv->pulse.busy_start_time = ktime_to_us(ktime_get());
@@ -120,21 +134,8 @@ static void idlestats_idle(struct kgsl_device *device,
 			struct kgsl_pwrscale *pwrscale)
 {
 	int i, nr_cpu;
-	struct kgsl_power_stats stats;
 	struct idlestats_priv *priv = pwrscale->priv;
 
-	/* This is called from within a mutex protected function, so
-	   no additional locking required */
-	device->ftbl->power_stats(device, &stats);
-
-	/* If total_time is zero, then we don't have
-	   any interesting statistics to store */
-	if (stats.total_time == 0) {
-		priv->pulse.busy_start_time = 0;
-		return;
-	}
-
-	priv->pulse.busy_interval   = stats.busy_time;
 	nr_cpu = num_possible_cpus();
 	for (i = 0; i < nr_cpu; i++)
 		if (cpu_online(i))
