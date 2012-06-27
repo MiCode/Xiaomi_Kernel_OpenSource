@@ -15,6 +15,7 @@
 #define __MSM_VFE31_V4L2_H__
 
 #include <linux/bitops.h>
+#include "msm_vfe_stats_buf.h"
 
 #ifndef TRUE
 #define TRUE 1
@@ -862,14 +863,7 @@ struct vfe31_ctrl_type {
 	spinlock_t  update_ack_lock;
 	spinlock_t  state_lock;
 	spinlock_t  io_lock;
-
-	spinlock_t  aec_ack_lock;
-	spinlock_t  awb_ack_lock;
-	spinlock_t  af_ack_lock;
-	spinlock_t  ihist_ack_lock;
-	spinlock_t  rs_ack_lock;
-	spinlock_t  cs_ack_lock;
-	spinlock_t  comp_stats_ack_lock;
+	spinlock_t  stats_bufq_lock;
 
 	uint32_t extlen;
 	void *extdata;
@@ -930,6 +924,8 @@ struct vfe31_ctrl_type {
 	uint32_t frame_skip_cnt;
 	uint32_t frame_skip_pattern;
 	uint32_t snapshot_frame_cnt;
+	struct msm_stats_bufq_ctrl stats_ctrl;
+	struct msm_stats_ops stats_ops;
 };
 
 enum VFE31_STATS_NUM {

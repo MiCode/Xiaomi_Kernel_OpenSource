@@ -131,6 +131,8 @@ struct isp_msg_stats {
 	uint32_t    id;
 	uint32_t    buffer;
 	uint32_t    frameCounter;
+	int32_t     buf_idx;
+	int32_t     fd;
 };
 
 struct msm_free_buf {

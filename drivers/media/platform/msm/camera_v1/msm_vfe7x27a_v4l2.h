@@ -16,6 +16,7 @@
 #include <mach/camera.h>
 #include <linux/list.h>
 #include "msm.h"
+#include "msm_vfe_stats_buf.h"
 
 struct cmd_id_map {
 	uint32_t isp_id;
@@ -111,6 +112,11 @@ struct vfe2x_ctrl_type {
 	spinlock_t  sd_notify_lock;
 	uint32_t    reconfig_vfe;
 	uint32_t    zsl_mode;
+	spinlock_t  stats_bufq_lock;
+	struct msm_stats_bufq_ctrl stats_ctrl;
+	struct msm_stats_ops stats_ops;
+	unsigned long stats_we_buf_ptr[3];
+	unsigned long stats_af_buf_ptr[3];
 } __packed;
 
 struct vfe_frame_extra {

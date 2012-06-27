@@ -203,6 +203,9 @@
 #define VFE_CMD_CAPTURE_RAW                             136
 #define VFE_CMD_STOP_LIVESHOT                           137
 #define VFE_CMD_RECONFIG_VFE                            138
+#define VFE_CMD_STATS_REQBUF                            139
+#define VFE_CMD_STATS_ENQUEUEBUF                        140
+#define VFE_CMD_STATS_FLUSH_BUFQ                        141
 
 struct msm_isp_cmd {
 	int32_t  id;

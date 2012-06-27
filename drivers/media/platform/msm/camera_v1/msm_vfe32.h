@@ -14,6 +14,7 @@
 #define __MSM_VFE32_H__
 
 #include <linux/bitops.h>
+#include "msm_vfe_stats_buf.h"
 
 #define TRUE  1
 #define FALSE 0
@@ -912,8 +913,6 @@ struct vfe32_frame_extra {
 #define VFE32_OUTPUT_MODE_TERTIARY2		BIT(11)
 
 struct vfe_stats_control {
-	uint8_t  ackPending;
-	uint32_t nextFrameAddrBuf;
 	uint32_t droppedStatsFrameCount;
 	uint32_t bufToRender;
 };
@@ -966,15 +965,7 @@ struct vfe32_ctrl_type {
 	spinlock_t  start_ack_lock;
 	spinlock_t  state_lock;
 	spinlock_t  io_lock;
-
-	spinlock_t  aec_ack_lock;
-	spinlock_t  awb_ack_lock;
-	spinlock_t  af_ack_lock;
-	spinlock_t  ihist_ack_lock;
-	spinlock_t  rs_ack_lock;
-	spinlock_t  cs_ack_lock;
-	spinlock_t  comp_stats_ack_lock;
-
+	spinlock_t  stats_bufq_lock;
 	uint32_t extlen;
 	void *extdata;
 
@@ -1013,6 +1004,8 @@ struct vfe32_ctrl_type {
 	uint32_t frame_skip_cnt;
 	uint32_t frame_skip_pattern;
 	uint32_t snapshot_frame_cnt;
+	struct msm_stats_bufq_ctrl stats_ctrl;
+	struct msm_stats_ops stats_ops;
 };
 
 #define statsAeNum      0
