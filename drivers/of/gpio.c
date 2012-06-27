@@ -49,7 +49,7 @@ int of_get_named_gpio_flags(struct device_node *np, const char *propname,
 	if (!gc) {
 		pr_debug("%s: gpio controller %s isn't registered\n",
 			 np->full_name, gpiospec.np->full_name);
-		ret = -ENODEV;
+		ret = -EPROBE_DEFER;
 		goto err1;
 	}
 
