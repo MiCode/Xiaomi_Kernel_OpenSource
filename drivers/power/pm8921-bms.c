@@ -47,6 +47,8 @@
 #define AMUX_TRIM_2		0x322
 #define TEST_PROGRAM_REV	0x339
 
+#define TEMP_SOC_STORAGE	0x107
+
 enum pmic_bms_interrupts {
 	PM8921_BMS_SBI_WRITE_OK,
 	PM8921_BMS_CC_THR,
@@ -134,8 +136,10 @@ struct pm8921_bms_chip {
 	struct timeval		t;
 	int			last_uuc_uah;
 	int			enable_fcc_learning;
+	int			shutdown_soc;
 };
 
+static int shutdown_soc_invalid;
 static struct pm8921_bms_chip *the_chip;
 
 #define DEFAULT_RBATT_MOHMS		128
@@ -1455,6 +1459,71 @@ out:
 	return soc;
 }
 
+#define MAX_SHUTDOWN_ADJUST_SECONDS	1800
+static int adjust_for_shutdown_soc(struct pm8921_bms_chip *chip, int soc)
+{
+	struct timespec uptime;
+	int val;
+
+	/* value of zero means the shutdown soc should not be used */
+	if (chip->shutdown_soc == 0)
+		return soc;
+
+	if (shutdown_soc_invalid) {
+		chip->shutdown_soc = 0;
+		return soc;
+	}
+
+	do_posix_clock_monotonic_gettime(&uptime);
+
+	if (uptime.tv_sec >= MAX_SHUTDOWN_ADJUST_SECONDS) {
+		/*
+		 * adjusted for a long time now, switch to reporting the
+		 * calculated soc
+		 */
+		chip->shutdown_soc = 0;
+		return soc;
+	}
+
+	val = ((MAX_SHUTDOWN_ADJUST_SECONDS - uptime.tv_sec)
+		* chip->shutdown_soc
+		+ uptime.tv_sec * soc);
+	val /= MAX_SHUTDOWN_ADJUST_SECONDS;
+	pr_debug("shutdown_soc = %d, adj soc = %d, calc soc = %d\n",
+				chip->shutdown_soc, val, soc);
+
+	return val;
+}
+
+static void backup_soc(struct pm8921_bms_chip *chip, int last_soc)
+{
+	/* TODO: if 0x107 is free for all variants 8917, 8038 etc */
+	pm8xxx_writeb(the_chip->dev->parent, TEMP_SOC_STORAGE, last_soc);
+}
+
+static void read_shutdown_soc(struct pm8921_bms_chip *chip)
+{
+	int rc;
+	u8 temp;
+
+	rc = pm8xxx_readb(chip->dev->parent, TEMP_SOC_STORAGE, &temp);
+	if (rc)
+		pr_err("failed to read addr = %d %d\n", TEMP_SOC_STORAGE, rc);
+	else
+		chip->shutdown_soc = temp;
+
+	pr_debug("shutdown_soc = %d\n", chip->shutdown_soc);
+}
+
+void pm8921_bms_invalidate_shutdown_soc(void)
+{
+	pr_debug("Invalidating shutdown soc - the battery was removed\n");
+	shutdown_soc_invalid = 1;
+	if (the_chip)
+		the_chip->shutdown_soc = 0;
+}
+EXPORT_SYMBOL(pm8921_bms_invalidate_shutdown_soc);
+
 /*
  * Remaining Usable Charge = remaining_charge (charge at ocv instance)
  *				- coloumb counter charge
@@ -1469,6 +1538,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	int remaining_charge_uah, soc;
 	int cc_uah;
 	int rbatt;
+	int shutdown_adjusted_soc;
 
 	calculate_soc_params(chip, raw, batt_temp, chargecycles,
 						&fcc_uah,
@@ -1534,9 +1604,12 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 								last_soc);
 	}
 
-	pr_debug("Reported SOC = %u%%\n", last_soc);
-	return last_soc;
+	shutdown_adjusted_soc = adjust_for_shutdown_soc(chip, last_soc);
+	backup_soc(chip, shutdown_adjusted_soc);
+
+	return shutdown_adjusted_soc;
 }
+
 #define MIN_DELTA_625_UV	1000
 static void calib_hkadc(struct pm8921_bms_chip *chip)
 {
@@ -2628,6 +2701,8 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		pr_err("couldn't init hardware rc = %d\n", rc);
 		goto free_irqs;
 	}
+
+	read_shutdown_soc(chip);
 
 	platform_set_drvdata(pdev, chip);
 	the_chip = chip;
