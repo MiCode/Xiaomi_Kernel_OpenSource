@@ -12,6 +12,17 @@ config IOSCHED_NOOP
 	  that do their own scheduling and require only minimal assistance from
 	  the kernel.
 
+config IOSCHED_TEST
+	tristate "Test I/O scheduler"
+	depends on DEBUG_FS
+	default m
+	---help---
+	  The test I/O scheduler is a duplicate of the noop scheduler with
+	  addition of test utlity.
+	  It allows testing a block device by dispatching specific requests
+	  according to the test case and declare PASS/FAIL according to the
+	  requests completion error code.
+
 config IOSCHED_DEADLINE
 	tristate "Deadline I/O scheduler"
 	default y
