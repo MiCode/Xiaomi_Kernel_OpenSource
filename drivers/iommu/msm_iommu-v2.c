@@ -128,7 +128,7 @@ fail:
 	return ret;
 }
 
-static void __reset_iommu(void __iomem *base)
+static void __reset_iommu(void __iomem *base, int smt_size)
 {
 	int i;
 
@@ -143,15 +143,15 @@ static void __reset_iommu(void __iomem *base)
 	SET_SCR1(base, 0);
 	SET_SSDR_N(base, 0, 0);
 
-	for (i = 0; i < MAX_NUM_SMR; i++)
+	for (i = 0; i < smt_size; i++)
 		SET_SMR_VALID(base, i, 0);
 
 	mb();
 }
 
-static void __program_iommu(void __iomem *base)
+static void __program_iommu(void __iomem *base, int smt_size)
 {
-	__reset_iommu(base);
+	__reset_iommu(base, smt_size);
 
 	SET_CR0_SMCFCFG(base, 1);
 	SET_CR0_USFCFG(base, 1);
@@ -182,7 +182,7 @@ static void __reset_context(void __iomem *base, int ctx)
 
 static void __program_context(void __iomem *base, int ctx, int ncb,
 				phys_addr_t pgtable, int redirect,
-				u32 *sids, int len)
+				u32 *sids, int len, int smt_size)
 {
 	unsigned int prrr, nmrr;
 	unsigned int pn;
@@ -227,10 +227,10 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 
 	/* Program the M2V tables for this context */
 	for (i = 0; i < len / sizeof(*sids); i++) {
-		for (; num < MAX_NUM_SMR; num++)
+		for (; num < smt_size; num++)
 			if (GET_SMR_VALID(base, num) == 0)
 				break;
-		BUG_ON(num >= MAX_NUM_SMR);
+		BUG_ON(num >= smt_size);
 
 		SET_SMR_VALID(base, num, 1);
 		SET_SMR_MASK(base, num, 0);
@@ -348,6 +348,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
 	u32 sids[MAX_NUM_SMR];
 	int len = 0, ret;
+	u32 smt_size;
 
 	mutex_lock(&msm_iommu_lock);
 
@@ -377,6 +378,13 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	of_get_property(dev->of_node, "qcom,iommu-ctx-sids", &len);
 	BUG_ON(len >= sizeof(sids));
+	if (of_property_read_u32(dev->parent->of_node, "qcom,iommu-smt-size",
+				  &smt_size)) {
+		ret = -EINVAL;
+		goto fail;
+	}
+	BUG_ON(smt_size > MAX_NUM_SMR);
+
 	if (of_property_read_u32_array(dev->of_node, "qcom,iommu-ctx-sids",
 					sids, len / sizeof(*sids))) {
 		ret = -EINVAL;
@@ -394,11 +402,11 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	}
 
 	if (!msm_iommu_ctx_attached(dev->parent))
-		__program_iommu(iommu_drvdata->base);
+		__program_iommu(iommu_drvdata->base, smt_size);
 
 	__program_context(iommu_drvdata->base, ctx_drvdata->num,
 		iommu_drvdata->ncb, __pa(priv->pt.fl_table),
-		priv->pt.redirect, sids, len);
+		priv->pt.redirect, sids, len, smt_size);
 	__disable_clocks(iommu_drvdata);
 
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
