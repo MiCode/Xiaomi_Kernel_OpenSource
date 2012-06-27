@@ -13,6 +13,7 @@ Required properties:
   - qcom,iommu-ctx-sids : List of stream identifiers associated with this
     translation context.
   - qcom,iommu-ctx-name : Name of the context bank
+  - qcom,iommu-smt-size : Number of SMR entries in the SMT of this HW block
 
 Example:
 
