@@ -276,7 +276,7 @@ static const char * const periodic_usage[] = {
 static const struct option options[] = {
 	OPT_CALLBACK('e', "event", &evsel_list, "event",
 	"event selector. use 'perf list' to list available events",
-	 parse_events),
+	 parse_events_option),
 	OPT_STRING('m', "math-operations", &operations, "nnnnnn",
 	"math operation to perform on values collected asmd in order"),
 	OPT_STRING('r', "readpipe", &rfifo_name, "xxbadFiFo",
