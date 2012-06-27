@@ -373,8 +373,8 @@ extern struct platform_device msm_bus_8064_cpss_fpb;
 
 extern struct platform_device mdm_8064_device;
 extern struct platform_device msm_dsps_device_8064;
-extern struct platform_device *msm_copper_stub_regulator_devices[];
-extern int msm_copper_stub_regulator_devices_len;
+extern struct platform_device *msm_8974_stub_regulator_devices[];
+extern int msm_8974_stub_regulator_devices_len;
 
 extern struct platform_device msm8960_cpu_idle_device;
 extern struct platform_device msm8930_cpu_idle_device;
@@ -408,7 +408,7 @@ extern struct platform_device msm8960_cache_dump_device;
 extern struct platform_device apq8064_cache_dump_device;
 extern struct platform_device msm8930_cache_dump_device;
 
-extern struct platform_device copper_device_tz_log;
+extern struct platform_device msm8974_device_tz_log;
 
 extern struct platform_device mdm_sglte_device;
 

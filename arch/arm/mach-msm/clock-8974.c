@@ -4577,7 +4577,7 @@ static struct measure_clk measure_clk = {
 	.multiplier = 1,
 };
 
-static struct clk_lookup msm_clocks_copper[] = {
+static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"msm_otg"),
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-q6v5-lpass"),
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-q6v5-mss"),
@@ -5014,7 +5014,7 @@ static void __init reg_init(void)
 	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
 }
 
-static void __init msmcopper_clock_post_init(void)
+static void __init msm8974_clock_post_init(void)
 {
 	clk_set_rate(&axi_clk_src.c, 333330000);
 	clk_set_rate(&ocmemnoc_clk_src.c, 333330000);
@@ -5060,32 +5060,32 @@ static void __init msmcopper_clock_post_init(void)
 #define MSS_CC_PHYS	0xFC980000
 #define MSS_CC_SIZE	SZ_16K
 
-static void __init msmcopper_clock_pre_init(void)
+static void __init msm8974_clock_pre_init(void)
 {
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
 	if (!virt_bases[GCC_BASE])
-		panic("clock-copper: Unable to ioremap GCC memory!");
+		panic("clock-8974: Unable to ioremap GCC memory!");
 
 	virt_bases[MMSS_BASE] = ioremap(MMSS_CC_PHYS, MMSS_CC_SIZE);
 	if (!virt_bases[MMSS_BASE])
-		panic("clock-copper: Unable to ioremap MMSS_CC memory!");
+		panic("clock-8974: Unable to ioremap MMSS_CC memory!");
 
 	virt_bases[LPASS_BASE] = ioremap(LPASS_CC_PHYS, LPASS_CC_SIZE);
 	if (!virt_bases[LPASS_BASE])
-		panic("clock-copper: Unable to ioremap LPASS_CC memory!");
+		panic("clock-8974: Unable to ioremap LPASS_CC memory!");
 
 	virt_bases[MSS_BASE] = ioremap(MSS_CC_PHYS, MSS_CC_SIZE);
 	if (!virt_bases[MSS_BASE])
-		panic("clock-copper: Unable to ioremap MSS_CC memory!");
+		panic("clock-8974: Unable to ioremap MSS_CC memory!");
 
-	clk_ops_local_pll.enable = copper_pll_clk_enable;
+	clk_ops_local_pll.enable = msm8974_pll_clk_enable;
 
 	reg_init();
 }
 
-struct clock_init_data msmcopper_clock_init_data __initdata = {
-	.table = msm_clocks_copper,
-	.size = ARRAY_SIZE(msm_clocks_copper),
-	.pre_init = msmcopper_clock_pre_init,
-	.post_init = msmcopper_clock_post_init,
+struct clock_init_data msm8974_clock_init_data __initdata = {
+	.table = msm_clocks_8974,
+	.size = ARRAY_SIZE(msm_clocks_8974),
+	.pre_init = msm8974_clock_pre_init,
+	.post_init = msm8974_clock_post_init,
 };

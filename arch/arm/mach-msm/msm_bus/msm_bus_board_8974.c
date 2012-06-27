@@ -25,9 +25,9 @@
 
 #define NMASTERS 120
 #define NSLAVES 150
-#define NFAB_COPPER 7
+#define NFAB_8974 7
 
-enum msm_bus_copper_master_ports_type {
+enum msm_bus_8974_master_ports_type {
 	/* System NOC Masters */
 	MASTER_PORT_LPASS_AHB = 0,
 	MASTER_PORT_QDSS_BAM,
@@ -99,7 +99,7 @@ enum msm_bus_copper_master_ports_type {
 	MASTER_PORT_GW_SNOC_CNOC,
 };
 
-enum msm_bus_copper_slave_ports_type {
+enum msm_bus_8974_slave_ports_type {
 	/* System NOC Slaves */
 	SLAVE_PORT_KMPSS = 1,
 	SLAVE_PORT_LPASS,
@@ -195,7 +195,7 @@ enum msm_bus_copper_slave_ports_type {
 };
 
 /* Hardware IDs for RPM */
-enum msm_bus_copper_mas_hw_id {
+enum msm_bus_8974_mas_hw_id {
 	MAS_APPSS_PROC = 0,
 	MAS_AMSS_PROC,
 	MAS_MNOC_BIMC,
@@ -256,7 +256,7 @@ enum msm_bus_copper_mas_hw_id {
 	MAS_SNOC_OVNOC,
 };
 
-enum msm_bus_copper_slv_hw_id {
+enum msm_bus_8974_slv_hw_id {
 	SLV_EBI = 0,
 	SLV_APSS_L2,
 	SLV_BIMC_SNOC,
@@ -1863,7 +1863,7 @@ static void msm_bus_board_assign_iids(struct msm_bus_fabric_registration
 	}
 }
 
-static int msm_bus_board_copper_get_iid(int id)
+static int msm_bus_board_8974_get_iid(int id)
 {
 	if ((id < SLAVE_ID_KEY && id >= NMASTERS) ||
 		id >= (SLAVE_ID_KEY + NSLAVES)) {
@@ -1881,12 +1881,12 @@ int msm_bus_board_rpm_get_il_ids(uint16_t *id)
 }
 
 static struct msm_bus_board_algorithm msm_bus_board_algo = {
-	.board_nfab = NFAB_COPPER,
-	.get_iid = msm_bus_board_copper_get_iid,
+	.board_nfab = NFAB_8974,
+	.get_iid = msm_bus_board_8974_get_iid,
 	.assign_iids = msm_bus_board_assign_iids,
 };
 
-struct msm_bus_fabric_registration msm_bus_copper_sys_noc_pdata = {
+struct msm_bus_fabric_registration msm_bus_8974_sys_noc_pdata = {
 	.id = MSM_BUS_FAB_SYS_NOC,
 	.name = "msm_sys_noc",
 	.info = sys_noc_info,
@@ -1903,7 +1903,7 @@ struct msm_bus_fabric_registration msm_bus_copper_sys_noc_pdata = {
 	.rpm_enabled = 1,
 };
 
-struct msm_bus_fabric_registration msm_bus_copper_mmss_noc_pdata = {
+struct msm_bus_fabric_registration msm_bus_8974_mmss_noc_pdata = {
 	.id = MSM_BUS_FAB_MMSS_NOC,
 	.name = "msm_mmss_noc",
 	.info = mmss_noc_info,
@@ -1920,7 +1920,7 @@ struct msm_bus_fabric_registration msm_bus_copper_mmss_noc_pdata = {
 	.rpm_enabled = 1,
 };
 
-struct msm_bus_fabric_registration msm_bus_copper_bimc_pdata = {
+struct msm_bus_fabric_registration msm_bus_8974_bimc_pdata = {
 	.id = MSM_BUS_FAB_BIMC,
 	.name = "msm_bimc",
 	.info = bimc_info,
@@ -1937,7 +1937,7 @@ struct msm_bus_fabric_registration msm_bus_copper_bimc_pdata = {
 	.rpm_enabled = 1,
 };
 
-struct msm_bus_fabric_registration msm_bus_copper_ocmem_noc_pdata = {
+struct msm_bus_fabric_registration msm_bus_8974_ocmem_noc_pdata = {
 	.id = MSM_BUS_FAB_OCMEM_NOC,
 	.name = "msm_ocmem_noc",
 	.info = ocmem_noc_info,
@@ -1954,7 +1954,7 @@ struct msm_bus_fabric_registration msm_bus_copper_ocmem_noc_pdata = {
 	.rpm_enabled = 1,
 };
 
-struct msm_bus_fabric_registration msm_bus_copper_periph_noc_pdata = {
+struct msm_bus_fabric_registration msm_bus_8974_periph_noc_pdata = {
 	.id = MSM_BUS_FAB_PERIPH_NOC,
 	.name = "msm_periph_noc",
 	.info = periph_noc_info,
@@ -1970,7 +1970,7 @@ struct msm_bus_fabric_registration msm_bus_copper_periph_noc_pdata = {
 	.rpm_enabled = 1,
 };
 
-struct msm_bus_fabric_registration msm_bus_copper_config_noc_pdata = {
+struct msm_bus_fabric_registration msm_bus_8974_config_noc_pdata = {
 	.id = MSM_BUS_FAB_CONFIG_NOC,
 	.name = "msm_config_noc",
 	.info = config_noc_info,
@@ -1986,7 +1986,7 @@ struct msm_bus_fabric_registration msm_bus_copper_config_noc_pdata = {
 	.rpm_enabled = 1,
 };
 
-struct msm_bus_fabric_registration msm_bus_copper_ocmem_vnoc_pdata = {
+struct msm_bus_fabric_registration msm_bus_8974_ocmem_vnoc_pdata = {
 	.id = MSM_BUS_FAB_OCMEM_VNOC,
 	.name = "msm_ocmem_vnoc",
 	.info = ocmem_vnoc_info,

@@ -114,13 +114,13 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 };
 
-void __init msm_copper_init_gpiomux(void)
+void __init msm_8974_init_gpiomux(void)
 {
 	int rc;
 
 	rc = msm_gpiomux_init(NR_GPIO_IRQS);
 	if (rc) {
-		pr_err(KERN_ERR "msmcopper_init_gpiomux failed %d\n", rc);
+		pr_err(KERN_ERR "msm_8974_init_gpiomux failed %d\n", rc);
 		return;
 	}
 

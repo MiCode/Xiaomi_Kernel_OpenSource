@@ -11,18 +11,18 @@
  */
 
 /include/ "skeleton.dtsi"
-/include/ "msmcopper_pm.dtsi"
+/include/ "msm8974_pm.dtsi"
 /include/ "msm-pm8x41-rpm-regulator.dtsi"
 /include/ "msm-pm8841.dtsi"
 /include/ "msm-pm8941.dtsi"
-/include/ "msmcopper-regulator.dtsi"
-/include/ "msmcopper-gpio.dtsi"
-/include/ "msmcopper-iommu.dtsi"
+/include/ "msm8974-regulator.dtsi"
+/include/ "msm8974-gpio.dtsi"
+/include/ "msm8974-iommu.dtsi"
 /include/ "msm-gdsc.dtsi"
 
 / {
-	model = "Qualcomm MSM Copper";
-	compatible = "qcom,msmcopper";
+	model = "Qualcomm MSM 8974";
+	compatible = "qcom,msm8974";
 	interrupt-parent = <&intc>;
 
 	intc: interrupt-controller@F9000000 {
@@ -269,7 +269,7 @@
 	};
 
 	qcom,acpuclk@f9000000 {
-		compatible = "qcom,acpuclk-copper";
+		compatible = "qcom,acpuclk-8974";
 		krait0-supply = <&krait0_vreg>;
 		krait1-supply = <&krait1_vreg>;
 		krait2-supply = <&krait2_vreg>;

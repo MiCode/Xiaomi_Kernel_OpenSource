@@ -337,8 +337,8 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	void *sel_cdata;
 
-	/* Temporarily stub out arbitration settings for copper */
-	if (machine_is_copper())
+	/* Temporarily stub out arbitration settings for msm8974 */
+	if (machine_is_msm8974())
 		return;
 
 	sel_cdata = fabric->cdata[ctx];

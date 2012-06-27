@@ -174,5 +174,5 @@ extern struct clk_ops clk_ops_rcg_mnd;
 extern struct clk_ops clk_ops_branch;
 extern struct clk_ops clk_ops_vote;
 
-#endif /* __ARCH_ARM_MACH_MSM_COPPER_CLOCK_LOCAL_H */
+#endif /* __ARCH_ARM_MACH_MSM_CLOCK_LOCAL_2_H */
 

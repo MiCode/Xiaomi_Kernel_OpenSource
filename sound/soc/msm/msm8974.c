@@ -741,7 +741,7 @@ static void msm_free_headset_mic_gpios(void)
 static int __init msm_audio_init(void)
 {
 	int ret = 0;
-	if (!machine_is_copper_sim()) {
+	if (!machine_is_msm8974_sim()) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return -ENODEV;
 	}
@@ -766,7 +766,7 @@ module_init(msm_audio_init);
 
 static void __exit msm_audio_exit(void)
 {
-	if (!machine_is_copper_sim()) {
+	if (!machine_is_msm8974_sim()) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return ;
 	}

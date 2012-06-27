@@ -99,7 +99,7 @@ ifndef CONFIG_ARCH_MSM9615
 ifndef CONFIG_ARCH_APQ8064
 ifndef CONFIG_ARCH_MSM8960
 ifndef CONFIG_ARCH_MSM8X60
-ifndef CONFIG_ARCH_MSMCOPPER
+ifndef CONFIG_ARCH_MSM8974
 	obj-$(CONFIG_MSM_SMD) += pmic.o
 	obj-$(CONFIG_MSM_ONCRPCROUTER) += rpc_hsusb.o rpc_pmapp.o rpc_fsusb.o
 endif
@@ -110,7 +110,7 @@ endif
 ifndef CONFIG_ARCH_MSM8960
 ifndef CONFIG_ARCH_MSM8X60
 ifndef CONFIG_ARCH_APQ8064
-ifndef CONFIG_ARCH_MSMCOPPER
+ifndef CONFIG_ARCH_MSM8974
 ifndef CONFIG_ARCH_MSM9625
 	obj-y += nand_partitions.o
 endif
@@ -212,7 +212,7 @@ ifdef CONFIG_CPU_IDLE
 	obj-$(CONFIG_ARCH_MSM8960) += cpuidle.o
 	obj-$(CONFIG_ARCH_MSM8X60) += cpuidle.o
 	obj-$(CONFIG_ARCH_MSM9615) += cpuidle.o
-	obj-$(CONFIG_ARCH_MSMCOPPER) += cpuidle.o
+	obj-$(CONFIG_ARCH_MSM8974) += cpuidle.o
 endif
 
 ifdef CONFIG_MSM_CAMERA_V4L2
@@ -287,10 +287,10 @@ obj-$(CONFIG_MACH_MPQ8064_HRD) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_MACH_MPQ8064_DTV) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o board-9615-gpiomux.o board-9615-storage.o board-9615-display.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o clock-pll.o
-obj-$(CONFIG_ARCH_MSMCOPPER) += board-copper.o board-dt.o board-copper-regulator.o board-copper-gpiomux.o
-obj-$(CONFIG_ARCH_MSMCOPPER) += acpuclock-krait.o acpuclock-copper.o
-obj-$(CONFIG_ARCH_MSMCOPPER) += clock-local2.o clock-pll.o clock-copper.o clock-rpm.o clock-voter.o
-obj-$(CONFIG_ARCH_MSMCOPPER) += gdsc.o
+obj-$(CONFIG_ARCH_MSM8974) += board-8974.o board-dt.o board-8974-regulator.o board-8974-gpiomux.o
+obj-$(CONFIG_ARCH_MSM8974) += acpuclock-krait.o acpuclock-8974.o
+obj-$(CONFIG_ARCH_MSM8974) += clock-local2.o clock-pll.o clock-8974.o clock-rpm.o clock-voter.o
+obj-$(CONFIG_ARCH_MSM8974) += gdsc.o
 obj-$(CONFIG_ARCH_MSM9625) += board-9625.o board-9625-gpiomux.o
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o
@@ -316,7 +316,7 @@ ifdef CONFIG_MSM_RPM
 	obj-$(CONFIG_ARCH_MSM9615) += rpm_resources.o
 endif
 ifdef CONFIG_MSM_RPM_SMD
-	obj-$(CONFIG_ARCH_MSMCOPPER) += lpm_levels.o lpm_resources.o
+	obj-$(CONFIG_ARCH_MSM8974) += lpm_levels.o lpm_resources.o
 endif
 obj-$(CONFIG_MSM_MPM) += mpm.o
 obj-$(CONFIG_MSM_RPM_STATS_LOG) += rpm_stats.o
@@ -341,7 +341,7 @@ obj-$(CONFIG_ARCH_MSM8X60) += gpiomux-8x60.o gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM8960) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_APQ8064) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM9615) += gpiomux-v2.o gpiomux.o
-obj-$(CONFIG_ARCH_MSMCOPPER) += gpiomux-v2.o gpiomux.o
+obj-$(CONFIG_ARCH_MSM8974) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM9625) += gpiomux-v2.o gpiomux.o
 
 

@@ -2,7 +2,7 @@ Qualcomm Global Distributed Switch Controller (GDSC) Regulator Driver
 
 The GDSC driver, implemented under the regulator framework, is responsible for
 safely collapsing and restoring power to peripheral cores on chipsets like
-msm-copper for power savings.
+msm8974 for power savings.
 
 Required properties:
  - compatible:      Must be "qcom,gdsc"

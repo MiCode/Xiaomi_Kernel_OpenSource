@@ -12,9 +12,9 @@
 
 /dts-v1/;
 
-/include/ "msmcopper.dtsi"
+/include/ "msm8974.dtsi"
 
 / {
-	model = "Qualcomm MSM Copper Simulator";
-	compatible = "qcom,msmcopper-sim", "qcom,msmcopper";
+	model = "Qualcomm MSM 8974 Simulator";
+	compatible = "qcom,msm8974-sim", "qcom,msm8974";
 };

@@ -20,7 +20,7 @@
 #include <mach/rpm-regulator-8660.h>
 #include <mach/rpm-regulator-8960.h>
 #include <mach/rpm-regulator-9615.h>
-#include <mach/rpm-regulator-copper.h>
+#include <mach/rpm-regulator-8974.h>
 #include <mach/rpm-regulator-8930.h>
 
 /**

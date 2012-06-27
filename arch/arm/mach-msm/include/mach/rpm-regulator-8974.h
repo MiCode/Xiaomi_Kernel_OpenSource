@@ -11,13 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ARCH_ARM_MACH_MSM_INCLUDE_MACH_RPM_REGULATOR_COPPER_H
-#define __ARCH_ARM_MACH_MSM_INCLUDE_MACH_RPM_REGULATOR_COPPER_H
+#ifndef __ARCH_ARM_MACH_MSM_INCLUDE_MACH_RPM_REGULATOR_8974_H
+#define __ARCH_ARM_MACH_MSM_INCLUDE_MACH_RPM_REGULATOR_8974_H
 
 /**
  * enum rpm_vreg_id - RPM regulator ID numbers (both real and pin control)
  */
-enum rpm_vreg_id_copper {
+enum rpm_vreg_id_8974 {
 	RPM_VREG_ID_PM8941_S1,
 	RPM_VREG_ID_PM8941_S2,
 	RPM_VREG_ID_PM8941_L12,

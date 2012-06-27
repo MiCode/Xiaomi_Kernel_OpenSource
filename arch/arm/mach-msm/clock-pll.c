@@ -248,7 +248,7 @@ int sr_pll_clk_enable(struct clk *c)
 
 #define PLL_LOCKED_BIT BIT(16)
 
-int copper_pll_clk_enable(struct clk *c)
+int msm8974_pll_clk_enable(struct clk *c)
 {
 	unsigned long flags;
 	struct pll_clk *pll = to_pll_clk(c);

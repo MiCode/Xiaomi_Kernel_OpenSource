@@ -34,7 +34,7 @@ static struct hfpll_data hfpll_data_cpu = {
 	.m_offset = 0x08,
 	.n_offset = 0x0C,
 	.config_offset = 0x14,
-	/* TODO: Verify magic number for copper when available. */
+	/* TODO: Verify magic number for 8974 when available. */
 	.config_val = 0x7845C665,
 	.low_vdd_l_max = 52,
 	.vdd[HFPLL_VDD_NONE] = 0,
@@ -48,7 +48,7 @@ static struct hfpll_data hfpll_data_l2 = {
 	.m_offset = 0x08,
 	.n_offset = 0x0C,
 	.config_offset = 0x14,
-	/* TODO: Verify magic number for copper when available. */
+	/* TODO: Verify magic number for 8974 when available. */
 	.config_val = 0x7845C665,
 	.low_vdd_l_max = 52,
 	.vdd[HFPLL_VDD_NONE] = LVL_NONE,
@@ -113,7 +113,7 @@ static struct msm_bus_scale_pdata bus_scale_data = {
 	.usecase = bw_level_tbl,
 	.num_usecases = ARRAY_SIZE(bw_level_tbl),
 	.active_only = 1,
-	.name = "acpuclk-copper",
+	.name = "acpuclk-8974",
 };
 
 #define L2(x) (&l2_freq_tbl[(x)])
@@ -148,7 +148,7 @@ static struct acpu_level acpu_freq_tbl[] = {
 	{ 0, { 0 } }
 };
 
-static struct acpuclk_krait_params acpuclk_copper_params = {
+static struct acpuclk_krait_params acpuclk_8974_params = {
 	.scalable = scalable,
 	.pvs_acpu_freq_tbl[PVS_SLOW] = acpu_freq_tbl,
 	.pvs_acpu_freq_tbl[PVS_NOMINAL] = acpu_freq_tbl,
@@ -159,27 +159,27 @@ static struct acpuclk_krait_params acpuclk_copper_params = {
 	.qfprom_phys_base = 0xFC4A8000,
 };
 
-static int __init acpuclk_copper_probe(struct platform_device *pdev)
+static int __init acpuclk_8974_probe(struct platform_device *pdev)
 {
-	return acpuclk_krait_init(&pdev->dev, &acpuclk_copper_params);
+	return acpuclk_krait_init(&pdev->dev, &acpuclk_8974_params);
 }
 
-static struct of_device_id acpuclk_copper_match_table[] = {
-	{ .compatible = "qcom,acpuclk-copper" },
+static struct of_device_id acpuclk_8974_match_table[] = {
+	{ .compatible = "qcom,acpuclk-8974" },
 	{}
 };
 
-static struct platform_driver acpuclk_copper_driver = {
+static struct platform_driver acpuclk_8974_driver = {
 	.driver = {
-		.name = "acpuclk-copper",
-		.of_match_table = acpuclk_copper_match_table,
+		.name = "acpuclk-8974",
+		.of_match_table = acpuclk_8974_match_table,
 		.owner = THIS_MODULE,
 	},
 };
 
-static int __init acpuclk_8960_init(void)
+static int __init acpuclk_8974_init(void)
 {
-	return platform_driver_probe(&acpuclk_copper_driver,
-				     acpuclk_copper_probe);
+	return platform_driver_probe(&acpuclk_8974_driver,
+				     acpuclk_8974_probe);
 }
-device_initcall(acpuclk_8960_init);
+device_initcall(acpuclk_8974_init);

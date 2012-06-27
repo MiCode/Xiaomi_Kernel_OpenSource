@@ -4,5 +4,5 @@
 
 menuconfig MSM_VIDC
 	bool "Qualcomm MSM Video Core Driver"
-		depends on ARCH_MSMCOPPER && VIDEO_V4L2
+		depends on ARCH_MSM8974 && VIDEO_V4L2
 		default y
