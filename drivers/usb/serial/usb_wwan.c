@@ -279,15 +279,78 @@ int usb_wwan_write(struct tty_struct *tty, struct usb_serial_port *port,
 }
 EXPORT_SYMBOL(usb_wwan_write);
 
+static void usb_wwan_in_work(struct work_struct *w)
+{
+	struct usb_wwan_port_private *portdata =
+		container_of(w, struct usb_wwan_port_private, in_work);
+	struct list_head *q = &portdata->in_urb_list;
+	struct urb *urb;
+	unsigned char *data;
+	struct tty_struct *tty;
+	struct usb_serial_port *port;
+	int err;
+	ssize_t len;
+	ssize_t count;
+	unsigned long flags;
+
+	spin_lock_irqsave(&portdata->in_lock, flags);
+	while (!list_empty(q)) {
+		urb = list_first_entry(q, struct urb, urb_list);
+		port = urb->context;
+		if (port->throttle_req || port->throttled)
+			break;
+
+		tty = tty_port_tty_get(&port->port);
+		if (!tty)
+			continue;
+
+		list_del_init(&urb->urb_list);
+
+		spin_unlock_irqrestore(&portdata->in_lock, flags);
+
+		len = urb->actual_length - portdata->n_read;
+		data = urb->transfer_buffer + portdata->n_read;
+		count = tty_insert_flip_string(tty, data, len);
+		tty_flip_buffer_push(tty);
+		tty_kref_put(tty);
+
+		if (count < len) {
+			dbg("%s: len:%d count:%d n_read:%d\n", __func__,
+					len, count, portdata->n_read);
+			portdata->n_read += count;
+			port->throttled = true;
+
+			/* add request back to list */
+			spin_lock_irqsave(&portdata->in_lock, flags);
+			list_add(&urb->urb_list, q);
+			spin_unlock_irqrestore(&portdata->in_lock, flags);
+			return;
+		}
+		portdata->n_read = 0;
+
+		usb_anchor_urb(urb, &portdata->submitted);
+		err = usb_submit_urb(urb, GFP_ATOMIC);
+		if (err) {
+			usb_unanchor_urb(urb);
+			if (err != -EPERM)
+				pr_err("%s: submit read urb failed:%d",
+						__func__, err);
+		}
+
+		usb_mark_last_busy(port->serial->dev);
+		spin_lock_irqsave(&portdata->in_lock, flags);
+	}
+	spin_unlock_irqrestore(&portdata->in_lock, flags);
+}
+
 static void usb_wwan_indat_callback(struct urb *urb)
 {
 	int err;
 	int endpoint;
 	struct usb_wwan_port_private *portdata;
 	struct usb_serial_port *port;
-	struct tty_struct *tty;
-	unsigned char *data = urb->transfer_buffer;
 	int status = urb->status;
+	unsigned long flags;
 
 	dbg("%s: %p", __func__, urb);
 
@@ -295,38 +358,30 @@ static void usb_wwan_indat_callback(struct urb *urb)
 	port = urb->context;
 	portdata = usb_get_serial_port_data(port);
 
-	if (status) {
-		dbg("%s: nonzero status: %d on endpoint %02x.",
-		    __func__, status, endpoint);
-	} else {
-		tty = tty_port_tty_get(&port->port);
-		if (tty) {
-			if (urb->actual_length) {
-				tty_insert_flip_string(tty, data,
-						urb->actual_length);
-				tty_flip_buffer_push(tty);
-			} else
-				dbg("%s: empty read urb received", __func__);
-			tty_kref_put(tty);
-		}
+	usb_mark_last_busy(port->serial->dev);
 
-		/* Resubmit urb so we continue receiving */
-		if (status != -ESHUTDOWN) {
-			usb_anchor_urb(urb, &portdata->submitted);
-			err = usb_submit_urb(urb, GFP_ATOMIC);
-			if (err) {
-				usb_unanchor_urb(urb);
-				if (err != -EPERM) {
-					printk(KERN_ERR "%s: resubmit read urb failed. "
-						"(%d)", __func__, err);
-					/* busy also in error unless we are killed */
-					usb_mark_last_busy(port->serial->dev);
-				}
-			} else {
-				usb_mark_last_busy(port->serial->dev);
-			}
-		}
+	if (!status && urb->actual_length) {
+		spin_lock_irqsave(&portdata->in_lock, flags);
+		list_add_tail(&urb->urb_list, &portdata->in_urb_list);
+		spin_unlock_irqrestore(&portdata->in_lock, flags);
 
+		schedule_work(&portdata->in_work);
+
+		return;
+	}
+
+	dbg("%s: nonzero status: %d on endpoint %02x.",
+		__func__, status, endpoint);
+
+	if (status != -ESHUTDOWN) {
+		usb_anchor_urb(urb, &portdata->submitted);
+		err = usb_submit_urb(urb, GFP_ATOMIC);
+		if (err) {
+			usb_unanchor_urb(urb);
+			if (err != -EPERM)
+				pr_err("%s: submit read urb failed:%d",
+						__func__, err);
+		}
 	}
 }
 
@@ -400,6 +455,31 @@ int usb_wwan_chars_in_buffer(struct tty_struct *tty)
 	return data_len;
 }
 EXPORT_SYMBOL(usb_wwan_chars_in_buffer);
+
+void usb_wwan_throttle(struct tty_struct *tty)
+{
+	struct usb_serial_port *port = tty->driver_data;
+
+	port->throttle_req = true;
+
+	dbg("%s:\n", __func__);
+}
+EXPORT_SYMBOL(usb_wwan_throttle);
+
+void usb_wwan_unthrottle(struct tty_struct *tty)
+{
+	struct usb_serial_port *port = tty->driver_data;
+	struct usb_wwan_port_private *portdata;
+
+	portdata = usb_get_serial_port_data(port);
+
+	dbg("%s:\n", __func__);
+	port->throttle_req = false;
+	port->throttled = false;
+
+	schedule_work(&portdata->in_work);
+}
+EXPORT_SYMBOL(usb_wwan_unthrottle);
 
 int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 {
@@ -560,6 +640,9 @@ int usb_wwan_startup(struct usb_serial *serial)
 		}
 		init_usb_anchor(&portdata->delayed);
 		init_usb_anchor(&portdata->submitted);
+		INIT_WORK(&portdata->in_work, usb_wwan_in_work);
+		INIT_LIST_HEAD(&portdata->in_urb_list);
+		spin_lock_init(&portdata->in_lock);
 
 		for (j = 0; j < N_IN_URB; j++) {
 			buffer = kmalloc(IN_BUFLEN, GFP_KERNEL);
@@ -624,13 +707,24 @@ void usb_wwan_release(struct usb_serial *serial)
 	int i, j;
 	struct usb_serial_port *port;
 	struct usb_wwan_port_private *portdata;
-
-	dbg("%s", __func__);
+	struct urb *urb;
+	struct list_head *q;
+	unsigned long flags;
 
 	/* Now free them */
 	for (i = 0; i < serial->num_ports; ++i) {
 		port = serial->port[i];
 		portdata = usb_get_serial_port_data(port);
+
+		cancel_work_sync(&portdata->in_work);
+		/* TBD: do we really need this */
+		spin_lock_irqsave(&portdata->in_lock, flags);
+		q = &portdata->in_urb_list;
+		while (!list_empty(q)) {
+			urb = list_first_entry(q, struct urb, urb_list);
+			list_del_init(&urb->urb_list);
+		}
+		spin_unlock_irqrestore(&portdata->in_lock, flags);
 
 		for (j = 0; j < N_IN_URB; j++) {
 			usb_free_urb(portdata->in_urbs[j]);
