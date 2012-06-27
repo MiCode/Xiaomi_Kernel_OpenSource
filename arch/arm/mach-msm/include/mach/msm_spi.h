@@ -21,4 +21,5 @@ struct msm_spi_platform_data {
 	int (*dma_config)(void);
 	const char *rsl_id;
 	uint32_t pm_lat;
+	uint32_t infinite_mode;
 };
