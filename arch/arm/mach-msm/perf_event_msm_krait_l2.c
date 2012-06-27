@@ -21,6 +21,10 @@
 #define MAX_L2_PERIOD	((1ULL << 32) - 1)
 #define MAX_KRAIT_L2_CTRS 5
 
+#define L2_EVT_MASK 0xfffff
+
+#define L2_SLAVE_EV_PREFIX 4
+
 #define L2PMCCNTR 0x409
 #define L2PMCCNTCR 0x408
 #define L2PMCCNTSR 0x40A
@@ -49,9 +53,12 @@
 
 /* event format is -e rsRCCG See get_event_desc() */
 
-#define EVENT_REG_MASK		0xf000
-#define EVENT_GROUPSEL_MASK	0x000f
-#define	EVENT_GROUPCODE_MASK	0x0ff0
+#define EVENT_PREFIX_MASK	0xf0000
+#define EVENT_REG_MASK		0x0f000
+#define EVENT_GROUPSEL_MASK	0x0000f
+#define	EVENT_GROUPCODE_MASK	0x00ff0
+
+#define EVENT_PREFIX_SHIFT	16
 #define EVENT_REG_SHIFT		12
 #define EVENT_GROUPCODE_SHIFT	4
 
@@ -70,11 +77,13 @@ struct pmu_constraints {
 };
 
 /* NRCCG format for perf RAW codes. */
+PMU_FORMAT_ATTR(l2_prefix, "config:16-19");
 PMU_FORMAT_ATTR(l2_reg,	"config:12-15");
 PMU_FORMAT_ATTR(l2_code, "config:4-11");
 PMU_FORMAT_ATTR(l2_grp,	"config:0-3");
 
 static struct attribute *msm_l2_ev_formats[] = {
+	&format_attr_l2_prefix.attr,
 	&format_attr_l2_reg.attr,
 	&format_attr_l2_code.attr,
 	&format_attr_l2_grp.attr,
@@ -96,6 +105,9 @@ static const struct attribute_group *msm_l2_pmu_attr_grps[] = {
 };
 
 static u32 l2_orig_filter_prefix = 0x000f0030;
+
+/* L2 slave port traffic filtering */
+static u32 l2_slv_filter_prefix = 0x000f0010;
 
 static u32 pmu_type;
 
@@ -167,18 +179,24 @@ static void set_evres(int event_groupsel, int event_reg, int event_group_code)
 	set_l2_indirect_reg(group_reg, resr_val);
 }
 
-static void set_evfilter_task_mode(int ctr)
+static void set_evfilter_task_mode(int ctr, unsigned int is_slv)
 {
 	u32 filter_reg = (ctr * 16) + IA_L2PMXEVFILTER_BASE;
 	u32 filter_val = l2_orig_filter_prefix | 1 << smp_processor_id();
 
+	if (is_slv)
+		filter_val = l2_slv_filter_prefix;
+
 	set_l2_indirect_reg(filter_reg, filter_val);
 }
 
-static void set_evfilter_sys_mode(int ctr)
+static void set_evfilter_sys_mode(int ctr, unsigned int is_slv)
 {
 	u32 filter_reg = (ctr * 16) + IA_L2PMXEVFILTER_BASE;
 	u32 filter_val = l2_orig_filter_prefix | 0xf;
+
+	if (is_slv)
+		filter_val = l2_slv_filter_prefix;
 
 	set_l2_indirect_reg(filter_reg, filter_val);
 }
@@ -251,11 +269,20 @@ static void krait_l2_enable(struct hw_perf_event *hwc, int idx, int cpu)
 {
 	struct event_desc evdesc;
 	unsigned long iflags;
+	unsigned int is_slv = 0;
+	unsigned int evt_prefix;
 
 	raw_spin_lock_irqsave(&krait_l2_pmu_hw_events.pmu_lock, iflags);
 
 	if (hwc->config_base == L2CYCLE_CTR_RAW_CODE)
 		goto out;
+
+	/* Check if user requested any special origin filtering. */
+	evt_prefix = (hwc->config_base &
+			EVENT_PREFIX_MASK) >> EVENT_PREFIX_SHIFT;
+
+	if (evt_prefix == L2_SLAVE_EV_PREFIX)
+		is_slv = 1;
 
 	set_evcntcr(idx);
 
@@ -269,9 +296,9 @@ static void krait_l2_enable(struct hw_perf_event *hwc, int idx, int cpu)
 		  evdesc.event_group_code);
 
 	if (cpu < 0)
-		set_evfilter_task_mode(idx);
+		set_evfilter_task_mode(idx, is_slv);
 	else
-		set_evfilter_sys_mode(idx);
+		set_evfilter_sys_mode(idx, is_slv);
 
 out:
 	enable_intenset(idx);
@@ -397,7 +424,7 @@ next:
 static int krait_l2_map_event(struct perf_event *event)
 {
 	if (pmu_type > 0 && pmu_type == event->attr.type)
-		return event->attr.config & 0xffff;
+		return event->attr.config & L2_EVT_MASK;
 	else
 		return -ENOENT;
 }
@@ -419,7 +446,7 @@ krait_l2_pmu_generic_free_irq(int irq)
 
 static int msm_l2_test_set_ev_constraint(struct perf_event *event)
 {
-	u32 evt_type = event->attr.config & 0xffff;
+	u32 evt_type = event->attr.config & L2_EVT_MASK;
 	u8 reg   = (evt_type & 0x0F000) >> 12;
 	u8 group =  evt_type & 0x0000F;
 	unsigned long flags;
@@ -444,7 +471,7 @@ out:
 
 static int msm_l2_clear_ev_constraint(struct perf_event *event)
 {
-	u32 evt_type = event->attr.config & 0xffff;
+	u32 evt_type = event->attr.config & L2_EVT_MASK;
 	u8 reg   = (evt_type & 0x0F000) >> 12;
 	u8 group =  evt_type & 0x0000F;
 	unsigned long flags;
@@ -476,7 +503,7 @@ static struct arm_pmu krait_l2_pmu = {
 	.read_counter	=	krait_l2_read_counter,
 	.write_counter	=	krait_l2_write_counter,
 	.map_event	=	krait_l2_map_event,
-	.max_period	=	(1LLU << 32) - 1,
+	.max_period	=	MAX_L2_PERIOD,
 	.get_hw_events	=	krait_l2_get_hw_events,
 	.num_events	=	MAX_KRAIT_L2_CTRS,
 	.test_set_event_constraints	= msm_l2_test_set_ev_constraint,
