@@ -372,6 +372,27 @@ static void riva_post_bootup(struct work_struct *work)
 	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF);
 }
 
+static int riva_start(const struct subsys_desc *desc)
+{
+	void *ret;
+	struct riva_data *drv;
+
+	drv = container_of(desc, struct riva_data, subsys_desc);
+
+	ret = pil_get("wcnss");
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void riva_stop(const struct subsys_desc *desc)
+{
+	struct riva_data *drv;
+
+	drv = container_of(desc, struct riva_data, subsys_desc);
+	pil_put(drv->pil);
+}
+
 static int riva_shutdown(const struct subsys_desc *desc)
 {
 	struct riva_data *drv;
@@ -515,6 +536,10 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		goto err_smsm;
 
 	drv->subsys_desc.name = "wcnss";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = riva_start;
+	drv->subsys_desc.stop = riva_stop;
 	drv->subsys_desc.shutdown = riva_shutdown;
 	drv->subsys_desc.powerup = riva_powerup;
 	drv->subsys_desc.ramdump = riva_ramdump;

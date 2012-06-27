@@ -337,6 +337,23 @@ static irqreturn_t adsp_wdog_bite_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int lpass_start(const struct subsys_desc *desc)
+{
+	void *ret;
+	struct lpass_data *drv = subsys_to_drv(desc);
+
+	ret = pil_get(drv->q6->desc.name);
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void lpass_stop(const struct subsys_desc *desc)
+{
+	struct lpass_data *drv = subsys_to_drv(desc);
+	pil_put(drv->q6->pil);
+}
+
 static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 {
 	struct lpass_data *drv;
@@ -397,6 +414,8 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.powerup = adsp_powerup;
 	drv->subsys_desc.ramdump = adsp_ramdump;
 	drv->subsys_desc.crash_shutdown = adsp_crash_shutdown;
+	drv->subsys_desc.start = lpass_start;
+	drv->subsys_desc.stop = lpass_stop;
 
 	INIT_WORK(&drv->work, adsp_fatal_fn);
 

@@ -57,6 +57,7 @@ struct mba_data {
 	void __iomem *metadata_base;
 	unsigned long metadata_phys;
 	struct pil_device *pil;
+	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	struct clk *xo;
@@ -294,6 +295,23 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int mss_start(const struct subsys_desc *desc)
+{
+	void *ret;
+	struct mba_data *drv = subsys_to_drv(desc);
+
+	ret = pil_get(drv->desc.name);
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void mss_stop(const struct subsys_desc *desc)
+{
+	struct mba_data *drv = subsys_to_drv(desc);
+	pil_put(drv->pil);
+}
+
 static int __devinit pil_mba_driver_probe(struct platform_device *pdev)
 {
 	struct mba_data *drv;
@@ -328,10 +346,7 @@ static int __devinit pil_mba_driver_probe(struct platform_device *pdev)
 		drv->metadata_phys = res->start;
 	}
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!drv)
-		return -ENOMEM;
-
+	desc = &drv->desc;
 	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
 				      &desc->name);
 	if (ret)
@@ -360,6 +375,8 @@ static int __devinit pil_mba_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.powerup = modem_powerup;
 	drv->subsys_desc.ramdump = modem_ramdump;
 	drv->subsys_desc.crash_shutdown = modem_crash_shutdown;
+	drv->subsys_desc.start = mss_start;
+	drv->subsys_desc.stop = mss_stop;
 
 	drv->ramdump_dev = create_ramdump_device("modem");
 	if (!drv->ramdump_dev) {
