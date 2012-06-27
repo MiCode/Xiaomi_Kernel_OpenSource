@@ -247,6 +247,12 @@ struct mdss_mdp_pipe {
 	unsigned long smp[MAX_PLANES];
 };
 
+struct mdss_mdp_writeback_arg {
+	struct mdss_mdp_data *data;
+	void (*callback_fnc) (void *arg);
+	void *priv_data;
+};
+
 static inline void mdss_mdp_ctl_write(struct mdss_mdp_ctl *ctl,
 				      u32 reg, u32 val)
 {
@@ -312,5 +318,8 @@ struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 int mdss_mdp_put_img(struct mdss_mdp_img_data *data);
 int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
 		     struct mdss_mdp_img_data *data);
+
+int mdss_mdp_wb_kickoff(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 
 #endif /* MDSS_MDP_H */

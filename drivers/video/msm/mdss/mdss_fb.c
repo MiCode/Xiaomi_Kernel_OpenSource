@@ -1158,6 +1158,20 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	return ret;
 }
 
+struct fb_info *msm_fb_get_writeback_fb(void)
+{
+	int c = 0;
+	for (c = 0; c < fbi_list_index; ++c) {
+		struct msm_fb_data_type *mfd;
+		mfd = (struct msm_fb_data_type *)fbi_list[c]->par;
+		if (mfd->panel.type == WRITEBACK_PANEL)
+			return fbi_list[c];
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(msm_fb_get_writeback_fb);
+
 int mdss_register_panel(struct mdss_panel_data *pdata)
 {
 	struct platform_device *mdss_fb_dev = NULL;

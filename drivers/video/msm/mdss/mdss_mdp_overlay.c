@@ -793,6 +793,11 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			ret = 0;
 		}
 		break;
+
+	default:
+		if (mfd->panel_info.type == WRITEBACK_PANEL)
+			ret = mdss_mdp_wb_ioctl_handler(mfd, cmd, argp);
+		break;
 	}
 
 	return ret;
@@ -809,7 +814,11 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mfd->cursor_update = mdss_mdp_hw_cursor_update;
 	mfd->dma_fnc = mdss_mdp_overlay_pan_display;
 	mfd->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
-	mfd->kickoff_fnc = mdss_mdp_overlay_kickoff;
+
+	if (mfd->panel_info.type == WRITEBACK_PANEL)
+		mfd->kickoff_fnc = mdss_mdp_wb_kickoff;
+	else
+		mfd->kickoff_fnc = mdss_mdp_overlay_kickoff;
 
 	return 0;
 }
