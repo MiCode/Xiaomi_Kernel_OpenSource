@@ -25,12 +25,16 @@ struct msm_cpuidle_state {
 	enum msm_pm_sleep_mode mode_nr;
 };
 
-#ifdef CONFIG_CPU_IDLE
+#ifdef CONFIG_PM
 s32 msm_cpuidle_get_deep_idle_latency(void);
+#else
+static inline s32 msm_cpuidle_get_deep_idle_latency(void) { return 0; }
+#endif
+
+#ifdef CONFIG_CPU_IDLE
 int msm_cpuidle_init(void);
 #else
 static inline int msm_cpuidle_init(void) { return -ENOSYS; }
-static inline s32 msm_cpuidle_get_deep_idle_latency(void) { return 0; }
 #endif
 
 #ifdef CONFIG_MSM_SLEEP_STATS
