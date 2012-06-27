@@ -17,7 +17,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 #include <mach/qdsp6v2/apr.h>
 
 #define Q6_PIL_GET_DELAY_MS 100
@@ -37,7 +37,7 @@ static int adsp_loader_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
-	priv->pil_h = pil_get("adsp");
+	priv->pil_h = subsystem_get("adsp");
 	if (IS_ERR(priv->pil_h)) {
 		pr_err("%s: pil get adsp failed, error:%d\n", __func__, rc);
 		devm_kfree(&pdev->dev, priv);
@@ -62,7 +62,7 @@ static int adsp_loader_remove(struct platform_device *pdev)
 	struct adsp_loader_private *priv;
 
 	priv = platform_get_drvdata(pdev);
-	pil_put(priv->pil_h);
+	subsystem_put(priv->pil_h);
 	pr_info("%s: Q6/ADSP image is unloaded\n", __func__);
 
 	return 0;

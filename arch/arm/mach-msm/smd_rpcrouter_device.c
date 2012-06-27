@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd_rpcrouter_device.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2012, The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -34,7 +34,7 @@
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
 
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 #include "smd_rpcrouter.h"
 
 /* Support 64KB of data plus some space for headers */
@@ -61,7 +61,7 @@ struct rpcrouter_file_info {
 static void msm_rpcrouter_unload_modem(void *pil)
 {
 	if (pil)
-		pil_put(pil);
+		subsystem_put(pil);
 }
 
 static void *msm_rpcrouter_load_modem(void)
@@ -69,7 +69,7 @@ static void *msm_rpcrouter_load_modem(void)
 	void *pil;
 	int rc;
 
-	pil = pil_get("modem");
+	pil = subsystem_get("modem");
 	if (IS_ERR(pil))
 		pr_err("%s: modem load failed\n", __func__);
 	else {

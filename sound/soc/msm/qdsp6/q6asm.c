@@ -35,7 +35,6 @@
 
 #include <mach/memory.h>
 #include <mach/debug_mm.h>
-#include <mach/peripheral-loader.h>
 #include <mach/qdsp6v2/audio_acdb.h>
 #include <mach/qdsp6v2/rtac.h>
 

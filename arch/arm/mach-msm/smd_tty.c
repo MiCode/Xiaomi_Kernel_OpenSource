@@ -30,7 +30,7 @@
 #include <linux/tty_flip.h>
 
 #include <mach/msm_smd.h>
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 #include <mach/socinfo.h>
 
 #include "smd_private.h"
@@ -245,7 +245,7 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 	if (info->open_count++ == 0) {
 		peripheral = smd_edge_to_subsystem(smd_tty[n].smd->edge);
 		if (peripheral) {
-			info->pil = pil_get(peripheral);
+			info->pil = subsystem_get(peripheral);
 			if (IS_ERR(info->pil)) {
 				res = PTR_ERR(info->pil);
 				goto out;
@@ -325,7 +325,7 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 
 release_pil:
 	if (res < 0)
-		pil_put(info->pil);
+		subsystem_put(info->pil);
 	else
 		smd_disable_read_intr(info->ch);
 out:
@@ -357,7 +357,7 @@ static void smd_tty_close(struct tty_struct *tty, struct file *f)
 		if (info->ch) {
 			smd_close(info->ch);
 			info->ch = 0;
-			pil_put(info->pil);
+			subsystem_put(info->pil);
 		}
 	}
 	mutex_unlock(&smd_tty_lock);

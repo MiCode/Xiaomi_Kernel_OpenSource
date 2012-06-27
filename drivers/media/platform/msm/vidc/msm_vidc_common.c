@@ -17,7 +17,7 @@
 #include <asm/div64.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 
 #include "msm_vidc_common.h"
 #include "vidc_hal_api.h"
@@ -837,12 +837,12 @@ static int msm_comm_load_fw(struct msm_vidc_core *core)
 	}
 
 	if (!core->resources.fw.cookie)
-		core->resources.fw.cookie = pil_get("venus");
+		core->resources.fw.cookie = subsystem_get("venus");
 
 	if (IS_ERR_OR_NULL(core->resources.fw.cookie)) {
 		dprintk(VIDC_ERR, "Failed to download firmware\n");
 		rc = -ENOMEM;
-		goto fail_pil_get;
+		goto fail_subsystem_get;
 	}
 
 	rc = msm_comm_enable_clks(core);
@@ -860,9 +860,9 @@ static int msm_comm_load_fw(struct msm_vidc_core *core)
 fail_iommu_attach:
 	msm_comm_disable_clks(core);
 fail_enable_clks:
-	pil_put(core->resources.fw.cookie);
+	subsystem_put(core->resources.fw.cookie);
 	core->resources.fw.cookie = NULL;
-fail_pil_get:
+fail_subsystem_get:
 	return rc;
 }
 
@@ -873,7 +873,7 @@ void msm_comm_unload_fw(struct msm_vidc_core *core)
 		return;
 	}
 	if (core->resources.fw.cookie) {
-		pil_put(core->resources.fw.cookie);
+		subsystem_put(core->resources.fw.cookie);
 		core->resources.fw.cookie = NULL;
 		msm_comm_iommu_detach(core);
 		msm_comm_disable_clks(core);

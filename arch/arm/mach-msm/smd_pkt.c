@@ -34,7 +34,7 @@
 #include <linux/wakelock.h>
 
 #include <mach/msm_smd.h>
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 #include <mach/msm_ipc_logging.h>
 
 #include "smd_private.h"
@@ -823,12 +823,11 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 		peripheral = smd_edge_to_subsystem(
 				smd_ch_edge[smd_pkt_devp->i]);
 		if (peripheral) {
-			smd_pkt_devp->pil = pil_get(peripheral);
+			smd_pkt_devp->pil = subsystem_get(peripheral);
 			if (IS_ERR(smd_pkt_devp->pil)) {
 				r = PTR_ERR(smd_pkt_devp->pil);
-				pr_err("%s failed on smd_pkt_dev id:%d -"
-				       " pil_get failed for %s\n", __func__,
-					smd_pkt_devp->i, peripheral);
+				pr_err("%s failed on smd_pkt_dev id:%d - subsystem_get failed for %s\n",
+					__func__, smd_pkt_devp->i, peripheral);
 				goto release_pd;
 			}
 
@@ -908,7 +907,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 	}
 release_pil:
 	if (peripheral && (r < 0))
-		pil_put(smd_pkt_devp->pil);
+		subsystem_put(smd_pkt_devp->pil);
 
 release_pd:
 	if (r < 0) {
@@ -952,7 +951,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 		platform_driver_unregister(&smd_pkt_devp->driver);
 		smd_pkt_devp->driver.probe = NULL;
 		if (smd_pkt_devp->pil)
-			pil_put(smd_pkt_devp->pil);
+			subsystem_put(smd_pkt_devp->pil);
 		smd_pkt_devp->has_reset = 0;
 		smd_pkt_devp->do_reset_notification = 0;
 		smd_pkt_devp->wakelock_locked = 0;

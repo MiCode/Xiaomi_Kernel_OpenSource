@@ -39,7 +39,7 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/scm.h>
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 #include <mach/socinfo.h>
 #include "qseecom_legacy.h"
 #include "qseecom_kernel.h"
@@ -2089,7 +2089,7 @@ static int qseecom_open(struct inode *inode, struct file *file)
 		int pil_error;
 		mutex_lock(&pil_access_lock);
 		if (pil_ref_cnt == 0) {
-			pil = pil_get("tzapps");
+			pil = subsystem_get("tzapps");
 			if (IS_ERR(pil)) {
 				pr_err("Playready PIL image load failed\n");
 				pil_error = PTR_ERR(pil);
@@ -2124,7 +2124,7 @@ static int qseecom_release(struct inode *inode, struct file *file)
 	if (qseecom.qseos_version == QSEOS_VERSION_13) {
 		mutex_lock(&pil_access_lock);
 		if (pil_ref_cnt == 1)
-			pil_put(pil);
+			subsystem_put(pil);
 		pil_ref_cnt--;
 		mutex_unlock(&pil_access_lock);
 	}
