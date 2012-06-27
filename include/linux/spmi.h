@@ -92,11 +92,19 @@ struct spmi_driver {
  * @num_resources: number of resources for this device node
  * @resources: array of resources for this device_node
  * @of_node: device_node of the resource in question
+ * @label: name used to reference the device from the driver
+ *
+ * Note that we explicitly add a 'label' pointer here since per
+ * the ePAPR 2.2.2, the device_node->name should be generic and not
+ * reflect precise programming model. Thus label enables a
+ * platform specific name to be assigned with the 'label' binding to
+ * allow for unique query names.
  */
 struct spmi_resource {
 	struct resource		*resource;
 	u32			num_resources;
 	struct device_node	*of_node;
+	const char		*label;
 };
 
 /**
@@ -108,7 +116,8 @@ struct spmi_resource {
  *  @dev: Driver model representation of the device.
  *  @name: Name of driver to use with this device.
  *  @ctrl: SPMI controller managing the bus hosting this device.
- *  @dev_node: array of SPMI resources - one entry per device_node.
+ *  @res: SPMI resource for the primary node
+ *  @dev_node: array of SPMI resources when used with spmi-dev-container.
  *  @num_dev_node: number of device_node structures.
  *  @sid: Slave Identifier.
  */
@@ -116,6 +125,7 @@ struct spmi_device {
 	struct device		dev;
 	const char		*name;
 	struct spmi_controller	*ctrl;
+	struct spmi_resource	res;
 	struct spmi_resource	*dev_node;
 	u32			num_dev_node;
 	u8			sid;
@@ -124,10 +134,12 @@ struct spmi_device {
 
 /**
  * struct spmi_boardinfo: Declare board info for SPMI device bringup.
+ * @name: Name of driver to use with this device.
  * @slave_id: slave identifier.
  * @spmi_device: device to be registered with the SPMI framework.
  * @of_node: pointer to the OpenFirmware device node.
- * @dev_node: one spmi_resource for each device_node.
+ * @res: SPMI resource for the primary node
+ * @dev_node: array of SPMI resources when used with spmi-dev-container.
  * @num_dev_node: number of device_node structures.
  * @platform_data: goes to spmi_device.dev.platform_data
  */
@@ -135,6 +147,7 @@ struct spmi_boardinfo {
 	char			name[SPMI_NAME_SIZE];
 	uint8_t			slave_id;
 	struct device_node	*of_node;
+	struct spmi_resource	res;
 	struct spmi_resource	*dev_node;
 	u32			num_dev_node;
 	const void		*platform_data;
@@ -417,4 +430,49 @@ extern int spmi_command_wakeup(struct spmi_controller *ctrl, u8 sid);
  * -ETIMEDOUT if the SPMI transaction times out.
  */
 extern int spmi_command_shutdown(struct spmi_controller *ctrl, u8 sid);
+
+/**
+ * spmi_for_each_container_dev - iterate over the array of devnode resources.
+ * @res: spmi_resource pointer used as the array cursor
+ * @spmi_dev: spmi_device to iterate
+ *
+ * Only useable in spmi-dev-container configurations.
+ */
+#define spmi_for_each_container_dev(res, spmi_dev)			      \
+	for (res = ((spmi_dev)->dev_node ? &(spmi_dev)->dev_node[0] : NULL);  \
+	     (res - (spmi_dev)->dev_node) < (spmi_dev)->num_dev_node; res++)
+
+extern struct resource *spmi_get_resource(struct spmi_device *dev,
+				      struct spmi_resource *node,
+				      unsigned int type, unsigned int res_num);
+
+struct resource *spmi_get_resource_byname(struct spmi_device *dev,
+					  struct spmi_resource *node,
+					  unsigned int type,
+					  const char *name);
+
+extern int spmi_get_irq(struct spmi_device *dev, struct spmi_resource *node,
+						 unsigned int res_num);
+
+extern int spmi_get_irq_byname(struct spmi_device *dev,
+			       struct spmi_resource *node, const char *name);
+
+/**
+ * spmi_get_node_name - return device name for spmi node
+ * @dev: spmi device handle
+ *
+ * Get the primary node name of a spmi_device coresponding with
+ * with the 'label' binding.
+ *
+ * Returns NULL if no primary dev name has been assigned to this spmi_device.
+ */
+static inline const char *spmi_get_primary_dev_name(struct spmi_device *dev)
+{
+	if (dev->res.label)
+		return dev->res.label;
+	return NULL;
+}
+
+struct spmi_resource *spmi_get_dev_container_byname(struct spmi_device *dev,
+						    const char *label);
 #endif
