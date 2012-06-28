@@ -154,7 +154,11 @@ static const struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 static u32 get_frame_size_nv12(int plane,
 					u32 height, u32 width)
 {
-	return (ALIGN(height, 32) * ALIGN(width, 32) * 3) / 2;
+	int luma_stride = ALIGN(width, 32);
+	int luma_slice = ALIGN(height, 32);
+	int chroma_stride = ALIGN(roundup(width, 2)/2, 32);
+	int chroma_slice = ALIGN(roundup(height, 2)/2, 32);
+	return (luma_stride * luma_slice) + (chroma_stride * chroma_slice) * 2;
 }
 static u32 get_frame_size_nv21(int plane,
 					u32 height, u32 width)
@@ -165,7 +169,7 @@ static u32 get_frame_size_nv21(int plane,
 static u32 get_frame_size_compressed(int plane,
 					u32 height, u32 width)
 {
-	return 0x500000;
+	return height * width * 3/2;
 }
 
 static const struct msm_vidc_format vdec_formats[] = {
