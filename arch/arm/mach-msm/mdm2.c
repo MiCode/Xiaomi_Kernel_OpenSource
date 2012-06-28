@@ -77,6 +77,7 @@ out:
 	mutex_unlock(&hsic_status_lock);
 }
 
+/* This function can be called from atomic context. */
 static void mdm_toggle_soft_reset(struct mdm_modem_drv *mdm_drv)
 {
 	int soft_reset_direction_assert = 0,
@@ -88,9 +89,18 @@ static void mdm_toggle_soft_reset(struct mdm_modem_drv *mdm_drv)
 	}
 	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
 			soft_reset_direction_assert);
-	usleep_range(5000, 10000);
+	/* Use mdelay because this function can be called from atomic
+	 * context.
+	 */
+	mdelay(10);
 	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
 			soft_reset_direction_de_assert);
+}
+
+/* This function can be called from atomic context. */
+static void mdm_atomic_soft_reset(struct mdm_modem_drv *mdm_drv)
+{
+	mdm_toggle_soft_reset(mdm_drv);
 }
 
 static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
@@ -242,6 +252,7 @@ static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 static struct mdm_ops mdm_cb = {
 	.power_on_mdm_cb = mdm_power_on_common,
 	.reset_mdm_cb = mdm_power_on_common,
+	.atomic_reset_mdm_cb = mdm_atomic_soft_reset,
 	.power_down_mdm_cb = mdm_power_down_common,
 	.debug_state_changed_cb = debug_state_changed,
 	.status_cb = mdm_status_changed,
