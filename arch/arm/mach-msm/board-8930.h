@@ -141,3 +141,4 @@ void __init msm8930_init_gpu(void);
 #define MSM_8930_GSBI12_QUP_I2C_BUS_ID 12
 
 extern struct msm_rtb_platform_data msm8930_rtb_pdata;
+extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
