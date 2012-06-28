@@ -24,6 +24,8 @@
 #define OCMEM_MAX_CHUNKS 32
 #define MIN_CHUNK_SIZE (SZ_1K/8)
 
+struct ocmem_notifier;
+
 struct ocmem_buf {
 	unsigned long addr;
 	unsigned long len;
@@ -80,9 +82,11 @@ enum ocmem_notif_type {
 
 /* APIS */
 /* Notification APIs */
-void *ocmem_notifier_register(int client_id, struct notifier_block *nb);
+struct ocmem_notifier *ocmem_notifier_register(int client_id,
+						struct notifier_block *nb);
 
-int ocmem_notifier_unregister(void *notif_hndl, struct notifier_block *nb);
+int ocmem_notifier_unregister(struct ocmem_notifier *notif_hndl,
+				struct notifier_block *nb);
 
 /* Obtain the maximum quota for the client */
 unsigned long get_max_quota(int client_id);
