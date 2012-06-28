@@ -60,32 +60,40 @@ static DEFINE_MUTEX(mdss_mdp_wb_buf_lock);
 static struct mdss_mdp_wb mdss_mdp_wb_info;
 
 #ifdef DEBUG_WRITEBACK
-/* for debugging: writeback output buffer to framebuffer memory */
+/* for debugging: writeback output buffer to allocated memory */
 static inline
 struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 {
+	static struct ion_handle *ihdl;
 	static void *videomemory;
-	static void *mdss_wb_mem;
-	static struct mdss_mdp_data buffer = {
-		.num_planes = 1,
-	};
-
+	static ion_phys_addr_t mdss_wb_mem;
+	static struct mdss_mdp_data buffer = { .num_planes = 1,	};
 	struct fb_info *fbi;
-	int img_size;
-	int offset;
-
+	size_t img_size;
 
 	fbi = mfd->fbi;
 	img_size = fbi->var.xres * fbi->var.yres * fbi->var.bits_per_pixel / 8;
-	offset = fbi->fix.smem_len - img_size;
 
-	videomemory = fbi->screen_base + offset;
-	mdss_wb_mem = (void *)(fbi->fix.smem_start + offset);
+	if (ihdl == NULL) {
+		ihdl = ion_alloc(mfd->iclient, img_size, SZ_4K,
+				 ION_HEAP(ION_SF_HEAP_ID));
+		if (!IS_ERR_OR_NULL(ihdl)) {
+			videomemory = ion_map_kernel(mfd->iclient, ihdl, 0);
+			ion_phys(mfd->iclient, ihdl, &mdss_wb_mem, &img_size);
+		} else {
+			pr_err("unable to alloc fbmem from ion (%p)\n", ihdl);
+			ihdl = NULL;
+		}
+	}
 
-	buffer.p[0].addr = fbi->fix.smem_start + offset;
-	buffer.p[0].len = img_size;
+	if (mdss_wb_mem) {
+		buffer.p[0].addr = (u32) mdss_wb_mem;
+		buffer.p[0].len = img_size;
 
-	return &buffer;
+		return &buffer;
+	}
+
+	return NULL;
 }
 #else
 static inline
