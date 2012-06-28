@@ -1,6 +1,6 @@
 GCC_VERSION      := $(shell $(CONFIG_SHELL) $(PWD)/scripts/gcc-version.sh $(CROSS_COMPILE)gcc)
 
-EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1
+ccflags-y += -Idrivers/media/platform/msm/camera_v1 -Idrivers/media/platform/msm/camera_v1/cci
 obj-$(CONFIG_MSM_CAMERA)   += msm_camera_io_util.o msm_camera_i2c.o
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   obj-$(CONFIG_MSM_CAMERA) += msm_camera_i2c_mux.o
