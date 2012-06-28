@@ -778,8 +778,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 		init_completion(&smd_pkt_devp->ch_allocated);
 		smd_pkt_devp->driver.probe = smd_pkt_dummy_probe;
 		scnprintf(smd_pkt_devp->pdriver_name, PDRIVER_NAME_MAX_SIZE,
-			  "%s.%d", smd_ch_name[smd_pkt_devp->i],
-			  smd_ch_edge[smd_pkt_devp->i]);
+			  "%s", smd_ch_name[smd_pkt_devp->i]);
 		smd_pkt_devp->driver.driver.name = smd_pkt_devp->pdriver_name;
 		smd_pkt_devp->driver.driver.owner = THIS_MODULE;
 		r = platform_driver_register(&smd_pkt_devp->driver);
