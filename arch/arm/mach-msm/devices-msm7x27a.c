@@ -236,10 +236,20 @@ static struct acpuclk_pdata msm8625_acpuclk_pdata = {
 	.max_speed_delta_khz = 604800,
 };
 
+static struct acpuclk_pdata msm8625ab_acpuclk_pdata = {
+	.max_speed_delta_khz = 801600,
+};
+
 struct platform_device msm8625_device_acpuclk = {
 	.name		= "acpuclk-7627",
 	.id		= -1,
 	.dev.platform_data = &msm8625_acpuclk_pdata,
+};
+
+struct platform_device msm8625ab_device_acpuclk = {
+	.name		= "acpuclk-7627",
+	.id		= -1,
+	.dev.platform_data = &msm8625ab_acpuclk_pdata,
 };
 
 struct platform_device msm_device_smd = {
@@ -1623,6 +1633,7 @@ struct clock_init_data msm8625_dummy_clock_init_data __initdata = {
 enum {
 	MSM8625,
 	MSM8625A,
+	MSM8625AB,
 };
 
 static int __init msm8625_cpu_id(void)
@@ -1642,6 +1653,11 @@ static int __init msm8625_cpu_id(void)
 	case 0x774:
 	case 0x781:
 		cpu = MSM8625A;
+		break;
+	case 0x775:
+	case 0x776:
+	case 0x782:
+		cpu = MSM8625AB;
 		break;
 	default:
 		pr_err("Invalid Raw ID\n");
@@ -1665,10 +1681,11 @@ int __init msm7x2x_misc_init(void)
 			platform_device_register(&msm7x27aa_device_acpuclk);
 		else if (msm8625_cpu_id() == MSM8625A)
 			platform_device_register(&msm8625_device_acpuclk);
+		else if (msm8625_cpu_id() == MSM8625AB)
+			platform_device_register(&msm8625ab_device_acpuclk);
 	} else {
 		platform_device_register(&msm7x27a_device_acpuclk);
 	}
-
 	return 0;
 }
 
