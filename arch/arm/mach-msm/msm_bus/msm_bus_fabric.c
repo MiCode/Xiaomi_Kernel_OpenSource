@@ -20,7 +20,6 @@
 #include <linux/clk.h>
 #include <linux/radix-tree.h>
 #include <mach/board.h>
-#include <mach/socinfo.h>
 #include "msm_bus_core.h"
 
 enum {
@@ -343,10 +342,6 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	void *sel_cdata;
 	int i;
-
-	/* Temporarily stub out arbitration settings for msm8974 */
-	if (machine_is_msm8974())
-		return;
 
 	sel_cdata = fabric->cdata[ctx];
 
