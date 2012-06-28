@@ -19,6 +19,7 @@
 
 #define RPM_SMD_KEY_RATE	0x007A484B
 #define RPM_SMD_KEY_ENABLE	0x62616E45
+#define RPM_SMD_KEY_STATE	0x54415453
 
 struct clk_ops;
 struct clk_rpmrs_data;
@@ -182,5 +183,9 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 #define DEFINE_CLK_RPM_SMD_BRANCH(name, active, type, r_id, r) \
 	__DEFINE_CLK_RPM_BRANCH(name, active, type, r_id, 0, r, \
 				RPM_SMD_KEY_ENABLE, &clk_rpmrs_data_smd)
+
+#define DEFINE_CLK_RPM_SMD_QDSS(name, active, type, r_id) \
+	__DEFINE_CLK_RPM_QDSS(name, active, type, r_id, \
+		0, RPM_SMD_KEY_STATE, &clk_rpmrs_data_smd)
 
 #endif
