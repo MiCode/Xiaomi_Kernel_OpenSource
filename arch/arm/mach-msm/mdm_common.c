@@ -313,8 +313,8 @@ static int mdm_panic_prep(struct notifier_block *this,
 	if (i <= 0) {
 		pr_err("%s: MDM2AP_STATUS never went low\n", __func__);
 		/* Reset the modem so that it will go into download mode. */
-		if (mdm_drv && mdm_drv->ops->reset_mdm_cb)
-			mdm_drv->ops->reset_mdm_cb(mdm_drv);
+		if (mdm_drv && mdm_drv->ops->atomic_reset_mdm_cb)
+			mdm_drv->ops->atomic_reset_mdm_cb(mdm_drv);
 	}
 	return NOTIFY_DONE;
 }
