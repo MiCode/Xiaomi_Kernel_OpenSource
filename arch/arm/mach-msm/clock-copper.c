@@ -5017,6 +5017,7 @@ static void __init reg_init(void)
 static void __init msmcopper_clock_post_init(void)
 {
 	clk_set_rate(&axi_clk_src.c, 333330000);
+	clk_set_rate(&ocmemnoc_clk_src.c, 333330000);
 
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb30_master_clk_src.c,
