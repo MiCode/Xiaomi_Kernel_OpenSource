@@ -574,7 +574,7 @@ static int dsps_alloc_resources(struct platform_device *pdev)
 
 	drv->smem_ramdump_segments[0].address = drv->pdata->smem_start;
 	drv->smem_ramdump_segments[0].size =  drv->pdata->smem_size;
-	drv->smem_ramdump_dev = create_ramdump_device("smem");
+	drv->smem_ramdump_dev = create_ramdump_device("smem-dsps");
 	if (!drv->smem_ramdump_dev) {
 		pr_err("%s: create_ramdump_device(\"smem\") fail\n",
 		       __func__);
