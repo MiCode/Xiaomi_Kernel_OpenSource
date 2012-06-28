@@ -19,7 +19,10 @@
 #include <mach/msm-krait-l2-accessors.h>
 
 #define MAX_L2_PERIOD	((1ULL << 32) - 1)
-#define MAX_KRAIT_L2_CTRS 5
+#define MAX_KRAIT_L2_CTRS 10
+
+#define PMCR_NUM_EV_SHIFT 11
+#define PMCR_NUM_EV_MASK 0x1f
 
 #define L2_EVT_MASK 0xfffff
 
@@ -29,7 +32,6 @@
 #define L2PMCCNTCR 0x408
 #define L2PMCCNTSR 0x40A
 #define L2CYCLE_CTR_BIT 31
-#define L2CYCLE_CTR_EVENT_IDX 4
 #define L2CYCLE_CTR_RAW_CODE 0xfe
 
 #define L2PMOVSR	0x406
@@ -108,6 +110,9 @@ static u32 l2_orig_filter_prefix = 0x000f0030;
 
 /* L2 slave port traffic filtering */
 static u32 l2_slv_filter_prefix = 0x000f0010;
+
+static int total_l2_ctrs;
+static int l2_cycle_ctr_idx;
 
 static u32 pmu_type;
 
@@ -203,7 +208,7 @@ static void set_evfilter_sys_mode(int ctr, unsigned int is_slv)
 
 static void enable_intenset(u32 idx)
 {
-	if (idx == L2CYCLE_CTR_EVENT_IDX)
+	if (idx == l2_cycle_ctr_idx)
 		set_l2_indirect_reg(L2PMINTENSET, 1 << L2CYCLE_CTR_BIT);
 	else
 		set_l2_indirect_reg(L2PMINTENSET, 1 << idx);
@@ -211,7 +216,7 @@ static void enable_intenset(u32 idx)
 
 static void disable_intenclr(u32 idx)
 {
-	if (idx == L2CYCLE_CTR_EVENT_IDX)
+	if (idx == l2_cycle_ctr_idx)
 		set_l2_indirect_reg(L2PMINTENCLR, 1 << L2CYCLE_CTR_BIT);
 	else
 		set_l2_indirect_reg(L2PMINTENCLR, 1 << idx);
@@ -219,7 +224,7 @@ static void disable_intenclr(u32 idx)
 
 static void enable_counter(u32 idx)
 {
-	if (idx == L2CYCLE_CTR_EVENT_IDX)
+	if (idx == l2_cycle_ctr_idx)
 		set_l2_indirect_reg(L2PMCNTENSET, 1 << L2CYCLE_CTR_BIT);
 	else
 		set_l2_indirect_reg(L2PMCNTENSET, 1 << idx);
@@ -227,7 +232,7 @@ static void enable_counter(u32 idx)
 
 static void disable_counter(u32 idx)
 {
-	if (idx == L2CYCLE_CTR_EVENT_IDX)
+	if (idx == l2_cycle_ctr_idx)
 		set_l2_indirect_reg(L2PMCNTENCLR, 1 << L2CYCLE_CTR_BIT);
 	else
 		set_l2_indirect_reg(L2PMCNTENCLR, 1 << idx);
@@ -238,7 +243,7 @@ static u32 krait_l2_read_counter(int idx)
 	u32 val;
 	u32 counter_reg = (idx * 16) + IA_L2PMXEVCNTR_BASE;
 
-	if (idx == L2CYCLE_CTR_EVENT_IDX)
+	if (idx == l2_cycle_ctr_idx)
 		val = get_l2_indirect_reg(L2PMCCNTR);
 	else
 		val = get_l2_indirect_reg(counter_reg);
@@ -250,7 +255,7 @@ static void krait_l2_write_counter(int idx, u32 val)
 {
 	u32 counter_reg = (idx * 16) + IA_L2PMXEVCNTR_BASE;
 
-	if (idx == L2CYCLE_CTR_EVENT_IDX)
+	if (idx == l2_cycle_ctr_idx)
 		set_l2_indirect_reg(L2PMCCNTR, val);
 	else
 		set_l2_indirect_reg(counter_reg, val);
@@ -330,11 +335,11 @@ static int krait_l2_get_event_idx(struct pmu_hw_events *cpuc,
 	int ctr = 0;
 
 	if (hwc->config_base == L2CYCLE_CTR_RAW_CODE) {
-		if (!test_and_set_bit(L2CYCLE_CTR_EVENT_IDX, cpuc->used_mask))
-			return L2CYCLE_CTR_EVENT_IDX;
+		if (!test_and_set_bit(l2_cycle_ctr_idx, cpuc->used_mask))
+			return l2_cycle_ctr_idx;
 	}
 
-	for (ctr = 0; ctr < MAX_KRAIT_L2_CTRS - 1; ctr++) {
+	for (ctr = 0; ctr < total_l2_ctrs - 1; ctr++) {
 		if (!test_and_set_bit(ctr, cpuc->used_mask))
 			return ctr;
 	}
@@ -389,7 +394,7 @@ static irqreturn_t krait_l2_handle_irq(int irq_num, void *dev)
 		bitp = __ffs(pmovsr);
 
 		if (bitp == L2CYCLE_CTR_BIT)
-			idx = L2CYCLE_CTR_EVENT_IDX;
+			idx = l2_cycle_ctr_idx;
 		else
 			idx = bitp;
 
@@ -488,6 +493,19 @@ static int msm_l2_clear_ev_constraint(struct perf_event *event)
 	return 1;
 }
 
+int get_num_events(void)
+{
+	int val;
+
+	val = get_l2_indirect_reg(L2PMCR);
+
+	/*
+	 * Read bits 15:11 of the L2PMCR and add 1
+	 * for the cycle counter.
+	 */
+	return ((val >> PMCR_NUM_EV_SHIFT) & PMCR_NUM_EV_MASK) + 1;
+}
+
 static struct arm_pmu krait_l2_pmu = {
 	.id		=	ARM_PERF_PMU_ID_KRAIT_L2,
 	.type		=	ARM_PMU_DEVICE_L2CC,
@@ -505,7 +523,6 @@ static struct arm_pmu krait_l2_pmu = {
 	.map_event	=	krait_l2_map_event,
 	.max_period	=	MAX_L2_PERIOD,
 	.get_hw_events	=	krait_l2_get_hw_events,
-	.num_events	=	MAX_KRAIT_L2_CTRS,
 	.test_set_event_constraints	= msm_l2_test_set_ev_constraint,
 	.clear_event_constraints	= msm_l2_clear_ev_constraint,
 	.pmu.attr_groups		= msm_l2_pmu_attr_grps,
@@ -532,6 +549,21 @@ static int __init register_krait_l2_pmu_driver(void)
 {
 	/* Reset all ctrs */
 	set_l2_indirect_reg(L2PMCR, L2PMCR_RESET_ALL);
+
+	/* Get num of counters in the L2cc PMU. */
+	total_l2_ctrs = get_num_events();
+	krait_l2_pmu.num_events	= total_l2_ctrs;
+
+	pr_info("Detected %d counters on the L2CC PMU.\n",
+			total_l2_ctrs);
+
+	/*
+	 * The L2 cycle counter index in the used_mask
+	 * bit stream is always after the other counters.
+	 * Counter indexes begin from 0 to keep it consistent
+	 * with the h/w.
+	 */
+	l2_cycle_ctr_idx = total_l2_ctrs - 1;
 
 	/* Avoid spurious interrupt if any */
 	get_reset_pmovsr();
