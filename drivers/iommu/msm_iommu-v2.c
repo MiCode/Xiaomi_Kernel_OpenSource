@@ -346,9 +346,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
-	u32 sids[MAX_NUM_SMR];
-	int len = 0, ret;
-	u32 smt_size;
+	int ret;
 
 	mutex_lock(&msm_iommu_lock);
 
@@ -376,21 +374,6 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			goto fail;
 		}
 
-	of_get_property(dev->of_node, "qcom,iommu-ctx-sids", &len);
-	BUG_ON(len >= sizeof(sids));
-	if (of_property_read_u32(dev->parent->of_node, "qcom,iommu-smt-size",
-				  &smt_size)) {
-		ret = -EINVAL;
-		goto fail;
-	}
-	BUG_ON(smt_size > MAX_NUM_SMR);
-
-	if (of_property_read_u32_array(dev->of_node, "qcom,iommu-ctx-sids",
-					sids, len / sizeof(*sids))) {
-		ret = -EINVAL;
-		goto fail;
-	}
-
 	ret = regulator_enable(iommu_drvdata->gdsc);
 	if (ret)
 		goto fail;
@@ -402,11 +385,12 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	}
 
 	if (!msm_iommu_ctx_attached(dev->parent))
-		__program_iommu(iommu_drvdata->base, smt_size);
+		__program_iommu(iommu_drvdata->base, iommu_drvdata->nsmr);
 
 	__program_context(iommu_drvdata->base, ctx_drvdata->num,
 		iommu_drvdata->ncb, __pa(priv->pt.fl_table),
-		priv->pt.redirect, sids, len, smt_size);
+		priv->pt.redirect, ctx_drvdata->sids, ctx_drvdata->nsid,
+		iommu_drvdata->nsmr);
 	__disable_clocks(iommu_drvdata);
 
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
