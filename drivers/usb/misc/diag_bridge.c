@@ -255,6 +255,7 @@ int diag_bridge_write(char *data, int size)
 	pipe = usb_sndbulkpipe(dev->udev, dev->out_epAddr);
 	usb_fill_bulk_urb(urb, dev->udev, pipe, data, size,
 				diag_bridge_write_cb, dev);
+	urb->transfer_flags |= URB_ZERO_PACKET;
 	usb_anchor_urb(urb, &dev->submitted);
 	dev->pending_writes++;
 

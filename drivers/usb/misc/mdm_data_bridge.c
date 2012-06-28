@@ -497,6 +497,8 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	usb_fill_bulk_urb(txurb, dev->udev, dev->bulk_out,
 			skb->data, skb->len, data_bridge_write_cb, skb);
 
+	txurb->transfer_flags |= URB_ZERO_PACKET;
+
 	if (test_bit(SUSPENDED, &dev->flags)) {
 		usb_anchor_urb(txurb, &dev->delayed);
 		goto free_urb;
