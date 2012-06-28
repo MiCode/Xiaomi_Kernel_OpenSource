@@ -532,12 +532,15 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 	int dir = OUT;
 
 	pr_debug("%s\n", __func__);
-	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
-	q6asm_audio_client_buf_free_contiguous(dir,
+	if (prtd->audio_client) {
+		q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+		q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
+		q6asm_audio_client_free(prtd->audio_client);
+	}
+
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
-	SNDRV_PCM_STREAM_CAPTURE);
-	q6asm_audio_client_free(prtd->audio_client);
+		SNDRV_PCM_STREAM_CAPTURE);
 	kfree(prtd);
 
 	return 0;
@@ -638,7 +641,7 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		if (ret < 0) {
 			pr_err("%s: q6asm_open_read failed\n", __func__);
 			q6asm_audio_client_free(prtd->audio_client);
-			kfree(prtd);
+			prtd->audio_client = NULL;
 			return -ENOMEM;
 		}
 	}
