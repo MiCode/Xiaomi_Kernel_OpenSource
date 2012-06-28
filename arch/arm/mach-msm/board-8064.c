@@ -11,6 +11,7 @@
  *
  */
 #include <linux/kernel.h>
+#include <linux/bitops.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/io.h>
@@ -72,6 +73,7 @@
 #include <linux/fmem.h>
 #include <mach/msm_pcie.h>
 #include <mach/restart.h>
+#include <mach/msm_iomap.h>
 
 #include "msm_watchdog.h"
 #include "board-8064.h"
@@ -118,6 +120,9 @@
 #define MAX_FIXED_AREA_SIZE	0x10000000
 #define MSM_MM_FW_SIZE		(0x200000 - HOLE_SIZE)
 #define APQ8064_FW_START	APQ8064_FIXED_AREA_START
+
+#define QFPROM_RAW_FEAT_CONFIG_ROW0_MSB     (MSM_QFPROM_BASE + 0x23c)
+#define QFPROM_RAW_OEM_CONFIG_ROW0_LSB      (MSM_QFPROM_BASE + 0x220)
 
 /* PCIe power enable pmic gpio */
 #define PCIE_PWR_EN_PMIC_GPIO 13
@@ -2060,10 +2065,18 @@ static struct msm_pcie_platform msm_pcie_platform_data = {
 	.gpio = msm_pcie_gpio_info,
 };
 
+static int __init mpq8064_pcie_enabled(void)
+{
+	return !((readl_relaxed(QFPROM_RAW_FEAT_CONFIG_ROW0_MSB) & BIT(21)) ||
+		(readl_relaxed(QFPROM_RAW_OEM_CONFIG_ROW0_LSB) & BIT(4)));
+}
+
 static void __init mpq8064_pcie_init(void)
 {
-	msm_device_pcie.dev.platform_data = &msm_pcie_platform_data;
-	platform_device_register(&msm_device_pcie);
+	if (mpq8064_pcie_enabled()) {
+		msm_device_pcie.dev.platform_data = &msm_pcie_platform_data;
+		platform_device_register(&msm_device_pcie);
+	}
 }
 
 static struct platform_device apq8064_device_ext_5v_vreg = {
