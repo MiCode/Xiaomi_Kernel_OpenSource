@@ -194,7 +194,8 @@ struct pm8xxx_mpp_init {
 
 /* Initial PM8018 GPIO configurations */
 static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
-	PM8018_GPIO_OUTPUT(2,	0,	HIGH) /* EXT_LDO_EN_WLAN */
+	PM8018_GPIO_OUTPUT(2,	0,	HIGH), /* EXT_LDO_EN_WLAN */
+	PM8018_GPIO_OUTPUT(6,	0,	LOW), /* WLAN_CLK_PWR_REQ */
 };
 
 /* Initial PM8018 MPP configurations */
