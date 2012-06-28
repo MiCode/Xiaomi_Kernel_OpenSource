@@ -243,7 +243,7 @@ static int __init gss_8064_init(void)
 		goto out;
 	}
 
-	gss_data.smem_ramdump_dev = create_ramdump_device("smem");
+	gss_data.smem_ramdump_dev = create_ramdump_device("smem-gss");
 
 	if (!gss_data.smem_ramdump_dev) {
 		pr_err("%s: Unable to create smem ramdump device. (%d)\n",

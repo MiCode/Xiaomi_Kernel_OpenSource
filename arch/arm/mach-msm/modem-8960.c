@@ -336,7 +336,7 @@ static int __init modem_8960_init(void)
 		goto out;
 	}
 
-	smem_ramdump_dev = create_ramdump_device("smem");
+	smem_ramdump_dev = create_ramdump_device("smem-modem");
 
 	if (!smem_ramdump_dev) {
 		pr_err("%s: Unable to create smem ramdump device. (%d)\n",
