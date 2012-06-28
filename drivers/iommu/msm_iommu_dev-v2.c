@@ -33,12 +33,25 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 				struct msm_iommu_drvdata *drvdata)
 {
 	struct device_node *child;
-	int ret;
+	int ret = 0;
+	u32 nsmr;
 
 	ret = device_move(&pdev->dev, &msm_iommu_root_dev->dev, DPM_ORDER_NONE);
 	if (ret)
-		return ret;
+		goto fail;
 
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,iommu-smt-size",
+				   &nsmr);
+	if (ret)
+		goto fail;
+
+	if (nsmr > MAX_NUM_SMR) {
+		pr_err("Invalid SMT size: %d\n", nsmr);
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	drvdata->nsmr = nsmr;
 	for_each_child_of_node(pdev->dev.of_node, child) {
 		drvdata->ncb++;
 		if (!of_platform_device_create(child, NULL, &pdev->dev))
@@ -46,7 +59,8 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	}
 
 	drvdata->name = dev_name(&pdev->dev);
-	return 0;
+fail:
+	return ret;
 }
 
 static atomic_t msm_iommu_next_id = ATOMIC_INIT(-1);
@@ -149,6 +163,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 {
 	struct resource *r, rp;
 	int irq, ret;
+	u32 nsid;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq > 0) {
@@ -180,6 +195,19 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	if (of_property_read_string(pdev->dev.of_node, "qcom,iommu-ctx-name",
 					&ctx_drvdata->name))
 		ctx_drvdata->name = dev_name(&pdev->dev);
+
+	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-ctx-sids", &nsid))
+		return -EINVAL;
+
+	if (nsid >= sizeof(ctx_drvdata->sids))
+		return -EINVAL;
+
+	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,iommu-ctx-sids",
+				       ctx_drvdata->sids,
+				       nsid / sizeof(*ctx_drvdata->sids))) {
+		return -EINVAL;
+	}
+	ctx_drvdata->nsid = nsid;
 
 	return 0;
 }
