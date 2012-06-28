@@ -45,7 +45,7 @@
 #define MDM_MODEM_TIMEOUT	6000
 #define MDM_MODEM_DELTA	100
 #define MDM_BOOT_TIMEOUT	60000L
-#define MDM_RDUMP_TIMEOUT	60000L
+#define MDM_RDUMP_TIMEOUT	120000L
 #define MDM2AP_STATUS_TIMEOUT_MS 60000L
 
 static int mdm_debug_on;
@@ -403,7 +403,8 @@ static int mdm_subsys_ramdumps(int want_dumps,
 			pr_info("%s: mdm modem ramdumps completed.\n",
 					__func__);
 		INIT_COMPLETION(mdm_ram_dumps);
-		mdm_drv->ops->power_down_mdm_cb(mdm_drv);
+		if (!mdm_drv->pdata->no_powerdown_after_ramdumps)
+			mdm_drv->ops->power_down_mdm_cb(mdm_drv);
 	}
 	return mdm_drv->mdm_ram_dump_status;
 }

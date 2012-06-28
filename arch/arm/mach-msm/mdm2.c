@@ -42,9 +42,6 @@
 #include "clock.h"
 #include "mdm_private.h"
 
-#define MDM_MODEM_TIMEOUT	6000
-#define MDM_HOLD_TIME		4000
-#define MDM_MODEM_DELTA		100
 #define MDM_PBLRDY_CNT		20
 
 static int mdm_debug_on;
@@ -80,20 +77,52 @@ out:
 	mutex_unlock(&hsic_status_lock);
 }
 
+static void mdm_toggle_soft_reset(struct mdm_modem_drv *mdm_drv)
+{
+	int soft_reset_direction_assert = 0,
+	    soft_reset_direction_de_assert = 1;
+
+	if (mdm_drv->pdata->soft_reset_inverted) {
+		soft_reset_direction_assert = 1;
+		soft_reset_direction_de_assert = 0;
+	}
+	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+			soft_reset_direction_assert);
+	usleep_range(5000, 10000);
+	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+			soft_reset_direction_de_assert);
+}
+
 static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
 {
+	int i;
 	int soft_reset_direction =
 		mdm_drv->pdata->soft_reset_inverted ? 1 : 0;
 
-	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
-				soft_reset_direction);
+	/* Wait for the modem to complete its power down actions. */
+	for (i = 20; i > 0; i--) {
+		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
+			break;
+		msleep(100);
+	}
+	if (i == 0) {
+		pr_err("%s: MDM2AP_STATUS never went low. Doing a hard reset\n",
+			   __func__);
+		gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+					soft_reset_direction);
+		/*
+		* Currently, there is a debounce timer on the charm PMIC. It is
+		* necessary to hold the PMIC RESET low for ~3.5 seconds
+		* for the reset to fully take place. Sleep here to ensure the
+		* reset has occured before the function exits.
+		*/
+		msleep(4000);
+	}
 	mdm_peripheral_disconnect(mdm_drv);
 }
 
 static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 {
-	int soft_reset_direction =
-		mdm_drv->pdata->soft_reset_inverted ? 0 : 1;
 	int i;
 	int pblrdy;
 
@@ -106,6 +135,13 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 	pr_err("%s: Powering on modem for the first time\n", __func__);
 	mdm_peripheral_disconnect(mdm_drv);
 
+	/* If this is the first power-up after a panic, the modem may still
+	 * be in a power-on state, in which case we need to toggle the gpio
+	 * instead of just de-asserting it. No harm done if the modem was
+	 * powered down.
+	 */
+	mdm_toggle_soft_reset(mdm_drv);
+
 	/* If the device has a kpd pwr gpio then toggle it. */
 	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0) {
 		/* Pull AP2MDM_KPDPWR gpio high and wait for PS_HOLD to settle,
@@ -117,10 +153,6 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 		gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 0);
 	}
 
-	/* De-assert the soft reset line. */
-	pr_debug("%s: De-asserting soft reset gpio\n", __func__);
-	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
-						  soft_reset_direction);
 	if (!mdm_drv->mdm2ap_pblrdy)
 		goto start_mdm_peripheral;
 
@@ -140,21 +172,12 @@ start_mdm_peripheral:
 
 static void mdm_do_soft_power_on(struct mdm_modem_drv *mdm_drv)
 {
-	int soft_reset_direction =
-		mdm_drv->pdata->soft_reset_inverted ? 0 : 1;
 	int i;
 	int pblrdy;
 
-	/* De-assert the soft reset line. */
 	pr_err("%s: soft resetting mdm modem\n", __func__);
-
 	mdm_peripheral_disconnect(mdm_drv);
-
-	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
-		soft_reset_direction == 1 ? 0 : 1);
-	usleep_range(5000, 10000);
-	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
-		soft_reset_direction == 1 ? 1 : 0);
+	mdm_toggle_soft_reset(mdm_drv);
 
 	if (!mdm_drv->mdm2ap_pblrdy)
 		goto start_mdm_peripheral;
