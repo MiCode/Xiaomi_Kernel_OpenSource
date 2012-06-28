@@ -14,6 +14,7 @@
 #include <linux/irq.h>
 #include <asm/pmu.h>
 #include <linux/platform_device.h>
+#include <linux/spinlock.h>
 
 #include <mach/msm-krait-l2-accessors.h>
 
@@ -55,6 +56,44 @@
 #define EVENT_GROUPCODE_SHIFT	4
 
 #define	RESRX_VALUE_EN	0x80000000
+
+/*
+ * The L2 PMU is shared between all CPU's, so protect
+ * its bitmap access.
+ */
+struct pmu_constraints {
+	u64 pmu_bitmap;
+	raw_spinlock_t lock;
+} l2_pmu_constraints = {
+	.pmu_bitmap = 0,
+	.lock = __RAW_SPIN_LOCK_UNLOCKED(l2_pmu_constraints.lock),
+};
+
+/* NRCCG format for perf RAW codes. */
+PMU_FORMAT_ATTR(l2_reg,	"config:12-15");
+PMU_FORMAT_ATTR(l2_code, "config:4-11");
+PMU_FORMAT_ATTR(l2_grp,	"config:0-3");
+
+static struct attribute *msm_l2_ev_formats[] = {
+	&format_attr_l2_reg.attr,
+	&format_attr_l2_code.attr,
+	&format_attr_l2_grp.attr,
+	NULL,
+};
+
+/*
+ * Format group is essential to access PMU's from userspace
+ * via their .name field.
+ */
+static struct attribute_group msm_l2_pmu_format_group = {
+	.name = "format",
+	.attrs = msm_l2_ev_formats,
+};
+
+static const struct attribute_group *msm_l2_pmu_attr_grps[] = {
+	&msm_l2_pmu_format_group,
+	NULL,
+};
 
 static u32 l2_orig_filter_prefix = 0x000f0030;
 
@@ -358,7 +397,7 @@ next:
 static int krait_l2_map_event(struct perf_event *event)
 {
 	if (pmu_type > 0 && pmu_type == event->attr.type)
-		return event->attr.config & 0xfffff;
+		return event->attr.config & 0xffff;
 	else
 		return -ENOENT;
 }
@@ -376,6 +415,50 @@ krait_l2_pmu_generic_free_irq(int irq)
 {
 	if (irq >= 0)
 		free_irq(irq, NULL);
+}
+
+static int msm_l2_test_set_ev_constraint(struct perf_event *event)
+{
+	u32 evt_type = event->attr.config & 0xffff;
+	u8 reg   = (evt_type & 0x0F000) >> 12;
+	u8 group =  evt_type & 0x0000F;
+	unsigned long flags;
+	u32 err = 0;
+	u64 bitmap_t;
+
+	raw_spin_lock_irqsave(&l2_pmu_constraints.lock, flags);
+
+	bitmap_t = 1 << ((reg * 4) + group);
+
+	if (!(l2_pmu_constraints.pmu_bitmap & bitmap_t)) {
+		l2_pmu_constraints.pmu_bitmap |= bitmap_t;
+		goto out;
+	}
+
+	/* Bit is already set. Constraint failed. */
+	err = -EPERM;
+out:
+	raw_spin_unlock_irqrestore(&l2_pmu_constraints.lock, flags);
+	return err;
+}
+
+static int msm_l2_clear_ev_constraint(struct perf_event *event)
+{
+	u32 evt_type = event->attr.config & 0xffff;
+	u8 reg   = (evt_type & 0x0F000) >> 12;
+	u8 group =  evt_type & 0x0000F;
+	unsigned long flags;
+	u64 bitmap_t;
+
+	raw_spin_lock_irqsave(&l2_pmu_constraints.lock, flags);
+
+	bitmap_t = 1 << ((reg * 4) + group);
+
+	/* Clear constraint bit. */
+	l2_pmu_constraints.pmu_bitmap &= ~bitmap_t;
+
+	raw_spin_unlock_irqrestore(&l2_pmu_constraints.lock, flags);
+	return 1;
 }
 
 static struct arm_pmu krait_l2_pmu = {
@@ -396,13 +479,16 @@ static struct arm_pmu krait_l2_pmu = {
 	.max_period	=	(1LLU << 32) - 1,
 	.get_hw_events	=	krait_l2_get_hw_events,
 	.num_events	=	MAX_KRAIT_L2_CTRS,
+	.test_set_event_constraints	= msm_l2_test_set_ev_constraint,
+	.clear_event_constraints	= msm_l2_clear_ev_constraint,
+	.pmu.attr_groups		= msm_l2_pmu_attr_grps,
 };
 
 static int __devinit krait_l2_pmu_device_probe(struct platform_device *pdev)
 {
 	krait_l2_pmu.plat_device = pdev;
 
-	if (!armpmu_register(&krait_l2_pmu, "krait-l2", -1))
+	if (!armpmu_register(&krait_l2_pmu, "kraitl2", -1))
 		pmu_type = krait_l2_pmu.pmu.type;
 
 	return 0;
