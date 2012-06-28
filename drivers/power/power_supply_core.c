@@ -64,6 +64,24 @@ int power_supply_set_online(struct power_supply *psy, bool enable)
 EXPORT_SYMBOL_GPL(power_supply_set_online);
 
 /**
+ * power_supply_set_scope - set scope of the power supply
+ * @psy:	the power supply to control
+ * @scope:	value to set the scope property to, should be from
+ *		the SCOPE enum in power_supply.h
+ */
+int power_supply_set_scope(struct power_supply *psy, int scope)
+{
+	const union power_supply_propval ret = {scope, };
+
+	if (psy->set_property)
+		return psy->set_property(psy, POWER_SUPPLY_PROP_SCOPE,
+								&ret);
+
+	return -ENXIO;
+}
+EXPORT_SYMBOL_GPL(power_supply_set_scope);
+
+/**
  * power_supply_set_charge_type - set charge type of the power supply
  * @psy:	the power supply to control
  * @enable:	sets charge type property of power supply
