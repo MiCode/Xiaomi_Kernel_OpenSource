@@ -618,9 +618,48 @@ static struct msm_camera_i2c_client s5k3l1yx_sensor_i2c_client = {
 	.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
 };
 
+static const struct of_device_id s5k3l1yx_dt_match[] = {
+	{.compatible = "qcom,s5k3l1yx", .data = &s5k3l1yx_s_ctrl},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, s5k3l1yx_dt_match);
+
+static struct platform_driver s5k3l1yx_platform_driver = {
+	.driver = {
+		.name = "qcom,s5k3l1yx",
+		.owner = THIS_MODULE,
+		.of_match_table = s5k3l1yx_dt_match,
+	},
+};
+
+static int32_t s5k3l1yx_platform_probe(struct platform_device *pdev)
+{
+	int32_t rc = 0;
+	const struct of_device_id *match;
+	match = of_match_device(s5k3l1yx_dt_match, &pdev->dev);
+	rc = msm_sensor_platform_probe(pdev, match->data);
+	return rc;
+}
+
 static int __init msm_sensor_init_module(void)
 {
+	int32_t rc = 0;
+	rc = platform_driver_probe(&s5k3l1yx_platform_driver,
+		s5k3l1yx_platform_probe);
+	if (!rc)
+		return rc;
 	return i2c_add_driver(&s5k3l1yx_i2c_driver);
+}
+
+static void __exit msm_sensor_exit_module(void)
+{
+	if (s5k3l1yx_s_ctrl.pdev) {
+		msm_sensor_free_sensor_data(&s5k3l1yx_s_ctrl);
+		platform_driver_unregister(&s5k3l1yx_platform_driver);
+	} else
+		i2c_del_driver(&s5k3l1yx_i2c_driver);
+	return;
 }
 
 static struct v4l2_subdev_core_ops s5k3l1yx_subdev_core_ops = {
@@ -693,5 +732,6 @@ static struct msm_sensor_ctrl_t s5k3l1yx_s_ctrl = {
 };
 
 module_init(msm_sensor_init_module);
+module_exit(msm_sensor_exit_module);
 MODULE_DESCRIPTION("Samsung 12MP Bayer sensor driver");
 MODULE_LICENSE("GPL v2");
