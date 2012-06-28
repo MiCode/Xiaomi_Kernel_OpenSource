@@ -48,6 +48,7 @@
 #define FORMAT_ATRAC	0x0016
 #define FORMAT_MAT	0x0017
 #define FORMAT_AAC	0x0018
+#define FORMAT_DTS_LBR 0x0019
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
@@ -179,6 +180,8 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 			struct audio_client *ac);
 
 int q6asm_open_read(struct audio_client *ac, uint32_t format);
+
+int q6asm_open_read_compressed(struct audio_client *ac, uint32_t format);
 
 int q6asm_open_write(struct audio_client *ac, uint32_t format);
 
