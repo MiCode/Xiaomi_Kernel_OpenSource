@@ -73,6 +73,7 @@ struct msm_port {
 #ifdef CONFIG_SERIAL_MSM_RX_WAKEUP
 	struct msm_wakeup wakeup;
 #endif
+	int			uim;
 };
 
 #define UART_TO_MSM(uart_port)	((struct msm_port *) uart_port)
@@ -500,7 +501,22 @@ static void msm_init_clock(struct uart_port *port)
 	msm_port->clk_state = MSM_CLK_ON;
 #endif
 
-	if (port->uartclk == 19200000) {
+	if (msm_port->uim) {
+		msm_write(port,
+			UART_SIM_CFG_UIM_TX_MODE |
+			UART_SIM_CFG_UIM_RX_MODE |
+			UART_SIM_CFG_STOP_BIT_LEN_N(1) |
+			UART_SIM_CFG_SIM_CLK_ON |
+			UART_SIM_CFG_SIM_CLK_STOP_HIGH |
+			UART_SIM_CFG_SIM_SEL,
+			UART_SIM_CFG);
+
+		/* (TCXO * 16) / (5 * 372) = TCXO * 16 / 1860 */
+		msm_write(port, 0x08, UART_MREG);
+		msm_write(port, 0x19, UART_NREG);
+		msm_write(port, 0xe8, UART_DREG);
+		msm_write(port, 0x0e, UART_MNDREG);
+	} else if (port->uartclk == 19200000) {
 		/* clock is TCXO (19.2MHz) */
 		msm_write(port, 0x06, UART_MREG);
 		msm_write(port, 0xF1, UART_NREG);
@@ -602,6 +618,11 @@ static int msm_startup(struct uart_port *port)
 static void msm_shutdown(struct uart_port *port)
 {
 	struct msm_port *msm_port = UART_TO_MSM(port);
+
+	if (msm_port->uim)
+		msm_write(port,
+			UART_SIM_CFG_SIM_CLK_STOP_HIGH,
+			UART_SIM_CFG);
 
 	msm_port->imr = 0;
 	msm_write(port, 0, UART_IMR); /* disable interrupts */
@@ -1040,6 +1061,39 @@ static int __init msm_serial_probe(struct platform_device *pdev)
 	return uart_add_one_port(&msm_uart_driver, port);
 }
 
+static int __init msm_uim_probe(struct platform_device *pdev)
+{
+	struct msm_port *msm_port;
+	struct resource *resource;
+	struct uart_port *port;
+	int irq;
+
+	if (unlikely(pdev->id < 0 || pdev->id >= UART_NR))
+		return -ENXIO;
+
+	pr_info("msm_uim: detected port #%d\n", pdev->id);
+
+	port = get_port_from_line(pdev->id);
+	port->dev = &pdev->dev;
+	msm_port = UART_TO_MSM(port);
+
+	msm_port->uim = true;
+
+	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (unlikely(!resource))
+		return -ENXIO;
+	port->mapbase = resource->start;
+
+	irq = platform_get_irq(pdev, 0);
+	if (unlikely(irq < 0))
+		return -ENXIO;
+	port->irq = irq;
+
+	platform_set_drvdata(pdev, port);
+
+	return uart_add_one_port(&msm_uart_driver, port);
+}
+
 static int __devexit msm_serial_remove(struct platform_device *pdev)
 {
 	struct msm_port *msm_port = platform_get_drvdata(pdev);
@@ -1125,6 +1179,14 @@ static struct platform_driver msm_platform_driver = {
 	},
 };
 
+static struct platform_driver msm_platform_uim_driver = {
+	.remove = msm_serial_remove,
+	.driver = {
+		.name = "msm_uim",
+		.owner = THIS_MODULE,
+	},
+};
+
 static int __init msm_serial_init(void)
 {
 	int ret;
@@ -1136,6 +1198,8 @@ static int __init msm_serial_init(void)
 	ret = platform_driver_probe(&msm_platform_driver, msm_serial_probe);
 	if (unlikely(ret))
 		uart_unregister_driver(&msm_uart_driver);
+
+	platform_driver_probe(&msm_platform_uim_driver, msm_uim_probe);
 
 	printk(KERN_INFO "msm_serial: driver initialized\n");
 

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2007 Google, Inc.
  * Author: Robert Love <rlove@google.com>
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -100,6 +100,16 @@
 #define UART_DREG		0x0030
 #define UART_MNDREG		0x0034
 #define UART_IRDA		0x0038
+
+#define UART_SIM_CFG			0x003c
+#define UART_SIM_CFG_UIM_TX_MODE	(1 << 17)
+#define UART_SIM_CFG_UIM_RX_MODE	(1 << 16)
+#define UART_SIM_CFG_STOP_BIT_LEN_N(n)	((n) << 8)
+#define UART_SIM_CFG_SIM_CLK_ON		(1 << 7)
+#define UART_SIM_CFG_SIM_CLK_TD8_SEL	(1 << 6)
+#define UART_SIM_CFG_SIM_CLK_STOP_HIGH	(1 << 5)
+#define UART_SIM_CFG_SIM_SEL		(1 << 0)
+
 #define UART_MISR_MODE		0x0040
 #define UART_MISR_RESET		0x0044
 #define UART_MISR_EXPORT	0x0048
