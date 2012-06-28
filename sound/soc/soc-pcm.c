@@ -469,7 +469,10 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		snd_soc_dai_digital_mute(codec_dai, 1);
 
-	if (cpu_dai->driver->ops->shutdown) {
+	if (cpu_dai->driver->ops->shutdown)
+		cpu_dai->driver->ops->shutdown(substream, cpu_dai);
+
+	if (codec_dai->driver->ops->shutdown) {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			codec_dai->driver->ops->shutdown(substream, codec_dai);
 		} else {
@@ -478,9 +481,6 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 								codec_dai);
 		}
 	}
-
-	if (codec_dai->driver->ops->shutdown)
-		codec_dai->driver->ops->shutdown(substream, codec_dai);
 
 	if (rtd->dai_link->ops && rtd->dai_link->ops->shutdown)
 		rtd->dai_link->ops->shutdown(substream);
