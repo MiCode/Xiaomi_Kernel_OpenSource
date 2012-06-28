@@ -341,24 +341,24 @@ static struct pll_clk pll3_clk = {
 	},
 };
 
-static int pll4_clk_enable(struct clk *clk)
+static int pll4_clk_enable(struct clk *c)
 {
 	struct msm_rpm_iv_pair iv = { MSM_RPM_ID_PLL_4, 1 };
 	return msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
 }
 
-static void pll4_clk_disable(struct clk *clk)
+static void pll4_clk_disable(struct clk *c)
 {
 	struct msm_rpm_iv_pair iv = { MSM_RPM_ID_PLL_4, 0 };
 	msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
 }
 
-static struct clk *pll4_clk_get_parent(struct clk *clk)
+static struct clk *pll4_clk_get_parent(struct clk *c)
 {
 	return &pxo_clk.c;
 }
 
-static bool pll4_clk_is_local(struct clk *clk)
+static bool pll4_clk_is_local(struct clk *c)
 {
 	return false;
 }
@@ -397,7 +397,7 @@ static struct fixed_clk pll4_clk = {
 
 /* Unlike other clocks, the TV rate is adjusted through PLL
  * re-programming. It is also routed through an MND divider. */
-static void set_rate_tv(struct rcg_clk *clk, struct clk_freq_tbl *nf)
+static void set_rate_tv(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 {
 	struct pll_rate *rate = nf->extra_freq_data;
 	uint32_t pll_mode, pll_config, misc_cc2;
@@ -426,7 +426,7 @@ static void set_rate_tv(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	writel_relaxed(pll_config, MM_PLL2_CONFIG_REG);
 
 	/* Configure MND. */
-	set_rate_mnd(clk, nf);
+	set_rate_mnd(rcg, nf);
 
 	/* Configure hdmi_ref_clk to be equal to the TV clock rate. */
 	misc_cc2 = readl_relaxed(MISC_CC2_REG);
@@ -3133,7 +3133,7 @@ static DEFINE_CLK_MEASURE(l2_m_clk);
 #ifdef CONFIG_DEBUG_FS
 struct measure_sel {
 	u32 test_vector;
-	struct clk *clk;
+	struct clk *c;
 };
 
 static struct measure_sel measure_mux[] = {
@@ -3308,12 +3308,12 @@ static struct measure_sel measure_mux[] = {
 	{ TEST_SC(0x42), &l2_m_clk },
 };
 
-static struct measure_sel *find_measure_sel(struct clk *clk)
+static struct measure_sel *find_measure_sel(struct clk *c)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(measure_mux); i++)
-		if (measure_mux[i].clk == clk)
+		if (measure_mux[i].c == c)
 			return &measure_mux[i];
 	return NULL;
 }
@@ -3323,7 +3323,7 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 	int ret = 0;
 	u32 clk_sel;
 	struct measure_sel *p;
-	struct measure_clk *clk = to_measure_clk(c);
+	struct measure_clk *measure = to_measure_clk(c);
 	unsigned long flags;
 
 	if (!parent)
@@ -3340,9 +3340,9 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 	 * and scaling factors (multiplier, divider).
 	 */
 	clk_sel = p->test_vector & TEST_CLK_SEL_MASK;
-	clk->sample_ticks = 0x10000;
-	clk->multiplier = 1;
-	clk->divider = 1;
+	measure->sample_ticks = 0x10000;
+	measure->multiplier = 1;
+	measure->divider = 1;
 	switch (p->test_vector >> TEST_TYPE_SHIFT) {
 	case TEST_TYPE_PER_LS:
 		writel_relaxed(0x4030D00|BVAL(7, 0, clk_sel), CLK_TEST_REG);
@@ -3355,7 +3355,7 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		writel_relaxed(BVAL(6, 1, clk_sel)|BIT(0), DBG_CFG_REG_LS_REG);
 		break;
 	case TEST_TYPE_MM_HS2X:
-		clk->divider = 2;
+		measure->divider = 2;
 	case TEST_TYPE_MM_HS:
 		writel_relaxed(0x402B800, CLK_TEST_REG);
 		writel_relaxed(BVAL(6, 1, clk_sel)|BIT(0), DBG_CFG_REG_HS_REG);
@@ -3367,8 +3367,8 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		break;
 	case TEST_TYPE_SC:
 		writel_relaxed(0x5020000|BVAL(16, 10, clk_sel), CLK_TEST_REG);
-		clk->sample_ticks = 0x4000;
-		clk->multiplier = 2;
+		measure->sample_ticks = 0x4000;
+		measure->multiplier = 2;
 		break;
 	default:
 		ret = -EPERM;
@@ -3410,7 +3410,7 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 	unsigned long flags;
 	u32 pdm_reg_backup, ringosc_reg_backup;
 	u64 raw_count_short, raw_count_full;
-	struct measure_clk *clk = to_measure_clk(c);
+	struct measure_clk *measure = to_measure_clk(c);
 	unsigned ret;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
@@ -3431,7 +3431,7 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 	/* Run a short measurement. (~1 ms) */
 	raw_count_short = run_measurement(0x1000);
 	/* Run a full measurement. (~14 ms) */
-	raw_count_full = run_measurement(clk->sample_ticks);
+	raw_count_full = run_measurement(measure->sample_ticks);
 
 	writel_relaxed(ringosc_reg_backup, RINGOSC_NS_REG);
 	writel_relaxed(pdm_reg_backup, PDM_CLK_NS_REG);
@@ -3442,9 +3442,9 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 	else {
 		/* Compute rate in Hz. */
 		raw_count_full = ((raw_count_full * 10) + 15) * 4800000;
-		do_div(raw_count_full,
-		       (((clk->sample_ticks * 10) + 35) * clk->divider));
-		ret = (raw_count_full * clk->multiplier);
+		do_div(raw_count_full, (((measure->sample_ticks * 10) + 35)
+			* measure->divider));
+		ret = (raw_count_full * measure->multiplier);
 	}
 
 	/* Route dbg_hs_clk to PLLTEST.  300mV single-ended amplitude. */
@@ -3454,12 +3454,12 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 	return ret;
 }
 #else /* !CONFIG_DEBUG_FS */
-static int measure_clk_set_parent(struct clk *clk, struct clk *parent)
+static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 {
 	return -EINVAL;
 }
 
-static unsigned long measure_clk_get_rate(struct clk *clk)
+static unsigned long measure_clk_get_rate(struct clk *c)
 {
 	return 0;
 }

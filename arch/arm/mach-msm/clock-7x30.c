@@ -200,7 +200,7 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 #define PCOM_XO_TCXO	0
 #define PCOM_XO_LPXO	1
 
-static bool pcom_is_local(struct clk *clk)
+static bool pcom_is_local(struct clk *c)
 {
 	return false;
 }
@@ -2441,7 +2441,7 @@ static DEFINE_CLK_VOTER(ebi_adm_clk, &ebi1_fixed_clk.c, 0);
 
 struct measure_sel {
 	u32 test_vector;
-	struct clk *clk;
+	struct clk *c;
 };
 
 static struct measure_sel measure_mux[] = {
@@ -2538,17 +2538,17 @@ static struct measure_sel measure_mux[] = {
 	{ CLK_TEST_LS(0x3F), &usb_hs_clk.c },
 };
 
-static struct measure_sel *find_measure_sel(struct clk *clk)
+static struct measure_sel *find_measure_sel(struct clk *c)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(measure_mux); i++)
-		if (measure_mux[i].clk == clk)
+		if (measure_mux[i].c == c)
 			return &measure_mux[i];
 	return NULL;
 }
 
-static int measure_clk_set_parent(struct clk *clk, struct clk *parent)
+static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 {
 	struct measure_sel *p;
 	unsigned long flags;
@@ -2599,7 +2599,7 @@ static unsigned long run_measurement(unsigned tcxo4_ticks)
 
 /* Perform a hardware rate measurement for a given clock.
    FOR DEBUG USE ONLY: Measurements take ~15 ms! */
-static unsigned long measure_clk_get_rate(struct clk *clk)
+static unsigned long measure_clk_get_rate(struct clk *c)
 {
 	unsigned long flags;
 	u32 regval, prph_web_reg_old;
@@ -2647,12 +2647,12 @@ static unsigned long measure_clk_get_rate(struct clk *clk)
 	return ret;
 }
 #else /* !CONFIG_DEBUG_FS */
-static int measure_clk_set_parent(struct clk *clk, struct clk *parent)
+static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 {
 	return -EINVAL;
 }
 
-static unsigned long measure_clk_get_rate(struct clk *clk)
+static unsigned long measure_clk_get_rate(struct clk *c)
 {
 	return 0;
 }
@@ -2670,14 +2670,14 @@ static struct clk measure_clk = {
 };
 
 /* Implementation for clk_set_flags(). */
-int soc_clk_set_flags(struct clk *clk, unsigned clk_flags)
+int soc_clk_set_flags(struct clk *c, unsigned clk_flags)
 {
 	uint32_t regval, ret = 0;
 	unsigned long flags;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 
-	if (clk == &vfe_clk.c) {
+	if (c == &vfe_clk.c) {
 		regval = readl_relaxed(CAM_VFE_NS_REG);
 		/* Flag values chosen for backward compatibility
 		 * with proc_comm remote clock control. */
@@ -2701,17 +2701,15 @@ int soc_clk_set_flags(struct clk *clk, unsigned clk_flags)
 	return ret;
 }
 
-static int msm7x30_clk_reset(struct clk *clk, enum clk_reset_action action)
+static int msm7x30_clk_reset(struct clk *c, enum clk_reset_action action)
 {
 	/* reset_mask is actually a proc_comm id */
-	unsigned id = to_rcg_clk(clk)->b.reset_mask;
-	return pc_clk_reset(id, action);
+	return pc_clk_reset(to_rcg_clk(c)->b.reset_mask, action);
 }
 
-static int soc_branch_clk_reset(struct clk *clk, enum clk_reset_action action)
+static int soc_branch_clk_reset(struct clk *c, enum clk_reset_action action)
 {
-	unsigned id = to_branch_clk(clk)->b.reset_mask;
-	return pc_clk_reset(id, action);
+	return pc_clk_reset(to_branch_clk(c)->b.reset_mask, action);
 }
 
 /*
