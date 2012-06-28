@@ -32,6 +32,7 @@ struct rpm_clk {
 	unsigned last_set_sleep_khz;
 	bool enabled;
 	bool branch; /* true: RPM only accepts 1 for ON and 0 for OFF */
+	unsigned factor;
 	struct clk_rpmrs_data *rpmrs_data;
 
 	struct rpm_clk *peer;
@@ -53,6 +54,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpm_clk_id = (r_id), \
 		.rpm_status_id = (stat_id), \
 		.peer = &active, \
+		.factor = 1000, \
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
 			.ops = &clk_ops_rpm, \
@@ -68,6 +70,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpm_status_id = (stat_id), \
 		.peer = &name, \
 		.active_only = true, \
+		.factor = 1000, \
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
 			.ops = &clk_ops_rpm, \
@@ -88,6 +91,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.peer = &active, \
 		.last_set_khz = ((r) / 1000), \
 		.last_set_sleep_khz = ((r) / 1000), \
+		.factor = 1000, \
 		.branch = true, \
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
@@ -106,6 +110,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.peer = &name, \
 		.last_set_khz = ((r) / 1000), \
 		.active_only = true, \
+		.factor = 1000, \
 		.branch = true, \
 		.rpmrs_data = (rpmrsdata),\
 		.c = { \
@@ -118,9 +123,47 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		}, \
 	};
 
+#define __DEFINE_CLK_RPM_QDSS(name, active, type, r_id, stat_id, rpmrsdata) \
+	static struct rpm_clk active; \
+	static struct rpm_clk name = { \
+		.rpm_res_type = (type), \
+		.rpm_clk_id = (r_id), \
+		.rpm_status_id = (stat_id), \
+		.peer = &active, \
+		.factor = 1, \
+		.rpmrs_data = (rpmrsdata),\
+		.c = { \
+			.ops = &clk_ops_rpm, \
+			.flags = CLKFLAG_SKIP_AUTO_OFF, \
+			.dbg_name = #name, \
+			CLK_INIT(name.c), \
+			.warned = true, \
+		}, \
+	}; \
+	static struct rpm_clk active = { \
+		.rpm_res_type = (type), \
+		.rpm_clk_id = (r_id), \
+		.rpm_status_id = (stat_id), \
+		.peer = &name, \
+		.active_only = true, \
+		.factor = 1, \
+		.rpmrs_data = (rpmrsdata),\
+		.c = { \
+			.ops = &clk_ops_rpm, \
+			.flags = CLKFLAG_SKIP_AUTO_OFF, \
+			.dbg_name = #active, \
+			CLK_INIT(active.c), \
+			.warned = true, \
+		}, \
+	};
+
 #define DEFINE_CLK_RPM(name, active, r_id, dep) \
 	__DEFINE_CLK_RPM(name, active, 0, MSM_RPM_ID_##r_id##_CLK, \
 		MSM_RPM_STATUS_ID_##r_id##_CLK, dep, &clk_rpmrs_data)
+
+#define DEFINE_CLK_RPM_QDSS(name, active) \
+	__DEFINE_CLK_RPM_QDSS(name, active, 0, MSM_RPM_ID_QDSS_CLK, \
+		MSM_RPM_STATUS_ID_QDSS_CLK, &clk_rpmrs_data)
 
 #define DEFINE_CLK_RPM_BRANCH(name, active, r_id, r) \
 	__DEFINE_CLK_RPM_BRANCH(name, active, 0, MSM_RPM_ID_##r_id##_CLK, \
