@@ -34,6 +34,7 @@
 #include <linux/slab.h>
 #include <linux/msm_audio.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
+#include <linux/memory_alloc.h>
 
 #include <mach/qdsp5v2/qdsp5audppmsg.h>
 #include <mach/qdsp5v2/qdsp5audplaycmdi.h>
@@ -1410,7 +1411,7 @@ static int audio_release(struct inode *inode, struct file *file)
 	wake_up(&audio->event_wait);
 	audlpa_reset_event_queue(audio);
 	iounmap(audio->data);
-	pmem_kfree(audio->phys);
+	free_contiguous_memory_by_paddr(audio->phys);
 	mutex_unlock(&audio->lock);
 #ifdef CONFIG_DEBUG_FS
 	if (audio->dentry)
@@ -1655,7 +1656,7 @@ event_err:
 	msm_adsp_put(audio->audplay);
 err:
 	iounmap(audio->data);
-	pmem_kfree(audio->phys);
+	free_contiguous_memory_by_paddr(audio->phys);
 	audpp_adec_free(audio->dec_id);
 	MM_INFO("audio instance 0x%08x freeing\n", (int)audio);
 	kfree(audio);
