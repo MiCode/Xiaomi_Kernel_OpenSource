@@ -1,0 +1,16 @@
+* TZLOG (Trust Zone Log)
+
+The tz_log driver is a platform device driver that exposes a debugfs
+interface for accessing and displaying diagnostic information
+related to secure code (Trustzone/QSEE).
+
+Required properties:
+- compatible : Should be "qcom,tz-log"
+- reg        : Offset and size of the register set for the device
+
+Example:
+
+	qcom,tz-log@fe805720 {
+		compatible = "qcom,tz-log";
+                reg = <0xfe805720 0x1000>;
+	};
