@@ -99,4 +99,5 @@ int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 int wcd9xxx_get_channel(struct wcd9xxx *wcd9xxx,
 			unsigned int *rx_ch,
 			unsigned int *tx_ch);
+int wcd9xxx_get_slave_port(unsigned int ch_num);
 #endif /* __WCD9310_SLIMSLAVE_H_ */

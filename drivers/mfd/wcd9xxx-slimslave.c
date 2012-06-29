@@ -537,3 +537,18 @@ err:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_close_slim_sch_tx);
+
+int wcd9xxx_get_slave_port(unsigned int ch_num)
+{
+	int ret = 0;
+
+	pr_debug("%s: ch_num[%d]\n", __func__, ch_num);
+	ret = (ch_num - BASE_CH_NUM);
+	if (ret < 0) {
+		pr_err("%s: Error:- Invalid slave port found = %d\n",
+			__func__, ret);
+		return -EINVAL;
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(wcd9xxx_get_slave_port);
