@@ -125,6 +125,9 @@ enum rpc_audmgr_status_type {
 	RPC_AUDMGR_STATUS_VOLUME_CHANGE,
 	RPC_AUDMGR_STATUS_DISABLED,
 	RPC_AUDMGR_STATUS_ERROR,
+	RPC_AUDMGR_STATUS_DEVICE_CONFIG,
+	RPC_AUDMGR_STATUS_DEVICE_INFO
+
 };
 
 struct rpc_audmgr_enable_client_args {
@@ -148,6 +151,7 @@ struct rpc_audmgr_enable_client_args {
 #define AUDMGR_GET_RX_SAMPLE_RATE		8
 #define AUDMGR_GET_TX_SAMPLE_RATE		9
 #define AUDMGR_SET_DEVICE_MODE			10
+#define MIN_RPC_DATA_LENGTH 16
 
 #define AUDMGR_PROG_VERS "rs30000013:0x7feccbff"
 #define AUDMGR_PROG 0x30000013
@@ -155,8 +159,17 @@ struct rpc_audmgr_enable_client_args {
 #define AUDMGR_VERS_COMP 0x00010001
 #define AUDMGR_VERS_COMP_VER2 0x00020001
 #define AUDMGR_VERS_COMP_VER3 0x00030001
+#define AUDMGR_VERS_COMP_VER4 0x00040001
 
-struct rpc_audmgr_cb_func_ptr {
+struct cad_device_info_type {
+	uint32_t rx_device;
+	uint32_t tx_device;
+	uint32_t ear_mute;
+	uint32_t mic_mute;
+	uint32_t volume;
+};
+
+struct rpc_audmgr_cb_common {
 	uint32_t cb_id; /* cb_func */
 	uint32_t status; /* Audmgr status */
 	uint32_t set_to_one;  /* Pointer status (1 = valid, 0  = invalid) */
@@ -165,6 +178,10 @@ struct rpc_audmgr_cb_func_ptr {
 	   disc = AUDMGR_STATUS_CODEC_CONFIG => data = volume
 	   disc = AUDMGR_STATUS_DISABLED => data =status_disabled
 	   disc = AUDMGR_STATUS_VOLUME_CHANGE => data = volume_change */
+};
+
+struct rpc_audmgr_cb_ready {
+	struct rpc_audmgr_cb_common c_data;
 	union {
 		uint32_t handle;
 		uint32_t volume;
@@ -174,18 +191,35 @@ struct rpc_audmgr_cb_func_ptr {
 	uint32_t client_data;
 };
 
+struct rpc_audmgr_cb_device_info {
+	struct rpc_audmgr_cb_common c_data;
+	struct cad_device_info_type d;
+	uint32_t client_data;
+};
+
 #define AUDMGR_CB_FUNC_PTR			1
 #define AUDMGR_OPR_LSTNR_CB_FUNC_PTR		2
 #define AUDMGR_CODEC_LSTR_FUNC_PTR		3
 
-#define AUDMGR_CB_PROG_VERS "rs31000013:0xf8e3e2d9"
-#define AUDMGR_CB_PROG 0x31000013
-#define AUDMGR_CB_VERS 0xf8e3e2d9
+struct dev_evt_msg {
+	struct cad_device_info_type dev_type;
+	uint32_t acdb_id;
+	int session_info;
+	uint32_t sample_rate;
+};
+
+typedef void (*device_info_func)(struct dev_evt_msg *evt_msg, void *private);
+
+struct device_info_callback {
+	device_info_func func;
+	void *private;
+};
 
 struct audmgr {
 	wait_queue_head_t wait;
 	uint32_t handle;
 	int state;
+	struct dev_evt_msg evt;
 };
 
 struct audmgr_config {
@@ -195,6 +229,9 @@ struct audmgr_config {
 	uint32_t codec;
 	uint32_t snd_method;
 };
+
+int audmgr_register_device_info_callback(struct device_info_callback *dcb);
+int audmgr_deregister_device_info_callback(struct device_info_callback *dcb);
 
 int audmgr_open(struct audmgr *am);
 int audmgr_close(struct audmgr *am);

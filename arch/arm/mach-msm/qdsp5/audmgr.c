@@ -3,7 +3,7 @@
  * interface to "audmgr" service on the baseband cpu
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009, 2012 Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,6 +35,10 @@
 #define STATE_ENABLED   3
 #define STATE_DISABLING 4
 #define STATE_ERROR	5
+#define MAX_DEVICE_INFO_CALLBACK 1
+#define SESSION_VOICE 0
+#define SESSION_PLAYBACK 1
+#define SESSION_RECORDING 2
 
 /* store information used across complete audmgr sessions */
 struct audmgr_global {
@@ -42,12 +46,68 @@ struct audmgr_global {
 	struct msm_rpc_endpoint *ept;
 	struct task_struct *task;
 	uint32_t rpc_version;
+	int cad;
+	struct device_info_callback *device_cb[MAX_DEVICE_INFO_CALLBACK];
+
 };
 static DEFINE_MUTEX(audmgr_lock);
 
 static struct audmgr_global the_audmgr_state = {
 	.lock = &audmgr_lock,
 };
+
+static void audmgr_rpc_connect(struct audmgr_global *amg)
+{
+	amg->cad = 0;
+	amg->ept = msm_rpc_connect_compatible(AUDMGR_PROG,
+			AUDMGR_VERS_COMP_VER3,
+			MSM_RPC_UNINTERRUPTIBLE);
+	if (IS_ERR(amg->ept)) {
+		MM_DBG("connect failed with current VERS"\
+				"= %x, trying again with  Cad API\n",
+				AUDMGR_VERS_COMP_VER3);
+		amg->ept = msm_rpc_connect_compatible(AUDMGR_PROG,
+				AUDMGR_VERS_COMP_VER4,
+				MSM_RPC_UNINTERRUPTIBLE);
+		if (IS_ERR(amg->ept)) {
+			amg->ept = msm_rpc_connect_compatible(AUDMGR_PROG,
+					AUDMGR_VERS_COMP_VER2,
+					MSM_RPC_UNINTERRUPTIBLE);
+			if (IS_ERR(amg->ept)) {
+				MM_ERR("connect failed with current VERS" \
+					"= %x, trying again with another API\n",
+					AUDMGR_VERS_COMP_VER2);
+				amg->ept = msm_rpc_connect_compatible(
+						AUDMGR_PROG,
+						AUDMGR_VERS_COMP,
+						MSM_RPC_UNINTERRUPTIBLE);
+				if (IS_ERR(amg->ept)) {
+					MM_ERR("connect failed with current" \
+						"VERS=%x, trying again with" \
+						"another API\n",
+						AUDMGR_VERS_COMP);
+					amg->ept = msm_rpc_connect(AUDMGR_PROG,
+						AUDMGR_VERS,
+						MSM_RPC_UNINTERRUPTIBLE);
+					amg->rpc_version = AUDMGR_VERS;
+				} else
+					amg->rpc_version = AUDMGR_VERS_COMP;
+			} else
+				amg->rpc_version = AUDMGR_VERS_COMP_VER2;
+		} else {
+			amg->rpc_version = AUDMGR_VERS_COMP_VER4;
+			amg->cad = 1;
+		}
+	} else
+		amg->rpc_version = AUDMGR_VERS_COMP_VER3;
+
+	if (IS_ERR(amg->ept)) {
+		amg->ept = NULL;
+		MM_ERR("failed to connect to audmgr svc\n");
+	}
+
+	return;
+}
 
 static void rpc_ack(struct msm_rpc_endpoint *ept, uint32_t xid)
 {
@@ -64,34 +124,45 @@ static void rpc_ack(struct msm_rpc_endpoint *ept, uint32_t xid)
 }
 
 static void process_audmgr_callback(struct audmgr_global *amg,
-				   struct rpc_audmgr_cb_func_ptr *args,
-				   int len)
+				   void *args, int len)
 {
 	struct audmgr *am;
+	int i = 0;
+	struct rpc_audmgr_cb_device_info *temp;
 
-	/* Allow only if complete arguments recevied */
-	if (len < (sizeof(struct rpc_audmgr_cb_func_ptr)))
+	/* Allow only if complete arguments recevied*/
+	if (len < MIN_RPC_DATA_LENGTH)
 		return;
 
 	/* Allow only if valid argument */
-	if (be32_to_cpu(args->set_to_one) != 1)
+	if (be32_to_cpu(((struct rpc_audmgr_cb_common *)args)->set_to_one) != 1)
 		return;
 
-	am = (struct audmgr *) be32_to_cpu(args->client_data);
-
-	if (!am)
-		return;
-
-	switch (be32_to_cpu(args->status)) {
+	switch (be32_to_cpu(((struct rpc_audmgr_cb_common *)args)->status)) {
 	case RPC_AUDMGR_STATUS_READY:
-		am->handle = be32_to_cpu(args->u.handle);
+		am = (struct audmgr *) be32_to_cpu(
+			((struct rpc_audmgr_cb_ready *)args)->client_data);
+		if (!am)
+			return;
+		am->handle = be32_to_cpu(
+				((struct rpc_audmgr_cb_ready *)args)->u.handle);
 		MM_INFO("rpc READY handle=0x%08x\n", am->handle);
 		break;
 	case RPC_AUDMGR_STATUS_CODEC_CONFIG: {
-		uint32_t volume;
-		volume = be32_to_cpu(args->u.volume);
-		MM_INFO("rpc CODEC_CONFIG volume=0x%08x\n", volume);
-		am->state = STATE_ENABLED;
+		MM_INFO("rpc CODEC_CONFIG\n");
+		am = (struct audmgr *) be32_to_cpu(
+			((struct rpc_audmgr_cb_ready *)args)->client_data);
+		if (!am)
+			return;
+		if (am->state != STATE_ENABLED)
+			am->state = STATE_ENABLED;
+		while ((amg->device_cb[i] != NULL) &&
+				(i < MAX_DEVICE_INFO_CALLBACK) &&
+				(amg->cad)) {
+			amg->device_cb[i]->func(&(am->evt),
+					amg->device_cb[i]->private);
+			i++;
+		}
 		wake_up(&am->wait);
 		break;
 	}
@@ -109,13 +180,50 @@ static void process_audmgr_callback(struct audmgr_global *amg,
 		break;
 	case RPC_AUDMGR_STATUS_DISABLED:
 		MM_ERR("DISABLED\n");
+		am = (struct audmgr *) be32_to_cpu(
+			((struct rpc_audmgr_cb_ready *)args)->client_data);
+		if (!am)
+			return;
 		am->state = STATE_DISABLED;
 		wake_up(&am->wait);
 		break;
 	case RPC_AUDMGR_STATUS_ERROR:
 		MM_ERR("ERROR?\n");
+		am = (struct audmgr *) be32_to_cpu(
+			((struct rpc_audmgr_cb_ready *)args)->client_data);
+		if (!am)
+			return;
 		am->state = STATE_ERROR;
 		wake_up(&am->wait);
+		break;
+	case RPC_AUDMGR_STATUS_DEVICE_INFO:
+		MM_INFO("rpc DEVICE_INFO\n");
+		if (!amg->cad)
+			break;
+		temp = (struct rpc_audmgr_cb_device_info *)args;
+		am = (struct audmgr *) be32_to_cpu(temp->client_data);
+		if (!am)
+			return;
+		if (am->evt.session_info == SESSION_PLAYBACK) {
+			am->evt.dev_type.rx_device =
+					be32_to_cpu(temp->d.rx_device);
+			am->evt.dev_type.tx_device = 0;
+			am->evt.acdb_id = am->evt.dev_type.rx_device;
+		} else if (am->evt.session_info == SESSION_RECORDING) {
+			am->evt.dev_type.rx_device = 0;
+			am->evt.dev_type.tx_device =
+					be32_to_cpu(temp->d.tx_device);
+			am->evt.acdb_id = am->evt.dev_type.tx_device;
+		}
+		am->evt.dev_type.ear_mute =
+					be32_to_cpu(temp->d.ear_mute);
+		am->evt.dev_type.mic_mute =
+					be32_to_cpu(temp->d.mic_mute);
+		am->evt.dev_type.volume =
+					be32_to_cpu(temp->d.volume);
+		break;
+	case RPC_AUDMGR_STATUS_DEVICE_CONFIG:
+		MM_ERR("rpc DEVICE_CONFIG\n");
 		break;
 	default:
 		break;
@@ -201,6 +309,36 @@ static int audmgr_rpc_thread(void *data)
 	return 0;
 }
 
+static unsigned convert_samp_index(unsigned index)
+{
+	switch (index) {
+	case RPC_AUD_DEF_SAMPLE_RATE_48000:	return 48000;
+	case RPC_AUD_DEF_SAMPLE_RATE_44100:	return 44100;
+	case RPC_AUD_DEF_SAMPLE_RATE_32000:	return 32000;
+	case RPC_AUD_DEF_SAMPLE_RATE_24000:	return 24000;
+	case RPC_AUD_DEF_SAMPLE_RATE_22050:	return 22050;
+	case RPC_AUD_DEF_SAMPLE_RATE_16000:	return 16000;
+	case RPC_AUD_DEF_SAMPLE_RATE_12000:	return 12000;
+	case RPC_AUD_DEF_SAMPLE_RATE_11025:	return 11025;
+	case RPC_AUD_DEF_SAMPLE_RATE_8000:	return 8000;
+	default:				return 11025;
+	}
+}
+
+static void get_current_session_info(struct audmgr *am,
+				struct audmgr_config *cfg)
+{
+	if (cfg->def_method == RPC_AUD_DEF_METHOD_PLAYBACK ||
+	   (cfg->def_method == RPC_AUD_DEF_METHOD_HOST_PCM && cfg->rx_rate)) {
+		am->evt.session_info = SESSION_PLAYBACK; /* playback */
+		am->evt.sample_rate = convert_samp_index(cfg->rx_rate);
+	} else if (cfg->def_method == RPC_AUD_DEF_METHOD_RECORD) {
+		am->evt.session_info = SESSION_RECORDING; /* recording */
+		am->evt.sample_rate = convert_samp_index(cfg->tx_rate);
+	} else
+		am->evt.session_info = SESSION_VOICE;
+}
+
 struct audmgr_enable_msg {
 	struct rpc_request_hdr hdr;
 	struct rpc_audmgr_enable_client_args args;
@@ -223,39 +361,7 @@ int audmgr_open(struct audmgr *am)
 
 	/* connect to audmgr end point and polling thread only once */
 	if (amg->ept == NULL) {
-		amg->ept = msm_rpc_connect_compatible(AUDMGR_PROG,
-				AUDMGR_VERS_COMP_VER3,
-				MSM_RPC_UNINTERRUPTIBLE);
-		if (IS_ERR(amg->ept)) {
-			MM_ERR("connect failed with current VERS \
-				= %x, trying again with another API\n",
-				AUDMGR_VERS_COMP_VER3);
-			amg->ept = msm_rpc_connect_compatible(AUDMGR_PROG,
-					AUDMGR_VERS_COMP_VER2,
-					MSM_RPC_UNINTERRUPTIBLE);
-			if (IS_ERR(amg->ept)) {
-				MM_ERR("connect failed with current VERS \
-					= %x, trying again with another API\n",
-					AUDMGR_VERS_COMP_VER2);
-				amg->ept = msm_rpc_connect_compatible(
-						AUDMGR_PROG,
-						AUDMGR_VERS_COMP,
-						MSM_RPC_UNINTERRUPTIBLE);
-				if (IS_ERR(amg->ept)) {
-					MM_ERR("connect failed with current \
-					VERS=%x, trying again with another \
-					API\n", AUDMGR_VERS_COMP);
-					amg->ept = msm_rpc_connect(AUDMGR_PROG,
-						AUDMGR_VERS,
-						MSM_RPC_UNINTERRUPTIBLE);
-					amg->rpc_version = AUDMGR_VERS;
-				} else
-					amg->rpc_version = AUDMGR_VERS_COMP;
-			} else
-				amg->rpc_version = AUDMGR_VERS_COMP_VER2;
-		} else
-			amg->rpc_version = AUDMGR_VERS_COMP_VER3;
-
+		audmgr_rpc_connect(amg);
 		if (IS_ERR(amg->ept)) {
 			rc = PTR_ERR(amg->ept);
 			amg->ept = NULL;
@@ -312,6 +418,7 @@ int audmgr_enable(struct audmgr *am, struct audmgr_config *cfg)
 	msg.args.cb_func = cpu_to_be32(0x11111111);
 	msg.args.client_data = cpu_to_be32((int)am);
 
+	get_current_session_info(am, cfg);
 	msm_rpc_setup_req(&msg.hdr, AUDMGR_PROG, amg->rpc_version,
 			  AUDMGR_ENABLE_CLIENT);
 
@@ -326,6 +433,7 @@ int audmgr_enable(struct audmgr *am, struct audmgr_config *cfg)
 	if (am->state == STATE_ENABLED)
 		return 0;
 
+	am->evt.session_info = -1;
 	MM_ERR("unexpected state %d while enabling?!\n", am->state);
 	return -ENODEV;
 }
@@ -341,6 +449,7 @@ int audmgr_disable(struct audmgr *am)
 		return 0;
 
 	MM_INFO("session 0x%08x\n", (int) am);
+	am->evt.session_info = -1;
 	msg.handle = cpu_to_be32(am->handle);
 	msm_rpc_setup_req(&msg.hdr, AUDMGR_PROG, amg->rpc_version,
 			  AUDMGR_DISABLE_CLIENT);
@@ -363,3 +472,33 @@ int audmgr_disable(struct audmgr *am)
 	return -ENODEV;
 }
 EXPORT_SYMBOL(audmgr_disable);
+
+int audmgr_register_device_info_callback(struct device_info_callback *dcb)
+{
+	struct audmgr_global *amg = &the_audmgr_state;
+	int i;
+
+	for (i = 0; i < MAX_DEVICE_INFO_CALLBACK; i++) {
+		if (NULL == amg->device_cb[i]) {
+			amg->device_cb[i] = dcb;
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+EXPORT_SYMBOL(audmgr_register_device_info_callback);
+
+int audmgr_deregister_device_info_callback(struct device_info_callback *dcb)
+{
+	struct audmgr_global *amg = &the_audmgr_state;
+	int i;
+
+	for (i = 0; i < MAX_DEVICE_INFO_CALLBACK; i++) {
+		if (dcb == amg->device_cb[i]) {
+			amg->device_cb[i] = NULL;
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+EXPORT_SYMBOL(audmgr_deregister_device_info_callback);
