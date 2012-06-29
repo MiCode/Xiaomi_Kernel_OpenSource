@@ -20,6 +20,7 @@
 #include <linux/err.h>
 #include <linux/export.h>
 #include <linux/clk.h>
+#include <linux/cs.h>
 
 #include "cs-priv.h"
 

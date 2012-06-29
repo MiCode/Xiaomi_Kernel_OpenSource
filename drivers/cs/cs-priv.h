@@ -10,11 +10,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _ARCH_ARM_MACH_MSM_QDSS_H_
-#define _ARCH_ARM_MACH_MSM_QDSS_H_
+#ifndef _CS_PRIV_H
+#define _CS_PRIV_H
 
 #include <linux/bitops.h>
-#include <linux/cs.h>
 
 /* Coresight management registers (0xF00-0xFCC)
  * 0xFA0 - 0xFA4: Management	registers in PFTv1.0
@@ -28,31 +27,10 @@
 #define CS_AUTHSTATUS		(0xFB8)
 #define CS_DEVID		(0xFC8)
 #define CS_DEVTYPE		(0xFCC)
-/* Peripheral id registers (0xFD0-0xFEC) */
-#define CS_PIDR4		(0xFD0)
-#define CS_PIDR5		(0xFD4)
-#define CS_PIDR6		(0xFD8)
-#define CS_PIDR7		(0xFDC)
-#define CS_PIDR0		(0xFE0)
-#define CS_PIDR1		(0xFE4)
-#define CS_PIDR2		(0xFE8)
-#define CS_PIDR3		(0xFEC)
-/* Component id registers (0xFF0-0xFFC) */
-#define CS_CIDR0		(0xFF0)
-#define CS_CIDR1		(0xFF4)
-#define CS_CIDR2		(0xFF8)
-#define CS_CIDR3		(0xFFC)
 
-/* DBGv7 with baseline CP14 registers implemented */
-#define ARM_DEBUG_ARCH_V7B	(0x3)
-/* DBGv7 with all CP14 registers implemented */
-#define ARM_DEBUG_ARCH_V7	(0x4)
-#define ARM_DEBUG_ARCH_V7_1	(0x5)
-#define ETM_ARCH_V3_3		(0x23)
-#define PFT_ARCH_V1_1		(0x31)
+#define CS_UNLOCK_MAGIC		(0xC5ACCE55)
 
 #define TIMEOUT_US		(100)
-#define CS_UNLOCK_MAGIC		(0xC5ACCE55)
 
 #define BM(lsb, msb)		((BIT(msb) - BIT(lsb)) + BIT(msb))
 #define BMVAL(val, lsb, msb)	((val & BM(lsb, msb)) >> lsb)
