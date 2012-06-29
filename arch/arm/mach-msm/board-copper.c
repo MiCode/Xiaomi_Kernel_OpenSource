@@ -43,6 +43,7 @@
 #include <mach/rpm-regulator-smd.h>
 #include <mach/qpnp-int.h>
 #include <mach/socinfo.h>
+#include <mach/msm_bus_board.h>
 #include "clock.h"
 #include "devices.h"
 #include "spm.h"
@@ -410,6 +411,141 @@ struct platform_device copper_device_tz_log = {
 	.resource	= copper_tzlog_resources,
 };
 
+#define BIMC_BASE	0xfc380000
+#define BIMC_SIZE	0x0006A000
+#define SYS_NOC_BASE	0xfc460000
+#define PERIPH_NOC_BASE 0xFC468000
+#define OCMEM_NOC_BASE	0xfc470000
+#define	MMSS_NOC_BASE	0xfc478000
+#define CONFIG_NOC_BASE	0xfc480000
+#define NOC_SIZE	0x00004000
+
+static struct resource bimc_res[] = {
+	{
+		.start = BIMC_BASE,
+		.end = BIMC_BASE + BIMC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "bimc_mem",
+	},
+};
+
+static struct resource ocmem_noc_res[] = {
+	{
+		.start = OCMEM_NOC_BASE,
+		.end = OCMEM_NOC_BASE + NOC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "ocmem_noc_mem",
+	},
+};
+
+static struct resource mmss_noc_res[] = {
+	{
+		.start = MMSS_NOC_BASE,
+		.end = MMSS_NOC_BASE + NOC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "mmss_noc_mem",
+	},
+};
+
+static struct resource sys_noc_res[] = {
+	{
+		.start = SYS_NOC_BASE,
+		.end = SYS_NOC_BASE + NOC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "sys_noc_mem",
+	},
+};
+
+static struct resource config_noc_res[] = {
+	{
+		.start = CONFIG_NOC_BASE,
+		.end = CONFIG_NOC_BASE + NOC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "config_noc_mem",
+	},
+};
+
+static struct resource periph_noc_res[] = {
+	{
+		.start = PERIPH_NOC_BASE,
+		.end = PERIPH_NOC_BASE + NOC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "periph_noc_mem",
+	},
+};
+
+static struct platform_device msm_bus_sys_noc = {
+	.name  = "msm_bus_fabric",
+	.id    =  MSM_BUS_FAB_SYS_NOC,
+	.num_resources = ARRAY_SIZE(sys_noc_res),
+	.resource = sys_noc_res,
+};
+
+static struct platform_device msm_bus_bimc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_BIMC,
+	.num_resources = ARRAY_SIZE(bimc_res),
+	.resource = bimc_res,
+};
+
+static struct platform_device msm_bus_mmss_noc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_MMSS_NOC,
+	.num_resources = ARRAY_SIZE(mmss_noc_res),
+	.resource = mmss_noc_res,
+};
+
+static struct platform_device msm_bus_ocmem_noc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_OCMEM_NOC,
+	.num_resources = ARRAY_SIZE(ocmem_noc_res),
+	.resource = ocmem_noc_res,
+};
+
+static struct platform_device msm_bus_periph_noc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_PERIPH_NOC,
+	.num_resources = ARRAY_SIZE(periph_noc_res),
+	.resource = periph_noc_res,
+};
+
+static struct platform_device msm_bus_config_noc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_CONFIG_NOC,
+	.num_resources = ARRAY_SIZE(config_noc_res),
+	.resource = config_noc_res,
+};
+
+static struct platform_device msm_bus_ocmem_vnoc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_OCMEM_VNOC,
+};
+
+static struct platform_device *msm_bus_copper_devices[] = {
+	&msm_bus_sys_noc,
+	&msm_bus_bimc,
+	&msm_bus_mmss_noc,
+	&msm_bus_ocmem_noc,
+	&msm_bus_periph_noc,
+	&msm_bus_config_noc,
+	&msm_bus_ocmem_vnoc,
+};
+
+static void __init msmcopper_init_buses(void)
+{
+#ifdef CONFIG_MSM_BUS_SCALING
+	msm_bus_sys_noc.dev.platform_data =
+		&msm_bus_copper_sys_noc_pdata;
+	msm_bus_bimc.dev.platform_data = &msm_bus_copper_bimc_pdata;
+	msm_bus_mmss_noc.dev.platform_data = &msm_bus_copper_mmss_noc_pdata;
+	msm_bus_ocmem_noc.dev.platform_data = &msm_bus_copper_ocmem_noc_pdata;
+	msm_bus_periph_noc.dev.platform_data = &msm_bus_copper_periph_noc_pdata;
+	msm_bus_config_noc.dev.platform_data = &msm_bus_copper_config_noc_pdata;
+	msm_bus_ocmem_vnoc.dev.platform_data = &msm_bus_copper_ocmem_vnoc_pdata;
+#endif
+	platform_add_devices(msm_bus_copper_devices,
+				ARRAY_SIZE(msm_bus_copper_devices));
+};
 
 void __init msm_copper_add_devices(void)
 {
@@ -476,6 +612,7 @@ void __init msm_copper_add_drivers(void)
 		msm_clock_init(&msm_dummy_clock_init_data);
 	else
 		msm_clock_init(&msmcopper_clock_init_data);
+	msmcopper_init_buses();
 }
 
 static struct of_device_id irq_match[] __initdata  = {
