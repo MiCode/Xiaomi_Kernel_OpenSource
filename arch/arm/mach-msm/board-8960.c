@@ -1292,6 +1292,7 @@ static struct mdm_platform_data sglte_platform_data = {
 	.soft_reset_inverted = 1,
 	.peripheral_platform_device = NULL,
 	.ramdump_timeout_ms = 600000,
+	.no_powerdown_after_ramdumps = 1,
 };
 
 #define MSM_TSIF0_PHYS			(0x18200000)
