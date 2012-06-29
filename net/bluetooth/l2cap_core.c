@@ -1993,10 +1993,10 @@ static void l2cap_ertm_send_ack(struct sock *sk)
 				frames_to_ack = 0;
 		}
 
-		/* Ack now if the tx window is 3/4ths full.
+		/* Ack now if the window is 3/4ths full.
 		 * Calculate without mul or div
 		 */
-		threshold = pi->tx_win;
+		threshold = pi->ack_win;
 		threshold += threshold << 1;
 		threshold >>= 2;
 
@@ -3105,6 +3105,7 @@ static void l2cap_setup_txwin(struct l2cap_pinfo *pi)
 		pi->tx_win_max = L2CAP_TX_WIN_MAX_ENHANCED;
 		pi->extended_control = 0;
 	}
+	pi->ack_win = pi->tx_win;
 }
 
 static void l2cap_aggregate_fs(struct hci_ext_fs *cur,
@@ -3844,10 +3845,7 @@ static int l2cap_parse_conf_rsp(struct sock *sk, void *rsp, int len, void *data,
 			break;
 
 		case L2CAP_CONF_EXT_WINDOW:
-			pi->tx_win = val;
-
-			if (pi->tx_win > L2CAP_TX_WIN_MAX_ENHANCED)
-				pi->tx_win = L2CAP_TX_WIN_MAX_ENHANCED;
+			pi->ack_win = min_t(u16, val, pi->ack_win);
 
 			l2cap_add_conf_opt(&ptr, L2CAP_CONF_EXT_WINDOW,
 					2, pi->tx_win);
@@ -3869,6 +3867,10 @@ static int l2cap_parse_conf_rsp(struct sock *sk, void *rsp, int len, void *data,
 			pi->retrans_timeout = le16_to_cpu(rfc.retrans_timeout);
 			pi->monitor_timeout = le16_to_cpu(rfc.monitor_timeout);
 			pi->mps    = le16_to_cpu(rfc.max_pdu_size);
+			if (!pi->extended_control) {
+				pi->ack_win = min_t(u16, pi->ack_win,
+						    rfc.txwin_size);
+			}
 			break;
 		case L2CAP_MODE_STREAMING:
 			pi->mps    = le16_to_cpu(rfc.max_pdu_size);
@@ -3901,6 +3903,7 @@ static void l2cap_conf_rfc_get(struct sock *sk, void *rsp, int len)
 	int type, olen;
 	unsigned long val;
 	struct l2cap_conf_rfc rfc;
+	u16 txwin_ext = pi->ack_win;
 
 	BT_DBG("sk %p, rsp %p, len %d", sk, rsp, len);
 
@@ -3909,6 +3912,7 @@ static void l2cap_conf_rfc_get(struct sock *sk, void *rsp, int len)
 	rfc.retrans_timeout = cpu_to_le16(L2CAP_DEFAULT_RETRANS_TO);
 	rfc.monitor_timeout = cpu_to_le16(L2CAP_DEFAULT_MONITOR_TO);
 	rfc.max_pdu_size = cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
+	rfc.txwin_size = min_t(u16, pi->ack_win, L2CAP_DEFAULT_TX_WINDOW);
 
 	if ((pi->mode != L2CAP_MODE_ERTM) && (pi->mode != L2CAP_MODE_STREAMING))
 		return;
@@ -3920,16 +3924,22 @@ static void l2cap_conf_rfc_get(struct sock *sk, void *rsp, int len)
 		case L2CAP_CONF_RFC:
 			if (olen == sizeof(rfc))
 				memcpy(&rfc, (void *)val, olen);
-			goto done;
+			break;
+		case L2CAP_CONF_EXT_WINDOW:
+			txwin_ext = val;
+			break;
 		}
 	}
 
-done:
 	switch (rfc.mode) {
 	case L2CAP_MODE_ERTM:
 		pi->retrans_timeout = le16_to_cpu(rfc.retrans_timeout);
 		pi->monitor_timeout = le16_to_cpu(rfc.monitor_timeout);
 		pi->mps    = le16_to_cpu(rfc.max_pdu_size);
+		if (pi->extended_control)
+			pi->ack_win = min_t(u16, pi->ack_win, txwin_ext);
+		else
+			pi->ack_win = min_t(u16, pi->ack_win, rfc.txwin_size);
 		break;
 	case L2CAP_MODE_STREAMING:
 		pi->mps    = le16_to_cpu(rfc.max_pdu_size);

@@ -1270,6 +1270,7 @@ void l2cap_sock_init(struct sock *sk, struct sock *parent)
 	pi->scid = 0;
 	pi->dcid = 0;
 	pi->tx_win_max = L2CAP_TX_WIN_MAX_ENHANCED;
+	pi->ack_win = pi->tx_win;
 	pi->extended_control = 0;
 
 	pi->local_conf.fcs = pi->fcs;
