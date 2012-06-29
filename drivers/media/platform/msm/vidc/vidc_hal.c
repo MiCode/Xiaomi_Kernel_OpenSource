@@ -644,6 +644,24 @@ static void set_vbif_registers(struct hal_device *device)
 			VIDC_VENUS0_WRAPPER_VBIF_REQ_PRIORITY, 0x5555556, 0);
 }
 
+static int vidc_hal_sys_set_debug(struct hal_device *device, int debug)
+{
+	struct hfi_debug_config *hfi;
+	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
+	struct hfi_cmd_sys_set_property_packet *pkt =
+		(struct hfi_cmd_sys_set_property_packet *) &packet;
+	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
+		sizeof(struct hfi_debug_config) + sizeof(u32);
+	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
+	pkt->num_properties = 1;
+	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_DEBUG_CONFIG;
+	hfi = (struct hfi_debug_config *) &pkt->rg_property_data[1];
+	hfi->debug_config = debug;
+	if (vidc_hal_iface_cmdq_write(device, pkt))
+		return -ENOTEMPTY;
+	return 0;
+}
+
 int vidc_hal_core_init(void *device, int domain)
 {
 	struct hfi_cmd_sys_init_packet pkt;
@@ -1444,17 +1462,6 @@ int vidc_hal_session_set_property(void *sess,
 	}
 	case HAL_CONFIG_VPE_DEINTERLACE:
 		break;
-	case HAL_SYS_DEBUG_CONFIG:
-	{
-		struct hfi_debug_config *hfi;
-		pkt->rg_property_data[0] = HFI_PROPERTY_SYS_DEBUG_CONFIG;
-		hfi = (struct hfi_debug_config *) &pkt->rg_property_data[1];
-		hfi->debug_config = ((struct hal_debug_config *)
-					pdata)->debug_config;
-		pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-			sizeof(struct hfi_debug_config);
-		break;
-	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
@@ -1645,6 +1652,8 @@ void *vidc_hal_session_init(void *device, u32 session_id,
 	pkt.session_codec = codec_type;
 	if (vidc_hal_iface_cmdq_write(dev, &pkt))
 		return NULL;
+	if (vidc_hal_sys_set_debug(dev, msm_fw_debug))
+		dprintk(VIDC_ERR, "Setting fw_debug msg ON failed");
 	return (void *) new_session;
 }
 

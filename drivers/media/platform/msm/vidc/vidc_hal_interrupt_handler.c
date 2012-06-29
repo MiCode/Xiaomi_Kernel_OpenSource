@@ -849,7 +849,12 @@ void vidc_hal_response_handler(struct hal_device *device)
 	if (device) {
 		while (!vidc_hal_iface_msgq_read(device, packet)) {
 			hal_process_msg_packet(device,
-				(struct vidc_hal_msg_pkt_hdr *)	packet);
+				(struct vidc_hal_msg_pkt_hdr *) packet);
+		}
+		while (!vidc_hal_iface_dbgq_read(device, packet)) {
+			struct hfi_msg_sys_debug_packet *pkt =
+				(struct hfi_msg_sys_debug_packet *) packet;
+			dprintk(VIDC_FW, "FW-SAYS: %s", pkt->rg_msg_data);
 		}
 	} else {
 		dprintk(VIDC_ERR, "SPURIOUS_INTERRUPT");
