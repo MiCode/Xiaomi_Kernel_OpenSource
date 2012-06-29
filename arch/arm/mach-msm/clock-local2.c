@@ -305,6 +305,11 @@ static enum handoff rcg_clk_handoff(struct clk *c)
 	return _rcg_clk_handoff(to_rcg_clk(c), 0);
 }
 
+#define BRANCH_CHECK_MASK	BM(31, 28)
+#define BRANCH_ON_VAL		BVAL(31, 28, 0x0)
+#define BRANCH_OFF_VAL		BVAL(31, 28, 0x8)
+#define BRANCH_NOC_FSM_ON_VAL	BVAL(31, 28, 0x2)
+
 /*
  * Branch clock functions
  */
@@ -326,15 +331,22 @@ static void branch_clk_halt_check(u32 halt_check, const char *clk_name,
 		udelay(HALT_CHECK_DELAY_US);
 	} else if (halt_check == HALT) {
 		int count;
+		u32 val;
 		for (count = HALT_CHECK_MAX_LOOPS; count > 0; count--) {
-			if (br_status == BRANCH_ON
-				&& !(readl_relaxed(cbcr_reg)
-						& CBCR_BRANCH_OFF_BIT))
-				return;
-			if (br_status == BRANCH_OFF
-				&& (readl_relaxed(cbcr_reg)
-						& CBCR_BRANCH_OFF_BIT))
-				return;
+			val = readl_relaxed(cbcr_reg);
+			val &= BRANCH_CHECK_MASK;
+			switch (br_status) {
+			case BRANCH_ON:
+				if (val == BRANCH_ON_VAL
+					|| val == BRANCH_NOC_FSM_ON_VAL)
+					return;
+				break;
+
+			case BRANCH_OFF:
+				if (val == BRANCH_OFF_VAL)
+					return;
+				break;
+			};
 			udelay(1);
 		}
 		WARN(count == 0, "%s status stuck %s", clk_name, status_str);
