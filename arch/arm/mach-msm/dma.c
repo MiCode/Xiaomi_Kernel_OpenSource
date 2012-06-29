@@ -74,7 +74,6 @@ struct msm_dmov_conf {
 };
 
 static void msm_dmov_clock_work(struct work_struct *);
-static int msm_dmov_clk_toggle(int, int);
 
 #ifdef CONFIG_ARCH_MSM8X60
 
@@ -232,38 +231,38 @@ unsigned int msm_dmov_print_mask = MSM_DMOV_PRINT_ERRORS;
 #define PRINT_FLOW(format, args...) \
 	MSM_DMOV_DPRINTF(MSM_DMOV_PRINT_FLOW, format, args);
 
-static int msm_dmov_clk_toggle(int adm, int on)
+static int msm_dmov_clk_on(int adm)
 {
-	int ret = 0;
+	int ret;
 
-	if (on) {
-		ret = clk_enable(dmov_conf[adm].clk);
-		if (ret)
-			goto err;
-		if (dmov_conf[adm].pclk) {
-			ret = clk_enable(dmov_conf[adm].pclk);
-			if (ret) {
-				clk_disable(dmov_conf[adm].clk);
-				goto err;
-			}
+	ret = clk_prepare_enable(dmov_conf[adm].clk);
+	if (ret)
+		return ret;
+	if (dmov_conf[adm].pclk) {
+		ret = clk_prepare_enable(dmov_conf[adm].pclk);
+		if (ret) {
+			clk_disable_unprepare(dmov_conf[adm].clk);
+			return ret;
 		}
-		if (dmov_conf[adm].ebiclk) {
-			ret = clk_enable(dmov_conf[adm].ebiclk);
-			if (ret) {
-				if (dmov_conf[adm].pclk)
-					clk_disable(dmov_conf[adm].pclk);
-				clk_disable(dmov_conf[adm].clk);
-			}
-		}
-	} else {
-		clk_disable(dmov_conf[adm].clk);
-		if (dmov_conf[adm].pclk)
-			clk_disable(dmov_conf[adm].pclk);
-		if (dmov_conf[adm].ebiclk)
-			clk_disable(dmov_conf[adm].ebiclk);
 	}
-err:
+	if (dmov_conf[adm].ebiclk) {
+		ret = clk_prepare_enable(dmov_conf[adm].ebiclk);
+		if (ret) {
+			if (dmov_conf[adm].pclk)
+				clk_disable_unprepare(dmov_conf[adm].pclk);
+			clk_disable_unprepare(dmov_conf[adm].clk);
+		}
+	}
 	return ret;
+}
+
+static void msm_dmov_clk_off(int adm)
+{
+	if (dmov_conf[adm].ebiclk)
+		clk_disable_unprepare(dmov_conf[adm].ebiclk);
+	if (dmov_conf[adm].pclk)
+		clk_disable_unprepare(dmov_conf[adm].pclk);
+	clk_disable_unprepare(dmov_conf[adm].clk);
 }
 
 static void msm_dmov_clock_work(struct work_struct *work)
@@ -274,7 +273,7 @@ static void msm_dmov_clock_work(struct work_struct *work)
 	mutex_lock(&conf->lock);
 	if (conf->clk_ctl == CLK_TO_BE_DIS) {
 		BUG_ON(conf->channel_active);
-		msm_dmov_clk_toggle(adm, 0);
+		msm_dmov_clk_off(adm);
 		conf->clk_ctl = CLK_DIS;
 	}
 	mutex_unlock(&conf->lock);
@@ -321,7 +320,7 @@ static void msm_dmov_enqueue_cmd_ext_work(struct work_struct *work)
 
 	mutex_lock(&dmov_conf[adm].lock);
 	if (dmov_conf[adm].clk_ctl == CLK_DIS) {
-		status = msm_dmov_clk_toggle(adm, 1);
+		status = msm_dmov_clk_on(adm);
 		if (status != 0)
 			goto error;
 	}
@@ -588,7 +587,7 @@ static int msm_dmov_suspend_late(struct device *dev)
 	mutex_lock(&dmov_conf[adm].lock);
 	if (dmov_conf[adm].clk_ctl == CLK_TO_BE_DIS) {
 		BUG_ON(dmov_conf[adm].channel_active);
-		msm_dmov_clk_toggle(adm, 0);
+		msm_dmov_clk_off(adm);
 		dmov_conf[adm].clk_ctl = CLK_DIS;
 	}
 	mutex_unlock(&dmov_conf[adm].lock);
@@ -726,7 +725,7 @@ static int msm_dmov_probe(struct platform_device *pdev)
 		PRINT_ERROR("Requesting ADM%d clocks failed\n", adm);
 		goto out_irq;
 	}
-	ret = msm_dmov_clk_toggle(adm, 1);
+	ret = msm_dmov_clk_on(adm);
 	if (ret) {
 		PRINT_ERROR("Enabling ADM%d clocks failed\n", adm);
 		goto out_irq;
@@ -743,7 +742,7 @@ static int msm_dmov_probe(struct platform_device *pdev)
 		     DMOV_REG(DMOV_RSLT_CONF(i), adm));
 	}
 	wmb();
-	msm_dmov_clk_toggle(adm, 0);
+	msm_dmov_clk_off(adm);
 	return ret;
 out_irq:
 	free_irq(dmov_conf[adm].irq, NULL);
