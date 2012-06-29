@@ -243,6 +243,7 @@ static LIST_HEAD(bam_other_notify_funcs);
 static DEFINE_MUTEX(smsm_cb_lock);
 static DEFINE_MUTEX(delayed_ul_vote_lock);
 static int need_delayed_ul_vote;
+static int power_management_only_mode;
 
 struct outside_notify_func {
 	void (*notify)(void *, int, unsigned long);
@@ -1688,21 +1689,28 @@ static void reconnect_to_bam(void)
 
 	in_global_reset = 0;
 	vote_dfab();
-	i = sps_device_reset(a2_device_handle);
-	if (i)
-		pr_err("%s: device reset failed rc = %d\n", __func__, i);
-	i = sps_connect(bam_tx_pipe, &tx_connection);
-	if (i)
-		pr_err("%s: tx connection failed rc = %d\n", __func__, i);
-	i = sps_connect(bam_rx_pipe, &rx_connection);
-	if (i)
-		pr_err("%s: rx connection failed rc = %d\n", __func__, i);
-	i = sps_register_event(bam_tx_pipe, &tx_register_event);
-	if (i)
-		pr_err("%s: tx event reg failed rc = %d\n", __func__, i);
-	i = sps_register_event(bam_rx_pipe, &rx_register_event);
-	if (i)
-		pr_err("%s: rx event reg failed rc = %d\n", __func__, i);
+	if (!power_management_only_mode) {
+		i = sps_device_reset(a2_device_handle);
+		if (i)
+			pr_err("%s: device reset failed rc = %d\n", __func__,
+									i);
+		i = sps_connect(bam_tx_pipe, &tx_connection);
+		if (i)
+			pr_err("%s: tx connection failed rc = %d\n", __func__,
+									i);
+		i = sps_connect(bam_rx_pipe, &rx_connection);
+		if (i)
+			pr_err("%s: rx connection failed rc = %d\n", __func__,
+									i);
+		i = sps_register_event(bam_tx_pipe, &tx_register_event);
+		if (i)
+			pr_err("%s: tx event reg failed rc = %d\n", __func__,
+									i);
+		i = sps_register_event(bam_rx_pipe, &rx_register_event);
+		if (i)
+			pr_err("%s: rx event reg failed rc = %d\n", __func__,
+									i);
+	}
 
 	bam_connection_is_active = 1;
 
@@ -1711,7 +1719,8 @@ static void reconnect_to_bam(void)
 
 	toggle_apps_ack();
 	complete_all(&bam_connection_completion);
-	queue_rx();
+	if (!power_management_only_mode)
+		queue_rx();
 }
 
 static void disconnect_to_bam(void)
@@ -1733,11 +1742,13 @@ static void disconnect_to_bam(void)
 
 	/* tear down BAM connection */
 	INIT_COMPLETION(bam_connection_completion);
-	sps_disconnect(bam_tx_pipe);
-	sps_disconnect(bam_rx_pipe);
+	if (!power_management_only_mode) {
+		sps_disconnect(bam_tx_pipe);
+		sps_disconnect(bam_rx_pipe);
+		__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
+		__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+	}
 	unvote_dfab();
-	__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
-	__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
 
 	mutex_lock(&bam_rx_pool_mutexlock);
 	while (!list_empty(&bam_rx_pool)) {
@@ -2081,7 +2092,6 @@ static int bam_init_fallback(void)
 	int ret;
 	void *a2_virt_addr;
 
-	unvote_dfab();
 	/* init BAM */
 	a2_virt_addr = ioremap_nocache(A2_PHYS_BASE, A2_PHYS_SIZE);
 	if (!a2_virt_addr) {
@@ -2113,6 +2123,10 @@ static int bam_init_fallback(void)
 	}
 	mutex_unlock(&delayed_ul_vote_lock);
 	toggle_apps_ack();
+
+	power_management_only_mode = 1;
+	bam_connection_is_active = 1;
+	complete_all(&bam_connection_completion);
 
 	return 0;
 
