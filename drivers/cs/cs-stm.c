@@ -25,7 +25,7 @@
 #include <asm/unaligned.h>
 #include <mach/stm.h>
 
-#include "qdss-priv.h"
+#include "cs-priv.h"
 
 #define stm_writel(stm, val, off)	\
 			__raw_writel((val), stm.base + off)

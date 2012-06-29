@@ -25,7 +25,7 @@
 #include <linux/delay.h>
 #include <linux/mutex.h>
 
-#include "qdss-priv.h"
+#include "cs-priv.h"
 
 #define etb_writel(etb, val, off)	__raw_writel((val), etb.base + off)
 #define etb_readl(etb, off)		__raw_readl(etb.base + off)

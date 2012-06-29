@@ -19,7 +19,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 
-#include "qdss-priv.h"
+#include "cs-priv.h"
 
 #define funnel_writel(funnel, id, val, off)	\
 			__raw_writel((val), funnel.base + (SZ_4K * id) + off)
