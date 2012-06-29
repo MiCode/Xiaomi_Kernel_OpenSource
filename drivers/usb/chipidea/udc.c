@@ -718,8 +718,6 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	gadget->host_request = 0;
 	gadget->otg_srp_reqd = 0;
 
-	cancel_delayed_work_sync(&ci->rw_work);
-
 	/* flush all endpoints */
 	gadget_for_each_ep(ep, gadget) {
 		usb_ep_fifo_flush(ep);
@@ -1623,10 +1621,20 @@ EXPORT_SYMBOL_GPL(ci13xxx_wakeup);
 static void usb_do_remote_wakeup(struct work_struct *w)
 {
 	struct ci13xxx *ci;
+	unsigned long flags;
+	bool do_wake;
 
 	ci = container_of(to_delayed_work(w), struct ci13xxx, rw_work);
+	/*
+	 * This work can not be canceled from interrupt handler. Check
+	 * if wakeup conditions are still met.
+	 */
+	spin_lock_irqsave(udc->lock, flags);
+	do_wake = udc->suspended && udc->remote_wakeup;
+	spin_unlock_irqrestore(udc->lock, flags);
 
-	ci13xxx_wakeup(&ci->gadget);
+	if (do_wake)
+		ci13xxx_wakeup(&udc->gadget);
 }
 
 static int ci13xxx_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
