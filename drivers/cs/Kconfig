@@ -1,0 +1,32 @@
+config MSM_QDSS
+	bool "CoreSight tracing"
+	help
+	  Enables support for CoreSight tracing. This uses CoreSight trace
+	  components and buses to support both hardware (eg. processor ETM)
+	  and hardware assisted software instrumentation based (eg. STM)
+	  tracing.
+
+	  For production builds, you should probably say 'N' here to avoid
+	  potential power, performance and memory penalty.
+
+config MSM_QDSS_STM_DEFAULT_ENABLE
+	bool "Turn on CoreSight STM tracing by default"
+	depends on MSM_QDSS
+	help
+	  Turns on CoreSight STM tracing (hardware assisted software
+	  instrumentation based tracing) by default. Otherwise, tracing is
+	  disabled by default but can be enabled via sysfs.
+
+	  For production builds, you should probably say 'N' here to avoid
+	  potential power, performance and memory penalty.
+
+config MSM_QDSS_ETM_DEFAULT_ENABLE
+	bool "Turn on CoreSight ETM tracing by default"
+	depends on MSM_QDSS
+	help
+	  Turns on CoreSight ETM tracing (processor tracing) by default.
+	  Otherwise, tracing is disabled by default but can be enabled via
+	  sysfs.
+
+	  For production builds, you should probably say 'N' here to avoid
+	  potential power, performance and memory penalty.

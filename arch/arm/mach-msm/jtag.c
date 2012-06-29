@@ -21,8 +21,19 @@
 #include <linux/ratelimit.h>
 #include <mach/scm.h>
 
-#include "qdss-priv.h"
 #include "cp14.h"
+
+/* DBGv7 with baseline CP14 registers implemented */
+#define ARM_DEBUG_ARCH_V7B	(0x3)
+/* DBGv7 with all CP14 registers implemented */
+#define ARM_DEBUG_ARCH_V7	(0x4)
+#define ARM_DEBUG_ARCH_V7_1	(0x5)
+#define ETM_ARCH_V3_3		(0x23)
+#define PFT_ARCH_V1_1		(0x31)
+
+#define BM(lsb, msb)		((BIT(msb) - BIT(lsb)) + BIT(msb))
+#define BMVAL(val, lsb, msb)	((val & BM(lsb, msb)) >> lsb)
+#define BVAL(val, n)		((val & BIT(n)) >> n)
 
 /* no of dbg regs + 1 (for storing the reg count) */
 #define MAX_DBG_REGS		(90)

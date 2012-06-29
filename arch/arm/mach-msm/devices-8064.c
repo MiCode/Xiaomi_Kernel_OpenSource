@@ -17,6 +17,7 @@
 #include <linux/msm_rotator.h>
 #include <linux/clkdev.h>
 #include <linux/dma-mapping.h>
+#include <linux/qdss.h>
 #include <mach/irqs-8064.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -32,7 +33,6 @@
 #include <mach/msm_smd.h>
 #include <mach/msm_dcvs.h>
 #include <mach/msm_rtb.h>
-#include <mach/qdss.h>
 #include <linux/ion.h>
 #include "clock.h"
 #include "devices.h"
