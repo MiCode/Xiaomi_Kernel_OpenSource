@@ -2460,6 +2460,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"BE_OUT", NULL, "SLIMBUS_3_RX"},
 	{"BE_OUT", NULL, "STUB_RX"},
 	{"STUB_TX", NULL, "BE_IN"},
+	{"BE_OUT", NULL, "SEC_AUX_PCM_RX"},
+	{"SEC_AUX_PCM_TX", NULL, "BE_IN"},
+	{"BE_OUT", NULL, "AUX_PCM_RX"},
+	{"AUX_PCM_TX", NULL, "BE_IN"},
 };
 
 static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
