@@ -189,14 +189,12 @@ static enum msm_cpu cpu_of_id[] = {
 	[88] = MSM_CPU_7X25A,
 	[89] = MSM_CPU_7X25A,
 	[96] = MSM_CPU_7X25A,
-	[135] = MSM_CPU_7X25A,
 
 	/* 7x27A IDs */
 	[90] = MSM_CPU_7X27A,
 	[91] = MSM_CPU_7X27A,
 	[92] = MSM_CPU_7X27A,
 	[97] = MSM_CPU_7X27A,
-	[136] = MSM_CPU_7X27A,
 
 	/* FSM9xxx ID */
 	[94] = FSM_CPU_9XXX,
@@ -211,6 +209,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[101] = MSM_CPU_7X27AA,
 	[102] = MSM_CPU_7X27AA,
 	[103] = MSM_CPU_7X27AA,
+	[136] = MSM_CPU_7X27AA,
 
 	/* 9x15 ID */
 	[104] = MSM_CPU_9615,
@@ -255,6 +254,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[131] = MSM_CPU_7X25AB,
 	[132] = MSM_CPU_7X25AB,
 	[133] = MSM_CPU_7X25AB,
+	[135] = MSM_CPU_7X25AB,
 
 	/* 9625 IDs */
 	[134] = MSM_CPU_9625,
