@@ -310,6 +310,7 @@ struct ddl_decoder_data {
 	u32  header_in_start;
 	u32  min_dpb_num;
 	u32  y_cb_cr_size;
+	u32  yuv_size;
 	u32  dynamic_prop_change;
 	u32  dynmic_prop_change_req;
 	u32  flush_pending;

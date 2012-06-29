@@ -1087,8 +1087,39 @@ void ddl_fill_dec_desc_buffer(struct ddl_client_context *ddl)
 void ddl_set_vidc_timeout(struct ddl_client_context *ddl)
 {
 	u32 vidc_time_out = 0;
+	s32 multiplier = 1;
+	u32 temp = DDL_VIDC_1080P_200MHZ_TIMEOUT_VALUE;
+	struct ddl_decoder_data *decoder = &ddl->codec_data.decoder;
+	struct vcd_frame_data *ip_bitstream = &(ddl->input_frame.vcd_frm);
+
 	if (ddl->codec_data.decoder.idr_only_decoding)
 		vidc_time_out = 2 * DDL_VIDC_1080P_200MHZ_TIMEOUT_VALUE;
+	else {
+		vidc_time_out = DDL_VIDC_1080P_200MHZ_TIMEOUT_VALUE;
+		multiplier = decoder->yuv_size - (ip_bitstream->data_len +
+						(ip_bitstream->data_len / 2));
+		if (multiplier <= 0) {
+			multiplier = decoder->yuv_size - ip_bitstream->data_len;
+			if (multiplier <= 0) {
+				if (ip_bitstream->data_len)
+					multiplier =
+					DDL_VIDC_1080P_MAX_TIMEOUT_MULTIPLIER;
+			}
+		}
+		if (multiplier == DDL_VIDC_1080P_MAX_TIMEOUT_MULTIPLIER)
+			vidc_time_out = vidc_time_out *
+				DDL_VIDC_1080P_MAX_TIMEOUT_MULTIPLIER;
+		else if (multiplier > 1) {
+			temp = (decoder->yuv_size * 1000) / multiplier;
+			temp = (temp * vidc_time_out) / 1000;
+			if (temp > (u32)(vidc_time_out *
+				DDL_VIDC_1080P_MAX_TIMEOUT_MULTIPLIER))
+				vidc_time_out = vidc_time_out *
+					DDL_VIDC_1080P_MAX_TIMEOUT_MULTIPLIER;
+			else
+				vidc_time_out = temp;
+		}
+	}
 	DDL_MSG_HIGH("%s Video core time out value = 0x%x",
 		 __func__, vidc_time_out);
 	vidc_sm_set_video_core_timeout_value(

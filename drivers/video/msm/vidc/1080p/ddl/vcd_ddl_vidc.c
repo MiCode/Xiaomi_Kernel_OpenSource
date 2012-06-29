@@ -1077,6 +1077,7 @@ void ddl_vidc_decode_frame_run(struct ddl_client_context *ddl)
 		decoder->flush_pending = false;
 	} else
 		dec_param.dpb_flush = false;
+	ddl_set_vidc_timeout(ddl);
 	vidc_sm_set_frame_tag(&ddl->shared_mem[ddl->command_channel],
 		bit_stream->ip_frm_tag);
 	if (ddl_context->pix_cache_enable) {

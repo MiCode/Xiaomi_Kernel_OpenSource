@@ -189,6 +189,9 @@ static void parse_hdr_size_data(struct ddl_client_context *ddl,
 			&decoder->frame_size.height);
 		progressive = seq_hdr_info->dec_progressive;
 	}
+	decoder->yuv_size = decoder->frame_size.width *
+				decoder->frame_size.height;
+	decoder->yuv_size += decoder->yuv_size / 2;
 	decoder->min_dpb_num = seq_hdr_info->min_num_dpb;
 	vidc_sm_get_min_yc_dpb_sizes(
 		&ddl->shared_mem[ddl->command_channel],
@@ -1266,6 +1269,9 @@ static u32 ddl_decoder_output_done_callback(
 			decoder->frame_size =
 				 output_vcd_frm->dec_op_prop.frm_size;
 			decoder->client_frame_size = decoder->frame_size;
+			decoder->yuv_size = decoder->frame_size.width *
+						decoder->frame_size.height;
+			decoder->yuv_size += decoder->yuv_size / 2;
 			decoder->y_cb_cr_size =
 				ddl_get_yuv_buffer_size(&decoder->frame_size,
 					&decoder->buf_format,
