@@ -1527,8 +1527,19 @@ out:
 static void usb_do_remote_wakeup(struct work_struct *w)
 {
 	struct ci13xxx *udc = _udc;
+	unsigned long flags;
+	bool do_wake;
 
-	ci13xxx_wakeup(&udc->gadget);
+	/*
+	 * This work can not be canceled from interrupt handler. Check
+	 * if wakeup conditions are still met.
+	 */
+	spin_lock_irqsave(udc->lock, flags);
+	do_wake = udc->suspended && udc->remote_wakeup;
+	spin_unlock_irqrestore(udc->lock, flags);
+
+	if (do_wake)
+		ci13xxx_wakeup(&udc->gadget);
 }
 
 static ssize_t usb_remote_wakeup(struct device *dev,
@@ -1980,8 +1991,6 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	gadget->a_hnp_support = 0;
 	gadget->host_request = 0;
 	gadget->otg_srp_reqd = 0;
-
-	cancel_delayed_work_sync(&udc->rw_work);
 
 	/* flush all endpoints */
 	gadget_for_each_ep(ep, gadget) {
