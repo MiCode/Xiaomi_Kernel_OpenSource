@@ -26,7 +26,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
 
-#include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
 #include <mach/clk.h>
 #include <mach/msm_smsm.h>
@@ -73,7 +72,6 @@ struct mba_data {
 	void __iomem *rmb_base;
 	void __iomem *io_clamp_reg;
 	unsigned long metadata_phys;
-	struct pil_device *pil;
 	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
@@ -365,18 +363,12 @@ static int pil_mba_auth(struct pil_desc *pil)
 	return ret;
 }
 
-static int pil_mba_shutdown(struct pil_desc *pil)
-{
-	return 0;
-}
-
 static struct pil_reset_ops pil_mba_ops = {
 	.init_image = pil_mba_init_image,
 	.proxy_vote = pil_mba_make_proxy_votes,
 	.proxy_unvote = pil_mba_remove_proxy_votes,
 	.verify_blob = pil_mba_verify_blob,
 	.auth_and_reset = pil_mba_auth,
-	.shutdown = pil_mba_shutdown,
 };
 
 #define subsys_to_drv(d) container_of(d, struct mba_data, subsys_desc)
@@ -426,23 +418,30 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 
 static int modem_shutdown(const struct subsys_desc *subsys)
 {
-	pil_force_shutdown("modem");
-	pil_force_shutdown("mba");
+	struct mba_data *drv = subsys_to_drv(subsys);
+
+	/* MBA doesn't support shutdown */
+	pil_shutdown(&drv->q6->desc);
 	return 0;
 }
 
 static int modem_powerup(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
+	int ret;
 	/*
 	 * At this time, the modem is shutdown. Therefore this function cannot
 	 * run concurrently with either the watchdog bite error handler or the
 	 * SMSM callback, making it safe to unset the flag below.
 	 */
 	drv->ignore_errors = false;
-	pil_force_boot("mba");
-	pil_force_boot("modem");
-	return 0;
+	ret = pil_boot(&drv->q6->desc);
+	if (ret)
+		return ret;
+	ret = pil_boot(&drv->desc);
+	if (ret)
+		pil_shutdown(&drv->q6->desc);
+	return ret;
 }
 
 static void modem_crash_shutdown(const struct subsys_desc *subsys)
@@ -468,7 +467,9 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	if (!enable)
 		return 0;
 
-	pil_force_boot("mba");
+	ret = pil_boot(&drv->q6->desc);
+	if (ret)
+		return ret;
 
 	ret = do_ramdump(drv->ramdump_dev, modem_segments,
 				ARRAY_SIZE(modem_segments));
@@ -485,7 +486,7 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	}
 
 out:
-	pil_force_shutdown("mba");
+	pil_shutdown(&drv->q6->desc);
 	return ret;
 }
 
@@ -501,19 +502,23 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 
 static int mss_start(const struct subsys_desc *desc)
 {
-	void *ret;
+	int ret;
 	struct mba_data *drv = subsys_to_drv(desc);
 
-	ret = pil_get(drv->desc.name);
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	ret = pil_boot(&drv->q6->desc);
+	if (ret)
+		return ret;
+	ret = pil_boot(&drv->desc);
+	if (ret)
+		pil_shutdown(&drv->q6->desc);
+	return ret;
 }
 
 static void mss_stop(const struct subsys_desc *desc)
 {
 	struct mba_data *drv = subsys_to_drv(desc);
-	pil_put(drv->pil);
+	/* MBA doesn't support shutdown */
+	pil_shutdown(&drv->q6->desc);
 }
 
 static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
@@ -595,23 +600,20 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(q6->rom_clk))
 		return PTR_ERR(q6->rom_clk);
 
-	q6->pil = msm_pil_register(q6_desc);
-	if (IS_ERR(q6->pil))
-		return PTR_ERR(q6->pil);
+	ret = pil_desc_init(q6_desc);
+	if (ret)
+		return ret;
 
 	mba_desc = &drv->desc;
 	mba_desc->name = "modem";
-	mba_desc->depends_on = "mba";
 	mba_desc->dev = &pdev->dev;
 	mba_desc->ops = &pil_mba_ops;
 	mba_desc->owner = THIS_MODULE;
 	mba_desc->proxy_timeout = PROXY_TIMEOUT_MS;
 
-	drv->pil = msm_pil_register(mba_desc);
-	if (IS_ERR(drv->pil)) {
-		ret = PTR_ERR(drv->pil);
+	ret = pil_desc_init(mba_desc);
+	if (ret)
 		goto err_mba_desc;
-	}
 
 	drv->subsys_desc.name = "modem";
 	drv->subsys_desc.dev = &pdev->dev;
@@ -668,9 +670,9 @@ err_subsys:
 err_ramdump_smem:
 	destroy_ramdump_device(drv->ramdump_dev);
 err_ramdump:
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(mba_desc);
 err_mba_desc:
-	msm_pil_unregister(q6->pil);
+	pil_desc_release(q6_desc);
 	return ret;
 }
 
@@ -682,8 +684,8 @@ static int __devexit pil_mss_driver_exit(struct platform_device *pdev)
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->smem_ramdump_dev);
 	destroy_ramdump_device(drv->ramdump_dev);
-	msm_pil_unregister(drv->pil);
-	msm_pil_unregister(drv->q6->pil);
+	pil_desc_release(&drv->desc);
+	pil_desc_release(&drv->q6->desc);
 	return 0;
 }
 

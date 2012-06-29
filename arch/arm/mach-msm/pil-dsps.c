@@ -23,7 +23,6 @@
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
-#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -40,7 +39,6 @@
 #define PPSS_WDOG_UNMASKED_INT_EN	0x1808
 
 struct dsps_data {
-	struct pil_device *pil;
 	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
@@ -165,19 +163,15 @@ static void dsps_smsm_state_cb(void *data, uint32_t old_state,
 
 static int dsps_start(const struct subsys_desc *desc)
 {
-	void *ret;
 	struct dsps_data *drv = desc_to_drv(desc);
 
-	ret = pil_get(drv->desc.name);
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->desc);
 }
 
 static void dsps_stop(const struct subsys_desc *desc)
 {
 	struct dsps_data *drv = desc_to_drv(desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->desc);
 }
 
 static int dsps_shutdown(const struct subsys_desc *desc)
@@ -188,7 +182,7 @@ static int dsps_shutdown(const struct subsys_desc *desc)
 		writel_relaxed(0, drv->ppss_base + PPSS_WDOG_UNMASKED_INT_EN);
 		mb(); /* Make sure wdog is disabled before shutting down */
 	}
-	pil_force_shutdown(drv->desc.name);
+	pil_shutdown(&drv->desc);
 	return 0;
 }
 
@@ -196,7 +190,7 @@ static int dsps_powerup(const struct subsys_desc *desc)
 {
 	struct dsps_data *drv = desc_to_drv(desc);
 
-	pil_force_boot(drv->desc.name);
+	pil_boot(&drv->desc);
 	atomic_set(&drv->crash_in_progress, 0);
 	enable_irq(drv->wdog_irq);
 
@@ -280,9 +274,9 @@ static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 		desc->ops = &pil_dsps_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
+	ret = pil_desc_init(desc);
+	if (ret)
+		return ret;
 
 	drv->fw_ramdump_segments[0].address = 0x12000000;
 	drv->fw_ramdump_segments[0].size = 0x28000;
@@ -350,7 +344,7 @@ err_subsys:
 err_smem_ramdump:
 	destroy_ramdump_device(drv->ramdump_dev);
 err_ramdump:
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(desc);
 	return ret;
 }
 
@@ -362,7 +356,7 @@ static int __devexit pil_dsps_driver_exit(struct platform_device *pdev)
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->smem_ramdump_dev);
 	destroy_ramdump_device(drv->ramdump_dev);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->desc);
 	return 0;
 }
 

@@ -31,7 +31,6 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
 #include <mach/subsystem_restart.h>
-#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -69,7 +68,7 @@ struct gss_data {
 	void __iomem *qgic2_base;
 	unsigned long start_addr;
 	struct clk *xo;
-	struct pil_device *pil;
+	struct pil_desc pil_desc;
 	struct miscdevice misc_dev;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
@@ -373,14 +372,10 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 
 static int gss_start(const struct subsys_desc *desc)
 {
-	void *ret;
 	struct gss_data *drv;
 
 	drv = container_of(desc, struct gss_data, subsys_desc);
-	ret = pil_get("gss");
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->pil_desc);
 }
 
 static void gss_stop(const struct subsys_desc *desc)
@@ -388,14 +383,14 @@ static void gss_stop(const struct subsys_desc *desc)
 	struct gss_data *drv;
 
 	drv = container_of(desc, struct gss_data, subsys_desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->pil_desc);
 }
 
 static int gss_shutdown(const struct subsys_desc *desc)
 {
 	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
 
-	pil_force_shutdown("gss");
+	pil_shutdown(&drv->pil_desc);
 	disable_irq_nosync(drv->irq);
 
 	return 0;
@@ -405,7 +400,7 @@ static int gss_powerup(const struct subsys_desc *desc)
 {
 	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
 
-	pil_force_boot("gss");
+	pil_boot(&drv->pil_desc);
 	enable_irq(drv->irq);
 	return 0;
 }
@@ -512,9 +507,7 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	if (!drv->base)
 		return -ENOMEM;
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
+	desc = &drv->pil_desc;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res)
@@ -545,13 +538,12 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 		desc->ops = &pil_gss_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
+	ret = pil_desc_init(desc);
+	if (ret)
+		return ret;
+
 	/* Force into low power mode because hardware doesn't do this */
 	desc->ops->shutdown(desc);
-
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil)) {
-		return PTR_ERR(drv->pil);
-	}
 
 	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
 			smsm_state_cb, drv);
@@ -607,7 +599,7 @@ err_ramdump:
 err_misc:
 	subsys_unregister(drv->subsys);
 err_subsys:
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(desc);
 	return ret;
 }
 
@@ -619,7 +611,7 @@ static int __devexit pil_gss_remove(struct platform_device *pdev)
 	destroy_ramdump_device(drv->ramdump_dev);
 	misc_deregister(&drv->misc_dev);
 	subsys_unregister(drv->subsys);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->pil_desc);
 
 	return 0;
 }

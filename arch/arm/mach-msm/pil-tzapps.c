@@ -16,14 +16,13 @@
 #include <linux/elf.h>
 #include <linux/err.h>
 
-#include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
 
 struct tzapps_data {
-	struct pil_device *pil;
+	struct pil_desc pil_desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 };
@@ -54,44 +53,39 @@ static struct pil_reset_ops pil_tzapps_ops = {
 
 static int tzapps_start(const struct subsys_desc *desc)
 {
-	void *ret;
+	struct tzapps_data *drv = subsys_to_drv(desc);
 
-	ret = pil_get("tzapps");
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->pil_desc);
 }
 
 static void tzapps_stop(const struct subsys_desc *desc)
 {
 	struct tzapps_data *drv = subsys_to_drv(desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->pil_desc);
 }
 
 static int __devinit pil_tzapps_driver_probe(struct platform_device *pdev)
 {
 	struct pil_desc *desc;
 	struct tzapps_data *drv;
+	int ret;
 
 	if (pas_supported(PAS_TZAPPS) < 0)
 		return -ENOSYS;
-
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
 
+	desc = &drv->pil_desc;
 	desc->name = "tzapps";
 	desc->dev = &pdev->dev;
 	desc->ops = &pil_tzapps_ops;
 	desc->owner = THIS_MODULE;
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
+	ret = pil_desc_init(desc);
+	if (ret)
+		return ret;
 
 	drv->subsys_desc.name = "tzapps";
 	drv->subsys_desc.dev = &pdev->dev;
@@ -101,7 +95,7 @@ static int __devinit pil_tzapps_driver_probe(struct platform_device *pdev)
 
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
-		msm_pil_unregister(drv->pil);
+		pil_desc_release(desc);
 		return PTR_ERR(drv->subsys);
 	}
 	return 0;
@@ -111,7 +105,7 @@ static int __devexit pil_tzapps_driver_exit(struct platform_device *pdev)
 {
 	struct tzapps_data *drv = platform_get_drvdata(pdev);
 	subsys_unregister(drv->subsys);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->pil_desc);
 	return 0;
 }
 

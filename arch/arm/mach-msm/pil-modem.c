@@ -26,7 +26,6 @@
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
-#include <mach/peripheral-loader.h>
 
 #include "modem_notifier.h"
 #include "peripheral-loader.h"
@@ -65,6 +64,7 @@ struct modem_data {
 	struct notifier_block notifier;
 	int ignore_smsm_ack;
 	int irq;
+	struct pil_desc pil_desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	struct delayed_work unlock_work;
@@ -344,14 +344,10 @@ static int modem_notif_handler(struct notifier_block *nb, unsigned long code,
 
 static int modem_start(const struct subsys_desc *subsys)
 {
-	void *ret;
 	struct modem_data *drv;
 
 	drv = container_of(subsys, struct modem_data, subsys_desc);
-	ret = pil_get("modem");
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->pil_desc);
 }
 
 static void modem_stop(const struct subsys_desc *subsys)
@@ -359,7 +355,7 @@ static void modem_stop(const struct subsys_desc *subsys)
 	struct modem_data *drv;
 
 	drv = container_of(subsys, struct modem_data, subsys_desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->pil_desc);
 }
 
 static int modem_shutdown(const struct subsys_desc *subsys)
@@ -389,7 +385,7 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 	/* Wait here to allow the modem to clean up caches, etc. */
 	msleep(20);
 
-	pil_force_shutdown("modem");
+	pil_shutdown(&drv->pil_desc);
 	disable_irq_nosync(drv->irq);
 
 	return 0;
@@ -401,7 +397,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	int ret;
 
 	drv = container_of(subsys, struct modem_data, subsys_desc);
-	ret = pil_force_boot("modem");
+	ret = pil_boot(&drv->pil_desc);
 	enable_irq(drv->irq);
 
 	return ret;
@@ -452,10 +448,6 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->xo))
 		return PTR_ERR(drv->xo);
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res)
 		return -EINVAL;
@@ -464,8 +456,8 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 	if (!drv->wdog)
 		return -ENOMEM;
 
+	desc = &drv->pil_desc;
 	desc->name = "modem";
-	desc->depends_on = "q6";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = 10000;
@@ -477,9 +469,9 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 		desc->ops = &pil_modem_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
+	ret = pil_desc_init(desc);
+	if (ret)
+		return ret;
 
 	drv->notifier.notifier_call = modem_notif_handler,
 	ret = modem_register_notifier(&drv->notifier);
@@ -525,7 +517,7 @@ err_ramdump:
 err_subsys:
 	modem_unregister_notifier(&drv->notifier);
 err_notify:
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(desc);
 	return ret;
 }
 
@@ -536,7 +528,7 @@ static int __devexit pil_modem_driver_exit(struct platform_device *pdev)
 	destroy_ramdump_device(drv->ramdump_dev);
 	subsys_unregister(drv->subsys);
 	modem_unregister_notifier(&drv->notifier);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->pil_desc);
 
 	return 0;
 }

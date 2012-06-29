@@ -23,7 +23,6 @@
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
-#include <mach/peripheral-loader.h>
 
 #include "smd_private.h"
 #include "ramdump.h"
@@ -173,20 +172,26 @@ static void restart_modem(struct q6v4_modem *drv)
 static int modem_start(const struct subsys_desc *desc)
 {
 	struct q6v4_modem *drv = desc_to_modem(desc);
+	int ret = 0;
 
 	if (drv->loadable) {
-		drv->pil = pil_get("modem");
-		if (IS_ERR(drv->pil))
-			return PTR_ERR(drv->pil);
+		ret = pil_boot(&drv->q6_fw.desc);
+		if (ret)
+			return ret;
+		ret = pil_boot(&drv->q6_sw.desc);
+		if (ret)
+			pil_shutdown(&drv->q6_fw.desc);
 	}
-	return 0;
+	return ret;
 }
 
 static void modem_stop(const struct subsys_desc *desc)
 {
 	struct q6v4_modem *drv = desc_to_modem(desc);
-	if (drv->loadable)
-		pil_put(drv->pil);
+	if (drv->loadable) {
+		pil_shutdown(&drv->q6_sw.desc);
+		pil_shutdown(&drv->q6_fw.desc);
+	}
 }
 
 static int modem_shutdown(const struct subsys_desc *subsys)
@@ -199,8 +204,8 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 	mb();
 
 	if (drv->loadable) {
-		pil_force_shutdown("modem");
-		pil_force_shutdown("modem_fw");
+		pil_shutdown(&drv->q6_sw.desc);
+		pil_shutdown(&drv->q6_fw.desc);
 	}
 
 	disable_irq_nosync(drv->q6_fw.wdog_irq);
@@ -212,10 +217,17 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 static int modem_powerup(const struct subsys_desc *subsys)
 {
 	struct q6v4_modem *drv = desc_to_modem(subsys);
+	int ret;
 
 	if (drv->loadable) {
-		pil_force_boot("modem_fw");
-		pil_force_boot("modem");
+		ret = pil_boot(&drv->q6_fw.desc);
+		if (ret)
+			return ret;
+		ret = pil_boot(&drv->q6_sw.desc);
+		if (ret) {
+			pil_shutdown(&drv->q6_fw.desc);
+			return ret;
+		}
 	}
 	enable_irq(drv->q6_fw.wdog_irq);
 	enable_irq(drv->q6_sw.wdog_irq);
@@ -404,15 +416,13 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 		if (!drv->modem_base)
 			return -ENOMEM;
 
-		drv_fw->pil = msm_pil_register(&drv_fw->desc);
-		if (IS_ERR(drv_fw->pil))
-			return PTR_ERR(drv_fw->pil);
+		ret = pil_desc_init(&drv_fw->desc);
+		if (ret)
+			return ret;
 
-		drv_sw->pil = msm_pil_register(&drv_sw->desc);
-		if (IS_ERR(drv_sw->pil)) {
-			ret = PTR_ERR(drv_sw->pil);
+		ret = pil_desc_init(&drv_sw->desc);
+		if (ret)
 			goto err_pil_sw;
-		}
 	}
 
 	drv->subsys_desc.name = "modem";
@@ -480,9 +490,9 @@ err_sw_ramdump:
 	destroy_ramdump_device(drv->fw_ramdump_dev);
 err_fw_ramdump:
 	if (drv->loadable)
-		msm_pil_unregister(drv_sw->pil);
+		pil_desc_release(&drv_sw->desc);
 err_pil_sw:
-	msm_pil_unregister(drv_fw->pil);
+	pil_desc_release(&drv_fw->desc);
 	return ret;
 }
 
@@ -497,8 +507,8 @@ static int __devexit pil_q6v4_modem_driver_exit(struct platform_device *pdev)
 	destroy_ramdump_device(drv->sw_ramdump_dev);
 	destroy_ramdump_device(drv->fw_ramdump_dev);
 	if (drv->loadable) {
-		msm_pil_unregister(drv->q6_sw.pil);
-		msm_pil_unregister(drv->q6_fw.pil);
+		pil_desc_release(&drv->q6_sw.desc);
+		pil_desc_release(&drv->q6_fw.desc);
 	}
 	return 0;
 }

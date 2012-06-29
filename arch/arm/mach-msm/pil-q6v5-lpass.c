@@ -26,7 +26,6 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/scm.h>
-#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -286,7 +285,7 @@ static int adsp_shutdown(const struct subsys_desc *subsys)
 	send_q6_nmi();
 	/* The write needs to go through before the q6 is shutdown. */
 	mb();
-	pil_force_shutdown("adsp");
+	pil_shutdown(&drv->q6->desc);
 	disable_irq_nosync(drv->wdog_irq);
 
 	return 0;
@@ -302,7 +301,7 @@ static int adsp_powerup(const struct subsys_desc *subsys)
 		msleep(10000);
 	}
 
-	ret = pil_force_boot("adsp");
+	ret = pil_boot(&drv->q6->desc);
 	enable_irq(drv->wdog_irq);
 
 	return ret;
@@ -339,19 +338,15 @@ static irqreturn_t adsp_wdog_bite_irq(int irq, void *dev_id)
 
 static int lpass_start(const struct subsys_desc *desc)
 {
-	void *ret;
 	struct lpass_data *drv = subsys_to_drv(desc);
 
-	ret = pil_get(drv->q6->desc.name);
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->q6->desc);
 }
 
 static void lpass_stop(const struct subsys_desc *desc)
 {
 	struct lpass_data *drv = subsys_to_drv(desc);
-	pil_put(drv->q6->pil);
+	pil_shutdown(&drv->q6->desc);
 }
 
 static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
@@ -403,9 +398,9 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
-	drv->q6->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->q6->pil))
-		return PTR_ERR(drv->q6->pil);
+	ret = pil_desc_init(desc);
+	if (ret)
+		return ret;
 
 	drv->subsys_desc.name = desc->name;
 	drv->subsys_desc.owner = THIS_MODULE;
@@ -464,7 +459,7 @@ err_irq:
 err_subsys:
 	destroy_ramdump_device(drv->ramdump_dev);
 err_ramdump:
-	msm_pil_unregister(drv->q6->pil);
+	pil_desc_release(desc);
 	return 0;
 }
 
@@ -477,7 +472,7 @@ static int __devexit pil_lpass_driver_exit(struct platform_device *pdev)
 			adsp_smsm_state_cb, drv);
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->ramdump_dev);
-	msm_pil_unregister(drv->q6->pil);
+	pil_desc_release(&drv->q6->desc);
 	return 0;
 }
 

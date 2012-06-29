@@ -29,7 +29,6 @@
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
 #include <mach/subsystem_restart.h>
-#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -67,7 +66,7 @@ static const char * const clk_names[] = {
 struct venus_data {
 	void __iomem *venus_wrapper_base;
 	void __iomem *venus_vbif_base;
-	struct pil_device *pil;
+	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	struct regulator *gdsc;
@@ -389,19 +388,15 @@ static struct pil_reset_ops pil_venus_ops_trusted = {
 
 static int venus_start(const struct subsys_desc *desc)
 {
-	void *ret;
 	struct venus_data *drv = subsys_to_drv(desc);
 
-	ret = pil_get(drv->subsys_desc.name);
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->desc);
 }
 
 static void venus_stop(const struct subsys_desc *desc)
 {
 	struct venus_data *drv = subsys_to_drv(desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->desc);
 }
 
 static int __devinit pil_venus_probe(struct platform_device *pdev)
@@ -486,10 +481,7 @@ static int __devinit pil_venus_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
-
+	desc = &drv->desc;
 	rc = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
 				      &desc->name);
 	if (rc)
@@ -507,9 +499,9 @@ static int __devinit pil_venus_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
+	rc = pil_desc_init(desc);
+	if (rc)
+		return rc;
 
 	drv->subsys_desc.name = desc->name;
 	drv->subsys_desc.owner = THIS_MODULE;
@@ -519,7 +511,7 @@ static int __devinit pil_venus_probe(struct platform_device *pdev)
 
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
-		msm_pil_unregister(drv->pil);
+		pil_desc_release(desc);
 		return PTR_ERR(drv->subsys);
 	}
 
@@ -530,7 +522,7 @@ static int __devexit pil_venus_remove(struct platform_device *pdev)
 {
 	struct venus_data *drv = platform_get_drvdata(pdev);
 	subsys_unregister(drv->subsys);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->desc);
 
 	return 0;
 }
