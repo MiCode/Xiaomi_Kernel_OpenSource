@@ -13,19 +13,20 @@ The required nodes for lpm-resources are:
 
 - compatible: "qcom,lpm-resources"
 - reg: The numeric level id
-- qcom,name: The name of the low power resource.
-- qcom,type: The string represeting the type of resource used
-             like smps or pxo.
+- qcom,name: The name of the low power resource represented
+             as a string.
+- qcom,type: The type of resource used like smps or pxo
+             represented as a hex value.
 - qcom,id: The id representing a device within a resource type.
 - qcom,key: The key is the specific attribute of the resource being
-            monitored.
+            monitored represented as a hex value.
 
 Example:
             qcom,lpm-resources@0 {
                         reg = <0x0>;
                         qcom,name = "vdd-dig";
-                        qcom,type = "smpb\0";
+                        qcom,type = <0x62706d73>;   /* "smpb" */
                         qcom,id = <0x02>;
-                        qcom,key = "uv\0\0";
+                        qcom,key = <0x6e726f63>;   /* "corn" */
                 };
 
