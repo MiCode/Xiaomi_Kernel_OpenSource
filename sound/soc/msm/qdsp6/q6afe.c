@@ -376,11 +376,10 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 	if ((afe_cal_addr[path].cal_paddr != cal_block.cal_paddr) ||
 		(cal_block.cal_size > afe_cal_addr[path].cal_size)) {
 		if (afe_cal_addr[path].cal_paddr != 0)
-			afe_cmd_memory_unmap_nowait(
+			afe_cmd_memory_unmap(
 				afe_cal_addr[path].cal_paddr);
 
-		afe_cmd_memory_map_nowait(cal_block.cal_paddr,
-						cal_block.cal_size);
+		afe_cmd_memory_map(cal_block.cal_paddr, cal_block.cal_size);
 		afe_cal_addr[path].cal_paddr = cal_block.cal_paddr;
 		afe_cal_addr[path].cal_size = cal_block.cal_size;
 	}
@@ -400,10 +399,19 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 		"cal size = %d, cal addr = 0x%x\n", __func__,
 		port_id, path, cal_block.cal_size, cal_block.cal_paddr);
 
+	atomic_set(&this_afe.state, 1);
 	result = apr_send_pkt(this_afe.apr, (uint32_t *) &afe_cal);
 	if (result < 0) {
 		pr_err("%s: AFE cal for port %d failed\n",
 			__func__, port_id);
+	}
+
+	result = wait_event_timeout(this_afe.wait,
+				 (atomic_read(&this_afe.state) == 0),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!result) {
+		pr_err("%s: wait_event timeout SET AFE CAL\n", __func__);
+		goto done;
 	}
 
 	pr_debug("%s: AFE cal sent for path %d device!\n", __func__, path);
@@ -421,8 +429,11 @@ void afe_send_cal(u16 port_id)
 		afe_send_cal_block(RX_CAL, port_id);
 }
 
-int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
-	u32 rate) /* This function is no blocking */
+/* This function sends multi-channel HDMI configuration command and AFE
+ * calibration which is only supported by QDSP6 on 8960 and onward.
+ */
+int afe_port_start(u16 port_id, union afe_port_config *afe_config,
+		   u32 rate)
 {
 	struct afe_port_start_command start;
 	struct afe_audioif_config_command config;
@@ -442,11 +453,9 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		(port_id == RT_PROXY_DAI_001_TX))
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 
-	if (this_afe.apr == NULL) {
-		pr_err("%s: AFE APR is not registered\n", __func__);
-		ret = -ENODEV;
+	ret = afe_q6_interface_prepare();
+	if (IS_ERR_VALUE(ret))
 		return ret;
-	}
 
 	if (port_id == HDMI_RX) {
 		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -513,10 +522,27 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 	config.port_id = port_id;
 	config.port = *afe_config;
 
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
 	if (ret < 0) {
 		pr_err("%s: AFE enable for port %d failed\n", __func__,
 				port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout IF CONFIG\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -535,11 +561,21 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 	start.gain = 0x2000;
 	start.sample_rate = rate;
 
+	atomic_set(&this_afe.state, 1);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &start);
 
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("%s: AFE enable for port %d failed\n", __func__,
 				port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout PORT START\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -555,6 +591,7 @@ fail_cmd:
 	return ret;
 }
 
+/* This function should be used by 8660 exclusively */
 int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
 {
 	struct afe_port_start_command start;
