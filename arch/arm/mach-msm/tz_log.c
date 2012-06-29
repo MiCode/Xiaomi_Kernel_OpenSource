@@ -536,12 +536,19 @@ static int tz_log_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id tzlog_match[] = {
+	{	.compatible = "qcom,tz-log",
+	},
+	{}
+};
+
 static struct platform_driver tz_log_driver = {
 	.probe		= tz_log_probe,
 	.remove		= tz_log_remove,
 	.driver		= {
 		.name = "tz_log",
 		.owner = THIS_MODULE,
+		.of_match_table = tzlog_match,
 	},
 };
 
