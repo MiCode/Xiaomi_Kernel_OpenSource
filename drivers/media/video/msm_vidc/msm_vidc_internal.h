@@ -19,6 +19,8 @@
 #include <linux/types.h>
 #include <linux/completion.h>
 #include <linux/clk.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -146,16 +148,23 @@ struct core_clock {
 	struct load_freq_table load_freq_tbl[8];
 };
 
+struct vidc_bus_info {
+	u32 vcodec_handle;
+	u32 ocmem_handle;
+};
+
 struct msm_vidc_resources {
 	struct msm_vidc_fw fw;
 	struct iommu_info io_map[MAX_MAP];
 	struct core_clock clock[VCODEC_MAX_CLKS];
+	struct vidc_bus_info bus_info;
 };
 
 struct session_prop {
 	u32 width;
 	u32 height;
 	u32 fps;
+	u32 bitrate;
 };
 
 struct msm_vidc_core {

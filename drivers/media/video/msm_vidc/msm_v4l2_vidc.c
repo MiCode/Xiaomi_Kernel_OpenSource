@@ -32,6 +32,129 @@
 #define BASE_DEVICE_NUMBER 32
 #define MAX_EVENTS 30
 
+
+static struct msm_bus_vectors ocmem_init_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors ocmem_perf0_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 176900000,
+		.ib = 221125000,
+	},
+};
+
+static struct msm_bus_vectors ocmem_perf1_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 456200000,
+		.ib = 570250000,
+	},
+};
+
+static struct msm_bus_vectors ocmem_perf2_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 864800000,
+		.ib = 1081000000,
+	},
+};
+
+static struct msm_bus_paths ocmem_perf_vectors[]  = {
+	{
+		ARRAY_SIZE(ocmem_init_vectors),
+		ocmem_init_vectors,
+	},
+	{
+		ARRAY_SIZE(ocmem_perf0_vectors),
+		ocmem_perf0_vectors,
+	},
+	{
+		ARRAY_SIZE(ocmem_perf1_vectors),
+		ocmem_perf1_vectors,
+	},
+	{
+		ARRAY_SIZE(ocmem_perf2_vectors),
+		ocmem_perf2_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata ocmem_bus_data = {
+	.usecase = ocmem_perf_vectors,
+	.num_usecases = ARRAY_SIZE(ocmem_perf_vectors),
+	.name = "msm_vidc_ocmem",
+};
+
+static struct msm_bus_vectors vcodec_init_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors vcodec_perf0_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 110000000,
+		.ib = 137500000,
+	},
+};
+
+static struct msm_bus_vectors vcodec_perf1_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 268000000,
+		.ib = 335000000,
+	},
+};
+
+static struct msm_bus_vectors vcodec_perf2_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 505000000,
+		.ib = 631250000,
+	},
+};
+
+static struct msm_bus_paths vcodec_perf_vectors[]  = {
+	{
+		ARRAY_SIZE(vcodec_init_vectors),
+		vcodec_init_vectors,
+	},
+	{
+		ARRAY_SIZE(vcodec_perf0_vectors),
+		vcodec_perf0_vectors,
+	},
+	{
+		ARRAY_SIZE(vcodec_perf1_vectors),
+		vcodec_perf1_vectors,
+	},
+	{
+		ARRAY_SIZE(vcodec_perf2_vectors),
+		vcodec_perf2_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata vcodec_bus_data = {
+	.usecase = vcodec_perf_vectors,
+	.num_usecases = ARRAY_SIZE(vcodec_perf_vectors),
+	.name = "msm_vidc_vcodec",
+};
+
 struct msm_vidc_drv *vidc_driver;
 
 struct buffer_info {
@@ -613,6 +736,18 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 		rc = -ENODEV;
 		goto core_init_failed;
 	}
+	core->resources.bus_info.vcodec_handle =
+		msm_bus_scale_register_client(&vcodec_bus_data);
+	if (!core->resources.bus_info.vcodec_handle) {
+		pr_err("Failed to register bus scale client\n");
+		goto fail_register_vcodec_bus;
+	}
+	core->resources.bus_info.ocmem_handle =
+		msm_bus_scale_register_client(&ocmem_bus_data);
+	if (!core->resources.bus_info.ocmem_handle) {
+		pr_err("Failed to register bus scale client\n");
+		goto fail_register_ocmem;
+	}
 	rc = register_iommu_domains(pdev, core);
 	if (rc) {
 		pr_err("Failed to register iommu domains: %d\n", rc);
@@ -620,6 +755,12 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	}
 	return rc;
 fail_register_domains:
+	msm_bus_scale_unregister_client(
+		core->resources.bus_info.ocmem_handle);
+fail_register_ocmem:
+	msm_bus_scale_unregister_client(
+		core->resources.bus_info.vcodec_handle);
+fail_register_vcodec_bus:
 	msm_vidc_deinit_clocks(core);
 core_init_failed:
 	return rc;
@@ -714,6 +855,8 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_vidc_core *core = pdev->dev.platform_data;
+	msm_bus_scale_unregister_client(core->resources.bus_info.vcodec_handle);
+	msm_bus_scale_unregister_client(core->resources.bus_info.ocmem_handle);
 	vidc_hal_delete_device(core->device);
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);

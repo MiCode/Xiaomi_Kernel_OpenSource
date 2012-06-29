@@ -38,6 +38,89 @@
 	(__height >> 4) * (__width >> 4) * __fps; \
 })
 
+#define VIDC_BUS_LOAD(__height, __width, __fps, __br) ({\
+	__height * __width * __fps; \
+})
+
+/*While adding entries to this array make sure
+ * they are in descending order.
+ * Look @ msm_comm_get_load function*/
+static const u32 clocks_table[][2] = {
+	{979200, 410000000},
+	{560145, 266670000},
+	{421161, 200000000},
+	{243000, 133330000},
+	{108000, 100000000},
+	{36000, 50000000},
+};
+
+static const u32 bus_table[] = {
+	0,
+	9216000,
+	27648000,
+	62208000,
+};
+
+static int msm_comm_get_bus_load(struct msm_vidc_core *core)
+{
+	struct msm_vidc_inst *inst = NULL;
+	int load = 0;
+	if (!core) {
+		pr_err("Invalid args: %p\n", core);
+		return -EINVAL;
+	}
+	list_for_each_entry(inst, &core->instances, list) {
+		load += VIDC_BUS_LOAD(inst->prop.height,
+				inst->prop.width, inst->prop.fps,
+				2000000);
+	}
+	return load;
+}
+
+static int get_bus_vector(int load)
+{
+	int num_rows = sizeof(bus_table)/(sizeof(u32));
+	int i;
+	for (i = num_rows - 1; i > 0; i--) {
+		if ((load >= bus_table[i]) || (i == 1))
+			break;
+	}
+	pr_err("Required bus = %d\n", i);
+	return i;
+}
+
+int msm_comm_scale_bus(struct msm_vidc_core *core)
+{
+	int load;
+	int rc = 0;
+	if (!core) {
+		pr_err("Invalid args: %p\n", core);
+		return -EINVAL;
+	}
+	load = msm_comm_get_bus_load(core);
+	if (load <= 0) {
+		pr_err("Failed to scale bus for %d load\n",
+			load);
+		goto fail_scale_bus;
+	}
+	rc = msm_bus_scale_client_update_request(
+			core->resources.bus_info.vcodec_handle,
+			get_bus_vector(load));
+	if (rc) {
+		pr_err("Failed to scale bus: %d\n", rc);
+		goto fail_scale_bus;
+	}
+	rc = msm_bus_scale_client_update_request(
+			core->resources.bus_info.ocmem_handle,
+			get_bus_vector(load));
+	if (rc) {
+		pr_err("Failed to scale bus: %d\n", rc);
+		goto fail_scale_bus;
+	}
+fail_scale_bus:
+	return rc;
+}
+
 static int msm_comm_get_load(struct msm_vidc_core *core)
 {
 	struct msm_vidc_inst *inst = NULL;
@@ -564,6 +647,9 @@ int msm_comm_scale_clocks(struct msm_vidc_core *core)
 		pr_err("Failed to set clock rate: %d\n", rc);
 		goto fail_clk_set_rate;
 	}
+	rc = msm_comm_scale_bus(core);
+	if (rc)
+		pr_err("Failed to scale bus bandwidth\n");
 fail_clk_set_rate:
 	return rc;
 }
