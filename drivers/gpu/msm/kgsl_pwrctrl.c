@@ -121,7 +121,7 @@ static int __gpuclk_store(int max, struct device *dev,
 		return count;
 
 	mutex_lock(&device->mutex);
-	for (i = 0; i < pwr->num_pwrlevels; i++) {
+	for (i = 0; i < pwr->num_pwrlevels - 1; i++) {
 		if (abs(pwr->pwrlevels[i].gpu_freq - val) < delta) {
 			if (max)
 				pwr->thermal_pwrlevel = i;
@@ -129,7 +129,7 @@ static int __gpuclk_store(int max, struct device *dev,
 		}
 	}
 
-	if (i == pwr->num_pwrlevels)
+	if (i == (pwr->num_pwrlevels - 1))
 		goto done;
 
 	/*
