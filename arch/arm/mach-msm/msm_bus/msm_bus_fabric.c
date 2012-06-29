@@ -163,17 +163,18 @@ static int register_fabric_info(struct platform_device *pdev,
 				info->nodeclk[ctx].enable = false;
 				info->nodeclk[ctx].dirty = false;
 			}
-		}
-		if (info->node_info->memclk) {
-			info->memclk.clk = clk_get_sys("msm_bus",
-					info->node_info->memclk);
-			if (IS_ERR(info->memclk.clk)) {
-				MSM_BUS_ERR("Couldn't get clk %s\n",
-					info->node_info->memclk);
-				err = -EINVAL;
+
+			if (info->node_info->memclk[ctx]) {
+				info->memclk[ctx].clk = clk_get_sys("msm_bus",
+						info->node_info->memclk[ctx]);
+				if (IS_ERR(info->memclk[ctx].clk)) {
+					MSM_BUS_ERR("Couldn't get clk %s\n",
+						info->node_info->memclk[ctx]);
+					err = -EINVAL;
+				}
+				info->memclk[ctx].enable = false;
+				info->memclk[ctx].dirty = false;
 			}
-			info->memclk.enable = false;
-			info->memclk.dirty = false;
 		}
 
 		ret = info->node_info->gateway ?
@@ -316,13 +317,13 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 				nodeclk->rate = rate;
 			}
 		}
-		if (!status && slave->memclk.clk) {
+		if (!status && slave->memclk[ctx].clk) {
 			rate = *slave->link_info.sel_clk;
-			if (slave->memclk.rate != rate) {
-				slave->memclk.rate = rate;
-				slave->memclk.dirty = true;
+			if (slave->memclk[ctx].rate != rate) {
+				slave->memclk[ctx].rate = rate;
+				slave->memclk[ctx].dirty = true;
 			}
-			slave->memclk.rate = rate;
+			slave->memclk[ctx].rate = rate;
 			fabric->clk_dirty = true;
 		}
 	}
@@ -361,7 +362,7 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 static int msm_bus_fabric_clk_set(int enable, struct msm_bus_inode_info *info)
 {
 	int i, status = 0;
-	for (i = 0; i < NUM_CTX; i++)
+	for (i = 0; i < NUM_CTX; i++) {
 		if (info->nodeclk[i].dirty) {
 			status = clk_set_rate(info->nodeclk[i].clk, info->
 				nodeclk[i].rate);
@@ -377,17 +378,19 @@ static int msm_bus_fabric_clk_set(int enable, struct msm_bus_inode_info *info)
 			}
 		}
 
-	if (info->memclk.dirty) {
-		status = clk_set_rate(info->memclk.clk, info->memclk.rate);
-		if (enable && !(info->memclk.enable)) {
-			clk_prepare_enable(info->memclk.clk);
-			info->memclk.dirty = false;
-			info->memclk.enable = true;
-		} else if (info->memclk.rate == 0 && (!enable) &&
-			(info->memclk.enable)) {
-			clk_disable_unprepare(info->memclk.clk);
-			info->memclk.dirty = false;
-			info->memclk.enable = false;
+		if (info->memclk[i].dirty) {
+			status = clk_set_rate(info->memclk[i].clk, info->
+				memclk[i].rate);
+			if (enable && !(info->memclk[i].enable)) {
+				clk_prepare_enable(info->memclk[i].clk);
+				info->memclk[i].dirty = false;
+				info->memclk[i].enable = true;
+			} else if (info->memclk[i].rate == 0 && (!enable) &&
+				(info->memclk[i].enable)) {
+				clk_disable_unprepare(info->memclk[i].clk);
+				info->memclk[i].dirty = false;
+				info->memclk[i].enable = false;
+			}
 		}
 	}
 
