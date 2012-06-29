@@ -64,7 +64,8 @@ static struct scalable scalable[] = {
 		.vreg[VREG_CORE] = { "krait0",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait0_mem", 1050000 },
 		.vreg[VREG_DIG]  = { "krait0_dig", LVL_HIGH },
-		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1800000 },
+		.vreg[VREG_HFPLL_A] = { "krait0_hfpll_a", 2150000 },
+		.vreg[VREG_HFPLL_B] = { "krait0_hfpll_b", 1800000 },
 	},
 	[CPU1] = {
 		.hfpll_phys_base = 0xF909A000,
@@ -73,7 +74,8 @@ static struct scalable scalable[] = {
 		.vreg[VREG_CORE] = { "krait1",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait1_mem", 1050000 },
 		.vreg[VREG_DIG]  = { "krait1_dig", LVL_HIGH },
-		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1800000 },
+		.vreg[VREG_HFPLL_A] = { "krait1_hfpll_a", 2150000 },
+		.vreg[VREG_HFPLL_B] = { "krait1_hfpll_b", 1800000 },
 	},
 	[CPU2] = {
 		.hfpll_phys_base = 0xF90AA000,
@@ -82,7 +84,8 @@ static struct scalable scalable[] = {
 		.vreg[VREG_CORE] = { "krait2",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait2_mem", 1050000 },
 		.vreg[VREG_DIG]  = { "krait2_dig", LVL_HIGH },
-		.vreg[VREG_HFPLL_A] = { "krait2_hfpll", 1800000 },
+		.vreg[VREG_HFPLL_A] = { "krait2_hfpll_a", 2150000 },
+		.vreg[VREG_HFPLL_B] = { "krait2_hfpll_b", 1800000 },
 	},
 	[CPU3] = {
 		.hfpll_phys_base = 0xF90BA000,
@@ -91,13 +94,15 @@ static struct scalable scalable[] = {
 		.vreg[VREG_CORE] = { "krait3",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait3_mem", 1050000 },
 		.vreg[VREG_DIG]  = { "krait3_dig", LVL_HIGH },
-		.vreg[VREG_HFPLL_A] = { "krait3_hfpll", 1800000 },
+		.vreg[VREG_HFPLL_A] = { "krait3_hfpll_a", 2150000 },
+		.vreg[VREG_HFPLL_B] = { "krait3_hfpll_b", 1800000 },
 	},
 	[L2] = {
 		.hfpll_phys_base = 0xF9016000,
 		.hfpll_data = &hfpll_data_l2,
 		.l2cpmr_iaddr = 0x0500,
-		.vreg[VREG_HFPLL_A] = { "l2_hfpll", 1800000 },
+		.vreg[VREG_HFPLL_A] = { "l2_hfpll_a", 2150000 },
+		.vreg[VREG_HFPLL_B] = { "l2_hfpll_b", 1800000 },
 	},
 };
 
