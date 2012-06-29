@@ -14,6 +14,7 @@
 
 struct device;
 struct module;
+struct pil_priv;
 
 /**
  * struct pil_desc - PIL descriptor
@@ -23,6 +24,7 @@ struct module;
  * @ops: callback functions
  * @owner: module the descriptor belongs to
  * @proxy_timeout: delay in ms until proxy vote is removed
+ * @priv: DON'T USE - internal only
  */
 struct pil_desc {
 	const char *name;
@@ -31,6 +33,7 @@ struct pil_desc {
 	const struct pil_reset_ops *ops;
 	struct module *owner;
 	unsigned long proxy_timeout;
+	struct pil_priv *priv;
 };
 
 /**
@@ -58,12 +61,20 @@ struct pil_device;
 #ifdef CONFIG_MSM_PIL
 extern struct pil_device *msm_pil_register(struct pil_desc *desc);
 extern void msm_pil_unregister(struct pil_device *pil);
+extern int pil_desc_init(struct pil_desc *desc);
+extern int pil_boot(struct pil_desc *desc);
+extern void pil_shutdown(struct pil_desc *desc);
+extern void pil_desc_release(struct pil_desc *desc);
 #else
 static inline struct pil_device *msm_pil_register(struct pil_desc *desc)
 {
 	return NULL;
 }
 static inline void msm_pil_unregister(struct pil_device *pil) { }
+static inline int pil_desc_init(struct pil_desc *desc) { return 0; }
+static inline int pil_boot(struct pil_desc *desc) { return 0; }
+static inline void pil_shutdown(struct pil_desc *desc) { }
+static inline void pil_desc_release(struct pil_desc *desc) { }
 #endif
 
 #endif
