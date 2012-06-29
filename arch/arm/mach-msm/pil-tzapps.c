@@ -16,8 +16,17 @@
 #include <linux/elf.h>
 #include <linux/err.h>
 
+#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
+
 #include "peripheral-loader.h"
 #include "scm-pas.h"
+
+struct tzapps_data {
+	struct pil_device *pil;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
+};
 
 static int pil_tzapps_init_image(struct pil_desc *pil, const u8 *metadata,
 		size_t size)
@@ -41,10 +50,28 @@ static struct pil_reset_ops pil_tzapps_ops = {
 	.shutdown = pil_tzapps_shutdown,
 };
 
+#define subsys_to_drv(d) container_of(d, struct tzapps_data, subsys_desc)
+
+static int tzapps_start(const struct subsys_desc *desc)
+{
+	void *ret;
+
+	ret = pil_get("tzapps");
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void tzapps_stop(const struct subsys_desc *desc)
+{
+	struct tzapps_data *drv = subsys_to_drv(desc);
+	pil_put(drv->pil);
+}
+
 static int __devinit pil_tzapps_driver_probe(struct platform_device *pdev)
 {
 	struct pil_desc *desc;
-	struct pil_device *pil;
+	struct tzapps_data *drv;
 
 	if (pas_supported(PAS_TZAPPS) < 0)
 		return -ENOSYS;
@@ -53,21 +80,38 @@ static int __devinit pil_tzapps_driver_probe(struct platform_device *pdev)
 	if (!desc)
 		return -ENOMEM;
 
+	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
+	if (!drv)
+		return -ENOMEM;
+	platform_set_drvdata(pdev, drv);
+
 	desc->name = "tzapps";
 	desc->dev = &pdev->dev;
 	desc->ops = &pil_tzapps_ops;
 	desc->owner = THIS_MODULE;
-	pil = msm_pil_register(desc);
-	if (IS_ERR(pil))
-		return PTR_ERR(pil);
-	platform_set_drvdata(pdev, pil);
+	drv->pil = msm_pil_register(desc);
+	if (IS_ERR(drv->pil))
+		return PTR_ERR(drv->pil);
+
+	drv->subsys_desc.name = "tzapps";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = tzapps_start;
+	drv->subsys_desc.stop = tzapps_stop;
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		msm_pil_unregister(drv->pil);
+		return PTR_ERR(drv->subsys);
+	}
 	return 0;
 }
 
 static int __devexit pil_tzapps_driver_exit(struct platform_device *pdev)
 {
-	struct pil_device *pil = platform_get_drvdata(pdev);
-	msm_pil_unregister(pil);
+	struct tzapps_data *drv = platform_get_drvdata(pdev);
+	subsys_unregister(drv->subsys);
+	msm_pil_unregister(drv->pil);
 	return 0;
 }
 
