@@ -302,7 +302,10 @@ static int msm_dcvs_update_freq(struct dcvs_core *core,
 	ret = msm_dcvs_scm_event(core->handle, event, param0,
 				core->actual_freq, &new_freq, ret1);
 	if (ret) {
-		__err("Error (%d) sending SCM event %d for core %s\n",
+		if (ret == -13)
+			ret = 0;
+		else
+			__err("Error (%d) sending SCM event %d for core %s\n",
 				ret, event, core->core_name);
 		goto freq_done;
 	}
