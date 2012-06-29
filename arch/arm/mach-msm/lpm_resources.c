@@ -18,14 +18,14 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/cpu.h>
-#include <mach/mpm.h>
 #include <linux/notifier.h>
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
+#include <mach/mpm.h>
+#include <mach/rpm-smd.h>
 #include "spm.h"
 #include "lpm_resources.h"
 #include "rpm-notifier.h"
-#include <mach/rpm-smd.h>
 #include "idle.h"
 
 /*Debug Definitions*/
@@ -243,6 +243,7 @@ static int msm_lpm_send_sleep_data(struct msm_rpm_request *handle,
 					uint32_t key, uint8_t *value)
 {
 	int ret = 0;
+	int msg_id;
 
 	if (!handle)
 		return ret;
@@ -255,10 +256,18 @@ static int msm_lpm_send_sleep_data(struct msm_rpm_request *handle,
 		return ret;
 	}
 
-	ret = msm_rpm_send_request_noirq(handle);
-	if (ret < 0) {
+	msg_id = msm_rpm_send_request_noirq(handle);
+	if (!msg_id) {
 		pr_err("%s: Error sending RPM request key %u, handle 0x%x\n",
 				__func__, key, (unsigned int)handle);
+		ret = -EIO;
+		return ret;
+	}
+
+	ret = msm_rpm_wait_for_ack(msg_id);
+	if (ret < 0) {
+		pr_err("%s: Couldn't get ACK from RPM for Msg %d Error %d",
+				__func__, msg_id, ret);
 		return ret;
 	}
 	if (msm_lpm_debug_mask & MSM_LPMRS_DEBUG_RPM)
@@ -666,12 +675,14 @@ int msm_lpmrs_enter_sleep(struct msm_rpmrs_limits *limits,
 	return ret;
 }
 
-void msm_lpmrs_exit_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
-		bool from_idle, bool notify_rpm)
+void msm_lpmrs_exit_sleep(struct msm_rpmrs_limits *limits,
+		bool from_idle, bool notify_rpm, bool collapsed)
 {
 	/* MPM exit sleep
 	if (msm_lpm_use_mpm(limits))
 		msm_mpm_exit_sleep(from_idle);*/
+
+	msm_spm_l2_set_low_power_mode(MSM_SPM_MODE_DISABLED, notify_rpm);
 }
 
 static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,

@@ -83,14 +83,14 @@ int msm_lpmrs_enter_sleep(struct msm_rpmrs_limits *limits,
 
 /**
  * msm_lpmrs_exit_sleep() - Exit sleep, reset the MPM and L2 mode.
- * @ sclk_count - Sleep Clock count.
  * @ limits: pointer to resource limits of the most recent low power mode.
  * @from_idle: bool to determine if this call being made as a part of
  *             idle power collapse.
  * @notify_rpm: bool that informs if this is an RPM notified power collapse.
+ * @collapsed: bool that informs if the Krait was power collapsed.
  */
-void msm_lpmrs_exit_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
-	bool from_idle, bool notify_rpm);
+void msm_lpmrs_exit_sleep(struct msm_rpmrs_limits *limits,
+	bool from_idle, bool notify_rpm, bool collapsed);
 /**
  * msm_lpmrs_module_init() - Init function that parses the device tree to
  * get the low power resource attributes and registers with RPM driver for
@@ -112,9 +112,8 @@ static inline int msm_lpmrs_enter_sleep(struct msm_rpmrs_limits *limits,
 	return 0;
 }
 
-static inline void msm_lpmrs_exit_sleep(uint32_t sclk_count,
-		struct msm_rpmrs_limits *limits, bool from_idle,
-		bool notify_rpm)
+static inline void msm_lpmrs_exit_sleep(struct msm_rpmrs_limits *limits,
+	bool from_idle, bool notify_rpm, bool collapsed)
 {
 	return;
 }
