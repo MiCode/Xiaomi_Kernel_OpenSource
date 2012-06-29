@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
-#include <mach/rpm-regulator.h>
+#include <mach/rpm-regulator-smd.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
 #include <mach/socinfo.h>
@@ -23,10 +23,10 @@
 #include "acpuclock-krait.h"
 
 /* Corner type vreg VDD values */
-#define LVL_NONE	RPM_VREG_CORNER_NONE
-#define LVL_LOW		RPM_VREG_CORNER_LOW
-#define LVL_NOM		RPM_VREG_CORNER_NOMINAL
-#define LVL_HIGH	RPM_VREG_CORNER_HIGH
+#define LVL_NONE	RPM_REGULATOR_CORNER_RETENTION
+#define LVL_LOW		RPM_REGULATOR_CORNER_SVS_SOC
+#define LVL_NOM		RPM_REGULATOR_CORNER_NORMAL
+#define LVL_HIGH	RPM_REGULATOR_CORNER_SUPER_TURBO
 
 static struct hfpll_data hfpll_data_cpu = {
 	.mode_offset = 0x00,
@@ -63,7 +63,7 @@ static struct scalable scalable[] = {
 		.l2cpmr_iaddr = 0x4501,
 		.vreg[VREG_CORE] = { "krait0",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait0_mem", 1050000 },
-		.vreg[VREG_DIG]  = { "krait0_dig", 1050000 },
+		.vreg[VREG_DIG]  = { "krait0_dig", LVL_HIGH },
 		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1800000 },
 	},
 	[CPU1] = {
@@ -72,7 +72,7 @@ static struct scalable scalable[] = {
 		.l2cpmr_iaddr = 0x5501,
 		.vreg[VREG_CORE] = { "krait1",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait1_mem", 1050000 },
-		.vreg[VREG_DIG]  = { "krait1_dig", 1050000 },
+		.vreg[VREG_DIG]  = { "krait1_dig", LVL_HIGH },
 		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1800000 },
 	},
 	[CPU2] = {
@@ -81,7 +81,7 @@ static struct scalable scalable[] = {
 		.l2cpmr_iaddr = 0x6501,
 		.vreg[VREG_CORE] = { "krait2",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait2_mem", 1050000 },
-		.vreg[VREG_DIG]  = { "krait2_dig", 1050000 },
+		.vreg[VREG_DIG]  = { "krait2_dig", LVL_HIGH },
 		.vreg[VREG_HFPLL_A] = { "krait2_hfpll", 1800000 },
 	},
 	[CPU3] = {
@@ -90,7 +90,7 @@ static struct scalable scalable[] = {
 		.l2cpmr_iaddr = 0x7501,
 		.vreg[VREG_CORE] = { "krait3",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait3_mem", 1050000 },
-		.vreg[VREG_DIG]  = { "krait3_dig", 1050000 },
+		.vreg[VREG_DIG]  = { "krait3_dig", LVL_HIGH },
 		.vreg[VREG_HFPLL_A] = { "krait3_hfpll", 1800000 },
 	},
 	[L2] = {
