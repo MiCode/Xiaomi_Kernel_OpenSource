@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/clk.h>
 #include <linux/cs.h>
 
 #include "cs-priv.h"
@@ -56,6 +57,7 @@ struct funnel_ctx {
 	struct mutex	mutex;
 	struct device	*dev;
 	struct kobject	*kobj;
+	struct clk	*clk;
 	uint32_t	priority;
 };
 
@@ -77,14 +79,22 @@ static void __funnel_enable(uint8_t id, uint32_t port_mask)
 	FUNNEL_LOCK(id);
 }
 
-void funnel_enable(uint8_t id, uint32_t port_mask)
+int funnel_enable(uint8_t id, uint32_t port_mask)
 {
+	int ret;
+
+	ret = clk_prepare_enable(funnel.clk);
+	if (ret)
+		return ret;
+
 	mutex_lock(&funnel.mutex);
 	__funnel_enable(id, port_mask);
 	funnel.enabled = true;
 	dev_info(funnel.dev, "FUNNEL port mask 0x%lx enabled\n",
 					(unsigned long) port_mask);
 	mutex_unlock(&funnel.mutex);
+
+	return 0;
 }
 
 static void __funnel_disable(uint8_t id, uint32_t port_mask)
@@ -108,15 +118,20 @@ void funnel_disable(uint8_t id, uint32_t port_mask)
 	dev_info(funnel.dev, "FUNNEL port mask 0x%lx disabled\n",
 					(unsigned long) port_mask);
 	mutex_unlock(&funnel.mutex);
+
+	clk_disable_unprepare(funnel.clk);
 }
 
-#define FUNNEL_ATTR(__name)						\
-static struct kobj_attribute __name##_attr =				\
-	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+static ssize_t funnel_show_priority(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	unsigned long val = funnel.priority;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
 
-static ssize_t priority_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t funnel_store_priority(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -124,16 +139,10 @@ static ssize_t priority_store(struct kobject *kobj,
 		return -EINVAL;
 
 	funnel.priority = val;
-	return n;
+	return size;
 }
-static ssize_t priority_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
-{
-	unsigned long val = funnel.priority;
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
-}
-FUNNEL_ATTR(priority);
+static DEVICE_ATTR(priority, S_IRUGO | S_IWUSR, funnel_show_priority,
+		   funnel_store_priority);
 
 static int __devinit funnel_sysfs_init(void)
 {
@@ -146,7 +155,7 @@ static int __devinit funnel_sysfs_init(void)
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(funnel.kobj, &priority_attr.attr);
+	ret = sysfs_create_file(funnel.kobj, &dev_attr_priority.attr);
 	if (ret) {
 		dev_err(funnel.dev, "failed to create FUNNEL sysfs priority"
 		" attribute\n");
@@ -162,7 +171,7 @@ err_create:
 
 static void __devexit funnel_sysfs_exit(void)
 {
-	sysfs_remove_file(funnel.kobj, &priority_attr.attr);
+	sysfs_remove_file(funnel.kobj, &dev_attr_priority.attr);
 	kobject_put(funnel.kobj);
 }
 
@@ -187,11 +196,26 @@ static int __devinit funnel_probe(struct platform_device *pdev)
 
 	mutex_init(&funnel.mutex);
 
+	funnel.clk = clk_get(funnel.dev, "core_clk");
+	if (IS_ERR(funnel.clk)) {
+		ret = PTR_ERR(funnel.clk);
+		goto err_clk_get;
+	}
+
+	ret = clk_set_rate(funnel.clk, CS_CLK_RATE_TRACE);
+	if (ret)
+		goto err_clk_rate;
+
 	funnel_sysfs_init();
 
 	dev_info(funnel.dev, "FUNNEL initialized\n");
 	return 0;
 
+err_clk_rate:
+	clk_put(funnel.clk);
+err_clk_get:
+	mutex_destroy(&funnel.mutex);
+	iounmap(funnel.base);
 err_ioremap:
 err_res:
 	dev_err(funnel.dev, "FUNNEL init failed\n");
@@ -203,6 +227,7 @@ static int __devexit funnel_remove(struct platform_device *pdev)
 	if (funnel.enabled)
 		funnel_disable(0x0, 0xFF);
 	funnel_sysfs_exit();
+	clk_put(funnel.clk);
 	mutex_destroy(&funnel.mutex);
 	iounmap(funnel.base);
 

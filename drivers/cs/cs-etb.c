@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/clk.h>
 #include <linux/cs.h>
 
 #include "cs-priv.h"
@@ -74,6 +75,7 @@ struct etb_ctx {
 	atomic_t	in_use;
 	struct device	*dev;
 	struct kobject	*kobj;
+	struct clk	*clk;
 	uint32_t	trigger_cntr;
 };
 
@@ -99,15 +101,22 @@ static void __etb_enable(void)
 	ETB_LOCK();
 }
 
-void etb_enable(void)
+int etb_enable(void)
 {
+	int ret;
 	unsigned long flags;
+
+	ret = clk_prepare_enable(etb.clk);
+	if (ret)
+		return ret;
 
 	spin_lock_irqsave(&etb.spinlock, flags);
 	__etb_enable();
 	etb.enabled = true;
 	dev_info(etb.dev, "ETB enabled\n");
 	spin_unlock_irqrestore(&etb.spinlock, flags);
+
+	return 0;
 }
 
 static void __etb_disable(void)
@@ -147,6 +156,8 @@ void etb_disable(void)
 	etb.enabled = false;
 	dev_info(etb.dev, "ETB disabled\n");
 	spin_unlock_irqrestore(&etb.spinlock, flags);
+
+	clk_disable_unprepare(etb.clk);
 }
 
 static void __etb_dump(void)
@@ -275,13 +286,16 @@ static struct miscdevice etb_misc = {
 	.fops =		&etb_fops,
 };
 
-#define ETB_ATTR(__name)						\
-static struct kobj_attribute __name##_attr =				\
-	__ATTR(__name, S_IRUGO | S_IWUSR, __name##_show, __name##_store)
+static ssize_t etb_show_trigger_cntr(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	unsigned long val = etb.trigger_cntr;
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
 
-static ssize_t trigger_cntr_store(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			const char *buf, size_t n)
+static ssize_t etb_store_trigger_cntr(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
 {
 	unsigned long val;
 
@@ -289,16 +303,10 @@ static ssize_t trigger_cntr_store(struct kobject *kobj,
 		return -EINVAL;
 
 	etb.trigger_cntr = val;
-	return n;
+	return size;
 }
-static ssize_t trigger_cntr_show(struct kobject *kobj,
-			struct kobj_attribute *attr,
-			char *buf)
-{
-	unsigned long val = etb.trigger_cntr;
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
-}
-ETB_ATTR(trigger_cntr);
+static DEVICE_ATTR(trigger_cntr, S_IRUGO | S_IWUSR, etb_show_trigger_cntr,
+		   etb_store_trigger_cntr);
 
 static int __devinit etb_sysfs_init(void)
 {
@@ -311,7 +319,7 @@ static int __devinit etb_sysfs_init(void)
 		goto err_create;
 	}
 
-	ret = sysfs_create_file(etb.kobj, &trigger_cntr_attr.attr);
+	ret = sysfs_create_file(etb.kobj, &dev_attr_trigger_cntr.attr);
 	if (ret) {
 		dev_err(etb.dev, "failed to create ETB sysfs trigger_cntr"
 		" attribute\n");
@@ -327,7 +335,7 @@ err_create:
 
 static void __devexit etb_sysfs_exit(void)
 {
-	sysfs_remove_file(etb.kobj, &trigger_cntr_attr.attr);
+	sysfs_remove_file(etb.kobj, &dev_attr_trigger_cntr.attr);
 	kobject_put(etb.kobj);
 }
 
@@ -352,6 +360,16 @@ static int __devinit etb_probe(struct platform_device *pdev)
 
 	spin_lock_init(&etb.spinlock);
 
+	etb.clk = clk_get(etb.dev, "core_clk");
+	if (IS_ERR(etb.clk)) {
+		ret = PTR_ERR(etb.clk);
+		goto err_clk_get;
+	}
+
+	ret = clk_set_rate(etb.clk, CS_CLK_RATE_TRACE);
+	if (ret)
+		goto err_clk_rate;
+
 	ret = misc_register(&etb_misc);
 	if (ret)
 		goto err_misc;
@@ -370,6 +388,9 @@ static int __devinit etb_probe(struct platform_device *pdev)
 err_alloc:
 	misc_deregister(&etb_misc);
 err_misc:
+err_clk_rate:
+	clk_put(etb.clk);
+err_clk_get:
 	iounmap(etb.base);
 err_ioremap:
 err_res:
@@ -384,6 +405,7 @@ static int __devexit etb_remove(struct platform_device *pdev)
 	etb_sysfs_exit();
 	kfree(etb.buf);
 	misc_deregister(&etb_misc);
+	clk_put(etb.clk);
 	iounmap(etb.base);
 
 	return 0;
