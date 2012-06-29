@@ -17,7 +17,7 @@
 #include <linux/msm_rotator.h>
 #include <linux/clkdev.h>
 #include <linux/dma-mapping.h>
-#include <linux/cs.h>
+#include <linux/coresight.h>
 #include <mach/irqs-8064.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>

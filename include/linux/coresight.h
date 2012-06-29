@@ -10,25 +10,25 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _LINUX_CS_H
-#define _LINUX_CS_H
+#ifndef _LINUX_CORESIGHT_H
+#define _LINUX_CORESIGHT_H
 
 #include <linux/device.h>
 
 /* Peripheral id registers (0xFD0-0xFEC) */
-#define CS_PIDR4		(0xFD0)
-#define CS_PIDR5		(0xFD4)
-#define CS_PIDR6		(0xFD8)
-#define CS_PIDR7		(0xFDC)
-#define CS_PIDR0		(0xFE0)
-#define CS_PIDR1		(0xFE4)
-#define CS_PIDR2		(0xFE8)
-#define CS_PIDR3		(0xFEC)
+#define CORESIGHT_PERIPHIDR4	(0xFD0)
+#define CORESIGHT_PERIPHIDR5	(0xFD4)
+#define CORESIGHT_PERIPHIDR6	(0xFD8)
+#define CORESIGHT_PERIPHIDR7	(0xFDC)
+#define CORESIGHT_PERIPHIDR0	(0xFE0)
+#define CORESIGHT_PERIPHIDR1	(0xFE4)
+#define CORESIGHT_PERIPHIDR2	(0xFE8)
+#define CORESIGHT_PERIPHIDR3	(0xFEC)
 /* Component id registers (0xFF0-0xFFC) */
-#define CS_CIDR0		(0xFF0)
-#define CS_CIDR1		(0xFF4)
-#define CS_CIDR2		(0xFF8)
-#define CS_CIDR3		(0xFFC)
+#define CORESIGHT_COMPIDR0	(0xFF0)
+#define CORESIGHT_COMPIDR1	(0xFF4)
+#define CORESIGHT_COMPIDR2	(0xFF8)
+#define CORESIGHT_COMPIDR3	(0xFFC)
 
 /* DBGv7 with baseline CP14 registers implemented */
 #define ARM_DEBUG_ARCH_V7B	(0x3)
@@ -38,31 +38,31 @@
 #define ETM_ARCH_V3_3		(0x23)
 #define PFT_ARCH_V1_1		(0x31)
 
-enum cs_clk_rate {
-	CS_CLK_RATE_OFF,
-	CS_CLK_RATE_TRACE,
-	CS_CLK_RATE_HSTRACE,
+enum coresight_clk_rate {
+	CORESIGHT_CLK_RATE_OFF,
+	CORESIGHT_CLK_RATE_TRACE,
+	CORESIGHT_CLK_RATE_HSTRACE,
 };
 
-enum cs_device_type {
-	CS_DEVICE_TYPE_SOURCE,
-	CS_DEVICE_TYPE_LINK,
-	CS_DEVICE_TYPE_SINK,
-	CS_DEVICE_TYPE_MAX,
+enum coresight_dev_type {
+	CORESIGHT_DEV_TYPE_SINK,
+	CORESIGHT_DEV_TYPE_LINK,
+	CORESIGHT_DEV_TYPE_SOURCE,
+	CORESIGHT_DEV_TYPE_MAX,
 };
 
-struct cs_connection {
+struct coresight_connection {
 	int child_id;
 	int child_port;
-	struct cs_device *child_dev;
+	struct coresight_device *child_dev;
 	struct list_head link;
 };
 
-struct cs_device {
+struct coresight_device {
 	int id;
-	struct cs_connection *conns;
+	struct coresight_connection *conns;
 	int nr_conns;
-	const struct cs_ops *ops;
+	const struct coresight_ops *ops;
 	struct device dev;
 	struct mutex mutex;
 	int *refcnt;
@@ -71,14 +71,14 @@ struct cs_device {
 	bool enable;
 };
 
-#define to_cs_device(d) container_of(d, struct cs_device, dev)
+#define to_coresight_device(d) container_of(d, struct coresight_device, dev)
 
-struct cs_ops {
-	int (*enable)(struct cs_device *csdev, int port);
-	void (*disable)(struct cs_device *csdev, int port);
+struct coresight_ops {
+	int (*enable)(struct coresight_device *csdev, int port);
+	void (*disable)(struct coresight_device *csdev, int port);
 };
 
-struct cs_platform_data {
+struct coresight_platform_data {
 	int id;
 	const char *name;
 	int nr_ports;
@@ -87,10 +87,10 @@ struct cs_platform_data {
 	int nr_children;
 };
 
-struct cs_desc {
-	enum cs_device_type type;
-	const struct cs_ops *ops;
-	struct cs_platform_data *pdata;
+struct coresight_desc {
+	enum coresight_dev_type type;
+	const struct coresight_ops *ops;
+	struct coresight_platform_data *pdata;
 	struct device *dev;
 	const struct attribute_group **groups;
 	struct module *owner;
@@ -109,10 +109,11 @@ struct msm_qdss_platform_data {
 };
 
 
-extern struct cs_device *cs_register(struct cs_desc *desc);
-extern void cs_unregister(struct cs_device *csdev);
-extern int cs_enable(struct cs_device *csdev, int port);
-extern void cs_disable(struct cs_device *csdev, int port);
+extern struct coresight_device *
+coresight_register(struct coresight_desc *desc);
+extern void coresight_unregister(struct coresight_device *csdev);
+extern int coresight_enable(struct coresight_device *csdev, int port);
+extern void coresight_disable(struct coresight_device *csdev, int port);
 
 #ifdef CONFIG_MSM_QDSS
 extern struct qdss_source *qdss_get(const char *name);
