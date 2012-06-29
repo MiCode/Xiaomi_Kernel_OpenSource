@@ -33,7 +33,6 @@ struct q6v5_data {
 	unsigned long start_addr;
 	struct regulator *vreg;
 	bool is_booted;
-	struct pil_device *pil;
 	struct pil_desc desc;
 };
 

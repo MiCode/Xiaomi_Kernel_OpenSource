@@ -51,7 +51,6 @@ struct q6v4_data {
 	bool vreg_enabled;
 	struct clk *xo;
 
-	struct pil_device *pil;
 	struct pil_desc desc;
 };
 
