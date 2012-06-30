@@ -293,3 +293,13 @@ config USB_QCOM_MDM_BRIDGE
 	  driver for dial up network and RMNET.
 	  To compile this driver as a module, choose M here: the module
 	  will be called mdm_bridge. If unsure, choose N.
+
+config USB_QCOM_KS_BRIDGE
+	tristate "USB Qualcomm kick start bridge"
+	depends on USB
+	help
+	  Say Y here if you have a Qualcomm modem device connected via USB that
+	  will be bridged in kernel space. This driver works as a bridge to pass
+	  boot images, ram-dumps and efs sync
+	  To compile this driver as a module, choose M here: the module
+	  will be called ks_bridge. If unsure, choose N.

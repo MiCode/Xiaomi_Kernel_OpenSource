@@ -1,0 +1,46 @@
+Introduction
+--------------
+ksbridge is a simple misc device which bridges Kickstart application
+to HSIC h/w. Driver supports two instances, one instance for
+flash-less-boot/ram-dumps and other instance for EFS Sync.
+
+Initialization
+--------------
+Create two bridge instances and register for usb devices 0x9008 and
+0x9048/0x904C. Misc device name depends on the USB PID.
+For PID: 9008, misc device name is ks_bridge and for PID:9048/904C,
+misc device name is efs_bridge. After KS opens the misc device, IN
+URBs will be submitted to H/W; By default IN URBS are configured
+to 20.
+
+TX PATH
+-------
+Transmit path is very simple. Bridge driver will exposes write system
+call to kickstart. Data from write call will be put into a list and a
+work is scheduled to take the data from the list and write to HSIC.
+
+Functions:
+ksb_fs_write: System call invoked when kickstart writes the data
+ksb_tomdm_work: Work function which submits data to HSIC h/w.
+
+Data Structures:
+to_mdm_list: Data is stored in this list
+to_mdm_work: mapped to ksb_tomdm_work function
+
+RX PATH
+-------
+During initialization 20 IN URBs are submitted to hsic controller. In
+completion handler of each URB, buffer is de-queued and add to a list.
+Read function is woken-up. A new buffer is created and submitted to
+controller.
+
+Functions:
+ksb_fs_read: system call invoked by ks when it tries to read the data
+ksb_rx_cb: rx urb completion handler
+ksb_start_rx_work: function called during initialization.
+
+Data Structures:
+ks_wait_q: read system call will block on this queue until data is
+available or device is disconnected
+to_ks_list: data queued to this list by rx urb completion handler,
+later de-queued by read system call.

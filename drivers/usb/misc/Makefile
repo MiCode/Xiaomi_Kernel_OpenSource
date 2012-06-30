@@ -33,3 +33,4 @@ obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE)	+= diag_bridge.o
 obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE_TEST)	+= diag_bridge_test.o
 mdm_bridge-y				:= mdm_ctrl_bridge.o mdm_data_bridge.o
 obj-$(CONFIG_USB_QCOM_MDM_BRIDGE) 	+= mdm_bridge.o
+obj-$(CONFIG_USB_QCOM_KS_BRIDGE)	+= ks_bridge.o
