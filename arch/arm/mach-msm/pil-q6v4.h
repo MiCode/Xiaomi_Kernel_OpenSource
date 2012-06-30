@@ -21,7 +21,6 @@ struct pil_q6v4_pdata {
 	void __iomem *aclk_reg;
 	void __iomem *jtag_clk_reg;
 	const char *name;
-	const char *depends;
 	const unsigned pas_id;
 	int bus_port;
 };

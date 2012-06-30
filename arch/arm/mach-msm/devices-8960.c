@@ -1412,7 +1412,6 @@ static struct pil_q6v4_pdata msm_8960_q6_mss_data[2] = {
 		.aclk_reg = MSM_CLK_CTL_BASE + 0x2C6C,
 		.jtag_clk_reg = MSM_CLK_CTL_BASE + 0x2044,
 		.name = "modem_fw",
-		.depends = "q6",
 		.pas_id = PAS_MODEM_FW,
 		.bus_port = MSM_BUS_MASTER_MSS_FW_PROC,
 	},
@@ -1423,7 +1422,6 @@ static struct pil_q6v4_pdata msm_8960_q6_mss_data[2] = {
 		.aclk_reg = MSM_CLK_CTL_BASE + 0x2040,
 		.jtag_clk_reg = MSM_CLK_CTL_BASE + 0x2C68,
 		.name = "modem",
-		.depends = "modem_fw",
 		.pas_id = PAS_MODEM_SW,
 		.bus_port = MSM_BUS_MASTER_MSS_SW_PROC,
 	}

@@ -339,7 +339,6 @@ pil_q6v4_proc_init(struct q6v4_data *drv, struct platform_device *pdev, int i)
 
 	desc = &drv->desc;
 	desc->name = pdata->name;
-	desc->depends_on = pdata->depends;
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = 10000;

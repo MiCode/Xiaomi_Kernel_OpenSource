@@ -33,7 +33,6 @@
 
 #include <asm/current.h>
 
-#include <mach/peripheral-loader.h>
 #include <mach/socinfo.h>
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
