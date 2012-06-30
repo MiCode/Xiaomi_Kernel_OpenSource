@@ -1253,27 +1253,31 @@ struct csi_lane_params_t {
 #define CSI_DECODE_10BIT 2
 #define CSI_DECODE_DPCM_10_8_10 5
 
-#define ISPIF_STREAM(intf, action) (((intf)<<ISPIF_S_STREAM_SHIFT)+(action))
-#define ISPIF_ON_FRAME_BOUNDARY	(0x01 << 0)
-#define ISPIF_OFF_FRAME_BOUNDARY    (0x01 << 1)
-#define ISPIF_OFF_IMMEDIATELY       (0x01 << 2)
-#define ISPIF_S_STREAM_SHIFT	4
-
+#define ISPIF_STREAM(intf, action, vfe) (((intf)<<ISPIF_S_STREAM_SHIFT)+\
+	(action)+((vfe)<<ISPIF_VFE_INTF_SHIFT))
+#define ISPIF_ON_FRAME_BOUNDARY   (0x01 << 0)
+#define ISPIF_OFF_FRAME_BOUNDARY  (0x01 << 1)
+#define ISPIF_OFF_IMMEDIATELY     (0x01 << 2)
+#define ISPIF_S_STREAM_SHIFT      4
+#define ISPIF_VFE_INTF_SHIFT      12
 
 #define PIX_0 (0x01 << 0)
 #define RDI_0 (0x01 << 1)
 #define PIX_1 (0x01 << 2)
 #define RDI_1 (0x01 << 3)
-#define PIX_2 (0x01 << 4)
-#define RDI_2 (0x01 << 5)
+#define RDI_2 (0x01 << 4)
 
+enum msm_ispif_vfe_intf {
+	VFE0,
+	VFE1,
+	VFE_MAX,
+};
 
 enum msm_ispif_intftype {
 	PIX0,
 	RDI0,
 	PIX1,
 	RDI1,
-	PIX2,
 	RDI2,
 	INTF_MAX,
 };
@@ -1308,6 +1312,7 @@ struct msm_ispif_params {
 	uint8_t intftype;
 	uint16_t cid_mask;
 	uint8_t csid;
+	uint8_t vfe_intf;
 };
 
 struct msm_ispif_params_list {
