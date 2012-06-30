@@ -45,6 +45,4 @@ struct ispif_isr_queue_cmd {
 #define VIDIOC_MSM_ISPIF_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct ispif_cfg_data*)
 
-void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num);
-
 #endif

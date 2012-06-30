@@ -14,78 +14,30 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <mach/gpio.h>
 #include <mach/camera.h>
 #include "msm_ispif.h"
 #include "msm.h"
+#include "msm_ispif_hwreg.h"
 
-#define V4L2_IDENT_ISPIF			50001
-#define CSID_VERSION_V2                      0x2000011
-
-/* ISPIF registers */
-
-#define ISPIF_RST_CMD_ADDR                        0X00
-#define ISPIF_INTF_CMD_ADDR                       0X04
-#define ISPIF_CTRL_ADDR                           0X08
-#define ISPIF_INPUT_SEL_ADDR                      0X0C
-#define ISPIF_PIX_INTF_CID_MASK_ADDR              0X10
-#define ISPIF_RDI_INTF_CID_MASK_ADDR              0X14
-#define ISPIF_PIX_1_INTF_CID_MASK_ADDR            0X38
-#define ISPIF_RDI_1_INTF_CID_MASK_ADDR            0X3C
-#define ISPIF_PIX_STATUS_ADDR                     0X24
-#define ISPIF_RDI_STATUS_ADDR                     0X28
-#define ISPIF_RDI_1_STATUS_ADDR                   0X64
-#define ISPIF_IRQ_MASK_ADDR                     0X0100
-#define ISPIF_IRQ_CLEAR_ADDR                    0X0104
-#define ISPIF_IRQ_STATUS_ADDR                   0X0108
-#define ISPIF_IRQ_MASK_1_ADDR                   0X010C
-#define ISPIF_IRQ_CLEAR_1_ADDR                  0X0110
-#define ISPIF_IRQ_STATUS_1_ADDR                 0X0114
-#define ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR         0x0124
-
-/*ISPIF RESET BITS*/
-
-#define VFE_CLK_DOMAIN_RST           31
-#define RDI_CLK_DOMAIN_RST           30
-#define PIX_CLK_DOMAIN_RST           29
-#define AHB_CLK_DOMAIN_RST           28
-#define RDI_1_CLK_DOMAIN_RST         27
-#define RDI_1_VFE_RST_STB            13
-#define RDI_1_CSID_RST_STB           12
-#define RDI_VFE_RST_STB              7
-#define RDI_CSID_RST_STB             6
-#define PIX_VFE_RST_STB              4
-#define PIX_CSID_RST_STB             3
-#define SW_REG_RST_STB               2
-#define MISC_LOGIC_RST_STB           1
-#define STROBED_RST_EN               0
-
-#define PIX_INTF_0_OVERFLOW_IRQ      12
-#define RAW_INTF_0_OVERFLOW_IRQ      25
-#define RAW_INTF_1_OVERFLOW_IRQ      25
-#define RESET_DONE_IRQ               27
-
-#define ISPIF_IRQ_STATUS_MASK        0xA493000
-#define ISPIF_IRQ_1_STATUS_MASK      0xA493000
-#define ISPIF_IRQ_STATUS_RDI_SOF_MASK	0x492000
-#define ISPIF_IRQ_GLOBAL_CLEAR_CMD     0x1
-
+#define V4L2_IDENT_ISPIF                     50001
+#define CSID_VERSION_V2                      0x02000011
+#define CSID_VERSION_V3                      0x30000000
 #define MAX_CID 15
 
+static atomic_t ispif_irq_cnt;
+static spinlock_t ispif_tasklet_lock;
+static struct list_head ispif_tasklet_q;
 
-static struct ispif_device *ispif;
-atomic_t ispif_irq_cnt;
-spinlock_t  ispif_tasklet_lock;
-struct list_head ispif_tasklet_q;
-
-static uint32_t global_intf_cmd_mask = 0xFFFFFFFF;
-
-
-static int msm_ispif_intf_reset(uint8_t intfmask)
+static int msm_ispif_intf_reset(struct ispif_device *ispif,
+	uint16_t intfmask, uint8_t vfe_intf)
 {
 	int rc = 0;
-	uint32_t data = 0x1;
-	uint8_t intfnum = 0, mask = intfmask;
+	uint32_t data = (0x1 << STROBED_RST_EN);
+	uint32_t data1 = (0x1 << STROBED_RST_EN);
+	uint16_t intfnum = 0, mask = intfmask;
+
 	while (mask != 0) {
 		if (!(intfmask & (0x1 << intfnum))) {
 			mask >>= 1;
@@ -94,21 +46,48 @@ static int msm_ispif_intf_reset(uint8_t intfmask)
 		}
 		switch (intfnum) {
 		case PIX0:
-			data = (0x1 << STROBED_RST_EN) +
-				(0x1 << PIX_VFE_RST_STB) +
-				(0x1 << PIX_CSID_RST_STB);
+			if (vfe_intf == VFE0)
+				data |= (0x1 << PIX_0_VFE_RST_STB) |
+					(0x1 << PIX_0_CSID_RST_STB);
+			else
+				data1 |= (0x1 << PIX_0_VFE_RST_STB) |
+					(0x1 << PIX_0_CSID_RST_STB);
 			break;
 
 		case RDI0:
-			data = (0x1 << STROBED_RST_EN) +
-				(0x1 << RDI_VFE_RST_STB)  +
-				(0x1 << RDI_CSID_RST_STB);
+			if (vfe_intf == VFE0)
+				data |= (0x1 << RDI_0_VFE_RST_STB) |
+					(0x1 << RDI_0_CSID_RST_STB);
+			else
+				data1 |= (0x1 << RDI_0_VFE_RST_STB) |
+					(0x1 << RDI_0_CSID_RST_STB);
+			break;
+
+		case PIX1:
+			if (vfe_intf == VFE0)
+				data |= (0x1 << PIX_1_VFE_RST_STB) |
+					(0x1 << PIX_1_CSID_RST_STB);
+			else
+				data1 |= (0x1 << PIX_1_VFE_RST_STB) |
+					(0x1 << PIX_1_CSID_RST_STB);
 			break;
 
 		case RDI1:
-			data = (0x1 << STROBED_RST_EN) +
-				(0x1 << RDI_1_VFE_RST_STB) +
-				(0x1 << RDI_1_CSID_RST_STB);
+			if (vfe_intf == VFE0)
+				data |= (0x1 << RDI_1_VFE_RST_STB) |
+					(0x1 << RDI_1_CSID_RST_STB);
+			else
+				data1 |= (0x1 << RDI_1_VFE_RST_STB) |
+					(0x1 << RDI_1_CSID_RST_STB);
+			break;
+
+		case RDI2:
+			if (vfe_intf == VFE0)
+				data |= (0x1 << RDI_2_VFE_RST_STB) |
+					(0x1 << RDI_2_CSID_RST_STB);
+			else
+				data1 |= (0x1 << RDI_2_VFE_RST_STB) |
+					(0x1 << RDI_2_CSID_RST_STB);
 			break;
 
 		default:
@@ -118,27 +97,44 @@ static int msm_ispif_intf_reset(uint8_t intfmask)
 		mask >>= 1;
 		intfnum++;
 	}	/*end while */
-	if (rc >= 0) {
-		msm_camera_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
-		rc = wait_for_completion_interruptible(&ispif->reset_complete);
+	msm_camera_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
+	rc = wait_for_completion_interruptible(&ispif->reset_complete);
+	if (ispif->csid_version >= CSID_VERSION_V3 && data1 > 0x1) {
+		msm_camera_io_w(data1,
+			ispif->base + ISPIF_RST_CMD_1_ADDR);
+		rc = wait_for_completion_interruptible(&ispif->
+			reset_complete);
 	}
 
 	return rc;
 }
 
-static int msm_ispif_reset(void)
+static int msm_ispif_reset(struct ispif_device *ispif)
 {
-	uint32_t data = (0x1 << STROBED_RST_EN) +
-		(0x1 << SW_REG_RST_STB) +
-		(0x1 << MISC_LOGIC_RST_STB) +
-		(0x1 << PIX_VFE_RST_STB) +
-		(0x1 << PIX_CSID_RST_STB) +
-		(0x1 << RDI_VFE_RST_STB) +
-		(0x1 << RDI_CSID_RST_STB) +
-		(0x1 << RDI_1_VFE_RST_STB) +
+	int rc = 0;
+	uint32_t data = (0x1 << STROBED_RST_EN) |
+		(0x1 << SW_REG_RST_STB) |
+		(0x1 << MISC_LOGIC_RST_STB) |
+		(0x1 << PIX_0_VFE_RST_STB) |
+		(0x1 << PIX_0_CSID_RST_STB) |
+		(0x1 << RDI_0_VFE_RST_STB) |
+		(0x1 << RDI_0_CSID_RST_STB) |
+		(0x1 << RDI_1_VFE_RST_STB) |
 		(0x1 << RDI_1_CSID_RST_STB);
+
+	if (ispif->csid_version >= CSID_VERSION_V2)
+		data |= (0x1 << PIX_1_VFE_RST_STB) |
+			(0x1 << PIX_1_CSID_RST_STB) |
+			(0x1 << RDI_2_VFE_RST_STB) |
+			(0x1 << RDI_2_CSID_RST_STB);
+	return 0;
 	msm_camera_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
-	return wait_for_completion_interruptible(&ispif->reset_complete);
+	rc = wait_for_completion_interruptible(&ispif->reset_complete);
+	if (ispif->csid_version >= CSID_VERSION_V3) {
+		msm_camera_io_w(data, ispif->base + ISPIF_RST_CMD_1_ADDR);
+		rc = wait_for_completion_interruptible(&ispif->reset_complete);
+	}
+	return rc;
 }
 
 static int msm_ispif_subdev_g_chip_ident(struct v4l2_subdev *sd,
@@ -150,10 +146,12 @@ static int msm_ispif_subdev_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static void msm_ispif_sel_csid_core(uint8_t intftype, uint8_t csid)
+static void msm_ispif_sel_csid_core(struct ispif_device *ispif,
+	uint8_t intftype, uint8_t csid, uint8_t vfe_intf)
 {
 	int rc = 0;
 	uint32_t data;
+
 	if (ispif->ispif_clk[intftype] == NULL) {
 		pr_err("%s: ispif NULL clk\n", __func__);
 		return;
@@ -163,62 +161,156 @@ static void msm_ispif_sel_csid_core(uint8_t intftype, uint8_t csid)
 	if (rc < 0)
 		pr_err("%s: clk_set_rate failed %d\n", __func__, rc);
 
-	data = msm_camera_io_r(ispif->base + ISPIF_INPUT_SEL_ADDR);
-	data |= csid<<(intftype*4);
-	msm_camera_io_w(data, ispif->base + ISPIF_INPUT_SEL_ADDR);
+	data = msm_camera_io_r(ispif->base + ISPIF_INPUT_SEL_ADDR +
+		(0x200 * vfe_intf));
+	switch (intftype) {
+	case PIX0:
+		data |= csid;
+		break;
+
+	case RDI0:
+		data |= (csid << 4);
+		break;
+
+	case PIX1:
+		data |= (csid << 8);
+		break;
+
+	case RDI1:
+		data |= (csid << 12);
+		break;
+
+	case RDI2:
+		data |= (csid << 20);
+		break;
+	}
+	msm_camera_io_w(data, ispif->base + ISPIF_INPUT_SEL_ADDR +
+		(0x200 * vfe_intf));
 }
 
-static void msm_ispif_enable_intf_cids(uint8_t intftype, uint16_t cid_mask)
+static void msm_ispif_enable_intf_cids(struct ispif_device *ispif,
+	uint8_t intftype, uint16_t cid_mask, uint8_t vfe_intf)
 {
 	uint32_t data;
 	mutex_lock(&ispif->mutex);
 	switch (intftype) {
 	case PIX0:
 		data = msm_camera_io_r(ispif->base +
-				ISPIF_PIX_INTF_CID_MASK_ADDR);
+			ISPIF_PIX_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		data |= cid_mask;
 		msm_camera_io_w(data, ispif->base +
-				ISPIF_PIX_INTF_CID_MASK_ADDR);
+			ISPIF_PIX_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		break;
 
 	case RDI0:
 		data = msm_camera_io_r(ispif->base +
-				ISPIF_RDI_INTF_CID_MASK_ADDR);
+			ISPIF_RDI_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		data |= cid_mask;
 		msm_camera_io_w(data, ispif->base +
-				ISPIF_RDI_INTF_CID_MASK_ADDR);
+			ISPIF_RDI_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
+		break;
+
+	case PIX1:
+		data = msm_camera_io_r(ispif->base +
+			ISPIF_PIX_1_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
+		data |= cid_mask;
+		msm_camera_io_w(data, ispif->base +
+			ISPIF_PIX_1_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		break;
 
 	case RDI1:
 		data = msm_camera_io_r(ispif->base +
-				ISPIF_RDI_1_INTF_CID_MASK_ADDR);
+			ISPIF_RDI_1_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		data |= cid_mask;
 		msm_camera_io_w(data, ispif->base +
-				ISPIF_RDI_1_INTF_CID_MASK_ADDR);
+			ISPIF_RDI_1_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
+		break;
+
+	case RDI2:
+		data = msm_camera_io_r(ispif->base +
+			ISPIF_RDI_2_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
+		data |= cid_mask;
+		msm_camera_io_w(data, ispif->base +
+			ISPIF_RDI_2_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		break;
 	}
 	mutex_unlock(&ispif->mutex);
 }
 
-static int msm_ispif_config(struct msm_ispif_params_list *params_list)
+static int32_t msm_ispif_validate_intf_status(struct ispif_device *ispif,
+	uint8_t intftype, uint8_t vfe_intf)
+{
+	int32_t rc = 0;
+	uint32_t data;
+	mutex_lock(&ispif->mutex);
+	switch (intftype) {
+	case PIX0:
+		data = msm_camera_io_r(ispif->base +
+				ISPIF_PIX_0_STATUS_ADDR + (0x200 * vfe_intf));
+		break;
+
+	case RDI0:
+		data = msm_camera_io_r(ispif->base +
+				ISPIF_RDI_0_STATUS_ADDR + (0x200 * vfe_intf));
+		break;
+
+	case PIX1:
+		data = msm_camera_io_r(ispif->base +
+				ISPIF_PIX_1_STATUS_ADDR + (0x200 * vfe_intf));
+		break;
+
+	case RDI1:
+		data = msm_camera_io_r(ispif->base +
+				ISPIF_RDI_1_STATUS_ADDR + (0x200 * vfe_intf));
+		break;
+
+	case RDI2:
+		data = msm_camera_io_r(ispif->base +
+				ISPIF_RDI_2_STATUS_ADDR + (0x200 * vfe_intf));
+		break;
+	}
+	if ((data & 0xf) != 0xf)
+		rc = -EBUSY;
+	mutex_unlock(&ispif->mutex);
+	return rc;
+}
+
+static int msm_ispif_config(struct ispif_device *ispif,
+	struct msm_ispif_params_list *params_list)
 {
 	uint32_t params_len;
 	struct msm_ispif_params *ispif_params;
-	uint32_t data, data1;
 	int rc = 0, i = 0;
+	uint8_t intftype;
+	uint8_t vfe_intf;
 	params_len = params_list->len;
 	ispif_params = params_list->params;
 	CDBG("Enable interface\n");
-	data = msm_camera_io_r(ispif->base + ISPIF_PIX_STATUS_ADDR);
-	data1 = msm_camera_io_r(ispif->base + ISPIF_RDI_STATUS_ADDR);
-	if (((data & 0xf) != 0xf) || ((data1 & 0xf) != 0xf))
-		return -EBUSY;
 	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_ADDR);
 	for (i = 0; i < params_len; i++) {
-		msm_ispif_sel_csid_core(ispif_params[i].intftype,
-			ispif_params[i].csid);
-		msm_ispif_enable_intf_cids(ispif_params[i].intftype,
-			ispif_params[i].cid_mask);
+		intftype = ispif_params[i].intftype;
+		vfe_intf = ispif_params[i].vfe_intf;
+		CDBG("%s intftype %x, vfe_intf %d\n", __func__, intftype,
+			vfe_intf);
+		if ((intftype >= INTF_MAX) ||
+			(ispif->csid_version <= CSID_VERSION_V2 &&
+			vfe_intf > VFE0) ||
+			(ispif->csid_version == CSID_VERSION_V3 &&
+			vfe_intf >= VFE_MAX)) {
+			pr_err("%s: intftype / vfe intf not valid\n",
+				__func__);
+			return -EINVAL;
+		}
+
+		rc = msm_ispif_validate_intf_status(ispif, intftype, vfe_intf);
+		if (rc < 0) {
+			pr_err("%s:%d failed rc %d\n", __func__, __LINE__, rc);
+			return rc;
+		}
+		msm_ispif_sel_csid_core(ispif, intftype, ispif_params[i].csid,
+			vfe_intf);
+		msm_ispif_enable_intf_cids(ispif, intftype,
+			ispif_params[i].cid_mask, vfe_intf);
 	}
 
 	msm_camera_io_w(ISPIF_IRQ_STATUS_MASK, ispif->base +
@@ -230,23 +322,34 @@ static int msm_ispif_config(struct msm_ispif_params_list *params_list)
 	return rc;
 }
 
-static uint32_t msm_ispif_get_cid_mask(uint8_t intftype)
+static uint32_t msm_ispif_get_cid_mask(struct ispif_device *ispif,
+	uint16_t intftype, uint8_t vfe_intf)
 {
 	uint32_t mask = 0;
 	switch (intftype) {
 	case PIX0:
 		mask = msm_camera_io_r(ispif->base +
-			ISPIF_PIX_INTF_CID_MASK_ADDR);
+			ISPIF_PIX_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		break;
 
 	case RDI0:
 		mask = msm_camera_io_r(ispif->base +
-			ISPIF_RDI_INTF_CID_MASK_ADDR);
+			ISPIF_RDI_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
+		break;
+
+	case PIX1:
+		mask = msm_camera_io_r(ispif->base +
+			ISPIF_PIX_1_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		break;
 
 	case RDI1:
 		mask = msm_camera_io_r(ispif->base +
-			ISPIF_RDI_1_INTF_CID_MASK_ADDR);
+			ISPIF_RDI_1_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
+		break;
+
+	case RDI2:
+		mask = msm_camera_io_r(ispif->base +
+			ISPIF_RDI_2_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		break;
 
 	default:
@@ -255,12 +358,14 @@ static uint32_t msm_ispif_get_cid_mask(uint8_t intftype)
 	return mask;
 }
 
-static void
-msm_ispif_intf_cmd(uint8_t intfmask, uint8_t intf_cmd_mask)
+static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint16_t intfmask,
+	uint8_t intf_cmd_mask, uint8_t vfe_intf)
 {
-	uint8_t vc = 0, val = 0;
-	uint8_t mask = intfmask, intfnum = 0;
+	uint8_t vc = 0;
+	uint16_t mask = intfmask, intfnum = 0;
 	uint32_t cid_mask = 0;
+	uint32_t global_intf_cmd_mask = 0xFFFFFFFF;
+	uint32_t global_intf_cmd_mask1 = 0xFFFFFFFF;
 	while (mask != 0) {
 		if (!(intfmask & (0x1 << intfnum))) {
 			mask >>= 1;
@@ -268,17 +373,20 @@ msm_ispif_intf_cmd(uint8_t intfmask, uint8_t intf_cmd_mask)
 			continue;
 		}
 
-		cid_mask = msm_ispif_get_cid_mask(intfnum);
+		cid_mask = msm_ispif_get_cid_mask(ispif, intfnum, vfe_intf);
 		vc = 0;
 
 		while (cid_mask != 0) {
 			if ((cid_mask & 0xf) != 0x0) {
-				val = (intf_cmd_mask>>(vc*2)) & 0x3;
-				global_intf_cmd_mask |=
-					(0x3 << ((vc * 2) + (intfnum * 8)));
-				global_intf_cmd_mask &= ~((0x3 & ~val)
-					<< ((vc * 2) +
-					(intfnum * 8)));
+				if (intfnum != RDI2)
+					global_intf_cmd_mask &=
+						~((0x3 & ~intf_cmd_mask)
+						<< ((vc * 2) +
+						(intfnum * 8)));
+				else
+					global_intf_cmd_mask1 &=
+						~((0x3 & ~intf_cmd_mask)
+						<< ((vc * 2) + 8));
 			}
 			vc++;
 			cid_mask >>= 4;
@@ -287,50 +395,57 @@ msm_ispif_intf_cmd(uint8_t intfmask, uint8_t intf_cmd_mask)
 		intfnum++;
 	}
 	msm_camera_io_w(global_intf_cmd_mask,
-		ispif->base + ISPIF_INTF_CMD_ADDR);
+		ispif->base + ISPIF_INTF_CMD_ADDR + (0x200 * vfe_intf));
+	if (global_intf_cmd_mask1 != 0xFFFFFFFF)
+		msm_camera_io_w(global_intf_cmd_mask1,
+			ispif->base + ISPIF_INTF_CMD_1_ADDR +
+			(0x200 * vfe_intf));
 }
 
-static int msm_ispif_abort_intf_transfer(uint8_t intfmask)
+static int msm_ispif_abort_intf_transfer(struct ispif_device *ispif,
+	uint16_t intfmask, uint8_t vfe_intf)
 {
 	int rc = 0;
-	uint8_t intf_cmd_mask = 0xAA;
-	uint8_t intfnum = 0, mask = intfmask;
+	uint8_t intf_cmd_mask = 0x02;
 	mutex_lock(&ispif->mutex);
-	msm_ispif_intf_cmd(intfmask, intf_cmd_mask);
-	while (mask != 0) {
-		if (intfmask & (0x1 << intfnum))
-			global_intf_cmd_mask |= (0xFF << (intfnum * 8));
-		mask >>= 1;
-		intfnum++;
-	}
+	CDBG("%s intfmask %x intf_cmd_mask %x\n", __func__, intfmask,
+		intf_cmd_mask);
+	msm_ispif_intf_cmd(ispif, intfmask, intf_cmd_mask, vfe_intf);
 	mutex_unlock(&ispif->mutex);
 	return rc;
 }
 
-static int msm_ispif_start_intf_transfer(uint8_t intfmask)
+static int msm_ispif_start_intf_transfer(struct ispif_device *ispif,
+	uint16_t intfmask, uint8_t vfe_intf)
 {
-	uint8_t intf_cmd_mask = 0x55;
+	uint8_t intf_cmd_mask = 0x01;
 	int rc = 0;
 	mutex_lock(&ispif->mutex);
-	rc = msm_ispif_intf_reset(intfmask);
-	msm_ispif_intf_cmd(intfmask, intf_cmd_mask);
+	rc = msm_ispif_intf_reset(ispif, intfmask, vfe_intf);
+	CDBG("%s intfmask %x intf_cmd_mask %x\n", __func__, intfmask,
+		intf_cmd_mask);
+	msm_ispif_intf_cmd(ispif, intfmask, intf_cmd_mask, vfe_intf);
 	mutex_unlock(&ispif->mutex);
 	return rc;
 }
 
-static int msm_ispif_stop_intf_transfer(uint8_t intfmask)
+static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
+	uint16_t intfmask, uint8_t vfe_intf)
 {
 	int rc = 0;
 	uint8_t intf_cmd_mask = 0x00;
-	uint8_t intfnum = 0, mask = intfmask;
+	uint16_t intfnum = 0, mask = intfmask;
 	mutex_lock(&ispif->mutex);
-	msm_ispif_intf_cmd(intfmask, intf_cmd_mask);
+	CDBG("%s intfmask %x intf_cmd_mask %x\n", __func__, intfmask,
+		intf_cmd_mask);
+	msm_ispif_intf_cmd(ispif, intfmask, intf_cmd_mask, vfe_intf);
 	while (mask != 0) {
 		if (intfmask & (0x1 << intfnum)) {
 			switch (intfnum) {
 			case PIX0:
 				while ((msm_camera_io_r(ispif->base +
-					ISPIF_PIX_STATUS_ADDR)
+					ISPIF_PIX_0_STATUS_ADDR +
+					(0x200 * vfe_intf))
 					& 0xf) != 0xf) {
 					CDBG("Wait for pix0 Idle\n");
 				}
@@ -338,24 +453,43 @@ static int msm_ispif_stop_intf_transfer(uint8_t intfmask)
 
 			case RDI0:
 				while ((msm_camera_io_r(ispif->base +
-					ISPIF_RDI_STATUS_ADDR)
+					ISPIF_RDI_0_STATUS_ADDR +
+					(0x200 * vfe_intf))
 					& 0xf) != 0xf) {
 					CDBG("Wait for rdi0 Idle\n");
 				}
 				break;
 
+			case PIX1:
+				while ((msm_camera_io_r(ispif->base +
+					ISPIF_PIX_1_STATUS_ADDR +
+					(0x200 * vfe_intf))
+					& 0xf) != 0xf) {
+					CDBG("Wait for pix1 Idle\n");
+				}
+				break;
+
 			case RDI1:
 				while ((msm_camera_io_r(ispif->base +
-					ISPIF_RDI_1_STATUS_ADDR)
+					ISPIF_RDI_1_STATUS_ADDR +
+					(0x200 * vfe_intf))
 					& 0xf) != 0xf) {
 					CDBG("Wait for rdi1 Idle\n");
+				}
+				break;
+
+			case RDI2:
+				while ((msm_camera_io_r(ispif->base +
+					ISPIF_RDI_2_STATUS_ADDR +
+					(0x200 * vfe_intf))
+					& 0xf) != 0xf) {
+					CDBG("Wait for rdi2 Idle\n");
 				}
 				break;
 
 			default:
 				break;
 			}
-			global_intf_cmd_mask |= (0xFF << (intfnum * 8));
 		}
 		mask >>= 1;
 		intfnum++;
@@ -364,24 +498,33 @@ static int msm_ispif_stop_intf_transfer(uint8_t intfmask)
 	return rc;
 }
 
-static int msm_ispif_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
+static int msm_ispif_subdev_video_s_stream(struct v4l2_subdev *sd,
+	int enable)
 {
 	struct ispif_device *ispif =
 			(struct ispif_device *)v4l2_get_subdevdata(sd);
-	int32_t cmd = enable & ((1<<ISPIF_S_STREAM_SHIFT)-1);
-	enum msm_ispif_intftype intf = enable >> ISPIF_S_STREAM_SHIFT;
+	uint32_t cmd = enable & ((1<<ISPIF_S_STREAM_SHIFT)-1);
+	uint16_t intf = enable >> ISPIF_S_STREAM_SHIFT;
+	uint8_t vfe_intf = enable >> ISPIF_VFE_INTF_SHIFT;
 	int rc = -EINVAL;
-
+	CDBG("%s enable %x, cmd %x, intf %x\n", __func__, enable, cmd, intf);
 	BUG_ON(!ispif);
+	if ((ispif->csid_version <= CSID_VERSION_V2 && vfe_intf > VFE0) ||
+		(ispif->csid_version == CSID_VERSION_V3 &&
+		vfe_intf >= VFE_MAX)) {
+		pr_err("%s invalid csid version %x && vfe intf %d\n", __func__,
+			ispif->csid_version, vfe_intf);
+		return rc;
+	}
 	switch (cmd) {
 	case ISPIF_ON_FRAME_BOUNDARY:
-		rc = msm_ispif_start_intf_transfer(intf);
+		rc = msm_ispif_start_intf_transfer(ispif, intf, vfe_intf);
 		break;
 	case ISPIF_OFF_FRAME_BOUNDARY:
-		rc = msm_ispif_stop_intf_transfer(intf);
+		rc = msm_ispif_stop_intf_transfer(ispif, intf, vfe_intf);
 		break;
 	case ISPIF_OFF_IMMEDIATELY:
-		rc = msm_ispif_abort_intf_transfer(intf);
+		rc = msm_ispif_abort_intf_transfer(ispif, intf, vfe_intf);
 		break;
 	default:
 		break;
@@ -449,8 +592,10 @@ static void ispif_process_irq(struct ispif_irq_status *out)
 	return;
 }
 
-static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out)
+static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
+	void *data)
 {
+	struct ispif_device *ispif = (struct ispif_device *)data;
 	out->ispifIrqStatus0 = msm_camera_io_r(ispif->base +
 		ISPIF_IRQ_STATUS_ADDR);
 	out->ispifIrqStatus1 = msm_camera_io_r(ispif->base +
@@ -482,7 +627,7 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out)
 static irqreturn_t msm_io_ispif_irq(int irq_num, void *data)
 {
 	struct ispif_irq_status irq;
-	msm_ispif_read_irq_status(&irq);
+	msm_ispif_read_irq_status(&irq, data);
 	return IRQ_HANDLED;
 }
 
@@ -494,19 +639,20 @@ static struct msm_cam_clk_info ispif_clk_info[] = {
 	{"csi_rdi2_clk", 0},
 };
 
-static int msm_ispif_init(const uint32_t *csid_version)
+static int msm_ispif_init(struct ispif_device *ispif,
+	const uint32_t *csid_version)
 {
 	int rc = 0;
+	CDBG("%s called %d\n", __func__, __LINE__);
 	spin_lock_init(&ispif_tasklet_lock);
 	INIT_LIST_HEAD(&ispif_tasklet_q);
 	rc = request_irq(ispif->irq->start, msm_io_ispif_irq,
-		IRQF_TRIGGER_RISING, "ispif", 0);
+		IRQF_TRIGGER_RISING, "ispif", ispif);
 
-	global_intf_cmd_mask = 0xFFFFFFFF;
 	init_completion(&ispif->reset_complete);
 
 	ispif->csid_version = *csid_version;
-	if (ispif->csid_version == CSID_VERSION_V2) {
+	if (ispif->csid_version >= CSID_VERSION_V2) {
 		rc = msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
 			ispif->ispif_clk, ARRAY_SIZE(ispif_clk_info), 1);
 		if (rc < 0)
@@ -517,15 +663,12 @@ static int msm_ispif_init(const uint32_t *csid_version)
 		if (rc < 0)
 			return rc;
 	}
-	rc = msm_ispif_reset();
+	rc = msm_ispif_reset(ispif);
 	return rc;
 }
 
-static void msm_ispif_release(struct v4l2_subdev *sd)
+static void msm_ispif_release(struct ispif_device *ispif)
 {
-	struct ispif_device *ispif =
-			(struct ispif_device *)v4l2_get_subdevdata(sd);
-
 	CDBG("%s, free_irq\n", __func__);
 	free_irq(ispif->irq->start, 0);
 	tasklet_kill(&ispif_tasklet);
@@ -538,43 +681,12 @@ static void msm_ispif_release(struct v4l2_subdev *sd)
 			ispif->ispif_clk, 2, 0);
 }
 
-void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num)
-{
-	uint32_t data = 0;
-	int i = 0, j = 0;
-	switch (intftype) {
-	case PIX0:
-		data = msm_camera_io_r(ispif->base +
-			ISPIF_PIX_INTF_CID_MASK_ADDR);
-		break;
-
-	case RDI0:
-		data = msm_camera_io_r(ispif->base +
-			ISPIF_RDI_INTF_CID_MASK_ADDR);
-		break;
-
-	case RDI1:
-		data = msm_camera_io_r(ispif->base +
-			ISPIF_RDI_1_INTF_CID_MASK_ADDR);
-		break;
-
-	default:
-		break;
-	}
-	for (i = 0; i <= MAX_CID; i++) {
-		if ((data & 0x1) == 0x1) {
-			cids[j++] = i;
-			(*num)++;
-		}
-		data >>= 1;
-	}
-}
-
 static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 {
 	long rc = 0;
 	struct ispif_cfg_data cdata;
-
+	struct ispif_device *ispif =
+		(struct ispif_device *)v4l2_get_subdevdata(sd);
 	if (copy_from_user(&cdata, (void *)arg, sizeof(struct ispif_cfg_data)))
 		return -EFAULT;
 	CDBG("%s cfgtype = %d\n", __func__, cdata.cfgtype);
@@ -582,7 +694,7 @@ static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 	case ISPIF_INIT:
 		CDBG("%s csid_version = %x\n", __func__,
 			cdata.cfg.csid_version);
-		rc = msm_ispif_init(&cdata.cfg.csid_version);
+		rc = msm_ispif_init(ispif, &cdata.cfg.csid_version);
 		break;
 	case ISPIF_SET_CFG:
 		CDBG("%s len = %d, intftype = %d,.cid_mask = %d, csid = %d\n",
@@ -591,7 +703,7 @@ static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 			cdata.cfg.ispif_params.params[0].intftype,
 			cdata.cfg.ispif_params.params[0].cid_mask,
 			cdata.cfg.ispif_params.params[0].csid);
-		rc = msm_ispif_config(&cdata.cfg.ispif_params);
+		rc = msm_ispif_config(ispif, &cdata.cfg.ispif_params);
 		break;
 
 	case ISPIF_SET_ON_FRAME_BOUNDARY:
@@ -600,7 +712,7 @@ static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 		rc = msm_ispif_subdev_video_s_stream(sd, cdata.cfg.cmd);
 		break;
 	case ISPIF_RELEASE:
-		msm_ispif_release(sd);
+		msm_ispif_release(ispif);
 		break;
 	default:
 		break;
@@ -640,6 +752,7 @@ static int ispif_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_cam_subdev_info sd_info;
+	struct ispif_device *ispif;
 
 	CDBG("%s\n", __func__);
 	ispif = kzalloc(sizeof(struct ispif_device), GFP_KERNEL);
@@ -658,6 +771,10 @@ static int ispif_probe(struct platform_device *pdev)
 	snprintf(ispif->subdev.name, sizeof(ispif->subdev.name),
 								"ispif");
 	mutex_init(&ispif->mutex);
+
+	if (pdev->dev.of_node)
+		of_property_read_u32((&pdev->dev)->of_node,
+			"cell-index", &pdev->id);
 
 	ispif->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "ispif");
@@ -709,11 +826,18 @@ ispif_no_resource:
 	return rc;
 }
 
+static const struct of_device_id msm_ispif_dt_match[] = {
+	{.compatible = "qcom,ispif"},
+};
+
+MODULE_DEVICE_TABLE(of, msm_ispif_dt_match);
+
 static struct platform_driver ispif_driver = {
 	.probe = ispif_probe,
 	.driver = {
 		.name = MSM_ISPIF_DRV_NAME,
 		.owner = THIS_MODULE,
+		.of_match_table = msm_ispif_dt_match,
 	},
 };
 
