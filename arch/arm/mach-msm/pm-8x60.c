@@ -590,7 +590,7 @@ static void msm_pm_timer_exit_idle(bool timer_halted)
 
 static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 {
-	int time = 0;
+	int64_t time = 0;
 
 	if (msm_pm_use_qtimer)
 		return sched_clock();

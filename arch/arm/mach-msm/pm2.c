@@ -1280,7 +1280,7 @@ static int msm_pm_swfi(bool ramp_acpu)
 
 static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 {
-	int time = 0;
+	int64_t time = 0;
 
 	time = msm_timer_get_sclk_time(period);
 	if (!time)
