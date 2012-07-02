@@ -208,6 +208,8 @@ static int pil_mba_driver_probe(struct platform_device *pdev)
 
 static int pil_mba_driver_exit(struct platform_device *pdev)
 {
+	struct mba_data *drv = platform_get_drvdata(pdev);
+	msm_pil_unregister(drv->pil);
 	return 0;
 }
 
