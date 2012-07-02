@@ -363,6 +363,7 @@ struct hc_driver {
 	/* to log completion events*/
 	void	(*log_urb_complete)(struct urb *urb, char * event,
 			unsigned extra);
+	void	(*dump_regs)(struct usb_hcd *);
 	void	(*enable_ulpi_control)(struct usb_hcd *hcd, u32 linestate);
 	void	(*disable_ulpi_control)(struct usb_hcd *hcd);
 };
