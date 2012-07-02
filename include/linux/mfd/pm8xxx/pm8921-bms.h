@@ -200,6 +200,13 @@ int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
  * pm8921_bms_get_rbatt - function to get the battery resistance in mOhm.
  */
 int pm8921_bms_get_rbatt(void);
+/**
+ * pm8921_bms_invalidate_shutdown_soc - function to notify the bms driver that
+ *					the battery was replaced between reboot
+ *					and so it should not use the shutdown
+ *					soc stored in a coincell backed register
+ */
+void pm8921_bms_invalidate_shutdown_soc(void);
 #else
 static inline int pm8921_bms_get_vsense_avg(int *result)
 {
@@ -234,6 +241,9 @@ static inline int pm8921_bms_get_simultaneous_battery_voltage_and_current(
 static inline int pm8921_bms_get_rbatt(void)
 {
 	return -EINVAL;
+}
+static inline void pm8921_bms_invalidate_shutdown_soc(void)
+{
 }
 #endif
 
