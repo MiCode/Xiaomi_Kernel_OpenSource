@@ -16,6 +16,8 @@
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
+#include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
 #include <linux/io.h>
@@ -24,6 +26,8 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/list.h>
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/msm_hsusb.h>
@@ -124,6 +128,12 @@ struct dwc3_msm {
 	struct regulator	*ssusb_vddcx;
 	enum usb_vdd_type	ss_vdd_type;
 	enum usb_vdd_type	hs_vdd_type;
+	struct dwc3_ext_xceiv	ext_xceiv;
+	bool			resume_pending;
+	atomic_t                pm_suspended;
+	atomic_t		in_lpm;
+	struct delayed_work	resume_work;
+	struct wake_lock	wlock;
 	struct dwc3_charger	charger;
 	struct usb_phy		*otg_xceiv;
 	struct delayed_work	chg_work;
@@ -1213,6 +1223,159 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 	queue_delayed_work(system_nrt_wq, &mdwc->chg_work, 0);
 }
 
+static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
+{
+	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
+
+	if (atomic_read(&mdwc->in_lpm)) {
+		dev_dbg(mdwc->dev, "%s: Already suspended\n", __func__);
+		return 0;
+	}
+
+	clk_disable_unprepare(mdwc->core_clk);
+	dwc3_hsusb_ldo_enable(0);
+	dwc3_ssusb_ldo_enable(0);
+	wake_unlock(&mdwc->wlock);
+
+	atomic_set(&mdwc->in_lpm, 1);
+	dev_info(mdwc->dev, "DWC3 in low power mode\n");
+
+	return 0;
+}
+
+static int dwc3_msm_resume(struct dwc3_msm *mdwc)
+{
+	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
+
+	if (!atomic_read(&mdwc->in_lpm)) {
+		dev_dbg(mdwc->dev, "%s: Already resumed\n", __func__);
+		return 0;
+	}
+
+	wake_lock(&mdwc->wlock);
+	clk_prepare_enable(mdwc->core_clk);
+	dwc3_hsusb_ldo_enable(1);
+	dwc3_ssusb_ldo_enable(1);
+
+	atomic_set(&mdwc->in_lpm, 0);
+	dev_info(mdwc->dev, "DWC3 exited from low power mode\n");
+
+	return 0;
+}
+
+static void dwc3_resume_work(struct work_struct *w)
+{
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
+							resume_work.work);
+
+	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
+	/* handle any event that was queued while work was already running */
+	if (!atomic_read(&mdwc->in_lpm)) {
+		dev_dbg(mdwc->dev, "%s: notifying xceiv event\n", __func__);
+		if (mdwc->otg_xceiv)
+			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
+							DWC3_EVENT_XCEIV_STATE);
+		return;
+	}
+
+	/* bail out if system resume in process, else initiate RESUME */
+	if (atomic_read(&mdwc->pm_suspended)) {
+		mdwc->resume_pending = true;
+	} else {
+		pm_runtime_get_sync(mdwc->dev);
+		if (mdwc->otg_xceiv)
+			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
+							DWC3_EVENT_PHY_RESUME);
+		pm_runtime_put_sync(mdwc->dev);
+	}
+}
+
+static bool debug_id, debug_bsv, debug_connect;
+
+static int dwc3_connect_show(struct seq_file *s, void *unused)
+{
+	if (debug_connect)
+		seq_printf(s, "true\n");
+	else
+		seq_printf(s, "false\n");
+
+	return 0;
+}
+
+static int dwc3_connect_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dwc3_connect_show, inode->i_private);
+}
+
+static ssize_t dwc3_connect_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct dwc3_msm *mdwc = s->private;
+	char buf[8];
+
+	memset(buf, 0x00, sizeof(buf));
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (!strncmp(buf, "enable", 6) || !strncmp(buf, "true", 4)) {
+		debug_connect = true;
+	} else {
+		debug_connect = debug_bsv = false;
+		debug_id = true;
+	}
+
+	mdwc->ext_xceiv.bsv = debug_bsv;
+	mdwc->ext_xceiv.id = debug_id ? DWC3_ID_FLOAT : DWC3_ID_GROUND;
+
+	if (atomic_read(&mdwc->in_lpm)) {
+		dev_dbg(mdwc->dev, "%s: calling resume_work\n", __func__);
+		dwc3_resume_work(&mdwc->resume_work.work);
+	} else {
+		dev_dbg(mdwc->dev, "%s: notifying xceiv event\n", __func__);
+		if (mdwc->otg_xceiv)
+			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
+							DWC3_EVENT_XCEIV_STATE);
+	}
+
+	return count;
+}
+
+const struct file_operations dwc3_connect_fops = {
+	.open = dwc3_connect_open,
+	.read = seq_read,
+	.write = dwc3_connect_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static struct dentry *dwc3_debugfs_root;
+
+static void dwc3_debugfs_init(struct dwc3_msm *mdwc)
+{
+	dwc3_debugfs_root = debugfs_create_dir("msm_dwc3", NULL);
+
+	if (!dwc3_debugfs_root || IS_ERR(dwc3_debugfs_root))
+		return;
+
+	if (!debugfs_create_bool("id", S_IRUGO | S_IWUSR, dwc3_debugfs_root,
+				 (u32 *)&debug_id))
+		goto error;
+
+	if (!debugfs_create_bool("bsv", S_IRUGO | S_IWUSR, dwc3_debugfs_root,
+				 (u32 *)&debug_bsv))
+		goto error;
+
+	if (!debugfs_create_file("connect", S_IRUGO | S_IWUSR,
+				dwc3_debugfs_root, mdwc, &dwc3_connect_fops))
+		goto error;
+
+	return;
+
+error:
+	debugfs_remove_recursive(dwc3_debugfs_root);
+}
 
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
@@ -1234,6 +1397,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&msm->req_complete_list);
 	INIT_DELAYED_WORK(&msm->chg_work, dwc3_chg_detect_work);
+	INIT_DELAYED_WORK(&msm->resume_work, dwc3_resume_work);
 
 	/*
 	 * DWC3 Core requires its CORE CLK (aka master / bus clk) to
@@ -1354,6 +1518,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	msm->resource_size = resource_size(res);
 	msm->dwc3 = dwc3;
 
+	pm_runtime_set_active(msm->dev);
+	pm_runtime_enable(msm->dev);
+
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-dbm-eps",
 				 &msm->dbm_num_eps)) {
 		dev_err(&pdev->dev,
@@ -1395,9 +1562,20 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 									ret);
 			goto put_xcvr;
 		}
+
+		ret = dwc3_set_ext_xceiv(msm->otg_xceiv->otg, &msm->ext_xceiv);
+		if (ret || !msm->ext_xceiv.notify_ext_events) {
+			dev_err(&pdev->dev, "failed to register xceiver: %d\n",
+									ret);
+			goto put_xcvr;
+		}
 	} else {
 		dev_err(&pdev->dev, "%s: No OTG transceiver found\n", __func__);
 	}
+
+	wake_lock_init(&msm->wlock, WAKE_LOCK_SUSPEND, "msm_dwc3");
+	wake_lock(&msm->wlock);
+	dwc3_debugfs_init(msm);
 
 	return 0;
 
@@ -1432,11 +1610,15 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 {
 	struct dwc3_msm	*msm = platform_get_drvdata(pdev);
 
+	if (dwc3_debugfs_root)
+		debugfs_remove_recursive(dwc3_debugfs_root);
 	if (msm->otg_xceiv) {
 		dwc3_start_chg_det(&msm->charger, false);
 		usb_put_transceiver(msm->otg_xceiv);
 	}
+	pm_runtime_disable(msm->dev);
 	platform_device_unregister(msm->dwc3);
+	wake_lock_destroy(&msm->wlock);
 
 	dwc3_hsusb_ldo_enable(0);
 	dwc3_hsusb_ldo_init(0);
@@ -1451,6 +1633,77 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int dwc3_msm_pm_suspend(struct device *dev)
+{
+	int ret = 0;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "dwc3-msm PM suspend\n");
+
+	ret = dwc3_msm_suspend(mdwc);
+	if (!ret)
+		atomic_set(&mdwc->pm_suspended, 1);
+
+	return ret;
+}
+
+static int dwc3_msm_pm_resume(struct device *dev)
+{
+	int ret = 0;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "dwc3-msm PM resume\n");
+
+	atomic_set(&mdwc->pm_suspended, 0);
+	if (mdwc->resume_pending) {
+		mdwc->resume_pending = false;
+
+		ret = dwc3_msm_resume(mdwc);
+		/* Update runtime PM status */
+		pm_runtime_disable(dev);
+		pm_runtime_set_active(dev);
+		pm_runtime_enable(dev);
+
+		/* Let OTG know about resume event and update pm_count */
+		if (mdwc->otg_xceiv)
+			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
+							DWC3_EVENT_PHY_RESUME);
+	}
+
+	return ret;
+}
+
+static int dwc3_msm_runtime_idle(struct device *dev)
+{
+	dev_dbg(dev, "DWC3-msm runtime idle\n");
+
+	return 0;
+}
+
+static int dwc3_msm_runtime_suspend(struct device *dev)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "DWC3-msm runtime suspend\n");
+
+	return dwc3_msm_suspend(mdwc);
+}
+
+static int dwc3_msm_runtime_resume(struct device *dev)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "DWC3-msm runtime resume\n");
+
+	return dwc3_msm_resume(mdwc);
+}
+
+static const struct dev_pm_ops dwc3_msm_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(dwc3_msm_pm_suspend, dwc3_msm_pm_resume)
+	SET_RUNTIME_PM_OPS(dwc3_msm_runtime_suspend, dwc3_msm_runtime_resume,
+				dwc3_msm_runtime_idle)
+};
+
 static const struct of_device_id of_dwc3_matach[] = {
 	{
 		.compatible = "qcom,dwc-usb3-msm",
@@ -1464,6 +1717,7 @@ static struct platform_driver dwc3_msm_driver = {
 	.remove		= dwc3_msm_remove,
 	.driver		= {
 		.name	= "msm-dwc3",
+		.pm	= &dwc3_msm_dev_pm_ops,
 		.of_match_table	= of_dwc3_matach,
 	},
 };

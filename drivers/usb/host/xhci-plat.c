@@ -12,6 +12,7 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/usb/otg.h>
@@ -172,6 +173,11 @@ static int xhci_plat_probe(struct platform_device *pdev)
 				__func__);
 			goto put_usb3_hcd;
 		}
+	} else {
+		pm_runtime_no_callbacks(&pdev->dev);
+		pm_runtime_set_active(&pdev->dev);
+		pm_runtime_enable(&pdev->dev);
+		pm_runtime_get(&pdev->dev);
 	}
 
 	return 0;
@@ -209,6 +215,9 @@ static int xhci_plat_remove(struct platform_device *dev)
 
 	if (phy && phy->otg) {
 		otg_set_host(phy->otg, NULL);
+	} else {
+		pm_runtime_put(&dev->dev);
+		pm_runtime_disable(&dev->dev);
 	}
 
 	return 0;

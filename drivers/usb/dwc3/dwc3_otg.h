@@ -35,8 +35,9 @@ struct dwc3_otg {
 	struct usb_otg otg;
 	int irq;
 	void __iomem *regs;
-	struct work_struct sm_work;
-	struct dwc3_charger *charger;
+	struct work_struct	sm_work;
+	struct dwc3_charger	*charger;
+	struct dwc3_ext_xceiv	*ext_xceiv;
 #define ID		0
 #define B_SESS_VLD	1
 	unsigned long inputs;
@@ -72,5 +73,30 @@ struct dwc3_charger {
 
 /* for external charger driver */
 extern int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger);
+
+enum dwc3_ext_events {
+	DWC3_EVENT_NONE = 0,		/* no change event */
+	DWC3_EVENT_PHY_RESUME,		/* PHY has come out of LPM */
+	DWC3_EVENT_XCEIV_STATE,		/* XCEIV state (id/bsv) has changed */
+};
+
+enum dwc3_id_state {
+	DWC3_ID_GROUND = 0,
+	DWC3_ID_FLOAT,
+};
+
+/* external transceiver that can perform connect/disconnect monitoring in LPM */
+struct dwc3_ext_xceiv {
+	enum dwc3_id_state	id;
+	bool			bsv;
+
+	/* to notify OTG about LPM exit event, provided by OTG */
+	void	(*notify_ext_events)(struct usb_otg *otg,
+					enum dwc3_ext_events ext_event);
+};
+
+/* for external transceiver driver */
+extern int dwc3_set_ext_xceiv(struct usb_otg *otg,
+				struct dwc3_ext_xceiv *ext_xceiv);
 
 #endif /* __LINUX_USB_DWC3_OTG_H */
