@@ -114,11 +114,15 @@ static void pil_proxy_work(struct work_struct *work)
 
 static int pil_proxy_vote(struct pil_device *pil)
 {
+	int ret = 0;
+
 	if (pil->desc->ops->proxy_vote) {
 		wake_lock(&pil->wlock);
-		return pil->desc->ops->proxy_vote(pil->desc);
+		ret = pil->desc->ops->proxy_vote(pil->desc);
+		if (ret)
+			wake_unlock(&pil->wlock);
 	}
-	return 0;
+	return ret;
 }
 
 static void pil_proxy_unvote(struct pil_device *pil, unsigned long timeout)
