@@ -43,37 +43,46 @@
  * @failed - set to true if test fails
  */
 #define UT_ASSERT_INT(a, cmp, b) \
-	if (!((a)cmp(b))) { \
+	{ \
+	int a_tmp = (a); \
+	int b_tmp = (b); \
+	if (!((a_tmp)cmp(b_tmp))) { \
 		i += scnprintf(buf + i, max - i, \
 			"%s:%d Fail: " #a "(%d) " #cmp " " #b "(%d)\n", \
 				__func__, __LINE__, \
-				a, b); \
+				a_tmp, b_tmp); \
 		failed = 1; \
 		break; \
 	} \
-	do {} while (0)
+	}
 
 #define UT_ASSERT_PTR(a, cmp, b) \
-	if (!((a)cmp(b))) { \
+	{ \
+	void *a_tmp = (a); \
+	void *b_tmp = (b); \
+	if (!((a_tmp)cmp(b_tmp))) { \
 		i += scnprintf(buf + i, max - i, \
 			"%s:%d Fail: " #a "(%p) " #cmp " " #b "(%p)\n", \
 				__func__, __LINE__, \
-				a, b); \
+				a_tmp, b_tmp); \
 		failed = 1; \
 		break; \
 	} \
-	do {} while (0)
+	}
 
 #define UT_ASSERT_UINT(a, cmp, b) \
-	if (!((a)cmp(b))) { \
+	{ \
+	unsigned a_tmp = (a); \
+	unsigned b_tmp = (b); \
+	if (!((a_tmp)cmp(b_tmp))) { \
 		i += scnprintf(buf + i, max - i, \
 			"%s:%d Fail: " #a "(%u) " #cmp " " #b "(%u)\n", \
 				__func__, __LINE__, \
-				a, b); \
+				a_tmp, b_tmp); \
 		failed = 1; \
 		break; \
 	} \
-	do {} while (0)
+	}
 
 /**
  * In-range unit test assertion for test cases.
@@ -94,16 +103,20 @@
  * @failed - set to true if test fails
  */
 #define UT_ASSERT_INT_IN_RANGE(a, minv, maxv) \
-	if (((a) < (minv)) || ((a) > (maxv))) { \
+	{ \
+	int a_tmp = (a); \
+	int minv_tmp = (minv); \
+	int maxv_tmp = (maxv); \
+	if (((a_tmp) < (minv_tmp)) || ((a_tmp) > (maxv_tmp))) { \
 		i += scnprintf(buf + i, max - i, \
 			"%s:%d Fail: " #a "(%d) < " #minv "(%d) or " \
 				 #a "(%d) > " #maxv "(%d)\n", \
 				__func__, __LINE__, \
-				a, minv, a, maxv); \
+				a_tmp, minv_tmp, a_tmp, maxv_tmp); \
 		failed = 1; \
 		break; \
 	} \
-	do {} while (0)
+	}
 
 
 static unsigned char test_array[] = {1, 1, 2, 3, 5, 8, 13, 21, 34, 55,
