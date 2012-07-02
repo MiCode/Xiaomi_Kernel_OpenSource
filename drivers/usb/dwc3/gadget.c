@@ -2425,6 +2425,11 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 			dev_err(dwc->dev, "failed to set peripheral to otg\n");
 			goto err7;
 		}
+	} else {
+		pm_runtime_no_callbacks(&dwc->gadget.dev);
+		pm_runtime_set_active(&dwc->gadget.dev);
+		pm_runtime_enable(&dwc->gadget.dev);
+		pm_runtime_get(&dwc->gadget.dev);
 	}
 
 	return 0;
@@ -2461,6 +2466,11 @@ err0:
 void dwc3_gadget_exit(struct dwc3 *dwc)
 {
 	int			irq;
+
+	if (dwc->dotg) {
+		pm_runtime_put(&dwc->gadget.dev);
+		pm_runtime_disable(&dwc->gadget.dev);
+	}
 
 	usb_del_gadget_udc(&dwc->gadget);
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
