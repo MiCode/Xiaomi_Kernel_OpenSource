@@ -897,6 +897,7 @@ static int msm_mctl_dev_open(struct file *f)
 	pcam_inst->sensor_pxlcode = pcam->usr_fmts[0].pxlcode;
 	pcam_inst->my_index = i;
 	pcam_inst->pcam = pcam;
+	mutex_init(&pcam_inst->inst_lock);
 	pcam->mctl_node.dev_inst[i] = pcam_inst;
 
 	D("%s pcam_inst %p my_index = %d\n", __func__,
@@ -1006,6 +1007,7 @@ static int msm_mctl_dev_close(struct file *f)
 	pcam->mctl_node.dev_inst[pcam_inst->my_index] = NULL;
 	v4l2_fh_del(&pcam_inst->eventHandle);
 	v4l2_fh_exit(&pcam_inst->eventHandle);
+	mutex_destroy(&pcam_inst->inst_lock);
 
 	kfree(pcam_inst);
 	if (NULL != pmctl) {
