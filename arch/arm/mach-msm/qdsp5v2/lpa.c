@@ -73,7 +73,7 @@ static void lpa_reset(struct lpa_drv *lpa)
 		MM_ERR("failed to get adsp clk\n");
 		goto error;
 	}
-	clk_enable(adsp_clk);
+	clk_prepare_enable(adsp_clk);
 	lpa_enable_codec(lpa, 0);
 	LPA_REG_WRITEL(lpa, (LPA_OBUF_RESETS_MISR_RESET |
 		LPA_OBUF_RESETS_OVERALL_RESET), LPA_OBUF_RESETS);
@@ -83,7 +83,7 @@ static void lpa_reset(struct lpa_drv *lpa)
 
 	LPA_REG_WRITEL(lpa, LPA_OBUF_ACK_RESET_DONE_BMSK, LPA_OBUF_ACK);
 	mb();
-	clk_disable(adsp_clk);
+	clk_disable_unprepare(adsp_clk);
 	clk_put(adsp_clk);
 error:
 	return;
