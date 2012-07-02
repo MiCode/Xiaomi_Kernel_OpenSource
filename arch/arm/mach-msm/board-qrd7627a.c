@@ -685,7 +685,7 @@ static struct gpio_regulator_platform_data msm_gpio_regulator_pdata[] = {
 };
 
 /* GPIO regulator */
-static struct platform_device qrd_msm8625_vreg_gpio_ext_2p85v = {
+static struct platform_device qrd_vreg_gpio_ext_2p85v = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= 35,
 	.dev	= {
@@ -694,7 +694,7 @@ static struct platform_device qrd_msm8625_vreg_gpio_ext_2p85v = {
 	},
 };
 
-static struct platform_device qrd_msm8625_vreg_gpio_ext_1p8v = {
+static struct platform_device qrd_vreg_gpio_ext_1p8v = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= 40,
 	.dev	= {
@@ -731,6 +731,8 @@ static struct platform_device *qrd7627a_devices[] __initdata = {
 	&msm_device_otg,
 	&msm_device_gadget_peripheral,
 	&msm_kgsl_3d0,
+	&qrd_vreg_gpio_ext_2p85v,
+	&qrd_vreg_gpio_ext_1p8v,
 };
 
 static struct platform_device *qrd3_devices[] __initdata = {
@@ -747,8 +749,8 @@ static struct platform_device *msm8625_evb_devices[] __initdata = {
 	&msm8625_device_otg,
 	&msm8625_device_gadget_peripheral,
 	&msm8625_kgsl_3d0,
-	&qrd_msm8625_vreg_gpio_ext_2p85v,
-	&qrd_msm8625_vreg_gpio_ext_1p8v,
+	&qrd_vreg_gpio_ext_2p85v,
+	&qrd_vreg_gpio_ext_1p8v,
 };
 
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
