@@ -45,6 +45,8 @@
 #include <mach/rpm-regulator.h>
 
 #define MSM_USB_BASE (hcd->regs)
+#define USB_REG_START_OFFSET 0x90
+#define USB_REG_END_OFFSET 0x250
 
 struct msm_hsic_hcd {
 	struct ehci_hcd		ehci;
@@ -67,6 +69,8 @@ struct msm_hsic_hcd {
 	uint32_t		wakeup_int_cnt;
 	enum usb_vdd_type	vdd_type;
 };
+
+struct msm_hsic_hcd *__mehci;
 
 static bool debug_bus_voting_enabled = true;
 
@@ -254,6 +258,22 @@ static inline struct msm_hsic_hcd *hcd_to_hsic(struct usb_hcd *hcd)
 static inline struct usb_hcd *hsic_to_hcd(struct msm_hsic_hcd *mehci)
 {
 	return container_of((void *) mehci, struct usb_hcd, hcd_priv);
+}
+
+static void dump_hsic_regs(struct usb_hcd *hcd)
+{
+	int i;
+	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+
+	if (atomic_read(&mehci->in_lpm))
+		return;
+
+	for (i = USB_REG_START_OFFSET; i <= USB_REG_END_OFFSET; i += 0x10)
+		pr_info("%p: %08x\t%08x\t%08x\t%08x\n", hcd->regs + i,
+				readl_relaxed(hcd->regs + i),
+				readl_relaxed(hcd->regs + i + 4),
+				readl_relaxed(hcd->regs + i + 8),
+				readl_relaxed(hcd->regs + i + 0xc));
 }
 
 #define ULPI_IO_TIMEOUT_USEC	(10 * 1000)
@@ -872,6 +892,7 @@ static struct hc_driver msm_hsic_driver = {
 	.bus_resume		= ehci_hsic_bus_resume,
 
 	.log_urb_complete	= dbg_log_event,
+	.dump_regs		= dump_hsic_regs,
 
 	.enable_ulpi_control	= ehci_msm_enable_ulpi_control,
 	.disable_ulpi_control	= ehci_msm_disable_ulpi_control,
@@ -1332,6 +1353,8 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 						"scaling client!!\n", __func__);
 		}
 	}
+
+	__mehci = mehci;
 
 	/*
 	 * This pdev->dev is assigned parent of root-hub by USB core,
