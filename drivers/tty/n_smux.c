@@ -538,67 +538,76 @@ static void smux_log_pkt(struct smux_pkt_t *pkt, int is_recv)
 	char local_mode;
 	char remote_state;
 	char remote_mode;
-	struct smux_lch_t *ch;
+	struct smux_lch_t *ch = NULL;
 	unsigned char *data;
 
-	ch = &smux_lch[pkt->hdr.lcid];
+	if (!smux_assert_lch_id(pkt->hdr.lcid))
+		ch = &smux_lch[pkt->hdr.lcid];
 
-	switch (ch->local_state) {
-	case SMUX_LCH_LOCAL_CLOSED:
-		local_state = 'C';
-		break;
-	case SMUX_LCH_LOCAL_OPENING:
-		local_state = 'o';
-		break;
-	case SMUX_LCH_LOCAL_OPENED:
-		local_state = 'O';
-		break;
-	case SMUX_LCH_LOCAL_CLOSING:
-		local_state = 'c';
-		break;
-	default:
-		local_state = 'U';
-		break;
-	}
+	if (ch) {
+		switch (ch->local_state) {
+		case SMUX_LCH_LOCAL_CLOSED:
+			local_state = 'C';
+			break;
+		case SMUX_LCH_LOCAL_OPENING:
+			local_state = 'o';
+			break;
+		case SMUX_LCH_LOCAL_OPENED:
+			local_state = 'O';
+			break;
+		case SMUX_LCH_LOCAL_CLOSING:
+			local_state = 'c';
+			break;
+		default:
+			local_state = 'U';
+			break;
+		}
 
-	switch (ch->local_mode) {
-	case SMUX_LCH_MODE_LOCAL_LOOPBACK:
-		local_mode = 'L';
-		break;
-	case SMUX_LCH_MODE_REMOTE_LOOPBACK:
-		local_mode = 'R';
-		break;
-	case SMUX_LCH_MODE_NORMAL:
-		local_mode = 'N';
-		break;
-	default:
-		local_mode = 'U';
-		break;
-	}
+		switch (ch->local_mode) {
+		case SMUX_LCH_MODE_LOCAL_LOOPBACK:
+			local_mode = 'L';
+			break;
+		case SMUX_LCH_MODE_REMOTE_LOOPBACK:
+			local_mode = 'R';
+			break;
+		case SMUX_LCH_MODE_NORMAL:
+			local_mode = 'N';
+			break;
+		default:
+			local_mode = 'U';
+			break;
+		}
 
-	switch (ch->remote_state) {
-	case SMUX_LCH_REMOTE_CLOSED:
-		remote_state = 'C';
-		break;
-	case SMUX_LCH_REMOTE_OPENED:
-		remote_state = 'O';
-		break;
+		switch (ch->remote_state) {
+		case SMUX_LCH_REMOTE_CLOSED:
+			remote_state = 'C';
+			break;
+		case SMUX_LCH_REMOTE_OPENED:
+			remote_state = 'O';
+			break;
 
-	default:
-		remote_state = 'U';
-		break;
-	}
+		default:
+			remote_state = 'U';
+			break;
+		}
 
-	switch (ch->remote_mode) {
-	case SMUX_LCH_MODE_REMOTE_LOOPBACK:
-		remote_mode = 'R';
-		break;
-	case SMUX_LCH_MODE_NORMAL:
-		remote_mode = 'N';
-		break;
-	default:
-		remote_mode = 'U';
-		break;
+		switch (ch->remote_mode) {
+		case SMUX_LCH_MODE_REMOTE_LOOPBACK:
+			remote_mode = 'R';
+			break;
+		case SMUX_LCH_MODE_NORMAL:
+			remote_mode = 'N';
+			break;
+		default:
+			remote_mode = 'U';
+			break;
+		}
+	} else {
+		/* broadcast channel */
+		local_state = '-';
+		local_mode = '-';
+		remote_state = '-';
+		remote_mode = '-';
 	}
 
 	/* determine command type (ACK, etc) */
