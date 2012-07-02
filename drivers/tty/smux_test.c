@@ -285,12 +285,12 @@ static int mock_cb_data_print(const struct smux_mock_callback *cb,
 		"\tevent_tiocm=%d\n"
 		"\tevent_read_done=%d\n"
 		"\tevent_read_failed=%d\n"
-		"\tread_events=%d\n"
+		"\tread_events empty=%d\n"
 		"\tget_rx_retry=%d\n"
-		"\tget_rx_retry_events=%d\n"
+		"\tget_rx_retry_events empty=%d\n"
 		"\tevent_write_done=%d\n"
 		"\tevent_write_failed=%d\n"
-		"\twrite_events=%d\n",
+		"\twrite_events empty=%d\n",
 		cb->cb_count,
 		cb->cb_completion.done,
 		cb->event_connected,
@@ -301,9 +301,9 @@ static int mock_cb_data_print(const struct smux_mock_callback *cb,
 		cb->event_tiocm,
 		cb->event_read_done,
 		cb->event_read_failed,
-		!list_empty(&cb->read_events),
+		list_empty(&cb->read_events),
 		cb->get_rx_buff_retry_count,
-		!list_empty(&cb->get_rx_buff_retry_events),
+		list_empty(&cb->get_rx_buff_retry_events),
 		cb->event_write_done,
 		cb->event_write_failed,
 		list_empty(&cb->write_events)
