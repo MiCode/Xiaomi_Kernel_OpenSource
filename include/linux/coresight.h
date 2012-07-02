@@ -134,6 +134,7 @@ struct coresight_device {
 struct coresight_ops_sink {
 	int (*enable)(struct coresight_device *csdev);
 	void (*disable)(struct coresight_device *csdev);
+	void (*abort)(struct coresight_device *csdev);
 };
 
 struct coresight_ops_link {
@@ -158,6 +159,7 @@ coresight_register(struct coresight_desc *desc);
 extern void coresight_unregister(struct coresight_device *csdev);
 extern int coresight_enable(struct coresight_device *csdev);
 extern void coresight_disable(struct coresight_device *csdev);
+extern void coresight_abort(void);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -165,6 +167,7 @@ static inline void coresight_unregister(struct coresight_device *csdev) {}
 static inline int
 coresight_enable(struct coresight_device *csdev) { return -ENOSYS; }
 static inline void coresight_disable(struct coresight_device *csdev) {}
+static inline void coresight_abort(void) {}
 #endif
 
 #endif
