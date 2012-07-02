@@ -121,6 +121,8 @@ struct vpe_ctrl_type {
 	struct msm_mctl_pp_frame_info *pp_frame_info;
 	atomic_t active;
 	struct msm_device_queue eventData_q; /*V4L2 Event Payload Queue*/
+	struct device *iommu_ctx_src;
+	struct device *iommu_ctx_dst;
 };
 
 /*

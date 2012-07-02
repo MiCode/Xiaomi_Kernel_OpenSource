@@ -182,7 +182,8 @@ static int msm_stats_check_pmem_info(struct msm_stats_buf_info *info, int len)
 #endif
 
 static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
-	struct msm_stats_buf_info *info, struct ion_client *client)
+	struct msm_stats_buf_info *info, struct ion_client *client,
+	int domain_num)
 {
 	unsigned long paddr;
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -219,7 +220,7 @@ static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 		goto out1;
 	}
 	if (ion_map_iommu(client, stats_buf->handle,
-			CAMERA_DOMAIN, GEN_POOL, SZ_4K,
+			domain_num, 0, SZ_4K,
 			0, &paddr, &len, UNCACHED, 0) < 0) {
 		rc = -EINVAL;
 		pr_err("%s: cannot map address", __func__);
@@ -257,7 +258,7 @@ static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 	return 0;
 out3:
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_unmap_iommu(client, stats_buf->handle, CAMERA_DOMAIN, GEN_POOL);
+	ion_unmap_iommu(client, stats_buf->handle, domain_num, 0);
 #endif
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 out2:
@@ -270,7 +271,7 @@ out1:
 }
 static int msm_stats_buf_unprepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 	enum msm_stats_enum_type stats_type, int buf_idx,
-	struct ion_client *client)
+	struct ion_client *client, int domain_num)
 {
 	int rc = 0;
 	struct msm_stats_bufq *bufq = NULL;
@@ -292,7 +293,7 @@ static int msm_stats_buf_unprepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 	}
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	ion_unmap_iommu(client, stats_buf->handle,
-					CAMERA_DOMAIN, GEN_POOL);
+					domain_num, 0);
 	ion_free(client, stats_buf->handle);
 #else
 	put_pmem_file(stats_buf->file);
@@ -472,12 +473,13 @@ static int msm_stats_buf_dispatch(struct msm_stats_bufq_ctrl *stats_ctrl,
 	return rc;
 }
 static int msm_stats_enqueue_buf(struct msm_stats_bufq_ctrl *stats_ctrl,
-	struct msm_stats_buf_info *info, struct ion_client *client)
+	struct msm_stats_buf_info *info, struct ion_client *client,
+	int domain_num)
 {
 	int rc = 0;
 	D("%s: stats type : %d, idx : %d\n", __func__,
 		info->type, info->buf_idx);
-	rc = msm_stats_buf_prepare(stats_ctrl, info, client);
+	rc = msm_stats_buf_prepare(stats_ctrl, info, client, domain_num);
 	if (rc < 0) {
 		pr_err("%s: buf_prepare failed, rc = %d", __func__, rc);
 		return -EINVAL;
