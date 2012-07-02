@@ -1476,7 +1476,7 @@ static struct resource msm8625_mipi_dsi_resources[] = {
 	},
 };
 
-struct platform_device msm8625_mipi_dsi_device = {
+static struct platform_device msm8625_mipi_dsi_device = {
 	.name   = "mipi_dsi",
 	.id     = 1,
 	.num_resources  = ARRAY_SIZE(msm8625_mipi_dsi_resources),
@@ -1504,6 +1504,8 @@ static struct platform_device msm8625_mdp_device = {
 	.resource       = msm8625_mdp_resources,
 };
 
+struct platform_device mipi_dsi_device;
+
 void __init msm_fb_register_device(char *name, void *data)
 {
 	if (!strncmp(name, "mdp", 3)) {
@@ -1512,10 +1514,13 @@ void __init msm_fb_register_device(char *name, void *data)
 		else
 			msm_register_device(&msm_mdp_device, data);
 	} else if (!strncmp(name, "mipi_dsi", 8)) {
-		if (cpu_is_msm8625())
+		if (cpu_is_msm8625()) {
 			msm_register_device(&msm8625_mipi_dsi_device, data);
-		else
+			mipi_dsi_device = msm8625_mipi_dsi_device;
+		} else {
 			msm_register_device(&msm_mipi_dsi_device, data);
+			mipi_dsi_device = msm_mipi_dsi_device;
+		}
 	} else if (!strncmp(name, "lcdc", 4)) {
 			msm_register_device(&msm_lcdc_device, data);
 	} else {

@@ -1155,14 +1155,14 @@ static int mipi_dsi_panel_qrd3_power(int on)
 		if (rc < 0)
 			return rc;
 
-		gpio_reg_2p85v = regulator_get(&msm8625_mipi_dsi_device.dev,
+		gpio_reg_2p85v = regulator_get(&mipi_dsi_device.dev,
 								"lcd_vdd");
 		if (IS_ERR(gpio_reg_2p85v)) {
 			pr_err("%s:ext_2p85v regulator get failed", __func__);
 			return -EINVAL;
 		}
 
-		gpio_reg_1p8v = regulator_get(&msm8625_mipi_dsi_device.dev,
+		gpio_reg_1p8v = regulator_get(&mipi_dsi_device.dev,
 								"lcd_vddi");
 		if (IS_ERR(gpio_reg_1p8v)) {
 			pr_err("%s:ext_1p8v regulator get failed", __func__);
