@@ -133,6 +133,15 @@ struct msm_cam_media_controller *msm_cam_server_get_mctl(uint32_t handle)
 	return NULL;
 }
 
+static void msm_cam_server_send_error_evt(int evt_type)
+{
+	struct v4l2_event v4l2_ev;
+	v4l2_ev.id = 0;
+	v4l2_ev.type = evt_type;
+	ktime_get_ts(&v4l2_ev.timestamp);
+	v4l2_event_queue(g_server_dev.pcam_active->pvdev, &v4l2_ev);
+}
+
 static int msm_ctrl_cmd_done(void *arg)
 {
 	void __user *uptr;
@@ -1173,7 +1182,6 @@ static int msm_close_server(struct file *fp)
 	if (g_server_dev.use_count == 0) {
 		mutex_lock(&g_server_dev.server_lock);
 		if (g_server_dev.pcam_active) {
-			struct v4l2_event v4l2_ev;
 			struct msm_cam_media_controller *pmctl = NULL;
 			int rc;
 
@@ -1186,13 +1194,8 @@ static int msm_close_server(struct file *fp)
 				/*so that it isn't closed again*/
 				pmctl->mctl_release = NULL;
 			}
-
-			v4l2_ev.id = 0;
-			v4l2_ev.type = V4L2_EVENT_PRIVATE_START
-				+ MSM_CAM_APP_NOTIFY_ERROR_EVENT;
-			ktime_get_ts(&v4l2_ev.timestamp);
-			v4l2_event_queue(
-				g_server_dev.pcam_active->pvdev, &v4l2_ev);
+			msm_cam_server_send_error_evt(V4L2_EVENT_PRIVATE_START
+				+ MSM_CAM_APP_NOTIFY_ERROR_EVENT);
 		}
 		sub.type = V4L2_EVENT_ALL;
 		msm_server_v4l2_unsubscribe_event(
@@ -1437,6 +1440,11 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 		rc = v4l2_subdev_call(g_server_dev.gesture_device,
 			core, ioctl, VIDIOC_MSM_GESTURE_CAM_EVT, arg);
 		break;
+	case NOTIFY_VFE_CAMIF_ERROR: {
+		msm_cam_server_send_error_evt(V4L2_EVENT_PRIVATE_START
+			+ MSM_CAM_APP_NOTIFY_ERROR_EVENT);
+		break;
+	}
 	default:
 		break;
 	}
