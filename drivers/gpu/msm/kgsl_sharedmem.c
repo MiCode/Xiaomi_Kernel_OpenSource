@@ -17,6 +17,7 @@
 #include <asm/cacheflush.h>
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
+#include <linux/highmem.h>
 
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
@@ -489,9 +490,11 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable,
 			size_t size, unsigned int protflags)
 {
-	int order, ret = 0;
+	int i, order, ret = 0;
 	int sglen = PAGE_ALIGN(size) / PAGE_SIZE;
-	int i;
+	struct page **pages = NULL;
+	pgprot_t page_prot = pgprot_writecombine(PAGE_KERNEL);
+	void *ptr;
 
 	/*
 	 * Add guard page to the end of the allocation when the
@@ -515,26 +518,53 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		goto done;
 	}
 
+	/*
+	 * Allocate space to store the list of pages to send to vmap.
+	 * This is an array of pointers so we can track 1024 pages per page of
+	 * allocation which means we can handle up to a 8MB buffer request with
+	 * two pages; well within the acceptable limits for using kmalloc.
+	 */
+
+	pages = kmalloc(sglen * sizeof(struct page *), GFP_KERNEL);
+
+	if (pages == NULL) {
+		KGSL_CORE_ERR("kmalloc (%d) failed\n",
+			sglen * sizeof(struct page *));
+		ret = -ENOMEM;
+		goto done;
+	}
+
 	kmemleak_not_leak(memdesc->sg);
 
 	memdesc->sglen = sglen;
 	sg_init_table(memdesc->sg, sglen);
 
 	for (i = 0; i < PAGE_ALIGN(size) / PAGE_SIZE; i++) {
-		struct page *page = alloc_page(GFP_KERNEL | __GFP_ZERO |
-						__GFP_HIGHMEM);
-		if (!page) {
+
+		/*
+		 * Don't use GFP_ZERO here because it is faster to memset the
+		 * range ourselves (see below)
+		 */
+
+		pages[i] = alloc_page(GFP_KERNEL | __GFP_HIGHMEM);
+		if (pages[i] == NULL) {
 			ret = -ENOMEM;
 			memdesc->sglen = i;
 			goto done;
 		}
-		flush_dcache_page(page);
-		sg_set_page(&memdesc->sg[i], page, PAGE_SIZE, 0);
+
+		sg_set_page(&memdesc->sg[i], pages[i], PAGE_SIZE, 0);
 	}
 
 	/* ADd the guard page to the end of the sglist */
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU) {
+		/*
+		 * It doesn't matter if we use GFP_ZERO here, this never
+		 * gets mapped, and we only allocate it once in the life
+		 * of the system
+		 */
+
 		if (kgsl_guard_page == NULL)
 			kgsl_guard_page = alloc_page(GFP_KERNEL | __GFP_ZERO |
 				__GFP_HIGHMEM);
@@ -545,6 +575,44 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			memdesc->flags |= KGSL_MEMDESC_GUARD_PAGE;
 		} else
 			memdesc->sglen--;
+	}
+
+	/*
+	 * All memory that goes to the user has to be zeroed out before it gets
+	 * exposed to userspace. This means that the memory has to be mapped in
+	 * the kernel, zeroed (memset) and then unmapped.  This also means that
+	 * the dcache has to be flushed to ensure coherency between the kernel
+	 * and user pages. We used to pass __GFP_ZERO to alloc_page which mapped
+	 * zeroed and unmaped each individual page, and then we had to turn
+	 * around and call flush_dcache_page() on that page to clear the caches.
+	 * This was killing us for performance. Instead, we found it is much
+	 * faster to allocate the pages without GFP_ZERO, map the entire range,
+	 * memset it, flush the range and then unmap - this results in a factor
+	 * of 4 improvement for speed for large buffers.  There is a small
+	 * increase in speed for small buffers, but only on the order of a few
+	 * microseconds at best.  The only downside is that there needs to be
+	 * enough temporary space in vmalloc to accomodate the map. This
+	 * shouldn't be a problem, but if it happens, fall back to a much slower
+	 * path
+	 */
+
+	ptr = vmap(pages, i, VM_IOREMAP, page_prot);
+
+	if (ptr != NULL) {
+		memset(ptr, 0, memdesc->size);
+		dmac_flush_range(ptr, ptr + memdesc->size);
+		vunmap(ptr);
+	} else {
+		int j;
+
+		/* Very, very, very slow path */
+
+		for (j = 0; j < i; j++) {
+			ptr = kmap_atomic(pages[j]);
+			memset(ptr, 0, PAGE_SIZE);
+			dmac_flush_range(ptr, ptr + PAGE_SIZE);
+			kunmap_atomic(ptr);
+		}
 	}
 
 	outer_cache_range_op_sg(memdesc->sg, memdesc->sglen,
@@ -564,6 +632,8 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		kgsl_driver.stats.histogram[order]++;
 
 done:
+	kfree(pages);
+
 	if (ret)
 		kgsl_sharedmem_free(memdesc);
 
