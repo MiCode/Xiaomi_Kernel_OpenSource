@@ -379,9 +379,41 @@ static void tmc_disable_link(struct coresight_device *csdev, int inport,
 	tmc_disable(drvdata, TMC_MODE_HARDWARE_FIFO);
 }
 
+static void tmc_abort(struct coresight_device *csdev)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	unsigned long flags;
+	enum tmc_mode mode;
+
+	spin_lock_irqsave(&drvdata->spinlock, flags);
+	if (drvdata->reading)
+		goto out0;
+
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
+		__tmc_etb_disable(drvdata);
+	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		__tmc_etr_disable(drvdata);
+	} else {
+		mode = tmc_readl(drvdata, TMC_MODE);
+		if (mode == TMC_MODE_CIRCULAR_BUFFER)
+			__tmc_etb_disable(drvdata);
+		else
+			goto out1;
+	}
+out0:
+	drvdata->enable = false;
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	dev_info(drvdata->dev, "TMC aborted\n");
+	return;
+out1:
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+}
+
 static const struct coresight_ops_sink tmc_sink_ops = {
 	.enable		= tmc_enable_sink,
 	.disable	= tmc_disable_sink,
+	.abort		= tmc_abort,
 };
 
 static const struct coresight_ops_link tmc_link_ops = {
