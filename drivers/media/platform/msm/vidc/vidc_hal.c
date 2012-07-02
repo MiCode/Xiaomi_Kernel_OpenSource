@@ -996,10 +996,10 @@ int vidc_hal_session_set_property(void *sess,
 			HFI_PROPERTY_PARAM_VDEC_OUTPUT_ORDER;
 		switch (*data) {
 		case HAL_OUTPUT_ORDER_DECODE:
-			pkt->rg_property_data[1] = HFI_OUTPUT_ORDER_DISPLAY;
+			pkt->rg_property_data[1] = HFI_OUTPUT_ORDER_DECODE;
 			break;
 		case HAL_OUTPUT_ORDER_DISPLAY:
-			pkt->rg_property_data[1] = HFI_OUTPUT_ORDER_DECODE;
+			pkt->rg_property_data[1] = HFI_OUTPUT_ORDER_DISPLAY;
 			break;
 		default:
 			HAL_MSG_ERROR("invalid output order: 0x%x",
