@@ -395,7 +395,7 @@ static unsigned long vfe2x_stats_flush_enqueue(
 		stats_buf = &bufq->bufs[i];
 		rc = vfe2x_ctrl->stats_ops.enqueue_buf(
 				vfe2x_ctrl->stats_ops.stats_ctrl,
-				&(stats_buf->info), NULL);
+				&(stats_buf->info), NULL, -1);
 			if (rc < 0) {
 				pr_err("%s: dq stats buf (type = %d) err = %d",
 					 __func__, stats_type, rc);
@@ -414,7 +414,7 @@ static unsigned long vfe2x_stats_unregbuf(
 		rc = vfe2x_ctrl->stats_ops.buf_unprepare(
 			vfe2x_ctrl->stats_ops.stats_ctrl,
 			req_buf->stats_type, i,
-			vfe2x_ctrl->stats_ops.client);
+			vfe2x_ctrl->stats_ops.client, -1);
 		if (rc < 0) {
 			pr_err("%s: unreg stats buf (type = %d) err = %d",
 				__func__, req_buf->stats_type, rc);
@@ -473,7 +473,7 @@ static unsigned long vfe2x_stats_enqueuebuf(
 		stats_buf->state == MSM_STATS_BUFFER_STATE_PREPARED) {
 		rc = vfe2x_ctrl->stats_ops.enqueue_buf(
 				&vfe2x_ctrl->stats_ctrl,
-				info, vfe2x_ctrl->stats_ops.client);
+				info, vfe2x_ctrl->stats_ops.client, -1);
 		if (rc < 0) {
 			pr_err("%s: enqueue_buf (type = %d), index : %d, err = %d",
 				 __func__, info->type, info->buf_idx, rc);
@@ -555,7 +555,7 @@ static long vfe2x_stats_bufq_sub_ioctl(struct msm_vfe_cfg_cmd *cmd,
 		rc = vfe2x_ctrl->stats_ops.enqueue_buf(
 				&vfe2x_ctrl->stats_ctrl,
 				(struct msm_stats_buf_info *)cmd->value,
-				vfe2x_ctrl->stats_ops.client);
+				vfe2x_ctrl->stats_ops.client, -1);
 	}
 	break;
 	case VFE_CMD_STATS_FLUSH_BUFQ: {
@@ -2352,7 +2352,7 @@ int msm_vpe_subdev_init(struct v4l2_subdev *sd)
 	return 0;
 }
 
-void msm_vpe_subdev_release(void)
+void msm_vpe_subdev_release(struct v4l2_subdev *sd)
 {
 	return;
 }

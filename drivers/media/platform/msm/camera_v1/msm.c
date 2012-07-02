@@ -939,7 +939,6 @@ static int msm_open(struct file *f)
 		server_q_idx = msm_find_free_queue();
 		if (server_q_idx < 0)
 			return server_q_idx;
-
 		rc = msm_server_begin_session(pcam, server_q_idx);
 		if (rc < 0) {
 			pr_err("%s error starting server session ", __func__);

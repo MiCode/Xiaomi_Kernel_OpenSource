@@ -160,6 +160,16 @@ void msm_cam_server_clear_interface_map(uint32_t mctl_handle)
 			g_server_dev.interface_map_table[i].mctl_handle = 0;
 }
 
+struct iommu_domain *msm_cam_server_get_domain()
+{
+	return g_server_dev.domain;
+}
+
+int msm_cam_server_get_domain_num()
+{
+	return g_server_dev.domain_num;
+}
+
 uint32_t msm_cam_server_get_mctl_handle(void)
 {
 	uint32_t i;
@@ -1056,7 +1066,7 @@ static int map_imem_addresses(struct msm_cam_media_controller *mctl)
 {
 	int rc = 0;
 	rc = msm_iommu_map_contig_buffer(
-		(unsigned long)IMEM_Y_PING_OFFSET, CAMERA_DOMAIN, GEN_POOL,
+		(unsigned long)IMEM_Y_PING_OFFSET, mctl->domain_num, 0,
 		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)),
 		SZ_4K, IOMMU_WRITE | IOMMU_READ,
 		(unsigned long *)&mctl->ping_imem_y);
@@ -1068,7 +1078,7 @@ static int map_imem_addresses(struct msm_cam_media_controller *mctl)
 		mctl->ping_imem_cbcr = 0;
 	}
 	msm_iommu_map_contig_buffer(
-		(unsigned long)IMEM_Y_PONG_OFFSET, CAMERA_DOMAIN, GEN_POOL,
+		(unsigned long)IMEM_Y_PONG_OFFSET, mctl->domain_num, 0,
 		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)),
 		SZ_4K, IOMMU_WRITE | IOMMU_READ,
 		(unsigned long *)&mctl->pong_imem_y);
@@ -1085,10 +1095,10 @@ static int map_imem_addresses(struct msm_cam_media_controller *mctl)
 static void unmap_imem_addresses(struct msm_cam_media_controller *mctl)
 {
 	msm_iommu_unmap_contig_buffer(mctl->ping_imem_y,
-		CAMERA_DOMAIN, GEN_POOL,
+		mctl->domain_num, 0,
 		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)));
 	msm_iommu_unmap_contig_buffer(mctl->pong_imem_y,
-		CAMERA_DOMAIN, GEN_POOL,
+		mctl->domain_num, 0,
 		((IMEM_Y_SIZE + IMEM_CBCR_SIZE + 4095) & (~4095)));
 	mctl->ping_imem_y = 0;
 	mctl->ping_imem_cbcr = 0;
@@ -1471,6 +1481,10 @@ int msm_server_begin_session(struct msm_cam_v4l2_device *pcam,
 		pr_err("%s: invalid mctl controller", __func__);
 		goto error;
 	}
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		pmctl->domain = msm_cam_server_get_domain();
+		pmctl->domain_num = msm_cam_server_get_domain_num();
+#endif
 	rc = map_imem_addresses(pmctl);
 	if (rc < 0) {
 		pr_err("%sFailed to map imem addresses %d\n", __func__, rc);
@@ -2215,6 +2229,23 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 	return err;
 }
 
+#ifdef CONFIG_MSM_IOMMU
+static int camera_register_domain(void)
+{
+	struct msm_iova_partition camera_fw_partition = {
+		.start = SZ_128K,
+		.size = SZ_2G - SZ_128K,
+	};
+	struct msm_iova_layout camera_fw_layout = {
+		.partitions = &camera_fw_partition,
+		.npartitions = 1,
+		.client_name = "camera_isp",
+		.domain_flags = 0,
+	};
+
+	return msm_register_domain(&camera_fw_layout);
+}
+#endif
 
 static int msm_setup_server_dev(struct platform_device *pdev)
 {
@@ -2291,6 +2322,21 @@ static int msm_setup_server_dev(struct platform_device *pdev)
 		g_server_dev.interface_map_table[i].interface = 0x01 << i;
 		g_server_dev.interface_map_table[i].mctl_handle = 0;
 	}
+#ifdef CONFIG_MSM_IOMMU
+	g_server_dev.domain_num = camera_register_domain();
+	if (g_server_dev.domain_num < 0) {
+		pr_err("%s: could not register domain\n", __func__);
+		rc = -ENODEV;
+		return rc;
+	}
+	g_server_dev.domain =
+		msm_get_iommu_domain(g_server_dev.domain_num);
+	if (!g_server_dev.domain) {
+		pr_err("%s: cannot find domain\n", __func__);
+		rc = -ENODEV;
+		return rc;
+	}
+#endif
 	return rc;
 }
 
@@ -2347,6 +2393,11 @@ int msm_cam_server_open_mctl_session(struct msm_cam_v4l2_device *pcam,
 		rc = -ENODEV;
 		return rc;
 	}
+
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		pmctl->domain = msm_cam_server_get_domain();
+		pmctl->domain_num = msm_cam_server_get_domain_num();
+#endif
 
 	D("%s: call mctl_open\n", __func__);
 	rc = pmctl->mctl_open(pmctl, MSM_APPS_ID_V4L2);
@@ -2620,6 +2671,7 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 		pr_err("%s: cannot find mctl\n", __func__);
 		return -ENODEV;
 	}
+
 	INIT_HLIST_HEAD(&config_cam->p_mctl->stats_info.pmem_stats_list);
 	spin_lock_init(&config_cam->p_mctl->stats_info.pmem_stats_spinlock);
 
@@ -2733,13 +2785,15 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 	case MSM_CAM_IOCTL_REGISTER_PMEM:
 		return msm_register_pmem(
 			&config_cam->p_mctl->stats_info.pmem_stats_list,
-			(void __user *)arg, config_cam->p_mctl->client);
+			(void __user *)arg, config_cam->p_mctl->client,
+			config_cam->p_mctl->domain_num);
 		break;
 
 	case MSM_CAM_IOCTL_UNREGISTER_PMEM:
 		return msm_pmem_table_del(
 			&config_cam->p_mctl->stats_info.pmem_stats_list,
-			(void __user *)arg, config_cam->p_mctl->client);
+			(void __user *)arg, config_cam->p_mctl->client,
+			config_cam->p_mctl->domain_num);
 		break;
 
 	case VIDIOC_SUBSCRIBE_EVENT:
