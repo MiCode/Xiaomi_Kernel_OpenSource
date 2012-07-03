@@ -18,6 +18,12 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-lpa"
 
+* msm-compr-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-compr-dsp"
+
 * msm-voip-dsp
 
 Required properties:
@@ -95,6 +101,10 @@ Example:
                 compatible = "qcom,msm-pcm-lpa";
         };
 
+        qcom,msm-compr-dsp {
+                compatible = "qcom,msm-compr-dsp";
+        };
+
         qcom,msm-voip-dsp {
                 compatible = "qcom,msm-voip-dsp";
         };
@@ -119,12 +129,12 @@ Example:
                 qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>;
 
                 qcom,msm-auxpcm-rx {
-			qcom,msm-auxpcm-dev-id = <4106>;
+                        qcom,msm-auxpcm-dev-id = <4106>;
                         compatible = "qcom,msm-auxpcm-dev";
                 };
 
                 qcom,msm-auxpcm-tx {
-			qcom,msm-auxpcm-dev-id = <4107>;
+                        qcom,msm-auxpcm-dev-id = <4107>;
                         compatible = "qcom,msm-auxpcm-dev";
                 };
         };
