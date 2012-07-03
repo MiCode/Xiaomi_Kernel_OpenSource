@@ -28,21 +28,7 @@
 #define LVL_NOM		RPM_REGULATOR_CORNER_NORMAL
 #define LVL_HIGH	RPM_REGULATOR_CORNER_SUPER_TURBO
 
-static struct hfpll_data hfpll_data_cpu = {
-	.mode_offset = 0x00,
-	.l_offset = 0x04,
-	.m_offset = 0x08,
-	.n_offset = 0x0C,
-	.config_offset = 0x14,
-	/* TODO: Verify magic number for 8974 when available. */
-	.config_val = 0x7845C665,
-	.low_vdd_l_max = 52,
-	.vdd[HFPLL_VDD_NONE] = 0,
-	.vdd[HFPLL_VDD_LOW]  = 810000,
-	.vdd[HFPLL_VDD_NOM]  = 900000,
-};
-
-static struct hfpll_data hfpll_data_l2 = {
+static struct hfpll_data hfpll_data = {
 	.mode_offset = 0x00,
 	.l_offset = 0x04,
 	.m_offset = 0x08,
@@ -59,7 +45,7 @@ static struct hfpll_data hfpll_data_l2 = {
 static struct scalable scalable[] = {
 	[CPU0] = {
 		.hfpll_phys_base = 0xF908A000,
-		.hfpll_data = &hfpll_data_cpu,
+		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x4501,
 		.vreg[VREG_CORE] = { "krait0",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait0_mem", 1050000 },
@@ -69,7 +55,7 @@ static struct scalable scalable[] = {
 	},
 	[CPU1] = {
 		.hfpll_phys_base = 0xF909A000,
-		.hfpll_data = &hfpll_data_cpu,
+		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x5501,
 		.vreg[VREG_CORE] = { "krait1",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait1_mem", 1050000 },
@@ -79,7 +65,7 @@ static struct scalable scalable[] = {
 	},
 	[CPU2] = {
 		.hfpll_phys_base = 0xF90AA000,
-		.hfpll_data = &hfpll_data_cpu,
+		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x6501,
 		.vreg[VREG_CORE] = { "krait2",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait2_mem", 1050000 },
@@ -89,7 +75,7 @@ static struct scalable scalable[] = {
 	},
 	[CPU3] = {
 		.hfpll_phys_base = 0xF90BA000,
-		.hfpll_data = &hfpll_data_cpu,
+		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x7501,
 		.vreg[VREG_CORE] = { "krait3",     1050000, 3200000 },
 		.vreg[VREG_MEM]  = { "krait3_mem", 1050000 },
@@ -99,7 +85,7 @@ static struct scalable scalable[] = {
 	},
 	[L2] = {
 		.hfpll_phys_base = 0xF9016000,
-		.hfpll_data = &hfpll_data_l2,
+		.hfpll_data = &hfpll_data,
 		.l2cpmr_iaddr = 0x0500,
 		.vreg[VREG_HFPLL_A] = { "l2_hfpll_a", 2150000 },
 		.vreg[VREG_HFPLL_B] = { "l2_hfpll_b", 1800000 },
