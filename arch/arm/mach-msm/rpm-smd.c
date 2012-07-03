@@ -24,6 +24,7 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
+#include <linux/string.h>
 #include <linux/device.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
@@ -35,6 +36,19 @@
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
 #include "rpm-notifier.h"
+
+/* Debug Definitions */
+
+enum {
+	MSM_RPM_LOG_REQUEST_PRETTY	= BIT(0),
+	MSM_RPM_LOG_REQUEST_RAW		= BIT(1),
+	MSM_RPM_LOG_REQUEST_SHOW_MSG_ID	= BIT(2),
+};
+
+static int msm_rpm_debug_mask;
+module_param_named(
+	debug_mask, msm_rpm_debug_mask, int, S_IRUGO | S_IWUSR
+);
 
 struct msm_rpm_driver_data {
 	const char *ch_name;
@@ -492,6 +506,140 @@ static void msm_rpm_smd_work(struct work_struct *work)
 	}
 }
 
+#define DEBUG_PRINT_BUFFER_SIZE 512
+
+static void msm_rpm_log_request(struct msm_rpm_request *cdata)
+{
+	char buf[DEBUG_PRINT_BUFFER_SIZE];
+	size_t buflen = DEBUG_PRINT_BUFFER_SIZE;
+	char name[5];
+	u32 value;
+	int i, j, prev_valid;
+	int valid_count = 0;
+	int pos = 0;
+
+	name[4] = 0;
+
+	for (i = 0; i < cdata->write_idx; i++)
+		if (cdata->kvp[i].valid)
+			valid_count++;
+
+	pos += scnprintf(buf + pos, buflen - pos, "%sRPM req: ", KERN_INFO);
+	if (msm_rpm_debug_mask & MSM_RPM_LOG_REQUEST_SHOW_MSG_ID)
+		pos += scnprintf(buf + pos, buflen - pos, "msg_id=%u, ",
+				cdata->msg_hdr.msg_id);
+	pos += scnprintf(buf + pos, buflen - pos, "s=%s",
+		(cdata->msg_hdr.set == MSM_RPM_CTX_ACTIVE_SET ? "act" : "slp"));
+
+	if ((msm_rpm_debug_mask & MSM_RPM_LOG_REQUEST_PRETTY)
+	    && (msm_rpm_debug_mask & MSM_RPM_LOG_REQUEST_RAW)) {
+		/* Both pretty and raw formatting */
+		memcpy(name, &cdata->msg_hdr.resource_type, sizeof(uint32_t));
+		pos += scnprintf(buf + pos, buflen - pos,
+			", rsc_type=0x%08X (%s), rsc_id=%u; ",
+			cdata->msg_hdr.resource_type, name,
+			cdata->msg_hdr.resource_id);
+
+		for (i = 0, prev_valid = 0; i < cdata->write_idx; i++) {
+			if (!cdata->kvp[i].valid)
+				continue;
+
+			memcpy(name, &cdata->kvp[i].key, sizeof(uint32_t));
+			pos += scnprintf(buf + pos, buflen - pos,
+					"[key=0x%08X (%s), value=%s",
+					cdata->kvp[i].key, name,
+					(cdata->kvp[i].nbytes ? "0x" : "null"));
+
+			for (j = 0; j < cdata->kvp[i].nbytes; j++)
+				pos += scnprintf(buf + pos, buflen - pos,
+						"%02X ",
+						cdata->kvp[i].value[j]);
+
+			if (cdata->kvp[i].nbytes)
+				pos += scnprintf(buf + pos, buflen - pos, "(");
+
+			for (j = 0; j < cdata->kvp[i].nbytes; j += 4) {
+				value = 0;
+				memcpy(&value, &cdata->kvp[i].value[j],
+					min(sizeof(uint32_t),
+						cdata->kvp[i].nbytes - j));
+				pos += scnprintf(buf + pos, buflen - pos, "%u",
+						value);
+				if (j + 4 < cdata->kvp[i].nbytes)
+					pos += scnprintf(buf + pos,
+						buflen - pos, " ");
+			}
+			if (cdata->kvp[i].nbytes)
+				pos += scnprintf(buf + pos, buflen - pos, ")");
+			pos += scnprintf(buf + pos, buflen - pos, "]");
+			if (prev_valid + 1 < valid_count)
+				pos += scnprintf(buf + pos, buflen - pos, ", ");
+			prev_valid++;
+		}
+	} else if (msm_rpm_debug_mask & MSM_RPM_LOG_REQUEST_PRETTY) {
+		/* Pretty formatting only */
+		memcpy(name, &cdata->msg_hdr.resource_type, sizeof(uint32_t));
+		pos += scnprintf(buf + pos, buflen - pos, " %s %u; ", name,
+				cdata->msg_hdr.resource_id);
+
+		for (i = 0, prev_valid = 0; i < cdata->write_idx; i++) {
+			if (!cdata->kvp[i].valid)
+				continue;
+
+			memcpy(name, &cdata->kvp[i].key, sizeof(uint32_t));
+			pos += scnprintf(buf + pos, buflen - pos, "%s=%s",
+				name, (cdata->kvp[i].nbytes ? "" : "null"));
+
+			for (j = 0; j < cdata->kvp[i].nbytes; j += 4) {
+				value = 0;
+				memcpy(&value, &cdata->kvp[i].value[j],
+					min(sizeof(uint32_t),
+						cdata->kvp[i].nbytes - j));
+				pos += scnprintf(buf + pos, buflen - pos, "%u",
+						value);
+
+				if (j + 4 < cdata->kvp[i].nbytes)
+					pos += scnprintf(buf + pos,
+						buflen - pos, " ");
+			}
+			if (prev_valid + 1 < valid_count)
+				pos += scnprintf(buf + pos, buflen - pos, ", ");
+			prev_valid++;
+		}
+	} else {
+		/* Raw formatting only */
+		pos += scnprintf(buf + pos, buflen - pos,
+			", rsc_type=0x%08X, rsc_id=%u; ",
+			cdata->msg_hdr.resource_type,
+			cdata->msg_hdr.resource_id);
+
+		for (i = 0, prev_valid = 0; i < cdata->write_idx; i++) {
+			if (!cdata->kvp[i].valid)
+				continue;
+
+			pos += scnprintf(buf + pos, buflen - pos,
+					"[key=0x%08X, value=%s",
+					cdata->kvp[i].key,
+					(cdata->kvp[i].nbytes ? "0x" : "null"));
+			for (j = 0; j < cdata->kvp[i].nbytes; j++) {
+				pos += scnprintf(buf + pos, buflen - pos,
+						"%02X",
+						cdata->kvp[i].value[j]);
+				if (j + 1 < cdata->kvp[i].nbytes)
+					pos += scnprintf(buf + pos,
+							buflen - pos, " ");
+			}
+			pos += scnprintf(buf + pos, buflen - pos, "]");
+			if (prev_valid + 1 < valid_count)
+				pos += scnprintf(buf + pos, buflen - pos, ", ");
+			prev_valid++;
+		}
+	}
+
+	pos += scnprintf(buf + pos, buflen - pos, "\n");
+	printk(buf);
+}
+
 static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 		int msg_type, bool noirq)
 {
@@ -545,6 +693,10 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 		memcpy(tmpbuff, cdata->kvp[i].value, cdata->kvp[i].nbytes);
 		tmpbuff += cdata->kvp[i].nbytes;
 	}
+
+	if (msm_rpm_debug_mask
+	    & (MSM_RPM_LOG_REQUEST_PRETTY | MSM_RPM_LOG_REQUEST_RAW))
+		msm_rpm_log_request(cdata);
 
 	if (standalone) {
 		for (i = 0; (i < cdata->write_idx); i++)
