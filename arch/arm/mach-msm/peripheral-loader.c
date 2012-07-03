@@ -226,7 +226,7 @@ release_fw:
 
 static int segment_is_loadable(const struct elf32_phdr *p)
 {
-	return (p->p_type & PT_LOAD) && !segment_is_hash(p->p_flags);
+	return (p->p_type == PT_LOAD) && !segment_is_hash(p->p_flags);
 }
 
 /* Sychronize request_firmware() with suspend */
