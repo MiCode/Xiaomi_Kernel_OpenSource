@@ -18,6 +18,7 @@ struct mdm_modem_drv;
 struct mdm_ops {
 	void (*power_on_mdm_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*reset_mdm_cb)(struct mdm_modem_drv *mdm_drv);
+	void (*atomic_reset_mdm_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*normal_boot_done_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*power_down_mdm_cb)(struct mdm_modem_drv *mdm_drv);
 	void (*debug_state_changed_cb)(int value);
