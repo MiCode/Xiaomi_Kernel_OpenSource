@@ -144,14 +144,8 @@ static void smd_tty_read(unsigned long param)
 
 		avail = tty_prepare_flip_string(tty->port, &ptr, avail);
 		if (avail <= 0) {
-			if (!timer_pending(&info->buf_req_timer)) {
-				init_timer(&info->buf_req_timer);
-				info->buf_req_timer.expires = jiffies +
-							((30 * HZ)/1000);
-				info->buf_req_timer.function = buf_req_retry;
-				info->buf_req_timer.data = param;
-				add_timer(&info->buf_req_timer);
-			}
+			mod_timer(&info->buf_req_timer,
+					jiffies + msecs_to_jiffies(30));
 			return;
 		}
 
@@ -572,6 +566,8 @@ static int __init smd_tty_init(void)
 		smd_tty[idx].driver.driver.owner = THIS_MODULE;
 		spin_lock_init(&smd_tty[idx].reset_lock);
 		smd_tty[idx].is_open = 0;
+		setup_timer(&smd_tty[idx].buf_req_timer, buf_req_retry,
+				(unsigned long)&smd_tty[idx]);
 		init_waitqueue_head(&smd_tty[idx].ch_opened_wait_queue);
 		ret = platform_driver_register(&smd_tty[idx].driver);
 
