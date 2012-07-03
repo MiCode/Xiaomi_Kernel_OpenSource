@@ -44,7 +44,7 @@ static void def_work_fn(struct work_struct *work)
 	sysfs_notify(rq_info.kobj, NULL, "def_timer_ms");
 }
 
-static ssize_t show_run_queue_avg(struct kobject *kobj,
+static ssize_t run_queue_avg_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
 	unsigned int val = 0;
@@ -58,6 +58,8 @@ static ssize_t show_run_queue_avg(struct kobject *kobj,
 
 	return snprintf(buf, PAGE_SIZE, "%d.%d\n", val/10, val%10);
 }
+
+static struct kobj_attribute run_queue_avg_attr = __ATTR_RO(run_queue_avg);
 
 static ssize_t show_run_queue_poll_ms(struct kobject *kobj,
 				      struct kobj_attribute *attr, char *buf)
@@ -93,6 +95,10 @@ static ssize_t store_run_queue_poll_ms(struct kobject *kobj,
 	return count;
 }
 
+static struct kobj_attribute run_queue_poll_ms_attr =
+	__ATTR(run_queue_poll_ms, S_IWUSR | S_IRUSR, show_run_queue_poll_ms,
+			store_run_queue_poll_ms);
+
 static ssize_t show_def_timer_ms(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -111,67 +117,33 @@ static ssize_t store_def_timer_ms(struct kobject *kobj,
 	return count;
 }
 
-#define MSM_RQ_STATS_RO_ATTRIB(att) ({ \
-		struct attribute *attrib = NULL; \
-		struct kobj_attribute *ptr = NULL; \
-		ptr = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL); \
-		if (ptr) { \
-			ptr->attr.name = #att; \
-			ptr->attr.mode = S_IRUGO; \
-			ptr->show = show_##att; \
-			ptr->store = NULL; \
-			attrib = &ptr->attr; \
-		} \
-		attrib; })
+static struct kobj_attribute def_timer_ms_attr =
+	__ATTR(def_timer_ms, S_IWUSR | S_IRUSR, show_def_timer_ms,
+			store_def_timer_ms);
 
-#define MSM_RQ_STATS_RW_ATTRIB(att) ({ \
-		struct attribute *attrib = NULL; \
-		struct kobj_attribute *ptr = NULL; \
-		ptr = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL); \
-		if (ptr) { \
-			ptr->attr.name = #att; \
-			ptr->attr.mode = S_IWUSR|S_IRUSR; \
-			ptr->show = show_##att; \
-			ptr->store = store_##att; \
-			attrib = &ptr->attr; \
-		} \
-		attrib; })
+static struct attribute *rq_attrs[] = {
+	&def_timer_ms_attr.attr,
+	&run_queue_avg_attr.attr,
+	&run_queue_poll_ms_attr.attr,
+	NULL,
+};
+
+static struct attribute_group rq_attr_group = {
+	.attrs = rq_attrs,
+};
 
 static int init_rq_attribs(void)
 {
-	int i;
-	int err = 0;
-	const int attr_count = 4;
-
-	struct attribute **attribs =
-		kzalloc(sizeof(struct attribute *) * attr_count, GFP_KERNEL);
-
-	if (!attribs)
-		goto rel;
+	int err;
 
 	rq_info.rq_avg = 0;
-
-	attribs[0] = MSM_RQ_STATS_RW_ATTRIB(def_timer_ms);
-	attribs[1] = MSM_RQ_STATS_RO_ATTRIB(run_queue_avg);
-	attribs[2] = MSM_RQ_STATS_RW_ATTRIB(run_queue_poll_ms);
-	attribs[3] = NULL;
-
-	for (i = 0; i < attr_count - 1 ; i++) {
-		if (!attribs[i])
-			goto rel2;
-	}
-
-	rq_info.attr_group = kzalloc(sizeof(struct attribute_group),
-						GFP_KERNEL);
-	if (!rq_info.attr_group)
-		goto rel3;
-	rq_info.attr_group->attrs = attribs;
+	rq_info.attr_group = &rq_attr_group;
 
 	/* Create /sys/devices/system/cpu/cpu0/rq-stats/... */
 	rq_info.kobj = kobject_create_and_add("rq-stats",
-	&get_cpu_device(0)->kobj);
+			&get_cpu_device(0)->kobj);
 	if (!rq_info.kobj)
-		goto rel3;
+		return -ENOMEM;
 
 	err = sysfs_create_group(rq_info.kobj, rq_info.attr_group);
 	if (err)
@@ -179,19 +151,7 @@ static int init_rq_attribs(void)
 	else
 		kobject_uevent(rq_info.kobj, KOBJ_ADD);
 
-	if (!err)
-		return err;
-
-rel3:
-	kfree(rq_info.attr_group);
-	kfree(rq_info.kobj);
-rel2:
-	for (i = 0; i < attr_count - 1; i++)
-		kfree(attribs[i]);
-rel:
-	kfree(attribs);
-
-	return -ENOMEM;
+	return err;
 }
 
 static int __init msm_rq_stats_init(void)
