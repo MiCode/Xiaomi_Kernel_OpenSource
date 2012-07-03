@@ -81,6 +81,7 @@ static char *lcdc_gpio_name_table[5] = {
 	"gpio_disp_reset",
 };
 
+static char lcdc_splash_is_enabled(void);
 static int lcdc_truly_gpio_init(void)
 {
 	int i;
@@ -103,7 +104,12 @@ static int lcdc_truly_gpio_init(void)
 					lcdc_truly_gpio_table[i]);
 				goto truly_gpio_fail;
 			}
-			rc = gpio_direction_output(lcdc_truly_gpio_table[i], 0);
+			if (lcdc_splash_is_enabled())
+				rc = gpio_direction_output(
+					lcdc_truly_gpio_table[i], 1);
+			else
+				rc = gpio_direction_output(
+					lcdc_truly_gpio_table[i], 0);
 			if (rc < 0) {
 				pr_err("Error direct lcdc gpio:%d\n",
 					lcdc_truly_gpio_table[i]);
@@ -247,6 +253,7 @@ int sku3_lcdc_lcd_camera_power_onoff(int on)
 static int sku3_lcdc_power_save(int on)
 {
 	int rc = 0;
+	static int cont_splash_done;
 
 	if (on) {
 		sku3_lcdc_lcd_camera_power_onoff(1);
@@ -254,6 +261,11 @@ static int sku3_lcdc_power_save(int on)
 		if (rc < 0) {
 			pr_err("%s(): Truly GPIO initializations failed",
 				__func__);
+			return rc;
+		}
+
+		if (lcdc_splash_is_enabled() && !cont_splash_done) {
+			cont_splash_done = 1;
 			return rc;
 		}
 
@@ -780,6 +792,11 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_rev = MDP_REV_303,
 	.cont_splash_enabled = 0x1,
 };
+
+static char lcdc_splash_is_enabled()
+{
+	return mdp_pdata.cont_splash_enabled;
+}
 
 #define GPIO_LCDC_BRDG_PD	128
 #define GPIO_LCDC_BRDG_RESET_N	129
@@ -1351,7 +1368,7 @@ void __init msm_fb_add_devices(void)
 				ARRAY_SIZE(evb_fb_devices));
 	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		sku3_lcdc_lcd_camera_power_init();
-		mdp_pdata.cont_splash_enabled = 0x0;
+		mdp_pdata.cont_splash_enabled = 0x1;
 		platform_add_devices(qrd3_fb_devices,
 						ARRAY_SIZE(qrd3_fb_devices));
 	} else {
