@@ -141,20 +141,6 @@ struct msm_vidc_fw {
 	void *cookie;
 };
 
-struct iommu_info {
-	u32 addr_range[2];
-	char name[MAX_NAME_LENGTH];
-	char ctx[MAX_NAME_LENGTH];
-	int domain;
-	int partition;
-};
-
-enum io_maps {
-	CP_MAP,
-	NS_MAP,
-	MAX_MAP
-};
-
 enum vidc_clocks {
 	VCODEC_CLK,
 	VCODEC_AHB_CLK,
@@ -188,7 +174,7 @@ struct on_chip_mem {
 
 struct msm_vidc_resources {
 	struct msm_vidc_fw fw;
-	struct iommu_info io_map[MAX_MAP];
+	struct msm_vidc_iommu_info io_map[MAX_MAP];
 	struct core_clock clock[VCODEC_MAX_CLKS];
 	struct vidc_bus_info bus_info;
 	struct on_chip_mem ocmem;
@@ -247,6 +233,7 @@ struct msm_vidc_inst {
 	u32 ftb_count;
 	u32 fbd_count;
 	struct vb2_buffer *vb2_seq_hdr;
+	void *priv;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
