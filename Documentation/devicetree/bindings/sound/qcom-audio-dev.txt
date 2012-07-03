@@ -1,0 +1,135 @@
+Qualcomm audio devices for ALSA sound soc
+
+* msm-pcm
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-dsp"
+
+* msm-pcm-routing
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-routing"
+
+* msm-pcm-lpa
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-lpa"
+
+* msm-voip-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-voip-dsp"
+
+* msm-stub-codec
+
+Required properties:
+
+ - compatible : "qcom,msm-stub-codec"
+
+* msm-dai-fe
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-fe"
+
+* msm-auxpcm
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible :                           "qcom,msm-auxpcm-resource"
+
+ - qcom,msm-cpudai-auxpcm-clk:            clock for auxpcm
+
+ - qcom,msm-cpudai-auxpcm-mode:           mode information
+                                          0 - for PCM
+
+ - qcom,msm-cpudai-auxpcm-sync:           sync information
+
+ - qcom,msm-cpudai-auxpcm-frame:          No.of bytes per frame
+                                          5 - 256BPF
+
+ - qcom,msm-cpudai-auxpcm-quant:          Type of quantization
+                                          2 - Linear quantization
+
+ - qcom,msm-cpudai-auxpcm-slot:           Slot number for multichannel scenario
+                                          Value is 1
+
+ - qcom,msm-cpudai-auxpcm-data:           Data field - 0
+
+ - qcom,msm-cpudai-auxpcm-pcm-clk-rate:   Clock rate for pcm - 2048000
+
+[Second Level Nodes]
+
+Required Properties:
+
+ - qcom,msm-auxpcm-dev-id:                This property specifies the device
+                                          port id.
+                                          For Rx device, the port id is 4106
+                                          and for Tx device, the port id is 4107
+
+ - compatible:                            "qcom,msm-auxpcm-dev"
+
+* msm-pcm-hostless
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-hostless"
+
+Example:
+
+        qcom,msm-pcm {
+                compatible = "qcom,msm-pcm-dsp";
+        };
+
+        qcom,msm-pcm-routing {
+                compatible = "qcom,msm-pcm-routing";
+        };
+
+        qcom,msm-pcm-lpa {
+                compatible = "qcom,msm-pcm-lpa";
+        };
+
+        qcom,msm-voip-dsp {
+                compatible = "qcom,msm-voip-dsp";
+        };
+
+        qcom,msm-stub-codec {
+                compatible = "qcom,msm-stub-codec";
+        };
+
+        qcom,msm-dai-fe {
+                compatible = "qcom,msm-dai-fe";
+        };
+
+        qcom,msm-auxpcm {
+                compatible = "qcom,msm-auxpcm-resource";
+                qcom,msm-cpudai-auxpcm-clk = "pcm_clk";
+                qcom,msm-cpudai-auxpcm-mode = <0>;
+                qcom,msm-cpudai-auxpcm-sync = <1>;
+                qcom,msm-cpudai-auxpcm-frame = <5>;
+                qcom,msm-cpudai-auxpcm-quant = <2>;
+                qcom,msm-cpudai-auxpcm-slot = <1>;
+                qcom,msm-cpudai-auxpcm-data = <0>;
+                qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>;
+
+                qcom,msm-auxpcm-rx {
+			qcom,msm-auxpcm-dev-id = <4106>;
+                        compatible = "qcom,msm-auxpcm-dev";
+                };
+
+                qcom,msm-auxpcm-tx {
+			qcom,msm-auxpcm-dev-id = <4107>;
+                        compatible = "qcom,msm-auxpcm-dev";
+                };
+        };
+
+        qcom,msm-pcm-hostless {
+                compatible = "qcom,msm-pcm-hostless";
+        };
+
