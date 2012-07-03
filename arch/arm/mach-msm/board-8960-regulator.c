@@ -246,7 +246,7 @@ VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
 	REGULATOR_SUPPLY("vdd_ana",		"3-005b"),
 	REGULATOR_SUPPLY("vdd_lvds_3p3v",	"mipi_dsi.1"),
-	REGULATOR_SUPPLY("mhl_ext_3p3v",	"msm_otg"),
+	REGULATOR_SUPPLY("mhl_usb_hs_switch",	"msm_otg"),
 };
 VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("ext_otg_sw",		NULL),
