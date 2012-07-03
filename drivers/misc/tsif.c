@@ -169,6 +169,7 @@ struct msm_tsif_device {
 	dma_addr_t dmov_cmd_dma[2];
 	struct tsif_xfer xfer[2];
 	struct tasklet_struct dma_refill;
+	struct tasklet_struct clocks_off;
 	/* statistics */
 	u32 stat_rx;
 	u32 stat_overflow;
@@ -251,17 +252,23 @@ static void tsif_clock(struct msm_tsif_device *tsif_device, int on)
 {
 	if (on) {
 		if (tsif_device->tsif_clk)
-			clk_enable(tsif_device->tsif_clk);
+			clk_prepare_enable(tsif_device->tsif_clk);
 		if (tsif_device->tsif_pclk)
-			clk_enable(tsif_device->tsif_pclk);
-		clk_enable(tsif_device->tsif_ref_clk);
+			clk_prepare_enable(tsif_device->tsif_pclk);
+		clk_prepare_enable(tsif_device->tsif_ref_clk);
 	} else {
 		if (tsif_device->tsif_clk)
-			clk_disable(tsif_device->tsif_clk);
+			clk_disable_unprepare(tsif_device->tsif_clk);
 		if (tsif_device->tsif_pclk)
-			clk_disable(tsif_device->tsif_pclk);
-		clk_disable(tsif_device->tsif_ref_clk);
+			clk_disable_unprepare(tsif_device->tsif_pclk);
+		clk_disable_unprepare(tsif_device->tsif_ref_clk);
 	}
+}
+
+static void tsif_clocks_off(unsigned long data)
+{
+	struct msm_tsif_device *tsif_device = (struct msm_tsif_device *) data;
+	tsif_clock(tsif_device, 0);
 }
 /* ===clocks end=== */
 /* ===gpio begin=== */
@@ -605,17 +612,15 @@ static void tsif_dmov_complete_func(struct msm_dmov_cmd *cmd,
 			if (tsif_device->state == tsif_state_running) {
 				tsif_stop_hw(tsif_device);
 				/*
-				 * Clocks _may_ be stopped right from IRQ
-				 * context. This is far from optimal w.r.t
-				 * latency.
-				 *
-				 * But, this branch taken only in case of
+				 * This branch is taken only in case of
 				 * severe hardware problem (I don't even know
-				 * what should happens for DMOV_RSLT_ERROR);
+				 * what should happen for DMOV_RSLT_ERROR);
 				 * thus I prefer code simplicity over
 				 * performance.
+				 * Clocks are turned off from outside the
+				 * interrupt context.
 				 */
-				tsif_clock(tsif_device, 0);
+				tasklet_schedule(&tsif_device->clocks_off);
 				tsif_device->state = tsif_state_flushing;
 			}
 		}
@@ -1312,6 +1317,8 @@ static int __devinit msm_tsif_probe(struct platform_device *pdev)
 	tsif_device->pkts_per_chunk = TSIF_PKTS_IN_CHUNK_DEFAULT;
 	tsif_device->chunks_per_buf = TSIF_CHUNKS_IN_BUF_DEFAULT;
 	tasklet_init(&tsif_device->dma_refill, tsif_dma_refill,
+		     (unsigned long)tsif_device);
+	tasklet_init(&tsif_device->clocks_off, tsif_clocks_off,
 		     (unsigned long)tsif_device);
 	if (tsif_get_clocks(tsif_device))
 		goto err_clocks;
