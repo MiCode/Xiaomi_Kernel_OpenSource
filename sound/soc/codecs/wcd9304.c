@@ -283,12 +283,16 @@ static int sitar_pa_gain_get(struct snd_kcontrol *kcontrol,
 
 	ear_pa_gain = snd_soc_read(codec, SITAR_A_RX_EAR_GAIN);
 
-	ear_pa_gain = ear_pa_gain >> 5;
+	ear_pa_gain &= 0xE0;
 
 	if (ear_pa_gain == 0x00) {
 		ucontrol->value.integer.value[0] = 0;
-	} else if (ear_pa_gain == 0x04) {
+	} else if (ear_pa_gain == 0x80) {
 		ucontrol->value.integer.value[0] = 1;
+	} else if (ear_pa_gain == 0xA0) {
+		ucontrol->value.integer.value[0] = 2;
+	} else if (ear_pa_gain == 0xE0) {
+		ucontrol->value.integer.value[0] = 3;
 	} else  {
 		pr_err("%s: ERROR: Unsupported Ear Gain = 0x%x\n",
 				__func__, ear_pa_gain);
@@ -316,11 +320,17 @@ static int sitar_pa_gain_put(struct snd_kcontrol *kcontrol,
 	case 1:
 		ear_pa_gain = 0x80;
 		break;
+	case 2:
+		ear_pa_gain = 0xA0;
+		break;
+	case 3:
+		ear_pa_gain = 0xE0;
+		break;
 	default:
 		return -EINVAL;
 	}
 
-	snd_soc_write(codec, SITAR_A_RX_EAR_GAIN, ear_pa_gain);
+	snd_soc_update_bits(codec, SITAR_A_RX_EAR_GAIN, 0xE0, ear_pa_gain);
 	return 0;
 }
 
@@ -491,9 +501,11 @@ static int sitar_put_iir_band_audio_mixer(
 	return 0;
 }
 
-static const char *sitar_ear_pa_gain_text[] = {"POS_6_DB", "POS_2_DB"};
+static const char * const sitar_ear_pa_gain_text[] = {"POS_6_DB",
+					"POS_2_DB", "NEG_2P5_DB", "NEG_12_DB"};
+
 static const struct soc_enum sitar_ear_pa_gain_enum[] = {
-		SOC_ENUM_SINGLE_EXT(2, sitar_ear_pa_gain_text),
+		SOC_ENUM_SINGLE_EXT(4, sitar_ear_pa_gain_text),
 };
 
 /*cut of frequency for high pass filter*/
