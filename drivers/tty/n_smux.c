@@ -46,7 +46,7 @@
 #define SMUX_WAKEUP_DELAY_MIN (1 << 15)
 
 /* inactivity timeout for no rx/tx activity */
-#define SMUX_INACTIVITY_TIMEOUT_MS 1000
+#define SMUX_INACTIVITY_TIMEOUT_MS 1000000
 
 /* RX get_rx_buffer retry timeout values */
 #define SMUX_RX_RETRY_MIN_MS (1 << 0)  /* 1 ms */
