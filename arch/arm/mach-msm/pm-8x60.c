@@ -24,7 +24,6 @@
 #include <linux/smp.h>
 #include <linux/suspend.h>
 #include <linux/tick.h>
-#include <linux/delay.h>
 #include <linux/irqchip/arm-gic.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
@@ -798,28 +797,6 @@ cpuidle_enter_bail:
 	return 0;
 }
 
-static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
-
-static DEFINE_PER_CPU_SHARED_ALIGNED(enum msm_pm_sleep_mode,
-		msm_pm_last_slp_mode);
-
-bool msm_pm_verify_cpu_pc(unsigned int cpu)
-{
-	enum msm_pm_sleep_mode mode = per_cpu(msm_pm_last_slp_mode, cpu);
-
-	if (msm_pm_slp_sts) {
-		int acc_sts = __raw_readl(msm_pm_slp_sts->base_addr
-					+ cpu * msm_pm_slp_sts->cpu_offset);
-
-		if ((acc_sts & msm_pm_slp_sts->mask) &&
-			((mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) ||
-			 (mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)))
-			return true;
-	}
-
-	return false;
-}
-
 void msm_pm_cpu_enter_lowpower(unsigned int cpu)
 {
 	int i;
@@ -835,54 +812,14 @@ void msm_pm_cpu_enter_lowpower(unsigned int cpu)
 	if (MSM_PM_DEBUG_HOTPLUG & msm_pm_debug_mask)
 		pr_notice("CPU%u: %s: shutting down cpu\n", cpu, __func__);
 
-	if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE]) {
-		per_cpu(msm_pm_last_slp_mode, cpu)
-			= MSM_PM_SLEEP_MODE_POWER_COLLAPSE;
+	if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE])
 		msm_pm_power_collapse(false);
-	} else if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE]) {
-		per_cpu(msm_pm_last_slp_mode, cpu)
-			= MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE;
+	else if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE])
 		msm_pm_power_collapse_standalone(false);
-	} else if (allow[MSM_PM_SLEEP_MODE_RETENTION]) {
-		per_cpu(msm_pm_last_slp_mode, cpu)
-			= MSM_PM_SLEEP_MODE_RETENTION;
+	else if (allow[MSM_PM_SLEEP_MODE_RETENTION])
 		msm_pm_retention();
-	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
-		per_cpu(msm_pm_last_slp_mode, cpu)
-			= MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT;
+	else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT])
 		msm_pm_swfi();
-	} else
-		per_cpu(msm_pm_last_slp_mode, cpu) = MSM_PM_SLEEP_MODE_NR;
-}
-
-int msm_pm_wait_cpu_shutdown(unsigned int cpu)
-{
-
-	int timeout = 10;
-
-	if (!msm_pm_slp_sts)
-		return 0;
-
-	while (timeout--) {
-
-		/*
-		 * Check for the SPM of the core being hotplugged to set
-		 * its sleep state.The SPM sleep state indicates that the
-		 * core has been power collapsed.
-		 */
-
-		int acc_sts = __raw_readl(msm_pm_slp_sts->base_addr
-					+ cpu * msm_pm_slp_sts->cpu_offset);
-		mb();
-
-		if (acc_sts & msm_pm_slp_sts->mask)
-			return 0;
-
-		usleep(100);
-	}
-	pr_warn("%s(): Timed out waiting for CPU %u SPM to enter sleep state",
-			__func__, cpu);
-	return -EBUSY;
 }
 
 static int msm_pm_enter(suspend_state_t state)
@@ -979,12 +916,6 @@ static struct platform_suspend_ops msm_pm_ops = {
 /******************************************************************************
  * Initialization routine
  *****************************************************************************/
-void __init msm_pm_init_sleep_status_data(
-		struct msm_pm_sleep_status_data *data)
-{
-	msm_pm_slp_sts = data;
-}
-
 void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops)
 {
 	if (ops)
