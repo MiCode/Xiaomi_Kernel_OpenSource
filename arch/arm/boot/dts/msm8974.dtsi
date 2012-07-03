@@ -378,6 +378,10 @@
 		compatible = "qcom,msm-pcm-lpa";
 	};
 
+	qcom,msm-compr-dsp {
+		compatible = "qcom,msm-compr-dsp";
+	};
+
 	qcom,msm-voip-dsp {
 		compatible = "qcom,msm-voip-dsp";
 	};
