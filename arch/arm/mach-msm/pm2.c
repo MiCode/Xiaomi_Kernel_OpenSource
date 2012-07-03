@@ -21,10 +21,8 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/init.h>
-#include <linux/pm.h>
 #include <linux/pm_qos.h>
 #include <linux/suspend.h>
-#include <linux/reboot.h>
 #include <linux/io.h>
 #include <linux/tick.h>
 #include <linux/memory.h>
@@ -34,7 +32,6 @@
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
 #endif
-#include <asm/system_misc.h>
 #ifdef CONFIG_CACHE_L2X0
 #include <asm/hardware/cache-l2x0.h>
 #endif
@@ -1577,55 +1574,6 @@ void msm_pm_cpu_enter_lowpower(unsigned int cpu)
 	}
 }
 
-/******************************************************************************
- * Restart Definitions
- *****************************************************************************/
-
-static uint32_t restart_reason = 0x776655AA;
-
-static void msm_pm_power_off(void)
-{
-	msm_rpcrouter_close();
-	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
-	for (;;)
-		;
-}
-
-static void msm_pm_restart(char str, const char *cmd)
-{
-	msm_rpcrouter_close();
-	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
-
-	for (;;)
-		;
-}
-
-static int msm_reboot_call
-	(struct notifier_block *this, unsigned long code, void *_cmd)
-{
-	if ((code == SYS_RESTART) && _cmd) {
-		char *cmd = _cmd;
-		if (!strcmp(cmd, "bootloader")) {
-			restart_reason = 0x77665500;
-		} else if (!strcmp(cmd, "recovery")) {
-			restart_reason = 0x77665502;
-		} else if (!strcmp(cmd, "eraseflash")) {
-			restart_reason = 0x776655EF;
-		} else if (!strncmp(cmd, "oem-", 4)) {
-			unsigned code = simple_strtoul(cmd + 4, 0, 16) & 0xff;
-			restart_reason = 0x6f656d00 | code;
-		} else {
-			restart_reason = 0x77665501;
-		}
-	}
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block msm_reboot_notifier = {
-	.notifier_call = msm_reboot_call,
-};
-
-
 /*
  * Initialize the power management subsystem.
  *
@@ -1692,10 +1640,6 @@ static int __init msm_pm_init(void)
 	clean_caches((unsigned long)&msm_pm_pc_pgd, sizeof(msm_pm_pc_pgd),
 		     virt_to_phys(&msm_pm_pc_pgd));
 #endif
-
-	pm_power_off = msm_pm_power_off;
-	arm_pm_restart = msm_pm_restart;
-	register_reboot_notifier(&msm_reboot_notifier);
 
 	msm_pm_smem_data = smem_alloc(SMEM_APPS_DEM_SLAVE_DATA,
 		sizeof(*msm_pm_smem_data));
