@@ -166,7 +166,7 @@ static int msm_comm_iommu_attach(struct msm_vidc_core *core)
 	int rc;
 	struct iommu_domain *domain;
 	int i;
-	struct iommu_info *io_map;
+	struct msm_vidc_iommu_info *io_map;
 	struct device *dev;
 	for (i = 0; i < MAX_MAP; i++) {
 		io_map = &core->resources.io_map[i];
@@ -202,7 +202,7 @@ static void msm_comm_iommu_detach(struct msm_vidc_core *core)
 {
 	struct device *dev;
 	struct iommu_domain *domain;
-	struct iommu_info *io_map;
+	struct msm_vidc_iommu_info *io_map;
 	int i;
 	if (!core) {
 		dprintk(VIDC_ERR, "Invalid paramter: %p\n", core);
