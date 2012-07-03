@@ -21,6 +21,8 @@
 #include <linux/cpufreq.h>
 #include <linux/msm_tsens.h>
 #include <linux/msm_thermal.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
 #include <mach/cpufreq.h>
 
 static int enabled;
@@ -176,7 +178,7 @@ static struct kernel_param_ops module_ops = {
 module_param_cb(enabled, &module_ops, &enabled, 0644);
 MODULE_PARM_DESC(enabled, "enforce thermal limit on cpu");
 
-int __init msm_thermal_init(struct msm_thermal_data *pdata)
+int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 {
 	int ret = 0;
 
@@ -189,4 +191,65 @@ int __init msm_thermal_init(struct msm_thermal_data *pdata)
 	schedule_delayed_work(&check_temp_work, 0);
 
 	return ret;
+}
+
+static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	char *key = NULL;
+	struct device_node *node = pdev->dev.of_node;
+	struct msm_thermal_data data;
+
+	memset(&data, 0, sizeof(struct msm_thermal_data));
+	key = "qcom,sensor-id";
+	ret = of_property_read_u32(node, key, &data.sensor_id);
+	if (ret)
+		goto fail;
+	WARN_ON(data.sensor_id >= TSENS_MAX_SENSORS);
+
+	key = "qcom,poll-ms";
+	ret = of_property_read_u32(node, key, &data.poll_ms);
+	if (ret)
+		goto fail;
+
+	key = "qcom,limit-temp";
+	ret = of_property_read_u32(node, key, &data.limit_temp_degC);
+	if (ret)
+		goto fail;
+
+	key = "qcom,temp-hysteresis";
+	ret = of_property_read_u32(node, key, &data.temp_hysteresis_degC);
+	if (ret)
+		goto fail;
+
+	key = "qcom,freq-step";
+	ret = of_property_read_u32(node, key, &data.freq_step);
+
+fail:
+	if (ret)
+		pr_err("%s: Failed reading node=%s, key=%s\n",
+		       __func__, node->full_name, key);
+	else
+		ret = msm_thermal_init(&data);
+
+	return ret;
+}
+
+static struct of_device_id msm_thermal_match_table[] = {
+	{.compatible = "qcom,msm-thermal"},
+	{},
+};
+
+static struct platform_driver msm_thermal_device_driver = {
+	.probe = msm_thermal_dev_probe,
+	.driver = {
+		.name = "msm-thermal",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_thermal_match_table,
+	},
+};
+
+int __init msm_thermal_device_init(void)
+{
+	return platform_driver_register(&msm_thermal_device_driver);
 }
