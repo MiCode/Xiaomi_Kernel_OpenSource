@@ -98,10 +98,7 @@ static struct pm8xxx_gpio_init pm8038_gpios[] __initdata = {
 };
 
 /* Initial pm8038 MPP configurations */
-static struct pm8xxx_mpp_init pm8038_mpps[] __initdata = {
-	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
-	PM8XXX_MPP_INIT(3, D_INPUT, PM8038_MPP_DIG_LEVEL_VPH, DIN_TO_INT),
-};
+static struct pm8xxx_mpp_init pm8038_mpps[] __initdata = {};
 
 void __init msm8930_pm8038_gpio_mpp_init(void)
 {
