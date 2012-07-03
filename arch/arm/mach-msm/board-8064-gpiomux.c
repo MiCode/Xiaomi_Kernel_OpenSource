@@ -1182,6 +1182,22 @@ static struct msm_gpiomux_config apq8064_sdc4_configs[] __initdata = {
 };
 #endif
 
+static struct gpiomux_setting apq8064_sdc3_card_det_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config apq8064_sdc3_configs[] __initdata = {
+	{
+		.gpio      = 26,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &apq8064_sdc3_card_det_cfg,
+			[GPIOMUX_ACTIVE] = &apq8064_sdc3_card_det_cfg,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -1273,4 +1289,7 @@ void __init apq8064_init_gpiomux(void)
 	 msm_gpiomux_install(apq8064_sdc4_configs,
 			     ARRAY_SIZE(apq8064_sdc4_configs));
 #endif
+
+	msm_gpiomux_install(apq8064_sdc3_configs,
+			ARRAY_SIZE(apq8064_sdc3_configs));
 }
