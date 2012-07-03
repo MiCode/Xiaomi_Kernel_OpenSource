@@ -96,8 +96,8 @@
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
 		qcom,sdcc-sup-voltages = <2950 2950>;
 		qcom,sdcc-bus-width = <8>;
-		qcom,sdcc-hs200;
 		qcom,sdcc-nonremovable;
+		qcom,sdcc-bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 	};
 
 	qcom,sdcc@f98a4000 {
@@ -119,6 +119,9 @@
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
 		qcom,sdcc-sup-voltages = <2950 2950>;
 		qcom,sdcc-bus-width = <4>;
+		qcom,sdcc-xpc;
+		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+		qcom,sdcc-current-limit = <800>;
 	};
 
 	qcom,sdcc@f9864000 {
@@ -130,6 +133,7 @@
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
 		qcom,sdcc-sup-voltages = <1800 1800>;
 		qcom,sdcc-bus-width = <4>;
+		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
 		status = "disable";
 	};
 
@@ -142,6 +146,7 @@
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
 		qcom,sdcc-sup-voltages = <1800 1800>;
 		qcom,sdcc-bus-width = <4>;
+		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
 		status = "disable";
 	};
 
