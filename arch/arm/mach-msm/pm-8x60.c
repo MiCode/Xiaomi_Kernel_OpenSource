@@ -246,6 +246,7 @@ static int __init msm_pm_mode_sysfs_add_cpu(
 			if ((k == MSM_PM_MODE_ATTR_SUSPEND) &&
 			     !msm_pm_sleep_modes[idx].suspend_supported)
 				continue;
+			sysfs_attr_init(&mode->kas[j].ka.attr);
 			mode->kas[j].cpu = cpu;
 			mode->kas[j].ka.attr.mode = 0644;
 			mode->kas[j].ka.show = msm_pm_mode_attr_show;
