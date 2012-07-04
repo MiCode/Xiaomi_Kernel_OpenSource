@@ -461,6 +461,98 @@ static void sps_debugfs_exit(void)
 }
 #endif
 
+/* Get the debug info of BAM registers and descriptor FIFOs */
+int sps_get_bam_debug_info(u32 dev, u32 option, u32 para)
+{
+	int res = 0;
+	struct sps_bam *bam;
+	u32 i;
+	u32 num_pipes = 0;
+	void *vir_addr;
+
+	if (dev == 0) {
+		SPS_ERR("sps:%s:device handle should not be 0.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	mutex_lock(&sps->lock);
+	/* Search for the target BAM device */
+	bam = sps_h2bam(dev);
+	if (bam == NULL) {
+		pr_err("sps:Can't find any BAM with handle 0x%x.", dev);
+		mutex_unlock(&sps->lock);
+		return SPS_ERROR;
+	}
+	mutex_unlock(&sps->lock);
+
+	vir_addr = bam->base;
+	num_pipes = bam->props.num_pipes;
+
+	switch (option) {
+	case 1: /* output all registers of this BAM */
+		print_bam_reg(vir_addr);
+		for (i = 0; i < num_pipes; i++)
+			print_bam_pipe_reg(vir_addr, i);
+		break;
+	case 2: /* output BAM-level registers */
+		print_bam_reg(vir_addr);
+		break;
+	case 3: /* output selected BAM-level registers */
+		print_bam_selected_reg(vir_addr);
+		break;
+	case 4: /* output selected registers of all pipes */
+		for (i = 0; i < num_pipes; i++)
+			print_bam_pipe_selected_reg(vir_addr, i);
+		break;
+	case 5: /* output selected registers of selected pipes */
+		for (i = 0; i < num_pipes; i++)
+			if (para & (1UL << i))
+				print_bam_pipe_selected_reg(vir_addr, i);
+		break;
+	case 6: /* output selected registers of typical pipes */
+		print_bam_pipe_selected_reg(vir_addr, 4);
+		print_bam_pipe_selected_reg(vir_addr, 5);
+		break;
+	case 7: /* output desc FIFO of all pipes */
+		for (i = 0; i < num_pipes; i++)
+			print_bam_pipe_desc_fifo(vir_addr, i);
+		break;
+	case 8: /* output desc FIFO of selected pipes */
+		for (i = 0; i < num_pipes; i++)
+			if (para & (1UL << i))
+				print_bam_pipe_desc_fifo(vir_addr, i);
+		break;
+	case 9: /* output desc FIFO of typical pipes */
+		print_bam_pipe_desc_fifo(vir_addr, 4);
+		print_bam_pipe_desc_fifo(vir_addr, 5);
+		break;
+	case 10: /* output selected registers and desc FIFO of all pipes */
+		for (i = 0; i < num_pipes; i++) {
+			print_bam_pipe_selected_reg(vir_addr, i);
+			print_bam_pipe_desc_fifo(vir_addr, i);
+		}
+		break;
+	case 11: /* output selected registers and desc FIFO of selected pipes */
+		for (i = 0; i < num_pipes; i++)
+			if (para & (1UL << i)) {
+				print_bam_pipe_selected_reg(vir_addr, i);
+				print_bam_pipe_desc_fifo(vir_addr, i);
+			}
+		break;
+	case 12: /* output selected registers and desc FIFO of typical pipes */
+		print_bam_pipe_selected_reg(vir_addr, 4);
+		print_bam_pipe_desc_fifo(vir_addr, 4);
+		print_bam_pipe_selected_reg(vir_addr, 5);
+		print_bam_pipe_desc_fifo(vir_addr, 5);
+		break;
+	default:
+		pr_info("sps:no option is chosen yet.");
+	}
+
+	return res;
+}
+EXPORT_SYMBOL(sps_get_bam_debug_info);
+
 /**
  * Initialize SPS device
  *
