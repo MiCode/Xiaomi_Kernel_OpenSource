@@ -125,7 +125,8 @@ struct kgsl_mmu_ops {
 	int (*mmu_start) (struct kgsl_mmu *mmu);
 	void (*mmu_stop) (struct kgsl_mmu *mmu);
 	void (*mmu_setstate) (struct kgsl_mmu *mmu,
-		struct kgsl_pagetable *pagetable);
+		struct kgsl_pagetable *pagetable,
+		unsigned int context_id);
 	void (*mmu_device_setstate) (struct kgsl_mmu *mmu,
 					uint32_t flags);
 	void (*mmu_pagefault) (struct kgsl_mmu *mmu);
@@ -193,7 +194,8 @@ int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
 int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
-void kgsl_setstate(struct kgsl_mmu *mmu, uint32_t flags);
+void kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
+			uint32_t flags);
 int kgsl_mmu_get_ptname_from_ptbase(unsigned int pt_base);
 int kgsl_mmu_pt_get_flags(struct kgsl_pagetable *pt,
 			enum kgsl_deviceid id);
@@ -219,10 +221,11 @@ static inline unsigned int kgsl_mmu_get_current_ptbase(struct kgsl_mmu *mmu)
 }
 
 static inline void kgsl_mmu_setstate(struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pagetable)
+			struct kgsl_pagetable *pagetable,
+			unsigned int context_id)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_setstate)
-		mmu->mmu_ops->mmu_setstate(mmu, pagetable);
+		mmu->mmu_ops->mmu_setstate(mmu, pagetable, context_id);
 }
 
 static inline void kgsl_mmu_device_setstate(struct kgsl_mmu *mmu,
