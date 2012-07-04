@@ -321,7 +321,8 @@
 	qcom,ssusb@F9200000 {
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xF9200000 0xFA000>;
-		interrupts = <0 131 0>;
+		interrupts = <0 131 0 0 179 0>;
+		interrupt-names = "irq", "otg_irq";
 		SSUSB_VDDCX-supply = <&pm8841_s2>;
 		SSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_VDDCX-supply = <&pm8841_s2>;
