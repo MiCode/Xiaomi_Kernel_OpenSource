@@ -53,9 +53,9 @@ enum msm_camera_i2c_cmd_type {
 struct msm_camera_i2c_reg_conf {
 	uint16_t reg_addr;
 	uint16_t reg_data;
-	int16_t mask;
 	enum msm_camera_i2c_data_type dt;
 	enum msm_camera_i2c_cmd_type cmd_type;
+	int16_t mask;
 };
 
 struct msm_camera_i2c_reg_tbl {
