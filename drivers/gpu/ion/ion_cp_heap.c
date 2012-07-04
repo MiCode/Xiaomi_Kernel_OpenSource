@@ -366,33 +366,42 @@ static void ion_cp_heap_free(struct ion_buffer *buffer)
 	buffer->priv_phys = ION_CP_ALLOCATE_FAIL;
 }
 
-struct scatterlist *ion_cp_heap_create_sglist(struct ion_buffer *buffer)
+struct sg_table *ion_cp_heap_create_sg_table(struct ion_buffer *buffer)
 {
-	struct scatterlist *sglist;
+	struct sg_table *table;
+	int ret;
 
-	sglist = vmalloc(sizeof(*sglist));
-	if (!sglist)
+	table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
+	if (!table)
 		return ERR_PTR(-ENOMEM);
 
-	sg_init_table(sglist, 1);
-	sglist->length = buffer->size;
-	sglist->offset = 0;
-	sglist->dma_address = buffer->priv_phys;
+	ret = sg_alloc_table(table, 1, GFP_KERNEL);
+	if (ret)
+		goto err0;
 
-	return sglist;
+	table->sgl->length = buffer->size;
+	table->sgl->offset = 0;
+	table->sgl->dma_address = buffer->priv_phys;
+
+	return table;
+err0:
+	kfree(table);
+	return ERR_PTR(ret);
 }
 
-struct scatterlist *ion_cp_heap_map_dma(struct ion_heap *heap,
+struct sg_table *ion_cp_heap_map_dma(struct ion_heap *heap,
 					      struct ion_buffer *buffer)
 {
-	return ion_cp_heap_create_sglist(buffer);
+	return ion_cp_heap_create_sg_table(buffer);
 }
 
 void ion_cp_heap_unmap_dma(struct ion_heap *heap,
 				 struct ion_buffer *buffer)
 {
-	if (buffer->sglist)
-		vfree(buffer->sglist);
+	if (buffer->sg_table)
+		sg_free_table(buffer->sg_table);
+	kfree(buffer->sg_table);
+	buffer->sg_table = 0;
 }
 
 /**
@@ -441,9 +450,7 @@ void *ion_map_fmem_buffer(struct ion_buffer *buffer, unsigned long phys_base,
 		return NULL;
 }
 
-void *ion_cp_heap_map_kernel(struct ion_heap *heap,
-				   struct ion_buffer *buffer,
-				   unsigned long flags)
+void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 {
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
@@ -452,7 +459,7 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap,
 	mutex_lock(&cp_heap->lock);
 	if ((cp_heap->heap_protected == HEAP_NOT_PROTECTED) ||
 	    ((cp_heap->heap_protected == HEAP_PROTECTED) &&
-	      !ION_IS_CACHED(flags))) {
+	      !ION_IS_CACHED(buffer->flags))) {
 
 		if (ion_cp_request_region(cp_heap)) {
 			mutex_unlock(&cp_heap->lock);
@@ -461,10 +468,10 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap,
 
 		if (cp_heap->reusable) {
 			ret_value = ion_map_fmem_buffer(buffer, cp_heap->base,
-					cp_heap->reserved_vrange, flags);
+				cp_heap->reserved_vrange, buffer->flags);
 
 		} else {
-			if (ION_IS_CACHED(flags))
+			if (ION_IS_CACHED(buffer->flags))
 				ret_value = ioremap_cached(buffer->priv_phys,
 							   buffer->size);
 			else
@@ -510,7 +517,7 @@ void ion_cp_heap_unmap_kernel(struct ion_heap *heap,
 }
 
 int ion_cp_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
-			struct vm_area_struct *vma, unsigned long flags)
+			struct vm_area_struct *vma)
 {
 	int ret_value = -EAGAIN;
 	struct ion_cp_heap *cp_heap =
@@ -523,7 +530,7 @@ int ion_cp_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 			return -EINVAL;
 		}
 
-		if (!ION_IS_CACHED(flags))
+		if (!ION_IS_CACHED(buffer->flags))
 			vma->vm_page_prot = pgprot_writecombine(
 							vma->vm_page_prot);
 
@@ -764,7 +771,6 @@ static int ion_cp_heap_map_iommu(struct ion_buffer *buffer,
 	struct iommu_domain *domain;
 	int ret = 0;
 	unsigned long extra;
-	struct scatterlist *sglist = 0;
 	struct ion_cp_heap *cp_heap =
 		container_of(buffer->heap, struct ion_cp_heap, heap);
 	int prot = IOMMU_WRITE | IOMMU_READ;
@@ -819,12 +825,7 @@ static int ion_cp_heap_map_iommu(struct ion_buffer *buffer,
 		goto out1;
 	}
 
-	sglist = ion_cp_heap_create_sglist(buffer);
-	if (IS_ERR_OR_NULL(sglist)) {
-		ret = -ENOMEM;
-		goto out1;
-	}
-	ret = iommu_map_range(domain, data->iova_addr, sglist,
+	ret = iommu_map_range(domain, data->iova_addr, buffer->sg_table->sgl,
 			      buffer->size, prot);
 	if (ret) {
 		pr_err("%s: could not map %lx in domain %p\n",
@@ -839,14 +840,11 @@ static int ion_cp_heap_map_iommu(struct ion_buffer *buffer,
 		if (ret)
 			goto out2;
 	}
-	vfree(sglist);
 	return ret;
 
 out2:
 	iommu_unmap_range(domain, data->iova_addr, buffer->size);
 out1:
-	if (!IS_ERR_OR_NULL(sglist))
-		vfree(sglist);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 				data->mapped_size);
 out:

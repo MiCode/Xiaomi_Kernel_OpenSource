@@ -136,6 +136,7 @@ config ARCH_MSM8X60
 	select MSM_MULTIMEDIA_USE_ION
 	select MSM_PM8X60 if PM
 	select MSM_RUN_QUEUE_STATS
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_MSM8960
 	bool "MSM8960"
@@ -169,6 +170,7 @@ config ARCH_MSM8960
 	select MSM_PM8X60 if PM
 	select HOLES_IN_ZONE if SPARSEMEM
 	select MSM_RUN_QUEUE_STATS
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_MSM8930
 	bool "MSM8930"
@@ -199,6 +201,7 @@ config ARCH_MSM8930
 	select MULTI_IRQ_HANDLER
 	select MSM_PM8X60 if PM
 	select HOLES_IN_ZONE if SPARSEMEM
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_APQ8064
 	bool "APQ8064"
@@ -224,6 +227,7 @@ config ARCH_APQ8064
 	select QCACHE
 	select MIGHT_HAVE_PCI
 	select ARCH_SUPPORTS_MSI
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_MSM8974
 	bool "MSM8974"
@@ -247,6 +251,7 @@ config ARCH_MSM8974
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select MSM_RPM_REGULATOR_SMD
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
@@ -278,6 +283,7 @@ config ARCH_MSM9615
 	select MSM_QDSP6_APR
 	select MSM_AUDIO_QDSP6 if SND_SOC
 	select FIQ
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_MSM8625
 	bool "MSM8625"
