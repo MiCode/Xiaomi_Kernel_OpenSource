@@ -76,6 +76,18 @@ static struct gpiomux_setting gsbi_uart = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gsbi8_uartdm_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gsbi8_uartdm_suspended_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting gsbi9_active_cfg = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_8MA,
@@ -310,6 +322,37 @@ static struct msm_gpiomux_config msm8960_ethernet_configs[] = {
 	},
 };
 #endif
+/* GSBI8 UART GPIOs for Atheros Bluetooth */
+static struct msm_gpiomux_config msm8960_gsbi8_uartdm_configs[] = {
+	{
+		.gpio = 34,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi8_uartdm_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi8_uartdm_active_cfg,
+		}
+	},
+	{
+		.gpio = 35,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi8_uartdm_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi8_uartdm_active_cfg,
+		}
+	},
+	{
+		.gpio = 36,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi8_uartdm_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi8_uartdm_active_cfg,
+		}
+	},
+	{
+		.gpio = 37,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi8_uartdm_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi8_uartdm_active_cfg,
+		}
+	},
+};
 
 static struct msm_gpiomux_config msm8960_fusion_gsbi_configs[] = {
 	{
@@ -987,6 +1030,10 @@ int __init msm8960_init_gpiomux(void)
 
 	msm_gpiomux_install(msm8960_mdp_vsync_configs,
 			ARRAY_SIZE(msm8960_mdp_vsync_configs));
+
+	if (socinfo_get_platform_subtype() != PLATFORM_SUBTYPE_SGLTE)
+		msm_gpiomux_install(msm8960_gsbi8_uartdm_configs,
+			ARRAY_SIZE(msm8960_gsbi8_uartdm_configs));
 
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
 		msm_gpiomux_install(msm8960_gsbi8_uart_configs,

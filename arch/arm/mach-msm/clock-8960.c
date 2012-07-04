@@ -5508,7 +5508,10 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("core_clk",		gsbi5_uart_clk.c, "msm_serial_hsl.0"),
 	CLK_LOOKUP("core_clk",		gsbi6_uart_clk.c, "msm_serial_hs.0"),
 	CLK_LOOKUP("core_clk",		gsbi7_uart_clk.c,	""),
+	/* used on 8960 SGLTE for console */
 	CLK_LOOKUP("core_clk",		gsbi8_uart_clk.c, "msm_serial_hsl.1"),
+	/* used on 8960 standalone with Atheros Bluetooth */
+	CLK_LOOKUP("core_clk",		gsbi8_uart_clk.c, "msm_serial_hs.2"),
 	CLK_LOOKUP("core_clk",		gsbi9_uart_clk.c, "msm_serial_hs.1"),
 	CLK_LOOKUP("core_clk",		gsbi10_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi11_uart_clk.c,	""),
@@ -5560,7 +5563,10 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,	"msm_serial_hsl.0"),
 	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,  "msm_serial_hs.0"),
 	CLK_LOOKUP("iface_clk",		gsbi7_p_clk.c,		""),
+	/* used on 8960 SGLTE for serial console */
 	CLK_LOOKUP("iface_clk",		gsbi8_p_clk.c,	"msm_serial_hsl.1"),
+	/* used on 8960 standalone with Atheros Bluetooth */
+	CLK_LOOKUP("iface_clk",		gsbi8_p_clk.c,	"msm_serial_hs.2"),
 	CLK_LOOKUP("iface_clk",		gsbi9_p_clk.c,  "msm_serial_hs.1"),
 	CLK_LOOKUP("iface_clk",		gsbi10_p_clk.c,		"qup_i2c.10"),
 	CLK_LOOKUP("iface_clk",		gsbi11_p_clk.c,		""),
