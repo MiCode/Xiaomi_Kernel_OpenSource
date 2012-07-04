@@ -2462,7 +2462,36 @@ static int configure_uart_gpios(int on)
 static struct msm_serial_hs_platform_data msm_uart_dm9_pdata = {
 	.gpio_config	= configure_uart_gpios,
 };
+
+static int configure_gsbi8_uart_gpios(int on)
+{
+	int ret = 0, i;
+	int uart_gpios[] = {34, 35, 36, 37};
+
+	for (i = 0; i < ARRAY_SIZE(uart_gpios); i++) {
+		if (on) {
+			ret = gpio_request(uart_gpios[i], NULL);
+			if (ret) {
+				pr_err("%s: unable to request uart gpio[%d]\n",
+						__func__, uart_gpios[i]);
+				break;
+			}
+		} else {
+			gpio_free(uart_gpios[i]);
+		}
+	}
+
+	if (ret && on && i)
+		for (; i >= 0; i--)
+			gpio_free(uart_gpios[i]);
+	return ret;
+}
+
+static struct msm_serial_hs_platform_data msm_uart_dm8_pdata = {
+	.gpio_config	= configure_gsbi8_uart_gpios,
+};
 #else
+static struct msm_serial_hs_platform_data msm_uart_dm8_pdata;
 static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
 #endif
 
@@ -3143,6 +3172,11 @@ static void __init msm8960_cdp_init(void)
 		platform_device_register(&msm_device_uart_dm9);
 	}
 
+	/* For 8960 Standalone External Bluetooth Interface */
+	if (socinfo_get_platform_subtype() != PLATFORM_SUBTYPE_SGLTE) {
+		msm_device_uart_dm8.dev.platform_data = &msm_uart_dm8_pdata;
+		platform_device_register(&msm_device_uart_dm8);
+	}
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8960_pm8921_gpio_mpp_init();
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
