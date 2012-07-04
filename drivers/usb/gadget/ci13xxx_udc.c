@@ -1957,6 +1957,8 @@ __acquires(mEp->lock)
 				mReq->req.length)
 				mEpTemp = &_udc->ep0in;
 			mReq->req.complete(&mEpTemp->ep, &mReq->req);
+			if (mEp->type == USB_ENDPOINT_XFER_CONTROL)
+				mReq->req.complete = NULL;
 			spin_lock(mEp->lock);
 		}
 	}
@@ -2803,7 +2805,12 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 
 	dbg_event(_usb_addr(mEp), "DEQUEUE", 0);
 
-	hw_ep_flush(mEp->num, mEp->dir);
+	if ((mEp->type == USB_ENDPOINT_XFER_CONTROL)) {
+		hw_ep_flush(_udc->ep0out.num, RX);
+		hw_ep_flush(_udc->ep0in.num, TX);
+	} else {
+		hw_ep_flush(mEp->num, mEp->dir);
+	}
 
 	/* pop request */
 	list_del_init(&mReq->queue);
@@ -2821,6 +2828,8 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 				mReq->req.length)
 			mEpTemp = &_udc->ep0in;
 		mReq->req.complete(&mEpTemp->ep, &mReq->req);
+		if (mEp->type == USB_ENDPOINT_XFER_CONTROL)
+			mReq->req.complete = NULL;
 		spin_lock(mEp->lock);
 	}
 
