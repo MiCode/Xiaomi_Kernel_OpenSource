@@ -16,6 +16,7 @@
 #include <linux/device.h>
 #include <linux/uaccess.h>
 #include <linux/termios.h>
+#include <linux/poll.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
 #include "rmnet_usb_ctrl.h"
@@ -529,6 +530,28 @@ static int rmnet_ctl_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static unsigned int rmnet_ctl_poll(struct file *file, poll_table *wait)
+{
+	unsigned int		mask = 0;
+	struct rmnet_ctrl_dev	*dev;
+
+	dev = file->private_data;
+	if (!dev)
+		return POLLERR;
+
+	poll_wait(file, &dev->read_wait_queue, wait);
+	if (!is_dev_connected(dev)) {
+		dev_dbg(dev->devicep, "%s: Device not connected\n",
+			__func__);
+		return POLLERR;
+	}
+
+	if (!list_empty(&dev->rx_list))
+		mask |= POLLIN | POLLRDNORM;
+
+	return mask;
+}
+
 static ssize_t rmnet_ctl_read(struct file *file, char __user *buf, size_t count,
 		loff_t *ppos)
 {
@@ -722,6 +745,7 @@ static const struct file_operations ctrldev_fops = {
 	.unlocked_ioctl = rmnet_ctrl_ioctl,
 	.open  = rmnet_ctl_open,
 	.release = rmnet_ctl_release,
+	.poll = rmnet_ctl_poll,
 };
 
 int rmnet_usb_ctrl_probe(struct usb_interface *intf,
