@@ -2115,6 +2115,7 @@ static struct branch_clk gcc_tsif_ref_clk = {
 
 static struct branch_clk gcc_usb30_master_clk = {
 	.cbcr_reg = USB30_MASTER_CBCR,
+	.bcr_reg = USB_30_BCR,
 	.parent = &usb30_master_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
@@ -2149,6 +2150,7 @@ static struct branch_clk gcc_usb_hs_ahb_clk = {
 
 static struct branch_clk gcc_usb_hs_system_clk = {
 	.cbcr_reg = USB_HS_SYSTEM_CBCR,
+	.bcr_reg = USB_HS_BCR,
 	.parent = &usb_hs_system_clk_src.c,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
@@ -2171,6 +2173,7 @@ static struct branch_clk gcc_usb_hsic_ahb_clk = {
 
 static struct branch_clk gcc_usb_hsic_clk = {
 	.cbcr_reg = USB_HSIC_CBCR,
+	.bcr_reg = USB_HS_HSIC_BCR,
 	.parent = &usb_hsic_clk_src.c,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
