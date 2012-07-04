@@ -2398,6 +2398,8 @@ static int mdp_probe(struct platform_device *pdev)
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 	case MIPI_VIDEO_PANEL:
 #ifndef CONFIG_FB_MSM_MDP303
+		mipi = &mfd->panel_info.mipi;
+		configure_mdp_core_clk_table((mipi->dsi_pclk_rate) * 23 / 20);
 		pdata->on = mdp4_dsi_video_on;
 		pdata->off = mdp4_dsi_video_off;
 		mfd->hw_refresh = TRUE;
