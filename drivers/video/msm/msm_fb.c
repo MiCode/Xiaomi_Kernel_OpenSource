@@ -1270,14 +1270,14 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->bits_per_pixel = bpp * 8;	/* FrameBuffer color depth */
 	if (mfd->dest == DISPLAY_LCD) {
 		if (panel_info->type == MDDI_PANEL && panel_info->mddi.is_type1)
-			var->reserved[3] = panel_info->lcd.refx100 / (100 * 2);
+			var->reserved[4] = panel_info->lcd.refx100 / (100 * 2);
 		else
-			var->reserved[3] = panel_info->lcd.refx100 / 100;
+			var->reserved[4] = panel_info->lcd.refx100 / 100;
 	} else {
 		if (panel_info->type == MIPI_VIDEO_PANEL) {
-			var->reserved[3] = panel_info->mipi.frame_rate;
+			var->reserved[4] = panel_info->mipi.frame_rate;
 		} else {
-			var->reserved[3] = panel_info->clk_rate /
+			var->reserved[4] = panel_info->clk_rate /
 				((panel_info->lcdc.h_back_porch +
 				  panel_info->lcdc.h_front_porch +
 				  panel_info->lcdc.h_pulse_width +
@@ -1288,7 +1288,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 				  panel_info->yres));
 		}
 	}
-	pr_debug("reserved[3] %u\n", var->reserved[3]);
+	pr_debug("reserved[4] %u\n", var->reserved[4]);
 
 		/*
 		 * id field for fb app
