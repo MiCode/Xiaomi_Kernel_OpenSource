@@ -1188,9 +1188,9 @@ static int mipi_dsi_panel_qrd3_power(int on)
 		}
 		/*Toggle Backlight GPIO*/
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
-		udelay(190);
+		udelay(100);
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 0);
-		udelay(286);
+		udelay(430);
 		gpio_set_value_cansleep(GPIO_QRD3_LCD_BACKLIGHT_EN, 1);
 		/* 1 wire mode starts from this low to high transition */
 		udelay(50);
