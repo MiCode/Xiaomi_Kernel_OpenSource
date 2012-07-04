@@ -261,7 +261,6 @@ static inline int adreno_add_change_mh_phys_limit_cmds(unsigned int *cmds,
 {
 	unsigned int *start = cmds;
 
-	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
 	*cmds++ = cp_type0_packet(MH_MMU_MPU_END, 1);
 	*cmds++ = new_phys_limit;
 	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
@@ -274,7 +273,6 @@ static inline int adreno_add_bank_change_cmds(unsigned int *cmds,
 {
 	unsigned int *start = cmds;
 
-	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
 	*cmds++ = cp_type0_packet(REG_CP_STATE_DEBUG_INDEX, 1);
 	*cmds++ = (cur_ctx_bank ? 0 : 0x20);
 	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
