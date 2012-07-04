@@ -2646,6 +2646,7 @@ config MSM_FIQ
 	bool "Enable FIQ for debugging"
 	depends on ARCH_MSM8625
 	select FIQ
+	select GIC_SECURE
 	help
 	  Enable any line to be used as an FIQ. This will help debugging
 	  if apps is not responding and holding lock with irqs disabled.
