@@ -297,7 +297,6 @@ static void wcd9xxx_free_reset(struct wcd9xxx *wcd9xxx)
 static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 {
 	int ret;
-	u8 idbyte_0, idbyte_1, idbyte_2, idbyte_3;
 	struct mfd_cell *wcd9xxx_dev = NULL;
 	int wcd9xxx_dev_size = 0;
 
@@ -321,49 +320,26 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 		goto err;
 	}
 
-	idbyte_0 = wcd9xxx_reg_read(wcd9xxx, WCD9XXX_A_CHIP_ID_BYTE_0);
-	idbyte_1 = wcd9xxx_reg_read(wcd9xxx, WCD9XXX_A_CHIP_ID_BYTE_1);
-	idbyte_2 = wcd9xxx_reg_read(wcd9xxx, WCD9XXX_A_CHIP_ID_BYTE_2);
-	idbyte_3 = wcd9xxx_reg_read(wcd9xxx, WCD9XXX_A_CHIP_ID_BYTE_3);
+	wcd9xxx->idbyte_0 = wcd9xxx_reg_read(wcd9xxx, WCD9XXX_A_CHIP_ID_BYTE_0);
+	wcd9xxx->idbyte_1 = wcd9xxx_reg_read(wcd9xxx, WCD9XXX_A_CHIP_ID_BYTE_1);
+	wcd9xxx->idbyte_2 = wcd9xxx_reg_read(wcd9xxx, WCD9XXX_A_CHIP_ID_BYTE_2);
+	wcd9xxx->idbyte_3 = wcd9xxx_reg_read(wcd9xxx, WCD9XXX_A_CHIP_ID_BYTE_3);
 
 	wcd9xxx->version = wcd9xxx_reg_read(wcd9xxx,
 			WCD9XXX_A_CHIP_VERSION) & 0x1F;
 	pr_info("%s : Codec version %u initialized\n",
 		__func__, wcd9xxx->version);
-	pr_info("idbyte_0[%08x] idbyte_1[%08x] idbyte_2[%08x] idbyte_3[%08x]\n",
-			idbyte_0, idbyte_1, idbyte_2, idbyte_3);
 
-	if (wcd9xxx->slim != NULL) {
-		if (!strncmp(wcd9xxx->slim->name, "tabla", 5)) {
-			if (TABLA_IS_1_X(wcd9xxx->version)) {
-				wcd9xxx_dev = tabla1x_devs;
-				wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
-			} else {
-				wcd9xxx_dev = tabla_devs;
-				wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
-			}
-		} else {
-			wcd9xxx_dev = sitar_devs;
-			wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
-		}
-	} else {
-		/* Need to add here check for Tabla.
-		 * For now the read of version takes
-		 * care of now only tabla.
-		 */
-		pr_debug("%s : Read codec version using I2C\n",	__func__);
-		if (!strncmp(wcd9xxx_modules[0].client->name, "sitar", 5)) {
-			wcd9xxx_dev = sitar_devs;
-			wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
-		} else if (TABLA_IS_1_X(wcd9xxx->version)) {
-			wcd9xxx_dev = tabla1x_devs;
-			wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
-		} else if (TABLA_IS_2_0(wcd9xxx->version)) {
-			wcd9xxx_dev = tabla_devs;
-			wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
-		}
+	if (wcd9xxx->idbyte_0 == 0x2) {
+		wcd9xxx_dev = tabla_devs;
+		wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
+	} else if (wcd9xxx->idbyte_0 == 0x1) {
+		wcd9xxx_dev = tabla1x_devs;
+		wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
+	} else if (wcd9xxx->idbyte_0 == 0x0) {
+		wcd9xxx_dev = sitar_devs;
+		wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
 	}
-
 	ret = mfd_add_devices(wcd9xxx->dev, -1, wcd9xxx_dev, wcd9xxx_dev_size,
 			      NULL, 0, NULL);
 	if (ret != 0) {
@@ -765,21 +741,22 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 	wcd9xxx->irq = pdata->irq;
 	wcd9xxx->irq_base = pdata->irq_base;
 
-	/*read the tabla status before initializing the device type*/
-	ret = wcd9xxx_read(wcd9xxx, WCD9XXX_A_CHIP_STATUS, 1, &val, 0);
-	if (!strncmp(wcd9xxx_modules[0].client->name, "sitar", 5))
-		i2c_mode = SITAR_I2C_MODE;
-	else if (!strncmp(wcd9xxx_modules[0].client->name, "tabla", 5))
-		i2c_mode = TABLA_I2C_MODE;
-
-	if ((ret < 0) || (val != i2c_mode))
-		pr_err("failed to read the wcd9xxx status ret = %d\n", ret);
-
 	ret = wcd9xxx_device_init(wcd9xxx, wcd9xxx->irq);
 	if (ret) {
 		pr_err("%s: error, initializing device failed\n", __func__);
 		goto err_device_init;
 	}
+
+	if ((wcd9xxx->idbyte_0 == 0x2) || (wcd9xxx->idbyte_0 == 0x1))
+		i2c_mode = TABLA_I2C_MODE;
+	else if (wcd9xxx->idbyte_0 == 0x0)
+		i2c_mode = SITAR_I2C_MODE;
+
+	ret = wcd9xxx_read(wcd9xxx, WCD9XXX_A_CHIP_STATUS, 1, &val, 0);
+
+	if ((ret < 0) || (val != i2c_mode))
+		pr_err("failed to read the wcd9xxx status ret = %d\n", ret);
+
 	wcd9xxx_intf = WCD9XXX_INTERFACE_TYPE_I2C;
 
 	return ret;
@@ -1126,15 +1103,6 @@ static struct i2c_device_id tabla_id_table[] = {
 };
 MODULE_DEVICE_TABLE(i2c, tabla_id_table);
 
-static struct i2c_device_id sitar_id_table[] = {
-	{"sitar top level", WCD9XXX_I2C_TOP_LEVEL},
-	{"sitar analog", WCD9XXX_I2C_ANALOG},
-	{"sitar digital1", WCD9XXX_I2C_DIGITAL_1},
-	{"sitar digital2", WCD9XXX_I2C_DIGITAL_2},
-	{}
-};
-MODULE_DEVICE_TABLE(i2c, tabla_id_table);
-
 static struct i2c_driver tabla_i2c_driver = {
 	.driver                 = {
 		.owner          =       THIS_MODULE,
@@ -1147,21 +1115,9 @@ static struct i2c_driver tabla_i2c_driver = {
 	.suspend = wcd9xxx_i2c_suspend,
 };
 
-static struct i2c_driver sitar_i2c_driver = {
-	.driver                 = {
-		.owner          =       THIS_MODULE,
-		.name           =       "sitar-i2c-core",
-	},
-	.id_table               =       sitar_id_table,
-	.probe                  =       wcd9xxx_i2c_probe,
-	.remove                 =       wcd9xxx_i2c_remove,
-	.resume	= wcd9xxx_i2c_resume,
-	.suspend = wcd9xxx_i2c_suspend,
-};
-
 static int __init wcd9xxx_init(void)
 {
-	int ret1, ret2, ret3, ret4, ret5, ret6;
+	int ret1, ret2, ret3, ret4, ret5;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);
 	if (ret1 != 0)
@@ -1183,11 +1139,7 @@ static int __init wcd9xxx_init(void)
 	if (ret5 != 0)
 		pr_err("Failed to register sitar SB driver: %d\n", ret5);
 
-	ret6 = i2c_add_driver(&sitar_i2c_driver);
-	if (ret6 != 0)
-		pr_err("failed to add the I2C driver\n");
-
-	return (ret1 && ret2 && ret3 && ret4 && ret5 && ret6) ? -1 : 0;
+	return (ret1 && ret2 && ret3 && ret4 && ret5) ? -1 : 0;
 }
 module_init(wcd9xxx_init);
 
