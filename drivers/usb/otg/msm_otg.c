@@ -2739,6 +2739,11 @@ static void msm_otg_set_vbus_state(int online)
 {
 	static bool init;
 	struct msm_otg *motg = the_msm_otg;
+	struct usb_otg *otg = motg->phy.otg;
+
+	/* In A Host Mode, ignore received BSV interrupts */
+	if (otg->phy->state >= OTG_STATE_A_IDLE)
+		return;
 
 	if (online) {
 		pr_debug("PMIC: BSV set\n");
