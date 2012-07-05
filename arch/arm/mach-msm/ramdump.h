@@ -13,12 +13,14 @@
 #ifndef _RAMDUMP_HEADER
 #define _RAMDUMP_HEADER
 
+struct device;
+
 struct ramdump_segment {
 	unsigned long address;
 	unsigned long size;
 };
 
-void *create_ramdump_device(const char *dev_name);
+void *create_ramdump_device(const char *dev_name, struct device *parent);
 void destroy_ramdump_device(void *dev);
 int do_ramdump(void *handle, struct ramdump_segment *segments,
 		int nsegments);
