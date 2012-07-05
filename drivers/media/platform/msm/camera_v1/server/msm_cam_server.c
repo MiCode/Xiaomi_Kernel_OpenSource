@@ -423,6 +423,7 @@ int msm_server_set_fmt(struct msm_cam_v4l2_device *pcam, int idx,
 	plane_info.buffer_type = pfmt->type;
 	plane_info.ext_mode = pcam->dev_inst[idx]->image_mode;
 	plane_info.num_planes = 1;
+	plane_info.inst_handle = pcam->dev_inst[idx]->inst_handle;
 	D("%s: %d, %d, 0x%x\n", __func__,
 		pfmt->fmt.pix.width, pfmt->fmt.pix.height,
 		pfmt->fmt.pix.pixelformat);
@@ -479,6 +480,8 @@ int msm_server_set_fmt_mplane(struct msm_cam_v4l2_device *pcam, int idx,
 	plane_info.buffer_type = pfmt->type;
 	plane_info.ext_mode = pcam->dev_inst[idx]->image_mode;
 	plane_info.num_planes = pix_mp->num_planes;
+	plane_info.inst_handle = pcam->dev_inst[idx]->inst_handle;
+
 	if (plane_info.num_planes <= 0 ||
 		plane_info.num_planes > VIDEO_MAX_PLANES) {
 		pr_err("%s Invalid number of planes set %d", __func__,

@@ -122,7 +122,7 @@ struct isp_msg_stats {
 
 struct msm_free_buf {
 	uint8_t num_planes;
-	int32_t image_mode;
+	uint32_t inst_handle;
 	uint32_t ch_paddr[VIDEO_MAX_PLANES];
 	uint32_t vb;
 };
@@ -323,7 +323,7 @@ struct msm_cam_v4l2_dev_inst {
 	enum v4l2_mbus_pixelcode sensor_pxlcode;
 	struct msm_cam_v4l2_device *pcam;
 	int my_index;
-	int image_mode;
+	uint32_t image_mode;
 	int path;
 	int buf_count;
 	/* buffer offsets, if any */
@@ -335,6 +335,7 @@ struct msm_cam_v4l2_dev_inst {
 	struct img_plane_info plane_info;
 	int vbqueue_initialized;
 	struct mutex inst_lock;
+	uint32_t inst_handle;
 };
 
 struct msm_cam_mctl_node {
@@ -547,6 +548,18 @@ struct msm_cam_server_dev {
 	struct msm_cam_server_irqmap_entry hw_irqmap[CAMERA_SS_IRQ_MAX];
 };
 
+enum msm_cam_buf_lookup_type {
+	BUF_LOOKUP_INVALID,
+	BUF_LOOKUP_BY_IMG_MODE,
+	BUF_LOOKUP_BY_INST_HANDLE,
+};
+
+struct msm_cam_buf_handle {
+	uint16_t buf_lookup_type;
+	uint32_t image_mode;
+	uint32_t inst_handle;
+};
+
 /* ISP related functions */
 void msm_isp_vfe_dev_init(struct v4l2_subdev *vd);
 /*
@@ -562,33 +575,34 @@ int msm_mctl_free(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam);
 int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
-			int msg_type, struct msm_free_buf *buf,
-			uint32_t frame_id);
+	struct msm_cam_buf_handle *buf_handle,
+	struct msm_free_buf *buf,
+	uint32_t frame_id);
 int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
-	int msg_type, struct msm_free_buf *frame, int dirty, int node_type);
+	struct msm_cam_buf_handle *buf_handle,
+	struct msm_free_buf *frame, int dirty, int node_type);
 int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
-				struct msm_cam_v4l2_dev_inst *pcam_inst,
-				int path, struct msm_free_buf *free_buf);
+	struct msm_cam_v4l2_dev_inst *pcam_inst,
+	struct msm_cam_buf_handle *buf_handle,
+	struct msm_free_buf *free_buf);
 int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
-				struct msm_cam_v4l2_dev_inst *pcam_inst,
-				int path, struct msm_free_buf *free_buf);
+	struct msm_cam_v4l2_dev_inst *pcam_inst,
+	struct msm_free_buf *free_buf);
 /*Memory(PMEM) functions*/
 int msm_register_pmem(struct hlist_head *ptype, void __user *arg,
-				struct ion_client *client);
+	struct ion_client *client);
 int msm_pmem_table_del(struct hlist_head *ptype, void __user *arg,
-				struct ion_client *client);
+	struct ion_client *client);
 int msm_pmem_region_get_phy_addr(struct hlist_head *ptype,
 	struct msm_mem_map_info *mem_map, int32_t *phyaddr);
 uint8_t msm_pmem_region_lookup(struct hlist_head *ptype,
 	int pmem_type, struct msm_pmem_region *reg, uint8_t maxcount);
 uint8_t msm_pmem_region_lookup_2(struct hlist_head *ptype,
-					int pmem_type,
-					struct msm_pmem_region *reg,
-					uint8_t maxcount);
+	int pmem_type, struct msm_pmem_region *reg,
+	uint8_t maxcount);
 unsigned long msm_pmem_stats_vtop_lookup(
-				struct msm_cam_media_controller *mctl,
-				unsigned long buffer,
-				int fd);
+	struct msm_cam_media_controller *mctl,
+	unsigned long buffer, int fd);
 unsigned long msm_pmem_stats_ptov_lookup(
 	struct msm_cam_media_controller *mctl,
 	unsigned long addr, int *fd);
@@ -605,33 +619,25 @@ void msm_gemini_subdev_release(struct v4l2_subdev *gemini_sd);
 int msm_mctl_is_pp_msg_type(struct msm_cam_media_controller *p_mctl,
 	int msg_type);
 int msm_mctl_do_pp(struct msm_cam_media_controller *p_mctl,
-			int msg_type, uint32_t y_phy, uint32_t frame_id);
+	int msg_type, uint32_t y_phy, uint32_t frame_id);
 int msm_mctl_pp_ioctl(struct msm_cam_media_controller *p_mctl,
-			unsigned int cmd, unsigned long arg);
+	unsigned int cmd, unsigned long arg);
 int msm_mctl_pp_notify(struct msm_cam_media_controller *pmctl,
-			struct msm_mctl_pp_frame_info *pp_frame_info);
+	struct msm_mctl_pp_frame_info *pp_frame_info);
 int msm_mctl_img_mode_to_inst_index(struct msm_cam_media_controller *pmctl,
-					int out_type, int node_type);
+	int out_type, int node_type);
 struct msm_frame_buffer *msm_mctl_buf_find(
 	struct msm_cam_media_controller *pmctl,
 	struct msm_cam_v4l2_dev_inst *pcam_inst, int del_buf,
-	int msg_type, struct msm_free_buf *fbuf);
+	struct msm_free_buf *fbuf);
 void msm_mctl_gettimeofday(struct timeval *tv);
-struct msm_frame_buffer *msm_mctl_get_free_buf(
-		struct msm_cam_media_controller *pmctl,
-		int msg_type);
-int msm_mctl_put_free_buf(
-		struct msm_cam_media_controller *pmctl,
-		int msg_type, struct msm_frame_buffer *buf);
 int msm_mctl_check_pp(struct msm_cam_media_controller *p_mctl,
-		int msg_type, int *pp_divert_type, int *pp_type);
+	int msg_type, int *pp_divert_type, int *pp_type);
 int msm_mctl_do_pp_divert(
 	struct msm_cam_media_controller *p_mctl,
-	int msg_type, struct msm_free_buf *fbuf,
+	struct msm_cam_buf_handle *buf_handle,
+	struct msm_free_buf *fbuf,
 	uint32_t frame_id, int pp_type);
-int msm_mctl_buf_del(struct msm_cam_media_controller *pmctl,
-	int msg_type,
-	struct msm_frame_buffer *my_buf);
 int msm_mctl_pp_release_free_frame(
 	struct msm_cam_media_controller *p_mctl,
 	void __user *arg);
@@ -639,7 +645,7 @@ int msm_mctl_pp_reserve_free_frame(
 	struct msm_cam_media_controller *p_mctl,
 	void __user *arg);
 int msm_mctl_set_pp_key(struct msm_cam_media_controller *p_mctl,
-				void __user *arg);
+	void __user *arg);
 int msm_mctl_pp_done(
 	struct msm_cam_media_controller *p_mctl,
 	void __user *arg);
@@ -647,15 +653,15 @@ int msm_mctl_pp_divert_done(
 	struct msm_cam_media_controller *p_mctl,
 	void __user *arg);
 int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
-					struct video_device *pvdev);
+	struct video_device *pvdev);
 int msm_setup_mctl_node(struct msm_cam_v4l2_device *pcam);
 struct msm_cam_v4l2_dev_inst *msm_mctl_get_pcam_inst(
-		struct msm_cam_media_controller *pmctl,
-		int image_mode);
+	struct msm_cam_media_controller *pmctl,
+	struct msm_cam_buf_handle *buf_handle);
 int msm_mctl_buf_return_buf(struct msm_cam_media_controller *pmctl,
-			int image_mode, struct msm_frame_buffer *buf);
+	int image_mode, struct msm_frame_buffer *buf);
 int msm_mctl_pp_mctl_divert_done(struct msm_cam_media_controller *p_mctl,
-					void __user *arg);
+	void __user *arg);
 void msm_release_ion_client(struct kref *ref);
 int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 	struct msm_cam_subdev_info *sd_info);
@@ -668,7 +674,7 @@ int msm_cam_server_open_mctl_session(struct msm_cam_v4l2_device *pcam,
 	int *p_active);
 int msm_cam_server_close_mctl_session(struct msm_cam_v4l2_device *pcam);
 long msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
-		unsigned int cmd, unsigned long evt);
+	unsigned int cmd, unsigned long evt);
 int msm_mctl_pp_get_vpe_buf_info(struct msm_mctl_pp_frame_info *zoom);
 void msm_queue_init(struct msm_device_queue *queue, const char *name);
 void msm_enqueue(struct msm_device_queue *queue, struct list_head *entry);

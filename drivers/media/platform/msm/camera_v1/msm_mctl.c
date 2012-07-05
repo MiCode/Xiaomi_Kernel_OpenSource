@@ -882,6 +882,8 @@ static int msm_mctl_dev_close(struct file *f)
 	pcam->mctl_node.dev_inst[pcam_inst->my_index] = NULL;
 	v4l2_fh_del(&pcam_inst->eventHandle);
 	v4l2_fh_exit(&pcam_inst->eventHandle);
+	CLR_MCTLPP_INST_IDX(pcam_inst->inst_handle);
+	CLR_IMG_MODE(pcam_inst->inst_handle);
 	mutex_destroy(&pcam_inst->inst_lock);
 
 	kfree(pcam_inst);
@@ -1454,7 +1456,9 @@ static int msm_mctl_v4l2_s_parm(struct file *f, void *pctx,
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
-	pcam_inst->image_mode = a->parm.capture.extendedmode;
+	pcam_inst->image_mode = (a->parm.capture.extendedmode & 0x7F);
+	SET_IMG_MODE(pcam_inst->inst_handle, pcam_inst->image_mode);
+	SET_MCTLPP_INST_IDX(pcam_inst->inst_handle, pcam_inst->my_index);
 	pcam_inst->pcam->mctl_node.dev_inst_map[pcam_inst->image_mode] =
 		pcam_inst;
 	pcam_inst->path = msm_mctl_vidbuf_get_path(pcam_inst->image_mode);
@@ -1499,6 +1503,51 @@ static int msm_mctl_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 	return rc;
 }
 
+static int msm_mctl_v4l2_private_g_ctrl(struct file *f, void *pctx,
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
+{
+	int rc = -EINVAL;
+	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+	pcam_inst = container_of(f->private_data,
+		struct msm_cam_v4l2_dev_inst, eventHandle);
+
+	WARN_ON(pctx != f->private_data);
+
+	mutex_lock(&pcam->mctl_node.dev_lock);
+	switch (ioctl_ptr->id) {
+	case MSM_V4L2_PID_INST_HANDLE:
+		COPY_TO_USER(rc, (void __user *)ioctl_ptr->ioctl_ptr,
+			(void *)&pcam_inst->inst_handle, sizeof(uint32_t));
+		if (rc)
+			ERR_COPY_TO_USER();
+		break;
+	default:
+		pr_err("%s Unsupported ioctl %d ", __func__, ioctl_ptr->id);
+		break;
+	}
+	mutex_unlock(&pcam->mctl_node.dev_lock);
+	return rc;
+}
+
+static long msm_mctl_v4l2_private_ioctl(struct file *file, void *fh,
+	  bool valid_prio, int cmd, void *arg)
+{
+	int rc = -EINVAL;
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr = arg;
+	D("%s: cmd %d\n", __func__, _IOC_NR(cmd));
+
+	switch (cmd) {
+	case MSM_CAM_V4L2_IOCTL_PRIVATE_G_CTRL:
+		rc = msm_mctl_v4l2_private_g_ctrl(file, fh, ioctl_ptr);
+		break;
+	default:
+		pr_err("%s Unsupported ioctl cmd %d ", __func__, cmd);
+		break;
+	}
+	return rc;
+}
+
 /* mctl node v4l2_ioctl_ops */
 static const struct v4l2_ioctl_ops g_msm_mctl_ioctl_ops = {
 	.vidioc_querycap = msm_mctl_v4l2_querycap,
@@ -1538,6 +1587,7 @@ static const struct v4l2_ioctl_ops g_msm_mctl_ioctl_ops = {
 	/* event subscribe/unsubscribe */
 	.vidioc_subscribe_event = msm_mctl_v4l2_subscribe_event,
 	.vidioc_unsubscribe_event = msm_mctl_v4l2_unsubscribe_event,
+	.vidioc_default = msm_mctl_v4l2_private_ioctl,
 };
 
 int msm_setup_mctl_node(struct msm_cam_v4l2_device *pcam)

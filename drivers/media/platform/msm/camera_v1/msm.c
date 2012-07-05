@@ -92,6 +92,33 @@ static int msm_camera_v4l2_queryctrl(struct file *f, void *pctx,
 	return rc;
 }
 
+static int msm_camera_v4l2_private_g_ctrl(struct file *f, void *pctx,
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
+{
+	int rc = -EINVAL;
+	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+	pcam_inst = container_of(f->private_data,
+		struct msm_cam_v4l2_dev_inst, eventHandle);
+
+	WARN_ON(pctx != f->private_data);
+
+	mutex_lock(&pcam->vid_lock);
+	switch (ioctl_ptr->id) {
+	case MSM_V4L2_PID_INST_HANDLE:
+		COPY_TO_USER(rc, (void __user *)ioctl_ptr->ioctl_ptr,
+			(void *)&pcam_inst->inst_handle, sizeof(uint32_t));
+		if (rc)
+			ERR_COPY_TO_USER();
+		break;
+	default:
+		pr_err("%s Unsupported ioctl %d ", __func__, ioctl_ptr->id);
+		break;
+	}
+	mutex_unlock(&pcam->vid_lock);
+	return rc;
+}
+
 static int msm_camera_v4l2_g_ctrl(struct file *f, void *pctx,
 					struct v4l2_control *c)
 {
@@ -686,7 +713,9 @@ static int msm_camera_v4l2_s_parm(struct file *f, void *pctx,
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
-	pcam_inst->image_mode = a->parm.capture.extendedmode;
+	pcam_inst->image_mode = (a->parm.capture.extendedmode & 0x7F);
+	SET_IMG_MODE(pcam_inst->inst_handle, pcam_inst->image_mode);
+	SET_VIDEO_INST_IDX(pcam_inst->inst_handle, pcam_inst->my_index);
 	pcam_inst->pcam->dev_inst_map[pcam_inst->image_mode] = pcam_inst;
 	pcam_inst->path = msm_vidbuf_get_path(pcam_inst->image_mode);
 	D("%spath=%d,rc=%d\n", __func__,
@@ -744,6 +773,12 @@ static long msm_camera_v4l2_private_ioctl(struct file *file, void *fh,
 	switch (cmd) {
 	case MSM_CAM_V4L2_IOCTL_PRIVATE_S_CTRL:
 		rc = msm_camera_v4l2_private_s_ctrl(file, fh, ioctl_ptr);
+		break;
+	case MSM_CAM_V4L2_IOCTL_PRIVATE_G_CTRL:
+		rc = msm_camera_v4l2_private_g_ctrl(file, fh, ioctl_ptr);
+		break;
+	default:
+		pr_err("%s Unsupported ioctl cmd %d ", __func__, cmd);
 		break;
 	}
 	return rc;
@@ -1055,6 +1090,8 @@ static int msm_close(struct file *f)
 		v4l2_fh_del(&pcam_inst->eventHandle);
 		v4l2_fh_exit(&pcam_inst->eventHandle);
 	}
+	CLR_VIDEO_INST_IDX(pcam_inst->inst_handle);
+	CLR_IMG_MODE(pcam_inst->inst_handle);
 	mutex_unlock(&pcam_inst->inst_lock);
 	mutex_destroy(&pcam_inst->inst_lock);
 	kfree(pcam_inst);

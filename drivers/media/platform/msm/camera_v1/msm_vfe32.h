@@ -241,8 +241,8 @@ enum vfe_output_state {
 #define V32_OPERATION_CFG_LEN     44
 
 #define V32_AXI_OUT_OFF           0x00000038
-#define V32_AXI_OUT_LEN           224
-#define V32_AXI_CH_INF_LEN        32
+#define V32_AXI_OUT_LEN           240
+#define V32_AXI_CH_INF_LEN        48
 #define V32_AXI_CFG_LEN           47
 #define V32_AXI_BUS_FMT_OFF    1
 #define V32_AXI_BUS_FMT_LEN    4
@@ -756,7 +756,7 @@ struct vfe32_free_buf {
 struct vfe32_output_ch {
 	struct list_head free_buf_queue;
 	spinlock_t free_buf_lock;
-	uint16_t image_mode;
+	uint32_t inst_handle;
 	int8_t ch0;
 	int8_t ch1;
 	int8_t ch2;

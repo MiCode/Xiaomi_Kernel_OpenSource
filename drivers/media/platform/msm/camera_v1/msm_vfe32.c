@@ -393,7 +393,7 @@ static void vfe32_stop(struct vfe32_ctrl_type *vfe32_ctrl)
 		vfe32_ctrl->share_ctrl->vfebase + VFE_CAMIF_COMMAND);
 }
 
-static void vfe32_subdev_notify(int id, int path, int image_mode,
+static void vfe32_subdev_notify(int id, int path, uint32_t inst_handle,
 	struct v4l2_subdev *sd, struct vfe_share_ctrl_t *share_ctrl)
 {
 	struct msm_vfe_resp rp;
@@ -403,7 +403,7 @@ static void vfe32_subdev_notify(int id, int path, int image_mode,
 	CDBG("vfe32_subdev_notify : msgId = %d\n", id);
 	memset(&rp, 0, sizeof(struct msm_vfe_resp));
 	rp.evt_msg.type   = MSM_CAMERA_MSG;
-	frame_info.image_mode = image_mode;
+	frame_info.inst_handle = inst_handle;
 	frame_info.path = path;
 	rp.evt_msg.data = &frame_info;
 	rp.type	   = id;
@@ -423,27 +423,27 @@ static int vfe32_config_axi(
 	axi_ctrl->share_ctrl->outpath.out0.ch0 = 0x0000FFFF & *ch_info;
 	axi_ctrl->share_ctrl->outpath.out0.ch1 =
 		0x0000FFFF & (*ch_info++ >> 16);
-	axi_ctrl->share_ctrl->outpath.out0.ch2 = 0x0000FFFF & *ch_info;
-	axi_ctrl->share_ctrl->outpath.out0.image_mode =
-		0x0000FFFF & (*ch_info++ >> 16);
+	axi_ctrl->share_ctrl->outpath.out0.ch2 = 0x0000FFFF & *ch_info++;
+	axi_ctrl->share_ctrl->outpath.out0.inst_handle = *ch_info++;
+
 	axi_ctrl->share_ctrl->outpath.out1.ch0 = 0x0000FFFF & *ch_info;
 	axi_ctrl->share_ctrl->outpath.out1.ch1 =
 		0x0000FFFF & (*ch_info++ >> 16);
-	axi_ctrl->share_ctrl->outpath.out1.ch2 = 0x0000FFFF & *ch_info;
-	axi_ctrl->share_ctrl->outpath.out1.image_mode =
-		0x0000FFFF & (*ch_info++ >> 16);
+	axi_ctrl->share_ctrl->outpath.out1.ch2 = 0x0000FFFF & *ch_info++;
+	axi_ctrl->share_ctrl->outpath.out1.inst_handle = *ch_info++;
+
 	axi_ctrl->share_ctrl->outpath.out2.ch0 = 0x0000FFFF & *ch_info;
 	axi_ctrl->share_ctrl->outpath.out2.ch1 =
 		0x0000FFFF & (*ch_info++ >> 16);
-	axi_ctrl->share_ctrl->outpath.out2.ch2 = 0x0000FFFF & *ch_info;
-	axi_ctrl->share_ctrl->outpath.out2.image_mode =
-		0x0000FFFF & (*ch_info++ >> 16);
+	axi_ctrl->share_ctrl->outpath.out2.ch2 = 0x0000FFFF & *ch_info++;
+	axi_ctrl->share_ctrl->outpath.out2.inst_handle = *ch_info++;
+
 	axi_ctrl->share_ctrl->outpath.out3.ch0 = 0x0000FFFF & *ch_info;
 	axi_ctrl->share_ctrl->outpath.out3.ch1 =
 		0x0000FFFF & (*ch_info++ >> 16);
-	axi_ctrl->share_ctrl->outpath.out3.ch2 = 0x0000FFFF & *ch_info;
-	axi_ctrl->share_ctrl->outpath.out3.image_mode =
-		0x0000FFFF & (*ch_info++ >> 16);
+	axi_ctrl->share_ctrl->outpath.out3.ch2 = 0x0000FFFF & *ch_info++;
+	axi_ctrl->share_ctrl->outpath.out3.inst_handle = *ch_info++;
+
 	axi_ctrl->share_ctrl->outpath.output_mode = 0;
 
 	if (mode & OUTPUT_TERT1)
@@ -1468,18 +1468,18 @@ static struct msm_free_buf *vfe32_check_free_buffer(
 {
 	struct vfe32_output_ch *outch = NULL;
 	struct msm_free_buf *b = NULL;
-	uint32_t image_mode = 0;
+	uint32_t inst_handle = 0;
 
 	if (path == VFE_MSG_OUTPUT_PRIMARY)
-		image_mode = axi_ctrl->share_ctrl->outpath.out0.image_mode;
+		inst_handle = axi_ctrl->share_ctrl->outpath.out0.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_SECONDARY)
-		image_mode = axi_ctrl->share_ctrl->outpath.out1.image_mode;
+		inst_handle = axi_ctrl->share_ctrl->outpath.out1.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_TERTIARY1)
-		image_mode = axi_ctrl->share_ctrl->outpath.out2.image_mode;
+		inst_handle = axi_ctrl->share_ctrl->outpath.out2.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_TERTIARY2)
-		image_mode = axi_ctrl->share_ctrl->outpath.out3.image_mode;
+		inst_handle = axi_ctrl->share_ctrl->outpath.out3.inst_handle;
 
-	vfe32_subdev_notify(id, path, image_mode,
+	vfe32_subdev_notify(id, path, inst_handle,
 		&axi_ctrl->subdev, axi_ctrl->share_ctrl);
 	outch = vfe32_get_ch(path, axi_ctrl->share_ctrl);
 	if (outch->free_buf.ch_paddr[0])
@@ -1491,17 +1491,17 @@ static int vfe32_configure_pingpong_buffers(
 {
 	struct vfe32_output_ch *outch = NULL;
 	int rc = 0;
-	uint32_t image_mode = 0;
+	uint32_t inst_handle = 0;
 	if (path == VFE_MSG_OUTPUT_PRIMARY)
-		image_mode = vfe32_ctrl->share_ctrl->outpath.out0.image_mode;
+		inst_handle = vfe32_ctrl->share_ctrl->outpath.out0.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_SECONDARY)
-		image_mode = vfe32_ctrl->share_ctrl->outpath.out1.image_mode;
+		inst_handle = vfe32_ctrl->share_ctrl->outpath.out1.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_TERTIARY1)
-		image_mode = vfe32_ctrl->share_ctrl->outpath.out2.image_mode;
+		inst_handle = vfe32_ctrl->share_ctrl->outpath.out2.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_TERTIARY2)
-		image_mode = vfe32_ctrl->share_ctrl->outpath.out3.image_mode;
+		inst_handle = vfe32_ctrl->share_ctrl->outpath.out3.inst_handle;
 
-	vfe32_subdev_notify(id, path, image_mode,
+	vfe32_subdev_notify(id, path, inst_handle,
 		&vfe32_ctrl->subdev, vfe32_ctrl->share_ctrl);
 	outch = vfe32_get_ch(path, vfe32_ctrl->share_ctrl);
 	if (outch->ping.ch_paddr[0] && outch->pong.ch_paddr[0]) {
@@ -1708,18 +1708,30 @@ static int vfe32_proc_general(
 	case VFE_CMD_START_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
+		if (copy_from_user(&temp1, (void __user *)(cmd->value),
+				sizeof(uint32_t))) {
+			pr_err("%s Error copying inst_handle for recording\n",
+				__func__);
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		if (vfe32_ctrl->share_ctrl->operation_mode &
-			VFE_OUTPUTS_PREVIEW_AND_VIDEO)
+			VFE_OUTPUTS_PREVIEW_AND_VIDEO) {
+			vfe32_ctrl->share_ctrl->outpath.out1.inst_handle =
+				temp1;
 			rc = vfe32_configure_pingpong_buffers(
 				VFE_MSG_V32_START_RECORDING,
 				VFE_MSG_OUTPUT_SECONDARY,
 				vfe32_ctrl);
-		else if (vfe32_ctrl->share_ctrl->operation_mode &
-			VFE_OUTPUTS_VIDEO_AND_PREVIEW)
+		} else if (vfe32_ctrl->share_ctrl->operation_mode &
+			VFE_OUTPUTS_VIDEO_AND_PREVIEW) {
+			vfe32_ctrl->share_ctrl->outpath.out0.inst_handle =
+				temp1;
 			rc = vfe32_configure_pingpong_buffers(
 				VFE_MSG_V32_START_RECORDING,
 				VFE_MSG_OUTPUT_PRIMARY,
 				vfe32_ctrl);
+		}
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
 				" for video", __func__);
@@ -2191,6 +2203,14 @@ static int vfe32_proc_general(
 		break;
 
 	case VFE_CMD_LIVESHOT:
+		if (copy_from_user(&temp1, (void __user *)(cmd->value),
+				sizeof(uint32_t))) {
+			pr_err("%s Error copying inst_handle for liveshot ",
+				__func__);
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		vfe32_ctrl->share_ctrl->outpath.out0.inst_handle = temp1;
 		/* Configure primary channel */
 		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_CAPTURE,
 					VFE_MSG_OUTPUT_PRIMARY, vfe32_ctrl);
@@ -3456,12 +3476,12 @@ static void vfe32_process_error_irq(
 static void vfe_send_outmsg(
 	struct axi_ctrl_t *axi_ctrl, uint8_t msgid,
 	uint32_t ch0_paddr, uint32_t ch1_paddr,
-	uint32_t ch2_paddr, uint32_t image_mode)
+	uint32_t ch2_paddr, uint32_t inst_handle)
 {
 	struct isp_msg_output msg;
 
 	msg.output_id = msgid;
-	msg.buf.image_mode = image_mode;
+	msg.buf.inst_handle = inst_handle;
 	msg.buf.ch_paddr[0]	= ch0_paddr;
 	msg.buf.ch_paddr[1]	= ch1_paddr;
 	msg.buf.ch_paddr[2]	= ch2_paddr;
@@ -3563,7 +3583,7 @@ static void vfe32_process_output_path_irq_0(
 		vfe_send_outmsg(axi_ctrl,
 			MSG_ID_OUTPUT_PRIMARY, ch0_paddr,
 			ch1_paddr, ch2_paddr,
-			axi_ctrl->share_ctrl->outpath.out0.image_mode);
+			axi_ctrl->share_ctrl->outpath.out0.inst_handle);
 
 	} else {
 		axi_ctrl->share_ctrl->outpath.out0.frame_drop_cnt++;
@@ -3641,7 +3661,7 @@ static void vfe32_process_output_path_irq_1(
 		vfe_send_outmsg(axi_ctrl,
 			MSG_ID_OUTPUT_SECONDARY, ch0_paddr,
 			ch1_paddr, ch2_paddr,
-			axi_ctrl->share_ctrl->outpath.out1.image_mode);
+			axi_ctrl->share_ctrl->outpath.out1.inst_handle);
 
 	} else {
 		axi_ctrl->share_ctrl->outpath.out1.frame_drop_cnt++;
@@ -3682,7 +3702,7 @@ static void vfe32_process_output_path_irq_rdi0(
 			vfe_send_outmsg(axi_ctrl,
 				MSG_ID_OUTPUT_TERTIARY1, ch0_paddr,
 				0, 0,
-				axi_ctrl->share_ctrl->outpath.out2.image_mode);
+				axi_ctrl->share_ctrl->outpath.out2.inst_handle);
 
 		} else {
 			axi_ctrl->share_ctrl->outpath.out2.frame_drop_cnt++;
@@ -3723,7 +3743,7 @@ static void vfe32_process_output_path_irq_rdi1(
 			vfe_send_outmsg(axi_ctrl,
 				MSG_ID_OUTPUT_TERTIARY2, ch0_paddr,
 				0, 0,
-				axi_ctrl->share_ctrl->outpath.out3.image_mode);
+				axi_ctrl->share_ctrl->outpath.out3.inst_handle);
 		} else {
 			axi_ctrl->share_ctrl->outpath.out3.frame_drop_cnt++;
 			pr_err("path_irq irq - no free buffer for rdi1!\n");

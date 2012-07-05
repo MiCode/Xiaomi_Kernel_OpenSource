@@ -168,7 +168,9 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	struct msm_cam_v4l2_device *pcam = pmctl->pcam_ptr;
 	struct msm_frame_info *frame_info =
 		(struct msm_frame_info *)vdata->evt_msg.data;
-	uint32_t vfe_id, image_mode;
+	uint32_t vfe_id;
+	struct msm_cam_buf_handle buf_handle;
+
 	if (!pcam) {
 		pr_debug("%s pcam is null. return\n", __func__);
 		msm_isp_sync_free(vdata);
@@ -176,10 +178,13 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	}
 	if (frame_info) {
 		vfe_id = frame_info->path;
-		image_mode = frame_info->image_mode;
+		buf_handle.buf_lookup_type = BUF_LOOKUP_BY_INST_HANDLE;
+		buf_handle.inst_handle = frame_info->inst_handle;
 	} else {
 		vfe_id = vdata->evt_msg.msg_id;
-		image_mode = msm_isp_vfe_msg_to_img_mode(pmctl, vfe_id);
+		buf_handle.buf_lookup_type = BUF_LOOKUP_BY_IMG_MODE;
+		buf_handle.image_mode =
+			msm_isp_vfe_msg_to_img_mode(pmctl, vfe_id);
 	}
 
 	switch (vdata->type) {
@@ -189,14 +194,14 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		D("%s Got V32_START_*: Getting ping addr id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(pmctl, NULL,
-					image_mode, &free_buf);
+					&buf_handle, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
 		vfe_params.data = (void *)&free_buf;
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		msm_mctl_reserve_free_buf(pmctl, NULL,
-					image_mode, &free_buf);
+					&buf_handle, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -208,7 +213,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		pr_debug("%s Got V32_CAPTURE: getting buffer for id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(pmctl, NULL,
-					image_mode, &free_buf);
+					&buf_handle, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -216,7 +221,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		temp_free_buf = free_buf;
 		if (msm_mctl_reserve_free_buf(pmctl, NULL,
-					image_mode, &free_buf)) {
+					&buf_handle, &free_buf)) {
 			/* Write the same buffer into PONG */
 			free_buf = temp_free_buf;
 		}
@@ -254,7 +259,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		D("%s Got OUTPUT_IRQ: Getting free buf id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(pmctl, NULL,
-					image_mode, &free_buf);
+					&buf_handle, &free_buf);
 		cfgcmd.cmd_type = CMD_CONFIG_FREE_BUF_ADDR;
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
@@ -320,10 +325,10 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	}
 	case NOTIFY_VFE_MSG_OUT: {
 		uint8_t msgid;
-		int32_t image_mode = -1;
+		struct msm_cam_buf_handle buf_handle;
 		struct isp_msg_output *isp_output =
 				(struct isp_msg_output *)arg;
-		if (isp_output->buf.image_mode < 0) {
+		if (!isp_output->buf.inst_handle) {
 			switch (isp_output->output_id) {
 			case MSG_ID_OUTPUT_P:
 				msgid = VFE_MSG_OUTPUT_P;
@@ -356,19 +361,22 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 				rc = -EINVAL;
 				break;
 			}
-			if (!rc)
-				image_mode =
+			if (!rc) {
+				buf_handle.buf_lookup_type =
+					BUF_LOOKUP_BY_IMG_MODE;
+				buf_handle.image_mode =
 				msm_isp_vfe_msg_to_img_mode(pmctl, msgid);
+			}
 		} else {
-			image_mode = isp_output->buf.image_mode;
+			buf_handle.buf_lookup_type = BUF_LOOKUP_BY_INST_HANDLE;
+			buf_handle.inst_handle = isp_output->buf.inst_handle;
 		}
 		isp_event->isp_data.isp_msg.msg_id =
 			isp_output->output_id;
 		isp_event->isp_data.isp_msg.frame_id =
 			isp_output->frameCounter;
 		buf = isp_output->buf;
-		BUG_ON(image_mode < 0);
-		msm_mctl_buf_done(pmctl, image_mode,
+		msm_mctl_buf_done(pmctl, &buf_handle,
 			&buf, isp_output->frameCounter);
 		}
 		break;
