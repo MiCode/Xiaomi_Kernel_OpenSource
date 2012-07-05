@@ -1,0 +1,70 @@
+Qualcomm MSM On-Chip Memory Driver
+
+msm-ocmem is a driver for managing On-Chip Memory (OCMEM) in MSM SoCs.
+It is responsible for allowing various clients to allocate memory from
+OCMEM based on performance, latency and power requirements.
+
+Required Properties:
+- compatible:   Must be "qcom,msm-ocmem"
+- reg:          Four pairs of physical base addresses and region sizes
+                of memory mapped registers.
+- reg-names : Register region name(s) referenced in reg above
+                "ocmem_ctrl_physical" corresponds to OCMEM control registers.
+                "dm_ctrl_physical" corresponds to DM control registers.
+                "br_ctrl_physical" corresponds to BR control registers.
+                "ocmem_physical" corresponds to address range of OCMEM memory.
+- interrupts:   OCMEM core interrupt(s).
+- interrupt-names: OCMEM core interrupt name(s) reference in interrupts above
+		    "ocmem_irq" corresponds to OCMEM Error Interrupt.
+		    "dm_irq" corresponds to DM Interrupt.
+- qcom,ocmem-num-regions: The number of OCMEM hardware memory regions.
+
+In addition to the information on the OCMEM core, the
+device tree contains additional information describing partitions
+of the OCMEM address space. This is used to establish regions
+of OCMEM that are used for each potential client. The partitions
+can overlap and the OCMEM driver ensures that there is no possibility
+of concurrent access from more than one client to the same address range.
+This allows the OCMEM driver to maximize the usage of OCMEM at all times.
+
+Each partition is represented as a sub-node of the OCMEM device.
+
+OCMEM partitions
+
+Required Properties:
+ - reg : The partition's offset and size within OCMEM.
+ - qcom,ocmem-part-name : The name for this partition.
+ - qcom,ocmem-part-min: The minimum amount of memory reserved exclusively for
+                        this client.
+Optional Properties:
+ - qcom,ocmem-part-tail : This parameter, if present, indicates that successive
+                          allocations from this partition must be allocated at
+                          lower offsetis.
+Example:
+
+	qcom,ocmem@fdd00000 {
+		reg = <0xfdd00000 0x2000>,
+		      <0xfdd02000 0x2000>,
+		      <0xfe039000 0x400>,
+		      <0xfec00000 0x180000>;
+		reg-names = "ocmem_ctrl_physical", "dm_ctrl_physical", "br_ctrl_physical", "ocmem_physical";
+		interrupts = <0 76 0 0 77 0>;
+		interrupt-names = "ocmem_irq", "dm_irq";
+		qcom,ocmem-num-regions = <0x3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0xfec00000 0x180000>;
+
+		partition@0 {
+			reg = <0x0 0x100000>;
+			qcom,ocmem-part-name = "graphics";
+			qcom,ocmem-part-min = <0x80000>;
+		};
+
+		partition@100000 {
+			reg = <0x100000 0x80000>;
+			qcom,ocmem-part-name = "video";
+			qcom,ocmem-part-min = <0x55000>;
+		};
+
+	};
