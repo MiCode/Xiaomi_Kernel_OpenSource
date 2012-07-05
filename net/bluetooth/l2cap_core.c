@@ -3291,7 +3291,7 @@ int l2cap_build_conf_req(struct sock *sk, void *data)
 	struct l2cap_conf_rfc rfc = { .mode = pi->mode };
 	void *ptr = req->data;
 
-	BT_DBG("sk %p", sk);
+	BT_DBG("sk %p mode %d", sk, pi->mode);
 
 	if (pi->num_conf_req || pi->num_conf_rsp)
 		goto done;
@@ -3317,7 +3317,6 @@ done:
 		if (!(pi->conn->feat_mask & L2CAP_FEAT_ERTM) &&
 				!(pi->conn->feat_mask & L2CAP_FEAT_STREAMING))
 			break;
-
 		rfc.txwin_size      = 0;
 		rfc.max_transmit    = 0;
 		rfc.retrans_timeout = 0;
@@ -3467,6 +3466,9 @@ static int l2cap_parse_conf_req(struct sock *sk, void *data)
 
 	BT_DBG("sk %p", sk);
 
+	if (pi->omtu > mtu)
+		mtu = pi->omtu;
+
 	while (len >= L2CAP_CONF_OPT_SIZE) {
 		len -= l2cap_get_conf_opt(&req, &type, &olen, &val);
 
@@ -3568,6 +3570,8 @@ done:
 	if (pi->mode != rfc.mode) {
 		result = L2CAP_CONF_UNACCEPT;
 		rfc.mode = pi->mode;
+		if (mtu > L2CAP_DEFAULT_MTU)
+			pi->omtu = mtu;
 
 		if (pi->num_conf_rsp == 1)
 			return -ECONNREFUSED;
