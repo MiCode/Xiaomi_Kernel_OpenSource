@@ -585,7 +585,7 @@ static void vfe_send_outmsg(struct v4l2_subdev *sd, uint8_t msgid,
 	struct isp_msg_output msg;
 
 	msg.output_id = msgid;
-	msg.buf.image_mode = -1;
+	msg.buf.inst_handle = 0;
 	msg.buf.ch_paddr[0]     = ch0_paddr;
 	msg.buf.ch_paddr[1]     = ch1_paddr;
 	msg.frameCounter = vfe2x_ctrl->vfeFrameId;

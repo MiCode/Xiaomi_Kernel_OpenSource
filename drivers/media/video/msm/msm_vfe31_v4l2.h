@@ -217,10 +217,11 @@ enum vfe_output_state {
 #define V31_OPERATION_CFG_LEN     32
 
 #define V31_AXI_OUT_OFF           0x00000038
-#define V31_AXI_OUT_LEN           212
-#define V31_AXI_CH_INF_LEN        24
+#define V31_AXI_OUT_LEN           240
+#define V31_AXI_CH_INF_LEN        48
 #define V31_AXI_CFG_LEN           47
 #define V31_AXI_RESERVED            1
+#define V31_AXI_RESERVED_LEN        4
 
 #define V31_FRAME_SKIP_OFF        0x00000504
 #define V31_FRAME_SKIP_LEN        32
@@ -696,7 +697,7 @@ struct vfe31_free_buf {
 struct vfe31_output_ch {
 	struct list_head free_buf_queue;
 	spinlock_t free_buf_lock;
-	uint16_t image_mode;
+	uint32_t inst_handle;
 	int8_t ch0;
 	int8_t ch1;
 	int8_t ch2;

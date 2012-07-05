@@ -210,6 +210,9 @@
 #define MSM_CAM_IOCTL_UNSET_MCTL_SDEV \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 59, struct msm_mctl_set_sdev_data *)
 
+#define MSM_CAM_IOCTL_GET_INST_HANDLE \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 60, uint32_t *)
+
 struct msm_stats_reqbuf {
 	int num_buf;		/* how many buffers requested */
 	int stats_type;	/* stats type */
@@ -340,6 +343,7 @@ struct msm_pp_frame {
 		struct msm_pp_frame_mp mp[MAX_PLANES];
 	};
 	int node_type;
+	uint32_t inst_handle;
 };
 
 struct msm_cam_evt_divert_frame {
@@ -773,7 +777,7 @@ struct msm_stats_buf {
 #define MSM_V4L2_PID_CTRL_CMD               (V4L2_CID_PRIVATE_BASE+13)
 #define MSM_V4L2_PID_EVT_SUB_INFO           (V4L2_CID_PRIVATE_BASE+14)
 #define MSM_V4L2_PID_STROBE_FLASH           (V4L2_CID_PRIVATE_BASE+15)
-#define MSM_V4L2_PID_MMAP_ENTRY             (V4L2_CID_PRIVATE_BASE+16)
+#define MSM_V4L2_PID_INST_HANDLE            (V4L2_CID_PRIVATE_BASE+16)
 #define MSM_V4L2_PID_MMAP_INST              (V4L2_CID_PRIVATE_BASE+17)
 #define MSM_V4L2_PID_PP_PLANE_INFO          (V4L2_CID_PRIVATE_BASE+18)
 #define MSM_V4L2_PID_MAX                    MSM_V4L2_PID_PP_PLANE_INFO
@@ -1629,7 +1633,7 @@ struct img_plane_info {
 	uint8_t num_planes;
 	struct plane_data plane[MAX_PLANES];
 	uint32_t sp_y_offset;
-	uint8_t vpe_can_use;
+	uint32_t inst_handle;
 };
 
 #define QCAMERA_NAME "qcamera"
@@ -1681,6 +1685,9 @@ struct msm_mctl_set_sdev_data {
 
 #define MSM_CAM_V4L2_IOCTL_PRIVATE_S_CTRL \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_camera_v4l2_ioctl_t)
+
+#define MSM_CAM_V4L2_IOCTL_PRIVATE_G_CTRL \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, struct msm_camera_v4l2_ioctl_t)
 
 #define VIDIOC_MSM_VPE_INIT \
 	_IO('V', BASE_VIDIOC_PRIVATE + 15)
@@ -1861,5 +1868,39 @@ struct msm_cpp_frame_info_t {
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 2, struct msm_camera_v4l2_ioctl_t)
 
 #define V4L2_EVENT_CPP_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 0)
+
+/* Instance Handle - inst_handle
+ * Data bundle containing the information about where
+ * to get a buffer for a particular camera instance.
+ * This is a bitmask containing the following data:
+ * Buffer Handle Bitmask:
+ *      ------------------------------------
+ *      Bits    :  Purpose
+ *      ------------------------------------
+ *      31 - 24 :  Reserved.
+ *      23      :  is Image mode valid?
+ *      22 - 16 :  Image mode.
+ *      15      :  is MCTL PP inst idx valid?
+ *      14 - 8  :  MCTL PP inst idx.
+ *      7       :  is Video inst idx valid?
+ *      6 - 0   :  Video inst idx.
+ */
+#define CLR_IMG_MODE(handle)	(handle &= 0xFF00FFFF)
+#define SET_IMG_MODE(handle, data)	\
+	(handle |= ((0x1 << 23) | ((data & 0x7F) << 16)))
+#define GET_IMG_MODE(handle)	\
+	((handle & 0x800000) ? ((handle & 0x7F0000) >> 16) : 0xFF)
+
+#define CLR_MCTLPP_INST_IDX(handle)	(handle &= 0xFFFF00FF)
+#define SET_MCTLPP_INST_IDX(handle, data)	\
+	(handle |= ((0x1 << 15) | ((data & 0x7F) << 8)))
+#define GET_MCTLPP_INST_IDX(handle)	\
+	((handle & 0x8000) ? ((handle & 0x7F00) >> 8) : 0xFF)
+
+#define CLR_VIDEO_INST_IDX(handle)	(handle &= 0xFFFFFF00)
+#define GET_VIDEO_INST_IDX(handle)	\
+	((handle & 0x80) ? (handle & 0x7F) : 0xFF)
+#define SET_VIDEO_INST_IDX(handle, data)	\
+	(handle |= (0x1 << 7) | (data & 0x7F))
 
 #endif /* __LINUX_MSM_CAMERA_H */
