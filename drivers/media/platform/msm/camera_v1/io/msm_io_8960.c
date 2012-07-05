@@ -87,6 +87,14 @@ void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,
 		} else
 			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;
+	case S_LIVESHOT:
+		if (bus_perf_client) {
+			rc = msm_bus_scale_client_update_request(
+				bus_perf_client, 5);
+			CDBG("%s: S_LIVESHOT rc = %d\n", __func__, rc);
+		} else
+			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
+		break;
 	case S_DEFAULT:
 		break;
 	default:
