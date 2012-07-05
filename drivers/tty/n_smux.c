@@ -2280,6 +2280,7 @@ static void smux_wakeup_worker(struct work_struct *work)
 		 *    workqueue as new TX wakeup requests
 		 */
 		cancel_delayed_work(&smux_wakeup_delayed_work);
+		queue_work(smux_tx_wq, &smux_tx_work);
 	} else if (smux.power_state == SMUX_PWR_TURNING_ON) {
 		/* retry wakeup */
 		wakeup_delay = smux.pwr_wakeup_delay_us;
