@@ -848,8 +848,11 @@ static int mdp_histogram_disable(struct mdp_hist_mgmt *mgmt)
 	MDP_OUTP(base + 0x0018, INTR_HIST_DONE | INTR_HIST_RESET_SEQ_DONE);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
-	mgmt->hist = NULL;
-	complete(&mgmt->mdp_hist_comp);
+	if (mgmt->hist != NULL) {
+		mgmt->hist = NULL;
+		complete(&mgmt->mdp_hist_comp);
+	}
+
 	mdp_disable_irq(mgmt->irq_term);
 	return 0;
 }
@@ -964,8 +967,10 @@ int mdp_histogram_stop(struct fb_info *info, uint32_t block)
 
 	if (!mfd->panel_power_on) {
 		mgmt->mdp_is_hist_data = FALSE;
-		mgmt->hist = NULL;
-		complete(&mgmt->mdp_hist_comp);
+		if (mgmt->hist != NULL) {
+			mgmt->hist = NULL;
+			complete(&mgmt->mdp_hist_comp);
+		}
 		ret = -EINVAL;
 		goto error_lock;
 	}
@@ -1132,7 +1137,8 @@ static void mdp_hist_read_work(struct work_struct *data)
 	 */
 	if (!ret && mgmt->mdp_is_hist_valid && mgmt->mdp_is_hist_init) {
 		mgmt->hist = NULL;
-		complete(&mgmt->mdp_hist_comp);
+		if (waitqueue_active(&mgmt->mdp_hist_comp.wait))
+			complete(&mgmt->mdp_hist_comp);
 	}
 
 	if (mgmt->mdp_is_hist_valid == FALSE)
@@ -1233,6 +1239,7 @@ static int mdp_do_histogram(struct fb_info *info,
 		ret = -EPERM;
 		goto error_lock;
 	}
+	INIT_COMPLETION(mgmt->mdp_hist_comp);
 	mgmt->hist = hist;
 	mutex_unlock(&mgmt->mdp_hist_mutex);
 
