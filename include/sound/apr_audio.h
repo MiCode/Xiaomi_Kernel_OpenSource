@@ -402,11 +402,15 @@ struct afe_param_loopback_cfg {
 #define AFE_MODULE_ID_PORT_INFO		0x00010200
 /* Module ID for the loopback-related parameters. */
 #define AFE_MODULE_LOOPBACK           0x00010205
-struct afe_param_payload {
+struct afe_param_payload_base {
 	u32 module_id;
 	u32 param_id;
 	u16 param_size;
 	u16 reserved;
+} __packed;
+
+struct afe_param_payload {
+	struct afe_param_payload_base base;
 	union {
 		struct afe_param_sidetone_gain sidetone_gain;
 		struct afe_param_sampling_rate sampling_rate;

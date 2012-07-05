@@ -799,13 +799,14 @@ int afe_loopback_cfg(u16 enable, u16 dst_port, u16 src_port, u16 mode)
 	lp_cfg.hdr.opcode = AFE_PORT_CMD_SET_PARAM;
 
 	lp_cfg.port_id = src_port;
-	lp_cfg.payload_size	= sizeof(struct afe_param_payload);
+	lp_cfg.payload_size	= sizeof(struct afe_param_payload_base) +
+		sizeof(struct afe_param_loopback_cfg);
 	lp_cfg.payload_address	= 0;
 
-	lp_cfg.payload.module_id = AFE_MODULE_LOOPBACK;
-	lp_cfg.payload.param_id	= AFE_PARAM_ID_LOOPBACK_CONFIG;
-	lp_cfg.payload.param_size = sizeof(struct afe_param_loopback_cfg);
-	lp_cfg.payload.reserved	= 0;
+	lp_cfg.payload.base.module_id = AFE_MODULE_LOOPBACK;
+	lp_cfg.payload.base.param_id	= AFE_PARAM_ID_LOOPBACK_CONFIG;
+	lp_cfg.payload.base.param_size = sizeof(struct afe_param_loopback_cfg);
+	lp_cfg.payload.base.reserved	= 0;
 
 	lp_cfg.payload.param.loopback_cfg.loopback_cfg_minor_version =
 			AFE_API_VERSION_LOOPBACK_CONFIG;
@@ -879,13 +880,15 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	set_param.hdr.opcode = AFE_PORT_CMD_SET_PARAM;
 
 	set_param.port_id		= port_id;
-	set_param.payload_size		= sizeof(struct afe_param_payload);
+	set_param.payload_size	= sizeof(struct afe_param_payload_base) +
+				  sizeof(struct afe_param_loopback_gain);
 	set_param.payload_address	= 0;
 
-	set_param.payload.module_id	= AFE_MODULE_ID_PORT_INFO;
-	set_param.payload.param_id	= AFE_PARAM_ID_LOOPBACK_GAIN;
-	set_param.payload.param_size = sizeof(struct afe_param_loopback_gain);
-	set_param.payload.reserved	= 0;
+	set_param.payload.base.module_id	= AFE_MODULE_ID_PORT_INFO;
+	set_param.payload.base.param_id	= AFE_PARAM_ID_LOOPBACK_GAIN;
+	set_param.payload.base.param_size =
+		sizeof(struct afe_param_loopback_gain);
+	set_param.payload.base.reserved	= 0;
 
 	set_param.payload.param.loopback_gain.gain		= volume;
 	set_param.payload.param.loopback_gain.reserved	= 0;
