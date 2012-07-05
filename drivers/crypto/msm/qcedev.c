@@ -2098,12 +2098,19 @@ static int qcedev_remove(struct platform_device *pdev)
 	return 0;
 };
 
+static struct of_device_id qcedev_match[] = {
+	{	.compatible = "qcom,qcedev",
+	},
+	{}
+};
+
 static struct platform_driver qcedev_plat_driver = {
 	.probe = qcedev_probe,
 	.remove = qcedev_remove,
 	.driver = {
 		.name = "qce",
 		.owner = THIS_MODULE,
+		.of_match_table = qcedev_match,
 	},
 };
 
@@ -2222,7 +2229,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.26");
+MODULE_VERSION("1.27");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);

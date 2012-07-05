@@ -1,0 +1,18 @@
+* QCRYPTO (Qualcomm Crypto)
+
+Required properties:
+  - compatible : should be "qcom,qcrypto"
+  - reg : should contain crypto, BAM register map.
+  - interrupts : should contain crypto BAM interrupt.
+  - qcom,bam-pipe-pair : should contain crypto BAM pipe pair.
+
+Example:
+
+        qcom,qcrypto@fd444000 {
+		compatible = "qcom,qcrypto";
+		reg = <0xfd440000 0x20000>,
+		      <0xfd444000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 235 0>;
+		qcom,bam-pipe-pair = <1>;
+	};
