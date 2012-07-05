@@ -333,7 +333,7 @@ static int __devinit pil_q6v4_lpass_driver_probe(struct platform_device *pdev)
 
 	INIT_WORK(&drv->work, lpass_fatal_fn);
 
-	drv->ramdump_dev = create_ramdump_device("lpass");
+	drv->ramdump_dev = create_ramdump_device("lpass", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_ramdump;

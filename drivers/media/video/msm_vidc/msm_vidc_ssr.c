@@ -157,7 +157,8 @@ int msm_vidc_ssr_init(struct msm_vidc_core *core)
 		dprintk(VIDC_ERR, "msm_vidc Sub System registration failed\n");
 		rc = -ENODEV;
 	}
-	core->ssr_info.msm_vidc_ramdump_dev = create_ramdump_device("msm_vidc");
+	core->ssr_info.msm_vidc_ramdump_dev = create_ramdump_device("msm_vidc",
+			msm_vidc_subsystem.dev);
 	if (!core->ssr_info.msm_vidc_ramdump_dev) {
 		dprintk(VIDC_ERR, "Unable to create msm_vidc ramdump device\n");
 		rc = -ENODEV;

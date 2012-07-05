@@ -286,7 +286,7 @@ static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 	drv->fw_ramdump_segments[2].size = 0x4000;
 	drv->fw_ramdump_segments[3].address = 0x8fe00000;
 	drv->fw_ramdump_segments[3].size = 0x100000;
-	drv->ramdump_dev = create_ramdump_device("dsps");
+	drv->ramdump_dev = create_ramdump_device("dsps", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_ramdump;
@@ -294,7 +294,7 @@ static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 
 	drv->smem_ramdump_segments[0].address = PHYS_OFFSET - SZ_2M;
 	drv->smem_ramdump_segments[0].size =  SZ_2M;
-	drv->smem_ramdump_dev = create_ramdump_device("smem-dsps");
+	drv->smem_ramdump_dev = create_ramdump_device("smem-dsps", &pdev->dev);
 	if (!drv->smem_ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_smem_ramdump;

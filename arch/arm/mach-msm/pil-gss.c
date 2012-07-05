@@ -573,13 +573,13 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_misc;
 
-	drv->ramdump_dev = create_ramdump_device("gss");
+	drv->ramdump_dev = create_ramdump_device("gss", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_ramdump;
 	}
 
-	drv->smem_ramdump_dev = create_ramdump_device("smem-gss");
+	drv->smem_ramdump_dev = create_ramdump_device("smem-gss", &pdev->dev);
 	if (!drv->smem_ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_smem;
