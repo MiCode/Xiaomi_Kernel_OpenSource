@@ -395,22 +395,6 @@ static struct platform_device android_usb_device = {
 	.id	= -1,
 };
 
-#define SHARED_IMEM_TZ_BASE 0xFE805720
-static struct resource msm8974_tzlog_resources[] = {
-	{
-		.start = SHARED_IMEM_TZ_BASE,
-		.end = SHARED_IMEM_TZ_BASE + SZ_4K - 1,
-		.flags = IORESOURCE_MEM,
-	},
-};
-
-struct platform_device msm8974_device_tz_log = {
-	.name		= "tz_log",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(msm8974_tzlog_resources),
-	.resource	= msm8974_tzlog_resources,
-};
-
 #define BIMC_BASE	0xfc380000
 #define BIMC_SIZE	0x0006A000
 #define SYS_NOC_BASE	0xfc460000
@@ -556,7 +540,6 @@ void __init msm_8974_add_devices(void)
 	platform_device_register(&android_usb_device);
 	platform_add_devices(msm_8974_stub_regulator_devices,
 					msm_8974_stub_regulator_devices_len);
-	platform_device_register(&msm8974_device_tz_log);
 }
 
 static struct clk_lookup msm_clocks_dummy[] = {
