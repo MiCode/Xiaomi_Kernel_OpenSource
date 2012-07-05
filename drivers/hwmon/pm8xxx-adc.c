@@ -1042,23 +1042,6 @@ static int get_adc(void *data, u64 *val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_adc, NULL, "%llu\n");
 
-static int get_mpp_adc(void *data, u64 *val)
-{
-	struct pm8xxx_adc_chan_result result;
-	int i = (int)data;
-	int rc;
-
-	rc = pm8xxx_adc_mpp_config_read(i,
-		ADC_MPP_1_AMUX6, &result);
-	if (!rc)
-		pr_info("ADC MPP value raw:%x physical:%lld\n",
-			result.adc_code, result.physical);
-	*val = result.physical;
-
-	return 0;
-}
-DEFINE_SIMPLE_ATTRIBUTE(reg_mpp_fops, get_mpp_adc, NULL, "%llu\n");
-
 #ifdef CONFIG_DEBUG_FS
 static void create_debugfs_entries(void)
 {
