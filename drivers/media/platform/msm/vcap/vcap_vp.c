@@ -117,21 +117,21 @@ static void mov_buf_to_vc(struct work_struct *work)
 	struct vcap_buffer *buf_vp;
 	int rc;
 
-	p.type = V4L2_BUF_TYPE_INTERLACED_IN_DECODER;
 	p.memory = V4L2_MEMORY_USERPTR;
 
 	/* This loop exits when there is no more buffers left */
 	while (1) {
+		p.type = V4L2_BUF_TYPE_INTERLACED_IN_DECODER;
 		if (!vp_work->cd->streaming)
 			return;
-		rc = vb2_dqbuf(&vp_work->cd->vp_in_vidq, &p, O_NONBLOCK);
+		rc = vcvp_dqbuf(&vp_work->cd->vp_in_vidq, &p);
 		if (rc < 0)
 			return;
 
 		vb_vc = vp_work->cd->vc_vidq.bufs[p.index];
 		if (NULL == vb_vc) {
 			dprintk(1, "%s: buffer is NULL\n", __func__);
-			vb2_qbuf(&vp_work->cd->vp_in_vidq, &p);
+			vcvp_qbuf(&vp_work->cd->vp_in_vidq, &p);
 			return;
 		}
 		buf_vc = container_of(vb_vc, struct vcap_buffer, vb);
@@ -139,7 +139,7 @@ static void mov_buf_to_vc(struct work_struct *work)
 		vb_vp = vp_work->cd->vp_in_vidq.bufs[p.index];
 		if (NULL == vb_vp) {
 			dprintk(1, "%s: buffer is NULL\n", __func__);
-			vb2_qbuf(&vp_work->cd->vp_in_vidq, &p);
+			vcvp_qbuf(&vp_work->cd->vp_in_vidq, &p);
 			return;
 		}
 		buf_vp = container_of(vb_vp, struct vcap_buffer, vb);
@@ -150,7 +150,7 @@ static void mov_buf_to_vc(struct work_struct *work)
 
 		p.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		/* This call should not fail */
-		rc = vb2_qbuf(&vp_work->cd->vc_vidq, &p);
+		rc = vcvp_qbuf(&vp_work->cd->vc_vidq, &p);
 		if (rc < 0) {
 			dprintk(1, "%s: qbuf to vc failed\n", __func__);
 			buf_vp->ion_handle = buf_vc->ion_handle;
@@ -158,7 +158,7 @@ static void mov_buf_to_vc(struct work_struct *work)
 			buf_vc->ion_handle = NULL;
 			buf_vc->paddr = 0;
 			p.type = V4L2_BUF_TYPE_INTERLACED_IN_DECODER;
-			vb2_qbuf(&vp_work->cd->vp_in_vidq, &p);
+			vcvp_qbuf(&vp_work->cd->vp_in_vidq, &p);
 		}
 	}
 }
