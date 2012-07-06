@@ -202,6 +202,14 @@ static const struct msm_vidc_format vdec_formats[] = {
 		.type = OUTPUT_PORT,
 	},
 	{
+		.name = "VC1",
+		.description = "VC-1 compressed format",
+		.fourcc = V4L2_PIX_FMT_VC1_ANNEX_G,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_compressed,
+		.type = OUTPUT_PORT,
+	},
+	{
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
