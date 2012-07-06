@@ -114,7 +114,6 @@ union  meta_data {
 struct audio_aio_ion_region {
 	struct list_head list;
 	struct ion_handle *handle;
-	struct ion_client *client;
 	int fd;
 	void *vaddr;
 	unsigned long paddr;
@@ -173,6 +172,7 @@ struct q6audio_aio {
 	struct list_head free_event_queue;
 	struct list_head event_queue;
 	struct list_head ion_region_queue;     /* protected by lock */
+	struct ion_client *client;
 	struct audio_aio_drv_operations drv_ops;
 	union msm_audio_event_payload eos_write_payload;
 
