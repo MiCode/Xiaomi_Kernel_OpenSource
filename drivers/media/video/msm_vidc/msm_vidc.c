@@ -11,6 +11,7 @@
  *
  */
 
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <media/msm_vidc.h>
 #include "msm_vidc_internal.h"
@@ -23,21 +24,19 @@
 
 #define MAX_EVENTS 30
 
-int msm_vidc_poll(void *instance, struct file *filp,
-		struct poll_table_struct *wait)
+static int get_poll_flags(void *instance)
 {
-	int rc = 0;
 	struct msm_vidc_inst *inst = instance;
 	struct vb2_queue *outq = &inst->vb2_bufq[OUTPUT_PORT];
 	struct vb2_queue *capq = &inst->vb2_bufq[CAPTURE_PORT];
 	struct vb2_buffer *out_vb = NULL;
 	struct vb2_buffer *cap_vb = NULL;
 	unsigned long flags;
-	poll_wait(filp, &inst->event_handler.wait, wait);
-	poll_wait(filp, &capq->done_wq, wait);
-	poll_wait(filp, &outq->done_wq, wait);
+	int rc = 0;
+
 	if (v4l2_event_pending(&inst->event_handler))
 		rc |= POLLPRI;
+
 	spin_lock_irqsave(&capq->done_lock, flags);
 	if (!list_empty(&capq->done_list))
 		cap_vb = list_first_entry(&capq->done_list, struct vb2_buffer,
@@ -46,6 +45,7 @@ int msm_vidc_poll(void *instance, struct file *filp,
 				|| cap_vb->state == VB2_BUF_STATE_ERROR))
 		rc |= POLLIN | POLLRDNORM;
 	spin_unlock_irqrestore(&capq->done_lock, flags);
+
 	spin_lock_irqsave(&outq->done_lock, flags);
 	if (!list_empty(&outq->done_list))
 		out_vb = list_first_entry(&outq->done_list, struct vb2_buffer,
@@ -54,6 +54,30 @@ int msm_vidc_poll(void *instance, struct file *filp,
 				|| out_vb->state == VB2_BUF_STATE_ERROR))
 		rc |= POLLOUT | POLLWRNORM;
 	spin_unlock_irqrestore(&outq->done_lock, flags);
+
+	return rc;
+}
+
+int msm_vidc_poll(void *instance, struct file *filp,
+		struct poll_table_struct *wait)
+{
+	struct msm_vidc_inst *inst = instance;
+	struct vb2_queue *outq = &inst->vb2_bufq[OUTPUT_PORT];
+	struct vb2_queue *capq = &inst->vb2_bufq[CAPTURE_PORT];
+
+	poll_wait(filp, &inst->event_handler.wait, wait);
+	poll_wait(filp, &capq->done_wq, wait);
+	poll_wait(filp, &outq->done_wq, wait);
+	return get_poll_flags(inst);
+}
+
+/* Kernel client alternative for msm_vidc_poll */
+int msm_vidc_wait(void *instance)
+{
+	struct msm_vidc_inst *inst = instance;
+	int rc = 0;
+
+	wait_event(inst->kernel_event_queue, (rc = get_poll_flags(inst)));
 	return rc;
 }
 
@@ -385,8 +409,10 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_LIST_HEAD(&inst->pendingq);
 	INIT_LIST_HEAD(&inst->internalbufs);
 	INIT_LIST_HEAD(&inst->persistbufs);
+	init_waitqueue_head(&inst->kernel_event_queue);
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
+
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
 		init_completion(&inst->completions[i]);

@@ -19,6 +19,7 @@
 #include <linux/types.h>
 #include <linux/completion.h>
 #include <linux/clk.h>
+#include <linux/wait.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/ocmem.h>
@@ -226,6 +227,7 @@ struct msm_vidc_inst {
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
 	struct v4l2_fh event_handler;
 	struct msm_smem *extradata_handle;
+	wait_queue_head_t kernel_event_queue;
 	bool in_reconfig;
 	u32 reconfig_width;
 	u32 reconfig_height;
