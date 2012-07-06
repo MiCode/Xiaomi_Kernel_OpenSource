@@ -208,12 +208,12 @@ static void __init reserve_ion_memory(void)
 static struct resource smd_resource[] = {
 	{
 		.name	= "modem_smd_in",
-		.start	= 32 + 17,		/* mss_sw_to_kpss_ipc_irq0  */
+		.start	= 32 + 25,		/* mss_sw_to_kpss_ipc_irq0  */
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
 		.name	= "modem_smsm_in",
-		.start	= 32 + 18,		/* mss_sw_to_kpss_ipc_irq1  */
+		.start	= 32 + 26,		/* mss_sw_to_kpss_ipc_irq1  */
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
