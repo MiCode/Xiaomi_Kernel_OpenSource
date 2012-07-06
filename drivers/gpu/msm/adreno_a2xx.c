@@ -1719,7 +1719,6 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 			kgsl_sharedmem_writel(&rb->device->memstore,
 					KGSL_MEMSTORE_OFFSET(context_id,
 						ts_cmp_enable), 0);
-			device->last_expired_ctxt_id = context_id;
 			wmb();
 		}
 		KGSL_CMD_WARN(rb->device, "ringbuffer rb interrupt\n");
