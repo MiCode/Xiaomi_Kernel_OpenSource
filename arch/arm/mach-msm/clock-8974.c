@@ -5019,6 +5019,12 @@ static void __init msm8974_clock_post_init(void)
 	clk_set_rate(&axi_clk_src.c, 333330000);
 	clk_set_rate(&ocmemnoc_clk_src.c, 333330000);
 
+	/*
+	 * Hold an active set vote for CXO; this is because CXO is expected
+	 * to remain on whenever CPUs aren't power collapsed.
+	 */
+	clk_prepare_enable(&cxo_a_clk_src.c);
+
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb30_master_clk_src.c,
 			usb30_master_clk_src.freq_tbl[0].freq_hz);
