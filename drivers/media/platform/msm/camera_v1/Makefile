@@ -12,10 +12,11 @@ ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/actuators
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/server
   obj-$(CONFIG_MSM_CAMERA) += msm_isp.o msm.o msm_mem.o msm_mctl.o msm_mctl_buf.o msm_mctl_pp.o msm_vfe_stats_buf.o
-  obj-$(CONFIG_MSM_CAMERA) += server/ eeprom/ sensors/ actuators/ csi/
+  obj-$(CONFIG_MSM_CAMERA) += server/
+  obj-$(CONFIG_MSM_CAM_IRQ_ROUTER) += msm_camirq_router.o
+  obj-$(CONFIG_MSM_CAMERA) += eeprom/ sensors/ actuators/ csi/
   obj-$(CONFIG_MSM_CPP) += cpp/
   obj-$(CONFIG_MSM_CAMERA) += msm_gesture.o
-  obj-$(CONFIG_MSM_CAM_IRQ_ROUTER) += msm_camirq_router.o
 else
   obj-$(CONFIG_MSM_CAMERA) += msm_camera.o
 endif

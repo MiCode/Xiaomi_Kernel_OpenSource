@@ -5297,6 +5297,13 @@ static int vfe32_probe(struct platform_device *pdev)
 		axi_ctrl->fs_vfe = NULL;
 	}
 
+	/* Register subdev node before requesting irq since
+	 * irq_num is needed by msm_cam_server */
+	sd_info.sdev_type = VFE_DEV;
+	sd_info.sd_index = 0;
+	sd_info.irq_num = axi_ctrl->vfeirq->start;
+	msm_cam_register_subdev_node(&vfe32_ctrl->subdev, &sd_info);
+
 	/* Request for this device irq from the camera server. If the
 	 * IRQ Router is present on this target, the interrupt will be
 	 * handled by the camera server and the interrupt service
@@ -5336,10 +5343,6 @@ static int vfe32_probe(struct platform_device *pdev)
 		axi32_do_tasklet, (unsigned long)axi_ctrl);
 
 	vfe32_ctrl->pdev = pdev;
-	sd_info.sdev_type = VFE_DEV;
-	sd_info.sd_index = 0;
-	sd_info.irq_num = axi_ctrl->vfeirq->start;
-	msm_cam_register_subdev_node(&vfe32_ctrl->subdev, &sd_info);
 	return 0;
 
 vfe32_no_resource:
