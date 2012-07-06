@@ -1001,7 +1001,8 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 		charger_type = POWER_SUPPLY_TYPE_USB;
 	else if (motg->chg_type == USB_CDP_CHARGER)
 		charger_type = POWER_SUPPLY_TYPE_USB_CDP;
-	else if (motg->chg_type == USB_DCP_CHARGER)
+	else if (motg->chg_type == USB_DCP_CHARGER ||
+			motg->chg_type == USB_PROPRIETARY_CHARGER)
 		charger_type = POWER_SUPPLY_TYPE_USB_DCP;
 	else if ((motg->chg_type == USB_ACA_DOCK_CHARGER ||
 		motg->chg_type == USB_ACA_A_CHARGER ||
@@ -1627,9 +1628,6 @@ static void msm_chg_enable_secondary_det(struct msm_otg *motg)
 		ulpi_write(phy, chg_det, 0x34);
 		break;
 	case SNPS_28NM_INTEGRATED_PHY:
-		/* Turn off VDP_SRC */
-		ulpi_write(phy, 0x3, 0x86);
-		msleep(20);
 		/*
 		 * Configure DM as current source, DP as current sink
 		 * and enable battery charging comparators.
@@ -1657,6 +1655,9 @@ static bool msm_chg_check_primary_det(struct msm_otg *motg)
 	case SNPS_28NM_INTEGRATED_PHY:
 		chg_det = ulpi_read(phy, 0x87);
 		ret = chg_det & 1;
+		/* Turn off VDP_SRC */
+		ulpi_write(phy, 0x3, 0x86);
+		msleep(20);
 		break;
 	default:
 		break;
@@ -1825,6 +1826,7 @@ static const char *chg_to_string(enum usb_chg_type chg_type)
 	case USB_ACA_B_CHARGER:		return "USB_ACA_B_CHARGER";
 	case USB_ACA_C_CHARGER:		return "USB_ACA_C_CHARGER";
 	case USB_ACA_DOCK_CHARGER:	return "USB_ACA_DOCK_CHARGER";
+	case USB_PROPRIETARY_CHARGER:	return "USB_PROPRIETARY_CHARGER";
 	default:			return "INVALID_CHARGER";
 	}
 }
@@ -1838,6 +1840,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 	struct msm_otg *motg = container_of(w, struct msm_otg, chg_work.work);
 	struct usb_phy *phy = &motg->phy;
 	bool is_dcd = false, tmout, vout, is_aca;
+	u32 line_state, dm_vlgc;
 	unsigned long delay;
 
 	dev_dbg(phy->dev, "chg detection work\n");
@@ -1880,24 +1883,37 @@ static void msm_chg_detect_work(struct work_struct *w)
 		break;
 	case USB_CHG_STATE_DCD_DONE:
 		vout = msm_chg_check_primary_det(motg);
-		if (vout) {
+		line_state = readl_relaxed(USB_PORTSC) & PORTSC_LS;
+		dm_vlgc = line_state & PORTSC_LS_DM;
+		if (vout && !dm_vlgc) { /* VDAT_REF < DM < VLGC */
 			if (test_bit(ID_A, &motg->inputs)) {
 				motg->chg_type = USB_ACA_DOCK_CHARGER;
 				motg->chg_state = USB_CHG_STATE_DETECTED;
 				delay = 0;
 				break;
 			}
-			msm_chg_enable_secondary_det(motg);
-			delay = MSM_CHG_SECONDARY_DET_TIME;
-			motg->chg_state = USB_CHG_STATE_PRIMARY_DONE;
-		} else {
+			if (line_state) { /* DP > VLGC */
+				motg->chg_type = USB_PROPRIETARY_CHARGER;
+				motg->chg_state = USB_CHG_STATE_DETECTED;
+				delay = 0;
+			} else {
+				msm_chg_enable_secondary_det(motg);
+				delay = MSM_CHG_SECONDARY_DET_TIME;
+				motg->chg_state = USB_CHG_STATE_PRIMARY_DONE;
+			}
+		} else { /* DM < VDAT_REF || DM > VLGC */
 			if (test_bit(ID_A, &motg->inputs)) {
 				motg->chg_type = USB_ACA_A_CHARGER;
 				motg->chg_state = USB_CHG_STATE_DETECTED;
 				delay = 0;
 				break;
 			}
-			motg->chg_type = USB_SDP_CHARGER;
+
+			if (line_state) /* DP > VLGC or/and DM > VLGC */
+				motg->chg_type = USB_PROPRIETARY_CHARGER;
+			else
+				motg->chg_type = USB_SDP_CHARGER;
+
 			motg->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
 		}
@@ -2050,6 +2066,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 				case USB_DCP_CHARGER:
 					/* Enable VDP_SRC */
 					ulpi_write(otg->phy, 0x2, 0x85);
+					/* fall through */
+				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MAX);
 					pm_runtime_put_noidle(otg->phy->dev);
