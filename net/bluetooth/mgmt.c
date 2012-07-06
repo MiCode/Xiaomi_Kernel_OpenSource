@@ -2137,9 +2137,10 @@ static int start_discovery(struct sock *sk, u16 index)
 
 	err = hci_send_cmd(hdev, HCI_OP_INQUIRY, sizeof(cp), &cp);
 
-	if (err < 0)
+	if (err < 0) {
 		mgmt_pending_remove(cmd);
-	else if (lmp_le_capable(hdev)) {
+		hdev->disco_state = SCAN_IDLE;
+	} else if (lmp_le_capable(hdev)) {
 		cmd = mgmt_pending_find(MGMT_OP_STOP_DISCOVERY, index);
 		if (!cmd)
 			mgmt_pending_add(sk, MGMT_OP_STOP_DISCOVERY, index,
@@ -2151,7 +2152,8 @@ static int start_discovery(struct sock *sk, u16 index)
 		del_timer(&hdev->disco_timer);
 		mod_timer(&hdev->disco_timer,
 				jiffies + msecs_to_jiffies(20000));
-	}
+	} else
+		hdev->disco_state = SCAN_BR;
 
 failed:
 	hci_dev_unlock_bh(hdev);
@@ -2195,9 +2197,7 @@ static int stop_discovery(struct sock *sk, u16 index)
 			err = cmd_complete(sk, index, MGMT_OP_STOP_DISCOVERY,
 								NULL, 0);
 		}
-	}
-
-	if (err < 0)
+	} else if (state == SCAN_BR)
 		err = hci_send_cmd(hdev, HCI_OP_INQUIRY_CANCEL, 0, NULL);
 
 	cmd = mgmt_pending_find(MGMT_OP_STOP_DISCOVERY, index);
