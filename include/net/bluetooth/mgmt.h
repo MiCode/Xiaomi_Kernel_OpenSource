@@ -379,3 +379,11 @@ struct mgmt_ev_rssi_update {
 	bdaddr_t	bdaddr;
 	__s8			rssi;
 } __packed;
+
+#define MGMT_EV_LE_CONN_PARAMS		0xF000
+struct mgmt_ev_le_conn_params {
+	bdaddr_t bdaddr;
+	__u16 interval;
+	__u16 latency;
+	__u16 timeout;
+} __packed;
