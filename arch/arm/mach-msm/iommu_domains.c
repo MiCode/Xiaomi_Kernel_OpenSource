@@ -399,6 +399,9 @@ static int __init iommu_domain_probe(struct platform_device *pdev)
 	struct iommu_domains_pdata *p  = pdev->dev.platform_data;
 	int i, j;
 
+	if (!msm_use_iommu())
+		return -ENODEV;
+
 	if (!p)
 		return -ENODEV;
 
