@@ -456,6 +456,14 @@ static const struct msm_vidc_format venc_formats[] = {
 		.type = CAPTURE_PORT,
 	},
 	{
+		.name = "VP8",
+		.description = "VP8 compressed format",
+		.fourcc = V4L2_PIX_FMT_VP8,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_compressed,
+		.type = CAPTURE_PORT,
+	},
+	{
 		.name = "YCrCb Semiplanar 4:2:0",
 		.description = "Y/CrCb 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV21,
