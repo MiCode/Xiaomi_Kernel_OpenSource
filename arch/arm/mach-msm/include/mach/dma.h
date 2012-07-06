@@ -35,7 +35,10 @@ struct msm_dmov_cmd {
 			      unsigned int result,
 			      struct msm_dmov_errdata *err);
 	void (*exec_func)(struct msm_dmov_cmd *cmd);
+	struct work_struct work;
+	unsigned id;    /* For internal use */
 	void *user;	/* Pointer for caller's reference */
+	u8 toflush;
 };
 
 struct msm_dmov_pdata {
