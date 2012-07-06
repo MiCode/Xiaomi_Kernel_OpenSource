@@ -3273,6 +3273,8 @@ static void vfe32_process_error_irq(
 		pr_err("vfe32_irq: camif errors\n");
 		reg_value = msm_camera_io_r(
 			axi_ctrl->share_ctrl->vfebase + VFE_CAMIF_STATUS);
+		v4l2_subdev_notify(&axi_ctrl->subdev,
+			NOTIFY_VFE_CAMIF_ERROR, (void *)NULL);
 		pr_err("camifStatus  = 0x%x\n", reg_value);
 		vfe32_send_isp_msg(&axi_ctrl->subdev,
 			axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_CAMIF_ERROR);
