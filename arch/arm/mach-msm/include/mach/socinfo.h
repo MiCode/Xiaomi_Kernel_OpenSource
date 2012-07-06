@@ -256,8 +256,7 @@ static inline int cpu_is_apq8064(void)
 static inline int cpu_is_msm8930(void)
 {
 #ifdef CONFIG_ARCH_MSM8930
-	return (read_msm_cpu_type() == MSM_CPU_8930) ||
-	       (read_msm_cpu_type() == MSM_CPU_8627);
+	return read_msm_cpu_type() == MSM_CPU_8930;
 #else
 	return 0;
 #endif
