@@ -25,6 +25,11 @@
 	__rc; \
 })
 
+#define V4L2_EVENT_SEQ_CHANGED_SUFFICIENT \
+		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_SUFFICIENT
+#define V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT \
+		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
+
 struct msm_vidc_core *get_vidc_core(int core_id)
 {
 	struct msm_vidc_core *core;
@@ -199,9 +204,20 @@ static void handle_event_change(enum command_response cmd, void *data)
 	struct msm_vidc_cb_event *event_notify;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
-		dqevent.type = V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED;
 		dqevent.id = 0;
 		event_notify = (struct msm_vidc_cb_event *) response->data;
+		switch (event_notify->hal_event_type) {
+		case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
+			dqevent.type =
+				V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
+			break;
+		case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
+			dqevent.type =
+				V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+			break;
+		default:
+			break;
+		}
 		inst->reconfig_height = event_notify->height;
 		inst->reconfig_width = event_notify->width;
 		inst->in_reconfig = true;

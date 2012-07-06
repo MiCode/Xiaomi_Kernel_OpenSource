@@ -793,6 +793,12 @@ enum hal_flush {
 	HAL_UNUSED_FLUSH = 0x10000000,
 };
 
+enum hal_event_type {
+	HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES,
+	HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES,
+	HAL_UNUSED_SEQCHG = 0x10000000,
+};
+
 /* HAL Response */
 
 enum command_response {
@@ -843,6 +849,7 @@ struct msm_vidc_cb_event {
 	u32 status;
 	u32 height;
 	u32 width;
+	u32 hal_event_type;
 };
 
 /* Data callback structure */
