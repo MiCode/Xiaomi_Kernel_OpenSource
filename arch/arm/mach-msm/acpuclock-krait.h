@@ -189,6 +189,7 @@ struct hfpll_data {
  * @cur_speed: Pointer to currently-set speed.
  * @l2_vote: L2 performance level vote associate with the current CPU speed.
  * @vreg: Array of voltage regulators needed by the scalable.
+ * @initialized: Flag set to true when per_cpu_init() has been called.
  */
 struct scalable {
 	const phys_addr_t hfpll_phys_base;
@@ -200,6 +201,7 @@ struct scalable {
 	const struct core_speed *cur_speed;
 	const struct l2_level *l2_vote;
 	struct vreg vreg[NUM_VREG];
+	bool initialized;
 };
 
 /**
