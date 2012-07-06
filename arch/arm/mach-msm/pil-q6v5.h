@@ -29,12 +29,10 @@ struct q6v5_data {
 	struct clk *reg_clk;	/* CPU access registers */
 	struct clk *rom_clk;	/* Boot ROM */
 	void __iomem *axi_halt_base;
-	void __iomem *rmb_base;
 	void __iomem *restart_reg;
 	unsigned long start_addr;
 	struct regulator *vreg;
 	bool is_booted;
-	int self_auth;
 	struct pil_device *pil;
 	struct pil_desc desc;
 };
