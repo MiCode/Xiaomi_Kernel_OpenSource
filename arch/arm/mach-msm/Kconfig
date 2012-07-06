@@ -1981,18 +1981,14 @@ config MSM_PIL_LPASS_QDSP6V5
 	  ADSP if the processor encounters a fatal error.
 
 config MSM_PIL_MSS_QDSP6V5
-       tristate "MSS QDSP6v5 (Hexagon) Boot Support"
-       depends on MSM_PIL
-       help
-         Support for booting and shutting down QDSP6v5 (Hexagon) processors
-	 in modem subsystems.
-
-config MSM_PIL_MBA
-	tristate "Support for modem self-authentication"
-	depends on MSM_PIL_MSS_QDSP6V5 && MSM_SUBSYSTEM_RESTART
+	tristate "MSS QDSP6v5 (Hexagon) Boot Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
-	  Support for booting self-authenticating modems using the Modem Boot
-	  Authenticator.
+	  Support for booting and shutting down QDSP6v5 (Hexagon) processors
+	  in modem subsystems. If you would like to make or receive phone
+	  calls then say Y here.
+
+	  If unsure, say N.
 
 config MSM_PIL_RIVA
 	tristate "RIVA (WCNSS) Boot Support"
