@@ -500,26 +500,19 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = _SET(VFD_DECODEINSTRUCTIONS_WRITEMASK, 0x0F) |
 		_SET(VFD_DECODEINSTRUCTIONS_CONSTFILL, 1) |
 		_SET(VFD_DECODEINSTRUCTIONS_FORMAT, 2) |
-		_SET(VFD_DECODEINSTRUCTIONS_REGID, 5) |
 		_SET(VFD_DECODEINSTRUCTIONS_SHIFTCNT, 12) |
 		_SET(VFD_DECODEINSTRUCTIONS_LASTCOMPVALID, 1);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 5);
 	*cmds++ = CP_REG(A3XX_HLSQ_CONTROL_0_REG);
 	/* HLSQ_CONTROL_0_REG */
-	*cmds++ = _SET(HLSQ_CTRL0REG_FSTHREADSIZE, HLSQ_TWO_PIX_QUADS) |
+	*cmds++ = _SET(HLSQ_CTRL0REG_FSTHREADSIZE, HLSQ_FOUR_PIX_QUADS) |
 		_SET(HLSQ_CTRL0REG_FSSUPERTHREADENABLE, 1) |
-		_SET(HLSQ_CTRL0REG_SPSHADERRESTART, 1) |
 		_SET(HLSQ_CTRL0REG_RESERVED2, 1) |
-		_SET(HLSQ_CTRL0REG_CHUNKDISABLE, 1) |
-		_SET(HLSQ_CTRL0REG_CONSTSWITCHMODE, 1) |
-		_SET(HLSQ_CTRL0REG_LAZYUPDATEDISABLE, 1) |
-		_SET(HLSQ_CTRL0REG_SPCONSTFULLUPDATE, 1) |
-		_SET(HLSQ_CTRL0REG_TPFULLUPDATE, 1);
+		_SET(HLSQ_CTRL0REG_SPCONSTFULLUPDATE, 1);
 	/* HLSQ_CONTROL_1_REG */
 	*cmds++ = _SET(HLSQ_CTRL1REG_VSTHREADSIZE, HLSQ_TWO_VTX_QUADS) |
-		_SET(HLSQ_CTRL1REG_VSSUPERTHREADENABLE, 1) |
-		_SET(HLSQ_CTRL1REG_RESERVED1, 4);
+		_SET(HLSQ_CTRL1REG_VSSUPERTHREADENABLE, 1);
 	/* HLSQ_CONTROL_2_REG */
 	*cmds++ = _SET(HLSQ_CTRL2REG_PRIMALLOCTHRESHOLD, 31);
 	/* HLSQ_CONTROL_3_REG */
@@ -531,7 +524,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = _SET(HLSQ_VSCTRLREG_VSINSTRLENGTH, 1);
 	/* HLSQ_FS_CONTROL_REG */
 	*cmds++ = _SET(HLSQ_FSCTRLREG_FSCONSTLENGTH, 1) |
-		_SET(HLSQ_FSCTRLREG_FSCONSTSTARTOFFSET, 272) |
+		_SET(HLSQ_FSCTRLREG_FSCONSTSTARTOFFSET, 128) |
 		_SET(HLSQ_FSCTRLREG_FSINSTRLENGTH, 1);
 	/* HLSQ_CONST_VSPRESV_RANGE_REG */
 	*cmds++ = 0x00000000;
@@ -547,8 +540,8 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_SP_SP_CTRL_REG);
 	/* SP_SP_CTRL_REG */
-	*cmds++ = _SET(SP_SPCTRLREG_CONSTMODE, 1) |
-		_SET(SP_SPCTRLREG_SLEEPMODE, 1);
+	*cmds++ = _SET(SP_SPCTRLREG_SLEEPMODE, 1) |
+		_SET(SP_SPCTRLREG_LOMODE, 1);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 12);
 	*cmds++ = CP_REG(A3XX_SP_VS_CTRL_REG0);
@@ -556,15 +549,14 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = _SET(SP_VSCTRLREG0_VSTHREADMODE, SP_MULTI) |
 		_SET(SP_VSCTRLREG0_VSINSTRBUFFERMODE, SP_BUFFER_MODE) |
 		_SET(SP_VSCTRLREG0_VSICACHEINVALID, 1) |
-		_SET(SP_VSCTRLREG0_VSFULLREGFOOTPRINT, 3) |
+		_SET(SP_VSCTRLREG0_VSFULLREGFOOTPRINT, 1) |
 		_SET(SP_VSCTRLREG0_VSTHREADSIZE, SP_TWO_VTX_QUADS) |
 		_SET(SP_VSCTRLREG0_VSSUPERTHREADMODE, 1) |
 		_SET(SP_VSCTRLREG0_VSLENGTH, 1);
 	/* SP_VS_CTRL_REG1 */
 	*cmds++ = _SET(SP_VSCTRLREG1_VSINITIALOUTSTANDING, 4);
 	/* SP_VS_PARAM_REG */
-	*cmds++ = _SET(SP_VSPARAMREG_POSREGID, 1) |
-		_SET(SP_VSPARAMREG_PSIZEREGID, 252);
+	*cmds++ = _SET(SP_VSPARAMREG_PSIZEREGID, 252);
 	/* SP_VS_OUT_REG_0 */
 	*cmds++ = 0x00000000;
 	/* SP_VS_OUT_REG_1 */
@@ -605,18 +597,17 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = _SET(SP_FSCTRLREG0_FSTHREADMODE, SP_MULTI) |
 		_SET(SP_FSCTRLREG0_FSINSTRBUFFERMODE, SP_BUFFER_MODE) |
 		_SET(SP_FSCTRLREG0_FSICACHEINVALID, 1) |
-		_SET(SP_FSCTRLREG0_FSFULLREGFOOTPRINT, 2) |
+		_SET(SP_FSCTRLREG0_FSHALFREGFOOTPRINT, 1) |
 		_SET(SP_FSCTRLREG0_FSINOUTREGOVERLAP, 1) |
-		_SET(SP_FSCTRLREG0_FSTHREADSIZE, SP_TWO_VTX_QUADS) |
+		_SET(SP_FSCTRLREG0_FSTHREADSIZE, SP_FOUR_PIX_QUADS) |
 		_SET(SP_FSCTRLREG0_FSSUPERTHREADMODE, 1) |
 		_SET(SP_FSCTRLREG0_FSLENGTH, 1);
 	/* SP_FS_CTRL_REG1 */
 	*cmds++ = _SET(SP_FSCTRLREG1_FSCONSTLENGTH, 1) |
-		_SET(SP_FSCTRLREG1_FSINITIALOUTSTANDING, 2) |
 		_SET(SP_FSCTRLREG1_HALFPRECVAROFFSET, 63);
 	/* SP_FS_OBJ_OFFSET_REG */
-	*cmds++ = _SET(SP_OBJOFFSETREG_CONSTOBJECTSTARTOFFSET, 272) |
-		_SET(SP_OBJOFFSETREG_SHADEROBJOFFSETINIC, 1);
+	*cmds++ = _SET(SP_OBJOFFSETREG_CONSTOBJECTSTARTOFFSET, 128) |
+		_SET(SP_OBJOFFSETREG_SHADEROBJOFFSETINIC, 127);
 	/* SP_FS_OBJ_START_REG */
 	*cmds++ = 0x00000000;
 
@@ -630,12 +621,13 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_SP_FS_OUTPUT_REG);
 	/* SP_FS_OUTPUT_REG */
-	*cmds++ = _SET(SP_IMAGEOUTPUTREG_PAD0, SP_PIXEL_BASED);
+	*cmds++ = _SET(SP_IMAGEOUTPUTREG_DEPTHOUTMODE, SP_PIXEL_BASED);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 5);
 	*cmds++ = CP_REG(A3XX_SP_FS_MRT_REG_0);
 	/* SP_FS_MRT_REG_0 */
-	*cmds++ = _SET(SP_FSMRTREG_REGID, 1);
+	*cmds++ = _SET(SP_FSMRTREG_PRECISION, 1);
+
 	/* SP_FS_MRT_REG_1 */
 	*cmds++ = 0x00000000;
 	/* SP_FS_MRT_REG_2 */
@@ -676,13 +668,20 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 		| (0 << CP_LOADSTATE_EXTSRCADDR_SHIFT);
 
 	/* (sy)(rpt3)mov.f32f32 r0.y, (r)r1.y; */
-	*cmds++ = 0x00000005; *cmds++ = 0x30044b01;
+	*cmds++ = 0x00000000; *cmds++ = 0x13001000;
 	/* end; */
-	*cmds++ = 0x00000000; *cmds++ = 0x03000000;
-	/* nop; */
 	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
 	/* nop; */
 	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
+	/* nop; */
+	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
+
+
+	*cmds++ = cp_type0_packet(A3XX_VFD_PERFCOUNTER0_SELECT, 1);
+	*cmds++ = 0x00000000;
+
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
 
 	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 10);
 	*cmds++ = (0 << CP_LOADSTATE_DSTOFFSET_SHIFT)
@@ -693,13 +692,22 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 		| (0 << CP_LOADSTATE_EXTSRCADDR_SHIFT);
 
 	/* (sy)(rpt3)mov.f32f32 r0.y, (r)c0.x; */
-	*cmds++ = 0x00000000; *cmds++ = 0x30244b01;
+	*cmds++ = 0x00000000; *cmds++ = 0x30201b00;
 	/* end; */
 	*cmds++ = 0x00000000; *cmds++ = 0x03000000;
 	/* nop; */
 	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
 	/* nop; */
 	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
+
+
+
+	*cmds++ = cp_type0_packet(A3XX_VFD_PERFCOUNTER0_SELECT, 1);
+	*cmds++ = 0x00000000;
+
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_RB_MSAA_CONTROL);
@@ -711,6 +719,23 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = CP_REG(A3XX_RB_DEPTH_CONTROL);
 	/* RB_DEPTH_CONTROL */
 	*cmds++ = _SET(RB_DEPTHCONTROL_Z_TEST_FUNC, RB_FRAG_NEVER);
+
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
+	*cmds++ = CP_REG(A3XX_RB_STENCIL_CONTROL);
+	/* RB_STENCIL_CONTROL */
+	*cmds++ = _SET(RB_STENCILCONTROL_STENCIL_FUNC, RB_REF_NEVER) |
+		_SET(RB_STENCILCONTROL_STENCIL_FAIL, RB_STENCIL_KEEP) |
+		_SET(RB_STENCILCONTROL_STENCIL_ZPASS, RB_STENCIL_KEEP) |
+		_SET(RB_STENCILCONTROL_STENCIL_ZFAIL, RB_STENCIL_KEEP) |
+		_SET(RB_STENCILCONTROL_STENCIL_FUNC_BF, RB_REF_NEVER) |
+		_SET(RB_STENCILCONTROL_STENCIL_FAIL_BF, RB_STENCIL_KEEP) |
+		_SET(RB_STENCILCONTROL_STENCIL_ZPASS_BF, RB_STENCIL_KEEP) |
+		_SET(RB_STENCILCONTROL_STENCIL_ZFAIL_BF, RB_STENCIL_KEEP);
+
+	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
+	*cmds++ = CP_REG(A3XX_GRAS_SU_MODE_CONTROL);
+	/* GRAS_SU_MODE_CONTROL */
+	*cmds++ = 0x00000000;
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_RB_MRT_CONTROL0);
@@ -777,7 +802,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	/* VFD_INDEX_MIN */
 	*cmds++ = 0x00000000;
 	/* VFD_INDEX_MAX */
-	*cmds++ = 0xFFFFFFFF;
+	*cmds++ = 0x155;
 	/* VFD_INSTANCEID_OFFSET */
 	*cmds++ = 0x00000000;
 	/* VFD_INDEX_OFFSET */
@@ -786,7 +811,7 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_VFD_VS_THREADING_THRESHOLD);
 	/* VFD_VS_THREADING_THRESHOLD */
-	*cmds++ = _SET(VFD_THREADINGTHRESHOLD_RESERVED6, 12) |
+	*cmds++ = _SET(VFD_THREADINGTHRESHOLD_REGID_THRESHOLD, 15) |
 		_SET(VFD_THREADINGTHRESHOLD_REGID_VTXCNT, 252);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
@@ -861,6 +886,46 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0x00000000;
 
+
+	/* oxili_generate_context_roll_packets */
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_CTRL_REG0, 1);
+	*cmds++ = 0x00000400;
+
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_CTRL_REG0, 1);
+	*cmds++ = 0x00000400;
+
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00008000; /* SP_VS_MEM_SIZE_REG */
+
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00008000; /* SP_FS_MEM_SIZE_REG */
+
+	/* Clear cache invalidate bit when re-loading the shader control regs */
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_CTRL_REG0, 1);
+	*cmds++ = _SET(SP_VSCTRLREG0_VSTHREADMODE, SP_MULTI) |
+		_SET(SP_VSCTRLREG0_VSINSTRBUFFERMODE, SP_BUFFER_MODE) |
+		_SET(SP_VSCTRLREG0_VSFULLREGFOOTPRINT, 1) |
+		_SET(SP_VSCTRLREG0_VSTHREADSIZE, SP_TWO_VTX_QUADS) |
+		_SET(SP_VSCTRLREG0_VSSUPERTHREADMODE, 1) |
+		_SET(SP_VSCTRLREG0_VSLENGTH, 1);
+
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_CTRL_REG0, 1);
+	*cmds++ = _SET(SP_FSCTRLREG0_FSTHREADMODE, SP_MULTI) |
+		_SET(SP_FSCTRLREG0_FSINSTRBUFFERMODE, SP_BUFFER_MODE) |
+		_SET(SP_FSCTRLREG0_FSHALFREGFOOTPRINT, 1) |
+		_SET(SP_FSCTRLREG0_FSINOUTREGOVERLAP, 1) |
+		_SET(SP_FSCTRLREG0_FSTHREADSIZE, SP_FOUR_PIX_QUADS) |
+		_SET(SP_FSCTRLREG0_FSSUPERTHREADMODE, 1) |
+		_SET(SP_FSCTRLREG0_FSLENGTH, 1);
+
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00000000;		 /* SP_VS_MEM_SIZE_REG */
+
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00000000;		 /* SP_FS_MEM_SIZE_REG */
+
+	/* end oxili_generate_context_roll_packets */
+
 	/*
 	 * Resolve using two draw calls with a dummy register
 	 * write in between. This is a HLM workaround
@@ -904,7 +969,6 @@ static unsigned int *build_gmem2sys_cmds(struct adreno_device *adreno_dev,
 
 	return cmds;
 }
-
 static void build_shader_save_cmds(struct adreno_device *adreno_dev,
 				   struct adreno_context *drawctxt)
 {
