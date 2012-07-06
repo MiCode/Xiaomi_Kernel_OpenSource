@@ -466,4 +466,9 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping = <1>;
 	};
+
+	qcom,tz-log@fe805720 {
+		compatible = "qcom,tz-log";
+		reg = <0xfe805720 0x1000>;
+	};
 };
