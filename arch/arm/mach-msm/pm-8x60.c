@@ -807,10 +807,15 @@ bool msm_pm_verify_cpu_pc(unsigned int cpu)
 {
 	enum msm_pm_sleep_mode mode = per_cpu(msm_pm_last_slp_mode, cpu);
 
-	if (msm_pm_slp_sts)
-		if ((mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) ||
-			(mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE))
+	if (msm_pm_slp_sts) {
+		int acc_sts = __raw_readl(msm_pm_slp_sts->base_addr
+					+ cpu * msm_pm_slp_sts->cpu_offset);
+
+		if ((acc_sts & msm_pm_slp_sts->mask) &&
+			((mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) ||
+			 (mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)))
 			return true;
+	}
 
 	return false;
 }
