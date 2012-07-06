@@ -1457,7 +1457,8 @@ static int sitar_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	u16 dec_reset_reg;
+	u16 dec_reset_reg, gain_reg;
+	u8 current_gain;
 
 	pr_debug("%s %d\n", __func__, event);
 
@@ -1474,6 +1475,12 @@ static int sitar_codec_enable_dec(struct snd_soc_dapm_widget *w,
 			1 << w->shift);
 		snd_soc_update_bits(codec, dec_reset_reg, 1 << w->shift, 0x0);
 		break;
+	case SND_SOC_DAPM_POST_PMU:
+		/* Reprogram the digital gain after power up of Decimator */
+		gain_reg = SITAR_A_CDC_TX1_VOL_CTL_GAIN + (8 * w->shift);
+		current_gain = snd_soc_read(codec, gain_reg);
+		snd_soc_write(codec, gain_reg, current_gain);
+		break;
 	}
 	return 0;
 }
@@ -1482,6 +1489,8 @@ static int sitar_codec_reset_interpolator(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	u16 gain_reg;
+	u8 current_gain;
 
 	pr_debug("%s %d %s\n", __func__, event, w->name);
 
@@ -1492,6 +1501,11 @@ static int sitar_codec_reset_interpolator(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_RX_RESET_CTL,
 			1 << w->shift, 0x0);
 		break;
+	case SND_SOC_DAPM_POST_PMU:
+		/* Reprogram gain after power up interpolator */
+		gain_reg = SITAR_A_CDC_RX1_VOL_CTL_B2_CTL + (8 * w->shift);
+		current_gain = snd_soc_read(codec, gain_reg);
+		snd_soc_write(codec, gain_reg, current_gain);
 	}
 	return 0;
 }
@@ -1804,11 +1818,14 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MIXER_E("RX1 MIX1", SITAR_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
-		0, sitar_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+		0, sitar_codec_reset_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX2 MIX1", SITAR_A_CDC_CLK_RX_B1_CTL, 1, 0, NULL,
-		0, sitar_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+		0, sitar_codec_reset_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX3 MIX1", SITAR_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
-		0, sitar_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU),
+		0, sitar_codec_reset_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_MUX("DAC1 MUX", SND_SOC_NOPM, 0, 0,
 		&rx_dac1_mux),
@@ -1880,13 +1897,17 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX_E("DEC1 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 0, 0,
-		&dec1_mux, sitar_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+		&dec1_mux, sitar_codec_enable_dec,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MUX_E("DEC2 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 1, 0,
-		&dec2_mux, sitar_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+		&dec2_mux, sitar_codec_enable_dec,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MUX_E("DEC3 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 2, 0,
-		&dec3_mux, sitar_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+		&dec3_mux, sitar_codec_enable_dec,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MUX_E("DEC4 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 3, 0,
-		&dec4_mux, sitar_codec_enable_dec, SND_SOC_DAPM_PRE_PMU),
+		&dec4_mux, sitar_codec_enable_dec,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_MUX("ANC1 MUX", SND_SOC_NOPM, 0, 0, &anc1_mux),
 	SND_SOC_DAPM_MUX("ANC2 MUX", SND_SOC_NOPM, 0, 0, &anc2_mux),
@@ -2130,10 +2151,11 @@ static int sitar_readable(struct snd_soc_codec *ssc, unsigned int reg)
 
 static int sitar_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 {
+	int i;
+
 	/* Registers lower than 0x100 are top level registers which can be
 	* written by the Sitar core driver.
 	*/
-
 	if ((reg >= SITAR_A_CDC_MBHC_EN_CTL) || (reg < 0x100))
 		return 1;
 
@@ -2142,6 +2164,15 @@ static int sitar_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 		(reg <= SITAR_A_CDC_IIR1_COEF_B5_CTL))
 		return 1;
 
+	for (i = 0; i < NUM_DECIMATORS; i++) {
+		if (reg == SITAR_A_CDC_TX1_VOL_CTL_GAIN + (8 * i))
+			return 1;
+	}
+
+	for (i = 0; i < NUM_INTERPOLATORS; i++) {
+		if (reg == SITAR_A_CDC_RX1_VOL_CTL_B2_CTL + (8 * i))
+			return 1;
+	}
 	return 0;
 }
 
