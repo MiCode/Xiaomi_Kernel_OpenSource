@@ -98,6 +98,18 @@ void hal_process_sess_evt_seq_changed(struct hal_device *device,
 	cmd_done.status = VIDC_ERR_NONE;
 	cmd_done.size = sizeof(struct msm_vidc_cb_event);
 	num_properties_changed = pkt->event_data2;
+	switch (pkt->event_data1) {
+	case HFI_EVENT_DATA_SEQUENCE_CHANGED_SUFFICIENT_BUFFER_RESOURCES:
+		event_notify.hal_event_type =
+			HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES;
+		break;
+	case HFI_EVENT_DATA_SEQUENCE_CHANGED_INSUFFICIENT_BUFFER_RESOURCES:
+		event_notify.hal_event_type =
+			HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES;
+		break;
+	default:
+		break;
+	}
 	if (num_properties_changed) {
 		data_ptr = (u8 *) &pkt->rg_ext_event_data[0];
 		do {
