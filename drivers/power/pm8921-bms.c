@@ -472,29 +472,12 @@ static int adjust_xo_vbatt_reading(struct pm8921_bms_chip *chip,
 						* VBATT_MUL_FACTOR;
 }
 
-#define CC_RESOLUTION_N_V1	1085069
-#define CC_RESOLUTION_D_V1	100000
-#define CC_RESOLUTION_N_V2	868056
-#define CC_RESOLUTION_D_V2	10000
-static s64 cc_to_microvolt_v1(s64 cc)
-{
-	return div_s64(cc * CC_RESOLUTION_N_V1, CC_RESOLUTION_D_V1);
-}
-
-static s64 cc_to_microvolt_v2(s64 cc)
-{
-	return div_s64(cc * CC_RESOLUTION_N_V2, CC_RESOLUTION_D_V2);
-}
+#define CC_RESOLUTION_N		868056
+#define CC_RESOLUTION_D		10000
 
 static s64 cc_to_microvolt(struct pm8921_bms_chip *chip, s64 cc)
 {
-	/*
-	 * resolution (the value of a single bit) was changed after revision 2.0
-	 * for more accurate readings
-	 */
-	return (chip->revision < PM8XXX_REVISION_8921_2p0) ?
-				cc_to_microvolt_v1((s64)cc) :
-				cc_to_microvolt_v2((s64)cc);
+	return div_s64(cc * CC_RESOLUTION_N, CC_RESOLUTION_D);
 }
 
 #define CC_READING_TICKS	55
