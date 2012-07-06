@@ -170,7 +170,7 @@ static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
 	struct msm_gpio_dev *g_dev = to_msm_gpio_dev(chip);
 	struct irq_domain *domain = g_dev->domain;
-	return irq_linear_revmap(domain, offset - chip->base);
+	return irq_linear_revmap(domain, offset);
 }
 
 static inline int msm_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
@@ -410,7 +410,10 @@ static struct lock_class_key msm_gpio_lock_class;
 /* TODO: This should be a real platform_driver */
 static int __devinit msm_gpio_probe(void)
 {
-	int i, irq, ret;
+	int ret;
+#ifndef CONFIG_OF
+	int irq, i;
+#endif
 
 	spin_lock_init(&tlmm_lock);
 	bitmap_zero(msm_gpio.enabled_irqs, NR_MSM_GPIOS);
@@ -420,6 +423,7 @@ static int __devinit msm_gpio_probe(void)
 	if (ret < 0)
 		return ret;
 
+#ifndef CONFIG_OF
 	for (i = 0; i < msm_gpio.gpio_chip.ngpio; ++i) {
 		irq = msm_gpio_to_irq(&msm_gpio.gpio_chip, i);
 		irq_set_lockdep_class(irq, &msm_gpio_lock_class);
@@ -427,7 +431,7 @@ static int __devinit msm_gpio_probe(void)
 					 handle_level_irq);
 		set_irq_flags(irq, IRQF_VALID);
 	}
-
+#endif
 	ret = request_irq(TLMM_MSM_SUMMARY_IRQ, msm_summary_irq_handler,
 			IRQF_TRIGGER_HIGH, "msmgpio", NULL);
 	if (ret) {
@@ -610,14 +614,14 @@ static int msm_gpio_irq_domain_xlate(struct irq_domain *d,
 	return 0;
 }
 
-/*
- * TODO: this really should be doing all the things that msm_gpio_probe() does,
- * but since the msm_gpio_probe is called unconditionally for DT and non-DT
- * configs, we can't duplicate it here. This should be fixed.
- */
-int msm_gpio_irq_domain_map(struct irq_domain *d, unsigned int irq,
-			  irq_hw_number_t hwirq)
+static int msm_gpio_irq_domain_map(struct irq_domain *d, unsigned int irq,
+				   irq_hw_number_t hwirq)
 {
+	irq_set_lockdep_class(irq, &msm_gpio_lock_class);
+	irq_set_chip_and_handler(irq, &msm_gpio_irq_chip,
+			handle_level_irq);
+	set_irq_flags(irq, IRQF_VALID);
+
 	return 0;
 }
 
