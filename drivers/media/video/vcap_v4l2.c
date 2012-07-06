@@ -303,6 +303,105 @@ void dealloc_resources(struct vcap_client_data *cd)
 	cd->set_vp_o = false;
 }
 
+/* VCAP Internal QBUF and DQBUF for VC + VP */
+int vcvp_qbuf(struct vb2_queue *q, struct v4l2_buffer *b)
+{
+	struct vb2_buffer *vb;
+
+	if (q->fileio) {
+		dprintk(1, "%s: file io in progress\n", __func__);
+		return -EBUSY;
+	}
+
+	if (b->type != q->type) {
+		dprintk(1, "%s: invalid buffer type\n", __func__);
+		return -EINVAL;
+	}
+
+	if (b->index >= q->num_buffers) {
+		dprintk(1, "%s: buffer index out of range\n", __func__);
+		return -EINVAL;
+	}
+
+	vb = q->bufs[b->index];
+	if (NULL == vb) {
+		dprintk(1, "%s: buffer is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (b->memory != q->memory) {
+		dprintk(1, "%s: invalid memory type\n", __func__);
+		return -EINVAL;
+	}
+
+	if (vb->state != VB2_BUF_STATE_DEQUEUED &&
+			vb->state != VB2_BUF_STATE_PREPARED) {
+		dprintk(1, "%s: buffer already in use\n", __func__);
+		return -EINVAL;
+	}
+
+	list_add_tail(&vb->queued_entry, &q->queued_list);
+	vb->state = VB2_BUF_STATE_QUEUED;
+
+	if (q->streaming) {
+		vb->state = VB2_BUF_STATE_ACTIVE;
+		atomic_inc(&q->queued_count);
+		q->ops->buf_queue(vb);
+	}
+	return 0;
+}
+
+int vcvp_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b)
+{
+	struct vb2_buffer *vb = NULL;
+	unsigned long flags;
+
+	if (q->fileio) {
+		dprintk(1, "%s: file io in progress\n", __func__);
+		return -EBUSY;
+	}
+
+	if (b->type != q->type) {
+		dprintk(1, "%s: invalid buffer type\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!q->streaming) {
+		dprintk(1, "Streaming off, will not wait for buffers\n");
+		return -EINVAL;
+	}
+
+	if (!list_empty(&q->done_list)) {
+		spin_lock_irqsave(&q->done_lock, flags);
+		vb = list_first_entry(&q->done_list, struct vb2_buffer,
+				done_entry);
+		list_del(&vb->done_entry);
+		spin_unlock_irqrestore(&q->done_lock, flags);
+
+		switch (vb->state) {
+		case VB2_BUF_STATE_DONE:
+			dprintk(3, "%s: Returning done buffer\n", __func__);
+			break;
+		case VB2_BUF_STATE_ERROR:
+			dprintk(3, "%s: Ret done buf with err\n", __func__);
+			break;
+		default:
+			dprintk(1, "%s: Invalid buffer state\n", __func__);
+			return -EINVAL;
+		}
+
+		memcpy(b, &vb->v4l2_buf, offsetof(struct v4l2_buffer, m));
+
+		list_del(&vb->queued_entry);
+
+		vb->state = VB2_BUF_STATE_DEQUEUED;
+		return 0;
+	}
+
+	dprintk(1, "No buffers to dequeue\n");
+	return -EAGAIN;
+}
+
 int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 				  struct v4l2_buffer *b)
 {
@@ -889,6 +988,14 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 				dprintk(1, "qbuf: buffer already in use\n");
 				return -EINVAL;
 			}
+			rc = get_phys_addr(c_data->dev, &c_data->vc_vidq, p);
+			if (rc < 0)
+				return rc;
+			rc = vcvp_qbuf(&c_data->vc_vidq, p);
+			if (rc < 0)
+				free_ion_handle(c_data->dev,
+					&c_data->vc_vidq, p);
+			return rc;
 		}
 		rc = get_phys_addr(c_data->dev, &c_data->vc_vidq, p);
 		if (rc < 0)

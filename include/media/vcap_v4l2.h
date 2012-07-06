@@ -226,4 +226,8 @@ int free_ion_handle(struct vcap_dev *dev, struct vb2_queue *q,
 
 int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 				  struct v4l2_buffer *b);
+
+int vcvp_qbuf(struct vb2_queue *q, struct v4l2_buffer *b);
+int vcvp_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b);
+
 #endif
