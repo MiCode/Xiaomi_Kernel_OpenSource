@@ -181,7 +181,7 @@ static int tz_init(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale)
 
 	/* Trustzone is only valid for some SOCs */
 	if (!(cpu_is_msm8x60() || cpu_is_msm8960() || cpu_is_apq8064() ||
-		cpu_is_msm8930() || cpu_is_msm8627()))
+		cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()))
 		return -EINVAL;
 
 	priv = pwrscale->priv = kzalloc(sizeof(struct tz_priv), GFP_KERNEL);
