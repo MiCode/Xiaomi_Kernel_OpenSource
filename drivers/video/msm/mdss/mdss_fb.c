@@ -810,15 +810,6 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 
 	mfd->op_enable = true;
 
-	/* cursor memory allocation */
-	if (mfd->cursor_update) {
-		mfd->cursor_buf = dma_alloc_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
-					(dma_addr_t *) &mfd->cursor_buf_phys,
-					GFP_KERNEL);
-		if (!mfd->cursor_buf)
-			mfd->cursor_update = 0;
-	}
-
 	if (mfd->lut_update) {
 		ret = fb_alloc_cmap(&fbi->cmap, 256, 0);
 		if (ret)
@@ -828,11 +819,6 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	if (register_framebuffer(fbi) < 0) {
 		if (mfd->lut_update)
 			fb_dealloc_cmap(&fbi->cmap);
-
-		if (mfd->cursor_buf)
-			dma_free_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
-					  mfd->cursor_buf,
-					  (dma_addr_t) mfd->cursor_buf_phys);
 
 		mfd->op_enable = false;
 		return -EPERM;
@@ -1104,7 +1090,7 @@ static int mdss_fb_cursor(struct fb_info *info, void __user *p)
 	if (ret)
 		return ret;
 
-	return mfd->cursor_update(info, &cursor);
+	return mfd->cursor_update(mfd, &cursor);
 }
 
 static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
@@ -1120,7 +1106,7 @@ static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 	if (ret)
 		return ret;
 
-	mfd->lut_update(info, &cmap);
+	mfd->lut_update(mfd, &cmap);
 	return 0;
 }
 
