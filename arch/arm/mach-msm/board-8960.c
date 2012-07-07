@@ -2583,67 +2583,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_tsens_device,
 };
 
-static struct platform_device *sim_devices[] __initdata = {
-	&msm8960_device_uart_gsbi5,
-	&msm8960_device_otg,
-	&msm8960_device_gadget_peripheral,
-	&msm_device_hsusb_host,
-	&msm_device_hsic_host,
-	&android_usb_device,
-	&msm_device_vidc,
-	&msm_bus_apps_fabric,
-	&msm_bus_sys_fabric,
-	&msm_bus_mm_fabric,
-	&msm_bus_sys_fpb,
-	&msm_bus_cpss_fpb,
-	&msm_pcm,
-	&msm_multi_ch_pcm,
-	&msm_pcm_routing,
-	&msm_cpudai0,
-	&msm_cpudai1,
-	&msm8960_cpudai_slimbus_2_rx,
-	&msm8960_cpudai_slimbus_2_tx,
-	&msm_cpudai_hdmi_rx,
-	&msm_cpudai_bt_rx,
-	&msm_cpudai_bt_tx,
-	&msm_cpudai_fm_rx,
-	&msm_cpudai_fm_tx,
-	&msm_cpudai_auxpcm_rx,
-	&msm_cpudai_auxpcm_tx,
-	&msm_cpu_fe,
-	&msm_stub_codec,
-	&msm_voice,
-	&msm_voip,
-	&msm_lpa_pcm,
-	&msm_compr_dsp,
-	&msm_cpudai_incall_music_rx,
-	&msm_cpudai_incall_record_rx,
-	&msm_cpudai_incall_record_tx,
-
-#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
-		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
-	&qcrypto_device,
-#endif
-
-#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
-		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
-	&qcedev_device,
-#endif
-};
-
-static struct platform_device *rumi3_devices[] __initdata = {
-	&msm8960_device_uart_gsbi5,
-	&msm_kgsl_3d0,
-	&msm_kgsl_2d0,
-	&msm_kgsl_2d1,
-#ifdef CONFIG_MSM_GEMINI
-	&msm8960_gemini_device,
-#endif
-#ifdef CONFIG_MSM_MERCURY
-	&msm8960_mercury_device,
-#endif
-};
-
 static struct platform_device *cdp_devices[] __initdata = {
 	&msm_8960_q6_lpass,
 	&msm_8960_q6_mss_fw,
@@ -3001,10 +2940,6 @@ static void __init register_i2c_devices(void)
 	/* Build the matching 'supported_machs' bitmask */
 	if (machine_is_msm8960_cdp())
 		mach_mask = I2C_SURF;
-	else if (machine_is_msm8960_rumi3())
-		mach_mask = I2C_RUMI;
-	else if (machine_is_msm8960_sim())
-		mach_mask = I2C_SIM;
 	else if (machine_is_msm8960_fluid())
 		mach_mask = I2C_FLUID;
 	else if (machine_is_msm8960_liquid())
@@ -3041,71 +2976,6 @@ static void __init register_i2c_devices(void)
 			msm8960_camera_i2c_devices.len);
 #endif
 #endif
-}
-
-static void __init msm8960_sim_init(void)
-{
-	struct msm_watchdog_pdata *wdog_pdata = (struct msm_watchdog_pdata *)
-		&msm8960_device_watchdog.dev.platform_data;
-
-	wdog_pdata->bark_time = 15000;
-	msm_tsens_early_init(&msm_tsens_pdata);
-	msm_thermal_init(&msm_thermal_pdata);
-	BUG_ON(msm_rpm_init(&msm8960_rpm_data));
-	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
-	regulator_suppress_info_printing();
-	platform_device_register(&msm8960_device_rpm_regulator);
-	msm_clock_init(&msm8960_clock_init_data);
-	msm8960_init_pmic();
-
-	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
-	msm8960_init_gpiomux();
-	msm8960_i2c_init();
-	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
-	msm_spm_l2_init(msm_spm_l2_data);
-	msm8960_init_buses();
-	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
-	msm8960_pm8921_gpio_mpp_init();
-	platform_add_devices(sim_devices, ARRAY_SIZE(sim_devices));
-
-	msm8960_device_qup_spi_gsbi1.dev.platform_data =
-				&msm8960_qup_spi_gsbi1_pdata;
-	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
-
-	msm8960_init_mmc();
-	msm8960_init_fb();
-	slim_register_board_info(msm_slim_devices,
-		ARRAY_SIZE(msm_slim_devices));
-	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
-}
-
-static void __init msm8960_rumi3_init(void)
-{
-	msm_tsens_early_init(&msm_tsens_pdata);
-	msm_thermal_init(&msm_thermal_pdata);
-	BUG_ON(msm_rpm_init(&msm8960_rpm_data));
-	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
-	regulator_suppress_info_printing();
-	platform_device_register(&msm8960_device_rpm_regulator);
-	msm8960_init_gpiomux();
-	msm8960_init_pmic();
-	msm8960_device_qup_spi_gsbi1.dev.platform_data =
-				&msm8960_qup_spi_gsbi1_pdata;
-	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
-	msm8960_i2c_init();
-	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
-	msm_spm_l2_init(msm_spm_l2_data);
-	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
-	msm8960_pm8921_gpio_mpp_init();
-	platform_add_devices(rumi3_devices, ARRAY_SIZE(rumi3_devices));
-	msm8960_init_mmc();
-	register_i2c_devices();
-
-
-	msm8960_init_fb();
-	slim_register_board_info(msm_slim_devices,
-		ARRAY_SIZE(msm_slim_devices));
-	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 }
 
 static void __init msm8960_cdp_init(void)
@@ -3199,28 +3069,6 @@ static void __init msm8960_cdp_init(void)
 		platform_device_register(&mdm_sglte_device);
 	}
 }
-
-MACHINE_START(MSM8960_SIM, "QCT MSM8960 SIMULATOR")
-	.map_io = msm8960_map_io,
-	.reserve = msm8960_reserve,
-	.init_irq = msm8960_init_irq,
-	.timer = &msm_timer,
-	.init_machine = msm8960_sim_init,
-	.init_early = msm8960_allocate_memory_regions,
-	.init_very_early = msm8960_early_memory,
-	.restart = msm_restart,
-MACHINE_END
-
-MACHINE_START(MSM8960_RUMI3, "QCT MSM8960 RUMI3")
-	.map_io = msm8960_map_io,
-	.reserve = msm8960_reserve,
-	.init_irq = msm8960_init_irq,
-	.timer = &msm_timer,
-	.init_machine = msm8960_rumi3_init,
-	.init_early = msm8960_allocate_memory_regions,
-	.init_very_early = msm8960_early_memory,
-	.restart = msm_restart,
-MACHINE_END
 
 MACHINE_START(MSM8960_CDP, "QCT MSM8960 CDP")
 	.map_io = msm8960_map_io,
