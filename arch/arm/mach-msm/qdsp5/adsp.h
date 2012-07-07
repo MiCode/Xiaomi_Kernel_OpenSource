@@ -20,12 +20,16 @@
 
 #include <linux/types.h>
 #include <linux/msm_adsp.h>
+#include <linux/ion.h>
 #include <mach/msm_rpcrouter.h>
 #include <mach/msm_adsp.h>
 
 int adsp_pmem_fixup(struct msm_adsp_module *module, void **addr,
 		    unsigned long len);
-int adsp_pmem_fixup_kvaddr(struct msm_adsp_module *module, void **addr,
+int adsp_ion_do_cache_op(struct msm_adsp_module *module, void *addr,
+			void *paddr, unsigned long len,
+			unsigned long offset, int cmd);
+int adsp_ion_fixup_kvaddr(struct msm_adsp_module *module, void **addr,
 			   unsigned long *kvaddr, unsigned long len,
 			   struct file **filp, unsigned long *offset);
 int adsp_pmem_paddr_fixup(struct msm_adsp_module *module, void **addr);
@@ -276,8 +280,8 @@ struct msm_adsp_module {
 	struct clk *clk;
 	int open_count;
 
-	struct mutex pmem_regions_lock;
-	struct hlist_head pmem_regions;
+	struct mutex ion_regions_lock;
+	struct hlist_head ion_regions;
 	int (*verify_cmd) (struct msm_adsp_module*, unsigned int, void *,
 			   size_t);
 	int (*patch_event) (struct msm_adsp_module*, struct adsp_event *);
