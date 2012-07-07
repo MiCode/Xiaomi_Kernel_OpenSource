@@ -807,6 +807,7 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
 	mutex_unlock(&client->lock);
 	return vaddr;
 }
+EXPORT_SYMBOL(ion_map_kernel);
 
 void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle)
 {
@@ -819,6 +820,7 @@ void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle)
 	mutex_unlock(&buffer->lock);
 	mutex_unlock(&client->lock);
 }
+EXPORT_SYMBOL(ion_unmap_kernel);
 
 static int check_vaddr_bounds(unsigned long start, unsigned long end)
 {
@@ -884,6 +886,7 @@ out:
 	return ret;
 
 }
+EXPORT_SYMBOL(ion_do_cache_op);
 
 static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
@@ -1041,6 +1044,7 @@ void ion_client_destroy(struct ion_client *client)
 	kfree(client->name);
 	kfree(client);
 }
+EXPORT_SYMBOL(ion_client_destroy);
 
 int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
 			unsigned long *flags)
@@ -1104,6 +1108,7 @@ struct sg_table *ion_sg_table(struct ion_client *client,
 	mutex_unlock(&client->lock);
 	return table;
 }
+EXPORT_SYMBOL(ion_sg_table);
 
 static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 					enum dma_data_direction direction)
@@ -1307,6 +1312,7 @@ int ion_share_dma_buf(struct ion_client *client, struct ion_handle *handle)
 	}
 	return fd;
 }
+EXPORT_SYMBOL(ion_share_dma_buf);
 
 struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 {
@@ -1343,6 +1349,7 @@ end:
 	dma_buf_put(dmabuf);
 	return handle;
 }
+EXPORT_SYMBOL(ion_import_dma_buf);
 
 static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -1791,6 +1798,7 @@ int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
 	mutex_unlock(&dev->lock);
 	return ret_val;
 }
+EXPORT_SYMBOL(ion_secure_heap);
 
 int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
 			void *data)
@@ -1818,6 +1826,7 @@ int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
 	mutex_unlock(&dev->lock);
 	return ret_val;
 }
+EXPORT_SYMBOL(ion_unsecure_heap);
 
 static int ion_debug_leak_show(struct seq_file *s, void *unused)
 {
