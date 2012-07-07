@@ -162,8 +162,8 @@ void __init msm8930_init_gpu(void)
 {
 	unsigned int version = socinfo_get_version();
 
-	if (cpu_is_msm8627())
-		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 400000000;
+	if (cpu_is_msm8930aa())
+		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 450000000;
 
 	if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
 		(SOCINFO_VERSION_MINOR(version) == 2))
