@@ -4750,6 +4750,12 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("iface_clk", venus0_ahb_clk.c, "fdc84000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", venus0_axi_clk.c, "fdc84000.qcom,iommu"),
 	CLK_LOOKUP("bus_clk", venus0_axi_clk.c, ""),
+	CLK_LOOKUP("src_clk",  vcodec0_clk_src.c, "fdce0000.qcom,venus"),
+	CLK_LOOKUP("core_clk", venus0_vcodec0_clk.c, "fdce0000.qcom,venus"),
+	CLK_LOOKUP("iface_clk",  venus0_ahb_clk.c, "fdce0000.qcom,venus"),
+	CLK_LOOKUP("bus_clk",  venus0_axi_clk.c, "fdce0000.qcom,venus"),
+	CLK_LOOKUP("mem_clk",  venus0_ocmemnoc_clk.c, "fdce0000.qcom,venus"),
+
 
 	/* LPASS clocks */
 	CLK_LOOKUP("core_clk", audio_core_slimbus_core_clk.c, "fe12f000.slim"),

@@ -471,4 +471,15 @@
 		compatible = "qcom,tz-log";
 		reg = <0xfe805720 0x1000>;
 	};
+
+	qcom,venus@fdce0000 {
+		compatible = "qcom,pil-venus";
+		reg = <0xfdce0000 0x4000>,
+		      <0xfdc80208 0x8>;
+		vdd-supply = <&gdsc_venus>;
+
+		qcom,firmware-name = "venus";
+		qcom,firmware-min-paddr = <0xF500000>;
+		qcom,firmware-max-paddr = <0xFA00000>;
+	};
 };

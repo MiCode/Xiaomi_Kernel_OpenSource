@@ -1,0 +1,28 @@
+* Qualcomm Venus Video Subsystem Peripheral Image Loader
+
+pil-venus is a peripheral image loading (PIL) driver. It is used for loading
+venus firmware images for video codec into memory and preparing the subsystem's
+processor to execute code. It is also used for shutting down the processor when
+it's not needed.
+
+Required properties:
+- compatible: "pil-venus"
+- reg: offset and length of the register set for the device. The first pair
+       corresponds to VENUS_WRAPPER, the second pair corresponds to VENUS_VBIF.
+- vdd-supply: regulator to supply venus.
+- qcom,firmware-name: Base name of the firmware image. Ex. "venus"
+- qcom,firmware-min-paddr: The lowest addr boundary for firmware image in DDR
+- qcom,firmware-max-paddr: The highest addr boundary for firmware image in DDR
+
+Example:
+        qcom,venus@fdce0000 {
+                compatible = "qcom,pil-venus";
+                reg = <0xfdce0000 0x4000>,
+                      <0xfdc80208 0x8>;
+                vdd-supply = <&gdsc_venus>;
+
+                qcom,firmware-name = "venus";
+                qcom,firmware-min-paddr = <0xF500000>;
+                qcom,firmware-max-paddr = <0xFA00000>;
+
+        };
