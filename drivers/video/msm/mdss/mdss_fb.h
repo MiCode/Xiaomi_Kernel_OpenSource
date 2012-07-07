@@ -69,11 +69,10 @@ struct msm_fb_data_type {
 	int (*kickoff_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*ioctl_handler) (struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 	void (*dma_fnc) (struct msm_fb_data_type *mfd);
-	int (*cursor_update) (struct fb_info *info,
+	int (*cursor_update) (struct msm_fb_data_type *mfd,
 			      struct fb_cursor *cursor);
-	int (*lut_update) (struct fb_info *info,
-			   struct fb_cmap *cmap);
-	int (*do_histogram) (struct fb_info *info,
+	int (*lut_update) (struct msm_fb_data_type *mfd, struct fb_cmap *cmap);
+	int (*do_histogram) (struct msm_fb_data_type *mfd,
 			     struct mdp_histogram *hist);
 
 	struct ion_handle *ihdl;
