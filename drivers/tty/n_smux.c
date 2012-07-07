@@ -358,6 +358,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 				void *data);
 static void smux_uart_power_on_atomic(void);
 static int smux_rx_flow_control_updated(struct smux_lch_t *ch);
+static void smux_flush_workqueues(void);
 
 /**
  * Convert TTY Error Flags to string for logging purposes.
@@ -513,7 +514,6 @@ static void smux_lch_purge(void)
 		}
 
 		ch->local_state = SMUX_LCH_LOCAL_CLOSED;
-		ch->local_mode = SMUX_LCH_MODE_NORMAL;
 		ch->remote_state = SMUX_LCH_REMOTE_CLOSED;
 		ch->remote_mode = SMUX_LCH_MODE_NORMAL;
 		ch->tx_flow_control = 0;
@@ -526,12 +526,6 @@ static void smux_lch_purge(void)
 
 		spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
 	}
-
-	/* Flush TX/RX workqueues */
-	SMUX_DBG("%s: flushing tx wq\n", __func__);
-	flush_workqueue(smux_tx_wq);
-	SMUX_DBG("%s: flushing rx wq\n", __func__);
-	flush_workqueue(smux_rx_wq);
 }
 
 int smux_assert_lch_id(uint32_t lcid)
@@ -2232,12 +2226,13 @@ static void smux_uart_power_on(void)
 
 /**
  * Power down the UART.
+ *
+ * Must be called with mutex_lha0 locked.
  */
-static void smux_uart_power_off(void)
+static void smux_uart_power_off_atomic(void)
 {
 	struct uart_state *state;
 
-	mutex_lock(&smux.mutex_lha0);
 	if (!smux.tty || !smux.tty->driver_data) {
 		pr_err("%s: unable to find UART port for tty %p\n",
 				__func__, smux.tty);
@@ -2246,6 +2241,15 @@ static void smux_uart_power_off(void)
 	}
 	state = smux.tty->driver_data;
 	msm_hs_request_clock_off(state->uart_port);
+}
+
+/**
+ * Power down the UART.
+ */
+static void smux_uart_power_off(void)
+{
+	mutex_lock(&smux.mutex_lha0);
+	smux_uart_power_off_atomic();
 	mutex_unlock(&smux.mutex_lha0);
 }
 
@@ -2326,6 +2330,9 @@ static void smux_inactivity_worker(struct work_struct *work)
 {
 	struct smux_pkt_t *pkt;
 	unsigned long flags;
+
+	if (smux.in_reset)
+		return;
 
 	spin_lock_irqsave(&smux.rx_lock_lha1, flags);
 	spin_lock(&smux.tx_lock_lha2);
@@ -2446,6 +2453,12 @@ static void smux_rx_worker(struct work_struct *work)
 	SMUX_DBG("%s: %p, len=%d, flag=%d\n", __func__, data, len, flag);
 	used = 0;
 	do {
+		if (smux.in_reset) {
+			SMUX_DBG("%s: abort RX due to reset\n", __func__);
+			smux.rx_state = SMUX_RX_IDLE;
+			break;
+		}
+
 		SMUX_DBG("%s: state %d; %d of %d\n",
 				__func__, smux.rx_state, used, len);
 		initial_rx_state = smux.rx_state;
@@ -2494,7 +2507,7 @@ static void smux_rx_retry_worker(struct work_struct *work)
 
 	/* get next retry packet */
 	spin_lock_irqsave(&ch->state_lock_lhb1, flags);
-	if (ch->local_state != SMUX_LCH_LOCAL_OPENED) {
+	if ((ch->local_state != SMUX_LCH_LOCAL_OPENED) || smux.in_reset) {
 		/* port has been closed - remove all retries */
 		while (!list_empty(&ch->rx_retry_queue)) {
 			retry = list_first_entry(&ch->rx_retry_queue,
@@ -2797,6 +2810,26 @@ static int smux_rx_flow_control_updated(struct smux_lch_t *ch)
 	return updated;
 }
 
+/**
+ * Flush all SMUX workqueues.
+ *
+ * This sets the reset bit to abort any processing loops and then
+ * flushes the workqueues to ensure that no new pending work is
+ * running.  Do not call with any locks used by workers held as
+ * this will result in a deadlock.
+ */
+static void smux_flush_workqueues(void)
+{
+	smux.in_reset = 1;
+
+	SMUX_DBG("%s: flushing tx wq\n", __func__);
+	flush_workqueue(smux_tx_wq);
+	SMUX_DBG("%s: flushing rx wq\n", __func__);
+	flush_workqueue(smux_rx_wq);
+	SMUX_DBG("%s: flushing notify wq\n", __func__);
+	flush_workqueue(smux_notify_wq);
+}
+
 /**********************************************************************/
 /* Kernel API                                                         */
 /**********************************************************************/
@@ -2922,6 +2955,7 @@ int msm_smux_open(uint8_t lcid, void *priv,
 			ch->local_state,
 			SMUX_LCH_LOCAL_OPENING);
 
+	ch->rx_flow_control_auto = 0;
 	ch->local_state = SMUX_LCH_LOCAL_OPENING;
 
 	ch->priv = priv;
@@ -2948,6 +2982,7 @@ int msm_smux_open(uint8_t lcid, void *priv,
 
 out:
 	spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
+	smux_rx_flow_control_updated(ch);
 	if (tx_ready)
 		list_channel(ch);
 	return ret;
@@ -3341,6 +3376,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 	SMUX_DBG("%s: ssr - after shutdown\n", __func__);
 
 	/* Cleanup channels */
+	smux_flush_workqueues();
 	mutex_lock(&smux.mutex_lha0);
 	smux_lch_purge();
 	if (smux.tty)
@@ -3357,8 +3393,11 @@ static int ssr_notifier_cb(struct notifier_block *this,
 	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
 	if (power_off_uart)
-		smux_uart_power_off();
+		smux_uart_power_off_atomic();
 
+	smux.tx_activity_flag = 0;
+	smux.rx_activity_flag = 0;
+	smux.rx_state = SMUX_RX_IDLE;
 	smux.in_reset = 0;
 	mutex_unlock(&smux.mutex_lha0);
 
@@ -3440,6 +3479,8 @@ static void smuxld_close(struct tty_struct *tty)
 	int i;
 
 	SMUX_DBG("%s: ldisc unload\n", __func__);
+	smux_flush_workqueues();
+
 	mutex_lock(&smux.mutex_lha0);
 	if (smux.ld_open_count <= 0) {
 		pr_err("%s: invalid ld count %d\n", __func__,
@@ -3447,7 +3488,6 @@ static void smuxld_close(struct tty_struct *tty)
 		mutex_unlock(&smux.mutex_lha0);
 		return;
 	}
-	smux.in_reset = 1;
 	--smux.ld_open_count;
 
 	/* Cleanup channels */
@@ -3466,10 +3506,14 @@ static void smuxld_close(struct tty_struct *tty)
 		power_up_uart = 1;
 	smux.power_state = SMUX_PWR_OFF;
 	smux.powerdown_enabled = 0;
+	smux.tx_activity_flag = 0;
+	smux.rx_activity_flag = 0;
 	spin_unlock_irqrestore(&smux.tx_lock_lha2, flags);
 
 	if (power_up_uart)
 		smux_uart_power_on_atomic();
+
+	smux.rx_state = SMUX_RX_IDLE;
 
 	/* Disconnect from TTY */
 	smux.tty = NULL;

@@ -21,6 +21,7 @@
 #include <linux/completion.h>
 #include <linux/termios.h>
 #include <linux/smux.h>
+#include <mach/subsystem_restart.h>
 #include "smux_private.h"
 
 #define DEBUG_BUFMAX 4096
@@ -206,6 +207,9 @@ struct smux_mock_callback {
 	int event_write_failed;
 	struct list_head write_events;
 };
+
+static int get_rx_buffer_mock(void *priv, void **pkt_priv,
+		void **buffer, int size);
 
 /**
  * Initialize mock callback data. Only call once.
@@ -672,6 +676,198 @@ static int smux_ut_remote_basic(char *buf, int max)
 	return i;
 }
 
+/**
+ * Verify Basic Subsystem Restart Support
+ *
+ * Run a basic loopback test followed by a subsystem restart and then another
+ * loopback test.
+ */
+static int smux_ut_remote_ssr_basic(char *buf, int max)
+{
+	const struct test_vector test_data[] = {
+		{"hello\0world\n", sizeof("hello\0world\n")},
+		{0, 0},
+	};
+	int i = 0;
+	int failed = 0;
+	int ret;
+
+	i += scnprintf(buf + i, max - i, "Running %s\n", __func__);
+	while (!failed) {
+		/* enable remote mode */
+		ret = msm_smux_set_ch_option(SMUX_TEST_LCID,
+				SMUX_CH_OPTION_REMOTE_LOOPBACK, 0);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		i += smux_ut_basic_core(buf + i, max - i, test_data, __func__);
+		subsystem_restart("external_modem");
+		msleep(5000);
+		i += smux_ut_basic_core(buf + i, max - i, test_data, __func__);
+		break;
+	}
+
+	if (failed) {
+		pr_err("%s: Failed\n", __func__);
+		i += scnprintf(buf + i, max - i, "\tFailed\n");
+	}
+	return i;
+}
+
+/**
+ * Verify Subsystem Restart Support During Port Open
+ */
+static int smux_ut_remote_ssr_open(char *buf, int max)
+{
+	static struct smux_mock_callback cb_data;
+	static int cb_initialized;
+	int ret;
+	int i = 0;
+	int failed = 0;
+
+	i += scnprintf(buf + i, max - i, "Running %s\n", __func__);
+
+	if (!cb_initialized)
+		mock_cb_data_init(&cb_data);
+
+	mock_cb_data_reset(&cb_data);
+	while (!failed) {
+		ret = msm_smux_set_ch_option(SMUX_TEST_LCID,
+				SMUX_CH_OPTION_REMOTE_LOOPBACK, 0);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		/* open port */
+		ret = msm_smux_open(SMUX_TEST_LCID, &cb_data, smux_mock_cb,
+					get_rx_buffer);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ), >, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_connected, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/* restart modem */
+		subsystem_restart("external_modem");
+
+		/* verify SSR events */
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+				&cb_data.cb_completion, 5*HZ),
+			>, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
+		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/* close port */
+		ret = msm_smux_close(SMUX_TEST_LCID);
+		UT_ASSERT_INT(ret, ==, 0);
+		break;
+	}
+
+	if (!failed) {
+		i += scnprintf(buf + i, max - i, "\tOK\n");
+	} else {
+		pr_err("%s: Failed\n", __func__);
+		i += scnprintf(buf + i, max - i, "\tFailed\n");
+		i += mock_cb_data_print(&cb_data, buf + i, max - i);
+		msm_smux_close(SMUX_TEST_LCID);
+	}
+
+	mock_cb_data_reset(&cb_data);
+
+	return i;
+}
+
+/**
+ * Verify get_rx_buffer callback retry doesn't livelock SSR
+ * until all RX Bufffer Retries have timed out.
+ *
+ * @buf  Buffer for status message
+ * @max  Size of buffer
+ *
+ * @returns Number of bytes written to @buf
+ */
+static int smux_ut_remote_ssr_rx_buff_retry(char *buf, int max)
+{
+	static struct smux_mock_callback cb_data;
+	static int cb_initialized;
+	int i = 0;
+	int failed = 0;
+	int ret;
+
+	i += scnprintf(buf + i, max - i, "Running %s\n", __func__);
+	pr_err("%s", buf);
+
+	if (!cb_initialized)
+		mock_cb_data_init(&cb_data);
+
+	mock_cb_data_reset(&cb_data);
+	while (!failed) {
+		/* open port for loopback */
+		ret = msm_smux_set_ch_option(SMUX_TEST_LCID,
+				SMUX_CH_OPTION_REMOTE_LOOPBACK,
+				0);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		ret = msm_smux_open(SMUX_TEST_LCID, &cb_data,
+				smux_mock_cb, get_rx_buffer_mock);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ), >, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_connected, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/* Queue up an RX buffer retry */
+		get_rx_buffer_mock_fail = 1;
+		ret = msm_smux_write(SMUX_TEST_LCID, (void *)1,
+					test_array, sizeof(test_array));
+		UT_ASSERT_INT(ret, ==, 0);
+		while (!cb_data.get_rx_buff_retry_count) {
+			UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+					&cb_data.cb_completion, HZ),
+				>, 0);
+			INIT_COMPLETION(cb_data.cb_completion);
+		}
+		if (failed)
+			break;
+		mock_cb_data_reset(&cb_data);
+
+		/* trigger SSR */
+		subsystem_restart("external_modem");
+
+		/* verify SSR completed */
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+				&cb_data.cb_completion, 5*HZ),
+			>, 0);
+		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
+		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 1);
+		mock_cb_data_reset(&cb_data);
+
+		/* close port */
+		ret = msm_smux_close(SMUX_TEST_LCID);
+		UT_ASSERT_INT(ret, ==, 0);
+		break;
+	}
+
+	if (!failed) {
+		i += scnprintf(buf + i, max - i, "\tOK\n");
+	} else {
+		pr_err("%s: Failed\n", __func__);
+		i += scnprintf(buf + i, max - i, "\tFailed\n");
+		i += mock_cb_data_print(&cb_data, buf + i, max - i);
+		msm_smux_close(SMUX_TEST_LCID);
+	}
+	mock_cb_data_reset(&cb_data);
+	return i;
+}
 /**
  * Fill test pattern into provided buffer including an optional
  * redzone 16 bytes before and 16 bytes after the buffer.
@@ -1793,6 +1989,12 @@ static int __init smux_debugfs_init(void)
 			smux_ut_local_get_rx_buff_retry);
 	debug_create("ut_local_get_rx_buff_retry_auto", 0444, dent,
 			smux_ut_local_get_rx_buff_retry_auto);
+	debug_create("ut_remote_ssr_basic", 0444, dent,
+			smux_ut_remote_ssr_basic);
+	debug_create("ut_remote_ssr_open", 0444, dent,
+			smux_ut_remote_ssr_open);
+	debug_create("ut_remote_ssr_rx_buff_retry", 0444, dent,
+			smux_ut_remote_ssr_rx_buff_retry);
 
 	return 0;
 }
