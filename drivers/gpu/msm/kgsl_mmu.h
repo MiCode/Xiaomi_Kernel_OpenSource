@@ -299,4 +299,14 @@ static inline int kgsl_mmu_gpuaddr_in_range(unsigned int gpuaddr)
 		(gpuaddr < (KGSL_PAGETABLE_BASE + kgsl_mmu_get_ptsize())));
 }
 
+static inline unsigned int kgsl_mmu_get_int_mask(void)
+{
+	/* Dont enable gpummu interrupts, if iommu is enabled */
+	if (KGSL_MMU_TYPE_GPU == kgsl_mmu_get_mmutype())
+		return KGSL_MMU_INT_MASK;
+	else
+		return (MH_INTERRUPT_MASK__AXI_READ_ERROR |
+			MH_INTERRUPT_MASK__AXI_WRITE_ERROR);
+}
+
 #endif /* __KGSL_MMU_H */
