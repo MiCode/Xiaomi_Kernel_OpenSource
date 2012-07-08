@@ -892,7 +892,8 @@ static void z180_irqctrl(struct kgsl_device *device, int state)
 
 	if (state) {
 		z180_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 3);
-		z180_regwrite(device, MH_INTERRUPT_MASK, KGSL_MMU_INT_MASK);
+		z180_regwrite(device, MH_INTERRUPT_MASK,
+			kgsl_mmu_get_int_mask());
 	} else {
 		z180_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0);
 		z180_regwrite(device, MH_INTERRUPT_MASK, 0);
