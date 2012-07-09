@@ -27,7 +27,7 @@
 #include <mach/qdsp5/qdsp5audrecmsg.h>
 #include <mach/qdsp5/qdsp5audpreproccmdi.h>
 #include <mach/qdsp5/qdsp5audpreprocmsg.h>
-
+#include <mach/qdsp5/qdsp5audpp.h>
 #include <../arch/arm/mach-msm/qdsp5/adsp.h>
 #include <../arch/arm/mach-msm/qdsp5/audmgr.h>
 

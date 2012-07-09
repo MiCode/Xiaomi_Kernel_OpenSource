@@ -63,5 +63,11 @@ int audpreproc_dsp_set_iir(audpreproc_cmd_cfg_iir_tuning_filter_params *iir,
 	unsigned len);
 
 int audpreproc_send_preproccmdqueue(void *cmd, unsigned len);
+typedef void (*audrec_event_func)(void *private, unsigned id, uint16_t *msg);
+int audrectask_enable(unsigned enc_type, audrec_event_func func, void *private);
+void audrectask_disable(unsigned enc_type, void *private);
+
+int audrectask_send_cmdqueue(void *cmd, unsigned len);
+int audrectask_send_bitstreamqueue(void *cmd, unsigned len);
 
 #endif /* QDSP5AUDPREPROC_H */
