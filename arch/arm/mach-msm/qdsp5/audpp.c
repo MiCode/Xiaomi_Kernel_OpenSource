@@ -34,6 +34,7 @@
 
 #include <mach/qdsp5/qdsp5audppcmdi.h>
 #include <mach/qdsp5/qdsp5audppmsg.h>
+#include <mach/qdsp5/qdsp5audpp.h>
 #include <mach/debug_mm.h>
 
 #include "evlog.h"
@@ -84,18 +85,6 @@ static DEFINE_MUTEX(audpp_dec_lock);
 #define AUDPP_CMD_EQ_FLAG_ENA	-1
 #define AUDPP_CMD_IIR_FLAG_DIS	  0x0000
 #define AUDPP_CMD_IIR_FLAG_ENA	  -1
-
-#define AUDPP_CMD_VOLUME_PAN		0
-#define AUDPP_CMD_IIR_TUNING_FILTER	1
-#define AUDPP_CMD_EQUALIZER		2
-#define AUDPP_CMD_ADRC			3
-#define AUDPP_CMD_SPECTROGRAM		4
-#define AUDPP_CMD_QCONCERT		5
-#define AUDPP_CMD_SIDECHAIN_TUNING_FILTER	6
-#define AUDPP_CMD_SAMPLING_FREQUENCY	7
-#define AUDPP_CMD_QAFX			8
-#define AUDPP_CMD_QRUMBLE		9
-#define AUDPP_CMD_MBADRC		10
 
 #define MAX_EVENT_CALLBACK_CLIENTS 	1
 
