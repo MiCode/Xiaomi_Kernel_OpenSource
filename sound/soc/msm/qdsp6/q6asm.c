@@ -3406,7 +3406,7 @@ uint64_t q6asm_get_session_time(struct audio_client *ac)
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
-	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
+	q6asm_add_hdr(ac, &hdr, sizeof(hdr), FALSE);
 	hdr.opcode = ASM_SESSION_CMD_GET_SESSION_TIME;
 	atomic_set(&ac->time_flag, 1);
 
