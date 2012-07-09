@@ -217,6 +217,7 @@
 #define VFE_CMD_STATS_BF_STOP                           146
 #define VFE_CMD_STATS_BHIST_START                       147
 #define VFE_CMD_STATS_BHIST_STOP                        148
+#define VFE_CMD_RESET_2                                 149
 
 struct msm_isp_cmd {
 	int32_t  id;

@@ -379,12 +379,27 @@ static const char * const vfe32_general_cmd[] = {
 	"GET_RGB_G_TABLE",
 	"GET_LA_TABLE",
 	"DEMOSAICV3_UPDATE",
+	"DUMMY_11",
+	"DUMMY_12", /*130*/
+	"DUMMY_13",
+	"DUMMY_14",
+	"DUMMY_15",
+	"DUMMY_16",
+	"DUMMY_17", /*135*/
+	"DUMMY_18",
+	"DUMMY_19",
+	"DUMMY_20",
+	"STATS_REQBUF",
+	"STATS_ENQUEUEBUF", /*140*/
+	"STATS_FLUSH_BUFQ",
+	"STATS_UNREGBUF",
 	"STATS_BG_START",
 	"STATS_BG_STOP",
-	"STATS_BF_START",
+	"STATS_BF_START", /*145*/
 	"STATS_BF_STOP",
 	"STATS_BHIST_START",
 	"STATS_BHIST_STOP",
+	"RESET_2",
 };
 
 uint8_t vfe32_use_bayer_stats(struct vfe32_ctrl_type *vfe32_ctrl)
@@ -548,7 +563,7 @@ static void vfe32_reset_internal_variables(
 	vfe32_ctrl->share_ctrl->stop_ack_pending  = FALSE;
 	spin_unlock_irqrestore(&vfe32_ctrl->share_ctrl->stop_flag_lock, flags);
 
-	vfe32_ctrl->reset_ack_pending  = FALSE;
+	init_completion(&vfe32_ctrl->reset_complete);
 
 	spin_lock_irqsave(&vfe32_ctrl->update_ack_lock, flags);
 	vfe32_ctrl->update_ack_pending = FALSE;
@@ -649,7 +664,7 @@ static void vfe32_reset_dmi_tables(
 	vfe32_program_dmi_cfg(NO_MEM_SELECTED, vfe32_ctrl);
 }
 
-static void vfe32_reset(struct vfe32_ctrl_type *vfe32_ctrl)
+static int vfe32_reset(struct vfe32_ctrl_type *vfe32_ctrl)
 {
 	vfe32_reset_internal_variables(vfe32_ctrl);
 	/* disable all interrupts.  vfeImaskLocal is also reset to 0
@@ -684,6 +699,12 @@ static void vfe32_reset(struct vfe32_ctrl_type *vfe32_ctrl)
 	to the command register using the barrier */
 	msm_camera_io_w_mb(VFE_RESET_UPON_RESET_CMD,
 		vfe32_ctrl->share_ctrl->vfebase + VFE_GLOBAL_RESET);
+
+	if (vfe32_ctrl->is_reset_blocking)
+		return wait_for_completion_interruptible(
+				&vfe32_ctrl->reset_complete);
+	else
+		return 0;
 }
 
 static int vfe32_operation_config(uint32_t *cmd,
@@ -1740,6 +1761,7 @@ static int vfe32_proc_general(
 	case VFE_CMD_RESET:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
+		vfe32_ctrl->is_reset_blocking = false;
 		vfe32_reset(vfe32_ctrl);
 		break;
 	case VFE_CMD_START:
@@ -3236,6 +3258,12 @@ static int vfe32_proc_general(
 		CDBG("%s Stopping liveshot ", __func__);
 		vfe32_stop_liveshot(pmctl, vfe32_ctrl);
 		break;
+	case VFE_CMD_RESET_2:
+		CDBG("vfe32_proc_general: cmdID = %s\n",
+			vfe32_general_cmd[cmd->id]);
+		vfe32_ctrl->is_reset_blocking = true;
+		vfe32_reset(vfe32_ctrl);
+		break;
 	default:
 		if (cmd->length != vfe32_cmd[cmd->id].length)
 			return -EINVAL;
@@ -3629,8 +3657,12 @@ static void vfe32_process_reset_irq(
 		/* reload all write masters. (frame & line)*/
 		msm_camera_io_w(0x7FFF,
 			vfe32_ctrl->share_ctrl->vfebase + VFE_BUS_CMD);
-		vfe32_send_isp_msg(&vfe32_ctrl->subdev,
-			vfe32_ctrl->share_ctrl->vfeFrameId, MSG_ID_RESET_ACK);
+		if (vfe32_ctrl->is_reset_blocking)
+			complete(&vfe32_ctrl->reset_complete);
+		else
+			vfe32_send_isp_msg(&vfe32_ctrl->subdev,
+				vfe32_ctrl->share_ctrl->vfeFrameId,
+				MSG_ID_RESET_ACK);
 	}
 }
 
