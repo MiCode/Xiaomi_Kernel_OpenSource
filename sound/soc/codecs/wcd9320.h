@@ -78,6 +78,44 @@ enum taiko_mbhc_btn_det_mem {
 	TAIKO_BTN_DET_GAIN
 };
 
+/* Number of input and output Slimbus port */
+enum {
+	TAIKO_RX1 = 0,
+	TAIKO_RX2,
+	TAIKO_RX3,
+	TAIKO_RX4,
+	TAIKO_RX5,
+	TAIKO_RX6,
+	TAIKO_RX7,
+	TAIKO_RX8,
+	TAIKO_RX9,
+	TAIKO_RX10,
+	TAIKO_RX11,
+	TAIKO_RX12,
+	TAIKO_RX13,
+	TAIKO_RX_MAX,
+};
+
+enum {
+	TAIKO_TX1 = 0,
+	TAIKO_TX2,
+	TAIKO_TX3,
+	TAIKO_TX4,
+	TAIKO_TX5,
+	TAIKO_TX6,
+	TAIKO_TX7,
+	TAIKO_TX8,
+	TAIKO_TX9,
+	TAIKO_TX10,
+	TAIKO_TX11,
+	TAIKO_TX12,
+	TAIKO_TX13,
+	TAIKO_TX14,
+	TAIKO_TX15,
+	TAIKO_TX16,
+	TAIKO_TX_MAX,
+};
+
 struct taiko_mbhc_general_cfg {
 	u8 t_ldoh;
 	u8 t_bg_fast_settle;

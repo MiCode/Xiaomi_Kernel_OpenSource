@@ -252,3 +252,29 @@ extern void *tabla_mbhc_cal_btn_det_mp(const struct tabla_mbhc_btn_detect_cfg
 				 sizeof(cfg_ptr->_alpha[0]))))
 
 
+/* Number of input and output Slimbus port */
+enum {
+	TABLA_RX1 = 0,
+	TABLA_RX2,
+	TABLA_RX3,
+	TABLA_RX4,
+	TABLA_RX5,
+	TABLA_RX6,
+	TABLA_RX7,
+	TABLA_RX_MAX,
+};
+
+enum {
+	TABLA_TX1 = 0,
+	TABLA_TX2,
+	TABLA_TX3,
+	TABLA_TX4,
+	TABLA_TX5,
+	TABLA_TX6,
+	TABLA_TX7,
+	TABLA_TX8,
+	TABLA_TX9,
+	TABLA_TX10,
+	TABLA_TX_MAX,
+};
+
