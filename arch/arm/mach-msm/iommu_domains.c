@@ -191,6 +191,7 @@ int msm_iommu_map_contig_buffer(unsigned long phys,
 
 	return ret;
 }
+EXPORT_SYMBOL(msm_iommu_map_contig_buffer);
 
 void msm_iommu_unmap_contig_buffer(unsigned long iova,
 					unsigned int domain_no,
@@ -203,6 +204,7 @@ void msm_iommu_unmap_contig_buffer(unsigned long iova,
 	iommu_unmap_range(msm_get_iommu_domain(domain_no), iova, size);
 	msm_free_iova_address(iova, domain_no, partition_no, size);
 }
+EXPORT_SYMBOL(msm_iommu_unmap_contig_buffer);
 
 static struct msm_iova_data *find_domain(int domain_num)
 {
@@ -402,6 +404,7 @@ out:
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(msm_register_domain);
 
 static int __init iommu_domain_probe(struct platform_device *pdev)
 {
