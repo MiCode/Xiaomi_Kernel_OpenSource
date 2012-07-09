@@ -660,6 +660,19 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
+	/* Taiko SLIMBUS configuration
+	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
+	 * TX1, TX2, TX3, TX4, TX5, TX6, TX7, TX8, TX9, TX10, TX11, TX12, TX13
+	 * TX14, TX15, TX16
+	 */
+	unsigned int rx_ch[TAIKO_RX_MAX] = {144, 145, 146, 147, 148, 149, 150,
+					    151, 152, 153, 154, 155, 156};
+	unsigned int tx_ch[TAIKO_TX_MAX]  = {128, 129, 130, 131, 132, 133,
+					     134, 135, 136, 137, 138, 139,
+					     140, 141, 142, 143};
+
 
 	pr_info("%s(), dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -693,6 +706,9 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		pr_err("failed to create new jack\n");
 		return err;
 	}
+
+	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
+				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
 	err = snd_soc_jack_new(codec, "Button Jack",
 			       TAIKO_JACK_BUTTON_MASK, &button_jack);
@@ -737,19 +753,7 @@ static int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
-		ret = snd_soc_dai_set_channel_map(codec_dai, 0, 0,
-						  msm_slim_0_rx_ch, rx_ch);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-			       __func__);
-			goto end;
-		}
 	} else {
-
-		if (codec_dai->id == 2)
-			user_set_tx_ch = msm_slim_0_tx_ch;
-		else if (codec_dai->id == 4)
-			user_set_tx_ch = params_channels(params);
 
 		pr_debug("%s: %s_tx_dai_id_%d_ch=%d\n", __func__,
 			 codec_dai->name, codec_dai->id, user_set_tx_ch);
@@ -760,17 +764,22 @@ static int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to get codec chan map\n", __func__);
 			goto end;
 		}
+		/* For tabla_tx1 case */
+		if (codec_dai->id == 1)
+			user_set_tx_ch = msm_slim_0_tx_ch;
+		/* For tabla_tx2 case */
+		else if (codec_dai->id == 3)
+			user_set_tx_ch = params_channels(params);
+		else
+			user_set_tx_ch = tx_ch_cnt;
+
+		pr_debug("%s: msm_slim_0_tx_ch(%d)user_set_tx_ch(%d)tx_ch_cnt(%d)\n",
+			 __func__, msm_slim_0_tx_ch, user_set_tx_ch, tx_ch_cnt);
+
 		ret = snd_soc_dai_set_channel_map(cpu_dai,
 						  user_set_tx_ch, tx_ch, 0 , 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set cpu chan map\n", __func__);
-			goto end;
-		}
-		ret = snd_soc_dai_set_channel_map(codec_dai,
-						  user_set_tx_ch, tx_ch, 0, 0);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-			       __func__);
 			goto end;
 		}
 	}

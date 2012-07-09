@@ -859,7 +859,6 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 	unsigned int rx_ch_cnt = 0, tx_ch_cnt = 0;
 	unsigned int num_tx_ch = 0;
 
-
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 
 		pr_debug("%s: rx_0_ch=%d\n", __func__, msm_slim_0_rx_ch);
@@ -877,25 +876,7 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
-		ret = snd_soc_dai_set_channel_map(codec_dai, 0, 0,
-				msm_slim_0_rx_ch, rx_ch);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-								__func__);
-			goto end;
-		}
 	} else {
-
-		if (codec_dai->id  == 2)
-			num_tx_ch =  msm_slim_0_tx_ch;
-		else if (codec_dai->id == 5) {
-			/* DAI 5 is used for external EC reference from codec.
-			 * Since Rx is fed as reference for EC, the config of
-			 * this DAI is based on that of the Rx path.
-			 */
-			num_tx_ch =  msm_slim_0_rx_ch;
-		}
-
 		pr_debug("%s: %s_tx_dai_id_%d_ch=%d\n", __func__,
 			codec_dai->name, codec_dai->id, num_tx_ch);
 
@@ -905,6 +886,19 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to get codec chan map\n", __func__);
 			goto end;
 		}
+		/* For tabla_tx1 case */
+		if (codec_dai->id  == 1)
+			num_tx_ch =  msm_slim_0_tx_ch;
+		/* For tabla_tx3 case */
+		else if (codec_dai->id == 4) {
+			/* DAI 5 is used for external EC reference from codec.
+			 * Since Rx is fed as reference for EC, the config of
+			 * this DAI is based on that of the Rx path.
+			 */
+			num_tx_ch =  msm_slim_0_rx_ch;
+		} else {
+			num_tx_ch = tx_ch_cnt;
+		}
 
 		ret = snd_soc_dai_set_channel_map(cpu_dai,
 				num_tx_ch, tx_ch, 0 , 0);
@@ -912,15 +906,6 @@ static int msm_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
-		ret = snd_soc_dai_set_channel_map(codec_dai,
-				num_tx_ch, tx_ch, 0, 0);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-								__func__);
-			goto end;
-		}
-
-
 	}
 end:
 	return ret;
@@ -965,13 +950,6 @@ static int msm_slimbus_2_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
-		ret = snd_soc_dai_set_channel_map(codec_dai, 0, 0,
-				num_rx_ch, rx_ch);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-								__func__);
-			goto end;
-		}
 	} else {
 
 		num_tx_ch =  params_channels(params);
@@ -990,13 +968,6 @@ static int msm_slimbus_2_hw_params(struct snd_pcm_substream *substream,
 				num_tx_ch, tx_ch, 0 , 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set cpu chan map\n", __func__);
-			goto end;
-		}
-		ret = snd_soc_dai_set_channel_map(codec_dai,
-				num_tx_ch, tx_ch, 0, 0);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-								__func__);
 			goto end;
 		}
 	}
@@ -1128,13 +1099,13 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	unsigned int rx_ch[TABLA_RX_MAX] = {138, 139, 140, 141, 142, 143, 144};
+	unsigned int tx_ch[TABLA_TX_MAX] = {128, 129, 130, 131, 132, 133, 134,
+					    135, 136, 137};
+
 
 	pr_debug("%s(), dev_name%s\n", __func__, dev_name(cpu_dai->dev));
-
-	/*if (machine_is_msm_liquid()) {
-		top_spk_pamp_gpio = (PM8921_GPIO_PM_TO_SYS(19));
-		bottom_spk_pamp_gpio = (PM8921_GPIO_PM_TO_SYS(18));
-	}*/
 
 	snd_soc_dapm_new_controls(dapm, apq8064_dapm_widgets,
 				ARRAY_SIZE(apq8064_dapm_widgets));
@@ -1221,6 +1192,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	mbhc_cfg.read_fw_bin = apq8064_hs_detect_use_firmware;
 
 	err = tabla_hs_detect(codec, &mbhc_cfg);
+	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
+				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
 	return err;
 }

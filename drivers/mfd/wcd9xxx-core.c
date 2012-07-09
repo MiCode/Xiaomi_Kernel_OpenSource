@@ -1205,9 +1205,6 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		pr_err("%s: error, initializing device failed\n", __func__);
 		goto err_slim_add;
 	}
-
-	wcd9xxx_init_slimslave(wcd9xxx, wcd9xxx_pgd_la);
-
 #ifdef CONFIG_DEBUG_FS
 	debugCodec = wcd9xxx;
 
