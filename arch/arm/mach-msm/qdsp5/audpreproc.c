@@ -23,6 +23,8 @@
 #include <mach/debug_mm.h>
 #include <mach/qdsp5/qdsp5audpreproc.h>
 #include <mach/qdsp5/qdsp5audreccmdi.h>
+#include <mach/qdsp5v2/audio_acdbi.h>
+
 
 static DEFINE_MUTEX(audpreproc_lock);
 
@@ -139,6 +141,14 @@ static void audpreproc_dsp_event(void *data, unsigned id, size_t len,
 			audpreproc->private[0], id,
 			&msg);
 		break;
+	case AUDPREPROC_MSG_FEAT_QUERY_DM_DONE:
+	   {
+	    uint16_t msg[3];
+	    getevent(msg, sizeof(msg));
+	    MM_INFO("RTC ACK --> %x %x %x\n", msg[0], msg[1], msg[2]);
+	    acdb_rtc_set_err(msg[2]);
+	   }
+	break;
 	default:
 		MM_ERR("unknown event %d\n", id);
 	}

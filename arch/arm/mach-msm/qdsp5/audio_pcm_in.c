@@ -405,7 +405,7 @@ static int audio_dsp_set_tx_agc(struct audio_in *audio)
 		audio->tx_agc_cfg.tx_agc_enable_flag =
 			AUDPREPROC_CMD_TX_AGC_ENA_FLAG_ENA;
 		/* cmd.param_mask = 0xFFF0 from sample code */
-		audio->tx_agc_cfg.param_mask =
+		audio->tx_agc_cfg.tx_agc_param_mask =
 			(1 << AUDPREPROC_CMD_PARAM_MASK_RMS_TAY) |
 			(1 << AUDPREPROC_CMD_PARAM_MASK_RELEASEK) |
 			(1 << AUDPREPROC_CMD_PARAM_MASK_DELAY) |
