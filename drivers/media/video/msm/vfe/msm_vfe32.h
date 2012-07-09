@@ -986,8 +986,9 @@ struct vfe32_ctrl_type {
 	void *extdata;
 
 	int8_t start_ack_pending;
-	int8_t reset_ack_pending;
 	int8_t update_ack_pending;
+	bool is_reset_blocking;
+	struct completion reset_complete;
 	enum vfe_output_state recording_state;
 	int8_t update_linear;
 	int8_t update_rolloff;
