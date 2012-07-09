@@ -49,8 +49,6 @@ enum kgsl_ctx_reset_stat {
 	KGSL_CTX_STAT_UNKNOWN_CONTEXT_RESET_EXT		= 0x00000003
 };
 
-#define KGSL_MAX_PWRLEVELS 5
-
 #define KGSL_CONVERT_TO_MBPS(val) \
 	(val*1000*1000U)
 
@@ -133,12 +131,6 @@ struct kgsl_shadowprop {
 	unsigned int gpuaddr;
 	unsigned int size;
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
-};
-
-struct kgsl_pwrlevel {
-	unsigned int gpu_freq;
-	unsigned int bus_freq;
-	unsigned int io_fraction;
 };
 
 struct kgsl_version {

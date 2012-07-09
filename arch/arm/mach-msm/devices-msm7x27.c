@@ -15,7 +15,7 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-#include <linux/msm_kgsl.h>
+#include <mach/kgsl.h>
 #include <linux/regulator/machine.h>
 #include <linux/dma-mapping.h>
 #include <linux/init.h>
