@@ -155,6 +155,7 @@ enum vidc_hw_reg {
 #define HFI_EXTRADATA_VC1_SEQDISP			0x00000004
 #define HFI_EXTRADATA_TIMESTAMP				0x00000005
 #define HFI_EXTRADATA_S3D_FRAME_PACKING		0x00000006
+#define  HFI_EXTRADATA_EOSNAL_DETECTED      0x00000007
 #define HFI_EXTRADATA_MULTISLICE_INFO		0x7F100000
 #define HFI_EXTRADATA_NUM_CONCEALED_MB		0x7F100001
 #define HFI_EXTRADATA_INDEX					0x7F100002
@@ -163,6 +164,11 @@ enum vidc_hw_reg {
 #define HFI_INDEX_EXTRADATA_INPUT_CROP		0x0700000E
 #define HFI_INDEX_EXTRADATA_DIGITAL_ZOOM	0x07000010
 #define HFI_INDEX_EXTRADATA_ASPECT_RATIO	0x7F100003
+
+struct HFI_INDEX_EXTRADATA_CONFIG_TYPE {
+	int enable;
+	u32 index_extra_data_id;
+};
 
 struct hfi_extradata_header {
 	u32 size;
@@ -196,7 +202,7 @@ struct hfi_extradata_header {
 (HFI_PROPERTY_PARAM_OX_START + 0x004)
 #define HFI_PROPERTY_PARAM_EXTRA_DATA_HEADER_CONFIG		\
 	(HFI_PROPERTY_PARAM_OX_START + 0x005)
-#define HFI_PROPERTY_PARAM_MAX_SEQUENCE_HEADER_SIZE		\
+#define  HFI_PROPERTY_PARAM_INDEX_EXTRADATA             \
 	(HFI_PROPERTY_PARAM_OX_START + 0x006)
 #define HFI_PROPERTY_PARAM_DIVX_FORMAT					\
 	(HFI_PROPERTY_PARAM_OX_START + 0x007)
@@ -244,6 +250,10 @@ struct hfi_extradata_header {
 
 #define HFI_PROPERTY_PARAM_VENC_OX_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_OX_OFFSET + 0x5000)
+#define  HFI_PROPERTY_PARAM_VENC_MULTI_SLICE_INFO       \
+	(HFI_PROPERTY_PARAM_VENC_OX_START + 0x001)
+#define  HFI_PROPERTY_PARAM_VENC_H264_IDR_S3D_FRAME_PACKING_NAL \
+	(HFI_PROPERTY_PARAM_VENC_OX_START + 0x002)
 #define HFI_PROPERTY_CONFIG_VENC_OX_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_OX_OFFSET + 0x6000)
 
@@ -283,10 +293,6 @@ struct hfi_buffer_requirements {
 struct hfi_data_payload {
 	u32 size;
 	u8 rg_data[1];
-};
-
-struct hfi_seq_header_info {
-	u32 max_header_len;
 };
 
 struct hfi_enable_picture {
@@ -859,6 +865,14 @@ struct hal_session {
 struct hal_device_data {
 	struct list_head dev_head;
 	int dev_count;
+};
+
+struct hfi_index_extradata_aspect_ratio_payload {
+	u32 size;
+	u32 version;
+	u32 port_index;
+	u32 saspect_width;
+	u32  saspect_height;
 };
 
 extern struct hal_device_data hal_ctxt;
