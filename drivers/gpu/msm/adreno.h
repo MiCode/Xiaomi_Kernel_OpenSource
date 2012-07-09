@@ -24,6 +24,11 @@
 #define ADRENO_DEVICE(device) \
 		KGSL_CONTAINER_OF(device, struct adreno_device, dev)
 
+#define ADRENO_CHIPID_CORE(_id) (((_id) >> 24) & 0xFF)
+#define ADRENO_CHIPID_MAJOR(_id) (((_id) >> 16) & 0xFF)
+#define ADRENO_CHIPID_MINOR(_id) (((_id) >> 8) & 0xFF)
+#define ADRENO_CHIPID_PATCH(_id) ((_id) & 0xFF)
+
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0x00000000
 #define KGSL_CMD_FLAGS_PMODE		0x00000001
