@@ -256,7 +256,7 @@ VREG_CONSUMERS(EXT_MPP8) = {
 VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
 	REGULATOR_SUPPLY("vdd_io",		"spi0.2"),
-	REGULATOR_SUPPLY("mhl_ext_3p3v",	"msm_otg"),
+	REGULATOR_SUPPLY("mhl_usb_hs_switch",	"msm_otg"),
 	REGULATOR_SUPPLY("lvds_vccs_3p3v",      "lvds.0"),
 	REGULATOR_SUPPLY("dsi1_vccs_3p3v",      "mipi_dsi.1"),
 	REGULATOR_SUPPLY("hdmi_mux_vdd",        "hdmi_msm.0"),
