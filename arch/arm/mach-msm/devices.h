@@ -377,6 +377,7 @@ extern struct platform_device msm_bus_8064_sys_fpb;
 extern struct platform_device msm_bus_8064_cpss_fpb;
 
 extern struct platform_device mdm_8064_device;
+extern struct platform_device i2s_mdm_8064_device;
 extern struct platform_device msm_dsps_device_8064;
 extern struct platform_device *msm_8974_stub_regulator_devices[];
 extern int msm_8974_stub_regulator_devices_len;
