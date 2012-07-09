@@ -21,7 +21,7 @@
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/android_pmem.h>
-#include <linux/msm_kgsl.h>
+#include <mach/kgsl.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
