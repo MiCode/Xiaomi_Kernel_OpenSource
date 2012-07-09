@@ -885,6 +885,58 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config mdm_i2s_configs[] __initdata = {
+	/* AP2MDM_STATUS */
+	{
+		.gpio = 48,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+		}
+	},
+	/* MDM2AP_STATUS */
+	{
+		.gpio = 49,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm2ap_status_cfg,
+		}
+	},
+	/* MDM2AP_ERRFATAL */
+	{
+		.gpio = 19,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm2ap_errfatal_cfg,
+		}
+	},
+	/* AP2MDM_ERRFATAL */
+	{
+		.gpio = 18,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+		}
+	},
+	/* AP2MDM_SOFT_RESET, aka AP2MDM_PON_RESET_N */
+	{
+		.gpio = 0,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_soft_reset_cfg,
+		}
+	},
+	/* AP2MDM_WAKEUP */
+	{
+		.gpio = 44,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_wakeup,
+		}
+	},
+	/* MDM2AP_PBL_READY*/
+	{
+		.gpio = 81,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm2ap_pblrdy,
+		}
+	},
+};
+
 static struct gpiomux_setting mi2s_act_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -1273,9 +1325,14 @@ void __init apq8064_init_gpiomux(void)
 	msm_gpiomux_install(apq8064_ext_regulator_configs,
 			ARRAY_SIZE(apq8064_ext_regulator_configs));
 
-	if (machine_is_apq8064_mtp())
-		msm_gpiomux_install(mdm_configs,
-			ARRAY_SIZE(mdm_configs));
+	if (machine_is_apq8064_mtp()) {
+		if (SOCINFO_VERSION_MINOR(platform_version) == 1)
+			msm_gpiomux_install(mdm_i2s_configs,
+					ARRAY_SIZE(mdm_i2s_configs));
+		else
+			msm_gpiomux_install(mdm_configs,
+					ARRAY_SIZE(mdm_configs));
+	}
 
 	if (machine_is_apq8064_mtp()) {
 		if (SOCINFO_VERSION_MINOR(platform_version) == 1) {

@@ -2907,6 +2907,7 @@ static void enable_avc_i2c_bus(void)
 
 static void __init apq8064_common_init(void)
 {
+	u32 platform_version;
 	msm_tsens_early_init(&apq_tsens_pdata);
 	msm_thermal_init(&msm_thermal_pdata);
 	if (socinfo_init() < 0)
@@ -2949,7 +2950,15 @@ static void __init apq8064_common_init(void)
 
 	if (machine_is_apq8064_mtp()) {
 		mdm_8064_device.dev.platform_data = &mdm_platform_data;
-		platform_device_register(&mdm_8064_device);
+		platform_version = socinfo_get_platform_version();
+		if (SOCINFO_VERSION_MINOR(platform_version) == 1) {
+			i2s_mdm_8064_device.dev.platform_data =
+				&mdm_platform_data;
+			platform_device_register(&i2s_mdm_8064_device);
+		} else {
+			mdm_8064_device.dev.platform_data = &mdm_platform_data;
+			platform_device_register(&mdm_8064_device);
+		}
 	}
 	platform_device_register(&apq8064_slim_ctrl);
 	slim_register_board_info(apq8064_slim_devices,

@@ -2369,8 +2369,11 @@ struct msm_mpm_device_data apq8064_mpm_dev_data __initdata = {
 #define MDM2AP_STATUS			49
 #define AP2MDM_STATUS			48
 #define AP2MDM_SOFT_RESET		27
+#define I2S_AP2MDM_SOFT_RESET		0
 #define AP2MDM_WAKEUP			35
+#define I2S_AP2MDM_WAKEUP		44
 #define MDM2AP_PBLRDY			46
+#define I2S_MDM2AP_PBLRDY		81
 
 static struct resource mdm_resources[] = {
 	{
@@ -2417,6 +2420,51 @@ static struct resource mdm_resources[] = {
 	},
 };
 
+static struct resource i2s_mdm_resources[] = {
+	{
+		.start	= MDM2AP_ERRFATAL,
+		.end	= MDM2AP_ERRFATAL,
+		.name	= "MDM2AP_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_ERRFATAL,
+		.end	= AP2MDM_ERRFATAL,
+		.name	= "AP2MDM_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_STATUS,
+		.end	= MDM2AP_STATUS,
+		.name	= "MDM2AP_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_STATUS,
+		.end	= AP2MDM_STATUS,
+		.name	= "AP2MDM_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= I2S_AP2MDM_SOFT_RESET,
+		.end	= I2S_AP2MDM_SOFT_RESET,
+		.name	= "AP2MDM_SOFT_RESET",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= I2S_AP2MDM_WAKEUP,
+		.end	= I2S_AP2MDM_WAKEUP,
+		.name	= "AP2MDM_WAKEUP",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= I2S_MDM2AP_PBLRDY,
+		.end	= I2S_MDM2AP_PBLRDY,
+		.name	= "MDM2AP_PBLRDY",
+		.flags	= IORESOURCE_IO,
+	},
+};
+
 struct platform_device mdm_8064_device = {
 	.name		= "mdm2_modem",
 	.id		= -1,
@@ -2424,6 +2472,12 @@ struct platform_device mdm_8064_device = {
 	.resource	= mdm_resources,
 };
 
+struct platform_device i2s_mdm_8064_device = {
+	.name		= "mdm2_modem",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(i2s_mdm_resources),
+	.resource	= i2s_mdm_resources,
+};
 static int apq8064_LPM_latency = 1000; /* >100 usec for WFI */
 
 struct platform_device apq8064_cpu_idle_device = {
