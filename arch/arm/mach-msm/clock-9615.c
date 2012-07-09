@@ -657,8 +657,14 @@ static CLK_SDC(sdc2_clk, 2, 5, clk_tbl_sdc1_2);
 		.ns_val = NS(23, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_bb_mux), \
 	}
 static struct clk_freq_tbl clk_tbl_usb[] = {
-	F_USB(       0, gnd,  1, 0,  0),
+	F_USB(       0,  gnd, 1, 0,  0),
 	F_USB(60000000, pll8, 1, 5, 32),
+	F_END
+};
+
+static struct clk_freq_tbl clk_tbl_usb_hs1_sys[] = {
+	F_USB(       0,		    gnd, 1, 0,  0),
+	F_USB(60000000, pll8_activeonly, 1, 5, 32),
 	F_END
 };
 
@@ -708,7 +714,7 @@ static struct rcg_clk usb_hs1_sys_clk = {
 	.ns_mask = (BM(23, 16) | BM(6, 0)),
 	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
-	.freq_tbl = clk_tbl_usb,
+	.freq_tbl = clk_tbl_usb_hs1_sys,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "usb_hs1_sys_clk",
