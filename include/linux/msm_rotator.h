@@ -55,6 +55,7 @@ struct msm_rotator_platform_data {
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
 #endif
+	char rot_iommu_split_domain;
 };
 #endif
 
