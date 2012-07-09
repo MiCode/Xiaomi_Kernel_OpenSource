@@ -572,7 +572,6 @@ static int __init ssr_init_soc_restart_orders(void)
 
 	if (restart_orders == NULL || n_restart_orders < 1) {
 		WARN_ON(1);
-		return -EINVAL;
 	}
 
 	return 0;
