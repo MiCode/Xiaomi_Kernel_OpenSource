@@ -33,6 +33,12 @@
 #define KGSL_2D1_REG_MEMORY	"kgsl_2d1_reg_memory"
 #define KGSL_2D1_IRQ		"kgsl_2d1_irq"
 
+#define ADRENO_CHIPID(_co, _ma, _mi, _pa) \
+	((((_co) & 0xFF) << 24) | \
+	 (((_ma) & 0xFF) << 16) | \
+	 (((_mi) & 0xFF) << 8) | \
+	 ((_pa) & 0xFF))
+
 enum kgsl_iommu_context_id {
 	KGSL_IOMMU_CONTEXT_USER = 0,
 	KGSL_IOMMU_CONTEXT_PRIV = 1,
@@ -70,6 +76,7 @@ struct kgsl_device_platform_data {
 	struct kgsl_device_iommu_data *iommu_data;
 	int iommu_count;
 	struct msm_dcvs_core_info *core_info;
+	unsigned int chipid;
 };
 
 #endif

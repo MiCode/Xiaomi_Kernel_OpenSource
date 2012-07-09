@@ -160,8 +160,16 @@ static struct platform_device device_kgsl_3d0 = {
 
 void __init msm8930_init_gpu(void)
 {
+	unsigned int version = socinfo_get_version();
+
 	if (cpu_is_msm8627())
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 400000000;
+
+	if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
+		(SOCINFO_VERSION_MINOR(version) == 2))
+		kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 0, 5, 2);
+	else
+		kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 0, 5, 0);
 
 	platform_device_register(&device_kgsl_3d0);
 }
