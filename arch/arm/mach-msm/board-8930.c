@@ -1741,7 +1741,7 @@ static struct i2c_board_info msm_isa1200_board_info[] __initdata = {
 #define MXT_TS_GPIO_IRQ			11
 #define MXT_TS_RESET_GPIO		52
 
-static const u8 mxt_config_data_8930[] = {
+static const u8 mxt_config_data_8930_v1[] = {
 	/* T6 Object */
 	 0, 0, 0, 0, 0, 0,
 	/* T38 Object */
@@ -1784,6 +1784,43 @@ static const u8 mxt_config_data_8930[] = {
 	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	 0, 0, 0, 0,
+};
+
+static const u8 mxt_config_data_8930_v2[] = {
+	/* T6 Object */
+	 0, 0, 0, 0, 0, 0,
+	/* T38 Object */
+	 15, 4, 0, 9, 7, 12, 0, 0,
+	/* T7 Object */
+	32, 16, 50,
+	/* T8 Object */
+	 30, 0, 5, 10, 0, 0, 10, 10, 0, 0,
+	/* T9 Object */
+	 131, 0, 0, 19, 11, 0, 16, 50, 1, 3,
+	 12, 7, 2, 0, 4, 5, 2, 10, 43, 4,
+	 54, 2, -25, 29, 38, 18, 143, 40, 207, 80,
+	 17, 5, 50, 50, 0,
+	/* T18 Object */
+	 0, 0,
+	/* T19 Object */
+	 0, 0, 0, 0, 0, 0,
+	/* T25 Object */
+	 0, 0, 0, 0, 0, 0,
+	/* T42 Object */
+	 3, 60, 20, 20, 150, 0, 0, 0,
+	/* T46 Object */
+	 0, 3, 28, 28, 0, 0, 1, 0, 0,
+	/* T47 Object */
+	 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	/* T48 Object */
+	 1, 3, 82, 0, 0, 0, 0, 0, 0, 0,
+	 16, 30, 0, 6, 6, 0, 0, 124, 4, 100,
+	 0, 0, 0, 5, 0, 42, 0, 1, 0, 40,
+	 52, 20, 0, 0, 0, 50, 1, 5, 2, 1,
+	 4, 5, 3, -25, 29, 38, 18, 143, 40, 207,
+	 80, 10, 5, 2,
+	/* T55 Object */
+	0, 0, 0, 0,
 };
 
 static ssize_t mxt224e_vkeys_show(struct kobject *kobj,
@@ -1833,12 +1870,33 @@ static void mxt_init_vkeys_8930(void)
 
 static struct mxt_config_info mxt_config_array[] = {
 	{
-		.config			= mxt_config_data_8930,
-		.config_length		= ARRAY_SIZE(mxt_config_data_8930),
+		.config			= mxt_config_data_8930_v1,
+		.config_length		= ARRAY_SIZE(mxt_config_data_8930_v1),
 		.family_id		= 0x81,
 		.variant_id		= 0x01,
 		.version		= 0x10,
 		.build			= 0xAA,
+		.bootldr_id		= MXT_BOOTLOADER_ID_224E,
+		.fw_name		= "atmel_8930_fluid_v2_0_AB.hex",
+	},
+	{
+		.config			= mxt_config_data_8930_v2,
+		.config_length		= ARRAY_SIZE(mxt_config_data_8930_v2),
+		.family_id		= 0x81,
+		.variant_id		= 0x15,
+		.version		= 0x11,
+		.build			= 0xAA,
+		.bootldr_id		= MXT_BOOTLOADER_ID_224E,
+		.fw_name		= "atmel_8930_fluid_v2_0_AB.hex",
+	},
+	{
+		.config			= mxt_config_data_8930_v2,
+		.config_length		= ARRAY_SIZE(mxt_config_data_8930_v2),
+		.family_id		= 0x81,
+		.variant_id		= 0x01,
+		.version		= 0x20,
+		.build			= 0xAB,
+		.bootldr_id		= MXT_BOOTLOADER_ID_224E,
 	},
 };
 
