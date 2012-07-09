@@ -52,7 +52,7 @@ struct msm_rpm_driver_data {
 #define ERR "err\0"
 #define MAX_ERR_BUFFER_SIZE 60
 
-static struct atomic_notifier_head msm_rpm_sleep_notifier;
+static ATOMIC_NOTIFIER_HEAD(msm_rpm_sleep_notifier);
 static bool standalone;
 
 int msm_rpm_register_notifier(struct notifier_block *nb)
