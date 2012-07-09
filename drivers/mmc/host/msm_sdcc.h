@@ -213,7 +213,7 @@
 
 #define NR_SG		128
 
-#define MSM_MMC_IDLE_TIMEOUT	5000 /* msecs */
+#define MSM_MMC_DEFAULT_IDLE_TIMEOUT	5000 /* msecs */
 #define MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
 
 /* Set the request timeout to 10secs */
@@ -411,9 +411,11 @@ struct msmsdcc_host {
 	bool sdio_wakeupirq_disabled;
 	struct mutex clk_mutex;
 	bool pending_resume;
+	unsigned int idle_tout_ms;			/* Timeout in msecs */
 	struct msmsdcc_msm_bus_vote msm_bus_vote;
 	struct device_attribute	max_bus_bw;
 	struct device_attribute	polling;
+	struct device_attribute idle_timeout;
 };
 
 #define MSMSDCC_VERSION_MASK	0xFFFF
