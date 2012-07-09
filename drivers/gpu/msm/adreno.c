@@ -373,6 +373,11 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 				KGSL_IOMMU_CTX_SHIFT) +
 				KGSL_IOMMU_CTX_TLBIASID);
 			*cmds++ = kgsl_mmu_get_hwpagetable_asid(&device->mmu);
+
+			cmds += __adreno_add_idle_indirect_cmds(cmds,
+			device->mmu.setstate_memory.gpuaddr +
+			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+
 			cmds += adreno_add_read_cmds(device, cmds,
 				reg_map_desc[i]->gpuaddr +
 				(KGSL_IOMMU_CONTEXT_USER <<
