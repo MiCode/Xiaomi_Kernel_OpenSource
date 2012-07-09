@@ -665,6 +665,8 @@ int vidc_hal_core_release(void *device)
 	}
 	write_register(dev->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG3, 0, 0);
+	disable_irq_nosync(dev->hal_data->irq);
+	vidc_hal_interface_queues_release(dev);
 	HAL_MSG_INFO("\nHAL exited\n");
 	return 0;
 }
