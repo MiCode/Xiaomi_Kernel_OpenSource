@@ -109,7 +109,6 @@ struct audio_aac_in {
 	int out_frame_cnt;
 
 	struct msm_adsp_module *audrec;
-	struct msm_adsp_module *audpre;
 
 
 	/* configuration to use on next enable */
@@ -150,6 +149,8 @@ struct audio_aac_in {
 	struct ion_client *client;
 	struct ion_handle *input_buff_handle;
 	struct ion_handle *output_buff_handle;
+
+	struct audrec_session_info session_info; /*audrec session info*/
 };
 
 struct audio_frame {
@@ -273,6 +274,31 @@ static unsigned int bitrate_to_record_quality(unsigned int sample_rate,
 	return temp;
 }
 
+/* ------------------- dsp --------------------- */
+static void audpre_dsp_event(void *data, unsigned id,  void *event_data)
+{
+
+	uint16_t *msg = event_data;
+
+	if (!msg)
+		return;
+
+	switch (id) {
+	case AUDPREPROC_MSG_CMD_CFG_DONE_MSG:
+		MM_DBG("type %d, status_flag %d\n",\
+			msg[0], msg[1]);
+		break;
+	case AUDPREPROC_MSG_ERROR_MSG_ID:
+		MM_INFO("err_index %d\n", msg[0]);
+		break;
+	case ADSP_MESSAGE_ID:
+		MM_DBG("Received ADSP event: module enable(audpreproctask)\n");
+		break;
+	default:
+		MM_ERR("unknown event %d\n", id);
+	}
+}
+
 /* must be called with audio->lock held */
 static int audaac_in_enable(struct audio_aac_in *audio)
 {
@@ -293,16 +319,24 @@ static int audaac_in_enable(struct audio_aac_in *audio)
 		if (rc < 0)
 			return rc;
 
-		if (msm_adsp_enable(audio->audpre)) {
+		if (audpreproc_enable(audio->enc_id,
+				&audpre_dsp_event, audio)) {
+			MM_ERR("msm_adsp_enable(audpreproc) failed\n");
 			audmgr_disable(&audio->audmgr);
-			MM_ERR("msm_adsp_enable(audpre) failed\n");
 			return -ENODEV;
 		}
+
+		/*update aurec session info in audpreproc layer*/
+		audio->session_info.session_id = audio->enc_id;
+		audio->session_info.sampling_freq =
+			convert_samp_index(audio->samp_rate);
+		audpreproc_update_audrec_info(&audio->session_info);
 	}
+
 	if (msm_adsp_enable(audio->audrec)) {
 		if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL) {
+			audpreproc_disable(audio->enc_id, audio);
 			audmgr_disable(&audio->audmgr);
-			msm_adsp_disable(audio->audpre);
 		}
 		MM_ERR("msm_adsp_enable(audrec) failed\n");
 		return -ENODEV;
@@ -328,35 +362,16 @@ static int audaac_in_disable(struct audio_aac_in *audio)
 		wake_up(&audio->wait);
 		msm_adsp_disable(audio->audrec);
 		if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL) {
-			msm_adsp_disable(audio->audpre);
+			audpreproc_disable(audio->enc_id, audio);
+			/*reset the sampling frequency information at
+			audpreproc layer*/
+			audio->session_info.sampling_freq = 0;
+			audpreproc_update_audrec_info(&audio->session_info);
 			audmgr_disable(&audio->audmgr);
 		}
 	}
 	return 0;
 }
-
-/* ------------------- dsp --------------------- */
-static void audpre_dsp_event(void *data, unsigned id, size_t len,
-			    void (*getevent)(void *ptr, size_t len))
-{
-	uint16_t msg[2];
-	getevent(msg, sizeof(msg));
-
-	switch (id) {
-	case AUDPREPROC_MSG_CMD_CFG_DONE_MSG:
-		MM_DBG("type %d, status_flag %d\n", msg[0], msg[1]);
-		break;
-	case AUDPREPROC_MSG_ERROR_MSG_ID:
-		MM_ERR("err_index %d\n", msg[0]);
-		break;
-	case ADSP_MESSAGE_ID:
-		MM_DBG("Received ADSP event: module enable(audpreproctask)\n");
-		break;
-	default:
-		MM_ERR("unknown event %d\n", id);
-	}
-}
-
 
 static void audaac_in_get_dsp_frames(struct audio_aac_in *audio)
 {
@@ -596,11 +611,7 @@ static void audrec_dsp_event(void *data, unsigned id, size_t len,
 	}
 }
 
-struct msm_adsp_ops audpre_aac_adsp_ops = {
-	.event = audpre_dsp_event,
-};
-
-struct msm_adsp_ops audrec_aac_adsp_ops = {
+static struct msm_adsp_ops audrec_aac_adsp_ops = {
 	.event = audrec_dsp_event,
 };
 
@@ -1241,12 +1252,9 @@ static int audaac_in_release(struct inode *inode, struct file *file)
 	audaac_in_flush(audio);
 	msm_adsp_put(audio->audrec);
 
-	if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL)
-		msm_adsp_put(audio->audpre);
 
 	audpreproc_aenc_free(audio->enc_id);
 	audio->audrec = NULL;
-	audio->audpre = NULL;
 	audio->opened = 0;
 
 	if ((audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) && \
@@ -1340,16 +1348,6 @@ static int audaac_in_open(struct inode *inode, struct file *file)
 	if (rc) {
 		audpreproc_aenc_free(audio->enc_id);
 		goto done;
-	}
-
-	if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL) {
-		rc = msm_adsp_get("AUDPREPROCTASK", &audio->audpre,
-				&audpre_aac_adsp_ops, audio);
-		if (rc) {
-			msm_adsp_put(audio->audrec);
-			audpreproc_aenc_free(audio->enc_id);
-			goto done;
-		}
 	}
 
 	audio->dsp_cnt = 0;
@@ -1493,8 +1491,6 @@ output_buff_alloc_error:
 	ion_client_destroy(client);
 client_create_error:
 	msm_adsp_put(audio->audrec);
-	if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL)
-		msm_adsp_put(audio->audpre);
 
 	audpreproc_aenc_free(audio->enc_id);
 	mutex_unlock(&audio->lock);
