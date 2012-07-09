@@ -29,6 +29,7 @@
 #include <mach/board.h>
 #include <mach/msm_rpcrouter.h>
 #include <mach/debug_mm.h>
+#include <linux/debugfs.h>
 
 struct snd_cad_ctxt {
 	struct mutex lock;
@@ -59,6 +60,7 @@ static struct snd_curr_dev_info curr_dev;
 
 #define SND_CAD_SET_DEVICE_PROC 40
 #define SND_CAD_SET_VOLUME_PROC 39
+#define MAX_SND_ACTIVE_DEVICE 2
 
 struct rpc_cad_set_device_args {
 	struct cad_devices_type device;
@@ -89,6 +91,111 @@ struct snd_cad_set_volume_msg {
 };
 
 struct cad_endpoint *get_cad_endpoints(int *size);
+
+#ifdef CONFIG_DEBUG_FS
+static struct dentry *dentry;
+
+static int rtc_getdevice_dbg_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	MM_INFO("debug intf %s\n", (char *) file->private_data);
+	return 0;
+}
+
+static ssize_t rtc_getdevice_dbg_read(struct file *file, char __user *buf,
+			  size_t count, loff_t *ppos)
+{
+	int n = 0;
+	static char *buffer;
+	static char *swap_buf;
+	const int debug_bufmax = 1024;
+	int swap_count = 0;
+	int rc = 0;
+	int dev_count = 0;
+	int dev_id = 0;
+	struct msm_cad_endpoints *msm_cad_epts = the_snd.cad_epts;
+	struct cad_endpoint *cad_epts;
+
+	buffer = kmalloc(sizeof(char) * 1024, GFP_KERNEL);
+	if (buffer == NULL) {
+		MM_ERR("Memory allocation failed for buffer failed\n");
+		return -EFAULT;
+	}
+
+	swap_buf = kmalloc(sizeof(char) * 1024, GFP_KERNEL);
+	if (swap_buf == NULL) {
+		MM_ERR("Memory allocation failed for swap buffer failed\n");
+		kfree(buffer);
+		return -EFAULT;
+	}
+
+	if (msm_cad_epts->num <= 0) {
+		dev_count = 0;
+		n = scnprintf(buffer, debug_bufmax, "DEV_NO:0x%x\n",
+				msm_cad_epts->num);
+	} else {
+		for (dev_id = 0; dev_id < msm_cad_epts->num; dev_id++) {
+			cad_epts = &msm_cad_epts->endpoints[dev_id];
+			if (IS_ERR(cad_epts)) {
+				MM_ERR("invalid snd endpoint for dev_id %d\n",
+					dev_id);
+				rc = PTR_ERR(cad_epts);
+				continue;
+			}
+
+			if ((cad_epts->id != curr_dev.tx_dev) &&
+				(cad_epts->id != curr_dev.rx_dev))
+				continue;
+
+			n += scnprintf(swap_buf + n, debug_bufmax - n,
+					"ACDB_ID:0x%x;CAPB:0x%x\n",
+					cad_epts->id,
+					cad_epts->capability);
+			dev_count++;
+			MM_DBG("RTC Get Device %x Capb %x Dev Count %x\n",
+					dev_id, cad_epts->capability,
+					dev_count);
+
+		}
+	}
+	swap_count = scnprintf(buffer, debug_bufmax, \
+			"DEV_NO:0x%x\n", dev_count);
+
+	memcpy(buffer+swap_count, swap_buf, n*sizeof(char));
+	n = n+swap_count;
+
+	buffer[n] = 0;
+	rc =  simple_read_from_buffer(buf, count, ppos, buffer, n);
+	kfree(buffer);
+	kfree(swap_buf);
+	return rc;
+}
+
+static const struct file_operations rtc_acdb_debug_fops = {
+	.open = rtc_getdevice_dbg_open,
+	.read = rtc_getdevice_dbg_read
+};
+
+static int rtc_debugfs_create_entry(void)
+{
+	int rc = 0;
+	char name[sizeof "rtc_get_device"+1];
+
+	snprintf(name, sizeof name, "rtc_get_device");
+	dentry = debugfs_create_file(name, S_IFREG | S_IRUGO,
+			NULL, NULL, &rtc_acdb_debug_fops);
+	if (IS_ERR(dentry)) {
+		MM_ERR("debugfs_create_file failed\n");
+		rc = PTR_ERR(dentry);
+	}
+	return rc;
+}
+#else
+static int rtc_debugfs_create_entry()
+{
+	return 0;
+}
+#endif
 
 static inline int check_mute(int mute)
 {
@@ -468,6 +575,16 @@ static int snd_cad_probe(struct platform_device *pdev)
 		misc_deregister(&snd_cad_misc);
 	}
 
+#ifdef CONFIG_DEBUG_FS
+	rc = rtc_debugfs_create_entry();
+	if (rc) {
+		device_remove_file(snd_cad_misc.this_device,
+						&dev_attr_volume);
+		device_remove_file(snd_cad_misc.this_device,
+						&dev_attr_device);
+		misc_deregister(&snd_cad_misc);
+	}
+#endif
 	return rc;
 }
 

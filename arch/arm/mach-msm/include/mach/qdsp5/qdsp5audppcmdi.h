@@ -530,6 +530,18 @@ typedef struct {
   unsigned short  arm_to_dsp_buf_len;
 } __attribute__((packed)) audpp_cmd_pcm_intf_send_buffer;
 
+#define AUDPP_CMD_PP_FEAT_QUERY_PARAMS  0x0003
+
+struct rtc_audpp_read_data {
+	unsigned short  cmd_id;
+	unsigned short  obj_id;
+	unsigned short  feature_id;
+	unsigned short  extbufsizemsw;
+	unsigned short  extbufsizelsw;
+	unsigned short	extpart;
+	unsigned short	extbufstartmsw;
+	unsigned short	extbufstartlsw;
+} __packed ;
 
 /*
  * Commands Related to uPAudPPCmd3Queue

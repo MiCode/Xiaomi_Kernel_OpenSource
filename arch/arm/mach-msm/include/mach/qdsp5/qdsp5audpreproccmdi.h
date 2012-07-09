@@ -2,30 +2,30 @@
 #define QDSP5AUDPREPROCCMDI_H
 
 /*====*====*====*====*====*====*====*====*====*====*====*====*====*====*====*
-
-    A U D I O   P R E   P R O C E S S I N G  I N T E R N A L  C O M M A N D S
-
-GENERAL DESCRIPTION
-  This file contains defintions of format blocks of commands 
-  that are accepted by AUDPREPROC Task
-
-REFERENCES
-  None
-
-EXTERNALIZED FUNCTIONS
-  None
-
-Copyright (c) 1992-2009, Code Aurora Forum. All rights reserved.
-
-This software is licensed under the terms of the GNU General Public
-License version 2, as published by the Free Software Foundation, and
-may be copied, distributed, and modified under those terms.
- 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
+*
+*    A U D I O   P R E   P R O C E S S I N G  I N T E R N A L  C O M M A N D S
+*
+* GENERAL DESCRIPTION
+*   This file contains defintions of format blocks of commands
+*   that are accepted by AUDPREPROC Task
+*
+* REFERENCES
+*   None
+*
+* EXTERNALIZED FUNCTIONS
+*   None
+*
+* Copyright (c) 1992-2009, 2012 Code Aurora Forum. All rights reserved.
+*
+* This software is licensed under the terms of the GNU General Public
+* License version 2, as published by the Free Software Foundation, and
+* may be copied, distributed, and modified under those terms.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
 *====*====*====*====*====*====*====*====*====*====*====*====*====*====*====*/
 /*===========================================================================
 
@@ -84,29 +84,29 @@ $Header: //source/qcom/qct/multimedia2/Audio/drivers/QDSP5Driver/QDSP5Interface/
 typedef struct {
 	unsigned short	cmd_id;
 	unsigned short	tx_agc_param_mask;
-	unsigned short	tx_agc_enable_flag;
-	unsigned short	static_gain;
-	signed short	adaptive_gain_flag;
-	unsigned short	expander_th;
-	unsigned short	expander_slope;
-	unsigned short	compressor_th;
-	unsigned short	compressor_slope;
-	unsigned short	param_mask;
-	unsigned short	aig_attackk;
-	unsigned short	aig_leak_down;
-	unsigned short	aig_leak_up;
-	unsigned short	aig_max;
-	unsigned short	aig_min;
-	unsigned short	aig_releasek;
-	unsigned short	aig_leakrate_fast;
-	unsigned short	aig_leakrate_slow;
-	unsigned short	attackk_msw;
-	unsigned short	attackk_lsw;
-	unsigned short	delay;
-	unsigned short	releasek_msw;
-	unsigned short	releasek_lsw;
-	unsigned short	rms_tav;
-} __attribute__((packed)) audpreproc_cmd_cfg_agc_params;
+	signed short	tx_agc_enable_flag;
+	unsigned short	comp_rlink_static_gain;
+	signed short	comp_rlink_aig_flag;
+	unsigned short	expander_rlink_th;
+	unsigned short	expander_rlink_slope;
+	unsigned short	compressor_rlink_th;
+	unsigned short	compressor_rlink_slope;
+	unsigned short	tx_adc_agc_param_mask;
+	unsigned short	comp_rlink_aig_attackk;
+	unsigned short	comp_rlink_aig_leak_down;
+	unsigned short	comp_rlink_aig_leak_up;
+	unsigned short	comp_rlink_aig_max;
+	unsigned short	comp_rlink_aig_min;
+	unsigned short	comp_rlink_aig_releasek;
+	unsigned short	comp_rlink_aig_leakrate_fast;
+	unsigned short	comp_rlink_aig_leakrate_slow;
+	unsigned short	comp_rlink_attackk_msw;
+	unsigned short	comp_rlink_attackk_lsw;
+	unsigned short	comp_rlink_delay;
+	unsigned short	comp_rlink_releasek_msw;
+	unsigned short	comp_rlink_releasek_lsw;
+	unsigned short	comp_rlink_rms_tav;
+} __packed audpreproc_cmd_cfg_agc_params;
 
 
 /*
@@ -253,4 +253,16 @@ typedef struct {
 	unsigned short	channel_selected3;
 } __attribute__((packed))audpreproc_cmd_cfg_iir_tuning_filter_params;
 
+#define AUDPREPROC_CMD_FEAT_QUERY_PARAMS 0x0004
+
+struct rtc_audpreproc_read_data {
+	unsigned short	cmd_id;
+	unsigned short	stream_id;
+	unsigned short  feature_id;
+	unsigned short  extbufsizemsw;
+	unsigned short  extbufsizelsw;
+	unsigned short  extpart;
+	unsigned short  extbufstartmsw;
+	unsigned short	extbufstartlsw;
+} __packed ;
 #endif
