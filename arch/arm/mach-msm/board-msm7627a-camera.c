@@ -292,6 +292,14 @@ static struct msm_camera_sensor_platform_info sensor_board_info_ov8825 = {
 	.gpio_conf = &gpio_conf_ov8825,
 };
 
+static struct msm_actuator_info msm_act_main_cam_3_info = {
+	.board_info     = &msm_act_main_cam_i2c_info,
+	.cam_name   = MSM_ACTUATOR_MAIN_CAM_3,
+	.bus_id         = MSM_GSBI0_QUP_I2C_BUS_ID,
+	.vcm_pwd        = GPIO_SKU3_CAM_5MP_CAM_DRIVER_PWDN,
+	.vcm_enable     = 0,
+};
+
 static struct msm_camera_sensor_info msm_camera_sensor_ov8825_data = {
 	.sensor_name    = "ov8825",
 	.sensor_reset_enable    = 1,
@@ -303,6 +311,8 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov8825_data = {
 	.sensor_platform_info = &sensor_board_info_ov8825,
 	.csi_if = 1,
 	.camera_type = BACK_CAMERA_2D,
+	.sensor_type = BAYER_SENSOR,
+	.actuator_info = &msm_act_main_cam_3_info,
 };
 
 #ifdef CONFIG_MT9E013
