@@ -293,7 +293,7 @@ static void usb_wwan_in_work(struct work_struct *w)
 
 		tty = tty_port_tty_get(&port->port);
 		if (!tty)
-			continue;
+			break;
 
 		list_del_init(&urb->urb_list);
 
