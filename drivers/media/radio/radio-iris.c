@@ -103,6 +103,7 @@ struct iris_device {
 	struct hci_fm_ch_det_threshold ch_det_threshold;
 	struct hci_fm_data_rd_rsp default_data;
 	struct hci_fm_spur_data spur_data;
+	unsigned char is_station_valid;
 };
 
 static struct video_device *priv_videodev;
@@ -2645,6 +2646,9 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 
 		ctrl->value = radio->ch_det_threshold.sinr_samples;
 		break;
+	case V4L2_CID_PRIVATE_VALID_CHANNEL:
+		ctrl->value = radio->is_station_valid;
+		break;
 	default:
 		retval = -EINVAL;
 	}
@@ -2811,6 +2815,8 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	struct hci_fm_tx_rt tx_rt = {0};
 	struct hci_fm_def_data_rd_req rd_txgain;
 	struct hci_fm_def_data_wr_req wr_txgain;
+	char sinr_th, sinr;
+	__u8 intf_det_low_th, intf_det_high_th, intf_det_out;
 
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_IRIS_TX_TONE:
@@ -3280,6 +3286,40 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_PRIVATE_UPDATE_SPUR_TABLE:
 		update_spur_table(radio);
+		break;
+	case V4L2_CID_PRIVATE_VALID_CHANNEL:
+		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("%s: Failed to determine channel's validity\n",
+				__func__);
+			return retval;
+		} else {
+			sinr_th = radio->ch_det_threshold.sinr;
+			intf_det_low_th = radio->ch_det_threshold.low_th;
+			intf_det_high_th = radio->ch_det_threshold.high_th;
+		}
+
+		retval = hci_cmd(HCI_FM_GET_STATION_PARAM_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("%s: Failed to determine channel's validity\n",
+				__func__);
+			return retval;
+		} else
+			sinr = radio->fm_st_rsp.station_rsp.sinr;
+
+		retval = hci_cmd(HCI_FM_STATION_DBG_PARAM_CMD, radio->fm_hdev);
+		if (retval < 0) {
+			FMDERR("%s: Failed to determine channel's validity\n",
+				 __func__);
+			return retval;
+		} else
+			intf_det_out = radio->st_dbg_param.in_det_out;
+
+		if ((sinr >= sinr_th) && (intf_det_out >= intf_det_low_th) &&
+			(intf_det_out <= intf_det_high_th))
+			radio->is_station_valid = VALID_CHANNEL;
+		else
+			radio->is_station_valid = INVALID_CHANNEL;
 		break;
 	default:
 		retval = -EINVAL;
