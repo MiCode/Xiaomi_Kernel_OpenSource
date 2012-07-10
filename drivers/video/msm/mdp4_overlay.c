@@ -424,9 +424,6 @@ void mdp4_overlay_dmap_xy(struct mdp4_overlay_pipe *pipe)
 	if (mdp_is_in_isr == FALSE)
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
-	/* dma_p source */
-	MDP_OUTP(MDP_BASE + 0x90004,
-			(pipe->src_height << 16 | pipe->src_width));
 	if (pipe->blt_addr) {
 #ifdef BLT_RGB565
 		bpp = 2; /* overlay ouput is RGB565 */
@@ -443,6 +440,9 @@ void mdp4_overlay_dmap_xy(struct mdp4_overlay_pipe *pipe)
 		MDP_OUTP(MDP_BASE + 0x90008, pipe->srcp0_addr);
 		MDP_OUTP(MDP_BASE + 0x9000c, pipe->srcp0_ystride);
 	}
+	/* dma_p source */
+	MDP_OUTP(MDP_BASE + 0x90004,
+			(pipe->src_height << 16 | pipe->src_width));
 
 	/* dma_p dest */
 	MDP_OUTP(MDP_BASE + 0x90010, (pipe->dst_y << 16 | pipe->dst_x));
@@ -3120,7 +3120,6 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 		/* primary interface */
 		ctrl->mixer0_played++;
 		if (ctrl->panel_mode & MDP4_PANEL_LCDC) {
-			mdp4_overlay_reg_flush(pipe, 0);
 			mdp4_overlay_lcdc_start();
 			mdp4_overlay_lcdc_vsync_push(mfd, pipe);
 			if (!mfd->use_ov0_blt &&
@@ -3129,7 +3128,6 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 		}
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 		else if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) {
-			mdp4_overlay_reg_flush(pipe, 0);
 			mdp4_overlay_dsi_video_start();
 			mdp4_overlay_dsi_video_vsync_push(mfd, pipe);
 			if (!mfd->use_ov0_blt &&

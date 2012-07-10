@@ -655,7 +655,7 @@ static void mdp4_dsi_video_do_blt(struct msm_fb_data_type *mfd, int enable)
 	data &= 0x01;
 	if (data) {	/* timing generator enabled */
 		mdp4_overlay_dsi_video_wait4event(mfd, INTR_DMA_P_DONE);
-		mdp4_overlay_dsi_video_wait4event(mfd, INTR_PRIMARY_VSYNC);
+		msleep(20);
 	}
 
 
