@@ -17,6 +17,9 @@
 #include <mach/rpm.h>
 #include <mach/rpm-smd.h>
 
+#define RPM_SMD_KEY_RATE	0x007A484B
+#define RPM_SMD_KEY_ENABLE	0x62616E45
+
 struct clk_ops;
 struct clk_rpmrs_data;
 extern struct clk_ops clk_ops_rpm;
@@ -24,6 +27,7 @@ extern struct clk_ops clk_ops_rpm_branch;
 
 struct rpm_clk {
 	const int rpm_res_type;
+	const int rpm_key;
 	const int rpm_clk_id;
 	const int rpm_status_id;
 	const bool active_only;
@@ -47,12 +51,14 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 extern struct clk_rpmrs_data clk_rpmrs_data;
 extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 
-#define __DEFINE_CLK_RPM(name, active, type, r_id, stat_id, dep, rpmrsdata) \
+#define __DEFINE_CLK_RPM(name, active, type, r_id, stat_id, dep, key, \
+				rpmrsdata) \
 	static struct rpm_clk active; \
 	static struct rpm_clk name = { \
 		.rpm_res_type = (type), \
 		.rpm_clk_id = (r_id), \
 		.rpm_status_id = (stat_id), \
+		.rpm_key = (key), \
 		.peer = &active, \
 		.factor = 1000, \
 		.rpmrs_data = (rpmrsdata),\
@@ -67,6 +73,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpm_res_type = (type), \
 		.rpm_clk_id = (r_id), \
 		.rpm_status_id = (stat_id), \
+		.rpm_key = (key), \
 		.peer = &name, \
 		.active_only = true, \
 		.factor = 1000, \
@@ -80,12 +87,13 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 	};
 
 #define __DEFINE_CLK_RPM_BRANCH(name, active, type, r_id, stat_id, r, \
-					rpmrsdata) \
+					key, rpmrsdata) \
 	static struct rpm_clk active; \
 	static struct rpm_clk name = { \
 		.rpm_res_type = (type), \
 		.rpm_clk_id = (r_id), \
 		.rpm_status_id = (stat_id), \
+		.rpm_key = (key), \
 		.peer = &active, \
 		.last_set_khz = ((r) / 1000), \
 		.last_set_sleep_khz = ((r) / 1000), \
@@ -104,6 +112,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpm_res_type = (type), \
 		.rpm_clk_id = (r_id), \
 		.rpm_status_id = (stat_id), \
+		.rpm_key = (key), \
 		.peer = &name, \
 		.last_set_khz = ((r) / 1000), \
 		.active_only = true, \
@@ -119,12 +128,14 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		}, \
 	};
 
-#define __DEFINE_CLK_RPM_QDSS(name, active, type, r_id, stat_id, rpmrsdata) \
+#define __DEFINE_CLK_RPM_QDSS(name, active, type, r_id, stat_id, \
+				key, rpmrsdata) \
 	static struct rpm_clk active; \
 	static struct rpm_clk name = { \
 		.rpm_res_type = (type), \
 		.rpm_clk_id = (r_id), \
 		.rpm_status_id = (stat_id), \
+		.rpm_key = (key), \
 		.peer = &active, \
 		.factor = 1, \
 		.rpmrs_data = (rpmrsdata),\
@@ -139,6 +150,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpm_res_type = (type), \
 		.rpm_clk_id = (r_id), \
 		.rpm_status_id = (stat_id), \
+		.rpm_key = (key), \
 		.peer = &name, \
 		.active_only = true, \
 		.factor = 1, \
@@ -153,21 +165,22 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 
 #define DEFINE_CLK_RPM(name, active, r_id, dep) \
 	__DEFINE_CLK_RPM(name, active, 0, MSM_RPM_ID_##r_id##_CLK, \
-		MSM_RPM_STATUS_ID_##r_id##_CLK, dep, &clk_rpmrs_data)
+		MSM_RPM_STATUS_ID_##r_id##_CLK, dep, 0, &clk_rpmrs_data)
 
 #define DEFINE_CLK_RPM_QDSS(name, active) \
 	__DEFINE_CLK_RPM_QDSS(name, active, 0, MSM_RPM_ID_QDSS_CLK, \
-		MSM_RPM_STATUS_ID_QDSS_CLK, &clk_rpmrs_data)
+		MSM_RPM_STATUS_ID_QDSS_CLK, 0, &clk_rpmrs_data)
 
 #define DEFINE_CLK_RPM_BRANCH(name, active, r_id, r) \
 	__DEFINE_CLK_RPM_BRANCH(name, active, 0, MSM_RPM_ID_##r_id##_CLK, \
-			MSM_RPM_STATUS_ID_##r_id##_CLK, r, &clk_rpmrs_data)
+			MSM_RPM_STATUS_ID_##r_id##_CLK, r, 0, &clk_rpmrs_data)
 
 #define DEFINE_CLK_RPM_SMD(name, active, type, r_id, dep) \
-	__DEFINE_CLK_RPM(name, active, type, r_id, 0, dep, &clk_rpmrs_data_smd)
+	__DEFINE_CLK_RPM(name, active, type, r_id, 0, dep, \
+				RPM_SMD_KEY_RATE, &clk_rpmrs_data_smd)
 
-#define DEFINE_CLK_RPM_SMD_BRANCH(name, active, type, r_id, dep) \
-	__DEFINE_CLK_RPM_BRANCH(name, active, type, r_id, 0, dep, \
-					&clk_rpmrs_data_smd)
+#define DEFINE_CLK_RPM_SMD_BRANCH(name, active, type, r_id, r) \
+	__DEFINE_CLK_RPM_BRANCH(name, active, type, r_id, 0, r, \
+				RPM_SMD_KEY_ENABLE, &clk_rpmrs_data_smd)
 
 #endif
