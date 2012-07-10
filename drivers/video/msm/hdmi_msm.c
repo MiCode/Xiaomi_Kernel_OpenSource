@@ -4583,10 +4583,11 @@ static int hdmi_msm_probe(struct platform_device *pdev)
 	} else
 		DEV_ERR("Init FAILED: failed to add fb device\n");
 
-	rc = hdmi_msm_hpd_on(true);
-	if (rc)
-		goto error;
-	DEV_INFO("HDMI HPD: ON\n");
+	if (hdmi_prim_display) {
+		rc = hdmi_msm_hpd_on(true);
+		if (rc)
+			goto error;
+	}
 
 	if (hdmi_msm_has_hdcp()) {
 		/* Don't Set Encryption in case of non HDCP builds */
