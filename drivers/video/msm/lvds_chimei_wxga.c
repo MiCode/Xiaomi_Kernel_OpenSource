@@ -134,7 +134,7 @@ static int __init lvds_chimei_wxga_init(void)
 	pinfo->wait_cycle = 0;
 	pinfo->bpp = 24;
 	pinfo->fb_num = 2;
-	pinfo->clk_rate = 75000000;
+	pinfo->clk_rate = 79400000;
 	pinfo->bl_max = 255;
 	pinfo->bl_min = 1;
 
