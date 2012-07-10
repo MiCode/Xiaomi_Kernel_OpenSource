@@ -1818,11 +1818,12 @@ static int msm_tspp_probe(struct platform_device *pdev)
 		goto err_bam;
 	}
 
-	if (device->tsif_pclk && clk_enable(device->tsif_pclk) != 0) {
+	if (device->tsif_pclk && clk_prepare_enable(device->tsif_pclk) != 0) {
 		dev_err(&pdev->dev, "Can't start pclk");
 		goto err_pclk;
 	}
-	if (device->tsif_ref_clk && clk_enable(device->tsif_ref_clk) != 0) {
+	if (device->tsif_ref_clk &&
+		clk_prepare_enable(device->tsif_ref_clk) != 0) {
 		dev_err(&pdev->dev, "Can't start ref clk");
 		goto err_refclk;
 	}
@@ -1849,7 +1850,7 @@ static int msm_tspp_probe(struct platform_device *pdev)
 
 err_refclk:
 	if (device->tsif_pclk)
-		clk_disable(device->tsif_pclk);
+		clk_disable_unprepare(device->tsif_pclk);
 err_pclk:
 	sps_deregister_bam_device(device->bam_handle);
 err_bam:
