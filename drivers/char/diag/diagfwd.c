@@ -129,6 +129,7 @@ int chk_config_get_id(void)
 		case MSM_CPU_8X60:
 			return APQ8060_TOOLS_ID;
 		case MSM_CPU_8960:
+		case MSM_CPU_8960AB:
 			return AO8960_TOOLS_ID;
 		case MSM_CPU_8064:
 			return APQ8064_TOOLS_ID;
@@ -156,6 +157,7 @@ int chk_apps_only(void)
 
 	switch (socinfo_get_msm_cpu()) {
 	case MSM_CPU_8960:
+	case MSM_CPU_8960AB:
 	case MSM_CPU_8064:
 	case MSM_CPU_8930:
 	case MSM_CPU_8930AA:
@@ -178,7 +180,8 @@ int chk_apps_master(void)
 	if (driver->use_device_tree)
 		return 1;
 	else if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
-		cpu_is_msm9615() || cpu_is_apq8064() || cpu_is_msm8627())
+		cpu_is_msm9615() || cpu_is_apq8064() || cpu_is_msm8627() ||
+		cpu_is_msm8960ab())
 		return 1;
 	else
 		return 0;
