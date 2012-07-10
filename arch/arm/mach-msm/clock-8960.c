@@ -6117,7 +6117,7 @@ static void __init reg_init(void)
 
 	if (cpu_is_apq8064())
 		rmwreg(0x019FECFF, MAXI_EN5_REG, 0x01FFEFFF);
-	if (cpu_is_msm8930() || cpu_is_msm8627())
+	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627())
 		rmwreg(0x000004FF, MAXI_EN5_REG, 0x00000FFF);
 	if (cpu_is_msm8627())
 		rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
@@ -6153,7 +6153,8 @@ static void __init reg_init(void)
 		rmwreg(0x80FF0000, DSI2_PIXEL_CC_REG, 0xE0FF0010);
 		rmwreg(0x80FF0000, JPEGD_CC_REG,      0xE0FF0010);
 	}
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8627())
+	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
+	    cpu_is_msm8627())
 		rmwreg(0x80FF0000, TV_CC_REG,         0xE1FFC010);
 
 	if (cpu_is_msm8960()) {
@@ -6245,7 +6246,7 @@ static void __init reg_init(void)
 	 * Program PLL15 to 900MHz with ref clk = 27MHz and
 	 * only enable PLL main output.
 	 */
-	if (cpu_is_msm8930() || cpu_is_msm8627()) {
+	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
 		pll15_config.l = 0x21 | BVAL(31, 7, 0x600);
 		pll15_config.m = 0x1;
 		pll15_config.n = 0x3;
@@ -6259,7 +6260,7 @@ static void __init msm8960_clock_pre_init(void)
 {
 	if (cpu_is_apq8064()) {
 		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8064;
-	} else if (cpu_is_msm8930() || cpu_is_msm8627()) {
+	} else if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
 		vdd_dig.set_vdd = set_vdd_dig_8930;
 		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8930;
 	}
@@ -6289,7 +6290,7 @@ static void __init msm8960_clock_pre_init(void)
 	 * Change the freq tables and voltage requirements for
 	 * clocks which differ between 8960 and 8930.
 	 */
-	if (cpu_is_msm8930() || cpu_is_msm8627()) {
+	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
 		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8930;
 
 		memcpy(gfx3d_clk.c.fmax, fmax_gfx3d_8930,
@@ -6334,7 +6335,8 @@ static void __init msm8960_clock_post_init(void)
 		clk_set_rate(&usb_hs4_xcvr_clk.c, 60000000);
 	}
 	clk_set_rate(&usb_fs1_src_clk.c, 60000000);
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8627())
+	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
+	    cpu_is_msm8627())
 		clk_set_rate(&usb_fs2_src_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_xcvr_fs_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_hsic_src_clk.c, 480000000);
