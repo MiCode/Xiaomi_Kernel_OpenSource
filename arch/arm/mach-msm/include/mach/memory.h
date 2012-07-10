@@ -118,6 +118,23 @@ void find_membank0_hole(void);
 	(virt) - MEMBANK0_PAGE_OFFSET + MEMBANK0_PHYS_OFFSET)
 #endif
 
+/*
+ * Need a temporary unique variable that no one will ever see to
+ * hold the compat string. Line number gives this easily.
+ * Need another layer of indirection to get __LINE__ to expand
+ * properly as opposed to appending and ending up with
+ * __compat___LINE__
+ */
+#define __CONCAT(a, b)	___CONCAT(a, b)
+#define ___CONCAT(a, b)	a ## b
+
+#define EXPORT_COMPAT(com)	\
+static char *__CONCAT(__compat_, __LINE__)  __used \
+	__attribute((__section__(".exportcompat.init"))) = com
+
+extern char *__compat_exports_start[];
+extern char *__compat_exports_end[];
+
 #endif
 
 #if defined CONFIG_ARCH_MSM_SCORPION || defined CONFIG_ARCH_MSM_KRAIT
@@ -135,4 +152,5 @@ void find_membank0_hole(void);
 
 #ifndef CONFIG_ARCH_MSM7X27
 #define CONSISTENT_DMA_SIZE	(SZ_1M * 14)
+
 #endif

@@ -36,6 +36,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <linux/sched.h>
+#include <linux/of_fdt.h>
 
 /* fixme */
 #include <asm/tlbflush.h>
@@ -368,4 +369,118 @@ void store_ttbr0(void)
 	/* Store TTBR0 for post-mortem debugging purposes. */
 	asm("mrc p15, 0, %0, c2, c0, 0\n"
 		: "=r" (msm_ttbr0));
+}
+
+static char * const memtype_names[] = {
+	[MEMTYPE_SMI_KERNEL] = "SMI_KERNEL",
+	[MEMTYPE_SMI]	= "SMI",
+	[MEMTYPE_EBI0] = "EBI0",
+	[MEMTYPE_EBI1] = "EBI1",
+};
+
+static int reserve_memory_type(char *mem_name,
+				struct memtype_reserve *reserve_table,
+				int size)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(memtype_names); i++) {
+		if (memtype_names[i] && strcmp(mem_name,
+				memtype_names[i]) == 0) {
+			reserve_table[i].size += size;
+			return 0;
+		}
+	}
+
+	pr_err("Could not find memory type %s\n", mem_name);
+	return -EINVAL;
+}
+
+static int check_for_compat(unsigned long node)
+{
+	char **start = __compat_exports_start;
+
+	for ( ; start < __compat_exports_end; start++)
+		if (of_flat_dt_is_compatible(node, *start))
+			return 1;
+
+	return 0;
+}
+
+int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
+		int depth, void *data)
+{
+	char *memory_name_prop;
+	unsigned int *memory_remove_prop;
+	unsigned long memory_name_prop_length;
+	unsigned long memory_remove_prop_length;
+	unsigned long memory_size_prop_length;
+	unsigned int *memory_size_prop;
+	unsigned int memory_size;
+	unsigned int memory_start;
+	int ret;
+
+	memory_name_prop = of_get_flat_dt_prop(node,
+						"qcom,memory-reservation-type",
+						&memory_name_prop_length);
+	memory_remove_prop = of_get_flat_dt_prop(node,
+						"qcom,memblock-remove",
+						&memory_remove_prop_length);
+
+	if (memory_name_prop || memory_remove_prop) {
+		if (!check_for_compat(node))
+			goto out;
+	} else {
+		goto out;
+	}
+
+	if (memory_name_prop) {
+		if (strnlen(memory_name_prop, memory_name_prop_length) == 0) {
+			WARN(1, "Memory name was malformed\n");
+			goto mem_remove;
+		}
+
+		memory_size_prop = of_get_flat_dt_prop(node,
+						"qcom,memory-reservation-size",
+						&memory_size_prop_length);
+
+		if (memory_size_prop &&
+		    (memory_size_prop_length == sizeof(unsigned int))) {
+			memory_size = be32_to_cpu(*memory_size_prop);
+
+			if (reserve_memory_type(memory_name_prop,
+						data, memory_size) == 0)
+				pr_info("%s reserved %s size %x\n",
+					uname, memory_name_prop, memory_size);
+			else
+				WARN(1, "Node %s reserve failed\n",
+						uname);
+		} else {
+			WARN(1, "Node %s specified bad/nonexistent size\n",
+					uname);
+		}
+	}
+
+mem_remove:
+
+	if (memory_remove_prop) {
+		if (memory_remove_prop_length != (2*sizeof(unsigned int))) {
+			WARN(1, "Memory remove malformed\n");
+			goto out;
+		}
+
+		memory_start = be32_to_cpu(memory_remove_prop[0]);
+		memory_size = be32_to_cpu(memory_remove_prop[1]);
+
+		ret = memblock_remove(memory_start, memory_size);
+		if (ret)
+			WARN(1, "Failed to remove memory %x-%x\n",
+				memory_start, memory_start+memory_size);
+		else
+			pr_info("Node %s removed memory %x-%x\n", uname,
+				memory_start, memory_start+memory_size);
+	}
+
+out:
+	return 0;
 }
