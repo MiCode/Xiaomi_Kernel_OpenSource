@@ -15,7 +15,6 @@
 
 int hdmi_pll_enable(void);
 void hdmi_pll_disable(void);
-unsigned hdmi_pll_get_rate(void);
 int hdmi_pll_set_rate(unsigned rate);
 
 #endif
