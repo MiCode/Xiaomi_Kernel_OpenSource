@@ -2467,7 +2467,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
 	&msm_device_uart_dm6,
-	&msm_device_uart_dm9,
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
 	&msm8960_device_ext_5v_vreg,
@@ -3137,6 +3136,7 @@ static void __init msm8960_cdp_init(void)
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
 		msm_uart_dm9_pdata.wakeup_irq = gpio_to_irq(94); /* GSBI9(2) */
 		msm_device_uart_dm9.dev.platform_data = &msm_uart_dm9_pdata;
+		platform_device_register(&msm_device_uart_dm9);
 	}
 
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
