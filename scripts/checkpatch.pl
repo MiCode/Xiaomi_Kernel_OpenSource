@@ -3359,11 +3359,8 @@ sub process {
 			"strcat"  => "strlcat",
 			"strncat"  => "strlcat",
 			"vsprintf"  => "vsnprintf",
-			"strcmp"  => "strncmp",
-			"strcasecmp" => "strncasecmp",
 			"strchr" => "strnchr",
 			"strstr" => "strnstr",
-			"strlen" => "strnlen",
 		);
 		foreach my $k (keys %str_fns) {
 			if ($line =~ /\b$k\b/) {
