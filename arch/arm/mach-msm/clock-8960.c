@@ -3912,11 +3912,6 @@ static void hdmi_pll_clk_disable(struct clk *c)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static unsigned long hdmi_pll_clk_get_rate(struct clk *c)
-{
-	return hdmi_pll_get_rate();
-}
-
 static struct clk *hdmi_pll_clk_get_parent(struct clk *c)
 {
 	return &pxo_clk.c;
@@ -3925,7 +3920,6 @@ static struct clk *hdmi_pll_clk_get_parent(struct clk *c)
 static struct clk_ops clk_ops_hdmi_pll = {
 	.enable = hdmi_pll_clk_enable,
 	.disable = hdmi_pll_clk_disable,
-	.get_rate = hdmi_pll_clk_get_rate,
 	.get_parent = hdmi_pll_clk_get_parent,
 };
 
@@ -3975,8 +3969,10 @@ static unsigned long fmax_tv_src_8064[MAX_VDD_LEVELS] __initdata = {
 void set_rate_tv(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 {
 	unsigned long pll_rate = (unsigned long)nf->extra_freq_data;
-	if (pll_rate)
+	if (pll_rate) {
 		hdmi_pll_set_rate(pll_rate);
+		hdmi_pll_clk.rate = pll_rate;
+	}
 	set_rate_mnd(rcg, nf);
 }
 
