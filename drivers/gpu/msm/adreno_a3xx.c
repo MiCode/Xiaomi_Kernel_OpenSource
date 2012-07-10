@@ -1236,12 +1236,13 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = CP_REG(A3XX_HLSQ_CONTROL_0_REG);
 	/* HLSQ_CONTROL_0_REG */
 	*cmds++ = _SET(HLSQ_CTRL0REG_FSTHREADSIZE, HLSQ_FOUR_PIX_QUADS) |
+		_SET(HLSQ_CTRL0REG_FSSUPERTHREADENABLE, 1) |
 		_SET(HLSQ_CTRL0REG_SPSHADERRESTART, 1) |
 		_SET(HLSQ_CTRL0REG_CHUNKDISABLE, 1) |
-		_SET(HLSQ_CTRL0REG_SPCONSTFULLUPDATE, 1) |
-		_SET(HLSQ_CTRL0REG_TPFULLUPDATE, 1);
+		_SET(HLSQ_CTRL0REG_SPCONSTFULLUPDATE, 1);
 	/* HLSQ_CONTROL_1_REG */
-	*cmds++ = _SET(HLSQ_CTRL1REG_VSTHREADSIZE, HLSQ_TWO_VTX_QUADS);
+	*cmds++ = _SET(HLSQ_CTRL1REG_VSTHREADSIZE, HLSQ_TWO_VTX_QUADS) |
+		_SET(HLSQ_CTRL1REG_VSSUPERTHREADENABLE, 1);
 	/* HLSQ_CONTROL_2_REG */
 	*cmds++ = _SET(HLSQ_CTRL2REG_PRIMALLOCTHRESHOLD, 31);
 	/* HLSQ_CONTROL3_REG */
@@ -1268,6 +1269,9 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = 0x00000240;
 	*cmds++ = 0x00000000;
 
+	*cmds++ = cp_type0_packet(A3XX_VFD_PERFCOUNTER0_SELECT, 1);
+	*cmds++ = 0x00000000;
+
 	/* Texture memobjs */
 	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 6);
 	*cmds++ = (16 << CP_LOADSTATE_DSTOFFSET_SHIFT)
@@ -1279,6 +1283,9 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = 0x4cc06880;
 	*cmds++ = shadow->height | (shadow->width << 14);
 	*cmds++ = (shadow->pitch*4*8) << 9;
+	*cmds++ = 0x00000000;
+
+	*cmds++ = cp_type0_packet(A3XX_VFD_PERFCOUNTER0_SELECT, 1);
 	*cmds++ = 0x00000000;
 
 	/* Mipmap bases */
@@ -1302,6 +1309,9 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = 0x00000000;
 	*cmds++ = 0x00000000;
 	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+
+	*cmds++ = cp_type0_packet(A3XX_VFD_PERFCOUNTER0_SELECT, 1);
 	*cmds++ = 0x00000000;
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 5);
@@ -1377,9 +1387,11 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = _SET(SP_FSCTRLREG0_FSTHREADMODE, SP_MULTI) |
 		_SET(SP_FSCTRLREG0_FSINSTRBUFFERMODE, SP_BUFFER_MODE) |
 		_SET(SP_FSCTRLREG0_FSICACHEINVALID, 1) |
-		_SET(SP_FSCTRLREG0_FSFULLREGFOOTPRINT, 2) |
+		_SET(SP_FSCTRLREG0_FSHALFREGFOOTPRINT, 1) |
+		_SET(SP_FSCTRLREG0_FSFULLREGFOOTPRINT, 1) |
 		_SET(SP_FSCTRLREG0_FSINOUTREGOVERLAP, 1) |
 		_SET(SP_FSCTRLREG0_FSTHREADSIZE, SP_FOUR_PIX_QUADS) |
+		_SET(SP_FSCTRLREG0_FSSUPERTHREADMODE, 1) |
 		_SET(SP_FSCTRLREG0_PIXLODENABLE, 1) |
 		_SET(SP_FSCTRLREG0_FSLENGTH, 2);
 	/* SP_FS_CTRL_REG1 */
@@ -1388,7 +1400,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		_SET(SP_FSCTRLREG1_HALFPRECVAROFFSET, 63);
 	/* SP_FS_OBJ_OFFSET_REG */
 	*cmds++ = _SET(SP_OBJOFFSETREG_CONSTOBJECTSTARTOFFSET, 128) |
-		_SET(SP_OBJOFFSETREG_SHADEROBJOFFSETINIC, 1);
+		_SET(SP_OBJOFFSETREG_SHADEROBJOFFSETINIC, 126);
 	/* SP_FS_OBJ_START_REG */
 	*cmds++ = 0x00000000;
 
@@ -1407,7 +1419,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 5);
 	*cmds++ = CP_REG(A3XX_SP_FS_MRT_REG_0);
 	/* SP_FS_MRT_REG0 */
-	*cmds++ = _SET(SP_FSMRTREG_REGID, 4);
+	*cmds++ = _SET(SP_FSMRTREG_PRECISION, 1);
 	/* SP_FS_MRT_REG1 */
 	*cmds++ = 0;
 	/* SP_FS_MRT_REG2 */
@@ -1504,7 +1516,8 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_SP_SP_CTRL_REG);
 	/* SP_SP_CTRL_REG */
-	*cmds++ = _SET(SP_SPCTRLREG_SLEEPMODE, 1);
+	*cmds++ = _SET(SP_SPCTRLREG_SLEEPMODE, 1) |
+		_SET(SP_SPCTRLREG_LOMODE, 1);
 
 	/* Load vertex shader */
 	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 10);
@@ -1515,13 +1528,20 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = (HLSQ_SP_VS_INSTR << CP_LOADSTATE_STATETYPE_SHIFT)
 		| (0 << CP_LOADSTATE_EXTSRCADDR_SHIFT);
 	/* (sy)end; */
-	*cmds++ = 0x00000000; *cmds++ = 0x13000000;
+	*cmds++ = 0x00000000; *cmds++ = 0x13001000;
 	/* nop; */
 	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
 	/* nop; */
 	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
 	/* nop; */
 	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
+
+	*cmds++ = cp_type0_packet(A3XX_VFD_PERFCOUNTER0_SELECT, 1);
+	*cmds++ = 0x00000000;
+
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+
 
 	/* Load fragment shader */
 	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 18);
@@ -1532,21 +1552,27 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = (HLSQ_SP_FS_INSTR << CP_LOADSTATE_STATETYPE_SHIFT)
 		| (0 << CP_LOADSTATE_EXTSRCADDR_SHIFT);
 	/* (sy)(rpt1)bary.f (ei)r0.z, (r)0, r0.x; */
-	*cmds++ = 0x00002000; *cmds++ = 0x57368902;
+	*cmds++ = 0x00002000; *cmds++ = 0x57309902;
 	/* (rpt5)nop; */
 	*cmds++ = 0x00000000; *cmds++ = 0x00000500;
 	/* sam (f32)r0.xyzw, r0.z, s#0, t#0; */
 	*cmds++ = 0x00000005; *cmds++ = 0xa0c01f00;
 	/* (sy)mov.f32f32 r1.x, r0.x; */
-	*cmds++ = 0x00000000; *cmds++ = 0x30044004;
+	*cmds++ = 0x00000000; *cmds++ = 0x30040b00;
 	/* mov.f32f32 r1.y, r0.y; */
-	*cmds++ = 0x00000001; *cmds++ = 0x20044005;
-	/* mov.f32f32 r1.z, r0.z; */
-	*cmds++ = 0x00000002; *cmds++ = 0x20044006;
-	/* mov.f32f32 r1.w, r0.w; */
-	*cmds++ = 0x00000003; *cmds++ = 0x20044007;
-	/* end; */
 	*cmds++ = 0x00000000; *cmds++ = 0x03000000;
+	/* mov.f32f32 r1.z, r0.z; */
+	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
+	/* mov.f32f32 r1.w, r0.w; */
+	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
+	/* end; */
+	*cmds++ = 0x00000000; *cmds++ = 0x00000000;
+
+	*cmds++ = cp_type0_packet(A3XX_VFD_PERFCOUNTER0_SELECT, 1);
+	*cmds++ = 0x00000000;
+
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(A3XX_VFD_CONTROL_0);
@@ -1599,16 +1625,16 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_RB_DEPTH_CONTROL);
 	/* RB_DEPTH_CONTROL */
-	*cmds++ = _SET(RB_DEPTHCONTROL_Z_TEST_FUNC, RB_FRAG_NEVER);
+	*cmds++ = _SET(RB_DEPTHCONTROL_Z_TEST_FUNC, RB_FRAG_LESS);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_RB_STENCIL_CONTROL);
 	/* RB_STENCIL_CONTROL */
-	*cmds++ = _SET(RB_STENCILCONTROL_STENCIL_FUNC, RB_REF_NEVER) |
+	*cmds++ = _SET(RB_STENCILCONTROL_STENCIL_FUNC, RB_REF_ALWAYS) |
 		_SET(RB_STENCILCONTROL_STENCIL_FAIL, RB_STENCIL_KEEP) |
 		_SET(RB_STENCILCONTROL_STENCIL_ZPASS, RB_STENCIL_KEEP) |
 		_SET(RB_STENCILCONTROL_STENCIL_ZFAIL, RB_STENCIL_KEEP) |
-		_SET(RB_STENCILCONTROL_STENCIL_FUNC_BF, RB_REF_NEVER) |
+		_SET(RB_STENCILCONTROL_STENCIL_FUNC_BF, RB_REF_ALWAYS) |
 		_SET(RB_STENCILCONTROL_STENCIL_FAIL_BF, RB_STENCIL_KEEP) |
 		_SET(RB_STENCILCONTROL_STENCIL_ZPASS_BF, RB_STENCIL_KEEP) |
 		_SET(RB_STENCILCONTROL_STENCIL_ZFAIL_BF, RB_STENCIL_KEEP);
@@ -1634,9 +1660,8 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_RB_MRT_CONTROL0);
 	/* RB_MRT_CONTROL0 */
-	*cmds++ = _SET(RB_MRTCONTROL_READ_DEST_ENABLE, 1) |
-		_SET(RB_MRTCONTROL_ROP_CODE, 12) |
-		_SET(RB_MRTCONTROL_DITHER_MODE, RB_DITHER_ALWAYS) |
+	*cmds++ = _SET(RB_MRTCONTROL_ROP_CODE, 12) |
+		_SET(RB_MRTCONTROL_DITHER_MODE, RB_DITHER_DISABLE) |
 		_SET(RB_MRTCONTROL_COMPONENT_ENABLE, 0xF);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
@@ -1651,7 +1676,8 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		_SET(RB_MRTBLENDCONTROL_CLAMP_ENABLE, 1);
 	/* RB_MRT_CONTROL1 */
 	*cmds++ = _SET(RB_MRTCONTROL_READ_DEST_ENABLE, 1) |
-		_SET(RB_MRTCONTROL_DITHER_MODE, RB_DITHER_DISABLE) |
+		_SET(RB_MRTCONTROL_ROP_CODE, 12) |
+		_SET(RB_MRTCONTROL_DITHER_MODE, RB_DITHER_ALWAYS) |
 		_SET(RB_MRTCONTROL_COMPONENT_ENABLE, 0xF);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
@@ -1666,7 +1692,8 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		_SET(RB_MRTBLENDCONTROL_CLAMP_ENABLE, 1);
 	/* RB_MRT_CONTROL2 */
 	*cmds++ = _SET(RB_MRTCONTROL_READ_DEST_ENABLE, 1) |
-		_SET(RB_MRTCONTROL_DITHER_MODE, RB_DITHER_DISABLE) |
+		_SET(RB_MRTCONTROL_ROP_CODE, 12) |
+		_SET(RB_MRTCONTROL_DITHER_MODE, RB_DITHER_ALWAYS) |
 		_SET(RB_MRTCONTROL_COMPONENT_ENABLE, 0xF);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
@@ -1681,7 +1708,8 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		_SET(RB_MRTBLENDCONTROL_CLAMP_ENABLE, 1);
 	/* RB_MRT_CONTROL3 */
 	*cmds++ = _SET(RB_MRTCONTROL_READ_DEST_ENABLE, 1) |
-		_SET(RB_MRTCONTROL_DITHER_MODE, RB_DITHER_DISABLE) |
+		_SET(RB_MRTCONTROL_ROP_CODE, 12) |
+		_SET(RB_MRTCONTROL_DITHER_MODE, RB_DITHER_ALWAYS) |
 		_SET(RB_MRTCONTROL_COMPONENT_ENABLE, 0xF);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
@@ -1700,7 +1728,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	/* VFD_INDEX_MIN */
 	*cmds++ = 0x00000000;
 	/* VFD_INDEX_MAX */
-	*cmds++ = 0xFFFFFFFF;
+	*cmds++ = 340;
 	/* VFD_INDEX_OFFSET */
 	*cmds++ = 0x00000000;
 	/* TPL1_TP_VS_TEX_OFFSET */
@@ -1709,7 +1737,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_VFD_VS_THREADING_THRESHOLD);
 	/* VFD_VS_THREADING_THRESHOLD */
-	*cmds++ = _SET(VFD_THREADINGTHRESHOLD_RESERVED6, 12) |
+	*cmds++ = _SET(VFD_THREADINGTHRESHOLD_REGID_THRESHOLD, 15) |
 		_SET(VFD_THREADINGTHRESHOLD_REGID_VTXCNT, 252);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
@@ -1734,7 +1762,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 2);
 	*cmds++ = CP_REG(A3XX_GRAS_SU_MODE_CONTROL);
 	/* GRAS_SU_MODE_CONTROL */
-	*cmds++ = 0x00000000;
+	*cmds++ = _SET(GRAS_SU_CTRLMODE_LINEHALFWIDTH, 2);
 
 	*cmds++ = cp_type3_packet(CP_SET_CONSTANT, 3);
 	*cmds++ = CP_REG(A3XX_GRAS_SC_WINDOW_SCISSOR_TL);
@@ -1790,6 +1818,46 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		PC_DRAW_TRIANGLES) |
 		_SET(PC_PRIM_VTX_CONTROL_PROVOKING_VTX_LAST, 1);
 
+
+	/* oxili_generate_context_roll_packets */
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_CTRL_REG0, 1);
+	*cmds++ = 0x00000400;
+
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_CTRL_REG0, 1);
+	*cmds++ = 0x00000400;
+
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00008000; /* SP_VS_MEM_SIZE_REG */
+
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00008000; /* SP_FS_MEM_SIZE_REG */
+
+	/* Clear cache invalidate bit when re-loading the shader control regs */
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_CTRL_REG0, 1);
+	*cmds++ = _SET(SP_VSCTRLREG0_VSTHREADMODE, SP_MULTI) |
+		_SET(SP_VSCTRLREG0_VSINSTRBUFFERMODE, SP_BUFFER_MODE) |
+		_SET(SP_VSCTRLREG0_VSFULLREGFOOTPRINT, 2) |
+		_SET(SP_VSCTRLREG0_VSTHREADSIZE, SP_TWO_VTX_QUADS) |
+		_SET(SP_VSCTRLREG0_VSLENGTH, 1);
+
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_CTRL_REG0, 1);
+	*cmds++ = _SET(SP_FSCTRLREG0_FSTHREADMODE, SP_MULTI) |
+		_SET(SP_FSCTRLREG0_FSINSTRBUFFERMODE, SP_BUFFER_MODE) |
+		_SET(SP_FSCTRLREG0_FSHALFREGFOOTPRINT, 1) |
+		_SET(SP_FSCTRLREG0_FSFULLREGFOOTPRINT, 1) |
+		_SET(SP_FSCTRLREG0_FSINOUTREGOVERLAP, 1) |
+		_SET(SP_FSCTRLREG0_FSTHREADSIZE, SP_FOUR_PIX_QUADS) |
+		_SET(SP_FSCTRLREG0_FSSUPERTHREADMODE, 1) |
+		_SET(SP_FSCTRLREG0_FSLENGTH, 2);
+
+	*cmds++ = cp_type0_packet(A3XX_SP_VS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00000000;		 /* SP_VS_MEM_SIZE_REG */
+
+	*cmds++ = cp_type0_packet(A3XX_SP_FS_PVT_MEM_SIZE_REG, 1);
+	*cmds++ = 0x00000000;		 /* SP_FS_MEM_SIZE_REG */
+
+	/* end oxili_generate_context_roll_packets */
+
 	*cmds++ = cp_type3_packet(CP_DRAW_INDX, 3);
 	*cmds++ = 0x00000000; /* Viz query info */
 	*cmds++ = BUILD_PC_DRAW_INITIATOR(PC_DI_PT_RECTLIST,
@@ -1803,6 +1871,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 
 	return cmds;
 }
+
 
 static void build_regrestore_cmds(struct adreno_device *adreno_dev,
 				  struct adreno_context *drawctxt)
