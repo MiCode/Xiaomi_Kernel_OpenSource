@@ -158,10 +158,13 @@ struct vcap_dev {
 	atomic_t			    vc_enabled;
 	atomic_t			    vp_enabled;
 
-	spinlock_t				dev_slock;
+	struct mutex			dev_mutex;
 	atomic_t			    open_clients;
 	bool					vc_resource;
 	bool					vp_resource;
+	bool					vp_dummy_event;
+	bool					vp_dummy_complete;
+	wait_queue_head_t		vp_dummy_waitq;
 
 	struct workqueue_struct	*vcap_wq;
 	struct vp_work_t		vp_work;

@@ -261,6 +261,12 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 	int rc;
 
 	irq = readl_relaxed(VCAP_VP_INT_STATUS);
+	if (dev->vp_dummy_event == true) {
+		writel_relaxed(irq, VCAP_VP_INT_CLEAR);
+		dev->vp_dummy_complete = true;
+		wake_up(&dev->vp_dummy_waitq);
+		return IRQ_HANDLED;
+	}
 
 	if (irq & 0x02000000) {
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
@@ -434,6 +440,8 @@ int init_nr_buf(struct vcap_client_data *c_data)
 		return -ENOEXEC;
 	}
 	buf = &c_data->vid_vp_action.bufNR;
+	if (!buf)
+		return -ENOMEM;
 
 	frame_size = c_data->vp_in_fmt.width * c_data->vp_in_fmt.height;
 	if (c_data->vp_in_fmt.pixfmt == V4L2_PIX_FMT_NV16)
@@ -442,7 +450,7 @@ int init_nr_buf(struct vcap_client_data *c_data)
 		tot_size = frame_size / 2 * 3;
 
 	buf->vaddr = kzalloc(tot_size, GFP_KERNEL);
-	if (!buf)
+	if (!buf->vaddr)
 		return -ENOMEM;
 
 	buf->paddr = virt_to_phys(buf->vaddr);
@@ -476,6 +484,74 @@ void deinit_nr_buf(struct vcap_client_data *c_data)
 	buf->paddr = 0;
 	buf->vaddr = NULL;
 	return;
+}
+
+int vp_dummy_event(struct vcap_client_data *c_data)
+{
+	struct vcap_dev *dev = c_data->dev;
+	unsigned int width, height;
+	unsigned long paddr;
+	void *temp;
+	uint32_t reg;
+	int rc = 0;
+
+	dprintk(2, "%s: Start VP dummy event\n", __func__);
+	temp = kzalloc(0x1200, GFP_KERNEL);
+	if (!temp) {
+		pr_err("%s: Failed to alloc mem", __func__);
+		return -ENOMEM;
+	}
+	paddr = virt_to_phys(temp);
+
+	width = c_data->vp_out_fmt.width;
+	height = c_data->vp_out_fmt.height;
+
+	c_data->vp_out_fmt.width = 0x3F;
+	c_data->vp_out_fmt.height = 0x16;
+
+	config_vp_format(c_data);
+	writel_relaxed(paddr, VCAP_VP_T1_Y_BASE_ADDR);
+	writel_relaxed(paddr + 0x2C0, VCAP_VP_T1_C_BASE_ADDR);
+	writel_relaxed(paddr + 0x440, VCAP_VP_T2_Y_BASE_ADDR);
+	writel_relaxed(paddr + 0x700, VCAP_VP_T2_C_BASE_ADDR);
+	writel_relaxed(paddr + 0x880, VCAP_VP_OUT_Y_BASE_ADDR);
+	writel_relaxed(paddr + 0xB40, VCAP_VP_OUT_C_BASE_ADDR);
+	writel_iowmb(paddr + 0x1100, VCAP_VP_MOTION_EST_ADDR);
+	writel_relaxed(4 << 20 | 0x2 << 4, VCAP_VP_IN_CONFIG);
+	writel_relaxed(4 << 20 | 0x1 << 4, VCAP_VP_OUT_CONFIG);
+
+	dev->vp_dummy_event = true;
+
+	writel_relaxed(0x01100101, VCAP_VP_INTERRUPT_ENABLE);
+	writel_iowmb(0x00000000, VCAP_VP_CTRL);
+	writel_iowmb(0x00030000, VCAP_VP_CTRL);
+
+	enable_irq(dev->vpirq->start);
+	rc = wait_event_interruptible_timeout(dev->vp_dummy_waitq,
+		dev->vp_dummy_complete, msecs_to_jiffies(50));
+	if (!rc && !dev->vp_dummy_complete) {
+		pr_err("%s: VP dummy event timeout", __func__);
+		rc = -ETIME;
+		writel_iowmb(0x00000000, VCAP_VP_CTRL);
+
+		writel_iowmb(0x00000001, VCAP_VP_SW_RESET);
+		writel_iowmb(0x00000000, VCAP_VP_SW_RESET);
+		dev->vp_dummy_complete = false;
+	}
+
+	writel_relaxed(0x00000000, VCAP_VP_INTERRUPT_ENABLE);
+	disable_irq(dev->vpirq->start);
+	dev->vp_dummy_event = false;
+
+	reg = readl_relaxed(VCAP_OFFSET(0x0D94));
+	writel_relaxed(reg, VCAP_OFFSET(0x0D9C));
+
+	c_data->vp_out_fmt.width = width;
+	c_data->vp_out_fmt.height = height;
+	kfree(temp);
+
+	dprintk(2, "%s: Exit VP dummy event\n", __func__);
+	return rc;
 }
 
 int kickoff_vp(struct vcap_client_data *c_data)
