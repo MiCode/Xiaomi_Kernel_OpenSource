@@ -154,16 +154,16 @@
 #define GCC_APCS_CLK_DIAG			REG_GCC(0x001C)
 
 /* MUX source input identifiers. */
-#define cxo_to_bb_mux		0
-#define pll8_to_bb_mux		3
-#define pll8_acpu_to_bb_mux	3
-#define pll14_to_bb_mux		4
-#define gnd_to_bb_mux		6
-#define cxo_to_xo_mux		0
-#define gnd_to_xo_mux		3
-#define cxo_to_lpa_mux		1
-#define pll4_to_lpa_mux		2
-#define gnd_to_lpa_mux		6
+#define cxo_to_bb_mux		  0
+#define pll8_to_bb_mux		  3
+#define pll8_activeonly_to_bb_mux 3
+#define pll14_to_bb_mux		  4
+#define gnd_to_bb_mux		  6
+#define cxo_to_xo_mux		  0
+#define gnd_to_xo_mux		  3
+#define cxo_to_lpa_mux		  1
+#define pll4_to_lpa_mux		  2
+#define gnd_to_lpa_mux		  6
 
 /* Test Vector Macros */
 #define TEST_TYPE_PER_LS	1
@@ -276,7 +276,7 @@ static struct pll_vote_clk pll0_clk = {
 	},
 };
 
-static struct pll_vote_clk pll0_acpu_clk = {
+static struct pll_vote_clk pll0_activeonly_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(0),
 	.status_reg = BB_PLL0_STATUS_REG,
@@ -284,10 +284,10 @@ static struct pll_vote_clk pll0_acpu_clk = {
 	.soft_vote = &soft_vote_pll0,
 	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
 	.c = {
-		.dbg_name = "pll0_acpu_clk",
+		.dbg_name = "pll0_activeonly_clk",
 		.rate = 276000000,
 		.ops = &clk_ops_pll_acpu_vote,
-		CLK_INIT(pll0_acpu_clk.c),
+		CLK_INIT(pll0_activeonly_clk.c),
 		.warned = true,
 	},
 };
@@ -326,7 +326,7 @@ static struct pll_vote_clk pll8_clk = {
 	},
 };
 
-static struct pll_vote_clk pll8_acpu_clk = {
+static struct pll_vote_clk pll8_activeonly_clk = {
 	.en_reg = BB_PLL_ENA_SC0_REG,
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
@@ -334,21 +334,21 @@ static struct pll_vote_clk pll8_acpu_clk = {
 	.soft_vote = &soft_vote_pll8,
 	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
 	.c = {
-		.dbg_name = "pll8_acpu_clk",
+		.dbg_name = "pll8_activeonly_clk",
 		.rate = 384000000,
 		.ops = &clk_ops_pll_acpu_vote,
-		CLK_INIT(pll8_acpu_clk.c),
+		CLK_INIT(pll8_activeonly_clk.c),
 		.warned = true,
 	},
 };
 
-static struct pll_clk pll9_acpu_clk = {
+static struct pll_clk pll9_activeonly_clk = {
 	.mode_reg = SC_PLL0_MODE_REG,
 	.c = {
-		.dbg_name = "pll9_acpu_clk",
+		.dbg_name = "pll9_activeonly_clk",
 		.rate = 440000000,
 		.ops = &clk_ops_local_pll,
-		CLK_INIT(pll9_acpu_clk.c),
+		CLK_INIT(pll9_activeonly_clk.c),
 		.warned = true,
 	},
 };
@@ -663,8 +663,8 @@ static struct clk_freq_tbl clk_tbl_usb[] = {
 };
 
 static struct clk_freq_tbl clk_tbl_usb_hsic_sys[] = {
-	F_USB(       0,       gnd, 1, 0, 0),
-	F_USB(64000000, pll8_acpu, 1, 1, 6),
+	F_USB(       0,		    gnd, 1, 0, 0),
+	F_USB(64000000, pll8_activeonly, 1, 1, 6),
 	F_END
 };
 
@@ -1617,9 +1617,9 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("pll8",	pll8_clk.c,	NULL),
 	CLK_LOOKUP("pll14",	pll14_clk.c,	NULL),
 
-	CLK_LOOKUP("pll0", pll0_acpu_clk.c, "acpu"),
-	CLK_LOOKUP("pll8", pll8_acpu_clk.c, "acpu"),
-	CLK_LOOKUP("pll9", pll9_acpu_clk.c, "acpu"),
+	CLK_LOOKUP("pll0", pll0_activeonly_clk.c, "acpu"),
+	CLK_LOOKUP("pll8", pll8_activeonly_clk.c, "acpu"),
+	CLK_LOOKUP("pll9", pll9_activeonly_clk.c, "acpu"),
 
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
@@ -1822,7 +1822,7 @@ static void __init msm9615_clock_pre_init(void)
 	pll9_lval = readl_relaxed(SC_PLL0_L_VAL_REG);
 
 	if (pll9_lval == 0x1C)
-		pll9_acpu_clk.c.rate = 550000000;
+		pll9_activeonly_clk.c.rate = 550000000;
 
 	/* Enable PLL4 source on the LPASS Primary PLL Mux */
 	regval = readl_relaxed(LCC_PRI_PLL_CLK_CTL_REG);
