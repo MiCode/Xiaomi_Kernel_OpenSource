@@ -375,7 +375,7 @@ static void list_channel(struct smux_lch_t *ch);
 static int smux_send_status_cmd(struct smux_lch_t *ch);
 static int smux_dispatch_rx_pkt(struct smux_pkt_t *pkt);
 static void smux_flush_tty(void);
-static void smux_purge_ch_tx_queue(struct smux_lch_t *ch);
+static void smux_purge_ch_tx_queue(struct smux_lch_t *ch, int is_ssr);
 static int schedule_notify(uint8_t lcid, int event,
 			const union notifier_metadata *metadata);
 static int ssr_notifier_cb(struct notifier_block *this,
@@ -540,7 +540,7 @@ static void smux_lch_purge(void)
 
 		/* Purge TX queue */
 		spin_lock(&ch->tx_lock_lhb2);
-		smux_purge_ch_tx_queue(ch);
+		smux_purge_ch_tx_queue(ch, 1);
 		spin_unlock(&ch->tx_lock_lhb2);
 
 		/* Notify user of disconnect and reset channel state */
@@ -2196,25 +2196,35 @@ static void smux_flush_tty(void)
  * Purge TX queue for logical channel.
  *
  * @ch     Logical channel pointer
+ * @is_ssr 1 = this is a subsystem restart purge
  *
  * Must be called with the following spinlocks locked:
  *  state_lock_lhb1
  *  tx_lock_lhb2
  */
-static void smux_purge_ch_tx_queue(struct smux_lch_t *ch)
+static void smux_purge_ch_tx_queue(struct smux_lch_t *ch, int is_ssr)
 {
 	struct smux_pkt_t *pkt;
 	int send_disconnect = 0;
+	struct smux_pkt_t *pkt_tmp;
+	int is_state_pkt;
 
-	while (!list_empty(&ch->tx_queue)) {
-		pkt = list_first_entry(&ch->tx_queue, struct smux_pkt_t,
-							list);
-		list_del(&pkt->list);
-
+	list_for_each_entry_safe(pkt, pkt_tmp, &ch->tx_queue, list) {
+		is_state_pkt = 0;
 		if (pkt->hdr.cmd == SMUX_CMD_OPEN_LCH) {
-			/* Open was never sent, just force to closed state */
-			ch->local_state = SMUX_LCH_LOCAL_CLOSED;
-			send_disconnect = 1;
+			if (pkt->hdr.flags & SMUX_CMD_OPEN_ACK) {
+				/* Open ACK must still be sent */
+				is_state_pkt = 1;
+			} else {
+				/* Open never sent -- force to closed state */
+				ch->local_state = SMUX_LCH_LOCAL_CLOSED;
+				send_disconnect = 1;
+			}
+		} else if (pkt->hdr.cmd == SMUX_CMD_CLOSE_LCH) {
+			if (pkt->hdr.flags & SMUX_CMD_CLOSE_ACK)
+				is_state_pkt = 1;
+			if (!send_disconnect)
+				is_state_pkt = 1;
 		} else if (pkt->hdr.cmd == SMUX_CMD_DATA) {
 			/* Notify client of failed write */
 			union notifier_metadata meta_write;
@@ -2224,7 +2234,11 @@ static void smux_purge_ch_tx_queue(struct smux_lch_t *ch)
 			meta_write.write.len = pkt->hdr.payload_len;
 			schedule_notify(ch->lcid, SMUX_WRITE_FAIL, &meta_write);
 		}
-		smux_free_pkt(pkt);
+
+		if (!is_state_pkt || is_ssr) {
+			list_del(&pkt->list);
+			smux_free_pkt(pkt);
+		}
 	}
 
 	if (send_disconnect) {
@@ -3062,7 +3076,7 @@ int msm_smux_close(uint8_t lcid)
 
 	/* Purge TX queue */
 	spin_lock(&ch->tx_lock_lhb2);
-	smux_purge_ch_tx_queue(ch);
+	smux_purge_ch_tx_queue(ch, 0);
 	spin_unlock(&ch->tx_lock_lhb2);
 
 	/* Send Close Command */
