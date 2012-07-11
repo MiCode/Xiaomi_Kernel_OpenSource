@@ -27,6 +27,7 @@
 #include <asm/hardware/gic.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach-types.h>
+#include <asm/cacheflush.h>
 #include <mach/scm.h>
 #include <mach/socinfo.h>
 #include "msm_watchdog.h"
@@ -105,6 +106,7 @@ static DECLARE_WORK(init_dogwork_struct, init_watchdog_work);
 /* Called from the FIQ bark handler */
 void msm_wdog_bark_fin(void)
 {
+	flush_cache_all();
 	pr_crit("\nApps Watchdog bark received - Calling Panic\n");
 	panic("Apps Watchdog Bark received\n");
 }
