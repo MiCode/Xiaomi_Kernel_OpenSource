@@ -1,16 +1,3 @@
-/*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
-
 #ifndef __EPM_ADC_H
 #define __EPM_ADC_H
 
@@ -26,6 +13,7 @@ struct epm_chan_request {
 	int32_t physical;
 };
 
+#ifdef __KERNEL__
 struct epm_chan_properties {
 	uint32_t resistorValue;
 	uint32_t gain;
@@ -41,6 +29,7 @@ struct epm_adc_platform_data {
 	uint32_t bus_id;
 	uint32_t gpio_expander_base_addr;
 };
+#endif
 
 #define EPM_ADC_IOCTL_CODE		0x91
 
