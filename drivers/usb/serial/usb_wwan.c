@@ -482,6 +482,8 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 	portdata = usb_get_serial_port_data(port);
 	intfdata = serial->private;
 
+	tty->update_room_in_ldisc = 1;
+
 	set_bit(TTY_NO_WRITE_SPLIT, &tty->flags);
 	/* Start reading from the IN endpoint */
 	for (i = 0; i < N_IN_URB; i++) {
