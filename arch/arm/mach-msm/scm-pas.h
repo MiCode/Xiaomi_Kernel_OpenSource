@@ -25,8 +25,29 @@ enum pas_id {
 	PAS_VIDC,
 };
 
+#ifdef CONFIG_MSM_PIL
 extern int pas_init_image(enum pas_id id, const u8 *metadata, size_t size);
 extern int pas_auth_and_reset(enum pas_id id);
 extern int pas_shutdown(enum pas_id id);
 extern int pas_supported(enum pas_id id);
+#else
+static inline int pas_init_image(enum pas_id id, const u8 *metadata,
+		size_t size)
+{
+	return 0;
+}
+static inline int pas_auth_and_reset(enum pas_id id)
+{
+	return 0;
+}
+static inline int pas_shutdown(enum pas_id id)
+{
+	return 0;
+}
+static inline int pas_supported(enum pas_id id)
+{
+	return 0;
+}
+#endif
+
 #endif
