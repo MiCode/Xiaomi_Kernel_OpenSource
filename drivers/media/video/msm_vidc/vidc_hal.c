@@ -1120,6 +1120,7 @@ int vidc_hal_session_set_property(void *sess,
 	case HAL_CONFIG_VENC_REQUEST_IFRAME:
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME;
+		pkt->size += sizeof(u32);
 		break;
 	case HAL_PARAM_VENC_MPEG4_SHORT_HEADER:
 		break;
