@@ -55,7 +55,15 @@ struct pil_reset_ops {
 
 struct pil_device;
 
+#ifdef CONFIG_MSM_PIL
 extern struct pil_device *msm_pil_register(struct pil_desc *desc);
 extern void msm_pil_unregister(struct pil_device *pil);
+#else
+static inline struct pil_device *msm_pil_register(struct pil_desc *desc)
+{
+	return NULL;
+}
+static inline void msm_pil_unregister(struct pil_device *pil) { }
+#endif
 
 #endif
