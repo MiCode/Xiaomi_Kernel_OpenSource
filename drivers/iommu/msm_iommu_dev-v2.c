@@ -232,7 +232,7 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 	ret = msm_iommu_ctx_parse_dt(pdev, ctx_drvdata);
 	if (!ret)
 		dev_info(&pdev->dev, "context %s using bank %d\n",
-				dev_name(&pdev->dev), ctx_drvdata->num);
+			 ctx_drvdata->name, ctx_drvdata->num);
 
 	return ret;
 }
