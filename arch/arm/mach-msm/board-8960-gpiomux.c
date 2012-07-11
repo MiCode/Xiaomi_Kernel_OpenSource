@@ -55,6 +55,19 @@ static struct gpiomux_setting gsbi3_active_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gsbi6_active_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gsbi6_suspended_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+
 static struct gpiomux_setting external_vfr[] = {
 	/* Suspended state */
 	{
@@ -433,6 +446,27 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi3_suspended_cfg,
 			[GPIOMUX_ACTIVE] = &gsbi3_active_cfg,
+		},
+	},
+	{
+		.gpio      = 27,        /* GSBI6 BT_INT2AP_N for AR3002 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_suspended_cfg,
+			[GPIOMUX_ACTIVE]    = &gsbi6_active_cfg,
+		},
+	},
+	{
+		.gpio      = 28,        /* GSBI6 BT_EN for AR3002 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_suspended_cfg,
+			[GPIOMUX_ACTIVE]    = &gsbi6_active_cfg,
+		},
+	},
+	{
+		.gpio      = 29,        /* GSBI6 BT_WAKE for AR3002 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_suspended_cfg,
+			[GPIOMUX_ACTIVE]    = &gsbi6_active_cfg,
 		},
 	},
 	{
