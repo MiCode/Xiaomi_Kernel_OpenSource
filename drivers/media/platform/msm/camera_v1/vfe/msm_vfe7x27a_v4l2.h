@@ -112,6 +112,9 @@ struct vfe2x_ctrl_type {
 	uint32_t stop_pending;
 	uint32_t update_pending;
 
+	spinlock_t liveshot_enabled_lock;
+	uint32_t liveshot_enabled;
+
 	/* v4l2 subdev */
 	struct v4l2_subdev subdev;
 	struct platform_device *pdev;

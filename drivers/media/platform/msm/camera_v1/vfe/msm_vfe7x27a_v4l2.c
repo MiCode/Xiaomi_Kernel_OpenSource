@@ -333,6 +333,7 @@ struct cmd_id_map cmds_map[] = {
 		"VFE_SCALE_OUTPUT2_CONFIG"},
 	{VFE_CMD_CAPTURE_RAW, VFE_START, QDSP_CMDQUEUE,
 			"VFE_CMD_CAPTURE_RAW", "VFE_START"},
+	{VFE_CMD_STOP_LIVESHOT, VFE_MAX, VFE_MAX},
 	{VFE_CMD_RECONFIG_VFE, VFE_MAX, VFE_MAX},
 };
 
@@ -666,6 +667,8 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 	void *data = NULL;
 	struct buf_info *outch = NULL;
 	uint32_t y_phy, cbcr_phy;
+	static uint32_t liveshot_y_phy;
+	static struct vfe_endframe liveshot_swap;
 	struct table_cmd *table_pending = NULL;
 	unsigned long flags;
 	void   *cmd_data = NULL;
@@ -833,48 +836,139 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 			if (op_mode & SNAPSHOT_MASK_MODE) {
 				kfree(data);
 				return;
-			} else {
-				free_buf = vfe2x_check_free_buffer(
+			}
+			free_buf = vfe2x_check_free_buffer(
 					VFE_MSG_OUTPUT_IRQ,
 					VFE_MSG_OUTPUT_PRIMARY);
-			      CDBG("free_buf = %x\n", (unsigned int) free_buf);
-			      if (free_buf) {
+			CDBG("free_buf = %x\n",
+					(unsigned int) free_buf);
+			spin_lock_irqsave(
+					&vfe2x_ctrl->liveshot_enabled_lock,
+					flags);
+			if (!vfe2x_ctrl->liveshot_enabled) {
+				spin_unlock_irqrestore(
+						&vfe2x_ctrl->
+						liveshot_enabled_lock,
+						flags);
+				if (free_buf) {
 					fack.header = VFE_OUTPUT2_ACK;
 
 					fack.output2newybufferaddress =
-						(void *)(free_buf->ch_paddr[0]);
+						(void *)
+						(free_buf->ch_paddr[0]);
 
 					fack.output2newcbcrbufferaddress =
-						(void *)(free_buf->ch_paddr[1]);
+						(void *)
+						(free_buf->ch_paddr[1]);
 
 					cmd_data = &fack;
 					len = sizeof(fack);
-					msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
+					msm_adsp_write(vfe_mod,
+							QDSP_CMDQUEUE,
 							cmd_data, len);
-			      } else {
+				} else {
 					fack.header = VFE_OUTPUT2_ACK;
 					fack.output2newybufferaddress =
-					(void *)
-				((struct vfe_endframe *)data)->y_address;
+						(void *)
+						((struct vfe_endframe *)
+						 data)->y_address;
 					fack.output2newcbcrbufferaddress =
-					(void *)
-				((struct vfe_endframe *)data)->cbcr_address;
+						(void *)
+						((struct vfe_endframe *)
+						 data)->cbcr_address;
 					cmd_data = &fack;
 					len = sizeof(fack);
-					msm_adsp_write(vfe_mod, QDSP_CMDQUEUE,
-						cmd_data, len);
+					msm_adsp_write(vfe_mod,
+							QDSP_CMDQUEUE,
+							cmd_data, len);
 					if (!vfe2x_ctrl->zsl_mode) {
 						kfree(data);
 						return;
 					}
 				}
+			} else { /* Live snapshot */
+				spin_unlock_irqrestore(
+						&vfe2x_ctrl->
+						liveshot_enabled_lock,
+						flags);
+				if (free_buf) {
+					/* liveshot_swap to enqueue
+					   when liveshot snapshot buffer
+					   is obtainedi from adsp */
+					liveshot_swap.y_address =
+						((struct vfe_endframe *)
+						 data)->y_address;
+					liveshot_swap.cbcr_address =
+						((struct vfe_endframe *)
+						 data)->cbcr_address;
+
+					fack.header = VFE_OUTPUT2_ACK;
+
+					fack.output2newybufferaddress =
+						(void *)
+						(free_buf->ch_paddr[0]);
+
+					fack.output2newcbcrbufferaddress =
+						(void *)
+						(free_buf->ch_paddr[1]);
+
+					liveshot_y_phy =
+						(uint32_t)
+						fack.output2newybufferaddress;
+
+					cmd_data = &fack;
+					len = sizeof(fack);
+					msm_adsp_write(vfe_mod,
+							QDSP_CMDQUEUE,
+							cmd_data, len);
+				} else if (liveshot_y_phy !=
+						((struct vfe_endframe *)
+						 data)->y_address) {
+
+					fack.header = VFE_OUTPUT2_ACK;
+					fack.output2newybufferaddress =
+						(void *)
+						((struct vfe_endframe *)
+						 data)->y_address;
+
+					fack.output2newcbcrbufferaddress =
+						(void *)
+						((struct vfe_endframe *)
+						 data)->cbcr_address;
+
+					cmd_data = &fack;
+					len = sizeof(fack);
+					msm_adsp_write(vfe_mod,
+							QDSP_CMDQUEUE,
+							cmd_data, len);
+					kfree(data);
+					return;
+				} else {
+					/* Enque data got
+					 * during freebuf */
+					fack.header = VFE_OUTPUT2_ACK;
+					fack.output2newybufferaddress =
+						(void *)
+						(liveshot_swap.y_address);
+
+					fack.output2newcbcrbufferaddress =
+						(void *)
+						(liveshot_swap.cbcr_address);
+					cmd_data = &fack;
+					len = sizeof(fack);
+					msm_adsp_write(vfe_mod,
+							QDSP_CMDQUEUE,
+							cmd_data, len);
+				}
 			}
-			y_phy = ((struct vfe_endframe *)data)->y_address;
-			cbcr_phy = ((struct vfe_endframe *)data)->cbcr_address;
+			y_phy = ((struct vfe_endframe *)data)->
+				y_address;
+			cbcr_phy = ((struct vfe_endframe *)data)->
+				cbcr_address;
 
 
-			CDBG("vfe_7x_convert, y_phy = 0x%x, cbcr_phy = 0x%x\n",
-				 y_phy, cbcr_phy);
+			CDBG("MSG_OUT2:y_phy= 0x%x, cbcr_phy= 0x%x\n",
+					y_phy, cbcr_phy);
 			if (free_buf) {
 				for (i = 0; i < 3; i++) {
 					if (vfe2x_ctrl->free_buf.buf[i].
@@ -892,14 +986,23 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 					CDBG("Address doesnt match\n");
 			}
 			memcpy(((struct vfe_frame_extra *)extdata),
-				&((struct vfe_endframe *)data)->extra,
-				sizeof(struct vfe_frame_extra));
+					&((struct vfe_endframe *)data)->extra,
+					sizeof(struct vfe_frame_extra));
 
 			vfe2x_ctrl->vfeFrameId =
-				((struct vfe_frame_extra *)extdata)->frame_id;
-			vfe_send_outmsg(&vfe2x_ctrl->subdev,
+				((struct vfe_frame_extra *)extdata)->
+				frame_id;
+
+			if (!vfe2x_ctrl->liveshot_enabled) {
+				/* Liveshot not enalbed */
+				vfe_send_outmsg(&vfe2x_ctrl->subdev,
 						MSG_ID_OUTPUT_PRIMARY,
 						y_phy, cbcr_phy);
+			} else if (liveshot_y_phy == y_phy) {
+				vfe_send_outmsg(&vfe2x_ctrl->subdev,
+						MSG_ID_OUTPUT_PRIMARY,
+						y_phy, cbcr_phy);
+			}
 			break;
 		case MSG_RESET_ACK:
 		case MSG_START_ACK:
@@ -1056,6 +1159,7 @@ static int vfe_7x_config_axi(int mode,
 	int    cnt;
 	int rc = 0;
 	int o_mode = 0;
+	unsigned long flags;
 
 	if (op_mode & SNAPSHOT_MASK_MODE)
 		o_mode = SNAPSHOT_MASK_MODE;
@@ -1164,8 +1268,17 @@ static int vfe_7x_config_axi(int mode,
 		ao->output2buffer1_cbcr_phy = ad->ping.ch_paddr[1];
 		ao->output2buffer2_y_phy = ad->pong.ch_paddr[0];
 		ao->output2buffer2_cbcr_phy = ad->pong.ch_paddr[1];
-		ao->output2buffer3_y_phy = ad->free_buf.ch_paddr[0];
-		ao->output2buffer3_cbcr_phy = ad->free_buf.ch_paddr[1];
+		spin_lock_irqsave(&vfe2x_ctrl->liveshot_enabled_lock,
+				flags);
+		if (vfe2x_ctrl->liveshot_enabled) { /* Live shot */
+			ao->output2buffer3_y_phy = ad->pong.ch_paddr[0];
+			ao->output2buffer3_cbcr_phy = ad->pong.ch_paddr[1];
+		} else {
+			ao->output2buffer3_y_phy = ad->free_buf.ch_paddr[0];
+			ao->output2buffer3_cbcr_phy = ad->free_buf.ch_paddr[1];
+		}
+		spin_unlock_irqrestore(&vfe2x_ctrl->liveshot_enabled_lock,
+				flags);
 		bptr = &ao->output2buffer4_y_phy;
 		for (cnt = 0; cnt < 5; cnt++) {
 			*bptr = ad->pong.ch_paddr[0];
@@ -1654,6 +1767,26 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		if (vfecmd.id == VFE_CMD_RECONFIG_VFE) {
 			CDBG("VFE is RECONFIGURED\n");
 			vfe2x_ctrl->reconfig_vfe = 1;
+			return 0;
+		}
+		if (vfecmd.id == VFE_CMD_LIVESHOT) {
+			CDBG("live shot enabled\n");
+			spin_lock_irqsave(&vfe2x_ctrl->liveshot_enabled_lock,
+					flags);
+			vfe2x_ctrl->liveshot_enabled = 1;
+			spin_unlock_irqrestore(&vfe2x_ctrl->
+					liveshot_enabled_lock,
+					flags);
+			return 0;
+		}
+		if (vfecmd.id == VFE_CMD_STOP_LIVESHOT) {
+			CDBG("live shot disabled\n");
+			spin_lock_irqsave(&vfe2x_ctrl->liveshot_enabled_lock,
+					flags);
+			vfe2x_ctrl->liveshot_enabled = 0;
+			spin_unlock_irqrestore(
+					&vfe2x_ctrl->liveshot_enabled_lock,
+					flags);
 			return 0;
 		}
 		if (vfecmd.length > 256 - 4) {
@@ -2162,6 +2295,7 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd)
 	spin_lock_init(&vfe2x_ctrl->sd_notify_lock);
 	spin_lock_init(&vfe2x_ctrl->table_lock);
 	spin_lock_init(&vfe2x_ctrl->vfe_msg_lock);
+	spin_lock_init(&vfe2x_ctrl->liveshot_enabled_lock);
 	init_waitqueue_head(&stopevent.wait);
 	INIT_LIST_HEAD(&vfe2x_ctrl->table_q);
 	INIT_LIST_HEAD(&vfe2x_ctrl->vfe_msg_q);
