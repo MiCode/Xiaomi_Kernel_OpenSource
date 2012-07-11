@@ -407,55 +407,21 @@ static int msm_dai_q6_mi2s_prepare(struct snd_pcm_substream *substream,
 		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
 		 &mi2s_dai_data->rx_dai.mi2s_dai_data :
 		 &mi2s_dai_data->tx_dai.mi2s_dai_data);
+	u16 port_id = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
+		       MI2S_RX : MI2S_TX);
 	int rc = 0;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		/* PORT START should be set if prepare called in active state */
-		rc = afe_q6_interface_prepare();
+		rc = afe_port_start(port_id, &dai_data->port_config,
+				    dai_data->rate);
+
 		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to open AFE APR\n");
-	}
-	return rc;
-}
-
-static int msm_dai_q6_mi2s_trigger(struct snd_pcm_substream *substream, int cmd,
-		struct snd_soc_dai *dai)
-{
-	struct msm_dai_q6_mi2s_dai_data *mi2s_dai_data =
-		dev_get_drvdata(dai->dev);
-	struct msm_dai_q6_dai_data *dai_data =
-		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
-		 &mi2s_dai_data->rx_dai.mi2s_dai_data :
-		 &mi2s_dai_data->tx_dai.mi2s_dai_data);
-	u16 port_id = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
-		MI2S_RX : MI2S_TX);
-	int rc = 0;
-
-	dev_dbg(dai->dev, "%s: cmd:%d dai_data->status_mask = %ld",
-		__func__, cmd, *dai_data->status_mask);
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-			afe_port_start_nowait(port_id,
-				&dai_data->port_config, dai_data->rate);
+			dev_err(dai->dev, "fail to open AFE port %x\n",
+				dai->id);
+		else
 			set_bit(STATUS_PORT_STARTED,
 				dai_data->status_mask);
-		}
-		break;
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-			afe_port_stop_nowait(port_id);
-			clear_bit(STATUS_PORT_STARTED,
-				dai_data->status_mask);
-		}
-		break;
-
-	default:
-		rc = -EINVAL;
 	}
 
 	return rc;
@@ -906,21 +872,20 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 
 	/*
 	 * For AUX PCM Interface the below sequence of clk
-	 * settings and afe_open is a strict requirement.
-	 *
-	 * Also using afe_open instead of afe_port_start_nowait
-	 * to make sure the port is open before deasserting the
-	 * clock line. This is required because pcm register is
-	 * not written before clock deassert. Hence the hw does
-	 * not get updated with new setting if the below clock
-	 * assert/deasset and afe_open sequence is not followed.
+	 * settings and opening of afe port is a strict requirement.
+	 * afe_port_start is called to make sure to make sure the port
+	 * is open before deasserting the clock line. This is
+	 * required because pcm register is not written before
+	 * clock deassert. Hence the hw does not get updated with
+	 * new setting if the below clock assert/deasset and afe_port_start
+	 * sequence is not followed.
 	 */
 
 	clk_reset(pcm_clk, CLK_RESET_ASSERT);
 
-	afe_open(PCM_RX, &dai_data->port_config, dai_data->rate);
+	afe_port_start(PCM_RX, &dai_data->port_config, dai_data->rate);
 
-	afe_open(PCM_TX, &dai_data->port_config, dai_data->rate);
+	afe_port_start(PCM_TX, &dai_data->port_config, dai_data->rate);
 	if (dai_data->rate == 8000) {
 		pcm_clk_rate = auxpcm_pdata->mode_8k.pcm_clk_rate;
 	} else if (dai_data->rate == 16000) {
@@ -988,21 +953,22 @@ static int msm_dai_q6_sec_auxpcm_prepare(struct snd_pcm_substream *substream,
 
 	/*
 	 * For AUX PCM Interface the below sequence of clk
-	 * settings and afe_open is a strict requirement.
-	 *
-	 * Also using afe_open instead of afe_port_start_nowait
-	 * to make sure the port is open before deasserting the
-	 * clock line. This is required because pcm register is
-	 * not written before clock deassert. Hence the hw does
-	 * not get updated with new setting if the below clock
-	 * assert/deasset and afe_open sequence is not followed.
+	 * settings and opening of afe port is a strict requirement.
+	 * afe_port_start is called to make sure to make sure the port
+	 * is open before deasserting the clock line. This is
+	 * required because pcm register is not written before
+	 * clock deassert. Hence the hw does not get updated with
+	 * new setting if the below clock assert/deasset and afe_port_start
+	 * sequence is not followed.
 	 */
 
 	clk_reset(sec_pcm_clk, CLK_RESET_ASSERT);
 
-	afe_open(SECONDARY_PCM_RX, &dai_data->port_config, dai_data->rate);
+	afe_port_start(SECONDARY_PCM_RX, &dai_data->port_config,
+		       dai_data->rate);
 
-	afe_open(SECONDARY_PCM_TX, &dai_data->port_config, dai_data->rate);
+	afe_port_start(SECONDARY_PCM_TX, &dai_data->port_config,
+		       dai_data->rate);
 	if (dai_data->rate == 8000) {
 		pcm_clk_rate = auxpcm_pdata->mode_8k.pcm_clk_rate;
 	} else if (dai_data->rate == 16000) {
@@ -1034,11 +1000,24 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 	int rc = 0;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		/* PORT START should be set if prepare called in active state */
-		rc = afe_q6_interface_prepare();
+		switch (dai->id) {
+		case VOICE_PLAYBACK_TX:
+		case VOICE_RECORD_TX:
+		case VOICE_RECORD_RX:
+			rc = afe_start_pseudo_port(dai->id);
+		default:
+			rc = afe_port_start(dai->id, &dai_data->port_config,
+					    dai_data->rate);
+		}
+
 		if (IS_ERR_VALUE(rc))
-			dev_err(dai->dev, "fail to open AFE APR\n");
+			dev_err(dai->dev, "fail to open AFE port %x\n",
+				dai->id);
+		else
+			set_bit(STATUS_PORT_STARTED,
+				dai_data->status_mask);
 	}
+
 	return rc;
 }
 
@@ -1071,63 +1050,6 @@ static int msm_dai_q6_auxpcm_trigger(struct snd_pcm_substream *substream,
 
 }
 
-static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
-		struct snd_soc_dai *dai)
-{
-	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
-	int rc = 0;
-
-	/* Start/stop port without waiting for Q6 AFE response. Need to have
-	 * native q6 AFE driver propagates AFE response in order to handle
-	 * port start/stop command error properly if error does arise.
-	 */
-	pr_debug("%s:port:%d  cmd:%d dai_data->status_mask = %ld",
-		__func__, dai->id, cmd, *dai_data->status_mask);
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-			switch (dai->id) {
-			case VOICE_PLAYBACK_TX:
-			case VOICE_RECORD_TX:
-			case VOICE_RECORD_RX:
-				afe_pseudo_port_start_nowait(dai->id);
-				break;
-			default:
-				afe_port_start_nowait(dai->id,
-					&dai_data->port_config, dai_data->rate);
-				break;
-			}
-			set_bit(STATUS_PORT_STARTED,
-				dai_data->status_mask);
-		}
-		break;
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-			switch (dai->id) {
-			case VOICE_PLAYBACK_TX:
-			case VOICE_RECORD_TX:
-			case VOICE_RECORD_RX:
-				afe_pseudo_port_stop_nowait(dai->id);
-				break;
-			default:
-				afe_port_stop_nowait(dai->id);
-				break;
-			}
-			clear_bit(STATUS_PORT_STARTED,
-				dai_data->status_mask);
-		}
-		break;
-
-	default:
-		rc = -EINVAL;
-	}
-
-	return rc;
-}
 static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_dai_data *dai_data;
@@ -1535,7 +1457,6 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 static struct snd_soc_dai_ops msm_dai_q6_mi2s_ops = {
 	.startup	= msm_dai_q6_mi2s_startup,
 	.prepare	= msm_dai_q6_mi2s_prepare,
-	.trigger	= msm_dai_q6_mi2s_trigger,
 	.hw_params	= msm_dai_q6_mi2s_hw_params,
 	.shutdown	= msm_dai_q6_mi2s_shutdown,
 	.set_fmt	= msm_dai_q6_mi2s_set_fmt,
@@ -1543,7 +1464,6 @@ static struct snd_soc_dai_ops msm_dai_q6_mi2s_ops = {
 
 static struct snd_soc_dai_ops msm_dai_q6_ops = {
 	.prepare	= msm_dai_q6_prepare,
-	.trigger	= msm_dai_q6_trigger,
 	.hw_params	= msm_dai_q6_hw_params,
 	.shutdown	= msm_dai_q6_shutdown,
 	.set_fmt	= msm_dai_q6_set_fmt,
