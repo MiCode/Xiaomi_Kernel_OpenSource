@@ -114,4 +114,33 @@
 			qcom,iommu-ctx-name = "gfx3d_priv";
 		};
 	};
+
+	vfe: qcom,iommu@fda44000 {
+		compatible = "qcom,msm-smmu-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfda44000 0x10000>;
+		vdd-supply = <&gdsc_vfe>;
+		qcom,iommu-smt-size = <32>;
+
+		qcom,iommu-ctx@fda4c000 {
+			reg = <0xfda4c000 0x1000>;
+			interrupts = <0 64 0>;
+			qcom,iommu-ctx-sids = <0>;
+			qcom,iommu-ctx-name = "vfe0";
+		};
+		qcom,iommu-ctx@fda4d000 {
+			reg = <0xfda4d000 0x1000>;
+			interrupts = <0 65 0>;
+			qcom,iommu-ctx-sids = <1>;
+			qcom,iommu-ctx-name = "vfe1";
+		};
+		qcom,iommu-ctx@fda4e000 {
+			reg = <0xfda4e000 0x1000>;
+			interrupts = <0 66 0>;
+			qcom,iommu-ctx-sids = <2>;
+			qcom,iommu-ctx-name = "cpp";
+		};
+	};
 };
