@@ -3747,20 +3747,6 @@ static int tabla_startup(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static void tabla_shutdown(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	struct wcd9xxx *tabla_core = dev_get_drvdata(dai->codec->dev->parent);
-	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
-		 substream->name, substream->stream);
-	if ((tabla_core != NULL) &&
-	    (tabla_core->dev != NULL) &&
-	    (tabla_core->dev->parent != NULL)) {
-		pm_runtime_mark_last_busy(tabla_core->dev->parent);
-		pm_runtime_put(tabla_core->dev->parent);
-	}
-}
-
 int tabla_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
@@ -4310,7 +4296,6 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 
 static struct snd_soc_dai_ops tabla_dai_ops = {
 	.startup = tabla_startup,
-	.shutdown = tabla_shutdown,
 	.hw_params = tabla_hw_params,
 	.set_sysclk = tabla_set_dai_sysclk,
 	.set_fmt = tabla_set_dai_fmt,
@@ -4481,9 +4466,17 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	u32  ret = 0;
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	tabla = codec->control_data;
+
 	/* Execute the callback only if interface type is slimbus */
-	if (tabla_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+	if (tabla_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		if (event == SND_SOC_DAPM_POST_PMD && (tabla != NULL) &&
+		    (tabla->dev != NULL) &&
+		    (tabla->dev->parent != NULL)) {
+			pm_runtime_mark_last_busy(tabla->dev->parent);
+			pm_runtime_put(tabla->dev->parent);
+		}
 		return 0;
+	}
 
 	pr_debug("%s: %s %d\n", __func__, w->name, event);
 
@@ -4534,6 +4527,12 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			ret = tabla_codec_enable_chmask(tabla_p,
 							SND_SOC_DAPM_POST_PMD,
 							j);
+			if ((tabla != NULL) &&
+			    (tabla->dev != NULL) &&
+			    (tabla->dev->parent != NULL)) {
+				pm_runtime_mark_last_busy(tabla->dev->parent);
+				pm_runtime_put(tabla->dev->parent);
+			}
 		}
 	}
 	return ret;
@@ -4553,8 +4552,15 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	tabla = codec->control_data;
 
 	/* Execute the callback only if interface type is slimbus */
-	if (tabla_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+	if (tabla_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		if (event == SND_SOC_DAPM_POST_PMD && (tabla != NULL) &&
+		    (tabla->dev != NULL) &&
+		    (tabla->dev->parent != NULL)) {
+			pm_runtime_mark_last_busy(tabla->dev->parent);
+			pm_runtime_put(tabla->dev->parent);
+		}
 		return 0;
+	}
 
 	pr_debug("%s(): %s %d\n", __func__, w->name, event);
 
@@ -4604,6 +4610,12 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 			ret = tabla_codec_enable_chmask(tabla_p,
 							SND_SOC_DAPM_POST_PMD,
 							j);
+			if ((tabla != NULL) &&
+			    (tabla->dev != NULL) &&
+			    (tabla->dev->parent != NULL)) {
+				pm_runtime_mark_last_busy(tabla->dev->parent);
+				pm_runtime_put(tabla->dev->parent);
+			}
 		}
 	}
 	return ret;
