@@ -95,6 +95,8 @@ static struct pm8xxx_gpio_init pm8038_gpios[] __initdata = {
 	PM8XXX_GPIO_INPUT(11, PM_GPIO_PULL_UP_30),
 	/* haptics gpio */
 	PM8XXX_GPIO_OUTPUT_FUNC(7, 0, PM_GPIO_FUNC_1),
+	/* MHL PWR EN */
+	PM8XXX_GPIO_OUTPUT_VIN(5, 1, PM_GPIO_VIN_VPH),
 };
 
 /* Initial pm8038 MPP configurations */
