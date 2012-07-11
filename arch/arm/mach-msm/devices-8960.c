@@ -3812,6 +3812,7 @@ struct platform_device msm8960_cache_dump_device = {
 #define AP2MDM_PMIC_PWR_EN		22
 #define AP2MDM_KPDPWR_N			79
 #define AP2MDM_SOFT_RESET		78
+#define USB_SW				25
 
 static struct resource sglte_resources[] = {
 	{
@@ -3854,6 +3855,12 @@ static struct resource sglte_resources[] = {
 		.start	= AP2MDM_SOFT_RESET,
 		.end	= AP2MDM_SOFT_RESET,
 		.name	= "AP2MDM_SOFT_RESET",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= USB_SW,
+		.end	= USB_SW,
+		.name	= "USB_SW",
 		.flags	= IORESOURCE_IO,
 	},
 };

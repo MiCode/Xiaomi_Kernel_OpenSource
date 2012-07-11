@@ -249,6 +249,33 @@ static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 	}
 }
 
+static void mdm_image_upgrade(struct mdm_modem_drv *mdm_drv, int type)
+{
+	switch (type) {
+	case APQ_CONTROLLED_UPGRADE:
+		pr_debug("%s APQ controlled modem image upgrade\n", __func__);
+		mdm_drv->mdm_ready = 0;
+		mdm_toggle_soft_reset(mdm_drv);
+		break;
+	case MDM_CONTROLLED_UPGRADE:
+		pr_debug("%s MDM controlled modem image upgrade\n", __func__);
+		mdm_drv->mdm_ready = 0;
+		/*
+		 * If we have no image currently present on the modem, then we
+		 * would be in PBL, in which case the status gpio would not go
+		 * high.
+		 */
+		mdm_drv->disable_status_check = 1;
+		if (mdm_drv->usb_switch_gpio > 0) {
+			pr_info("%s Switching usb control to MDM\n", __func__);
+			gpio_direction_output(mdm_drv->usb_switch_gpio, 1);
+		} else
+			pr_err("%s usb switch gpio unavailable\n", __func__);
+		break;
+	default:
+		pr_err("%s invalid upgrade type\n", __func__);
+	}
+}
 static struct mdm_ops mdm_cb = {
 	.power_on_mdm_cb = mdm_power_on_common,
 	.reset_mdm_cb = mdm_power_on_common,
@@ -256,6 +283,7 @@ static struct mdm_ops mdm_cb = {
 	.power_down_mdm_cb = mdm_power_down_common,
 	.debug_state_changed_cb = debug_state_changed,
 	.status_cb = mdm_status_changed,
+	.image_upgrade_cb = mdm_image_upgrade,
 };
 
 static int __init mdm_modem_probe(struct platform_device *pdev)
