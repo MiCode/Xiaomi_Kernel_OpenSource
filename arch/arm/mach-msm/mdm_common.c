@@ -151,11 +151,13 @@ static void mdm2ap_status_check(struct work_struct *work)
 	 * If the mdm modem did not pull the MDM2AP_STATUS gpio
 	 * high then call subsystem_restart.
 	 */
-	if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0) {
-		pr_err("%s: MDM2AP_STATUS gpio did not go high\n",
-			   __func__);
-		mdm_drv->mdm_ready = 0;
-		subsystem_restart_dev(mdm_subsys_dev);
+	if (!mdm_drv->disable_status_check) {
+		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0) {
+			pr_err("%s: MDM2AP_STATUS gpio did not go high\n",
+					__func__);
+			mdm_drv->mdm_ready = 0;
+			subsystem_restart_dev(mdm_subsys_dev);
+		}
 	}
 }
 
@@ -238,6 +240,15 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 			put_user(1, (unsigned long __user *) arg);
 		else
 			put_user(0, (unsigned long __user *) arg);
+		break;
+	case IMAGE_UPGRADE:
+		pr_debug("%s Image upgrade ioctl recieved\n", __func__);
+		if (mdm_drv->pdata->image_upgrade_supported &&
+				mdm_drv->ops->image_upgrade_cb) {
+			get_user(status, (unsigned long __user *) arg);
+			mdm_drv->ops->image_upgrade_cb(mdm_drv, status);
+		} else
+			pr_debug("%s Image upgrade not supported\n", __func__);
 		break;
 	default:
 		pr_err("%s: invalid ioctl cmd = %d\n", __func__, _IOC_NR(cmd));
@@ -364,7 +375,6 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys)
 		mdm_drv->ops->reset_mdm_cb(mdm_drv);
 	else
 		mdm_drv->mdm_unexpected_reset_occurred = 0;
-
 	return 0;
 }
 
@@ -515,6 +525,12 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 	if (pres)
 		mdm_drv->mdm2ap_pblrdy = pres->start;
 
+	/*USB_SW*/
+	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
+							"USB_SW");
+	if (pres)
+		mdm_drv->usb_switch_gpio = pres->start;
+
 	mdm_drv->boot_type                  = CHARM_NORMAL_BOOT;
 
 	mdm_drv->ops      = mdm_ops;
@@ -556,6 +572,13 @@ int mdm_common_create(struct platform_device  *pdev,
 
 	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
 		gpio_request(mdm_drv->ap2mdm_wakeup_gpio, "AP2MDM_WAKEUP");
+
+	if (mdm_drv->usb_switch_gpio > 0) {
+		if (gpio_request(mdm_drv->usb_switch_gpio, "USB_SW")) {
+			pr_err("%s Failed to get usb switch gpio\n", __func__);
+			mdm_drv->usb_switch_gpio = -1;
+		}
+	}
 
 	gpio_direction_output(mdm_drv->ap2mdm_status_gpio, 1);
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 0);

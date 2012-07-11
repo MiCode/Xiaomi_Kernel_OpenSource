@@ -240,6 +240,12 @@ static struct gpiomux_setting ap2mdm_kpdpwr_n_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting usbsw_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting mdp_vsync_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -760,6 +766,13 @@ static struct msm_gpiomux_config sglte_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
 		}
 	},
+	/* USB_SW */
+	{
+		.gpio = 25,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &usbsw_cfg,
+		}
+	}
 };
 
 static struct msm_gpiomux_config msm8960_mdp_vsync_configs[] __initdata = {
