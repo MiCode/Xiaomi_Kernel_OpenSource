@@ -400,6 +400,19 @@
 		compatible = "qcom,msm-dai-fe";
 	};
 
+	qcom,msm-dai-q6 {
+		compatible = "qcom,msm-dai-q6";
+		qcom,msm-dai-q6-sb-0-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16384>;
+		};
+
+		qcom,msm-dai-q6-sb-0-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16385>;
+		};
+	};
+
 	qcom,msm-auxpcm {
 		compatible = "qcom,msm-auxpcm-resource";
 		qcom,msm-cpudai-auxpcm-clk = "pcm_clk";
