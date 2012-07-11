@@ -217,11 +217,12 @@ void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 	fe_dai_map[fedai_id][session_type] = dspst_id;
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (!is_be_dai_extproc(i) &&
-		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
-		   (msm_bedais[i].active) &&
-		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
+		    (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
+		    (msm_bedais[i].active) &&
+		    (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
 			mode = afe_get_port_type(msm_bedais[i].port_id);
-			/*adm_connect_afe_port needs to be called*/
+			adm_connect_afe_port(mode, dspst_id,
+					     msm_bedais[i].port_id);
 			break;
 		}
 	}

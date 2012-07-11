@@ -573,6 +573,7 @@ struct adm_cmd_matrix_mute_v5 {
 
 /*  Payload of the #ADM_CMD_CONNECT_AFE_PORT_V5 command.*/
 struct adm_cmd_connect_afe_port_v5 {
+	struct apr_hdr     hdr;
 	u8                  mode;
 /* ID of the stream router (RX/TX). Use the
  * ADM_STRTR_ID_RX or ADM_STRTR_IDX macros
