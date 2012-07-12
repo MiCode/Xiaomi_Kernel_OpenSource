@@ -1970,6 +1970,8 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd,
 	stopevent.state = 0;
 	vfe2x_ctrl->vfe_started = 0;
 
+	memset(&vfe2x_ctrl->stats_ctrl, 0, sizeof(struct msm_stats_bufq_ctrl));
+	memset(&vfe2x_ctrl->stats_ops, 0, sizeof(struct msm_stats_ops));
 
 	CDBG("msm_cam_clk_enable: enable vfe_clk\n");
 	rc = msm_cam_clk_enable(&vfe2x_ctrl->pdev->dev, vfe2x_clk_info,
