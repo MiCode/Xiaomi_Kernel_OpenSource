@@ -911,13 +911,8 @@ static int msm_open(struct file *f)
 		}
 		pmctl->pcam_ptr = pcam;
 
-		rc = msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
+		msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 			pcam->pvdev);
-		if (rc < 0) {
-			pr_err("%s: msm_setup_v4l2_event_queue failed %d",
-				__func__, rc);
-			goto mctl_event_q_setup_failed;
-		}
 	}
 	pcam_inst->vbqueue_initialized = 0;
 	rc = 0;
@@ -940,9 +935,8 @@ static int msm_open(struct file *f)
 	return rc;
 
 msm_send_open_server_failed:
-	v4l2_fh_del(&pcam_inst->eventHandle);
-	v4l2_fh_exit(&pcam_inst->eventHandle);
-mctl_event_q_setup_failed:
+	msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
+
 	if (pmctl->mctl_release)
 		if (pmctl->mctl_release(pmctl) < 0)
 			pr_err("%s: mctl_release failed\n", __func__);
@@ -1086,10 +1080,9 @@ static int msm_close(struct file *f)
 	D("%s index %d nodeid %d count %d\n", __func__, pcam_inst->my_index,
 		pcam->vnode_id, pcam->use_count);
 	pcam->dev_inst[pcam_inst->my_index] = NULL;
-	if (pcam_inst->my_index == 0) {
-		v4l2_fh_del(&pcam_inst->eventHandle);
-		v4l2_fh_exit(&pcam_inst->eventHandle);
-	}
+	if (pcam_inst->my_index == 0)
+		msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
+
 	CLR_VIDEO_INST_IDX(pcam_inst->inst_handle);
 	CLR_IMG_MODE(pcam_inst->inst_handle);
 	mutex_unlock(&pcam_inst->inst_lock);
@@ -1174,18 +1167,6 @@ long msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
 	return 0;
 }
 
-int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
-	struct video_device *pvdev)
-{
-	int rc = 0;
-	/* v4l2_fh support */
-	spin_lock_init(&pvdev->fh_lock);
-	INIT_LIST_HEAD(&pvdev->fh_list);
-
-	v4l2_fh_init(eventHandle, pvdev);
-	v4l2_fh_add(eventHandle);
-	return rc;
-}
 
 static struct v4l2_file_operations g_msm_fops = {
 	.owner   = THIS_MODULE,
