@@ -44,6 +44,7 @@
 #include <mach/qpnp-int.h>
 #include <mach/socinfo.h>
 #include <mach/msm_bus_board.h>
+#include <mach/mpm.h>
 #include "clock.h"
 #include "devices.h"
 #include "spm.h"
@@ -605,10 +606,22 @@ static struct of_device_id irq_match[] __initdata  = {
 	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
 	{}
 };
+static struct of_device_id mpm_match[] __initdata = {
+	{.compatible = "qcom,mpm-v2", },
+	{},
+};
 
 void __init msm_8974_init_irq(void)
 {
+	struct device_node *node;
+
 	of_irq_init(irq_match);
+	node = of_find_matching_node(NULL, mpm_match);
+
+	WARN_ON(!node);
+
+	if (node)
+		of_mpm_init(node);
 }
 
 static struct of_dev_auxdata msm_8974_auxdata_lookup[] __initdata = {
