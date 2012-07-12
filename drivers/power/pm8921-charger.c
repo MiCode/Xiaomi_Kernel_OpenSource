@@ -2120,6 +2120,9 @@ static void decrease_usb_ma_value(int *value)
 		i = find_usb_ma_value(*value);
 		if (i > 0)
 			i--;
+		while (!the_chip->iusb_fine_res && i > 0
+			&& (usb_ma_table[i].value & PM8917_IUSB_FINE_RES))
+			i--;
 		*value = usb_ma_table[i].usb_ma;
 	}
 }
@@ -3385,6 +3388,8 @@ static void detect_battery_removal(struct pm8921_chg_chip *chip)
 
 #define ENUM_TIMER_STOP_BIT	BIT(1)
 #define BOOT_DONE_BIT		BIT(6)
+#define BOOT_TIMER_EN_BIT	BIT(1)
+#define BOOT_DONE_MASK		(BOOT_DONE_BIT | BOOT_TIMER_EN_BIT)
 #define CHG_BATFET_ON_BIT	BIT(3)
 #define CHG_VCP_EN		BIT(0)
 #define CHG_BAT_TEMP_DIS_BIT	BIT(2)
@@ -3400,7 +3405,7 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 	detect_battery_removal(chip);
 
 	rc = pm_chg_masked_write(chip, SYS_CONFIG_2,
-					BOOT_DONE_BIT, BOOT_DONE_BIT);
+					BOOT_DONE_MASK, BOOT_DONE_MASK);
 	if (rc) {
 		pr_err("Failed to set BOOT_DONE_BIT rc=%d\n", rc);
 		return rc;
