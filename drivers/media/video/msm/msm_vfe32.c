@@ -4716,6 +4716,9 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd,
 	vfe32_ctrl->update_gamma = false;
 	vfe32_ctrl->hfr_mode = HFR_MODE_OFF;
 
+	memset(&vfe32_ctrl->stats_ctrl, 0, sizeof(struct msm_stats_bufq_ctrl));
+	memset(&vfe32_ctrl->stats_ops, 0, sizeof(struct msm_stats_ops));
+
 	return rc;
 }
 

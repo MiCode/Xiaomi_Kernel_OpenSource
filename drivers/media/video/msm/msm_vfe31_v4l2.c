@@ -3882,6 +3882,9 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd,
 	spin_lock_init(&vfe31_ctrl->sd_notify_lock);
 	INIT_LIST_HEAD(&vfe31_ctrl->tasklet_q);
 
+	memset(&vfe31_ctrl->stats_ctrl, 0, sizeof(struct msm_stats_bufq_ctrl));
+	memset(&vfe31_ctrl->stats_ops, 0, sizeof(struct msm_stats_ops));
+
 	vfe31_ctrl->update_linear = false;
 	vfe31_ctrl->update_rolloff = false;
 	vfe31_ctrl->update_la = false;
