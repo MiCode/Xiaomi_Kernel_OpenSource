@@ -67,6 +67,7 @@ enum pm8921_chg_led_src_config {
  * @min_voltage:	the voltage (mV) where charging method switches from
  *			trickle to fast. This is also the minimum voltage the
  *			system operates at
+ * @uvd_thresh_voltage:	the USB falling UVD threshold (mV) (PM8917 only)
  * @resume_voltage_delta:	the (mV) drop to wait for before resume charging
  *				after the battery has been fully charged
  * @term_current:	the charger current (mA) at which EOC happens
@@ -121,6 +122,7 @@ struct pm8921_charger_platform_data {
 	unsigned int			update_time;
 	unsigned int			max_voltage;
 	unsigned int			min_voltage;
+	unsigned int			uvd_thresh_voltage;
 	unsigned int			resume_voltage_delta;
 	unsigned int			term_current;
 	int				cool_temp;
@@ -298,6 +300,10 @@ static inline int pm8921_is_dc_chg_plugged_in(void)
 	return -ENXIO;
 }
 static inline int pm8921_is_battery_present(void)
+{
+	return -ENXIO;
+}
+static inline int pm8917_set_under_voltage_detection_threshold(int mv)
 {
 	return -ENXIO;
 }
