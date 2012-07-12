@@ -12,7 +12,7 @@ Required properties:
   - interrupts : should contain the context bank interrupt.
   - qcom,iommu-ctx-sids : List of stream identifiers associated with this
     translation context.
-  - qcom,iommu-ctx-name : Name of the context bank
+  - label : Name of the context bank
   - qcom,iommu-smt-size : Number of SMR entries in the SMT of this HW block
   - vdd-supply : vdd-supply: phandle to GDSC regulator controlling this IOMMU.
 
@@ -27,12 +27,12 @@ Example:
                         reg = <0xfda6c000 0x1000>;
                         interrupts = <0 70 0>;
                         qcom,iommu-ctx-sids = <0 2>;
-			qcom,iommu-ctx-name = "ctx_0";
+			label = "ctx_0";
                 };
                 qcom,iommu-ctx@fda6d000 {
                         reg = <0xfda6d000 0x1000>;
                         interrupts = <0 71 0>;
                         qcom,iommu-ctx-sids = <1>;
-			qcom,iommu-ctx-name = "ctx_1";
+			label = "ctx_1";
                 };
         };

@@ -24,19 +24,19 @@
 			reg = <0xfda6c000 0x1000>;
 			interrupts = <0 69 0>;
 			qcom,iommu-ctx-sids = <0>;
-			qcom,iommu-ctx-name = "jpeg_enc0";
+			label = "jpeg_enc0";
 		};
 		qcom,iommu-ctx@fda6d000 {
 			reg = <0xfda6d000 0x1000>;
 			interrupts = <0 70 0>;
 			qcom,iommu-ctx-sids = <1>;
-			qcom,iommu-ctx-name = "jpeg_enc1";
+			label = "jpeg_enc1";
 		};
 		qcom,iommu-ctx@fda6e000 {
 			reg = <0xfda6e000 0x1000>;
 			interrupts = <0 71 0>;
 			qcom,iommu-ctx-sids = <2>;
-			qcom,iommu-ctx-name = "jpeg_dec";
+			label = "jpeg_dec";
 		};
 	};
 
@@ -53,13 +53,13 @@
 			reg = <0xfd930000 0x1000>;
 			interrupts = <0 74 0>;
 			qcom,iommu-ctx-sids = <0>;
-			qcom,iommu-ctx-name = "mdp_0";
+			label = "mdp_0";
 		};
 		qcom,iommu-ctx@fd931000 {
 			reg = <0xfd931000 0x1000>;
 			interrupts = <0 75 0>;
 			qcom,iommu-ctx-sids = <1>;
-			qcom,iommu-ctx-name = "mdp_1";
+			label = "mdp_1";
 		};
 	};
 
@@ -76,19 +76,19 @@
 			reg = <0xfdc8c000 0x1000>;
 			interrupts = <0 43 0>;
 			qcom,iommu-ctx-sids = <0 1 2 3 4 5>;
-			qcom,iommu-ctx-name = "venus_ns";
+			label = "venus_ns";
 		};
 		qcom,iommu-ctx@fdc8d000 {
 			reg = <0xfdc8d000 0x1000>;
 			interrupts = <0 42 0>;
 			qcom,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84 0x85>;
-			qcom,iommu-ctx-name = "venus_cp";
+			label = "venus_cp";
 		};
 		qcom,iommu-ctx@fdc8e000 {
 			reg = <0xfdc8e000 0x1000>;
 			interrupts = <0 41 0>;
 			qcom,iommu-ctx-sids = <0xc0 0xc6>;
-			qcom,iommu-ctx-name = "venus_fw";
+			label = "venus_fw";
 		};
 	};
 
@@ -105,13 +105,13 @@
 			reg = <0xfdb18000 0x1000>;
 			interrupts = <0 240 0>;
 			qcom,iommu-ctx-sids = <0>;
-			qcom,iommu-ctx-name = "gfx3d_user";
+			label = "gfx3d_user";
 		};
 		qcom,iommu-ctx@fdb19000 {
 			reg = <0xfdb19000 0x1000>;
 			interrupts = <0 241 0>;
 			qcom,iommu-ctx-sids = <1>;
-			qcom,iommu-ctx-name = "gfx3d_priv";
+			label = "gfx3d_priv";
 		};
 	};
 
@@ -128,19 +128,19 @@
 			reg = <0xfda4c000 0x1000>;
 			interrupts = <0 64 0>;
 			qcom,iommu-ctx-sids = <0>;
-			qcom,iommu-ctx-name = "vfe0";
+			label = "vfe0";
 		};
 		qcom,iommu-ctx@fda4d000 {
 			reg = <0xfda4d000 0x1000>;
 			interrupts = <0 65 0>;
 			qcom,iommu-ctx-sids = <1>;
-			qcom,iommu-ctx-name = "vfe1";
+			label = "vfe1";
 		};
 		qcom,iommu-ctx@fda4e000 {
 			reg = <0xfda4e000 0x1000>;
 			interrupts = <0 66 0>;
 			qcom,iommu-ctx-sids = <2>;
-			qcom,iommu-ctx-name = "cpp";
+			label = "cpp";
 		};
 	};
 };
