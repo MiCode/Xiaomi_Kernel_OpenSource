@@ -51,13 +51,13 @@
 
 		qcom,iommu-ctx@fd930000 {
 			reg = <0xfd930000 0x1000>;
-			interrupts = <0 74 0>;
+			interrupts = <0 46 0>;
 			qcom,iommu-ctx-sids = <0>;
 			label = "mdp_0";
 		};
 		qcom,iommu-ctx@fd931000 {
 			reg = <0xfd931000 0x1000>;
-			interrupts = <0 75 0>;
+			interrupts = <0 47 0>;
 			qcom,iommu-ctx-sids = <1>;
 			label = "mdp_1";
 		};
