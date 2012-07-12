@@ -3522,6 +3522,7 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("mem_a_clk",		ebi1_msmbus_a_clk.c, "msm_bus"),
 	CLK_LOOKUP("smi_clk",		smi_clk.c,	"msm_bus"),
 	CLK_LOOKUP("smi_a_clk",		smi_a_clk.c,	"msm_bus"),
+	CLK_LOOKUP("mmfpb_a_clk",	mmfpb_a_clk.c,	"clock-8x60"),
 
 	CLK_LOOKUP("core_clk",		gp0_clk.c,		""),
 	CLK_LOOKUP("core_clk",		gp1_clk.c,		""),
@@ -3873,7 +3874,7 @@ static int __init msm8660_clock_late_init(void)
 	int rc;
 
 	/* Vote for MMFPB to be at least 64MHz when an Apps CPU is active. */
-	struct clk *mmfpb_a_clk = clk_get(NULL, "mmfpb_a_clk");
+	struct clk *mmfpb_a_clk = clk_get_sys("clock-8x60", "mmfpb_a_clk");
 	if (WARN(IS_ERR(mmfpb_a_clk), "mmfpb_a_clk not found (%ld)\n",
 			PTR_ERR(mmfpb_a_clk)))
 		return PTR_ERR(mmfpb_a_clk);
