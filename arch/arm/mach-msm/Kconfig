@@ -1568,6 +1568,16 @@ config MSM_QMI_INTERFACE
 	  to perform QMI message marshaling and transport them over IPC
 	  Router.
 
+config MSM_TEST_QMI_CLIENT
+	depends on MSM_QMI_INTERFACE
+	bool "MSM TEST QMI CLIENT"
+	help
+	  The sample QMI client provides a test code for QMI usage. The
+	  test_service client driver uses QMI interface library to send
+	  and receive QMI messages over IPC Router. The test code sends
+	  a synchronous QMI request to the test_service and handles the
+	  QMI responses.
+
 config MSM_ONCRPCROUTER_DEBUG
 	depends on MSM_ONCRPCROUTER
 	default y
