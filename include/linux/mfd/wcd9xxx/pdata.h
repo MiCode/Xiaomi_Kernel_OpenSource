@@ -16,6 +16,9 @@
 
 #include <linux/slimbus/slimbus.h>
 
+#define MICBIAS_EXT_BYP_CAP 0x00
+#define MICBIAS_NO_EXT_BYP_CAP 0x01
+
 #define SITAR_LDOH_1P95_V 0x0
 #define SITAR_LDOH_2P35_V 0x1
 #define SITAR_LDOH_2P75_V 0x2
@@ -99,10 +102,19 @@ struct wcd9xxx_micbias_setting {
 	u32 cfilt1_mv; /* in mv */
 	u32 cfilt2_mv; /* in mv */
 	u32 cfilt3_mv; /* in mv */
+	/* Different WCD9xxx series codecs may not
+	 * have 4 mic biases. If a codec has fewer
+	 * mic biases, some of these properties will
+	 * not be used.
+	 */
 	u8 bias1_cfilt_sel;
 	u8 bias2_cfilt_sel;
 	u8 bias3_cfilt_sel;
 	u8 bias4_cfilt_sel;
+	u8 bias1_cap_mode;
+	u8 bias2_cap_mode;
+	u8 bias3_cap_mode;
+	u8 bias4_cap_mode;
 };
 
 struct wcd9xxx_ocp_setting {

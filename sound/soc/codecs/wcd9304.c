@@ -562,9 +562,6 @@ static const struct snd_kcontrol_new sitar_snd_controls[] = {
 	SOC_SINGLE_TLV("ADC2 Volume", SITAR_A_TX_1_2_EN, 1, 3, 0, analog_gain),
 	SOC_SINGLE_TLV("ADC3 Volume", SITAR_A_TX_3_EN, 5, 3, 0, analog_gain),
 
-	SOC_SINGLE("MICBIAS1 CAPLESS Switch", SITAR_A_MICB_1_CTL, 4, 1, 1),
-	SOC_SINGLE("MICBIAS2 CAPLESS Switch", SITAR_A_MICB_2_CTL, 4, 1, 1),
-
 	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 0, 100, sitar_get_anc_slot,
 				   sitar_put_anc_slot),
 
@@ -4677,6 +4674,12 @@ static int sitar_handle_pdata(struct sitar_priv *sitar)
 		(pdata->micbias.bias1_cfilt_sel << 5));
 	snd_soc_update_bits(codec, SITAR_A_MICB_2_CTL, 0x60,
 		(pdata->micbias.bias2_cfilt_sel << 5));
+
+	/* Set micbias capless mode */
+	snd_soc_update_bits(codec, SITAR_A_MICB_1_CTL, 0x10,
+		(pdata->micbias.bias1_cap_mode << 4));
+	snd_soc_update_bits(codec, SITAR_A_MICB_2_CTL, 0x10,
+		(pdata->micbias.bias2_cap_mode << 4));
 
 	for (i = 0; i < 6; j++, i += 2) {
 		if (flag & (0x01 << i)) {
