@@ -67,6 +67,17 @@ static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 	clk_disable_unprepare(drvdata->pclk);
 }
 
+static void __sync_tlb(void __iomem *base, int ctx)
+{
+	SET_TLBSYNC(base, ctx, 0);
+
+	/* No barrier needed due to register proximity */
+	while (GET_CB_TLBSTATUS_SACTIVE(base, ctx))
+		cpu_relax();
+
+	/* No barrier needed due to read dependency */
+}
+
 static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 {
 	struct msm_priv *priv = domain->priv;
@@ -92,6 +103,7 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 		SET_TLBIVA(iommu_drvdata->base, ctx_drvdata->num,
 			   asid | (va & CB_TLBIVA_VA));
 		mb();
+		__sync_tlb(iommu_drvdata->base, ctx_drvdata->num);
 		__disable_clocks(iommu_drvdata);
 	}
 fail:
@@ -121,6 +133,7 @@ static int __flush_iotlb(struct iommu_domain *domain)
 
 		SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num, asid);
 		mb();
+		__sync_tlb(iommu_drvdata->base, ctx_drvdata->num);
 		__disable_clocks(iommu_drvdata);
 	}
 
