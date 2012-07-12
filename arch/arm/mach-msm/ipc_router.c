@@ -33,6 +33,7 @@
 
 #include <mach/smem_log.h>
 #include <mach/subsystem_notif.h>
+#include <mach/msm_ipc_router.h>
 
 #include "ipc_router.h"
 #include "modem_notifier.h"
@@ -111,11 +112,14 @@ static wait_queue_head_t newserver_wait;
 struct msm_ipc_server {
 	struct list_head list;
 	struct msm_ipc_port_name name;
+	char pdev_name[32];
+	int next_pdev_id;
 	struct list_head server_port_list;
 };
 
 struct msm_ipc_server_port {
 	struct list_head list;
+	struct platform_device pdev;
 	struct msm_ipc_port_addr server_addr;
 	struct msm_ipc_router_xprt_info *xprt_info;
 };
@@ -366,6 +370,102 @@ void release_pkt(struct rr_packet *pkt)
 	return;
 }
 
+static struct sk_buff_head *msm_ipc_router_buf_to_skb(void *buf,
+						unsigned int buf_len)
+{
+	struct sk_buff_head *skb_head;
+	struct sk_buff *skb;
+	int first = 1, offset = 0;
+	int skb_size, data_size;
+	void *data;
+
+	skb_head = kmalloc(sizeof(struct sk_buff_head), GFP_KERNEL);
+	if (!skb_head) {
+		pr_err("%s: Couldnot allocate skb_head\n", __func__);
+		return NULL;
+	}
+	skb_queue_head_init(skb_head);
+
+	data_size = buf_len;
+	while (offset != buf_len) {
+		skb_size = data_size;
+		if (first)
+			skb_size += IPC_ROUTER_HDR_SIZE;
+
+		skb = alloc_skb(skb_size, GFP_KERNEL);
+		if (!skb) {
+			if (skb_size <= (PAGE_SIZE/2)) {
+				pr_err("%s: cannot allocate skb\n", __func__);
+				goto buf_to_skb_error;
+			}
+			data_size = data_size / 2;
+			continue;
+		}
+
+		if (first) {
+			skb_reserve(skb, IPC_ROUTER_HDR_SIZE);
+			first = 0;
+		}
+
+		data = skb_put(skb, data_size);
+		memcpy(skb->data, buf + offset, data_size);
+		skb_queue_tail(skb_head, skb);
+		offset += data_size;
+		data_size = buf_len - offset;
+	}
+	return skb_head;
+
+buf_to_skb_error:
+	while (!skb_queue_empty(skb_head)) {
+		skb = skb_dequeue(skb_head);
+		kfree_skb(skb);
+	}
+	kfree(skb_head);
+	return NULL;
+}
+
+static void *msm_ipc_router_skb_to_buf(struct sk_buff_head *skb_head,
+				       unsigned int len)
+{
+	struct sk_buff *temp;
+	int offset = 0, buf_len = 0, copy_len;
+	void *buf;
+
+	if (!skb_head) {
+		pr_err("%s: NULL skb_head\n", __func__);
+		return NULL;
+	}
+
+	temp = skb_peek(skb_head);
+	buf_len = len;
+	buf = kmalloc(buf_len, GFP_KERNEL);
+	if (!buf) {
+		pr_err("%s: cannot allocate buf\n", __func__);
+		return NULL;
+	}
+	skb_queue_walk(skb_head, temp) {
+		copy_len = buf_len < temp->len ? buf_len : temp->len;
+		memcpy(buf + offset, temp->data, copy_len);
+		offset += copy_len;
+		buf_len -= copy_len;
+	}
+	return buf;
+}
+
+static void msm_ipc_router_free_skb(struct sk_buff_head *skb_head)
+{
+	struct sk_buff *temp_skb;
+
+	if (!skb_head)
+		return;
+
+	while (!skb_queue_empty(skb_head)) {
+		temp_skb = skb_dequeue(skb_head);
+		kfree_skb(temp_skb);
+	}
+	kfree(skb_head);
+}
+
 static int post_control_ports(struct rr_packet *pkt)
 {
 	struct msm_ipc_port *port_ptr;
@@ -437,8 +537,7 @@ void msm_ipc_router_add_local_port(struct msm_ipc_port *port_ptr)
 }
 
 struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
-		void (*notify)(unsigned event, void *data,
-			       void *addr, void *priv),
+		void (*notify)(unsigned event, void *priv),
 		void *priv)
 {
 	struct msm_ipc_port *port_ptr;
@@ -628,6 +727,10 @@ static struct msm_ipc_server *msm_ipc_router_lookup_server(
 	return NULL;
 }
 
+static void dummy_release(struct device *dev)
+{
+}
+
 /**
  * msm_ipc_router_create_server() - Add server info to hash table
  * @service: Service ID of the server info to be created.
@@ -660,7 +763,7 @@ static struct msm_ipc_server *msm_ipc_router_create_server(
 			goto create_srv_port;
 	}
 
-	server = kmalloc(sizeof(struct msm_ipc_server), GFP_KERNEL);
+	server = kzalloc(sizeof(struct msm_ipc_server), GFP_KERNEL);
 	if (!server) {
 		pr_err("%s: Server allocation failed\n", __func__);
 		return NULL;
@@ -669,9 +772,12 @@ static struct msm_ipc_server *msm_ipc_router_create_server(
 	server->name.instance = instance;
 	INIT_LIST_HEAD(&server->server_port_list);
 	list_add_tail(&server->list, &server_list[key]);
+	scnprintf(server->pdev_name, sizeof(server->pdev_name),
+		  "QMI%08x:%08x", service, instance);
+	server->next_pdev_id = 1;
 
 create_srv_port:
-	server_port = kmalloc(sizeof(struct msm_ipc_server_port), GFP_KERNEL);
+	server_port = kzalloc(sizeof(struct msm_ipc_server_port), GFP_KERNEL);
 	if (!server_port) {
 		if (list_empty(&server->server_port_list)) {
 			list_del(&server->list);
@@ -684,6 +790,11 @@ create_srv_port:
 	server_port->server_addr.port_id = port_id;
 	server_port->xprt_info = xprt_info;
 	list_add_tail(&server_port->list, &server->server_port_list);
+
+	server_port->pdev.name = server->pdev_name;
+	server_port->pdev.id = server->next_pdev_id++;
+	server_port->pdev.dev.release = dummy_release;
+	platform_device_register(&server_port->pdev);
 
 	return server;
 }
@@ -714,6 +825,7 @@ static void msm_ipc_router_destroy_server(struct msm_ipc_server *server,
 			break;
 	}
 	if (server_port) {
+		platform_device_unregister(&server_port->pdev);
 		list_del(&server_port->list);
 		kfree(server_port);
 	}
@@ -1079,6 +1191,7 @@ static void msm_ipc_cleanup_remote_server_info(
 				ctl.srv.port_id = svr_port->server_addr.port_id;
 				relay_ctl_msg(xprt_info, &ctl);
 				broadcast_ctl_msg_locally(&ctl);
+				platform_device_unregister(&svr_port->pdev);
 				list_del(&svr_port->list);
 				kfree(svr_port);
 			}
@@ -1432,7 +1545,6 @@ static void do_read_data(struct work_struct *work)
 	struct rr_packet *pkt = NULL;
 	struct msm_ipc_port *port_ptr;
 	struct sk_buff *head_skb;
-	struct msm_ipc_port_addr *src_addr;
 	struct msm_ipc_router_remote_port *rport_ptr;
 	uint32_t resume_tx, resume_tx_node_id, resume_tx_port_id;
 
@@ -1527,30 +1639,15 @@ static void do_read_data(struct work_struct *work)
 			}
 		}
 
-		if (!port_ptr->notify) {
-			mutex_lock(&port_ptr->port_rx_q_lock);
-			wake_lock(&port_ptr->port_rx_wake_lock);
-			list_add_tail(&pkt->list, &port_ptr->port_rx_q);
-			wake_up(&port_ptr->port_rx_wait_q);
-			mutex_unlock(&port_ptr->port_rx_q_lock);
-			mutex_unlock(&local_ports_lock);
-		} else {
-			mutex_lock(&port_ptr->port_rx_q_lock);
-			src_addr = kmalloc(sizeof(struct msm_ipc_port_addr),
-					   GFP_KERNEL);
-			if (src_addr) {
-				src_addr->node_id = hdr->src_node_id;
-				src_addr->port_id = hdr->src_port_id;
-			}
-			skb_pull(head_skb, IPC_ROUTER_HDR_SIZE);
-			mutex_unlock(&local_ports_lock);
+		mutex_lock(&port_ptr->port_rx_q_lock);
+		wake_lock(&port_ptr->port_rx_wake_lock);
+		list_add_tail(&pkt->list, &port_ptr->port_rx_q);
+		wake_up(&port_ptr->port_rx_wait_q);
+		if (port_ptr->notify)
 			port_ptr->notify(MSM_IPC_ROUTER_READ_CB,
-				pkt->pkt_fragment_q, src_addr, port_ptr->priv);
-			mutex_unlock(&port_ptr->port_rx_q_lock);
-			pkt->pkt_fragment_q = NULL;
-			src_addr = NULL;
-			release_pkt(pkt);
-		}
+					 port_ptr->priv);
+		mutex_unlock(&port_ptr->port_rx_q_lock);
+		mutex_unlock(&local_ports_lock);
 
 process_done:
 		if (resume_tx) {
@@ -1904,6 +2001,28 @@ int msm_ipc_router_send_to(struct msm_ipc_port *src,
 	return ret;
 }
 
+int msm_ipc_router_send_msg(struct msm_ipc_port *src,
+			    struct msm_ipc_addr *dest,
+			    void *data, unsigned int data_len)
+{
+	struct sk_buff_head *out_skb_head;
+	int ret;
+
+	out_skb_head = msm_ipc_router_buf_to_skb(data, data_len);
+	if (!out_skb_head) {
+		pr_err("%s: SKB conversion failed\n", __func__);
+		return -EFAULT;
+	}
+
+	ret = msm_ipc_router_send_to(src, out_skb_head, dest);
+	if (ret < 0) {
+		pr_err("%s: msm_ipc_router_send_to failed - ret: %d\n",
+			__func__, ret);
+		msm_ipc_router_free_skb(out_skb_head);
+	}
+	return 0;
+}
+
 int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 			struct sk_buff_head **data,
 			size_t buf_len)
@@ -1939,7 +2058,7 @@ int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 int msm_ipc_router_recv_from(struct msm_ipc_port *port_ptr,
 			     struct sk_buff_head **data,
 			     struct msm_ipc_addr *src,
-			     unsigned long timeout)
+			     long timeout)
 {
 	int ret, data_len, align_size;
 	struct sk_buff *temp_skb;
@@ -1996,11 +2115,42 @@ int msm_ipc_router_recv_from(struct msm_ipc_port *port_ptr,
 	return data_len;
 }
 
+int msm_ipc_router_read_msg(struct msm_ipc_port *port_ptr,
+			    struct msm_ipc_addr *src,
+			    unsigned char **data,
+			    unsigned int *len)
+{
+	struct sk_buff_head *in_skb_head;
+	int ret;
+
+	ret = msm_ipc_router_recv_from(port_ptr, &in_skb_head, src, -1);
+	if (ret < 0) {
+		pr_err("%s: msm_ipc_router_recv_from failed - ret: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	*data = msm_ipc_router_skb_to_buf(in_skb_head, ret);
+	if (!(*data))
+		pr_err("%s: Buf conversion failed\n", __func__);
+
+	*len = ret;
+	msm_ipc_router_free_skb(in_skb_head);
+	return 0;
+}
+
 struct msm_ipc_port *msm_ipc_router_create_port(
-	void (*notify)(unsigned event, void *data, void *addr, void *priv),
+	void (*notify)(unsigned event, void *priv),
 	void *priv)
 {
 	struct msm_ipc_port *port_ptr;
+	int ret;
+
+	ret = wait_for_completion_interruptible(&msm_ipc_local_router_up);
+	if (ret < 0) {
+		pr_err("%s: Error waiting for local router\n", __func__);
+		return NULL;
+	}
 
 	port_ptr = msm_ipc_router_create_raw_port(NULL, notify, priv);
 	if (!port_ptr)
