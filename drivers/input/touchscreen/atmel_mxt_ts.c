@@ -36,7 +36,9 @@
 /* Family ID */
 #define MXT224_ID	0x80
 #define MXT224E_ID	0x81
+#define MXT336S_ID	0x82
 #define MXT1386_ID	0xA0
+#define MXT1664S_ID	0xA2
 
 /* Version */
 #define MXT_VER_20		20
@@ -94,6 +96,7 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_TOUCH_PROXKEY_T52		52
 #define MXT_PROCI_GRIPFACE_T20		20
 #define MXT_PROCG_NOISE_T22		22
+#define MXT_PROCG_NOISE_T62		62
 #define MXT_PROCI_ONETOUCH_T24		24
 #define MXT_PROCI_TWOTOUCH_T27		27
 #define MXT_PROCI_GRIP_T40		40
@@ -102,6 +105,7 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_PROCI_STYLUS_T47		47
 #define MXT_PROCI_ADAPTIVETHRESHOLD_T55 55
 #define MXT_PROCI_SHIELDLESS_T56	56
+#define MXT_PROCI_EXTRATSDATA_T57	57
 #define MXT_PROCG_NOISESUPPRESSION_T48	48
 #define MXT_SPT_COMMSCONFIG_T18		18
 #define MXT_SPT_GPIOPWM_T19		19
@@ -111,6 +115,7 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_SPT_DIGITIZER_T43		43
 #define MXT_SPT_MESSAGECOUNT_T44	44
 #define MXT_SPT_CTECONFIG_T46		46
+#define MXT_SPT_TIMER_T61		61
 
 /* MXT_GEN_COMMAND_T6 field */
 #define MXT_COMMAND_RESET	0
@@ -231,6 +236,8 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT224_RESET_TIME	65	/* msec */
 #define MXT224E_RESET_TIME	150	/* msec */
 #define MXT1386_RESET_TIME	250	/* msec */
+#define MXT336S_RESET_TIME	25	/* msec */
+#define MXT1664S_RESET_TIME	65	/* msec */
 #define MXT_RESET_TIME		250	/* msec */
 #define MXT_RESET_NOCHGREAD	400	/* msec */
 
@@ -372,6 +379,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_TOUCH_PROXKEY_T52:
 	case MXT_PROCI_GRIPFACE_T20:
 	case MXT_PROCG_NOISE_T22:
+	case MXT_PROCG_NOISE_T62:
 	case MXT_PROCI_ONETOUCH_T24:
 	case MXT_PROCI_TWOTOUCH_T27:
 	case MXT_PROCI_GRIP_T40:
@@ -379,6 +387,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_PROCI_TOUCHSUPPRESSION_T42:
 	case MXT_PROCI_STYLUS_T47:
 	case MXT_PROCI_SHIELDLESS_T56:
+	case MXT_PROCI_EXTRATSDATA_T57:
 	case MXT_PROCG_NOISESUPPRESSION_T48:
 	case MXT_SPT_COMMSCONFIG_T18:
 	case MXT_SPT_GPIOPWM_T19:
@@ -387,6 +396,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_SPT_USERDATA_T38:
 	case MXT_SPT_DIGITIZER_T43:
 	case MXT_SPT_CTECONFIG_T46:
+	case MXT_SPT_TIMER_T61:
 	case MXT_PROCI_ADAPTIVETHRESHOLD_T55:
 		return true;
 	default:
@@ -406,6 +416,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_TOUCH_PROXKEY_T52:
 	case MXT_PROCI_GRIPFACE_T20:
 	case MXT_PROCG_NOISE_T22:
+	case MXT_PROCG_NOISE_T62:
 	case MXT_PROCI_ONETOUCH_T24:
 	case MXT_PROCI_TWOTOUCH_T27:
 	case MXT_PROCI_GRIP_T40:
@@ -413,6 +424,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_PROCI_TOUCHSUPPRESSION_T42:
 	case MXT_PROCI_STYLUS_T47:
 	case MXT_PROCI_SHIELDLESS_T56:
+	case MXT_PROCI_EXTRATSDATA_T57:
 	case MXT_PROCG_NOISESUPPRESSION_T48:
 	case MXT_SPT_COMMSCONFIG_T18:
 	case MXT_SPT_GPIOPWM_T19:
@@ -421,6 +433,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_SPT_USERDATA_T38:
 	case MXT_SPT_DIGITIZER_T43:
 	case MXT_SPT_CTECONFIG_T46:
+	case MXT_SPT_TIMER_T61:
 	case MXT_PROCI_ADAPTIVETHRESHOLD_T55:
 		return true;
 	default:
@@ -1293,8 +1306,12 @@ static void mxt_reset_delay(struct mxt_data *data)
 	case MXT224E_ID:
 		msleep(MXT224E_RESET_TIME);
 		break;
+	case MXT336S_ID:
+		msleep(MXT336S_RESET_TIME);
 	case MXT1386_ID:
 		msleep(MXT1386_RESET_TIME);
+	case MXT1664S_ID:
+		msleep(MXT1664S_RESET_TIME);
 		break;
 	default:
 		msleep(MXT_RESET_TIME);
