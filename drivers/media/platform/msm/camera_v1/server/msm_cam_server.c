@@ -1783,7 +1783,7 @@ int msm_cam_server_request_irq(void *arg)
 			 * the individual irq lookup table.... */
 			irq_req->irq_idx =
 				get_irq_idx_from_camhw_idx(irq_req->cam_hw_idx);
-			if (irq_req->cam_hw_idx < 0) {
+			if (irq_req->irq_idx < 0) {
 				pr_err("%s Invalid hw index %d ", __func__,
 					irq_req->cam_hw_idx);
 				return -EINVAL;

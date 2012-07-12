@@ -4754,7 +4754,8 @@ int msm_axi_subdev_init(struct v4l2_subdev *sd)
 
 	return rc;
 clk_enable_failed:
-	regulator_disable(axi_ctrl->fs_vfe);
+	if (axi_ctrl->fs_vfe)
+		regulator_disable(axi_ctrl->fs_vfe);
 fs_failed:
 	iounmap(axi_ctrl->share_ctrl->vfebase);
 	axi_ctrl->share_ctrl->vfebase = NULL;
@@ -4932,12 +4933,14 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 		pr_err("%s: base address unmapped\n", __func__);
 		return -EFAULT;
 	}
+	memset(&cfgcmd, 0, sizeof(struct msm_vfe_cfg_cmd));
 	if (NULL != arg) {
 		if (copy_from_user(&cfgcmd, arg, sizeof(cfgcmd))) {
 			ERR_COPY_FROM_USER();
 			return -EFAULT;
 		}
 	}
+	memset(&vfecmd, 0, sizeof(struct msm_isp_cmd));
 	if (NULL != cfgcmd.value) {
 		if (copy_from_user(&vfecmd,
 				(void __user *)(cfgcmd.value),
