@@ -597,6 +597,7 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 #define PNOC_ID		0x0
 #define SNOC_ID		0x1
 #define CNOC_ID		0x2
+#define MMSSNOC_AHB_ID  0x4
 
 #define BIMC_ID		0x0
 #define OCMEM_ID	0x1
@@ -604,6 +605,8 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(cnoc_clk, cnoc_a_clk, RPM_BUS_CLK_TYPE, CNOC_ID, NULL);
+DEFINE_CLK_RPM_SMD(mmssnoc_ahb_clk, mmssnoc_ahb_a_clk, RPM_BUS_CLK_TYPE,
+			MMSSNOC_AHB_ID, NULL);
 
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
 DEFINE_CLK_RPM_SMD(ocmemgx_clk, ocmemgx_a_clk, RPM_MEM_CLK_TYPE, OCMEM_ID,
@@ -5026,6 +5029,13 @@ static void __init msm8974_clock_post_init(void)
 {
 	clk_set_rate(&axi_clk_src.c, 333330000);
 	clk_set_rate(&ocmemnoc_clk_src.c, 333330000);
+
+	/*
+	 * Hold an active set vote at a rate of 40MHz for the MMSS NOC AHB
+	 * source. Sleep set vote is 0.
+	 */
+	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
+	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
 
 	/*
 	 * Hold an active set vote for CXO; this is because CXO is expected
