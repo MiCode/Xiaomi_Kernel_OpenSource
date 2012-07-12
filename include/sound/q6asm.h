@@ -151,6 +151,7 @@ struct audio_client {
 
 	atomic_t		cmd_state;
 	atomic_t		time_flag;
+	atomic_t		nowait_cmd_cnt;
 	wait_queue_head_t	cmd_wait;
 	wait_queue_head_t	time_wait;
 
