@@ -326,19 +326,13 @@ static int pm_bms_masked_write(struct pm8921_bms_chip *chip, u16 addr,
 
 static int usb_chg_plugged_in(void)
 {
-	union power_supply_propval ret = {0,};
-	static struct power_supply *psy;
+	int val = pm8921_is_usb_chg_plugged_in();
 
-	if (psy == NULL) {
-		psy = power_supply_get_by_name("usb");
-		if (psy == NULL)
-			return 0;
-	}
+	/* treat as if usb is not present in case of error */
+	if (val == -EINVAL)
+		val = 0;
 
-	if (psy->get_property(psy, POWER_SUPPLY_PROP_ONLINE, &ret))
-		return 0;
-
-	return ret.intval;
+	return val;
 }
 
 #define HOLD_OREG_DATA		BIT(1)
