@@ -545,7 +545,8 @@ int vpe_enable(uint32_t clk_rate)
 	return rc;
 
 vpe_clk_failed:
-	regulator_disable(vpe_ctrl->fs_vpe);
+	if (vpe_ctrl->fs_vpe)
+		regulator_disable(vpe_ctrl->fs_vpe);
 vpe_fs_failed:
 	disable_irq(vpe_ctrl->vpeirq->start);
 	vpe_ctrl->state = VPE_STATE_IDLE;

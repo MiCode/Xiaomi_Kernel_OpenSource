@@ -218,6 +218,7 @@ int msm_gemini_evt_get(struct msm_gemini_device *pgmn_dev,
 		return -EAGAIN;
 	}
 
+	memset(&ctrl_cmd, 0, sizeof(struct msm_gemini_ctrl_cmd));
 	ctrl_cmd.type = buf_p->vbuf.type;
 	kfree(buf_p);
 
