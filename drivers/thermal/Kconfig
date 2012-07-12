@@ -75,7 +75,7 @@ config THERMAL_PM8XXX
 
 config THERMAL_MONITOR
 	bool "Monitor thermal state and limit CPU Frequency"
-	depends on THERMAL_TSENS8960
+	depends on THERMAL_TSENS8960 || THERMAL_TSENS8974
 	depends on CPU_FREQ_MSM
 	default n
 	help

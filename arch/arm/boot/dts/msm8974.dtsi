@@ -732,6 +732,15 @@
 			qcom,descriptor-fifo-size = <0x1400>;
 		};
 	};
+
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <0>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,freq-step = <2>;
+	};
 };
 
 /include/ "msm-pm8x41-rpm-regulator.dtsi"
