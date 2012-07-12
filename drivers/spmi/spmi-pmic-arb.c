@@ -79,6 +79,7 @@ enum pmic_arb_cmd_op_code {
 #define PMIC_ARB_MAX_PERIPHS		256
 #define PMIC_ARB_PERIPH_ID_VALID	(1 << 15)
 #define PMIC_ARB_TIMEOUT_US		100
+#define PMIC_ARB_MAX_TRANS_BYTES	(8)
 
 #define PMIC_ARB_APID_MASK				0xFF
 #define PMIC_ARB_PPID_MASK				0xFFF
@@ -160,49 +161,29 @@ static int pmic_arb_wait_for_done(struct spmi_pmic_arb_dev *dev)
 	return -ETIMEDOUT;
 }
 
+/**
+ * pa_read_data: reads pmic-arb's register and copy 1..4 bytes to buf
+ * @bc byte count -1. range: 0..3
+ * @reg register's address
+ * @buf output parameter, length must be bc+1
+ */
 static void pa_read_data(struct spmi_pmic_arb_dev *dev, u8 *buf, u32 reg, u8 bc)
 {
 	u32 data = pmic_arb_read(dev, reg);
-
-	switch (bc & 0x3) {
-	case 3:
-		*buf++ = data & 0xff;
-		data >>= 8;
-	case 2:
-		*buf++ = data & 0xff;
-		data >>= 8;
-	case 1:
-		*buf++ = data & 0xff;
-		data >>= 8;
-	case 0:
-		*buf++ = data & 0xff;
-	default:
-		break;
-	}
+	memcpy(buf, &data, (bc & 3) + 1);
 }
 
+/**
+ * pa_write_data: write 1..4 bytes from buf to pmic-arb's register
+ * @bc byte-count -1. range: 0..3
+ * @reg register's address
+ * @buf buffer to write. length must be bc+1
+ */
 static void
 pa_write_data(struct spmi_pmic_arb_dev *dev, u8 *buf, u32 reg, u8 bc)
 {
 	u32 data = 0;
-
-	switch (bc & 0x3) {
-	case 3:
-		data = (buf[0]|buf[1]<<8|buf[2]<<16|buf[3]<<24);
-		break;
-	case 2:
-		data = (buf[0]|buf[1]<<8|buf[2]<<16);
-		break;
-	case 1:
-		data = (buf[0]|buf[1]<<8);
-		break;
-	case 0:
-		data = (buf[0]);
-		break;
-	default:
-		break;
-	}
-
+	memcpy(&data, buf, (bc & 3) + 1);
 	pmic_arb_write(dev, reg, data);
 }
 
@@ -238,6 +219,12 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 	u32 cmd;
 	int rc;
 
+	if (bc >= PMIC_ARB_MAX_TRANS_BYTES) {
+		dev_err(pmic_arb->dev
+		, "pmic-arb supports 1..%d bytes per trans, but:%d requested"
+					, PMIC_ARB_MAX_TRANS_BYTES, bc+1);
+		return  -EINVAL;
+	}
 	pr_debug("op:0x%x sid:%d bc:%d addr:0x%x\n", opc, sid, bc, addr);
 
 	/* Check the opcode */
@@ -259,11 +246,12 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 		goto done;
 
 	/* Read from FIFO, note 'bc' is actually number of bytes minus 1 */
-	pa_read_data(pmic_arb, buf, PMIC_ARB_RDATA0(pmic_arb->channel), bc);
+	pa_read_data(pmic_arb, buf, PMIC_ARB_RDATA0(pmic_arb->channel)
+							, min_t(u8, bc, 3));
 
 	if (bc > 3)
 		pa_read_data(pmic_arb, buf + 4,
-				PMIC_ARB_RDATA1(pmic_arb->channel), bc);
+				PMIC_ARB_RDATA1(pmic_arb->channel), bc - 4);
 
 done:
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
@@ -278,6 +266,12 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 	u32 cmd;
 	int rc;
 
+	if (bc >= PMIC_ARB_MAX_TRANS_BYTES) {
+		dev_err(pmic_arb->dev
+		, "pmic-arb supports 1..%d bytes per trans, but:%d requested"
+					, PMIC_ARB_MAX_TRANS_BYTES, bc+1);
+		return  -EINVAL;
+	}
 	pr_debug("op:0x%x sid:%d bc:%d addr:0x%x\n", opc, sid, bc, addr);
 
 	/* Check the opcode */
@@ -296,11 +290,11 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 
 	/* Write data to FIFOs */
 	spin_lock_irqsave(&pmic_arb->lock, flags);
-	pa_write_data(pmic_arb, buf, PMIC_ARB_WDATA0(pmic_arb->channel), bc);
-
+	pa_write_data(pmic_arb, buf, PMIC_ARB_WDATA0(pmic_arb->channel)
+							, min_t(u8, bc, 3));
 	if (bc > 3)
 		pa_write_data(pmic_arb, buf + 4,
-				PMIC_ARB_WDATA1(pmic_arb->channel), bc);
+				PMIC_ARB_WDATA1(pmic_arb->channel), bc - 4);
 
 	/* Start the transaction */
 	pmic_arb_write(pmic_arb, PMIC_ARB_CMD(pmic_arb->channel), cmd);
