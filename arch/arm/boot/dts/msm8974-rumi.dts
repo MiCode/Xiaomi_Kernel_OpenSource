@@ -103,4 +103,8 @@
 	qcom,pronto@fb21b000 {
 		status = "disable";
 	};
+
+	qcom,mss@fc880000 {
+		status = "disable";
+	};
 };
