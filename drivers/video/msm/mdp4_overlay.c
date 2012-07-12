@@ -1817,7 +1817,13 @@ static void mdp4_overlay_bg_solidfill(struct blend_cfg *blend)
 		op_mode &= ~(MDP4_OP_FLIP_UD + MDP4_OP_SCALEY_EN);
 		outpdw(base + 0x0058, op_mode);
 		outpdw(base + 0x1008, 0);	/* black */
+		/*
+		 * Set src size and dst size same to avoid underruns
+		 */
+		outpdw(base + 0x0000, inpdw(base + 0x0008));
 	} else {
+		u32 src_size = ((pipe->src_h << 16) | pipe->src_w);
+		outpdw(base + 0x0000, src_size);
 		format &= ~MDP4_FORMAT_SOLID_FILL;
 		blend->solidfill_pipe = NULL;
 	}

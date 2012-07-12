@@ -513,6 +513,8 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	pipe->src_w = fbi->var.xres;
 	pipe->src_y = 0;
 	pipe->src_x = 0;
+	pipe->dst_h = fbi->var.yres;
+	pipe->dst_w = fbi->var.xres;
 	pipe->srcp0_ystride = fbi->fix.line_length;
 	pipe->bpp = bpp;
 
