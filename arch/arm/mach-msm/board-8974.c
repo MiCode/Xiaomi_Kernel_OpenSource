@@ -26,6 +26,7 @@
 #endif
 #include <linux/regulator/stub-regulator.h>
 #include <linux/regulator/machine.h>
+#include <linux/msm_thermal.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
 #include <mach/board.h>
@@ -436,6 +437,7 @@ void __init msm_8974_add_drivers(void)
 	else
 		msm_clock_init(&msm8974_clock_init_data);
 	msm8974_init_buses();
+	msm_thermal_device_init();
 }
 
 static struct of_device_id irq_match[] __initdata  = {
