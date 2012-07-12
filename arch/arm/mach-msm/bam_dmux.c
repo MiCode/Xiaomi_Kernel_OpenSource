@@ -183,6 +183,7 @@ static DEFINE_MUTEX(bam_rx_pool_mutexlock);
 static int bam_rx_pool_len;
 static LIST_HEAD(bam_tx_pool);
 static DEFINE_SPINLOCK(bam_tx_pool_spinlock);
+static DEFINE_MUTEX(bam_pdev_mutexlock);
 
 struct bam_mux_hdr {
 	uint16_t magic_num;
@@ -502,15 +503,24 @@ static inline void handle_bam_mux_cmd_open(struct bam_mux_hdr *rx_hdr)
 	unsigned long flags;
 	int ret;
 
+	mutex_lock(&bam_pdev_mutexlock);
+	if (in_global_reset) {
+		bam_dmux_log("%s: open cid %d aborted due to ssr\n",
+				__func__, rx_hdr->ch_id);
+		mutex_unlock(&bam_pdev_mutexlock);
+		queue_rx();
+		return;
+	}
 	spin_lock_irqsave(&bam_ch[rx_hdr->ch_id].lock, flags);
 	bam_ch[rx_hdr->ch_id].status |= BAM_CH_REMOTE_OPEN;
 	bam_ch[rx_hdr->ch_id].num_tx_pkts = 0;
 	spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
-	queue_rx();
 	ret = platform_device_add(bam_ch[rx_hdr->ch_id].pdev);
 	if (ret)
 		pr_err("%s: platform_device_add() error: %d\n",
 				__func__, ret);
+	mutex_unlock(&bam_pdev_mutexlock);
+	queue_rx();
 }
 
 static void handle_bam_mux_cmd(struct work_struct *work)
@@ -584,16 +594,24 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 		/* probably should drop pending write */
 		bam_dmux_log("%s: closing cid %d\n", __func__,
 				rx_hdr->ch_id);
+		mutex_lock(&bam_pdev_mutexlock);
+		if (in_global_reset) {
+			bam_dmux_log("%s: close cid %d aborted due to ssr\n",
+					__func__, rx_hdr->ch_id);
+			mutex_unlock(&bam_pdev_mutexlock);
+			break;
+		}
 		spin_lock_irqsave(&bam_ch[rx_hdr->ch_id].lock, flags);
 		bam_ch[rx_hdr->ch_id].status &= ~BAM_CH_REMOTE_OPEN;
 		spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
-		queue_rx();
 		platform_device_unregister(bam_ch[rx_hdr->ch_id].pdev);
 		bam_ch[rx_hdr->ch_id].pdev =
 			platform_device_alloc(bam_ch[rx_hdr->ch_id].name, 2);
 		if (!bam_ch[rx_hdr->ch_id].pdev)
 			pr_err("%s: platform_device_alloc failed\n", __func__);
+		mutex_unlock(&bam_pdev_mutexlock);
 		dev_kfree_skb_any(rx_skb);
+		queue_rx();
 		break;
 	default:
 		DMUX_LOG_KERR("%s: dropping invalid hdr. magic %x"
@@ -1873,6 +1891,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 	disconnect_ack = 0;
 
 	/* Cleanup Channel States */
+	mutex_lock(&bam_pdev_mutexlock);
 	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
 		temp_remote_status = bam_ch_is_remote_open(i);
 		bam_ch[i].status &= ~BAM_CH_REMOTE_OPEN;
@@ -1885,6 +1904,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 						bam_ch[i].name, 2);
 		}
 	}
+	mutex_unlock(&bam_pdev_mutexlock);
 
 	/* Cleanup pending UL data */
 	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
