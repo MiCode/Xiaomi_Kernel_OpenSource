@@ -93,6 +93,8 @@ struct pm8921_bms_chip {
 	struct sf_lut		*rbatt_sf_lut;
 	int			delta_rbatt_mohm;
 	struct work_struct	calib_hkadc_work;
+	struct delayed_work	calib_hkadc_delayed_work;
+	struct mutex		calib_mutex;
 	unsigned int		revision;
 	unsigned int		xoadc_v0625_usb_present;
 	unsigned int		xoadc_v0625_usb_absent;
@@ -1636,10 +1638,11 @@ static void calib_hkadc(struct pm8921_bms_chip *chip)
 	int usb_chg;
 	int this_delta;
 
+	mutex_lock(&chip->calib_mutex);
 	rc = pm8xxx_adc_read(the_chip->ref1p25v_channel, &result);
 	if (rc) {
 		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
-		return;
+		goto out;
 	}
 	voltage = xoadc_reading_to_microvolt(result.adc_code);
 
@@ -1651,7 +1654,7 @@ static void calib_hkadc(struct pm8921_bms_chip *chip)
 	rc = pm8xxx_adc_read(the_chip->ref625mv_channel, &result);
 	if (rc) {
 		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
-		return;
+		goto out;
 	}
 	voltage = xoadc_reading_to_microvolt(result.adc_code);
 
@@ -1678,6 +1681,8 @@ static void calib_hkadc(struct pm8921_bms_chip *chip)
 			chip->xoadc_v0625_usb_absent,
 			last_usb_cal_delta_uv);
 	}
+out:
+	mutex_unlock(&chip->calib_mutex);
 }
 
 static void calibrate_hkadc_work(struct work_struct *work)
@@ -1691,6 +1696,19 @@ static void calibrate_hkadc_work(struct work_struct *work)
 void pm8921_bms_calibrate_hkadc(void)
 {
 	schedule_work(&the_chip->calib_hkadc_work);
+}
+
+#define HKADC_CALIB_DELAY_MS	600000
+static void calibrate_hkadc_delayed_work(struct work_struct *work)
+{
+	struct pm8921_bms_chip *chip = container_of(work,
+				struct pm8921_bms_chip,
+				calib_hkadc_delayed_work.work);
+
+	calib_hkadc(chip);
+	schedule_delayed_work(&chip->calib_hkadc_delayed_work,
+			round_jiffies_relative(msecs_to_jiffies
+			(HKADC_CALIB_DELAY_MS)));
 }
 
 int pm8921_bms_get_vsense_avg(int *result)
@@ -2603,7 +2621,11 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->batt_id_channel = pdata->bms_cdata.batt_id_channel;
 	chip->revision = pm8xxx_get_revision(chip->dev->parent);
 	chip->enable_fcc_learning = pdata->enable_fcc_learning;
+
+	mutex_init(&chip->calib_mutex);
 	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
+	INIT_DELAYED_WORK(&chip->calib_hkadc_delayed_work,
+				calibrate_hkadc_delayed_work);
 
 	rc = request_irqs(chip, pdev);
 	if (rc) {
@@ -2630,8 +2652,9 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	}
 	check_initial_ocv(chip);
 
-	/* initial hkadc calibration */
-	schedule_work(&chip->calib_hkadc_work);
+	/* start periodic hkadc calibration */
+	schedule_delayed_work(&chip->calib_hkadc_delayed_work, 0);
+
 	/* enable the vbatt reading interrupts for scheduling hkadc calib */
 	pm8921_bms_enable_irq(chip, PM8921_BMS_GOOD_OCV);
 	pm8921_bms_enable_irq(chip, PM8921_BMS_OCV_FOR_R);
