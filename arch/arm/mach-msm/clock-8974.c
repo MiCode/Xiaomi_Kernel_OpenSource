@@ -198,6 +198,7 @@ static void __iomem *virt_bases[N_BASES];
 #define AHB_CMD_RCGR                   0x5000
 #define AXI_CMD_RCGR                   0x5040
 #define OCMEMNOC_CMD_RCGR              0x5090
+#define OCMEMCX_OCMEMNOC_CBCR          0x4058
 
 #define MMSS_BCR                  0x0240
 #define USB_30_BCR                0x03C0
@@ -2215,6 +2216,28 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 	},
 };
 
+struct branch_clk gcc_mmss_noc_cfg_ahb_clk = {
+	.cbcr_reg = MMSS_NOC_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_mmss_noc_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mmss_noc_cfg_ahb_clk.c),
+	},
+};
+
+struct branch_clk gcc_ocmem_noc_cfg_ahb_clk = {
+	.cbcr_reg = OCMEM_NOC_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_ocmem_noc_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_ocmem_noc_cfg_ahb_clk.c),
+	},
+};
+
 static struct branch_clk gcc_mss_cfg_ahb_clk = {
 	.cbcr_reg = MSS_CFG_AHB_CBCR,
 	.has_sibling = 1,
@@ -3745,6 +3768,18 @@ struct branch_clk ocmemnoc_clk = {
 	},
 };
 
+struct branch_clk ocmemcx_ocmemnoc_clk = {
+	.cbcr_reg = OCMEMCX_OCMEMNOC_CBCR,
+	.parent = &ocmemnoc_clk_src.c,
+	.has_sibling = 1,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "ocmemcx_ocmemnoc_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(ocmemcx_ocmemnoc_clk.c),
+	},
+};
+
 static struct branch_clk venus0_ahb_clk = {
 	.cbcr_reg = VENUS0_AHB_CBCR,
 	.has_sibling = 1,
@@ -4329,6 +4364,8 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_blsp2_uart5_apps_clk.c,		GCC_BASE, 0x00c6},
 	{&gcc_blsp2_uart6_apps_clk.c,		GCC_BASE, 0x00cb},
 	{&gcc_boot_rom_ahb_clk.c,		GCC_BASE, 0x0100},
+	{&gcc_ocmem_noc_cfg_ahb_clk.c,		GCC_BASE, 0x0029},
+	{&gcc_mmss_noc_cfg_ahb_clk.c,		GCC_BASE, 0x002A},
 	{&gcc_mss_cfg_ahb_clk.c,		GCC_BASE, 0x0030},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0140},
 	{&gcc_ce2_clk.c,			GCC_BASE, 0x0148},
@@ -4356,6 +4393,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&mmss_mmssnoc_ahb_clk.c,		MMSS_BASE, 0x0001},
 	{&mmss_mmssnoc_axi_clk.c,		MMSS_BASE, 0x0004},
 	{&ocmemnoc_clk.c,			MMSS_BASE, 0x0007},
+	{&ocmemcx_ocmemnoc_clk.c,		MMSS_BASE, 0x0009},
 	{&camss_cci_cci_ahb_clk.c,		MMSS_BASE, 0x002e},
 	{&camss_cci_cci_clk.c,			MMSS_BASE, 0x002d},
 	{&camss_csi0_ahb_clk.c,			MMSS_BASE, 0x0042},
@@ -4790,6 +4828,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_clk", mdss_axi_clk.c, "mdp.0"),
 	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fdb00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb00000.qcom,kgsl-3d0"),
+	CLK_LOOKUP("mem_iface_clk", ocmemcx_ocmemnoc_clk.c,
+						"fdb00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("core_clk", oxilicx_axi_clk.c, "fdb10000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb10000.qcom,iommu"),
 	CLK_LOOKUP("alt_core_clk", oxili_gfx3d_clk.c, "fdb10000.qcom,iommu"),
@@ -4881,6 +4921,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_a_clk",	ocmemnoc_clk.c,		"msm_ocmem_noc"),
 	CLK_LOOKUP("bus_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
 	CLK_LOOKUP("bus_a_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
+	CLK_LOOKUP("iface_clk", gcc_mmss_noc_cfg_ahb_clk.c, ""),
+	CLK_LOOKUP("iface_clk", gcc_ocmem_noc_cfg_ahb_clk.c, ""),
 
 	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-tmc-etr"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-tpiu"),
@@ -5120,6 +5162,13 @@ static void __init msm8974_clock_post_init(void)
 	 * to remain on whenever CPUs aren't power collapsed.
 	 */
 	clk_prepare_enable(&cxo_a_clk_src.c);
+
+	/*
+	 * TODO: Temporarily enable NOC configuration AHB clocks. Remove when
+	 * the bus driver is ready.
+	 */
+	clk_prepare_enable(&gcc_mmss_noc_cfg_ahb_clk.c);
+	clk_prepare_enable(&gcc_ocmem_noc_cfg_ahb_clk.c);
 
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb30_master_clk_src.c,
