@@ -4310,12 +4310,17 @@ error1:
 static int hdmi_msm_power_ctrl(boolean enable)
 {
 	int rc = 0;
-	if (!hdmi_prim_display && !external_common_state->hpd_feature_on)
-		return 0;
 
 	if (enable) {
-		DEV_DBG("%s: Turning HPD ciruitry on\n", __func__);
-		rc = hdmi_msm_hpd_on(true);
+		/*
+		 * Enable HPD only if the UI option is on or if
+		 * HDMI is configured as the primary display
+		 */
+		if (hdmi_prim_display ||
+			external_common_state->hpd_feature_on) {
+			DEV_DBG("%s: Turning HPD ciruitry on\n", __func__);
+			rc = hdmi_msm_hpd_on(true);
+		}
 	} else {
 		DEV_DBG("%s: Turning HPD ciruitry off\n", __func__);
 		hdmi_msm_hpd_off();
