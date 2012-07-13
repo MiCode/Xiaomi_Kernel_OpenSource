@@ -60,6 +60,10 @@
 			<244800 133330000>;
 	};
 
+	qcom,wfd {
+		compatible = "qcom,msm-wfd";
+	};
+
 	serial@f991f000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991f000 0x1000>;
