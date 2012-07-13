@@ -22,7 +22,6 @@
 #include <linux/interrupt.h>
 #include <linux/reboot.h>
 
-#include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
 
@@ -32,31 +31,32 @@
 #include "ramdump.h"
 
 #define MARM_BOOT_CONTROL		0x0010
-#define MARM_RESET			(MSM_CLK_CTL_BASE + 0x2BD4)
-#define MAHB0_SFAB_PORT_RESET		(MSM_CLK_CTL_BASE + 0x2304)
-#define MARM_CLK_BRANCH_ENA_VOTE	(MSM_CLK_CTL_BASE + 0x3000)
-#define MARM_CLK_SRC0_NS		(MSM_CLK_CTL_BASE + 0x2BC0)
-#define MARM_CLK_SRC1_NS		(MSM_CLK_CTL_BASE + 0x2BC4)
-#define MARM_CLK_SRC_CTL		(MSM_CLK_CTL_BASE + 0x2BC8)
-#define MARM_CLK_CTL			(MSM_CLK_CTL_BASE + 0x2BCC)
-#define SFAB_MSS_S_HCLK_CTL		(MSM_CLK_CTL_BASE + 0x2C00)
-#define MSS_MODEM_CXO_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2C44)
-#define MSS_SLP_CLK_CTL			(MSM_CLK_CTL_BASE + 0x2C60)
-#define MSS_MARM_SYS_REF_CLK_CTL	(MSM_CLK_CTL_BASE + 0x2C64)
-#define MAHB0_CLK_CTL			(MSM_CLK_CTL_BASE + 0x2300)
-#define MAHB1_CLK_CTL			(MSM_CLK_CTL_BASE + 0x2BE4)
-#define MAHB2_CLK_CTL			(MSM_CLK_CTL_BASE + 0x2C20)
-#define MAHB1_NS			(MSM_CLK_CTL_BASE + 0x2BE0)
-#define MARM_CLK_FS			(MSM_CLK_CTL_BASE + 0x2BD0)
-#define MAHB2_CLK_FS			(MSM_CLK_CTL_BASE + 0x2C24)
-#define PLL_ENA_MARM			(MSM_CLK_CTL_BASE + 0x3500)
-#define PLL8_STATUS			(MSM_CLK_CTL_BASE + 0x3158)
-#define CLK_HALT_MSS_SMPSS_MISC_STATE	(MSM_CLK_CTL_BASE + 0x2FDC)
-#define MSS_MODEM_RESET			(MSM_CLK_CTL_BASE + 0x2C48)
+#define MARM_RESET			0x2BD4
+#define MAHB0_SFAB_PORT_RESET		0x2304
+#define MARM_CLK_BRANCH_ENA_VOTE	0x3000
+#define MARM_CLK_SRC0_NS		0x2BC0
+#define MARM_CLK_SRC1_NS		0x2BC4
+#define MARM_CLK_SRC_CTL		0x2BC8
+#define MARM_CLK_CTL			0x2BCC
+#define SFAB_MSS_S_HCLK_CTL		0x2C00
+#define MSS_MODEM_CXO_CLK_CTL		0x2C44
+#define MSS_SLP_CLK_CTL			0x2C60
+#define MSS_MARM_SYS_REF_CLK_CTL	0x2C64
+#define MAHB0_CLK_CTL			0x2300
+#define MAHB1_CLK_CTL			0x2BE4
+#define MAHB2_CLK_CTL			0x2C20
+#define MAHB1_NS			0x2BE0
+#define MARM_CLK_FS			0x2BD0
+#define MAHB2_CLK_FS			0x2C24
+#define PLL_ENA_MARM			0x3500
+#define PLL8_STATUS			0x3158
+#define CLK_HALT_MSS_SMPSS_MISC_STATE	0x2FDC
+#define MSS_MODEM_RESET			0x2C48
 
 struct modem_data {
 	void __iomem *base;
 	void __iomem *wdog;
+	void __iomem *cbase;
 	struct pil_device *pil;
 	struct clk *xo;
 	struct notifier_block notifier;
@@ -96,65 +96,65 @@ static int modem_reset(struct pil_desc *pil)
 	unsigned long start_addr = pil_get_entry_addr(pil);
 
 	/* Put modem AHB0,1,2 clocks into reset */
-	writel_relaxed(BIT(0) | BIT(1), MAHB0_SFAB_PORT_RESET);
-	writel_relaxed(BIT(7), MAHB1_CLK_CTL);
-	writel_relaxed(BIT(7), MAHB2_CLK_CTL);
+	writel_relaxed(BIT(0) | BIT(1), drv->cbase + MAHB0_SFAB_PORT_RESET);
+	writel_relaxed(BIT(7), drv->cbase + MAHB1_CLK_CTL);
+	writel_relaxed(BIT(7), drv->cbase + MAHB2_CLK_CTL);
 
 	/* Vote for pll8 on behalf of the modem */
-	reg = readl_relaxed(PLL_ENA_MARM);
+	reg = readl_relaxed(drv->cbase + PLL_ENA_MARM);
 	reg |= BIT(8);
-	writel_relaxed(reg, PLL_ENA_MARM);
+	writel_relaxed(reg, drv->cbase + PLL_ENA_MARM);
 
 	/* Wait for PLL8 to enable */
-	while (!(readl_relaxed(PLL8_STATUS) & BIT(16)))
+	while (!(readl_relaxed(drv->cbase + PLL8_STATUS) & BIT(16)))
 		cpu_relax();
 
 	/* Set MAHB1 divider to Div-5 to run MAHB1,2 and sfab at 79.8 Mhz*/
-	writel_relaxed(0x4, MAHB1_NS);
+	writel_relaxed(0x4, drv->cbase + MAHB1_NS);
 
 	/* Vote for modem AHB1 and 2 clocks to be on on behalf of the modem */
-	reg = readl_relaxed(MARM_CLK_BRANCH_ENA_VOTE);
+	reg = readl_relaxed(drv->cbase + MARM_CLK_BRANCH_ENA_VOTE);
 	reg |= BIT(0) | BIT(1);
-	writel_relaxed(reg, MARM_CLK_BRANCH_ENA_VOTE);
+	writel_relaxed(reg, drv->cbase + MARM_CLK_BRANCH_ENA_VOTE);
 
 	/* Source marm_clk off of PLL8 */
-	reg = readl_relaxed(MARM_CLK_SRC_CTL);
+	reg = readl_relaxed(drv->cbase + MARM_CLK_SRC_CTL);
 	if ((reg & 0x1) == 0) {
-		writel_relaxed(0x3, MARM_CLK_SRC1_NS);
+		writel_relaxed(0x3, drv->cbase + MARM_CLK_SRC1_NS);
 		reg |= 0x1;
 	} else {
-		writel_relaxed(0x3, MARM_CLK_SRC0_NS);
+		writel_relaxed(0x3, drv->cbase + MARM_CLK_SRC0_NS);
 		reg &= ~0x1;
 	}
-	writel_relaxed(reg | 0x2, MARM_CLK_SRC_CTL);
+	writel_relaxed(reg | 0x2, drv->cbase + MARM_CLK_SRC_CTL);
 
 	/*
 	 * Force core on and periph on signals to remain active during halt
 	 * for marm_clk and mahb2_clk
 	 */
-	writel_relaxed(0x6F, MARM_CLK_FS);
-	writel_relaxed(0x6F, MAHB2_CLK_FS);
+	writel_relaxed(0x6F, drv->cbase + MARM_CLK_FS);
+	writel_relaxed(0x6F, drv->cbase + MAHB2_CLK_FS);
 
 	/*
 	 * Enable all of the marm_clk branches, cxo sourced marm branches,
 	 * and sleep clock branches
 	 */
-	writel_relaxed(0x10, MARM_CLK_CTL);
-	writel_relaxed(0x10, MAHB0_CLK_CTL);
-	writel_relaxed(0x10, SFAB_MSS_S_HCLK_CTL);
-	writel_relaxed(0x10, MSS_MODEM_CXO_CLK_CTL);
-	writel_relaxed(0x10, MSS_SLP_CLK_CTL);
-	writel_relaxed(0x10, MSS_MARM_SYS_REF_CLK_CTL);
+	writel_relaxed(0x10, drv->cbase + MARM_CLK_CTL);
+	writel_relaxed(0x10, drv->cbase + MAHB0_CLK_CTL);
+	writel_relaxed(0x10, drv->cbase + SFAB_MSS_S_HCLK_CTL);
+	writel_relaxed(0x10, drv->cbase + MSS_MODEM_CXO_CLK_CTL);
+	writel_relaxed(0x10, drv->cbase + MSS_SLP_CLK_CTL);
+	writel_relaxed(0x10, drv->cbase + MSS_MARM_SYS_REF_CLK_CTL);
 
 	/* Wait for above clocks to be turned on */
-	while (readl_relaxed(CLK_HALT_MSS_SMPSS_MISC_STATE) & (BIT(7) | BIT(8) |
-				BIT(9) | BIT(10) | BIT(4) | BIT(6)))
+	while (readl_relaxed(drv->cbase + CLK_HALT_MSS_SMPSS_MISC_STATE) &
+			(BIT(7) | BIT(8) | BIT(9) | BIT(10) | BIT(4) | BIT(6)))
 		cpu_relax();
 
 	/* Take MAHB0,1,2 clocks out of reset */
-	writel_relaxed(0x0, MAHB2_CLK_CTL);
-	writel_relaxed(0x0, MAHB1_CLK_CTL);
-	writel_relaxed(0x0, MAHB0_SFAB_PORT_RESET);
+	writel_relaxed(0x0, drv->cbase + MAHB2_CLK_CTL);
+	writel_relaxed(0x0, drv->cbase + MAHB1_CLK_CTL);
+	writel_relaxed(0x0, drv->cbase + MAHB0_SFAB_PORT_RESET);
 	mb();
 
 	/* Setup exception vector table base address */
@@ -164,7 +164,7 @@ static int modem_reset(struct pil_desc *pil)
 	mb();
 
 	/* Bring modem out of reset */
-	writel_relaxed(0x0, MARM_RESET);
+	writel_relaxed(0x0, drv->cbase + MARM_RESET);
 
 	return 0;
 }
@@ -172,38 +172,39 @@ static int modem_reset(struct pil_desc *pil)
 static int modem_pil_shutdown(struct pil_desc *pil)
 {
 	u32 reg;
+	const struct modem_data *drv = dev_get_drvdata(pil->dev);
 
 	/* Put modem into reset */
-	writel_relaxed(0x1, MARM_RESET);
+	writel_relaxed(0x1, drv->cbase + MARM_RESET);
 	mb();
 
 	/* Put modem AHB0,1,2 clocks into reset */
-	writel_relaxed(BIT(0) | BIT(1), MAHB0_SFAB_PORT_RESET);
-	writel_relaxed(BIT(7), MAHB1_CLK_CTL);
-	writel_relaxed(BIT(7), MAHB2_CLK_CTL);
+	writel_relaxed(BIT(0) | BIT(1), drv->cbase + MAHB0_SFAB_PORT_RESET);
+	writel_relaxed(BIT(7), drv->cbase + MAHB1_CLK_CTL);
+	writel_relaxed(BIT(7), drv->cbase + MAHB2_CLK_CTL);
 	mb();
 
 	/*
 	 * Disable all of the marm_clk branches, cxo sourced marm branches,
 	 * and sleep clock branches
 	 */
-	writel_relaxed(0x0, MARM_CLK_CTL);
-	writel_relaxed(0x0, MAHB0_CLK_CTL);
-	writel_relaxed(0x0, SFAB_MSS_S_HCLK_CTL);
-	writel_relaxed(0x0, MSS_MODEM_CXO_CLK_CTL);
-	writel_relaxed(0x0, MSS_SLP_CLK_CTL);
-	writel_relaxed(0x0, MSS_MARM_SYS_REF_CLK_CTL);
+	writel_relaxed(0x0, drv->cbase + MARM_CLK_CTL);
+	writel_relaxed(0x0, drv->cbase + MAHB0_CLK_CTL);
+	writel_relaxed(0x0, drv->cbase + SFAB_MSS_S_HCLK_CTL);
+	writel_relaxed(0x0, drv->cbase + MSS_MODEM_CXO_CLK_CTL);
+	writel_relaxed(0x0, drv->cbase + MSS_SLP_CLK_CTL);
+	writel_relaxed(0x0, drv->cbase + MSS_MARM_SYS_REF_CLK_CTL);
 
 	/* Disable marm_clk */
-	reg = readl_relaxed(MARM_CLK_SRC_CTL);
+	reg = readl_relaxed(drv->cbase + MARM_CLK_SRC_CTL);
 	reg &= ~0x2;
-	writel_relaxed(reg, MARM_CLK_SRC_CTL);
+	writel_relaxed(reg, drv->cbase + MARM_CLK_SRC_CTL);
 
 	/* Clear modem's votes for ahb clocks */
-	writel_relaxed(0x0, MARM_CLK_BRANCH_ENA_VOTE);
+	writel_relaxed(0x0, drv->cbase + MARM_CLK_BRANCH_ENA_VOTE);
 
 	/* Clear modem's votes for PLLs */
-	writel_relaxed(0x0, PLL_ENA_MARM);
+	writel_relaxed(0x0, drv->cbase + PLL_ENA_MARM);
 
 	return 0;
 }
@@ -273,7 +274,7 @@ static void modem_unlock_timeout(struct work_struct *work)
 
 	drv = container_of(dwork, struct modem_data, unlock_work);
 	/* The unlock didn't work, clear the reset */
-	writel_relaxed(0x0, MSS_MODEM_RESET);
+	writel_relaxed(0x0, drv->cbase + MSS_MODEM_RESET);
 	mb();
 
 	subsystem_restart_dev(drv->subsys);
@@ -305,7 +306,7 @@ static void modem_fatal_fn(struct work_struct *work)
 
 		pr_err("Modem AHB locked up. Trying to free up modem!\n");
 
-		writel_relaxed(0x3, MSS_MODEM_RESET);
+		writel_relaxed(0x3, drv->cbase + MSS_MODEM_RESET);
 		/*
 		 * If we are still alive (allowing for the 5 second
 		 * delayed-panic-reboot), the modem is either still wedged or
@@ -443,6 +444,14 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 
 	drv->wdog = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!drv->wdog)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (!res)
+		return -EINVAL;
+
+	drv->cbase = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!drv->cbase)
 		return -ENOMEM;
 
 	desc = &drv->pil_desc;

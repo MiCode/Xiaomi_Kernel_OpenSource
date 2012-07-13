@@ -2020,6 +2020,11 @@ static struct resource msm_gss_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	{
+		.start  = 0x00900000,
+		.end    = 0x00900000 + SZ_16K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
 		.start	= GSS_A5_WDOG_EXPIRED,
 		.end	= GSS_A5_WDOG_EXPIRED,
 		.flags	= IORESOURCE_IRQ,

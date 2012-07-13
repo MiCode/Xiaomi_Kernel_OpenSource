@@ -22,7 +22,6 @@
 #include <linux/interrupt.h>
 #include <linux/wcnss_wlan.h>
 
-#include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 
 #include "peripheral-loader.h"
@@ -52,19 +51,18 @@
 
 #define RIVA_PMU_CCPU_BOOT_REMAP_ADDR	0xA0
 
-#define RIVA_PLL_MODE			(MSM_CLK_CTL_BASE + 0x31A0)
+#define RIVA_PLL_MODE			0x31A0
 #define PLL_MODE_OUTCTRL		BIT(0)
 #define PLL_MODE_BYPASSNL		BIT(1)
 #define PLL_MODE_RESET_N		BIT(2)
 #define PLL_MODE_REF_XO_SEL		0x30
 #define PLL_MODE_REF_XO_SEL_CXO		(2 << 4)
 #define PLL_MODE_REF_XO_SEL_RF		(3 << 4)
-#define RIVA_PLL_L_VAL			(MSM_CLK_CTL_BASE + 0x31A4)
-#define RIVA_PLL_M_VAL			(MSM_CLK_CTL_BASE + 0x31A8)
-#define RIVA_PLL_N_VAL			(MSM_CLK_CTL_BASE + 0x31Ac)
-#define RIVA_PLL_CONFIG			(MSM_CLK_CTL_BASE + 0x31B4)
-#define RIVA_PLL_STATUS			(MSM_CLK_CTL_BASE + 0x31B8)
-#define RIVA_RESET			(MSM_CLK_CTL_BASE + 0x35E0)
+#define RIVA_PLL_L_VAL			0x31A4
+#define RIVA_PLL_M_VAL			0x31A8
+#define RIVA_PLL_N_VAL			0x31Ac
+#define RIVA_PLL_CONFIG			0x31B4
+#define RIVA_RESET			0x35E0
 
 #define RIVA_PMU_ROOT_CLK_SEL		0xC8
 #define RIVA_PMU_ROOT_CLK_SEL_3		BIT(2)
@@ -82,6 +80,7 @@
 
 struct riva_data {
 	void __iomem *base;
+	void __iomem *cbase;
 	struct clk *xo;
 	struct regulator *pll_supply;
 	struct pil_desc pil_desc;
@@ -136,6 +135,7 @@ static int pil_riva_reset(struct pil_desc *pil)
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
 	unsigned long start_addr = pil_get_entry_addr(pil);
+	void __iomem *cbase = drv->cbase;
 	bool use_cxo = cxo_is_needed(drv);
 
 	/* Enable A2XB bridge */
@@ -144,26 +144,26 @@ static int pil_riva_reset(struct pil_desc *pil)
 	writel_relaxed(reg, base + RIVA_PMU_A2XB_CFG);
 
 	/* Program PLL 13 to 960 MHz */
-	reg = readl_relaxed(RIVA_PLL_MODE);
+	reg = readl_relaxed(cbase + RIVA_PLL_MODE);
 	reg &= ~(PLL_MODE_BYPASSNL | PLL_MODE_OUTCTRL | PLL_MODE_RESET_N);
-	writel_relaxed(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, cbase + RIVA_PLL_MODE);
 
 	if (use_cxo)
-		writel_relaxed(0x40000C00 | 50, RIVA_PLL_L_VAL);
+		writel_relaxed(0x40000C00 | 50, cbase + RIVA_PLL_L_VAL);
 	else
-		writel_relaxed(0x40000C00 | 40, RIVA_PLL_L_VAL);
-	writel_relaxed(0, RIVA_PLL_M_VAL);
-	writel_relaxed(1, RIVA_PLL_N_VAL);
-	writel_relaxed(0x01495227, RIVA_PLL_CONFIG);
+		writel_relaxed(0x40000C00 | 40, cbase + RIVA_PLL_L_VAL);
+	writel_relaxed(0, cbase + RIVA_PLL_M_VAL);
+	writel_relaxed(1, cbase + RIVA_PLL_N_VAL);
+	writel_relaxed(0x01495227, cbase + RIVA_PLL_CONFIG);
 
-	reg = readl_relaxed(RIVA_PLL_MODE);
+	reg = readl_relaxed(cbase + RIVA_PLL_MODE);
 	reg &= ~(PLL_MODE_REF_XO_SEL);
 	reg |= use_cxo ? PLL_MODE_REF_XO_SEL_CXO : PLL_MODE_REF_XO_SEL_RF;
-	writel_relaxed(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, cbase + RIVA_PLL_MODE);
 
 	/* Enable PLL 13 */
 	reg |= PLL_MODE_BYPASSNL;
-	writel_relaxed(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, cbase + RIVA_PLL_MODE);
 
 	/*
 	 * H/W requires a 5us delay between disabling the bypass and
@@ -173,9 +173,9 @@ static int pil_riva_reset(struct pil_desc *pil)
 	usleep_range(10, 20);
 
 	reg |= PLL_MODE_RESET_N;
-	writel_relaxed(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, cbase + RIVA_PLL_MODE);
 	reg |= PLL_MODE_OUTCTRL;
-	writel_relaxed(reg, RIVA_PLL_MODE);
+	writel_relaxed(reg, cbase + RIVA_PLL_MODE);
 
 	/* Wait for PLL to settle */
 	mb();
@@ -229,13 +229,16 @@ static int pil_riva_reset(struct pil_desc *pil)
 
 static int pil_riva_shutdown(struct pil_desc *pil)
 {
+	struct riva_data *drv = dev_get_drvdata(pil->dev);
+	void __iomem *cbase = drv->cbase;
+
 	/* Assert reset to Riva */
-	writel_relaxed(1, RIVA_RESET);
+	writel_relaxed(1, cbase + RIVA_RESET);
 	mb();
 	usleep_range(1000, 2000);
 
 	/* Deassert reset to Riva */
-	writel_relaxed(0, RIVA_RESET);
+	writel_relaxed(0, cbase + RIVA_RESET);
 	mb();
 
 	return 0;
@@ -460,6 +463,13 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 
 	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!drv->base)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res)
+		return -EINVAL;
+	drv->cbase = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!drv->cbase)
 		return -ENOMEM;
 
 	drv->pll_supply = devm_regulator_get(&pdev->dev, "pll_vdd");

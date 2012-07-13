@@ -21,7 +21,6 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 
-#include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 #include <mach/scm.h>
 
@@ -33,7 +32,7 @@
 #define QDSP6SS_STRAP_TCM	0x001C
 #define QDSP6SS_STRAP_AHB	0x0020
 
-#define LCC_Q6_FUNC		(MSM_LPASS_CLK_CTL_BASE + 0x001C)
+#define LCC_Q6_FUNC		0x001C
 #define LV_EN			BIT(27)
 #define STOP_CORE		BIT(26)
 #define CLAMP_IO		BIT(25)
@@ -69,6 +68,7 @@
 /**
  * struct q6v3_data - LPASS driver data
  * @base: register base
+ * @cbase: clock base
  * @wk_base: wakeup register base
  * @wd_base: watchdog register base
  * @irq: watchdog irq
@@ -81,6 +81,7 @@
  */
 struct q6v3_data {
 	void __iomem *base;
+	void __iomem *cbase;
 	void __iomem *wk_base;
 	void __iomem *wd_base;
 	int irq;
@@ -118,11 +119,11 @@ static int pil_q6v3_reset(struct pil_desc *pil)
 	unsigned long start_addr = pil_get_entry_addr(pil);
 
 	/* Put Q6 into reset */
-	reg = readl_relaxed(LCC_Q6_FUNC);
+	reg = readl_relaxed(drv->cbase + LCC_Q6_FUNC);
 	reg |= Q6SS_SS_ARES | Q6SS_ISDB_ARES | Q6SS_ETM_ARES | STOP_CORE |
 		CORE_ARES;
 	reg &= ~CORE_GFM4_CLK_EN;
-	writel_relaxed(reg, LCC_Q6_FUNC);
+	writel_relaxed(reg, drv->cbase + LCC_Q6_FUNC);
 
 	/* Wait 8 AHB cycles for Q6 to be fully reset (AHB = 1.5Mhz) */
 	usleep_range(20, 30);
@@ -130,12 +131,12 @@ static int pil_q6v3_reset(struct pil_desc *pil)
 	/* Turn on Q6 memory */
 	reg |= CORE_GFM4_CLK_EN | CORE_L1_MEM_CORE_EN | CORE_TCM_MEM_CORE_EN |
 		CORE_TCM_MEM_PERPH_EN;
-	writel_relaxed(reg, LCC_Q6_FUNC);
+	writel_relaxed(reg, drv->cbase + LCC_Q6_FUNC);
 
 	/* Turn on Q6 core clocks and take core out of reset */
 	reg &= ~(CLAMP_IO | Q6SS_SS_ARES | Q6SS_ISDB_ARES | Q6SS_ETM_ARES |
 			CORE_ARES);
-	writel_relaxed(reg, LCC_Q6_FUNC);
+	writel_relaxed(reg, drv->cbase + LCC_Q6_FUNC);
 
 	/* Wait for clocks to be enabled */
 	mb();
@@ -153,7 +154,7 @@ static int pil_q6v3_reset(struct pil_desc *pil)
 
 	/* Start Q6 instruction execution */
 	reg &= ~STOP_CORE;
-	writel_relaxed(reg, LCC_Q6_FUNC);
+	writel_relaxed(reg, drv->cbase + LCC_Q6_FUNC);
 
 	return 0;
 }
@@ -161,13 +162,14 @@ static int pil_q6v3_reset(struct pil_desc *pil)
 static int pil_q6v3_shutdown(struct pil_desc *pil)
 {
 	u32 reg;
+	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
 
 	/* Put Q6 into reset */
-	reg = readl_relaxed(LCC_Q6_FUNC);
+	reg = readl_relaxed(drv->cbase + LCC_Q6_FUNC);
 	reg |= Q6SS_SS_ARES | Q6SS_ISDB_ARES | Q6SS_ETM_ARES | STOP_CORE |
 		CORE_ARES;
 	reg &= ~CORE_GFM4_CLK_EN;
-	writel_relaxed(reg, LCC_Q6_FUNC);
+	writel_relaxed(reg, drv->cbase + LCC_Q6_FUNC);
 
 	/* Wait 8 AHB cycles for Q6 to be fully reset (AHB = 1.5Mhz) */
 	usleep_range(20, 30);
@@ -175,10 +177,10 @@ static int pil_q6v3_shutdown(struct pil_desc *pil)
 	/* Turn off Q6 memory */
 	reg &= ~(CORE_L1_MEM_CORE_EN | CORE_TCM_MEM_CORE_EN |
 		CORE_TCM_MEM_PERPH_EN);
-	writel_relaxed(reg, LCC_Q6_FUNC);
+	writel_relaxed(reg, drv->cbase + LCC_Q6_FUNC);
 
 	reg |= CLAMP_IO;
-	writel_relaxed(reg, LCC_Q6_FUNC);
+	writel_relaxed(reg, drv->cbase + LCC_Q6_FUNC);
 
 	return 0;
 }
@@ -345,9 +347,15 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 	if (!res)
 		return -EINVAL;
-
 	drv->wd_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!drv->wd_base)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+	if (!res)
+		return -EINVAL;
+	drv->cbase = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!drv->cbase)
 		return -ENOMEM;
 
 	drv->irq = platform_get_irq(pdev, 0);
