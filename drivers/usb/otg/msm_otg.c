@@ -3504,6 +3504,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		hsusb_vddcx = devm_regulator_get(motg->phy.dev, "HSUSB_VDDCX");
 		if (IS_ERR(hsusb_vddcx)) {
 			dev_err(motg->phy.dev, "unable to get hsusb vddcx\n");
+			ret = PTR_ERR(hsusb_vddcx);
 			goto devote_xo_handle;
 		}
 		motg->vdd_type = VDDCX;
@@ -3532,6 +3533,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 							"mhl_usb_hs_switch");
 		if (IS_ERR(mhl_usb_hs_switch)) {
 			dev_err(&pdev->dev, "Unable to get mhl_usb_hs_switch\n");
+			ret = PTR_ERR(mhl_usb_hs_switch);
 			goto free_ldo_init;
 		}
 	}
