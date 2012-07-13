@@ -23,6 +23,7 @@ endif
 endif
 
 obj-y += acpuclock.o
+obj-$(CONFIG_ARCH_MSM_KRAIT) += acpuclock-krait.o
 obj-$(CONFIG_ARCH_MSM7X27) += acpuclock-7627.o clock-pll.o
 obj-$(CONFIG_ARCH_MSM_SCORPION) += pmu.o
 obj-$(CONFIG_ARCH_MSM_SCORPIONMP) += perf_event_msm_l2.o
@@ -264,12 +265,12 @@ obj-$(CONFIG_MACH_MSM7X25_SURF) += board-msm7x27.o devices-msm7x25.o
 obj-$(CONFIG_MACH_MSM7X25_FFA) += board-msm7x27.o devices-msm7x25.o
 obj-$(CONFIG_ARCH_MSM8960) += clock-local.o clock-dss-8960.o clock-8960.o clock-rpm.o clock-pll.o
 obj-$(CONFIG_ARCH_MSM8960) += footswitch-8x60.o
-obj-$(CONFIG_ARCH_MSM8960) += acpuclock-krait.o acpuclock-8960.o
+obj-$(CONFIG_ARCH_MSM8960) += acpuclock-8960.o
 obj-$(CONFIG_ARCH_MSM8960) += memory_topology.o
 obj-$(CONFIG_ARCH_MSM8960) += saw-regulator.o
 obj-$(CONFIG_ARCH_MSM8960) += devices-8960.o
 obj-$(CONFIG_ARCH_APQ8064) += devices-8960.o devices-8064.o
-obj-$(CONFIG_ARCH_APQ8064) += acpuclock-krait.o acpuclock-8064.o
+obj-$(CONFIG_ARCH_APQ8064) += acpuclock-8064.o
 board-8960-all-objs += board-8960.o board-8960-camera.o board-8960-display.o board-8960-pmic.o board-8960-storage.o board-8960-gpiomux.o
 board-8930-all-objs += board-8930.o board-8930-camera.o board-8930-display.o board-8930-pmic.o board-8930-storage.o board-8930-gpiomux.o devices-8930.o board-8930-gpu.o
 board-8064-all-objs += board-8064.o board-8064-pmic.o board-8064-storage.o board-8064-gpiomux.o board-8064-camera.o board-8064-display.o board-8064-gpu.o
@@ -292,11 +293,11 @@ obj-$(CONFIG_MACH_MPQ8064_DTV) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o board-9615-gpiomux.o board-9615-storage.o board-9615-display.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o clock-pll.o
 obj-$(CONFIG_ARCH_MSM8974) += board-8974.o board-dt.o board-8974-regulator.o board-8974-gpiomux.o
-obj-$(CONFIG_ARCH_MSM8974) += acpuclock-krait.o acpuclock-8974.o
+obj-$(CONFIG_ARCH_MSM8974) += acpuclock-8974.o
 obj-$(CONFIG_ARCH_MSM8974) += clock-local2.o clock-pll.o clock-8974.o clock-rpm.o clock-voter.o
 obj-$(CONFIG_ARCH_MSM8974) += gdsc.o
 obj-$(CONFIG_ARCH_MSM9625) += board-9625.o board-9625-gpiomux.o
-obj-$(CONFIG_ARCH_MSM8930) += acpuclock-krait.o acpuclock-8930.o acpuclock-8627.o
+obj-$(CONFIG_ARCH_MSM8930) += acpuclock-8930.o acpuclock-8627.o
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire-keypad.o board-sapphire-panel.o
