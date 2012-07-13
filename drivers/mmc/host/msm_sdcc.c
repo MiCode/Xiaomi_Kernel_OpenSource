@@ -1136,11 +1136,15 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		}
 	}
 
-	/* Clear CDR_EN bit for write operations */
-	if (host->tuning_needed && cmd->mrq->data &&
-			(cmd->mrq->data->flags & MMC_DATA_WRITE))
-		writel_relaxed((readl_relaxed(host->base + MCI_DLL_CONFIG) &
-				~MCI_CDR_EN), host->base + MCI_DLL_CONFIG);
+	if (cmd->mrq->data && (cmd->mrq->data->flags & MMC_DATA_READ))
+		writel_relaxed((readl_relaxed(host->base +
+				MCI_DLL_CONFIG) | MCI_CDR_EN),
+				host->base + MCI_DLL_CONFIG);
+	else
+		/* Clear CDR_EN bit for non read operations */
+		writel_relaxed((readl_relaxed(host->base +
+				MCI_DLL_CONFIG) & ~MCI_CDR_EN),
+				host->base + MCI_DLL_CONFIG);
 
 	if ((cmd->flags & MMC_RSP_R1B) == MMC_RSP_R1B) {
 		*c |= MCI_CPSM_PROGENA;
@@ -3083,8 +3087,10 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * Select the controller timing mode according
 	 * to current bus speed mode
 	 */
-	if ((ios->timing == MMC_TIMING_UHS_SDR104) ||
-		(ios->timing == MMC_TIMING_MMC_HS200)) {
+	if (host->clk_rate > (100 * 1000 * 1000) &&
+	    (ios->timing == MMC_TIMING_UHS_SDR104 ||
+	    ios->timing == MMC_TIMING_MMC_HS200)) {
+		/* Card clock frequency must be > 100MHz to enable tuning */
 		clk |= (4 << 14);
 		host->tuning_needed = 1;
 	} else if (ios->timing == MMC_TIMING_UHS_DDR50) {
