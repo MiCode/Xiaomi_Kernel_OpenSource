@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,6 +166,13 @@ int hdmi_pll_enable(void)
 			 */
 			udelay(10);
 			writel_relaxed(0x0D, HDMI_PHY_PLL_LOCKDET_CFG2);
+
+			/*
+			 * Wait for a short duration for the PLL calibration
+			 * before checking if the PLL gets locked
+			 */
+			udelay(350);
+
 			timeout_count = 1000;
 			pll_lock_retry--;
 		}
@@ -176,6 +183,7 @@ int hdmi_pll_enable(void)
 
 	if (!pll_lock_retry) {
 		pr_err("%s: HDMI PLL not locked\n", __func__);
+		hdmi_pll_disable();
 		return -EAGAIN;
 	}
 
