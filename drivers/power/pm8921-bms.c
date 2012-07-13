@@ -123,16 +123,25 @@ struct pm8921_bms_chip {
 	unsigned int		rconn_mohm;
 	struct mutex		last_ocv_uv_mutex;
 	int			last_ocv_uv;
+	int			pon_ocv_uv;
 	int			last_cc_uah;
 	struct timeval		t;
 	int			last_uuc_uah;
 	int			enable_fcc_learning;
 	int			shutdown_soc;
+	int			allow_soc_increase_without_chg;
+	int			shutdown_soc_timer_expired;
+	struct delayed_work	shutdown_soc_work;
 	int			timer_uuc_expired;
 	struct delayed_work	uuc_timer_work;
 	int			uuc_uah_iavg_prev;
 };
 
+/*
+ * protects against simultaneous adjustment of ocv based on shutdown soc and
+ * invalidating the shutdown soc
+ */
+static DEFINE_MUTEX(soc_invalidation_mutex);
 static int shutdown_soc_invalid;
 static struct pm8921_bms_chip *the_chip;
 
@@ -715,6 +724,82 @@ static int is_between(int left, int right, int value)
 	return 0;
 }
 
+/* get ocv given a soc  -- reverse lookup */
+static int interpolate_ocv(struct pm8921_bms_chip *chip,
+				int batt_temp_degc, int pc)
+{
+	int i, ocvrow1, ocvrow2, ocv;
+	int rows, cols;
+	int row1 = 0;
+	int row2 = 0;
+
+	rows = chip->pc_temp_ocv_lut->rows;
+	cols = chip->pc_temp_ocv_lut->cols;
+	if (pc > chip->pc_temp_ocv_lut->percent[0]) {
+		pr_debug("pc %d greater than known pc ranges for sfd\n", pc);
+		row1 = 0;
+		row2 = 0;
+	}
+	if (pc < chip->pc_temp_ocv_lut->percent[rows - 1]) {
+		pr_debug("pc %d less than known pc ranges for sf\n", pc);
+		row1 = rows - 1;
+		row2 = rows - 1;
+	}
+	for (i = 0; i < rows; i++) {
+		if (pc == chip->pc_temp_ocv_lut->percent[i]) {
+			row1 = i;
+			row2 = i;
+			break;
+		}
+		if (pc > chip->pc_temp_ocv_lut->percent[i]) {
+			row1 = i - 1;
+			row2 = i;
+			break;
+		}
+	}
+
+	if (batt_temp_degc < chip->pc_temp_ocv_lut->temp[0])
+		batt_temp_degc = chip->pc_temp_ocv_lut->temp[0];
+	if (batt_temp_degc > chip->pc_temp_ocv_lut->temp[cols - 1])
+		batt_temp_degc = chip->pc_temp_ocv_lut->temp[cols - 1];
+
+	for (i = 0; i < cols; i++)
+		if (batt_temp_degc <= chip->pc_temp_ocv_lut->temp[i])
+			break;
+	if (batt_temp_degc == chip->pc_temp_ocv_lut->temp[i]) {
+		ocv = linear_interpolate(
+				chip->pc_temp_ocv_lut->ocv[row1][i],
+				chip->pc_temp_ocv_lut->percent[row1],
+				chip->pc_temp_ocv_lut->ocv[row2][i],
+				chip->pc_temp_ocv_lut->percent[row2],
+				pc);
+		return ocv;
+	}
+
+	ocvrow1 = linear_interpolate(
+				chip->pc_temp_ocv_lut->ocv[row1][i - 1],
+				chip->pc_temp_ocv_lut->temp[i - 1],
+				chip->pc_temp_ocv_lut->ocv[row1][i],
+				chip->pc_temp_ocv_lut->temp[i],
+				batt_temp_degc);
+
+	ocvrow2 = linear_interpolate(
+				chip->pc_temp_ocv_lut->ocv[row2][i - 1],
+				chip->pc_temp_ocv_lut->temp[i - 1],
+				chip->pc_temp_ocv_lut->ocv[row2][i],
+				chip->pc_temp_ocv_lut->temp[i],
+				batt_temp_degc);
+
+	ocv = linear_interpolate(
+				ocvrow1,
+				chip->pc_temp_ocv_lut->percent[row1],
+				ocvrow2,
+				chip->pc_temp_ocv_lut->percent[row2],
+				pc);
+
+	return ocv;
+}
+
 static int interpolate_pc(struct pm8921_bms_chip *chip,
 				int batt_temp, int ocv)
 {
@@ -895,6 +980,7 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 		convert_vbatt_raw_to_uv(chip, usb_chg,
 			raw->last_good_ocv_raw, &raw->last_good_ocv_uv);
 		chip->last_ocv_uv = raw->last_good_ocv_uv;
+		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
 		chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
 		convert_vbatt_raw_to_uv(chip, usb_chg,
@@ -1469,46 +1555,16 @@ out:
 	return soc;
 }
 
-#define MAX_SHUTDOWN_ADJUST_SECONDS	1800
-static int adjust_for_shutdown_soc(struct pm8921_bms_chip *chip, int soc)
+#define IGNORE_SOC_TEMP_DECIDEG		50
+static void backup_soc(struct pm8921_bms_chip *chip, int batt_temp, int soc)
 {
-	struct timespec uptime;
-	int val;
+	if (soc == 0)
+		soc = 0xFF;
 
-	/* value of zero means the shutdown soc should not be used */
-	if (chip->shutdown_soc == 0)
-		return soc;
+	if (batt_temp < IGNORE_SOC_TEMP_DECIDEG)
+		soc = 0;
 
-	if (shutdown_soc_invalid) {
-		chip->shutdown_soc = 0;
-		return soc;
-	}
-
-	do_posix_clock_monotonic_gettime(&uptime);
-
-	if (uptime.tv_sec >= MAX_SHUTDOWN_ADJUST_SECONDS) {
-		/*
-		 * adjusted for a long time now, switch to reporting the
-		 * calculated soc
-		 */
-		chip->shutdown_soc = 0;
-		return soc;
-	}
-
-	val = ((MAX_SHUTDOWN_ADJUST_SECONDS - uptime.tv_sec)
-		* chip->shutdown_soc
-		+ uptime.tv_sec * soc);
-	val /= MAX_SHUTDOWN_ADJUST_SECONDS;
-	pr_debug("shutdown_soc = %d, adj soc = %d, calc soc = %d\n",
-				chip->shutdown_soc, val, soc);
-
-	return val;
-}
-
-static void backup_soc(struct pm8921_bms_chip *chip, int last_soc)
-{
-	/* TODO: if 0x107 is free for all variants 8917, 8038 etc */
-	pm8xxx_writeb(the_chip->dev->parent, TEMP_SOC_STORAGE, last_soc);
+	pm8xxx_writeb(the_chip->dev->parent, TEMP_SOC_STORAGE, soc);
 }
 
 static void read_shutdown_soc(struct pm8921_bms_chip *chip)
@@ -1528,11 +1584,106 @@ static void read_shutdown_soc(struct pm8921_bms_chip *chip)
 void pm8921_bms_invalidate_shutdown_soc(void)
 {
 	pr_debug("Invalidating shutdown soc - the battery was removed\n");
+	mutex_lock(&soc_invalidation_mutex);
 	shutdown_soc_invalid = 1;
-	if (the_chip)
-		the_chip->shutdown_soc = 0;
+	last_soc = -EINVAL;
+	if (the_chip) {
+		/* reset to pon ocv undoing what the adjusting did */
+		if (the_chip->pon_ocv_uv) {
+			the_chip->last_ocv_uv = the_chip->pon_ocv_uv;
+			pr_debug("resetting ocv to pon_ocv = %d\n",
+						the_chip->pon_ocv_uv);
+		}
+	}
+	mutex_unlock(&soc_invalidation_mutex);
 }
 EXPORT_SYMBOL(pm8921_bms_invalidate_shutdown_soc);
+
+static int adjust_remaining_charge_for_shutdown_soc(
+						struct pm8921_bms_chip *chip,
+						int batt_temp,
+						int chargecycles,
+						int fcc_uah,
+						int uuc_uah,
+						int cc_uah,
+						int remaining_charge_uah)
+{
+	s64 rc;
+	int pc;
+	int ocv, ocv_uv;
+	int batt_temp_degc = batt_temp / 10;
+	int new_pc;
+	int shutdown_soc;
+
+	mutex_lock(&soc_invalidation_mutex);
+	shutdown_soc = chip->shutdown_soc;
+	/*
+	 * value of zero means the shutdown soc should not be used, the battery
+	 * was removed for extended period, the coincell capacitor could have
+	 * drained
+	 */
+	if (shutdown_soc == 0) {
+		rc = remaining_charge_uah;
+		goto out;
+	}
+
+	/*
+	 * shutdown_soc_invalid means the shutdown soc should not be used,
+	 * the battery was removed for a small period
+	 */
+	if (shutdown_soc_invalid) {
+		rc = remaining_charge_uah;
+		goto out;
+	}
+
+	/* value of 0xFF means shutdown soc was 0% */
+	if (shutdown_soc == 0xFF)
+		shutdown_soc = 0;
+
+	pr_debug("shutdown_soc = %d forcing it now\n", shutdown_soc);
+
+	rc = (s64)shutdown_soc * (fcc_uah - uuc_uah);
+	rc = div_s64(rc, 100) + cc_uah + uuc_uah;
+	pc = DIV_ROUND_CLOSEST((int)rc * 100, fcc_uah);
+	pc = clamp(pc, 0, 100);
+
+	ocv = interpolate_ocv(chip, batt_temp_degc, pc);
+
+	pr_debug("To force shutdown_soc = %d, rc = %d, pc = %d, ocv mv = %d\n",
+				shutdown_soc, (int)rc, pc, ocv);
+	new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
+	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
+
+	while (abs(new_pc - pc) > 1) {
+		int delta_mv = 5;
+
+		if (new_pc > pc)
+			delta_mv = -1 * delta_mv;
+
+		ocv = ocv + delta_mv;
+		new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
+		pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
+	}
+
+	ocv_uv = ocv * 1000;
+
+	chip->pon_ocv_uv = chip->last_ocv_uv;
+	chip->last_ocv_uv = ocv_uv;
+out:
+	mutex_unlock(&soc_invalidation_mutex);
+	return (int)rc;
+}
+
+#define SHOW_SHUTDOWN_SOC_MS	30000
+static void shutdown_soc_work(struct work_struct *work)
+{
+	struct pm8921_bms_chip *chip = container_of(work,
+				struct pm8921_bms_chip, shutdown_soc_work.work);
+
+	pr_debug("not forcing shutdown soc anymore\n");
+	/* it has been  30 seconds since init, no need to show shutdown soc */
+	chip->shutdown_soc_timer_expired = 1;
+}
 
 /*
  * Remaining Usable Charge = remaining_charge (charge at ocv instance)
@@ -1548,7 +1699,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	int remaining_charge_uah, soc;
 	int cc_uah;
 	int rbatt;
-	int shutdown_adjusted_soc;
 	int iavg_ua;
 	int delta_time_us;
 
@@ -1560,6 +1710,17 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 						&rbatt,
 						&iavg_ua,
 						&delta_time_us);
+
+	if (delta_time_us == 0)
+		/*
+		 * soc for the first time - use shutdown soc
+		 * to adjust pon ocv
+		 */
+		remaining_charge_uah = adjust_remaining_charge_for_shutdown_soc(
+						chip,
+						batt_temp, chargecycles,
+						fcc_uah, unusable_charge_uah,
+						cc_uah, remaining_charge_uah);
 
 	/* calculate remaining usable charge */
 	remaining_usable_charge_uah = remaining_charge_uah
@@ -1578,7 +1739,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	if (soc > 100)
 		soc = 100;
-	pr_debug("SOC = %u%%\n", soc);
+	pr_debug("SOC = %d%%\n", soc);
 
 	if (bms_fake_battery != -EINVAL) {
 		pr_debug("Returning Fake SOC = %d%%\n", bms_fake_battery);
@@ -1618,10 +1779,25 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 								last_soc);
 	}
 
-	shutdown_adjusted_soc = adjust_for_shutdown_soc(chip, last_soc);
-	backup_soc(chip, shutdown_adjusted_soc);
+	if (chip->shutdown_soc != 0
+			&& !shutdown_soc_invalid
+			&& !chip->shutdown_soc_timer_expired) {
+		/*
+		 * force shutdown soc if it is valid and the shutdown soc show
+		 * timer has not expired
+		 */
+		if (chip->shutdown_soc != 0xFF)
+			last_soc = chip->shutdown_soc;
+		else
+			last_soc = 0;
 
-	return shutdown_adjusted_soc;
+		pr_debug("Forcing SHUTDOWN_SOC = %d\n", last_soc);
+	}
+
+	backup_soc(chip, batt_temp, last_soc);
+	pr_debug("Reported SOC = %d\n", last_soc);
+
+	return last_soc;
 }
 
 #define MIN_DELTA_625_UV	1000
@@ -2661,6 +2837,12 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	pr_info("OK battery_capacity_at_boot=%d volt = %d ocv = %d\n",
 				pm8921_bms_get_percent_charge(),
 				vbatt, chip->last_ocv_uv);
+
+	INIT_DELAYED_WORK(&chip->shutdown_soc_work, shutdown_soc_work);
+	schedule_delayed_work(&chip->shutdown_soc_work,
+			round_jiffies_relative(msecs_to_jiffies
+			(SHOW_SHUTDOWN_SOC_MS)));
+
 	return 0;
 
 free_irqs:
