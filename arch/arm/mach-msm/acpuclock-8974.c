@@ -123,8 +123,8 @@ static struct msm_bus_scale_pdata bus_scale_data = {
 
 #define L2(x) (&l2_freq_tbl[(x)])
 static struct l2_level l2_freq_tbl[] = {
-	[0]  = { {STBY_KHZ, QSB,   0, 0,   0 }, LVL_NOM, 1050000, 0 },
-	[1]  = { {  300000, PLL_0, 0, 2,   0 }, LVL_NOM, 1050000, 2 },
+	[0]  = { {STBY_KHZ, QSB,   0, 0,   0 }, LVL_LOW, 1050000, 0 },
+	[1]  = { {  300000, PLL_0, 0, 2,   0 }, LVL_LOW, 1050000, 2 },
 	[2]  = { {  384000, HFPLL, 2, 0,  40 }, LVL_NOM, 1050000, 2 },
 	[3]  = { {  460800, HFPLL, 2, 0,  48 }, LVL_NOM, 1050000, 2 },
 	[4]  = { {  537600, HFPLL, 1, 0,  28 }, LVL_NOM, 1050000, 2 },
