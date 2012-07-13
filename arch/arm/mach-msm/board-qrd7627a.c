@@ -1115,6 +1115,7 @@ static void __init msm_pm_init(void)
 				ARRAY_SIZE(msm8625_pm_data));
 		BUG_ON(msm_pm_boot_init(&msm_pm_8625_boot_pdata));
 		msm8x25_spm_device_init();
+		msm_pm_register_cpr_ops();
 	}
 }
 
