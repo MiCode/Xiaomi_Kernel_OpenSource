@@ -46,11 +46,37 @@ do {									\
 	mb();								\
 } while (0)
 
-
+#define STMDMASTARTR		(0xC04)
+#define STMDMASTOPR		(0xC08)
+#define STMDMASTATR		(0xC0C)
+#define STMDMACTLR		(0xC10)
+#define STMDMAIDR		(0xCFC)
+#define STMHEER			(0xD00)
+#define STMHETER		(0xD20)
+#define STMHEMCR		(0xD64)
+#define STMHEMASTR		(0xDF4)
+#define STMHEFEAT1R		(0xDF8)
+#define STMHEIDR		(0xDFC)
 #define STMSPER			(0xE00)
 #define STMSPTER		(0xE20)
+#define STMSPSCR		(0xE60)
+#define STMSPMSCR		(0xE64)
+#define STMSPOVERRIDER		(0xE68)
+#define STMSPMOVERRIDER		(0xE6C)
+#define STMSPTRIGCSR		(0xE70)
 #define STMTCSR			(0xE80)
+#define STMTSSTIMR		(0xE84)
+#define STMTSFREQR		(0xE8C)
 #define STMSYNCR		(0xE90)
+#define STMAUXCR		(0xE94)
+#define STMSPFEAT1R		(0xEA0)
+#define STMSPFEAT2R		(0xEA4)
+#define STMSPFEAT3R		(0xEA8)
+#define STMITTRIGGER		(0xEE8)
+#define STMITATBDATA0		(0xEEC)
+#define STMITATBCTR2		(0xEF0)
+#define STMITATBID		(0xEF4)
+#define STMITATBCTR0		(0xEF8)
 
 
 #define NR_STM_CHANNEL		(32)
@@ -102,6 +128,7 @@ struct stm_drvdata {
 	struct coresight_device	*csdev;
 	struct miscdevice	miscdev;
 	struct clk		*clk;
+	spinlock_t		spinlock;
 	struct channel_space	chs;
 	bool			enable;
 	uint32_t		entity;
@@ -110,13 +137,89 @@ struct stm_drvdata {
 static struct stm_drvdata *stmdrvdata;
 
 
-static void __stm_enable(struct stm_drvdata *drvdata)
+static int stm_hwevent_isenable(struct stm_drvdata *drvdata)
+{
+	int ret = 0;
+
+	spin_lock(&drvdata->spinlock);
+	if (drvdata->enable)
+		if (BVAL(stm_readl(drvdata, STMHEMCR), 0))
+			ret = stm_readl(drvdata, STMHEER) == 0 ? 0 : 1;
+	spin_unlock(&drvdata->spinlock);
+
+	return ret;
+}
+
+static void __stm_hwevent_enable(struct stm_drvdata *drvdata)
 {
 	STM_UNLOCK(drvdata);
 
-	stm_writel(drvdata, 0x80, STMSYNCR);
+	stm_writel(drvdata, 0x0, STMHETER);
+	stm_writel(drvdata, 0xFFFFFFFF, STMHEER);
+	stm_writel(drvdata, 0x5, STMHEMCR);
+
+	STM_LOCK(drvdata);
+}
+
+static int stm_hwevent_enable(struct stm_drvdata *drvdata)
+{
+	int ret = 0;
+
+	spin_lock(&drvdata->spinlock);
+	if (drvdata->enable)
+		__stm_hwevent_enable(drvdata);
+	else
+		ret = -EINVAL;
+	spin_unlock(&drvdata->spinlock);
+
+	return ret;
+}
+
+static int stm_port_isenable(struct stm_drvdata *drvdata)
+{
+	int ret = 0;
+
+	spin_lock(&drvdata->spinlock);
+	if (drvdata->enable)
+		ret = stm_readl(drvdata, STMSPER) == 0 ? 0 : 1;
+	spin_unlock(&drvdata->spinlock);
+
+	return ret;
+}
+
+static void __stm_port_enable(struct stm_drvdata *drvdata)
+{
+	STM_UNLOCK(drvdata);
+
 	stm_writel(drvdata, 0xFFFFFFFF, STMSPTER);
 	stm_writel(drvdata, 0xFFFFFFFF, STMSPER);
+
+	STM_LOCK(drvdata);
+}
+
+static int stm_port_enable(struct stm_drvdata *drvdata)
+{
+	int ret = 0;
+
+	spin_lock(&drvdata->spinlock);
+	if (drvdata->enable)
+		__stm_port_enable(drvdata);
+	else
+		ret = -EINVAL;
+	spin_unlock(&drvdata->spinlock);
+
+	return ret;
+}
+
+static void __stm_enable(struct stm_drvdata *drvdata)
+{
+	__stm_hwevent_enable(drvdata);
+	__stm_port_enable(drvdata);
+
+	STM_UNLOCK(drvdata);
+
+	stm_writel(drvdata, 0x80, STMSYNCR);
+	/* SYNCEN is read-only and HWTEN is not implemented */
 	stm_writel(drvdata, 0x30003, STMTCSR);
 
 	STM_LOCK(drvdata);
@@ -131,11 +234,50 @@ static int stm_enable(struct coresight_device *csdev)
 	if (ret)
 		return ret;
 
+	spin_lock(&drvdata->spinlock);
 	__stm_enable(drvdata);
 	drvdata->enable = true;
+	spin_unlock(&drvdata->spinlock);
 
 	dev_info(drvdata->dev, "STM tracing enabled\n");
 	return 0;
+}
+
+static void __stm_hwevent_disable(struct stm_drvdata *drvdata)
+{
+	STM_UNLOCK(drvdata);
+
+	stm_writel(drvdata, 0x0, STMHETER);
+	stm_writel(drvdata, 0x0, STMHEER);
+	stm_writel(drvdata, 0x0, STMHEMCR);
+
+	STM_LOCK(drvdata);
+}
+
+static void stm_hwevent_disable(struct stm_drvdata *drvdata)
+{
+	spin_lock(&drvdata->spinlock);
+	if (drvdata->enable)
+		__stm_hwevent_disable(drvdata);
+	spin_unlock(&drvdata->spinlock);
+}
+
+static void __stm_port_disable(struct stm_drvdata *drvdata)
+{
+	STM_UNLOCK(drvdata);
+
+	stm_writel(drvdata, 0x0, STMSPER);
+	stm_writel(drvdata, 0x0, STMSPTER);
+
+	STM_LOCK(drvdata);
+}
+
+static void stm_port_disable(struct stm_drvdata *drvdata)
+{
+	spin_lock(&drvdata->spinlock);
+	if (drvdata->enable)
+		__stm_port_disable(drvdata);
+	spin_unlock(&drvdata->spinlock);
 }
 
 static void __stm_disable(struct stm_drvdata *drvdata)
@@ -143,18 +285,22 @@ static void __stm_disable(struct stm_drvdata *drvdata)
 	STM_UNLOCK(drvdata);
 
 	stm_writel(drvdata, 0x30000, STMTCSR);
-	stm_writel(drvdata, 0x0, STMSPER);
-	stm_writel(drvdata, 0x0, STMSPTER);
 
 	STM_LOCK(drvdata);
+
+	__stm_hwevent_disable(drvdata);
+	__stm_port_disable(drvdata);
 }
 
 static void stm_disable(struct coresight_device *csdev)
 {
 	struct stm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
+	spin_lock(&drvdata->spinlock);
 	__stm_disable(drvdata);
 	drvdata->enable = false;
+	spin_unlock(&drvdata->spinlock);
+
 	/* Wait for 100ms so that pending data has been written to HW */
 	msleep(100);
 
@@ -385,6 +531,70 @@ static const struct file_operations stm_fops = {
 	.llseek		= no_llseek,
 };
 
+static ssize_t stm_show_hwevent_enable(struct device *dev,
+				       struct device_attribute *attr, char *buf)
+{
+	struct stm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val = stm_hwevent_isenable(drvdata);
+
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t stm_store_hwevent_enable(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t size)
+{
+	struct stm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+	int ret = 0;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	if (val)
+		ret = stm_hwevent_enable(drvdata);
+	else
+		stm_hwevent_disable(drvdata);
+
+	if (ret)
+		return ret;
+	return size;
+}
+static DEVICE_ATTR(hwevent_enable, S_IRUGO | S_IWUSR, stm_show_hwevent_enable,
+		   stm_store_hwevent_enable);
+
+static ssize_t stm_show_port_enable(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct stm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val = stm_port_isenable(drvdata);
+
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t stm_store_port_enable(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t size)
+{
+	struct stm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+	int ret = 0;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	if (val)
+		ret = stm_port_enable(drvdata);
+	else
+		stm_port_disable(drvdata);
+
+	if (ret)
+		return ret;
+	return size;
+}
+static DEVICE_ATTR(port_enable, S_IRUGO | S_IWUSR, stm_show_port_enable,
+		   stm_store_port_enable);
+
 static ssize_t stm_show_entity(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
@@ -411,6 +621,8 @@ static DEVICE_ATTR(entity, S_IRUGO | S_IWUSR, stm_show_entity,
 		   stm_store_entity);
 
 static struct attribute *stm_attrs[] = {
+	&dev_attr_hwevent_enable.attr,
+	&dev_attr_port_enable.attr,
 	&dev_attr_entity.attr,
 	NULL,
 };
@@ -474,6 +686,8 @@ static int stm_probe(struct platform_device *pdev)
 	drvdata->chs.bitmap = devm_kzalloc(dev, bitmap_size, GFP_KERNEL);
 	if (!drvdata->chs.bitmap)
 		return -ENOMEM;
+
+	spin_lock_init(&drvdata->spinlock);
 
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
