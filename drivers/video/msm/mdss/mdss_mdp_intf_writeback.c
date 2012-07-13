@@ -145,20 +145,24 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 
 	dst_format = (chroma_samp << 23) |
 		     (fmt->fetch_planes << 19) |
-		     (fmt->unpack_align_msb << 18) |
-		     (fmt->unpack_tight << 17) |
-		     (fmt->unpack_count << 12) |
-		     (fmt->bpp << 9) |
-		     (fmt->alpha_enable << 8) |
-		     (fmt->a_bit << 6) |
-		     (fmt->r_bit << 4) |
-		     (fmt->b_bit << 2) |
-		     (fmt->g_bit << 0);
+		     (fmt->bits[C3_ALPHA] << 6) |
+		     (fmt->bits[C2_R_Cr] << 4) |
+		     (fmt->bits[C1_B_Cb] << 2) |
+		     (fmt->bits[C0_G_Y] << 0);
 
-	pattern = (fmt->element3 << 24) |
-		  (fmt->element2 << 15) |
-		  (fmt->element1 << 8) |
-		  (fmt->element0 << 0);
+	if (fmt->alpha_enable)
+		dst_format |= BIT(8); /* DSTC3_EN */
+
+	if (fmt->fetch_planes != MDSS_MDP_PLANE_PLANAR) {
+		pattern = (fmt->element[3] << 24) | (fmt->element[2] << 15) |
+			(fmt->element[1] << 8) | (fmt->element[0] << 0);
+		dst_format |= (fmt->unpack_align_msb << 18) |
+			      (fmt->unpack_tight << 17) |
+			      ((fmt->unpack_count - 1) << 12) |
+			      ((fmt->bpp - 1) << 9);
+	} else {
+		pattern = 0;
+	}
 
 	ystride0 = (ctx->dst_planes.ystride[0]) |
 		   (ctx->dst_planes.ystride[1] << 16);
