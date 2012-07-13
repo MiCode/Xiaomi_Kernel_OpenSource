@@ -20,6 +20,7 @@
 #include <mach/mpm.h>
 #include "lpm_resources.h"
 #include "pm.h"
+#include "rpm-notifier.h"
 
 static struct msm_rpmrs_level *msm_lpm_levels;
 static int msm_lpm_level_count;
@@ -41,14 +42,22 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 {
 	int ret = 0;
 
+	ret = msm_rpm_enter_sleep();
+	if (ret) {
+		pr_warn("%s(): RPM failed to enter sleep err:%d\n",
+				__func__, ret);
+		goto bail;
+	}
 	ret = msm_lpmrs_enter_sleep((struct msm_rpmrs_limits *)limits,
 					from_idle, notify_rpm);
+bail:
 	return ret;
 }
 
 static void msm_lpm_exit_sleep(void *limits, bool from_idle,
 		bool notify_rpm, bool collapsed)
 {
+	msm_rpm_exit_sleep();
 	msm_lpmrs_exit_sleep((struct msm_rpmrs_limits *)limits,
 				from_idle, notify_rpm, collapsed);
 }
