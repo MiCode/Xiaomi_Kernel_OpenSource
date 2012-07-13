@@ -509,6 +509,19 @@ void __init msm_pm_register_irqs(void)
 
 }
 
+static struct msm_pm_cpr_ops msm8625_pm_cpr_ops = {
+	.cpr_suspend = msm_cpr_pm_suspend,
+	.cpr_resume = msm_cpr_pm_resume,
+};
+
+void __init msm_pm_register_cpr_ops(void)
+{
+	/* CPR presents on revision >= v2.0 chipsets */
+	if (cpu_is_msm8625() &&
+			SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
+		msm_pm_set_cpr_ops(&msm8625_pm_cpr_ops);
+}
+
 #define MSM_SDC1_BASE         0xA0400000
 #define MSM_SDC2_BASE         0xA0500000
 #define MSM_SDC3_BASE         0xA0600000

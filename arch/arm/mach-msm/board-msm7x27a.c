@@ -1186,6 +1186,7 @@ static void __init msm8625_rumi3_init(void)
 			 ARRAY_SIZE(msm8625_pm_data));
 	BUG_ON(msm_pm_boot_init(&msm_pm_8625_boot_pdata));
 	msm8x25_spm_device_init();
+	msm_pm_register_cpr_ops();
 }
 
 #define UART1DM_RX_GPIO		45
@@ -1264,6 +1265,7 @@ static void __init msm7x27a_pm_init(void)
 				ARRAY_SIZE(msm8625_pm_data));
 		BUG_ON(msm_pm_boot_init(&msm_pm_8625_boot_pdata));
 		msm8x25_spm_device_init();
+		msm_pm_register_cpr_ops();
 	} else {
 		msm_pm_set_platform_data(msm7x27a_pm_data,
 				ARRAY_SIZE(msm7x27a_pm_data));
