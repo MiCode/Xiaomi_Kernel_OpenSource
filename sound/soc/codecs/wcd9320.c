@@ -1890,6 +1890,12 @@ static int taiko_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int taiko_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
+				     struct snd_kcontrol *kcontrol, int event)
+{
+	pr_debug("%s %d %s\n", __func__, event, w->name);
+	return 0;
+}
 
 static int taiko_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
@@ -2891,6 +2897,13 @@ static int taiko_lineout_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int taiko_spk_dac_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	pr_debug("%s %s %d\n", __func__, w->name, event);
+	return 0;
+}
+
 static const struct snd_soc_dapm_route audio_i2s_map[] = {
 	{"RX_I2S_CLK", NULL, "CDC_CONN"},
 	{"SLIM RX1", NULL, "RX_I2S_CLK"},
@@ -3038,6 +3051,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT2", NULL, "LINEOUT2 PA"},
 	{"LINEOUT3", NULL, "LINEOUT3 PA"},
 	{"LINEOUT4", NULL, "LINEOUT4 PA"},
+	{"SPK_OUT", NULL, "SPK PA"},
 
 	{"LINEOUT1 PA", NULL, "LINEOUT1_PA_MIXER"},
 	{"LINEOUT1_PA_MIXER", NULL, "LINEOUT1 DAC"},
@@ -3060,6 +3074,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX6 DSM MUX", "CIC_OUT", "RX6 MIX1"},
 	{"LINEOUT4 DAC", NULL, "RX6 DSM MUX"},
 
+	{"SPK PA", NULL, "SPK DAC"},
+	{"SPK DAC", NULL, "RX7 MIX1"},
+
 	{"RX1 CHAIN", NULL, "RX1 MIX2"},
 	{"RX2 CHAIN", NULL, "RX2 MIX2"},
 	{"RX1 CHAIN", NULL, "ANC"},
@@ -3070,6 +3087,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT2 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT3 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT4 DAC", NULL, "RX_BIAS"},
+	{"SPK DAC", NULL, "RX_BIAS"},
 
 	{"RX1 MIX1", NULL, "COMP1_CLK"},
 	{"RX2 MIX1", NULL, "COMP1_CLK"},
@@ -4192,6 +4210,7 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("LINEOUT2"),
 	SND_SOC_DAPM_OUTPUT("LINEOUT3"),
 	SND_SOC_DAPM_OUTPUT("LINEOUT4"),
+	SND_SOC_DAPM_OUTPUT("SPK_OUT"),
 
 	SND_SOC_DAPM_PGA_E("LINEOUT1 PA", TAIKO_A_RX_LINE_CNP_EN, 0, 0, NULL,
 			0, taiko_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
@@ -4205,6 +4224,9 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_E("LINEOUT4 PA", TAIKO_A_RX_LINE_CNP_EN, 3, 0, NULL,
 			0, taiko_codec_enable_lineout, SND_SOC_DAPM_PRE_PMU |
 			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("SPK PA", TAIKO_A_SPKR_DRV_EN, 7, 0 , NULL,
+			   0, taiko_codec_enable_spk_pa, SND_SOC_DAPM_PRE_PMU |
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_DAC_E("LINEOUT1 DAC", NULL, TAIKO_A_RX_LINE_1_DAC_CTL, 7, 0
 		, taiko_lineout_dac_event,
@@ -4222,6 +4244,10 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SWITCH("LINEOUT4 DAC GROUND", SND_SOC_NOPM, 0, 0,
 				&lineout4_ground_switch),
+
+	SND_SOC_DAPM_DAC_E("SPK DAC", NULL, SND_SOC_NOPM, 0, 0,
+			   taiko_spk_dac_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MIXER_E("RX1 MIX2", TAIKO_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
 		0, taiko_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
@@ -6709,9 +6735,14 @@ int taiko_hs_detect(struct snd_soc_codec *codec,
 	struct taiko_priv *taiko;
 	int rc = 0;
 
-	if (!codec || !cfg->calibration) {
-		pr_err("Error: no codec or calibration\n");
+	if (!codec) {
+		pr_err("%s: no codec\n", __func__);
 		return -EINVAL;
+	}
+
+	if (!cfg->calibration) {
+		pr_warn("%s: mbhc is not configured\n", __func__);
+		return 0;
 	}
 
 	if (cfg->mclk_rate != TAIKO_MCLK_RATE_12288KHZ) {
@@ -7158,6 +7189,102 @@ static const struct file_operations codec_mbhc_debug_ops = {
 };
 #endif
 
+static int taiko_setup_irqs(struct taiko_priv *taiko)
+{
+	int ret;
+	int i;
+	struct snd_soc_codec *codec = taiko->codec;
+
+	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION,
+				  taiko_hs_insert_irq, "Headset insert detect",
+				  taiko);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+			TAIKO_IRQ_MBHC_INSERTION);
+		goto err_insert_irq;
+	}
+	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION);
+
+	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_REMOVAL,
+				  taiko_hs_remove_irq, "Headset remove detect",
+				  taiko);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+			TAIKO_IRQ_MBHC_REMOVAL);
+		goto err_remove_irq;
+	}
+
+	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL,
+				  taiko_dce_handler, "DC Estimation detect",
+				  taiko);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+			TAIKO_IRQ_MBHC_POTENTIAL);
+		goto err_potential_irq;
+	}
+
+	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_RELEASE,
+				 taiko_release_handler, "Button Release detect",
+				 taiko);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+			TAIKO_IRQ_MBHC_RELEASE);
+		goto err_release_irq;
+	}
+
+	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_SLIMBUS,
+				  taiko_slimbus_irq, "SLIMBUS Slave", taiko);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+			TAIKO_IRQ_SLIMBUS);
+		goto err_slimbus_irq;
+	}
+
+	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++)
+		wcd9xxx_interface_reg_write(codec->control_data,
+					   TAIKO_SLIM_PGD_PORT_INT_EN0 + i,
+					   0xFF);
+
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  TAIKO_IRQ_HPH_PA_OCPL_FAULT,
+				  taiko_hphl_ocp_irq,
+				  "HPH_L OCP detect", taiko);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+			TAIKO_IRQ_HPH_PA_OCPL_FAULT);
+		goto err_hphl_ocp_irq;
+	}
+	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_HPH_PA_OCPL_FAULT);
+
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  TAIKO_IRQ_HPH_PA_OCPR_FAULT,
+				  taiko_hphr_ocp_irq,
+				  "HPH_R OCP detect", taiko);
+	if (ret) {
+		pr_err("%s: Failed to request irq %d\n", __func__,
+		       TAIKO_IRQ_HPH_PA_OCPR_FAULT);
+		goto err_hphr_ocp_irq;
+	}
+	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_HPH_PA_OCPR_FAULT);
+
+err_hphr_ocp_irq:
+	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_HPH_PA_OCPL_FAULT,
+			 taiko);
+err_hphl_ocp_irq:
+	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_SLIMBUS, taiko);
+err_slimbus_irq:
+	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_RELEASE, taiko);
+err_release_irq:
+	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL, taiko);
+err_potential_irq:
+	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_REMOVAL, taiko);
+err_remove_irq:
+	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION, taiko);
+err_insert_irq:
+
+	return ret;
+}
+
 static int taiko_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -7166,6 +7293,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	int ret = 0;
 	int i;
 	int ch_cnt;
+
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -7234,70 +7362,8 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_dapm_sync(dapm);
 
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION,
-		taiko_hs_insert_irq, "Headset insert detect", taiko);
-	if (ret) {
-		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_MBHC_INSERTION);
-		goto err_insert_irq;
-	}
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION);
+	(void) taiko_setup_irqs(taiko);
 
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_REMOVAL,
-		taiko_hs_remove_irq, "Headset remove detect", taiko);
-	if (ret) {
-		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_MBHC_REMOVAL);
-		goto err_remove_irq;
-	}
-
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL,
-		taiko_dce_handler, "DC Estimation detect", taiko);
-	if (ret) {
-		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_MBHC_POTENTIAL);
-		goto err_potential_irq;
-	}
-
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_RELEASE,
-		taiko_release_handler, "Button Release detect", taiko);
-	if (ret) {
-		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_MBHC_RELEASE);
-		goto err_release_irq;
-	}
-
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_SLIMBUS,
-		taiko_slimbus_irq, "SLIMBUS Slave", taiko);
-	if (ret) {
-		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_SLIMBUS);
-		goto err_slimbus_irq;
-	}
-
-	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++)
-		wcd9xxx_interface_reg_write(codec->control_data,
-			TAIKO_SLIM_PGD_PORT_INT_EN0 + i, 0xFF);
-
-	ret = wcd9xxx_request_irq(codec->control_data,
-		TAIKO_IRQ_HPH_PA_OCPL_FAULT, taiko_hphl_ocp_irq,
-		"HPH_L OCP detect", taiko);
-	if (ret) {
-		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_HPH_PA_OCPL_FAULT);
-		goto err_hphl_ocp_irq;
-	}
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_HPH_PA_OCPL_FAULT);
-
-	ret = wcd9xxx_request_irq(codec->control_data,
-		TAIKO_IRQ_HPH_PA_OCPR_FAULT, taiko_hphr_ocp_irq,
-		"HPH_R OCP detect", taiko);
-	if (ret) {
-		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_HPH_PA_OCPR_FAULT);
-		goto err_hphr_ocp_irq;
-	}
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_HPH_PA_OCPR_FAULT);
 	for (i = 0; i < ARRAY_SIZE(taiko_dai); i++) {
 		switch (taiko_dai[i].id) {
 		case AIF1_PB:
@@ -7338,20 +7404,6 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	codec->ignore_pmdown_time = 1;
 	return ret;
 
-err_hphr_ocp_irq:
-	wcd9xxx_free_irq(codec->control_data,
-			TAIKO_IRQ_HPH_PA_OCPL_FAULT, taiko);
-err_hphl_ocp_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_SLIMBUS, taiko);
-err_slimbus_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_RELEASE, taiko);
-err_release_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL, taiko);
-err_potential_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_REMOVAL, taiko);
-err_remove_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION, taiko);
-err_insert_irq:
 err_pdata:
 	mutex_destroy(&taiko->codec_resource_lock);
 	kfree(taiko);
