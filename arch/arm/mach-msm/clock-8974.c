@@ -3990,9 +3990,9 @@ static struct branch_clk audio_core_lpaif_codec_spkr_osr_clk = {
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
-		.dbg_name = "audio_core_lpaif_codec_spkr_clk_src",
+		.dbg_name = "audio_core_lpaif_codec_spkr_osr_clk",
 		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_codec_spkr_clk_src.c),
+		CLK_INIT(audio_core_lpaif_codec_spkr_osr_clk.c),
 	},
 };
 
@@ -4001,9 +4001,9 @@ static struct branch_clk audio_core_lpaif_codec_spkr_ebit_clk = {
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
-		.dbg_name = "audio_core_lpaif_codec_spkr_clk_src",
+		.dbg_name = "audio_core_lpaif_codec_spkr_ebit_clk",
 		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_codec_spkr_clk_src.c),
+		CLK_INIT(audio_core_lpaif_codec_spkr_ebit_clk.c),
 	},
 };
 
@@ -4014,9 +4014,9 @@ static struct branch_clk audio_core_lpaif_codec_spkr_ibit_clk = {
 	.max_div = 15,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
-		.dbg_name = "audio_core_lpaif_codec_spkr_clk_src",
+		.dbg_name = "audio_core_lpaif_codec_spkr_ibit_clk",
 		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_codec_spkr_clk_src.c),
+		CLK_INIT(audio_core_lpaif_codec_spkr_ibit_clk.c),
 	},
 };
 
