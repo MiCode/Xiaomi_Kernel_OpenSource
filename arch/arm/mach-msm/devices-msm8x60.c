@@ -213,6 +213,11 @@ static struct resource msm_8660_q6_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	{
+		.start  = 0x00900000,
+		.end    = 0x00900000 + SZ_16K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
 		.start	= LPASS_Q6SS_WDOG_EXPIRED,
 		.end	= LPASS_Q6SS_WDOG_EXPIRED,
 		.flags	= IORESOURCE_IRQ,
@@ -241,6 +246,11 @@ static struct resource msm_8660_modem_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
+		.start  = 0x00900000,
+		.end    = 0x00900000 + SZ_16K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
 		.start	= MARM_WDOG_EXPIRED,
 		.end	= MARM_WDOG_EXPIRED,
 		.flags	= IORESOURCE_IRQ,
@@ -259,9 +269,19 @@ struct platform_device msm_pil_tzapps = {
 	.id = -1,
 };
 
+static struct resource msm_pil_dsps_resources[] = {
+	{
+		.start  = 0x00900000,
+		.end    = 0x00900000 + SZ_16K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
 struct platform_device msm_pil_dsps = {
 	.name          = "pil_dsps",
 	.id            = -1,
+	.resource	= msm_pil_dsps_resources,
+	.num_resources	= ARRAY_SIZE(msm_pil_dsps_resources),
 	.dev.platform_data = "dsps",
 };
 
