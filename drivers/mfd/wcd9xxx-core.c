@@ -686,7 +686,7 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct wcd9xxx *wcd9xxx;
-	struct wcd9xxx_pdata *pdata = client->dev.platform_data;
+	struct wcd9xxx_pdata *pdata;
 	int val = 0;
 	int ret = 0;
 	int i2c_mode = 0;
@@ -697,6 +697,7 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 		pr_info("tabla card is already detected in slimbus mode\n");
 		return -ENODEV;
 	}
+	pdata = client->dev.platform_data;
 	if (device_id > 0) {
 		wcd9xxx_modules[device_id++].client = client;
 		pr_info("probe for other slaves devices of tabla\n");
