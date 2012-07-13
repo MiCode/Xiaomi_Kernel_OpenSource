@@ -40,6 +40,11 @@
 #define MAX_DOWNSCALE_RATIO	4
 #define MAX_UPSCALE_RATIO	20
 
+#define C3_ALPHA	3	/* alpha */
+#define C2_R_Cr		2	/* R/Cr */
+#define C1_B_Cb		1	/* B/Cb */
+#define C0_G_Y		0	/* G/luma */
+
 #ifdef MDSS_MDP_DEBUG_REG
 static inline void mdss_mdp_reg_write(u32 addr, u32 val)
 {
@@ -173,23 +178,8 @@ struct mdss_mdp_format_params {
 	u8 bpp;
 	u8 alpha_enable;	/*  source has alpha */
 
-	/*
-	 * number of bits for source component,
-	 * 0 = 1 bit, 1 = 2 bits, 2 = 6 bits, 3 = 8 bits
-	 */
-	u8 a_bit;	/* component 3, alpha */
-	u8 r_bit;	/* component 2, R_Cr */
-	u8 b_bit;	/* component 1, B_Cb */
-	u8 g_bit;	/* component 0, G_lumz */
-
-	/*
-	 * unpack pattern
-	 * A = C3, R = C2, B = C1, G = C0
-	 */
-	u8 element3;
-	u8 element2;
-	u8 element1;
-	u8 element0;
+	u8 bits[MAX_PLANES];
+	u8 element[MAX_PLANES];
 };
 
 struct mdss_mdp_plane_sizes {
