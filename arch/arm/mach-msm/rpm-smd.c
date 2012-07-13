@@ -886,6 +886,27 @@ bail:
 	return rc;
 }
 EXPORT_SYMBOL(msm_rpm_send_message_noirq);
+
+/**
+ * During power collapse, the rpm driver disables the SMD interrupts to make
+ * sure that the interrupt doesn't wakes us from sleep.
+ */
+int msm_rpm_enter_sleep(void)
+{
+	return smd_mask_receive_interrupt(msm_rpm_data.ch_info, true);
+}
+EXPORT_SYMBOL(msm_rpm_enter_sleep);
+
+/**
+ * When the system resumes from power collapse, the SMD interrupt disabled by
+ * enter function has to reenabled to continue processing SMD message.
+ */
+void msm_rpm_exit_sleep(void)
+{
+	smd_mask_receive_interrupt(msm_rpm_data.ch_info, false);
+}
+EXPORT_SYMBOL(msm_rpm_exit_sleep);
+
 static bool msm_rpm_set_standalone(void)
 {
 	if (machine_is_msm8974()) {

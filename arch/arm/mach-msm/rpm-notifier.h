@@ -20,8 +20,31 @@ struct msm_rpm_notifier_data {
 	uint32_t size;
 	uint8_t *value;
 };
-
+/**
+ * msm_rpm_register_notifier - Register for sleep set notifications
+ *
+ * @nb - notifier block to register
+ *
+ * return 0 on success, errno on failure.
+ */
 int msm_rpm_register_notifier(struct notifier_block *nb);
+
+/**
+ * msm_rpm_unregister_notifier - Unregister previously registered notifications
+ *
+ * @nb - notifier block to unregister
+ *
+ * return 0 on success, errno on failure.
+ */
 int msm_rpm_unregister_notifier(struct notifier_block *nb);
 
+/**
+ * msm_rpm_enter_sleep - Notify RPM driver to prepare for entering sleep
+ */
+int msm_rpm_enter_sleep(void);
+
+/**
+ * msm_rpm_exit_sleep - Notify RPM driver about resuming from power collapse
+ */
+void msm_rpm_exit_sleep(void);
 #endif /*__ARCH_ARM_MACH_MSM_RPM_NOTIF_H */
