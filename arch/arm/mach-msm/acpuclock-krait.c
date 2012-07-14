@@ -54,7 +54,6 @@ static DEFINE_SPINLOCK(l2_lock);
 
 static struct drv_data {
 	struct acpu_level *acpu_freq_tbl;
-	const struct acpu_level *max_acpu_lvl;
 	const struct l2_level *l2_freq_tbl;
 	struct scalable *scalable;
 	struct hfpll_data *hfpll_data;
@@ -533,19 +532,21 @@ static void __cpuinit rpm_regulator_cleanup(struct scalable *sc,
 }
 
 /* Voltage regulator initialization. */
-static int __cpuinit regulator_init(struct scalable *sc)
+static int __cpuinit regulator_init(struct scalable *sc,
+				const struct acpu_level *acpu_level)
 {
 	int ret, vdd_mem, vdd_dig, vdd_core;
 
-	vdd_mem = calculate_vdd_mem(drv.max_acpu_lvl);
-	vdd_dig = calculate_vdd_dig(drv.max_acpu_lvl);
-
+	vdd_mem = calculate_vdd_mem(acpu_level);
 	ret = rpm_regulator_init(sc, VREG_MEM, vdd_mem, true);
 	if (ret)
 		goto err_mem;
+
+	vdd_dig = calculate_vdd_dig(acpu_level);
 	ret = rpm_regulator_init(sc, VREG_DIG, vdd_dig, true);
 	if (ret)
 		goto err_dig;
+
 	ret = rpm_regulator_init(sc, VREG_HFPLL_A,
 			   sc->vreg[VREG_HFPLL_A].max_vdd, false);
 	if (ret)
@@ -564,7 +565,7 @@ static int __cpuinit regulator_init(struct scalable *sc)
 			sc->vreg[VREG_CORE].name, ret);
 		goto err_core_get;
 	}
-	vdd_core = calculate_vdd_core(drv.max_acpu_lvl);
+	vdd_core = calculate_vdd_core(acpu_level);
 	ret = regulator_set_voltage(sc->vreg[VREG_CORE].reg, vdd_core,
 				    sc->vreg[VREG_CORE].max_vdd);
 	if (ret) {
@@ -647,9 +648,63 @@ static int __cpuinit init_clock_sources(struct scalable *sc,
 	return 0;
 }
 
+static void __cpuinit fill_cur_core_speed(struct core_speed *s,
+					  struct scalable *sc)
+{
+	s->pri_src_sel = get_l2_indirect_reg(sc->l2cpmr_iaddr) & 0x3;
+	s->sec_src_sel = (get_l2_indirect_reg(sc->l2cpmr_iaddr) >> 2) & 0x3;
+	s->pll_l_val = readl_relaxed(sc->hfpll_base + drv.hfpll_data->l_offset);
+}
+
+static bool __cpuinit speed_equal(const struct core_speed *s1,
+				  const struct core_speed *s2)
+{
+	return (s1->pri_src_sel == s2->pri_src_sel &&
+		s1->sec_src_sel == s2->sec_src_sel &&
+		s1->pll_l_val == s2->pll_l_val);
+}
+
+static const struct acpu_level __cpuinit *find_cur_acpu_level(int cpu)
+{
+	struct scalable *sc = &drv.scalable[cpu];
+	const struct acpu_level *l;
+	struct core_speed cur_speed;
+
+	fill_cur_core_speed(&cur_speed, sc);
+	for (l = drv.acpu_freq_tbl; l->speed.khz != 0; l++)
+		if (speed_equal(&l->speed, &cur_speed))
+			return l;
+	return NULL;
+}
+
+static const struct l2_level __init *find_cur_l2_level(void)
+{
+	struct scalable *sc = &drv.scalable[L2];
+	const struct l2_level *l;
+	struct core_speed cur_speed;
+
+	fill_cur_core_speed(&cur_speed, sc);
+	for (l = drv.l2_freq_tbl; l->speed.khz != 0; l++)
+		if (speed_equal(&l->speed, &cur_speed))
+			return l;
+	return NULL;
+}
+
+static const struct acpu_level __cpuinit *find_min_acpu_level(void)
+{
+	struct acpu_level *l;
+
+	for (l = drv.acpu_freq_tbl; l->speed.khz != 0; l++)
+		if (l->use_for_scaling)
+			return l;
+
+	return NULL;
+}
+
 static int __cpuinit per_cpu_init(int cpu)
 {
 	struct scalable *sc = &drv.scalable[cpu];
+	const struct acpu_level *acpu_level;
 	int ret;
 
 	sc->hfpll_base = ioremap(sc->hfpll_phys_base, SZ_32);
@@ -658,14 +713,29 @@ static int __cpuinit per_cpu_init(int cpu)
 		goto err_ioremap;
 	}
 
-	ret = regulator_init(sc);
+	acpu_level = find_cur_acpu_level(cpu);
+	if (!acpu_level || acpu_level->speed.src == QSB) {
+		acpu_level = find_min_acpu_level();
+		if (!acpu_level) {
+			ret = -ENODEV;
+			goto err_table;
+		}
+		dev_dbg(drv.dev, "CPU%d is running at an unknown rate. Defaulting to %lu KHz.\n",
+			cpu, acpu_level->speed.khz);
+	} else {
+		dev_dbg(drv.dev, "CPU%d is running at %lu KHz\n", cpu,
+			acpu_level->speed.khz);
+	}
+
+	ret = regulator_init(sc, acpu_level);
 	if (ret)
 		goto err_regulators;
 
-	ret = init_clock_sources(sc, &drv.max_acpu_lvl->speed);
+	ret = init_clock_sources(sc, &acpu_level->speed);
 	if (ret)
 		goto err_clocks;
-	sc->l2_vote = drv.max_acpu_lvl->l2_level;
+
+	sc->l2_vote = acpu_level->l2_level;
 	sc->initialized = true;
 
 	return 0;
@@ -673,13 +743,14 @@ static int __cpuinit per_cpu_init(int cpu)
 err_clocks:
 	regulator_cleanup(sc);
 err_regulators:
+err_table:
 	iounmap(sc->hfpll_base);
 err_ioremap:
 	return ret;
 }
 
 /* Register with bus driver. */
-static void __init bus_init(void)
+static void __init bus_init(const struct l2_level *l2_level)
 {
 	int ret;
 
@@ -690,7 +761,7 @@ static void __init bus_init(void)
 	}
 
 	ret = msm_bus_scale_client_update_request(drv.bus_perf_client,
-			drv.l2_freq_tbl[drv.max_acpu_lvl->l2_level].bw_level);
+			l2_level->bw_level);
 	if (ret)
 		dev_err(drv.dev, "initial bandwidth req failed (%d)\n", ret);
 }
@@ -840,20 +911,6 @@ static int __init select_freq_plan(u32 qfprom_phys)
 	return tbl_idx;
 }
 
-static const struct acpu_level __init *find_max_acpu_lvl(struct acpu_level *tbl)
-{
-	struct acpu_level *l, *max_lvl = NULL;
-
-	for (l = tbl; l->speed.khz != 0; l++)
-		if (l->use_for_scaling)
-			max_lvl = l;
-
-	BUG_ON(!max_lvl);
-	dev_info(drv.dev, "Max CPU freq: %lu KHz\n", max_lvl->speed.khz);
-
-	return max_lvl;
-}
-
 static struct acpuclk_data acpuclk_krait_data = {
 	.set_rate = acpuclk_krait_set_rate,
 	.get_rate = acpuclk_krait_get_rate,
@@ -892,19 +949,16 @@ static void __init drv_data_init(struct device *dev,
 				    params->pvs_tables[tbl_idx].size,
 				    GFP_KERNEL);
 	BUG_ON(!drv.acpu_freq_tbl);
-
-	drv.max_acpu_lvl = find_max_acpu_lvl(drv.acpu_freq_tbl);
 }
 
 static void __init hw_init(void)
 {
 	struct scalable *l2 = &drv.scalable[L2];
+	const struct l2_level *l2_level;
 	int cpu, rc;
 
 	if (krait_needs_vmin())
 		krait_apply_vmin(drv.acpu_freq_tbl);
-
-	bus_init();
 
 	l2->hfpll_base = ioremap(l2->hfpll_phys_base, SZ_32);
 	BUG_ON(!l2->hfpll_base);
@@ -915,14 +969,25 @@ static void __init hw_init(void)
 	rc = rpm_regulator_init(l2, VREG_HFPLL_B,
 				l2->vreg[VREG_HFPLL_B].max_vdd, false);
 	BUG_ON(rc);
-	rc = init_clock_sources(l2,
-			&drv.l2_freq_tbl[drv.max_acpu_lvl->l2_level].speed);
+
+	l2_level = find_cur_l2_level();
+	if (!l2_level || l2_level->speed.src == QSB) {
+		l2_level = drv.l2_freq_tbl;
+		dev_dbg(drv.dev, "L2 is running at an unknown rate. Defaulting to QSB.\n");
+	} else {
+		dev_dbg(drv.dev, "L2 is running at %lu KHz\n",
+			l2_level->speed.khz);
+	}
+
+	rc = init_clock_sources(l2, &l2_level->speed);
 	BUG_ON(rc);
 
 	for_each_online_cpu(cpu) {
 		rc = per_cpu_init(cpu);
 		BUG_ON(rc);
 	}
+
+	bus_init(l2_level);
 }
 
 int __init acpuclk_krait_init(struct device *dev,

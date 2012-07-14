@@ -116,11 +116,11 @@ struct vreg {
  * @pll_l_val: HFPLL "L" value to be applied when an HFPLL source is selected.
  */
 struct core_speed {
-	const unsigned long khz;
-	const int src;
-	const u32 pri_src_sel;
-	const u32 sec_src_sel;
-	const u32 pll_l_val;
+	unsigned long khz;
+	int src;
+	u32 pri_src_sel;
+	u32 sec_src_sel;
+	u32 pll_l_val;
 };
 
 /**
