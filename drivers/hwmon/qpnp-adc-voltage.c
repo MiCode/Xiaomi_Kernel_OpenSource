@@ -92,8 +92,6 @@
 #define QPNP_VADC_CONV_TIME_MIN					2000
 #define QPNP_VADC_CONV_TIME_MAX					2100
 
-#define QPNP_ADC_HWMON_NAME_LENGTH				16
-
 struct qpnp_vadc_drv {
 	struct qpnp_adc_drv		*adc;
 	struct dentry			*dent;
@@ -200,7 +198,7 @@ static int32_t qpnp_vadc_enable(bool state)
 }
 
 int32_t qpnp_vadc_configure(
-			struct qpnp_vadc_amux_properties *chan_prop)
+			struct qpnp_adc_amux_properties *chan_prop)
 {
 	u8 decimation = 0, conv_sequence = 0, conv_sequence_trig = 0;
 	int rc = 0;
@@ -374,7 +372,7 @@ static irqreturn_t qpnp_vadc_isr(int irq, void *dev_id)
 static uint32_t qpnp_vadc_calib_device(void)
 {
 	struct qpnp_vadc_drv *vadc = qpnp_vadc;
-	struct qpnp_vadc_amux_properties conv;
+	struct qpnp_adc_amux_properties conv;
 	int rc, calib_read_1, calib_read_2;
 	u8 status1 = 0;
 
