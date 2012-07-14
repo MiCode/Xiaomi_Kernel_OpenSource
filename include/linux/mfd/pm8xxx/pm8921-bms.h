@@ -116,7 +116,8 @@ enum battery_type {
  * @r_sense:		sense resistor value in (mOhms)
  * @i_test:		current at which the unusable charger cutoff is to be
  *			calculated or the peak system current (mA)
- * @v_failure:		the voltage at which the battery is considered empty(mV)
+ * @v_cutoff:		the loaded voltage at which the battery
+ *			is considered empty(mV)
  * @enable_fcc_learning:	if set the driver will learn full charge
  *				capacity of the battery upon end of charge
  */
@@ -125,7 +126,7 @@ struct pm8921_bms_platform_data {
 	enum battery_type		battery_type;
 	unsigned int			r_sense;
 	unsigned int			i_test;
-	unsigned int			v_failure;
+	unsigned int			v_cutoff;
 	unsigned int			max_voltage_uv;
 	unsigned int			rconn_mohm;
 	int				enable_fcc_learning;

@@ -83,8 +83,7 @@ struct pm8921_bms_chip {
 	struct device		*dev;
 	struct dentry		*dent;
 	unsigned int		r_sense;
-	unsigned int		i_test;
-	unsigned int		v_failure;
+	unsigned int		v_cutoff;
 	unsigned int		fcc;
 	struct single_row_lut	*fcc_temp_lut;
 	struct single_row_lut	*fcc_sf_lut;
@@ -126,15 +125,10 @@ struct pm8921_bms_chip {
 	int			pon_ocv_uv;
 	int			last_cc_uah;
 	struct timeval		t;
-	int			last_uuc_uah;
 	int			enable_fcc_learning;
 	int			shutdown_soc;
-	int			allow_soc_increase_without_chg;
 	int			shutdown_soc_timer_expired;
 	struct delayed_work	shutdown_soc_work;
-	int			timer_uuc_expired;
-	struct delayed_work	uuc_timer_work;
-	int			uuc_uah_iavg_prev;
 };
 
 /*
@@ -1155,36 +1149,12 @@ static int calculate_uuc_uah_at_given_current(struct pm8921_bms_chip *chip,
 	int unusable_uv, pc_unusable, uuc;
 
 	/* calculate unusable charge with itest */
-	unusable_uv = (rbatt * i_ma) + (chip->v_failure * 1000);
+	unusable_uv = (rbatt * i_ma) + (chip->v_cutoff * 1000);
 	pc_unusable = calculate_pc(chip, unusable_uv, batt_temp, chargecycles);
 	uuc = (fcc_uah * pc_unusable) / 100;
 	pr_debug("For i_ma = %d, unusable_uv = %d unusable_pc = %d uuc = %d\n",
 					i_ma, unusable_uv, pc_unusable, uuc);
 	return uuc;
-}
-
-#define SOC_RBATT_CHG		70
-#define SOC_RBATT_DISCHG	20
-
-static int uuc_iavg_div = 150;
-module_param(uuc_iavg_div, int, 0644);
-
-static int uuc_min_step_size = 120;
-module_param(uuc_min_step_size, int, 0644);
-
-static int uuc_multiplier = 1000;
-module_param(uuc_multiplier, int, 0644);
-
-#define UUC_TIMER_MS		120000
-
-static void uuc_timer_work(struct work_struct *work)
-{
-	struct pm8921_bms_chip *chip = container_of(work,
-				struct pm8921_bms_chip, uuc_timer_work.work);
-
-	pr_debug("UUC Timer expired\n");
-	/* indicates the system is done with the high load during bootup */
-	chip->timer_uuc_expired = 1;
 }
 
 static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
@@ -1219,114 +1189,63 @@ static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
 	chip->t = now;
 }
 
-#define UUC_IAVG_THRESHOLD_UAH	50000
-static int scale_unusable_charge_uah(struct pm8921_bms_chip *chip,
-			bool charging, int uuc_uah_iavg, int uuc_uah_itest,
-			int uuc_uah_iavg_prev)
-{
-	int stepsize = 0;
-	int delta_uuc = 0;
-	int uuc_reported = 0;
-
-	if (charging) {
-		stepsize = max(uuc_min_step_size,
-				uuc_multiplier * (SOC_RBATT_CHG - last_soc));
-		/*
-		 * set the delta only if uuc is decreasing. If it has increased
-		 * simply report the last uuc since we don't want to report a
-		 * higher uuc as charging progresses
-		 */
-		if (chip->last_uuc_uah > uuc_uah_iavg)
-			delta_uuc = (chip->last_uuc_uah - uuc_uah_iavg)
-								/ stepsize;
-		uuc_reported = chip->last_uuc_uah - delta_uuc;
-	} else {
-		stepsize = max(uuc_min_step_size,
-			uuc_multiplier * (last_soc - SOC_RBATT_DISCHG));
-		if (uuc_uah_itest > uuc_uah_iavg) {
-			if ((uuc_uah_iavg > uuc_uah_iavg_prev
-						+ UUC_IAVG_THRESHOLD_UAH)
-				&& chip->timer_uuc_expired)
-				/*
-				 * there is a big jump in iavg current way past
-				 * the bootup increase  uuc to this high iavg
-				 * based uuc in steps
-				 */
-				delta_uuc = (uuc_uah_iavg - uuc_uah_iavg_prev)
-							/ uuc_iavg_div;
-			else
-				/* increase uuc towards itest based uuc */
-				delta_uuc = (uuc_uah_itest - uuc_uah_iavg)
-						/ stepsize;
-		} else {
-			/*
-			 * the iavg based uuc was higher than itest based
-			 * uuc. This means that iavg > itest. Itest represents
-			 * the max current drawn from the device at anytime.
-			 * If we find iavg > itest, ignore iavg and simply step
-			 * up the uuc based on itest
-			 */
-			delta_uuc = uuc_uah_itest / stepsize;
-		}
-		uuc_reported = min(uuc_uah_itest,
-					chip->last_uuc_uah + delta_uuc);
-	}
-	pr_debug("uuc_prev = %d stepsize = %d d_uuc =  %d uuc_reported = %d\n",
-			chip->last_uuc_uah, (int)stepsize, delta_uuc,
-			uuc_reported);
-	return uuc_reported;
-}
-
+#define IAVG_SAMPLES 16
+#define CHARGING_IAVG_MA 300
 static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 				int rbatt, int fcc_uah, int cc_uah,
 				int soc_rbatt, int batt_temp, int chargecycles,
-				int iavg_ua)
+				int iavg_ua, int delta_time_us)
 {
-	int uuc_uah_itest, uuc_uah_iavg, uuc_reported;
-	static int firsttime = 1;
+	int uuc_uah_iavg;
+	int i;
 	int iavg_ma = iavg_ua / 1000;
+	static int iavg_samples[IAVG_SAMPLES];
+	static int iavg_index;
+	static int iavg_num_samples;
 
-	/* calculate unusable charge with itest */
-	uuc_uah_itest = calculate_uuc_uah_at_given_current(chip,
-					batt_temp, chargecycles,
-					rbatt, fcc_uah, chip->i_test);
+	if (delta_time_us == 0) {
+		/*
+		 * this means uuc is being for the first time,
+		 * iavg_ua will be 0 which will lead to unreasonably low uuc
+		 * hence use the instantenous current instead of iavg_ua
+		 * value for the first time
+		 */
+		pm8921_bms_get_battery_current(&iavg_ua);
+		iavg_ma = iavg_ua / 1000;
+	}
 
-	pr_debug("itest = %d uuc_itest = %d\n", chip->i_test, uuc_uah_itest);
+	/* if the time since last sample is small ignore it */
+	if (delta_time_us == 0 || delta_time_us > USEC_PER_SEC) {
+		/*
+		 * if we are charging use a nominal avg current so that we keep
+		 * a reasonable UUC while charging
+		 */
+		if (iavg_ma < 0)
+			iavg_ma = CHARGING_IAVG_MA;
+		iavg_samples[iavg_index] = iavg_ma;
+		iavg_index = (iavg_index + 1) % IAVG_SAMPLES;
+		iavg_num_samples++;
+		if (iavg_num_samples >= IAVG_SAMPLES)
+			iavg_num_samples = IAVG_SAMPLES;
+	}
 
-	/* calculate unusable charge with iavg */
-	iavg_ma = max(0, iavg_ma);
+	/* now that this sample is added calcualte the average */
+	iavg_ma = 0;
+	if (iavg_num_samples != 0) {
+		for (i = 0; i < iavg_num_samples; i++) {
+			pr_debug("iavg_samples[%d] = %d\n", i, iavg_samples[i]);
+			iavg_ma += iavg_samples[i];
+		}
+
+		iavg_ma = DIV_ROUND_CLOSEST(iavg_ma, iavg_num_samples);
+	}
+
 	uuc_uah_iavg = calculate_uuc_uah_at_given_current(chip,
 					batt_temp, chargecycles,
 					rbatt, fcc_uah, iavg_ma);
 	pr_debug("iavg = %d uuc_iavg = %d\n", iavg_ma, uuc_uah_iavg);
 
-	if (firsttime) {
-		chip->uuc_uah_iavg_prev = uuc_uah_iavg;
-
-		if (cc_uah < chip->last_cc_uah)
-			chip->last_uuc_uah = uuc_uah_itest;
-		else
-			chip->last_uuc_uah = uuc_uah_iavg;
-		pr_debug("firsttime uuc_prev = %d\n", chip->last_uuc_uah);
-	}
-
-	uuc_reported = scale_unusable_charge_uah(chip,
-				cc_uah < chip->last_cc_uah,
-				uuc_uah_iavg, uuc_uah_itest,
-				chip->uuc_uah_iavg_prev);
-
-	/* remember the last uuc_uah_iavg */
-	chip->uuc_uah_iavg_prev = uuc_uah_iavg;
-
-	/* remember the reported uuc */
-	chip->last_uuc_uah = uuc_reported;
-
-	if (firsttime == 1) {
-		/* uuc calculation for the first time is done */
-		firsttime = 0;
-	}
-
-	return uuc_reported;
+	return uuc_uah_iavg;
 }
 
 /* calculate remainging charge at the time of ocv */
@@ -1382,7 +1301,8 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 
 	*unusable_charge_uah = calculate_unusable_charge_uah(chip, *rbatt,
 					*fcc_uah, *cc_uah, soc_rbatt,
-					batt_temp, chargecycles, *iavg_ua);
+					batt_temp, chargecycles, *iavg_ua,
+					*delta_time_us);
 	pr_debug("UUC = %uuAh\n", *unusable_charge_uah);
 }
 
@@ -1486,10 +1406,15 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	soc_est = bound_soc(soc_est);
 
 	/*
-	 * do not adjust if soc_est is between 45 and 25 OR soc_est is
-	 * same as what bms calculated
+	 * do not adjust
+	 * if soc is same as what bms calculated
+	 * if soc_est is between 45 and 25, this is the flat portion of the
+	 * curve where soc_est is not so accurate. We generally don't want to
+	 * adjust when soc_est is inaccurate except for the cases when soc is
+	 * way far off (higher than 50 or lesser than 20).
 	 */
-	if (is_between(45, 25, soc_est) || soc_est == soc)
+	if (soc_est == soc
+		|| (is_between(45, 25, soc_est) && is_between(50, 20, soc)))
 		goto out;
 
 	if (last_soc_est == -EINVAL)
@@ -2761,8 +2686,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	mutex_init(&chip->last_ocv_uv_mutex);
 	chip->dev = &pdev->dev;
 	chip->r_sense = pdata->r_sense;
-	chip->i_test = pdata->i_test;
-	chip->v_failure = pdata->v_failure;
+	chip->v_cutoff = pdata->v_cutoff;
 	chip->max_voltage_uv = pdata->max_voltage_uv;
 	chip->batt_type = pdata->battery_type;
 	chip->rconn_mohm = pdata->rconn_mohm;
@@ -2828,10 +2752,6 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	/* enable the vbatt reading interrupts for scheduling hkadc calib */
 	pm8921_bms_enable_irq(chip, PM8921_BMS_GOOD_OCV);
 	pm8921_bms_enable_irq(chip, PM8921_BMS_OCV_FOR_R);
-
-	INIT_DELAYED_WORK(&chip->uuc_timer_work, uuc_timer_work);
-	schedule_delayed_work(&chip->uuc_timer_work,
-					msecs_to_jiffies(UUC_TIMER_MS));
 
 	get_battery_uvolts(chip, &vbatt);
 	pr_info("OK battery_capacity_at_boot=%d volt = %d ocv = %d\n",

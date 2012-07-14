@@ -340,10 +340,9 @@ static struct pm8xxx_spk_platform_data pm8xxx_spk_pdata = {
 };
 
 static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
-	.battery_type	= BATT_UNKNOWN,
+	.battery_type		= BATT_UNKNOWN,
 	.r_sense		= 10,
-	.i_test			= 2500,
-	.v_failure		= 3000,
+	.v_cutoff		= 3400,
 	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
 };
 
