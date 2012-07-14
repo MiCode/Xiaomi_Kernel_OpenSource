@@ -39,6 +39,7 @@ enum src_id {
 	PLL_0 = 0,
 	HFPLL,
 	PLL_8,
+	NUM_SRC_ID
 };
 
 /**
@@ -66,6 +67,7 @@ enum scalables {
 	CPU2,
 	CPU3,
 	L2,
+	MAX_SCALABLES
 };
 
 
@@ -261,6 +263,32 @@ struct acpuclk_krait_params {
 };
 
 /**
+ * struct drv_data - Driver state
+ * @acpu_freq_tbl: CPU frequency table.
+ * @l2_freq_tbl: L2 frequency table.
+ * @scalable: Array of scalables (CPUs and L2).
+ * @hfpll_data: High-frequency PLL data.
+ * @bus_perf_client: Bus driver client handle.
+ * @bus_scale: Bus driver scaling data.
+ * @boost_uv: Voltage boost amount
+ * @speed_bin: Speed bin ID.
+ * @pvs_bin: PVS bin ID.
+ * @dev: Device.
+ */
+struct drv_data {
+	struct acpu_level *acpu_freq_tbl;
+	const struct l2_level *l2_freq_tbl;
+	struct scalable *scalable;
+	struct hfpll_data *hfpll_data;
+	u32 bus_perf_client;
+	struct msm_bus_scale_pdata *bus_scale;
+	int boost_uv;
+	int speed_bin;
+	int pvs_bin;
+	struct device *dev;
+};
+
+/**
  * struct acpuclk_platform_data - PMIC configuration data.
  * @uses_pm8917: Boolean indicates presence of pm8917.
  */
@@ -273,4 +301,14 @@ struct acpuclk_platform_data {
  */
 extern int acpuclk_krait_init(struct device *dev,
 			      const struct acpuclk_krait_params *params);
+
+#ifdef CONFIG_DEBUG_FS
+/**
+ * acpuclk_krait_debug_init - Initialize debugfs interface.
+ */
+extern void __init acpuclk_krait_debug_init(struct drv_data *drv);
+#else
+static inline void acpuclk_krait_debug_init(void) { }
+#endif
+
 #endif

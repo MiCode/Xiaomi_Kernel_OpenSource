@@ -24,6 +24,9 @@ endif
 
 obj-y += acpuclock.o
 obj-$(CONFIG_ARCH_MSM_KRAIT) += acpuclock-krait.o
+ifdef CONFIG_ARCH_MSM_KRAIT
+obj-$(CONFIG_DEBUG_FS) += acpuclock-krait-debug.o
+endif
 obj-$(CONFIG_ARCH_MSM7X27) += acpuclock-7627.o clock-pll.o
 obj-$(CONFIG_ARCH_MSM_SCORPION) += pmu.o
 obj-$(CONFIG_ARCH_MSM_SCORPIONMP) += perf_event_msm_l2.o
