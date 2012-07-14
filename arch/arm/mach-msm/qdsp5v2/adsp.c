@@ -883,7 +883,7 @@ int msm_adsp_enable(struct msm_adsp_module *module)
 			rc = -ETIMEDOUT;
 		}
 		if (module->open_count++ == 0 && module->clk)
-			clk_enable(module->clk);
+			clk_prepare_enable(module->clk);
 
 		mutex_lock(&adsp_open_lock);
 		if (adsp_open_count++ == 0)
@@ -938,7 +938,7 @@ int msm_adsp_disable(struct msm_adsp_module *module)
 		mutex_lock(&module->lock);
 		module->state = ADSP_STATE_DISABLED;
 		if (--module->open_count == 0 && module->clk)
-			clk_disable(module->clk);
+			clk_disable_unprepare(module->clk);
 		mutex_unlock(&module->lock);
 		mutex_lock(&adsp_open_lock);
 		if (--adsp_open_count == 0) {
