@@ -467,9 +467,9 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			cvs_session_cmd.hdr.opcode =
 				VSS_ISTREAM_CMD_CREATE_PASSIVE_CONTROL_SESSION;
 			if (is_volte_session(v->session_id)) {
-				strlcpy(mvm_session_cmd.mvm_session.name,
+				strlcpy(cvs_session_cmd.cvs_session.name,
 				"default volte voice",
-				sizeof(mvm_session_cmd.mvm_session.name) - 1);
+				sizeof(cvs_session_cmd.cvs_session.name) - 1);
 			} else if (is_sglte_session(v->session_id)) {
 				strlcpy(cvs_session_cmd.cvs_session.name,
 				"default modem voice2",
