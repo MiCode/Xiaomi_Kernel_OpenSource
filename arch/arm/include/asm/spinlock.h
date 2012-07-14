@@ -7,6 +7,8 @@
 
 #include <asm/processor.h>
 
+extern int msm_krait_need_wfe_fixup;
+
 /*
  * sev and wfe are ARMv6K extensions.  Uniprocessor ARMv6 may not have the K
  * extensions, so when running on UP, we have to patch these instructions away.
@@ -32,6 +34,31 @@
 #else
 #define SEV		ALT_SMP("sev", "nop")
 #define WFE()		ALT_SMP("wfe", "nop")
+#endif
+
+/*
+ * The fixup involves disabling interrupts during execution of the WFE
+ * instruction. This could potentially lead to deadlock if a thread is trying
+ * to acquire a spinlock which is being released from an interrupt context.
+ */
+#ifdef CONFIG_MSM_KRAIT_WFE_FIXUP
+#define WFE_SAFE(fixup, tmp) 				\
+"	mrs	" tmp ", cpsr\n"			\
+"	cmp	" fixup ", #0\n"			\
+"	wfeeq\n"					\
+"	beq	10f\n"					\
+"	cpsid	if\n"					\
+"	mrc	p15, 7, " fixup ", c15, c0, 5\n"	\
+"	bic	" fixup ", " fixup ", #0x10000\n"	\
+"	mcr	p15, 7, " fixup ", c15, c0, 5\n"	\
+"	isb\n"						\
+"	wfe\n"						\
+"	orr	" fixup ", " fixup ", #0x10000\n"	\
+"	mcr	p15, 7, " fixup ", c15, c0, 5\n"	\
+"	isb\n"						\
+"10:	msr	cpsr_cf, " tmp "\n"
+#else
+#define WFE_SAFE(fixup, tmp)	"	wfe\n"
 #endif
 
 static inline void dsb_sev(void)
@@ -65,7 +92,7 @@ static inline void dsb_sev(void)
 
 static inline void arch_spin_lock(arch_spinlock_t *lock)
 {
-	unsigned long tmp;
+	unsigned long tmp, flags = 0;
 	u32 newval;
 	arch_spinlock_t lockval;
 
@@ -80,7 +107,32 @@ static inline void arch_spin_lock(arch_spinlock_t *lock)
 	: "cc");
 
 	while (lockval.tickets.next != lockval.tickets.owner) {
+		if (msm_krait_need_wfe_fixup) {
+			local_irq_save(flags);
+			__asm__ __volatile__(
+			"mrc	p15, 7, %0, c15, c0, 5\n"
+			: "=r" (tmp)
+			:
+			: "cc");
+			tmp &= ~(0x10000);
+			__asm__ __volatile__(
+			"mcr	p15, 7, %0, c15, c0, 5\n"
+			:
+			: "r" (tmp)
+			: "cc");
+			isb();
+		}
 		wfe();
+		if (msm_krait_need_wfe_fixup) {
+			tmp |= 0x10000;
+			__asm__ __volatile__(
+			"mcr	p15, 7, %0, c15, c0, 5\n"
+			:
+			: "r" (tmp)
+			: "cc");
+			isb();
+			local_irq_restore(flags);
+		}
 		lockval.tickets.owner = ACCESS_ONCE(lock->tickets.owner);
 	}
 
@@ -139,18 +191,18 @@ static inline int arch_spin_is_contended(arch_spinlock_t *lock)
 
 static inline void arch_write_lock(arch_rwlock_t *rw)
 {
-	unsigned long tmp;
+	unsigned long tmp, fixup = msm_krait_need_wfe_fixup;
 
 	__asm__ __volatile__(
-"1:	ldrex	%0, [%1]\n"
+"1:	ldrex	%0, [%2]\n"
 "	teq	%0, #0\n"
 "	beq	2f\n"
-	WFE()
+	WFE_SAFE("%1", "%0")
 "2:\n"
-"	strexeq	%0, %2, [%1]\n"
+"	strexeq	%0, %3, [%2]\n"
 "	teq	%0, #0\n"
 "	bne	1b"
-	: "=&r" (tmp)
+	: "=&r" (tmp), "+r" (fixup)
 	: "r" (&rw->lock), "r" (0x80000000)
 	: "cc");
 
@@ -207,18 +259,18 @@ static inline void arch_write_unlock(arch_rwlock_t *rw)
  */
 static inline void arch_read_lock(arch_rwlock_t *rw)
 {
-	unsigned long tmp, tmp2;
+	unsigned long tmp, tmp2, fixup = msm_krait_need_wfe_fixup;
 
 	__asm__ __volatile__(
-"1:	ldrex	%0, [%2]\n"
+"1:	ldrex	%0, [%3]\n"
 "	adds	%0, %0, #1\n"
-"	strexpl	%1, %0, [%2]\n"
+"	strexpl	%1, %0, [%3]\n"
 "	bpl	2f\n"
-	WFE()
+	WFE_SAFE("%2", "%0")
 "2:\n"
 "	rsbpls	%0, %1, #0\n"
 "	bmi	1b"
-	: "=&r" (tmp), "=&r" (tmp2)
+	: "=&r" (tmp), "=&r" (tmp2), "+r" (fixup)
 	: "r" (&rw->lock)
 	: "cc");
 
