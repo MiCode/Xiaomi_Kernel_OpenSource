@@ -47,7 +47,7 @@
 #define APPS_PROC		1
 #define QDSP_PROC		2
 #define WCNSS_PROC		3
-#define MSG_MASK_SIZE 9500
+#define MSG_MASK_SIZE 10000
 #define LOG_MASK_SIZE 8000
 #define EVENT_MASK_SIZE 1000
 #define USER_SPACE_DATA 8000

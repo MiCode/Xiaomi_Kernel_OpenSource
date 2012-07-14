@@ -107,7 +107,7 @@ the appropriate macros. */
 
 /* This needs to be modified manually now, when we add
  a new RANGE of SSIDs to the msg_mask_tbl */
-#define MSG_MASK_TBL_CNT		23
+#define MSG_MASK_TBL_CNT		24
 #define EVENT_LAST_ID			0x08AD
 
 #define MSG_SSID_0			0
@@ -156,6 +156,8 @@ the appropriate macros. */
 #define MSG_SSID_21_LAST		10300
 #define MSG_SSID_22			10350
 #define MSG_SSID_22_LAST		10361
+#define MSG_SSID_23			0xC000
+#define MSG_SSID_23_LAST		0xC063
 
 struct diagpkt_delay_params {
 	void *rsp_ptr;
