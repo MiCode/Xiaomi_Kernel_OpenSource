@@ -389,10 +389,9 @@ apq8064_pm8xxx_ccadc_pdata = {
 
 static struct pm8921_bms_platform_data
 apq8064_pm8921_bms_pdata = {
-	.battery_type	= BATT_UNKNOWN,
+	.battery_type		= BATT_UNKNOWN,
 	.r_sense		= 10,
-	.i_test			= 2500,
-	.v_failure		= 3000,
+	.v_cutoff		= 3400,
 	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
 };
 
