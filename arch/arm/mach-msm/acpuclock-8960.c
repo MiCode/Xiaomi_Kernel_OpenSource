@@ -1235,10 +1235,8 @@ static int acpuclk_8960_set_rate(int cpu, unsigned long rate,
 	unsigned long flags;
 	int rc = 0;
 
-	if (cpu > num_possible_cpus()) {
-		rc = -EINVAL;
-		goto out;
-	}
+	if (cpu > num_possible_cpus())
+		return -EINVAL;
 
 	if (reason == SETRATE_CPUFREQ || reason == SETRATE_HOTPLUG)
 		mutex_lock(&driver_lock);
