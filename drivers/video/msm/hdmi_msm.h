@@ -110,6 +110,7 @@ struct hdmi_msm_state_type {
 	void __iomem *hdmi_io;
 
 	struct external_common_state_type common;
+	boolean is_mhl_enabled;
 };
 
 extern struct hdmi_msm_state_type *hdmi_msm_state;
@@ -134,5 +135,5 @@ void hdmi_msm_cec_msg_recv(void);
 void hdmi_msm_cec_one_touch_play(void);
 void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
-
+void mhl_connect_api(boolean on);
 #endif /* __HDMI_MSM_H__ */
