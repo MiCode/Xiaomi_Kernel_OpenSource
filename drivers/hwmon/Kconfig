@@ -878,6 +878,16 @@ config SENSORS_QPNP_ADC_VOLTAGE
 	  The VADC includes support for the conversion sequencer. The driver supports
 	  reading the ADC through the AMUX channels for external pull-ups simultaneously.
 
+config SENSORS_QPNP_ADC_CURRENT
+	tristate "Support for Qualcomm QPNP current ADC"
+	depends on SPMI
+	help
+	  This is the IADC driver for Qualcomm QPNP ADC Chip.
+
+	  The driver supports single mode operation to read from upto seven channel
+	  configuration that include reading the external/internal Rsense, CSP_EX,
+	  CSN_EX pair along with the gain and offset calibration.
+
 config SENSORS_PC87360
 	tristate "National Semiconductor PC87360 family"
 	depends on !PPC
