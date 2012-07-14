@@ -100,6 +100,7 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_PROCI_PALM_T41		41
 #define MXT_PROCI_TOUCHSUPPRESSION_T42	42
 #define MXT_PROCI_STYLUS_T47		47
+#define MXT_PROCI_ADAPTIVETHRESHOLD_T55 55
 #define MXT_PROCI_SHIELDLESS_T56	56
 #define MXT_PROCG_NOISESUPPRESSION_T48	48
 #define MXT_SPT_COMMSCONFIG_T18		18
@@ -228,7 +229,7 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_BACKUP_VALUE	0x55
 #define MXT_BACKUP_TIME		25	/* msec */
 #define MXT224_RESET_TIME	65	/* msec */
-#define MXT224E_RESET_TIME	22	/* msec */
+#define MXT224E_RESET_TIME	150	/* msec */
 #define MXT1386_RESET_TIME	250	/* msec */
 #define MXT_RESET_TIME		250	/* msec */
 #define MXT_RESET_NOCHGREAD	400	/* msec */
@@ -386,6 +387,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_SPT_USERDATA_T38:
 	case MXT_SPT_DIGITIZER_T43:
 	case MXT_SPT_CTECONFIG_T46:
+	case MXT_PROCI_ADAPTIVETHRESHOLD_T55:
 		return true;
 	default:
 		return false;
@@ -419,6 +421,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_SPT_USERDATA_T38:
 	case MXT_SPT_DIGITIZER_T43:
 	case MXT_SPT_CTECONFIG_T46:
+	case MXT_PROCI_ADAPTIVETHRESHOLD_T55:
 		return true;
 	default:
 		return false;
@@ -730,6 +733,36 @@ static int mxt_read_object(struct mxt_data *data,
 
 	reg = object->start_address;
 	return __mxt_read_reg(data->client, reg + offset, 1, val);
+}
+
+static int mxt_get_object_address(struct device *dev, u8 type)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	u8 obj_num, obj_buf[MXT_OBJECT_SIZE];
+	u16 reg;
+	int i, error;
+
+	error = mxt_read_reg(data->client, MXT_OBJECT_NUM, &obj_num);
+
+	if (error) {
+		dev_err(dev, "reading number of objects failed\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < obj_num; i++) {
+		reg = MXT_OBJECT_START + MXT_OBJECT_SIZE * i;
+		error = mxt_read_object_table(data->client,
+						reg, obj_buf);
+		if (error)
+			return error;
+
+		if (obj_buf[0] == type)
+			return obj_buf[2] << 8 | obj_buf[1];
+	}
+	/* If control reaches here, i = obj_num and object not found */
+	dev_err(dev, "Requested object %d not found.\n", type);
+	return -EINVAL;
+
 }
 
 static int mxt_write_object(struct mxt_data *data,
@@ -1543,6 +1576,7 @@ static int mxt_load_fw(struct device *dev, const char *fn)
 
 	switch (data->info.family_id) {
 	case MXT224_ID:
+	case MXT224E_ID:
 		max_frame_size = MXT_SINGLE_FW_MAX_FRAME_SIZE;
 		break;
 	case MXT1386_ID:
@@ -1681,10 +1715,11 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 					const char *buf, size_t count)
 {
 	struct mxt_data *data = dev_get_drvdata(dev);
-	int error;
+	int error, address;
 	const char *fw_name;
 	u8 bootldr_id;
 	u8 cfg_version[MXT_CFG_VERSION_LEN] = {0};
+
 
 	/* If fw_name is set, then the existing firmware has an upgrade */
 	if (!data->fw_name) {
@@ -1734,6 +1769,16 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 		data->object_table = NULL;
 		data->cfg_version_idx = 0;
 		data->update_cfg = false;
+
+		/* T38 object address might have changed, read it from
+		   touch controller */
+		address = mxt_get_object_address(dev, MXT_SPT_USERDATA_T38);
+		if (address < 0) {
+			dev_err(dev, "T38 required for touch operation\n");
+			return -EINVAL;
+		}
+
+		data->t38_start_addr = address;
 
 		error = __mxt_write_reg(data->client, data->t38_start_addr,
 				sizeof(cfg_version), cfg_version);
