@@ -12,11 +12,6 @@
 
 /include/ "skeleton.dtsi"
 /include/ "msm8974_pm.dtsi"
-/include/ "msm-pm8x41-rpm-regulator.dtsi"
-/include/ "msm-pm8841.dtsi"
-/include/ "msm-pm8941.dtsi"
-/include/ "msm8974-regulator.dtsi"
-/include/ "msm8974-gpio.dtsi"
 /include/ "msm8974-iommu.dtsi"
 /include/ "msm-gdsc.dtsi"
 
@@ -178,7 +173,7 @@
 		qcom,min-clk-gear = <10>;
 	};
 
-	qcom,spmi@fc4c0000 {
+	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0xfc4cf000 0x1000>,
@@ -428,7 +423,7 @@
 		compatible = "qcom,msm_ocmem";
 	};
 
-	qcom,rpm-smd {
+	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
@@ -483,3 +478,9 @@
 		qcom,firmware-max-paddr = <0xFA00000>;
 	};
 };
+
+/include/ "msm-pm8x41-rpm-regulator.dtsi"
+/include/ "msm-pm8841.dtsi"
+/include/ "msm-pm8941.dtsi"
+/include/ "msm8974-regulator.dtsi"
+/include/ "msm8974-gpio.dtsi"
