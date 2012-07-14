@@ -42,6 +42,7 @@
  */
 
 #define RX_Q_MONITOR		(500)	/* 500 milli second */
+#define HCI_REGISTER_SET	0
 
 
 static int hcismd_set;
@@ -57,7 +58,7 @@ static void hci_dev_restart(struct work_struct *worker);
 
 struct hci_smd_data {
 	struct hci_dev *hdev;
-
+	unsigned long flags;
 	struct smd_channel *event_channel;
 	struct smd_channel *data_channel;
 	struct wake_lock wake_lock_tx;
@@ -403,11 +404,16 @@ static int hci_smd_hci_register_dev(struct hci_smd_data *hsmd)
 	struct hci_dev *hdev;
 
 	hdev = hsmd->hdev;
-
+	if (test_and_set_bit(HCI_REGISTER_SET, &hsmd->flags)) {
+		BT_ERR("HCI device registered already");
+		return 0;
+	} else
+		BT_INFO("HCI device registration is starting");
 	if (hci_register_dev(hdev) < 0) {
 		BT_ERR("Can't register HCI device");
 		hci_free_dev(hdev);
 		hsmd->hdev = NULL;
+		clear_bit(HCI_REGISTER_SET, &hsmd->flags);
 		return -ENODEV;
 	}
 	return 0;
@@ -473,6 +479,11 @@ static void hci_smd_deregister_dev(struct hci_smd_data *hsmd)
 {
 	tasklet_kill(&hs.rx_task);
 
+	if (!test_and_clear_bit(HCI_REGISTER_SET, &hsmd->flags)) {
+		BT_ERR("HCI device un-registered already");
+		return;
+	} else
+		BT_INFO("HCI device un-registration going on");
 	if (hsmd->hdev) {
 		if (hci_unregister_dev(hsmd->hdev) < 0)
 			BT_ERR("Can't unregister HCI device %s",
