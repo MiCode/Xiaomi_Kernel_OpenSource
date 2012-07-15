@@ -3138,18 +3138,6 @@ static void vfe31_process_stats_cs_irq(void)
 		CDBG("%s: droppedStatsFrameCount = %d", __func__,
 			vfe31_ctrl->csStatsControl.droppedStatsFrameCount);
 	}
-	if (!(vfe31_ctrl->csStatsControl.ackPending)) {
-		vfe31_ctrl->csStatsControl.bufToRender =
-			vfe31_process_stats_irq_common(STATS_CS_NUM,
-				vfe31_ctrl->csStatsControl.nextFrameAddrBuf);
-		vfe_send_stats_msg(
-			vfe31_ctrl->csStatsControl.bufToRender,
-			STATS_CS_NUM);
-	} else {
-		vfe31_ctrl->csStatsControl.droppedStatsFrameCount++;
-		CDBG("%s: droppedStatsFrameCount = %d", __func__,
-			vfe31_ctrl->csStatsControl.droppedStatsFrameCount);
-	}
 }
 
 static void vfe31_process_stats(uint32_t status_bits)
