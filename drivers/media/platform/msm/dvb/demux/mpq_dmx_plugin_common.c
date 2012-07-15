@@ -33,16 +33,6 @@
 	   sizeof(struct mpq_streambuffer_packet_header) + \
 	   sizeof(struct mpq_adapter_video_meta_data)))
 
-/*
- * PCR/STC information length saved in ring-buffer.
- * PCR / STC are saved in ring-buffer in the following form:
- * <8 bit flags><64 bits of STC> <64bits of PCR>
- * STC and PCR values are in 27MHz.
- * The current flags that are defined:
- * 0x00000001: discontinuity_indicator
- */
-#define PCR_STC_LEN					17
-
 
 /* Number of demux devices, has default of linux configuration */
 static int mpq_demux_device_num = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
@@ -1906,10 +1896,9 @@ int mpq_dmx_process_pcr_packet(
 			struct dvb_demux_feed *feed,
 			const u8 *buf)
 {
-	int i;
 	u64 pcr;
 	u64 stc;
-	u8 output[PCR_STC_LEN];
+	struct dmx_data_ready data;
 	struct mpq_demux *mpq_demux = feed->demux->priv;
 	const struct ts_packet_header *ts_header;
 	const struct ts_adaptation_field *adaptation_field;
@@ -1960,17 +1949,13 @@ int mpq_dmx_process_pcr_packet(
 	stc += buf[188];
 	stc *= 256; /* convert from 105.47 KHZ to 27MHz */
 
-	output[0] = adaptation_field->discontinuity_indicator;
+	data.data_length = 0;
+	data.pcr.pcr = pcr;
+	data.pcr.stc = stc;
+	data.pcr.disc_indicator_set = adaptation_field->discontinuity_indicator;
+	data.status = DMX_OK_PCR;
+	feed->data_ready_cb.ts(&feed->feed.ts, &data);
 
-	for (i = 1; i <= 8; i++)
-		output[i] = (stc >> ((8-i) << 3)) & 0xFF;
-
-	for (i = 9; i <= 16; i++)
-		output[i] = (pcr >> ((16-i) << 3)) & 0xFF;
-
-	feed->cb.ts(output, PCR_STC_LEN,
-				NULL, 0,
-				&feed->feed.ts, DMX_OK);
 	return 0;
 }
 EXPORT_SYMBOL(mpq_dmx_process_pcr_packet);

@@ -34,6 +34,9 @@
 
 #define DMX_FILTER_SIZE 16
 
+/* Min recording chunk upon which event is generated */
+#define DMX_REC_BUFF_CHUNK_MIN_SIZE		(100*188)
+
 typedef enum
 {
 	DMX_OUT_DECODER, /* Streaming directly to decoder. */
@@ -133,7 +136,6 @@ struct dmx_indexing_video_params {
 	enum dmx_indexing_video_profile profile;
 };
 
-
 struct dmx_pes_filter_params
 {
 	__u16          pid;
@@ -141,6 +143,18 @@ struct dmx_pes_filter_params
 	dmx_output_t   output;
 	dmx_pes_type_t pes_type;
 	__u32          flags;
+
+	/*
+	 * The following configures when the event
+	 * DMX_EVENT_NEW_REC_CHUNK will be triggered.
+	 * When new recorded data is received with size
+	 * equal or larger than this value a new event
+	 * will be triggered. This is relevent when
+	 * output is DMX_OUT_TS_TAP or DMX_OUT_TSDEMUX_TAP,
+	 * size must be at least DMX_REC_BUFF_CHUNK_MIN_SIZE
+	 * and smaller than buffer size.
+	 */
+	__u32          rec_chunk_size;
 
 	struct dmx_indexing_video_params video_params;
 };
@@ -166,6 +180,129 @@ struct dmx_buffer_status {
 
 	/* non-zero if data error occured */
 	int error;
+};
+
+/* Events associated with each demux filter */
+enum dmx_event {
+	/* New PES packet is ready to be consumed */
+	DMX_EVENT_NEW_PES,
+
+	/* New section is ready to be consumed */
+	DMX_EVENT_NEW_SECTION,
+
+	/* New recording chunk is ready to be consumed */
+	DMX_EVENT_NEW_REC_CHUNK,
+
+	/* New PCR value is ready */
+	DMX_EVENT_NEW_PCR,
+
+	/* Overflow */
+	DMX_EVENT_BUFFER_OVERFLOW,
+
+	/* Section was dropped due to CRC error */
+	DMX_EVENT_SECTION_CRC_ERROR,
+
+	/* End-of-stream, no more data from this filter */
+	DMX_EVENT_EOS
+};
+
+/* Flags passed in filter events */
+
+/* Continuity counter error was detected */
+#define DMX_FILTER_CC_ERROR			0x01
+
+/* Discontinuity indicator was set */
+#define DMX_FILTER_DISCONTINUITY_INDEICATOR	0x02
+
+/* PES legnth in PES header is not correct */
+#define DMX_FILTER_PES_LENGTH_ERROR		0x04
+
+
+/* PES info associated with DMX_EVENT_NEW_PES event */
+struct dmx_pes_event_info {
+	/* Offset at which PES information starts */
+	__u32 base_offset;
+
+	/*
+	 * Start offset at which PES data
+	 * from the stream starts.
+	 * Equal to base_offset if PES data
+	 * starts from the beginning.
+	 */
+	__u32 start_offset;
+
+	/* Total length holding the PES information */
+	__u32 total_length;
+
+	/* Actual length holding the PES data */
+	__u32 actual_length;
+
+	/* Local receiver timestamp in 27MHz */
+	__u64 stc;
+
+	/* Flags passed in filter events */
+	__u32 flags;
+};
+
+/* Section info associated with DMX_EVENT_NEW_SECTION event */
+struct dmx_section_event_info {
+	/* Offset at which section information starts */
+	__u32 base_offset;
+
+	/*
+	 * Start offset at which section data
+	 * from the stream starts.
+	 * Equal to base_offset if section data
+	 * starts from the beginning.
+	 */
+	__u32 start_offset;
+
+	/* Total length holding the section information */
+	__u32 total_length;
+
+	/* Actual length holding the section data */
+	__u32 actual_length;
+
+	/* Flags passed in filter events */
+	__u32 flags;
+};
+
+/* Recording info associated with DMX_EVENT_NEW_REC_CHUNK event */
+struct dmx_rec_chunk_event_info {
+	/* Offset at which recording chunk starts */
+	__u32 offset;
+
+	/* Size of recording chunk in bytes */
+	__u32 size;
+};
+
+/* PCR info associated with DMX_EVENT_NEW_PCR event */
+struct dmx_pcr_event_info {
+	/* Local timestamp in 27MHz
+	 * when PCR packet was received
+	 */
+	__u64 stc;
+
+	/* PCR value in 27MHz */
+	__u64 pcr;
+
+	/* Flags passed in filter events */
+	__u32 flags;
+};
+
+/*
+ * Filter's event returned through DMX_GET_EVENT.
+ * poll with POLLPRI would block until events are available.
+ */
+struct dmx_filter_event {
+	enum dmx_event type;
+
+	union {
+		struct dmx_pes_event_info pes;
+		struct dmx_section_event_info section;
+		struct dmx_rec_chunk_event_info recording_chunk;
+		struct dmx_pcr_event_info pcr;
+	} params;
 };
 
 typedef struct dmx_caps {
@@ -290,5 +427,6 @@ struct dmx_stc {
 #define DMX_RELEASE_DATA		 _IO('o', 57)
 #define DMX_FEED_DATA			 _IO('o', 58)
 #define DMX_SET_PLAYBACK_MODE	 _IOW('o', 59, enum dmx_playback_mode_t)
+#define DMX_GET_EVENT			 _IOR('o', 60, struct dmx_filter_event)
 
 #endif /* _UAPI_DVBDMX_H_ */

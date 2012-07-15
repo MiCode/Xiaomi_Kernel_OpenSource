@@ -63,6 +63,35 @@ struct dmxdev_feed {
 	struct list_head next;
 };
 
+struct dmxdev_events_queue {
+#define DMX_EVENT_QUEUE_SIZE	500 /* number of events */
+	/*
+	 * indices used to manage events queue.
+	 * read_index advanced when relevent data is read
+	 * from the buffer.
+	 * notified_index is the index from which next events
+	 * are returned.
+	 * read_index <= notified_index <= write_index
+	 *
+	 * If user reads the data without getting the respective
+	 * event first, the read/notified indices are updated
+	 * automatically to reflect the actual data that exist
+	 * in the buffer.
+	 */
+	u32 read_index;
+	u32 write_index;
+	u32 notified_index;
+
+	/* Bytes read by user without having respective event in the queue */
+	u32 bytes_read_no_event;
+
+	/* internal tracking of PES and recording events */
+	u32 current_event_data_size;
+	u32 current_event_start_offset;
+
+	struct dmx_filter_event queue[DMX_EVENT_QUEUE_SIZE];
+};
+
 struct dmxdev_filter {
 	union {
 		struct dmx_section_filter *sec;
@@ -79,6 +108,8 @@ struct dmxdev_filter {
 		struct dmx_pes_filter_params pes;
 	} params;
 
+	struct dmxdev_events_queue events;
+
 	enum dmxdev_type type;
 	enum dmxdev_state state;
 	struct dmxdev *dev;
@@ -88,6 +119,8 @@ struct dmxdev_filter {
 
 	/* relevent for decoder PES */
 	unsigned long pes_buffer_size;
+
+	u32 rec_chunk_size;
 
 	/* only for sections */
 	struct timer_list timer;
@@ -106,10 +139,9 @@ struct dmxdev {
 
 	int filternum;
 	int capabilities;
-#define DMXDEV_CAP_DUPLEX			0x1
-#define DMXDEV_CAP_PULL_MODE		0x2
-#define DMXDEV_CAP_PCR_EXTRACTION	0x4
-#define DMXDEV_CAP_INDEXING		0x8
+#define DMXDEV_CAP_DUPLEX	0x1
+#define DMXDEV_CAP_PULL_MODE	0x2
+#define DMXDEV_CAP_INDEXING	0x4
 
 	enum dmx_playback_mode_t playback_mode;
 	dmx_source_t source;
@@ -121,6 +153,8 @@ struct dmxdev {
 	struct dmx_frontend *dvr_orig_fe;
 
 	struct dvb_ringbuffer dvr_buffer;
+	struct dmxdev_events_queue dvr_output_events;
+
 	struct dvb_ringbuffer dvr_input_buffer;
 	struct workqueue_struct *dvr_input_workqueue;
 

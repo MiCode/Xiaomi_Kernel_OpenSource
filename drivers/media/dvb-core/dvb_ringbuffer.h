@@ -111,6 +111,10 @@ extern void dvb_ringbuffer_flush_spinlock_wakeup(struct dvb_ringbuffer *rbuf);
 #define DVB_RINGBUFFER_SKIP(rbuf,num)	\
 			(rbuf)->pread=((rbuf)->pread+(num))%(rbuf)->size
 
+/* advance write ptr by <num> bytes */
+#define DVB_RINGBUFFER_PUSH(rbuf, num)	\
+			((rbuf)->pwrite = (((rbuf)->pwrite+(num))%(rbuf)->size))
+
 /*
 ** read <len> bytes from ring buffer into <buf>
 ** <usermem> specifies whether <buf> resides in user space
