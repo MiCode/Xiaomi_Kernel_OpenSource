@@ -462,9 +462,11 @@ ENTRY(__turn_mmu_on)
 	instr_sync
 	mov	r3, r3
 #ifdef CONFIG_ARCH_MSM_KRAIT
-	ldr	r3, =0xff00fc00
+	movw	r3, 0xfc00
+	movt	r3, 0xff00
 	and	r3, r9, r3
-	ldr 	r4, =0x51000400
+	movw	r4, 0x0400
+	movt 	r4, 0x5100
 	cmp	r3, r4
 	mrceq	p15, 7, r3, c15, c0, 2
 	biceq	r3, r3, #0x400
