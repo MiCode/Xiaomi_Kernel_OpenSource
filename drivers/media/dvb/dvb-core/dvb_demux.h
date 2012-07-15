@@ -78,6 +78,11 @@ struct dvb_demux_feed {
 		dmx_section_cb sec;
 	} cb;
 
+	union {
+		dmx_ts_data_ready_cb ts;
+		dmx_section_data_ready_cb sec;
+	} data_ready_cb;
+
 	struct dvb_demux *demux;
 	void *priv;
 	int type;

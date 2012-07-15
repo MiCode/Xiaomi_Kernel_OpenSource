@@ -145,8 +145,15 @@ static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 
 	/* PUSI ? */
 	if (buf[1] & 0x40) {
-		feed->peslen = 0xfffa;
+		if (feed->pusi_seen)
+			/* We had seen PUSI before, this means
+			 * that previous PES can be closed now.
+			 */
+			feed->cb.ts(NULL, 0, NULL, 0,
+						&feed->feed.ts, DMX_OK_PES_END);
+
 		feed->pusi_seen = 1;
+		feed->peslen = 0;
 	}
 
 	if (feed->pusi_seen == 0)
@@ -204,6 +211,11 @@ static inline int dvb_dmx_swfilter_section_feed(struct dvb_demux_feed *feed)
 			if (dvb_demux_performancecheck)
 				demux->total_crc_time +=
 					dvb_dmx_calc_time_delta(pre_crc_time);
+
+			/* Notify on CRC error */
+			feed->cb.sec(NULL, 0, NULL, 0,
+				&f->filter, DMX_CRC_ERROR);
+
 			return -1;
 		}
 
@@ -1053,6 +1065,25 @@ static int dmx_ts_feed_decoder_buff_status(struct dmx_ts_feed *ts_feed,
 	return ret;
 }
 
+static int dmx_ts_feed_data_ready_cb(struct dmx_ts_feed *feed,
+				dmx_ts_data_ready_cb callback)
+{
+	struct dvb_demux_feed *dvbdmxfeed = (struct dvb_demux_feed *)feed;
+	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
+
+	mutex_lock(&dvbdmx->mutex);
+
+	if (dvbdmxfeed->state == DMX_STATE_GO) {
+		mutex_unlock(&dvbdmx->mutex);
+		return -EINVAL;
+	}
+
+	dvbdmxfeed->data_ready_cb.ts = callback;
+
+	mutex_unlock(&dvbdmx->mutex);
+	return 0;
+}
+
 static int dmx_ts_set_indexing_params(
 	struct dmx_ts_feed *ts_feed,
 	struct dmx_indexing_video_params *params)
@@ -1084,7 +1115,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	feed->cb.ts = callback;
 	feed->demux = demux;
 	feed->pid = 0xffff;
-	feed->peslen = 0xfffa;
+	feed->peslen = 0;
 	feed->buffer = NULL;
 	memset(&feed->indexing_params, 0,
 			sizeof(struct dmx_indexing_video_params));
@@ -1105,6 +1136,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->set = dmx_ts_feed_set;
 	(*ts_feed)->set_indexing_params = dmx_ts_set_indexing_params;
 	(*ts_feed)->get_decoder_buff_status = dmx_ts_feed_decoder_buff_status;
+	(*ts_feed)->data_ready_cb = dmx_ts_feed_data_ready_cb;
 
 	if (!(feed->filter = dvb_dmx_filter_alloc(demux))) {
 		feed->state = DMX_STATE_FREE;
@@ -1312,6 +1344,26 @@ static int dmx_section_feed_stop_filtering(struct dmx_section_feed *feed)
 	return ret;
 }
 
+
+static int dmx_section_feed_data_ready_cb(struct dmx_section_feed *feed,
+				dmx_section_data_ready_cb callback)
+{
+	struct dvb_demux_feed *dvbdmxfeed = (struct dvb_demux_feed *)feed;
+	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
+
+	mutex_lock(&dvbdmx->mutex);
+
+	if (dvbdmxfeed->state == DMX_STATE_GO) {
+		mutex_unlock(&dvbdmx->mutex);
+		return -EINVAL;
+	}
+
+	dvbdmxfeed->data_ready_cb.sec = callback;
+
+	mutex_unlock(&dvbdmx->mutex);
+	return 0;
+}
+
 static int dmx_section_feed_release_filter(struct dmx_section_feed *feed,
 					   struct dmx_section_filter *filter)
 {
@@ -1381,6 +1433,7 @@ static int dvbdmx_allocate_section_feed(struct dmx_demux *demux,
 	(*feed)->start_filtering = dmx_section_feed_start_filtering;
 	(*feed)->stop_filtering = dmx_section_feed_stop_filtering;
 	(*feed)->release_filter = dmx_section_feed_release_filter;
+	(*feed)->data_ready_cb = dmx_section_feed_data_ready_cb;
 
 	mutex_unlock(&dvbdmx->mutex);
 	return 0;
