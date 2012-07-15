@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/rtc.h>
 
 #define BMS_CONTROL		0x224
 #define BMS_S1_DELAY		0x225
@@ -126,7 +127,7 @@ struct pm8921_bms_chip {
 	int			last_ocv_uv;
 	int			pon_ocv_uv;
 	int			last_cc_uah;
-	struct timeval		t;
+	unsigned long		tm_sec;
 	int			enable_fcc_learning;
 	int			shutdown_soc;
 	int			shutdown_soc_timer_expired;
@@ -135,6 +136,7 @@ struct pm8921_bms_chip {
 	struct timespec		t_soc_queried;
 	int			shutdown_soc_valid_limit;
 	int			ignore_shutdown_soc;
+	int			prev_iavg_ua;
 };
 
 /*
@@ -1165,43 +1167,79 @@ static int calculate_uuc_uah_at_given_current(struct pm8921_bms_chip *chip,
 }
 
 static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
-				int *iavg_ua, int *delta_time_us)
+				int *iavg_ua, int *delta_time_s)
 {
 	int delta_cc_uah;
-	struct timeval now;
+	struct rtc_time tm;
+	struct rtc_device *rtc;
+	unsigned long now_tm_sec = 0;
+	int rc = 0;
 
-	delta_cc_uah = cc_uah - chip->last_cc_uah;
-	do_gettimeofday(&now);
-	if (chip->t.tv_sec != 0) {
-		*delta_time_us = (now.tv_sec - chip->t.tv_sec) * USEC_PER_SEC
-				+ now.tv_usec - chip->t.tv_usec;
-	} else {
-		/* calculation for the first time */
-		*delta_time_us = 0;
+	/* if anything fails report the previous iavg_ua */
+	*iavg_ua = chip->prev_iavg_ua;
+
+	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+	if (rtc == NULL) {
+		pr_err("%s: unable to open rtc device (%s)\n",
+			__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
+		goto out;
 	}
 
-	if (*delta_time_us != 0)
-		*iavg_ua = div_s64((s64)delta_cc_uah * 3600 * 1000000,
-					*delta_time_us);
-	else
-		*iavg_ua = 0;
+	rc = rtc_read_time(rtc, &tm);
+	if (rc) {
+		pr_err("Error reading rtc device (%s) : %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto out;
+	}
 
-	pr_debug("t.tv_sec = %d, now.tv_sec = %d delta_us = %d iavg_ua = %d\n",
-				(int)chip->t.tv_sec, (int)now.tv_sec,
-				*delta_time_us, (int)*iavg_ua);
+	rc = rtc_valid_tm(&tm);
+	if (rc) {
+		pr_err("Invalid RTC time (%s): %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto out;
+	}
+	rtc_tm_to_time(&tm, &now_tm_sec);
+
+	if (chip->tm_sec == 0) {
+		*delta_time_s = 0;
+		pm8921_bms_get_battery_current(iavg_ua);
+		goto out;
+	}
+
+	*delta_time_s = (now_tm_sec - chip->tm_sec);
+
+	/* use the previous iavg if called within 15 seconds */
+	if (*delta_time_s < 15) {
+		*iavg_ua = chip->prev_iavg_ua;
+		goto out;
+	}
+
+	delta_cc_uah = cc_uah - chip->last_cc_uah;
+
+	*iavg_ua = div_s64((s64)delta_cc_uah * 3600, *delta_time_s);
+
+	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_us = %d delta_cc = %d iavg_ua = %d\n",
+				chip->tm_sec, now_tm_sec,
+				*delta_time_s, delta_cc_uah, (int)*iavg_ua);
+
+out:
+	/* remember the iavg */
+	chip->prev_iavg_ua = *iavg_ua;
+
 	/* remember cc_uah */
 	chip->last_cc_uah = cc_uah;
 
 	/* remember this time */
-	chip->t = now;
+	chip->tm_sec = now_tm_sec;
 }
 
 #define IAVG_SAMPLES 16
 #define CHARGING_IAVG_MA 300
+#define MIN_SECONDS_FOR_VALID_SAMPLE	20
 static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 				int rbatt, int fcc_uah, int cc_uah,
 				int soc_rbatt, int batt_temp, int chargecycles,
-				int iavg_ua, int delta_time_us)
+				int iavg_ua, int delta_time_s)
 {
 	int uuc_uah_iavg;
 	int i;
@@ -1210,31 +1248,17 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 	static int iavg_index;
 	static int iavg_num_samples;
 
-	if (delta_time_us == 0) {
-		/*
-		 * this means uuc is being for the first time,
-		 * iavg_ua will be 0 which will lead to unreasonably low uuc
-		 * hence use the instantenous current instead of iavg_ua
-		 * value for the first time
-		 */
-		pm8921_bms_get_battery_current(&iavg_ua);
-		iavg_ma = iavg_ua / 1000;
-	}
-
-	/* if the time since last sample is small ignore it */
-	if (delta_time_us == 0 || delta_time_us > USEC_PER_SEC) {
-		/*
-		 * if we are charging use a nominal avg current so that we keep
-		 * a reasonable UUC while charging
-		 */
-		if (iavg_ma < 0)
-			iavg_ma = CHARGING_IAVG_MA;
-		iavg_samples[iavg_index] = iavg_ma;
-		iavg_index = (iavg_index + 1) % IAVG_SAMPLES;
-		iavg_num_samples++;
-		if (iavg_num_samples >= IAVG_SAMPLES)
-			iavg_num_samples = IAVG_SAMPLES;
-	}
+	/*
+	 * if we are charging use a nominal avg current so that we keep
+	 * a reasonable UUC while charging
+	 */
+	if (iavg_ma < 0)
+		iavg_ma = CHARGING_IAVG_MA;
+	iavg_samples[iavg_index] = iavg_ma;
+	iavg_index = (iavg_index + 1) % IAVG_SAMPLES;
+	iavg_num_samples++;
+	if (iavg_num_samples >= IAVG_SAMPLES)
+		iavg_num_samples = IAVG_SAMPLES;
 
 	/* now that this sample is added calcualte the average */
 	iavg_ma = 0;
@@ -1278,7 +1302,7 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 						int *cc_uah,
 						int *rbatt,
 						int *iavg_ua,
-						int *delta_time_us)
+						int *delta_time_s)
 {
 	int soc_rbatt;
 
@@ -1304,12 +1328,12 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 		soc_rbatt = 0;
 	*rbatt = get_rbatt(chip, soc_rbatt, batt_temp);
 
-	calculate_iavg_ua(chip, *cc_uah, iavg_ua, delta_time_us);
+	calculate_iavg_ua(chip, *cc_uah, iavg_ua, delta_time_s);
 
 	*unusable_charge_uah = calculate_unusable_charge_uah(chip, *rbatt,
 					*fcc_uah, *cc_uah, soc_rbatt,
 					batt_temp, chargecycles, *iavg_ua,
-					*delta_time_us);
+					*delta_time_s);
 	pr_debug("UUC = %uuAh\n", *unusable_charge_uah);
 }
 
@@ -1324,7 +1348,7 @@ static int calculate_real_fcc_uah(struct pm8921_bms_chip *chip,
 	int real_fcc_uah;
 	int rbatt;
 	int iavg_ua;
-	int delta_time_us;
+	int delta_time_s;
 
 	calculate_soc_params(chip, raw, batt_temp, chargecycles,
 						&fcc_uah,
@@ -1333,7 +1357,7 @@ static int calculate_real_fcc_uah(struct pm8921_bms_chip *chip,
 						&cc_uah,
 						&rbatt,
 						&iavg_ua,
-						&delta_time_us);
+						&delta_time_s);
 
 	real_fcc_uah = remaining_charge_uah - cc_uah;
 	*ret_fcc_uah = fcc_uah;
@@ -1714,12 +1738,13 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	int cc_uah;
 	int rbatt;
 	int iavg_ua;
-	int delta_time_us;
+	int delta_time_s;
 	int new_ocv;
 	int new_rc_uah;
 	int new_ucc_uah;
 	int new_rbatt;
 	int shutdown_soc;
+	static int firsttime = 1;
 
 	calculate_soc_params(chip, raw, batt_temp, chargecycles,
 						&fcc_uah,
@@ -1728,7 +1753,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 						&cc_uah,
 						&rbatt,
 						&iavg_ua,
-						&delta_time_us);
+						&delta_time_s);
 
 	/* calculate remaining usable charge */
 	remaining_usable_charge_uah = remaining_charge_uah
@@ -1745,7 +1770,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 					(fcc_uah - unusable_charge_uah));
 	}
 
-	if (delta_time_us == 0 && soc < 0) {
+	if (firsttime && soc < 0) {
 		/*
 		 * first time calcualtion and the pon ocv  is too low resulting
 		 * in a bad soc. Adjust ocv such that we get 0 soc
@@ -1805,7 +1830,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	if (shutdown_soc == 0xFF)
 		shutdown_soc = 0;
 
-	if (delta_time_us == 0 && soc != shutdown_soc
+	if (firsttime && soc != shutdown_soc
 			&& is_shutdown_soc_within_limits(chip, soc)) {
 		/*
 		 * soc for the first time - use shutdown soc
@@ -1847,6 +1872,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 			rbatt, fcc_uah, unusable_charge_uah, cc_uah);
 
 	pr_debug("calculated SOC = %d\n", calculated_soc);
+	firsttime = 0;
 	return calculated_soc;
 }
 
@@ -2161,7 +2187,7 @@ int pm8921_bms_get_rbatt(void)
 	int cc_uah;
 	int rbatt;
 	int iavg_ua;
-	int delta_time_us;
+	int delta_time_s;
 
 	if (!the_chip) {
 		pr_err("called before initialization\n");
@@ -2189,7 +2215,7 @@ int pm8921_bms_get_rbatt(void)
 						&cc_uah,
 						&rbatt,
 						&iavg_ua,
-						&delta_time_us);
+						&delta_time_s);
 	mutex_unlock(&the_chip->last_ocv_uv_mutex);
 
 	return rbatt;
