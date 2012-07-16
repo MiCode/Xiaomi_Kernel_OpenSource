@@ -1062,7 +1062,7 @@ static int ghsuart_data_debugfs_init(void)
 {
 	struct dentry	 *ghsuart_data_dfile;
 
-	ghsuart_data_dent = debugfs_create_dir("ghsic_data_xport", 0);
+	ghsuart_data_dent = debugfs_create_dir("ghsuart_data_xport", 0);
 	if (!ghsuart_data_dent || IS_ERR(ghsuart_data_dent))
 		return -ENODEV;
 
