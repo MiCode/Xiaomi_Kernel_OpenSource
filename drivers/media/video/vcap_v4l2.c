@@ -1135,7 +1135,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 			goto free_res;
 		}
 
-		rate = c_data->vc_format.clk_freq;
+		rate = c_data->vc_format.clk_freq / 100 * 102;
 		rate_rc = clk_round_rate(dev->vcap_clk, rate);
 		if (rate_rc <= 0) {
 			pr_err("%s: Failed core rnd_rate\n", __func__);
@@ -1251,7 +1251,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 			goto free_res;
 		}
 
-		rate = c_data->vc_format.clk_freq;
+		rate = c_data->vc_format.clk_freq / 100 * 102;
 		rate_rc = clk_round_rate(dev->vcap_clk, rate);
 		if (rate_rc <= 0) {
 			pr_err("%s: Failed core rnd_rate\n", __func__);
