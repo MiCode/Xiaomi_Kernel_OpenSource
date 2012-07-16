@@ -356,7 +356,7 @@ static void msm_dmov_enqueue_cmd_ext_work(struct work_struct *work)
 	}
 	if (!dmov_conf[adm].channel_active) {
 		dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-		schedule_delayed_work(&dmov_conf[adm].work, HZ);
+		schedule_delayed_work(&dmov_conf[adm].work, (HZ/10));
 	}
 	spin_unlock_irqrestore(&dmov_conf[adm].list_lock, flags);
 error:
@@ -573,7 +573,7 @@ static irqreturn_t msm_dmov_isr(int irq, void *dev_id)
 	if (!dmov_conf[adm].channel_active && valid) {
 		disable_irq_nosync(dmov_conf[adm].irq);
 		dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-		schedule_delayed_work(&dmov_conf[adm].work, HZ);
+		schedule_delayed_work(&dmov_conf[adm].work, (HZ/10));
 	}
 
 	mutex_unlock(&dmov_conf[adm].lock);
