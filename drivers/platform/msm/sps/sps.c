@@ -2028,30 +2028,30 @@ static int msm_sps_probe(struct platform_device *pdev)
 		goto device_create_err;
 	}
 
-	if (!d_type) {
-		sps->dfab_clk = clk_get(sps->dev, "dfab_clk");
-		if (IS_ERR(sps->dfab_clk)) {
-			SPS_ERR("sps:fail to get dfab_clk.");
+	sps->dfab_clk = clk_get(sps->dev, "dfab_clk");
+	if (IS_ERR(sps->dfab_clk)) {
+		SPS_ERR("sps:fail to get dfab_clk.");
+		goto clk_err;
+	} else {
+		ret = clk_set_rate(sps->dfab_clk, 64000000);
+		if (ret) {
+			SPS_ERR("sps:failed to set dfab_clk rate.");
+			clk_put(sps->dfab_clk);
 			goto clk_err;
-		} else {
-			ret = clk_set_rate(sps->dfab_clk, 64000000);
-			if (ret) {
-				SPS_ERR("sps:failed to set dfab_clk rate.");
-				clk_put(sps->dfab_clk);
-				goto clk_err;
-			}
 		}
 	}
 
-	sps->pmem_clk = clk_get(sps->dev, "mem_clk");
-	if (IS_ERR(sps->pmem_clk)) {
-		SPS_ERR("sps:fail to get pmem_clk.");
-		goto clk_err;
-	} else {
-		ret = clk_prepare_enable(sps->pmem_clk);
-		if (ret) {
-			SPS_ERR("sps:failed to enable pmem_clk. ret=%d", ret);
+	if (!d_type) {
+		sps->pmem_clk = clk_get(sps->dev, "mem_clk");
+		if (IS_ERR(sps->pmem_clk)) {
+			SPS_ERR("sps:fail to get pmem_clk.");
 			goto clk_err;
+		} else {
+			ret = clk_prepare_enable(sps->pmem_clk);
+			if (ret) {
+				SPS_ERR("sps:failed to enable pmem_clk.");
+				goto clk_err;
+			}
 		}
 	}
 
@@ -2068,26 +2068,22 @@ static int msm_sps_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (!d_type) {
-		ret = clk_prepare_enable(sps->dfab_clk);
-		if (ret) {
-			SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
-			goto clk_err;
-		}
+	ret = clk_prepare_enable(sps->dfab_clk);
+	if (ret) {
+		SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
+		goto clk_err;
 	}
 #endif
 	ret = sps_device_init();
 	if (ret) {
 		SPS_ERR("sps:sps_device_init err.");
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
-		if (!d_type)
-			clk_disable_unprepare(sps->dfab_clk);
+		clk_disable_unprepare(sps->dfab_clk);
 #endif
 		goto sps_device_init_err;
 	}
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
-	if (!d_type)
-		clk_disable_unprepare(sps->dfab_clk);
+	clk_disable_unprepare(sps->dfab_clk);
 #endif
 	sps->is_ready = true;
 
@@ -2114,9 +2110,9 @@ static int msm_sps_remove(struct platform_device *pdev)
 	class_destroy(sps->dev_class);
 	sps_device_de_init();
 
+	clk_put(sps->dfab_clk);
 	if (!d_type)
-		clk_put(sps->dfab_clk);
-	clk_put(sps->pmem_clk);
+		clk_put(sps->pmem_clk);
 	clk_put(sps->bamdma_clk);
 
 	return 0;
