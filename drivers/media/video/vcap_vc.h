@@ -69,11 +69,6 @@
 
 #define VC_BUFFER_WRITTEN (0x3 << 1)
 
-struct vc_reg_data {
-	unsigned data;
-	unsigned addr;
-};
-
 int vc_start_capture(struct vcap_client_data *c_data);
 int vc_hw_kick_off(struct vcap_client_data *c_data);
 void vc_stop_capture(struct vcap_client_data *c_data);
