@@ -180,11 +180,12 @@ static void vp_wq_fnc(struct work_struct *work)
 		return;
 
 	vp_act = &dev->vp_client->vid_vp_action;
-	irq = vp_work->irq;
 
 	rc = readl_relaxed(VCAP_OFFSET(0x048));
 	while (!(rc & 0x00000100))
 		rc = readl_relaxed(VCAP_OFFSET(0x048));
+
+	irq = readl_relaxed(VCAP_VP_INT_STATUS);
 
 	writel_relaxed(0x00000000, VCAP_VP_BAL_VMOTION_STATE);
 	writel_relaxed(0x40000000, VCAP_VP_REDUCT_AVG_MOTION2);
@@ -283,7 +284,7 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 	}
 
 	dprintk(1, "%s: irq=0x%08x\n", __func__, irq);
-	if (!(irq & VP_PIC_DONE)) {
+	if (!(irq & (VP_PIC_DONE || VP_MODE_CHANGE))) {
 		writel_relaxed(irq, VCAP_VP_INT_CLEAR);
 		pr_err("VP IRQ shows some error\n");
 		return IRQ_HANDLED;
@@ -307,7 +308,6 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 
 	INIT_WORK(&dev->vp_work.work, vp_wq_fnc);
 	dev->vp_work.cd = c_data;
-	dev->vp_work.irq = irq;
 	rc = queue_work(dev->vcap_wq, &dev->vp_work.work);
 
 	disable_irq_nosync(dev->vpirq->start);
@@ -411,7 +411,7 @@ void deinit_motion_buf(struct vcap_client_data *c_data)
 	void *buf;
 
 	if (!c_data->vid_vp_action.bufMotion) {
-		dprintk(1, "Motion buffer has not been created");
+		pr_err("Motion buffer has not been created");
 		return;
 	}
 
@@ -556,7 +556,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 	if (c_data->vp_out_fmt.pixfmt == V4L2_PIX_FMT_NV16)
 		chroma_fmt = 1;
 
-	writel_relaxed((c_data->vp_in_fmt.width / 16) << 20 |
+	writel_relaxed((c_data->vp_out_fmt.width / 16) << 20 |
 			chroma_fmt << 11 | 0x1 << 4, VCAP_VP_OUT_CONFIG);
 
 	/* Enable Interrupt */

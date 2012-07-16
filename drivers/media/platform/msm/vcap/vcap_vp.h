@@ -89,6 +89,7 @@
 #define VCAP_VP_NR_T2_C_BASE_ADDR (VCAP_BASE + 0x4B8)
 
 #define VP_PIC_DONE (0x1 << 0)
+#define VP_MODE_CHANGE (0x1 << 8)
 
 irqreturn_t vp_handler(struct vcap_dev *dev);
 int config_vp_format(struct vcap_client_data *c_data);
