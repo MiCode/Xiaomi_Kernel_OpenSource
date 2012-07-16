@@ -64,6 +64,7 @@ config ARCH_MSM7X30
 	select MSM_PROC_COMM_REGULATOR
 	select MULTI_IRQ_HANDLER
 	select MSM_PM2 if PM
+	select HOLES_IN_ZONE if SPARSEMEM
 
 config ARCH_QSD8X50
 	bool "QSD8X50"
