@@ -434,29 +434,25 @@ static void queue_rx(void)
 		mutex_lock(&bam_rx_pool_mutexlock);
 		list_add_tail(&info->list_node, &bam_rx_pool);
 		rx_len_cached = ++bam_rx_pool_len;
-		mutex_unlock(&bam_rx_pool_mutexlock);
-
 		ret = sps_transfer_one(bam_rx_pipe, info->dma_address,
 			BUFFER_SIZE, info,
 			SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
-
 		if (ret) {
+			list_del(&info->list_node);
+			rx_len_cached = --bam_rx_pool_len;
+			mutex_unlock(&bam_rx_pool_mutexlock);
 			DMUX_LOG_KERR("%s: sps_transfer_one failed %d\n",
 				__func__, ret);
-			goto fail_transfer;
+
+			dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE,
+						DMA_FROM_DEVICE);
+
+			goto fail_skb;
 		}
+		mutex_unlock(&bam_rx_pool_mutexlock);
+
 	}
 	return;
-
-fail_transfer:
-	mutex_lock(&bam_rx_pool_mutexlock);
-	list_del(&info->list_node);
-	--bam_rx_pool_len;
-	rx_len_cached = bam_rx_pool_len;
-	mutex_unlock(&bam_rx_pool_mutexlock);
-
-	dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE,
-				DMA_FROM_DEVICE);
 
 fail_skb:
 	dev_kfree_skb_any(info->skb);
@@ -1078,18 +1074,29 @@ static void rx_switch_to_interrupt_mode(void)
 
 		mutex_lock(&bam_rx_pool_mutexlock);
 		if (unlikely(list_empty(&bam_rx_pool))) {
+			DMUX_LOG_KERR("%s: have iovec %p but rx pool empty\n",
+				__func__, (void *)iov.addr);
 			mutex_unlock(&bam_rx_pool_mutexlock);
 			continue;
 		}
 		info = list_first_entry(&bam_rx_pool, struct rx_pkt_info,
 							list_node);
+		if (info->dma_address != iov.addr) {
+			DMUX_LOG_KERR("%s: iovec %p != dma %p\n",
+				__func__,
+				(void *)iov.addr,
+				(void *)info->dma_address);
+			list_for_each_entry(info, &bam_rx_pool, list_node) {
+				DMUX_LOG_KERR("%s: dma %p\n", __func__,
+					(void *)info->dma_address);
+				if (iov.addr == info->dma_address)
+					break;
+			}
+		}
+		BUG_ON(info->dma_address != iov.addr);
 		list_del(&info->list_node);
 		--bam_rx_pool_len;
 		mutex_unlock(&bam_rx_pool_mutexlock);
-		if (info->dma_address != iov.addr)
-			DMUX_LOG_KERR("%s: iovec %p != dma %p\n",
-				__func__,
-				(void *)info->dma_address, (void *)iov.addr);
 		handle_bam_mux_cmd(&info->work);
 	}
 	return;
@@ -1123,13 +1130,30 @@ static void rx_timer_work_func(struct work_struct *work)
 			inactive_cycles = 0;
 			mutex_lock(&bam_rx_pool_mutexlock);
 			if (unlikely(list_empty(&bam_rx_pool))) {
+				DMUX_LOG_KERR(
+					"%s: have iovec %p but rx pool empty\n",
+					__func__, (void *)iov.addr);
 				mutex_unlock(&bam_rx_pool_mutexlock);
 				continue;
 			}
 			info = list_first_entry(&bam_rx_pool,
 					struct rx_pkt_info,	list_node);
-			--bam_rx_pool_len;
+			if (info->dma_address != iov.addr) {
+				DMUX_LOG_KERR("%s: iovec %p != dma %p\n",
+					__func__,
+					(void *)iov.addr,
+					(void *)info->dma_address);
+				list_for_each_entry(info, &bam_rx_pool,
+						list_node) {
+					DMUX_LOG_KERR("%s: dma %p\n", __func__,
+						(void *)info->dma_address);
+					if (iov.addr == info->dma_address)
+						break;
+				}
+			}
+			BUG_ON(info->dma_address != iov.addr);
 			list_del(&info->list_node);
+			--bam_rx_pool_len;
 			mutex_unlock(&bam_rx_pool_mutexlock);
 			handle_bam_mux_cmd(&info->work);
 		}
