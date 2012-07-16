@@ -180,6 +180,9 @@
 #define DWC3_GCTL_DISSCRAMBLE	(1 << 3)
 #define DWC3_GCTL_DSBLCLKGTNG	(1 << 0)
 
+/* Global User Control Register */
+#define DWC3_GUCTL_REFCLKPER (0x3FF << 22)
+
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST (1 << 31)
 #define DWC3_GUSB2PHYCFG_SUSPHY	(1 << 6)

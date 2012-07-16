@@ -373,6 +373,17 @@ static int __devinit dwc3_core_init(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
 	/*
+	 * The default value of GUCTL[31:22] should be 0x8. But on cores
+	 * revision < 2.30a, the default value is mistakenly overridden
+	 * with 0x0. Restore the correct default value.
+	 */
+	if (dwc->revision < DWC3_REVISION_230A) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL);
+		reg &= ~DWC3_GUCTL_REFCLKPER;
+		reg |= 0x8 << __ffs(DWC3_GUCTL_REFCLKPER);
+		dwc3_writel(dwc->regs, DWC3_GUCTL, reg);
+	}
+	/*
 	 * Currently, the default and the recommended value for GUSB3PIPECTL
 	 * [21:19] in the RTL is 3'b100 or 32 consecutive errors. Based on
 	 * analysis and experiments in the lab, it is found that there is a
