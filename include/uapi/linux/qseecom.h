@@ -110,9 +110,11 @@ struct qseecom_qseos_version_req {
 /*
  * struct qseecom_qseos_app_load_query - verify if app is loaded in qsee
  * @app_name[MAX_APP_NAME_SIZE]-  name of the app.
+ * @app_id - app id.
  */
 struct qseecom_qseos_app_load_query {
 	char app_name[MAX_APP_NAME_SIZE]; /* in */
+	int app_id; /* out */
 };
 
 #define QSEECOM_IOC_MAGIC    0x97
