@@ -609,10 +609,24 @@ static int __qseecom_check_app_exists(struct qseecom_check_app_ireq req)
 		return -EINVAL;
 	}
 
-	if (resp.result == QSEOS_RESULT_FAILURE)
-		return 0;
-	else
-		return resp.data;
+	if (resp.result == QSEOS_RESULT_FAILURE) {
+			return 0;
+	} else {
+		switch (resp.resp_type) {
+		/*qsee returned listener type response */
+		case QSEOS_LISTENER_ID:
+			pr_err("resp type is of listener type instead of app");
+			return -EINVAL;
+			break;
+		case QSEOS_APP_ID:
+			return resp.data;
+		default:
+			pr_err("invalid resp type (%d) from qsee",
+					resp.resp_type);
+			return -ENODEV;
+			break;
+		}
+	}
 }
 
 static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
@@ -627,6 +641,8 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	uint32_t len;
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_check_app_ireq req;
+	struct qseecom_load_app_ireq load_req;
+
 	/* Copy the relevant information needed for loading the image */
 	if (__copy_from_user(&load_img_req,
 				(void __user *)argp,
@@ -642,108 +658,86 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	req.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	memcpy(req.app_name, load_img_req.img_name, MAX_APP_NAME_SIZE);
 
-	ret = __qseecom_check_app_exists(req);
-	if (ret < 0)
-		return ret;
-	else
-		app_id = ret;
-
-	if (app_id) {
-		pr_warn("App id %d (%s) already exists\n", app_id,
+	pr_warn("App (%s) does not exist, loading apps for first time\n",
 			(char *)(req.app_name));
-		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
-		list_for_each_entry(entry,
-				&qseecom.registered_app_list_head, list){
-			if (entry->app_id == app_id) {
-				entry->ref_cnt++;
-				break;
-			}
-		}
-		spin_unlock_irqrestore(
-				&qseecom.registered_app_list_lock, flags);
-	} else {
-		struct qseecom_load_app_ireq load_req;
-
-		pr_warn("App (%s) does not exist, loading apps for first time\n",
-			(char *)(req.app_name));
-		/* Get the handle of the shared fd */
-		ihandle = ion_import_dma_buf(qseecom.ion_clnt,
+	/* Get the handle of the shared fd */
+	ihandle = ion_import_dma_buf(qseecom.ion_clnt,
 					load_img_req.ifd_data_fd);
-		if (IS_ERR_OR_NULL(ihandle)) {
-			pr_err("Ion client could not retrieve the handle\n");
-			qsee_disable_clock_vote(CLK_SFPB);
-			return -ENOMEM;
-		}
+	if (IS_ERR_OR_NULL(ihandle)) {
+		pr_err("Ion client could not retrieve the handle\n");
+		qsee_disable_clock_vote(CLK_SFPB);
+		return -ENOMEM;
+	}
 
-		/* Get the physical address of the ION BUF */
-		ret = ion_phys(qseecom.ion_clnt, ihandle, &pa, &len);
+	/* Get the physical address of the ION BUF */
+	ret = ion_phys(qseecom.ion_clnt, ihandle, &pa, &len);
 
-		/* Populate the structure for sending scm call to load image */
-		load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
-		load_req.mdt_len = load_img_req.mdt_len;
-		load_req.img_len = load_img_req.img_len;
-		load_req.phy_addr = pa;
+	/* Populate the structure for sending scm call to load image */
+	load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
+	load_req.mdt_len = load_img_req.mdt_len;
+	load_req.img_len = load_img_req.img_len;
+	load_req.phy_addr = pa;
 
-		/*  SCM_CALL  to load the app and get the app_id back */
-		ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &load_req,
-				sizeof(struct qseecom_load_app_ireq),
-				&resp, sizeof(resp));
-		if (ret) {
-			pr_err("scm_call to load app failed\n");
-			return -EINVAL;
-		}
+	/*  SCM_CALL  to load the app and get the app_id back */
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &load_req,
+			sizeof(struct qseecom_load_app_ireq),
+			&resp, sizeof(resp));
+	if (ret) {
+		pr_err("scm_call to load app failed\n");
+		return -EINVAL;
+	}
 
-		if (resp.result == QSEOS_RESULT_FAILURE) {
-			pr_err("scm_call rsp.result is QSEOS_RESULT_FAILURE\n");
-			if (!IS_ERR_OR_NULL(ihandle))
-				ion_free(qseecom.ion_clnt, ihandle);
-			qsee_disable_clock_vote(CLK_SFPB);
-			return -EFAULT;
-		}
-
-		if (resp.result == QSEOS_RESULT_INCOMPLETE) {
-			ret = __qseecom_process_incomplete_cmd(data, &resp);
-			if (ret) {
-				pr_err("process_incomplete_cmd failed err: %d\n",
-						ret);
-				if (!IS_ERR_OR_NULL(ihandle))
-					ion_free(qseecom.ion_clnt, ihandle);
-				qsee_disable_clock_vote(CLK_SFPB);
-				return ret;
-			}
-		}
-		if (resp.result != QSEOS_RESULT_SUCCESS) {
-			pr_err("scm_call failed resp.result unknown, %d\n",
-					resp.result);
-			if (!IS_ERR_OR_NULL(ihandle))
-				ion_free(qseecom.ion_clnt, ihandle);
-			qsee_disable_clock_vote(CLK_SFPB);
-			return -EFAULT;
-		}
-
-		app_id = resp.data;
-
-		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
-		if (!entry) {
-			pr_err("kmalloc failed\n");
-			qsee_disable_clock_vote(CLK_SFPB);
-			return -ENOMEM;
-		}
-		entry->app_id = app_id;
-		entry->ref_cnt = 1;
-
-		/* Deallocate the handle */
+	if (resp.result == QSEOS_RESULT_FAILURE) {
+		pr_err("scm_call rsp.result is QSEOS_RESULT_FAILURE\n");
 		if (!IS_ERR_OR_NULL(ihandle))
 			ion_free(qseecom.ion_clnt, ihandle);
-
-		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
-		list_add_tail(&entry->list, &qseecom.registered_app_list_head);
-		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
-					flags);
-
-		pr_warn("App with id %d (%s) now loaded\n", app_id,
-			(char *)(req.app_name));
+		qsee_disable_clock_vote(CLK_SFPB);
+		return -EFAULT;
 	}
+
+	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
+		ret = __qseecom_process_incomplete_cmd(data, &resp);
+		if (ret) {
+			pr_err("process_incomplete_cmd failed err: %d\n",
+					ret);
+			if (!IS_ERR_OR_NULL(ihandle))
+				ion_free(qseecom.ion_clnt, ihandle);
+			qsee_disable_clock_vote(CLK_SFPB);
+			return ret;
+		}
+	}
+
+	if (resp.result != QSEOS_RESULT_SUCCESS) {
+		pr_err("scm_call failed resp.result unknown, %d\n",
+				resp.result);
+		if (!IS_ERR_OR_NULL(ihandle))
+			ion_free(qseecom.ion_clnt, ihandle);
+		qsee_disable_clock_vote(CLK_SFPB);
+		return -EFAULT;
+	}
+
+	app_id = resp.data;
+
+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry) {
+		pr_err("kmalloc failed\n");
+		qsee_disable_clock_vote(CLK_SFPB);
+		return -ENOMEM;
+	}
+	entry->app_id = app_id;
+	entry->ref_cnt = 1;
+
+	/* Deallocate the handle */
+	if (!IS_ERR_OR_NULL(ihandle))
+		ion_free(qseecom.ion_clnt, ihandle);
+
+	spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
+	list_add_tail(&entry->list, &qseecom.registered_app_list_head);
+	spin_unlock_irqrestore(&qseecom.registered_app_list_lock, flags);
+
+	pr_warn("App with id %d (%s) now loaded\n", app_id,
+		(char *)(req.app_name));
+
 	data->client.app_id = app_id;
 	load_img_req.app_id = app_id;
 	if (copy_to_user(argp, &load_img_req, sizeof(load_img_req))) {
@@ -1432,6 +1426,8 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 	int32_t ret;
 	struct qseecom_qseos_app_load_query query_req;
 	struct qseecom_check_app_ireq req;
+	struct qseecom_registered_app_list *entry = NULL;
+	unsigned long flags = 0;
 
 	/* Copy the relevant information needed for loading the image */
 	if (__copy_from_user(&query_req,
@@ -1445,11 +1441,30 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 	memcpy(req.app_name, query_req.app_name, MAX_APP_NAME_SIZE);
 
 	ret = __qseecom_check_app_exists(req);
-	if (ret == -EINVAL) {
+
+	if ((ret == -EINVAL) || (ret == -ENODEV)) {
 		pr_err(" scm call to check if app is loaded failed");
 		return ret;	/* scm call failed */
 	} else if (ret > 0) {
-		pr_err("app is already loaded in QSEE");
+		pr_warn("App id %d (%s) already exists\n", ret,
+			(char *)(req.app_name));
+		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
+		list_for_each_entry(entry,
+				&qseecom.registered_app_list_head, list){
+			if (entry->app_id == ret) {
+				entry->ref_cnt++;
+				break;
+			}
+		}
+		spin_unlock_irqrestore(
+				&qseecom.registered_app_list_lock, flags);
+		data->client.app_id = ret;
+		query_req.app_id = ret;
+
+		if (copy_to_user(argp, &query_req, sizeof(query_req))) {
+			pr_err("copy_to_user failed\n");
+			return -EFAULT;
+		}
 		return -EEXIST;	/* app already loaded */
 	} else {
 		return 0;	/* app not loaded */
