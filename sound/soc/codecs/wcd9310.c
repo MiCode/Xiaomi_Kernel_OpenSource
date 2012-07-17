@@ -7312,14 +7312,13 @@ int tabla_hs_detect(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL_GPL(tabla_hs_detect);
 
-static unsigned long slimbus_value;
-
 static irqreturn_t tabla_slimbus_irq(int irq, void *data)
 {
 	struct tabla_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
 	struct tabla_priv *tabla_p = snd_soc_codec_get_drvdata(codec);
 	int i, j, port_id, k, ch_mask_temp;
+	unsigned long slimbus_value;
 	u8 val;
 
 	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++) {
@@ -7352,7 +7351,8 @@ static irqreturn_t tabla_slimbus_irq(int irq, void *data)
 			}
 		}
 		wcd9xxx_interface_reg_write(codec->control_data,
-			TABLA_SLIM_PGD_PORT_INT_CLR0 + i, 0xFF);
+			TABLA_SLIM_PGD_PORT_INT_CLR0 + i, slimbus_value);
+		val = 0x0;
 	}
 
 	return IRQ_HANDLED;
