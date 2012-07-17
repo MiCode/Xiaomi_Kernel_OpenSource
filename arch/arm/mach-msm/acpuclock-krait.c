@@ -234,40 +234,59 @@ static void set_speed(struct scalable *sc, const struct core_speed *tgt_s)
 	sc->cur_speed = tgt_s;
 }
 
+struct vdd_data {
+	int vdd_mem;
+	int vdd_dig;
+	int vdd_core;
+	int ua_core;
+};
+
 /* Apply any per-cpu voltage increases. */
-static int increase_vdd(int cpu, int vdd_core, int vdd_mem, int vdd_dig,
+static int increase_vdd(int cpu, struct vdd_data *data,
 			enum setrate_reason reason)
 {
 	struct scalable *sc = &drv.scalable[cpu];
-	int rc = 0;
+	int rc;
 
 	/*
 	 * Increase vdd_mem active-set before vdd_dig.
 	 * vdd_mem should be >= vdd_dig.
 	 */
-	if (vdd_mem > sc->vreg[VREG_MEM].cur_vdd) {
+	if (data->vdd_mem > sc->vreg[VREG_MEM].cur_vdd) {
 		rc = rpm_regulator_set_voltage(sc->vreg[VREG_MEM].rpm_reg,
-				vdd_mem, sc->vreg[VREG_MEM].max_vdd);
+				data->vdd_mem, sc->vreg[VREG_MEM].max_vdd);
 		if (rc) {
 			dev_err(drv.dev,
 				"vdd_mem (cpu%d) increase failed (%d)\n",
 				cpu, rc);
 			return rc;
 		}
-		 sc->vreg[VREG_MEM].cur_vdd = vdd_mem;
+		 sc->vreg[VREG_MEM].cur_vdd = data->vdd_mem;
 	}
 
 	/* Increase vdd_dig active-set vote. */
-	if (vdd_dig > sc->vreg[VREG_DIG].cur_vdd) {
+	if (data->vdd_dig > sc->vreg[VREG_DIG].cur_vdd) {
 		rc = rpm_regulator_set_voltage(sc->vreg[VREG_DIG].rpm_reg,
-				vdd_dig, sc->vreg[VREG_DIG].max_vdd);
+				data->vdd_dig, sc->vreg[VREG_DIG].max_vdd);
 		if (rc) {
 			dev_err(drv.dev,
 				"vdd_dig (cpu%d) increase failed (%d)\n",
 				cpu, rc);
 			return rc;
 		}
-		sc->vreg[VREG_DIG].cur_vdd = vdd_dig;
+		sc->vreg[VREG_DIG].cur_vdd = data->vdd_dig;
+	}
+
+	/* Increase current request. */
+	if (data->ua_core > sc->vreg[VREG_CORE].cur_ua) {
+		rc = regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg,
+						data->ua_core);
+		if (rc < 0) {
+			dev_err(drv.dev, "regulator_set_optimum_mode(%s) failed (%d)\n",
+				sc->vreg[VREG_CORE].name, rc);
+			return rc;
+		}
+		sc->vreg[VREG_CORE].cur_ua = data->ua_core;
 	}
 
 	/*
@@ -276,25 +295,25 @@ static int increase_vdd(int cpu, int vdd_core, int vdd_mem, int vdd_dig,
 	 * because we don't know what CPU we are running on at this point, but
 	 * the CPU regulator API requires we call it from the affected CPU.
 	 */
-	if (vdd_core > sc->vreg[VREG_CORE].cur_vdd
+	if (data->vdd_core > sc->vreg[VREG_CORE].cur_vdd
 			&& reason != SETRATE_HOTPLUG) {
-		rc = regulator_set_voltage(sc->vreg[VREG_CORE].reg, vdd_core,
-					   sc->vreg[VREG_CORE].max_vdd);
+		rc = regulator_set_voltage(sc->vreg[VREG_CORE].reg,
+				data->vdd_core, sc->vreg[VREG_CORE].max_vdd);
 		if (rc) {
 			dev_err(drv.dev,
 				"vdd_core (cpu%d) increase failed (%d)\n",
 				cpu, rc);
 			return rc;
 		}
-		sc->vreg[VREG_CORE].cur_vdd = vdd_core;
+		sc->vreg[VREG_CORE].cur_vdd = data->vdd_core;
 	}
 
-	return rc;
+	return 0;
 }
 
 /* Apply any per-cpu voltage decreases. */
-static void decrease_vdd(int cpu, int vdd_core, int vdd_mem, int vdd_dig,
-			enum setrate_reason reason)
+static void decrease_vdd(int cpu, struct vdd_data *data,
+			 enum setrate_reason reason)
 {
 	struct scalable *sc = &drv.scalable[cpu];
 	int ret;
@@ -304,46 +323,58 @@ static void decrease_vdd(int cpu, int vdd_core, int vdd_mem, int vdd_dig,
 	 * that's being affected. Don't do this in the hotplug remove path,
 	 * where the rail is off and we're executing on the other CPU.
 	 */
-	if (vdd_core < sc->vreg[VREG_CORE].cur_vdd
+	if (data->vdd_core < sc->vreg[VREG_CORE].cur_vdd
 			&& reason != SETRATE_HOTPLUG) {
-		ret = regulator_set_voltage(sc->vreg[VREG_CORE].reg, vdd_core,
-					    sc->vreg[VREG_CORE].max_vdd);
+		ret = regulator_set_voltage(sc->vreg[VREG_CORE].reg,
+				data->vdd_core, sc->vreg[VREG_CORE].max_vdd);
 		if (ret) {
 			dev_err(drv.dev,
 				"vdd_core (cpu%d) decrease failed (%d)\n",
 				cpu, ret);
 			return;
 		}
-		sc->vreg[VREG_CORE].cur_vdd = vdd_core;
+		sc->vreg[VREG_CORE].cur_vdd = data->vdd_core;
+	}
+
+	/* Decrease current request. */
+	if (data->ua_core < sc->vreg[VREG_CORE].cur_ua) {
+		ret = regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg,
+						data->ua_core);
+		if (ret < 0) {
+			dev_err(drv.dev, "regulator_set_optimum_mode(%s) failed (%d)\n",
+				sc->vreg[VREG_CORE].name, ret);
+			return;
+		}
+		sc->vreg[VREG_CORE].cur_ua = data->ua_core;
 	}
 
 	/* Decrease vdd_dig active-set vote. */
-	if (vdd_dig < sc->vreg[VREG_DIG].cur_vdd) {
+	if (data->vdd_dig < sc->vreg[VREG_DIG].cur_vdd) {
 		ret = rpm_regulator_set_voltage(sc->vreg[VREG_DIG].rpm_reg,
-				vdd_dig, sc->vreg[VREG_DIG].max_vdd);
+				data->vdd_dig, sc->vreg[VREG_DIG].max_vdd);
 		if (ret) {
 			dev_err(drv.dev,
 				"vdd_dig (cpu%d) decrease failed (%d)\n",
 				cpu, ret);
 			return;
 		}
-		sc->vreg[VREG_DIG].cur_vdd = vdd_dig;
+		sc->vreg[VREG_DIG].cur_vdd = data->vdd_dig;
 	}
 
 	/*
 	 * Decrease vdd_mem active-set after vdd_dig.
 	 * vdd_mem should be >= vdd_dig.
 	 */
-	if (vdd_mem < sc->vreg[VREG_MEM].cur_vdd) {
+	if (data->vdd_mem < sc->vreg[VREG_MEM].cur_vdd) {
 		ret = rpm_regulator_set_voltage(sc->vreg[VREG_MEM].rpm_reg,
-				vdd_mem, sc->vreg[VREG_MEM].max_vdd);
+				data->vdd_mem, sc->vreg[VREG_MEM].max_vdd);
 		if (ret) {
 			dev_err(drv.dev,
 				"vdd_mem (cpu%d) decrease failed (%d)\n",
 				cpu, ret);
 			return;
 		}
-		 sc->vreg[VREG_MEM].cur_vdd = vdd_mem;
+		sc->vreg[VREG_MEM].cur_vdd = data->vdd_mem;
 	}
 }
 
@@ -380,7 +411,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	const struct core_speed *strt_acpu_s, *tgt_acpu_s;
 	const struct acpu_level *tgt;
 	int tgt_l2_l;
-	int vdd_mem, vdd_dig, vdd_core;
+	struct vdd_data vdd_data;
 	unsigned long flags;
 	int rc = 0;
 
@@ -409,13 +440,14 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	}
 
 	/* Calculate voltage requirements for the current CPU. */
-	vdd_mem  = calculate_vdd_mem(tgt);
-	vdd_dig  = calculate_vdd_dig(tgt);
-	vdd_core = calculate_vdd_core(tgt);
+	vdd_data.vdd_mem  = calculate_vdd_mem(tgt);
+	vdd_data.vdd_dig  = calculate_vdd_dig(tgt);
+	vdd_data.vdd_core = calculate_vdd_core(tgt);
+	vdd_data.ua_core = tgt->ua_core;
 
 	/* Increase VDD levels if needed. */
 	if (reason == SETRATE_CPUFREQ || reason == SETRATE_HOTPLUG) {
-		rc = increase_vdd(cpu, vdd_core, vdd_mem, vdd_dig, reason);
+		rc = increase_vdd(cpu, &vdd_data, reason);
 		if (rc)
 			goto out;
 	}
@@ -446,7 +478,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	set_bus_bw(drv.l2_freq_tbl[tgt_l2_l].bw_level);
 
 	/* Drop VDD levels if we can. */
-	decrease_vdd(cpu, vdd_core, vdd_mem, vdd_dig, reason);
+	decrease_vdd(cpu, &vdd_data, reason);
 
 	pr_debug("ACPU%d speed change complete\n", cpu);
 
@@ -565,6 +597,14 @@ static int __cpuinit regulator_init(struct scalable *sc,
 			sc->vreg[VREG_CORE].name, ret);
 		goto err_core_get;
 	}
+	ret = regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg,
+					 acpu_level->ua_core);
+	if (ret < 0) {
+		dev_err(drv.dev, "regulator_set_optimum_mode(%s) failed (%d)\n",
+			sc->vreg[VREG_CORE].name, ret);
+		goto err_core_conf;
+	}
+	sc->vreg[VREG_CORE].cur_ua = acpu_level->ua_core;
 	vdd_core = calculate_vdd_core(acpu_level);
 	ret = regulator_set_voltage(sc->vreg[VREG_CORE].reg, vdd_core,
 				    sc->vreg[VREG_CORE].max_vdd);
@@ -574,13 +614,6 @@ static int __cpuinit regulator_init(struct scalable *sc,
 		goto err_core_conf;
 	}
 	sc->vreg[VREG_CORE].cur_vdd = vdd_core;
-	ret = regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg,
-					 sc->vreg[VREG_CORE].peak_ua);
-	if (ret < 0) {
-		dev_err(drv.dev, "regulator_set_optimum_mode(%s) failed (%d)\n",
-			sc->vreg[VREG_CORE].name, ret);
-		goto err_core_conf;
-	}
 	ret = regulator_enable(sc->vreg[VREG_CORE].reg);
 	if (ret) {
 		dev_err(drv.dev, "regulator_enable(%s) failed (%d)\n",
@@ -828,7 +861,7 @@ static int __cpuinit acpuclk_cpu_callback(struct notifier_block *nfb,
 		if (WARN_ON(!prev_khz[cpu]))
 			return NOTIFY_BAD;
 		rc = regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg,
-						sc->vreg[VREG_CORE].peak_ua);
+						sc->vreg[VREG_CORE].cur_ua);
 		if (rc < 0)
 			return NOTIFY_BAD;
 		acpuclk_krait_set_rate(cpu, prev_khz[cpu], SETRATE_HOTPLUG);

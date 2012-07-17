@@ -96,15 +96,15 @@ enum vregs {
  * @reg: Regulator handle.
  * @rpm_reg: RPM Regulator handle.
  * @cur_vdd: Last-set voltage in uV.
- * @peak_ua: Maximum current draw expected in uA.
+ * @cur_ua: Last-set current in uA.
  */
 struct vreg {
 	const char *name;
 	const int max_vdd;
-	const int peak_ua;
 	struct regulator *reg;
 	struct rpm_regulator *rpm_reg;
 	int cur_vdd;
+	int cur_ua;
 };
 
 /**
@@ -143,12 +143,14 @@ struct l2_level {
  * @speed: CPU clock configuration.
  * @l2_level: L2 configuration to use.
  * @vdd_core: CPU core voltage in uV.
+ * @ua_core: CPU core current consumption in uA.
  */
 struct acpu_level {
 	const int use_for_scaling;
 	const struct core_speed speed;
 	const unsigned int l2_level;
 	int vdd_core;
+	int ua_core;
 };
 
 /**
