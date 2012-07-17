@@ -294,7 +294,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 
 		switch (data->opcode) {
 		case ADM_CMDRSP_COPP_OPEN:
-		case ADM_CMDRSP_MULTI_CHANNEL_COPP_OPEN: {
+		case ADM_CMDRSP_MULTI_CHANNEL_COPP_OPEN:
+		case ADM_CMDRSP_MULTI_CHANNEL_COPP_OPEN_V3: {
 			struct adm_copp_open_respond *open = data->payload;
 			if (open->copp_id == INVALID_COPP_ID) {
 				pr_err("%s: invalid coppid rxed %d\n",
@@ -707,7 +708,7 @@ fail_cmd:
 
 
 int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
-				int topology)
+				int topology, int perfmode)
 {
 	struct adm_multi_ch_copp_open_command open;
 	int ret = 0;
@@ -745,7 +746,17 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 
 		open.hdr.pkt_size =
 			sizeof(struct adm_multi_ch_copp_open_command);
-		open.hdr.opcode = ADM_CMD_MULTI_CHANNEL_COPP_OPEN;
+
+		if (perfmode) {
+			pr_debug("%s Performance mode", __func__);
+			open.hdr.opcode = ADM_CMD_MULTI_CHANNEL_COPP_OPEN_V3;
+			open.flags = ADM_MULTI_CH_COPP_OPEN_PERF_MODE_BIT;
+			open.reserved = PCM_BITS_PER_SAMPLE;
+		} else {
+			open.hdr.opcode = ADM_CMD_MULTI_CHANNEL_COPP_OPEN;
+			open.reserved = 0;
+		}
+
 		memset(open.dev_channel_mapping, 0, 8);
 
 		if (channel_mode == 1)	{
@@ -779,8 +790,6 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 					channel_mode);
 			return -EINVAL;
 		}
-
-
 		open.hdr.src_svc = APR_SVC_ADM;
 		open.hdr.src_domain = APR_DOMAIN_APPS;
 		open.hdr.src_port = port_id;
