@@ -736,6 +736,11 @@ struct platform_device apq_multi_ch_pcm = {
 	.id     = -1,
 };
 
+struct platform_device apq_lowlatency_pcm = {
+	.name   = "msm-lowlatency-pcm-dsp",
+	.id     = -1,
+};
+
 struct platform_device apq_pcm_hostless = {
 	.name	= "msm-pcm-hostless",
 	.id	= -1,

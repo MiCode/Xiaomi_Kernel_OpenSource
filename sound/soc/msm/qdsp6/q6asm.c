@@ -209,6 +209,7 @@ static void q6asm_session_free(struct audio_client *ac)
 	session[ac->session] = 0;
 	mutex_unlock(&session_lock);
 	ac->session = 0;
+	ac->perf_mode = false;
 	return;
 }
 
@@ -412,6 +413,7 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	ac->cb = cb;
 	ac->priv = priv;
 	ac->io_mode = SYNC_IO_MODE;
+	ac->perf_mode = false;
 	ac->apr = apr_register("ADSP", "ASM", \
 				(apr_fn)q6asm_callback,\
 				((ac->session) << 8 | 0x0001),\
@@ -844,6 +846,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		token = data->token;
+		pr_debug("%s payload[0]:%x", __func__, payload[0]);
 		switch (payload[0]) {
 		case ASM_STREAM_CMD_SET_PP_PARAMS:
 			if (rtac_make_asm_callback(ac->session, payload,
@@ -863,7 +866,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			return -EINVAL;
 		}
 		case ASM_STREAM_CMD_OPEN_READ:
+		case ASM_STREAM_CMD_OPEN_READ_V2_1:
 		case ASM_STREAM_CMD_OPEN_WRITE:
+		case ASM_STREAM_CMD_OPEN_WRITE_V2_1:
 		case ASM_STREAM_CMD_OPEN_READWRITE:
 		case ASM_DATA_CMD_MEDIA_FORMAT_UPDATE:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
@@ -871,8 +876,11 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_READ_COMPRESSED:
 			if (atomic_read(&ac->cmd_state) && wakeup_flag) {
 				atomic_set(&ac->cmd_state, 0);
-				if (payload[1] == ADSP_EUNSUPPORTED)
+				if (payload[1] == ADSP_EUNSUPPORTED) {
+					pr_debug("paload[1]:%d unsupported",
+								payload[1]);
 					atomic_set(&ac->cmd_response, 1);
+				}
 				else
 					atomic_set(&ac->cmd_response, 0);
 				wake_up(&ac->cmd_wait);
@@ -1276,6 +1284,82 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_open_read_v2_1(struct audio_client *ac,
+		uint32_t format)
+{
+	int rc = 0x00;
+	struct asm_stream_cmd_open_read_v2_1 open;
+#ifdef CONFIG_DEBUG_FS
+	in_cont_index = 0;
+#endif
+	if ((ac == NULL) || (ac->apr == NULL)) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("%s:session[%d]", __func__, ac->session);
+
+	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
+	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READ_V2_1;
+	open.src_endpoint = ASM_END_POINT_DEVICE_MATRIX;
+	open.pre_proc_top = get_asm_topology();
+	if (open.pre_proc_top == 0)
+		open.pre_proc_top = DEFAULT_POPP_TOPOLOGY;
+
+	switch (format) {
+	case FORMAT_LINEAR_PCM:
+		open.uMode = STREAM_PRIORITY_HIGH;
+		open.format = LINEAR_PCM;
+		break;
+	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:
+		open.uMode = STREAM_PRIORITY_HIGH;
+		open.format = MULTI_CHANNEL_PCM;
+		break;
+	case FORMAT_MPEG4_AAC:
+		open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_HIGH;
+		open.format = MPEG4_AAC;
+		break;
+	case FORMAT_V13K:
+		open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_HIGH;
+		open.format = V13K_FS;
+		break;
+	case FORMAT_EVRC:
+		open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_HIGH;
+		open.format = EVRC_FS;
+		break;
+	case FORMAT_AMRNB:
+		open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_HIGH;
+		open.format = AMRNB_FS;
+		break;
+	case FORMAT_AMRWB:
+		open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_HIGH;
+		open.format = AMRWB_FS;
+		break;
+	default:
+		pr_err("Invalid format[%d]\n", format);
+		goto fail_cmd;
+	}
+	open.uMode = ASM_OPEN_READ_PERF_MODE_BIT;
+	open.bits_per_sample = PCM_BITS_PER_SAMPLE;
+	open.reserved = 0;
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
+	if (rc < 0) {
+		pr_err("open failed op[0x%x]rc[%d]\n", \
+						open.hdr.opcode, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
+			rc);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+
 int q6asm_open_read_compressed(struct audio_client *ac,
 			 uint32_t frames_per_buffer, uint32_t meta_data_mode)
 {
@@ -1396,12 +1480,20 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
 
-	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE;
-	open.uMode = STREAM_PRIORITY_HIGH;
-	/* source endpoint : matrix */
-	open.sink_endpoint = ASM_END_POINT_DEVICE_MATRIX;
-	open.stream_handle = 0x00;
-
+	if (ac->perf_mode) {
+		pr_debug("%s In Performance/lowlatency mode", __func__);
+		open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE_V2_1;
+		open.uMode = ASM_OPEN_WRITE_PERF_MODE_BIT;
+		/* source endpoint : matrix */
+		open.sink_endpoint = ASM_END_POINT_DEVICE_MATRIX;
+		open.stream_handle = PCM_BITS_PER_SAMPLE;
+	} else {
+		open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE;
+		open.uMode = STREAM_PRIORITY_HIGH;
+		/* source endpoint : matrix */
+		open.sink_endpoint = ASM_END_POINT_DEVICE_MATRIX;
+		open.stream_handle = 0x00;
+	}
 	open.post_proc_top = get_asm_topology();
 	if (open.post_proc_top == 0)
 		open.post_proc_top = DEFAULT_POPP_TOPOLOGY;
