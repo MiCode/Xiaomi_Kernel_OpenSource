@@ -102,6 +102,12 @@ struct wcd9xxx_ch sitar_tx_chs[SITAR_TX_MAX] = {
 #define SITAR_MBHC_STATUS_REL_DETECTION 0x0C
 #define SITAR_MBHC_GPIO_REL_DEBOUNCE_TIME_MS 200
 
+#define CUT_OF_FREQ_MASK 0x30
+#define CF_MIN_3DB_4HZ 0x0
+#define CF_MIN_3DB_75HZ 0x01
+#define CF_MIN_3DB_150HZ 0x02
+
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -193,6 +199,15 @@ static const u32 vport_check_table[NUM_CODEC_DAIS] = {
 	0,					/* AIF1_PB */
 	0,					/* AIF1_CAP */
 };
+
+struct hpf_work {
+	struct sitar_priv *sitar;
+	u32 decimator;
+	u8 tx_hpf_cut_of_freq;
+	struct delayed_work dwork;
+};
+
+static struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 
 struct sitar_priv {
 	struct snd_soc_codec *codec;
@@ -1755,6 +1770,8 @@ static int sitar_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, micb_int_reg, 0x1C, 0x1C);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+
+		usleep_range(20000, 20000);
 		if (sitar->mbhc_polling_active &&
 		    sitar->mbhc_cfg.micbias == micb_line) {
 			SITAR_ACQUIRE_LOCK(sitar->codec_resource_lock);
@@ -1780,36 +1797,141 @@ static int sitar_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void tx_hpf_corner_freq_callback(struct work_struct *work)
+{
+	struct delayed_work *hpf_delayed_work;
+	struct hpf_work *hpf_work;
+	struct sitar_priv *sitar;
+	struct snd_soc_codec *codec;
+	u16 tx_mux_ctl_reg;
+	u8 hpf_cut_of_freq;
+
+	hpf_delayed_work = to_delayed_work(work);
+	hpf_work = container_of(hpf_delayed_work, struct hpf_work, dwork);
+	sitar = hpf_work->sitar;
+	codec = hpf_work->sitar->codec;
+	hpf_cut_of_freq = hpf_work->tx_hpf_cut_of_freq;
+
+	tx_mux_ctl_reg = SITAR_A_CDC_TX1_MUX_CTL +
+				(hpf_work->decimator - 1) * 8;
+
+	pr_debug("%s(): decimator %u hpf_cut_of_freq 0x%x\n", __func__,
+			hpf_work->decimator, (unsigned int)hpf_cut_of_freq);
+
+	snd_soc_update_bits(codec, tx_mux_ctl_reg,
+			CUT_OF_FREQ_MASK, hpf_cut_of_freq << 4);
+}
+
 static int sitar_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	u16 dec_reset_reg, gain_reg;
-	u8 current_gain;
+	u16 dec_reset_reg, gain_reg, tx_vol_ctl_reg, tx_mux_ctl_reg;
+	unsigned int decimator;
+	char *dec_name = NULL;
+	char *widget_name = NULL;
+	char *temp;
+	int ret = 0;
+	u8 dec_hpf_cut_of_freq, current_gain;
 
 	pr_debug("%s %d\n", __func__, event);
+
+	widget_name = kstrndup(w->name, 15, GFP_KERNEL);
+	if (!widget_name)
+		return -ENOMEM;
+	temp = widget_name;
+
+	dec_name = strsep(&widget_name, " ");
+	widget_name = temp;
+	if (!dec_name) {
+		pr_err("%s: Invalid decimator = %s\n", __func__, w->name);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = kstrtouint(strpbrk(dec_name, "1234"), 10, &decimator);
+	if (ret < 0) {
+		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	pr_debug("%s(): widget = %s dec_name = %s decimator = %u\n", __func__,
+		w->name, dec_name, decimator);
 
 	if (w->reg == SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL)
 		dec_reset_reg = SITAR_A_CDC_CLK_TX_RESET_B1_CTL;
 	else {
 		pr_err("%s: Error, incorrect dec\n", __func__);
-		return -EINVAL;
+		ret = EINVAL;
+		goto out;
 	}
+
+	tx_vol_ctl_reg = SITAR_A_CDC_TX1_VOL_CTL_CFG + 8 * (decimator - 1);
+	tx_mux_ctl_reg = SITAR_A_CDC_TX1_MUX_CTL + 8 * (decimator - 1);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* Enable TX Digital Mute */
+		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x01);
+
 		snd_soc_update_bits(codec, dec_reset_reg, 1 << w->shift,
 			1 << w->shift);
 		snd_soc_update_bits(codec, dec_reset_reg, 1 << w->shift, 0x0);
+
+		dec_hpf_cut_of_freq = snd_soc_read(codec, tx_mux_ctl_reg);
+		dec_hpf_cut_of_freq = (dec_hpf_cut_of_freq &
+						CUT_OF_FREQ_MASK) >> 4;
+
+		tx_hpf_work[decimator - 1].tx_hpf_cut_of_freq =
+						dec_hpf_cut_of_freq;
+
+		if ((dec_hpf_cut_of_freq != CF_MIN_3DB_150HZ)) {
+			/* Set cut off freq to CF_MIN_3DB_150HZ (0x01) */
+			snd_soc_update_bits(codec, tx_mux_ctl_reg,
+				CUT_OF_FREQ_MASK, CF_MIN_3DB_150HZ << 4);
+		}
+
+		/* enable HPF */
+		snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x08, 0x00);
+
 		break;
+
 	case SND_SOC_DAPM_POST_PMU:
+		/* Disable TX Digital Mute */
+		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x00);
+
+		if (tx_hpf_work[decimator - 1].tx_hpf_cut_of_freq !=
+				CF_MIN_3DB_150HZ) {
+			schedule_delayed_work(&tx_hpf_work[decimator - 1].dwork,
+				msecs_to_jiffies(300));
+		}
+
 		/* Reprogram the digital gain after power up of Decimator */
 		gain_reg = SITAR_A_CDC_TX1_VOL_CTL_GAIN + (8 * w->shift);
 		current_gain = snd_soc_read(codec, gain_reg);
 		snd_soc_write(codec, gain_reg, current_gain);
 		break;
+
+	case SND_SOC_DAPM_PRE_PMD:
+		/* Enable Digital Mute, Cancel possibly scheduled work */
+		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x01);
+		cancel_delayed_work_sync(&tx_hpf_work[decimator - 1].dwork);
+
+		break;
+
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x08, 0x08);
+		snd_soc_update_bits(codec, tx_mux_ctl_reg, CUT_OF_FREQ_MASK,
+			(tx_hpf_work[decimator - 1].tx_hpf_cut_of_freq) << 4);
+		break;
+
 	}
-	return 0;
+
+out:
+	kfree(widget_name);
+	return ret;
+
 }
 
 static int sitar_codec_reset_interpolator(struct snd_soc_dapm_widget *w,
@@ -2278,16 +2400,23 @@ static const struct snd_soc_dapm_widget sitar_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MUX_E("DEC1 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 0, 0,
 		&dec1_mux, sitar_codec_enable_dec,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MUX_E("DEC2 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 1, 0,
 		&dec2_mux, sitar_codec_enable_dec,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MUX_E("DEC3 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 2, 0,
 		&dec3_mux, sitar_codec_enable_dec,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MUX_E("DEC4 MUX", SITAR_A_CDC_CLK_TX_CLK_EN_B1_CTL, 3, 0,
 		&dec4_mux, sitar_codec_enable_dec,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("ANC1 MUX", SND_SOC_NOPM, 0, 0, &anc1_mux),
 	SND_SOC_DAPM_MUX("ANC2 MUX", SND_SOC_NOPM, 0, 0, &anc2_mux),
@@ -5313,6 +5442,14 @@ static int sitar_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to allocate private data\n");
 		return -ENOMEM;
 	}
+
+	for (i = 0; i < NUM_DECIMATORS; i++) {
+		tx_hpf_work[i].sitar = sitar;
+		tx_hpf_work[i].decimator = i + 1;
+		INIT_DELAYED_WORK(&tx_hpf_work[i].dwork,
+						  tx_hpf_corner_freq_callback);
+	}
+
 
 	/* Make sure mbhc micbias register addresses are zeroed out */
 	memset(&sitar->mbhc_bias_regs, 0,
