@@ -1912,7 +1912,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 	ul_powerdown_finish();
 	a2_pc_disabled = 0;
 	a2_pc_disabled_wakelock_skipped = 0;
-	disconnect_ack = 0;
+	disconnect_ack = 1;
 
 	/* Cleanup Channel States */
 	mutex_lock(&bam_pdev_mutexlock);
