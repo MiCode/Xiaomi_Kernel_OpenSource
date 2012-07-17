@@ -1,0 +1,66 @@
+Qualcomm QPNP Temperature Alarm
+
+QPNP temperature alarm peripherals are found inside of Qualcomm PMIC chips that
+utilize the MSM SPMI implementation.  These peripherals provide an interrupt
+signal and status register to identify high PMIC die temperature.
+
+Required properties:
+- compatible:      Must be "qcom,qpnp-temp-alarm".
+- reg:             Specifies the SPMI address and size for this temperature
+		    alarm device.
+- interrupts:      PMIC temperature alarm interrupt
+- label:           A string used as a descriptive name for this thermal device.
+		    This name should be 19 characters or less.
+
+Required structure:
+- A qcom,qpnp-temp-alarm node must be a child of an SPMI node that has specified
+   the spmi-slave-container property
+
+Optional properties:
+- qcom,channel-num:    VADC channel number associated PMIC DIE_TEMP thermistor.
+			If no channel is specified, then the die temperature
+			must be estimated based on the over temperature stage.
+- qcom,threshold-set:  Integer value which specifies which set of threshold
+			temperatures to use for the over temperature stages.
+			Possible values (x = {stage 1 threshold temperature,
+				stage 2 threshold temperature,
+				stage 3 threshold temperature}):
+			 0 = {105 C, 125 C, 145 C}
+			 1 = {110 C, 130 C, 150 C}
+			 2 = {115 C, 135 C, 155 C}
+			 3 = {120 C, 140 C, 160 C}
+- qcom,allow-override: Boolean which controls the ability of software to
+			override shutdowns.  If present, then software is
+			allowed to override automatic PMIC hardware stage 2 and
+			stage 3 over temperature shutdowns.  Otherwise, software
+			is not allowed to override automatic shutdown.
+- qcom,default-temp:   Specifies the default temperature in millicelcius to use
+			if no ADC channel is present to read the real time
+			temperature.
+
+Note, if a given optional qcom,* binding is not present, then the default
+hardware state for that feature will be maintained.
+
+Example:
+&spmi_bus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <3>;
+
+	qcom,pm8941@0 {
+		spmi-slave-container;
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0>;
+			label = "pm8941_tz";
+			qcom,channel-num = <8>;
+			qcom,threshold-set = <0>;
+		};
+	};
+};
