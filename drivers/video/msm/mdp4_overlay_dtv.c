@@ -698,11 +698,7 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	struct mdp4_overlay_pipe *pipe;
 	if (!mfd->panel_power_on)
 		return;
-	if (!dtv_pipe) {
-		pr_debug("%s: no mixer1 base layer pipe allocated!\n",
-			 __func__);
-		return;
-	}
+
 	mutex_lock(&mfd->dma->ov_mutex);
 	if (dtv_pipe == NULL) {
 		if (mdp4_overlay_dtv_set(mfd, NULL)) {
