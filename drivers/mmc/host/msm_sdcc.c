@@ -2093,7 +2093,14 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	if (mrq->data && (mrq->data->flags & MMC_DATA_WRITE)) {
 		if (is_auto_prog_done(host)) {
-			if (!mrq->stop)
+			/*
+			 * Auto-prog done will be enabled for following cases:
+			 * mrq->sbc	|	mrq->stop
+			 * _____________|________________
+			 *	True	|	Don't care
+			 *	False	|	False (CMD24, ACMD25 use case)
+			 */
+			if (mrq->sbc || !mrq->stop)
 				host->curr.wait_for_auto_prog_done = true;
 		} else {
 			if ((mrq->cmd->opcode == SD_IO_RW_EXTENDED) ||
