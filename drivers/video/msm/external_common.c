@@ -1858,6 +1858,9 @@ int hdmi_common_read_edid(void)
 	/* EDID_BLOCK_SIZE[0x80] Each page size in the EDID ROM */
 	uint8 edid_buf[0x80 * 4];
 
+	external_common_state->pt_scan_info = 0;
+	external_common_state->it_scan_info = 0;
+	external_common_state->ce_scan_info = 0;
 	external_common_state->preferred_video_format = 0;
 	external_common_state->present_3d = 0;
 	memset(&external_common_state->disp_mode_list, 0,
