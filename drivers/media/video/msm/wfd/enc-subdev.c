@@ -24,6 +24,8 @@
 #define VID_ENC_MAX_ENCODER_CLIENTS 1
 #define MAX_NUM_CTRLS 20
 
+static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg);
+
 struct venc_inst {
 	struct video_client_ctx venc_client;
 	void *cbdata;
@@ -34,6 +36,8 @@ struct venc_inst {
 	u32 width;
 	u32 height;
 	int secure;
+	struct mem_region unqueued_op_bufs;
+	bool streaming;
 };
 
 struct venc {
@@ -287,8 +291,10 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	init_waitqueue_head(&client_ctx->msg_wait);
 	inst->op_buffer_done = vmops->op_buffer_done;
 	inst->ip_buffer_done = vmops->ip_buffer_done;
+	INIT_LIST_HEAD(&inst->unqueued_op_bufs.list);
 	inst->cbdata = vmops->cbdata;
 	inst->secure = vmops->secure;
+	inst->streaming = false;
 	if (vmops->secure) {
 		WFD_MSG_ERR("OPENING SECURE SESSION\n");
 		flags |= VCD_CP_SESSION;
@@ -423,11 +429,13 @@ static long venc_start(struct v4l2_subdev *sd)
 {
 	struct venc_inst *inst = sd->dev_priv;
 	struct video_client_ctx *client_ctx = &inst->venc_client;
+	struct mem_region *curr = NULL, *temp = NULL;
 	int rc;
 	if (!client_ctx) {
 		WFD_MSG_ERR("Client context is NULL");
 		return -EINVAL;
 	}
+
 	rc = vcd_encode_start(client_ctx->vcd_handle);
 	if (rc) {
 		WFD_MSG_ERR("vcd_encode_start failed, rc = %d\n", rc);
@@ -437,6 +445,15 @@ static long venc_start(struct v4l2_subdev *sd)
 	if (client_ctx->event_status)
 		WFD_MSG_ERR("callback for vcd_encode_start returned error: %u",
 				client_ctx->event_status);
+
+	inst->streaming = true;
+	/* Push any buffers that we have held back */
+	list_for_each_entry_safe(curr, temp,
+			&inst->unqueued_op_bufs.list, list) {
+		venc_fill_outbuf(sd, curr);
+		list_del(&curr->list);
+		kfree(curr);
+	}
 err:
 	return rc;
 }
@@ -445,6 +462,7 @@ static long venc_stop(struct v4l2_subdev *sd)
 {
 	struct venc_inst *inst = sd->dev_priv;
 	struct video_client_ctx *client_ctx = &inst->venc_client;
+	struct mem_region *curr = NULL, *temp = NULL;
 	int rc;
 	if (!client_ctx) {
 		WFD_MSG_ERR("Client context is NULL");
@@ -452,6 +470,15 @@ static long venc_stop(struct v4l2_subdev *sd)
 	}
 	rc = vcd_stop(client_ctx->vcd_handle);
 	wait_for_completion(&client_ctx->event);
+	inst->streaming = false;
+	/* Drop whatever frames we haven't queued */
+	list_for_each_entry_safe(curr, temp,
+			&inst->unqueued_op_bufs.list, list) {
+		inst->op_buffer_done(inst->cbdata, 0,
+				(struct vb2_buffer *)curr->cookie);
+		list_del(&curr->list);
+		kfree(curr);
+	}
 	return rc;
 }
 
@@ -1841,22 +1868,29 @@ static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
 	struct file *file;
 	s32 buffer_index = -1;
 
-	user_vaddr = mregion->cookie;
-	rc = vidc_lookup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT,
-			true, &user_vaddr,
-			&kernel_vaddr, &phy_addr, &pmem_fd, &file,
-			&buffer_index);
-	if (!rc) {
-		WFD_MSG_ERR("Address lookup failed\n");
-		goto err;
-	}
-	vcd_frame.virtual = (u8 *) kernel_vaddr;
-	vcd_frame.frm_clnt_data = mregion->cookie;
-	vcd_frame.alloc_len = mregion->size;
+	if (inst->streaming) {
+		user_vaddr = mregion->cookie;
+		rc = vidc_lookup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT,
+				true, &user_vaddr,
+				&kernel_vaddr, &phy_addr, &pmem_fd, &file,
+				&buffer_index);
+		if (!rc) {
+			WFD_MSG_ERR("Address lookup failed\n");
+			goto err;
+		}
+		vcd_frame.virtual = (u8 *) kernel_vaddr;
+		vcd_frame.frm_clnt_data = mregion->cookie;
+		vcd_frame.alloc_len = mregion->size;
 
-	rc = vcd_fill_output_buffer(client_ctx->vcd_handle,	&vcd_frame);
-	if (rc)
-		WFD_MSG_ERR("Failed to fill output buffer on encoder");
+		rc = vcd_fill_output_buffer(client_ctx->vcd_handle, &vcd_frame);
+		if (rc)
+			WFD_MSG_ERR("Failed to fill output buffer on encoder");
+	} else {
+		struct mem_region *temp = kzalloc(sizeof(*temp), GFP_KERNEL);
+		*temp = *mregion;
+		INIT_LIST_HEAD(&temp->list);
+		list_add_tail(&temp->list, &inst->unqueued_op_bufs.list);
+	}
 err:
 	return rc;
 }
