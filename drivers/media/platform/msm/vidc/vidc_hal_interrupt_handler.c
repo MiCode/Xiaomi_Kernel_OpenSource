@@ -252,6 +252,29 @@ err_no_prop:
 	device->callback(SYS_INIT_DONE, &cmd_done);
 }
 
+static void hal_process_sys_rel_resource_done(struct hal_device *device,
+	struct hfi_msg_sys_release_resource_done_packet *pkt)
+{
+	struct msm_vidc_cb_cmd_done cmd_done;
+	enum vidc_status status = VIDC_ERR_NONE;
+	u32 pkt_size;
+	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
+	HAL_MSG_ERROR("RECEIVED:SYS_RELEASE_RESOURCE_DONE");
+	pkt_size = sizeof(struct hfi_msg_sys_release_resource_done_packet);
+	if (pkt_size > pkt->size) {
+		HAL_MSG_ERROR("hal_process_sys_rel_resource_done:bad size:%d",
+				pkt->size);
+		return;
+	}
+	status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.device_id = device->device_id;
+	cmd_done.session_id = 0;
+	cmd_done.status = (u32) status;
+	cmd_done.size = 0;
+	cmd_done.data = NULL;
+	device->callback(RELEASE_RESOURCE_DONE, &cmd_done);
+}
+
 enum vidc_status vidc_hal_process_sess_init_done_prop_read(
 	struct hfi_msg_sys_session_init_done_packet *pkt,
 	struct msm_vidc_cb_cmd_done *cmddone)
@@ -711,7 +734,7 @@ static void hal_process_msg_packet(struct hal_device *device,
 		return;
 	}
 
-	HAL_MSG_INFO("Received: 0x%x in %s", msg_hdr->packet, __func__);
+	HAL_MSG_ERROR("Received: 0x%x in %s", msg_hdr->packet, __func__);
 
 	switch (msg_hdr->packet) {
 	case HFI_MSG_EVENT_NOTIFY:
@@ -770,6 +793,11 @@ static void hal_process_msg_packet(struct hal_device *device,
 		hal_process_session_rel_res_done(device,
 			(struct hfi_msg_session_release_resources_done_packet *)
 					msg_hdr);
+		break;
+	case HFI_MSG_SYS_RELEASE_RESOURCE:
+		hal_process_sys_rel_resource_done(device,
+			(struct hfi_msg_sys_release_resource_done_packet *)
+			msg_hdr);
 		break;
 	default:
 		HAL_MSG_ERROR("UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);
