@@ -286,10 +286,7 @@ static int __devinit pil_q6v4_lpass_driver_probe(struct platform_device *pdev)
 	drv->loadable = !!pdata; /* No pdata = don't use PIL */
 	if (drv->loadable) {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (!res)
-			return -EINVAL;
-		q6->base = devm_ioremap(&pdev->dev, res->start,
-				resource_size(res));
+		q6->base = devm_request_and_ioremap(&pdev->dev, res);
 		if (!q6->base)
 			return -ENOMEM;
 

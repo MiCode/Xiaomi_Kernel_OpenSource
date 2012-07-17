@@ -323,31 +323,23 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	struct pil_desc *desc;
 	int ret;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -EINVAL;
-
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
 
-	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	drv->base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->base)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res)
-		return -EINVAL;
-
-	drv->wk_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	drv->wk_base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->wk_base)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	if (!res)
-		return -EINVAL;
-	drv->wd_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	drv->wd_base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->wd_base)
 		return -ENOMEM;
 

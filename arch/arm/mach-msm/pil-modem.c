@@ -417,10 +417,6 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 	struct pil_desc *desc;
 	int ret;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -EINVAL;
-
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
@@ -430,19 +426,17 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 	if (drv->irq < 0)
 		return drv->irq;
 
-	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	if (!drv->base)
-		return -ENOMEM;
-
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return PTR_ERR(drv->xo);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res)
-		return -EINVAL;
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	drv->base = devm_request_and_ioremap(&pdev->dev, res);
+	if (!drv->base)
+		return -ENOMEM;
 
-	drv->wdog = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	drv->wdog = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->wdog)
 		return -ENOMEM;
 

@@ -313,19 +313,12 @@ pil_q6v4_proc_init(struct q6v4_data *drv, struct platform_device *pdev, int i)
 	struct resource *res;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 2 + (i * 2));
-	if (!res)
-		return -EINVAL;
-
-	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	drv->base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->base)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 3 + (i * 2));
-	if (!res)
-		return -EINVAL;
-
-	drv->wdog_base = devm_ioremap(&pdev->dev, res->start,
-			resource_size(res));
+	drv->wdog_base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->wdog_base)
 		return -ENOMEM;
 
@@ -408,10 +401,7 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 		}
 
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (!res)
-			return -EINVAL;
-		drv->modem_base = devm_ioremap(&pdev->dev, res->start,
-				resource_size(res));
+		drv->modem_base = devm_request_and_ioremap(&pdev->dev, res);
 		if (!drv->modem_base)
 			return -ENOMEM;
 

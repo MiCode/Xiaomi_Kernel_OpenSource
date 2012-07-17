@@ -411,27 +411,20 @@ static int __devinit pil_venus_probe(struct platform_device *pdev)
 	struct pil_desc *desc;
 	int rc;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					    "wrapper_base");
-	if (!res)
-		return -EINVAL;
-
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
 
-	drv->venus_wrapper_base = devm_ioremap(&pdev->dev, res->start,
-					resource_size(res));
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					    "wrapper_base");
+	drv->venus_wrapper_base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->venus_wrapper_base)
 		return -ENOMEM;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vbif_base");
-	if (!res)
-		return -EINVAL;
-
-	drv->venus_vbif_base = devm_ioremap(&pdev->dev, res->start,
-					resource_size(res));
+	drv->venus_vbif_base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->venus_vbif_base)
 		return -ENOMEM;
 
