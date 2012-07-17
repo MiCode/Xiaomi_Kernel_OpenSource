@@ -704,6 +704,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	struct resource *res;
 	int i = 0;
 	int rc = 0;
+	struct on_chip_mem *ocmem;
 	if (!core)
 		return -EINVAL;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -752,6 +753,14 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	if (rc) {
 		pr_err("Failed to register iommu domains: %d\n", rc);
 		goto fail_register_domains;
+	}
+	ocmem = &core->resources.ocmem;
+	ocmem->vidc_ocmem_nb.notifier_call = msm_vidc_ocmem_notify_handler;
+	ocmem->handle =
+		ocmem_notifier_register(OCMEM_VIDEO, &ocmem->vidc_ocmem_nb);
+	if (!ocmem->handle) {
+		pr_warn("Failed to register OCMEM notifier.");
+		pr_warn(" Performance will be impacted\n");
 	}
 	return rc;
 fail_register_domains:
@@ -861,6 +870,9 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 	v4l2_device_unregister(&core->v4l2_dev);
+	if (core->resources.ocmem.handle)
+		ocmem_notifier_unregister(core->resources.ocmem.handle,
+				&core->resources.ocmem.vidc_ocmem_nb);
 	kfree(core);
 	return rc;
 }

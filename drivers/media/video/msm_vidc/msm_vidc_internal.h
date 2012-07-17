@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
+#include <mach/ocmem.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -153,11 +154,18 @@ struct vidc_bus_info {
 	u32 ocmem_handle;
 };
 
+struct on_chip_mem {
+	struct ocmem_buf *buf;
+	struct notifier_block vidc_ocmem_nb;
+	void *handle;
+};
+
 struct msm_vidc_resources {
 	struct msm_vidc_fw fw;
 	struct iommu_info io_map[MAX_MAP];
 	struct core_clock clock[VCODEC_MAX_CLKS];
 	struct vidc_bus_info bus_info;
+	struct on_chip_mem ocmem;
 };
 
 struct session_prop {
@@ -227,4 +235,7 @@ struct msm_vidc_ctrl {
 };
 
 void handle_cmd_response(enum command_response cmd, void *data);
+int msm_vidc_ocmem_notify_handler(struct notifier_block *this,
+		unsigned long event, void *data);
+
 #endif
