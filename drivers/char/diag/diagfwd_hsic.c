@@ -296,7 +296,7 @@ int diagfwd_disconnect_bridge(int process_cable)
 		usb_diag_free_req(driver->mdm_ch);
 	}
 
-	if (driver->logging_mode != MEMORY_DEVICE_MODE) {
+	if (driver->logging_mode == USB_MODE) {
 		if (driver->hsic_device_enabled) {
 			driver->in_busy_hsic_write_on_device = 1;
 			driver->in_busy_hsic_read_on_device = 1;
@@ -307,6 +307,7 @@ int diagfwd_disconnect_bridge(int process_cable)
 		} else if (driver->diag_smux_enabled) {
 			driver->in_busy_smux = 1;
 			driver->lcid = LCID_INVALID;
+			driver->smux_connected = 0;
 			/* Turn off communication over usb mdm and smux */
 			msm_smux_close(LCID_VALID);
 		}
@@ -440,7 +441,8 @@ static void diag_read_mdm_work_fn(struct work_struct *work)
 	int ret;
 	if (driver->diag_smux_enabled) {
 		if (driver->lcid && driver->usb_buf_mdm_out &&
-					 (driver->read_len_mdm > 0)) {
+				(driver->read_len_mdm > 0) &&
+				driver->smux_connected) {
 			ret = msm_smux_write(driver->lcid,  NULL,
 		 driver->usb_buf_mdm_out, driver->read_len_mdm);
 			if (ret)
