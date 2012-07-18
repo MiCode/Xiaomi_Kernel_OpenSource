@@ -26,7 +26,6 @@
 #include <linux/spi/spi.h>
 #include <linux/slimbus/slimbus.h>
 #include <linux/bootmem.h>
-#include <linux/msm_kgsl.h>
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif
@@ -80,6 +79,7 @@
 #include <linux/fmem.h>
 #include <mach/msm_cache_dump.h>
 
+#include <mach/kgsl.h>
 #ifdef CONFIG_INPUT_MPU3050
 #include <linux/input/mpu3050.h>
 #endif

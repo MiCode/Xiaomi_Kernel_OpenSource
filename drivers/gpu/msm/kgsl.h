@@ -23,6 +23,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mm.h>
 
+#include <mach/kgsl.h>
+
 #define KGSL_NAME "kgsl"
 
 /* The number of memstore arrays limits the number of contexts allowed.
