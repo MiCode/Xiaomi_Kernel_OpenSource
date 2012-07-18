@@ -482,7 +482,11 @@ static ssize_t etm_store_reset(struct device *dev,
 		for (i = 0; i < drvdata->nr_ctxid_cmp; i++)
 			drvdata->ctxid_val[i] = 0x0;
 		drvdata->ctxid_mask = 0x0;
-		drvdata->sync_freq = 0x80;
+		/* Bits[7:0] of ETMSYNCFR are reserved on Krait pass3 onwards */
+		if (cpu_is_krait() && !cpu_is_krait_v1() && !cpu_is_krait_v2())
+			drvdata->sync_freq = 0x100;
+		else
+			drvdata->sync_freq = 0x80;
 		drvdata->timestamp_event = 0x406F;
 	}
 	mutex_unlock(&drvdata->mutex);
@@ -1484,7 +1488,11 @@ static void etm_init_default_data(struct etm_drvdata *drvdata)
 	drvdata->seq_31_event = 0x406F;
 	drvdata->seq_32_event = 0x406F;
 	drvdata->seq_13_event = 0x406F;
-	drvdata->sync_freq = 0x80;
+	/* Bits[7:0] of ETMSYNCFR are reserved on Krait pass3 onwards */
+	if (cpu_is_krait() && !cpu_is_krait_v1() && !cpu_is_krait_v2())
+		drvdata->sync_freq = 0x100;
+	else
+		drvdata->sync_freq = 0x80;
 	drvdata->timestamp_event = 0x406F;
 
 	/* Overrides for Krait pass1 */
