@@ -22,6 +22,8 @@
 #define MAX_PLANES 1
 #define DEFAULT_HEIGHT 720
 #define DEFAULT_WIDTH 1280
+#define MAX_SUPPORTED_WIDTH 4096
+#define MAX_SUPPORTED_HEIGHT 2160
 #define MIN_NUM_OUTPUT_BUFFERS 2
 #define MAX_NUM_OUTPUT_BUFFERS 6
 
@@ -169,7 +171,7 @@ static u32 get_frame_size_nv21(int plane,
 static u32 get_frame_size_compressed(int plane,
 					u32 height, u32 width)
 {
-	return height * width * 3/2;
+	return (MAX_SUPPORTED_WIDTH * MAX_SUPPORTED_HEIGHT * 3/2)/2;
 }
 
 static const struct msm_vidc_format vdec_formats[] = {
