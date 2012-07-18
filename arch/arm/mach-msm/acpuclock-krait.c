@@ -383,20 +383,28 @@ static int calculate_vdd_mem(const struct acpu_level *tgt)
 	return drv.l2_freq_tbl[tgt->l2_level].vdd_mem;
 }
 
-static int calculate_vdd_dig(const struct acpu_level *tgt)
+static int get_src_dig(const struct core_speed *s)
 {
-	int pll_vdd_dig;
 	const int *hfpll_vdd = drv.hfpll_data->vdd;
 	const u32 low_vdd_l_max = drv.hfpll_data->low_vdd_l_max;
 
-	if (drv.l2_freq_tbl[tgt->l2_level].speed.src != HFPLL)
-		pll_vdd_dig = hfpll_vdd[HFPLL_VDD_NONE];
-	else if (drv.l2_freq_tbl[tgt->l2_level].speed.pll_l_val > low_vdd_l_max)
-		pll_vdd_dig = hfpll_vdd[HFPLL_VDD_NOM];
+	if (s->src != HFPLL)
+		return hfpll_vdd[HFPLL_VDD_NONE];
+	else if (s->pll_l_val > low_vdd_l_max)
+		return hfpll_vdd[HFPLL_VDD_NOM];
 	else
-		pll_vdd_dig = hfpll_vdd[HFPLL_VDD_LOW];
+		return hfpll_vdd[HFPLL_VDD_LOW];
+}
 
-	return max(drv.l2_freq_tbl[tgt->l2_level].vdd_dig, pll_vdd_dig);
+static int calculate_vdd_dig(const struct acpu_level *tgt)
+{
+	int l2_pll_vdd_dig, cpu_pll_vdd_dig;
+
+	l2_pll_vdd_dig = get_src_dig(&drv.l2_freq_tbl[tgt->l2_level].speed);
+	cpu_pll_vdd_dig = get_src_dig(&tgt->speed);
+
+	return max(drv.l2_freq_tbl[tgt->l2_level].vdd_dig,
+		   max(l2_pll_vdd_dig, cpu_pll_vdd_dig));
 }
 
 static int calculate_vdd_core(const struct acpu_level *tgt)
