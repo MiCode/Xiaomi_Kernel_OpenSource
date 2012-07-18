@@ -1625,7 +1625,7 @@ int usb_composite_probe(struct usb_composite_driver *driver,
 {
 	int retval;
 
-	if (!driver || !driver->dev || !bind || composite)
+	if (!driver || !driver->dev || !bind)
 		return -EINVAL;
 
 	if (!driver->name)
