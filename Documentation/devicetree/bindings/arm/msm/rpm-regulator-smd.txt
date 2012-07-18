@@ -147,6 +147,18 @@ RPM in regulator requests.
 					4 = Normal       (0.9000 V)
 					5 = Turbo        (0.9875 V)
 					6 = Super Turbo  (1.0500 V)
+- qcom,init-disallow-bypass:   Specify that bypass mode should not be used for a
+				given LDO regulator.  When in bypass mode, an
+				LDO performs no regulation and acts as a simple
+				switch.  The RPM can utilize this mode for an
+				LDO that is subregulated from an SMPS when it is
+				possible to reduce the SMPS voltage to the
+				desired LDO output level.  Bypass mode may be
+				disallowed if lower LDO output noise is
+				required.  Supported values are:
+					0 = Allow RPM to utilize LDO bypass mode
+						if possible
+					1 = Disallow LDO bypass mode
 
 All properties specified within the core regulator framework can also be used in
 second level nodes.  These bindings can be found in:
