@@ -848,14 +848,14 @@ static void sitar_codec_enable_adc_block(struct snd_soc_codec *codec,
 
 	if (enable) {
 		sitar->adc_count++;
-		snd_soc_update_bits(codec, SITAR_A_TX_COM_BIAS, 0xE0, 0xE0);
-
+		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_OTHR_CTL,
+				0x02, 0x02);
 	} else {
 		sitar->adc_count--;
 		if (!sitar->adc_count) {
 			if (!sitar->mbhc_polling_active)
-				snd_soc_update_bits(codec, SITAR_A_TX_COM_BIAS,
-					0xE0, 0x0);
+				snd_soc_update_bits(codec,
+					SITAR_A_CDC_CLK_OTHR_CTL, 0xE0, 0x0);
 		}
 	}
 }
