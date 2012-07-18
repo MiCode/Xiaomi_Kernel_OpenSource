@@ -725,6 +725,8 @@ static uint32_t smd_ch_edge[] = {
 	SMD_APPS_MODEM,
 };
 #endif
+module_param_named(loopback_edge, smd_ch_edge[LOOPBACK_INX],
+		int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static int smd_pkt_dummy_probe(struct platform_device *pdev)
 {
