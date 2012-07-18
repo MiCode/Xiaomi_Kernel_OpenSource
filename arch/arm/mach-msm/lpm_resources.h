@@ -71,6 +71,7 @@ bool msm_lpm_level_beyond_limit(struct msm_rpmrs_limits *limits);
  * on the low power mode being entered. L2 low power mode is also set in
  * this function.
 
+ * @sclk_count: wakeup counter for RPM.
  * @limits: pointer to the resource limits of the low power mode being entered.
  * @from_idle: bool to determine if this call being made as a part of
  *             idle power collapse.
@@ -78,7 +79,7 @@ bool msm_lpm_level_beyond_limit(struct msm_rpmrs_limits *limits);
  *
  * returns 0 on success.
  */
-int msm_lpmrs_enter_sleep(struct msm_rpmrs_limits *limits,
+int msm_lpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 	bool from_idle, bool notify_rpm);
 
 /**
@@ -106,8 +107,8 @@ static inline bool msm_lpm_level_beyond_limit(struct msm_rpmrs_limits *limits)
 	return true;
 }
 
-static inline int msm_lpmrs_enter_sleep(struct msm_rpmrs_limits *limits,
-	bool from_idle, bool notify_rpm)
+static inline int msm_lpmrs_enter_sleep(uint32_t sclk_count,
+	struct msm_rpmrs_limits *limits, bool from_idle, bool notify_rpm)
 {
 	return 0;
 }

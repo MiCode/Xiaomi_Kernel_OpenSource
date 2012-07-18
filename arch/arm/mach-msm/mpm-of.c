@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/irqchip/arm-gic.h>
+#include <asm/arch_timer.h>
 #include <mach/gpio.h>
 #include <mach/mpm.h>
 
@@ -70,7 +71,8 @@ static unsigned int msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS];
 #define MSM_MPM_DETECT_CTL_SHIFT(irq) ((irq % 16) * 2)
 
 #define hashfn(val) (val % MSM_MPM_NR_MPM_IRQS)
-
+#define SCLK_HZ (32768)
+#define ARCH_TIMER_HZ (19200000)
 static struct msm_mpm_device_data msm_mpm_dev_data;
 
 enum mpm_reg_offsets {
@@ -152,14 +154,20 @@ static irqreturn_t msm_mpm_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void msm_mpm_set(bool wakeset)
+static void msm_mpm_set(cycle_t wakeup, bool wakeset)
 {
 	uint32_t *irqs;
 	unsigned int reg;
 	int i;
+	uint32_t *expiry_timer;
+
+	expiry_timer = (uint32_t *)&wakeup;
 
 	irqs = wakeset ? msm_mpm_wake_irq : msm_mpm_enabled_irq;
 	for (i = 0; i < MSM_MPM_REG_WIDTH; i++) {
+		reg = MSM_MPM_REG_WAKEUP;
+		msm_mpm_write(reg, i, expiry_timer[i]);
+
 		reg = MSM_MPM_REG_ENABLE;
 		msm_mpm_write(reg, i, irqs[i]);
 
@@ -447,14 +455,23 @@ bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 	return true;
 }
 
-void msm_mpm_enter_sleep(bool from_idle)
+void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle)
 {
+	cycle_t wakeup = (u64)sclk_count * ARCH_TIMER_HZ;
+
 	if (!msm_mpm_is_initialized()) {
 		pr_err("%s(): MPM not initialized\n", __func__);
 		return;
 	}
 
-	msm_mpm_set(!from_idle);
+	if (sclk_count) {
+		do_div(wakeup, SCLK_HZ);
+		wakeup += arch_counter_get_cntpct();
+	} else {
+		wakeup = (~0ULL);
+	}
+
+	msm_mpm_set(wakeup, !from_idle);
 }
 
 void msm_mpm_exit_sleep(bool from_idle)
