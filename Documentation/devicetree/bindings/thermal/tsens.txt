@@ -1,0 +1,42 @@
+Qualcomm's TSENS driver
+
+The TSENS driver supports reading temperature from sensors across
+the MSM. The driver defaults to support a 10 bit ADC.
+
+The driver uses the Thermal sysfs framework to provide thermal
+clients the ability to enable/disable the sensors, read trip zones,
+read cool/warm temperature thresholds, set temperature thresholds
+for cool/warm notification and receive notification on temperature
+threshold events.
+
+TSENS node
+
+Required properties:
+- compatible : should be "qcom,msm-tsens" for MSM8974 TSENS driver.
+- reg : offset and length of the TSENS registers.
+- reg : offset and length of the QFPROM registers used for storing
+	the calibration data for the individual sensors.
+- reg-names : resource names used for the physical address of the TSENS
+	      registers and the QFPROM efuse calibration address.
+	      Should be "tsens_physical" for physical address of the TSENS
+	      and "tsens_eeprom_physical" for physical address where calibration
+	      data is stored.
+- interrupts : TSENS interrupt for cool/warm temperature threshold.
+- qcom,sensors : Total number of available Temperature sensors for TSENS.
+- qcom,slope : One point calibration characterized slope data for each
+	       sensor used to compute the offset. Slope is represented
+	       as ADC code/DegC and the value is multipled by a factor
+	       of 1000.
+
+Example:
+
+tsens@fc4a8000 {
+	compatible = "qcom,msm-tsens";
+	reg = <0xfc4a8000 0x2000>,
+	      <0xfc4b80d0 0x5>;
+	reg-names = "tsens_physical", "tsens_eeprom_physical";
+	interrupts = <0 184 0>;
+	qcom,sensors = <11>;
+	qcom,slope = <1134 1122 1142 1123 1176 1176 1176 1186 1176
+			1176>;
+};
