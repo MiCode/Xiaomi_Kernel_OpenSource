@@ -967,7 +967,7 @@ static int msm_rpmrs_enter_sleep(uint32_t sclk_count, void *limits,
 			return rc;
 
 		if (msm_rpmrs_use_mpm(limits))
-			msm_mpm_enter_sleep(from_idle);
+			msm_mpm_enter_sleep(sclk_count, from_idle);
 	}
 
 	rc = msm_rpmrs_flush_L2(limits, notify_rpm);
