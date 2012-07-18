@@ -131,6 +131,7 @@ static bool dsi_power_on;
  * appropriate function.
  */
 #define DISP_RST_GPIO 58
+#define DISP_3D_2D_MODE 1
 static int mipi_dsi_cdp_panel_power(int on)
 {
 	static struct regulator *reg_l8, *reg_l23, *reg_l2;
@@ -183,6 +184,19 @@ static int mipi_dsi_cdp_panel_power(int on)
 			gpio_free(DISP_RST_GPIO);
 			return -ENODEV;
 		}
+		rc = gpio_request(DISP_3D_2D_MODE, "disp_3d_2d");
+		if (rc) {
+			pr_err("request gpio DISP_3D_2D_MODE failed, rc=%d\n",
+				 rc);
+			gpio_free(DISP_3D_2D_MODE);
+			return -ENODEV;
+			}
+		rc = gpio_direction_output(DISP_3D_2D_MODE, 0);
+		if (rc) {
+			pr_err("gpio_direction_output failed for %d gpio rc=%d\n",
+			DISP_3D_2D_MODE, rc);
+			return -ENODEV;
+			}
 		dsi_power_on = true;
 	}
 	if (on) {
@@ -222,6 +236,8 @@ static int mipi_dsi_cdp_panel_power(int on)
 		gpio_set_value(DISP_RST_GPIO, 0);
 		usleep(20);
 		gpio_set_value(DISP_RST_GPIO, 1);
+		gpio_set_value(DISP_3D_2D_MODE, 1);
+		usleep(20);
 	} else {
 
 		gpio_set_value(DISP_RST_GPIO, 0);
@@ -256,6 +272,8 @@ static int mipi_dsi_cdp_panel_power(int on)
 			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
 			return -EINVAL;
 		}
+		gpio_set_value(DISP_3D_2D_MODE, 0);
+		usleep(20);
 	}
 	return 0;
 }
