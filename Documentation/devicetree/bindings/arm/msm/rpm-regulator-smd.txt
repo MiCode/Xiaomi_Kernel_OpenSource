@@ -140,12 +140,13 @@ RPM in regulator requests.
 				corner values supported on MSM8974 for PMIC
 				PM8841 SMPS 2 (VDD_Dig); nominal voltages for
 				these corners are also shown:
-					0 = Retention    (0.5000 V)
-					1 = SVS Krait    (0.7250 V)
-					2 = SVS SOC      (0.8125 V)
-					3 = Normal       (0.9000 V)
-					4 = Turbo        (0.9875 V)
-					5 = Super Turbo  (1.0500 V)
+					0 = None         (don't care)
+					1 = Retention    (0.5000 V)
+					2 = SVS Krait    (0.7250 V)
+					3 = SVS SOC      (0.8125 V)
+					4 = Normal       (0.9000 V)
+					5 = Turbo        (0.9875 V)
+					6 = Super Turbo  (1.0500 V)
 
 All properties specified within the core regulator framework can also be used in
 second level nodes.  These bindings can be found in:

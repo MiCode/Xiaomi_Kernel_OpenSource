@@ -111,7 +111,7 @@ static struct rpm_regulator_param params[RPM_REGULATOR_PARAM_MAX] = {
 	PARAM(HEAD_ROOM,       1,  0,  0,  1, "hr",   0, 0x7FFFFFFF, "qcom,init-head-room"),
 	PARAM(QUIET_MODE,      0,  1,  0,  0, "qm",   0, 2,          "qcom,init-quiet-mode"),
 	PARAM(FREQ_REASON,     0,  1,  0,  1, "resn", 0, 8,          "qcom,init-freq-reason"),
-	PARAM(CORNER,          0,  1,  0,  0, "corn", 0, 5,          "qcom,init-voltage-corner"),
+	PARAM(CORNER,          0,  1,  0,  0, "corn", 0, 6,          "qcom,init-voltage-corner"),
 };
 
 struct rpm_vreg_request {
@@ -682,7 +682,7 @@ static int rpm_vreg_set_voltage_corner(struct regulator_dev *rdev, int min_uV,
 	 * regulator_set_voltage function to the actual corner values
 	 * sent to the RPM.
 	 */
-	corner = min_uV - RPM_REGULATOR_CORNER_RETENTION;
+	corner = min_uV - RPM_REGULATOR_CORNER_NONE;
 
 	if (corner < params[RPM_REGULATOR_PARAM_CORNER].min
 	    || corner > params[RPM_REGULATOR_PARAM_CORNER].max) {
@@ -716,7 +716,7 @@ static int rpm_vreg_get_voltage_corner(struct regulator_dev *rdev)
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
 
 	return reg->req.param[RPM_REGULATOR_PARAM_CORNER]
-		+ RPM_REGULATOR_CORNER_RETENTION;
+		+ RPM_REGULATOR_CORNER_NONE;
 }
 
 static int rpm_vreg_set_mode(struct regulator_dev *rdev, unsigned int mode)
