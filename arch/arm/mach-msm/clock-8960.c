@@ -6430,16 +6430,16 @@ static void __init reg_init(void)
 		is_pll_enabled = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled)
 			/* Ref clk = 27MHz and program pll14 to 480MHz */
-			configure_pll(&pll14_config, &pll14_regs, 1);
+			configure_sr_pll(&pll14_config, &pll14_regs, 1);
 
 		/* Program PLL15 to 975MHz with ref clk = 27MHz */
-		configure_pll(&pll15_config, &pll15_regs, 0);
+		configure_sr_pll(&pll15_config, &pll15_regs, 0);
 
 		/* Check if PLL4 is active */
 		is_pll_enabled = readl_relaxed(LCC_PLL0_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled)
 			/* Ref clk = 27MHz and program pll4 to 393.2160MHz */
-			configure_pll(&pll4_config_393, &pll4_regs, 1);
+			configure_sr_pll(&pll4_config_393, &pll4_regs, 1);
 
 		/* Enable PLL4 source on the LPASS Primary PLL Mux */
 		writel_relaxed(0x1, LCC_PRI_PLL_CLK_CTL_REG);
@@ -6457,7 +6457,7 @@ static void __init reg_init(void)
 		pll15_config.l = 0x21 | BVAL(31, 7, 0x600);
 		pll15_config.m = 0x1;
 		pll15_config.n = 0x3;
-		configure_pll(&pll15_config, &pll15_regs, 0);
+		configure_sr_pll(&pll15_config, &pll15_regs, 0);
 		/* Disable AUX and BIST outputs */
 		writel_relaxed(0, MM_PLL3_TEST_CTL_REG);
 	}
