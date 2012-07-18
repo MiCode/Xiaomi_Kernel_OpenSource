@@ -35,6 +35,9 @@ extern struct platform_device *msm_iommu_root_dev;
  */
 #define MAX_NUM_MIDS	32
 
+/* Maximum number of SMT entries allowed by the system */
+#define MAX_NUM_SMR	128
+
 /**
  * struct msm_iommu_dev - a single IOMMU hardware instance
  * name		Human-readable name given to this IOMMU HW instance
@@ -69,6 +72,9 @@ struct msm_iommu_ctx_dev {
  * @irq:	Interrupt number
  * @clk:	The bus clock for this IOMMU hardware instance
  * @pclk:	The clock for the IOMMU bus interconnect
+ * @name:	Human-readable name of this IOMMU device
+ * @gdsc:	Regulator needed to power this HW block (v2 only)
+ * @nsmr:	Size of the SMT on this HW block (v2 only)
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
@@ -81,6 +87,7 @@ struct msm_iommu_drvdata {
 	struct clk *pclk;
 	const char *name;
 	struct regulator *gdsc;
+	unsigned int nsmr;
 };
 
 /**
@@ -89,6 +96,10 @@ struct msm_iommu_drvdata {
  * @pdev:		Platform device associated wit this HW instance
  * @attached_elm:	List element for domains to track which devices are
  *			attached to them
+ * @attached_domain	Domain currently attached to this context (if any)
+ * @name		Human-readable name of this context device
+ * @sids		List of Stream IDs mapped to this context (v2 only)
+ * @nsid		Number of Stream IDs mapped to this context (v2 only)
  *
  * A msm_iommu_ctx_drvdata holds the driver data for a single context bank
  * within each IOMMU hardware instance
@@ -99,6 +110,8 @@ struct msm_iommu_ctx_drvdata {
 	struct list_head attached_elm;
 	struct iommu_domain *attached_domain;
 	const char *name;
+	u32 sids[MAX_NUM_SMR];
+	unsigned int nsid;
 };
 
 /*

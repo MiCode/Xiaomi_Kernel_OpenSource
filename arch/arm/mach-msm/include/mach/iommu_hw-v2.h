@@ -16,8 +16,6 @@
 #define CTX_SHIFT  12
 #define CTX_OFFSET 0x8000
 
-#define MAX_NUM_SMR 128
-
 #define GET_GLOBAL_REG(reg, base) (readl_relaxed((base) + (reg)))
 #define GET_CTX_REG(reg, base, ctx) \
 	(readl_relaxed((base) + CTX_OFFSET + (reg) + ((ctx) << CTX_SHIFT)))
