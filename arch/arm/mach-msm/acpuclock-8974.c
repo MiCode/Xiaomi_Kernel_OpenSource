@@ -33,9 +33,13 @@ static struct hfpll_data hfpll_data __initdata = {
 	.l_offset = 0x04,
 	.m_offset = 0x08,
 	.n_offset = 0x0C,
+	.has_user_reg = true,
+	.user_offset = 0x10,
 	.config_offset = 0x14,
-	/* TODO: Verify magic number for 8974 when available. */
-	.config_val = 0x7845C665,
+	/* TODO: Verify magic numbers when final values are available. */
+	.user_val = 0x8,
+	.config_val = 0x04D0405D,
+	.low_vco_l_max = 65,
 	.low_vdd_l_max = 52,
 	.nom_vdd_l_max = 104,
 	.vdd[HFPLL_VDD_NONE] = LVL_NONE,

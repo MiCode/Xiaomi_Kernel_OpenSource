@@ -170,8 +170,19 @@ static void hfpll_disable(struct scalable *sc, bool skip_regulators)
 /* Program the HFPLL rate. Assumes HFPLL is already disabled. */
 static void hfpll_set_rate(struct scalable *sc, const struct core_speed *tgt_s)
 {
-	writel_relaxed(tgt_s->pll_l_val,
-		sc->hfpll_base + drv.hfpll_data->l_offset);
+	void __iomem *base = sc->hfpll_base;
+	u32 regval;
+
+	writel_relaxed(tgt_s->pll_l_val, base + drv.hfpll_data->l_offset);
+
+	if (drv.hfpll_data->has_user_reg) {
+		regval = readl_relaxed(base + drv.hfpll_data->user_offset);
+		if (tgt_s->pll_l_val <= drv.hfpll_data->low_vco_l_max)
+			regval &= ~drv.hfpll_data->user_vco_mask;
+		else
+			regval |= drv.hfpll_data->user_vco_mask;
+		writel_relaxed(regval, base  + drv.hfpll_data->user_offset);
+	}
 }
 
 /* Return the L2 speed that should be applied. */
@@ -513,6 +524,9 @@ static void __init hfpll_init(struct scalable *sc,
 		       sc->hfpll_base + drv.hfpll_data->config_offset);
 	writel_relaxed(0, sc->hfpll_base + drv.hfpll_data->m_offset);
 	writel_relaxed(1, sc->hfpll_base + drv.hfpll_data->n_offset);
+	if (drv.hfpll_data->has_user_reg)
+		writel_relaxed(drv.hfpll_data->user_val,
+			       sc->hfpll_base + drv.hfpll_data->user_offset);
 
 	/* Program droop controller, if supported */
 	if (drv.hfpll_data->has_droop_ctl)

@@ -162,11 +162,16 @@ struct acpu_level {
  * @n_offset: "N" value register offset from base address.
  * @config_offset: Configuration register offset from base address.
  * @config_val: Value to initialize the @config_offset register to.
+ * @has_user_reg: Indicates the presence of an addition config register.
+ * @user_offset: User register offset from base address, if applicable.
+ * @user_val: Value to initialize the @user_offset register to.
+ * @user_vco_mask: Bit in the @user_offset to enable high-frequency VCO mode.
  * @has_droop_ctl: Indicates the presence of a voltage droop controller.
  * @droop_offset: Droop controller register offset from base address.
  * @droop_val: Value to initialize the @config_offset register to.
  * @low_vdd_l_max: Maximum "L" value supported at HFPLL_VDD_LOW.
  * @nom_vdd_l_max: Maximum "L" value supported at HFPLL_VDD_NOM.
+ * @low_vco_l_max: Maximum "L" value supported in low-frequency VCO mode.
  * @vdd: voltage requirements for each VDD level for the L2 PLL.
  */
 struct hfpll_data {
@@ -176,11 +181,16 @@ struct hfpll_data {
 	const u32 n_offset;
 	const u32 config_offset;
 	const u32 config_val;
+	const bool has_user_reg;
+	const u32 user_offset;
+	const u32 user_val;
+	const u32 user_vco_mask;
 	const bool has_droop_ctl;
 	const u32 droop_offset;
 	const u32 droop_val;
 	const u32 low_vdd_l_max;
 	const u32 nom_vdd_l_max;
+	const u32 low_vco_l_max;
 	const int vdd[NUM_HFPLL_VDD];
 };
 
