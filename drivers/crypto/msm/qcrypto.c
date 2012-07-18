@@ -3260,12 +3260,20 @@ err:
 	return rc;
 };
 
+
+static struct of_device_id qcrypto_match[] = {
+	{	.compatible = "qcom,qcrypto",
+	},
+	{}
+};
+
 static struct platform_driver _qualcomm_crypto = {
 	.probe          = _qcrypto_probe,
 	.remove         = _qcrypto_remove,
 	.driver         = {
 		.owner  = THIS_MODULE,
 		.name   = "qcrypto",
+		.of_match_table = qcrypto_match,
 	},
 };
 
@@ -3364,4 +3372,4 @@ module_exit(_qcrypto_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm Crypto driver");
-MODULE_VERSION("1.21");
+MODULE_VERSION("1.22");
