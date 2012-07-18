@@ -40,6 +40,11 @@ static struct rb_root domain_root;
 DEFINE_MUTEX(domain_mutex);
 static atomic_t domain_nums = ATOMIC_INIT(-1);
 
+int msm_use_iommu()
+{
+	return iommu_present(&platform_bus_type);
+}
+
 int msm_iommu_map_extra(struct iommu_domain *domain,
 				unsigned long start_iova,
 				unsigned long size,
@@ -164,6 +169,11 @@ int msm_iommu_map_contig_buffer(unsigned long phys,
 	if (size & (align - 1))
 		return -EINVAL;
 
+	if (!msm_use_iommu()) {
+		*iova_val = phys;
+		return 0;
+	}
+
 	ret = msm_allocate_iova_address(domain_no, partition_no, size, align,
 						&iova);
 
@@ -186,6 +196,9 @@ void msm_iommu_unmap_contig_buffer(unsigned long iova,
 					unsigned int partition_no,
 					unsigned long size)
 {
+	if (!msm_use_iommu())
+		return;
+
 	iommu_unmap_range(msm_get_iommu_domain(domain_no), iova, size);
 	msm_free_iova_address(iova, domain_no, partition_no, size);
 }
@@ -387,11 +400,6 @@ out:
 	kfree(data);
 
 	return -EINVAL;
-}
-
-int msm_use_iommu()
-{
-	return iommu_present(&platform_bus_type);
 }
 
 static int __init iommu_domain_probe(struct platform_device *pdev)
