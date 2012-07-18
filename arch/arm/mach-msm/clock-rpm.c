@@ -54,15 +54,11 @@ static int clk_rpmrs_get_rate(struct rpm_clk *r)
 	return (rc < 0) ? rc : iv.value * r->factor;
 }
 
-#define RPM_SMD_KEY_RATE	0x007A484B
-#define RPM_SMD_KEY_ENABLE	0x62616E45
-
 static int clk_rpmrs_set_rate_smd(struct rpm_clk *r, uint32_t value,
 				uint32_t context, int noirq)
 {
-	u32 rpm_key = r->branch ? RPM_SMD_KEY_ENABLE : RPM_SMD_KEY_RATE;
 	struct msm_rpm_kvp kvp = {
-		.key = rpm_key,
+		.key = r->rpm_key,
 		.data = (void *)&value,
 		.length = sizeof(value),
 	};

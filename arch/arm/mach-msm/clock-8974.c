@@ -593,10 +593,12 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 #define RPM_MEM_CLK_TYPE  0x326b6c63
 
 #define CXO_ID		0x0
+#define QDSS_ID		0x1
 
 #define PNOC_ID		0x0
 #define SNOC_ID		0x1
 #define CNOC_ID		0x2
+#define MMSSNOC_AHB_ID  0x4
 
 #define BIMC_ID		0x0
 #define OCMEM_ID	0x1
@@ -604,6 +606,8 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(cnoc_clk, cnoc_a_clk, RPM_BUS_CLK_TYPE, CNOC_ID, NULL);
+DEFINE_CLK_RPM_SMD(mmssnoc_ahb_clk, mmssnoc_ahb_a_clk, RPM_BUS_CLK_TYPE,
+			MMSSNOC_AHB_ID, NULL);
 
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
 DEFINE_CLK_RPM_SMD(ocmemgx_clk, ocmemgx_a_clk, RPM_MEM_CLK_TYPE, OCMEM_ID,
@@ -611,6 +615,7 @@ DEFINE_CLK_RPM_SMD(ocmemgx_clk, ocmemgx_a_clk, RPM_MEM_CLK_TYPE, OCMEM_ID,
 
 DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_a_clk_src,
 				RPM_MISC_CLK_TYPE, CXO_ID, 19200000);
+DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
@@ -4830,6 +4835,36 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_a_clk",	ocmemnoc_clk.c,		"msm_ocmem_noc"),
 	CLK_LOOKUP("bus_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
 	CLK_LOOKUP("bus_a_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
+
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-tmc-etr"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-tpiu"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-replicator"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-tmc-etf"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-funnel-merg"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-funnel-in0"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-funnel-in1"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-funnel-kpss"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-funnel-mmss"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-stm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-etm0"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-etm1"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-etm2"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-etm3"),
+
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-tmc-etr"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-tpiu"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-replicator"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-tmc-etf"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-funnel-merg"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-funnel-in0"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-funnel-in1"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-funnel-kpss"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-funnel-mmss"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-stm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-etm0"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-etm1"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-etm2"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-etm3"),
 };
 
 static struct pll_config_regs gpll0_regs __initdata = {
@@ -5026,6 +5061,13 @@ static void __init msm8974_clock_post_init(void)
 {
 	clk_set_rate(&axi_clk_src.c, 333330000);
 	clk_set_rate(&ocmemnoc_clk_src.c, 333330000);
+
+	/*
+	 * Hold an active set vote at a rate of 40MHz for the MMSS NOC AHB
+	 * source. Sleep set vote is 0.
+	 */
+	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
+	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
 
 	/*
 	 * Hold an active set vote for CXO; this is because CXO is expected
