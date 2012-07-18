@@ -558,6 +558,8 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 
 	udev = unet->udev;
 
+	usb_enable_autosuspend(udev);
+
 	/* allow modem to wake up suspended system */
 	device_set_wakeup_enable(&udev->dev, 1);
 
