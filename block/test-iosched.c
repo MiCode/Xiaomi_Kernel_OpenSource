@@ -127,7 +127,7 @@ static void end_test_req(struct request *rq, int err)
 	test_pr_info("%s: request %d completed, err=%d",
 	       __func__, test_rq->req_id, err);
 
-	test_rq->req_completed = 1;
+	test_rq->req_completed = true;
 	test_rq->req_result = err;
 
 	check_test_completion();
@@ -204,8 +204,8 @@ int test_iosched_add_unique_test_req(int is_err_expcted,
 		blk_put_request(rq);
 		return -ENODEV;
 	}
-	test_rq->req_completed = 0;
-	test_rq->req_result = -1;
+	test_rq->req_completed = false;
+	test_rq->req_result = -EINVAL;
 	test_rq->rq = rq;
 	test_rq->is_err_expected = is_err_expcted;
 	rq->elv.priv[0] = (void *)test_rq;
@@ -347,8 +347,8 @@ int test_iosched_add_wr_rd_test_req(int is_err_expcted,
 	ptd->num_of_write_bios += num_bios;
 	test_rq->req_id = ptd->wr_rd_next_req_id++;
 
-	test_rq->req_completed = 0;
-	test_rq->req_result = -1;
+	test_rq->req_completed = false;
+	test_rq->req_result = -EINVAL;
 	test_rq->rq = rq;
 	test_rq->is_err_expected = is_err_expcted;
 	rq->elv.priv[0] = (void *)test_rq;
@@ -519,10 +519,26 @@ static int run_test(struct test_data *td)
 static void free_test_requests(struct test_data *td)
 {
 	struct test_request *test_rq;
+	struct bio *bio;
+
 	while (!list_empty(&td->test_queue)) {
 		test_rq = list_entry(td->test_queue.next, struct test_request,
 				     queuelist);
 		list_del_init(&test_rq->queuelist);
+		/*
+		 * If the request was not completed we need to free its BIOs
+		 * and remove it from the packed list
+		 */
+		if (!test_rq->req_completed) {
+			test_pr_info(
+				"%s: Freeing memory of an uncompleted request",
+				__func__);
+			list_del_init(&test_rq->rq->queuelist);
+			while ((bio = test_rq->rq->bio) != NULL) {
+				test_rq->rq->bio = bio->bi_next;
+				bio_put(bio);
+			}
+		}
 		blk_put_request(test_rq->rq);
 		kfree(test_rq->bios_buffer);
 		kfree(test_rq);
@@ -606,7 +622,8 @@ int test_iosched_start_test(struct test_info *t_info)
 			test_pr_info(
 				"%s: Another test is running, try again later",
 				__func__);
-			return -EINVAL;
+			spin_unlock(&ptd->lock);
+			return -EBUSY;
 		}
 
 		if (ptd->start_sector == 0) {
@@ -698,9 +715,8 @@ int test_iosched_start_test(struct test_info *t_info)
 		return -EINVAL;
 
 error:
-	ptd->test_result = TEST_FAILED;
-	ptd->test_info.testcase = 0;
 	post_test(ptd);
+	ptd->test_result = TEST_FAILED;
 	return ret;
 }
 EXPORT_SYMBOL(test_iosched_start_test);
