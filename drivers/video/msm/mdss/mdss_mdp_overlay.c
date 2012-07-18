@@ -115,11 +115,10 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 	if (fmt->is_yuv) {
 		if ((req->src_rect.x & 0x1) || (req->src_rect.y & 0x1) ||
 		    (req->src_rect.w & 0x1) || (req->src_rect.h & 0x1)) {
-			pr_err("invalid odd src resolution\n");
+			pr_err("invalid odd src resolution or coordinates\n");
 			return -EINVAL;
 		}
-		if ((req->dst_rect.x & 0x1) || (req->dst_rect.y & 0x1) ||
-		    (req->dst_rect.w & 0x1) || (req->dst_rect.h & 0x1)) {
+		if ((req->dst_rect.w & 0x1) || (req->dst_rect.h & 0x1)) {
 			pr_err("invalid odd dst resolution\n");
 			return -EINVAL;
 		}
