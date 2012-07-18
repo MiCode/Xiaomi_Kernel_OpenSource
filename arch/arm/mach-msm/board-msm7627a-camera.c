@@ -281,8 +281,15 @@ static struct msm_camera_gpio_conf gpio_conf_ov8825 = {
 	.gpio_no_mux = 1,
 };
 
+static struct msm_camera_sensor_flash_src msm_flash_src_ov8825 = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_LED1,
+	._fsrc.ext_driver_src.led_en = 13,
+	._fsrc.ext_driver_src.led_flash_en = 32,
+};
+
 static struct msm_camera_sensor_flash_data flash_ov8825 = {
-	.flash_type     = MSM_CAMERA_FLASH_NONE,
+	.flash_type     = MSM_CAMERA_FLASH_LED,
+	.flash_src      = &msm_flash_src_ov8825,
 };
 
 static struct msm_camera_sensor_platform_info sensor_board_info_ov8825 = {
