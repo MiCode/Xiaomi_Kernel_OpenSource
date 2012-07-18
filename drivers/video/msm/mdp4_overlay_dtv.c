@@ -678,8 +678,8 @@ static void mdp4_dtv_do_blt(struct msm_fb_data_type *mfd, int enable)
 		msleep(20);
 	}
 
-	mdp4_overlayproc_cfg(dtv_pipe);
 	mdp4_overlay_dmae_xy(dtv_pipe);
+	mdp4_overlayproc_cfg(dtv_pipe);
 	MDP_OUTP(MDP_BASE + DTV_BASE, 1);	/* start dtv */
 }
 

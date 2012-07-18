@@ -570,8 +570,13 @@ void mdp4_dma_p_done_dsi_video(struct mdp_dma_data *dma)
 {
 	if (blt_cfg_changed) {
 		mdp_is_in_isr = TRUE;
-		mdp4_overlayproc_cfg(dsi_pipe);
-		mdp4_overlay_dmap_xy(dsi_pipe);
+		if (dsi_pipe->ov_blt_addr) {
+			mdp4_overlay_dmap_xy(dsi_pipe);
+			mdp4_overlayproc_cfg(dsi_pipe);
+		} else {
+			mdp4_overlayproc_cfg(dsi_pipe);
+			mdp4_overlay_dmap_xy(dsi_pipe);
+		}
 		mdp_is_in_isr = FALSE;
 		if (dsi_pipe->ov_blt_addr) {
 			mdp4_dsi_video_blt_ov_update(dsi_pipe);
