@@ -1807,14 +1807,14 @@ static void __init msm9615_clock_pre_init(void)
 		regval |= BIT(12);
 		writel_relaxed(regval, BB_PLL0_TEST_CTL_REG);
 
-		configure_pll(&pll0_config, &pll0_regs, 1);
+		configure_sr_pll(&pll0_config, &pll0_regs, 1);
 	}
 
 	/* Check if PLL14 is enabled in FSM mode */
 	is_pll_enabled  = readl_relaxed(BB_PLL14_STATUS_REG) & BIT(16);
 
 	if (!is_pll_enabled)
-		configure_pll(&pll14_config, &pll14_regs, 1);
+		configure_sr_pll(&pll14_config, &pll14_regs, 1);
 	else if (!(readl_relaxed(BB_PLL14_MODE_REG) & BIT(20)))
 		WARN(1, "PLL14 enabled in non-FSM mode!\n");
 
