@@ -57,11 +57,11 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         2,
-	.buffer_bytes_max =     2 * 1024 * 1024,
+	.buffer_bytes_max =     1024 * 1024,
 	.period_bytes_min =	128 * 1024,
-	.period_bytes_max =     512 * 1024,
+	.period_bytes_max =     256 * 1024,
 	.periods_min =          4,
-	.periods_max =          16,
+	.periods_max =          8,
 	.fifo_size =            0,
 };
 
@@ -109,12 +109,16 @@ static void event_handler(uint32_t opcode,
 			break;
 		} else
 			atomic_set(&prtd->pending_buffer, 0);
-		if (runtime->status->hw_ptr >= runtime->control->appl_ptr)
-			break;
+
+		buf = prtd->audio_client->port[IN].buf;
+		if (runtime->status->hw_ptr >= runtime->control->appl_ptr) {
+			memset((void *)buf[0].data +
+				(prtd->out_head * prtd->pcm_count),
+				0, prtd->pcm_count);
+		}
 		pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
 				__func__, prtd->pcm_count);
 
-		buf = prtd->audio_client->port[IN].buf;
 		param.paddr = (unsigned long)buf[0].phys
 				+ (prtd->out_head * prtd->pcm_count);
 		param.len = prtd->pcm_count;
