@@ -459,7 +459,7 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 			if (datacb_data->pkt.fw_data.fw_ptr_status &&
 			be32_to_cpu(datacb_data->pkt.fw_data.rec_length) &&
 			be32_to_cpu(datacb_data->pkt.fw_data.rec_length)
-			<= MAX_FRAME_SIZE) {
+			<= MAX_REC_BUF_SIZE) {
 
 				MM_DBG("Copy FW link:rec_buf_size \
 				= 0x%08x, rec_length=0x%08x\n",
@@ -484,7 +484,7 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 			} else if (datacb_data->pkt.rw_data.rw_ptr_status &&
 			be32_to_cpu(datacb_data->pkt.rw_data.rec_length) &&
 			be32_to_cpu(datacb_data->pkt.rw_data.rec_length)
-			<= MAX_FRAME_SIZE) {
+			<= MAX_REC_BUF_SIZE) {
 
 				MM_DBG("Copy RW link:rec_buf_size \
 				=0x%08x, rec_length=0x%08x\n",
@@ -509,12 +509,12 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 			} else {
 				MM_ERR("FW: ptr_status %d, rec_length=0x%08x,"
 				"RW: ptr_status %d, rec_length=0x%08x\n",
-				datacb_data->pkt.rw_data.fw_ptr_status, \
+				datacb_data->pkt.fw_data.fw_ptr_status, \
 				be32_to_cpu( \
 				datacb_data->pkt.fw_data.rec_length), \
-				datacb_data->pkt.rw_data.fw_ptr_status, \
+				datacb_data->pkt.rw_data.rw_ptr_status, \
 				be32_to_cpu( \
-				datacb_data->pkt.fw_data.rec_length));
+				datacb_data->pkt.rw_data.rec_length));
 			}
 			if (rec_status != RPC_VOC_REC_STAT_DONE) {
 				/* Not end of record */
