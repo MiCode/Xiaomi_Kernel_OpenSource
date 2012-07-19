@@ -1417,9 +1417,12 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	 * curve where soc_est is not so accurate. We generally don't want to
 	 * adjust when soc_est is inaccurate except for the cases when soc is
 	 * way far off (higher than 50 or lesser than 20).
+	 * Also don't adjust soc if it is above 90 becuase we might pull it low
+	 * and  cause a bad user experience
 	 */
 	if (soc_est == soc
-		|| (is_between(45, 25, soc_est) && is_between(50, 20, soc)))
+		|| (is_between(45, 25, soc_est) && is_between(50, 20, soc))
+		|| soc >= 90)
 		goto out;
 
 	if (last_soc_est == -EINVAL)
