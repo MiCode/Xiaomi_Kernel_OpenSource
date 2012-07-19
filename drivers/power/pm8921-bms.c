@@ -131,6 +131,8 @@ struct pm8921_bms_chip {
 	int			shutdown_soc;
 	int			shutdown_soc_timer_expired;
 	struct delayed_work	shutdown_soc_work;
+	struct delayed_work	calculate_soc_delayed_work;
+	struct timespec		t_soc_queried;
 };
 
 /*
@@ -153,6 +155,7 @@ static int last_charge_increase;
 module_param(last_chargecycles, int, 0644);
 module_param(last_charge_increase, int, 0644);
 
+static int calculated_soc = -EINVAL;
 static int last_soc = -EINVAL;
 static int last_real_fcc_mah = -EINVAL;
 static int last_real_fcc_batt_temp = -EINVAL;
@@ -1568,8 +1571,6 @@ static void adjust_rc_and_uuc_for_shutdown_soc(
 	if (shutdown_soc == 0xFF)
 		shutdown_soc = 0;
 
-	pr_debug("shutdown_soc = %d forcing it now\n", shutdown_soc);
-
 	/* step 1 get to a reasonable rbatt */
 	if (chip->last_ocv_uv < chip->v_cutoff * 1000) {
 		int new_pc_for_rbatt;
@@ -1760,7 +1761,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	if (soc > 100)
 		soc = 100;
-	pr_debug("SOC = %d%%\n", soc);
+	pr_debug("before adjusting calculated SOC = %d%%\n", soc);
 
 	if (bms_fake_battery != -EINVAL) {
 		pr_debug("Returning Fake SOC = %d%%\n", bms_fake_battery);
@@ -1782,8 +1783,74 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = 0;
 	}
 
-	soc = adjust_soc(chip, soc, batt_temp, rbatt,
+	calculated_soc = adjust_soc(chip, soc, batt_temp, rbatt,
 					fcc_uah, unusable_charge_uah, cc_uah);
+
+	pr_debug("calculated SOC = %d\n", calculated_soc);
+	return calculated_soc;
+}
+
+#define CALCULATE_SOC_MS	20000
+static void calculate_soc_work(struct work_struct *work)
+{
+	struct pm8921_bms_chip *chip = container_of(work,
+				struct pm8921_bms_chip,
+				calculate_soc_delayed_work.work);
+	int batt_temp, rc;
+	struct pm8xxx_adc_chan_result result;
+	struct pm8921_soc_params raw;
+	int soc;
+
+	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+					chip->batt_temp_channel, rc);
+		return;
+	}
+	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	batt_temp = (int)result.physical;
+
+	mutex_lock(&chip->last_ocv_uv_mutex);
+	read_soc_params_raw(chip, &raw);
+
+	soc = calculate_state_of_charge(chip, &raw,
+					batt_temp, last_chargecycles);
+	mutex_unlock(&chip->last_ocv_uv_mutex);
+
+	schedule_delayed_work(&chip->calculate_soc_delayed_work,
+			round_jiffies_relative(msecs_to_jiffies
+			(CALCULATE_SOC_MS)));
+}
+
+static int report_state_of_charge(struct pm8921_bms_chip *chip)
+{
+	int soc = calculated_soc;
+	int delta_time_us;
+	struct timespec now;
+	struct pm8xxx_adc_chan_result result;
+	int batt_temp;
+	int rc;
+
+	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+					the_chip->batt_temp_channel, rc);
+		return rc;
+	}
+	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	batt_temp = (int)result.physical;
+
+	do_posix_clock_monotonic_gettime(&now);
+	if (chip->t_soc_queried.tv_sec != 0) {
+		delta_time_us
+		= (now.tv_sec - chip->t_soc_queried.tv_sec) * USEC_PER_SEC
+			+ (now.tv_nsec - chip->t_soc_queried.tv_nsec) / 1000;
+	} else {
+		/* calculation for the first time */
+		delta_time_us = 0;
+	}
 
 	/*
 	 * account for charge time - limit it to SOC_CATCHUP_SEC to
@@ -1839,6 +1906,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	last_soc = soc;
 	backup_soc(chip, batt_temp, last_soc);
 	pr_debug("Reported SOC = %d\n", last_soc);
+	chip->t_soc_queried = now;
 
 	return last_soc;
 }
@@ -1969,33 +2037,12 @@ EXPORT_SYMBOL(pm8921_bms_get_battery_current);
 
 int pm8921_bms_get_percent_charge(void)
 {
-	int batt_temp, rc;
-	struct pm8xxx_adc_chan_result result;
-	struct pm8921_soc_params raw;
-	int soc;
-
 	if (!the_chip) {
 		pr_err("called before initialization\n");
 		return -EINVAL;
 	}
 
-	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-					the_chip->batt_temp_channel, rc);
-		return rc;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx", result.physical,
-						result.measurement);
-	batt_temp = (int)result.physical;
-
-	mutex_lock(&the_chip->last_ocv_uv_mutex);
-	read_soc_params_raw(the_chip, &raw);
-
-	soc = calculate_state_of_charge(the_chip, &raw,
-					batt_temp, last_chargecycles);
-	mutex_unlock(&the_chip->last_ocv_uv_mutex);
-	return soc;
+	return report_state_of_charge(the_chip);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_get_percent_charge);
 
@@ -2076,26 +2123,13 @@ EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
 #define OCV_TOL_NO_OCV		0x00
 void pm8921_bms_charging_began(void)
 {
-	int batt_temp, rc;
-	struct pm8xxx_adc_chan_result result;
 	struct pm8921_soc_params raw;
-
-	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-				the_chip->batt_temp_channel, rc);
-		return;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	batt_temp = (int)result.physical;
 
 	mutex_lock(&the_chip->last_ocv_uv_mutex);
 	read_soc_params_raw(the_chip, &raw);
-
-	the_chip->start_percent = calculate_state_of_charge(the_chip, &raw,
-					batt_temp, last_chargecycles);
 	mutex_unlock(&the_chip->last_ocv_uv_mutex);
+
+	the_chip->start_percent = report_state_of_charge(the_chip);
 
 	bms_start_percent = the_chip->start_percent;
 	bms_start_ocv_uv = raw.last_good_ocv_uv;
@@ -2843,6 +2877,9 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&chip->calib_hkadc_delayed_work,
 				calibrate_hkadc_delayed_work);
 
+	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
+			calculate_soc_work);
+
 	rc = request_irqs(chip, pdev);
 	if (rc) {
 		pr_err("couldn't register interrupts rc = %d\n", rc);
@@ -2874,6 +2911,8 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	/* enable the vbatt reading interrupts for scheduling hkadc calib */
 	pm8921_bms_enable_irq(chip, PM8921_BMS_GOOD_OCV);
 	pm8921_bms_enable_irq(chip, PM8921_BMS_OCV_FOR_R);
+
+	calculate_soc_work(&(chip->calculate_soc_delayed_work.work));
 
 	get_battery_uvolts(chip, &vbatt);
 	pr_info("OK battery_capacity_at_boot=%d volt = %d ocv = %d\n",
