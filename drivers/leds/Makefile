@@ -52,6 +52,7 @@ obj-$(CONFIG_LEDS_PMIC8058)		+= leds-pmic8058.o
 obj-$(CONFIG_LEDS_PMIC_MPP)		+= leds-pmic-mpp.o
 obj-$(CONFIG_LEDS_QCIBL)		+= leds-qci-backlight.o
 obj-$(CONFIG_LEDS_MSM_PDM)		+= leds-msm-pdm.o
+obj-$(CONFIG_LEDS_MSM_TRICOLOR)		+= leds-msm-tricolor.o
 
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
