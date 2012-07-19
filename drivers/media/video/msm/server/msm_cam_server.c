@@ -1703,10 +1703,10 @@ int msm_cam_server_request_irq(void *arg)
 					sizeof(struct intr_table_entry));
 			D("%s Saving Entry %d %d %d %p",
 			__func__,
-			ind_irq_tbl[irq_req->cam_hw_idx].irq_num,
-			ind_irq_tbl[irq_req->cam_hw_idx].cam_hw_idx,
-			ind_irq_tbl[irq_req->cam_hw_idx].is_composite,
-			ind_irq_tbl[irq_req->cam_hw_idx].subdev_list[0]);
+			ind_irq_tbl[irq_req->irq_idx].irq_num,
+			ind_irq_tbl[irq_req->irq_idx].cam_hw_idx,
+			ind_irq_tbl[irq_req->irq_idx].is_composite,
+			ind_irq_tbl[irq_req->irq_idx].subdev_list[0]);
 
 			spin_unlock_irqrestore(&g_server_dev.intr_table_lock,
 				flags);
@@ -1859,10 +1859,16 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 		break;
 
 	case ISPIF_DEV:
+		if (index >= MAX_NUM_ISPIF_DEV) {
+			pr_err("%s Invalid ISPIF idx %d", __func__, index);
+			err = -EINVAL;
+			break;
+		}
+		cam_hw_idx = MSM_CAM_HW_ISPIF + index;
 		g_server_dev.ispif_device = sd;
 		if (g_server_dev.irqr_device) {
 			g_server_dev.subdev_table[cam_hw_idx] = sd;
-			err = msm_cam_server_fill_sdev_irqnum(MSM_CAM_HW_ISPIF,
+			err = msm_cam_server_fill_sdev_irqnum(cam_hw_idx,
 				sd_info->irq_num);
 		}
 		break;
