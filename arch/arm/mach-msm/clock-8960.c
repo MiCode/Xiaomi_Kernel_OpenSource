@@ -419,16 +419,16 @@ static int set_vdd_dig_8930(struct clk_vdd_class *vdd_class, int level)
 	.fmax[VDD_DIG_##l2] = (f2), \
 	.fmax[VDD_DIG_##l3] = (f3)
 
-enum vdd_sr2_pll_levels {
-	VDD_SR2_PLL_OFF,
-	VDD_SR2_PLL_ON
+enum vdd_sr2_hdmi_pll_levels {
+	VDD_SR2_HDMI_PLL_OFF,
+	VDD_SR2_HDMI_PLL_ON
 };
 
-static int set_vdd_sr2_pll_8960(struct clk_vdd_class *vdd_class, int level)
+static int set_vdd_sr2_hdmi_pll_8960(struct clk_vdd_class *vdd_class, int level)
 {
 	int rc = 0;
 
-	if (level == VDD_SR2_PLL_OFF) {
+	if (level == VDD_SR2_HDMI_PLL_OFF) {
 		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_L23,
 				RPM_VREG_VOTER3, 0, 0, 1);
 		if (rc)
@@ -453,20 +453,20 @@ static int set_vdd_sr2_pll_8960(struct clk_vdd_class *vdd_class, int level)
 	return rc;
 }
 
-static DEFINE_VDD_CLASS(vdd_sr2_pll, set_vdd_sr2_pll_8960);
+static DEFINE_VDD_CLASS(vdd_sr2_hdmi_pll, set_vdd_sr2_hdmi_pll_8960);
 
 static int sr2_lreg_uv[] = {
-	[VDD_SR2_PLL_OFF] = 0,
-	[VDD_SR2_PLL_ON] = 1800000,
+	[VDD_SR2_HDMI_PLL_OFF] = 0,
+	[VDD_SR2_HDMI_PLL_ON] = 1800000,
 };
 
-static int set_vdd_sr2_pll_8064(struct clk_vdd_class *vdd_class, int level)
+static int set_vdd_sr2_hdmi_pll_8064(struct clk_vdd_class *vdd_class, int level)
 {
 	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_LVS7, RPM_VREG_VOTER3,
 				    sr2_lreg_uv[level], sr2_lreg_uv[level], 1);
 }
 
-static int set_vdd_sr2_pll_8930(struct clk_vdd_class *vdd_class, int level)
+static int set_vdd_sr2_hdmi_pll_8930(struct clk_vdd_class *vdd_class, int level)
 {
 	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8038_L23, RPM_VREG_VOTER3,
 				    sr2_lreg_uv[level], sr2_lreg_uv[level], 1);
@@ -498,8 +498,8 @@ static struct pll_clk pll3_clk = {
 		.dbg_name = "pll3_clk",
 		.rate = 1200000000,
 		.ops = &clk_ops_local_pll,
-		.vdd_class = &vdd_sr2_pll,
-		.fmax[VDD_SR2_PLL_ON] = ULONG_MAX,
+		.vdd_class = &vdd_sr2_hdmi_pll,
+		.fmax[VDD_SR2_HDMI_PLL_ON] = ULONG_MAX,
 		CLK_INIT(pll3_clk.c),
 		.warned = true,
 	},
@@ -3912,11 +3912,6 @@ static void hdmi_pll_clk_disable(struct clk *c)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static unsigned long hdmi_pll_clk_get_rate(struct clk *c)
-{
-	return hdmi_pll_get_rate();
-}
-
 static struct clk *hdmi_pll_clk_get_parent(struct clk *c)
 {
 	return &pxo_clk.c;
@@ -3925,13 +3920,14 @@ static struct clk *hdmi_pll_clk_get_parent(struct clk *c)
 static struct clk_ops clk_ops_hdmi_pll = {
 	.enable = hdmi_pll_clk_enable,
 	.disable = hdmi_pll_clk_disable,
-	.get_rate = hdmi_pll_clk_get_rate,
 	.get_parent = hdmi_pll_clk_get_parent,
 };
 
 static struct clk hdmi_pll_clk = {
 	.dbg_name = "hdmi_pll_clk",
 	.ops = &clk_ops_hdmi_pll,
+	.vdd_class = &vdd_sr2_hdmi_pll,
+	.fmax[VDD_SR2_HDMI_PLL_ON] = ULONG_MAX,
 	CLK_INIT(hdmi_pll_clk),
 };
 
@@ -3975,8 +3971,10 @@ static unsigned long fmax_tv_src_8064[MAX_VDD_LEVELS] __initdata = {
 void set_rate_tv(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 {
 	unsigned long pll_rate = (unsigned long)nf->extra_freq_data;
-	if (pll_rate)
+	if (pll_rate) {
 		hdmi_pll_set_rate(pll_rate);
+		hdmi_pll_clk.rate = pll_rate;
+	}
 	set_rate_mnd(rcg, nf);
 }
 
@@ -6262,10 +6260,10 @@ static void __init reg_init(void)
 static void __init msm8960_clock_pre_init(void)
 {
 	if (cpu_is_apq8064()) {
-		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8064;
+		vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8064;
 	} else if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
 		vdd_dig.set_vdd = set_vdd_dig_8930;
-		vdd_sr2_pll.set_vdd = set_vdd_sr2_pll_8930;
+		vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8930;
 	}
 
 	/*
