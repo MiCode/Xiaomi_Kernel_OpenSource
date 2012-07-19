@@ -200,6 +200,16 @@ static int msm_pcie_rd_conf(struct pci_bus *bus, u32 devfn, int where,
 static int msm_pcie_wr_conf(struct pci_bus *bus, u32 devfn,
 			    int where, int size, u32 val)
 {
+	/*
+	 *Attempt to reset secondary bus is causing PCIE core to reset.
+	 *Disable secondary bus reset functionality.
+	 */
+	if ((bus->number == 0) && (where == PCI_BRIDGE_CONTROL) &&
+	    (val & PCI_BRIDGE_CTL_BUS_RESET)) {
+		pr_info("PCIE secondary bus reset not supported\n");
+		val &= ~PCI_BRIDGE_CTL_BUS_RESET;
+	}
+
 	return msm_pcie_oper_conf(bus, devfn, WR, where, size, &val);
 }
 
