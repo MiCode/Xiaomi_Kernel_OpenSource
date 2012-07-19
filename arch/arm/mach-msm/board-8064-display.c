@@ -1045,7 +1045,8 @@ static void set_mdp_clocks_for_wuxga(void)
 	}
 }
 
-void __init apq8064_set_display_params(char *prim_panel, char *ext_panel)
+void __init apq8064_set_display_params(char *prim_panel, char *ext_panel,
+		unsigned char resolution)
 {
 	/*
 	 * For certain MPQ boards, HDMI should be set as primary display
@@ -1080,4 +1081,6 @@ void __init apq8064_set_display_params(char *prim_panel, char *ext_panel)
 		pr_debug("msm_fb_pdata.ext_panel_name %s\n",
 			msm_fb_pdata.ext_panel_name);
 	}
+
+	msm_fb_pdata.ext_resolution = resolution;
 }

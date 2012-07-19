@@ -112,6 +112,8 @@
 #define HDMI_VFRMT_MAX			59
 #define HDMI_VFRMT_FORCE_32BIT		0x7FFFFFFF
 
+extern int ext_resolution;
+
 struct hdmi_disp_mode_timing_type {
 	uint32	video_format;
 	uint32	active_h;

@@ -657,6 +657,9 @@ static int apq8064_change_memory_power(u64 start, u64 size,
 
 static char prim_panel_name[PANEL_NAME_MAX_LEN];
 static char ext_panel_name[PANEL_NAME_MAX_LEN];
+
+static int ext_resolution;
+
 static int __init prim_display_setup(char *param)
 {
 	if (strnlen(param, PANEL_NAME_MAX_LEN))
@@ -673,9 +676,18 @@ static int __init ext_display_setup(char *param)
 }
 early_param("ext_display", ext_display_setup);
 
+static int __init hdmi_resulution_setup(char *param)
+{
+	int ret;
+	ret = kstrtoint(param, 10, &ext_resolution);
+	return ret;
+}
+early_param("ext_resolution", hdmi_resulution_setup);
+
 static void __init apq8064_reserve(void)
 {
-	apq8064_set_display_params(prim_panel_name, ext_panel_name);
+	apq8064_set_display_params(prim_panel_name, ext_panel_name,
+		ext_resolution);
 	msm_reserve();
 	if (apq8064_fmem_pdata.size) {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
