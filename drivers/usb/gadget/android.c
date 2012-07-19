@@ -1079,7 +1079,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 
 	config->fsg.nluns = 1;
 	name[0] = "lun";
-	if (dev->pdata->cdrom) {
+	if (dev->pdata && dev->pdata->cdrom) {
 		config->fsg.nluns = 2;
 		config->fsg.luns[1].cdrom = 1;
 		config->fsg.luns[1].ro = 1;
