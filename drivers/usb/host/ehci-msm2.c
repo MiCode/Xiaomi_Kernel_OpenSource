@@ -660,6 +660,7 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 
 skip_phy_resume:
 
+	usb_hcd_resume_root_hub(hcd);
 	atomic_set(&mhcd->in_lpm, 0);
 
 	if (mhcd->async_int) {
