@@ -380,7 +380,7 @@ static void ddl_vidc_encode_set_profile_level(
 		encode_profile = VIDC_1080P_PROFILE_MPEG4_ADV_SIMPLE;
 	break;
 	case VCD_PROFILE_H264_BASELINE:
-		encode_profile = VIDC_1080P_PROFILE_H264_BASELINE;
+		encode_profile = VIDC_1080P_PROFILE_H264_CONSTRAINED_BASELINE;
 	break;
 	case VCD_PROFILE_H264_MAIN:
 		encode_profile = VIDC_1080P_PROFILE_H264_MAIN;
