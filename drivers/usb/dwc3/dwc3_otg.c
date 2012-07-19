@@ -271,6 +271,61 @@ int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger)
 	return 0;
 }
 
+/**
+ * dwc3_ext_event_notify - callback to handle events from external transceiver
+ * @otg: Pointer to the otg transceiver structure
+ * @event: Event reported by transceiver
+ *
+ * Returns 0 on success
+ */
+static void dwc3_ext_event_notify(struct usb_otg *otg,
+					enum dwc3_ext_events event)
+{
+	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
+	struct usb_phy *phy = dotg->otg.phy;
+
+	if (event == DWC3_EVENT_PHY_RESUME) {
+		if (!pm_runtime_status_suspended(phy->dev)) {
+			dev_warn(phy->dev, "PHY_RESUME event out of LPM!!!!\n");
+		} else {
+			dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
+			/* ext_xceiver would have taken h/w out of LPM by now */
+			pm_runtime_get(phy->dev);
+		}
+	}
+
+	if (ext_xceiv->id == DWC3_ID_FLOAT)
+		set_bit(ID, &dotg->inputs);
+	else
+		clear_bit(ID, &dotg->inputs);
+
+	if (ext_xceiv->bsv)
+		set_bit(B_SESS_VLD, &dotg->inputs);
+	else
+		clear_bit(B_SESS_VLD, &dotg->inputs);
+
+	schedule_work(&dotg->sm_work);
+}
+
+/**
+ * dwc3_set_ext_xceiv - bind/unbind external transceiver driver
+ * @otg: Pointer to the otg transceiver structure
+ * @ext_xceiv: Pointer to the external transceiver struccture
+ *
+ * Returns 0 on success
+ */
+int dwc3_set_ext_xceiv(struct usb_otg *otg, struct dwc3_ext_xceiv *ext_xceiv)
+{
+	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+
+	dotg->ext_xceiv = ext_xceiv;
+	if (ext_xceiv)
+		ext_xceiv->notify_ext_events = dwc3_ext_event_notify;
+
+	return 0;
+}
+
 /* IRQs which OTG driver is interested in handling */
 #define DWC3_OEVT_MASK		(DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT | \
 				 DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT)
@@ -284,9 +339,20 @@ int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger)
 static irqreturn_t dwc3_otg_interrupt(int irq, void *_dotg)
 {
 	struct dwc3_otg *dotg = (struct dwc3_otg *)_dotg;
+	struct usb_phy *phy = dotg->otg.phy;
 	u32 osts, oevt_reg;
 	int ret = IRQ_NONE;
 	int handled_irqs = 0;
+
+	/*
+	 * If PHY is in retention mode then this interrupt would not be fired.
+	 * ext_xcvr (parent) is responsible for bringing h/w out of LPM.
+	 * OTG driver just need to increment power count and can safely
+	 * assume that h/w is out of low power state now.
+	 * TODO: explicitly disable OEVTEN interrupts if ext_xceiv is present
+	 */
+	if (pm_runtime_status_suspended(phy->dev))
+		pm_runtime_get(phy->dev);
 
 	oevt_reg = dwc3_readl(dotg->regs, DWC3_OEVT);
 
@@ -371,6 +437,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	struct dwc3_charger *charger = dotg->charger;
 	bool work = 0;
 
+	pm_runtime_resume(phy->dev);
 	dev_dbg(phy->dev, "%s state\n", otg_state_string(phy->state));
 
 	/* Check OTG state */
@@ -388,7 +455,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			work = 1;
 		} else {
 			phy->state = OTG_STATE_B_IDLE;
-			/* TODO: Enter low power state */
+			dev_dbg(phy->dev, "No device, trying to suspend\n");
+			pm_runtime_put_sync(phy->dev);
 		}
 		break;
 
@@ -411,7 +479,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				/* Has charger been detected? If no detect it */
 				switch (charger->chg_type) {
 				case DWC3_DCP_CHARGER:
-					/* TODO: initiate LPM */
+					dev_dbg(phy->dev, "lpm, DCP charger\n");
+					pm_runtime_put_sync(phy->dev);
 					break;
 				case DWC3_CDP_CHARGER:
 					dwc3_otg_start_peripheral(&dotg->otg,
@@ -438,9 +507,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					 * yet. We will re-try as soon as it
 					 * will be called
 					 */
-					dev_err(phy->dev,
+					dev_err(phy->dev, "enter lpm as\n"
 						"unable to start B-device\n");
 					phy->state = OTG_STATE_UNDEFINED;
+					pm_runtime_put_sync(phy->dev);
 					return;
 				}
 			}
@@ -453,7 +523,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					charger->chg_type =
 							DWC3_INVALID_CHARGER;
 			}
-			/* TODO: Enter low power state */
+			dev_dbg(phy->dev, "No device, trying to suspend\n");
+			pm_runtime_put_sync(phy->dev);
 		}
 		break;
 
@@ -481,9 +552,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				 * Probably set_host was not called yet.
 				 * We will re-try as soon as it will be called
 				 */
-				dev_dbg(phy->dev,
+				dev_dbg(phy->dev, "enter lpm as\n"
 					"unable to start A-device\n");
 				phy->state = OTG_STATE_UNDEFINED;
+				pm_runtime_put_sync(phy->dev);
 				return;
 			}
 			phy->state = OTG_STATE_A_HOST;
@@ -628,6 +700,8 @@ int dwc3_otg_init(struct dwc3 *dwc)
 		goto err3;
 	}
 
+	pm_runtime_get(dwc->dev);
+
 	return 0;
 
 err3:
@@ -658,6 +732,7 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 			dotg->charger->start_detection(dotg->charger, false);
 		cancel_work_sync(&dotg->sm_work);
 		usb_set_transceiver(NULL);
+		pm_runtime_put(dwc->dev);
 		free_irq(dotg->irq, dotg);
 		kfree(dotg->otg.phy);
 		kfree(dotg);
