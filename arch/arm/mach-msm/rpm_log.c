@@ -115,13 +115,11 @@ static u32 msm_rpm_log_copy(const struct msm_rpm_log_platform_data *pdata,
 			continue;
 		}
 		/*
-		 * Ensure that the reported buffer size is within limits of
-		 * known maximum size and that all indices are 4 byte aligned.
-		 * These conditions are required to interact with a ULog buffer
+		 * Ensure that all indices are 4 byte aligned.
+		 * This conditions is required to interact with a ULog buffer
 		 * properly.
 		 */
-		if (tail_idx - head_idx > pdata->log_len ||
-		    !IS_ALIGNED((tail_idx | head_idx | *read_idx), 4))
+		if (!IS_ALIGNED((tail_idx | head_idx | *read_idx), 4))
 			break;
 
 		msg_len = msm_rpm_log_read(pdata, MSM_RPM_LOG_PAGE_BUFFER,
