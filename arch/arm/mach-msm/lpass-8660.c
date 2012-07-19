@@ -19,6 +19,7 @@
 #include <linux/stringify.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/err.h>
 
 #include <mach/irqs.h>
 #include <mach/scm.h>
@@ -35,6 +36,8 @@
 #define MODULE_NAME			"lpass_8x60"
 #define SCM_Q6_NMI_CMD			0x1
 
+static struct subsys_device *subsys_8x60_q6_dev;
+
 /* Subsystem restart: QDSP6 data, functions */
 static void *q6_ramdump_dev;
 static void q6_fatal_fn(struct work_struct *);
@@ -44,7 +47,7 @@ static void __iomem *q6_wakeup_intr;
 static void q6_fatal_fn(struct work_struct *work)
 {
 	pr_err("%s: Watchdog bite received from Q6!\n", MODULE_NAME);
-	subsystem_restart("lpass");
+	subsystem_restart_dev(subsys_8x60_q6_dev);
 	enable_irq(LPASS_Q6SS_WDOG_EXPIRED);
 }
 
@@ -65,7 +68,7 @@ static void send_q6_nmi(void)
 	pr_info("subsystem-fatal-8x60: Q6 NMI was sent.\n");
 }
 
-int subsys_q6_shutdown(const struct subsys_data *crashed_subsys)
+int subsys_q6_shutdown(const struct subsys_desc *crashed_subsys)
 {
 	void __iomem *q6_wdog_addr =
 		ioremap_nocache(Q6SS_WDOG_ENABLE, 8);
@@ -82,7 +85,7 @@ int subsys_q6_shutdown(const struct subsys_data *crashed_subsys)
 	return 0;
 }
 
-int subsys_q6_powerup(const struct subsys_data *crashed_subsys)
+int subsys_q6_powerup(const struct subsys_desc *crashed_subsys)
 {
 	int ret = pil_force_boot("q6");
 	enable_irq(LPASS_Q6SS_WDOG_EXPIRED);
@@ -93,7 +96,7 @@ int subsys_q6_powerup(const struct subsys_data *crashed_subsys)
 static struct ramdump_segment q6_segments[] = { {0x46700000, 0x47F00000 -
 					0x46700000}, {0x28400000, 0x12800} };
 static int subsys_q6_ramdump(int enable,
-				const struct subsys_data *crashed_subsys)
+				const struct subsys_desc *crashed_subsys)
 {
 	if (enable)
 		return do_ramdump(q6_ramdump_dev, q6_segments,
@@ -102,7 +105,7 @@ static int subsys_q6_ramdump(int enable,
 		return 0;
 }
 
-void subsys_q6_crash_shutdown(const struct subsys_data *crashed_subsys)
+void subsys_q6_crash_shutdown(const struct subsys_desc *crashed_subsys)
 {
 	send_q6_nmi();
 }
@@ -117,7 +120,7 @@ static irqreturn_t lpass_wdog_bite_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static struct subsys_data subsys_8x60_q6 = {
+static struct subsys_desc subsys_8x60_q6 = {
 	.name = "lpass",
 	.shutdown = subsys_q6_shutdown,
 	.powerup = subsys_q6_powerup,
@@ -127,6 +130,7 @@ static struct subsys_data subsys_8x60_q6 = {
 
 static void __exit lpass_fatal_exit(void)
 {
+	subsys_unregister(subsys_8x60_q6_dev);
 	iounmap(q6_wakeup_intr);
 	free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 }
@@ -156,7 +160,9 @@ static int __init lpass_fatal_init(void)
 	if (!q6_wakeup_intr)
 		pr_warn("lpass-8660: Unable to ioremap q6 wakeup address.");
 
-	ret = ssr_register_subsystem(&subsys_8x60_q6);
+	subsys_8x60_q6_dev = subsys_register(&subsys_8x60_q6);
+	if (IS_ERR(subsys_8x60_q6_dev))
+		ret = PTR_ERR(subsys_8x60_q6_dev);
 out:
 	return ret;
 }

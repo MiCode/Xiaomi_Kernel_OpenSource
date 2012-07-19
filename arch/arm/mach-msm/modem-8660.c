@@ -19,6 +19,7 @@
 #include <linux/stringify.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/err.h>
 
 #include <mach/irqs.h>
 #include <mach/scm.h>
@@ -48,6 +49,8 @@ static DECLARE_DELAYED_WORK(debug_crash_modem_work,
 module_param(reset_modem, int, 0644);
 #endif
 
+static struct subsys_device *modem_8660_dev;
+
 /* Subsystem restart: Modem data, functions */
 static void *modem_ramdump_dev;
 static void modem_fatal_fn(struct work_struct *);
@@ -75,7 +78,7 @@ static void modem_unlock_timeout(struct work_struct *work)
 	mb();
 	iounmap(hwio_modem_reset_addr);
 
-	subsystem_restart("modem");
+	subsystem_restart_dev(modem_8660_dev);
 	enable_irq(MARM_WDOG_EXPIRED);
 }
 
@@ -93,7 +96,7 @@ static void modem_fatal_fn(struct work_struct *work)
 
 	if (modem_state == 0 || modem_state & panic_smsm_states) {
 
-		subsystem_restart("modem");
+		subsystem_restart_dev(modem_8660_dev);
 		enable_irq(MARM_WDOG_EXPIRED);
 
 	} else if (modem_state & reset_smsm_states) {
@@ -135,13 +138,13 @@ static int modem_notif_handler(struct notifier_block *this,
 			goto out;
 		}
 		pr_err("%s: Modem error fatal'ed.", MODULE_NAME);
-		subsystem_restart("modem");
+		subsystem_restart_dev(modem_8660_dev);
 	}
 out:
 	return NOTIFY_DONE;
 }
 
-static int modem_shutdown(const struct subsys_data *crashed_subsys)
+static int modem_shutdown(const struct subsys_desc *crashed_subsys)
 {
 	void __iomem *modem_wdog_addr;
 
@@ -178,7 +181,7 @@ static int modem_shutdown(const struct subsys_data *crashed_subsys)
 	return 0;
 }
 
-static int modem_powerup(const struct subsys_data *crashed_subsys)
+static int modem_powerup(const struct subsys_desc *crashed_subsys)
 {
 	int ret;
 
@@ -192,8 +195,7 @@ static int modem_powerup(const struct subsys_data *crashed_subsys)
 static struct ramdump_segment modem_segments[] = {
 	{0x42F00000, 0x46000000 - 0x42F00000} };
 
-static int modem_ramdump(int enable,
-				const struct subsys_data *crashed_subsys)
+static int modem_ramdump(int enable, const struct subsys_desc *crashed_subsys)
 {
 	if (enable)
 		return do_ramdump(modem_ramdump_dev, modem_segments,
@@ -202,8 +204,7 @@ static int modem_ramdump(int enable,
 		return 0;
 }
 
-static void modem_crash_shutdown(
-				const struct subsys_data *crashed_subsys)
+static void modem_crash_shutdown(const struct subsys_desc *crashed_subsys)
 {
 	/* If modem hasn't already crashed, send SMSM_RESET. */
 	if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
@@ -225,7 +226,7 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static struct subsys_data subsys_8660_modem = {
+static struct subsys_desc subsys_8660_modem = {
 	.name = "modem",
 	.shutdown = modem_shutdown,
 	.powerup = modem_powerup,
@@ -260,13 +261,16 @@ static int __init modem_8660_init(void)
 		goto out;
 	}
 
-	ret = ssr_register_subsystem(&subsys_8660_modem);
+	modem_8660_dev = subsys_register(&subsys_8660_modem);
+	if (IS_ERR(modem_8660_dev))
+		ret = PTR_ERR(modem_8660_dev);
 out:
 	return ret;
 }
 
 static void __exit modem_8660_exit(void)
 {
+	subsys_unregister(modem_8660_dev);
 	free_irq(MARM_WDOG_EXPIRED, NULL);
 }
 
