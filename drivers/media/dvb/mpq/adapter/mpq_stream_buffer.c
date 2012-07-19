@@ -192,18 +192,18 @@ size_t mpq_streambuffer_data_read(
 				struct mpq_streambuffer *sbuff,
 				u8 *buf, size_t len)
 {
-	int actual_len;
+	ssize_t actual_len;
 
 	actual_len = dvb_ringbuffer_avail(&sbuff->raw_data);
 	if (actual_len < len)
 		len = actual_len;
 
-	if (actual_len)
-		dvb_ringbuffer_read(&sbuff->raw_data, buf, actual_len);
+	if (len)
+		dvb_ringbuffer_read(&sbuff->raw_data, buf, len);
 
 	wake_up_all(&sbuff->raw_data.queue);
 
-	return actual_len;
+	return len;
 }
 EXPORT_SYMBOL(mpq_streambuffer_data_read);
 
