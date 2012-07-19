@@ -29,6 +29,7 @@
 #define MIN_FRAME_RATE 1
 #define MAX_FRAME_RATE 120
 #define DEFAULT_FRAME_RATE 30
+#define DEFAULT_IR_MBS 30
 #define MAX_SLICE_BYTE_SIZE 1024
 #define MIN_SLICE_BYTE_SIZE 1024
 #define MAX_SLICE_MB_SIZE 300
@@ -417,6 +418,9 @@ static struct hal_h264_entropy_control
 static struct hal_multi_slice_control
 	venc_multi_slice_control = {HAL_MULTI_SLICE_OFF ,
 		0};
+static struct hal_intra_refresh
+	venc_intra_refresh = {HAL_INTRA_REFRESH_NONE ,
+		DEFAULT_IR_MBS, DEFAULT_IR_MBS, DEFAULT_IR_MBS};
 
 static const struct msm_vidc_format venc_formats[] = {
 	{
@@ -948,24 +952,40 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 		property_id =
 			HAL_PARAM_VENC_INTRA_REFRESH;
 		intra_refresh.mode = control.value;
+		intra_refresh.air_mbs = venc_intra_refresh.air_mbs;
+		intra_refresh.air_ref = venc_intra_refresh.air_ref;
+		intra_refresh.cir_mbs = venc_intra_refresh.cir_mbs;
+		venc_intra_refresh.mode = intra_refresh.mode;
 		pdata = &intra_refresh;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS:
 		property_id =
 			HAL_PARAM_VENC_INTRA_REFRESH;
 		intra_refresh.air_mbs = control.value;
+		intra_refresh.mode = venc_intra_refresh.mode;
+		intra_refresh.air_ref = venc_intra_refresh.air_ref;
+		intra_refresh.cir_mbs = venc_intra_refresh.cir_mbs;
+		venc_intra_refresh.air_mbs = control.value;
 		pdata = &intra_refresh;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF:
 		property_id =
 			HAL_PARAM_VENC_INTRA_REFRESH;
 		intra_refresh.air_ref = control.value;
+		intra_refresh.air_mbs = venc_intra_refresh.air_mbs;
+		intra_refresh.mode = venc_intra_refresh.mode;
+		intra_refresh.cir_mbs = venc_intra_refresh.cir_mbs;
+		venc_intra_refresh.air_ref = control.value;
 		pdata = &intra_refresh;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS:
 		property_id =
 			HAL_PARAM_VENC_INTRA_REFRESH;
 		intra_refresh.cir_mbs = control.value;
+		intra_refresh.air_mbs = venc_intra_refresh.air_mbs;
+		intra_refresh.air_ref = venc_intra_refresh.air_ref;
+		intra_refresh.mode = venc_intra_refresh.mode;
+		venc_intra_refresh.cir_mbs = control.value;
 		pdata = &intra_refresh;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
