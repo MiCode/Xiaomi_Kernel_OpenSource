@@ -565,18 +565,6 @@ static int msm_pil_debugfs_add(struct pil_device *pil) { return 0; }
 static void msm_pil_debugfs_remove(struct pil_device *pil) { }
 #endif
 
-static int __msm_pil_shutdown(struct device *dev, void *data)
-{
-	pil_shutdown(to_pil_device(dev));
-	return 0;
-}
-
-static int msm_pil_shutdown_at_boot(void)
-{
-	return bus_for_each_dev(&pil_bus_type, NULL, NULL, __msm_pil_shutdown);
-}
-late_initcall(msm_pil_shutdown_at_boot);
-
 static void pil_device_release(struct device *dev)
 {
 	struct pil_device *pil = to_pil_device(dev);
