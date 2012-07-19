@@ -532,7 +532,7 @@ static int __devinit krait_l2_pmu_device_probe(struct platform_device *pdev)
 {
 	krait_l2_pmu.plat_device = pdev;
 
-	if (!armpmu_register(&krait_l2_pmu, "kraitl2", -1))
+	if (!armpmu_register(&krait_l2_pmu, "msm-l2", -1))
 		pmu_type = krait_l2_pmu.pmu.type;
 
 	return 0;
