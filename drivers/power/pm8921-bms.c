@@ -1529,89 +1529,30 @@ void pm8921_bms_invalidate_shutdown_soc(void)
 }
 EXPORT_SYMBOL(pm8921_bms_invalidate_shutdown_soc);
 
-static void adjust_rc_and_uuc_for_shutdown_soc(
-						struct pm8921_bms_chip *chip,
-						int batt_temp,
-						int chargecycles,
-						int fcc_uah,
-						int uuc_uah,
-						int cc_uah,
-						int remaining_charge_uah,
-						int rbatt,
-						int *ret_rc,
-						int *ret_uuc,
-						int *ret_rbatt)
+static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
+			int batt_temp,
+			int chargecycles,
+			int fcc_uah,
+			int uuc_uah,
+			int cc_uah,
+			int shutdown_soc,
+			int *rc_uah,
+			int *ocv_uv)
 {
-	s64 new_rc;
-	int new_uuc;
-	int new_rbatt;
-	int pc;
-	int ocv, ocv_uv;
+	s64 rc;
+	int pc, new_pc;
 	int batt_temp_degc = batt_temp / 10;
-	int new_pc;
-	int shutdown_soc;
+	int ocv;
 
-	mutex_lock(&soc_invalidation_mutex);
-	shutdown_soc = chip->shutdown_soc;
-	/*
-	 * value of zero means the shutdown soc should not be used, the battery
-	 * was removed for extended period, the coincell capacitor could have
-	 * drained
-	 * shutdown_soc_invalid means the shutdown soc should not be used,
-	 * the battery was removed for a small period
-	 */
-	if (shutdown_soc == 0 || shutdown_soc_invalid) {
-		new_rc = remaining_charge_uah;
-		new_uuc = uuc_uah;
-		new_rbatt = rbatt;
-		goto out;
-	}
-
-	/* value of 0xFF means shutdown soc was 0% */
-	if (shutdown_soc == 0xFF)
-		shutdown_soc = 0;
-
-	/* step 1 get to a reasonable rbatt */
-	if (chip->last_ocv_uv < chip->v_cutoff * 1000) {
-		int new_pc_for_rbatt;
-		int iavg_ua;
-		int iavg_ma;
-		int soc_for_rbatt;
-
-		new_pc_for_rbatt = calculate_pc(chip, chip->v_cutoff * 1000,
-						batt_temp, chargecycles);
-
-		soc_for_rbatt
-			= (new_pc_for_rbatt * fcc_uah - cc_uah * 100) / fcc_uah;
-		new_rbatt = get_rbatt(chip, soc_for_rbatt, batt_temp);
-
-		pm8921_bms_get_battery_current(&iavg_ua);
-		iavg_ma = iavg_ua / 1000;
-		if (iavg_ma < 0)
-			iavg_ma = CHARGING_IAVG_MA;
-
-		new_uuc = calculate_uuc_uah_at_given_current(chip,
-					batt_temp, chargecycles,
-					new_rbatt, fcc_uah, iavg_ma);
-
-		pr_debug("new pc = %d, soc_rbatt = %d, new_rbatt = %d,\n",
-				new_pc_for_rbatt, soc_for_rbatt, new_rbatt);
-		pr_debug("iavg_ma = %d, new_uuc = %d\n", iavg_ma, new_uuc);
-	} else {
-		new_rbatt = rbatt;
-		new_uuc = uuc_uah;
-	}
-
-	/* step 2 adjust rc using the new uuc */
-	new_rc = (s64)shutdown_soc * (fcc_uah - new_uuc);
-	new_rc = div_s64(new_rc, 100) + cc_uah + new_uuc;
-	pc = DIV_ROUND_CLOSEST((int)new_rc * 100, fcc_uah);
+	rc = (s64)shutdown_soc * (fcc_uah - uuc_uah);
+	rc = div_s64(rc, 100) + cc_uah + uuc_uah;
+	pc = DIV_ROUND_CLOSEST((int)rc * 100, fcc_uah);
 	pc = clamp(pc, 0, 100);
 
 	ocv = interpolate_ocv(chip, batt_temp_degc, pc);
 
-	pr_debug("To force shutdown_soc = %d, new_rc = %d, pc = %d, ocv mv = %d\n",
-				shutdown_soc, (int)new_rc, pc, ocv);
+	pr_debug("s_soc = %d, fcc = %d uuc = %d rc = %d, pc = %d, ocv mv = %d\n",
+			shutdown_soc, fcc_uah, uuc_uah, (int)rc, pc, ocv);
 	new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
 	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
 
@@ -1626,14 +1567,85 @@ static void adjust_rc_and_uuc_for_shutdown_soc(
 		pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
 	}
 
-	ocv_uv = ocv * 1000;
+	*ocv_uv = ocv * 1000;
+	*rc_uah = (int)rc;
+}
+
+static void adjust_rc_and_uuc_for_shutdown_soc(
+						struct pm8921_bms_chip *chip,
+						int batt_temp,
+						int chargecycles,
+						int fcc_uah,
+						int uuc_uah,
+						int cc_uah,
+						int remaining_charge_uah,
+						int rbatt,
+						int *ret_rc,
+						int *ret_uuc,
+						int *ret_rbatt)
+{
+	int new_rbatt;
+	int ocv_uv;
+	int shutdown_soc;
+	int rc_uah;
+	int soc_rbatt;
+	int iavg_ua, iavg_ma;
+	int num_tries = 0;
+
+	mutex_lock(&soc_invalidation_mutex);
+	shutdown_soc = chip->shutdown_soc;
+	/*
+	 * value of zero means the shutdown soc should not be used, the battery
+	 * was removed for extended period, the coincell capacitor could have
+	 * drained
+	 * shutdown_soc_invalid means the shutdown soc should not be used,
+	 * the battery was removed for a small period
+	 */
+	if (shutdown_soc == 0 || shutdown_soc_invalid) {
+		rc_uah = remaining_charge_uah;
+		goto out;
+	}
+
+	/* value of 0xFF means shutdown soc was 0% */
+	if (shutdown_soc == 0xFF)
+		shutdown_soc = 0;
+
+	pm8921_bms_get_battery_current(&iavg_ua);
+	iavg_ma = iavg_ua / 1000;
+	if (iavg_ma < 0)
+		iavg_ma = CHARGING_IAVG_MA;
+
+recalculate_ocv:
+
+	find_ocv_for_soc(chip, batt_temp, chargecycles,
+					fcc_uah, uuc_uah, cc_uah,
+					shutdown_soc,
+					&rc_uah, &ocv_uv);
+
+	soc_rbatt = div_s64((rc_uah - cc_uah) * 100,  fcc_uah);
+	new_rbatt = get_rbatt(chip, soc_rbatt, batt_temp);
+	pr_debug("for s_soc = %d rc_uah = %d ocv_uv = %d, soc_rbatt = %d rbatt = %d\n",
+			shutdown_soc, rc_uah, ocv_uv, soc_rbatt, new_rbatt);
+	if (abs(new_rbatt - rbatt) > 20 && num_tries < 10) {
+		rbatt = new_rbatt;
+		uuc_uah = calculate_uuc_uah_at_given_current(chip,
+					batt_temp, chargecycles,
+					new_rbatt, fcc_uah, iavg_ma);
+
+		pr_debug("rbatt not settled uuc = %d for rbatt = %d iavg_ma = %d num_tries = %d\n",
+					uuc_uah, rbatt, iavg_ma, num_tries);
+		num_tries++;
+		goto recalculate_ocv;
+	}
+	pr_debug("DONE for s_soc = %d rc_uah = %d ocv_uv = %d, rbatt = %d\n",
+			shutdown_soc, rc_uah, ocv_uv, new_rbatt);
 
 	chip->pon_ocv_uv = chip->last_ocv_uv;
 	chip->last_ocv_uv = ocv_uv;
 out:
-	*ret_rbatt = new_rbatt;
-	*ret_rc = (int)new_rc;
-	*ret_uuc = new_uuc;
+	*ret_rbatt = rbatt;
+	*ret_rc = rc_uah;
+	*ret_uuc = uuc_uah;
 	mutex_unlock(&soc_invalidation_mutex);
 }
 
