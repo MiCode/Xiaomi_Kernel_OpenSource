@@ -22,6 +22,7 @@
 #include <linux/mfd/pm8xxx/pm8821-irq.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <mach/mpm.h>
 
 #define PM8821_TOTAL_IRQ_MASTERS	2
 #define PM8821_BLOCKS_PER_MASTER	7
@@ -31,7 +32,7 @@
 #define PM8821_IRQ_MASK_REG_OFFSET	0x08
 #define SSBI_REG_ADDR_IRQ_MASTER0	0x30
 #define SSBI_REG_ADDR_IRQ_MASTER1	0xB0
-
+#define MPM_PIN_FOR_8821_IRQ		7
 #define SSBI_REG_ADDR_IRQ_IT_STATUS(master_base, block) (master_base + block)
 
 /*
@@ -410,8 +411,12 @@ struct pm_irq_chip *  pm8821_irq_init(struct device *dev,
 							devirq, rc);
 			kfree(chip);
 			return ERR_PTR(rc);
-		} else
+		} else{
 			irq_set_irq_wake(devirq, 1);
+			msm_mpm_set_pin_wake(MPM_PIN_FOR_8821_IRQ, 1);
+			msm_mpm_set_pin_type(MPM_PIN_FOR_8821_IRQ,
+				pdata->irq_trigger_flag);
+		}
 	}
 
 	return chip;
