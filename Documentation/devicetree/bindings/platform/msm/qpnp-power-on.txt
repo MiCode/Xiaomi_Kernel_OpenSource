@@ -1,0 +1,39 @@
+Qualcomm QPNP power-on
+
+The qpnp-power-on is a driver which supports the power-on(PON)
+peripheral on Qualcomm PMICs. The supported functionality includes
+power on/off reason, power-key press/release detection and other PON
+features. This peripheral is connected to the host processor via the SPMI
+interface.
+
+Required properties:
+- compatible:	Must be "qcom,qpnp-power-on"
+- reg:		Specifies the SPMI address and size for this PON (power-on) peripheral
+- interrupts:	Specifies the interrupt associated with the power-key.
+
+Optional properties:
+- qcom,pon-key-enable:		Enable power-key detection. It enables monitoring
+				of the KPDPWR_N line (connected to the power-key).
+- qcom,pon-key-dbc-delay:	The debouce delay for the power-key interrupt
+				specifed in us. The value ranges from 2 seconds
+				to 1/64 of a second. Possible values are -
+				- 2, 1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64
+				- Intermediate value is rounded down to the
+				nearest valid value.
+- qcom,pon-key-pull-up:		The intial state of the KPDPWR_N pin
+				(connected to the power-key)
+				0 = No pull-up
+				1 = pull-up enabled
+
+If any of the above optional property is not defined, the driver will continue
+with the default hardware state.
+
+Example:
+	qcom,power-on@800 {
+		compatible = "qcom,qpnp-power-on";
+		reg = <0x800 0x100>;
+		interrupts = <0x0 0x8 0x1>;
+		qcom,pon-key-enable= <true>;
+		qcom,pon-key-pull-up = <true>;
+		qcom,pon-key-dbc-delay = <15625>;
+	}

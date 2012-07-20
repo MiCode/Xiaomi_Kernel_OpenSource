@@ -60,4 +60,11 @@ config QPNP_PWM
           devices support Pulse Width Modulation output with user generated
           patterns. They share a lookup table with size of 64 entries.
 
+config QPNP_POWER_ON
+	tristate "QPNP PMIC POWER-ON Driver"
+	depends on OF_SPMI && SPMI && MSM_QPNP_INT
+	help
+	  This driver supports the power-on functionality on Qualcomm
+	  PNP PMIC. It currently supports reporting the change in status of
+	  the KPDPWR_N line (connected to the power-key).
 endmenu
