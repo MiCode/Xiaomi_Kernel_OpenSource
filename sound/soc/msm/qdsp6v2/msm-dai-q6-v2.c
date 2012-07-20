@@ -40,7 +40,11 @@ struct msm_dai_q6_dai_data {
 	union afe_port_config port_config;
 };
 
-static struct clk *pcm_clk;
+static struct clk *pcm_src_clk;
+static struct clk *pcm_branch_clk;
+static struct clk *pcm_oe_src_clk;
+static struct clk *pcm_oe_branch_clk;
+
 static DEFINE_MUTEX(aux_pcm_mutex);
 static int aux_pcm_count;
 
@@ -120,6 +124,9 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close AUX PCM TX port\n");
 
+	clk_disable_unprepare(pcm_branch_clk);
+	clk_disable_unprepare(pcm_oe_branch_clk);
+
 	mutex_unlock(&aux_pcm_mutex);
 }
 
@@ -127,7 +134,10 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	struct msm_dai_auxpcm_pdata *auxpcm_pdata = NULL;
 	int rc = 0;
+
+	auxpcm_pdata = dai->dev->platform_data;
 
 	mutex_lock(&aux_pcm_mutex);
 
@@ -170,12 +180,37 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	 * assert/deasset and afe_open sequence is not followed.
 	 */
 
+	rc = clk_set_rate(pcm_src_clk, auxpcm_pdata->pcm_clk_rate);
+	if (rc < 0) {
+		pr_err("%s: clk_set_rate failed\n", __func__);
+		goto fail;
+	}
+
+	rc = clk_prepare_enable(pcm_branch_clk);
+	if (rc) {
+		pr_err("%s: clk enable failed\n", __func__);
+		goto fail;
+	}
+
+	rc = clk_set_rate(pcm_oe_src_clk, 24576000>>1);
+	if (rc < 0) {
+		pr_err("%s: clk_set_rate on pcm oe failed\n", __func__);
+		goto fail;
+	}
+
+	rc = clk_prepare_enable(pcm_oe_branch_clk);
+	if (rc) {
+		pr_err("%s: clk enable pcm_oe_branch_clk failed\n", __func__);
+		goto fail;
+	}
+
 	afe_open(PCM_RX, &dai_data->port_config, dai_data->rate);
 
 	afe_open(PCM_TX, &dai_data->port_config, dai_data->rate);
 
 	mutex_unlock(&aux_pcm_mutex);
 
+fail:
 	return rc;
 }
 
@@ -217,6 +252,7 @@ static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
 	auxpcm_pdata = (struct msm_dai_auxpcm_pdata *)
 					dev_get_drvdata(dai->dev);
 	dai->dev->platform_data = auxpcm_pdata;
+	dai->id = dai->dev->id;
 
 	mutex_lock(&aux_pcm_mutex);
 
@@ -225,9 +261,41 @@ static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
 	 * data to the cpu driver, since cpu drive is unaware of any
 	 * boarc specific configuration.
 	 */
-	if (!pcm_clk)
-		pcm_clk = clk_get(dai->dev, auxpcm_pdata->clk);
+	if ((!pcm_src_clk) || (!pcm_branch_clk)) {
+		pcm_src_clk = clk_get(dai->dev, auxpcm_pdata->clk);
 
+		if (IS_ERR(pcm_src_clk)) {
+			pr_err("%s: could not get pcm_src_clk\n", __func__);
+			pcm_src_clk = NULL;
+			return -ENODEV;
+		}
+
+		pcm_branch_clk = clk_get(dai->dev, "ibit_clk");
+
+		if (IS_ERR(pcm_branch_clk)) {
+			pr_err("%s: could not get pcm_branch_clk\n", __func__);
+			pcm_branch_clk = NULL;
+			return -ENODEV;
+		}
+	}
+
+	if ((!pcm_oe_src_clk) || (!pcm_oe_branch_clk)) {
+
+		pcm_oe_src_clk = clk_get(dai->dev, "core_oe_src_clk");
+
+		if (IS_ERR(pcm_oe_src_clk)) {
+			pr_err("%s: could not get pcm_oe_src_clk\n", __func__);
+			pcm_oe_src_clk = NULL;
+			return -ENODEV;
+		}
+
+		pcm_oe_branch_clk = clk_get(dai->dev, "core_oe_clk");
+		if (IS_ERR(pcm_oe_branch_clk)) {
+			pr_err("%s: could not get pcm_oe_clk\n", __func__);
+			pcm_oe_branch_clk = NULL;
+			return -ENODEV;
+		}
+	}
 	mutex_unlock(&aux_pcm_mutex);
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data), GFP_KERNEL);
@@ -813,7 +881,7 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
-static int msm_auxpcm_dev_probe(struct platform_device *pdev)
+static int __devinit msm_auxpcm_dev_probe(struct platform_device *pdev)
 {
 	int id;
 	void *plat_data;
@@ -837,6 +905,7 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "dev name %s\n", dev_name(&pdev->dev));
 
 	dev_set_drvdata(&pdev->dev, plat_data);
+	pdev->dev.id = id;
 
 	switch (id) {
 	case AFE_PORT_ID_PRIMARY_PCM_RX:
@@ -855,7 +924,7 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 	return rc;
 }
 
-static int msm_auxpcm_resource_probe(
+static int __devinit msm_auxpcm_resource_probe(
 			struct platform_device *pdev)
 {
 	int rc = 0;
@@ -950,13 +1019,13 @@ fail_free_plat:
 	return rc;
 }
 
-static int msm_auxpcm_dev_remove(struct platform_device *pdev)
+static int __devexit msm_auxpcm_dev_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_dai(&pdev->dev);
 	return 0;
 }
 
-static int msm_auxpcm_resource_remove(
+static int __devexit msm_auxpcm_resource_remove(
 				struct platform_device *pdev)
 {
 	void *auxpcm_pdata;
@@ -967,22 +1036,20 @@ static int msm_auxpcm_resource_remove(
 	return 0;
 }
 
-static const struct of_device_id msm_auxpcm_resource_dt_match[] = {
+static struct of_device_id msm_auxpcm_resource_dt_match[] = {
 	{ .compatible = "qcom,msm-auxpcm-resource", },
 	{}
 };
-MODULE_DEVICE_TABLE(of, msm_auxpcm_resource_dt_match);
 
-static const struct of_device_id msm_auxpcm_dev_dt_match[] = {
+static struct of_device_id msm_auxpcm_dev_dt_match[] = {
 	{ .compatible = "qcom,msm-auxpcm-dev", },
 	{}
 };
-MODULE_DEVICE_TABLE(of, msm_auxpcm_dev_dt_match);
 
 
-static struct platform_driver msm_auxpcm_dev = {
+static struct platform_driver msm_auxpcm_dev_driver = {
 	.probe  = msm_auxpcm_dev_probe,
-	.remove = msm_auxpcm_dev_remove,
+	.remove = __devexit_p(msm_auxpcm_dev_remove),
 	.driver = {
 		.name = "msm-auxpcm-dev",
 		.owner = THIS_MODULE,
@@ -990,9 +1057,9 @@ static struct platform_driver msm_auxpcm_dev = {
 	},
 };
 
-static struct platform_driver msm_auxpcm_resource = {
+static struct platform_driver msm_auxpcm_resource_driver = {
 	.probe  = msm_auxpcm_resource_probe,
-	.remove  = msm_auxpcm_resource_remove,
+	.remove  = __devexit_p(msm_auxpcm_resource_remove),
 	.driver = {
 		.name = "msm-auxpcm-resource",
 		.owner = THIS_MODULE,
@@ -1134,22 +1201,23 @@ static int __init msm_dai_q6_init(void)
 {
 	int rc;
 
-	rc = platform_driver_register(&msm_auxpcm_dev);
+	rc = platform_driver_register(&msm_auxpcm_dev_driver);
 	if (rc)
 		goto fail;
 
-	rc = platform_driver_register(&msm_auxpcm_resource);
+	rc = platform_driver_register(&msm_auxpcm_resource_driver);
+
 	if (rc) {
 		pr_err("%s: fail to register cpu dai driver\n", __func__);
-		platform_driver_unregister(&msm_auxpcm_dev);
+		platform_driver_unregister(&msm_auxpcm_dev_driver);
 		goto fail;
 	}
 
 	rc = platform_driver_register(&msm_dai_q6);
 	if (rc) {
 		pr_err("%s: fail to register dai q6 driver", __func__);
-		platform_driver_unregister(&msm_auxpcm_dev);
-		platform_driver_unregister(&msm_auxpcm_resource);
+		platform_driver_unregister(&msm_auxpcm_dev_driver);
+		platform_driver_unregister(&msm_auxpcm_resource_driver);
 		goto fail;
 	}
 
@@ -1157,8 +1225,8 @@ static int __init msm_dai_q6_init(void)
 	if (rc) {
 		pr_err("%s: fail to register dai q6 dev driver", __func__);
 		platform_driver_unregister(&msm_dai_q6);
-		platform_driver_unregister(&msm_auxpcm_dev);
-		platform_driver_unregister(&msm_auxpcm_resource);
+		platform_driver_unregister(&msm_auxpcm_dev_driver);
+		platform_driver_unregister(&msm_auxpcm_resource_driver);
 		goto fail;
 	}
 fail:
@@ -1170,8 +1238,8 @@ static void __exit msm_dai_q6_exit(void)
 {
 	platform_driver_unregister(&msm_dai_q6_dev);
 	platform_driver_unregister(&msm_dai_q6);
-	platform_driver_unregister(&msm_auxpcm_dev);
-	platform_driver_unregister(&msm_auxpcm_resource);
+	platform_driver_unregister(&msm_auxpcm_dev_driver);
+	platform_driver_unregister(&msm_auxpcm_resource_driver);
 }
 module_exit(msm_dai_q6_exit);
 
