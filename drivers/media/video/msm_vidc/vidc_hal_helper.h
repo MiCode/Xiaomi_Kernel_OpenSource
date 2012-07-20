@@ -68,8 +68,8 @@
 
 #define HFI_VIDEO_DOMAIN_ENCODER	(HFI_COMMON_BASE + 0x1)
 #define HFI_VIDEO_DOMAIN_DECODER	(HFI_COMMON_BASE + 0x2)
-#define HFI_VIDEO_DOMAIN_VPE		(HFI_COMMON_BASE + 0x3)
-#define HFI_VIDEO_DOMAIN_MBI		(HFI_COMMON_BASE + 0x4)
+#define HFI_VIDEO_DOMAIN_VPE		(HFI_COMMON_BASE + 0x4)
+#define HFI_VIDEO_DOMAIN_MBI		(HFI_COMMON_BASE + 0x8)
 
 #define HFI_DOMAIN_BASE_COMMON		(HFI_COMMON_BASE + 0)
 #define HFI_DOMAIN_BASE_VDEC		(HFI_COMMON_BASE + 0x01000000)
@@ -131,6 +131,7 @@
 #define HFI_H264_PROFILE_STEREO_HIGH		0x00000008
 #define HFI_H264_PROFILE_MULTIVIEW_HIGH		0x00000010
 #define HFI_H264_PROFILE_CONSTRAINED_HIGH	0x00000020
+#define  HFI_H264_PROFILE_CONSTRAINED_BASE  0x00000040
 
 #define HFI_H264_LEVEL_1					0x00000001
 #define HFI_H264_LEVEL_1b					0x00000002
@@ -261,6 +262,10 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00B)
 #define HFI_PROPERTY_PARAM_MULTI_VIEW_FORMAT				\
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00C)
+#define  HFI_PROPERTY_PARAM_MAX_SEQUENCE_HEADER_SIZE        \
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x00D)
+#define  HFI_PROPERTY_PARAM_CODEC_MASK_SUPPORTED            \
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x00E)
 
 #define HFI_PROPERTY_CONFIG_COMMON_START				\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x2000)
@@ -271,6 +276,8 @@ struct hfi_buffer_info {
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_COMMON_OFFSET + 0x3000)
 #define HFI_PROPERTY_PARAM_VDEC_MULTI_STREAM				\
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x001)
+#define  HFI_PROPERTY_PARAM_VDEC_CONCEAL_COLOR              \
+	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x002)
 
 #define HFI_PROPERTY_CONFIG_VDEC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_COMMON_OFFSET + 0x4000)
@@ -285,15 +292,13 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x003)
 #define HFI_PROPERTY_PARAM_VENC_RATE_CONTROL				\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x004)
-#define HFI_PROPERTY_PARAM_VENC_TEMPORAL_SPATIAL_TRADEOFF	\
+#define  HFI_PROPERTY_PARAM_VENC_H264_PICORDER_CNT_TYPE     \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x005)
-#define HFI_PROPERTY_PARAM_VENC_QUALITY_VS_SPEED			\
-	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x010)
 #define HFI_PROPERTY_PARAM_VENC_SESSION_QP				\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x006)
 #define HFI_PROPERTY_PARAM_VENC_MPEG4_AC_PREDICTION			\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x007)
-#define HFI_PROPERTY_PARAM_VENC_MPEG4_DATA_PARTITIONING		\
+#define  HFI_PROPERTY_PARAM_VENC_SESSION_QP_RANGE           \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x008)
 #define HFI_PROPERTY_PARAM_VENC_MPEG4_TIME_RESOLUTION		\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x009)
@@ -301,22 +306,26 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x00A)
 #define HFI_PROPERTY_PARAM_VENC_MPEG4_HEADER_EXTENSION		\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x00B)
-#define HFI_PROPERTY_PARAM_VENC_MULTI_SLICE_INFO			\
+#define  HFI_PROPERTY_PARAM_VENC_OPEN_GOP                   \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x00C)
 #define HFI_PROPERTY_PARAM_VENC_INTRA_REFRESH				\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x00D)
 #define HFI_PROPERTY_PARAM_VENC_MULTI_SLICE_CONTROL			\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x00E)
-#define HFI_PROPERTY_PARAM_VENC_VBVBUFFER_SIZE				\
+#define  HFI_PROPERTY_PARAM_VENC_VBV_HRD_BUF_SIZE           \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x00F)
+#define  HFI_PROPERTY_PARAM_VENC_QUALITY_VS_SPEED           \
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x010)
 #define HFI_PROPERTY_PARAM_VENC_MPEG4_QPEL				\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x011)
 #define HFI_PROPERTY_PARAM_VENC_ADVANCED				\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x012)
 #define HFI_PROPERTY_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x013)
-#define HFI_PROPERTY_PARAM_VENC_H264_IDR_S3D_FRAME_PACKING_NAL	\
+#define  HFI_PROPERTY_PARAM_VENC_H264_SPS_ID                \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x014)
+#define  HFI_PROPERTY_PARAM_VENC_H264_PPS_ID               \
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x015)
 
 #define HFI_PROPERTY_CONFIG_VENC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_COMMON_OFFSET + 0x6000)
@@ -328,7 +337,7 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x003)
 #define HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME			\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x004)
-#define HFI_PROPERTY_CONFIG_VENC_TIMESTAMP_SCALE			\
+#define  HFI_PROPERTY_CONFIG_VENC_SLICE_SIZE                \
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x005)
 #define HFI_PROPERTY_CONFIG_VENC_FRAME_QP				\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x006)
@@ -357,6 +366,8 @@ struct hfi_bitrate {
 #define HFI_CAPABILITY_SCALE_X				(HFI_COMMON_BASE + 0x6)
 #define HFI_CAPABILITY_SCALE_Y				(HFI_COMMON_BASE + 0x7)
 #define HFI_CAPABILITY_BITRATE				(HFI_COMMON_BASE + 0x8)
+#define  HFI_CAPABILITY_BFRAME				(HFI_COMMON_BASE + 0x9)
+#define  HFI_CAPABILITY_HIERARCHICAL_P_LAYERS	(HFI_COMMON_BASE + 0x10)
 
 struct hfi_capability_supported {
 	u32 capability_type;
@@ -433,10 +444,6 @@ struct hfi_intra_period {
 	u32 bframes;
 };
 
-struct hfi_timestamp_scale {
-	u32 time_stamp_scale;
-};
-
 struct hfi_mpeg4_header_extension {
 	u32 header_extension;
 };
@@ -492,6 +499,10 @@ struct hfi_profile_level_supported {
 	struct hfi_profile_level rg_profile_level[1];
 };
 
+struct hfi_quality_vs_speed {
+	u32 quality_vs_speed;
+};
+
 struct hfi_quantization {
 	u32 qp_i;
 	u32 qp_p;
@@ -499,8 +510,10 @@ struct hfi_quantization {
 	u32 layer_id;
 };
 
-struct hfi_temporal_spatial_tradeoff {
-	u32 ts_factor;
+struct hfi_quantization_range {
+	u32 min_qp;
+	u32 max_qp;
+	u32 layer_id;
 };
 
 struct hfi_frame_size {
@@ -605,6 +618,8 @@ struct hfi_venc_config_advanced {
 	u8 pipe2d;
 	u8 hw_mode;
 	u8 low_delay_enforce;
+	u8 worker_vppsg_delay;
+	int close_gop;
 	int h264_constrain_intra_pred;
 	int h264_transform_8x8_flag;
 	int mpeg4_qpel_enable;
@@ -613,6 +628,9 @@ struct hfi_venc_config_advanced {
 	u8 vpp_info_packet_mode;
 	u8 ref_tile_mode;
 	u8 bitstream_flush_mode;
+	u32 vppsg_vspap_fb_sync_delay;
+	u32 rc_initial_delay;
+	u32 peak_bitrate_constraint;
 	u32 ds_display_frame_width;
 	u32 ds_display_frame_height;
 	u32 perf_tune_param_ptr;
@@ -622,6 +640,19 @@ struct hfi_venc_config_advanced {
 	u32 input_roi_height;
 	u32 vsp_fifo_dma_sel;
 	u32 h264_num_ref_frames;
+};
+
+struct hfi_vbv_hrd_bufsize {
+	u32 buffer_size;
+};
+
+struct hfi_codec_mask_supported {
+	u32 codecs;
+	u32 video_domains;
+};
+
+struct hfi_seq_header_info {
+	u32 max_hader_len;
 };
 
 #define HFI_CMD_SYS_COMMON_START			\

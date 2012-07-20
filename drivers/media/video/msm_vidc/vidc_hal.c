@@ -1272,18 +1272,6 @@ int vidc_hal_session_set_property(void *sess,
 			sizeof(struct hfi_h264_db_control);
 		break;
 	}
-	case HAL_PARAM_VENC_TEMPORAL_SPATIAL_TRADEOFF:
-	{
-		struct hfi_temporal_spatial_tradeoff *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_TEMPORAL_SPATIAL_TRADEOFF;
-		hfi = (struct hfi_temporal_spatial_tradeoff *)
-			&pkt->rg_property_data[1];
-		hfi->ts_factor = ((struct hfi_temporal_spatial_tradeoff *)
-					pdata)->ts_factor;
-		pkt->size += sizeof(u32)  * 2;
-		break;
-	}
 	case HAL_PARAM_VENC_SESSION_QP:
 	{
 		struct hfi_quantization *hfi;
@@ -1504,8 +1492,6 @@ int vidc_hal_session_get_property(void *sess,
 	case HAL_PARAM_VENC_MPEG4_HEADER_EXTENSION:
 		break;
 	case HAL_PARAM_VENC_H264_DEBLOCK_CONTROL:
-		break;
-	case HAL_PARAM_VENC_TEMPORAL_SPATIAL_TRADEOFF:
 		break;
 	case HAL_PARAM_VENC_SESSION_QP:
 		break;
