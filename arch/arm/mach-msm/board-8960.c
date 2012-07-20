@@ -1407,11 +1407,18 @@ static void __init msm8960_init_buses(void)
 	msm_bus_rpm_set_mt_mask();
 	msm_bus_8960_apps_fabric_pdata.rpm_enabled = 1;
 	msm_bus_8960_sys_fabric_pdata.rpm_enabled = 1;
-	msm_bus_8960_mm_fabric_pdata.rpm_enabled = 1;
 	msm_bus_apps_fabric.dev.platform_data =
 		&msm_bus_8960_apps_fabric_pdata;
 	msm_bus_sys_fabric.dev.platform_data = &msm_bus_8960_sys_fabric_pdata;
-	msm_bus_mm_fabric.dev.platform_data = &msm_bus_8960_mm_fabric_pdata;
+	if (cpu_is_msm8960ab()) {
+		msm_bus_8960_sg_mm_fabric_pdata.rpm_enabled = 1;
+		msm_bus_mm_fabric.dev.platform_data =
+			&msm_bus_8960_sg_mm_fabric_pdata;
+	} else {
+		msm_bus_8960_mm_fabric_pdata.rpm_enabled = 1;
+		msm_bus_mm_fabric.dev.platform_data =
+			&msm_bus_8960_mm_fabric_pdata;
+	}
 	msm_bus_sys_fpb.dev.platform_data = &msm_bus_8960_sys_fpb_pdata;
 	msm_bus_cpss_fpb.dev.platform_data = &msm_bus_8960_cpss_fpb_pdata;
 #endif

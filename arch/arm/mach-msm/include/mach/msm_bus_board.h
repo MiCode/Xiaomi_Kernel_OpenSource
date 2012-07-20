@@ -65,6 +65,7 @@ extern struct msm_bus_fabric_registration msm_bus_def_fab_pdata;
 extern struct msm_bus_fabric_registration msm_bus_8960_apps_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_8960_sys_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_8960_mm_fabric_pdata;
+extern struct msm_bus_fabric_registration msm_bus_8960_sg_mm_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_8960_sys_fpb_pdata;
 extern struct msm_bus_fabric_registration msm_bus_8960_cpss_fpb_pdata;
 
