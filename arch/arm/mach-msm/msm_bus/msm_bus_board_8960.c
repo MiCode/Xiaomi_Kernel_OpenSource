@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,12 @@ enum msm_bus_fabric_tiered_slave_type {
 	MSM_BUS_TIERED_SLAVE_EBI1_CH0 = 1,
 	MSM_BUS_TIERED_SLAVE_EBI1_CH1,
 	MSM_BUS_TIERED_SLAVE_KMPSS_L2,
+};
+
+enum msm_bus_sg_tiered_slaves_type {
+	SG_TIERED_SLAVE_MM_IMEM = 1,
+	SG_MMSS_TIERED_SLAVE_FAB_APPS_0,
+	SG_MMSS_TIERED_SLAVE_FAB_APPS_1,
 };
 
 enum msm_bus_8960_master_ports_type {
@@ -104,6 +110,23 @@ enum msm_bus_8660_slave_ports_type {
 	MSM_BUS_SYSTEM_SLAVE_PORT_SYSTEM_FPB,
 	MSM_BUS_SYSTEM_SLAVE_PORT_MMSS_FPB,
 	MSM_BUS_SLAVE_PORT_RIVA,
+};
+
+enum msm_bus_8960_sg_master_ports_type {
+	MSM_BUS_MASTER_PORT_GRAPHICS_3D_PORT0 =
+		MSM_BUS_MMSS_MASTER_PORT_UNUSED_2,
+	MSM_BUS_MASTER_PORT_VIDEO_CAP =
+		MSM_BUS_MASTER_PORT_GRAPHICS_2D_CORE0,
+	MSM_BUS_MASTER_PORT_VIDEO_DEC =
+		MSM_BUS_MASTER_PORT_GRAPHICS_2D_CORE1,
+	MSM_BUS_MASTER_PORT_VIDEO_ENC =
+		MSM_BUS_MASTER_PORT_HD_CODEC_PORT0,
+};
+
+enum msm_bus_8960_sg_slave_ports_type {
+	SG_SLAVE_PORT_MM_IMEM = 0,
+	SG_MMSS_SLAVE_PORT_APPS_FAB_0,
+	SG_MMSS_SLAVE_PORT_APPS_FAB_1,
 };
 
 static int tier2[] = {MSM_BUS_BW_TIER2,};
@@ -424,6 +447,10 @@ static int mport_mdp[] = {
 static int mport_mdp1[] = {MSM_BUS_MASTER_PORT_MDP_PORT1,};
 static int mport_rotator[] = {MSM_BUS_MASTER_PORT_ROTATOR,};
 static int mport_graphics_3d[] = {MSM_BUS_MASTER_PORT_GRAPHICS_3D,};
+static int pro_mport_graphics_3d[] = {
+	MSM_BUS_MASTER_PORT_GRAPHICS_3D_PORT0,
+	MSM_BUS_MASTER_PORT_GRAPHICS_3D,
+};
 static int mport_jpeg_dec[] = {MSM_BUS_MASTER_PORT_JPEG_DEC,};
 static int mport_graphics_2d_core0[] = {MSM_BUS_MASTER_PORT_GRAPHICS_2D_CORE0,};
 static int mport_vfe[] = {MSM_BUS_MASTER_PORT_VFE,};
@@ -432,6 +459,9 @@ static int mport_jpeg_enc[] = {MSM_BUS_MASTER_PORT_JPEG_ENC,};
 static int mport_graphics_2d_core1[] = {MSM_BUS_MASTER_PORT_GRAPHICS_2D_CORE1,};
 static int mport_hd_codec_port0[] = {MSM_BUS_MASTER_PORT_HD_CODEC_PORT0,};
 static int mport_hd_codec_port1[] = {MSM_BUS_MASTER_PORT_HD_CODEC_PORT1,};
+static int mport_video_cap[] = {MSM_BUS_MASTER_PORT_VIDEO_CAP};
+static int mport_video_enc[] = {MSM_BUS_MASTER_PORT_VIDEO_ENC};
+static int mport_video_dec[] = {MSM_BUS_MASTER_PORT_VIDEO_DEC};
 static int appss_mport_fab_mmss[] = {
 	MSM_BUS_APPSS_MASTER_PORT_FAB_MMSS_0,
 	MSM_BUS_APPSS_MASTER_PORT_FAB_MMSS_1
@@ -439,15 +469,25 @@ static int appss_mport_fab_mmss[] = {
 
 static int mmss_sport_apps_fab[] = {
 	MSM_BUS_MMSS_SLAVE_PORT_APPS_FAB_0,
-	MSM_BUS_MMSS_SLAVE_PORT_APPS_FAB_1
+	MSM_BUS_MMSS_SLAVE_PORT_APPS_FAB_1,
+};
+static int sg_sport_apps_fab[] = {
+	SG_MMSS_SLAVE_PORT_APPS_FAB_0,
+	SG_MMSS_SLAVE_PORT_APPS_FAB_1,
 };
 static int sport_mm_imem[] = {MSM_BUS_SLAVE_PORT_MM_IMEM,};
+static int sg_sport_mm_imem[] = {SG_SLAVE_PORT_MM_IMEM,};
 
 static int mmss_tiered_slave_fab_apps[] = {
 	MSM_BUS_MMSS_TIERED_SLAVE_FAB_APPS_0,
 	MSM_BUS_MMSS_TIERED_SLAVE_FAB_APPS_1,
 };
+static int sg_tiered_slave_fab_apps[] = {
+	SG_MMSS_TIERED_SLAVE_FAB_APPS_0,
+	SG_MMSS_TIERED_SLAVE_FAB_APPS_1,
+};
 static int tiered_slave_mm_imem[] = {MSM_BUS_TIERED_SLAVE_MM_IMEM,};
+static int sg_tiered_slave_mm_imem[] = {SG_TIERED_SLAVE_MM_IMEM,};
 
 
 static struct msm_bus_node_info mmss_fabric_info[]  = {
@@ -553,6 +593,106 @@ static struct msm_bus_node_info mmss_fabric_info[]  = {
 		.num_sports = ARRAY_SIZE(sport_mm_imem),
 		.tier = tiered_slave_mm_imem,
 		.num_tiers = ARRAY_SIZE(tiered_slave_mm_imem),
+		.buswidth = 8,
+	},
+};
+
+static struct msm_bus_node_info sg_mmss_fabric_info[]  = {
+	{
+		.id = MSM_BUS_MASTER_MDP_PORT0,
+		.masterp = mport_mdp,
+		.num_mports = ARRAY_SIZE(mport_mdp),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_MDP_PORT1,
+		.masterp = mport_mdp1,
+		.num_mports = ARRAY_SIZE(mport_mdp1),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_ROTATOR,
+		.masterp = mport_rotator,
+		.num_mports = ARRAY_SIZE(mport_rotator),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_GRAPHICS_3D,
+		.masterp = pro_mport_graphics_3d,
+		.num_mports = ARRAY_SIZE(pro_mport_graphics_3d),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_JPEG_DEC,
+		.masterp = mport_jpeg_dec,
+		.num_mports = ARRAY_SIZE(mport_jpeg_dec),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_VIDEO_CAP,
+		.masterp = mport_video_cap,
+		.num_mports = ARRAY_SIZE(mport_video_cap),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_VFE,
+		.masterp = mport_vfe,
+		.num_mports = ARRAY_SIZE(mport_vfe),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_VPE,
+		.masterp = mport_vpe,
+		.num_mports = ARRAY_SIZE(mport_vpe),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_JPEG_ENC,
+		.masterp = mport_jpeg_enc,
+		.num_mports = ARRAY_SIZE(mport_jpeg_enc),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	/* This port has been added for V2. It is absent in V1 */
+	{
+		.id = MSM_BUS_MASTER_VIDEO_DEC,
+		.masterp = mport_video_dec,
+		.num_mports = ARRAY_SIZE(mport_video_dec),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_MASTER_VIDEO_ENC,
+		.masterp = mport_video_enc,
+		.num_mports = ARRAY_SIZE(mport_video_enc),
+		.tier = tier2,
+		.num_tiers = ARRAY_SIZE(tier2),
+	},
+	{
+		.id = MSM_BUS_FAB_APPSS,
+		.gateway = 1,
+		.slavep = sg_sport_apps_fab,
+		.num_sports = ARRAY_SIZE(sg_sport_apps_fab),
+		.masterp = appss_mport_fab_mmss,
+		.num_mports = ARRAY_SIZE(appss_mport_fab_mmss),
+		.tier = sg_tiered_slave_fab_apps,
+		.num_tiers = ARRAY_SIZE(sg_tiered_slave_fab_apps),
+		.buswidth = 16,
+	},
+	{
+		.id = MSM_BUS_SLAVE_MM_IMEM,
+		.slavep = sg_sport_mm_imem,
+		.num_sports = ARRAY_SIZE(sg_sport_mm_imem),
+		.tier = sg_tiered_slave_mm_imem,
+		.num_tiers = ARRAY_SIZE(sg_tiered_slave_mm_imem),
 		.buswidth = 8,
 	},
 };
@@ -915,6 +1055,22 @@ struct msm_bus_fabric_registration msm_bus_8960_mm_fabric_pdata = {
 	.offset = MSM_RPM_ID_MM_FABRIC_ARB_0,
 	.nmasters = 14,
 	.nslaves = 4,
+	.ntieredslaves = 3,
+	.board_algo = &msm_bus_board_algo,
+};
+
+struct msm_bus_fabric_registration msm_bus_8960_sg_mm_fabric_pdata = {
+	.id = MSM_BUS_FAB_MMSS,
+	.name = "msm_mm_fab",
+	sg_mmss_fabric_info,
+	ARRAY_SIZE(sg_mmss_fabric_info),
+	.ahb = 0,
+	.fabclk[DUAL_CTX] = "bus_clk",
+	.fabclk[ACTIVE_CTX] = "bus_a_clk",
+	.haltid = MSM_RPM_ID_MMSS_FABRIC_CFG_HALT_0,
+	.offset = MSM_RPM_ID_MM_FABRIC_ARB_0,
+	.nmasters = 13,
+	.nslaves = 3,
 	.ntieredslaves = 3,
 	.board_algo = &msm_bus_board_algo,
 };
