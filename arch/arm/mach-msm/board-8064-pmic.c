@@ -127,6 +127,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	/* TABLA CODEC RESET */
 	PM8921_GPIO_OUTPUT(34, 1, MED),
 	PM8921_GPIO_OUTPUT(13, 0, HIGH),               /* PCIE_CLK_PWR_EN */
+	PM8921_GPIO_INPUT(12, PM_GPIO_PULL_UP_30),     /* PCIE_WAKE_N */
 };
 
 static struct pm8xxx_gpio_init pm8921_mtp_kp_gpios[] __initdata = {

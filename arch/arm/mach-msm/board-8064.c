@@ -128,7 +128,8 @@
 #define PCIE_AXI_BAR_PHYS   0x08000000
 #define PCIE_AXI_BAR_SIZE   SZ_128M
 
-/* PCIe power enable pmic gpio */
+/* PCIe pmic gpios */
+#define PCIE_WAKE_N_PMIC_GPIO 12
 #define PCIE_PWR_EN_PMIC_GPIO 13
 #define PCIE_RST_N_PMIC_MPP 1
 
@@ -2075,6 +2076,7 @@ static struct msm_pcie_platform msm_pcie_platform_data = {
 	.gpio = msm_pcie_gpio_info,
 	.axi_addr = PCIE_AXI_BAR_PHYS,
 	.axi_size = PCIE_AXI_BAR_SIZE,
+	.wake_n = PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PCIE_WAKE_N_PMIC_GPIO),
 };
 
 static int __init mpq8064_pcie_enabled(void)

@@ -22,7 +22,7 @@ enum msm_pcie_gpio {
 	MSM_PCIE_MAX_GPIO
 };
 
-/* gpio info structrue */
+/* gpio info structure */
 struct msm_pcie_gpio_info_t {
 	char      *name;
 	uint32_t   num;
@@ -32,8 +32,10 @@ struct msm_pcie_gpio_info_t {
 /* msm pcie platfrom data */
 struct msm_pcie_platform {
 	struct msm_pcie_gpio_info_t  *gpio;
+
 	uint32_t                      axi_addr;
 	uint32_t                      axi_size;
+	uint32_t                      wake_n;
 };
 
 #endif
