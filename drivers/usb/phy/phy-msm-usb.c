@@ -340,15 +340,28 @@ static int msm_otg_link_clk_reset(struct msm_otg *motg, bool assert)
 {
 	int ret;
 
-	if (IS_ERR(motg->clk))
-		return 0;
-
 	if (assert) {
-		ret = clk_reset(motg->clk, CLK_RESET_ASSERT);
+		if (!IS_ERR(motg->clk)) {
+			ret = clk_reset(motg->clk, CLK_RESET_ASSERT);
+		} else {
+			/* Using asynchronous block reset to the hardware */
+			dev_dbg(motg->phy.dev, "block_reset ASSERT\n");
+			clk_disable_unprepare(motg->pclk);
+			clk_disable_unprepare(motg->core_clk);
+			ret = clk_reset(motg->core_clk, CLK_RESET_ASSERT);
+		}
 		if (ret)
 			dev_err(motg->phy.dev, "usb hs_clk assert failed\n");
 	} else {
-		ret = clk_reset(motg->clk, CLK_RESET_DEASSERT);
+		if (!IS_ERR(motg->clk)) {
+			ret = clk_reset(motg->clk, CLK_RESET_DEASSERT);
+		} else {
+			dev_dbg(motg->phy.dev, "block_reset DEASSERT\n");
+			ret = clk_reset(motg->core_clk, CLK_RESET_DEASSERT);
+			ndelay(200);
+			clk_prepare_enable(motg->core_clk);
+			clk_prepare_enable(motg->pclk);
+		}
 		if (ret)
 			dev_err(motg->phy.dev, "usb hs_clk deassert failed\n");
 	}
