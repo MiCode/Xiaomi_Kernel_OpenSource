@@ -68,6 +68,8 @@ struct msm_pcie_dev_t {
 	uint32_t                      axi_bar_end;
 
 	struct resource               dev_mem_res;
+
+	uint32_t                      wake_n;
 };
 
 extern uint32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev);
