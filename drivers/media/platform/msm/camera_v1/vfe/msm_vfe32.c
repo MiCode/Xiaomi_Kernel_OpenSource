@@ -469,6 +469,8 @@ static int vfe32_config_axi(
 	uint32_t *ch_info;
 	uint32_t *axi_cfg = ao+V32_AXI_BUS_FMT_OFF;
 	int vfe_mode = (mode & ~(OUTPUT_TERT1|OUTPUT_TERT2));
+	uint32_t bus_cmd = *axi_cfg;
+	int i;
 
 	/* Update the corresponding write masters for each output*/
 	ch_info = axi_cfg + V32_AXI_CFG_LEN;
@@ -543,10 +545,23 @@ static int vfe32_config_axi(
 bus_cfg:
 	msm_camera_io_w(*ao, axi_ctrl->share_ctrl->vfebase +
 		VFE_BUS_IO_FORMAT_CFG);
+	axi_cfg++;
 	msm_camera_io_memcpy(axi_ctrl->share_ctrl->vfebase +
 		vfe32_cmd[VFE_CMD_AXI_OUT_CFG].offset, axi_cfg,
-		vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length - V32_AXI_CH_INF_LEN
-		- V32_AXI_BUS_FMT_LEN);
+		V32_AXI_BUS_CFG_LEN);
+	axi_cfg += V32_AXI_BUS_CFG_LEN/4;
+	for (i = 0; i < ARRAY_SIZE(vfe32_AXI_WM_CFG); i++) {
+		msm_camera_io_w(*axi_cfg,
+			axi_ctrl->share_ctrl->vfebase+vfe32_AXI_WM_CFG[i]);
+		axi_cfg += 3;
+		msm_camera_io_memcpy(
+			axi_ctrl->share_ctrl->vfebase+vfe32_AXI_WM_CFG[i]+12,
+								axi_cfg, 12);
+		axi_cfg += 3;
+	}
+	/* TODO: Only reload for 1st axi config for concurrent case */
+	msm_camera_io_w(bus_cmd, axi_ctrl->share_ctrl->vfebase +
+					V32_AXI_BUS_CMD_OFF);
 	return 0;
 }
 
