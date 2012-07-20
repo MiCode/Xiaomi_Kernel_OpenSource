@@ -68,6 +68,7 @@ enum rpm_regulator_param_index {
 	RPM_REGULATOR_PARAM_QUIET_MODE,
 	RPM_REGULATOR_PARAM_FREQ_REASON,
 	RPM_REGULATOR_PARAM_CORNER,
+	RPM_REGULATOR_PARAM_BYPASS,
 	RPM_REGULATOR_PARAM_MAX,
 };
 
@@ -111,7 +112,8 @@ static struct rpm_regulator_param params[RPM_REGULATOR_PARAM_MAX] = {
 	PARAM(HEAD_ROOM,       1,  0,  0,  1, "hr",   0, 0x7FFFFFFF, "qcom,init-head-room"),
 	PARAM(QUIET_MODE,      0,  1,  0,  0, "qm",   0, 2,          "qcom,init-quiet-mode"),
 	PARAM(FREQ_REASON,     0,  1,  0,  1, "resn", 0, 8,          "qcom,init-freq-reason"),
-	PARAM(CORNER,          0,  1,  0,  0, "corn", 0, 5,          "qcom,init-voltage-corner"),
+	PARAM(CORNER,          0,  1,  0,  0, "corn", 0, 6,          "qcom,init-voltage-corner"),
+	PARAM(BYPASS,          1,  0,  0,  0, "bypa", 0, 1,          "qcom,init-disallow-bypass"),
 };
 
 struct rpm_vreg_request {
@@ -440,6 +442,7 @@ static void rpm_vreg_aggregate_params(u32 *param_aggr, const u32 *param_reg)
 	RPM_VREG_AGGR_MAX(QUIET_MODE, param_aggr, param_reg);
 	RPM_VREG_AGGR_MAX(FREQ_REASON, param_aggr, param_reg);
 	RPM_VREG_AGGR_MAX(CORNER, param_aggr, param_reg);
+	RPM_VREG_AGGR_MAX(BYPASS, param_aggr, param_reg);
 }
 
 static int rpm_vreg_aggregate_requests(struct rpm_regulator *regulator)
@@ -682,7 +685,7 @@ static int rpm_vreg_set_voltage_corner(struct regulator_dev *rdev, int min_uV,
 	 * regulator_set_voltage function to the actual corner values
 	 * sent to the RPM.
 	 */
-	corner = min_uV - RPM_REGULATOR_CORNER_RETENTION;
+	corner = min_uV - RPM_REGULATOR_CORNER_NONE;
 
 	if (corner < params[RPM_REGULATOR_PARAM_CORNER].min
 	    || corner > params[RPM_REGULATOR_PARAM_CORNER].max) {
@@ -716,7 +719,7 @@ static int rpm_vreg_get_voltage_corner(struct regulator_dev *rdev)
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
 
 	return reg->req.param[RPM_REGULATOR_PARAM_CORNER]
-		+ RPM_REGULATOR_CORNER_RETENTION;
+		+ RPM_REGULATOR_CORNER_NONE;
 }
 
 static int rpm_vreg_set_mode(struct regulator_dev *rdev, unsigned int mode)

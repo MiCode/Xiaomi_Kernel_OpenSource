@@ -140,12 +140,25 @@ RPM in regulator requests.
 				corner values supported on MSM8974 for PMIC
 				PM8841 SMPS 2 (VDD_Dig); nominal voltages for
 				these corners are also shown:
-					0 = Retention    (0.5000 V)
-					1 = SVS Krait    (0.7250 V)
-					2 = SVS SOC      (0.8125 V)
-					3 = Normal       (0.9000 V)
-					4 = Turbo        (0.9875 V)
-					5 = Super Turbo  (1.0500 V)
+					0 = None         (don't care)
+					1 = Retention    (0.5000 V)
+					2 = SVS Krait    (0.7250 V)
+					3 = SVS SOC      (0.8125 V)
+					4 = Normal       (0.9000 V)
+					5 = Turbo        (0.9875 V)
+					6 = Super Turbo  (1.0500 V)
+- qcom,init-disallow-bypass:   Specify that bypass mode should not be used for a
+				given LDO regulator.  When in bypass mode, an
+				LDO performs no regulation and acts as a simple
+				switch.  The RPM can utilize this mode for an
+				LDO that is subregulated from an SMPS when it is
+				possible to reduce the SMPS voltage to the
+				desired LDO output level.  Bypass mode may be
+				disallowed if lower LDO output noise is
+				required.  Supported values are:
+					0 = Allow RPM to utilize LDO bypass mode
+						if possible
+					1 = Disallow LDO bypass mode
 
 All properties specified within the core regulator framework can also be used in
 second level nodes.  These bindings can be found in:
