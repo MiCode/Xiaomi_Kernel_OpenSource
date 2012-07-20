@@ -133,6 +133,7 @@ struct pm8921_bms_chip {
 	struct delayed_work	shutdown_soc_work;
 	struct delayed_work	calculate_soc_delayed_work;
 	struct timespec		t_soc_queried;
+	int			shutdown_soc_valid_limit;
 };
 
 /*
@@ -1711,6 +1712,28 @@ static void shutdown_soc_work(struct work_struct *work)
 	chip->shutdown_soc_timer_expired = 1;
 }
 
+static bool is_shutdown_soc_within_limits(struct pm8921_bms_chip *chip, int soc)
+{
+	int shutdown_soc;
+
+	if (chip->shutdown_soc == 0 || shutdown_soc_invalid) {
+		pr_debug("NOT forcing shutdown soc = %d\n", chip->shutdown_soc);
+		return 0;
+	}
+
+	shutdown_soc = chip->shutdown_soc;
+	if (shutdown_soc == 0xFF)
+		shutdown_soc = 0;
+
+	if (abs(shutdown_soc - soc) > chip->shutdown_soc_valid_limit) {
+		pr_debug("rejecting shutdown soc = %d, soc = %d, limit = %d\n",
+			shutdown_soc, soc, chip->shutdown_soc_valid_limit);
+		shutdown_soc_invalid = 1;
+		return 0;
+	}
+
+	return 1;
+}
 /*
  * Remaining Usable Charge = remaining_charge (charge at ocv instance)
  *				- coloumb counter charge
@@ -1739,25 +1762,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 						&rbatt,
 						&iavg_ua,
 						&delta_time_us);
-
-	if (delta_time_us == 0) {
-		/*
-		 * soc for the first time - use shutdown soc
-		 * to adjust pon ocv
-		 */
-		adjust_rc_and_uuc_for_shutdown_soc(
-						chip,
-						batt_temp, chargecycles,
-						fcc_uah, unusable_charge_uah,
-						cc_uah, remaining_charge_uah,
-						rbatt,
-						&new_rc_uah, &new_ucc_uah,
-						&new_rbatt);
-
-		remaining_charge_uah = new_rc_uah;
-		unusable_charge_uah = new_ucc_uah;
-		rbatt = new_rbatt;
-	}
 
 	/* calculate remaining usable charge */
 	remaining_usable_charge_uah = remaining_charge_uah
@@ -1798,8 +1802,31 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = 0;
 	}
 
-	calculated_soc = adjust_soc(chip, soc, batt_temp, rbatt,
-					fcc_uah, unusable_charge_uah, cc_uah);
+	if (delta_time_us == 0 && is_shutdown_soc_within_limits(chip, soc)) {
+		/*
+		 * soc for the first time - use shutdown soc
+		 * to adjust pon ocv since it is a small percent away from
+		 * the real soc
+		 */
+		adjust_rc_and_uuc_for_shutdown_soc(
+						chip,
+						batt_temp, chargecycles,
+						fcc_uah, unusable_charge_uah,
+						cc_uah, remaining_charge_uah,
+						rbatt,
+						&new_rc_uah, &new_ucc_uah,
+						&new_rbatt);
+
+		remaining_charge_uah = new_rc_uah;
+		unusable_charge_uah = new_ucc_uah;
+		rbatt = new_rbatt;
+
+		soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
+					(fcc_uah - unusable_charge_uah));
+	}
+
+	calculated_soc = adjust_soc(chip, soc, batt_temp,
+			rbatt, fcc_uah, unusable_charge_uah, cc_uah);
 
 	pr_debug("calculated SOC = %d\n", calculated_soc);
 	return calculated_soc;
@@ -2863,6 +2890,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->rconn_mohm = pdata->rconn_mohm;
 	chip->start_percent = -EINVAL;
 	chip->end_percent = -EINVAL;
+	chip->shutdown_soc_valid_limit = pdata->shutdown_soc_valid_limit;
 	rc = set_battery_data(chip);
 	if (rc) {
 		pr_err("%s bad battery data %d\n", __func__, rc);

@@ -344,6 +344,7 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.r_sense		= 10,
 	.v_cutoff		= 3400,
 	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
+	.shutdown_soc_valid_limit = 20,
 };
 
 static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
