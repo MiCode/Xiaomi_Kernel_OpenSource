@@ -3968,6 +3968,20 @@ static struct rcg_clk audio_core_lpaif_pcm1_clk_src = {
 	},
 };
 
+struct rcg_clk audio_core_lpaif_pcmoe_clk_src = {
+	.cmd_rcgr_reg = LPAIF_PCMOE_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_audio_core_lpaif_clock,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[LPASS_BASE],
+	.c = {
+		.dbg_name = "audio_core_lpaif_pcmoe_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		VDD_DIG_FMAX_MAP1(LOW, 12290000),
+		CLK_INIT(audio_core_lpaif_pcmoe_clk_src.c),
+	},
+};
+
 static struct branch_clk audio_core_lpaif_codec_spkr_osr_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_CODEC_SPKR_OSR_CBCR,
 	.parent = &audio_core_lpaif_codec_spkr_clk_src.c,
@@ -4195,6 +4209,17 @@ static struct branch_clk audio_core_lpaif_pcm1_ibit_clk = {
 	},
 };
 
+struct branch_clk audio_core_lpaif_pcmoe_clk = {
+	.cbcr_reg = AUDIO_CORE_LPAIF_PCM_DATA_OE_CBCR,
+	.parent = &audio_core_lpaif_pcmoe_clk_src.c,
+	.base = &virt_bases[LPASS_BASE],
+	.c = {
+		.dbg_name = "audio_core_lpaif_pcmoe_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(audio_core_lpaif_pcmoe_clk.c),
+	},
+};
+
 static struct branch_clk q6ss_ahb_lfabif_clk = {
 	.cbcr_reg = LPASS_Q6SS_AHB_LFABIF_CBCR,
 	.has_sibling = 1,
@@ -4391,6 +4416,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&audio_core_lpaif_quad_clk_src.c,	LPASS_BASE, 0x0014},
 	{&audio_core_lpaif_pcm0_clk_src.c,	LPASS_BASE, 0x0013},
 	{&audio_core_lpaif_pcm1_clk_src.c,	LPASS_BASE, 0x0012},
+	{&audio_core_lpaif_pcmoe_clk_src.c,	LPASS_BASE, 0x000f},
 	{&audio_core_slimbus_core_clk.c,	LPASS_BASE, 0x003d},
 	{&audio_core_slimbus_lfabif_clk.c,	LPASS_BASE, 0x003e},
 	{&q6ss_xo_clk.c,			LPASS_BASE, 0x002b},
@@ -4794,6 +4820,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_clk", audio_core_lpaif_pcm1_clk_src.c, ""),
 	CLK_LOOKUP("ebit_clk", audio_core_lpaif_pcm1_ebit_clk.c, ""),
 	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pcm1_ibit_clk.c, ""),
+	CLK_LOOKUP("core_clk_src", audio_core_lpaif_pcmoe_clk_src.c, ""),
+	CLK_LOOKUP("core_clk", audio_core_lpaif_pcmoe_clk.c, ""),
 
 	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c, "pil-q6v5-mss"),
 	CLK_LOOKUP("bus_clk",       mss_bus_q6_clk.c, "pil-q6v5-mss"),
