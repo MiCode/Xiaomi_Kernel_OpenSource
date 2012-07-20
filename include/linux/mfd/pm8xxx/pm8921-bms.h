@@ -130,6 +130,7 @@ struct pm8921_bms_platform_data {
 	unsigned int			max_voltage_uv;
 	unsigned int			rconn_mohm;
 	int				enable_fcc_learning;
+	int				shutdown_soc_valid_limit;
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)

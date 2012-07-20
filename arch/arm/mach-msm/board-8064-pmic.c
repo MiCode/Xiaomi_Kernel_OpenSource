@@ -393,6 +393,7 @@ apq8064_pm8921_bms_pdata = {
 	.r_sense		= 10,
 	.v_cutoff		= 3400,
 	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
+	.shutdown_soc_valid_limit = 20,
 };
 
 static struct pm8921_platform_data
