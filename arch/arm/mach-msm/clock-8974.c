@@ -700,7 +700,7 @@ static struct pll_vote_clk mmpll1_clk_src = {
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "mmpll1_clk_src",
-		.rate = 1000000000,
+		.rate = 846000000,
 		.ops = &clk_ops_pll_vote,
 		.warned = true,
 		CLK_INIT(mmpll1_clk_src.c),
@@ -2250,10 +2250,11 @@ static struct branch_clk gcc_mss_cfg_ahb_clk = {
 };
 
 static struct clk_freq_tbl ftbl_mmss_axi_clk[] = {
-	F_MM( 19200000,    cxo,   1,   0,   0),
-	F_MM(150000000,  gpll0,   4,   0,   0),
-	F_MM(333330000, mmpll1,   3,   0,   0),
-	F_MM(400000000, mmpll0,   2,   0,   0),
+	F_MM( 19200000,    cxo,     1,   0,   0),
+	F_MM(150000000,  gpll0,     4,   0,   0),
+	F_MM(282000000, mmpll1,     3,   0,   0),
+	F_MM(320000000, mmpll1,   2.5,   0,   0),
+	F_MM(400000000, mmpll0,     2,   0,   0),
 	F_END
 };
 
@@ -2266,8 +2267,8 @@ static struct rcg_clk axi_clk_src = {
 	.c = {
 		.dbg_name = "axi_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 333330000,
-				  HIGH, 400000000),
+		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 282000000,
+				  HIGH, 320000000),
 		CLK_INIT(axi_clk_src.c),
 	},
 };
@@ -2275,7 +2276,7 @@ static struct rcg_clk axi_clk_src = {
 static struct clk_freq_tbl ftbl_ocmemnoc_clk[] = {
 	F_MM( 19200000,    cxo,   1,   0,   0),
 	F_MM(150000000,  gpll0,   4,   0,   0),
-	F_MM(333330000, mmpll1,   3,   0,   0),
+	F_MM(282000000, mmpll1,   3,   0,   0),
 	F_MM(400000000, mmpll0,   2,   0,   0),
 	F_END
 };
@@ -2289,7 +2290,7 @@ struct rcg_clk ocmemnoc_clk_src = {
 	.c = {
 		.dbg_name = "ocmemnoc_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 333330000,
+		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 282000000,
 				  HIGH, 400000000),
 		CLK_INIT(ocmemnoc_clk_src.c),
 	},
@@ -5042,9 +5043,9 @@ static struct pll_config_regs mmpll1_regs __initdata = {
 
 /* MMPLL1 at 1000 MHz, main output enabled. */
 static struct pll_config mmpll1_config __initdata = {
-	.l = 0x34,
+	.l = 0x2C,
 	.m = 0x1,
-	.n = 0xC,
+	.n = 0x10,
 	.vco_val = 0x0,
 	.vco_mask = BM(21, 20),
 	.pre_div_val = 0x0,
@@ -5147,8 +5148,8 @@ static void __init reg_init(void)
 
 static void __init msm8974_clock_post_init(void)
 {
-	clk_set_rate(&axi_clk_src.c, 333330000);
-	clk_set_rate(&ocmemnoc_clk_src.c, 333330000);
+	clk_set_rate(&axi_clk_src.c, 282000000);
+	clk_set_rate(&ocmemnoc_clk_src.c, 282000000);
 
 	/*
 	 * Hold an active set vote at a rate of 40MHz for the MMSS NOC AHB
