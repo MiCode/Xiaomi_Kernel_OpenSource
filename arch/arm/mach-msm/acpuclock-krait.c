@@ -14,6 +14,7 @@
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -59,6 +60,7 @@ static struct drv_data {
 	struct hfpll_data *hfpll_data;
 	u32 bus_perf_client;
 	struct msm_bus_scale_pdata *bus_scale;
+	int boost_uv;
 	struct device *dev;
 } drv;
 
@@ -421,9 +423,12 @@ static int calculate_vdd_dig(const struct acpu_level *tgt)
 		   max(l2_pll_vdd_dig, cpu_pll_vdd_dig));
 }
 
+static bool enable_boost = true;
+module_param_named(boost, enable_boost, bool, S_IRUGO | S_IWUSR);
+
 static int calculate_vdd_core(const struct acpu_level *tgt)
 {
-	return tgt->vdd_core;
+	return tgt->vdd_core + (enable_boost ? drv.boost_uv : 0);
 }
 
 /* Set the CPU's clock rate and adjust the L2 rate, voltage and BW requests. */
@@ -1007,6 +1012,7 @@ static void __init drv_data_init(struct device *dev,
 				    params->pvs_tables[tbl_idx].size,
 				    GFP_KERNEL);
 	BUG_ON(!drv.acpu_freq_tbl);
+	drv.boost_uv = params->pvs_tables[tbl_idx].boost_uv;
 }
 
 static void __init hw_init(void)
