@@ -222,10 +222,12 @@ struct scalable {
  * struct pvs_table - CPU performance level table and size.
  * @table: CPU performance level table
  * @size: sizeof(@table)
+ * @boost_uv: Voltage boost amount
  */
 struct pvs_table {
 	struct acpu_level *table;
 	size_t size;
+	int boost_uv;
 };
 
 /**
