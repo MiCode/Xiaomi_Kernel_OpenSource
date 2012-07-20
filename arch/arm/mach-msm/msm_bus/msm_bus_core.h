@@ -123,7 +123,7 @@ struct msm_bus_inode_info {
 struct msm_bus_node_hw_info {
 	bool dirty;
 	unsigned int hw_id;
-	unsigned long bw;
+	uint64_t bw;
 };
 
 struct msm_bus_hw_algorithm {
@@ -202,6 +202,8 @@ struct msm_bus_client {
 	int curr;
 };
 
+int msm_bus_remote_hw_commit(struct msm_bus_fabric_registration
+	*fab_pdata, void *hw_data, void **cdata);
 int msm_bus_fabric_device_register(struct msm_bus_fabric_device *fabric);
 void msm_bus_fabric_device_unregister(struct msm_bus_fabric_device *fabric);
 struct msm_bus_fabric_device *msm_bus_get_fabric_device(int fabid);
