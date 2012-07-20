@@ -557,6 +557,12 @@
 		qcom,firmware-max-paddr = <0xFA00000>;
 	};
 
+	qcom,cache_erp {
+		compatible = "qcom,cache_erp";
+		interrupts = <1 9 0>, <0 2 0>;
+		interrupt-names = "l1_irq", "l2_irq";
+	};
+
 	tsens@fc4a8000 {
 		compatible = "qcom,msm-tsens";
 		reg = <0xfc4a8000 0x2000>,
