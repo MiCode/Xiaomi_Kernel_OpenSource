@@ -1006,6 +1006,8 @@ struct vfe32_ctrl_type {
 	uint32_t snapshot_frame_cnt;
 	struct msm_stats_bufq_ctrl stats_ctrl;
 	struct msm_stats_ops stats_ops;
+
+	uint32_t simultaneous_sof_stat;
 };
 
 #define statsAeNum      0
