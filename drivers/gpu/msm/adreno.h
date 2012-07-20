@@ -33,7 +33,6 @@
 #define KGSL_CMD_FLAGS_NONE             0x00000000
 #define KGSL_CMD_FLAGS_PMODE		0x00000001
 #define KGSL_CMD_FLAGS_NO_TS_CMP	0x00000002
-#define KGSL_CMD_FLAGS_NOT_KERNEL_CMD	0x00000004
 
 /* Command identifiers */
 #define KGSL_CONTEXT_TO_MEM_IDENTIFIER	0x2EADBEEF
@@ -113,6 +112,30 @@ struct adreno_gpudev {
 	void (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	void (*start)(struct adreno_device *);
 	unsigned int (*busy_cycles)(struct adreno_device *);
+};
+
+/*
+ * struct adreno_recovery_data - Structure that contains all information to
+ * perform gpu recovery from hangs
+ * @ib1 - IB1 that the GPU was executing when hang happened
+ * @context_id - Context which caused the hang
+ * @global_eop - eoptimestamp at time of hang
+ * @rb_buffer - Buffer that holds the commands from good contexts
+ * @rb_size - Number of valid dwords in rb_buffer
+ * @bad_rb_buffer - Buffer that holds commands from the hanging context
+ * bad_rb_size - Number of valid dwords in bad_rb_buffer
+ * @last_valid_ctx_id - The last context from which commands were placed in
+ * ringbuffer before the GPU hung
+ */
+struct adreno_recovery_data {
+	unsigned int ib1;
+	unsigned int context_id;
+	unsigned int global_eop;
+	unsigned int *rb_buffer;
+	unsigned int rb_size;
+	unsigned int *bad_rb_buffer;
+	unsigned int bad_rb_size;
+	unsigned int last_valid_ctx_id;
 };
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
