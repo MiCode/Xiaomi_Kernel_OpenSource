@@ -126,7 +126,6 @@ struct vp_action {
 struct vp_work_t {
 	struct work_struct work;
 	struct vcap_client_data *cd;
-	uint32_t irq;
 };
 
 struct vcap_dev {
@@ -221,13 +220,6 @@ struct vcap_hacked_vals {
 extern struct vcap_hacked_vals hacked_buf[];
 
 #endif
-int free_ion_handle(struct vcap_dev *dev, struct vb2_queue *q,
-					 struct v4l2_buffer *b);
-
-int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
-				  struct v4l2_buffer *b);
-
 int vcvp_qbuf(struct vb2_queue *q, struct v4l2_buffer *b);
 int vcvp_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b);
-
 #endif

@@ -1116,6 +1116,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	unsigned long flags;
 	int rc;
 	unsigned long rate;
+	long rate_rc;
 
 	dprintk(3, "In Stream ON\n");
 	if (determine_mode(c_data) != c_data->op_mode) {
@@ -1142,12 +1143,13 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		}
 
 		rate = c_data->vc_format.clk_freq;
-		rate = clk_round_rate(dev->vcap_clk, rate);
-		if (rate <= 0) {
+		rate_rc = clk_round_rate(dev->vcap_clk, rate);
+		if (rate_rc <= 0) {
 			pr_err("%s: Failed core rnd_rate\n", __func__);
 			rc = -EINVAL;
 			goto free_res;
 		}
+		rate = (unsigned long)rate_rc;
 		rc = clk_set_rate(dev->vcap_clk, rate);
 		if (rc < 0)
 			goto free_res;
@@ -1171,6 +1173,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 			goto free_res;
 
 		config_vc_format(c_data);
+		c_data->streaming = 1;
 		rc = vb2_streamon(&c_data->vc_vidq, i);
 		if (rc < 0)
 			goto free_res;
@@ -1187,12 +1190,13 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		c_data->dev->vp_client = c_data;
 
 		rate = 160000000;
-		rate = clk_round_rate(dev->vcap_clk, rate);
-		if (rate <= 0) {
+		rate_rc = clk_round_rate(dev->vcap_clk, rate);
+		if (rate_rc <= 0) {
 			pr_err("%s: Failed core rnd_rate\n", __func__);
 			rc = -EINVAL;
 			goto free_res;
 		}
+		rate = (unsigned long)rate_rc;
 		rc = clk_set_rate(dev->vcap_clk, rate);
 		if (rc < 0)
 			goto free_res;
@@ -1255,12 +1259,13 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		}
 
 		rate = c_data->vc_format.clk_freq;
-		rate = clk_round_rate(dev->vcap_clk, rate);
-		if (rate <= 0) {
+		rate_rc = clk_round_rate(dev->vcap_clk, rate);
+		if (rate_rc <= 0) {
 			pr_err("%s: Failed core rnd_rate\n", __func__);
 			rc = -EINVAL;
 			goto free_res;
 		}
+		rate = (unsigned long)rate_rc;
 		rc = clk_set_rate(dev->vcap_clk, rate);
 		if (rc < 0)
 			goto free_res;
@@ -1373,13 +1378,11 @@ int streamoff_validate_q(struct vb2_queue *q)
 	return 0;
 }
 
-static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
+int streamoff_work(struct vcap_client_data *c_data)
 {
-	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	struct vcap_dev *dev = c_data->dev;
 	unsigned long flags;
 	int rc;
-
 	switch (c_data->op_mode) {
 	case VC_VCAP_OP:
 		if (c_data != dev->vc_client) {
@@ -1395,9 +1398,12 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		}
 		dev->vc_resource = 0;
 		spin_unlock_irqrestore(&dev->dev_slock, flags);
-		rc = vb2_streamoff(&c_data->vc_vidq, i);
-		if (rc >= 0)
+		rc = vb2_streamoff(&c_data->vc_vidq,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE);
+		if (rc >= 0) {
+			c_data->streaming = 0;
 			atomic_set(&c_data->dev->vc_enabled, 0);
+		}
 		return rc;
 	case VP_VCAP_OP:
 		if (c_data != dev->vp_client) {
@@ -1490,7 +1496,12 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		pr_err("VCAP Error: %s: Unknown Operation mode", __func__);
 		return -ENOTRECOVERABLE;
 	}
-	return 0;
+}
+
+static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
+{
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
+	return streamoff_work(c_data);
 }
 
 static int vidioc_subscribe_event(struct v4l2_fh *fh,
@@ -1645,6 +1656,9 @@ static int vcap_close(struct file *file)
 
 	if (c_data == NULL)
 		return 0;
+
+	if (c_data->streaming)
+		streamoff_work(c_data);
 
 	spin_lock_irqsave(&dev->dev_slock, flags);
 	atomic_dec(&dev->open_clients);
