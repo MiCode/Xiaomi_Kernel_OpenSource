@@ -256,6 +256,7 @@ header-y += msdos_fs.h
 header-y += msg.h
 header-y += msm_adc.h
 header-y += msm_adsp.h
+header-y += msm_ion.h
 header-y += msm_mdp.h
 header-y += msm_kgsl.h
 header-y += msm_q6venc.h
