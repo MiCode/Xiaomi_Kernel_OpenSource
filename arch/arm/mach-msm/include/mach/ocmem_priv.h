@@ -61,6 +61,23 @@ enum op_code {
 	SCHED_DUMP,
 };
 
+struct ocmem_plat_data {
+	void __iomem *vbase;
+	unsigned long size;
+	unsigned long base;
+	struct ocmem_partition *parts;
+	int nr_parts;
+	void __iomem *reg_base;
+	void __iomem *br_base;
+	void __iomem *dm_base;
+	unsigned nr_regions;
+	unsigned nr_macros;
+	unsigned nr_ports;
+	int ocmem_irq;
+	int dm_irq;
+	bool interleaved;
+};
+
 struct ocmem_req {
 	struct rw_semaphore rw_sem;
 	/* Chain in sched queue */
