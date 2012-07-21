@@ -30,8 +30,9 @@
 */
 
 #define OCMEM_REGION_CTL_BASE 0xFDD0003C
-#define OCMEM_REGION_CTL_SIZE 0xC
+#define OCMEM_REGION_CTL_SIZE 0xFD0
 #define REGION_ENABLE 0x00003333
+#define GRAPHICS_REGION_CTL (0x17F000)
 
 struct ocmem_partition {
 	const char *name;
@@ -532,6 +533,9 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 	writel_relaxed(REGION_ENABLE, ocmem_region_vbase);
 	writel_relaxed(REGION_ENABLE, ocmem_region_vbase + 4);
 	writel_relaxed(REGION_ENABLE, ocmem_region_vbase + 8);
+	/* Enable the ocmem graphics mpU as a workaround in Virtio */
+	/* This will be programmed by TZ after TZ support is integrated */
+	writel_relaxed(GRAPHICS_REGION_CTL, ocmem_region_vbase + 0xFCC);
 
 	if (ocmem_rdm_init(pdev))
 		return -EBUSY;
