@@ -1,0 +1,177 @@
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	tmc_etr: tmc@fc322000 {
+		compatible = "arm,coresight-tmc";
+		reg = <0xfc322000 0x1000>;
+
+		coresight-id = <0>;
+		coresight-name = "coresight-tmc-etr";
+		coresight-nr-inports = <1>;
+		coresight-default-sink;
+	};
+
+	tpiu: tpiu@fc318000 {
+		compatible = "arm,coresight-tpiu";
+		reg = <0xfc318000 0x1000>;
+
+		coresight-id = <1>;
+		coresight-name = "coresight-tpiu";
+		coresight-nr-inports = <1>;
+	};
+
+	replicator: replicator@fc31c000 {
+		compatible = "qcom,coresight-replicator";
+		reg = <0xfc31c000 0x1000>;
+
+		coresight-id = <2>;
+		coresight-name = "coresight-replicator";
+		coresight-nr-inports = <1>;
+		coresight-outports = <0 1>;
+		coresight-child-list = <&tmc_etr &tpiu>;
+		coresight-child-ports = <0 0>;
+	};
+
+	tmc_etf: tmc@fc307000 {
+		compatible = "arm,coresight-tmc";
+		reg = <0xfc307000 0x1000>;
+
+		coresight-id = <3>;
+		coresight-name = "coresight-tmc-etf";
+		coresight-nr-inports = <1>;
+		coresight-outports = <0>;
+		coresight-child-list = <&replicator>;
+		coresight-child-ports = <0>;
+	};
+
+	funnel_merg: funnel@fc31b000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc31b000 0x1000>;
+
+		coresight-id = <4>;
+		coresight-name = "coresight-funnel-merg";
+		coresight-nr-inports = <2>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tmc_etf>;
+		coresight-child-ports = <0>;
+	};
+
+	funnel_in0: funnel@fc319000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc319000 0x1000>;
+
+		coresight-id = <5>;
+		coresight-name = "coresight-funnel-in0";
+		coresight-nr-inports = <8>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_merg>;
+		coresight-child-ports = <0>;
+	};
+
+	funnel_in1: funnel@fc31a000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc31a000 0x1000>;
+
+		coresight-id = <6>;
+		coresight-name = "coresight-funnel-in1";
+		coresight-nr-inports = <8>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_merg>;
+		coresight-child-ports = <1>;
+	};
+
+	funnel_kpss: funnel@fc345000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc345000 0x1000>;
+
+		coresight-id = <7>;
+		coresight-name = "coresight-funnel-kpss";
+		coresight-nr-inports = <4>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <5>;
+	};
+
+	funnel_mmss: funnel@fc364000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0xfc364000 0x1000>;
+
+		coresight-id = <8>;
+		coresight-name = "coresight-funnel-mmss";
+		coresight-nr-inports = <8>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <1>;
+	};
+
+	stm: stm@fc321000 {
+		compatible = "arm,coresight-stm";
+		reg = <0xfc321000 0x1000>,
+		      <0xfa280000 0x180000>;
+
+		coresight-id = <9>;
+		coresight-name = "coresight-stm";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <7>;
+	};
+
+	etm0: etm@fc33c000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc33c000 0x1000>;
+
+		coresight-id = <10>;
+		coresight-name = "coresight-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <0>;
+	};
+
+	etm1: etm@fc33d000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc33d000 0x1000>;
+
+		coresight-id = <11>;
+		coresight-name = "coresight-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <1>;
+	};
+
+	etm2: etm@fc33e000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc33e000 0x1000>;
+
+		coresight-id = <12>;
+		coresight-name = "coresight-etm2";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <2>;
+	};
+
+	etm3: etm@fc33f000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc33f000 0x1000>;
+
+		coresight-id = <13>;
+		coresight-name = "coresight-etm3";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_kpss>;
+		coresight-child-ports = <3>;
+	};
+};
