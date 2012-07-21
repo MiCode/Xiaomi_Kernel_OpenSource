@@ -134,6 +134,7 @@ struct pm8921_bms_chip {
 	struct delayed_work	calculate_soc_delayed_work;
 	struct timespec		t_soc_queried;
 	int			shutdown_soc_valid_limit;
+	int			ignore_shutdown_soc;
 };
 
 /*
@@ -1511,6 +1512,9 @@ static void read_shutdown_soc(struct pm8921_bms_chip *chip)
 		pr_err("failed to read addr = %d %d\n", TEMP_SOC_STORAGE, rc);
 	else
 		chip->shutdown_soc = temp;
+
+	if (chip->ignore_shutdown_soc)
+		chip->shutdown_soc = 0;
 
 	pr_debug("shutdown_soc = %d\n", chip->shutdown_soc);
 }
@@ -2949,6 +2953,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->start_percent = -EINVAL;
 	chip->end_percent = -EINVAL;
 	chip->shutdown_soc_valid_limit = pdata->shutdown_soc_valid_limit;
+	chip->ignore_shutdown_soc = pdata->ignore_shutdown_soc;
 	rc = set_battery_data(chip);
 	if (rc) {
 		pr_err("%s bad battery data %d\n", __func__, rc);
