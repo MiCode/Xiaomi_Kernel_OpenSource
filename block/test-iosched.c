@@ -173,6 +173,9 @@ int test_iosched_add_unique_test_req(int is_err_expcted,
 		bio->bi_size = nr_sects << 9;
 		bio->bi_sector = start_sec;
 		break;
+	case REQ_UNIQUE_SANITIZE:
+		bio->bi_rw = REQ_WRITE | REQ_SANITIZE;
+		break;
 	default:
 		test_pr_err("%s: Invalid request type %d", __func__,
 			    req_unique);
