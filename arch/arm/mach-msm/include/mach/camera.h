@@ -135,14 +135,16 @@ struct msm_camera_csid_lut_params {
 
 struct msm_camera_csid_params {
 	uint8_t lane_cnt;
-	uint8_t lane_assign;
+	uint16_t lane_assign;
+	uint8_t phy_sel;
 	struct msm_camera_csid_lut_params lut_params;
 };
 
 struct msm_camera_csiphy_params {
 	uint8_t lane_cnt;
 	uint8_t settle_cnt;
-	uint8_t lane_mask;
+	uint16_t lane_mask;
+	uint8_t combo_mode;
 };
 
 struct msm_camera_csi2_params {
