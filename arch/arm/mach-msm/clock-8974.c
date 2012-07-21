@@ -619,7 +619,6 @@ DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
-	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS_REG,
 	.status_mask = BIT(17),
 	.parent = &cxo_clk_src.c,
@@ -5049,7 +5048,7 @@ static struct pll_config lpapll0_config __initdata = {
 	.main_output_mask = BIT(0),
 };
 
-#define PLL_AUX_OUTPUT BIT(1)
+#define PLL_AUX_OUTPUT_BIT 1
 
 static void __init reg_init(void)
 {
@@ -5070,7 +5069,7 @@ static void __init reg_init(void)
 
 	/* Active GPLL0's aux output. This is needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(GPLL0_USER_CTL_REG));
-	regval |= BIT(PLL_AUX_OUTPUT);
+	regval |= BIT(PLL_AUX_OUTPUT_BIT);
 	writel_relaxed(regval, GCC_REG_BASE(GPLL0_USER_CTL_REG));
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
