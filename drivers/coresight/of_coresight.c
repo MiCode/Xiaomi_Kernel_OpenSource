@@ -17,7 +17,6 @@
 #include <linux/of.h>
 #include <linux/coresight.h>
 
-
 struct coresight_platform_data *of_get_coresight_platform_data(
 				struct device *dev, struct device_node *node)
 {

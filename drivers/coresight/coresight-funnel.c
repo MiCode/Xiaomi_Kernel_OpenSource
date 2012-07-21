@@ -25,7 +25,6 @@
 
 #include "coresight-priv.h"
 
-
 #define funnel_writel(drvdata, val, off)	\
 			__raw_writel((val), drvdata->base + off)
 #define funnel_readl(drvdata, off)		\
@@ -42,7 +41,6 @@ do {									\
 	mb();								\
 } while (0)
 
-
 #define FUNNEL_FUNCTL		(0x000)
 #define FUNNEL_PRICTL		(0x004)
 #define FUNNEL_ITATBDATA0	(0xEEC)
@@ -50,11 +48,9 @@ do {									\
 #define FUNNEL_ITATBCTR1	(0xEF4)
 #define FUNNEL_ITATBCTR0	(0xEF8)
 
-
 #define FUNNEL_HOLDTIME_MASK	(0xF00)
 #define FUNNEL_HOLDTIME_SHFT	(0x8)
 #define FUNNEL_HOLDTIME		(0x7 << FUNNEL_HOLDTIME_SHFT)
-
 
 struct funnel_drvdata {
 	void __iomem		*base;
@@ -63,7 +59,6 @@ struct funnel_drvdata {
 	struct clk		*clk;
 	uint32_t		priority;
 };
-
 
 static void __funnel_enable(struct funnel_drvdata *drvdata, int port)
 {
@@ -195,6 +190,7 @@ static int funnel_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
@@ -202,6 +198,7 @@ static int funnel_probe(struct platform_device *pdev)
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
 		return PTR_ERR(drvdata->clk);
+
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;

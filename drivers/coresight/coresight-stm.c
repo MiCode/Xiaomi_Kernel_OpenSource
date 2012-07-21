@@ -31,7 +31,6 @@
 
 #include "coresight-priv.h"
 
-
 #define stm_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define stm_readl(drvdata, off)		__raw_readl(drvdata->base + off)
 
@@ -78,7 +77,6 @@ do {									\
 #define STMITATBID		(0xEF4)
 #define STMITATBCTR0		(0xEF8)
 
-
 #define NR_STM_CHANNEL		(32)
 #define BYTES_PER_CHANNEL	(256)
 #define STM_TRACE_BUF_SIZE	(1024)
@@ -99,7 +97,6 @@ enum {
 #define stm_channel_addr(drvdata, ch)	(drvdata->chs.base +	\
 					(ch * BYTES_PER_CHANNEL))
 #define stm_channel_off(type, opts)	(type & ~opts)
-
 
 #ifdef CONFIG_MSM_QDSS_STM_DEFAULT_ENABLE
 static int boot_enable = 1;
@@ -135,7 +132,6 @@ struct stm_drvdata {
 };
 
 static struct stm_drvdata *stmdrvdata;
-
 
 static int stm_hwevent_isenable(struct stm_drvdata *drvdata)
 {
@@ -664,6 +660,7 @@ static int stm_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
@@ -671,6 +668,7 @@ static int stm_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res)
 		return -ENODEV;
+
 	if (boot_nr_channel) {
 		res_size = min((resource_size_t)(boot_nr_channel *
 				  BYTES_PER_CHANNEL), resource_size(res));
@@ -692,6 +690,7 @@ static int stm_probe(struct platform_device *pdev)
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
 		return PTR_ERR(drvdata->clk);
+
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;

@@ -32,7 +32,6 @@
 
 #include "coresight-priv.h"
 
-
 #define tmc_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tmc_readl(drvdata, off)		__raw_readl(drvdata->base + off)
 
@@ -46,7 +45,6 @@ do {									\
 	tmc_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
 	mb();								\
 } while (0)
-
 
 #define TMC_RSZ			(0x004)
 #define TMC_STS			(0x00C)
@@ -75,7 +73,6 @@ do {									\
 #define TMC_ITATBCTR1		(0xEF4)
 #define TMC_ITATBCTR0		(0xEF8)
 
-
 #define BYTES_PER_WORD		4
 
 enum tmc_config_type {
@@ -97,7 +94,6 @@ enum tmc_mem_intf_width {
 	TMC_MEM_INTF_WIDTH_256BITS	= 0x5,
 };
 
-
 struct tmc_drvdata {
 	void __iomem		*base;
 	struct device		*dev;
@@ -115,7 +111,6 @@ struct tmc_drvdata {
 	enum tmc_config_type	config_type;
 	uint32_t		trigger_cntr;
 };
-
 
 static void tmc_wait_for_ready(struct tmc_drvdata *drvdata)
 {
@@ -643,6 +638,7 @@ static int tmc_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
@@ -652,6 +648,7 @@ static int tmc_probe(struct platform_device *pdev)
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
 		return PTR_ERR(drvdata->clk);
+
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;
@@ -659,12 +656,15 @@ static int tmc_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
+
 	devid = tmc_readl(drvdata, CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);
+
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR)
 		drvdata->size = SZ_1M;
 	else
 		drvdata->size = tmc_readl(drvdata, TMC_RSZ) * BYTES_PER_WORD;
+
 	clk_disable_unprepare(drvdata->clk);
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {

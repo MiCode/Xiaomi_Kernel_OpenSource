@@ -30,7 +30,6 @@
 
 #include "coresight-priv.h"
 
-
 #define etb_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define etb_readl(drvdata, off)		__raw_readl(drvdata->base + off)
 
@@ -44,7 +43,6 @@ do {									\
 	etb_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
 	mb();								\
 } while (0)
-
 
 #define ETB_RAM_DEPTH_REG	(0x004)
 #define ETB_STATUS_REG		(0x00C)
@@ -64,11 +62,9 @@ do {									\
 #define ETB_ITATBCTR1		(0xEF4)
 #define ETB_ITATBCTR0		(0xEF8)
 
-
 #define BYTES_PER_WORD		4
 #define ETB_SIZE_WORDS		4096
 #define FRAME_SIZE_WORDS	4
-
 
 struct etb_drvdata {
 	void __iomem		*base;
@@ -83,7 +79,6 @@ struct etb_drvdata {
 	bool			enable;
 	uint32_t		trigger_cntr;
 };
-
 
 static void __etb_enable(struct etb_drvdata *drvdata)
 {
@@ -381,6 +376,7 @@ static int etb_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
@@ -390,6 +386,7 @@ static int etb_probe(struct platform_device *pdev)
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
 		return PTR_ERR(drvdata->clk);
+
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;

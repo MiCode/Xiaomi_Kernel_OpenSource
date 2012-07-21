@@ -24,7 +24,6 @@
 
 #include "coresight-priv.h"
 
-
 #define replicator_writel(drvdata, val, off)	\
 				__raw_writel((val), drvdata->base + off)
 #define replicator_readl(drvdata, off)		\
@@ -41,12 +40,10 @@ do {									\
 	mb();								\
 } while (0)
 
-
 #define REPLICATOR_IDFILTER0		(0x000)
 #define REPLICATOR_IDFILTER1		(0x004)
 #define REPLICATOR_ITATBCTR0		(0xEFC)
 #define REPLICATOR_ITATBCTR1		(0xEF8)
-
 
 struct replicator_drvdata {
 	void __iomem		*base;
@@ -54,7 +51,6 @@ struct replicator_drvdata {
 	struct coresight_device	*csdev;
 	struct clk		*clk;
 };
-
 
 static void __replicator_enable(struct replicator_drvdata *drvdata, int outport)
 {
@@ -146,6 +142,7 @@ static int replicator_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
@@ -153,6 +150,7 @@ static int replicator_probe(struct platform_device *pdev)
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
 		return PTR_ERR(drvdata->clk);
+
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;

@@ -24,7 +24,6 @@
 
 #include "coresight-priv.h"
 
-
 #define tpiu_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tpiu_readl(drvdata, off)	__raw_readl(drvdata->base + off)
 
@@ -38,7 +37,6 @@ do {									\
 	tpiu_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
 	mb();								\
 } while (0)
-
 
 #define TPIU_SUPP_PORTSZ	(0x000)
 #define TPIU_CURR_PORTSZ	(0x004)
@@ -60,14 +58,12 @@ do {									\
 #define TPIU_ITATBCTR1		(0xEF4)
 #define TPIU_ITATBCTR0		(0xEF8)
 
-
 struct tpiu_drvdata {
 	void __iomem		*base;
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	struct clk		*clk;
 };
-
 
 static void __tpiu_enable(struct tpiu_drvdata *drvdata)
 {
@@ -158,6 +154,7 @@ static int tpiu_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
@@ -165,15 +162,18 @@ static int tpiu_probe(struct platform_device *pdev)
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
 		return PTR_ERR(drvdata->clk);
+
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;
 
-	/* Disable tpiu to support older targets that need this */
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
+
+	/* Disable tpiu to support older targets that need this */
 	__tpiu_disable(drvdata);
+
 	clk_disable_unprepare(drvdata->clk);
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);

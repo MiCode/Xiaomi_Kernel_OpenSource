@@ -35,7 +35,6 @@
 
 #include "coresight-priv.h"
 
-
 #define etm_writel(drvdata, val, off)	\
 			__raw_writel((val), drvdata->base + off)
 #define etm_readl(drvdata, off)		\
@@ -51,7 +50,6 @@ do {									\
 	etm_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
 	mb();								\
 } while (0)
-
 
 /*
  * Device registers:
@@ -117,7 +115,6 @@ do {									\
 #define ETMPDCR			(0x310)
 #define ETMPDSR			(0x314)
 
-
 #define ETM_MAX_ADDR_CMP	(16)
 #define ETM_MAX_CNTR		(4)
 #define ETM_MAX_CTXID_CMP	(3)
@@ -142,7 +139,6 @@ enum etm_addr_type {
 	ETM_ADDR_TYPE_START,
 	ETM_ADDR_TYPE_STOP,
 };
-
 
 #ifdef CONFIG_MSM_QDSS_ETM_DEFAULT_ENABLE
 static int boot_enable = 1;
@@ -198,7 +194,6 @@ struct etm_drvdata {
 	uint32_t			sync_freq;
 	uint32_t			timestamp_event;
 };
-
 
 /* ETM clock is derived from the processor clock and gets enabled on a
  * logical OR of below items on Krait (pass2 onwards):
@@ -1537,6 +1532,7 @@ static int etm_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
@@ -1551,6 +1547,7 @@ static int etm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drvdata->clk);
 		goto err0;
 	}
+
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		goto err0;
@@ -1560,10 +1557,12 @@ static int etm_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		goto err0;
+
 	ret = etm_init_arch_data(drvdata);
 	if (ret)
 		goto err1;
 	etm_init_default_data(drvdata);
+
 	clk_disable_unprepare(drvdata->clk);
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);

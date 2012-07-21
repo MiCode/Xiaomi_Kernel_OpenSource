@@ -15,7 +15,6 @@
 
 #include <linux/bitops.h>
 
-
 /* Coresight management registers (0xF00-0xFCC)
  * 0xFA0 - 0xFA4: Management	registers in PFTv1.0
  *		  Trace		registers in PFTv1.1
@@ -28,7 +27,6 @@
 #define CORESIGHT_AUTHSTATUS	(0xFB8)
 #define CORESIGHT_DEVID		(0xFC8)
 #define CORESIGHT_DEVTYPE	(0xFCC)
-
 
 #define CORESIGHT_UNLOCK	(0xC5ACCE55)
 
