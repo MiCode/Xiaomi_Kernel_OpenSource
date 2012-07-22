@@ -355,6 +355,11 @@ struct platform_device msm_bus_8930_cpss_fpb = {
 	.id    = MSM_BUS_FAB_CPSS_FPB,
 };
 
+struct platform_device msm8627_device_acpuclk = {
+	.name		= "acpuclk-8627",
+	.id		= -1,
+};
+
 struct platform_device msm8930_device_acpuclk = {
 	.name		= "acpuclk-8930",
 	.id		= -1,
