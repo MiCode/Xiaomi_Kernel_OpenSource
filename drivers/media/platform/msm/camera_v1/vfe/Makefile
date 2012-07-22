@@ -16,4 +16,5 @@ endif
 obj-$(CONFIG_ARCH_MSM_ARM11) += msm_vfe7x.o
 obj-$(CONFIG_ARCH_QSD8X50) += msm_vfe8x.o msm_vfe8x_proc.o
 obj-$(CONFIG_ARCH_MSM8960) += msm_vfe32.o
+obj-$(CONFIG_ARCH_MSM8974) += msm_vfe40.o msm_vfe40_axi.o
 obj-$(CONFIG_MSM_CAMERA_V4L2) += msm_vfe_stats_buf.o
