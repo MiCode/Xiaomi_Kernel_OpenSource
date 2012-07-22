@@ -4336,7 +4336,23 @@ static struct branch_clk csi_vfe_clk = {
 		.md_val = MD8(8, m, 0, n), \
 		.ns_val = NS(31, 24, n, m, 5, 4, 3, d, 2, 0, s##_to_lpa_mux), \
 	}
-static struct clk_freq_tbl clk_tbl_aif_osr[] = {
+static struct clk_freq_tbl clk_tbl_aif_osr_492[] = {
+	F_AIF_OSR(       0, gnd,  1, 0,   0),
+	F_AIF_OSR(  512000, pll4, 4, 1, 240),
+	F_AIF_OSR(  768000, pll4, 4, 1, 160),
+	F_AIF_OSR( 1024000, pll4, 4, 1, 120),
+	F_AIF_OSR( 1536000, pll4, 4, 1,  80),
+	F_AIF_OSR( 2048000, pll4, 4, 1,  60),
+	F_AIF_OSR( 3072000, pll4, 4, 1,  40),
+	F_AIF_OSR( 4096000, pll4, 4, 1,  30),
+	F_AIF_OSR( 6144000, pll4, 4, 1,  20),
+	F_AIF_OSR( 8192000, pll4, 4, 1,  15),
+	F_AIF_OSR(12288000, pll4, 4, 1,  10),
+	F_AIF_OSR(24576000, pll4, 4, 1,   5),
+	F_END
+};
+
+static struct clk_freq_tbl clk_tbl_aif_osr_393[] = {
 	F_AIF_OSR(       0, gnd,  1, 0,   0),
 	F_AIF_OSR(  512000, pll4, 4, 1, 192),
 	F_AIF_OSR(  768000, pll4, 4, 1, 128),
@@ -4369,7 +4385,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		.ns_mask = (BM(31, 24) | BM(6, 0)), \
 		.mnd_en_mask = BIT(8), \
 		.set_rate = set_rate_mnd, \
-		.freq_tbl = clk_tbl_aif_osr, \
+		.freq_tbl = clk_tbl_aif_osr_393, \
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #i "_clk", \
@@ -4395,7 +4411,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		.ns_mask = (BM(31, 24) | BM(6, 0)), \
 		.mnd_en_mask = BIT(8), \
 		.set_rate = set_rate_mnd, \
-		.freq_tbl = clk_tbl_aif_osr, \
+		.freq_tbl = clk_tbl_aif_osr_393, \
 		.current_freq = &rcg_dummy_freq, \
 		.c = { \
 			.dbg_name = #i "_clk", \
@@ -4476,7 +4492,23 @@ static CLK_AIF_BIT_DIV(spare_i2s_spkr_bit, LCC_SPARE_I2S_SPKR_NS_REG,
 		.md_val = MD16(m, n), \
 		.ns_val = NS(31, 16, n, m, 5, 4, 3, d, 2, 0, s##_to_lpa_mux), \
 	}
-static struct clk_freq_tbl clk_tbl_pcm[] = {
+static struct clk_freq_tbl clk_tbl_pcm_492[] = {
+	{ .ns_val = BIT(10) /* external input */ },
+	F_PCM(  512000, pll4, 4, 1, 240),
+	F_PCM(  768000, pll4, 4, 1, 160),
+	F_PCM( 1024000, pll4, 4, 1, 120),
+	F_PCM( 1536000, pll4, 4, 1,  80),
+	F_PCM( 2048000, pll4, 4, 1,  60),
+	F_PCM( 3072000, pll4, 4, 1,  40),
+	F_PCM( 4096000, pll4, 4, 1,  30),
+	F_PCM( 6144000, pll4, 4, 1,  20),
+	F_PCM( 8192000, pll4, 4, 1,  15),
+	F_PCM(12288000, pll4, 4, 1,  10),
+	F_PCM(24576000, pll4, 4, 1,   5),
+	F_END
+};
+
+static struct clk_freq_tbl clk_tbl_pcm_393[] = {
 	{ .ns_val = BIT(10) /* external input */ },
 	F_PCM(  512000, pll4, 4, 1, 192),
 	F_PCM(  768000, pll4, 4, 1, 128),
@@ -4508,7 +4540,7 @@ static struct rcg_clk pcm_clk = {
 	.ns_mask = BM(31, 16) | BIT(10) | BM(6, 0),
 	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
-	.freq_tbl = clk_tbl_pcm,
+	.freq_tbl = clk_tbl_pcm_393,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "pcm_clk",
@@ -4535,7 +4567,7 @@ static struct rcg_clk audio_slimbus_clk = {
 	.ns_mask = (BM(31, 24) | BM(6, 0)),
 	.mnd_en_mask = BIT(8),
 	.set_rate = set_rate_mnd,
-	.freq_tbl = clk_tbl_aif_osr,
+	.freq_tbl = clk_tbl_aif_osr_393,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
 		.dbg_name = "audio_slimbus_clk",
@@ -6002,7 +6034,7 @@ static struct pll_config_regs pll4_regs __initdata = {
 	.mode_reg = LCC_PLL0_MODE_REG,
 };
 
-static struct pll_config pll4_config __initdata = {
+static struct pll_config pll4_config_393 __initdata = {
 	.l = 0xE,
 	.m = 0x27A,
 	.n = 0x465,
@@ -6233,7 +6265,7 @@ static void __init reg_init(void)
 		is_pll_enabled = readl_relaxed(LCC_PLL0_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled)
 			/* Ref clk = 27MHz and program pll4 to 393.2160MHz */
-			configure_pll(&pll4_config, &pll4_regs, 1);
+			configure_pll(&pll4_config_393, &pll4_regs, 1);
 
 		/* Enable PLL4 source on the LPASS Primary PLL Mux */
 		writel_relaxed(0x1, LCC_PRI_PLL_CLK_CTL_REG);
@@ -6259,11 +6291,26 @@ static void __init reg_init(void)
 
 static void __init msm8960_clock_pre_init(void)
 {
+	/* Initialize clock registers. */
+	reg_init();
+
 	if (cpu_is_apq8064()) {
 		vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8064;
 	} else if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
 		vdd_dig.set_vdd = set_vdd_dig_8930;
 		vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8930;
+	}
+
+	/* Detect PLL4 programmed for alternate 491.52MHz clock plan. */
+	if (readl_relaxed(LCC_PLL0_L_VAL_REG) == 0x12) {
+		pll4_clk.c.rate = 491520000;
+		audio_slimbus_clk.freq_tbl = clk_tbl_aif_osr_492;
+		mi2s_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		codec_i2s_mic_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		spare_i2s_mic_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		codec_i2s_spkr_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		spare_i2s_spkr_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		pcm_clk.freq_tbl = clk_tbl_pcm_492;
 	}
 
 	/*
@@ -6306,9 +6353,6 @@ static void __init msm8960_clock_pre_init(void)
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 
 	clk_ops_local_pll.enable = sr_pll_clk_enable;
-
-	/* Initialize clock registers. */
-	reg_init();
 }
 
 static void __init msm8960_clock_post_init(void)
