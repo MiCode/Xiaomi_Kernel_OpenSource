@@ -1974,13 +1974,15 @@ EXPORT_SYMBOL(hdmi_common_read_edid);
 
 bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 {
-	uint32 format;
+	uint32 format = HDMI_VFRMT_1920x1080p60_16_9;
 	struct fb_var_screeninfo *var = &mfd->fbi->var;
 	bool changed = TRUE;
 
 	if (var->reserved[2]) {
 		format = var->reserved[2]-1;
 		DEV_DBG("reserved format is %d\n", format);
+	} else if (hdmi_prim_resolution) {
+		format = hdmi_prim_resolution - 1;
 	} else {
 		DEV_DBG("detecting resolution from %dx%d use var->reserved[3]"
 			" to specify mode", mfd->var_xres, mfd->var_yres);
@@ -1995,15 +1997,33 @@ bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 				: HDMI_VFRMT_720x576p50_16_9;
 			break;
 		case 1280:
-			format = HDMI_VFRMT_1280x720p60_16_9;
+			if (mfd->var_frame_rate == 50000)
+				format = HDMI_VFRMT_1280x720p50_16_9;
+			else
+				format = HDMI_VFRMT_1280x720p60_16_9;
 			break;
 		case 1440:
-			format = (mfd->var_yres == 480)
+			format = (mfd->var_yres == 240) /* interlaced has half
+							   of y res.
+							*/
 				? HDMI_VFRMT_1440x480i60_16_9
 				: HDMI_VFRMT_1440x576i50_16_9;
 			break;
 		case 1920:
-			format = HDMI_VFRMT_1920x1080p60_16_9;
+			if (mfd->var_yres == 540) {/* interlaced */
+				format = HDMI_VFRMT_1920x1080i60_16_9;
+			} else if (mfd->var_yres == 1080) {
+				if (mfd->var_frame_rate == 50000)
+					format = HDMI_VFRMT_1920x1080p50_16_9;
+				else if (mfd->var_frame_rate == 24000)
+					format = HDMI_VFRMT_1920x1080p24_16_9;
+				else if (mfd->var_frame_rate == 25000)
+					format = HDMI_VFRMT_1920x1080p25_16_9;
+				else if (mfd->var_frame_rate == 30000)
+					format = HDMI_VFRMT_1920x1080p30_16_9;
+				else
+					format = HDMI_VFRMT_1920x1080p60_16_9;
+			}
 			break;
 		}
 	}
