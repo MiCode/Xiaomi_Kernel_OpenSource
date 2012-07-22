@@ -336,7 +336,7 @@ struct msm_mctl_pp_frame_cmd {
 #define VFE_OUTPUTS_RDI1                BIT(12)
 
 struct msm_frame_info {
-	uint32_t image_mode;
+	uint32_t inst_handle;
 	uint32_t path;
 };
 

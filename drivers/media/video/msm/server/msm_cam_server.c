@@ -96,6 +96,19 @@ int32_t msm_find_free_queue(void)
 	return -EINVAL;
 }
 
+void msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
+	struct video_device *pvdev)
+{
+	v4l2_fh_init(eventHandle, pvdev);
+	v4l2_fh_add(eventHandle);
+}
+
+void msm_destroy_v4l2_event_queue(struct v4l2_fh *eventHandle)
+{
+	v4l2_fh_del(eventHandle);
+	v4l2_fh_exit(eventHandle);
+}
+
 uint32_t msm_cam_server_get_mctl_handle(void)
 {
 	uint32_t i;
@@ -423,6 +436,7 @@ int msm_server_set_fmt(struct msm_cam_v4l2_device *pcam, int idx,
 	plane_info.buffer_type = pfmt->type;
 	plane_info.ext_mode = pcam->dev_inst[idx]->image_mode;
 	plane_info.num_planes = 1;
+	plane_info.inst_handle = pcam->dev_inst[idx]->inst_handle;
 	D("%s: %d, %d, 0x%x\n", __func__,
 		pfmt->fmt.pix.width, pfmt->fmt.pix.height,
 		pfmt->fmt.pix.pixelformat);
@@ -479,6 +493,8 @@ int msm_server_set_fmt_mplane(struct msm_cam_v4l2_device *pcam, int idx,
 	plane_info.buffer_type = pfmt->type;
 	plane_info.ext_mode = pcam->dev_inst[idx]->image_mode;
 	plane_info.num_planes = pix_mp->num_planes;
+	plane_info.inst_handle = pcam->dev_inst[idx]->inst_handle;
+
 	if (plane_info.num_planes <= 0 ||
 		plane_info.num_planes > VIDEO_MAX_PLANES) {
 		pr_err("%s Invalid number of planes set %d", __func__,
@@ -2089,15 +2105,9 @@ static int msm_setup_server_dev(struct platform_device *pdev)
 	/*initialize fake video device and event queue*/
 
 	g_server_dev.server_command_queue.pvdev = g_server_dev.video_dev;
-	rc = msm_setup_v4l2_event_queue(
+	msm_setup_v4l2_event_queue(
 		&g_server_dev.server_command_queue.eventHandle,
 		g_server_dev.server_command_queue.pvdev);
-
-	if (rc < 0) {
-		pr_err("%s failed to initialize event queue\n", __func__);
-		video_device_release(g_server_dev.server_command_queue.pvdev);
-		return rc;
-	}
 
 	for (i = 0; i < MAX_NUM_ACTIVE_CAMERA; i++) {
 		struct msm_cam_server_queue *queue;
@@ -2828,14 +2838,12 @@ static int msm_setup_config_dev(int node, char *device_name)
 		goto config_setup_fail;
 	}
 
-	rc = msm_setup_v4l2_event_queue(
+	/* v4l2_fh support */
+	spin_lock_init(&config_cam->config_stat_event_queue.pvdev->fh_lock);
+	INIT_LIST_HEAD(&config_cam->config_stat_event_queue.pvdev->fh_list);
+	msm_setup_v4l2_event_queue(
 		&config_cam->config_stat_event_queue.eventHandle,
 		config_cam->config_stat_event_queue.pvdev);
-	if (rc < 0) {
-		pr_err("%s failed to initialize event queue\n", __func__);
-		video_device_release(config_cam->config_stat_event_queue.pvdev);
-		goto config_setup_fail;
-	}
 
 	return rc;
 
