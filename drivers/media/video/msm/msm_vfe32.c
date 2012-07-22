@@ -956,6 +956,8 @@ static void vfe32_start_liveshot(
 	vfe32_ctrl->share_ctrl->vfe_capture_count =
 		vfe32_ctrl->share_ctrl->outpath.out0.capture_cnt;
 
+	msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_LIVESHOT);
 	vfe32_ctrl->share_ctrl->liveshot_state = VFE_STATE_START_REQUESTED;
 	msm_camera_io_w_mb(1, vfe32_ctrl->
 		share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
@@ -968,6 +970,8 @@ static void vfe32_stop_liveshot(
 	vfe32_ctrl->share_ctrl->liveshot_state = VFE_STATE_STOP_REQUESTED;
 	msm_camera_io_w_mb(1,
 		vfe32_ctrl->share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
+	msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
 }
 
 static int vfe32_zsl(
