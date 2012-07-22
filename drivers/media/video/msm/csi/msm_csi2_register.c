@@ -16,48 +16,28 @@
 #include "msm_csi_register.h"
 
 int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index,
-	int (*msm_mctl_subdev_match_core)(struct device *, void *))
+	int core_index, struct msm_cam_server_dev *server_dev)
 {
 	int rc = -ENODEV;
-	struct device_driver *driver;
-	struct device *dev;
 
 	/* register csiphy subdev */
-	driver = driver_find(MSM_CSIPHY_DRV_NAME, &platform_bus_type);
-	if (!driver)
+	p_mctl->csiphy_sdev = server_dev->csiphy_device[core_index];
+	if (!p_mctl->csiphy_sdev)
 		goto out;
-
-	dev = driver_find_device(driver, NULL, (void *)core_index,
-			msm_mctl_subdev_match_core);
-	if (!dev)
-		goto out;
-
-	p_mctl->csiphy_sdev = dev_get_drvdata(dev);
+	v4l2_set_subdev_hostdata(p_mctl->csiphy_sdev, p_mctl);
 
 	/* register csid subdev */
-	driver = driver_find(MSM_CSID_DRV_NAME, &platform_bus_type);
-	if (!driver)
+	p_mctl->csid_sdev = server_dev->csid_device[core_index];
+	if (!p_mctl->csid_sdev)
 		goto out;
-
-	dev = driver_find_device(driver, NULL, (void *)core_index,
-			msm_mctl_subdev_match_core);
-	if (!dev)
-		goto out;
-
-	p_mctl->csid_sdev = dev_get_drvdata(dev);
+	v4l2_set_subdev_hostdata(p_mctl->csid_sdev, p_mctl);
 
 	/* register ispif subdev */
-	driver = driver_find(MSM_ISPIF_DRV_NAME, &platform_bus_type);
-	if (!driver)
+	p_mctl->ispif_sdev = server_dev->ispif_device[0];
+	if (!p_mctl->ispif_sdev)
 		goto out;
+	v4l2_set_subdev_hostdata(p_mctl->ispif_sdev, p_mctl);
 
-	dev = driver_find_device(driver, NULL, 0,
-			msm_mctl_subdev_match_core);
-	if (!dev)
-		goto out;
-
-	p_mctl->ispif_sdev = dev_get_drvdata(dev);
 	rc = 0;
 	return rc;
 out:

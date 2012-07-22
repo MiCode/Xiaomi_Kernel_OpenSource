@@ -204,6 +204,12 @@
 #define MSM_CAM_IOCTL_STATS_FLUSH_BUFQ \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 57, struct msm_stats_flush_bufq *)
 
+#define MSM_CAM_IOCTL_SET_MCTL_SDEV \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 58, struct msm_mctl_set_sdev_data *)
+
+#define MSM_CAM_IOCTL_UNSET_MCTL_SDEV \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 59, struct msm_mctl_set_sdev_data *)
+
 struct msm_stats_reqbuf {
 	int num_buf;		/* how many buffers requested */
 	int stats_type;	/* stats type */
@@ -1627,8 +1633,30 @@ struct img_plane_info {
 };
 
 #define QCAMERA_NAME "qcamera"
+#define QCAMERA_SERVER_NAME "qcamera_server"
 #define QCAMERA_DEVICE_GROUP_ID 1
 #define QCAMERA_VNODE_GROUP_ID 2
+
+enum msm_cam_subdev_type {
+	CSIPHY_DEV,
+	CSID_DEV,
+	CSIC_DEV,
+	ISPIF_DEV,
+	VFE_DEV,
+	AXI_DEV,
+	VPE_DEV,
+	SENSOR_DEV,
+	ACTUATOR_DEV,
+	EEPROM_DEV,
+	GESTURE_DEV,
+	IRQ_ROUTER_DEV,
+	CPP_DEV,
+};
+
+struct msm_mctl_set_sdev_data {
+	uint32_t revision;
+	enum msm_cam_subdev_type sdev_type;
+};
 
 #define MSM_CAM_V4L2_IOCTL_GET_CAMERA_INFO \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct msm_camera_v4l2_ioctl_t)
@@ -1653,6 +1681,36 @@ struct img_plane_info {
 
 #define MSM_CAM_V4L2_IOCTL_PRIVATE_S_CTRL \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_VPE_INIT \
+	_IO('V', BASE_VIDIOC_PRIVATE + 15)
+
+#define VIDIOC_MSM_VPE_RELEASE \
+	_IO('V', BASE_VIDIOC_PRIVATE + 16)
+
+#define VIDIOC_MSM_VPE_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 17, struct msm_mctl_pp_params *)
+
+#define VIDIOC_MSM_AXI_INIT \
+	_IO('V', BASE_VIDIOC_PRIVATE + 18)
+
+#define VIDIOC_MSM_AXI_RELEASE \
+	_IO('V', BASE_VIDIOC_PRIVATE + 19)
+
+#define VIDIOC_MSM_AXI_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 20, void *)
+
+#define VIDIOC_MSM_AXI_IRQ \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 21, void *)
+
+#define VIDIOC_MSM_AXI_BUF_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 22, void *)
+
+#define VIDIOC_MSM_VFE_INIT \
+	_IO('V', BASE_VIDIOC_PRIVATE + 22)
+
+#define VIDIOC_MSM_VFE_RELEASE \
+	_IO('V', BASE_VIDIOC_PRIVATE + 23)
 
 struct msm_camera_v4l2_ioctl_t {
 	uint32_t id;
