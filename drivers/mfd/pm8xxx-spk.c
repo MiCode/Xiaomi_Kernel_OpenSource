@@ -162,7 +162,10 @@ int pm8xxx_spk_enable(int enable)
 	val = pm8xxx_spk_read(PM8XXX_SPK_CTL1_REG_OFF);
 	if (val < 0)
 		return val;
-	val |= (enable << 3);
+	if (enable)
+		val |= (1 << 3);
+	else
+		val &= ~(1 << 3);
 	ret = pm8xxx_spk_write(PM8XXX_SPK_CTL1_REG_OFF, val);
 	if (!ret)
 		ret = pm8xxx_spk_bank_write(addr, 6, PWM_EN_MASK);
