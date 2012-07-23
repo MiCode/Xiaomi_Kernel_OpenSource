@@ -218,9 +218,9 @@
 		status = "okay";
 		pm8941_l3: regulator-l3 {
 			parent-supply = <&pm8941_s1>;
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			qcom,init-voltage = <1200000>;
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1225000>;
+			qcom,init-voltage = <1225000>;
 			status = "okay";
 		};
 	};
@@ -229,9 +229,9 @@
 		status = "okay";
 		pm8941_l4: regulator-l4 {
 			parent-supply = <&pm8941_s1>;
-			regulator-min-microvolt = <1150000>;
-			regulator-max-microvolt = <1150000>;
-			qcom,init-voltage = <1150000>;
+			regulator-min-microvolt = <12250000>;
+			regulator-max-microvolt = <12250000>;
+			qcom,init-voltage = <12250000>;
 			status = "okay";
 		};
 	};
@@ -303,9 +303,9 @@
 		status = "okay";
 		pm8941_l11: regulator-l11 {
 			parent-supply = <&pm8941_s1>;
-			regulator-min-microvolt = <1250000>;
-			regulator-max-microvolt = <1250000>;
-			qcom,init-voltage = <1250000>;
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,init-voltage = <1300000>;
 			status = "okay";
 		};
 	};
