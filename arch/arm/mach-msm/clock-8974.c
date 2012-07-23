@@ -21,6 +21,7 @@
 
 #include <mach/clk.h>
 #include <mach/rpm-regulator-smd.h>
+#include <mach/socinfo.h>
 
 #include "clock-local2.h"
 #include "clock-pll.h"
@@ -1267,6 +1268,12 @@ static struct clk_freq_tbl ftbl_gcc_sdcc3_4_apps_clk[] = {
 	F( 25000000,  gpll0,  12,   1,   2),
 	F( 50000000,  gpll0,  12,   0,   0),
 	F(100000000,  gpll0,   6,   0,   0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_sdcc_apps_rumi_clk[] = {
+	F(   400000,    cxo,  12,   1,   4),
+	F( 19200000,    cxo,  1,    0,   0),
 	F_END
 };
 
@@ -4681,6 +4688,48 @@ static struct measure_clk measure_clk = {
 	.multiplier = 1,
 };
 
+
+static struct clk_lookup msm_clocks_8974_rumi[] = {
+	CLK_LOOKUP("iface_clk", gcc_sdcc1_ahb_clk.c, "msm_sdcc.1"),
+	CLK_LOOKUP("core_clk", gcc_sdcc1_apps_clk.c, "msm_sdcc.1"),
+	CLK_LOOKUP("bus_clk", pnoc_sdcc1_clk.c, "msm_sdcc.1"),
+	CLK_LOOKUP("iface_clk", gcc_sdcc2_ahb_clk.c, "msm_sdcc.2"),
+	CLK_LOOKUP("core_clk", gcc_sdcc2_apps_clk.c, "msm_sdcc.2"),
+	CLK_LOOKUP("bus_clk", pnoc_sdcc2_clk.c, "msm_sdcc.2"),
+	CLK_LOOKUP("iface_clk", gcc_sdcc3_ahb_clk.c, "msm_sdcc.3"),
+	CLK_LOOKUP("core_clk", gcc_sdcc3_apps_clk.c, "msm_sdcc.3"),
+	CLK_LOOKUP("bus_clk", pnoc_sdcc3_clk.c, "msm_sdcc.3"),
+	CLK_LOOKUP("iface_clk", gcc_sdcc4_ahb_clk.c, "msm_sdcc.4"),
+	CLK_LOOKUP("core_clk", gcc_sdcc4_apps_clk.c, "msm_sdcc.4"),
+	CLK_LOOKUP("bus_clk", pnoc_sdcc4_clk.c, "msm_sdcc.4"),
+	CLK_DUMMY("xo",		XO_CLK,		NULL,	OFF),
+	CLK_DUMMY("xo",		XO_CLK,		"pil_pronto",		OFF),
+	CLK_DUMMY("core_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
+	CLK_DUMMY("iface_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
+	CLK_DUMMY("core_clk",	SDC1_CLK,	NULL,			OFF),
+	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	NULL,			OFF),
+	CLK_DUMMY("core_clk",	SDC3_CLK,	NULL,			OFF),
+	CLK_DUMMY("iface_clk",	SDC3_P_CLK,	NULL,			OFF),
+	CLK_DUMMY("phy_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("core_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("iface_clk", NULL, "msm_otg", OFF),
+	CLK_DUMMY("xo", NULL, "msm_otg", OFF),
+	CLK_DUMMY("dfab_clk",	DFAB_CLK,	NULL, 0),
+	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	NULL, 0),
+	CLK_DUMMY("mem_clk",	NULL,	NULL, 0),
+	CLK_DUMMY("core_clk",	SPI_CLK,	"spi_qsd.1",	OFF),
+	CLK_DUMMY("iface_clk",	SPI_P_CLK,	"spi_qsd.1",	OFF),
+	CLK_DUMMY("core_clk",	NULL,	"f9966000.i2c", 0),
+	CLK_DUMMY("iface_clk",	NULL,	"f9966000.i2c", 0),
+	CLK_DUMMY("core_clk",	NULL,	"fe12f000.slim",	OFF),
+	CLK_DUMMY("core_clk", "mdp.0", NULL, 0),
+	CLK_DUMMY("core_clk_src", "mdp.0", NULL, 0),
+	CLK_DUMMY("lut_clk", "mdp.0", NULL, 0),
+	CLK_DUMMY("vsync_clk", "mdp.0", NULL, 0),
+	CLK_DUMMY("iface_clk", "mdp.0", NULL, 0),
+	CLK_DUMMY("bus_clk", "mdp.0", NULL, 0),
+};
+
 static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"msm_otg"),
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-q6v5-lpass"),
@@ -5265,7 +5314,7 @@ static void __init msm8974_clock_pre_init(void)
 
 	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig_reg))
-		panic("clock-copper: Unable to get the vdd_dig regulator!");
+		panic("clock-8974: Unable to get the vdd_dig regulator!");
 
 	/*
 	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
@@ -5284,10 +5333,42 @@ static int __init msm8974_clock_late_init(void)
 	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 }
 
+static void __init msm8974_rumi_clock_pre_init(void)
+{
+	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
+	if (!virt_bases[GCC_BASE])
+		panic("clock-8974: Unable to ioremap GCC memory!");
+
+	/* SDCC clocks are partially emulated in the RUMI */
+	sdcc1_apps_clk_src.freq_tbl = ftbl_gcc_sdcc_apps_rumi_clk;
+	sdcc2_apps_clk_src.freq_tbl = ftbl_gcc_sdcc_apps_rumi_clk;
+	sdcc3_apps_clk_src.freq_tbl = ftbl_gcc_sdcc_apps_rumi_clk;
+	sdcc4_apps_clk_src.freq_tbl = ftbl_gcc_sdcc_apps_rumi_clk;
+
+	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
+	if (IS_ERR(vdd_dig_reg))
+		panic("clock-8974: Unable to get the vdd_dig regulator!");
+
+	/*
+	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
+	 * until late_init. This may not be necessary with clock handoff;
+	 * Investigate this code on a real non-simulator target to determine
+	 * its necessity.
+	 */
+	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	rpm_regulator_enable(vdd_dig_reg);
+}
+
 struct clock_init_data msm8974_clock_init_data __initdata = {
 	.table = msm_clocks_8974,
 	.size = ARRAY_SIZE(msm_clocks_8974),
 	.pre_init = msm8974_clock_pre_init,
 	.post_init = msm8974_clock_post_init,
 	.late_init = msm8974_clock_late_init,
+};
+
+struct clock_init_data msm8974_rumi_clock_init_data __initdata = {
+	.table = msm_clocks_8974_rumi,
+	.size = ARRAY_SIZE(msm_clocks_8974_rumi),
+	.pre_init = msm8974_rumi_clock_pre_init,
 };
