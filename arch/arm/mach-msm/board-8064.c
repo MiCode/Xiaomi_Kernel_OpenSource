@@ -1727,6 +1727,12 @@ static struct mdm_vddmin_resource mdm_vddmin_rscs = {
 	.mdm2ap_vddmin_gpio = 80,
 };
 
+static struct gpiomux_setting mdm2ap_status_gpio_run_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct mdm_platform_data mdm_platform_data = {
 	.mdm_version = "3.0",
 	.ramdump_delay_ms = 2000,
@@ -1735,6 +1741,7 @@ static struct mdm_platform_data mdm_platform_data = {
 	.vddmin_resource = &mdm_vddmin_rscs,
 	.peripheral_platform_device = &apq8064_device_hsic_host,
 	.ramdump_timeout_ms = 120000,
+	.mdm2ap_status_gpio_run_cfg = &mdm2ap_status_gpio_run_cfg,
 };
 
 static struct tsens_platform_data apq_tsens_pdata  = {

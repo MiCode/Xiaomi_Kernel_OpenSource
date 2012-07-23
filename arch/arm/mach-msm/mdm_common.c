@@ -30,6 +30,7 @@
 #include <linux/workqueue.h>
 #include <linux/clk.h>
 #include <linux/mfd/pmic8058.h>
+#include <linux/msm_charm.h>
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
 #include <mach/mdm2.h>
@@ -37,7 +38,7 @@
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 #include <mach/rpm.h>
-#include <linux/msm_charm.h>
+#include <mach/gpiomux.h>
 #include "msm_watchdog.h"
 #include "mdm_private.h"
 #include "sysmon.h"
@@ -67,6 +68,13 @@ static int first_boot = 1;
 #define RD_BUF_SIZE			100
 #define SFR_MAX_RETRIES		10
 #define SFR_RETRY_INTERVAL	1000
+
+enum gpio_update_config {
+	GPIO_UPDATE_BOOTING_CONFIG = 1,
+	GPIO_UPDATE_RUNNING_CONFIG,
+};
+static int mdm2ap_status_valid_old_config;
+static struct gpiomux_setting mdm2ap_status_old_config;
 
 static irqreturn_t mdm_vddmin_change(int irq, void *dev_id)
 {
@@ -163,6 +171,37 @@ static void mdm2ap_status_check(struct work_struct *work)
 
 static DECLARE_DELAYED_WORK(mdm2ap_status_check_work, mdm2ap_status_check);
 
+static void mdm_update_gpio_configs(enum gpio_update_config gpio_config)
+{
+	/* Some gpio configuration may need updating after modem bootup.*/
+	switch (gpio_config) {
+	case GPIO_UPDATE_RUNNING_CONFIG:
+		if (mdm_drv->pdata->mdm2ap_status_gpio_run_cfg) {
+			if (msm_gpiomux_write(mdm_drv->mdm2ap_status_gpio,
+				GPIOMUX_ACTIVE,
+				mdm_drv->pdata->mdm2ap_status_gpio_run_cfg,
+				&mdm2ap_status_old_config))
+				pr_err("%s: failed updating running gpio config\n",
+					   __func__);
+			else
+				mdm2ap_status_valid_old_config = 1;
+		}
+		break;
+	case GPIO_UPDATE_BOOTING_CONFIG:
+		if (mdm2ap_status_valid_old_config) {
+			msm_gpiomux_write(mdm_drv->mdm2ap_status_gpio,
+					GPIOMUX_ACTIVE,
+					&mdm2ap_status_old_config,
+					NULL);
+			mdm2ap_status_valid_old_config = 0;
+		}
+		break;
+	default:
+		pr_err("%s: called with no config\n", __func__);
+		break;
+	}
+}
+
 long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
 {
@@ -205,11 +244,10 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 		else
 			first_boot = 0;
 
-		/* Start a timer to check that the mdm2ap_status gpio
-		 * goes high.
+		/* If successful, start a timer to check that the mdm2ap_status
+		 * gpio goes high.
 		 */
-
-		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
+		if (!status && gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
 			schedule_delayed_work(&mdm2ap_status_check_work,
 				msecs_to_jiffies(MDM2AP_STATUS_TIMEOUT_MS));
 		break;
@@ -266,6 +304,9 @@ static void mdm_status_fn(struct work_struct *work)
 	pr_debug("%s: status:%d\n", __func__, value);
 	if (mdm_drv->mdm_ready && mdm_drv->ops->status_cb)
 		mdm_drv->ops->status_cb(mdm_drv, value);
+
+	/* Update gpio configuration to "running" config. */
+	mdm_update_gpio_configs(GPIO_UPDATE_RUNNING_CONFIG);
 }
 
 static DECLARE_WORK(mdm_status_work, mdm_status_fn);
@@ -364,6 +405,7 @@ static irqreturn_t mdm_pblrdy_change(int irq, void *dev_id)
 static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys)
 {
 	mdm_drv->mdm_ready = 0;
+	cancel_delayed_work(&mdm2ap_status_check_work);
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 1);
 	if (mdm_drv->pdata->ramdump_delay_ms > 0) {
 		/* Wait for the external modem to complete
@@ -371,10 +413,13 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys)
 		 */
 		msleep(mdm_drv->pdata->ramdump_delay_ms);
 	}
-	if (!mdm_drv->mdm_unexpected_reset_occurred)
+	if (!mdm_drv->mdm_unexpected_reset_occurred) {
 		mdm_drv->ops->reset_mdm_cb(mdm_drv);
-	else
+		/* Update gpio configuration to "booting" config. */
+		mdm_update_gpio_configs(GPIO_UPDATE_BOOTING_CONFIG);
+	} else {
 		mdm_drv->mdm_unexpected_reset_occurred = 0;
+	}
 	return 0;
 }
 
@@ -404,6 +449,7 @@ static int mdm_subsys_ramdumps(int want_dumps,
 				const struct subsys_desc *crashed_subsys)
 {
 	mdm_drv->mdm_ram_dump_status = 0;
+	cancel_delayed_work(&mdm2ap_status_check_work);
 	if (want_dumps) {
 		mdm_drv->boot_type = CHARM_RAM_DUMPS;
 		complete(&mdm_needs_reload);
@@ -416,8 +462,11 @@ static int mdm_subsys_ramdumps(int want_dumps,
 			pr_info("%s: mdm modem ramdumps completed.\n",
 					__func__);
 		INIT_COMPLETION(mdm_ram_dumps);
-		if (!mdm_drv->pdata->no_powerdown_after_ramdumps)
+		if (!mdm_drv->pdata->no_powerdown_after_ramdumps) {
 			mdm_drv->ops->power_down_mdm_cb(mdm_drv);
+			/* Update gpio configuration to "booting" config. */
+			mdm_update_gpio_configs(GPIO_UPDATE_BOOTING_CONFIG);
+		}
 	}
 	return mdm_drv->mdm_ram_dump_status;
 }
