@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -2529,6 +2530,12 @@ static int msmsdcc_setup_gpio(struct msmsdcc_host *host, bool enable)
 
 	curr = host->plat->pin_data->gpio_data;
 	for (i = 0; i < curr->size; i++) {
+		if (!gpio_is_valid(curr->gpio[i].no)) {
+			rc = -EINVAL;
+			pr_err("%s: Invalid gpio = %d\n",
+				mmc_hostname(host->mmc), curr->gpio[i].no);
+			goto free_gpios;
+		}
 		if (enable) {
 			if (curr->gpio[i].is_always_on &&
 				curr->gpio[i].is_enabled)
@@ -2553,7 +2560,7 @@ static int msmsdcc_setup_gpio(struct msmsdcc_host *host, bool enable)
 	goto out;
 
 free_gpios:
-	for (; i >= 0; i--) {
+	for (i--; i >= 0; i--) {
 		gpio_free(curr->gpio[i].no);
 		curr->gpio[i].is_enabled = false;
 	}
@@ -4778,6 +4785,298 @@ static void msmsdcc_req_tout_timer_hdlr(unsigned long data)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+/*
+ * msmsdcc_dt_get_array - Wrapper fn to read an array of 32 bit integers
+ *
+ * @dev:	device node from which the property value is to be read.
+ * @prop_name:	name of the property to be searched.
+ * @out_array:	filled array returned to caller
+ * @len:	filled array size returned to caller
+ * @size:	expected size of the array
+ *
+ * If expected "size" doesn't match with "len" an error is returned. If
+ * expected size is zero, the length of actual array is returned provided
+ * return value is zero.
+ *
+ * RETURNS:
+ * zero on success, negative error if failed.
+ */
+static int msmsdcc_dt_get_array(struct device *dev, const char *prop_name,
+		u32 **out_array, int *len, int size)
+{
+	int ret = 0;
+	u32 *array = NULL;
+	struct device_node *np = dev->of_node;
+
+	if (of_get_property(np, prop_name, len)) {
+		size_t sz;
+		sz = *len = *len / sizeof(*array);
+
+		if (sz > 0 && !(size > 0 && (sz != size))) {
+			array = devm_kzalloc(dev, sz * sizeof(*array),
+					GFP_KERNEL);
+			if (!array) {
+				dev_err(dev, "%s: no memory\n", prop_name);
+				ret = -ENOMEM;
+				goto out;
+			}
+
+			ret = of_property_read_u32_array(np, prop_name,
+					array, sz);
+			if (ret < 0) {
+				dev_err(dev, "%s: error reading array %d\n",
+						prop_name, ret);
+				goto out;
+			}
+		} else {
+			dev_err(dev, "%s invalid size\n", prop_name);
+			ret = -EINVAL;
+			goto out;
+		}
+	} else {
+		dev_err(dev, "%s not specified\n", prop_name);
+		ret = -EINVAL;
+		goto out;
+	}
+	*out_array = array;
+out:
+	if (ret)
+		*len = 0;
+	return ret;
+}
+
+static int msmsdcc_dt_get_pad_pull_info(struct device *dev, int id,
+		struct msm_mmc_pad_pull_data **pad_pull_data)
+{
+	int ret = 0, base = 0, len, i;
+	u32 *tmp;
+	struct msm_mmc_pad_pull_data *pull_data;
+	struct msm_mmc_pad_pull *pull;
+
+	switch (id) {
+	case 1:
+		base = TLMM_PULL_SDC1_CLK;
+		break;
+	case 2:
+		base = TLMM_PULL_SDC2_CLK;
+		break;
+	case 3:
+		base = TLMM_PULL_SDC3_CLK;
+		break;
+	case 4:
+		base = TLMM_PULL_SDC4_CLK;
+		break;
+	default:
+		dev_err(dev, "%s: Invalid slot id\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	pull_data = devm_kzalloc(dev, sizeof(struct msm_mmc_pad_pull_data),
+			GFP_KERNEL);
+	if (!pull_data) {
+		dev_err(dev, "No memory msm_mmc_pad_pull_data\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+	pull_data->size = 3; /* array size for clk, cmd, data */
+
+	/* Allocate on, off configs for clk, cmd, data */
+	pull = devm_kzalloc(dev, 2 * pull_data->size *\
+			sizeof(struct msm_mmc_pad_pull), GFP_KERNEL);
+	if (!pull) {
+		dev_err(dev, "No memory for msm_mmc_pad_pull\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+	pull_data->on = pull;
+	pull_data->off = pull + pull_data->size;
+
+	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-pad-pull-on",
+			&tmp, &len, pull_data->size);
+	if (!ret) {
+		for (i = 0; i < len; i++) {
+			pull_data->on[i].no = base + i;
+			pull_data->on[i].val = tmp[i];
+			dev_dbg(dev, "%s: val[%d]=0x%x\n", __func__,
+					i, pull_data->on[i].val);
+		}
+	} else {
+		goto err;
+	}
+
+	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-pad-pull-off",
+			&tmp, &len, pull_data->size);
+	if (!ret) {
+		for (i = 0; i < len; i++) {
+			pull_data->off[i].no = base + i;
+			pull_data->off[i].val = tmp[i];
+			dev_dbg(dev, "%s: val[%d]=0x%x\n", __func__,
+					i, pull_data->off[i].val);
+		}
+	} else {
+		goto err;
+	}
+
+	*pad_pull_data = pull_data;
+err:
+	return ret;
+}
+
+static int msmsdcc_dt_get_pad_drv_info(struct device *dev, int id,
+		struct msm_mmc_pad_drv_data **pad_drv_data)
+{
+	int ret = 0, base = 0, len, i;
+	u32 *tmp;
+	struct msm_mmc_pad_drv_data *drv_data;
+	struct msm_mmc_pad_drv *drv;
+
+	switch (id) {
+	case 1:
+		base = TLMM_HDRV_SDC1_CLK;
+		break;
+	case 2:
+		base = TLMM_HDRV_SDC2_CLK;
+		break;
+	case 3:
+		base = TLMM_HDRV_SDC3_CLK;
+		break;
+	case 4:
+		base = TLMM_HDRV_SDC4_CLK;
+		break;
+	default:
+		dev_err(dev, "%s: Invalid slot id\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	drv_data = devm_kzalloc(dev, sizeof(struct msm_mmc_pad_drv_data),
+			GFP_KERNEL);
+	if (!drv_data) {
+		dev_err(dev, "No memory for msm_mmc_pad_drv_data\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+	drv_data->size = 3; /* array size for clk, cmd, data */
+
+	/* Allocate on, off configs for clk, cmd, data */
+	drv = devm_kzalloc(dev, 2 * drv_data->size *\
+			sizeof(struct msm_mmc_pad_drv), GFP_KERNEL);
+	if (!drv) {
+		dev_err(dev, "No memory msm_mmc_pad_drv\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+	drv_data->on = drv;
+	drv_data->off = drv + drv_data->size;
+
+	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-pad-drv-on",
+			&tmp, &len, drv_data->size);
+	if (!ret) {
+		for (i = 0; i < len; i++) {
+			drv_data->on[i].no = base + i;
+			drv_data->on[i].val = tmp[i];
+			dev_dbg(dev, "%s: val[%d]=0x%x\n", __func__,
+					i, drv_data->on[i].val);
+		}
+	} else {
+		goto err;
+	}
+
+	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-pad-drv-off",
+			&tmp, &len, drv_data->size);
+	if (!ret) {
+		for (i = 0; i < len; i++) {
+			drv_data->off[i].no = base + i;
+			drv_data->off[i].val = tmp[i];
+			dev_dbg(dev, "%s: val[%d]=0x%x\n", __func__,
+					i, drv_data->off[i].val);
+		}
+	} else {
+		goto err;
+	}
+
+	*pad_drv_data = drv_data;
+err:
+	return ret;
+}
+
+static int msmsdcc_dt_parse_gpio_info(struct device *dev,
+		struct mmc_platform_data *pdata)
+{
+	int ret = 0, id = 0, cnt, i;
+	struct msm_mmc_pin_data *pin_data;
+	struct device_node *np = dev->of_node;
+
+	pin_data = devm_kzalloc(dev, sizeof(*pin_data), GFP_KERNEL);
+	if (!pin_data) {
+		dev_err(dev, "No memory for pin_data\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	cnt = of_gpio_count(np);
+	if (cnt > 0) {
+		pin_data->is_gpio = true;
+
+		pin_data->gpio_data = devm_kzalloc(dev,
+				sizeof(struct msm_mmc_gpio_data), GFP_KERNEL);
+		if (!pin_data->gpio_data) {
+			dev_err(dev, "No memory for gpio_data\n");
+			ret = -ENOMEM;
+			goto err;
+		}
+		pin_data->gpio_data->size = cnt;
+		pin_data->gpio_data->gpio = devm_kzalloc(dev,
+				cnt * sizeof(struct msm_mmc_gpio), GFP_KERNEL);
+		if (!pin_data->gpio_data->gpio) {
+			dev_err(dev, "No memory for gpio\n");
+			ret = -ENOMEM;
+			goto err;
+		}
+
+		for (i = 0; i < cnt; i++) {
+			const char *name = NULL;
+			char result[32];
+			pin_data->gpio_data->gpio[i].no = of_get_gpio(np, i);
+			of_property_read_string_index(np,
+					"qcom,sdcc-gpio-names", i, &name);
+
+			snprintf(result, 32, "%s-%s",
+					dev_name(dev), name ? name : "?");
+			pin_data->gpio_data->gpio[i].name = result;
+			dev_dbg(dev, "%s: gpio[%s] = %d\n", __func__,
+					pin_data->gpio_data->gpio[i].name,
+					pin_data->gpio_data->gpio[i].no);
+		}
+	} else {
+		pin_data->pad_data = devm_kzalloc(dev,
+				sizeof(struct msm_mmc_pad_data), GFP_KERNEL);
+		if (!pin_data->pad_data) {
+			dev_err(dev, "No memory for pin_data->pad_data\n");
+			ret = -ENOMEM;
+			goto err;
+		}
+
+		of_property_read_u32(np, "cell-index", &id);
+
+		ret = msmsdcc_dt_get_pad_pull_info(dev, id,
+				&pin_data->pad_data->pull);
+		if (ret)
+			goto err;
+		ret = msmsdcc_dt_get_pad_drv_info(dev, id,
+				&pin_data->pad_data->drv);
+		if (ret)
+			goto err;
+	}
+
+	pdata->pin_data = pin_data;
+err:
+	if (ret)
+		dev_err(dev, "%s failed with err %d\n", __func__, ret);
+	return ret;
+}
+
 #define MAX_PROP_SIZE 32
 static int msmsdcc_dt_parse_vreg_info(struct device *dev,
 		struct msm_mmc_reg_data **vreg_data, const char *vreg_name)
@@ -4867,29 +5166,10 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 		pdata->mmc_bus_width = 0;
 	}
 
-	if (of_get_property(np, "qcom,sdcc-sup-voltages", &sup_volt_len)) {
-		size_t sz;
-		sz = sup_volt_len / sizeof(*sup_voltages);
-		if (sz > 0) {
-			sup_voltages = devm_kzalloc(dev,
-					sz * sizeof(*sup_voltages), GFP_KERNEL);
-			if (!sup_voltages) {
-				dev_err(dev, "No memory for supported voltage\n");
-				goto err;
-			}
-
-			ret = of_property_read_u32_array(np,
-				"qcom,sdcc-sup-voltages", sup_voltages, sz);
-			if (ret < 0) {
-				dev_err(dev, "error while reading voltage"
-						"ranges %d\n", ret);
-				goto err;
-			}
-		} else {
-			dev_err(dev, "No supported voltages\n");
-			goto err;
-		}
-		for (i = 0; i < sz; i += 2) {
+	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-sup-voltages",
+			&sup_voltages, &sup_volt_len, 0);
+	if (!ret) {
+		for (i = 0; i < sup_volt_len; i += 2) {
 			u32 mask;
 
 			mask = mmc_vddrange_to_ocrmask(sup_voltages[i],
@@ -4899,37 +5179,13 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 			pdata->ocr_mask |= mask;
 		}
 		dev_dbg(dev, "OCR mask=0x%x\n", pdata->ocr_mask);
-	} else {
-		dev_err(dev, "Supported voltage range not specified\n");
 	}
 
-	if (of_get_property(np, "qcom,sdcc-clk-rates", &clk_table_len)) {
-		size_t sz;
-		sz = clk_table_len / sizeof(*clk_table);
-
-		if (sz > 0) {
-			clk_table = devm_kzalloc(dev, sz * sizeof(*clk_table),
-					GFP_KERNEL);
-			if (!clk_table) {
-				dev_err(dev, "No memory for clock table\n");
-				goto err;
-			}
-
-			ret = of_property_read_u32_array(np,
-				"qcom,sdcc-clk-rates", clk_table, sz);
-			if (ret < 0) {
-				dev_err(dev, "error while reading clk"
-						"table %d\n", ret);
-				goto err;
-			}
-		} else {
-			dev_err(dev, "clk_table not specified\n");
-			goto err;
-		}
+	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-clk-rates",
+			&clk_table, &clk_table_len, 0);
+	if (!ret) {
 		pdata->sup_clk_table = clk_table;
-		pdata->sup_clk_cnt = sz;
-	} else {
-		dev_err(dev, "Supported clock rates not specified\n");
+		pdata->sup_clk_cnt = clk_table_len;
 	}
 
 	pdata->vreg_data = devm_kzalloc(dev,
@@ -4945,6 +5201,9 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 
 	if (msmsdcc_dt_parse_vreg_info(dev,
 			&pdata->vreg_data->vdd_io_data, "vdd-io"))
+		goto err;
+
+	if (msmsdcc_dt_parse_gpio_info(dev, pdata))
 		goto err;
 
 	len = of_property_count_strings(np, "qcom,sdcc-bus-speed-mode");

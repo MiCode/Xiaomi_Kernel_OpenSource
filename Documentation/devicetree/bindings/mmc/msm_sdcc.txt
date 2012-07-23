@@ -35,6 +35,15 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- qcom,sdcc-<supply>-current_level - specifies load levels for supply in lpm or
 	high power mode (hpm). Should be specified in pairs (lpm, hpm), units uA.
 
+	- gpios - specifies gpios assigned for sdcc slot.
+	- qcom,sdcc-gpio-names -  a list of strings that map in order to the list of gpios
+	A slot has either gpios or dedicated tlmm pins as represented below.
+	- qcom,sdcc-pad-pull-on - Active pull configuration for sdc tlmm pins
+	- qcom,sdcc-pad-pull-off - Suspend pull configuration for sdc tlmm pins.
+	- qcom,sdcc-pad-drv-on - Active drive strength configuration for sdc tlmm pins.
+	- qcom,sdcc-pad-drv-off - Suspend drive strength configuration for sdc tlmm pins.
+	Tlmm pins are specified as <clk cmd data>
+
 Example:
 
 	qcom,sdcc@f9600000 {

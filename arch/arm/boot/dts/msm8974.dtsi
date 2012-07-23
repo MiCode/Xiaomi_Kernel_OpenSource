@@ -76,7 +76,7 @@
 	};
 
 	qcom,sdcc@f9824000 {
-		cell-index = <1>;
+		cell-index = <1>; /* SDC1 eMMC slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf9824000 0x1000>;
 		interrupts = <0 123 0>;
@@ -90,6 +90,11 @@
 		qcom,sdcc-vdd-io-voltage_level = <1800000 1800000>;
 		qcom,sdcc-vdd-io-current_level = <250 154000>;
 
+		qcom,sdcc-pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,sdcc-pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,sdcc-pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+		qcom,sdcc-pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
 		qcom,sdcc-sup-voltages = <2950 2950>;
 		qcom,sdcc-bus-width = <8>;
@@ -98,7 +103,7 @@
 	};
 
 	qcom,sdcc@f98a4000 {
-		cell-index = <2>;
+		cell-index = <2>; /* SDC2 SD card slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x1000>;
 		interrupts = <0 125 0>;
@@ -113,6 +118,11 @@
 		qcom,sdcc-vdd-io-voltage_level = <1800000 2950000>;
 		qcom,sdcc-vdd-io-current_level = <6 22000>;
 
+		qcom,sdcc-pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,sdcc-pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,sdcc-pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+		qcom,sdcc-pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
 		qcom,sdcc-sup-voltages = <2950 2950>;
 		qcom,sdcc-bus-width = <4>;
@@ -122,10 +132,18 @@
 	};
 
 	qcom,sdcc@f9864000 {
-		cell-index = <3>;
+		cell-index = <3>; /* SDC3 SDIO slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf9864000 0x1000>;
 		interrupts = <0 127 0>;
+
+		gpios = <&msmgpio 40 0>, /* CLK */
+			<&msmgpio 39 0>, /* CMD */
+			<&msmgpio 38 0>, /* DATA0 */
+			<&msmgpio 37 0>, /* DATA1 */
+			<&msmgpio 36 0>, /* DATA2 */
+			<&msmgpio 35 0>; /* DATA3 */
+		qcom,sdcc-gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
 
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
 		qcom,sdcc-sup-voltages = <1800 1800>;
@@ -135,10 +153,18 @@
 	};
 
 	qcom,sdcc@f98e4000 {
-		cell-index = <4>;
+		cell-index = <4>; /* SDC4 SDIO slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98e4000 0x1000>;
 		interrupts = <0 129 0>;
+
+		gpios = <&msmgpio 93 0>, /* CLK */
+			<&msmgpio 91 0>, /* CMD */
+			<&msmgpio 96 0>, /* DATA0 */
+			<&msmgpio 95 0>, /* DATA1 */
+			<&msmgpio 94 0>, /* DATA2 */
+			<&msmgpio 92 0>; /* DATA3 */
+		qcom,sdcc-gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
 
 		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
 		qcom,sdcc-sup-voltages = <1800 1800>;
