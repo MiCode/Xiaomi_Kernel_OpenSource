@@ -788,7 +788,7 @@ static struct gpiomux_setting ap2mdm_cfg = {
 static struct gpiomux_setting mdm2ap_status_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
+	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct gpiomux_setting mdm2ap_errfatal_cfg = {
@@ -828,6 +828,7 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 	{
 		.gpio = 49,
 		.settings = {
+			[GPIOMUX_ACTIVE] = &mdm2ap_status_cfg,
 			[GPIOMUX_SUSPENDED] = &mdm2ap_status_cfg,
 		}
 	},
