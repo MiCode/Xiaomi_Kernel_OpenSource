@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <mach/iommu_domains.h>
 #include "msm_smem.h"
+#include "msm_vidc_debug.h"
 
 struct smem_client {
 	int mem_type;
@@ -27,19 +28,20 @@ static int get_device_address(struct ion_client *clnt,
 {
 	int rc;
 	if (!iova || !buffer_size || !hndl || !clnt) {
-		pr_err("Invalid params: %p, %p, %p, %p\n",
+		dprintk(VIDC_ERR, "Invalid params: %p, %p, %p, %p\n",
 				clnt, hndl, iova, buffer_size);
 		return -EINVAL;
 	}
 	if (align < 4096)
 		align = 4096;
-	pr_debug("\n In %s  domain: %d, Partition: %d\n",
-		__func__, domain_num, partition_num);
+	dprintk(VIDC_DBG, "domain: %d, partition: %d\n",
+		domain_num, partition_num);
 	rc = ion_map_iommu(clnt, hndl, domain_num, partition_num, align,
 			0, iova, buffer_size, UNCACHED, 0);
 	if (rc)
-		pr_err("ion_map_iommu failed(%d).domain: %d,partition: %d\n",
-				rc, domain_num, partition_num);
+		dprintk(VIDC_ERR,
+		"ion_map_iommu failed(%d).domain: %d,partition: %d\n",
+		rc, domain_num, partition_num);
 
 	return rc;
 }
@@ -61,14 +63,14 @@ static int ion_user_to_kernel(struct smem_client *client,
 	int rc = 0;
 	hndl = ion_import_dma_buf(client->clnt, fd);
 	if (IS_ERR_OR_NULL(hndl)) {
-		pr_err("Failed to get handle: %p, %d, %d, %p\n",
+		dprintk(VIDC_ERR, "Failed to get handle: %p, %d, %d, %p\n",
 				client, fd, offset, hndl);
 		rc = -ENOMEM;
 		goto fail_import_fd;
 	}
 	rc = ion_handle_get_flags(client->clnt, hndl, &ionflag);
 	if (rc) {
-		pr_err("Failed to get ion flags: %d", rc);
+		dprintk(VIDC_ERR, "Failed to get ion flags: %d", rc);
 		goto fail_map;
 	}
 	mem->kvaddr = NULL;
@@ -77,7 +79,7 @@ static int ion_user_to_kernel(struct smem_client *client,
 	rc = get_device_address(client->clnt, hndl, mem->domain,
 		mem->partition_num, 4096, &iova, &buffer_size, ionflag);
 	if (rc) {
-		pr_err("Failed to get device address: %d\n", rc);
+		dprintk(VIDC_ERR, "Failed to get device address: %d\n", rc);
 		goto fail_device_address;
 	}
 
@@ -85,7 +87,7 @@ static int ion_user_to_kernel(struct smem_client *client,
 	mem->smem_priv = hndl;
 	mem->device_addr = iova;
 	mem->size = buffer_size;
-	pr_err("NOTE: Buffer device address: 0x%lx, size: %d\n",
+	dprintk(VIDC_DBG, "NOTE: Buffer device address: 0x%lx, size: %d\n",
 		mem->device_addr, mem->size);
 	return rc;
 fail_device_address:
@@ -114,12 +116,13 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	if (align < 4096)
 		align = 4096;
 	size = (size + 4095) & (~4095);
-	pr_debug("\n in %s domain: %d, Partition: %d\n",
-		__func__, domain, partition);
+	dprintk(VIDC_DBG, "domain: %d, partition: %d\n",
+		domain, partition);
 	hndl = ion_alloc(client->clnt, size, align, ionflags);
 	if (IS_ERR_OR_NULL(hndl)) {
-		pr_err("Failed to allocate shared memory = %p, %d, %d, 0x%lx\n",
-				client, size, align, ionflags);
+		dprintk(VIDC_ERR,
+		"Failed to allocate shared memory = %p, %d, %d, 0x%lx\n",
+		client, size, align, ionflags);
 		rc = -ENOMEM;
 		goto fail_shared_mem_alloc;
 	}
@@ -130,7 +133,8 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	if (map_kernel) {
 		mem->kvaddr = ion_map_kernel(client->clnt, hndl, 0);
 		if (!mem->kvaddr) {
-			pr_err("Failed to map shared mem in kernel\n");
+			dprintk(VIDC_ERR,
+				"Failed to map shared mem in kernel\n");
 			rc = -EIO;
 			goto fail_map;
 		}
@@ -140,11 +144,13 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	rc = get_device_address(client->clnt, hndl, mem->domain,
 		mem->partition_num, align, &iova, &buffer_size, UNCACHED);
 	if (rc) {
-		pr_err("Failed to get device address: %d\n", rc);
+		dprintk(VIDC_ERR, "Failed to get device address: %d\n",
+			rc);
 		goto fail_device_address;
 	}
 	mem->device_addr = iova;
-	pr_err("NOTE: device_address = 0x%lx, kvaddr = 0x%p, size = %d\n",
+	dprintk(VIDC_DBG,
+		"device_address = 0x%lx, kvaddr = 0x%p, size = %d\n",
 		mem->device_addr, mem->kvaddr, size);
 	mem->size = size;
 	return rc;
@@ -172,7 +178,7 @@ static void *ion_new_client(void)
 	struct ion_client *client = NULL;
 	client = msm_ion_client_create(-1, "video_client");
 	if (!client)
-		pr_err("Failed to create smem client\n");
+		dprintk(VIDC_ERR, "Failed to create smem client\n");
 	return client;
 };
 
@@ -188,12 +194,12 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 	int rc = 0;
 	struct msm_smem *mem;
 	if (fd < 0) {
-		pr_err("Invalid fd: %d\n", fd);
+		dprintk(VIDC_ERR, "Invalid fd: %d\n", fd);
 		return NULL;
 	}
 	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
 	if (!mem) {
-		pr_err("Failed to allocte shared mem\n");
+		dprintk(VIDC_ERR, "Failed to allocte shared mem\n");
 		return NULL;
 	}
 	switch (client->mem_type) {
@@ -202,12 +208,12 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 			domain, partition, mem);
 		break;
 	default:
-		pr_err("Mem type not supported\n");
+		dprintk(VIDC_ERR, "Mem type not supported\n");
 		rc = -EINVAL;
 		break;
 	}
 	if (rc) {
-		pr_err("Failed to allocate shared memory\n");
+		dprintk(VIDC_ERR, "Failed to allocate shared memory\n");
 		kfree(mem);
 		mem = NULL;
 	}
@@ -229,7 +235,7 @@ int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem)
 	struct smem_client *client = clt;
 	int rc;
 	if (!client || !mem) {
-		pr_err("Invalid  client/handle passed\n");
+		dprintk(VIDC_ERR, "Invalid  client/handle passed\n");
 		return -EINVAL;
 	}
 	switch (client->mem_type) {
@@ -237,7 +243,7 @@ int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem)
 		rc = ion_mem_clean_invalidate(client, mem);
 		break;
 	default:
-		pr_err("Mem type not supported\n");
+		dprintk(VIDC_ERR, "Mem type not supported\n");
 		rc = -EINVAL;
 		break;
 	}
@@ -253,7 +259,7 @@ void *msm_smem_new_client(enum smem_type mtype)
 		clnt = ion_new_client();
 		break;
 	default:
-		pr_err("Mem type not supported\n");
+		dprintk(VIDC_ERR, "Mem type not supported\n");
 		break;
 	}
 	if (clnt) {
@@ -263,7 +269,8 @@ void *msm_smem_new_client(enum smem_type mtype)
 			client->clnt = clnt;
 		}
 	} else {
-		pr_err("Failed to create new client: mtype = %d\n", mtype);
+		dprintk(VIDC_ERR, "Failed to create new client: mtype = %d\n",
+			mtype);
 	}
 	return client;
 };
@@ -276,16 +283,17 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 	struct msm_smem *mem;
 	client = clt;
 	if (!client) {
-		pr_err("Invalid  client passed\n");
+		dprintk(VIDC_ERR, "Invalid  client passed\n");
 		return NULL;
 	}
 	if (!size) {
-		pr_err("No need to allocate memory of size: %d\n", size);
+		dprintk(VIDC_ERR, "No need to allocate memory of size: %d\n",
+			size);
 		return NULL;
 	}
 	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
 	if (!mem) {
-		pr_err("Failed to allocate shared mem\n");
+		dprintk(VIDC_ERR, "Failed to allocate shared mem\n");
 		return NULL;
 	}
 	switch (client->mem_type) {
@@ -294,12 +302,12 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 			domain, partition, mem, map_kernel);
 		break;
 	default:
-		pr_err("Mem type not supported\n");
+		dprintk(VIDC_ERR, "Mem type not supported\n");
 		rc = -EINVAL;
 		break;
 	}
 	if (rc) {
-		pr_err("Failed to allocate shared memory\n");
+		dprintk(VIDC_ERR, "Failed to allocate shared memory\n");
 		kfree(mem);
 		mem = NULL;
 	}
@@ -310,7 +318,7 @@ void msm_smem_free(void *clt, struct msm_smem *mem)
 {
 	struct smem_client *client = clt;
 	if (!client || !mem) {
-		pr_err("Invalid  client/handle passed\n");
+		dprintk(VIDC_ERR, "Invalid  client/handle passed\n");
 		return;
 	}
 	switch (client->mem_type) {
@@ -318,7 +326,7 @@ void msm_smem_free(void *clt, struct msm_smem *mem)
 		free_ion_mem(client, mem);
 		break;
 	default:
-		pr_err("Mem type not supported\n");
+		dprintk(VIDC_ERR, "Mem type not supported\n");
 		break;
 	}
 	kfree(mem);
@@ -328,7 +336,7 @@ void msm_smem_delete_client(void *clt)
 {
 	struct smem_client *client = clt;
 	if (!client) {
-		pr_err("Invalid  client passed\n");
+		dprintk(VIDC_ERR, "Invalid  client passed\n");
 		return;
 	}
 	switch (client->mem_type) {
@@ -336,7 +344,7 @@ void msm_smem_delete_client(void *clt)
 		ion_delete_client(client);
 		break;
 	default:
-		pr_err("Mem type not supported\n");
+		dprintk(VIDC_ERR, "Mem type not supported\n");
 		break;
 	}
 	kfree(client);
