@@ -70,12 +70,6 @@ struct msm_pm_platform_data {
 
 extern struct msm_pm_platform_data msm_pm_sleep_modes[];
 
-struct msm_pm_sleep_status_data {
-	void *base_addr;
-	uint32_t cpu_offset;
-	uint32_t mask;
-};
-
 struct msm_pm_sleep_ops {
 	void *(*lowest_limits)(bool from_idle,
 			enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
@@ -93,19 +87,11 @@ void msm_pm_set_irq_extns(struct msm_pm_irq_calls *irq_calls);
 int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode);
 void msm_pm_cpu_enter_lowpower(unsigned int cpu);
 
-void __init msm_pm_init_sleep_status_data(
-		struct msm_pm_sleep_status_data *sleep_data);
-
-
 #ifdef CONFIG_MSM_PM8X60
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
-int msm_pm_wait_cpu_shutdown(unsigned int cpu);
-bool msm_pm_verify_cpu_pc(unsigned int cpu);
 void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops);
 #else
 static inline void msm_pm_set_rpm_wakeup_irq(unsigned int irq) {}
-static inline int msm_pm_wait_cpu_shutdown(unsigned int cpu) { return 0; }
-static inline bool msm_pm_verify_cpu_pc(unsigned int cpu) { return true; }
 static inline void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops) {}
 #endif
 #ifdef CONFIG_HOTPLUG_CPU
