@@ -496,6 +496,9 @@ static const struct attribute_group *coresight_attr_grps_source[] = {
 
 static struct device_type coresight_dev_type[] = {
 	{
+		.name = "none",
+	},
+	{
 		.name = "sink",
 		.groups = coresight_attr_grps_sink,
 	},

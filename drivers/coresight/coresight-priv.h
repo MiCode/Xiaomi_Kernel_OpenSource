@@ -36,4 +36,12 @@
 #define BMVAL(val, lsb, msb)	((val & BM(lsb, msb)) >> lsb)
 #define BVAL(val, n)		((val & BIT(n)) >> n)
 
+#ifdef CONFIG_MSM_QDSS
+extern void msm_qdss_csr_enable_bam_to_usb(void);
+extern void msm_qdss_csr_disable_bam_to_usb(void);
+#else
+static inline void msm_qdss_csr_enable_bam_to_usb(void) {}
+static inline void msm_qdss_csr_disable_bam_to_usb(void) {}
+#endif
+
 #endif

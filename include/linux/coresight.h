@@ -45,6 +45,7 @@ enum coresight_clk_rate {
 };
 
 enum coresight_dev_type {
+	CORESIGHT_DEV_TYPE_NONE,
 	CORESIGHT_DEV_TYPE_SINK,
 	CORESIGHT_DEV_TYPE_LINK,
 	CORESIGHT_DEV_TYPE_LINKSINK,
