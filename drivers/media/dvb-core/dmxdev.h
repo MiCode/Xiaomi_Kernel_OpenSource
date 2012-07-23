@@ -114,6 +114,7 @@ struct dmxdev_filter {
 	enum dmxdev_state state;
 	struct dmxdev *dev;
 	struct dvb_ringbuffer buffer;
+	u32 flush_data_len;
 
 	struct mutex mutex;
 
@@ -154,6 +155,9 @@ struct dmxdev {
 
 	struct dvb_ringbuffer dvr_buffer;
 	struct dmxdev_events_queue dvr_output_events;
+	struct dmxdev_filter *dvr_feed;
+	u32 dvr_flush_data_len;
+	int dvr_feeds_count;
 
 	struct dvb_ringbuffer dvr_input_buffer;
 	struct workqueue_struct *dvr_input_workqueue;
