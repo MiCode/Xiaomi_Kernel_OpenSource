@@ -2160,7 +2160,7 @@ static struct platform_device *common_not_mpq_devices[] __initdata = {
 };
 
 static struct platform_device *common_devices[] __initdata = {
-	&msm8960_device_acpuclk,
+	&apq8064_device_acpuclk,
 	&apq8064_device_dmov,
 	&apq8064_device_qup_spi_gsbi5,
 	&apq8064_device_ext_5v_vreg,
