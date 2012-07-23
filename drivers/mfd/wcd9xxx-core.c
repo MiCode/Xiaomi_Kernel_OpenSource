@@ -246,6 +246,12 @@ static struct mfd_cell sitar_devs[] = {
 	},
 };
 
+static struct mfd_cell taiko_devs[] = {
+	{
+		.name = "taiko_codec",
+	},
+};
+
 static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
 {
 	wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_LEAKAGE_CTL, 0x4);
@@ -336,6 +342,10 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 	} else if (wcd9xxx->idbyte_0 == 0x1) {
 		wcd9xxx_dev = tabla1x_devs;
 		wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
+	} else if (wcd9xxx->idbyte_0 == 0x0 && wcd9xxx->idbyte_1 == 0x0 &&
+		   wcd9xxx->idbyte_2 == 0x2 && wcd9xxx->idbyte_3 == 0x1) {
+		wcd9xxx_dev = taiko_devs;
+		wcd9xxx_dev_size = ARRAY_SIZE(taiko_devs);
 	} else if (wcd9xxx->idbyte_0 == 0x0) {
 		wcd9xxx_dev = sitar_devs;
 		wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
@@ -882,7 +892,9 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		pr_err("%s: error, initializing device failed\n", __func__);
 		goto err_slim_add;
 	}
+
 	wcd9xxx_init_slimslave(wcd9xxx, wcd9xxx_pgd_la);
+
 #ifdef CONFIG_DEBUG_FS
 	debugCodec = wcd9xxx;
 
@@ -1090,6 +1102,23 @@ static struct slim_driver tabla2x_slim_driver = {
 	.suspend = wcd9xxx_slim_suspend,
 };
 
+static const struct slim_device_id taiko_slimtest_id[] = {
+	{"taiko-slim", 0},
+	{}
+};
+
+static struct slim_driver taiko_slim_driver = {
+	.driver = {
+		.name = "taiko-slim",
+		.owner = THIS_MODULE,
+	},
+	.probe = wcd9xxx_slim_probe,
+	.remove = wcd9xxx_slim_remove,
+	.id_table = taiko_slimtest_id,
+	.resume = wcd9xxx_slim_resume,
+	.suspend = wcd9xxx_slim_suspend,
+};
+
 #define WCD9XXX_I2C_TOP_LEVEL	0
 #define WCD9XXX_I2C_ANALOG	1
 #define WCD9XXX_I2C_DIGITAL_1	2
@@ -1118,7 +1147,7 @@ static struct i2c_driver tabla_i2c_driver = {
 
 static int __init wcd9xxx_init(void)
 {
-	int ret1, ret2, ret3, ret4, ret5;
+	int ret1, ret2, ret3, ret4, ret5, ret6;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);
 	if (ret1 != 0)
@@ -1140,7 +1169,11 @@ static int __init wcd9xxx_init(void)
 	if (ret5 != 0)
 		pr_err("Failed to register sitar SB driver: %d\n", ret5);
 
-	return (ret1 && ret2 && ret3 && ret4 && ret5) ? -1 : 0;
+	ret6 = slim_driver_register(&taiko_slim_driver);
+	if (ret6 != 0)
+		pr_err("Failed to register taiko SB driver: %d\n", ret6);
+
+	return (ret1 && ret2 && ret3 && ret4 && ret5 && ret6) ? -1 : 0;
 }
 module_init(wcd9xxx_init);
 
