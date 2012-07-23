@@ -168,6 +168,7 @@ typedef int (*dmx_ts_data_ready_cb)(
 struct dmx_ts_feed {
 	int is_filtering; /* Set to non-zero when filtering in progress */
 	struct dmx_demux *parent; /* Back-pointer */
+	const struct dvb_ringbuffer *buffer;
 	void *priv; /* Pointer to private data of the API client */
 	int (*set) (struct dmx_ts_feed *feed,
 		    u16 pid,
@@ -184,6 +185,8 @@ struct dmx_ts_feed {
 			struct dmx_buffer_status *dmx_buffer_status);
 	int (*data_ready_cb)(struct dmx_ts_feed *feed,
 			dmx_ts_data_ready_cb callback);
+	int (*notify_data_read)(struct dmx_ts_feed *feed,
+			u32 bytes_num);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -195,6 +198,7 @@ struct dmx_section_filter {
 	u8 filter_mask [DMX_MAX_FILTER_SIZE];
 	u8 filter_mode [DMX_MAX_FILTER_SIZE];
 	struct dmx_section_feed* parent; /* Back-pointer */
+	const struct dvb_ringbuffer *buffer;
 	void* priv; /* Pointer to private data of the API client */
 };
 
@@ -227,6 +231,8 @@ struct dmx_section_feed {
 	int (*stop_filtering) (struct dmx_section_feed* feed);
 	int (*data_ready_cb)(struct dmx_section_feed *feed,
 			dmx_section_data_ready_cb callback);
+	int (*notify_data_read)(struct dmx_section_filter *filter,
+			u32 bytes_num);
 };
 
 /*--------------------------------------------------------------------------*/
