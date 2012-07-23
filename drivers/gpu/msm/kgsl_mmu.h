@@ -302,4 +302,10 @@ static inline void kgsl_mmu_disable_clk_on_ts(struct kgsl_mmu *mmu,
 		mmu->mmu_ops->mmu_disable_clk_on_ts(mmu, ts, ts_valid);
 }
 
+static inline int kgsl_mmu_gpuaddr_in_range(unsigned int gpuaddr)
+{
+	return ((gpuaddr >= KGSL_PAGETABLE_BASE) &&
+		(gpuaddr < (KGSL_PAGETABLE_BASE + kgsl_mmu_get_ptsize())));
+}
+
 #endif /* __KGSL_MMU_H */
