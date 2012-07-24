@@ -18,7 +18,11 @@ The required nodes for lpm-levels are:
 - qcom,vdd-mem-upper-bound: The upper bound value of mem voltage in uV
 - qcom,vdd-mem-lower-bound: The lower bound value of mem voltage in uV
 - qcom,vdd-dig-upper-bound: The upper bound value of dig voltage in uV
+                            or an RBCPR (Rapid Bridge Core Power Reduction)
+                            corner voltage.
 - qcom,vdd-dig-lower-bound: The lower bound value of dig voltage in uV
+                            or an RBCPR (Rapid Bridge Core Power Reduction)
+                            corner voltage.
 - qcom,latency-us: The latency in handling the interrupt if this level was
 	chosen, in uSec
 - qcom,ss-power: The steady state power expelled when the processor is in this
@@ -37,8 +41,8 @@ qcom,lpm-levels {
 		qcom,l2 = <3>;          /* ACTIVE */
 		qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
 		qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-		qcom,vdd-dig-upper-bound = <1150000>; /* MAX */
-		qcom,vdd-dig-lower-bound = <950000>;  /* ACTIVE */
+		qcom,vdd-dig-upper-bound = <5>; /* MAX */
+		qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
 		qcom,latency-us = <100>;
 		qcom,ss-power = <650>;
 		qcom,energy-overhead = <801>;

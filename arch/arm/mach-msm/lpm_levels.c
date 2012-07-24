@@ -49,8 +49,8 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 static void msm_lpm_exit_sleep(void *limits, bool from_idle,
 		bool notify_rpm, bool collapsed)
 {
-	/* TODO */
-	return;
+	msm_lpmrs_exit_sleep((struct msm_rpmrs_limits *)limits,
+				from_idle, notify_rpm, collapsed);
 }
 
 void msm_lpm_show_resources(void)
