@@ -1131,13 +1131,12 @@ static void usf_release_input(struct usf_type *usf)
 {
 	uint16_t ind = 0;
 
+	usf_unregister_conflicting_events(
+					usf->conflicting_event_types);
+	usf->conflicting_event_types = 0;
 	for (ind = 0; ind < USF_MAX_EVENT_IND; ++ind) {
 		if (usf->input_ifs[ind] == NULL)
 			continue;
-
-		usf_unregister_conflicting_events(
-						usf->conflicting_event_types);
-		usf->conflicting_event_types = 0;
 		input_unregister_device(usf->input_ifs[ind]);
 		usf->input_ifs[ind] = NULL;
 		pr_debug("%s input_unregister_device[%s]\n",
