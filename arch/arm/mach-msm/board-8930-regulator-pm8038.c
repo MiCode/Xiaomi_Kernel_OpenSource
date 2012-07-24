@@ -35,6 +35,7 @@ VREG_CONSUMERS(L2) = {
 	REGULATOR_SUPPLY("8038_l2",		NULL),
 	REGULATOR_SUPPLY("iris_vdddig",		"wcnss_wlan.0"),
 	REGULATOR_SUPPLY("dsi_vdda",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi_pll_vdda",	"mdp.0"),
 	REGULATOR_SUPPLY("mipi_csi_vdd",	"msm_csid.0"),
 	REGULATOR_SUPPLY("mipi_csi_vdd",	"msm_csid.1"),
 	REGULATOR_SUPPLY("mipi_csi_vdd",	"msm_csid.2"),
@@ -146,6 +147,7 @@ VREG_CONSUMERS(L22) = {
 VREG_CONSUMERS(L23) = {
 	REGULATOR_SUPPLY("8038_l23",		NULL),
 	REGULATOR_SUPPLY("dsi_vddio",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi_pll_vddio",	"mdp.0"),
 	REGULATOR_SUPPLY("hdmi_avdd",		"hdmi_msm.0"),
 	REGULATOR_SUPPLY("hdmi_vcc",		"hdmi_msm.0"),
 	REGULATOR_SUPPLY("pll_vdd",		"pil_riva"),
