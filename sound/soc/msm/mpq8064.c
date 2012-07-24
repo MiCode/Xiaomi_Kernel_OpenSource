@@ -1165,8 +1165,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.platform_name  = "msm-pcm-afe",
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1, /* this dainlink has playback support */
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
 	},
 	{
 		.name = "MSM AFE-PCM TX",
@@ -1176,8 +1174,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.platform_name  = "msm-pcm-afe",
 		.ignore_suspend = 1,
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
 	},
 	{
 		.name = "MSM8960 Compr1",
