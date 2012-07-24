@@ -716,6 +716,7 @@ static struct pll_clk mmpll3_clk_src = {
 		.dbg_name = "mmpll3_clk_src",
 		.rate = 1000000000,
 		.ops = &clk_ops_local_pll,
+		.warned = true,
 		CLK_INIT(mmpll3_clk_src.c),
 	},
 };
