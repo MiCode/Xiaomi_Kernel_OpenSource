@@ -174,11 +174,13 @@ VREG_CONSUMERS(S5) = {
 	REGULATOR_SUPPLY("8038_s5",		NULL),
 	REGULATOR_SUPPLY("krait0",		"acpuclk-8627"),
 	REGULATOR_SUPPLY("krait0",		"acpuclk-8930"),
+	REGULATOR_SUPPLY("krait0",		"acpuclk-8930aa"),
 };
 VREG_CONSUMERS(S6) = {
 	REGULATOR_SUPPLY("8038_s6",		NULL),
 	REGULATOR_SUPPLY("krait1",		"acpuclk-8627"),
 	REGULATOR_SUPPLY("krait1",		"acpuclk-8930"),
+	REGULATOR_SUPPLY("krait1",		"acpuclk-8930aa"),
 };
 VREG_CONSUMERS(LVS1) = {
 	REGULATOR_SUPPLY("8038_lvs1",		NULL),
@@ -538,6 +540,14 @@ static struct rpm_regulator_consumer_mapping
 	RPM_REG_MAP(L24,            0, 2, "krait1_mem",   "acpuclk-8627"),
 	RPM_REG_MAP(VDD_DIG_CORNER, 0, 1, "krait0_dig",   "acpuclk-8627"),
 	RPM_REG_MAP(VDD_DIG_CORNER, 0, 2, "krait1_dig",   "acpuclk-8627"),
+
+	RPM_REG_MAP(L23,            0, 1, "krait0_hfpll", "acpuclk-8930aa"),
+	RPM_REG_MAP(L23,            0, 2, "krait1_hfpll", "acpuclk-8930aa"),
+	RPM_REG_MAP(L23,            0, 6, "l2_hfpll",     "acpuclk-8930aa"),
+	RPM_REG_MAP(L24,            0, 1, "krait0_mem",   "acpuclk-8930aa"),
+	RPM_REG_MAP(L24,            0, 2, "krait1_mem",   "acpuclk-8930aa"),
+	RPM_REG_MAP(VDD_DIG_CORNER, 0, 1, "krait0_dig",   "acpuclk-8930aa"),
+	RPM_REG_MAP(VDD_DIG_CORNER, 0, 2, "krait1_dig",   "acpuclk-8930aa"),
 };
 
 struct rpm_regulator_platform_data msm8930_rpm_regulator_pdata = {
