@@ -2778,6 +2778,9 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 			}
 			if (slc->def > 0)
 				slc->def--;
+			/* Disconnect source port to free it up */
+			if (SLIM_HDL_TO_LA(slc->srch) == sb->laddr)
+				slc->srch = 0;
 			if (slc->def == 0)
 				ret = add_pending_ch(&sb->mark_removal, chan);
 			if (ret)
