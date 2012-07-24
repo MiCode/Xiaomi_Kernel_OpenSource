@@ -2558,17 +2558,19 @@ static u32 mdp4_overlay_blt_enable(struct mdp_overlay *req,
 	struct msm_fb_data_type *mfd, uint32 perf_level)
 {
 	u32 clk_rate = mfd->panel_info.clk_rate;
-	u32 pull_mode = 0, use_blt = 0;
+	u32 blt_chq_req  = 0, use_blt = 0;
 
-	if (mfd->panel_info.type == MIPI_VIDEO_PANEL)
+	if ((mfd->panel_info.type == MIPI_VIDEO_PANEL) ||
+		 (mfd->panel_info.type == MIPI_CMD_PANEL))
 		clk_rate = (&mfd->panel_info.mipi)->dsi_pclk_rate;
 
 	if ((mfd->panel_info.type == LCDC_PANEL) ||
 	    (mfd->panel_info.type == MIPI_VIDEO_PANEL) ||
-	    (mfd->panel_info.type == DTV_PANEL))
-		pull_mode = 1;
+	    (mfd->panel_info.type == DTV_PANEL) ||
+	    (mfd->panel_info.type == MIPI_CMD_PANEL))
+		blt_chq_req = 1;
 
-	if (pull_mode && (req->src_rect.h > req->dst_rect.h ||
+	if (blt_chq_req && (req->src_rect.h > req->dst_rect.h ||
 		req->src_rect.w > req->dst_rect.w)) {
 		if (mdp4_overlay_validate_downscale(req, mfd, perf_level,
 			clk_rate))
@@ -2798,10 +2800,15 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 		mdp4_mixer_stage_down(pipe);
 
 		if (pipe->mixer_num == MDP4_MIXER0) {
+			mfd->use_ov0_blt &= ~(1 << (pipe->pipe_ndx-1));
+			mdp4_overlay_update_blt_mode(mfd);
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 			if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
-				if (mfd->panel_power_on)
+				if (mfd->panel_power_on) {
 					mdp4_dsi_cmd_overlay_restore();
+					mdp4_dsi_cmd_dma_busy_wait(mfd);
+					mdp4_dsi_blt_dmap_busy_wait(mfd);
+				}
 			} else if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) {
 				pipe->flags &= ~MDP_OV_PLAY_NOWAIT;
 				if (mfd->panel_power_on)
@@ -2810,8 +2817,11 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 			}
 #else
 			if (ctrl->panel_mode & MDP4_PANEL_MDDI) {
-				if (mfd->panel_power_on)
+				if (mfd->panel_power_on) {
 					mdp4_mddi_overlay_restore();
+					mdp4_mddi_dma_busy_wait(mfd);
+					mdp4_mddi_blt_dmap_busy_wait(mfd);
+				}
 			}
 #endif
 			else if (ctrl->panel_mode & MDP4_PANEL_LCDC) {
@@ -2819,8 +2829,6 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 				if (mfd->panel_power_on)
 					mdp4_overlay_lcdc_vsync_push(mfd, pipe);
 			}
-			mfd->use_ov0_blt &= ~(1 << (pipe->pipe_ndx-1));
-			mdp4_overlay_update_blt_mode(mfd);
 			if (!mfd->use_ov0_blt)
 				mdp4_free_writeback_buf(mfd, MDP4_MIXER0);
 		} else {	/* mixer1, DTV, ATV */
