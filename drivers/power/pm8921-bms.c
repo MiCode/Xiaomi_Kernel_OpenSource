@@ -476,8 +476,8 @@ static s64 cc_to_microvolt(struct pm8921_bms_chip *chip, s64 cc)
 	return div_s64(cc * CC_RESOLUTION_N, CC_RESOLUTION_D);
 }
 
-#define CC_READING_TICKS	55
-#define SLEEP_CLK_HZ		32768
+#define CC_READING_TICKS	56
+#define SLEEP_CLK_HZ		32764
 #define SECONDS_PER_HOUR	3600
 /**
  * ccmicrovolt_to_nvh -
