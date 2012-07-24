@@ -1,0 +1,16 @@
+* Qualcomm Krait L1 / L2 cache error reporting driver
+
+Required properties:
+- compatible: Should be "qcom,cache_erp"
+- interrupts: Should contain the L1/CPU error interrupt number and
+  the L2 cache interrupt number
+- interrupt-names: Should contain the interrupt names "l1_irq" and
+  "l2_irq"
+
+Example:
+	qcom,cache_erp {
+		compatible = "qcom,cache_erp";
+		interrupts = <1 9 0>, <0 2 0>;
+		interrupt-names = "l1_irq", "l2_irq";
+	};
+
