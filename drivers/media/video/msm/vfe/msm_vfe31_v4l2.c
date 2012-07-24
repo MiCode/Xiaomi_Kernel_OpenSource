@@ -3830,6 +3830,10 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			/* No need to decouple AXI/VFE for VFE3.1*/
 			break;
 
+		case CMD_AXI_RESET:
+			/* No need to decouple AXI/VFE for VFE3.1*/
+			break;
+
 		default:
 			pr_err("%s Unsupported AXI configuration %x ", __func__,
 				cmd->cmd_type);

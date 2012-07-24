@@ -498,6 +498,7 @@ struct msm_camera_cfg_cmd {
 
 #define CMD_AXI_START  0xE1
 #define CMD_AXI_STOP   0xE2
+#define CMD_AXI_RESET  0xE3
 
 
 #define AXI_CMD_PREVIEW      BIT(0)
