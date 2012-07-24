@@ -437,7 +437,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	/* open sub devices - once only*/
 	if (!p_mctl->opencnt) {
 		struct msm_sensor_csi_info csi_info;
-		uint32_t csid_version;
+		uint32_t csid_version = 0;
 		wake_lock(&p_mctl->wake_lock);
 
 		csid_core = camdev->csid_core;
@@ -1327,6 +1327,10 @@ static int msm_mctl_v4l2_s_fmt_cap(struct file *f, void *pctx,
 	WARN_ON(pctx != f->private_data);
 
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+	if (!pmctl) {
+		pr_err("%s mctl ptr is null ", __func__);
+		return -EINVAL;
+	}
 	if (!pcam_inst->vbqueue_initialized) {
 		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
 					V4L2_BUF_TYPE_VIDEO_CAPTURE);
@@ -1351,6 +1355,10 @@ static int msm_mctl_v4l2_s_fmt_cap_mplane(struct file *f, void *pctx,
 	WARN_ON(pctx != f->private_data);
 
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+	if (!pmctl) {
+		pr_err("%s mctl ptr is null ", __func__);
+		return -EINVAL;
+	}
 	if (!pcam_inst->vbqueue_initialized) {
 		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
