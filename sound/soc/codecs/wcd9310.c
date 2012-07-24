@@ -3687,19 +3687,9 @@ static s16 tabla_get_current_v_hs_max(struct tabla_priv *tabla)
 	return v_hs_max;
 }
 
-static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
+static void tabla_codec_calibrate_rel(struct snd_soc_codec *codec)
 {
-	u8 *n_ready, *n_cic;
-	struct tabla_mbhc_btn_detect_cfg *btn_det;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-	const s16 v_ins_hu = tabla_get_current_v_ins(tabla, true);
-
-	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->mbhc_cfg.calibration);
-
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B1_CTL,
-		      v_ins_hu & 0xFF);
-	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B2_CTL,
-		      (v_ins_hu >> 8) & 0xFF);
 
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B3_CTL,
 		      tabla->mbhc_data.v_b1_hu & 0xFF);
@@ -3720,6 +3710,23 @@ static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 		      tabla->mbhc_data.v_brl & 0xFF);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B12_CTL,
 		      (tabla->mbhc_data.v_brl >> 8) & 0xFF);
+}
+
+static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
+{
+	u8 *n_ready, *n_cic;
+	struct tabla_mbhc_btn_detect_cfg *btn_det;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	const s16 v_ins_hu = tabla_get_current_v_ins(tabla, true);
+
+	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->mbhc_cfg.calibration);
+
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B1_CTL,
+		      v_ins_hu & 0xFF);
+	snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B2_CTL,
+		      (v_ins_hu >> 8) & 0xFF);
+
+	tabla_codec_calibrate_rel(codec);
 
 	n_ready = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_N_READY);
 	snd_soc_write(codec, TABLA_A_CDC_MBHC_TIMER_B1_CTL,
@@ -5671,15 +5678,55 @@ static s16 tabla_scale_v_micb_vddio(struct tabla_priv *tabla, int v,
 	return r;
 }
 
+static void tabla_mbhc_calc_rel_thres(struct snd_soc_codec *codec, s16 mv)
+{
+	s16 deltamv;
+	struct tabla_priv *tabla;
+	struct tabla_mbhc_btn_detect_cfg *btn_det;
+
+	tabla = snd_soc_codec_get_drvdata(codec);
+	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->mbhc_cfg.calibration);
+
+	tabla->mbhc_data.v_b1_h =
+	    tabla_codec_v_sta_dce(codec, DCE,
+				  mv + btn_det->v_btn_press_delta_cic);
+
+	tabla->mbhc_data.v_brh = tabla->mbhc_data.v_b1_h;
+
+	tabla->mbhc_data.v_brl = TABLA_MBHC_BUTTON_MIN;
+
+	deltamv = mv + btn_det->v_btn_press_delta_sta;
+	tabla->mbhc_data.v_b1_hu = tabla_codec_v_sta_dce(codec, STA, deltamv);
+
+	deltamv = mv + btn_det->v_btn_press_delta_cic;
+	tabla->mbhc_data.v_b1_huc = tabla_codec_v_sta_dce(codec, DCE, deltamv);
+}
+
+static void tabla_mbhc_set_rel_thres(struct snd_soc_codec *codec, s16 mv)
+{
+	tabla_mbhc_calc_rel_thres(codec, mv);
+	tabla_codec_calibrate_rel(codec);
+}
+
+static s16 tabla_mbhc_highest_btn_mv(struct snd_soc_codec *codec)
+{
+	struct tabla_priv *tabla;
+	struct tabla_mbhc_btn_detect_cfg *btn_det;
+	u16 *btn_high;
+
+	tabla = snd_soc_codec_get_drvdata(codec);
+	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->mbhc_cfg.calibration);
+	btn_high = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_V_BTN_HIGH);
+
+	return btn_high[btn_det->num_btn - 1];
+}
+
 static void tabla_mbhc_calc_thres(struct snd_soc_codec *codec)
 {
 	struct tabla_priv *tabla;
-	s16 btn_mv = 0, btn_delta_mv;
 	struct tabla_mbhc_btn_detect_cfg *btn_det;
 	struct tabla_mbhc_plug_type_cfg *plug_type;
-	u16 *btn_high;
 	u8 *n_ready;
-	int i;
 
 	tabla = snd_soc_codec_get_drvdata(codec);
 	btn_det = TABLA_MBHC_CAL_BTN_DET_PTR(tabla->mbhc_cfg.calibration);
@@ -5730,22 +5777,7 @@ static void tabla_mbhc_calc_thres(struct snd_soc_codec *codec)
 					     false);
 	}
 
-	btn_high = tabla_mbhc_cal_btn_det_mp(btn_det, TABLA_BTN_DET_V_BTN_HIGH);
-	for (i = 0; i < btn_det->num_btn; i++)
-		btn_mv = btn_high[i] > btn_mv ? btn_high[i] : btn_mv;
-
-	tabla->mbhc_data.v_b1_h = tabla_codec_v_sta_dce(codec, DCE, btn_mv);
-	btn_delta_mv = btn_mv + btn_det->v_btn_press_delta_sta;
-	tabla->mbhc_data.v_b1_hu =
-	    tabla_codec_v_sta_dce(codec, STA, btn_delta_mv);
-
-	btn_delta_mv = btn_mv + btn_det->v_btn_press_delta_cic;
-
-	tabla->mbhc_data.v_b1_huc =
-	    tabla_codec_v_sta_dce(codec, DCE, btn_delta_mv);
-
-	tabla->mbhc_data.v_brh = tabla->mbhc_data.v_b1_h;
-	tabla->mbhc_data.v_brl = TABLA_MBHC_BUTTON_MIN;
+	tabla_mbhc_calc_rel_thres(codec, tabla_mbhc_highest_btn_mv(codec));
 
 	tabla->mbhc_data.v_no_mic =
 	    tabla_codec_v_sta_dce(codec, STA, plug_type->v_no_mic);
@@ -5906,6 +5938,7 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 	short dce, sta;
 	s32 mv, mv_s, stamv_s;
 	bool vddio;
+	u16 *btn_high;
 	int btn = -1, meas = 0;
 	struct tabla_priv *priv = data;
 	const struct tabla_mbhc_btn_detect_cfg *d =
@@ -5918,6 +5951,7 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 
 	pr_debug("%s: enter\n", __func__);
 
+	btn_high = tabla_mbhc_cal_btn_det_mp(d, TABLA_BTN_DET_V_BTN_HIGH);
 	TABLA_ACQUIRE_LOCK(priv->codec_resource_lock);
 	if (priv->mbhc_state == MBHC_STATE_POTENTIAL_RECOVERY) {
 		pr_debug("%s: mbhc is being recovered, skip button press\n",
@@ -6010,6 +6044,8 @@ static irqreturn_t tabla_dce_handler(int irq, void *data)
 				 "press\n", __func__);
 			goto done;
 		}
+		/* narrow down release threshold */
+		tabla_mbhc_set_rel_thres(codec, btn_high[btn]);
 		mask = tabla_get_button_mask(btn);
 		priv->buttons_pressed |= mask;
 		wcd9xxx_lock_sleep(core);
@@ -6115,6 +6151,8 @@ static irqreturn_t tabla_release_handler(int irq, void *data)
 		priv->buttons_pressed &= ~TABLA_JACK_BUTTON_MASK;
 	}
 
+	/* revert narrowed release threshold */
+	tabla_mbhc_calc_rel_thres(codec, tabla_mbhc_highest_btn_mv(codec));
 	tabla_codec_calibrate_hs_polling(codec);
 
 	if (priv->mbhc_cfg.gpio)
