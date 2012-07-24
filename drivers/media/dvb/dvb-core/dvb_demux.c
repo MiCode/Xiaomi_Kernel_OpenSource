@@ -1137,6 +1137,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->set_indexing_params = dmx_ts_set_indexing_params;
 	(*ts_feed)->get_decoder_buff_status = dmx_ts_feed_decoder_buff_status;
 	(*ts_feed)->data_ready_cb = dmx_ts_feed_data_ready_cb;
+	(*ts_feed)->notify_data_read = NULL;
 
 	if (!(feed->filter = dvb_dmx_filter_alloc(demux))) {
 		feed->state = DMX_STATE_FREE;
@@ -1434,6 +1435,7 @@ static int dvbdmx_allocate_section_feed(struct dmx_demux *demux,
 	(*feed)->stop_filtering = dmx_section_feed_stop_filtering;
 	(*feed)->release_filter = dmx_section_feed_release_filter;
 	(*feed)->data_ready_cb = dmx_section_feed_data_ready_cb;
+	(*feed)->notify_data_read = NULL;
 
 	mutex_unlock(&dvbdmx->mutex);
 	return 0;
