@@ -5456,8 +5456,8 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
 
-	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, ""),
-	CLK_LOOKUP("reset2_clk",	dsi2_reset_clk.c, ""),
+	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, "footswitch-8x60.4"),
+	CLK_LOOKUP("reset2_clk",	dsi2_reset_clk.c, "footswitch-8x60.4"),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
@@ -5776,8 +5776,8 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
 
-	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, ""),
-	CLK_LOOKUP("reset2_clk",	dsi2_reset_clk.c, ""),
+	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, "footswitch-8x60.4"),
+	CLK_LOOKUP("reset2_clk",	dsi2_reset_clk.c, "footswitch-8x60.4"),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
@@ -6104,7 +6104,7 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
 
-	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, ""),
+	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, "footswitch-8x60.4"),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
