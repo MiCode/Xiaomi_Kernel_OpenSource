@@ -3200,12 +3200,36 @@ static struct clk_freq_tbl clk_tbl_dsi_byte[] = {
 	F_END
 };
 
+static struct branch_clk dsi1_reset_clk = {
+	.b = {
+		.reset_reg = SW_RESET_CORE_REG,
+		.reset_mask = BIT(7),
+		.halt_check = NOCHECK,
+	},
+	.c = {
+		.dbg_name = "dsi1_reset_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(dsi1_reset_clk.c),
+	},
+};
+
+static struct branch_clk dsi2_reset_clk = {
+	.b = {
+		.reset_reg = SW_RESET_CORE_REG,
+		.reset_mask = BIT(25),
+		.halt_check = NOCHECK,
+	},
+	.c = {
+		.dbg_name = "dsi2_reset_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(dsi2_reset_clk.c),
+	},
+};
+
 static struct rcg_clk dsi1_byte_clk = {
 	.b = {
 		.ctl_reg = DSI1_BYTE_CC_REG,
 		.en_mask = BIT(0),
-		.reset_reg = SW_RESET_CORE_REG,
-		.reset_mask = BIT(7),
 		.halt_reg = DBG_BUS_VEC_B_REG,
 		.halt_bit = 21,
 		.retain_reg = DSI1_BYTE_CC_REG,
@@ -3228,8 +3252,6 @@ static struct rcg_clk dsi2_byte_clk = {
 	.b = {
 		.ctl_reg = DSI2_BYTE_CC_REG,
 		.en_mask = BIT(0),
-		.reset_reg = SW_RESET_CORE_REG,
-		.reset_mask = BIT(25),
 		.halt_reg = DBG_BUS_VEC_B_REG,
 		.halt_bit = 20,
 		.retain_reg = DSI2_BYTE_CC_REG,
@@ -3252,7 +3274,6 @@ static struct rcg_clk dsi1_esc_clk = {
 	.b = {
 		.ctl_reg = DSI1_ESC_CC_REG,
 		.en_mask = BIT(0),
-		.reset_reg = SW_RESET_CORE_REG,
 		.halt_reg = DBG_BUS_VEC_I_REG,
 		.halt_bit = 1,
 	},
@@ -5435,6 +5456,9 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
 
+	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, ""),
+	CLK_LOOKUP("reset2_clk",	dsi2_reset_clk.c, ""),
+
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
 	CLK_LOOKUP("krait1_mclk",	krait1_m_clk, ""),
@@ -5751,6 +5775,9 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
 	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
+
+	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, ""),
+	CLK_LOOKUP("reset2_clk",	dsi2_reset_clk.c, ""),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
@@ -6076,6 +6103,8 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
 	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
+
+	CLK_LOOKUP("reset1_clk",	dsi1_reset_clk.c, ""),
 
 	CLK_LOOKUP("l2_mclk",		l2_m_clk,     ""),
 	CLK_LOOKUP("krait0_mclk",	krait0_m_clk, ""),
