@@ -100,5 +100,6 @@ int init_nr_buf(struct vcap_client_data *c_data);
 void deinit_nr_buf(struct vcap_client_data *c_data);
 int kickoff_vp(struct vcap_client_data *c_data);
 int continue_vp(struct vcap_client_data *c_data);
+int vp_dummy_event(struct vcap_client_data *c_data);
 
 #endif
