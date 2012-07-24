@@ -976,6 +976,7 @@ static void __init msm9615_common_init(void)
 				msm_android_usb_hsic_device.dev.platform_data;
 
 	msm9615_device_init();
+	platform_device_register(&msm_gpio_device);
 	msm9615_init_gpiomux();
 	msm9615_i2c_init();
 	regulator_suppress_info_printing();

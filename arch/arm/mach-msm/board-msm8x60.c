@@ -10212,6 +10212,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 #endif
 	pmic_reset_irq = PM8058_IRQ_BASE + PM8058_RESOUT_IRQ;
 
+	platform_device_register(&msm_gpio_device);
 	/*
 	 * Initialize RPM first as other drivers and devices may need
 	 * it for their initialization.

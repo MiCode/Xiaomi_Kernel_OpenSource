@@ -100,6 +100,11 @@
 #define MSM_UART9DM_PHYS    (MSM_GSBI9_PHYS + 0x40000)
 #define INT_UART9DM_IRQ     GSBI9_UARTDM_IRQ
 
+struct platform_device msm_gpio_device = {
+	.name = "msmgpio",
+	.id = -1,
+};
+
 static void charm_ap2mdm_kpdpwr_on(void)
 {
 	gpio_direction_output(AP2MDM_PMIC_RESET_N, 0);

@@ -1,0 +1,39 @@
+MSM GPIO controller bindings
+
+Required properties:
+- compatible:
+  - "qcom,msm-gpio" for MSM controllers
+- #gpio-cells : Should be two.
+  - first cell is the pin number
+  - second cell is used to specify optional parameters (unused)
+- gpio-controller : Marks the device node as a GPIO controller.
+- #interrupt-cells : Should be 2.
+- interrupt-controller: Mark the device node as an interrupt controller
+
+Example:
+
+	msmgpio: gpio@fd510000 {
+		compatible = "qcom,msm-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		reg = <0xfd510000 0x4000>;
+	};
+
+To specify gpios for a device:
+
+	device1@f991f000 {
+		compatible = "qcom,msm-device-v1";
+		reg = <0xf991f000 0x1000>;
+		gpios = <&msmgpio 45 0>;
+		cs-gpios = <&msmgpio 46 0>;
+	};
+
+45, 46 - gpio numbers.
+The driver for device1 can call of_get_gpio() to extract the
+gpio45. In order to extract gpio46, the driver needs to call
+of_get_named_gpio with "cs-gpios" as the name parameter.
+Please refer to the file: include/linux/of_gpio.h for the
+complete list of APIs the driver can use to extract gpio
+information from the device tree.
