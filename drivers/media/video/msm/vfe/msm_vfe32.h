@@ -968,6 +968,10 @@ struct vfe_share_ctrl_t {
 	int8_t start_ack_pending;
 	int8_t update_ack_pending;
 	enum vfe_output_state recording_state;
+
+	atomic_t rdi0_update_ack_pending;
+	atomic_t rdi1_update_ack_pending;
+	atomic_t rdi2_update_ack_pending;
 };
 
 struct axi_ctrl_t {

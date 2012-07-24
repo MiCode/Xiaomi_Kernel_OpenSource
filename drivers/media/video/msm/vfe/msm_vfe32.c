@@ -585,6 +585,9 @@ static void axi_reset_internal_variables(
 	axi_ctrl->share_ctrl->liveshot_state = VFE_STATE_IDLE;
 
 	atomic_set(&axi_ctrl->share_ctrl->vstate, 0);
+	atomic_set(&axi_ctrl->share_ctrl->rdi0_update_ack_pending, 0);
+	atomic_set(&axi_ctrl->share_ctrl->rdi1_update_ack_pending, 0);
+	atomic_set(&axi_ctrl->share_ctrl->rdi2_update_ack_pending, 0);
 
 	/* 0 for continuous mode, 1 for snapshot mode */
 	axi_ctrl->share_ctrl->operation_mode = 0;
@@ -1091,13 +1094,25 @@ static void vfe32_start_common(struct vfe32_ctrl_type *vfe32_ctrl)
 		irq_mask1 |= VFE_IRQ_STATUS1_RDI0_REG_UPDATE_MASK;
 		msm_camera_io_w(irq_mask1, vfe32_ctrl->share_ctrl->vfebase +
 			VFE_IRQ_MASK_1);
-		msm_camera_io_w_mb(reg_update|0x2, vfe32_ctrl->share_ctrl->
-			vfebase + VFE_REG_UPDATE_CMD);
+		if (!atomic_cmpxchg(
+			&vfe32_ctrl->share_ctrl->rdi0_update_ack_pending,
+				0, 1)) {
+			msm_camera_io_w_mb(reg_update|0x2,
+				vfe32_ctrl->share_ctrl->vfebase +
+				VFE_REG_UPDATE_CMD);
+		}
 	}
 	if (vfe32_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI1) {
 		irq_mask1 |= VFE_IRQ_STATUS1_RDI1_REG_UPDATE_MASK;
 		msm_camera_io_w(irq_mask1, vfe32_ctrl->share_ctrl->vfebase +
 			VFE_IRQ_MASK_1);
+		if (!atomic_cmpxchg(
+			&vfe32_ctrl->share_ctrl->rdi1_update_ack_pending,
+				0, 1)) {
+			msm_camera_io_w_mb(reg_update|0x4,
+			vfe32_ctrl->share_ctrl->vfebase +
+			VFE_REG_UPDATE_CMD);
+		}
 		msm_camera_io_w_mb(reg_update|0x4, vfe32_ctrl->share_ctrl->
 			vfebase + VFE_REG_UPDATE_CMD);
 	}
@@ -3373,34 +3388,22 @@ static void vfe32_process_reg_update_irq(
 static void vfe32_process_rdi0_reg_update_irq(
 	struct vfe32_ctrl_type *vfe32_ctrl)
 {
-	unsigned long flags;
-	spin_lock_irqsave(&vfe32_ctrl->share_ctrl->start_ack_lock, flags);
-	if (vfe32_ctrl->share_ctrl->start_ack_pending == TRUE) {
-		vfe32_ctrl->share_ctrl->start_ack_pending = FALSE;
-		spin_unlock_irqrestore(
-				&vfe32_ctrl->share_ctrl->start_ack_lock, flags);
+	if (atomic_cmpxchg(
+		&vfe32_ctrl->share_ctrl->rdi0_update_ack_pending, 1, 0)) {
 		vfe32_send_isp_msg(&vfe32_ctrl->subdev,
-			vfe32_ctrl->share_ctrl->vfeFrameId, MSG_ID_START_ACK);
-	} else {
-		spin_unlock_irqrestore(
-				&vfe32_ctrl->share_ctrl->start_ack_lock, flags);
+			vfe32_ctrl->share_ctrl->vfeFrameId,
+			MSG_ID_RDI0_UPDATE_ACK);
 	}
 }
 
 static void vfe32_process_rdi1_reg_update_irq(
 	struct vfe32_ctrl_type *vfe32_ctrl)
 {
-	unsigned long flags;
-	spin_lock_irqsave(&vfe32_ctrl->share_ctrl->start_ack_lock, flags);
-	if (vfe32_ctrl->share_ctrl->start_ack_pending == TRUE) {
-		vfe32_ctrl->share_ctrl->start_ack_pending = FALSE;
-		spin_unlock_irqrestore(
-				&vfe32_ctrl->share_ctrl->start_ack_lock, flags);
+	if (atomic_cmpxchg(
+		&vfe32_ctrl->share_ctrl->rdi1_update_ack_pending, 1, 0)) {
 		vfe32_send_isp_msg(&vfe32_ctrl->subdev,
-			vfe32_ctrl->share_ctrl->vfeFrameId, MSG_ID_START_ACK);
-	} else {
-		spin_unlock_irqrestore(
-				&vfe32_ctrl->share_ctrl->start_ack_lock, flags);
+			vfe32_ctrl->share_ctrl->vfeFrameId,
+			MSG_ID_RDI1_UPDATE_ACK);
 	}
 }
 
