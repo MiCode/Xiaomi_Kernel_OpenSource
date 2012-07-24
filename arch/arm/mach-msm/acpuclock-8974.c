@@ -37,9 +37,11 @@ static struct hfpll_data hfpll_data __initdata = {
 	/* TODO: Verify magic number for 8974 when available. */
 	.config_val = 0x7845C665,
 	.low_vdd_l_max = 52,
+	.nom_vdd_l_max = 104,
 	.vdd[HFPLL_VDD_NONE] = LVL_NONE,
 	.vdd[HFPLL_VDD_LOW]  = LVL_LOW,
 	.vdd[HFPLL_VDD_NOM]  = LVL_NOM,
+	.vdd[HFPLL_VDD_HIGH] = LVL_HIGH,
 };
 
 static struct scalable scalable[] __initdata = {
