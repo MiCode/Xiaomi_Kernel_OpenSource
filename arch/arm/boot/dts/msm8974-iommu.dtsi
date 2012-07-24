@@ -10,137 +10,24 @@
  * GNU General Public License for more details.
  */
 
-/ {
-	jpeg: qcom,iommu@fda64000 {
-		compatible = "qcom,msm-smmu-v2";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-		reg = <0xfda64000 0x10000>;
-		vdd-supply = <&gdsc_jpeg>;
-		qcom,iommu-smt-size = <16>;
+/include/ "msm-iommu.dtsi"
 
-		qcom,iommu-ctx@fda6c000 {
-			reg = <0xfda6c000 0x1000>;
-			interrupts = <0 69 0>;
-			qcom,iommu-ctx-sids = <0>;
-			label = "jpeg_enc0";
-		};
-		qcom,iommu-ctx@fda6d000 {
-			reg = <0xfda6d000 0x1000>;
-			interrupts = <0 70 0>;
-			qcom,iommu-ctx-sids = <1>;
-			label = "jpeg_enc1";
-		};
-		qcom,iommu-ctx@fda6e000 {
-			reg = <0xfda6e000 0x1000>;
-			interrupts = <0 71 0>;
-			qcom,iommu-ctx-sids = <2>;
-			label = "jpeg_dec";
-		};
-	};
+&jpeg_iommu {
+	status = "ok";
+};
 
-	mdp: qcom,iommu@fd928000 {
-		compatible = "qcom,msm-smmu-v2";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-		reg = <0xfd928000 0x10000>;
-		vdd-supply = <&gdsc_mdss>;
-		qcom,iommu-smt-size = <16>;
+&mdp_iommu {
+	status = "ok";
+};
 
-		qcom,iommu-ctx@fd930000 {
-			reg = <0xfd930000 0x1000>;
-			interrupts = <0 46 0>;
-			qcom,iommu-ctx-sids = <0>;
-			label = "mdp_0";
-		};
-		qcom,iommu-ctx@fd931000 {
-			reg = <0xfd931000 0x1000>;
-			interrupts = <0 47 0>;
-			qcom,iommu-ctx-sids = <1>;
-			label = "mdp_1";
-		};
-	};
+&venus_iommu {
+	status = "ok";
+};
 
-	venus: qcom,iommu@fdc84000 {
-		compatible = "qcom,msm-smmu-v2";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-		reg = <0xfdc84000 0x10000>;
-		vdd-supply = <&gdsc_venus>;
-		qcom,iommu-smt-size = <16>;
+&kgsl_iommu {
+	status = "ok";
+};
 
-		qcom,iommu-ctx@fdc8c000 {
-			reg = <0xfdc8c000 0x1000>;
-			interrupts = <0 43 0>;
-			qcom,iommu-ctx-sids = <0 1 2 3 4 5>;
-			label = "venus_ns";
-		};
-		qcom,iommu-ctx@fdc8d000 {
-			reg = <0xfdc8d000 0x1000>;
-			interrupts = <0 42 0>;
-			qcom,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84 0x85>;
-			label = "venus_cp";
-		};
-		qcom,iommu-ctx@fdc8e000 {
-			reg = <0xfdc8e000 0x1000>;
-			interrupts = <0 41 0>;
-			qcom,iommu-ctx-sids = <0xc0 0xc6>;
-			label = "venus_fw";
-		};
-	};
-
-	kgsl: qcom,iommu@fdb10000 {
-		compatible = "qcom,msm-smmu-v2";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-		reg = <0xfdb10000 0x10000>;
-		vdd-supply = <&gdsc_oxili_cx>;
-		qcom,iommu-smt-size = <32>;
-
-		qcom,iommu-ctx@fdb18000 {
-			reg = <0xfdb18000 0x1000>;
-			interrupts = <0 240 0>;
-			qcom,iommu-ctx-sids = <0>;
-			label = "gfx3d_user";
-		};
-		qcom,iommu-ctx@fdb19000 {
-			reg = <0xfdb19000 0x1000>;
-			interrupts = <0 241 0>;
-			qcom,iommu-ctx-sids = <1>;
-			label = "gfx3d_priv";
-		};
-	};
-
-	vfe: qcom,iommu@fda44000 {
-		compatible = "qcom,msm-smmu-v2";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-		reg = <0xfda44000 0x10000>;
-		vdd-supply = <&gdsc_vfe>;
-		qcom,iommu-smt-size = <32>;
-
-		qcom,iommu-ctx@fda4c000 {
-			reg = <0xfda4c000 0x1000>;
-			interrupts = <0 64 0>;
-			qcom,iommu-ctx-sids = <0>;
-			label = "vfe0";
-		};
-		qcom,iommu-ctx@fda4d000 {
-			reg = <0xfda4d000 0x1000>;
-			interrupts = <0 65 0>;
-			qcom,iommu-ctx-sids = <1>;
-			label = "vfe1";
-		};
-		qcom,iommu-ctx@fda4e000 {
-			reg = <0xfda4e000 0x1000>;
-			interrupts = <0 66 0>;
-			qcom,iommu-ctx-sids = <2>;
-			label = "cpp";
-		};
-	};
+&vfe_iommu {
+	status = "ok";
 };
