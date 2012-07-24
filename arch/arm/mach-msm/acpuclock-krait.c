@@ -11,8 +11,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s: " fmt, __func__
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -479,8 +477,8 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 			goto out;
 	}
 
-	pr_debug("Switching from ACPU%d rate %lu KHz -> %lu KHz\n",
-		 cpu, strt_acpu_s->khz, tgt_acpu_s->khz);
+	dev_dbg(drv.dev, "Switching from ACPU%d rate %lu KHz -> %lu KHz\n",
+		cpu, strt_acpu_s->khz, tgt_acpu_s->khz);
 
 	/* Set the new CPU speed. */
 	set_speed(&drv.scalable[cpu], tgt_acpu_s);
@@ -507,7 +505,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	/* Drop VDD levels if we can. */
 	decrease_vdd(cpu, &vdd_data, reason);
 
-	pr_debug("ACPU%d speed change complete\n", cpu);
+	dev_dbg(drv.dev, "ACPU%d speed change complete\n", cpu);
 
 out:
 	if (reason == SETRATE_CPUFREQ || reason == SETRATE_HOTPLUG)
@@ -519,7 +517,7 @@ out:
 static void __init hfpll_init(struct scalable *sc,
 			      const struct core_speed *tgt_s)
 {
-	pr_debug("Initializing HFPLL%d\n", sc - drv.scalable);
+	dev_dbg(drv.dev, "Initializing HFPLL%d\n", sc - drv.scalable);
 
 	/* Disable the PLL for re-programming. */
 	hfpll_disable(sc, true);
