@@ -645,6 +645,11 @@
 		*(.security_initcall.init)				\
 		VMLINUX_SYMBOL(__security_initcall_end) = .;
 
+#define COMPAT_EXPORTS							\
+		VMLINUX_SYMBOL(__compat_exports_start) = .;		\
+		*(.exportcompat.init)					\
+		VMLINUX_SYMBOL(__compat_exports_end) = .;
+
 #ifdef CONFIG_BLK_DEV_INITRD
 #define INIT_RAM_FS							\
 	. = ALIGN(4);							\
