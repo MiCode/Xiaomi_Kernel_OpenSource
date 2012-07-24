@@ -74,6 +74,7 @@ enum hfpll_vdd_levels {
 	HFPLL_VDD_NONE,
 	HFPLL_VDD_LOW,
 	HFPLL_VDD_NOM,
+	HFPLL_VDD_HIGH,
 	NUM_HFPLL_VDD
 };
 
@@ -165,6 +166,7 @@ struct acpu_level {
  * @droop_offset: Droop controller register offset from base address.
  * @droop_val: Value to initialize the @config_offset register to.
  * @low_vdd_l_max: Maximum "L" value supported at HFPLL_VDD_LOW.
+ * @nom_vdd_l_max: Maximum "L" value supported at HFPLL_VDD_NOM.
  * @vdd: voltage requirements for each VDD level for the L2 PLL.
  */
 struct hfpll_data {
@@ -178,6 +180,7 @@ struct hfpll_data {
 	const u32 droop_offset;
 	const u32 droop_val;
 	const u32 low_vdd_l_max;
+	const u32 nom_vdd_l_max;
 	const int vdd[NUM_HFPLL_VDD];
 };
 

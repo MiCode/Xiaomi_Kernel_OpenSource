@@ -31,10 +31,12 @@ static struct hfpll_data hfpll_data __initdata = {
 	.has_droop_ctl = true,
 	.droop_offset = 0x14,
 	.droop_val = 0x0108C000,
-	.low_vdd_l_max = 40,
-	.vdd[HFPLL_VDD_NONE] = 0,
-	.vdd[HFPLL_VDD_LOW]  = 945000,
+	.low_vdd_l_max = 22,
+	.nom_vdd_l_max = 42,
+	.vdd[HFPLL_VDD_NONE] =       0,
+	.vdd[HFPLL_VDD_LOW]  =  945000,
 	.vdd[HFPLL_VDD_NOM]  = 1050000,
+	.vdd[HFPLL_VDD_HIGH] = 1150000,
 };
 
 static struct scalable scalable[] __initdata = {
