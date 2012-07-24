@@ -417,6 +417,25 @@ static unsigned long vfe31_stats_flush_enqueue(
 	return 0L;
 }
 
+static unsigned long vfe31_stats_unregbuf(
+	struct msm_stats_reqbuf *req_buf)
+{
+	int i = 0, rc = 0;
+
+	for (i = 0; i < req_buf->num_buf; i++) {
+		rc = vfe31_ctrl->stats_ops.buf_unprepare(
+			vfe31_ctrl->stats_ops.stats_ctrl,
+			req_buf->stats_type, i,
+			vfe31_ctrl->stats_ops.client);
+		if (rc < 0) {
+			pr_err("%s: unreg stats buf (type = %d) err = %d",
+				__func__, req_buf->stats_type, rc);
+		return rc;
+		}
+	}
+	return 0L;
+}
+
 static int vfe_stats_awb_buf_init(
 	struct vfe_cmd_stats_buf *in)
 {
@@ -3334,6 +3353,22 @@ static long vfe_stats_bufq_sub_ioctl(struct msm_vfe_cfg_cmd *cmd,
 				vfe31_ctrl->stats_ops.client);
 	}
 	break;
+	case VFE_CMD_STATS_UNREGBUF:
+	{
+		struct msm_stats_reqbuf *req_buf = NULL;
+		req_buf = (struct msm_stats_reqbuf *)cmd->value;
+		if (sizeof(struct msm_stats_reqbuf) != cmd->length) {
+			/* error. the length not match */
+			pr_err("%s: stats reqbuf input size = %d,\n"
+				"struct size = %d, mitch match\n",
+				 __func__, cmd->length,
+				sizeof(struct msm_stats_reqbuf));
+			rc = -EINVAL ;
+			goto end;
+		}
+		rc = vfe31_stats_unregbuf(req_buf);
+	}
+	break;
 	default:
 		rc = -1;
 		pr_err("%s: cmd_type %d not supported", __func__,
@@ -3583,6 +3618,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case VFE_CMD_STATS_REQBUF:
 	case VFE_CMD_STATS_ENQUEUEBUF:
 	case VFE_CMD_STATS_FLUSH_BUFQ:
+	case VFE_CMD_STATS_UNREGBUF:
 		/* for easy porting put in one envelope */
 		rc = vfe_stats_bufq_sub_ioctl(cmd, vfe_params->data);
 		return rc;

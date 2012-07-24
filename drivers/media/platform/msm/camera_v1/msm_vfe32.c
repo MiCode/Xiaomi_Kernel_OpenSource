@@ -216,6 +216,26 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 		{VFE_CMD_GET_RGB_G_TABLE},
 		{VFE_CMD_GET_LA_TABLE},
 		{VFE_CMD_DEMOSAICV3_UPDATE},
+		{VFE_CMD_ACTIVE_REGION_CFG},
+/*130*/ {VFE_CMD_COLOR_PROCESSING_CONFIG},
+		{VFE_CMD_STATS_WB_AEC_CONFIG},
+		{VFE_CMD_STATS_WB_AEC_UPDATE},
+		{VFE_CMD_Y_GAMMA_CONFIG},
+		{VFE_CMD_SCALE_OUTPUT1_CONFIG},
+/*135*/ {VFE_CMD_SCALE_OUTPUT2_CONFIG},
+		{VFE_CMD_CAPTURE_RAW},
+		{VFE_CMD_STOP_LIVESHOT},
+		{VFE_CMD_RECONFIG_VFE},
+		{VFE_CMD_STATS_REQBUF},
+/*140*/	{VFE_CMD_STATS_ENQUEUEBUF},
+		{VFE_CMD_STATS_FLUSH_BUFQ},
+		{VFE_CMD_STATS_UNREGBUF},
+
+
+
+
+
+
 };
 
 uint32_t vfe32_AXI_WM_CFG[] = {
@@ -677,6 +697,26 @@ static unsigned long vfe32_stats_flush_enqueue(
 	return 0L;
 }
 
+
+static unsigned long vfe32_stats_unregbuf(
+	struct vfe32_ctrl_type *vfe32_ctrl,
+	struct msm_stats_reqbuf *req_buf)
+{
+	int i = 0, rc = 0;
+
+	for (i = 0; i < req_buf->num_buf; i++) {
+		rc = vfe32_ctrl->stats_ops.buf_unprepare(
+			vfe32_ctrl->stats_ops.stats_ctrl,
+			req_buf->stats_type, i,
+			vfe32_ctrl->stats_ops.client);
+		if (rc < 0) {
+			pr_err("%s: unreg stats buf (type = %d) err = %d",
+				__func__, req_buf->stats_type, rc);
+		return rc;
+		}
+	}
+	return 0L;
+}
 static int vfe_stats_awb_buf_init(
 	struct vfe32_ctrl_type *vfe32_ctrl,
 	struct vfe_cmd_stats_buf *in)
@@ -4521,6 +4561,22 @@ static long vfe_stats_bufq_sub_ioctl(
 			vfe_ctrl->stats_ops.client);
 	}
 	break;
+	case VFE_CMD_STATS_UNREGBUF:
+	{
+		struct msm_stats_reqbuf *req_buf = NULL;
+		req_buf = (struct msm_stats_reqbuf *)cmd->value;
+		if (sizeof(struct msm_stats_reqbuf) != cmd->length) {
+			/* error. the length not match */
+			pr_err("%s: stats reqbuf input size = %d,\n"
+				"struct size = %d, mitch match\n",
+				 __func__, cmd->length,
+				sizeof(struct msm_stats_reqbuf));
+			rc = -EINVAL ;
+			goto end;
+		}
+		rc = vfe32_stats_unregbuf(vfe_ctrl, req_buf);
+	}
+	break;
 	default:
 		rc = -1;
 		pr_err("%s: cmd_type %d not supported", __func__,
@@ -4570,6 +4626,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case VFE_CMD_STATS_REQBUF:
 	case VFE_CMD_STATS_ENQUEUEBUF:
 	case VFE_CMD_STATS_FLUSH_BUFQ:
+	case VFE_CMD_STATS_UNREGBUF:
 		/* for easy porting put in one envelope */
 		rc = vfe_stats_bufq_sub_ioctl(vfe32_ctrl,
 				cmd, vfe_params->data);

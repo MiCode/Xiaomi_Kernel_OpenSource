@@ -673,7 +673,6 @@ static int msm_vfe_stats_buf_ioctl(struct v4l2_subdev *sd,
 	}
 	case MSM_CAM_IOCTL_STATS_ENQUEUEBUF: {
 		struct msm_stats_buf_info buf_info;
-
 		if (copy_from_user(&buf_info, arg,
 			sizeof(struct msm_stats_buf_info))) {
 			ERR_COPY_FROM_USER();
@@ -687,16 +686,28 @@ static int msm_vfe_stats_buf_ioctl(struct v4l2_subdev *sd,
 	}
 	case MSM_CAM_IOCTL_STATS_FLUSH_BUFQ: {
 		struct msm_stats_flush_bufq bufq_info;
-
 		if (copy_from_user(&bufq_info, arg,
 			sizeof(struct msm_stats_flush_bufq))) {
 			ERR_COPY_FROM_USER();
 			return -EFAULT;
-	}
+		}
 	cfgcmd.cmd_type = VFE_CMD_STATS_FLUSH_BUFQ;
 	cfgcmd.value = (void *)&bufq_info;
 	cfgcmd.length = sizeof(struct msm_stats_flush_bufq);
 	rc = msm_isp_subdev_ioctl(sd, &cfgcmd, NULL);
+	break;
+	}
+	case MSM_CAM_IOCTL_STATS_UNREG_BUF: {
+		struct msm_stats_reqbuf reqbuf;
+		if (copy_from_user(&reqbuf, arg,
+			sizeof(struct msm_stats_reqbuf))) {
+			ERR_COPY_FROM_USER();
+			return -EFAULT;
+		}
+	cfgcmd.cmd_type = VFE_CMD_STATS_UNREGBUF;
+	cfgcmd.value = (void *)&reqbuf;
+	cfgcmd.length = sizeof(struct msm_stats_reqbuf);
+	rc = msm_isp_subdev_ioctl(sd, &cfgcmd, (void *)mctl->client);
 	break;
 	}
 	default:
@@ -734,6 +745,7 @@ static int msm_isp_config(struct msm_cam_media_controller *pmctl,
 	case MSM_CAM_IOCTL_STATS_REQBUF:
 	case MSM_CAM_IOCTL_STATS_ENQUEUEBUF:
 	case MSM_CAM_IOCTL_STATS_FLUSH_BUFQ:
+	case MSM_CAM_IOCTL_STATS_UNREG_BUF:
 		rc = msm_vfe_stats_buf_ioctl(sd, cmd, pmctl, argp);
 		break;
 
