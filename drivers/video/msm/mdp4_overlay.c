@@ -2105,6 +2105,62 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		return -ERANGE;
 	}
 
+	if (req->src_rect.h > 0xFFF) {
+		pr_err("%s: src_h is out of range: 0X%x!\n",
+		       __func__, req->src_rect.h);
+		mdp4_stat.err_size++;
+		return -EINVAL;
+	}
+
+	if (req->src_rect.w > 0xFFF) {
+		pr_err("%s: src_w is out of range: 0X%x!\n",
+		       __func__, req->src_rect.w);
+		mdp4_stat.err_size++;
+		return -EINVAL;
+	}
+
+	if (req->src_rect.x > 0xFFF) {
+		pr_err("%s: src_x is out of range: 0X%x!\n",
+		       __func__, req->src_rect.x);
+		mdp4_stat.err_size++;
+		return -EINVAL;
+	}
+
+	if (req->src_rect.y > 0xFFF) {
+		pr_err("%s: src_y is out of range: 0X%x!\n",
+		       __func__, req->src_rect.y);
+		mdp4_stat.err_size++;
+		return -EINVAL;
+	}
+
+	if (req->dst_rect.h > 0xFFF) {
+		pr_err("%s: dst_h is out of range: 0X%x!\n",
+		       __func__, req->dst_rect.h);
+		mdp4_stat.err_size++;
+		return -EINVAL;
+	}
+
+	if (req->dst_rect.w > 0xFFF) {
+		pr_err("%s: dst_w is out of range: 0X%x!\n",
+		       __func__, req->dst_rect.w);
+		mdp4_stat.err_size++;
+		return -EINVAL;
+	}
+
+	if (req->dst_rect.x > 0xFFF) {
+		pr_err("%s: dst_x is out of range: 0X%x!\n",
+		       __func__, req->dst_rect.x);
+		mdp4_stat.err_size++;
+		return -EINVAL;
+	}
+
+	if (req->dst_rect.y > 0xFFF) {
+		pr_err("%s: dst_y is out of range: 0X%x!\n",
+		       __func__, req->dst_rect.y);
+		mdp4_stat.err_size++;
+		return -EINVAL;
+	}
+
 	if (req->src_rect.h == 0 || req->src_rect.w == 0) {
 		pr_err("%s: src img of zero size!\n", __func__);
 		mdp4_stat.err_size++;
