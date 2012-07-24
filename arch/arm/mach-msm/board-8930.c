@@ -2572,8 +2572,10 @@ static void __init msm8930_cdp_init(void)
 	platform_add_devices(msm8930_footswitch, msm8930_num_footswitch);
 	if (cpu_is_msm8627())
 		platform_device_register(&msm8627_device_acpuclk);
-	else if (cpu_is_msm8930() || cpu_is_msm8930aa())
+	else if (cpu_is_msm8930())
 		platform_device_register(&msm8930_device_acpuclk);
+	else if (cpu_is_msm8930aa())
+		platform_device_register(&msm8930aa_device_acpuclk);
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8930_add_vidc_device();
 	/*

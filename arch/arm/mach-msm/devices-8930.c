@@ -391,6 +391,11 @@ struct platform_device msm8930_device_acpuclk = {
 	.id		= -1,
 };
 
+struct platform_device msm8930aa_device_acpuclk = {
+	.name		= "acpuclk-8930aa",
+	.id		= -1,
+};
+
 static struct fs_driver_data gfx3d_fs_data = {
 	.clks = (struct fs_clk_data[]){
 		{ .name = "core_clk", .reset_rate = 27000000 },
