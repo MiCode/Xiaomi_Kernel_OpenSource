@@ -424,10 +424,12 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		stats.buf_idx = isp_stats->buf_idx;
 		switch (isp_stats->id) {
 		case MSG_ID_STATS_AEC:
+		case MSG_ID_STATS_BG:
 			stats.aec.buff = stats.buffer;
 			stats.aec.fd = stats.fd;
 			break;
 		case MSG_ID_STATS_AF:
+		case MSG_ID_STATS_BF:
 			stats.af.buff = stats.buffer;
 			stats.af.fd = stats.fd;
 			break;
@@ -446,6 +448,10 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		case MSG_ID_STATS_CS:
 			stats.cs.buff = stats.buffer;
 			stats.cs.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_BHIST:
+			stats.skin.buff = stats.buffer;
+			stats.skin.fd = stats.fd;
 			break;
 		case MSG_ID_STATS_AWB_AEC:
 			break;
@@ -537,6 +543,9 @@ static int msm_config_vfe(struct v4l2_subdev *sd,
 	memset(&axi_data, 0, sizeof(axi_data));
 	CDBG("%s: cmd_type %d\n", __func__, cfgcmd.cmd_type);
 	switch (cfgcmd.cmd_type) {
+	case CMD_STATS_BG_ENABLE:
+	case CMD_STATS_BF_ENABLE:
+	case CMD_STATS_BHIST_ENABLE:
 	case CMD_STATS_AF_ENABLE:
 	case CMD_STATS_AEC_ENABLE:
 	case CMD_STATS_AWB_ENABLE:
@@ -629,6 +638,12 @@ static int msm_put_stats_buffer(struct v4l2_subdev *sd,
 			cfgcmd.cmd_type = CMD_STATS_CS_BUF_RELEASE;
 		else if (buf.type == STAT_AEAW)
 			cfgcmd.cmd_type = CMD_STATS_BUF_RELEASE;
+		else if (buf.type == STAT_BG)
+			cfgcmd.cmd_type = CMD_STATS_BG_BUF_RELEASE;
+		else if (buf.type == STAT_BF)
+			cfgcmd.cmd_type = CMD_STATS_BF_BUF_RELEASE;
+		else if (buf.type == STAT_BHIST)
+			cfgcmd.cmd_type = CMD_STATS_BHIST_BUF_RELEASE;
 
 		else {
 			pr_err("%s: invalid buf type %d\n",
