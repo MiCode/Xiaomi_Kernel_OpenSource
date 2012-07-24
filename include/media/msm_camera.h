@@ -213,6 +213,10 @@
 #define MSM_CAM_IOCTL_GET_INST_HANDLE \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 60, uint32_t *)
 
+#define MSM_CAM_IOCTL_STATS_UNREG_BUF \
+	_IOR(MSM_CAM_IOCTL_MAGIC, 61, struct msm_stats_flush_bufq *)
+
+
 struct msm_stats_reqbuf {
 	int num_buf;		/* how many buffers requested */
 	int stats_type;	/* stats type */
