@@ -553,7 +553,7 @@ static int msm_mpm_dev_probe(struct platform_device *pdev)
 		pr_info("%s(): request_irq failed errno: %d\n", __func__, ret);
 		goto failed_irq_get;
 	}
-	msm_mpm_initialized &= MSM_MPM_DEVICE_PROBED;
+	msm_mpm_initialized |= MSM_MPM_DEVICE_PROBED;
 
 	return 0;
 
@@ -700,9 +700,10 @@ void __init of_mpm_init(struct device_node *node)
 		}
 
 	}
-	msm_mpm_initialized &= MSM_MPM_IRQ_MAPPING_DONE;
+	msm_mpm_initialized |= MSM_MPM_IRQ_MAPPING_DONE;
 
 	return;
+
 failed_malloc:
 	for (i = 0; i < MSM_MPM_NR_MPM_IRQS; i++) {
 		mpm_of_map[i].chip->irq_mask = NULL;
