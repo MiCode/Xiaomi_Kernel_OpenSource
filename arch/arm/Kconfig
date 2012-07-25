@@ -1777,6 +1777,10 @@ config PERF_EVENTS_USERMODE
 	  If enabled, the access permissions allowing CPU performance
 	  counters to be accessed from user-mode are set.
 
+config HAVE_ARCH_TRANSPARENT_HUGEPAGE
+       def_bool y
+       depends on ARM_LPAE
+
 source "mm/Kconfig"
 
 config ARCH_MEMORY_PROBE
