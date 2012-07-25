@@ -1,0 +1,43 @@
+* qpnp-clkdiv
+
+clkdiv configures the clock frequency of a set of outputs on the PMIC.
+These clocks are typically wired through alternate functions on
+gpio pins.
+
+Required properties :
+ - reg : The address and size of the peripheral. Size should be 0x1000, and the
+         address may vary.
+ - qcom,cxo-freq : The frequency of the cxo clock in Hz.
+
+Optional properties :
+ - qcom,cxo-div : Integer to divide the CXO clock by when constructing the
+		  output frequency. Please see the definitions in
+		  include/linux/qpnp-clkdiv.h to choose the appropriate value.
+ - qcom,enable : 0 == disable clock output
+		 1 == enable clock output.
+
+Note: if an optional property is not specified, no device configuration will
+      occur at probe time.
+
+Client required properties :
+ - <consumer name>-clk : A phandle to the corresponding divclk device. The
+			      consumer name refers to the name that will be
+			      passed to qpnp_clkdiv_get(), and allows for a
+			      client specific name to be associated with each
+			      divclk.
+
+Clkdiv device example :
+
+...
+	pm8941_clkdiv1: clkdiv@5b00 {
+		reg = <0x5b00 0x1000>;
+		qcom,cxo-freq = <19200000>;
+		qcom,cxo-div = <1>;
+		qcom,enable = <1>;
+	};
+
+Client device example :
+...
+	client {
+		my-clk = &pm8941_clkdiv1;
+	};

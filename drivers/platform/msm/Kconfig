@@ -67,4 +67,13 @@ config QPNP_POWER_ON
 	  This driver supports the power-on functionality on Qualcomm
 	  PNP PMIC. It currently supports reporting the change in status of
 	  the KPDPWR_N line (connected to the power-key).
+
+config QPNP_CLKDIV
+	tristate "QPNP PMIC clkdiv driver"
+	depends on OF_SPMI && SPMI
+	help
+	  This driver supports the clkdiv functionality on the Qualcomm
+	  PNP PMIC. It configures the frequency of clkdiv outputs on the
+	  PMIC. These clocks are typically wired through alternate functions
+	  on gpio pins.
 endmenu
