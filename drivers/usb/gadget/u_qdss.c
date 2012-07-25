@@ -30,6 +30,7 @@ int send_sps_req(struct usb_ep *data_ep)
 {
 	struct usb_request *req = NULL;
 	struct f_qdss *qdss = data_ep->driver_data;
+	struct usb_gadget *gadget = qdss->cdev->gadget;
 	u32 sps_params = 0;
 
 	pr_debug("send_sps_req\n");
@@ -40,10 +41,16 @@ int send_sps_req(struct usb_ep *data_ep)
 		return -ENOMEM;
 	}
 
-	req->length = 32*1024;
-
-	sps_params = MSM_SPS_MODE | MSM_DISABLE_WB | MSM_INTERNAL_MEM |
-		bam_info.usb_bam_pipe_idx;
+	if (gadget_is_dwc3(gadget)) {
+		req->length = 32*1024;
+		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB | MSM_INTERNAL_MEM |
+			bam_info.usb_bam_pipe_idx;
+	} else {
+		/* non DWC3 BAM requires req->length to be 0 */
+		req->length = 0;
+		sps_params = (MSM_SPS_MODE | bam_info.usb_bam_pipe_idx |
+				MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
+	}
 	req->udc_priv = sps_params;
 	qdss->endless_req = req;
 	if (usb_ep_queue(data_ep, req, GFP_ATOMIC)) {
@@ -94,25 +101,36 @@ int set_qdss_data_connection(struct usb_ep *data_ep, u8 data_addr, int enable)
 
 int init_data(struct usb_ep *ep)
 {
+	struct f_qdss *qdss = ep->driver_data;
+	struct usb_gadget *gadget = qdss->cdev->gadget;
 	int res = 0;
 
 	pr_debug("init_data\n");
 
-	res = msm_ep_config(ep);
-	if (res)
-		pr_err("msm_ep_config failed\n");
+	if (gadget_is_dwc3(gadget)) {
+		res = msm_ep_config(ep);
+		if (res)
+			pr_err("msm_ep_config failed\n");
+	} else {
+		pr_debug("QDSS is used with non DWC3 core\n");
+	}
 
 	return res;
 }
 
 int uninit_data(struct usb_ep *ep)
 {
+	struct f_qdss *qdss = ep->driver_data;
+	struct usb_gadget *gadget = qdss->cdev->gadget;
 	int res = 0;
 
 	pr_err("uninit_data\n");
 
-	res = msm_ep_unconfig(ep);
-	if (res)
-		pr_err("msm_ep_config failed\n");
+	if (gadget_is_dwc3(gadget)) {
+		res = msm_ep_unconfig(ep);
+		if (res)
+			pr_err("msm_ep_config failed\n");
+	}
+
 	return res;
 }
