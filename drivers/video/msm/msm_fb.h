@@ -80,7 +80,7 @@ struct msm_fb_data_type {
 	DISP_TARGET dest;
 	struct fb_info *fbi;
 
-	struct device *dev;
+	struct delayed_work backlight_worker;
 	boolean op_enable;
 	uint32 fb_imgType;
 	boolean sw_currently_refreshing;
