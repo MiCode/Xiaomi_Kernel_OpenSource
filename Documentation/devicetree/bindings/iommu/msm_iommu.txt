@@ -16,6 +16,10 @@ Required properties:
   - qcom,iommu-smt-size : Number of SMR entries in the SMT of this HW block
   - vdd-supply : vdd-supply: phandle to GDSC regulator controlling this IOMMU.
 
+Optional properties:
+- qcom,needs-alt-core-clk : boolean to enable the secondary core clock for
+  access to the IOMMU configuration registers
+
 Example:
 
         qcom,iommu@fda64000 {

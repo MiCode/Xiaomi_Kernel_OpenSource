@@ -72,6 +72,7 @@ struct msm_iommu_ctx_dev {
  * @irq:	Interrupt number
  * @clk:	The bus clock for this IOMMU hardware instance
  * @pclk:	The clock for the IOMMU bus interconnect
+ * @aclk:	Alternate clock for this IOMMU core, if any
  * @name:	Human-readable name of this IOMMU device
  * @gdsc:	Regulator needed to power this HW block (v2 only)
  * @nsmr:	Size of the SMT on this HW block (v2 only)
@@ -85,6 +86,7 @@ struct msm_iommu_drvdata {
 	int ttbr_split;
 	struct clk *clk;
 	struct clk *pclk;
+	struct clk *aclk;
 	const char *name;
 	struct regulator *gdsc;
 	unsigned int nsmr;
