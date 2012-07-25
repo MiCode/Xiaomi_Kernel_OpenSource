@@ -2949,6 +2949,7 @@ clk_pause_ret:
 	mutex_unlock(&ctrl->sched.m_reconf);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(slim_ctrl_clk_pause);
 
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.1");
