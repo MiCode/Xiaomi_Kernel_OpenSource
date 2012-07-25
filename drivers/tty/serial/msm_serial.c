@@ -503,11 +503,10 @@ static void msm_init_clock(struct uart_port *port)
 
 	if (msm_port->uim) {
 		msm_write(port,
-			UART_SIM_CFG_UIM_TX_MODE |
-			UART_SIM_CFG_UIM_RX_MODE |
 			UART_SIM_CFG_STOP_BIT_LEN_N(1) |
 			UART_SIM_CFG_SIM_CLK_ON |
 			UART_SIM_CFG_SIM_CLK_STOP_HIGH |
+			UART_SIM_CFG_MASK_RX |
 			UART_SIM_CFG_SIM_SEL,
 			UART_SIM_CFG);
 
