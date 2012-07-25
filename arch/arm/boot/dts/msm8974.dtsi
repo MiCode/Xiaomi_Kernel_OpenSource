@@ -726,16 +726,20 @@
 
 	qcom,usbbam@f9304000 {
 		compatible = "qcom,usb-bam-msm";
-		reg = <0xf9304000 0x9000>;
-		interrupts = <0 132 0>;
+		reg = <0xf9304000 0x5000>,
+		      <0xf9a44000 0x11000>;
+		reg-names = "ssusb", "hsusb";
+		interrupts = <0 132 0 0 135 0>;
+		interrupt-names = "ssusb", "hsusb";
 		qcom,usb-active-bam = <0>;
-		qcom,usb-total-bam-num = <1>;
+		qcom,usb-total-bam-num = <2>;
 		qcom,usb-bam-num-pipes = <16>;
 		qcom,usb-base-address = <0xf9200000>;
 
 		qcom,pipe1 {
 			label = "usb-to-peri-qdss-dwc3";
 			qcom,usb-bam-type = <0>;
+			qcom,usb-bam-mem-type = <1>;
 			qcom,src-bam-physical-address = <0>;
 			qcom,src-bam-pipe-index = <0>;
 			qcom,dst-bam-physical-address = <0>;
@@ -749,6 +753,7 @@
 		qcom,pipe2 {
 			label = "peri-to-usb-qdss-dwc3";
 			qcom,usb-bam-type = <0>;
+			qcom,usb-bam-mem-type = <1>;
 			qcom,src-bam-physical-address = <0xfc37C000>;
 			qcom,src-bam-pipe-index = <0>;
 			qcom,dst-bam-physical-address = <0xf9304000>;
@@ -756,6 +761,34 @@
 			qcom,data-fifo-offset = <0xf0000>;
 			qcom,data-fifo-size = <0x4000>;
 			qcom,descriptor-fifo-offset = <0xf4000>;
+			qcom,descriptor-fifo-size = <0x1400>;
+		};
+
+		qcom,pipe3 {
+			label = "usb-to-peri-qdss-hsusb";
+			qcom,usb-bam-type = <1>;
+			qcom,usb-bam-mem-type = <2>;
+			qcom,src-bam-physical-address = <0>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-offset = <0>;
+			qcom,data-fifo-size = <0>;
+			qcom,descriptor-fifo-offset = <0>;
+			qcom,descriptor-fifo-size = <0>;
+		};
+
+		qcom,pipe4 {
+			label = "peri-to-usb-qdss-hsusb";
+			qcom,usb-bam-type = <1>;
+			qcom,usb-bam-mem-type = <2>;
+			qcom,src-bam-physical-address = <0xfc37c000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0xf9a44000>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0>;
+			qcom,data-fifo-size = <0x4000>;
+			qcom,descriptor-fifo-offset = <0>;
 			qcom,descriptor-fifo-size = <0x1400>;
 		};
 	};
