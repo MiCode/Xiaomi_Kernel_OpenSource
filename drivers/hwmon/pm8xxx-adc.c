@@ -23,7 +23,6 @@
 #include <linux/hwmon.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
-#include <linux/wakelock.h>
 #include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/hwmon-sysfs.h>
@@ -123,6 +122,7 @@
 #define PM8XXX_ADC_PA_THERM_VREG_UA_LOAD		100000
 #define PM8XXX_ADC_HWMON_NAME_LENGTH			32
 #define PM8XXX_ADC_BTM_INTERVAL_MAX			0x14
+#define PM8XXX_ADC_COMPLETION_TIMEOUT			(2 * HZ)
 
 struct pm8xxx_adc {
 	struct device				*dev;
@@ -141,7 +141,6 @@ struct pm8xxx_adc {
 	struct work_struct			cool_work;
 	uint32_t				mpp_base;
 	struct device				*hwmon;
-	struct wake_lock			adc_wakelock;
 	int					msm_suspend_check;
 	struct pm8xxx_adc_amux_properties	*conv;
 	struct pm8xxx_adc_arb_btm_param		batt;
@@ -223,7 +222,6 @@ static int32_t pm8xxx_adc_arb_cntrl(uint32_t arb_cntrl,
 			pr_err("PM8xxx ADC request made after suspend_noirq "
 					"with channel: %d\n", channel);
 		data_arb_cntrl |= PM8XXX_ADC_ARB_USRP_CNTRL1_EN_ARB;
-		wake_lock(&adc_pmic->adc_wakelock);
 	}
 
 	/* Write twice to the CNTRL register for the arbiter settings
@@ -242,8 +240,7 @@ static int32_t pm8xxx_adc_arb_cntrl(uint32_t arb_cntrl,
 		INIT_COMPLETION(adc_pmic->adc_rslt_completion);
 		rc = pm8xxx_writeb(adc_pmic->dev->parent,
 			PM8XXX_ADC_ARB_USRP_CNTRL1, data_arb_cntrl);
-	} else
-		wake_unlock(&adc_pmic->adc_wakelock);
+	}
 
 	return 0;
 }
@@ -734,7 +731,23 @@ uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
 		goto fail;
 	}
 
-	wait_for_completion(&adc_pmic->adc_rslt_completion);
+	rc = wait_for_completion_timeout(&adc_pmic->adc_rslt_completion,
+						PM8XXX_ADC_COMPLETION_TIMEOUT);
+	if (!rc) {
+		u8 data_arb_usrp_cntrl1 = 0;
+		rc = pm8xxx_adc_read_reg(PM8XXX_ADC_ARB_USRP_CNTRL1,
+					&data_arb_usrp_cntrl1);
+		if (rc < 0)
+			goto fail;
+		if (data_arb_usrp_cntrl1 == (PM8XXX_ADC_ARB_USRP_CNTRL1_EOC |
+					PM8XXX_ADC_ARB_USRP_CNTRL1_EN_ARB))
+			pr_debug("End of conversion status set\n");
+		else {
+			pr_err("EOC interrupt not received\n");
+			rc = -EINVAL;
+			goto fail;
+		}
+	}
 
 	rc = pm8xxx_adc_read_adc_code(&result->adc_code);
 	if (rc) {
@@ -1134,7 +1147,6 @@ static int __devexit pm8xxx_adc_teardown(struct platform_device *pdev)
 	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	int i;
 
-	wake_lock_destroy(&adc_pmic->adc_wakelock);
 	platform_set_drvdata(pdev, NULL);
 	pmic_adc = NULL;
 	if (!pa_therm) {
@@ -1236,8 +1248,6 @@ static int __devinit pm8xxx_adc_probe(struct platform_device *pdev)
 
 	disable_irq_nosync(adc_pmic->btm_cool_irq);
 	platform_set_drvdata(pdev, adc_pmic);
-	wake_lock_init(&adc_pmic->adc_wakelock, WAKE_LOCK_SUSPEND,
-					"pm8xxx_adc_wakelock");
 	adc_pmic->msm_suspend_check = 0;
 	pmic_adc = adc_pmic;
 
