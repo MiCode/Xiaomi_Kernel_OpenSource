@@ -1733,10 +1733,6 @@ config HW_PERF_EVENTS
 
 source "mm/Kconfig"
 
-config ARCH_POPULATES_NODE_MAP
-	def_bool n
-	depends on MEMORY_HOTPLUG
-
 config FORCE_MAX_ZONEORDER
 	int "Maximum zone order" if ARCH_SHMOBILE
 	range 11 64 if ARCH_SHMOBILE
