@@ -1367,6 +1367,14 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	fbi->fix.smem_start = (unsigned long)fbram_phys;
 
 	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
+					DISPLAY_WRITE_DOMAIN,
+					GEN_POOL,
+					fbi->fix.smem_len,
+					SZ_4K,
+					0,
+					&(mfd->display_iova));
+
+	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
 					DISPLAY_READ_DOMAIN,
 					GEN_POOL,
 					fbi->fix.smem_len,
