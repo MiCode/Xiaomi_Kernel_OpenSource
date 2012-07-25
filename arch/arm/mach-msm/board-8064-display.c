@@ -626,14 +626,17 @@ static int lvds_panel_power(int on)
 
 static int lvds_pixel_remap(void)
 {
+	u32 ver = socinfo_get_version();
+
 	if (machine_is_apq8064_cdp() ||
 	    machine_is_apq8064_liquid()) {
-		u32 ver = socinfo_get_version();
 		if ((SOCINFO_VERSION_MAJOR(ver) == 1) &&
 		    (SOCINFO_VERSION_MINOR(ver) == 0))
 			return LVDS_PIXEL_MAP_PATTERN_1;
 	} else if (machine_is_mpq8064_dtv()) {
-		return LVDS_PIXEL_MAP_PATTERN_2;
+		if ((SOCINFO_VERSION_MAJOR(ver) == 1) &&
+		    (SOCINFO_VERSION_MINOR(ver) == 0))
+			return LVDS_PIXEL_MAP_PATTERN_2;
 	}
 	return 0;
 }

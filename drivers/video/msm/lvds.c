@@ -173,7 +173,7 @@ static void lvds_init(struct msm_fb_data_type *mfd)
 			/* MDP_LCDC_LVDS_MUX_CTL_FOR_D1_6_TO_4 */
 			MDP_OUTP(MDP_BASE +  0xc2020, 0x00090a0b);
 			/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_3_TO_0 */
-			MDP_OUTP(MDP_BASE +  0xc2024, 0x151a191a);
+			MDP_OUTP(MDP_BASE +  0xc2024, 0x1518191a);
 			/* MDP_LCDC_LVDS_MUX_CTL_FOR_D2_6_TO_4 */
 			MDP_OUTP(MDP_BASE +  0xc2028, 0x00121314);
 			/* MDP_LCDC_LVDS_MUX_CTL_FOR_D3_3_TO_0 */
