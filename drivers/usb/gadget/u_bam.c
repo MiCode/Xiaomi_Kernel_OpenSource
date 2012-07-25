@@ -24,6 +24,7 @@
 #include <linux/termios.h>
 
 #include <mach/usb_gadget_xport.h>
+#include <linux/usb/msm_hsusb.h>
 #include <mach/usb_bam.h>
 
 #include "u_rmnet.h"
