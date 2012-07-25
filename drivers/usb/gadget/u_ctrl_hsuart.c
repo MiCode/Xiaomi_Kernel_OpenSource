@@ -289,7 +289,7 @@ static void ghsuart_ctrl_disconnect_w(struct work_struct *w)
 
 void ghsuart_ctrl_disconnect(void *gptr, int port_num)
 {
-	struct gctrl_port	*port;
+	struct ghsuart_ctrl_port	*port;
 	struct grmnet		*gr = NULL;
 	unsigned long		flags;
 
@@ -300,7 +300,7 @@ void ghsuart_ctrl_disconnect(void *gptr, int port_num)
 		return;
 	}
 
-	port = gctrl_ports[port_num].port;
+	port = ghsuart_ctrl_ports[port_num].port;
 
 	if (!gptr || !port) {
 		pr_err("%s: grmnet port is null\n", __func__);
@@ -372,7 +372,7 @@ not_ready:
 static void ghsuart_ctrl_port_free(int portno)
 {
 	struct ghsuart_ctrl_port	*port = ghsuart_ctrl_ports[portno].port;
-	struct platform_driver	*pdrv = &gctrl_ports[portno].pdrv;
+	struct platform_driver	*pdrv = &ghsuart_ctrl_ports[portno].pdrv;
 
 	destroy_workqueue(port->wq);
 	if (pdrv)
