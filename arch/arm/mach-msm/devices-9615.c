@@ -174,25 +174,25 @@ static struct resource resources_hsusb[] = {
 
 static struct resource resources_usb_bam[] = {
 	{
-		.name	= "usb_bam_addr",
+		.name	= "hsusb",
 		.start	= MSM_USB_BAM_BASE,
 		.end	= MSM_USB_BAM_BASE + MSM_USB_BAM_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name	= "usb_bam_irq",
+		.name	= "hsusb",
 		.start	= USB1_HS_BAM_IRQ,
 		.end	= USB1_HS_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.name	= "hsic_bam_addr",
+		.name	= "hsic",
 		.start	= MSM_HSIC_BAM_BASE,
 		.end	= MSM_HSIC_BAM_BASE + MSM_HSIC_BAM_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name	= "hsic_bam_irq",
+		.name	= "hsic",
 		.start	= USB_HSIC_BAM_IRQ,
 		.end	= USB_HSIC_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,

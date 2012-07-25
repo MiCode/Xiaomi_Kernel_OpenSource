@@ -396,6 +396,12 @@ struct msm_hsic_peripheral_platform_data {
 	bool core_clk_always_on_workaround;
 };
 
+enum usb_pipe_mem_type {
+	SPS_PIPE_MEM = 0,	/* Default, SPS dedicated pipe memory */
+	USB_PRIVATE_MEM,	/* USB's private memory */
+	SYSTEM_MEM,		/* System RAM, requires allocation */
+};
+
 /**
  * struct usb_bam_pipe_connect: pipe connection information
  * between USB/HSIC BAM and another BAM. USB/HSIC BAM can be
@@ -404,6 +410,7 @@ struct msm_hsic_peripheral_platform_data {
  * @src_pipe_index: src bam pipe index.
  * @dst_phy_addr: dst bam physical address.
  * @dst_pipe_index: dst bam pipe index.
+ * @mem_type: type of memory used for BAM FIFOs
  * @data_fifo_base_offset: data fifo offset.
  * @data_fifo_size: data fifo size.
  * @desc_fifo_base_offset: descriptor fifo offset.
@@ -414,6 +421,7 @@ struct usb_bam_pipe_connect {
 	u32 src_pipe_index;
 	u32 dst_phy_addr;
 	u32 dst_pipe_index;
+	enum usb_pipe_mem_type mem_type;
 	u32 data_fifo_base_offset;
 	u32 data_fifo_size;
 	u32 desc_fifo_base_offset;
@@ -439,8 +447,10 @@ struct msm_usb_bam_platform_data {
 };
 
 enum usb_bam {
-	HSUSB_BAM = 0,
+	SSUSB_BAM = 0,
+	HSUSB_BAM,
 	HSIC_BAM,
+	MAX_BAMS,
 };
 
 #ifdef CONFIG_USB_DWC3_MSM
