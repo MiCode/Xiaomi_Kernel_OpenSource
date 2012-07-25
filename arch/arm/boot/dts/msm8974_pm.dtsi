@@ -307,4 +307,89 @@
 		compatible = "qcom,pm-boot";
 		qcom,mode = <0>; /* MSM_PM_BOOT_CONFIG_TZ */
 	};
+
+	qcom,mpm@fc4281d0 {
+		compatible = "qcom,mpm-v2";
+		reg = <0xfc4281d0 0x1000>, /* MSM_RPM_MPM_BASE 4K */
+		    <0xfa006000 0x1000>;   /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		interrupts = <0 171 1>;
+
+		qcom,ipc-bit-offset = <0>;
+
+		qcom,gic-parent = <&intc>;
+		qcom,gic-map = <41 180>, /* usb2_hsic_async_wakeup_irq */
+			<53 104>, /* mdss_irq */
+			<0xff 57>,  /* mss_to_apps_irq(0) */
+			<0xff 58>,  /* mss_to_apps_irq(1) */
+			<0xff 59>,  /* mss_to_apps_irq(2) */
+			<0xff 60>,  /* mss_to_apps_irq(3) */
+			<0xff 173>, /* o_wcss_apss_smd_hi */
+			<0xff 174>, /* o_wcss_apss_smd_med */
+			<0xff 175>, /* o_wcss_apss_smd_low */
+			<0xff 176>, /* o_wcss_apss_smsm_irq */
+			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
+			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
+			<0xff 179>, /* o_wcss_apss_asic_intr
+
+			<0xff 188>, /* lpass_irq_out_apcs(0) */
+			<0xff 189>, /* lpass_irq_out_apcs(1) */
+			<0xff 190>, /* lpass_irq_out_apcs(2) */
+			<0xff 191>, /* lpass_irq_out_apcs(3) */
+			<0xff 192>, /* lpass_irq_out_apcs(4) */
+			<0xff 193>, /* lpass_irq_out_apcs(5) */
+			<0xff 194>, /* lpass_irq_out_apcs(6) */
+			<0xff 195>, /* lpass_irq_out_apcs(7) */
+			<0xff 196>, /* lpass_irq_out_apcs(8) */
+			<0xff 197>, /* lpass_irq_out_apcs(9) */
+			<0xff 200>, /* rpm_ipc(4) */
+			<0xff 201>, /* rpm_ipc(5) */
+			<0xff 202>, /* rpm_ipc(6) */
+			<0xff 203>, /* rpm_ipc(7) */
+			<0xff 204>, /* rpm_ipc(24) */
+			<0xff 205>, /* rpm_ipc(25) */
+			<0xff 206>, /* rpm_ipc(26) */
+			<0xff 207>, /* rpm_ipc(27) */
+			<0xff 240>; /* summary_irq_kpss */
+
+		qcom,gpio-parent = <&msmgpio>;
+		qcom,gpio-map = <3  102>,
+			<4  1 >,
+			<5  5 >,
+			<6  9 >,
+			<7  18>,
+			<8  20>,
+			<9  24>,
+			<10  27>,
+			<11  28>,
+			<12  34>,
+			<13  35>,
+			<14  37>,
+			<15  42>,
+			<16  44>,
+			<17  46>,
+			<18  50>,
+			<19  54>,
+			<20  59>,
+			<21  61>,
+			<22  62>,
+			<23  64>,
+			<24  65>,
+			<25  66>,
+			<26  67>,
+			<27  68>,
+			<28  71>,
+			<29  72>,
+			<30  73>,
+			<31  74>,
+			<32  75>,
+			<33  77>,
+			<34  79>,
+			<35  80>,
+			<36  82>,
+			<37  86>,
+			<38  92>,
+			<39  93>,
+			<40  95>;
+	};
 };
