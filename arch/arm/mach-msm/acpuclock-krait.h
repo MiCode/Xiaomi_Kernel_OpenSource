@@ -14,7 +14,6 @@
 #ifndef __ARCH_ARM_MACH_MSM_ACPUCLOCK_KRAIT_H
 #define __ARCH_ARM_MACH_MSM_ACPUCLOCK_KRAIT_H
 
-#define STBY_KHZ		1
 #define L2(x) (x)
 #define BW_MBPS(_bw) \
 	{ \
@@ -39,7 +38,6 @@
 enum src_id {
 	PLL_0 = 0,
 	HFPLL,
-	QSB,
 	PLL_8,
 };
 
@@ -240,6 +238,7 @@ struct pvs_table {
  * @l2_freq_tbl_size: Size of @l2_freq_tbl.
  * @qfprom_phys_base: Physical base address of QFPROM.
  * @bus_scale: MSM bus driver parameters.
+ * @stby_khz: KHz value corresponding to an always-on clock source.
  */
 struct acpuclk_krait_params {
 	struct scalable *scalable;
@@ -250,6 +249,7 @@ struct acpuclk_krait_params {
 	size_t l2_freq_tbl_size;
 	phys_addr_t qfprom_phys_base;
 	struct msm_bus_scale_pdata *bus_scale;
+	unsigned long stby_khz;
 };
 
 /**
