@@ -223,6 +223,19 @@ void smd_enable_read_intr(smd_channel_t *ch);
  */
 void smd_disable_read_intr(smd_channel_t *ch);
 
+/**
+ * Enable/disable receive interrupts for the remote processor used by a
+ * particular channel.
+ * @ch:      open channel handle to use for the edge
+ * @mask:    1 = mask interrupts; 0 = unmask interrupts
+ * @returns: 0 for success; < 0 for failure
+ *
+ * Note that this enables/disables all interrupts from the remote subsystem for
+ * all channels.  As such, it should be used with care and only for specific
+ * use cases such as power-collapse sequencing.
+ */
+int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask);
+
 /* Starts a packet transaction.  The size of the packet may exceed the total
  * size of the smd ring buffer.
  *
@@ -387,6 +400,11 @@ static inline void smd_enable_read_intr(smd_channel_t *ch)
 
 static inline void smd_disable_read_intr(smd_channel_t *ch)
 {
+}
+
+static inline int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask)
+{
+	return -ENODEV;
 }
 
 static inline int smd_write_start(smd_channel_t *ch, int len)

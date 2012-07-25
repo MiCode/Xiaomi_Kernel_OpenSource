@@ -123,6 +123,7 @@ struct interrupt_config_item {
 	uint32_t out_bit_pos;
 	void __iomem *out_base;
 	uint32_t out_offset;
+	int irq_id;
 };
 
 struct interrupt_config {
@@ -2127,6 +2128,56 @@ void smd_disable_read_intr(smd_channel_t *ch)
 }
 EXPORT_SYMBOL(smd_disable_read_intr);
 
+/**
+ * Enable/disable receive interrupts for the remote processor used by a
+ * particular channel.
+ * @ch:      open channel handle to use for the edge
+ * @mask:    1 = mask interrupts; 0 = unmask interrupts
+ * @returns: 0 for success; < 0 for failure
+ *
+ * Note that this enables/disables all interrupts from the remote subsystem for
+ * all channels.  As such, it should be used with care and only for specific
+ * use cases such as power-collapse sequencing.
+ */
+int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask)
+{
+	struct irq_chip *irq_chip;
+	struct irq_data *irq_data;
+	struct interrupt_config_item *int_cfg;
+
+	if (!ch)
+		return -EINVAL;
+
+	if (ch->type >= ARRAY_SIZE(edge_to_pids))
+		return -ENODEV;
+
+	int_cfg = &private_intr_config[edge_to_pids[ch->type].remote_pid].smd;
+
+	if (int_cfg->irq_id < 0)
+		return -ENODEV;
+
+	irq_chip = irq_get_chip(int_cfg->irq_id);
+	if (!irq_chip)
+		return -ENODEV;
+
+	irq_data = irq_get_irq_data(int_cfg->irq_id);
+	if (!irq_data)
+		return -ENODEV;
+
+	if (mask) {
+		SMx_POWER_INFO("SMD Masking interrupts from %s\n",
+				edge_to_pids[ch->type].subsys_name);
+		irq_chip->irq_mask(irq_data);
+	} else {
+		SMx_POWER_INFO("SMD Unmasking interrupts from %s\n",
+				edge_to_pids[ch->type].subsys_name);
+		irq_chip->irq_unmask(irq_data);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(smd_mask_receive_interrupt);
+
 int smd_wait_until_readable(smd_channel_t *ch, int bytes)
 {
 	return -1;
@@ -3245,8 +3296,10 @@ static int intr_init(struct interrupt_config_item *private_irq,
 			);
 	if (ret < 0) {
 		platform_irq->irq_id = ret;
+		private_irq->irq_id = ret;
 	} else {
 		platform_irq->irq_id = irq_id;
+		private_irq->irq_id = irq_id;
 		ret_wake = enable_irq_wake(irq_id);
 		if (ret_wake < 0) {
 			pr_err("smd: enable_irq_wake failed on %s",
