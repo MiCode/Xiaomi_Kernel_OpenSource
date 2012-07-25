@@ -1005,6 +1005,7 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 		case VOICE_RECORD_TX:
 		case VOICE_RECORD_RX:
 			rc = afe_start_pseudo_port(dai->id);
+			break;
 		default:
 			rc = afe_port_start(dai->id, &dai_data->port_config,
 					    dai_data->rate);

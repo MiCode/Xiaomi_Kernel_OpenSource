@@ -2499,6 +2499,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SEC_AUX_PCM_TX", NULL, "BE_IN"},
 	{"BE_OUT", NULL, "AUX_PCM_RX"},
 	{"AUX_PCM_TX", NULL, "BE_IN"},
+	{"INCALL_RECORD_TX", NULL, "BE_IN"},
+	{"INCALL_RECORD_RX", NULL, "BE_IN"},
+	{"BE_OUT", NULL, "VOICE_PLAYBACK_TX"},
 };
 
 static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
