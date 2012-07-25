@@ -352,7 +352,7 @@ static void usb_wwan_indat_callback(struct urb *urb)
 
 	usb_mark_last_busy(port->serial->dev);
 
-	if (!status && urb->actual_length) {
+	if ((status == -ENOENT || !status) && urb->actual_length) {
 		spin_lock_irqsave(&portdata->in_lock, flags);
 		list_add_tail(&urb->urb_list, &portdata->in_urb_list);
 		spin_unlock_irqrestore(&portdata->in_lock, flags);
