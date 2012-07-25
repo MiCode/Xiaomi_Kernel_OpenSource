@@ -108,6 +108,7 @@
 #define UART_SIM_CFG_SIM_CLK_ON		(1 << 7)
 #define UART_SIM_CFG_SIM_CLK_TD8_SEL	(1 << 6)
 #define UART_SIM_CFG_SIM_CLK_STOP_HIGH	(1 << 5)
+#define UART_SIM_CFG_MASK_RX		(1 << 3)
 #define UART_SIM_CFG_SIM_SEL		(1 << 0)
 
 #define UART_MISR_MODE		0x0040
