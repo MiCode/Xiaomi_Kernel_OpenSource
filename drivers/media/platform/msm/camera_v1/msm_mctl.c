@@ -341,7 +341,6 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	case MSM_CAM_IOCTL_EEPROM_IO_CFG: {
 		struct msm_eeprom_cfg_data eeprom_data;
 		if (p_mctl->eeprom_sdev) {
-			eeprom_data.is_eeprom_supported = 1;
 			rc = v4l2_subdev_call(p_mctl->eeprom_sdev,
 				core, ioctl, VIDIOC_MSM_EEPROM_CFG, argp);
 		} else {
