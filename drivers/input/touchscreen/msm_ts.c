@@ -387,6 +387,7 @@ static int __devinit msm_ts_probe(struct platform_device *pdev)
 
 	input_set_capability(ts->input_dev, EV_KEY, BTN_TOUCH);
 	set_bit(EV_ABS, ts->input_dev->evbit);
+	set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
 
 	input_set_abs_params(ts->input_dev, ABS_X, pdata->min_x, pdata->max_x,
 			     0, 0);
