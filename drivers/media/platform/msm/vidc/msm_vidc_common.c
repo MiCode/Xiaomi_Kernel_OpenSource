@@ -685,7 +685,7 @@ static void  handle_seq_hdr_done(enum command_response cmd, void *data)
 	struct vb2_buffer *vb;
 	struct vidc_hal_fbd *fill_buf_done;
 	if (!response) {
-		pr_err("Invalid response from vidc_hal\n");
+		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
 		return;
 	}
 	inst = (struct msm_vidc_inst *)response->session_id;
@@ -1545,14 +1545,14 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			dprintk(VIDC_DBG, "Sent etb to HAL\n");
 		} else if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			struct vidc_seq_hdr seq_hdr;
+			int extra_idx = 0;
 			frame_data.filled_len = 0;
 			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
-			if (inst->extradata_handle) {
+			extra_idx =
+			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
+			if (extra_idx)
 				frame_data.extradata_addr =
-					inst->extradata_handle->device_addr;
-			} else {
-				frame_data.extradata_addr = 0;
-			}
+					vb->v4l2_planes[extra_idx].m.userptr;
 			dprintk(VIDC_DBG,
 				"Sending ftb to hal: Alloc: %d :filled: %d",
 				frame_data.alloc_len, frame_data.filled_len);
@@ -1596,6 +1596,12 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	mutex_lock(&inst->sync_lock);
+	if (inst->state < MSM_VIDC_OPEN_DONE || inst->state >= MSM_VIDC_CLOSE) {
+		dprintk(VIDC_ERR,
+			"Not in proper state to query buffer requirements\n");
+		rc = -EAGAIN;
+		goto exit;
+	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)]);
 	rc = vidc_hal_session_get_buf_req((void *) inst->session);
@@ -1718,6 +1724,29 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 		}
 	}
 	spin_unlock_irqrestore(&inst->lock, flags);
+	return rc;
+}
+
+int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
+	enum hal_property ptype, void *pdata)
+{
+	int rc = 0;
+	if (!inst) {
+		dprintk(VIDC_ERR, "Invalid input: %p\n", inst);
+		return -EINVAL;
+	}
+	mutex_lock(&inst->sync_lock);
+	if (inst->state < MSM_VIDC_OPEN_DONE || inst->state >= MSM_VIDC_CLOSE) {
+		dprintk(VIDC_ERR, "Not in proper state to set property\n");
+		rc = -EAGAIN;
+		goto exit;
+	}
+	rc = vidc_hal_session_set_property((void *)inst->session,
+			ptype, pdata);
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to set hal property for framesize\n");
+exit:
+	mutex_unlock(&inst->sync_lock);
 	return rc;
 }
 

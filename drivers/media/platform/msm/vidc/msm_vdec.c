@@ -20,7 +20,6 @@
 #include "msm_vidc_debug.h"
 
 #define MSM_VDEC_DVC_NAME "msm_vdec_8974"
-#define MAX_PLANES 1
 #define DEFAULT_HEIGHT 720
 #define DEFAULT_WIDTH 1280
 #define MAX_SUPPORTED_WIDTH 1920
@@ -175,11 +174,6 @@ static u32 get_frame_size_nv12(int plane,
 	size = ALIGN(size, SZ_4K);
 	return size;
 }
-static u32 get_frame_size_nv21(int plane,
-					u32 height, u32 width)
-{
-	return height * width * 2;
-}
 
 static u32 get_frame_size_compressed(int plane,
 					u32 height, u32 width)
@@ -192,7 +186,7 @@ static const struct msm_vidc_format vdec_formats[] = {
 		.name = "YCbCr Semiplanar 4:2:0",
 		.description = "Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12,
-		.num_planes = 1,
+		.num_planes = 2,
 		.get_frame_size = get_frame_size_nv12,
 		.type = CAPTURE_PORT,
 	},
@@ -251,14 +245,6 @@ static const struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
-	},
-	{
-		.name = "YCrCb Semiplanar 4:2:0",
-		.description = "Y/CrCb 4:2:0",
-		.fourcc = V4L2_PIX_FMT_NV21,
-		.num_planes = 1,
-		.get_frame_size = get_frame_size_nv21,
-		.type = CAPTURE_PORT,
 	},
 	{
 		.name = "DIVX 311",
@@ -321,45 +307,48 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 					struct v4l2_buffer *b)
 {
 	int rc = 0;
-	int i;
 	struct vidc_buffer_addr_info buffer_info;
+	int extra_idx = 0;
+	int i;
 	switch (b->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		for (i = 0; i < b->length; i++) {
-			dprintk(VIDC_DBG, "device_addr = %ld, size = %d\n",
-				b->m.planes[i].m.userptr,
+			if (b->length != inst->fmts[CAPTURE_PORT]->num_planes) {
+				dprintk(VIDC_ERR,
+				"Planes mismatch: needed: %d, allocated: %d\n",
+				inst->fmts[CAPTURE_PORT]->num_planes,
+				b->length);
+				rc = -EINVAL;
+				break;
+			}
+			for (i = 0; (i < b->length)
+				&& (i < VIDEO_MAX_PLANES); ++i) {
+				dprintk(VIDC_DBG,
+				"prepare plane: %d, device_addr = 0x%lx, size = %d\n",
+				i, b->m.planes[i].m.userptr,
 				b->m.planes[i].length);
-			buffer_info.buffer_size = b->m.planes[i].length;
+			}
+			buffer_info.buffer_size = b->m.planes[0].length;
 			buffer_info.buffer_type = HAL_BUFFER_OUTPUT;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr =
-				b->m.planes[i].m.userptr;
-			if (!inst->extradata_handle) {
-				inst->extradata_handle =
-				msm_smem_alloc(inst->mem_client,
-				4096 * 1024, 1, SMEM_UNCACHED,
-				inst->core->resources.io_map[NS_MAP].domain,
-				0, 0);
-				if (!inst->extradata_handle) {
-					dprintk(VIDC_ERR,
-						"Failed to allocate extradata memory\n");
-					rc = -ENOMEM;
-					break;
-				}
+				b->m.planes[0].m.userptr;
+			extra_idx = EXTRADATA_IDX(b->length);
+			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+				buffer_info.extradata_addr =
+					b->m.planes[extra_idx].m.userptr;
+				dprintk(VIDC_DBG,
+				"extradata: 0x%lx\n",
+				b->m.planes[extra_idx].m.userptr);
+				buffer_info.extradata_size =
+					b->m.planes[extra_idx].length;
 			}
-			buffer_info.extradata_addr =
-				inst->extradata_handle->device_addr;
-			buffer_info.extradata_size = 4096 * 1024;
 			rc = vidc_hal_session_set_buffers((void *)inst->session,
 					&buffer_info);
-			if (rc) {
+			if (rc)
 				dprintk(VIDC_ERR,
-					"vidc_hal_session_set_buffers failed\n");
-				break;
-			}
-		}
+				"vidc_hal_session_set_buffers failed");
 		break;
 	default:
 		dprintk(VIDC_ERR, "Buffer type not recognized: %d\n", b->type);
@@ -372,9 +361,10 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 					struct v4l2_buffer *b)
 {
 	int rc = 0;
-	int i;
 	struct vidc_buffer_addr_info buffer_info;
 	struct msm_vidc_core *core = inst->core;
+	int extra_idx = 0;
+	int i;
 	if (inst->state == MSM_VIDC_CORE_INVALID ||
 			core->state == VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR,
@@ -382,28 +372,40 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 				core);
 		goto exit;
 	}
+
 	switch (b->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		for (i = 0; i < b->length; i++) {
-			dprintk(VIDC_DBG,
-				"Release device_addr = %ld, size = %d\n",
-				b->m.planes[i].m.userptr,
+			if (b->length !=
+				inst->fmts[CAPTURE_PORT]->num_planes) {
+				dprintk(VIDC_ERR,
+				"Planes mismatch: needed: %d, to release: %d\n",
+				inst->fmts[CAPTURE_PORT]->num_planes,
+				b->length);
+				rc = -EINVAL;
+				break;
+			}
+			for (i = 0; i < b->length; ++i) {
+				dprintk(VIDC_DBG,
+				"Release plane: %d device_addr = 0x%lx, size = %d\n",
+				i, b->m.planes[i].m.userptr,
 				b->m.planes[i].length);
-			buffer_info.buffer_size = b->m.planes[i].length;
+			}
+			buffer_info.buffer_size = b->m.planes[0].length;
 			buffer_info.buffer_type = HAL_BUFFER_OUTPUT;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr =
-				 b->m.planes[i].m.userptr;
-			buffer_info.extradata_addr =
-				inst->extradata_handle->device_addr;
+				 b->m.planes[0].m.userptr;
+			extra_idx = EXTRADATA_IDX(b->length);
+			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES))
+				buffer_info.extradata_addr =
+					b->m.planes[extra_idx].m.userptr;
 			rc = vidc_hal_session_release_buffers(
 					(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
-					"vidc_hal_session_release_buffers failed\n");
-		}
+				"vidc_hal_session_release_buffers failed");
 		break;
 	default:
 		dprintk(VIDC_ERR, "Buffer type not recognized: %d\n", b->type);
@@ -475,7 +477,10 @@ int msm_vdec_reqbufs(struct msm_vidc_inst *inst, struct v4l2_requestbuffers *b)
 int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	const struct msm_vidc_format *fmt = NULL;
+	struct hal_frame_size frame_sz;
+	int extra_idx = 0;
 	int rc = 0;
+	int ret;
 	int i;
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
@@ -489,21 +494,41 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 	if (fmt) {
 		f->fmt.pix_mp.pixelformat = fmt->fourcc;
+		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		if (inst->in_reconfig == true) {
 			inst->prop.height = inst->reconfig_height;
 			inst->prop.width = inst->reconfig_width;
 		}
 		f->fmt.pix_mp.height = inst->prop.height;
 		f->fmt.pix_mp.width = inst->prop.width;
-		f->fmt.pix_mp.num_planes = fmt->num_planes;
-		for (i = 0; i < fmt->num_planes; ++i) {
-			f->fmt.pix_mp.plane_fmt[i].sizeimage =
-			fmt->get_frame_size(i, inst->prop.height,
-				inst->prop.width);
+		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+		frame_sz.width = inst->prop.width;
+		frame_sz.height = inst->prop.height;
+		dprintk(VIDC_DBG, "width = %d, height = %d\n",
+				frame_sz.width, frame_sz.height);
+		ret = msm_comm_try_set_prop(inst,
+			HAL_PARAM_FRAME_SIZE, &frame_sz);
+		ret = ret || msm_comm_try_get_bufreqs(inst);
+		if (ret || (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
+			for (i = 0; i < fmt->num_planes; ++i) {
+				f->fmt.pix_mp.plane_fmt[i].sizeimage =
+					fmt->get_frame_size(i,
+						f->fmt.pix_mp.height,
+						f->fmt.pix_mp.width);
+			}
+		} else {
+			f->fmt.pix_mp.plane_fmt[0].sizeimage =
+			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].buffer_size;
+			extra_idx = EXTRADATA_IDX(fmt->num_planes);
+			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+				f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
+		inst->buff_req.buffer[HAL_BUFFER_EXTRADATA_OUTPUT].buffer_size;
+			}
 		}
 	} else {
-		dprintk(VIDC_ERR, "Buf type not recognized, type = %d\n",
-					f->type);
+		dprintk(VIDC_ERR,
+			"Buf type not recognized, type = %d\n",
+			f->type);
 		rc = -EINVAL;
 	}
 	return rc;
@@ -512,7 +537,10 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	const struct msm_vidc_format *fmt = NULL;
+	struct hal_frame_size frame_sz;
+	int extra_idx = 0;
 	int rc = 0;
+	int ret = 0;
 	int i;
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
@@ -525,64 +553,67 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 			ARRAY_SIZE(vdec_formats), f->fmt.pix_mp.pixelformat,
 			CAPTURE_PORT);
-		if (fmt && fmt->type != CAPTURE_PORT) {
+		if (!fmt || (fmt && fmt->type != CAPTURE_PORT)) {
 			dprintk(VIDC_ERR,
-				"Format: %d not supported on CAPTURE"
-				"port\n", f->fmt.pix_mp.pixelformat);
-			rc = -EINVAL;
-			goto err_invalid_fmt;
-		}
-
-		inst->prop.width = f->fmt.pix_mp.width;
-		inst->prop.height = f->fmt.pix_mp.height;
-
-		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
-		dprintk(VIDC_DBG,
-			"width = %d, height = %d\n",
-			frame_sz.width, frame_sz.height);
-		rc = vidc_hal_session_set_property((void *)inst->session,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to set hal property for framesize\n");
-			goto err_invalid_fmt;
-		}
-	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		inst->prop.width = f->fmt.pix_mp.width;
-		inst->prop.height = f->fmt.pix_mp.height;
-		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
-			ARRAY_SIZE(vdec_formats), f->fmt.pix_mp.pixelformat,
-			OUTPUT_PORT);
-		if (fmt && fmt->type != OUTPUT_PORT) {
-			dprintk(VIDC_ERR,
-				"Format: %d not supported on OUTPUT port\n",
+				"Format: %d not supported on CAPTURE port\n",
 				f->fmt.pix_mp.pixelformat);
 			rc = -EINVAL;
 			goto err_invalid_fmt;
 		}
-	}
-
-	if (fmt) {
-		f->fmt.pix_mp.num_planes = fmt->num_planes;
-		for (i = 0; i < fmt->num_planes; ++i) {
-			f->fmt.pix_mp.plane_fmt[i].sizeimage =
-				fmt->get_frame_size(i, f->fmt.pix_mp.height,
-						f->fmt.pix_mp.width);
-		}
 		inst->fmts[fmt->type] = fmt;
-		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			rc = msm_comm_try_state(inst, MSM_VIDC_OPEN);
-			if (rc) {
-				dprintk(VIDC_ERR, "Failed to open instance\n");
-				goto err_invalid_fmt;
+		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+		frame_sz.width = inst->prop.width;
+		frame_sz.height = inst->prop.height;
+		dprintk(VIDC_DBG, "width = %d, height = %d\n",
+				frame_sz.width, frame_sz.height);
+		ret = msm_comm_try_set_prop(inst,
+			HAL_PARAM_FRAME_SIZE, &frame_sz);
+		ret = ret || msm_comm_try_get_bufreqs(inst);
+		if (ret) {
+			for (i = 0; i < fmt->num_planes; ++i) {
+				f->fmt.pix_mp.plane_fmt[i].sizeimage =
+					fmt->get_frame_size(i,
+						f->fmt.pix_mp.height,
+						f->fmt.pix_mp.width);
+			}
+		} else {
+			f->fmt.pix_mp.plane_fmt[0].sizeimage =
+			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].buffer_size;
+			extra_idx = EXTRADATA_IDX(fmt->num_planes);
+			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+				f->fmt.pix_mp.plane_fmt[1].sizeimage =
+		inst->buff_req.buffer[HAL_BUFFER_EXTRADATA_OUTPUT].buffer_size;
 			}
 		}
-	} else {
-		dprintk(VIDC_ERR,
-			"Buf type not recognized, type = %d\n", f->type);
-		rc = -EINVAL;
+		f->fmt.pix_mp.num_planes = fmt->num_planes;
+	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		inst->prop.width = f->fmt.pix_mp.width;
+		inst->prop.height = f->fmt.pix_mp.height;
+		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
+				ARRAY_SIZE(vdec_formats),
+				f->fmt.pix_mp.pixelformat,
+				OUTPUT_PORT);
+		if (!fmt || fmt->type != OUTPUT_PORT) {
+			dprintk(VIDC_ERR,
+			"Format: %d not supported on OUTPUT port\n",
+			f->fmt.pix_mp.pixelformat);
+			rc = -EINVAL;
+			goto err_invalid_fmt;
+		}
+		inst->fmts[fmt->type] = fmt;
+		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to open instance\n");
+			goto err_invalid_fmt;
+		}
+		frame_sz.buffer_type = HAL_BUFFER_INPUT;
+		frame_sz.width = inst->prop.width;
+		frame_sz.height = inst->prop.height;
+		msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
+		f->fmt.pix_mp.plane_fmt[0].sizeimage =
+			fmt->get_frame_size(0, f->fmt.pix_mp.height,
+					f->fmt.pix_mp.width);
+		f->fmt.pix_mp.num_planes = fmt->num_planes;
 	}
 err_invalid_fmt:
 	return rc;
@@ -646,14 +677,17 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	struct msm_vidc_inst *inst;
 	unsigned long flags;
 	struct hal_buffer_requirements *bufreq;
-	if (!q || !q->drv_priv) {
-		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
+	int extra_idx = 0;
+	if (!q || !num_buffers || !num_planes
+		|| !sizes || !q->drv_priv) {
+		dprintk(VIDC_ERR, "Invalid input, q = %p, %p, %p\n",
+			q, num_buffers, num_planes);
 		return -EINVAL;
 	}
 	inst = q->drv_priv;
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-		*num_planes = 1;
+		*num_planes = inst->fmts[OUTPUT_PORT]->num_planes;
 		if (*num_buffers < MIN_NUM_OUTPUT_BUFFERS ||
 				*num_buffers > MAX_NUM_OUTPUT_BUFFERS)
 			*num_buffers = MIN_NUM_OUTPUT_BUFFERS;
@@ -664,6 +698,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		dprintk(VIDC_DBG, "Getting bufreqs on capture plane\n");
+		*num_planes = inst->fmts[CAPTURE_PORT]->num_planes;
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
@@ -675,7 +710,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				"Failed to get buffer requirements: %d\n", rc);
 			break;
 		}
-		*num_planes = 1;
 		spin_lock_irqsave(&inst->lock, flags);
 		if (*num_buffers && *num_buffers >
 			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].
@@ -700,11 +734,13 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				inst->buff_req.buffer[1].buffer_count_actual,
 				inst->buff_req.buffer[1].buffer_size,
 				inst->buff_req.buffer[1].buffer_alignment);
-		for (i = 0; i < *num_planes; i++) {
-			sizes[i] = inst->fmts[CAPTURE_PORT]->get_frame_size(
-					i, inst->prop.height, inst->prop.width);
+		sizes[0] = inst->buff_req.buffer[HAL_BUFFER_OUTPUT].buffer_size;
+		extra_idx =
+			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			sizes[extra_idx] =
+		inst->buff_req.buffer[HAL_BUFFER_EXTRADATA_OUTPUT].buffer_size;
 		}
-
 		break;
 	default:
 		dprintk(VIDC_ERR, "Invalid q type = %d\n", q->type);
