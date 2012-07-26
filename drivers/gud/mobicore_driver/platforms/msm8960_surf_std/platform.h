@@ -21,7 +21,7 @@
 #define _MC_DRV_PLATFORM_H_
 
 /** MobiCore Interrupt for Qualcomm */
-#define MC_INTR_SSIQ						218
+#define MC_INTR_SSIQ						280
 
 /** Use SMC for fastcalls */
 #define MC_SMC_FASTCALL
