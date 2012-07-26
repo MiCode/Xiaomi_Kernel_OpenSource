@@ -2516,6 +2516,18 @@ int slim_reconfigure_now(struct slim_device *sb)
 	u32 segdist;
 	struct slim_pending_ch *pch;
 
+	/*
+	 * If there are no pending changes from this client, avoid sending
+	 * the reconfiguration sequence
+	 */
+	if (sb->pending_msgsl == sb->cur_msgsl &&
+		list_empty(&sb->mark_define) &&
+		list_empty(&sb->mark_removal) &&
+		list_empty(&sb->mark_suspend)) {
+		pr_debug("SLIM_CL: skip reconfig sequence");
+		return 0;
+	}
+
 	mutex_lock(&ctrl->sched.m_reconf);
 	mutex_lock(&ctrl->m_ctrl);
 	ctrl->sched.pending_msgsl += sb->pending_msgsl - sb->cur_msgsl;
@@ -2538,7 +2550,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 		struct slim_ich *slc = &ctrl->chans[pch->chan];
 		slc->state = SLIM_CH_SUSPENDED;
 	}
-	mutex_unlock(&ctrl->m_ctrl);
 
 	ret = slim_allocbw(sb, &subframe, &clkgear);
 
@@ -2688,7 +2699,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 			NULL, 0, 3, NULL, 0, NULL);
 	dev_dbg(&ctrl->dev, "reconfig now:ret:%d\n", ret);
 	if (!ret) {
-		mutex_lock(&ctrl->m_ctrl);
 		ctrl->sched.subfrmcode = subframe;
 		ctrl->clkgear = clkgear;
 		ctrl->sched.msgsl = ctrl->sched.pending_msgsl;
@@ -2700,7 +2710,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 	}
 
 revert_reconfig:
-	mutex_lock(&ctrl->m_ctrl);
 	/* Revert channel changes */
 	slim_chan_changes(sb, true);
 	mutex_unlock(&ctrl->m_ctrl);
