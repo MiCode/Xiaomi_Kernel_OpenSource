@@ -312,6 +312,7 @@ extern struct platform_device msm_kgsl_2d1;
 
 extern struct platform_device msm_mipi_dsi1_device;
 extern struct platform_device mipi_dsi_device;
+extern struct platform_device msm_lcdc_device;
 extern struct platform_device msm_lvds_device;
 extern struct platform_device msm_ebi2_lcdc_device;
 

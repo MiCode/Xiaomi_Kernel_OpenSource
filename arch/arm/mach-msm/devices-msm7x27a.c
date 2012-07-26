@@ -848,7 +848,7 @@ static struct platform_device msm_mdp_device = {
 	.resource       = msm_mdp_resources,
 };
 
-static struct platform_device msm_lcdc_device = {
+struct platform_device msm_lcdc_device = {
 	.name   = "lcdc",
 	.id     = 0,
 };

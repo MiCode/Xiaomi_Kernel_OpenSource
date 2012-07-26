@@ -710,6 +710,9 @@ static struct platform_device msm_adc_device = {
 
 #define GPIO_VREG_ID_EXT_2P85V	0
 #define GPIO_VREG_ID_EXT_1P8V	1
+#define GPIO_VREG_ID_EXT_2P85V_SKU3	2
+#define GPIO_VREG_ID_EXT_1P8V_SKU3	3
+#define GPIO_VREG_ID_EXT_1P8V_SKU3_1	4
 
 static struct regulator_consumer_supply vreg_consumers_EXT_2P85V[] = {
 	REGULATOR_SUPPLY("cam_ov5647_avdd", "0-006c"),
@@ -725,10 +728,37 @@ static struct regulator_consumer_supply vreg_consumers_EXT_1P8V[] = {
 	REGULATOR_SUPPLY("lcd_vddi", "mipi_dsi.1"),
 };
 
+static struct regulator_consumer_supply vreg_consumers_EXT_2P85V_SKU3[] = {
+	REGULATOR_SUPPLY("cam_ov5647_avdd", "0-006c"),
+	REGULATOR_SUPPLY("cam_ov7692_avdd", "0-0078"),
+	REGULATOR_SUPPLY("cam_ov8825_avdd", "0-000d"),
+	REGULATOR_SUPPLY("lcd_vdd_sku3", "lcdc.0"),
+};
+
+static struct regulator_consumer_supply vreg_consumers_EXT_1P8V_SKU3[] = {
+	REGULATOR_SUPPLY("cam_ov5647_vdd", "0-006c"),
+	REGULATOR_SUPPLY("cam_ov7692_vdd", "0-0078"),
+	REGULATOR_SUPPLY("cam_ov8825_vdd", "0-000d"),
+	REGULATOR_SUPPLY("lcd_vddi_sku3", "lcdc.0"),
+};
+
+static struct regulator_consumer_supply vreg_consumers_EXT_1P8V_SKU3_1[] = {
+	REGULATOR_SUPPLY("cam_ov5647_vdd", "0-006c"),
+	REGULATOR_SUPPLY("cam_ov7692_vdd", "0-0078"),
+	REGULATOR_SUPPLY("cam_ov8825_vdd", "0-000d"),
+	REGULATOR_SUPPLY("lcd_vddi_sku3", "lcdc.0"),
+};
+
 /* GPIO regulator constraints */
 static struct gpio_regulator_platform_data msm_gpio_regulator_pdata[] = {
 	GPIO_VREG_INIT(EXT_2P85V, "ext_2p85v", "ext_2p85v_en", 35, 0),
 	GPIO_VREG_INIT(EXT_1P8V, "ext_1p8v", "ext_1p8v_en", 40, 0),
+	GPIO_VREG_INIT(EXT_2P85V_SKU3, "ext_2p85v_sku3", "ext_2p85v_sku3_en",
+								35, 0),
+	GPIO_VREG_INIT(EXT_1P8V_SKU3, "ext_1p8v_sku3", "ext_1p8v_sku3_en",
+								34, 0),
+	GPIO_VREG_INIT(EXT_1P8V_SKU3_1, "ext_1p8v_sku3_1", "ext_1p8v_sku3_1_en",
+								58, 0),
 };
 
 /* GPIO regulator */
@@ -747,6 +777,33 @@ static struct platform_device qrd_vreg_gpio_ext_1p8v = {
 	.dev	= {
 		.platform_data =
 			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_1P8V],
+	},
+};
+
+static struct platform_device qrd_vreg_gpio_ext_2p85v_sku3 = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= 35,
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_2P85V_SKU3],
+	},
+};
+
+static struct platform_device qrd_vreg_gpio_ext_1p8v_sku3 = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= 34,
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_1P8V_SKU3],
+	},
+};
+
+static struct platform_device qrd_vreg_gpio_ext_1p8v_sku3_1 = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= 58,
+	.dev	= {
+		.platform_data =
+			&msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_1P8V_SKU3_1],
 	},
 };
 
@@ -778,8 +835,21 @@ static struct platform_device *qrd7627a_devices[] __initdata = {
 	&msm_device_otg,
 	&msm_device_gadget_peripheral,
 	&msm_kgsl_3d0,
+};
+
+static struct platform_device *msm8625_lcd_camera_devices[] __initdata = {
 	&qrd_vreg_gpio_ext_2p85v,
 	&qrd_vreg_gpio_ext_1p8v,
+};
+
+static struct platform_device *sku3_lcd_camera_devices[] __initdata = {
+	&qrd_vreg_gpio_ext_2p85v_sku3,
+	&qrd_vreg_gpio_ext_1p8v_sku3,
+};
+
+static struct platform_device *sku3_1_lcd_camera_devices[] __initdata = {
+	&qrd_vreg_gpio_ext_2p85v_sku3,
+	&qrd_vreg_gpio_ext_1p8v_sku3_1,
 };
 
 static struct platform_device *qrd3_devices[] __initdata = {
@@ -796,8 +866,6 @@ static struct platform_device *msm8625_evb_devices[] __initdata = {
 	&msm8625_device_otg,
 	&msm8625_device_gadget_peripheral,
 	&msm8625_kgsl_3d0,
-	&qrd_vreg_gpio_ext_2p85v,
-	&qrd_vreg_gpio_ext_1p8v,
 };
 
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
@@ -1068,6 +1136,23 @@ static void __init add_platform_devices(void)
 	if (machine_is_msm7627a_qrd3() || machine_is_msm7627a_evb())
 		platform_add_devices(qrd3_devices,
 				ARRAY_SIZE(qrd3_devices));
+
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+				|| machine_is_msm8625_evt())
+		platform_add_devices(msm8625_lcd_camera_devices,
+				ARRAY_SIZE(msm8625_lcd_camera_devices));
+	else if (machine_is_msm8625_qrd7())
+		platform_add_devices(sku3_1_lcd_camera_devices,
+				ARRAY_SIZE(sku3_1_lcd_camera_devices));
+	else if (machine_is_msm7627a_qrd3()) {
+		u32 socinfo = socinfo_get_platform_type();
+		if (socinfo == 0x0B)
+			platform_add_devices(sku3_lcd_camera_devices,
+					ARRAY_SIZE(sku3_lcd_camera_devices));
+		else if (socinfo == 0x0F)
+			platform_add_devices(sku3_1_lcd_camera_devices,
+					ARRAY_SIZE(sku3_1_lcd_camera_devices));
+	}
 
 	platform_add_devices(common_devices,
 			ARRAY_SIZE(common_devices));
