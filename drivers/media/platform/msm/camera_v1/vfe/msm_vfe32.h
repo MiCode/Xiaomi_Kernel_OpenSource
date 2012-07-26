@@ -941,9 +941,11 @@ struct vfe_share_ctrl_t {
 	uint32_t register_total;
 
 	atomic_t vstate;
+	atomic_t handle_axi_irq;
 	uint32_t vfeFrameId;
 	uint32_t stats_comp;
 	spinlock_t  stop_flag_lock;
+	spinlock_t  abort_lock;
 	int8_t stop_ack_pending;
 	enum vfe_output_state liveshot_state;
 	uint32_t vfe_capture_count;

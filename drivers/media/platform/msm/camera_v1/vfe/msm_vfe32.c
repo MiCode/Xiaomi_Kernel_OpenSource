@@ -412,36 +412,33 @@ uint8_t vfe32_use_bayer_stats(struct vfe32_ctrl_type *vfe32_ctrl)
 	}
 }
 
-static void vfe32_stop(struct vfe32_ctrl_type *vfe32_ctrl)
+static void axi_disable_irq(struct axi_ctrl_t *axi_ctrl)
 {
-	unsigned long flags;
-
-	atomic_set(&vfe32_ctrl->share_ctrl->vstate, 0);
-
-	/* for reset hw modules, and send msg when reset_irq comes.*/
-	spin_lock_irqsave(&vfe32_ctrl->share_ctrl->stop_flag_lock, flags);
-	vfe32_ctrl->share_ctrl->stop_ack_pending = TRUE;
-	spin_unlock_irqrestore(&vfe32_ctrl->share_ctrl->stop_flag_lock, flags);
 
 	/* disable all interrupts.  */
 	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
-		vfe32_ctrl->share_ctrl->vfebase + VFE_IRQ_MASK_0);
+		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_MASK_0);
 	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
-		vfe32_ctrl->share_ctrl->vfebase + VFE_IRQ_MASK_1);
+		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_MASK_1);
 
 	/* clear all pending interrupts*/
 	msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
-		vfe32_ctrl->share_ctrl->vfebase + VFE_IRQ_CLEAR_0);
+		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_CLEAR_0);
 	msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
-		vfe32_ctrl->share_ctrl->vfebase + VFE_IRQ_CLEAR_1);
+		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_CLEAR_1);
 	/* Ensure the write order while writing
 	to the command register using the barrier */
 	msm_camera_io_w_mb(1,
-		vfe32_ctrl->share_ctrl->vfebase + VFE_IRQ_CMD);
+		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_CMD);
+}
 
+static void vfe32_stop(struct vfe32_ctrl_type *vfe32_ctrl)
+{
+
+	atomic_set(&vfe32_ctrl->share_ctrl->vstate, 0);
 	/* in either continuous or snapshot mode, stop command can be issued
 	 * at any time. stop camif immediately. */
-	msm_camera_io_w(CAMIF_COMMAND_STOP_IMMEDIATELY,
+	msm_camera_io_w(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
 		vfe32_ctrl->share_ctrl->vfebase + VFE_CAMIF_COMMAND);
 	vfe32_ctrl->share_ctrl->operation_mode &=
 		~(vfe32_ctrl->share_ctrl->current_mode);
@@ -4547,6 +4544,11 @@ static void axi32_do_tasklet(unsigned long data)
 				NOTIFY_VFE_IRQ,
 				(void *)VFE_IMASK_WHILE_STOPPING_1);
 
+		if (atomic_read(&axi_ctrl->share_ctrl->handle_axi_irq))
+			v4l2_subdev_notify(&axi_ctrl->subdev,
+				NOTIFY_AXI_IRQ,
+				(void *)qcmd->vfeInterruptStatus0);
+
 		if (atomic_read(&axi_ctrl->share_ctrl->vstate)) {
 			if (qcmd->vfeInterruptStatus1 &
 					VFE32_IMASK_ERROR_ONLY_1) {
@@ -4556,9 +4558,6 @@ static void axi32_do_tasklet(unsigned long data)
 					qcmd->vfeInterruptStatus1 &
 					VFE32_IMASK_ERROR_ONLY_1);
 			}
-			v4l2_subdev_notify(&axi_ctrl->subdev,
-				NOTIFY_AXI_IRQ,
-				(void *)qcmd->vfeInterruptStatus0);
 
 			/* then process stats irq. */
 			if (axi_ctrl->share_ctrl->stats_comp) {
@@ -5089,6 +5088,7 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd)
 		(struct vfe32_ctrl_type *)v4l2_get_subdevdata(sd);
 
 	spin_lock_init(&vfe32_ctrl->share_ctrl->stop_flag_lock);
+	spin_lock_init(&vfe32_ctrl->share_ctrl->abort_lock);
 	spin_lock_init(&vfe32_ctrl->state_lock);
 	spin_lock_init(&vfe32_ctrl->io_lock);
 	spin_lock_init(&vfe32_ctrl->update_ack_lock);
@@ -5142,6 +5142,37 @@ void msm_vfe_subdev_release(struct v4l2_subdev *sd)
 		(struct vfe32_ctrl_type *)v4l2_get_subdevdata(sd);
 	if (!vfe32_ctrl->share_ctrl->vfebase)
 		vfe32_ctrl->share_ctrl->vfebase = NULL;
+}
+
+void axi_abort(struct axi_ctrl_t *axi_ctrl)
+{
+	uint8_t  axi_busy_flag = true;
+	/* axi halt command. */
+	msm_camera_io_w(AXI_HALT,
+		axi_ctrl->share_ctrl->vfebase + VFE_AXI_CMD);
+	wmb();
+	while (axi_busy_flag) {
+		if (msm_camera_io_r(
+			axi_ctrl->share_ctrl->vfebase + VFE_AXI_STATUS) & 0x1)
+			axi_busy_flag = false;
+	}
+	/* Ensure the write order while writing
+	* to the command register using the barrier */
+	msm_camera_io_w_mb(AXI_HALT_CLEAR,
+		axi_ctrl->share_ctrl->vfebase + VFE_AXI_CMD);
+
+	/* after axi halt, then ok to apply global reset.
+	* enable reset_ack and async timer interrupt only while
+	* stopping the pipeline.*/
+	msm_camera_io_w(0xf0000000,
+		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_MASK_0);
+	msm_camera_io_w(VFE_IMASK_WHILE_STOPPING_1,
+		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_MASK_1);
+
+	/* Ensure the write order while writing
+	* to the command register using the barrier */
+	msm_camera_io_w_mb(VFE_RESET_UPON_STOP_CMD,
+		axi_ctrl->share_ctrl->vfebase + VFE_GLOBAL_RESET);
 }
 
 void axi_start(struct axi_ctrl_t *axi_ctrl, uint16_t cmd_type)
@@ -5305,37 +5336,141 @@ void axi_start(struct axi_ctrl_t *axi_ctrl, uint16_t cmd_type)
 		msm_camera_io_w(1, axi_ctrl->share_ctrl->vfebase +
 			vfe32_AXI_WM_CFG[axi_ctrl->share_ctrl->
 			outpath.out3.ch0]);
+	atomic_set(&axi_ctrl->share_ctrl->handle_axi_irq, 1);
 }
 
 void axi_stop(struct axi_ctrl_t *axi_ctrl, uint16_t cmd_type)
 {
-	uint8_t  axiBusyFlag = true;
-	/* axi halt command. */
-	msm_camera_io_w(AXI_HALT,
-		axi_ctrl->share_ctrl->vfebase + VFE_AXI_CMD);
-	wmb();
-	while (axiBusyFlag) {
-		if (msm_camera_io_r(
-			axi_ctrl->share_ctrl->vfebase + VFE_AXI_STATUS) & 0x1)
-			axiBusyFlag = false;
+	uint32_t reg_update = 0;
+	unsigned long flags;
+	uint32_t operation_mode =
+	axi_ctrl->share_ctrl->current_mode & ~(VFE_OUTPUTS_RDI0|
+		VFE_OUTPUTS_RDI1);
+
+	if (!axi_ctrl->share_ctrl->skip_abort) {
+		atomic_set(&axi_ctrl->share_ctrl->handle_axi_irq, 0);
+		axi_disable_irq(axi_ctrl);
 	}
-	/* Ensure the write order while writing
-	to the command register using the barrier */
-	msm_camera_io_w_mb(AXI_HALT_CLEAR,
-		axi_ctrl->share_ctrl->vfebase + VFE_AXI_CMD);
 
-	/* after axi halt, then ok to apply global reset. */
-	/* enable reset_ack and async timer interrupt only while
-	stopping the pipeline.*/
-	msm_camera_io_w(0xf0000000,
-		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_MASK_0);
-	msm_camera_io_w(VFE_IMASK_WHILE_STOPPING_1,
-		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_MASK_1);
+	spin_lock_irqsave(&axi_ctrl->share_ctrl->stop_flag_lock, flags);
+	axi_ctrl->share_ctrl->stop_ack_pending  = TRUE;
+	spin_unlock_irqrestore(&axi_ctrl->share_ctrl->stop_flag_lock, flags);
+	switch (cmd_type) {
+	case AXI_CMD_PREVIEW: {
+		switch (operation_mode) {
+		case VFE_OUTPUTS_PREVIEW:
+		case VFE_OUTPUTS_PREVIEW_AND_VIDEO:
+			if (axi_ctrl->share_ctrl->outpath.output_mode &
+				VFE32_OUTPUT_MODE_PRIMARY) {
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out0.ch0]);
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out0.ch1]);
+			} else if (axi_ctrl->share_ctrl->outpath.output_mode &
+					VFE32_OUTPUT_MODE_PRIMARY_ALL_CHNLS) {
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out0.ch0]);
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out0.ch1]);
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out0.ch2]);
+			}
+			break;
+		default:
+			if (axi_ctrl->share_ctrl->outpath.output_mode &
+				VFE32_OUTPUT_MODE_SECONDARY) {
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out1.ch0]);
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out1.ch1]);
+			} else if (axi_ctrl->share_ctrl->outpath.output_mode &
+				VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS) {
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out1.ch0]);
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out1.ch1]);
+				msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase
+					+ vfe32_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out1.ch2]);
+			}
+			break;
+			}
+		}
+		break;
+	default:
+		if (axi_ctrl->share_ctrl->outpath.output_mode &
+			VFE32_OUTPUT_MODE_PRIMARY) {
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out0.ch0]);
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out0.ch1]);
+		} else if (axi_ctrl->share_ctrl->outpath.output_mode &
+				VFE32_OUTPUT_MODE_PRIMARY_ALL_CHNLS) {
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out0.ch0]);
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out0.ch1]);
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out0.ch2]);
+		}
 
-	/* Ensure the write order while writing
-	to the command register using the barrier */
-	msm_camera_io_w_mb(VFE_RESET_UPON_STOP_CMD,
-		axi_ctrl->share_ctrl->vfebase + VFE_GLOBAL_RESET);
+		if (axi_ctrl->share_ctrl->outpath.output_mode &
+			VFE32_OUTPUT_MODE_SECONDARY) {
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out1.ch0]);
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out1.ch1]);
+		} else if (axi_ctrl->share_ctrl->outpath.output_mode &
+			VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS) {
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out1.ch0]);
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out1.ch1]);
+			msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[axi_ctrl->
+				share_ctrl->outpath.out1.ch2]);
+		}
+		break;
+	}
+	if (axi_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI0)
+		msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[axi_ctrl->share_ctrl->
+			outpath.out2.ch0]);
+	if (axi_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI1)
+		msm_camera_io_w(0, axi_ctrl->share_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[axi_ctrl->share_ctrl->
+			outpath.out3.ch0]);
+
+	if (axi_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI0)
+		reg_update |= 0x2;
+	if (axi_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI1)
+		reg_update |= 0x4;
+
+	if (operation_mode)
+		reg_update |= 0x1;
+	msm_camera_io_w_mb(reg_update,
+		axi_ctrl->share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
+	if (!axi_ctrl->share_ctrl->skip_abort)
+		axi_abort(axi_ctrl);
+
 }
 
 static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
@@ -5344,6 +5479,7 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 	struct msm_isp_cmd vfecmd;
 	struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
 	int rc = 0, vfe_cmd_type = 0, rdi_mode = 0;
+	unsigned long flags;
 
 	if (!axi_ctrl->share_ctrl->vfebase) {
 		pr_err("%s: base address unmapped\n", __func__);
@@ -5539,6 +5675,11 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 		}
 		axi_ctrl->share_ctrl->current_mode =
 			vfe_params.operation_mode;
+		spin_lock_irqsave(&axi_ctrl->share_ctrl->abort_lock, flags);
+		axi_ctrl->share_ctrl->skip_abort =
+			vfe_params.skip_abort;
+		spin_unlock_irqrestore(&axi_ctrl->share_ctrl->abort_lock,
+			flags);
 		axi_start(axi_ctrl, vfe_params.cmd_type);
 		}
 		break;
@@ -5551,6 +5692,11 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 		}
 		axi_ctrl->share_ctrl->current_mode =
 			vfe_params.operation_mode;
+		spin_lock_irqsave(&axi_ctrl->share_ctrl->abort_lock, flags);
+		axi_ctrl->share_ctrl->skip_abort =
+			vfe_params.skip_abort;
+		spin_unlock_irqrestore(&axi_ctrl->share_ctrl->abort_lock,
+			flags);
 		axi_stop(axi_ctrl, vfe_params.cmd_type);
 		}
 		break;
@@ -5566,6 +5712,7 @@ static void msm_axi_process_irq(struct v4l2_subdev *sd, void *arg)
 {
 	struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
 	uint32_t irqstatus = (uint32_t) arg;
+	unsigned long flags;
 
 	if (!axi_ctrl->share_ctrl->vfebase) {
 		pr_err("%s: base address unmapped\n", __func__);
@@ -5614,6 +5761,17 @@ static void msm_axi_process_irq(struct v4l2_subdev *sd, void *arg)
 				CAMIF_COMMAND_STOP_IMMEDIATELY,
 				axi_ctrl->share_ctrl->vfebase +
 				VFE_CAMIF_COMMAND);
+			spin_lock_irqsave(&axi_ctrl->share_ctrl->abort_lock,
+				flags);
+			if (axi_ctrl->share_ctrl->skip_abort) {
+				spin_unlock_irqrestore(&axi_ctrl->share_ctrl->
+					abort_lock, flags);
+				atomic_set(&axi_ctrl->share_ctrl->
+					handle_axi_irq, 0);
+				axi_disable_irq(axi_ctrl);
+			} else
+				spin_unlock_irqrestore(&axi_ctrl->share_ctrl->
+					abort_lock, flags);
 			vfe32_send_isp_msg(&axi_ctrl->subdev,
 				axi_ctrl->share_ctrl->vfeFrameId,
 				MSG_ID_SNAPSHOT_DONE);
