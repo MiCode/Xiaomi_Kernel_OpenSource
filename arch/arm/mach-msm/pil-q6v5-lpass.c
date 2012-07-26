@@ -21,6 +21,7 @@
 #include <mach/clk.h>
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
+#include "scm-pas.h"
 
 #define QDSP6SS_RST_EVB			0x010
 #define PROXY_TIMEOUT_MS		10000
@@ -122,6 +123,30 @@ static struct pil_reset_ops pil_lpass_ops = {
 	.shutdown = pil_lpass_shutdown,
 };
 
+static int pil_lpass_init_image_trusted(struct pil_desc *pil,
+		const u8 *metadata, size_t size)
+{
+	return pas_init_image(PAS_Q6, metadata, size);
+}
+
+static int pil_lpass_reset_trusted(struct pil_desc *pil)
+{
+	return pas_auth_and_reset(PAS_Q6);
+}
+
+static int pil_lpass_shutdown_trusted(struct pil_desc *pil)
+{
+	return pas_shutdown(PAS_Q6);
+}
+
+static struct pil_reset_ops pil_lpass_ops_trusted = {
+	.init_image = pil_lpass_init_image_trusted,
+	.proxy_vote = pil_q6v5_make_proxy_votes,
+	.proxy_unvote = pil_q6v5_remove_proxy_votes,
+	.auth_and_reset = pil_lpass_reset_trusted,
+	.shutdown = pil_lpass_shutdown_trusted,
+};
+
 static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 {
 	struct q6v5_data *drv;
@@ -154,6 +179,14 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	drv->reg_clk = devm_clk_get(&pdev->dev, "reg_clk");
 	if (IS_ERR(drv->reg_clk))
 		return PTR_ERR(drv->reg_clk);
+
+	if (pas_supported(PAS_Q6) > 0) {
+		desc->ops = &pil_lpass_ops_trusted;
+		dev_info(&pdev->dev, "using secure boot\n");
+	} else {
+		desc->ops = &pil_lpass_ops;
+		dev_info(&pdev->dev, "using non-secure boot\n");
+	}
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))
