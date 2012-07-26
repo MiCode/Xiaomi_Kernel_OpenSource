@@ -718,6 +718,8 @@ static int msm_camera_v4l2_s_parm(struct file *f, void *pctx,
 	SET_VIDEO_INST_IDX(pcam_inst->inst_handle, pcam_inst->my_index);
 	pcam_inst->pcam->dev_inst_map[pcam_inst->image_mode] = pcam_inst;
 	pcam_inst->path = msm_vidbuf_get_path(pcam_inst->image_mode);
+	rc = msm_cam_server_config_interface_map(pcam_inst->image_mode,
+			pcam_inst->pcam->mctl_handle);
 	D("%spath=%d,rc=%d\n", __func__,
 		pcam_inst->path, rc);
 	return rc;
@@ -834,7 +836,6 @@ static int msm_open(struct file *f)
 	int ion_client_created = 0;
 #endif
 	int server_q_idx = 0;
-	/*struct msm_isp_ops *p_isp = 0;*/
 	/* get the video device */
 	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
@@ -941,8 +942,7 @@ msm_send_open_server_failed:
 	msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
 
 	if (pmctl->mctl_release)
-		if (pmctl->mctl_release(pmctl) < 0)
-			pr_err("%s: mctl_release failed\n", __func__);
+		pmctl->mctl_release(pmctl);
 mctl_open_failed:
 	if (pcam->use_count == 1) {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -1066,11 +1066,8 @@ static int msm_close(struct file *f)
 	if (pcam_inst->streamon) {
 		/*something went wrong since instance
 		is closing without streamoff*/
-		if (pmctl->mctl_release) {
-			rc = pmctl->mctl_release(pmctl);
-			if (rc < 0)
-				pr_err("mctl_release fails %d\n", rc);
-		}
+		if (pmctl->mctl_release)
+			pmctl->mctl_release(pmctl);
 		pmctl->mctl_release = NULL;/*so that it isn't closed again*/
 	}
 
@@ -1100,11 +1097,8 @@ static int msm_close(struct file *f)
 				pr_err("msm_send_close_server failed %d\n", rc);
 		}
 
-		if (pmctl->mctl_release) {
-			rc = pmctl->mctl_release(pmctl);
-			if (rc < 0)
-				pr_err("mctl_release fails %d\n", rc);
-		}
+		if (pmctl->mctl_release)
+			pmctl->mctl_release(pmctl);
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		kref_put(&pmctl->refcount, msm_release_ion_client);

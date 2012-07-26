@@ -153,7 +153,6 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_CSIPHY_CFG, /* arg = msm_camera_csiphy_params */
 	NOTIFY_CSID_CFG, /* arg = msm_camera_csid_params */
 	NOTIFY_CSIC_CFG, /* arg = msm_camera_csic_params */
-	NOTIFY_VFE_BUF_FREE_EVT, /* arg = msm_camera_csic_params */
 	NOTIFY_VFE_IRQ,
 	NOTIFY_AXI_IRQ,
 	NOTIFY_GESTURE_EVT, /* arg = v4l2_event */
@@ -238,7 +237,7 @@ struct msm_cam_media_controller {
 	int (*mctl_cb)(void);
 	int (*mctl_cmd)(struct msm_cam_media_controller *p_mctl,
 					unsigned int cmd, unsigned long arg);
-	int (*mctl_release)(struct msm_cam_media_controller *p_mctl);
+	void (*mctl_release)(struct msm_cam_media_controller *p_mctl);
 	int (*mctl_buf_init)(struct msm_cam_v4l2_dev_inst *pcam);
 	int (*mctl_vbqueue_init)(struct msm_cam_v4l2_dev_inst *pcam,
 				struct vb2_queue *q, enum v4l2_buf_type type);
@@ -289,15 +288,10 @@ struct msm_cam_media_controller {
 struct msm_isp_ops {
 	char *config_dev_name;
 
-	/*int (*isp_init)(struct msm_cam_v4l2_device *pcam);*/
-	int (*isp_open)(struct v4l2_subdev *sd,
-		struct msm_cam_media_controller *mctl);
 	int (*isp_config)(struct msm_cam_media_controller *pmctl,
 		 unsigned int cmd, unsigned long arg);
 	int (*isp_notify)(struct v4l2_subdev *sd,
 		unsigned int notification, void *arg);
-	void (*isp_release)(struct msm_cam_media_controller *mctl,
-		struct v4l2_subdev *sd);
 	int (*isp_pp_cmd)(struct msm_cam_media_controller *pmctl,
 		 struct msm_mctl_pp_cmd, void *data);
 
@@ -399,9 +393,9 @@ struct msm_cam_config_dev {
 	struct cdev config_cdev;
 	struct v4l2_queue_util config_stat_event_queue;
 	int use_count;
-	/*struct msm_isp_ops* isp_subdev;*/
 	struct msm_cam_media_controller *p_mctl;
 	struct msm_mem_map_info mem_map;
+	int dev_num;
 };
 
 struct msm_cam_subdev_info {
@@ -491,6 +485,15 @@ struct irqmgr_intr_lkup_table {
 	struct intr_table_entry comp_intr_tbl[CAMERA_SS_IRQ_MAX];
 };
 
+struct interface_map {
+	/* The interafce a particular stream belongs to.
+	 * PIX0, RDI0, RDI1, or RDI2
+	 */
+	int interface;
+	/* The handle of the mctl intstance interface runs on */
+	uint32_t mctl_handle;
+};
+
 /* abstract camera server device for all sensor successfully probed*/
 struct msm_cam_server_dev {
 
@@ -506,7 +509,7 @@ struct msm_cam_server_dev {
 	/* info of configs successfully created*/
 	struct msm_cam_config_dev_info config_info;
 	/* active working camera device - only one allowed at this time*/
-	struct msm_cam_v4l2_device *pcam_active;
+	struct msm_cam_v4l2_device *pcam_active[MAX_NUM_ACTIVE_CAMERA];
 	/* number of camera devices opened*/
 	atomic_t number_pcam_active;
 	struct v4l2_queue_util server_command_queue;
@@ -519,6 +522,8 @@ struct msm_cam_server_dev {
 
 	struct msm_cam_server_mctl_inst mctl[MAX_NUM_ACTIVE_CAMERA];
 	uint32_t mctl_handle_cnt;
+
+	struct interface_map interface_map_table[INTF_MAX];
 
 	int use_count;
 	/* all the registered ISP subdevice*/

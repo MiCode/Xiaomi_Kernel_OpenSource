@@ -5849,7 +5849,9 @@ static long msm_axi_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = 0;
 		break;
 	default:
-		pr_err("%s: command not found\n", __func__);
+		pr_err("%s: command %d not found\n", __func__,
+						_IOC_NR(cmd));
+		break;
 	}
 	return rc;
 }
