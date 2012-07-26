@@ -74,6 +74,8 @@
 	uv_buf_size = (uv_stride * uv_buf_height) + uv_alignment; \
 	buf_size = y_buf_size + uv_buf_size; }
 
+#define EXTRADATA_IDX(__num_planes) (__num_planes - 1)
+
 enum vidc_ports {
 	OUTPUT_PORT,
 	CAPTURE_PORT,

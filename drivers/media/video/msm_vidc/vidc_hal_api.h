@@ -358,7 +358,7 @@ enum hal_buffer {
 	HAL_BUFFER_EXTRADATA_OUTPUT2,
 	HAL_BUFFER_INTERNAL_SCRATCH,
 	HAL_BUFFER_INTERNAL_PERSIST,
-	HAL_UNUSED_BUFFER = 0x10000000,
+	HAL_BUFFER_MAX
 };
 
 struct hal_frame_rate {
@@ -941,7 +941,7 @@ struct vidc_hal_session_init_done {
 };
 
 struct buffer_requirements {
-	struct hal_buffer_requirements buffer[8];
+	struct hal_buffer_requirements buffer[HAL_BUFFER_MAX];
 };
 
 /* VIDC_HAL CORE API's */

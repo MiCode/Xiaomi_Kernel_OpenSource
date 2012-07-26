@@ -27,6 +27,8 @@ struct buf_queue *msm_comm_get_vb2q(
 		struct msm_vidc_inst *inst, enum v4l2_buf_type type);
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state);
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst);
+int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
+	enum hal_property ptype, void *pdata);
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct vb2_buffer *vb);
