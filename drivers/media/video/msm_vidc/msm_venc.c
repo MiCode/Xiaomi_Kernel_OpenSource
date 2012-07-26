@@ -561,7 +561,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			*num_buffers = MIN_NUM_OUTPUT_BUFFERS;
 		for (i = 0; i < *num_planes; i++) {
 			sizes[i] = inst->fmts[OUTPUT_PORT]->get_frame_size(
-					i, inst->height, inst->width);
+					i, inst->prop.height, inst->prop.width);
 		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
@@ -571,8 +571,8 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			break;
 		}
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
-		frame_sz.width = inst->width;
-		frame_sz.height = inst->height;
+		frame_sz.width = inst->prop.width;
+		frame_sz.height = inst->prop.height;
 		pr_debug("width = %d, height = %d\n",
 				frame_sz.width, frame_sz.height);
 		rc = vidc_hal_session_set_property((void *)inst->session,
@@ -603,7 +603,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				inst->buff_req.buffer[0].buffer_count_actual);
 		for (i = 0; i < *num_planes; i++) {
 			sizes[i] = inst->fmts[CAPTURE_PORT]->get_frame_size(
-					i, inst->height, inst->width);
+					i, inst->prop.height, inst->prop.width);
 		}
 
 		break;
@@ -663,10 +663,14 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	pr_debug("Streamon called on: %d capability\n", q->type);
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		if (msm_comm_scale_clocks(inst->core))
+			pr_err("Failed to scale clocks. Performance/power might be impacted\n");
 		if (inst->vb2_bufq[CAPTURE_PORT].streaming)
 			rc = start_streaming(inst);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		if (msm_comm_scale_clocks(inst->core))
+			pr_err("Failed to scale clocks. Performance/power might be impacted\n");
 		if (inst->vb2_bufq[OUTPUT_PORT].streaming)
 			rc = start_streaming(inst);
 		break;
@@ -1195,8 +1199,9 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	}
 	inst->fmts[CAPTURE_PORT] = &venc_formats[1];
 	inst->fmts[OUTPUT_PORT] = &venc_formats[0];
-	inst->height = DEFAULT_HEIGHT;
-	inst->width = DEFAULT_WIDTH;
+	inst->prop.height = DEFAULT_HEIGHT;
+	inst->prop.width = DEFAULT_WIDTH;
+	inst->prop.height = 30;
 	return rc;
 }
 
@@ -1275,8 +1280,8 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		inst->width = f->fmt.pix_mp.width;
-		inst->height = f->fmt.pix_mp.height;
+		inst->prop.width = f->fmt.pix_mp.width;
+		inst->prop.height = f->fmt.pix_mp.height;
 		fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
 			ARRAY_SIZE(venc_formats), f->fmt.pix_mp.pixelformat,
 			OUTPUT_PORT);
@@ -1327,11 +1332,12 @@ int msm_venc_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 	if (fmt) {
 		f->fmt.pix_mp.pixelformat = fmt->fourcc;
-		f->fmt.pix_mp.height = inst->height;
-		f->fmt.pix_mp.width = inst->width;
+		f->fmt.pix_mp.height = inst->prop.height;
+		f->fmt.pix_mp.width = inst->prop.width;
 		for (i = 0; i < fmt->num_planes; ++i) {
 			f->fmt.pix_mp.plane_fmt[i].sizeimage =
-			fmt->get_frame_size(i, inst->height, inst->width);
+			fmt->get_frame_size(i, inst->prop.height,
+					inst->prop.width);
 		}
 	} else {
 		pr_err("Buf type not recognized, type = %d\n",

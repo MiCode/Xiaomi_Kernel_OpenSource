@@ -34,6 +34,40 @@
 #define V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
 
+#define NUM_MBS_PER_SEC(__height, __width, __fps) ({\
+	(__height >> 4) * (__width >> 4) * __fps; \
+})
+
+static int msm_comm_get_load(struct msm_vidc_core *core)
+{
+	struct msm_vidc_inst *inst = NULL;
+	int num_mbs_per_sec = 0;
+	if (!core) {
+		pr_err("Invalid args: %p\n", core);
+		return -EINVAL;
+	}
+	list_for_each_entry(inst, &core->instances, list)
+		num_mbs_per_sec += NUM_MBS_PER_SEC(inst->prop.height,
+				inst->prop.width, inst->prop.fps);
+	return num_mbs_per_sec;
+}
+
+static unsigned long get_clock_rate(struct core_clock *clock,
+	int num_mbs_per_sec)
+{
+	int num_rows = clock->count;
+	struct load_freq_table *table = clock->load_freq_tbl;
+	unsigned long ret = table[num_rows-1].freq;
+	int i;
+	for (i = 0; i < num_rows; i++) {
+		if (num_mbs_per_sec > table[i].load)
+			break;
+		ret = table[i].freq;
+	}
+	pr_err("Required clock rate = %lu\n", ret);
+	return ret;
+}
+
 struct msm_vidc_core *get_vidc_core(int core_id)
 {
 	struct msm_vidc_core *core;
@@ -512,12 +546,81 @@ void handle_cmd_response(enum command_response cmd, void *data)
 		break;
 	}
 }
+
+int msm_comm_scale_clocks(struct msm_vidc_core *core)
+{
+	int num_mbs_per_sec;
+	int rc = 0;
+	if (!core) {
+		pr_err("Invalid args: %p\n", core);
+		return -EINVAL;
+	}
+	num_mbs_per_sec = msm_comm_get_load(core);
+	pr_err("num_mbs_per_sec = %d\n", num_mbs_per_sec);
+	rc = clk_set_rate(core->resources.clock[VCODEC_CLK].clk,
+			get_clock_rate(&core->resources.clock[VCODEC_CLK],
+				num_mbs_per_sec));
+	if (rc) {
+		pr_err("Failed to set clock rate: %d\n", rc);
+		goto fail_clk_set_rate;
+	}
+fail_clk_set_rate:
+	return rc;
+}
+
+static inline int msm_comm_enable_clks(struct msm_vidc_core *core)
+{
+	int i;
+	struct core_clock *cl;
+	int rc = 0;
+	if (!core) {
+		pr_err("Invalid params: %p\n", core);
+		return -EINVAL;
+	}
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+		cl = &core->resources.clock[i];
+		rc = clk_prepare_enable(cl->clk);
+		if (rc) {
+			pr_err("Failed to enable clocks\n");
+			goto fail_clk_enable;
+		} else {
+			pr_err("Clock: %s enabled\n", cl->name);
+		}
+	}
+	return rc;
+fail_clk_enable:
+	for (; i >= 0; i--) {
+		cl = &core->resources.clock[i];
+		clk_disable_unprepare(cl->clk);
+	}
+	return rc;
+}
+
+static inline void msm_comm_disable_clks(struct msm_vidc_core *core)
+{
+	int i;
+	struct core_clock *cl;
+	if (!core) {
+		pr_err("Invalid params: %p\n", core);
+		return;
+	}
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+		cl = &core->resources.clock[i];
+		clk_disable_unprepare(cl->clk);
+	}
+}
+
 static int msm_comm_load_fw(struct msm_vidc_core *core)
 {
 	int rc = 0;
 	if (!core) {
 		pr_err("Invalid paramter: %p\n", core);
 		return -EINVAL;
+	}
+	rc = msm_comm_scale_clocks(core);
+	if (rc) {
+		pr_err("Failed to set clock rate: %d\n", rc);
+		goto fail_pil_get;
 	}
 
 	if (!core->resources.fw.cookie)
@@ -528,6 +631,13 @@ static int msm_comm_load_fw(struct msm_vidc_core *core)
 		rc = -ENOMEM;
 		goto fail_pil_get;
 	}
+
+	rc = msm_comm_enable_clks(core);
+	if (rc) {
+		pr_err("Failed to enable clocks: %d\n", rc);
+		goto fail_enable_clks;
+	}
+
 	rc = msm_comm_iommu_attach(core);
 	if (rc) {
 		pr_err("Failed to attach iommu");
@@ -535,6 +645,8 @@ static int msm_comm_load_fw(struct msm_vidc_core *core)
 	}
 	return rc;
 fail_iommu_attach:
+	msm_comm_disable_clks(core);
+fail_enable_clks:
 	pil_put(core->resources.fw.cookie);
 	core->resources.fw.cookie = NULL;
 fail_pil_get:
@@ -551,6 +663,7 @@ static void msm_comm_unload_fw(struct msm_vidc_core *core)
 		pil_put(core->resources.fw.cookie);
 		core->resources.fw.cookie = NULL;
 		msm_comm_iommu_detach(core);
+		msm_comm_disable_clks(core);
 	}
 }
 
@@ -601,7 +714,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	rc = msm_comm_load_fw(core);
 	if (rc) {
 		pr_err("Failed to load video firmware\n");
-		goto fail_fw_download;
+		goto fail_load_fw;
 	}
 	init_completion(&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)]);
 	rc = vidc_hal_core_init(core->device,
@@ -619,7 +732,7 @@ core_already_inited:
 	return rc;
 fail_core_init:
 	msm_comm_unload_fw(core);
-fail_fw_download:
+fail_load_fw:
 	mutex_unlock(&core->sync_lock);
 	return rc;
 }

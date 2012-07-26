@@ -15,6 +15,7 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 #include <asm/memory.h>
 #include "vidc_hal.h"
 #include "vidc_hal_io.h"
@@ -586,6 +587,7 @@ static int vidc_hal_core_start_cpu(struct hal_device *device)
 		ctrl_status = read_register(
 		device->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG0);
+		usleep_range(500, 1000);
 		count++;
 	}
 	if (count >= 25)

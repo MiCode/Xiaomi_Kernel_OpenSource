@@ -381,6 +381,7 @@ static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
 	return msm_vidc_decoder_cmd((void *)vidc_inst, dec);
 }
+
 static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_v4l2_querycap,
 	.vidioc_enum_fmt_vid_cap_mplane = msm_v4l2_enum_fmt,
@@ -504,6 +505,76 @@ static int register_iommu_domains(struct platform_device *pdev,
 	return rc;
 }
 
+static inline int msm_vidc_init_clocks(struct platform_device *pdev,
+		struct msm_vidc_core *core)
+{
+	struct core_clock *cl;
+	int i;
+	int rc = 0;
+	struct core_clock *clock;
+	if (!core) {
+		pr_err("Invalid params: %p\n", core);
+		return -EINVAL;
+	}
+	clock = core->resources.clock;
+	strlcpy(clock[VCODEC_CLK].name, "core_clk",
+		sizeof(clock[VCODEC_CLK].name));
+	strlcpy(clock[VCODEC_AHB_CLK].name, "iface_clk",
+		sizeof(clock[VCODEC_AHB_CLK].name));
+	strlcpy(clock[VCODEC_AXI_CLK].name, "bus_clk",
+		sizeof(clock[VCODEC_AXI_CLK].name));
+	strlcpy(clock[VCODEC_OCMEM_CLK].name, "mem_clk",
+		sizeof(clock[VCODEC_OCMEM_CLK].name));
+
+	clock[VCODEC_CLK].count = read_u32_array(pdev,
+		"load-freq-tbl", (u32 *)clock[VCODEC_CLK].load_freq_tbl,
+		(sizeof(clock[VCODEC_CLK].load_freq_tbl)/sizeof(u32)));
+	clock[VCODEC_CLK].count /= 2;
+	pr_err("NOTE: Count = %d\n", clock[VCODEC_CLK].count);
+	if (!clock[VCODEC_CLK].count) {
+		pr_err("Failed to read clock frequency\n");
+		goto fail_init_clocks;
+	}
+	for (i = 0; i <	clock[VCODEC_CLK].count; i++) {
+		pr_err("NOTE: load = %d, freq = %d\n",
+				clock[VCODEC_CLK].load_freq_tbl[i].load,
+				clock[VCODEC_CLK].load_freq_tbl[i].freq
+			  );
+	}
+
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+		cl = &core->resources.clock[i];
+		if (!cl->clk) {
+			cl->clk = devm_clk_get(&pdev->dev, cl->name);
+			if (IS_ERR_OR_NULL(cl->clk)) {
+				pr_err("Failed to get clock: %s\n", cl->name);
+				rc = PTR_ERR(cl->clk);
+				break;
+			}
+		}
+	}
+
+	if (i < VCODEC_MAX_CLKS) {
+		for (--i; i >= 0; i--) {
+			cl = &core->resources.clock[i];
+			clk_put(cl->clk);
+		}
+	}
+fail_init_clocks:
+	return rc;
+}
+
+static inline void msm_vidc_deinit_clocks(struct msm_vidc_core *core)
+{
+	int i;
+	if (!core) {
+		pr_err("Invalid args\n");
+		return;
+	}
+	for (i = 0; i < VCODEC_MAX_CLKS; i++)
+		clk_put(core->resources.clock[i].clk);
+}
+
 static int msm_vidc_initialize_core(struct platform_device *pdev,
 				struct msm_vidc_core *core)
 {
@@ -515,14 +586,16 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		pr_err("Failed to get IORESOURCE_MEM\n");
-		return -ENODEV;
+		rc = -ENODEV;
+		goto core_init_failed;
 	}
 	core->register_base = res->start;
 	core->register_size = resource_size(res);
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
 		pr_err("Failed to get IORESOURCE_IRQ\n");
-		return -ENODEV;
+		rc = -ENODEV;
+		goto core_init_failed;
 	}
 	core->irq = res->start;
 	INIT_LIST_HEAD(&core->instances);
@@ -534,12 +607,21 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 		i <= SYS_MSG_INDEX(SYS_MSG_END); i++) {
 		init_completion(&core->completions[i]);
 	}
+	rc = msm_vidc_init_clocks(pdev, core);
+	if (rc) {
+		pr_err("Failed to init clocks\n");
+		rc = -ENODEV;
+		goto core_init_failed;
+	}
 	rc = register_iommu_domains(pdev, core);
 	if (rc) {
 		pr_err("Failed to register iommu domains: %d\n", rc);
-		goto fail_domain_register;
+		goto fail_register_domains;
 	}
-fail_domain_register:
+	return rc;
+fail_register_domains:
+	msm_vidc_deinit_clocks(core);
+core_init_failed:
 	return rc;
 }
 
