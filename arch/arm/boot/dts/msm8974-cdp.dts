@@ -13,6 +13,7 @@
 /dts-v1/;
 
 /include/ "msm8974.dtsi"
+/include/ "dsi-panel-toshiba-720p-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974 CDP";
@@ -21,6 +22,12 @@
 
 	serial@f991e000 {
 		status = "ok";
+	};
+
+	qcom,mdss_dsi@fd922800 {
+		qcom,mdss_dsi_toshiba_720p_video {
+			status = "ok";
+		};
 	};
 };
 
