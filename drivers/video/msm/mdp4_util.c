@@ -462,11 +462,6 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		dma = &dma2_data;
 		if (panel & (MDP4_PANEL_LCDC | MDP4_PANEL_DSI_VIDEO)) {
 			/* disable LCDC interrupt */
-			spin_lock(&mdp_spin_lock);
-			mdp_intr_mask &= ~INTR_OVERLAY0_DONE;
-			outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-			dma->waiting = FALSE;
-			spin_unlock(&mdp_spin_lock);
 			if (panel & MDP4_PANEL_LCDC)
 				mdp4_overlay0_done_lcdc(0);
 #ifdef CONFIG_FB_MSM_MIPI_DSI
