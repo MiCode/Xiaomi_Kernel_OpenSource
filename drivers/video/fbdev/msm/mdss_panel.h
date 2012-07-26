@@ -161,6 +161,7 @@ struct mdss_panel_info {
 	struct lcdc_panel_info lcdc;
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
+	struct fb_info *fbi;
 };
 
 struct mdss_panel_data {

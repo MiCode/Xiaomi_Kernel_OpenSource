@@ -774,17 +774,23 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	fix->type = panel_info->is_3d_panel;
 	fix->line_length = mdss_fb_line_length(mfd->index, panel_info->xres,
 					       bpp);
-	mfd->var_xres = panel_info->xres;
-	mfd->var_yres = panel_info->yres;
-
-	var->pixclock = mfd->panel_info.clk_rate;
-	mfd->var_pixclock = var->pixclock;
 
 	var->xres = panel_info->xres;
 	var->yres = panel_info->yres;
 	var->xres_virtual = panel_info->xres;
 	var->yres_virtual = panel_info->yres * mfd->fb_page;
 	var->bits_per_pixel = bpp * 8;	/* FrameBuffer color depth */
+	var->upper_margin = panel_info->lcdc.v_front_porch;
+	var->lower_margin = panel_info->lcdc.v_back_porch;
+	var->vsync_len = panel_info->lcdc.v_pulse_width;
+	var->left_margin = panel_info->lcdc.h_front_porch;
+	var->right_margin = panel_info->lcdc.h_back_porch;
+	var->hsync_len = panel_info->lcdc.h_pulse_width;
+	var->pixclock = panel_info->clk_rate / 1000;
+
+	mfd->var_xres = var->xres;
+	mfd->var_yres = var->yres;
+	mfd->var_pixclock = var->pixclock;
 
 	/* id field for fb app  */
 
@@ -796,6 +802,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	fbi->flags = FBINFO_FLAG_DEFAULT;
 	fbi->pseudo_palette = mdss_fb_pseudo_palette;
 
+	panel_info->fbi = fbi;
 	mfd->ref_cnt = 0;
 	mfd->panel_power_on = false;
 
