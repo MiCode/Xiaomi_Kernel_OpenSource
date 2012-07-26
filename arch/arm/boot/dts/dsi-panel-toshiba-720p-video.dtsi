@@ -1,0 +1,119 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_dsi {
+
+	qcom,mdss_dsi_toshiba_720p_video {
+		compatible = "qcom,mdss-dsi-panel";
+		label = "toshiba 720p video mode dsi panel";
+		status = "disable";
+		qcom,enable-gpio = <&msmgpio 58 0>;
+		qcom,rst-gpio = <&pm8941_gpios 19 0>;
+		qcom,mdss-pan-res = <720 1280>;
+		qcom,mdss-pan-bpp = <24>;
+		qcom,mdss-pan-porch-values = <32 12 144 3 4 9>;
+		qcom,mdss-pan-underflow-clr = <0xff>;
+		qcom,mdss-pan-bl-ctrl = "bl_ctrl_wled";
+		qcom,mdss-pan-bl-levels = <1 255>;
+		qcom,mdss-pan-dsi-mode = <0>;
+		qcom,mdss-pan-dsi-h-pulse-mode = <0>;
+		qcom,mdss-pan-dsi-h-power-stop = <0 0 0>;
+		qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
+		qcom,mdss-pan-dsi-traffic-mode = <1>;
+		qcom,mdss-pan-dsi-dst-format = <3>;
+		qcom,mdss-pan-dsi-vc = <0>;
+		qcom,mdss-pan-dsi-rgb-swap = <0>;
+		qcom,mdss-pan-dsi-data-lanes = <1 1 1 1>;
+		qcom,mdss-pan-dsi-t-clk = <0x1b 0x04>;
+		qcom,mdss-pan-dsi-stream = <0>;
+		qcom,mdss-pan-dsi-mdp-tr = <0x0>;
+		qcom,mdss-pan-dsi-dma-tr = <0x04>;
+		qcom,mdss-pan-frame-rate = <60>;
+		qcom,panel-phy-regulatorSettings = [03 01 01 00  /* Regualotor settings */
+						    20 00 01 00];
+		qcom,panel-phy-timingSettings = [69 29 1f 00 55 55
+						    19 2a 2a 03 04 00];
+		qcom,panel-phy-strengthCtrl = [77 06];
+		qcom,panel-phy-bistCtrl = [00 00 01 ff           /* BIST Ctrl settings */
+					   00 00];
+		qcom,panel-phy-laneConfig = [05 c2 00 00 00 00 00 01 75 /* lane0 config */
+					     05 c2 00 00 00 00 00 01 75 /* lane1 config */
+					     05 c2 00 00 00 00 00 01 75 /* lane2 config */
+					     05 c2 00 00 00 00 00 01 75 /* lane3 config */
+					     00 c2 00 00 00 00 00 01 97]; /* Clk ln config */
+
+		qcom,panel-on-cmds = [23 01 00 00 0a 02 b0 00
+					23 01 00 00 0a 02 b2 00
+					23 01 00 00 0a 02 b3 0c
+					23 01 00 00 0a 02 b4 02
+					29 01 00 00 00 06
+						c0 40 02 7f c8 08
+					29 01 00 00 00 10
+						c1 00 a8 00 00 00
+						00 00 9d 08 27 00
+						00 00 00 00
+					29 01 00 00 00 06
+						c2 00 00 09 00 00
+					23 01 00 00 0a 02 c3 04
+					29 01 00 00 00 04
+						c4 4d 83 00
+					29 01 00 00 00 0b
+						c6 12 00 08 71 00
+						00 00 80 00 04
+					23 01 00 00 0a 02 c7 22
+					29 01 00 00 00 05
+						c8 4c 0c 0c 0c
+					29 01 00 00 00 0e
+						c9 00 40 00 16 32
+						2e 3a 43 3e 3c 45
+						79 3f
+					29 01 00 00 00 0e
+						ca 00 46 1a 23 21
+						1c 25 31 2d 49 5f
+						7f 3f
+					29 01 00 00 00 0e
+						cb 00 4c 20 3a 42
+						40 47 4b 42 3e 46
+						7e 3f
+					29 01 00 00 00 0e
+						cc 00 41 19 21 1d
+						14 18 1f 1d 25 3f
+						73 3f
+					29 01 00 00 00 0e
+						cd 23 79 5a 5f 57
+						4c 51 51 45 3f 4b
+						7f 3f
+					29 01 00 00 00 0e
+						ce 00 40 14 20 1a
+						0e 0e 13 08 00 05
+						46 1c
+					29 01 00 00 00 04
+						d0 6a 64 01
+					29 01 00 00 00 03 d1 77 d4
+					23 01 00 00 0a 02 d3 33
+					29 01 00 00 00 03 d5 0f 0f
+					29 01 00 00 00 07
+						d8 34 64 23 25 62
+						32
+					29 01 00 00 00 0c
+						de 10 7b 11 0a 00
+						00 00 00 00 00 00
+					29 01 00 00 00 09
+						fd 04 55 53 00 70
+						ff 10 73
+					23 01 00 00 0a 02 e2 00
+					05 01 00 00 78 02 11 00
+					05 01 00 00 32 02 29 00];
+		qcom,panel-off-cmds = [05 01 00 00 32 02 28 00
+					05 01 00 00 78 02 10 00];
+	};
+};
