@@ -336,6 +336,39 @@ int32_t msm_camera_i2c_write_table_w_microdelay(
 	return rc;
 }
 
+int32_t msm_camera_i2c_write_bayer_table(
+	struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_setting *write_setting)
+{
+	int i;
+	int32_t rc = -EFAULT;
+	struct msm_camera_i2c_reg_array *reg_setting;
+
+	if (!client || !write_setting)
+		return rc;
+
+	reg_setting = write_setting->reg_setting;
+	client->addr_type = write_setting->addr_type;
+	if ((write_setting->addr_type != MSM_CAMERA_I2C_BYTE_ADDR
+		&& write_setting->addr_type != MSM_CAMERA_I2C_WORD_ADDR)
+		|| (write_setting->data_type != MSM_CAMERA_I2C_BYTE_DATA
+		&& write_setting->data_type != MSM_CAMERA_I2C_WORD_DATA))
+		return rc;
+	for (i = 0; i < write_setting->size; i++) {
+		rc = msm_camera_i2c_write(client, reg_setting->reg_addr,
+			reg_setting->reg_data, write_setting->data_type);
+		if (rc < 0)
+			break;
+		reg_setting++;
+	}
+	if (write_setting->delay > 20)
+		msleep(write_setting->delay);
+	else if (write_setting->delay)
+		usleep_range(write_setting->delay * 1000, (write_setting->delay
+			* 1000) + 1000);
+	return rc;
+}
+
 int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_conf *reg_conf_tbl, uint16_t size,
 	enum msm_camera_i2c_data_type data_type)

@@ -47,12 +47,13 @@ static struct v4l2_subdev_ops imx074_eeprom_subdev_ops = {
 	.core = &imx074_eeprom_subdev_core_ops,
 };
 
-uint8_t imx074_wbcalib_data[6];
-struct msm_calib_wb imx074_wb_data;
+static uint8_t imx074_wbcalib_data[6];
+static struct msm_calib_wb imx074_wb_data;
 
 static struct msm_camera_eeprom_info_t imx074_calib_supp_info = {
 	{FALSE, 0, 0, 1},
 	{TRUE, 6, 0, 1024},
+	{FALSE, 0, 0, 1},
 	{FALSE, 0, 0, 1},
 	{FALSE, 0, 0, 1},
 };

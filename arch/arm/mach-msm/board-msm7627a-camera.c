@@ -19,7 +19,7 @@
 #include <linux/module.h>
 #include <asm/mach-types.h>
 #include <mach/msm_iomap.h>
-#include <mach/board.h>
+#include <mach/camera.h>
 #include <mach/irqs-7xxx.h>
 #include "devices-msm7x2xa.h"
 #include "board-msm7627a.h"

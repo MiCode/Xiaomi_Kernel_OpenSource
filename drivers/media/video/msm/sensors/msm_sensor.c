@@ -11,6 +11,7 @@
  */
 
 #include "msm_sensor.h"
+#include "msm_sensor_common.h"
 #include "msm.h"
 #include "msm_ispif.h"
 #include "msm_camera_i2c_mux.h"
@@ -355,7 +356,7 @@ int32_t msm_sensor_get_output_info(struct msm_sensor_ctrl_t *s_ctrl,
 	return rc;
 }
 
-int32_t msm_sensor_release(struct msm_sensor_ctrl_t *s_ctrl)
+static int32_t msm_sensor_release(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	CDBG("%s called\n", __func__);
 	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
@@ -414,9 +415,9 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		sizeof(struct sensor_cfg_data)))
 		return -EFAULT;
 	mutex_lock(s_ctrl->msm_sensor_mutex);
-	CDBG("msm_sensor_config: cfgtype = %d\n",
-	cdata.cfgtype);
-		switch (cdata.cfgtype) {
+	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
+		s_ctrl->sensordata->sensor_name, cdata.cfgtype);
+	switch (cdata.cfgtype) {
 		case CFG_SET_FPS:
 		case CFG_SET_PICT_FPS:
 			if (s_ctrl->func_tbl->
@@ -532,6 +533,22 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			if (copy_to_user((void *)argp,
 				&cdata,
 				sizeof(struct sensor_cfg_data)))
+				rc = -EFAULT;
+			break;
+
+		case CFG_POWER_UP:
+			pr_err("%s calling power up\n", __func__);
+			if (s_ctrl->func_tbl->sensor_power_up)
+				rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
+			else
+				rc = -EFAULT;
+			break;
+
+		case CFG_POWER_DOWN:
+			if (s_ctrl->func_tbl->sensor_power_down)
+				rc = s_ctrl->func_tbl->sensor_power_down(
+					s_ctrl);
+			else
 				rc = -EFAULT;
 			break;
 
@@ -1507,18 +1524,13 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	CDBG("%s msm_sensor id: %x, exp id: %x\n", __func__, chipid,
+	CDBG("%s: read id: %x expected id %x:\n", __func__, chipid,
 		s_ctrl->sensor_id_info->sensor_id);
 	if (chipid != s_ctrl->sensor_id_info->sensor_id) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
 	}
 	return rc;
-}
-
-struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd)
-{
-	return container_of(sd, struct msm_sensor_ctrl_t, sensor_v4l2_subdev);
 }
 
 int32_t msm_sensor_i2c_probe(struct i2c_client *client,

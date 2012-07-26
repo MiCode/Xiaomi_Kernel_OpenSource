@@ -16,7 +16,7 @@
 
 #include <asm/mach-types.h>
 
-#include <mach/board.h>
+#include <mach/camera.h>
 #include <mach/msm_bus_board.h>
 #include <mach/gpiomux.h>
 

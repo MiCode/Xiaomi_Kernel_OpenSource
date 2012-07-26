@@ -226,6 +226,9 @@
 #define MSM_CAM_IOCTL_CSIPHY_IO_CFG \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 64, struct csiphy_cfg_data *)
 
+#define MSM_CAM_IOCTL_OEM \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 65, struct sensor_cfg_data *)
+
 struct v4l2_event_and_payload {
 	struct v4l2_event evt;
 	uint32_t payload_length;
@@ -943,7 +946,15 @@ struct msm_snapshot_pp_status {
 #define CFG_START_STREAM              44
 #define CFG_STOP_STREAM               45
 #define CFG_GET_CSI_PARAMS            46
-#define CFG_MAX			47
+#define CFG_POWER_UP                  47
+#define CFG_POWER_DOWN                48
+#define CFG_WRITE_I2C_ARRAY           49
+#define CFG_READ_I2C_ARRAY            50
+#define CFG_PCLK_CHANGE               51
+#define CFG_CONFIG_VREG_ARRAY         52
+#define CFG_CONFIG_CLK_ARRAY          53
+#define CFG_GPIO_OP                   54
+#define CFG_MAX                       55
 
 
 #define MOVE_NEAR	0
@@ -1258,6 +1269,33 @@ struct sensor_output_info_t {
 	uint16_t num_info;
 };
 
+struct msm_sensor_exp_gain_info_t {
+	uint16_t coarse_int_time_addr;
+	uint16_t global_gain_addr;
+	uint16_t vert_offset;
+};
+
+struct msm_sensor_output_reg_addr_t {
+	uint16_t x_output;
+	uint16_t y_output;
+	uint16_t line_length_pclk;
+	uint16_t frame_length_lines;
+};
+
+struct sensor_driver_params_type {
+	struct msm_camera_i2c_reg_setting *init_settings;
+	uint16_t init_settings_size;
+	struct msm_camera_i2c_reg_setting *mode_settings;
+	uint16_t mode_settings_size;
+	struct msm_sensor_output_reg_addr_t *sensor_output_reg_addr;
+	struct msm_camera_i2c_reg_setting *start_settings;
+	struct msm_camera_i2c_reg_setting *stop_settings;
+	struct msm_camera_i2c_reg_setting *groupon_settings;
+	struct msm_camera_i2c_reg_setting *groupoff_settings;
+	struct msm_sensor_exp_gain_info_t *sensor_exp_gain_info;
+	struct msm_sensor_output_info_t *output_info;
+};
+
 struct mirror_flip {
 	int32_t x_mirror;
 	int32_t y_flip;
@@ -1454,6 +1492,81 @@ struct ispif_cfg_data {
 	} cfg;
 };
 
+enum msm_camera_i2c_reg_addr_type {
+	MSM_CAMERA_I2C_BYTE_ADDR = 1,
+	MSM_CAMERA_I2C_WORD_ADDR,
+};
+
+struct msm_camera_i2c_reg_array {
+	uint16_t reg_addr;
+	uint16_t reg_data;
+};
+
+enum msm_camera_i2c_data_type {
+	MSM_CAMERA_I2C_BYTE_DATA = 1,
+	MSM_CAMERA_I2C_WORD_DATA,
+	MSM_CAMERA_I2C_SET_BYTE_MASK,
+	MSM_CAMERA_I2C_UNSET_BYTE_MASK,
+	MSM_CAMERA_I2C_SET_WORD_MASK,
+	MSM_CAMERA_I2C_UNSET_WORD_MASK,
+	MSM_CAMERA_I2C_SET_BYTE_WRITE_MASK_DATA,
+};
+
+struct msm_camera_i2c_reg_setting {
+	struct msm_camera_i2c_reg_array *reg_setting;
+	uint16_t size;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	enum msm_camera_i2c_data_type data_type;
+	uint16_t delay;
+};
+
+enum oem_setting_type {
+	I2C_READ = 1,
+	I2C_WRITE,
+	GPIO_OP,
+	EEPROM_READ,
+	VREG_SET,
+	CLK_SET,
+};
+
+struct sensor_oem_setting {
+	enum oem_setting_type type;
+	void *data;
+};
+
+enum camera_vreg_type {
+	REG_LDO,
+	REG_VS,
+	REG_GPIO,
+};
+
+struct camera_vreg_t {
+	const char *reg_name;
+	enum camera_vreg_type type;
+	int min_voltage;
+	int max_voltage;
+	int op_mode;
+	uint32_t delay;
+};
+
+struct msm_camera_vreg_setting {
+	struct camera_vreg_t *cam_vreg;
+	uint16_t num_vreg;
+	uint8_t enable;
+};
+
+struct msm_cam_clk_info {
+	const char *clk_name;
+	long clk_rate;
+	uint32_t delay;
+};
+
+struct msm_cam_clk_setting {
+	struct msm_cam_clk_info *clk_info;
+	uint16_t num_clk_info;
+	uint8_t enable;
+};
+
 struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
@@ -1490,10 +1603,28 @@ struct sensor_cfg_data {
 		int ae_mode;
 		uint8_t wb_val;
 		int8_t exp_compensation;
+		uint32_t pclk;
 		struct cord aec_cord;
 		int is_autoflash;
 		struct mirror_flip mirror_flip;
+		void *setting;
 	} cfg;
+};
+
+enum gpio_operation_type {
+	GPIO_REQUEST,
+	GPIO_FREE,
+	GPIO_SET_DIRECTION_OUTPUT,
+	GPIO_SET_DIRECTION_INPUT,
+	GPIO_GET_VALUE,
+	GPIO_SET_VALUE,
+};
+
+struct msm_cam_gpio_operation {
+	enum gpio_operation_type op_type;
+	unsigned address;
+	int value;
+	const char *tag;
 };
 
 struct damping_params_t {
@@ -1652,11 +1783,17 @@ struct msm_calib_dpc {
 	struct pixel_t video_coord[128];
 };
 
+struct msm_calib_raw {
+	uint8_t *data;
+	uint32_t size;
+};
+
 struct msm_camera_eeprom_info_t {
 	struct msm_eeprom_support af;
 	struct msm_eeprom_support wb;
 	struct msm_eeprom_support lsc;
 	struct msm_eeprom_support dpc;
+	struct msm_eeprom_support raw;
 };
 
 struct msm_eeprom_cfg_data {

@@ -1195,7 +1195,6 @@ static enum msm_camera_vreg_name_t mt9m114_veg_seq[] = {
 	CAM_VIO,
 	CAM_VDIG,
 	CAM_VANA,
-	CAM_VAF,
 };
 
 static struct msm_sensor_id_info_t mt9m114_id_info = {
