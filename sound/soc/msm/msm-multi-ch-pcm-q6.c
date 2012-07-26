@@ -28,6 +28,7 @@
 #include <sound/pcm.h>
 #include <sound/initval.h>
 #include <sound/control.h>
+#include <sound/timer.h>
 
 #include "msm-pcm-q6.h"
 #include "msm-pcm-routing.h"
@@ -110,6 +111,9 @@ static void event_handler(uint32_t opcode,
 {
 	struct msm_audio *prtd = priv;
 	struct snd_pcm_substream *substream = prtd->substream;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct audio_aio_write_param param;
+	struct audio_buffer *buf = NULL;
 	uint32_t *ptrmem = (uint32_t *)payload;
 	int i = 0;
 	uint32_t idx = 0;
@@ -118,6 +122,7 @@ static void event_handler(uint32_t opcode,
 	pr_debug("%s\n", __func__);
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE: {
+		uint32_t *ptrmem = (uint32_t *)&param;
 		pr_debug("ASM_DATA_EVENT_WRITE_DONE\n");
 		pr_debug("Buffer Consumed = 0x%08x\n", *ptrmem);
 		prtd->pcm_irq_pos += prtd->pcm_count;
@@ -129,14 +134,31 @@ static void event_handler(uint32_t opcode,
 			break;
 		if (!prtd->mmap_flag)
 			break;
-		if (q6asm_is_cpu_buf_avail_nolock(IN,
-				prtd->audio_client,
-				&size, &idx)) {
-			pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
-					__func__, prtd->pcm_count);
-			q6asm_write_nolock(prtd->audio_client,
-				prtd->pcm_count, 0, 0, NO_TIMESTAMP);
-		}
+		buf = prtd->audio_client->port[IN].buf;
+		pr_debug("%s:writing %d bytes of buffer[%d] to dsp 2\n",
+				__func__, prtd->pcm_count, prtd->out_head);
+		pr_debug("%s:writing buffer[%d] from 0x%08x\n",
+				__func__, prtd->out_head,
+				((unsigned int)buf[0].phys
+				+ (prtd->out_head * prtd->pcm_count)));
+		param.paddr = (unsigned long)buf[0].phys
+				+ (prtd->out_head * prtd->pcm_count);
+		param.len = prtd->pcm_count;
+		param.msw_ts = 0;
+		param.lsw_ts = 0;
+		param.flags = NO_TIMESTAMP;
+		param.uid =  (unsigned long)buf[0].phys
+				+ (prtd->out_head * prtd->pcm_count);
+		for (i = 0; i < sizeof(struct audio_aio_write_param)/4;
+					i++, ++ptrmem)
+			pr_debug("cmd[%d]=0x%08x\n", i, *ptrmem);
+		if (q6asm_async_write(prtd->audio_client,
+					&param) < 0)
+			pr_err("%s:q6asm_async_write failed\n",
+				__func__);
+		else
+			prtd->out_head =
+			(prtd->out_head + 1) & (runtime->periods - 1);
 		break;
 	}
 	case ASM_DATA_CMDRSP_EOS:
@@ -173,27 +195,28 @@ static void event_handler(uint32_t opcode,
 				atomic_set(&prtd->start, 1);
 				break;
 			}
-			if (prtd->mmap_flag) {
-				pr_debug("%s:writing %d bytes"
-					" of buffer to dsp\n",
-					__func__,
-					prtd->pcm_count);
-				q6asm_write_nolock(prtd->audio_client,
-					prtd->pcm_count,
-					0, 0, NO_TIMESTAMP);
-			} else {
-				while (atomic_read(&prtd->out_needed)) {
-					pr_debug("%s:writing %d bytes"
-						 " of buffer to dsp\n",
-						__func__,
-						prtd->pcm_count);
-					q6asm_write_nolock(prtd->audio_client,
-						prtd->pcm_count,
-						0, 0, NO_TIMESTAMP);
-					atomic_dec(&prtd->out_needed);
-					wake_up(&the_locks.write_wait);
-				};
-			}
+			pr_debug("%s:writing %d bytes"\
+				" of buffer[%d] to dsp\n",
+				__func__, prtd->pcm_count, prtd->out_head);
+			buf = prtd->audio_client->port[IN].buf;
+			pr_debug("%s:writing buffer[%d] from 0x%08x\n",
+				__func__, prtd->out_head,
+				((unsigned int)buf[0].phys
+				+ (prtd->out_head * prtd->pcm_count)));
+			param.paddr = (unsigned long)buf[prtd->out_head].phys;
+			param.len = prtd->pcm_count;
+			param.msw_ts = 0;
+			param.lsw_ts = 0;
+			param.flags = NO_TIMESTAMP;
+			param.uid =  (unsigned long)buf[prtd->out_head].phys;
+			if (q6asm_async_write(prtd->audio_client,
+						&param) < 0)
+				pr_err("%s:q6asm_async_write failed\n",
+					__func__);
+			else
+				prtd->out_head =
+					(prtd->out_head + 1)
+					& (runtime->periods - 1);
 			atomic_set(&prtd->start, 1);
 			break;
 		default:
@@ -708,10 +731,12 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	else
 		dir = OUT;
 
-	/*
-	 *TODO : Need to Add Async IO changes. All period
-	 * size might not be supported.
-	 */
+	ret = q6asm_set_io_mode(prtd->audio_client, ASYNC_IO_MODE);
+	if (ret < 0) {
+		pr_err("%s: Set IO mode failed\n", __func__);
+		return -ENOMEM;
+	}
+
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
 		prtd->audio_client,
 		(params_buffer_bytes(params) / params_periods(params)),
