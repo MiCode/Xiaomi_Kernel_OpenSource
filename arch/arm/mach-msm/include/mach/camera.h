@@ -308,34 +308,6 @@ struct msm_camera_cci_gpio_cfg {
 	uint16_t i2c_queue;
 };
 
-enum msm_camera_i2c_reg_addr_type {
-	MSM_CAMERA_I2C_BYTE_ADDR = 1,
-	MSM_CAMERA_I2C_WORD_ADDR,
-};
-
-enum msm_camera_i2c_data_type {
-	MSM_CAMERA_I2C_BYTE_DATA = 1,
-	MSM_CAMERA_I2C_WORD_DATA,
-	MSM_CAMERA_I2C_SET_BYTE_MASK,
-	MSM_CAMERA_I2C_UNSET_BYTE_MASK,
-	MSM_CAMERA_I2C_SET_WORD_MASK,
-	MSM_CAMERA_I2C_UNSET_WORD_MASK,
-	MSM_CAMERA_I2C_SET_BYTE_WRITE_MASK_DATA,
-};
-
-enum msm_camera_i2c_cmd_type {
-	MSM_CAMERA_I2C_CMD_WRITE,
-	MSM_CAMERA_I2C_CMD_POLL,
-};
-
-struct msm_camera_i2c_reg_conf {
-	uint16_t reg_addr;
-	uint16_t reg_data;
-	enum msm_camera_i2c_data_type dt;
-	enum msm_camera_i2c_cmd_type cmd_type;
-	int16_t mask;
-};
-
 struct msm_camera_cci_i2c_write_cfg {
 	struct msm_camera_i2c_reg_conf *reg_conf_tbl;
 	enum msm_camera_i2c_reg_addr_type addr_type;
@@ -648,11 +620,6 @@ enum msm_bus_perf_setting {
 	S_DEFAULT,
 	S_LIVESHOT,
 	S_EXIT
-};
-
-struct msm_cam_clk_info {
-	const char *clk_name;
-	long clk_rate;
 };
 
 int msm_camio_enable(struct platform_device *dev);

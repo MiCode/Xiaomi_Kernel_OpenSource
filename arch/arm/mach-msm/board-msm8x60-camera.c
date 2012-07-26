@@ -15,7 +15,7 @@
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/mfd/pmic8901.h>
-#include <mach/board.h>
+#include <mach/camera.h>
 #include <mach/board-msm8660.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_bus_board.h>

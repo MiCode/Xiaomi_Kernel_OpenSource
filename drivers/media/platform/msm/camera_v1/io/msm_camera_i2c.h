@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <mach/camera.h>
 #include <media/v4l2-subdev.h>
+#include <media/msm_camera.h>
 
 #define CONFIG_MSM_CAMERA_I2C_DBG 0
 
@@ -25,6 +26,19 @@
 #else
 #define S_I2C_DBG(fmt, args...) CDBG(fmt, ##args)
 #endif
+
+enum msm_camera_i2c_cmd_type {
+	MSM_CAMERA_I2C_CMD_WRITE,
+	MSM_CAMERA_I2C_CMD_POLL,
+};
+
+struct msm_camera_i2c_reg_conf {
+	uint16_t reg_addr;
+	uint16_t reg_data;
+	enum msm_camera_i2c_data_type dt;
+	enum msm_camera_i2c_cmd_type cmd_type;
+	int16_t mask;
+};
 
 struct msm_camera_i2c_client {
 	struct i2c_client *client;
@@ -91,6 +105,10 @@ int32_t msm_camera_i2c_write_table_w_microdelay(
 	struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_tbl *reg_tbl, uint16_t size,
 	enum msm_camera_i2c_data_type data_type);
+
+int32_t msm_camera_i2c_write_bayer_table(
+	struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_setting *write_setting);
 
 int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_conf *reg_conf_tbl, uint16_t size,

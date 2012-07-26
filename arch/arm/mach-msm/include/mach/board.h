@@ -168,21 +168,6 @@ enum msm_sensor_type {
 	YUV_SENSOR,
 };
 
-enum camera_vreg_type {
-	REG_LDO,
-	REG_VS,
-	REG_GPIO,
-	REG_MAX
-};
-
-struct camera_vreg_t {
-	const char *reg_name;
-	enum camera_vreg_type type;
-	int min_voltage;
-	int max_voltage;
-	int op_mode;
-};
-
 struct msm_gpio_set_tbl {
 	unsigned gpio;
 	unsigned long flags;
@@ -263,6 +248,9 @@ struct msm_actuator_info {
 struct msm_eeprom_info {
 	struct i2c_board_info const *board_info;
 	int bus_id;
+	int eeprom_reg_addr;
+	int eeprom_read_length;
+	int eeprom_i2c_slave_addr;
 };
 
 struct msm_camera_sensor_info {
