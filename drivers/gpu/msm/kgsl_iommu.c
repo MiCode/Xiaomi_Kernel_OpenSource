@@ -292,14 +292,6 @@ static void kgsl_iommu_destroy_pagetable(void *mmu_specific_pt)
 	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
 	if (iommu_pt->domain)
 		iommu_domain_free(iommu_pt->domain);
-	if (iommu_pt->iommu) {
-		if ((KGSL_IOMMU_ASID_REUSE == iommu_pt->asid) &&
-			iommu_pt->iommu->asid_reuse)
-			iommu_pt->iommu->asid_reuse--;
-		if (!iommu_pt->iommu->asid_reuse ||
-			(KGSL_IOMMU_ASID_REUSE != iommu_pt->asid))
-			clear_bit(iommu_pt->asid, iommu_pt->iommu->asids);
-	}
 	kfree(iommu_pt);
 }
 
@@ -621,20 +613,15 @@ static void kgsl_iommu_setstate(struct kgsl_mmu *mmu,
 				unsigned int context_id)
 {
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
-		struct kgsl_iommu *iommu = mmu->priv;
-		struct kgsl_iommu_pt *iommu_pt = pagetable->priv;
 		/* page table not current, then setup mmu to use new
 		 *  specified page table
 		 */
 		if (mmu->hwpagetable != pagetable) {
 			unsigned int flags = 0;
 			mmu->hwpagetable = pagetable;
-			/* force tlb flush if asid is reused */
-			if (iommu->asid_reuse &&
-				(KGSL_IOMMU_ASID_REUSE == iommu_pt->asid))
-				flags |= KGSL_MMUFLAGS_TLBFLUSH;
 			flags |= kgsl_mmu_pt_get_flags(mmu->hwpagetable,
-							mmu->device->id);
+							mmu->device->id) |
+							KGSL_MMUFLAGS_TLBFLUSH;
 			kgsl_setstate(mmu, context_id,
 				KGSL_MMUFLAGS_PTUPDATE | flags);
 		}
@@ -657,14 +644,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 				sizeof(struct kgsl_iommu));
 		return -ENOMEM;
 	}
-	iommu->asids = kzalloc(BITS_TO_LONGS(KGSL_IOMMU_MAX_ASIDS) *
-				sizeof(unsigned long), GFP_KERNEL);
-	if (!iommu->asids) {
-		KGSL_CORE_ERR("kzalloc(%d) failed\n",
-				sizeof(struct kgsl_iommu));
-		status = -ENOMEM;
-		goto done;
-	}
 
 	mmu->priv = iommu;
 	status = kgsl_get_iommu_ctxt(mmu);
@@ -684,7 +663,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 			__func__);
 done:
 	if (status) {
-		kfree(iommu->asids);
 		kfree(iommu);
 		mmu->priv = NULL;
 	}
@@ -718,7 +696,6 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 			goto err;
 		}
 		iommu_pt = mmu->priv_bank_table->priv;
-		iommu_pt->asid = 1;
 	}
 	mmu->defaultpagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
 	/* Return error if the default pagetable doesn't exist */
@@ -740,14 +717,6 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 			goto err;
 		}
 	}
-	/*
-	 * The dafault pagetable always has asid 0 assigned by the iommu driver
-	 * and asid 1 is assigned to the private context.
-	 */
-	iommu_pt = mmu->defaultpagetable->priv;
-	iommu_pt->asid = 0;
-	set_bit(0, iommu->asids);
-	set_bit(1, iommu->asids);
 	return status;
 err:
 	for (i--; i >= 0; i--) {
@@ -818,12 +787,6 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	 */
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
-		/* Make sure that the ASID of the priv bank is set to 1.
-		 * When we a different pagetable for the priv bank then the
-		 * iommu driver sets the ASID to 0 instead of 1 */
-		KGSL_IOMMU_SET_IOMMU_REG(iommu->iommu_units[i].reg_map.hostptr,
-					KGSL_IOMMU_CONTEXT_PRIV,
-					CONTEXTIDR, 1);
 		for (j = 0; j < iommu_unit->dev_count; j++)
 			iommu_unit->dev[j].pt_lsb = KGSL_IOMMMU_PT_LSB(
 						KGSL_IOMMU_GET_IOMMU_REG(
@@ -831,10 +794,6 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 						iommu_unit->dev[j].ctx_id,
 						TTBR0));
 	}
-	iommu->asid = KGSL_IOMMU_GET_IOMMU_REG(
-				iommu->iommu_units[0].reg_map.hostptr,
-				KGSL_IOMMU_CONTEXT_USER,
-				CONTEXTIDR);
 
 	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 	mmu->flags |= KGSL_FLAGS_STARTED;
@@ -955,7 +914,6 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 		kgsl_mmu_putpagetable(mmu->priv_bank_table);
 	if (mmu->defaultpagetable)
 		kgsl_mmu_putpagetable(mmu->defaultpagetable);
-	kfree(iommu->asids);
 	kfree(iommu);
 
 	return 0;
@@ -978,47 +936,6 @@ kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu)
 	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 	return pt_base & (KGSL_IOMMU_TTBR0_PA_MASK <<
 				KGSL_IOMMU_TTBR0_PA_SHIFT);
-}
-
-/*
- * kgsl_iommu_get_hwpagetable_asid - Returns asid(application space ID) for a
- * pagetable
- * @mmu - Pointer to mmu structure
- *
- * Allocates an asid to a IOMMU domain if it does not already have one. asid's
- * are unique identifiers for pagetable that can be used to selectively flush
- * tlb entries of the IOMMU unit.
- * Return - asid to be used with the IOMMU domain
- */
-static int kgsl_iommu_get_hwpagetable_asid(struct kgsl_mmu *mmu)
-{
-	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_pt *iommu_pt = mmu->hwpagetable->priv;
-
-	/*
-	 * If the iommu pagetable does not have any asid assigned and is not the
-	 * default pagetable then assign asid.
-	 */
-	if (!iommu_pt->asid && iommu_pt != mmu->defaultpagetable->priv) {
-		iommu_pt->asid = find_first_zero_bit(iommu->asids,
-							KGSL_IOMMU_MAX_ASIDS);
-		/* No free bits means reuse asid */
-		if (iommu_pt->asid >= KGSL_IOMMU_MAX_ASIDS) {
-			iommu_pt->asid = KGSL_IOMMU_ASID_REUSE;
-			iommu->asid_reuse++;
-		}
-		set_bit(iommu_pt->asid, iommu->asids);
-		/*
-		 * Store pointer to asids list so that during pagetable destroy
-		 * the asid assigned to this pagetable may be cleared
-		 */
-		iommu_pt->iommu = iommu;
-	}
-	/* Return the asid + the constant part of asid that never changes */
-	return (iommu_pt->asid & (KGSL_IOMMU_CONTEXTIDR_ASID_MASK <<
-				KGSL_IOMMU_CONTEXTIDR_ASID_SHIFT)) +
-		(iommu->asid & ~(KGSL_IOMMU_CONTEXTIDR_ASID_MASK <<
-				KGSL_IOMMU_CONTEXTIDR_ASID_SHIFT));
 }
 
 /*
@@ -1066,15 +983,6 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 			temp = KGSL_IOMMU_GET_IOMMU_REG(
 				iommu->iommu_units[i].reg_map.hostptr,
 				KGSL_IOMMU_CONTEXT_USER, TTBR0);
-			/* Set asid */
-			KGSL_IOMMU_SET_IOMMU_REG(
-				iommu->iommu_units[i].reg_map.hostptr,
-				KGSL_IOMMU_CONTEXT_USER, CONTEXTIDR,
-				kgsl_iommu_get_hwpagetable_asid(mmu));
-			mb();
-			temp = KGSL_IOMMU_GET_IOMMU_REG(
-					iommu->iommu_units[i].reg_map.hostptr,
-					KGSL_IOMMU_CONTEXT_USER, CONTEXTIDR);
 		}
 	}
 	/* Flush tlb */
@@ -1082,8 +990,8 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 		for (i = 0; i < iommu->unit_count; i++) {
 			KGSL_IOMMU_SET_IOMMU_REG(
 				iommu->iommu_units[i].reg_map.hostptr,
-				KGSL_IOMMU_CONTEXT_USER, CTX_TLBIASID,
-				kgsl_iommu_get_hwpagetable_asid(mmu));
+				KGSL_IOMMU_CONTEXT_USER, CTX_TLBIALL,
+				1);
 			mb();
 		}
 	}
@@ -1139,7 +1047,6 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
 	.mmu_disable_clk_on_ts = kgsl_iommu_disable_clk_on_ts,
-	.mmu_get_hwpagetable_asid = kgsl_iommu_get_hwpagetable_asid,
 	.mmu_get_pt_lsb = kgsl_iommu_get_pt_lsb,
 	.mmu_get_reg_map_desc = kgsl_iommu_get_reg_map_desc,
 };

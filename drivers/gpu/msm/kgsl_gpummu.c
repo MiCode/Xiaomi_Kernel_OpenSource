@@ -732,7 +732,6 @@ struct kgsl_mmu_ops gpummu_ops = {
 	.mmu_get_current_ptbase = kgsl_gpummu_get_current_ptbase,
 	.mmu_enable_clk = NULL,
 	.mmu_disable_clk_on_ts = NULL,
-	.mmu_get_hwpagetable_asid = NULL,
 	.mmu_get_pt_lsb = NULL,
 	.mmu_get_reg_map_desc = NULL,
 };
