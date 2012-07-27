@@ -235,6 +235,7 @@ static struct mdss_mdp_wb_data *get_local_node(struct mdss_mdp_wb *wb,
 	}
 
 	node->buf_data.num_planes = 1;
+	node->buf_info = *data;
 	buf = &node->buf_data.p[0];
 	buf->addr = (u32) (data->iova + data->offset);
 	buf->len = UINT_MAX; /* trusted source */
