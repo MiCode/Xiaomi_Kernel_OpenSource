@@ -440,7 +440,7 @@ static int qpnp_lpg_change_table(struct pwm_device *pwm,
 	unsigned int		pwm_value, max_pwm_value;
 	struct qpnp_lpg_chip	*chip = pwm->chip;
 	struct qpnp_lut_config	*lut = &chip->lpg_config.lut_config;
-	int			i, pwm_size, rc;
+	int			i, pwm_size, rc = 0;
 	int			burst_size = SPMI_MAX_BUF_LEN;
 	int			list_len = lut->list_size << 1;
 	int			offset = lut->lo_index << 2;
