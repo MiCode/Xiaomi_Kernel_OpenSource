@@ -25,6 +25,7 @@
 #include <linux/jiffies.h>
 #include <linux/wakelock.h>
 #include <linux/err.h>
+#include <linux/msm_ion.h>
 #include <linux/list.h>
 #include <linux/list_sort.h>
 
@@ -64,6 +65,7 @@ struct pil_mdt {
  * @sz: size of segment
  * @filesz: size of segment on disk
  * @num: segment number
+ * @relocated: true if segment is relocated, false otherwise
  *
  * Loosely based on an elf program header. Contains all necessary information
  * to load and initialize a segment of the image in memory.
@@ -74,6 +76,7 @@ struct pil_seg {
 	unsigned long filesz;
 	int num;
 	struct list_head list;
+	bool relocated;
 };
 
 /**
@@ -84,10 +87,12 @@ struct pil_seg {
  * @desc: pointer to pil_desc this is private data for
  * @seg: list of segments sorted by physical address
  * @entry_addr: physical address where processor starts booting at
+ * @base_addr: smallest start address among all segments that are relocatable
  * @region_start: address where relocatable region starts or lowest address
  * for non-relocatable images
  * @region_end: address where relocatable region ends or highest address for
  * non-relocatable images
+ * @region: region allocated for relocatable images
  *
  * This struct contains data for a pil_desc that should not be exposed outside
  * of this file. This structure points to the descriptor and the descriptor
@@ -101,9 +106,13 @@ struct pil_priv {
 	struct pil_desc *desc;
 	struct list_head segs;
 	phys_addr_t entry_addr;
+	phys_addr_t base_addr;
 	phys_addr_t region_start;
 	phys_addr_t region_end;
+	struct ion_handle *region;
 };
+
+static struct ion_client *ion;
 
 /**
  * pil_get_entry_addr() - Retrieve the entry address of a peripheral image
@@ -156,12 +165,24 @@ static void pil_proxy_unvote(struct pil_desc *desc, unsigned long timeout)
 	}
 }
 
+static bool segment_is_relocatable(const struct elf32_phdr *p)
+{
+	return !!(p->p_flags & BIT(27));
+}
+
+static phys_addr_t pil_reloc(const struct pil_priv *priv, phys_addr_t addr)
+{
+	return addr - priv->base_addr + priv->region_start;
+}
+
 static struct pil_seg *pil_init_seg(const struct pil_desc *desc,
 				  const struct elf32_phdr *phdr, int num)
 {
+	bool reloc = segment_is_relocatable(phdr);
+	const struct pil_priv *priv = desc->priv;
 	struct pil_seg *seg;
 
-	if (memblock_overlaps_memory(phdr->p_paddr, phdr->p_memsz)) {
+	if (!reloc && memblock_overlaps_memory(phdr->p_paddr, phdr->p_memsz)) {
 		pil_err(desc, "kernel memory would be overwritten [%#08lx, %#08lx)\n",
 			(unsigned long)phdr->p_paddr,
 			(unsigned long)(phdr->p_paddr + phdr->p_memsz));
@@ -172,9 +193,10 @@ static struct pil_seg *pil_init_seg(const struct pil_desc *desc,
 	if (!seg)
 		return ERR_PTR(-ENOMEM);
 	seg->num = num;
-	seg->paddr = phdr->p_paddr;
+	seg->paddr = reloc ? pil_reloc(priv, phdr->p_paddr) : phdr->p_paddr;
 	seg->filesz = phdr->p_filesz;
 	seg->sz = phdr->p_memsz;
+	seg->relocated = reloc;
 	INIT_LIST_HEAD(&seg->list);
 
 	return seg;
@@ -184,7 +206,8 @@ static struct pil_seg *pil_init_seg(const struct pil_desc *desc,
 
 static int segment_is_loadable(const struct elf32_phdr *p)
 {
-	return (p->p_type == PT_LOAD) && !segment_is_hash(p->p_flags);
+	return (p->p_type == PT_LOAD) && !segment_is_hash(p->p_flags) &&
+		p->p_memsz;
 }
 
 static void pil_dump_segs(const struct pil_priv *priv)
@@ -198,36 +221,87 @@ static void pil_dump_segs(const struct pil_priv *priv)
 }
 
 /*
- * Ensure the entry address lies within the image limits.
+ * Ensure the entry address lies within the image limits and if the image is
+ * relocatable ensure it lies within a relocatable segment.
  */
 static int pil_init_entry_addr(struct pil_priv *priv, const struct pil_mdt *mdt)
 {
 	struct pil_seg *seg;
+	phys_addr_t entry = mdt->hdr.e_entry;
+	bool image_relocated = priv->region;
 
-	priv->entry_addr = mdt->hdr.e_entry;
+	if (image_relocated)
+		entry = pil_reloc(priv, entry);
+	priv->entry_addr = entry;
 
 	if (priv->desc->flags & PIL_SKIP_ENTRY_CHECK)
 		return 0;
 
 	list_for_each_entry(seg, &priv->segs, list) {
-		if (priv->entry_addr >= seg->paddr &&
-		    priv->entry_addr < seg->paddr + seg->sz)
-			return 0;
+		if (entry >= seg->paddr && entry < seg->paddr + seg->sz) {
+			if (!image_relocated)
+				return 0;
+			else if (seg->relocated)
+				return 0;
+		}
 	}
-	pil_err(priv->desc, "boot address %08zx not within range\n",
-		priv->entry_addr);
+	pil_err(priv->desc, "entry address %08zx not within range\n", entry);
 	pil_dump_segs(priv);
 	return -EADDRNOTAVAIL;
+}
+
+static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
+				phys_addr_t max_addr, size_t align)
+{
+	struct ion_handle *region;
+	int ret;
+	unsigned int mask;
+	size_t size = round_up(max_addr - min_addr, align);
+
+	if (!ion) {
+		WARN_ON_ONCE("No ION client, can't support relocation\n");
+		return -ENOMEM;
+	}
+
+	/* Force alignment due to linker scripts not getting it right */
+	if (align > SZ_1M) {
+		mask = ION_HEAP(ION_PIL2_HEAP_ID);
+		align = SZ_4M;
+	} else {
+		mask = ION_HEAP(ION_PIL1_HEAP_ID);
+		align = SZ_1M;
+	}
+
+	region = ion_alloc(ion, size, align, mask, 0);
+	if (IS_ERR(region)) {
+		pil_err(priv->desc, "Failed to allocate relocatable region\n");
+		return PTR_ERR(region);
+	}
+
+	ret = ion_phys(ion, region, (ion_phys_addr_t *)&priv->region_start,
+			&size);
+	if (ret) {
+		ion_free(ion, region);
+		return ret;
+	}
+
+	priv->region = region;
+	priv->region_end = priv->region_start + size;
+	priv->base_addr = min_addr;
+
+	return 0;
 }
 
 static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 {
 	const struct elf32_phdr *phdr;
-	phys_addr_t min_addr, max_addr;
-	int i;
+	phys_addr_t min_addr_r, min_addr_n, max_addr_r, max_addr_n, start, end;
+	size_t align = 0;
+	int i, ret = 0;
+	bool relocatable = false;
 
-	min_addr = (phys_addr_t)ULLONG_MAX;
-	max_addr = 0;
+	min_addr_n = min_addr_r = (phys_addr_t)ULLONG_MAX;
+	max_addr_n = max_addr_r = 0;
 
 	/* Find the image limits */
 	for (i = 0; i < mdt->hdr.e_phnum; i++) {
@@ -235,14 +309,35 @@ static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 		if (!segment_is_loadable(phdr))
 			continue;
 
-		min_addr = min(min_addr, phdr->p_paddr);
-		max_addr = max(max_addr, phdr->p_paddr + phdr->p_memsz);
+		start = phdr->p_paddr;
+		end = start + phdr->p_memsz;
+
+		if (segment_is_relocatable(phdr)) {
+			min_addr_r = min(min_addr_r, start);
+			max_addr_r = max(max_addr_r, end);
+			/*
+			 * Lowest relocatable segment dictates alignment of
+			 * relocatable region
+			 */
+			if (min_addr_r == start)
+				align = phdr->p_align;
+			relocatable = true;
+		} else {
+			min_addr_n = min(min_addr_n, start);
+			max_addr_n = max(max_addr_n, end);
+		}
+
 	}
 
-	priv->region_start = min_addr;
-	priv->region_end = max_addr;
+	if (relocatable) {
+		ret = pil_alloc_region(priv, min_addr_r, max_addr_r, align);
+	} else {
+		priv->region_start = min_addr_n;
+		priv->region_end = max_addr_n;
+		priv->base_addr = min_addr_n;
+	}
 
-	return 0;
+	return ret;
 }
 
 static int pil_cmp_seg(void *priv, struct list_head *a, struct list_head *b)
@@ -285,6 +380,8 @@ static void pil_release_mmap(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *p, *tmp;
 
+	if (priv->region)
+		ion_free(ion, priv->region);
 	list_for_each_entry_safe(p, tmp, &priv->segs, list) {
 		list_del(&p->list);
 		kfree(p);
@@ -566,13 +663,18 @@ static struct notifier_block pil_pm_notifier = {
 
 static int __init msm_pil_init(void)
 {
+	ion = msm_ion_client_create(UINT_MAX, "pil");
+	if (IS_ERR(ion)) /* Can't support relocatable images */
+		ion = NULL;
 	return register_pm_notifier(&pil_pm_notifier);
 }
-subsys_initcall(msm_pil_init);
+device_initcall(msm_pil_init);
 
 static void __exit msm_pil_exit(void)
 {
 	unregister_pm_notifier(&pil_pm_notifier);
+	if (ion)
+		ion_client_destroy(ion);
 }
 module_exit(msm_pil_exit);
 
