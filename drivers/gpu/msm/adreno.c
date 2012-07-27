@@ -948,6 +948,15 @@ _adreno_recover_hang(struct kgsl_device *device,
 		kgsl_mmu_setstate(&device->mmu, adreno_context->pagetable,
 			KGSL_MEMSTORE_GLOBAL);
 
+	/* If iommu is used then we need to make sure that the iommu clocks
+	 * are on since there could be commands in pipeline that touch iommu */
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
+		ret = kgsl_mmu_enable_clk(&device->mmu,
+			KGSL_IOMMU_CONTEXT_USER);
+		if (ret)
+			goto done;
+	}
+
 	/* Do not try the bad caommands if recovery has failed bad commands
 	 * once already */
 	if (!try_bad_commands)
@@ -973,6 +982,18 @@ _adreno_recover_hang(struct kgsl_device *device,
 				"Device start failed in recovery\n");
 				goto done;
 			}
+			if (context)
+				kgsl_mmu_setstate(&device->mmu,
+						adreno_context->pagetable,
+						KGSL_MEMSTORE_GLOBAL);
+
+			if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
+				ret = kgsl_mmu_enable_clk(&device->mmu,
+						KGSL_IOMMU_CONTEXT_USER);
+				if (ret)
+					goto done;
+			}
+
 			ret = idle_ret;
 			KGSL_DRV_ERR(device,
 			"Bad context commands hung in recovery\n");
@@ -1008,6 +1029,9 @@ _adreno_recover_hang(struct kgsl_device *device,
 		}
 	}
 done:
+	/* Turn off iommu clocks */
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
+		kgsl_mmu_disable_clk_on_ts(&device->mmu, 0, false);
 	return ret;
 }
 
