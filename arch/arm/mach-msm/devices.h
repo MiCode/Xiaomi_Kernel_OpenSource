@@ -424,6 +424,7 @@ extern struct platform_device msm7x30_device_acpuclk;
 extern struct platform_device apq8064_device_acpuclk;
 extern struct platform_device msm8625_device_acpuclk;
 extern struct platform_device msm8627_device_acpuclk;
+extern struct platform_device msm8625ab_device_acpuclk;
 extern struct platform_device msm8x50_device_acpuclk;
 extern struct platform_device msm8x60_device_acpuclk;
 extern struct platform_device msm8930_device_acpuclk;
