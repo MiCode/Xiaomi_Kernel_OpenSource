@@ -1,0 +1,51 @@
+Qualcomm Parallel Interface controller (QPIC) for NAND devices
+
+Required properties:
+- compatible : "qcom,msm-nand".
+- reg : should specify QPIC NANDc and BAM physical address range.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should specify QPIC/BAM interrupt numbers.
+- interrupt-names : should specify relevant names to each interrupts property
+  defined.
+
+MTD flash partition layout for NAND devices -
+
+Each partition is represented as a sub-node of the qcom,mtd-partitions device.
+Each node's name represents the name of the corresponding partition.
+
+Required properties:
+- reg : The partition offset and size
+- label : The label / name for this partition.
+
+Optional properties:
+- read-only: This parameter, if present, indicates that this partition
+  should only be mounted read-only.
+
+Examples:
+
+	qcom,nand@f9af0000 {
+		compatible = "qcom,msm-nand";
+		reg = <0xf9af0000 0x1000>,
+		      <0xf9ac4000 0x8000>;
+		reg-names = "nand_phys",
+			    "bam_phys";
+		interrupts = <0 279 0>;
+		interrupt-names = "bam_irq";
+	};
+
+       qcom,mtd-partitions {
+	       #address-cells = <1>;
+	       #size-cells = <1>;
+               partition@0 {
+                       label = "boot";
+                       reg = <0x00000000 0x1000>;
+               };
+               partition@00020000 {
+                       label = "userdata";
+                       reg = <0x00020000 0x1000>;
+               };
+               partition@00040000 {
+                       label = "system";
+                       reg = <0x00040000 0x1000>;
+               };
+       };
