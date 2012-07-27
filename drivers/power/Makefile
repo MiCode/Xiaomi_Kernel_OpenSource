@@ -66,6 +66,7 @@ obj-$(CONFIG_PM8XXX_CCADC)	+= pm8xxx-ccadc.o
 obj-$(CONFIG_PM8921_BMS)	+= pm8921-bms.o
 obj-$(CONFIG_QPNP_BMS)		+= qpnp-bms.o
 obj-$(CONFIG_PM8921_CHARGER)	+= pm8921-charger.o
+obj-$(CONFIG_QPNP_CHARGER)	+= qpnp-charger.o
 obj-$(CONFIG_LTC4088_CHARGER)	+= ltc4088-charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o

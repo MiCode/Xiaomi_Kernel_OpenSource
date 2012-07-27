@@ -1,0 +1,209 @@
+Qualcomm QPNP Charger
+
+The charger supports the switch mode battery charger and boost (SMBB)
+peripherals on Qualcomm PMIC chips.
+
+There are seven different peripherals adding the following functionality.
+Each of these peripherals are implemented as subnodes in the example at the
+end of this file.
+
+- qcom,chg-chgr:	Supports charging control and status
+			reporting.
+- qcom,chg-bat-if:	Battery status reporting such as presence,
+			temperature reporting and voltage collapse
+			protection.
+- qcom,chg-buck:	Charger buck configuration and status
+			reporting with regards to several regulation
+			loops such as vdd, ibat etc.
+- qcom,usb-chgpth:	USB charge path detection and input current
+			limiting configuration.
+- qcom,dc-chgpth:	DC charge path detection and input current
+			limiting configuration.
+- qcom,chg-misc:	Miscellaneous features such as buck frequency
+			settings, comparator override features etc.
+
+Parent node required properties:
+- qcom,chg-vddmax-mv:	Target voltage of battery in mV
+- qcom,chg-vddsafe-mv:	Maximum Vdd voltage in mV
+- qcom,chg-vinmin-mv:	Minimum input voltage in mV
+- qcom,chg-ibatmax-ma:	Maximum battery charge current in mA
+- qcom,chg-ibatterm-ma:	Current at which charging is terminated in mA.
+
+Sub node required structure:
+- A qcom,chg node must be a child of an SPMI node that has specified
+	the spmi-dev-container property. Each subnode reflects
+	a hardware peripheral which adds a unique set of features
+	to the collective charging device. For example USB detection
+	and the battery interface are each seperate peripherals and
+	each should be their own subnode.
+
+Sub node required properties:
+- compatible:		Must be "qcom,charger".
+- reg:			Specifies the SPMI address and size for this peripheral.
+- interrupts:		Specifies the interrupt associated with the peripheral.
+- interrupt-names:	Specifies the interrupt names for the peripheral. Every
+			available interrupt needs to have an associated name
+			with it to indentify its purpose.
+
+			The following lists each subnode and their corresponding
+			required interrupt names:
+
+			qcom,usb-chgpth:
+			 - usbin-valid
+			qcom,chg-chgr:
+			 - chg-done
+			 - chg-failed
+
+			The following interrupts are available:
+
+			qcom,chg-chgr:
+			 - chg-done:		Triggers on charge completion.
+			 - chg-failed:		Notifies of charge failures.
+			 - fast-chg-on:		Notifies of fast charging state.
+			 - trkl-chg-on:		Indicates trickle charging.
+			 - state-change:	Notifies of a state change in
+						the charger state machine.
+			 - chgwdog:		Charger watchdog interrupt.
+			 - vbat-det-hi:		Triggers on vbat-det-hi voltage
+						setting,can be used as
+						battery alarm.
+			 - vbat-det-hi:		Triggers on vbat-det-low voltage
+						setting, can be used as
+						battery alarm.
+
+			qcom,chg-buck:
+			 - vdd-loop:		VDD loop change interrupt.
+			 - ibat-loop:		Ibat loop change interrupt.
+			 - ichg-loop:		Charge current loop change.
+			 - vchg-loop:		Charge voltage loop change.
+			 - overtemp:		Overtemperature interrupt.
+			 - vref-ov:		Reference overvoltage interrupt.
+			 - vbat-ov:		Battery overvoltage interrupt.
+
+			qcom,chg-bat-if:
+			 - psi:			PMIC serial interface interrupt.
+			 - vcp-on:		Voltage collapse protection
+						status interrupt.
+			 - bat-fet-on:		BATFET status interrupt.
+			 - bat-temp-ok:		Battery temperature status
+						interrupt.
+			 - batt-pres:		Battery presence status
+						interrupt.
+
+			qcom,usb-chgpth:
+			 - usbin-valid:		Indicates valid USB connection.
+			 - coarse-det-usb:	Coarse detect interrupt triggers
+						at low voltage on USB_IN.
+			 - chg-gone:		Triggers on VCHG line.
+
+			qcom,dc-chgpth:
+			 - dcin-valid:		Indicates a valid DC charger
+						connection.
+			 - coarse-det-dc:	Coarse detect interrupt triggers
+						at low voltage on DC_IN.
+
+			qcom,boost:
+			 - limit-error:		Limiting error on SMBB boost.
+			 - boost-pwr-ok:	Status of boost power.
+
+Example:
+	pm8941-chg {
+		spmi-dev-container;
+		compatible = "qcom,charger";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		qcom,chg-vddmax-mv = <4200>;
+		qcom,chg-vddsafe-mv = <4200>;
+		qcom,chg-vinmin-mv = <4200>;
+		qcom,chg-ibatmax-mv = <1500>;
+		qcom,chg-ibatterm-mv = <200>;
+
+		qcom,chg-chgr@1000 {
+			reg = <0x1000 0x100>;
+			interrupts =	<0x0 0x10 0x0>,
+				<0x0 0x10 0x1>,
+					<0x0 0x10 0x2>,
+					<0x0 0x10 0x3>,
+					<0x0 0x10 0x4>,
+					<0x0 0x10 0x5>,
+					<0x0 0x10 0x6>,
+					<0x0 0x10 0x7>;
+
+			interrupt-names =	"chg-done",
+						"chg-failed",
+						"fast-chg-on",
+						"trkl-chg-on",
+						"state-change",
+						"chgwdog",
+						"vbat-det-hi",
+						"vbat-det-lo";
+		};
+
+		qcom,chg-buck@1100 {
+			reg = <0x1100 0x100>;
+			interrupts =	<0x0 0x11 0x0>,
+					<0x0 0x11 0x1>,
+					<0x0 0x11 0x2>,
+					<0x0 0x11 0x3>,
+					<0x0 0x11 0x4>,
+					<0x0 0x11 0x5>,
+					<0x0 0x11 0x6>;
+
+			interrupt-names =	"vdd-loop",
+						"ibat-loop",
+						"ichg-loop",
+						"vchg-loop",
+						"overtemp",
+						"vref-ov",
+						"vbat-ov";
+		};
+
+		qcom,chg-bat-if@1200 {
+			reg = <0x1200 0x100>;
+			interrupts =	<0x0 0x12 0x0>,
+					<0x0 0x12 0x1>,
+					<0x0 0x12 0x2>,
+					<0x0 0x12 0x3>,
+					<0x0 0x12 0x4>;
+
+			interrupt-names =	"psi",
+						"vcp-on",
+						"bat-fet-on",
+						"bat-temp-ok",
+						"batt-pres";
+		};
+
+		qcom,chg-usb-chgpth@1300 {
+			reg = <0x1300 0x100>;
+			interrupts =	<0 0x13 0x0>,
+					<0 0x13 0x1>,
+					<0x0 0x13 0x2>;
+
+			interrupt-names =	"usbin-valid",
+						"coarse-det-usb",
+						"chg-gone";
+		};
+
+		qcom,chg-dc-chgpth@1400 {
+			reg = <0x1400 0x100>;
+			interrupts =	<0x0 0x14 0x0>,
+					<0x0 0x14 0x1>;
+
+			interrupt-names =	"dcin-valid",
+						"coarse-det-dc";
+		};
+
+		qcom,chg-boost@1500 {
+			reg = <0x1500 0x100>;
+			interrupts =	<0x0 0x15 0x0>,
+					<0x0 0x15 0x1>;
+
+			interrupt-names =	"limit-error",
+						"boost-pwr-ok";
+		};
+
+		qcom,chg-misc@1600 {
+			reg = <0x1600 0x100>;
+		};
+	};
