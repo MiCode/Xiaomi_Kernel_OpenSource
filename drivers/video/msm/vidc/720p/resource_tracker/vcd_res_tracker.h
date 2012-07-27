@@ -13,6 +13,7 @@
 #ifndef _VIDEO_720P_RESOURCE_TRACKER_H_
 #define _VIDEO_720P_RESOURCE_TRACKER_H_
 #include <mach/board.h>
+#include <linux/ion.h>
 #include "vcd_res_tracker_api.h"
 
 #define VCD_RESTRK_MIN_PERF_LEVEL 37900
@@ -36,6 +37,8 @@ struct res_trk_context {
 	u32 core_type;
 	int memtype;
 	u32 secure_session;
+	struct ion_client *res_ion_client;
+	enum ddl_mem_area res_mem_type;
 };
 
 #if DEBUG
