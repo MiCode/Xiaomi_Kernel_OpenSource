@@ -20,7 +20,6 @@
 #include <linux/platform_device.h>
 
 #include <mach/usbdiag.h>
-#include <mach/rpc_hsusb.h>
 
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
