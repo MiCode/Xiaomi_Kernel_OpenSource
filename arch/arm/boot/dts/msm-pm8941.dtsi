@@ -67,6 +67,107 @@
 			qcom,cxo-freq = <19200000>;
 		};
 
+		pm8941-chg {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-charger";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,chg-vddmax-mv = <4200>;
+			qcom,chg-vddsafe-mv = <4200>;
+			qcom,chg-vinmin-mv = <4200>;
+			qcom,chg-ibatmax-ma = <1500>;
+			qcom,chg-ibatterm-ma = <200>;
+
+			qcom,chg-chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts =	<0x0 0x10 0x0>,
+						<0x0 0x10 0x1>,
+						<0x0 0x10 0x2>,
+						<0x0 0x10 0x3>,
+						<0x0 0x10 0x4>,
+						<0x0 0x10 0x5>,
+						<0x0 0x10 0x6>,
+						<0x0 0x10 0x7>;
+
+				interrupt-names =	"chg-done",
+							"chg-failed",
+							"fast-chg-on",
+							"trkl-chg-on",
+							"state-change",
+							"chgwdog",
+							"vbat-det-hi",
+							"vbat-det-lo";
+			};
+
+			qcom,chg-buck@1100 {
+				reg = <0x1100 0x100>;
+				interrupts =	<0x0 0x11 0x0>,
+						<0x0 0x11 0x1>,
+						<0x0 0x11 0x2>,
+						<0x0 0x11 0x3>,
+						<0x0 0x11 0x4>,
+						<0x0 0x11 0x5>,
+						<0x0 0x11 0x6>;
+
+				interrupt-names =	"vdd-loop",
+							"ibat-loop",
+							"ichg-loop",
+							"vchg-loop",
+							"overtemp",
+							"vref-ov",
+							"vbat-ov";
+			};
+
+			qcom,chg-bat-if@1200 {
+				reg = <0x1200 0x100>;
+				interrupts =	<0x0 0x12 0x0>,
+						<0x0 0x12 0x1>,
+						<0x0 0x12 0x2>,
+						<0x0 0x12 0x3>,
+						<0x0 0x12 0x4>;
+
+				interrupt-names =	"psi",
+							"vcp-on",
+							"bat-fet-on",
+							"bat-temp-ok",
+							"batt-pres";
+			};
+
+			qcom,chg-usb-chgpth@1300 {
+				reg = <0x1300 0x100>;
+				interrupts =	<0 0x13 0x0>,
+						<0 0x13 0x1>,
+						<0x0 0x13 0x2>;
+
+				interrupt-names =	"usbin-valid",
+							"coarse-det-usb",
+							"chg-gone";
+			};
+
+			qcom,chg-dc-chgpth@1400 {
+				reg = <0x1400 0x100>;
+				interrupts =	<0x0 0x14 0x0>,
+						<0x0 0x14 0x1>;
+
+				interrupt-names =	"dcin-valid",
+							"coarse-det-dc";
+			};
+
+			qcom,chg-boost@1500 {
+				reg = <0x1500 0x100>;
+				interrupts =	<0x0 0x15 0x0>,
+						<0x0 0x15 0x1>;
+
+				interrupt-names =	"limit-error",
+							"boost-pwr-ok";
+			};
+
+			qcom,chg-misc@1600 {
+				reg = <0x1600 0x100>;
+			};
+		};
+
 		pm8941_gpios {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
