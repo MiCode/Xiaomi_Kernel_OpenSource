@@ -39,6 +39,7 @@ config ARCH_MSM7X27
 	select MSM_RUN_QUEUE_STATS if MSM_SOC_REV_A
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select MIGHT_HAVE_CACHE_L2X0
+	select MSM_MODEM_RESTART
 
 config ARCH_MSM7X30
 	bool "MSM7x30"
@@ -65,6 +66,7 @@ config ARCH_MSM7X30
 	select MULTI_IRQ_HANDLER
 	select MSM_PM2 if PM
 	select HOLES_IN_ZONE if SPARSEMEM
+	select MSM_MODEM_RESTART
 
 config ARCH_QSD8X50
 	bool "QSD8X50"
@@ -78,6 +80,7 @@ config ARCH_QSD8X50
 	select MSM_GPIOMUX
 	select MSM_DALRPC
 	select MSM_PM2 if PM
+	select MSM_MODEM_RESTART
 
 config ARCH_MSM8X60
 	bool "MSM8X60"
@@ -2088,6 +2091,9 @@ config MSM_SECURE_IO
 	bool
 
 config MSM_NATIVE_RESTART
+	bool
+
+config MSM_MODEM_RESTART
 	bool
 
 config MSM_PM2
