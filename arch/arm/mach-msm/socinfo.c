@@ -793,6 +793,10 @@ const int read_msm_cpu_type(void)
 	case 0x510F06F0:
 		return MSM_CPU_8064;
 
+	case 0x511F06F1:
+	case 0x512F06F0:
+		return MSM_CPU_8974;
+
 	default:
 		return MSM_CPU_UNKNOWN;
 	};
