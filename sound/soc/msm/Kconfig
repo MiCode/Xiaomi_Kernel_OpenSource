@@ -159,6 +159,7 @@ config SND_SOC_MSM8974
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_SOC_WCD9320
 	select SND_DYNAMIC_MINORS
 	help
 	 To add support for SoC audio on MSM8974.
