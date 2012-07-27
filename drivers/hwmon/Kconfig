@@ -868,6 +868,16 @@ config SENSORS_EPM_ADC
 	  Provides interface for measuring the current on specific power rails
 	  through the channels on ADC1158 ADC
 
+config SENSORS_QPNP_ADC_VOLTAGE
+	tristate "Support for Qualcomm QPNP Voltage ADC"
+	depends on SPMI
+	help
+	  This is the VADC arbiter driver for Qualcomm QPNP ADC Chip.
+
+	  The driver supports reading the HKADC, XOADC through the ADC AMUX arbiter.
+	  The VADC includes support for the conversion sequencer. The driver supports
+	  reading the ADC through the AMUX channels for external pull-ups simultaneously.
+
 config SENSORS_PC87360
 	tristate "National Semiconductor PC87360 family"
 	depends on !PPC
