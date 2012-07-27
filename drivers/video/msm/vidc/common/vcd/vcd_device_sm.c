@@ -537,12 +537,12 @@ static u32 vcd_init_cmn
 	*driver_handle = 0;
 
 	driver_id = 0;
-	while (driver_id < VCD_DRIVER_INSTANCE_MAX &&
+	while (driver_id < VCD_DRIVER_CLIENTS_MAX &&
 		   dev_ctxt->driver_ids[driver_id]) {
 		++driver_id;
 	}
 
-	if (driver_id == VCD_DRIVER_INSTANCE_MAX) {
+	if (driver_id == VCD_DRIVER_CLIENTS_MAX) {
 		VCD_MSG_ERROR("Max driver instances reached");
 
 		return VCD_ERR_FAIL;
