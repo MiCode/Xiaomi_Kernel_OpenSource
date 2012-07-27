@@ -120,7 +120,8 @@ struct vp_action {
 
 	void					*bufMotion;
 	struct nr_buffer		bufNR;
-	bool					nr_enabled;
+	struct nr_param			nr_param;
+	bool					nr_update;
 };
 
 struct vp_work_t {

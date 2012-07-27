@@ -852,9 +852,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		c_data->vp_in_fmt.height = priv_fmt->u.pix.height;
 		c_data->vp_in_fmt.pixfmt = priv_fmt->u.pix.pixelformat;
 
-		if (priv_fmt->u.pix.priv)
-			c_data->vid_vp_action.nr_enabled = 1;
-
 		size = c_data->vp_in_fmt.width * c_data->vp_in_fmt.height;
 		if (c_data->vp_in_fmt.pixfmt == V4L2_PIX_FMT_NV16)
 			size = size * 2;
@@ -867,9 +864,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		c_data->vp_out_fmt.width = priv_fmt->u.pix.width;
 		c_data->vp_out_fmt.height = priv_fmt->u.pix.height;
 		c_data->vp_out_fmt.pixfmt = priv_fmt->u.pix.pixelformat;
-
-		if (priv_fmt->u.pix.priv)
-			c_data->vid_vp_action.nr_enabled = 1;
 
 		size = c_data->vp_out_fmt.width * c_data->vp_out_fmt.height;
 		if (c_data->vp_out_fmt.pixfmt == V4L2_PIX_FMT_NV16)
@@ -1219,7 +1213,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		rc = init_motion_buf(c_data);
 		if (rc < 0)
 			goto free_res;
-		if (c_data->vid_vp_action.nr_enabled) {
+		if (c_data->vid_vp_action.nr_param.mode) {
 			rc = init_nr_buf(c_data);
 			if (rc < 0)
 				goto s_on_deinit_m_buf;
@@ -1308,7 +1302,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		if (rc < 0)
 			goto free_res;
 
-		if (c_data->vid_vp_action.nr_enabled) {
+		if (c_data->vid_vp_action.nr_param.mode) {
 			rc = init_nr_buf(c_data);
 			if (rc < 0)
 				goto s_on_deinit_m_buf;
@@ -1341,7 +1335,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	return 0;
 
 s_on_deinit_nr_buf:
-	if (c_data->vid_vp_action.nr_enabled)
+	if (c_data->vid_vp_action.nr_param.mode)
 		deinit_nr_buf(c_data);
 s_on_deinit_m_buf:
 	deinit_motion_buf(c_data);
@@ -1442,7 +1436,7 @@ int streamoff_work(struct vcap_client_data *c_data)
 			return rc;
 
 		deinit_motion_buf(c_data);
-		if (c_data->vid_vp_action.nr_enabled)
+		if (c_data->vid_vp_action.nr_param.mode)
 			deinit_nr_buf(c_data);
 		atomic_set(&c_data->dev->vp_enabled, 0);
 		return rc;
@@ -1495,7 +1489,7 @@ int streamoff_work(struct vcap_client_data *c_data)
 			return rc;
 
 		deinit_motion_buf(c_data);
-		if (c_data->vid_vp_action.nr_enabled)
+		if (c_data->vid_vp_action.nr_param.mode)
 			deinit_nr_buf(c_data);
 		atomic_set(&c_data->dev->vc_enabled, 0);
 		atomic_set(&c_data->dev->vp_enabled, 0);
@@ -1540,6 +1534,54 @@ static int vidioc_unsubscribe_event(struct v4l2_fh *fh,
 			struct v4l2_event_subscription *sub)
 {
 	return v4l2_event_unsubscribe(fh, sub);
+}
+
+static long vidioc_default(struct file *file, void *fh, bool valid_prio,
+						int cmd, void *arg)
+{
+	struct vcap_client_data *c_data = to_client_data(file->private_data);
+	struct nr_param *param;
+	unsigned long flags = 0;
+	int ret;
+
+	switch (cmd) {
+	case VCAPIOC_NR_S_PARAMS:
+
+		if (c_data->streaming != 0 &&
+				(!(!((struct nr_param *) arg)->mode) !=
+				!(!(c_data->vid_vp_action.nr_param.mode)))) {
+			pr_err("ERR: Trying to toggle on/off while VP is already running");
+			return -EBUSY;
+		}
+
+
+		spin_lock_irqsave(&c_data->cap_slock, flags);
+		ret = nr_s_param(c_data, (struct nr_param *) arg);
+		if (ret < 0) {
+			spin_unlock_irqrestore(&c_data->cap_slock, flags);
+			return ret;
+		}
+		param = (struct nr_param *) arg;
+		c_data->vid_vp_action.nr_param = *param;
+		if (param->mode == NR_AUTO)
+			s_default_nr_val(&c_data->vid_vp_action.nr_param);
+		c_data->vid_vp_action.nr_update = true;
+		spin_unlock_irqrestore(&c_data->cap_slock, flags);
+		break;
+	case VCAPIOC_NR_G_PARAMS:
+		*((struct nr_param *)arg) = c_data->vid_vp_action.nr_param;
+		if (c_data->vid_vp_action.nr_param.mode != NR_DISABLE) {
+			if (c_data->streaming)
+				nr_g_param(c_data, (struct nr_param *) arg);
+			else
+				(*(struct nr_param *) arg) =
+					c_data->vid_vp_action.nr_param;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
 }
 
 /* VCAP fops */
@@ -1790,6 +1832,7 @@ static const struct v4l2_ioctl_ops vcap_ioctl_ops = {
 
 	.vidioc_subscribe_event = vidioc_subscribe_event,
 	.vidioc_unsubscribe_event = vidioc_unsubscribe_event,
+	.vidioc_default = vidioc_default,
 };
 
 static struct video_device vcap_template = {
