@@ -206,6 +206,7 @@
 #define VFE_CMD_STATS_REQBUF                            139
 #define VFE_CMD_STATS_ENQUEUEBUF                        140
 #define VFE_CMD_STATS_FLUSH_BUFQ                        141
+#define VFE_CMD_STATS_UNREGBUF                          142
 
 struct msm_isp_cmd {
 	int32_t  id;
