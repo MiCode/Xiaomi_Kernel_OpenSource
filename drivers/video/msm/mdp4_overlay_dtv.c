@@ -672,15 +672,19 @@ static void mdp4_dtv_do_blt(struct msm_fb_data_type *mfd, int enable)
 	if (!change)
 		return;
 
-	if (dtv_enabled) {
+	if (dtv_enabled)
 		mdp4_overlay_dtv_wait4dmae(mfd);
-		MDP_OUTP(MDP_BASE + DTV_BASE, 0);	/* stop dtv */
-		msleep(20);
-	}
 
-	mdp4_overlay_dmae_xy(dtv_pipe);
-	mdp4_overlayproc_cfg(dtv_pipe);
-	MDP_OUTP(MDP_BASE + DTV_BASE, 1);	/* start dtv */
+	while (inpdw(MDP_BASE + 0x0018) & 0x12)
+		;
+
+	if (enable) {
+		mdp4_overlayproc_cfg(dtv_pipe);
+		mdp4_overlay_dmae_xy(dtv_pipe);
+	} else {
+		mdp4_overlay_dmae_xy(dtv_pipe);
+		mdp4_overlayproc_cfg(dtv_pipe);
+	}
 }
 
 void mdp4_dtv_overlay_blt_start(struct msm_fb_data_type *mfd)
