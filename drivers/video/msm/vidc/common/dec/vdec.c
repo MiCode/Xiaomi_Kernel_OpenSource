@@ -915,7 +915,8 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 				 __func__);
 			goto import_ion_error;
 		}
-		if (res_trk_check_for_sec_session()) {
+		if (res_trk_check_for_sec_session() ||
+		   (res_trk_get_core_type() == (u32)VCD_CORE_720P)) {
 			rc = ion_phys(client_ctx->user_ion_client,
 				client_ctx->h264_mv_ion_handle,
 				(unsigned long *) (&(vcd_h264_mv_buffer->
@@ -1038,7 +1039,8 @@ static u32 vid_dec_free_h264_mv_buffers(struct video_client_ctx *client_ctx)
 	if (!IS_ERR_OR_NULL(client_ctx->h264_mv_ion_handle)) {
 		ion_unmap_kernel(client_ctx->user_ion_client,
 					client_ctx->h264_mv_ion_handle);
-		if (!res_trk_check_for_sec_session()) {
+		if (!res_trk_check_for_sec_session() &&
+		   (res_trk_get_core_type() != (u32)VCD_CORE_720P)) {
 			ion_unmap_iommu(client_ctx->user_ion_client,
 				client_ctx->h264_mv_ion_handle,
 				VIDEO_DOMAIN,

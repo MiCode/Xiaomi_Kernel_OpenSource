@@ -432,7 +432,9 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 				ion_unmap_kernel(client_ctx->user_ion_client,
 						buf_addr_table[i].
 						buff_ion_handle);
-				if (!res_trk_check_for_sec_session()) {
+				if (!res_trk_check_for_sec_session() &&
+				   (res_trk_get_core_type() !=
+				   (u32)VCD_CORE_720P)) {
 					ion_unmap_iommu(
 						client_ctx->user_ion_client,
 						buf_addr_table[i].
@@ -456,7 +458,8 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 		if (!IS_ERR_OR_NULL(client_ctx->user_ion_client)) {
 			ion_unmap_kernel(client_ctx->user_ion_client,
 					client_ctx->h264_mv_ion_handle);
-			if (!res_trk_check_for_sec_session()) {
+			if (!res_trk_check_for_sec_session() &&
+			    (res_trk_get_core_type() != (u32)VCD_CORE_720P)) {
 				ion_unmap_iommu(client_ctx->user_ion_client,
 					client_ctx->h264_mv_ion_handle,
 					VIDEO_DOMAIN,
@@ -652,7 +655,8 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 				*kernel_vaddr = (unsigned long)NULL;
 				goto ion_free_error;
 			}
-			if (res_trk_check_for_sec_session()) {
+			if (res_trk_check_for_sec_session() ||
+			   (res_trk_get_core_type() == (u32)VCD_CORE_720P)) {
 				if (ion_phys(client_ctx->user_ion_client,
 					buff_ion_handle,
 					&phys_addr, &ion_len)) {
@@ -780,7 +784,7 @@ u32 vidc_insert_addr_table_kernel(struct video_client_ctx *client_ctx,
 		*num_of_buffers = *num_of_buffers + 1;
 		DBG("%s() : client_ctx = %p, user_virt_addr = 0x%08lx, "
 			"kernel_vaddr = 0x%08lx inserted!", __func__,
-			client_ctx, user_vaddr, *kernel_vaddr);
+			client_ctx, user_vaddr, kernel_vaddr);
 	}
 	mutex_unlock(&client_ctx->enrty_queue_lock);
 	return true;
@@ -833,7 +837,8 @@ u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 	if (buf_addr_table[i].buff_ion_handle) {
 		ion_unmap_kernel(client_ctx->user_ion_client,
 				buf_addr_table[i].buff_ion_handle);
-		if (!res_trk_check_for_sec_session()) {
+		if (!res_trk_check_for_sec_session() &&
+		   (res_trk_get_core_type() != (u32)VCD_CORE_720P)) {
 			ion_unmap_iommu(client_ctx->user_ion_client,
 				buf_addr_table[i].buff_ion_handle,
 				VIDEO_DOMAIN,
