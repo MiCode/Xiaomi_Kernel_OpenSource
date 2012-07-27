@@ -222,6 +222,13 @@ struct msm_camera_i2c_conf {
 	enum msm_camera_i2c_mux_mode i2c_mux_mode;
 };
 
+enum msm_camera_vreg_name_t {
+	CAM_VDIG,
+	CAM_VIO,
+	CAM_VANA,
+	CAM_VAF,
+};
+
 struct msm_camera_sensor_platform_info {
 	int mount_angle;
 	int sensor_reset;

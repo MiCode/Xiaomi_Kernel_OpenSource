@@ -1366,6 +1366,8 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	rc = msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
 			s_ctrl->sensordata->sensor_platform_info->num_vreg,
+			s_ctrl->vreg_seq,
+			s_ctrl->num_vreg_seq,
 			s_ctrl->reg_ptr, 1);
 	if (rc < 0) {
 		pr_err("%s: regulator on failed\n", __func__);
@@ -1375,6 +1377,8 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	rc = msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
 			s_ctrl->sensordata->sensor_platform_info->num_vreg,
+			s_ctrl->vreg_seq,
+			s_ctrl->num_vreg_seq,
 			s_ctrl->reg_ptr, 1);
 	if (rc < 0) {
 		pr_err("%s: enable regulator failed\n", __func__);
@@ -1434,12 +1438,16 @@ config_gpio_failed:
 	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
 			s_ctrl->sensordata->sensor_platform_info->num_vreg,
+			s_ctrl->vreg_seq,
+			s_ctrl->num_vreg_seq,
 			s_ctrl->reg_ptr, 0);
 
 enable_vreg_failed:
 	msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
 		s_ctrl->sensordata->sensor_platform_info->num_vreg,
+		s_ctrl->vreg_seq,
+		s_ctrl->num_vreg_seq,
 		s_ctrl->reg_ptr, 0);
 config_vreg_failed:
 	msm_camera_request_gpio_table(data, 0);
@@ -1470,10 +1478,14 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
 		s_ctrl->sensordata->sensor_platform_info->num_vreg,
+		s_ctrl->vreg_seq,
+		s_ctrl->num_vreg_seq,
 		s_ctrl->reg_ptr, 0);
 	msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
 		s_ctrl->sensordata->sensor_platform_info->num_vreg,
+		s_ctrl->vreg_seq,
+		s_ctrl->num_vreg_seq,
 		s_ctrl->reg_ptr, 0);
 	msm_camera_request_gpio_table(data, 0);
 	kfree(s_ctrl->reg_ptr);
@@ -1557,6 +1569,7 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	if (!s_ctrl->wait_num_frames)
 		s_ctrl->wait_num_frames = 1 * Q10;
 
+	pr_err("%s %s probe succeeded\n", __func__, client->name);
 	snprintf(s_ctrl->sensor_v4l2_subdev.name,
 		sizeof(s_ctrl->sensor_v4l2_subdev.name), "%s", id->name);
 	v4l2_i2c_subdev_init(&s_ctrl->sensor_v4l2_subdev, client,

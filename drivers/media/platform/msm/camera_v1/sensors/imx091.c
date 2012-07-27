@@ -226,6 +226,13 @@ static struct msm_sensor_exp_gain_info_t imx091_exp_gain_info = {
 	.vert_offset = 5,
 };
 
+static enum msm_camera_vreg_name_t imx091_veg_seq[] = {
+	CAM_VANA,
+	CAM_VAF,
+	CAM_VDIG,
+	CAM_VIO,
+};
+
 static const struct i2c_device_id imx091_i2c_id[] = {
 	{SENSOR_NAME, (kernel_ulong_t)&imx091_s_ctrl},
 	{ }
@@ -303,6 +310,8 @@ static struct msm_sensor_ctrl_t imx091_s_ctrl = {
 	.msm_sensor_reg = &imx091_regs,
 	.sensor_i2c_client = &imx091_sensor_i2c_client,
 	.sensor_i2c_addr = 0x34,
+	.vreg_seq = imx091_veg_seq,
+	.num_vreg_seq = ARRAY_SIZE(imx091_veg_seq),
 	.sensor_output_reg_addr = &imx091_reg_addr,
 	.sensor_id_info = &imx091_id_info,
 	.sensor_exp_gain_info = &imx091_exp_gain_info,

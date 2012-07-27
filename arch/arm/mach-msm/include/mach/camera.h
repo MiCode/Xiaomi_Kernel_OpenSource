@@ -710,9 +710,11 @@ int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 int msm_cam_core_reset(void);
 
 int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
-		int num_vreg, struct regulator **reg_ptr, int config);
+		int num_vreg, enum msm_camera_vreg_name_t *vreg_seq,
+		int num_vreg_seq, struct regulator **reg_ptr, int config);
 int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
-		int num_vreg, struct regulator **reg_ptr, int enable);
+		int num_vreg, enum msm_camera_vreg_name_t *vreg_seq,
+		int num_vreg_seq, struct regulator **reg_ptr, int enable);
 
 int msm_camera_config_gpio_table
 	(struct msm_camera_sensor_info *sinfo, int gpio_en);
