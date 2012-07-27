@@ -46,7 +46,7 @@ module_param_named(
 static bool msm_lpm_get_rpm_notif = true;
 
 /*Macros*/
-#define VDD_DIG_ACTIVE		(950000)
+#define VDD_DIG_ACTIVE		(5)
 #define VDD_MEM_ACTIVE		(1050000)
 #define MAX_RS_NAME		(16)
 #define MAX_RS_SIZE		(4)
@@ -264,7 +264,7 @@ static int msm_lpm_send_sleep_data(struct msm_rpm_request *handle,
 		return ret;
 	}
 
-	ret = msm_rpm_wait_for_ack(msg_id);
+	ret = msm_rpm_wait_for_ack_noirq(msg_id);
 	if (ret < 0) {
 		pr_err("%s: Couldn't get ACK from RPM for Msg %d Error %d",
 				__func__, msg_id, ret);
