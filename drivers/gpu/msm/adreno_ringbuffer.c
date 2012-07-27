@@ -404,11 +404,8 @@ int adreno_ringbuffer_start(struct adreno_ringbuffer *rb, unsigned int init_ram)
 
 void adreno_ringbuffer_stop(struct adreno_ringbuffer *rb)
 {
-	if (rb->flags & KGSL_FLAGS_STARTED) {
-		/* ME_HALT */
-		adreno_regwrite(rb->device, REG_CP_ME_CNTL, 0x10000000);
+	if (rb->flags & KGSL_FLAGS_STARTED)
 		rb->flags &= ~KGSL_FLAGS_STARTED;
-	}
 }
 
 int adreno_ringbuffer_init(struct kgsl_device *device)
