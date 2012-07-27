@@ -512,6 +512,23 @@ void mdp_dma2_update(struct msm_fb_data_type *mfd)
 	up(&mfd->dma->mutex);
 }
 
+void mdp_dma_vsync_ctrl(int enable)
+{
+	if (vsync_cntrl.vsync_irq_enabled == enable)
+		return;
+
+	vsync_cntrl.vsync_irq_enabled = enable;
+
+	if (enable) {
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		MDP_OUTP(MDP_BASE + 0x021c, 0x10); /* read pointer */
+		mdp3_vsync_irq_enable(MDP_PRIM_RDPTR, MDP_VSYNC_TERM);
+	} else {
+		mdp3_vsync_irq_disable(MDP_PRIM_RDPTR, MDP_VSYNC_TERM);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	}
+}
+
 void mdp_lcd_update_workqueue_handler(struct work_struct *work)
 {
 	struct msm_fb_data_type *mfd = NULL;

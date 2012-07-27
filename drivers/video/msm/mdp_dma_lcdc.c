@@ -105,6 +105,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 
 	fbi = mfd->fbi;
 	var = &fbi->var;
+	vsync_cntrl.dev = mfd->fbi->dev;
 
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
@@ -325,6 +326,22 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	msleep(16);
 
 	return ret;
+}
+
+void mdp_dma_lcdc_vsync_ctrl(int enable)
+{
+	if (vsync_cntrl.vsync_irq_enabled == enable)
+		return;
+
+	vsync_cntrl.vsync_irq_enabled = enable;
+
+	if (enable) {
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		mdp3_vsync_irq_enable(LCDC_FRAME_START, MDP_VSYNC_TERM);
+	} else {
+		mdp3_vsync_irq_disable(LCDC_FRAME_START, MDP_VSYNC_TERM);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	}
 }
 
 void mdp_lcdc_update(struct msm_fb_data_type *mfd)
