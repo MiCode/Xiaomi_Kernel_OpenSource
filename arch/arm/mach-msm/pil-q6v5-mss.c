@@ -139,8 +139,10 @@ static int pil_mss_reset(struct pil_desc *pil)
 	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
 	int ret;
 
+	/* Deassert reset to subsystem and wait for propagation */
 	writel_relaxed(0, drv->restart_reg);
 	mb();
+	udelay(2);
 
 	/*
 	 * Bring subsystem out of reset and enable required
