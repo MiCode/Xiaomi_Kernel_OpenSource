@@ -1,0 +1,18 @@
+* MSM-ID
+
+The qcom,msm-id entry specifies the MSM chipset, platform and hardware revision.
+It can optionally be an array of these to indicate multiple hardware that use
+the same device tree.  It is expected that the bootloader will use this
+information at boot-up to decide which device tree to use when given multiple
+device trees, some of which may not be compatible with the actual hardware.  It
+is the bootloader's responsibility to pass the correct device tree to the kernel.
+
+Format:
+
+It is expected that the qcom,msm-id entry be at the top level of the device
+tree structure.  The format of the entry is:
+
+   qcom,msm-id = <chipset_id, platform_id, rev_id> [, <c2, p2, r2> ...]
+
+Example:
+   qcom,msm-id = <126 15 0>;

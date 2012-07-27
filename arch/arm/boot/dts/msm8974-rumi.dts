@@ -17,6 +17,7 @@
 / {
 	model = "Qualcomm MSM 8974 RUMI";
 	compatible = "qcom,msm8974-rumi", "qcom,msm8974";
+	qcom,msm-id = <126 15 0>;
 
 	timer {
 		clock-frequency = <5000000>;
