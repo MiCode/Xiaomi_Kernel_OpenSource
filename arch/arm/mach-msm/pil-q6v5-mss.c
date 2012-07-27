@@ -155,11 +155,14 @@ static int pil_mss_reset(struct pil_desc *pil)
 		goto err_clks;
 
 	/* Program Image Address */
-	if (drv->self_auth)
+	if (drv->self_auth) {
 		writel_relaxed(drv->start_addr, drv->rmb_base + RMB_MBA_IMAGE);
-	else
+		/* Ensure write to RMB base occurs before reset is released. */
+		mb();
+	} else {
 		writel_relaxed((drv->start_addr >> 4) & 0x0FFFFFF0,
 				drv->reg_base + QDSP6SS_RST_EVB);
+	}
 
 	ret = pil_q6v5_reset(pil);
 	if (ret)
