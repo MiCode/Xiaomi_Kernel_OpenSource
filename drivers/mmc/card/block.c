@@ -1773,6 +1773,7 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	brq->stop.arg = 0;
 	brq->data.blocks = blk_rq_sectors(req);
 
+	brq->data.fault_injected = false;
 	/*
 	 * The block layer doesn't support all sector count
 	 * restrictions, so we need to be prepared for too big
@@ -2103,6 +2104,7 @@ static void mmc_blk_packed_hdr_wrq_prep(struct mmc_queue_req *mqrq,
 	brq->data.blksz = 512;
 	brq->data.blocks = packed->blocks + hdr_blocks;
 	brq->data.flags = MMC_DATA_WRITE;
+	brq->data.fault_injected = false;
 
 	brq->stop.opcode = MMC_STOP_TRANSMISSION;
 	brq->stop.arg = 0;
@@ -2136,11 +2138,12 @@ static int mmc_blk_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
 	 */
 	if (mmc_card_sd(card)) {
 		u32 blocks;
-
-		blocks = mmc_sd_num_wr_blocks(card);
-		if (blocks != (u32)-1) {
-			ret = blk_end_request(req, 0, blocks << 9);
-		}
+		if (!brq->data.fault_injected) {
+			blocks = mmc_sd_num_wr_blocks(card);
+			if (blocks != (u32)-1)
+				ret = blk_end_request(req, 0, blocks << 9);
+		} else
+			ret = blk_end_request(req, 0, brq->data.bytes_xfered);
 	} else {
 		if (!mmc_packed_cmd(mq_rq->cmd_type))
 			ret = blk_end_request(req, 0, brq->data.bytes_xfered);
