@@ -283,6 +283,9 @@ static DEFINE_SPINLOCK(bam_dmux_logging_spinlock);
 static int bam_dmux_uplink_vote;
 static int bam_dmux_power_state;
 
+static void bam_dmux_log(const char *fmt, ...)
+					__printf(1, 2);
+
 
 #define DMUX_LOG_KERR(fmt...) \
 do { \
@@ -569,7 +572,8 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 				rx_hdr->ch_id);
 		handle_bam_mux_cmd_open(rx_hdr);
 		if (!(rx_hdr->reserved & ENABLE_DISCONNECT_ACK)) {
-			bam_dmux_log("%s: deactivating disconnect ack\n");
+			bam_dmux_log("%s: deactivating disconnect ack\n",
+								__func__);
 			disconnect_ack = 0;
 		}
 		dev_kfree_skb_any(rx_skb);
