@@ -543,6 +543,13 @@ static struct msm_sensor_output_reg_addr_t s5k3l1yx_reg_addr = {
 	.frame_length_lines = 0x340,
 };
 
+static enum msm_camera_vreg_name_t s5k3l1yx_veg_seq[] = {
+	CAM_VDIG,
+	CAM_VANA,
+	CAM_VIO,
+	CAM_VAF,
+};
+
 static struct msm_sensor_id_info_t s5k3l1yx_id_info = {
 	.sensor_id_reg_addr = 0x0,
 	.sensor_id = 0x3121,
@@ -670,6 +677,8 @@ static struct msm_sensor_ctrl_t s5k3l1yx_s_ctrl = {
 	.msm_sensor_reg = &s5k3l1yx_regs,
 	.sensor_i2c_client = &s5k3l1yx_sensor_i2c_client,
 	.sensor_i2c_addr = 0x6E,
+	.vreg_seq = s5k3l1yx_veg_seq,
+	.num_vreg_seq = ARRAY_SIZE(s5k3l1yx_veg_seq),
 	.sensor_output_reg_addr = &s5k3l1yx_reg_addr,
 	.sensor_id_info = &s5k3l1yx_id_info,
 	.sensor_exp_gain_info = &s5k3l1yx_exp_gain_info,

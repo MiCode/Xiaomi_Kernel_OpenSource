@@ -676,6 +676,12 @@ static struct msm_sensor_exp_gain_info_t ov2720_exp_gain_info = {
 	.vert_offset = 6,
 };
 
+static enum msm_camera_vreg_name_t ov2720_veg_seq[] = {
+	CAM_VIO,
+	CAM_VANA,
+	CAM_VDIG,
+};
+
 static int32_t ov2720_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		uint16_t gain, uint32_t line)
 {
@@ -821,6 +827,8 @@ static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 	.msm_sensor_reg = &ov2720_regs,
 	.sensor_i2c_client = &ov2720_sensor_i2c_client,
 	.sensor_i2c_addr = 0x6C,
+	.vreg_seq = ov2720_veg_seq,
+	.num_vreg_seq = ARRAY_SIZE(ov2720_veg_seq),
 	.sensor_output_reg_addr = &ov2720_reg_addr,
 	.sensor_id_info = &ov2720_id_info,
 	.sensor_exp_gain_info = &ov2720_exp_gain_info,

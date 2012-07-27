@@ -1191,6 +1191,13 @@ static struct msm_sensor_output_reg_addr_t mt9m114_reg_addr = {
 	.frame_length_lines = 0xC86A,
 };
 
+static enum msm_camera_vreg_name_t mt9m114_veg_seq[] = {
+	CAM_VIO,
+	CAM_VDIG,
+	CAM_VANA,
+	CAM_VAF,
+};
+
 static struct msm_sensor_id_info_t mt9m114_id_info = {
 	.sensor_id_reg_addr = 0x0,
 	.sensor_id = 0x2481,
@@ -1264,6 +1271,8 @@ static struct msm_sensor_ctrl_t mt9m114_s_ctrl = {
 	.num_v4l2_ctrl = ARRAY_SIZE(mt9m114_v4l2_ctrl_info),
 	.sensor_i2c_client = &mt9m114_sensor_i2c_client,
 	.sensor_i2c_addr = 0x90,
+	.vreg_seq = mt9m114_veg_seq,
+	.num_vreg_seq = ARRAY_SIZE(mt9m114_veg_seq),
 	.sensor_output_reg_addr = &mt9m114_reg_addr,
 	.sensor_id_info = &mt9m114_id_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,

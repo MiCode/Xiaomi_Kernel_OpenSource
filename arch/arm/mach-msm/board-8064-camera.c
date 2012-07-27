@@ -369,17 +369,10 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	},
 };
 
-static struct camera_vreg_t apq_8064_back_cam_vreg[] = {
+static struct camera_vreg_t apq_8064_cam_vreg[] = {
 	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
 	{"cam_vio", REG_VS, 0, 0, 0},
 	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
-};
-
-static struct camera_vreg_t apq_8064_front_cam_vreg[] = {
-	{"cam_vio", REG_VS, 0, 0, 0},
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
 	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
 };
 
@@ -482,8 +475,8 @@ static struct msm_camera_csi_lane_params imx074_csi_lane_params = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_imx074 = {
 	.mount_angle	= 90,
-	.cam_vreg = apq_8064_back_cam_vreg,
-	.num_vreg = ARRAY_SIZE(apq_8064_back_cam_vreg),
+	.cam_vreg = apq_8064_cam_vreg,
+	.num_vreg = ARRAY_SIZE(apq_8064_cam_vreg),
 	.gpio_conf = &apq8064_back_cam_gpio_conf,
 	.i2c_conf = &apq8064_back_cam_i2c_conf,
 	.csi_lane_params = &imx074_csi_lane_params,
@@ -515,21 +508,14 @@ static struct msm_camera_csi_lane_params imx091_csi_lane_params = {
 	.csi_lane_mask = 0xF,
 };
 
-static struct camera_vreg_t apq_8064_imx091_vreg[] = {
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
-	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
-	{"cam_vio", REG_VS, 0, 0, 0},
-};
-
 static struct msm_camera_sensor_flash_data flash_imx091 = {
 	.flash_type	= MSM_CAMERA_FLASH_NONE,
 };
 
 static struct msm_camera_sensor_platform_info sensor_board_info_imx091 = {
 	.mount_angle	= 0,
-	.cam_vreg = apq_8064_imx091_vreg,
-	.num_vreg = ARRAY_SIZE(apq_8064_imx091_vreg),
+	.cam_vreg = apq_8064_cam_vreg,
+	.num_vreg = ARRAY_SIZE(apq_8064_cam_vreg),
 	.gpio_conf = &apq8064_back_cam_gpio_conf,
 	.i2c_conf = &apq8064_back_cam_i2c_conf,
 	.csi_lane_params = &imx091_csi_lane_params,
@@ -556,13 +542,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {
 	.eeprom_info = &imx091_eeprom_info,
 };
 
-static struct camera_vreg_t apq_8064_s5k3l1yx_vreg[] = {
-	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vio", REG_VS, 0, 0, 0},
-	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
-};
-
 static struct msm_camera_sensor_flash_data flash_s5k3l1yx = {
 	.flash_type	= MSM_CAMERA_FLASH_NONE,
 };
@@ -574,8 +553,8 @@ static struct msm_camera_csi_lane_params s5k3l1yx_csi_lane_params = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_s5k3l1yx = {
 	.mount_angle	= 90,
-	.cam_vreg = apq_8064_s5k3l1yx_vreg,
-	.num_vreg = ARRAY_SIZE(apq_8064_s5k3l1yx_vreg),
+	.cam_vreg = apq_8064_cam_vreg,
+	.num_vreg = ARRAY_SIZE(apq_8064_cam_vreg),
 	.gpio_conf = &apq8064_back_cam_gpio_conf,
 	.i2c_conf = &apq8064_back_cam_i2c_conf,
 	.csi_lane_params = &s5k3l1yx_csi_lane_params,
@@ -591,13 +570,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k3l1yx_data = {
 	.sensor_type = BAYER_SENSOR,
 };
 
-static struct camera_vreg_t apq_8064_mt9m114_vreg[] = {
-	{"cam_vio", REG_VS, 0, 0, 0},
-	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vaf", REG_LDO, 2800000, 2850000, 300000},
-};
-
 static struct msm_camera_sensor_flash_data flash_mt9m114 = {
 	.flash_type = MSM_CAMERA_FLASH_NONE
 };
@@ -609,8 +581,8 @@ static struct msm_camera_csi_lane_params mt9m114_csi_lane_params = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_mt9m114 = {
 	.mount_angle = 90,
-	.cam_vreg = apq_8064_mt9m114_vreg,
-	.num_vreg = ARRAY_SIZE(apq_8064_mt9m114_vreg),
+	.cam_vreg = apq_8064_cam_vreg,
+	.num_vreg = ARRAY_SIZE(apq_8064_cam_vreg),
 	.gpio_conf = &apq8064_front_cam_gpio_conf,
 	.i2c_conf = &apq8064_front_cam_i2c_conf,
 	.csi_lane_params = &mt9m114_csi_lane_params,
@@ -637,8 +609,8 @@ static struct msm_camera_csi_lane_params ov2720_csi_lane_params = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_ov2720 = {
 	.mount_angle	= 0,
-	.cam_vreg = apq_8064_front_cam_vreg,
-	.num_vreg = ARRAY_SIZE(apq_8064_front_cam_vreg),
+	.cam_vreg = apq_8064_cam_vreg,
+	.num_vreg = ARRAY_SIZE(apq_8064_cam_vreg),
 	.gpio_conf = &apq8064_front_cam_gpio_conf,
 	.i2c_conf = &apq8064_front_cam_i2c_conf,
 	.csi_lane_params = &ov2720_csi_lane_params,

@@ -189,14 +189,14 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	}
 
 	rc = msm_camera_config_vreg(&csid_dev->pdev->dev, csid_vreg_info,
-		ARRAY_SIZE(csid_vreg_info), &csid_dev->csi_vdd, 1);
+		ARRAY_SIZE(csid_vreg_info), NULL, 0, &csid_dev->csi_vdd, 1);
 	if (rc < 0) {
 		pr_err("%s: regulator on failed\n", __func__);
 		goto vreg_config_failed;
 	}
 
 	rc = msm_camera_enable_vreg(&csid_dev->pdev->dev, csid_vreg_info,
-		ARRAY_SIZE(csid_vreg_info), &csid_dev->csi_vdd, 1);
+		ARRAY_SIZE(csid_vreg_info), NULL, 0, &csid_dev->csi_vdd, 1);
 	if (rc < 0) {
 		pr_err("%s: regulator enable failed\n", __func__);
 		goto vreg_enable_failed;
@@ -222,10 +222,10 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 
 clk_enable_failed:
 	msm_camera_enable_vreg(&csid_dev->pdev->dev, csid_vreg_info,
-		ARRAY_SIZE(csid_vreg_info), &csid_dev->csi_vdd, 0);
+		ARRAY_SIZE(csid_vreg_info), NULL, 0, &csid_dev->csi_vdd, 0);
 vreg_enable_failed:
 	msm_camera_config_vreg(&csid_dev->pdev->dev, csid_vreg_info,
-		ARRAY_SIZE(csid_vreg_info), &csid_dev->csi_vdd, 0);
+		ARRAY_SIZE(csid_vreg_info), NULL, 0, &csid_dev->csi_vdd, 0);
 vreg_config_failed:
 	iounmap(csid_dev->base);
 	csid_dev->base = NULL;
@@ -246,10 +246,10 @@ static int msm_csid_release(struct csid_device *csid_dev)
 		csid_dev->csid_clk, ARRAY_SIZE(csid_clk_info), 0);
 
 	msm_camera_enable_vreg(&csid_dev->pdev->dev, csid_vreg_info,
-		ARRAY_SIZE(csid_vreg_info), &csid_dev->csi_vdd, 0);
+		ARRAY_SIZE(csid_vreg_info), NULL, 0, &csid_dev->csi_vdd, 0);
 
 	msm_camera_config_vreg(&csid_dev->pdev->dev, csid_vreg_info,
-		ARRAY_SIZE(csid_vreg_info), &csid_dev->csi_vdd, 0);
+		ARRAY_SIZE(csid_vreg_info), NULL, 0, &csid_dev->csi_vdd, 0);
 
 	iounmap(csid_dev->base);
 	csid_dev->base = NULL;
