@@ -16,10 +16,8 @@ Required properties:
 Optional Properties:
 	- cell-index - defines slot ID.
 	- qcom,sdcc-bus-width - defines the bus I/O width that controller supports.
-	- qcom,sdcc-wp-gpio - defines write protect switch gpio.
-	- qcom,sdcc-wp-polarity - specifies the polarity of wp switch.
-	- qcom,sdcc-cd-gpio - defines card detect gpio number.
-	- qcom,sdcc-cd-polarity - specifies the polarity of cd gpio.
+	- wp-gpios - specify GPIO for write protect switch detection.
+	- cd-gpios - specify GPIO for card detection.
 	- qcom,sdcc-nonremovable - specifies whether the card in slot is
 				hot pluggable or hard wired.
 	- qcom,sdcc-disable_cmd23 - disable sending CMD23 to card when controller can't support it.

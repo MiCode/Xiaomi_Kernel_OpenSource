@@ -3165,7 +3165,7 @@ static int msmsdcc_get_ro(struct mmc_host *mmc)
 
 	if (host->plat->wpswitch) {
 		status = host->plat->wpswitch(mmc_dev(mmc));
-	} else if (host->plat->wpswitch_gpio) {
+	} else if (gpio_is_valid(host->plat->wpswitch_gpio)) {
 		status = gpio_request(host->plat->wpswitch_gpio,
 					"SD_WP_Switch");
 		if (status) {
@@ -3971,7 +3971,7 @@ msmsdcc_check_status(unsigned long data)
 	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
 	unsigned int status;
 
-	if (host->plat->status || host->plat->status_gpio) {
+	if (host->plat->status || gpio_is_valid(host->plat->status_gpio)) {
 		if (host->plat->status)
 			status = host->plat->status(mmc_dev(host->mmc));
 		else
@@ -5008,12 +5008,33 @@ err:
 	return ret;
 }
 
+static void msmsdcc_dt_get_cd_wp_gpio(struct device *dev,
+		struct mmc_platform_data *pdata)
+{
+	enum of_gpio_flags flags = OF_GPIO_ACTIVE_LOW;
+	struct device_node *np = dev->of_node;
+
+	pdata->status_gpio = of_get_named_gpio_flags(np,
+			"cd-gpios", 0, &flags);
+	if (gpio_is_valid(pdata->status_gpio)) {
+		pdata->status_irq = gpio_to_irq(pdata->status_gpio);
+		pdata->is_status_gpio_active_low = flags & OF_GPIO_ACTIVE_LOW;
+	}
+
+	pdata->wpswitch_gpio = of_get_named_gpio_flags(np,
+			"wp-gpios", 0, &flags);
+	if (gpio_is_valid(pdata->wpswitch_gpio))
+		pdata->is_wpswitch_active_low = flags & OF_GPIO_ACTIVE_LOW;
+}
+
 static int msmsdcc_dt_parse_gpio_info(struct device *dev,
 		struct mmc_platform_data *pdata)
 {
 	int ret = 0, id = 0, cnt, i;
 	struct msm_mmc_pin_data *pin_data;
 	struct device_node *np = dev->of_node;
+
+	msmsdcc_dt_get_cd_wp_gpio(dev, pdata);
 
 	pin_data = devm_kzalloc(dev, sizeof(*pin_data), GFP_KERNEL);
 	if (!pin_data) {
@@ -5656,7 +5677,12 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * Setup card detect change
 	 */
 
-	if (plat->status || plat->status_gpio) {
+	if (!plat->status_gpio)
+		plat->status_gpio = -ENOENT;
+	if (!plat->wpswitch_gpio)
+		plat->wpswitch_gpio = -ENOENT;
+
+	if (plat->status || gpio_is_valid(plat->status_gpio)) {
 		if (plat->status)
 			host->oldstat = plat->status(mmc_dev(host->mmc));
 		else
