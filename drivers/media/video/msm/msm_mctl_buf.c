@@ -721,11 +721,8 @@ int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
 	uint32_t buf_phyaddr = 0;
 	int rc = -EINVAL;
 
-	if (!free_buf)
-		return rc;
-
-	if (!pcam_inst) {
-		pr_err("%s Invalid instance, buffer not released\n",
+	if (!pcam_inst || !free_buf) {
+		pr_err("%s Invalid argument, buffer will not be returned\n",
 			__func__);
 		return rc;
 	}
@@ -735,17 +732,19 @@ int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
 		buf_phyaddr =
 			(uint32_t) videobuf2_to_pmem_contig(&buf->vidbuf, 0);
 		if (free_buf->ch_paddr[0] == buf_phyaddr) {
-			D("%s buf = 0x%x \n", __func__, free_buf->ch_paddr[0]);
-			buf->state = MSM_BUFFER_STATE_UNUSED;
+			D("%s Return buffer %d and mark it as QUEUED\n",
+				__func__, buf->vidbuf.v4l2_buf.index);
+			buf->state = MSM_BUFFER_STATE_QUEUED;
 			rc = 0;
 			break;
 		}
 	}
-
-	if (rc != 0)
-		pr_err("%s invalid buffer address ", __func__);
-
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+
+	if (rc)
+		pr_err("%s Cannot find buffer %x", __func__,
+			free_buf->ch_paddr[0]);
+
 	return rc;
 }
 
