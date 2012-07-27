@@ -1268,6 +1268,12 @@ static int __init diagchar_init(void)
 			diag_read_smd_wcnss_cntl_work_fn);
 		INIT_WORK(&(driver->diag_read_smd_dci_work),
 						 diag_read_smd_dci_work_fn);
+		INIT_WORK(&(driver->diag_clean_modem_reg_work),
+						 diag_clean_modem_reg_fn);
+		INIT_WORK(&(driver->diag_clean_lpass_reg_work),
+						 diag_clean_lpass_reg_fn);
+		INIT_WORK(&(driver->diag_clean_wcnss_reg_work),
+						 diag_clean_wcnss_reg_fn);
 		diag_debugfs_init();
 		diagfwd_init();
 		diagfwd_cntl_init();

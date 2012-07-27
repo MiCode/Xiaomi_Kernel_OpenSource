@@ -28,11 +28,6 @@ struct dci_notification_tbl {
 	int signal_type;
 };
 
-#define DIAG_CON_APSS (0x0001)	/* Bit mask for APSS */
-#define DIAG_CON_MPSS (0x0002)	/* Bit mask for MPSS */
-#define DIAG_CON_LPASS (0x0004)	/* Bit mask for LPASS */
-#define DIAG_CON_WCNSS (0x0008)	/* Bit mask for WCNSS */
-
 enum {
 	DIAG_DCI_NO_ERROR = 1001,	/* No error */
 	DIAG_DCI_NO_REG,		/* Could not register */
