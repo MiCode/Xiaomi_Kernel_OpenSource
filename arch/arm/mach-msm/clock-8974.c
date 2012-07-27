@@ -599,9 +599,9 @@ static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
 
 static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 
-#define RPM_MISC_CLK_TYPE 0x306b6c63
-#define RPM_BUS_CLK_TYPE  0x316b6c63
-#define RPM_MEM_CLK_TYPE  0x326b6c63
+#define RPM_MISC_CLK_TYPE	0x306b6c63
+#define RPM_BUS_CLK_TYPE	0x316b6c63
+#define RPM_MEM_CLK_TYPE	0x326b6c63
 
 #define CXO_ID		0x0
 #define QDSS_ID		0x1
@@ -613,6 +613,14 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 
 #define BIMC_ID		0x0
 #define OCMEM_ID	0x1
+
+enum {
+	D0_ID = 1,
+	D1_ID,
+	A0_ID,
+	A1_ID,
+	A2_ID,
+};
 
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
@@ -627,6 +635,18 @@ DEFINE_CLK_RPM_SMD(ocmemgx_clk, ocmemgx_a_clk, RPM_MEM_CLK_TYPE, OCMEM_ID,
 DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_a_clk_src,
 				RPM_MISC_CLK_TYPE, CXO_ID, 19200000);
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
+
+DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_d0, cxo_d0_a, D0_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_d1, cxo_d1_a, D1_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_a0, cxo_a0_a, A0_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_a1, cxo_a1_a, A1_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_a2, cxo_a2_a, A2_ID);
+
+DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_d0_pin, cxo_d0_a_pin, D0_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_d1_pin, cxo_d1_a_pin, D1_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_a0_pin, cxo_a0_a_pin, A0_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_a1_pin, cxo_a1_a_pin, A1_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_a2_pin, cxo_a2_a_pin, A2_ID);
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
