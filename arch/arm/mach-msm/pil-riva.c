@@ -263,17 +263,17 @@ static struct pil_reset_ops pil_riva_ops = {
 static int pil_riva_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
-	return pas_init_image(PAS_RIVA, metadata, size);
+	return pas_init_image(PAS_WCNSS, metadata, size);
 }
 
 static int pil_riva_reset_trusted(struct pil_desc *pil)
 {
-	return pas_auth_and_reset(PAS_RIVA);
+	return pas_auth_and_reset(PAS_WCNSS);
 }
 
 static int pil_riva_shutdown_trusted(struct pil_desc *pil)
 {
-	return pas_shutdown(PAS_RIVA);
+	return pas_shutdown(PAS_WCNSS);
 }
 
 static struct pil_reset_ops pil_riva_ops_trusted = {
@@ -334,7 +334,7 @@ static int pil_riva_probe(struct platform_device *pdev)
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = 10000;
 
-	if (pas_supported(PAS_RIVA) > 0) {
+	if (pas_supported(PAS_WCNSS) > 0) {
 		desc->ops = &pil_riva_ops_trusted;
 		dev_info(&pdev->dev, "using secure boot\n");
 	} else {
