@@ -320,7 +320,7 @@ config ARCH_MSM9625
 	select CPU_V7
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
-	select GPIO_MSM_V2
+	select GPIO_MSM_V3
 	select HAVE_ARM_ARCH_TIMER
 
 endmenu
