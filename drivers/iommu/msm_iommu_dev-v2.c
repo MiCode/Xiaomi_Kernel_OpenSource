@@ -192,7 +192,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	 */
 	ctx_drvdata->num = ((r->start - rp.start) >> CTX_SHIFT) - 8;
 
-	if (of_property_read_string(pdev->dev.of_node, "qcom,iommu-ctx-name",
+	if (of_property_read_string(pdev->dev.of_node, "label",
 					&ctx_drvdata->name))
 		ctx_drvdata->name = dev_name(&pdev->dev);
 
@@ -232,7 +232,7 @@ static int __devinit msm_iommu_ctx_probe(struct platform_device *pdev)
 	ret = msm_iommu_ctx_parse_dt(pdev, ctx_drvdata);
 	if (!ret)
 		dev_info(&pdev->dev, "context %s using bank %d\n",
-				dev_name(&pdev->dev), ctx_drvdata->num);
+			 ctx_drvdata->name, ctx_drvdata->num);
 
 	return ret;
 }
