@@ -472,6 +472,7 @@ struct msm_camera_cfg_cmd {
 #define CMD_AXI_CFG_ZSL 43
 #define CMD_AXI_CFG_SNAP_VPE 44
 #define CMD_AXI_CFG_SNAP_THUMB_VPE 45
+
 #define CMD_CONFIG_PING_ADDR 46
 #define CMD_CONFIG_PONG_ADDR 47
 #define CMD_CONFIG_FREE_BUF_ADDR 48
@@ -479,6 +480,13 @@ struct msm_camera_cfg_cmd {
 #define CMD_AXI_CFG_VIDEO_ALL_CHNLS 50
 #define CMD_VFE_BUFFER_RELEASE 51
 #define CMD_VFE_PROCESS_IRQ 52
+#define CMD_STATS_BG_ENABLE 53
+#define CMD_STATS_BF_ENABLE 54
+#define CMD_STATS_BHIST_ENABLE 55
+#define CMD_STATS_BG_BUF_RELEASE 56
+#define CMD_STATS_BF_BUF_RELEASE 57
+#define CMD_STATS_BHIST_BUF_RELEASE 58
+
 
 #define CMD_AXI_CFG_PRIM               BIT(8)
 #define CMD_AXI_CFG_PRIM_ALL_CHNLS     BIT(9)
@@ -528,7 +536,10 @@ struct camera_enable_cmd {
 #define MSM_PMEM_C2D			17
 #define MSM_PMEM_MAINIMG_VPE    18
 #define MSM_PMEM_THUMBNAIL_VPE  19
-#define MSM_PMEM_MAX            20
+#define MSM_PMEM_BAYER_GRID		20
+#define MSM_PMEM_BAYER_FOCUS	21
+#define MSM_PMEM_BAYER_HIST		22
+#define MSM_PMEM_MAX            23
 
 #define STAT_AEAW			0
 #define STAT_AEC			1
@@ -538,7 +549,10 @@ struct camera_enable_cmd {
 #define STAT_CS				5
 #define STAT_IHIST			6
 #define STAT_SKIN			7
-#define STAT_MAX			8
+#define STAT_BG				8
+#define STAT_BF				9
+#define STAT_BHIST			10
+#define STAT_MAX			11
 
 #define FRAME_PREVIEW_OUTPUT1		0
 #define FRAME_PREVIEW_OUTPUT2		1
@@ -1860,6 +1874,12 @@ struct msm_cpp_frame_info_t {
 	enum msm_cpp_frame_type frame_type;
 	uint32_t num_strips;
 	struct msm_cpp_frame_strip_info *strip_info;
+};
+
+struct msm_ver_num_info {
+	uint32_t main;
+	uint32_t minor;
+	uint32_t rev;
 };
 
 #define VIDIOC_MSM_CPP_CFG \

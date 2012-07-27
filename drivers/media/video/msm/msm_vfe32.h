@@ -104,12 +104,13 @@
 #define VFE_IRQ_STATUS1_RESET_AXI_HALT_ACK_MASK   0x00800000
 #define VFE_IRQ_STATUS0_STATS_COMPOSIT_MASK       0x01000000
 
-#define VFE_IRQ_STATUS0_STATS_AEC     0x2000  /* bit 13 */
-#define VFE_IRQ_STATUS0_STATS_AF      0x4000  /* bit 14 */
-#define VFE_IRQ_STATUS0_STATS_AWB     0x8000  /* bit 15 */
-#define VFE_IRQ_STATUS0_STATS_RS      0x10000  /* bit 16 */
-#define VFE_IRQ_STATUS0_STATS_CS      0x20000  /* bit 17 */
-#define VFE_IRQ_STATUS0_STATS_IHIST   0x40000  /* bit 18 */
+#define VFE_IRQ_STATUS0_STATS_AEC_BG    0x2000  /* bit 13 */
+#define VFE_IRQ_STATUS0_STATS_AF_BF     0x4000  /* bit 14 */
+#define VFE_IRQ_STATUS0_STATS_AWB       0x8000  /* bit 15 */
+#define VFE_IRQ_STATUS0_STATS_RS        0x10000  /* bit 16 */
+#define VFE_IRQ_STATUS0_STATS_CS        0x20000  /* bit 17 */
+#define VFE_IRQ_STATUS0_STATS_IHIST     0x40000  /* bit 18 */
+#define VFE_IRQ_STATUS0_STATS_SK_BHIST  0x80000 /* bit 19 */
 
 #define VFE_IRQ_STATUS0_SYNC_TIMER0   0x2000000  /* bit 25 */
 #define VFE_IRQ_STATUS0_SYNC_TIMER1   0x4000000  /* bit 26 */
@@ -174,7 +175,12 @@
 #define RS_CS_ENABLE_MASK 0x00000300   /* bit 8,9  */
 #define CLF_ENABLE_MASK 0x00002000     /* bit 13 */
 #define IHIST_ENABLE_MASK 0x00010000   /* bit 16 */
+#define SKIN_BHIST_ENABLE_MASK 0x00080000 /* bit 19 */
 #define STATS_ENABLE_MASK 0x000903E0   /* bit 19,16,9,8,7,6,5*/
+
+#define STATS_BG_ENABLE_MASK     0x00000002 /* bit 1 */
+#define STATS_BF_ENABLE_MASK     0x00000004 /* bit 2 */
+#define STATS_BHIST_ENABLE_MASK  0x00000008 /* bit 3 */
 
 #define VFE_REG_UPDATE_TRIGGER           1
 #define VFE_PM_BUF_MAX_CNT_MASK          0xFF
@@ -377,6 +383,15 @@ enum vfe_output_state {
 
 #define V32_CLF_CHROMA_UPDATE_OFF 0x000006F0
 #define V32_CLF_CHROMA_UPDATE_LEN 8
+
+#define V32_STATS_BG_OFF 0x00000700
+#define V32_STATS_BG_LEN 12
+
+#define V32_STATS_BF_OFF 0x0000070c
+#define V32_STATS_BF_LEN 24
+
+#define V32_STATS_BHIST_OFF 0x00000724
+#define V32_STATS_BHIST_LEN 8
 
 struct vfe_cmd_hw_version {
 	uint32_t minorVersion;
@@ -845,12 +860,12 @@ struct vfe32_frame_extra {
 #define VFE_AXI_STATUS        0x000001DC
 #define VFE_BUS_STATS_PING_PONG_BASE    0x000000F4
 
-#define VFE_BUS_STATS_AEC_WR_PING_ADDR    0x000000F4
-#define VFE_BUS_STATS_AEC_WR_PONG_ADDR    0x000000F8
-#define VFE_BUS_STATS_AEC_UB_CFG          0x000000FC
-#define VFE_BUS_STATS_AF_WR_PING_ADDR     0x00000100
-#define VFE_BUS_STATS_AF_WR_PONG_ADDR     0x00000104
-#define VFE_BUS_STATS_AF_UB_CFG           0x00000108
+#define VFE_BUS_STATS_AEC_BG_WR_PING_ADDR    0x000000F4
+#define VFE_BUS_STATS_AEC_BG_WR_PONG_ADDR    0x000000F8
+#define VFE_BUS_STATS_AEC_BG_UB_CFG          0x000000FC
+#define VFE_BUS_STATS_AF_BF_WR_PING_ADDR     0x00000100
+#define VFE_BUS_STATS_AF_BF_WR_PONG_ADDR     0x00000104
+#define VFE_BUS_STATS_AF_BF_UB_CFG           0x00000108
 #define VFE_BUS_STATS_AWB_WR_PING_ADDR    0x0000010C
 #define VFE_BUS_STATS_AWB_WR_PONG_ADDR    0x00000110
 #define VFE_BUS_STATS_AWB_UB_CFG          0x00000114
@@ -864,9 +879,9 @@ struct vfe32_frame_extra {
 #define VFE_BUS_STATS_HIST_WR_PING_ADDR   0x00000130
 #define VFE_BUS_STATS_HIST_WR_PONG_ADDR   0x00000134
 #define VFE_BUS_STATS_HIST_UB_CFG          0x00000138
-#define VFE_BUS_STATS_SKIN_WR_PING_ADDR    0x0000013C
-#define VFE_BUS_STATS_SKIN_WR_PONG_ADDR    0x00000140
-#define VFE_BUS_STATS_SKIN_UB_CFG          0x00000144
+#define VFE_BUS_STATS_SKIN_BHIST_WR_PING_ADDR    0x0000013C
+#define VFE_BUS_STATS_SKIN_BHIST_WR_PONG_ADDR    0x00000140
+#define VFE_BUS_STATS_SKIN_BHIST_UB_CFG          0x00000144
 #define VFE_CAMIF_COMMAND               0x000001E0
 #define VFE_CAMIF_STATUS                0x00000204
 #define VFE_REG_UPDATE_CMD              0x00000260
@@ -888,6 +903,7 @@ struct vfe32_frame_extra {
 #define VFE_STATS_AWB_SGW_CFG           0x00000554
 #define VFE_DMI_CFG                     0x00000598
 #define VFE_DMI_ADDR                    0x0000059C
+#define VFE_DMI_DATA_HI                 0x000005A0
 #define VFE_DMI_DATA_LO                 0x000005A4
 #define VFE_BUS_IO_FORMAT_CFG           0x000006F8
 #define VFE_PIXEL_IF_CFG                0x000006FC
@@ -990,12 +1006,14 @@ struct vfe32_ctrl_type {
 	uint32_t output2Period;
 	uint32_t vfeFrameSkipCount;
 	uint32_t vfeFrameSkipPeriod;
-	struct vfe_stats_control afStatsControl;
+	struct msm_ver_num_info ver_num;
+	struct vfe_stats_control afbfStatsControl;
 	struct vfe_stats_control awbStatsControl;
-	struct vfe_stats_control aecStatsControl;
+	struct vfe_stats_control aecbgStatsControl;
 	struct vfe_stats_control ihistStatsControl;
 	struct vfe_stats_control rsStatsControl;
 	struct vfe_stats_control csStatsControl;
+	struct vfe_stats_control bhistStatsControl;
 
 	/* v4l2 subdev */
 	struct v4l2_subdev subdev;
