@@ -184,6 +184,11 @@ struct vcap_dev {
 
 	uint32_t				bus_client_handle;
 
+	int						domain_num;
+	struct device			*vc_iommu_ctx;
+	struct device			*vp_iommu_ctx;
+	struct iommu_domain		*iommu_vcap_domain;
+
 	struct vcap_client_data *vc_client;
 	struct vcap_client_data *vp_client;
 

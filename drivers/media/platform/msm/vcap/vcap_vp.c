@@ -466,9 +466,8 @@ int init_motion_buf(struct vcap_client_data *c_data)
 	int rc;
 	struct vcap_dev *dev = c_data->dev;
 	struct ion_handle *handle = NULL;
-	unsigned long paddr, ionflag = 0;
+	unsigned long paddr, len, ionflag = 0;
 	void *vaddr;
-	size_t len;
 	size_t size = ((c_data->vp_out_fmt.width + 63) >> 6) *
 		((c_data->vp_out_fmt.height + 7) >> 3) * 16;
 
@@ -482,12 +481,6 @@ int init_motion_buf(struct vcap_client_data *c_data)
 	if (IS_ERR_OR_NULL(handle)) {
 		pr_err("%s: ion_alloc failed\n", __func__);
 		return -ENOMEM;
-	}
-	rc = ion_phys(dev->ion_client, handle, &paddr, &len);
-	if (rc < 0) {
-		pr_err("%s: ion_phys failed\n", __func__);
-		ion_free(dev->ion_client, handle);
-		return rc;
 	}
 
 	rc = ion_handle_get_flags(dev->ion_client, handle, &ionflag);
@@ -506,10 +499,20 @@ int init_motion_buf(struct vcap_client_data *c_data)
 	}
 
 	memset(vaddr, 0, size);
+	ion_unmap_kernel(dev->ion_client, handle);
+
+	rc = ion_map_iommu(dev->ion_client, handle,
+		dev->domain_num, 0, SZ_4K, 0, &paddr, &len,
+		0, 0);
+	if (rc < 0) {
+		pr_err("%s: map_iommu failed\n", __func__);
+		ion_free(dev->ion_client, handle);
+		return rc;
+	}
+
 	c_data->vp_action.motionHandle = handle;
 
 	vaddr = NULL;
-	ion_unmap_kernel(dev->ion_client, handle);
 
 	writel_iowmb(paddr, VCAP_VP_MOTION_EST_ADDR);
 	return 0;
@@ -524,6 +527,8 @@ void deinit_motion_buf(struct vcap_client_data *c_data)
 	}
 
 	writel_iowmb(0x00000000, VCAP_VP_MOTION_EST_ADDR);
+	ion_unmap_iommu(dev->ion_client, c_data->vp_action.motionHandle,
+			dev->domain_num, 0);
 	ion_free(dev->ion_client, c_data->vp_action.motionHandle);
 	c_data->vp_action.motionHandle = NULL;
 	return;
@@ -533,8 +538,8 @@ int init_nr_buf(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
 	struct ion_handle *handle = NULL;
-	size_t frame_size, tot_size, len;
-	unsigned long paddr;
+	size_t frame_size, tot_size;
+	unsigned long paddr, len;
 	int rc;
 
 	if (c_data->vp_action.bufNR.nr_handle) {
@@ -555,9 +560,11 @@ int init_nr_buf(struct vcap_client_data *c_data)
 		return -ENOMEM;
 	}
 
-	rc = ion_phys(dev->ion_client, handle, &paddr, &len);
+	rc = ion_map_iommu(dev->ion_client, handle,
+		dev->domain_num, 0, SZ_4K, 0, &paddr, &len,
+		0, 0);
 	if (rc < 0) {
-		pr_err("%s: ion_phys failed\n", __func__);
+		pr_err("%s: map_iommu failed\n", __func__);
 		ion_free(dev->ion_client, handle);
 		return rc;
 	}
@@ -591,6 +598,7 @@ void deinit_nr_buf(struct vcap_client_data *c_data)
 	rc &= !(0x0FF00001);
 	writel_relaxed(rc, VCAP_VP_NR_CONFIG2);
 
+	ion_unmap_iommu(dev->ion_client, buf->nr_handle, dev->domain_num, 0);
 	ion_free(dev->ion_client, buf->nr_handle);
 	buf->nr_handle = NULL;
 	buf->paddr = 0;
@@ -672,8 +680,7 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 	struct vcap_dev *dev = c_data->dev;
 	unsigned int width, height;
 	struct ion_handle *handle = NULL;
-	unsigned long paddr;
-	size_t len;
+	unsigned long paddr, len;
 	uint32_t reg;
 	int rc = 0;
 
@@ -685,9 +692,11 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 		return -ENOMEM;
 	}
 
-	rc = ion_phys(dev->ion_client, handle, &paddr, &len);
+	rc = ion_map_iommu(dev->ion_client, handle,
+		dev->domain_num, 0, SZ_4K, 0, &paddr, &len,
+		0, 0);
 	if (rc < 0) {
-		pr_err("%s: ion_phys failed\n", __func__);
+		pr_err("%s: map_iommu failed\n", __func__);
 		ion_free(dev->ion_client, handle);
 		return rc;
 	}
@@ -735,6 +744,7 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 
 	c_data->vp_out_fmt.width = width;
 	c_data->vp_out_fmt.height = height;
+	ion_unmap_iommu(dev->ion_client, handle, dev->domain_num, 0);
 	ion_free(dev->ion_client, handle);
 
 	pr_debug("%s: Exit VP dummy event\n", __func__);
