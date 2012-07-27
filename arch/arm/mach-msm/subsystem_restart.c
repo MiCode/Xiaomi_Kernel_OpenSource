@@ -150,26 +150,14 @@ DEFINE_SINGLE_RESTART_ORDER(orders_8x60_all, _order_8x60_all);
 static const char * const _order_8x60_modems[] = {"external_modem", "modem"};
 DEFINE_SINGLE_RESTART_ORDER(orders_8x60_modems, _order_8x60_modems);
 
-/* MSM 8960 restart ordering info */
-static const char * const order_8960[] = {"modem", "lpass"};
 /*SGLTE restart ordering info*/
 static const char * const order_8960_sglte[] = {"external_modem",
 						"modem"};
-
-static struct subsys_soc_restart_order restart_orders_8960_one = {
-	.subsystem_list = order_8960,
-	.count = ARRAY_SIZE(order_8960),
-	.subsys_ptrs = {[ARRAY_SIZE(order_8960)] = NULL}
-	};
 
 static struct subsys_soc_restart_order restart_orders_8960_fusion_sglte = {
 	.subsystem_list = order_8960_sglte,
 	.count = ARRAY_SIZE(order_8960_sglte),
 	.subsys_ptrs = {[ARRAY_SIZE(order_8960_sglte)] = NULL}
-	};
-
-static struct subsys_soc_restart_order *restart_orders_8960[] = {
-	&restart_orders_8960_one,
 	};
 
 static struct subsys_soc_restart_order *restart_orders_8960_sglte[] = {
@@ -205,9 +193,13 @@ static int restart_level_set(const char *val, struct kernel_param *kp)
 		return ret;
 
 	switch (restart_level) {
-	case RESET_SOC:
-	case RESET_SUBSYS_COUPLED:
 	case RESET_SUBSYS_INDEPENDENT:
+		if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+			pr_info("Phase 3 is currently unsupported. Using phase 2 instead.\n");
+			restart_level = RESET_SUBSYS_COUPLED;
+		}
+	case RESET_SUBSYS_COUPLED:
+	case RESET_SOC:
 		pr_info("Phase %d behavior activated.\n", restart_level);
 		break;
 	default:
@@ -754,21 +746,14 @@ static int __init ssr_init_soc_restart_orders(void)
 		n_restart_orders = ARRAY_SIZE(orders_8x60_all);
 	}
 
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
-	    cpu_is_msm9615() || cpu_is_apq8064() || cpu_is_msm8627() ||
-	    cpu_is_msm8960ab()) {
-		if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
-			restart_orders = restart_orders_8960_sglte;
-			n_restart_orders =
-				ARRAY_SIZE(restart_orders_8960_sglte);
-		} else {
-			restart_orders = restart_orders_8960;
-			n_restart_orders = ARRAY_SIZE(restart_orders_8960);
-		}
-		for (i = 0; i < n_restart_orders; i++) {
-			mutex_init(&restart_orders[i]->powerup_lock);
-			mutex_init(&restart_orders[i]->shutdown_lock);
-		}
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		restart_orders = restart_orders_8960_sglte;
+		n_restart_orders = ARRAY_SIZE(restart_orders_8960_sglte);
+	}
+
+	for (i = 0; i < n_restart_orders; i++) {
+		mutex_init(&restart_orders[i]->powerup_lock);
+		mutex_init(&restart_orders[i]->shutdown_lock);
 	}
 
 	if (restart_orders == NULL || n_restart_orders < 1) {
