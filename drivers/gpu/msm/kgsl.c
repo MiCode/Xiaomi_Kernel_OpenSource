@@ -897,6 +897,9 @@ kgsl_sharedmem_find_region(struct kgsl_process_private *private,
 {
 	struct rb_node *node = private->mem_rb.rb_node;
 
+	if (!kgsl_mmu_gpuaddr_in_range(gpuaddr))
+		return NULL;
+
 	while (node != NULL) {
 		struct kgsl_mem_entry *entry;
 
