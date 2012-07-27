@@ -42,6 +42,11 @@
 	__height * __width * __fps; \
 })
 
+#define GET_NUM_MBS(__h, __w) ({\
+	u32 __mbs = (__h >> 4) * (__w >> 4);\
+	__mbs;\
+})
+
 /*While adding entries to this array make sure
  * they are in descending order.
  * Look @ msm_comm_get_load function*/
@@ -301,6 +306,23 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 		pr_err("sys_init_done message not proper\n");
 		return;
 	}
+}
+
+static void handle_sys_release_res_done(
+	enum command_response cmd, void *data)
+{
+	struct msm_vidc_cb_cmd_done *response = data;
+	struct msm_vidc_core *core;
+	if (!response) {
+		pr_err("Failed to get valid response for sys init\n");
+		return;
+	}
+	core = get_vidc_core(response->device_id);
+	if (!core) {
+		pr_err("Wrong device_id received\n");
+		return;
+	}
+	complete(&core->completions[SYS_MSG_INDEX(cmd)]);
 }
 
 static inline void change_inst_state(struct msm_vidc_inst *inst,
@@ -591,6 +613,9 @@ void handle_cmd_response(enum command_response cmd, void *data)
 	case SYS_INIT_DONE:
 		handle_sys_init_done(cmd, data);
 		break;
+	case RELEASE_RESOURCE_DONE:
+		handle_sys_release_res_done(cmd, data);
+		break;
 	case SESSION_INIT_DONE:
 		handle_session_init_done(cmd, data);
 		break;
@@ -753,6 +778,148 @@ static void msm_comm_unload_fw(struct msm_vidc_core *core)
 	}
 }
 
+static inline unsigned long get_ocmem_requirement(u32 height, u32 width)
+{
+	int num_mbs = 0;
+	num_mbs = GET_NUM_MBS(height, width);
+	/*TODO: This should be changes once the numbers are
+	 * available from firmware*/
+	return 512 * 1024;
+}
+
+static int msm_comm_set_ocmem(struct msm_vidc_core *core,
+	struct ocmem_buf *ocmem)
+{
+	struct vidc_resource_hdr rhdr;
+	int rc = 0;
+	if (!core || !ocmem) {
+		pr_err("Invalid params, core:%p, ocmem: %p\n",
+			core, ocmem);
+		return -EINVAL;
+	}
+	rhdr.resource_id = VIDC_RESOURCE_OCMEM;
+	rhdr.resource_handle = (u32) &core->resources.ocmem;
+	rhdr.size =	ocmem->len;
+	rc = vidc_hal_core_set_resource(core->device, &rhdr, ocmem);
+	if (rc) {
+		pr_err("Failed to set OCMEM on driver\n");
+		goto ocmem_set_failed;
+	}
+	pr_debug("OCMEM set, addr = %lx, size: %ld\n",
+		ocmem->addr, ocmem->len);
+ocmem_set_failed:
+	return rc;
+}
+
+static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
+{
+	struct vidc_resource_hdr rhdr;
+	int rc = 0;
+	if (!core || !core->resources.ocmem.buf) {
+		pr_err("Invalid params, core:%p\n",	core);
+		return -EINVAL;
+	}
+	rhdr.resource_id = VIDC_RESOURCE_OCMEM;
+	rhdr.resource_handle = (u32) &core->resources.ocmem;
+	init_completion(
+		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)]);
+	rc = vidc_hal_core_release_resource(core->device, &rhdr);
+	if (rc) {
+		pr_err("Failed to set OCMEM on driver\n");
+		goto release_ocmem_failed;
+	}
+	rc = wait_for_completion_timeout(
+		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)],
+		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
+	if (!rc) {
+		pr_err("Wait interrupted or timeout: %d\n", rc);
+		rc = -EIO;
+		goto release_ocmem_failed;
+	}
+release_ocmem_failed:
+	return rc;
+}
+
+static int msm_comm_alloc_ocmem(struct msm_vidc_core *core,
+		unsigned long size)
+{
+	int rc = 0;
+	unsigned long flags;
+	struct ocmem_buf *ocmem_buffer;
+	if (!core || !size) {
+		pr_err("Invalid param, core: %p, size: %lu\n", core, size);
+		return -EINVAL;
+	}
+	spin_lock_irqsave(&core->lock, flags);
+	ocmem_buffer = core->resources.ocmem.buf;
+	if (!ocmem_buffer ||
+		ocmem_buffer->len < size) {
+		ocmem_buffer = ocmem_allocate_nb(OCMEM_VIDEO, size);
+		if (IS_ERR_OR_NULL(ocmem_buffer)) {
+			pr_err("ocmem_allocate_nb failed: %d\n",
+				(u32) ocmem_buffer);
+			rc = -ENOMEM;
+		}
+		core->resources.ocmem.buf = ocmem_buffer;
+		rc = msm_comm_set_ocmem(core, ocmem_buffer);
+		if (rc) {
+			pr_err("Failed to set ocmem: %d\n", rc);
+			goto ocmem_set_failed;
+		}
+	} else
+		pr_debug("OCMEM is enough. reqd: %lu, available: %lu\n",
+			size, ocmem_buffer->len);
+
+ocmem_set_failed:
+	spin_unlock_irqrestore(&core->lock, flags);
+	return rc;
+}
+
+static int msm_comm_free_ocmem(struct msm_vidc_core *core)
+{
+	int rc = 0;
+	unsigned long flags;
+	spin_lock_irqsave(&core->lock, flags);
+	if (core->resources.ocmem.buf) {
+		rc = ocmem_free(OCMEM_VIDEO, core->resources.ocmem.buf);
+		if (rc)
+			pr_err("Failed to free ocmem\n");
+	}
+	core->resources.ocmem.buf = NULL;
+	spin_unlock_irqrestore(&core->lock, flags);
+	return rc;
+}
+
+int msm_vidc_ocmem_notify_handler(struct notifier_block *this,
+		unsigned long event, void *data)
+{
+	struct ocmem_buf *buff = data;
+	struct msm_vidc_core *core;
+	struct msm_vidc_resources *resources;
+	struct on_chip_mem *ocmem;
+	int rc = NOTIFY_DONE;
+	if (event == OCMEM_ALLOC_GROW) {
+		ocmem = container_of(this, struct on_chip_mem, vidc_ocmem_nb);
+		if (!ocmem) {
+			pr_err("Wrong handler passed\n");
+			rc = NOTIFY_BAD;
+			goto bad_notfier;
+		}
+		resources = container_of(ocmem,
+			struct msm_vidc_resources, ocmem);
+		core = container_of(resources,
+			struct msm_vidc_core, resources);
+		if (msm_comm_set_ocmem(core, buff)) {
+			pr_err("Failed to set ocmem: %d\n", rc);
+			goto ocmem_set_failed;
+		}
+		rc = NOTIFY_OK;
+	}
+ocmem_set_failed:
+bad_notfier:
+	return rc;
+}
+
 static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core = inst->core;
@@ -835,7 +1002,8 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		goto core_already_uninited;
 	}
 	if (list_empty(&core->instances)) {
-		pr_debug("Calling vidc_hal_core_release\n");
+		msm_comm_unset_ocmem(core);
+		msm_comm_free_ocmem(core);
 		rc = vidc_hal_core_release(core->device);
 		if (rc) {
 			pr_err("Failed to release core, id = %d\n", core->id);
@@ -953,10 +1121,16 @@ static int msm_vidc_load_resources(int flipped_state,
 	struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	u32 ocmem_sz = 0;
 	if (IS_ALREADY_IN_STATE(flipped_state, MSM_VIDC_LOAD_RESOURCES)) {
 		pr_err("inst: %p is already in state: %d\n", inst, inst->state);
 		goto exit;
 	}
+	ocmem_sz = get_ocmem_requirement(inst->height, inst->width);
+	rc = msm_comm_alloc_ocmem(inst->core, ocmem_sz);
+	if (rc)
+		pr_warn("Failed to allocate OCMEM. Performance will be impacted\n");
+
 	rc = vidc_hal_session_load_res((void *) inst->session);
 	if (rc) {
 		pr_err("Failed to send load resources\n");

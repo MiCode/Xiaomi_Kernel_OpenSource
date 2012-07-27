@@ -16,6 +16,8 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <mach/ocmem.h>
+
 #include <asm/memory.h>
 #include "vidc_hal.h"
 #include "vidc_hal_io.h"
@@ -749,12 +751,12 @@ int vidc_hal_core_set_resource(void *device,
 		struct hfi_resource_ocmem *hfioc_mem =
 			(struct hfi_resource_ocmem *)
 			&pkt->rg_resource_data[0];
-		struct vidc_mem_addr *vidc_oc_mem =
-			(struct vidc_mem_addr *) resource_value;
+		struct ocmem_buf *ocmem =
+			(struct ocmem_buf *) resource_value;
 
 		pkt->resource_type = HFI_RESOURCE_OCMEM;
-		hfioc_mem->size = (u32) vidc_oc_mem->mem_size;
-		hfioc_mem->mem = (u8 *) vidc_oc_mem->align_device_addr;
+		hfioc_mem->size = (u32) ocmem->len;
+		hfioc_mem->mem = (u8 *) ocmem->addr;
 		pkt->size += sizeof(struct hfi_resource_ocmem);
 		if (vidc_hal_iface_cmdq_write(dev, pkt))
 			rc = -ENOTEMPTY;
