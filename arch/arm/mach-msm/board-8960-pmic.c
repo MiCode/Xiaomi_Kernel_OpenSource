@@ -386,25 +386,6 @@ static const unsigned int keymap_sim[] = {
 	KEY(0, 3, KEY_CAMERA_FOCUS),
 };
 
-static struct matrix_keymap_data keymap_data_sim = {
-	.keymap_size    = ARRAY_SIZE(keymap_sim),
-	.keymap         = keymap_sim,
-};
-
-static struct pm8xxx_keypad_platform_data keypad_data_sim = {
-	.input_name             = "keypad_8960",
-	.input_phys_device      = "keypad_8960/input0",
-	.num_rows               = 12,
-	.num_cols               = 8,
-	.rows_gpio_start	= PM8921_GPIO_PM_TO_SYS(9),
-	.cols_gpio_start	= PM8921_GPIO_PM_TO_SYS(1),
-	.debounce_ms            = 15,
-	.scan_delay_ms          = 32,
-	.row_hold_ns            = 91500,
-	.wakeup                 = 1,
-	.keymap_data            = &keymap_data_sim,
-};
-
 static int pm8921_therm_mitigation[] = {
 	1100,
 	700,
@@ -612,10 +593,6 @@ void __init msm8960_init_pmic(void)
 	msm8960_device_ssbi_pmic.dev.platform_data =
 				&msm8960_ssbi_pm8921_pdata;
 	pm8921_platform_data.num_regulators = msm_pm8921_regulator_pdata_len;
-
-	/* Simulator supports a QWERTY keypad */
-	if (machine_is_msm8960_sim())
-		pm8921_platform_data.keypad_pdata = &keypad_data_sim;
 
 	if (machine_is_msm8960_liquid()) {
 		pm8921_platform_data.keypad_pdata = &keypad_data_liquid;
