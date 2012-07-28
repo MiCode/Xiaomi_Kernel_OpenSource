@@ -51,6 +51,9 @@
 
 #define TEMP_SOC_STORAGE	0x107
 
+#define TEMP_IAVG_STORAGE	0x105
+#define TEMP_IAVG_STORAGE_USE_MASK	0x0F
+
 enum pmic_bms_interrupts {
 	PM8921_BMS_SBI_WRITE_OK,
 	PM8921_BMS_CC_THR,
@@ -130,6 +133,7 @@ struct pm8921_bms_chip {
 	unsigned long		tm_sec;
 	int			enable_fcc_learning;
 	int			shutdown_soc;
+	int			shutdown_iavg_ua;
 	int			shutdown_soc_timer_expired;
 	struct delayed_work	shutdown_soc_work;
 	struct delayed_work	calculate_soc_delayed_work;
@@ -137,6 +141,7 @@ struct pm8921_bms_chip {
 	int			shutdown_soc_valid_limit;
 	int			ignore_shutdown_soc;
 	int			prev_iavg_ua;
+	int			prev_uuc_iavg_ma;
 };
 
 /*
@@ -1218,7 +1223,7 @@ static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
 
 	*iavg_ua = div_s64((s64)delta_cc_uah * 3600, *delta_time_s);
 
-	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_us = %d delta_cc = %d iavg_ua = %d\n",
+	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_s = %d delta_cc = %d iavg_ua = %d\n",
 				chip->tm_sec, now_tm_sec,
 				*delta_time_s, delta_cc_uah, (int)*iavg_ua);
 
@@ -1234,7 +1239,7 @@ out:
 }
 
 #define IAVG_SAMPLES 16
-#define CHARGING_IAVG_MA 300
+#define CHARGING_IAVG_MA 250
 #define MIN_SECONDS_FOR_VALID_SAMPLE	20
 static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 				int rbatt, int fcc_uah, int cc_uah,
@@ -1247,6 +1252,21 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 	static int iavg_samples[IAVG_SAMPLES];
 	static int iavg_index;
 	static int iavg_num_samples;
+	static int firsttime = 1;
+
+	/*
+	 * if we are called first time fill all the
+	 * samples with the the shutdown_iavg_ua
+	 */
+	if (firsttime && chip->shutdown_iavg_ua != 0) {
+		pr_emerg("Using shutdown_iavg_ua = %d in all samples\n",
+				chip->shutdown_iavg_ua);
+		for (i = 0; i < IAVG_SAMPLES; i++)
+			iavg_samples[i] = chip->shutdown_iavg_ua;
+
+		iavg_index = 0;
+		iavg_num_samples = IAVG_SAMPLES;
+	}
 
 	/*
 	 * if we are charging use a nominal avg current so that we keep
@@ -1275,7 +1295,9 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 					batt_temp, chargecycles,
 					rbatt, fcc_uah, iavg_ma);
 	pr_debug("iavg = %d uuc_iavg = %d\n", iavg_ma, uuc_uah_iavg);
+	chip->prev_uuc_iavg_ma = iavg_ma;
 
+	firsttime = 0;
 	return uuc_uah_iavg;
 }
 
@@ -1515,32 +1537,80 @@ out:
 }
 
 #define IGNORE_SOC_TEMP_DECIDEG		50
-static void backup_soc(struct pm8921_bms_chip *chip, int batt_temp, int soc)
+#define IAVG_STEP_SIZE_MA	50
+#define IAVG_START		600
+#define SOC_ZERO		0xFF
+static void backup_soc_and_iavg(struct pm8921_bms_chip *chip, int batt_temp,
+				int soc)
 {
+	u8 temp;
+	int iavg_ma = chip->prev_uuc_iavg_ma;
+
+	if (iavg_ma > IAVG_START)
+		temp = (iavg_ma - IAVG_START) / IAVG_STEP_SIZE_MA;
+	else
+		temp = 0;
+
+	pm_bms_masked_write(chip, TEMP_IAVG_STORAGE,
+			TEMP_IAVG_STORAGE_USE_MASK, temp);
+
+	/* since only 6 bits are available for SOC, we store half the soc */
 	if (soc == 0)
-		soc = 0xFF;
+		temp = SOC_ZERO;
+	else
+		temp = soc;
 
-	if (batt_temp < IGNORE_SOC_TEMP_DECIDEG)
-		soc = 0;
-
-	pm8xxx_writeb(the_chip->dev->parent, TEMP_SOC_STORAGE, soc);
+	/* don't store soc if temperature is below 5degC */
+	if (batt_temp > IGNORE_SOC_TEMP_DECIDEG)
+		pm8xxx_writeb(the_chip->dev->parent, TEMP_SOC_STORAGE, temp);
 }
 
-static void read_shutdown_soc(struct pm8921_bms_chip *chip)
+static void read_shutdown_soc_and_iavg(struct pm8921_bms_chip *chip)
 {
 	int rc;
 	u8 temp;
 
+	rc = pm8xxx_readb(chip->dev->parent, TEMP_IAVG_STORAGE, &temp);
+	if (rc) {
+		pr_err("failed to read addr = %d %d assuming %d\n",
+				TEMP_IAVG_STORAGE, rc, IAVG_START);
+		chip->shutdown_iavg_ua = IAVG_START;
+	} else {
+		temp &= TEMP_IAVG_STORAGE_USE_MASK;
+
+		if (temp == 0) {
+			chip->shutdown_iavg_ua = IAVG_START;
+		} else {
+			chip->shutdown_iavg_ua = IAVG_START
+					+ IAVG_STEP_SIZE_MA * (temp + 1);
+		}
+	}
+
 	rc = pm8xxx_readb(chip->dev->parent, TEMP_SOC_STORAGE, &temp);
-	if (rc)
+	if (rc) {
 		pr_err("failed to read addr = %d %d\n", TEMP_SOC_STORAGE, rc);
-	else
+	} else {
 		chip->shutdown_soc = temp;
 
-	if (chip->ignore_shutdown_soc)
-		chip->shutdown_soc = 0;
+		if (chip->shutdown_soc == 0) {
+			pr_debug("No shutdown soc available\n");
+			shutdown_soc_invalid = 1;
+			chip->shutdown_iavg_ua = 0;
+		} else if (chip->shutdown_soc == SOC_ZERO) {
+			chip->shutdown_soc = 0;
+		}
+	}
 
-	pr_debug("shutdown_soc = %d\n", chip->shutdown_soc);
+	if (chip->ignore_shutdown_soc) {
+		shutdown_soc_invalid = 1;
+		chip->shutdown_soc = 0;
+		chip->shutdown_iavg_ua = 0;
+	}
+
+	pr_debug("shutdown_soc = %d shutdown_iavg = %d shutdown_soc_invalid = %d\n",
+			chip->shutdown_soc,
+			chip->shutdown_iavg_ua,
+			shutdown_soc_invalid);
 }
 
 static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
@@ -1603,13 +1673,10 @@ static void adjust_rc_and_uuc_for_specific_soc(
 	int new_rbatt;
 	int ocv_uv;
 	int soc_rbatt;
-	int iavg_ua, iavg_ma;
+	int iavg_ma;
 	int num_tries = 0;
 
-	pm8921_bms_get_battery_current(&iavg_ua);
-	iavg_ma = iavg_ua / 1000;
-	if (iavg_ma < 0)
-		iavg_ma = CHARGING_IAVG_MA;
+	iavg_ma = chip->prev_uuc_iavg_ma;
 
 recalculate_ocv:
 
@@ -1703,20 +1770,15 @@ static void shutdown_soc_work(struct work_struct *work)
 
 static bool is_shutdown_soc_within_limits(struct pm8921_bms_chip *chip, int soc)
 {
-	int shutdown_soc;
-
-	if (chip->shutdown_soc == 0 || shutdown_soc_invalid) {
+	if (shutdown_soc_invalid) {
 		pr_debug("NOT forcing shutdown soc = %d\n", chip->shutdown_soc);
 		return 0;
 	}
 
-	shutdown_soc = chip->shutdown_soc;
-	if (shutdown_soc == 0xFF)
-		shutdown_soc = 0;
-
-	if (abs(shutdown_soc - soc) > chip->shutdown_soc_valid_limit) {
-		pr_debug("rejecting shutdown soc = %d, soc = %d, limit = %d\n",
-			shutdown_soc, soc, chip->shutdown_soc_valid_limit);
+	if (abs(chip->shutdown_soc - soc) > chip->shutdown_soc_valid_limit) {
+		pr_debug("rejecting shutdown soc = %d, soc = %d limit = %d\n",
+			chip->shutdown_soc, soc,
+			chip->shutdown_soc_valid_limit);
 		shutdown_soc_invalid = 1;
 		return 0;
 	}
@@ -1826,9 +1888,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	mutex_lock(&soc_invalidation_mutex);
 	shutdown_soc = chip->shutdown_soc;
-	/* value of 0xFF means shutdown soc was 0% */
-	if (shutdown_soc == 0xFF)
-		shutdown_soc = 0;
 
 	if (firsttime && soc != shutdown_soc
 			&& is_shutdown_soc_within_limits(chip, soc)) {
@@ -1981,16 +2040,13 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 		 * force shutdown soc if it is valid and the shutdown soc show
 		 * timer has not expired
 		 */
-		if (chip->shutdown_soc != 0xFF)
-			soc = chip->shutdown_soc;
-		else
-			soc = 0;
+		soc = chip->shutdown_soc;
 
 		pr_debug("Forcing SHUTDOWN_SOC = %d\n", soc);
 	}
 
 	last_soc = soc;
-	backup_soc(chip, batt_temp, last_soc);
+	backup_soc_and_iavg(chip, batt_temp, last_soc);
 	pr_debug("Reported SOC = %d\n", last_soc);
 	chip->t_soc_queried = now;
 
@@ -2007,6 +2063,9 @@ void pm8921_bms_invalidate_shutdown_soc(void)
 	int soc;
 
 	pr_debug("Invalidating shutdown soc - the battery was removed\n");
+	if (shutdown_soc_invalid)
+		return;
+
 	mutex_lock(&soc_invalidation_mutex);
 	shutdown_soc_invalid = 1;
 	last_soc = -EINVAL;
@@ -2041,6 +2100,7 @@ void pm8921_bms_invalidate_shutdown_soc(void)
 	mutex_unlock(&chip->last_ocv_uv_mutex);
 }
 EXPORT_SYMBOL(pm8921_bms_invalidate_shutdown_soc);
+
 #define MIN_DELTA_625_UV	1000
 static void calib_hkadc(struct pm8921_bms_chip *chip)
 {
@@ -2332,7 +2392,6 @@ void pm8921_bms_charging_end(int is_battery_full)
 		last_real_fcc_mah = new_fcc_uah/1000;
 		last_real_fcc_batt_temp = batt_temp;
 		readjust_fcc_table();
-
 	}
 
 	if (is_battery_full) {
@@ -2346,7 +2405,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 		 * forget the old cc value
 		 */
 		the_chip->last_cc_uah = 0;
-		pr_debug("EOC ocv_reading = 0x%x cc = 0x%x\n",
+		pr_debug("EOC BATT_FULL ocv_reading = 0x%x cc = 0x%x\n",
 				the_chip->ocv_reading_at_100,
 				the_chip->cc_reading_at_100);
 	}
@@ -3024,7 +3083,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		goto free_irqs;
 	}
 
-	read_shutdown_soc(chip);
+	read_shutdown_soc_and_iavg(chip);
 
 	platform_set_drvdata(pdev, chip);
 	the_chip = chip;
