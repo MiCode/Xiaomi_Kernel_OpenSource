@@ -114,6 +114,18 @@ int pwm_config_period(struct pwm_device *pwm,
 int pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value);
 
 /*
+ * enum pm_pwm_mode - PWM mode selection
+ * %PM_PWM_MODE_PWM - Select PWM mode
+ * %PM_PWM_MODE_LPG - Select LPG mode
+ */
+enum pm_pwm_mode {
+	PM_PWM_MODE_PWM,
+	PM_PWM_MODE_LPG,
+};
+
+int pwm_change_mode(struct pwm_device *pwm, enum pm_pwm_mode mode);
+
+/*
  * lut_params: Lookup table (LUT) parameters
  * @start_idx: start index in lookup table from 0 to MAX-1
  * @idx_len: number of index
@@ -133,8 +145,6 @@ struct lut_params {
 
 int pwm_lut_config(struct pwm_device *pwm, int period_us,
 		int duty_pct[], struct lut_params lut_params);
-
-int pwm_lut_enable(struct pwm_device *pwm, int start);
 
 /* Standard APIs supported */
 /*
