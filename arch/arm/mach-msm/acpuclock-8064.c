@@ -206,11 +206,11 @@ static struct acpu_level acpu_freq_tbl_fast[] __initdata = {
 };
 
 static struct pvs_table pvs_tables[NUM_PVS] __initdata = {
-	[PVS_SLOW]    = { acpu_freq_tbl_slow, sizeof(acpu_freq_tbl_slow) },
-	[PVS_NOMINAL] = { acpu_freq_tbl_nom,  sizeof(acpu_freq_tbl_nom)  },
-	[PVS_FAST]    = { acpu_freq_tbl_fast, sizeof(acpu_freq_tbl_fast) },
-	/* TODO: update the faster table when data is available */
-	[PVS_FASTER]  = { acpu_freq_tbl_fast, sizeof(acpu_freq_tbl_fast) },
+[PVS_SLOW]    = { acpu_freq_tbl_slow, sizeof(acpu_freq_tbl_slow),     0 },
+[PVS_NOMINAL] = { acpu_freq_tbl_nom,  sizeof(acpu_freq_tbl_nom),  25000 },
+[PVS_FAST]    = { acpu_freq_tbl_fast, sizeof(acpu_freq_tbl_fast), 25000 },
+/* TODO: update the faster table when data is available */
+[PVS_FASTER]  = { acpu_freq_tbl_fast, sizeof(acpu_freq_tbl_fast), 25000 },
 };
 
 static struct acpuclk_krait_params acpuclk_8064_params __initdata = {

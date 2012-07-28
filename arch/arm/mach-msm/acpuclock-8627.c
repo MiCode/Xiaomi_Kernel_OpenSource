@@ -126,9 +126,9 @@ static struct acpu_level acpu_freq_tbl[] __initdata = {
 };
 
 static struct pvs_table pvs_tables[NUM_PVS] __initdata = {
-	[PVS_SLOW]    = { acpu_freq_tbl, sizeof(acpu_freq_tbl) },
-	[PVS_NOMINAL] = { acpu_freq_tbl, sizeof(acpu_freq_tbl) },
-	[PVS_FAST]    = { acpu_freq_tbl, sizeof(acpu_freq_tbl) },
+	[PVS_SLOW]    = { acpu_freq_tbl, sizeof(acpu_freq_tbl),     0 },
+	[PVS_NOMINAL] = { acpu_freq_tbl, sizeof(acpu_freq_tbl), 25000 },
+	[PVS_FAST]    = { acpu_freq_tbl, sizeof(acpu_freq_tbl), 25000 },
 };
 
 static struct acpuclk_krait_params acpuclk_8627_params __initdata = {

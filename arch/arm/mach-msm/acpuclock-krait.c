@@ -11,9 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s: " fmt, __func__
-
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -59,6 +58,7 @@ static struct drv_data {
 	struct hfpll_data *hfpll_data;
 	u32 bus_perf_client;
 	struct msm_bus_scale_pdata *bus_scale;
+	int boost_uv;
 	struct device *dev;
 } drv;
 
@@ -170,8 +170,19 @@ static void hfpll_disable(struct scalable *sc, bool skip_regulators)
 /* Program the HFPLL rate. Assumes HFPLL is already disabled. */
 static void hfpll_set_rate(struct scalable *sc, const struct core_speed *tgt_s)
 {
-	writel_relaxed(tgt_s->pll_l_val,
-		sc->hfpll_base + drv.hfpll_data->l_offset);
+	void __iomem *base = sc->hfpll_base;
+	u32 regval;
+
+	writel_relaxed(tgt_s->pll_l_val, base + drv.hfpll_data->l_offset);
+
+	if (drv.hfpll_data->has_user_reg) {
+		regval = readl_relaxed(base + drv.hfpll_data->user_offset);
+		if (tgt_s->pll_l_val <= drv.hfpll_data->low_vco_l_max)
+			regval &= ~drv.hfpll_data->user_vco_mask;
+		else
+			regval |= drv.hfpll_data->user_vco_mask;
+		writel_relaxed(regval, base  + drv.hfpll_data->user_offset);
+	}
 }
 
 /* Return the L2 speed that should be applied. */
@@ -410,9 +421,12 @@ static int calculate_vdd_dig(const struct acpu_level *tgt)
 		   max(l2_pll_vdd_dig, cpu_pll_vdd_dig));
 }
 
+static bool enable_boost = true;
+module_param_named(boost, enable_boost, bool, S_IRUGO | S_IWUSR);
+
 static int calculate_vdd_core(const struct acpu_level *tgt)
 {
-	return tgt->vdd_core;
+	return tgt->vdd_core + (enable_boost ? drv.boost_uv : 0);
 }
 
 /* Set the CPU's clock rate and adjust the L2 rate, voltage and BW requests. */
@@ -463,8 +477,8 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 			goto out;
 	}
 
-	pr_debug("Switching from ACPU%d rate %lu KHz -> %lu KHz\n",
-		 cpu, strt_acpu_s->khz, tgt_acpu_s->khz);
+	dev_dbg(drv.dev, "Switching from ACPU%d rate %lu KHz -> %lu KHz\n",
+		cpu, strt_acpu_s->khz, tgt_acpu_s->khz);
 
 	/* Set the new CPU speed. */
 	set_speed(&drv.scalable[cpu], tgt_acpu_s);
@@ -491,7 +505,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	/* Drop VDD levels if we can. */
 	decrease_vdd(cpu, &vdd_data, reason);
 
-	pr_debug("ACPU%d speed change complete\n", cpu);
+	dev_dbg(drv.dev, "ACPU%d speed change complete\n", cpu);
 
 out:
 	if (reason == SETRATE_CPUFREQ || reason == SETRATE_HOTPLUG)
@@ -503,7 +517,7 @@ out:
 static void __init hfpll_init(struct scalable *sc,
 			      const struct core_speed *tgt_s)
 {
-	pr_debug("Initializing HFPLL%d\n", sc - drv.scalable);
+	dev_dbg(drv.dev, "Initializing HFPLL%d\n", sc - drv.scalable);
 
 	/* Disable the PLL for re-programming. */
 	hfpll_disable(sc, true);
@@ -513,6 +527,9 @@ static void __init hfpll_init(struct scalable *sc,
 		       sc->hfpll_base + drv.hfpll_data->config_offset);
 	writel_relaxed(0, sc->hfpll_base + drv.hfpll_data->m_offset);
 	writel_relaxed(1, sc->hfpll_base + drv.hfpll_data->n_offset);
+	if (drv.hfpll_data->has_user_reg)
+		writel_relaxed(drv.hfpll_data->user_val,
+			       sc->hfpll_base + drv.hfpll_data->user_offset);
 
 	/* Program droop controller, if supported */
 	if (drv.hfpll_data->has_droop_ctl)
@@ -993,6 +1010,7 @@ static void __init drv_data_init(struct device *dev,
 				    params->pvs_tables[tbl_idx].size,
 				    GFP_KERNEL);
 	BUG_ON(!drv.acpu_freq_tbl);
+	drv.boost_uv = params->pvs_tables[tbl_idx].boost_uv;
 }
 
 static void __init hw_init(void)
