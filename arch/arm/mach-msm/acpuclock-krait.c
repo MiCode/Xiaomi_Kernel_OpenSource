@@ -387,9 +387,12 @@ static int get_src_dig(const struct core_speed *s)
 {
 	const int *hfpll_vdd = drv.hfpll_data->vdd;
 	const u32 low_vdd_l_max = drv.hfpll_data->low_vdd_l_max;
+	const u32 nom_vdd_l_max = drv.hfpll_data->nom_vdd_l_max;
 
 	if (s->src != HFPLL)
 		return hfpll_vdd[HFPLL_VDD_NONE];
+	else if (s->pll_l_val > nom_vdd_l_max)
+		return hfpll_vdd[HFPLL_VDD_HIGH];
 	else if (s->pll_l_val > low_vdd_l_max)
 		return hfpll_vdd[HFPLL_VDD_NOM];
 	else
