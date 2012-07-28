@@ -120,6 +120,8 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 			goto err;
 		}
 
+		continue;
+
 err:
 		if (!adreno_dump_and_recover(rb->device))
 				wait_time = jiffies + wait_timeout;
