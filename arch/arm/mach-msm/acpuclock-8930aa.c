@@ -88,7 +88,7 @@ static struct msm_bus_scale_pdata bus_scale_data __initdata = {
 	.usecase = bw_level_tbl,
 	.num_usecases = ARRAY_SIZE(bw_level_tbl),
 	.active_only = 1,
-	.name = "acpuclk-8930",
+	.name = "acpuclk-8930aa",
 };
 
 /* TODO: Update vdd_dig, vdd_mem and bw when data is available. */
@@ -130,6 +130,10 @@ static struct acpu_level acpu_freq_tbl_slow[] __initdata = {
 	{ 1, {  1080000, HFPLL, 1, 0, 0x28 }, L2(16), 1175000 },
 	{ 1, {  1134000, HFPLL, 1, 0, 0x2A }, L2(16), 1175000 },
 	{ 1, {  1188000, HFPLL, 1, 0, 0x2C }, L2(16), 1200000 },
+	{ 1, {  1242000, HFPLL, 1, 0, 0x2E }, L2(16), 1200000 },
+	{ 1, {  1296000, HFPLL, 1, 0, 0x30 }, L2(16), 1225000 },
+	{ 1, {  1350000, HFPLL, 1, 0, 0x32 }, L2(16), 1225000 },
+	{ 1, {  1404000, HFPLL, 1, 0, 0x34 }, L2(16), 1237500 },
 	{ 0, { 0 } }
 };
 
@@ -151,6 +155,10 @@ static struct acpu_level acpu_freq_tbl_nom[] __initdata = {
 	{ 1, {  1080000, HFPLL, 1, 0, 0x28 }, L2(16), 1150000 },
 	{ 1, {  1134000, HFPLL, 1, 0, 0x2A }, L2(16), 1150000 },
 	{ 1, {  1188000, HFPLL, 1, 0, 0x2C }, L2(16), 1175000 },
+	{ 1, {  1242000, HFPLL, 1, 0, 0x2E }, L2(16), 1175000 },
+	{ 1, {  1296000, HFPLL, 1, 0, 0x30 }, L2(16), 1200000 },
+	{ 1, {  1350000, HFPLL, 1, 0, 0x32 }, L2(16), 1200000 },
+	{ 1, {  1404000, HFPLL, 1, 0, 0x34 }, L2(16), 1212500 },
 	{ 0, { 0 } }
 };
 
@@ -172,6 +180,10 @@ static struct acpu_level acpu_freq_tbl_fast[] __initdata = {
 	{ 1, {  1080000, HFPLL, 1, 0, 0x28 }, L2(16), 1100000 },
 	{ 1, {  1134000, HFPLL, 1, 0, 0x2A }, L2(16), 1100000 },
 	{ 1, {  1188000, HFPLL, 1, 0, 0x2C }, L2(16), 1125000 },
+	{ 1, {  1242000, HFPLL, 1, 0, 0x2E }, L2(16), 1125000 },
+	{ 1, {  1296000, HFPLL, 1, 0, 0x30 }, L2(16), 1150000 },
+	{ 1, {  1350000, HFPLL, 1, 0, 0x32 }, L2(16), 1150000 },
+	{ 1, {  1404000, HFPLL, 1, 0, 0x34 }, L2(16), 1162500 },
 	{ 0, { 0 } }
 };
 
@@ -181,7 +193,7 @@ static struct pvs_table pvs_tables[NUM_PVS] __initdata = {
 	[PVS_FAST]    = { acpu_freq_tbl_fast, sizeof(acpu_freq_tbl_fast) },
 };
 
-static struct acpuclk_krait_params acpuclk_8930_params __initdata = {
+static struct acpuclk_krait_params acpuclk_8930aa_params __initdata = {
 	.scalable = scalable,
 	.scalable_size = sizeof(scalable),
 	.hfpll_data = &hfpll_data,
@@ -192,21 +204,21 @@ static struct acpuclk_krait_params acpuclk_8930_params __initdata = {
 	.qfprom_phys_base = 0x00700000,
 };
 
-static int __init acpuclk_8930_probe(struct platform_device *pdev)
+static int __init acpuclk_8930aa_probe(struct platform_device *pdev)
 {
-	return acpuclk_krait_init(&pdev->dev, &acpuclk_8930_params);
+	return acpuclk_krait_init(&pdev->dev, &acpuclk_8930aa_params);
 }
 
-static struct platform_driver acpuclk_8930_driver = {
+static struct platform_driver acpuclk_8930aa_driver = {
 	.driver = {
-		.name = "acpuclk-8930",
+		.name = "acpuclk-8930aa",
 		.owner = THIS_MODULE,
 	},
 };
 
-static int __init acpuclk_8930_init(void)
+static int __init acpuclk_8930aa_init(void)
 {
-	return platform_driver_probe(&acpuclk_8930_driver,
-				     acpuclk_8930_probe);
+	return platform_driver_probe(&acpuclk_8930aa_driver,
+				     acpuclk_8930aa_probe);
 }
-device_initcall(acpuclk_8930_init);
+device_initcall(acpuclk_8930aa_init);
