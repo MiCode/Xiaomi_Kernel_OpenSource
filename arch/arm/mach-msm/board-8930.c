@@ -2095,10 +2095,10 @@ static struct platform_device msm_tsens_device = {
 
 static struct msm_thermal_data msm_thermal_pdata = {
 	.sensor_id = 9,
-	.poll_ms = 1000,
-	.limit_temp = 60,
-	.temp_hysteresis = 10,
-	.limit_freq = 918000,
+	.poll_ms = 250,
+	.limit_temp_degC = 60,
+	.temp_hysteresis_degC = 10,
+	.freq_step = 2,
 };
 
 #ifdef CONFIG_MSM_FAKE_BATTERY
