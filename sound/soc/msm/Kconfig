@@ -153,6 +153,16 @@ config SND_SOC_MSM8960
 	help
 	 To add support for SoC audio on MSM8960 and APQ8064 boards
 
+config AUDIO_OCMEM
+	bool "Enable OCMEM for audio/voice usecase"
+	depends on MSM_OCMEM
+	default n
+	help
+	 To add support for on-chip memory use
+	 for audio use cases on MSM8974.
+	 OCMEM gets exercised for low-power
+	 audio and voice use cases.
+
 config SND_SOC_MSM8974
 	tristate "SoC Machine driver for MSM8974 boards"
 	depends on ARCH_MSM8974
@@ -161,6 +171,7 @@ config SND_SOC_MSM8974
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_SOC_WCD9320
 	select SND_DYNAMIC_MINORS
+	select AUDIO_OCMEM
 	help
 	 To add support for SoC audio on MSM8974.
 	 This will enable sound soc drivers which
