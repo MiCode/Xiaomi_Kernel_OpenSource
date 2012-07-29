@@ -665,23 +665,16 @@ void mdp4_fetch_cfg(uint32 clk);
 uint32 mdp4_rgb_igc_lut_cvt(uint32 ndx);
 void mdp4_vg_qseed_init(int);
 int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req);
-int mdp4_overlay_blt_offset(struct fb_info *info,
-					struct msmfb_overlay_blt *req);
-
 
 #ifdef CONFIG_FB_MSM_MIPI_DSI
-int mdp4_dsi_overlay_blt_start(struct msm_fb_data_type *mfd);
-int mdp4_dsi_overlay_blt_stop(struct msm_fb_data_type *mfd);
+void mdp4_dsi_cmd_blt_start(struct msm_fb_data_type *mfd);
+void mdp4_dsi_cmd_blt_stop(struct msm_fb_data_type *mfd);
 void mdp4_dsi_video_blt_start(struct msm_fb_data_type *mfd);
 void mdp4_dsi_video_blt_stop(struct msm_fb_data_type *mfd);
-void mdp4_dsi_overlay_blt(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req);
-int mdp4_dsi_overlay_blt_offset(struct msm_fb_data_type *mfd,
+void mdp4_dsi_cmd_overlay_blt(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req);
 
 void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
-					struct msmfb_overlay_blt *req);
-int mdp4_dsi_video_overlay_blt_offset(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req);
 void mdp4_dsi_video_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 
@@ -726,10 +719,9 @@ static inline void mdp4_dsi_video_overlay_blt(
 	struct msm_fb_data_type *mfd, struct msmfb_overlay_blt *req)
 {
 }
-static inline int mdp4_dsi_video_overlay_blt_offset(
+static inline void mdp4_dsi_cmd_overlay_blt(
 	struct msm_fb_data_type *mfd, struct msmfb_overlay_blt *req)
 {
-	return -ENODEV;
 }
 static inline void mdp4_dsi_video_base_swap(int cndx,
 			struct mdp4_overlay_pipe *pipe)
