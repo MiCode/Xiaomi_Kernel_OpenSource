@@ -1510,10 +1510,13 @@ static int mdp_clk_rate;
 
 #ifdef CONFIG_FB_MSM_NO_MDP_PIPE_CTRL
 
-static void mdp_clk_off(void)
+/*
+ * mdp_clk_disable_unprepare(void) called from thread context
+ */
+static void mdp_clk_disable_unprepare(void)
 {
 	mb();
-	vsync_clk_disable();
+	vsync_clk_disable_unprepare();
 
 	if (mdp_clk != NULL)
 		clk_disable_unprepare(mdp_clk);
@@ -1525,8 +1528,10 @@ static void mdp_clk_off(void)
 		clk_disable_unprepare(mdp_lut_clk);
 }
 
-
-static void mdp_clk_on(void)
+/*
+ * mdp_clk_prepare_enable(void) called from thread context
+ */
+static void mdp_clk_prepare_enable(void)
 {
 	if (mdp_clk != NULL)
 		clk_prepare_enable(mdp_clk);
@@ -1537,9 +1542,12 @@ static void mdp_clk_on(void)
 	if (mdp_lut_clk != NULL)
 		clk_prepare_enable(mdp_lut_clk);
 
-	vsync_clk_enable();
+	vsync_clk_prepare_enable();
 }
 
+/*
+ * mdp_clk_ctrl: called from thread context
+ */
 void mdp_clk_ctrl(int on)
 {
 	static int mdp_clk_cnt;
@@ -1547,13 +1555,13 @@ void mdp_clk_ctrl(int on)
 	mutex_lock(&mdp_suspend_mutex);
 	if (on) {
 		if (mdp_clk_cnt == 0)
-			mdp_clk_on();
+			mdp_clk_prepare_enable();
 		mdp_clk_cnt++;
 	} else {
 		if (mdp_clk_cnt) {
 			mdp_clk_cnt--;
 			if (mdp_clk_cnt == 0)
-				mdp_clk_off();
+				mdp_clk_disable_unprepare();
 		}
 	}
 	mutex_unlock(&mdp_suspend_mutex);

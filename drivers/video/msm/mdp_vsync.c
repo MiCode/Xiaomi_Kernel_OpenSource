@@ -74,14 +74,13 @@ static unsigned char timer_shutdown_flag;
 static uint32 vsync_cnt_cfg;
 
 
-
-void vsync_clk_enable()
+void vsync_clk_prepare_enable(void)
 {
 	if (mdp_vsync_clk)
 		clk_prepare_enable(mdp_vsync_clk);
 }
 
-void vsync_clk_disable()
+void vsync_clk_disable_unprepare(void)
 {
 	if (mdp_vsync_clk)
 		clk_disable_unprepare(mdp_vsync_clk);
