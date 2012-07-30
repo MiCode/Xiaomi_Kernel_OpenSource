@@ -20,6 +20,7 @@
 #include <linux/clk.h>
 
 #include <mach/clk.h>
+#include <mach/rpm-regulator-smd.h>
 
 #include "clock-local2.h"
 #include "clock-pll.h"
@@ -197,6 +198,7 @@ static void __iomem *virt_bases[N_BASES];
 #define AHB_CMD_RCGR                   0x5000
 #define AXI_CMD_RCGR                   0x5040
 #define OCMEMNOC_CMD_RCGR              0x5090
+#define OCMEMCX_OCMEMNOC_CBCR          0x4058
 
 #define MMSS_BCR                  0x0240
 #define USB_30_BCR                0x03C0
@@ -580,10 +582,19 @@ enum vdd_dig_levels {
 	VDD_DIG_HIGH
 };
 
+static const int vdd_corner[] = {
+	[VDD_DIG_NONE]	  = RPM_REGULATOR_CORNER_NONE,
+	[VDD_DIG_LOW]	  = RPM_REGULATOR_CORNER_SVS_SOC,
+	[VDD_DIG_NOMINAL] = RPM_REGULATOR_CORNER_NORMAL,
+	[VDD_DIG_HIGH]	  = RPM_REGULATOR_CORNER_SUPER_TURBO,
+};
+
+static struct rpm_regulator *vdd_dig_reg;
+
 static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
 {
-	/* TODO: Actually call into regulator APIs to set VDD_DIG here. */
-	return 0;
+	return rpm_regulator_set_voltage(vdd_dig_reg, vdd_corner[level],
+					RPM_REGULATOR_CORNER_SUPER_TURBO);
 }
 
 static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
@@ -689,7 +700,7 @@ static struct pll_vote_clk mmpll1_clk_src = {
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "mmpll1_clk_src",
-		.rate = 1000000000,
+		.rate = 846000000,
 		.ops = &clk_ops_pll_vote,
 		.warned = true,
 		CLK_INIT(mmpll1_clk_src.c),
@@ -705,6 +716,7 @@ static struct pll_clk mmpll3_clk_src = {
 		.dbg_name = "mmpll3_clk_src",
 		.rate = 1000000000,
 		.ops = &clk_ops_local_pll,
+		.warned = true,
 		CLK_INIT(mmpll3_clk_src.c),
 	},
 };
@@ -2205,6 +2217,28 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 	},
 };
 
+struct branch_clk gcc_mmss_noc_cfg_ahb_clk = {
+	.cbcr_reg = MMSS_NOC_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_mmss_noc_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mmss_noc_cfg_ahb_clk.c),
+	},
+};
+
+struct branch_clk gcc_ocmem_noc_cfg_ahb_clk = {
+	.cbcr_reg = OCMEM_NOC_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_ocmem_noc_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_ocmem_noc_cfg_ahb_clk.c),
+	},
+};
+
 static struct branch_clk gcc_mss_cfg_ahb_clk = {
 	.cbcr_reg = MSS_CFG_AHB_CBCR,
 	.has_sibling = 1,
@@ -2217,10 +2251,11 @@ static struct branch_clk gcc_mss_cfg_ahb_clk = {
 };
 
 static struct clk_freq_tbl ftbl_mmss_axi_clk[] = {
-	F_MM( 19200000,    cxo,   1,   0,   0),
-	F_MM(150000000,  gpll0,   4,   0,   0),
-	F_MM(333330000, mmpll1,   3,   0,   0),
-	F_MM(400000000, mmpll0,   2,   0,   0),
+	F_MM( 19200000,    cxo,     1,   0,   0),
+	F_MM(150000000,  gpll0,     4,   0,   0),
+	F_MM(282000000, mmpll1,     3,   0,   0),
+	F_MM(320000000, mmpll1,   2.5,   0,   0),
+	F_MM(400000000, mmpll0,     2,   0,   0),
 	F_END
 };
 
@@ -2233,8 +2268,8 @@ static struct rcg_clk axi_clk_src = {
 	.c = {
 		.dbg_name = "axi_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 333330000,
-				  HIGH, 400000000),
+		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 282000000,
+				  HIGH, 320000000),
 		CLK_INIT(axi_clk_src.c),
 	},
 };
@@ -2242,7 +2277,7 @@ static struct rcg_clk axi_clk_src = {
 static struct clk_freq_tbl ftbl_ocmemnoc_clk[] = {
 	F_MM( 19200000,    cxo,   1,   0,   0),
 	F_MM(150000000,  gpll0,   4,   0,   0),
-	F_MM(333330000, mmpll1,   3,   0,   0),
+	F_MM(282000000, mmpll1,   3,   0,   0),
 	F_MM(400000000, mmpll0,   2,   0,   0),
 	F_END
 };
@@ -2256,7 +2291,7 @@ struct rcg_clk ocmemnoc_clk_src = {
 	.c = {
 		.dbg_name = "ocmemnoc_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 333330000,
+		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 282000000,
 				  HIGH, 400000000),
 		CLK_INIT(ocmemnoc_clk_src.c),
 	},
@@ -3735,6 +3770,18 @@ struct branch_clk ocmemnoc_clk = {
 	},
 };
 
+struct branch_clk ocmemcx_ocmemnoc_clk = {
+	.cbcr_reg = OCMEMCX_OCMEMNOC_CBCR,
+	.parent = &ocmemnoc_clk_src.c,
+	.has_sibling = 1,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "ocmemcx_ocmemnoc_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(ocmemcx_ocmemnoc_clk.c),
+	},
+};
+
 static struct branch_clk venus0_ahb_clk = {
 	.cbcr_reg = VENUS0_AHB_CBCR,
 	.has_sibling = 1,
@@ -4319,6 +4366,8 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_blsp2_uart5_apps_clk.c,		GCC_BASE, 0x00c6},
 	{&gcc_blsp2_uart6_apps_clk.c,		GCC_BASE, 0x00cb},
 	{&gcc_boot_rom_ahb_clk.c,		GCC_BASE, 0x0100},
+	{&gcc_ocmem_noc_cfg_ahb_clk.c,		GCC_BASE, 0x0029},
+	{&gcc_mmss_noc_cfg_ahb_clk.c,		GCC_BASE, 0x002A},
 	{&gcc_mss_cfg_ahb_clk.c,		GCC_BASE, 0x0030},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0140},
 	{&gcc_ce2_clk.c,			GCC_BASE, 0x0148},
@@ -4346,6 +4395,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&mmss_mmssnoc_ahb_clk.c,		MMSS_BASE, 0x0001},
 	{&mmss_mmssnoc_axi_clk.c,		MMSS_BASE, 0x0004},
 	{&ocmemnoc_clk.c,			MMSS_BASE, 0x0007},
+	{&ocmemcx_ocmemnoc_clk.c,		MMSS_BASE, 0x0009},
 	{&camss_cci_cci_ahb_clk.c,		MMSS_BASE, 0x002e},
 	{&camss_cci_cci_clk.c,			MMSS_BASE, 0x002d},
 	{&camss_csi0_ahb_clk.c,			MMSS_BASE, 0x0042},
@@ -4780,6 +4830,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_clk", mdss_axi_clk.c, "mdp.0"),
 	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fdb00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb00000.qcom,kgsl-3d0"),
+	CLK_LOOKUP("mem_iface_clk", ocmemcx_ocmemnoc_clk.c,
+						"fdb00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("core_clk", oxilicx_axi_clk.c, "fdb10000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb10000.qcom,iommu"),
 	CLK_LOOKUP("alt_core_clk", oxili_gfx3d_clk.c, "fdb10000.qcom,iommu"),
@@ -4871,6 +4923,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_a_clk",	ocmemnoc_clk.c,		"msm_ocmem_noc"),
 	CLK_LOOKUP("bus_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
 	CLK_LOOKUP("bus_a_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
+	CLK_LOOKUP("iface_clk", gcc_mmss_noc_cfg_ahb_clk.c, ""),
+	CLK_LOOKUP("iface_clk", gcc_ocmem_noc_cfg_ahb_clk.c, ""),
 
 	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-tmc-etr"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "coresight-tpiu"),
@@ -4990,9 +5044,9 @@ static struct pll_config_regs mmpll1_regs __initdata = {
 
 /* MMPLL1 at 1000 MHz, main output enabled. */
 static struct pll_config mmpll1_config __initdata = {
-	.l = 0x34,
+	.l = 0x2C,
 	.m = 0x1,
-	.n = 0xC,
+	.n = 0x10,
 	.vco_val = 0x0,
 	.vco_mask = BM(21, 20),
 	.pre_div_val = 0x0,
@@ -5095,8 +5149,8 @@ static void __init reg_init(void)
 
 static void __init msm8974_clock_post_init(void)
 {
-	clk_set_rate(&axi_clk_src.c, 333330000);
-	clk_set_rate(&ocmemnoc_clk_src.c, 333330000);
+	clk_set_rate(&axi_clk_src.c, 282000000);
+	clk_set_rate(&ocmemnoc_clk_src.c, 282000000);
 
 	/*
 	 * Hold an active set vote at a rate of 40MHz for the MMSS NOC AHB
@@ -5110,6 +5164,13 @@ static void __init msm8974_clock_post_init(void)
 	 * to remain on whenever CPUs aren't power collapsed.
 	 */
 	clk_prepare_enable(&cxo_a_clk_src.c);
+
+	/*
+	 * TODO: Temporarily enable NOC configuration AHB clocks. Remove when
+	 * the bus driver is ready.
+	 */
+	clk_prepare_enable(&gcc_mmss_noc_cfg_ahb_clk.c);
+	clk_prepare_enable(&gcc_ocmem_noc_cfg_ahb_clk.c);
 
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb30_master_clk_src.c,
@@ -5172,7 +5233,25 @@ static void __init msm8974_clock_pre_init(void)
 
 	clk_ops_local_pll.enable = msm8974_pll_clk_enable;
 
+	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
+	if (IS_ERR(vdd_dig_reg))
+		panic("clock-copper: Unable to get the vdd_dig regulator!");
+
+	/*
+	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
+	 * until late_init. This may not be necessary with clock handoff;
+	 * Investigate this code on a real non-simulator target to determine
+	 * its necessity.
+	 */
+	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	rpm_regulator_enable(vdd_dig_reg);
+
 	reg_init();
+}
+
+static int __init msm8974_clock_late_init(void)
+{
+	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 }
 
 struct clock_init_data msm8974_clock_init_data __initdata = {
@@ -5180,4 +5259,5 @@ struct clock_init_data msm8974_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clocks_8974),
 	.pre_init = msm8974_clock_pre_init,
 	.post_init = msm8974_clock_post_init,
+	.late_init = msm8974_clock_late_init,
 };
