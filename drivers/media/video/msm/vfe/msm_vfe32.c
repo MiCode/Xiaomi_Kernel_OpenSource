@@ -1754,25 +1754,25 @@ static int vfe32_proc_general(
 				VFE_OUTPUTS_PREVIEW))
 				/* Configure primary channel */
 				rc = vfe32_configure_pingpong_buffers(
-					VFE_MSG_V32_START,
+					VFE_MSG_START,
 					VFE_MSG_OUTPUT_PRIMARY,
 					vfe32_ctrl);
 			else
 			/* Configure secondary channel */
 				rc = vfe32_configure_pingpong_buffers(
-					VFE_MSG_V32_START,
+					VFE_MSG_START,
 					VFE_MSG_OUTPUT_SECONDARY,
 					vfe32_ctrl);
 		}
 		if (vfe32_ctrl->share_ctrl->operation_mode &
 				VFE_OUTPUTS_RDI0)
 			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_V32_START, VFE_MSG_OUTPUT_TERTIARY1,
+				VFE_MSG_START, VFE_MSG_OUTPUT_TERTIARY1,
 				vfe32_ctrl);
 		if (vfe32_ctrl->share_ctrl->operation_mode &
 				VFE_OUTPUTS_RDI1)
 			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_V32_START, VFE_MSG_OUTPUT_TERTIARY2,
+				VFE_MSG_START, VFE_MSG_OUTPUT_TERTIARY2,
 				vfe32_ctrl);
 
 		if (rc < 0) {
@@ -1794,7 +1794,7 @@ static int vfe32_proc_general(
 			goto proc_general_done;
 		}
 		rc = vfe32_configure_pingpong_buffers(
-			VFE_MSG_V32_CAPTURE, VFE_MSG_OUTPUT_PRIMARY,
+			VFE_MSG_CAPTURE, VFE_MSG_OUTPUT_PRIMARY,
 			vfe32_ctrl);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -1822,13 +1822,13 @@ static int vfe32_proc_general(
 			}
 			/* Configure primary channel for JPEG */
 			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_V32_JPEG_CAPTURE,
+				VFE_MSG_JPEG_CAPTURE,
 				VFE_MSG_OUTPUT_PRIMARY,
 				vfe32_ctrl);
 		} else {
 			/* Configure primary channel */
 			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_V32_CAPTURE,
+				VFE_MSG_CAPTURE,
 				VFE_MSG_OUTPUT_PRIMARY,
 				vfe32_ctrl);
 		}
@@ -1840,7 +1840,7 @@ static int vfe32_proc_general(
 		}
 		/* Configure secondary channel */
 		rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_V32_CAPTURE, VFE_MSG_OUTPUT_SECONDARY,
+				VFE_MSG_CAPTURE, VFE_MSG_OUTPUT_SECONDARY,
 				vfe32_ctrl);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -1865,7 +1865,7 @@ static int vfe32_proc_general(
 			vfe32_ctrl->share_ctrl->outpath.out1.inst_handle =
 				temp1;
 			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_V32_START_RECORDING,
+				VFE_MSG_START_RECORDING,
 				VFE_MSG_OUTPUT_SECONDARY,
 				vfe32_ctrl);
 		} else if (vfe32_ctrl->share_ctrl->operation_mode &
@@ -1873,7 +1873,7 @@ static int vfe32_proc_general(
 			vfe32_ctrl->share_ctrl->outpath.out0.inst_handle =
 				temp1;
 			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_V32_START_RECORDING,
+				VFE_MSG_START_RECORDING,
 				VFE_MSG_OUTPUT_PRIMARY,
 				vfe32_ctrl);
 		}
@@ -2433,7 +2433,7 @@ static int vfe32_proc_general(
 		}
 		vfe32_ctrl->share_ctrl->outpath.out0.inst_handle = temp1;
 		/* Configure primary channel */
-		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_CAPTURE,
+		rc = vfe32_configure_pingpong_buffers(VFE_MSG_CAPTURE,
 					VFE_MSG_OUTPUT_PRIMARY, vfe32_ctrl);
 		if (rc < 0) {
 			pr_err("%s error configuring pingpong buffers"
@@ -2964,11 +2964,11 @@ static int vfe32_proc_general(
 		break;
 
 	case VFE_CMD_ZSL:
-		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_START,
+		rc = vfe32_configure_pingpong_buffers(VFE_MSG_START,
 			VFE_MSG_OUTPUT_PRIMARY, vfe32_ctrl);
 		if (rc < 0)
 			goto proc_general_done;
-		rc = vfe32_configure_pingpong_buffers(VFE_MSG_V32_START,
+		rc = vfe32_configure_pingpong_buffers(VFE_MSG_START,
 			VFE_MSG_OUTPUT_SECONDARY, vfe32_ctrl);
 		if (rc < 0)
 			goto proc_general_done;
