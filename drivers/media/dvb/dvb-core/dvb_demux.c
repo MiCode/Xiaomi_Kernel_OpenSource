@@ -137,7 +137,12 @@ static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 
 	/*
 	cc = buf[3] & 0x0f;
-	ccok = ((feed->cc + 1) & 0x0f) == cc;
+	if (feed->first_cc)
+		ccok = 1;
+	else
+		ccok = ((feed->cc + 1) & 0x0f) == cc;
+
+	feed->first_cc = 0;
 	feed->cc = cc;
 	if (!ccok)
 		printk("missed packet!\n");
@@ -351,7 +356,12 @@ static int dvb_dmx_swfilter_section_packet(struct dvb_demux_feed *feed,
 	p = 188 - count;	/* payload start */
 
 	cc = buf[3] & 0x0f;
-	ccok = ((feed->cc + 1) & 0x0f) == cc;
+	if (feed->first_cc)
+		ccok = 1;
+	else
+		ccok = ((feed->cc + 1) & 0x0f) == cc;
+
+	feed->first_cc = 0;
 	feed->cc = cc;
 
 	if (buf[3] & 0x20) {
@@ -996,6 +1006,8 @@ static int dmx_ts_feed_start_filtering(struct dmx_ts_feed *ts_feed)
 		return -ENODEV;
 	}
 
+	feed->first_cc = 1;
+
 	if ((ret = demux->start_feed(feed)) < 0) {
 		mutex_unlock(&demux->mutex);
 		return ret;
@@ -1299,6 +1311,7 @@ static int dmx_section_feed_start_filtering(struct dmx_section_feed *feed)
 	dvbdmxfeed->feed.sec.secbuf = dvbdmxfeed->feed.sec.secbuf_base;
 	dvbdmxfeed->feed.sec.secbufp = 0;
 	dvbdmxfeed->feed.sec.seclen = 0;
+	dvbdmxfeed->first_cc = 1;
 
 	if (!dvbdmx->start_feed) {
 		mutex_unlock(&dvbdmx->mutex);
