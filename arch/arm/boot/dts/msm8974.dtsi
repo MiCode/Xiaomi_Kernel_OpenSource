@@ -88,7 +88,9 @@
 		cell-index = <1>; /* SDC1 eMMC slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf9824000 0x1000>;
+		reg-names = "core_mem";
 		interrupts = <0 123 0>;
+		interrupt-names = "core_irq";
 		vdd-supply = <&pm8941_l20>;
 		vdd-io-supply = <&pm8941_s3>;
 
@@ -115,7 +117,9 @@
 		cell-index = <2>; /* SDC2 SD card slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x1000>;
+		reg-names = "core_mem";
 		interrupts = <0 125 0>;
+		interrupt-names = "core_irq";
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_l13>;
 
@@ -144,7 +148,9 @@
 		cell-index = <3>; /* SDC3 SDIO slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf9864000 0x1000>;
+		reg-names = "core_mem";
 		interrupts = <0 127 0>;
+		interrupt-names = "core_irq";
 
 		gpios = <&msmgpio 40 0>, /* CLK */
 			<&msmgpio 39 0>, /* CMD */
@@ -165,7 +171,9 @@
 		cell-index = <4>; /* SDC4 SDIO slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98e4000 0x1000>;
+		reg-names = "core_mem";
 		interrupts = <0 129 0>;
+		interrupt-names = "core_irq";
 
 		gpios = <&msmgpio 93 0>, /* CLK */
 			<&msmgpio 91 0>, /* CMD */

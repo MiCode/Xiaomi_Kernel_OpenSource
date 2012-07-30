@@ -819,19 +819,19 @@ static struct resource resources_sdc1[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC1_DML_BASE,
 		.end	= MSM_SDC1_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC1_BAM_BASE,
 		.end	= MSM_SDC1_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC1_BAM_IRQ,
 		.end	= SDC1_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
@@ -854,19 +854,19 @@ static struct resource resources_sdc2[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC2_DML_BASE,
 		.end	= MSM_SDC2_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC2_BAM_BASE,
 		.end	= MSM_SDC2_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC2_BAM_IRQ,
 		.end	= SDC2_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
@@ -889,19 +889,19 @@ static struct resource resources_sdc3[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC3_DML_BASE,
 		.end	= MSM_SDC3_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC3_BAM_BASE,
 		.end	= MSM_SDC3_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC3_BAM_IRQ,
 		.end	= SDC3_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
@@ -924,19 +924,19 @@ static struct resource resources_sdc4[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC4_DML_BASE,
 		.end	= MSM_SDC4_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC4_BAM_BASE,
 		.end	= MSM_SDC4_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC4_BAM_IRQ,
 		.end	= SDC4_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
@@ -959,19 +959,19 @@ static struct resource resources_sdc5[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC5_DML_BASE,
 		.end	= MSM_SDC5_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC5_BAM_BASE,
 		.end	= MSM_SDC5_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC5_BAM_IRQ,
 		.end	= SDC5_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
