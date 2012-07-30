@@ -111,7 +111,7 @@ module_init(_pcm_log_init);
 
 
 
-#define BUFSZ (960 * 5)
+#define BUFSZ (5248)
 #define DMASZ (BUFSZ * 2)
 
 #define COMMON_OBJ_ID 6
@@ -817,7 +817,7 @@ static int audio_open(struct inode *inode, struct file *file)
 		goto done;
 
 	audio->out_buffer_size = BUFSZ;
-	audio->out_sample_rate = 44100;
+	audio->out_sample_rate = 48000;
 	audio->out_channel_mode = AUDPP_CMD_PCM_INTF_STEREO_V;
 	audio->out_weight = 100;
 
