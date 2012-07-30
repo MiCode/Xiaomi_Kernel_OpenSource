@@ -13,6 +13,7 @@
 #ifndef _ARCH_ARM_MACH_MSM_MDM_PRIVATE_H
 #define _ARCH_ARM_MACH_MSM_MDM_PRIVATE_H
 
+#define MDM_DEBUG_MASK_VDDMIN_SETUP (0x00000002)
 struct mdm_modem_drv;
 
 struct mdm_ops {

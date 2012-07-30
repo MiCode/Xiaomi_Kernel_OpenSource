@@ -44,7 +44,7 @@
 
 #define MDM_PBLRDY_CNT		20
 
-static int mdm_debug_on;
+static int mdm_debug_mask;
 static int power_on_count;
 static int hsic_peripheral_status;
 static DEFINE_MUTEX(hsic_status_lock);
@@ -234,7 +234,7 @@ static void mdm_power_on_common(struct mdm_modem_drv *mdm_drv)
 
 static void debug_state_changed(int value)
 {
-	mdm_debug_on = value;
+	mdm_debug_mask = value;
 }
 
 static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
