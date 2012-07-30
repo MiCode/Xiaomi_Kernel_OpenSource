@@ -147,9 +147,15 @@ enum {
 	MHL_MSC_MSG_RAPK            = 0x21,
 };
 
-#define	RCPE_NO_ERROR				0x00
-#define	RCPE_INEEFECTIVE_KEY_CODE	0x01
-#define	RCPE_BUSY					0x02
+#define MHL_RCPE_NO_ERROR			0x00
+#define MHL_RCPE_UNSUPPORTED_KEY_CODE		0x01
+#define MHL_RCPE_BUSY				0x02
+
+#define MHL_RAPK_NO_ERROR			0x00
+#define MHL_RAPK_UNRECOGNIZED_ACTION_CODE	0x01
+#define MHL_RAPK_UNSUPPORTED_ACTION_CODE	0x02
+#define MHL_RAPK_BUSY				0x03
+
 /* MHL spec related defines*/
 enum {
 	/* Command or Data byte acknowledge */
