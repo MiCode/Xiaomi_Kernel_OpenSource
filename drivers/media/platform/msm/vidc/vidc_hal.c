@@ -1201,9 +1201,11 @@ int vidc_hal_session_set_property(void *sess,
 	}
 	case HAL_PARAM_VENC_RATE_CONTROL:
 	{
+		u32 *rc_mode;
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VENC_RATE_CONTROL;
-		switch ((enum hal_rate_control)pdata) {
+		rc_mode = (u32 *)pdata;
+		switch ((enum hal_rate_control) *rc_mode) {
 		case HAL_RATE_CONTROL_OFF:
 		pkt->rg_property_data[1] = HFI_RATE_CONTROL_OFF;
 			break;
