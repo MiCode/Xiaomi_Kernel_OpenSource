@@ -339,6 +339,15 @@ config MSM_CSI2_REGISTER
           of CSIPHY, CSID and ISPIF subdevices to receive data
           from sensor.
 
+config MSM_ISPIF
+        bool "Qualcomm MSM Image Signal Processing interface support"
+        depends on MSM_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module acts as a crossbar between CSID and VFE. Output
+          of any CID of CSID can be routed to of of pixel or raw
+          data interface in VFE.
+
 config S5K3L1YX
 	bool "Sensor S5K3L1YX (BAYER 12M)"
 	depends on MSM_CAMERA
