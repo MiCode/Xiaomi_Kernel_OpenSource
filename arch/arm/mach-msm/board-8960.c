@@ -1425,7 +1425,7 @@ static void __init msm8960_init_buses(void)
 
 static struct msm_spi_platform_data msm8960_qup_spi_gsbi1_pdata = {
 	.max_clock_speed = 15060000,
-	.infinite_mode	 = 1
+	.infinite_mode	 = 0xFFC0,
 };
 
 #ifdef CONFIG_USB_MSM_OTG_72K
