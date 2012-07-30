@@ -366,10 +366,6 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 			need_reconfig = ddl_check_reconfig(ddl);
 			DDL_MSG_HIGH("%s : need_reconfig = %u\n", __func__,
 				 need_reconfig);
-			if (input_vcd_frm->flags &
-				  VCD_FRAME_FLAG_EOS) {
-				need_reconfig = false;
-			}
 			if (((input_vcd_frm->flags &
 				VCD_FRAME_FLAG_CODECCONFIG) &&
 				(!(input_vcd_frm->flags &

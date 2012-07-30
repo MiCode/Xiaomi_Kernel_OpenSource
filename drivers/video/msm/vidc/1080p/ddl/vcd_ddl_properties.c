@@ -201,6 +201,7 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 			decoder->dynamic_prop_change |=
 				DDL_DEC_REQ_OUTPUT_FLUSH;
 			decoder->dpb_mask.client_mask = 0;
+			decoder->field_needed_for_prev_ip = 0;
 			vcd_status = VCD_S_SUCCESS;
 		}
 	break;
