@@ -7180,7 +7180,6 @@ static struct ion_platform_data ion_pdata = {
 			.type	= ION_HEAP_TYPE_CARVEOUT,
 			.name	= ION_CAMERA_HEAP_NAME,
 			.memory_type = ION_EBI_TYPE,
-			.has_outer_cache = 1,
 			.extra_data = (void *)&co_ion_pdata,
 		},
 		/* PMEM_AUDIO */
@@ -7189,7 +7188,6 @@ static struct ion_platform_data ion_pdata = {
 			.type	= ION_HEAP_TYPE_CARVEOUT,
 			.name	= ION_AUDIO_HEAP_NAME,
 			.memory_type = ION_EBI_TYPE,
-			.has_outer_cache = 1,
 			.extra_data = (void *)&co_ion_pdata,
 		},
 		/* PMEM_MDP = SF */
@@ -7198,7 +7196,6 @@ static struct ion_platform_data ion_pdata = {
 			.type	= ION_HEAP_TYPE_CARVEOUT,
 			.name	= ION_SF_HEAP_NAME,
 			.memory_type = ION_EBI_TYPE,
-			.has_outer_cache = 1,
 			.extra_data = (void *)&co_ion_pdata,
 		},
 #endif
