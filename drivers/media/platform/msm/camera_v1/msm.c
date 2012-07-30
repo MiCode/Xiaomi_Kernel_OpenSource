@@ -189,12 +189,25 @@ static int msm_camera_v4l2_reqbufs(struct file *f, void *pctx,
 {
 	int rc = 0, i, j;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
+	struct msm_cam_media_controller *pmctl;
+	struct msm_cam_v4l2_device *pcam = video_drvdata(f);
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 	D("%s\n", __func__);
 	WARN_ON(pctx != f->private_data);
 
 	mutex_lock(&pcam_inst->inst_lock);
+	if (!pcam_inst->vbqueue_initialized && pb->count) {
+		pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+		if (pmctl == NULL) {
+			pr_err("%s Invalid mctl ptr", __func__);
+			return -EINVAL;
+		}
+		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
+			pb->type);
+		pcam_inst->vbqueue_initialized = 1;
+	}
+
 	rc = vb2_reqbufs(&pcam_inst->vid_bufq, pb);
 	if (rc < 0) {
 		pr_err("%s reqbufs failed %d ", __func__, rc);
@@ -564,7 +577,6 @@ static int msm_camera_v4l2_s_fmt_cap(struct file *f, void *pctx,
 	int rc;
 	/* get the video device */
 	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
-	struct msm_cam_media_controller *pmctl;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
@@ -574,16 +586,6 @@ static int msm_camera_v4l2_s_fmt_cap(struct file *f, void *pctx,
 		__func__, (u32)pcam_inst, pcam_inst->my_index,
 		(void *)pfmt->fmt.pix.priv);
 	WARN_ON(pctx != f->private_data);
-
-	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
-	if (pmctl == NULL)
-		return -EINVAL;
-
-	if (!pcam_inst->vbqueue_initialized) {
-		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
-					V4L2_BUF_TYPE_VIDEO_CAPTURE);
-		pcam_inst->vbqueue_initialized = 1;
-	}
 
 	mutex_lock(&pcam->vid_lock);
 
@@ -602,23 +604,12 @@ static int msm_camera_v4l2_s_fmt_cap_mplane(struct file *f, void *pctx,
 {
 	int rc;
 	struct msm_cam_v4l2_device *pcam = video_drvdata(f);
-	struct msm_cam_media_controller *pmctl;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	pcam_inst = container_of(f->private_data,
 			struct msm_cam_v4l2_dev_inst, eventHandle);
 
 	D("%s Inst %p\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
-
-	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
-	if (pmctl == NULL)
-		return -EINVAL;
-
-	if (!pcam_inst->vbqueue_initialized) {
-		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
-					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-		pcam_inst->vbqueue_initialized = 1;
-	}
 
 	mutex_lock(&pcam->vid_lock);
 	rc = msm_server_set_fmt_mplane(pcam, pcam_inst->my_index, pfmt);
