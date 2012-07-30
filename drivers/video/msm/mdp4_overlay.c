@@ -2064,7 +2064,7 @@ void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 	iom_pipe_info = &mdp_iommu[pipe->mixer_num][pipe->pipe_ndx - 1];
 	iom_pipe_info->mark_unmap = 1;
 
-	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 1);
+	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
 
 	memset(pipe, 0, sizeof(*pipe));
 
@@ -2886,16 +2886,11 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 
 		mfd->use_ov0_blt &= ~(1 << (pipe->pipe_ndx-1));
 		mdp4_overlay_update_blt_mode(mfd);
-		if (!mfd->use_ov0_blt)
-			mdp4_free_writeback_buf(mfd, MDP4_MIXER0);
 	} else {	/* mixer1, DTV, ATV */
 		if (ctrl->panel_mode & MDP4_PANEL_DTV) {
 			mdp4_overlay_dtv_unset(mfd, pipe);
 			mfd->use_ov1_blt &= ~(1 << (pipe->pipe_ndx-1));
 			mdp4_overlay1_update_blt_mode(mfd);
-			if (!mfd->use_ov1_blt)
-				mdp4_free_writeback_buf(mfd,
-								MDP4_MIXER1);
 		}
 	}
 
