@@ -20,6 +20,7 @@
 struct ispif_irq_status {
 	uint32_t ispifIrqStatus0;
 	uint32_t ispifIrqStatus1;
+	uint32_t ispifIrqStatus2;
 };
 
 struct ispif_device {
@@ -35,12 +36,17 @@ struct ispif_device {
 	uint32_t csid_version;
 	struct clk *ispif_clk[5];
 	uint32_t pix_sof_count;
+	uint32_t rdi0_sof_count;
+	uint32_t rdi1_sof_count;
+	uint32_t rdi2_sof_count;
+	struct tasklet_struct ispif_tasklet;
 };
 
 struct ispif_isr_queue_cmd {
 	struct list_head list;
 	uint32_t    ispifInterruptStatus0;
 	uint32_t    ispifInterruptStatus1;
+	uint32_t    ispifInterruptStatus2;
 };
 
 #define VIDIOC_MSM_ISPIF_CFG \

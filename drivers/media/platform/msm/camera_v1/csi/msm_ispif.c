@@ -29,6 +29,7 @@
 
 static atomic_t ispif_irq_cnt;
 static spinlock_t ispif_tasklet_lock;
+static spinlock_t ispif_sof_lock;
 static struct list_head ispif_tasklet_q;
 
 static int msm_ispif_intf_reset(struct ispif_device *ispif,
@@ -294,6 +295,8 @@ static int msm_ispif_config(struct ispif_device *ispif,
 	ispif_params = params_list->params;
 	CDBG("Enable interface\n");
 	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_ADDR);
+	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_1_ADDR);
+	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_2_ADDR);
 	for (i = 0; i < params_len; i++) {
 		intftype = ispif_params[i].intftype;
 		vfe_intf = ispif_params[i].vfe_intf;
@@ -324,6 +327,14 @@ static int msm_ispif_config(struct ispif_device *ispif,
 					ISPIF_IRQ_MASK_ADDR);
 	msm_camera_io_w(ISPIF_IRQ_STATUS_MASK, ispif->base +
 					ISPIF_IRQ_CLEAR_ADDR);
+	msm_camera_io_w(ISPIF_IRQ_STATUS_1_MASK, ispif->base +
+					ISPIF_IRQ_MASK_1_ADDR);
+	msm_camera_io_w(ISPIF_IRQ_STATUS_1_MASK, ispif->base +
+					ISPIF_IRQ_CLEAR_1_ADDR);
+	msm_camera_io_w(ISPIF_IRQ_STATUS_2_MASK, ispif->base +
+					ISPIF_IRQ_MASK_2_ADDR);
+	msm_camera_io_w(ISPIF_IRQ_STATUS_2_MASK, ispif->base +
+					ISPIF_IRQ_CLEAR_2_ADDR);
 	msm_camera_io_w(ISPIF_IRQ_GLOBAL_CLEAR_CMD, ispif->base +
 		 ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 	return rc;
@@ -539,13 +550,25 @@ static int msm_ispif_subdev_video_s_stream(struct v4l2_subdev *sd,
 	return rc;
 }
 
+static void send_rdi_sof(struct ispif_device *ispif,
+	enum msm_ispif_intftype interface, int count)
+{
+	struct rdi_count_msg sof_msg;
+	sof_msg.rdi_interface = interface;
+	sof_msg.count = count;
+	v4l2_subdev_notify(&ispif->subdev, NOTIFY_AXI_RDI_SOF_COUNT,
+					   (void *)&sof_msg);
+}
+
 static void ispif_do_tasklet(unsigned long data)
 {
 	unsigned long flags;
 
 	struct ispif_isr_queue_cmd *qcmd = NULL;
+	struct ispif_device *ispif;
 	CDBG("=== ispif_do_tasklet start ===\n");
 
+	ispif = (struct ispif_device *)data;
 	while (atomic_read(&ispif_irq_cnt)) {
 		spin_lock_irqsave(&ispif_tasklet_lock, flags);
 		qcmd = list_first_entry(&ispif_tasklet_q,
@@ -560,20 +583,39 @@ static void ispif_do_tasklet(unsigned long data)
 		list_del(&qcmd->list);
 		spin_unlock_irqrestore(&ispif_tasklet_lock,
 			flags);
+
+		spin_lock_irqsave(&ispif_sof_lock, flags);
 		if (qcmd->ispifInterruptStatus0 &
-			ISPIF_IRQ_STATUS_RDI_SOF_MASK) {
-			CDBG("ispif rdi irq status\n");
+			ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
+			CDBG("%s: ispif PIX irq status", __func__);
+			ispif->pix_sof_count++;
+			v4l2_subdev_notify(&ispif->subdev,
+				NOTIFY_VFE_PIX_SOF_COUNT,
+				(void *)&ispif->pix_sof_count);
+		}
+		if (qcmd->ispifInterruptStatus0 &
+			ISPIF_IRQ_STATUS_RDI0_SOF_MASK) {
+			CDBG("%s: ispif RDI0 irq status", __func__);
+			ispif->rdi0_sof_count++;
+			send_rdi_sof(ispif, RDI_0, ispif->rdi0_sof_count);
 		}
 		if (qcmd->ispifInterruptStatus1 &
-			ISPIF_IRQ_STATUS_RDI_SOF_MASK) {
-			CDBG("ispif rdi1 irq status\n");
+			ISPIF_IRQ_STATUS_RDI1_SOF_MASK) {
+			CDBG("%s: ispif RDI1 irq status", __func__);
+			ispif->rdi1_sof_count++;
+			send_rdi_sof(ispif, RDI_1, ispif->rdi1_sof_count);
 		}
+		if (qcmd->ispifInterruptStatus2 &
+			ISPIF_IRQ_STATUS_RDI2_SOF_MASK) {
+			CDBG("%s: ispif RDI2 irq status", __func__);
+			ispif->rdi2_sof_count++;
+			send_rdi_sof(ispif, RDI_2, ispif->rdi2_sof_count);
+		}
+		spin_unlock_irqrestore(&ispif_sof_lock, flags);
 		kfree(qcmd);
 	}
 	CDBG("=== ispif_do_tasklet end ===\n");
 }
-
-DECLARE_TASKLET(ispif_tasklet, ispif_do_tasklet, 0);
 
 static void ispif_process_irq(struct ispif_device *ispif,
 	struct ispif_irq_status *out)
@@ -590,20 +632,14 @@ static void ispif_process_irq(struct ispif_device *ispif,
 	}
 	qcmd->ispifInterruptStatus0 = out->ispifIrqStatus0;
 	qcmd->ispifInterruptStatus1 = out->ispifIrqStatus1;
-
-	if (qcmd->ispifInterruptStatus0 & ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
-		CDBG("%s: ispif PIX sof irq\n", __func__);
-		ispif->pix_sof_count++;
-		v4l2_subdev_notify(&ispif->subdev, NOTIFY_VFE_SOF_COUNT,
-			(void *)&ispif->pix_sof_count);
-	}
+	qcmd->ispifInterruptStatus2 = out->ispifIrqStatus2;
 
 	spin_lock_irqsave(&ispif_tasklet_lock, flags);
 	list_add_tail(&qcmd->list, &ispif_tasklet_q);
 
 	atomic_add(1, &ispif_irq_cnt);
 	spin_unlock_irqrestore(&ispif_tasklet_lock, flags);
-	tasklet_schedule(&ispif_tasklet);
+	tasklet_schedule(&ispif->ispif_tasklet);
 	return;
 }
 
@@ -615,10 +651,14 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 		ISPIF_IRQ_STATUS_ADDR);
 	out->ispifIrqStatus1 = msm_camera_io_r(ispif->base +
 		ISPIF_IRQ_STATUS_1_ADDR);
+	out->ispifIrqStatus2 = msm_camera_io_r(ispif->base +
+		ISPIF_IRQ_STATUS_2_ADDR);
 	msm_camera_io_w(out->ispifIrqStatus0,
 		ispif->base + ISPIF_IRQ_CLEAR_ADDR);
 	msm_camera_io_w(out->ispifIrqStatus1,
 		ispif->base + ISPIF_IRQ_CLEAR_1_ADDR);
+	msm_camera_io_w(out->ispifIrqStatus2,
+		ispif->base + ISPIF_IRQ_CLEAR_2_ADDR);
 
 	CDBG("%s: irq ispif->irq: Irq_status0 = 0x%x\n", __func__,
 		out->ispifIrqStatus0);
@@ -629,11 +669,14 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 			pr_err("%s: pix intf 0 overflow.\n", __func__);
 		if (out->ispifIrqStatus0 & (0x1 << RAW_INTF_0_OVERFLOW_IRQ))
 			pr_err("%s: rdi intf 0 overflow.\n", __func__);
+		if (out->ispifIrqStatus1 & (0x1 << RAW_INTF_1_OVERFLOW_IRQ))
+			pr_err("%s: rdi intf 1 overflow.\n", __func__);
+		if (out->ispifIrqStatus2 & (0x1 << RAW_INTF_2_OVERFLOW_IRQ))
+			pr_err("%s: rdi intf 2 overflow.\n", __func__);
 		if ((out->ispifIrqStatus0 & ISPIF_IRQ_STATUS_SOF_MASK) ||
-			(out->ispifIrqStatus1 &
-				ISPIF_IRQ_STATUS_SOF_MASK)) {
+			(out->ispifIrqStatus1 &	ISPIF_IRQ_STATUS_SOF_MASK) ||
+			(out->ispifIrqStatus2 & ISPIF_IRQ_STATUS_RDI2_SOF_MASK))
 			ispif_process_irq(ispif, out);
-		}
 	}
 	msm_camera_io_w(ISPIF_IRQ_GLOBAL_CLEAR_CMD, ispif->base +
 		ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
@@ -665,6 +708,9 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		IRQF_TRIGGER_RISING, "ispif", ispif);
 	init_completion(&ispif->reset_complete);
 
+	tasklet_init(&ispif->ispif_tasklet,
+		ispif_do_tasklet, (unsigned long)ispif);
+
 	ispif->csid_version = *csid_version;
 	if (ispif->csid_version >= CSID_VERSION_V2) {
 		rc = msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
@@ -685,7 +731,7 @@ static void msm_ispif_release(struct ispif_device *ispif)
 {
 	CDBG("%s, free_irq\n", __func__);
 	free_irq(ispif->irq->start, ispif);
-	tasklet_kill(&ispif_tasklet);
+	tasklet_kill(&ispif->ispif_tasklet);
 
 	if (ispif->csid_version == CSID_VERSION_V2)
 		msm_cam_clk_enable(&ispif->pdev->dev, ispif_clk_info,
