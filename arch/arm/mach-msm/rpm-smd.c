@@ -62,7 +62,7 @@ struct msm_rpm_driver_data {
 
 #define DEFAULT_BUFFER_SIZE 256
 #define GFP_FLAG(noirq) (noirq ? GFP_ATOMIC : GFP_KERNEL)
-#define INV_HDR "resource does not exist"
+#define INV_RSC "resource does not exist"
 #define ERR "err\0"
 #define MAX_ERR_BUFFER_SIZE 128
 #define INIT_ERROR 1
@@ -172,8 +172,10 @@ static int msm_rpm_add_kvp_data_common(struct msm_rpm_request *handle,
 	int i;
 	int data_size, msg_size;
 
-	if (!handle)
+	if (!handle) {
+		pr_err("%s(): Invalid handle\n", __func__);
 		return -EINVAL;
+	}
 
 	data_size = ALIGN(size, SZ_4);
 	msg_size = data_size + sizeof(struct rpm_request_header);
@@ -191,8 +193,11 @@ static int msm_rpm_add_kvp_data_common(struct msm_rpm_request *handle,
 		break;
 	}
 
-	if (i >= handle->num_elements)
+	if (i >= handle->num_elements) {
+		pr_err("%s(): Number of resources exceeds max allocated\n",
+				__func__);
 		return -ENOMEM;
+	}
 
 	if (i == handle->write_idx)
 		handle->write_idx++;
@@ -200,8 +205,10 @@ static int msm_rpm_add_kvp_data_common(struct msm_rpm_request *handle,
 	if (!handle->kvp[i].value) {
 		handle->kvp[i].value = kzalloc(data_size, GFP_FLAG(noirq));
 
-		if (!handle->kvp[i].value)
+		if (!handle->kvp[i].value) {
+			pr_err("%s(): Failed malloc\n", __func__);
 			return -ENOMEM;
+		}
 	} else {
 		/* We enter the else case, if a key already exists but the
 		 * data doesn't match. In which case, we should zero the data
@@ -366,13 +373,20 @@ static struct msm_rpm_wait_data *msm_rpm_get_entry_from_msg_id(uint32_t msg_id)
 	return elem;
 }
 
-static int msm_rpm_get_next_msg_id(void)
+static uint32_t msm_rpm_get_next_msg_id(void)
 {
-	int id;
+	uint32_t id;
+
+	/*
+	 * A message id of 0 is used by the driver to indicate a error
+	 * condition. The RPM driver uses a id of 1 to indicate unsent data
+	 * when the data sent over hasn't been modified. This isn't a error
+	 * scenario and wait for ack returns a success when the message id is 1.
+	 */
 
 	do {
 		id = atomic_inc_return(&msm_rpm_msg_id);
-	} while ((id == 0) || msm_rpm_get_entry_from_msg_id(id));
+	} while ((id == 0) || (id == 1) || msm_rpm_get_entry_from_msg_id(id));
 
 	return id;
 }
@@ -459,8 +473,12 @@ static inline int msm_rpm_get_error_from_ack(uint8_t *buf)
 
 	tmp += 2 * sizeof(uint32_t);
 
-	if (!(memcmp(tmp, INV_HDR, min(req_len, sizeof(INV_HDR))-1)))
+	if (!(memcmp(tmp, INV_RSC, min(req_len, sizeof(INV_RSC))-1))) {
+		pr_err("%s(): RPM NACK Unsupported resource\n", __func__);
 		rc = -EINVAL;
+	} else {
+		pr_err("%s(): RPM NACK Invalid header\n", __func__);
+	}
 
 	return rc;
 }
@@ -658,7 +676,8 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 	int req_hdr_sz, msg_hdr_sz;
 
 	if (!cdata->msg_hdr.data_len)
-		return 0;
+		return 1;
+
 	req_hdr_sz = sizeof(cdata->req_hdr);
 	msg_hdr_sz = sizeof(cdata->msg_hdr);
 
@@ -676,8 +695,10 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 		cdata->buf = kzalloc(msg_size, GFP_FLAG(noirq));
 	}
 
-	if (!cdata->buf)
+	if (!cdata->buf) {
+		pr_err("%s(): Failed malloc\n", __func__);
 		return 0;
+	}
 
 	tmpbuff = cdata->buf;
 
@@ -722,7 +743,7 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 	ret = smd_write_avail(msm_rpm_data.ch_info);
 
 	if (ret < 0) {
-		pr_warn("%s(): SMD not initialized\n", __func__);
+		pr_err("%s(): SMD not initialized\n", __func__);
 		spin_unlock_irqrestore(&msm_rpm_data.smd_lock_write, flags);
 		return 0;
 	}
@@ -749,7 +770,7 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 	} else if (ret < msg_size) {
 		struct msm_rpm_wait_data *rc;
 		ret = 0;
-		pr_info("Failed to write data msg_size:%d ret:%d\n",
+		pr_err("Failed to write data msg_size:%d ret:%d\n",
 				msg_size, ret);
 		rc = msm_rpm_get_entry_from_msg_id(cdata->msg_hdr.msg_id);
 		if (rc)
@@ -774,8 +795,13 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 {
 	struct msm_rpm_wait_data *elem;
 
-	if (!msg_id)
-		return -EINVAL;
+	if (!msg_id) {
+		pr_err("%s(): Invalid msg id\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (msg_id == 1)
+		return 0;
 
 	if (standalone)
 		return 0;
@@ -798,8 +824,13 @@ int msm_rpm_wait_for_ack_noirq(uint32_t msg_id)
 	uint32_t id = 0;
 	int count = 0;
 
-	if (!msg_id)
-		return -EINVAL;
+	if (!msg_id)  {
+		pr_err("%s(): Invalid msg id\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (msg_id == 1)
+		return 0;
 
 	if (standalone)
 		return 0;
