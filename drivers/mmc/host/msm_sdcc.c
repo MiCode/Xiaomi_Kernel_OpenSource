@@ -5361,7 +5361,6 @@ msmsdcc_probe(struct platform_device *pdev)
 	struct resource *dmares = NULL;
 	struct resource *dma_crci_res = NULL;
 	int ret = 0;
-	int i;
 
 	if (pdev->dev.of_node) {
 		plat = msmsdcc_populate_pdata(&pdev->dev);
@@ -5390,56 +5389,21 @@ msmsdcc_probe(struct platform_device *pdev)
 		pr_err("%s: Invalid resource\n", __func__);
 		return -ENXIO;
 	}
-	if (pdev->dev.of_node) {
-		/*
-		 * Device tree iomem resources are only accessible by index.
-		 * index = 0 -> SDCC register interface
-		 * index = 1 -> DML register interface
-		 * index = 2 -> BAM register interface
-		 * IRQ resources:
-		 * index = 0 -> SDCC IRQ
-		 * index = 1 -> BAM IRQ
-		 */
-		core_memres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		dml_memres = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-		bam_memres = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-		core_irqres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-		bam_irqres = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
-	} else {
-		for (i = 0; i < pdev->num_resources; i++) {
-			if (pdev->resource[i].flags & IORESOURCE_MEM) {
-				if (!strncmp(pdev->resource[i].name,
-						"sdcc_dml_addr",
-						sizeof("sdcc_dml_addr")))
-					dml_memres = &pdev->resource[i];
-				else if (!strncmp(pdev->resource[i].name,
-						"sdcc_bam_addr",
-						sizeof("sdcc_bam_addr")))
-					bam_memres = &pdev->resource[i];
-				else
-					core_memres = &pdev->resource[i];
 
-			}
-			if (pdev->resource[i].flags & IORESOURCE_IRQ) {
-				if (!strncmp(pdev->resource[i].name,
-						"sdcc_bam_irq",
-						sizeof("sdcc_bam_irq")))
-					bam_irqres = &pdev->resource[i];
-				else
-					core_irqres = &pdev->resource[i];
-			}
-			if (pdev->resource[i].flags & IORESOURCE_DMA) {
-				if (!strncmp(pdev->resource[i].name,
-						"sdcc_dma_chnl",
-						sizeof("sdcc_dma_chnl")))
-					dmares = &pdev->resource[i];
-				else if (!strncmp(pdev->resource[i].name,
-						"sdcc_dma_crci",
-						sizeof("sdcc_dma_crci")))
-					dma_crci_res = &pdev->resource[i];
-			}
-		}
-	}
+	core_memres = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "core_mem");
+	bam_memres = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "bam_mem");
+	dml_memres = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "dml_mem");
+	core_irqres = platform_get_resource_byname(pdev,
+			IORESOURCE_IRQ, "core_irq");
+	bam_irqres = platform_get_resource_byname(pdev,
+			IORESOURCE_IRQ, "bam_irq");
+	dmares = platform_get_resource_byname(pdev,
+			IORESOURCE_DMA, "dma_chnl");
+	dma_crci_res = platform_get_resource_byname(pdev,
+			IORESOURCE_DMA, "dma_crci");
 
 	if (!core_irqres || !core_memres) {
 		pr_err("%s: Invalid sdcc core resource\n", __func__);
