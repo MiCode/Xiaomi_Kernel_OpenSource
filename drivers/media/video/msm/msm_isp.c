@@ -73,7 +73,7 @@ static int msm_isp_notify_VFE_SOF_COUNT_EVT(struct v4l2_subdev *sd, void *arg)
 	struct msm_camvfe_params vfe_params;
 	int rc;
 
-	cfgcmd.cmd_type = CMD_VFE_SOF_COUNT_UPDATE;
+	cfgcmd.cmd_type = CMD_VFE_PIX_SOF_COUNT_UPDATE;
 	cfgcmd.value = NULL;
 	vfe_params.vfe_cfg = &cfgcmd;
 	vfe_params.data = arg;
@@ -291,7 +291,7 @@ static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
 	if (notification == NOTIFY_VFE_BUF_EVT)
 		return msm_isp_notify_VFE_BUF_EVT(pmctl, sd, arg);
 
-	if (notification == NOTIFY_VFE_SOF_COUNT)
+	if (notification == NOTIFY_VFE_PIX_SOF_COUNT)
 		return msm_isp_notify_VFE_SOF_COUNT_EVT(sd, arg);
 
 	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_ATOMIC);

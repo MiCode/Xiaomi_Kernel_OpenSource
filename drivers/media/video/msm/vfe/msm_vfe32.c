@@ -692,6 +692,9 @@ static void axi_reset_internal_variables(
 
 	/* this is unsigned 32 bit integer. */
 	axi_ctrl->share_ctrl->vfeFrameId = 0;
+	axi_ctrl->share_ctrl->rdi0FrameId = 0;
+	axi_ctrl->share_ctrl->rdi1FrameId = 0;
+	axi_ctrl->share_ctrl->rdi2FrameId = 0;
 }
 
 static void vfe32_reset_internal_variables(
@@ -3773,7 +3776,17 @@ static void vfe_send_outmsg(
 	msg.buf.ch_paddr[0]	= ch0_paddr;
 	msg.buf.ch_paddr[1]	= ch1_paddr;
 	msg.buf.ch_paddr[2]	= ch2_paddr;
-	msg.frameCounter = axi_ctrl->share_ctrl->vfeFrameId;
+	switch (msgid) {
+	case MSG_ID_OUTPUT_TERTIARY1:
+		msg.frameCounter = axi_ctrl->share_ctrl->rdi0FrameId;
+		break;
+	case MSG_ID_OUTPUT_TERTIARY2:
+		msg.frameCounter = axi_ctrl->share_ctrl->rdi1FrameId;
+		break;
+	default:
+		msg.frameCounter = axi_ctrl->share_ctrl->vfeFrameId;
+		break;
+	}
 
 	v4l2_subdev_notify(&axi_ctrl->subdev,
 			NOTIFY_VFE_MSG_OUT,
@@ -4970,8 +4983,8 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		cmd->cmd_type != CMD_STATS_BG_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_BF_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_BHIST_BUF_RELEASE &&
-		cmd->cmd_type != CMD_VFE_SOF_COUNT_UPDATE &&
-		cmd->cmd_type != CMD_VFE_COUNT_SOF_ENABLE) {
+		cmd->cmd_type != CMD_VFE_PIX_SOF_COUNT_UPDATE &&
+		cmd->cmd_type != CMD_VFE_COUNT_PIX_SOF_ENABLE) {
 			if (copy_from_user(&vfecmd,
 					(void __user *)(cmd->value),
 					sizeof(vfecmd))) {
@@ -5051,7 +5064,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_GENERAL:
 		rc = vfe32_proc_general(pmctl, &vfecmd, vfe32_ctrl);
 	break;
-	case CMD_VFE_COUNT_SOF_ENABLE: {
+	case CMD_VFE_COUNT_PIX_SOF_ENABLE: {
 		int enable = *((int *)cmd->value);
 		if (enable)
 			vfe32_ctrl->vfe_sof_count_enable = TRUE;
@@ -5059,7 +5072,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 			vfe32_ctrl->vfe_sof_count_enable = false;
 	}
 	break;
-	case CMD_VFE_SOF_COUNT_UPDATE:
+	case CMD_VFE_PIX_SOF_COUNT_UPDATE:
 		if (!vfe32_ctrl->vfe_sof_count_enable)
 			vfe32_ctrl->share_ctrl->vfeFrameId =
 			*((uint32_t *)vfe_params->data);
@@ -6114,6 +6127,29 @@ static long msm_axi_subdev_ioctl(struct v4l2_subdev *sd,
 		msm_axi_subdev_release(sd);
 		rc = 0;
 		break;
+	case VIDIOC_MSM_AXI_RDI_COUNT_UPDATE: {
+		struct rdi_count_msg *msg = (struct rdi_count_msg *)arg;
+		struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
+		switch (msg->rdi_interface) {
+		case RDI0:
+			axi_ctrl->share_ctrl->rdi0FrameId = msg->count;
+			rc = 0;
+			break;
+		case RDI1:
+			axi_ctrl->share_ctrl->rdi1FrameId = msg->count;
+			rc = 0;
+			break;
+		case RDI2:
+			axi_ctrl->share_ctrl->rdi2FrameId = msg->count;
+			rc = 0;
+			break;
+		default:
+			pr_err("%s: Incorrect interface sent\n", __func__);
+			rc = -EINVAL;
+			break;
+		}
+		break;
+	}
 	default:
 		pr_err("%s: command %d not found\n", __func__,
 						_IOC_NR(cmd));

@@ -1539,6 +1539,11 @@ static uint32_t msm_camera_server_find_mctl(
 			interface = PIX_0;
 		}
 		break;
+	case NOTIFY_AXI_RDI_SOF_COUNT: {
+		struct rdi_count_msg *msg = (struct rdi_count_msg *)arg;
+		interface = msg->rdi_interface;
+		}
+		break;
 	case NOTIFY_VFE_MSG_STATS:
 	case NOTIFY_VFE_MSG_COMP_STATS:
 	case NOTIFY_VFE_CAMIF_ERROR:
@@ -1578,7 +1583,7 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	switch (notification) {
 	case NOTIFY_ISP_MSG_EVT:
 	case NOTIFY_VFE_MSG_OUT:
-	case NOTIFY_VFE_SOF_COUNT:
+	case NOTIFY_VFE_PIX_SOF_COUNT:
 	case NOTIFY_VFE_MSG_STATS:
 	case NOTIFY_VFE_MSG_COMP_STATS:
 	case NOTIFY_VFE_BUF_EVT:
@@ -1599,6 +1604,12 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 		break;
 	case NOTIFY_AXI_IRQ:
 		rc = v4l2_subdev_call(sd, core, ioctl, VIDIOC_MSM_AXI_IRQ, arg);
+		break;
+	case NOTIFY_AXI_RDI_SOF_COUNT:
+		p_mctl = msm_cam_server_get_mctl(mctl_handle);
+		if (p_mctl->axi_sdev)
+			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
+				VIDIOC_MSM_AXI_RDI_COUNT_UPDATE, arg);
 		break;
 	case NOTIFY_PCLK_CHANGE:
 		p_mctl = v4l2_get_subdev_hostdata(sd);

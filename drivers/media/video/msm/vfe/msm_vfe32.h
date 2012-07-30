@@ -947,6 +947,9 @@ struct vfe_share_ctrl_t {
 	atomic_t vstate;
 	atomic_t handle_common_irq;
 	uint32_t vfeFrameId;
+	uint32_t rdi0FrameId;
+	uint32_t rdi1FrameId;
+	uint32_t rdi2FrameId;
 	uint32_t stats_comp;
 	spinlock_t  sd_notify_lock;
 	spinlock_t  stop_flag_lock;
