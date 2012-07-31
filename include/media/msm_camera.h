@@ -498,6 +498,15 @@ struct msm_camera_cfg_cmd {
 #define CMD_AXI_START  0xE1
 #define CMD_AXI_STOP   0xE2
 
+
+#define AXI_CMD_PREVIEW      BIT(0)
+#define AXI_CMD_CAPTURE      BIT(1)
+#define AXI_CMD_RECORD       BIT(2)
+#define AXI_CMD_ZSL          BIT(3)
+#define AXI_CMD_RAW_CAPTURE  BIT(4)
+
+
+
 /* vfe config command: config command(from config thread)*/
 struct msm_vfe_cfg_cmd {
 	int cmd_type;
@@ -1747,6 +1756,14 @@ struct msm_camera_v4l2_ioctl_t {
 	uint32_t id;
 	void __user *ioctl_ptr;
 	uint32_t len;
+};
+
+struct msm_camera_vfe_params_t {
+	uint32_t operation_mode;
+	uint32_t capture_count;
+	uint32_t skip_abort;
+	uint16_t port_info;
+	uint16_t cmd_type;
 };
 
 enum msm_camss_irq_idx {
