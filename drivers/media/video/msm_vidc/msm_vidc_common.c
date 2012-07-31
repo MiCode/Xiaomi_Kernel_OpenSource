@@ -1549,3 +1549,62 @@ fail_kzalloc:
 err_no_mem:
 	return rc;
 }
+
+int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct msm_smem *handle;
+	struct internal_buf *binfo;
+	struct vidc_buffer_addr_info buffer_info;
+	unsigned long flags;
+	struct hal_buffer_requirements *persist_buf =
+		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_PERSIST];
+	int i;
+	pr_debug("persist: num = %d, size = %d\n",
+		persist_buf->buffer_count_actual,
+		persist_buf->buffer_size);
+	if (!list_empty(&inst->persistbufs)) {
+		pr_err("Persist buffers already allocated\n");
+		return rc;
+	}
+
+	if (persist_buf->buffer_size) {
+		for (i = 0;	i <	persist_buf->buffer_count_actual; i++) {
+			handle = msm_smem_alloc(inst->mem_client,
+				persist_buf->buffer_size, 1, 0,
+				inst->core->resources.io_map[NS_MAP].domain, 0);
+			if (!handle) {
+				pr_err("Failed to allocate persist memory\n");
+				rc = -ENOMEM;
+				goto err_no_mem;
+			}
+			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+			if (!binfo) {
+				pr_err("Out of memory\n");
+				rc = -ENOMEM;
+				goto fail_kzalloc;
+			}
+			binfo->handle = handle;
+			buffer_info.buffer_size = persist_buf->buffer_size;
+			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr = handle->device_addr;
+			rc = vidc_hal_session_set_buffers(
+				(void *) inst->session, &buffer_info);
+			if (rc) {
+				pr_err("vidc_hal_session_set_buffers failed");
+				goto fail_set_buffers;
+			}
+			spin_lock_irqsave(&inst->lock, flags);
+			list_add_tail(&binfo->list, &inst->persistbufs);
+			spin_unlock_irqrestore(&inst->lock, flags);
+		}
+	}
+	return rc;
+fail_set_buffers:
+	kfree(binfo);
+fail_kzalloc:
+	msm_smem_free(inst->mem_client, handle);
+err_no_mem:
+	return rc;
+}
