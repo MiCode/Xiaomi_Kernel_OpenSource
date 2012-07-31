@@ -10,10 +10,12 @@
 * GNU General Public License for more details.
 *
 */
+#include <linux/msm_mdp.h>
+#include <mach/iommu_domains.h>
+#include <media/videobuf2-core.h>
+#include "enc-subdev.h"
 #include "mdp-subdev.h"
 #include "wfd-util.h"
-#include <media/videobuf2-core.h>
-#include <linux/msm_mdp.h>
 
 struct mdp_instance {
 	struct fb_info *mdp;
@@ -27,6 +29,7 @@ int mdp_init(struct v4l2_subdev *sd, u32 val)
 {
 	return 0;
 }
+
 int mdp_open(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_instance *inst = kzalloc(sizeof(struct mdp_instance),
@@ -190,6 +193,83 @@ int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
 	return 0;
 }
 
+int mdp_mmap(struct v4l2_subdev *sd, void *arg)
+{
+	int rc = 0, domain = -1;
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion;
+	bool use_iommu = true;
+	struct mdp_instance *inst = NULL;
+
+	if (!mmap || !mmap->mregion || !mmap->cookie) {
+		WFD_MSG_ERR("Invalid argument\n");
+		return -EINVAL;
+	}
+
+	inst = mmap->cookie;
+	mregion = mmap->mregion;
+	if (mregion->size % SZ_4K != 0) {
+		WFD_MSG_ERR("Memregion not aligned to %d\n", SZ_4K);
+		return -EINVAL;
+	}
+
+	if (inst->uses_iommu_split_domain) {
+		if (inst->secure)
+			use_iommu = false;
+		else
+			domain = DISPLAY_WRITE_DOMAIN;
+	} else {
+		domain = DISPLAY_READ_DOMAIN;
+	}
+
+	if (use_iommu) {
+		rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
+				domain, GEN_POOL, SZ_4K, 0,
+				(unsigned long *)&mregion->paddr,
+				(unsigned long *)&mregion->size,
+				0, 0);
+	} else {
+		rc = ion_phys(mmap->ion_client,	mregion->ion_handle,
+				(unsigned long *)&mregion->paddr,
+				(size_t *)&mregion->size);
+	}
+
+	return rc;
+}
+
+int mdp_munmap(struct v4l2_subdev *sd, void *arg)
+{
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion;
+	bool use_iommu = false;
+	int domain = -1;
+	struct mdp_instance *inst = NULL;
+
+	if (!mmap || !mmap->mregion || !mmap->cookie) {
+		WFD_MSG_ERR("Invalid argument\n");
+		return -EINVAL;
+	}
+
+	inst = mmap->cookie;
+	mregion = mmap->mregion;
+
+	if (inst->uses_iommu_split_domain) {
+		if (inst->secure)
+			use_iommu = false;
+		else
+			domain = DISPLAY_WRITE_DOMAIN;
+	} else {
+		domain = DISPLAY_READ_DOMAIN;
+	}
+
+	if (use_iommu)
+		ion_unmap_iommu(mmap->ion_client,
+				mregion->ion_handle,
+				domain, GEN_POOL);
+
+	return 0;
+}
+
 long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	int rc = 0;
@@ -218,6 +298,12 @@ long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case MDP_CLOSE:
 		rc = mdp_close(sd, arg);
+		break;
+	case MDP_MMAP:
+		rc = mdp_mmap(sd, arg);
+		break;
+	case MDP_MUNMAP:
+		rc = mdp_munmap(sd, arg);
 		break;
 	default:
 		WFD_MSG_ERR("IOCTL: %u not supported\n", cmd);

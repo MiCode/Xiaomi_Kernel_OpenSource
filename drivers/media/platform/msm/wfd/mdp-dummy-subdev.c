@@ -14,6 +14,7 @@
 #include <linux/msm_mdp.h>
 #include <media/videobuf2-core.h>
 
+#include "enc-subdev.h"
 #include "mdp-subdev.h"
 #include "wfd-util.h"
 
@@ -124,6 +125,24 @@ int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
 {
 	return 0;
 }
+
+int mdp_mmap(struct v4l2_subdev *sd, void *arg)
+{
+	int rc = 0;
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion;
+
+	mregion = mmap->mregion;
+	mregion->paddr = mregion->kvaddr;
+	return rc;
+}
+
+int mdp_munmap(struct v4l2_subdev *sd, void *arg)
+{
+	/* Whatever */
+	return 0;
+}
+
 long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	int rc = 0;
@@ -152,6 +171,12 @@ long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case MDP_CLOSE:
 		rc = mdp_close(sd, arg);
+		break;
+	case MDP_MMAP:
+		rc = mdp_mmap(sd, arg);
+		break;
+	case MDP_MUNMAP:
+		rc = mdp_munmap(sd, arg);
 		break;
 	default:
 		WFD_MSG_ERR("IOCTL: %u not supported\n", cmd);
