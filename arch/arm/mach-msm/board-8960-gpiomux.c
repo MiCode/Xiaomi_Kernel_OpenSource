@@ -979,8 +979,9 @@ int __init msm8960_init_gpiomux(void)
 	}
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
-	msm_gpiomux_install(msm8960_ethernet_configs,
-			ARRAY_SIZE(msm8960_ethernet_configs));
+	if (socinfo_get_platform_subtype() != PLATFORM_SUBTYPE_SGLTE)
+		msm_gpiomux_install(msm8960_ethernet_configs,
+				ARRAY_SIZE(msm8960_ethernet_configs));
 #endif
 
 	msm_gpiomux_install(msm8960_gsbi_configs,
