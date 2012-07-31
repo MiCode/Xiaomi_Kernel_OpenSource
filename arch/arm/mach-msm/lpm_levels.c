@@ -41,6 +41,7 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 		bool from_idle, bool notify_rpm)
 {
 	int ret = 0;
+	struct msm_rpmrs_limits *l = (struct msm_rpmrs_limits *)limits;
 
 	ret = msm_rpm_enter_sleep();
 	if (ret) {
@@ -48,8 +49,7 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 				__func__, ret);
 		goto bail;
 	}
-	ret = msm_lpmrs_enter_sleep((struct msm_rpmrs_limits *)limits,
-					from_idle, notify_rpm);
+	ret = msm_lpmrs_enter_sleep(sclk_count, l, from_idle, notify_rpm);
 bail:
 	return ret;
 }

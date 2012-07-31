@@ -619,12 +619,10 @@ static void msm_lpm_notify_pxo(struct msm_rpm_notifier_data
 	msm_lpm_notify_common(rpm_notifier_cb, rs);
 }
 
-/* MPM
-static bool msm_lpm_use_mpm(struct msm_rpmrs_limits *limits)
+static inline bool msm_lpm_use_mpm(struct msm_rpmrs_limits *limits)
 {
-	return ((limits->pxo == MSM_LPM_PXO_OFF) ||
-		(limits->vdd_dig_lower_bound <= VDD_DIG_RET_HIGH));
-}*/
+	return (limits->pxo == MSM_LPM_PXO_OFF);
+}
 
 /* LPM levels interface */
 bool msm_lpm_level_beyond_limit(struct msm_rpmrs_limits *limits)
@@ -647,7 +645,7 @@ bool msm_lpm_level_beyond_limit(struct msm_rpmrs_limits *limits)
 	return beyond_limit;
 }
 
-int msm_lpmrs_enter_sleep(struct msm_rpmrs_limits *limits,
+int msm_lpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 				bool from_idle, bool notify_rpm)
 {
 	int ret = 0;
@@ -668,9 +666,8 @@ int msm_lpmrs_enter_sleep(struct msm_rpmrs_limits *limits,
 	}
 	msm_lpm_get_rpm_notif = true;
 
-	/* MPM Enter sleep
 	if (msm_lpm_use_mpm(limits))
-		msm_mpm_enter_sleep(from_idle);*/
+		msm_mpm_enter_sleep(sclk_count, from_idle);
 
 	return ret;
 }
