@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,7 +95,7 @@ static struct vreg_set_points *all_set_points[] = {
 	&corner_set_points,
 };
 
-#define LDO(_id, _name, _name_pc, _ranges, _hpm_min_load) \
+#define LDO(_id, _name, _name_pc, _ranges, _hpm_min_load, _requires_cxo) \
 	[RPM_VREG_ID_PM8018_##_id] = { \
 		.req = { \
 			[0] = { .id = MSM_RPM_ID_PM8018_##_id##_0, }, \
@@ -108,6 +108,7 @@ static struct vreg_set_points *all_set_points[] = {
 		.id		 = RPM_VREG_ID_PM8018_##_id, \
 		.rdesc.name	 = _name, \
 		.rdesc_pc.name	 = _name_pc, \
+		.requires_cxo	 = _requires_cxo, \
 	}
 
 #define SMPS(_id, _name, _name_pc, _ranges, _hpm_min_load) \
@@ -152,19 +153,19 @@ static struct vreg_set_points *all_set_points[] = {
 	}
 
 static struct vreg vregs[] = {
-	LDO(L2,   "8018_l2",   "8018_l2_pc",  pldo,     LDO_50),
-	LDO(L3,   "8018_l3",   "8018_l3_pc",  pldo,     LDO_50),
-	LDO(L4,   "8018_l4",   "8018_l4_pc",  pldo,     LDO_300),
-	LDO(L5,   "8018_l5",   "8018_l5_pc",  pldo,     LDO_150),
-	LDO(L6,   "8018_l6",   "8018_l6_pc",  pldo,     LDO_150),
-	LDO(L7,   "8018_l7",   "8018_l7_pc",  pldo,     LDO_300),
-	LDO(L8,   "8018_l8",   "8018_l8_pc",  nldo,     LDO_150),
-	LDO(L9,   "8018_l9",   NULL,          nldo1200, LDO_1200),
-	LDO(L10,  "8018_l10",  NULL,          nldo1200, LDO_1200),
-	LDO(L11,  "8018_l11",  NULL,          nldo1200, LDO_1200),
-	LDO(L12,  "8018_l12",  NULL,          nldo1200, LDO_1200),
-	LDO(L13,  "8018_l13",  "8018_l13_pc", pldo,     LDO_50),
-	LDO(L14,  "8018_l14",  "8018_l14_pc", pldo,     LDO_50),
+	LDO(L2,   "8018_l2",   "8018_l2_pc",  pldo,     LDO_50,   0),
+	LDO(L3,   "8018_l3",   "8018_l3_pc",  pldo,     LDO_50,   0),
+	LDO(L4,   "8018_l4",   "8018_l4_pc",  pldo,     LDO_300,  0),
+	LDO(L5,   "8018_l5",   "8018_l5_pc",  pldo,     LDO_150,  0),
+	LDO(L6,   "8018_l6",   "8018_l6_pc",  pldo,     LDO_150,  0),
+	LDO(L7,   "8018_l7",   "8018_l7_pc",  pldo,     LDO_300,  0),
+	LDO(L8,   "8018_l8",   "8018_l8_pc",  nldo,     LDO_150,  1),
+	LDO(L9,   "8018_l9",   NULL,          nldo1200, LDO_1200, 0),
+	LDO(L10,  "8018_l10",  NULL,          nldo1200, LDO_1200, 0),
+	LDO(L11,  "8018_l11",  NULL,          nldo1200, LDO_1200, 0),
+	LDO(L12,  "8018_l12",  NULL,          nldo1200, LDO_1200, 0),
+	LDO(L13,  "8018_l13",  "8018_l13_pc", pldo,     LDO_50,   0),
+	LDO(L14,  "8018_l14",  "8018_l14_pc", pldo,     LDO_50,   0),
 
 	SMPS(S1,  "8018_s1",   "8018_s1_pc",  smps,     SMPS_1500),
 	SMPS(S2,  "8018_s2",   "8018_s2_pc",  smps,     SMPS_1500),

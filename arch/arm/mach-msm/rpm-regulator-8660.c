@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,7 +98,8 @@ static struct vreg_set_points *all_set_points[] = {
 	&ncp_set_points,
 };
 
-#define LDO(_vreg_id, _rpm_id, _name, _name_pc, _ranges, _hpm_min_load) \
+#define LDO(_vreg_id, _rpm_id, _name, _name_pc, _ranges, _hpm_min_load, \
+		_requires_cxo) \
 	[RPM_VREG_ID_##_vreg_id] = { \
 		.req = { \
 			[0] = { .id = MSM_RPM_ID_##_rpm_id##_0, }, \
@@ -111,6 +112,7 @@ static struct vreg_set_points *all_set_points[] = {
 		.id		 = RPM_VREG_ID_##_vreg_id, \
 		.rdesc.name	 = _name, \
 		.rdesc_pc.name	 = _name_pc, \
+		.requires_cxo	 = _requires_cxo, \
 	}
 
 #define SMPS(_vreg_id, _rpm_id, _name, _name_pc, _ranges, _hpm_min_load) \
@@ -159,32 +161,32 @@ static struct vreg_set_points *all_set_points[] = {
 	}
 
 static struct vreg vregs[] = {
-	LDO(PM8058_L0,   LDO0,   "8058_l0",   "8058_l0_pc",  nldo, LDO_150),
-	LDO(PM8058_L1,   LDO1,   "8058_l1",   "8058_l1_pc",  nldo, LDO_300),
-	LDO(PM8058_L2,   LDO2,   "8058_l2",   "8058_l2_pc",  pldo, LDO_300),
-	LDO(PM8058_L3,   LDO3,   "8058_l3",   "8058_l3_pc",  pldo, LDO_150),
-	LDO(PM8058_L4,   LDO4,   "8058_l4",   "8058_l4_pc",  pldo, LDO_50),
-	LDO(PM8058_L5,   LDO5,   "8058_l5",   "8058_l5_pc",  pldo, LDO_300),
-	LDO(PM8058_L6,   LDO6,   "8058_l6",   "8058_l6_pc",  pldo, LDO_50),
-	LDO(PM8058_L7,   LDO7,   "8058_l7",   "8058_l7_pc",  pldo, LDO_50),
-	LDO(PM8058_L8,   LDO8,   "8058_l8",   "8058_l8_pc",  pldo, LDO_300),
-	LDO(PM8058_L9,   LDO9,   "8058_l9",   "8058_l9_pc",  pldo, LDO_300),
-	LDO(PM8058_L10,  LDO10,  "8058_l10",  "8058_l10_pc", pldo, LDO_300),
-	LDO(PM8058_L11,  LDO11,  "8058_l11",  "8058_l11_pc", pldo, LDO_150),
-	LDO(PM8058_L12,  LDO12,  "8058_l12",  "8058_l12_pc", pldo, LDO_150),
-	LDO(PM8058_L13,  LDO13,  "8058_l13",  "8058_l13_pc", pldo, LDO_300),
-	LDO(PM8058_L14,  LDO14,  "8058_l14",  "8058_l14_pc", pldo, LDO_300),
-	LDO(PM8058_L15,  LDO15,  "8058_l15",  "8058_l15_pc", pldo, LDO_300),
-	LDO(PM8058_L16,  LDO16,  "8058_l16",  "8058_l16_pc", pldo, LDO_300),
-	LDO(PM8058_L17,  LDO17,  "8058_l17",  "8058_l17_pc", pldo, LDO_150),
-	LDO(PM8058_L18,  LDO18,  "8058_l18",  "8058_l18_pc", pldo, LDO_150),
-	LDO(PM8058_L19,  LDO19,  "8058_l19",  "8058_l19_pc", pldo, LDO_150),
-	LDO(PM8058_L20,  LDO20,  "8058_l20",  "8058_l20_pc", pldo, LDO_150),
-	LDO(PM8058_L21,  LDO21,  "8058_l21",  "8058_l21_pc", nldo, LDO_150),
-	LDO(PM8058_L22,  LDO22,  "8058_l22",  "8058_l22_pc", nldo, LDO_300),
-	LDO(PM8058_L23,  LDO23,  "8058_l23",  "8058_l23_pc", nldo, LDO_300),
-	LDO(PM8058_L24,  LDO24,  "8058_l24",  "8058_l24_pc", nldo, LDO_150),
-	LDO(PM8058_L25,  LDO25,  "8058_l25",  "8058_l25_pc", nldo, LDO_150),
+	LDO(PM8058_L0,   LDO0,   "8058_l0",   "8058_l0_pc",  nldo, LDO_150, 1),
+	LDO(PM8058_L1,   LDO1,   "8058_l1",   "8058_l1_pc",  nldo, LDO_300, 1),
+	LDO(PM8058_L2,   LDO2,   "8058_l2",   "8058_l2_pc",  pldo, LDO_300, 0),
+	LDO(PM8058_L3,   LDO3,   "8058_l3",   "8058_l3_pc",  pldo, LDO_150, 0),
+	LDO(PM8058_L4,   LDO4,   "8058_l4",   "8058_l4_pc",  pldo, LDO_50,  0),
+	LDO(PM8058_L5,   LDO5,   "8058_l5",   "8058_l5_pc",  pldo, LDO_300, 0),
+	LDO(PM8058_L6,   LDO6,   "8058_l6",   "8058_l6_pc",  pldo, LDO_50,  0),
+	LDO(PM8058_L7,   LDO7,   "8058_l7",   "8058_l7_pc",  pldo, LDO_50,  0),
+	LDO(PM8058_L8,   LDO8,   "8058_l8",   "8058_l8_pc",  pldo, LDO_300, 0),
+	LDO(PM8058_L9,   LDO9,   "8058_l9",   "8058_l9_pc",  pldo, LDO_300, 0),
+	LDO(PM8058_L10,  LDO10,  "8058_l10",  "8058_l10_pc", pldo, LDO_300, 0),
+	LDO(PM8058_L11,  LDO11,  "8058_l11",  "8058_l11_pc", pldo, LDO_150, 0),
+	LDO(PM8058_L12,  LDO12,  "8058_l12",  "8058_l12_pc", pldo, LDO_150, 0),
+	LDO(PM8058_L13,  LDO13,  "8058_l13",  "8058_l13_pc", pldo, LDO_300, 0),
+	LDO(PM8058_L14,  LDO14,  "8058_l14",  "8058_l14_pc", pldo, LDO_300, 0),
+	LDO(PM8058_L15,  LDO15,  "8058_l15",  "8058_l15_pc", pldo, LDO_300, 0),
+	LDO(PM8058_L16,  LDO16,  "8058_l16",  "8058_l16_pc", pldo, LDO_300, 0),
+	LDO(PM8058_L17,  LDO17,  "8058_l17",  "8058_l17_pc", pldo, LDO_150, 0),
+	LDO(PM8058_L18,  LDO18,  "8058_l18",  "8058_l18_pc", pldo, LDO_150, 0),
+	LDO(PM8058_L19,  LDO19,  "8058_l19",  "8058_l19_pc", pldo, LDO_150, 0),
+	LDO(PM8058_L20,  LDO20,  "8058_l20",  "8058_l20_pc", pldo, LDO_150, 0),
+	LDO(PM8058_L21,  LDO21,  "8058_l21",  "8058_l21_pc", nldo, LDO_150, 1),
+	LDO(PM8058_L22,  LDO22,  "8058_l22",  "8058_l22_pc", nldo, LDO_300, 1),
+	LDO(PM8058_L23,  LDO23,  "8058_l23",  "8058_l23_pc", nldo, LDO_300, 1),
+	LDO(PM8058_L24,  LDO24,  "8058_l24",  "8058_l24_pc", nldo, LDO_150, 1),
+	LDO(PM8058_L25,  LDO25,  "8058_l25",  "8058_l25_pc", nldo, LDO_150, 1),
 
 	SMPS(PM8058_S0,  SMPS0,  "8058_s0",   "8058_s0_pc",  smps, SMPS),
 	SMPS(PM8058_S1,  SMPS1,  "8058_s1",   "8058_s1_pc",  smps, SMPS),
@@ -197,13 +199,13 @@ static struct vreg vregs[] = {
 
 	NCP(PM8058_NCP,  NCP,    "8058_ncp",  NULL),
 
-	LDO(PM8901_L0,   LDO0B,  "8901_l0",   "8901_l0_pc",  nldo, LDO_300),
-	LDO(PM8901_L1,   LDO1B,  "8901_l1",   "8901_l1_pc",  pldo, LDO_300),
-	LDO(PM8901_L2,   LDO2B,  "8901_l2",   "8901_l2_pc",  pldo, LDO_300),
-	LDO(PM8901_L3,   LDO3B,  "8901_l3",   "8901_l3_pc",  pldo, LDO_300),
-	LDO(PM8901_L4,   LDO4B,  "8901_l4",   "8901_l4_pc",  pldo, LDO_300),
-	LDO(PM8901_L5,   LDO5B,  "8901_l5",   "8901_l5_pc",  pldo, LDO_300),
-	LDO(PM8901_L6,   LDO6B,  "8901_l6",   "8901_l6_pc",  pldo, LDO_300),
+	LDO(PM8901_L0,   LDO0B,  "8901_l0",   "8901_l0_pc",  nldo, LDO_300, 1),
+	LDO(PM8901_L1,   LDO1B,  "8901_l1",   "8901_l1_pc",  pldo, LDO_300, 0),
+	LDO(PM8901_L2,   LDO2B,  "8901_l2",   "8901_l2_pc",  pldo, LDO_300, 0),
+	LDO(PM8901_L3,   LDO3B,  "8901_l3",   "8901_l3_pc",  pldo, LDO_300, 0),
+	LDO(PM8901_L4,   LDO4B,  "8901_l4",   "8901_l4_pc",  pldo, LDO_300, 0),
+	LDO(PM8901_L5,   LDO5B,  "8901_l5",   "8901_l5_pc",  pldo, LDO_300, 0),
+	LDO(PM8901_L6,   LDO6B,  "8901_l6",   "8901_l6_pc",  pldo, LDO_300, 0),
 
 	SMPS(PM8901_S0,  SMPS0B, "8901_s0",   "8901_s0_pc", ftsmps, FTSMPS),
 	SMPS(PM8901_S1,  SMPS1B, "8901_s1",   "8901_s1_pc", ftsmps, FTSMPS),

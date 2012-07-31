@@ -103,7 +103,7 @@ static struct vreg_set_points *all_set_points[] = {
 	&corner_set_points,
 };
 
-#define LDO(_id, _name, _name_pc, _ranges, _hpm_min_load) \
+#define LDO(_id, _name, _name_pc, _ranges, _hpm_min_load, _requires_cxo) \
 	[RPM_VREG_ID_PM8038_##_id] = { \
 		.req = { \
 			[0] = { .id = MSM_RPM_ID_PM8038_##_id##_0, }, \
@@ -116,6 +116,7 @@ static struct vreg_set_points *all_set_points[] = {
 		.id		 = RPM_VREG_ID_PM8038_##_id, \
 		.rdesc.name	 = _name, \
 		.rdesc_pc.name	 = _name_pc, \
+		.requires_cxo	 = _requires_cxo, \
 	}
 
 #define SMPS(_id, _name, _name_pc, _ranges, _hpm_min_load) \
@@ -160,31 +161,31 @@ static struct vreg_set_points *all_set_points[] = {
 	}
 
 static struct vreg vregs[] = {
-	LDO(L1,   "8038_l1",   NULL,          nldo1200, LDO_1200),
-	LDO(L2,   "8038_l2",   "8038_l2_pc",  nldo,     LDO_150),
-	LDO(L3,   "8038_l3",   "8038_l3_pc",  pldo,     LDO_50),
-	LDO(L4,   "8038_l4",   "8038_l4_pc",  pldo,     LDO_50),
-	LDO(L5,   "8038_l5",   "8038_l5_pc",  pldo,     LDO_600),
-	LDO(L6,   "8038_l6",   "8038_l6_pc",  pldo,     LDO_600),
-	LDO(L7,   "8038_l7",   "8038_l7_pc",  pldo,     LDO_600),
-	LDO(L8,   "8038_l8",   "8038_l8_pc",  pldo,     LDO_300),
-	LDO(L9,   "8038_l9",   "8038_l9_pc",  pldo,     LDO_300),
-	LDO(L10,  "8038_l10",  "8038_l10_pc", pldo,     LDO_600),
-	LDO(L11,  "8038_l11",  "8038_l11_pc", pldo,     LDO_600),
-	LDO(L12,  "8038_l12",  "8038_l12_pc", nldo,     LDO_300),
-	LDO(L14,  "8038_l14",  "8038_l14_pc", pldo,     LDO_50),
-	LDO(L15,  "8038_l15",  "8038_l15_pc", pldo,     LDO_150),
-	LDO(L16,  "8038_l16",  NULL,          nldo1200, LDO_1200),
-	LDO(L17,  "8038_l17",  "8038_l17_pc", pldo,     LDO_150),
-	LDO(L18,  "8038_l18",  "8038_l18_pc", pldo,     LDO_50),
-	LDO(L19,  "8038_l19",  NULL,          nldo1200, LDO_1200),
-	LDO(L20,  "8038_l20",  NULL,          nldo1200, LDO_1200),
-	LDO(L21,  "8038_l21",  "8038_l21_pc", pldo,     LDO_150),
-	LDO(L22,  "8038_l22",  "8038_l22_pc", pldo,     LDO_50),
-	LDO(L23,  "8038_l23",  "8038_l23_pc", pldo,     LDO_50),
-	LDO(L24,  "8038_l24",  NULL,          nldo1200, LDO_1200),
-	LDO(L26,  "8038_l26",  "8038_l26_pc", nldo,     LDO_150),
-	LDO(L27,  "8038_l27",  NULL,          nldo1200, LDO_1200),
+	LDO(L1,   "8038_l1",   NULL,          nldo1200, LDO_1200, 1),
+	LDO(L2,   "8038_l2",   "8038_l2_pc",  nldo,     LDO_150,  1),
+	LDO(L3,   "8038_l3",   "8038_l3_pc",  pldo,     LDO_50,   0),
+	LDO(L4,   "8038_l4",   "8038_l4_pc",  pldo,     LDO_50,   0),
+	LDO(L5,   "8038_l5",   "8038_l5_pc",  pldo,     LDO_600,  0),
+	LDO(L6,   "8038_l6",   "8038_l6_pc",  pldo,     LDO_600,  0),
+	LDO(L7,   "8038_l7",   "8038_l7_pc",  pldo,     LDO_600,  0),
+	LDO(L8,   "8038_l8",   "8038_l8_pc",  pldo,     LDO_300,  0),
+	LDO(L9,   "8038_l9",   "8038_l9_pc",  pldo,     LDO_300,  0),
+	LDO(L10,  "8038_l10",  "8038_l10_pc", pldo,     LDO_600,  0),
+	LDO(L11,  "8038_l11",  "8038_l11_pc", pldo,     LDO_600,  0),
+	LDO(L12,  "8038_l12",  "8038_l12_pc", nldo,     LDO_300,  1),
+	LDO(L14,  "8038_l14",  "8038_l14_pc", pldo,     LDO_50,   0),
+	LDO(L15,  "8038_l15",  "8038_l15_pc", pldo,     LDO_150,  0),
+	LDO(L16,  "8038_l16",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(L17,  "8038_l17",  "8038_l17_pc", pldo,     LDO_150,  0),
+	LDO(L18,  "8038_l18",  "8038_l18_pc", pldo,     LDO_50,   0),
+	LDO(L19,  "8038_l19",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(L20,  "8038_l20",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(L21,  "8038_l21",  "8038_l21_pc", pldo,     LDO_150,  0),
+	LDO(L22,  "8038_l22",  "8038_l22_pc", pldo,     LDO_50,   0),
+	LDO(L23,  "8038_l23",  "8038_l23_pc", pldo,     LDO_50,   0),
+	LDO(L24,  "8038_l24",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(L26,  "8038_l26",  "8038_l26_pc", nldo,     LDO_150,  1),
+	LDO(L27,  "8038_l27",  NULL,          nldo1200, LDO_1200, 1),
 
 	SMPS(S1,  "8038_s1",   "8038_s1_pc",  smps,     SMPS_1500),
 	SMPS(S2,  "8038_s2",   "8038_s2_pc",  smps,     SMPS_1500),
