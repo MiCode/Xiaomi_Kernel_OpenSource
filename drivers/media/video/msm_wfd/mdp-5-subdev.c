@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -10,53 +10,63 @@
 * GNU General Public License for more details.
 *
 */
+#include <linux/msm_mdp.h>
+#include <mach/iommu_domains.h>
+#include <media/videobuf2-core.h>
+#include "enc-subdev.h"
 #include "mdp-subdev.h"
 #include "wfd-util.h"
-#include <media/videobuf2-core.h>
-#include <linux/msm_mdp.h>
+
 
 struct mdp_instance {
 	struct fb_info *mdp;
 	u32 height;
 	u32 width;
+	bool secure;
 };
 
 int mdp_init(struct v4l2_subdev *sd, u32 val)
 {
 	return 0;
 }
+
 int mdp_open(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_instance *inst = kzalloc(sizeof(struct mdp_instance),
 					GFP_KERNEL);
-	void **cookie = (void **)arg;
+	struct mdp_msg_ops *mops = arg;
 	int rc = 0;
 	struct fb_info *fbi = NULL;
 
 	if (!inst) {
 		WFD_MSG_ERR("Out of memory\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto mdp_open_fail;
+	} else if (!mops) {
+		WFD_MSG_ERR("Invalid arguments\n");
+		rc = -EINVAL;
+		goto mdp_open_fail;
 	}
 
 	fbi = msm_fb_get_writeback_fb();
 	if (!fbi) {
 		WFD_MSG_ERR("Failed to acquire mdp instance\n");
 		rc = -ENODEV;
-		goto exit;
+		goto mdp_open_fail;
 	}
 
 	/*Tell HDMI daemon to open fb2*/
 	rc = kobject_uevent(&fbi->dev->kobj, KOBJ_ADD);
-	if (rc) {
+	if (rc)
 		WFD_MSG_ERR("Failed add to kobj");
-		goto exit;
-	}
 
 	msm_fb_writeback_init(fbi);
 	inst->mdp = fbi;
-	*cookie = inst;
+	inst->secure = mops->secure;
+
+	mops->cookie = inst;
 	return rc;
-exit:
+mdp_open_fail:
 	kfree(inst);
 	return rc;
 }
@@ -85,6 +95,7 @@ int mdp_start(struct v4l2_subdev *sd, void *arg)
 exit:
 	return rc;
 }
+
 int mdp_stop(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_instance *inst = arg;
@@ -134,8 +145,8 @@ int mdp_q_buffer(struct v4l2_subdev *sd, void *arg)
 	fbdata.flags = 0;
 	fbdata.priv = (uint32_t)binfo->cookie;
 
-	WFD_MSG_INFO("queue buffer to mdp with offset = %u,"
-			"fd = %u, priv = %p, iova = %p\n",
+	WFD_MSG_DBG("queue buffer to mdp with offset = %u, fd = %u, "\
+			"priv = %p, iova = %p\n",
 			fbdata.offset, fbdata.memory_id,
 			(void *)fbdata.priv, (void *)fbdata.iova);
 	rc = msm_fb_writeback_queue_buffer(inst->mdp, &fbdata);
@@ -179,6 +190,7 @@ int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
 	inst->width = prop->width;
 	return 0;
 }
+
 long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	int rc = 0;

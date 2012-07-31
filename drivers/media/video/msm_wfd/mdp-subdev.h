@@ -34,6 +34,12 @@ struct mdp_prop {
 	u32 width;
 };
 
+struct mdp_msg_ops {
+	void *cookie;
+	bool secure;
+	bool iommu_split_domain;
+};
+
 static inline bool mdp_buf_info_equals(struct mdp_buf_info *a,
 		struct mdp_buf_info *b)
 {
