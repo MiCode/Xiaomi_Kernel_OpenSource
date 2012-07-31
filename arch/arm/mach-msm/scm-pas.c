@@ -24,6 +24,7 @@
 #include "scm-pas.h"
 
 #define PAS_INIT_IMAGE_CMD	1
+#define PAS_MEM_SETUP_CMD	2
 #define PAS_AUTH_AND_RESET_CMD	5
 #define PAS_SHUTDOWN_CMD	6
 #define PAS_IS_SUPPORTED_CMD	7
@@ -54,6 +55,28 @@ int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
 	return scm_ret;
 }
 EXPORT_SYMBOL(pas_init_image);
+
+int pas_mem_setup(enum pas_id id, u32 start_addr, u32 len)
+{
+	int ret;
+	struct pas_init_image_req {
+		u32	proc;
+		u32	start_addr;
+		u32	len;
+	} request;
+	u32 scm_ret = 0;
+
+	request.proc = id;
+	request.start_addr = start_addr;
+	request.len = len;
+
+	ret = scm_call(SCM_SVC_PIL, PAS_MEM_SETUP_CMD, &request,
+			sizeof(request), &scm_ret, sizeof(scm_ret));
+	if (ret)
+		return ret;
+	return scm_ret;
+}
+EXPORT_SYMBOL(pas_mem_setup);
 
 static struct msm_bus_paths scm_pas_bw_tbl[] = {
 	{
