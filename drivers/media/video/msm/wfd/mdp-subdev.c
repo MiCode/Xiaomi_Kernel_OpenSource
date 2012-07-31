@@ -45,6 +45,13 @@ int mdp_open(struct v4l2_subdev *sd, void *arg)
 		goto exit;
 	}
 
+	/*Tell HDMI daemon to open fb2*/
+	rc = kobject_uevent(&fbi->dev->kobj, KOBJ_ADD);
+	if (rc) {
+		WFD_MSG_ERR("Failed add to kobj");
+		goto exit;
+	}
+
 	msm_fb_writeback_init(fbi);
 	inst->mdp = fbi;
 	*cookie = inst;
@@ -71,6 +78,9 @@ int mdp_start(struct v4l2_subdev *sd, void *arg)
 			rc = -ENODEV;
 			goto exit;
 		}
+		rc = kobject_uevent(&fbi->dev->kobj, KOBJ_ONLINE);
+		if (rc)
+			WFD_MSG_ERR("Failed to send ONLINE event\n");
 	}
 exit:
 	return rc;
@@ -79,11 +89,18 @@ int mdp_stop(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_instance *inst = arg;
 	int rc = 0;
+	struct fb_info *fbi = NULL;
 	if (inst) {
 		rc = msm_fb_writeback_stop(inst->mdp);
 		if (rc) {
 			WFD_MSG_ERR("Failed to stop writeback mode\n");
 			return rc;
+		}
+		fbi = (struct fb_info *)inst->mdp;
+		rc = kobject_uevent(&fbi->dev->kobj, KOBJ_OFFLINE);
+		if (rc) {
+			WFD_MSG_ERR("Failed to send offline event\n");
+			return -EIO;
 		}
 	}
 	return 0;
