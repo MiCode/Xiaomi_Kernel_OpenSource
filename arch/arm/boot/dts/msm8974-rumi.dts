@@ -88,6 +88,10 @@
 		status = "disable";
 	};
 
+	qcom,mdss_dsi@fd922800 {
+		status = "disable";
+	};
+
 	qcom,spmi@fc4c0000 {
 		status = "disable";
 	};
