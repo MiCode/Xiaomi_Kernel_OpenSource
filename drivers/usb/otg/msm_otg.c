@@ -3372,6 +3372,9 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				&pdata->phy_type);
 	of_property_read_u32(node, "qcom,hsusb-otg-pmic-id-irq",
 				&pdata->pmic_id_irq);
+	pdata->disable_reset_on_disconnect = of_property_read_bool(node,
+				"qcom,hsusb-otg-disable-reset");
+
 	return pdata;
 }
 
