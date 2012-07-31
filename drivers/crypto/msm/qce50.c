@@ -648,6 +648,21 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	return 0;
 };
 
+static int _qce_unlock_other_pipes(struct qce_device *pce_dev)
+{
+	int rc = 0;
+
+	pce_dev->ce_sps.consumer.event.callback = NULL;
+	rc = sps_transfer_one(pce_dev->ce_sps.consumer.pipe,
+	GET_PHYS_ADDR(pce_dev->ce_sps.cmdlistptr.unlock_all_pipes.cmdlist),
+	0, NULL, (SPS_IOVEC_FLAG_CMD | SPS_IOVEC_FLAG_UNLOCK));
+	if (rc) {
+		pr_err("sps_xfr_one() fail rc=%d", rc);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
 static int _aead_complete(struct qce_device *pce_dev)
 {
 	struct aead_request *areq;
@@ -666,6 +681,9 @@ static int _aead_complete(struct qce_device *pce_dev)
 	/* check MAC */
 	memcpy(mac, (char *)(&pce_dev->ce_sps.result->auth_iv[0]),
 						SHA256_DIGEST_SIZE);
+	if (_qce_unlock_other_pipes(pce_dev))
+		return -EINVAL;
+
 	if (pce_dev->mode == QCE_MODE_CCM) {
 		uint32_t result_status;
 		result_status = pce_dev->ce_sps.result->status;
@@ -691,7 +709,7 @@ static int _aead_complete(struct qce_device *pce_dev)
 	return 0;
 };
 
-static void _sha_complete(struct qce_device *pce_dev)
+static int _sha_complete(struct qce_device *pce_dev)
 {
 	struct ahash_request *areq;
 	unsigned char digest[SHA256_DIGEST_SIZE];
@@ -701,9 +719,12 @@ static void _sha_complete(struct qce_device *pce_dev)
 				DMA_TO_DEVICE);
 	memcpy(digest, (char *)(&pce_dev->ce_sps.result->auth_iv[0]),
 						SHA256_DIGEST_SIZE);
+	if (_qce_unlock_other_pipes(pce_dev))
+		return -EINVAL;
 	pce_dev->qce_cb(areq, digest,
 			(char *)pce_dev->ce_sps.result->auth_byte_count,
 				pce_dev->ce_sps.consumer_status);
+	return 0;
 };
 
 static int _ablk_cipher_complete(struct qce_device *pce_dev)
@@ -720,6 +741,8 @@ static int _ablk_cipher_complete(struct qce_device *pce_dev)
 	dma_unmap_sg(pce_dev->pdev, areq->src, pce_dev->src_nents,
 		(areq->src == areq->dst) ? DMA_BIDIRECTIONAL :
 						DMA_TO_DEVICE);
+	if (_qce_unlock_other_pipes(pce_dev))
+		return -EINVAL;
 
 	if (pce_dev->mode == QCE_MODE_ECB) {
 		pce_dev->qce_cb(areq, NULL, NULL,
@@ -977,6 +1000,8 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 	sps_connect_info->src_pipe_index = pce_dev->ce_sps.src_pipe_index;
 	/* Consumer pipe index */
 	sps_connect_info->dest_pipe_index = pce_dev->ce_sps.dest_pipe_index;
+	/* Set pipe group */
+	sps_connect_info->lock_group = pce_dev->ce_sps.pipe_pair_index;
 	sps_connect_info->event_thresh = 0x10;
 	/*
 	 * Max. no of scatter/gather buffers that can
@@ -1013,7 +1038,7 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 	if (is_producer)
 		sps_event->options = SPS_O_EOT | SPS_O_DESC_DONE;
 	else
-	sps_event->options = SPS_O_EOT;
+		sps_event->options = SPS_O_EOT;
 	sps_event->xfer_done = NULL;
 	sps_event->user = (void *)pce_dev;
 
@@ -1183,15 +1208,8 @@ static void _aead_sps_producer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags);
-
-	pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
-	if (pce_dev->ce_sps.consumer_state == QCE_PIPE_STATE_COMP) {
-		pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_IDLE;
-		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
-
-		/* done */
-		_aead_complete(pce_dev);
-	}
+	/* done */
+	_aead_complete(pce_dev);
 };
 
 static void _aead_sps_consumer_callback(struct sps_event_notify *notify)
@@ -1205,15 +1223,6 @@ static void _aead_sps_consumer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags);
-
-	pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_COMP;
-	if (pce_dev->ce_sps.producer_state == QCE_PIPE_STATE_COMP) {
-		pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_IDLE;
-		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
-
-		/* done */
-		_aead_complete(pce_dev);
-	}
 };
 
 static void _sha_sps_producer_callback(struct sps_event_notify *notify)
@@ -1227,15 +1236,8 @@ static void _sha_sps_producer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags);
-
-	pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
-	if (pce_dev->ce_sps.consumer_state == QCE_PIPE_STATE_COMP) {
-		pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_IDLE;
-		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
-
-		/* done */
-		_sha_complete(pce_dev);
-	}
+	/* done */
+	_sha_complete(pce_dev);
 };
 
 static void _sha_sps_consumer_callback(struct sps_event_notify *notify)
@@ -1249,15 +1251,6 @@ static void _sha_sps_consumer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags);
-
-	pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_COMP;
-	if (pce_dev->ce_sps.producer_state == QCE_PIPE_STATE_COMP) {
-		pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_IDLE;
-		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
-
-		/* done */
-	_sha_complete(pce_dev);
-	}
 };
 
 static void _ablk_cipher_sps_producer_callback(struct sps_event_notify *notify)
@@ -1271,15 +1264,8 @@ static void _ablk_cipher_sps_producer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags);
-
-	pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
-	if (pce_dev->ce_sps.consumer_state == QCE_PIPE_STATE_COMP) {
-		pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_IDLE;
-		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
-
-		/* done */
-		_ablk_cipher_complete(pce_dev);
-	}
+	/* done */
+	_ablk_cipher_complete(pce_dev);
 };
 
 static void _ablk_cipher_sps_consumer_callback(struct sps_event_notify *notify)
@@ -1293,15 +1279,6 @@ static void _ablk_cipher_sps_consumer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags);
-
-	pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_COMP;
-	if (pce_dev->ce_sps.producer_state == QCE_PIPE_STATE_COMP) {
-		pce_dev->ce_sps.consumer_state = QCE_PIPE_STATE_IDLE;
-		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
-
-		/* done */
-		_ablk_cipher_complete(pce_dev);
-	}
 };
 
 static void qce_add_cmd_element(struct qce_device *pdev,
@@ -2041,12 +2018,6 @@ static int _setup_unlock_pipe_cmdlistptrs(struct qce_device *pdev,
 	 */
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
 					CRYPTO_CONFIG_RESET, NULL);
-	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					CRYPTO_CONFIG_RESET, NULL);
-	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					CRYPTO_CONFIG_RESET, NULL);
-	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
-					CRYPTO_CONFIG_RESET, NULL);
 	pcl_info->size = (uint32_t)ce_vaddr - (uint32_t)ce_vaddr_start;
 	*pvaddr = (unsigned char *) ce_vaddr;
 
@@ -2258,7 +2229,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 
 	_qce_sps_iovec_count_init(pce_dev);
 
-	_qce_sps_add_cmd(pce_dev, 0, cmdlistinfo,
+	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
 					&pce_dev->ce_sps.in_transfer);
 
 	if (pce_dev->ce_sps.minor_version == 0) {
@@ -2386,7 +2357,7 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 
 	_qce_sps_iovec_count_init(pce_dev);
 
-	_qce_sps_add_cmd(pce_dev, 0, cmdlistinfo,
+	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
 					&pce_dev->ce_sps.in_transfer);
 	_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
 					&pce_dev->ce_sps.in_transfer);
@@ -2457,7 +2428,7 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 
 	_qce_sps_iovec_count_init(pce_dev);
 
-	_qce_sps_add_cmd(pce_dev, 0, cmdlistinfo,
+	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
 					&pce_dev->ce_sps.in_transfer);
 	_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
 						 &pce_dev->ce_sps.in_transfer);
