@@ -59,6 +59,7 @@
 #include "u_bam_data.c"
 #include "f_mbim.c"
 #include "f_qc_ecm.c"
+#include "f_qc_rndis.c"
 #include "u_qc_ether.c"
 #ifdef CONFIG_TARGET_CORE
 #include "f_tcm.c"
@@ -1082,6 +1083,7 @@ static struct android_usb_function ptp_function = {
 struct rndis_function_config {
 	u8      ethaddr[ETH_ALEN];
 	u32     vendorID;
+	u8      max_pkt_per_xfer;
 	char	manufacturer[256];
 	/* "Wireless" RNDIS; auto-detected by Windows */
 	bool	wceis;
@@ -1102,6 +1104,22 @@ static void rndis_function_cleanup(struct android_usb_function *f)
 {
 	kfree(f->config);
 	f->config = NULL;
+}
+
+static int rndis_qc_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+	f->config = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
+	if (!f->config)
+		return -ENOMEM;
+
+	return rndis_qc_init();
+}
+
+static void rndis_qc_function_cleanup(struct android_usb_function *f)
+{
+	rndis_qc_cleanup();
+	kfree(f->config);
 }
 
 static int
@@ -1145,11 +1163,55 @@ rndis_function_bind_config(struct android_usb_function *f,
 					   rndis->manufacturer, rndis->dev);
 }
 
+static int rndis_qc_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	int ret;
+	struct rndis_function_config *rndis = f->config;
+
+	if (!rndis) {
+		pr_err("%s: rndis_pdata\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
+		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
+		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
+
+	ret = gether_qc_setup_name(c->cdev->gadget, rndis->ethaddr, "rndis");
+	if (ret) {
+		pr_err("%s: gether_setup failed\n", __func__);
+		return ret;
+	}
+
+	if (rndis->wceis) {
+		/* "Wireless" RNDIS; auto-detected by Windows */
+		rndis_qc_iad_descriptor.bFunctionClass =
+						USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_qc_iad_descriptor.bFunctionSubClass = 0x01;
+		rndis_qc_iad_descriptor.bFunctionProtocol = 0x03;
+		rndis_qc_control_intf.bInterfaceClass =
+						USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_qc_control_intf.bInterfaceSubClass =	 0x01;
+		rndis_qc_control_intf.bInterfaceProtocol =	 0x03;
+	}
+
+	return rndis_qc_bind_config_vendor(c, rndis->ethaddr, rndis->vendorID,
+				    rndis->manufacturer,
+					rndis->max_pkt_per_xfer);
+}
+
 static void rndis_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
 	struct rndis_function_config *rndis = f->config;
 	gether_cleanup(rndis->dev);
+}
+
+static void rndis_qc_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	gether_qc_cleanup();
 }
 
 static ssize_t rndis_manufacturer_show(struct device *dev,
@@ -1258,11 +1320,38 @@ static ssize_t rndis_vendorID_store(struct device *dev,
 static DEVICE_ATTR(vendorID, S_IRUGO | S_IWUSR, rndis_vendorID_show,
 						rndis_vendorID_store);
 
+static ssize_t rndis_max_pkt_per_xfer_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct rndis_function_config *config = f->config;
+	return snprintf(buf, PAGE_SIZE, "%d\n", config->max_pkt_per_xfer);
+}
+
+static ssize_t rndis_max_pkt_per_xfer_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct rndis_function_config *config = f->config;
+	int value;
+
+	if (sscanf(buf, "%d", &value) == 1) {
+		config->max_pkt_per_xfer = value;
+		return size;
+	}
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(max_pkt_per_xfer, S_IRUGO | S_IWUSR,
+				   rndis_max_pkt_per_xfer_show,
+				   rndis_max_pkt_per_xfer_store);
+
 static struct device_attribute *rndis_function_attributes[] = {
 	&dev_attr_manufacturer,
 	&dev_attr_wceis,
 	&dev_attr_ethaddr,
 	&dev_attr_vendorID,
+	&dev_attr_max_pkt_per_xfer,
 	NULL
 };
 
@@ -1275,6 +1364,14 @@ static struct android_usb_function rndis_function = {
 	.attributes	= rndis_function_attributes,
 };
 
+static struct android_usb_function rndis_qc_function = {
+	.name		= "rndis_qc",
+	.init		= rndis_qc_function_init,
+	.cleanup	= rndis_qc_function_cleanup,
+	.bind_config	= rndis_qc_function_bind_config,
+	.unbind_config	= rndis_qc_function_unbind_config,
+	.attributes	= rndis_function_attributes,
+};
 
 struct mass_storage_function_config {
 	struct fsg_config fsg;
@@ -1540,6 +1637,7 @@ static struct android_usb_function *supported_functions[] = {
 	&mtp_function,
 	&ptp_function,
 	&rndis_function,
+	&rndis_qc_function,
 	&mass_storage_function,
 	&accessory_function,
 	&audio_source_function,
