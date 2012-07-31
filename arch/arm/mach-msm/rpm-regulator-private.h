@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,6 +79,7 @@ struct vreg {
 	struct rpm_vreg_parts		*part;
 	int				type;
 	int				id;
+	bool				requires_cxo;
 	struct mutex			pc_lock;
 	int				save_uV;
 	int				mode;

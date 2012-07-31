@@ -14,6 +14,7 @@
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/module.h>
+#include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -21,7 +22,10 @@
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/platform_device.h>
+#include <linux/wakelock.h>
+#include <linux/workqueue.h>
 #include <linux/regulator/driver.h>
+
 #include <mach/rpm.h>
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
@@ -72,6 +76,11 @@ static int consumer_map_len;
 
 #define GET_PART(_vreg, _part) \
 	((_vreg->req[_vreg->part->_part.word].value & _vreg->part->_part.mask) \
+		>> _vreg->part->_part.shift)
+
+#define GET_PART_PREV_ACT(_vreg, _part) \
+	((_vreg->prev_active_req[_vreg->part->_part.word].value \
+	  & _vreg->part->_part.mask) \
 		>> _vreg->part->_part.shift)
 
 #define USES_PART(_vreg, _part) (_vreg->part->_part.mask)
@@ -287,6 +296,95 @@ static void rpm_regulator_duplicate(struct vreg *vreg, int set, int cnt)
 			vreg->req[0].id, vreg->req[0].value);
 }
 
+static bool requires_tcxo_workaround;
+static bool tcxo_workaround_noirq;
+static struct clk *tcxo_handle;
+static struct wake_lock tcxo_wake_lock;
+static DEFINE_MUTEX(tcxo_mutex);
+/* Spin lock needed for sleep-selectable regulators. */
+static DEFINE_SPINLOCK(tcxo_noirq_lock);
+static bool tcxo_is_enabled;
+/*
+ * TCXO must be kept on for at least the duration of its warmup (4 ms);
+ * otherwise, it will stay on when hardware disabling is attempted.
+ */
+#define TCXO_WARMUP_TIME_MS 4
+
+static void tcxo_get_handle(void)
+{
+	int rc;
+
+	if (!tcxo_handle) {
+		tcxo_handle = clk_get_sys("rpm-regulator", "vref_buff");
+		if (IS_ERR(tcxo_handle)) {
+			tcxo_handle = NULL;
+		} else {
+			rc = clk_prepare(tcxo_handle);
+			if (rc) {
+				clk_put(tcxo_handle);
+				tcxo_handle = NULL;
+			}
+		}
+	}
+}
+
+/*
+ * Perform best effort enable of CXO.  Since the MSM clock drivers depend upon
+ * the rpm-regulator driver, any rpm-regulator devices that are configured with
+ * always_on == 1 will not be able to enable CXO during probe.  This does not
+ * cause a problem though since CXO will be enabled by the boot loaders before
+ * Apps boots up.
+ */
+static bool tcxo_enable(void)
+{
+	int rc;
+
+	if (tcxo_handle && !tcxo_is_enabled) {
+		rc = clk_enable(tcxo_handle);
+		if (!rc) {
+			tcxo_is_enabled = true;
+			wake_lock(&tcxo_wake_lock);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void tcxo_delayed_disable_work(struct work_struct *work)
+{
+	unsigned long flags = 0;
+
+	if (tcxo_workaround_noirq)
+		spin_lock_irqsave(&tcxo_noirq_lock, flags);
+	else
+		mutex_lock(&tcxo_mutex);
+
+	clk_disable(tcxo_handle);
+	tcxo_is_enabled = false;
+	wake_unlock(&tcxo_wake_lock);
+
+	if (tcxo_workaround_noirq)
+		spin_unlock_irqrestore(&tcxo_noirq_lock, flags);
+	else
+		mutex_unlock(&tcxo_mutex);
+}
+
+static DECLARE_DELAYED_WORK(tcxo_disable_work, tcxo_delayed_disable_work);
+
+static void tcxo_delayed_disable(void)
+{
+	/*
+	 * The delay in jiffies has 1 added to it to ensure that at least
+	 * one jiffy takes place before the work is enqueued.  Without this,
+	 * the work would be scheduled to run in the very next jiffy which could
+	 * result in too little delay and TCXO being stuck on.
+	 */
+	if (tcxo_handle)
+		schedule_delayed_work(&tcxo_disable_work,
+				msecs_to_jiffies(TCXO_WARMUP_TIME_MS) + 1);
+}
+
 /* Spin lock needed for sleep-selectable regulators. */
 static DEFINE_SPINLOCK(rpm_noirq_lock);
 
@@ -321,6 +419,9 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 {
 	struct msm_rpm_iv_pair *prev_req;
 	int rc = 0, max_uV_vote = 0;
+	unsigned long flags = 0;
+	bool tcxo_enabled = false;
+	bool voltage_increased = false;
 	unsigned prev0, prev1;
 	int *min_uV_vote;
 	int i;
@@ -362,6 +463,16 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 	/* Ignore duplicate requests */
 	if (vreg->req[0].value != prev_req[0].value ||
 	    vreg->req[1].value != prev_req[1].value) {
+
+		/* Enable CXO clock if necessary for TCXO workaround. */
+		if (requires_tcxo_workaround && vreg->requires_cxo
+		    && (set == MSM_RPM_CTX_SET_0)
+		    && (GET_PART(vreg, uV) > GET_PART_PREV_ACT(vreg, uV))) {
+			voltage_increased = true;
+			spin_lock_irqsave(&tcxo_noirq_lock, flags);
+			tcxo_enabled = tcxo_enable();
+		}
+
 		rc = msm_rpmrs_set_noirq(set, vreg->req, cnt);
 		if (rc) {
 			vreg->req[0].value = prev0;
@@ -380,6 +491,16 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 				rpm_regulator_req(vreg, set);
 			prev_req[0].value = vreg->req[0].value;
 			prev_req[1].value = vreg->req[1].value;
+		}
+
+		/*
+		 * Schedule CXO clock to be disabled after TCXO warmup time if
+		 * TCXO workaround is applicable for this regulator.
+		 */
+		if (voltage_increased) {
+			if (tcxo_enabled)
+				tcxo_delayed_disable();
+			spin_unlock_irqrestore(&tcxo_noirq_lock, flags);
 		}
 	} else if (msm_rpm_vreg_debug_mask & MSM_RPM_VREG_DEBUG_DUPLICATE) {
 		rpm_regulator_duplicate(vreg, set, cnt);
@@ -916,6 +1037,9 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 		unsigned mask1, unsigned val1, unsigned cnt)
 {
 	unsigned prev0 = 0, prev1 = 0;
+	unsigned long flags = 0;
+	bool tcxo_enabled = false;
+	bool voltage_increased = false;
 	int rc;
 
 	/*
@@ -942,7 +1066,25 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 		return 0;
 	}
 
-	rc = msm_rpm_set(MSM_RPM_CTX_SET_0, vreg->req, cnt);
+	/* Enable CXO clock if necessary for TCXO workaround. */
+	if (requires_tcxo_workaround && vreg->requires_cxo
+	    && (GET_PART(vreg, uV) > GET_PART_PREV_ACT(vreg, uV))) {
+		if (!tcxo_handle)
+			tcxo_get_handle();
+		if (tcxo_workaround_noirq)
+			spin_lock_irqsave(&tcxo_noirq_lock, flags);
+		else
+			mutex_lock(&tcxo_mutex);
+
+		voltage_increased = true;
+		tcxo_enabled = tcxo_enable();
+	}
+
+	if (voltage_increased && tcxo_workaround_noirq)
+		rc = msm_rpmrs_set_noirq(MSM_RPM_CTX_SET_0, vreg->req, cnt);
+	else
+		rc = msm_rpm_set(MSM_RPM_CTX_SET_0, vreg->req, cnt);
+
 	if (rc) {
 		vreg->req[0].value = prev0;
 		vreg->req[1].value = prev1;
@@ -954,6 +1096,20 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 			rpm_regulator_req(vreg, MSM_RPM_CTX_SET_0);
 		vreg->prev_active_req[0].value = vreg->req[0].value;
 		vreg->prev_active_req[1].value = vreg->req[1].value;
+	}
+
+	/*
+	 * Schedule CXO clock to be disabled after TCXO warmup time if TCXO
+	 * workaround is applicable for this regulator.
+	 */
+	if (voltage_increased) {
+		if (tcxo_enabled)
+			tcxo_delayed_disable();
+
+		if (tcxo_workaround_noirq)
+			spin_unlock_irqrestore(&tcxo_noirq_lock, flags);
+		else
+			mutex_unlock(&tcxo_mutex);
 	}
 
 	return rc;
@@ -1470,6 +1626,20 @@ struct regulator_ops *vreg_ops[] = {
 	[RPM_REGULATOR_TYPE_CORNER]	= &corner_ops,
 };
 
+static struct vreg *rpm_vreg_get_vreg(int id)
+{
+	struct vreg *vreg;
+
+	if (id < config->vreg_id_min || id > config->vreg_id_max)
+		return NULL;
+
+	if (!config->is_real_id(id))
+		id = config->pc_id_to_real_id(id);
+	vreg = &config->vregs[id];
+
+	return vreg;
+}
+
 static int __devinit
 rpm_vreg_init_regulator(const struct rpm_regulator_init_data *pdata,
 			struct device *dev)
@@ -1478,7 +1648,7 @@ rpm_vreg_init_regulator(const struct rpm_regulator_init_data *pdata,
 	struct regulator_dev *rdev;
 	struct vreg *vreg;
 	unsigned pin_ctrl;
-	int id, pin_fn;
+	int pin_fn;
 	int rc = 0;
 
 	if (!pdata) {
@@ -1486,16 +1656,11 @@ rpm_vreg_init_regulator(const struct rpm_regulator_init_data *pdata,
 		return -EINVAL;
 	}
 
-	id = pdata->id;
-
-	if (id < config->vreg_id_min || id > config->vreg_id_max) {
-		pr_err("invalid regulator id: %d\n", id);
+	vreg = rpm_vreg_get_vreg(pdata->id);
+	if (!vreg) {
+		pr_err("invalid regulator id: %d\n", pdata->id);
 		return -ENODEV;
 	}
-
-	if (!config->is_real_id(pdata->id))
-		id = config->pc_id_to_real_id(pdata->id);
-	vreg = &config->vregs[id];
 
 	if (config->is_real_id(pdata->id))
 		rdesc = &vreg->rdesc;
@@ -1627,6 +1792,7 @@ static int __devinit rpm_vreg_probe(struct platform_device *pdev)
 	struct rpm_regulator_platform_data *platform_data;
 	static struct rpm_regulator_consumer_mapping *prev_consumer_map;
 	static int prev_consumer_map_len;
+	struct vreg *vreg;
 	int rc = 0;
 	int i, id;
 
@@ -1703,6 +1869,25 @@ static int __devinit rpm_vreg_probe(struct platform_device *pdev)
 				* platform_data->consumer_map_len);
 		}
 
+	}
+
+	if (platform_data->requires_tcxo_workaround
+	    && !requires_tcxo_workaround) {
+		requires_tcxo_workaround = true;
+		wake_lock_init(&tcxo_wake_lock, WAKE_LOCK_SUSPEND,
+				"rpm_regulator_tcxo");
+	}
+
+	if (requires_tcxo_workaround && !tcxo_workaround_noirq) {
+		for (i = 0; i < platform_data->num_regulators; i++) {
+			vreg = rpm_vreg_get_vreg(
+					platform_data->init_data[i].id);
+			if (vreg && vreg->requires_cxo
+			    && platform_data->init_data[i].sleep_selectable) {
+				tcxo_workaround_noirq = true;
+				break;
+			}
+		}
 	}
 
 	/* Initialize all of the regulators listed in the platform data. */
@@ -1785,6 +1970,9 @@ static void __exit rpm_vreg_exit(void)
 
 	for (i = 0; i < config->vregs_len; i++)
 		mutex_destroy(&config->vregs[i].pc_lock);
+
+	if (tcxo_handle)
+		clk_put(tcxo_handle);
 }
 
 postcore_initcall(rpm_vreg_init);
