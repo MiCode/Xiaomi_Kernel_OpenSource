@@ -1835,7 +1835,7 @@ void mdp4_mixer_blend_setup(int mixer)
 	struct mdp4_overlay_pipe *d_pipe;
 	struct mdp4_overlay_pipe *s_pipe;
 	struct blend_cfg *blend;
-	int i, off, ptype;
+	int i, off, ptype, alpha_drop = 0;
 	int d_alpha, s_alpha;
 	unsigned char *overlay_base;
 	uint32 c0, c1, c2;
@@ -1859,13 +1859,21 @@ void mdp4_mixer_blend_setup(int mixer)
 			d_alpha = 0;
 			continue;
 		}
+		/* alpha channel is lost on VG pipe when using QSEED or M/N */
+		if (s_pipe->pipe_type == OVERLAY_TYPE_VIDEO &&
+			((s_pipe->op_mode & MDP4_OP_SCALEY_EN) ||
+			(s_pipe->op_mode & MDP4_OP_SCALEX_EN)) &&
+			!(s_pipe->op_mode & MDP4_OP_SCALEY_PIXEL_RPT))
+			alpha_drop = 1;
+
 		d_pipe = mdp4_background_layer(mixer, s_pipe);
 		d_alpha = d_pipe->alpha_enable;
 		s_alpha = s_pipe->alpha_enable;
 		pr_debug("%s: stage=%d: bg: ndx=%d da=%d dalpha=%x "
-			"fg: ndx=%d sa=%d salpha=%x is_fg=%d\n",
+			"fg: ndx=%d sa=%d salpha=%x is_fg=%d alpha_drop=%d\n",
 		 __func__, i-2, d_pipe->pipe_ndx, d_alpha, d_pipe->alpha,
-		s_pipe->pipe_ndx, s_alpha, s_pipe->alpha, s_pipe->is_fg);
+		s_pipe->pipe_ndx, s_alpha, s_pipe->alpha, s_pipe->is_fg,
+		alpha_drop);
 
 		/* base on fg's alpha */
 		blend->bg_alpha = 0x0ff - s_pipe->alpha;
@@ -1878,14 +1886,23 @@ void mdp4_mixer_blend_setup(int mixer)
 				blend->solidfill_pipe = d_pipe;
 			}
 		} else if (s_alpha) {
-			blend->op = (MDP4_BLEND_BG_ALPHA_FG_PIXEL |
-				    MDP4_BLEND_BG_INV_ALPHA);
+			if (!alpha_drop) {
+				blend->op = MDP4_BLEND_BG_ALPHA_FG_PIXEL;
+				if (!(s_pipe->flags & MDP_BLEND_FG_PREMULT))
+					blend->op |=
+						MDP4_BLEND_FG_ALPHA_FG_PIXEL;
+			} else
+				blend->op = MDP4_BLEND_BG_ALPHA_FG_CONST;
+
+			blend->op |= MDP4_BLEND_BG_INV_ALPHA;
 		} else if (d_alpha) {
 			ptype = mdp4_overlay_format2type(s_pipe->src_format);
 			if (ptype == OVERLAY_TYPE_VIDEO) {
-				blend->op = (MDP4_BLEND_BG_ALPHA_BG_PIXEL |
-				    MDP4_BLEND_FG_ALPHA_BG_PIXEL |
-				    MDP4_BLEND_FG_INV_ALPHA);
+				blend->op = (MDP4_BLEND_FG_ALPHA_BG_PIXEL |
+					MDP4_BLEND_FG_INV_ALPHA);
+				if (!(s_pipe->flags & MDP_BLEND_FG_PREMULT))
+					blend->op |=
+						MDP4_BLEND_BG_ALPHA_BG_PIXEL;
 				blend->co3_sel = 0; /* use bg alpha */
 			} else {
 				/* s_pipe is rgb without alpha */
