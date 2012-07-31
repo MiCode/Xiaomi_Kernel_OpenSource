@@ -400,6 +400,54 @@ static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 		host->dummy_52_needed = 0;
 }
 
+static void msmsdcc_reset_dpsm(struct msmsdcc_host *host)
+{
+	struct mmc_request *mrq = host->curr.mrq;
+
+	if (!mrq || !mrq->cmd || (!mrq->data && !host->pending_dpsm_reset))
+			goto out;
+
+	/*
+	 * For CMD24, if auto prog done is not supported defer
+	 * dpsm reset until prog done is received. Otherwise,
+	 * we poll here unnecessarily as TXACTIVE will not be
+	 * deasserted until DAT0 goes high.
+	 */
+	if ((mrq->cmd->opcode == MMC_WRITE_BLOCK) && !is_auto_prog_done(host)) {
+		host->pending_dpsm_reset = true;
+		goto out;
+	}
+
+	/* Make sure h/w (TX/RX) is inactive before resetting DPSM */
+	if (is_wait_for_tx_rx_active(host)) {
+		ktime_t start = ktime_get();
+
+		while (readl_relaxed(host->base + MMCISTATUS) &
+				(MCI_TXACTIVE | MCI_RXACTIVE)) {
+			/*
+			 * TX/RX active bits may be asserted for 4HCLK + 4MCLK
+			 * cycles (~11us) after data transfer due to clock mux
+			 * switching delays. Let's poll for 1ms and panic if
+			 * still active.
+			 */
+			if (ktime_to_us(ktime_sub(ktime_get(), start)) > 1000) {
+				pr_err("%s: %s still active\n",
+					mmc_hostname(host->mmc),
+					readl_relaxed(host->base + MMCISTATUS)
+					& MCI_TXACTIVE ? "TX" : "RX");
+				msmsdcc_dump_sdcc_state(host);
+				BUG();
+			}
+		}
+	}
+
+	writel_relaxed(0, host->base + MMCIDATACTRL);
+	msmsdcc_sync_reg_wr(host); /* Allow the DPSM to be reset */
+	host->pending_dpsm_reset = false;
+out:
+	return;
+}
+
 static int
 msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 {
@@ -413,6 +461,8 @@ msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 		mrq->data->bytes_xfered = host->curr.data_xfered;
 	if (mrq->cmd->error == -ETIMEDOUT)
 		mdelay(5);
+
+	msmsdcc_reset_dpsm(host);
 
 	/* Clear current request information as current request has ended */
 	memset(&host->curr, 0, sizeof(struct msmsdcc_curr_req));
@@ -435,8 +485,6 @@ msmsdcc_stop_data(struct msmsdcc_host *host)
 	host->curr.got_dataend = 0;
 	host->curr.wait_for_auto_prog_done = false;
 	host->curr.got_auto_prog_done = false;
-	writel_relaxed(0, host->base + MMCIDATACTRL);
-	msmsdcc_sync_reg_wr(host); /* Allow the DPSM to be reset */
 }
 
 static inline uint32_t msmsdcc_fifo_addr(struct msmsdcc_host *host)
@@ -582,6 +630,7 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 		if (!mrq->data->stop || mrq->cmd->error ||
 			(mrq->sbc && !mrq->data->error)) {
 			mrq->data->bytes_xfered = host->curr.data_xfered;
+			msmsdcc_reset_dpsm(host);
 			del_timer(&host->req_tout_timer);
 			/*
 			 * Clear current request information as current
@@ -742,6 +791,7 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 		if (!mrq->data->stop || mrq->cmd->error ||
 			(mrq->sbc && !mrq->data->error)) {
 			mrq->data->bytes_xfered = host->curr.data_xfered;
+			msmsdcc_reset_dpsm(host);
 			del_timer(&host->req_tout_timer);
 			/*
 			 * Clear current request information as current
@@ -1146,7 +1196,9 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 				MCI_DLL_CONFIG) & ~MCI_CDR_EN),
 				host->base + MCI_DLL_CONFIG);
 
-	if ((cmd->flags & MMC_RSP_R1B) == MMC_RSP_R1B) {
+	if (((cmd->flags & MMC_RSP_R1B) == MMC_RSP_R1B) ||
+			(cmd->opcode == MMC_SEND_STATUS &&
+			 !(cmd->flags & MMC_CMD_ADTC))) {
 		*c |= MCI_CPSM_PROGENA;
 		host->prog_enable = 1;
 	}
