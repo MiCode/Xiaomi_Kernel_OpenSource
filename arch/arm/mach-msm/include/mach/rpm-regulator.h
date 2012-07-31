@@ -165,6 +165,7 @@ struct rpm_regulator_platform_data {
 	enum rpm_vreg_version			version;
 	int					vreg_id_vdd_mem;
 	int					vreg_id_vdd_dig;
+	bool					requires_tcxo_workaround;
 	struct rpm_regulator_consumer_mapping	*consumer_map;
 	int					consumer_map_len;
 };
