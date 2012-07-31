@@ -27,12 +27,17 @@ enum pas_id {
 
 #ifdef CONFIG_MSM_PIL
 extern int pas_init_image(enum pas_id id, const u8 *metadata, size_t size);
+extern int pas_mem_setup(enum pas_id id, u32 start_addr, u32 len);
 extern int pas_auth_and_reset(enum pas_id id);
 extern int pas_shutdown(enum pas_id id);
 extern int pas_supported(enum pas_id id);
 #else
 static inline int pas_init_image(enum pas_id id, const u8 *metadata,
 		size_t size)
+{
+	return 0;
+}
+static inline int pas_mem_setup(enum pas_id id, u32 start_addr, u32 len)
 {
 	return 0;
 }
