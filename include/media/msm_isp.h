@@ -68,6 +68,9 @@
 #define MSG_ID_RDI0_UPDATE_ACK          49
 #define MSG_ID_RDI1_UPDATE_ACK          50
 #define MSG_ID_RDI2_UPDATE_ACK          51
+#define MSG_ID_PIX0_UPDATE_ACK          52
+#define MSG_ID_PREV_STOP_ACK            53
+
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0

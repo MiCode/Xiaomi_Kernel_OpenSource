@@ -499,6 +499,8 @@ struct msm_camera_cfg_cmd {
 #define CMD_AXI_START  0xE1
 #define CMD_AXI_STOP   0xE2
 #define CMD_AXI_RESET  0xE3
+#define CMD_AXI_ABORT  0xE4
+
 
 
 #define AXI_CMD_PREVIEW      BIT(0)
@@ -1774,6 +1776,7 @@ struct msm_camera_vfe_params_t {
 	uint32_t operation_mode;
 	uint32_t capture_count;
 	uint32_t skip_abort;
+	uint8_t  stop_immediately;
 	uint16_t port_info;
 	uint32_t inst_handle;
 	uint16_t cmd_type;

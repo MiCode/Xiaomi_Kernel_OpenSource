@@ -62,6 +62,9 @@
  * bit 26-32 = 0, domain reset, bit 0-9 = 1 for module reset. */
 #define VFE_RESET_UPON_RESET_CMD  0x000003ff
 
+/*Vfe module reset command*/
+#define VFE_MODULE_RESET_CMD 0x07ffffff
+
 /* bit 5 is for axi status idle or busy.
  * 1 =  halted,  0 = busy */
 #define AXI_STATUS_BUSY_MASK 0x00000020
@@ -941,11 +944,10 @@ struct vfe_share_ctrl_t {
 	uint32_t register_total;
 
 	atomic_t vstate;
-	atomic_t handle_axi_irq;
 	uint32_t vfeFrameId;
 	uint32_t stats_comp;
+	spinlock_t  sd_notify_lock;
 	spinlock_t  stop_flag_lock;
-	spinlock_t  abort_lock;
 	int8_t stop_ack_pending;
 	enum vfe_output_state liveshot_state;
 	uint32_t vfe_capture_count;
@@ -955,8 +957,9 @@ struct vfe_share_ctrl_t {
 	struct vfe32_output_path outpath;
 
 	uint16_t port_info;
-	uint32_t skip_abort;
-	spinlock_t  sd_notify_lock;
+	uint8_t stop_immediately;
+	uint8_t sync_abort;
+	uint16_t cmd_type;
 
 	struct completion reset_complete;
 
@@ -969,6 +972,7 @@ struct vfe_share_ctrl_t {
 	int8_t update_ack_pending;
 	enum vfe_output_state recording_state;
 
+	atomic_t pix0_update_ack_pending;
 	atomic_t rdi0_update_ack_pending;
 	atomic_t rdi1_update_ack_pending;
 	atomic_t rdi2_update_ack_pending;
