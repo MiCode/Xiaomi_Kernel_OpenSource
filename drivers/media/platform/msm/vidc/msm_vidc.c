@@ -243,6 +243,7 @@ int msm_vidc_open(void *vidc_inst, int core_id, int session_type)
 	inst->session_type = session_type;
 	INIT_LIST_HEAD(&inst->pendingq);
 	INIT_LIST_HEAD(&inst->internalbufs);
+	INIT_LIST_HEAD(&inst->persistbufs);
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
@@ -309,6 +310,15 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 		}
 		if (!list_empty(&inst->internalbufs)) {
 			list_for_each_safe(ptr, next, &inst->internalbufs) {
+				buf = list_entry(ptr, struct internal_buf,
+						list);
+				list_del(&buf->list);
+				msm_smem_free(inst->mem_client, buf->handle);
+				kfree(buf);
+			}
+		}
+		if (!list_empty(&inst->persistbufs)) {
+			list_for_each_safe(ptr, next, &inst->persistbufs) {
 				buf = list_entry(ptr, struct internal_buf,
 						list);
 				list_del(&buf->list);

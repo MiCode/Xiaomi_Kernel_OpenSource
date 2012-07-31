@@ -648,6 +648,11 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		pr_err("Failed to set scratch buffers: %d\n", rc);
 		goto fail_start;
 	}
+	rc = msm_comm_set_persist_buffers(inst);
+	if (rc) {
+		pr_err("Failed to set persist buffers: %d\n", rc);
+		goto fail_start;
+	}
 	rc = msm_comm_try_state(inst, MSM_VIDC_START_DONE);
 	if (rc) {
 		pr_err("Failed to move inst: %p to start done state\n",
