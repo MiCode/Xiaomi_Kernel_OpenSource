@@ -861,6 +861,7 @@ static int msm_mctl_dev_close(struct file *f)
 
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	mutex_lock(&pcam->mctl_node.dev_lock);
+	mutex_lock(&pcam_inst->inst_lock);
 	D("%s : active %d ", __func__, pcam->mctl_node.active);
 	if (pcam->mctl_node.active == 1) {
 		rc = msm_cam_server_close_mctl_session(pcam);
@@ -873,6 +874,7 @@ static int msm_mctl_dev_close(struct file *f)
 		pmctl = NULL;
 	}
 	pcam_inst->streamon = 0;
+	pcam->mctl_node.use_count--;
 	pcam->mctl_node.dev_inst_map[pcam_inst->image_mode] = NULL;
 	if (pcam_inst->vbqueue_initialized)
 		vb2_queue_release(&pcam_inst->vid_bufq);
@@ -881,17 +883,16 @@ static int msm_mctl_dev_close(struct file *f)
 	msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
 	CLR_MCTLPP_INST_IDX(pcam_inst->inst_handle);
 	CLR_IMG_MODE(pcam_inst->inst_handle);
-
+	mutex_unlock(&pcam_inst->inst_lock);
 	mutex_destroy(&pcam_inst->inst_lock);
 
 	kfree(pcam_inst);
+	f->private_data = NULL;
 	if (NULL != pmctl) {
 		D("%s : release ion client", __func__);
 		kref_put(&pmctl->refcount, msm_release_ion_client);
 	}
-	f->private_data = NULL;
 	mutex_unlock(&pcam->mctl_node.dev_lock);
-	pcam->mctl_node.use_count--;
 	D("%s : use_count %d X ", __func__, pcam->mctl_node.use_count);
 	return rc;
 }
