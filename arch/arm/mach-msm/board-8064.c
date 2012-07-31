@@ -2264,7 +2264,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_bus_8064_cpss_fpb,
 	&apq8064_msm_device_vidc,
 	&msm_pil_dsps,
-	&msm_8960_riva,
 	&msm_8960_q6_lpass,
 	&msm_pil_vidc,
 	&msm_gss,
@@ -2954,8 +2953,10 @@ static void __init apq8064_common_init(void)
 	platform_device_register(&apq8064_slim_ctrl);
 	slim_register_board_info(apq8064_slim_devices,
 		ARRAY_SIZE(apq8064_slim_devices));
-	if (!PLATFORM_IS_MPQ8064())
+	if (!PLATFORM_IS_MPQ8064()) {
 		apq8064_init_dsps();
+		platform_device_register(&msm_8960_riva);
+	}
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
