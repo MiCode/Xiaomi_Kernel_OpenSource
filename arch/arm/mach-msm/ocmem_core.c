@@ -665,6 +665,81 @@ int ocmem_memory_retain(int id, unsigned long offset, unsigned long len)
 	return switch_power_state(id, offset, len, REGION_DEFAULT_RETENTION);
 }
 
+static int ocmem_power_show_sw_state(struct seq_file *f, void *dummy)
+{
+	unsigned i, j;
+	unsigned m_state;
+	mutex_lock(&region_ctrl_lock);
+
+	seq_printf(f, "OCMEM Aggregated Power States\n");
+	for (i = 0 ; i < num_regions; i++) {
+		struct ocmem_hw_region *region = &region_ctrl[i];
+		seq_printf(f, "Region %u mode %x\n", i, region->mode);
+		for (j = 0; j < num_banks; j++) {
+			m_state = read_macro_state(i, j);
+			if (m_state == MACRO_ON)
+				seq_printf(f, "M%u:%s\t", j, "ON");
+			else if (m_state == MACRO_SLEEP_RETENTION)
+				seq_printf(f, "M%u:%s\t", j, "RETENTION");
+			else
+				seq_printf(f, "M%u:%s\t", j, "OFF");
+		}
+		seq_printf(f, "\n");
+	}
+	mutex_unlock(&region_ctrl_lock);
+	return 0;
+}
+
+#ifdef CONFIG_MSM_OCMEM_POWER_DEBUG
+static int ocmem_power_show_hw_state(struct seq_file *f, void *dummy)
+{
+	unsigned i = 0;
+	unsigned r_state;
+
+	mutex_lock(&region_ctrl_lock);
+
+	seq_printf(f, "OCMEM Hardware Power States\n");
+	for (i = 0 ; i < num_regions; i++) {
+		struct ocmem_hw_region *region = &region_ctrl[i];
+		seq_printf(f, "Region %u mode %x ", i, region->mode);
+		r_state = read_hw_region_state(i);
+		if (r_state == REGION_DEFAULT_ON)
+			seq_printf(f, "state: %s\t", "REGION_ON");
+		else if (r_state == MACRO_SLEEP_RETENTION)
+			seq_printf(f, "state: %s\t", "REGION_RETENTION");
+		else
+			seq_printf(f, "state: %s\t", "REGION_OFF");
+		seq_printf(f, "\n");
+	}
+	mutex_unlock(&region_ctrl_lock);
+	return 0;
+}
+#else
+static int ocmem_power_show_hw_state(struct seq_file *f, void *dummy)
+{
+	return 0;
+}
+#endif
+
+static int ocmem_power_show(struct seq_file *f, void *dummy)
+{
+	ocmem_power_show_sw_state(f, dummy);
+	ocmem_power_show_hw_state(f, dummy);
+	return 0;
+}
+
+static int ocmem_power_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ocmem_power_show, inode->i_private);
+}
+
+static const struct file_operations power_show_fops = {
+	.open = ocmem_power_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+};
+
 int ocmem_core_init(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
@@ -785,8 +860,14 @@ int ocmem_core_init(struct platform_device *pdev)
 		return rc;
 
 	ocmem_disable_core_clock();
-	return 0;
 
+	if (!debugfs_create_file("power_state", S_IRUGO, pdata->debug_node,
+					NULL, &power_show_fops)) {
+		dev_err(dev, "Unable to create debugfs node for power state\n");
+		return -EBUSY;
+	}
+
+	return 0;
 err_no_mem:
 	pr_err("ocmem: Unable to allocate memory\n");
 region_init_error:
