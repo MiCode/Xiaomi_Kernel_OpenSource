@@ -109,7 +109,6 @@ static struct platform_device msm_fm_platform_init = {
 
 #define KS8851_RST_GPIO		89
 #define KS8851_IRQ_GPIO		90
-#define HAP_SHIFT_LVL_OE_GPIO	47
 
 #define MHL_GPIO_INT            4
 #define MHL_GPIO_RESET          15
@@ -1706,6 +1705,8 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 	},
 };
 
+#define HAP_SHIFT_LVL_OE_GPIO		47
+#define HAP_SHIFT_LVL_OE_GPIO_SGLTE	89
 #define PM_HAP_EN_GPIO		PM8921_GPIO_PM_TO_SYS(33)
 #define PM_HAP_LEN_GPIO		PM8921_GPIO_PM_TO_SYS(20)
 
@@ -1714,8 +1715,13 @@ static struct msm_xo_voter *xo_handle_d1;
 static int isa1200_power(int on)
 {
 	int rc = 0;
+	int hap_oe_gpio = HAP_SHIFT_LVL_OE_GPIO;
 
-	gpio_set_value(HAP_SHIFT_LVL_OE_GPIO, !!on);
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		hap_oe_gpio = HAP_SHIFT_LVL_OE_GPIO_SGLTE;
+
+
+	gpio_set_value(hap_oe_gpio, !!on);
 
 	rc = on ? msm_xo_mode_vote(xo_handle_d1, MSM_XO_MODE_ON) :
 			msm_xo_mode_vote(xo_handle_d1, MSM_XO_MODE_OFF);
@@ -1728,13 +1734,14 @@ static int isa1200_power(int on)
 	return 0;
 
 err_xo_vote:
-	gpio_set_value(HAP_SHIFT_LVL_OE_GPIO, !on);
+	gpio_set_value(hap_oe_gpio, !on);
 	return rc;
 }
 
 static int isa1200_dev_setup(bool enable)
 {
 	int rc = 0;
+	int hap_oe_gpio = HAP_SHIFT_LVL_OE_GPIO;
 
 	struct pm_gpio hap_gpio_config = {
 		.direction      = PM_GPIO_DIR_OUT,
@@ -1746,6 +1753,9 @@ static int isa1200_dev_setup(bool enable)
 		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
 		.output_value   = 0,
 	};
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		hap_oe_gpio = HAP_SHIFT_LVL_OE_GPIO_SGLTE;
 
 	if (enable == true) {
 		rc = pm8xxx_gpio_config(PM_HAP_EN_GPIO, &hap_gpio_config);
@@ -1762,14 +1772,14 @@ static int isa1200_dev_setup(bool enable)
 			return rc;
 		}
 
-		rc = gpio_request(HAP_SHIFT_LVL_OE_GPIO, "hap_shft_lvl_oe");
+		rc = gpio_request(hap_oe_gpio, "hap_shft_lvl_oe");
 		if (rc) {
 			pr_err("%s: unable to request gpio %d (%d)\n",
-					__func__, HAP_SHIFT_LVL_OE_GPIO, rc);
+					__func__, hap_oe_gpio, rc);
 			return rc;
 		}
 
-		rc = gpio_direction_output(HAP_SHIFT_LVL_OE_GPIO, 0);
+		rc = gpio_direction_output(hap_oe_gpio, 0);
 		if (rc) {
 			pr_err("%s: Unable to set direction\n", __func__);
 			goto free_gpio;
@@ -1783,7 +1793,7 @@ static int isa1200_dev_setup(bool enable)
 			goto gpio_set_dir;
 		}
 	} else {
-		gpio_free(HAP_SHIFT_LVL_OE_GPIO);
+		gpio_free(hap_oe_gpio);
 
 		msm_xo_put(xo_handle_d1);
 	}
@@ -1791,9 +1801,9 @@ static int isa1200_dev_setup(bool enable)
 	return 0;
 
 gpio_set_dir:
-	gpio_set_value(HAP_SHIFT_LVL_OE_GPIO, 0);
+	gpio_set_value(hap_oe_gpio, 0);
 free_gpio:
-	gpio_free(HAP_SHIFT_LVL_OE_GPIO);
+	gpio_free(hap_oe_gpio);
 	return rc;
 }
 
@@ -2911,7 +2921,7 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(sii_device_info),
 	},
 	{
-		I2C_LIQUID,
+		I2C_LIQUID | I2C_FFA,
 		MSM_8960_GSBI10_QUP_I2C_BUS_ID,
 		msm_isa1200_board_info,
 		ARRAY_SIZE(msm_isa1200_board_info),
@@ -3019,8 +3029,8 @@ static void __init msm8960_cdp_init(void)
 		spi_register_board_info(spi_eth_info, ARRAY_SIZE(spi_eth_info));
 
 	msm8960_init_pmic();
-	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2 &&
-		(machine_is_msm8960_mtp())) || machine_is_msm8960_liquid())
+	if (machine_is_msm8960_liquid() || (machine_is_msm8960_mtp() &&
+		(socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)))
 		msm_isa1200_board_info[0].platform_data = &isa1200_1_pdata;
 	msm8960_i2c_init();
 	msm8960_gfx_init();
