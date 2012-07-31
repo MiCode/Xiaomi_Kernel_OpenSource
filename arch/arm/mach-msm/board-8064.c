@@ -2954,7 +2954,8 @@ static void __init apq8064_common_init(void)
 	platform_device_register(&apq8064_slim_ctrl);
 	slim_register_board_info(apq8064_slim_devices,
 		ARRAY_SIZE(apq8064_slim_devices));
-	apq8064_init_dsps();
+	if (!PLATFORM_IS_MPQ8064())
+		apq8064_init_dsps();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
