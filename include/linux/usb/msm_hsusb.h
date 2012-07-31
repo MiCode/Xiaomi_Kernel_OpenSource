@@ -363,6 +363,7 @@ struct msm_otg {
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)
 #define XO_SHUTDOWN			BIT(2)
+#define CLOCKS_DOWN			BIT(3)
 	int reset_counter;
 	unsigned long b_last_se0_sess;
 	unsigned long tmouts;
