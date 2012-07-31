@@ -205,6 +205,39 @@ int chk_polling_response(void)
 		return 0;
 }
 
+/*
+ * This function should be called if you feel that the logging process may
+ * need to be woken up. For instance, if the logging mode is MEMORY_DEVICE MODE
+ * and while trying to read data from a SMD data channel there are no buffers
+ * available to read the data into, then this function should be called to
+ * determine if the logging process needs to be woken up.
+ */
+void chk_logging_wakeup(void)
+{
+	int i;
+
+	/* Find the index of the logging process */
+	for (i = 0; i < driver->num_clients; i++)
+		if (driver->client_map[i].pid ==
+			driver->logging_process_id)
+			break;
+
+	if (i < driver->num_clients) {
+		/* At very high logging rates a race condition can
+		 * occur where the buffers containing the data from
+		 * an smd channel are all in use, but the data_ready
+		 * flag is cleared. In this case, the buffers never
+		 * have their data read/logged.  Detect and remedy this
+		 * situation.
+		 */
+		if ((driver->data_ready[i] & USER_SPACE_LOG_TYPE) == 0) {
+			driver->data_ready[i] |= USER_SPACE_LOG_TYPE;
+			pr_debug("diag: Force wakeup of logging process\n");
+			wake_up_interruptible(&driver->wait_q);
+		}
+	}
+}
+
 void __diag_smd_send_req(void)
 {
 	void *buf = NULL;
@@ -248,6 +281,9 @@ void __diag_smd_send_req(void)
 							 write_ptr_modem);
 			}
 		}
+	} else if (driver->ch && !buf &&
+		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
+		chk_logging_wakeup();
 	}
 }
 
@@ -417,6 +453,9 @@ void __diag_smd_wcnss_send_req(void)
 					 write_ptr_wcnss);
 			}
 		}
+	} else if (driver->ch_wcnss && !buf &&
+		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
+		chk_logging_wakeup();
 	}
 }
 
@@ -463,6 +502,9 @@ void __diag_smd_qdsp_send_req(void)
 							 write_ptr_qdsp);
 			}
 		}
+	} else if (driver->chqdsp && !buf &&
+		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
+		chk_logging_wakeup();
 	}
 }
 
