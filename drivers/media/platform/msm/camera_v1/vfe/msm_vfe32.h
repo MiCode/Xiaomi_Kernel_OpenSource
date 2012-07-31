@@ -948,10 +948,12 @@ struct vfe_share_ctrl_t {
 	enum vfe_output_state liveshot_state;
 	uint32_t vfe_capture_count;
 
-	uint16_t operation_mode;     /* streaming or snapshot */
+	uint32_t operation_mode;     /* streaming or snapshot */
+	uint32_t current_mode;
 	struct vfe32_output_path outpath;
 
-	uint32_t ref_count;
+	uint16_t port_info;
+	uint32_t skip_abort;
 	spinlock_t  sd_notify_lock;
 
 	struct axi_ctrl_t *axi_ctrl;
