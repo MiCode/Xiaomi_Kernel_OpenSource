@@ -1133,8 +1133,6 @@ static int vfe32_start_recording(
 	struct msm_cam_media_controller *pmctl,
 	struct vfe32_ctrl_type *vfe32_ctrl)
 {
-	msm_camio_bus_scale_cfg(
-		pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
 	vfe32_ctrl->share_ctrl->recording_state = VFE_STATE_START_REQUESTED;
 	msm_camera_io_w_mb(1,
 		vfe32_ctrl->share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
@@ -1148,8 +1146,6 @@ static int vfe32_stop_recording(
 	vfe32_ctrl->share_ctrl->recording_state = VFE_STATE_STOP_REQUESTED;
 	msm_camera_io_w_mb(1,
 		vfe32_ctrl->share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
-	msm_camio_bus_scale_cfg(
-		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	return 0;
 }
 
@@ -1162,8 +1158,6 @@ static void vfe32_start_liveshot(
 	vfe32_ctrl->share_ctrl->vfe_capture_count =
 		vfe32_ctrl->share_ctrl->outpath.out0.capture_cnt;
 
-	msm_camio_bus_scale_cfg(
-		pmctl->sdata->pdata->cam_bus_scale_table, S_LIVESHOT);
 	vfe32_ctrl->share_ctrl->liveshot_state = VFE_STATE_START_REQUESTED;
 	msm_camera_io_w_mb(1, vfe32_ctrl->
 		share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
@@ -1176,8 +1170,6 @@ static void vfe32_stop_liveshot(
 	vfe32_ctrl->share_ctrl->liveshot_state = VFE_STATE_STOP_REQUESTED;
 	msm_camera_io_w_mb(1,
 		vfe32_ctrl->share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
-	msm_camio_bus_scale_cfg(
-		pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
 }
 
 static int vfe32_zsl(
@@ -1185,8 +1177,6 @@ static int vfe32_zsl(
 	struct vfe32_ctrl_type *vfe32_ctrl)
 {
 	vfe32_start_common(vfe32_ctrl);
-	msm_camio_bus_scale_cfg(
-		pmctl->sdata->pdata->cam_bus_scale_table, S_ZSL);
 
 	msm_camera_io_w(1, vfe32_ctrl->share_ctrl->vfebase + 0x18C);
 	msm_camera_io_w(1, vfe32_ctrl->share_ctrl->vfebase + 0x188);
@@ -1199,8 +1189,6 @@ static int vfe32_capture_raw(
 {
 	vfe32_ctrl->share_ctrl->outpath.out0.capture_cnt = num_frames_capture;
 	vfe32_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
-	msm_camio_bus_scale_cfg(
-		pmctl->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
 	vfe32_start_common(vfe32_ctrl);
 	return 0;
 }
@@ -1228,9 +1216,6 @@ static int vfe32_capture(
 
 	vfe32_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
 
-	msm_camio_bus_scale_cfg(
-		pmctl->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
-
 	vfe32_start_common(vfe32_ctrl);
 	/* for debug */
 	msm_camera_io_w(1, vfe32_ctrl->share_ctrl->vfebase + 0x18C);
@@ -1242,8 +1227,6 @@ static int vfe32_start(
 	struct msm_cam_media_controller *pmctl,
 	struct vfe32_ctrl_type *vfe32_ctrl)
 {
-	msm_camio_bus_scale_cfg(
-		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 	vfe32_start_common(vfe32_ctrl);
 	return 0;
 }
@@ -1478,53 +1461,53 @@ static struct msm_free_buf *vfe32_check_free_buffer(
 		b = &outch->free_buf;
 	return b;
 }
-static int vfe32_configure_pingpong_buffers(
-	int id, int path, struct vfe32_ctrl_type *vfe32_ctrl)
+static int configure_pingpong_buffers(
+	int id, int path, struct axi_ctrl_t *axi_ctrl)
 {
 	struct vfe32_output_ch *outch = NULL;
 	int rc = 0;
 	uint32_t inst_handle = 0;
 	if (path == VFE_MSG_OUTPUT_PRIMARY)
-		inst_handle = vfe32_ctrl->share_ctrl->outpath.out0.inst_handle;
+		inst_handle = axi_ctrl->share_ctrl->outpath.out0.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_SECONDARY)
-		inst_handle = vfe32_ctrl->share_ctrl->outpath.out1.inst_handle;
+		inst_handle = axi_ctrl->share_ctrl->outpath.out1.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_TERTIARY1)
-		inst_handle = vfe32_ctrl->share_ctrl->outpath.out2.inst_handle;
+		inst_handle = axi_ctrl->share_ctrl->outpath.out2.inst_handle;
 	else if (path == VFE_MSG_OUTPUT_TERTIARY2)
-		inst_handle = vfe32_ctrl->share_ctrl->outpath.out3.inst_handle;
+		inst_handle = axi_ctrl->share_ctrl->outpath.out3.inst_handle;
 
 	vfe32_subdev_notify(id, path, inst_handle,
-		&vfe32_ctrl->subdev, vfe32_ctrl->share_ctrl);
-	outch = vfe32_get_ch(path, vfe32_ctrl->share_ctrl);
+		&axi_ctrl->subdev, axi_ctrl->share_ctrl);
+	outch = vfe32_get_ch(path, axi_ctrl->share_ctrl);
 	if (outch->ping.ch_paddr[0] && outch->pong.ch_paddr[0]) {
 		/* Configure Preview Ping Pong */
 		pr_info("%s Configure ping/pong address for %d",
 						__func__, path);
 		vfe32_put_ch_ping_addr(
-			vfe32_ctrl->share_ctrl->vfebase, outch->ch0,
+			axi_ctrl->share_ctrl->vfebase, outch->ch0,
 			outch->ping.ch_paddr[0]);
 		vfe32_put_ch_pong_addr(
-			vfe32_ctrl->share_ctrl->vfebase, outch->ch0,
+			axi_ctrl->share_ctrl->vfebase, outch->ch0,
 			outch->pong.ch_paddr[0]);
 
-		if ((vfe32_ctrl->share_ctrl->current_mode !=
+		if ((axi_ctrl->share_ctrl->current_mode !=
 			VFE_OUTPUTS_RAW) && (path != VFE_MSG_OUTPUT_TERTIARY1)
 			&& (path != VFE_MSG_OUTPUT_TERTIARY2)) {
 			vfe32_put_ch_ping_addr(
-				vfe32_ctrl->share_ctrl->vfebase, outch->ch1,
+				axi_ctrl->share_ctrl->vfebase, outch->ch1,
 				outch->ping.ch_paddr[1]);
 			vfe32_put_ch_pong_addr(
-				vfe32_ctrl->share_ctrl->vfebase, outch->ch1,
+				axi_ctrl->share_ctrl->vfebase, outch->ch1,
 				outch->pong.ch_paddr[1]);
 		}
 
 		if (outch->ping.num_planes > 2)
 			vfe32_put_ch_ping_addr(
-				vfe32_ctrl->share_ctrl->vfebase, outch->ch2,
+				axi_ctrl->share_ctrl->vfebase, outch->ch2,
 				outch->ping.ch_paddr[2]);
 		if (outch->pong.num_planes > 2)
 			vfe32_put_ch_pong_addr(
-				vfe32_ctrl->share_ctrl->vfebase, outch->ch2,
+				axi_ctrl->share_ctrl->vfebase, outch->ch2,
 				outch->pong.ch_paddr[2]);
 
 		/* avoid stale info */
@@ -1579,7 +1562,6 @@ static int vfe32_proc_general(
 	uint32_t *cmdp_local = NULL;
 	uint32_t snapshot_cnt = 0;
 	uint32_t temp1 = 0, temp2 = 0;
-	uint16_t vfe_mode = 0;
 	struct msm_camera_vfe_params_t vfe_params;
 
 	CDBG("vfe32_proc_general: cmdID = %s, length = %d\n",
@@ -1602,42 +1584,7 @@ static int vfe32_proc_general(
 
 		vfe32_ctrl->share_ctrl->current_mode =
 			vfe_params.operation_mode;
-		vfe_mode = vfe32_ctrl->share_ctrl->current_mode
-			& ~(VFE_OUTPUTS_RDI0|VFE_OUTPUTS_RDI1);
-		if (vfe_mode) {
-			if ((vfe32_ctrl->share_ctrl->current_mode &
-				VFE_OUTPUTS_PREVIEW_AND_VIDEO) ||
-				(vfe32_ctrl->share_ctrl->current_mode &
-				VFE_OUTPUTS_PREVIEW))
-				/* Configure primary channel */
-				rc = vfe32_configure_pingpong_buffers(
-					VFE_MSG_START,
-					VFE_MSG_OUTPUT_PRIMARY,
-					vfe32_ctrl);
-			else
-			/* Configure secondary channel */
-				rc = vfe32_configure_pingpong_buffers(
-					VFE_MSG_START,
-					VFE_MSG_OUTPUT_SECONDARY,
-					vfe32_ctrl);
-		}
-		if (vfe32_ctrl->share_ctrl->current_mode &
-				VFE_OUTPUTS_RDI0)
-			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_START, VFE_MSG_OUTPUT_TERTIARY1,
-				vfe32_ctrl);
-		if (vfe32_ctrl->share_ctrl->current_mode &
-				VFE_OUTPUTS_RDI1)
-			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_START, VFE_MSG_OUTPUT_TERTIARY2,
-				vfe32_ctrl);
 
-		if (rc < 0) {
-			pr_err("%s error configuring pingpong buffers"
-				   " for preview", __func__);
-			rc = -EINVAL;
-			goto proc_general_done;
-		}
 		rc = vfe32_start(pmctl, vfe32_ctrl);
 		break;
 	case VFE_CMD_UPDATE:
@@ -1655,15 +1602,6 @@ static int vfe32_proc_general(
 		snapshot_cnt = vfe_params.capture_count;
 		vfe32_ctrl->share_ctrl->current_mode =
 			vfe_params.operation_mode;
-		rc = vfe32_configure_pingpong_buffers(
-			VFE_MSG_CAPTURE, VFE_MSG_OUTPUT_PRIMARY,
-			vfe32_ctrl);
-		if (rc < 0) {
-			pr_err("%s error configuring pingpong buffers"
-				   " for snapshot", __func__);
-			rc = -EINVAL;
-			goto proc_general_done;
-		}
 		rc = vfe32_capture_raw(pmctl, vfe32_ctrl, snapshot_cnt);
 		break;
 	case VFE_CMD_CAPTURE:
@@ -1677,78 +1615,12 @@ static int vfe32_proc_general(
 		snapshot_cnt = vfe_params.capture_count;
 		vfe32_ctrl->share_ctrl->current_mode =
 			vfe_params.operation_mode;
-		if (vfe32_ctrl->share_ctrl->current_mode ==
-			VFE_OUTPUTS_JPEG_AND_THUMB ||
-		vfe32_ctrl->share_ctrl->current_mode ==
-			VFE_OUTPUTS_THUMB_AND_JPEG) {
-			if (snapshot_cnt != 1) {
-				pr_err("only support 1 inline snapshot\n");
-				rc = -EINVAL;
-				goto proc_general_done;
-			}
-			/* Configure primary channel for JPEG */
-			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_JPEG_CAPTURE,
-				VFE_MSG_OUTPUT_PRIMARY,
-				vfe32_ctrl);
-		} else {
-			/* Configure primary channel */
-			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_CAPTURE,
-				VFE_MSG_OUTPUT_PRIMARY,
-				vfe32_ctrl);
-		}
-		if (rc < 0) {
-			pr_err("%s error configuring pingpong buffers"
-				   " for primary output", __func__);
-			rc = -EINVAL;
-			goto proc_general_done;
-		}
-		/* Configure secondary channel */
-		rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_CAPTURE, VFE_MSG_OUTPUT_SECONDARY,
-				vfe32_ctrl);
-		if (rc < 0) {
-			pr_err("%s error configuring pingpong buffers"
-				   " for secondary output", __func__);
-			rc = -EINVAL;
-			goto proc_general_done;
-		}
+
 		rc = vfe32_capture(pmctl, snapshot_cnt, vfe32_ctrl);
 		break;
 	case VFE_CMD_START_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
-		if (copy_from_user(&temp1, (void __user *)(cmd->value),
-				sizeof(uint32_t))) {
-			pr_err("%s Error copying inst_handle for recording\n",
-				__func__);
-			rc = -EFAULT;
-			goto proc_general_done;
-		}
-		if (vfe32_ctrl->share_ctrl->current_mode &
-			VFE_OUTPUTS_PREVIEW_AND_VIDEO) {
-			vfe32_ctrl->share_ctrl->outpath.out1.inst_handle =
-				temp1;
-			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_START_RECORDING,
-				VFE_MSG_OUTPUT_SECONDARY,
-				vfe32_ctrl);
-		} else if (vfe32_ctrl->share_ctrl->current_mode &
-			VFE_OUTPUTS_VIDEO_AND_PREVIEW) {
-			vfe32_ctrl->share_ctrl->outpath.out0.inst_handle =
-				temp1;
-			rc = vfe32_configure_pingpong_buffers(
-				VFE_MSG_START_RECORDING,
-				VFE_MSG_OUTPUT_PRIMARY,
-				vfe32_ctrl);
-		}
-		if (rc < 0) {
-			pr_err("%s error configuring pingpong buffers"
-				" for video", __func__);
-			rc = -EINVAL;
-			goto proc_general_done;
-		}
 		rc = vfe32_start_recording(pmctl, vfe32_ctrl);
 		break;
 	case VFE_CMD_STOP_RECORDING:
@@ -2290,23 +2162,7 @@ static int vfe32_proc_general(
 		break;
 
 	case VFE_CMD_LIVESHOT:
-		if (copy_from_user(&temp1, (void __user *)(cmd->value),
-				sizeof(uint32_t))) {
-			pr_err("%s Error copying inst_handle for liveshot ",
-				__func__);
-			rc = -EFAULT;
-			goto proc_general_done;
-		}
-		vfe32_ctrl->share_ctrl->outpath.out0.inst_handle = temp1;
 		/* Configure primary channel */
-		rc = vfe32_configure_pingpong_buffers(VFE_MSG_CAPTURE,
-					VFE_MSG_OUTPUT_PRIMARY, vfe32_ctrl);
-		if (rc < 0) {
-			pr_err("%s error configuring pingpong buffers"
-				   " for primary output", __func__);
-			rc = -EINVAL;
-			goto proc_general_done;
-		}
 		vfe32_start_liveshot(pmctl, vfe32_ctrl);
 		break;
 
@@ -2848,14 +2704,6 @@ static int vfe32_proc_general(
 
 		vfe32_ctrl->share_ctrl->current_mode =
 			vfe_params.operation_mode;
-		rc = vfe32_configure_pingpong_buffers(VFE_MSG_START,
-			VFE_MSG_OUTPUT_PRIMARY, vfe32_ctrl);
-		if (rc < 0)
-			goto proc_general_done;
-		rc = vfe32_configure_pingpong_buffers(VFE_MSG_START,
-			VFE_MSG_OUTPUT_SECONDARY, vfe32_ctrl);
-		if (rc < 0)
-			goto proc_general_done;
 
 		rc = vfe32_zsl(pmctl, vfe32_ctrl);
 		break;
@@ -5171,9 +5019,185 @@ void axi_abort(struct axi_ctrl_t *axi_ctrl)
 		axi_ctrl->share_ctrl->vfebase + VFE_GLOBAL_RESET);
 }
 
-void axi_start(struct axi_ctrl_t *axi_ctrl, uint16_t cmd_type)
+int axi_config_buffers(struct axi_ctrl_t *axi_ctrl,
+	struct msm_camera_vfe_params_t vfe_params)
+{
+	uint16_t vfe_mode = axi_ctrl->share_ctrl->current_mode
+			& ~(VFE_OUTPUTS_RDI0|VFE_OUTPUTS_RDI1);
+	int rc = 0;
+	switch (vfe_params.cmd_type) {
+	case AXI_CMD_PREVIEW:
+		if (vfe_mode) {
+			if ((axi_ctrl->share_ctrl->current_mode &
+				VFE_OUTPUTS_PREVIEW_AND_VIDEO) ||
+				(axi_ctrl->share_ctrl->current_mode &
+				VFE_OUTPUTS_PREVIEW))
+				/* Configure primary channel */
+				rc = configure_pingpong_buffers(
+					VFE_MSG_START,
+					VFE_MSG_OUTPUT_PRIMARY,
+					axi_ctrl);
+			else
+			/* Configure secondary channel */
+				rc = configure_pingpong_buffers(
+					VFE_MSG_START,
+					VFE_MSG_OUTPUT_SECONDARY,
+					axi_ctrl);
+		}
+		if (axi_ctrl->share_ctrl->current_mode &
+				VFE_OUTPUTS_RDI0)
+			rc = configure_pingpong_buffers(
+				VFE_MSG_START, VFE_MSG_OUTPUT_TERTIARY1,
+				axi_ctrl);
+		if (axi_ctrl->share_ctrl->current_mode &
+				VFE_OUTPUTS_RDI1)
+			rc = configure_pingpong_buffers(
+				VFE_MSG_START, VFE_MSG_OUTPUT_TERTIARY2,
+				axi_ctrl);
+
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers for preview",
+				__func__);
+			rc = -EINVAL;
+			goto config_done;
+		}
+		break;
+	case AXI_CMD_RAW_CAPTURE:
+		rc = configure_pingpong_buffers(
+			VFE_MSG_CAPTURE, VFE_MSG_OUTPUT_PRIMARY,
+			axi_ctrl);
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers for snapshot",
+				__func__);
+			rc = -EINVAL;
+			goto config_done;
+		}
+		break;
+	case AXI_CMD_ZSL:
+		rc = configure_pingpong_buffers(VFE_MSG_START,
+			VFE_MSG_OUTPUT_PRIMARY, axi_ctrl);
+		if (rc < 0)
+			goto config_done;
+		rc = configure_pingpong_buffers(VFE_MSG_START,
+			VFE_MSG_OUTPUT_SECONDARY, axi_ctrl);
+		if (rc < 0)
+			goto config_done;
+		break;
+	case AXI_CMD_RECORD:
+		if (axi_ctrl->share_ctrl->current_mode &
+			VFE_OUTPUTS_PREVIEW_AND_VIDEO) {
+			axi_ctrl->share_ctrl->outpath.out1.inst_handle =
+				vfe_params.inst_handle;
+			rc = configure_pingpong_buffers(
+				VFE_MSG_START_RECORDING,
+				VFE_MSG_OUTPUT_SECONDARY,
+				axi_ctrl);
+		} else if (axi_ctrl->share_ctrl->current_mode &
+			VFE_OUTPUTS_VIDEO_AND_PREVIEW) {
+			axi_ctrl->share_ctrl->outpath.out0.inst_handle =
+				vfe_params.inst_handle;
+			rc = configure_pingpong_buffers(
+				VFE_MSG_START_RECORDING,
+				VFE_MSG_OUTPUT_PRIMARY,
+				axi_ctrl);
+		}
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers for video",
+				__func__);
+			rc = -EINVAL;
+			goto config_done;
+		}
+		break;
+	case AXI_CMD_LIVESHOT:
+		axi_ctrl->share_ctrl->outpath.out0.inst_handle =
+			vfe_params.inst_handle;
+		rc = configure_pingpong_buffers(VFE_MSG_CAPTURE,
+					VFE_MSG_OUTPUT_PRIMARY, axi_ctrl);
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers for primary output",
+				__func__);
+			rc = -EINVAL;
+			goto config_done;
+		}
+		break;
+	case AXI_CMD_CAPTURE:
+		if (axi_ctrl->share_ctrl->current_mode ==
+			VFE_OUTPUTS_JPEG_AND_THUMB ||
+		axi_ctrl->share_ctrl->current_mode ==
+			VFE_OUTPUTS_THUMB_AND_JPEG) {
+
+			/* Configure primary channel for JPEG */
+			rc = configure_pingpong_buffers(
+				VFE_MSG_JPEG_CAPTURE,
+				VFE_MSG_OUTPUT_PRIMARY,
+				axi_ctrl);
+		} else {
+			/* Configure primary channel */
+			rc = configure_pingpong_buffers(
+				VFE_MSG_CAPTURE,
+				VFE_MSG_OUTPUT_PRIMARY,
+				axi_ctrl);
+		}
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers for primary output",
+				__func__);
+			rc = -EINVAL;
+			goto config_done;
+		}
+		/* Configure secondary channel */
+		rc = configure_pingpong_buffers(
+				VFE_MSG_CAPTURE, VFE_MSG_OUTPUT_SECONDARY,
+				axi_ctrl);
+		if (rc < 0) {
+			pr_err("%s error configuring pingpong buffers for secondary output",
+				__func__);
+			rc = -EINVAL;
+			goto config_done;
+		}
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+
+	}
+config_done:
+	return rc;
+}
+
+void axi_start(struct msm_cam_media_controller *pmctl,
+	struct axi_ctrl_t *axi_ctrl, struct msm_camera_vfe_params_t vfe_params)
 {
 	uint32_t irq_comp_mask = 0, irq_mask = 0;
+	int rc = 0;
+	rc = axi_config_buffers(axi_ctrl, vfe_params);
+	if (rc < 0)
+		return;
+
+	switch (vfe_params.cmd_type) {
+	case AXI_CMD_PREVIEW:
+		msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+		break;
+	case AXI_CMD_CAPTURE:
+	case AXI_CMD_RAW_CAPTURE:
+		msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
+		break;
+	case AXI_CMD_RECORD:
+		msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
+		return;
+	case AXI_CMD_ZSL:
+		msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_ZSL);
+		break;
+	case AXI_CMD_LIVESHOT:
+		msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_LIVESHOT);
+		return;
+	default:
+		return;
+	}
 
 	irq_comp_mask =
 		msm_camera_io_r(axi_ctrl->share_ctrl->vfebase +
@@ -5225,7 +5249,7 @@ void axi_start(struct axi_ctrl_t *axi_ctrl, uint16_t cmd_type)
 	msm_camera_io_w(irq_comp_mask,
 		axi_ctrl->share_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 
-	switch (cmd_type) {
+	switch (vfe_params.cmd_type) {
 	case AXI_CMD_PREVIEW: {
 		uint16_t operation_mode =
 		(axi_ctrl->share_ctrl->operation_mode &
@@ -5335,13 +5359,32 @@ void axi_start(struct axi_ctrl_t *axi_ctrl, uint16_t cmd_type)
 	atomic_set(&axi_ctrl->share_ctrl->handle_axi_irq, 1);
 }
 
-void axi_stop(struct axi_ctrl_t *axi_ctrl, uint16_t cmd_type)
+void axi_stop(struct msm_cam_media_controller *pmctl,
+	struct axi_ctrl_t *axi_ctrl, struct msm_camera_vfe_params_t vfe_params)
 {
 	uint32_t reg_update = 0;
 	unsigned long flags;
 	uint32_t operation_mode =
 	axi_ctrl->share_ctrl->current_mode & ~(VFE_OUTPUTS_RDI0|
 		VFE_OUTPUTS_RDI1);
+
+	switch (vfe_params.cmd_type) {
+	case AXI_CMD_PREVIEW:
+	case AXI_CMD_CAPTURE:
+	case AXI_CMD_RAW_CAPTURE:
+	case AXI_CMD_ZSL:
+		break;
+	case AXI_CMD_RECORD:
+		msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+		return;
+	case AXI_CMD_LIVESHOT:
+		msm_camio_bus_scale_cfg(
+		pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
+		return;
+	default:
+		return;
+	}
 
 	if (!axi_ctrl->share_ctrl->skip_abort) {
 		atomic_set(&axi_ctrl->share_ctrl->handle_axi_irq, 0);
@@ -5351,7 +5394,7 @@ void axi_stop(struct axi_ctrl_t *axi_ctrl, uint16_t cmd_type)
 	spin_lock_irqsave(&axi_ctrl->share_ctrl->stop_flag_lock, flags);
 	axi_ctrl->share_ctrl->stop_ack_pending  = TRUE;
 	spin_unlock_irqrestore(&axi_ctrl->share_ctrl->stop_flag_lock, flags);
-	switch (cmd_type) {
+	switch (vfe_params.cmd_type) {
 	case AXI_CMD_PREVIEW: {
 		switch (operation_mode) {
 		case VFE_OUTPUTS_PREVIEW:
@@ -5474,6 +5517,8 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 	struct msm_vfe_cfg_cmd cfgcmd;
 	struct msm_isp_cmd vfecmd;
 	struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
+	struct msm_cam_media_controller *pmctl =
+		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	int rc = 0, vfe_cmd_type = 0, rdi_mode = 0;
 	unsigned long flags;
 
@@ -5676,7 +5721,7 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 			vfe_params.skip_abort;
 		spin_unlock_irqrestore(&axi_ctrl->share_ctrl->abort_lock,
 			flags);
-		axi_start(axi_ctrl, vfe_params.cmd_type);
+		axi_start(pmctl, axi_ctrl, vfe_params);
 		}
 		break;
 	case CMD_AXI_STOP: {
@@ -5693,7 +5738,7 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 			vfe_params.skip_abort;
 		spin_unlock_irqrestore(&axi_ctrl->share_ctrl->abort_lock,
 			flags);
-		axi_stop(axi_ctrl, vfe_params.cmd_type);
+		axi_stop(pmctl, axi_ctrl, vfe_params);
 		}
 		break;
 	case CMD_AXI_RESET:
