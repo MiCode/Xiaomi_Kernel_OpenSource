@@ -212,11 +212,6 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	pcam = pcam_inst->pcam;
 	buf = container_of(vb, struct msm_frame_buffer, vidbuf);
 
-	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
-	if (pmctl == NULL) {
-		pr_err("%s No mctl found\n", __func__);
-		return;
-	}
 
 	if (pcam_inst->vid_fmt.type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		for (i = 0; i < vb->num_planes; i++) {
@@ -261,6 +256,12 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 			}
 		}
 		spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+	}
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+	if (pmctl == NULL) {
+		pr_err("%s No mctl found\n", __func__);
+		buf->state = MSM_BUFFER_STATE_UNUSED;
+		return;
 	}
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
