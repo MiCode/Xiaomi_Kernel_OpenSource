@@ -2333,7 +2333,7 @@ static struct ks8851_pdata spi_eth_pdata = {
 	.rst_gpio = KS8851_RST_GPIO,
 };
 
-static struct spi_board_info spi_board_info[] __initdata = {
+static struct spi_board_info spi_eth_info[] __initdata = {
 	{
 		.modalias               = "ks8851",
 		.irq                    = MSM_GPIO_TO_INT(KS8851_IRQ_GPIO),
@@ -2343,6 +2343,8 @@ static struct spi_board_info spi_board_info[] __initdata = {
 		.mode                   = SPI_MODE_0,
 		.platform_data		= &spi_eth_pdata
 	},
+};
+static struct spi_board_info spi_board_info[] __initdata = {
 	{
 		.modalias               = "dsi_novatek_3d_panel_spi",
 		.max_speed_hz           = 10800000,
@@ -3013,6 +3015,8 @@ static void __init msm8960_cdp_init(void)
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
+	if (socinfo_get_platform_subtype() != PLATFORM_SUBTYPE_SGLTE)
+		spi_register_board_info(spi_eth_info, ARRAY_SIZE(spi_eth_info));
 
 	msm8960_init_pmic();
 	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2 &&
