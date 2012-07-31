@@ -191,6 +191,57 @@ int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
 	return 0;
 }
 
+int mdp_mmap(struct v4l2_subdev *sd, void *arg)
+{
+	int rc = 0;
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion;
+	bool domain = -1;
+	struct mdp_instance *inst = NULL;
+
+	if (!mmap || !mmap->mregion || !mmap->cookie) {
+		WFD_MSG_ERR("Invalid argument\n");
+		return -EINVAL;
+	}
+
+	inst = mmap->cookie;
+	mregion = mmap->mregion;
+	if (mregion->size % SZ_4K != 0) {
+		WFD_MSG_ERR("Memregion not aligned to %d\n", SZ_4K);
+		return -EINVAL;
+	}
+
+	domain = msm_fb_get_iommu_domain();
+	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
+			domain, 0, SZ_4K, 0,
+			(unsigned long *)&mregion->paddr,
+			(unsigned long *)&mregion->size,
+			0, 0);
+	return rc;
+}
+
+int mdp_munmap(struct v4l2_subdev *sd, void *arg)
+{
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion;
+	bool domain = -1;
+	struct mdp_instance *inst = NULL;
+
+	if (!mmap || !mmap->mregion || !mmap->cookie) {
+		WFD_MSG_ERR("Invalid argument\n");
+		return -EINVAL;
+	}
+
+	inst = mmap->cookie;
+	mregion = mmap->mregion;
+
+	domain = msm_fb_get_iommu_domain();
+	ion_unmap_iommu(mmap->ion_client,
+			mregion->ion_handle,
+			domain, 0);
+	return 0;
+}
+
 long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	int rc = 0;
@@ -219,6 +270,12 @@ long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case MDP_CLOSE:
 		rc = mdp_close(sd, arg);
+		break;
+	case MDP_MMAP:
+		rc = mdp_mmap(sd, arg);
+		break;
+	case MDP_MUNMAP:
+		rc = mdp_munmap(sd, arg);
 		break;
 	default:
 		WFD_MSG_ERR("IOCTL: %u not supported\n", cmd);
