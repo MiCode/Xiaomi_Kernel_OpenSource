@@ -13,8 +13,15 @@
 /dts-v1/;
 
 /include/ "msm8974.dtsi"
+/include/ "dsi-panel-sim-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974 Simulator";
 	compatible = "qcom,msm8974-sim", "qcom,msm8974";
+
+	qcom,mdss_dsi@fd922800 {
+		qcom,mdss_dsi_sim_video {
+			status = "ok";
+		};
+	};
 };
