@@ -21,6 +21,10 @@
 #define RPM_SMD_KEY_ENABLE	0x62616E45
 #define RPM_SMD_KEY_STATE	0x54415453
 
+#define RPM_CLK_BUFFER_A_REQ			0x616B6C63
+#define RPM_KEY_SOFTWARE_ENABLE			0x6E657773
+#define RPM_KEY_PIN_CTRL_CLK_BUFFER_ENABLE_KEY	0x62636370
+
 struct clk_ops;
 struct clk_rpmrs_data;
 extern struct clk_ops clk_ops_rpm;
@@ -187,5 +191,17 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 #define DEFINE_CLK_RPM_SMD_QDSS(name, active, type, r_id) \
 	__DEFINE_CLK_RPM_QDSS(name, active, type, r_id, \
 		0, RPM_SMD_KEY_STATE, &clk_rpmrs_data_smd)
+/*
+ * The RPM XO buffer clock management code aggregates votes for pin-control mode
+ * and software mode separately. Software-enable has higher priority over pin-
+ * control, and if the software-mode aggregation results in a 'disable', the
+ * buffer will be left in pin-control mode if a pin-control vote is in place.
+ */
+#define DEFINE_CLK_RPM_SMD_XO_BUFFER(name, active, r_id) \
+	__DEFINE_CLK_RPM_BRANCH(name, active, RPM_CLK_BUFFER_A_REQ, r_id, 0, \
+			1000, RPM_KEY_SOFTWARE_ENABLE, &clk_rpmrs_data_smd)
 
+#define DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(name, active, r_id) \
+	__DEFINE_CLK_RPM_BRANCH(name, active, RPM_CLK_BUFFER_A_REQ, r_id, 0, \
+	1000, RPM_KEY_PIN_CTRL_CLK_BUFFER_ENABLE_KEY, &clk_rpmrs_data_smd)
 #endif
