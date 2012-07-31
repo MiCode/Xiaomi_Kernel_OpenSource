@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/list.h>
@@ -40,8 +39,8 @@
 #define WFD_NUM_DEVICES 2
 #define WFD_DEVICE_NUMBER_BASE 38
 #define WFD_DEVICE_SECURE (WFD_DEVICE_NUMBER_BASE + 1)
-#define DEFAULT_WFD_WIDTH 640
-#define DEFAULT_WFD_HEIGHT 480
+#define DEFAULT_WFD_WIDTH 1280
+#define DEFAULT_WFD_HEIGHT 720
 #define VENC_INPUT_BUFFERS 4
 
 struct wfd_device {
@@ -884,7 +883,7 @@ static int wfd_register_out_buf(struct wfd_inst *inst,
 		list_add_tail(&minfo_entry->list, &inst->minfo_list);
 		spin_unlock_irqrestore(&inst->inst_lock, flags);
 	} else
-		WFD_MSG_INFO("Buffer already registered\n");
+		WFD_MSG_DBG("Buffer already registered\n");
 
 	return 0;
 }
@@ -970,7 +969,7 @@ static int wfdioc_dqbuf(struct file *filp, void *fh,
 	struct wfd_inst *inst = filp->private_data;
 	int rc;
 
-	WFD_MSG_INFO("Waiting to dequeue buffer\n");
+	WFD_MSG_DBG("Waiting to dequeue buffer\n");
 	rc = vb2_dqbuf(&inst->vid_bufq, b, 0);
 
 	if (rc)
@@ -1306,6 +1305,7 @@ static int wfd_open(struct file *filp)
 	struct wfd_inst *inst = NULL;
 	struct wfd_device *wfd_dev = NULL;
 	struct venc_msg_ops enc_mops;
+	struct mdp_msg_ops mdp_mops;
 	struct vsg_msg_ops vsg_mops;
 
 	WFD_MSG_DBG("wfd_open: E\n");
@@ -1339,12 +1339,15 @@ static int wfd_open(struct file *filp)
 
 	wfd_stats_init(&inst->stats, MINOR(filp->f_dentry->d_inode->i_rdev));
 
+	mdp_mops.secure = wfd_dev->secure_device;
+	mdp_mops.iommu_split_domain = wfd_dev->mdp_iommu_split_domain;
 	rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl, MDP_OPEN,
-				(void *)&inst->mdp_inst);
+				(void *)&mdp_mops);
 	if (rc) {
 		WFD_MSG_ERR("Failed to open mdp subdevice: %d\n", rc);
 		goto err_mdp_open;
 	}
+	inst->mdp_inst = mdp_mops.cookie;
 
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, load_fw);
 	if (rc) {

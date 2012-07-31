@@ -1,0 +1,6 @@
+menuconfig MSM_WFD
+	bool "Qualcomm MSM Wifi Display Driver"
+		depends on (MSM_VIDC_1080P || MSM_VIDC_V4L2)
+		---help---
+		Enables the Wifi Display driver.
+

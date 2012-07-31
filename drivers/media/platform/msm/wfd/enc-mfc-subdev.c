@@ -227,7 +227,7 @@ static void venc_cb(u32 event, u32 status, void *info, u32 size, void *handle,
 					BUFFER_TYPE_OUTPUT, pmem_fd,
 					kvaddr, buffer_index, &ion_handle);
 			else
-				WFD_MSG_ERR("Got an output buffer that we "
+				WFD_MSG_ERR("Got an output buffer that we " \
 						"couldn't recognize!\n");
 
 			if (msm_ion_do_cache_op(client_ctx->user_ion_client,
@@ -547,8 +547,8 @@ static long venc_set_codec_level(struct video_client_ctx *client_ctx,
 
 		if (vcd_property_level.level < VCD_LEVEL_MPEG4_0
 			|| vcd_property_level.level > VCD_LEVEL_MPEG4_X) {
-			WFD_MSG_ERR("Level (%d) out of range"
-					"for codec (%d)\n", level, codec);
+			WFD_MSG_ERR("Level (%d) out of range for codec (%d)\n",
+					level, codec);
 
 			rc = -EINVAL;
 			goto err;
@@ -558,8 +558,8 @@ static long venc_set_codec_level(struct video_client_ctx *client_ctx,
 
 		if (vcd_property_level.level < VCD_LEVEL_H264_1
 			|| vcd_property_level.level > VCD_LEVEL_H264_5p1) {
-			WFD_MSG_ERR("Level (%d) out of range"
-					"for codec (%d)\n", level, codec);
+			WFD_MSG_ERR("Level (%d) out of range for codec (%d)\n",
+					level, codec);
 
 			rc = -EINVAL;
 			goto err;
@@ -678,9 +678,9 @@ static long venc_set_codec_profile(struct video_client_ctx *client_ctx,
 			vcd_property_profile.profile = VCD_PROFILE_MPEG4_ASP;
 			break;
 		default:
-			WFD_MSG_ERR("Profile %d not supported,"
-					"defaulting to simple (%d)",
-					profile, VCD_PROFILE_MPEG4_SP);
+			WFD_MSG_ERR("Profile %d not supported, defaulting " \
+					"to simple (%d)", profile,
+					VCD_PROFILE_MPEG4_SP);
 			vcd_property_profile.profile = VCD_PROFILE_MPEG4_SP;
 			break;
 		}
@@ -697,17 +697,16 @@ static long venc_set_codec_profile(struct video_client_ctx *client_ctx,
 			vcd_property_profile.profile = VCD_PROFILE_H264_HIGH;
 			break;
 		default:
-			WFD_MSG_ERR("Profile %d not supported,"
-					"defaulting to baseline (%d)",
-					profile, VCD_PROFILE_H264_BASELINE);
+			WFD_MSG_ERR("Profile %d not supported, defaulting " \
+					"to baseline (%d)", profile,
+					VCD_PROFILE_H264_BASELINE);
 			vcd_property_profile.profile =
 				VCD_PROFILE_H264_BASELINE;
 			break;
 		}
 	} else {
-		WFD_MSG_ERR("Codec (%d) not supported,"
-				"not setting profile (%d)",
-				codec, profile);
+		WFD_MSG_ERR("Codec (%d) not supported, not "\
+				"setting profile (%d)",	codec, profile);
 		rc = -ENOTSUPP;
 		goto err_set_profile;
 	}
