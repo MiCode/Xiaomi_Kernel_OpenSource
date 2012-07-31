@@ -2033,6 +2033,21 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 		}
 		g_server_dev.cpp_device[index] = sd;
 		break;
+	case CCI_DEV:
+		g_server_dev.cci_device = sd;
+		if (g_server_dev.irqr_device) {
+			if (index >= MAX_NUM_CCI_DEV) {
+				pr_err("%s Invalid CCI idx %d", __func__,
+					index);
+				err = -EINVAL;
+				break;
+			}
+			cam_hw_idx = MSM_CAM_HW_CCI + index;
+			g_server_dev.subdev_table[cam_hw_idx] = sd;
+			err = msm_cam_server_fill_sdev_irqnum(MSM_CAM_HW_CCI,
+				sd_info->irq_num);
+		}
+		break;
 	default:
 		break;
 	}

@@ -280,6 +280,16 @@ config MSM_CPP
           and cropping image. The driver support V4L2 subdev
           APIs.
 
+config MSM_CCI
+        bool "Qualcomm MSM Camera Control Interface support"
+        depends on MSM_CAMERA
+        ---help---
+          Enable support for Camera Control Interface driver only
+          for those platforms that have hardware support. This driver
+          is responsible for handling I2C read and write on the I2C
+          bus. It is also responsible for synchronization with
+          GPIO and data frames.
+
 config QUP_EXCLUSIVE_TO_CAMERA
 	bool "QUP exclusive to camera"
 	depends on MSM_CAMERA
