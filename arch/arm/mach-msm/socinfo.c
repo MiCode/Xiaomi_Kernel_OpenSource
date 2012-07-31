@@ -630,8 +630,6 @@ static void * __init setup_dummy_socinfo(void)
 {
 	if (machine_is_msm8960_cdp())
 		dummy_socinfo.id = 87;
-	else if (machine_is_apq8064_rumi3() || machine_is_apq8064_sim())
-		dummy_socinfo.id = 109;
 	else if (machine_is_msm9615_mtp() || machine_is_msm9615_cdp())
 		dummy_socinfo.id = 104;
 	else if (early_machine_is_msm8974()) {
@@ -756,8 +754,7 @@ const int get_core_count(void)
 	if (!(read_cpuid_mpidr() & BIT(31)))
 		return 1;
 
-	if (read_cpuid_mpidr() & BIT(30) &&
-		!machine_is_apq8064_sim())
+	if (read_cpuid_mpidr() & BIT(30))
 		return 1;
 
 	/* 1 + the PART[1:0] field of MIDR */
