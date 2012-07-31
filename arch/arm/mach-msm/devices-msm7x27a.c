@@ -39,6 +39,8 @@
 #include "mpm-8625.h"
 #include "irq.h"
 #include "pm.h"
+#include "msm_cpr.h"
+#include "msm_smem_iface.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI0_PHYS		0xA1200000
@@ -47,6 +49,12 @@
 /* GSBI QUPe devices */
 #define MSM_GSBI0_QUP_PHYS	(MSM_GSBI0_PHYS + 0x80000)
 #define MSM_GSBI1_QUP_PHYS	(MSM_GSBI1_PHYS + 0x80000)
+
+#define A11S_TEST_BUS_SEL_ADDR (MSM_CSR_BASE + 0x518)
+#define RBCPR_CLK_MUX_SEL (1 << 13)
+
+/* Reset Address of RBCPR (Active Low)*/
+#define RBCPR_SW_RESET_N       (MSM_CSR_BASE + 0x64)
 
 static struct resource gsbi0_qup_i2c_resources[] = {
 	{
@@ -1579,6 +1587,176 @@ struct platform_device msm8625_kgsl_3d0 = {
 	},
 };
 
+static struct resource cpr_resources[] = {
+	{
+		.start = MSM8625_INT_CPR_IRQ0,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = MSM8625_CPR_PHYS,
+		.end = MSM8625_CPR_PHYS + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+/**
+ * These are various Vdd levels supported by PMIC
+ */
+static uint32_t msm_c2_pmic_mv[] __initdata = {
+	1300, 12875 / 10, 1275, 12625 / 10, 1250,
+	12375 / 10, 1225, 12125 / 10, 1200, 11875 / 10,
+	1175, 11625 / 10, 1150, 11375 / 10, 1125,
+	11125 / 10, 1100, 10875 / 10, 1075, 10625 / 10,
+	1050, 10375 / 10, 1025, 10125 / 10, 0, 0, 0, 0,
+	0, 0, 0, 1000,
+};
+
+/**
+ * This data will be based on CPR mode of operation
+ */
+static struct msm_cpr_mode msm_cpr_mode_data[] = {
+	[NORMAL_MODE] = {
+			.ring_osc_data = {
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+			},
+			.ring_osc = 0,
+			.step_quot = ~0,
+			.tgt_volt_offset = 1,
+			.Vmax = 1200,
+			.Vmin = 1000,
+			.calibrated_mV = 1100,
+	},
+	[TURBO_MODE] = {
+			.ring_osc_data = {
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+				{0, },
+			},
+			.ring_osc = 0,
+			.step_quot = ~0,
+			.tgt_volt_offset = 1,
+			.Vmax = 1350,
+			.Vmin = 1250,
+			.calibrated_mV = 1300,
+	},
+};
+
+struct msm_cpr_vp_data vp_data = {
+	.min_volt = 1000,
+	.max_volt = 1350,
+	.default_volt = 1300,
+	.step_size = (12500 / 1000),
+};
+
+static struct msm_cpr_config msm_cpr_pdata = {
+	.ref_clk_khz = 19200,
+	.delay_us = 10000,
+	.irq_line = 0,
+	.cpr_mode_data = msm_cpr_mode_data,
+	.tgt_count_div_N = 1,
+	.floor = 0,
+	.ceiling = 40,
+	.sw_vlevel = 20,
+	.up_threshold = 1,
+	.dn_threshold = 2,
+	.up_margin = 0,
+	.dn_margin = 0,
+	.nom_freq_limit = 1008000,
+	.vp_data = &vp_data,
+};
+
+static struct platform_device msm8625_device_cpr = {
+	.name           = "msm-cpr",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(cpr_resources),
+	.resource       = cpr_resources,
+	.dev = {
+		.platform_data = &msm_cpr_pdata,
+	},
+};
+
+static struct platform_device msm8625_vp_device = {
+	.name           = "vp-regulator",
+	.id             = -1,
+};
+
+static void __init msm_cpr_init(void)
+{
+	struct cpr_info_type *cpr_info = NULL;
+	uint8_t ring_osc = 0;
+	uint32_t reg_val;
+
+	cpr_info = kzalloc(sizeof(struct cpr_info_type), GFP_KERNEL);
+	if (!cpr_info) {
+		pr_err("%s: Out of memory %d\n", __func__, -ENOMEM);
+		return;
+	}
+
+	msm_smem_get_cpr_info(cpr_info);
+
+	/**
+	 * Set the ring_osc based on efuse BIT(0)
+	 * CPR_fuse[0] = 0 selects 2nd RO (010)
+	 * CPR_fuse[0] = 1 select  3rd RO (011)
+	 */
+	if (cpr_info->ring_osc == 0x0)
+		ring_osc = 0x2;
+	else if (cpr_info->ring_osc == 0x1)
+		ring_osc = 0x3;
+
+	msm_cpr_mode_data[TURBO_MODE].ring_osc = ring_osc;
+	msm_cpr_mode_data[NORMAL_MODE].ring_osc = ring_osc;
+
+	/* GCNT = 1000 nsec/52nsec (@TCX0=19.2Mhz) = 19.2 */
+	msm_cpr_mode_data[TURBO_MODE].ring_osc_data[ring_osc].gcnt = 19;
+	msm_cpr_mode_data[NORMAL_MODE].ring_osc_data[ring_osc].gcnt = 19;
+
+	/* The multiplier and offset are as per PTE data */
+	msm_cpr_mode_data[TURBO_MODE].ring_osc_data[ring_osc].target_count =
+		cpr_info->turbo_quot * 10 + 440;
+	msm_cpr_mode_data[NORMAL_MODE].ring_osc_data[ring_osc].target_count =
+		cpr_info->turbo_quot / msm_cpr_pdata.tgt_count_div_N;
+
+	/**
+	 * Bits 4:0 of pvs_fuse provide mapping to the safe boot up voltage.
+	 * Boot up mode is by default Turbo.
+	 */
+	msm_cpr_mode_data[TURBO_MODE].calibrated_mV =
+				msm_c2_pmic_mv[cpr_info->pvs_fuse & 0x1F];
+
+	/* TODO: Store the tgt_volt_offset values for the modes from PTE */
+
+
+	pr_debug("%s: cpr: ring_osc: 0x%x\n", __func__,
+		msm_cpr_mode_data[TURBO_MODE].ring_osc);
+	pr_debug("%s: cpr: turbo_quot: 0x%x\n", __func__, cpr_info->turbo_quot);
+	pr_debug("%s: cpr: pvs_fuse: 0x%x\n", __func__, cpr_info->pvs_fuse);
+	kfree(cpr_info);
+
+	/* Select TCXO (19.2MHz) as clock source */
+	reg_val = readl_relaxed(A11S_TEST_BUS_SEL_ADDR);
+	reg_val |= RBCPR_CLK_MUX_SEL;
+	writel_relaxed(reg_val, A11S_TEST_BUS_SEL_ADDR);
+
+	/* Get CPR out of reset */
+	writel_relaxed(0x1, RBCPR_SW_RESET_N);
+
+	platform_device_register(&msm8625_vp_device);
+	platform_device_register(&msm8625_device_cpr);
+}
+
 static struct clk_lookup msm_clock_8625_dummy[] = {
 	CLK_DUMMY("core_clk",		adm_clk.c,	"msm_dmov", 0),
 	CLK_DUMMY("adsp_clk",		adsp_clk.c,	NULL, 0),
@@ -1645,7 +1823,6 @@ struct clock_init_data msm8625_dummy_clock_init_data __initdata = {
 	.table = msm_clock_8625_dummy,
 	.size = ARRAY_SIZE(msm_clock_8625_dummy),
 };
-
 enum {
 	MSM8625,
 	MSM8625A,
@@ -1691,6 +1868,7 @@ int __init msm7x2x_misc_init(void)
 {
 	if (machine_is_msm8625_rumi3()) {
 		msm_clock_init(&msm8625_dummy_clock_init_data);
+		msm_cpr_init();
 		return 0;
 	}
 
@@ -1707,6 +1885,11 @@ int __init msm7x2x_misc_init(void)
 	} else {
 		platform_device_register(&msm7x27a_device_acpuclk);
 	}
+
+	if (cpu_is_msm8625() &&
+			(SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2))
+		msm_cpr_init();
+
 	return 0;
 }
 
