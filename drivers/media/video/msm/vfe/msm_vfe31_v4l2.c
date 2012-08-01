@@ -677,6 +677,9 @@ static int vfe31_config_axi(int mode, uint32_t *ao)
 {
 	uint32_t *ch_info;
 	uint32_t *axi_cfg = ao + V31_AXI_RESERVED;
+	uint32_t bus_cmd = *axi_cfg;
+	int i;
+
 	/* Update the corresponding write masters for each output*/
 	ch_info = axi_cfg + V31_AXI_CFG_LEN;
 	vfe31_ctrl->outpath.out0.ch0 = 0x0000FFFF & *ch_info;
@@ -724,10 +727,23 @@ static int vfe31_config_axi(int mode, uint32_t *ao)
 		return -EINVAL;
 	}
 
+	axi_cfg++;
 	msm_camera_io_memcpy(vfe31_ctrl->vfebase +
 		vfe31_cmd[VFE_CMD_AXI_OUT_CFG].offset, axi_cfg,
-		vfe31_cmd[VFE_CMD_AXI_OUT_CFG].length - V31_AXI_CH_INF_LEN -
-			V31_AXI_RESERVED_LEN);
+		V31_AXI_BUS_CFG_LEN);
+	axi_cfg += V31_AXI_BUS_CFG_LEN/4;
+	for (i = 0; i < ARRAY_SIZE(vfe31_AXI_WM_CFG); i++) {
+		msm_camera_io_w(*axi_cfg,
+		vfe31_ctrl->vfebase+vfe31_AXI_WM_CFG[i]);
+		axi_cfg += 3;
+		msm_camera_io_memcpy(
+			vfe31_ctrl->vfebase+vfe31_AXI_WM_CFG[i]+12,
+							axi_cfg, 12);
+		axi_cfg += 3;
+	}
+	msm_camera_io_w(bus_cmd, vfe31_ctrl->vfebase +
+					V31_AXI_BUS_CMD_OFF);
+
 	return 0;
 }
 

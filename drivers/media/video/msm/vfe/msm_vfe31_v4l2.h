@@ -216,12 +216,13 @@ enum vfe_output_state {
 
 #define V31_OPERATION_CFG_LEN     32
 
-#define V31_AXI_OUT_OFF           0x00000038
+#define V31_AXI_BUS_CMD_OFF       0x00000038
+#define V31_AXI_OUT_OFF           0x0000003C
 #define V31_AXI_OUT_LEN           240
-#define V31_AXI_CH_INF_LEN        48
 #define V31_AXI_CFG_LEN           47
 #define V31_AXI_RESERVED            1
 #define V31_AXI_RESERVED_LEN        4
+#define V31_AXI_BUS_CFG_LEN       16
 
 #define V31_FRAME_SKIP_OFF        0x00000504
 #define V31_FRAME_SKIP_LEN        32
