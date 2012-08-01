@@ -706,7 +706,7 @@ static int msm_venc_stop_streaming(struct vb2_queue *q)
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
+		rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
 		break;
 	default:
 		pr_err("Q-type is not supported: %d\n", q->type);
@@ -1228,6 +1228,15 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
 int msm_venc_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
 {
 	return v4l2_g_ctrl(&inst->ctrl_handler, ctrl);
+}
+
+int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc)
+{
+	int rc = 0;
+	rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
+	if (rc)
+		pr_err("Failed to close instance\n");
+	return rc;
 }
 
 int msm_venc_querycap(struct msm_vidc_inst *inst, struct v4l2_capability *cap)
