@@ -505,6 +505,13 @@ static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
 	return msm_vidc_decoder_cmd((void *)vidc_inst, dec);
 }
 
+static int msm_v4l2_encoder_cmd(struct file *file, void *fh,
+				struct v4l2_encoder_cmd *enc)
+{
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_encoder_cmd((void *)vidc_inst, enc);
+}
+
 static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_v4l2_querycap,
 	.vidioc_enum_fmt_vid_cap_mplane = msm_v4l2_enum_fmt,
@@ -524,6 +531,7 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_subscribe_event = msm_v4l2_subscribe_event,
 	.vidioc_unsubscribe_event = msm_v4l2_unsubscribe_event,
 	.vidioc_decoder_cmd = msm_v4l2_decoder_cmd,
+	.vidioc_encoder_cmd = msm_v4l2_encoder_cmd,
 };
 
 static const struct v4l2_ioctl_ops msm_v4l2_enc_ioctl_ops = {

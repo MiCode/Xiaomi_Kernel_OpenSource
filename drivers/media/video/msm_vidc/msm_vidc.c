@@ -29,11 +29,6 @@ int msm_vidc_poll(void *instance, struct file *filp,
 	struct vb2_buffer *out_vb = NULL;
 	struct vb2_buffer *cap_vb = NULL;
 	unsigned long flags;
-	if (!outq->streaming && !capq->streaming) {
-		pr_err("Returning POLLERR from here: %d, %d\n",
-			outq->streaming, capq->streaming);
-		return POLLERR;
-	}
 	poll_wait(filp, &inst->event_handler.wait, wait);
 	poll_wait(filp, &capq->done_wq, wait);
 	poll_wait(filp, &outq->done_wq, wait);
@@ -137,6 +132,22 @@ int msm_vidc_release_buf(void *instance, struct v4l2_buffer *b)
 	struct msm_vidc_inst *inst = instance;
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_release_buf(instance, b);
+	return -EINVAL;
+}
+
+int msm_vidc_encoder_cmd(void *instance, struct v4l2_encoder_cmd *enc)
+{
+	struct msm_vidc_inst *inst = instance;
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		return msm_venc_cmd(instance, enc);
+	return -EINVAL;
+}
+
+int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec)
+{
+	struct msm_vidc_inst *inst = instance;
+	if (inst->session_type == MSM_VIDC_DECODER)
+		return msm_vdec_cmd(instance, dec);
 	return -EINVAL;
 }
 
