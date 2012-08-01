@@ -1,0 +1,40 @@
+Adreno Power Levels
+
+The Adreno GPU definition should include a variable number of power levels
+defining the GPU and bus frequencies for the levels that the GPU can operate at.
+
+Required properties:
+
+- compatible:	The compatible name for the object (qcom,gpu-pwrlevels)
+
+Each powerlevel definition is as follows:
+
+- reg:              Index of the power level (lower is considered higher
+		    performance)
+- qcom,gpu-freq:    The GPU frequency for the power level (in HZ)
+- qcom,bus-freq:    An index representing the bus scaling usecase appropriate
+		    for the power level
+- qcom,io-fraction: A number indicating the fraction of the CPU I/O busy that
+		    this operating point should represent.
+
+Sample usage:
+
+qcom,kgsl-3d0@fdb00000 {
+	...
+	qcom,gpu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,gpu-pwrlevels";
+
+		qcom,gpu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gpu-freq = <5000000000>;
+			qcom,bus-freq = <3>;
+			qcom,io_fraction = <0>;
+		};
+	};
+
+	...
+};
+

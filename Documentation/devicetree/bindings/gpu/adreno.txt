@@ -1,0 +1,159 @@
+Qualcomm GPU
+
+Qualcomm Adreno GPU
+
+Required properties:
+- label:		A string used as a descriptive name for the device.
+- compatible:		Must be "qcom,kgsl-3d0" and "qcom,kgsl-3d"
+- reg:			Specifies the base address and address size for this device.
+- interrupts:		Interrupt mapping for GPU IRQ.
+- interrupt-names:	String property to describe the name of the interrupt.
+- qcom,id:		An integer used as an identification number for the device.
+
+- qcom,clk-map:		A bit map value for clocks controlled by kgsl.
+				KGSL_CLK_SRC    0x00000001
+				KGSL_CLK_CORE   0x00000002
+				KGSL_CLK_IFACE  0x00000004
+				KGSL_CLK_MEM    0x00000008
+				KGSL_CLK_MEM_IFACE 0x00000010
+				KGSL_CLK_AXI    0x00000020
+
+Bus Scaling Data:
+- qcom,grp3d-vectors:	A series of 4 cell properties, format of which is:
+						<src dst ab ib>, <src dst ab ib>, // For Bus Scaling Usecase 1
+						<src dst ab ib>, <src dst ab ib>, // For Bus Scaling Usecase 2
+						<..  ..  .. ..>, <..  ..  .. ..>; // For Bus Scaling Usecase n
+						This property is a series of all vectors for all Bus Scaling Usecases.
+						Each set of vectors for each usecase describes bandwidth votes for a combination
+						of src/dst ports.  The driver will set the desired use case based on the selected
+						power level and the desired bandwidth vote will be registered for the port pairs.
+					Current values of src are:
+						0 = MSM_BUS_MASTER_GRAPHICS_3D
+						1 = MSM_BUS_MASTER_GRAPHICS_3D_PORT1
+						2 = MSM_BUS_MASTER_V_OCMEM_GFX3D
+					Current values of dst are:
+						0 = MSM_BUS_SLAVE_EBI_CH0
+						1 = MSM_BUS_SLAVE_OCMEM
+					ab: Represents aggregated bandwidth. This value is 0 for Graphics.
+					ib: Represents instantaneous bandwidth. This value has a range <0 8000 MB/s>
+- qcom,grp3d-num-vectors-per-usecase:	This represents the number of vectors in each Bus Scaling Usecase.
+- qcom,grp3d-num-bus-scale-usecases:	This is the the number of Bus Scaling use cases defined in the vectors property
+
+GDSC Oxili Regulators:
+- vddcx-supply:			Phandle for vddcx regulator device node.
+- vdd-supply:			Phandle for vdd regulator device node.
+
+IOMMU Data:
+- iommu:			Phandle for the KGSL IOMMU device node
+
+GPU Power levels:
+- qcom,gpu-pwrlevels:		Container for the GPU Power Levels (see
+				adreno-pwrlevels.txt)
+
+DCVS Core info
+- qcom,dcvs-core-info		Container for the DCVS core info (see
+				dcvs-core-info.txt)
+
+Optional Properties:
+- qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
+			   and when coming back out of resume
+- qcom,idle-timeout:	   This property represents the time in microseconds for idle timeout.
+- qcom,nap-allowed:	   Boolean. <0> or <1> to disable/enable nap.
+- qcom,chipid:		   If it exists this property is used to replace
+			   the chip identification read from the GPU hardware.
+			   This is used to override faulty hardware readings.
+
+Example of A330 GPU in MSM8974:
+
+/ {
+	qcom,kgsl-3d0@fdb00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0xfdb00000 0x20000>;
+		reg-names = "kgsl_3d0_reg_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,chipid = <0x03030000>;
+
+		/* Power Settings */
+
+		qcom,initial-pwrlevel = <1>;
+		qcom,idle-timeout = <83>; //<HZ/12>
+		qcom,nap-allowed = <1>;
+		qcom,clk-map = <0x00000016>; //KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE
+
+		/* Bus Scale Settings */
+		qcom,grp3d-vectors = <0 0 0 0>, <2 1 0 0>,
+				<0 0 0 2000>, <2 1 0 3000>,
+				<0 0 0 4000>, <2 1 0 5000>,
+				<0 0 0 6400>, <2 1 0 7600>;
+		qcom,grp3d-num-vectors-per-usecase = <2>;
+		qcom,grp3d-num-bus-scale-usecases = <4>;
+
+		/* GDSC oxili regulators */
+		vddcx-supply = <&gdsc_oxili_cx>;
+		vdd-supply = <&gdsc_oxili_gx>;
+
+		/* IOMMU Data */
+		iommu = <&kgsl>;
+
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <5000000000>;
+				qcom,bus-freq = <3>;
+				qcom,io-fraction = <0>;
+			};
+		};
+
+		qcom,dcvs-core-info {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,dcvs-core-info";
+
+			qcom,core-max-time-us = <100000>;
+			qcom,algo-slack-time-us = <39000>;
+			qcom,algo-disable-pc-threshold = <86000>;
+			qcom,algo-ss-window-size = <1000000>;
+			qcom,algo-ss-util-pct = <95>;
+			qcom,algo-em-max-util-pct = <97>;
+			qcom,algo-ss-iobusy-conv = <100>;
+
+			qcom,dcvs-freq@0 {
+				reg = <0>;
+				qcom,freq = <0>;
+				qcom,idle-energy = <0>;
+				qcom,active-energy = <333932>;
+			};
+
+			qcom,dcvs-freq@1 {
+				reg = <1>;
+				qcom,freq = <0>;
+				qcom,idle-energy = <0>;
+				qcom,active-energy = <497532>;
+			};
+
+			qcom,dcvs-freq@2 {
+				reg = <2>;
+				qcom,freq = <0>;
+				qcom,idle-energy = <0>;
+				qcom,active-energy = <707610>;
+			};
+
+			qcom,dcvs-freq@3 {
+				reg = <3>;
+				qcom,freq = <0>;
+				qcom,idle-energy = <0>;
+				qcom,active-energy = <844545>;
+			};
+		};
+	};
+};
