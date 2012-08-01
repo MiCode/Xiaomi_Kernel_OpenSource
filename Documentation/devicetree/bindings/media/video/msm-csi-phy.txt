@@ -1,0 +1,23 @@
+* Qualcomm MSM CSI Phy
+
+Required properties:
+- cell-index: csi phy hardware core index
+- compatible :
+    - "qcom,csiphy"
+- reg : offset and length of the register set for the device
+    for the csiphy operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the csiphy interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+
+Example:
+
+   qcom,csiphy@fda0ac00 {
+       cell-index = <0>;
+       compatible = "qcom,csiphy";
+       reg = <0xfda0ac00 0x200>;
+       reg-names = "csiphy";
+       interrupts = <0 78 0>;
+       interrupt-names = "csiphy";
+   };

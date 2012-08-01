@@ -1,0 +1,25 @@
+* Qualcomm MSM CPP
+
+Required properties:
+- cell-index: cpp hardware core index
+- compatible :
+    - "qcom,cpp"
+- reg : offset and length of the register set for the device
+    for the cpp operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the cpp interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+- vdd-supply: phandle to GDSC regulator controlling VFE & CPP core.
+
+Example:
+
+   qcom,cpp@0xfda04000 {
+       cell-index = <0>;
+       compatible = "qcom,cpp";
+       reg = <0xfda04000 0x100>;
+       reg-names = "cpp";
+       interrupts = <0 49 0>;
+       interrupt-names = "cpp";
+       vdd-supply = <&gdsc_vfe>;
+   };
