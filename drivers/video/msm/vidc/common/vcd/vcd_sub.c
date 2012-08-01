@@ -1228,7 +1228,7 @@ u32 vcd_validate_driver_handle(
 	driver_handle--;
 
 	if (driver_handle < 0 ||
-		driver_handle >= VCD_DRIVER_INSTANCE_MAX ||
+		driver_handle >= VCD_DRIVER_CLIENTS_MAX ||
 		!dev_ctxt->driver_ids[driver_handle]) {
 		return false;
 	} else {
