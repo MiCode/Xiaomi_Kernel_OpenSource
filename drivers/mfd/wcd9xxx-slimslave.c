@@ -555,17 +555,17 @@ int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 			 __func__, i, ch_num[i], idx, i, sph[i], grph);
 	}
 
-	/* slim_disconnect_port */
-	ret = slim_disconnect_ports(wcd9xxx->slim, sph, ch_cnt);
-	if (ret < 0) {
-		pr_err("%s: slim_disconnect_ports failed ret[%d]\n",
-		       __func__, ret);
-	}
 	/* slim_control_ch (REMOVE) */
 	ret = slim_control_ch(wcd9xxx->slim, grph, SLIM_CH_REMOVE, true);
 	if (ret < 0) {
 		pr_err("%s: slim_control_ch failed ret[%d]\n", __func__, ret);
 		goto err;
+	}
+	/* slim_disconnect_port */
+	ret = slim_disconnect_ports(wcd9xxx->slim, sph, ch_cnt);
+	if (ret < 0) {
+		pr_err("%s: slim_disconnect_ports failed ret[%d]\n",
+			 __func__, ret);
 	}
 	for (i = 0; i < ch_cnt; i++) {
 		idx = (ch_num[i] - BASE_CH_NUM - sh_ch.rx_port_start_offset);
