@@ -1,0 +1,76 @@
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ion-heap@30 { /* SYSTEM HEAP */
+			reg = <30>;
+		};
+
+		qcom,ion-heap@8 { /* CP_MM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <8>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+			qcom,memory-reservation-size = <0x7800000>;
+		};
+
+		qcom,ion-heap@29 { /* FIRMWARE HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <29>;
+			qcom,heap-align = <0x20000>;
+			qcom,heap-adjacent = <8>;
+			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+			qcom,memory-reservation-size = <0xA00000>;
+		};
+
+		qcom,ion-heap@12 { /* MFC HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <12>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+			qcom,memory-reservation-size = <0x2000>;
+		};
+
+		qcom,ion-heap@24 { /* SF HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <24>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+			qcom,memory-reservation-size = <0x2800000>;
+		};
+
+		qcom,ion-heap@25 { /* IOMMU HEAP */
+			reg = <25>;
+		};
+
+		qcom,ion-heap@27 { /* QSECOM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <27>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+			qcom,memory-reservation-size = <0x600000>;
+		};
+
+		qcom,ion-heap@28 { /* AUDIO HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <28>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+			qcom,memory-reservation-size = <0x2B4000>;
+		};
+	};
+};

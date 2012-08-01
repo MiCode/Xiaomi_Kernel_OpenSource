@@ -20,9 +20,6 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
-#ifdef CONFIG_ION_MSM
-#include <linux/ion.h>
-#endif
 #include <linux/memory.h>
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -52,17 +49,6 @@
 #include "lpm_resources.h"
 
 #define MSM_KERNEL_EBI1_MEM_SIZE	0x280000
-#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-#define MSM_ION_SF_SIZE 0x4000000 /* 64 Mbytes */
-#else
-#define MSM_ION_SF_SIZE 0x2800000 /* 40 Mbytes */
-#endif
-#define MSM_ION_MM_FW_SIZE	0xa00000 /* (10MB) */
-#define MSM_ION_MM_SIZE		0x7800000 /* (120MB) */
-#define MSM_ION_QSECOM_SIZE	0x600000 /* (6MB) */
-#define MSM_ION_MFC_SIZE	SZ_8K
-#define MSM_ION_AUDIO_SIZE	0x2B4000
-#define MSM_ION_HEAP_NUM	8
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 static unsigned kernel_ebi1_mem_size = MSM_KERNEL_EBI1_MEM_SIZE;
@@ -90,121 +76,12 @@ static int msm_8974_paddr_to_memtype(unsigned int paddr)
 	return MEMTYPE_EBI1;
 }
 
-#ifdef CONFIG_ION_MSM
-static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
-	.permission_type = IPT_TYPE_MM_CARVEOUT,
-	.align = PAGE_SIZE,
-};
-
-static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
-	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
-	.align = PAGE_SIZE,
-};
-
-static struct ion_co_heap_pdata co_ion_pdata = {
-	.adjacent_mem_id = INVALID_HEAP_ID,
-	.align = PAGE_SIZE,
-};
-
-static struct ion_co_heap_pdata fw_co_ion_pdata = {
-	.adjacent_mem_id = ION_CP_MM_HEAP_ID,
-	.align = SZ_128K,
-};
-
-/**
- * These heaps are listed in the order they will be allocated. Due to
- * video hardware restrictions and content protection the FW heap has to
- * be allocated adjacent (below) the MM heap and the MFC heap has to be
- * allocated after the MM heap to ensure MFC heap is not more than 256MB
- * away from the base address of the FW heap.
- * However, the order of FW heap and MM heap doesn't matter since these
- * two heaps are taken care of by separate code to ensure they are adjacent
- * to each other.
- * Don't swap the order unless you know what you are doing!
- */
-static struct ion_platform_data ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.heaps = {
-		{
-			.id	= ION_SYSTEM_HEAP_ID,
-			.type	= ION_HEAP_TYPE_SYSTEM,
-			.name	= ION_VMALLOC_HEAP_NAME,
-		},
-		{
-			.id	= ION_CP_MM_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CP,
-			.name	= ION_MM_HEAP_NAME,
-			.size	= MSM_ION_MM_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mm_ion_pdata,
-		},
-		{
-			.id	= ION_MM_FIRMWARE_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_MM_FIRMWARE_HEAP_NAME,
-			.size	= MSM_ION_MM_FW_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &fw_co_ion_pdata,
-		},
-		{
-			.id	= ION_CP_MFC_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CP,
-			.name	= ION_MFC_HEAP_NAME,
-			.size	= MSM_ION_MFC_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mfc_ion_pdata,
-		},
-		{
-			.id	= ION_SF_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_SF_HEAP_NAME,
-			.size	= MSM_ION_SF_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
-		},
-		{
-			.id	= ION_IOMMU_HEAP_ID,
-			.type	= ION_HEAP_TYPE_IOMMU,
-			.name	= ION_IOMMU_HEAP_NAME,
-		},
-		{
-			.id	= ION_QSECOM_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_QSECOM_HEAP_NAME,
-			.size	= MSM_ION_QSECOM_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
-		},
-		{
-			.id	= ION_AUDIO_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_AUDIO_HEAP_NAME,
-			.size	= MSM_ION_AUDIO_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
-		},
-	}
-};
-
-static struct platform_device ion_dev = {
-	.name = "ion-msm",
-	.id = 1,
-	.dev = { .platform_data = &ion_pdata },
-};
-
-static void __init reserve_ion_memory(void)
+static void __init reserve_ebi_memory(void)
 {
-	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_SIZE;
-	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_FW_SIZE;
-	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
-	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
-	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_QSECOM_SIZE;
-	msm_8974_reserve_table[MEMTYPE_EBI1].size += MSM_ION_AUDIO_SIZE;
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 	msm_8974_reserve_table[MEMTYPE_EBI1].size += kernel_ebi1_mem_size;
 #endif
 }
-#endif
 
 static struct resource smd_resource[] = {
 	{
@@ -370,9 +247,7 @@ struct platform_device msm_device_smd_8974 = {
 
 static void __init msm_8974_calculate_reserve_sizes(void)
 {
-#ifdef CONFIG_ION_MSM
-	reserve_ion_memory();
-#endif
+	reserve_ebi_memory();
 }
 
 static struct reserve_info msm_8974_reserve_info __initdata = {
@@ -535,9 +410,6 @@ static void __init msm8974_init_buses(void)
 
 void __init msm_8974_add_devices(void)
 {
-#ifdef CONFIG_ION_MSM
-	platform_device_register(&ion_dev);
-#endif
 	platform_device_register(&msm_device_smd_8974);
 	platform_device_register(&android_usb_device);
 	platform_add_devices(msm_8974_stub_regulator_devices,
