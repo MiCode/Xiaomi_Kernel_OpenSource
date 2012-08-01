@@ -1,0 +1,151 @@
+/*
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "skeleton.dtsi"
+
+/ {
+	qcom,cam_server {
+		compatible = "qcom,cam_server";
+		reg = <0xfd8C0000 0x10000>;
+		reg-names = "server";
+	};
+	qcom,csiphy@fda0ac00 {
+		cell-index = <0>;
+		compatible = "qcom,csiphy";
+		reg = <0xfda0ac00 0x200>;
+		reg-names = "csiphy";
+		interrupts = <0 78 0>;
+		interrupt-names = "csiphy";
+	};
+	qcom,csiphy@fda0b000 {
+		cell-index = <1>;
+		compatible = "qcom,csiphy";
+		reg = <0xfda0b000 0x200>;
+		reg-names = "csiphy";
+		interrupts = <0 79 0>;
+		interrupt-names = "csiphy";
+	};
+	qcom,csiphy@fda0b400 {
+		cell-index = <2>;
+		compatible = "qcom,csiphy";
+		reg = <0xfda0b400 0x200>;
+		reg-names = "csiphy";
+		interrupts = <0 80 0>;
+		interrupt-names = "csiphy";
+	};
+	qcom,csid@fda08000  {
+		cell-index = <0>;
+		compatible = "qcom,csid";
+		reg = <0xfda08000 0x100>;
+		reg-names = "csid";
+		interrupts = <0 51 0>;
+		interrupt-names = "csid";
+	};
+	qcom,csid@fda08400 {
+		cell-index = <1>;
+		compatible = "qcom,csid";
+		reg = <0xfda08400 0x100>;
+		reg-names = "csid";
+		interrupts = <0 52 0>;
+		interrupt-names = "csid";
+	};
+	qcom,csid@fda08800 {
+		cell-index = <2>;
+		compatible = "qcom,csid";
+		reg = <0xfda08800 0x100>;
+		reg-names = "csid";
+		interrupts = <0 53 0>;
+		interrupt-names = "csid";
+	};
+	qcom,csid@fda08C00 {
+		cell-index = <3>;
+		compatible = "qcom,csid";
+		reg = <0xfda08C00 0x100>;
+		reg-names = "csid";
+		interrupts = <0 54 0>;
+		interrupt-names = "csid";
+	};
+	qcom,ispif@fda0A000 {
+		cell-index = <0>;
+		compatible = "qcom,ispif";
+		reg = <0xfda0A000 0x300>;
+		reg-names = "ispif";
+		interrupts = <0 55 0>;
+		interrupt-names = "ispif";
+	};
+	qcom,cci@fda0C000 {
+		cell-index = <0>;
+		compatible = "qcom,cci";
+		reg = <0xfda0C000 0x1000>;
+		reg-names = "cci";
+		interrupts = <0 50 0>;
+		interrupt-names = "cci";
+	};
+	qcom,vfe@fda10000 {
+		cell-index = <0>;
+		compatible = "qcom,vfe40";
+		reg = <0xfda10000 0x1000>;
+		reg-names = "vfe";
+		interrupts = <0 57 0>;
+		interrupt-names = "vfe";
+		vdd-supply = <&gdsc_vfe>;
+	};
+	qcom,vfe@fda14000 {
+		cell-index = <1>;
+		compatible = "qcom,vfe40";
+		reg = <0xfda14000 0x1000>;
+		reg-names = "vfe";
+		interrupts = <0 58 0>;
+		interrupt-names = "vfe";
+		vdd-supply = <&gdsc_vfe>;
+	};
+	qcom,jpeg@fda1c000 {
+		cell-index = <0>;
+		compatible = "qcom,jpeg";
+		reg = <0xfda1c000 0x400>;
+		reg-names = "jpeg";
+		interrupts = <0 59 0>;
+		interrupt-names = "jpeg";
+	};
+	qcom,jpeg@fda20000 {
+		cell-index = <1>;
+		compatible = "qcom,jpeg";
+		reg = <0xfda20000 0x400>;
+		reg-names = "jpeg";
+		interrupts = <0 60 0>;
+		interrupt-names = "jpeg";
+	};
+	qcom,jpeg@fda24000 {
+		cell-index = <2>;
+		compatible = "qcom,jpeg";
+		reg = <0xfda24000 0x400>;
+		reg-names = "jpeg";
+		interrupts = <0 61 0>;
+		interrupt-names = "jpeg";
+	};
+	qcom,irqrouter@fda00000 {
+		cell-index = <0>;
+		compatible = "qcom,irqrouter";
+		reg = <0xfda00000 0x100>;
+		reg-names = "irqrouter";
+	};
+	qcom,cpp@fda04000 {
+		cell-index = <0>;
+		compatible = "qcom,cpp";
+		reg = <0xfda04000 0x100>;
+		reg-names = "cpp";
+		interrupts = <0 49 0>;
+		interrupt-names = "cpp";
+		vdd-supply = <&gdsc_vfe>;
+	};
+};

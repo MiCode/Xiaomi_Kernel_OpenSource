@@ -13,6 +13,7 @@
 /include/ "skeleton.dtsi"
 /include/ "msm8974_pm.dtsi"
 /include/ "msm8974-iommu.dtsi"
+/include/ "msm8974-camera.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8974-gpu.dtsi"
 
