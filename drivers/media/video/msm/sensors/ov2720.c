@@ -749,9 +749,49 @@ static struct msm_camera_i2c_client ov2720_sensor_i2c_client = {
 	.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
 };
 
+
+static const struct of_device_id ov2720_dt_match[] = {
+	{.compatible = "qcom,ov2720", .data = &ov2720_s_ctrl},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, ov2720_dt_match);
+
+static struct platform_driver ov2720_platform_driver = {
+	.driver = {
+		.name = "qcom,ov2720",
+		.owner = THIS_MODULE,
+		.of_match_table = ov2720_dt_match,
+	},
+};
+
+static int32_t ov2720_platform_probe(struct platform_device *pdev)
+{
+	int32_t rc = 0;
+	const struct of_device_id *match;
+	match = of_match_device(ov2720_dt_match, &pdev->dev);
+	rc = msm_sensor_platform_probe(pdev, match->data);
+	return rc;
+}
+
 static int __init msm_sensor_init_module(void)
 {
+	int32_t rc = 0;
+	rc = platform_driver_probe(&ov2720_platform_driver,
+		ov2720_platform_probe);
+	if (!rc)
+		return rc;
 	return i2c_add_driver(&ov2720_i2c_driver);
+}
+
+static void __exit msm_sensor_exit_module(void)
+{
+	if (ov2720_s_ctrl.pdev) {
+		msm_sensor_free_sensor_data(&ov2720_s_ctrl);
+		platform_driver_unregister(&ov2720_platform_driver);
+	} else
+		i2c_del_driver(&ov2720_i2c_driver);
+	return;
 }
 
 static struct v4l2_subdev_core_ops ov2720_subdev_core_ops = {
@@ -824,6 +864,7 @@ static struct msm_sensor_ctrl_t ov2720_s_ctrl = {
 };
 
 module_init(msm_sensor_init_module);
+module_exit(msm_sensor_exit_module);
 MODULE_DESCRIPTION("Omnivision 2MP Bayer sensor driver");
 MODULE_LICENSE("GPL v2");
 
