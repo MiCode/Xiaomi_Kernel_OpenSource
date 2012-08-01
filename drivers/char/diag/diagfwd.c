@@ -1124,6 +1124,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			driver->apps_rsp_buf[2] = 0x0;
 			driver->apps_rsp_buf[3] = 0x0;
 			*(int *)(driver->apps_rsp_buf + 4) = 0x0;
+			*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* status */
 			if (driver->ch_cntl)
 				diag_send_log_mask_update(driver->ch_cntl,
 								 ALL_EQUIP_ID);
@@ -1133,7 +1134,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			if (driver->ch_wcnss_cntl)
 				diag_send_log_mask_update(driver->ch_wcnss_cntl,
 								 ALL_EQUIP_ID);
-			ENCODE_RSP_AND_SEND(7);
+			ENCODE_RSP_AND_SEND(11);
 			return 0;
 		}
 #endif
