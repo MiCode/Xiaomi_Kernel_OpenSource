@@ -216,6 +216,7 @@
 		interrupts = <0 163 0 0 164 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,min-clk-gear = <10>;
+		qcom,rxreg-access;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
