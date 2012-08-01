@@ -1542,7 +1542,6 @@ static uint32_t msm_camera_server_find_mctl(
 	case NOTIFY_VFE_MSG_STATS:
 	case NOTIFY_VFE_MSG_COMP_STATS:
 	case NOTIFY_VFE_CAMIF_ERROR:
-	case NOTIFY_VFE_IRQ:
 	default:
 		interface = PIX_0;
 		break;
@@ -1593,11 +1592,10 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	case NOTIFY_VFE_IRQ:{
 		struct msm_vfe_cfg_cmd cfg_cmd;
 		struct msm_camvfe_params vfe_params;
-		p_mctl = msm_cam_server_get_mctl(mctl_handle);
 		cfg_cmd.cmd_type = CMD_VFE_PROCESS_IRQ;
 		vfe_params.vfe_cfg = &cfg_cmd;
 		vfe_params.data = arg;
-		rc = v4l2_subdev_call(p_mctl->isp_sdev->sd,
+		rc = v4l2_subdev_call(sd,
 			core, ioctl, 0, &vfe_params);
 	}
 		break;
