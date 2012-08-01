@@ -397,7 +397,9 @@ static void __init msm7x27a_init_cam(void)
 
 	}
 	if (machine_is_msm8625_evb() || machine_is_msm7627a_evb()
-			|| machine_is_msm8625_evt()) {
+				||  machine_is_msm8625_evt()
+				|| machine_is_msm7627a_qrd3()
+				|| machine_is_msm8625_qrd7()) {
 		sensor_board_info_ov7692.cam_vreg =
 			ov7692_gpio_vreg;
 		sensor_board_info_ov7692.num_vreg =
