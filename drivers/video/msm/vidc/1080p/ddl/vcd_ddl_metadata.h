@@ -14,7 +14,7 @@
 #ifndef _VCD_DDL_METADATA_H_
 #define _VCD_DDL_METADATA_H_
 
-#define DDL_MAX_DEC_METADATATYPE          8
+#define DDL_MAX_DEC_METADATATYPE          10
 #define DDL_MAX_ENC_METADATATYPE          3
 #define DDL_METADATA_EXTRAPAD_SIZE      256
 #define DDL_METADATA_HDR_SIZE            20
@@ -27,6 +27,8 @@
 #define DDL_METADATA_SEI_MAX                     5
 #define DDL_METADATA_VUI_PAYLOAD_SIZE          256
 #define DDL_METADATA_PASSTHROUGH_PAYLOAD_SIZE   68
+#define DDL_METADATA_EXT_PAYLOAD_SIZE         (640)
+#define DDL_METADATA_USER_PAYLOAD_SIZE        (2048)
 #define DDL_METADATA_CLIENT_INPUTBUFSIZE       256
 #define DDL_METADATA_TOTAL_INPUTBUFSIZE \
 	(DDL_METADATA_CLIENT_INPUTBUFSIZE * VCD_MAX_NO_CLIENT)
@@ -46,6 +48,10 @@
 #define DDL_METADATA_HDR_PORT_INDEX    1
 #define DDL_METADATA_HDR_TYPE_INDEX    2
 
+#define DDL_METADATA_USER_DUMP_DISABLE_MODE 0
+#define DDL_METADATA_USER_DUMP_OFFSET_MODE  1
+#define DDL_METADATA_USER_DUMP_FULL_MODE    2
+
 void ddl_set_default_meta_data_hdr(struct ddl_client_context *ddl);
 u32 ddl_get_metadata_params(struct ddl_client_context *ddl,
 	struct vcd_property_hdr *property_hdr, void *property_value);
@@ -62,5 +68,6 @@ u32 ddl_vidc_encode_set_metadata_output_buf(struct ddl_client_context *ddl);
 void ddl_vidc_decode_set_metadata_output(struct ddl_decoder_data *decoder);
 void ddl_process_encoder_metadata(struct ddl_client_context *ddl);
 void ddl_process_decoder_metadata(struct ddl_client_context *ddl);
+void ddl_set_mp2_dump_default(struct ddl_decoder_data *decoder, u32 flag);
 
 #endif

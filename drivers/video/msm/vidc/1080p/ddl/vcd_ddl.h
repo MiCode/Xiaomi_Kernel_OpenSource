@@ -171,6 +171,7 @@ struct ddl_dec_buffer_size{
 	u32  sz_desc;
 	u32  sz_cpb;
 	u32  sz_context;
+	u32  sz_extnuserdata;
 };
 struct ddl_dec_buffers{
 	struct ddl_buf_addr desc;
@@ -186,6 +187,7 @@ struct ddl_dec_buffers{
 	struct ddl_buf_addr h264_vert_nb_mv;
 	struct ddl_buf_addr h264_nb_ip;
 	struct ddl_buf_addr context;
+	struct ddl_buf_addr extnuserdata;
 };
 struct ddl_enc_buffer_size{
 	u32  sz_cur_y;
@@ -229,6 +231,17 @@ struct ddl_batch_frame_data {
 	u32 num_output_frames;
 	u32 out_frm_next_frmindex;
 	u32  first_output_frame_tag;
+};
+struct ddl_mp2_datadumpenabletype {
+	u32 userdatadump_enable;
+	u32 pictempscalable_extdump_enable;
+	u32 picspat_extdump_enable;
+	u32 picdisp_extdump_enable;
+	u32 copyright_extdump_enable;
+	u32 quantmatrix_extdump_enable;
+	u32 seqscalable_extdump_enable;
+	u32 seqdisp_extdump_enable;
+	u32 seq_extdump_enable;
 };
 struct ddl_encoder_data{
 	struct ddl_codec_data_hdr   hdr;
@@ -323,6 +336,9 @@ struct ddl_decoder_data {
 	u32  dmx_disable;
 	int avg_dec_time;
 	int dec_time_sum;
+	struct ddl_mp2_datadumpenabletype mp2_datadump_enable;
+	u32 mp2_datadump_status;
+	u32 extn_user_data_enable;
 };
 union ddl_codec_data{
 	struct ddl_codec_data_hdr  hdr;

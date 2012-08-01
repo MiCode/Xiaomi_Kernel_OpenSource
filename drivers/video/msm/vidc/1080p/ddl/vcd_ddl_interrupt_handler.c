@@ -256,6 +256,10 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 		DDL_MSG_LOW("HEADER_DONE");
 		vidc_1080p_get_decode_seq_start_result(&seq_hdr_info);
 		parse_hdr_size_data(ddl, &seq_hdr_info);
+		decoder->mp2_datadump_status = 0;
+		vidc_sm_get_mp2datadump_status(&ddl->shared_mem
+			[ddl->command_channel],
+			&decoder->mp2_datadump_status);
 		if (res_trk_get_disable_fullhd() &&
 			(seq_hdr_info.img_size_x * seq_hdr_info.img_size_y >
 				1280 * 720)) {
@@ -1205,6 +1209,10 @@ static u32 ddl_decoder_output_done_callback(
 		vidc_sm_get_metadata_status(&ddl->shared_mem
 			[ddl->command_channel],
 			&decoder->meta_data_exists);
+		decoder->mp2_datadump_status = 0;
+		vidc_sm_get_mp2datadump_status(&ddl->shared_mem
+			[ddl->command_channel],
+			&decoder->mp2_datadump_status);
 		if (decoder->output_order == VCD_DEC_ORDER_DISPLAY) {
 			vidc_sm_get_frame_tags(&ddl->shared_mem
 				[ddl->command_channel],

@@ -187,6 +187,8 @@
 
 
 #define VIDC_SM_METADATA_ENABLE_ADDR                 0x0038
+#define VIDC_SM_METADATA_ENABLE_MP2_DATADUMP_BMSK    0x00000200
+#define VIDC_SM_METADATA_ENABLE_MP2_DATADUMP_SHFT    9
 #define VIDC_SM_METADATA_ENABLE_EXTRADATA_BMSK       0x40
 #define VIDC_SM_METADATA_ENABLE_EXTRADATA_SHFT       6
 #define VIDC_SM_METADATA_ENABLE_ENC_SLICE_SIZE_BMSK  0x20
@@ -250,6 +252,51 @@
 #define VIDC_SM_TIMEOUT_VALUE_ADDR        0x0158
 #define VIDC_SM_TIMEOUT_VALUE_BMSK        0xffffffff
 #define VIDC_SM_TIMEOUT_VALUE_SHFT        0
+
+#define VIDC_SM_MP2_DATA_DUMP_CONTROL_ADDR                        0x0194
+#define VIDC_SM_MP2_USERDATA_DUMP_ENABLE_BMSK                     0x00000300
+#define VIDC_SM_MP2_USERDATA_DUMP_ENABLE_SHFT                     8
+#define VIDC_SM_MP2_PICT_TEMP_DUMP_ENABLE_BMSK                    0x00000080
+#define VIDC_SM_MP2_PICT_TEMP_DUMP_ENABLE_SHFT                    7
+#define VIDC_SM_MP2_PICT_SPAT_EXT_DUMP_ENABLE_BMSK                0x00000040
+#define VIDC_SM_MP2_PICT_SPAT_EXT_DUMP_ENABLE_SHFT                6
+#define VIDC_SM_MP2_PICT_DISP_EXT_DUMP_ENABLE_BMSK                0x00000020
+#define VIDC_SM_MP2_PICT_DISP_EXT_DUMP_ENABLE_SHFT                5
+#define VIDC_SM_MP2_COPYRIGHT_EXT_DUMP_ENABLE_BMSK                0x00000010
+#define VIDC_SM_MP2_COPYRIGHT_EXT_DUMP_ENABLE_SHFT                4
+#define VIDC_SM_MP2_QMATRIX_EXT_DUMP_ENABLE_BMSK                  0x00000008
+#define VIDC_SM_MP2_QMATRIX_EXT_DUMP_ENABLE_SHFT                  3
+#define VIDC_SM_MP2_SCAL_EXT_DUMP_ENABLE_BMSK                     0x00000004
+#define VIDC_SM_MP2_SCAL_EXT_DUMP_ENABLE_SHFT                     2
+#define VIDC_SM_MP2_SEQ_DISP_EXT_DUMP_ENABLE_BMSK                 0x00000002
+#define VIDC_SM_MP2_SEQ_DISP_EXT_DUMP_ENABLE_SHFT                 1
+#define VIDC_SM_MP2_SEQ_EXT_DUMP_ENABLE_BMSK                      0x00000001
+#define VIDC_SM_MP2_SEQ_EXT_DUMP_ENABLE_SHFT                      0
+
+#define VIDC_SM_MP2_DATA_DUMP_STATUS_ADDR                         0x0198
+#define VIDC_SM_MP2_USERDATA_DUMP_STATUS_BMSK                     0x00000300
+#define VIDC_SM_MP2_USERDATA_DUMP_STATUS_SHFT                     8
+#define VIDC_SM_MP2_PICT_TEMP_DUMP_STATUS_BMSK                    0x00000080
+#define VIDC_SM_MP2_PICT_TEMP_DUMP_STATUS_SHFT                    7
+#define VIDC_SM_MP2_PICT_SPAT_EXT_DUMP_STATUS_BMSK                0x00000040
+#define VIDC_SM_MP2_PICT_SPAT_EXT_DUMP_STATUS_SHFT                6
+#define VIDC_SM_MP2_PICT_DISP_EXT_DUMP_STATUS_BMSK                0x00000020
+#define VIDC_SM_MP2_PICT_DISP_EXT_DUMP_STATUS_SHFT                5
+#define VIDC_SM_MP2_COPYRIGHT_EXT_DUMP_STATUS_BMSK                0x00000010
+#define VIDC_SM_MP2_COPYRIGHT_EXT_DUMP_STATUS_SHFT                4
+#define VIDC_SM_MP2_QMATRIX_EXT_DUMP_STATUS_BMSK                  0x00000008
+#define VIDC_SM_MP2_QMATRIX_EXT_DUMP_STATUS_SHFT                  3
+#define VIDC_SM_MP2_SCAL_EXT_DUMP_STATUS_BMSK                     0x00000004
+#define VIDC_SM_MP2_SCAL_EXT_DUMP_STATUS_SHFT                     2
+#define VIDC_SM_MP2_SEQ_DISP_EXT_DUMP_STATUS_BMSK                 0x00000002
+#define VIDC_SM_MP2_SEQ_DISP_EXT_DUMP_STATUS_SHFT                 1
+#define VIDC_SM_MP2_SEQ_EXT_DUMP_STATUS_BMSK                      0x00000001
+#define VIDC_SM_MP2_SEQ_EXT_DUMP_STATUS_SHFT                      0
+
+#define VIDC_SM_MP2_DATA_DUMP_BUFFER_ADDR                         0x01a4
+#define VIDC_SM_MP2_DATA_DUMP_BUFFER_SIZE_ADDR                    0x01a8
+
+
 
 #define VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_BMSK	0x40
 #define VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_SHFT	6
@@ -579,11 +626,14 @@ void vidc_sm_set_concealment_color(struct ddl_buf_addr *shared_mem,
 void vidc_sm_set_metadata_enable(struct ddl_buf_addr *shared_mem,
 	u32 extradata_enable, u32 qp_enable, u32 concealed_mb_enable,
 	u32 vc1Param_enable, u32 sei_nal_enable, u32 vui_enable,
-	u32 enc_slice_size_enable)
+	u32 enc_slice_size_enable, u32 mp2_data_dump_enable)
 {
 	u32 metadata_enable;
 
-	metadata_enable = VIDC_SETFIELD((extradata_enable) ? 1 : 0,
+	metadata_enable = VIDC_SETFIELD((mp2_data_dump_enable) ? 1 : 0,
+				VIDC_SM_METADATA_ENABLE_MP2_DATADUMP_SHFT,
+				VIDC_SM_METADATA_ENABLE_MP2_DATADUMP_BMSK) |
+				VIDC_SETFIELD((extradata_enable) ? 1 : 0,
 				VIDC_SM_METADATA_ENABLE_EXTRADATA_SHFT,
 				VIDC_SM_METADATA_ENABLE_EXTRADATA_BMSK) |
 				VIDC_SETFIELD((enc_slice_size_enable) ? 1 : 0,
@@ -1015,3 +1065,71 @@ void vidc_sm_set_video_core_timeout_value(struct ddl_buf_addr *shared_mem,
 			timeout);
 }
 
+void vidc_sm_set_mp2datadump_enable(struct ddl_buf_addr *shared_mem,
+	struct ddl_mp2_datadumpenabletype *ddl_mp2_datadump_enable)
+{
+	u32 mp2_datadump_enable = 0;
+
+	mp2_datadump_enable = VIDC_SETFIELD(
+				ddl_mp2_datadump_enable->userdatadump_enable,
+				VIDC_SM_MP2_USERDATA_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_USERDATA_DUMP_ENABLE_BMSK) |
+				VIDC_SETFIELD(ddl_mp2_datadump_enable->
+				pictempscalable_extdump_enable ? 1 : 0,
+				VIDC_SM_MP2_PICT_TEMP_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_PICT_TEMP_DUMP_ENABLE_BMSK) |
+				VIDC_SETFIELD(ddl_mp2_datadump_enable->
+				picspat_extdump_enable ? 1 : 0,
+				VIDC_SM_MP2_PICT_SPAT_EXT_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_PICT_SPAT_EXT_DUMP_ENABLE_BMSK) |
+				VIDC_SETFIELD(ddl_mp2_datadump_enable->
+				picdisp_extdump_enable ? 1 : 0,
+				VIDC_SM_MP2_PICT_DISP_EXT_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_PICT_DISP_EXT_DUMP_ENABLE_BMSK) |
+				VIDC_SETFIELD(ddl_mp2_datadump_enable->
+				copyright_extdump_enable ? 1 : 0,
+				VIDC_SM_MP2_COPYRIGHT_EXT_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_COPYRIGHT_EXT_DUMP_ENABLE_BMSK) |
+				VIDC_SETFIELD(ddl_mp2_datadump_enable->
+				quantmatrix_extdump_enable ? 1 : 0,
+				VIDC_SM_MP2_QMATRIX_EXT_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_QMATRIX_EXT_DUMP_ENABLE_BMSK) |
+				VIDC_SETFIELD(ddl_mp2_datadump_enable->
+				seqscalable_extdump_enable ? 1 : 0,
+				VIDC_SM_MP2_SCAL_EXT_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_SCAL_EXT_DUMP_ENABLE_BMSK) |
+				VIDC_SETFIELD(ddl_mp2_datadump_enable->
+				seqdisp_extdump_enable ? 1 : 0,
+				VIDC_SM_MP2_SEQ_DISP_EXT_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_SEQ_DISP_EXT_DUMP_ENABLE_BMSK) |
+				VIDC_SETFIELD(ddl_mp2_datadump_enable->
+				seq_extdump_enable ? 1 : 0,
+				VIDC_SM_MP2_SEQ_EXT_DUMP_ENABLE_SHFT,
+				VIDC_SM_MP2_SEQ_EXT_DUMP_ENABLE_BMSK);
+	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_MP2_DATA_DUMP_CONTROL_ADDR,
+			mp2_datadump_enable);
+
+}
+
+void vidc_sm_get_mp2datadump_status(struct ddl_buf_addr
+		*shared_mem, u32 *ext_userdata_present)
+{
+	u32 status;
+
+	status = DDL_MEM_READ_32(shared_mem,
+			VIDC_SM_MP2_DATA_DUMP_STATUS_ADDR);
+	*ext_userdata_present = (u32) VIDC_GETFIELD(status,
+				VIDC_SM_MP2_USERDATA_DUMP_STATUS_BMSK,
+				VIDC_SM_MP2_USERDATA_DUMP_STATUS_SHFT);
+}
+
+void vidc_sm_set_mp2datadumpbuffer(struct ddl_buf_addr *shared_mem,
+		u32 mp2datadumpaddr, u32 mp2datadumpsize)
+{
+	DDL_MEM_WRITE_32(shared_mem,
+			VIDC_SM_MP2_DATA_DUMP_BUFFER_ADDR,
+			mp2datadumpaddr);
+	DDL_MEM_WRITE_32(shared_mem,
+			VIDC_SM_MP2_DATA_DUMP_BUFFER_SIZE_ADDR,
+			mp2datadumpsize);
+}
