@@ -877,7 +877,7 @@ static int __devinit scorpion_l2_pmu_device_probe(struct platform_device *pdev)
 {
 	scorpion_l2_pmu.plat_device = pdev;
 
-	if (!armpmu_register(&scorpion_l2_pmu, "scorpionl2", -1))
+	if (!armpmu_register(&scorpion_l2_pmu, "msm-l2", -1))
 		pmu_type = scorpion_l2_pmu.pmu.type;
 
 	return 0;
