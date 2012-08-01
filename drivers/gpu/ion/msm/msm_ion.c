@@ -18,14 +18,81 @@
 #include <linux/slab.h>
 #include <linux/memory_alloc.h>
 #include <linux/fmem.h>
+#include <linux/of.h>
 #include <mach/ion.h>
 #include <mach/msm_memtypes.h>
 #include "../ion_priv.h"
 #include "ion_cp_common.h"
 
+#define ION_COMPAT_STR	"qcom,msm-ion"
+#define ION_COMPAT_MEM_RESERVE_STR "qcom,msm-ion-reserve"
+
 static struct ion_device *idev;
 static int num_heaps;
 static struct ion_heap **heaps;
+
+struct ion_heap_desc {
+	unsigned int id;
+	enum ion_heap_type type;
+	const char *name;
+	unsigned int permission_type;
+};
+
+
+static struct ion_heap_desc ion_heap_meta[] = {
+	{
+		.id	= ION_SYSTEM_HEAP_ID,
+		.type	= ION_HEAP_TYPE_SYSTEM,
+		.name	= ION_VMALLOC_HEAP_NAME,
+	},
+	{
+		.id	= ION_CP_MM_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CP,
+		.name	= ION_MM_HEAP_NAME,
+		.permission_type = IPT_TYPE_MM_CARVEOUT,
+	},
+	{
+		.id	= ION_MM_FIRMWARE_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_MM_FIRMWARE_HEAP_NAME,
+	},
+	{
+		.id	= ION_CP_MFC_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CP,
+		.name	= ION_MFC_HEAP_NAME,
+		.permission_type = IPT_TYPE_MFC_SHAREDMEM,
+	},
+	{
+		.id	= ION_SF_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_SF_HEAP_NAME,
+	},
+	{
+		.id	= ION_IOMMU_HEAP_ID,
+		.type	= ION_HEAP_TYPE_IOMMU,
+		.name	= ION_IOMMU_HEAP_NAME,
+	},
+	{
+		.id	= ION_QSECOM_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_QSECOM_HEAP_NAME,
+	},
+	{
+		.id	= ION_AUDIO_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_AUDIO_HEAP_NAME,
+	},
+	{
+		.id	= ION_CP_WB_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CP,
+		.name	= ION_WB_HEAP_NAME,
+	},
+	{
+		.id	= ION_CAMERA_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_CAMERA_HEAP_NAME,
+	},
+};
 
 struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 					const char *name)
@@ -269,11 +336,243 @@ static void check_for_heap_overlap(const struct ion_platform_heap heap_list[],
 	}
 }
 
+static int msm_init_extra_data(struct ion_platform_heap *heap,
+			       const struct ion_heap_desc *heap_desc)
+{
+	int ret = 0;
+
+	switch (heap->type) {
+	case ION_HEAP_TYPE_CP:
+	{
+		heap->extra_data = kzalloc(sizeof(struct ion_cp_heap_pdata),
+					   GFP_KERNEL);
+		if (!heap->extra_data) {
+			ret = -ENOMEM;
+		} else {
+			struct ion_cp_heap_pdata *extra = heap->extra_data;
+			extra->permission_type = heap_desc->permission_type;
+		}
+		break;
+	}
+	case ION_HEAP_TYPE_CARVEOUT:
+	{
+		heap->extra_data = kzalloc(sizeof(struct ion_co_heap_pdata),
+					   GFP_KERNEL);
+		if (!heap->extra_data)
+			ret = -ENOMEM;
+		break;
+	}
+	default:
+		heap->extra_data = 0;
+		break;
+	}
+	return ret;
+}
+
+static int msm_ion_populate_heap(struct ion_platform_heap *heap)
+{
+	unsigned int i;
+	int ret = -EINVAL;
+	unsigned int len = ARRAY_SIZE(ion_heap_meta);
+	for (i = 0; i < len; ++i) {
+		if (ion_heap_meta[i].id == heap->id) {
+			heap->name = ion_heap_meta[i].name;
+			heap->type = ion_heap_meta[i].type;
+			ret = msm_init_extra_data(heap, &ion_heap_meta[i]);
+			break;
+		}
+	}
+	if (ret)
+		pr_err("%s: Unable to populate heap, error: %d", __func__, ret);
+	return ret;
+}
+
+static void free_pdata(const struct ion_platform_data *pdata)
+{
+	unsigned int i;
+	for (i = 0; i < pdata->nr; ++i)
+		kfree(pdata->heaps[i].extra_data);
+	kfree(pdata);
+}
+
+static int memtype_to_ion_memtype[] = {
+	[MEMTYPE_SMI_KERNEL] = ION_SMI_TYPE,
+	[MEMTYPE_SMI]	= ION_SMI_TYPE,
+	[MEMTYPE_EBI0] = ION_EBI_TYPE,
+	[MEMTYPE_EBI1] = ION_EBI_TYPE,
+};
+
+static void msm_ion_get_heap_align(struct device_node *node,
+				   struct ion_platform_heap *heap)
+{
+	unsigned int val;
+
+	int ret = of_property_read_u32(node, "qcom,heap-align", &val);
+	if (!ret) {
+		switch (heap->type) {
+		case ION_HEAP_TYPE_CP:
+		{
+			struct ion_cp_heap_pdata *extra =
+						heap->extra_data;
+			extra->align = val;
+			break;
+		}
+		case ION_HEAP_TYPE_CARVEOUT:
+		{
+			struct ion_co_heap_pdata *extra =
+						heap->extra_data;
+			extra->align = val;
+			break;
+		}
+		default:
+			pr_err("ION-heap %s: Cannot specify alignment for this type of heap\n",
+					heap->name);
+			break;
+		}
+	}
+}
+
+static int msm_ion_get_heap_size(struct device_node *node,
+				 struct ion_platform_heap *heap)
+{
+	unsigned int val;
+	int ret = 0;
+	const char *memory_name_prop;
+
+	ret = of_property_read_u32(node, "qcom,memory-reservation-size", &val);
+	if (!ret) {
+		heap->size = val;
+		ret = of_property_read_string(node,
+					      "qcom,memory-reservation-type",
+					      &memory_name_prop);
+
+		if (!ret && memory_name_prop) {
+			val = msm_get_memory_type_from_name(memory_name_prop);
+			if (val < 0) {
+				ret = -EINVAL;
+				goto out;
+			}
+			heap->memory_type = memtype_to_ion_memtype[val];
+		}
+		if (heap->size && (ret || !memory_name_prop)) {
+			pr_err("%s: Need to specify reservation type\n",
+				__func__);
+			ret = -EINVAL;
+		}
+	} else {
+		ret = 0;
+	}
+out:
+	return ret;
+}
+
+
+static void msm_ion_get_heap_adjacent(struct device_node *node,
+				      struct ion_platform_heap *heap)
+{
+	unsigned int val;
+	int ret = of_property_read_u32(node, "qcom,heap-adjacent", &val);
+	if (!ret) {
+		switch (heap->type) {
+		case ION_HEAP_TYPE_CARVEOUT:
+		{
+			struct ion_co_heap_pdata *extra = heap->extra_data;
+			extra->adjacent_mem_id = val;
+			break;
+		}
+		default:
+			pr_err("ION-heap %s: Cannot specify adjcent mem id for this type of heap\n",
+				heap->name);
+			break;
+		}
+	} else {
+		switch (heap->type) {
+		case ION_HEAP_TYPE_CARVEOUT:
+		{
+			struct ion_co_heap_pdata *extra = heap->extra_data;
+			extra->adjacent_mem_id = INVALID_HEAP_ID;
+			break;
+		}
+		default:
+			break;
+		}
+	}
+}
+
+static struct ion_platform_data *msm_ion_parse_dt(
+					const struct device_node *dt_node)
+{
+	struct ion_platform_data *pdata = 0;
+	struct device_node *node;
+	uint32_t val = 0;
+	int ret = 0;
+	uint32_t num_heaps = 0;
+	int idx = 0;
+
+	for_each_child_of_node(dt_node, node)
+		num_heaps++;
+
+	if (!num_heaps)
+		return ERR_PTR(-EINVAL);
+
+	pdata = kzalloc(sizeof(struct ion_platform_data) +
+			num_heaps*sizeof(struct ion_platform_heap), GFP_KERNEL);
+	if (!pdata)
+		return ERR_PTR(-ENOMEM);
+
+	pdata->nr = num_heaps;
+
+	for_each_child_of_node(dt_node, node) {
+		/**
+		 * TODO: Replace this with of_get_address() when this patch
+		 * gets merged: http://
+		 * permalink.gmane.org/gmane.linux.drivers.devicetree/18614
+		*/
+		ret = of_property_read_u32(node, "reg", &val);
+		if (ret) {
+			pr_err("%s: Unable to find reg key", __func__);
+			goto free_heaps;
+		}
+		pdata->heaps[idx].id = val;
+
+		ret = msm_ion_populate_heap(&pdata->heaps[idx]);
+		if (ret)
+			goto free_heaps;
+
+		msm_ion_get_heap_align(node, &pdata->heaps[idx]);
+
+		ret = msm_ion_get_heap_size(node, &pdata->heaps[idx]);
+		if (ret)
+			goto free_heaps;
+
+		msm_ion_get_heap_adjacent(node, &pdata->heaps[idx]);
+
+		++idx;
+	}
+	return pdata;
+
+free_heaps:
+	free_pdata(pdata);
+	return ERR_PTR(ret);
+}
+
 static int msm_ion_probe(struct platform_device *pdev)
 {
-	struct ion_platform_data *pdata = pdev->dev.platform_data;
-	int err;
+	struct ion_platform_data *pdata;
+	unsigned int pdata_needs_to_be_freed;
+	int err = -1;
 	int i;
+	if (pdev->dev.of_node) {
+		pdata = msm_ion_parse_dt(pdev->dev.of_node);
+		if (IS_ERR(pdata)) {
+			err = PTR_ERR(pdata);
+			goto out;
+		}
+		pdata_needs_to_be_freed = 1;
+	} else {
+		pdata = pdev->dev.platform_data;
+		pdata_needs_to_be_freed = 0;
+	}
 
 	num_heaps = pdata->nr;
 
@@ -315,6 +614,8 @@ static int msm_ion_probe(struct platform_device *pdev)
 
 		ion_device_add_heap(idev, heaps[i]);
 	}
+	if (pdata_needs_to_be_freed)
+		free_pdata(pdata);
 
 	check_for_heap_overlap(pdata->heaps, num_heaps);
 	platform_set_drvdata(pdev, idev);
@@ -322,6 +623,8 @@ static int msm_ion_probe(struct platform_device *pdev)
 
 freeheaps:
 	kfree(heaps);
+	if (pdata_needs_to_be_freed)
+		free_pdata(pdata);
 out:
 	return err;
 }
@@ -339,10 +642,19 @@ static int msm_ion_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id msm_ion_match_table[] = {
+	{.compatible = ION_COMPAT_STR},
+	{},
+};
+EXPORT_COMPAT(ION_COMPAT_MEM_RESERVE_STR);
+
 static struct platform_driver msm_ion_driver = {
 	.probe = msm_ion_probe,
 	.remove = msm_ion_remove,
-	.driver = { .name = "ion-msm" }
+	.driver = {
+		.name = "ion-msm",
+		.of_match_table = msm_ion_match_table,
+	},
 };
 
 static int __init msm_ion_init(void)
