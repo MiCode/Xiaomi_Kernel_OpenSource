@@ -116,6 +116,7 @@ static const struct file_operations genlock_fops = {
 struct genlock *genlock_create_lock(struct genlock_handle *handle)
 {
 	struct genlock *lock;
+	void *ret;
 
 	if (IS_ERR_OR_NULL(handle)) {
 		GENLOCK_LOG_ERR("Invalid handle\n");
@@ -145,8 +146,13 @@ struct genlock *genlock_create_lock(struct genlock_handle *handle)
 	 * other processes
 	 */
 
-	lock->file = anon_inode_getfile("genlock", &genlock_fops,
-		lock, O_RDWR);
+	ret = anon_inode_getfile("genlock", &genlock_fops, lock, O_RDWR);
+	if (IS_ERR_OR_NULL(ret)) {
+		GENLOCK_LOG_ERR("Unable to create lock inode\n");
+		kfree(lock);
+		return ret;
+	}
+	lock->file = ret;
 
 	/* Attach the new lock to the handle */
 	handle->lock = lock;
@@ -660,12 +666,19 @@ static struct genlock_handle *_genlock_get_handle(void)
 
 struct genlock_handle *genlock_get_handle(void)
 {
+	void *ret;
 	struct genlock_handle *handle = _genlock_get_handle();
 	if (IS_ERR(handle))
 		return handle;
 
-	handle->file = anon_inode_getfile("genlock-handle",
+	ret = anon_inode_getfile("genlock-handle",
 		&genlock_handle_fops, handle, O_RDWR);
+	if (IS_ERR_OR_NULL(ret)) {
+		GENLOCK_LOG_ERR("Unable to create handle inode\n");
+		kfree(handle);
+		return ret;
+	}
+	handle->file = ret;
 
 	return handle;
 }
