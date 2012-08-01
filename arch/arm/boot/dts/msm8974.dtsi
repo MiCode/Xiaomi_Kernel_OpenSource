@@ -18,6 +18,7 @@
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8974-ion.dtsi"
 /include/ "msm8974-gpu.dtsi"
+/include/ "msm8974-mdss.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974";
@@ -655,28 +656,6 @@
 
 	qcom,qseecom@fe806000 {
 		compatible = "qcom,qseecom";
-	};
-
-	qcom,mdss_mdp@fd900000 {
-		cell-index = <0>;
-		compatible = "qcom,mdss_mdp";
-		reg = <0xfd900000 0x22100>;
-		interrupts = <0 72 0>;
-		vdd-supply = <&gdsc_mdss>;
-	};
-
-	mdss_dsi: qcom,mdss_dsi@fd922800 {
-		cell-index = <1>;
-		compatible = "qcom,msm-mdss-dsi";
-		reg = <0xfd922800 0x5ac>,
-			<0xfd8c0000 0x01000>;
-	};
-
-	qcom,mdss_wb_panel {
-		cell-index = <1>;
-		compatible = "qcom,mdss_wb";
-		qcom,mdss_pan_res = <640 480>;
-		qcom,mdss_pan_bpp = <24>;
 	};
 
 	qcom,wdt@f9017000 {

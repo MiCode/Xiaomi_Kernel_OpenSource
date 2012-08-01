@@ -1,0 +1,32 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,mdss_mdp@fd900000 {
+		compatible = "qcom,mdss_mdp";
+		reg = <0xfd900000 0x22100>;
+		interrupts = <0 72 0>;
+		vdd-supply = <&gdsc_mdss>;
+	};
+
+	mdss_dsi: qcom,mdss_dsi@fd922800 {
+		compatible = "qcom,msm-mdss-dsi";
+		reg = <0xfd922800 0x5ac>,
+			<0xfd8c2000 0x01000>;
+	};
+
+	qcom,mdss_wb_panel {
+		compatible = "qcom,mdss_wb";
+		qcom,mdss_pan_res = <640 480>;
+		qcom,mdss_pan_bpp = <24>;
+	};
+};
