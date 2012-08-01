@@ -66,6 +66,8 @@ int of_register_slim_devices(struct slim_controller *ctrl)
 			kfree(slim);
 			return -ENOMEM;
 		}
+
+		slim->dev.of_node = of_node_get(node);
 		slim->name = (const char *)name;
 		binfo[n].bus_num = ctrl->nr;
 		binfo[n].slim_slave = slim;
