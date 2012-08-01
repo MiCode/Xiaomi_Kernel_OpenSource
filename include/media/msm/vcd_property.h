@@ -113,6 +113,9 @@ enum vcd_perf_level {
 #define VCD_METADATA_PASSTHROUGH    0x080
 #define VCD_METADATA_ENC_SLICE      0x100
 
+#define VCD_METADATA_EXT_DATA       0x0800
+#define VCD_METADATA_USER_DATA      0x1000
+
 struct vcd_property_meta_data_enable {
 	u32 meta_data_enable_flag;
 };
