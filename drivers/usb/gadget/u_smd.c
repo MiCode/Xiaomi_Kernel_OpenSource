@@ -712,7 +712,9 @@ void gsmd_disconnect(struct gserial *gser, u8 portno)
 
 	/* disable endpoints, aborting down any active I/O */
 	usb_ep_disable(gser->out);
+	gser->out->driver_data = NULL;
 	usb_ep_disable(gser->in);
+	gser->in->driver_data = NULL;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	gsmd_free_requests(gser->out, &port->read_pool);
