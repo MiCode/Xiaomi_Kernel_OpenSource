@@ -1,0 +1,25 @@
+* Qualcomm MSM JPEG
+
+Required properties:
+- cell-index: jpeg hardware core index
+- compatible :
+    - "qcom,jpeg"
+- reg : offset and length of the register set for the device
+    for the jpeg operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the jpeg interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+- vdd-supply: phandle to GDSC regulator controlling JPEG core.
+
+Example:
+
+   qcom,jpeg@0xfda20000 {
+       cell-index = <0>;
+       compatible = "qcom,jpeg";
+       reg = <0xfda20000 0x400>;
+       reg-names = "jpeg";
+       interrupts = <0 60 0>;
+       interrupt-names = "jpeg";
+       vdd-supply = <&gdsc_jpeg>;
+   };

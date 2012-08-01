@@ -1,0 +1,25 @@
+* Qualcomm MSM VFE
+
+Required properties:
+- cell-index: vfe hardware core index
+- compatible :
+    - "qcom,vfe"
+- reg : offset and length of the register set for the device
+    for the vfe operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the vfe interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+- vdd-supply: phandle to GDSC regulator controlling VFE core.
+
+Example:
+
+   qcom,vfe@0xfda10000 {
+       cell-index = <0>;
+       compatible = "qcom,vfe";
+       reg = <0xfda10000 0x1000>;
+       reg-names = "vfe";
+       interrupts = <0 58 0>;
+       interrupt-names = "vfe";
+       vdd-supply = <&gdsc_vfe>;
+   };

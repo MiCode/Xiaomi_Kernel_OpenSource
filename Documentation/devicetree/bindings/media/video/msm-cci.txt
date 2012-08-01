@@ -1,0 +1,23 @@
+* Qualcomm MSM CCI
+
+Required properties:
+- cell-index: cci hardware core index
+- compatible :
+    - "qcom,cci"
+- reg : offset and length of the register set for the device
+    for the cci operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the cci interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+
+Example:
+
+   qcom,cci@0xfda0c000 {
+       cell-index = <0>;
+       compatible = "qcom,cci";
+       reg = <0xfda0c000 0x300>;
+       reg-names = "cci";
+       interrupts = <0 50 0>;
+       interrupt-names = "cci";
+   };
