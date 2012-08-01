@@ -3243,12 +3243,14 @@ static int msmfb_notify_update(struct fb_info *info, unsigned long *argp)
 
 	if (notify == NOTIFY_UPDATE_START) {
 		INIT_COMPLETION(mfd->msmfb_update_notify);
-		wait_for_completion_interruptible(&mfd->msmfb_update_notify);
+		ret = wait_for_completion_interruptible_timeout(
+		&mfd->msmfb_update_notify, 4*HZ);
 	} else {
 		INIT_COMPLETION(mfd->msmfb_no_update_notify);
-		wait_for_completion_interruptible(&mfd->msmfb_no_update_notify);
+		ret = wait_for_completion_interruptible_timeout(
+		&mfd->msmfb_no_update_notify, 4*HZ);
 	}
-	return 0;
+	return (ret > 0) ? 0 : -1;
 }
 
 static int msmfb_handle_pp_ioctl(struct msm_fb_data_type *mfd,
