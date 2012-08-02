@@ -2273,7 +2273,8 @@ kgsl_mmap_memstore(struct kgsl_device *device, struct vm_area_struct *vma)
 
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
-	result = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+	result = remap_pfn_range(vma, vma->vm_start,
+				device->memstore.physaddr >> PAGE_SHIFT,
 				 vma_size, vma->vm_page_prot);
 	if (result != 0)
 		KGSL_MEM_ERR(device, "remap_pfn_range failed: %d\n",
@@ -2327,7 +2328,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	/* Handle leagacy behavior for memstore */
 
-	if (vma_offset == device->memstore.physaddr)
+	if (vma_offset == device->memstore.gpuaddr)
 		return kgsl_mmap_memstore(device, vma);
 
 	/* Find a chunk of GPU memory */
