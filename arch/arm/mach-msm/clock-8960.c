@@ -4543,6 +4543,7 @@ static CLK_AIF_BIT_DIV(spare_i2s_spkr_bit, LCC_SPARE_I2S_SPKR_NS_REG,
 	}
 static struct clk_freq_tbl clk_tbl_pcm_492[] = {
 	{ .ns_val = BIT(10) /* external input */ },
+	F_PCM(  256000, pll4, 4, 1, 480),
 	F_PCM(  512000, pll4, 4, 1, 240),
 	F_PCM(  768000, pll4, 4, 1, 160),
 	F_PCM( 1024000, pll4, 4, 1, 120),
@@ -4559,6 +4560,7 @@ static struct clk_freq_tbl clk_tbl_pcm_492[] = {
 
 static struct clk_freq_tbl clk_tbl_pcm_393[] = {
 	{ .ns_val = BIT(10) /* external input */ },
+	F_PCM(  256000, pll4, 4, 1, 384),
 	F_PCM(  512000, pll4, 4, 1, 192),
 	F_PCM(  768000, pll4, 4, 1, 128),
 	F_PCM( 1024000, pll4, 4, 1,  96),
