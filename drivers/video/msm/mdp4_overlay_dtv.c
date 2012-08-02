@@ -73,6 +73,7 @@ static struct vsycn_ctrl {
 	int dmae_wait_cnt;
 	int wait_vsync_cnt;
 	int blt_change;
+	int fake_vsync;
 	struct mutex update_lock;
 	struct completion dmae_comp;
 	struct completion vsync_comp;
@@ -235,6 +236,11 @@ void mdp4_dtv_vsync_ctrl(int cndx, int enable)
 	}
 
 	vctrl = &vsync_ctrl_db[cndx];
+
+	if (vctrl->fake_vsync) {
+		vctrl->fake_vsync = 0;
+		schedule_work(&vctrl->vsync_work);
+	}
 
 	if (vctrl->vsync_irq_enabled == enable)
 		return;
@@ -521,6 +527,7 @@ int mdp4_dtv_on(struct platform_device *pdev)
 		return -EINVAL;
 
 	vctrl->dev = mfd->fbi->dev;
+	vctrl->fake_vsync = 1;
 
 	mdp_footswitch_ctrl(TRUE);
 	/* Mdp clock enable */
@@ -587,6 +594,7 @@ int mdp4_dtv_off(struct platform_device *pdev)
 
 	ret = panel_next_off(pdev);
 	mdp_footswitch_ctrl(FALSE);
+	vctrl->fake_vsync = 1;
 
 	/* Mdp clock disable */
 	mdp_clk_ctrl(0);
