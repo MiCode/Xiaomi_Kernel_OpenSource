@@ -254,7 +254,7 @@ config ARCH_MSM8974
 	select SPARSE_IRQ
 	select MSM_RPM_SMD
 	select REGULATOR
-	select MSM_QDSP6_APR
+	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select MSM_RPM_REGULATOR_SMD
@@ -2203,6 +2203,16 @@ config MSM_QDSP6_APR
 	default n
 	help
 	  Enable APR IPC protocol support between
+	  application processor and QDSP6. APR is
+	  used by audio driver to configure QDSP6's
+	  ASM, ADM and AFE.
+
+config MSM_QDSP6_APRV2
+	bool "Audio QDSP6 APRv2 support"
+	depends on MSM_SMD
+	default n
+	help
+	  Enable APRv2 IPC protocol support between
 	  application processor and QDSP6. APR is
 	  used by audio driver to configure QDSP6's
 	  ASM, ADM and AFE.
