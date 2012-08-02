@@ -1565,11 +1565,16 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	int rc = -EINVAL;
 	uint32_t mctl_handle = 0;
 	struct msm_cam_media_controller *p_mctl = NULL;
+	int is_gesture_evt =
+		(notification == NOTIFY_GESTURE_EVT)
+		|| (notification == NOTIFY_GESTURE_CAM_EVT);
 
-	mctl_handle = msm_camera_server_find_mctl(notification, arg);
-	if (mctl_handle < 0) {
-		pr_err("%s: Couldn't find mctl instance!\n", __func__);
-		return;
+	if (!is_gesture_evt) {
+		mctl_handle = msm_camera_server_find_mctl(notification, arg);
+		if (mctl_handle < 0) {
+			pr_err("%s: Couldn't find mctl instance!\n", __func__);
+			return;
+		}
 	}
 	switch (notification) {
 	case NOTIFY_ISP_MSG_EVT:
@@ -2283,12 +2288,17 @@ int msm_cam_server_open_mctl_session(struct msm_cam_v4l2_device *pcam,
 	int *p_active)
 {
 	int rc = 0;
+	int i = 0;
 	struct msm_cam_media_controller *pmctl = NULL;
 	*p_active = 0;
-	if (g_server_dev.pcam_active[pcam->server_queue_idx]) {
-		D("%s: Active camera present return", __func__);
-		return 0;
+
+	for (i = 0; i < MAX_NUM_ACTIVE_CAMERA; i++) {
+		if (NULL != g_server_dev.pcam_active[i]) {
+			pr_info("%s: Active camera present return", __func__);
+			return 0;
+		}
 	}
+
 	rc = msm_cam_server_open_session(&g_server_dev, pcam);
 	if (rc < 0) {
 		pr_err("%s: cam_server_open_session failed %d\n",
