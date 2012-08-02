@@ -235,6 +235,7 @@ typedef struct rndis_params
 	struct net_device	*dev;
 
 	u32			vendorID;
+	u8			max_pkt_per_xfer;
 	const char		*vendorDescr;
 	void			(*resp_avail)(void *v);
 	void			*v;
