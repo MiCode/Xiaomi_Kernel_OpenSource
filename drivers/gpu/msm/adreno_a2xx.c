@@ -1840,7 +1840,7 @@ static void a2xx_rb_init(struct adreno_device *adreno_dev,
 	unsigned int *cmds, cmds_gpu;
 
 	/* ME_INIT */
-	cmds = adreno_ringbuffer_allocspace(rb, 19);
+	cmds = adreno_ringbuffer_allocspace(rb, NULL, 19);
 	cmds_gpu = rb->buffer_desc.gpuaddr + sizeof(uint)*(rb->wptr-19);
 
 	GSL_RB_WRITE(cmds, cmds_gpu, cp_type3_packet(CP_ME_INIT, 18));
