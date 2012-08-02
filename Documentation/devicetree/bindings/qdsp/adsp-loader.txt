@@ -1,0 +1,10 @@
+* MSM Application DSP loader binding
+
+Required properties:
+- compatible : "qcom,adsp-loader"
+
+Example:
+
+	qcom,msm-adsp-loader {
+		compatible = "qcom,adsp-loader";
+	};

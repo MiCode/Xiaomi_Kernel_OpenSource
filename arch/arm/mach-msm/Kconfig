@@ -2254,6 +2254,16 @@ config MSM_AUDIO_QDSP6V2
           AAC, AMRNB, AMRWB, EVRC, MP3, QCELP among
           others.
 
+config MSM_ADSP_LOADER
+        tristate "ADSP loader support"
+        select SND_SOC_MSM_APRV2_INTF
+	depends on MSM_AUDIO_QDSP6V2 && m
+        help
+          Enable ADSP image loader.
+	  The ADSP loader brings ADSP out of reset
+	  for the platforms that use APRv2.
+	  Say M if you want to enable this module.
+
 config MSM_ULTRASOUND
 	bool "MSM ultrasound support"
 	depends on MSM_AUDIO_QDSP6
