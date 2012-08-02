@@ -33,6 +33,7 @@
 #include <linux/smux.h>
 #include <linux/slab.h>
 #include <linux/debugfs.h>
+#include <linux/poll.h>
 
 #include <asm/ioctls.h>
 
@@ -753,6 +754,33 @@ static long smux_ctl_ioctl(struct file *file, unsigned int cmd,
 	return ret;
 }
 
+static unsigned int smux_ctl_poll(struct file *file, poll_table *wait)
+{
+	struct smux_ctl_dev *devp;
+	unsigned int mask = 0;
+	int readable;
+
+	devp = file->private_data;
+	if (!devp)
+		return -ENODEV;
+
+	SMUXCTL_DBG(SMUX_CTL_MODULE_NAME ": %s called on smuxctl%d\n",
+			__func__, devp->id);
+
+	poll_wait(file, &devp->read_wait_queue, wait);
+
+	readable = smux_ctl_readable(devp->id);
+	if (readable < 0) {
+		pr_err(SMUX_CTL_MODULE_NAME ": %s err%d during poll for smuxctl%d\n",
+			__func__, readable, devp->id);
+		mask = POLLERR;
+	} else if (readable) {
+		mask = POLLIN | POLLRDNORM;
+	}
+
+	return mask;
+}
+
 static const struct file_operations smux_ctl_fops = {
 	.owner = THIS_MODULE,
 	.open = smux_ctl_open,
@@ -760,6 +788,7 @@ static const struct file_operations smux_ctl_fops = {
 	.read = smux_ctl_read,
 	.write = smux_ctl_write,
 	.unlocked_ioctl = smux_ctl_ioctl,
+	.poll = smux_ctl_poll,
 };
 
 static void smux_ctl_reset_channel(struct smux_ctl_dev *devp)
