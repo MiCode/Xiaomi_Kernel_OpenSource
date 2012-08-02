@@ -1662,6 +1662,12 @@ void mdp4_overlay_borderfill_stage_up(struct mdp4_overlay_pipe *pipe)
 
 	bspipe = ctrl->stage[mixer][MDP4_MIXER_STAGE_BASE];
 
+	/*
+	 * bspipe is clone here
+	 * get real pipe
+	 */
+	bspipe = mdp4_overlay_ndx2pipe(bspipe->pipe_ndx);
+
 	/* save original base layer */
 	ctrl->baselayer[mixer] = bspipe;
 
