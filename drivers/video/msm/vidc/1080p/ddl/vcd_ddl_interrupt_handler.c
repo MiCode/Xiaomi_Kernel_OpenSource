@@ -1302,6 +1302,7 @@ static u32 ddl_decoder_output_done_callback(
 		ddl_process_decoder_metadata(ddl);
 		vidc_sm_get_aspect_ratio_info(
 			&ddl->shared_mem[ddl->command_channel],
+			decoder->codec.codec,
 			&output_vcd_frm->aspect_ratio_info);
 		ddl_context->ddl_callback(VCD_EVT_RESP_OUTPUT_DONE,
 			vcd_status, output_frame,

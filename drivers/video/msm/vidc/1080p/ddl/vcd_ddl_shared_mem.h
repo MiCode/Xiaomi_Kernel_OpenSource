@@ -180,7 +180,7 @@ void vidc_sm_set_decoder_stuff_bytes_consumption(
 	struct ddl_buf_addr *shared_mem,
 	enum vidc_sm_num_stuff_bytes_consume_info consume_info);
 void vidc_sm_get_aspect_ratio_info(struct ddl_buf_addr *shared_mem,
-	struct vcd_aspect_ratio *aspect_ratio_info);
+	enum vcd_codec codec, struct vcd_aspect_ratio *aspect_ratio_info);
 void vidc_sm_set_encoder_slice_batch_int_ctrl(struct ddl_buf_addr *shared_mem,
 	u32 slice_batch_int_enable);
 void vidc_sm_get_num_slices_comp(struct ddl_buf_addr *shared_mem,

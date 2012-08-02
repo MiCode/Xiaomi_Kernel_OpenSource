@@ -55,8 +55,8 @@ enum vcd_power_state {
 
 struct vcd_aspect_ratio {
 	u32 aspect_ratio;
-	u32 extended_par_width;
-	u32 extended_par_height;
+	u32 par_width;
+	u32 par_height;
 };
 
 struct vcd_frame_data {
