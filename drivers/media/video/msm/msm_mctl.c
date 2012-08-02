@@ -422,7 +422,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
 				VIDIOC_MSM_AXI_CFG, (void __user *)arg);
 		else
-			rc = p_mctl->isp_sdev->isp_config(p_mctl, cmd, arg);
+			rc = p_mctl->isp_config(p_mctl, cmd, arg);
 		break;
 	case MSM_CAM_IOCTL_ISPIF_IO_CFG:
 		rc = v4l2_subdev_call(p_mctl->ispif_sdev,
@@ -432,7 +432,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		/* ISP config*/
 		D("%s:%d: go to default. Calling msm_isp_config\n",
 			__func__, __LINE__);
-		rc = p_mctl->isp_sdev->isp_config(p_mctl, cmd, arg);
+		rc = p_mctl->isp_config(p_mctl, cmd, arg);
 		break;
 	}
 	D("%s: !!! cmd = %d, rc = %d\n",
@@ -707,6 +707,9 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 	pmctl->mctl_open = msm_mctl_open;
 	pmctl->mctl_cmd = msm_mctl_cmd;
 	pmctl->mctl_release = msm_mctl_release;
+	pmctl->isp_config = msm_isp_config;
+	pmctl->isp_notify = msm_isp_notify;
+
 	/* init mctl buf */
 	msm_mctl_buf_init(pcam);
 	memset(&pmctl->pp_info, 0, sizeof(pmctl->pp_info));

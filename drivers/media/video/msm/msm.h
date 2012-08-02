@@ -242,6 +242,10 @@ struct msm_cam_media_controller {
 	int (*mctl_vbqueue_init)(struct msm_cam_v4l2_dev_inst *pcam,
 				struct vb2_queue *q, enum v4l2_buf_type type);
 	int (*mctl_ufmt_init)(struct msm_cam_media_controller *p_mctl);
+	int (*isp_config)(struct msm_cam_media_controller *pmctl,
+		 unsigned int cmd, unsigned long arg);
+	int (*isp_notify)(struct msm_cam_media_controller *pmctl,
+		struct v4l2_subdev *sd, unsigned int notification, void *arg);
 
 	/* the following reflect the HW topology information*/
 	struct v4l2_subdev *sensor_sdev; /* sensor sub device */
@@ -253,10 +257,10 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *gemini_sdev; /* gemini sub device */
 	struct v4l2_subdev *vpe_sdev; /* vpe sub device */
 	struct v4l2_subdev *axi_sdev; /* axi sub device */
+	struct v4l2_subdev *vfe_sdev; /* vfe sub device */
 	struct v4l2_subdev *eeprom_sdev; /* eeprom sub device */
 	struct v4l2_subdev *cpp_sdev;/*cpp sub device*/
 
-	struct msm_isp_ops *isp_sdev;    /* isp sub device : camif/VFE */
 	struct msm_cam_config_dev *config_device;
 
 	/*mctl session control information*/
@@ -282,21 +286,6 @@ struct msm_cam_media_controller {
 	uint32_t ping_imem_cbcr;
 	uint32_t pong_imem_y;
 	uint32_t pong_imem_cbcr;
-};
-
-/* abstract camera device represents a VFE and connected sensor */
-struct msm_isp_ops {
-	char *config_dev_name;
-
-	int (*isp_config)(struct msm_cam_media_controller *pmctl,
-		 unsigned int cmd, unsigned long arg);
-	int (*isp_notify)(struct v4l2_subdev *sd,
-		unsigned int notification, void *arg);
-	int (*isp_pp_cmd)(struct msm_cam_media_controller *pmctl,
-		 struct msm_mctl_pp_cmd, void *data);
-
-	/* vfe subdevice */
-	struct v4l2_subdev *sd;
 };
 
 struct msm_isp_buf_info {
@@ -571,11 +560,13 @@ struct msm_cam_buf_handle {
 
 /* ISP related functions */
 void msm_isp_vfe_dev_init(struct v4l2_subdev *vd);
+int msm_isp_config(struct msm_cam_media_controller *pmctl,
+			 unsigned int cmd, unsigned long arg);
+int msm_isp_notify(struct msm_cam_media_controller *pmctl,
+	struct v4l2_subdev *sd, unsigned int notification, void *arg);
 /*
 int msm_isp_register(struct msm_cam_v4l2_device *pcam);
 */
-int msm_isp_register(struct msm_cam_server_dev *psvr);
-void msm_isp_unregister(struct msm_cam_server_dev *psvr);
 int msm_sensor_register(struct v4l2_subdev *);
 int msm_isp_init_module(int g_num_config_nodes);
 
