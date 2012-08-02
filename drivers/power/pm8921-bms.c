@@ -142,6 +142,7 @@ struct pm8921_bms_chip {
 	int			ignore_shutdown_soc;
 	int			prev_iavg_ua;
 	int			prev_uuc_iavg_ma;
+	int			adjust_soc_low_threshold;
 };
 
 /*
@@ -1440,6 +1441,7 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	int soc_new = 0;
 	int m = 0;
 	int rc = 0;
+	int delta_ocv_uv_limit = 0;
 
 	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
 							&ibat_ua,
@@ -1452,6 +1454,9 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 
 	if (ibat_ua < 0)
 		goto out;
+
+	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
+
 	ocv_est_uv = vbat_uv + (ibat_ua * rbatt)/1000;
 	pc_est = calculate_pc(chip, ocv_est_uv, batt_temp, last_chargecycles);
 	soc_est = div_s64((s64)fcc_uah * pc_est - uuc_uah*100,
@@ -1469,7 +1474,8 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	 * and  cause a bad user experience
 	 */
 	if (soc_est == soc
-		|| (is_between(45, 25, soc_est) && is_between(50, 20, soc))
+		|| (is_between(45, chip->adjust_soc_low_threshold, soc_est)
+		&& is_between(50, chip->adjust_soc_low_threshold - 5, soc))
 		|| soc >= 90)
 		goto out;
 
@@ -1504,6 +1510,18 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 
 	delta_ocv_uv = div_s64((soc - soc_est) * (s64)m * 1000,
 							n * (pc - pc_new));
+
+	if (abs(delta_ocv_uv) > delta_ocv_uv_limit) {
+		pr_debug("limiting delta ocv %d limit = %d\n", delta_ocv_uv,
+				delta_ocv_uv_limit);
+
+		if (delta_ocv_uv > 0)
+			delta_ocv_uv = delta_ocv_uv_limit;
+		else
+			delta_ocv_uv = -1 * delta_ocv_uv_limit;
+		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
+	}
+
 	chip->last_ocv_uv -= delta_ocv_uv;
 
 	if (chip->last_ocv_uv >= chip->max_voltage_uv)
@@ -3038,6 +3056,10 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->start_percent = -EINVAL;
 	chip->end_percent = -EINVAL;
 	chip->shutdown_soc_valid_limit = pdata->shutdown_soc_valid_limit;
+	chip->adjust_soc_low_threshold = pdata->adjust_soc_low_threshold;
+	if (chip->adjust_soc_low_threshold >= 45)
+		chip->adjust_soc_low_threshold = 45;
+
 	chip->ignore_shutdown_soc = pdata->ignore_shutdown_soc;
 	rc = set_battery_data(chip);
 	if (rc) {

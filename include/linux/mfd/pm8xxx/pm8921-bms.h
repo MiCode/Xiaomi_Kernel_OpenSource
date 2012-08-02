@@ -132,6 +132,7 @@ struct pm8921_bms_platform_data {
 	int				enable_fcc_learning;
 	int				shutdown_soc_valid_limit;
 	int				ignore_shutdown_soc;
+	int				adjust_soc_low_threshold;
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)
