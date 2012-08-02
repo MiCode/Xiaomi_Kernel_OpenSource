@@ -544,40 +544,6 @@ void __init msm_8974_add_devices(void)
 					msm_8974_stub_regulator_devices_len);
 }
 
-static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("xo",		XO_CLK,		NULL,	OFF),
-	CLK_DUMMY("xo",		XO_CLK,		"pil_pronto",		OFF),
-	CLK_DUMMY("core_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
-	CLK_DUMMY("iface_clk",	BLSP2_UART_CLK,	"msm_serial_hsl.0",	OFF),
-	CLK_DUMMY("core_clk",	SDC1_CLK,	NULL,			OFF),
-	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	NULL,			OFF),
-	CLK_DUMMY("core_clk",	SDC3_CLK,	NULL,			OFF),
-	CLK_DUMMY("iface_clk",	SDC3_P_CLK,	NULL,			OFF),
-	CLK_DUMMY("phy_clk", NULL, "msm_otg", OFF),
-	CLK_DUMMY("core_clk", NULL, "msm_otg", OFF),
-	CLK_DUMMY("iface_clk", NULL, "msm_otg", OFF),
-	CLK_DUMMY("xo", NULL, "msm_otg", OFF),
-	CLK_DUMMY("dfab_clk",	DFAB_CLK,	NULL, 0),
-	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	NULL, 0),
-	CLK_DUMMY("mem_clk",	NULL,	NULL, 0),
-	CLK_DUMMY("core_clk",	SPI_CLK,	"spi_qsd.1",	OFF),
-	CLK_DUMMY("iface_clk",	SPI_P_CLK,	"spi_qsd.1",	OFF),
-	CLK_DUMMY("core_clk",	NULL,	"f9966000.i2c", 0),
-	CLK_DUMMY("iface_clk",	NULL,	"f9966000.i2c", 0),
-	CLK_DUMMY("core_clk",	NULL,	"fe12f000.slim",	OFF),
-	CLK_DUMMY("core_clk", "mdp.0", NULL, 0),
-	CLK_DUMMY("core_clk_src", "mdp.0", NULL, 0),
-	CLK_DUMMY("lut_clk", "mdp.0", NULL, 0),
-	CLK_DUMMY("vsync_clk", "mdp.0", NULL, 0),
-	CLK_DUMMY("iface_clk", "mdp.0", NULL, 0),
-	CLK_DUMMY("bus_clk", "mdp.0", NULL, 0),
-};
-
-struct clock_init_data msm_dummy_clock_init_data __initdata = {
-	.table = msm_clocks_dummy,
-	.size = ARRAY_SIZE(msm_clocks_dummy),
-};
-
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -594,7 +560,7 @@ void __init msm_8974_add_drivers(void)
 	msm_spm_device_init();
 	regulator_stub_init();
 	if (machine_is_msm8974_rumi())
-		msm_clock_init(&msm_dummy_clock_init_data);
+		msm_clock_init(&msm8974_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8974_clock_init_data);
 	msm8974_init_buses();
