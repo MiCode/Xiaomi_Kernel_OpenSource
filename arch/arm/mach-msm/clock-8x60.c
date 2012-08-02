@@ -3486,6 +3486,7 @@ static struct clk_lookup msm_clocks_8x60[] = {
 	CLK_LOOKUP("xo",		cxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",		pxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",		pxo_clk.c,	"pil_modem"),
+	CLK_LOOKUP("vref_buff",		cxo_clk.c,	"rpm-regulator"),
 	CLK_LOOKUP("pll4",		pll4_clk.c,	"pil_qdsp6v3"),
 	CLK_LOOKUP("measure",		measure_clk.c,	"debug"),
 
