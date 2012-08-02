@@ -54,6 +54,10 @@ struct msm_hcd {
 	bool					async_int;
 	bool					vbus_on;
 	atomic_t				in_lpm;
+	int					pmic_gpio_dp_irq;
+	bool					pmic_gpio_dp_irq_enabled;
+	uint32_t				pmic_gpio_int_cnt;
+	atomic_t				pm_usage_cnt;
 	struct wake_lock			wlock;
 };
 
@@ -603,6 +607,11 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 
 	atomic_set(&mhcd->in_lpm, 1);
 	enable_irq(hcd->irq);
+	if (mhcd->pmic_gpio_dp_irq) {
+		mhcd->pmic_gpio_dp_irq_enabled = 1;
+		enable_irq_wake(mhcd->pmic_gpio_dp_irq);
+		enable_irq(mhcd->pmic_gpio_dp_irq);
+	}
 	wake_unlock(&mhcd->wlock);
 
 	dev_info(mhcd->dev, "EHCI USB in low power mode\n");
@@ -622,6 +631,11 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 		return 0;
 	}
 
+	if (mhcd->pmic_gpio_dp_irq_enabled) {
+		disable_irq_wake(mhcd->pmic_gpio_dp_irq);
+		disable_irq_nosync(mhcd->pmic_gpio_dp_irq);
+		mhcd->pmic_gpio_dp_irq_enabled = 0;
+	}
 	wake_lock(&mhcd->wlock);
 
 	/* Vote for TCXO when waking up the phy */
@@ -669,6 +683,11 @@ skip_phy_resume:
 		enable_irq(hcd->irq);
 	}
 
+	if (atomic_read(&mhcd->pm_usage_cnt)) {
+		atomic_set(&mhcd->pm_usage_cnt, 0);
+		pm_runtime_put_noidle(mhcd->dev);
+	}
+
 	dev_info(mhcd->dev, "EHCI USB exited from low power mode\n");
 
 	return 0;
@@ -687,6 +706,32 @@ static irqreturn_t msm_ehci_irq(struct usb_hcd *hcd)
 	}
 
 	return ehci_irq(hcd);
+}
+
+static irqreturn_t msm_ehci_host_wakeup_irq(int irq, void *data)
+{
+
+	struct msm_hcd *mhcd = data;
+
+	mhcd->pmic_gpio_int_cnt++;
+	dev_dbg(mhcd->dev, "%s: hsusb host remote wakeup interrupt cnt: %u\n",
+			__func__, mhcd->pmic_gpio_int_cnt);
+
+
+	wake_lock(&mhcd->wlock);
+
+	if (mhcd->pmic_gpio_dp_irq_enabled) {
+		mhcd->pmic_gpio_dp_irq_enabled = 0;
+		disable_irq_wake(irq);
+		disable_irq_nosync(irq);
+	}
+
+	if (!atomic_read(&mhcd->pm_usage_cnt)) {
+		atomic_set(&mhcd->pm_usage_cnt, 1);
+		pm_runtime_get(mhcd->dev);
+	}
+
+	return IRQ_HANDLED;
 }
 
 static int msm_ehci_reset(struct usb_hcd *hcd)
@@ -952,6 +997,22 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 	 * hence, runtime framework automatically calls this driver's
 	 * runtime APIs based on root-hub's state.
 	 */
+	/* configure pmic_gpio_irq for D+ change */
+	if (pdata && pdata->pmic_gpio_dp_irq)
+		mhcd->pmic_gpio_dp_irq = pdata->pmic_gpio_dp_irq;
+	if (mhcd->pmic_gpio_dp_irq) {
+		ret = request_threaded_irq(mhcd->pmic_gpio_dp_irq, NULL,
+				msm_ehci_host_wakeup_irq,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				"msm_ehci_host_wakeup", mhcd);
+		if (!ret) {
+			disable_irq_nosync(mhcd->pmic_gpio_dp_irq);
+		} else {
+			dev_err(&pdev->dev, "request_irq(%d) failed: %d\n",
+					mhcd->pmic_gpio_dp_irq, ret);
+			mhcd->pmic_gpio_dp_irq = 0;
+		}
+	}
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
@@ -984,6 +1045,11 @@ static int __devexit ehci_msm2_remove(struct platform_device *pdev)
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct msm_hcd *mhcd = hcd_to_mhcd(hcd);
 
+	if (mhcd->pmic_gpio_dp_irq) {
+		if (mhcd->pmic_gpio_dp_irq_enabled)
+			disable_irq_wake(mhcd->pmic_gpio_dp_irq);
+		free_irq(mhcd->pmic_gpio_dp_irq, mhcd);
+	}
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);

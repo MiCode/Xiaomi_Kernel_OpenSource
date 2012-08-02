@@ -141,6 +141,12 @@ static struct pm8xxx_gpio_init pm8921_cdp_kp_gpios[] __initdata = {
 	PM8921_GPIO_INPUT(17, PM_GPIO_PULL_UP_1P5),	/* SD_WP */
 };
 
+static struct pm8xxx_gpio_init pm8921_mpq_gpios[] __initdata = {
+	PM8921_GPIO_INIT(27, PM_GPIO_DIR_IN, PM_GPIO_OUT_BUF_CMOS, 0,
+			PM_GPIO_PULL_NO, PM_GPIO_VIN_VPH, PM_GPIO_STRENGTH_NO,
+			PM_GPIO_FUNC_NORMAL, 0, 0),
+};
+
 /* Initial PM8XXX MPP configurations */
 static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
 	PM8921_MPP_INIT(3, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_LOW),
@@ -179,6 +185,18 @@ void __init apq8064_pm8xxx_gpio_mpp_init(void)
 		for (i = 0; i < ARRAY_SIZE(pm8921_mtp_kp_gpios); i++) {
 			rc = pm8xxx_gpio_config(pm8921_mtp_kp_gpios[i].gpio,
 						&pm8921_mtp_kp_gpios[i].config);
+			if (rc) {
+				pr_err("%s: pm8xxx_gpio_config: rc=%d\n",
+					__func__, rc);
+				break;
+			}
+		}
+
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd()
+					|| machine_is_mpq8064_dtv())
+		for (i = 0; i < ARRAY_SIZE(pm8921_mpq_gpios); i++) {
+			rc = pm8xxx_gpio_config(pm8921_mpq_gpios[i].gpio,
+						&pm8921_mpq_gpios[i].config);
 			if (rc) {
 				pr_err("%s: pm8xxx_gpio_config: rc=%d\n",
 					__func__, rc);

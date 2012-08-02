@@ -888,6 +888,8 @@ static int phy_init_seq[] = {
 	-1
 };
 
+#define PMIC_GPIO_DP		27    /* PMIC GPIO for D+ change */
+#define PMIC_GPIO_DP_IRQ	PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PMIC_GPIO_DP)
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
@@ -913,6 +915,9 @@ static void __init apq8064_ehci_host_init(void)
 		if (machine_is_apq8064_liquid())
 			msm_ehci_host_pdata3.dock_connect_irq =
 					PM8921_MPP_IRQ(PM8921_IRQ_BASE, 9);
+		else
+			msm_ehci_host_pdata3.pmic_gpio_dp_irq =
+							PMIC_GPIO_DP_IRQ;
 
 		apq8064_device_ehci_host3.dev.platform_data =
 				&msm_ehci_host_pdata3;
