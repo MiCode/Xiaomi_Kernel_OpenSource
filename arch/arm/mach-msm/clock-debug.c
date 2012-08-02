@@ -35,7 +35,8 @@ static int clock_debug_rate_set(void *data, u64 val)
 		clk_set_max_rate(clock, val);
 	ret = clk_set_rate(clock, val);
 	if (ret)
-		pr_err("clk_set_rate failed (%d)\n", ret);
+		pr_err("clk_set_rate(%s, %lu) failed (%d)\n", clock->dbg_name,
+				(unsigned long)val, ret);
 
 	return ret;
 }
