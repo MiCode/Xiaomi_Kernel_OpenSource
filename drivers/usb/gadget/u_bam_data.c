@@ -50,8 +50,8 @@ struct bam_data_ch_info {
 	struct usb_request	*rx_req;
 	struct usb_request	*tx_req;
 
-	u8			src_pipe_idx;
-	u8			dst_pipe_idx;
+	u32			src_pipe_idx;
+	u32			dst_pipe_idx;
 	u8			connection_idx;
 };
 

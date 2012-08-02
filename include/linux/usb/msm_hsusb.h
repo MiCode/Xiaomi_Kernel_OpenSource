@@ -389,21 +389,46 @@ struct msm_hsic_peripheral_platform_data {
 	bool core_clk_always_on_workaround;
 };
 
+/**
+ * struct usb_bam_pipe_connect: pipe connection information
+ * between USB/HSIC BAM and another BAM. USB/HSIC BAM can be
+ * either src BAM or dst BAM
+ * @src_phy_addr: src bam physical address.
+ * @src_pipe_index: src bam pipe index.
+ * @dst_phy_addr: dst bam physical address.
+ * @dst_pipe_index: dst bam pipe index.
+ * @data_fifo_base_offset: data fifo offset.
+ * @data_fifo_size: data fifo size.
+ * @desc_fifo_base_offset: descriptor fifo offset.
+ * @desc_fifo_size: descriptor fifo size.
+ */
 struct usb_bam_pipe_connect {
 	u32 src_phy_addr;
-	int src_pipe_index;
+	u32 src_pipe_index;
 	u32 dst_phy_addr;
-	int dst_pipe_index;
+	u32 dst_pipe_index;
 	u32 data_fifo_base_offset;
 	u32 data_fifo_size;
 	u32 desc_fifo_base_offset;
 	u32 desc_fifo_size;
 };
 
+/**
+ * struct msm_usb_bam_platform_data: pipe connection information
+ * between USB/HSIC BAM and another BAM. USB/HSIC BAM can be
+ * either src BAM or dst BAM
+ * @connections: holds all pipe connections data.
+ * @usb_active_bam: set USB or HSIC as the active BAM.
+ * @usb_bam_num_pipes: max number of pipes to use.
+ * @active_conn_num: number of active pipe connections.
+ * @usb_base_address: BAM physical address.
+ */
 struct msm_usb_bam_platform_data {
 	struct usb_bam_pipe_connect *connections;
 	int usb_active_bam;
 	int usb_bam_num_pipes;
+	u32 total_bam_num;
+	u32 usb_base_address;
 };
 
 enum usb_bam {
@@ -411,8 +436,27 @@ enum usb_bam {
 	HSIC_BAM,
 };
 
+#ifdef CONFIG_USB_DWC3_MSM
 int msm_ep_config(struct usb_ep *ep);
 int msm_ep_unconfig(struct usb_ep *ep);
-int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size);
+int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
+	u8 dst_pipe_idx);
 
+#else
+static inline int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
+	u8 dst_pipe_idx)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ep_config(struct usb_ep *ep)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ep_unconfig(struct usb_ep *ep)
+{
+	return -ENODEV;
+}
+#endif
 #endif
