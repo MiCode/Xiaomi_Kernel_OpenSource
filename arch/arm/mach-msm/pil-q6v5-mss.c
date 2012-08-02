@@ -237,7 +237,7 @@ static int pil_mss_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->vreg))
 		return PTR_ERR(drv->vreg);
 
-	ret = regulator_set_voltage(drv->vreg, 1150000, 1150000);
+	ret = regulator_set_voltage(drv->vreg, 1050000, 1050000);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to set regulator's voltage.\n");
 
