@@ -90,8 +90,7 @@ static void vsync_irq_enable(int intr, int term)
 	unsigned long flag;
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	outp32(MDP_INTR_CLEAR,
-		INTR_DMA_E_DONE | INTR_OVERLAY1_DONE | INTR_EXTERNAL_VSYNC);
+	outp32(MDP_INTR_CLEAR, intr);
 	mdp_intr_mask |= intr;
 	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 	mdp_enable_irq(term);
@@ -104,8 +103,7 @@ static void vsync_irq_disable(int intr, int term)
 	unsigned long flag;
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	outp32(MDP_INTR_CLEAR,
-		INTR_DMA_P_DONE | INTR_OVERLAY0_DONE | INTR_PRIMARY_VSYNC);
+	outp32(MDP_INTR_CLEAR, intr);
 	mdp_intr_mask &= ~intr;
 	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 	mdp_disable_irq_nosync(term);
