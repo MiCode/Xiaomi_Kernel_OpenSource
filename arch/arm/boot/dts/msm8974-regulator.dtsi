@@ -127,9 +127,9 @@
 	rpm-regulator-smpb3 {
 		status = "okay";
 		pm8841_s3: regulator-s3 {
-			regulator-min-microvolt = <1150000>;
-			regulator-max-microvolt = <1150000>;
-			qcom,init-voltage = <1150000>;
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1050000>;
+			qcom,init-voltage = <1050000>;
 			status = "okay";
 		};
 	};
