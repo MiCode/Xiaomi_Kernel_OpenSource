@@ -2,38 +2,93 @@ Qualcomm QPNP power-on
 
 The qpnp-power-on is a driver which supports the power-on(PON)
 peripheral on Qualcomm PMICs. The supported functionality includes
-power on/off reason, power-key press/release detection and other PON
-features. This peripheral is connected to the host processor via the SPMI
-interface.
+power on/off reason, key press/release detection, PMIC reset configurations
+and other PON specifc features. The PON module supports multiple physical
+power-on (KPDPWR_N, CBLPWR) and reset (KPDPWR_N, RESIN, KPDPWR+RESIN) sources.
+This peripheral is connected to the host processor via the SPMI interface.
 
 Required properties:
 - compatible:	Must be "qcom,qpnp-power-on"
 - reg:		Specifies the SPMI address and size for this PON (power-on) peripheral
-- interrupts:	Specifies the interrupt associated with the power-key.
+- interrupts:	Specifies the interrupt associated with PON.
 
 Optional properties:
-- qcom,pon-key-enable:		Enable power-key detection. It enables monitoring
-				of the KPDPWR_N line (connected to the power-key).
-- qcom,pon-key-dbc-delay:	The debouce delay for the power-key interrupt
+- qcom,pon-dbc-delay:		The debouce delay for the power-key interrupt
 				specifed in us. The value ranges from 2 seconds
 				to 1/64 of a second. Possible values are -
 				- 2, 1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64
 				- Intermediate value is rounded down to the
 				nearest valid value.
-- qcom,pon-key-pull-up:		The intial state of the KPDPWR_N pin
-				(connected to the power-key)
+- qcom,pon_1 ...pon_n		These represent the child nodes which describe
+				the properties (reset, key) for each of the pon
+				reset source. All the child nodes are optional,
+				if none of them are specified the driver fails
+				to register.
+
+All the below properties are in the sub-node section (properties of the child
+node).
+
+- qcom,pull-up:			The initial state of the reset pin under
+				consideration.
 				0 = No pull-up
 				1 = pull-up enabled
-
-If any of the above optional property is not defined, the driver will continue
-with the default hardware state.
+				This property is optional and is set to '0'
+				if not specified.
+- qcom,pon-type			The type of PON/RESET source. The driver
+				currently supports KPDPWR(0) and RESIN(1)
+				pon/reset sources. This property must be
+				specified.
+- qcom,support-reset		Indicates if this PON source supports
+				reset functionality.
+				0 = Not supported
+				1 = Supported
+				This property is optional and is set to '0'
+				if not specified.
+- qcom,s1-timer			The debouce timer for the BARK interrupt for
+				that reset source. Value is specified in ms.
+				Supported values are -
+				- 0, 32, 56, 80, 128, 184, 272, 408, 608, 904
+				  1352, 2048, 3072, 4480, 6720, 10256
+				This property must be specified only if
+				'support-reset' is set to 1.
+- qcom,s2-timer			The debouce timer for the S2 reset specified
+				in ms. On the expiry of this timer, the PMIC
+				executes the reset sequence. Supoprted values -
+				- 0, 10, 50, 100, 250, 500, 1000, 2000
+				This property is required only if
+				'support-reset' is set to 1.
+- qcom,s2-type			The type of reset associated with this source.
+				The supported resets are -
+				SOFT(0), WARM(1), SHUTDOWN(4), HARD(7)
+				This property is required only if
+				'support-reset' is set to 1.
+- linux,code			The input key-code associated with the reset source.
+				The reset source in its default configuration can be
+				used to support standard keys. This property is optional.
 
 Example:
 	qcom,power-on@800 {
 		compatible = "qcom,qpnp-power-on";
 		reg = <0x800 0x100>;
-		interrupts = <0x0 0x8 0x1>;
-		qcom,pon-key-enable= <true>;
-		qcom,pon-key-pull-up = <true>;
-		qcom,pon-key-dbc-delay = <15625>;
+		interrupts = <0x0 0x8 0x0>,
+			     <0x0 0x8 0x1>,
+			     <0x0 0x8 0x4>;
+		interrupt-names = "kpdpwr", "resin", "resin-bark";
+		qcom,pon-dbc-delay = <15625>;
+
+		qcom,pon_1 {
+			qcom,pon-type = <0>;
+			qcom,pull-up = <1>;
+			linux,code = <116>;
+		};
+
+		qcom,pon_2 {
+			qcom,pon-type = <1>;
+			qcom,support-reset = <1>;
+			qcom,pull-up = <1>;
+			qcom,s1-timer = <3072>;
+			qcom,s2-timer = <2000>;
+			qcom,s2-type = <1>;
+			linux,code = <114>;
+		};
 	}
