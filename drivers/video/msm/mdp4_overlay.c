@@ -222,10 +222,17 @@ int mdp4_overlay_iommu_map_buf(int mem_id,
 	}
 
 	mutex_lock(&iommu_mutex);
-	mdp4_stat.iommu_map++;
 	iom = &pipe->iommu;
+	if (iom->prev_ihdl[plane]) {
+		mdp4_overlay_iommu_2freelist(pipe->mixer_num,
+						iom->prev_ihdl[plane]);
+		mdp4_stat.iommu_drop++;
+		pr_err("%s: dropped, ndx=%d plane=%d\n", __func__,
+						pipe->pipe_ndx, plane);
+	}
 	iom->prev_ihdl[plane] = iom->ihdl[plane];
 	iom->ihdl[plane] = *srcp_ihdl;
+	mdp4_stat.iommu_map++;
 
 	pr_debug("%s: ndx=%d plane=%d prev=0x%p cur=0x%p start=0x%lx len=%lx\n",
 		 __func__, pipe->pipe_ndx, plane, iom->prev_ihdl[plane],
@@ -2076,7 +2083,7 @@ struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype, int mixer)
 void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 {
 	uint32 ptype, num, ndx, mixer;
-	struct mdp4_iommu_pipe_info *iom_pipe_info;
+	struct mdp4_iommu_pipe_info iom;
 
 	pr_debug("%s: pipe=%x ndx=%d\n", __func__, (int)pipe, pipe->pipe_ndx);
 
@@ -2084,8 +2091,7 @@ void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 	num = pipe->pipe_num;
 	ndx = pipe->pipe_ndx;
 	mixer = pipe->mixer_num;
-	iom_pipe_info = &mdp_iommu[pipe->mixer_num][pipe->pipe_ndx - 1];
-	iom_pipe_info->mark_unmap = 1;
+	iom = pipe->iommu;
 
 	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
 
@@ -2095,6 +2101,7 @@ void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 	pipe->pipe_num = num;
 	pipe->pipe_ndx = ndx;
 	pipe->mixer_num = mixer;
+	pipe->iommu = iom;
 }
 
 static int mdp4_overlay_validate_downscale(struct mdp_overlay *req,
@@ -2175,7 +2182,6 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 			struct msm_fb_data_type *mfd)
 {
 	struct mdp4_overlay_pipe *pipe;
-	struct mdp4_iommu_pipe_info *iom_pipe_info;
 	int ret, ptype;
 
 	u32 upscale_max;
@@ -2355,8 +2361,6 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 			display_iclient);
 	}
 
-	iom_pipe_info = &mdp_iommu[pipe->mixer_num][pipe->pipe_ndx - 1];
-
 	pipe->src_format = req->src.format;
 	ret = mdp4_overlay_format2pipe(pipe);
 
@@ -2448,6 +2452,8 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 				DISPLAY_SUBSYSTEM_ID)) {
 				ret = -1;
 			} else {
+				pr_warn("%s: mdp4_overlay play with FB memory\n",
+							 __func__);
 				*srcp_file = file;
 				*p_need = put_needed;
 			}
