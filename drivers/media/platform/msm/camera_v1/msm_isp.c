@@ -156,15 +156,14 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 	return image_mode;
 }
 
-static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
+static int msm_isp_notify_VFE_BUF_EVT(struct msm_cam_media_controller *pmctl,
+					struct v4l2_subdev *sd, void *arg)
 {
 	int rc = -EINVAL;
 	struct msm_vfe_resp *vdata = (struct msm_vfe_resp *)arg;
 	struct msm_free_buf free_buf, temp_free_buf;
 	struct msm_camvfe_params vfe_params;
 	struct msm_vfe_cfg_cmd cfgcmd;
-	struct msm_cam_media_controller *pmctl =
-		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	struct msm_cam_v4l2_device *pcam = pmctl->pcam_ptr;
 	struct msm_frame_info *frame_info =
 		(struct msm_frame_info *)vdata->evt_msg.data;
@@ -172,7 +171,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	struct msm_cam_buf_handle buf_handle;
 
 	if (!pcam) {
-		pr_debug("%s pcam is null. return\n", __func__);
+		pr_err("%s pcam is null. return\n", __func__);
 		msm_isp_sync_free(vdata);
 		return rc;
 	}
@@ -275,14 +274,12 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 /*
  * This function executes in interrupt context.
  */
-static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
-	unsigned int notification,  void *arg)
+static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
+	struct v4l2_subdev *sd,	unsigned int notification,  void *arg)
 {
 	int rc = 0;
 	struct v4l2_event v4l2_evt;
 	struct msm_isp_event_ctrl *isp_event;
-	struct msm_cam_media_controller *pmctl =
-		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	struct msm_free_buf buf;
 
 	if (!pmctl) {
@@ -292,7 +289,7 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	}
 
 	if (notification == NOTIFY_VFE_BUF_EVT)
-		return msm_isp_notify_VFE_BUF_EVT(sd, arg);
+		return msm_isp_notify_VFE_BUF_EVT(pmctl, sd, arg);
 
 	if (notification == NOTIFY_VFE_SOF_COUNT)
 		return msm_isp_notify_VFE_SOF_COUNT_EVT(sd, arg);
@@ -493,11 +490,12 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	return rc;
 }
 
-static int msm_isp_notify(struct v4l2_subdev *sd,
-	unsigned int notification, void *arg)
+int msm_isp_notify(struct msm_cam_media_controller *pmctl,
+	struct v4l2_subdev *sd,	unsigned int notification, void *arg)
 {
-	return msm_isp_notify_vfe(sd, notification, arg);
+	return msm_isp_notify_vfe(pmctl, sd, notification, arg);
 }
+EXPORT_SYMBOL(msm_isp_notify);
 
 static int msm_config_vfe(struct v4l2_subdev *sd,
 	struct msm_cam_media_controller *mctl, void __user *arg)
@@ -703,13 +701,13 @@ static int msm_vfe_stats_buf_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 /* config function simliar to origanl msm_ioctl_config*/
-static int msm_isp_config(struct msm_cam_media_controller *pmctl,
+int msm_isp_config(struct msm_cam_media_controller *pmctl,
 			 unsigned int cmd, unsigned long arg)
 {
 
 	int rc = -EINVAL;
 	void __user *argp = (void __user *)arg;
-	struct v4l2_subdev *sd = pmctl->isp_sdev->sd;
+	struct v4l2_subdev *sd = pmctl->vfe_sdev;
 
 	D("%s: cmd %d\n", __func__, _IOC_NR(cmd));
 	switch (cmd) {
@@ -742,47 +740,7 @@ static int msm_isp_config(struct msm_cam_media_controller *pmctl,
 
 	return rc;
 }
-
-static struct msm_isp_ops isp_subdev[MSM_MAX_CAMERA_CONFIGS];
-
-/**/
-int msm_isp_init_module(int g_num_config_nodes)
-{
-	int i = 0;
-
-	for (i = 0; i < g_num_config_nodes; i++) {
-		isp_subdev[i].isp_config = msm_isp_config;
-		isp_subdev[i].isp_notify = msm_isp_notify;
-	}
-	return 0;
-}
-EXPORT_SYMBOL(msm_isp_init_module);
-
-/*
-*/
-int msm_isp_register(struct msm_cam_server_dev *psvr)
-{
-	int i = 0;
-
-	D("%s\n", __func__);
-
-	BUG_ON(!psvr);
-
-	/* Initialize notify function for v4l2_dev */
-	for (i = 0; i < psvr->config_info.num_config_nodes; i++)
-		psvr->isp_subdev[i] = &(isp_subdev[i]);
-
-	return 0;
-}
-EXPORT_SYMBOL(msm_isp_register);
-
-/**/
-void msm_isp_unregister(struct msm_cam_server_dev *psvr)
-{
-	int i = 0;
-	for (i = 0; i < psvr->config_info.num_config_nodes; i++)
-		psvr->isp_subdev[i] = NULL;
-}
+EXPORT_SYMBOL(msm_isp_config);
 
 int msm_isp_subdev_ioctl(struct v4l2_subdev *isp_subdev,
 	struct msm_vfe_cfg_cmd *cfgcmd, void *data)

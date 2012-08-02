@@ -1583,11 +1583,9 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	case NOTIFY_VFE_MSG_COMP_STATS:
 	case NOTIFY_VFE_BUF_EVT:
 		p_mctl = msm_cam_server_get_mctl(mctl_handle);
-		if (p_mctl->isp_sdev &&
-			p_mctl->isp_sdev->isp_notify
-			&& p_mctl->isp_sdev->sd)
-			rc = p_mctl->isp_sdev->isp_notify(
-				p_mctl->isp_sdev->sd, notification, arg);
+		if (p_mctl->isp_notify && p_mctl->vfe_sdev)
+			rc = p_mctl->isp_notify(p_mctl,
+				p_mctl->vfe_sdev, notification, arg);
 		break;
 	case NOTIFY_VFE_IRQ:{
 		struct msm_vfe_cfg_cmd cfg_cmd;
@@ -1608,7 +1606,7 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 			rc = v4l2_subdev_call(p_mctl->axi_sdev, video,
 			s_crystal_freq, *(uint32_t *)arg, 0);
 		else
-			rc = v4l2_subdev_call(p_mctl->isp_sdev->sd, video,
+			rc = v4l2_subdev_call(p_mctl->vfe_sdev, video,
 			s_crystal_freq, *(uint32_t *)arg, 0);
 		break;
 	case NOTIFY_CSIPHY_CFG:
@@ -2112,7 +2110,6 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 		}
 		cam_hw_idx = MSM_CAM_HW_VFE0 + index;
 		g_server_dev.vfe_device[index] = sd;
-		g_server_dev.isp_subdev[index]->sd = sd;
 		if (g_server_dev.irqr_device) {
 			g_server_dev.subdev_table[cam_hw_idx] = sd;
 			err = msm_cam_server_fill_sdev_irqnum(cam_hw_idx,
@@ -2595,21 +2592,10 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 	return rc;
 }
 
-static struct msm_isp_ops *find_isp_op(struct v4l2_subdev *sdev)
-{
-	int i;
-	for (i = 0; i < g_server_dev.config_info.num_config_nodes; i++) {
-		if (g_server_dev.isp_subdev[i]->sd == sdev)
-			return g_server_dev.isp_subdev[i];
-	}
-	return NULL;
-}
-
 static int msm_set_mctl_subdev(struct msm_cam_media_controller *pmctl,
 	struct msm_mctl_set_sdev_data *set_data)
 {
 	int rc = 0;
-	struct v4l2_subdev *vfe_sdev = NULL;
 	struct v4l2_subdev *temp_sdev = NULL;
 	switch (set_data->sdev_type) {
 	case CSIPHY_DEV:
@@ -2633,11 +2619,9 @@ static int msm_set_mctl_subdev(struct msm_cam_media_controller *pmctl,
 		temp_sdev = pmctl->ispif_sdev;
 		break;
 	case VFE_DEV:
-		vfe_sdev = msm_cam_find_subdev_node
+		pmctl->vfe_sdev = msm_cam_find_subdev_node
 			(&g_server_dev.vfe_device[0], set_data->revision);
-		temp_sdev = vfe_sdev;
-		pmctl->isp_sdev = find_isp_op(vfe_sdev);
-		pmctl->isp_sdev->sd = vfe_sdev;
+		temp_sdev = pmctl->vfe_sdev;
 		break;
 	case AXI_DEV:
 		pmctl->axi_sdev = msm_cam_find_subdev_node
@@ -2678,7 +2662,7 @@ static int msm_unset_mctl_subdev(struct msm_cam_media_controller *pmctl,
 		pmctl->ispif_sdev = NULL;
 		break;
 	case VFE_DEV:
-		pmctl->isp_sdev = NULL;
+		pmctl->vfe_sdev = NULL;
 		break;
 	case AXI_DEV:
 		pmctl->axi_sdev = NULL;
@@ -3001,12 +2985,6 @@ static int msm_camera_probe(struct platform_device *pdev)
 	  put logic here later to know how many configs to create*/
 	g_server_dev.config_info.num_config_nodes = 2;
 
-	rc = msm_isp_init_module(g_server_dev.config_info.num_config_nodes);
-	if (rc < 0) {
-		pr_err("Failed to initialize isp\n");
-		return rc;
-	}
-
 	if (!msm_class) {
 		rc = alloc_chrdev_region(&msm_devno, 0,
 		g_server_dev.config_info.num_config_nodes+1, "msm_camera");
@@ -3042,13 +3020,11 @@ static int msm_camera_probe(struct platform_device *pdev)
 		}
 	}
 
-	msm_isp_register(&g_server_dev);
 	return rc;
 }
 
 static int __exit msm_camera_exit(struct platform_device *pdev)
 {
-	msm_isp_unregister(&g_server_dev);
 	return 0;
 }
 
