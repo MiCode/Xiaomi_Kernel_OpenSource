@@ -243,7 +243,7 @@ void mdp4_overlay_update_lcd(struct msm_fb_data_type *mfd)
 	mdp4_overlay_dmap_xy(pipe);
 
 	mdp4_overlay_dmap_cfg(mfd, 0);
-
+	mdp4_mixer_stage_commit(pipe->mixer_num);
 	mdp4_mddi_vsync_enable(mfd, pipe, 0);
 
 	/* MDP cmd block disable */

@@ -724,7 +724,7 @@ static void mdp4_overlay_dtv_alloc_pipe(struct msm_fb_data_type *mfd,
 
 	mdp4_overlay_reg_flush(pipe, 1);
 	mdp4_mixer_stage_up(pipe);
-
+	mdp4_mixer_stage_commit(pipe->mixer_num);
 	vctrl->base_pipe = pipe; /* keep it */
 }
 
@@ -898,6 +898,7 @@ void mdp4_dtv_set_black_screen(void)
 	MDP_OUTP(rgb_base + 0x0050, temp_src_format | BIT(22));
 	mdp4_overlay_reg_flush(vctrl->base_pipe, 1);
 	mdp4_mixer_stage_up(vctrl->base_pipe);
+	mdp4_mixer_stage_commit(vctrl->base_pipe->mixer_num);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 

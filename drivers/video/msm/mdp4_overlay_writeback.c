@@ -184,7 +184,7 @@ int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
 	mdp4_mixer_stage_up(pipe);
 
 	mdp4_overlayproc_cfg(pipe);
-
+	mdp4_mixer_stage_commit(pipe->mixer_num);
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 

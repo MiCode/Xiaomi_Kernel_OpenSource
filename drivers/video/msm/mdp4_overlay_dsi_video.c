@@ -553,8 +553,7 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 
 	mdp4_overlay_reg_flush(pipe, 1);
 	mdp4_mixer_stage_up(pipe);
-
-
+	mdp4_mixer_stage_commit(pipe->mixer_num);
 	/*
 	 * DSI timing setting
 	 */
@@ -773,6 +772,8 @@ void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 	mdp4_overlay_reg_flush(pipe, 1);
 
 	mdp4_mixer_stage_up(pipe);
+
+	mdp4_mixer_stage_commit(pipe->mixer_num);
 
 	mb();
 }
