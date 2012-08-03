@@ -67,33 +67,34 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 	static struct ion_handle *ihdl;
 	static void *videomemory;
 	static ion_phys_addr_t mdss_wb_mem;
-	static struct mdss_mdp_data buffer = { .num_planes = 1,	};
-	struct fb_info *fbi;
-	size_t img_size;
+	static struct mdss_mdp_data mdss_wb_buffer = { .num_planes = 1, };
 
-	fbi = mfd->fbi;
-	img_size = fbi->var.xres * fbi->var.yres * fbi->var.bits_per_pixel / 8;
+	if (IS_ERR_OR_NULL(ihdl)) {
+		struct fb_info *fbi;
+		size_t img_size;
+		struct ion_client *iclient = mdss_get_ionclient();
+		struct mdss_mdp_img_data *img = mdss_wb_buffer.p;
 
-	if (ihdl == NULL) {
-		ihdl = ion_alloc(mfd->iclient, img_size, SZ_4K,
+		fbi = mfd->fbi;
+		img_size = fbi->var.xres * fbi->var.yres *
+			fbi->var.bits_per_pixel / 8;
+
+		ihdl = ion_alloc(iclient, img_size, SZ_4K,
 				 ION_HEAP(ION_SF_HEAP_ID));
-		if (!IS_ERR_OR_NULL(ihdl)) {
-			videomemory = ion_map_kernel(mfd->iclient, ihdl, 0);
-			ion_phys(mfd->iclient, ihdl, &mdss_wb_mem, &img_size);
-		} else {
+		if (IS_ERR_OR_NULL(ihdl)) {
 			pr_err("unable to alloc fbmem from ion (%p)\n", ihdl);
-			ihdl = NULL;
+			return NULL;
 		}
+
+		videomemory = ion_map_kernel(iclient, ihdl, 0);
+		ion_phys(iclient, ihdl, &mdss_wb_mem, &img_size);
+
+		img->addr = mdss_wb_mem;
+		img->len = img_size;
+		pr_debug("ihdl=%p virt=%p phys=0x%lx iova=0x%x size=%u\n",
+			 ihdl, videomemory, mdss_wb_mem, img->addr, img_size);
 	}
-
-	if (mdss_wb_mem) {
-		buffer.p[0].addr = (u32) mdss_wb_mem;
-		buffer.p[0].len = img_size;
-
-		return &buffer;
-	}
-
-	return NULL;
+	return &mdss_wb_buffer;
 }
 #else
 static inline
@@ -266,7 +267,7 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 
 	node->buf_data.num_planes = 1;
 	buf = &node->buf_data.p[0];
-	ret = mdss_mdp_get_img(mfd->iclient, data, buf);
+	ret = mdss_mdp_get_img(data, buf);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("error getting buffer info\n");
 		goto register_fail;
@@ -393,6 +394,9 @@ int mdss_mdp_wb_kickoff(struct mdss_mdp_ctl *ctl)
 
 	if (!ctl || !ctl->mfd)
 		return -ENODEV;
+
+	if (!ctl->power_on)
+		return 0;
 
 	mutex_lock(&mdss_mdp_wb_buf_lock);
 	wb = ctl->mfd->wb;

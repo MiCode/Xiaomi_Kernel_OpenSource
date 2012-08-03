@@ -285,33 +285,33 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 
 int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 {
-	/* only source may use frame buffer */
+	struct ion_client *iclient = mdss_get_ionclient();
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
+		pr_debug("fb mem buf=0x%x\n", data->addr);
 		fput_light(data->srcp_file, data->p_need);
-		return 0;
-	}
-	if (data->srcp_file) {
+		data->srcp_file = NULL;
+	} else if (data->srcp_file) {
+		pr_debug("pmem buf=0x%x\n", data->addr);
 		put_pmem_file(data->srcp_file);
 		data->srcp_file = NULL;
-		return 0;
-	}
-	if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
-		ion_free(data->iclient, data->srcp_ihdl);
-		data->iclient = NULL;
+	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
+		pr_debug("ion hdl=%p buf=0x%x\n", data->srcp_ihdl, data->addr);
+		ion_free(iclient, data->srcp_ihdl);
 		data->srcp_ihdl = NULL;
-		return 0;
+	} else {
+		return -ENOMEM;
 	}
 
-	return -ENOMEM;
+	return 0;
 }
 
-int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
-		     struct mdss_mdp_img_data *data)
+int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 {
 	struct file *file;
 	int ret = -EINVAL;
 	int fb_num;
 	unsigned long *start, *len;
+	struct ion_client *iclient = mdss_get_ionclient();
 
 	start = (unsigned long *) &data->addr;
 	len = (unsigned long *) &data->len;
@@ -324,19 +324,36 @@ int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
 					start, len);
 	} else if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
 		file = fget_light(img->memory_id, &data->p_need);
-		if (file && FB_MAJOR ==
-				MAJOR(file->f_dentry->d_inode->i_rdev)) {
-			data->srcp_file = file;
+		if (file == NULL) {
+			pr_err("invalid framebuffer file (%d)\n",
+					img->memory_id);
+			return -EINVAL;
+		}
+		data->srcp_file = file;
+
+		if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
 			fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
 			ret = mdss_fb_get_phys_info(start, len, fb_num);
+			if (ret)
+				pr_err("mdss_fb_get_phys_info() failed\n");
+		} else {
+			pr_err("invalid FB_MAJOR\n");
+			ret = -1;
 		}
 	} else if (iclient) {
-		data->iclient = iclient;
 		data->srcp_ihdl = ion_import_dma_buf(iclient, img->memory_id);
-		if (IS_ERR_OR_NULL(data->srcp_ihdl))
-			return PTR_ERR(data->srcp_ihdl);
-		ret = ion_phys(iclient, data->srcp_ihdl,
-			       start, (size_t *) len);
+		if (IS_ERR_OR_NULL(data->srcp_ihdl)) {
+			pr_err("error on ion_import_fd\n");
+			ret = PTR_ERR(data->srcp_ihdl);
+			data->srcp_ihdl = NULL;
+			return ret;
+		}
+		ret = ion_phys(iclient, data->srcp_ihdl, start, (size_t *) len);
+		if (IS_ERR_VALUE(ret)) {
+			ion_free(iclient, data->srcp_ihdl);
+			pr_err("failed to map ion handle (%d)\n", ret);
+			return ret;
+		}
 	} else {
 		unsigned long vstart;
 		ret = get_pmem_file(img->memory_id, start, &vstart, len,
@@ -346,9 +363,11 @@ int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
 	if (!ret && (img->offset < data->len)) {
 		data->addr += img->offset;
 		data->len -= img->offset;
+
+		pr_debug("mem=%d ihdl=%p buf=0x%x len=0x%x\n", img->memory_id,
+			 data->srcp_ihdl, data->addr, data->len);
 	} else {
-		mdss_mdp_put_img(data);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	return ret;
