@@ -259,9 +259,9 @@ static int __msm_xo_mode_vote(struct msm_xo_voter *xo_voter, unsigned mode)
 		}
 		/* Ignore transitions from pin to on or vice versa */
 		if (mode && xo_voter->mode == MSM_XO_MODE_OFF)
-			clk_enable(xo_clk);
+			clk_prepare_enable(xo_clk);
 		else if (!mode)
-			clk_disable(xo_clk);
+			clk_disable_unprepare(xo_clk);
 	}
 	xo_voter->mode = mode;
 out:
