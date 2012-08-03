@@ -244,8 +244,37 @@ static struct usb_ss_ep_comp_descriptor gser_ss_bulk_comp_desc = {
 	.bDescriptorType =      USB_DT_SS_ENDPOINT_COMP,
 };
 
+#ifdef CONFIG_MODEM_SUPPORT
+static struct usb_endpoint_descriptor gser_ss_notify_desc  = {
+	.bLength =		sizeof gser_ss_notify_desc,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	__constant_cpu_to_le16(GS_NOTIFY_MAXPACKET),
+	.bInterval =		GS_LOG2_NOTIFY_INTERVAL+4,
+};
+
+static struct usb_ss_ep_comp_descriptor gser_ss_notify_comp_desc = {
+	.bLength =		sizeof gser_ss_notify_comp_desc,
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+	.wBytesPerInterval =	cpu_to_le16(GS_NOTIFY_MAXPACKET),
+};
+#endif
+
 static struct usb_descriptor_header *gser_ss_function[] = {
 	(struct usb_descriptor_header *) &gser_interface_desc,
+#ifdef CONFIG_MODEM_SUPPORT
+	(struct usb_descriptor_header *) &gser_header_desc,
+	(struct usb_descriptor_header *) &gser_call_mgmt_descriptor,
+	(struct usb_descriptor_header *) &gser_descriptor,
+	(struct usb_descriptor_header *) &gser_union_desc,
+	(struct usb_descriptor_header *) &gser_ss_notify_desc,
+	(struct usb_descriptor_header *) &gser_ss_notify_comp_desc,
+#endif
 	(struct usb_descriptor_header *) &gser_ss_in_desc,
 	(struct usb_descriptor_header *) &gser_ss_bulk_comp_desc,
 	(struct usb_descriptor_header *) &gser_ss_out_desc,
@@ -821,6 +850,10 @@ gser_bind(struct usb_configuration *c, struct usb_function *f)
 			gser_fs_in_desc.bEndpointAddress;
 		gser_ss_out_desc.bEndpointAddress =
 			gser_fs_out_desc.bEndpointAddress;
+#ifdef CONFIG_MODEM_SUPPORT
+		gser_ss_notify_desc.bEndpointAddress =
+				gser_fs_notify_desc.bEndpointAddress;
+#endif
 
 		/* copy descriptors, and track endpoint copies */
 		f->ss_descriptors = usb_copy_descriptors(gser_ss_function);
@@ -836,6 +869,10 @@ gser_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 fail:
+	if (f->ss_descriptors)
+		usb_free_descriptors(f->ss_descriptors);
+	if (f->hs_descriptors)
+		usb_free_descriptors(f->hs_descriptors);
 	if (f->descriptors)
 		usb_free_descriptors(f->descriptors);
 #ifdef CONFIG_MODEM_SUPPORT
