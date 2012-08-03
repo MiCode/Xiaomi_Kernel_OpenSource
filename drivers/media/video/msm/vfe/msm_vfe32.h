@@ -941,9 +941,11 @@ struct vfe_share_ctrl_t {
 	uint32_t register_total;
 
 	atomic_t vstate;
+	atomic_t handle_axi_irq;
 	uint32_t vfeFrameId;
 	uint32_t stats_comp;
 	spinlock_t  stop_flag_lock;
+	spinlock_t  abort_lock;
 	int8_t stop_ack_pending;
 	enum vfe_output_state liveshot_state;
 	uint32_t vfe_capture_count;
@@ -956,8 +958,20 @@ struct vfe_share_ctrl_t {
 	uint32_t skip_abort;
 	spinlock_t  sd_notify_lock;
 
+	struct completion reset_complete;
+
+	spinlock_t  update_ack_lock;
+	spinlock_t  start_ack_lock;
+
 	struct axi_ctrl_t *axi_ctrl;
 	struct vfe32_ctrl_type *vfe32_ctrl;
+	int8_t start_ack_pending;
+	int8_t update_ack_pending;
+	enum vfe_output_state recording_state;
+
+	atomic_t rdi0_update_ack_pending;
+	atomic_t rdi1_update_ack_pending;
+	atomic_t rdi2_update_ack_pending;
 };
 
 struct axi_ctrl_t {
@@ -978,21 +992,12 @@ struct axi_ctrl_t {
 };
 
 struct vfe32_ctrl_type {
-	uint32_t vfeImaskCompositePacked;
-
-	spinlock_t  update_ack_lock;
-	spinlock_t  start_ack_lock;
 	spinlock_t  state_lock;
-	spinlock_t  io_lock;
 	spinlock_t  stats_bufq_lock;
 	uint32_t extlen;
 	void *extdata;
 
-	int8_t start_ack_pending;
-	int8_t update_ack_pending;
-	bool is_reset_blocking;
-	struct completion reset_complete;
-	enum vfe_output_state recording_state;
+	int8_t vfe_sof_count_enable;
 	int8_t update_linear;
 	int8_t update_rolloff;
 	int8_t update_la;
@@ -1004,12 +1009,6 @@ struct vfe32_ctrl_type {
 	uint32_t sync_timer_state;
 	uint32_t sync_timer_number;
 
-	uint32_t output1Pattern;
-	uint32_t output1Period;
-	uint32_t output2Pattern;
-	uint32_t output2Period;
-	uint32_t vfeFrameSkipCount;
-	uint32_t vfeFrameSkipPeriod;
 	struct msm_ver_num_info ver_num;
 	struct vfe_stats_control afbfStatsControl;
 	struct vfe_stats_control awbStatsControl;

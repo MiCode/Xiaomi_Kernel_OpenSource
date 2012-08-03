@@ -486,7 +486,8 @@ struct msm_camera_cfg_cmd {
 #define CMD_STATS_BG_BUF_RELEASE 56
 #define CMD_STATS_BF_BUF_RELEASE 57
 #define CMD_STATS_BHIST_BUF_RELEASE 58
-
+#define CMD_VFE_SOF_COUNT_UPDATE 59
+#define CMD_VFE_COUNT_SOF_ENABLE 60
 
 #define CMD_AXI_CFG_PRIM               BIT(8)
 #define CMD_AXI_CFG_PRIM_ALL_CHNLS     BIT(9)
@@ -497,6 +498,7 @@ struct msm_camera_cfg_cmd {
 
 #define CMD_AXI_START  0xE1
 #define CMD_AXI_STOP   0xE2
+#define CMD_AXI_RESET  0xE3
 
 
 #define AXI_CMD_PREVIEW      BIT(0)

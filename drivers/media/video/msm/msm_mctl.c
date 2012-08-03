@@ -548,9 +548,8 @@ register_sdev_failed:
 	return rc;
 }
 
-static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
+static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
-	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
@@ -572,11 +571,6 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 		v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
 			VIDIOC_MSM_AXI_RELEASE, NULL);
 	}
-
-	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release
-		&& p_mctl->isp_sdev->sd)
-		p_mctl->isp_sdev->isp_release(p_mctl,
-			p_mctl->isp_sdev->sd);
 
 	if (p_mctl->csid_sdev) {
 		v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
@@ -601,7 +595,6 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 
 	wake_unlock(&p_mctl->wake_lock);
-	return rc;
 }
 
 int msm_mctl_init_user_formats(struct msm_cam_v4l2_device *pcam)
@@ -1467,6 +1460,9 @@ static int msm_mctl_v4l2_s_parm(struct file *f, void *pctx,
 	pcam_inst->pcam->mctl_node.dev_inst_map[pcam_inst->image_mode] =
 		pcam_inst;
 	pcam_inst->path = msm_mctl_vidbuf_get_path(pcam_inst->image_mode);
+
+	rc = msm_cam_server_config_interface_map(pcam_inst->image_mode,
+			pcam_inst->pcam->mctl_handle);
 	D("%s path=%d, image mode = %d rc=%d\n", __func__,
 		pcam_inst->path, pcam_inst->image_mode, rc);
 	return rc;

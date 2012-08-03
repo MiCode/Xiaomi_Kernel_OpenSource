@@ -67,16 +67,16 @@ void msm_isp_sync_free(void *ptr)
 	}
 }
 
-static int msm_isp_notify_VFE_BUF_FREE_EVT(struct v4l2_subdev *sd, void *arg)
+static int msm_isp_notify_VFE_SOF_COUNT_EVT(struct v4l2_subdev *sd, void *arg)
 {
 	struct msm_vfe_cfg_cmd cfgcmd;
 	struct msm_camvfe_params vfe_params;
 	int rc;
 
-	cfgcmd.cmd_type = CMD_VFE_BUFFER_RELEASE;
+	cfgcmd.cmd_type = CMD_VFE_SOF_COUNT_UPDATE;
 	cfgcmd.value = NULL;
 	vfe_params.vfe_cfg = &cfgcmd;
-	vfe_params.data = NULL;
+	vfe_params.data = arg;
 	rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 	return 0;
 }
@@ -294,8 +294,8 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	if (notification == NOTIFY_VFE_BUF_EVT)
 		return msm_isp_notify_VFE_BUF_EVT(sd, arg);
 
-	if (notification == NOTIFY_VFE_BUF_FREE_EVT)
-		return msm_isp_notify_VFE_BUF_FREE_EVT(sd, arg);
+	if (notification == NOTIFY_VFE_SOF_COUNT)
+		return msm_isp_notify_VFE_SOF_COUNT_EVT(sd, arg);
 
 	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_ATOMIC);
 	if (!isp_event) {
@@ -497,35 +497,6 @@ static int msm_isp_notify(struct v4l2_subdev *sd,
 	unsigned int notification, void *arg)
 {
 	return msm_isp_notify_vfe(sd, notification, arg);
-}
-
-/* This function is called by open() function, so we need to init HW*/
-static int msm_isp_open(struct v4l2_subdev *sd,
-	struct msm_cam_media_controller *mctl)
-{
-	/* init vfe and senor, register sync callbacks for init*/
-	int rc = 0;
-	D("%s\n", __func__);
-	if (!mctl) {
-		pr_err("%s: param is NULL", __func__);
-		return -EINVAL;
-	}
-
-	rc = v4l2_subdev_call(sd, core, ioctl,
-				VIDIOC_MSM_VFE_INIT, NULL);
-	if (rc < 0) {
-		pr_err("%s: vfe_init failed at %d\n",
-			__func__, rc);
-	}
-	return rc;
-}
-
-static void msm_isp_release(struct msm_cam_media_controller *mctl,
-	struct v4l2_subdev *sd)
-{
-	D("%s\n", __func__);
-	v4l2_subdev_call(sd, core, ioctl,
-				VIDIOC_MSM_VFE_RELEASE, NULL);
 }
 
 static int msm_config_vfe(struct v4l2_subdev *sd,
@@ -780,9 +751,7 @@ int msm_isp_init_module(int g_num_config_nodes)
 	int i = 0;
 
 	for (i = 0; i < g_num_config_nodes; i++) {
-		isp_subdev[i].isp_open = msm_isp_open;
 		isp_subdev[i].isp_config = msm_isp_config;
-		isp_subdev[i].isp_release  = msm_isp_release;
 		isp_subdev[i].isp_notify = msm_isp_notify;
 	}
 	return 0;

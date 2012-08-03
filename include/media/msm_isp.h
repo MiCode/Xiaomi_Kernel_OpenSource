@@ -65,7 +65,9 @@
 #define MSG_ID_STATS_BG                 46
 #define MSG_ID_STATS_BF                 47
 #define MSG_ID_STATS_BHIST              48
-
+#define MSG_ID_RDI0_UPDATE_ACK          49
+#define MSG_ID_RDI1_UPDATE_ACK          50
+#define MSG_ID_RDI2_UPDATE_ACK          51
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
