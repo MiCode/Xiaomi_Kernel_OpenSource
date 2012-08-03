@@ -1,0 +1,11 @@
+* Qualcomm MSM Camera Server
+
+Required properties:
+- compatible :
+    - "qcom,cam_server"
+
+Example:
+
+   qcom,cam_server {
+       compatible = "qcom,cam_server";
+   };
