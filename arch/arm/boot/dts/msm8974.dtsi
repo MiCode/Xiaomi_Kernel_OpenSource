@@ -501,6 +501,7 @@
 		interrupts = <0 76 0 0 77 0>;
 		interrupt-names = "ocmem_irq", "dm_irq";
 		qcom,ocmem-num-regions = <0x3>;
+		qcom,resource-type = <0x706d636f>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0xfec00000 0x180000>;
