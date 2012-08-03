@@ -976,6 +976,7 @@ struct vfe_share_ctrl_t {
 	atomic_t rdi0_update_ack_pending;
 	atomic_t rdi1_update_ack_pending;
 	atomic_t rdi2_update_ack_pending;
+
 };
 
 struct axi_ctrl_t {
@@ -1033,6 +1034,7 @@ struct vfe32_ctrl_type {
 	struct msm_stats_ops stats_ops;
 
 	uint32_t simultaneous_sof_stat;
+	uint32_t ref_count;
 };
 
 #define statsAeNum      0

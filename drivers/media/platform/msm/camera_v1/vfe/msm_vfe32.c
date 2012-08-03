@@ -5054,9 +5054,14 @@ int msm_axi_subdev_init(struct v4l2_subdev *sd)
 	else
 		axi_ctrl->share_ctrl->register_total = VFE33_REGISTER_TOTAL;
 
+	rc = msm_vfe_subdev_init(&axi_ctrl->share_ctrl->vfe32_ctrl->subdev);
+	if (rc < 0)
+		goto vfe_subdev_init_failed;
 	enable_irq(axi_ctrl->vfeirq->start);
 
 	return rc;
+
+vfe_subdev_init_failed:
 clk_enable_failed:
 	if (axi_ctrl->fs_vfe)
 		regulator_disable(axi_ctrl->fs_vfe);
@@ -5075,21 +5080,25 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd)
 	struct vfe32_ctrl_type *vfe32_ctrl =
 		(struct vfe32_ctrl_type *)v4l2_get_subdevdata(sd);
 
-	spin_lock_init(&vfe32_ctrl->share_ctrl->stop_flag_lock);
-	spin_lock_init(&vfe32_ctrl->state_lock);
-	spin_lock_init(&vfe32_ctrl->share_ctrl->update_ack_lock);
-	spin_lock_init(&vfe32_ctrl->share_ctrl->start_ack_lock);
-	spin_lock_init(&vfe32_ctrl->stats_bufq_lock);
+	vfe32_ctrl->ref_count++;
+	if (vfe32_ctrl->ref_count == 1) {
+		spin_lock_init(&vfe32_ctrl->share_ctrl->stop_flag_lock);
+		spin_lock_init(&vfe32_ctrl->state_lock);
+		spin_lock_init(&vfe32_ctrl->share_ctrl->update_ack_lock);
+		spin_lock_init(&vfe32_ctrl->share_ctrl->start_ack_lock);
+		spin_lock_init(&vfe32_ctrl->stats_bufq_lock);
 
-	vfe32_ctrl->update_linear = false;
-	vfe32_ctrl->update_rolloff = false;
-	vfe32_ctrl->update_la = false;
-	vfe32_ctrl->update_gamma = false;
-	vfe32_ctrl->vfe_sof_count_enable = false;
-	vfe32_ctrl->hfr_mode = HFR_MODE_OFF;
+		vfe32_ctrl->update_linear = false;
+		vfe32_ctrl->update_rolloff = false;
+		vfe32_ctrl->update_la = false;
+		vfe32_ctrl->update_gamma = false;
+		vfe32_ctrl->vfe_sof_count_enable = false;
+		vfe32_ctrl->hfr_mode = HFR_MODE_OFF;
 
-	memset(&vfe32_ctrl->stats_ctrl, 0, sizeof(struct msm_stats_bufq_ctrl));
-	memset(&vfe32_ctrl->stats_ops, 0, sizeof(struct msm_stats_ops));
+		memset(&vfe32_ctrl->stats_ctrl, 0,
+			sizeof(struct msm_stats_bufq_ctrl));
+		memset(&vfe32_ctrl->stats_ops, 0, sizeof(struct msm_stats_ops));
+	}
 
 	return rc;
 }
@@ -5120,13 +5129,16 @@ void msm_axi_subdev_release(struct v4l2_subdev *sd)
 
 	msm_camio_bus_scale_cfg(
 		pmctl->sdata->pdata->cam_bus_scale_table, S_EXIT);
+
+	msm_vfe_subdev_release(&axi_ctrl->share_ctrl->vfe32_ctrl->subdev);
 }
 
 void msm_vfe_subdev_release(struct v4l2_subdev *sd)
 {
 	struct vfe32_ctrl_type *vfe32_ctrl =
 		(struct vfe32_ctrl_type *)v4l2_get_subdevdata(sd);
-	if (!vfe32_ctrl->share_ctrl->vfebase)
+	vfe32_ctrl->ref_count--;
+	if (vfe32_ctrl->ref_count == 0 && !vfe32_ctrl->share_ctrl->vfebase)
 		vfe32_ctrl->share_ctrl->vfebase = NULL;
 }
 
