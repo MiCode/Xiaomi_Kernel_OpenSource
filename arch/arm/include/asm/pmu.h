@@ -108,6 +108,12 @@ struct arm_pmu {
 	enum arm_pmu_type type;
 	cpumask_t	active_irqs;
 	const char	*name;
+	int		num_events;
+	atomic_t	active_events;
+	struct mutex	reserve_mutex;
+	u64		max_period;
+	struct platform_device	*plat_device;
+	u32		from_idle;
 	irqreturn_t	(*handle_irq)(int irq_num, void *dev);
 	int     	(*request_pmu_irq)(int irq, irq_handler_t *irq_h);
 	void    	(*free_pmu_irq)(int irq);
@@ -123,11 +129,6 @@ struct arm_pmu {
 	void		(*stop)(void);
 	void		(*reset)(void *);
 	int		(*map_event)(struct perf_event *event);
-	int		num_events;
-	atomic_t	active_events;
-	struct mutex	reserve_mutex;
-	u64		max_period;
-	struct platform_device	*plat_device;
 	struct pmu_hw_events	*(*get_hw_events)(void);
 	int	(*test_set_event_constraints)(struct perf_event *event);
 	int	(*clear_event_constraints)(struct perf_event *event);
