@@ -14,6 +14,7 @@
 /include/ "msm8974_pm.dtsi"
 /include/ "msm8974-iommu.dtsi"
 /include/ "msm-gdsc.dtsi"
+/include/ "msm8974-gpu.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974";

@@ -1,0 +1,78 @@
+DCVS Core Info
+
+This data describes specific DCVS tuning data for a specific core (CPU, GPU,
+etc).
+
+Required properties:
+
+- qcom,core-max-time-us:	Maximum time limit in micorseconds for switching clock rate.
+				Limited to this value if switching time takes longer than this limit. Typical value is 100000.
+- qcom,algo-slack-time-us:	Time in microseconds after which the QoS guarantee will kick in
+				and the clock rate will increased as necessary. Typical value is about 30000.
+- qcom,algo-disable-pc-threshold:	If core frequency (kHz) is higher than this value, power collapse is disallowed. Set to 0 for GPU.
+- qcom,algo-ss-window-size:	Steady state window size in microseconds.
+- qcom,algo-ss-util-pct:	When determining the steady state level, this percentage value is used to provide headroom
+				from the utilized cpu to the selected level.
+- qcom,algo-ee-max-util-pct:	When determining the level with the lowest energy, any level that exceeds this busy
+				percentage, for the measured work in the last window, is disqualified for performance reasons.
+- qcom,algo-ss-iobusy-conv:	Used to convert correlation time into assumed IO Busy time, which is removed
+				from measured elapsed time when computing cpu utilization.
+
+
+A number of frequency levels are represented as sub-nodes:
+
+required properties:
+- reg:			The index of the frequency entry
+- qcom,freq		The frequency of the DVS entry (in kHZ)
+- qcom,idle-energy: 	The idle energy cost of the entry (in micro watts)
+- qcom,active-energy:	The active energy cost of the entry (in micro watts)
+
+Sample:
+
+qcom,kgsl-3d0@fdb00000 {
+	...
+	qcom,dcvs-core-info {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,dcvs-core-info";
+
+		qcom,core-max-time-us = <100000>;
+		qcom,algo-slack-time-us = <39000>;
+		qcom,algo-disable-pc-threshold = <86000>;
+		qcom,algo-ss-window-size = <1000000>;
+		qcom,algo-ss-util-pct = <95>;
+		qcom,algo-em-max-util-pct = <97>;
+		qcom,algo-ss-iobusy-conv = <100>;
+
+		qcom,dcvs-freq@0 {
+			reg = <0>;
+			qcom,freq = <0>;
+			qcom,idle-energy = <0>;
+			qcom,active-energy = <333932>;
+		};
+
+		qcom,dcvs-freq@1 {
+			reg = <1>;
+			qcom,freq = <0>;
+			qcom,idle-energy = <0>;
+			qcom,active-energy = <497532>;
+		};
+
+		qcom,dcvs-freq@2 {
+			reg = <2>;
+			qcom,freq = <0>;
+			qcom,idle-energy = <0>;
+			qcom,active-energy = <707610>;
+		};
+
+		qcom,dcvs-freq@3 {
+			reg = <3>;
+			qcom,freq = <0>;
+			qcom,idle-energy = <0>;
+			qcom,active-energy = <844545>;
+		};
+	};
+	...
+};
+

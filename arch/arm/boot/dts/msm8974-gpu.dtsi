@@ -1,0 +1,126 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/ {
+	qcom,kgsl-3d0@fdb00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0xfdb00000 0x20000>;
+		reg-names = "kgsl_3d0_reg_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,chipid = <0x03030000>;
+
+		qcom,initial-pwrlevel = <1>;
+
+		qcom,idle-timeout = <83>; //<HZ/12>
+		qcom,nap-allowed = <1>;
+		qcom,clk-map = <0x00000016>; //KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE
+
+		/* Bus Scale Settings */
+		qcom,grp3d-vectors = <0 0 0 0>, <2 1 0 0>,
+				<0 0 0 2000>, <2 1 0 3000>,
+				<0 0 0 4000>, <2 1 0 5000>,
+				<0 0 0 6400>, <2 1 0 7600>;
+		qcom,grp3d-num-vectors-per-usecase = <2>;
+		qcom,grp3d-num-bus-scale-usecases = <4>;
+
+		/* GDSC oxili regulators */
+		vddcx-supply = <&gdsc_oxili_cx>;
+		vdd-supply = <&gdsc_oxili_gx>;
+
+		/* Power levels */
+
+		/* IOMMU Data */
+		iommu = <&kgsl_iommu>;
+
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <500000000>;
+				qcom,bus-freq = <3>;
+				qcom,io-fraction = <0>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <333000000>;
+				qcom,bus-freq = <2>;
+				qcom,io-fraction = <33>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <200000000>;
+				qcom,bus-freq = <1>;
+				qcom,io-fraction = <100>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <27000000>;
+				qcom,bus-freq = <0>;
+				qcom,io-fraction = <0>;
+			};
+		};
+
+		qcom,dcvs-core-info {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,dcvs-core-info";
+
+			qcom,core-max-time-us = <100000>;
+			qcom,algo-slack-time-us = <39000>;
+			qcom,algo-disable-pc-threshold = <86000>;
+			qcom,algo-ss-window-size = <1000000>;
+			qcom,algo-ss-util-pct = <95>;
+			qcom,algo-em-max-util-pct = <97>;
+			qcom,algo-ss-iobusy-conv = <100>;
+
+			qcom,dcvs-freq@0 {
+				reg = <0>;
+				qcom,freq = <0>;
+				qcom,idle-energy = <0>;
+				qcom,active-energy = <333932>;
+			};
+
+			qcom,dcvs-freq@1 {
+				reg = <1>;
+				qcom,freq = <0>;
+				qcom,idle-energy = <0>;
+				qcom,active-energy = <497532>;
+			};
+
+			qcom,dcvs-freq@2 {
+				reg = <2>;
+				qcom,freq = <0>;
+				qcom,idle-energy = <0>;
+				qcom,active-energy = <707610>;
+			};
+
+			qcom,dcvs-freq@3 {
+				reg = <3>;
+				qcom,freq = <0>;
+				qcom,idle-energy = <0>;
+				qcom,active-energy = <844545>;
+			};
+		};
+
+	};
+};
