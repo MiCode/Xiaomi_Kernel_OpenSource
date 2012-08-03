@@ -329,6 +329,27 @@ static void mdp4_dsi_video_wait4dmap(int cndx)
 	wait_for_completion(&vctrl->dmap_comp);
 }
 
+
+static void mdp4_dsi_video_wait4dmap_done(int cndx)
+{
+	unsigned long flags;
+	struct vsycn_ctrl *vctrl;
+
+	if (cndx >= MAX_CONTROLLER) {
+		pr_err("%s: out or range: cndx=%d\n", __func__, cndx);
+		return;
+	}
+	vctrl = &vsync_ctrl_db[cndx];
+
+	spin_lock_irqsave(&vctrl->spin_lock, flags);
+	INIT_COMPLETION(vctrl->dmap_comp);
+	vsync_irq_enable(INTR_DMA_P_DONE, MDP_DMAP_TERM);
+	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+	mdp4_dsi_video_wait4dmap(cndx);
+	vsync_irq_disable(INTR_DMA_P_DONE, MDP_DMAP_TERM);
+}
+
+
 static void mdp4_dsi_video_wait4ov(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
@@ -492,20 +513,13 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 		pipe = vctrl->base_pipe;
 	}
 
-#ifdef CONTINUOUS_SPLASH
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
 	if (!(mfd->cont_splash_done)) {
 		mfd->cont_splash_done = 1;
-		mdp_pipe_ctrl(MDP_CMD_BLOCK,
-			      MDP_BLOCK_POWER_OFF, FALSE);
-		mdp4_overlay_dsi_video_wait4event(mfd, INTR_DMA_P_DONE);
-		/* disable timing generator */
+		mdp4_dsi_video_wait4dmap_done(0);
 		MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 0);
 		mipi_dsi_controller_cfg(0);
 	}
-#endif
+
 	pipe->src_height = fbi->var.yres;
 	pipe->src_width = fbi->var.xres;
 	pipe->src_h = fbi->var.yres;
