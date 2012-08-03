@@ -81,6 +81,7 @@ static char *lcdc_gpio_name_table[5] = {
 	"gpio_disp_reset",
 };
 
+static char lcdc_splash_is_enabled(void);
 static int lcdc_truly_gpio_init(void)
 {
 	int i;
@@ -103,7 +104,12 @@ static int lcdc_truly_gpio_init(void)
 					lcdc_truly_gpio_table[i]);
 				goto truly_gpio_fail;
 			}
-			rc = gpio_direction_output(lcdc_truly_gpio_table[i], 0);
+			if (lcdc_splash_is_enabled())
+				rc = gpio_direction_output(
+					lcdc_truly_gpio_table[i], 1);
+			else
+				rc = gpio_direction_output(
+					lcdc_truly_gpio_table[i], 0);
 			if (rc < 0) {
 				pr_err("Error direct lcdc gpio:%d\n",
 					lcdc_truly_gpio_table[i]);
@@ -247,6 +253,7 @@ int sku3_lcdc_lcd_camera_power_onoff(int on)
 static int sku3_lcdc_power_save(int on)
 {
 	int rc = 0;
+	static int cont_splash_done;
 
 	if (on) {
 		sku3_lcdc_lcd_camera_power_onoff(1);
@@ -254,6 +261,11 @@ static int sku3_lcdc_power_save(int on)
 		if (rc < 0) {
 			pr_err("%s(): Truly GPIO initializations failed",
 				__func__);
+			return rc;
+		}
+
+		if (lcdc_splash_is_enabled() && !cont_splash_done) {
+			cont_splash_done = 1;
 			return rc;
 		}
 
@@ -778,7 +790,13 @@ void __init msm_msm7627a_allocate_memory_regions(void)
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = 97,
 	.mdp_rev = MDP_REV_303,
+	.cont_splash_enabled = 0x1,
 };
+
+static char lcdc_splash_is_enabled()
+{
+	return mdp_pdata.cont_splash_enabled;
+}
 
 #define GPIO_LCDC_BRDG_PD	128
 #define GPIO_LCDC_BRDG_RESET_N	129
@@ -1142,11 +1160,11 @@ static int mipi_dsi_panel_qrd1_power(int on)
 }
 
 static int qrd3_dsi_gpio_initialized;
+static struct regulator *gpio_reg_2p85v, *gpio_reg_1p8v;
 
 static int mipi_dsi_panel_qrd3_power(int on)
 {
 	int rc = 0;
-	static struct regulator *gpio_reg_2p85v, *gpio_reg_1p8v;
 
 	if (!qrd3_dsi_gpio_initialized) {
 		pmapp_disp_backlight_init();
@@ -1155,21 +1173,42 @@ static int mipi_dsi_panel_qrd3_power(int on)
 		if (rc < 0)
 			return rc;
 
-		gpio_reg_2p85v = regulator_get(&mipi_dsi_device.dev,
-								"lcd_vdd");
-		if (IS_ERR(gpio_reg_2p85v)) {
-			pr_err("%s:ext_2p85v regulator get failed", __func__);
-			return -EINVAL;
-		}
-
-		gpio_reg_1p8v = regulator_get(&mipi_dsi_device.dev,
-								"lcd_vddi");
-		if (IS_ERR(gpio_reg_1p8v)) {
-			pr_err("%s:ext_1p8v regulator get failed", __func__);
-			return -EINVAL;
-		}
-
 		qrd3_dsi_gpio_initialized = 1;
+
+		if (mdp_pdata.cont_splash_enabled) {
+			rc = gpio_tlmm_config(GPIO_CFG(
+			     GPIO_QRD3_LCD_BACKLIGHT_EN, 0, GPIO_CFG_OUTPUT,
+			     GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+			if (rc < 0) {
+				pr_err("failed QRD3 GPIO_BACKLIGHT_EN tlmm config\n");
+				return rc;
+			}
+			rc = gpio_direction_output(GPIO_QRD3_LCD_BACKLIGHT_EN,
+			     1);
+			if (rc < 0) {
+				pr_err("failed to enable backlight\n");
+				gpio_free(GPIO_QRD3_LCD_BACKLIGHT_EN);
+				return rc;
+			}
+
+			/*Configure LCD Bridge reset*/
+			rc = gpio_tlmm_config(qrd3_mipi_dsi_gpio[0],
+			     GPIO_CFG_ENABLE);
+			if (rc < 0) {
+				pr_err("Failed to enable LCD Bridge reset enable\n");
+				return rc;
+			}
+
+			rc = gpio_direction_output(GPIO_QRD3_LCD_BRDG_RESET_N,
+			     1);
+
+			if (rc < 0) {
+				pr_err("Failed GPIO bridge Reset\n");
+				gpio_free(GPIO_QRD3_LCD_BRDG_RESET_N);
+				return rc;
+			}
+			return 0;
+		}
 	}
 
 	if (on) {
@@ -1246,6 +1285,7 @@ static int mipi_dsi_panel_qrd3_power(int on)
 	return rc;
 }
 
+static char mipi_dsi_splash_is_enabled(void);
 static int mipi_dsi_panel_power(int on)
 {
 	int rc = 0;
@@ -1268,8 +1308,14 @@ static struct mipi_dsi_platform_data mipi_dsi_pdata = {
 	.dsi_power_save		= mipi_dsi_panel_power,
 	.dsi_client_reset       = msm_fb_dsi_client_reset,
 	.get_lane_config	= msm_fb_get_lane_config,
+	.splash_is_enabled	= mipi_dsi_splash_is_enabled,
 };
 #endif
+
+static char mipi_dsi_splash_is_enabled(void)
+{
+	return mdp_pdata.cont_splash_enabled;
+}
 
 static char prim_panel_name[PANEL_NAME_MAX_LEN];
 static int __init prim_display_setup(char *param)
@@ -1280,6 +1326,8 @@ static int __init prim_display_setup(char *param)
 }
 early_param("prim_display", prim_display_setup);
 
+static int disable_splash;
+
 void msm7x27a_set_display_params(char *prim_panel)
 {
 	if (strnlen(prim_panel, PANEL_NAME_MAX_LEN)) {
@@ -1288,10 +1336,22 @@ void msm7x27a_set_display_params(char *prim_panel)
 		pr_debug("msm_fb_pdata.prim_panel_name %s\n",
 			msm_fb_pdata.prim_panel_name);
 	}
+	if (strnlen(msm_fb_pdata.prim_panel_name, PANEL_NAME_MAX_LEN)) {
+		if (strncmp((char *)msm_fb_pdata.prim_panel_name,
+			"mipi_cmd_nt35510_wvga",
+			strnlen("mipi_cmd_nt35510_wvga",
+				PANEL_NAME_MAX_LEN)) &&
+		    strncmp((char *)msm_fb_pdata.prim_panel_name,
+			"mipi_video_nt35510_wvga",
+			strnlen("mipi_video_nt35510_wvga",
+				PANEL_NAME_MAX_LEN)))
+			disable_splash = 1;
+	}
 }
 
 void __init msm_fb_add_devices(void)
 {
+	int rc = 0;
 	msm7x27a_set_display_params(prim_panel_name);
 	if (machine_is_msm7627a_qrd1())
 		platform_add_devices(qrd_fb_devices,
@@ -1300,15 +1360,22 @@ void __init msm_fb_add_devices(void)
 						|| machine_is_msm8625_evt()) {
 		mipi_NT35510_pdata.bl_lock = 1;
 		mipi_NT35516_pdata.bl_lock = 1;
+		if (disable_splash)
+			mdp_pdata.cont_splash_enabled = 0x0;
+
+
 		platform_add_devices(evb_fb_devices,
 				ARRAY_SIZE(evb_fb_devices));
 	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		sku3_lcdc_lcd_camera_power_init();
+		mdp_pdata.cont_splash_enabled = 0x1;
 		platform_add_devices(qrd3_fb_devices,
 						ARRAY_SIZE(qrd3_fb_devices));
-	} else
+	} else {
+		mdp_pdata.cont_splash_enabled = 0x0;
 		platform_add_devices(msm_fb_devices,
 				ARRAY_SIZE(msm_fb_devices));
+	}
 
 	msm_fb_register_device("mdp", &mdp_pdata);
 	if (machine_is_msm7625a_surf() || machine_is_msm7x27a_surf() ||
@@ -1318,4 +1385,26 @@ void __init msm_fb_add_devices(void)
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
 #endif
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+					|| machine_is_msm8625_evt()) {
+		gpio_reg_2p85v = regulator_get(&mipi_dsi_device.dev,
+								"lcd_vdd");
+		if (IS_ERR(gpio_reg_2p85v))
+			pr_err("%s:ext_2p85v regulator get failed", __func__);
+
+		gpio_reg_1p8v = regulator_get(&mipi_dsi_device.dev,
+								"lcd_vddi");
+		if (IS_ERR(gpio_reg_1p8v))
+			pr_err("%s:ext_1p8v regulator get failed", __func__);
+
+		if (mdp_pdata.cont_splash_enabled) {
+			/*Enable EXT_2.85 and 1.8 regulators*/
+			rc = regulator_enable(gpio_reg_2p85v);
+			if (rc < 0)
+				pr_err("%s: reg enable failed\n", __func__);
+			rc = regulator_enable(gpio_reg_1p8v);
+			if (rc < 0)
+				pr_err("%s: reg enable failed\n", __func__);
+		}
+	}
 }
