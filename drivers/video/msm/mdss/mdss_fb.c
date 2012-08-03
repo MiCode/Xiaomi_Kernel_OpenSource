@@ -204,9 +204,6 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->panel_info.frame_count = 0;
 	mfd->bl_level = 0;
 	mfd->fb_imgType = MDP_RGBA_8888;
-	mfd->iclient = msm_ion_client_create(-1, pdev->name);
-	if (IS_ERR(mfd->iclient))
-		mfd->iclient = NULL;
 
 	mfd->pdev = pdev;
 
@@ -592,7 +589,7 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 	size *= mfd->fb_page;
 
 	if (mfd->index == 0) {
-		struct ion_client *iclient = mfd->iclient;
+		struct ion_client *iclient = mdss_get_ionclient();
 
 		if (iclient) {
 			mfd->ihdl = ion_alloc(iclient, size, SZ_4K,
