@@ -39,7 +39,13 @@
 
 static DECLARE_BITMAP(msi_irq_in_use, NR_PCIE_MSI_IRQS);
 
-irqreturn_t handle_msi_irq(int irq, void *data)
+static irqreturn_t handle_wake_irq(int irq, void *data)
+{
+	PCIE_DBG("\n");
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t handle_msi_irq(int irq, void *data)
 {
 	int i, j;
 	unsigned long val;
@@ -87,15 +93,32 @@ uint32_t __init msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	/* register handler for physical MSI interrupt line */
 	rc = request_irq(PCIE20_INT_MSI, handle_msi_irq, IRQF_TRIGGER_RISING,
 			 "msm_pcie_msi", dev);
-	if (rc)
+	if (rc) {
 		pr_err("Unable to allocate msi interrupt\n");
+		goto out;
+	}
 
+	/* register handler for PCIE_WAKE_N interrupt line */
+	rc = request_irq(dev->wake_n, handle_wake_irq, IRQF_TRIGGER_FALLING,
+			 "msm_pcie_wake", dev);
+	if (rc) {
+		pr_err("Unable to allocate wake interrupt\n");
+		free_irq(PCIE20_INT_MSI, dev);
+		goto out;
+	}
+
+	enable_irq_wake(dev->wake_n);
+
+	/* PCIE_WAKE_N should be enabled only during system suspend */
+	disable_irq(dev->wake_n);
+out:
 	return rc;
 }
 
 void __exit msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 {
 	free_irq(PCIE20_INT_MSI, dev);
+	free_irq(dev->wake_n, dev);
 }
 
 void msm_pcie_destroy_irq(unsigned int irq)

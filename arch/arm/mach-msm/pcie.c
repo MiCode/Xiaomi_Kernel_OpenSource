@@ -619,6 +619,7 @@ static int __init msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev.pdev = pdev;
 	pdata = pdev->dev.platform_data;
 	msm_pcie_dev.gpio = pdata->gpio;
+	msm_pcie_dev.wake_n = pdata->wake_n;
 	msm_pcie_dev.vreg = msm_pcie_vreg_info;
 	msm_pcie_dev.clk = msm_pcie_clk_info;
 	msm_pcie_dev.res = msm_pcie_res_info;
@@ -705,6 +706,26 @@ static void __devinit msm_pcie_fixup_early(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
 			msm_pcie_fixup_early);
+
+/* enable wake_n interrupt during suspend */
+static void msm_pcie_fixup_suspend(struct pci_dev *dev)
+{
+	PCIE_DBG("enabling wake_n\n");
+	if (dev->pcie_type == PCI_EXP_TYPE_ROOT_PORT)
+		enable_irq(msm_pcie_dev.wake_n);
+}
+DECLARE_PCI_FIXUP_SUSPEND(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+			  msm_pcie_fixup_suspend);
+
+/* disable wake_n interrupt when system is not in suspend */
+static void msm_pcie_fixup_resume(struct pci_dev *dev)
+{
+	PCIE_DBG("disabling wake_n\n");
+	if (dev->pcie_type == PCI_EXP_TYPE_ROOT_PORT)
+		disable_irq(msm_pcie_dev.wake_n);
+}
+DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+			 msm_pcie_fixup_resume);
 
 /*
  * actual physical (BAR) address of the device resources starts from
