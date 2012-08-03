@@ -2431,6 +2431,7 @@ static struct mpu3050_gyro_platform_data mpu3050_gyro = {
 static struct i2c_board_info __initdata mpu3050_i2c_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("mpu3050", 0x68),
+		.irq = MSM_GPIO_TO_INT(MPU3050_INT_GPIO),
 		.platform_data = &mpu3050_gyro,
 	},
 };
