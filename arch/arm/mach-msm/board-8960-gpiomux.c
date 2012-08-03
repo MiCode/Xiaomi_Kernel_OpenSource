@@ -759,6 +759,16 @@ static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config hap_lvl_shft_config_sglte[] __initdata = {
+	{
+		.gpio = 89,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &hap_lvl_shft_suspended_config,
+			[GPIOMUX_ACTIVE] = &hap_lvl_shft_active_config,
+		},
+	},
+};
+
 static struct msm_gpiomux_config sglte_configs[] __initdata = {
 	/* AP2MDM_STATUS */
 	{
@@ -979,8 +989,9 @@ int __init msm8960_init_gpiomux(void)
 	}
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
-	msm_gpiomux_install(msm8960_ethernet_configs,
-			ARRAY_SIZE(msm8960_ethernet_configs));
+	if (socinfo_get_platform_subtype() != PLATFORM_SUBTYPE_SGLTE)
+		msm_gpiomux_install(msm8960_ethernet_configs,
+				ARRAY_SIZE(msm8960_ethernet_configs));
 #endif
 
 	msm_gpiomux_install(msm8960_gsbi_configs,
@@ -1007,9 +1018,15 @@ int __init msm8960_init_gpiomux(void)
 #endif
 
 	if (machine_is_msm8960_mtp() || machine_is_msm8960_fluid() ||
-		machine_is_msm8960_liquid() || machine_is_msm8960_cdp())
-		msm_gpiomux_install(hap_lvl_shft_config,
-			ARRAY_SIZE(hap_lvl_shft_config));
+		machine_is_msm8960_liquid() || machine_is_msm8960_cdp()) {
+		if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+			msm_gpiomux_install(hap_lvl_shft_config_sglte,
+				ARRAY_SIZE(hap_lvl_shft_config_sglte));
+
+		else
+			msm_gpiomux_install(hap_lvl_shft_config,
+				ARRAY_SIZE(hap_lvl_shft_config));
+	}
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1) &&
