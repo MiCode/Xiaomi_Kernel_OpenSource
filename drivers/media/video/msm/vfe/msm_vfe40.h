@@ -173,10 +173,10 @@ enum vfe_output_state {
 #define V40_OUT_CLAMP_OFF         0x00000874
 #define V40_OUT_CLAMP_LEN         16
 
-#define V40_OPERATION_CFG_LEN     44
+#define V40_OPERATION_CFG_LEN     32
 
 #define V40_AXI_OUT_OFF           0x0000004C
-#define V40_AXI_OUT_LEN           412
+#define V40_AXI_OUT_LEN           424
 #define V40_AXI_CH_INF_LEN        32
 #define V40_AXI_CFG_LEN           71
 

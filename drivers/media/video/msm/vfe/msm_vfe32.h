@@ -247,11 +247,11 @@ enum vfe_output_state {
 #define V32_OUT_CLAMP_OFF         0x00000524
 #define V32_OUT_CLAMP_LEN         8
 
-#define V32_OPERATION_CFG_LEN     44
+#define V32_OPERATION_CFG_LEN     32
 
 #define V32_AXI_BUS_CMD_OFF       0x00000038
 #define V32_AXI_OUT_OFF           0x0000003C
-#define V32_AXI_OUT_LEN           240
+#define V32_AXI_OUT_LEN           252
 #define V32_AXI_CFG_LEN           47
 #define V32_AXI_BUS_FMT_OFF       1
 #define V32_AXI_BUS_FMT_LEN       4
@@ -790,7 +790,8 @@ struct vfe32_output_ch {
 #define VFE32_IMASK_ERROR_ONLY_0  0x0
 /* when normal case, don't want to block error status. */
 /* bit 0-21 are error irq bits */
-#define VFE32_IMASK_ERROR_ONLY_1               0x005FFFFF
+#define VFE32_IMASK_COMMON_ERROR_ONLY_1       0x00407F00
+#define VFE32_IMASK_VFE_ERROR_ONLY_1          0x001F80FF
 #define VFE32_IMASK_CAMIF_ERROR               (0x00000001<<0)
 #define VFE32_IMASK_BHIST_OVWR                (0x00000001<<1)
 #define VFE32_IMASK_STATS_CS_OVWR             (0x00000001<<2)
@@ -944,6 +945,7 @@ struct vfe_share_ctrl_t {
 	uint32_t register_total;
 
 	atomic_t vstate;
+	atomic_t handle_common_irq;
 	uint32_t vfeFrameId;
 	uint32_t stats_comp;
 	spinlock_t  sd_notify_lock;
@@ -960,6 +962,8 @@ struct vfe_share_ctrl_t {
 	uint8_t stop_immediately;
 	uint8_t sync_abort;
 	uint16_t cmd_type;
+
+	uint8_t axi_ref_cnt;
 
 	struct completion reset_complete;
 
