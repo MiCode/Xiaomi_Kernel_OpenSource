@@ -880,7 +880,6 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 	 */
 
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
-		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
 		/* detach iommu attachment */
 		kgsl_detach_pagetable_iommu_domain(mmu);
 		mmu->hwpagetable = NULL;
