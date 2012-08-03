@@ -2347,37 +2347,6 @@ static int iris_recv_set_region(struct iris_device *radio, int req_region)
 	int retval;
 	radio->region = req_region;
 
-	switch (radio->region) {
-	case IRIS_REGION_US:
-		radio->recv_conf.band_low_limit =
-			REGION_US_EU_BAND_LOW;
-		radio->recv_conf.band_high_limit =
-			REGION_US_EU_BAND_HIGH;
-		break;
-	case IRIS_REGION_EU:
-		radio->recv_conf.band_low_limit =
-			REGION_US_EU_BAND_LOW;
-		radio->recv_conf.band_high_limit =
-			REGION_US_EU_BAND_HIGH;
-		break;
-	case IRIS_REGION_JAPAN:
-		radio->recv_conf.band_low_limit =
-			REGION_JAPAN_STANDARD_BAND_LOW;
-		radio->recv_conf.band_high_limit =
-			REGION_JAPAN_STANDARD_BAND_HIGH;
-		break;
-	case IRIS_REGION_JAPAN_WIDE:
-		radio->recv_conf.band_low_limit =
-			REGION_JAPAN_WIDE_BAND_LOW;
-		radio->recv_conf.band_high_limit =
-			REGION_JAPAN_WIDE_BAND_HIGH;
-		break;
-	default:
-		/* The user specifies the value.
-		   So nothing needs to be done */
-		break;
-	}
-
 	retval = hci_set_fm_recv_conf(
 			&radio->recv_conf,
 			radio->fm_hdev);
@@ -2390,34 +2359,6 @@ static int iris_trans_set_region(struct iris_device *radio, int req_region)
 {
 	int retval;
 	radio->region = req_region;
-
-	switch (radio->region) {
-	case IRIS_REGION_US:
-		radio->trans_conf.band_low_limit =
-			REGION_US_EU_BAND_LOW;
-		radio->trans_conf.band_high_limit =
-			REGION_US_EU_BAND_HIGH;
-		break;
-	case IRIS_REGION_EU:
-		radio->trans_conf.band_low_limit =
-			REGION_US_EU_BAND_LOW;
-		radio->trans_conf.band_high_limit =
-			REGION_US_EU_BAND_HIGH;
-		break;
-	case IRIS_REGION_JAPAN:
-		radio->trans_conf.band_low_limit =
-			REGION_JAPAN_STANDARD_BAND_LOW;
-		radio->trans_conf.band_high_limit =
-			REGION_JAPAN_STANDARD_BAND_HIGH;
-		break;
-	case IRIS_REGION_JAPAN_WIDE:
-		radio->recv_conf.band_low_limit =
-			REGION_JAPAN_WIDE_BAND_LOW;
-		radio->recv_conf.band_high_limit =
-			REGION_JAPAN_WIDE_BAND_HIGH;
-	default:
-		break;
-	}
 
 	retval = hci_set_fm_trans_conf(
 			&radio->trans_conf,
