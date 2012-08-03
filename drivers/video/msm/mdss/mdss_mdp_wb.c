@@ -18,6 +18,10 @@
 #include <linux/major.h>
 #include <linux/module.h>
 #include <linux/uaccess.h>
+#include <linux/iommu.h>
+
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
 
 #include "mdss_mdp.h"
 #include "mdss_fb.h"
@@ -68,6 +72,7 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 	static void *videomemory;
 	static ion_phys_addr_t mdss_wb_mem;
 	static struct mdss_mdp_data mdss_wb_buffer = { .num_planes = 1, };
+	int rc;
 
 	if (IS_ERR_OR_NULL(ihdl)) {
 		struct fb_info *fbi;
@@ -79,6 +84,7 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 		img_size = fbi->var.xres * fbi->var.yres *
 			fbi->var.bits_per_pixel / 8;
 
+
 		ihdl = ion_alloc(iclient, img_size, SZ_4K,
 				 ION_HEAP(ION_SF_HEAP_ID));
 		if (IS_ERR_OR_NULL(ihdl)) {
@@ -89,8 +95,18 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 		videomemory = ion_map_kernel(iclient, ihdl, 0);
 		ion_phys(iclient, ihdl, &mdss_wb_mem, &img_size);
 
-		img->addr = mdss_wb_mem;
-		img->len = img_size;
+		if (is_mdss_iommu_attached()) {
+			rc = ion_map_iommu(iclient, ihdl,
+					   mdss_get_iommu_domain(),
+					   0, SZ_4K, 0,
+					   (unsigned long *) &img->addr,
+					   (unsigned long *) &img->len,
+					   0, 0);
+		} else {
+			img->addr = mdss_wb_mem;
+			img->len = img_size;
+		}
+
 		pr_debug("ihdl=%p virt=%p phys=0x%lx iova=0x%x size=%u\n",
 			 ihdl, videomemory, mdss_wb_mem, img->addr, img_size);
 	}
@@ -550,3 +566,9 @@ int msm_fb_writeback_terminate(struct fb_info *info)
 	return mdss_mdp_wb_terminate(mfd);
 }
 EXPORT_SYMBOL(msm_fb_writeback_terminate);
+
+int msm_fb_get_iommu_domain(void)
+{
+	return mdss_get_iommu_domain();
+}
+EXPORT_SYMBOL(msm_fb_get_iommu_domain);

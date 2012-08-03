@@ -76,8 +76,10 @@ struct msm_fb_data_type {
 			     struct mdp_histogram *hist);
 
 	struct ion_handle *ihdl;
+	unsigned long iova;
 	void *cursor_buf;
-	void *cursor_buf_phys;
+	unsigned long cursor_buf_phys;
+	unsigned long cursor_buf_iova;
 
 	u32 bl_level;
 	struct mutex lock;
