@@ -364,19 +364,6 @@ static int vfe40_operation_config(uint32_t *cmd,
 	msm_camera_io_w(*(++p),
 		vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
 	msm_camera_io_w(*(++p),
-		vfe40_ctrl->share_ctrl->vfebase + VFE_RDI0_CFG);
-	if (msm_camera_io_r(vfe40_ctrl->share_ctrl->vfebase +
-		V40_GET_HW_VERSION_OFF) ==
-		VFE40_HW_NUMBER) {
-		msm_camera_io_w(*(++p),
-			vfe40_ctrl->share_ctrl->vfebase + VFE_RDI1_CFG);
-		msm_camera_io_w(*(++p),
-			vfe40_ctrl->share_ctrl->vfebase + VFE_RDI2_CFG);
-	}  else {
-		++p;
-		++p;
-	}
-	msm_camera_io_w(*(++p),
 		vfe40_ctrl->share_ctrl->vfebase + VFE_REALIGN_BUF);
 	msm_camera_io_w(*(++p),
 		vfe40_ctrl->share_ctrl->vfebase + VFE_CHROMA_UP);
