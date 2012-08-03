@@ -228,18 +228,6 @@ static int pil_riva_reset(struct pil_desc *pil)
 
 static int pil_riva_shutdown(struct pil_desc *pil)
 {
-	struct riva_data *drv = dev_get_drvdata(pil->dev);
-	u32 reg;
-
-	/* Put cCPU and cCPU clock into reset */
-	reg = readl_relaxed(drv->base + RIVA_PMU_OVRD_VAL);
-	reg &= ~(RIVA_PMU_OVRD_VAL_CCPU_RESET | RIVA_PMU_OVRD_VAL_CCPU_CLK);
-	writel_relaxed(reg, drv->base + RIVA_PMU_OVRD_VAL);
-	reg = readl_relaxed(drv->base + RIVA_PMU_OVRD_EN);
-	reg |= RIVA_PMU_OVRD_EN_CCPU_RESET | RIVA_PMU_OVRD_EN_CCPU_CLK;
-	writel_relaxed(reg, drv->base + RIVA_PMU_OVRD_EN);
-	mb();
-
 	/* Assert reset to Riva */
 	writel_relaxed(1, RIVA_RESET);
 	mb();
