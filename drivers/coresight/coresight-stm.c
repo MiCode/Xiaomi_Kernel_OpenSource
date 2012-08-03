@@ -150,7 +150,10 @@ static void __stm_hwevent_enable(struct stm_drvdata *drvdata)
 {
 	STM_UNLOCK(drvdata);
 
-	stm_writel(drvdata, 0x0, STMHETER);
+	/* Program STMHETER to ensure TRIGOUTHETE (fed to CTI) is asserted
+	   for HW events.
+	*/
+	stm_writel(drvdata, 0xFFFFFFFF, STMHETER);
 	stm_writel(drvdata, 0xFFFFFFFF, STMHEER);
 	stm_writel(drvdata, 0x5, STMHEMCR);
 
@@ -187,7 +190,7 @@ static void __stm_port_enable(struct stm_drvdata *drvdata)
 {
 	STM_UNLOCK(drvdata);
 
-	stm_writel(drvdata, 0xFFFFFFFF, STMSPTER);
+	stm_writel(drvdata, 0x10, STMSPTRIGCSR);
 	stm_writel(drvdata, 0xFFFFFFFF, STMSPER);
 
 	STM_LOCK(drvdata);
@@ -214,7 +217,7 @@ static void __stm_enable(struct stm_drvdata *drvdata)
 
 	STM_UNLOCK(drvdata);
 
-	stm_writel(drvdata, 0x80, STMSYNCR);
+	stm_writel(drvdata, 0xFFF, STMSYNCR);
 	/* SYNCEN is read-only and HWTEN is not implemented */
 	stm_writel(drvdata, 0x30003, STMTCSR);
 
@@ -243,9 +246,9 @@ static void __stm_hwevent_disable(struct stm_drvdata *drvdata)
 {
 	STM_UNLOCK(drvdata);
 
-	stm_writel(drvdata, 0x0, STMHETER);
-	stm_writel(drvdata, 0x0, STMHEER);
 	stm_writel(drvdata, 0x0, STMHEMCR);
+	stm_writel(drvdata, 0x0, STMHEER);
+	stm_writel(drvdata, 0x0, STMHETER);
 
 	STM_LOCK(drvdata);
 }
@@ -263,7 +266,7 @@ static void __stm_port_disable(struct stm_drvdata *drvdata)
 	STM_UNLOCK(drvdata);
 
 	stm_writel(drvdata, 0x0, STMSPER);
-	stm_writel(drvdata, 0x0, STMSPTER);
+	stm_writel(drvdata, 0x0, STMSPTRIGCSR);
 
 	STM_LOCK(drvdata);
 }
