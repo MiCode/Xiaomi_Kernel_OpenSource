@@ -685,6 +685,52 @@ static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf)
 	}
 }
 
+void dvb_dmx_swfilter_section_packets(struct dvb_demux *demux, const u8 *buf,
+			      size_t count)
+{
+	struct dvb_demux_feed *feed;
+	u16 pid = ts_pid(buf);
+	struct timespec pre_time;
+
+	if (dvb_demux_performancecheck)
+		pre_time = current_kernel_time();
+
+	spin_lock(&demux->lock);
+
+	demux->sw_filter_abort = 0;
+
+	while (count--) {
+		if (buf[0] != 0x47) {
+			buf += 188;
+			continue;
+		}
+
+		if (demux->playback_mode == DMX_PB_MODE_PULL)
+			if (dvb_dmx_swfilter_buffer_check(demux, pid) < 0)
+				break;
+
+		list_for_each_entry(feed, &demux->feed_list, list_head) {
+			if (feed->pid != pid)
+				continue;
+
+			if (!feed->feed.sec.is_filtering)
+				continue;
+
+			if (dvb_dmx_swfilter_section_packet(feed, buf) < 0) {
+				feed->feed.sec.seclen = 0;
+				feed->feed.sec.secbufp = 0;
+			}
+		}
+		buf += 188;
+	}
+
+	spin_unlock(&demux->lock);
+
+	if (dvb_demux_performancecheck)
+		demux->total_process_time += dvb_dmx_calc_time_delta(pre_time);
+}
+EXPORT_SYMBOL(dvb_dmx_swfilter_section_packets);
+
 void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
 			      size_t count)
 {
