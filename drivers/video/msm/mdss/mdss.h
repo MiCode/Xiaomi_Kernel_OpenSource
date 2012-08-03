@@ -14,6 +14,7 @@
 #ifndef MDSS_H
 #define MDSS_H
 
+#include <linux/ion.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
@@ -53,24 +54,24 @@ struct mdss_data_type {
 
 	u32 mdp_irq_mask;
 
-	u32 clk_ena;
 	u32 suspend;
 	u32 timeout;
 
-	u32 fs_ena;
-	u32 vsync_ena;
+	u8 clk_ena;
+	u8 fs_ena;
+	u8 vsync_ena;
+	u8 eintf_ena;
 
-	u32 intf;
-	u32 eintf_ena;
 	u32 prim_ptype;
 	u32 res_init;
-	u32 pdev_lcnt;
 	u32 bus_hdl;
 
 	u32 smp_mb_cnt;
 	u32 smp_mb_size;
 	u32 *pipe_type_map;
 	u32 *mixer_type_map;
+
+	struct ion_client *iclient;
 };
 extern struct mdss_data_type *mdss_res;
 
@@ -92,4 +93,10 @@ struct mdss_hw {
 void mdss_enable_irq(struct mdss_hw *hw);
 void mdss_disable_irq(struct mdss_hw *hw);
 void mdss_disable_irq_nosync(struct mdss_hw *hw);
+static inline struct ion_client *mdss_get_ionclient(void)
+{
+	if (!mdss_res)
+		return NULL;
+	return mdss_res->iclient;
+}
 #endif /* MDSS_H */

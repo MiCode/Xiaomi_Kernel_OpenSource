@@ -272,35 +272,6 @@ int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
-int mdss_mdp_pipe_release_all(struct msm_fb_data_type *mfd)
-{
-	struct mdss_mdp_pipe *pipe;
-	int i;
-
-	if (!mfd)
-		return -ENODEV;
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mutex_lock(&mdss_mdp_sspp_lock);
-	for (i = 0; i < MDSS_MDP_MAX_SSPP; i++) {
-		pipe = &mdss_mdp_pipe_list[i];
-		if (atomic_read(&pipe->ref_cnt) && pipe->mfd == mfd) {
-			pr_debug("release pnum=%d\n", pipe->num);
-			if (mdss_mdp_pipe_lock(pipe) == 0) {
-				mdss_mdp_mixer_pipe_unstage(pipe);
-				mdss_mdp_pipe_free(pipe);
-			} else {
-				pr_err("unable to lock pipe=%d for release",
-				       pipe->num);
-			}
-		}
-	}
-	mutex_unlock(&mdss_mdp_sspp_lock);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-
-	return 0;
-}
-
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
 {
