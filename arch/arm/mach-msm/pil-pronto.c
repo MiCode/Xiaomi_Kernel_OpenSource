@@ -117,11 +117,12 @@ static int pil_pronto_reset(struct pil_desc *pil)
 	void __iomem *base = drv->base;
 	unsigned long start_addr = drv->start_addr;
 
-	/* Deassert reset to Pronto */
+	/* Deassert reset to subsystem and wait for propagation */
 	reg = readl_relaxed(drv->reset_base);
 	reg &= ~CLK_CTL_WCNSS_RESTART_BIT;
 	writel_relaxed(reg, drv->reset_base);
 	mb();
+	udelay(2);
 
 	/* Configure boot address */
 	writel_relaxed(start_addr >> 16, base +
