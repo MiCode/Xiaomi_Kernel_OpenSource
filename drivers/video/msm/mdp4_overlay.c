@@ -2928,30 +2928,32 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 
 int mdp4_overlay_wait4vsync(struct fb_info *info, long long *vtime)
 {
-	if (info->node == 0) {
+	if (!hdmi_prim_display && info->node == 0) {
 		if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO)
 			mdp4_dsi_video_wait4vsync(0, vtime);
 		else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD)
 			mdp4_dsi_cmd_wait4vsync(0, vtime);
 		else if (ctrl->panel_mode & MDP4_PANEL_LCDC)
 			mdp4_lcdc_wait4vsync(0, vtime);
-	} else if (info->node == 1)
+	} else if (hdmi_prim_display || info->node == 1) {
 		mdp4_dtv_wait4vsync(0, vtime);
+	}
 
 	return 0;
 }
 
 int mdp4_overlay_vsync_ctrl(struct fb_info *info, int enable)
 {
-	if (info->node == 0) {
+	if (!hdmi_prim_display && info->node == 0) {
 		if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO)
 			mdp4_dsi_video_vsync_ctrl(0, enable);
 		else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD)
 			mdp4_dsi_cmd_vsync_ctrl(0, enable);
 		else if (ctrl->panel_mode & MDP4_PANEL_LCDC)
 			mdp4_lcdc_vsync_ctrl(0, enable);
-	} else if (info->node == 1)
+	} else if (hdmi_prim_display || info->node == 1) {
 		mdp4_dtv_vsync_ctrl(0, enable);
+	}
 
 	return 0;
 }
