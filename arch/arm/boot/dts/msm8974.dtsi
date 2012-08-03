@@ -599,8 +599,8 @@
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
 		interrupts = <0 184 0>;
 		qcom,sensors = <11>;
-		qcom,slope = <1134 1122 1142 1123 1176 1176 1176 1186 1176
-				1176 1176>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
+				3200 3200>;
 	};
 
 	qcom,msm-rtb {
