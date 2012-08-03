@@ -15,6 +15,7 @@
 #define MDSS_H
 
 #include <linux/ion.h>
+#include <linux/msm_mdp.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
@@ -72,6 +73,8 @@ struct mdss_data_type {
 	u32 *mixer_type_map;
 
 	struct ion_client *iclient;
+	int iommu_domain;
+	int iommu_attached;
 };
 extern struct mdss_data_type *mdss_res;
 
@@ -93,10 +96,29 @@ struct mdss_hw {
 void mdss_enable_irq(struct mdss_hw *hw);
 void mdss_disable_irq(struct mdss_hw *hw);
 void mdss_disable_irq_nosync(struct mdss_hw *hw);
+
 static inline struct ion_client *mdss_get_ionclient(void)
 {
 	if (!mdss_res)
 		return NULL;
 	return mdss_res->iclient;
 }
+
+static inline int is_mdss_iommu_attached(void)
+{
+	if (!mdss_res)
+		return false;
+	return mdss_res->iommu_attached;
+}
+
+static inline int mdss_get_iommu_domain(void)
+{
+	if (!mdss_res)
+		return -ENODEV;
+
+	return mdss_res->iommu_domain;
+}
+
+int mdss_iommu_attach(void);
+int mdss_iommu_dettach(void);
 #endif /* MDSS_H */
