@@ -155,11 +155,10 @@ void __msm_gpio_set_intr_cfg_enable(unsigned gpio, unsigned val)
 
 	cfg = __raw_readl(GPIO_INTR_CFG(gpio));
 	if (val) {
-		cfg &= ~(INTR_TARGET_PROC_NONE | INTR_DIR_CONN_EN);
-		cfg |= INTR_ENABLE | INTR_TARGET_PROC_APPS;
+		cfg &= ~INTR_DIR_CONN_EN;
+		cfg |= INTR_ENABLE;
 	} else {
-		cfg &= ~(INTR_TARGET_PROC_APPS | INTR_ENABLE);
-		cfg |= INTR_TARGET_PROC_NONE;
+		cfg &= ~INTR_ENABLE;
 	}
 	__raw_writel(cfg, GPIO_INTR_CFG(gpio));
 }
@@ -168,6 +167,14 @@ void __msm_gpio_set_intr_cfg_type(unsigned gpio, unsigned type)
 {
 	unsigned cfg;
 
+	cfg = __raw_readl(GPIO_INTR_CFG(gpio));
+
+	/* RAW_STATUS_EN is left on for all gpio irqs. Due to the
+	 * internal circuitry of TLMM, toggling the RAW_STATUS
+	 * could cause the INTR_STATUS to be set for EDGE interrupts.
+	 */
+	cfg |= (INTR_RAW_STATUS_EN | INTR_TARGET_PROC_APPS);
+	__raw_writel(cfg, GPIO_INTR_CFG(gpio));
 	cfg = __raw_readl(GPIO_INTR_CFG(gpio));
 	cfg &= ~INTR_DECT_CTL_MASK;
 	if (type == IRQ_TYPE_EDGE_RISING)
@@ -184,22 +191,13 @@ void __msm_gpio_set_intr_cfg_type(unsigned gpio, unsigned type)
 	else
 		cfg &= ~INTR_POL_CTL_HI;
 
-	/* RAW_STATUS_EN is left on for all gpio irqs. Due to the
-	 * internal circuitry of TLMM, toggling the RAW_STATUS
-	 * could cause the INTR_STATUS to be set for EDGE interrupts.
-	 */
-	cfg |= INTR_RAW_STATUS_EN;
 	__raw_writel(cfg, GPIO_INTR_CFG(gpio));
-
 	/* Sometimes it might take a little while to update
 	 * the interrupt status after the RAW_STATUS is enabled
+	 * We clear the interrupt status before enabling the
+	 * interrupt in the unmask call-back.
 	 */
 	udelay(5);
-
-	/* Clear the interrupt status to clear out any spurious
-	 * irq as a result of the above operation
-	 */
-	__msm_gpio_set_intr_status(gpio);
 }
 
 void __gpio_tlmm_config(unsigned config)
