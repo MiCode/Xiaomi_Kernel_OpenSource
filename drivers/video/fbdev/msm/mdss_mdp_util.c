@@ -17,10 +17,13 @@
 #include <linux/errno.h>
 #include <linux/file.h>
 #include <linux/ion.h>
+#include <linux/iommu.h>
 #include <linux/msm_kgsl.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/major.h>
+
+#include <mach/iommu_domains.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -296,6 +299,11 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 		data->srcp_file = NULL;
 	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
 		pr_debug("ion hdl=%p buf=0x%x\n", data->srcp_ihdl, data->addr);
+
+		if (is_mdss_iommu_attached())
+			ion_unmap_iommu(iclient, data->srcp_ihdl,
+					mdss_get_iommu_domain(), 0);
+
 		ion_free(iclient, data->srcp_ihdl);
 		data->srcp_ihdl = NULL;
 	} else {
@@ -348,7 +356,17 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 			data->srcp_ihdl = NULL;
 			return ret;
 		}
-		ret = ion_phys(iclient, data->srcp_ihdl, start, (size_t *) len);
+
+		if (is_mdss_iommu_attached()) {
+			ret = ion_map_iommu(iclient, data->srcp_ihdl,
+					    mdss_get_iommu_domain(),
+					    0, SZ_4K, 0, start, len, 0,
+					    ION_IOMMU_UNMAP_DELAYED);
+		} else {
+			ret = ion_phys(iclient, data->srcp_ihdl, start,
+				       (size_t *) len);
+		}
+
 		if (IS_ERR_VALUE(ret)) {
 			ion_free(iclient, data->srcp_ihdl);
 			pr_err("failed to map ion handle (%d)\n", ret);

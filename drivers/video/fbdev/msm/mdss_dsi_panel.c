@@ -528,8 +528,8 @@ static struct platform_driver this_driver = {
 
 static int __init mdss_dsi_panel_init(void)
 {
-	mdss_dsi_buf_alloc(&dsi_panel_tx_buf, DSI_BUF_SIZE);
-	mdss_dsi_buf_alloc(&dsi_panel_rx_buf, DSI_BUF_SIZE);
+	mdss_dsi_buf_alloc(&dsi_panel_tx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
+	mdss_dsi_buf_alloc(&dsi_panel_rx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
 
 	return platform_driver_register(&this_driver);
 }
