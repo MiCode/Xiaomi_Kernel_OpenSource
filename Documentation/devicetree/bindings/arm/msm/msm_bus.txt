@@ -1,0 +1,34 @@
+MSM Bus Scaling Driver
+
+The msm bus scaling driver provides the ability to configure
+bus performance parameters across the entire chip-set.
+Various clients use MSM scaling APIs to request bandwidth
+between multiple master-slave pairs. The bus driver then finds
+the optimal path between the master and the slave, and aggregates
+the bandwidth and clock requests for all master-slave pairs on
+that path, and programs hardware accordingly.
+
+The device-tree data required for bus-scaling can be embedded within
+the clients' device nodes. The clients can register with the bus driver
+using the following properties:
+
+- qcom,msm_bus,name:		String representing the client-name
+- qcom,msm_bus,num_cases:	Total number of usecases
+- qcom,msm_bus,active_only:	Context flag for requests in active or
+				dual (active & sleep) contex
+- qcom,msm_bus,num_paths:	Total number of master-slave pairs
+- qcom,msm_bus,vectors:		Arrays of unsigned integers representing:
+				master-id, slave-id, arbitrated bandwidth,
+				instantaneous bandwidth
+
+Example:
+
+	qcom,msm_bus,name = "client-name";
+	qcom,msm_bus,num_cases = <3>;
+	qcom,msm_bus,active_only = <0>;
+	qcom,msm_bus,num_paths = <2>;
+	qcom,msm_bus,vectors =
+			<22 512 0 0>, <26 512 0 0>,
+			<22 512 320000 320000000>, <26 512 3200000 320000000>,
+			<22 512 160000 160000000>, <26 512 1600000 160000000>;
+
