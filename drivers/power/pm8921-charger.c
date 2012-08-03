@@ -248,6 +248,7 @@ struct pm8921_chg_chip {
 	bool				ext_charging;
 	bool				ext_charge_done;
 	bool				iusb_fine_res;
+	bool				dc_unplug_check;
 	DECLARE_BITMAP(enabled_irqs, PM_CHG_MAX_INTS);
 	struct work_struct		battery_id_valid_work;
 	int64_t				batt_id_min;
@@ -2447,6 +2448,10 @@ static void unplug_check_worker(struct work_struct *work)
 		}
 	} else if (active_path & DC_ACTIVE_BIT) {
 		pr_debug("DC charger active\n");
+		/* Some board designs are not prone to reverse boost on DC
+		 * charging path */
+		if (!chip->dc_unplug_check)
+			return;
 	} else {
 		/* No charger active */
 		if (!(is_usb_chg_plugged_in(chip)
@@ -4000,6 +4005,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 		chip->warm_temp_dc = INT_MIN;
 
 	chip->temp_check_period = pdata->temp_check_period;
+	chip->dc_unplug_check = pdata->dc_unplug_check;
 	chip->max_bat_chg_current = pdata->max_bat_chg_current;
 	chip->cool_bat_chg_current = pdata->cool_bat_chg_current;
 	chip->warm_bat_chg_current = pdata->warm_bat_chg_current;
