@@ -959,28 +959,37 @@ static void select_freq_plan(void)
 		}
 	}
 
+	if (acpu_freq_tbl == NULL) {
+		pr_crit("Unknown PLL configuration!\n");
+		BUG();
+	}
+
 	/*
-	 * When PLL4 can run max @ 1401.6MHz, we have to support
-	 * dynamic reprograming of PLL4.
-	 *
+	 * Turn ON the dynamic reprogramming method
+	 * if one of the table entry has pll_rate defined.
+	 */
+	for ( ; t->tbl->a11clk_khz; t->tbl++) {
+		if (t->tbl->pll_rate) {
+			if (!dynamic_reprogram) {
+				dynamic_reprogram = 1;
+				pr_info("Dynamic reprogramming is ON\n");
+			}
+		}
+	}
+
+	/*
 	 * Also find the backup pll used during PLL4 reprogramming.
 	 * We are using PLL2@600MHz as backup PLL, since 800MHz jump
 	 * is fine.
 	 */
-	if (t->pll4_rate == 1401) {
-		dynamic_reprogram = 1;
-		for ( ; t->tbl->a11clk_khz; t->tbl++) {
+	if (dynamic_reprogram) {
+		for (t->tbl = acpu_freq_tbl; t->tbl->a11clk_khz; t->tbl++) {
 			if (t->tbl->pll == ACPU_PLL_2 &&
 					t->tbl->a11clk_src_div == 1) {
 				backup_s = t->tbl;
 				break;
 			}
 		}
-	}
-
-	if (acpu_freq_tbl == NULL) {
-		pr_crit("Unknown PLL configuration!\n");
-		BUG();
 	}
 }
 
