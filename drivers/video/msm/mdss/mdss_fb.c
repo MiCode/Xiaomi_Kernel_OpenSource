@@ -611,6 +611,14 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 
 			virt = ion_map_kernel(iclient, mfd->ihdl, 0);
 			ion_phys(iclient, mfd->ihdl, &phys, &size);
+
+			if (is_mdss_iommu_attached()) {
+				ion_map_iommu(iclient, mfd->ihdl,
+					      mdss_get_iommu_domain(),
+					      0, SZ_4K, 0, &mfd->iova,
+					      (unsigned long *) &size,
+					      0, 0);
+			}
 		} else {
 			virt = dma_alloc_coherent(NULL, size,
 					(dma_addr_t *) &phys, GFP_KERNEL);
@@ -1227,6 +1235,7 @@ EXPORT_SYMBOL(mdss_register_panel);
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num)
 {
 	struct fb_info *info;
+	struct msm_fb_data_type *mfd;
 
 	if (fb_num > MAX_FBI_LIST)
 		return -EINVAL;
@@ -1235,8 +1244,16 @@ int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num)
 	if (!info)
 		return -ENOENT;
 
-	*start = info->fix.smem_start;
+	mfd = (struct msm_fb_data_type *)info->par;
+	if (!mfd)
+		return -ENODEV;
+
+	if (mfd->iova)
+		*start = mfd->iova;
+	else
+		*start = info->fix.smem_start;
 	*len = info->fix.smem_len;
+
 	return 0;
 }
 EXPORT_SYMBOL(mdss_fb_get_phys_info);

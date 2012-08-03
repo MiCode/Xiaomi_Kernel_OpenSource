@@ -21,6 +21,8 @@
 #include <linux/slab.h>
 #include <linux/iopoll.h>
 
+#include <mach/iommu_domains.h>
+
 #include "mdss.h"
 #include "mdss_dsi.h"
 
@@ -1093,6 +1095,7 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 	int len;
 	int i;
 	char *bp;
+	unsigned long size, addr;
 
 	bp = tp->data;
 
@@ -1102,17 +1105,30 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 
 	pr_debug("\n");
 
-	len = tp->len;
-	len += 3;
-	len &= ~0x03;	/* multipled by 4 */
+	len = ALIGN(tp->len, 4);
+	size = ALIGN(tp->len, SZ_4K);
 
-	tp->dmap = dma_map_single(&dsi_dev, tp->data, len, DMA_TO_DEVICE);
-	if (dma_mapping_error(&dsi_dev, tp->dmap))
+	tp->dmap = dma_map_single(&dsi_dev, tp->data, size, DMA_TO_DEVICE);
+	if (dma_mapping_error(&dsi_dev, tp->dmap)) {
 		pr_err("%s: dmap mapp failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (is_mdss_iommu_attached()) {
+		int ret = msm_iommu_map_contig_buffer(tp->dmap,
+					mdss_get_iommu_domain(), 0,
+					size, SZ_4K, 0, &(addr));
+		if (IS_ERR_VALUE(ret)) {
+			pr_err("unable to map dma memory to iommu(%d)\n", ret);
+			return -ENOMEM;
+		}
+	} else {
+		addr = tp->dmap;
+	}
 
 	INIT_COMPLETION(dsi_dma_comp);
 
-	MIPI_OUTP((pdata->dsi_base) + 0x048, tp->dmap);
+	MIPI_OUTP((pdata->dsi_base) + 0x048, addr);
 	MIPI_OUTP((pdata->dsi_base) + 0x04c, len);
 	wmb();
 
@@ -1121,7 +1137,11 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 
 	wait_for_completion(&dsi_dma_comp);
 
-	dma_unmap_single(&dsi_dev, tp->dmap, len, DMA_TO_DEVICE);
+	if (is_mdss_iommu_attached())
+		msm_iommu_unmap_contig_buffer(addr, mdss_get_iommu_domain(),
+					      0, size);
+
+	dma_unmap_single(&dsi_dev, tp->dmap, size, DMA_TO_DEVICE);
 	tp->dmap = 0;
 	return tp->len;
 }
