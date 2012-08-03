@@ -108,8 +108,6 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	unsigned long iova = 0;
 	unsigned long buffer_size = 0;
 	int rc = 0;
-	if (size == 0)
-		goto skip_mem_alloc;
 	flags = flags | ION_HEAP(ION_CP_MM_HEAP_ID);
 	if (align < 4096)
 		align = 4096;
@@ -147,7 +145,6 @@ fail_device_address:
 fail_map:
 	ion_free(client->clnt, hndl);
 fail_shared_mem_alloc:
-skip_mem_alloc:
 	return rc;
 }
 
@@ -236,10 +233,13 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 	struct smem_client *client;
 	int rc = 0;
 	struct msm_smem *mem;
-
 	client = clt;
 	if (!client) {
 		pr_err("Invalid  client passed\n");
+		return NULL;
+	}
+	if (!size) {
+		pr_err("No need to allocate memory of size: %d\n", size);
 		return NULL;
 	}
 	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
