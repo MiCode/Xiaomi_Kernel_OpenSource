@@ -94,7 +94,7 @@ static int scm_pas_enable_bw(void)
 {
 	int ret = 0;
 
-	if (!scm_perf_client || !scm_bus_clk)
+	if (!scm_perf_client)
 		return -EINVAL;
 
 	mutex_lock(&scm_pas_bw_mutex);
@@ -102,7 +102,7 @@ static int scm_pas_enable_bw(void)
 		ret = msm_bus_scale_client_update_request(scm_perf_client, 1);
 		if (ret) {
 			pr_err("bandwidth request failed (%d)\n", ret);
-		} else {
+		} else if (scm_bus_clk) {
 			ret = clk_prepare_enable(scm_bus_clk);
 			if (ret)
 				pr_err("clock enable failed\n");
@@ -121,7 +121,8 @@ static void scm_pas_disable_bw(void)
 	mutex_lock(&scm_pas_bw_mutex);
 	if (scm_pas_bw_count-- == 1) {
 		msm_bus_scale_client_update_request(scm_perf_client, 0);
-		clk_disable_unprepare(scm_bus_clk);
+		if (scm_bus_clk)
+			clk_disable_unprepare(scm_bus_clk);
 	}
 	mutex_unlock(&scm_pas_bw_mutex);
 }
@@ -190,16 +191,23 @@ EXPORT_SYMBOL(pas_supported);
 
 static int __init scm_pas_init(void)
 {
+	if (cpu_is_msm8974()) {
+		scm_pas_bw_tbl[0].vectors[0].src = MSM_BUS_MASTER_CRYPTO_CORE0;
+		scm_pas_bw_tbl[1].vectors[0].src = MSM_BUS_MASTER_CRYPTO_CORE0;
+	} else {
+		scm_bus_clk = clk_get_sys("scm", "bus_clk");
+		if (!IS_ERR(scm_bus_clk)) {
+			clk_set_rate(scm_bus_clk, 64000000);
+		} else {
+			scm_bus_clk = NULL;
+			pr_warn("unable to get bus clock\n");
+		}
+	}
+
 	scm_perf_client = msm_bus_scale_register_client(&scm_pas_bus_pdata);
 	if (!scm_perf_client)
 		pr_warn("unable to register bus client\n");
-	scm_bus_clk = clk_get_sys("scm", "bus_clk");
-	if (!IS_ERR(scm_bus_clk)) {
-		clk_set_rate(scm_bus_clk, 64000000);
-	} else {
-		scm_bus_clk = NULL;
-		pr_warn("unable to get bus clock\n");
-	}
+
 	return 0;
 }
 module_init(scm_pas_init);
