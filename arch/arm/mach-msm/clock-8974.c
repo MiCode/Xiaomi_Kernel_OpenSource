@@ -760,6 +760,9 @@ static DEFINE_CLK_VOTER(pnoc_sdcc2_clk, &pnoc_clk.c, 0);
 static DEFINE_CLK_VOTER(pnoc_sdcc3_clk, &pnoc_clk.c, 0);
 static DEFINE_CLK_VOTER(pnoc_sdcc4_clk, &pnoc_clk.c, 0);
 
+static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, 0);
+static DEFINE_CLK_VOTER(pnoc_qseecom_clk, &pnoc_clk.c, 0);
+
 static struct clk_freq_tbl ftbl_gcc_usb30_master_clk[] = {
 	F(125000000,  gpll0,   1,   5,  24),
 	F_END
@@ -4970,11 +4973,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_clk",  q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
-	/* TODO: Remove dummy clocks as soon as they become unnecessary */
-	CLK_DUMMY("dfab_clk",  DFAB_CLK,    "msm_sps", OFF),
-	CLK_DUMMY("mem_clk",       NULL,    "msm_sps", OFF),
-	CLK_DUMMY("bus_clk",       NULL,        "scm", OFF),
-	CLK_DUMMY("bus_clk",       NULL,    "qseecom", OFF),
+	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
+	CLK_LOOKUP("bus_clk",  pnoc_qseecom_clk.c, "qseecom"),
 
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
