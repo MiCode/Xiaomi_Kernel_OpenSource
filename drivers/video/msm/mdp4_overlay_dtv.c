@@ -75,6 +75,7 @@ static struct vsycn_ctrl {
 	int blt_change;
 	int fake_vsync;
 	struct mutex update_lock;
+	struct completion ov_comp;
 	struct completion dmae_comp;
 	struct completion vsync_comp;
 	spinlock_t spin_lock;
@@ -160,6 +161,7 @@ void mdp4_dtv_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe)
 	*pp = *pipe;	/* keep it */
 	vp->update_cnt++;
 	mutex_unlock(&vctrl->update_lock);
+	mdp4_stat.overlay_play[pipe->mixer_num]++;
 }
 
 static void mdp4_dtv_blt_ov_update(struct mdp4_overlay_pipe *pipe);
@@ -198,6 +200,11 @@ int mdp4_dtv_pipe_commit(void)
 		if (pipe->pipe_used) {
 			cnt++;
 			mdp4_overlay_vsync_commit(pipe);
+			/* free previous iommu to freelist
+			* which will be freed at next
+			* pipe_commit
+			*/
+			mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
 			pipe->pipe_used = 0; /* clear */
 		}
 	}
@@ -216,10 +223,11 @@ int mdp4_dtv_pipe_commit(void)
 		outpdw(MDP_BASE + 0x0008, 0);
 	} else if (vctrl->dmae_intr_cnt == 0) {
 		/* schedule second phase update  at dmap */
-		vctrl->dmae_intr_cnt++;
+		INIT_COMPLETION(vctrl->dmae_comp);
 		vsync_irq_enable(INTR_DMA_E_DONE, MDP_DMA_E_TERM);
 	}
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+	mdp4_stat.overlay_commit[pipe->mixer_num]++;
 
 	return cnt;
 }
@@ -285,7 +293,6 @@ void mdp4_dtv_wait4vsync(int cndx, long long *vtime)
 
 static void mdp4_dtv_wait4dmae(int cndx)
 {
-	unsigned long flags;
 	struct vsycn_ctrl *vctrl;
 
 	if (cndx >= MAX_CONTROLLER) {
@@ -298,19 +305,7 @@ static void mdp4_dtv_wait4dmae(int cndx)
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
 
-	spin_lock_irqsave(&vctrl->spin_lock, flags);
-	if (vctrl->dmae_wait_cnt == 0) {
-		INIT_COMPLETION(vctrl->dmae_comp);
-		if (vctrl->dmae_intr_cnt == 0) {
-			vctrl->dmae_intr_cnt++;
-			vsync_irq_enable(INTR_DMA_E_DONE, MDP_DMA_E_TERM);
-		}
-	}
-	vctrl->dmae_wait_cnt++;
-	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
-
 	wait_for_completion(&vctrl->dmae_comp);
-	pr_info("%s: pid=%d after wait\n", __func__, current->pid);
 }
 
 static void send_vsync_work(struct work_struct *work)
@@ -346,6 +341,8 @@ void mdp4_dtv_vsync_init(int cndx)
 	vctrl->update_ndx = 0;
 	mutex_init(&vctrl->update_lock);
 	init_completion(&vctrl->vsync_comp);
+	init_completion(&vctrl->ov_comp);
+	init_completion(&vctrl->dmae_comp);
 	atomic_set(&vctrl->suspend, 0);
 	spin_lock_init(&vctrl->spin_lock);
 	INIT_WORK(&vctrl->vsync_work, send_vsync_work);
