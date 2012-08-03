@@ -2324,6 +2324,7 @@ static int mdp_probe(struct platform_device *pdev)
 	struct mipi_panel_info *mipi;
 #endif
 	static int contSplash_update_done;
+	char *cp;
 
 	if ((pdev->id == 0) && (pdev->num_resources > 0)) {
 		mdp_init_pdev = pdev;
@@ -2398,7 +2399,44 @@ static int mdp_probe(struct platform_device *pdev)
 	if (mdp_pdata) {
 		if (mdp_pdata->cont_splash_enabled) {
 			mfd->cont_splash_done = 0;
+
 			if (!contSplash_update_done) {
+				uint32 bpp = 3;
+				/*read panel wxh and calculate splash screen
+				size*/
+				mdp_pdata->splash_screen_size =
+						inpdw(MDP_BASE + 0x90004);
+				mdp_pdata->splash_screen_size =
+				(((mdp_pdata->splash_screen_size >> 16) &
+					0x00000FFF) * (
+					mdp_pdata->splash_screen_size &
+					0x00000FFF)) * bpp;
+
+				mdp_pdata->splash_screen_addr =
+						inpdw(MDP_BASE + 0x90008);
+
+				mfd->copy_splash_buf = dma_alloc_coherent(NULL,
+					mdp_pdata->splash_screen_size,
+					(dma_addr_t *) &(mfd->copy_splash_phys),
+					GFP_KERNEL);
+
+				if (!mfd->copy_splash_buf) {
+					pr_err("DMA ALLOC FAILED for SPLASH\n");
+					return -ENOMEM;
+				}
+				cp = (char *)ioremap(
+						mdp_pdata->splash_screen_addr,
+						mdp_pdata->splash_screen_size);
+				if (!cp) {
+					pr_err("IOREMAP FAILED for SPLASH\n");
+					return -ENOMEM;
+				}
+				memcpy(mfd->copy_splash_buf, cp,
+					mdp_pdata->splash_screen_size);
+
+				MDP_OUTP(MDP_BASE + 0x90008,
+						mfd->copy_splash_phys);
+
 				if (mfd->panel.type == MIPI_VIDEO_PANEL ||
 				    mfd->panel.type == LCDC_PANEL)
 					mdp_pipe_ctrl(MDP_CMD_BLOCK,
@@ -2785,6 +2823,17 @@ void mdp_footswitch_ctrl(boolean on)
 	}
 
 	mutex_unlock(&mdp_suspend_mutex);
+}
+
+void mdp_free_splash_buffer(struct msm_fb_data_type *mfd)
+{
+	if (mfd->copy_splash_buf) {
+		dma_free_coherent(NULL,	mdp_pdata->splash_screen_size,
+			mfd->copy_splash_buf,
+			(dma_addr_t) mfd->copy_splash_phys);
+
+		mfd->copy_splash_buf = NULL;
+	}
 }
 
 #ifdef CONFIG_PM
