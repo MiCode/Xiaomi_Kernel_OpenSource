@@ -1379,6 +1379,7 @@ static struct i2c_board_info mxt_device_info[] __initdata = {
 };
 #define CYTTSP_TS_GPIO_IRQ		6
 #define CYTTSP_TS_GPIO_SLEEP		33
+#define CYTTSP_TS_GPIO_SLEEP_ALT	12
 
 static ssize_t tma340_vkeys_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
@@ -2972,6 +2973,9 @@ static void __init apq8064_cdp_init(void)
 {
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
 		pr_err("meminfo_init() failed!\n");
+	if (machine_is_apq8064_mtp() &&
+		SOCINFO_VERSION_MINOR(socinfo_get_platform_version()) == 1)
+			cyttsp_pdata.sleep_gpio = CYTTSP_TS_GPIO_SLEEP_ALT;
 	apq8064_common_init();
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv()) {
