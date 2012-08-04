@@ -37,9 +37,11 @@ extern int msm_krait_need_wfe_fixup;
 #endif
 
 /*
- * The fixup involves disabling interrupts during execution of the WFE
- * instruction. This could potentially lead to deadlock if a thread is trying
- * to acquire a spinlock which is being released from an interrupt context.
+ * The fixup involves disabling FIQs during execution of the WFE instruction.
+ * This could potentially lead to deadlock if a thread is trying to acquire a
+ * spinlock which is being released from an FIQ. This should not be a problem
+ * because FIQs are handled by the secure environment and do not directly
+ * manipulate spinlocks.
  */
 #ifdef CONFIG_MSM_KRAIT_WFE_FIXUP
 #define WFE_SAFE(fixup, tmp) 				\
@@ -47,7 +49,7 @@ extern int msm_krait_need_wfe_fixup;
 "	cmp	" fixup ", #0\n"			\
 "	wfeeq\n"					\
 "	beq	10f\n"					\
-"	cpsid	if\n"					\
+"	cpsid   f\n"					\
 "	mrc	p15, 7, " fixup ", c15, c0, 5\n"	\
 "	bic	" fixup ", " fixup ", #0x10000\n"	\
 "	mcr	p15, 7, " fixup ", c15, c0, 5\n"	\
