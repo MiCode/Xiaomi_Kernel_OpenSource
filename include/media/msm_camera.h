@@ -506,8 +506,7 @@ struct msm_camera_cfg_cmd {
 #define AXI_CMD_RECORD       BIT(2)
 #define AXI_CMD_ZSL          BIT(3)
 #define AXI_CMD_RAW_CAPTURE  BIT(4)
-
-
+#define AXI_CMD_LIVESHOT     BIT(5)
 
 /* vfe config command: config command(from config thread)*/
 struct msm_vfe_cfg_cmd {
@@ -1765,6 +1764,7 @@ struct msm_camera_vfe_params_t {
 	uint32_t capture_count;
 	uint32_t skip_abort;
 	uint16_t port_info;
+	uint32_t inst_handle;
 	uint16_t cmd_type;
 };
 
