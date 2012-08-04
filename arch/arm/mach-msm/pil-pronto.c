@@ -207,11 +207,12 @@ static int pil_pronto_shutdown(struct pil_desc *pil)
 	mb();
 	usleep_range(1000, 2000);
 
-	/* Deassert reset to Pronto */
+	/* Deassert reset to subsystem and wait for propagation */
 	reg = readl_relaxed(drv->reset_base);
 	reg &= ~CLK_CTL_WCNSS_RESTART_BIT;
 	writel_relaxed(reg, drv->reset_base);
 	mb();
+	udelay(2);
 
 	return 0;
 }
