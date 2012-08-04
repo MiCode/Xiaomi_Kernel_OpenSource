@@ -201,8 +201,6 @@ struct msm_vidc_inst {
 	int session_type;
 	void *session;
 	struct session_prop prop;
-	u32 width;
-	u32 height;
 	int state;
 	const struct msm_vidc_format *fmts[MAX_PORT_NUM];
 	struct vb2_queue vb2_bufq[MAX_PORT_NUM];
