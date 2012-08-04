@@ -1746,9 +1746,6 @@ msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem)
 		},
 	};
 
-	if (!dev->use_rx_msgqs)
-		goto init_rx_msgq;
-
 	bam_props.ee = dev->ee;
 	bam_props.virt_addr = dev->bam.base;
 	bam_props.phys_addr = bam_mem->start;
@@ -1784,7 +1781,7 @@ init_rx_msgq:
 	ret = msm_slim_init_rx_msgq(dev);
 	if (ret)
 		dev_err(dev->dev, "msm_slim_init_rx_msgq failed 0x%x\n", ret);
-	if (!dev->use_rx_msgqs && bam_handle) {
+	if (ret && bam_handle) {
 		sps_deregister_bam_device(bam_handle);
 		dev->bam.hdl = 0L;
 	}
@@ -1850,6 +1847,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	struct resource		*bam_mem, *bam_io;
 	struct resource		*slim_mem, *slim_io;
 	struct resource		*irq, *bam_irq;
+	bool			rxreg_access = false;
 	slim_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_physical");
 	if (!slim_mem) {
@@ -1922,13 +1920,15 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Cell index not specified:%d", ret);
 			goto err_of_init_failed;
 		}
+		rxreg_access = of_property_read_bool(pdev->dev.of_node,
+					"qcom,rxreg-access");
 		/* Optional properties */
 		ret = of_property_read_u32(pdev->dev.of_node,
 					"qcom,min-clk-gear", &dev->ctrl.min_cg);
 		ret = of_property_read_u32(pdev->dev.of_node,
 					"qcom,max-clk-gear", &dev->ctrl.max_cg);
-		pr_err("min_cg:%d, max_cg:%d, ret:%d", dev->ctrl.min_cg,
-					dev->ctrl.max_cg, ret);
+		pr_debug("min_cg:%d, max_cg:%d, rxreg: %d", dev->ctrl.min_cg,
+					dev->ctrl.max_cg, rxreg_access);
 	} else {
 		dev->ctrl.nr = pdev->id;
 	}
@@ -1947,7 +1947,11 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	mutex_init(&dev->tx_lock);
 	spin_lock_init(&dev->rx_lock);
 	dev->ee = 1;
-	dev->use_rx_msgqs = 1;
+	if (rxreg_access)
+		dev->use_rx_msgqs = 0;
+	else
+		dev->use_rx_msgqs = 1;
+
 	dev->irq = irq->start;
 	dev->bam.irq = bam_irq->start;
 

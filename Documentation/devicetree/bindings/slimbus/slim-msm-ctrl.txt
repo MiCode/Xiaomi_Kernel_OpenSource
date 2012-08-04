@@ -25,6 +25,9 @@ Optional property:
  - qcom,max-clk-gear: Maximum clock gear at which this controller can be run
 		 (range: 1-10)
 		 Default value will be 10 if this entry is not specified
+ - qcom,rxreg-access: This boolean indicates that slimbus RX should use direct
+		 register access to receive data. This flag is only needed if
+		 BAM pipe is not available to receive data from slimbus
 Example:
 	slim@fe12f000 {
 		cell-index = <1>;
@@ -35,4 +38,5 @@ Example:
 		interrupts = <0 163 0 0 164 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,min-clk-gear = <10>;
+		qcom,rxreg-access;
 	};
