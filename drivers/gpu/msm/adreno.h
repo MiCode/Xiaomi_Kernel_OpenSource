@@ -32,7 +32,7 @@
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0x00000000
 #define KGSL_CMD_FLAGS_PMODE		0x00000001
-#define KGSL_CMD_FLAGS_NO_TS_CMP	0x00000002
+#define KGSL_CMD_FLAGS_DUMMY_INTR_CMD	0x00000002
 
 /* Command identifiers */
 #define KGSL_CONTEXT_TO_MEM_IDENTIFIER	0x2EADBEEF
