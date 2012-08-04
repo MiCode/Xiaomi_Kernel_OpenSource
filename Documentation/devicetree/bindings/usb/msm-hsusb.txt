@@ -49,3 +49,70 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-pclk-src-name = "dfab_usb_clk";
 		qcom,hsusb-otg-pmic-id-irq = <47>
 	};
+
+BAM:
+
+Required properties:
+- compatible: should be "qcom,usb-bam-msm"
+- regs: offset and length of the register set in the memory map
+- interrupts: IRQ line
+- qcom,usb-active-bam: active BAM type. Can be one of
+            0 - HSUSB_BAM
+            1 - HSIC_BAM
+- qcom,usb-total-bam-num: total number of BAMs that are supported
+- qcom,usb-bam-num-pipes: max number of pipes that can be used
+- qcom,usb-base-address: physical base address of the BAM
+
+A number of USB BAM pipe parameters are represented as sub-nodes:
+
+Subnode Required:
+- label: a string describing the pipe's direction and use
+- qcom,usb-bam-type: BAM type. Can be one of
+            0 - HSUSB_BAM
+            1 - HSIC_BAM
+- qcom,src-bam-physical-address: source BAM physical address
+- qcom,src-bam-pipe-index: source BAM pipe index
+- qcom,dst-bam-physical-address: destination BAM physical address
+- qcom,dst-bam-pipe-index: destination BAM pipe index
+- qcom,data-fifo-offset: data fifo offset address
+- qcom,data-fifo-size: data fifo size
+- qcom,descriptor-fifo-offset: descriptor fifo offset address
+- qcom,descriptor-fifo-size: descriptor fifo size
+
+Example USB BAM controller device node:
+
+	qcom,usbbam@f9304000 {
+		compatible = "qcom,usb-bam-msm";
+		reg = <0xf9304000 0x9000>;
+		interrupts = <0 132 0>;
+		qcom,usb-active-bam = <0>;
+		qcom,usb-total-bam-num = <1>;
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,usb-base-address = <0xf9200000>;
+
+		qcom,pipe1 {
+			label = "usb-to-peri-qdss-dwc3";
+			qcom,usb-bam-type = <0>;
+			qcom,src-bam-physical-address = <0>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-offset = <0>;
+			qcom,data-fifo-size = <0>;
+			qcom,descriptor-fifo-offset = <0>;
+			qcom,descriptor-fifo-size = <0>;
+		};
+
+		qcom,pipe2 {
+			label = "peri-to-usb-qdss-dwc3";
+			qcom,usb-bam-type = <0>;
+			qcom,src-bam-physical-address = <0xfc37C000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0xf9304000>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0xf0000>;
+			qcom,data-fifo-size = <0x4000>;
+			qcom,descriptor-fifo-offset = <0xf4000>;
+			qcom,descriptor-fifo-size = <0x1400>;
+		};
+	};
