@@ -390,22 +390,31 @@ static char * const memtype_names[] = {
 	[MEMTYPE_EBI1] = "EBI1",
 };
 
-static int reserve_memory_type(char *mem_name,
-				struct memtype_reserve *reserve_table,
-				int size)
+int msm_get_memory_type_from_name(const char *memtype_name)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(memtype_names); i++) {
-		if (memtype_names[i] && strcmp(mem_name,
-				memtype_names[i]) == 0) {
-			reserve_table[i].size += size;
-			return 0;
-		}
+		if (memtype_names[i] &&
+		    strcmp(memtype_name, memtype_names[i]) == 0)
+			return i;
 	}
 
-	pr_err("Could not find memory type %s\n", mem_name);
+	pr_err("Could not find memory type %s\n", memtype_name);
 	return -EINVAL;
+}
+
+static int reserve_memory_type(const char *mem_name,
+				struct memtype_reserve *reserve_table,
+				int size)
+{
+	int ret = msm_get_memory_type_from_name(mem_name);
+
+	if (ret >= 0) {
+		reserve_table[ret].size += size;
+		ret = 0;
+	}
+	return ret;
 }
 
 static int check_for_compat(unsigned long node)
