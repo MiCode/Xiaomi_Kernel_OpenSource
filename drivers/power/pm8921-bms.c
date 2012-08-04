@@ -1158,18 +1158,50 @@ static void calculate_cc_uah(struct pm8921_bms_chip *chip, int cc, int *val)
 	*val = cc_uah;
 }
 
-static int calculate_uuc_uah_at_given_current(struct pm8921_bms_chip *chip,
+static int calculate_termination_uuc(struct pm8921_bms_chip *chip,
 				 int batt_temp, int chargecycles,
-				int rbatt, int fcc_uah, int i_ma,
+				int fcc_uah, int i_ma,
 				int *ret_pc_unusable)
 {
 	int unusable_uv, pc_unusable, uuc;
+	int i = 0;
+	int ocv_mv;
+	int batt_temp_degc = batt_temp / 10;
+	int rbatt_mohm;
+	int delta_uv;
+	int prev_delta_uv = 0;
+	int prev_rbatt_mohm = 0;
+	int prev_ocv_mv = 0;
+	int uuc_rbatt_uv;
 
-	unusable_uv = (rbatt * i_ma) + (chip->v_cutoff * 1000);
+	for (i = 0; i <= 100; i++) {
+		ocv_mv = interpolate_ocv(chip, batt_temp_degc, i);
+		rbatt_mohm = get_rbatt(chip, i, batt_temp);
+		unusable_uv = (rbatt_mohm * i_ma) + (chip->v_cutoff * 1000);
+		delta_uv = ocv_mv * 1000 - unusable_uv;
+
+		pr_debug("soc = %d ocv = %d rbat = %d u_uv = %d delta_v = %d\n",
+				i, ocv_mv, rbatt_mohm, unusable_uv, delta_uv);
+
+		if (delta_uv > 0)
+			break;
+
+		prev_delta_uv = delta_uv;
+		prev_rbatt_mohm = rbatt_mohm;
+		prev_ocv_mv = ocv_mv;
+	}
+
+	uuc_rbatt_uv = linear_interpolate(rbatt_mohm, delta_uv,
+					prev_rbatt_mohm, prev_delta_uv,
+					0);
+
+	unusable_uv = (uuc_rbatt_uv * i_ma) + (chip->v_cutoff * 1000);
+
 	pc_unusable = calculate_pc(chip, unusable_uv, batt_temp, chargecycles);
 	uuc = (fcc_uah * pc_unusable) / 100;
-	pr_debug("For i_ma = %d, unusable_uv = %d unusable_pc = %d uuc = %d\n",
-					i_ma, unusable_uv, pc_unusable, uuc);
+	pr_debug("For i_ma = %d, unusable_rbatt = %d unusable_uv = %d unusable_pc = %d uuc = %d\n",
+					i_ma, uuc_rbatt_uv, unusable_uv,
+					pc_unusable, uuc);
 	*ret_pc_unusable = pc_unusable;
 	return uuc;
 }
@@ -1335,9 +1367,9 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 		iavg_ma = DIV_ROUND_CLOSEST(iavg_ma, iavg_num_samples);
 	}
 
-	uuc_uah_iavg = calculate_uuc_uah_at_given_current(chip,
+	uuc_uah_iavg = calculate_termination_uuc(chip,
 					batt_temp, chargecycles,
-					rbatt, fcc_uah, iavg_ma,
+					fcc_uah, iavg_ma,
 					&pc_unusable);
 	pr_debug("iavg = %d uuc_iavg = %d\n", iavg_ma, uuc_uah_iavg);
 
@@ -1738,40 +1770,12 @@ static void adjust_rc_and_uuc_for_specific_soc(
 						int *ret_uuc,
 						int *ret_rbatt)
 {
-	int new_rbatt;
 	int ocv_uv;
-	int soc_rbatt;
-	int iavg_ma;
-	int num_tries = 0;
-	int pc_unusable;
-
-	iavg_ma = chip->prev_uuc_iavg_ma;
-
-recalculate_ocv:
 
 	find_ocv_for_soc(chip, batt_temp, chargecycles,
 					fcc_uah, uuc_uah, cc_uah,
 					soc,
 					&rc_uah, &ocv_uv);
-
-	soc_rbatt = div_s64((rc_uah - cc_uah) * 100,  fcc_uah);
-	new_rbatt = get_rbatt(chip, soc_rbatt, batt_temp);
-	pr_debug("for f_soc = %d rc_uah = %d ocv_uv = %d, soc_rbatt = %d rbatt = %d\n",
-			soc, rc_uah, ocv_uv, soc_rbatt, new_rbatt);
-	if (abs(new_rbatt - rbatt) > 20 && num_tries < 10) {
-		rbatt = new_rbatt;
-		uuc_uah = calculate_uuc_uah_at_given_current(chip,
-					batt_temp, chargecycles,
-					new_rbatt, fcc_uah, iavg_ma,
-					&pc_unusable);
-
-		pr_debug("rbatt not settled uuc = %d for rbatt = %d iavg_ma = %d num_tries = %d\n",
-					uuc_uah, rbatt, iavg_ma, num_tries);
-		num_tries++;
-		goto recalculate_ocv;
-	}
-	pr_debug("DONE for s_soc = %d rc_uah = %d ocv_uv = %d, rbatt = %d\n",
-			soc, rc_uah, ocv_uv, new_rbatt);
 
 	*ret_ocv = ocv_uv;
 	*ret_rbatt = rbatt;
