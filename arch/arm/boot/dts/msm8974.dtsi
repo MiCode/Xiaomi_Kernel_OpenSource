@@ -927,3 +927,4 @@
 /include/ "msm-pm8941.dtsi"
 /include/ "msm8974-regulator.dtsi"
 /include/ "msm8974-gpio.dtsi"
+/include/ "msm8974-clock.dtsi"
