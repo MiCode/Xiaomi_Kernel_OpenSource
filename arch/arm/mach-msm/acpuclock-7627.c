@@ -728,7 +728,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 		if ((delta > drv_state.max_speed_delta_khz)
 				|| (strt_s->pll == ACPU_PLL_4 &&
 					tgt_s->pll == ACPU_PLL_4))
-			clk_disable_unprepare(pll_clk[backup_s->pll].clk);
+			clk_disable(pll_clk[backup_s->pll].clk);
 
 		goto done;
 	}
