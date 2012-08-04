@@ -50,7 +50,7 @@ struct kgsl_pwrctrl {
 	unsigned int interval_timeout;
 	bool strtstp_sleepwake;
 	struct regulator *gpu_reg;
-	struct regulator *gpu_dig;
+	struct regulator *gpu_cx;
 	uint32_t pcl;
 	unsigned int nap_allowed;
 	unsigned int idle_needed;
