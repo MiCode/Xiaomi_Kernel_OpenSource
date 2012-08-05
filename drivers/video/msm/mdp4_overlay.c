@@ -2093,8 +2093,6 @@ void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 	mixer = pipe->mixer_num;
 	iom = pipe->iommu;
 
-	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
-
 	memset(pipe, 0, sizeof(*pipe));
 
 	pipe->pipe_type = ptype;
@@ -2102,6 +2100,8 @@ void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 	pipe->pipe_ndx = ndx;
 	pipe->mixer_num = mixer;
 	pipe->iommu = iom;
+
+	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
 }
 
 static int mdp4_overlay_validate_downscale(struct mdp_overlay *req,
