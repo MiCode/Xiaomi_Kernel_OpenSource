@@ -310,6 +310,35 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1401[] = {
 	{ 0 }
 };
 
+/* 8625v2.0 PLL4 @ 1008MHz with GSM capable modem */
+static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008_2p0[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
+	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 0, 61440 },
+	{ 0, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 1, 61440 },
+	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 1, 61440 },
+	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 2, 122880 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+	{ 0 }
+};
+
+/* 8625v2.0 PLL4 @ 1008MHz with CDMA capable modem */
+static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
+	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
+	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3, 98304 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+	{ 0 }
+};
+
 /* 8625 PLL4 @ 1152MHz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1152[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
@@ -949,6 +978,26 @@ static void select_freq_plan(void)
 			acpu_freq_tbl =
 				pll0_960_pll1_737_pll2_1200_25a;
 		}
+		t->tbl = acpu_freq_tbl;
+	}
+
+	/*
+	 * 1008Mhz table selection based on the Lvalue of the PLL
+	 * is conflicting with the 7627AA and 8625 v1.0 1GHz parts
+	 * since v2.0 8625 chips are using different clock plan based
+	 * reprogramming method.
+	 */
+	if (cpu_is_msm8625() &&
+		(SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) &&
+		pll_mhz[ACPU_PLL_4] == 1008) {
+
+		if (pll_mhz[ACPU_PLL_2] == 245)
+			acpu_freq_tbl =
+				pll0_960_pll1_245_pll2_1200_pll4_1008_2p0;
+		else
+			acpu_freq_tbl =
+				pll0_960_pll1_196_pll2_1200_pll4_1008_2p0;
+		t->tbl = acpu_freq_tbl;
 	} else {
 		/* Select the right table to use. */
 		for (; t->tbl != 0; t++) {
