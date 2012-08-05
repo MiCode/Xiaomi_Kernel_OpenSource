@@ -28,8 +28,8 @@
 
 #include "mdp.h"
 #include "msm_fb.h"
-#include "mdp4.h"
 #include "mipi_dsi.h"
+#include "mdp4.h"
 
 static int dsi_state;
 
@@ -40,14 +40,6 @@ static int vsync_start_y_adjust = 4;
 
 #define MAX_CONTROLLER	1
 #define VSYNC_EXPIRE_TICK 4
-#define BACKLIGHT_MAX 4
-
-struct backlight {
-	int put;
-	int get;
-	int tot;
-	int blist[BACKLIGHT_MAX];
-};
 
 static struct vsycn_ctrl {
 	struct device *dev;
@@ -75,7 +67,6 @@ static struct vsycn_ctrl {
 	struct msm_fb_data_type *mfd;
 	struct mdp4_overlay_pipe *base_pipe;
 	struct vsync_update vlist[2];
-	struct backlight blight;
 	int vsync_enabled;
 	int clk_enabled;
 	int clk_control;
@@ -106,68 +97,6 @@ static void vsync_irq_disable(int intr, int term)
 	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 	mdp_disable_irq_nosync(term);
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-}
-
-static int mdp4_backlight_get_level(struct vsycn_ctrl *vctrl)
-{
-	int level = -1;
-
-	mutex_lock(&vctrl->update_lock);
-	if (vctrl->blight.tot) {
-		level = vctrl->blight.blist[vctrl->blight.get];
-		vctrl->blight.get++;
-		vctrl->blight.get %= BACKLIGHT_MAX;
-		vctrl->blight.tot--;
-		pr_debug("%s: tot=%d put=%d get=%d level=%d\n", __func__,
-		vctrl->blight.tot, vctrl->blight.put, vctrl->blight.get, level);
-	}
-	mutex_unlock(&vctrl->update_lock);
-	return level;
-}
-
-void mdp4_backlight_put_level(int cndx, int level)
-{
-	struct vsycn_ctrl *vctrl;
-
-	if (cndx >= MAX_CONTROLLER) {
-		pr_err("%s: out or range: cndx=%d\n", __func__, cndx);
-		return;
-	}
-
-	vctrl = &vsync_ctrl_db[cndx];
-	mutex_lock(&vctrl->update_lock);
-	vctrl->blight.blist[vctrl->blight.put] = level;
-	vctrl->blight.put++;
-	vctrl->blight.put %= BACKLIGHT_MAX;
-	if (vctrl->blight.tot == BACKLIGHT_MAX) {
-		/* drop the oldest one */
-		vctrl->blight.get++;
-		vctrl->blight.get %= BACKLIGHT_MAX;
-	} else {
-		vctrl->blight.tot++;
-	}
-	mutex_unlock(&vctrl->update_lock);
-	pr_debug("%s: tot=%d put=%d get=%d level=%d\n", __func__,
-		vctrl->blight.tot, vctrl->blight.put, vctrl->blight.get, level);
-
-	if (mdp4_overlay_dsi_state_get() <= ST_DSI_SUSPEND)
-		return;
-}
-
-static int mdp4_backlight_commit_level(struct vsycn_ctrl *vctrl)
-{
-	int level;
-	int cnt = 0;
-
-	if (vctrl->blight.tot) { /* has new backlight */
-		if (mipi_dsi_ctrl_lock(0)) {
-			level = mdp4_backlight_get_level(vctrl);
-			mipi_dsi_cmd_backlight_tx(level);
-			cnt++;
-		}
-	}
-
-	return cnt;
 }
 
 static void mdp4_dsi_cmd_blt_ov_update(struct mdp4_overlay_pipe *pipe)
@@ -356,9 +285,6 @@ int mdp4_dsi_cmd_pipe_commit(void)
 	}
 	mutex_unlock(&vctrl->update_lock);
 
-
-	mdp4_backlight_commit_level(vctrl);
-
 	/* free previous committed iommu back to pool */
 	mdp4_overlay_iommu_unmap_freelist(mixer);
 
@@ -424,6 +350,9 @@ int mdp4_dsi_cmd_pipe_commit(void)
 			pipe->pipe_used = 0; /* clear */
 		}
 	}
+
+	/* tx dcs command if had any */
+	mipi_dsi_cmdlist_commit(1);
 
 	mdp4_mixer_stage_commit(mixer);
 
@@ -692,9 +621,6 @@ void mdp4_dsi_rdptr_init(int cndx)
 
 	vctrl->inited = 1;
 	vctrl->update_ndx = 0;
-	vctrl->blight.put = 0;
-	vctrl->blight.get = 0;
-	vctrl->blight.tot = 0;
 	mutex_init(&vctrl->update_lock);
 	init_completion(&vctrl->ov_comp);
 	init_completion(&vctrl->dmap_comp);
@@ -1033,8 +959,6 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 	}
 
 	atomic_set(&vctrl->suspend, 1);
-
-	mipi_dsi_cmd_backlight_tx(150);
 
 	/* sanity check, free pipes besides base layer */
 	mdp4_overlay_unset_mixer(pipe->mixer_num);
