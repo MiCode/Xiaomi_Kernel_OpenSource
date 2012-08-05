@@ -2292,6 +2292,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_iommu_domain_device,
 	&msm_tsens_device,
 	&apq8064_cache_dump_device,
+	&msm_8064_device_tspp,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
