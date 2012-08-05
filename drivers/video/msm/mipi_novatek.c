@@ -393,18 +393,16 @@ static int mipi_novatek_lcd_on(struct platform_device *pdev)
 
 	mipi  = &mfd->panel_info.mipi;
 
-	if (mipi_dsi_ctrl_lock(0)) {
-		if (mipi->mode == DSI_VIDEO_MODE) {
-			mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_video_on_cmds,
+	if (mipi->mode == DSI_VIDEO_MODE) {
+		mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_video_on_cmds,
 				ARRAY_SIZE(novatek_video_on_cmds));
-		} else {
-			mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_cmd_on_cmds,
+	} else {
+		mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_cmd_on_cmds,
 				ARRAY_SIZE(novatek_cmd_on_cmds));
 
-			/* clean up ack_err_status */
-			mipi_dsi_cmd_bta_sw_trigger();
-			mipi_novatek_manufacture_id(mfd);
-		}
+		/* clean up ack_err_status */
+		mipi_dsi_cmd_bta_sw_trigger();
+		mipi_novatek_manufacture_id(mfd);
 	}
 
 	return 0;
@@ -421,35 +419,38 @@ static int mipi_novatek_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	if (mipi_dsi_ctrl_lock(0)) {
-		mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_display_off_cmds,
+	mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_display_off_cmds,
 			ARRAY_SIZE(novatek_display_off_cmds));
-	}
 
 	return 0;
 }
 
 DEFINE_LED_TRIGGER(bkl_led_trigger);
 
-#ifdef CONFIG_FB_MSM_MDP303
-void mdp4_backlight_put_level(int cndx, int level)
-{
-	/* do nothing */
-}
-#endif
+static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
+static struct dsi_cmd_desc backlight_cmd = {
+	DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm1), led_pwm1};
+
+struct dcs_cmd_req cmdreq;
 
 static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 {
-	struct mipi_panel_info *mipi;
 
 	if ((mipi_novatek_pdata->enable_wled_bl_ctrl)
 	    && (wled_trigger_initialized)) {
 		led_trigger_event(bkl_led_trigger, mfd->bl_level);
 		return;
 	}
-	mipi  = &mfd->panel_info.mipi;
 
-	mdp4_backlight_put_level(0, mfd->bl_level);
+	led_pwm1[1] = (unsigned char)mfd->bl_level;
+
+	cmdreq.cmds = &backlight_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = 0;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mipi_dsi_cmdlist_put(&cmdreq);
 }
 
 static int mipi_dsi_3d_barrier_sysfs_register(struct device *dev);
