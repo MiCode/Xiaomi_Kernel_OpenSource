@@ -286,6 +286,8 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 
 	pr_debug("%s: pid=%d\n", __func__, current->pid);
 
+	mdp4_mixer_stage_commit(pipe->mixer_num);
+
 	mdp4_writeback_overlay_kickoff(mfd, pipe);
 
 	mutex_lock(&mfd->writeback_mutex);
@@ -299,6 +301,7 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 void mdp4_writeback_kickoff_ui(struct msm_fb_data_type *mfd,
 		struct mdp4_overlay_pipe *pipe)
 {
+	mdp4_mixer_stage_commit(pipe->mixer_num);
 
 	pr_debug("%s: pid=%d\n", __func__, current->pid);
 	mdp4_writeback_overlay_kickoff(mfd, pipe);
