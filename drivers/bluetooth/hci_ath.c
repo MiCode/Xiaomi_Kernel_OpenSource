@@ -274,8 +274,6 @@ static int ath_recv(struct hci_uart *hu, void *data, int count)
 
 static void bluesleep_tx_timer_expire(unsigned long data)
 {
-	unsigned long irq_flags;
-
 	if (!test_bit(BT_SLEEPENABLE, &flags))
 		return;
 	BT_DBG("Tx timer expired");
