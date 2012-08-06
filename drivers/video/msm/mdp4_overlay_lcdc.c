@@ -460,6 +460,7 @@ int mdp4_lcdc_on(struct platform_device *pdev)
 
 	vctrl->mfd = mfd;
 	vctrl->dev = mfd->fbi->dev;
+	vctrl->fake_vsync = 1;
 
 	/* mdp clock on */
 	mdp_clk_ctrl(1);
