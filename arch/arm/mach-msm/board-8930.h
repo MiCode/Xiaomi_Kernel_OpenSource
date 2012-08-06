@@ -17,6 +17,7 @@
 
 #include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8038.h>
+#include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/i2c.h>
 #include <linux/i2c/sx150x.h>
 #include <mach/irqs.h>
@@ -37,11 +38,22 @@
 #endif
 
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
+/*
+ * PM8917 has more GPIOs and MPPs than PM8038; therefore, use PM8038 sizes at
+ * all times so that PM8038 vs PM8917 can be chosen at runtime.  This results in
+ * the Linux GPIO address space being contiguous for PM8917 and discontiguous
+ * for PM8038.
+ */
 #define PM8038_GPIO_BASE		NR_GPIO_IRQS
 #define PM8038_GPIO_PM_TO_SYS(pm_gpio)	(pm_gpio - 1 + PM8038_GPIO_BASE)
-#define PM8038_MPP_BASE			(PM8038_GPIO_BASE + PM8038_NR_GPIOS)
+#define PM8038_MPP_BASE			(PM8038_GPIO_BASE + PM8917_NR_GPIOS)
 #define PM8038_MPP_PM_TO_SYS(pm_gpio)	(pm_gpio - 1 + PM8038_MPP_BASE)
 #define PM8038_IRQ_BASE			(NR_MSM_IRQS + NR_GPIO_IRQS)
+
+/* These PM8917 alias macros are used to provide context in board files. */
+#define PM8917_GPIO_PM_TO_SYS(pm_gpio)	PM8038_GPIO_PM_TO_SYS(pm_gpio)
+#define PM8917_MPP_PM_TO_SYS(pm_gpio)	PM8038_MPP_PM_TO_SYS(pm_gpio)
+#define PM8917_IRQ_BASE			PM8038_IRQ_BASE
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes
@@ -84,7 +96,7 @@ extern struct rpm_regulator_platform_data
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 enum {
 	GPIO_EXPANDER_IRQ_BASE = (PM8038_IRQ_BASE + PM8038_NR_IRQS),
-	GPIO_EXPANDER_GPIO_BASE = (PM8038_MPP_BASE + PM8038_NR_MPPS),
+	GPIO_EXPANDER_GPIO_BASE = (PM8038_MPP_BASE + PM8917_NR_MPPS),
 	/* CAM Expander */
 	GPIO_CAM_EXPANDER_BASE = GPIO_EXPANDER_GPIO_BASE,
 	GPIO_CAM_GP_STROBE_READY = GPIO_CAM_EXPANDER_BASE,
