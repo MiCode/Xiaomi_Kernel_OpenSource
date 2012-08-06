@@ -228,6 +228,53 @@
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,min-clk-gear = <10>;
 		qcom,rxreg-access;
+
+		taiko_codec {
+			compatible = "qcom,taiko-slim-pgd";
+			elemental-addr = [00 01 A0 00 17 02];
+
+			qcom,cdc-reset-gpio = <&msmgpio 63 0>;
+
+			cdc-vdd-buck-supply = <&pm8941_s2>;
+			qcom,cdc-vdd-buck-voltage = <2150000 2150000>;
+			qcom,cdc-vdd-buck-current = <650000>;
+
+			cdc-vdd-tx-h-supply = <&pm8941_s3>;
+			qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+			qcom,cdc-vdd-tx-h-current = <25000>;
+
+			cdc-vdd-rx-h-supply = <&pm8941_s3>;
+			qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+			qcom,cdc-vdd-rx-h-current = <25000>;
+
+			cdc-vddpx-1-supply = <&pm8941_s3>;
+			qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+			qcom,cdc-vddpx-1-current = <10000>;
+
+			cdc-vdd-a-1p2v-supply = <&pm8941_l1>;
+			qcom,cdc-vdd-a-1p2v-voltage = <1225000 1225000>;
+			qcom,cdc-vdd-a-1p2v-current = <10000>;
+
+			cdc-vddcx-1-supply = <&pm8941_l1>;
+			qcom,cdc-vddcx-1-voltage = <1225000 1225000>;
+			qcom,cdc-vddcx-1-current = <10000>;
+
+			cdc-vddcx-2-supply = <&pm8941_l1>;
+			qcom,cdc-vddcx-2-voltage = <1225000 1225000>;
+			qcom,cdc-vddcx-2-current = <10000>;
+
+			qcom,cdc-micbias-ldoh-v = <0x3>;
+			qcom,cdc-micbias-cfilt1-mv = <1800>;
+			qcom,cdc-micbias-cfilt2-mv = <2700>;
+			qcom,cdc-micbias-cfilt3-mv = <1800>;
+			qcom,cdc-micbias1-cfilt-sel = <0x0>;
+			qcom,cdc-micbias2-cfilt-sel = <0x1>;
+			qcom,cdc-micbias3-cfilt-sel = <0x2>;
+			qcom,cdc-micbias4-cfilt-sel = <0x2>;
+
+			qcom,cdc-slim-ifd = "taiko-slim-ifd";
+			qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 00 17 02];
+		};
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
