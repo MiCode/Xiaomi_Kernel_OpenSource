@@ -493,6 +493,22 @@ static struct msm_gpiomux_config cyts_gpio_configs[] __initdata = {
 		},
 	},
 };
+static struct msm_gpiomux_config cyts_gpio_alt_config[] __initdata = {
+	{	/* TS INTERRUPT */
+		.gpio = 6,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cyts_int_act_cfg,
+			[GPIOMUX_SUSPENDED] = &cyts_int_sus_cfg,
+		},
+	},
+	{	/* TS SLEEP */
+		.gpio = 12,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cyts_sleep_act_cfg,
+			[GPIOMUX_SUSPENDED] = &cyts_sleep_sus_cfg,
+		},
+	},
+};
 
 static struct gpiomux_setting hsic_act_cfg = {
 	.func = GPIOMUX_FUNC_1,
@@ -1202,6 +1218,7 @@ static struct msm_gpiomux_config apq8064_sdc3_configs[] __initdata = {
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
+	int platform_version = socinfo_get_platform_version();
 
 	rc = msm_gpiomux_init(NR_GPIO_IRQS);
 	if (rc) {
@@ -1260,11 +1277,17 @@ void __init apq8064_init_gpiomux(void)
 		msm_gpiomux_install(mdm_configs,
 			ARRAY_SIZE(mdm_configs));
 
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-	if (machine_is_apq8064_mtp())
-		msm_gpiomux_install(cyts_gpio_configs,
-				ARRAY_SIZE(cyts_gpio_configs));
+	if (machine_is_apq8064_mtp()) {
+		if (SOCINFO_VERSION_MINOR(platform_version) == 1) {
+			msm_gpiomux_install(cyts_gpio_alt_config,
+					ARRAY_SIZE(cyts_gpio_alt_config));
+		} else {
+			msm_gpiomux_install(cyts_gpio_configs,
+					ARRAY_SIZE(cyts_gpio_configs));
+		}
+	}
 
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
 	if (machine_is_apq8064_mtp())
 		msm_gpiomux_install(apq8064_hsic_configs,
 				ARRAY_SIZE(apq8064_hsic_configs));
