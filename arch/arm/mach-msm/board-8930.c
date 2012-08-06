@@ -1656,18 +1656,26 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 
 #define ISA1200_HAP_EN_GPIO	77
 #define ISA1200_HAP_LEN_GPIO	78
-#define ISA1200_HAP_CLK		PM8038_GPIO_PM_TO_SYS(7)
+#define ISA1200_HAP_CLK_PM8038	PM8038_GPIO_PM_TO_SYS(7)
+#define ISA1200_HAP_CLK_PM8917	PM8917_GPIO_PM_TO_SYS(38)
 
 static int isa1200_power(int on)
 {
+	unsigned int gpio = ISA1200_HAP_CLK_PM8038;
+	enum pm8xxx_aux_clk_id clk_id = CLK_MP3_1;
 	int rc = 0;
 
-	gpio_set_value_cansleep(ISA1200_HAP_CLK, !!on);
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917) {
+		gpio = ISA1200_HAP_CLK_PM8917;
+		clk_id = CLK_MP3_2;
+	}
+
+	gpio_set_value_cansleep(gpio, !!on);
 
 	if (on)
-		rc = pm8xxx_aux_clk_control(CLK_MP3_1, XO_DIV_1, true);
+		rc = pm8xxx_aux_clk_control(clk_id, XO_DIV_1, true);
 	else
-		rc = pm8xxx_aux_clk_control(CLK_MP3_1, XO_DIV_NONE, true);
+		rc = pm8xxx_aux_clk_control(clk_id, XO_DIV_NONE, true);
 
 	if (rc) {
 		pr_err("%s: unable to write aux clock register(%d)\n",
@@ -1679,29 +1687,33 @@ static int isa1200_power(int on)
 
 static int isa1200_dev_setup(bool enable)
 {
+	unsigned int gpio = ISA1200_HAP_CLK_PM8038;
 	int rc = 0;
+
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+		gpio = ISA1200_HAP_CLK_PM8917;
 
 	if (!enable)
 		goto fail_gpio_dir;
 
-	rc = gpio_request(ISA1200_HAP_CLK, "haptics_clk");
+	rc = gpio_request(gpio, "haptics_clk");
 	if (rc) {
 		pr_err("%s: gpio_request for %d gpio failed rc(%d)\n",
-					__func__, ISA1200_HAP_CLK, rc);
+					__func__, gpio, rc);
 		goto fail_gpio_req;
 	}
 
-	rc = gpio_direction_output(ISA1200_HAP_CLK, 0);
+	rc = gpio_direction_output(gpio, 0);
 	if (rc) {
 		pr_err("%s: gpio_direction_output failed for %d gpio rc(%d)\n",
-						__func__, ISA1200_HAP_CLK, rc);
+						__func__, gpio, rc);
 		goto fail_gpio_dir;
 	}
 
 	return 0;
 
 fail_gpio_dir:
-	gpio_free(ISA1200_HAP_CLK);
+	gpio_free(gpio);
 fail_gpio_req:
 	return rc;
 
@@ -1938,12 +1950,13 @@ static struct i2c_board_info mxt_device_info_8930[] __initdata = {
 	},
 };
 
-#define MHL_POWER_GPIO       PM8038_GPIO_PM_TO_SYS(MHL_GPIO_PWR_EN)
+#define MHL_POWER_GPIO_PM8038	PM8038_GPIO_PM_TO_SYS(MHL_GPIO_PWR_EN)
+#define MHL_POWER_GPIO_PM8917	PM8917_GPIO_PM_TO_SYS(25)
 static struct msm_mhl_platform_data mhl_platform_data = {
 	.irq = MSM_GPIO_TO_INT(MHL_GPIO_INT),
 	.gpio_mhl_int = MHL_GPIO_INT,
 	.gpio_mhl_reset = MHL_GPIO_RESET,
-	.gpio_mhl_power = MHL_POWER_GPIO,
+	.gpio_mhl_power = MHL_POWER_GPIO_PM8038,
 	.gpio_hdmi_mhl_mux = HDMI_MHL_MUX_GPIO,
 };
 
@@ -1962,17 +1975,22 @@ static struct i2c_board_info sii_device_info[] __initdata = {
 
 #ifdef MSM8930_PHASE_2
 
-#define GPIO_VOLUME_UP		PM8038_GPIO_PM_TO_SYS(3)
-#define GPIO_VOLUME_DOWN	PM8038_GPIO_PM_TO_SYS(8)
-#define GPIO_CAMERA_SNAPSHOT	PM8038_GPIO_PM_TO_SYS(10)
-#define GPIO_CAMERA_FOCUS	PM8038_GPIO_PM_TO_SYS(11)
+#define GPIO_VOLUME_UP_PM8038		PM8038_GPIO_PM_TO_SYS(3)
+#define GPIO_VOLUME_DOWN_PM8038		PM8038_GPIO_PM_TO_SYS(8)
+#define GPIO_CAMERA_SNAPSHOT_PM8038	PM8038_GPIO_PM_TO_SYS(10)
+#define GPIO_CAMERA_FOCUS_PM8038	PM8038_GPIO_PM_TO_SYS(11)
 
-static struct gpio_keys_button keys_8930[] = {
+#define GPIO_VOLUME_UP_PM8917		PM8917_GPIO_PM_TO_SYS(27)
+#define GPIO_VOLUME_DOWN_PM8917		PM8917_GPIO_PM_TO_SYS(28)
+#define GPIO_CAMERA_SNAPSHOT_PM8917	PM8917_GPIO_PM_TO_SYS(36)
+#define GPIO_CAMERA_FOCUS_PM8917	PM8917_GPIO_PM_TO_SYS(37)
+
+static struct gpio_keys_button keys_8930_pm8038[] = {
 	{
 		.code = KEY_VOLUMEUP,
 		.type = EV_KEY,
 		.desc = "volume_up",
-		.gpio = GPIO_VOLUME_UP,
+		.gpio = GPIO_VOLUME_UP_PM8038,
 		.wakeup = 1,
 		.active_low = 1,
 		.debounce_interval = 15,
@@ -1981,7 +1999,7 @@ static struct gpio_keys_button keys_8930[] = {
 		.code = KEY_VOLUMEDOWN,
 		.type = EV_KEY,
 		.desc = "volume_down",
-		.gpio = GPIO_VOLUME_DOWN,
+		.gpio = GPIO_VOLUME_DOWN_PM8038,
 		.wakeup = 1,
 		.active_low = 1,
 		.debounce_interval = 15,
@@ -1990,7 +2008,7 @@ static struct gpio_keys_button keys_8930[] = {
 		.code = KEY_CAMERA_FOCUS,
 		.type = EV_KEY,
 		.desc = "camera_focus",
-		.gpio = GPIO_CAMERA_FOCUS,
+		.gpio = GPIO_CAMERA_FOCUS_PM8038,
 		.wakeup = 1,
 		.active_low = 1,
 		.debounce_interval = 15,
@@ -1999,7 +2017,46 @@ static struct gpio_keys_button keys_8930[] = {
 		.code = KEY_CAMERA_SNAPSHOT,
 		.type = EV_KEY,
 		.desc = "camera_snapshot",
-		.gpio = GPIO_CAMERA_SNAPSHOT,
+		.gpio = GPIO_CAMERA_SNAPSHOT_PM8038,
+		.wakeup = 1,
+		.active_low = 1,
+		.debounce_interval = 15,
+	},
+};
+
+static struct gpio_keys_button keys_8930_pm8917[] = {
+	{
+		.code = KEY_VOLUMEUP,
+		.type = EV_KEY,
+		.desc = "volume_up",
+		.gpio = GPIO_VOLUME_UP_PM8917,
+		.wakeup = 1,
+		.active_low = 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code = KEY_VOLUMEDOWN,
+		.type = EV_KEY,
+		.desc = "volume_down",
+		.gpio = GPIO_VOLUME_DOWN_PM8917,
+		.wakeup = 1,
+		.active_low = 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code = KEY_CAMERA_FOCUS,
+		.type = EV_KEY,
+		.desc = "camera_focus",
+		.gpio = GPIO_CAMERA_FOCUS_PM8917,
+		.wakeup = 1,
+		.active_low = 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code = KEY_CAMERA_SNAPSHOT,
+		.type = EV_KEY,
+		.desc = "camera_snapshot",
+		.gpio = GPIO_CAMERA_SNAPSHOT_PM8917,
 		.wakeup = 1,
 		.active_low = 1,
 		.debounce_interval = 15,
@@ -2008,8 +2065,8 @@ static struct gpio_keys_button keys_8930[] = {
 
 /* Add GPIO keys for 8930 */
 static struct gpio_keys_platform_data gpio_keys_8930_pdata = {
-	.buttons = keys_8930,
-	.nbuttons = 4,
+	.buttons = keys_8930_pm8038,
+	.nbuttons = ARRAY_SIZE(keys_8930_pm8038),
 };
 
 static struct platform_device gpio_keys_8930 = {
@@ -2597,8 +2654,19 @@ static void __init register_i2c_devices(void)
 #endif
 }
 
+/* Modify platform data values to match requirements for PM8917. */
+static void __init msm8930_pm8917_pdata_fixup(void)
+{
+	mhl_platform_data.gpio_mhl_power = MHL_POWER_GPIO_PM8917;
+
+	gpio_keys_8930_pdata.buttons = keys_8930_pm8917;
+	gpio_keys_8930_pdata.nbuttons = ARRAY_SIZE(keys_8930_pm8917);
+}
+
 static void __init msm8930_cdp_init(void)
 {
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+		msm8930_pm8917_pdata_fixup();
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
 		pr_err("meminfo_init() failed!\n");
 
@@ -2664,7 +2732,10 @@ static void __init msm8930_cdp_init(void)
 #ifndef MSM8930_PHASE_2
 	msm8960_pm8921_gpio_mpp_init();
 #else
-	msm8930_pm8038_gpio_mpp_init();
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
+		msm8930_pm8038_gpio_mpp_init();
+	else
+		msm8930_pm8917_gpio_mpp_init();
 #endif
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 #ifdef CONFIG_MSM_CAMERA
