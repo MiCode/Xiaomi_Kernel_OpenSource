@@ -80,6 +80,7 @@ struct msm_fb_data_type {
 	DISP_TARGET dest;
 	struct fb_info *fbi;
 
+	struct device *dev;
 	boolean op_enable;
 	uint32 fb_imgType;
 	boolean sw_currently_refreshing;
@@ -134,6 +135,7 @@ struct msm_fb_data_type {
 			      struct mdp_histogram_data *hist);
 	int (*start_histogram) (struct mdp_histogram_start_req *req);
 	int (*stop_histogram) (struct fb_info *info, uint32_t block);
+	void (*vsync_ctrl) (int enable);
 	void *cursor_buf;
 	void *cursor_buf_phys;
 
