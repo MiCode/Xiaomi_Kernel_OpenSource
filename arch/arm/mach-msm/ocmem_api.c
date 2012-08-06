@@ -399,3 +399,22 @@ int ocmem_restore(int client_id)
 	mutex_unlock(&ocmem_eviction_lock);
 	return ret;
 }
+
+/* Wrappers until power control is transitioned to clients */
+enum ocmem_power_state ocmem_get_power_state(int client_id,
+						struct ocmem_buf *buffer)
+{
+	return 0;
+}
+
+int ocmem_set_power_state(int client_id, struct ocmem_buf *buffer,
+					enum ocmem_power_state new_state)
+{
+	return 0;
+}
+
+struct ocmem_vectors *ocmem_get_vectors(int client_id,
+				struct ocmem_buf *buffer)
+{
+	return NULL;
+}
