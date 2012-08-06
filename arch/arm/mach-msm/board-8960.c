@@ -2508,6 +2508,88 @@ static struct msm_serial_hs_platform_data msm_uart_dm8_pdata;
 static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
 #endif
 
+#if defined(CONFIG_BT) && defined(CONFIG_BT_HCIUART_ATH3K)
+static struct resource bluesleep_resources[] = {
+	{
+		.name   = "gpio_host_wake",
+		.start  = 27,
+		.end    = 27,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "gpio_ext_wake",
+		.start  = 29,
+		.end    = 29,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "host_wake",
+		.start  = MSM_GPIO_TO_INT(27),
+		.end    = MSM_GPIO_TO_INT(27),
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm_bluesleep_device = {
+	.name		= "bluesleep",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(bluesleep_resources),
+	.resource	= bluesleep_resources,
+};
+
+static struct platform_device msm_bt_power_device = {
+	.name = "bt_power",
+};
+
+int gpio_bt_sys_rest_en = 28;
+
+static int bluetooth_power(int on)
+{
+	int rc;
+
+	if (on) {
+		rc = gpio_direction_output(gpio_bt_sys_rest_en, 1);
+		msleep(100);
+	} else {
+		gpio_set_value(gpio_bt_sys_rest_en, 0);
+		rc = gpio_direction_input(gpio_bt_sys_rest_en);
+		msleep(100);
+	}
+	pr_err("%s on= %d rc = %d\n", __func__, on, rc);
+	return 0;
+}
+
+static void __init bt_power_init(void)
+{
+	int rc;
+
+	msm_bt_power_device.dev.platform_data = &bluetooth_power;
+	pr_err("%s enter\n", __func__);
+
+	rc = gpio_request(gpio_bt_sys_rest_en, "bt sys_rst_n");
+	if (rc) {
+		pr_err("%s: unable to request gpio %d (%d)\n",
+			__func__, gpio_bt_sys_rest_en, rc);
+		return;
+	}
+
+	/* When booting up, de-assert BT reset pin */
+	rc = gpio_direction_output(gpio_bt_sys_rest_en, 0);
+	if (rc) {
+		pr_err("%s: Unable to set direction\n", __func__);
+		goto free_gpio;
+	}
+	pr_err("%s done\n", __func__);
+	return;
+
+free_gpio:
+	gpio_free(gpio_bt_sys_rest_en);
+	return;
+}
+#else
+#define bt_power_init(x) do {} while (0)
+#endif
+
 static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_acpuclk,
 	&msm8960_device_dmov,
@@ -2527,6 +2609,10 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm_slim_ctrl,
 	&msm_device_wcnss_wlan,
+#if defined(CONFIG_BT) && defined(CONFIG_BT_HCIUART_ATH3K)
+	&msm_bluesleep_device,
+	&msm_bt_power_device,
+#endif
 #if defined(CONFIG_QSEECOM)
 	&qseecom_device,
 #endif
@@ -3078,6 +3164,7 @@ static void __init msm8960_cdp_init(void)
 	msm8960_init_dsps();
 	change_memory_power = &msm8960_change_memory_power;
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+	bt_power_init();
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
 		mdm_sglte_device.dev.platform_data = &sglte_platform_data;
 		platform_device_register(&mdm_sglte_device);
