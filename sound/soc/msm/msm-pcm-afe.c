@@ -140,9 +140,6 @@ static void pcm_afe_process_tx_pkt(uint32_t opcode,
 						runtime->channels * 2)));
 				pr_debug("prtd->poll_time: %d",
 						prtd->poll_time);
-				hrtimer_start(&prtd->hrt,
-					ns_to_ktime(0),
-					HRTIMER_MODE_REL);
 				break;
 			}
 			case AFE_EVENT_RTPORT_STOP:
@@ -206,9 +203,6 @@ static void pcm_afe_process_rx_pkt(uint32_t opcode,
 				snd_pcm_lib_period_bytes(prtd->substream)
 					* 1000 * 1000)/(runtime->rate
 					* runtime->channels * 2)));
-			hrtimer_start(&prtd->hrt,
-				ns_to_ktime(0),
-				HRTIMER_MODE_REL);
 			pr_debug("prtd->poll_time : %d", prtd->poll_time);
 			break;
 		}
@@ -465,6 +459,8 @@ static int msm_afe_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("%s: SNDRV_PCM_TRIGGER_START\n", __func__);
 		prtd->start = 1;
+		hrtimer_start(&prtd->hrt, ns_to_ktime(0),
+					HRTIMER_MODE_REL);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
