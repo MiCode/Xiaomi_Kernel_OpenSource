@@ -276,9 +276,8 @@ static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
 
-	/*
-	 * suspend this channel
-	 */
+	pr_debug("mdss_fb suspend index=%d\n", mfd->index);
+
 	mfd->suspend.op_enable = mfd->op_enable;
 	mfd->suspend.panel_power_on = mfd->panel_power_on;
 
@@ -295,13 +294,14 @@ static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
-#if defined(CONFIG_PM)
 static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
 
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
+
+	pr_debug("mdss_fb resume index=%d\n", mfd->index);
 
 	/* resume state var recover */
 	mfd->op_enable = mfd->suspend.op_enable;
@@ -316,59 +316,43 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 	return ret;
 }
 
-static int mdss_fb_suspend(struct platform_device *pdev, pm_message_t state)
+int mdss_fb_suspend_all(void)
 {
-	struct msm_fb_data_type *mfd;
-	int ret = 0;
-
-	pr_debug("mdss_fb_suspend\n");
-
-	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
-
-	if ((!mfd) || (mfd->key != MFD_KEY))
-		return 0;
-
+	struct fb_info *fbi;
+	int ret, i;
+	int result = 0;
 	console_lock();
-	fb_set_suspend(mfd->fbi, FBINFO_STATE_SUSPENDED);
+	for (i = 0; i < fbi_list_index; i++) {
+		fbi = fbi_list[i];
+		fb_set_suspend(fbi, FBINFO_STATE_SUSPENDED);
 
-	ret = mdss_fb_suspend_sub(mfd);
-	if (ret != 0) {
-		pr_err("failed to suspend! %d\n", ret);
-		fb_set_suspend(mfd->fbi, FBINFO_STATE_RUNNING);
-	} else {
-		pdev->dev.power.power_state = state;
+		ret = mdss_fb_suspend_sub(fbi->par);
+		if (ret != 0) {
+			fb_set_suspend(fbi, FBINFO_STATE_RUNNING);
+			result = ret;
+		}
 	}
-
 	console_unlock();
-	return ret;
+	return result;
 }
 
-static int mdss_fb_resume(struct platform_device *pdev)
+int mdss_fb_resume_all(void)
 {
-	/* This resume function is called when interrupt is enabled.
-	 */
-	int ret = 0;
-	struct msm_fb_data_type *mfd;
-
-	pr_debug("mdss_fb_resume\n");
-
-	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
-
-	if ((!mfd) || (mfd->key != MFD_KEY))
-		return 0;
+	struct fb_info *fbi;
+	int ret, i;
+	int result = 0;
 
 	console_lock();
-	ret = mdss_fb_resume_sub(mfd);
-	pdev->dev.power.power_state = PMSG_ON;
-	fb_set_suspend(mfd->fbi, FBINFO_STATE_RUNNING);
-	console_unlock();
+	for (i = 0; i < fbi_list_index; i++) {
+		fbi = fbi_list[i];
 
-	return ret;
+		ret = mdss_fb_resume_sub(fbi->par);
+		if (ret == 0)
+			fb_set_suspend(fbi, FBINFO_STATE_RUNNING);
+	}
+	console_unlock();
+	return result;
 }
-#else
-#define mdss_fb_suspend NULL
-#define mdss_fb_resume NULL
-#endif
 
 #if defined(CONFIG_PM) && defined(CONFIG_SUSPEND)
 static int mdss_fb_ext_suspend(struct device *dev)
@@ -413,9 +397,6 @@ static const struct dev_pm_ops mdss_fb_dev_pm_ops = {
 static struct platform_driver mdss_fb_driver = {
 	.probe = mdss_fb_probe,
 	.remove = mdss_fb_remove,
-	.suspend = mdss_fb_suspend,
-	.resume = mdss_fb_resume,
-	.shutdown = NULL,
 	.driver = {
 		.name = "mdss_fb",
 		.pm = &mdss_fb_dev_pm_ops,

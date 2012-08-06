@@ -461,7 +461,7 @@ static void mdss_mdp_clk_ctrl_update(int enable)
 
 static void mdss_mdp_clk_ctrl_workqueue_handler(struct work_struct *work)
 {
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_MASTER_OFF, false);
 }
 
 void mdss_mdp_clk_ctrl(int enable, int isr)
@@ -480,12 +480,18 @@ void mdss_mdp_clk_ctrl(int enable, int isr)
 	 */
 	WARN_ON(isr == true && enable);
 
-	if (enable) {
+	if (enable == MDP_BLOCK_POWER_ON) {
 		atomic_inc(&clk_ref);
 	} else if (!atomic_add_unless(&clk_ref, -1, 0)) {
-		pr_debug("master power-off req\n");
-		force_off = 1;
+		if (enable == MDP_BLOCK_MASTER_OFF) {
+			pr_debug("master power-off req\n");
+			force_off = 1;
+		} else {
+			WARN(1, "too many mdp clock off call\n");
+		}
 	}
+
+	WARN_ON(enable == MDP_BLOCK_MASTER_OFF && !force_off);
 
 	if (isr) {
 		/* if it's power off send workqueue to turn off clocks */
@@ -732,7 +738,7 @@ static void mdss_mdp_suspend_sub(void)
 
 	flush_workqueue(mdss_res->clk_ctrl_wq);
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_MASTER_OFF, false);
 
 	mutex_lock(&mdp_suspend_mutex);
 	mdss_res->suspend = true;
@@ -741,24 +747,38 @@ static void mdss_mdp_suspend_sub(void)
 
 static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	if (pdev->id == 0) {
-		mdss_mdp_suspend_sub();
-		if (mdss_res->clk_ena) {
-			pr_err("MDP suspend failed\n");
-			return -EBUSY;
-		}
-		mdss_mdp_footswitch_ctrl(false);
+	int ret;
+	pr_debug("display suspend");
+
+	ret = mdss_fb_suspend_all();
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("Unable to suspend all fb panels (%d)\n", ret);
+		return ret;
 	}
+	mdss_mdp_suspend_sub();
+	if (mdss_res->clk_ena) {
+		pr_err("MDP suspend failed\n");
+		return -EBUSY;
+	}
+	mdss_mdp_footswitch_ctrl(false);
+
 	return 0;
 }
 
 static int mdss_mdp_resume(struct platform_device *pdev)
 {
+	int ret = 0;
+
+	pr_debug("resume display");
+
 	mdss_mdp_footswitch_ctrl(true);
 	mutex_lock(&mdp_suspend_mutex);
 	mdss_res->suspend = false;
 	mutex_unlock(&mdp_suspend_mutex);
-	return 0;
+	ret = mdss_fb_resume_all();
+	if (IS_ERR_VALUE(ret))
+		pr_err("Unable to resume all fb panels (%d)\n", ret);
+	return ret;
 }
 #else
 #define mdss_mdp_suspend NULL
