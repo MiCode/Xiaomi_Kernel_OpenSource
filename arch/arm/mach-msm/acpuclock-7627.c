@@ -249,14 +249,16 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008[] = {
 /* 8625 PLL4 @ 1209MHz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1209[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
-	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 1, 61440 },
-	{ 1, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 2, 61440 },
-	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 3, 61440 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
-	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 160000 },
-	{ 0, 604800, ACPU_PLL_4, 6, 1, 75600, 3, 6, 160000 },
-	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 7, 200000},
+	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 0, 61440 },
+	{ 0, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 1, 61440 },
+	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 1, 61440 },
+	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 2, 122880 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[2]},
 	{ 0 }
 };
 
@@ -264,13 +266,14 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1209[] = {
 static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1209[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
 	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
-	{ 1, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
+	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
 	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3, 98304 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
-	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 160000 },
-	{ 0, 604800, ACPU_PLL_4, 6, 1, 75600, 3, 6, 160000 },
-	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 7, 200000},
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[2]},
 	{ 0 }
 };
 
@@ -725,7 +728,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 		if ((delta > drv_state.max_speed_delta_khz)
 				|| (strt_s->pll == ACPU_PLL_4 &&
 					tgt_s->pll == ACPU_PLL_4))
-			clk_disable_unprepare(pll_clk[backup_s->pll].clk);
+			clk_disable(pll_clk[backup_s->pll].clk);
 
 		goto done;
 	}
@@ -959,28 +962,37 @@ static void __devinit select_freq_plan(void)
 		}
 	}
 
+	if (acpu_freq_tbl == NULL) {
+		pr_crit("Unknown PLL configuration!\n");
+		BUG();
+	}
+
 	/*
-	 * When PLL4 can run max @ 1401.6MHz, we have to support
-	 * dynamic reprograming of PLL4.
-	 *
+	 * Turn ON the dynamic reprogramming method
+	 * if one of the table entry has pll_rate defined.
+	 */
+	for ( ; t->tbl->a11clk_khz; t->tbl++) {
+		if (t->tbl->pll_rate) {
+			if (!dynamic_reprogram) {
+				dynamic_reprogram = 1;
+				pr_info("Dynamic reprogramming is ON\n");
+			}
+		}
+	}
+
+	/*
 	 * Also find the backup pll used during PLL4 reprogramming.
 	 * We are using PLL2@600MHz as backup PLL, since 800MHz jump
 	 * is fine.
 	 */
-	if (t->pll4_rate == 1401) {
-		dynamic_reprogram = 1;
-		for ( ; t->tbl->a11clk_khz; t->tbl++) {
+	if (dynamic_reprogram) {
+		for (t->tbl = acpu_freq_tbl; t->tbl->a11clk_khz; t->tbl++) {
 			if (t->tbl->pll == ACPU_PLL_2 &&
 					t->tbl->a11clk_src_div == 1) {
 				backup_s = t->tbl;
 				break;
 			}
 		}
-	}
-
-	if (acpu_freq_tbl == NULL) {
-		pr_crit("Unknown PLL configuration!\n");
-		BUG();
 	}
 }
 
