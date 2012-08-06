@@ -1455,6 +1455,8 @@ static int hsusb_phy_init_seq[] = {
 	0x13, 0x83, /* set source impedance adjusment */
 	-1};
 
+#define MSM_MPM_PIN_USB1_OTGSESSVLD	40
+
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
@@ -1467,6 +1469,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 #ifdef CONFIG_FB_MSM_HDMI_MHL_8334
 	.mhl_dev_name		= "sii8334",
 #endif
+	.mpm_otgsessvld_int	= MSM_MPM_PIN_USB1_OTGSESSVLD,
 };
 #endif
 

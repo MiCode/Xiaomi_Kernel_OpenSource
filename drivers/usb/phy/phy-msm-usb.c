@@ -43,6 +43,7 @@
 #include <linux/mhl_8334.h>
 
 #include <mach/clk.h>
+#include <mach/mpm.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>
@@ -883,6 +884,9 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		enable_irq_wake(motg->irq);
 		if (motg->pdata->pmic_id_irq)
 			enable_irq_wake(motg->pdata->pmic_id_irq);
+		if (pdata->otg_control == OTG_PHY_CONTROL &&
+			pdata->mpm_otgsessvld_int)
+			msm_mpm_set_pin_wake(pdata->mpm_otgsessvld_int, 1);
 	}
 	if (bus)
 		clear_bit(HCD_FLAG_HW_ACCESSIBLE, &(bus_to_hcd(bus))->flags);
@@ -900,6 +904,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
 	struct usb_bus *bus = phy->otg->host;
+	struct msm_otg_platform_data *pdata = motg->pdata;
 	int cnt = 0;
 	unsigned temp;
 	u32 phy_ctrl_val = 0;
@@ -978,6 +983,9 @@ skip_phy_resume:
 		disable_irq_wake(motg->irq);
 		if (motg->pdata->pmic_id_irq)
 			disable_irq_wake(motg->pdata->pmic_id_irq);
+		if (pdata->otg_control == OTG_PHY_CONTROL &&
+			pdata->mpm_otgsessvld_int)
+			msm_mpm_set_pin_wake(pdata->mpm_otgsessvld_int, 0);
 	}
 	if (bus)
 		set_bit(HCD_FLAG_HW_ACCESSIBLE, &(bus_to_hcd(bus))->flags);
@@ -3592,6 +3600,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto destroy_wlock;
 	}
 
+	if (pdata->otg_control == OTG_PHY_CONTROL && pdata->mpm_otgsessvld_int)
+		msm_mpm_enable_pin(pdata->mpm_otgsessvld_int, 1);
+
 	phy->init = msm_otg_reset;
 	phy->set_power = msm_otg_set_power;
 	phy->set_suspend = msm_otg_set_suspend;
@@ -3742,6 +3753,10 @@ static int msm_otg_remove(struct platform_device *pdev)
 		free_irq(motg->pdata->pmic_id_irq, motg);
 	usb_remove_phy(phy);
 	free_irq(motg->irq, motg);
+
+	if (motg->pdata->otg_control == OTG_PHY_CONTROL &&
+		motg->pdata->mpm_otgsessvld_int)
+		msm_mpm_enable_pin(motg->pdata->mpm_otgsessvld_int, 0);
 
 	/*
 	 * Put PHY in low power mode.
