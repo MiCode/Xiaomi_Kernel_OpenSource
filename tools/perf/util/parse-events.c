@@ -700,7 +700,7 @@ int parse_events_add_pmu(struct list_head *list, int *idx,
 	if (perf_pmu__config(pmu, &attr, head_config))
 		return -EINVAL;
 
-	return add_event(list, idx, &attr, (char *) "pmu");
+	return add_event(list, idx, &attr, pmu->name);
 }
 
 void parse_events_update_lists(struct list_head *list_event,
