@@ -328,6 +328,59 @@ static struct pil_reset_ops pil_venus_ops = {
 	.proxy_unvote = pil_venus_remove_proxy_vote,
 };
 
+static int pil_venus_init_image_trusted(struct pil_desc *pil,
+		const u8 *metadata, size_t size)
+{
+	return pas_init_image(PAS_VIDC, metadata, size);
+}
+
+static int pil_venus_reset_trusted(struct pil_desc *pil)
+{
+	int rc;
+	struct venus_data *drv = dev_get_drvdata(pil->dev);
+
+	/*
+	 * GDSC needs to remain on till Venus is shutdown. So, enable
+	 * the GDSC here again to make sure it remains on beyond the
+	 * expiry of the proxy vote timer.
+	 */
+	rc = regulator_enable(drv->gdsc);
+	if (rc) {
+		dev_err(pil->dev, "GDSC enable failed\n");
+		return rc;
+	}
+
+	rc = pas_auth_and_reset(PAS_VIDC);
+	if (rc)
+		regulator_disable(drv->gdsc);
+
+	return rc;
+}
+
+static int pil_venus_shutdown_trusted(struct pil_desc *pil)
+{
+	int rc;
+	struct venus_data *drv = dev_get_drvdata(pil->dev);
+
+	venus_clock_prepare_enable(pil->dev);
+
+	rc = pas_shutdown(PAS_VIDC);
+
+	venus_clock_disable_unprepare(pil->dev);
+
+	regulator_disable(drv->gdsc);
+
+	return rc;
+}
+
+static struct pil_reset_ops pil_venus_ops_trusted = {
+	.init_image = pil_venus_init_image_trusted,
+	.auth_and_reset = pil_venus_reset_trusted,
+	.shutdown = pil_venus_shutdown_trusted,
+	.proxy_vote = pil_venus_make_proxy_vote,
+	.proxy_unvote = pil_venus_remove_proxy_vote,
+};
+
 static int pil_venus_probe(struct platform_device *pdev)
 {
 	struct venus_data *drv;
@@ -422,9 +475,13 @@ static int pil_venus_probe(struct platform_device *pdev)
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = VENUS_PROXY_TIMEOUT;
 
-	/* TODO: need to add secure boot when the support is available */
-	desc->ops = &pil_venus_ops;
-	dev_info(&pdev->dev, "using non-secure boot\n");
+	if (pas_supported(PAS_VIDC) > 0) {
+		desc->ops = &pil_venus_ops_trusted;
+		dev_info(&pdev->dev, "using secure boot\n");
+	} else {
+		desc->ops = &pil_venus_ops;
+		dev_info(&pdev->dev, "using non-secure boot\n");
+	}
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))
