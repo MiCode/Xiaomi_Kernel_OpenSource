@@ -6817,17 +6817,20 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 	struct snd_soc_codec *codec = taiko->codec;
 	struct wcd9xxx_pdata *pdata = taiko->pdata;
 	int k1, k2, k3, rc = 0;
-	u8 leg_mode = pdata->amic_settings.legacy_mode;
-	u8 txfe_bypass = pdata->amic_settings.txfe_enable;
-	u8 txfe_buff = pdata->amic_settings.txfe_buff;
-	u8 flag = pdata->amic_settings.use_pdata;
+	u8 leg_mode, txfe_bypass, txfe_buff, flag;
 	u8 i = 0, j = 0;
 	u8 val_txfe = 0, value = 0;
 
 	if (!pdata) {
+		pr_err("%s: NULL pdata\n", __func__);
 		rc = -ENODEV;
 		goto done;
 	}
+
+	leg_mode = pdata->amic_settings.legacy_mode;
+	txfe_bypass = pdata->amic_settings.txfe_enable;
+	txfe_buff = pdata->amic_settings.txfe_buff;
+	flag = pdata->amic_settings.use_pdata;
 
 	/* Make sure settings are correct */
 	if ((pdata->micbias.ldoh_v > TAIKO_LDOH_2P85_V) ||

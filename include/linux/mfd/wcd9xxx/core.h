@@ -144,6 +144,7 @@ struct wcd9xxx {
 	int (*write_dev)(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			 int bytes, void *src, bool interface_reg);
 
+	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;
 
 	enum wcd9xxx_pm_state pm_state;
