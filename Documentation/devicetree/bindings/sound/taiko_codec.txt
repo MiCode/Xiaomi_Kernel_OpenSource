@@ -1,0 +1,82 @@
+taiko audio CODEC
+
+Required properties:
+
+  - compatible : "qcom,taiko-slim-pgd"
+  - elemental-addr: codec slimbus slave PGD enumeration address.(48 bits)
+
+  - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
+
+  - <supply-name>-supply: phandle to the regulator device tree node
+  - qcom,<supply-name>-voltage -  specifies voltage levels for supply. Should be
+       specified in pairs (min, max), units mV.
+  - qcom,<supply-name>-current - specifies max current in mA that can drawn
+       from the <supply-name>.
+
+    above three properties with "supply-name" set to  "qcom,cdc-vdd-buck", "qcom,cdc-vdd-tx-h",
+     "qcom,cdc-vdd-rx-h", "qcom,cdc-vddpx-1", "qcom,cdc-vdd-a-1p2v", "qcom,cdc-vddcx-1",
+     "qcom,cdc-vddcx-2" should be present.
+
+ - qcom,cdc-micbias-ldoh-v - LDOH output in volts ( should be 1.95 V and 3.00 V).
+
+ - qcom,cdc-micbias-cfilt1-mv - cfilt1 output voltage in milli volts.
+ - qcom,cdc-micbias-cfilt2-mv - cfilt2 output voltage in milli volts.
+ - qcom,cdc-micbias-cfilt3-mv - cfilt3 output voltage in milli volts.
+   cfilt volatge can be set to max of qcom,cdc-micbias-ldoh-v - 0.15V.
+
+ - qcom,cdc-micbias1-cfilt-sel = cfilt to use for micbias1 (should be from 1 to 3).
+ - qcom,cdc-micbias2-cfilt-sel = cfilt to use for micbias2 (should be from 1 to 3).
+ - qcom,cdc-micbias3-cfilt-sel = cfilt to use for micbias3 (should be from 1 to 3).
+ - qcom,cdc-micbias4-cfilt-sel = cfilt to use for micbias4 (should be from 1 to 3).
+
+ - qcom,cdc-slim-ifd-dev - namme of the codec slim interface device.
+ - qcom,cdc-slim-ifd-elemental-addr - codec slimbus slave interface device
+				     enumeration address.
+Example:
+
+taiko_codec {
+	compatible = "qcom,taiko-slim-pgd";
+	elemental-addr = [00 01 A0 00 17 02];
+
+	qcom,cdc-reset-gpio = <&msmgpio 63 0>;
+
+	cdc-vdd-buck-supply = <&pm8941_s2>;
+	qcom,cdc-vdd-buck-voltage = <2150000 2150000>;
+	qcom,cdc-vdd-buck-current = <500000>;
+
+	cdc-vdd-tx-h-supply = <&pm8941_s3>;
+	qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-tx-h-current = <200000>;
+
+	cdc-vdd-rx-h-supply = <&pm8941_s3>;
+	qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-rx-h-current = <200000>;
+
+	cdc-vddpx-1-supply = <&pm8941_s3>;
+	qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+	qcom,cdc-vddpx-1-current = <5000>;
+
+	cdc-vdd-a-1p2v-supply = <&pm8941_l1>;
+	qcom,cdc-vdd-a-1p2v-voltage = <1225000 1225000>;
+	qcom,cdc-vdd-a-1p2v-current = <5000>;
+
+	cdc-vddcx-1-supply = <&pm8941_l1>;
+	qcom,cdc-vddcx-1-voltage = <1225000 1225000>;
+	qcom,cdc-vddcx-1-current = <5000>;
+
+	cdc-vddcx-2-supply = <&pm8941_l1>;
+	qcom,cdc-vddcx-2-voltage = <1225000 1225000>;
+	qcom,cdc-vddcx-2-current = <5000>;
+
+	qcom,cdc-micbias-ldoh-v = <0x3>;
+	qcom,cdc-micbias-cfilt1-mv = <1800>;
+	qcom,cdc-micbias-cfilt2-mv = <2700>;
+	qcom,cdc-micbias-cfilt3-mv = <1800>;
+	qcom,cdc-micbias1-cfilt-sel = <0x0>;
+	qcom,cdc-micbias2-cfilt-sel = <0x1>;
+	qcom,cdc-micbias3-cfilt-sel = <0x2>;
+	qcom,cdc-micbias4-cfilt-sel = <0x2>;
+
+	qcom,cdc-slim-ifd = "taiko-slim-ifd";
+	qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 00 17 02];
+};
