@@ -135,6 +135,8 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 			   p->hsync_skew);
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_POLARITY_CTL,
 			   polarity_ctl);
+	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_PANEL_FORMAT,
+			   MDSS_MDP_PANEL_FORMAT_RGB888);
 
 	return 0;
 }
@@ -297,14 +299,14 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	itp.underflow_clr = pinfo->lcdc.underflow_clr;
 	itp.hsync_skew = pinfo->lcdc.hsync_skew;
 
-	itp.xres = fbi->var.xres;
-	itp.yres = fbi->var.yres;
-	itp.h_back_porch = fbi->var.left_margin;
-	itp.h_front_porch = fbi->var.right_margin;
-	itp.v_back_porch = fbi->var.upper_margin;
-	itp.v_front_porch = fbi->var.lower_margin;
-	itp.hsync_pulse_width = fbi->var.hsync_len;
-	itp.vsync_pulse_width = fbi->var.vsync_len;
+	itp.xres =  pinfo->xres;
+	itp.yres = pinfo->yres;
+	itp.h_back_porch =  pinfo->lcdc.h_back_porch;
+	itp.h_front_porch =  pinfo->lcdc.h_front_porch;
+	itp.v_back_porch =  pinfo->lcdc.v_back_porch;
+	itp.v_front_porch = pinfo->lcdc.h_front_porch;
+	itp.hsync_pulse_width = pinfo->lcdc.h_pulse_width;
+	itp.vsync_pulse_width = pinfo->lcdc.v_pulse_width;
 
 	if (mdss_mdp_video_timegen_setup(ctl, &itp)) {
 		pr_err("unable to get timing parameters\n");
