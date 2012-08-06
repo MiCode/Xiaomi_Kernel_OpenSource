@@ -469,6 +469,8 @@ static struct of_dev_auxdata msm_8974_auxdata_lookup[] __initdata = {
 			"msm_otg", NULL),
 	OF_DEV_AUXDATA("qcom,dwc-usb3-msm", 0xF9200000, \
 			"msm_dwc3", NULL),
+	OF_DEV_AUXDATA("qcom,usb-bam-msm", 0xF9304000, \
+			"usb_bam", NULL),
 	OF_DEV_AUXDATA("qcom,spi-qup-v2", 0xF9924000, \
 			"spi_qsd.1", NULL),
 	OF_DEV_AUXDATA("qcom,spmi-pmic-arb", 0xFC4C0000, \
