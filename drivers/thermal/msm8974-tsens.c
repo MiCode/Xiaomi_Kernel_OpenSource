@@ -773,13 +773,15 @@ fail:
 
 static int _tsens_register_thermal(void)
 {
-	struct platform_device *pdev = tmdev->pdev;
+	struct platform_device *pdev;
 	int rc, i;
 
 	if (!tmdev) {
 		pr_err("%s: TSENS early init not done\n", __func__);
 		return -ENODEV;
 	}
+
+	pdev = tmdev->pdev;
 
 	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
 		char name[18];
