@@ -1822,7 +1822,8 @@ static void a2xx_irq_control(struct adreno_device *adreno_dev, int state)
 	if (state) {
 		adreno_regwrite(device, REG_RBBM_INT_CNTL, RBBM_INT_MASK);
 		adreno_regwrite(device, REG_CP_INT_CNTL, CP_INT_MASK);
-		adreno_regwrite(device, MH_INTERRUPT_MASK, KGSL_MMU_INT_MASK);
+		adreno_regwrite(device, MH_INTERRUPT_MASK,
+			kgsl_mmu_get_int_mask());
 	} else {
 		adreno_regwrite(device, REG_RBBM_INT_CNTL, 0);
 		adreno_regwrite(device, REG_CP_INT_CNTL, 0);
