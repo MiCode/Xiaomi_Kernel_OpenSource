@@ -1452,21 +1452,21 @@ ssize_t video_3d_format_2string(uint32 format, char *buf)
 	len += ret;
 
 	if (len && (format & TOP_AND_BOTTOM))
-		ret = snprintf(buf + len, PAGE_SIZE, ":%s",
+		ret = snprintf(buf + len, PAGE_SIZE - len, ":%s",
 			single_video_3d_format_2string(
 				format & TOP_AND_BOTTOM));
 	else
-		ret = snprintf(buf + len, PAGE_SIZE, "%s",
+		ret = snprintf(buf + len, PAGE_SIZE - len, "%s",
 			single_video_3d_format_2string(
 				format & TOP_AND_BOTTOM));
 	len += ret;
 
 	if (len && (format & SIDE_BY_SIDE_HALF))
-		ret = snprintf(buf + len, PAGE_SIZE, ":%s",
+		ret = snprintf(buf + len, PAGE_SIZE - len, ":%s",
 			single_video_3d_format_2string(
 				format & SIDE_BY_SIDE_HALF));
 	else
-		ret = snprintf(buf + len, PAGE_SIZE, "%s",
+		ret = snprintf(buf + len, PAGE_SIZE - len, "%s",
 			single_video_3d_format_2string(
 				format & SIDE_BY_SIDE_HALF));
 	len += ret;
