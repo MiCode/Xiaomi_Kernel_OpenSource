@@ -37,6 +37,8 @@ int msm_server_get_usecount(void);
 int32_t msm_find_free_queue(void);
 int msm_server_proc_ctrl_cmd(struct msm_cam_v4l2_device *pcam,
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr, int is_set_cmd);
+int msm_server_private_general(struct msm_cam_v4l2_device *pcam,
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr);
 int msm_server_s_ctrl(struct msm_cam_v4l2_device *pcam,
 	struct v4l2_control *ctrl);
 int msm_server_g_ctrl(struct msm_cam_v4l2_device *pcam,
@@ -65,5 +67,5 @@ int msm_cam_server_request_irq(void *arg);
 int msm_cam_server_update_irqmap(
 	struct msm_cam_server_irqmap_entry *entry);
 int msm_cam_server_config_interface_map(u32 extendedmode,
-					uint32_t mctl_handle);
+	uint32_t mctl_handle);
 #endif /* _MSM_CAM_SERVER_H */

@@ -406,6 +406,7 @@ struct msm_queue_cmd {
 	atomic_t on_heap;
 	struct timespec ts;
 	uint32_t error_code;
+	uint32_t trans_code;
 };
 
 struct msm_device_queue {
