@@ -2628,7 +2628,12 @@ unsigned char hdmi_is_primary;
 #define USER_SMI_SIZE         (MSM_SMI_SIZE - KERNEL_SMI_SIZE)
 #define MSM_PMEM_SMIPOOL_SIZE USER_SMI_SIZE
 
+#ifdef CONFIG_MSM_CP
 #define MSM_ION_HOLE_SIZE	SZ_128K /* (128KB) */
+#else
+#define MSM_ION_HOLE_SIZE	0
+#endif
+
 #define MSM_MM_FW_SIZE		(0x200000 - MSM_ION_HOLE_SIZE) /*(2MB-128KB)*/
 #define MSM_ION_MM_SIZE		0x3800000  /* (56MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
@@ -2637,6 +2642,14 @@ unsigned char hdmi_is_primary;
 #define MSM_ION_HOLE_BASE	(MSM_MM_FW_BASE + MSM_MM_FW_SIZE)
 #define MSM_ION_MM_BASE		(MSM_ION_HOLE_BASE + MSM_ION_HOLE_SIZE)
 #define MSM_ION_MFC_BASE	(MSM_ION_MM_BASE + MSM_ION_MM_SIZE)
+
+#ifdef CONFIG_MSM_CP
+#define SECURE_BASE	(MSM_ION_HOLE_BASE)
+#define SECURE_SIZE	(MSM_ION_MM_SIZE + MSM_ION_HOLE_SIZE)
+#else
+#define SECURE_BASE	(MSM_MM_FW_BASE)
+#define SECURE_SIZE	(MSM_ION_MM_SIZE + MSM_MM_FW_SIZE)
+#endif
 
 #define MSM_ION_SF_SIZE		0x4000000 /* 64MB */
 #define MSM_ION_CAMERA_SIZE     MSM_PMEM_ADSP_SIZE
@@ -5292,8 +5305,8 @@ static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
 	.request_region = request_smi_region,
 	.release_region = release_smi_region,
 	.setup_region = setup_smi_region,
-	.secure_base = MSM_ION_HOLE_BASE,
-	.secure_size = MSM_ION_HOLE_SIZE + MSM_ION_MM_SIZE,
+	.secure_base = SECURE_BASE,
+	.secure_size = SECURE_SIZE,
 	.iommu_map_all = 1,
 	.iommu_2x_map_domain = VIDEO_DOMAIN,
 };
