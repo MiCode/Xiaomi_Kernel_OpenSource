@@ -20,6 +20,8 @@ Required properties :
             1 - PHY control
 	    2 - PMIC control
 	    3 - User control (via debugfs)
+- qcom,hsusb-otg-disable-reset: It present then core is RESET only during
+	    init, otherwise core is RESET for every cable disconnect as well
 
 Optional properties :
 - qcom,hsusb-otg-default-mode: The default USB mode after boot-up.
@@ -43,6 +45,7 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-disable-reset;
 		qcom,hsusb-otg-default-mode = <2>;
 		qcom,hsusb-otg-phy-init-seq = <0x01 0x90 0xffffffff>;
 		qcom,hsusb-otg-power-budget = <500>;
