@@ -244,20 +244,20 @@ static int msm_hsic_enable_clocks(struct platform_device *pdev,
 		goto put_cal_clk;
 	}
 
-	clk_enable(mhsic->iface_clk);
-	clk_enable(mhsic->core_clk);
-	clk_enable(mhsic->phy_clk);
-	clk_enable(mhsic->alt_core_clk);
-	clk_enable(mhsic->cal_clk);
+	clk_prepare_enable(mhsic->iface_clk);
+	clk_prepare_enable(mhsic->core_clk);
+	clk_prepare_enable(mhsic->phy_clk);
+	clk_prepare_enable(mhsic->alt_core_clk);
+	clk_prepare_enable(mhsic->cal_clk);
 
 	return 0;
 
 put_clocks:
-	clk_disable(mhsic->iface_clk);
-	clk_disable(mhsic->core_clk);
-	clk_disable(mhsic->phy_clk);
-	clk_disable(mhsic->alt_core_clk);
-	clk_disable(mhsic->cal_clk);
+	clk_disable_unprepare(mhsic->iface_clk);
+	clk_disable_unprepare(mhsic->core_clk);
+	clk_disable_unprepare(mhsic->phy_clk);
+	clk_disable_unprepare(mhsic->alt_core_clk);
+	clk_disable_unprepare(mhsic->cal_clk);
 put_cal_clk:
 	clk_put(mhsic->cal_clk);
 put_alt_core_clk:
