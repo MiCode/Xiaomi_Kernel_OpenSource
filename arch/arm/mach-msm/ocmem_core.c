@@ -383,6 +383,32 @@ static int rpm_write(unsigned long val, unsigned id)
 	return 0;
 }
 
+#if defined(CONFIG_MSM_OCMEM_POWER_DISABLE)
+/* Initializes a region to be turned ON in wide mode */
+static int ocmem_region_set_default_state(unsigned int r_num)
+{
+	unsigned m_num = 0;
+
+	mutex_lock(&region_ctrl_lock);
+
+	for (m_num = 0; m_num < num_banks; m_num++) {
+		apply_macro_vote(0, r_num, m_num, MACRO_ON);
+		aggregate_macro_state(r_num, m_num);
+	}
+
+	aggregate_region_state(r_num);
+	commit_region_state(r_num);
+
+	mutex_unlock(&region_ctrl_lock);
+	return 0;
+}
+
+#else
+static int ocmem_region_set_default_state(unsigned int region_num)
+{
+	return 0;
+}
+#endif
 
 #if defined(CONFIG_MSM_OCMEM_POWER_DEBUG)
 
@@ -489,6 +515,15 @@ int memory_is_off(unsigned int num)
 	REGION_DEFAULT_OFF -> REGION_DEFAULT_ON
 **/
 
+#if defined(CONFIG_MSM_OCMEM_POWER_DISABLE)
+/* If power management is disabled leave the macro states as is */
+static int switch_power_state(int id, unsigned long offset, unsigned long len,
+			unsigned new_state)
+{
+	return 0;
+}
+
+#else
 static int switch_power_state(int id, unsigned long offset, unsigned long len,
 			unsigned new_state)
 {
@@ -579,6 +614,7 @@ invalid_transition:
 	WARN_ON(1);
 	return -EINVAL;
 }
+#endif
 
 /* Interfaces invoked from the scheduler */
 int ocmem_memory_off(int id, unsigned long offset, unsigned long len)
@@ -700,6 +736,10 @@ int ocmem_core_init(struct platform_device *pdev)
 			goto hw_not_supported;
 		}
 
+		if (ocmem_region_set_default_state(i)) {
+			pr_err("Failed to initialize region %d\n", i);
+			goto hw_not_supported;
+		}
 	}
 	return 0;
 hw_not_supported:
