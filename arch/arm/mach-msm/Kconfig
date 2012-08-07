@@ -2327,6 +2327,15 @@ config MSM_OCMEM_POWER_DEBUG
 	  related operations of OCMEM. Both local power management
 	  and RPM assisted power management operations are supported.
 
+config MSM_OCMEM_POWER_DISABLE
+	bool "OCMEM Disable Power Control"
+	depends on MSM_OCMEM_DEBUG
+	help
+	  Disable all OCMEM power management.
+	  This keeps all OCMEM macros turned ON at all times thus
+	  never allowing them to be turned OFF. Both local power
+	  management and RPM assisted power modes are supported.
+
 config MSM_RTB
 	bool "Register tracing"
 	help
