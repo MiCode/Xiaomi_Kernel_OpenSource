@@ -563,7 +563,6 @@
 		compatible = "qcom,msm-mdss-dsi";
 		reg = <0xfd922800 0x5ac>,
 			<0xfd8c0000 0x01000>;
-		status = "disable";
 	};
 
 	qcom,mdss_wb_panel {
