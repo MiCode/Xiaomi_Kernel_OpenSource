@@ -1191,6 +1191,49 @@ int sps_flow_off(struct sps_pipe *h, enum sps_flow_off mode)
 EXPORT_SYMBOL(sps_flow_off);
 
 /**
+ * Check if the flags on a descriptor/iovec are valid
+ *
+ * @flags - flags on a descriptor/iovec
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+static int sps_check_iovec_flags(u32 flags)
+{
+	if ((flags & SPS_IOVEC_FLAG_NWD) &&
+		!(flags & (SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_CMD))) {
+		SPS_ERR("sps:NWD is only valid with EOT or CMD.\n");
+		return SPS_ERROR;
+	} else if ((flags & SPS_IOVEC_FLAG_EOT) &&
+		(flags & SPS_IOVEC_FLAG_CMD)) {
+		SPS_ERR("sps:EOT and CMD are not allowed to coexist.\n");
+		return SPS_ERROR;
+	} else if (!(flags & SPS_IOVEC_FLAG_CMD) &&
+		(flags & (SPS_IOVEC_FLAG_LOCK | SPS_IOVEC_FLAG_UNLOCK))) {
+		static char err_msg[] =
+		"pipe lock/unlock flags are only valid with Command Descriptor";
+		SPS_ERR("sps:%s.\n", err_msg);
+		return SPS_ERROR;
+	} else if ((flags & SPS_IOVEC_FLAG_LOCK) &&
+		(flags & SPS_IOVEC_FLAG_UNLOCK)) {
+		static char err_msg[] =
+		"Can't lock and unlock a pipe by the same Command Descriptor";
+		SPS_ERR("sps:%s.\n", err_msg);
+		return SPS_ERROR;
+	} else if ((flags & SPS_IOVEC_FLAG_IMME) &&
+		(flags & SPS_IOVEC_FLAG_CMD)) {
+		SPS_ERR("sps:Immediate and CMD are not allowed to coexist.\n");
+		return SPS_ERROR;
+	} else if ((flags & SPS_IOVEC_FLAG_IMME) &&
+		(flags & SPS_IOVEC_FLAG_NWD)) {
+		SPS_ERR("sps:Immediate and NWD are not allowed to coexist.\n");
+		return SPS_ERROR;
+	}
+
+	return 0;
+}
+
+/**
  * Perform a DMA transfer on an SPS connection end point
  *
  */
@@ -1199,6 +1242,8 @@ int sps_transfer(struct sps_pipe *h, struct sps_transfer *transfer)
 	struct sps_pipe *pipe = h;
 	struct sps_bam *bam;
 	int result;
+	struct sps_iovec *iovec;
+	int i;
 
 	SPS_DBG("sps:%s.", __func__);
 
@@ -1208,6 +1253,34 @@ int sps_transfer(struct sps_pipe *h, struct sps_transfer *transfer)
 	} else if (transfer == NULL) {
 		SPS_ERR("sps:%s:transfer is NULL.\n", __func__);
 		return SPS_ERROR;
+	} else if (transfer->iovec == NULL) {
+		SPS_ERR("sps:%s:iovec list is NULL.\n", __func__);
+		return SPS_ERROR;
+	} else if (transfer->iovec_count == 0) {
+		SPS_ERR("sps:%s:iovec list is empty.\n", __func__);
+		return SPS_ERROR;
+	} else if (transfer->iovec_phys == 0) {
+		SPS_ERR("sps:%s:iovec list address is invalid.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	/* Verify content of IOVECs */
+	iovec = transfer->iovec;
+	for (i = 0; i < transfer->iovec_count; i++) {
+		u32 flags = iovec->flags;
+
+		if (iovec->addr == 0) {
+			SPS_ERR("sps:%s:iovec address is invalid.\n", __func__);
+			return SPS_ERROR;
+		} else if (iovec->size > SPS_IOVEC_MAX_SIZE) {
+			SPS_ERR("sps:%s:iovec size is invalid.\n", __func__);
+			return SPS_ERROR;
+		}
+
+		if (sps_check_iovec_flags(flags))
+			return SPS_ERROR;
+
+		iovec++;
 	}
 
 	bam = sps_bam_lock(pipe);
@@ -1240,33 +1313,8 @@ int sps_transfer_one(struct sps_pipe *h, u32 addr, u32 size,
 		return SPS_ERROR;
 	}
 
-	if ((flags & SPS_IOVEC_FLAG_NWD) &&
-		!(flags & (SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_CMD))) {
-		SPS_ERR("sps:NWD is only valid with EOT or CMD.\n");
+	if (sps_check_iovec_flags(flags))
 		return SPS_ERROR;
-	} else if ((flags & SPS_IOVEC_FLAG_EOT) &&
-		(flags & SPS_IOVEC_FLAG_CMD)) {
-		SPS_ERR("sps:EOT and CMD are not allowed to coexist.\n");
-		return SPS_ERROR;
-	} else if (!(flags & SPS_IOVEC_FLAG_CMD) &&
-		(flags & (SPS_IOVEC_FLAG_LOCK | SPS_IOVEC_FLAG_UNLOCK))) {
-		SPS_ERR("sps:pipe lock and unlock flags are only valid with "
-			"Command Descriptor.\n");
-		return SPS_ERROR;
-	} else if ((flags & SPS_IOVEC_FLAG_LOCK) &&
-		(flags & SPS_IOVEC_FLAG_UNLOCK)) {
-		SPS_ERR("sps:Can't lock and unlock a pipe by the same"
-			"Command Descriptor.\n");
-		return SPS_ERROR;
-	} else if ((flags & SPS_IOVEC_FLAG_IMME) &&
-		(flags & SPS_IOVEC_FLAG_CMD)) {
-		SPS_ERR("sps:Immediate and CMD are not allowed to coexist.\n");
-		return SPS_ERROR;
-	} else if ((flags & SPS_IOVEC_FLAG_IMME) &&
-		(flags & SPS_IOVEC_FLAG_NWD)) {
-		SPS_ERR("sps:Immediate and NWD are not allowed to coexist.\n");
-		return SPS_ERROR;
-	}
 
 	bam = sps_bam_lock(pipe);
 	if (bam == NULL)
