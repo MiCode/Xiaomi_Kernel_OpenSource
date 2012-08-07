@@ -186,6 +186,15 @@ static void dfunc_string(struct encode_context *ectxt,
 {
 	tsv_timestamp_read(ectxt, dctxt, " ");
 	tsv_byte_array_read(ectxt, dctxt, "");
+
+	/* add trailing \n if necessary */
+	if (*(dctxt->buff - 1) != '\n') {
+		if (dctxt->size) {
+			++dctxt->buff;
+			--dctxt->size;
+		}
+		*(dctxt->buff - 1) = '\n';
+	}
 }
 
 void check_and_create_debugfs(void)
