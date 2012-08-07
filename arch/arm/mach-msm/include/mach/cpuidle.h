@@ -37,23 +37,4 @@ int msm_cpuidle_init(void);
 static inline int msm_cpuidle_init(void) { return -ENOSYS; }
 #endif
 
-#ifdef CONFIG_MSM_SLEEP_STATS
-enum {
-	MSM_CPUIDLE_STATE_ENTER,
-	MSM_CPUIDLE_STATE_EXIT
-};
-
-int msm_cpuidle_register_notifier(unsigned int cpu,
-		struct notifier_block *nb);
-int msm_cpuidle_unregister_notifier(unsigned int cpu,
-		struct notifier_block *nb);
-#else
-static inline int msm_cpuidle_register_notifier(unsigned int cpu,
-		struct notifier_block *nb)
-{ return -ENODEV; }
-static inline int msm_cpuidle_unregister_notifier(unsigned int cpu,
-		struct notifier_block *nb)
-{ return -ENODEV; }
-#endif
-
 #endif /* __ARCH_ARM_MACH_MSM_CPUIDLE_H */
