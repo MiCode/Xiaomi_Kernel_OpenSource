@@ -3527,6 +3527,12 @@ static unsigned long fmax_gfx3d_8064[MAX_VDD_LEVELS] __initdata = {
 static unsigned long fmax_gfx3d_8930[MAX_VDD_LEVELS] __initdata = {
 	[VDD_DIG_LOW]     = 192000000,
 	[VDD_DIG_NOMINAL] = 320000000,
+	[VDD_DIG_HIGH]    = 400000000
+};
+
+static unsigned long fmax_gfx3d_8930aa[MAX_VDD_LEVELS] __initdata = {
+	[VDD_DIG_LOW]     = 192000000,
+	[VDD_DIG_NOMINAL] = 320000000,
 	[VDD_DIG_HIGH]    = 450000000
 };
 
@@ -6481,12 +6487,15 @@ static void __init msm8960_clock_pre_init(void)
 	 * Change the freq tables and voltage requirements for
 	 * clocks which differ between 8960 and 8930.
 	 */
-	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
-		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8930;
-
+	if (cpu_is_msm8930() || cpu_is_msm8627()) {
 		memcpy(gfx3d_clk.c.fmax, fmax_gfx3d_8930,
 		       sizeof(gfx3d_clk.c.fmax));
-
+	} else if (cpu_is_msm8930aa()) {
+		memcpy(gfx3d_clk.c.fmax, fmax_gfx3d_8930aa,
+		       sizeof(gfx3d_clk.c.fmax));
+	}
+	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
+		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8930;
 		pll15_clk.c.rate = 900000000;
 		gmem_axi_clk.c.depends = &gfx3d_axi_clk_8930.c;
 	}
