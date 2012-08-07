@@ -122,7 +122,22 @@ enum qpnp_vadc_channels {
 	ADC_MAX_NUM,
 };
 
+/**
+ * enum qpnp_iadc_channels - QPNP IADC channel list
+ */
+enum qpnp_iadc_channels {
+	INTERNAL_RSENSE = 0,
+	EXTERNAL_RSENSE,
+	ALT_LEAD_PAIR,
+	GAIN_CALIBRATION_25MV,
+	OFFSET_CALIBRATION_SHORT_CADC_LEADS,
+	OFFSET_CALIBRATION_CSP_CSN,
+	OFFSET_CALIBRATION_CSP2_CSN2,
+	IADC_MUX_NUM,
+};
+
 #define QPNP_ADC_625_UV	625000
+#define QPNP_ADC_HWMON_NAME_LENGTH				16
 
 /**
  * enum qpnp_adc_decimation_type - Sampling rate supported.
@@ -565,6 +580,20 @@ struct qpnp_vadc_scale_fn {
 };
 
 /**
+ * struct qpnp_iadc_calib - IADC channel calibration structure.
+ * @channel - Channel for which the historical offset and gain is
+ *	      calculated. Available channels are internal rsense,
+ *	      external rsense and alternate lead pairs.
+ * @offset - Offset value for the channel.
+ * @gain - Gain of the channel.
+ */
+struct qpnp_iadc_calib {
+	enum qpnp_iadc_channels		channel;
+	int32_t				offset;
+	int32_t				gain;
+};
+
+/**
  * struct qpnp_adc_drv - QPNP ADC device structure.
  * @spmi - spmi device for ADC peripheral.
  * @offset - base offset for the ADC peripheral.
@@ -575,21 +604,23 @@ struct qpnp_vadc_scale_fn {
  * @adc_lock - ADC lock for access to the peripheral.
  * @adc_rslt_completion - ADC result notification after interrupt
  *			  is received.
+ * @calib - Internal rsens calibration values for gain and offset.
  */
 struct qpnp_adc_drv {
 	struct spmi_device		*spmi;
 	uint8_t				slave;
 	uint16_t			offset;
 	struct qpnp_adc_properties	*adc_prop;
-	struct qpnp_vadc_amux_properties	*amux_prop;
+	struct qpnp_adc_amux_properties	*amux_prop;
 	struct qpnp_vadc_amux		*adc_channels;
 	int				adc_irq;
 	struct mutex			adc_lock;
 	struct completion		adc_rslt_completion;
+	struct qpnp_iadc_calib		calib;
 };
 
 /**
- * struct qpnp_vadc_amux_properties - QPNP VADC amux channel property.
+ * struct qpnp_adc_amux_properties - QPNP VADC amux channel property.
  * @amux_channel - Refer to the qpnp_vadc_channel list.
  * @decimation - Sampling rate supported for the channel.
  * @mode_sel - The basic mode of operation.
@@ -600,7 +631,7 @@ struct qpnp_adc_drv {
  * @trigger_channel - HW trigger channel for conversion sequencer.
  * @chan_prop - Represent the channel properties of the ADC.
  */
-struct qpnp_vadc_amux_properties {
+struct qpnp_adc_amux_properties {
 	uint32_t			amux_channel;
 	uint32_t			decimation;
 	uint32_t			mode_sel;
@@ -653,7 +684,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
  * @chan_prop:	Individual channel properties for the AMUX channel.
  */
 int32_t qpnp_vadc_configure(
-			struct qpnp_vadc_amux_properties *chan_prop);
+			struct qpnp_adc_amux_properties *chan_prop);
 
 /**
  * qpnp_adc_scale_default() - Scales the pre-calibrated digital output
@@ -683,6 +714,42 @@ static inline int32_t qpnp_adc_scale_default(int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_adc_chan_properties *chan_prop,
 			struct qpnp_adc_chan_result *chan_rslt)
+{ return -ENXIO; }
+#endif
+
+/* Public API */
+#if defined(CONFIG_SENSORS_QPNP_ADC_CURRENT)				\
+			|| defined(CONFIG_SENSORS_QPNP_ADC_CURRENT_MODULE)
+/**
+ * qpnp_iadc_read() - Performs ADC read on the current channel.
+ * @channel:	Input channel to perform the ADC read.
+ * @result:	Current across rsens in mV.
+ */
+int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
+							int32_t *result);
+/**
+ * qpnp_iadc_get_gain() - Performs gain calibration over 25mV reference
+ *			  across CCADC.
+ * @result:	Gain result across 25mV reference.
+ */
+int32_t qpnp_iadc_get_gain(int32_t *result);
+
+/**
+ * qpnp_iadc_get_offset() - Performs offset calibration over selected
+ *			    channel. Channel can be internal rsense,
+ *			    external rsense and alternate lead pair.
+ * @result:	Gain result across 25mV reference.
+ */
+int32_t qpnp_iadc_get_offset(enum qpnp_iadc_channels channel,
+						int32_t *result);
+#else
+static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
+							int *result)
+{ return -ENXIO; }
+static inline int32_t qpnp_iadc_get_gain(int32_t *result)
+{ return -ENXIO; }
+static inline int32_t qpnp_iadc_get_offset(enum qpnp_iadc_channels channel,
+						int32_t *result)
 { return -ENXIO; }
 #endif
 

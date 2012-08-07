@@ -110,7 +110,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	struct device_node *child;
 	struct qpnp_vadc_amux *adc_channel_list;
 	struct qpnp_adc_properties *adc_prop;
-	struct qpnp_vadc_amux_properties *amux_prop;
+	struct qpnp_adc_amux_properties *amux_prop;
 	int count_adc_channel_list = 0, decimation, rc = 0;
 
 	if (!node)
@@ -141,7 +141,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	}
 
 	amux_prop = devm_kzalloc(&spmi->dev,
-		sizeof(struct qpnp_vadc_amux_properties) +
+		sizeof(struct qpnp_adc_amux_properties) +
 		sizeof(struct qpnp_vadc_chan_properties), GFP_KERNEL);
 	if (!amux_prop) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
