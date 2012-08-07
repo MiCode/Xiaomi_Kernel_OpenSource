@@ -48,12 +48,15 @@
 #define QPNP_PON_DBC_DELAY_MASK		(0x7)
 #define QPNP_PON_KPDPWR_N_SET		BIT(0)
 #define QPNP_PON_RESIN_N_SET		BIT(1)
+#define QPNP_PON_RESIN_BARK_N_SET	BIT(4)
 
 /* Ranges */
 #define QPNP_PON_S1_TIMER_MAX		10256
 #define QPNP_PON_S2_TIMER_MAX		2000
 #define QPNP_PON_RESET_TYPE_MAX		0xF
 #define PON_S1_COUNT_MAX		0xF
+
+#define QPNP_KEY_STATUS_DELAY		msecs_to_jiffies(500)
 
 enum pon_type {
 	PON_KPDPWR,
@@ -78,6 +81,7 @@ struct qpnp_pon {
 	struct qpnp_pon_config *pon_cfg;
 	int num_pon_config;
 	u16 base;
+	struct delayed_work bark_work;
 };
 
 static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
@@ -109,21 +113,27 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 	return rc;
 }
 
+static struct qpnp_pon_config *
+qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
+{
+	int i;
+
+	for (i = 0; i < pon->num_pon_config; i++) {
+		if (pon_type == pon->pon_cfg[i].pon_type)
+			return  &pon->pon_cfg[i];
+	}
+
+	return NULL;
+}
+
 static int
 qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 {
-	int i, rc;
+	int rc;
 	struct qpnp_pon_config *cfg = NULL;
 	u8 pon_rt_sts = 0, pon_rt_bit = 0;
 
-	for (i = 0; i < pon->num_pon_config; i++) {
-		/* get the configuration infor for that pon type */
-		if (pon_type == pon->pon_cfg[i].pon_type) {
-			cfg = &pon->pon_cfg[i];
-			break;
-		}
-	}
-
+	cfg = qpnp_get_cfg(pon, pon_type);
 	if (!cfg)
 		return -EINVAL;
 
@@ -185,8 +195,88 @@ static irqreturn_t qpnp_resin_irq(int irq, void *_pon)
 	return IRQ_HANDLED;
 }
 
+static void bark_work_func(struct work_struct *work)
+{
+	int rc;
+	u8 pon_rt_sts = 0;
+	struct qpnp_pon_config *cfg;
+	struct qpnp_pon *pon =
+		container_of(work, struct qpnp_pon, bark_work.work);
+
+	/* enable reset */
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_RESIN_S2_CNTL(pon->base),
+				QPNP_PON_S2_CNTL_EN, QPNP_PON_S2_CNTL_EN);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
+		goto err_return;
+	}
+	/* bark RT status update delay */
+	msleep(100);
+	/* read the bark RT status */
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+				QPNP_PON_RT_STS(pon->base), &pon_rt_sts, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to read PON RT status\n");
+		goto err_return;
+	}
+
+	if (!(pon_rt_sts & QPNP_PON_RESIN_BARK_N_SET)) {
+		cfg = qpnp_get_cfg(pon, PON_RESIN);
+		if (!cfg) {
+			dev_err(&pon->spmi->dev, "Invalid config pointer\n");
+			goto err_return;
+		}
+		/* report the key event and enable the bark IRQ */
+		input_report_key(pon->pon_input, cfg->key_code, 0);
+		input_sync(pon->pon_input);
+		enable_irq(cfg->bark_irq);
+	} else {
+		/* disable reset */
+		rc = qpnp_pon_masked_write(pon,
+				QPNP_PON_RESIN_S2_CNTL(pon->base),
+				QPNP_PON_S2_CNTL_EN, 0);
+		if (rc) {
+			dev_err(&pon->spmi->dev,
+				"Unable to configure S2 enable\n");
+			goto err_return;
+		}
+		/* re-arm the work */
+		schedule_delayed_work(&pon->bark_work, QPNP_KEY_STATUS_DELAY);
+	}
+
+err_return:
+	return;
+}
+
 static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 {
+	int rc;
+	struct qpnp_pon *pon = _pon;
+	struct qpnp_pon_config *cfg;
+
+	/* disable the bark interrupt */
+	disable_irq_nosync(irq);
+
+	/* disable reset */
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_RESIN_S2_CNTL(pon->base),
+						QPNP_PON_S2_CNTL_EN, 0);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
+		goto err_exit;
+	}
+
+	cfg = qpnp_get_cfg(pon, PON_RESIN);
+	if (!cfg) {
+		dev_err(&pon->spmi->dev, "Invalid config pointer\n");
+		goto err_exit;
+	}
+
+	/* report the key event */
+	input_report_key(pon->pon_input, cfg->key_code, 1);
+	input_sync(pon->pon_input);
+	/* schedule work to check the bark status for key-release */
+	schedule_delayed_work(&pon->bark_work, QPNP_KEY_STATUS_DELAY);
+err_exit:
 	return IRQ_HANDLED;
 }
 
@@ -614,6 +704,8 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 
 	dev_set_drvdata(&spmi->dev, pon);
 
+	INIT_DELAYED_WORK(&pon->bark_work, bark_work_func);
+
 	/* register the PON configurations */
 	rc = qpnp_pon_config_init(pon);
 	if (rc) {
@@ -628,6 +720,8 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 static int qpnp_pon_remove(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
+
+	cancel_delayed_work_sync(&pon->bark_work);
 
 	if (pon->pon_input)
 		input_unregister_device(pon->pon_input);
