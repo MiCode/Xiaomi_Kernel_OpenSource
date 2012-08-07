@@ -740,7 +740,7 @@ static __devinit int cs8427_i2c_probe(struct i2c_client *client,
 	unsigned char buf[CHANNEL_STATUS_SIZE];
 	unsigned char val = 0;
 	char addr = 0;
-	unsigned int reset_timeout = 100;
+	unsigned int reset_timeout = 1;
 	int ret = 0;
 	struct cs8427 *chip;
 
