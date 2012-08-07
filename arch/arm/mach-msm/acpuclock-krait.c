@@ -214,6 +214,9 @@ static void set_speed(struct scalable *sc, const struct core_speed *tgt_s)
 {
 	const struct core_speed *strt_s = sc->cur_speed;
 
+	if (strt_s == tgt_s)
+		return;
+
 	if (strt_s->src == HFPLL && tgt_s->src == HFPLL) {
 		/*
 		 * Move to an always-on source running at a frequency
