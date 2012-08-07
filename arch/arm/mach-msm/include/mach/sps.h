@@ -59,6 +59,9 @@
 #define SPS_IOVEC_FLAG_NO_SUBMIT 0x0002  /* Do not submit descriptor to HW */
 #define SPS_IOVEC_FLAG_DEFAULT   0x0001  /* Use driver default */
 
+/* Maximum descriptor/iovec size */
+#define SPS_IOVEC_MAX_SIZE   (32 * 1024 - 1)  /* 32K-1 bytes due to HW limit */
+
 /* BAM device options flags */
 
 /*
