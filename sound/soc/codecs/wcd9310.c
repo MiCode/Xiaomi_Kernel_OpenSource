@@ -35,6 +35,10 @@
 #include <linux/gpio.h>
 #include "wcd9310.h"
 
+static int cfilt_adjust_ms = 10;
+module_param(cfilt_adjust_ms, int, 0644);
+MODULE_PARM_DESC(cfilt_adjust_ms, "delay after adjusting cfilt voltage in ms");
+
 #define WCD9310_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
 			SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
@@ -2479,11 +2483,11 @@ static void __tabla_codec_switch_micbias(struct snd_soc_codec *codec,
 			cfilt_k_val = tabla_find_k_value(
 						   tabla->pdata->micbias.ldoh_v,
 						   VDDIO_MICBIAS_MV);
-			usleep_range(10000, 10000);
 			snd_soc_update_bits(codec,
 					    tabla->mbhc_bias_regs.cfilt_val,
 					    0xFC, (cfilt_k_val << 2));
-			usleep_range(10000, 10000);
+			usleep_range(cfilt_adjust_ms * 1000,
+				     cfilt_adjust_ms * 1000);
 			snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B1_CTL,
 				      tabla->mbhc_data.adj_v_ins_hu & 0xFF);
 			snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B2_CTL,
@@ -2517,7 +2521,8 @@ static void __tabla_codec_switch_micbias(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec,
 					    tabla->mbhc_bias_regs.cfilt_val,
 					    0xFC, (cfilt_k_val << 2));
-			usleep_range(10000, 10000);
+			usleep_range(cfilt_adjust_ms * 1000,
+				     cfilt_adjust_ms * 1000);
 			snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B1_CTL,
 				      tabla->mbhc_data.v_ins_hu & 0xFF);
 			snd_soc_write(codec, TABLA_A_CDC_MBHC_VOLT_B2_CTL,
