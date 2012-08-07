@@ -558,6 +558,14 @@
 		vdd-supply = <&gdsc_mdss>;
 	};
 
+	mdss_dsi: qcom,mdss_dsi@fd922800 {
+		cell-index = <1>;
+		compatible = "qcom,msm-mdss-dsi";
+		reg = <0xfd922800 0x5ac>,
+			<0xfd8c0000 0x01000>;
+		status = "disable";
+	};
+
 	qcom,mdss_wb_panel {
 		cell-index = <1>;
 		compatible = "qcom,mdss_wb";
