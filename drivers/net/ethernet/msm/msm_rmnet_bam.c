@@ -29,6 +29,7 @@
 #include <linux/if_arp.h>
 #include <linux/msm_rmnet.h>
 #include <linux/platform_device.h>
+#include <net/pkt_sched.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -636,6 +637,16 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		spin_unlock_irqrestore(&p->lock, flags);
 		DBG0("[%s] rmnet_ioctl(): set QMI QOS header disable\n",
 			dev->name);
+		break;
+
+	case RMNET_IOCTL_FLOW_ENABLE:
+		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 1);
+		DBG0("[%s] rmnet_ioctl(): enabled flow", dev->name);
+		break;
+
+	case RMNET_IOCTL_FLOW_DISABLE:
+		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 0);
+		DBG0("[%s] rmnet_ioctl(): disabled flow", dev->name);
 		break;
 
 	case RMNET_IOCTL_GET_QOS:           /* Get QoS header state    */
