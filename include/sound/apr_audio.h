@@ -978,6 +978,16 @@ struct asm_aac_cfg {
 	u32 sample_rate;
 };
 
+struct asm_amrwbplus_cfg {
+	u32  size_bytes;
+	u32  version;
+	u32  num_channels;
+	u32  amr_band_mode;
+	u32  amr_dtx_mode;
+	u32  amr_frame_fmt;
+	u32  amr_lsf_idx;
+};
+
 struct asm_flac_cfg {
 	u16 stream_info_present;
 	u16 min_blk_size;
@@ -1398,6 +1408,7 @@ struct asm_stream_media_format_update{
 		struct asm_flac_cfg        flac_cfg;
 		struct asm_vorbis_cfg      vorbis_cfg;
 		struct asm_multi_channel_pcm_fmt_blk multi_ch_pcm_cfg;
+		struct asm_amrwbplus_cfg   amrwbplus_cfg;
 	} __attribute__((packed)) write_cfg;
 } __attribute__((packed));
 

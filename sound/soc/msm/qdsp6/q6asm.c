@@ -1526,6 +1526,14 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	case FORMAT_DTS_LBR:
 		open.format = DTS_LBR;
 		break;
+	case FORMAT_AMRWB:
+		open.format = AMRWB_FS;
+		pr_debug("q6asm_open_write FORMAT_AMRWB");
+		break;
+	case FORMAT_AMR_WB_PLUS:
+		open.format = AMR_WB_PLUS;
+		pr_debug("q6asm_open_write FORMAT_AMR_WB_PLUS");
+		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
 		goto fail_cmd;
@@ -2372,7 +2380,56 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_media_format_block_amrwbplus(struct audio_client *ac,
+					struct asm_amrwbplus_cfg *cfg)
+{
+	struct asm_stream_media_format_update fmt;
+	int rc = 0;
+	pr_debug("q6asm_media_format_block_amrwbplus");
 
+	pr_debug("%s:session[%d]band-mode[%d]frame-fmt[%d]ch[%d]\n",
+		__func__,
+		ac->session,
+		cfg->amr_band_mode,
+		cfg->amr_frame_fmt,
+		cfg->num_channels);
+
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
+
+	fmt.format = AMR_WB_PLUS;
+	fmt.cfg_size = cfg->size_bytes;
+
+	fmt.write_cfg.amrwbplus_cfg.size_bytes    = cfg->size_bytes;
+	fmt.write_cfg.amrwbplus_cfg.version       = cfg->version;
+	fmt.write_cfg.amrwbplus_cfg.num_channels  = cfg->num_channels;
+	fmt.write_cfg.amrwbplus_cfg.amr_band_mode = cfg->amr_band_mode;
+	fmt.write_cfg.amrwbplus_cfg.amr_dtx_mode  = cfg->amr_dtx_mode;
+	fmt.write_cfg.amrwbplus_cfg.amr_frame_fmt = cfg->amr_frame_fmt;
+	fmt.write_cfg.amrwbplus_cfg.amr_lsf_idx   = cfg->amr_lsf_idx;
+
+	pr_debug("%s: num_channels=%x amr_band_mode=%d amr_frame_fmt=%d\n",
+			__func__,
+			cfg->num_channels,
+			cfg->amr_band_mode,
+			cfg->amr_frame_fmt);
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s:Comamnd media format update failed..\n", __func__);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s:timeout. waited for FORMAT_UPDATE\n", __func__);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
 int q6asm_media_format_block_multi_aac(struct audio_client *ac,
 				struct asm_aac_cfg *cfg)
 {
@@ -2443,6 +2500,9 @@ int q6asm_media_format_block(struct audio_client *ac, uint32_t format)
 		break;
 	case FORMAT_AMRWB:
 		fmt.format = AMRWB_FS;
+		break;
+	case FORMAT_AMR_WB_PLUS:
+		fmt.format = AMR_WB_PLUS;
 		break;
 	case FORMAT_AMRNB:
 		fmt.format = AMRNB_FS;

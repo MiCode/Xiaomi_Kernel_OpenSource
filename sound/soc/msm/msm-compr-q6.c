@@ -84,10 +84,10 @@ static struct snd_pcm_hardware msm_compr_hardware_playback = {
 	.channels_min =	 1,
 	.channels_max =	 2,
 	.buffer_bytes_max =     1200 * 1024 * 2,
-	.period_bytes_min =	4800,
+	.period_bytes_min =	2400,
 	.period_bytes_max =     1200 * 1024,
 	.periods_min =	  2,
-	.periods_max =	  512,
+	.periods_max =	  1024,
 	.fifo_size =	    0,
 };
 
@@ -292,6 +292,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	struct asm_aac_cfg aac_cfg;
 	struct asm_wma_cfg wma_cfg;
 	struct asm_wmapro_cfg wma_pro_cfg;
+	struct asm_amrwbplus_cfg amrwb_cfg;
 	int ret;
 
 	pr_debug("compressed stream prepare\n");
@@ -384,6 +385,27 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 		pr_debug("SND_AUDIOCODEC_DTS\n");
 		ret = q6asm_media_format_block(prtd->audio_client,
 				compr->codec);
+		if (ret < 0) {
+			pr_err("%s: CMD Format block failed\n", __func__);
+			return ret;
+		}
+		break;
+	case SND_AUDIOCODEC_AMRWB:
+		pr_debug("SND_AUDIOCODEC_AMRWB\n");
+		ret = q6asm_media_format_block(prtd->audio_client,
+					compr->codec);
+		if (ret < 0) {
+			pr_err("%s: CMD Format block failed\n", __func__);
+			return ret;
+		}
+		break;
+	case SND_AUDIOCODEC_AMRWBPLUS:
+		pr_debug("SND_AUDIOCODEC_AMRWBPLUS\n");
+		memset(&amrwb_cfg, 0x0, sizeof(struct asm_amrwbplus_cfg));
+		amrwb_cfg.size_bytes = sizeof(struct asm_amrwbplus_cfg);
+		pr_debug("calling q6asm_media_format_block_amrwbplus");
+		ret = q6asm_media_format_block_amrwbplus(prtd->audio_client,
+						&amrwb_cfg);
 		if (ret < 0) {
 			pr_err("%s: CMD Format block failed\n", __func__);
 			return ret;
@@ -506,7 +528,7 @@ static void populate_codec_list(struct compr_audio *compr,
 {
 	pr_debug("%s\n", __func__);
 	/* MP3 Block */
-	compr->info.compr_cap.num_codecs = 1;
+	compr->info.compr_cap.num_codecs = 10;
 	compr->info.compr_cap.min_fragment_size = runtime->hw.period_bytes_min;
 	compr->info.compr_cap.max_fragment_size = runtime->hw.period_bytes_max;
 	compr->info.compr_cap.min_fragments = runtime->hw.periods_min;
@@ -519,6 +541,8 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.codecs[5] = SND_AUDIOCODEC_DTS;
 	compr->info.compr_cap.codecs[6] = SND_AUDIOCODEC_DTS_LBR;
 	compr->info.compr_cap.codecs[7] = SND_AUDIOCODEC_DTS_PASS_THROUGH;
+	compr->info.compr_cap.codecs[8] = SND_AUDIOCODEC_AMRWB;
+	compr->info.compr_cap.codecs[9] = SND_AUDIOCODEC_AMRWBPLUS;
 	/* Add new codecs here */
 }
 
@@ -906,10 +930,17 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			pr_debug("SND_AUDIOCODEC_DTS\n");
 			compr->codec = FORMAT_DTS_LBR;
 			break;
-		default:
-			pr_debug("FORMAT_LINEAR_PCM\n");
-			compr->codec = FORMAT_LINEAR_PCM;
+		case SND_AUDIOCODEC_AMRWB:
+			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_AMRWB\n");
+			compr->codec = FORMAT_AMRWB;
 			break;
+		case SND_AUDIOCODEC_AMRWBPLUS:
+			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_AMRWBPLUS\n");
+			compr->codec = FORMAT_AMR_WB_PLUS;
+			break;
+		default:
+			pr_err("msm_compr_ioctl failed..unknown codec\n");
+			return -EFAULT;
 		}
 		return 0;
 	case SNDRV_PCM_IOCTL1_RESET:
