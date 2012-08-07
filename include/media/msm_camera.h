@@ -16,6 +16,7 @@
 #ifdef MSM_CAMERA_BIONIC
 #include <sys/types.h>
 #endif
+#include <linux/videodev2.h>
 #include <linux/types.h>
 #include <linux/ioctl.h>
 #ifdef __KERNEL__
@@ -151,7 +152,7 @@
 	_IOW(MSM_CAM_IOCTL_MAGIC, 39, struct msm_camera_st_frame *)
 
 #define MSM_CAM_IOCTL_V4L2_EVT_NOTIFY \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 40, struct v4l2_event *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 40, struct v4l2_event_and_payload)
 
 #define MSM_CAM_IOCTL_SET_MEM_MAP_INFO \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 41, struct msm_mem_map_info *)
@@ -216,6 +217,13 @@
 #define MSM_CAM_IOCTL_STATS_UNREG_BUF \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 61, struct msm_stats_flush_bufq *)
 
+
+struct v4l2_event_and_payload {
+	struct v4l2_event evt;
+	uint32_t payload_length;
+	uint32_t transaction_id;
+	void *payload;
+};
 
 struct msm_stats_reqbuf {
 	int num_buf;		/* how many buffers requested */
@@ -853,7 +861,8 @@ struct msm_stats_buf {
 #define MSM_V4L2_CLOSE			11
 #define MSM_V4L2_SET_CTRL_CMD	12
 #define MSM_V4L2_EVT_SUB_MASK	13
-#define MSM_V4L2_MAX			14
+#define MSM_V4L2_PRIVATE_CMD    14
+#define MSM_V4L2_MAX			15
 #define V4L2_CAMERA_EXIT		43
 
 struct crop_info {
@@ -1736,6 +1745,9 @@ struct msm_mctl_set_sdev_data {
 #define MSM_CAM_V4L2_IOCTL_PRIVATE_G_CTRL \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, struct msm_camera_v4l2_ioctl_t)
 
+#define MSM_CAM_V4L2_IOCTL_PRIVATE_GENERAL \
+	_IOW('V', BASE_VIDIOC_PRIVATE + 10, struct msm_camera_v4l2_ioctl_t)
+
 #define VIDIOC_MSM_VPE_INIT \
 	_IO('V', BASE_VIDIOC_PRIVATE + 15)
 
@@ -1771,8 +1783,9 @@ struct msm_mctl_set_sdev_data {
 
 struct msm_camera_v4l2_ioctl_t {
 	uint32_t id;
-	void __user *ioctl_ptr;
 	uint32_t len;
+	uint32_t trans_code;
+	void __user *ioctl_ptr;
 };
 
 struct msm_camera_vfe_params_t {

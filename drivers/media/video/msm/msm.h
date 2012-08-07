@@ -368,6 +368,9 @@ struct msm_cam_v4l2_device {
 	struct v4l2_subdev *act_sdev; /* actuator sub device */
 	struct v4l2_subdev *eeprom_sdev; /* actuator sub device */
 	struct msm_camera_sensor_info *sdata;
+
+	struct msm_device_queue eventData_q; /*payload for events sent to app*/
+	struct mutex event_lock;
 };
 
 static inline struct msm_cam_v4l2_device *to_pcam(

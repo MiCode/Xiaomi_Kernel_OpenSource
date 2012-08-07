@@ -92,6 +92,20 @@ static int msm_camera_v4l2_queryctrl(struct file *f, void *pctx,
 	return rc;
 }
 
+static int msm_camera_v4l2_private_general(struct file *f, void *pctx,
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
+{
+	int rc = 0;
+	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
+
+	WARN_ON(pctx != f->private_data);
+
+	rc = msm_server_private_general(pcam, ioctl_ptr);
+	if (rc < 0)
+		pr_err("%s: Private command failed rc %d\n", __func__, rc);
+	return rc;
+}
+
 static int msm_camera_v4l2_private_g_ctrl(struct file *f, void *pctx,
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
 {
@@ -761,6 +775,7 @@ static long msm_camera_v4l2_private_ioctl(struct file *file, void *fh,
 {
 	int rc = -EINVAL;
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr = arg;
+	struct msm_cam_v4l2_device *pcam  = video_drvdata(file);
 	D("%s: cmd %d\n", __func__, _IOC_NR(cmd));
 
 	switch (cmd) {
@@ -770,6 +785,47 @@ static long msm_camera_v4l2_private_ioctl(struct file *file, void *fh,
 	case MSM_CAM_V4L2_IOCTL_PRIVATE_G_CTRL:
 		rc = msm_camera_v4l2_private_g_ctrl(file, fh, ioctl_ptr);
 		break;
+	case MSM_CAM_V4L2_IOCTL_PRIVATE_GENERAL:
+		rc = msm_camera_v4l2_private_general(file, fh, ioctl_ptr);
+		break;
+	case MSM_CAM_V4L2_IOCTL_GET_EVENT_PAYLOAD: {
+		struct msm_queue_cmd *event_cmd;
+		void *payload;
+		mutex_lock(&pcam->event_lock);
+		event_cmd = msm_dequeue(&pcam->eventData_q, list_eventdata);
+		if (!event_cmd) {
+			pr_err("%s: No event payload\n", __func__);
+			rc = -EINVAL;
+			mutex_unlock(&pcam->event_lock);
+			return rc;
+		}
+		payload = event_cmd->command;
+		if (event_cmd->trans_code != ioctl_ptr->trans_code) {
+			pr_err("%s: Events don't match\n", __func__);
+			kfree(payload);
+			kfree(event_cmd);
+			rc = -EINVAL;
+			mutex_unlock(&pcam->event_lock);
+			break;
+		}
+		if (ioctl_ptr->len > 0) {
+			if (copy_to_user(ioctl_ptr->ioctl_ptr, payload,
+				 ioctl_ptr->len)) {
+				pr_err("%s Copy to user failed for cmd %d",
+					__func__, cmd);
+				kfree(payload);
+				kfree(event_cmd);
+				rc = -EINVAL;
+				mutex_unlock(&pcam->event_lock);
+				break;
+			}
+		}
+		kfree(payload);
+		kfree(event_cmd);
+		mutex_unlock(&pcam->event_lock);
+		rc = 0;
+		break;
+	}
 	default:
 		pr_err("%s Unsupported ioctl cmd %d ", __func__, cmd);
 		break;
@@ -908,6 +964,8 @@ static int msm_open(struct file *f)
 
 		msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 			pcam->pvdev);
+		mutex_init(&pcam->event_lock);
+		msm_queue_init(&pcam->eventData_q, "eventData");
 	}
 	pcam_inst->vbqueue_initialized = 0;
 	rc = 0;
@@ -930,6 +988,7 @@ static int msm_open(struct file *f)
 	return rc;
 
 msm_send_open_server_failed:
+	msm_drain_eventq(&pcam->eventData_q);
 	msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
 
 	if (pmctl->mctl_release)
@@ -1071,8 +1130,13 @@ static int msm_close(struct file *f)
 	D("%s index %d nodeid %d count %d\n", __func__, pcam_inst->my_index,
 		pcam->vnode_id, pcam->use_count);
 	pcam->dev_inst[pcam_inst->my_index] = NULL;
-	if (pcam_inst->my_index == 0)
+	if (pcam_inst->my_index == 0) {
+		mutex_lock(&pcam->event_lock);
+		msm_drain_eventq(&pcam->eventData_q);
+		mutex_unlock(&pcam->event_lock);
+		mutex_destroy(&pcam->event_lock);
 		msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
+	}
 
 	CLR_VIDEO_INST_IDX(pcam_inst->inst_handle);
 	CLR_IMG_MODE(pcam_inst->inst_handle);
@@ -1135,24 +1199,60 @@ long msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
 	unsigned int cmd, unsigned long evt)
 {
 	struct v4l2_event v4l2_ev;
+	struct v4l2_event_and_payload evt_payload;
 	struct msm_cam_v4l2_device *pcam = NULL;
-
+	int rc = 0;
+	struct msm_queue_cmd *event_qcmd;
+	void *payload;
 	if (!mctl) {
 		pr_err("%s: mctl is NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	if (copy_from_user(&v4l2_ev, (void __user *)evt,
-		sizeof(struct v4l2_event))) {
+	if (copy_from_user(&evt_payload, (void __user *)evt,
+		sizeof(struct v4l2_event_and_payload))) {
 		ERR_COPY_FROM_USER();
 		return -EFAULT;
 	}
 
+	v4l2_ev = evt_payload.evt;
 	v4l2_ev.id = 0;
 	pcam = mctl->pcam_ptr;
 	ktime_get_ts(&v4l2_ev.timestamp);
+	if (evt_payload.payload_length > 0 && evt_payload.payload != NULL) {
+		mutex_lock(&pcam->event_lock);
+		event_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
+		if (!event_qcmd) {
+			pr_err("%s Insufficient memory. return", __func__);
+			rc = -ENOMEM;
+			goto event_qcmd_alloc_fail;
+		}
+		payload = kzalloc(evt_payload.payload_length, GFP_KERNEL);
+		if (!payload) {
+			pr_err("%s Insufficient memory. return", __func__);
+			rc = -ENOMEM;
+			goto payload_alloc_fail;
+		}
+		if (copy_from_user(payload,
+				(void __user *)evt_payload.payload,
+				evt_payload.payload_length)) {
+			ERR_COPY_FROM_USER();
+			rc = -EFAULT;
+			goto copy_from_user_failed;
+		}
+		event_qcmd->command = payload;
+		event_qcmd->trans_code = evt_payload.transaction_id;
+		msm_enqueue(&pcam->eventData_q, &event_qcmd->list_eventdata);
+		mutex_unlock(&pcam->event_lock);
+	}
 	v4l2_event_queue(pcam->pvdev, &v4l2_ev);
-	return 0;
+	return rc;
+copy_from_user_failed:
+	kfree(payload);
+payload_alloc_fail:
+	kfree(event_qcmd);
+event_qcmd_alloc_fail:
+	return rc;
 }
 
 
