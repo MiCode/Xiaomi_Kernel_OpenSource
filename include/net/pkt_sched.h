@@ -103,7 +103,8 @@ extern int tc_classify_compat(struct sk_buff *skb, const struct tcf_proto *tp,
 			      struct tcf_result *res);
 extern int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
 		       struct tcf_result *res);
-
+extern void tc_qdisc_flow_control(struct net_device *dev, u32 tcm_handle,
+				  int flow_enable);
 /* Calculate maximal size of packet seen by hard_start_xmit
    routine of this device.
  */
