@@ -692,6 +692,30 @@ static struct platform_device msm_adc_device = {
 	},
 };
 
+#ifdef CONFIG_MSM_RTB
+static struct msm_rtb_platform_data msm7627a_rtb_pdata = {
+	.size = SZ_1M,
+};
+
+static int __init msm_rtb_set_buffer_size(char *p)
+{
+	int s;
+
+	s = memparse(p, NULL);
+	msm7627a_rtb_pdata.size = ALIGN(s, SZ_4K);
+	return 0;
+}
+early_param("msm_rtb_size", msm_rtb_set_buffer_size);
+
+struct platform_device msm7627a_rtb_device = {
+	.name = "msm_rtb",
+	.id   = -1,
+	.dev  = {
+		 .platform_data = &msm7627a_rtb_pdata,
+	},
+};
+#endif
+
 #define GPIO_VREG_INIT(_id, _reg_name, _gpio_label, _gpio, _active_low) \
 	[GPIO_VREG_ID_##_id] = { \
 		.init_data = { \
@@ -820,6 +844,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
 	&msm_adc_device,
+#ifdef CONFIG_MSM_RTB
+	&msm7627a_rtb_device,
+#endif
 #ifdef CONFIG_ION_MSM
 	&ion_dev,
 #endif
@@ -961,6 +988,17 @@ static struct memtype_reserve msm7627a_reserve_table[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_MSM_RTB
+static void __init reserve_rtb_memory(void)
+{
+	msm7627a_reserve_table[MEMTYPE_EBI1].size += msm7627a_rtb_pdata.size;
+}
+#else
+static void __init reserve_rtb_memory(void)
+{
+}
+#endif
+
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct android_pmem_platform_data *pmem_pdata_array[] __initdata = {
@@ -1029,6 +1067,7 @@ static void __init msm7627a_calculate_reserve_sizes(void)
 	reserve_pmem_memory();
 	size_ion_devices();
 	reserve_ion_memory();
+	reserve_rtb_memory();
 }
 
 static int msm7627a_paddr_to_memtype(unsigned int paddr)
