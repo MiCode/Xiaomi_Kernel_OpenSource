@@ -35,8 +35,6 @@ pen:
 	 * we've been released from the holding pen: secondary_stack
 	 * should now contain the SVC stack for this core
 	 */
-	mvn	r7, #0			@ -1 to registers
-	str r7,[r6]			@ back to the pen for ack
 	b	secondary_startup
 ENDPROC(msm_secondary_startup)
 
