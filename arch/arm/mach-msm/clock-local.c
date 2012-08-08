@@ -563,11 +563,8 @@ enum handoff branch_handoff(struct branch *b, struct clk *c)
 {
 	if (!branch_in_hwcg_mode(b)) {
 		b->hwcg_mask = 0;
-		c->flags &= ~CLKFLAG_HWCG;
 		if (b->ctl_reg && readl_relaxed(b->ctl_reg) & b->en_mask)
 			return HANDOFF_ENABLED_CLK;
-	} else {
-		c->flags |= CLKFLAG_HWCG;
 	}
 	return HANDOFF_DISABLED_CLK;
 }
