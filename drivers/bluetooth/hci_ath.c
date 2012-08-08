@@ -44,7 +44,7 @@
 
 #include "hci_uart.h"
 
-unsigned int enableuartsleep;
+unsigned int enableuartsleep = 1;
 module_param(enableuartsleep, uint, 0644);
 /*
  * Global variables
@@ -110,9 +110,9 @@ static int ath_wakeup_ar3k(struct tty_struct *tty)
 	int status = 0;
 	if (test_bit(BT_TXEXPIRED, &flags)) {
 		printk(KERN_INFO "wakeup device\n");
-		gpio_set_value(bsi->ext_wake, 1);
-		msleep(20);
 		gpio_set_value(bsi->ext_wake, 0);
+		msleep(20);
+		gpio_set_value(bsi->ext_wake, 1);
 	}
 	modify_timer_task();
 	return status;
@@ -353,7 +353,7 @@ static int __init bluesleep_probe(struct platform_device *pdev)
 		gpio_free(bsi->ext_wake);
 		goto free_bt_host_wake;
 	}
-	gpio_set_value(bsi->ext_wake, 0);
+	gpio_set_value(bsi->ext_wake, 1);
 
 	bsi->host_wake_irq = platform_get_irq_byname(pdev, "host_wake");
 	if (bsi->host_wake_irq < 0) {
