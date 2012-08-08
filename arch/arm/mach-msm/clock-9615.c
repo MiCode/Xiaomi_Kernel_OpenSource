@@ -1619,6 +1619,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("xo",	cxo_a_clk.c,	""),
 	CLK_LOOKUP("xo",	cxo_clk.c,	"BAM_RMNT"),
 	CLK_LOOKUP("xo",	cxo_clk.c,	"msm_xo"),
+	CLK_LOOKUP("vref_buff",	cxo_clk.c,	"rpm-regulator"),
 	CLK_LOOKUP("pll0",	pll0_clk.c,	NULL),
 	CLK_LOOKUP("pll8",	pll8_clk.c,	NULL),
 	CLK_LOOKUP("pll14",	pll14_clk.c,	NULL),
