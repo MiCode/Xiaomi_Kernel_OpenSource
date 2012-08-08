@@ -33,6 +33,7 @@ enum {
 	MMSS_BASE,
 	LPASS_BASE,
 	MSS_BASE,
+	APCS_BASE,
 	N_BASES,
 };
 
@@ -42,6 +43,7 @@ static void __iomem *virt_bases[N_BASES];
 #define MMSS_REG_BASE(x) (void __iomem *)(virt_bases[MMSS_BASE] + (x))
 #define LPASS_REG_BASE(x) (void __iomem *)(virt_bases[LPASS_BASE] + (x))
 #define MSS_REG_BASE(x) (void __iomem *)(virt_bases[MSS_BASE] + (x))
+#define APCS_REG_BASE(x) (void __iomem *)(virt_bases[APCS_BASE] + (x))
 
 #define GPLL0_MODE_REG                 0x0000
 #define GPLL0_L_REG                    0x0004
@@ -107,6 +109,8 @@ static void __iomem *virt_bases[N_BASES];
 #define LPASS_DEBUG_CLK_CTL_REG        0x29000
 #define LPASS_LPA_PLL_VOTE_APPS_REG    0x2000
 #define MSS_DEBUG_CLK_CTL_REG          0x0078
+
+#define GLB_CLK_DIAG_REG               0x001C
 
 #define USB30_MASTER_CMD_RCGR          0x03D4
 #define USB30_MOCK_UTMI_CMD_RCGR       0x03E8
@@ -4347,6 +4351,12 @@ static struct branch_clk mss_bus_q6_clk = {
 	},
 };
 
+static DEFINE_CLK_MEASURE(l2_m_clk);
+static DEFINE_CLK_MEASURE(krait0_m_clk);
+static DEFINE_CLK_MEASURE(krait1_m_clk);
+static DEFINE_CLK_MEASURE(krait2_m_clk);
+static DEFINE_CLK_MEASURE(krait3_m_clk);
+
 #ifdef CONFIG_DEBUG_FS
 
 struct measure_mux_entry {
@@ -4510,6 +4520,12 @@ struct measure_mux_entry measure_mux[] = {
 	{&mss_bus_q6_clk.c,			MSS_BASE, 0x003c},
 	{&mss_xo_q6_clk.c,			MSS_BASE, 0x0007},
 
+	{&l2_m_clk,				APCS_BASE, 0x0081},
+	{&krait0_m_clk,				APCS_BASE, 0x0080},
+	{&krait1_m_clk,				APCS_BASE, 0x0088},
+	{&krait2_m_clk,				APCS_BASE, 0x0090},
+	{&krait3_m_clk,				APCS_BASE, 0x0098},
+
 	{&dummy_clk,				N_BASES,   0x0000},
 };
 
@@ -4572,6 +4588,13 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		clk_sel = 0x32;
 		regval = BVAL(5, 0, measure_mux[i].debug_mux);
 		writel_relaxed(regval, MSS_REG_BASE(MSS_DEBUG_CLK_CTL_REG));
+		break;
+
+	case APCS_BASE:
+		clk->multiplier = 4;
+		clk_sel = 0x16A;
+		regval = measure_mux[i].debug_mux;
+		writel_relaxed(regval, APCS_REG_BASE(GLB_CLK_DIAG_REG));
 		break;
 
 	default:
@@ -5045,6 +5068,12 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-etm1"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-etm2"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "coresight-etm3"),
+
+	CLK_LOOKUP("l2_m_clk",		l2_m_clk,     ""),
+	CLK_LOOKUP("krait0_m_clk",	krait0_m_clk, ""),
+	CLK_LOOKUP("krait1_m_clk",	krait1_m_clk, ""),
+	CLK_LOOKUP("krait2_m_clk",	krait2_m_clk, ""),
+	CLK_LOOKUP("krait3_m_clk",	krait3_m_clk, ""),
 };
 
 static struct pll_config_regs gpll0_regs __initdata = {
@@ -5291,17 +5320,20 @@ static void __init msm8974_clock_post_init(void)
 			audio_core_slimbus_core_clk_src.freq_tbl[0].freq_hz);
 }
 
-#define GCC_CC_PHYS	0xFC400000
-#define GCC_CC_SIZE	SZ_16K
+#define GCC_CC_PHYS		0xFC400000
+#define GCC_CC_SIZE		SZ_16K
 
-#define MMSS_CC_PHYS	0xFD8C0000
-#define MMSS_CC_SIZE	SZ_256K
+#define MMSS_CC_PHYS		0xFD8C0000
+#define MMSS_CC_SIZE		SZ_256K
 
-#define LPASS_CC_PHYS	0xFE000000
-#define LPASS_CC_SIZE	SZ_256K
+#define LPASS_CC_PHYS		0xFE000000
+#define LPASS_CC_SIZE		SZ_256K
 
-#define MSS_CC_PHYS	0xFC980000
-#define MSS_CC_SIZE	SZ_16K
+#define MSS_CC_PHYS		0xFC980000
+#define MSS_CC_SIZE		SZ_16K
+
+#define APCS_GCC_CC_PHYS	0xF9011000
+#define APCS_GCC_CC_SIZE	SZ_4K
 
 static void __init msm8974_clock_pre_init(void)
 {
@@ -5320,6 +5352,10 @@ static void __init msm8974_clock_pre_init(void)
 	virt_bases[MSS_BASE] = ioremap(MSS_CC_PHYS, MSS_CC_SIZE);
 	if (!virt_bases[MSS_BASE])
 		panic("clock-8974: Unable to ioremap MSS_CC memory!");
+
+	virt_bases[APCS_BASE] = ioremap(APCS_GCC_CC_PHYS, APCS_GCC_CC_SIZE);
+	if (!virt_bases[APCS_BASE])
+		panic("clock-8974: Unable to ioremap APCS_GCC_CC memory!");
 
 	clk_ops_local_pll.enable = msm8974_pll_clk_enable;
 

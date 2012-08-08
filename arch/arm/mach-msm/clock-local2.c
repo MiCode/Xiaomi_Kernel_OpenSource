@@ -580,6 +580,8 @@ static enum handoff local_vote_clk_handoff(struct clk *c)
 	return HANDOFF_ENABLED_CLK;
 }
 
+struct clk_ops clk_ops_empty;
+
 struct clk_ops clk_ops_rcg = {
 	.enable = rcg_clk_enable,
 	.set_rate = rcg_clk_set_rate,
