@@ -192,8 +192,8 @@ static int __cpuinit msm_boot_secondary(unsigned int cpu,
 		if (pen_release == -1)
 			break;
 
-		dmac_inv_range((void *)&pen_release,
-			       (void *)(&pen_release+sizeof(pen_release)));
+		dmac_inv_range((char *)&pen_release,
+			       (char *)&pen_release + sizeof(pen_release));
 		udelay(10);
 	}
 
