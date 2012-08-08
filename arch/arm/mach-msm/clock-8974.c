@@ -104,6 +104,7 @@ static void __iomem *virt_bases[N_BASES];
 #define CLOCK_FRQ_MEASURE_CTL_REG      0x1884
 #define CLOCK_FRQ_MEASURE_STATUS_REG   0x1888
 #define GCC_XO_DIV4_CBCR_REG           0x10C8
+#define GCC_PLLTEST_PAD_CFG_REG        0x188C
 #define APCS_GPLL_ENA_VOTE_REG         0x1480
 #define MMSS_PLL_VOTE_APCS_REG         0x0100
 #define MMSS_DEBUG_CLK_CTL_REG         0x0900
@@ -4704,6 +4705,7 @@ static unsigned long measure_clk_get_rate(struct clk *c)
 		ret = (raw_count_full * clk->multiplier);
 	}
 
+	writel_relaxed(0x51A00, GCC_REG_BASE(GCC_PLLTEST_PAD_CFG_REG));
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	clk_disable_unprepare(&cxo_clk_src.c);
