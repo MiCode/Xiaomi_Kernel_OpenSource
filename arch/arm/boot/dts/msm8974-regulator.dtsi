@@ -38,44 +38,7 @@
 			status = "okay";
 		};
 	};
-
-	qcom,pm8841@5 {
-
-		pm8841_s5: regulator@2000 {
-			regulator-min-microvolt = <850000>;
-			regulator-max-microvolt = <1100000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			status = "okay";
-		};
-
-		pm8841_s6: regulator@2300 {
-			regulator-min-microvolt = <850000>;
-			regulator-max-microvolt = <1100000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			status = "okay";
-		};
-
-		pm8841_s7: regulator@2600 {
-			regulator-min-microvolt = <850000>;
-			regulator-max-microvolt = <1100000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			status = "okay";
-		};
-
-		pm8841_s8: regulator@2900 {
-			regulator-min-microvolt = <850000>;
-			regulator-max-microvolt = <1100000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			status = "okay";
-		};
-	};
 };
-
 
 /* RPM controlled regulators: */
 
