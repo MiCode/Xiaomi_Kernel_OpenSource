@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,62 +21,63 @@
 #include <linux/interrupt.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/list.h>
+#include <linux/mutex.h>
 
 #include <mach/iommu_hw-8xxx.h>
 #include <mach/iommu.h>
 
-struct iommu_ctx_iter_data {
-	/* input */
-	const char *name;
+static DEFINE_MUTEX(iommu_list_lock);
+static LIST_HEAD(iommu_list);
 
-	/* output */
-	struct device *dev;
-};
-
-struct platform_device *msm_iommu_root_dev;
-
-static int each_iommu_ctx(struct device *dev, void *data)
+void msm_iommu_add_drv(struct msm_iommu_drvdata *drv)
 {
-	struct iommu_ctx_iter_data *res = data;
+	mutex_lock(&iommu_list_lock);
+	list_add(&drv->list, &iommu_list);
+	mutex_unlock(&iommu_list_lock);
+}
+
+void msm_iommu_remove_drv(struct msm_iommu_drvdata *drv)
+{
+	mutex_lock(&iommu_list_lock);
+	list_del(&drv->list);
+	mutex_unlock(&iommu_list_lock);
+}
+
+static int find_iommu_ctx(struct device *dev, void *data)
+{
 	struct msm_iommu_ctx_drvdata *c;
 
 	c = dev_get_drvdata(dev);
-	if (!res || !c || !c->name || !res->name)
-		return -EINVAL;
+	if (!c || !c->name)
+		return 0;
 
-	if (!strcmp(res->name, c->name)) {
-		res->dev = dev;
-		return 1;
-	}
-	return 0;
+	return !strcmp(data, c->name);
 }
 
-static int each_iommu(struct device *dev, void *data)
+static struct device *find_context(struct device *dev, const char *name)
 {
-	return device_for_each_child(dev, data, each_iommu_ctx);
+	return device_find_child(dev, (void *)name, find_iommu_ctx);
 }
 
 struct device *msm_iommu_get_ctx(const char *ctx_name)
 {
-	struct iommu_ctx_iter_data r;
-	int found;
+	struct msm_iommu_drvdata *drv;
+	struct device *dev = NULL;
 
-	if (!msm_iommu_root_dev) {
-		pr_err("No root IOMMU device.\n");
-		goto fail;
+	mutex_lock(&iommu_list_lock);
+	list_for_each_entry(drv, &iommu_list, list) {
+		dev = find_context(drv->dev, ctx_name);
+		if (dev)
+			break;
 	}
+	mutex_unlock(&iommu_list_lock);
 
-	r.name = ctx_name;
-	found = device_for_each_child(&msm_iommu_root_dev->dev, &r, each_iommu);
-
-	if (found <= 0 || !dev_get_drvdata(r.dev)) {
+	if (!dev || !dev_get_drvdata(dev))
 		pr_err("Could not find context <%s>\n", ctx_name);
-		goto fail;
-	}
+	put_device(dev);
 
-	return r.dev;
-fail:
-	return NULL;
+	return dev;
 }
 EXPORT_SYMBOL(msm_iommu_get_ctx);
 
@@ -133,11 +134,6 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	void __iomem *regs_base;
 	resource_size_t	len;
 	int ret, par;
-
-	if (pdev->id == -1) {
-		msm_iommu_root_dev = pdev;
-		return 0;
-	}
 
 	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
 
@@ -227,6 +223,9 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	drvdata->ncb = iommu_dev->ncb;
 	drvdata->ttbr_split = iommu_dev->ttbr_split;
 	drvdata->name = iommu_dev->name;
+	drvdata->dev = &pdev->dev;
+
+	msm_iommu_add_drv(drvdata);
 
 	pr_info("device %s mapped at %p, with %d ctx banks\n",
 		iommu_dev->name, regs_base, iommu_dev->ncb);
@@ -263,6 +262,7 @@ static int msm_iommu_remove(struct platform_device *pdev)
 
 	drv = platform_get_drvdata(pdev);
 	if (drv) {
+		msm_iommu_remove_drv(drv);
 		if (drv->clk)
 			clk_put(drv->clk);
 		clk_put(drv->pclk);
