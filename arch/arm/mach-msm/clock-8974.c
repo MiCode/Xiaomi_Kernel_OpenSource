@@ -3744,17 +3744,6 @@ static struct branch_clk mmss_misc_ahb_clk = {
 	},
 };
 
-static struct branch_clk mmss_mmssnoc_ahb_clk = {
-	.cbcr_reg = MMSS_MMSSNOC_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "mmss_mmssnoc_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(mmss_mmssnoc_ahb_clk.c),
-	},
-};
-
 static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
 	.cbcr_reg = MMSS_MMSSNOC_BTO_AHB_CBCR,
 	.has_sibling = 1,
@@ -4436,7 +4425,6 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_sdcc2_ahb_clk.c,			GCC_BASE, 0x0071},
 	{&gcc_ocmem_noc_cfg_ahb_clk.c,		GCC_BASE, 0x0029},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0138},
-	{&mmss_mmssnoc_ahb_clk.c,		MMSS_BASE, 0x0001},
 	{&mmss_mmssnoc_axi_clk.c,		MMSS_BASE, 0x0004},
 	{&ocmemnoc_clk.c,			MMSS_BASE, 0x0007},
 	{&ocmemcx_ocmemnoc_clk.c,		MMSS_BASE, 0x0009},
@@ -4863,7 +4851,6 @@ static struct clk_lookup msm_clocks_8974[] = {
 
 	/* Multimedia clocks */
 	CLK_LOOKUP("bus_clk_src", axi_clk_src.c, ""),
-	CLK_LOOKUP("bus_clk", mmss_mmssnoc_ahb_clk.c, ""),
 	CLK_LOOKUP("bus_clk", mmss_mmssnoc_axi_clk.c, ""),
 	CLK_LOOKUP("core_clk", mdss_edpaux_clk.c, ""),
 	CLK_LOOKUP("core_clk", mdss_edppixel_clk.c, ""),
