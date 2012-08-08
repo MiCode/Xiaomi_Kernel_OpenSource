@@ -204,10 +204,36 @@ struct msm_isp_color_fmt {
 	enum v4l2_colorspace colorspace;
 };
 
+struct msm_cam_return_frame_info {
+	int dirty;
+	int node_type;
+	struct timeval timestamp;
+};
+
+struct msm_cam_timestamp {
+	uint8_t present;
+	struct timeval timestamp;
+};
+
+struct msm_cam_buf_map_info {
+	int fd;
+	uint32_t data_offset;
+	unsigned long paddr;
+	unsigned long len;
+	struct file *file;
+	struct ion_handle *handle;
+};
+
+struct msm_cam_meta_frame {
+	struct msm_pp_frame frame;
+	/* Mapping information per plane */
+	struct msm_cam_buf_map_info map[VIDEO_MAX_PLANES];
+};
+
 struct msm_mctl_pp_frame_info {
 	int user_cmd;
-	struct msm_pp_frame src_frame;
-	struct msm_pp_frame dest_frame;
+	struct msm_cam_meta_frame src_frame;
+	struct msm_cam_meta_frame dest_frame;
 	struct msm_mctl_pp_frame_cmd pp_frame_cmd;
 	struct msm_cam_media_controller *p_mctl;
 };
@@ -586,7 +612,8 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 	uint32_t frame_id);
 int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
 	struct msm_cam_buf_handle *buf_handle,
-	struct msm_free_buf *frame, int dirty, int node_type);
+	struct msm_free_buf *frame,
+	struct msm_cam_return_frame_info *ret_frame);
 int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
 	struct msm_cam_v4l2_dev_inst *pcam_inst,
 	struct msm_cam_buf_handle *buf_handle,
@@ -667,6 +694,10 @@ struct msm_cam_v4l2_dev_inst *msm_mctl_get_pcam_inst(
 	struct msm_cam_buf_handle *buf_handle);
 int msm_mctl_buf_return_buf(struct msm_cam_media_controller *pmctl,
 	int image_mode, struct msm_frame_buffer *buf);
+int msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
+	struct ion_client *client);
+int msm_mctl_unmap_user_frame(struct msm_cam_meta_frame *meta_frame,
+	struct ion_client *client);
 int msm_mctl_pp_mctl_divert_done(struct msm_cam_media_controller *p_mctl,
 	void __user *arg);
 void msm_release_ion_client(struct kref *ref);
