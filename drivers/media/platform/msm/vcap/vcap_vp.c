@@ -273,10 +273,10 @@ static void vp_wq_fnc(struct work_struct *work)
 
 #ifdef TOP_FIELD_FIX
 	writel_iowmb(0x00000000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-	writel_iowmb(0x00030000 | vp_act->top_field << 0, VCAP_VP_CTRL);
+	writel_iowmb(0x00010000 | vp_act->top_field << 0, VCAP_VP_CTRL);
 #else
 	writel_iowmb(0x00000000 | top_field, VCAP_VP_CTRL);
-	writel_iowmb(0x00030000 | top_field, VCAP_VP_CTRL);
+	writel_iowmb(0x00010000 | top_field, VCAP_VP_CTRL);
 #endif
 	enable_irq(dev->vpirq->start);
 	writel_iowmb(irq, VCAP_VP_INT_CLEAR);
@@ -420,58 +420,84 @@ int config_vp_format(struct vcap_client_data *c_data)
 
 int init_motion_buf(struct vcap_client_data *c_data)
 {
+	int rc;
 	struct vcap_dev *dev = c_data->dev;
-	void *buf;
-	unsigned long motion_base_addr;
-	uint32_t size = ((c_data->vp_out_fmt.width + 63) >> 6) *
+	struct ion_handle *handle = NULL;
+	unsigned long paddr, ionflag = 0;
+	void *vaddr;
+	size_t len;
+	size_t size = ((c_data->vp_out_fmt.width + 63) >> 6) *
 		((c_data->vp_out_fmt.height + 7) >> 3) * 16;
 
-	if (c_data->vid_vp_action.bufMotion) {
+	if (c_data->vid_vp_action.motionHandle) {
 		pr_err("Motion buffer has already been created");
 		return -ENOEXEC;
 	}
 
-	buf = kzalloc(size, GFP_KERNEL);
-	if (!buf)
+	handle = ion_alloc(dev->ion_client, size, SZ_4K,
+			ION_HEAP(ION_CP_MM_HEAP_ID));
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: ion_alloc failed\n", __func__);
 		return -ENOMEM;
+	}
+	rc = ion_phys(dev->ion_client, handle, &paddr, &len);
+	if (rc < 0) {
+		pr_err("%s: ion_phys failed\n", __func__);
+		ion_free(dev->ion_client, handle);
+		return rc;
+	}
 
-	c_data->vid_vp_action.bufMotion = buf;
-	motion_base_addr = virt_to_phys(buf);
-	writel_iowmb(motion_base_addr, VCAP_VP_MOTION_EST_ADDR);
+	rc = ion_handle_get_flags(dev->ion_client, handle, &ionflag);
+	if (rc) {
+		pr_err("%s: get flags ion handle failed\n", __func__);
+		ion_free(dev->ion_client, handle);
+		return rc;
+	}
+
+	vaddr = ion_map_kernel(dev->ion_client, handle, ionflag);
+	if (IS_ERR(vaddr)) {
+		pr_err("%s: Map motion buffer failed\n", __func__);
+		ion_free(dev->ion_client, handle);
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	memset(vaddr, 0, size);
+	c_data->vid_vp_action.motionHandle = handle;
+
+	vaddr = NULL;
+	ion_unmap_kernel(dev->ion_client, handle);
+
+	writel_iowmb(paddr, VCAP_VP_MOTION_EST_ADDR);
 	return 0;
 }
 
 void deinit_motion_buf(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
-	void *buf;
-
-	if (!c_data->vid_vp_action.bufMotion) {
+	if (!c_data->vid_vp_action.motionHandle) {
 		pr_err("Motion buffer has not been created");
 		return;
 	}
 
-	buf = c_data->vid_vp_action.bufMotion;
-
 	writel_iowmb(0x00000000, VCAP_VP_MOTION_EST_ADDR);
-	c_data->vid_vp_action.bufMotion = NULL;
-	kfree(buf);
+	ion_free(dev->ion_client, c_data->vid_vp_action.motionHandle);
+	c_data->vid_vp_action.motionHandle = NULL;
 	return;
 }
 
 int init_nr_buf(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
-	struct nr_buffer *buf;
-	uint32_t frame_size, tot_size, rc;
+	struct ion_handle *handle = NULL;
+	size_t frame_size, tot_size, len;
+	unsigned long paddr;
+	int rc;
 
-	if (c_data->vid_vp_action.bufNR.vaddr) {
+	if (c_data->vid_vp_action.bufNR.nr_handle) {
 		pr_err("NR buffer has already been created");
 		return -ENOEXEC;
 	}
-	buf = &c_data->vid_vp_action.bufNR;
-	if (!buf)
-		return -ENOMEM;
 
 	frame_size = c_data->vp_in_fmt.width * c_data->vp_in_fmt.height;
 	if (c_data->vp_in_fmt.pixfmt == V4L2_PIX_FMT_NV16)
@@ -479,19 +505,30 @@ int init_nr_buf(struct vcap_client_data *c_data)
 	else
 		tot_size = frame_size / 2 * 3;
 
-	buf->vaddr = kzalloc(tot_size, GFP_KERNEL);
-	if (!buf->vaddr)
+	handle = ion_alloc(dev->ion_client, tot_size, SZ_4K,
+			ION_HEAP(ION_CP_MM_HEAP_ID));
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: ion_alloc failed\n", __func__);
 		return -ENOMEM;
+	}
 
+	rc = ion_phys(dev->ion_client, handle, &paddr, &len);
+	if (rc < 0) {
+		pr_err("%s: ion_phys failed\n", __func__);
+		ion_free(dev->ion_client, handle);
+		return rc;
+	}
+
+	c_data->vid_vp_action.bufNR.nr_handle = handle;
 	update_nr_value(c_data);
 
-	buf->paddr = virt_to_phys(buf->vaddr);
+	c_data->vid_vp_action.bufNR.paddr = paddr;
 	rc = readl_relaxed(VCAP_VP_NR_CONFIG2);
-	rc |= 0x02D00001;
+	rc |= (((c_data->vp_out_fmt.width / 16) << 20) | 0x1);
 	writel_relaxed(rc, VCAP_VP_NR_CONFIG2);
-	writel_relaxed(buf->paddr, VCAP_VP_NR_T2_Y_BASE_ADDR);
-	writel_relaxed(buf->paddr + frame_size, VCAP_VP_NR_T2_C_BASE_ADDR);
-	buf->nr_pos = NRT2_BUF;
+	writel_relaxed(paddr, VCAP_VP_NR_T2_Y_BASE_ADDR);
+	writel_relaxed(paddr + frame_size, VCAP_VP_NR_T2_C_BASE_ADDR);
+	c_data->vid_vp_action.bufNR.nr_pos = NRT2_BUF;
 	return 0;
 }
 
@@ -501,20 +538,19 @@ void deinit_nr_buf(struct vcap_client_data *c_data)
 	struct nr_buffer *buf;
 	uint32_t rc;
 
-	if (!c_data->vid_vp_action.bufNR.vaddr) {
+	if (!c_data->vid_vp_action.bufNR.nr_handle) {
 		pr_err("NR buffer has not been created");
 		return;
 	}
-
 	buf = &c_data->vid_vp_action.bufNR;
 
 	rc = readl_relaxed(VCAP_VP_NR_CONFIG2);
-	rc &= !(0x02D00001);
+	rc &= !(0x0FF00001);
 	writel_relaxed(rc, VCAP_VP_NR_CONFIG2);
 
-	kfree(buf->vaddr);
+	ion_free(dev->ion_client, buf->nr_handle);
+	buf->nr_handle = NULL;
 	buf->paddr = 0;
-	buf->vaddr = NULL;
 	return;
 }
 
@@ -592,18 +628,26 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
 	unsigned int width, height;
+	struct ion_handle *handle = NULL;
 	unsigned long paddr;
-	void *temp;
+	size_t len;
 	uint32_t reg;
 	int rc = 0;
 
 	dprintk(2, "%s: Start VP dummy event\n", __func__);
-	temp = kzalloc(0x1200, GFP_KERNEL);
-	if (!temp) {
-		pr_err("%s: Failed to alloc mem", __func__);
+	handle = ion_alloc(dev->ion_client, 0x1200, SZ_4K,
+			ION_HEAP(ION_CP_MM_HEAP_ID));
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: ion_alloc failed\n", __func__);
 		return -ENOMEM;
 	}
-	paddr = virt_to_phys(temp);
+
+	rc = ion_phys(dev->ion_client, handle, &paddr, &len);
+	if (rc < 0) {
+		pr_err("%s: ion_phys failed\n", __func__);
+		ion_free(dev->ion_client, handle);
+		return rc;
+	}
 
 	width = c_data->vp_out_fmt.width;
 	height = c_data->vp_out_fmt.height;
@@ -626,7 +670,7 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 
 	writel_relaxed(0x01100101, VCAP_VP_INTERRUPT_ENABLE);
 	writel_iowmb(0x00000000, VCAP_VP_CTRL);
-	writel_iowmb(0x00030000, VCAP_VP_CTRL);
+	writel_iowmb(0x00010000, VCAP_VP_CTRL);
 
 	enable_irq(dev->vpirq->start);
 	rc = wait_event_interruptible_timeout(dev->vp_dummy_waitq,
@@ -650,7 +694,7 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 
 	c_data->vp_out_fmt.width = width;
 	c_data->vp_out_fmt.height = height;
-	kfree(temp);
+	ion_free(dev->ion_client, handle);
 
 	dprintk(2, "%s: Exit VP dummy event\n", __func__);
 	return rc;
@@ -748,10 +792,10 @@ int kickoff_vp(struct vcap_client_data *c_data)
 	writel_relaxed(0x01100101, VCAP_VP_INTERRUPT_ENABLE);
 #ifdef TOP_FIELD_FIX
 	writel_iowmb(0x00000000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-	writel_iowmb(0x00030000 | vp_act->top_field << 0, VCAP_VP_CTRL);
+	writel_iowmb(0x00010000 | vp_act->top_field << 0, VCAP_VP_CTRL);
 #else
 	writel_iowmb(0x00000000 | top_field, VCAP_VP_CTRL);
-	writel_iowmb(0x00030000 | top_field, VCAP_VP_CTRL);
+	writel_iowmb(0x00010000 | top_field, VCAP_VP_CTRL);
 #endif
 	atomic_set(&c_data->dev->vp_enabled, 1);
 	enable_irq(dev->vpirq->start);
@@ -795,10 +839,10 @@ int continue_vp(struct vcap_client_data *c_data)
 	writel_relaxed(0x01100101, VCAP_VP_INTERRUPT_ENABLE);
 #ifdef TOP_FIELD_FIX
 	writel_iowmb(0x00000000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-	writel_iowmb(0x00030000 | vp_act->top_field << 0, VCAP_VP_CTRL);
+	writel_iowmb(0x00010000 | vp_act->top_field << 0, VCAP_VP_CTRL);
 #else
 	writel_iowmb(0x00000000 | top_field, VCAP_VP_CTRL);
-	writel_iowmb(0x00030000 | top_field, VCAP_VP_CTRL);
+	writel_iowmb(0x00010000 | top_field, VCAP_VP_CTRL);
 #endif
 
 	atomic_set(&c_data->dev->vp_enabled, 1);
