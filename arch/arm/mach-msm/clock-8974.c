@@ -4579,12 +4579,12 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		break;
 
 	case LPASS_BASE:
-		clk_sel = 0x169;
+		clk_sel = 0x161;
 		regval = BVAL(11, 0, measure_mux[i].debug_mux);
 		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
 
 		/* Activate debug clock output */
-		regval |= BIT(16);
+		regval |= BIT(20);
 		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
 		break;
 
