@@ -5231,6 +5231,7 @@ static struct pll_config lpapll0_config __initdata = {
 };
 
 #define PLL_AUX_OUTPUT_BIT 1
+#define PLL_AUX2_OUTPUT_BIT 2
 
 static void __init reg_init(void)
 {
@@ -5249,9 +5250,9 @@ static void __init reg_init(void)
 	configure_pll(&mmpll3_config, &mmpll3_regs, 0);
 	configure_pll(&lpapll0_config, &lpapll0_regs, 1);
 
-	/* Active GPLL0's aux output. This is needed by acpuclock. */
+	/* Enable GPLL0's aux outputs. */
 	regval = readl_relaxed(GCC_REG_BASE(GPLL0_USER_CTL_REG));
-	regval |= BIT(PLL_AUX_OUTPUT_BIT);
+	regval |= BIT(PLL_AUX_OUTPUT_BIT) | BIT(PLL_AUX2_OUTPUT_BIT);
 	writel_relaxed(regval, GCC_REG_BASE(GPLL0_USER_CTL_REG));
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
