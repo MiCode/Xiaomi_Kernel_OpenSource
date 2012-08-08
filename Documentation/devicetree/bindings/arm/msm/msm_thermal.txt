@@ -1,0 +1,34 @@
+MSM thermal driver (MSM_THERMAL)
+
+MSM_THERMAL is a kernel platform driver which regulates thermal conditions
+on the device during kernel boot. The goal of MSM_THERMAL is to prevent the
+temperature of the system from exceeding a thermal limit at which it cannot
+operate. Examples are CPU junction thermal limit, or POP memory thermal limit.
+The MSM_THERMAL driver polls the TSENS sensor hardware during boot, and
+reduces the maximum CPU frequency allowed in steps, to limit power/thermal
+output when a threshold temperature is crossed. It restores the maximum CPU
+frequency allowed in the same stepwise fashion when the threshold temperature
+(with hysteresis gap) is cleared.
+
+The devicetree representation of the MSM_THERMAL block should be:
+
+Required properties
+
+- compatible: "qcom,msm-thermal"
+- qcom,sensor-id: The id of the TSENS sensor polled for temperature.
+			Typically the sensor closest to CPU0.
+- qcom,poll-ms: Sampling interval to read sensor, in ms.
+- qcom,limit-temp: Threshold temperature to start stepping CPU down, in degC.
+- qcom,temp-hysteresis: Degrees below threshold temperature to step CPU up.
+- qcom,freq-step: Number of frequency steps to take on each CPU mitigation.
+
+Example:
+
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <0>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,freq-step = <2>;
+	};
