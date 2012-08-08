@@ -4972,7 +4972,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("osr_clk", audio_core_lpaif_quad_osr_clk.c, ""),
 	CLK_LOOKUP("ebit_clk", audio_core_lpaif_quad_ebit_clk.c, ""),
 	CLK_LOOKUP("ibit_clk", audio_core_lpaif_quad_ibit_clk.c, ""),
-	CLK_LOOKUP("core_clk", audio_core_lpaif_pcm0_clk_src.c,
+	CLK_LOOKUP("pcm_clk", audio_core_lpaif_pcm0_clk_src.c,
 						"msm-dai-q6.4106"),
 	CLK_LOOKUP("ebit_clk", audio_core_lpaif_pcm0_ebit_clk.c, ""),
 	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pcm0_ibit_clk.c,
