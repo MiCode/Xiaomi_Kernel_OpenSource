@@ -111,7 +111,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	struct qpnp_vadc_amux *adc_channel_list;
 	struct qpnp_adc_properties *adc_prop;
 	struct qpnp_adc_amux_properties *amux_prop;
-	int count_adc_channel_list = 0, decimation, rc = 0;
+	int count_adc_channel_list = 0, decimation, rc = 0, i = 0;
 
 	if (!node)
 		return -EINVAL;
@@ -133,7 +133,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 		return -ENOMEM;
 	}
 	adc_channel_list = devm_kzalloc(&spmi->dev,
-		(sizeof(struct qpnp_vadc_amux) * count_adc_channel_list),
+		sizeof(struct qpnp_vadc_amux) * count_adc_channel_list,
 				GFP_KERNEL);
 	if (!adc_channel_list) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
@@ -148,9 +148,12 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 		return -ENOMEM;
 	}
 
+	adc_qpnp->adc_channels = adc_channel_list;
+	adc_qpnp->amux_prop = amux_prop;
+
 	for_each_child_of_node(node, child) {
 		int channel_num, scaling, post_scaling, hw_settle_time;
-		int fast_avg_setup, calib_type, i = 0, rc;
+		int fast_avg_setup, calib_type, rc;
 		const char *calibration_param, *channel_name;
 
 		channel_name = of_get_property(child,
@@ -216,8 +219,6 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 		adc_channel_list[i].fast_avg_setup = fast_avg_setup;
 		i++;
 	}
-	adc_qpnp->adc_channels = adc_channel_list;
-	adc_qpnp->amux_prop = amux_prop;
 
 	/* Get the ADC VDD reference voltage and ADC bit resolution */
 	rc = of_property_read_u32(node, "qcom,adc-vdd-reference",

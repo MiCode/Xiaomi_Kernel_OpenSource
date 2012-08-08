@@ -142,7 +142,7 @@ static int32_t qpnp_iadc_read_reg(uint32_t reg, u8 *data)
 	int rc;
 
 	rc = spmi_ext_register_readl(iadc->adc->spmi->ctrl, iadc->adc->slave,
-		reg, data, 1);
+		(iadc->adc->offset + reg), data, 1);
 	if (rc < 0) {
 		pr_err("qpnp iadc read reg %d failed with %d\n", reg, rc);
 		return rc;
@@ -159,7 +159,7 @@ static int32_t qpnp_iadc_write_reg(uint32_t reg, u8 data)
 
 	buf = &data;
 	rc = spmi_ext_register_writel(iadc->adc->spmi->ctrl, iadc->adc->slave,
-		reg, buf, 1);
+		(iadc->adc->offset + reg), buf, 1);
 	if (rc < 0) {
 		pr_err("qpnp iadc write reg %d failed with %d\n", reg, rc);
 		return rc;
