@@ -359,6 +359,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 static void smux_uart_power_on_atomic(void);
 static int smux_rx_flow_control_updated(struct smux_lch_t *ch);
 static void smux_flush_workqueues(void);
+static void smux_pdev_release(struct device *dev);
 
 /**
  * Convert TTY Error Flags to string for logging purposes.
@@ -3362,12 +3363,29 @@ static int ssr_notifier_cb(struct notifier_block *this,
 				void *data)
 {
 	unsigned long flags;
+	int i;
+	int tmp;
 	int power_off_uart = 0;
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
 		SMUX_DBG("%s: ssr - before shutdown\n", __func__);
 		mutex_lock(&smux.mutex_lha0);
 		smux.in_reset = 1;
+		mutex_unlock(&smux.mutex_lha0);
+		return NOTIFY_DONE;
+	} else if (code == SUBSYS_AFTER_POWERUP) {
+		/* re-register platform devices */
+		SMUX_DBG("%s: ssr - after power-up\n", __func__);
+		mutex_lock(&smux.mutex_lha0);
+		for (i = 0; i < ARRAY_SIZE(smux_devs); ++i) {
+			SMUX_DBG("%s: register pdev '%s'\n",
+					__func__, smux_devs[i].name);
+			smux_devs[i].dev.release = smux_pdev_release;
+			tmp = platform_device_register(&smux_devs[i]);
+			if (tmp)
+				pr_err("%s: error %d registering device %s\n",
+					   __func__, tmp, smux_devs[i].name);
+		}
 		mutex_unlock(&smux.mutex_lha0);
 		return NOTIFY_DONE;
 	} else if (code != SUBSYS_AFTER_SHUTDOWN) {
@@ -3381,6 +3399,13 @@ static int ssr_notifier_cb(struct notifier_block *this,
 	smux_lch_purge();
 	if (smux.tty)
 		tty_driver_flush_buffer(smux.tty);
+
+	/* Unregister platform devices */
+	for (i = 0; i < ARRAY_SIZE(smux_devs); ++i) {
+		SMUX_DBG("%s: unregister pdev '%s'\n",
+				__func__, smux_devs[i].name);
+		platform_device_unregister(&smux_devs[i]);
+	}
 
 	/* Power-down UART */
 	spin_lock_irqsave(&smux.tx_lock_lha2, flags);
