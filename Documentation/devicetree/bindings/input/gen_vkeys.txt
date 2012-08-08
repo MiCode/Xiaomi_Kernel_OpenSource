@@ -1,0 +1,28 @@
+Touchscreen Virtual Keys Device
+
+Generate virtual keys sysfs entry for Android
+
+Required properties:
+
+ - compatible	: should be "qcom,gen-vkeys"
+ - label		: name of the touch controller
+ - qcom,disp-maxx	: Maximum x-coordinate of display
+ - qcom,disp-maxy	: Maximum y-coordinate of display
+ - qcom,panel-maxx	: Maximum x-coordinate of touch panel
+ - qcom,panel-maxy	: Maximum y-coordinate of touch panel
+ - qcom,key-codes	: Array of key codes for virtual keys
+
+Optional properties:
+ - qcom,y-offset	: Offset of y-location for virtual keys, default 0
+
+Example:
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "atmel_mxt_ts";
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <760>;
+		qcom,panel-maxy = <1424>;
+		qcom,key-codes = <158 139 102 217>;
+		qcom,y-offset = <35>;
+	};
