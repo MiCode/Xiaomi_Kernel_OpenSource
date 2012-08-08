@@ -4338,7 +4338,7 @@ static int display_common_power(int on)
 	}
 
 	if (quickvx_mddi_client)
-		rc = regulator_set_voltage(mddi_ldo20, 1800000, 1800000);
+		rc = regulator_set_voltage(mddi_ldo20, 1500000, 1800000);
 	else
 		rc = regulator_set_voltage(mddi_ldo20, 1500000, 1500000);
 
