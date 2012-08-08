@@ -112,7 +112,6 @@ static struct platform_device msm_fm_platform_init = {
 #define KS8851_IRQ_GPIO		90
 #define HAP_SHIFT_LVL_OE_GPIO	47
 
-#define HDMI_MHL_MUX_GPIO       73
 #define MHL_GPIO_INT            72
 #define MHL_GPIO_RESET          71
 #define MHL_GPIO_PWR_EN         5
