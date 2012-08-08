@@ -232,6 +232,7 @@
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
+		reg-names = "core", "intr";
 		reg = <0xfc4cf000 0x1000>,
 		      <0Xfc4cb000 0x1000>;
 		/* 190,ee0_krait_hlos_spmi_periph_irq */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -581,7 +581,7 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	mem_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "core");
 	if (!mem_res) {
 		dev_err(&pdev->dev, "missing base memory resource\n");
 		return -ENODEV;
@@ -594,7 +594,7 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	mem_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "intr");
 	if (!mem_res) {
 		dev_err(&pdev->dev, "missing mem resource (interrupts)\n");
 		return -ENODEV;
