@@ -154,7 +154,6 @@ void mdp4_overlay_iommu_2freelist(int mixer, struct ion_handle *ihdl)
 		pr_err("%s: Error, mixer=%d iommu fndx=%d\n",
 				__func__, mixer, flist->fndx);
 		mdp4_stat.iommu_drop++;
-		mutex_unlock(&iommu_mutex);
 		return;
 	}
 
@@ -2091,17 +2090,18 @@ void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 	num = pipe->pipe_num;
 	ndx = pipe->pipe_ndx;
 	mixer = pipe->mixer_num;
+
+	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
+
 	iom = pipe->iommu;
 
 	memset(pipe, 0, sizeof(*pipe));
-
 	pipe->pipe_type = ptype;
 	pipe->pipe_num = num;
 	pipe->pipe_ndx = ndx;
 	pipe->mixer_num = mixer;
 	pipe->iommu = iom;
 
-	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
 }
 
 static int mdp4_overlay_validate_downscale(struct mdp_overlay *req,
