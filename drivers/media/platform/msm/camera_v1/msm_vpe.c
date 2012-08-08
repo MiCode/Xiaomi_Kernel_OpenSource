@@ -425,28 +425,36 @@ static int msm_send_frame_to_vpe(void)
 	int rc = 0;
 	unsigned long flags;
 	unsigned long srcP0, srcP1, outP0, outP1;
-	struct msm_mctl_pp_frame_info *frame = vpe_ctrl->pp_frame_info;
+	struct msm_mctl_pp_frame_info *frame_info = vpe_ctrl->pp_frame_info;
+
+	if (!frame_info) {
+		pr_err("%s Invalid frame", __func__);
+		return -EINVAL;
+	}
 
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
-	if (frame->src_frame.num_planes > 1) {
-		srcP0 = vpe_ctrl->pp_frame_info->src_frame.mp[0].phy_addr +
-			vpe_ctrl->pp_frame_info->src_frame.mp[0].data_offset;
-		srcP1 = vpe_ctrl->pp_frame_info->src_frame.mp[1].phy_addr +
-			vpe_ctrl->pp_frame_info->src_frame.mp[1].data_offset;
-		outP0 = vpe_ctrl->pp_frame_info->dest_frame.mp[0].phy_addr +
-			vpe_ctrl->pp_frame_info->dest_frame.mp[0].data_offset;
-		outP1 = vpe_ctrl->pp_frame_info->dest_frame.mp[1].phy_addr +
-			vpe_ctrl->pp_frame_info->dest_frame.mp[1].data_offset;
+
+	if (frame_info->src_frame.frame.num_planes > 1) {
+		srcP0 = frame_info->src_frame.map[0].paddr +
+			frame_info->src_frame.map[0].data_offset;
+		srcP1 = frame_info->src_frame.map[1].paddr +
+			frame_info->src_frame.map[1].data_offset;
+		outP0 = frame_info->dest_frame.map[0].paddr +
+			frame_info->dest_frame.map[0].data_offset;
+		outP1 = frame_info->dest_frame.map[1].paddr +
+			frame_info->dest_frame.map[1].data_offset;
 	} else {
-		srcP0 = vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
-			vpe_ctrl->pp_frame_info->src_frame.sp.y_off;
-		srcP1 = vpe_ctrl->pp_frame_info->src_frame.sp.phy_addr +
-			vpe_ctrl->pp_frame_info->src_frame.sp.cbcr_off;
-		outP0 = vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
-			vpe_ctrl->pp_frame_info->dest_frame.sp.y_off;
-		outP1 = vpe_ctrl->pp_frame_info->dest_frame.sp.phy_addr +
-			vpe_ctrl->pp_frame_info->dest_frame.sp.cbcr_off;
+		srcP0 = frame_info->src_frame.map[0].paddr;
+		srcP1 = frame_info->src_frame.map[0].paddr +
+			frame_info->src_frame.map[0].data_offset;
+		outP0 = frame_info->dest_frame.map[0].paddr;
+		outP1 = frame_info->dest_frame.map[0].paddr +
+			frame_info->dest_frame.map[0].data_offset;
 	}
+
+	D("%s VPE Configured with Src %x, %x Dest %x, %x",
+		__func__, (uint32_t)srcP0, (uint32_t)srcP1,
+		(uint32_t)outP0, (uint32_t)outP1);
 
 	msm_camera_io_w(srcP0, vpe_ctrl->vpebase + VPE_SRCP0_ADDR_OFFSET);
 	msm_camera_io_w(srcP1, vpe_ctrl->vpebase + VPE_SRCP1_ADDR_OFFSET);
@@ -482,7 +490,6 @@ static void vpe_send_outmsg(void)
 	v4l2_evt.type = V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_MCTL_PP_EVENT;
 	v4l2_evt.id = 0;
 	v4l2_event_queue(vpe_ctrl->subdev.devnode, &v4l2_evt);
-
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 }
 
@@ -596,8 +603,8 @@ static int msm_vpe_do_pp(struct msm_mctl_pp_frame_info *pp_frame_info)
 	msm_vpe_cfg_update(
 		&vpe_ctrl->pp_frame_info->pp_frame_cmd.crop);
 	D("%s Sending frame idx %d id %d to VPE ", __func__,
-		pp_frame_info->src_frame.buf_idx,
-		pp_frame_info->src_frame.frame_id);
+		pp_frame_info->src_frame.frame.buf_idx,
+		pp_frame_info->src_frame.frame.frame_id);
 	rc = msm_send_frame_to_vpe();
 	return rc;
 }
@@ -787,19 +794,35 @@ static int msm_vpe_process_vpe_cmd(struct msm_vpe_cfg_cmd *vpe_cmd)
 
 		zoom->user_cmd = vpe_cmd->cmd_type;
 		zoom->p_mctl = v4l2_get_subdev_hostdata(&vpe_ctrl->subdev);
-		D("%s: src=0x%x, dest=0x%x,cookie=0x%x,action=0x%x,path=0x%x",
-			__func__, zoom->pp_frame_cmd.src_buf_handle,
-			zoom->pp_frame_cmd.dest_buf_handle,
-			zoom->pp_frame_cmd.cookie,
+		D("%s: cookie=0x%x,action=0x%x,path=0x%x",
+			__func__, zoom->pp_frame_cmd.cookie,
 			zoom->pp_frame_cmd.vpe_output_action,
 			zoom->pp_frame_cmd.path);
-		rc = msm_mctl_pp_get_vpe_buf_info(zoom);
+
+		D("%s Mapping Source frame ", __func__);
+		zoom->src_frame.frame = zoom->pp_frame_cmd.src_frame;
+		rc = msm_mctl_map_user_frame(&zoom->src_frame,
+			zoom->p_mctl->client);
 		if (rc < 0) {
-			pr_err("%s Error getting buffer info from mctl rc = %d",
+			pr_err("%s Error mapping source buffer rc = %d",
 				__func__, rc);
 			kfree(zoom);
 			break;
 		}
+
+		D("%s Mapping Destination frame ", __func__);
+		zoom->dest_frame.frame = zoom->pp_frame_cmd.dest_frame;
+		rc = msm_mctl_map_user_frame(&zoom->dest_frame,
+			zoom->p_mctl->client);
+		if (rc < 0) {
+			pr_err("%s Error mapping dest buffer rc = %d",
+				__func__, rc);
+			msm_mctl_unmap_user_frame(&zoom->src_frame,
+				zoom->p_mctl->client);
+			kfree(zoom);
+			break;
+		}
+
 		rc = msm_vpe_do_pp(zoom);
 		break;
 		}
@@ -876,6 +899,14 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 			return -EFAULT;
 		}
 		pp_frame_info = event_qcmd->command;
+
+		D("%s Unmapping source and destination buffers ",
+			__func__);
+		msm_mctl_unmap_user_frame(&pp_frame_info->src_frame,
+			pp_frame_info->p_mctl->client);
+		msm_mctl_unmap_user_frame(&pp_frame_info->dest_frame,
+			pp_frame_info->p_mctl->client);
+
 		pp_event_info.event = MCTL_PP_EVENT_CMD_ACK;
 		pp_event_info.ack.cmd = pp_frame_info->user_cmd;
 		pp_event_info.ack.status = 0;
@@ -884,10 +915,9 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 			pp_event_info.ack.cmd, pp_event_info.ack.status,
 			pp_event_info.ack.cookie);
 		if (copy_to_user((void __user *)v4l2_ioctl->ioctl_ptr,
-			&pp_event_info,
-			sizeof(struct msm_mctl_pp_event_info)))
-			pr_err("%s EVENTPAYLOAD Copy to user failed ",
-				__func__);
+			&pp_event_info,	sizeof(struct msm_mctl_pp_event_info)))
+			pr_err("%s PAYLOAD Copy to user failed ", __func__);
+
 		kfree(pp_frame_info);
 		kfree(event_qcmd);
 		break;
@@ -942,12 +972,21 @@ static int msm_vpe_subdev_close(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
 {
 	struct vpe_ctrl_type *vpe_ctrl = v4l2_get_subdevdata(sd);
+	struct msm_mctl_pp_frame_info *frame_info = vpe_ctrl->pp_frame_info;
+
 	if (atomic_read(&vpe_ctrl->active) == 0) {
 		pr_err("%s already closed\n", __func__);
 		return -EINVAL;
 	}
 
 	D("%s E ", __func__);
+	if (frame_info) {
+		D("%s Unmap the pending item from the queue ", __func__);
+		msm_mctl_unmap_user_frame(&frame_info->src_frame,
+			frame_info->p_mctl->client);
+		msm_mctl_unmap_user_frame(&frame_info->dest_frame,
+			frame_info->p_mctl->client);
+	}
 	/* Drain the payload queue. */
 	msm_queue_drain(&vpe_ctrl->eventData_q, list_eventdata);
 	atomic_dec(&vpe_ctrl->active);
