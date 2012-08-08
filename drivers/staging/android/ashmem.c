@@ -695,7 +695,7 @@ static int ashmem_cache_op(struct ashmem_area *asma,
 		ret = -EINVAL;
 		goto done;
 	}
-	if ((asma->vm_start + asma->size) > (vma->vm_start + vma->vm_end)) {
+	if ((asma->vm_start + asma->size) > vma->vm_end) {
 		ret = -EINVAL;
 		goto done;
 	}
