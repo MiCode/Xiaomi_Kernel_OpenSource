@@ -18,6 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/iopoll.h>
 
 #include <mach/clk.h>
 #include <mach/rpm-regulator-smd.h>
@@ -383,6 +384,7 @@ static void __iomem *virt_bases[N_BASES];
 #define GP1_CBCR                                 0x1900
 #define GP2_CBCR                                 0x1940
 #define GP3_CBCR                                 0x1980
+#define AUDIO_CORE_GDSCR			 0x7000
 #define AUDIO_CORE_LPAIF_CODEC_SPKR_OSR_CBCR     0xA014
 #define AUDIO_CORE_LPAIF_CODEC_SPKR_IBIT_CBCR    0xA018
 #define AUDIO_CORE_LPAIF_CODEC_SPKR_EBIT_CBCR    0xA01C
@@ -5236,9 +5238,24 @@ static struct pll_config lpapll0_config __initdata = {
 #define PLL_AUX_OUTPUT_BIT 1
 #define PLL_AUX2_OUTPUT_BIT 2
 
+#define PWR_ON_MASK		BIT(31)
+#define EN_REST_WAIT_MASK	(0xF << 20)
+#define EN_FEW_WAIT_MASK	(0xF << 16)
+#define CLK_DIS_WAIT_MASK	(0xF << 12)
+#define SW_OVERRIDE_MASK	BIT(2)
+#define HW_CONTROL_MASK		BIT(1)
+#define SW_COLLAPSE_MASK	BIT(0)
+
+/* Wait 2^n CXO cycles between all states. Here, n=2 (4 cycles). */
+#define EN_REST_WAIT_VAL	(0x2 << 20)
+#define EN_FEW_WAIT_VAL		(0x2 << 16)
+#define CLK_DIS_WAIT_VAL	(0x2 << 12)
+#define GDSC_TIMEOUT_US		50000
+
 static void __init reg_init(void)
 {
-	u32 regval;
+	u32 regval, status;
+	int ret;
 
 	if (!(readl_relaxed(GCC_REG_BASE(GPLL0_STATUS_REG))
 			& gpll0_clk_src.status_mask))
@@ -5268,6 +5285,31 @@ static void __init reg_init(void)
 	 * register.
 	 */
 	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
+
+	/*
+	 * TODO: The following sequence enables the LPASS audio core GDSC.
+	 * Remove when this becomes unnecessary.
+	 */
+
+	/*
+	 * Disable HW trigger: collapse/restore occur based on registers writes.
+	 * Disable SW override: Use hardware state-machine for sequencing.
+	 */
+	regval = readl_relaxed(LPASS_REG_BASE(AUDIO_CORE_GDSCR));
+	regval &= ~(HW_CONTROL_MASK | SW_OVERRIDE_MASK);
+
+	/* Configure wait time between states. */
+	regval &= ~(EN_REST_WAIT_MASK | EN_FEW_WAIT_MASK | CLK_DIS_WAIT_MASK);
+	regval |= EN_REST_WAIT_VAL | EN_FEW_WAIT_VAL | CLK_DIS_WAIT_VAL;
+	writel_relaxed(regval, LPASS_REG_BASE(AUDIO_CORE_GDSCR));
+
+	regval = readl_relaxed(LPASS_REG_BASE(AUDIO_CORE_GDSCR));
+	regval &= ~BIT(0);
+	writel_relaxed(regval, LPASS_REG_BASE(AUDIO_CORE_GDSCR));
+
+	ret = readl_poll_timeout(LPASS_REG_BASE(AUDIO_CORE_GDSCR), status,
+				status & PWR_ON_MASK, 50, GDSC_TIMEOUT_US);
+	WARN(ret, "LPASS Audio Core GDSC did not power on.\n");
 }
 
 static void __init msm8974_clock_post_init(void)
