@@ -3,6 +3,7 @@ Qualcomm SPMI Controller (PMIC Arbiter)
 Required properties:
 - cell-index : the bus identifier.
 - compatible : should be "qcom,spmi-pmic-arb".
+- reg-names  : should be "core", "intr"
 - reg : offset and length of the PMIC Arbiter Core register map.
 - reg : offset and length of the PMIC Arbiter Interrupt controller register map.
 - interrupts : the PMIC Arbiter interrupt.
@@ -33,6 +34,7 @@ Example:
 	qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
+		reg-names = "core", "intr";
 		reg = <0xfc4cf000 0x1000>,
 		      <0Xfc4cb000 0x1000>;
 		interrupts = <0>;
