@@ -18,6 +18,7 @@
 / {
 	model = "Qualcomm MSM 8974 Simulator";
 	compatible = "qcom,msm8974-sim", "qcom,msm8974";
+	qcom,msm-id = <126 16 0>;
 
 	qcom,mdss_dsi@fd922800 {
 		qcom,mdss_dsi_sim_video {
