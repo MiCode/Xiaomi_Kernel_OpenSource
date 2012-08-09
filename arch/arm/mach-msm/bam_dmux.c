@@ -1876,12 +1876,18 @@ static void vote_dfab(void)
 		mutex_unlock(&dfab_status_lock);
 		return;
 	}
-	rc = clk_prepare_enable(dfab_clk);
-	if (rc)
-		DMUX_LOG_KERR("bam_dmux vote for dfab failed rc = %d\n", rc);
-	rc = clk_prepare_enable(xo_clk);
-	if (rc)
-		DMUX_LOG_KERR("bam_dmux vote for xo failed rc = %d\n", rc);
+	if (dfab_clk) {
+		rc = clk_prepare_enable(dfab_clk);
+		if (rc)
+			DMUX_LOG_KERR("bam_dmux vote for dfab failed rc = %d\n",
+									rc);
+	}
+	if (xo_clk) {
+		rc = clk_prepare_enable(xo_clk);
+		if (rc)
+			DMUX_LOG_KERR("bam_dmux vote for xo failed rc = %d\n",
+									rc);
+	}
 	dfab_is_on = 1;
 	mutex_unlock(&dfab_status_lock);
 }
@@ -1896,8 +1902,10 @@ static void unvote_dfab(void)
 		mutex_unlock(&dfab_status_lock);
 		return;
 	}
-	clk_disable_unprepare(dfab_clk);
-	clk_disable_unprepare(xo_clk);
+	if (dfab_clk)
+		clk_disable_unprepare(dfab_clk);
+	if (xo_clk)
+		clk_disable_unprepare(xo_clk);
 	dfab_is_on = 0;
 	mutex_unlock(&dfab_status_lock);
 }
@@ -2320,18 +2328,18 @@ static int bam_dmux_probe(struct platform_device *pdev)
 
 	xo_clk = clk_get(&pdev->dev, "xo");
 	if (IS_ERR(xo_clk)) {
-		pr_err("%s: did not get xo clock\n", __func__);
-		return PTR_ERR(xo_clk);
+		bam_dmux_log("%s: did not get xo clock\n", __func__);
+		xo_clk = NULL;
 	}
 	dfab_clk = clk_get(&pdev->dev, "bus_clk");
 	if (IS_ERR(dfab_clk)) {
-		pr_err("%s: did not get dfab clock\n", __func__);
-		return -EFAULT;
+		bam_dmux_log("%s: did not get dfab clock\n", __func__);
+		dfab_clk = NULL;
+	} else {
+		rc = clk_set_rate(dfab_clk, 64000000);
+		if (rc)
+			pr_err("%s: unable to set dfab clock rate\n", __func__);
 	}
-
-	rc = clk_set_rate(dfab_clk, 64000000);
-	if (rc)
-		pr_err("%s: unable to set dfab clock rate\n", __func__);
 
 	/*
 	 * setup the workqueue so that it can be pinned to core 0 and not
