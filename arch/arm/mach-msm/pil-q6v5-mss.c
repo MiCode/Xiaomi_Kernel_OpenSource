@@ -247,9 +247,9 @@ static int pil_mss_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	drv->mem_clk = devm_clk_get(&pdev->dev, "mem_clk");
-	if (IS_ERR(drv->mem_clk))
-		return PTR_ERR(drv->mem_clk);
+	drv->ss_clk = devm_clk_get(&pdev->dev, "mem_clk");
+	if (IS_ERR(drv->ss_clk))
+		return PTR_ERR(drv->ss_clk);
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))

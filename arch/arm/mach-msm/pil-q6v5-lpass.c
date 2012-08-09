@@ -96,6 +96,10 @@ static int pil_lpass_driver_probe(struct platform_device *pdev)
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = PROXY_TIMEOUT_MS;
 
+	drv->ss_clk = devm_clk_get(&pdev->dev, "reg_clk");
+	if (IS_ERR(drv->ss_clk))
+		return PTR_ERR(drv->ss_clk);
+
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))
 		return PTR_ERR(drv->pil);

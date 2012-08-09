@@ -24,7 +24,7 @@ struct q6v5_data {
 	struct clk *xo;
 	struct clk *bus_clk;
 	struct clk *core_clk;
-	struct clk *mem_clk;
+	struct clk *ss_clk;
 	void __iomem *axi_halt_base;
 	void __iomem *rmb_base;
 	void __iomem *restart_reg;
