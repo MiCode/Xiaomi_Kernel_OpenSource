@@ -256,14 +256,10 @@ int mdp4_dsi_video_pipe_commit(void)
 	return cnt;
 }
 
-void mdp4_dsi_video_vsync_ctrl(int cndx, int enable)
+void mdp4_dsi_video_vsync_ctrl(struct fb_info *info, int enable)
 {
 	struct vsycn_ctrl *vctrl;
-
-	if (cndx >= MAX_CONTROLLER) {
-		pr_err("%s: out or range: cndx=%d\n", __func__, cndx);
-		return;
-	}
+	int cndx = 0;
 
 	vctrl = &vsync_ctrl_db[cndx];
 
