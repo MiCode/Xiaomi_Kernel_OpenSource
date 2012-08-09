@@ -818,7 +818,7 @@ void msm_pm_cpu_enter_lowpower(unsigned int cpu)
 		msm_pm_power_collapse_standalone(false);
 	else if (allow[MSM_PM_SLEEP_MODE_RETENTION])
 		msm_pm_retention();
-	else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT])
+	else
 		msm_pm_swfi();
 }
 
