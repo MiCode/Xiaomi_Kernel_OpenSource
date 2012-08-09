@@ -28,7 +28,7 @@
 #define TLMM_MSM_SUMMARY_IRQ		(GIC_SPI_START + 208)
 
 #define NR_MSM_IRQS 288
-#define NR_GPIO_IRQS 88
+#define NR_GPIO_IRQS 76
 #define NR_BOARD_IRQS 0
 #define NR_TLMM_MSM_DIR_CONN_IRQ 8 /*Need to Verify this Count*/
 #define NR_MSM_GPIOS NR_GPIO_IRQS
