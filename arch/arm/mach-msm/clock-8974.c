@@ -697,7 +697,6 @@ static struct pll_vote_clk gpll0_clk_src = {
 		.rate = 600000000,
 		.dbg_name = "gpll0_clk_src",
 		.ops = &clk_ops_pll_vote,
-		.warned = true,
 		CLK_INIT(gpll0_clk_src.c),
 	},
 };
@@ -713,7 +712,6 @@ static struct pll_vote_clk gpll1_clk_src = {
 		.rate = 480000000,
 		.dbg_name = "gpll1_clk_src",
 		.ops = &clk_ops_pll_vote,
-		.warned = true,
 		CLK_INIT(gpll1_clk_src.c),
 	},
 };
@@ -729,7 +727,6 @@ static struct pll_vote_clk lpapll0_clk_src = {
 		.rate = 491520000,
 		.dbg_name = "lpapll0_clk_src",
 		.ops = &clk_ops_pll_vote,
-		.warned = true,
 		CLK_INIT(lpapll0_clk_src.c),
 	},
 };
@@ -745,7 +742,6 @@ static struct pll_vote_clk mmpll0_clk_src = {
 		.dbg_name = "mmpll0_clk_src",
 		.rate = 800000000,
 		.ops = &clk_ops_pll_vote,
-		.warned = true,
 		CLK_INIT(mmpll0_clk_src.c),
 	},
 };
@@ -761,7 +757,6 @@ static struct pll_vote_clk mmpll1_clk_src = {
 		.dbg_name = "mmpll1_clk_src",
 		.rate = 846000000,
 		.ops = &clk_ops_pll_vote,
-		.warned = true,
 		CLK_INIT(mmpll1_clk_src.c),
 	},
 };
@@ -775,7 +770,6 @@ static struct pll_clk mmpll3_clk_src = {
 		.dbg_name = "mmpll3_clk_src",
 		.rate = 1000000000,
 		.ops = &clk_ops_local_pll,
-		.warned = true,
 		CLK_INIT(mmpll3_clk_src.c),
 	},
 };
@@ -3057,7 +3051,6 @@ static struct clk hdmipll_clk_src = {
 	.dbg_name = "hdmipll_clk_src",
 	.ops = &clk_ops_hdmi_pll,
 	CLK_INIT(hdmipll_clk_src),
-	.warned = true,
 };
 
 static struct clk_freq_tbl ftbl_mdss_extpclk_clk[] = {
