@@ -61,7 +61,6 @@
 #define PMIC_VOLTAGE_MIN		350000
 #define PMIC_VOLTAGE_MAX		1355000
 #define LV_RANGE_STEP			5000
-#define LV_RANGE_MIN			80000
 
 /* use LDO for core voltage below LDO_THRESH */
 #define CORE_VOLTAGE_LDO_THRESH		750000
@@ -291,7 +290,7 @@ static int set_pmic_gang_voltage(int uV)
 		uV = PMIC_VOLTAGE_MAX;
 	}
 
-	setpoint = DIV_ROUND_UP(uV - LV_RANGE_MIN, LV_RANGE_STEP);
+	setpoint = DIV_ROUND_UP(uV, LV_RANGE_STEP);
 	return msm_spm_apcs_set_vdd(setpoint);
 }
 
