@@ -425,7 +425,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			compatible = "qcom,qpnp-regulator";
-			reg = <0x1400 0x300>;
+			reg = <0x1a00 0x300>;
 			status = "disabled";
 
 			qcom,ctl@1a00 {
