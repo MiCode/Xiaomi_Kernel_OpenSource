@@ -70,6 +70,15 @@ static inline int mhl_unregister_callback(const char *name)
 }
 #endif
 
+
+struct msc_cmd_envelope {
+	/*
+	 * this list head is for list APIs
+	 */
+	struct list_head msc_queue_envelope;
+	struct msc_command_struct msc_cmd_msg;
+};
+
 struct mhl_msm_state_t {
 	struct i2c_client *i2c_client;
 	struct i2c_driver *i2c_driver;
@@ -82,6 +91,10 @@ struct mhl_msm_state_t {
 	struct completion msc_cmd_done;
 	uint8_t devcap_state;
 	uint8_t path_en_state;
+	struct work_struct mhl_msc_send_work;
+	struct list_head list_cmd;
+	void (*msc_command_put_work) (struct msc_command_struct *);
+	struct msc_command_struct* (*msc_command_get_work) (void);
 };
 
 enum {

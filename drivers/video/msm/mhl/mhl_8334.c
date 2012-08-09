@@ -50,6 +50,7 @@ static struct i2c_device_id mhl_sii_i2c_id[] = {
 
 struct mhl_msm_state_t *mhl_msm_state;
 spinlock_t mhl_state_lock;
+struct workqueue_struct *msc_send_workqueue;
 
 static int mhl_i2c_probe(struct i2c_client *client,\
 	const struct i2c_device_id *id);
@@ -60,6 +61,7 @@ static void switch_mode(enum mhl_st_type to_mode);
 static irqreturn_t mhl_tx_isr(int irq, void *dev_id);
 void (*notify_usb_online)(int online);
 static void mhl_drive_hpd(uint8_t to_state);
+static int mhl_send_msc_command(struct msc_command_struct *req);
 
 static struct i2c_driver mhl_sii_i2c_driver = {
 	.driver = {
@@ -545,6 +547,7 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	mhl_msm_state->mhl_data = client->dev.platform_data;
 	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
 		mhl_msm_state->mhl_data->irq);
+	msc_send_workqueue = create_workqueue("mhl_msc_cmd_queue");
 
 	if (!mhl_msm_state->mhl_data->mhl_enabled) {
 		pr_info("MHL Display not enabled\n");
@@ -581,6 +584,46 @@ static int mhl_i2c_remove(struct i2c_client *client)
 	kfree(mhl_msm_state->mhl_data);
 	return 0;
 }
+
+static void list_cmd_put(struct msc_command_struct *cmd)
+{
+	struct msc_cmd_envelope *new_cmd;
+	new_cmd = vmalloc(sizeof(struct msc_cmd_envelope));
+	memcpy(&new_cmd->msc_cmd_msg, cmd,
+		sizeof(struct msc_command_struct));
+	/* Need to check for queue getting filled up */
+	list_add_tail(&new_cmd->msc_queue_envelope, &mhl_msm_state->list_cmd);
+}
+
+struct msc_command_struct *list_cmd_get(void)
+{
+	struct msc_cmd_envelope *cmd_env =
+		list_first_entry(&mhl_msm_state->list_cmd,
+			struct msc_cmd_envelope, msc_queue_envelope);
+	list_del(&cmd_env->msc_queue_envelope);
+	return &cmd_env->msc_cmd_msg;
+}
+
+static void mhl_msc_send_work(struct work_struct *work)
+{
+	int ret;
+	/*
+	 * Remove item from the queue
+	 * and schedule it
+	 */
+	struct msc_command_struct *req;
+	while (!list_empty(&mhl_msm_state->list_cmd)) {
+		req = mhl_msm_state->msc_command_get_work();
+		ret = mhl_send_msc_command(req);
+		if (ret == -EAGAIN)
+			pr_err("MHL: Queue still busy!!\n");
+		else {
+			vfree(req);
+			pr_debug("MESSAGE SENT!!!!\n");
+		}
+	}
+}
+
 
 static int __init mhl_msm_init(void)
 {
@@ -624,7 +667,12 @@ static int __init mhl_msm_init(void)
 	} else
 		pr_debug("request_threaded_irq succeeded\n");
 
+	INIT_WORK(&mhl_msm_state->mhl_msc_send_work, mhl_msc_send_work);
 	mhl_msm_state->cur_state = POWER_STATE_D0_MHL;
+	INIT_LIST_HEAD(&mhl_msm_state->list_cmd);
+	mhl_msm_state->msc_command_put_work = list_cmd_put;
+	mhl_msm_state->msc_command_get_work = list_cmd_get;
+	init_completion(&mhl_msm_state->msc_cmd_done);
 
 	/* MHL SII 8334 chip specific init */
 	mhl_chip_init();
@@ -639,6 +687,16 @@ init_exit:
 		mhl_msm_state = NULL;
 	 }
 	 return ret;
+}
+
+static void mhl_msc_sched_work(struct msc_command_struct *req)
+{
+	/*
+	 * Put an item to the queue
+	 * and schedule work
+	 */
+	mhl_msm_state->msc_command_put_work(req);
+	queue_work(msc_send_workqueue, &mhl_msm_state->mhl_msc_send_work);
 }
 
 static void switch_mode(enum mhl_st_type to_mode)
@@ -1094,7 +1152,7 @@ static int mhl_send_msc_command(struct msc_command_struct *req)
 		goto cbus_send_fail;
 	}
 
-	init_completion(&mhl_msm_state->msc_cmd_done);
+	INIT_COMPLETION(mhl_msm_state->msc_cmd_done);
 	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x12, start_bit);
 	timeout = wait_for_completion_interruptible_timeout
 		(&mhl_msm_state->msc_cmd_done, HZ);
@@ -1107,6 +1165,7 @@ static int mhl_send_msc_command(struct msc_command_struct *req)
 	case MHL_READ_DEVCAP:
 		/* devcap */
 		req->retval = mhl_i2c_reg_read(TX_PAGE_CBUS, 0x16);
+		pr_debug("Read CBUS[0x16]=[%02x]\n", req->retval);
 		break;
 	case MHL_MSC_MSG:
 		/* check if MSC_MSG NACKed */
@@ -1130,7 +1189,8 @@ static int mhl_msc_send_set_int(u8 offset, u8 mask)
 	req.command = MHL_SET_INT;
 	req.offset = offset;
 	req.payload.data[0] = mask;
-	return mhl_send_msc_command(&req);
+	mhl_msc_sched_work(&req);
+	return 0;
 }
 
 static int mhl_msc_send_write_stat(u8 offset, u8 value)
@@ -1139,7 +1199,8 @@ static int mhl_msc_send_write_stat(u8 offset, u8 value)
 	req.command = MHL_WRITE_STAT;
 	req.offset = offset;
 	req.payload.data[0] = value;
-	return mhl_send_msc_command(&req);
+	mhl_msc_sched_work(&req);
+	return 0;
 }
 
 static int mhl_msc_send_msc_msg(u8 sub_cmd, u8 cmd_data)
@@ -1148,7 +1209,8 @@ static int mhl_msc_send_msc_msg(u8 sub_cmd, u8 cmd_data)
 	req.command = MHL_MSC_MSG;
 	req.payload.data[0] = sub_cmd;
 	req.payload.data[1] = cmd_data;
-	return mhl_send_msc_command(&req);
+	mhl_msc_sched_work(&req);
+	return 0;
 }
 
 static int mhl_msc_read_devcap(u8 offset)
@@ -1159,7 +1221,8 @@ static int mhl_msc_read_devcap(u8 offset)
 	req.command = MHL_READ_DEVCAP;
 	req.offset = offset;
 	req.payload.data[0] = 0;
-	return mhl_send_msc_command(&req);
+	mhl_msc_sched_work(&req);
+	return 0;
 }
 
 static int mhl_msc_read_devcap_all(void)
@@ -1169,8 +1232,11 @@ static int mhl_msc_read_devcap_all(void)
 
 	for (offset = 0; offset < DEVCAP_SIZE; offset++) {
 		ret = mhl_msc_read_devcap(offset);
-		if (ret == -EBUSY)
+		msleep(200);
+		if (ret == -EFAULT) {
 			pr_err("%s: queue busy!\n", __func__);
+			return -EBUSY;
+		}
 	}
 
 	return 0;
@@ -1303,7 +1369,10 @@ static int mhl_msc_recv_set_int(u8 offset, u8 set_int)
 		/* DCAP_CHG */
 		if (set_int & MHL_INT_DCAP_CHG) {
 			/* peer dcap has changed */
-			mhl_msc_read_devcap_all();
+			if (mhl_msc_read_devcap_all() == -EBUSY) {
+				pr_err("READ DEVCAP FAILED to send successfully\n");
+				break;
+			}
 		}
 		/* DSCR_CHG */
 		if (set_int & MHL_INT_DSCR_CHG)
@@ -1344,10 +1413,19 @@ static int mhl_msc_recv_write_stat(u8 offset, u8 value)
 		/*
 		 * Connected Device bits changed and DEVCAP READY
 		 */
+		pr_debug("MHL: value [0x%02x]\n", value);
+		pr_debug("MHL: offset [0x%02x]\n", offset);
+		pr_debug("MHL: devcap state [0x%02x]\n",
+			mhl_msm_state->devcap_state);
+		pr_debug("MHL: MHL_STATUS_DCAP_RDY [0x%02x]\n",
+			MHL_STATUS_DCAP_RDY);
 		if (((value ^ mhl_msm_state->devcap_state) &
 			MHL_STATUS_DCAP_RDY)) {
 			if (value & MHL_STATUS_DCAP_RDY) {
-				mhl_msc_read_devcap_all();
+				if (mhl_msc_read_devcap_all() == -EBUSY) {
+					pr_err("READ DEVCAP FAILED to send successfully\n");
+					break;
+				}
 			} else {
 				/* peer dcap turned not ready */
 				/*
