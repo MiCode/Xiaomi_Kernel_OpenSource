@@ -71,6 +71,11 @@ static struct vreg_range nldo1200_ranges[] = {
 	VOLTAGE_RANGE( 750000, 1537500, 12500),
 };
 
+static struct vreg_range ln_ldo_ranges[] = {
+	VOLTAGE_RANGE( 690000, 1110000,  60000),
+	VOLTAGE_RANGE(1380000, 2220000, 120000),
+};
+
 static struct vreg_range smps_ranges[] = {
 	VOLTAGE_RANGE( 375000,  737500, 12500),
 	VOLTAGE_RANGE( 750000, 1487500, 12500),
@@ -90,6 +95,7 @@ static struct vreg_range corner_ranges[] = {
 static struct vreg_set_points pldo_set_points = SET_POINTS(pldo_ranges);
 static struct vreg_set_points nldo_set_points = SET_POINTS(nldo_ranges);
 static struct vreg_set_points nldo1200_set_points = SET_POINTS(nldo1200_ranges);
+static struct vreg_set_points ln_ldo_set_points = SET_POINTS(ln_ldo_ranges);
 static struct vreg_set_points smps_set_points = SET_POINTS(smps_ranges);
 static struct vreg_set_points ftsmps_set_points = SET_POINTS(ftsmps_ranges);
 static struct vreg_set_points corner_set_points = SET_POINTS(corner_ranges);
@@ -98,6 +104,7 @@ static struct vreg_set_points *all_set_points[] = {
 	&pldo_set_points,
 	&nldo_set_points,
 	&nldo1200_set_points,
+	&ln_ldo_set_points,
 	&smps_set_points,
 	&ftsmps_set_points,
 	&corner_set_points,
@@ -173,6 +180,7 @@ static struct vreg vregs[] = {
 	LDO(L10,  "8038_l10",  "8038_l10_pc", pldo,     LDO_600,  0),
 	LDO(L11,  "8038_l11",  "8038_l11_pc", pldo,     LDO_600,  0),
 	LDO(L12,  "8038_l12",  "8038_l12_pc", nldo,     LDO_300,  1),
+	LDO(L13,  "8038_l13",  NULL,          ln_ldo,   LDO_5,    0),
 	LDO(L14,  "8038_l14",  "8038_l14_pc", pldo,     LDO_50,   0),
 	LDO(L15,  "8038_l15",  "8038_l15_pc", pldo,     LDO_150,  0),
 	LDO(L16,  "8038_l16",  NULL,          nldo1200, LDO_1200, 1),
@@ -184,6 +192,7 @@ static struct vreg vregs[] = {
 	LDO(L22,  "8038_l22",  "8038_l22_pc", pldo,     LDO_50,   0),
 	LDO(L23,  "8038_l23",  "8038_l23_pc", pldo,     LDO_50,   0),
 	LDO(L24,  "8038_l24",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(L25,  "8038_l25",  NULL,          ln_ldo,   LDO_5,    0),
 	LDO(L26,  "8038_l26",  "8038_l26_pc", nldo,     LDO_150,  1),
 	LDO(L27,  "8038_l27",  NULL,          nldo1200, LDO_1200, 1),
 
@@ -237,8 +246,12 @@ static int pc_id_to_real_id(int id)
 {
 	int real_id = 0;
 
-	if (id >= RPM_VREG_ID_PM8038_L2_PC && id <= RPM_VREG_ID_PM8038_L15_PC)
+	if (id >= RPM_VREG_ID_PM8038_L2_PC && id <= RPM_VREG_ID_PM8038_L12_PC)
 		real_id = id - RPM_VREG_ID_PM8038_L2_PC;
+	else if (id >= RPM_VREG_ID_PM8038_L14_PC
+			&& id <= RPM_VREG_ID_PM8038_L15_PC)
+		real_id = id - RPM_VREG_ID_PM8038_L14_PC
+				+ RPM_VREG_ID_PM8038_L14;
 	else if (id >= RPM_VREG_ID_PM8038_L17_PC
 			&& id <= RPM_VREG_ID_PM8038_L18_PC)
 		real_id = id - RPM_VREG_ID_PM8038_L17_PC
