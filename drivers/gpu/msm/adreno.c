@@ -111,7 +111,7 @@ static struct adreno_device device_3d0 = {
 	.gmem_size = SZ_256K,
 	.pfp_fw = NULL,
 	.pm4_fw = NULL,
-	.wait_timeout = 10000, /* in milliseconds */
+	.wait_timeout = 0, /* in milliseconds, 0 means disabled */
 	.ib_check_level = 0,
 };
 
@@ -2197,12 +2197,11 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int retries = 0;
-	unsigned int msecs_first;
-	unsigned int msecs_part = KGSL_TIMEOUT_PART;
 	unsigned int ts_issued;
 	unsigned int context_id = _get_context_id(context);
 	unsigned int time_elapsed = 0;
 	unsigned int prev_reg_val[hang_detect_regs_count];
+	unsigned int wait;
 
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
@@ -2220,11 +2219,18 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		goto done;
 	}
 
-	/* Keep the first timeout as 100msecs before rewriting
-	 * the WPTR. Less visible impact if the WPTR has not
-	 * been updated properly.
+	/*
+	 * Make the first timeout interval 100 msecs and then try to kick the
+	 * wptr again.  This helps to ensure the wptr is updated properly.  If
+	 * the requested timeout is less than 100 msecs, then wait 20msecs which
+	 * is the minimum amount of time we can safely wait at 100HZ
 	 */
-	msecs_first = (msecs <= 100) ? ((msecs + 4) / 5) : 100;
+
+	if (msecs == 0 || msecs >= 100)
+		wait = 100;
+	else
+		wait = 20;
+
 	do {
 		/*
 		 * If the context ID is invalid, we are in a race with
@@ -2263,8 +2269,8 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 				device->wait_queue,
 				kgsl_check_interrupt_timestamp(device,
 					context, timestamp),
-				msecs_to_jiffies(retries ?
-					msecs_part : msecs_first), io);
+				msecs_to_jiffies(wait), io);
+
 		mutex_lock(&device->mutex);
 
 		if (status > 0) {
@@ -2277,11 +2283,12 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		}
 		/*this wait timed out*/
 
-		time_elapsed = time_elapsed +
-				(retries ? msecs_part : msecs_first);
+		time_elapsed += wait;
+		wait = KGSL_TIMEOUT_PART;
+
 		retries++;
 
-	} while (time_elapsed < msecs);
+	} while (!msecs || time_elapsed < msecs);
 
 hang_dump:
 	/*
