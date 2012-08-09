@@ -518,7 +518,7 @@ static void __iomem *virt_bases[N_BASES];
 		.freq_hz = (f), \
 		.src_clk = &s##_clk_src.c, \
 		.m_val = (m), \
-		.n_val = ~((n)-(m)), \
+		.n_val = ~((n)-(m)) * !!(n), \
 		.d_val = ~(n),\
 		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
 			| BVAL(10, 8, s##_source_val), \
@@ -529,7 +529,7 @@ static void __iomem *virt_bases[N_BASES];
 		.freq_hz = (f), \
 		.src_clk = &s##_clk_src.c, \
 		.m_val = (m), \
-		.n_val = ~((n)-(m)), \
+		.n_val = ~((n)-(m)) * !!(n), \
 		.d_val = ~(n),\
 		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
 			| BVAL(10, 8, s##_mm_source_val), \
@@ -539,7 +539,7 @@ static void __iomem *virt_bases[N_BASES];
 	{ \
 		.freq_hz = (f), \
 		.m_val = (m), \
-		.n_val = ~((n)-(m)), \
+		.n_val = ~((n)-(m)) * !!(n), \
 		.d_val = ~(n),\
 		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
 			| BVAL(10, 8, s##_mm_source_val), \
@@ -550,7 +550,7 @@ static void __iomem *virt_bases[N_BASES];
 		.freq_hz = (f), \
 		.src_clk = &s##_clk_src.c, \
 		.m_val = (m), \
-		.n_val = ~((n)-(m)), \
+		.n_val = ~((n)-(m)) * !!(n), \
 		.d_val = ~(n),\
 		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
 			| BVAL(10, 8, s##_hsic_source_val), \
@@ -561,7 +561,7 @@ static void __iomem *virt_bases[N_BASES];
 		.freq_hz = (f), \
 		.src_clk = &s##_clk_src.c, \
 		.m_val = (m), \
-		.n_val = ~((n)-(m)), \
+		.n_val = ~((n)-(m)) * !!(n), \
 		.d_val = ~(n),\
 		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
 			| BVAL(10, 8, s##_lpass_source_val), \
@@ -3744,17 +3744,6 @@ static struct branch_clk mmss_misc_ahb_clk = {
 	},
 };
 
-static struct branch_clk mmss_mmssnoc_ahb_clk = {
-	.cbcr_reg = MMSS_MMSSNOC_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "mmss_mmssnoc_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(mmss_mmssnoc_ahb_clk.c),
-	},
-};
-
 static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
 	.cbcr_reg = MMSS_MMSSNOC_BTO_AHB_CBCR,
 	.has_sibling = 1,
@@ -4436,7 +4425,6 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_sdcc2_ahb_clk.c,			GCC_BASE, 0x0071},
 	{&gcc_ocmem_noc_cfg_ahb_clk.c,		GCC_BASE, 0x0029},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0138},
-	{&mmss_mmssnoc_ahb_clk.c,		MMSS_BASE, 0x0001},
 	{&mmss_mmssnoc_axi_clk.c,		MMSS_BASE, 0x0004},
 	{&ocmemnoc_clk.c,			MMSS_BASE, 0x0007},
 	{&ocmemcx_ocmemnoc_clk.c,		MMSS_BASE, 0x0009},
@@ -4863,7 +4851,6 @@ static struct clk_lookup msm_clocks_8974[] = {
 
 	/* Multimedia clocks */
 	CLK_LOOKUP("bus_clk_src", axi_clk_src.c, ""),
-	CLK_LOOKUP("bus_clk", mmss_mmssnoc_ahb_clk.c, ""),
 	CLK_LOOKUP("bus_clk", mmss_mmssnoc_axi_clk.c, ""),
 	CLK_LOOKUP("core_clk", mdss_edpaux_clk.c, ""),
 	CLK_LOOKUP("core_clk", mdss_edppixel_clk.c, ""),
@@ -5231,6 +5218,7 @@ static struct pll_config lpapll0_config __initdata = {
 };
 
 #define PLL_AUX_OUTPUT_BIT 1
+#define PLL_AUX2_OUTPUT_BIT 2
 
 static void __init reg_init(void)
 {
@@ -5249,9 +5237,9 @@ static void __init reg_init(void)
 	configure_pll(&mmpll3_config, &mmpll3_regs, 0);
 	configure_pll(&lpapll0_config, &lpapll0_regs, 1);
 
-	/* Active GPLL0's aux output. This is needed by acpuclock. */
+	/* Enable GPLL0's aux outputs. */
 	regval = readl_relaxed(GCC_REG_BASE(GPLL0_USER_CTL_REG));
-	regval |= BIT(PLL_AUX_OUTPUT_BIT);
+	regval |= BIT(PLL_AUX_OUTPUT_BIT) | BIT(PLL_AUX2_OUTPUT_BIT);
 	writel_relaxed(regval, GCC_REG_BASE(GPLL0_USER_CTL_REG));
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
