@@ -91,6 +91,7 @@
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x1700 0x300>;
 			status = "disabled";
+			qcom,force-type = <0x1c 0x08>;
 
 			qcom,ctl@1700 {
 				reg = <0x1700 0x100>;
@@ -131,6 +132,7 @@
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x1d00 0x300>;
 			status = "disabled";
+			qcom,force-type = <0x1c 0x08>;
 
 			qcom,ctl@1d00 {
 				reg = <0x1d00 0x100>;
@@ -151,6 +153,7 @@
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x2000 0x300>;
 			status = "disabled";
+			qcom,force-type = <0x1c 0x08>;
 
 			qcom,ctl@0 {
 				reg = <0x2000 0x100>;
@@ -171,6 +174,7 @@
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x2300 0x300>;
 			status = "disabled";
+			qcom,force-type = <0x1c 0x08>;
 
 			qcom,ctl@2300 {
 				reg = <0x2300 0x100>;
@@ -191,6 +195,7 @@
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x2600 0x300>;
 			status = "disabled";
+			qcom,force-type = <0x1c 0x08>;
 
 			qcom,ctl@2600 {
 				reg = <0x2600 0x100>;
@@ -211,6 +216,7 @@
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x2900 0x300>;
 			status = "disabled";
+			qcom,force-type = <0x1c 0x08>;
 
 			qcom,ctl@2900 {
 				reg = <0x2900 0x100>;
