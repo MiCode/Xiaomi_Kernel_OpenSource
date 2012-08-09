@@ -485,6 +485,7 @@ static void __iomem *virt_bases[N_BASES];
 #define OCMEMNOC_CBCR                            0x50B4
 #define LPASS_Q6SS_AHB_LFABIF_CBCR               0x22000
 #define LPASS_Q6SS_XO_CBCR                       0x26000
+#define Q6SS_AHBM_CBCR				 0x22004
 #define MSS_XO_Q6_CBCR                           0x108C
 #define MSS_BUS_Q6_CBCR                          0x10A4
 #define MSS_CFG_AHB_CBCR                         0x0280
@@ -4315,6 +4316,17 @@ static struct branch_clk q6ss_xo_clk = {
 	},
 };
 
+static struct branch_clk q6ss_ahbm_clk = {
+	.cbcr_reg = Q6SS_AHBM_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[LPASS_BASE],
+	.c = {
+		.dbg_name = "q6ss_ahbm_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(q6ss_ahbm_clk.c),
+	},
+};
+
 static struct branch_clk mss_xo_q6_clk = {
 	.cbcr_reg = MSS_XO_Q6_CBCR,
 	.bcr_reg = MSS_Q6SS_BCR,
@@ -4505,6 +4517,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&audio_core_slimbus_lfabif_clk.c,	LPASS_BASE, 0x003e},
 	{&q6ss_xo_clk.c,			LPASS_BASE, 0x002b},
 	{&q6ss_ahb_lfabif_clk.c,		LPASS_BASE, 0x001e},
+	{&q6ss_ahbm_clk.c,			LPASS_BASE, 0x001d},
 	{&mss_bus_q6_clk.c,			MSS_BASE, 0x003c},
 	{&mss_xo_q6_clk.c,			MSS_BASE, 0x0007},
 
@@ -4992,6 +5005,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c, "pil-q6v5-mss"),
 	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c, "pil-q6v5-lpass"),
 	CLK_LOOKUP("bus_clk",  q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
+	CLK_LOOKUP("reg_clk",        q6ss_ahbm_clk.c, "pil-q6v5-lpass"),
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
