@@ -111,6 +111,13 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 		dai_data->port_config.hdmi_multi_ch.channel_allocation =
 				channel_allocation;
 		break;
+	case 8:
+		channel_allocation  = 0x1F;
+		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_8,
+				channel_allocation, level_shift, down_mix);
+		dai_data->port_config.hdmi_multi_ch.channel_allocation =
+				channel_allocation;
+		break;
 	default:
 		dev_err(dai->dev, "invalid Channels = %u\n",
 				dai_data->channels);
