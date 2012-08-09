@@ -25,4 +25,12 @@
 			status = "ok";
 		};
 	};
+
+	serial@f991f000 {
+		status = "ok";
+	};
+
+	serial@f995e000 {
+		status = "ok";
+	};
 };
