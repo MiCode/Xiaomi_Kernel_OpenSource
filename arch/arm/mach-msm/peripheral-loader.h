@@ -40,6 +40,7 @@ struct pil_desc {
 /**
  * struct pil_reset_ops - PIL operations
  * @init_image: prepare an image for authentication
+ * @mem_setup: prepare the image memory region
  * @verify_blob: authenticate a program segment, called once for each loadable
  *		 program segment (optional)
  * @proxy_vote: make proxy votes before auth_and_reset (optional)
@@ -50,6 +51,7 @@ struct pil_desc {
 struct pil_reset_ops {
 	int (*init_image)(struct pil_desc *pil, const u8 *metadata,
 			  size_t size);
+	int (*mem_setup)(struct pil_desc *pil, phys_addr_t addr, size_t size);
 	int (*verify_blob)(struct pil_desc *pil, u32 phy_addr, size_t size);
 	int (*proxy_vote)(struct pil_desc *pil);
 	int (*auth_and_reset)(struct pil_desc *pil);
