@@ -936,7 +936,9 @@ u32 ddl_allocate_enc_hw_buffers(struct ddl_client_context *ddl)
 				goto fail_enc_free_exit;
 		}
 		if (buf_size.sz_pred > 0) {
-			enc_bufs->pred.mem_type = DDL_FW_MEM;
+			enc_bufs->pred.mem_type =
+				res_trk_check_for_sec_session() ?
+				DDL_MM_MEM : DDL_FW_MEM;
 			ptr = ddl_pmem_alloc(&enc_bufs->pred,
 				buf_size.sz_pred, DDL_KILO_BYTE(2));
 			if (!ptr)
