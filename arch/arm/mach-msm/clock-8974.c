@@ -3759,8 +3759,7 @@ static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
 static struct branch_clk mmss_mmssnoc_axi_clk = {
 	.cbcr_reg = MMSS_MMSSNOC_AXI_CBCR,
 	.parent = &axi_clk_src.c,
-	/* The bus driver needs set_rate to go through to the parent */
-	.has_sibling = 0,
+	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "mmss_mmssnoc_axi_clk",
@@ -3772,12 +3771,14 @@ static struct branch_clk mmss_mmssnoc_axi_clk = {
 static struct branch_clk mmss_s0_axi_clk = {
 	.cbcr_reg = MMSS_S0_AXI_CBCR,
 	.parent = &axi_clk_src.c,
-	.has_sibling = 1,
+	/* The bus driver needs set_rate to go through to the parent */
+	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "mmss_s0_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_s0_axi_clk.c),
+		.depends = &mmss_mmssnoc_axi_clk.c,
 	},
 };
 
@@ -5036,8 +5037,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("ocmem_a_clk", ocmemgx_msmbus_a_clk.c, "msm_bus"),
 	CLK_LOOKUP("bus_clk",	ocmemnoc_clk.c,		"msm_ocmem_noc"),
 	CLK_LOOKUP("bus_a_clk",	ocmemnoc_clk.c,		"msm_ocmem_noc"),
-	CLK_LOOKUP("bus_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
-	CLK_LOOKUP("bus_a_clk",	mmss_mmssnoc_axi_clk.c,	"msm_mmss_noc"),
+	CLK_LOOKUP("bus_clk",	mmss_s0_axi_clk.c,	"msm_mmss_noc"),
+	CLK_LOOKUP("bus_a_clk",	mmss_s0_axi_clk.c,	"msm_mmss_noc"),
 	CLK_LOOKUP("iface_clk", gcc_mmss_noc_cfg_ahb_clk.c, ""),
 	CLK_LOOKUP("iface_clk", gcc_ocmem_noc_cfg_ahb_clk.c, ""),
 
