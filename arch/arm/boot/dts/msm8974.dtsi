@@ -1016,8 +1016,6 @@
 		vdd-supply = <&gdsc_venus>;
 
 		qcom,firmware-name = "venus";
-		qcom,firmware-min-paddr = <0xF500000>;
-		qcom,firmware-max-paddr = <0xFA00000>;
 	};
 
 	qcom,cache_erp {
