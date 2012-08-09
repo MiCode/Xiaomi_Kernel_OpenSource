@@ -463,8 +463,6 @@ void __init msm_8974_init_irq(void)
 }
 
 static struct of_dev_auxdata msm_8974_auxdata_lookup[] __initdata = {
-	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
-			"msm_serial_hsl.0", NULL),
 	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
 			"msm_otg", NULL),
 	OF_DEV_AUXDATA("qcom,dwc-usb3-msm", 0xF9200000, \
