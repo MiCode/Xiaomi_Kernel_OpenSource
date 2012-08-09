@@ -30,6 +30,7 @@
 #define QDSP6SS_RESET			0x014
 #define QDSP6SS_GFMUX_CTL		0x020
 #define QDSP6SS_PWR_CTL			0x030
+#define QDSP6SS_CGC_OVERRIDE		0x034
 
 /* AXI Halt Register Offsets */
 #define AXI_HALTREQ			0x0
@@ -54,6 +55,10 @@
 #define Q6SS_SLP_RET_N			BIT(19)
 #define Q6SS_CLAMP_IO			BIT(20)
 #define QDSS_BHS_ON			BIT(21)
+
+/* QDSP6SS_CGC_OVERRIDE */
+#define Q6SS_CORE_CLK_EN		BIT(0)
+#define Q6SS_CORE_RCLK_EN		BIT(1)
 
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 {
@@ -213,6 +218,11 @@ int pil_q6v5_reset(struct pil_desc *pil)
 	/* Bring core out of reset */
 	val = Q6SS_STOP_CORE;
 	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
+
+	/* Disable clock gating for core and rclk */
+	val = readl_relaxed(drv->reg_base + QDSP6SS_CGC_OVERRIDE);
+	val |= Q6SS_CORE_RCLK_EN | Q6SS_CORE_CLK_EN;
+	writel_relaxed(val, drv->reg_base + QDSP6SS_CGC_OVERRIDE);
 
 	/* Turn on core clock */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_GFMUX_CTL);
