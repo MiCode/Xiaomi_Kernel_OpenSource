@@ -3397,7 +3397,7 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 
 static int __init msm_otg_probe(struct platform_device *pdev)
 {
-	int ret = 0;
+	int ret = 0, disable_lpm = 0;
 	struct resource *res;
 	struct msm_otg *motg;
 	struct usb_phy *phy;
@@ -3415,6 +3415,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "devices setup failed\n");
 			return ret;
 		}
+		/* LPM not supported on targets using DT */
+		disable_lpm = 1;
 	} else if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
 		return -ENODEV;
@@ -3670,7 +3672,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	wake_lock(&motg->wlock);
 	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
+	if (!disable_lpm)
+		pm_runtime_enable(&pdev->dev);
 
 	if (motg->pdata->bus_scale_table) {
 		motg->bus_perf_client =
