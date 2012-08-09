@@ -76,11 +76,13 @@ Optional properties:
 					1 = 0.25 uA
 					2 = 0.55 uA
 					3 = 0.75 uA
-
-- spmi-dev-container:	This specifies that all the device nodes specified
-	within this node should have their resources coalesced into a single
-	spmi_device.  This is used to specify all SPMI peripherals that
-	logically make up a single regulator device.
+- qcom,force-type: 	       Override the type and subtype register values. Useful for some
+				regulators that have invalid types advertised by the hardware.
+				The format is two unsigned integers of the form <type subtype>.
+- spmi-dev-container:	       Specifies that all the device nodes specified
+				within this node should have their resources coalesced into a
+				single spmi_device.  This is used to specify all SPMI peripherals
+				that logically make up a single regulator device.
 
 Note, if a given optional qcom,* binding is not present, then the qpnp-regulator
 driver will leave that feature in the default hardware state.
