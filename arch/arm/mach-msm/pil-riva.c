@@ -13,7 +13,6 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/io.h>
-#include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -83,7 +82,6 @@
 
 struct riva_data {
 	void __iomem *base;
-	unsigned long start_addr;
 	struct clk *xo;
 	struct regulator *pll_supply;
 	struct pil_desc pil_desc;
@@ -132,21 +130,12 @@ static void pil_riva_remove_proxy_vote(struct pil_desc *pil)
 	clk_disable_unprepare(drv->xo);
 }
 
-static int pil_riva_init_image(struct pil_desc *pil, const u8 *metadata,
-		size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct riva_data *drv = dev_get_drvdata(pil->dev);
-	drv->start_addr = ehdr->e_entry;
-	return 0;
-}
-
 static int pil_riva_reset(struct pil_desc *pil)
 {
 	u32 reg, sel;
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
-	unsigned long start_addr = drv->start_addr;
+	unsigned long start_addr = pil_get_entry_addr(pil);
 	bool use_cxo = cxo_is_needed(drv);
 
 	/* Enable A2XB bridge */
@@ -253,7 +242,6 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 }
 
 static struct pil_reset_ops pil_riva_ops = {
-	.init_image = pil_riva_init_image,
 	.auth_and_reset = pil_riva_reset,
 	.shutdown = pil_riva_shutdown,
 	.proxy_vote = pil_riva_make_proxy_vote,

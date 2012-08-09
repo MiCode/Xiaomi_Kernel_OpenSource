@@ -35,7 +35,6 @@ struct regulator;
 struct q6v4_data {
 	void __iomem *base;
 	void __iomem *wdog_base;
-	unsigned long start_addr;
 	unsigned long strap_tcm_base;
 	unsigned long strap_ahb_upper;
 	unsigned long strap_ahb_lower;
@@ -55,8 +54,6 @@ struct q6v4_data {
 
 #define pil_to_q6v4_data(p) container_of(p, struct q6v4_data, desc)
 
-extern int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
-		size_t size);
 extern int pil_q6v4_make_proxy_votes(struct pil_desc *pil);
 extern void pil_q6v4_remove_proxy_votes(struct pil_desc *pil);
 extern int pil_q6v4_power_up(struct q6v4_data *drv);

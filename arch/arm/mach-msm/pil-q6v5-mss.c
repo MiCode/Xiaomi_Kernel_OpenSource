@@ -17,7 +17,6 @@
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/ioport.h>
-#include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/clk.h>
@@ -207,6 +206,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	struct platform_device *pdev = to_platform_device(pil->dev);
 	struct mba_data *mba = platform_get_drvdata(pdev);
+	unsigned long start_addr = pil_get_entry_addr(pil);
 	int ret;
 
 	/* Deassert reset to subsystem and wait for propagation */
@@ -228,11 +228,11 @@ static int pil_mss_reset(struct pil_desc *pil)
 
 	/* Program Image Address */
 	if (mba->self_auth) {
-		writel_relaxed(drv->start_addr, mba->rmb_base + RMB_MBA_IMAGE);
+		writel_relaxed(start_addr, mba->rmb_base + RMB_MBA_IMAGE);
 		/* Ensure write to RMB base occurs before reset is released. */
 		mb();
 	} else {
-		writel_relaxed((drv->start_addr >> 4) & 0x0FFFFFF0,
+		writel_relaxed((start_addr >> 4) & 0x0FFFFFF0,
 				drv->reg_base + QDSP6SS_RST_EVB);
 	}
 
@@ -262,7 +262,6 @@ err_power:
 }
 
 static struct pil_reset_ops pil_mss_ops = {
-	.init_image = pil_q6v5_init_image,
 	.proxy_vote = pil_q6v5_make_proxy_votes,
 	.proxy_unvote = pil_q6v5_remove_proxy_votes,
 	.auth_and_reset = pil_mss_reset,

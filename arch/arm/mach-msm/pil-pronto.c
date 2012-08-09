@@ -13,7 +13,6 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/io.h>
-#include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -72,7 +71,6 @@ struct pronto_data {
 	void __iomem *base;
 	void __iomem *reset_base;
 	void __iomem *axi_halt_base;
-	unsigned long start_addr;
 	struct pil_device *pil;
 	struct pil_desc desc;
 	struct subsys_device *subsys;
@@ -114,22 +112,13 @@ static void pil_pronto_remove_proxy_vote(struct pil_desc *pil)
 	clk_disable_unprepare(drv->cxo);
 }
 
-static int pil_pronto_init_image(struct pil_desc *pil, const u8 *metadata,
-		size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct pronto_data *drv = dev_get_drvdata(pil->dev);
-	drv->start_addr = ehdr->e_entry;
-	return 0;
-}
-
 static int pil_pronto_reset(struct pil_desc *pil)
 {
 	u32 reg;
 	int rc;
 	struct pronto_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
-	unsigned long start_addr = drv->start_addr;
+	unsigned long start_addr = pil_get_entry_addr(pil);
 
 	/* Deassert reset to subsystem and wait for propagation */
 	reg = readl_relaxed(drv->reset_base);
@@ -232,7 +221,6 @@ static int pil_pronto_shutdown(struct pil_desc *pil)
 }
 
 static struct pil_reset_ops pil_pronto_ops = {
-	.init_image = pil_pronto_init_image,
 	.auth_and_reset = pil_pronto_reset,
 	.shutdown = pil_pronto_shutdown,
 	.proxy_vote = pil_pronto_make_proxy_vote,
