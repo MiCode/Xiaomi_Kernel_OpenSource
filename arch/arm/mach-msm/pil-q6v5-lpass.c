@@ -118,6 +118,7 @@ static int pil_lpass_shutdown(struct pil_desc *pil)
 static int pil_lpass_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	unsigned long start_addr = pil_get_entry_addr(pil);
 	int ret;
 
 	ret = pil_lpass_enable_clks(drv);
@@ -125,7 +126,7 @@ static int pil_lpass_reset(struct pil_desc *pil)
 		return ret;
 
 	/* Program Image Address */
-	writel_relaxed(((drv->start_addr >> 4) & 0x0FFFFFF0),
+	writel_relaxed((start_addr >> 4) & 0x0FFFFFF0,
 				drv->reg_base + QDSP6SS_RST_EVB);
 
 	ret = pil_q6v5_reset(pil);
@@ -140,7 +141,6 @@ static int pil_lpass_reset(struct pil_desc *pil)
 }
 
 static struct pil_reset_ops pil_lpass_ops = {
-	.init_image = pil_q6v5_init_image,
 	.proxy_vote = pil_q6v5_make_proxy_votes,
 	.proxy_unvote = pil_q6v5_remove_proxy_votes,
 	.auth_and_reset = pil_lpass_reset,

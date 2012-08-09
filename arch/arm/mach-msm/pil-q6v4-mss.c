@@ -122,7 +122,6 @@ static int pil_q6v4_modem_shutdown(struct pil_desc *pil)
 }
 
 static struct pil_reset_ops pil_q6v4_modem_ops = {
-	.init_image = pil_q6v4_init_image,
 	.auth_and_reset = pil_q6v4_modem_boot,
 	.shutdown = pil_q6v4_modem_shutdown,
 	.proxy_vote = pil_q6v4_make_proxy_votes,

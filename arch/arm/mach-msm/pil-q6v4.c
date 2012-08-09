@@ -16,7 +16,6 @@
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/regulator/consumer.h>
-#include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
@@ -51,16 +50,6 @@
 
 #define Q6SS_CLK_ENA		BIT(1)
 #define Q6SS_SRC_SWITCH_CLK_OVR	BIT(8)
-
-int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
-		size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct q6v4_data *drv = pil_to_q6v4_data(pil);
-	drv->start_addr = ehdr->e_entry;
-	return 0;
-}
-EXPORT_SYMBOL(pil_q6v4_init_image);
 
 int pil_q6v4_make_proxy_votes(struct pil_desc *pil)
 {
@@ -141,6 +130,7 @@ int pil_q6v4_boot(struct pil_desc *pil)
 {
 	u32 reg, err;
 	const struct q6v4_data *drv = pil_to_q6v4_data(pil);
+	unsigned long start_addr = pil_get_entry_addr(pil);
 
 	/* Enable Q6 ACLK */
 	writel_relaxed(0x10, drv->aclk_reg);
@@ -156,7 +146,7 @@ int pil_q6v4_boot(struct pil_desc *pil)
 	writel_relaxed(reg, drv->base + QDSP6SS_RESET);
 
 	/* Program boot address */
-	writel_relaxed((drv->start_addr >> 8) & 0xFFFFFF,
+	writel_relaxed((start_addr >> 8) & 0xFFFFFF,
 			drv->base + QDSP6SS_RST_EVB);
 
 	/* Program TCM and AHB address ranges */

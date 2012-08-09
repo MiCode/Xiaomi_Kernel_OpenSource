@@ -23,6 +23,7 @@ struct pil_priv;
  * @ops: callback functions
  * @owner: module the descriptor belongs to
  * @proxy_timeout: delay in ms until proxy vote is removed
+ * @flags: bitfield for image flags
  * @priv: DON'T USE - internal only
  */
 struct pil_desc {
@@ -31,6 +32,8 @@ struct pil_desc {
 	const struct pil_reset_ops *ops;
 	struct module *owner;
 	unsigned long proxy_timeout;
+	unsigned long flags;
+#define PIL_SKIP_ENTRY_CHECK	BIT(0)
 	struct pil_priv *priv;
 };
 
@@ -59,11 +62,16 @@ extern int pil_desc_init(struct pil_desc *desc);
 extern int pil_boot(struct pil_desc *desc);
 extern void pil_shutdown(struct pil_desc *desc);
 extern void pil_desc_release(struct pil_desc *desc);
+extern phys_addr_t pil_get_entry_addr(struct pil_desc *desc);
 #else
 static inline int pil_desc_init(struct pil_desc *desc) { return 0; }
 static inline int pil_boot(struct pil_desc *desc) { return 0; }
 static inline void pil_shutdown(struct pil_desc *desc) { }
 static inline void pil_desc_release(struct pil_desc *desc) { }
+static inline phys_addr_t pil_get_entry_addr(struct pil_desc *desc)
+{
+	return 0;
+}
 #endif
 
 #endif

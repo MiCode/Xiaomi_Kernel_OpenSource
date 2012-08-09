@@ -13,7 +13,6 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/io.h>
-#include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -186,11 +185,9 @@ static void pil_venus_remove_proxy_vote(struct pil_desc *pil)
 static int pil_venus_init_image(struct pil_desc *pil, const u8 *metadata,
 		size_t size)
 {
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	struct venus_data *drv = dev_get_drvdata(pil->dev);
 
-	drv->start_addr = ehdr->e_entry;
-
+	drv->start_addr = pil_get_entry_addr(pil);
 	if (drv->start_addr < drv->fw_min_paddr ||
 	    drv->start_addr >= drv->fw_max_paddr) {
 		dev_err(pil->dev, "fw start addr is not within valid range\n");
