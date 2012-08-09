@@ -40,15 +40,15 @@
 #define HALT_ACK_TIMEOUT_US		100000
 
 /* QDSP6SS_RESET */
+#define Q6SS_STOP_CORE			BIT(0)
 #define Q6SS_CORE_ARES			BIT(1)
-#define Q6SS_ETM_ISDB_ARES		BIT(3)
-#define Q6SS_STOP_CORE			BIT(4)
+#define Q6SS_BUS_ARES_ENA		BIT(2)
 
 /* QDSP6SS_GFMUX_CTL */
 #define Q6SS_CLK_ENA			BIT(1)
 
 /* QDSP6SS_PWR_CTL */
-#define Q6SS_L2DATA_SLP_NRET_N		BIT(0)
+#define Q6SS_L2DATA_SLP_NRET_N		(BIT(0)|BIT(1)|BIT(2))
 #define Q6SS_L2TAG_SLP_NRET_N		BIT(16)
 #define Q6SS_ETB_SLP_NRET_N		BIT(17)
 #define Q6SS_L2DATA_STBY_N		BIT(18)
@@ -179,7 +179,7 @@ void pil_q6v5_shutdown(struct pil_desc *pil)
 
 	/* Assert Q6 resets */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_RESET);
-	val = (Q6SS_CORE_ARES | Q6SS_ETM_ISDB_ARES);
+	val = (Q6SS_CORE_ARES | Q6SS_BUS_ARES_ENA);
 	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
 
 	/* Kill power at block headswitch (affects LPASS only) */
@@ -196,7 +196,7 @@ int pil_q6v5_reset(struct pil_desc *pil)
 
 	/* Assert resets, stop core */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_RESET);
-	val |= (Q6SS_CORE_ARES | Q6SS_ETM_ISDB_ARES | Q6SS_STOP_CORE);
+	val |= (Q6SS_CORE_ARES | Q6SS_BUS_ARES_ENA | Q6SS_STOP_CORE);
 	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
 
 	/* Enable power block headswitch (only affects LPASS) */
@@ -216,7 +216,8 @@ int pil_q6v5_reset(struct pil_desc *pil)
 	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
 
 	/* Bring core out of reset */
-	val = Q6SS_STOP_CORE;
+	val = readl_relaxed(drv->reg_base + QDSP6SS_RESET);
+	val &= ~Q6SS_CORE_ARES;
 	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
 
 	/* Disable clock gating for core and rclk */
