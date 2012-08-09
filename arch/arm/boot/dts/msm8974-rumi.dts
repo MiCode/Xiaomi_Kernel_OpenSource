@@ -23,8 +23,8 @@
 		clock-frequency = <5000000>;
 	};
 
-	serial@f991f000 {
-		status = "disable";
+	serial@f995e000 {
+		status = "ok";
 	};
 
 	usb@f9a55000 {
