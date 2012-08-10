@@ -7,11 +7,12 @@ shutting down the processor when it's not needed.
 
 Required properties:
 - compatible:	      Must be "qcom,pil-q6v5-mss"
-- reg:		      Four pairs of physical base addresses and region sizes of
+- reg:		      Five pairs of physical base addresses and region sizes of
 		      memory mapped registers. The first region corresponds to
 		      QDSP6SS_PUB, the second to the bus port halt register
-		      base, the third to the MSS_RELAY_MSG_BUFFER base, and the
-		      fourth to the MSS_RESTART register.
+		      base, the third to the MSS_RELAY_MSG_BUFFER base, the
+		      fourth to the MSS_RESTART register, and the fifth to the
+		      MSS_CLAMP_IO register.
 - vdd_mss-supply:     Reference to the regulator that supplies the processor.
 - qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
 - qcom,pil-self-auth: <0> if the hardware does not require self-authenticating
@@ -24,7 +25,8 @@ Example:
 		reg = <0xfc880000 0x100>,
 		      <0xfd485000 0x400>,
 		      <0xfc820000 0x020>,
-		      <0xfc401680 0x004>;
+		      <0xfc401680 0x004>,
+		      <0xfc980008 0x004>;
 		vdd_mss-supply = <&pm8841_s3>;
 
 		qcom,firmware-name = "mba";
