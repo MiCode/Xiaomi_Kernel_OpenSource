@@ -269,7 +269,11 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 
 static int set_pmic_gang_phases(int phase_count)
 {
-	return msm_spm_apcs_set_phase(phase_count);
+	/*
+	 * TODO : spm writes for phase control,
+	 * pmic phase control is not working yet
+	 */
+	return 0;
 }
 
 static int set_pmic_gang_voltage(int uV)
