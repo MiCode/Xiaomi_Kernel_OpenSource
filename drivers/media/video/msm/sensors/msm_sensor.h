@@ -156,6 +156,11 @@ struct msm_sensor_csi_info {
 	uint8_t is_csic;
 };
 
+enum msm_sensor_state {
+	MSM_SENSOR_POWER_UP,
+	MSM_SENSOR_POWER_DOWN,
+};
+
 struct msm_sensor_ctrl_t {
 	struct  msm_camera_sensor_info *sensordata;
 	struct i2c_client *msm_sensor_client;
@@ -196,6 +201,7 @@ struct msm_sensor_ctrl_t {
 	struct regulator **reg_ptr;
 	struct clk *cam_clk;
 	long clk_rate;
+	enum msm_sensor_state sensor_state;
 };
 
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl);
