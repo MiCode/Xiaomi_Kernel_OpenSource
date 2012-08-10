@@ -20,6 +20,7 @@
 #include <mach/gpiomux.h>
 
 #define BUFF_SIZE_128 128
+static int gpio_ref_count;
 
 void msm_camera_io_w(u32 data, void __iomem *addr)
 {
@@ -319,7 +320,7 @@ int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 		config_gpio_table(gpio_conf);
 
 	if (gpio_en) {
-		if (!gpio_conf->gpio_no_mux) {
+		if (!gpio_conf->gpio_no_mux && !gpio_ref_count) {
 			if (gpio_conf->cam_gpiomux_conf_tbl != NULL) {
 				msm_gpiomux_install(
 					(struct msm_gpiomux_config *)
@@ -334,6 +335,7 @@ int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 				return rc;
 			}
 		}
+		gpio_ref_count++;
 		if (gpio_conf->cam_gpio_req_tbl_size) {
 			rc = gpio_request_array(gpio_conf->cam_gpio_req_tbl,
 				gpio_conf->cam_gpio_req_tbl_size);
@@ -346,9 +348,10 @@ int msm_camera_request_gpio_table(struct msm_camera_sensor_info *sinfo,
 			}
 		}
 	} else {
+		gpio_ref_count--;
 		gpio_free_array(gpio_conf->cam_gpio_req_tbl,
 				gpio_conf->cam_gpio_req_tbl_size);
-		if (!gpio_conf->gpio_no_mux)
+		if (!gpio_conf->gpio_no_mux && !gpio_ref_count)
 			gpio_free_array(gpio_conf->cam_gpio_common_tbl,
 				gpio_conf->cam_gpio_common_tbl_size);
 	}

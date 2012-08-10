@@ -341,6 +341,8 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 	case CMD_AXI_STOP:
 		axi_stop(axi_ctrl);
 		break;
+	case CMD_AXI_RESET:
+		break;
 	default:
 		pr_err("%s Unsupported AXI configuration %x ", __func__,
 			cfgcmd.cmd_type);

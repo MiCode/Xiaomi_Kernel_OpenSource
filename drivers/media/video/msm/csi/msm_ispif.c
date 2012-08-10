@@ -586,14 +586,6 @@ static void ispif_do_tasklet(unsigned long data)
 
 		spin_lock_irqsave(&ispif_sof_lock, flags);
 		if (qcmd->ispifInterruptStatus0 &
-			ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
-			CDBG("%s: ispif PIX irq status", __func__);
-			ispif->pix_sof_count++;
-			v4l2_subdev_notify(&ispif->subdev,
-				NOTIFY_VFE_PIX_SOF_COUNT,
-				(void *)&ispif->pix_sof_count);
-		}
-		if (qcmd->ispifInterruptStatus0 &
 			ISPIF_IRQ_STATUS_RDI0_SOF_MASK) {
 			CDBG("%s: ispif RDI0 irq status", __func__);
 			ispif->rdi0_sof_count++;
@@ -633,6 +625,14 @@ static void ispif_process_irq(struct ispif_device *ispif,
 	qcmd->ispifInterruptStatus0 = out->ispifIrqStatus0;
 	qcmd->ispifInterruptStatus1 = out->ispifIrqStatus1;
 	qcmd->ispifInterruptStatus2 = out->ispifIrqStatus2;
+	if (qcmd->ispifInterruptStatus0 &
+			ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
+			CDBG("%s: ispif PIX irq status", __func__);
+			ispif->pix_sof_count++;
+			v4l2_subdev_notify(&ispif->subdev,
+				NOTIFY_VFE_PIX_SOF_COUNT,
+				(void *)&ispif->pix_sof_count);
+	}
 
 	spin_lock_irqsave(&ispif_tasklet_lock, flags);
 	list_add_tail(&qcmd->list, &ispif_tasklet_q);
