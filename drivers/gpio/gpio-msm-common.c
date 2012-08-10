@@ -23,6 +23,7 @@
 #include <linux/irqdomain.h>
 #include <linux/of.h>
 #include <linux/err.h>
+#include <linux/platform_device.h>
 
 #include <asm/mach/irq.h>
 
@@ -402,59 +403,6 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.irq_disable	= msm_gpio_irq_disable,
 };
 
-/*
- * This lock class tells lockdep that GPIO irqs are in a different
- * category than their parent, so it won't report false recursion.
- */
-static struct lock_class_key msm_gpio_lock_class;
-
-/* TODO: This should be a real platform_driver */
-static int __devinit msm_gpio_probe(void)
-{
-	int ret;
-#ifndef CONFIG_OF
-	int irq, i;
-#endif
-
-	spin_lock_init(&tlmm_lock);
-	bitmap_zero(msm_gpio.enabled_irqs, NR_MSM_GPIOS);
-	bitmap_zero(msm_gpio.wake_irqs, NR_MSM_GPIOS);
-	bitmap_zero(msm_gpio.dual_edge_irqs, NR_MSM_GPIOS);
-	ret = gpiochip_add(&msm_gpio.gpio_chip);
-	if (ret < 0)
-		return ret;
-
-#ifndef CONFIG_OF
-	for (i = 0; i < msm_gpio.gpio_chip.ngpio; ++i) {
-		irq = msm_gpio_to_irq(&msm_gpio.gpio_chip, i);
-		irq_set_lockdep_class(irq, &msm_gpio_lock_class);
-		irq_set_chip_and_handler(irq, &msm_gpio_irq_chip,
-					 handle_level_irq);
-		set_irq_flags(irq, IRQF_VALID);
-	}
-#endif
-	ret = request_irq(TLMM_MSM_SUMMARY_IRQ, msm_summary_irq_handler,
-			IRQF_TRIGGER_HIGH, "msmgpio", NULL);
-	if (ret) {
-		pr_err("Request_irq failed for TLMM_MSM_SUMMARY_IRQ - %d\n",
-				ret);
-		return ret;
-	}
-	return 0;
-}
-
-static int __devexit msm_gpio_remove(void)
-{
-	int ret = gpiochip_remove(&msm_gpio.gpio_chip);
-
-	if (ret < 0)
-		return ret;
-
-	irq_set_handler(TLMM_MSM_SUMMARY_IRQ, NULL);
-
-	return 0;
-}
-
 #ifdef CONFIG_PM
 static int msm_gpio_suspend(void)
 {
@@ -518,22 +466,6 @@ static struct syscore_ops msm_gpio_syscore_ops = {
 	.resume = msm_gpio_resume,
 };
 
-static int __init msm_gpio_init(void)
-{
-	msm_gpio_probe();
-	register_syscore_ops(&msm_gpio_syscore_ops);
-	return 0;
-}
-
-static void __exit msm_gpio_exit(void)
-{
-	unregister_syscore_ops(&msm_gpio_syscore_ops);
-	msm_gpio_remove();
-}
-
-postcore_initcall(msm_gpio_init);
-module_exit(msm_gpio_exit);
-
 static void msm_tlmm_set_field(const struct tlmm_field_cfg *configs,
 			       unsigned id, unsigned width, unsigned val)
 {
@@ -593,6 +525,89 @@ int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 	return 0;
 }
 EXPORT_SYMBOL(msm_gpio_install_direct_irq);
+
+/*
+ * This lock class tells lockdep that GPIO irqs are in a different
+ * category than their parent, so it won't report false recursion.
+ */
+static struct lock_class_key msm_gpio_lock_class;
+
+static int __devinit msm_gpio_probe(struct platform_device *pdev)
+{
+	int ret;
+#ifndef CONFIG_OF
+	int irq, i;
+#endif
+	msm_gpio.gpio_chip.dev = &pdev->dev;
+	spin_lock_init(&tlmm_lock);
+	bitmap_zero(msm_gpio.enabled_irqs, NR_MSM_GPIOS);
+	bitmap_zero(msm_gpio.wake_irqs, NR_MSM_GPIOS);
+	bitmap_zero(msm_gpio.dual_edge_irqs, NR_MSM_GPIOS);
+	ret = gpiochip_add(&msm_gpio.gpio_chip);
+	if (ret < 0)
+		return ret;
+
+#ifndef CONFIG_OF
+	for (i = 0; i < msm_gpio.gpio_chip.ngpio; ++i) {
+		irq = msm_gpio_to_irq(&msm_gpio.gpio_chip, i);
+		irq_set_lockdep_class(irq, &msm_gpio_lock_class);
+		irq_set_chip_and_handler(irq, &msm_gpio_irq_chip,
+					 handle_level_irq);
+		set_irq_flags(irq, IRQF_VALID);
+	}
+#endif
+	ret = request_irq(TLMM_MSM_SUMMARY_IRQ, msm_summary_irq_handler,
+			IRQF_TRIGGER_HIGH, "msmgpio", NULL);
+	if (ret) {
+		pr_err("Request_irq failed for TLMM_MSM_SUMMARY_IRQ - %d\n",
+				ret);
+		return ret;
+	}
+	register_syscore_ops(&msm_gpio_syscore_ops);
+	return 0;
+}
+
+#ifdef CONFIG_OF
+static struct of_device_id msm_gpio_of_match[] __devinitdata = {
+	{.compatible = "qcom,msm-gpio", },
+	{ },
+};
+#endif
+
+static int __devexit msm_gpio_remove(struct platform_device *pdev)
+{
+	int ret;
+
+	unregister_syscore_ops(&msm_gpio_syscore_ops);
+	ret = gpiochip_remove(&msm_gpio.gpio_chip);
+	if (ret < 0)
+		return ret;
+	irq_set_handler(TLMM_MSM_SUMMARY_IRQ, NULL);
+
+	return 0;
+}
+
+static struct platform_driver msm_gpio_driver = {
+	.probe = msm_gpio_probe,
+	.remove = __devexit_p(msm_gpio_remove),
+	.driver = {
+		.name = "msmgpio",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(msm_gpio_of_match),
+	},
+};
+
+static void __exit msm_gpio_exit(void)
+{
+	platform_driver_unregister(&msm_gpio_driver);
+}
+module_exit(msm_gpio_exit);
+
+static int __init msm_gpio_init(void)
+{
+	return platform_driver_register(&msm_gpio_driver);
+}
+postcore_initcall(msm_gpio_init);
 
 #ifdef CONFIG_OF
 static int msm_gpio_irq_domain_xlate(struct irq_domain *d,

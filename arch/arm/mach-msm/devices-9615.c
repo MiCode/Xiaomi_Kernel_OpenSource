@@ -1372,6 +1372,10 @@ struct platform_device msm_android_usb_hsic_device = {
 	},
 };
 
+struct platform_device msm_gpio_device = {
+	.name = "msmgpio",
+	.id = -1,
+};
 
 void __init msm9615_device_init(void)
 {
@@ -1382,7 +1386,6 @@ void __init msm9615_device_init(void)
 		msm_rpmrs_levels[0].latency_us;
 	msm_android_usb_hsic_pdata.swfi_latency =
 		msm_rpmrs_levels[0].latency_us;
-
 }
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
