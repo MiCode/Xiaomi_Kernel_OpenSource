@@ -900,6 +900,16 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 		mdp4_lcdc_pipe_queue(0, pipe);
 	}
 
+	if (mfd->use_ov0_blt != mfd->ov0_blt_state) {
+
+		if (mfd->use_ov0_blt)
+			mdp4_lcdc_do_blt(mfd, 1);
+		else
+			mdp4_lcdc_do_blt(mfd, 0);
+
+		mfd->ov0_blt_state = mfd->use_ov0_blt;
+	}
+
 	mdp4_lcdc_pipe_commit();
 
 	if (pipe->ov_blt_addr)
