@@ -385,6 +385,7 @@ static void __iomem *virt_bases[N_BASES];
 #define GP2_CBCR                                 0x1940
 #define GP3_CBCR                                 0x1980
 #define AUDIO_CORE_GDSCR			 0x7000
+#define AUDIO_CORE_IXFABRIC_CBCR		 0x1B000
 #define AUDIO_CORE_LPAIF_CODEC_SPKR_OSR_CBCR     0xA014
 #define AUDIO_CORE_LPAIF_CODEC_SPKR_IBIT_CBCR    0xA018
 #define AUDIO_CORE_LPAIF_CODEC_SPKR_EBIT_CBCR    0xA01C
@@ -4307,6 +4308,17 @@ static struct branch_clk q6ss_ahb_lfabif_clk = {
 	},
 };
 
+static struct branch_clk audio_core_ixfabric_clk = {
+	.cbcr_reg = AUDIO_CORE_IXFABRIC_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[LPASS_BASE],
+	.c = {
+		.dbg_name = "audio_core_ixfabric_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(audio_core_ixfabric_clk.c),
+	},
+};
+
 static struct branch_clk q6ss_xo_clk = {
 	.cbcr_reg = LPASS_Q6SS_XO_CBCR,
 	.bcr_reg = LPASS_Q6SS_BCR,
@@ -4521,6 +4533,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&q6ss_xo_clk.c,			LPASS_BASE, 0x002b},
 	{&q6ss_ahb_lfabif_clk.c,		LPASS_BASE, 0x001e},
 	{&q6ss_ahbm_clk.c,			LPASS_BASE, 0x001d},
+	{&audio_core_ixfabric_clk.c,		LPASS_BASE, 0x0059},
 	{&mss_bus_q6_clk.c,			MSS_BASE, 0x003c},
 	{&mss_xo_q6_clk.c,			MSS_BASE, 0x0007},
 
@@ -4966,6 +4979,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 
 
 	/* LPASS clocks */
+	CLK_LOOKUP("bus_clk", audio_core_ixfabric_clk.c, ""),
 	CLK_LOOKUP("core_clk", audio_core_slimbus_core_clk.c, "fe12f000.slim"),
 	CLK_LOOKUP("iface_clk", audio_core_slimbus_lfabif_clk.c,
 			"fe12f000.slim"),
@@ -5329,6 +5343,11 @@ static void __init msm8974_clock_post_init(void)
 	 * to remain on whenever CPUs aren't power collapsed.
 	 */
 	clk_prepare_enable(&cxo_a_clk_src.c);
+
+	/* TODO: Temporarily enable a clock to allow access to LPASS core
+	 * registers.
+	 */
+	clk_prepare_enable(&audio_core_ixfabric_clk.c);
 
 	/*
 	 * TODO: Temporarily enable NOC configuration AHB clocks. Remove when
