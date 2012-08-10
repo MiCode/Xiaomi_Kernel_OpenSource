@@ -4648,7 +4648,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&q6ss_ahb_lfabif_clk.c,		LPASS_BASE, 0x001e},
 	{&q6ss_ahbm_clk.c,			LPASS_BASE, 0x001d},
 	{&audio_core_ixfabric_clk.c,		LPASS_BASE, 0x0059},
-	{&mss_bus_q6_clk.c,			MSS_BASE, 0x003c},
+	{&mss_bus_q6_clk.c,			MSS_BASE, 0x003b},
 	{&mss_xo_q6_clk.c,			MSS_BASE, 0x0007},
 
 	{&l2_m_clk,				APCS_BASE, 0x0081},
@@ -4684,18 +4684,15 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 	clk->sample_ticks = 0x10000;
 	clk->multiplier = 1;
 
-	writel_relaxed(0, MSS_REG_BASE(MSS_DEBUG_CLK_CTL_REG));
-	writel_relaxed(0, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
-	writel_relaxed(0, MMSS_REG_BASE(MMSS_DEBUG_CLK_CTL_REG));
-	writel_relaxed(0, GCC_REG_BASE(GCC_DEBUG_CLK_CTL_REG));
-
 	switch (measure_mux[i].base) {
 
 	case GCC_BASE:
+		writel_relaxed(0, GCC_REG_BASE(GCC_DEBUG_CLK_CTL_REG));
 		clk_sel = measure_mux[i].debug_mux;
 		break;
 
 	case MMSS_BASE:
+		writel_relaxed(0, MMSS_REG_BASE(MMSS_DEBUG_CLK_CTL_REG));
 		clk_sel = 0x02C;
 		regval = BVAL(11, 0, measure_mux[i].debug_mux);
 		writel_relaxed(regval, MMSS_REG_BASE(MMSS_DEBUG_CLK_CTL_REG));
@@ -4706,6 +4703,7 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		break;
 
 	case LPASS_BASE:
+		writel_relaxed(0, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
 		clk_sel = 0x161;
 		regval = BVAL(11, 0, measure_mux[i].debug_mux);
 		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
@@ -4716,6 +4714,7 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		break;
 
 	case MSS_BASE:
+		writel_relaxed(0, MSS_REG_BASE(MSS_DEBUG_CLK_CTL_REG));
 		clk_sel = 0x32;
 		regval = BVAL(5, 0, measure_mux[i].debug_mux);
 		writel_relaxed(regval, MSS_REG_BASE(MSS_DEBUG_CLK_CTL_REG));
