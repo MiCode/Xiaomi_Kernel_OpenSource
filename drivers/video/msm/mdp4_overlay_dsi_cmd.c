@@ -327,6 +327,7 @@ int mdp4_dsi_cmd_pipe_commit(void)
 	struct vsycn_ctrl *vctrl;
 	struct vsync_update *vp;
 	struct mdp4_overlay_pipe *pipe;
+	struct mdp4_overlay_pipe *real_pipe;
 	unsigned long flags;
 	int need_dmap_wait = 0;
 	int need_ov_wait = 0;
@@ -410,7 +411,11 @@ int mdp4_dsi_cmd_pipe_commit(void)
 	for (i = 0; i < OVERLAY_PIPE_MAX; i++, pipe++) {
 		if (pipe->pipe_used) {
 			cnt++;
-			mdp4_overlay_vsync_commit(pipe);
+			real_pipe = mdp4_overlay_ndx2pipe(pipe->pipe_ndx);
+			if (real_pipe->pipe_used) {
+				/* pipe not unset */
+				mdp4_overlay_vsync_commit(pipe);
+			}
 			/* free previous iommu to freelist
 			* which will be freed at next
 			* pipe_commit
@@ -1031,6 +1036,8 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 
 	mipi_dsi_cmd_backlight_tx(150);
 
+	/* sanity check, free pipes besides base layer */
+	mdp4_overlay_unset_mixer(pipe->mixer_num);
 	mdp4_mixer_stage_down(pipe);
 	mdp4_overlay_pipe_free(pipe);
 	vctrl->base_pipe = NULL;
@@ -1102,8 +1109,10 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 	}
 
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
-
+	mutex_lock(&mfd->dma->ov_mutex);
 	mdp4_dsi_cmd_pipe_commit();
+	mutex_unlock(&mfd->dma->ov_mutex);
+
 	mdp4_dsi_cmd_wait4vsync(0, &xx);
 	vctrl->expire_tick = VSYNC_EXPIRE_TICK;
 	vctrl->clk_control = 1;

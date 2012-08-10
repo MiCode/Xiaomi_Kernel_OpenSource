@@ -150,6 +150,9 @@ void mdp4_overlay_iommu_unmap_freelist(int mixer)
 		ion_unmap_iommu(display_iclient, ihdl, DISPLAY_READ_DOMAIN,
 							GEN_POOL);
 		mdp4_stat.iommu_unmap++;
+		pr_debug("%s: map=%d unmap=%d drop=%d\n", __func__,
+			(int)mdp4_stat.iommu_map, (int)mdp4_stat.iommu_unmap,
+				(int)mdp4_stat.iommu_drop);
 		ion_free(display_iclient, ihdl);
 		flist->ihdl[i] = NULL;
 	}
@@ -1608,8 +1611,8 @@ void mdp4_mixer_stage_commit(int mixer)
 			data |= ctrl->mixer_cfg[num];
 			off = 0x10100;
 		}
-		pr_debug("%s: mixer=%d data=%x flush=%x\n", __func__,
-				mixer, data, ctrl->flush[mixer]);
+		pr_debug("%s: mixer=%d data=%x flush=%x pid=%d\n", __func__,
+				mixer, data, ctrl->flush[mixer], current->pid);
 	}
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
@@ -3007,7 +3010,8 @@ int mdp4_overlay_unset_mixer(int mixer)
 	struct mdp4_overlay_pipe *pipe;
 	int i, cnt = 0;
 
-	for (i = MDP4_MIXER_STAGE3; i >= MDP4_MIXER_STAGE_BASE; i--) {
+	/* free pipe besides base layer pipe */
+	for (i = MDP4_MIXER_STAGE3; i > MDP4_MIXER_STAGE_BASE; i--) {
 		pipe = ctrl->stage[mixer][i];
 		if (pipe == NULL)
 			continue;
