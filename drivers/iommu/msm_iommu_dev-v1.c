@@ -118,8 +118,8 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 		drvdata->clk_reg_virt = devm_ioremap(&pdev->dev, r->start,
 						     resource_size(r));
 		if (!drvdata->clk_reg_virt) {
-			pr_err("Failed to map 0x%x for iommu clk\n",
-				r->start);
+			pr_err("Failed to map resource for iommu clk: %pr\n",
+				r);
 			ret = -ENOMEM;
 			goto fail;
 		}
