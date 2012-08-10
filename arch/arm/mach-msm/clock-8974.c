@@ -3936,7 +3936,7 @@ static struct clk_freq_tbl ftbl_audio_core_lpaif_clock[] = {
 	F_LPASS(  512000, lpapll0, 16, 1, 60),
 	F_LPASS(  768000, lpapll0, 16, 1, 40),
 	F_LPASS( 1024000, lpapll0, 16, 1, 30),
-	F_LPASS( 1536000, lpapll0, 16, 1, 10),
+	F_LPASS( 1536000, lpapll0, 16, 1, 20),
 	F_LPASS( 2048000, lpapll0, 16, 1, 15),
 	F_LPASS( 3072000, lpapll0, 16, 1, 10),
 	F_LPASS( 4096000, lpapll0, 15, 1,  8),
