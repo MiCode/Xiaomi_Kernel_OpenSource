@@ -879,6 +879,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	if (device_may_wakeup(phy->dev)) {
 		enable_irq_wake(motg->irq);
+		if (motg->async_irq)
+			enable_irq_wake(motg->async_irq);
 		if (motg->pdata->pmic_id_irq)
 			enable_irq_wake(motg->pdata->pmic_id_irq);
 		if (pdata->otg_control == OTG_PHY_CONTROL &&
@@ -889,6 +891,9 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		clear_bit(HCD_FLAG_HW_ACCESSIBLE, &(bus_to_hcd(bus))->flags);
 
 	atomic_set(&motg->in_lpm, 1);
+	/* Enable ASYNC IRQ (if present) during LPM */
+	if (motg->async_irq)
+		enable_irq(motg->async_irq);
 	enable_irq(motg->irq);
 	wake_unlock(&motg->wlock);
 
@@ -979,6 +984,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 skip_phy_resume:
 	if (device_may_wakeup(phy->dev)) {
 		disable_irq_wake(motg->irq);
+		if (motg->async_irq)
+			disable_irq_wake(motg->async_irq);
 		if (motg->pdata->pmic_id_irq)
 			disable_irq_wake(motg->pdata->pmic_id_irq);
 		if (pdata->otg_control == OTG_PHY_CONTROL &&
@@ -991,9 +998,14 @@ skip_phy_resume:
 	atomic_set(&motg->in_lpm, 0);
 
 	if (motg->async_int) {
+		/* Match the disable_irq call from ISR */
+		enable_irq(motg->async_int);
 		motg->async_int = 0;
-		enable_irq(motg->irq);
 	}
+
+	/* If ASYNC IRQ is present then keep it enabled only during LPM */
+	if (motg->async_irq)
+		disable_irq(motg->async_irq);
 
 	dev_info(phy->dev, "USB exited from low power mode\n");
 
@@ -2728,9 +2740,9 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 	irqreturn_t ret = IRQ_HANDLED;
 
 	if (atomic_read(&motg->in_lpm)) {
-		pr_debug("OTG IRQ: in LPM\n");
+		pr_debug("OTG IRQ: %d in LPM\n", irq);
 		disable_irq_nosync(irq);
-		motg->async_int = 1;
+		motg->async_int = irq;
 		if (atomic_read(&motg->pm_suspended)) {
 			motg->sm_work_pending = true;
 			if ((otg->phy->state == OTG_STATE_A_SUSPEND) ||
@@ -3397,7 +3409,7 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 
 static int __init msm_otg_probe(struct platform_device *pdev)
 {
-	int ret = 0, disable_lpm = 0;
+	int ret = 0;
 	struct resource *res;
 	struct msm_otg *motg;
 	struct usb_phy *phy;
@@ -3415,8 +3427,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "devices setup failed\n");
 			return ret;
 		}
-		/* LPM not supported on targets using DT */
-		disable_lpm = 1;
 	} else if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
 		return -ENODEV;
@@ -3516,6 +3526,12 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_regs;
 	}
 
+	motg->async_irq = platform_get_irq_byname(pdev, "async_irq");
+	if (motg->async_irq < 0) {
+		dev_dbg(&pdev->dev, "platform_get_irq for async_int failed\n");
+		motg->async_irq = 0;
+	}
+
 	motg->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
 	if (IS_ERR(motg->xo_handle)) {
 		dev_err(&pdev->dev, "%s not able to get the handle "
@@ -3602,6 +3618,16 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto destroy_wlock;
 	}
 
+	if (motg->async_irq) {
+		ret = request_irq(motg->async_irq, msm_otg_irq, IRQF_SHARED,
+							"msm_otg", motg);
+		if (ret) {
+			dev_err(&pdev->dev, "request irq failed (ASYNC INT)\n");
+			goto free_irq;
+		}
+		disable_irq(motg->async_irq);
+	}
+
 	if (pdata->otg_control == OTG_PHY_CONTROL && pdata->mpm_otgsessvld_int)
 		msm_mpm_enable_pin(pdata->mpm_otgsessvld_int, 1);
 
@@ -3620,7 +3646,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	ret = usb_set_transceiver(&motg->phy);
 	if (ret) {
 		dev_err(&pdev->dev, "usb_set_transceiver failed\n");
-		goto free_irq;
+		goto free_async_irq;
 	}
 
 	if (motg->pdata->mode == USB_OTG &&
@@ -3672,8 +3698,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	wake_lock(&motg->wlock);
 	pm_runtime_set_active(&pdev->dev);
-	if (!disable_lpm)
-		pm_runtime_enable(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 
 	if (motg->pdata->bus_scale_table) {
 		motg->bus_perf_client =
@@ -3689,6 +3714,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 remove_phy:
 	usb_set_transceiver(NULL);
+free_async_irq:
+	if (motg->async_irq)
+		free_irq(motg->async_irq, motg);
 free_irq:
 	free_irq(motg->irq, motg);
 destroy_wlock:
