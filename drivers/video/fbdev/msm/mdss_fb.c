@@ -1137,6 +1137,31 @@ static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 	return 0;
 }
 
+static int mdss_fb_handle_pp_ioctl(void __user *argp)
+{
+	int ret;
+	struct msmfb_mdp_pp mdp_pp;
+	u32 copyback = 0;
+
+	ret = copy_from_user(&mdp_pp, argp, sizeof(mdp_pp));
+	if (ret)
+		return ret;
+
+	switch (mdp_pp.op) {
+	case mdp_op_pa_cfg:
+		ret = mdss_mdp_pa_config(&mdp_pp.data.pa_cfg_data,
+				&copyback);
+		break;
+	default:
+		pr_err("Unsupported request to MDP_PP IOCTL.\n");
+		ret = -EINVAL;
+		break;
+	}
+	if ((ret == 0) && copyback)
+		ret = copy_to_user(argp, &mdp_pp, sizeof(struct msmfb_mdp_pp));
+	return ret;
+}
+
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
@@ -1161,6 +1186,10 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 				   sizeof(fb_page_protection));
 		if (ret)
 			return ret;
+		break;
+
+	case MSMFB_MDP_PP:
+		ret = mdss_fb_handle_pp_ioctl(argp);
 		break;
 
 	default:
