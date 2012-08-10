@@ -28,6 +28,7 @@
 #include <media/v4l2-common.h>
 #include <media/vcap_fmt.h>
 #include <mach/board.h>
+#include <mach/iommu_domains.h>
 
 #define to_client_data(val)     container_of(val, struct vcap_client_data, vfh)
 
@@ -94,7 +95,7 @@ struct vcap_action {
 };
 
 struct nr_buffer {
-	void						*vaddr;
+	struct ion_handle			*nr_handle;
 	unsigned long				paddr;
 	enum nr_buf_pos				nr_pos;
 };
@@ -118,6 +119,7 @@ struct vp_action {
 
 	struct vcap_buffer      *bufOut;
 
+	struct ion_handle		*motionHandle;
 	void					*bufMotion;
 	struct nr_buffer		bufNR;
 	struct nr_param			nr_param;
