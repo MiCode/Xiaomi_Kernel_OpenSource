@@ -807,9 +807,6 @@ static int mdss_mdp_mixer_update(struct mdss_mdp_mixer *mixer)
 {
 	mixer->params_changed = 0;
 
-	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
-		mdss_mdp_dspp_setup(mixer->ctl, mixer);
-
 	/* skip mixer setup for rotator */
 	if (!mixer->rotator_mode)
 		mdss_mdp_mixer_setup(mixer->ctl, mixer);
@@ -863,6 +860,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 		ctl->flush_bits |= BIT(17);	/* CTL */
 	}
 
+	/* postprocessing setup, including dspp */
+	mdss_mdp_pp_setup(ctl);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl->flush_bits);
 	wmb();
 	ctl->flush_bits = 0;
@@ -884,3 +883,30 @@ done:
 
 	return ret;
 }
+
+int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id)
+{
+	int i;
+	struct mdss_mdp_ctl *ctl;
+	u32 mixer_cnt = 0;
+	mutex_lock(&mdss_mdp_ctl_lock);
+	for (i = 0; i < MDSS_MDP_MAX_CTL; i++) {
+		ctl = &mdss_mdp_ctl_list[i];
+		if ((ctl->power_on) &&
+			(ctl->mfd->index == fb_num)) {
+			if (ctl->mixer_left) {
+				mixer_id[mixer_cnt] = ctl->mixer_left->num;
+				mixer_cnt++;
+			}
+			if (mixer_cnt && ctl->mixer_right) {
+				mixer_id[mixer_cnt] = ctl->mixer_right->num;
+				mixer_cnt++;
+			}
+			if (mixer_cnt)
+				break;
+		}
+	}
+	mutex_unlock(&mdss_mdp_ctl_lock);
+	return mixer_cnt;
+}
+
