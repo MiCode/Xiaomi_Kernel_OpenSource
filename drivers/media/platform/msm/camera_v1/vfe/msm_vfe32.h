@@ -62,6 +62,9 @@
  * bit 26-32 = 0, domain reset, bit 0-9 = 1 for module reset. */
 #define VFE_RESET_UPON_RESET_CMD  0x000003ff
 
+/* reset the vfe only when reset command*/
+#define VFE_ONLY_RESET_CMD  0x00000002
+
 /*Vfe module reset command*/
 #define VFE_MODULE_RESET_CMD 0x07ffffff
 
@@ -965,8 +968,10 @@ struct vfe_share_ctrl_t {
 	uint8_t stop_immediately;
 	uint8_t sync_abort;
 	uint16_t cmd_type;
+	uint8_t vfe_reset_flag;
 
 	uint8_t axi_ref_cnt;
+	uint16_t comp_output_mode;
 
 	struct completion reset_complete;
 
@@ -1041,7 +1046,6 @@ struct vfe32_ctrl_type {
 	struct msm_stats_ops stats_ops;
 
 	uint32_t simultaneous_sof_stat;
-	uint32_t ref_count;
 };
 
 #define statsAeNum      0

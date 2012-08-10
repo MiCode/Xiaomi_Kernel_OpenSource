@@ -141,7 +141,7 @@ struct isp_msg_output {
 };
 
 struct rdi_count_msg {
-	enum msm_ispif_intftype rdi_interface;
+	uint32_t rdi_interface;
 	uint32_t count;
 };
 
