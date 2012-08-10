@@ -228,12 +228,6 @@ static int pil_venus_reset(struct pil_desc *pil)
 	writel_relaxed(drv->fw_sz, wrapper_base +
 			VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR);
 
-	rc = iommu_attach_device(drv->iommu_fw_domain, drv->iommu_fw_ctx);
-	if (rc) {
-		dev_err(pil->dev, "venus fw iommu attach failed\n");
-		goto err_iommu_attach;
-	}
-
 	/* Enable all Venus internal clocks */
 	writel_relaxed(0, wrapper_base + VENUS_WRAPPER_CLOCK_CONFIG);
 	writel_relaxed(0, wrapper_base + VENUS_WRAPPER_CPU_CLOCK_CONFIG);
@@ -246,6 +240,12 @@ static int pil_venus_reset(struct pil_desc *pil)
 	 * out of reset.
 	 */
 	udelay(1);
+
+	rc = iommu_attach_device(drv->iommu_fw_domain, drv->iommu_fw_ctx);
+	if (rc) {
+		dev_err(pil->dev, "venus fw iommu attach failed\n");
+		goto err_iommu_attach;
+	}
 
 	/* Map virtual addr space 0 - fw_sz to firmware physical addr space */
 	rc = msm_iommu_map_contig_buffer(pa, drv->venus_domain_num, 0,
@@ -285,19 +285,6 @@ static int pil_venus_shutdown(struct pil_desc *pil)
 
 	venus_clock_prepare_enable(pil->dev);
 
-	/* Halt AXI and AXI OCMEM VBIF Access */
-	reg = readl_relaxed(vbif_base + VENUS_VBIF_AXI_HALT_CTRL0);
-	reg |= VENUS_VBIF_AXI_HALT_CTRL0_HALT_REQ;
-	writel_relaxed(reg, vbif_base + VENUS_VBIF_AXI_HALT_CTRL0);
-
-	/* Request for AXI bus port halt */
-	rc = readl_poll_timeout(vbif_base + VENUS_VBIF_AXI_HALT_CTRL1,
-			reg, reg & VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK,
-			POLL_INTERVAL_US,
-			VENUS_VBIF_AXI_HALT_ACK_TIMEOUT_US);
-	if (rc)
-		dev_err(pil->dev, "Port halt timeout\n");
-
 	/* Assert the reset to ARM9 */
 	reg = readl_relaxed(wrapper_base + VENUS_WRAPPER_SW_RESET);
 	reg |= BIT(4);
@@ -310,6 +297,19 @@ static int pil_venus_shutdown(struct pil_desc *pil)
 				      0, drv->fw_sz);
 
 	iommu_detach_device(drv->iommu_fw_domain, drv->iommu_fw_ctx);
+
+	/* Halt AXI and AXI OCMEM VBIF Access */
+	reg = readl_relaxed(vbif_base + VENUS_VBIF_AXI_HALT_CTRL0);
+	reg |= VENUS_VBIF_AXI_HALT_CTRL0_HALT_REQ;
+	writel_relaxed(reg, vbif_base + VENUS_VBIF_AXI_HALT_CTRL0);
+
+	/* Request for AXI bus port halt */
+	rc = readl_poll_timeout(vbif_base + VENUS_VBIF_AXI_HALT_CTRL1,
+			reg, reg & VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK,
+			POLL_INTERVAL_US,
+			VENUS_VBIF_AXI_HALT_ACK_TIMEOUT_US);
+	if (rc)
+		dev_err(pil->dev, "Port halt timeout\n");
 
 	venus_clock_disable_unprepare(pil->dev);
 
