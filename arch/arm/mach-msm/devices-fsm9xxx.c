@@ -419,6 +419,15 @@ static struct msm_watchdog_pdata fsm_watchdog_pdata = {
 	.bark_time = 11000,
 	.has_secure = false,
 	.has_vic = true,
+	.base = MSM_TMR_BASE + WDT1_OFFSET,
+};
+
+static struct resource msm_watchdog_resources[] = {
+	{
+		.start	= INT_WDT1_ACCSCSSBARK,
+		.end	= INT_WDT1_ACCSCSSBARK,
+		.flags	= IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device fsm9xxx_device_watchdog = {
@@ -427,5 +436,7 @@ struct platform_device fsm9xxx_device_watchdog = {
 	.dev = {
 		.platform_data = &fsm_watchdog_pdata,
 	},
+	.num_resources	= ARRAY_SIZE(msm_watchdog_resources),
+	.resource	= msm_watchdog_resources,
 };
 
