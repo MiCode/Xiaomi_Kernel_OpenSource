@@ -34,3 +34,65 @@
 		status = "ok";
 	};
 };
+
+&jpeg_iommu {
+		qcom,iommu-ctx@fda6c000 {
+			interrupts = <0 69 0>;
+		};
+
+		qcom,iommu-ctx@fda6d000 {
+			interrupts = <0 70 0>;
+		};
+
+		qcom,iommu-ctx@fda6e000 {
+			interrupts = <0 71 0>;
+		};
+};
+
+&mdp_iommu {
+		qcom,iommu-ctx@fd930000 {
+			interrupts = <0 46 0>;
+		};
+
+		qcom,iommu-ctx@fd931000 {
+			interrupts = <0 47 0>;
+		};
+};
+
+&venus_iommu {
+		qcom,iommu-ctx@fdc8c000 {
+			interrupts = <0 43 0>;
+		};
+
+		qcom,iommu-ctx@fdc8d000 {
+			interrupts = <0 42 0>;
+		};
+
+		qcom,iommu-ctx@fdc8e000 {
+			interrupts = <0 41 0>;
+		};
+};
+
+&kgsl_iommu {
+		qcom,iommu-ctx@fdb18000 {
+			interrupts = <0 240 0>;
+		};
+
+		qcom,iommu-ctx@fdb19000 {
+			interrupts = <0 241 0>;
+		};
+};
+
+&vfe_iommu {
+		qcom,iommu-ctx@fda4c000 {
+			interrupts = <0 64 0>;
+		};
+
+		qcom,iommu-ctx@fda4d000 {
+			interrupts = <0 65 0>;
+		};
+
+		qcom,iommu-ctx@fda4e000 {
+			interrupts = <0 66 0>;
+		};
+};
