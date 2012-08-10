@@ -268,6 +268,7 @@ struct msm_otg_platform_data {
  * @otg: USB OTG Transceiver structure.
  * @pdata: otg device platform data.
  * @irq: IRQ number assigned for HSUSB controller.
+ * @async_irq: IRQ number used by some controllers during low power state
  * @clk: clock struct of alt_core_clk.
  * @pclk: clock struct of iface_clk.
  * @phy_reset_clk: clock struct of phy_clk.
@@ -276,7 +277,7 @@ struct msm_otg_platform_data {
  * @inputs: OTG state machine inputs(Id, SessValid etc).
  * @sm_work: OTG state machine work.
  * @in_lpm: indicates low power mode (LPM) state.
- * @async_int: Async interrupt arrived.
+ * @async_int: IRQ line on which ASYNC interrupt arrived in LPM.
  * @cur_power: The amount of mA available from downstream port.
  * @chg_work: Charger detection work.
  * @chg_state: The state of charger detection process.
@@ -298,6 +299,7 @@ struct msm_otg {
 	struct usb_phy phy;
 	struct msm_otg_platform_data *pdata;
 	int irq;
+	int async_irq;
 	struct clk *clk;
 	struct clk *pclk;
 	struct clk *phy_reset_clk;
