@@ -15,6 +15,7 @@
 
 #include <linux/device.h>
 
+
 /* Peripheral id registers (0xFD0-0xFEC) */
 #define CORESIGHT_PERIPHIDR4	(0xFD0)
 #define CORESIGHT_PERIPHIDR5	(0xFD4)
@@ -29,6 +30,7 @@
 #define CORESIGHT_COMPIDR1	(0xFF4)
 #define CORESIGHT_COMPIDR2	(0xFF8)
 #define CORESIGHT_COMPIDR3	(0xFFC)
+
 
 /* DBGv7 with baseline CP14 registers implemented */
 #define ARM_DEBUG_ARCH_V7B	(0x3)
@@ -150,36 +152,13 @@ struct coresight_ops {
 	const struct coresight_ops_source *source_ops;
 };
 
-struct qdss_source {
-	struct list_head link;
-	const char *name;
-	uint32_t fport_mask;
-};
-
-struct msm_qdss_platform_data {
-	struct qdss_source *src_table;
-	size_t size;
-	uint8_t afamily;
-};
-
-
 #ifdef CONFIG_MSM_QDSS
-extern struct qdss_source *qdss_get(const char *name);
-extern void qdss_put(struct qdss_source *src);
-extern int qdss_enable(struct qdss_source *src);
-extern void qdss_disable(struct qdss_source *src);
-extern void qdss_disable_sink(void);
 extern struct coresight_device *
 coresight_register(struct coresight_desc *desc);
 extern void coresight_unregister(struct coresight_device *csdev);
 extern int coresight_enable(struct coresight_device *csdev);
 extern void coresight_disable(struct coresight_device *csdev);
 #else
-static inline struct qdss_source *qdss_get(const char *name) { return NULL; }
-static inline void qdss_put(struct qdss_source *src) {}
-static inline int qdss_enable(struct qdss_source *src) { return -ENOSYS; }
-static inline void qdss_disable(struct qdss_source *src) {}
-static inline void qdss_disable_sink(void) {}
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
 static inline void coresight_unregister(struct coresight_device *csdev) {}
