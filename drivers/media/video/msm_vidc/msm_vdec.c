@@ -440,15 +440,16 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	if (fmt) {
 		f->fmt.pix_mp.pixelformat = fmt->fourcc;
 		if (inst->in_reconfig == true) {
-			inst->height = inst->reconfig_height;
-			inst->width = inst->reconfig_width;
+			inst->prop.height = inst->reconfig_height;
+			inst->prop.width = inst->reconfig_width;
 		}
-		f->fmt.pix_mp.height = inst->height;
-		f->fmt.pix_mp.width = inst->width;
+		f->fmt.pix_mp.height = inst->prop.height;
+		f->fmt.pix_mp.width = inst->prop.width;
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		for (i = 0; i < fmt->num_planes; ++i) {
 			f->fmt.pix_mp.plane_fmt[i].sizeimage =
-			fmt->get_frame_size(i, inst->height, inst->width);
+			fmt->get_frame_size(i, inst->prop.height,
+				inst->prop.width);
 		}
 	} else {
 		pr_err("Buf type not recognized, type = %d\n",
@@ -584,7 +585,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			*num_buffers = MIN_NUM_OUTPUT_BUFFERS;
 		for (i = 0; i < *num_planes; i++) {
 			sizes[i] = inst->fmts[OUTPUT_PORT]->get_frame_size(
-					i, inst->height, inst->width);
+					i, inst->prop.height, inst->prop.width);
 		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:

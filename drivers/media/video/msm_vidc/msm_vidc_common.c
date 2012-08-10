@@ -1126,7 +1126,7 @@ static int msm_vidc_load_resources(int flipped_state,
 		pr_err("inst: %p is already in state: %d\n", inst, inst->state);
 		goto exit;
 	}
-	ocmem_sz = get_ocmem_requirement(inst->height, inst->width);
+	ocmem_sz = get_ocmem_requirement(inst->prop.height, inst->prop.width);
 	rc = msm_comm_alloc_ocmem(inst->core, ocmem_sz);
 	if (rc)
 		pr_warn("Failed to allocate OCMEM. Performance will be impacted\n");
