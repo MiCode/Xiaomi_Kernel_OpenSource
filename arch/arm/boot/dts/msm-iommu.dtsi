@@ -23,7 +23,7 @@
 
 		qcom,iommu-ctx@fda6c000 {
 			reg = <0xfda6c000 0x1000>;
-			interrupts = <0 69 0>;
+			interrupts = <0 70 0>;
 			qcom,iommu-ctx-sids = <0>;
 			label = "jpeg_enc0";
 		};
@@ -37,7 +37,7 @@
 
 		qcom,iommu-ctx@fda6e000 {
 			reg = <0xfda6e000 0x1000>;
-			interrupts = <0 71 0>;
+			interrupts = <0 70 0>;
 			qcom,iommu-ctx-sids = <2>;
 			label = "jpeg_dec";
 		};
@@ -55,7 +55,7 @@
 
 		qcom,iommu-ctx@fd930000 {
 			reg = <0xfd930000 0x1000>;
-			interrupts = <0 46 0>;
+			interrupts = <0 47 0>;
 			qcom,iommu-ctx-sids = <0>;
 			label = "mdp_0";
 		};
@@ -81,7 +81,7 @@
 
 		qcom,iommu-ctx@fdc8c000 {
 			reg = <0xfdc8c000 0x1000>;
-			interrupts = <0 43 0>;
+			interrupts = <0 42 0>;
 			qcom,iommu-ctx-sids = <0 1 2 3 4 5>;
 			label = "venus_ns";
 		};
@@ -95,7 +95,7 @@
 
 		qcom,iommu-ctx@fdc8e000 {
 			reg = <0xfdc8e000 0x1000>;
-			interrupts = <0 41 0>;
+			interrupts = <0 42 0>;
 			qcom,iommu-ctx-sids = <0xc0 0xc6>;
 			label = "venus_fw";
 		};
@@ -114,7 +114,7 @@
 
 		qcom,iommu-ctx@fdb18000 {
 			reg = <0xfdb18000 0x1000>;
-			interrupts = <0 240 0>;
+			interrupts = <0 241 0>;
 			qcom,iommu-ctx-sids = <0>;
 			label = "gfx3d_user";
 		};
@@ -139,7 +139,7 @@
 
 		qcom,iommu-ctx@fda4c000 {
 			reg = <0xfda4c000 0x1000>;
-			interrupts = <0 64 0>;
+			interrupts = <0 65 0>;
 			qcom,iommu-ctx-sids = <0>;
 			label = "vfe0";
 		};
@@ -153,7 +153,7 @@
 
 		qcom,iommu-ctx@fda4e000 {
 			reg = <0xfda4e000 0x1000>;
-			interrupts = <0 66 0>;
+			interrupts = <0 65 0>;
 			qcom,iommu-ctx-sids = <2>;
 			label = "cpp";
 		};
