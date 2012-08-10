@@ -1490,10 +1490,13 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	struct list_head *ptr, *next;
 	struct vidc_buffer_addr_info buffer_info;
 	unsigned long flags;
+	struct hal_buffer_requirements *scratch_buf =
+		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_SCRATCH];
 	int i;
+
 	pr_debug("scratch: num = %d, size = %d\n",
-			inst->buff_req.buffer[6].buffer_count_actual,
-			inst->buff_req.buffer[6].buffer_size);
+			scratch_buf->buffer_count_actual,
+			scratch_buf->buffer_size);
 	spin_lock_irqsave(&inst->lock, flags);
 	if (!list_empty(&inst->internalbufs)) {
 		list_for_each_safe(ptr, next, &inst->internalbufs) {
@@ -1505,40 +1508,44 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 		}
 	}
 	spin_unlock_irqrestore(&inst->lock, flags);
-
-
-	for (i = 0; i < inst->buff_req.buffer[6].buffer_count_actual;
+	if (scratch_buf->buffer_size) {
+		for (i = 0; i < scratch_buf->buffer_count_actual;
 				i++) {
-		handle = msm_smem_alloc(inst->mem_client,
-				inst->buff_req.buffer[6].buffer_size, 1, 0,
+			handle = msm_smem_alloc(inst->mem_client,
+				scratch_buf->buffer_size, 1, 0,
 				inst->core->resources.io_map[NS_MAP].domain, 0);
-		if (!handle) {
-			pr_err("Failed to allocate scratch memory\n");
-			rc = -ENOMEM;
-			goto err_no_mem;
-		}
-		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
-		if (!binfo) {
-			pr_err("Out of memory\n");
-			rc = -ENOMEM;
-			goto err_no_mem;
-		}
-		binfo->handle = handle;
-		spin_lock_irqsave(&inst->lock, flags);
-		list_add_tail(&binfo->list, &inst->internalbufs);
-		spin_unlock_irqrestore(&inst->lock, flags);
-		buffer_info.buffer_size =
-				inst->buff_req.buffer[6].buffer_size;
-		buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
-		buffer_info.num_buffers = 1;
-		buffer_info.align_device_addr = handle->device_addr;
-		rc = vidc_hal_session_set_buffers((void *) inst->session,
-				&buffer_info);
-		if (rc) {
-			pr_err("vidc_hal_session_set_buffers failed");
-			break;
+			if (!handle) {
+				pr_err("Failed to allocate scratch memory\n");
+				rc = -ENOMEM;
+				goto err_no_mem;
+			}
+			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+			if (!binfo) {
+				pr_err("Out of memory\n");
+				rc = -ENOMEM;
+				goto fail_kzalloc;
+			}
+			binfo->handle = handle;
+			buffer_info.buffer_size = scratch_buf->buffer_size;
+			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr = handle->device_addr;
+			rc = vidc_hal_session_set_buffers(
+					(void *) inst->session,	&buffer_info);
+			if (rc) {
+				pr_err("vidc_hal_session_set_buffers failed");
+				goto fail_set_buffers;
+			}
+			spin_lock_irqsave(&inst->lock, flags);
+			list_add_tail(&binfo->list, &inst->internalbufs);
+			spin_unlock_irqrestore(&inst->lock, flags);
 		}
 	}
+	return rc;
+fail_set_buffers:
+	kfree(binfo);
+fail_kzalloc:
+	msm_smem_free(inst->mem_client, handle);
 err_no_mem:
 	return rc;
 }
