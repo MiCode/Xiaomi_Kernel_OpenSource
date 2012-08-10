@@ -2404,6 +2404,33 @@ static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
 	},
 };
 
+static struct msm_rpmrs_platform_data msm_rpmrs_data_pm8917 __initdata = {
+	.levels = &msm_rpmrs_levels[0],
+	.num_levels = ARRAY_SIZE(msm_rpmrs_levels),
+	.vdd_mem_levels  = {
+		[MSM_RPMRS_VDD_MEM_RET_LOW]	= 750000,
+		[MSM_RPMRS_VDD_MEM_RET_HIGH]	= 750000,
+		[MSM_RPMRS_VDD_MEM_ACTIVE]	= 1050000,
+		[MSM_RPMRS_VDD_MEM_MAX]		= 1150000,
+	},
+	.vdd_dig_levels = {
+		[MSM_RPMRS_VDD_DIG_RET_LOW]	= 0,
+		[MSM_RPMRS_VDD_DIG_RET_HIGH]	= 0,
+		[MSM_RPMRS_VDD_DIG_ACTIVE]	= 1,
+		[MSM_RPMRS_VDD_DIG_MAX]		= 3,
+	},
+	.vdd_mask = 0x7FFFFF,
+	.rpmrs_target_id = {
+		[MSM_RPMRS_ID_PXO_CLK]		= MSM_RPM_ID_PXO_CLK,
+		[MSM_RPMRS_ID_L2_CACHE_CTL]	= MSM_RPM_ID_LAST,
+		[MSM_RPMRS_ID_VDD_DIG_0]	= MSM_RPM_ID_VOLTAGE_CORNER,
+		[MSM_RPMRS_ID_VDD_DIG_1]	= MSM_RPM_ID_LAST,
+		[MSM_RPMRS_ID_VDD_MEM_0]	= MSM_RPM_ID_PM8917_L24_0,
+		[MSM_RPMRS_ID_VDD_MEM_1]	= MSM_RPM_ID_PM8917_L24_1,
+		[MSM_RPMRS_ID_RPM_CTL]		= MSM_RPM_ID_RPM_CTL,
+	},
+};
+
 static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 	.mode = MSM_PM_BOOT_CONFIG_TZ,
 };
@@ -2578,8 +2605,13 @@ static void __init msm8930_cdp_init(void)
 	platform_device_register(&msm_gpio_device);
 	msm_tsens_early_init(&msm_tsens_pdata);
 	msm_thermal_init(&msm_thermal_pdata);
-	BUG_ON(msm_rpm_init(&msm8930_rpm_data));
-	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917) {
+		BUG_ON(msm_rpm_init(&msm8930_rpm_data));
+		BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
+	} else {
+		BUG_ON(msm_rpm_init(&msm8930_rpm_data_pm8917));
+		BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data_pm8917));
+	}
 
 	regulator_suppress_info_printing();
 	if (msm_xo_init())
