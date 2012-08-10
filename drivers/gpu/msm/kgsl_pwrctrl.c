@@ -465,16 +465,17 @@ void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			&pwr->power_flags)) {
 			trace_kgsl_clk(device, state);
 			/* High latency clock maintenance. */
-			if ((pwr->pwrlevels[0].gpu_freq > 0) &&
-				(device->state != KGSL_STATE_NAP)) {
+			if (device->state != KGSL_STATE_NAP) {
 				for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 					if (pwr->grp_clks[i])
 						clk_prepare(pwr->grp_clks[i]);
-				clk_set_rate(pwr->grp_clks[0],
-					pwr->pwrlevels[pwr->active_pwrlevel].
+
+				if (pwr->pwrlevels[0].gpu_freq > 0)
+					clk_set_rate(pwr->grp_clks[0],
+						pwr->pwrlevels
+						[pwr->active_pwrlevel].
 						gpu_freq);
 			}
-
 			/* as last step, enable grp_clk
 			   this is to let GPU interrupt to come */
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
