@@ -250,8 +250,8 @@ void __init setup_dma_zone(struct machine_desc *mdesc)
 #endif
 }
 
-#ifdef CONFIG_ARCH_POPULATES_NODE_MAP
-static void __init arm_bootmem_free_apnm(unsigned long max_low,
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
+static void __init arm_bootmem_free_hmnm(unsigned long max_low,
 	unsigned long max_high)
 {
 	unsigned long max_zone_pfns[MAX_NR_ZONES];
@@ -267,7 +267,7 @@ static void __init arm_bootmem_free_apnm(unsigned long max_low,
 		unsigned long start = memblock_region_memory_base_pfn(reg);
 		unsigned long end = memblock_region_memory_end_pfn(reg);
 
-		add_active_range(0, start, end);
+		memblock_set_node(PFN_PHYS(start), PFN_PHYS(end - start), 0);
 	}
 	free_area_init_nodes(max_zone_pfns);
 }
@@ -491,8 +491,8 @@ void __init bootmem_init(void)
 	 */
 	sparse_init();
 
-#ifdef CONFIG_ARCH_POPULATES_NODE_MAP
-	arm_bootmem_free_apnm(max_low, max_high);
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
+	arm_bootmem_free_hmnm(max_low, max_high);
 #else
 	/*
 	 * Now free the memory - free_area_init_node needs

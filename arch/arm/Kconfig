@@ -1849,9 +1849,6 @@ config ARCH_MEMORY_PROBE
 config ARCH_MEMORY_REMOVE
 	def_bool n
 
-config ARCH_POPULATES_NODE_MAP
-	def_bool n
-
 config ENABLE_DMM
 	def_bool n
 
