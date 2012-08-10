@@ -505,7 +505,7 @@ static void __tmc_etr_dump(struct tmc_drvdata *drvdata)
 	rwphi = tmc_readl(drvdata, TMC_RWPHI);
 
 	if (BVAL(tmc_readl(drvdata, TMC_STS), 0))
-		drvdata->buf = drvdata->vaddr + rwp;
+		drvdata->buf = drvdata->vaddr + rwp - drvdata->paddr;
 	else
 		drvdata->buf = drvdata->vaddr;
 }
@@ -751,6 +751,8 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (bufp == (char *)(drvdata->vaddr + drvdata->size))
 			bufp = drvdata->vaddr;
+		else if (bufp > (char *)(drvdata->vaddr + drvdata->size))
+			bufp -= drvdata->size;
 		if ((bufp + len) > (char *)(drvdata->vaddr + drvdata->size))
 			len = (char *)(drvdata->vaddr + drvdata->size) - bufp;
 	}
