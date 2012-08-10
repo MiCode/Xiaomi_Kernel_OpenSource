@@ -268,8 +268,8 @@ static struct qpnp_voltage_range smps_ranges[] = {
 };
 
 static struct qpnp_voltage_range ftsmps_ranges[] = {
-	VOLTAGE_RANGE(0,   80000,  350000, 1355000,  5000),
-	VOLTAGE_RANGE(1,  160000, 1360000, 2710000, 10000),
+	VOLTAGE_RANGE(0,       0,  350000, 1275000,  5000),
+	VOLTAGE_RANGE(1,       0, 1280000, 2040000, 10000),
 };
 
 static struct qpnp_voltage_range boost_ranges[] = {
