@@ -142,7 +142,7 @@ void mdp4_lcdc_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe)
 	pr_debug("%s: vndx=%d pipe_ndx=%d pid=%d\n", __func__,
 			undx, pipe->pipe_ndx, current->pid);
 
-	*pp = *pipe;	/* keep it */
+	*pp = *pipe;	/* clone it */
 	vp->update_cnt++;
 	mutex_unlock(&vctrl->update_lock);
 	mdp4_stat.overlay_play[pipe->mixer_num]++;
@@ -160,6 +160,7 @@ int mdp4_lcdc_pipe_commit(void)
 	struct vsycn_ctrl *vctrl;
 	struct vsync_update *vp;
 	struct mdp4_overlay_pipe *pipe;
+	struct mdp4_overlay_pipe *real_pipe;
 	unsigned long flags;
 	int cnt = 0;
 
@@ -216,7 +217,11 @@ int mdp4_lcdc_pipe_commit(void)
 	for (i = 0; i < OVERLAY_PIPE_MAX; i++, pipe++) {
 		if (pipe->pipe_used) {
 			cnt++;
-			mdp4_overlay_vsync_commit(pipe);
+			real_pipe = mdp4_overlay_ndx2pipe(pipe->pipe_ndx);
+			if (real_pipe->pipe_used) {
+				/* pipe not unset */
+				mdp4_overlay_vsync_commit(pipe);
+			}
 			/* free previous iommu to freelist
 			 * which will be freed at next
 			 * pipe_commit
@@ -647,12 +652,12 @@ int mdp4_lcdc_off(struct platform_device *pdev)
 	lcdc_enabled = 0;
 
 	if (pipe) {
+		/* sanity check, free pipes besides base layer */
+		mdp4_overlay_unset_mixer(pipe->mixer_num);
 		if (mfd->ref_cnt == 0) {
 			/* adb stop */
 			if (pipe->pipe_type == OVERLAY_TYPE_BF)
 				mdp4_overlay_borderfill_stage_down(pipe);
-
-			mdp4_overlay_unset_mixer(pipe->mixer_num);
 			vctrl->base_pipe = NULL;
 		} else {
 			/* system suspending */
@@ -900,7 +905,9 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
 
+	mutex_lock(&mfd->dma->ov_mutex);
 	mdp4_lcdc_pipe_commit();
+	mutex_unlock(&mfd->dma->ov_mutex);
 
 	if (pipe->ov_blt_addr)
 		mdp4_lcdc_wait4ov(0);
