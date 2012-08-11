@@ -34,6 +34,7 @@ spinlock_t dsi_clk_lock;
 
 struct mdss_hw mdss_dsi_hw = {
 	.hw_ndx = MDSS_HW_DSI0,
+	.ptr = NULL,
 	.irq_handler = mdss_dsi_isr,
 };
 
