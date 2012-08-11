@@ -54,6 +54,23 @@ static int clk_rpmrs_get_rate(struct rpm_clk *r)
 	return (rc < 0) ? rc : iv.value * r->factor;
 }
 
+static int clk_rpmrs_handoff(struct rpm_clk *r)
+{
+	struct msm_rpm_iv_pair iv = { .id = r->rpm_status_id, };
+	int rc = msm_rpm_get_status(&iv, 1);
+
+	if (rc < 0)
+		return rc;
+
+	if (!r->branch) {
+		r->last_set_khz = iv.value;
+		r->last_set_sleep_khz = iv.value;
+		r->c.rate = iv.value * r->factor;
+	}
+
+	return 0;
+}
+
 static int clk_rpmrs_set_rate_smd(struct rpm_clk *r, uint32_t value,
 				uint32_t context, int noirq)
 {
@@ -71,10 +88,16 @@ static int clk_rpmrs_set_rate_smd(struct rpm_clk *r, uint32_t value,
 						r->rpm_clk_id, &kvp, 1);
 }
 
+static int clk_rpmrs_handoff_smd(struct rpm_clk *r)
+{
+	return 0;
+}
+
 struct clk_rpmrs_data {
 	int (*set_rate_fn)(struct rpm_clk *r, uint32_t value,
 				uint32_t context, int noirq);
 	int (*get_rate_fn)(struct rpm_clk *r);
+	int (*handoff_fn)(struct rpm_clk *r);
 	int ctx_active_id;
 	int ctx_sleep_id;
 };
@@ -82,12 +105,14 @@ struct clk_rpmrs_data {
 struct clk_rpmrs_data clk_rpmrs_data = {
 	.set_rate_fn = clk_rpmrs_set_rate,
 	.get_rate_fn = clk_rpmrs_get_rate,
+	.handoff_fn = clk_rpmrs_handoff,
 	.ctx_active_id = MSM_RPM_CTX_SET_0,
 	.ctx_sleep_id = MSM_RPM_CTX_SET_SLEEP,
 };
 
 struct clk_rpmrs_data clk_rpmrs_data_smd = {
 	.set_rate_fn = clk_rpmrs_set_rate_smd,
+	.handoff_fn = clk_rpmrs_handoff_smd,
 	.ctx_active_id = MSM_RPM_CTX_ACTIVE_SET,
 	.ctx_sleep_id = MSM_RPM_CTX_SLEEP_SET,
 };
@@ -257,7 +282,6 @@ static bool rpm_clk_is_local(struct clk *clk)
 static enum handoff rpm_clk_handoff(struct clk *clk)
 {
 	struct rpm_clk *r = to_rpm_clk(clk);
-	struct msm_rpm_iv_pair iv = { r->rpm_status_id };
 	int rc;
 
 	/*
@@ -266,15 +290,9 @@ static enum handoff rpm_clk_handoff(struct clk *clk)
 	 * assume these clocks are enabled (unless the RPM call fails) so
 	 * child clocks of these RPM clocks can still be handed off.
 	 */
-	rc  = msm_rpm_get_status(&iv, 1);
+	rc  = r->rpmrs_data->handoff_fn(r);
 	if (rc < 0)
 		return HANDOFF_DISABLED_CLK;
-
-	if (!r->branch) {
-		r->last_set_khz = iv.value;
-		r->last_set_sleep_khz = iv.value;
-		clk->rate = iv.value * r->factor;
-	}
 
 	return HANDOFF_ENABLED_CLK;
 }
