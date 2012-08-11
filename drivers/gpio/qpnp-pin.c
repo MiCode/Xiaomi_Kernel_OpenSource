@@ -46,10 +46,10 @@
 
 /* mpp peripheral type and subtype values */
 #define Q_MPP_TYPE			0x11
-#define Q_MPP_SUBTYPE_4CH_NO_ANA_OUT	0x1
-#define Q_MPP_SUBTYPE_4CH_NO_SINK	0x2
-#define Q_MPP_SUBTYPE_4CH_FULL_FUNC	0x3
-#define Q_MPP_SUBTYPE_8CH_FULL_FUNC	0x7
+#define Q_MPP_SUBTYPE_4CH_NO_ANA_OUT	0x3
+#define Q_MPP_SUBTYPE_4CH_NO_SINK	0x5
+#define Q_MPP_SUBTYPE_4CH_FULL_FUNC	0x2
+#define Q_MPP_SUBTYPE_8CH_FULL_FUNC	0x4
 
 /* control register base address offsets */
 #define Q_REG_MODE_CTL			0x40
