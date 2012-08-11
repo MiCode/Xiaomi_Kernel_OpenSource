@@ -750,5 +750,66 @@
 			compatible = "qcom,qpnp-regulator";
 			status = "disabled";
 		};
+
+		qcom,leds@d800 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd800 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@d900 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd900 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@da00 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xda00 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@db00 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xdb00 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@dc00 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xdc00 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@dd00 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xdd00 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@de00 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xde00 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@df00 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xdf00 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@e000 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xe000 0x100>;
+			qcom,label = "wled";
+		};
+
+		qcom,leds@e100 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xe100 0x100>;
+			qcom,label = "wled";
+		};
+
 	};
 };
