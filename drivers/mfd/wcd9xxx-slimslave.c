@@ -535,7 +535,6 @@ int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 				unsigned int ch_cnt)
 {
 	u16 grph = 0;
-	u32 sph[SLIM_MAX_RX_PORTS] = {0};
 	int i = 0 , idx = 0;
 	int ret = 0;
 	struct wcd9xxx_slim_sch_rx *rx = sh_ch.rx;
@@ -549,10 +548,9 @@ int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 			ret = -EINVAL;
 			goto err;
 		}
-		sph[i] = rx[idx].sph;
 		grph = rx[idx].grph;
-		pr_debug("%s: ch_num[%d] %d, idx %d, sph[%d] %x, grph %x\n",
-			 __func__, i, ch_num[i], idx, i, sph[i], grph);
+		pr_debug("%s: ch_num[%d] %d, idx %d, grph %x\n",
+			 __func__, i, ch_num[i], idx, grph);
 	}
 
 	/* slim_control_ch (REMOVE) */
@@ -560,12 +558,6 @@ int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 	if (ret < 0) {
 		pr_err("%s: slim_control_ch failed ret[%d]\n", __func__, ret);
 		goto err;
-	}
-	/* slim_disconnect_port */
-	ret = slim_disconnect_ports(wcd9xxx->slim, sph, ch_cnt);
-	if (ret < 0) {
-		pr_err("%s: slim_disconnect_ports failed ret[%d]\n",
-			 __func__, ret);
 	}
 	for (i = 0; i < ch_cnt; i++) {
 		idx = (ch_num[i] - BASE_CH_NUM - sh_ch.rx_port_start_offset);
@@ -580,7 +572,6 @@ int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 			      unsigned int ch_cnt)
 {
 	u16 grph = 0;
-	u32 sph[SLIM_MAX_TX_PORTS] = {0};
 	int ret = 0;
 	int i = 0 , idx = 0;
 	struct wcd9xxx_slim_sch_tx *tx = sh_ch.tx;
@@ -594,14 +585,7 @@ int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 			ret = -EINVAL;
 			goto err;
 		}
-		sph[i] = tx[idx].sph;
 		grph = tx[idx].grph;
-	}
-	/* slim_disconnect_port */
-	ret = slim_disconnect_ports(wcd9xxx->slim, sph, ch_cnt);
-	if (ret < 0) {
-		pr_err("%s: slim_disconnect_ports failed ret[%d]\n",
-				__func__, ret);
 	}
 	/* slim_control_ch (REMOVE) */
 	ret = slim_control_ch(wcd9xxx->slim, grph, SLIM_CH_REMOVE, true);
@@ -633,3 +617,48 @@ int wcd9xxx_get_slave_port(unsigned int ch_num)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_get_slave_port);
+
+int wcd9xxx_disconnect_port(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
+				unsigned int ch_cnt, unsigned int rx_tx)
+{
+	u32 sph[SLIM_MAX_TX_PORTS] = {0};
+	int i = 0 , idx = 0;
+	int ret = 0;
+	struct wcd9xxx_slim_sch_rx *rx = sh_ch.rx;
+	struct wcd9xxx_slim_sch_tx *tx = sh_ch.tx;
+
+	pr_debug("%s: ch_cnt[%d], rx_tx flag = %d\n", __func__, ch_cnt, rx_tx);
+	for (i = 0; i < ch_cnt; i++) {
+		/* rx_tx will be 1 for rx, 0 for tx */
+		if (rx_tx) {
+			idx = (ch_num[i] - BASE_CH_NUM -
+				sh_ch.rx_port_start_offset);
+			if (idx < 0) {
+				pr_err("%s: Invalid index found for RX = %d\n",
+					__func__, idx);
+				ret = -EINVAL;
+				goto err;
+			}
+			sph[i] = rx[idx].sph;
+		} else {
+			idx = (ch_num[i] - BASE_CH_NUM);
+			if (idx < 0) {
+				pr_err("%s:Invalid index found for TX = %d\n",
+					__func__, idx);
+				ret = -EINVAL;
+				goto err;
+			}
+			sph[i] = tx[idx].sph;
+		}
+	}
+
+	/* slim_disconnect_port */
+	ret = slim_disconnect_ports(wcd9xxx->slim, sph, ch_cnt);
+	if (ret < 0) {
+		pr_err("%s: slim_disconnect_ports failed ret[%d]\n",
+			__func__, ret);
+	}
+err:
+	return ret;
+}
+EXPORT_SYMBOL_GPL(wcd9xxx_disconnect_port);
