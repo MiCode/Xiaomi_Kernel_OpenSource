@@ -492,6 +492,8 @@ static void __iomem *virt_bases[N_BASES];
 #define MSS_BUS_Q6_CBCR                          0x10A4
 #define MSS_CFG_AHB_CBCR                         0x0280
 
+#define GCC_USB_BOOT_CLOCK_CTL	   0x1A00
+#define GCC_KPSS_BOOT_CLOCK_CTL	   0x19C0
 #define APCS_CLOCK_BRANCH_ENA_VOTE 0x1484
 #define APCS_CLOCK_SLEEP_ENA_VOTE  0x1488
 
@@ -4579,12 +4581,12 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		break;
 
 	case LPASS_BASE:
-		clk_sel = 0x169;
+		clk_sel = 0x161;
 		regval = BVAL(11, 0, measure_mux[i].debug_mux);
 		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
 
 		/* Activate debug clock output */
-		regval |= BIT(16);
+		regval |= BIT(20);
 		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
 		break;
 
@@ -5285,6 +5287,10 @@ static void __init reg_init(void)
 	 * register.
 	 */
 	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
+
+	/* Clear a bit that forces-on certain USB HS and Krait clocks */
+	writel_relaxed(0x0, GCC_REG_BASE(GCC_USB_BOOT_CLOCK_CTL));
+	writel_relaxed(0x0, GCC_REG_BASE(GCC_KPSS_BOOT_CLOCK_CTL));
 
 	/*
 	 * TODO: The following sequence enables the LPASS audio core GDSC.
