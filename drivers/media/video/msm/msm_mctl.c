@@ -138,7 +138,38 @@ static struct msm_isp_color_fmt msm_isp_formats[] = {
 	.pxlcode	= V4L2_MBUS_FMT_YUYV8_2X8, /* YUV sensor */
 	.colorspace = V4L2_COLORSPACE_JPEG,
 	},
-
+	{
+	.name	   = "SAEC",
+	.depth	  = 16,
+	.bitsperpxl = 16,
+	.fourcc	 = V4L2_PIX_FMT_STATS_AE,
+	.pxlcode	= V4L2_MBUS_FMT_SBGGR10_1X10, /* YUV sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
+	{
+	.name	   = "SAWB",
+	.depth	  = 16,
+	.bitsperpxl = 16,
+	.fourcc	 = V4L2_PIX_FMT_STATS_AWB,
+	.pxlcode	= V4L2_MBUS_FMT_SBGGR10_1X10, /* YUV sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
+	{
+	.name	   = "SAFC",
+	.depth	  = 16,
+	.bitsperpxl = 16,
+	.fourcc	 = V4L2_PIX_FMT_STATS_AF,
+	.pxlcode	= V4L2_MBUS_FMT_SBGGR10_1X10, /* YUV sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
+	{
+	.name      = "SHST",
+	.depth    = 16,
+	.bitsperpxl = 16,
+	.fourcc  = V4L2_PIX_FMT_STATS_IHST,
+	.pxlcode        = V4L2_MBUS_FMT_SBGGR10_1X10, /* YUV sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
 };
 
 static int msm_get_sensor_info(

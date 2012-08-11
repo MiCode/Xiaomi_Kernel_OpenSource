@@ -593,6 +593,7 @@ enum msm_stats_enum_type {
 	MSM_STATS_TYPE_BF,  /* Bayer Focus */
 	MSM_STATS_TYPE_BHIST,   /* Bayer Hist */
 	MSM_STATS_TYPE_AE_AW,   /* legacy stats for vfe 2.x*/
+	MSM_STATS_TYPE_COMP, /* Composite stats */
 	MSM_STATS_TYPE_MAX  /* MAX */
 };
 
@@ -672,8 +673,11 @@ struct outputCfg {
 #define OUTPUT_TYPE_ST_D BIT(7)
 #define OUTPUT_TYPE_R    BIT(8)
 #define OUTPUT_TYPE_R1   BIT(9)
-
-
+#define OUTPUT_TYPE_SAEC   BIT(10)
+#define OUTPUT_TYPE_SAFC   BIT(11)
+#define OUTPUT_TYPE_SAWB   BIT(12)
+#define OUTPUT_TYPE_IHST   BIT(13)
+#define OUTPUT_TYPE_CSTA   BIT(14)
 
 struct fd_roi_info {
 	void *info;
@@ -808,7 +812,9 @@ struct msm_stats_buf {
 	(MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+13)
 #define MSM_V4L2_EXT_CAPTURE_MODE_RS \
 	(MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+14)
-#define MSM_V4L2_EXT_CAPTURE_MODE_MAX (MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+15)
+#define MSM_V4L2_EXT_CAPTURE_MODE_CSTA \
+	(MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+15)
+#define MSM_V4L2_EXT_CAPTURE_MODE_MAX (MSM_V4L2_EXT_CAPTURE_MODE_DEFAULT+16)
 
 #define MSM_V4L2_PID_MOTION_ISO              V4L2_CID_PRIVATE_BASE
 #define MSM_V4L2_PID_EFFECT                 (V4L2_CID_PRIVATE_BASE+1)
