@@ -2172,6 +2172,18 @@ static inline int msmsdcc_vreg_set_voltage(struct msm_mmc_reg_data *vreg,
 	return rc;
 }
 
+static inline int msmsdcc_vreg_get_voltage(struct msm_mmc_reg_data *vreg)
+{
+	int rc = 0;
+
+	rc = regulator_get_voltage(vreg->reg);
+	if (rc < 0)
+		pr_err("%s: regulator_get_voltage(%s) failed. rc=%d\n",
+			__func__, vreg->name, rc);
+
+	return rc;
+}
+
 static inline int msmsdcc_vreg_set_optimum_mode(struct msm_mmc_reg_data *vreg,
 						int uA_load)
 {
@@ -2415,6 +2427,82 @@ enum vdd_io_level {
 	 */
 	VDD_IO_SET_LEVEL,
 };
+
+/*
+ * This function returns the current VDD IO voltage level.
+ * Returns negative value if it fails to read the voltage level
+ * Returns 0 if regulator was disabled or if VDD_IO (and VDD)
+ * regulator were not defined for host.
+ */
+static int msmsdcc_get_vdd_io_vol(struct msmsdcc_host *host)
+{
+	int rc = 0;
+
+	if (host->plat->vreg_data) {
+		struct msm_mmc_reg_data *io_reg =
+			host->plat->vreg_data->vdd_io_data;
+
+		/*
+		 * If vdd_io is not defined, then we can consider that
+		 * IO voltage is same as VDD.
+		 */
+		if (!io_reg)
+			io_reg = host->plat->vreg_data->vdd_data;
+
+		if (io_reg && io_reg->is_enabled)
+			rc = msmsdcc_vreg_get_voltage(io_reg);
+	}
+
+	return rc;
+}
+
+/*
+ * This function updates the IO pad power switch bit in MCI_CLK register
+ * based on currrent IO pad voltage level.
+ * NOTE: This function assumes that host lock was not taken by caller.
+ */
+static void msmsdcc_update_io_pad_pwr_switch(struct msmsdcc_host *host)
+{
+	int rc = 0;
+	unsigned long flags;
+
+	if (!is_io_pad_pwr_switch(host))
+		return;
+
+	rc = msmsdcc_get_vdd_io_vol(host);
+
+	spin_lock_irqsave(&host->lock, flags);
+	/*
+	 * Dual voltage pad is the SDCC's (chipset) functionality and not all
+	 * the SDCC instances support the dual voltage pads.
+	 * For dual-voltage pad (1.8v/3.3v), SW should set IO_PAD_PWR_SWITCH
+	 * bit before using the pads in 1.8V mode.
+	 * For regular, not dual-voltage pads (including eMMC 1.2v/1.8v pads),
+	 * IO_PAD_PWR_SWITCH bit is a don't care.
+	 * But we don't have an option to know (by reading some SDCC register)
+	 * that a particular SDCC instance supports dual voltage pads or not,
+	 * so we simply set the IO_PAD_PWR_SWITCH bit for low voltage IO
+	 * (1.8v/1.2v). For regular (not dual-voltage pads), this bit value
+	 * is anyway ignored.
+	 */
+	if (rc > 0 && rc < 2700000)
+		host->io_pad_pwr_switch = 1;
+	else
+		host->io_pad_pwr_switch = 0;
+
+	if (atomic_read(&host->clks_on)) {
+		if (host->io_pad_pwr_switch)
+			writel_relaxed((readl_relaxed(host->base + MMCICLOCK) |
+					IO_PAD_PWR_SWITCH),
+					host->base + MMCICLOCK);
+		else
+			writel_relaxed((readl_relaxed(host->base + MMCICLOCK) &
+					~IO_PAD_PWR_SWITCH),
+					host->base + MMCICLOCK);
+		msmsdcc_sync_reg_wr(host);
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+}
 
 static int msmsdcc_set_vdd_io_vol(struct msmsdcc_host *host,
 				  enum vdd_io_level level,
@@ -2717,6 +2805,7 @@ static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 		 * present or during system suspend).
 		 */
 		msmsdcc_set_vdd_io_vol(host, VDD_IO_LOW, 0);
+		msmsdcc_update_io_pad_pwr_switch(host);
 		msmsdcc_setup_pins(host, false);
 		break;
 	case MMC_POWER_UP:
@@ -2725,6 +2814,7 @@ static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 		msmsdcc_cfg_mpm_sdiowakeup(host, SDC_DAT1_ENABLE);
 
 		msmsdcc_set_vdd_io_vol(host, VDD_IO_HIGH, 0);
+		msmsdcc_update_io_pad_pwr_switch(host);
 		msmsdcc_setup_pins(host, true);
 		break;
 	case MMC_POWER_ON:
@@ -3137,10 +3227,6 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	/* Select free running MCLK as input clock of cm_dll_sdc4 */
 	clk |= (2 << 23);
 
-	/* Clear IO_PAD_PWR_SWITCH while powering off the card */
-	if (!ios->vdd)
-		host->io_pad_pwr_switch = 0;
-
 	if (host->io_pad_pwr_switch)
 		clk |= IO_PAD_PWR_SWITCH;
 
@@ -3429,14 +3515,12 @@ static int msmsdcc_switch_io_voltage(struct mmc_host *mmc,
 	unsigned long flags;
 	int rc = 0;
 
-	spin_lock_irqsave(&host->lock, flags);
-	host->io_pad_pwr_switch = 0;
-	spin_unlock_irqrestore(&host->lock, flags);
-
 	switch (ios->signal_voltage) {
 	case MMC_SIGNAL_VOLTAGE_330:
 		/* Set VDD IO to high voltage range (2.7v - 3.6v) */
 		rc = msmsdcc_set_vdd_io_vol(host, VDD_IO_HIGH, 0);
+		if (!rc)
+			msmsdcc_update_io_pad_pwr_switch(host);
 		goto out;
 	case MMC_SIGNAL_VOLTAGE_180:
 		break;
@@ -3447,6 +3531,8 @@ static int msmsdcc_switch_io_voltage(struct mmc_host *mmc,
 		 * DDR 1.2V mode.
 		 */
 		rc = msmsdcc_set_vdd_io_vol(host, VDD_IO_SET_LEVEL, 1200000);
+		if (!rc)
+			msmsdcc_update_io_pad_pwr_switch(host);
 		goto out;
 	default:
 		/* invalid selection. don't do anything */
@@ -3485,12 +3571,7 @@ static int msmsdcc_switch_io_voltage(struct mmc_host *mmc,
 	if (rc)
 		goto out;
 
-	spin_lock_irqsave(&host->lock, flags);
-	writel_relaxed((readl_relaxed(host->base + MMCICLOCK) |
-			IO_PAD_PWR_SWITCH), host->base + MMCICLOCK);
-	msmsdcc_sync_reg_wr(host);
-	host->io_pad_pwr_switch = 1;
-	spin_unlock_irqrestore(&host->lock, flags);
+	msmsdcc_update_io_pad_pwr_switch(host);
 
 	/* Wait 5 ms for the voltage regulater in the card to become stable. */
 	usleep_range(5000, 5500);
