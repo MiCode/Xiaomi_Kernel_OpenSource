@@ -469,8 +469,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		return -EINVAL;
 	}
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		inst->prop.width = f->fmt.pix_mp.width;
-		inst->prop.height = f->fmt.pix_mp.height;
+		struct hal_frame_size frame_sz;
+
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 			ARRAY_SIZE(vdec_formats), f->fmt.pix_mp.pixelformat,
 			CAPTURE_PORT);
@@ -478,6 +478,21 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			pr_err("Format: %d not supported on CAPTURE port\n",
 					f->fmt.pix_mp.pixelformat);
 			rc = -EINVAL;
+			goto err_invalid_fmt;
+		}
+
+		inst->prop.width = f->fmt.pix_mp.width;
+		inst->prop.height = f->fmt.pix_mp.height;
+
+		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+		frame_sz.width = inst->prop.width;
+		frame_sz.height = inst->prop.height;
+		pr_debug("width = %d, height = %d\n",
+				frame_sz.width, frame_sz.height);
+		rc = vidc_hal_session_set_property((void *)inst->session,
+				HAL_PARAM_FRAME_SIZE, &frame_sz);
+		if (rc) {
+			pr_err("Failed to set hal property for framesize\n");
 			goto err_invalid_fmt;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -570,7 +585,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 {
 	int i, rc = 0;
 	struct msm_vidc_inst *inst;
-	struct hal_frame_size frame_sz;
 	unsigned long flags;
 	if (!q || !q->drv_priv) {
 		pr_err("Invalid input, q = %p\n", q);
@@ -595,27 +609,42 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			pr_err("Failed to open instance\n");
 			break;
 		}
-		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
-		pr_debug("width = %d, height = %d\n",
-				frame_sz.width, frame_sz.height);
-		rc = vidc_hal_session_set_property((void *)inst->session,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
-		if (rc) {
-			pr_err("Failed to set hal property for framesize\n");
-			break;
-		}
+
 		rc = msm_comm_try_get_bufreqs(inst);
 		if (rc) {
 			pr_err("Failed to get buffer requirements: %d\n", rc);
 			break;
 		}
 		*num_planes = 1;
+
 		spin_lock_irqsave(&inst->lock, flags);
-		*num_buffers = inst->buff_req.buffer[1].buffer_count_actual;
+		if (*num_buffers && *num_buffers >
+			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].
+				buffer_count_actual) {
+			struct hal_buffer_count_actual new_buf_count;
+			enum hal_property property_id =
+				HAL_PARAM_BUFFER_COUNT_ACTUAL;
+
+			new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
+			new_buf_count.buffer_count_actual = *num_buffers;
+			rc = vidc_hal_session_set_property(inst->session,
+					property_id, &new_buf_count);
+
+			spin_unlock_irqrestore(&inst->lock, flags);
+			if (!rc && msm_comm_try_get_bufreqs(inst)) {
+				/* We are allowed to reject clients' request for
+				 * more buffers and suggest our own bufreq */
+				pr_warn("Unable to increase the number of output buffers to %d\n",
+						*num_buffers);
+			}
+			spin_lock_irqsave(&inst->lock, flags);
+		}
+		*num_buffers = inst->buff_req.buffer[HAL_BUFFER_OUTPUT].
+							buffer_count_actual;
 		spin_unlock_irqrestore(&inst->lock, flags);
-		pr_debug("size = %d, alignment = %d\n",
+
+		pr_debug("count =  %d, size = %d, alignment = %d\n",
+				inst->buff_req.buffer[1].buffer_count_actual,
 				inst->buff_req.buffer[1].buffer_size,
 				inst->buff_req.buffer[1].buffer_alignment);
 		for (i = 0; i < *num_planes; i++) {
