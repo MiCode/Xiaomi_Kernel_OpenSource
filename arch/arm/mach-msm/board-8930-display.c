@@ -135,6 +135,8 @@ static bool dsi_power_on;
 static int mipi_dsi_cdp_panel_power(int on)
 {
 	static struct regulator *reg_l8, *reg_l23, *reg_l2;
+	/* Control backlight GPIO (24) directly when using PM8917 */
+	int gpio24 = PM8917_GPIO_PM_TO_SYS(24);
 	int rc;
 
 	pr_debug("%s: state : %d\n", __func__, on);
@@ -190,13 +192,21 @@ static int mipi_dsi_cdp_panel_power(int on)
 				 rc);
 			gpio_free(DISP_3D_2D_MODE);
 			return -ENODEV;
-			}
+		}
 		rc = gpio_direction_output(DISP_3D_2D_MODE, 0);
 		if (rc) {
 			pr_err("gpio_direction_output failed for %d gpio rc=%d\n",
 			DISP_3D_2D_MODE, rc);
 			return -ENODEV;
+		}
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917) {
+			rc = gpio_request(gpio24, "disp_bl");
+			if (rc) {
+				pr_err("request for gpio 24 failed, rc=%d\n",
+					rc);
+				return -ENODEV;
 			}
+		}
 		dsi_power_on = true;
 	}
 	if (on) {
@@ -238,6 +248,8 @@ static int mipi_dsi_cdp_panel_power(int on)
 		gpio_set_value(DISP_RST_GPIO, 1);
 		gpio_set_value(DISP_3D_2D_MODE, 1);
 		usleep(20);
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+			gpio_set_value_cansleep(gpio24, 1);
 	} else {
 
 		gpio_set_value(DISP_RST_GPIO, 0);
@@ -274,6 +286,8 @@ static int mipi_dsi_cdp_panel_power(int on)
 		}
 		gpio_set_value(DISP_3D_2D_MODE, 0);
 		usleep(20);
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+			gpio_set_value_cansleep(gpio24, 0);
 	}
 	return 0;
 }
