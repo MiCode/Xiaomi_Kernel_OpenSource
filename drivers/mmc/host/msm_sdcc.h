@@ -428,6 +428,7 @@ struct msmsdcc_host {
 #define MSMSDCC_SW_RST		(1 << 5)
 #define MSMSDCC_SW_RST_CFG	(1 << 6)
 #define MSMSDCC_WAIT_FOR_TX_RX	(1 << 7)
+#define MSMSDCC_IO_PAD_PWR_SWITCH	(1 << 8)
 
 #define set_hw_caps(h, val)		((h)->hw_caps |= val)
 #define is_sps_mode(h)			((h)->hw_caps & MSMSDCC_SPS_BAM_SUP)
@@ -438,6 +439,7 @@ struct msmsdcc_host {
 #define is_sw_hard_reset(h)		((h)->hw_caps & MSMSDCC_SW_RST)
 #define is_sw_reset_save_config(h)	((h)->hw_caps & MSMSDCC_SW_RST_CFG)
 #define is_wait_for_tx_rx_active(h)	((h)->hw_caps & MSMSDCC_WAIT_FOR_TX_RX)
+#define is_io_pad_pwr_switch(h)	((h)->hw_caps & MSMSDCC_IO_PAD_PWR_SWITCH)
 
 /* Set controller capabilities based on version */
 static inline void set_default_hw_caps(struct msmsdcc_host *host)
@@ -457,7 +459,7 @@ static inline void set_default_hw_caps(struct msmsdcc_host *host)
 	if (version) /* SDCC v4 and greater */
 		host->hw_caps |= MSMSDCC_AUTO_PROG_DONE |
 			MSMSDCC_SOFT_RESET | MSMSDCC_REG_WR_ACTIVE
-			| MSMSDCC_WAIT_FOR_TX_RX;
+			| MSMSDCC_WAIT_FOR_TX_RX | MSMSDCC_IO_PAD_PWR_SWITCH;
 
 	if (version >= 0x2D) /* SDCC v4 2.1.0 and greater */
 		host->hw_caps |= MSMSDCC_SW_RST | MSMSDCC_SW_RST_CFG;
