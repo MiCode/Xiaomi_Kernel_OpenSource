@@ -165,6 +165,8 @@ static struct pm8xxx_mpp_init pm8038_mpps[] __initdata = {
 
 /* Initial PM8917 GPIO configurations */
 static struct pm8xxx_gpio_init pm8917_gpios[] __initdata = {
+	/* Backlight enable control */
+	PM8917_GPIO_OUTPUT(24, 1),
 	/* keys GPIOs */
 	PM8917_GPIO_INPUT(27, PM_GPIO_PULL_UP_30),
 	PM8917_GPIO_INPUT(28, PM_GPIO_PULL_UP_30),
