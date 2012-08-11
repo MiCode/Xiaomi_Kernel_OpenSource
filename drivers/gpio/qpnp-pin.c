@@ -129,7 +129,8 @@ enum qpnp_pin_param_type {
 #define Q_NUM_PARAMS			Q_PIN_CFG_INVALID
 
 /* param error checking */
-#define QPNP_PIN_MODE_INVALID		3
+#define QPNP_PIN_GPIO_MODE_INVALID	3
+#define QPNP_PIN_MPP_MODE_INVALID	7
 #define QPNP_PIN_INVERT_INVALID		2
 #define QPNP_PIN_OUT_BUF_INVALID	3
 #define QPNP_PIN_VIN_4CH_INVALID	5
@@ -225,8 +226,12 @@ static int qpnp_pin_check_config(enum qpnp_pin_param_type idx,
 {
 	switch (idx) {
 	case Q_PIN_CFG_MODE:
-		if (val >= QPNP_PIN_MODE_INVALID)
-			return -EINVAL;
+		if (q_spec->type == Q_GPIO_TYPE &&
+		    val >= QPNP_PIN_GPIO_MODE_INVALID)
+				return -EINVAL;
+		else if (q_spec->type == Q_MPP_TYPE &&
+			 val >= QPNP_PIN_MPP_MODE_INVALID)
+				return -EINVAL;
 		break;
 	case Q_PIN_CFG_OUTPUT_TYPE:
 		if (q_spec->type != Q_GPIO_TYPE)
@@ -699,7 +704,7 @@ static int qpnp_pin_set_mode(struct qpnp_pin_chip *q_chip,
 	if (!q_chip || !q_spec)
 		return -EINVAL;
 
-	if (mode >= QPNP_PIN_MODE_INVALID) {
+	if (qpnp_pin_check_config(Q_PIN_CFG_MODE, q_spec, mode)) {
 		pr_err("invalid mode specification %d\n", mode);
 		return -EINVAL;
 	}
