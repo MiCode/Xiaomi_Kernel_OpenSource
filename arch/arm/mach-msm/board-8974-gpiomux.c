@@ -26,6 +26,12 @@ static struct gpiomux_setting gpio_uart_config = {
 	.dir = GPIOMUX_OUT_HIGH,
 };
 
+static struct gpiomux_setting slimbus = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_KEEPER,
+};
+
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct gpiomux_setting gpio_eth_config = {
 	.pull = GPIOMUX_PULL_NONE,
@@ -132,6 +138,21 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm8974_slimbus_config[] __initdata = {
+	{
+		.gpio	= 70,		/* slimbus clk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &slimbus,
+		},
+	},
+	{
+		.gpio	= 71,		/* slimbus data */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &slimbus,
+		},
+	},
+};
+
 void __init msm_8974_init_gpiomux(void)
 {
 	int rc;
@@ -146,4 +167,8 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install(msm_eth_configs, ARRAY_SIZE(msm_eth_configs));
 #endif
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+
+	msm_gpiomux_install(msm8974_slimbus_config,
+			ARRAY_SIZE(msm8974_slimbus_config));
+
 }
