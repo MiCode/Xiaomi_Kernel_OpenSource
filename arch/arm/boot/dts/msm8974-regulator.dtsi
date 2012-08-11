@@ -436,4 +436,11 @@
 		regulator-min-microvolt = <500000>;
 		regulator-max-microvolt = <1100000>;
 	};
+
+	spi_eth_vreg: spi_eth_phy_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "ethernet_phy";
+		gpio = <&pm8941_mpps 5 0>;
+		enable-active-high;
+	};
 };
