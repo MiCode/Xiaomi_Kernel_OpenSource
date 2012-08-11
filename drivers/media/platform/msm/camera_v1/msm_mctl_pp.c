@@ -418,6 +418,16 @@ static int msm_mctl_pp_path_to_img_mode(int path)
 		return MSM_V4L2_EXT_CAPTURE_MODE_MAIN;
 	case OUTPUT_TYPE_T:
 		return MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL;
+	case OUTPUT_TYPE_SAEC:
+		return MSM_V4L2_EXT_CAPTURE_MODE_AEC;
+	case OUTPUT_TYPE_SAWB:
+		return MSM_V4L2_EXT_CAPTURE_MODE_AWB;
+	case OUTPUT_TYPE_SAFC:
+		return MSM_V4L2_EXT_CAPTURE_MODE_AF;
+	case OUTPUT_TYPE_IHST:
+		return MSM_V4L2_EXT_CAPTURE_MODE_IHIST;
+	case OUTPUT_TYPE_CSTA:
+		return MSM_V4L2_EXT_CAPTURE_MODE_CSTA;
 	default:
 		return -EINVAL;
 	}
@@ -697,6 +707,22 @@ int msm_mctl_pp_divert_done(
 	case OUTPUT_TYPE_T:
 		msg_type = VFE_MSG_OUTPUT_T;
 		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL;
+		break;
+	case OUTPUT_TYPE_SAEC:
+		msg_type = VFE_MSG_STATS_AEC;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_AEC;
+		break;
+	case OUTPUT_TYPE_SAWB:
+		msg_type = VFE_MSG_STATS_AWB;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_AWB;
+		break;
+	case OUTPUT_TYPE_SAFC:
+		msg_type = VFE_MSG_STATS_AF;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_AF;
+		break;
+	case OUTPUT_TYPE_IHST:
+		msg_type = VFE_MSG_STATS_IHIST;
+		image_mode = MSM_V4L2_EXT_CAPTURE_MODE_IHIST;
 		break;
 	default:
 		rc = -EFAULT;
