@@ -427,6 +427,60 @@
 					 <0x1e50008a>, /* LPG_CHAN10 */
 					 <0x1e60008b>, /* LPG_CHAN11 */
 					 <0x1e70008c>; /* LPG_CHAN12 */
+
+		qcom,pm8941@1 {
+			qcom,leds@d800 {
+				qcom,name = "wled:backlight";
+				linux,default-trigger = "bkl-trigger";
+				qcom,cs-out-en;
+				qcom,op-fdbck;
+				qcom,default-state = "on";
+				qcom,max-current = <25>;
+				qcom,ctrl-delay-us = <0>;
+				qcom,boost-curr-lim = <3>;
+				qcom,cp-sel = <0>;
+				qcom,switch-freq = <2>;
+				qcom,ovp-val = <2>;
+				qcom,num-strings = <1>;
+				status = "okay";
+			};
+
+			qcom,leds@d900 {
+				status = "disabled";
+			};
+
+			qcom,leds@da00 {
+				status = "disabled";
+			};
+
+			qcom,leds@db00 {
+				status = "disabled";
+			};
+
+			qcom,leds@dc00 {
+				status = "disabled";
+			};
+
+			qcom,leds@dd00 {
+				status = "disabled";
+			};
+
+			qcom,leds@de00 {
+				status = "disabled";
+			};
+
+			qcom,leds@df00 {
+				status = "disabled";
+			};
+
+			qcom,leds@e000 {
+				status = "disabled";
+			};
+
+			qcom,leds@e100 {
+				status = "disabled";
+			};
+		};
 	};
 
 	i2c@f9967000 {
