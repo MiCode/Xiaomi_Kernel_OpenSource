@@ -22,7 +22,8 @@ struct platform_device;
 struct q6v5_data {
 	void __iomem *reg_base;
 	struct clk *xo;
-	struct clk *bus_clk;
+	struct clk *ahb_clk;
+	struct clk *axi_clk;
 	struct clk *core_clk;
 	struct clk *ss_clk;
 	void __iomem *axi_halt_base;

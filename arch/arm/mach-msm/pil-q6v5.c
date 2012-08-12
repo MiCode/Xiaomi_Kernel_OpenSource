@@ -117,9 +117,16 @@ int pil_q6v5_enable_clks(struct pil_desc *pil)
 	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
 	int ret;
 
-	ret = clk_prepare_enable(drv->bus_clk);
-	if (ret)
-		goto err_bus_clk;
+	if (drv->ahb_clk) {
+		ret = clk_prepare_enable(drv->ahb_clk);
+		if (ret)
+			goto err_ahb_clk;
+	}
+	if (drv->axi_clk) {
+		ret = clk_prepare_enable(drv->axi_clk);
+		if (ret)
+			goto err_axi_clk;
+	}
 	if (drv->ss_clk) {
 		ret = clk_prepare_enable(drv->ss_clk);
 		if (ret)
@@ -139,8 +146,10 @@ err_core_clk:
 err_reset:
 	clk_disable_unprepare(drv->ss_clk);
 err_ss_clk:
-	clk_disable_unprepare(drv->bus_clk);
-err_bus_clk:
+	clk_disable_unprepare(drv->axi_clk);
+err_axi_clk:
+	clk_disable_unprepare(drv->ahb_clk);
+err_ahb_clk:
 	return ret;
 }
 EXPORT_SYMBOL(pil_q6v5_enable_clks);
@@ -152,7 +161,8 @@ void pil_q6v5_disable_clks(struct pil_desc *pil)
 	clk_disable_unprepare(drv->core_clk);
 	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
 	clk_disable_unprepare(drv->ss_clk);
-	clk_disable_unprepare(drv->bus_clk);
+	clk_disable_unprepare(drv->axi_clk);
+	clk_disable_unprepare(drv->ahb_clk);
 }
 EXPORT_SYMBOL(pil_q6v5_disable_clks);
 
@@ -277,9 +287,13 @@ struct pil_desc *pil_q6v5_init(struct platform_device *pdev)
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);
 
-	drv->bus_clk = devm_clk_get(&pdev->dev, "bus_clk");
-	if (IS_ERR(drv->bus_clk))
-		return ERR_CAST(drv->bus_clk);
+	drv->ahb_clk = devm_clk_get(&pdev->dev, "iface_clk");
+	if (IS_ERR(drv->ahb_clk))
+		return ERR_CAST(drv->ahb_clk);
+
+	drv->axi_clk = devm_clk_get(&pdev->dev, "bus_clk");
+	if (IS_ERR(drv->axi_clk))
+		return ERR_CAST(drv->axi_clk);
 
 	drv->core_clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(drv->core_clk))
