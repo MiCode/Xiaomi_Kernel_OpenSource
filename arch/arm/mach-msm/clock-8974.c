@@ -3895,7 +3895,7 @@ static struct branch_clk oxilicx_ahb_clk = {
 };
 
 static struct clk_freq_tbl ftbl_audio_core_slimbus_core_clock[] = {
-	F_LPASS(28800000, lpapll0, 1, 15, 256),
+	F_LPASS(24576000, lpapll0, 4, 1, 5),
 	F_END
 };
 
