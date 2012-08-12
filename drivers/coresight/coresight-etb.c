@@ -220,9 +220,24 @@ static void etb_disable(struct coresight_device *csdev)
 	dev_info(drvdata->dev, "ETB disabled\n");
 }
 
+static void etb_abort(struct coresight_device *csdev)
+{
+	struct etb_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	unsigned long flags;
+
+	spin_lock_irqsave(&drvdata->spinlock, flags);
+	__etb_disable(drvdata);
+	__etb_dump(drvdata);
+	drvdata->enable = false;
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	dev_info(drvdata->dev, "ETB aborted\n");
+}
+
 static const struct coresight_ops_sink etb_sink_ops = {
 	.enable		= etb_enable,
 	.disable	= etb_disable,
+	.abort		= etb_abort,
 };
 
 static const struct coresight_ops etb_cs_ops = {

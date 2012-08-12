@@ -114,9 +114,19 @@ static void tpiu_disable(struct coresight_device *csdev)
 	dev_info(drvdata->dev, "TPIU disabled\n");
 }
 
+static void tpiu_abort(struct coresight_device *csdev)
+{
+	struct tpiu_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+
+	__tpiu_disable(drvdata);
+
+	dev_info(drvdata->dev, "TPIU aborted\n");
+}
+
 static const struct coresight_ops_sink tpiu_sink_ops = {
 	.enable		= tpiu_enable,
 	.disable	= tpiu_disable,
+	.abort		= tpiu_abort,
 };
 
 static const struct coresight_ops tpiu_cs_ops = {
