@@ -824,3 +824,13 @@ void kgsl_mmu_set_mmutype(char *mmutype)
 		kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
 }
 EXPORT_SYMBOL(kgsl_mmu_set_mmutype);
+
+int kgsl_mmu_gpuaddr_in_range(unsigned int gpuaddr)
+{
+	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
+		return 1;
+	return ((gpuaddr >= KGSL_PAGETABLE_BASE) &&
+		(gpuaddr < (KGSL_PAGETABLE_BASE + kgsl_mmu_get_ptsize())));
+}
+EXPORT_SYMBOL(kgsl_mmu_gpuaddr_in_range);
+
