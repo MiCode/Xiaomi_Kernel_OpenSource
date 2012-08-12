@@ -350,6 +350,72 @@
 				qcom,hw-settle-time = <0>;
 				qcom,fast-avg-setup = <0>;
 			};
+
+			chan@2 {
+				label = "vchg_sns";
+				qcom,channel-num = <2>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <6>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@5 {
+				label = "vcoin";
+				qcom,channel-num = <5>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <3>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@6 {
+				label = "vbat_sns";
+				qcom,channel-num = <6>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <3>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@7 {
+				label = "vph_pwr";
+				qcom,channel-num = <7>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <3>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@9 {
+				label = "ref_625mv";
+				qcom,channel-num = <9>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@10 {
+				label = "ref_1125v";
+				qcom,channel-num = <10>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
 		};
 
 		iadc@3600 {
