@@ -2737,7 +2737,6 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd,
 		}
 		if (mfd->panel_info.pdest == DISPLAY_1 &&
 		    perf_req->use_ov0_blt && !perf_cur->use_ov0_blt) {
-			mdp4_allocate_writeback_buf(mfd, MDP4_MIXER0);
 			if (mfd->panel_info.type == LCDC_PANEL ||
 			    mfd->panel_info.type == LVDS_PANEL)
 				mdp4_lcdc_overlay_blt_start(mfd);
@@ -2754,7 +2753,6 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd,
 		}
 		if (mfd->panel_info.pdest == DISPLAY_2 &&
 		    perf_req->use_ov1_blt && !perf_cur->use_ov1_blt) {
-			mdp4_allocate_writeback_buf(mfd, MDP4_MIXER1);
 			mdp4_dtv_overlay_blt_start(mfd);
 			pr_info("%s mixer1 start blt [%d] from %d to %d.\n",
 				__func__,
@@ -2794,7 +2792,6 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd,
 				mdp4_dsi_video_blt_stop(mfd);
 			else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD)
 				mdp4_dsi_cmd_blt_stop(mfd);
-			mdp4_free_writeback_buf(mfd, MDP4_MIXER0);
 			pr_info("%s mixer0 stop blt [%d] from %d to %d.\n",
 				__func__,
 				flag,
@@ -2805,7 +2802,6 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd,
 		if (mfd->panel_info.pdest == DISPLAY_2 &&
 		    !perf_req->use_ov1_blt && perf_cur->use_ov1_blt) {
 			mdp4_dtv_overlay_blt_stop(mfd);
-			mdp4_free_writeback_buf(mfd, MDP4_MIXER1);
 			pr_info("%s mixer1 stop blt [%d] from %d to %d.\n",
 				__func__,
 				flag,
