@@ -93,7 +93,7 @@ struct mdss_pp_res_type {
 static DEFINE_MUTEX(mdss_pp_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
 
-static int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
+int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 				   struct mdp_csc_cfg *data)
 {
 	int i, ret = 0;
