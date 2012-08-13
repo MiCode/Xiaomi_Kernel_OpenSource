@@ -120,6 +120,29 @@ static int __cpuinit krait_release_secondary(unsigned long base, int cpu)
 	return 0;
 }
 
+static int __cpuinit krait_release_secondary_p3(unsigned long base, int cpu)
+{
+	void *base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
+	if (!base_ptr)
+		return -ENODEV;
+
+	writel_relaxed(0x021, base_ptr+0x04);
+	mb();
+	udelay(2);
+
+	writel_relaxed(0x020, base_ptr+0x04);
+	mb();
+	udelay(2);
+
+	writel_relaxed(0x000, base_ptr+0x04);
+	mb();
+
+	writel_relaxed(0x080, base_ptr+0x04);
+	mb();
+	iounmap(base_ptr);
+	return 0;
+}
+
 static int __cpuinit release_secondary(unsigned int cpu)
 {
 	BUG_ON(cpu >= get_core_count());
@@ -133,6 +156,9 @@ static int __cpuinit release_secondary(unsigned int cpu)
 	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
 	    cpu_is_apq8064() || cpu_is_msm8627() || cpu_is_msm8960ab())
 		return krait_release_secondary(0x02088000, cpu);
+
+	if (cpu_is_msm8974())
+		return krait_release_secondary_p3(0xf9088000, cpu);
 
 	WARN(1, "unknown CPU case in release_secondary\n");
 	return -EINVAL;

@@ -489,13 +489,12 @@ static void __iomem *virt_bases[N_BASES];
 #define OCMEMNOC_CBCR                            0x50B4
 #define LPASS_Q6SS_AHB_LFABIF_CBCR               0x22000
 #define LPASS_Q6SS_XO_CBCR                       0x26000
+#define LPASS_Q6_AXI_CBCR			 0x11C0
 #define Q6SS_AHBM_CBCR				 0x22004
 #define MSS_XO_Q6_CBCR                           0x108C
 #define MSS_BUS_Q6_CBCR                          0x10A4
 #define MSS_CFG_AHB_CBCR                         0x0280
 
-#define GCC_USB_BOOT_CLOCK_CTL	   0x1A00
-#define GCC_KPSS_BOOT_CLOCK_CTL	   0x19C0
 #define APCS_CLOCK_BRANCH_ENA_VOTE 0x1484
 #define APCS_CLOCK_SLEEP_ENA_VOTE  0x1488
 
@@ -3897,7 +3896,7 @@ static struct branch_clk oxilicx_ahb_clk = {
 };
 
 static struct clk_freq_tbl ftbl_audio_core_slimbus_core_clock[] = {
-	F_LPASS(28800000, lpapll0, 1, 15, 256),
+	F_LPASS(24576000, lpapll0, 4, 1, 5),
 	F_END
 };
 
@@ -4323,6 +4322,17 @@ static struct branch_clk audio_core_ixfabric_clk = {
 	},
 };
 
+static struct branch_clk gcc_lpass_q6_axi_clk = {
+	.cbcr_reg = LPASS_Q6_AXI_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_lpass_q6_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_lpass_q6_axi_clk.c),
+	},
+};
+
 static struct branch_clk q6ss_xo_clk = {
 	.cbcr_reg = LPASS_Q6SS_XO_CBCR,
 	.bcr_reg = LPASS_Q6SS_BCR,
@@ -4456,6 +4466,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_sdcc2_ahb_clk.c,			GCC_BASE, 0x0071},
 	{&gcc_ocmem_noc_cfg_ahb_clk.c,		GCC_BASE, 0x0029},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0138},
+	{&gcc_lpass_q6_axi_clk.c,		GCC_BASE, 0x0160},
 	{&mmss_mmssnoc_axi_clk.c,		MMSS_BASE, 0x0004},
 	{&ocmemnoc_clk.c,			MMSS_BASE, 0x0007},
 	{&ocmemcx_ocmemnoc_clk.c,		MMSS_BASE, 0x0009},
@@ -5022,13 +5033,14 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_oe_clk", audio_core_lpaif_pcmoe_clk.c,
 						"msm-dai-q6.4106"),
 
-	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c, "pil-q6v5-mss"),
-	CLK_LOOKUP("bus_clk",       mss_bus_q6_clk.c, "pil-q6v5-mss"),
-	CLK_LOOKUP("bus_clk",  gcc_mss_cfg_ahb_clk.c, ""),
-	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c, "pil-q6v5-mss"),
-	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c, "pil-q6v5-lpass"),
-	CLK_LOOKUP("bus_clk",  q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
-	CLK_LOOKUP("reg_clk",        q6ss_ahbm_clk.c, "pil-q6v5-lpass"),
+	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c,  "pil-q6v5-mss"),
+	CLK_LOOKUP("bus_clk",       mss_bus_q6_clk.c,  "pil-q6v5-mss"),
+	CLK_LOOKUP("iface_clk", gcc_mss_cfg_ahb_clk.c, "pil-q6v5-mss"),
+	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c,  "pil-q6v5-mss"),
+	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c,  "pil-q6v5-lpass"),
+	CLK_LOOKUP("bus_clk", gcc_lpass_q6_axi_clk.c,  "pil-q6v5-lpass"),
+	CLK_LOOKUP("iface_clk", q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
+	CLK_LOOKUP("reg_clk",        q6ss_ahbm_clk.c,  "pil-q6v5-lpass"),
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
@@ -5304,10 +5316,6 @@ static void __init reg_init(void)
 	 * register.
 	 */
 	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
-
-	/* Clear a bit that forces-on certain USB HS and Krait clocks */
-	writel_relaxed(0x0, GCC_REG_BASE(GCC_USB_BOOT_CLOCK_CTL));
-	writel_relaxed(0x0, GCC_REG_BASE(GCC_KPSS_BOOT_CLOCK_CTL));
 
 	/*
 	 * TODO: The following sequence enables the LPASS audio core GDSC.
