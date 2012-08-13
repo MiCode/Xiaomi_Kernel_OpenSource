@@ -696,7 +696,6 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 
 		switch (id) {
 		case MSG_SNAPSHOT:
-			msm_camio_set_perf_lvl(S_PREVIEW);
 			while (vfe2x_ctrl->snap.frame_cnt <
 				vfe2x_ctrl->num_snap) {
 				vfe_7x_ops(driver_data, MSG_OUTPUT_S, len,

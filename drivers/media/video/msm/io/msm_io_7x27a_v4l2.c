@@ -21,7 +21,7 @@
 #include <mach/clk.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
-
+#include <mach/dal_axi.h>
 
 #define MSM_AXI_QOS_PREVIEW 200000
 #define MSM_AXI_QOS_SNAPSHOT 200000
@@ -142,6 +142,7 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 		break;
 	case S_PREVIEW:
 		update_axi_qos(MSM_AXI_QOS_PREVIEW);
+		axi_allocate(AXI_FLOW_VIEWFINDER_HI);
 		break;
 	case S_VIDEO:
 		update_axi_qos(MSM_AXI_QOS_RECORDING);
@@ -153,6 +154,7 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 		update_axi_qos(PM_QOS_DEFAULT_VALUE);
 		break;
 	case S_EXIT:
+		axi_free(AXI_FLOW_VIEWFINDER_HI);
 		release_axi_qos();
 		break;
 	default:
