@@ -17,6 +17,8 @@
 #define DALRPC_PORT_NAME  "DAL00"
 
 enum {
+	DALRPC_AXI_ALLOCATE = DALDEVICE_FIRST_DEVICE_API_IDX + 1,
+	DALRPC_AXI_FREE = DALDEVICE_FIRST_DEVICE_API_IDX + 2,
 	DALRPC_AXI_CONFIGURE_BRIDGE = DALDEVICE_FIRST_DEVICE_API_IDX + 11
 };
 
@@ -37,6 +39,67 @@ enum {
 	DAL_AXI_BRIDGE_CFG_GRPSS_XBAR_ISOSYNC_MODE = 60
 
 };
+
+static void *cam_dev_handle;
+static int __axi_free(int mode)
+{
+	int rc = 0;
+
+	if (!cam_dev_handle)
+		return rc;
+
+	rc = dalrpc_fcn_0(DALRPC_AXI_FREE, cam_dev_handle, mode);
+	if (rc) {
+		printk(KERN_ERR "%s: AXI bus device (%d) failed to be configured\n",
+			__func__, rc);
+		goto fail_dal_fcn_0;
+	}
+
+	/* close device handle */
+	rc = daldevice_detach(cam_dev_handle);
+	if (rc) {
+		printk(KERN_ERR "%s: failed to detach AXI bus device (%d)\n",
+			__func__, rc);
+		goto fail_dal_attach_detach;
+	}
+	cam_dev_handle = NULL;
+	return 0;
+
+fail_dal_fcn_0:
+	(void)daldevice_detach(cam_dev_handle);
+	cam_dev_handle = NULL;
+fail_dal_attach_detach:
+	return rc;
+}
+
+static int __axi_allocate(int mode)
+{
+	int rc;
+
+	/* get device handle */
+	rc = daldevice_attach(DALDEVICEID_AXI, DALRPC_PORT_NAME,
+				DALRPC_DEST_MODEM, &cam_dev_handle);
+	if (rc) {
+		printk(KERN_ERR "%s: failed to attach AXI bus device (%d)\n",
+			__func__, rc);
+		goto fail_dal_attach_detach;
+	}
+
+	rc = dalrpc_fcn_0(DALRPC_AXI_ALLOCATE, cam_dev_handle, mode);
+	if (rc) {
+		printk(KERN_ERR "%s: AXI bus device (%d) failed to be configured\n",
+			__func__, rc);
+		goto fail_dal_fcn_0;
+	}
+
+	return 0;
+
+fail_dal_fcn_0:
+	(void)daldevice_detach(cam_dev_handle);
+	cam_dev_handle = NULL;
+fail_dal_attach_detach:
+	return rc;
+}
 
 static int axi_configure_bridge_grfx_sync_mode(int bridge_mode)
 {
@@ -82,7 +145,15 @@ fail_dal_attach_detach:
 	return rc;
 }
 
+int axi_free(mode)
+{
+	return __axi_free(mode);
+}
 
+int axi_allocate(mode)
+{
+	return __axi_allocate(mode);
+}
 
 int set_grp2d_async(void)
 {
