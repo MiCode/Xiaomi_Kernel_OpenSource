@@ -2752,14 +2752,8 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 		pr_debug("OTG IRQ: %d in LPM\n", irq);
 		disable_irq_nosync(irq);
 		motg->async_int = irq;
-		if (atomic_read(&motg->pm_suspended)) {
-			motg->sm_work_pending = true;
-			if ((otg->phy->state == OTG_STATE_A_SUSPEND) ||
-				(otg->phy->state == OTG_STATE_A_WAIT_BCON))
-				set_bit(A_BUS_REQ, &motg->inputs);
-		} else {
+		if (!atomic_read(&motg->pm_suspended))
 			pm_request_resume(otg->phy->dev);
-		}
 		return IRQ_HANDLED;
 	}
 
@@ -3898,9 +3892,7 @@ static int msm_otg_pm_resume(struct device *dev)
 	dev_dbg(dev, "OTG PM resume\n");
 
 	atomic_set(&motg->pm_suspended, 0);
-	if (motg->sm_work_pending) {
-		motg->sm_work_pending = false;
-
+	if (motg->async_int || motg->sm_work_pending) {
 		pm_runtime_get_noresume(dev);
 		ret = msm_otg_resume(motg);
 
@@ -3909,7 +3901,10 @@ static int msm_otg_pm_resume(struct device *dev)
 		pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
 
-		queue_work(system_nrt_wq, &motg->sm_work);
+		if (motg->sm_work_pending) {
+			motg->sm_work_pending = false;
+			queue_work(system_nrt_wq, &motg->sm_work);
+		}
 	}
 
 	return ret;
