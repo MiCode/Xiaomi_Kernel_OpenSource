@@ -13,7 +13,9 @@
 / {
 	qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
-		reg = <0xfd900000 0x22100>;
+		reg = <0xfd900000 0x22100>,
+			<0xfd924000 0x1000>;
+		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 	};

@@ -25,6 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/memory_alloc.h>
@@ -582,6 +583,27 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	return 0;
 }
 
+static int mdss_hw_init(struct mdss_data_type *mdata)
+{
+	char *base = mdata->vbif_base;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	/* Setup VBIF QoS settings*/
+	MDSS_MDP_REG_WRITE(0x2E0, 0x000000AA);
+	MDSS_MDP_REG_WRITE(0x2E4, 0x00000055);
+	writel_relaxed(0x00000707, base + 0x0D8);
+	writel_relaxed(0x00000030, base + 0x0F0);
+	writel_relaxed(0x00000001, base + 0x124);
+	writel_relaxed(0x00000FFF, base + 0x178);
+	writel_relaxed(0x0FFF0FFF, base + 0x17C);
+	writel_relaxed(0x22222222, base + 0x160);
+	writel_relaxed(0x00002222, base + 0x164);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	pr_debug("MDP hw init done\n");
+
+	return 0;
+}
+
 static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 {
 	u32 rc;
@@ -615,7 +637,9 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	mdata->prim_ptype = NO_PANEL;
 	mdata->irq_ena = false;
 
-	return 0;
+	rc = mdss_hw_init(mdata);
+
+	return rc;
 }
 
 static int mdss_mdp_probe(struct platform_device *pdev)
@@ -643,7 +667,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, mdata);
 	mdss_res = mdata;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mdp_phys");
 	if (!res) {
 		pr_err("unable to get MDP base address\n");
 		rc = -ENOMEM;
@@ -660,6 +684,24 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	pr_info("MDP HW Base phy_Address=0x%x virt=0x%x\n",
 		(int) res->start,
 		(int) mdata->mdp_base);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vbif_phys");
+	if (!res) {
+		pr_err("unable to get MDSS VBIF base address\n");
+		rc = -ENOMEM;
+		goto probe_done;
+	}
+
+	mdata->vbif_base = devm_ioremap(&pdev->dev, res->start,
+					resource_size(res));
+	if (unlikely(!mdata->vbif_base)) {
+		pr_err("unable to map MDSS VBIF base\n");
+		rc = -ENOMEM;
+		goto probe_done;
+	}
+	pr_info("MDSS VBIF HW Base phy_Address=0x%x virt=0x%x\n",
+		(int) res->start,
+		(int) mdata->vbif_base);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
@@ -738,7 +780,11 @@ static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int mdss_mdp_resume(struct platform_device *pdev)
 {
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 	int ret = 0;
+
+	if (!mdata)
+		return -ENODEV;
 
 	pr_debug("resume display");
 
@@ -749,6 +795,8 @@ static int mdss_mdp_resume(struct platform_device *pdev)
 	ret = mdss_fb_resume_all();
 	if (IS_ERR_VALUE(ret))
 		pr_err("Unable to resume all fb panels (%d)\n", ret);
+
+	mdss_hw_init(mdata);
 	return ret;
 }
 #else
