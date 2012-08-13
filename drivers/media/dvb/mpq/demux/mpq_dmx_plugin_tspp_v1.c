@@ -47,18 +47,20 @@
 
 #define TSPP_RAW_TTS_SIZE				192
 
-/* Size of single descriptor.
- * Assuming 20MBit/sec stream, with 200 packets
- * per descriptor there would be about 68 descriptors.
- * Meanning about 68 interrupts per second.
+/* Size of single descriptor. Using max descriptor size (170 packets).
+ * Assuming 20MBit/sec stream, with 170 packets
+ * per descriptor there would be about 82 descriptors,
+ * Meanning about 82 notifications per second.
  */
-#define TSPP_BUFFER_SIZE			(TSPP_RAW_TTS_SIZE * 200)
+#define MAX_BAM_DESCRIPTOR_SIZE		(32*1024 - 1)
+#define TSPP_BUFFER_SIZE			\
+	((MAX_BAM_DESCRIPTOR_SIZE / TSPP_RAW_TTS_SIZE) * TSPP_RAW_TTS_SIZE)
 
 /* Number of descriptors, total size: TSPP_BUFFER_SIZE*TSPP_BUFFER_COUNT */
-#define TSPP_BUFFER_COUNT				(16)
+#define TSPP_BUFFER_COUNT				(32)
 
 /* When TSPP notifies demux that new packets are received */
-#define TSPP_NOTIFICATION_SIZE			(TSPP_RAW_TTS_SIZE * 100)
+#define TSPP_NOTIFICATION_SIZE			1
 
 /* Channel timeout in msec */
 #define TSPP_CHANNEL_TIMEOUT			16
@@ -232,7 +234,7 @@ static void mpq_dmx_tspp_work(struct work_struct *worker)
  * @channel_id: Channel with new TS packets
  * @user: user-data holding TSIF number
  */
-static void mpq_tspp_callback(u32 channel_id, void *user)
+static void mpq_tspp_callback(int channel_id, void *user)
 {
 	int tsif = (int)user;
 	struct work_struct *work;
