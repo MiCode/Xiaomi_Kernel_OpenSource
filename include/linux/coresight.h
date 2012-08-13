@@ -15,7 +15,6 @@
 
 #include <linux/device.h>
 
-
 /* Peripheral id registers (0xFD0-0xFEC) */
 #define CORESIGHT_PERIPHIDR4	(0xFD0)
 #define CORESIGHT_PERIPHIDR5	(0xFD4)
@@ -30,7 +29,6 @@
 #define CORESIGHT_COMPIDR1	(0xFF4)
 #define CORESIGHT_COMPIDR2	(0xFF8)
 #define CORESIGHT_COMPIDR3	(0xFFC)
-
 
 /* DBGv7 with baseline CP14 registers implemented */
 #define ARM_DEBUG_ARCH_V7B	(0x3)

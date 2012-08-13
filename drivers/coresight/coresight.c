@@ -26,15 +26,12 @@
 
 #include "coresight-priv.h"
 
-
 #define NO_SINK		(-1)
-
 
 static int curr_sink = NO_SINK;
 static LIST_HEAD(coresight_orph_conns);
 static LIST_HEAD(coresight_devs);
 static DEFINE_SEMAPHORE(coresight_mutex);
-
 
 static int coresight_find_link_inport(struct coresight_device *csdev)
 {
