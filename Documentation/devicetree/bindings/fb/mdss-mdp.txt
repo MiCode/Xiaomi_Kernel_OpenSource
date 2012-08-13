@@ -1,0 +1,23 @@
+Qualcomm MDSS MDP
+
+MDSS is Mobile Display SubSystem which implements Linux framebuffer APIs to
+drive user interface to different panel interfaces. MDP driver is the core of
+MDSS which manage all data paths to different panel interfaces.
+
+Required properties
+- compatible :		Must be "qcom,mdss_mdp"
+- reg :			offset and length of the register set for the device.
+- reg-names :		names to refer to register sets related to this device
+- interrupts :		Interrupt associated with MDSS.
+- vdd-supply :		Phandle for vdd regulator device node.
+
+Example:
+	qcom,mdss_mdp@fd900000 {
+		compatible = "qcom,mdss_mdp";
+		reg = <0xfd900000 0x22100>,
+			<0xfd924000 0x1000>;
+		reg-names = "mdp_phys", "vbif_phys";
+		interrupts = <0 72 0>;
+		vdd-supply = <&gdsc_mdss>;
+	};
+
