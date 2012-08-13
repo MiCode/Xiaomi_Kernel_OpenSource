@@ -242,6 +242,7 @@ struct mdss_mdp_pipe {
 
 	struct mdss_mdp_data buffers[2];
 	struct list_head list;
+	struct mdp_overlay_pp_params pp_cfg;
 };
 
 struct mdss_mdp_writeback_arg {
@@ -295,6 +296,9 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg);
 
 int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type);
+int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
+				   struct mdp_csc_cfg *data);
+
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl);
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum);
