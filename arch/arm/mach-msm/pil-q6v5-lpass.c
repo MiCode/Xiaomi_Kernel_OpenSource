@@ -18,12 +18,55 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/clk.h>
-
+#include <mach/clk.h>
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 
 #define QDSP6SS_RST_EVB			0x010
 #define PROXY_TIMEOUT_MS		10000
+
+static int pil_lpass_enable_clks(struct q6v5_data *drv)
+{
+	int ret;
+
+	ret = clk_reset(drv->core_clk, CLK_RESET_DEASSERT);
+	if (ret)
+		goto err_reset;
+	ret = clk_prepare_enable(drv->core_clk);
+	if (ret)
+		goto err_core_clk;
+	ret = clk_prepare_enable(drv->ahb_clk);
+	if (ret)
+		goto err_ahb_clk;
+	ret = clk_prepare_enable(drv->axi_clk);
+	if (ret)
+		goto err_axi_clk;
+	ret = clk_prepare_enable(drv->reg_clk);
+	if (ret)
+		goto err_reg_clk;
+
+	return 0;
+
+err_reg_clk:
+	clk_disable_unprepare(drv->axi_clk);
+err_axi_clk:
+	clk_disable_unprepare(drv->ahb_clk);
+err_ahb_clk:
+	clk_disable_unprepare(drv->core_clk);
+err_core_clk:
+	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
+err_reset:
+	return ret;
+}
+
+static void pil_lpass_disable_clks(struct q6v5_data *drv)
+{
+	clk_disable_unprepare(drv->reg_clk);
+	clk_disable_unprepare(drv->axi_clk);
+	clk_disable_unprepare(drv->ahb_clk);
+	clk_disable_unprepare(drv->core_clk);
+	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
+}
 
 static int pil_lpass_shutdown(struct pil_desc *pil)
 {
@@ -37,10 +80,10 @@ static int pil_lpass_shutdown(struct pil_desc *pil)
 	 * performed during the shutdown succeed.
 	 */
 	if (drv->is_booted == false)
-		pil_q6v5_enable_clks(pil);
+		pil_lpass_enable_clks(drv);
 
 	pil_q6v5_shutdown(pil);
-	pil_q6v5_disable_clks(pil);
+	pil_lpass_disable_clks(drv);
 
 	drv->is_booted = false;
 
@@ -52,7 +95,7 @@ static int pil_lpass_reset(struct pil_desc *pil)
 	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
 	int ret;
 
-	ret = pil_q6v5_enable_clks(pil);
+	ret = pil_lpass_enable_clks(drv);
 	if (ret)
 		return ret;
 
@@ -62,7 +105,7 @@ static int pil_lpass_reset(struct pil_desc *pil)
 
 	ret = pil_q6v5_reset(pil);
 	if (ret) {
-		pil_q6v5_disable_clks(pil);
+		pil_lpass_disable_clks(drv);
 		return ret;
 	}
 
@@ -96,9 +139,21 @@ static int pil_lpass_driver_probe(struct platform_device *pdev)
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = PROXY_TIMEOUT_MS;
 
-	drv->ss_clk = devm_clk_get(&pdev->dev, "reg_clk");
-	if (IS_ERR(drv->ss_clk))
-		return PTR_ERR(drv->ss_clk);
+	drv->core_clk = devm_clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(drv->core_clk))
+		return PTR_ERR(drv->core_clk);
+
+	drv->ahb_clk = devm_clk_get(&pdev->dev, "iface_clk");
+	if (IS_ERR(drv->ahb_clk))
+		return PTR_ERR(drv->ahb_clk);
+
+	drv->axi_clk = devm_clk_get(&pdev->dev, "bus_clk");
+	if (IS_ERR(drv->axi_clk))
+		return PTR_ERR(drv->axi_clk);
+
+	drv->reg_clk = devm_clk_get(&pdev->dev, "reg_clk");
+	if (IS_ERR(drv->reg_clk))
+		return PTR_ERR(drv->reg_clk);
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))

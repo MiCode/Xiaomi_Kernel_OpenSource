@@ -20,9 +20,7 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/clk.h>
-
 #include <mach/clk.h>
-
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 
@@ -111,60 +109,6 @@ int pil_q6v5_init_image(struct pil_desc *pil, const u8 *metadata,
 	return 0;
 }
 EXPORT_SYMBOL(pil_q6v5_init_image);
-
-int pil_q6v5_enable_clks(struct pil_desc *pil)
-{
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
-	int ret;
-
-	if (drv->ahb_clk) {
-		ret = clk_prepare_enable(drv->ahb_clk);
-		if (ret)
-			goto err_ahb_clk;
-	}
-	if (drv->axi_clk) {
-		ret = clk_prepare_enable(drv->axi_clk);
-		if (ret)
-			goto err_axi_clk;
-	}
-	if (drv->ss_clk) {
-		ret = clk_prepare_enable(drv->ss_clk);
-		if (ret)
-			goto err_ss_clk;
-	}
-	ret = clk_reset(drv->core_clk, CLK_RESET_DEASSERT);
-	if (ret)
-		goto err_reset;
-	ret = clk_prepare_enable(drv->core_clk);
-	if (ret)
-		goto err_core_clk;
-
-	return 0;
-
-err_core_clk:
-	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
-err_reset:
-	clk_disable_unprepare(drv->ss_clk);
-err_ss_clk:
-	clk_disable_unprepare(drv->axi_clk);
-err_axi_clk:
-	clk_disable_unprepare(drv->ahb_clk);
-err_ahb_clk:
-	return ret;
-}
-EXPORT_SYMBOL(pil_q6v5_enable_clks);
-
-void pil_q6v5_disable_clks(struct pil_desc *pil)
-{
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
-
-	clk_disable_unprepare(drv->core_clk);
-	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
-	clk_disable_unprepare(drv->ss_clk);
-	clk_disable_unprepare(drv->axi_clk);
-	clk_disable_unprepare(drv->ahb_clk);
-}
-EXPORT_SYMBOL(pil_q6v5_disable_clks);
 
 void pil_q6v5_shutdown(struct pil_desc *pil)
 {
@@ -286,18 +230,6 @@ struct pil_desc *pil_q6v5_init(struct platform_device *pdev)
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);
-
-	drv->ahb_clk = devm_clk_get(&pdev->dev, "iface_clk");
-	if (IS_ERR(drv->ahb_clk))
-		return ERR_CAST(drv->ahb_clk);
-
-	drv->axi_clk = devm_clk_get(&pdev->dev, "bus_clk");
-	if (IS_ERR(drv->axi_clk))
-		return ERR_CAST(drv->axi_clk);
-
-	drv->core_clk = devm_clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(drv->core_clk))
-		return ERR_CAST(drv->core_clk);
 
 	desc->dev = &pdev->dev;
 
