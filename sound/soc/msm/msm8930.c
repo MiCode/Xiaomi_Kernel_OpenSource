@@ -38,6 +38,7 @@
 #define SPK_AMP_POS	0x1
 #define SPK_AMP_NEG	0x2
 #define SPKR_BOOST_GPIO 15
+#define LEFT_SPKR_AMPL_GPIO 15
 #define DEFAULT_PMIC_SPK_GAIN 0x0D
 #define SITAR_EXT_CLK_RATE 12288000
 
@@ -121,6 +122,24 @@ static int msm8930_set_spk(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm8930_cfg_spkr_gpio(int gpio,
+		int enable, const char *gpio_label)
+{
+	int ret = 0;
+
+	pr_debug("%s: Configure %s GPIO %u",
+		__func__, gpio_label, gpio);
+	ret = gpio_request(gpio, gpio_label);
+	if (ret)
+		return ret;
+
+	pr_debug("%s: Enable %s gpio %u\n",
+		__func__, gpio_label, gpio);
+	gpio_direction_output(gpio, enable);
+
+	return ret;
+}
+
 static void msm8960_ext_spk_power_amp_on(u32 spk)
 {
 	int ret = 0;
@@ -139,24 +158,30 @@ static void msm8960_ext_spk_power_amp_on(u32 spk)
 		if ((msm8930_ext_spk_pamp & SPK_AMP_POS) &&
 			(msm8930_ext_spk_pamp & SPK_AMP_NEG)) {
 
-			if (machine_is_msm8930_mtp()
-				|| machine_is_msm8930_fluid()) {
-				pr_debug("%s: Configure Speaker Boost GPIO %u",
-						__func__, SPKR_BOOST_GPIO);
-				ret = gpio_request(SPKR_BOOST_GPIO,
-								   "SPKR_BOOST_EN");
+			if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917) {
+				ret = msm8930_cfg_spkr_gpio(
+						LEFT_SPKR_AMPL_GPIO,
+						1, "LEFT_SPKR_AMPL");
 				if (ret) {
-					pr_err("%s: Failed to configure speaker boost "
-					"gpio %u\n", __func__, SPKR_BOOST_GPIO);
+					pr_err("%s: Failed to config ampl gpio %u\n",
+						__func__, LEFT_SPKR_AMPL_GPIO);
 					return;
 				}
+			} else {
 
-				pr_debug("%s: Enable Speaker boost gpio %u\n",
-					__func__, SPKR_BOOST_GPIO);
-				gpio_direction_output(SPKR_BOOST_GPIO, 1);
+				if (machine_is_msm8930_mtp()
+					|| machine_is_msm8930_fluid()) {
+					ret = msm8930_cfg_spkr_gpio(
+					  SPKR_BOOST_GPIO, 1, "SPKR_BOOST");
+					if (ret) {
+						pr_err("%s: Failure: spkr boost gpio %u\n",
+						  __func__, SPKR_BOOST_GPIO);
+						return;
+					}
+				}
+				pm8xxx_spk_enable(MSM8930_SPK_ON);
 			}
 
-			pm8xxx_spk_enable(MSM8930_SPK_ON);
 			pr_debug("%s: slepping 4 ms after turning on external "
 				" Left Speaker Ampl\n", __func__);
 			usleep_range(4000, 4000);
@@ -175,6 +200,13 @@ static void msm8960_ext_spk_power_amp_off(u32 spk)
 	if (spk & (SPK_AMP_POS | SPK_AMP_NEG)) {
 		if (!msm8930_ext_spk_pamp)
 			return;
+
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917) {
+			gpio_free(LEFT_SPKR_AMPL_GPIO);
+			msm8930_ext_spk_pamp = 0;
+			return;
+		}
+
 		if (machine_is_msm8930_mtp()
 			|| machine_is_msm8930_fluid()) {
 			pr_debug("%s: Free speaker boost gpio %u\n",
@@ -463,7 +495,8 @@ static int msm8930_pmic_gain_put(struct snd_kcontrol *kcontrol,
 {
 	int ret = 0;
 	msm8930_pmic_spk_gain = ucontrol->value.integer.value[0];
-	ret = pm8xxx_spk_gain(msm8930_pmic_spk_gain);
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
+		ret = pm8xxx_spk_gain(msm8930_pmic_spk_gain);
 	pr_debug("%s: msm8930_pmic_spk_gain = %d"
 			 " ucontrol->value.integer.value[0] = %d\n", __func__,
 			 msm8930_pmic_spk_gain,
@@ -660,8 +693,10 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	mbhc_cfg.gpio_irq = gpio_to_irq(mbhc_cfg.gpio);
 	sitar_hs_detect(codec, &mbhc_cfg);
 
-	/* Initialize default PMIC speaker gain */
-	pm8xxx_spk_gain(DEFAULT_PMIC_SPK_GAIN);
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917) {
+		/* Initialize default PMIC speaker gain */
+		pm8xxx_spk_gain(DEFAULT_PMIC_SPK_GAIN);
+	}
 
 	return 0;
 }
