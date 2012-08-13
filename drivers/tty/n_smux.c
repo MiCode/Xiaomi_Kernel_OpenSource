@@ -3083,6 +3083,7 @@ int msm_smux_close(uint8_t lcid)
 	ch->remote_tiocm = 0x0;
 	ch->tx_pending_data_cnt = 0;
 	ch->notify_lwm = 0;
+	ch->tx_flow_control = 0;
 
 	/* Purge TX queue */
 	spin_lock(&ch->tx_lock_lhb2);
