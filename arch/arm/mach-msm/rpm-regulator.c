@@ -62,6 +62,7 @@ struct vreg_config *(*get_config[])(void) = {
 	[RPM_VREG_VERSION_8960] = get_config_8960,
 	[RPM_VREG_VERSION_9615] = get_config_9615,
 	[RPM_VREG_VERSION_8930] = get_config_8930,
+	[RPM_VREG_VERSION_8930_PM8917] = get_config_8930_pm8917,
 };
 
 static struct rpm_regulator_consumer_mapping *consumer_map;
