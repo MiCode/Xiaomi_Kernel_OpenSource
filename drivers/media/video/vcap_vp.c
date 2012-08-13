@@ -320,7 +320,7 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 	}
 
 	dprintk(1, "%s: irq=0x%08x\n", __func__, irq);
-	if (!(irq & (VP_PIC_DONE || VP_MODE_CHANGE))) {
+	if (!(irq & (VP_PIC_DONE | VP_MODE_CHANGE))) {
 		writel_relaxed(irq, VCAP_VP_INT_CLEAR);
 		pr_err("VP IRQ shows some error\n");
 		return IRQ_HANDLED;
@@ -789,7 +789,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 		top_field = 1;
 #endif
 	vp_act->vp_state = VP_FRAME2;
-	writel_relaxed(0x01100101, VCAP_VP_INTERRUPT_ENABLE);
+	writel_relaxed(0x01100001, VCAP_VP_INTERRUPT_ENABLE);
 #ifdef TOP_FIELD_FIX
 	writel_iowmb(0x00000000 | vp_act->top_field << 0, VCAP_VP_CTRL);
 	writel_iowmb(0x00010000 | vp_act->top_field << 0, VCAP_VP_CTRL);
@@ -836,7 +836,7 @@ int continue_vp(struct vcap_client_data *c_data)
 #endif
 
 	/* Config VP & Enable Interrupt */
-	writel_relaxed(0x01100101, VCAP_VP_INTERRUPT_ENABLE);
+	writel_relaxed(0x01100001, VCAP_VP_INTERRUPT_ENABLE);
 #ifdef TOP_FIELD_FIX
 	writel_iowmb(0x00000000 | vp_act->top_field << 0, VCAP_VP_CTRL);
 	writel_iowmb(0x00010000 | vp_act->top_field << 0, VCAP_VP_CTRL);
