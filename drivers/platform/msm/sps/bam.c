@@ -1403,3 +1403,32 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index)
 
 	SPS_INFO("--------------------  end of FIFO  --------------------\n");
 }
+
+/* output BAM_TEST_BUS_REG with specified TEST_BUS_SEL */
+void print_bam_test_bus_reg(void *base, u32 tb_sel)
+{
+	u32 i;
+	u32 test_bus_selection[] = {0x1, 0x2, 0x3, 0x4, 0xD, 0x10,
+			0x41, 0x42, 0x43, 0x44, 0x45, 0x46};
+	u32 size = sizeof(test_bus_selection) / sizeof(u32);
+
+	if ((base == NULL) || (tb_sel == 0))
+		return;
+
+	SPS_INFO("\nsps:Specified TEST_BUS_SEL value: 0x%x\n", tb_sel);
+	bam_write_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL, tb_sel);
+	SPS_INFO("sps:BAM_TEST_BUS_REG: 0x%x when TEST_BUS_SEL: 0x%x\n\n",
+		bam_read_reg(base, TEST_BUS_REG),
+		bam_read_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL));
+
+	/* output other selections */
+	for (i = 0; i < size; i++) {
+		bam_write_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL,
+					test_bus_selection[i]);
+
+		SPS_INFO("sps:bam 0x%x(va);TEST_BUS_REG:0x%x;TEST_BUS_SEL:0x%x",
+			(u32) base, bam_read_reg(base, TEST_BUS_REG),
+			bam_read_reg_field(base, TEST_BUS_SEL,
+					BAM_TESTBUS_SEL));
+	}
+}
