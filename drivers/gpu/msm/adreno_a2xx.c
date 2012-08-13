@@ -1574,8 +1574,6 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 		return;
 	}
 
-	KGSL_CTXT_INFO(device, "context flags %08x\n", context->flags);
-
 	cmds[0] = cp_nop_packet(1);
 	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
 	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
@@ -1710,18 +1708,24 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 
 	if (status & CP_INT_CNTL__RB_INT_MASK) {
 		/* signal intr completion event */
-		unsigned int context_id;
-		kgsl_sharedmem_readl(&device->memstore,
-				&context_id,
+		unsigned int context_id, timestamp;
+		kgsl_sharedmem_readl(&device->memstore, &context_id,
 				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 					current_context));
+
+		kgsl_sharedmem_readl(&device->memstore, &timestamp,
+				KGSL_MEMSTORE_OFFSET(context_id,
+					eoptimestamp));
+
 		if (context_id < KGSL_MEMSTORE_MAX) {
 			kgsl_sharedmem_writel(&rb->device->memstore,
 					KGSL_MEMSTORE_OFFSET(context_id,
 						ts_cmp_enable), 0);
 			wmb();
 		}
-		KGSL_CMD_WARN(rb->device, "ringbuffer rb interrupt\n");
+
+		KGSL_CMD_WARN(device, "<%d:0x%x> ringbuffer interrupt\n",
+				context_id, timestamp);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(kgsl_cp_error_irqs); i++) {
@@ -1743,7 +1747,6 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 	adreno_regwrite(device, REG_CP_INT_ACK, status);
 
 	if (status & (CP_INT_CNTL__IB1_INT_MASK | CP_INT_CNTL__RB_INT_MASK)) {
-		KGSL_CMD_WARN(rb->device, "ringbuffer ib1/rb interrupt\n");
 		queue_work(device->work_queue, &device->ts_expired_ws);
 		wake_up_interruptible_all(&device->wait_queue);
 		atomic_notifier_call_chain(&(device->ts_notifier_list),
