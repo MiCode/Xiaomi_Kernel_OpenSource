@@ -548,7 +548,7 @@ static int mdp_lut_update_lcdc(struct fb_info *info, struct fb_cmap *cmap)
 	}
 
 	/*mask off non LUT select bits*/
-	out = inpdw(MDP_BASE + 0x90070) & ~((0x1 << 10) | 0x7);
+	out = inpdw(MDP_BASE + 0x90070);
 	MDP_OUTP(MDP_BASE + 0x90070, (mdp_lut_i << 10) | 0x7 | out);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	mdp_lut_i = (mdp_lut_i + 1)%2;

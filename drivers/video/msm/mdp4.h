@@ -193,6 +193,8 @@ enum {
 	MDP4_CHROMA_420
 };
 
+#define CSC_MAX_BLOCKS 6
+
 #define MDP4_BLEND_BG_TRANSP_EN		BIT(9)
 #define MDP4_BLEND_FG_TRANSP_EN		BIT(8)
 #define MDP4_BLEND_BG_MOD_ALPHA		BIT(7)
@@ -456,9 +458,6 @@ void mdp4_isr_read(int);
 void mdp4_clear_lcdc(void);
 void mdp4_mixer_blend_init(int mixer_num);
 void mdp4_vg_qseed_init(int vg_num);
-void mdp4_vg_csc_setup(int vp_num);
-void mdp4_mixer_csc_setup(uint32 mixer);
-void mdp4_dmap_csc_setup(void);
 void mdp4_vg_csc_update(struct mdp_csc *p);
 irqreturn_t mdp4_isr(int irq, void *ptr);
 void mdp4_overlay_format_to_pipe(uint32 format, struct mdp4_overlay_pipe *pipe);
