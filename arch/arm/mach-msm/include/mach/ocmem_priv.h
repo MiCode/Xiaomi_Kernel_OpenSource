@@ -36,6 +36,7 @@ struct ocmem_zone_ops {
 };
 
 struct ocmem_zone {
+	bool active;
 	int owner;
 	int active_regions;
 	int max_regions;
@@ -178,6 +179,7 @@ static inline int ocmem_write(unsigned long val, void *at)
 }
 
 struct ocmem_zone *get_zone(unsigned);
+int zone_active(int);
 unsigned long offset_to_phys(unsigned long);
 unsigned long phys_to_offset(unsigned long);
 unsigned long allocate_head(struct ocmem_zone *, unsigned long);

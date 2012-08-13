@@ -110,6 +110,12 @@ struct ocmem_buf *ocmem_allocate(int client_id, unsigned long size)
 		return NULL;
 	}
 
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return NULL;
+	}
+
 	if (size < OCMEM_MIN_ALLOC) {
 		pr_err("ocmem: requested size %lx must be at least %x\n",
 				size, OCMEM_MIN_ALLOC);
@@ -136,6 +142,12 @@ struct ocmem_buf *ocmem_allocate_nowait(int client_id, unsigned long size)
 		return NULL;
 	}
 
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return NULL;
+	}
+
 	if (size < OCMEM_MIN_ALLOC) {
 		pr_err("ocmem: requested size %lx must be at least %x\n",
 				size, OCMEM_MIN_ALLOC);
@@ -159,6 +171,12 @@ struct ocmem_buf *ocmem_allocate_range(int client_id, unsigned long min,
 
 	if (!check_id(client_id)) {
 		pr_err("ocmem: Invalid client id: %d\n", client_id);
+		return NULL;
+	}
+
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
 		return NULL;
 	}
 
@@ -202,6 +220,12 @@ struct ocmem_buf *ocmem_allocate_nb(int client_id, unsigned long size)
 		return NULL;
 	}
 
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return NULL;
+	}
+
 	if (size < OCMEM_MIN_ALLOC) {
 		pr_err("ocmem: requested size %lx must be at least %x\n",
 				size, OCMEM_MIN_ALLOC);
@@ -226,6 +250,12 @@ int ocmem_free(int client_id, struct ocmem_buf *buffer)
 		return -EINVAL;
 	}
 
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return -EINVAL;
+	}
+
 	if (!buffer) {
 		pr_err("ocmem: Invalid buffer\n");
 		return -EINVAL;
@@ -240,6 +270,13 @@ int ocmem_shrink(int client_id, struct ocmem_buf *buffer, unsigned long len)
 		return -EINVAL;
 	if (len >= buffer->len)
 		return -EINVAL;
+
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client id: %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return -EINVAL;
+	}
+
 	return __ocmem_shrink(client_id, buffer, len);
 }
 
@@ -282,6 +319,12 @@ int ocmem_map(int client_id, struct ocmem_buf *buffer,
 		return -EINVAL;
 	}
 
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client id: %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return -EINVAL;
+	}
+
 	/* Asynchronous API requires notifier registration */
 	if (!check_notifier(client_id)) {
 		pr_err("ocmem: No notifier registered for client %d\n",
@@ -317,6 +360,12 @@ int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 
 	if (!check_id(client_id)) {
 		pr_err("ocmem: Invalid client id: %d\n", client_id);
+		return -EINVAL;
+	}
+
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client id: %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
 		return -EINVAL;
 	}
 

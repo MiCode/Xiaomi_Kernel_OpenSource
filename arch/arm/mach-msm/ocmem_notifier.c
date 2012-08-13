@@ -82,6 +82,12 @@ struct ocmem_notifier *ocmem_notifier_register(int client_id,
 		return NULL;
 	}
 
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return NULL;
+	}
+
 	if (!nb) {
 		pr_err("ocmem: Invalid Notifier Block\n");
 		return NULL;

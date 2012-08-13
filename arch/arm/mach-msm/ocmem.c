@@ -103,7 +103,7 @@ int check_id(int id)
 const char *get_name(int id)
 {
 	if (!check_id(id))
-		return NULL;
+		return "Unknown";
 	return client_names[id];
 }
 
@@ -124,6 +124,15 @@ inline unsigned long offset_to_phys(unsigned long offset)
 	if (offset > ocmem_pdata->size)
 		return 0;
 	return offset + ocmem_pdata->base;
+}
+
+inline int zone_active(int id)
+{
+	struct ocmem_zone *z = get_zone(id);
+	if (z)
+		return z->active == true ? 1 : 0;
+	else
+		return 0;
 }
 
 static struct ocmem_plat_data *parse_static_config(struct platform_device *pdev)
@@ -444,6 +453,7 @@ static int ocmem_zone_init(struct platform_device *pdev)
 	for (i = 0; i < pdata->nr_parts; i++) {
 		struct ocmem_partition *part = &pdata->parts[i];
 		zone = get_zone(part->id);
+		zone->active = false;
 
 		dev_dbg(dev, "Partition %d, start %lx, size %lx for %s\n",
 				i, part->p_start, part->p_size,
@@ -501,6 +511,7 @@ static int ocmem_zone_init(struct platform_device *pdev)
 			z_ops->allocate = allocate_head;
 			z_ops->free = free_head;
 		}
+		zone->active = true;
 		active_zones++;
 
 		if (active_zones == 1)
