@@ -494,6 +494,7 @@ static void __iomem *virt_bases[N_BASES];
 #define MSS_XO_Q6_CBCR                           0x108C
 #define MSS_BUS_Q6_CBCR                          0x10A4
 #define MSS_CFG_AHB_CBCR                         0x0280
+#define MSS_Q6_BIMC_AXI_CBCR			 0x0284
 
 #define APCS_CLOCK_BRANCH_ENA_VOTE 0x1484
 #define APCS_CLOCK_SLEEP_ENA_VOTE  0x1488
@@ -2288,6 +2289,17 @@ static struct branch_clk gcc_mss_cfg_ahb_clk = {
 		.dbg_name = "gcc_mss_cfg_ahb_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_mss_cfg_ahb_clk.c),
+	},
+};
+
+static struct branch_clk gcc_mss_q6_bimc_axi_clk = {
+	.cbcr_reg = MSS_Q6_BIMC_AXI_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_mss_q6_bimc_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mss_q6_bimc_axi_clk.c),
 	},
 };
 
@@ -4467,6 +4479,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_ocmem_noc_cfg_ahb_clk.c,		GCC_BASE, 0x0029},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0138},
 	{&gcc_lpass_q6_axi_clk.c,		GCC_BASE, 0x0160},
+	{&gcc_mss_q6_bimc_axi_clk.c,		GCC_BASE, 0x0031},
 	{&mmss_mmssnoc_axi_clk.c,		MMSS_BASE, 0x0004},
 	{&ocmemnoc_clk.c,			MMSS_BASE, 0x0007},
 	{&ocmemcx_ocmemnoc_clk.c,		MMSS_BASE, 0x0009},
@@ -5037,6 +5050,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_clk",       mss_bus_q6_clk.c,  "pil-q6v5-mss"),
 	CLK_LOOKUP("iface_clk", gcc_mss_cfg_ahb_clk.c, "pil-q6v5-mss"),
 	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c,  "pil-q6v5-mss"),
+	CLK_LOOKUP("bus_clk", gcc_mss_q6_bimc_axi_clk.c, ""),
+
 	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c,  "pil-q6v5-lpass"),
 	CLK_LOOKUP("bus_clk", gcc_lpass_q6_axi_clk.c,  "pil-q6v5-lpass"),
 	CLK_LOOKUP("iface_clk", q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
