@@ -144,9 +144,9 @@ static ssize_t mdss_fb_get_type(struct device *dev,
 	return ret;
 }
 
-static DEVICE_ATTR(mdss_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
+static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static struct attribute *mdss_fb_attrs[] = {
-	&dev_attr_mdss_fb_type.attr,
+	&dev_attr_msm_fb_type.attr,
 	NULL,
 };
 
@@ -216,6 +216,14 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	rc = mdss_fb_register(mfd);
 	if (rc)
 		return rc;
+
+	/*
+	 * todo: Currently mfd keeps a full copy of panel data rather than
+	 *       pointer to it.
+	 *       Following line shares the fbi with panel drivers for their
+	 *       sysfs or any external communications with the panel driver.
+	 */
+	pdata->panel_info.fbi = fbi;
 
 	rc = pm_runtime_set_active(mfd->fbi->dev);
 	if (rc < 0)
