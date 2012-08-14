@@ -83,6 +83,18 @@ struct lcdc_panel_info {
 	u32 yres_pad;
 };
 
+
+/* DSI PHY configuration */
+struct mdss_dsi_phy_ctrl {
+	uint32_t regulator[8];
+	uint32_t timing[12];
+	uint32_t ctrl[4];
+	uint32_t strength[2];
+	char bistCtrl[6];
+	uint32_t pll[21];
+	char laneCfg[45];
+};
+
 struct mipi_panel_info {
 	char mode;		/* video/cmd */
 	char interleave_mode;
@@ -103,7 +115,7 @@ struct mipi_panel_info {
 	char t_clk_post; /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
 	char t_clk_pre;  /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
 	char vc;	/* virtual channel */
-	struct mipi_dsi_phy_ctrl *dsi_phy_db;
+	struct mdss_dsi_phy_ctrl *dsi_phy_db;
 	/* video mode */
 	char pulse_mode_hsa_he;
 	char hfp_power_stop;

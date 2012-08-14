@@ -36,6 +36,8 @@ static char *on_cmds, *off_cmds;
 static char bl_ctrl;
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
+static struct mdss_dsi_phy_ctrl phy_params;
+
 static int rst_gpio;
 static int disp_en;
 
@@ -314,6 +316,53 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 
 	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-frame-rate", &tmp);
 	panel_data->panel_info.mipi.frame_rate = (!rc ? tmp : 60);
+
+	data = of_get_property(np, "qcom,panel-phy-regulatorSettings", &len);
+	if ((!data) || (len != 8)) {
+		pr_err("%s:%d, Unable to read Phy regulator settings",
+		       __func__, __LINE__);
+		goto error;
+	}
+	for (i = 0; i < len; i++)
+		phy_params.regulator[i] = data[i];
+
+	data = of_get_property(np, "qcom,panel-phy-timingSettings", &len);
+	if ((!data) || (len != 12)) {
+		pr_err("%s:%d, Unable to read Phy timing settings",
+		       __func__, __LINE__);
+		goto error;
+	}
+	for (i = 0; i < len; i++)
+		phy_params.timing[i] = data[i];
+
+	data = of_get_property(np, "qcom,panel-phy-strengthCtrl", &len);
+	if ((!data) || (len != 2)) {
+		pr_err("%s:%d, Unable to read Phy Strength ctrl settings",
+		       __func__, __LINE__);
+		goto error;
+	}
+	phy_params.strength[0] = data[0];
+	phy_params.strength[1] = data[1];
+
+	data = of_get_property(np, "qcom,panel-phy-bistCtrl", &len);
+	if ((!data) || (len != 6)) {
+		pr_err("%s:%d, Unable to read Phy Bist Ctrl settings",
+		       __func__, __LINE__);
+		goto error;
+	}
+	for (i = 0; i < len; i++)
+		phy_params.bistCtrl[i] = data[i];
+
+	data = of_get_property(np, "qcom,panel-phy-laneConfig", &len);
+	if ((!data) || (len != 45)) {
+		pr_err("%s:%d, Unable to read Phy lane configure settings",
+		       __func__, __LINE__);
+		goto error;
+	}
+	for (i = 0; i < len; i++)
+		phy_params.laneCfg[i] = data[i];
+
+	panel_data->panel_info.mipi.dsi_phy_db = &phy_params;
 
 	data = of_get_property(np, "qcom,panel-on-cmds", &len);
 	if (!data) {

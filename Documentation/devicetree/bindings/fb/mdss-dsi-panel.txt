@@ -14,6 +14,16 @@ Required properties:
 - qcom,mdss-pan-bpp:			Specifies the panel bits per pixel. Default value is 24(rgb888).
 					18 = for rgb666
 					16 = for rgb565
+- qcom,panel-phy-regulatorSettings:	An array of length 8 that specifies the PHY
+					regulator settings for the panel.
+- qcom,panel-phy-timingSettings:	An array of length 12 that specifies the PHY
+					timing settings for the panel.
+- qcom,panel-phy-strengthCtrl:		An array of length 2 that specifies the PHY
+					strengthCtrl settings for the panel.
+- qcom,panel-phy-bistCtrl:		An array of length 6 that specifies the PHY
+					BIST ctrl settings for the panel.
+- qcom,panel-phy-laneConfig:		An array of length 45 that specifies the PHY
+					lane configuration settings for the panel.
 - qcom,mdss-panel-on-cmds:		An array of variable length that lists the init commands
 					of the panel. Each command will have the format specified
 					as below:
