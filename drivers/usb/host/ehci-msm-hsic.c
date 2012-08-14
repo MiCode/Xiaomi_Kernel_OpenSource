@@ -54,6 +54,8 @@
 #define USB_REG_START_OFFSET 0x90
 #define USB_REG_END_OFFSET 0x250
 
+static struct workqueue_struct  *ehci_wq;
+
 struct msm_hsic_hcd {
 	struct ehci_hcd		ehci;
 	struct device		*dev;
@@ -74,6 +76,9 @@ struct msm_hsic_hcd {
 	uint32_t		bus_perf_client;
 	uint32_t		wakeup_int_cnt;
 	enum usb_vdd_type	vdd_type;
+
+	struct work_struct	bus_vote_w;
+	bool			bus_vote;
 };
 
 static const char hcd_name[] = "ehci-msm";
@@ -666,11 +671,8 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 		dev_err(mehci->dev, "unable to set vddcx voltage for VDD MIN\n");
 
 	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
-		ret = msm_bus_scale_client_update_request(
-				mehci->bus_perf_client, 0);
-		if (ret)
-			dev_err(mehci->dev, "%s: Failed to dvote for "
-				   "bus bandwidth %d\n", __func__, ret);
+		mehci->bus_vote = false;
+		queue_work(ehci_wq, &mehci->bus_vote_w);
 	}
 
 	atomic_set(&mehci->in_lpm, 1);
@@ -708,11 +710,8 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	wake_lock(&mehci->wlock);
 
 	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
-		ret = msm_bus_scale_client_update_request(
-				mehci->bus_perf_client, 1);
-		if (ret)
-			dev_err(mehci->dev, "%s: Failed to vote for "
-				   "bus bandwidth %d\n", __func__, ret);
+		mehci->bus_vote = true;
+		queue_work(ehci_wq, &mehci->bus_vote_w);
 	}
 
 	min_vol = vdd_val[mehci->vdd_type][VDD_MIN];
@@ -778,6 +777,19 @@ skip_phy_resume:
 	return 0;
 }
 #endif
+
+static void ehci_hsic_bus_vote_w(struct work_struct *w)
+{
+	struct msm_hsic_hcd *mehci =
+			container_of(w, struct msm_hsic_hcd, bus_vote_w);
+	int ret;
+
+	ret = msm_bus_scale_client_update_request(mehci->bus_perf_client,
+			mehci->bus_vote);
+	if (ret)
+		dev_err(mehci->dev, "%s: Failed to vote for bus bandwidth %d\n",
+				__func__, ret);
+}
 
 static irqreturn_t msm_hsic_irq(struct usb_hcd *hcd)
 {
@@ -1272,6 +1284,15 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 		goto deinit_vddcx;
 	}
 
+	ehci_wq = create_singlethread_workqueue("ehci_wq");
+	if (!ehci_wq) {
+		dev_err(&pdev->dev, "unable to create workqueue\n");
+		ret = -ENOMEM;
+		goto deinit_vddcx;
+	}
+
+	INIT_WORK(&mehci->bus_vote_w, ehci_hsic_bus_vote_w);
+
 	ret = usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to register HCD\n");
@@ -1318,11 +1339,8 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 		    msm_bus_scale_register_client(pdata->bus_scale_table);
 		/* Configure BUS performance parameters for MAX bandwidth */
 		if (mehci->bus_perf_client) {
-			ret = msm_bus_scale_client_update_request(
-					mehci->bus_perf_client, 1);
-			if (ret)
-				dev_err(&pdev->dev, "%s: Failed to vote for "
-					   "bus bandwidth %d\n", __func__, ret);
+			mehci->bus_vote = true;
+			queue_work(ehci_wq, &mehci->bus_vote_w);
 		} else {
 			dev_err(&pdev->dev, "%s: Failed to register BUS "
 						"scaling client!!\n", __func__);
@@ -1348,6 +1366,7 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	return 0;
 
 unconfig_gpio:
+	destroy_workqueue(ehci_wq);
 	msm_hsic_config_gpios(mehci, 0);
 deinit_vddcx:
 	msm_hsic_init_vddcx(mehci, 0);
@@ -1375,12 +1394,22 @@ static int ehci_hsic_msm_remove(struct platform_device *pdev)
 		free_irq(mehci->wakeup_irq, mehci);
 	}
 
+	/*
+	 * If the update request is called after unregister, the request will
+	 * fail. Results are undefined if unregister is called in the middle of
+	 * update request.
+	 */
+	mehci->bus_vote = false;
+	cancel_work_sync(&mehci->bus_vote_w);
+
 	if (mehci->bus_perf_client)
 		msm_bus_scale_unregister_client(mehci->bus_perf_client);
 
 	ehci_hsic_msm_debugfs_cleanup();
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_set_suspended(&pdev->dev);
+
+	destroy_workqueue(ehci_wq);
 
 	usb_remove_hcd(hcd);
 	msm_hsic_config_gpios(mehci, 0);
