@@ -869,9 +869,14 @@ int adreno_dump(struct kgsl_device *device, int manual)
 		else if (adreno_is_a225(adreno_dev))
 			adreno_dump_regs(device, a225_registers,
 				a225_registers_count);
-		else if (adreno_is_a3xx(adreno_dev))
+		else if (adreno_is_a3xx(adreno_dev)) {
 			adreno_dump_regs(device, a3xx_registers,
 					a3xx_registers_count);
+
+			if (adreno_is_a330(adreno_dev))
+				adreno_dump_regs(device, a330_registers,
+					a330_registers_count);
+		}
 	}
 
 error_vfree:

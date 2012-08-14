@@ -306,13 +306,20 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_snapshot_registers_list list;
-	struct kgsl_snapshot_registers regs;
+	struct kgsl_snapshot_registers regs[2];
 
-	regs.regs = (unsigned int *) a3xx_registers;
-	regs.count = a3xx_registers_count;
+	regs[0].regs = (unsigned int *) a3xx_registers;
+	regs[0].count = a3xx_registers_count;
 
-	list.registers = &regs;
+	list.registers = regs;
 	list.count = 1;
+
+	/* For A330, append the additional list of new registers to grab */
+	if (adreno_is_a330(adreno_dev)) {
+		regs[1].regs = (unsigned int *) a330_registers;
+		regs[1].count = a330_registers_count;
+		list.count++;
+	}
 
 	/* Master set of (non debug) registers */
 	snapshot = kgsl_snapshot_add_section(device,
