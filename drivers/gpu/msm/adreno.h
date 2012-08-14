@@ -165,6 +165,9 @@ extern const unsigned int a225_registers_count;
 extern const unsigned int a3xx_registers[];
 extern const unsigned int a3xx_registers_count;
 
+extern const unsigned int a330_registers[];
+extern const unsigned int a330_registers_count;
+
 extern unsigned int hang_detect_regs[];
 extern const unsigned int hang_detect_regs_count;
 
