@@ -625,7 +625,7 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 #define PNOC_ID		0x0
 #define SNOC_ID		0x1
 #define CNOC_ID		0x2
-#define MMSSNOC_AHB_ID  0x4
+#define MMSSNOC_AHB_ID  0x3
 
 #define BIMC_ID		0x0
 #define OCMEM_ID	0x1
