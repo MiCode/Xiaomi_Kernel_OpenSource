@@ -111,6 +111,8 @@ struct pm8921_bms_chip {
 	unsigned int		charging_began;
 	unsigned int		start_percent;
 	unsigned int		end_percent;
+	int			charge_time_us;
+	int			catch_up_time_us;
 	enum battery_type	batt_type;
 	uint16_t		ocv_reading_at_100;
 	int			cc_reading_at_100;
@@ -1599,6 +1601,54 @@ out:
 	return (int)rc;
 }
 
+#define SOC_CATCHUP_SEC_MAX		600
+#define SOC_CATCHUP_SEC_PER_PERCENT	60
+#define MAX_CATCHUP_SOC	(SOC_CATCHUP_SEC_MAX/SOC_CATCHUP_SEC_PER_PERCENT)
+static int scale_soc_while_chg(struct pm8921_bms_chip *chip,
+				int delta_time_us, int new_soc, int prev_soc)
+{
+	int chg_time_sec;
+	int catch_up_sec;
+	int scaled_soc;
+	int numerator;
+
+	/*
+	 * The device must be charging for reporting a higher soc, if
+	 * not ignore this soc and continue reporting the prev_soc.
+	 * Also don't report a high value immediately slowly scale the
+	 * value from prev_soc to the new soc based on a charge time
+	 * weighted average
+	 */
+
+	/* if we are not charging return last soc */
+	if (the_chip->start_percent == -EINVAL)
+		return prev_soc;
+
+	/* if soc is called in quick succession return the last soc */
+	if (delta_time_us < USEC_PER_SEC)
+		return prev_soc;
+
+	chg_time_sec = DIV_ROUND_UP(the_chip->charge_time_us, USEC_PER_SEC);
+	catch_up_sec = DIV_ROUND_UP(the_chip->catch_up_time_us, USEC_PER_SEC);
+	pr_debug("cts= %d catch_up_sec = %d\n", chg_time_sec, catch_up_sec);
+
+	/*
+	 * if we have been charging for more than catch_up time simply return
+	 * new soc
+	 */
+	if (chg_time_sec > catch_up_sec)
+		return new_soc;
+
+	numerator = (catch_up_sec - chg_time_sec) * prev_soc
+			+ chg_time_sec * new_soc;
+	scaled_soc = numerator / catch_up_sec;
+
+	pr_debug("cts = %d new_soc = %d prev_soc = %d scaled_soc = %d\n",
+			chg_time_sec, new_soc, prev_soc, scaled_soc);
+
+	return scaled_soc;
+}
+
 #define SHOW_SHUTDOWN_SOC_MS	30000
 static void shutdown_soc_work(struct work_struct *work)
 {
@@ -1689,20 +1739,41 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	soc = adjust_soc(chip, soc, batt_temp, rbatt,
 					fcc_uah, unusable_charge_uah, cc_uah);
 
-	if (last_soc == -EINVAL || soc <= last_soc) {
-		last_soc = soc;
-	} else {
-		/*
-		 * soc > last_soc
-		 * the device must be charging for reporting a higher soc, if
-		 * not ignore this soc and continue reporting the last_soc
-		 */
-		if (the_chip->start_percent != -EINVAL)
-			last_soc = soc;
-		else
-			pr_debug("soc = %d reporting last_soc = %d\n", soc,
-								last_soc);
+	/*
+	 * account for charge time - limit it to SOC_CATCHUP_SEC to
+	 * avoid overflows when charging continues for extended periods
+	 */
+	if (the_chip->start_percent != -EINVAL) {
+		if (the_chip->charge_time_us == 0) {
+			/*
+			 * calculating soc for the first time
+			 * after start of chg. Initialize catchup time
+			 */
+			if (abs(soc - last_soc) < MAX_CATCHUP_SOC)
+				the_chip->catch_up_time_us =
+				(soc - last_soc) * SOC_CATCHUP_SEC_PER_PERCENT
+					 * USEC_PER_SEC;
+			else
+				the_chip->catch_up_time_us =
+				SOC_CATCHUP_SEC_MAX * USEC_PER_SEC;
+
+			if (the_chip->catch_up_time_us < 0)
+				the_chip->catch_up_time_us = 0;
+		}
+
+		/* add charge time */
+		if (the_chip->charge_time_us
+				< SOC_CATCHUP_SEC_MAX * USEC_PER_SEC)
+			chip->charge_time_us += delta_time_us;
+
+		/* end catchup if calculated soc and last soc are same */
+		if (last_soc == soc)
+			the_chip->catch_up_time_us = 0;
 	}
+
+	/* last_soc < soc  ... scale and catch up */
+	if (last_soc != -EINVAL && last_soc < soc && soc != 100)
+		soc = scale_soc_while_chg(chip, delta_time_us, soc, last_soc);
 
 	if (chip->shutdown_soc != 0
 			&& !shutdown_soc_invalid
@@ -1712,13 +1783,14 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		 * timer has not expired
 		 */
 		if (chip->shutdown_soc != 0xFF)
-			last_soc = chip->shutdown_soc;
+			soc = chip->shutdown_soc;
 		else
-			last_soc = 0;
+			soc = 0;
 
-		pr_debug("Forcing SHUTDOWN_SOC = %d\n", last_soc);
+		pr_debug("Forcing SHUTDOWN_SOC = %d\n", soc);
 	}
 
+	last_soc = soc;
 	backup_soc(chip, batt_temp, last_soc);
 	pr_debug("Reported SOC = %d\n", last_soc);
 
@@ -1984,6 +2056,8 @@ void pm8921_bms_charging_began(void)
 	calculate_cc_uah(the_chip, raw.cc, &bms_start_cc_uah);
 	pm_bms_masked_write(the_chip, BMS_TOLERANCES,
 			IBAT_TOL_MASK, IBAT_TOL_DEFAULT);
+	the_chip->charge_time_us = 0;
+	the_chip->catch_up_time_us = 0;
 	pr_debug("start_percent = %u%%\n", the_chip->start_percent);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
@@ -2088,6 +2162,8 @@ void pm8921_bms_charging_end(int is_battery_full)
 			last_chargecycles);
 	the_chip->start_percent = -EINVAL;
 	the_chip->end_percent = -EINVAL;
+	the_chip->charge_time_us = 0;
+	the_chip->catch_up_time_us = 0;
 	pm_bms_masked_write(the_chip, BMS_TOLERANCES,
 				IBAT_TOL_MASK, IBAT_TOL_NOCHG);
 }
