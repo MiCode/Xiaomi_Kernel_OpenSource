@@ -19,7 +19,6 @@
 
 #include "mdss_panel.h"
 
-#define MMSS_MDSS_CC_BASE_PHY 0xFD8C2300	/* mmss clcok control */
 #define MMSS_SERDES_BASE_PHY 0x04f01000 /* mmss (De)Serializer CFG */
 
 #define MIPI_OUTP(addr, data) writel_relaxed((data), (addr))
@@ -244,6 +243,13 @@ struct mdss_panel_common_pdata {
 	int (*off) (struct mdss_panel_data *pdata);
 };
 
+struct mdss_dsi_drv_pdata {
+	struct regulator *vdd_vreg;
+	struct regulator *vdd_io_vreg;
+	struct regulator *dsi_vreg;
+	int (*on) (struct mdss_panel_data *pdata);
+	int (*off) (struct mdss_panel_data *pdata);
+};
 int dsi_panel_device_register(struct platform_device *pdev,
 			      struct mdss_panel_common_pdata *panel_data);
 
@@ -290,5 +296,4 @@ void mdss_dsi_prepare_clocks(void);
 void mdss_dsi_unprepare_clocks(void);
 void cont_splash_clk_ctrl(int enable);
 unsigned char *mdss_dsi_get_base_adr(void);
-
 #endif /* MDSS_DSI_H */
