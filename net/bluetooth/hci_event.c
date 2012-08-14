@@ -1794,7 +1794,7 @@ static inline void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	struct hci_ev_disconn_complete *ev = (void *) skb->data;
 	struct hci_conn *conn;
 
-	BT_DBG("%s status %d", hdev->name, ev->status);
+	BT_DBG("%s status %d reason %d", hdev->name, ev->status, ev->reason);
 
 	if (ev->status) {
 		hci_dev_lock(hdev);
@@ -1812,7 +1812,7 @@ static inline void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	conn->state = BT_CLOSED;
 
 	if (conn->type == ACL_LINK || conn->type == LE_LINK)
-		mgmt_disconnected(hdev->id, &conn->dst);
+		mgmt_disconnected(hdev->id, &conn->dst, ev->reason);
 
 	if (conn->type == LE_LINK)
 		del_timer(&conn->smp_timer);
