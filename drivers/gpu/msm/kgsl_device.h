@@ -67,7 +67,7 @@ struct kgsl_functable {
 		unsigned int offsetwords, unsigned int *value);
 	void (*regwrite) (struct kgsl_device *device,
 		unsigned int offsetwords, unsigned int value);
-	int (*idle) (struct kgsl_device *device, unsigned int timeout);
+	int (*idle) (struct kgsl_device *device);
 	unsigned int (*isidle) (struct kgsl_device *device);
 	int (*suspend_context) (struct kgsl_device *device);
 	int (*start) (struct kgsl_device *device, unsigned int init_ram);
@@ -287,9 +287,9 @@ static inline void kgsl_regwrite(struct kgsl_device *device,
 	device->ftbl->regwrite(device, offsetwords, value);
 }
 
-static inline int kgsl_idle(struct kgsl_device *device, unsigned int timeout)
+static inline int kgsl_idle(struct kgsl_device *device)
 {
-	return device->ftbl->idle(device, timeout);
+	return device->ftbl->idle(device);
 }
 
 static inline unsigned int kgsl_gpuid(struct kgsl_device *device,

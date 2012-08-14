@@ -358,7 +358,7 @@ static int room_in_rb(struct z180_device *device)
 	return ts_diff < Z180_PACKET_COUNT;
 }
 
-static int z180_idle(struct kgsl_device *device, unsigned int timeout)
+static int z180_idle(struct kgsl_device *device)
 {
 	int status = 0;
 	struct z180_device *z180_dev = Z180_DEVICE(device);
@@ -366,7 +366,8 @@ static int z180_idle(struct kgsl_device *device, unsigned int timeout)
 	if (timestamp_cmp(z180_dev->current_timestamp,
 		z180_dev->timestamp) > 0)
 		status = z180_wait(device, NULL,
-				z180_dev->current_timestamp, timeout);
+				z180_dev->current_timestamp,
+				Z180_IDLE_TIMEOUT);
 
 	if (status)
 		KGSL_DRV_ERR(device, "z180_waittimestamp() timed out\n");
@@ -583,7 +584,7 @@ error_clk_off:
 static int z180_stop(struct kgsl_device *device)
 {
 	device->ftbl->irqctrl(device, 0);
-	z180_idle(device, KGSL_TIMEOUT_DEFAULT);
+	z180_idle(device);
 
 	del_timer_sync(&device->idle_timer);
 
@@ -852,7 +853,7 @@ z180_drawctxt_destroy(struct kgsl_device *device,
 {
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 
-	z180_idle(device, KGSL_TIMEOUT_DEFAULT);
+	z180_idle(device);
 
 	if (z180_dev->ringbuffer.prevctx == context->id) {
 		z180_dev->ringbuffer.prevctx = Z180_INVALID_CONTEXT;
