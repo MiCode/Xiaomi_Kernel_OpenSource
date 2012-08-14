@@ -1447,6 +1447,14 @@ static int liquid_v1_phy_init_seq[] = {
 	0x23, 0x83,/* set source impedance sdjusment */
 	-1};
 
+static int sglte_phy_init_seq[] = {
+	0x44, 0x80, /* set VBUS valid threshold
+			and disconnect valid threshold */
+	0x3A, 0x81, /* update DC voltage level */
+	0x24, 0x82, /* set preemphasis and rise/fall time */
+	0x13, 0x83, /* set source impedance adjusment */
+	-1};
+
 #ifdef CONFIG_MSM_BUS_SCALING
 /* Bandwidth requests (zero) if no vote placed */
 static struct msm_bus_vectors usb_init_vectors[] = {
@@ -3137,7 +3145,14 @@ static void __init msm8960_cdp_init(void)
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	if (machine_is_msm8960_mtp() || machine_is_msm8960_fluid() ||
 		machine_is_msm8960_cdp()) {
-		msm_otg_pdata.phy_init_seq = wr_phy_init_seq;
+		/* Due to availability of USB Switch in SGLTE Platform
+		 * it requires different HSUSB PHY settings compare to
+		 * 8960 MTP/CDP platform.
+		 */
+		if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+			msm_otg_pdata.phy_init_seq = sglte_phy_init_seq;
+		else
+			msm_otg_pdata.phy_init_seq = wr_phy_init_seq;
 	} else if (machine_is_msm8960_liquid()) {
 			msm_otg_pdata.phy_init_seq =
 				liquid_v1_phy_init_seq;
