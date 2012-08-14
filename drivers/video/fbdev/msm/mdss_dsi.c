@@ -17,14 +17,149 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of_device.h>
+#include <linux/err.h>
+#include <linux/regulator/consumer.h>
 
 #include "mdss.h"
 #include "mdss_panel.h"
 #include "mdss_dsi.h"
 
-static struct mdss_panel_common_pdata *panel_pdata;
+static struct mdss_dsi_drv_pdata dsi_drv;
 
 static unsigned char *mdss_dsi_base;
+static unsigned char *mmss_cc_base;
+
+static int mdss_dsi_regulator_init(struct platform_device *pdev)
+{
+	int ret;
+	dsi_drv.vdd_vreg = devm_regulator_get(&pdev->dev, "vdd");
+	if (IS_ERR(dsi_drv.vdd_vreg)) {
+		pr_err("could not get 8941_l22, rc = %ld\n",
+				PTR_ERR(dsi_drv.vdd_vreg));
+		return -ENODEV;
+	}
+
+	ret = regulator_set_voltage(dsi_drv.vdd_vreg, 3000000, 3000000);
+	if (ret) {
+		pr_err("vdd_vreg->set_voltage failed, rc=%d\n", ret);
+		return -EINVAL;
+	}
+
+	dsi_drv.vdd_io_vreg = devm_regulator_get(&pdev->dev, "vdd_io");
+	if (IS_ERR(dsi_drv.vdd_io_vreg)) {
+		pr_err("could not get 8941_l12, rc = %ld\n",
+				PTR_ERR(dsi_drv.vdd_io_vreg));
+		return -ENODEV;
+	}
+
+	ret = regulator_set_voltage(dsi_drv.vdd_io_vreg, 1800000, 1800000);
+	if (ret) {
+		pr_err("vdd_io_vreg->set_voltage failed, rc=%d\n", ret);
+		return -EINVAL;
+	}
+
+	dsi_drv.dsi_vreg = devm_regulator_get(&pdev->dev, "vreg");
+	if (IS_ERR(dsi_drv.dsi_vreg)) {
+		pr_err("could not get 8941_l2, rc = %ld\n",
+				PTR_ERR(dsi_drv.dsi_vreg));
+		return -ENODEV;
+	}
+
+	ret = regulator_set_voltage(dsi_drv.dsi_vreg, 1200000, 1200000);
+	if (ret) {
+		pr_err("dsi_vreg->set_voltage failed, rc=%d\n", ret);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mdss_dsi_panel_power_on(int enable)
+{
+	int ret;
+	pr_debug("%s: enable=%d\n", __func__, enable);
+
+	if (enable) {
+		ret = regulator_set_optimum_mode(dsi_drv.vdd_vreg, 100000);
+		if (ret < 0) {
+			pr_err("%s: vdd_vreg set regulator mode failed.\n",
+						       __func__);
+			return ret;
+		}
+
+		ret = regulator_set_optimum_mode(dsi_drv.vdd_io_vreg, 100000);
+		if (ret < 0) {
+			pr_err("%s: vdd_io_vreg set regulator mode failed.\n",
+						       __func__);
+			return ret;
+		}
+
+		ret = regulator_set_optimum_mode(dsi_drv.dsi_vreg, 100000);
+		if (ret < 0) {
+			pr_err("%s: dsi_vreg set regulator mode failed.\n",
+						       __func__);
+			return ret;
+		}
+
+		ret = regulator_enable(dsi_drv.vdd_vreg);
+		if (ret) {
+			pr_err("%s: Failed to enable regulator.\n", __func__);
+			return ret;
+		}
+
+		ret = regulator_enable(dsi_drv.vdd_io_vreg);
+		if (ret) {
+			pr_err("%s: Failed to enable regulator.\n", __func__);
+			return ret;
+		}
+
+		ret = regulator_enable(dsi_drv.dsi_vreg);
+		if (ret) {
+			pr_err("%s: Failed to enable regulator.\n", __func__);
+			return ret;
+		}
+
+	} else {
+		ret = regulator_disable(dsi_drv.vdd_vreg);
+		if (ret) {
+			pr_err("%s: Failed to disable regulator.\n", __func__);
+			return ret;
+		}
+
+		ret = regulator_disable(dsi_drv.vdd_io_vreg);
+		if (ret) {
+			pr_err("%s: Failed to disable regulator.\n", __func__);
+			return ret;
+		}
+
+		ret = regulator_disable(dsi_drv.dsi_vreg);
+		if (ret) {
+			pr_err("%s: Failed to disable regulator.\n", __func__);
+			return ret;
+		}
+
+		ret = regulator_set_optimum_mode(dsi_drv.vdd_vreg, 100);
+		if (ret < 0) {
+			pr_err("%s: vdd_vreg set regulator mode failed.\n",
+						       __func__);
+			return ret;
+		}
+
+		ret = regulator_set_optimum_mode(dsi_drv.vdd_io_vreg, 100);
+		if (ret < 0) {
+			pr_err("%s: vdd_io_vreg set regulator mode failed.\n",
+						       __func__);
+			return ret;
+		}
+		ret = regulator_set_optimum_mode(dsi_drv.dsi_vreg, 100);
+		if (ret < 0) {
+			pr_err("%s: dsi_vreg set regulator mode failed.\n",
+						       __func__);
+			return ret;
+		}
+	}
+	return 0;
+}
 
 static int mdss_dsi_off(struct mdss_panel_data *pdata)
 {
@@ -38,7 +173,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 
 	mdss_dsi_op_mode_config(DSI_CMD_MODE, pdata);
 
-	ret = panel_pdata->off(pdata);
+	ret = dsi_drv.off(pdata);
 	if (ret) {
 		pr_err("%s: Panel OFF failed\n", __func__);
 		return ret;
@@ -53,6 +188,12 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	spin_unlock_bh(&dsi_clk_lock);
 
 	mdss_dsi_unprepare_clocks();
+
+	ret = mdss_dsi_panel_power_on(0);
+	if (ret) {
+		pr_err("%s: Panel power off failed\n", __func__);
+		return ret;
+	}
 
 	pr_debug("%s-:\n", __func__);
 
@@ -148,7 +289,13 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 		wmb();
 	}
 
-	ret = panel_pdata->on(pdata);
+	ret = mdss_dsi_panel_power_on(1);
+	if (ret) {
+		pr_err("%s: Panel power on failed\n", __func__);
+		return ret;
+	}
+
+	ret = dsi_drv.on(pdata);
 	if (ret) {
 		pr_err("%s: unable to initialize the panel\n", __func__);
 		return ret;
@@ -167,7 +314,7 @@ unsigned char *mdss_dsi_get_base_adr(void)
 
 unsigned char *mdss_dsi_get_clk_base(void)
 {
-	return mdss_dsi_base;
+	return mmss_cc_base;
 }
 
 static int mdss_dsi_resource_initialized;
@@ -196,8 +343,35 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 			}
 		}
 
+		mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (!mdss_dsi_mres) {
+			pr_err("%s:%d unable to get the MDSS resources",
+				       __func__, __LINE__);
+			return -ENOMEM;
+		}
+		if (mdss_dsi_mres) {
+			mmss_cc_base = ioremap(mdss_dsi_mres->start,
+				resource_size(mdss_dsi_mres));
+			if (!mmss_cc_base) {
+				pr_err("%s:%d unable to remap dsi resources",
+					       __func__, __LINE__);
+				return -ENOMEM;
+			}
+		}
+
+		rc = mdss_dsi_regulator_init(pdev);
+		if (rc) {
+			dev_err(&pdev->dev,
+				"%s: failed to init regulator, rc=%d\n",
+							__func__, rc);
+			iounmap(mdss_dsi_base);
+			iounmap(mmss_cc_base);
+			return rc;
+		}
+
 		if (mdss_dsi_clk_init(pdev)) {
 			iounmap(mdss_dsi_base);
+			iounmap(mmss_cc_base);
 			return -EPERM;
 		}
 
@@ -208,6 +382,7 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 				"%s: failed to add child nodes, rc=%d\n",
 							__func__, rc);
 			iounmap(mdss_dsi_base);
+			iounmap(mmss_cc_base);
 			return rc;
 		}
 
@@ -240,21 +415,19 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	u32 h_period, v_period, dsi_pclk_rate;
 	struct mdss_panel_data *pdata = NULL;
 
-	panel_pdata = panel_data;
+	h_period = ((panel_data->panel_info.lcdc.h_pulse_width)
+			+ (panel_data->panel_info.lcdc.h_back_porch)
+			+ (panel_data->panel_info.xres)
+			+ (panel_data->panel_info.lcdc.h_front_porch));
 
-	h_period = ((panel_pdata->panel_info.lcdc.h_pulse_width)
-			+ (panel_pdata->panel_info.lcdc.h_back_porch)
-			+ (panel_pdata->panel_info.xres)
-			+ (panel_pdata->panel_info.lcdc.h_front_porch));
+	v_period = ((panel_data->panel_info.lcdc.v_pulse_width)
+			+ (panel_data->panel_info.lcdc.v_back_porch)
+			+ (panel_data->panel_info.yres)
+			+ (panel_data->panel_info.lcdc.v_front_porch));
 
-	v_period = ((panel_pdata->panel_info.lcdc.v_pulse_width)
-			+ (panel_pdata->panel_info.lcdc.v_back_porch)
-			+ (panel_pdata->panel_info.yres)
-			+ (panel_pdata->panel_info.lcdc.v_front_porch));
+	mipi  = &panel_data->panel_info.mipi;
 
-	mipi  = &panel_pdata->panel_info.mipi;
-
-	panel_pdata->panel_info.type =
+	panel_data->panel_info.type =
 		((mipi->mode == DSI_VIDEO_MODE)
 			? MIPI_VIDEO_PANEL : MIPI_CMD_PANEL);
 
@@ -278,23 +451,23 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	else
 		bpp = 3;		/* Default format set to RGB888 */
 
-	if (panel_pdata->panel_info.type == MIPI_VIDEO_PANEL &&
-		!panel_pdata->panel_info.clk_rate) {
-		h_period += panel_pdata->panel_info.lcdc.xres_pad;
-		v_period += panel_pdata->panel_info.lcdc.yres_pad;
+	if (panel_data->panel_info.type == MIPI_VIDEO_PANEL &&
+		!panel_data->panel_info.clk_rate) {
+		h_period += panel_data->panel_info.lcdc.xres_pad;
+		v_period += panel_data->panel_info.lcdc.yres_pad;
 
 		if (lanes > 0) {
-			panel_pdata->panel_info.clk_rate =
+			panel_data->panel_info.clk_rate =
 			((h_period * v_period * (mipi->frame_rate) * bpp * 8)
 			   / lanes);
 		} else {
 			pr_err("%s: forcing mdss_dsi lanes to 1\n", __func__);
-			panel_pdata->panel_info.clk_rate =
+			panel_data->panel_info.clk_rate =
 				(h_period * v_period
 					 * (mipi->frame_rate) * bpp * 8);
 		}
 	}
-	pll_divider_config.clk_rate = panel_pdata->panel_info.clk_rate;
+	pll_divider_config.clk_rate = panel_data->panel_info.clk_rate;
 
 	rc = mdss_dsi_clk_div_config(bpp, lanes, &dsi_pclk_rate);
 	if (rc) {
@@ -306,6 +479,9 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		dsi_pclk_rate = 35000000;
 	mipi->dsi_pclk_rate = dsi_pclk_rate;
 
+	dsi_drv.on = panel_data->on;
+	dsi_drv.off = panel_data->off;
+
 	/*
 	 * data chain
 	 */
@@ -315,10 +491,11 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 	pdata->on = mdss_dsi_on;
 	pdata->off = mdss_dsi_off;
-	memcpy(&(pdata->panel_info), &(panel_pdata->panel_info),
+	memcpy(&(pdata->panel_info), &(panel_data->panel_info),
 	       sizeof(struct mdss_panel_info));
 
 	pdata->dsi_base = mdss_dsi_base;
+	pdata->mmss_cc_base = mmss_cc_base;
 
 	/*
 	 * register in mdp driver
