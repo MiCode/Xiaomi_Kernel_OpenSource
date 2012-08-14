@@ -389,6 +389,22 @@ struct hdmi_disp_mode_timing_type {
 	u32	supported;
 };
 
+struct hdmi_tx_ddc_ctrl {
+	void __iomem *base;
+	struct completion ddc_sw_done;
+};
+
+struct hdmi_tx_ddc_data {
+	char *what;
+	u8 *data_buf;
+	u32 data_len;
+	u32 dev_addr;
+	u32 offset;
+	u32 request_len;
+	u32 no_align;
+	int retry;
+};
+
 void hdmi_reg_dump(void __iomem *base, u32 length, const char *prefix);
 const char *hdmi_reg_name(u32 offset);
 
@@ -396,5 +412,12 @@ const struct hdmi_disp_mode_timing_type *hdmi_get_supported_mode(u32 mode);
 void hdmi_set_supported_mode(u32 mode);
 const char *hdmi_get_video_fmt_2string(u32 format);
 ssize_t hdmi_get_video_3d_fmt_2string(u32 format, char *buf);
+
+/* DDC */
+void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *);
+int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *);
+int hdmi_ddc_write(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
+int hdmi_ddc_read_seg(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
+int hdmi_ddc_read(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
 
 #endif /* __HDMI_UTIL_H__ */
