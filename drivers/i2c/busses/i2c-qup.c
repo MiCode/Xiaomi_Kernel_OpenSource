@@ -1339,8 +1339,10 @@ blsp_core_init:
 		}
 		free_irq(dev->err_irq, dev);
 	} else {
-		if (dev->dev->of_node)
+		if (dev->dev->of_node) {
+			dev->adapter.dev.of_node = pdev->dev.of_node;
 			of_i2c_register_devices(&dev->adapter);
+		}
 		return 0;
 	}
 
