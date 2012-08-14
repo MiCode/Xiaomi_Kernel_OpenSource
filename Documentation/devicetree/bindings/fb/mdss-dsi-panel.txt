@@ -42,9 +42,16 @@ Required structure:
 
 Optional properties:
 - label:		        	A string used as a descriptive name of the panel
+- qcom,enable-gpio:			Specifies the panel lcd/display enable gpio.
+- qcom,rst-gpio:			Specifies the panel reset gpio.
 - qcom,mdss-pan-porch-values:		An array of size 6 that specifies the panel blanking values.
 - qcom,mdss-pan-underflow-clr:		Specifies the controller settings for the panel underflow clear
 					settings. Default value is 0xff.
+- qcom,mdss-pan-bl-ctrl:		A string that specifies the implementation of backlight
+					control for this panel.
+					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
+					"bl_ctrl_wled" = Backlight controlled by WLED.
+					"bl_ctrl_dcs_cmds" = Backlight controlled by DCS commands.
 - qcom,mdss-pan-bl-levels:		Specifies the backlight levels supported by the panel.
 					Default range is 1 to 255.
 

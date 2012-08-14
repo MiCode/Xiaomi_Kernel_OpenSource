@@ -76,6 +76,12 @@ enum dsi_trigger_type {
 	DSI_CMD_MODE_MDP,
 };
 
+enum dsi_panel_bl_ctrl {
+	BL_PWM,
+	BL_WLED,
+	BL_DCS_CMD,
+};
+
 #define DSI_NON_BURST_SYNCH_PULSE	0
 #define DSI_NON_BURST_SYNCH_EVENT	1
 #define DSI_BURST_MODE			2
@@ -241,6 +247,7 @@ struct mdss_panel_common_pdata {
 	struct mdss_panel_info panel_info;
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
+	void (*bl_ctrl) (u32 bl_level);
 };
 
 struct mdss_dsi_drv_pdata {
@@ -296,4 +303,5 @@ void mdss_dsi_prepare_clocks(void);
 void mdss_dsi_unprepare_clocks(void);
 void cont_splash_clk_ctrl(int enable);
 unsigned char *mdss_dsi_get_base_adr(void);
+void mdss_dsi_panel_reset(int enable);
 #endif /* MDSS_DSI_H */
