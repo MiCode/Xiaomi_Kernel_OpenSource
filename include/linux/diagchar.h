@@ -112,7 +112,7 @@ the appropriate macros. */
 #define EVENT_LAST_ID			0x08AD
 
 #define MSG_SSID_0			0
-#define MSG_SSID_0_LAST			91
+#define MSG_SSID_0_LAST			93
 #define MSG_SSID_1			500
 #define MSG_SSID_1_LAST			506
 #define MSG_SSID_2			1000
