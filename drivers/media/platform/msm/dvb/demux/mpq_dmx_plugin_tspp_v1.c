@@ -65,6 +65,11 @@
 /* Channel timeout in msec */
 #define TSPP_CHANNEL_TIMEOUT			16
 
+/* module parameters for load time configuration */
+static int tsif0_mode = TSPP_TSIF_MODE_2;
+static int tsif1_mode = TSPP_TSIF_MODE_2;
+module_param(tsif0_mode, int, S_IRUGO);
+module_param(tsif1_mode, int, S_IRUGO);
 
 /*
  * Work scheduled each time TSPP notifies dmx
@@ -273,14 +278,17 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 	int ret;
 	int channel_id;
 	int *channel_ref_count;
+	enum tspp_tsif_mode mode;
 
 	/* determine the TSIF we are reading from */
 	if (mpq_demux->source == DMX_SOURCE_FRONT0) {
 		tsif = 0;
 		tspp_source = TSPP_SOURCE_TSIF0;
+		mode = (enum tspp_tsif_mode)tsif0_mode;
 	} else if (mpq_demux->source == DMX_SOURCE_FRONT1) {
 		tsif = 1;
 		tspp_source = TSPP_SOURCE_TSIF1;
+		mode = (enum tspp_tsif_mode)tsif1_mode;
 	} else {
 		/* invalid source */
 		MPQ_DVB_ERR_PRINT(
@@ -333,7 +341,7 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 		}
 
 		/* set TSPP source */
-		ret = tspp_open_stream(0, channel_id, tspp_source);
+		ret = tspp_open_stream(0, channel_id, tspp_source, mode);
 		if (ret < 0) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: tspp_select_source(%d,%d) failed (%d)\n",
