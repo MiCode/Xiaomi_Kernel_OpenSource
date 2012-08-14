@@ -97,7 +97,7 @@
 #define TSENS_THRESHOLD_MAX_CODE	0x3ff
 #define TSENS_THRESHOLD_MIN_CODE	0x0
 
-#define TSENS_CTRL_INIT_DATA1		0x3fffff9
+#define TSENS_CTRL_INIT_DATA1		0x1cfff9
 #define TSENS_GLOBAL_INIT_DATA		0x302f16c
 #define TSENS_S0_MAIN_CFG_INIT_DATA	0x1c3
 #define TSENS_SN_MIN_MAX_STATUS_CTRL_DATA	0x3ffc00
@@ -143,27 +143,24 @@ struct tsens_tm_device *tmdev;
 static int tsens_tz_code_to_degc(int adc_code, int sensor_num)
 {
 	int degcbeforefactor, degc;
-	degcbeforefactor = (adc_code *
-			tmdev->sensor[sensor_num].slope_mul_tsens_factor
-			+ tmdev->sensor[sensor_num].offset);
+	degcbeforefactor = ((adc_code * tmdev->tsens_factor) -
+				tmdev->sensor[sensor_num].offset)/
+			tmdev->sensor[sensor_num].slope_mul_tsens_factor;
 
 	if (degcbeforefactor == 0)
 		degc = degcbeforefactor;
 	else if (degcbeforefactor > 0)
-		degc = (degcbeforefactor + tmdev->tsens_factor/2)
-				/ tmdev->tsens_factor;
+		degc = degcbeforefactor;
 	else
-		degc = (degcbeforefactor - tmdev->tsens_factor/2)
-				/ tmdev->tsens_factor;
+		degc = degcbeforefactor;
+
 	return degc;
 }
 
 static int tsens_tz_degc_to_code(int degc, int sensor_num)
 {
-	int code = (degc * tmdev->tsens_factor -
-		tmdev->sensor[sensor_num].offset
-		+ tmdev->sensor[sensor_num].slope_mul_tsens_factor/2)
-		/ tmdev->sensor[sensor_num].slope_mul_tsens_factor;
+	int code = ((degc * tmdev->sensor[sensor_num].slope_mul_tsens_factor)
+		+ tmdev->sensor[sensor_num].offset)/tmdev->tsens_factor;
 
 	if (code > TSENS_THRESHOLD_MAX_CODE)
 		code = TSENS_THRESHOLD_MAX_CODE;
@@ -500,10 +497,10 @@ static int tsens_calib_sensors(void)
 	if (!tsens_calibration_mode) {
 		pr_debug("TSENS is calibrationless mode\n");
 		for (i = 0; i < tmdev->tsens_num_sensor; i++) {
-			tmdev->sensor[i].calib_data_point2 = 78000;
-			tmdev->sensor[i].calib_data_point1 = 49200;
-			goto compute_intercept_slope;
+			tmdev->sensor[i].calib_data_point2 = 780;
+			tmdev->sensor[i].calib_data_point1 = 492;
 		}
+		goto compute_intercept_slope;
 	} else if (tsens_calibration_mode == TSENS_ONE_POINT_CALIB ||
 				TSENS_TWO_POINT_CALIB) {
 		tsens_base1_data = calib_data[0] & TSENS_BASE1_MASK;
@@ -597,10 +594,9 @@ compute_intercept_slope:
 			num *= tmdev->tsens_factor;
 			tmdev->sensor[i].slope_mul_tsens_factor = num/den;
 		}
-		tmdev->sensor[i].offset = (TSENS_CAL_DEGC_POINT1 *
-			tmdev->tsens_factor)
-			- (tmdev->sensor[i].calib_data_point1 *
-			tmdev->sensor[i].slope_mul_tsens_factor);
+		tmdev->sensor[i].offset = (tmdev->sensor[i].calib_data_point1 *
+			tmdev->tsens_factor) - (TSENS_CAL_DEGC_POINT1 *
+				tmdev->sensor[i].slope_mul_tsens_factor);
 		INIT_WORK(&tmdev->sensor[i].work, notify_uspace_tsens_fn);
 		tmdev->prev_reading_avail = false;
 	}
@@ -749,6 +745,7 @@ static int tsens_tm_probe(struct platform_device *pdev)
 		goto fail;
 
 	tsens_hw_init();
+
 	tmdev->prev_reading_avail = true;
 
 	platform_set_drvdata(pdev, tmdev);
@@ -801,6 +798,7 @@ static int _tsens_register_thermal(void)
 			goto fail;
 		}
 	}
+
 	rc = request_irq(tmdev->tsens_irq, tsens_isr,
 		IRQF_TRIGGER_RISING, "tsens_interrupt", tmdev);
 	if (rc < 0) {
