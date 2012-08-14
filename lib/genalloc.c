@@ -36,6 +36,7 @@
 #include <linux/genalloc.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/vmalloc.h>
 
 static int set_bits_ll(unsigned long *addr, unsigned long mask_to_set)
 {
@@ -182,9 +183,14 @@ int gen_pool_add_virt(struct gen_pool *pool, unsigned long virt, phys_addr_t phy
 	int nbytes = sizeof(struct gen_pool_chunk) +
 				BITS_TO_LONGS(nbits) * sizeof(long);
 
-	chunk = kmalloc_node(nbytes, GFP_KERNEL | __GFP_ZERO, nid);
+	if (nbytes <= PAGE_SIZE)
+		chunk = kmalloc_node(nbytes, __GFP_ZERO, nid);
+	else
+		chunk = vmalloc(nbytes);
 	if (unlikely(chunk == NULL))
 		return -ENOMEM;
+	if (nbytes > PAGE_SIZE)
+		memset(chunk, 0, nbytes);
 
 	chunk->phys_addr = phys;
 	chunk->start_addr = virt;
@@ -239,14 +245,20 @@ void gen_pool_destroy(struct gen_pool *pool)
 	int bit, end_bit;
 
 	list_for_each_safe(_chunk, _next_chunk, &pool->chunks) {
+		int nbytes;
 		chunk = list_entry(_chunk, struct gen_pool_chunk, next_chunk);
 		list_del(&chunk->next_chunk);
 
 		end_bit = (chunk->end_addr - chunk->start_addr) >> order;
+		nbytes = sizeof(struct gen_pool_chunk) +
+				(end_bit + BITS_PER_BYTE - 1) / BITS_PER_BYTE;
 		bit = find_next_bit(chunk->bits, end_bit, 0);
 		BUG_ON(bit < end_bit);
 
-		kfree(chunk);
+		if (nbytes <= PAGE_SIZE)
+			kfree(chunk);
+		else
+			vfree(chunk);
 	}
 	kfree(pool);
 	return;
