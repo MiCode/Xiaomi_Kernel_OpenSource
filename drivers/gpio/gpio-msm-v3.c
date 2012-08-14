@@ -167,15 +167,12 @@ void __msm_gpio_set_intr_cfg_type(unsigned gpio, unsigned type)
 {
 	unsigned cfg;
 
-	cfg = __raw_readl(GPIO_INTR_CFG(gpio));
-
 	/* RAW_STATUS_EN is left on for all gpio irqs. Due to the
 	 * internal circuitry of TLMM, toggling the RAW_STATUS
 	 * could cause the INTR_STATUS to be set for EDGE interrupts.
 	 */
-	cfg |= (INTR_RAW_STATUS_EN | INTR_TARGET_PROC_APPS);
+	cfg = INTR_RAW_STATUS_EN | INTR_TARGET_PROC_APPS;
 	__raw_writel(cfg, GPIO_INTR_CFG(gpio));
-	cfg = __raw_readl(GPIO_INTR_CFG(gpio));
 	cfg &= ~INTR_DECT_CTL_MASK;
 	if (type == IRQ_TYPE_EDGE_RISING)
 		cfg |= INTR_DECT_CTL_POS_EDGE;
