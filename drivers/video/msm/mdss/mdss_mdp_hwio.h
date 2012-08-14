@@ -323,6 +323,7 @@ enum mdss_mdp_dspp_index {
 
 #define MDSS_MDP_REG_DSPP_OFFSET(pipe)	(0x4600 + ((pipe) * 0x400))
 #define MDSS_MDP_REG_DSPP_OP_MODE			0x000
+#define MDSS_MDP_REG_DSPP_PCC_BASE			0x030
 #define MDSS_MDP_REG_DSPP_PA_BASE			0x238
 
 enum mdss_mpd_intf_index {

@@ -1151,6 +1151,12 @@ static int mdss_fb_handle_pp_ioctl(void __user *argp)
 		ret = mdss_mdp_pa_config(&mdp_pp.data.pa_cfg_data,
 				&copyback);
 		break;
+
+	case mdp_op_pcc_cfg:
+		ret = mdss_mdp_pcc_config(&mdp_pp.data.pcc_cfg_data,
+			   &copyback);
+		break;
+
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL.\n");
 		ret = -EINVAL;
