@@ -214,7 +214,7 @@ int mdp4_dsi_video_pipe_commit(void)
 		if (pipe->pipe_used) {
 			cnt++;
 			real_pipe = mdp4_overlay_ndx2pipe(pipe->pipe_ndx);
-			if (real_pipe->pipe_used) {
+			if (real_pipe && real_pipe->pipe_used) {
 				/* pipe not unset */
 				mdp4_overlay_vsync_commit(pipe);
 			}

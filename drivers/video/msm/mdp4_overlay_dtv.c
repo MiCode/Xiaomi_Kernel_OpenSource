@@ -199,7 +199,7 @@ int mdp4_dtv_pipe_commit(void)
 		if (pipe->pipe_used) {
 			cnt++;
 			real_pipe = mdp4_overlay_ndx2pipe(pipe->pipe_ndx);
-			if (real_pipe->pipe_used) {
+			if (real_pipe && real_pipe->pipe_used) {
 				/* pipe not unset */
 				mdp4_overlay_vsync_commit(pipe);
 			}
@@ -796,8 +796,6 @@ void mdp4_external_vsync_dtv(void)
 	vctrl->vsync_time = ktime_get();
 	schedule_work(&vctrl->vsync_work);
 
-	pr_debug("%s: cpu=%d\n", __func__, smp_processor_id());
-
 	spin_lock(&vctrl->spin_lock);
 	if (vctrl->wait_vsync_cnt) {
 		complete_all(&vctrl->vsync_comp);
@@ -823,6 +821,7 @@ void mdp4_dmae_done_dtv(void)
 
 	vctrl = &vsync_ctrl_db[cndx];
 	pipe = vctrl->base_pipe;
+	pr_debug("%s: cpu=%d\n", __func__, smp_processor_id());
 
 	spin_lock(&vctrl->spin_lock);
 	if (vctrl->blt_change) {
