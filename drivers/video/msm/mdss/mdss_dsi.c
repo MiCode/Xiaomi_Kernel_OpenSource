@@ -119,7 +119,12 @@ static int mdss_dsi_panel_power_on(int enable)
 			return ret;
 		}
 
+		mdss_dsi_panel_reset(1);
+
 	} else {
+
+		mdss_dsi_panel_reset(0);
+
 		ret = regulator_disable(dsi_drv.vdd_vreg);
 		if (ret) {
 			pr_err("%s: Failed to disable regulator.\n", __func__);
@@ -496,6 +501,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 	pdata->dsi_base = mdss_dsi_base;
 	pdata->mmss_cc_base = mmss_cc_base;
+	pdata->set_backlight = panel_data->bl_ctrl;
 
 	/*
 	 * register in mdp driver
