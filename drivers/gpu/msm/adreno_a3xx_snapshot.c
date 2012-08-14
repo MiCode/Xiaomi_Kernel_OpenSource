@@ -156,28 +156,36 @@ static int a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
 	return DEBUG_SECTION_SZ(size);
 }
 
-#define CP_ROQ_SIZE 128
+/* This is the ROQ buffer size on both the A305 and A320 */
+#define A320_CP_ROQ_SIZE 128
+/* This is the ROQ buffer size on the A330 */
+#define A330_CP_ROQ_SIZE 512
 
 static int a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
 		int remain, void *priv)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = snapshot;
 	unsigned int *data = snapshot + sizeof(*header);
-	int i;
+	int i, size;
 
-	if (remain < DEBUG_SECTION_SZ(CP_ROQ_SIZE)) {
+	/* The size of the ROQ buffer is core dependent */
+	size = adreno_is_a330(adreno_dev) ?
+		A330_CP_ROQ_SIZE : A320_CP_ROQ_SIZE;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
 		return 0;
 	}
 
 	header->type = SNAPSHOT_DEBUG_CP_ROQ;
-	header->size = CP_ROQ_SIZE;
+	header->size = size;
 
 	adreno_regwrite(device, A3XX_CP_ROQ_ADDR, 0x0);
-	for (i = 0; i < CP_ROQ_SIZE; i++)
+	for (i = 0; i < size; i++)
 		adreno_regread(device, A3XX_CP_ROQ_DATA, &data[i]);
 
-	return DEBUG_SECTION_SZ(CP_ROQ_SIZE);
+	return DEBUG_SECTION_SZ(size);
 }
 
 #define DEBUGFS_BLOCK_SIZE 0x40
