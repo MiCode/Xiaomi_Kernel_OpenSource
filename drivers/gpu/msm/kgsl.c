@@ -1769,8 +1769,10 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 		return -ENODEV;
 
 	handle = ion_import_dma_buf(kgsl_ion_client, fd);
-	if (IS_ERR_OR_NULL(handle))
+	if (IS_ERR(handle))
 		return PTR_ERR(handle);
+	else if (!handle)
+		return -EINVAL;
 
 	entry->memtype = KGSL_MEM_ENTRY_ION;
 	entry->priv_data = handle;
