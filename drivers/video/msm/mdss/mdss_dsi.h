@@ -286,8 +286,8 @@ void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(void);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(unsigned char *dsi_base);
-void mdss_dsi_clk_enable(void);
-void mdss_dsi_clk_disable(void);
+void mdss_dsi_clk_enable(struct mdss_panel_data *pdata);
+void mdss_dsi_clk_disable(struct mdss_panel_data *pdata);
 void mdss_dsi_controller_cfg(int enable,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_sw_reset(struct mdss_panel_data *pdata);
@@ -301,7 +301,10 @@ int mdss_dsi_clk_init(struct platform_device *pdev);
 void mdss_dsi_clk_deinit(struct device *dev);
 void mdss_dsi_prepare_clocks(void);
 void mdss_dsi_unprepare_clocks(void);
-void cont_splash_clk_ctrl(int enable);
 unsigned char *mdss_dsi_get_base_adr(void);
 void mdss_dsi_panel_reset(int enable);
+void mdss_dsi_phy_enable(struct mdss_panel_data *pdata, int on);
+void mdss_dsi_phy_init(struct mdss_panel_data *pdata);
+void mdss_dsi_phy_sw_reset(struct mdss_panel_data *pdata);
+
 #endif /* MDSS_DSI_H */
