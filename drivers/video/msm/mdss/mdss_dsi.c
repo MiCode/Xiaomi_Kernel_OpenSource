@@ -185,7 +185,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	}
 
 	spin_lock_bh(&dsi_clk_lock);
-	mdss_dsi_clk_disable();
+	mdss_dsi_clk_disable(pdata);
 
 	/* disable dsi engine */
 	MIPI_OUTP(mdss_dsi_base + 0x0004, 0);
@@ -217,15 +217,18 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 
 	pinfo = &pdata->panel_info;
 
-	cont_splash_clk_ctrl(0);
+	MIPI_OUTP(mdss_dsi_base + 0x118, 1);
+	MIPI_OUTP(mdss_dsi_base + 0x118, 0);
+
+	mdss_dsi_phy_sw_reset(pdata);
+	mdss_dsi_phy_enable(pdata, 1);
+	mdss_dsi_phy_init(pdata);
+
 	mdss_dsi_prepare_clocks();
 
 	spin_lock_bh(&dsi_clk_lock);
 
-	MIPI_OUTP(mdss_dsi_base + 0x118, 1);
-	MIPI_OUTP(mdss_dsi_base + 0x118, 0);
-
-	mdss_dsi_clk_enable();
+	mdss_dsi_clk_enable(pdata);
 	spin_unlock_bh(&dsi_clk_lock);
 
 	clk_rate = pdata->panel_info.clk_rate;
