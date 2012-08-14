@@ -76,9 +76,11 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 
 struct pp_sts_type {
 	u32 pa_sts;
+	u32 pcc_sts;
 };
 
 #define PP_FLAGS_DIRTY_PA	0x1
+#define PP_FLAGS_DIRTY_PCC	0x2
 
 #define PP_STS_ENABLE	0x1
 
@@ -86,12 +88,16 @@ struct mdss_pp_res_type {
 	/* logical info */
 	u32 pp_disp_flags[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pa_cfg_data pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pcc_cfg_data pcc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	/* physical info */
 	struct pp_sts_type pp_dspp_sts[MDSS_MDP_MAX_DSPP];
 };
 
 static DEFINE_MUTEX(mdss_pp_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
+
+static void pp_update_pcc_regs(u32 offset,
+				struct mdp_pcc_cfg_data *cfg_ptr);
 
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 				   struct mdp_csc_cfg *data)
@@ -187,6 +193,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 {
 	u32 flags, base, offset, dspp_num, opmode = 0;
 	struct mdp_pa_cfg_data *pa_config;
+	struct mdp_pcc_cfg_data *pcc_config;
 	struct pp_sts_type *pp_sts;
 
 	dspp_num = mixer->num;
@@ -224,6 +231,20 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	}
 	if (pp_sts->pa_sts & PP_STS_ENABLE)
 		opmode |= (1 << 20); /* PA_EN */
+	if (flags & PP_FLAGS_DIRTY_PCC) {
+		pcc_config = &mdss_pp_res->pcc_disp_cfg[disp_num];
+		if (pcc_config->ops & MDP_PP_OPS_WRITE) {
+			offset = base + MDSS_MDP_REG_DSPP_PCC_BASE;
+			pp_update_pcc_regs(offset, pcc_config);
+		}
+		if (pcc_config->ops & MDP_PP_OPS_DISABLE)
+			pp_sts->pcc_sts &= ~PP_STS_ENABLE;
+		else if (pcc_config->ops & MDP_PP_OPS_ENABLE)
+			pp_sts->pcc_sts |= PP_STS_ENABLE;
+	}
+	if (pp_sts->pcc_sts & PP_STS_ENABLE)
+		opmode |= (1 << 4); /* PCC_EN */
+
 	MDSS_MDP_REG_WRITE(base + MDSS_MDP_REG_DSPP_OP_MODE, opmode);
 	ctl->flush_bits |= BIT(13 + dspp_num); /* DSPP */
 	return 0;
@@ -275,12 +296,31 @@ void mdss_mdp_pp_term(struct device *dev)
 		mutex_unlock(&mdss_pp_mutex);
 	}
 }
+static int pp_get_dspp_num(u32 disp_num, u32 *dspp_num)
+{
+	int i;
+	u32 mixer_cnt;
+	u32 mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+
+	if (!mixer_cnt)
+		return -EPERM;
+
+	/* only read the first mixer */
+	for (i = 0; i < mixer_cnt; i++) {
+		if (mixer_id[i] < MDSS_MDP_MAX_DSPP)
+			break;
+	}
+	if (i >= mixer_cnt)
+		return -EPERM;
+	*dspp_num = mixer_id[i];
+	return 0;
+}
 
 int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback)
 {
-	int i, ret = 0;
-	u32 pa_offset, disp_num, mixer_cnt;
-	u32 mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+	int ret = 0;
+	u32 pa_offset, disp_num, dspp_num = 0;
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
@@ -290,22 +330,14 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback)
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
 
 	if (config->flags & MDP_PP_OPS_READ) {
-		mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
-		if (!mixer_cnt) {
-			ret = -EPERM;
-			goto pa_config_exit;
-		}
-		/* only read the first mixer */
-		for (i = 0; i < mixer_cnt; i++) {
-			if (mixer_id[i] < MDSS_MDP_MAX_DSPP)
-				break;
-		}
-		if (i >= mixer_cnt) {
-			ret = -EPERM;
+		ret = pp_get_dspp_num(disp_num, &dspp_num);
+		if (ret) {
+			pr_err("%s, no dspp connects to disp %d",
+				__func__, disp_num);
 			goto pa_config_exit;
 		}
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-		pa_offset = MDSS_MDP_REG_DSPP_OFFSET(mixer_id[i]) +
+		pa_offset = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
 			  MDSS_MDP_REG_DSPP_PA_BASE;
 
 		config->hue_adj = MDSS_MDP_REG_READ(pa_offset);
@@ -325,4 +357,169 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback)
 pa_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
+}
+
+static void pp_read_pcc_regs(u32 offset,
+				struct mdp_pcc_cfg_data *cfg_ptr)
+{
+	cfg_ptr->r.c = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.c = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.c = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.r = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.r = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.r = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.g = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.g = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.g = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.b = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.b = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.b = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.rr = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.rr = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.rr = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.rg = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.rg = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.rg = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.rb = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.rb = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.rb = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.gg = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.gg = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.gg = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.gb = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.gb = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.gb = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.bb = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.bb = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.bb = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.rgb_0 = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.rgb_0 = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.rgb_0 = MDSS_MDP_REG_READ(offset + 8);
+	offset += 0x10;
+
+	cfg_ptr->r.rgb_1 = MDSS_MDP_REG_READ(offset);
+	cfg_ptr->g.rgb_1 = MDSS_MDP_REG_READ(offset + 4);
+	cfg_ptr->b.rgb_1 = MDSS_MDP_REG_READ(offset + 8);
+}
+
+static void pp_update_pcc_regs(u32 offset,
+				struct mdp_pcc_cfg_data *cfg_ptr)
+{
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.c);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.c);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.c);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.r);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.r);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.r);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.g);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.g);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.g);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.b);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.b);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.b);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.rr);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.rr);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.rr);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.rg);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.rg);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.rg);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.rb);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.rb);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.rb);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.gg);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.gg);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.gg);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.gb);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.gb);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.gb);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.bb);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.bb);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.bb);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.rgb_0);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.rgb_0);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.rgb_0);
+	offset += 0x10;
+
+	MDSS_MDP_REG_WRITE(offset, cfg_ptr->r.rgb_1);
+	MDSS_MDP_REG_WRITE(offset + 4, cfg_ptr->g.rgb_1);
+	MDSS_MDP_REG_WRITE(offset + 8, cfg_ptr->b.rgb_1);
+}
+
+int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *config, u32 *copyback)
+{
+
+	int ret = 0;
+	u32 base, disp_num, dspp_num = 0;
+
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(config->block >= MDP_BLOCK_MAX))
+		return -EINVAL;
+
+	mutex_lock(&mdss_pp_mutex);
+	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+
+	if (config->ops & MDP_PP_OPS_READ) {
+		ret = pp_get_dspp_num(disp_num, &dspp_num);
+		if (ret) {
+			pr_err("%s, no dspp connects to disp %d",
+				__func__, disp_num);
+			goto pcc_config_exit;
+		}
+
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+		base = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
+			  MDSS_MDP_REG_DSPP_PCC_BASE;
+		pp_read_pcc_regs(base, config);
+		*copyback = 1;
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	} else {
+		mdss_pp_res->pcc_disp_cfg[disp_num] = *config;
+		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PCC;
+	}
+
+pcc_config_exit:
+	mutex_unlock(&mdss_pp_mutex);
+	return ret;
+
 }
