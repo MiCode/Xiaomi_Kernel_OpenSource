@@ -2264,13 +2264,17 @@ EXPORT_SYMBOL(smd_tiocmset);
 
 int smd_is_pkt_avail(smd_channel_t *ch)
 {
+	unsigned long flags;
+
 	if (!ch || !ch->is_pkt_ch)
 		return -EINVAL;
 
 	if (ch->current_packet)
 		return 1;
 
+	spin_lock_irqsave(&smd_lock, flags);
 	update_packet_state(ch);
+	spin_unlock_irqrestore(&smd_lock, flags);
 
 	return ch->current_packet ? 1 : 0;
 }
