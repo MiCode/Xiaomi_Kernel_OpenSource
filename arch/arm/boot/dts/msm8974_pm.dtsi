@@ -383,4 +383,9 @@
 			<39  93>,
 			<40  95>;
 	};
+
+	qcom,pc-cntr@fe800000 {
+		compatible = "qcom,pc-cntr";
+		reg = <0xfe800664 0x40>;
+	};
 };
