@@ -2605,7 +2605,9 @@ static struct platform_device rc_input_loopback_pdev = {
 
 static int rf4ce_gpio_init(void)
 {
-	if (!machine_is_mpq8064_cdp())
+	if (!machine_is_mpq8064_cdp() &&
+		!machine_is_mpq8064_hrd() &&
+			!machine_is_mpq8064_dtv())
 		return -EINVAL;
 
 	/* CC2533 SRDY Input */
