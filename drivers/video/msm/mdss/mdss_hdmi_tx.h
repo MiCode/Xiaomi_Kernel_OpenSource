@@ -78,6 +78,8 @@ struct hdmi_tx_ctrl {
 
 	u8 spd_vendor_name[8];
 	u8 spd_product_description[16];
+
+	struct hdmi_tx_ddc_ctrl ddc_ctrl;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */
