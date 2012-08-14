@@ -1508,6 +1508,75 @@ int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
 }
 EXPORT_SYMBOL(pm8921_bms_get_simultaneous_battery_voltage_and_current);
 
+static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
+			int batt_temp,
+			int chargecycles,
+			int fcc_uah,
+			int uuc_uah,
+			int cc_uah,
+			int shutdown_soc,
+			int *rc_uah,
+			int *ocv_uv)
+{
+	s64 rc;
+	int pc, new_pc;
+	int batt_temp_degc = batt_temp / 10;
+	int ocv;
+
+	rc = (s64)shutdown_soc * (fcc_uah - uuc_uah);
+	rc = div_s64(rc, 100) + cc_uah + uuc_uah;
+	pc = DIV_ROUND_CLOSEST((int)rc * 100, fcc_uah);
+	pc = clamp(pc, 0, 100);
+
+	ocv = interpolate_ocv(chip, batt_temp_degc, pc);
+
+	pr_debug("s_soc = %d, fcc = %d uuc = %d rc = %d, pc = %d, ocv mv = %d\n",
+			shutdown_soc, fcc_uah, uuc_uah, (int)rc, pc, ocv);
+	new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
+	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
+
+	while (abs(new_pc - pc) > 1) {
+		int delta_mv = 5;
+
+		if (new_pc > pc)
+			delta_mv = -1 * delta_mv;
+
+		ocv = ocv + delta_mv;
+		new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
+		pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
+	}
+
+	*ocv_uv = ocv * 1000;
+	*rc_uah = (int)rc;
+}
+
+static void adjust_rc_and_uuc_for_specific_soc(
+						struct pm8921_bms_chip *chip,
+						int batt_temp,
+						int chargecycles,
+						int soc,
+						int fcc_uah,
+						int uuc_uah,
+						int cc_uah,
+						int rc_uah,
+						int rbatt,
+						int *ret_ocv,
+						int *ret_rc,
+						int *ret_uuc,
+						int *ret_rbatt)
+{
+	int ocv_uv;
+
+	find_ocv_for_soc(chip, batt_temp, chargecycles,
+					fcc_uah, uuc_uah, cc_uah,
+					soc,
+					&rc_uah, &ocv_uv);
+
+	*ret_ocv = ocv_uv;
+	*ret_rbatt = rbatt;
+	*ret_rc = rc_uah;
+	*ret_uuc = uuc_uah;
+}
 static int bound_soc(int soc)
 {
 	soc = max(0, soc);
@@ -1516,7 +1585,9 @@ static int bound_soc(int soc)
 }
 
 static int charging_adjustments(struct pm8921_bms_chip *chip,
-				int soc, int vbat_uv, int ibat_ua)
+				int soc, int vbat_uv, int ibat_ua,
+				int batt_temp, int chargecycles,
+				int fcc_uah, int cc_uah, int uuc_uah)
 {
 	int chg_soc;
 
@@ -1555,16 +1626,30 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 					ibat_ua);
 
 	/* always report a higher soc */
-	if (chg_soc > chip->prev_chg_soc)
+	if (chg_soc > chip->prev_chg_soc) {
+		int new_ocv_uv;
+		int new_rc;
+
 		chip->prev_chg_soc = chg_soc;
+
+		find_ocv_for_soc(chip, batt_temp, chargecycles,
+				fcc_uah, uuc_uah, cc_uah,
+				chg_soc,
+				&new_rc, &new_ocv_uv);
+		the_chip->last_ocv_uv = new_ocv_uv;
+		pr_debug("CC CHG ADJ OCV = %d CHG SOC %d\n",
+				new_ocv_uv,
+				chip->prev_chg_soc);
+	}
 
 	pr_debug("CHG SOC %d\n", chip->prev_chg_soc);
 	return chip->prev_chg_soc;
 }
 
 static int last_soc_est = -EINVAL;
-static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
-		int rbatt , int fcc_uah, int uuc_uah, int cc_uah)
+static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
+		int batt_temp, int chargecycles,
+		int rbatt, int fcc_uah, int uuc_uah, int cc_uah)
 {
 	int ibat_ua = 0, vbat_uv = 0;
 	int ocv_est_uv = 0, soc_est = 0, pc_est = 0, pc = 0;
@@ -1595,7 +1680,9 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	soc_est = bound_soc(soc_est);
 
 	if (ibat_ua < 0) {
-		soc = charging_adjustments(chip, soc, vbat_uv, ibat_ua);
+		soc = charging_adjustments(chip, soc, vbat_uv, ibat_ua,
+				batt_temp, chargecycles,
+				fcc_uah, cc_uah, uuc_uah);
 		goto out;
 	}
 
@@ -1765,76 +1852,6 @@ static void read_shutdown_soc_and_iavg(struct pm8921_bms_chip *chip)
 			chip->shutdown_soc,
 			chip->shutdown_iavg_ua,
 			shutdown_soc_invalid);
-}
-
-static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
-			int batt_temp,
-			int chargecycles,
-			int fcc_uah,
-			int uuc_uah,
-			int cc_uah,
-			int shutdown_soc,
-			int *rc_uah,
-			int *ocv_uv)
-{
-	s64 rc;
-	int pc, new_pc;
-	int batt_temp_degc = batt_temp / 10;
-	int ocv;
-
-	rc = (s64)shutdown_soc * (fcc_uah - uuc_uah);
-	rc = div_s64(rc, 100) + cc_uah + uuc_uah;
-	pc = DIV_ROUND_CLOSEST((int)rc * 100, fcc_uah);
-	pc = clamp(pc, 0, 100);
-
-	ocv = interpolate_ocv(chip, batt_temp_degc, pc);
-
-	pr_debug("s_soc = %d, fcc = %d uuc = %d rc = %d, pc = %d, ocv mv = %d\n",
-			shutdown_soc, fcc_uah, uuc_uah, (int)rc, pc, ocv);
-	new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
-	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
-
-	while (abs(new_pc - pc) > 1) {
-		int delta_mv = 5;
-
-		if (new_pc > pc)
-			delta_mv = -1 * delta_mv;
-
-		ocv = ocv + delta_mv;
-		new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
-		pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
-	}
-
-	*ocv_uv = ocv * 1000;
-	*rc_uah = (int)rc;
-}
-
-static void adjust_rc_and_uuc_for_specific_soc(
-						struct pm8921_bms_chip *chip,
-						int batt_temp,
-						int chargecycles,
-						int soc,
-						int fcc_uah,
-						int uuc_uah,
-						int cc_uah,
-						int rc_uah,
-						int rbatt,
-						int *ret_ocv,
-						int *ret_rc,
-						int *ret_uuc,
-						int *ret_rbatt)
-{
-	int ocv_uv;
-
-	find_ocv_for_soc(chip, batt_temp, chargecycles,
-					fcc_uah, uuc_uah, cc_uah,
-					soc,
-					&rc_uah, &ocv_uv);
-
-	*ret_ocv = ocv_uv;
-	*ret_rbatt = rbatt;
-	*ret_rc = rc_uah;
-	*ret_uuc = uuc_uah;
 }
 
 #define SOC_CATCHUP_SEC_MAX		600
@@ -2055,7 +2072,8 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	}
 	mutex_unlock(&soc_invalidation_mutex);
 
-	calculated_soc = adjust_soc(chip, soc, batt_temp,
+	pr_debug("SOC before adjustment = %d\n", soc);
+	calculated_soc = adjust_soc(chip, soc, batt_temp, chargecycles,
 			rbatt, fcc_uah, unusable_charge_uah, cc_uah);
 
 	pr_debug("calculated SOC = %d\n", calculated_soc);
