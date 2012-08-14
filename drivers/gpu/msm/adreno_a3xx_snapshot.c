@@ -188,6 +188,38 @@ static int a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
 	return DEBUG_SECTION_SZ(size);
 }
 
+#define A330_CP_MERCIU_QUEUE_SIZE 32
+
+static int a330_snapshot_cp_merciu(struct kgsl_device *device, void *snapshot,
+		int remain, void *priv)
+{
+	struct kgsl_snapshot_debug *header = snapshot;
+	unsigned int *data = snapshot + sizeof(*header);
+	int i, size;
+
+	/* The MERCIU data is two dwords per entry */
+	size = A330_CP_MERCIU_QUEUE_SIZE << 1;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP MERCIU DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_MERCIU;
+	header->size = size;
+
+	adreno_regwrite(device, A3XX_CP_MERCIU_ADDR, 0x0);
+
+	for (i = 0; i < A330_CP_MERCIU_QUEUE_SIZE; i++) {
+		adreno_regread(device, A3XX_CP_MERCIU_DATA,
+			&data[(i * 2)]);
+		adreno_regread(device, A3XX_CP_MERCIU_DATA2,
+			&data[(i * 2) + 1]);
+	}
+
+	return DEBUG_SECTION_SZ(size);
+}
+
 #define DEBUGFS_BLOCK_SIZE 0x40
 
 static int a3xx_snapshot_debugbus_block(struct kgsl_device *device,
@@ -329,6 +361,12 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	snapshot = kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a3xx_snapshot_cp_roq, NULL);
+
+	if (adreno_is_a330(adreno_dev)) {
+		snapshot = kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
+			a330_snapshot_cp_merciu, NULL);
+	}
 
 	snapshot = a3xx_snapshot_debugbus(device, snapshot, remain);
 
