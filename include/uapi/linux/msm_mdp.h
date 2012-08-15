@@ -262,6 +262,8 @@ struct msmfb_writeback_data {
 #define MDP_PP_OPS_READ 0x2
 #define MDP_PP_OPS_WRITE 0x4
 #define MDP_PP_OPS_DISABLE 0x8
+#define MDP_PP_IGC_FLAG_ROM0	0x10
+#define MDP_PP_IGC_FLAG_ROM1	0x20
 
 struct mdp_qseed_cfg {
 	uint32_t table_num;
