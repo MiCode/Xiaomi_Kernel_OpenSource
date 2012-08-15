@@ -794,6 +794,20 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	mfd->var_yres = var->yres;
 	mfd->var_pixclock = var->pixclock;
 
+	if (panel_info->type == MIPI_VIDEO_PANEL) {
+		var->reserved[4] = panel_info->mipi.frame_rate;
+	} else {
+		var->reserved[4] = panel_info->clk_rate /
+			((panel_info->lcdc.h_back_porch +
+			  panel_info->lcdc.h_front_porch +
+			  panel_info->lcdc.h_pulse_width +
+			  panel_info->xres) *
+			 (panel_info->lcdc.v_back_porch +
+			  panel_info->lcdc.v_front_porch +
+			  panel_info->lcdc.v_pulse_width +
+			  panel_info->yres));
+	}
+
 	/* id field for fb app  */
 
 	id = (int *)&mfd->panel;
