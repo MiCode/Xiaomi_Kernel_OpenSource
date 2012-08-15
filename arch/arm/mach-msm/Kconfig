@@ -249,6 +249,8 @@ config ARCH_MSM8974
 	select MSM_PIL
 	select MSM_SPM_V2
 	select MSM_L2_SPM
+	select MSM_NATIVE_RESTART
+	select MSM_RESTART_V2
 	select MSM_PM8X60 if PM
 	select MAY_HAVE_SPARSE_IRQ
 	select SPARSE_IRQ
@@ -379,6 +381,9 @@ config  ARCH_MSM_CORTEXMP
 	bool
 
 config  MSM_KRAIT_WFE_FIXUP
+	bool
+
+config  MSM_RESTART_V2
 	bool
 
 config  ARCH_MSM_CORTEX_A5

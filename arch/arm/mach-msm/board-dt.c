@@ -23,6 +23,7 @@
 #include <asm/mach/time.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
+#include <mach/restart.h>
 
 static void __init msm_dt_timer_init(void)
 {
@@ -87,4 +88,5 @@ DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.dt_compat = msm_dt_match,
 	.reserve = msm_dt_reserve,
 	.init_very_early = msm_dt_init_very_early,
+	.restart = msm_restart,
 MACHINE_END
