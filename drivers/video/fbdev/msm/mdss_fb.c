@@ -1157,6 +1157,28 @@ static int mdss_fb_handle_pp_ioctl(void __user *argp)
 			   &copyback);
 		break;
 
+	case mdp_op_lut_cfg:
+		switch (mdp_pp.data.lut_cfg_data.lut_type) {
+		case mdp_lut_igc:
+			ret = mdss_mdp_igc_lut_config(
+					(struct mdp_igc_lut_data *)
+					&mdp_pp.data.lut_cfg_data.data,
+					&copyback);
+			break;
+
+		case mdp_lut_pgc:
+			ret = -ENOTSUPP;
+			break;
+
+		case mdp_lut_hist:
+			ret = -ENOTSUPP;
+			break;
+
+		default:
+			ret = -ENOTSUPP;
+			break;
+		}
+		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL.\n");
 		ret = -EINVAL;
