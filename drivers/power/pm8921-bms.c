@@ -147,8 +147,9 @@ struct pm8921_bms_chip {
 	int			ibat_at_cv_ua;
 	int			soc_at_cv;
 	int			prev_chg_soc;
-
 	struct power_supply	*batt_psy;
+	bool			low_voltage_wake_lock_held;
+	struct wake_lock	low_voltage_wake_lock;
 };
 
 /*
@@ -1650,6 +1651,28 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 	return chip->prev_chg_soc;
 }
 
+static void very_low_voltage_check(struct pm8921_bms_chip *chip,
+					int ibat_ua, int vbat_uv)
+{
+	/*
+	 * if battery is very low (v_cutoff voltage + 20mv) hold
+	 * a wakelock untill soc = 0%
+	 */
+	if (vbat_uv <= (chip->v_cutoff + 20) * 1000
+			&& !chip->low_voltage_wake_lock_held) {
+		pr_debug("voltage = %d low holding wakelock\n", vbat_uv);
+		wake_lock(&chip->low_voltage_wake_lock);
+		chip->low_voltage_wake_lock_held = 1;
+	}
+
+	if (vbat_uv > (chip->v_cutoff + 20) * 1000
+			&& chip->low_voltage_wake_lock_held) {
+		pr_debug("voltage = %d releasing wakelock\n", vbat_uv);
+		chip->low_voltage_wake_lock_held = 0;
+		wake_unlock(&chip->low_voltage_wake_lock);
+	}
+}
+
 static int last_soc_est = -EINVAL;
 static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 		int batt_temp, int chargecycles,
@@ -1674,6 +1697,7 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 		goto out;
 	}
 
+	very_low_voltage_check(chip, ibat_ua, vbat_uv);
 
 	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
 
@@ -3228,6 +3252,9 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		goto free_chip;
 	}
 
+	wake_lock_init(&chip->low_voltage_wake_lock,
+			WAKE_LOCK_SUSPEND, "pm8921_bms_low");
+
 	rc = pm8921_bms_hw_init(chip);
 	if (rc) {
 		pr_err("couldn't init hardware rc = %d\n", rc);
@@ -3282,12 +3309,33 @@ static int __devexit pm8921_bms_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int pm8921_bms_resume(struct device *dev)
+{
+	int rc, ibat_ua, vbat_uv;
+
+	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
+							&ibat_ua,
+							&vbat_uv);
+	if (rc < 0) {
+		pr_err("simultaneous vbat ibat failed err = %d\n", rc);
+		return 0;
+	}
+
+	very_low_voltage_check(the_chip, ibat_ua, vbat_uv);
+	return 0;
+}
+
+static const struct dev_pm_ops pm8921_bms_pm_ops = {
+	.resume		= pm8921_bms_resume,
+};
+
 static struct platform_driver pm8921_bms_driver = {
 	.probe	= pm8921_bms_probe,
 	.remove	= __devexit_p(pm8921_bms_remove),
 	.driver	= {
 		.name	= PM8921_BMS_DEV_NAME,
 		.owner	= THIS_MODULE,
+		.pm	= &pm8921_bms_pm_ops,
 	},
 };
 
