@@ -559,7 +559,7 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 			break;
 		case KGSL_STATE_ACTIVE:
 			/* Wait for the device to become idle */
-			device->ftbl->idle(device, KGSL_TIMEOUT_DEFAULT);
+			device->ftbl->idle(device);
 		case KGSL_STATE_NAP:
 		case KGSL_STATE_SLEEP:
 			/* Get the completion ready to be waited upon. */
@@ -2605,7 +2605,7 @@ int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 		}
 
 		if (device->state == KGSL_STATE_ACTIVE)
-			kgsl_idle(device,  KGSL_TIMEOUT_DEFAULT);
+			kgsl_idle(device);
 
 	}
 	KGSL_LOG_DUMP(device, "|%s| Dump Started\n", device->name);

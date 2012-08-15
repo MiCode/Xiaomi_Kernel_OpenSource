@@ -80,8 +80,8 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 			 * Idle the gpu core before changing the clock freq.
 			 */
 			if (pwr->idle_needed == true)
-				device->ftbl->idle(device,
-						KGSL_TIMEOUT_DEFAULT);
+				device->ftbl->idle(device);
+
 			/* Don't shift by more than one level at a time to
 			 * avoid glitches.
 			 */
