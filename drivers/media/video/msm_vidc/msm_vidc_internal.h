@@ -207,6 +207,7 @@ struct msm_vidc_inst {
 	spinlock_t lock;
 	struct list_head pendingq;
 	struct list_head internalbufs;
+	struct list_head persistbufs;
 	struct buffer_requirements buff_req;
 	void *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
