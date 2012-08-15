@@ -494,24 +494,26 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 					 MDSS_MDP_STAGE_BASE);
 	if (pipe == NULL) {
 		struct mdp_overlay req;
-		int ret;
+		struct fb_info *fbi = mfd->fbi;
+		int ret, bpp;
 
 		memset(&req, 0, sizeof(req));
 
+		bpp = fbi->var.bits_per_pixel / 8;
 		req.id = MSMFB_NEW_REQUEST;
 		req.src.format = mfd->fb_imgType;
-		req.src.height = mfd->fbi->var.yres;
-		req.src.width = mfd->fbi->var.xres;
+		req.src.height = fbi->var.yres;
+		req.src.width = fbi->fix.line_length / bpp;
 		if (mixer_mux == MDSS_MDP_MIXER_MUX_RIGHT) {
 			if (req.src.width <= MAX_MIXER_WIDTH)
 				return -ENODEV;
 
 			req.flags |= MDSS_MDP_RIGHT_MIXER;
 			req.src_rect.x = MAX_MIXER_WIDTH;
-			req.src_rect.w = req.src.width - MAX_MIXER_WIDTH;
+			req.src_rect.w = fbi->var.xres - MAX_MIXER_WIDTH;
 		} else {
 			req.src_rect.x = 0;
-			req.src_rect.w = MIN(req.src.width, MAX_MIXER_WIDTH);
+			req.src_rect.w = MIN(fbi->var.xres, MAX_MIXER_WIDTH);
 		}
 
 		req.src_rect.y = 0;
