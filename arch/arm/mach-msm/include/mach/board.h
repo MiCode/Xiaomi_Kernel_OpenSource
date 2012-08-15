@@ -583,6 +583,7 @@ void vic_handle_irq(struct pt_regs *regs);
 void msm_8974_reserve(void);
 void msm_8974_very_early(void);
 void msm_8974_init_gpiomux(void);
+void msm9625_init_gpiomux(void);
 
 struct mmc_platform_data;
 int msm_add_sdcc(unsigned int controller,
