@@ -214,13 +214,6 @@
 	};
 
 
-	spi@f9924000 {
-		compatible = "qcom,spi-qup-v2";
-		reg = <0xf9924000 0x1000>;
-		interrupts = <0 96 0>;
-		spi-max-frequency = <25000000>;
-	};
-
 	slim@fe12f000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-msm";
@@ -434,6 +427,19 @@
 		reg = <0Xf9966000 0x1000>;
 		reg-names = "qup_phys_addr";
 		interrupts = <0 104 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+	};
+
+	i2c@f9924000 {
+		cell-index = <2>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9924000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 96 0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <24000000>;
