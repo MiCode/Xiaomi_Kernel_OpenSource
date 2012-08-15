@@ -86,6 +86,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 void msm_pm_set_irq_extns(struct msm_pm_irq_calls *irq_calls);
 int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode);
 void msm_pm_cpu_enter_lowpower(unsigned int cpu);
+void __init msm_pm_set_tz_retention_flag(unsigned int flag);
 
 #ifdef CONFIG_MSM_PM8X60
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
