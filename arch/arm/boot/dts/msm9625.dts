@@ -42,7 +42,6 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		reg = <0xfd510000 0x4000>;
-		#gpio-cells = <2>;
 	};
 
 	timer: msm-qtimer@f9021000 {
