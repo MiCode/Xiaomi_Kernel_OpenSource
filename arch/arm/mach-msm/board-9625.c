@@ -46,8 +46,8 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("dfab_clk",	DFAB_CLK,	NULL, 0),
 	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK,	NULL, 0),
 	CLK_DUMMY("mem_clk",	NULL,	NULL, 0),
-	CLK_DUMMY("core_clk",	NULL,	"spi_qsd.1",	OFF),
-	CLK_DUMMY("iface_clk",	NULL,	"spi_qsd.1",	OFF),
+	CLK_DUMMY("core_clk",	SPI_CLK,	"spi_qsd.1",	OFF),
+	CLK_DUMMY("iface_clk",	SPI_P_CLK,	"spi_qsd.1",	OFF),
 	CLK_DUMMY("core_clk",	NULL,	"f9966000.i2c", 0),
 	CLK_DUMMY("iface_clk",	NULL,	"f9966000.i2c", 0),
 	CLK_DUMMY("core_clk",	NULL,	"fe12f000.slim",	OFF),
@@ -72,6 +72,8 @@ static const char *msm9625_dt_match[] __initconst = {
 static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
 			"msm_serial_hsl.0", NULL),
+	OF_DEV_AUXDATA("qcom,spi-qup-v2", 0xF9928000, \
+			"spi_qsd.1", NULL),
 	{}
 };
 

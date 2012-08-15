@@ -42,6 +42,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		reg = <0xfd510000 0x4000>;
+		#gpio-cells = <2>;
 	};
 
 	timer: msm-qtimer@f9021000 {
@@ -75,5 +76,27 @@
 			    "bam_phys";
 		interrupts = <0 247 0>;
 		interrupt-names = "bam_irq";
+	};
+
+	spi@f9928000 {
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9928000 0x1000>;
+		interrupts = <0 100 0>;
+		spi-max-frequency = <24000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&msmgpio 23 0>, /* CLK  */
+			<&msmgpio 21 0>, /* MISO */
+			<&msmgpio 20 0>; /* MOSI */
+
+		cs-gpios = <&msmgpio 69 0>;
+
+		ethernet-switch@0 {
+			compatible = "simtec,ks8851";
+			reg = <0>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <75 0>;
+			spi-max-frequency = <5000000>;
+		};
 	};
 };
