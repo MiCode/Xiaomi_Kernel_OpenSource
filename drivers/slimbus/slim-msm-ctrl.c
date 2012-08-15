@@ -299,6 +299,7 @@ struct msm_sat_chan {
 	u16 chanh;
 	int req_rem;
 	int req_def;
+	bool reconf;
 };
 
 struct msm_slim_sat {
@@ -1229,16 +1230,15 @@ static void slim_sat_rxprocess(struct work_struct *work)
 			 */
 			if (sat->sent_capability) {
 				for (i = 0; i < sat->nsatch; i++) {
-					enum slim_ch_state chs =
-						slim_get_ch_state(&sat->satcl,
-							sat->satch[i].chanh);
-					pr_err("Slim-SSR, sat:%d, rm chan:%d",
+					if (sat->satch[i].reconf) {
+						pr_err("SSR, sat:%d, rm ch:%d",
 							laddr,
 							sat->satch[i].chan);
-					if (chs == SLIM_CH_ACTIVE)
 						slim_control_ch(&sat->satcl,
 							sat->satch[i].chanh,
 							SLIM_CH_REMOVE, true);
+						sat->satch[i].reconf = false;
+					}
 				}
 			}
 		} else if (mt != SLIM_MSG_MT_CORE &&
@@ -1327,14 +1327,18 @@ send_capability:
 			for (i = 0; i < sat->nsatch; i++) {
 				struct msm_sat_chan *sch = &sat->satch[i];
 				if (sch->req_rem) {
-					if (!ret)
+					if (!ret) {
 						slim_dealloc_ch(&sat->satcl,
 								sch->chanh);
+						sch->reconf = false;
+					}
 					sch->req_rem--;
 				} else if (sch->req_def) {
 					if (ret)
 						slim_dealloc_ch(&sat->satcl,
 								sch->chanh);
+					else
+						sch->reconf = true;
 					sch->req_def--;
 				}
 			}
