@@ -94,7 +94,7 @@ Optional configuration properties :
 			QPNP_PIN_OUT_STRENGTH_MED  = 2, (GPIO)
 			QPNP_PIN_OUT_STRENGTH_HIGH = 3, (GPIO)
 
-  - qcom,select:	select a function for the pin. Certain pins
+  - qcom,src-select:	select a function for the pin. Certain pins
 			can be paired (shorted) with each other. Some gpio pins
 			can act as alternate functions.
 			In the context of gpio, this acts as a source select.
