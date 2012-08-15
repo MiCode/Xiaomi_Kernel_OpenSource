@@ -70,7 +70,7 @@
 #define CORE_VOLTAGE_MIN		900000
 
 #define KRAIT_LDO_VOLTAGE_MIN		465000
-#define KRAIT_LDO_VOLTAGE_OFFSET	460000
+#define KRAIT_LDO_VOLTAGE_OFFSET	465000
 #define KRAIT_LDO_STEP			5000
 
 #define BHS_SETTLING_DELAY_US		1
@@ -737,6 +737,22 @@ static void __exit krait_power_exit(void)
 }
 
 module_exit(krait_power_exit);
+
+void secondary_cpu_hs_init(void *base_ptr)
+{
+	/* 605mV retention and 705mV operational voltage */
+	writel_relaxed(0x1C30, base_ptr + APC_LDO_VREF_SET);
+	writel_relaxed(0x430000, base_ptr + 0x20);
+	writel_relaxed(0x21, base_ptr + 0x1C);
+
+	/* Turn on the BHS, turn off LDO Bypass and power down LDO */
+	writel_relaxed(0x403F007F, base_ptr + APC_PWR_GATE_CTL);
+	mb();
+	udelay(1);
+
+	/* Finally turn on the bypass so that BHS supplies power */
+	writel_relaxed(0x403F3F7F, base_ptr + APC_PWR_GATE_CTL);
+}
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("KRAIT POWER regulator driver");
