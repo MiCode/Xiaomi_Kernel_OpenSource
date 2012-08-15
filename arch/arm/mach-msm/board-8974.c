@@ -24,8 +24,8 @@
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif
-#include <linux/regulator/stub-regulator.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/krait-regulator.h>
 #include <linux/msm_thermal.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
@@ -413,8 +413,6 @@ void __init msm_8974_add_devices(void)
 {
 	platform_device_register(&msm_device_smd_8974);
 	platform_device_register(&android_usb_device);
-	platform_add_devices(msm_8974_stub_regulator_devices,
-					msm_8974_stub_regulator_devices_len);
 }
 
 /*
@@ -431,7 +429,7 @@ void __init msm_8974_add_drivers(void)
 	msm_lpmrs_module_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
-	regulator_stub_init();
+	krait_power_init();
 	if (machine_is_msm8974_rumi())
 		msm_clock_init(&msm8974_rumi_clock_init_data);
 	else
