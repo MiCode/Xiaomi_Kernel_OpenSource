@@ -151,7 +151,7 @@ static int rmnet_usb_resume(struct usb_interface *iface)
 	retval = usbnet_resume(iface);
 	if (!retval) {
 		if (oldstate & PM_EVENT_SUSPEND)
-			retval = rmnet_usb_ctrl_start(dev);
+			retval = rmnet_usb_ctrl_start_rx(dev);
 	}
 fail:
 	return retval;
