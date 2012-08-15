@@ -23,6 +23,7 @@
 #include <mach/clk.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
+#include <mach/rpm-smd.h>
 
 #include "clock-local2.h"
 #include "clock-pll.h"
@@ -615,13 +616,16 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 #define RPM_BUS_CLK_TYPE	0x316b6c63
 #define RPM_MEM_CLK_TYPE	0x326b6c63
 
-#define CXO_ID		0x0
-#define QDSS_ID		0x1
+#define RPM_SMD_KEY_ENABLE	0x62616E45
+
+#define CXO_ID			0x0
+#define QDSS_ID			0x1
+#define RPM_SCALING_ENABLE_ID	0x2
 
 #define PNOC_ID		0x0
 #define SNOC_ID		0x1
 #define CNOC_ID		0x2
-#define MMSSNOC_AHB_ID  0x4
+#define MMSSNOC_AHB_ID  0x3
 
 #define BIMC_ID		0x0
 #define OCMEM_ID	0x1
@@ -4532,6 +4536,16 @@ struct measure_mux_entry measure_mux[] = {
 	{&camss_vfe_vfe_ahb_clk.c,		MMSS_BASE, 0x003c},
 	{&camss_vfe_vfe_axi_clk.c,		MMSS_BASE, 0x003d},
 	{&camss_vfe_vfe_ocmemnoc_clk.c,		MMSS_BASE, 0x003e},
+	{&oxilicx_axi_clk.c,			MMSS_BASE, 0x000b},
+	{&oxilicx_ahb_clk.c,			MMSS_BASE, 0x000c},
+	{&ocmemcx_ocmemnoc_clk.c,		MMSS_BASE, 0x0009},
+	{&oxili_gfx3d_clk.c,			MMSS_BASE, 0x000d},
+	{&venus0_axi_clk.c,			MMSS_BASE, 0x000f},
+	{&venus0_ocmemnoc_clk.c,		MMSS_BASE, 0x0010},
+	{&venus0_ahb_clk.c,			MMSS_BASE, 0x0011},
+	{&venus0_vcodec0_clk.c,			MMSS_BASE, 0x000e},
+	{&mmss_s0_axi_clk.c,			MMSS_BASE, 0x0005},
+	{&mmssnoc_ahb_clk.c,			MMSS_BASE, 0x0001},
 	{&mdss_ahb_clk.c,			MMSS_BASE, 0x0022},
 	{&mdss_hdmi_clk.c,			MMSS_BASE, 0x001d},
 	{&mdss_mdp_clk.c,			MMSS_BASE, 0x0014},
@@ -5432,6 +5446,24 @@ static void __init msm8974_clock_post_init(void)
 #define APCS_GCC_CC_PHYS	0xF9011000
 #define APCS_GCC_CC_SIZE	SZ_4K
 
+static void __init enable_rpm_scaling(void)
+{
+	int rc, value = 0x1;
+	struct msm_rpm_kvp kvp = {
+		.key = RPM_SMD_KEY_ENABLE,
+		.data = (void *)&value,
+		.length = sizeof(value),
+	};
+
+	rc = msm_rpm_send_message_noirq(MSM_RPM_CTX_SLEEP_SET,
+			RPM_MISC_CLK_TYPE, RPM_SCALING_ENABLE_ID, &kvp, 1);
+	WARN(rc < 0, "RPM clock scaling (sleep set) did not enable!\n");
+
+	rc = msm_rpm_send_message_noirq(MSM_RPM_CTX_ACTIVE_SET,
+			RPM_MISC_CLK_TYPE, RPM_SCALING_ENABLE_ID, &kvp, 1);
+	WARN(rc < 0, "RPM clock scaling (active set) did not enable!\n");
+}
+
 static void __init msm8974_clock_pre_init(void)
 {
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
@@ -5468,6 +5500,8 @@ static void __init msm8974_clock_pre_init(void)
 	 */
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 	rpm_regulator_enable(vdd_dig_reg);
+
+	enable_rpm_scaling();
 
 	reg_init();
 }
