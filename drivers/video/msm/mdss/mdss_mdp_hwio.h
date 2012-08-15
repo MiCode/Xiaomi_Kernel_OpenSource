@@ -74,6 +74,11 @@ enum mdss_mdp_intr_type {
 	MDSS_MDP_IRQ_INTF_VSYNC = 25,
 };
 
+#define MDSS_MDP_REG_IGC_VIG_BASE			0x300
+#define MDSS_MDP_REG_IGC_RGB_BASE			0x310
+#define MDSS_MDP_REG_IGC_DMA_BASE			0x320
+#define MDSS_MDP_REG_IGC_DSPP_BASE			0x400
+
 enum mdss_mdp_ctl_index {
 	MDSS_MDP_CTL0,
 	MDSS_MDP_CTL1,
