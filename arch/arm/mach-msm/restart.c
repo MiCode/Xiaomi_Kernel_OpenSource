@@ -47,6 +47,12 @@
 
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
 
+#ifdef CONFIG_MSM_RESTART_V2
+#define use_restart_v2()	1
+#else
+#define use_restart_v2()	0
+#endif
+
 static int restart_mode;
 void *restart_reason;
 
@@ -177,9 +183,8 @@ static irqreturn_t resout_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void msm_restart(char mode, const char *cmd)
+static void msm_restart_prepare(const char *cmd)
 {
-
 #ifdef CONFIG_MSM_DLOAD_MODE
 
 	/* This looks like a normal reboot at this point. */
@@ -197,8 +202,6 @@ void msm_restart(char mode, const char *cmd)
 		set_dload_mode(0);
 #endif
 
-	printk(KERN_NOTICE "Going down for restart now\n");
-
 	pm8xxx_reset_pwr_off(1);
 
 	if (cmd != NULL) {
@@ -214,19 +217,30 @@ void msm_restart(char mode, const char *cmd)
 			__raw_writel(0x77665501, restart_reason);
 		}
 	}
+}
 
-	__raw_writel(0, msm_tmr0_base + WDT0_EN);
-	if (!(machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())) {
-		mb();
-		__raw_writel(0, PSHOLD_CTL_SU); /* Actually reset the chip */
-		mdelay(5000);
-		pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
-	}
+void msm_restart(char mode, const char *cmd)
+{
+	printk(KERN_NOTICE "Going down for restart now\n");
 
-	__raw_writel(1, msm_tmr0_base + WDT0_RST);
-	__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
-	__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
-	__raw_writel(1, msm_tmr0_base + WDT0_EN);
+	if (!use_restart_v2()) {
+		msm_restart_prepare(cmd);
+		__raw_writel(0, msm_tmr0_base + WDT0_EN);
+		if (!(machine_is_msm8x60_fusion() ||
+		      machine_is_msm8x60_fusn_ffa())) {
+			mb();
+			 /* Actually reset the chip */
+			__raw_writel(0, PSHOLD_CTL_SU);
+			mdelay(5000);
+			pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
+		}
+
+		__raw_writel(1, msm_tmr0_base + WDT0_RST);
+		__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
+		__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
+		__raw_writel(1, msm_tmr0_base + WDT0_EN);
+	} else
+		__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
 
 	mdelay(10000);
 	printk(KERN_ERR "Restarting has failed\n");
