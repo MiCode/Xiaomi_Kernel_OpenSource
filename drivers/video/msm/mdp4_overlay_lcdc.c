@@ -640,11 +640,11 @@ int mdp4_lcdc_off(struct platform_device *pdev)
 	while (vctrl->wait_vsync_cnt)
 		msleep(20);	/* >= 17 ms */
 
+	mdp_histogram_ctrl_all(FALSE);
+
 	MDP_OUTP(MDP_BASE + LCDC_BASE, 0);
 
 	lcdc_enabled = 0;
-
-	mdp_histogram_ctrl_all(FALSE);
 
 	if (pipe) {
 		if (mfd->ref_cnt == 0) {
