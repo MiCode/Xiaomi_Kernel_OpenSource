@@ -1445,12 +1445,26 @@ static int msm_hsic_pm_suspend(struct device *dev)
 	return ret;
 }
 
+static int msm_hsic_pm_suspend_noirq(struct device *dev)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+
+	if (mehci->async_int) {
+		dev_dbg(dev, "suspend_noirq: Aborting due to pending interrupt\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
 static int msm_hsic_pm_resume(struct device *dev)
 {
 	int ret;
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 
+	dev_dbg(dev, "ehci-msm-hsic PM resume\n");
 	dbg_log_event(NULL, "PM Resume", 0);
 
 	if (device_may_wakeup(dev))
@@ -1504,6 +1518,7 @@ static int msm_hsic_runtime_resume(struct device *dev)
 #ifdef CONFIG_PM
 static const struct dev_pm_ops msm_hsic_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(msm_hsic_pm_suspend, msm_hsic_pm_resume)
+	.suspend_noirq = msm_hsic_pm_suspend_noirq,
 	SET_RUNTIME_PM_OPS(msm_hsic_runtime_suspend, msm_hsic_runtime_resume,
 				msm_hsic_runtime_idle)
 };
