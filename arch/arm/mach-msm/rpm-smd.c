@@ -64,7 +64,8 @@ struct msm_rpm_driver_data {
 #define GFP_FLAG(noirq) (noirq ? GFP_ATOMIC : GFP_KERNEL)
 #define INV_HDR "resource does not exist"
 #define ERR "err\0"
-#define MAX_ERR_BUFFER_SIZE 60
+#define MAX_ERR_BUFFER_SIZE 128
+#define INIT_ERROR 1
 
 static ATOMIC_NOTIFIER_HEAD(msm_rpm_sleep_notifier);
 static bool standalone;
@@ -388,6 +389,7 @@ static int msm_rpm_add_wait_list(uint32_t msg_id)
 	init_completion(&data->ack);
 	data->ack_recd = false;
 	data->msg_id = msg_id;
+	data->errno = INIT_ERROR;
 	spin_lock_irqsave(&msm_rpm_list_lock, flags);
 	list_add(&data->list, &msm_rpm_wait_list);
 	spin_unlock_irqrestore(&msm_rpm_list_lock, flags);
@@ -463,7 +465,7 @@ static inline int msm_rpm_get_error_from_ack(uint8_t *buf)
 	return rc;
 }
 
-static void msm_rpm_read_smd_data(char *buf)
+static int msm_rpm_read_smd_data(char *buf)
 {
 	int pkt_sz;
 	int bytes_read = 0;
@@ -473,7 +475,7 @@ static void msm_rpm_read_smd_data(char *buf)
 	BUG_ON(pkt_sz > MAX_ERR_BUFFER_SIZE);
 
 	if (pkt_sz != smd_read_avail(msm_rpm_data.ch_info))
-		return;
+		return -EAGAIN;
 
 	BUG_ON(pkt_sz == 0);
 
@@ -487,6 +489,8 @@ static void msm_rpm_read_smd_data(char *buf)
 	} while (pkt_sz > 0);
 
 	BUG_ON(pkt_sz < 0);
+
+	return 0;
 }
 
 static void msm_rpm_smd_work(struct work_struct *work)
@@ -498,11 +502,15 @@ static void msm_rpm_smd_work(struct work_struct *work)
 
 	while (smd_is_pkt_avail(msm_rpm_data.ch_info) && !irq_process) {
 		spin_lock_irqsave(&msm_rpm_data.smd_lock_read, flags);
-		msm_rpm_read_smd_data(buf);
-		spin_unlock_irqrestore(&msm_rpm_data.smd_lock_read, flags);
+		if (msm_rpm_read_smd_data(buf)) {
+			spin_unlock_irqrestore(&msm_rpm_data.smd_lock_read,
+					flags);
+			break;
+		}
 		msg_id = msm_rpm_get_msg_id_from_ack(buf);
 		errno = msm_rpm_get_error_from_ack(buf);
 		msm_rpm_process_ack(msg_id, errno);
+		spin_unlock_irqrestore(&msm_rpm_data.smd_lock_read, flags);
 	}
 }
 
@@ -813,6 +821,12 @@ int msm_rpm_wait_for_ack_noirq(uint32_t msg_id)
 		 * Is it ok for another thread to read the msg?
 		 */
 		goto wait_ack_cleanup;
+
+	if (elem->errno != INIT_ERROR) {
+		rc = elem->errno;
+		msm_rpm_free_list_entry(elem);
+		goto wait_ack_cleanup;
+	}
 
 	while ((id != msg_id) && (count++ < 10)) {
 		if (smd_is_pkt_avail(msm_rpm_data.ch_info)) {
