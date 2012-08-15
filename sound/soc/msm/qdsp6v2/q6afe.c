@@ -586,25 +586,23 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 						sizeof(lb_cmd) - APR_HDR_SIZE);
 	lb_cmd.hdr.src_port = 0;
 	lb_cmd.hdr.dest_port = 0;
-	lb_cmd.hdr.token = 0;
+	lb_cmd.hdr.token = index;
 	lb_cmd.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
 	lb_cmd.param.port_id = tx_port;
-	lb_cmd.param.payload_size = (sizeof(lb_cmd) -
-			sizeof(struct apr_hdr) -
-			sizeof(struct afe_port_cmd_set_param_v2));
+	lb_cmd.param.payload_size = (sizeof(lb_cmd) - sizeof(struct apr_hdr) -
+				     sizeof(struct afe_port_cmd_set_param_v2));
 	lb_cmd.param.payload_address_lsw = 0x00;
 	lb_cmd.param.payload_address_msw = 0x00;
 	lb_cmd.param.mem_map_handle = 0x00;
 	lb_cmd.pdata.module_id = AFE_MODULE_LOOPBACK;
 	lb_cmd.pdata.param_id = AFE_PARAM_ID_LOOPBACK_CONFIG;
-	lb_cmd.pdata.param_size =  lb_cmd.param.payload_size -
-				sizeof(struct afe_port_param_data_v2);
+	lb_cmd.pdata.param_size = lb_cmd.param.payload_size -
+				  sizeof(struct afe_port_param_data_v2);
 
 	lb_cmd.dst_port_id = rx_port;
 	lb_cmd.routing_mode = LB_MODE_DEFAULT;
 	lb_cmd.enable = (enable ? 1 : 0);
-	lb_cmd.loopback_cfg_minor_version =
-					AFE_API_VERSION_LOOPBACK_CONFIG;
+	lb_cmd.loopback_cfg_minor_version = AFE_API_VERSION_LOOPBACK_CONFIG;
 	atomic_set(&this_afe.state, 1);
 
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &lb_cmd);
@@ -613,9 +611,10 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 		ret = -EINVAL;
 		goto done;
 	}
+	pr_debug("%s: waiting for this_afe.wait[%d]\n", __func__, index);
 	ret = wait_event_timeout(this_afe.wait[index],
-		(atomic_read(&this_afe.state) == 0),
-				msecs_to_jiffies(TIMEOUT_MS));
+				 (atomic_read(&this_afe.state) == 0),
+				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
@@ -667,26 +666,24 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	set_param.hdr.pkt_size = sizeof(set_param);
 	set_param.hdr.src_port = 0;
 	set_param.hdr.dest_port = 0;
-	set_param.hdr.token = 0;
+	set_param.hdr.token = index;
 	set_param.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
 
-	set_param.param.port_id		= port_id;
-	set_param.param.payload_size		=
-		(sizeof(struct afe_loopback_gain_per_path_param) -
-		 sizeof(struct apr_hdr) -
-		sizeof(struct afe_port_cmd_set_param_v2));
+	set_param.param.port_id	= port_id;
+	set_param.param.payload_size =
+	    (sizeof(struct afe_loopback_gain_per_path_param) -
+	     sizeof(struct apr_hdr) - sizeof(struct afe_port_cmd_set_param_v2));
 	set_param.param.payload_address_lsw	= 0;
 	set_param.param.payload_address_msw	= 0;
 	set_param.param.mem_map_handle        = 0;
 
-	set_param.pdata.module_id	= AFE_MODULE_LOOPBACK;
-	set_param.pdata.param_id	= AFE_PARAM_ID_LOOPBACK_GAIN_PER_PATH;
-	set_param.pdata.param_size = (set_param.param.payload_size -
-				sizeof(struct afe_port_param_data_v2));
+	set_param.pdata.module_id = AFE_MODULE_LOOPBACK;
+	set_param.pdata.param_id = AFE_PARAM_ID_LOOPBACK_GAIN_PER_PATH;
+	set_param.pdata.param_size =
+	    (set_param.param.payload_size -
+	     sizeof(struct afe_port_param_data_v2));
 	set_param.rx_port_id = port_id;
-	set_param.gain	= volume;
-
-	set_param.hdr.token = index;
+	set_param.gain = volume;
 
 	atomic_set(&this_afe.state, 1);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &set_param);
@@ -698,8 +695,8 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	}
 
 	ret = wait_event_timeout(this_afe.wait[index],
-		(atomic_read(&this_afe.state) == 0),
-			msecs_to_jiffies(TIMEOUT_MS));
+				 (atomic_read(&this_afe.state) == 0),
+				 msecs_to_jiffies(TIMEOUT_MS));
 	if (ret < 0) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
