@@ -39,17 +39,17 @@
 
 /* gpio peripheral type and subtype values */
 #define Q_GPIO_TYPE			0x10
-#define Q_GPIO_SUBTYPE_GPIO_4CH		0x0
-#define Q_GPIO_SUBTYPE_GPIOC_4CH	0x2
-#define Q_GPIO_SUBTYPE_GPIO_8CH		0x4
-#define Q_GPIO_SUBTYPE_GPIOC_8CH	0x6
+#define Q_GPIO_SUBTYPE_GPIO_4CH		0x1
+#define Q_GPIO_SUBTYPE_GPIOC_4CH	0x5
+#define Q_GPIO_SUBTYPE_GPIO_8CH		0x9
+#define Q_GPIO_SUBTYPE_GPIOC_8CH	0xD
 
 /* mpp peripheral type and subtype values */
 #define Q_MPP_TYPE			0x11
 #define Q_MPP_SUBTYPE_4CH_NO_ANA_OUT	0x3
 #define Q_MPP_SUBTYPE_4CH_NO_SINK	0x5
-#define Q_MPP_SUBTYPE_4CH_FULL_FUNC	0x2
-#define Q_MPP_SUBTYPE_8CH_FULL_FUNC	0x4
+#define Q_MPP_SUBTYPE_4CH_FULL_FUNC	0x7
+#define Q_MPP_SUBTYPE_8CH_FULL_FUNC	0xF
 
 /* control register base address offsets */
 #define Q_REG_MODE_CTL			0x40
@@ -129,7 +129,8 @@ enum qpnp_pin_param_type {
 #define Q_NUM_PARAMS			Q_PIN_CFG_INVALID
 
 /* param error checking */
-#define QPNP_PIN_MODE_INVALID		3
+#define QPNP_PIN_GPIO_MODE_INVALID	3
+#define QPNP_PIN_MPP_MODE_INVALID	7
 #define QPNP_PIN_INVERT_INVALID		2
 #define QPNP_PIN_OUT_BUF_INVALID	3
 #define QPNP_PIN_VIN_4CH_INVALID	5
@@ -225,8 +226,12 @@ static int qpnp_pin_check_config(enum qpnp_pin_param_type idx,
 {
 	switch (idx) {
 	case Q_PIN_CFG_MODE:
-		if (val >= QPNP_PIN_MODE_INVALID)
-			return -EINVAL;
+		if (q_spec->type == Q_GPIO_TYPE &&
+		    val >= QPNP_PIN_GPIO_MODE_INVALID)
+				return -EINVAL;
+		else if (q_spec->type == Q_MPP_TYPE &&
+			 val >= QPNP_PIN_MPP_MODE_INVALID)
+				return -EINVAL;
 		break;
 	case Q_PIN_CFG_OUTPUT_TYPE:
 		if (q_spec->type != Q_GPIO_TYPE)
@@ -699,7 +704,7 @@ static int qpnp_pin_set_mode(struct qpnp_pin_chip *q_chip,
 	if (!q_chip || !q_spec)
 		return -EINVAL;
 
-	if (mode >= QPNP_PIN_MODE_INVALID) {
+	if (qpnp_pin_check_config(Q_PIN_CFG_MODE, q_spec, mode)) {
 		pr_err("invalid mode specification %d\n", mode);
 		return -EINVAL;
 	}
