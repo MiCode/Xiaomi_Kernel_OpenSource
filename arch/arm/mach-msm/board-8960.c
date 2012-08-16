@@ -2466,6 +2466,13 @@ static struct platform_device fish_battery_device = {
 };
 #endif
 
+#ifdef CONFIG_BATTERY_BCL
+static struct platform_device battery_bcl_device = {
+	.name = "battery_current_limit",
+	.id = -1,
+};
+#endif
+
 static struct platform_device msm8960_device_ext_5v_vreg = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= PM8921_MPP_PM_TO_SYS(7),
@@ -2689,6 +2696,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_sps,
 #ifdef CONFIG_MSM_FAKE_BATTERY
 	&fish_battery_device,
+#endif
+#ifdef CONFIG_BATTERY_BCL
+	&battery_bcl_device,
 #endif
 	&msm8960_fmem_device,
 #ifdef CONFIG_ANDROID_PMEM
