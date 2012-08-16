@@ -36,7 +36,7 @@ struct clk_freq_tbl {
 	const u32	m_val;
 	const u32	n_val;
 	const u32	d_val;
-	const u32	div_src_val;
+	u32	div_src_val;
 	const unsigned	sys_vdd;
 };
 
