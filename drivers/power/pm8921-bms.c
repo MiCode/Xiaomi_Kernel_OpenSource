@@ -135,8 +135,6 @@ struct pm8921_bms_chip {
 	int			enable_fcc_learning;
 	int			shutdown_soc;
 	int			shutdown_iavg_ua;
-	int			shutdown_soc_timer_expired;
-	struct delayed_work	shutdown_soc_work;
 	struct delayed_work	calculate_soc_delayed_work;
 	struct timespec		t_soc_queried;
 	int			shutdown_soc_valid_limit;
@@ -1902,17 +1900,6 @@ static int scale_soc_while_chg(struct pm8921_bms_chip *chip,
 	return scaled_soc;
 }
 
-#define SHOW_SHUTDOWN_SOC_MS	30000
-static void shutdown_soc_work(struct work_struct *work)
-{
-	struct pm8921_bms_chip *chip = container_of(work,
-				struct pm8921_bms_chip, shutdown_soc_work.work);
-
-	pr_debug("not forcing shutdown soc anymore\n");
-	/* it has been  30 seconds since init, no need to show shutdown soc */
-	chip->shutdown_soc_timer_expired = 1;
-}
-
 static bool is_shutdown_soc_within_limits(struct pm8921_bms_chip *chip, int soc)
 {
 	if (shutdown_soc_invalid) {
@@ -2178,18 +2165,6 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 	/* last_soc < soc  ... scale and catch up */
 	if (last_soc != -EINVAL && last_soc < soc && soc != 100)
 		soc = scale_soc_while_chg(chip, delta_time_us, soc, last_soc);
-
-	if (chip->shutdown_soc != 0
-			&& !shutdown_soc_invalid
-			&& !chip->shutdown_soc_timer_expired) {
-		/*
-		 * force shutdown soc if it is valid and the shutdown soc show
-		 * timer has not expired
-		 */
-		soc = chip->shutdown_soc;
-
-		pr_debug("Forcing SHUTDOWN_SOC = %d\n", soc);
-	}
 
 	last_soc = soc;
 	backup_soc_and_iavg(chip, batt_temp, last_soc);
@@ -3267,11 +3242,6 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	pr_info("OK battery_capacity_at_boot=%d volt = %d ocv = %d\n",
 				pm8921_bms_get_percent_charge(),
 				vbatt, chip->last_ocv_uv);
-
-	INIT_DELAYED_WORK(&chip->shutdown_soc_work, shutdown_soc_work);
-	schedule_delayed_work(&chip->shutdown_soc_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(SHOW_SHUTDOWN_SOC_MS)));
 
 	return 0;
 
