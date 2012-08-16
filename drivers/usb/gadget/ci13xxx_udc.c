@@ -75,7 +75,7 @@
  *****************************************************************************/
 
 #define DMA_ADDR_INVALID	(~(dma_addr_t)0)
-#define ATDTW_SET_DELAY		100 /* 100msec delay */
+#define USB_MAX_TIMEOUT		100 /* 100msec timeout */
 #define EP_PRIME_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
 #define MAX_PRIME_CHECK_RETRY	3 /*Wait for 3sec for EP prime failure */
 
@@ -177,7 +177,8 @@ static struct {
 
 /* maximum number of enpoints: valid only after hw_device_reset() */
 static unsigned hw_ep_max;
-
+static void dbg_usb_op_fail(u8 addr, const char *name,
+				const struct ci13xxx_ep *mep);
 /**
  * hw_ep_bit: calculates the bit number
  * @num: endpoint number
@@ -381,6 +382,27 @@ static int hw_device_state(u32 dma)
 	return 0;
 }
 
+static void debug_ept_flush_info(int ep_num, int dir)
+{
+	struct ci13xxx *udc = _udc;
+	struct ci13xxx_ep *mep;
+
+	if (dir)
+		mep = &udc->ci13xxx_ep[ep_num + hw_ep_max/2];
+	else
+		mep = &udc->ci13xxx_ep[ep_num];
+
+	pr_err_ratelimited("USB Registers\n");
+	pr_err_ratelimited("USBCMD:%x\n", hw_cread(CAP_USBCMD, ~0));
+	pr_err_ratelimited("USBSTS:%x\n", hw_cread(CAP_USBSTS, ~0));
+	pr_err_ratelimited("ENDPTLISTADDR:%x\n",
+			hw_cread(CAP_ENDPTLISTADDR, ~0));
+	pr_err_ratelimited("PORTSC:%x\n", hw_cread(CAP_PORTSC, ~0));
+	pr_err_ratelimited("USBMODE:%x\n", hw_cread(CAP_USBMODE, ~0));
+	pr_err_ratelimited("ENDPTSTAT:%x\n", hw_cread(CAP_ENDPTSTAT, ~0));
+
+	dbg_usb_op_fail(0xFF, "FLUSHF", mep);
+}
 /**
  * hw_ep_flush: flush endpoint fifo (execute without interruption)
  * @num: endpoint number
@@ -390,13 +412,25 @@ static int hw_device_state(u32 dma)
  */
 static int hw_ep_flush(int num, int dir)
 {
+	ktime_t start, diff;
 	int n = hw_ep_bit(num, dir);
 
+	start = ktime_get();
 	do {
 		/* flush any pending transfer */
 		hw_cwrite(CAP_ENDPTFLUSH, BIT(n), BIT(n));
-		while (hw_cread(CAP_ENDPTFLUSH, BIT(n)))
+		while (hw_cread(CAP_ENDPTFLUSH, BIT(n))) {
 			cpu_relax();
+			diff = ktime_sub(ktime_get(), start);
+			if (ktime_to_ms(diff) > USB_MAX_TIMEOUT) {
+				printk_ratelimited(KERN_ERR
+					"%s: Failed to flush ep#%d %s\n",
+					__func__, num,
+					dir ? "IN" : "OUT");
+				debug_ept_flush_info(num, dir);
+				return 0;
+			}
+		}
 	} while (hw_cread(CAP_ENDPTSTAT, BIT(n)));
 
 	return 0;
@@ -1006,29 +1040,30 @@ static void dbg_setup(u8 addr, const struct usb_ctrlrequest *req)
 }
 
 /**
- * dbg_prime_fail: prints a PRIME FAIL event
+ * dbg_usb_op_fail: prints USB Operation FAIL event
  * @addr: endpoint address
  * @mEp:  endpoint structure
  */
-static void dbg_prime_fail(u8 addr, const char *name,
-				const struct ci13xxx_ep *mEp)
+static void dbg_usb_op_fail(u8 addr, const char *name,
+				const struct ci13xxx_ep *mep)
 {
 	char msg[DBG_DATA_MSG];
 	struct ci13xxx_req *req;
 	struct list_head *ptr = NULL;
 
-	if (mEp != NULL) {
+	if (mep != NULL) {
 		scnprintf(msg, sizeof(msg),
-			  "PRIME fail EP%d%s QH:%08X",
-			  mEp->num, mEp->dir ? "IN" : "OUT", mEp->qh.ptr->cap);
+			"%s Fail EP%d%s QH:%08X",
+			name, mep->num,
+			mep->dir ? "IN" : "OUT", mep->qh.ptr->cap);
 		dbg_print(addr, name, 0, msg);
 		scnprintf(msg, sizeof(msg),
 				"cap:%08X %08X %08X\n",
-				mEp->qh.ptr->curr, mEp->qh.ptr->td.next,
-				mEp->qh.ptr->td.token);
+				mep->qh.ptr->curr, mep->qh.ptr->td.next,
+				mep->qh.ptr->td.token);
 		dbg_print(addr, "QHEAD", 0, msg);
 
-		list_for_each(ptr, &mEp->qh.queue) {
+		list_for_each(ptr, &mep->qh.queue) {
 			req = list_entry(ptr, struct ci13xxx_req, queue);
 			scnprintf(msg, sizeof(msg),
 					"%08X:%08X:%08X\n",
@@ -1703,52 +1738,52 @@ static inline u8 _usb_addr(struct ci13xxx_ep *ep)
 
 static void ep_prime_timer_func(unsigned long data)
 {
-	struct ci13xxx_ep *mEp = (struct ci13xxx_ep *)data;
+	struct ci13xxx_ep *mep = (struct ci13xxx_ep *)data;
 	struct ci13xxx_req *req;
 	struct list_head *ptr = NULL;
-	int n = hw_ep_bit(mEp->num, mEp->dir);
+	int n = hw_ep_bit(mep->num, mep->dir);
 	unsigned long flags;
 
 
-	spin_lock_irqsave(mEp->lock, flags);
+	spin_lock_irqsave(mep->lock, flags);
 	if (!hw_cread(CAP_ENDPTPRIME, BIT(n)))
 		goto out;
 
-	if (list_empty(&mEp->qh.queue))
+	if (list_empty(&mep->qh.queue))
 		goto out;
 
-	req = list_entry(mEp->qh.queue.next, struct ci13xxx_req, queue);
+	req = list_entry(mep->qh.queue.next, struct ci13xxx_req, queue);
 
 	mb();
 	if (!(TD_STATUS_ACTIVE & req->ptr->token))
 		goto out;
 
-	mEp->prime_timer_count++;
-	if (mEp->prime_timer_count == MAX_PRIME_CHECK_RETRY) {
-		mEp->prime_timer_count = 0;
+	mep->prime_timer_count++;
+	if (mep->prime_timer_count == MAX_PRIME_CHECK_RETRY) {
+		mep->prime_timer_count = 0;
 		pr_info("ep%d dir:%s QH:cap:%08x cur:%08x next:%08x tkn:%08x\n",
-				mEp->num, mEp->dir ? "IN" : "OUT",
-				mEp->qh.ptr->cap, mEp->qh.ptr->curr,
-				mEp->qh.ptr->td.next, mEp->qh.ptr->td.token);
-		list_for_each(ptr, &mEp->qh.queue) {
+				mep->num, mep->dir ? "IN" : "OUT",
+				mep->qh.ptr->cap, mep->qh.ptr->curr,
+				mep->qh.ptr->td.next, mep->qh.ptr->td.token);
+		list_for_each(ptr, &mep->qh.queue) {
 			req = list_entry(ptr, struct ci13xxx_req, queue);
 			pr_info("\treq:%08xnext:%08xtkn:%08xpage0:%08xsts:%d\n",
 					req->dma, req->ptr->next,
 					req->ptr->token, req->ptr->page[0],
 					req->req.status);
 		}
-		dbg_prime_fail(0xFF, "PRIMEF", mEp);
-		mEp->prime_fail_count++;
+		dbg_usb_op_fail(0xFF, "PRIMEF", mep);
+		mep->prime_fail_count++;
 	} else {
-		mod_timer(&mEp->prime_timer, EP_PRIME_CHECK_DELAY);
+		mod_timer(&mep->prime_timer, EP_PRIME_CHECK_DELAY);
 	}
 
-	spin_unlock_irqrestore(mEp->lock, flags);
+	spin_unlock_irqrestore(mep->lock, flags);
 	return;
 
 out:
-	mEp->prime_timer_count = 0;
-	spin_unlock_irqrestore(mEp->lock, flags);
+	mep->prime_timer_count = 0;
+	spin_unlock_irqrestore(mep->lock, flags);
 
 }
 
@@ -1874,7 +1909,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 			tmp_stat = hw_cread(CAP_ENDPTSTAT, BIT(n));
 			diff = ktime_sub(ktime_get(), start);
 			/* poll for max. 100ms */
-			if (ktime_to_ms(diff) > ATDTW_SET_DELAY) {
+			if (ktime_to_ms(diff) > USB_MAX_TIMEOUT) {
 				if (hw_cread(CAP_USBCMD, USBCMD_ATDTW))
 					break;
 				printk_ratelimited(KERN_ERR
