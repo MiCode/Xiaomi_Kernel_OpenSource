@@ -770,6 +770,7 @@ static DEFINE_CLK_VOTER(bimc_acpu_a_clk, &bimc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_gfx3d_clk, &ocmemgx_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_clk, &ocmemgx_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_a_clk, &ocmemgx_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, LONG_MAX);
 
 static DEFINE_CLK_VOTER(pnoc_sdcc1_clk, &pnoc_clk.c, 0);
 static DEFINE_CLK_VOTER(pnoc_sdcc2_clk, &pnoc_clk.c, 0);
