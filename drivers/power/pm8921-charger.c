@@ -1357,6 +1357,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_ENERGY_FULL,
@@ -1416,6 +1417,36 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 
 	chip->recent_reported_soc = percent_soc;
 	return percent_soc;
+}
+
+static int get_prop_batt_current_max(struct pm8921_chg_chip *chip)
+{
+	int rbatt, ibatt_ua, vbatt_uv, ocv_uv;
+	int imax_ma;
+	int rc;
+
+	rbatt = pm8921_bms_get_rbatt();
+
+	if (rbatt < 0) {
+		rc = -ENXIO;
+		return rc;
+	}
+
+	rc =  pm8921_bms_get_simultaneous_battery_voltage_and_current
+			(&ibatt_ua, &vbatt_uv);
+
+	if (rc)
+		return rc;
+
+	ocv_uv = vbatt_uv + ibatt_ua*rbatt/1000;
+
+	imax_ma = (ocv_uv - chip->min_voltage_mv*1000)/rbatt;
+
+	if (imax_ma < 0)
+		imax_ma = 0;
+
+	return imax_ma*1000;
+
 }
 
 static int get_prop_batt_current(struct pm8921_chg_chip *chip)
@@ -1570,6 +1601,9 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_prop_batt_current(chip);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = get_prop_batt_current_max(chip);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = get_prop_batt_temp(chip);
