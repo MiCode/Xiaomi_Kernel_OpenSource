@@ -64,7 +64,8 @@ enum {
 #define NUM_ATTEMPTS_TO_REPORT 5
 
 #define TABLA_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
-			 SND_JACK_OC_HPHR | SND_JACK_UNSUPPORTED)
+			 SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
+			 SND_JACK_UNSUPPORTED)
 
 #define TABLA_I2S_MASTER_MODE_MASK 0x08
 
@@ -5308,7 +5309,8 @@ static void tabla_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 				    enum snd_jack_types jack_type)
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-
+	pr_debug("%s: enter insertion %d hph_status %x\n",
+		 __func__, insertion, tabla->hph_status);
 	if (!insertion) {
 		/* Report removal */
 		tabla->hph_status &= ~jack_type;
@@ -5343,6 +5345,18 @@ static void tabla_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 		tabla->current_plug = PLUG_TYPE_NONE;
 		tabla->mbhc_polling_active = false;
 	} else {
+		if (tabla->mbhc_cfg.detect_extn_cable) {
+			/* Report removal of current jack type */
+			if (tabla->hph_status != jack_type &&
+			    tabla->mbhc_cfg.headset_jack) {
+				pr_debug("%s: Reporting removal (%x)\n",
+					 __func__, tabla->hph_status);
+				tabla_snd_soc_jack_report(tabla,
+						tabla->mbhc_cfg.headset_jack,
+						0, TABLA_JACK_MASK);
+				tabla->hph_status = 0;
+			}
+		}
 		/* Report insertion */
 		tabla->hph_status |= jack_type;
 
@@ -5353,7 +5367,8 @@ static void tabla_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 		else if (jack_type == SND_JACK_HEADSET) {
 			tabla->mbhc_polling_active = true;
 			tabla->current_plug = PLUG_TYPE_HEADSET;
-		}
+		} else if (jack_type == SND_JACK_LINEOUT)
+			tabla->current_plug = PLUG_TYPE_HIGH_HPH;
 		if (tabla->mbhc_cfg.headset_jack) {
 			pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 				 jack_type, tabla->hph_status);
@@ -5364,6 +5379,7 @@ static void tabla_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 		}
 		tabla_clr_and_turnon_hph_padac(tabla);
 	}
+	pr_debug("%s: leave hph_status %x\n", __func__, tabla->hph_status);
 }
 
 static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
@@ -5376,6 +5392,9 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	    TABLA_MBHC_CAL_GENERAL_PTR(tabla->mbhc_cfg.calibration);
 	const struct tabla_mbhc_plug_detect_cfg *plug_det =
 	    TABLA_MBHC_CAL_PLUG_DET_PTR(tabla->mbhc_cfg.calibration);
+
+	pr_debug("%s: enter insertion(%d) trigger(0x%x)\n",
+		 __func__, insertion, trigger);
 
 	if (!tabla->mbhc_cfg.calibration) {
 		pr_err("Error, no tabla calibration\n");
@@ -5487,6 +5506,7 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 
 	wcd9xxx_enable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
+	pr_debug("%s: leave\n", __func__);
 	return 0;
 }
 
@@ -6391,6 +6411,9 @@ void tabla_find_plug_and_report(struct snd_soc_codec *codec,
 {
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
+	pr_debug("%s: enter current_plug(%d) new_plug(%d)\n",
+		 __func__, tabla->current_plug, plug_type);
+
 	if (plug_type == PLUG_TYPE_HEADPHONE &&
 	    tabla->current_plug == PLUG_TYPE_NONE) {
 		/* Nothing was reported previously
@@ -6399,11 +6422,14 @@ void tabla_find_plug_and_report(struct snd_soc_codec *codec,
 		tabla_codec_report_plug(codec, 1, SND_JACK_HEADPHONE);
 		tabla_codec_cleanup_hs_polling(codec);
 	} else if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
-		if (tabla->current_plug == PLUG_TYPE_HEADSET)
-			tabla_codec_report_plug(codec, 0, SND_JACK_HEADSET);
-		else if (tabla->current_plug == PLUG_TYPE_HEADPHONE)
-			tabla_codec_report_plug(codec, 0, SND_JACK_HEADPHONE);
-
+		if (!tabla->mbhc_cfg.detect_extn_cable) {
+			if (tabla->current_plug == PLUG_TYPE_HEADSET)
+				tabla_codec_report_plug(codec, 0,
+							SND_JACK_HEADSET);
+			else if (tabla->current_plug == PLUG_TYPE_HEADPHONE)
+				tabla_codec_report_plug(codec, 0,
+							SND_JACK_HEADPHONE);
+		}
 		tabla_codec_report_plug(codec, 1, SND_JACK_UNSUPPORTED);
 		tabla_codec_cleanup_hs_polling(codec);
 	} else if (plug_type == PLUG_TYPE_HEADSET) {
@@ -6414,19 +6440,37 @@ void tabla_find_plug_and_report(struct snd_soc_codec *codec,
 		msleep(100);
 		tabla_codec_start_hs_polling(codec);
 	} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
-		if (tabla->current_plug == PLUG_TYPE_NONE)
-			tabla_codec_report_plug(codec, 1, SND_JACK_HEADPHONE);
-		tabla_codec_cleanup_hs_polling(codec);
-		pr_debug("setup mic trigger for further detection\n");
-		tabla->lpi_enabled = true;
-		tabla_codec_enable_hs_detect(codec, 1,
-					     MBHC_USE_MB_TRIGGER |
-					     MBHC_USE_HPHL_TRIGGER,
-					     false);
+		if (tabla->mbhc_cfg.detect_extn_cable) {
+			/* High impedance device found. Report as LINEOUT*/
+			tabla_codec_report_plug(codec, 1, SND_JACK_LINEOUT);
+			tabla_codec_cleanup_hs_polling(codec);
+			pr_debug("%s: setup mic trigger for further detection\n",
+				 __func__);
+			tabla->lpi_enabled = true;
+			/*
+			 * Do not enable HPHL trigger. If playback is active,
+			 * it might lead to continuous false HPHL triggers
+			 */
+			tabla_codec_enable_hs_detect(codec, 1,
+						     MBHC_USE_MB_TRIGGER,
+						     false);
+		} else {
+			if (tabla->current_plug == PLUG_TYPE_NONE)
+				tabla_codec_report_plug(codec, 1,
+							SND_JACK_HEADPHONE);
+			tabla_codec_cleanup_hs_polling(codec);
+			pr_debug("setup mic trigger for further detection\n");
+			tabla->lpi_enabled = true;
+			tabla_codec_enable_hs_detect(codec, 1,
+						     MBHC_USE_MB_TRIGGER |
+						     MBHC_USE_HPHL_TRIGGER,
+						     false);
+		}
 	} else {
 		WARN(1, "Unexpected current plug_type %d, plug_type %d\n",
 		     tabla->current_plug, plug_type);
 	}
+	pr_debug("%s: leave\n", __func__);
 }
 
 /* should be called under interrupt context that hold suspend */
@@ -6485,6 +6529,8 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 	bool highdelta;
 	bool ahighv = false, highv;
 	bool gndmicswapped = false;
+
+	pr_debug("%s: enter\n", __func__);
 
 	/* make sure override is on */
 	WARN_ON(!(snd_soc_read(codec, TABLA_A_CDC_MBHC_B1_CTL) & 0x04));
@@ -6595,6 +6641,7 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 	}
 
 	pr_debug("%s: Detected plug type %d\n", __func__, plug_type[0]);
+	pr_debug("%s: leave\n", __func__);
 	return plug_type[0];
 }
 
@@ -6604,7 +6651,7 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 	struct snd_soc_codec *codec;
 	int retry = 0, pt_gnd_mic_swap_cnt = 0;
 	bool correction = false;
-	enum tabla_mbhc_plug_type plug_type;
+	enum tabla_mbhc_plug_type plug_type = PLUG_TYPE_INVALID;
 	unsigned long timeout;
 
 	tabla = container_of(work, struct tabla_priv, hs_correct_plug_work);
@@ -6644,16 +6691,23 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 		plug_type = tabla_codec_get_plug_type(codec, true);
 		TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
 
+		pr_debug("%s: attempt(%d) current_plug(%d) new_plug(%d)\n",
+			 __func__, retry, tabla->current_plug, plug_type);
 		if (plug_type == PLUG_TYPE_INVALID) {
 			pr_debug("Invalid plug in attempt # %d\n", retry);
-			if (retry == NUM_ATTEMPTS_TO_REPORT &&
+			if (!tabla->mbhc_cfg.detect_extn_cable &&
+			    retry == NUM_ATTEMPTS_TO_REPORT &&
 			    tabla->current_plug == PLUG_TYPE_NONE) {
 				tabla_codec_report_plug(codec, 1,
 							SND_JACK_HEADPHONE);
 			}
 		} else if (plug_type == PLUG_TYPE_HEADPHONE) {
 			pr_debug("Good headphone detected, continue polling mic\n");
-			if (tabla->current_plug == PLUG_TYPE_NONE)
+			if (tabla->mbhc_cfg.detect_extn_cable) {
+				if (tabla->current_plug != plug_type)
+					tabla_codec_report_plug(codec, 1,
+							SND_JACK_HEADPHONE);
+			} else if (tabla->current_plug == PLUG_TYPE_NONE)
 				tabla_codec_report_plug(codec, 1,
 							SND_JACK_HEADPHONE);
 		} else {
@@ -6694,7 +6748,21 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 		tabla_turn_onoff_override(codec, false);
 
 	tabla->mbhc_cfg.mclk_cb_fn(codec, 0, false);
-	pr_debug("%s: leave\n", __func__);
+
+	if (tabla->mbhc_cfg.detect_extn_cable) {
+		TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
+		if (tabla->current_plug == PLUG_TYPE_HEADPHONE ||
+		    tabla->current_plug == PLUG_TYPE_GND_MIC_SWAP ||
+		    tabla->current_plug == PLUG_TYPE_INVALID ||
+		    plug_type == PLUG_TYPE_INVALID) {
+			/* Enable removal detection */
+			tabla_codec_cleanup_hs_polling(codec);
+			tabla_codec_enable_hs_detect(codec, 0, 0, false);
+		}
+		TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
+	}
+	pr_debug("%s: leave current_plug(%d)\n",
+		 __func__, tabla->current_plug);
 	/* unlock sleep */
 	wcd9xxx_unlock_sleep(tabla->codec->control_data);
 }
@@ -6731,6 +6799,7 @@ static void tabla_codec_decide_gpio_plug(struct snd_soc_codec *codec)
 			 __func__, plug_type);
 		tabla_find_plug_and_report(codec, plug_type);
 	}
+	pr_debug("%s: leave\n", __func__);
 }
 
 /* called under codec_resource_lock acquisition */
@@ -6740,7 +6809,7 @@ static void tabla_codec_detect_plug_type(struct snd_soc_codec *codec)
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	const struct tabla_mbhc_plug_detect_cfg *plug_det =
 	    TABLA_MBHC_CAL_PLUG_DET_PTR(tabla->mbhc_cfg.calibration);
-
+	pr_debug("%s: enter\n", __func__);
 	/* Turn on the override,
 	 * tabla_codec_setup_hs_polling requires override on */
 	tabla_turn_onoff_override(codec, true);
@@ -6759,6 +6828,7 @@ static void tabla_codec_detect_plug_type(struct snd_soc_codec *codec)
 				 "plug\n", __func__);
 		else
 			tabla_codec_decide_gpio_plug(codec);
+		pr_debug("%s: leave\n", __func__);
 		return;
 	}
 
@@ -6790,13 +6860,23 @@ static void tabla_codec_detect_plug_type(struct snd_soc_codec *codec)
 		/* avoid false button press detect */
 		msleep(50);
 		tabla_codec_start_hs_polling(codec);
+	} else if (tabla->mbhc_cfg.detect_extn_cable &&
+		   plug_type == PLUG_TYPE_HIGH_HPH) {
+		pr_debug("%s: High impedance plug type detected\n", __func__);
+		tabla_codec_report_plug(codec, 1, SND_JACK_LINEOUT);
+		/* Enable insertion detection on the other end of cable */
+		tabla_codec_cleanup_hs_polling(codec);
+		tabla_codec_enable_hs_detect(codec, 1,
+					     MBHC_USE_MB_TRIGGER, false);
 	}
+	pr_debug("%s: leave\n", __func__);
 }
 
 /* called only from interrupt which is under codec_resource_lock acquisition */
 static void tabla_hs_insert_irq_gpio(struct tabla_priv *priv, bool is_removal)
 {
 	struct snd_soc_codec *codec = priv->codec;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
 	if (!is_removal) {
 		pr_debug("%s: MIC trigger insertion interrupt\n", __func__);
@@ -6816,6 +6896,19 @@ static void tabla_hs_insert_irq_gpio(struct tabla_priv *priv, bool is_removal)
 		} else {
 			pr_debug("%s: Invalid insertion, "
 				 "stop plug detection\n", __func__);
+		}
+	} else if (tabla->mbhc_cfg.detect_extn_cable) {
+		pr_debug("%s: Removal\n", __func__);
+		if (!tabla_hs_gpio_level_remove(tabla)) {
+			/*
+			 * gpio says, something is still inserted, could be
+			 * extension cable i.e. headset is removed from
+			 * extension cable
+			 */
+			/* cancel detect plug */
+			tabla_cancel_hs_detect_plug(tabla,
+						&tabla->hs_correct_plug_work);
+			tabla_codec_decide_gpio_plug(codec);
 		}
 	} else {
 		pr_err("%s: GPIO used, invalid MBHC Removal\n", __func__);
@@ -6882,6 +6975,29 @@ static void tabla_hs_insert_irq_nogpio(struct tabla_priv *priv, bool is_removal,
 	}
 }
 
+/* called only from interrupt which is under codec_resource_lock acquisition */
+static void tabla_hs_insert_irq_extn(struct tabla_priv *priv,
+				     bool is_mb_trigger)
+{
+	struct snd_soc_codec *codec = priv->codec;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	/* Cancel possibly running hs_detect_work */
+	tabla_cancel_hs_detect_plug(tabla,
+			&tabla->hs_correct_plug_work);
+
+	if (is_mb_trigger) {
+		pr_debug("%s: Waiting for Headphone left trigger\n",
+			__func__);
+		tabla_codec_enable_hs_detect(codec, 1, MBHC_USE_HPHL_TRIGGER,
+					     false);
+	} else  {
+		pr_debug("%s: HPHL trigger received, detecting plug type\n",
+			__func__);
+		tabla_codec_detect_plug_type(codec);
+	}
+}
+
 static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 {
 	bool is_mb_trigger, is_removal;
@@ -6902,7 +7018,10 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 	snd_soc_update_bits(codec, priv->mbhc_bias_regs.ctl_reg, 0x01, 0x00);
 
-	if (priv->mbhc_cfg.gpio)
+	if (priv->mbhc_cfg.detect_extn_cable &&
+	    priv->current_plug == PLUG_TYPE_HIGH_HPH)
+		tabla_hs_insert_irq_extn(priv, is_mb_trigger);
+	else if (priv->mbhc_cfg.gpio)
 		tabla_hs_insert_irq_gpio(priv, is_removal);
 	else
 		tabla_hs_insert_irq_nogpio(priv, is_removal, is_mb_trigger);
@@ -7006,10 +7125,10 @@ static bool tabla_hs_remove_settle(struct snd_soc_codec *codec)
 static void tabla_hs_remove_irq_gpio(struct tabla_priv *priv)
 {
 	struct snd_soc_codec *codec = priv->codec;
-
+	pr_debug("%s: enter\n", __func__);
 	if (tabla_hs_remove_settle(codec))
 		tabla_codec_start_hs_polling(codec);
-	pr_debug("%s: remove settle done\n", __func__);
+	pr_debug("%s: leave\n", __func__);
 }
 
 /* called only from interrupt which is under codec_resource_lock acquisition */
@@ -7022,6 +7141,7 @@ static void tabla_hs_remove_irq_nogpio(struct tabla_priv *priv)
 	    TABLA_MBHC_CAL_GENERAL_PTR(priv->mbhc_cfg.calibration);
 	int min_us = TABLA_FAKE_REMOVAL_MIN_PERIOD_MS * 1000;
 
+	pr_debug("%s: enter\n", __func__);
 	if (priv->current_plug != PLUG_TYPE_HEADSET) {
 		pr_debug("%s(): Headset is not inserted, ignore removal\n",
 			 __func__);
@@ -7049,25 +7169,41 @@ static void tabla_hs_remove_irq_nogpio(struct tabla_priv *priv)
 	} while (min_us > 0);
 
 	if (removed) {
-		/* Cancel possibly running hs_detect_work */
-		tabla_cancel_hs_detect_plug(priv,
+		if (priv->mbhc_cfg.detect_extn_cable) {
+			if (!tabla_hs_gpio_level_remove(priv)) {
+				/*
+				 * extension cable is still plugged in
+				 * report it as LINEOUT device
+				 */
+				tabla_codec_report_plug(codec, 1,
+							SND_JACK_LINEOUT);
+				tabla_codec_cleanup_hs_polling(codec);
+				tabla_codec_enable_hs_detect(codec, 1,
+							MBHC_USE_MB_TRIGGER,
+							false);
+			}
+		} else {
+			/* Cancel possibly running hs_detect_work */
+			tabla_cancel_hs_detect_plug(priv,
 					&priv->hs_correct_plug_work_nogpio);
-		/*
-		 * If this removal is not false, first check the micbias
-		 * switch status and switch it to LDOH if it is already
-		 * switched to VDDIO.
-		 */
-		tabla_codec_switch_micbias(codec, 0);
+			/*
+			 * If this removal is not false, first check the micbias
+			 * switch status and switch it to LDOH if it is already
+			 * switched to VDDIO.
+			 */
+			tabla_codec_switch_micbias(codec, 0);
 
-		tabla_codec_report_plug(codec, 0, SND_JACK_HEADSET);
-		tabla_codec_cleanup_hs_polling(codec);
-		tabla_codec_enable_hs_detect(codec, 1,
-					     MBHC_USE_MB_TRIGGER |
-					     MBHC_USE_HPHL_TRIGGER,
-					     true);
+			tabla_codec_report_plug(codec, 0, SND_JACK_HEADSET);
+			tabla_codec_cleanup_hs_polling(codec);
+			tabla_codec_enable_hs_detect(codec, 1,
+						     MBHC_USE_MB_TRIGGER |
+						     MBHC_USE_HPHL_TRIGGER,
+						     true);
+		}
 	} else {
 		tabla_codec_start_hs_polling(codec);
 	}
+	pr_debug("%s: leave\n", __func__);
 }
 
 static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
@@ -7082,10 +7218,12 @@ static irqreturn_t tabla_hs_remove_irq(int irq, void *data)
 	if (vddio)
 		__tabla_codec_switch_micbias(priv->codec, 0, false, true);
 
-	if (priv->mbhc_cfg.gpio)
-		tabla_hs_remove_irq_gpio(priv);
-	else
+	if ((priv->mbhc_cfg.detect_extn_cable &&
+	     !tabla_hs_gpio_level_remove(priv)) ||
+	    !priv->mbhc_cfg.gpio) {
 		tabla_hs_remove_irq_nogpio(priv);
+	} else
+		tabla_hs_remove_irq_gpio(priv);
 
 	/* if driver turned off vddio switch and headset is not removed,
 	 * turn on the vddio switch back, if headset is removed then vddio
@@ -7172,6 +7310,9 @@ static void tabla_hs_gpio_handler(struct snd_soc_codec *codec)
 			tabla_codec_pause_hs_polling(codec);
 			tabla_codec_cleanup_hs_polling(codec);
 			tabla_codec_report_plug(codec, 0, SND_JACK_HEADSET);
+			is_removed = true;
+		} else if (tabla->current_plug == PLUG_TYPE_HIGH_HPH) {
+			tabla_codec_report_plug(codec, 0, SND_JACK_LINEOUT);
 			is_removed = true;
 		}
 
