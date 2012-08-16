@@ -384,6 +384,22 @@ static int rpm_write(unsigned long val, unsigned id)
 }
 
 #if defined(CONFIG_MSM_OCMEM_POWER_DISABLE)
+static int ocmem_core_set_default_state(void)
+{
+	int rc = 0;
+
+	/* The OCMEM core clock and branch clocks are always turned ON */
+	rc = ocmem_enable_core_clock();
+	if (rc < 0)
+		return rc;
+
+	rc = ocmem_enable_iface_clock();
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
 /* Initializes a region to be turned ON in wide mode */
 static int ocmem_region_set_default_state(unsigned int r_num)
 {
@@ -405,6 +421,11 @@ static int ocmem_region_set_default_state(unsigned int r_num)
 
 #else
 static int ocmem_region_set_default_state(unsigned int region_num)
+{
+	return 0;
+}
+
+static int ocmem_core_set_default_state(void)
 {
 	return 0;
 }
@@ -535,6 +556,7 @@ static int switch_power_state(int id, unsigned long offset, unsigned long len,
 	unsigned start_m = num_banks;
 	unsigned end_m = num_banks;
 	unsigned long region_offset = 0;
+	int rc = 0;
 
 	if (offset < 0)
 		return -EINVAL;
@@ -554,6 +576,14 @@ static int switch_power_state(int id, unsigned long offset, unsigned long len,
 	if (region_start >= num_regions ||
 		(region_end >= num_regions))
 			return -EINVAL;
+
+	rc = ocmem_enable_core_clock();
+
+	if (rc < 0) {
+		pr_err("ocmem: Power transistion request for client %s (id: %d) failed\n",
+				get_name(id), id);
+		return rc;
+	}
 
 	mutex_lock(&region_ctrl_lock);
 
@@ -605,9 +635,11 @@ static int switch_power_state(int id, unsigned long offset, unsigned long len,
 
 	}
 	mutex_unlock(&region_ctrl_lock);
+	ocmem_disable_core_clock();
 	return 0;
 invalid_transition:
 	mutex_unlock(&region_ctrl_lock);
+	ocmem_disable_core_clock();
 	pr_err("ocmem_core: Invalid state transition detected for %d\n", id);
 	pr_err("ocmem_core: Offset %lx Len %lx curr_state %x new_state %x\n",
 			offset, len, curr_state, new_state);
@@ -640,9 +672,15 @@ int ocmem_core_init(struct platform_device *pdev)
 	bool interleaved;
 	unsigned i, j, k;
 	unsigned rsc_type = 0;
+	int rc = 0;
 
 	pdata = platform_get_drvdata(pdev);
 	ocmem_base = pdata->reg_base;
+
+	rc = ocmem_enable_core_clock();
+
+	if (rc < 0)
+		return rc;
 
 	hw_ver = ocmem_read(ocmem_base + OC_HW_PROFILE);
 
@@ -684,8 +722,7 @@ int ocmem_core_init(struct platform_device *pdev)
 					 * num_regions, GFP_KERNEL);
 
 	if (!region_ctrl) {
-		pr_err("ocmem: Unable to allocate memory\n");
-		return -EINVAL;
+		goto err_no_mem;
 	}
 
 	mutex_init(&region_ctrl_lock);
@@ -702,8 +739,7 @@ int ocmem_core_init(struct platform_device *pdev)
 					sizeof(struct ocmem_hw_macro) *
 						num_banks, GFP_KERNEL);
 		if (!region->macro) {
-			pr_err("ocmem: Unable to allocate memory\n");
-			return -EINVAL;
+			goto err_no_mem;
 		}
 
 		for (j = 0; j < num_banks; j++) {
@@ -722,7 +758,7 @@ int ocmem_core_init(struct platform_device *pdev)
 
 			if (!req) {
 				pr_err("Unable to create RPM request\n");
-				return -EINVAL;
+				goto region_init_error;
 			}
 
 			pr_debug("rpm request type %x (rsc: %d) with %d elements\n",
@@ -733,16 +769,28 @@ int ocmem_core_init(struct platform_device *pdev)
 
 		if (ocmem_region_toggle(i)) {
 			pr_err("Failed to verify region %d\n", i);
-			goto hw_not_supported;
+			goto region_init_error;
 		}
 
 		if (ocmem_region_set_default_state(i)) {
 			pr_err("Failed to initialize region %d\n", i);
-			goto hw_not_supported;
+			goto region_init_error;
 		}
 	}
+
+	rc = ocmem_core_set_default_state();
+
+	if (rc < 0)
+		return rc;
+
+	ocmem_disable_core_clock();
 	return 0;
+
+err_no_mem:
+	pr_err("ocmem: Unable to allocate memory\n");
+region_init_error:
 hw_not_supported:
 	pr_err("Unsupported OCMEM h/w configuration %x\n", hw_ver);
+	ocmem_disable_core_clock();
 	return -EINVAL;
 }
