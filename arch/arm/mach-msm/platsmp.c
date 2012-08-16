@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/regulator/krait-regulator.h>
 
 #include <asm/hardware/gic.h>
 #include <asm/cacheflush.h>
@@ -125,6 +126,8 @@ static int __cpuinit krait_release_secondary_p3(unsigned long base, int cpu)
 	void *base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
 	if (!base_ptr)
 		return -ENODEV;
+
+	secondary_cpu_hs_init(base_ptr);
 
 	writel_relaxed(0x021, base_ptr+0x04);
 	mb();
