@@ -414,6 +414,7 @@ struct audpp_cmd_cfg_adec_params_evrc {
 /*
  * Command Structure to configure Per decoder Parameters (AMRWB)
  */
+#define ADEC_PARAMS_AC3_INDEX 14
 
 struct audpp_cmd_cfg_adec_params_amrwb {
 	   audpp_cmd_cfg_adec_params_common     common;
@@ -422,6 +423,18 @@ struct audpp_cmd_cfg_adec_params_amrwb {
 
 #define AUDPP_CMD_CFG_ADEC_PARAMS_AMRWB_LEN \
 	sizeof(struct audpp_cmd_cfg_adec_params_amrwb)
+
+/*
+ * Command Structure to configure Per decoder Parameters (AC3)
+ */
+
+struct audpp_cmd_cfg_adec_params_ac3 {
+	audpp_cmd_cfg_adec_params_common	common;
+	unsigned short				index[ADEC_PARAMS_AC3_INDEX];
+} __packed;
+
+#define AUDPP_CMD_CFG_ADEC_PARAMS_AC3_LEN \
+	sizeof(struct audpp_cmd_cfg_adec_params_ac3)
 
 /*
  * Command Structure to configure the  HOST PCM interface

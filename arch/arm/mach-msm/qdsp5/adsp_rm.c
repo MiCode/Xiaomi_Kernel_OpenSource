@@ -33,7 +33,8 @@ static char *rm_errs[] = {
 			"PCM Blocks not Sufficient",
 			"TASK is already occupied",
 			"Concurrency not supported",
-			"MIPS not sufficient"
+			"MIPS not sufficient",
+			"DDP invalid/no licence"
 			};
 static struct client {
 	wait_queue_head_t		wait;
