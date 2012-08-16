@@ -122,6 +122,10 @@ static void __iomem *virt_bases[N_BASES];
 #define USB_HSIC_CMD_RCGR              0x0440
 #define USB_HSIC_IO_CAL_CMD_RCGR       0x0458
 #define USB_HS_SYSTEM_CMD_RCGR         0x0490
+#define SYS_NOC_USB3_AXI_CBCR	       0x0108
+#define USB30_SLEEP_CBCR	       0x03CC
+#define USB2A_PHY_SLEEP_CBCR	       0x04AC
+#define USB2B_PHY_SLEEP_CBCR	       0x04B4
 #define SDCC1_APPS_CMD_RCGR            0x04D0
 #define SDCC2_APPS_CMD_RCGR            0x0510
 #define SDCC3_APPS_CMD_RCGR            0x0550
@@ -2195,6 +2199,51 @@ static struct branch_clk gcc_usb30_mock_utmi_clk = {
 		.dbg_name = "gcc_usb30_mock_utmi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb30_mock_utmi_clk.c),
+	},
+};
+
+struct branch_clk gcc_sys_noc_usb3_axi_clk = {
+	.cbcr_reg = SYS_NOC_USB3_AXI_CBCR,
+	.parent = &usb30_master_clk_src.c,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_sys_noc_usb3_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_sys_noc_usb3_axi_clk.c),
+	},
+};
+
+struct branch_clk gcc_usb30_sleep_clk = {
+	.cbcr_reg = USB30_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb30_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb30_sleep_clk.c),
+	},
+};
+
+struct branch_clk gcc_usb2a_phy_sleep_clk = {
+	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb2a_phy_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb2a_phy_sleep_clk.c),
+	},
+};
+
+struct branch_clk gcc_usb2b_phy_sleep_clk = {
+	.cbcr_reg = USB2B_PHY_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb2b_phy_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb2b_phy_sleep_clk.c),
 	},
 };
 
@@ -4552,6 +4601,10 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_blsp1_qup1_i2c_apps_clk.c,	GCC_BASE, 0x008b},
 	{&gcc_blsp2_uart6_apps_clk.c,		GCC_BASE, 0x00c3},
 	{&gcc_sdcc2_ahb_clk.c,			GCC_BASE, 0x0071},
+	{&gcc_usb30_sleep_clk.c,		GCC_BASE, 0x0051},
+	{&gcc_usb2a_phy_sleep_clk.c,		GCC_BASE, 0x0063},
+	{&gcc_usb2b_phy_sleep_clk.c,		GCC_BASE, 0x0064},
+	{&gcc_sys_noc_usb3_axi_clk.c,		GCC_BASE, 0x0001},
 	{&gcc_ocmem_noc_cfg_ahb_clk.c,		GCC_BASE, 0x0029},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0138},
 	{&gcc_lpass_q6_axi_clk.c,		GCC_BASE, 0x0160},
@@ -4986,6 +5039,10 @@ static struct clk_lookup msm_clocks_8974[] = {
 
 	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c,    "msm_dwc3"),
 	CLK_LOOKUP("utmi_clk", gcc_usb30_mock_utmi_clk.c, "msm_dwc3"),
+	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_axi_clk.c, "msm_dwc3"),
+	CLK_LOOKUP("sleep_clk", gcc_usb30_sleep_clk.c, "msm_dwc3"),
+	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "msm_dwc3"),
+	CLK_LOOKUP("sleep_b_clk", gcc_usb2b_phy_sleep_clk.c, "msm_dwc3"),
 	CLK_LOOKUP("iface_clk", gcc_usb_hs_ahb_clk.c,     "msm_otg"),
 	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c,   "msm_otg"),
 	CLK_LOOKUP("iface_clk", gcc_usb_hsic_ahb_clk.c,	  "msm_hsic_host"),
