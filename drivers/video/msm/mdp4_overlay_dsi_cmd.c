@@ -293,7 +293,7 @@ int mdp4_dsi_cmd_pipe_commit(void)
 		/* Blt */
 		if (vctrl->blt_wait)
 			need_dmap_wait = 1;
-		else if (vctrl->ov_koff != vctrl->ov_done) {
+		if (vctrl->ov_koff != vctrl->ov_done) {
 			INIT_COMPLETION(vctrl->ov_comp);
 			need_ov_wait = 1;
 		}
