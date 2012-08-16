@@ -947,7 +947,7 @@ void vidc_sm_get_aspect_ratio_info(struct ddl_buf_addr *shared_mem,
 				VIDC_SM_EXTENDED_PAR_HEIGHT_SHFT);
 			break;
 		default:
-			DDL_MSG_HIGH("Incorrect Aspect Ratio.");
+			DDL_MSG_LOW("Incorrect Aspect Ratio.");
 			aspect_ratio_info->par_width    = 1;
 			aspect_ratio_info->par_height   = 1;
 			break;
@@ -1005,7 +1005,7 @@ void vidc_sm_get_aspect_ratio_info(struct ddl_buf_addr *shared_mem,
 				VIDC_SM_EXTENDED_PAR_HEIGHT_SHFT);
 			break;
 		default:
-			DDL_MSG_HIGH("Incorrect Aspect Ratio.");
+			DDL_MSG_LOW("Incorrect Aspect Ratio.");
 			aspect_ratio_info->par_width    = 1;
 			aspect_ratio_info->par_height   = 1;
 			break;

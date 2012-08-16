@@ -766,6 +766,6 @@ void print_core_recoverable_errors(u32 error_code)
 	break;
 	}
 	if (string)
-		DDL_MSG_ERROR("Recoverable Error code = 0x%x : %s",
+		DDL_MSG_LOW("Recoverable Error code = 0x%x : %s",
 					  error_code, string);
 }
