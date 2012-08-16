@@ -180,8 +180,13 @@ static int riva_ramdump(int enable, const struct subsys_desc *subsys)
 static void riva_crash_shutdown(const struct subsys_desc *subsys)
 {
 	pr_err("%s: crash shutdown : %d\n", MODULE_NAME, riva_crash);
-	if (riva_crash != true)
+	if (riva_crash != true) {
 		smsm_riva_reset();
+		/* give sufficient time for wcnss to finish it's error
+		 * fatal routine */
+		msleep(3000);
+	}
+
 }
 
 static struct subsys_desc riva_8960 = {
