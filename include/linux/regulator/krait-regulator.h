@@ -23,5 +23,6 @@
  * success and error on failure.
  */
 int __init krait_power_init(void);
+void secondary_cpu_hs_init(void *base_ptr);
 
 #endif
