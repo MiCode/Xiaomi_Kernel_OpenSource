@@ -59,7 +59,7 @@ struct subsys_device {
 	char wlname[64];
 	struct work_struct work;
 	spinlock_t restart_lock;
-	bool restarting;
+	int restart_count;
 
 	void *notify;
 
@@ -406,8 +406,9 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 out:
 	spin_lock_irqsave(&dev->restart_lock, flags);
-	wake_unlock(&dev->wake_lock);
-	dev->restarting = false;
+	dev->restart_count--;
+	if (!dev->restart_count)
+		wake_unlock(&dev->wake_lock);
 	spin_unlock_irqrestore(&dev->restart_lock, flags);
 }
 
@@ -416,16 +417,21 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 	struct subsys_desc *desc = dev->desc;
 	unsigned long flags;
 
-	spin_lock_irqsave(&dev->restart_lock, flags);
-	if (!dev->restarting) {
-		pr_debug("Restarting %s [level=%d]!\n", desc->name,
-				restart_level);
+	pr_debug("Restarting %s [level=%d]!\n", desc->name, restart_level);
 
-		dev->restarting = true;
+	spin_lock_irqsave(&dev->restart_lock, flags);
+	if (!dev->restart_count)
 		wake_lock(&dev->wake_lock);
-		queue_work(ssr_wq, &dev->work);
-	}
+	dev->restart_count++;
 	spin_unlock_irqrestore(&dev->restart_lock, flags);
+
+	if (!queue_work(ssr_wq, &dev->work)) {
+		spin_lock_irqsave(&dev->restart_lock, flags);
+		dev->restart_count--;
+		if (!dev->restart_count)
+			wake_unlock(&dev->wake_lock);
+		spin_unlock_irqrestore(&dev->restart_lock, flags);
+	}
 }
 
 int subsystem_restart_dev(struct subsys_device *dev)
