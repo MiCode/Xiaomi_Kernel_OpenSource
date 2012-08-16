@@ -685,13 +685,13 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 		goto free_chip;
 	}
 
-	INIT_DELAYED_WORK(&chip->calib_ccadc_work, calibrate_ccadc_work);
-	schedule_delayed_work(&chip->calib_ccadc_work, 0);
 
 	disable_irq_nosync(chip->eoc_irq);
 
 	platform_set_drvdata(pdev, chip);
 	the_chip = chip;
+	INIT_DELAYED_WORK(&chip->calib_ccadc_work, calibrate_ccadc_work);
+	schedule_delayed_work(&chip->calib_ccadc_work, 0);
 
 	create_debugfs_entries(chip);
 
