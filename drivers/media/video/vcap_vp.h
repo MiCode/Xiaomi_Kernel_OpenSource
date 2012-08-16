@@ -17,9 +17,6 @@
 
 #include <media/vcap_v4l2.h>
 
-#define VCAP_BASE (dev->vcapbase)
-#define VCAP_OFFSET(off) (VCAP_BASE + off)
-
 #define VCAP_VP_INT_STATUS (VCAP_BASE + 0x404)
 #define VCAP_VP_INT_CLEAR (VCAP_BASE + 0x40C)
 

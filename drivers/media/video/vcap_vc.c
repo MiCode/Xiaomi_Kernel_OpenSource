@@ -120,6 +120,13 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 
 	dprintk(1, "%s: irq=0x%08x\n", __func__, irq);
 
+	c_data = dev->vc_client;
+	if (!c_data->streaming) {
+		writel_iowmb(irq, VCAP_VC_INT_CLEAR);
+		pr_err("VC no longer streaming\n");
+		return IRQ_HANDLED;
+	}
+
 	v4l2_evt.id = 0;
 	if (irq & 0x8000200) {
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
@@ -161,7 +168,6 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 		pr_err("VC: There is no active vc client\n");
 		return IRQ_HANDLED;
 	}
-	c_data = dev->vc_client;
 
 	spin_lock(&dev->vc_client->cap_slock);
 	if (list_empty(&dev->vc_client->vid_vc_action.active)) {
@@ -316,15 +322,34 @@ int vc_hw_kick_off(struct vcap_client_data *c_data)
 void vc_stop_capture(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
-	int rc;
+	unsigned int reg;
+	int timeout;
 
-	rc = readl_relaxed(VCAP_VC_CTRL);
-	writel_iowmb(rc & ~(0x1), VCAP_VC_CTRL);
-
-	if (atomic_read(&dev->vc_enabled) == 1)
-		disable_irq(dev->vcirq->start);
-
+	writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
+	writel_iowmb(0x0, VCAP_VC_INT_MASK);
 	flush_workqueue(dev->vcap_wq);
+	if (atomic_read(&dev->vc_enabled) == 1)
+		disable_irq_nosync(dev->vcirq->start);
+
+	writel_iowmb(0x00000000, VCAP_VC_CTRL);
+	writel_iowmb(0x00000001, VCAP_SW_RESET_REQ);
+	timeout = 10000;
+	while (1) {
+		reg = (readl_relaxed(VCAP_SW_RESET_STATUS) & 0x1);
+		if (!reg)
+			break;
+		timeout--;
+		if (timeout == 0) {
+			/* This should not happen */
+			pr_err("VC is not resetting properly\n");
+			writel_iowmb(0x00000000, VCAP_SW_RESET_REQ);
+			break;
+		}
+	}
+
+	reg = readl_relaxed(VCAP_VC_NPL_CTRL);
+	reg = readl_relaxed(VCAP_VC_NPL_CTRL);
+	writel_iowmb(0x00000002, VCAP_VC_NPL_CTRL);
 }
 
 int config_vc_format(struct vcap_client_data *c_data)
@@ -336,21 +361,20 @@ int config_vc_format(struct vcap_client_data *c_data)
 	dev = c_data->dev;
 
 	/* restart VC */
-	writel_relaxed(0x00000001, VCAP_SW_RESET_REQ);
+	writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
+	writel_iowmb(0x00000001, VCAP_SW_RESET_REQ);
 	timeout = 10000;
 	while (1) {
-		rc = (readl_relaxed(VCAP_SW_RESET_STATUS) & 0x1);
-		if (!rc)
+		if (!(readl_relaxed(VCAP_SW_RESET_STATUS) & 0x1))
 			break;
 		timeout--;
 		if (timeout == 0) {
 			pr_err("VC is not resetting properly\n");
+			writel_iowmb(0x00000002, VCAP_VC_NPL_CTRL);
 			return -EINVAL;
 		}
 	}
-	writel_relaxed(0x00000000, VCAP_SW_RESET_REQ);
 
-	writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
 	rc = readl_relaxed(VCAP_VC_NPL_CTRL);
 	rc = readl_relaxed(VCAP_VC_NPL_CTRL);
 	writel_iowmb(0x00000002, VCAP_VC_NPL_CTRL);
