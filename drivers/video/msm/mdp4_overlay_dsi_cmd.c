@@ -864,6 +864,7 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 	/* disable dsi trigger */
 	MDP_OUTP(MDP_BASE + 0x000a4, 0x00);
 
+
 	mdp4_overlay_setup_pipe_addr(mfd, pipe);
 
 	mdp4_overlay_rgb_setup(pipe);
@@ -1098,18 +1099,12 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 		mdp4_dsi_cmd_pipe_queue(0, pipe);
 	}
 
-	if (mfd->use_ov0_blt != mfd->ov0_blt_state) {
-
-		if (mfd->use_ov0_blt)
-			mdp4_dsi_cmd_do_blt(mfd, 1);
-		else
-			mdp4_dsi_cmd_do_blt(mfd, 0);
-
-		mfd->ov0_blt_state = mfd->use_ov0_blt;
-	}
+	mdp4_overlay_mdp_perf_upd(mfd, 1);
 
 	mdp4_dsi_cmd_pipe_commit();
 	mdp4_dsi_cmd_wait4vsync(0, &xx);
 	vctrl->expire_tick = VSYNC_EXPIRE_TICK;
 	vctrl->clk_control = 1;
+
+	mdp4_overlay_mdp_perf_upd(mfd, 0);
 }

@@ -249,7 +249,7 @@ void mdp4_hw_init(void)
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
-	mdp4_update_perf_level(OVERLAY_PERF_LEVEL4);
+	mdp_bus_scale_update_request(5);
 
 #ifdef MDP4_ERROR
 	/*

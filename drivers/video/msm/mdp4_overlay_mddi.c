@@ -574,8 +574,6 @@ void mdp4_mddi_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
 	unsigned long flag;
-	/* change mdp clk while mdp is idle` */
-	mdp4_set_perf_level();
 
 	mdp_enable_irq(MDP_OVERLAY0_TERM);
 	spin_lock_irqsave(&mdp_spin_lock, flag);
@@ -660,9 +658,6 @@ void mdp4_dma_s_update_lcd(struct msm_fb_data_type *mfd,
 void mdp4_mddi_dma_s_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
-	/* change mdp clk while mdp is idle` */
-	mdp4_set_perf_level();
-
 	mdp_enable_irq(MDP_DMA_S_TERM);
 
 	if (mddi_pipe->ov_blt_addr == 0)
@@ -698,9 +693,10 @@ void mdp4_mddi_overlay(struct msm_fb_data_type *mfd)
 
 		if (mddi_pipe && mddi_pipe->ov_blt_addr)
 			mdp4_mddi_blt_dmap_busy_wait(mfd);
-
+		mdp4_overlay_mdp_perf_upd(mfd, 0);
 		mdp4_overlay_update_lcd(mfd);
 
+		mdp4_overlay_mdp_perf_upd(mfd, 1);
 		if (mdp_hw_revision < MDP4_REVISION_V2_1) {
 			/* dmas dmap switch */
 			if (mdp4_overlay_mixer_play(mddi_pipe->mixer_num)
