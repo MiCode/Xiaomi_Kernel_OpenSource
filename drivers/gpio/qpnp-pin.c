@@ -31,6 +31,10 @@
 		((q_spec)->offset + reg_index)
 
 #define Q_REG_STATUS1			0x8
+#define Q_REG_STATUS1_VAL_MASK		0x1
+#define Q_REG_STATUS1_GPIO_EN_MASK	0x2
+#define Q_REG_STATUS1_MPP_EN_MASK	0x80
+
 #define Q_NUM_CTL_REGS			0xD
 
 /* type registers base address offsets */
@@ -626,7 +630,7 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 	int rc, ret_val;
 	struct qpnp_pin_chip *q_chip = dev_get_drvdata(gpio_chip->dev);
 	struct qpnp_pin_spec *q_spec = NULL;
-	u8 buf[1];
+	u8 buf[1], en_mask;
 
 	if (WARN_ON(!q_chip))
 		return -ENODEV;
@@ -638,11 +642,17 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 	/* gpio val is from RT status iff input is enabled */
 	if ((q_spec->regs[Q_REG_I_MODE_CTL] & Q_REG_MODE_SEL_MASK)
 						== QPNP_PIN_MODE_DIG_IN) {
-		/* INT_RT_STS */
 		rc = spmi_ext_register_readl(q_chip->spmi->ctrl, q_spec->slave,
 				Q_REG_ADDR(q_spec, Q_REG_STATUS1),
 				&buf[0], 1);
-		return buf[0];
+
+		en_mask = q_spec->type == Q_GPIO_TYPE ?
+				Q_REG_STATUS1_GPIO_EN_MASK :
+				Q_REG_STATUS1_MPP_EN_MASK;
+		if (!(buf[0] & en_mask))
+			return -EPERM;
+
+		return buf[0] & Q_REG_STATUS1_VAL_MASK;
 
 	} else {
 		ret_val = (q_spec->regs[Q_REG_I_MODE_CTL] &
