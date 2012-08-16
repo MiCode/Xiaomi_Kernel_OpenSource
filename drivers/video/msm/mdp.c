@@ -50,6 +50,7 @@ static struct clk *mdp_pclk;
 static struct clk *mdp_lut_clk;
 int mdp_rev;
 int mdp_iommu_split_domain;
+u32 mdp_max_clk = 200000000;
 
 static struct platform_device *mdp_init_pdev;
 static struct regulator *footswitch;
@@ -2178,33 +2179,6 @@ void mdp_hw_version(void)
 				__func__, mdp_hw_revision);
 }
 
-#ifdef CONFIG_FB_MSM_MDP40
-static void configure_mdp_core_clk_table(uint32 min_clk_rate)
-{
-	uint8 count;
-	uint32 current_rate;
-	if (mdp_clk && mdp_pdata && mdp_pdata->mdp_core_clk_table) {
-		min_clk_rate = clk_round_rate(mdp_clk, min_clk_rate);
-		if (clk_set_rate(mdp_clk, min_clk_rate) < 0)
-			printk(KERN_ERR "%s: clk_set_rate failed\n",
-							 __func__);
-		else {
-			count = 0;
-			current_rate = clk_get_rate(mdp_clk);
-			while (count < mdp_pdata->num_mdp_clk) {
-				if (mdp_pdata->mdp_core_clk_table[count]
-						< current_rate) {
-					mdp_pdata->
-					mdp_core_clk_table[count] =
-							current_rate;
-				}
-				count++;
-			}
-		}
-	}
-}
-#endif
-
 #ifdef CONFIG_MSM_BUS_SCALING
 static uint32_t mdp_bus_scale_handle;
 int mdp_bus_scale_update_request(uint32_t index)
@@ -2223,27 +2197,22 @@ int mdp_bus_scale_update_request(uint32_t index)
 }
 #endif
 DEFINE_MUTEX(mdp_clk_lock);
-int mdp_set_core_clk(uint16 perf_level)
+int mdp_set_core_clk(u32 rate)
 {
 	int ret = -EINVAL;
-	if (mdp_clk && mdp_pdata
-		 && mdp_pdata->mdp_core_clk_table) {
-		if (perf_level > mdp_pdata->num_mdp_clk)
-			printk(KERN_ERR "%s invalid perf level\n", __func__);
-		else {
-			mutex_lock(&mdp_clk_lock);
-			ret = clk_set_rate(mdp_clk,
-				mdp_pdata->
-				mdp_core_clk_table[mdp_pdata->num_mdp_clk
-						 - perf_level]);
-			mutex_unlock(&mdp_clk_lock);
-			if (ret) {
-				printk(KERN_ERR "%s unable to set mdp_core_clk rate\n",
-					__func__);
-			}
-		}
-	}
+	if (mdp_clk)
+		ret = clk_set_rate(mdp_clk, rate);
+	if (ret)
+		pr_err("%s unable to set mdp clk rate", __func__);
+	else
+		pr_debug("%s mdp clk rate to be set %d: actual rate %ld\n",
+			__func__, rate, clk_get_rate(mdp_clk));
 	return ret;
+}
+
+int mdp_clk_round_rate(u32 rate)
+{
+	return clk_round_rate(mdp_clk, rate);
 }
 
 unsigned long mdp_get_core_clk(void)
@@ -2254,25 +2223,6 @@ unsigned long mdp_get_core_clk(void)
 		clk_rate = clk_get_rate(mdp_clk);
 		mutex_unlock(&mdp_clk_lock);
 	}
-
-	return clk_rate;
-}
-
-unsigned long mdp_perf_level2clk_rate(uint32 perf_level)
-{
-	unsigned long clk_rate = 0;
-
-	if (mdp_pdata && mdp_pdata->mdp_core_clk_table) {
-		if (perf_level > mdp_pdata->num_mdp_clk) {
-			printk(KERN_ERR "%s invalid perf level\n", __func__);
-			clk_rate = mdp_get_core_clk();
-		} else {
-			clk_rate = mdp_pdata->
-				mdp_core_clk_table[mdp_pdata->num_mdp_clk
-					- perf_level];
-		}
-	} else
-		clk_rate = mdp_get_core_clk();
 
 	return clk_rate;
 }
@@ -2333,21 +2283,25 @@ static int mdp_irq_clk_setup(struct platform_device *pdev,
 	}
 
 #ifdef CONFIG_FB_MSM_MDP40
-	/*
-	 * mdp_clk should greater than mdp_pclk always
-	 */
-	if (mdp_pdata && mdp_pdata->mdp_core_clk_rate) {
-		if (cont_splashScreen)
-			mdp_clk_rate = clk_get_rate(mdp_clk);
-		else
-			mdp_clk_rate = mdp_pdata->mdp_core_clk_rate;
 
-		mutex_lock(&mdp_clk_lock);
-		clk_set_rate(mdp_clk, mdp_clk_rate);
-		if (mdp_lut_clk != NULL)
-			clk_set_rate(mdp_lut_clk, mdp_clk_rate);
-		mutex_unlock(&mdp_clk_lock);
-	}
+	if (mdp_pdata)
+		mdp_max_clk = mdp_pdata->mdp_max_clk;
+	else
+		pr_err("%s cannot get mdp max clk!\n", __func__);
+
+	if (!mdp_max_clk)
+		pr_err("%s mdp max clk is zero!\n", __func__);
+
+	if (cont_splashScreen)
+		mdp_clk_rate = clk_get_rate(mdp_clk);
+	else
+		mdp_clk_rate = mdp_max_clk;
+
+	mutex_lock(&mdp_clk_lock);
+	clk_set_rate(mdp_clk, mdp_clk_rate);
+	if (mdp_lut_clk != NULL)
+		clk_set_rate(mdp_lut_clk, mdp_clk_rate);
+	mutex_unlock(&mdp_clk_lock);
 
 	MSM_FB_DEBUG("mdp_clk: mdp_clk=%d\n", (int)clk_get_rate(mdp_clk));
 #endif
@@ -2468,8 +2422,6 @@ static int mdp_probe(struct platform_device *pdev)
 		mfd->ov1_wb_buf->size = 0;
 		mfd->mem_hid = 0;
 	}
-	mfd->ov0_blt_state  = 0;
-	mfd->use_ov0_blt = 0 ;
 
 	/* initialize Post Processing data*/
 	mdp_hist_lut_init();
@@ -2568,7 +2520,6 @@ static int mdp_probe(struct platform_device *pdev)
 	case MIPI_VIDEO_PANEL:
 #ifndef CONFIG_FB_MSM_MDP303
 		mipi = &mfd->panel_info.mipi;
-		configure_mdp_core_clk_table((mipi->dsi_pclk_rate) * 23 / 20);
 		mdp4_dsi_vsync_init(0);
 		mfd->hw_refresh = TRUE;
 		mfd->dma_fnc = mdp4_dsi_video_overlay;
@@ -2613,7 +2564,6 @@ static int mdp_probe(struct platform_device *pdev)
 #ifndef CONFIG_FB_MSM_MDP303
 		mfd->dma_fnc = mdp4_dsi_cmd_overlay;
 		mipi = &mfd->panel_info.mipi;
-		configure_mdp_core_clk_table((mipi->dsi_pclk_rate) * 3 / 2);
 		mdp4_dsi_rdptr_init(0);
 		if (mfd->panel_info.pdest == DISPLAY_1) {
 			if_no = PRIMARY_INTF_SEL;
@@ -2698,8 +2648,6 @@ static int mdp_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_FB_MSM_MDP40
 		mdp4_lcdc_vsync_init(0);
-		configure_mdp_core_clk_table((mfd->panel_info.clk_rate)
-								* 23 / 20);
 		if (mfd->panel.type == HDMI_PANEL) {
 			mfd->dma = &dma_e_data;
 			mdp4_display_intf_sel(EXTERNAL_INTF_SEL, LCDC_RGB_INTF);
