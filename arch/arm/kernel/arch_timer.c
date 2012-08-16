@@ -208,11 +208,11 @@ static int arch_timer_set_next_event(unsigned long evt,
 	unsigned long ctrl;
 
 	ctrl = arch_specific_timer->reg_read(ARCH_TIMER_REG_CTRL);
-	ctrl |= ARCH_TIMER_CTRL_ENABLE;
-	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
-
+	ctrl &= ~(ARCH_TIMER_CTRL_ENABLE | ARCH_TIMER_CTRL_IT_MASK);
 	arch_specific_timer->reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 	arch_specific_timer->reg_write(ARCH_TIMER_REG_TVAL, evt);
+	ctrl |= ARCH_TIMER_CTRL_ENABLE;
+	arch_specific_timer->reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 
 	return 0;
 }
