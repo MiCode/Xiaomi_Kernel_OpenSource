@@ -730,8 +730,28 @@ static void __init msm8930_early_memory(void)
 	place_movable_zone();
 }
 
+static char prim_panel_name[PANEL_NAME_MAX_LEN];
+static char ext_panel_name[PANEL_NAME_MAX_LEN];
+
+static int __init prim_display_setup(char *param)
+{
+	if (strnlen(param, PANEL_NAME_MAX_LEN))
+		strlcpy(prim_panel_name, param, PANEL_NAME_MAX_LEN);
+	return 0;
+}
+early_param("prim_display", prim_display_setup);
+
+static int __init ext_display_setup(char *param)
+{
+	if (strnlen(param, PANEL_NAME_MAX_LEN))
+		strlcpy(ext_panel_name, param, PANEL_NAME_MAX_LEN);
+	return 0;
+}
+early_param("ext_display", ext_display_setup);
+
 static void __init msm8930_reserve(void)
 {
+	msm8930_set_display_params(prim_panel_name, ext_panel_name);
 	msm_reserve();
 	if (msm8930_fmem_pdata.size) {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
@@ -2751,6 +2771,10 @@ static void __init msm8930_cdp_init(void)
 	else
 		msm_clock_init(&msm8930_clock_init_data);
 	msm_otg_pdata.phy_init_seq = hsusb_phy_init_seq;
+	if (msm8930_mhl_display_enabled()) {
+		mhl_platform_data.mhl_enabled = true;
+		msm_otg_pdata.mhl_enable = true;
+	}
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	android_usb_pdata.swfi_latency =
 			msm_rpmrs_levels[0].latency_us;

@@ -59,7 +59,15 @@
 #define MIPI_VIDEO_SIMULATOR_VGA_PANEL_NAME	"mipi_video_simulator_vga"
 #define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME	"mipi_cmd_renesas_fwvga"
 #define HDMI_PANEL_NAME	"hdmi_msm"
+#define MHL_PANEL_NAME "hdmi_msm,mhl_8334"
 #define TVOUT_PANEL_NAME	"tvout_msm"
+
+static unsigned char mhl_display_enabled;
+
+unsigned char msm8930_mhl_display_enabled(void)
+{
+	return mhl_display_enabled;
+}
 
 static struct resource msm_fb_resources[] = {
 	{
@@ -832,4 +840,29 @@ void __init msm8930_allocate_fb_region(void)
 	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
 	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n",
 			size, addr, __pa(addr));
+}
+
+void __init msm8930_set_display_params(char *prim_panel, char *ext_panel)
+{
+	if (strnlen(prim_panel, PANEL_NAME_MAX_LEN)) {
+		strlcpy(msm_fb_pdata.prim_panel_name, prim_panel,
+			PANEL_NAME_MAX_LEN);
+		pr_debug("msm_fb_pdata.prim_panel_name %s\n",
+			msm_fb_pdata.prim_panel_name);
+	}
+	if (strnlen(ext_panel, PANEL_NAME_MAX_LEN)) {
+		strlcpy(msm_fb_pdata.ext_panel_name, ext_panel,
+			PANEL_NAME_MAX_LEN);
+		pr_debug("msm_fb_pdata.ext_panel_name %s\n",
+			msm_fb_pdata.ext_panel_name);
+
+		if (!strncmp((char *)msm_fb_pdata.ext_panel_name,
+			MHL_PANEL_NAME, strnlen(MHL_PANEL_NAME,
+				PANEL_NAME_MAX_LEN))) {
+			pr_debug("MHL is external display by boot parameter\n");
+			mhl_display_enabled = 1;
+		}
+	}
+
+	hdmi_msm_data.is_mhl_enabled = mhl_display_enabled;
 }

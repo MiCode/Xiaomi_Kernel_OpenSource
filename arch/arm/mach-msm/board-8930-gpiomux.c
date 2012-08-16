@@ -785,7 +785,7 @@ int __init msm8930_init_gpiomux(void)
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 	msm_gpiomux_install(msm8960_hdmi_configs,
 			ARRAY_SIZE(msm8960_hdmi_configs));
-	if (machine_is_msm8930_fluid())
+	if (msm8930_mhl_display_enabled())
 		msm_gpiomux_install(msm8930_mhl_configs,
 				ARRAY_SIZE(msm8930_mhl_configs));
 #endif
