@@ -526,10 +526,25 @@ static int ocmem_zone_init(struct platform_device *pdev)
 	return 0;
 }
 
+/* Enable the ocmem graphics mpU as a workaround */
+/* This will be programmed by TZ after TZ support is integrated */
+static int ocmem_init_gfx_mpu(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	void __iomem *ocmem_region_vbase = NULL;
+
+	ocmem_region_vbase = devm_ioremap_nocache(dev, OCMEM_REGION_CTL_BASE,
+							OCMEM_REGION_CTL_SIZE);
+	if (!ocmem_region_vbase)
+		return -EBUSY;
+
+	writel_relaxed(GRAPHICS_REGION_CTL, ocmem_region_vbase + 0xFCC);
+	return 0;
+}
+
 static int msm_ocmem_probe(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
-	void *ocmem_region_vbase = NULL;
 
 	if (!pdev->dev.of_node) {
 		dev_info(dev, "Missing Configuration in Device Tree\n");
@@ -562,17 +577,13 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 	if (ocmem_sched_init())
 		return -EBUSY;
 
-	ocmem_region_vbase = devm_ioremap_nocache(dev, OCMEM_REGION_CTL_BASE,
-							OCMEM_REGION_CTL_SIZE);
-	if (!ocmem_region_vbase)
-		return -EBUSY;
-
-	/* Enable the ocmem graphics mpU as a workaround in Virtio */
-	/* This will be programmed by TZ after TZ support is integrated */
-	writel_relaxed(GRAPHICS_REGION_CTL, ocmem_region_vbase + 0xFCC);
-
 	if (ocmem_rdm_init(pdev))
 		return -EBUSY;
+
+	if (ocmem_init_gfx_mpu(pdev)) {
+		dev_err(dev, "Unable to initialize Graphics mPU\n");
+		return -EBUSY;
+	}
 
 	dev_dbg(dev, "initialized successfully\n");
 	return 0;
