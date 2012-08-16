@@ -47,15 +47,28 @@
 #define BAM_MUX_HDR_CMD_STATUS		3 /* unused */
 #define BAM_MUX_HDR_CMD_OPEN_NO_A2_PC	4
 
-#define POLLING_MIN_SLEEP	950	/* 0.95 ms */
-#define POLLING_MAX_SLEEP	1050	/* 1.05 ms */
-#define POLLING_INACTIVITY	40	/* cycles before switch to intr mode */
 
 #define LOW_WATERMARK		2
 #define HIGH_WATERMARK		4
+#define DEFAULT_POLLING_MIN_SLEEP (950)
+#define MAX_POLLING_SLEEP (6050)
+#define MIN_POLLING_SLEEP (950)
 
 static int msm_bam_dmux_debug_enable;
 module_param_named(debug_enable, msm_bam_dmux_debug_enable,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+static int POLLING_MIN_SLEEP = 950;
+module_param_named(min_sleep, POLLING_MIN_SLEEP,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+static int POLLING_MAX_SLEEP = 1050;
+module_param_named(max_sleep, POLLING_MAX_SLEEP,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+static int POLLING_INACTIVITY = 40;
+module_param_named(inactivity, POLLING_INACTIVITY,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+static int bam_adaptive_timer_enabled = 1;
+module_param_named(adaptive_timer_enabled,
+			bam_adaptive_timer_enabled,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #if defined(DEBUG)
@@ -177,6 +190,7 @@ static struct bam_ch_info bam_ch[BAM_DMUX_NUM_CHANNELS];
 static int bam_mux_initialized;
 
 static int polling_mode;
+static unsigned long rx_timer_interval;
 
 static LIST_HEAD(bam_rx_pool);
 static DEFINE_MUTEX(bam_rx_pool_mutexlock);
@@ -1116,6 +1130,7 @@ static void rx_timer_work_func(struct work_struct *work)
 	struct rx_pkt_info *info;
 	int inactive_cycles = 0;
 	int ret;
+	u32 buffs_unused, buffs_used;
 
 	while (bam_connection_is_active) { /* timer loop */
 		++inactive_cycles;
@@ -1162,12 +1177,47 @@ static void rx_timer_work_func(struct work_struct *work)
 			handle_bam_mux_cmd(&info->work);
 		}
 
-		if (inactive_cycles == POLLING_INACTIVITY) {
+		if (inactive_cycles >= POLLING_INACTIVITY) {
 			rx_switch_to_interrupt_mode();
 			break;
 		}
 
-		usleep_range(POLLING_MIN_SLEEP, POLLING_MAX_SLEEP);
+		if (bam_adaptive_timer_enabled) {
+			usleep_range(rx_timer_interval, rx_timer_interval + 50);
+
+			ret = sps_get_unused_desc_num(bam_rx_pipe,
+						&buffs_unused);
+
+			if (ret) {
+				pr_err("%s: error getting num buffers unused after sleep\n",
+					__func__);
+
+				break;
+			}
+
+			buffs_used = NUM_BUFFERS - buffs_unused;
+
+			if (buffs_unused == 0) {
+				rx_timer_interval = MIN_POLLING_SLEEP;
+			} else {
+				if (buffs_used > 0) {
+					rx_timer_interval =
+						(2 * NUM_BUFFERS *
+							rx_timer_interval)/
+						(3 * buffs_used);
+				} else {
+					rx_timer_interval =
+						MAX_POLLING_SLEEP;
+				}
+			}
+
+			if (rx_timer_interval > MAX_POLLING_SLEEP)
+				rx_timer_interval = MAX_POLLING_SLEEP;
+			else if (rx_timer_interval < MIN_POLLING_SLEEP)
+				rx_timer_interval = MIN_POLLING_SLEEP;
+		} else {
+			usleep_range(POLLING_MIN_SLEEP, POLLING_MAX_SLEEP);
+		}
 	}
 }
 
@@ -2378,6 +2428,8 @@ static int __init bam_dmux_init(void)
 		pr_err("%s: failed to allocate log %d\n", __func__, ret);
 		bam_dmux_state_logging_disabled = 1;
 	}
+
+	rx_timer_interval = DEFAULT_POLLING_MIN_SLEEP;
 
 	subsys_notif_register_notifier("modem", &restart_notifier);
 	return platform_driver_register(&bam_dmux_driver);
