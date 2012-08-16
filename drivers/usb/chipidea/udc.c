@@ -30,7 +30,7 @@
 #include "bits.h"
 #include "debug.h"
 
-#define ATDTW_SET_DELAY		100 /* 100msec delay */
+#define USB_MAX_TIMEOUT		100 /* 100msec timeout */
 #define REMOTE_WAKEUP_DELAY	msecs_to_jiffies(200)
 #define EP_PRIME_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
 #define MAX_PRIME_CHECK_RETRY	3 /*Wait for 3sec for EP prime failure */
@@ -108,6 +108,27 @@ static int hw_device_state(struct ci13xxx *ci, u32 dma)
 	return 0;
 }
 
+static void debug_ept_flush_info(struct ci13xxx *ci, int ep_num, int dir)
+{
+	struct ci13xxx_ep *mep;
+
+	if (dir)
+		mep = &ci->ci13xxx_ep[ep_num + hw_ep_max/2];
+	else
+		mep = &ci->ci13xxx_ep[ep_num];
+
+	pr_err_ratelimited("USB Registers\n");
+	pr_err_ratelimited("USBCMD:%x\n", hw_read(ci, OP_USBCMD, ~0));
+	pr_err_ratelimited("USBSTS:%x\n", hw_read(ci, OP_USBSTS, ~0));
+	pr_err_ratelimited("ENDPTLISTADDR:%x\n",
+			hw_cread(CAP_ENDPTLISTADDR, ~0));
+	pr_err_ratelimited("PORTSC:%x\n", hw_read(ci, OP_PORTSC, ~0));
+	pr_err_ratelimited("USBMODE:%x\n", hw_read(ci, OP_USBMODE, ~0));
+	pr_err_ratelimited("ENDPTSTAT:%x\n", hw_read(ci, OP_ENDPTSTAT, ~0));
+
+	dbg_usb_op_fail(0xFF, "FLUSHF", mep);
+}
+
 /**
  * hw_ep_flush: flush endpoint fifo (execute without interruption)
  * @num: endpoint number
@@ -117,13 +138,24 @@ static int hw_device_state(struct ci13xxx *ci, u32 dma)
  */
 static int hw_ep_flush(struct ci13xxx *ci, int num, int dir)
 {
+	ktime_t start, diff;
 	int n = hw_ep_bit(num, dir);
 
+	start = ktime_get();
 	do {
 		/* flush any pending transfer */
 		hw_write(ci, OP_ENDPTFLUSH, BIT(n), BIT(n));
-		while (hw_read(ci, OP_ENDPTFLUSH, BIT(n)))
+		while (hw_read(ci, OP_ENDPTFLUSH, BIT(n))) {
 			cpu_relax();
+			diff = ktime_sub(ktime_get(), start);
+			if (ktime_to_ms(diff) > USB_MAX_TIMEOUT) {
+				printk_ratelimited(KERN_ERR
+					"%s: Failed to flush ep#%d %s\n",
+					__func__, num,
+					dir ? "IN" : "OUT");
+				debug_ept_flush_info(num, dir);
+				return 0;
+			}
 	} while (hw_read(ci, OP_ENDPTSTAT, BIT(n)));
 
 	return 0;
@@ -438,7 +470,7 @@ static void ep_prime_timer_func(unsigned long data)
 					req->ptr->token, req->ptr->page[0],
 					req->req.status);
 		}
-		dbg_prime_fail(0xFF, "PRIMEF", mEp);
+		dbg_usb_op_fail(0xFF, "PRIMEF", mEp);
 		mEp->prime_fail_count++;
 	} else {
 		mod_timer(&mEp->prime_timer, EP_PRIME_CHECK_DELAY);
@@ -563,7 +595,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 			tmp_stat = hw_read(ci, OP_ENDPTSTAT, BIT(n));
 			diff = ktime_sub(ktime_get(), start);
 			/* poll for max. 100ms */
-			if (ktime_to_ms(diff) > ATDTW_SET_DELAY) {
+			if (ktime_to_ms(diff) > USB_MAX_TIMEOUT) {
 				if (hw_read(ci, OP_USBCMD, USBCMD_ATDTW))
 					break;
 				printk_ratelimited(KERN_ERR
