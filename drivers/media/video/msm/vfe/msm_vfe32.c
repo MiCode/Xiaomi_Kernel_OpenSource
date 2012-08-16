@@ -4359,7 +4359,7 @@ static void axi32_do_tasklet(unsigned long data)
 				VFE_IRQ_STATUS0_CAMIF_SOF_MASK) {
 			if (stat_interrupt)
 				vfe32_ctrl->simultaneous_sof_stat = 1;
-			v4l2_subdev_notify(&axi_ctrl->subdev,
+			v4l2_subdev_notify(&vfe32_ctrl->subdev,
 				NOTIFY_VFE_IRQ,
 				(void *)VFE_IRQ_STATUS0_CAMIF_SOF_MASK);
 		}
@@ -4367,25 +4367,25 @@ static void axi32_do_tasklet(unsigned long data)
 		/* interrupt to be processed,  *qcmd has the payload.  */
 		if (qcmd->vfeInterruptStatus0 &
 				VFE_IRQ_STATUS0_REG_UPDATE_MASK)
-			v4l2_subdev_notify(&axi_ctrl->subdev,
+			v4l2_subdev_notify(&vfe32_ctrl->subdev,
 				NOTIFY_VFE_IRQ,
 				(void *)VFE_IRQ_STATUS0_REG_UPDATE_MASK);
 
 		if (qcmd->vfeInterruptStatus1 &
 				VFE_IRQ_STATUS1_RDI0_REG_UPDATE_MASK)
-			v4l2_subdev_notify(&axi_ctrl->subdev,
+			v4l2_subdev_notify(&vfe32_ctrl->subdev,
 				NOTIFY_VFE_IRQ,
 				(void *)VFE_IRQ_STATUS1_RDI0_REG_UPDATE);
 
 		if (qcmd->vfeInterruptStatus1 &
 				VFE_IRQ_STATUS1_RDI1_REG_UPDATE_MASK)
-			v4l2_subdev_notify(&axi_ctrl->subdev,
+			v4l2_subdev_notify(&vfe32_ctrl->subdev,
 				NOTIFY_VFE_IRQ,
 				(void *)VFE_IRQ_STATUS1_RDI1_REG_UPDATE);
 
 		if (qcmd->vfeInterruptStatus1 &
 				VFE_IMASK_WHILE_STOPPING_1)
-			v4l2_subdev_notify(&axi_ctrl->subdev,
+			v4l2_subdev_notify(&vfe32_ctrl->subdev,
 				NOTIFY_VFE_IRQ,
 				(void *)VFE_IMASK_WHILE_STOPPING_1);
 
@@ -4410,7 +4410,7 @@ static void axi32_do_tasklet(unsigned long data)
 				if (qcmd->vfeInterruptStatus0 &
 					VFE_IRQ_STATUS0_STATS_COMPOSIT_MASK) {
 					CDBG("Stats composite irq occured.\n");
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)qcmd->vfeInterruptStatus0);
 				}
@@ -4418,60 +4418,60 @@ static void axi32_do_tasklet(unsigned long data)
 				/* process individual stats interrupt. */
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_AEC_BG)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_AEC_BG);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_AWB)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_AWB);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_AF_BF)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_AF_BF);
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_SK_BHIST)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_SK_BHIST);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_IHIST)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_IHIST);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_RS)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_RS);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_CS)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_CS);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER0)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_SYNC_TIMER0);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER1)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_SYNC_TIMER1);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_SYNC_TIMER2)
-					v4l2_subdev_notify(&axi_ctrl->subdev,
+					v4l2_subdev_notify(&vfe32_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_SYNC_TIMER2);
 			}
