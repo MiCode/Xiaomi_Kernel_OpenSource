@@ -296,6 +296,44 @@ static int parse_power_ctrl_config(struct ocmem_plat_data *pdata,
 }
 #endif /* CONFIG_MSM_OCMEM_LOCAL_POWER_CTRL */
 
+/* Core Clock Operations */
+int ocmem_enable_core_clock(void)
+{
+	int ret;
+	ret = clk_prepare_enable(ocmem_pdata->core_clk);
+	if (ret) {
+		pr_err("ocmem: Failed to enable core clock\n");
+		return ret;
+	}
+	pr_debug("ocmem: Enabled core clock\n");
+	return 0;
+}
+
+void ocmem_disable_core_clock(void)
+{
+	clk_disable_unprepare(ocmem_pdata->core_clk);
+	pr_debug("ocmem: Disabled core clock\n");
+}
+
+/* Branch Clock Operations */
+int ocmem_enable_iface_clock(void)
+{
+	int ret;
+	ret = clk_prepare_enable(ocmem_pdata->iface_clk);
+	if (ret) {
+		pr_err("ocmem: Failed to disable branch clock\n");
+		return ret;
+	}
+	pr_debug("ocmem: Enabled iface clock\n");
+	return 0;
+}
+
+void ocmem_disable_iface_clock(void)
+{
+	clk_disable_unprepare(ocmem_pdata->iface_clk);
+	pr_debug("ocmem: Disabled iface clock\n");
+}
+
 static struct ocmem_plat_data *parse_dt_config(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
@@ -530,6 +568,7 @@ static int ocmem_zone_init(struct platform_device *pdev)
 /* This will be programmed by TZ after TZ support is integrated */
 static int ocmem_init_gfx_mpu(struct platform_device *pdev)
 {
+	int rc;
 	struct device *dev = &pdev->dev;
 	void __iomem *ocmem_region_vbase = NULL;
 
@@ -538,13 +577,21 @@ static int ocmem_init_gfx_mpu(struct platform_device *pdev)
 	if (!ocmem_region_vbase)
 		return -EBUSY;
 
+	rc = ocmem_enable_core_clock();
+
+	if (rc < 0)
+		return rc;
+
 	writel_relaxed(GRAPHICS_REGION_CTL, ocmem_region_vbase + 0xFCC);
+	ocmem_disable_core_clock();
 	return 0;
 }
 
 static int msm_ocmem_probe(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
+	struct clk *ocmem_core_clk = NULL;
+	struct clk *ocmem_iface_clk = NULL;
 
 	if (!pdev->dev.of_node) {
 		dev_info(dev, "Missing Configuration in Device Tree\n");
@@ -562,6 +609,29 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 	BUG_ON(!IS_ALIGNED(ocmem_pdata->base, PAGE_SIZE));
 
 	dev_info(dev, "OCMEM Virtual addr %p\n", ocmem_pdata->vbase);
+
+	ocmem_core_clk = devm_clk_get(dev, "core_clk");
+
+	if (IS_ERR(ocmem_core_clk)) {
+		dev_err(dev, "Unable to get the core clock\n");
+		return PTR_ERR(ocmem_core_clk);
+	}
+
+	/* The core clock is synchronous with graphics */
+	if (clk_set_rate(ocmem_core_clk, 1000) < 0) {
+		dev_err(dev, "Set rate failed on the core clock\n");
+		return -EBUSY;
+	}
+
+	ocmem_iface_clk = devm_clk_get(dev, "iface_clk");
+
+	if (IS_ERR(ocmem_iface_clk)) {
+		dev_err(dev, "Unable to get the memory interface clock\n");
+		return PTR_ERR(ocmem_core_clk);
+	};
+
+	ocmem_pdata->core_clk = ocmem_core_clk;
+	ocmem_pdata->iface_clk = ocmem_iface_clk;
 
 	platform_set_drvdata(pdev, ocmem_pdata);
 

@@ -142,6 +142,15 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 	int i = 0;
 	int j = 0;
 	int status = 0;
+	int rc = 0;
+
+	rc = ocmem_enable_core_clock();
+
+	if (rc < 0) {
+		pr_err("RDM transfer failed for client %s (id: %d)\n",
+				get_name(id), id);
+		return rc;
+	}
 
 	for (i = 0, j = slot; i < num_chunks; i++, j++) {
 
@@ -196,6 +205,7 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 	wait_event_interruptible(dm_wq,
 		atomic_read(&dm_pending) == 0);
 
+	ocmem_disable_core_clock();
 	return 0;
 }
 
@@ -218,8 +228,16 @@ int ocmem_rdm_init(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	rc = ocmem_enable_core_clock();
+
+	if (rc < 0) {
+		pr_err("RDM initialization failed\n");
+		return rc;
+	}
+
 	init_waitqueue_head(&dm_wq);
 	/* enable dm interrupts */
 	ocmem_write(DM_INTR_ENABLE, dm_base + DM_INTR_MASK);
+	ocmem_disable_core_clock();
 	return 0;
 }
