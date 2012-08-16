@@ -169,11 +169,10 @@ static void mov_buf_to_vc(struct work_struct *work)
 	}
 }
 
-void update_nr_value(struct vcap_client_data *c_data)
+void update_nr_value(struct vcap_dev *dev)
 {
-	struct vcap_dev *dev = c_data->dev;
 	struct nr_param *par;
-	par = &c_data->vp_action.nr_param;
+	par = &dev->nr_param;
 	if (par->mode == NR_MANUAL) {
 		writel_relaxed(par->window << 24 | par->decay_ratio << 20,
 			VCAP_VP_NR_CONFIG);
@@ -190,7 +189,7 @@ void update_nr_value(struct vcap_client_data *c_data)
 			par->chroma.blend_limit_ratio << 0,
 			VCAP_VP_NR_CHROMA_CONFIG);
 	}
-	c_data->vp_action.nr_update = false;
+	dev->nr_update = false;
 }
 
 static void vp_wq_fnc(struct work_struct *work)
@@ -222,8 +221,8 @@ static void vp_wq_fnc(struct work_struct *work)
 	writel_relaxed(0x40000000, VCAP_VP_REDUCT_AVG_MOTION2);
 
 	spin_lock_irqsave(&dev->vp_client->cap_slock, flags);
-	if (vp_act->nr_update == true)
-		update_nr_value(dev->vp_client);
+	if (dev->nr_update == true)
+		update_nr_value(dev);
 	spin_unlock_irqrestore(&dev->vp_client->cap_slock, flags);
 
 	/* Queue the done buffers */
@@ -244,7 +243,7 @@ static void vp_wq_fnc(struct work_struct *work)
 #endif
 
 	/* Cycle Buffers*/
-	if (vp_work->cd->vp_action.nr_param.mode) {
+	if (dev->nr_param.mode) {
 		if (vp_act->bufNR.nr_pos == TM1_BUF)
 			vp_act->bufNR.nr_pos = BUF_NOT_IN_USE;
 
@@ -558,7 +557,7 @@ int init_nr_buf(struct vcap_client_data *c_data)
 	}
 
 	c_data->vp_action.bufNR.nr_handle = handle;
-	update_nr_value(c_data);
+	update_nr_value(dev);
 
 	c_data->vp_action.bufNR.paddr = paddr;
 	rc = readl_relaxed(VCAP_VP_NR_CONFIG2);
@@ -598,27 +597,27 @@ int nr_s_param(struct vcap_client_data *c_data, struct nr_param *param)
 		return 0;
 
 	/* Verify values in range */
-	if (param->window < VP_NR_MAX_WINDOW)
+	if (param->window > VP_NR_MAX_WINDOW)
 		return -EINVAL;
-	if (param->luma.max_blend_ratio < VP_NR_MAX_RATIO)
+	if (param->luma.max_blend_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->luma.scale_diff_ratio < VP_NR_MAX_RATIO)
+	if (param->luma.scale_diff_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->luma.diff_limit_ratio < VP_NR_MAX_RATIO)
+	if (param->luma.diff_limit_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->luma.scale_motion_ratio < VP_NR_MAX_RATIO)
+	if (param->luma.scale_motion_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->luma.blend_limit_ratio < VP_NR_MAX_RATIO)
+	if (param->luma.blend_limit_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->chroma.max_blend_ratio < VP_NR_MAX_RATIO)
+	if (param->chroma.max_blend_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->chroma.scale_diff_ratio < VP_NR_MAX_RATIO)
+	if (param->chroma.scale_diff_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->chroma.diff_limit_ratio < VP_NR_MAX_RATIO)
+	if (param->chroma.diff_limit_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->chroma.scale_motion_ratio < VP_NR_MAX_RATIO)
+	if (param->chroma.scale_motion_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
-	if (param->chroma.blend_limit_ratio < VP_NR_MAX_RATIO)
+	if (param->chroma.blend_limit_ratio > VP_NR_MAX_RATIO)
 		return -EINVAL;
 	return 0;
 }

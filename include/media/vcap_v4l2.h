@@ -119,8 +119,6 @@ struct vp_action {
 	struct ion_handle		*motionHandle;
 	void					*bufMotion;
 	struct nr_buffer		bufNR;
-	struct nr_param			nr_param;
-	bool					nr_update;
 };
 
 struct vp_work_t {
@@ -173,6 +171,9 @@ struct vcap_dev {
 	struct vp_work_t		vp_work;
 	struct vp_work_t		vc_to_vp_work;
 	struct vp_work_t		vp_to_vc_work;
+
+	struct nr_param			nr_param;
+	bool					nr_update;
 };
 
 struct vp_format_data {
