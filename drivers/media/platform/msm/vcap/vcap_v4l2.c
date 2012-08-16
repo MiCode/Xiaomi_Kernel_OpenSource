@@ -1117,6 +1117,12 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -ENOTRECOVERABLE;
 	}
 
+	if (!dev->vp_dummy_complete) {
+		pr_err("VCAP Err: %s: VP dummy read not complete",
+			__func__);
+		return -EINVAL;
+	}
+
 	switch (c_data->op_mode) {
 	case VC_VCAP_OP:
 		mutex_lock(&dev->dev_mutex);
@@ -1390,19 +1396,13 @@ int streamoff_work(struct vcap_client_data *c_data)
 		}
 		dev->vc_resource = 0;
 		mutex_unlock(&dev->dev_mutex);
+		c_data->streaming = 0;
 		rc = vb2_streamoff(&c_data->vc_vidq,
 				V4L2_BUF_TYPE_VIDEO_CAPTURE);
-		if (rc >= 0) {
-			c_data->streaming = 0;
+		if (rc >= 0)
 			atomic_set(&c_data->dev->vc_enabled, 0);
-		}
 		return rc;
 	case VP_VCAP_OP:
-		if (!dev->vp_dummy_complete) {
-			pr_err("VCAP Err: %s: VP dummy read not complete",
-				__func__);
-			return -EINVAL;
-		}
 		if (c_data != dev->vp_client) {
 			pr_err("VCAP Err: %s: VP held by other client",
 				__func__);
@@ -1441,11 +1441,6 @@ int streamoff_work(struct vcap_client_data *c_data)
 		atomic_set(&c_data->dev->vp_enabled, 0);
 		return rc;
 	case VC_AND_VP_VCAP_OP:
-		if (!dev->vp_dummy_complete) {
-			pr_err("VCAP Err: %s: VP dummy read not complete",
-				__func__);
-			return -EINVAL;
-		}
 		if (c_data != dev->vp_client || c_data != dev->vc_client) {
 			pr_err("VCAP Err: %s: VC/VP held by other client",
 				__func__);

@@ -38,6 +38,12 @@
 		writel_relaxed(val, addr);	\
 	} while (0)
 
+#define VCAP_BASE (dev->vcapbase)
+#define VCAP_OFFSET(off) (VCAP_BASE + off)
+
+#define VCAP_SW_RESET_REQ (VCAP_BASE + 0x024)
+#define VCAP_SW_RESET_STATUS (VCAP_BASE + 0x028)
+
 struct vcap_client_data;
 
 enum rdy_buf {
@@ -167,6 +173,7 @@ struct vcap_dev {
 	bool					vp_resource;
 	bool					vp_dummy_event;
 	bool					vp_dummy_complete;
+	bool					vp_shutdown;
 	wait_queue_head_t		vp_dummy_waitq;
 
 	struct workqueue_struct	*vcap_wq;
