@@ -2414,7 +2414,7 @@ static void sitar_codec_enable_bandgap(struct snd_soc_codec *codec,
 		snd_soc_write(codec, SITAR_A_BIAS_CENTRAL_BG_CTL, 0x50);
 		if (SITAR_IS_1P0(sitar_core->version))
 			snd_soc_update_bits(codec, SITAR_A_LDO_H_MODE_1,
-								0xFF, 0x65);
+								0xF3, 0x61);
 		usleep_range(1000, 1000);
 	} else {
 		pr_err("%s: Error, Invalid bandgap settings\n", __func__);
