@@ -1,0 +1,80 @@
+Qualcomm's QPNP PMIC Battery Management System driver
+
+QPNP PMIC BMS provides interface to clients to read properties related
+to the battery. It's main function is to calculate the State of Charge (SOC),
+a 0-100 percentage representing the amount of charge left in the battery.
+
+BMS node
+
+Required properties:
+- compatible : should be "qcom,qpnp-bms" for the BM driver.
+- reg : offset and length of the PMIC BMS register map.
+- interrupts : the interrupt mappings for bms.
+		The format should be
+		<slave-id peripheral-id interrupt-number>.
+- interrupt-names : names for the mapped bms interrupt
+		The following interrupts are required:
+		0 : vsense_for_r
+		1 : vsense_avg
+		2 : sw_cc_thr
+		3 : ocv_thr
+		4 : charge_begin
+		5 : good_ocv
+		6 : ocv_for_r
+		7 : cc_thr
+- qcom,bms-r-sense-mohm : sensor resistance in in milli-ohms.
+- qcom,bms-v-cutoff-uv : cutoff voltage where the battery is considered dead in
+			micro-volts.
+- qcom,bms-max-voltage-uv : maximum voltage for the battery in micro-volts.
+- qcom,bms-r-conn-mohm : connector resistance in milli-ohms.
+- qcom,bms-shutdown-soc-valid-limit : If the ocv upon restart is within this
+			distance of the shutdown ocv, the BMS will try to force
+			the new SoC to the old one to provide charge continuity.
+			That is to say,
+				if (abs(shutdown-soc - current-soc) < limit)
+				then use old SoC.
+- qcom,bms-adjust-soc-low-threshold : The low threshold for the "flat portion"
+			of the charging curve. The BMS will not adjust SoC
+			based on voltage during this time.
+- qcom,bms-adjust-soc-high-threshold :  The high threshold for the "flat
+			portion" of the charging curve. The BMS will not
+			adjust SoC based on voltage during this time.
+- qcom,bms-chg-term-ua : current in micro-amps when charging is considered done.
+			As soon as current passes this point, charging is
+			stopped.
+
+Example:
+	bms@4000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		compatible = "qcom,qpnp-bms";
+		reg = <0x4000 0x100>;
+
+		interrupts =	<0x0 0x40 0x0>,
+				<0x0 0x40 0x1>,
+				<0x0 0x40 0x2>,
+				<0x0 0x40 0x3>,
+				<0x0 0x40 0x4>,
+				<0x0 0x40 0x5>,
+				<0x0 0x40 0x6>,
+				<0x0 0x40 0x7>;
+
+		interrupt-names = "vsense_for_r",
+				  "vsense_avg",
+				  "sw_cc_thr",
+				  "ocv_thr",
+				  "charge_begin",
+				  "good_ocv",
+				  "ocv_for_r",
+				  "cc_thr";
+
+		qcom,bms-r-sense-mohm = <10>;
+		qcom,bms-v-cutoff-uv = <3400000>;
+		qcom,bms-max-voltage-uv = <4200000>;
+		qcom,bms-r-conn-mohm = <18>;
+		qcom,bms-shutdown-soc-valid-limit = <20>;
+		qcom,bms-adjust-soc-low-threshold = <25>;
+		qcom,bms-adjust-soc-high-threshold = <45>;
+		qcom,bms-chg-term-ua = <100000>;
+	};

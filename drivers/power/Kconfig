@@ -507,6 +507,15 @@ config BATTERY_GOLDFISH
 	  Say Y to enable support for the battery and AC power in the
 	  Goldfish emulator.
 
+config QPNP_BMS
+	tristate "QPNP Battery Monitoring System driver"
+	depends on SPMI
+	depends on MSM_QPNP_INT
+	help
+	  Say Y here to enable support for QPNP chip bms device.
+	  It registers a fuelgauge bms power supply to report
+	  State of Charge.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
