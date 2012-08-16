@@ -132,6 +132,7 @@ void msm8930_init_cam(void);
 void msm8930_init_fb(void);
 void msm8930_init_pmic(void);
 extern void msm8930_add_vidc_device(void);
+unsigned char msm8930_mhl_display_enabled(void);
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes
@@ -148,6 +149,7 @@ int msm8930_init_gpiomux(void);
 void msm8930_allocate_fb_region(void);
 void msm8930_pm8038_gpio_mpp_init(void);
 void msm8930_pm8917_gpio_mpp_init(void);
+void msm8930_set_display_params(char *prim_panel, char *ext_panel);
 void msm8930_mdp_writeback(struct memtype_reserve *reserve_table);
 void __init msm8930_init_gpu(void);
 
