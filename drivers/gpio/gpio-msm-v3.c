@@ -183,10 +183,10 @@ void __msm_gpio_set_intr_cfg_type(unsigned gpio, unsigned type)
 	else
 		cfg |= INTR_DECT_CTL_LEVEL;
 
-	if (type & (IRQ_TYPE_EDGE_RISING | IRQ_TYPE_LEVEL_HIGH))
-		cfg |= INTR_POL_CTL_HI;
-	else
+	if (type & IRQ_TYPE_LEVEL_LOW)
 		cfg &= ~INTR_POL_CTL_HI;
+	else
+		cfg |= INTR_POL_CTL_HI;
 
 	__raw_writel(cfg, GPIO_INTR_CFG(gpio));
 	/* Sometimes it might take a little while to update
