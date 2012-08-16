@@ -2474,19 +2474,6 @@ static int sitar_startup(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static void sitar_shutdown(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	struct wcd9xxx *wcd9xxx = dev_get_drvdata(dai->codec->dev->parent);
-	if ((wcd9xxx != NULL) && (wcd9xxx->dev != NULL) &&
-			(wcd9xxx->dev->parent != NULL)) {
-		pm_runtime_mark_last_busy(wcd9xxx->dev->parent);
-		pm_runtime_put(wcd9xxx->dev->parent);
-	}
-	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
-		substream->name, substream->stream);
-}
-
 int sitar_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 {
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
@@ -2782,7 +2769,6 @@ static int sitar_hw_params(struct snd_pcm_substream *substream,
 
 static struct snd_soc_dai_ops sitar_dai_ops = {
 	.startup = sitar_startup,
-	.shutdown = sitar_shutdown,
 	.hw_params = sitar_hw_params,
 	.set_sysclk = sitar_set_dai_sysclk,
 	.set_fmt = sitar_set_dai_fmt,
@@ -2887,6 +2873,15 @@ static int sitar_codec_enable_chmask(struct sitar_priv *sitar,
 	return ret;
 }
 
+static void sitar_codec_pm_runtime_put(struct wcd9xxx *sitar)
+{
+	if (sitar->dev != NULL &&
+			sitar->dev->parent != NULL) {
+		pm_runtime_mark_last_busy(sitar->dev->parent);
+		pm_runtime_put(sitar->dev->parent);
+	}
+}
+
 static int sitar_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -2896,9 +2891,14 @@ static int sitar_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	u32  j = 0, ret = 0;
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	sitar = codec->control_data;
+
 	/* Execute the callback only if interface type is slimbus */
-	if (sitar_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+	if (sitar_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		if (event == SND_SOC_DAPM_POST_PMD && (sitar != NULL))
+			sitar_codec_pm_runtime_put(sitar);
 		return 0;
+	}
+
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		for (j = 0; j < ARRAY_SIZE(sitar_dai); j++) {
@@ -2937,6 +2937,8 @@ static int sitar_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 					sitar_p->dai[j].ch_tot));
 			sitar_p->dai[j].ch_tot = 0;
 			ret = sitar_codec_enable_chmask(sitar_p, event, j);
+			if (sitar != NULL)
+				sitar_codec_pm_runtime_put(sitar);
 		}
 	}
 	return ret;
@@ -2955,8 +2957,12 @@ static int sitar_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	sitar = codec->control_data;
 
 	/* Execute the callback only if interface type is slimbus */
-	if (sitar_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+	if (sitar_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		if (event == SND_SOC_DAPM_POST_PMD && (sitar != NULL))
+			sitar_codec_pm_runtime_put(sitar);
 		return 0;
+	}
+
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		for (j = 0; j < ARRAY_SIZE(sitar_dai); j++) {
@@ -2995,6 +3001,8 @@ static int sitar_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 					sitar_p->dai[j].ch_tot));
 			sitar_p->dai[j].ch_tot = 0;
 			ret = sitar_codec_enable_chmask(sitar_p, event, j);
+			if (sitar != NULL)
+				sitar_codec_pm_runtime_put(sitar);
 		}
 	}
 	return ret;
