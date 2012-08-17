@@ -122,6 +122,7 @@ struct pm8921_bms_chip {
 	int			cc_reading_at_100;
 	int			max_voltage_uv;
 
+	int			chg_term_ua;
 	int			default_rbatt_mohm;
 	int			amux_2_trim_delta;
 	uint16_t		prev_last_good_ocv_raw;
@@ -134,8 +135,6 @@ struct pm8921_bms_chip {
 	int			enable_fcc_learning;
 	int			shutdown_soc;
 	int			shutdown_iavg_ua;
-	int			shutdown_soc_timer_expired;
-	struct delayed_work	shutdown_soc_work;
 	struct delayed_work	calculate_soc_delayed_work;
 	struct timespec		t_soc_queried;
 	int			shutdown_soc_valid_limit;
@@ -144,6 +143,10 @@ struct pm8921_bms_chip {
 	int			prev_uuc_iavg_ma;
 	int			prev_pc_unusable;
 	int			adjust_soc_low_threshold;
+
+	int			ibat_at_cv_ua;
+	int			soc_at_cv;
+	int			prev_chg_soc;
 };
 
 /*
@@ -1503,6 +1506,75 @@ int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
 }
 EXPORT_SYMBOL(pm8921_bms_get_simultaneous_battery_voltage_and_current);
 
+static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
+			int batt_temp,
+			int chargecycles,
+			int fcc_uah,
+			int uuc_uah,
+			int cc_uah,
+			int shutdown_soc,
+			int *rc_uah,
+			int *ocv_uv)
+{
+	s64 rc;
+	int pc, new_pc;
+	int batt_temp_degc = batt_temp / 10;
+	int ocv;
+
+	rc = (s64)shutdown_soc * (fcc_uah - uuc_uah);
+	rc = div_s64(rc, 100) + cc_uah + uuc_uah;
+	pc = DIV_ROUND_CLOSEST((int)rc * 100, fcc_uah);
+	pc = clamp(pc, 0, 100);
+
+	ocv = interpolate_ocv(chip, batt_temp_degc, pc);
+
+	pr_debug("s_soc = %d, fcc = %d uuc = %d rc = %d, pc = %d, ocv mv = %d\n",
+			shutdown_soc, fcc_uah, uuc_uah, (int)rc, pc, ocv);
+	new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
+	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
+
+	while (abs(new_pc - pc) > 1) {
+		int delta_mv = 5;
+
+		if (new_pc > pc)
+			delta_mv = -1 * delta_mv;
+
+		ocv = ocv + delta_mv;
+		new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
+		pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
+	}
+
+	*ocv_uv = ocv * 1000;
+	*rc_uah = (int)rc;
+}
+
+static void adjust_rc_and_uuc_for_specific_soc(
+						struct pm8921_bms_chip *chip,
+						int batt_temp,
+						int chargecycles,
+						int soc,
+						int fcc_uah,
+						int uuc_uah,
+						int cc_uah,
+						int rc_uah,
+						int rbatt,
+						int *ret_ocv,
+						int *ret_rc,
+						int *ret_uuc,
+						int *ret_rbatt)
+{
+	int ocv_uv;
+
+	find_ocv_for_soc(chip, batt_temp, chargecycles,
+					fcc_uah, uuc_uah, cc_uah,
+					soc,
+					&rc_uah, &ocv_uv);
+
+	*ret_ocv = ocv_uv;
+	*ret_rbatt = rbatt;
+	*ret_rc = rc_uah;
+	*ret_uuc = uuc_uah;
+}
 static int bound_soc(int soc)
 {
 	soc = max(0, soc);
@@ -1510,9 +1582,73 @@ static int bound_soc(int soc)
 	return soc;
 }
 
+static int charging_adjustments(struct pm8921_bms_chip *chip,
+				int soc, int vbat_uv, int ibat_ua,
+				int batt_temp, int chargecycles,
+				int fcc_uah, int cc_uah, int uuc_uah)
+{
+	int chg_soc;
+
+	if (chip->soc_at_cv == -EINVAL) {
+		/* In constant current charging return the calc soc */
+		if (vbat_uv <= chip->max_voltage_uv)
+			pr_debug("CC CHG SOC %d\n", soc);
+
+		/* Note the CC to CV point */
+		if (vbat_uv >= chip->max_voltage_uv) {
+			chip->soc_at_cv = soc;
+			chip->prev_chg_soc = soc;
+			chip->ibat_at_cv_ua = ibat_ua;
+			pr_debug("CC_TO_CV ibat_ua = %d CHG SOC %d\n",
+					ibat_ua, soc);
+		}
+		return soc;
+	}
+
+	/*
+	 * battery is in CV phase - begin liner inerpolation of soc based on
+	 * battery charge current
+	 */
+
+	/*
+	 * if voltage lessened (possibly because of a system load)
+	 * keep reporting the prev chg soc
+	 */
+	if (vbat_uv <= chip->max_voltage_uv) {
+		pr_debug("vbat %d < max = %d CC CHG SOC %d\n",
+			vbat_uv, chip->max_voltage_uv, chip->prev_chg_soc);
+		return chip->prev_chg_soc;
+	}
+
+	chg_soc = linear_interpolate(chip->soc_at_cv, chip->ibat_at_cv_ua,
+					100, -100000,
+					ibat_ua);
+
+	/* always report a higher soc */
+	if (chg_soc > chip->prev_chg_soc) {
+		int new_ocv_uv;
+		int new_rc;
+
+		chip->prev_chg_soc = chg_soc;
+
+		find_ocv_for_soc(chip, batt_temp, chargecycles,
+				fcc_uah, uuc_uah, cc_uah,
+				chg_soc,
+				&new_rc, &new_ocv_uv);
+		the_chip->last_ocv_uv = new_ocv_uv;
+		pr_debug("CC CHG ADJ OCV = %d CHG SOC %d\n",
+				new_ocv_uv,
+				chip->prev_chg_soc);
+	}
+
+	pr_debug("Reporting CHG SOC %d\n", chip->prev_chg_soc);
+	return chip->prev_chg_soc;
+}
+
 static int last_soc_est = -EINVAL;
-static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
-		int rbatt , int fcc_uah, int uuc_uah, int cc_uah)
+static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
+		int batt_temp, int chargecycles,
+		int rbatt, int fcc_uah, int uuc_uah, int cc_uah)
 {
 	int ibat_ua = 0, vbat_uv = 0;
 	int ocv_est_uv = 0, soc_est = 0, pc_est = 0, pc = 0;
@@ -1534,9 +1670,6 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	}
 
 
-	if (ibat_ua < 0)
-		goto out;
-
 	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
 
 	ocv_est_uv = vbat_uv + (ibat_ua * rbatt)/1000;
@@ -1544,6 +1677,13 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	soc_est = div_s64((s64)fcc_uah * pc_est - uuc_uah*100,
 						(s64)fcc_uah - uuc_uah);
 	soc_est = bound_soc(soc_est);
+
+	if (ibat_ua < 0) {
+		soc = charging_adjustments(chip, soc, vbat_uv, ibat_ua,
+				batt_temp, chargecycles,
+				fcc_uah, cc_uah, uuc_uah);
+		goto out;
+	}
 
 	/*
 	 * do not adjust
@@ -1628,10 +1768,10 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 out:
 	pr_debug("ibat_ua = %d, vbat_uv = %d, ocv_est_uv = %d, pc_est = %d, "
 		"soc_est = %d, n = %d, delta_ocv_uv = %d, last_ocv_uv = %d, "
-		"pc_new = %d, soc_new = %d\n",
+		"pc_new = %d, soc_new = %d, rbatt = %d, m = %d\n",
 		ibat_ua, vbat_uv, ocv_est_uv, pc_est,
 		soc_est, n, delta_ocv_uv, chip->last_ocv_uv,
-		pc_new, soc_new);
+		pc_new, soc_new, rbatt, m);
 
 	return soc;
 }
@@ -1713,76 +1853,6 @@ static void read_shutdown_soc_and_iavg(struct pm8921_bms_chip *chip)
 			shutdown_soc_invalid);
 }
 
-static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
-			int batt_temp,
-			int chargecycles,
-			int fcc_uah,
-			int uuc_uah,
-			int cc_uah,
-			int shutdown_soc,
-			int *rc_uah,
-			int *ocv_uv)
-{
-	s64 rc;
-	int pc, new_pc;
-	int batt_temp_degc = batt_temp / 10;
-	int ocv;
-
-	rc = (s64)shutdown_soc * (fcc_uah - uuc_uah);
-	rc = div_s64(rc, 100) + cc_uah + uuc_uah;
-	pc = DIV_ROUND_CLOSEST((int)rc * 100, fcc_uah);
-	pc = clamp(pc, 0, 100);
-
-	ocv = interpolate_ocv(chip, batt_temp_degc, pc);
-
-	pr_debug("s_soc = %d, fcc = %d uuc = %d rc = %d, pc = %d, ocv mv = %d\n",
-			shutdown_soc, fcc_uah, uuc_uah, (int)rc, pc, ocv);
-	new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
-	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
-
-	while (abs(new_pc - pc) > 1) {
-		int delta_mv = 5;
-
-		if (new_pc > pc)
-			delta_mv = -1 * delta_mv;
-
-		ocv = ocv + delta_mv;
-		new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
-		pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
-	}
-
-	*ocv_uv = ocv * 1000;
-	*rc_uah = (int)rc;
-}
-
-static void adjust_rc_and_uuc_for_specific_soc(
-						struct pm8921_bms_chip *chip,
-						int batt_temp,
-						int chargecycles,
-						int soc,
-						int fcc_uah,
-						int uuc_uah,
-						int cc_uah,
-						int rc_uah,
-						int rbatt,
-						int *ret_ocv,
-						int *ret_rc,
-						int *ret_uuc,
-						int *ret_rbatt)
-{
-	int ocv_uv;
-
-	find_ocv_for_soc(chip, batt_temp, chargecycles,
-					fcc_uah, uuc_uah, cc_uah,
-					soc,
-					&rc_uah, &ocv_uv);
-
-	*ret_ocv = ocv_uv;
-	*ret_rbatt = rbatt;
-	*ret_rc = rc_uah;
-	*ret_uuc = uuc_uah;
-}
-
 #define SOC_CATCHUP_SEC_MAX		600
 #define SOC_CATCHUP_SEC_PER_PERCENT	60
 #define MAX_CATCHUP_SOC	(SOC_CATCHUP_SEC_MAX/SOC_CATCHUP_SEC_PER_PERCENT)
@@ -1829,17 +1899,6 @@ static int scale_soc_while_chg(struct pm8921_bms_chip *chip,
 			chg_time_sec, new_soc, prev_soc, scaled_soc);
 
 	return scaled_soc;
-}
-
-#define SHOW_SHUTDOWN_SOC_MS	30000
-static void shutdown_soc_work(struct work_struct *work)
-{
-	struct pm8921_bms_chip *chip = container_of(work,
-				struct pm8921_bms_chip, shutdown_soc_work.work);
-
-	pr_debug("not forcing shutdown soc anymore\n");
-	/* it has been  30 seconds since init, no need to show shutdown soc */
-	chip->shutdown_soc_timer_expired = 1;
 }
 
 static bool is_shutdown_soc_within_limits(struct pm8921_bms_chip *chip, int soc)
@@ -2001,7 +2060,8 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	}
 	mutex_unlock(&soc_invalidation_mutex);
 
-	calculated_soc = adjust_soc(chip, soc, batt_temp,
+	pr_debug("SOC before adjustment = %d\n", soc);
+	calculated_soc = adjust_soc(chip, soc, batt_temp, chargecycles,
 			rbatt, fcc_uah, unusable_charge_uah, cc_uah);
 
 	pr_debug("calculated SOC = %d\n", calculated_soc);
@@ -2106,18 +2166,6 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 	/* last_soc < soc  ... scale and catch up */
 	if (last_soc != -EINVAL && last_soc < soc && soc != 100)
 		soc = scale_soc_while_chg(chip, delta_time_us, soc, last_soc);
-
-	if (chip->shutdown_soc != 0
-			&& !shutdown_soc_invalid
-			&& !chip->shutdown_soc_timer_expired) {
-		/*
-		 * force shutdown soc if it is valid and the shutdown soc show
-		 * timer has not expired
-		 */
-		soc = chip->shutdown_soc;
-
-		pr_debug("Forcing SHUTDOWN_SOC = %d\n", soc);
-	}
 
 	last_soc = soc;
 	backup_soc_and_iavg(chip, batt_temp, last_soc);
@@ -2402,6 +2450,9 @@ void pm8921_bms_charging_began(void)
 			IBAT_TOL_MASK, IBAT_TOL_DEFAULT);
 	the_chip->charge_time_us = 0;
 	the_chip->catch_up_time_us = 0;
+
+	the_chip->soc_at_cv = -EINVAL;
+	the_chip->prev_chg_soc = -EINVAL;
 	pr_debug("start_percent = %u%%\n", the_chip->start_percent);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
@@ -2507,6 +2558,8 @@ void pm8921_bms_charging_end(int is_battery_full)
 	the_chip->end_percent = -EINVAL;
 	the_chip->charge_time_us = 0;
 	the_chip->catch_up_time_us = 0;
+	the_chip->soc_at_cv = -EINVAL;
+	the_chip->prev_chg_soc = -EINVAL;
 	pm_bms_masked_write(the_chip, BMS_TOLERANCES,
 				IBAT_TOL_MASK, IBAT_TOL_NOCHG);
 }
@@ -3107,6 +3160,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->r_sense = pdata->r_sense;
 	chip->v_cutoff = pdata->v_cutoff;
 	chip->max_voltage_uv = pdata->max_voltage_uv;
+	chip->chg_term_ua = pdata->chg_term_ua;
 	chip->batt_type = pdata->battery_type;
 	chip->rconn_mohm = pdata->rconn_mohm;
 	chip->start_percent = -EINVAL;
@@ -3117,6 +3171,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		chip->adjust_soc_low_threshold = 45;
 
 	chip->prev_pc_unusable = -EINVAL;
+	chip->soc_at_cv = -EINVAL;
 
 	chip->ignore_shutdown_soc = pdata->ignore_shutdown_soc;
 	rc = set_battery_data(chip);
@@ -3189,11 +3244,6 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	pr_info("OK battery_capacity_at_boot=%d volt = %d ocv = %d\n",
 				pm8921_bms_get_percent_charge(),
 				vbatt, chip->last_ocv_uv);
-
-	INIT_DELAYED_WORK(&chip->shutdown_soc_work, shutdown_soc_work);
-	schedule_delayed_work(&chip->shutdown_soc_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(SHOW_SHUTDOWN_SOC_MS)));
 
 	return 0;
 
