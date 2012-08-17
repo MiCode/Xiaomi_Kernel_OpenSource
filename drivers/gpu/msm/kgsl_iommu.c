@@ -121,6 +121,8 @@ static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu)
 				continue;
 			iommu_drvdata = dev_get_drvdata(
 					iommu_unit->dev[j].dev->parent);
+			if (iommu_drvdata->aclk)
+				clk_disable_unprepare(iommu_drvdata->aclk);
 			if (iommu_drvdata->clk)
 				clk_disable_unprepare(iommu_drvdata->clk);
 			clk_disable_unprepare(iommu_drvdata->pclk);
@@ -244,6 +246,17 @@ static int kgsl_iommu_enable_clk(struct kgsl_mmu *mmu,
 				if (ret) {
 					clk_disable_unprepare(
 						iommu_drvdata->pclk);
+					goto done;
+				}
+			}
+			if (iommu_drvdata->aclk) {
+				ret = clk_prepare_enable(iommu_drvdata->aclk);
+				if (ret) {
+					if (iommu_drvdata->clk)
+						clk_disable_unprepare(
+							iommu_drvdata->clk);
+					clk_disable_unprepare(
+							iommu_drvdata->pclk);
 					goto done;
 				}
 			}
