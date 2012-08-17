@@ -1792,11 +1792,11 @@ static void tabla_codec_enable_bandgap(struct snd_soc_codec *codec,
 			0x00);
 	} else if ((tabla->bandgap_type == TABLA_BANDGAP_MBHC_MODE) &&
 		(choice == TABLA_BANDGAP_AUDIO_MODE)) {
-		snd_soc_write(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x00);
+		snd_soc_write(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x50);
 		usleep_range(100, 100);
 		tabla_codec_enable_audio_mode_bandgap(codec);
 	} else if (choice == TABLA_BANDGAP_OFF) {
-		snd_soc_write(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x00);
+		snd_soc_write(codec, TABLA_A_BIAS_CENTRAL_BG_CTL, 0x50);
 	} else {
 		pr_err("%s: Error, Invalid bandgap settings\n", __func__);
 	}
@@ -3058,6 +3058,26 @@ static int tabla_lineout_dac_event(struct snd_soc_dapm_widget *w,
 
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, w->reg, 0x40, 0x00);
+		break;
+	}
+	return 0;
+}
+
+static int tabla_ear_pa_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	pr_debug("%s %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, TABLA_A_RX_EAR_EN, 0x50, 0x50);
+		break;
+
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, TABLA_A_RX_EAR_EN, 0x10, 0x00);
+		snd_soc_update_bits(codec, TABLA_A_RX_EAR_EN, 0x40, 0x00);
 		break;
 	}
 	return 0;
@@ -4668,9 +4688,11 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	/*RX stuff */
 	SND_SOC_DAPM_OUTPUT("EAR"),
 
-	SND_SOC_DAPM_PGA("EAR PA", TABLA_A_RX_EAR_EN, 4, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_E("EAR PA", SND_SOC_NOPM, 0, 0, NULL,
+			0, tabla_ear_pa_event, SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_PRE_PMD),
 
-	SND_SOC_DAPM_MIXER("DAC1", TABLA_A_RX_EAR_EN, 6, 0, dac1_switch,
+	SND_SOC_DAPM_MIXER("DAC1", SND_SOC_NOPM, 0, 0, dac1_switch,
 		ARRAY_SIZE(dac1_switch)),
 
 	/* Headphone */
