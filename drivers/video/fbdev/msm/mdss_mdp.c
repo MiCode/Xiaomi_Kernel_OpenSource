@@ -591,6 +591,7 @@ static int mdss_hw_init(struct mdss_data_type *mdata)
 	/* Setup VBIF QoS settings*/
 	MDSS_MDP_REG_WRITE(0x2E0, 0x000000AA);
 	MDSS_MDP_REG_WRITE(0x2E4, 0x00000055);
+	writel_relaxed(0x00000001, base + 0x004);
 	writel_relaxed(0x00000707, base + 0x0D8);
 	writel_relaxed(0x00000030, base + 0x0F0);
 	writel_relaxed(0x00000001, base + 0x124);
