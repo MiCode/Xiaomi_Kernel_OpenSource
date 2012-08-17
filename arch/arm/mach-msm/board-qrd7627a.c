@@ -131,6 +131,7 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #ifdef CONFIG_ARCH_MSM7X27A
 #define MSM_PMEM_MDP_SIZE       0x1B00000
 #define MSM_PMEM_ADSP_SIZE      0x1200000
+#define CAMERA_ZSL_SIZE		(SZ_1M * 60)
 
 #ifdef CONFIG_ION_MSM
 #define MSM_ION_HEAP_NUM	4
@@ -714,6 +715,8 @@ early_param("pmem_audio_size", pmem_audio_size_setup);
 
 static void fix_sizes(void)
 {
+	if (get_ddr_size() > SZ_512M)
+		pmem_adsp_size = CAMERA_ZSL_SIZE;
 #ifdef CONFIG_ION_MSM
 	msm_ion_camera_size = pmem_adsp_size;
 	msm_ion_audio_size = (MSM_PMEM_AUDIO_SIZE + PMEM_KERNEL_EBI1_SIZE);
