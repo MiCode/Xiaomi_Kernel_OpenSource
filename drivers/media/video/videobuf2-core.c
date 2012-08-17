@@ -1330,12 +1330,14 @@ int vb2_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b, bool nonblocking)
 		return -EINVAL;
 	}
 
+	mutex_lock(&q->q_lock);
 	ret = __vb2_get_done_vb(q, &vb, nonblocking);
 	if (ret < 0) {
 		dprintk(1, "dqbuf: error getting next done buffer\n");
+		mutex_unlock(&q->q_lock);
 		return ret;
 	}
-
+	mutex_unlock(&q->q_lock);
 	ret = call_qop(q, buf_finish, vb);
 	if (ret) {
 		dprintk(1, "dqbuf: buffer finish failed\n");
@@ -1447,15 +1449,17 @@ int vb2_streamon(struct vb2_queue *q, enum v4l2_buf_type type)
 	/*
 	 * Let driver notice that streaming state has been enabled.
 	 */
+	mutex_lock(&q->q_lock);
 	ret = call_qop(q, start_streaming, q, atomic_read(&q->queued_count));
 	if (ret) {
 		dprintk(1, "streamon: driver refused to start streaming\n");
 		__vb2_queue_cancel(q);
+		mutex_unlock(&q->q_lock);
 		return ret;
 	}
 
 	q->streaming = 1;
-
+	mutex_unlock(&q->q_lock);
 	dprintk(3, "Streamon successful\n");
 	return 0;
 }
@@ -1729,6 +1733,7 @@ int vb2_queue_init(struct vb2_queue *q)
 	INIT_LIST_HEAD(&q->queued_list);
 	INIT_LIST_HEAD(&q->done_list);
 	spin_lock_init(&q->done_lock);
+	mutex_init(&q->q_lock);
 	init_waitqueue_head(&q->done_wq);
 
 	if (q->buf_struct_size == 0)
