@@ -312,9 +312,9 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 			if (!inst->extradata_handle) {
 				inst->extradata_handle =
 				msm_smem_alloc(inst->mem_client,
-				4096 * 1024, 1, 0,
+				4096 * 1024, 1, SMEM_UNCACHED,
 				inst->core->resources.io_map[NS_MAP].domain,
-				0);
+				0, 0);
 				if (!inst->extradata_handle) {
 					pr_err("Failed to allocate extradta memory\n");
 					rc = -ENOMEM;

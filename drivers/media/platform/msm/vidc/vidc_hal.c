@@ -308,6 +308,7 @@ static int vidc_hal_alloc(void *mem, void *clnt, u32 size, u32 align, u32 flags,
 {
 	struct vidc_mem_addr *vmem;
 	struct msm_smem *alloc;
+	int rc = 0;
 
 	if (!mem || !clnt || !size) {
 		HAL_MSG_ERROR("Invalid Params in %s", __func__);
@@ -316,20 +317,29 @@ static int vidc_hal_alloc(void *mem, void *clnt, u32 size, u32 align, u32 flags,
 	vmem = (struct vidc_mem_addr *)mem;
 	HAL_MSG_HIGH("start to alloc: size:%d, Flags: %d", size, flags);
 
-	alloc  = msm_smem_alloc(clnt, size, align, flags, domain, 1);
+	alloc  = msm_smem_alloc(clnt, size, align, flags, domain, 1, 1);
 	HAL_MSG_LOW("Alloc done");
 	if (!alloc) {
 		HAL_MSG_HIGH("Alloc fail in %s", __func__);
-		return -ENOMEM;
-	} else {
-		HAL_MSG_MEDIUM("vidc_hal_alloc:ptr=%p,size=%d",
-					   alloc->kvaddr, size);
-		vmem->mem_size = alloc->size;
-		vmem->mem_data = alloc;
-		vmem->align_virtual_addr = (u8 *) alloc->kvaddr;
-		vmem->align_device_addr = (u8 *)alloc->device_addr;
+		rc = -ENOMEM;
+		goto fail_smem_alloc;
 	}
-	return 0;
+	rc = msm_smem_clean_invalidate(clnt, alloc);
+	if (rc) {
+		pr_err("NOTE: Failed to clean caches\n");
+		goto fail_clean_cache;
+	}
+	HAL_MSG_MEDIUM("vidc_hal_alloc:ptr=%p,size=%d",
+			alloc->kvaddr, size);
+	vmem->mem_size = alloc->size;
+	vmem->mem_data = alloc;
+	vmem->align_virtual_addr = (u8 *) alloc->kvaddr;
+	vmem->align_device_addr = (u8 *)alloc->device_addr;
+	return rc;
+fail_clean_cache:
+	msm_smem_free(clnt, alloc);
+fail_smem_alloc:
+	return rc;
 }
 
 static void vidc_hal_free(struct smem_client *clnt, struct msm_smem *mem)
@@ -517,7 +527,7 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 
 	rc = vidc_hal_alloc((void *) &dev->iface_q_table,
 					dev->hal_client,
-			VIDC_IFACEQ_TABLE_SIZE, 1, 0, domain);
+			VIDC_IFACEQ_TABLE_SIZE, 1, SMEM_UNCACHED, domain);
 	if (rc) {
 		HAL_MSG_ERROR("%s:iface_q_table_alloc_fail", __func__);
 		return -ENOMEM;
@@ -537,7 +547,7 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 		iface_q = &dev->iface_queues[i];
 		rc = vidc_hal_alloc((void *) &iface_q->q_array,
 				dev->hal_client, VIDC_IFACEQ_QUEUE_SIZE,
-				1, 0, domain);
+				1, SMEM_UNCACHED, domain);
 		if (rc) {
 			HAL_MSG_ERROR("%s:iface_q_table_alloc[%d]_fail",
 						__func__, i);

@@ -1451,8 +1451,9 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 		for (i = 0; i < scratch_buf->buffer_count_actual;
 				i++) {
 			handle = msm_smem_alloc(inst->mem_client,
-				scratch_buf->buffer_size, 1, 0,
-				inst->core->resources.io_map[NS_MAP].domain, 0);
+				scratch_buf->buffer_size, 1, SMEM_UNCACHED,
+				inst->core->resources.io_map[NS_MAP].domain,
+				0, 0);
 			if (!handle) {
 				pr_err("Failed to allocate scratch memory\n");
 				rc = -ENOMEM;
@@ -1510,8 +1511,9 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 	if (persist_buf->buffer_size) {
 		for (i = 0;	i <	persist_buf->buffer_count_actual; i++) {
 			handle = msm_smem_alloc(inst->mem_client,
-				persist_buf->buffer_size, 1, 0,
-				inst->core->resources.io_map[NS_MAP].domain, 0);
+				persist_buf->buffer_size, 1, SMEM_UNCACHED,
+				inst->core->resources.io_map[NS_MAP].domain,
+				0, 0);
 			if (!handle) {
 				pr_err("Failed to allocate persist memory\n");
 				rc = -ENOMEM;
