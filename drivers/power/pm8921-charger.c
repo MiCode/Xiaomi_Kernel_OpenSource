@@ -2808,6 +2808,8 @@ module_param(vdd_max_increase_mv, int, 0644);
 
 static int ichg_threshold_ua = -400000;
 module_param(ichg_threshold_ua, int, 0644);
+
+#define PM8921_CHG_VDDMAX_RES_MV	10
 static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip)
 {
 	int ichg_meas_ua, vbat_uv;
@@ -2867,9 +2869,11 @@ static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip)
 		return;
 	}
 
+	adj_vdd_max_mv = DIV_ROUND_UP(adj_vdd_max_mv, PM8921_CHG_VDDMAX_RES_MV)
+					* PM8921_CHG_VDDMAX_RES_MV;
+
 	if (adj_vdd_max_mv > (chip->max_voltage_mv + vdd_max_increase_mv))
 		adj_vdd_max_mv = chip->max_voltage_mv + vdd_max_increase_mv;
-
 	pr_debug("adjusting vdd_max_mv to %d to make "
 		"vbat_batt_termial_uv = %d to %d\n",
 		adj_vdd_max_mv, vbat_batt_terminal_uv, chip->max_voltage_mv);
