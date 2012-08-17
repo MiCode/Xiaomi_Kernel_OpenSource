@@ -1515,24 +1515,6 @@ static void read_shutdown_soc(struct pm8921_bms_chip *chip)
 	pr_debug("shutdown_soc = %d\n", chip->shutdown_soc);
 }
 
-void pm8921_bms_invalidate_shutdown_soc(void)
-{
-	pr_debug("Invalidating shutdown soc - the battery was removed\n");
-	mutex_lock(&soc_invalidation_mutex);
-	shutdown_soc_invalid = 1;
-	last_soc = -EINVAL;
-	if (the_chip) {
-		/* reset to pon ocv undoing what the adjusting did */
-		if (the_chip->pon_ocv_uv) {
-			the_chip->last_ocv_uv = the_chip->pon_ocv_uv;
-			pr_debug("resetting ocv to pon_ocv = %d\n",
-						the_chip->pon_ocv_uv);
-		}
-	}
-	mutex_unlock(&soc_invalidation_mutex);
-}
-EXPORT_SYMBOL(pm8921_bms_invalidate_shutdown_soc);
-
 static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
 			int batt_temp,
 			int chargecycles,
@@ -1575,44 +1557,26 @@ static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
 	*rc_uah = (int)rc;
 }
 
-static void adjust_rc_and_uuc_for_shutdown_soc(
+static void adjust_rc_and_uuc_for_specific_soc(
 						struct pm8921_bms_chip *chip,
 						int batt_temp,
 						int chargecycles,
+						int soc,
 						int fcc_uah,
 						int uuc_uah,
 						int cc_uah,
-						int remaining_charge_uah,
+						int rc_uah,
 						int rbatt,
+						int *ret_ocv,
 						int *ret_rc,
 						int *ret_uuc,
 						int *ret_rbatt)
 {
 	int new_rbatt;
 	int ocv_uv;
-	int shutdown_soc;
-	int rc_uah;
 	int soc_rbatt;
 	int iavg_ua, iavg_ma;
 	int num_tries = 0;
-
-	mutex_lock(&soc_invalidation_mutex);
-	shutdown_soc = chip->shutdown_soc;
-	/*
-	 * value of zero means the shutdown soc should not be used, the battery
-	 * was removed for extended period, the coincell capacitor could have
-	 * drained
-	 * shutdown_soc_invalid means the shutdown soc should not be used,
-	 * the battery was removed for a small period
-	 */
-	if (shutdown_soc == 0 || shutdown_soc_invalid) {
-		rc_uah = remaining_charge_uah;
-		goto out;
-	}
-
-	/* value of 0xFF means shutdown soc was 0% */
-	if (shutdown_soc == 0xFF)
-		shutdown_soc = 0;
 
 	pm8921_bms_get_battery_current(&iavg_ua);
 	iavg_ma = iavg_ua / 1000;
@@ -1623,13 +1587,13 @@ recalculate_ocv:
 
 	find_ocv_for_soc(chip, batt_temp, chargecycles,
 					fcc_uah, uuc_uah, cc_uah,
-					shutdown_soc,
+					soc,
 					&rc_uah, &ocv_uv);
 
 	soc_rbatt = div_s64((rc_uah - cc_uah) * 100,  fcc_uah);
 	new_rbatt = get_rbatt(chip, soc_rbatt, batt_temp);
-	pr_debug("for s_soc = %d rc_uah = %d ocv_uv = %d, soc_rbatt = %d rbatt = %d\n",
-			shutdown_soc, rc_uah, ocv_uv, soc_rbatt, new_rbatt);
+	pr_debug("for f_soc = %d rc_uah = %d ocv_uv = %d, soc_rbatt = %d rbatt = %d\n",
+			soc, rc_uah, ocv_uv, soc_rbatt, new_rbatt);
 	if (abs(new_rbatt - rbatt) > 20 && num_tries < 10) {
 		rbatt = new_rbatt;
 		uuc_uah = calculate_uuc_uah_at_given_current(chip,
@@ -1642,15 +1606,12 @@ recalculate_ocv:
 		goto recalculate_ocv;
 	}
 	pr_debug("DONE for s_soc = %d rc_uah = %d ocv_uv = %d, rbatt = %d\n",
-			shutdown_soc, rc_uah, ocv_uv, new_rbatt);
+			soc, rc_uah, ocv_uv, new_rbatt);
 
-	chip->pon_ocv_uv = chip->last_ocv_uv;
-	chip->last_ocv_uv = ocv_uv;
-out:
+	*ret_ocv = ocv_uv;
 	*ret_rbatt = rbatt;
 	*ret_rc = rc_uah;
 	*ret_uuc = uuc_uah;
-	mutex_unlock(&soc_invalidation_mutex);
 }
 
 #define SOC_CATCHUP_SEC_MAX		600
@@ -1750,9 +1711,11 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	int rbatt;
 	int iavg_ua;
 	int delta_time_us;
+	int new_ocv;
 	int new_rc_uah;
 	int new_ucc_uah;
 	int new_rbatt;
+	int shutdown_soc;
 
 	calculate_soc_params(chip, raw, batt_temp, chargecycles,
 						&fcc_uah,
@@ -1778,9 +1741,39 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 					(fcc_uah - unusable_charge_uah));
 	}
 
+	if (delta_time_us == 0 && soc < 0) {
+		/*
+		 * first time calcualtion and the pon ocv  is too low resulting
+		 * in a bad soc. Adjust ocv such that we get 0 soc
+		 */
+		pr_debug("soc is %d, adjusting pon ocv to make it 0\n", soc);
+		adjust_rc_and_uuc_for_specific_soc(
+						chip,
+						batt_temp, chargecycles,
+						0,
+						fcc_uah, unusable_charge_uah,
+						cc_uah, remaining_charge_uah,
+						rbatt,
+						&new_ocv,
+						&new_rc_uah, &new_ucc_uah,
+						&new_rbatt);
+		chip->last_ocv_uv = new_ocv;
+		remaining_charge_uah = new_rc_uah;
+		unusable_charge_uah = new_ucc_uah;
+		rbatt = new_rbatt;
+
+		remaining_usable_charge_uah = remaining_charge_uah
+					- cc_uah
+					- unusable_charge_uah;
+
+		soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
+					(fcc_uah - unusable_charge_uah));
+		pr_debug("DONE for O soc is %d, pon ocv adjusted to %duV\n",
+				soc, chip->last_ocv_uv);
+	}
+
 	if (soc > 100)
 		soc = 100;
-	pr_debug("before adjusting calculated SOC = %d%%\n", soc);
 
 	if (bms_fake_battery != -EINVAL) {
 		pr_debug("Returning Fake SOC = %d%%\n", bms_fake_battery);
@@ -1802,28 +1795,49 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = 0;
 	}
 
-	if (delta_time_us == 0 && is_shutdown_soc_within_limits(chip, soc)) {
+	mutex_lock(&soc_invalidation_mutex);
+	shutdown_soc = chip->shutdown_soc;
+	/* value of 0xFF means shutdown soc was 0% */
+	if (shutdown_soc == 0xFF)
+		shutdown_soc = 0;
+
+	if (delta_time_us == 0 && soc != shutdown_soc
+			&& is_shutdown_soc_within_limits(chip, soc)) {
 		/*
 		 * soc for the first time - use shutdown soc
 		 * to adjust pon ocv since it is a small percent away from
 		 * the real soc
 		 */
-		adjust_rc_and_uuc_for_shutdown_soc(
+		pr_debug("soc = %d before forcing shutdown_soc = %d\n",
+							soc, shutdown_soc);
+		adjust_rc_and_uuc_for_specific_soc(
 						chip,
 						batt_temp, chargecycles,
+						shutdown_soc,
 						fcc_uah, unusable_charge_uah,
 						cc_uah, remaining_charge_uah,
 						rbatt,
+						&new_ocv,
 						&new_rc_uah, &new_ucc_uah,
 						&new_rbatt);
 
+		chip->pon_ocv_uv = chip->last_ocv_uv;
+		chip->last_ocv_uv = new_ocv;
 		remaining_charge_uah = new_rc_uah;
 		unusable_charge_uah = new_ucc_uah;
 		rbatt = new_rbatt;
 
+		remaining_usable_charge_uah = remaining_charge_uah
+					- cc_uah
+					- unusable_charge_uah;
+
 		soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
 					(fcc_uah - unusable_charge_uah));
+
+		pr_debug("DONE for shutdown_soc = %d soc is %d, adjusted ocv to %duV\n",
+				shutdown_soc, soc, chip->last_ocv_uv);
 	}
+	mutex_unlock(&soc_invalidation_mutex);
 
 	calculated_soc = adjust_soc(chip, soc, batt_temp,
 			rbatt, fcc_uah, unusable_charge_uah, cc_uah);
@@ -1953,6 +1967,50 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 	return last_soc;
 }
 
+void pm8921_bms_invalidate_shutdown_soc(void)
+{
+	int calculate_soc = 0;
+	struct pm8921_bms_chip *chip = the_chip;
+	int batt_temp, rc;
+	struct pm8xxx_adc_chan_result result;
+	struct pm8921_soc_params raw;
+	int soc;
+
+	pr_debug("Invalidating shutdown soc - the battery was removed\n");
+	mutex_lock(&soc_invalidation_mutex);
+	shutdown_soc_invalid = 1;
+	last_soc = -EINVAL;
+	if (the_chip) {
+		/* reset to pon ocv undoing what the adjusting did */
+		if (the_chip->pon_ocv_uv) {
+			the_chip->last_ocv_uv = the_chip->pon_ocv_uv;
+			calculate_soc = 1;
+			pr_debug("resetting ocv to pon_ocv = %d\n",
+						the_chip->pon_ocv_uv);
+		}
+	}
+	mutex_unlock(&soc_invalidation_mutex);
+	if (!calculate_soc)
+		return;
+
+	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+					chip->batt_temp_channel, rc);
+		return;
+	}
+	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	batt_temp = (int)result.physical;
+
+	mutex_lock(&chip->last_ocv_uv_mutex);
+	read_soc_params_raw(chip, &raw);
+
+	soc = calculate_state_of_charge(chip, &raw,
+					batt_temp, last_chargecycles);
+	mutex_unlock(&chip->last_ocv_uv_mutex);
+}
+EXPORT_SYMBOL(pm8921_bms_invalidate_shutdown_soc);
 #define MIN_DELTA_625_UV	1000
 static void calib_hkadc(struct pm8921_bms_chip *chip)
 {
