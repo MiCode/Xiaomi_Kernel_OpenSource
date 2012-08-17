@@ -25,6 +25,7 @@ struct msm_serial_hs_platform_data {
 	unsigned char inject_rx_on_wakeup;
 	char rx_to_inject;
 	int (*gpio_config)(int);
+	int userid;
 };
 
 unsigned int msm_hs_tx_empty(struct uart_port *uport);
