@@ -614,6 +614,10 @@ int vidc_hal_core_init(void *device, int domain)
 	spin_lock_init(&dev->read_lock);
 	spin_lock_init(&dev->write_lock);
 
+	/*Disable Dynamic clock gating for Venus VBIF*/
+	write_register(dev->hal_data->register_base_addr,
+				   VIDC_VENUS_VBIF_CLK_ON, 1, 0);
+
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(SMEM_ION);
 		if (dev->hal_client == NULL) {
