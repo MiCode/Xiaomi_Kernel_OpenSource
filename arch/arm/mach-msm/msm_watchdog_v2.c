@@ -200,8 +200,6 @@ static void pet_watchdog_work(struct work_struct *work)
 	if (wdog_dd->do_ipi_ping)
 		ping_other_cpus(wdog_dd);
 	pet_watchdog(wdog_dd);
-	if (wdog_dd->do_ipi_ping)
-		dump_cpu_alive_mask(wdog_dd);
 	if (enable)
 		schedule_delayed_work(&wdog_dd->dogwork_struct,
 							delay_time);
