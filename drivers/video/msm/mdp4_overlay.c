@@ -3222,9 +3222,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 		return 0;
 	}
 
-	if (pipe->mixer_num == MDP4_MIXER2 ||
-					ctrl->panel_mode & MDP4_PANEL_MDDI)
-		mutex_lock(&mfd->dma->ov_mutex);
+	mutex_lock(&mfd->dma->ov_mutex);
 
 	img = &req->data;
 	get_img(img, info, pipe, 0, &start, &len, &srcp0_file,
@@ -3354,6 +3352,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 			mdp4_dtv_pipe_queue(0, pipe);/* cndx = 0 */
 	}
 
+	mutex_unlock(&mfd->dma->ov_mutex);
 	return ret;
 
 mddi:
@@ -3385,8 +3384,10 @@ mddi:
 	if (!(pipe->flags & MDP_OV_PLAY_NOWAIT))
 		mdp4_iommu_unmap(pipe);
 	mdp4_stat.overlay_play[pipe->mixer_num]++;
-	mutex_unlock(&mfd->dma->ov_mutex);
+
 end:
+	mutex_unlock(&mfd->dma->ov_mutex);
+
 #ifdef CONFIG_ANDROID_PMEM
 	if (srcp0_file)
 		put_pmem_file(srcp0_file);
