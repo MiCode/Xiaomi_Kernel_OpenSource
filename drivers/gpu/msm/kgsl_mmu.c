@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/iommu.h>
+#include <mach/iommu.h>
 #include <mach/socinfo.h>
 
 #include "kgsl.h"
@@ -325,14 +326,16 @@ unsigned int kgsl_mmu_get_ptsize(void)
 }
 
 int
-kgsl_mmu_get_ptname_from_ptbase(unsigned int pt_base)
+kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu, unsigned int pt_base)
 {
 	struct kgsl_pagetable *pt;
 	int ptid = -1;
 
+	if (!mmu->mmu_ops || !mmu->mmu_ops->mmu_pt_equal)
+		return KGSL_MMU_GLOBAL_PT;
 	spin_lock(&kgsl_driver.ptlock);
 	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (pt->pt_ops->mmu_pt_equal(pt, pt_base)) {
+		if (mmu->mmu_ops->mmu_pt_equal(mmu, pt, pt_base)) {
 			ptid = (int) pt->name;
 			break;
 		}

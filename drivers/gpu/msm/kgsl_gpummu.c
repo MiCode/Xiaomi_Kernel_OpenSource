@@ -355,8 +355,9 @@ err_ptpool_remove:
 	return NULL;
 }
 
-int kgsl_gpummu_pt_equal(struct kgsl_pagetable *pt,
-					unsigned int pt_base)
+int kgsl_gpummu_pt_equal(struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pt,
+			unsigned int pt_base)
 {
 	struct kgsl_gpummu_pt *gpummu_pt = pt ? pt->priv : NULL;
 	return gpummu_pt && pt_base && (gpummu_pt->base.gpuaddr == pt_base);
@@ -409,10 +410,10 @@ static void kgsl_gpummu_pagefault(struct kgsl_mmu *mmu)
 	KGSL_MEM_CRIT(mmu->device,
 			"mmu page fault: page=0x%lx pt=%d op=%s axi=%d\n",
 			reg & ~(PAGE_SIZE - 1),
-			kgsl_mmu_get_ptname_from_ptbase(ptbase),
+			kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase),
 			reg & 0x02 ? "WRITE" : "READ", (reg >> 4) & 0xF);
 	trace_kgsl_mmu_pagefault(mmu->device, reg & ~(PAGE_SIZE - 1),
-			kgsl_mmu_get_ptname_from_ptbase(ptbase),
+			kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase),
 			reg & 0x02 ? "WRITE" : "READ");
 }
 
@@ -714,10 +715,16 @@ kgsl_gpummu_get_current_ptbase(struct kgsl_mmu *mmu)
 }
 
 static unsigned int
-kgsl_gpummu_pt_get_base_addr(struct kgsl_pagetable *pt)
+kgsl_gpummu_get_pt_base_addr(struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pt)
 {
 	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 	return gpummu_pt->base.gpuaddr;
+}
+
+static int kgsl_gpummu_get_num_iommu_units(struct kgsl_mmu *mmu)
+{
+	return 1;
 }
 
 struct kgsl_mmu_ops gpummu_ops = {
@@ -729,10 +736,13 @@ struct kgsl_mmu_ops gpummu_ops = {
 	.mmu_device_setstate = kgsl_gpummu_default_setstate,
 	.mmu_pagefault = kgsl_gpummu_pagefault,
 	.mmu_get_current_ptbase = kgsl_gpummu_get_current_ptbase,
+	.mmu_pt_equal = kgsl_gpummu_pt_equal,
+	.mmu_get_pt_base_addr = kgsl_gpummu_get_pt_base_addr,
 	.mmu_enable_clk = NULL,
 	.mmu_disable_clk_on_ts = NULL,
 	.mmu_get_pt_lsb = NULL,
-	.mmu_get_reg_map_desc = NULL,
+	.mmu_get_reg_gpuaddr = NULL,
+	.mmu_get_num_iommu_units = kgsl_gpummu_get_num_iommu_units,
 };
 
 struct kgsl_mmu_pt_ops gpummu_pt_ops = {
@@ -740,6 +750,4 @@ struct kgsl_mmu_pt_ops gpummu_pt_ops = {
 	.mmu_unmap = kgsl_gpummu_unmap,
 	.mmu_create_pagetable = kgsl_gpummu_create_pagetable,
 	.mmu_destroy_pagetable = kgsl_gpummu_destroy_pagetable,
-	.mmu_pt_equal = kgsl_gpummu_pt_equal,
-	.mmu_pt_get_base_addr = kgsl_gpummu_pt_get_base_addr,
 };

@@ -275,25 +275,20 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 	unsigned int *cmds = &link[0];
 	int sizedwords = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_memdesc **reg_map_desc;
-	void *reg_map_array = NULL;
 	int num_iommu_units, i;
 	struct kgsl_context *context;
 	struct adreno_context *adreno_ctx = NULL;
 
 	if (!adreno_dev->drawctxt_active)
 		return kgsl_mmu_device_setstate(&device->mmu, flags);
-	num_iommu_units = kgsl_mmu_get_reg_map_desc(&device->mmu,
-							&reg_map_array);
+	num_iommu_units = kgsl_mmu_get_num_iommu_units(&device->mmu);
 
 	context = idr_find(&device->context_idr, context_id);
 	adreno_ctx = context->devctxt;
 
-	reg_map_desc = reg_map_array;
-
 	if (kgsl_mmu_enable_clk(&device->mmu,
 				KGSL_IOMMU_CONTEXT_USER))
-		goto done;
+		return;
 
 	cmds += __adreno_add_idle_indirect_cmds(cmds,
 		device->mmu.setstate_memory.gpuaddr +
@@ -309,26 +304,23 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 					device->mmu.setstate_memory.gpuaddr +
 					KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
-	pt_val = kgsl_mmu_pt_get_base_addr(device->mmu.hwpagetable);
+	pt_val = kgsl_mmu_get_pt_base_addr(&device->mmu,
+					device->mmu.hwpagetable);
 	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
 		/*
 		 * We need to perfrom the following operations for all
 		 * IOMMU units
 		 */
 		for (i = 0; i < num_iommu_units; i++) {
-			reg_pt_val = (pt_val &
-				(KGSL_IOMMU_TTBR0_PA_MASK <<
-				KGSL_IOMMU_TTBR0_PA_SHIFT)) +
-				kgsl_mmu_get_pt_lsb(&device->mmu, i,
-					KGSL_IOMMU_CONTEXT_USER);
+			reg_pt_val = (pt_val + kgsl_mmu_get_pt_lsb(&device->mmu,
+						i, KGSL_IOMMU_CONTEXT_USER));
 			/*
 			 * Set address of the new pagetable by writng to IOMMU
 			 * TTBR0 register
 			 */
 			*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
-			*cmds++ = reg_map_desc[i]->gpuaddr +
-				(KGSL_IOMMU_CONTEXT_USER <<
-				KGSL_IOMMU_CTX_SHIFT) + KGSL_IOMMU_TTBR0;
+			*cmds++ = kgsl_mmu_get_reg_gpuaddr(&device->mmu, i,
+				KGSL_IOMMU_CONTEXT_USER, KGSL_IOMMU_CTX_TTBR0);
 			*cmds++ = reg_pt_val;
 			*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 			*cmds++ = 0x00000000;
@@ -338,9 +330,8 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 			 * above writes have completed
 			 */
 			cmds += adreno_add_read_cmds(device, cmds,
-				reg_map_desc[i]->gpuaddr +
-				(KGSL_IOMMU_CONTEXT_USER <<
-				KGSL_IOMMU_CTX_SHIFT) + KGSL_IOMMU_TTBR0,
+				kgsl_mmu_get_reg_gpuaddr(&device->mmu, i,
+				KGSL_IOMMU_CONTEXT_USER, KGSL_IOMMU_CTX_TTBR0),
 				reg_pt_val,
 				device->mmu.setstate_memory.gpuaddr +
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET);
@@ -358,16 +349,12 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 		 * tlb flush
 		 */
 		for (i = 0; i < num_iommu_units; i++) {
-			reg_pt_val = (pt_val &
-				(KGSL_IOMMU_TTBR0_PA_MASK <<
-				KGSL_IOMMU_TTBR0_PA_SHIFT)) +
-				kgsl_mmu_get_pt_lsb(&device->mmu, i,
-					KGSL_IOMMU_CONTEXT_USER);
+			reg_pt_val = (pt_val + kgsl_mmu_get_pt_lsb(&device->mmu,
+						i, KGSL_IOMMU_CONTEXT_USER));
 
 			*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
-			*cmds++ = (reg_map_desc[i]->gpuaddr +
-				(KGSL_IOMMU_CONTEXT_USER <<
-				KGSL_IOMMU_CTX_SHIFT) +
+			*cmds++ = kgsl_mmu_get_reg_gpuaddr(&device->mmu, i,
+				KGSL_IOMMU_CONTEXT_USER,
 				KGSL_IOMMU_CTX_TLBIALL);
 			*cmds++ = 1;
 
@@ -376,9 +363,9 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
 			cmds += adreno_add_read_cmds(device, cmds,
-				reg_map_desc[i]->gpuaddr +
-				(KGSL_IOMMU_CONTEXT_USER <<
-				KGSL_IOMMU_CTX_SHIFT) + KGSL_IOMMU_TTBR0,
+				kgsl_mmu_get_reg_gpuaddr(&device->mmu, i,
+					KGSL_IOMMU_CONTEXT_USER,
+					KGSL_IOMMU_CTX_TTBR0),
 				reg_pt_val,
 				device->mmu.setstate_memory.gpuaddr +
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET);
@@ -387,7 +374,8 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 
 	if (cpu_is_msm8960())
 		cmds += adreno_add_change_mh_phys_limit_cmds(cmds,
-			reg_map_desc[0]->gpuaddr,
+			kgsl_mmu_get_reg_gpuaddr(&device->mmu, 0,
+						0, KGSL_IOMMU_GLOBAL_BASE),
 			device->mmu.setstate_memory.gpuaddr +
 			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 	else
@@ -413,9 +401,6 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 		kgsl_mmu_disable_clk_on_ts(&device->mmu,
 		adreno_dev->ringbuffer.timestamp[KGSL_MEMSTORE_GLOBAL], true);
 	}
-done:
-	if (num_iommu_units)
-		kfree(reg_map_array);
 }
 
 static void adreno_gpummu_setstate(struct kgsl_device *device,
@@ -453,7 +438,7 @@ static void adreno_gpummu_setstate(struct kgsl_device *device,
 
 			/* set page table base */
 			*cmds++ = cp_type0_packet(MH_MMU_PT_BASE, 1);
-			*cmds++ = kgsl_mmu_pt_get_base_addr(
+			*cmds++ = kgsl_mmu_get_pt_base_addr(&device->mmu,
 					device->mmu.hwpagetable);
 			sizedwords += 4;
 		}
@@ -1969,7 +1954,8 @@ struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
 
 		adreno_context = (struct adreno_context *)context->devctxt;
 
-		if (kgsl_mmu_pt_equal(adreno_context->pagetable, pt_base)) {
+		if (kgsl_mmu_pt_equal(&device->mmu, adreno_context->pagetable,
+					pt_base)) {
 			struct kgsl_memdesc *desc;
 
 			desc = &adreno_context->gpustate;
@@ -2008,7 +1994,7 @@ struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 					size))
 		return &device->mmu.setstate_memory;
 
-	entry = kgsl_get_mem_entry(pt_base, gpuaddr, size);
+	entry = kgsl_get_mem_entry(device, pt_base, gpuaddr, size);
 
 	if (entry)
 		return &entry->memdesc;

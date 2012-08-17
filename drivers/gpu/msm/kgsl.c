@@ -193,13 +193,14 @@ void kgsl_cancel_events(struct kgsl_device *device,
 EXPORT_SYMBOL(kgsl_cancel_events);
 
 /* kgsl_get_mem_entry - get the mem_entry structure for the specified object
+ * @device - Pointer to the device structure
  * @ptbase - the pagetable base of the object
  * @gpuaddr - the GPU address of the object
  * @size - Size of the region to search
  */
 
-struct kgsl_mem_entry *kgsl_get_mem_entry(unsigned int ptbase,
-	unsigned int gpuaddr, unsigned int size)
+struct kgsl_mem_entry *kgsl_get_mem_entry(struct kgsl_device *device,
+	unsigned int ptbase, unsigned int gpuaddr, unsigned int size)
 {
 	struct kgsl_process_private *priv;
 	struct kgsl_mem_entry *entry;
@@ -207,7 +208,7 @@ struct kgsl_mem_entry *kgsl_get_mem_entry(unsigned int ptbase,
 	mutex_lock(&kgsl_driver.process_mutex);
 
 	list_for_each_entry(priv, &kgsl_driver.process_list, list) {
-		if (!kgsl_mmu_pt_equal(priv->pagetable, ptbase))
+		if (!kgsl_mmu_pt_equal(&device->mmu, priv->pagetable, ptbase))
 			continue;
 		spin_lock(&priv->mem_lock);
 		entry = kgsl_sharedmem_find_region(priv, gpuaddr, size);
