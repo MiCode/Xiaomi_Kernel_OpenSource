@@ -511,18 +511,48 @@ static int do_unmap(struct ocmem_req *req)
 	return 0;
 }
 
-/* process map is a wrapper where power control will be added later */
 static int process_map(struct ocmem_req *req, unsigned long start,
 				unsigned long end)
 {
+	int rc = 0;
+
+	rc = ocmem_enable_core_clock();
+
+	if (rc < 0)
+		goto core_clock_fail;
+
+	rc = ocmem_enable_iface_clock();
+
+	if (rc < 0)
+		goto process_map_fail;
+
 	return do_map(req);
+
+process_map_fail:
+	ocmem_disable_core_clock();
+core_clock_fail:
+	pr_err("ocmem: Failed to map ocmem request\n");
+	return rc;
 }
 
-/* process unmap is a wrapper where power control will be added later */
 static int process_unmap(struct ocmem_req *req, unsigned long start,
 				unsigned long end)
 {
-	return do_unmap(req);
+	int rc = 0;
+
+	rc = do_unmap(req);
+
+	if (rc < 0)
+		goto process_unmap_fail;
+
+	ocmem_disable_iface_clock();
+	ocmem_disable_core_clock();
+
+	return 0;
+
+process_unmap_fail:
+	pr_err("ocmem: Failed to unmap ocmem request\n");
+	return rc;
 }
 
 static int __sched_grow(struct ocmem_req *req, bool can_block)

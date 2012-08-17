@@ -17,6 +17,7 @@
  *  Client drivers should use wrappers available in ocmem.h
  **/
 #include <linux/platform_device.h>
+#include <linux/clk.h>
 #include <asm/io.h>
 #include <mach/msm_iomap.h>
 #include "ocmem.h"
@@ -74,6 +75,8 @@ struct ocmem_plat_data {
 	void __iomem *vbase;
 	unsigned long size;
 	unsigned long base;
+	struct clk *core_clk;
+	struct clk *iface_clk;
 	struct ocmem_partition *parts;
 	int nr_parts;
 	void __iomem *reg_base;
@@ -208,4 +211,8 @@ int ocmem_rdm_transfer(int, struct ocmem_map_list *,
 unsigned long process_quota(int);
 int ocmem_memory_off(int, unsigned long, unsigned long);
 int ocmem_memory_on(int, unsigned long, unsigned long);
+int ocmem_enable_core_clock(void);
+int ocmem_enable_iface_clock(void);
+void ocmem_disable_core_clock(void);
+void ocmem_disable_iface_clock(void);
 #endif
