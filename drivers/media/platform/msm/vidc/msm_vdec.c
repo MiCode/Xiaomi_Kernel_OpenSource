@@ -156,11 +156,23 @@ static const struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 static u32 get_frame_size_nv12(int plane,
 					u32 height, u32 width)
 {
-	int luma_stride = ALIGN(width, 32);
-	int luma_slice = ALIGN(height, 32);
-	int chroma_stride = ALIGN(roundup(width, 2)/2, 32);
-	int chroma_slice = ALIGN(roundup(height, 2)/2, 32);
-	return (luma_stride * luma_slice) + (chroma_stride * chroma_slice) * 2;
+	int size;
+	int luma_h, luma_w, luma_stride, luma_scanl, luma_size;
+	int chroma_h, chroma_w, chroma_stride, chroma_scanl, chroma_size;
+
+	luma_w = width;
+	luma_h = height;
+
+	chroma_w = luma_w;
+	chroma_h = luma_h/2;
+	NV12_IL_CALC_Y_STRIDE(luma_stride, luma_w, 32);
+	NV12_IL_CALC_Y_BUFHEIGHT(luma_scanl, luma_h, 32);
+	NV12_IL_CALC_UV_STRIDE(chroma_stride, chroma_w, 32);
+	NV12_IL_CALC_UV_BUFHEIGHT(chroma_scanl, luma_h, 32);
+	NV12_IL_CALC_BUF_SIZE(size, luma_size, luma_stride,
+		luma_scanl, chroma_size, chroma_stride, chroma_scanl, 32);
+	size = ALIGN(size, SZ_4K);
+	return size;
 }
 static u32 get_frame_size_nv21(int plane,
 					u32 height, u32 width)
