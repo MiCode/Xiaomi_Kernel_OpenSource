@@ -341,9 +341,11 @@ void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 				irq, mdss_res->mdp_irq_mask);
 	} else {
 		mdss_res->mdp_irq_mask &= ~irq;
+
 		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN,
 				mdss_res->mdp_irq_mask);
-		mdss_disable_irq(&mdss_mdp_hw);
+		if (mdss_res->mdp_irq_mask == 0)
+			mdss_disable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
@@ -362,7 +364,8 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 		mdss_res->mdp_irq_mask &= ~irq;
 		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN,
 				mdss_res->mdp_irq_mask);
-		mdss_disable_irq_nosync(&mdss_mdp_hw);
+		if (mdss_res->mdp_irq_mask == 0)
+			mdss_disable_irq_nosync(&mdss_mdp_hw);
 	}
 	spin_unlock(&mdp_lock);
 }
