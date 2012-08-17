@@ -51,6 +51,23 @@ EXPORT_SYMBOL_GPL(power_supply_set_current_limit);
  * @psy:	the power supply to control
  * @enable:	sets online property of power supply
  */
+int power_supply_set_present(struct power_supply *psy, bool enable)
+{
+	const union power_supply_propval ret = {enable,};
+
+	if (psy->set_property)
+		return psy->set_property(psy, POWER_SUPPLY_PROP_PRESENT,
+								&ret);
+
+	return -ENXIO;
+}
+EXPORT_SYMBOL_GPL(power_supply_set_present);
+
+/**
+ * power_supply_set_online - set online state of the power supply
+ * @psy:	the power supply to control
+ * @enable:	sets online property of power supply
+ */
 int power_supply_set_online(struct power_supply *psy, bool enable)
 {
 	const union power_supply_propval ret = {enable,};
