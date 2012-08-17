@@ -531,6 +531,10 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable(unsigned long name)
 #ifndef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	name = KGSL_MMU_GLOBAL_PT;
 #endif
+	/* We presently do not support per-process for IOMMU-v2 */
+	if (!msm_soc_version_supports_iommu_v1())
+		name = KGSL_MMU_GLOBAL_PT;
+
 	pt = kgsl_get_pagetable(name);
 
 	if (pt == NULL)
