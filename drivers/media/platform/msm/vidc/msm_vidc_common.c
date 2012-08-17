@@ -14,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/iommu.h>
+#include <asm/div64.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
 #include <mach/peripheral-loader.h>
@@ -579,9 +580,41 @@ static void handle_fbd(enum command_response cmd, void *data)
 		(u32)fill_buf_done->packet_buffer1);
 	if (vb) {
 		vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
-		pr_debug("Filled length = %d\n", vb->v4l2_planes[0].bytesused);
+
+		if (!(fill_buf_done->flags1 &
+			HAL_BUFFERFLAG_TIMESTAMPINVALID)) {
+			int64_t time_usec = fill_buf_done->timestamp_hi;
+			time_usec = (time_usec << 32) |
+				fill_buf_done->timestamp_lo;
+
+			vb->v4l2_buf.timestamp =
+				ns_to_timeval(time_usec * NSEC_PER_USEC);
+		}
+
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
+
+		switch (fill_buf_done->picture_type) {
+		case HAL_PICTURE_IDR:
+		case HAL_PICTURE_I:
+			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
+			break;
+		case HAL_PICTURE_P:
+			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_PFRAME;
+			break;
+		case HAL_PICTURE_B:
+			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_BFRAME;
+			break;
+		case HAL_FRAME_NOTCODED:
+		case HAL_UNUSED_PICT:
+			/* Do we need to care about these? */
+		case HAL_FRAME_YUV:
+			break;
+		}
+
+		pr_debug("Filled length = %d; flags %x\n",
+				vb->v4l2_planes[0].bytesused,
+				vb->v4l2_buf.flags);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 	} else {
 		/*
@@ -1359,11 +1392,14 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			list_add_tail(&entry->list, &inst->pendingq);
 			spin_unlock_irqrestore(&inst->lock, flags);
 	} else {
+		int64_t time_usec = timeval_to_ns(&vb->v4l2_buf.timestamp);
+		do_div(time_usec, NSEC_PER_USEC);
+
 		memset(&frame_data, 0 , sizeof(struct vidc_frame_data));
 		frame_data.alloc_len = vb->v4l2_planes[0].length;
 		frame_data.filled_len = vb->v4l2_planes[0].bytesused;
 		frame_data.device_addr = vb->v4l2_planes[0].m.userptr;
-		frame_data.timestamp = vb->v4l2_buf.timestamp.tv_usec;
+		frame_data.timestamp = time_usec;
 		frame_data.clnt_data = (u32)vb;
 		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			frame_data.buffer_type = HAL_BUFFER_INPUT;
