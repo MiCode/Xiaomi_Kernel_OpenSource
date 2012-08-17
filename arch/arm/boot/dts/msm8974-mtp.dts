@@ -169,6 +169,10 @@
 	cd-gpios = <&msmgpio 62 0x1>;
 };
 
+&usb_otg {
+	qcom,hsusb-otg-otg-control = <2>;
+};
+
 &pm8941_chg {
 	status = "ok";
 
