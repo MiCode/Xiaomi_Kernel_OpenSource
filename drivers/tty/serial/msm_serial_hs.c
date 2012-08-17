@@ -174,7 +174,7 @@ struct msm_hs_port {
 #define UARTDM_TX_BUF_SIZE UART_XMIT_SIZE
 #define UARTDM_RX_BUF_SIZE 512
 #define RETRY_TIMEOUT 5
-#define UARTDM_NR 5
+#define UARTDM_NR 256
 
 static struct dentry *debug_base;
 static struct msm_hs_port q_uart_port[UARTDM_NR];
@@ -2025,6 +2025,8 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	msm_serial_debugfs_init(msm_uport, pdev->id);
 
 	uport->line = pdev->id;
+	if (pdata != NULL && pdata->userid && pdata->userid <= UARTDM_NR)
+		uport->line = pdata->userid;
 	return uart_add_one_port(&msm_hs_driver, uport);
 }
 
