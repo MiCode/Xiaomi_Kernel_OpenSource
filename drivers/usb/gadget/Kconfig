@@ -1121,15 +1121,4 @@ config RMNET_SDIO_SMD_DATA_CHANNEL
        help
 	  Data SMD channel for transferring network data
 
-config USB_ANDROID_RMNET_CTRL_SMD
-       boolean "RmNet(BAM) control over SMD driver"
-       depends on MSM_SMD
-       help
-         Enabling this option adds rmnet control over SMD
-	 support to the android gadget. Rmnet is an
-	 alternative to CDC-ECM and Windows RNDIS.
-	 It uses QUALCOMM MSM Interface for control
-	 transfers. This option enables only control interface.
-	 Data interface used is BAM.
-
 endif # USB_GADGET
