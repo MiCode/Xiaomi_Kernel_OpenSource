@@ -1,0 +1,57 @@
+Qualcomm QPNP Leds
+
+QPNP (Qualcomm Plug N Play) LEDs driver is used for
+controlling LEDs that are part of PMIC on Qualcomm reference
+platforms. The PMIC is connected to Host processor via
+SPMI bus. This driver supports various LED modules such as
+WLED (white LED), RGB LED and flash LED. The first version of
+the driver supports WLED and other features are added in the
+next versions.
+
+Required Properties:
+- compatible	: should be "qcom,leds-qpnp"
+
+Each LED module is represented as a node of "leds-qpnp". This
+node will furthur contain the type of LED supported and its
+properties.
+
+Required properties:
+- qcom,id		: must be one of values supported in enum qpnp_led
+- qcom,label		: type of led that will be used, ie "wled"
+- qcom,max-current	: maximum current that the LED can sustain
+= qcom,name		: name the led will be called by in sysfs entry
+
+WLED is primarily used as display backlight. Display subsystem uses
+LED triggers for WLED to control the brightness as needed.
+
+Optional properties for WLED:
+- qcom,num-strings: number of wled strings supported
+- qcom,ovp_val: over voltage protection threshold,
+		follows enum wled_ovp_threshold
+- qcom,boost_curr_lim: boot currnet limit, follows enum wled_current_bost_limit
+- qcom,ctrl_delay_us: delay in activation of led
+- qcom,dig_mod_gen_en: digital module generator
+- qcom,cs_out_en: current sink output enable
+- qcom,op_fdbck: selection of output as feedback for the boost
+- qcom,cp_select: high pole capacitance
+- linux,default-trigger: trigger the led from external modules such as display
+- qcom,default-state:  default state of the led, should be "on" or "off"
+
+Example:
+
+	qcom,leds@d800 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xD800 0x100>;
+			linux,default-trigger = "bkl-trigger"
+			qcom,label = "wled";
+			qcom,cs-out-en;
+			qcom,op-fdbck;
+			qcom,default-state "off";
+			qcom,max-current = <25>;
+			qcom,ctrl-delay-us = <0>;
+			qcom,boost-curr-lim = <3>;
+			qcom,cp-sel = <0>;
+			qcom,switch-freq = <2>;
+			qcom,ovp-val = <2>;
+			qcom,num-strings = <1>;
+	}
