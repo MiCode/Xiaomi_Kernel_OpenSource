@@ -456,6 +456,12 @@ int msm_v4l2_qbuf(struct file *file, void *fh,
 		b->m.planes[i].m.userptr = binfo->handle->device_addr;
 		pr_debug("Queueing device address = %ld\n",
 				binfo->handle->device_addr);
+		rc = msm_smem_clean_invalidate(v4l2_inst->mem_client,
+				binfo->handle);
+		if (rc) {
+			pr_err("Failed to clean caches: %d\n", rc);
+			goto err_invalid_buff;
+		}
 	}
 	rc = msm_vidc_qbuf(&v4l2_inst->vidc_inst, b);
 err_invalid_buff:
