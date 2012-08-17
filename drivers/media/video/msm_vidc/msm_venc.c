@@ -560,7 +560,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				*num_buffers > MAX_NUM_OUTPUT_BUFFERS)
 			*num_buffers = MIN_NUM_OUTPUT_BUFFERS;
 		for (i = 0; i < *num_planes; i++) {
-			sizes[i] = inst->fmts[OUTPUT_PORT]->get_frame_size(
+			sizes[i] = inst->fmts[CAPTURE_PORT]->get_frame_size(
 					i, inst->prop.height, inst->prop.width);
 		}
 		break;
@@ -602,7 +602,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				inst->buff_req.buffer[0].buffer_alignment,
 				inst->buff_req.buffer[0].buffer_count_actual);
 		for (i = 0; i < *num_planes; i++) {
-			sizes[i] = inst->fmts[CAPTURE_PORT]->get_frame_size(
+			sizes[i] = inst->fmts[OUTPUT_PORT]->get_frame_size(
 					i, inst->prop.height, inst->prop.width);
 		}
 
