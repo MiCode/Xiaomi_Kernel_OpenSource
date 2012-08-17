@@ -577,6 +577,10 @@
 		qcom,firmware-name = "adsp";
 	};
 
+	qcom,msm-adsp-loader {
+		compatible = "qcom,adsp-loader";
+	};
+
 	qcom,msm-pcm {
 		compatible = "qcom,msm-pcm-dsp";
 	};
