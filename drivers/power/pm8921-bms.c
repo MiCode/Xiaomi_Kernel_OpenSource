@@ -1615,7 +1615,8 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 	 * keep reporting the prev chg soc
 	 */
 	if (vbat_uv <= chip->max_voltage_uv) {
-		pr_debug("CC CHG SOC %d\n", chip->prev_chg_soc);
+		pr_debug("vbat %d < max = %d CC CHG SOC %d\n",
+			vbat_uv, chip->max_voltage_uv, chip->prev_chg_soc);
 		return chip->prev_chg_soc;
 	}
 
@@ -1640,7 +1641,7 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 				chip->prev_chg_soc);
 	}
 
-	pr_debug("CHG SOC %d\n", chip->prev_chg_soc);
+	pr_debug("Reporting CHG SOC %d\n", chip->prev_chg_soc);
 	return chip->prev_chg_soc;
 }
 
@@ -3170,6 +3171,7 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		chip->adjust_soc_low_threshold = 45;
 
 	chip->prev_pc_unusable = -EINVAL;
+	chip->soc_at_cv = -EINVAL;
 
 	chip->ignore_shutdown_soc = pdata->ignore_shutdown_soc;
 	rc = set_battery_data(chip);
