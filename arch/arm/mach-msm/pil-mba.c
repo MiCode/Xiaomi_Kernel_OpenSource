@@ -38,9 +38,11 @@
 #define STATUS_META_DATA_AUTH_SUCCESS	0x3
 #define STATUS_AUTH_COMPLETE		0x4
 
-#define AUTH_TIMEOUT_US			10000000
 #define PROXY_TIMEOUT_MS		10000
 #define POLL_INTERVAL_US		50
+
+static int modem_auth_timeout_ms = 10000;
+module_param(modem_auth_timeout_ms, int, S_IRUGO | S_IWUSR);
 
 struct mba_data {
 	void __iomem *reg_base;
@@ -89,7 +91,7 @@ static int pil_mba_init_image(struct pil_desc *pil,
 	writel_relaxed(CMD_META_DATA_READY, drv->reg_base + RMB_MBA_COMMAND);
 	ret = readl_poll_timeout(drv->reg_base + RMB_MBA_STATUS, status,
 		status == STATUS_META_DATA_AUTH_SUCCESS || status < 0,
-		POLL_INTERVAL_US, AUTH_TIMEOUT_US);
+		POLL_INTERVAL_US, modem_auth_timeout_ms * 1000);
 	if (ret) {
 		dev_err(pil->dev, "MBA authentication timed out\n");
 	} else if (status < 0) {
@@ -133,7 +135,7 @@ static int pil_mba_auth(struct pil_desc *pil)
 	/* Wait for all segments to be authenticated or an error to occur */
 	ret = readl_poll_timeout(drv->reg_base + RMB_MBA_STATUS, status,
 			status == STATUS_AUTH_COMPLETE || status < 0,
-			50, AUTH_TIMEOUT_US);
+			50, modem_auth_timeout_ms * 1000);
 	if (ret) {
 		dev_err(pil->dev, "MBA authentication timed out\n");
 	} else if (status < 0) {
