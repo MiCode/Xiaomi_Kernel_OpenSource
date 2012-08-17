@@ -218,8 +218,10 @@ static void sync_pt_activate(struct sync_pt *pt)
 	spin_lock_irqsave(&obj->active_list_lock, flags);
 
 	err = _sync_pt_has_signaled(pt);
-	if (err != 0)
+	if (err != 0) {
+		sync_fence_signal_pt(pt);
 		goto out;
+	}
 
 	list_add_tail(&pt->active_list, &obj->active_list_head);
 
