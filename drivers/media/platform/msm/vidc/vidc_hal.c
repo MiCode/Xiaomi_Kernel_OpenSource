@@ -316,7 +316,7 @@ static int vidc_hal_alloc(void *mem, void *clnt, u32 size, u32 align, u32 flags,
 	vmem = (struct vidc_mem_addr *)mem;
 	HAL_MSG_HIGH("start to alloc: size:%d, Flags: %d", size, flags);
 
-	alloc  = msm_smem_alloc(clnt, size, align, flags, domain, 0);
+	alloc  = msm_smem_alloc(clnt, size, align, flags, domain, 1);
 	HAL_MSG_LOW("Alloc done");
 	if (!alloc) {
 		HAL_MSG_HIGH("Alloc fail in %s", __func__);

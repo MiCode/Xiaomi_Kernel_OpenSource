@@ -31,6 +31,7 @@
 
 #define BASE_DEVICE_NUMBER 32
 #define MAX_EVENTS 30
+#define SHARED_QSIZE 0x1000000
 
 
 static struct msm_bus_vectors ocmem_init_vectors[]  = {
@@ -591,7 +592,7 @@ static int register_iommu_domains(struct platform_device *pdev,
 	struct msm_vidc_core *core)
 {
 	size_t len;
-	struct msm_iova_partition partition;
+	struct msm_iova_partition partition[2];
 	struct msm_iova_layout layout;
 	int rc = 0;
 	int i;
@@ -614,14 +615,28 @@ static int register_iommu_domains(struct platform_device *pdev,
 			rc = -EINVAL;
 			break;
 		}
-		partition.start = io_map[i].addr_range[0];
-		partition.size = io_map[i].addr_range[1];
-		layout.partitions = &partition;
-		layout.npartitions = 1;
+		partition[0].start = io_map[i].addr_range[0];
+		if (i == NS_MAP) {
+			partition[0].size =
+				io_map[i].addr_range[1] - SHARED_QSIZE;
+			partition[1].start =
+				partition[0].start + io_map[i].addr_range[1]
+					- SHARED_QSIZE;
+			partition[1].size = SHARED_QSIZE;
+			layout.npartitions = 2;
+		} else {
+			partition[0].size = io_map[i].addr_range[1];
+			layout.npartitions = 1;
+		}
+		layout.partitions = &partition[0];
 		layout.client_name = io_map[i].name;
 		layout.domain_flags = 0;
-		pr_debug("Registering domain with: %lx, %lx, %s\n",
-			partition.start, partition.size, layout.client_name);
+		pr_debug("Registering domain 1 with: %lx, %lx, %s\n",
+			partition[0].start, partition[0].size,
+			layout.client_name);
+		pr_debug("Registering domain 2 with: %lx, %lx, %s\n",
+			partition[1].start, partition[1].size,
+			layout.client_name);
 		io_map[i].domain = msm_register_domain(&layout);
 		if (io_map[i].domain < 0) {
 			pr_err("Failed to register cp domain\n");
