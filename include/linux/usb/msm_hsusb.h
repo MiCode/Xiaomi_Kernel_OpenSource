@@ -25,7 +25,7 @@
 #include <linux/wakelock.h>
 #include <linux/pm_qos.h>
 #include <linux/hrtimer.h>
-
+#include <linux/power_supply.h>
 /*
  * The following are bit fields describing the usb_request.udc_priv word.
  * These bit fields are set by function drivers that wish to queue
@@ -383,6 +383,10 @@ struct msm_otg {
 	u8 active_tmout;
 	struct hrtimer timer;
 	enum usb_vdd_type vdd_type;
+	struct power_supply usb_psy;
+	unsigned int online;
+	unsigned int host_mode;
+	unsigned int current_max;
 };
 
 struct msm_hsic_host_platform_data {
