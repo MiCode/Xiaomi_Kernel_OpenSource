@@ -175,7 +175,8 @@ static int snapshot_os(struct kgsl_device *device,
 	/* Get the current PT base */
 	header->ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
 	/* And the PID for the task leader */
-	pid = header->pid = kgsl_mmu_get_ptname_from_ptbase(header->ptbase);
+	pid = header->pid = kgsl_mmu_get_ptname_from_ptbase(&device->mmu,
+								header->ptbase);
 
 	task = find_task_by_vpid(pid);
 
@@ -307,7 +308,7 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	struct kgsl_snapshot_object *obj;
 	int offset;
 
-	entry = kgsl_get_mem_entry(ptbase, gpuaddr, size);
+	entry = kgsl_get_mem_entry(device, ptbase, gpuaddr, size);
 
 	if (entry == NULL) {
 		KGSL_DRV_ERR(device, "Unable to find GPU buffer %8.8X\n",

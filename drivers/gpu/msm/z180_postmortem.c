@@ -152,7 +152,8 @@ static void z180_dump_ib(struct kgsl_device *device)
 
 			ib_gpuptr = rb_hostptr[i+1];
 
-			entry = kgsl_get_mem_entry(pt_base, ib_gpuptr, 1);
+			entry = kgsl_get_mem_entry(device, pt_base, ib_gpuptr,
+							1);
 
 			if (entry == NULL) {
 				KGSL_LOG_DUMP(device,
