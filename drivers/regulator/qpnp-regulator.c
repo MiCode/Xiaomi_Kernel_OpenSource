@@ -107,7 +107,7 @@ enum qpnp_vs_registers {
 };
 
 enum qpnp_boost_registers {
-	QPNP_BOOST_REG_CURRENT_LIMIT		= 0x40,
+	QPNP_BOOST_REG_CURRENT_LIMIT		= 0x4A,
 };
 
 /* Used for indexing into ctrl_reg.  These are offets from 0x40 */
@@ -116,10 +116,6 @@ enum qpnp_common_control_register_index {
 	QPNP_COMMON_IDX_VOLTAGE_SET		= 1,
 	QPNP_COMMON_IDX_MODE			= 5,
 	QPNP_COMMON_IDX_ENABLE			= 6,
-};
-
-enum qpnp_boost_control_register_index {
-	QPNP_BOOST_IDX_CURRENT_LIMIT		= 0,
 };
 
 /* Common regulator control register layout */
@@ -1124,10 +1120,14 @@ static int qpnp_regulator_init_registers(struct qpnp_regulator *vreg,
 	if (type == QPNP_REGULATOR_LOGICAL_TYPE_BOOST
 		&& pdata->boost_current_limit
 			!= QPNP_BOOST_CURRENT_LIMIT_HW_DEFAULT) {
-		ctrl_reg[QPNP_BOOST_IDX_CURRENT_LIMIT] &=
-			~QPNP_BOOST_CURRENT_LIMIT_MASK;
-		ctrl_reg[QPNP_BOOST_IDX_CURRENT_LIMIT] |=
-		     pdata->boost_current_limit & QPNP_BOOST_CURRENT_LIMIT_MASK;
+		reg = pdata->boost_current_limit;
+		mask = QPNP_BOOST_CURRENT_LIMIT_MASK;
+		rc = qpnp_vreg_masked_read_write(vreg,
+			QPNP_BOOST_REG_CURRENT_LIMIT, reg, mask);
+		if (rc) {
+			vreg_err(vreg, "spmi write failed, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* Write back any control register values that were modified. */
