@@ -93,7 +93,7 @@ struct ath_struct {
 
 static void hostwake_interrupt(unsigned long data)
 {
-	printk(KERN_INFO " wakeup host\n");
+	BT_INFO(" wakeup host\n");
 }
 
 static void modify_timer_task(void)
@@ -109,7 +109,7 @@ static int ath_wakeup_ar3k(struct tty_struct *tty)
 {
 	int status = 0;
 	if (test_bit(BT_TXEXPIRED, &flags)) {
-		printk(KERN_INFO "wakeup device\n");
+		BT_INFO("wakeup device\n");
 		gpio_set_value(bsi->ext_wake, 0);
 		msleep(20);
 		gpio_set_value(bsi->ext_wake, 1);
@@ -138,12 +138,114 @@ static void ath_hci_uart_work(struct work_struct *work)
 	hci_uart_tx_wakeup(hu);
 }
 
+static irqreturn_t bluesleep_hostwake_isr(int irq, void *dev_id)
+{
+	/* schedule a tasklet to handle the change in the host wake line */
+	tasklet_schedule(&hostwake_task);
+	return IRQ_HANDLED;
+}
+
+static int ath_bluesleep_gpio_config(int on)
+{
+	int ret = 0;
+
+	BT_INFO("%s config: %d", __func__, on);
+	if (!on) {
+		if (disable_irq_wake(bsi->host_wake_irq))
+			BT_ERR("Couldn't disable hostwake IRQ wakeup mode\n");
+		goto free_host_wake_irq;
+	}
+
+	ret = gpio_request(bsi->host_wake, "bt_host_wake");
+	if (ret < 0) {
+		BT_ERR("failed to request gpio pin %d, error %d\n",
+			bsi->host_wake, ret);
+		goto gpio_config_failed;
+	}
+
+	/* configure host_wake as input */
+	ret = gpio_direction_input(bsi->host_wake);
+	if (ret < 0) {
+		BT_ERR("failed to config GPIO %d as input pin, err %d\n",
+			bsi->host_wake, ret);
+		goto gpio_host_wake;
+	}
+
+	ret = gpio_request(bsi->ext_wake, "bt_ext_wake");
+	if (ret < 0) {
+		BT_ERR("failed to request gpio pin %d, error %d\n",
+			bsi->ext_wake, ret);
+		goto gpio_host_wake;
+	}
+
+	ret = gpio_direction_output(bsi->ext_wake, 1);
+	if (ret < 0) {
+		BT_ERR("failed to config GPIO %d as output pin, err %d\n",
+			bsi->ext_wake, ret);
+		goto gpio_ext_wake;
+	}
+
+	gpio_set_value(bsi->ext_wake, 1);
+
+	/* Initialize spinlock. */
+	spin_lock_init(&rw_lock);
+
+	/* Initialize timer */
+	init_timer(&tx_timer);
+	tx_timer.function = bluesleep_tx_timer_expire;
+	tx_timer.data = 0;
+
+	/* initialize host wake tasklet */
+	tasklet_init(&hostwake_task, hostwake_interrupt, 0);
+
+	if (bsi->irq_polarity == POLARITY_LOW) {
+		ret = request_irq(bsi->host_wake_irq, bluesleep_hostwake_isr,
+				IRQF_DISABLED | IRQF_TRIGGER_FALLING,
+				"bluetooth hostwake", NULL);
+	} else  {
+		ret = request_irq(bsi->host_wake_irq, bluesleep_hostwake_isr,
+				IRQF_DISABLED | IRQF_TRIGGER_RISING,
+				"bluetooth hostwake", NULL);
+	}
+	if (ret  < 0) {
+		BT_ERR("Couldn't acquire BT_HOST_WAKE IRQ");
+		goto delete_timer;
+	}
+
+	ret = enable_irq_wake(bsi->host_wake_irq);
+	if (ret < 0) {
+		BT_ERR("Couldn't enable BT_HOST_WAKE as wakeup interrupt");
+		goto free_host_wake_irq;
+	}
+
+	return 0;
+
+free_host_wake_irq:
+	free_irq(bsi->host_wake_irq, NULL);
+delete_timer:
+	del_timer(&tx_timer);
+gpio_ext_wake:
+	gpio_free(bsi->ext_wake);
+gpio_host_wake:
+	gpio_free(bsi->host_wake);
+gpio_config_failed:
+	return ret;
+}
+
 /* Initialize protocol */
 static int ath_open(struct hci_uart *hu)
 {
 	struct ath_struct *ath;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %p, bsi %p", hu, bsi);
+
+	if (!bsi)
+		return -EIO;
+
+	if (ath_bluesleep_gpio_config(1) < 0) {
+		BT_ERR("HCIATH3K GPIO Config failed");
+		return -EIO;
+	}
 
 	ath = kzalloc(sizeof(*ath), GFP_ATOMIC);
 	if (!ath)
@@ -190,6 +292,9 @@ static int ath_close(struct hci_uart *hu)
 	hu->priv = NULL;
 	kfree(ath);
 
+	if (bsi)
+		ath_bluesleep_gpio_config(0);
+
 	return 0;
 }
 
@@ -199,6 +304,8 @@ static int ath_close(struct hci_uart *hu)
 static int ath_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 {
 	struct ath_struct *ath = hu->priv;
+
+	BT_DBG("");
 
 	if (bt_cb(skb)->pkt_type == HCI_SCODATA_PKT) {
 		kfree_skb(skb);
@@ -243,6 +350,8 @@ static int ath_recv(struct hci_uart *hu, void *data, int count)
 	struct ath_struct *ath = hu->priv;
 	unsigned int type;
 
+	BT_DBG("");
+
 	if (hci_recv_stream_fragment(hu->hdev, data, count) < 0)
 		BT_ERR("Frame Reassembly Failed");
 
@@ -260,7 +369,7 @@ static int ath_recv(struct hci_uart *hu, void *data, int count)
 
 		if (type == HCI_EVENT_PKT) {
 			clear_bit(BT_SLEEPCMD, &flags);
-			printk(KERN_INFO "cur_sleep:%d\n", ath->cur_sleep);
+			BT_INFO("cur_sleep:%d\n", ath->cur_sleep);
 			if (ath->cur_sleep == 1)
 				set_bit(BT_SLEEPENABLE, &flags);
 			else
@@ -276,17 +385,9 @@ static void bluesleep_tx_timer_expire(unsigned long data)
 {
 	if (!test_bit(BT_SLEEPENABLE, &flags))
 		return;
-	BT_DBG("Tx timer expired");
-	printk(KERN_INFO "Tx timer expired\n");
+	BT_INFO("Tx timer expired\n");
 
 	set_bit(BT_TXEXPIRED, &flags);
-}
-
-static irqreturn_t bluesleep_hostwake_isr(int irq, void *dev_id)
-{
-	/* schedule a tasklet to handle the change in the host wake line */
-	tasklet_schedule(&hostwake_task);
-	return IRQ_HANDLED;
 }
 
 static struct hci_uart_proto athp = {
@@ -304,6 +405,8 @@ static int __init bluesleep_probe(struct platform_device *pdev)
 	int ret;
 	struct resource *res;
 
+	BT_DBG("");
+
 	bsi = kzalloc(sizeof(struct bluesleep_info), GFP_KERNEL);
 	if (!bsi) {
 		ret = -ENOMEM;
@@ -319,107 +422,35 @@ static int __init bluesleep_probe(struct platform_device *pdev)
 	}
 	bsi->host_wake = res->start;
 
-	ret = gpio_request(bsi->host_wake, "bt_host_wake");
-	if (ret)
-		goto free_bsi;
-
-	/* configure host_wake as input */
-	ret = gpio_direction_input(bsi->host_wake);
-	if (ret < 0) {
-		pr_err("%s: gpio_direction_input failed for GPIO %d, error %d\n",
-			__func__, bsi->host_wake, ret);
-		gpio_free(bsi->host_wake);
-		goto free_bsi;
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_IO,
 						"gpio_ext_wake");
 	if (!res) {
 		BT_ERR("couldn't find ext_wake gpio\n");
 		ret = -ENODEV;
-		goto free_bt_host_wake;
+		goto free_bsi;
 	}
 	bsi->ext_wake = res->start;
-
-	ret = gpio_request(bsi->ext_wake, "bt_ext_wake");
-	if (ret)
-		goto free_bt_host_wake;
-
-	/* configure ext_wake as output mode*/
-	ret = gpio_direction_output(bsi->ext_wake, 1);
-	if (ret < 0) {
-		pr_err("%s: gpio_direction_output failed for GPIO %d, error %d\n",
-			__func__, bsi->ext_wake, ret);
-		gpio_free(bsi->ext_wake);
-		goto free_bt_host_wake;
-	}
-	gpio_set_value(bsi->ext_wake, 1);
 
 	bsi->host_wake_irq = platform_get_irq_byname(pdev, "host_wake");
 	if (bsi->host_wake_irq < 0) {
 		BT_ERR("couldn't find host_wake irq\n");
 		ret = -ENODEV;
-		goto free_bt_ext_wake;
+		goto free_bsi;
 	}
 
 	bsi->irq_polarity = POLARITY_LOW;	/* low edge (falling edge) */
 
-	/* Initialize spinlock. */
-	spin_lock_init(&rw_lock);
-
-	/* Initialize timer */
-	init_timer(&tx_timer);
-	tx_timer.function = bluesleep_tx_timer_expire;
-	tx_timer.data = 0;
-
-	/* initialize host wake tasklet */
-	tasklet_init(&hostwake_task, hostwake_interrupt, 0);
-
-	if (bsi->irq_polarity == POLARITY_LOW) {
-		ret = request_irq(bsi->host_wake_irq, bluesleep_hostwake_isr,
-				IRQF_DISABLED | IRQF_TRIGGER_FALLING,
-				"bluetooth hostwake", NULL);
-	} else  {
-		ret = request_irq(bsi->host_wake_irq, bluesleep_hostwake_isr,
-				IRQF_DISABLED | IRQF_TRIGGER_RISING,
-				"bluetooth hostwake", NULL);
-	}
-	if (ret  < 0) {
-		BT_ERR("Couldn't acquire BT_HOST_WAKE IRQ");
-		goto free_bt_timer;
-	}
-
-	ret = enable_irq_wake(bsi->host_wake_irq);
-	if (ret < 0) {
-		BT_ERR("Couldn't enable BT_HOST_WAKE as wakeup interrupt");
-		free_irq(bsi->host_wake_irq, NULL);
-		goto free_bt_timer;
-	}
-
 	return 0;
 
-free_bt_timer:
-	del_timer(&tx_timer);
-free_bt_ext_wake:
-	gpio_free(bsi->ext_wake);
-free_bt_host_wake:
-	gpio_free(bsi->host_wake);
 free_bsi:
 	kfree(bsi);
+	bsi = NULL;
 failed:
 	return ret;
 }
 
 static int bluesleep_remove(struct platform_device *pdev)
 {
-	/* assert bt wake */
-	gpio_set_value(bsi->ext_wake, 0);
-	if (disable_irq_wake(bsi->host_wake_irq))
-		BT_ERR("Couldn't disable hostwake IRQ wakeup mode\n");
-	free_irq(bsi->host_wake_irq, NULL);
-	del_timer_sync(&tx_timer);
-	gpio_free(bsi->host_wake);
-	gpio_free(bsi->ext_wake);
 	kfree(bsi);
 	return 0;
 }
