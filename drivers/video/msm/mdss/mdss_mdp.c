@@ -74,30 +74,18 @@ u32 mdss_mdp_mixer_type_map[MDSS_MDP_MAX_LAYERMIXER] = {
 	MDSS_MDP_MIXER_TYPE_WRITEBACK,
 };
 
-#define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val) \
-	{ \
+#define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
+	{						\
 		.src = MSM_BUS_MASTER_MDP_PORT0,	\
 		.dst = MSM_BUS_SLAVE_EBI_CH0,		\
 		.ab = (ab_val),				\
 		.ib = (ib_val),				\
 	}
 
-#define MDP_BUS_VECTOR_ENTRY_NDX(n) \
-		MDP_BUS_VECTOR_ENTRY((n) * 100000000, (n) * 200000000)
-
 static struct msm_bus_vectors mdp_bus_vectors[] = {
-	MDP_BUS_VECTOR_ENTRY_NDX(0),
-	MDP_BUS_VECTOR_ENTRY_NDX(1),
-	MDP_BUS_VECTOR_ENTRY_NDX(2),
-	MDP_BUS_VECTOR_ENTRY_NDX(3),
-	MDP_BUS_VECTOR_ENTRY_NDX(4),
-	MDP_BUS_VECTOR_ENTRY_NDX(5),
-	MDP_BUS_VECTOR_ENTRY_NDX(6),
-	MDP_BUS_VECTOR_ENTRY_NDX(7),
-	MDP_BUS_VECTOR_ENTRY_NDX(8),
-	MDP_BUS_VECTOR_ENTRY_NDX(9),
-	MDP_BUS_VECTOR_ENTRY_NDX(10),
-	MDP_BUS_VECTOR_ENTRY(200000000, 200000000)
+	MDP_BUS_VECTOR_ENTRY(0, 0),
+	MDP_BUS_VECTOR_ENTRY(SZ_128M, SZ_256M),
+	MDP_BUS_VECTOR_ENTRY(SZ_256M, SZ_512M),
 };
 static struct msm_bus_paths mdp_bus_usecases[ARRAY_SIZE(mdp_bus_vectors)];
 static struct msm_bus_scale_pdata mdp_bus_scale_table = {
@@ -270,34 +258,39 @@ static void mdss_mdp_bus_scale_unregister(void)
 		msm_bus_scale_unregister_client(mdss_res->bus_hdl);
 }
 
-int mdss_mdp_bus_scale_set_min_quota(u32 quota)
+int mdss_mdp_bus_scale_set_quota(u32 ab_quota, u32 ib_quota)
 {
-	struct msm_bus_scale_pdata *bus_pdata = &mdp_bus_scale_table;
-	struct msm_bus_vectors *vect = NULL;
-	int lvl;
+	static int current_bus_idx;
+	int bus_idx;
 
 	if (mdss_res->bus_hdl < 1) {
 		pr_err("invalid bus handle %d\n", mdss_res->bus_hdl);
 		return -EINVAL;
 	}
 
-	for (lvl = 0; lvl < bus_pdata->num_usecases; lvl++) {
-		if (bus_pdata->usecase[lvl].num_paths) {
-			vect = &bus_pdata->usecase[lvl].vectors[0];
-			if (vect->ab >= quota) {
-				pr_debug("lvl=%d quota=%u ab=%u\n", lvl, quota,
-						vect->ab);
-				break;
-			}
+	if ((ab_quota | ib_quota) == 0) {
+		bus_idx = 0;
+	} else {
+		int num_cases = mdp_bus_scale_table.num_usecases;
+		struct msm_bus_vectors *vect = NULL;
+
+		bus_idx = (current_bus_idx % (num_cases - 1)) + 1;
+
+		vect = mdp_bus_scale_table.usecase[current_bus_idx].vectors;
+		if ((ab_quota == vect->ab) && (ib_quota == vect->ib)) {
+			pr_debug("skip bus scaling, no change in vectors\n");
+			return 0;
 		}
-	}
 
-	if (lvl == bus_pdata->num_usecases) {
-		pr_warn("cannot match quota=%u try with max level\n", quota);
-		lvl--;
-	}
+		vect = mdp_bus_scale_table.usecase[bus_idx].vectors;
+		vect->ab = ab_quota;
+		vect->ib = ib_quota;
 
-	return msm_bus_scale_client_update_request(mdss_res->bus_hdl, lvl);
+		pr_debug("bus scale idx=%d ab=%u ib=%u\n", bus_idx,
+				vect->ab, vect->ib);
+	}
+	current_bus_idx = bus_idx;
+	return msm_bus_scale_client_update_request(mdss_res->bus_hdl, bus_idx);
 }
 
 static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
@@ -427,6 +420,8 @@ void mdss_mdp_set_clk_rate(unsigned long min_clk_rate)
 				pr_debug("mdp clk rate=%lu\n", clk_rate);
 		}
 		mutex_unlock(&mdp_clk_lock);
+	} else {
+		pr_err("mdp src clk not setup properly\n");
 	}
 }
 
@@ -466,7 +461,7 @@ static void mdss_mdp_clk_ctrl_update(int enable)
 
 static void mdss_mdp_clk_ctrl_workqueue_handler(struct work_struct *work)
 {
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_MASTER_OFF, false);
 }
 
 void mdss_mdp_clk_ctrl(int enable, int isr)
@@ -485,12 +480,18 @@ void mdss_mdp_clk_ctrl(int enable, int isr)
 	 */
 	WARN_ON(isr == true && enable);
 
-	if (enable) {
+	if (enable == MDP_BLOCK_POWER_ON) {
 		atomic_inc(&clk_ref);
 	} else if (!atomic_add_unless(&clk_ref, -1, 0)) {
-		pr_debug("master power-off req\n");
-		force_off = 1;
+		if (enable == MDP_BLOCK_MASTER_OFF) {
+			pr_debug("master power-off req\n");
+			force_off = 1;
+		} else {
+			WARN(1, "too many mdp clock off call\n");
+		}
 	}
+
+	WARN_ON(enable == MDP_BLOCK_MASTER_OFF && !force_off);
 
 	if (isr) {
 		/* if it's power off send workqueue to turn off clocks */
@@ -561,6 +562,7 @@ static int mdss_mdp_irq_clk_setup(struct platform_device *pdev)
 		goto error;
 	}
 	regulator_enable(mdss_res->fs);
+	mdss_res->fs_ena = true;
 
 	if (mdss_mdp_irq_clk_register(pdev, "bus_clk", MDSS_CLK_AXI) ||
 	    mdss_mdp_irq_clk_register(pdev, "iface_clk", MDSS_CLK_AHB) ||
@@ -736,7 +738,7 @@ static void mdss_mdp_suspend_sub(void)
 
 	flush_workqueue(mdss_res->clk_ctrl_wq);
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_MASTER_OFF, false);
 
 	mutex_lock(&mdp_suspend_mutex);
 	mdss_res->suspend = true;
@@ -745,24 +747,38 @@ static void mdss_mdp_suspend_sub(void)
 
 static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	if (pdev->id == 0) {
-		mdss_mdp_suspend_sub();
-		if (mdss_res->clk_ena) {
-			pr_err("MDP suspend failed\n");
-			return -EBUSY;
-		}
-		mdss_mdp_footswitch_ctrl(false);
+	int ret;
+	pr_debug("display suspend");
+
+	ret = mdss_fb_suspend_all();
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("Unable to suspend all fb panels (%d)\n", ret);
+		return ret;
 	}
+	mdss_mdp_suspend_sub();
+	if (mdss_res->clk_ena) {
+		pr_err("MDP suspend failed\n");
+		return -EBUSY;
+	}
+	mdss_mdp_footswitch_ctrl(false);
+
 	return 0;
 }
 
 static int mdss_mdp_resume(struct platform_device *pdev)
 {
+	int ret = 0;
+
+	pr_debug("resume display");
+
 	mdss_mdp_footswitch_ctrl(true);
 	mutex_lock(&mdp_suspend_mutex);
 	mdss_res->suspend = false;
 	mutex_unlock(&mdp_suspend_mutex);
-	return 0;
+	ret = mdss_fb_resume_all();
+	if (IS_ERR_VALUE(ret))
+		pr_err("Unable to resume all fb panels (%d)\n", ret);
+	return ret;
 }
 #else
 #define mdss_mdp_suspend NULL

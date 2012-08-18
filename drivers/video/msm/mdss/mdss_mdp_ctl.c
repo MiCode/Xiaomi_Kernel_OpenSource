@@ -20,122 +20,177 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 
+/* 1.10 bus fudge factor */
+#define MDSS_MDP_BUS_FUDGE_FACTOR(val) ALIGN((((val) * 11) / 10), SZ_16M)
+/* 1.25 clock fudge factor */
+#define MDSS_MDP_CLK_FUDGE_FACTOR(val) (((val) * 5) / 4)
+
 enum {
-	MDSS_MDP_BUS_UPDATE_SKIP,
-	MDSS_MDP_BUS_UPDATE_EARLY,
-	MDSS_MDP_BUS_UPDATE_LATE,
+	MDSS_MDP_PERF_UPDATE_SKIP,
+	MDSS_MDP_PERF_UPDATE_EARLY,
+	MDSS_MDP_PERF_UPDATE_LATE,
 };
+
+#define MDSS_MDP_PERF_UPDATE_CLK BIT(0)
+#define MDSS_MDP_PERF_UPDATE_BUS BIT(1)
+#define MDSS_MDP_PERF_UPDATE_ALL -1
 
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 static struct mdss_mdp_ctl mdss_mdp_ctl_list[MDSS_MDP_MAX_CTL];
 static struct mdss_mdp_mixer mdss_mdp_mixer_list[MDSS_MDP_MAX_LAYERMIXER];
 
-static int mdss_mdp_ctl_update_clk_rate(void)
+static int mdss_mdp_ctl_perf_commit(u32 flags)
 {
 	struct mdss_mdp_ctl *ctl;
 	int cnum;
-	unsigned long clk_rate = MDP_CLK_DEFAULT_RATE;
+	unsigned long clk_rate = 0;
+	u32 bus_ab_quota = 0, bus_ib_quota = 0;
+
+	if (!flags) {
+		pr_err("nothing to update\n");
+		return -EINVAL;
+	}
 
 	mutex_lock(&mdss_mdp_ctl_lock);
 	for (cnum = 0; cnum < MDSS_MDP_MAX_CTL; cnum++) {
 		ctl = &mdss_mdp_ctl_list[cnum];
-		if (ctl->power_on && ctl->mfd) {
-			unsigned long tmp;
-			pr_debug("ctl=%d pclk_rate=%u\n", ctl->num,
-					ctl->mfd->panel_info.clk_rate);
-			tmp = (ctl->mfd->panel_info.clk_rate * 23) / 20;
-			if (tmp > clk_rate)
-				clk_rate = tmp;
+		if (ctl->power_on) {
+			bus_ab_quota += ctl->bus_ab_quota;
+			bus_ib_quota += ctl->bus_ib_quota;
+
+			if (ctl->clk_rate > clk_rate)
+				clk_rate = ctl->clk_rate;
 		}
 	}
-	mdss_mdp_set_clk_rate(clk_rate);
-	mutex_unlock(&mdss_mdp_ctl_lock);
-
-	return 0;
-}
-
-static int mdss_mdp_ctl_update_bus_scale(void)
-{
-	struct mdss_mdp_ctl *ctl;
-	int cnum;
-	u32 bus_quota = 0;
-
-	mutex_lock(&mdss_mdp_ctl_lock);
-	for (cnum = 0; cnum < MDSS_MDP_MAX_CTL; cnum++) {
-		ctl = &mdss_mdp_ctl_list[cnum];
-		if (ctl->power_on)
-			bus_quota += ctl->bus_quota;
+	if (flags & MDSS_MDP_PERF_UPDATE_BUS) {
+		bus_ab_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ab_quota);
+		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ib_quota);
+		mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
 	}
-	mdss_mdp_bus_scale_set_min_quota(bus_quota);
+	if (flags & MDSS_MDP_PERF_UPDATE_CLK) {
+		clk_rate = MDSS_MDP_CLK_FUDGE_FACTOR(clk_rate);
+		pr_debug("update clk rate = %lu\n", clk_rate);
+		mdss_mdp_set_clk_rate(clk_rate);
+	}
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return 0;
 }
 
-static void mdss_mdp_bus_update_pipe_quota(struct mdss_mdp_pipe *pipe)
-{
-	u32 quota;
-
-	quota = pipe->img_width * pipe->img_height * 60 * pipe->src_fmt->bpp;
-	quota *= 5 / 4; /* 1.25 factor */
-
-	pr_debug("pipe=%d quota old=%u new=%u\n", pipe->num,
-		   pipe->bus_quota, quota);
-	pipe->bus_quota = quota;
-}
-
-static int mdss_mdp_bus_update_mixer_quota(struct mdss_mdp_mixer *mixer)
+static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
+				       u32 *bus_ab_quota, u32 *bus_ib_quota,
+				       u32 *clk_rate)
 {
 	struct mdss_mdp_pipe *pipe;
-	u32 quota, stage;
+	const int fps = 60;
+	u32 quota, rate;
+	u32 v_total, v_active;
+	int i;
 
-	if (!mixer)
-		return 0;
+	*bus_ab_quota = 0;
+	*bus_ib_quota = 0;
+	*clk_rate = 0;
 
-	quota = 0;
-	for (stage = 0; stage < MDSS_MDP_MAX_STAGE; stage++) {
-		pipe = mixer->stage_pipe[stage];
+	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+		struct mdss_panel_info *pinfo = &mixer->ctl->mfd->panel_info;
+		v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
+			pinfo->lcdc.v_front_porch + pinfo->lcdc.v_pulse_width);
+		v_active = pinfo->yres;
+	} else if (mixer->rotator_mode) {
+		pipe = mixer->stage_pipe[0]; /* rotator pipe */
+		v_total = pipe->flags & MDP_ROT_90 ? pipe->dst.w : pipe->dst.h;
+		v_active = v_total;
+	} else {
+		v_total = mixer->height;
+		v_active = v_total;
+	}
+
+	for (i = 0; i < MDSS_MDP_MAX_STAGE; i++) {
+		u32 ib_quota;
+		pipe = mixer->stage_pipe[i];
 		if (pipe == NULL)
 			continue;
 
-		quota += pipe->bus_quota;
+		quota = fps * pipe->src.w * pipe->src.h;
+		if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
+			quota = (quota * 3) / 2;
+		else
+			quota *= pipe->src_fmt->bpp;
+
+		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
+			quota = (quota / v_active) * v_total;
+		else
+			quota *= 2; /* bus read + write */
+
+		rate = pipe->dst.w;
+		if (pipe->src.h > pipe->dst.h) {
+			rate = (rate * pipe->src.h) / pipe->dst.h;
+			ib_quota = (quota / pipe->dst.h) * pipe->src.h;
+		} else {
+			ib_quota = quota;
+		}
+		rate *= v_total * fps;
+		if (mixer->rotator_mode)
+			rate /= 4; /* block mode fetch at 4 pix/clk */
+
+		*bus_ab_quota += quota;
+		*bus_ib_quota += ib_quota;
+		if (rate > *clk_rate)
+			*clk_rate = rate;
+
+		pr_debug("mixer=%d pnum=%d clk_rate=%u bus ab=%u ib=%u\n",
+			 mixer->num, pipe->num, rate, quota, ib_quota);
 	}
 
-	pr_debug("mixer=%d quota old=%u new=%u\n", mixer->num,
-		   mixer->bus_quota, quota);
-
-	if (quota != mixer->bus_quota) {
-		mixer->bus_quota = quota;
-		return 1;
-	}
-
-	return 0;
+	pr_debug("final mixer=%d clk_rate=%u bus ab=%u ib=%u\n", mixer->num,
+		 *clk_rate, *bus_ab_quota, *bus_ib_quota);
 }
 
-static int mdss_mdp_bus_update_ctl_quota(struct mdss_mdp_ctl *ctl)
+static int mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl, u32 *flags)
 {
-	int ret = MDSS_MDP_BUS_UPDATE_SKIP;
+	int ret = MDSS_MDP_PERF_UPDATE_SKIP;
+	u32 clk_rate, ab_quota, ib_quota;
+	u32 max_clk_rate = 0, total_ab_quota = 0, total_ib_quota = 0;
 
-	if (mdss_mdp_bus_update_mixer_quota(ctl->mixer_left) ||
-			mdss_mdp_bus_update_mixer_quota(ctl->mixer_right)) {
-		u32 quota = 0;
+	if (ctl->mixer_left) {
+		mdss_mdp_perf_mixer_update(ctl->mixer_left, &ab_quota,
+					   &ib_quota, &clk_rate);
+		total_ab_quota += ab_quota;
+		total_ib_quota += ib_quota;
+		max_clk_rate = clk_rate;
+	}
 
-		if (ctl->mixer_left)
-			quota += ctl->mixer_left->bus_quota;
-		if (ctl->mixer_right)
-			quota += ctl->mixer_right->bus_quota;
+	if (ctl->mixer_right) {
+		mdss_mdp_perf_mixer_update(ctl->mixer_right, &ab_quota,
+					   &ib_quota, &clk_rate);
+		total_ab_quota += ab_quota;
+		total_ib_quota += ib_quota;
+		if (clk_rate > max_clk_rate)
+			max_clk_rate = clk_rate;
+	}
 
-		pr_debug("ctl=%d quota old=%u new=%u\n",
-			   ctl->num, ctl->bus_quota, quota);
+	*flags = 0;
 
-		if (quota != ctl->bus_quota) {
-			if (quota > ctl->bus_quota)
-				ret = MDSS_MDP_BUS_UPDATE_EARLY;
+	if (max_clk_rate != ctl->clk_rate) {
+		if (max_clk_rate > ctl->clk_rate)
+			ret = MDSS_MDP_PERF_UPDATE_EARLY;
+		else
+			ret = MDSS_MDP_PERF_UPDATE_LATE;
+		ctl->clk_rate = max_clk_rate;
+		*flags |= MDSS_MDP_PERF_UPDATE_CLK;
+	}
+
+	if ((total_ab_quota != ctl->bus_ab_quota) ||
+			(total_ib_quota != ctl->bus_ib_quota)) {
+		if (ret == MDSS_MDP_PERF_UPDATE_SKIP) {
+			if (total_ib_quota > ctl->bus_ib_quota)
+				ret = MDSS_MDP_PERF_UPDATE_EARLY;
 			else
-				ret = MDSS_MDP_BUS_UPDATE_LATE;
-
-			ctl->bus_quota = quota;
+				ret = MDSS_MDP_PERF_UPDATE_LATE;
 		}
+		ctl->bus_ab_quota = total_ab_quota;
+		ctl->bus_ib_quota = total_ib_quota;
+		*flags |= MDSS_MDP_PERF_UPDATE_BUS;
 	}
 
 	return ret;
@@ -261,6 +316,7 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	mixer->ctl = ctl;
 
 	ctl->start_fnc = mdss_mdp_writeback_start;
+	ctl->power_on = true;
 
 	if (ctl->start_fnc)
 		ctl->start_fnc(ctl);
@@ -442,7 +498,6 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 	mutex_lock(&ctl->lock);
 
 	ctl->power_on = true;
-	mdss_mdp_ctl_update_clk_rate();
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	if (ctl->start_fnc)
@@ -531,8 +586,7 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 
 	ctl->play_cnt = 0;
 
-	mdss_mdp_ctl_update_bus_scale();
-	mdss_mdp_ctl_update_clk_rate();
+	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
 
 	mutex_unlock(&ctl->lock);
 
@@ -705,7 +759,6 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed)
 	if (params_changed) {
 		mixer->params_changed++;
 		mixer->stage_pipe[pipe->mixer_stage] = pipe;
-		mdss_mdp_bus_update_pipe_quota(pipe);
 	}
 
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
@@ -764,14 +817,18 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	int mixer1_changed, mixer2_changed;
 	int ret = 0;
-	int bus_update = MDSS_MDP_BUS_UPDATE_SKIP;
+	int perf_update = MDSS_MDP_PERF_UPDATE_SKIP;
+	u32 update_flags = 0;
 
 	if (!ctl) {
 		pr_err("display function not set\n");
 		return -ENODEV;
 	}
 
-	pr_debug("commit ctl=%d\n", ctl->num);
+	if (!ctl->power_on)
+		return 0;
+
+	pr_debug("commit ctl=%d play_cnt=%d\n", ctl->num, ctl->play_cnt);
 
 	if (mutex_lock_interruptible(&ctl->lock))
 		return -EINTR;
@@ -781,7 +838,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	if (mixer1_changed || mixer2_changed) {
-		bus_update = mdss_mdp_bus_update_ctl_quota(ctl);
+		perf_update = mdss_mdp_ctl_perf_update(ctl, &update_flags);
 
 		if (ctl->prepare_fnc)
 			ret = ctl->prepare_fnc(ctl, arg);
@@ -790,8 +847,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 			goto done;
 		}
 
-		if (bus_update == MDSS_MDP_BUS_UPDATE_EARLY)
-			mdss_mdp_ctl_update_bus_scale();
+		if (perf_update == MDSS_MDP_PERF_UPDATE_EARLY)
+			mdss_mdp_ctl_perf_commit(update_flags);
 
 		if (mixer1_changed)
 			mdss_mdp_mixer_update(ctl->mixer_left);
@@ -813,8 +870,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 
 	ctl->play_cnt++;
 
-	if (bus_update == MDSS_MDP_BUS_UPDATE_LATE)
-		mdss_mdp_ctl_update_bus_scale();
+	if (perf_update == MDSS_MDP_PERF_UPDATE_LATE)
+		mdss_mdp_ctl_perf_commit(update_flags);
 
 done:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
