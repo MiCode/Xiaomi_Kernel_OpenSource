@@ -78,6 +78,12 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 #define GC_LUT_SEGMENTS	16
 #define ENHIST_LUT_ENTRIES 256
 
+static u32 dither_matrix[16] = {
+	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10};
+static u32 dither_depth_map[9] = {
+	0, 0, 0, 0, 0, 1, 2, 3, 3};
+
+
 struct pp_sts_type {
 	u32 pa_sts;
 	u32 pcc_sts;
@@ -85,6 +91,7 @@ struct pp_sts_type {
 	u32 igc_tbl_idx;
 	u32 argc_sts;
 	u32 enhist_sts;
+	u32 dither_sts;
 };
 
 #define PP_FLAGS_DIRTY_PA	0x1
@@ -92,6 +99,7 @@ struct pp_sts_type {
 #define PP_FLAGS_DIRTY_IGC	0x4
 #define PP_FLAGS_DIRTY_ARGC	0x8
 #define PP_FLAGS_DIRTY_ENHIST	0x10
+#define PP_FLAGS_DIRTY_DITHER	0x20
 
 #define PP_STS_ENABLE	0x1
 
@@ -112,6 +120,7 @@ struct mdss_pp_res_type {
 	struct mdp_igc_lut_data igc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pgc_lut_data pgc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_hist_lut_data enhist_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_dither_cfg_data dither_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	/* physical info */
 	struct pp_sts_type pp_dspp_sts[MDSS_MDP_MAX_DSPP];
 };
@@ -266,8 +275,9 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	struct mdp_pcc_cfg_data *pcc_config;
 	struct mdp_igc_lut_data *igc_config;
 	struct mdp_hist_lut_data *enhist_cfg;
+	struct mdp_dither_cfg_data *dither_cfg;
 	struct pp_sts_type *pp_sts;
-	u32 tbl_idx;
+	u32 data, tbl_idx;
 	int i;
 	dspp_num = mixer->num;
 	/* no corresponding dspp */
@@ -369,7 +379,31 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 			MDSS_MDP_REG_WRITE(offset + 12, 0);
 		}
 	}
-
+	if (flags & PP_FLAGS_DIRTY_DITHER) {
+		dither_cfg = &mdss_pp_res->dither_disp_cfg[disp_num];
+		if (dither_cfg->flags & MDP_PP_OPS_WRITE) {
+			offset = base + MDSS_MDP_REG_DSPP_DITHER_DEPTH;
+			MDSS_MDP_REG_WRITE(offset,
+			  dither_depth_map[dither_cfg->g_y_depth] |
+			  (dither_depth_map[dither_cfg->b_cb_depth] << 2) |
+			  (dither_depth_map[dither_cfg->r_cr_depth] << 4));
+			offset += 0x14;
+			for (i = 0; i << 16; i += 4) {
+				data = dither_matrix[i] |
+					(dither_matrix[i + 1] << 4) |
+					(dither_matrix[i + 2] << 8) |
+					(dither_matrix[i + 3] << 12);
+				MDSS_MDP_REG_WRITE(offset, data);
+				offset += 4;
+			}
+		}
+		if (dither_cfg->flags & MDP_PP_OPS_DISABLE)
+			pp_sts->dither_sts &= ~PP_STS_ENABLE;
+		else if (dither_cfg->flags & MDP_PP_OPS_ENABLE)
+			pp_sts->dither_sts |= PP_STS_ENABLE;
+	}
+	if (pp_sts->dither_sts & PP_STS_ENABLE)
+		opmode |= (1 << 8); /* DITHER_EN */
 	MDSS_MDP_REG_WRITE(base + MDSS_MDP_REG_DSPP_OP_MODE, opmode);
 	ctl->flush_bits |= BIT(13 + dspp_num); /* DSPP */
 	return 0;
@@ -987,4 +1021,21 @@ int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config, u32 *copyback)
 enhist_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
+}
+
+int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config, u32 *copyback)
+{
+	u32 disp_num;
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(config->block >= MDP_BLOCK_MAX))
+		return -EINVAL;
+	if (config->flags & MDP_PP_OPS_READ)
+		return -ENOTSUPP;
+
+	mutex_lock(&mdss_pp_mutex);
+	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+	mdss_pp_res->dither_disp_cfg[disp_num] = *config;
+	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_DITHER;
+	mutex_unlock(&mdss_pp_mutex);
+	return 0;
 }
