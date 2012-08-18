@@ -307,6 +307,26 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 					break;
 				}
 		}
+
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+		else if (proc_num == HSIC_DATA) {
+			for (i = 0; i < driver->poolsize_hsic_write; i++) {
+				if (driver->hsic_buf_tbl[i].length == 0) {
+					driver->hsic_buf_tbl[i].buf = buf;
+					driver->hsic_buf_tbl[i].length =
+							driver->write_len_mdm;
+					driver->num_hsic_buf_tbl_entries++;
+#ifdef DIAG_DEBUG
+					pr_debug("diag: ENQUEUE HSIC buf ptr and length is %x , %d\n",
+						(unsigned int)
+						(driver->hsic_buf_tbl[i].buf),
+						driver->hsic_buf_tbl[i].length);
+#endif
+					break;
+				}
+			}
+		}
+#endif
 		for (i = 0; i < driver->num_clients; i++)
 			if (driver->client_map[i].pid ==
 						 driver->logging_process_id)
@@ -343,8 +363,6 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 #endif
 #ifdef CONFIG_DIAG_BRIDGE_CODE
 		else if (proc_num == HSIC_DATA) {
-			driver->in_busy_hsic_read = 0;
-			driver->in_busy_hsic_write_on_device = 0;
 			if (driver->hsic_ch)
 				queue_work(driver->diag_bridge_wq,
 					&(driver->diag_read_hsic_work));
@@ -396,11 +414,33 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 #ifdef CONFIG_DIAG_BRIDGE_CODE
 		else if (proc_num == HSIC_DATA) {
 			if (driver->hsic_device_enabled) {
-				write_ptr->buf = buf;
-				err = usb_diag_write(driver->mdm_ch, write_ptr);
-			} else
+				struct diag_request *write_ptr_mdm;
+				write_ptr_mdm = (struct diag_request *)
+						diagmem_alloc(driver,
+						sizeof(struct diag_request),
+							POOL_TYPE_HSIC_WRITE);
+				if (write_ptr_mdm) {
+					write_ptr_mdm->buf = buf;
+					write_ptr_mdm->length =
+						driver->write_len_mdm;
+					err = usb_diag_write(driver->mdm_ch,
+								write_ptr_mdm);
+					/* Return to the pool immediately */
+					if (err) {
+						diagmem_free(driver,
+							write_ptr_mdm,
+							POOL_TYPE_HSIC_WRITE);
+					pr_err("diag: HSIC write failure\n");
+					}
+				} else {
+					pr_err("diag: allocate write fail\n");
+					err = -1;
+				}
+			} else {
 				pr_err("diag: Incorrect hsic data "
 						"while USB write\n");
+				err = -1;
+			}
 		} else if (proc_num == SMUX_DATA) {
 				write_ptr->buf = buf;
 				pr_debug("diag: writing SMUX data\n");

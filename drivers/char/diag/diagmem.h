@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,5 +18,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type);
 void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type);
 void diagmem_init(struct diagchar_dev *driver);
 void diagmem_exit(struct diagchar_dev *driver, int pool_type);
-
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+void diagmem_hsic_init(struct diagchar_dev *driver);
+#endif
 #endif
