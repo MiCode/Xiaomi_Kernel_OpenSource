@@ -1373,7 +1373,7 @@ struct asm_stream_cmd_read{
 	u32	uid;
 } __attribute__((packed));
 
-#define ASM_DATA_CMD_READ_COMPRESSED                     0x00010DBC
+#define ASM_DATA_CMD_READ_COMPRESSED                     0x00010DBF
 struct asm_stream_cmd_read_compressed {
 	struct apr_hdr     hdr;
 	u32	buf_add;
@@ -1444,7 +1444,7 @@ struct asm_data_event_read_done{
 	u32            id;
 } __attribute__((packed));
 
-#define ASM_DATA_EVENT_READ_COMPRESSED_DONE              0x00010DBD
+#define ASM_DATA_EVENT_READ_COMPRESSED_DONE              0x00010DC0
 struct asm_data_event_read_compressed_done {
 	u32            status;
 	u32            buffer_add;
