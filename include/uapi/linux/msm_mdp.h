@@ -472,6 +472,14 @@ struct mdp_pa_cfg_data {
 	uint32_t cont_adj;
 };
 
+struct mdp_dither_cfg_data {
+	uint32_t block;
+	uint32_t flags;
+	uint32_t g_y_depth;
+	uint32_t r_cr_depth;
+	uint32_t b_cb_depth;
+};
+
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
@@ -479,6 +487,7 @@ enum {
 	mdp_op_qseed_cfg,
 	mdp_bl_scale_cfg,
 	mdp_op_pa_cfg,
+	mdp_op_dither_cfg,
 	mdp_op_max,
 };
 
@@ -491,6 +500,7 @@ struct msmfb_mdp_pp {
 		struct mdp_qseed_cfg_data qseed_cfg_data;
 		struct mdp_bl_scale_data bl_scale_data;
 		struct mdp_pa_cfg_data pa_cfg_data;
+		struct mdp_dither_cfg_data dither_cfg_data;
 	} data;
 };
 
