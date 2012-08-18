@@ -254,7 +254,7 @@ config ARCH_MSM8974
 	select SPARSE_IRQ
 	select MSM_RPM_SMD
 	select REGULATOR
-	select MSM_QDSP6_APR
+	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select MSM_RPM_REGULATOR_SMD
@@ -2207,6 +2207,16 @@ config MSM_QDSP6_APR
 	  used by audio driver to configure QDSP6's
 	  ASM, ADM and AFE.
 
+config MSM_QDSP6_APRV2
+	bool "Audio QDSP6 APRv2 support"
+	depends on MSM_SMD
+	default n
+	help
+	  Enable APRv2 IPC protocol support between
+	  application processor and QDSP6. APR is
+	  used by audio driver to configure QDSP6's
+	  ASM, ADM and AFE.
+
 config MSM_QDSP6_CODECS
 	bool "Audio Codecs on QDSP6 APR "
 	depends on MSM_SMD
@@ -2243,6 +2253,16 @@ config MSM_AUDIO_QDSP6V2
           audio processing. It will enable support for
           AAC, AMRNB, AMRWB, EVRC, MP3, QCELP among
           others.
+
+config MSM_ADSP_LOADER
+        tristate "ADSP loader support"
+        select SND_SOC_MSM_APRV2_INTF
+	depends on MSM_AUDIO_QDSP6V2 && m
+        help
+          Enable ADSP image loader.
+	  The ADSP loader brings ADSP out of reset
+	  for the platforms that use APRv2.
+	  Say M if you want to enable this module.
 
 config MSM_ULTRASOUND
 	bool "MSM ultrasound support"

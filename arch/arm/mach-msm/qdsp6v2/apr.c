@@ -15,7 +15,6 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
-#include <linux/mutex.h>
 #include <linux/list.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
@@ -36,13 +35,11 @@
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 
-struct apr_q6 q6;
-struct apr_client client[APR_DEST_MAX][APR_CLIENT_MAX];
-static atomic_t dsp_state;
-static atomic_t modem_state;
+static struct apr_q6 q6;
+static struct apr_client client[APR_DEST_MAX][APR_CLIENT_MAX];
 
-static wait_queue_head_t  dsp_wait;
-static wait_queue_head_t  modem_wait;
+static wait_queue_head_t dsp_wait;
+static wait_queue_head_t modem_wait;
 /* Subsystem restart: QDSP6 data, functions */
 static struct workqueue_struct *apr_reset_workqueue;
 static void apr_reset_deregister(struct work_struct *work);
@@ -51,6 +48,199 @@ struct apr_reset_work {
 	struct work_struct work;
 };
 
+struct apr_svc_table {
+	char name[64];
+	int idx;
+	int id;
+	int client_id;
+};
+
+static const struct apr_svc_table svc_tbl_audio[] = {
+	{
+		.name = "AFE",
+		.idx = 0,
+		.id = APR_SVC_AFE,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "ASM",
+		.idx = 1,
+		.id = APR_SVC_ASM,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "ADM",
+		.idx = 2,
+		.id = APR_SVC_ADM,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "CORE",
+		.idx = 3,
+		.id = APR_SVC_ADSP_CORE,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "TEST",
+		.idx = 4,
+		.id = APR_SVC_TEST_CLIENT,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "MVM",
+		.idx = 5,
+		.id = APR_SVC_ADSP_MVM,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "CVS",
+		.idx = 6,
+		.id = APR_SVC_ADSP_CVS,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "CVP",
+		.idx = 7,
+		.id = APR_SVC_ADSP_CVP,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "USM",
+		.idx = 8,
+		.id = APR_SVC_USM,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+};
+
+static struct apr_svc_table svc_tbl_voice[] = {
+	{
+		.name = "VSM",
+		.idx = 0,
+		.id = APR_SVC_VSM,
+		.client_id = APR_CLIENT_VOICE,
+	},
+	{
+		.name = "VPM",
+		.idx = 1,
+		.id = APR_SVC_VPM,
+		.client_id = APR_CLIENT_VOICE,
+	},
+	{
+		.name = "MVS",
+		.idx = 2,
+		.id = APR_SVC_MVS,
+		.client_id = APR_CLIENT_VOICE,
+	},
+	{
+		.name = "MVM",
+		.idx = 3,
+		.id = APR_SVC_MVM,
+		.client_id = APR_CLIENT_VOICE,
+	},
+	{
+		.name = "CVS",
+		.idx = 4,
+		.id = APR_SVC_CVS,
+		.client_id = APR_CLIENT_VOICE,
+	},
+	{
+		.name = "CVP",
+		.idx = 5,
+		.id = APR_SVC_CVP,
+		.client_id = APR_CLIENT_VOICE,
+	},
+	{
+		.name = "SRD",
+		.idx = 6,
+		.id = APR_SVC_SRD,
+		.client_id = APR_CLIENT_VOICE,
+	},
+	{
+		.name = "TEST",
+		.idx = 7,
+		.id = APR_SVC_TEST_CLIENT,
+		.client_id = APR_CLIENT_VOICE,
+	},
+};
+
+enum apr_subsys_state apr_get_modem_state(void)
+{
+	return atomic_read(&q6.modem_state);
+}
+
+void apr_set_modem_state(enum apr_subsys_state state)
+{
+	atomic_set(&q6.modem_state, state);
+}
+
+enum apr_subsys_state apr_cmpxchg_modem_state(enum apr_subsys_state prev,
+					      enum apr_subsys_state new)
+{
+	return atomic_cmpxchg(&q6.modem_state, prev, new);
+}
+
+enum apr_subsys_state apr_get_q6_state(void)
+{
+	return atomic_read(&q6.q6_state);
+}
+EXPORT_SYMBOL_GPL(apr_get_q6_state);
+
+int apr_set_q6_state(enum apr_subsys_state state)
+{
+	pr_debug("%s: setting adsp state %d\n", __func__, state);
+	if (state < APR_SUBSYS_DOWN || state > APR_SUBSYS_LOADED)
+		return -EINVAL;
+	atomic_set(&q6.q6_state, state);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(apr_set_q6_state);
+
+enum apr_subsys_state apr_cmpxchg_q6_state(enum apr_subsys_state prev,
+					   enum apr_subsys_state new)
+{
+	return atomic_cmpxchg(&q6.q6_state, prev, new);
+}
+
+int apr_wait_for_device_up(int dest_id)
+{
+	int rc = -1;
+	if (dest_id == APR_DEST_MODEM)
+		rc = wait_event_interruptible_timeout(modem_wait,
+				    (apr_get_modem_state() == APR_SUBSYS_UP),
+				    (1 * HZ));
+	else if (dest_id == APR_DEST_QDSP6)
+		rc = wait_event_interruptible_timeout(dsp_wait,
+				    (apr_get_q6_state() == APR_SUBSYS_UP),
+				    (1 * HZ));
+	else
+		pr_err("%s: unknown dest_id %d\n", __func__, dest_id);
+	/* returns left time */
+	return rc;
+}
+
+int apr_load_adsp_image(void)
+{
+	int rc = 0;
+	mutex_lock(&q6.lock);
+	if (apr_get_q6_state() == APR_SUBSYS_UP) {
+		q6.pil = pil_get("q6");
+		if (IS_ERR(q6.pil)) {
+			rc = PTR_ERR(q6.pil);
+			pr_err("APR: Unable to load q6 image, error:%d\n", rc);
+		} else {
+			apr_set_q6_state(APR_SUBSYS_LOADED);
+			pr_debug("APR: Image is loaded, stated\n");
+		}
+	} else
+		pr_debug("APR: cannot load state %d\n", apr_get_q6_state());
+	mutex_unlock(&q6.lock);
+	return rc;
+}
+
+struct apr_client *apr_get_client(int dest_id, int client_id)
+{
+	return &client[dest_id][client_id];
+}
 
 int apr_send_pkt(void *handle, uint32_t *buf)
 {
@@ -72,11 +262,11 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 	}
 
 	if ((svc->dest_id == APR_DEST_QDSP6) &&
-					(atomic_read(&dsp_state) == 0)) {
-		pr_err("apr: Still dsp is not Up\n");
+	    (apr_get_q6_state() != APR_SUBSYS_LOADED)) {
+		pr_err("%s: Still dsp is not Up\n", __func__);
 		return -ENETRESET;
 	} else if ((svc->dest_id == APR_DEST_MODEM) &&
-					(atomic_read(&modem_state) == 0)) {
+		   (apr_get_modem_state() == APR_SUBSYS_DOWN)) {
 		pr_err("apr: Still Modem is not Up\n");
 		return -ENETRESET;
 	}
@@ -111,7 +301,7 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 	return w_len;
 }
 
-static void apr_cb_func(void *buf, int len, void *priv)
+void apr_cb_func(void *buf, int len, void *priv)
 {
 	struct apr_client_data data;
 	struct apr_client *apr_client;
@@ -136,8 +326,7 @@ static void apr_cb_func(void *buf, int len, void *priv)
 	pr_debug("\n*****************\n");
 
 	if (!buf || len <= APR_HDR_SIZE) {
-		pr_err("APR: Improper apr pkt received:%p %d\n",
-								buf, len);
+		pr_err("APR: Improper apr pkt received:%p %d\n", buf, len);
 		return;
 	}
 	hdr = buf;
@@ -162,8 +351,7 @@ static void apr_cb_func(void *buf, int len, void *priv)
 	}
 	msg_type = hdr->hdr_field;
 	msg_type = (msg_type >> 0x08) & 0x0003;
-	if (msg_type >= APR_MSG_TYPE_MAX &&
-			msg_type != APR_BASIC_RSP_RESULT) {
+	if (msg_type >= APR_MSG_TYPE_MAX && msg_type != APR_BASIC_RSP_RESULT) {
 		pr_err("APR: Wrong message type: %d\n", msg_type);
 		return;
 	}
@@ -180,8 +368,8 @@ static void apr_cb_func(void *buf, int len, void *priv)
 	if (hdr->src_domain == APR_DOMAIN_MODEM) {
 		src = APR_DEST_MODEM;
 		if (svc == APR_SVC_MVS || svc == APR_SVC_MVM ||
-			svc == APR_SVC_CVS || svc == APR_SVC_CVP ||
-			svc == APR_SVC_TEST_CLIENT)
+		    svc == APR_SVC_CVS || svc == APR_SVC_CVP ||
+		    svc == APR_SVC_TEST_CLIENT)
 			clnt = APR_CLIENT_VOICE;
 		else {
 			pr_err("APR: Wrong svc :%d\n", svc);
@@ -190,11 +378,11 @@ static void apr_cb_func(void *buf, int len, void *priv)
 	} else if (hdr->src_domain == APR_DOMAIN_ADSP) {
 		src = APR_DEST_QDSP6;
 		if (svc == APR_SVC_AFE || svc == APR_SVC_ASM ||
-			svc == APR_SVC_VSM || svc == APR_SVC_VPM ||
-			svc == APR_SVC_ADM || svc == APR_SVC_ADSP_CORE ||
-			svc == APR_SVC_USM ||
-			svc == APR_SVC_TEST_CLIENT || svc == APR_SVC_ADSP_MVM ||
-			svc == APR_SVC_ADSP_CVS || svc == APR_SVC_ADSP_CVP)
+		    svc == APR_SVC_VSM || svc == APR_SVC_VPM ||
+		    svc == APR_SVC_ADM || svc == APR_SVC_ADSP_CORE ||
+		    svc == APR_SVC_USM ||
+		    svc == APR_SVC_TEST_CLIENT || svc == APR_SVC_ADSP_MVM ||
+		    svc == APR_SVC_ADSP_CVS || svc == APR_SVC_ADSP_CVP)
 			clnt = APR_CLIENT_AUDIO;
 		else {
 			pr_err("APR: Wrong svc :%d\n", svc);
@@ -220,7 +408,7 @@ static void apr_cb_func(void *buf, int len, void *priv)
 	}
 	pr_debug("svc_idx = %d\n", i);
 	pr_debug("%x %x %x %p %p\n", c_svc->id, c_svc->dest_id,
-			c_svc->client_id, c_svc->fn, c_svc->priv);
+		 c_svc->client_id, c_svc->fn, c_svc->priv);
 	data.payload_size = hdr->pkt_size - hdr_size;
 	data.opcode = hdr->opcode;
 	data.src = src;
@@ -241,199 +429,39 @@ static void apr_cb_func(void *buf, int len, void *priv)
 		pr_err("APR: Rxed a packet for NULL callback\n");
 }
 
-struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
-					uint32_t src_port, void *priv)
+int apr_get_svc(const char *svc_name, int dest_id, int *client_id,
+		int *svc_idx, int *svc_id)
 {
-	int client_id = 0;
-	int svc_idx = 0;
-	int svc_id = 0;
-	int dest_id = 0;
-	int temp_port = 0;
-	struct apr_svc *svc = NULL;
-	int rc = 0;
+	int i;
+	int size;
+	struct apr_svc_table *tbl;
+	int ret = 0;
 
-	if (!dest || !svc_name || !svc_fn)
-		return NULL;
-
-	if (!strncmp(dest, "ADSP", 4))
-		dest_id = APR_DEST_QDSP6;
-	else if (!strncmp(dest, "MODEM", 5)) {
-		dest_id = APR_DEST_MODEM;
+	if (dest_id == APR_DEST_QDSP6) {
+		tbl = (struct apr_svc_table *)&svc_tbl_audio;
+		size = ARRAY_SIZE(svc_tbl_audio);
 	} else {
-		pr_err("APR: wrong destination\n");
-		goto done;
+		tbl = (struct apr_svc_table *)&svc_tbl_voice;
+		size = ARRAY_SIZE(svc_tbl_voice);
 	}
 
-	if ((dest_id == APR_DEST_QDSP6) &&
-				(atomic_read(&dsp_state) == 0)) {
-		pr_info("%s: Wait for Lpass to bootup\n", __func__);
-		rc = wait_event_interruptible_timeout(dsp_wait,
-				(atomic_read(&dsp_state) == 1), (1 * HZ));
-		if (rc == 0) {
-			pr_err("%s: DSP is not Up\n", __func__);
-			return NULL;
-		}
-		pr_info("%s: Lpass Up\n", __func__);
-	} else if ((dest_id == APR_DEST_MODEM) &&
-					(atomic_read(&modem_state) == 0)) {
-		pr_info("%s: Wait for modem to bootup\n", __func__);
-		rc = wait_event_interruptible_timeout(modem_wait,
-			(atomic_read(&modem_state) == 1), (1 * HZ));
-		if (rc == 0) {
-			pr_err("%s: Modem is not Up\n", __func__);
-			return NULL;
-		}
-		pr_info("%s: modem Up\n", __func__);
-	}
-
-	if (!strncmp(svc_name, "AFE", 3)) {
-		client_id = APR_CLIENT_AUDIO;
-		svc_idx = 0;
-		svc_id = APR_SVC_AFE;
-	} else if (!strncmp(svc_name, "ASM", 3)) {
-		client_id = APR_CLIENT_AUDIO;
-		svc_idx = 1;
-		svc_id = APR_SVC_ASM;
-	} else if (!strncmp(svc_name, "ADM", 3)) {
-		client_id = APR_CLIENT_AUDIO;
-		svc_idx = 2;
-		svc_id = APR_SVC_ADM;
-	} else if (!strncmp(svc_name, "CORE", 4)) {
-		client_id = APR_CLIENT_AUDIO;
-		svc_idx = 3;
-		svc_id = APR_SVC_ADSP_CORE;
-	} else if (!strncmp(svc_name, "TEST", 4)) {
-		if (dest_id == APR_DEST_QDSP6) {
-			client_id = APR_CLIENT_AUDIO;
-			svc_idx = 4;
-		} else {
-			client_id = APR_CLIENT_VOICE;
-			svc_idx = 7;
-		}
-		svc_id = APR_SVC_TEST_CLIENT;
-	} else if (!strncmp(svc_name, "VSM", 3)) {
-		client_id = APR_CLIENT_VOICE;
-		svc_idx = 0;
-		svc_id = APR_SVC_VSM;
-	} else if (!strncmp(svc_name, "VPM", 3)) {
-		client_id = APR_CLIENT_VOICE;
-		svc_idx = 1;
-		svc_id = APR_SVC_VPM;
-	} else if (!strncmp(svc_name, "MVS", 3)) {
-		client_id = APR_CLIENT_VOICE;
-		svc_idx = 2;
-		svc_id = APR_SVC_MVS;
-	} else if (!strncmp(svc_name, "MVM", 3)) {
-		if (dest_id == APR_DEST_MODEM) {
-			client_id = APR_CLIENT_VOICE;
-			svc_idx = 3;
-			svc_id = APR_SVC_MVM;
-		} else {
-			client_id = APR_CLIENT_AUDIO;
-			svc_idx = 5;
-			svc_id = APR_SVC_ADSP_MVM;
-		}
-	} else if (!strncmp(svc_name, "CVS", 3)) {
-		if (dest_id == APR_DEST_MODEM) {
-			client_id = APR_CLIENT_VOICE;
-			svc_idx = 4;
-			svc_id = APR_SVC_CVS;
-		} else {
-			client_id = APR_CLIENT_AUDIO;
-			svc_idx = 6;
-			svc_id = APR_SVC_ADSP_CVS;
-		}
-	} else if (!strncmp(svc_name, "CVP", 3)) {
-		if (dest_id == APR_DEST_MODEM) {
-			client_id = APR_CLIENT_VOICE;
-			svc_idx = 5;
-			svc_id = APR_SVC_CVP;
-		} else {
-			client_id = APR_CLIENT_AUDIO;
-			svc_idx = 7;
-			svc_id = APR_SVC_ADSP_CVP;
-		}
-	} else if (!strncmp(svc_name, "SRD", 3)) {
-		client_id = APR_CLIENT_VOICE;
-		svc_idx = 6;
-		svc_id = APR_SVC_SRD;
-	} else if (!strncmp(svc_name, "USM", 3)) {
-		client_id = APR_CLIENT_AUDIO;
-		svc_idx = 8;
-		svc_id = APR_SVC_USM;
-	} else {
-		pr_err("APR: Wrong svc name\n");
-		goto done;
-	}
-
-	pr_debug("svc name = %s c_id = %d dest_id = %d\n",
-				svc_name, client_id, dest_id);
-	mutex_lock(&q6.lock);
-	if (q6.state == APR_Q6_NOIMG) {
-		q6.pil = pil_get("q6");
-		if (IS_ERR(q6.pil)) {
-			q6.pil = pil_get("adsp");
-			if (IS_ERR(q6.pil)) {
-				rc = PTR_ERR(q6.pil);
-				pr_err("APR: Unable to load q6 image, error:%d\n",
-									 rc);
-				mutex_unlock(&q6.lock);
-				return svc;
-			}
-		}
-		q6.state = APR_Q6_LOADED;
-	}
-	mutex_unlock(&q6.lock);
-	mutex_lock(&client[dest_id][client_id].m_lock);
-	if (!client[dest_id][client_id].handle) {
-		client[dest_id][client_id].handle = apr_tal_open(client_id,
-				dest_id, APR_DL_SMD, apr_cb_func, NULL);
-		if (!client[dest_id][client_id].handle) {
-			svc = NULL;
-			pr_err("APR: Unable to open handle\n");
-			mutex_unlock(&client[dest_id][client_id].m_lock);
-			goto done;
-		}
-	}
-	mutex_unlock(&client[dest_id][client_id].m_lock);
-	svc = &client[dest_id][client_id].svc[svc_idx];
-	mutex_lock(&svc->m_lock);
-	client[dest_id][client_id].id = client_id;
-	if (svc->need_reset) {
-		mutex_unlock(&svc->m_lock);
-		pr_err("APR: Service needs reset\n");
-		goto done;
-	}
-	svc->priv = priv;
-	svc->id = svc_id;
-	svc->dest_id = dest_id;
-	svc->client_id = client_id;
-	if (src_port != 0xFFFFFFFF) {
-		temp_port = ((src_port >> 8) * 8) + (src_port & 0xFF);
-		pr_debug("port = %d t_port = %d\n", src_port, temp_port);
-		if (temp_port >= APR_MAX_PORTS || temp_port < 0) {
-			pr_err("APR: temp_port out of bounds\n");
-			mutex_unlock(&svc->m_lock);
-			return NULL;
-		}
-		if (!svc->port_cnt && !svc->svc_cnt)
-			client[dest_id][client_id].svc_cnt++;
-		svc->port_cnt++;
-		svc->port_fn[temp_port] = svc_fn;
-		svc->port_priv[temp_port] = priv;
-	} else {
-		if (!svc->fn) {
-			if (!svc->port_cnt && !svc->svc_cnt)
-				client[dest_id][client_id].svc_cnt++;
-			svc->fn = svc_fn;
-			if (svc->port_cnt)
-				svc->svc_cnt++;
+	for (i = 0; i < size; i++) {
+		if (!strncmp(svc_name, tbl[i].name, strlen(tbl[i].name))) {
+			*client_id = tbl[i].client_id;
+			*svc_idx = tbl[i].idx;
+			*svc_id = tbl[i].id;
+			break;
 		}
 	}
 
-	mutex_unlock(&svc->m_lock);
-done:
-	return svc;
+	pr_debug("%s: svc_name = %s c_id = %d dest_id = %d\n",
+		 __func__, svc_name, *client_id, dest_id);
+	if (i == size) {
+		pr_err("%s: APR: Wrong svc name %s\n", __func__, svc_name);
+		ret = -EINVAL;
+	}
+
+	return ret;
 }
 
 static void apr_reset_deregister(struct work_struct *work)
@@ -489,7 +517,7 @@ int apr_deregister(void *handle)
 		svc->need_reset = 0x0;
 	}
 	if (client[dest_id][client_id].handle &&
-		!client[dest_id][client_id].svc_cnt) {
+	    !client[dest_id][client_id].svc_cnt) {
 		apr_tal_close(client[dest_id][client_id].handle);
 		client[dest_id][client_id].handle = NULL;
 	}
@@ -524,14 +552,7 @@ void apr_reset(void *handle)
 	queue_work(apr_reset_workqueue, &apr_reset_worker->work);
 }
 
-void change_q6_state(int state)
-{
-	mutex_lock(&q6.lock);
-	q6.state = state;
-	mutex_unlock(&q6.lock);
-}
-
-int adsp_state(int state)
+static int adsp_state(int state)
 {
 	pr_info("dsp state = %d\n", state);
 	return 0;
@@ -590,12 +611,12 @@ void dispatch_event(unsigned long code, unsigned short proc)
 }
 
 static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
-								void *_cmd)
+			     void *_cmd)
 {
 	switch (code) {
 	case SUBSYS_BEFORE_SHUTDOWN:
 		pr_debug("M-Notify: Shutdown started\n");
-		atomic_set(&modem_state, 0);
+		apr_set_modem_state(APR_SUBSYS_DOWN);
 		dispatch_event(code, APR_DEST_MODEM);
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
@@ -605,10 +626,9 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		pr_debug("M-notify: Bootup started\n");
 		break;
 	case SUBSYS_AFTER_POWERUP:
-		if (atomic_read(&modem_state) == 0) {
-			atomic_set(&modem_state, 1);
+		if (apr_cmpxchg_modem_state(APR_SUBSYS_DOWN, APR_SUBSYS_UP) ==
+						APR_SUBSYS_DOWN)
 			wake_up(&modem_wait);
-		}
 		pr_debug("M-Notify: Bootup Completed\n");
 		break;
 	default:
@@ -623,12 +643,12 @@ static struct notifier_block mnb = {
 };
 
 static int lpass_notifier_cb(struct notifier_block *this, unsigned long code,
-								void *_cmd)
+			     void *_cmd)
 {
 	switch (code) {
 	case SUBSYS_BEFORE_SHUTDOWN:
 		pr_debug("L-Notify: Shutdown started\n");
-		atomic_set(&dsp_state, 0);
+		apr_set_q6_state(APR_SUBSYS_DOWN);
 		dispatch_event(code, APR_DEST_QDSP6);
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
@@ -638,10 +658,9 @@ static int lpass_notifier_cb(struct notifier_block *this, unsigned long code,
 		pr_debug("L-notify: Bootup started\n");
 		break;
 	case SUBSYS_AFTER_POWERUP:
-		if (atomic_read(&dsp_state) == 0) {
-			atomic_set(&dsp_state, 1);
+		if (apr_cmpxchg_q6_state(APR_SUBSYS_DOWN, APR_SUBSYS_UP) ==
+					     APR_SUBSYS_DOWN)
 			wake_up(&dsp_wait);
-		}
 		pr_debug("L-Notify: Bootup Completed\n");
 		break;
 	default:
@@ -670,8 +689,7 @@ static int __init apr_init(void)
 		}
 	mutex_init(&q6.lock);
 	dsp_debug_register(adsp_state);
-	apr_reset_workqueue =
-		create_singlethread_workqueue("apr_driver");
+	apr_reset_workqueue = create_singlethread_workqueue("apr_driver");
 	if (!apr_reset_workqueue)
 		return -ENOMEM;
 	return 0;
@@ -683,10 +701,9 @@ static int __init apr_late_init(void)
 	int ret = 0;
 	init_waitqueue_head(&dsp_wait);
 	init_waitqueue_head(&modem_wait);
-	atomic_set(&dsp_state, 1);
-	atomic_set(&modem_state, 1);
 	subsys_notif_register_notifier("modem", &mnb);
 	subsys_notif_register_notifier("lpass", &lnb);
+	apr_set_subsys_state();
 	return ret;
 }
 late_initcall(apr_late_init);
