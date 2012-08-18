@@ -543,6 +543,20 @@
 		qcom,i2c-src-freq = <24000000>;
 	};
 
+	spi@f9923000 {
+		cell-index = <0>;
+		compatible = "qcom,spi-qup-v2";
+		reg = <0xf9923000 0x1000>;
+		interrupts = <0 95 0>;
+		spi-max-frequency = <19200000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&msmgpio 3 0>, /* CLK  */
+			<&msmgpio 1 0>, /* MISO */
+			<&msmgpio 0 0>; /* MOSI */
+		cs-gpios = <&msmgpio 9 0>;
+	};
+
 	qcom,acpuclk@f9000000 {
 		compatible = "qcom,acpuclk-8974";
 		krait0-supply = <&krait0_vreg>;
