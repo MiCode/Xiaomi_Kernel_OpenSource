@@ -2648,7 +2648,7 @@ sub process {
 				$subjectline = $line;
 				$sublinenr = "#$linenr & ";
 # Check for Subject line less than line limit
-				if (length($1) > SHORTTEXT_LIMIT) {
+				if (length($1) > SHORTTEXT_LIMIT && !($1 =~ m/Revert\ \"/)) {
 					WARN("LONG_SUMMARY_LINE",
 					     "summary line over " .
 					     SHORTTEXT_LIMIT .
@@ -2660,7 +2660,7 @@ sub process {
 				# headers so we are now in the shorttext.
 				$shorttext = IN_SHORTTEXT_BLANKLINE;
 				$shorttext_exspc = 4;
-				if (length($1) > SHORTTEXT_LIMIT) {
+				if (length($1) > SHORTTEXT_LIMIT && !($1 =~ m/Revert\ \"/)) {
 					WARN("LONG_SUMMARY_LINE",
 					     "summary line over " .
 					     SHORTTEXT_LIMIT .
