@@ -2551,43 +2551,42 @@ static int bluetooth_power(int on)
 {
 	int rc;
 
+	pr_debug("%s on= %d\n", __func__, on);
+
 	if (on) {
-		rc = gpio_direction_output(gpio_bt_sys_rest_en, 1);
+		rc = gpio_request(gpio_bt_sys_rest_en, "bt sys_rst_n");
+		if (rc) {
+			pr_err("%s: unable to request gpio %d (%d)\n",
+				__func__, gpio_bt_sys_rest_en, rc);
+			goto out;
+		}
+		rc = gpio_direction_output(gpio_bt_sys_rest_en, 0);
+		if (rc) {
+			pr_err("%s: Unable to set gpio %d direction\n",
+				__func__, gpio_bt_sys_rest_en);
+			goto free_gpio;
+		}
 		msleep(100);
+		gpio_set_value(gpio_bt_sys_rest_en, 1);
+		msleep(100);
+		goto out;
 	} else {
 		gpio_set_value(gpio_bt_sys_rest_en, 0);
 		rc = gpio_direction_input(gpio_bt_sys_rest_en);
 		msleep(100);
 	}
-	pr_err("%s on= %d rc = %d\n", __func__, on, rc);
-	return 0;
+
+free_gpio:
+	gpio_free(gpio_bt_sys_rest_en);
+out:
+	return rc;
 }
 
 static void __init bt_power_init(void)
 {
-	int rc;
-
+	pr_debug("%s enter\n", __func__);
 	msm_bt_power_device.dev.platform_data = &bluetooth_power;
-	pr_err("%s enter\n", __func__);
 
-	rc = gpio_request(gpio_bt_sys_rest_en, "bt sys_rst_n");
-	if (rc) {
-		pr_err("%s: unable to request gpio %d (%d)\n",
-			__func__, gpio_bt_sys_rest_en, rc);
-		return;
-	}
-
-	/* When booting up, de-assert BT reset pin */
-	rc = gpio_direction_output(gpio_bt_sys_rest_en, 0);
-	if (rc) {
-		pr_err("%s: Unable to set direction\n", __func__);
-		goto free_gpio;
-	}
-	pr_err("%s done\n", __func__);
-	return;
-
-free_gpio:
-	gpio_free(gpio_bt_sys_rest_en);
 	return;
 }
 #else
