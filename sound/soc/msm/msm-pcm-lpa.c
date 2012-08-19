@@ -282,6 +282,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	}
 	runtime->hw = msm_pcm_hardware;
 	prtd->substream = substream;
+	prtd->audio_client->perf_mode = false;
 	prtd->audio_client = q6asm_audio_client_alloc(
 				(app_cb)event_handler, prtd);
 	if (!prtd->audio_client) {
@@ -311,6 +312,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
 	prtd->session_id = prtd->audio_client->session;
 	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+		prtd->audio_client->perf_mode,
 		prtd->session_id, substream->stream);
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0,
