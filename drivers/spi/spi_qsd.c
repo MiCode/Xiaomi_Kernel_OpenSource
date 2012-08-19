@@ -1818,6 +1818,14 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 			goto err_probe_exit;
 		}
 
+		rc = of_property_read_u32(pdev->dev.of_node,
+				"cell-index", &pdev->id);
+		if (rc)
+			dev_warn(&pdev->dev,
+				"using default bus_num %d\n", pdev->id);
+		else
+			master->bus_num = pdev->id;
+
 		for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
 			dd->spi_gpios[i] = of_get_gpio_flags(pdev->dev.of_node,
 								i, &flags);
