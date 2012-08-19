@@ -1516,6 +1516,12 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	static int etm_count;
 	struct coresight_desc *desc;
 
+	/* Fail probe for Krait pass3 until supported */
+	if (cpu_is_krait_v3()) {
+		dev_info(dev, "ETM: failing probe for Krait pass3\n");
+		return -EINVAL;
+	}
+
 	if (pdev->dev.of_node) {
 		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 		if (IS_ERR(pdata))
