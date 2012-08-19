@@ -92,11 +92,9 @@ static void init_watchdog_work(struct work_struct *work);
 static void dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
 {
 	static char alive_mask_buf[MASK_SIZE];
-	size_t count = cpulist_scnprintf(alive_mask_buf, MASK_SIZE,
+	cpulist_scnprintf(alive_mask_buf, MASK_SIZE,
 						&wdog_dd->alive_mask);
-	alive_mask_buf[count] = '\n';
-	alive_mask_buf[count++] = '\0';
-	printk(KERN_INFO "cpu alive mask from last pet\n%s", alive_mask_buf);
+	printk(KERN_INFO "cpu alive mask from last pet %s\n", alive_mask_buf);
 }
 
 static int msm_watchdog_suspend(struct device *dev)
@@ -200,8 +198,6 @@ static void pet_watchdog_work(struct work_struct *work)
 	if (wdog_dd->do_ipi_ping)
 		ping_other_cpus(wdog_dd);
 	pet_watchdog(wdog_dd);
-	if (wdog_dd->do_ipi_ping)
-		dump_cpu_alive_mask(wdog_dd);
 	if (enable)
 		schedule_delayed_work(&wdog_dd->dogwork_struct,
 							delay_time);
