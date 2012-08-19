@@ -31,6 +31,10 @@
 		((q_spec)->offset + reg_index)
 
 #define Q_REG_STATUS1			0x8
+#define Q_REG_STATUS1_VAL_MASK		0x1
+#define Q_REG_STATUS1_GPIO_EN_MASK	0x2
+#define Q_REG_STATUS1_MPP_EN_MASK	0x80
+
 #define Q_NUM_CTL_REGS			0xD
 
 /* type registers base address offsets */
@@ -418,39 +422,41 @@ static int qpnp_pin_ctl_regs_init(struct qpnp_pin_spec *q_spec)
 }
 
 static int qpnp_pin_read_regs(struct qpnp_pin_chip *q_chip,
-			       struct qpnp_pin_spec *q_spec, u16 addr, u8 *buf)
+			      struct qpnp_pin_spec *q_spec)
 {
 	int bytes_left = q_spec->num_ctl_regs;
 	int rc;
-	char *reg_p = &q_spec->regs[0];
+	char *buf_p = &q_spec->regs[0];
+	u16 reg_addr = Q_REG_ADDR(q_spec, Q_REG_MODE_CTL);
 
 	while (bytes_left > 0) {
 		rc = spmi_ext_register_readl(q_chip->spmi->ctrl, q_spec->slave,
-					Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
-					reg_p, bytes_left < 8 ? bytes_left : 8);
+			  reg_addr, buf_p, bytes_left < 8 ? bytes_left : 8);
 		if (rc)
 			return rc;
 		bytes_left -= 8;
-		reg_p += 8;
+		buf_p += 8;
+		reg_addr += 8;
 	}
 	return 0;
 }
 
 static int qpnp_pin_write_regs(struct qpnp_pin_chip *q_chip,
-				struct qpnp_pin_spec *q_spec, u16 addr, u8 *buf)
+			       struct qpnp_pin_spec *q_spec)
 {
 	int bytes_left = q_spec->num_ctl_regs;
 	int rc;
-	char *reg_p = &q_spec->regs[0];
+	char *buf_p = &q_spec->regs[0];
+	u16 reg_addr = Q_REG_ADDR(q_spec, Q_REG_MODE_CTL);
 
 	while (bytes_left > 0) {
 		rc = spmi_ext_register_writel(q_chip->spmi->ctrl, q_spec->slave,
-					Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
-					reg_p, bytes_left < 8 ? bytes_left : 8);
+			  reg_addr, buf_p, bytes_left < 8 ? bytes_left : 8);
 		if (rc)
 			return rc;
 		bytes_left -= 8;
-		reg_p += 8;
+		buf_p += 8;
+		reg_addr += 8;
 	}
 	return 0;
 }
@@ -461,9 +467,7 @@ static int qpnp_pin_cache_regs(struct qpnp_pin_chip *q_chip,
 	int rc;
 	struct device *dev = &q_chip->spmi->dev;
 
-	rc = qpnp_pin_read_regs(q_chip, q_spec,
-				 Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
-				 &q_spec->regs[Q_REG_I_MODE_CTL]);
+	rc = qpnp_pin_read_regs(q_chip, q_spec);
 	if (rc)
 		dev_err(dev, "%s: unable to read control regs\n", __func__);
 
@@ -536,9 +540,7 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 			  Q_REG_CS_OUT_SHIFT, Q_REG_CS_OUT_MASK,
 			  param->cs_out);
 
-	rc = qpnp_pin_write_regs(q_chip, q_spec,
-				 Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
-				 &q_spec->regs[Q_REG_I_MODE_CTL]);
+	rc = qpnp_pin_write_regs(q_chip, q_spec);
 	if (rc) {
 		dev_err(&q_chip->spmi->dev, "%s: unable to write master enable\n",
 								__func__);
@@ -628,7 +630,7 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 	int rc, ret_val;
 	struct qpnp_pin_chip *q_chip = dev_get_drvdata(gpio_chip->dev);
 	struct qpnp_pin_spec *q_spec = NULL;
-	u8 buf[1];
+	u8 buf[1], en_mask;
 
 	if (WARN_ON(!q_chip))
 		return -ENODEV;
@@ -640,11 +642,17 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 	/* gpio val is from RT status iff input is enabled */
 	if ((q_spec->regs[Q_REG_I_MODE_CTL] & Q_REG_MODE_SEL_MASK)
 						== QPNP_PIN_MODE_DIG_IN) {
-		/* INT_RT_STS */
 		rc = spmi_ext_register_readl(q_chip->spmi->ctrl, q_spec->slave,
 				Q_REG_ADDR(q_spec, Q_REG_STATUS1),
 				&buf[0], 1);
-		return buf[0];
+
+		en_mask = q_spec->type == Q_GPIO_TYPE ?
+				Q_REG_STATUS1_GPIO_EN_MASK :
+				Q_REG_STATUS1_MPP_EN_MASK;
+		if (!(buf[0] & en_mask))
+			return -EPERM;
+
+		return buf[0] & Q_REG_STATUS1_VAL_MASK;
 
 	} else {
 		ret_val = (q_spec->regs[Q_REG_I_MODE_CTL] &
@@ -671,7 +679,7 @@ static int __qpnp_pin_set(struct qpnp_pin_chip *q_chip,
 			  Q_REG_OUT_INVERT_SHIFT, Q_REG_OUT_INVERT_MASK, 0);
 
 	rc = spmi_ext_register_writel(q_chip->spmi->ctrl, q_spec->slave,
-			      Q_REG_ADDR(q_spec, Q_REG_I_MODE_CTL),
+			      Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
 			      &q_spec->regs[Q_REG_I_MODE_CTL], 1);
 	if (rc)
 		dev_err(&q_chip->spmi->dev, "%s: spmi write failed\n",
@@ -715,7 +723,7 @@ static int qpnp_pin_set_mode(struct qpnp_pin_chip *q_chip,
 			mode);
 
 	rc = spmi_ext_register_writel(q_chip->spmi->ctrl, q_spec->slave,
-			      Q_REG_ADDR(q_spec, Q_REG_I_MODE_CTL),
+			      Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
 			      &q_spec->regs[Q_REG_I_MODE_CTL], 1);
 	return rc;
 }
@@ -799,7 +807,7 @@ static int qpnp_pin_apply_config(struct qpnp_pin_chip *q_chip,
 				       Q_REG_OUT_TYPE_SHIFT,
 				       Q_REG_OUT_TYPE_MASK);
 	param.invert	   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
-				       Q_REG_OUT_INVERT_MASK,
+				       Q_REG_OUT_INVERT_SHIFT,
 				       Q_REG_OUT_INVERT_MASK);
 	param.pull	   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
 				       Q_REG_PULL_SHIFT, Q_REG_PULL_MASK);
