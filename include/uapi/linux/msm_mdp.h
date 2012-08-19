@@ -410,6 +410,8 @@ struct mdp_pcc_cfg_data {
 	struct mdp_pcc_coeff r, g, b;
 };
 
+#define MDP_GAMUT_TABLE_NUM		8
+
 enum {
 	mdp_lut_igc,
 	mdp_lut_pgc,
@@ -480,6 +482,16 @@ struct mdp_dither_cfg_data {
 	uint32_t b_cb_depth;
 };
 
+struct mdp_gamut_cfg_data {
+	uint32_t block;
+	uint32_t flags;
+	uint32_t gamut_first;
+	uint32_t tbl_size[MDP_GAMUT_TABLE_NUM];
+	uint16_t *r_tbl[MDP_GAMUT_TABLE_NUM];
+	uint16_t *g_tbl[MDP_GAMUT_TABLE_NUM];
+	uint16_t *b_tbl[MDP_GAMUT_TABLE_NUM];
+};
+
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
@@ -488,6 +500,7 @@ enum {
 	mdp_bl_scale_cfg,
 	mdp_op_pa_cfg,
 	mdp_op_dither_cfg,
+	mdp_op_gamut_cfg,
 	mdp_op_max,
 };
 
@@ -501,6 +514,7 @@ struct msmfb_mdp_pp {
 		struct mdp_bl_scale_data bl_scale_data;
 		struct mdp_pa_cfg_data pa_cfg_data;
 		struct mdp_dither_cfg_data dither_cfg_data;
+		struct mdp_gamut_cfg_data gamut_cfg_data;
 	} data;
 };
 

@@ -74,6 +74,7 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 #define CSC_POST_OFF	0xC
 
 #define MDSS_BLOCK_DISP_NUM	(MDP_BLOCK_MAX - MDP_LOGICAL_BLOCK_DISP_0)
+
 #define IGC_LUT_ENTRIES	256
 #define GC_LUT_SEGMENTS	16
 #define ENHIST_LUT_ENTRIES 256
@@ -83,6 +84,17 @@ static u32 dither_matrix[16] = {
 static u32 dither_depth_map[9] = {
 	0, 0, 0, 0, 0, 1, 2, 3, 3};
 
+#define GAMUT_T0_SIZE	125
+#define GAMUT_T1_SIZE	100
+#define GAMUT_T2_SIZE	80
+#define GAMUT_T3_SIZE	100
+#define GAMUT_T4_SIZE	100
+#define GAMUT_T5_SIZE	80
+#define GAMUT_T6_SIZE	64
+#define GAMUT_T7_SIZE	80
+#define GAMUT_TOTAL_TABLE_SIZE (GAMUT_T0_SIZE + GAMUT_T1_SIZE + \
+	GAMUT_T2_SIZE + GAMUT_T3_SIZE + GAMUT_T4_SIZE + \
+	GAMUT_T5_SIZE + GAMUT_T6_SIZE + GAMUT_T7_SIZE)
 
 struct pp_sts_type {
 	u32 pa_sts;
@@ -92,6 +104,7 @@ struct pp_sts_type {
 	u32 argc_sts;
 	u32 enhist_sts;
 	u32 dither_sts;
+	u32 gamut_sts;
 };
 
 #define PP_FLAGS_DIRTY_PA	0x1
@@ -100,8 +113,10 @@ struct pp_sts_type {
 #define PP_FLAGS_DIRTY_ARGC	0x8
 #define PP_FLAGS_DIRTY_ENHIST	0x10
 #define PP_FLAGS_DIRTY_DITHER	0x20
+#define PP_FLAGS_DIRTY_GAMUT	0x40
 
 #define PP_STS_ENABLE	0x1
+#define PP_STS_GAMUT_FIRST	0x2
 
 struct mdss_pp_res_type {
 	/* logical info */
@@ -121,6 +136,8 @@ struct mdss_pp_res_type {
 	struct mdp_pgc_lut_data pgc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_hist_lut_data enhist_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_dither_cfg_data dither_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_gamut_cfg_data gamut_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	uint16_t gamut_tbl[MDSS_BLOCK_DISP_NUM][GAMUT_TOTAL_TABLE_SIZE];
 	/* physical info */
 	struct pp_sts_type pp_dspp_sts[MDSS_MDP_MAX_DSPP];
 };
@@ -267,6 +284,41 @@ static int pp_mixer_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	}
 	return 0;
 }
+static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
+							u32 base,
+							u32 *gamut_sts)
+{
+	u32 offset;
+	int i, j;
+	if (gamut_cfg->flags & MDP_PP_OPS_WRITE) {
+		offset = base + MDSS_MDP_REG_DSPP_GAMUT_BASE;
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
+				MDSS_MDP_REG_WRITE(offset,
+					(u32)gamut_cfg->r_tbl[i][j]);
+			offset += 4;
+		}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
+				MDSS_MDP_REG_WRITE(offset,
+					(u32)gamut_cfg->g_tbl[i][j]);
+			offset += 4;
+		}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
+				MDSS_MDP_REG_WRITE(offset,
+					(u32)gamut_cfg->b_tbl[i][j]);
+			offset += 4;
+		}
+		if (gamut_cfg->gamut_first)
+			*gamut_sts |= PP_STS_GAMUT_FIRST;
+	}
+
+	if (gamut_cfg->flags & MDP_PP_OPS_DISABLE)
+		*gamut_sts &= ~PP_STS_ENABLE;
+	else if (gamut_cfg->flags & MDP_PP_OPS_ENABLE)
+		*gamut_sts |= PP_STS_ENABLE;
+}
 static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_mixer *mixer)
 {
@@ -404,6 +456,15 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	}
 	if (pp_sts->dither_sts & PP_STS_ENABLE)
 		opmode |= (1 << 8); /* DITHER_EN */
+	if (flags & PP_FLAGS_DIRTY_GAMUT)
+		pp_gamut_config(&mdss_pp_res->gamut_disp_cfg[disp_num],
+					base, &pp_sts->gamut_sts);
+	if (pp_sts->gamut_sts & PP_STS_ENABLE) {
+		opmode |= (1 << 23); /* GAMUT_EN */
+		if (pp_sts->gamut_sts & PP_STS_GAMUT_FIRST)
+			opmode |= (1 << 24); /* GAMUT_ORDER */
+	}
+
 	MDSS_MDP_REG_WRITE(base + MDSS_MDP_REG_DSPP_OP_MODE, opmode);
 	ctl->flush_bits |= BIT(13 + dspp_num); /* DSPP */
 	return 0;
@@ -1038,4 +1099,91 @@ int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config, u32 *copyback)
 	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_DITHER;
 	mutex_unlock(&mdss_pp_mutex);
 	return 0;
+}
+
+int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config, u32 *copyback)
+{
+	int i, j, size_total = 0, ret = 0;
+	u32 offset, disp_num, dspp_num = 0;
+	uint16_t *tbl_off;
+	struct mdp_gamut_cfg_data local_cfg;
+
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(config->block >= MDP_BLOCK_MAX))
+		return -EINVAL;
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++)
+		size_total += config->tbl_size[i];
+	if (size_total != GAMUT_TOTAL_TABLE_SIZE)
+		return -EINVAL;
+
+	mutex_lock(&mdss_pp_mutex);
+	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+
+	if (config->flags & MDP_PP_OPS_READ) {
+		ret = pp_get_dspp_num(disp_num, &dspp_num);
+		if (ret) {
+			pr_err("%s, no dspp connects to disp %d",
+				__func__, disp_num);
+			goto gamut_config_exit;
+		}
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+		offset = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
+			  MDSS_MDP_REG_DSPP_GAMUT_BASE;
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < config->tbl_size[i]; j++)
+				config->r_tbl[i][j] =
+					(u16)MDSS_MDP_REG_READ(offset);
+			offset += 4;
+		}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < config->tbl_size[i]; j++)
+				config->g_tbl[i][j] =
+					(u16)MDSS_MDP_REG_READ(offset);
+			offset += 4;
+		}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < config->tbl_size[i]; j++)
+				config->b_tbl[i][j] =
+					(u16)MDSS_MDP_REG_READ(offset);
+			offset += 4;
+		}
+		*copyback = 1;
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	} else {
+		local_cfg = *config;
+		tbl_off = mdss_pp_res->gamut_tbl[disp_num];
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			local_cfg.r_tbl[i] = tbl_off;
+			if (copy_from_user(tbl_off, config->r_tbl[i],
+				config->tbl_size[i] * sizeof(uint16_t))) {
+				ret = -EFAULT;
+				goto gamut_config_exit;
+			}
+			tbl_off += local_cfg.tbl_size[i];
+		}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			local_cfg.g_tbl[i] = tbl_off;
+			if (copy_from_user(tbl_off, config->g_tbl[i],
+				config->tbl_size[i] * sizeof(uint16_t))) {
+				ret = -EFAULT;
+				goto gamut_config_exit;
+			}
+			tbl_off += local_cfg.tbl_size[i];
+		}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			local_cfg.b_tbl[i] = tbl_off;
+			if (copy_from_user(tbl_off, config->b_tbl[i],
+				config->tbl_size[i] * sizeof(uint16_t))) {
+				ret = -EFAULT;
+				goto gamut_config_exit;
+			}
+			tbl_off += local_cfg.tbl_size[i];
+		}
+		mdss_pp_res->gamut_disp_cfg[disp_num] = local_cfg;
+		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_GAMUT;
+	}
+gamut_config_exit:
+	mutex_unlock(&mdss_pp_mutex);
+	return ret;
 }
