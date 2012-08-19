@@ -23,3 +23,15 @@
 		status = "ok";
 	};
 };
+
+&sdcc2 {
+	#address-cells = <0>;
+	interrupt-parent = <&sdcc2>;
+	interrupts = <0 1>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &msmgpio 62 0x3>;
+	interrupt-names = "core_irq", "status_irq";
+	cd-gpios = <&msmgpio 62 0x1>;
+};
