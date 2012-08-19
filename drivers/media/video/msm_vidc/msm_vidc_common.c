@@ -22,7 +22,7 @@
 #include "vidc_hal_api.h"
 #include "msm_smem.h"
 
-#define HW_RESPONSE_TIMEOUT 5000
+#define HW_RESPONSE_TIMEOUT (5 * 60 * 1000)
 
 #define IS_ALREADY_IN_STATE(__p, __d) ({\
 	int __rc = (__p >= __d);\
