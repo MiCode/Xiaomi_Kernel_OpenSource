@@ -1187,6 +1187,10 @@ static int mdss_fb_handle_pp_ioctl(void __user *argp)
 		ret = mdss_mdp_dither_config(&mdp_pp.data.dither_cfg_data,
 				&copyback);
 		break;
+	case mdp_op_gamut_cfg:
+		ret = mdss_mdp_gamut_config(&mdp_pp.data.gamut_cfg_data,
+				&copyback);
+		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL.\n");
 		ret = -EINVAL;
