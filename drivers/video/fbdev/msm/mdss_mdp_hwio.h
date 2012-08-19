@@ -336,6 +336,7 @@ enum mdss_mdp_dspp_index {
 #define MDSS_MDP_REG_DSPP_DITHER_DEPTH			0x150
 #define MDSS_MDP_REG_DSPP_PA_BASE			0x238
 #define MDSS_MDP_REG_DSPP_HIST_LUT_BASE			0x230
+#define MDSS_MDP_REG_DSPP_GAMUT_BASE			0x2DC
 
 enum mdss_mpd_intf_index {
 	MDSS_MDP_NO_INTF,
