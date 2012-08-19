@@ -307,6 +307,7 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config, u32 *copyback);
 int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config, u32 *copyback);
 int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config, u32 *copyback);
 int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config, u32 *copyback);
+int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config, u32 *copyback);
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum);
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_locked(u32 type);
