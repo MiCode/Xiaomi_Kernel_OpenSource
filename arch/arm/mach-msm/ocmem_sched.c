@@ -202,6 +202,15 @@ inline int ocmem_write(unsigned long val, void *at)
 	return 0;
 }
 
+inline int get_mode(int id)
+{
+	if (!check_id(id))
+		return MODE_NOT_SET;
+	else
+		return ocmem_client_table[id].mode == OCMEM_PERFORMANCE ?
+							WIDE_MODE : THIN_MODE;
+}
+
 /* Returns the address that can be used by a device core to access OCMEM */
 static unsigned long device_address(int id, unsigned long addr)
 {
@@ -586,11 +595,24 @@ static int process_map(struct ocmem_req *req, unsigned long start,
 
 	rc = do_map(req);
 
-	if (rc < 0)
+	if (rc < 0) {
+		pr_err("ocmem: Failed to map request %p for %d\n",
+							req, req->owner);
 		goto process_map_fail;
 
-	return 0;
+	}
 
+	if (ocmem_lock(req->owner, phys_to_offset(req->req_start), req->req_sz,
+							get_mode(req->owner))) {
+		pr_err("ocmem: Failed to secure request %p for %d\n", req,
+				req->owner);
+		rc = -EINVAL;
+		goto lock_failed;
+	}
+
+	return 0;
+lock_failed:
+	do_unmap(req);
 process_map_fail:
 	ocmem_disable_br_clock();
 br_clock_fail:
@@ -607,6 +629,14 @@ static int process_unmap(struct ocmem_req *req, unsigned long start,
 {
 	int rc = 0;
 
+	if (ocmem_unlock(req->owner, phys_to_offset(req->req_start),
+							req->req_sz)) {
+		pr_err("ocmem: Failed to un-secure request %p for %d\n", req,
+				req->owner);
+		rc = -EINVAL;
+		goto unlock_failed;
+	}
+
 	rc = do_unmap(req);
 
 	if (rc < 0)
@@ -615,9 +645,9 @@ static int process_unmap(struct ocmem_req *req, unsigned long start,
 	ocmem_disable_br_clock();
 	ocmem_disable_iface_clock();
 	ocmem_disable_core_clock();
-
 	return 0;
 
+unlock_failed:
 process_unmap_fail:
 	pr_err("ocmem: Failed to unmap ocmem request\n");
 	return rc;
@@ -1321,7 +1351,6 @@ int process_free(int id, struct ocmem_handle *handle)
 			return -EINVAL;
 	}
 
-
 	if (req->req_sz != 0) {
 
 		offset = phys_to_offset(req->req_start);
@@ -1336,7 +1365,6 @@ int process_free(int id, struct ocmem_handle *handle)
 	}
 
 	rc = do_free(req);
-
 	if (rc < 0)
 		return -EINVAL;
 

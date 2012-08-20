@@ -90,9 +90,10 @@ enum op_code {
 
 /* Operational modes of each region */
 enum region_mode {
-	WIDE_MODE = 0x0,
+	MODE_NOT_SET = 0x0,
+	WIDE_MODE,
 	THIN_MODE,
-	MODE_DEFAULT = WIDE_MODE,
+	MODE_DEFAULT = MODE_NOT_SET,
 };
 
 struct ocmem_plat_data {
@@ -199,6 +200,7 @@ int process_restore(int);
 int process_shrink(int, struct ocmem_handle *, unsigned long);
 int ocmem_rdm_transfer(int, struct ocmem_map_list *,
 				unsigned long, int);
+int ocmem_clear(unsigned long, unsigned long);
 unsigned long process_quota(int);
 int ocmem_memory_off(int, unsigned long, unsigned long);
 int ocmem_memory_on(int, unsigned long, unsigned long);
@@ -208,4 +210,7 @@ int ocmem_enable_br_clock(void);
 void ocmem_disable_core_clock(void);
 void ocmem_disable_iface_clock(void);
 void ocmem_disable_br_clock(void);
+int ocmem_lock(enum ocmem_client, unsigned long, unsigned long,
+				enum region_mode);
+int ocmem_unlock(enum ocmem_client, unsigned long, unsigned long);
 #endif
