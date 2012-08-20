@@ -658,7 +658,7 @@ int bam_init(void *base, u32 ee,
 				(u32) base, ver);
 		return -ENODEV;
 	} else
-		SPS_INFO("sps:REVISION of BAM 0x%x is 0x%x.\n",
+		SPS_DBG2("sps:REVISION of BAM 0x%x is 0x%x.\n",
 				(u32) base, ver);
 
 	if (summing_threshold == 0) {
