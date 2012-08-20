@@ -332,7 +332,7 @@ struct msm_cam_buf_offset {
 	uint32_t data_offset;
 };
 
-#define MSM_DEV_INST_MAX                    16
+#define MSM_DEV_INST_MAX                    24
 struct msm_cam_v4l2_dev_inst {
 	struct v4l2_fh  eventHandle;
 	struct vb2_queue vid_bufq;
