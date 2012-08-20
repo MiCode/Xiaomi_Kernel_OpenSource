@@ -279,6 +279,40 @@
 		};
 	};
 
+	sound {
+		compatible = "qcom,msm8974-audio-taiko";
+		qcom,model = "msm8974-taiko-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"HEADPHONE", "LDO_H",
+			"Ext Spk Bottom Pos", "LINEOUT1",
+			"Ext Spk Bottom Neg", "LINEOUT3",
+			"Ext Spk Top Pos", "LINEOUT2",
+			"Ext Spk Top Neg", "LINEOUT4",
+			"AMIC1", "MIC BIAS1 Internal1",
+			"MIC BIAS1 Internal1", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS3 Internal1",
+			"MIC BIAS3 Internal1", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS1 Internal2",
+			"MIC BIAS1 Internal2", "ANCLeft Headset Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4",
+			"DMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic5",
+			"DMIC6", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic6";
+	};
+
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
