@@ -84,6 +84,7 @@ void apq8064_init_cam(void);
 #define APQ_8064_GSBI5_QUP_I2C_BUS_ID 5
 
 unsigned char apq8064_hdmi_as_primary_selected(void);
+unsigned char apq8064_mhl_display_enabled(void);
 void apq8064_init_fb(void);
 void apq8064_allocate_fb_region(void);
 void apq8064_mdp_writeback(struct memtype_reserve *reserve_table);
