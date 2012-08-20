@@ -486,7 +486,7 @@ static void vidc_hal_set_queue_hdr_defaults(struct hfi_queue_header *q_hdr)
 {
 	q_hdr->qhdr_status = 0x1;
 	q_hdr->qhdr_type = VIDC_IFACEQ_DFLT_QHDR;
-	q_hdr->qhdr_q_size = VIDC_IFACEQ_QUEUE_SIZE;
+	q_hdr->qhdr_q_size = VIDC_IFACEQ_QUEUE_SIZE / 4;
 	q_hdr->qhdr_pkt_size = 0;
 	q_hdr->qhdr_rx_wm = 0x1;
 	q_hdr->qhdr_tx_wm = 0x1;
