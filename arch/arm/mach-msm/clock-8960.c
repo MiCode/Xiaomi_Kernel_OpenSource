@@ -5818,6 +5818,7 @@ static struct clk_lookup msm_clocks_8960_only[] __initdata = {
 
 static struct clk_lookup msm_clocks_8960ab_only[] __initdata = {
 	CLK_LOOKUP("bus_clk", gfx3d_axi_clk.c, "footswitch-8x60.2"),
+	CLK_LOOKUP("core_clk", gfx3d_axi_clk.c, "msm_iommu.10"),
 	CLK_LOOKUP("div_clk",	tv_src_div_clk.c,	""),
 };
 
@@ -6456,6 +6457,8 @@ static void __init msm8960_clock_pre_init(void)
 			msm_clocks_8960ab_only, sizeof(msm_clocks_8960ab_only));
 		msm8960_clock_init_data.size -=
 			ARRAY_SIZE(msm_clocks_8960_only);
+
+		gmem_axi_clk.c.depends = &gfx3d_axi_clk.c;
 	} else if (cpu_is_msm8960()) {
 		memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_common),
 			 msm_clocks_8960_only, sizeof(msm_clocks_8960_only));
