@@ -224,12 +224,6 @@ static int mhl_sii_gpio_setup(int on)
 	return 0;
 }
 
-bool mhl_is_connected(void)
-{
-	return true;
-}
-
-
 /*  USB_HANDSHAKING FUNCTIONS */
 
 int mhl_device_discovery(const char *name, int *result)
@@ -546,6 +540,11 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	mhl_msm_state->mhl_data = client->dev.platform_data;
 	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
 		mhl_msm_state->mhl_data->irq);
+
+	if (!mhl_msm_state->mhl_data->mhl_enabled) {
+		pr_info("MHL Display not enabled\n");
+		return -ENODEV;
+	}
 
 	/* Init GPIO stuff here */
 	ret = mhl_sii_gpio_setup(1);
