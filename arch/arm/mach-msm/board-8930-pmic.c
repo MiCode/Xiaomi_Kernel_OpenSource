@@ -533,7 +533,7 @@ static struct pm8921_platform_data pm8917_platform_data __devinitdata = {
 	.rtc_pdata              = &pm8xxx_rtc_pdata,
 	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
 	.misc_pdata		= &pm8xxx_misc_pdata,
-	.regulator_pdatas	= msm8930_pm8038_regulator_pdata,
+	.regulator_pdatas	= msm8930_pm8917_regulator_pdata,
 	.charger_pdata		= &pm8921_chg_pdata,
 	.bms_pdata		= &pm8921_bms_pdata,
 	.adc_pdata		= &pm8917_adc_pdata,
@@ -566,8 +566,8 @@ void __init msm8930_init_pmic(void)
 		pmic_reset_irq = PM8917_IRQ_BASE + PM8921_RESOUT_IRQ;
 		msm8960_device_ssbi_pmic.dev.platform_data =
 					&msm8930_ssbi_pm8917_pdata;
-		pm8038_platform_data.num_regulators
-			= msm8930_pm8038_regulator_pdata_len;
+		pm8917_platform_data.num_regulators
+			= msm8930_pm8917_regulator_pdata_len;
 		if (machine_is_apq8064_mtp())
 			pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
 		else if (machine_is_apq8064_liquid())

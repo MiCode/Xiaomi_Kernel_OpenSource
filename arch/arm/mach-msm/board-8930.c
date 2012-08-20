@@ -2132,7 +2132,7 @@ static struct platform_device msm_device_saw_core0 = {
 	.name	= "saw-regulator",
 	.id	= 0,
 	.dev	= {
-		.platform_data = &msm8930_saw_regulator_core0_pdata,
+		.platform_data = &msm8930_pm8038_saw_regulator_core0_pdata,
 	},
 };
 
@@ -2140,7 +2140,7 @@ static struct platform_device msm_device_saw_core1 = {
 	.name	= "saw-regulator",
 	.id	= 1,
 	.dev	= {
-		.platform_data = &msm8930_saw_regulator_core1_pdata,
+		.platform_data = &msm8930_pm8038_saw_regulator_core1_pdata,
 	},
 };
 
@@ -2197,8 +2197,8 @@ static struct platform_device msm8930_device_ext_5v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= 63,
 	.dev	= {
-		.platform_data =
-		     &msm8930_gpio_regulator_pdata[MSM8930_GPIO_VREG_ID_EXT_5V],
+		.platform_data = &msm8930_pm8038_gpio_regulator_pdata[
+					MSM8930_GPIO_VREG_ID_EXT_5V],
 	},
 };
 
@@ -2206,8 +2206,8 @@ static struct platform_device msm8930_device_ext_otg_sw_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= 97,
 	.dev	= {
-		.platform_data =
-		 &msm8930_gpio_regulator_pdata[MSM8930_GPIO_VREG_ID_EXT_OTG_SW],
+		.platform_data = &msm8930_pm8038_gpio_regulator_pdata[
+					MSM8930_GPIO_VREG_ID_EXT_OTG_SW],
 	},
 };
 
@@ -2220,18 +2220,22 @@ static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 #ifndef MSM8930_PHASE_2
 		.platform_data = &msm_rpm_regulator_pdata,
 #else
-		.platform_data = &msm8930_rpm_regulator_pdata,
+		.platform_data = &msm8930_pm8038_rpm_regulator_pdata,
 #endif
 	},
 };
 
-static struct platform_device *common_devices[] __initdata = {
+static struct platform_device *early_common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
 	&msm8960_device_uart_gsbi5,
 	&msm_device_uart_dm6,
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
+};
+
+/* ext_5v and ext_otg_sw are present when using PM8038 */
+static struct platform_device *pmic_pm8038_devices[] __initdata = {
 	&msm8930_device_ext_5v_vreg,
 #ifndef MSM8930_PHASE_2
 	&msm8930_device_ext_l2_vreg,
@@ -2240,6 +2244,14 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef MSM8930_PHASE_2
 	&msm8930_device_ext_otg_sw_vreg,
 #endif
+};
+
+/* ext_5v and ext_otg_sw are not present when using PM8917 */
+static struct platform_device *pmic_pm8917_devices[] __initdata = {
+	&msm8960_device_ssbi_pmic,
+};
+
+static struct platform_device *common_devices[] __initdata = {
 	&msm_8960_q6_lpass,
 	&msm_8960_q6_mss_fw,
 	&msm_8960_q6_mss_sw,
@@ -2661,6 +2673,14 @@ static void __init msm8930_pm8917_pdata_fixup(void)
 
 	gpio_keys_8930_pdata.buttons = keys_8930_pm8917;
 	gpio_keys_8930_pdata.nbuttons = ARRAY_SIZE(keys_8930_pm8917);
+
+	msm_device_saw_core0.dev.platform_data
+		= &msm8930_pm8038_saw_regulator_core0_pdata;
+	msm_device_saw_core1.dev.platform_data
+		= &msm8930_pm8038_saw_regulator_core1_pdata;
+
+	msm8930_device_rpm_regulator.dev.platform_data
+		= &msm8930_pm8917_rpm_regulator_pdata;
 }
 
 static void __init msm8930_cdp_init(void)
@@ -2722,6 +2742,14 @@ static void __init msm8930_cdp_init(void)
 		platform_device_register(&msm8930_device_acpuclk);
 	else if (cpu_is_msm8930aa())
 		platform_device_register(&msm8930aa_device_acpuclk);
+	platform_add_devices(early_common_devices,
+				ARRAY_SIZE(early_common_devices));
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
+		platform_add_devices(pmic_pm8038_devices,
+					ARRAY_SIZE(pmic_pm8038_devices));
+	else
+		platform_add_devices(pmic_pm8917_devices,
+					ARRAY_SIZE(pmic_pm8917_devices));
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm8930_add_vidc_device();
 	/*
