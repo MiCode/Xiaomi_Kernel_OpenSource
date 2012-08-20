@@ -45,14 +45,14 @@ static struct gpiomux_setting gsbi3_active_cfg = {
 
 static struct gpiomux_setting gsbi5 = {
 	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct gpiomux_setting gsbi9 = {
 	.func = GPIOMUX_FUNC_2,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct gpiomux_setting gsbi10 = {
@@ -96,14 +96,20 @@ static struct gpiomux_setting audio_mbhc = {
 
 static struct gpiomux_setting audio_spkr_boost = {
 	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
 };
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
-static struct gpiomux_setting gpio_eth_config = {
+static struct gpiomux_setting gpio_eth_suspend_1_cfg = {
+	.pull = GPIOMUX_PULL_DOWN,
+	.drv = GPIOMUX_DRV_2MA,
+	.func = GPIOMUX_FUNC_GPIO,
+};
+
+static struct gpiomux_setting gpio_eth_suspend_2_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
-	.drv = GPIOMUX_DRV_8MA,
+	.drv = GPIOMUX_DRV_2MA,
 	.func = GPIOMUX_FUNC_GPIO,
 };
 #endif
@@ -277,15 +283,15 @@ static struct gpiomux_setting hdmi_active_5_cfg = {
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct msm_gpiomux_config msm8960_ethernet_configs[] = {
 	{
-		.gpio = 90,
+		.gpio = 89,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
+			[GPIOMUX_SUSPENDED] = &gpio_eth_suspend_1_cfg,
 		}
 	},
 	{
-		.gpio = 89,
+		.gpio = 90,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
+			[GPIOMUX_SUSPENDED] = &gpio_eth_suspend_2_cfg,
 		}
 	},
 };
