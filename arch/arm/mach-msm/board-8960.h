@@ -92,3 +92,4 @@ void msm8960_mdp_writeback(struct memtype_reserve *reserve_table);
 
 extern struct msm_rtb_platform_data msm8960_rtb_pdata;
 extern struct msm_cache_dump_platform_data msm8960_cache_dump_pdata;
+extern void msm8960_add_vidc_device(void);
