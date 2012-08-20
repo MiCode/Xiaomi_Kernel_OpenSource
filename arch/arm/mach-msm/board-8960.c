@@ -2709,11 +2709,6 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_cpudai_auxpcm_tx,
 	&msm_cpu_fe,
 	&msm_stub_codec,
-	&msm_kgsl_3d0,
-#ifdef CONFIG_MSM_KGSL_2D
-	&msm_kgsl_2d0,
-	&msm_kgsl_2d1,
-#endif
 #ifdef CONFIG_MSM_GEMINI
 	&msm8960_gemini_device,
 #endif
@@ -2772,6 +2767,15 @@ static void __init msm8960_gfx_init(void)
 		 * based the platform type
 		 */
 		kgsl_3d0_pdata->chipid = ADRENO_CHIPID(2, 2, 0, 6);
+	}
+
+	/* Register the 3D core */
+	platform_device_register(&msm_kgsl_3d0);
+
+	/* Register the 2D cores if we are not 8960PRO */
+	if (!cpu_is_msm8960ab()) {
+		platform_device_register(&msm_kgsl_2d0);
+		platform_device_register(&msm_kgsl_2d1);
 	}
 }
 
