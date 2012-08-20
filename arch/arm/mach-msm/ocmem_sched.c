@@ -158,6 +158,50 @@ static inline int is_blocked(int id)
 	return ocmem_client_table[id].hw_interconnect == OCMEM_BLOCKED ? 1 : 0;
 }
 
+inline struct ocmem_buf *handle_to_buffer(struct ocmem_handle *handle)
+{
+	if (handle)
+		return &handle->buffer;
+	else
+		return NULL;
+}
+
+inline struct ocmem_handle *buffer_to_handle(struct ocmem_buf *buffer)
+{
+	if (buffer)
+		return container_of(buffer, struct ocmem_handle, buffer);
+	else
+		return NULL;
+}
+
+inline struct ocmem_req *handle_to_req(struct ocmem_handle *handle)
+{
+	if (handle)
+		return handle->req;
+	else
+		return NULL;
+}
+
+inline struct ocmem_handle *req_to_handle(struct ocmem_req *req)
+{
+	if (req && req->buffer)
+		return container_of(req->buffer, struct ocmem_handle, buffer);
+	else
+		return NULL;
+}
+
+/* Simple wrappers which will have debug features added later */
+inline int ocmem_read(void *at)
+{
+	return readl_relaxed(at);
+}
+
+inline int ocmem_write(unsigned long val, void *at)
+{
+	writel_relaxed(val, at);
+	return 0;
+}
+
 /* Returns the address that can be used by a device core to access OCMEM */
 static unsigned long device_address(int id, unsigned long addr)
 {
