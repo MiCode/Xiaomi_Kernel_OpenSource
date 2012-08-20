@@ -4448,6 +4448,11 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	return 0;
 }
 
+bool mhl_is_enabled(void)
+{
+	return hdmi_msm_state->is_mhl_enabled;
+}
+
 static int hdmi_msm_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -4620,6 +4625,12 @@ static int hdmi_msm_probe(struct platform_device *pdev)
 	if (switch_dev_register(&external_common_state->sdev) < 0)
 		DEV_ERR("Hdmi switch registration failed\n");
 
+	/* Set the default video resolution for MHL-enabled display */
+	if (hdmi_msm_state->is_mhl_enabled) {
+		DEV_DBG("MHL Enabled. Restricting default video resolution\n");
+		external_common_state->video_resolution =
+			HDMI_VFRMT_1920x1080p30_16_9;
+	}
 	return 0;
 
 error:
