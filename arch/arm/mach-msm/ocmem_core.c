@@ -38,6 +38,7 @@ struct ocmem_hw_region {
 	unsigned psgsc_ctrl;
 	bool interleaved;
 	unsigned int mode;
+	atomic_t mode_counter;
 	unsigned int num_macros;
 	struct ocmem_hw_macro *macro;
 	struct msm_rpm_request *rpm_req;
@@ -57,10 +58,13 @@ static void *ocmem_base;
 #define OC_GEN_STATUS (0xC)
 #define OC_PSGSC_STATUS (0x38)
 #define OC_PSGSC_CTL (0x3C)
-#define OC_REGION_CTL (0x1000)
+#define OC_REGION_MODE_CTL (0x1000)
+#define OC_GFX_MPU_START (0x1004)
+#define OC_GFX_MPU_END (0x1008)
 
 #define NUM_PORTS_MASK (0xF << 0)
 #define NUM_PORTS_SHIFT (0)
+#define GFX_MPU_SHIFT (12)
 
 #define NUM_MACROS_MASK (0xF << 8)
 #define NUM_MACROS_SHIFT (8)
@@ -73,7 +77,7 @@ static void *ocmem_base;
 #define CORE_ON (0x2)
 #define PERI_ON (0x1)
 #define CLK_OFF (0x4)
-#define MACRO_ON (CORE_ON|PERI_ON)
+#define MACRO_ON (0x0)
 #define MACRO_SLEEP_RETENTION (CLK_OFF|CORE_ON)
 #define MACRO_SLEEP_RETENTION_PERI_ON (CLK_OFF|MACRO_ON)
 #define MACRO_OFF (CLK_OFF)
@@ -166,6 +170,8 @@ static int commit_region_state(unsigned region_num)
 	else
 		rc = ocmem_write(new_state,
 					ocmem_base + PSCGC_CTL_n(region_num));
+	/* Barrier to commit the region state */
+	mb();
 	return 0;
 }
 
@@ -325,6 +331,9 @@ static int aggregate_region_state(unsigned region_num)
 	/* In narrow mode each macro is allowed to be in a different state */
 	/* The region mode is simply the collection of all macro states */
 		for (i = 0; i < region->num_macros; i++) {
+			pr_debug("aggregated region state %x\n", r_state);
+			pr_debug("macro %d\n state %x\n", i,
+						region->macro[i].m_state);
 			r_state &= ~M_PSCGC_CTL_n(i);
 			r_state |= region->macro[i].m_state << (i * 4);
 		}
@@ -381,6 +390,198 @@ static int rpm_write(unsigned long val, unsigned id)
 	}
 
 	pr_debug("Transmit request to rpm for region %d\n", id);
+	return 0;
+}
+
+
+static int switch_region_mode(unsigned long offset, unsigned long len,
+						enum region_mode new_mode)
+{
+	unsigned region_start = num_regions;
+	unsigned region_end = num_regions;
+	int i = 0;
+
+	if (offset < 0)
+		return -EINVAL;
+
+	if (len < region_size)
+		return -EINVAL;
+
+	pr_debug("ocmem: mode_transistion to %x\n", new_mode);
+
+	region_start = offset / region_size;
+	region_end = (offset + len - 1) / region_size;
+
+	pr_debug("ocmem: region start %u end %u\n", region_start, region_end);
+
+	if (region_start >= num_regions ||
+			(region_end >= num_regions))
+					return -EINVAL;
+
+	for (i = region_start; i <= region_end; i++) {
+		struct ocmem_hw_region *region = &region_ctrl[i];
+		if (region->mode == MODE_DEFAULT) {
+			/* No prior mode programming on this region */
+			/* Set the region to its new mode */
+			region->mode = new_mode;
+			atomic_inc(&region->mode_counter);
+			pr_debug("Region  (%d) switching to mode %d\n",
+					i, new_mode);
+			continue;
+		} else if (region->mode != new_mode) {
+			/* The region is currently set to a different mode */
+			if (new_mode == MODE_DEFAULT) {
+				if (atomic_dec_and_test
+						(&region->mode_counter)) {
+					region->mode = MODE_DEFAULT;
+					pr_debug("Region (%d) restoring to default mode\n",
+								i);
+				} else {
+					/* More than 1 client in region */
+					/* Cannot move to default mode */
+					pr_debug("Region (%d) using current mode %d\n",
+							i, region->mode);
+					continue;
+				}
+			} else {
+				/* Do not switch modes */
+				pr_err("Region (%d) requested mode %x conflicts with current\n",
+							i, new_mode);
+				goto mode_switch_fail;
+			}
+		}
+	}
+	return 0;
+
+mode_switch_fail:
+	return -EINVAL;
+}
+
+#ifdef CONFIG_MSM_OCMEM_NONSECURE
+
+static int commit_region_modes(void)
+{
+	uint32_t region_mode_ctrl = 0x0;
+	unsigned pos = 0;
+	unsigned i = 0;
+
+	for (i = 0; i < num_regions; i++) {
+		struct ocmem_hw_region *region = &region_ctrl[i];
+		pos = i << 2;
+		if (region->mode == THIN_MODE)
+			region_mode_ctrl |= BIT(pos);
+	}
+	pr_debug("ocmem_region_mode_control %x\n", region_mode_ctrl);
+	ocmem_write(region_mode_ctrl, ocmem_base + OC_REGION_MODE_CTL);
+	/* Barrier to commit the region mode */
+	mb();
+	return 0;
+}
+
+static int ocmem_gfx_mpu_set(unsigned long offset, unsigned long len)
+{
+	int mpu_start = 0x0;
+	int mpu_end = 0x0;
+
+	if (offset)
+		mpu_start = (offset >> GFX_MPU_SHIFT) - 1;
+	if (mpu_start < 0)
+		/* Avoid underflow */
+		mpu_start = 0;
+	mpu_end = ((offset+len) >> GFX_MPU_SHIFT) - 1;
+	BUG_ON(mpu_end < 0);
+
+	pr_debug("ocmem: mpu: start %x end %x\n", mpu_start, mpu_end);
+	ocmem_write(mpu_start << GFX_MPU_SHIFT, ocmem_base + OC_GFX_MPU_START);
+	ocmem_write(mpu_end << GFX_MPU_SHIFT, ocmem_base + OC_GFX_MPU_END);
+	return 0;
+}
+
+static void ocmem_gfx_mpu_remove(void)
+{
+	ocmem_write(0x0, ocmem_base + OC_GFX_MPU_START);
+	ocmem_write(0x0, ocmem_base + OC_GFX_MPU_END);
+}
+
+static int do_lock(enum ocmem_client id, unsigned long offset,
+			unsigned long len, enum region_mode mode)
+{
+	return 0;
+}
+
+static int do_unlock(enum ocmem_client id, unsigned long offset,
+			unsigned long len)
+{
+	ocmem_clear(offset, len);
+	return 0;
+}
+#else
+static int ocmem_gfx_mpu_set(unsigned long offset, unsigned long len)
+{
+	return 0;
+}
+
+static void ocmem_gfx_mpu_remove(void)
+{
+}
+
+static int commit_region_modes(void)
+{
+	return 0;
+}
+
+static int do_lock(enum ocmem_client id, unsigned long offset,
+			unsigned long len, enum region_mode mode)
+{
+	return 0;
+}
+
+static int do_unlock(enum ocmem_client id, unsigned long offset,
+			unsigned long len)
+{
+	return 0;
+}
+#endif /* CONFIG_MSM_OCMEM_NONSECURE */
+
+int ocmem_lock(enum ocmem_client id, unsigned long offset, unsigned long len,
+					enum region_mode mode)
+{
+
+	if (len < OCMEM_MIN_ALLOC) {
+		pr_err("ocmem: Invalid len %lx for lock\n", len);
+		return -EINVAL;
+	}
+
+	if (id == OCMEM_GRAPHICS)
+		ocmem_gfx_mpu_set(offset, len);
+
+	mutex_lock(&region_ctrl_lock);
+
+	if (switch_region_mode(offset, len, mode) < 0)
+			goto switch_region_fail;
+
+	commit_region_modes();
+
+	do_lock(id, offset, len, mode);
+
+	mutex_unlock(&region_ctrl_lock);
+	return 0;
+
+switch_region_fail:
+	mutex_unlock(&region_ctrl_lock);
+	return -EINVAL;
+}
+
+int ocmem_unlock(enum ocmem_client id, unsigned long offset, unsigned long len)
+{
+	if (id == OCMEM_GRAPHICS)
+		ocmem_gfx_mpu_remove();
+
+	mutex_lock(&region_ctrl_lock);
+	do_unlock(id, offset, len);
+	switch_region_mode(offset, len , MODE_DEFAULT);
+	commit_region_modes();
+	mutex_unlock(&region_ctrl_lock);
 	return 0;
 }
 
@@ -811,6 +1012,7 @@ int ocmem_core_init(struct platform_device *pdev)
 		struct msm_rpm_request *req = NULL;
 		region->interleaved = interleaved;
 		region->mode = MODE_DEFAULT;
+		atomic_set(&region->mode_counter, 0);
 		region->r_state = REGION_DEFAULT_OFF;
 		region->num_macros = num_banks;
 
