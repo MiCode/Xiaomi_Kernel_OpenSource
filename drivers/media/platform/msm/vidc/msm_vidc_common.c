@@ -430,6 +430,7 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	unsigned long flags;
+	int i;
 	if (!response || !response->data) {
 		pr_err("Failed to get valid response for prop info\n");
 		return;
@@ -439,6 +440,12 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 	memcpy(&inst->buff_req, response->data,
 			sizeof(struct buffer_requirements));
 	spin_unlock_irqrestore(&inst->lock, flags);
+	for (i = 0; i < 8; i++) {
+		pr_err("NOTE: buffer type: %d, count : %d, size: %d\n",
+			inst->buff_req.buffer[i].buffer_type,
+			inst->buff_req.buffer[i].buffer_count_actual,
+			inst->buff_req.buffer[i].buffer_size);
+	}
 	signal_session_msg_receipt(cmd, inst);
 }
 
