@@ -165,6 +165,7 @@ struct buffer_info {
 	int buff_off;
 	int size;
 	u32 uvaddr;
+	u32 device_addr;
 	struct msm_smem *handle;
 };
 
@@ -221,6 +222,28 @@ struct buffer_info *get_registered_buf(struct list_head *list,
 			|| OVERLAPS(buff_off, size,
 				temp->buff_off, temp->size))) {
 				pr_err("This memory region is already mapped\n");
+				ret = temp;
+				break;
+			}
+		}
+	}
+err_invalid_input:
+	return ret;
+}
+
+struct buffer_info *get_same_fd_buffer(struct list_head *list,
+		int fd)
+{
+	struct buffer_info *temp;
+	struct buffer_info *ret = NULL;
+	if (!list || fd < 0) {
+		pr_err("%s Invalid input\n", __func__);
+		goto err_invalid_input;
+	}
+	if (!list_empty(list)) {
+		list_for_each_entry(temp, list, list) {
+			if (temp && temp->fd == fd)  {
+				pr_err("Found same fd buffer\n");
 				ret = temp;
 				break;
 			}
@@ -362,8 +385,9 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 				rc = msm_vidc_release_buf(&v4l2_inst->vidc_inst,
 					&buffer_info);
 				list_del(&bi->list);
-				msm_smem_free(v4l2_inst->mem_client,
-					bi->handle);
+				if (bi->handle)
+					msm_smem_free(v4l2_inst->mem_client,
+							bi->handle);
 				kfree(bi);
 			}
 		}
@@ -374,8 +398,9 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 int msm_v4l2_prepare_buf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	struct msm_smem *handle;
+	struct msm_smem *handle = NULL;
 	struct buffer_info *binfo;
+	struct buffer_info *temp;
 	struct msm_vidc_inst *vidc_inst;
 	struct msm_v4l2_vid_inst *v4l2_inst;
 	int i, rc = 0;
@@ -402,28 +427,43 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 			rc = -ENOMEM;
 			goto exit;
 		}
-		handle = msm_smem_user_to_kernel(v4l2_inst->mem_client,
+		temp = get_same_fd_buffer(&v4l2_inst->registered_bufs,
+				b->m.planes[i].reserved[0]);
+		if (temp) {
+			binfo->type = b->type;
+			binfo->fd = b->m.planes[i].reserved[0];
+			binfo->buff_off = b->m.planes[i].reserved[1];
+			binfo->size = b->m.planes[i].length;
+			binfo->uvaddr = b->m.planes[i].m.userptr;
+			binfo->device_addr =
+				temp->handle->device_addr + binfo->buff_off;
+			binfo->handle = NULL;
+		} else {
+			handle = msm_smem_user_to_kernel(v4l2_inst->mem_client,
 			b->m.planes[i].reserved[0],
 			b->m.planes[i].reserved[1],
 			vidc_inst->core->resources.io_map[NS_MAP].domain,
 			0);
-		if (!handle) {
-			pr_err("Failed to get device buffer address\n");
-			kfree(binfo);
-			goto exit;
+			if (!handle) {
+				pr_err("Failed to get device buffer address\n");
+				kfree(binfo);
+				goto exit;
+			}
+			binfo->type = b->type;
+			binfo->fd = b->m.planes[i].reserved[0];
+			binfo->buff_off = b->m.planes[i].reserved[1];
+			binfo->size = b->m.planes[i].length;
+			binfo->uvaddr = b->m.planes[i].m.userptr;
+			binfo->device_addr =
+				handle->device_addr + binfo->buff_off;
+			binfo->handle = handle;
+			pr_debug("Registering buffer: %d, %d, %d\n",
+					b->m.planes[i].reserved[0],
+					b->m.planes[i].reserved[1],
+					b->m.planes[i].length);
 		}
-		binfo->type = b->type;
-		binfo->fd = b->m.planes[i].reserved[0];
-		binfo->buff_off = b->m.planes[i].reserved[1];
-		binfo->size = b->m.planes[i].length;
-		binfo->uvaddr = b->m.planes[i].m.userptr;
-		binfo->handle = handle;
-		pr_debug("Registering buffer: %d, %d, %d\n",
-				b->m.planes[i].reserved[0],
-				b->m.planes[i].reserved[1],
-				b->m.planes[i].length);
 		list_add_tail(&binfo->list, &v4l2_inst->registered_bufs);
-		b->m.planes[i].m.userptr = handle->device_addr;
+		b->m.planes[i].m.userptr = binfo->device_addr;
 	}
 	rc = msm_vidc_prepare_buf(&v4l2_inst->vidc_inst, b);
 exit:
@@ -453,14 +493,16 @@ int msm_v4l2_qbuf(struct file *file, void *fh,
 			rc = -EINVAL;
 			goto err_invalid_buff;
 		}
-		b->m.planes[i].m.userptr = binfo->handle->device_addr;
-		pr_debug("Queueing device address = %ld\n",
-				binfo->handle->device_addr);
-		rc = msm_smem_clean_invalidate(v4l2_inst->mem_client,
-				binfo->handle);
-		if (rc) {
-			pr_err("Failed to clean caches: %d\n", rc);
-			goto err_invalid_buff;
+		b->m.planes[i].m.userptr = binfo->device_addr;
+		pr_debug("Queueing device address = 0x%x\n",
+				binfo->device_addr);
+		if (binfo->handle) {
+			rc = msm_smem_clean_invalidate(v4l2_inst->mem_client,
+					binfo->handle);
+			if (rc) {
+				pr_err("Failed to clean caches: %d\n", rc);
+				goto err_invalid_buff;
+			}
 		}
 	}
 	rc = msm_vidc_qbuf(&v4l2_inst->vidc_inst, b);
