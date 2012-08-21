@@ -60,6 +60,17 @@ static struct gpiomux_setting gpio_i2c_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting lcd_en_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting lcd_en_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
@@ -88,6 +99,13 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 #endif
+	{
+		.gpio = 58,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
+			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
+		},
+	},
 	{
 		.gpio      = 83,		/* BLSP11 QUP I2C_DAT */
 		.settings = {
