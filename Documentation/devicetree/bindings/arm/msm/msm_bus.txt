@@ -12,23 +12,23 @@ The device-tree data required for bus-scaling can be embedded within
 the clients' device nodes. The clients can register with the bus driver
 using the following properties:
 
-- qcom,msm_bus,name:		String representing the client-name
-- qcom,msm_bus,num_cases:	Total number of usecases
-- qcom,msm_bus,active_only:	Context flag for requests in active or
+- qcom,msm-bus,name:		String representing the client-name
+- qcom,msm-bus,num-cases:	Total number of usecases
+- qcom,msm-bus,active-only:	Context flag for requests in active or
 				dual (active & sleep) contex
-- qcom,msm_bus,num_paths:	Total number of master-slave pairs
-- qcom,msm_bus,vectors:		Arrays of unsigned integers representing:
-				master-id, slave-id, arbitrated bandwidth,
-				instantaneous bandwidth
+- qcom,msm-bus,num-paths:	Total number of master-slave pairs
+- qcom,msm-bus,vectors-KBps:	Arrays of unsigned integers representing:
+				master-id, slave-id, arbitrated bandwidth
+				in KBps, instantaneous bandwidth in KBps
 
 Example:
 
-	qcom,msm_bus,name = "client-name";
-	qcom,msm_bus,num_cases = <3>;
-	qcom,msm_bus,active_only = <0>;
-	qcom,msm_bus,num_paths = <2>;
-	qcom,msm_bus,vectors =
+	qcom,msm-bus,name = "client-name";
+	qcom,msm-bus,num-cases = <3>;
+	qcom,msm-bus,active-only = <0>;
+	qcom,msm-bus,num-paths = <2>;
+	qcom,msm-bus,vectors =
 			<22 512 0 0>, <26 512 0 0>,
-			<22 512 320000 320000000>, <26 512 3200000 320000000>,
-			<22 512 160000 160000000>, <26 512 1600000 160000000>;
+			<22 512 320000 3200000>, <26 512 3200000 3200000>,
+			<22 512 160000 1600000>, <26 512 1600000 1600000>;
 

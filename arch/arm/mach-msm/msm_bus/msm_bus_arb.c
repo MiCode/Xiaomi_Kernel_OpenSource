@@ -32,8 +32,9 @@
 #define SEL_FAB_CLK 1
 #define SEL_SLAVE_CLK 0
 
-#define BW_TO_CLK_FREQ_HZ(width, bw) ((unsigned long)\
-	DIV_ROUND_UP((bw), (width)))
+#define BW_TO_CLK_FREQ_HZ(width, bw) \
+	msm_bus_div64(width, bw)
+
 #define IS_MASTER_VALID(mas) \
 	(((mas >= MSM_BUS_MASTER_FIRST) && (mas <= MSM_BUS_MASTER_LAST)) \
 	 ? 1 : 0)
@@ -42,6 +43,33 @@
 	(((slv >= MSM_BUS_SLAVE_FIRST) && (slv <= MSM_BUS_SLAVE_LAST)) ? 1 : 0)
 
 static DEFINE_MUTEX(msm_bus_lock);
+
+/* This function uses shift operations to divide 64 bit value for higher
+ * efficiency. The divisor expected are number of ports or bus-width.
+ * These are expected to be 1, 2, 4, 8, 16 and 32 in most cases.
+ *
+ * To account for exception to the above divisor values, the standard
+ * do_div function is used.
+ * */
+uint64_t msm_bus_div64(unsigned int w, uint64_t bw)
+{
+	uint64_t *b = &bw;
+
+	if ((bw > 0) && (bw < w))
+		return 1;
+
+	switch (w) {
+	case 1: return bw;
+	case 2:	return (bw >> 1);
+	case 4:	return (bw >> 2);
+	case 8:	return (bw >> 3);
+	case 16: return (bw >> 4);
+	case 32: return (bw >> 5);
+	}
+
+	do_div(*b, w);
+	return *b;
+}
 
 /**
  * add_path_node: Adds the path information to the current node
@@ -278,21 +306,21 @@ static int getpath(int src, int dest)
  * frequencies is calculated at each node on the path. Commit data to be sent
  * to RPM for each master and slave is also calculated here.
  */
-static int update_path(int curr, int pnode, unsigned long req_clk, unsigned
-	long req_bw, unsigned long curr_clk, unsigned long curr_bw,
-	unsigned int ctx, unsigned int cl_active_flag)
+static int update_path(int curr, int pnode, uint64_t req_clk, uint64_t req_bw,
+	uint64_t curr_clk, uint64_t curr_bw, unsigned int ctx, unsigned int
+	cl_active_flag)
 {
 	int index, ret = 0;
 	struct msm_bus_inode_info *info;
 	int next_pnode;
-	long int add_bw = req_bw - curr_bw;
+	int64_t add_bw = req_bw - curr_bw;
 	unsigned bwsum = 0;
-	unsigned req_clk_hz, curr_clk_hz, bwsum_hz;
+	uint64_t req_clk_hz, curr_clk_hz, bwsum_hz;
 	int *master_tiers;
 	struct msm_bus_fabric_device *fabdev = msm_bus_get_fabric_device
 		(GET_FABID(curr));
 
-	MSM_BUS_DBG("args: %d %d %d %lu %lu %lu %lu %u\n",
+	MSM_BUS_DBG("args: %d %d %d %llu %llu %llu %llu %u\n",
 		curr, GET_NODE(pnode), GET_INDEX(pnode), req_clk, req_bw,
 		curr_clk, curr_bw, ctx);
 	index = GET_INDEX(pnode);
@@ -378,8 +406,8 @@ static int update_path(int curr, int pnode, unsigned long req_clk, unsigned
 			req_clk);
 		bwsum_hz = BW_TO_CLK_FREQ_HZ(hop->node_info->buswidth,
 			bwsum);
-		MSM_BUS_DBG("Calling update-clks: curr_hz: %lu, req_hz: %lu,"
-			" bw_hz %u\n", curr_clk, req_clk, bwsum_hz);
+		MSM_BUS_DBG("up-clk: curr_hz: %llu, req_hz: %llu, bw_hz %llu\n",
+			curr_clk, req_clk, bwsum_hz);
 		ret = fabdev->algo->update_clks(fabdev, hop, index,
 			curr_clk_hz, req_clk_hz, bwsum_hz, SEL_FAB_CLK,
 			ctx, cl_active_flag);
@@ -532,7 +560,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	int i, ret = 0;
 	struct msm_bus_scale_pdata *pdata;
 	int pnode, src, curr, ctx;
-	unsigned long req_clk, req_bw, curr_clk, curr_bw;
+	uint64_t req_clk, req_bw, curr_clk, curr_bw;
 	struct msm_bus_client *client = (struct msm_bus_client *)cl;
 	if (IS_ERR(client)) {
 		MSM_BUS_ERR("msm_bus_scale_client update req error %d\n",
@@ -554,9 +582,8 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 		goto err;
 	}
 
-	MSM_BUS_DBG("cl: %u index: %d curr: %d"
-			" num_paths: %d\n", cl, index, client->curr,
-			client->pdata->usecase->num_paths);
+	MSM_BUS_DBG("cl: %u index: %d curr: %d num_paths: %d\n",
+		cl, index, client->curr, client->pdata->usecase->num_paths);
 
 	for (i = 0; i < pdata->usecase->num_paths; i++) {
 		src = msm_bus_board_get_iid(client->pdata->usecase[index].
@@ -584,7 +611,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 		} else {
 			curr_clk = client->pdata->usecase[curr].vectors[i].ib;
 			curr_bw = client->pdata->usecase[curr].vectors[i].ab;
-			MSM_BUS_DBG("ab: %lu ib: %lu\n", curr_bw, curr_clk);
+			MSM_BUS_DBG("ab: %llu ib: %llu\n", curr_bw, curr_clk);
 		}
 
 		if (!pdata->active_only) {

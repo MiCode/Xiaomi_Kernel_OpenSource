@@ -1803,7 +1803,7 @@ static void msm_bus_bimc_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_inode_info *info,
 	struct msm_bus_fabric_registration *fab_pdata,
 	void *sel_cdata, int *master_tiers,
-	long int add_bw)
+	int64_t add_bw)
 {
 	struct msm_bus_bimc_info *binfo;
 	struct msm_bus_bimc_qos_bw qbw;
@@ -1813,7 +1813,7 @@ static void msm_bus_bimc_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_bimc_commit *sel_cd =
 		(struct msm_bus_bimc_commit *)sel_cdata;
 
-	MSM_BUS_DBG("BIMC: Update bw for ID %d, with IID: %d: %ld\n",
+	MSM_BUS_DBG("BIMC: Update bw for ID %d, with IID: %d: %lld\n",
 		info->node_info->id, info->node_info->priv_id, add_bw);
 
 	binfo = (struct msm_bus_bimc_info *)fab_pdata->hw_data;

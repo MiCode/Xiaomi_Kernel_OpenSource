@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <mach/msm_bus.h>
 
+#define KBTOMB(a) (a * 1000ULL)
 /**
  * msm_bus_cl_get_pdata() - Generate bus client data from device tree
  * provided by clients.
@@ -53,22 +54,22 @@ struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = of_property_read_string(of_node, "qcom,msm_bus,name",
+	ret = of_property_read_string(of_node, "qcom,msm-bus,name",
 		&pdata->name);
 	if (ret) {
 		pr_err("Error: Client name not found\n");
 		goto err;
 	}
 
-	ret = of_property_read_u32(of_node, "qcom,msm_bus,num_cases",
+	ret = of_property_read_u32(of_node, "qcom,msm-bus,num-cases",
 		&num_usecases);
 	if (ret) {
-		pr_err("Error: num_usecases not found\n");
+		pr_err("Error: num-usecases not found\n");
 		goto err;
 	}
 
 	pdata->num_usecases = num_usecases;
-	ret = of_property_read_u32(of_node, "qcom,msm_bus,active_only",
+	ret = of_property_read_u32(of_node, "qcom,msm-bus,active-only",
 		&pdata->active_only);
 	if (ret) {
 		pr_info("active_only flag absent.\n");
@@ -83,15 +84,15 @@ struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = of_property_read_u32(of_node, "qcom,msm_bus,num_paths",
+	ret = of_property_read_u32(of_node, "qcom,msm-bus,num-paths",
 		&num_paths);
 	if (ret) {
 		pr_err("Error: num_paths not found\n");
 		goto err;
 	}
 
-	vec_arr = of_get_property(of_node, "qcom,msm_bus,vectors", &len);
-	if (len != num_usecases * num_paths * sizeof(struct msm_bus_vectors)) {
+	vec_arr = of_get_property(of_node, "qcom,msm-bus,vectors-KBps", &len);
+	if (len != num_usecases * num_paths * sizeof(uint32_t) * 4) {
 		pr_err("Error: Length-error on getting vectors\n");
 		goto err;
 	}
@@ -111,10 +112,10 @@ struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
 			usecase[i].vectors[j].src = be32_to_cpu(vec_arr[index]);
 			usecase[i].vectors[j].dst =
 				be32_to_cpu(vec_arr[index + 1]);
-			usecase[i].vectors[j].ab =
-				be32_to_cpu(vec_arr[index + 2]);
-			usecase[i].vectors[j].ib =
-				be32_to_cpu(vec_arr[index + 3]);
+			usecase[i].vectors[j].ab = (uint64_t)
+				KBTOMB(be32_to_cpu(vec_arr[index + 2]));
+			usecase[i].vectors[j].ib = (uint64_t)
+				KBTOMB(be32_to_cpu(vec_arr[index + 3]));
 		}
 	}
 

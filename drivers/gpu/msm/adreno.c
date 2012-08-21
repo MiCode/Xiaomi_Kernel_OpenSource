@@ -731,101 +731,6 @@ done:
 	return ret;
 
 }
-static void adreno_of_free_bus_scale_info(struct msm_bus_scale_pdata *pdata)
-{
-	int i;
-
-	if (pdata == NULL)
-		return;
-
-	for (i = 0;  pdata->usecase && i < pdata->num_usecases; i++)
-		kfree(pdata->usecase[i].vectors);
-
-	kfree(pdata->usecase);
-	kfree(pdata);
-}
-
-struct msm_bus_scale_pdata *adreno_of_get_bus_scale(struct device_node *node)
-{
-	static int bus_vectors_src[3] = {MSM_BUS_MASTER_GRAPHICS_3D,
-		MSM_BUS_MASTER_GRAPHICS_3D_PORT1, MSM_BUS_MASTER_V_OCMEM_GFX3D};
-	static int bus_vectors_dst[2] = {MSM_BUS_SLAVE_EBI_CH0,
-		MSM_BUS_SLAVE_OCMEM};
-	const unsigned int *vectors;
-	struct msm_bus_scale_pdata *pdata;
-	int i, j, len, num_paths;
-	int ret = -EINVAL;
-
-	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
-
-	if (!pdata) {
-		KGSL_CORE_ERR("kzalloc(%d) failed\n", sizeof(*pdata));
-		return ERR_PTR(-ENOMEM);
-	}
-
-	if (adreno_of_read_property(node, "qcom,grp3d-num-bus-scale-usecases",
-		&pdata->num_usecases)) {
-		pdata->num_usecases = 0;
-		goto err;
-	}
-
-	pdata->usecase =  kzalloc(pdata->num_usecases *
-		sizeof(struct msm_bus_paths), GFP_KERNEL);
-
-	if (pdata->usecase == NULL) {
-		KGSL_CORE_ERR("kzalloc (%d) failed\n",
-			pdata->num_usecases * sizeof(struct msm_bus_paths));
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	if (adreno_of_read_property(node, "qcom,grp3d-num-vectors-per-usecase",
-		&num_paths))
-		goto err;
-
-	vectors = of_get_property(node, "qcom,grp3d-vectors", &len);
-
-	if (len != pdata->num_usecases * num_paths *
-		sizeof(struct msm_bus_vectors)) {
-		KGSL_CORE_ERR("Invalid size for the bus scale vectors\n");
-		goto err;
-	}
-
-	for (i = 0; i < pdata->num_usecases; i++) {
-		pdata->usecase[i].num_paths = num_paths;
-		pdata->usecase[i].vectors = kzalloc(num_paths *
-						sizeof(struct msm_bus_vectors),
-						GFP_KERNEL);
-		if (!pdata->usecase[i].vectors) {
-			KGSL_CORE_ERR("kzalloc(%d) failed\n",
-				num_paths * sizeof(struct msm_bus_vectors));
-			ret = -ENOMEM;
-			goto err;
-		}
-		for (j = 0; j < num_paths; j++) {
-			int index = (i * num_paths + j) * 4;
-			pdata->usecase[i].vectors[j].src =
-				bus_vectors_src[be32_to_cpu(vectors[index])];
-			pdata->usecase[i].vectors[j].dst =
-				bus_vectors_dst[
-					be32_to_cpu(vectors[index + 1])];
-			pdata->usecase[i].vectors[j].ab =
-				be32_to_cpu(vectors[index + 2]);
-			pdata->usecase[i].vectors[j].ib =
-				KGSL_CONVERT_TO_MBPS(
-					be32_to_cpu(vectors[index + 3]));
-		}
-	}
-
-	pdata->name = "grp3d";
-
-	return pdata;
-
-err:
-	adreno_of_free_bus_scale_info(pdata);
-
-	return ERR_PTR(ret);
-}
 
 static struct msm_dcvs_core_info *adreno_of_get_dcvs(struct device_node *parent)
 {
@@ -1121,7 +1026,7 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 
 	/* Bus Scale Data */
 
-	pdata->bus_scale_table = adreno_of_get_bus_scale(pdev->dev.of_node);
+	pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 	if (IS_ERR_OR_NULL(pdata->bus_scale_table)) {
 		ret = PTR_ERR(pdata->bus_scale_table);
 		goto err;
@@ -1142,7 +1047,6 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 
 err:
 	if (pdata) {
-		adreno_of_free_bus_scale_info(pdata->bus_scale_table);
 		if (pdata->core_info)
 			kfree(pdata->core_info->freq_tbl);
 		kfree(pdata->core_info);
