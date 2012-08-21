@@ -497,6 +497,7 @@ static void __iomem *virt_bases[N_BASES];
 #define LPASS_Q6SS_XO_CBCR                       0x26000
 #define LPASS_Q6_AXI_CBCR			 0x11C0
 #define Q6SS_AHBM_CBCR				 0x22004
+#define AUDIO_WRAPPER_BR_CBCR			 0x24000
 #define MSS_XO_Q6_CBCR                           0x108C
 #define MSS_BUS_Q6_CBCR                          0x10A4
 #define MSS_CFG_AHB_CBCR                         0x0280
@@ -4497,6 +4498,17 @@ static struct branch_clk q6ss_ahbm_clk = {
 	},
 };
 
+static struct branch_clk audio_wrapper_br_clk = {
+	.cbcr_reg = AUDIO_WRAPPER_BR_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[LPASS_BASE],
+	.c = {
+		.dbg_name = "audio_wrapper_br_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(audio_wrapper_br_clk.c),
+	},
+};
+
 static struct branch_clk mss_xo_q6_clk = {
 	.cbcr_reg = MSS_XO_Q6_CBCR,
 	.bcr_reg = MSS_Q6SS_BCR,
@@ -4705,6 +4717,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&q6ss_ahb_lfabif_clk.c,		LPASS_BASE, 0x001e},
 	{&q6ss_ahbm_clk.c,			LPASS_BASE, 0x001d},
 	{&audio_core_ixfabric_clk.c,		LPASS_BASE, 0x0059},
+	{&audio_wrapper_br_clk.c,		LPASS_BASE, 0x0022},
 	{&mss_bus_q6_clk.c,			MSS_BASE, 0x003b},
 	{&mss_xo_q6_clk.c,			MSS_BASE, 0x0007},
 
@@ -5239,7 +5252,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 						"msm-dai-q6.4106"),
 	CLK_LOOKUP("core_oe_clk", audio_core_lpaif_pcmoe_clk.c,
 						"msm-dai-q6.4106"),
-
+	CLK_LOOKUP("br_clk", audio_wrapper_br_clk.c, "fdd00000.qcom,ocmem"),
 	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c,  "pil-q6v5-mss"),
 	CLK_LOOKUP("bus_clk", gcc_mss_q6_bimc_axi_clk.c, "pil-q6v5-mss"),
 	CLK_LOOKUP("iface_clk", gcc_mss_cfg_ahb_clk.c, "pil-q6v5-mss"),
