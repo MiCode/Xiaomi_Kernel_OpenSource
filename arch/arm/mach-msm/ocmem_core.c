@@ -50,6 +50,7 @@ static void *ocmem_base;
 
 #define OCMEM_V1_REGIONS 3
 #define OCMEM_V1_MACROS 8
+#define OCMEM_V1_MACRO_SZ (SZ_64K)
 
 #define OC_HW_VERS (0x0)
 #define OC_HW_PROFILE (0x4)
@@ -709,9 +710,9 @@ int ocmem_core_init(struct platform_device *pdev)
 	pdata->interleaved = true;
 	pdata->nr_macros = num_macros;
 	pdata->nr_ports = num_ports;
-	macro_size = SZ_64K;
-	region_size = macro_size * num_ports;
+	macro_size = OCMEM_V1_MACRO_SZ * 2;
 	num_banks = num_ports / 2;
+	region_size = macro_size * num_banks;
 	rsc_type = pdata->rpm_rsc_type;
 
 	pr_debug("ocmem_core: ports %d regions %d macros %d interleaved %d\n",
