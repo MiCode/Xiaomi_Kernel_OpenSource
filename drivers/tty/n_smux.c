@@ -84,6 +84,11 @@ module_param_named(simulate_wakeup_delay, smux_simulate_wakeup_delay,
 			IPC_LOG_STR(x);  \
 } while (0)
 
+#define SMUX_ERR(x...) do {                              \
+	pr_err(x); \
+	IPC_LOG_STR(x);  \
+} while (0)
+
 #define SMUX_PWR(x...) do {                              \
 	if (smux_debug_mask & MSM_SMUX_POWER_INFO) \
 			IPC_LOG_STR(x);  \
@@ -1489,8 +1494,9 @@ static int smux_handle_rx_data_cmd(struct smux_pkt_t *pkt)
 		}
 		if ((ch->rx_retry_queue_cnt + 1) > SMUX_RX_RETRY_MAX_PKTS) {
 			/* retry queue full */
-			pr_err("%s: ch %d RX retry queue full\n",
-					__func__, lcid);
+			SMUX_ERR(
+				"%s: ch %d RX retry queue full; rx flow=%d\n",
+				__func__, lcid, ch->rx_flow_control_auto);
 			schedule_notify(lcid, SMUX_READ_FAIL, NULL);
 			ret = -ENOMEM;
 			spin_unlock_irqrestore(&ch->state_lock_lhb1, flags);
