@@ -49,7 +49,6 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 				      struct mdss_mdp_format_params *fmt)
 {
 	u32 xres, yres;
-	u32 dst_w, dst_h;
 
 	xres = mfd->fbi->var.xres;
 	yres = mfd->fbi->var.yres;
@@ -62,32 +61,45 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 	if (req->src.width > MAX_IMG_WIDTH ||
 	    req->src.height > MAX_IMG_HEIGHT ||
 	    req->src_rect.w == 0 || req->src_rect.h == 0 ||
-	    req->dst_rect.w < MIN_DST_W || req->dst_rect.h < MIN_DST_H ||
-	    req->dst_rect.w > MAX_DST_W || req->dst_rect.h > MAX_DST_H ||
 	    CHECK_BOUNDS(req->src_rect.x, req->src_rect.w, req->src.width) ||
-	    CHECK_BOUNDS(req->src_rect.y, req->src_rect.h, req->src.height) ||
-	    CHECK_BOUNDS(req->dst_rect.x, req->dst_rect.w, xres) ||
-	    CHECK_BOUNDS(req->dst_rect.y, req->dst_rect.h, yres)) {
-		pr_err("invalid image img_w=%d img_h=%d\n",
-				req->src.width, req->src.height);
-
-		pr_err("\tsrc_rect=%d,%d,%d,%d dst_rect=%d,%d,%d,%d\n",
+	    CHECK_BOUNDS(req->src_rect.y, req->src_rect.h, req->src.height)) {
+		pr_err("invalid source image img wh=%dx%d rect=%d,%d,%d,%d\n",
+		       req->src.width, req->src.height,
 		       req->src_rect.x, req->src_rect.y,
-		       req->src_rect.w, req->src_rect.h,
-		       req->dst_rect.x, req->dst_rect.y,
+		       req->src_rect.w, req->src_rect.h);
+		return -EOVERFLOW;
+	}
+
+	if (req->dst_rect.w < MIN_DST_W || req->dst_rect.h < MIN_DST_H ||
+	    req->dst_rect.w > MAX_DST_W || req->dst_rect.h > MAX_DST_H) {
+		pr_err("invalid destination resolution (%dx%d)",
 		       req->dst_rect.w, req->dst_rect.h);
-		return -EINVAL;
+		return -EOVERFLOW;
 	}
 
-	if (req->flags & MDP_ROT_90) {
-		dst_h = req->dst_rect.w;
-		dst_w = req->dst_rect.h;
+	if (req->flags & MDSS_MDP_ROT_ONLY) {
+		/* dst res should match src res in rotation only mode*/
+		req->dst_rect.w = req->src_rect.w;
+		req->dst_rect.h = req->src_rect.h;
 	} else {
-		dst_w = req->dst_rect.w;
-		dst_h = req->dst_rect.h;
-	}
+		u32 dst_w, dst_h;
 
-	if (!(req->flags & MDSS_MDP_ROT_ONLY)) {
+		if ((CHECK_BOUNDS(req->dst_rect.x, req->dst_rect.w, xres) ||
+		     CHECK_BOUNDS(req->dst_rect.y, req->dst_rect.h, yres))) {
+			pr_err("invalid destination rect=%d,%d,%d,%d\n",
+			       req->dst_rect.x, req->dst_rect.y,
+			       req->dst_rect.w, req->dst_rect.h);
+			return -EOVERFLOW;
+		}
+
+		if (req->flags & MDP_ROT_90) {
+			dst_h = req->dst_rect.w;
+			dst_w = req->dst_rect.h;
+		} else {
+			dst_w = req->dst_rect.w;
+			dst_h = req->dst_rect.h;
+		}
+
 		if ((req->src_rect.w * MAX_UPSCALE_RATIO) < dst_w) {
 			pr_err("too much upscaling Width %d->%d\n",
 			       req->src_rect.w, req->dst_rect.w);
@@ -111,6 +123,22 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			       req->src_rect.h, req->dst_rect.h);
 			return -EINVAL;
 		}
+
+		if ((fmt->chroma_sample == MDSS_MDP_CHROMA_420 ||
+		     fmt->chroma_sample == MDSS_MDP_CHROMA_H2V1) &&
+		    ((req->src_rect.w * (MAX_UPSCALE_RATIO / 2)) < dst_w)) {
+			pr_err("too much YUV upscaling Width %d->%d\n",
+			       req->src_rect.w, req->dst_rect.w);
+			return -EINVAL;
+		}
+
+		if ((fmt->chroma_sample == MDSS_MDP_CHROMA_420 ||
+		     fmt->chroma_sample == MDSS_MDP_CHROMA_H1V2) &&
+		    (req->src_rect.h * (MAX_UPSCALE_RATIO / 2)) < dst_h) {
+			pr_err("too much YUV upscaling Height %d->%d\n",
+			       req->src_rect.h, req->dst_rect.h);
+			return -EINVAL;
+		}
 	}
 
 	if (fmt->is_yuv) {
@@ -121,22 +149,6 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		}
 		if ((req->dst_rect.w & 0x1) || (req->dst_rect.h & 0x1)) {
 			pr_err("invalid odd dst resolution\n");
-			return -EINVAL;
-		}
-
-		if (((req->src_rect.w * (MAX_UPSCALE_RATIO / 2)) < dst_w) &&
-		    (fmt->chroma_sample == MDSS_MDP_CHROMA_420 ||
-		     fmt->chroma_sample == MDSS_MDP_CHROMA_H2V1)) {
-			pr_err("too much YUV upscaling Width %d->%d\n",
-			       req->src_rect.w, req->dst_rect.w);
-			return -EINVAL;
-		}
-
-		if (((req->src_rect.h * (MAX_UPSCALE_RATIO / 2)) < dst_h) &&
-		    (fmt->chroma_sample == MDSS_MDP_CHROMA_420 ||
-		     fmt->chroma_sample == MDSS_MDP_CHROMA_H1V2)) {
-			pr_err("too much YUV upscaling Height %d->%d\n",
-			       req->src_rect.h, req->dst_rect.h);
 			return -EINVAL;
 		}
 	}
