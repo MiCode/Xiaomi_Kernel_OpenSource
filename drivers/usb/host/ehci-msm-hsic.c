@@ -354,21 +354,33 @@ reg_enable_err:
 static int ulpi_read(struct msm_hsic_hcd *mehci, u32 reg)
 {
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
-	unsigned long timeout;
+	int cnt = 0;
 
 	/* initiate read operation */
 	writel_relaxed(ULPI_RUN | ULPI_READ | ULPI_ADDR(reg),
 	       USB_ULPI_VIEWPORT);
 
 	/* wait for completion */
-	timeout = jiffies + usecs_to_jiffies(ULPI_IO_TIMEOUT_USEC);
-	while (readl_relaxed(USB_ULPI_VIEWPORT) & ULPI_RUN) {
-		if (time_after(jiffies, timeout)) {
-			dev_err(mehci->dev, "ulpi_read: timeout %08x\n",
-				readl_relaxed(USB_ULPI_VIEWPORT));
-			return -ETIMEDOUT;
-		}
+	while (cnt < ULPI_IO_TIMEOUT_USEC) {
+		if (!(readl_relaxed(USB_ULPI_VIEWPORT) & ULPI_RUN))
+			break;
 		udelay(1);
+		cnt++;
+	}
+
+	if (cnt >= ULPI_IO_TIMEOUT_USEC) {
+		dev_err(mehci->dev, "ulpi_read: timeout ULPI_VIEWPORT: %08x\n",
+				readl_relaxed(USB_ULPI_VIEWPORT));
+		dev_err(mehci->dev, "PORTSC: %08x USBCMD: %08x FRINDEX: %08x\n",
+				readl_relaxed(USB_PORTSC),
+				readl_relaxed(USB_USBCMD),
+				readl_relaxed(USB_FRINDEX));
+
+		/*frame counter increments afte 125us*/
+		udelay(130);
+		dev_err(mehci->dev, "ulpi_read: FRINDEX: %08x\n",
+				readl_relaxed(USB_FRINDEX));
+		return -ETIMEDOUT;
 	}
 
 	return ULPI_DATA_READ(readl_relaxed(USB_ULPI_VIEWPORT));
@@ -393,7 +405,17 @@ static int ulpi_write(struct msm_hsic_hcd *mehci, u32 val, u32 reg)
 	}
 
 	if (cnt >= ULPI_IO_TIMEOUT_USEC) {
-		dev_err(mehci->dev, "ulpi_write: timeout\n");
+		dev_err(mehci->dev, "ulpi_write: timeout ULPI_VIEWPORT: %08x\n",
+				readl_relaxed(USB_ULPI_VIEWPORT));
+		dev_err(mehci->dev, "PORTSC: %08x USBCMD: %08x FRINDEX: %08x\n",
+				readl_relaxed(USB_PORTSC),
+				readl_relaxed(USB_USBCMD),
+				readl_relaxed(USB_FRINDEX));
+
+		/*frame counter increments afte 125us*/
+		udelay(130);
+		dev_err(mehci->dev, "ulpi_write: FRINDEX: %08x\n",
+				readl_relaxed(USB_FRINDEX));
 		return -ETIMEDOUT;
 	}
 
