@@ -181,7 +181,7 @@ int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
 	else
 		pipe->srcp0_addr = (uint32)(buf + buf_offset);
 
-	mdp4_mixer_stage_up(pipe);
+	mdp4_mixer_stage_up(pipe, 0);
 
 	mdp4_overlayproc_cfg(pipe);
 	mdp4_mixer_stage_commit(pipe->mixer_num);
