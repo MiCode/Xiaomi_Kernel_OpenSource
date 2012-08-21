@@ -242,13 +242,13 @@ void kgsl_pwrscale_busy(struct kgsl_device *device)
 					&device->pwrscale);
 }
 
-void kgsl_pwrscale_idle(struct kgsl_device *device, unsigned int ignore_idle)
+void kgsl_pwrscale_idle(struct kgsl_device *device)
 {
 	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->idle)
 		if (device->requested_state != KGSL_STATE_SLUMBER &&
 			device->requested_state != KGSL_STATE_SLEEP)
 			device->pwrscale.policy->idle(device,
-					&device->pwrscale, ignore_idle);
+					&device->pwrscale);
 }
 EXPORT_SYMBOL(kgsl_pwrscale_idle);
 
