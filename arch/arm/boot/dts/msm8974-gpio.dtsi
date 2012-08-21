@@ -86,6 +86,13 @@
 
 			gpio@ce00 {
 				status = "ok";
+				qcom,mode = <1>;
+				qcom,output-type = <0>;
+				qcom,pull = <5>;
+				qcom,vin-sel = <2>;
+				qcom,out-strength = <3>;
+				qcom,src-select = <2>;
+				qcom,master-en = <1>;
 			};
 
 			gpio@cf00 {

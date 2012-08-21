@@ -13,11 +13,11 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
-#include <linux/gpio.h>
-#include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/slab.h>
+#include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/qpnp/clkdiv.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -57,6 +57,11 @@
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
 
+struct msm8974_asoc_mach_data {
+	int mclk_gpio;
+	u32 mclk_freq;
+};
+
 /* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
 enum {
 	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
@@ -81,6 +86,8 @@ static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
 static struct mutex cdc_mclk_mutex;
+static struct q_clkdiv *codec_clk;
+static int clk_users;
 
 static void msm_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 {
@@ -308,16 +315,67 @@ static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int msm_mclk_event(struct snd_soc_dapm_widget *w,
+static int msm8974_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
+					bool dapm)
+{
+	int ret = 0;
+	pr_debug("%s: enable = %d clk_users = %d\n",
+		__func__, enable, clk_users);
+
+	mutex_lock(&cdc_mclk_mutex);
+	if (enable) {
+		if (!codec_clk) {
+			dev_err(codec->dev, "%s: did not get Taiko MCLK\n",
+				__func__);
+			return -EINVAL;
+		}
+
+		clk_users++;
+		if (clk_users != 1)
+			return ret;
+
+		ret = qpnp_clkdiv_enable(codec_clk);
+		if (ret) {
+			dev_err(codec->dev, "%s: Error enabling taiko MCLK\n",
+			       __func__);
+			return -ENODEV;
+		}
+		taiko_mclk_enable(codec, 1, dapm);
+	} else {
+		if (clk_users > 0) {
+			clk_users--;
+			if (clk_users == 0) {
+				taiko_mclk_enable(codec, 0, dapm);
+				qpnp_clkdiv_disable(codec_clk);
+			}
+		} else {
+			pr_err("%s: Error releasing Tabla MCLK\n", __func__);
+			ret = -EINVAL;
+		}
+	}
+	mutex_unlock(&cdc_mclk_mutex);
+	return ret;
+}
+
+static int msm8974_mclk_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
+	pr_debug("%s: event = %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		return msm8974_enable_codec_ext_clk(w->codec, 1, true);
+	case SND_SOC_DAPM_POST_PMD:
+		return msm8974_enable_codec_ext_clk(w->codec, 0, true);
+	}
+
 	return 0;
 }
 
 static const struct snd_soc_dapm_widget msm8974_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
-	msm_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	msm8974_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SPK("Ext Spk Bottom Pos", msm_spkramp_event),
 	SND_SOC_DAPM_SPK("Ext Spk Bottom Neg", msm_spkramp_event),
@@ -869,9 +927,41 @@ struct snd_soc_card snd_soc_card_msm8974 = {
 	.num_links	= ARRAY_SIZE(msm8974_dai),
 };
 
+static int msm8974_prepare_codec_mclk(struct snd_soc_card *card)
+{
+	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret;
+	if (pdata->mclk_gpio) {
+		ret = gpio_request(pdata->mclk_gpio, "TAIKO_CODEC_PMIC_MCLK");
+		if (ret) {
+			dev_err(card->dev,
+				"%s: Failed to request taiko mclk gpio %d\n",
+				__func__, pdata->mclk_gpio);
+			return ret;
+		}
+	}
+
+	codec_clk = qpnp_clkdiv_get(card->dev, "taiko-mclk");
+	if (IS_ERR(codec_clk)) {
+		dev_err(card->dev,
+			"%s: Failed to request taiko mclk from pmic %ld\n",
+			__func__, PTR_ERR(codec_clk));
+		return -ENODEV ;
+	}
+
+	ret = qpnp_clkdiv_config(codec_clk, Q_CLKDIV_XO_DIV_2);
+	if (ret) {
+		dev_err(card->dev, "%s: Failed to set taiko mclk to %u\n",
+			__func__, pdata->mclk_gpio);
+			return ret;
+	}
+	return 0;
+}
+
 static int msm8974_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_card_msm8974;
+	struct msm8974_asoc_mach_data *pdata;
 	int ret;
 
 	if (!pdev->dev.of_node) {
@@ -879,8 +969,17 @@ static int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	pdata = devm_kzalloc(&pdev->dev,
+			sizeof(struct msm8974_asoc_mach_data), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(&pdev->dev, "Can't allocate msm8974_asoc_mach_data\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
+	snd_soc_card_set_drvdata(card, pdata);
 
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret)
@@ -888,6 +987,37 @@ static int msm8974_asoc_machine_probe(struct platform_device *pdev)
 
 	ret = snd_soc_of_parse_audio_routing(card,
 			"qcom,audio-routing");
+	if (ret)
+		goto err;
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"qcom,taiko-mclk-clk-freq", &pdata->mclk_freq);
+	if (ret) {
+		dev_err(&pdev->dev, "Looking up %s property in node %s failed",
+			"qcom,taiko-mclk-clk-freq",
+			pdev->dev.of_node->full_name);
+		goto err;
+	}
+
+	if (pdata->mclk_freq != 9600000) {
+		dev_err(&pdev->dev, "unsupported taiko mclk freq %u\n",
+			pdata->mclk_freq);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	pdata->mclk_gpio = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,cdc-mclk-gpios", 0);
+	if (pdata->mclk_gpio < 0) {
+		dev_err(&pdev->dev,
+			"Looking up %s property in node %s failed %d\n",
+			"qcom, cdc-mclk-gpios", pdev->dev.of_node->full_name,
+			pdata->mclk_gpio);
+		ret = -ENODEV;
+		goto err;
+	}
+
+	ret = msm8974_prepare_codec_mclk(card);
 	if (ret)
 		goto err;
 
@@ -900,13 +1030,16 @@ static int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	mutex_init(&cdc_mclk_mutex);
 	return 0;
 err:
+	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }
 
 static int msm8974_asoc_machine_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
+	gpio_free(pdata->mclk_gpio);
 	snd_soc_unregister_card(card);
 
 	return 0;
