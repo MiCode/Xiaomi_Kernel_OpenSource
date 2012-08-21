@@ -2147,9 +2147,18 @@ static struct platform_device apq8064_device_ext_ts_sw_vreg __devinitdata = {
 
 static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
-	.id	= -1,
+	.id	= 0,
 	.dev	= {
 		.platform_data = &apq8064_rpm_regulator_pdata,
+	},
+};
+
+static struct platform_device
+apq8064_pm8921_device_rpm_regulator __devinitdata = {
+	.name	= "rpm-regulator",
+	.id	= 1,
+	.dev	= {
+		.platform_data = &apq8064_rpm_regulator_pm8921_pdata,
 	},
 };
 
@@ -2171,16 +2180,30 @@ static struct platform_device *common_not_mpq_devices[] __initdata = {
 	&apq8064_device_qup_i2c_gsbi4,
 };
 
-static struct platform_device *common_devices[] __initdata = {
+static struct platform_device *early_common_devices[] __initdata = {
 	&apq8064_device_acpuclk,
 	&apq8064_device_dmov,
 	&apq8064_device_qup_spi_gsbi5,
+};
+
+static struct platform_device *pm8921_common_devices[] __initdata = {
 	&apq8064_device_ext_5v_vreg,
 	&apq8064_device_ext_mpp8_vreg,
 	&apq8064_device_ext_3p3v_vreg,
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
 	&apq8064_device_ext_ts_sw_vreg,
+};
+
+static struct platform_device *pm8917_common_devices[] __initdata = {
+	&apq8064_device_ext_mpp8_vreg,
+	&apq8064_device_ext_3p3v_vreg,
+	&apq8064_device_ssbi_pmic1,
+	&apq8064_device_ssbi_pmic2,
+	&apq8064_device_ext_ts_sw_vreg,
+};
+
+static struct platform_device *common_devices[] __initdata = {
 	&msm_device_smd_apq8064,
 	&apq8064_device_otg,
 	&apq8064_device_gadget_peripheral,
@@ -2923,7 +2946,11 @@ static void __init apq8064_common_init(void)
 	BUG_ON(msm_rpm_init(&apq8064_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 	regulator_suppress_info_printing();
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+		configure_apq8064_pm8917_power_grid();
 	platform_device_register(&apq8064_device_rpm_regulator);
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
+		platform_device_register(&apq8064_pm8921_device_rpm_regulator);
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
 	msm_clock_init(&apq8064_clock_init_data);
@@ -2943,6 +2970,15 @@ static void __init apq8064_common_init(void)
 	apq8064_device_otg.dev.platform_data = &msm_otg_pdata;
 	apq8064_ehci_host_init();
 	apq8064_init_buses();
+
+	platform_add_devices(early_common_devices,
+				ARRAY_SIZE(early_common_devices));
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
+		platform_add_devices(pm8921_common_devices,
+					ARRAY_SIZE(pm8921_common_devices));
+	else
+		platform_add_devices(pm8917_common_devices,
+					ARRAY_SIZE(pm8917_common_devices));
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	if (!(machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 			machine_is_mpq8064_dtv()))
