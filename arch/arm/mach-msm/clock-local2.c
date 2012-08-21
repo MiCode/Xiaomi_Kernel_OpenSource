@@ -110,20 +110,26 @@ static void rcg_update_config(struct rcg_clk *rcg)
 void set_rate_hid(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 {
 	u32 cfg_regval;
+	unsigned long flags;
 
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
 	cfg_regval &= ~(CFG_RCGR_DIV_MASK | CFG_RCGR_SRC_SEL_MASK);
 	cfg_regval |= nf->div_src_val;
 	writel_relaxed(cfg_regval, CFG_RCGR_REG(rcg));
 
 	rcg_update_config(rcg);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
 /* RCG set rate function for clocks with MND & Half Integer Dividers. */
 void set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 {
 	u32 cfg_regval;
+	unsigned long flags;
 
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
 	writel_relaxed(nf->m_val, M_REG(rcg));
 	writel_relaxed(nf->n_val, N_REG(rcg));
 	writel_relaxed(nf->d_val, D_REG(rcg));
@@ -139,6 +145,7 @@ void set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 	writel_relaxed(cfg_regval, CFG_RCGR_REG(rcg));
 
 	rcg_update_config(rcg);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
 static int rcg_clk_enable(struct clk *c)
@@ -157,7 +164,6 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 	struct clk_freq_tbl *cf, *nf;
 	struct rcg_clk *rcg = to_rcg_clk(c);
 	int rc = 0;
-	unsigned long flags;
 
 	for (nf = rcg->freq_tbl; nf->freq_hz != FREQ_END
 			&& nf->freq_hz != rate; nf++)
@@ -178,12 +184,8 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 
 	BUG_ON(!rcg->set_rate);
 
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-
 	/* Perform clock-specific frequency switch operations. */
 	rcg->set_rate(rcg, nf);
-
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	/* Release source requirements of the old freq. */
 	if (rcg->c.count)
