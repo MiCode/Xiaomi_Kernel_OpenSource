@@ -176,8 +176,8 @@ struct core_clock {
 };
 
 struct vidc_bus_info {
-	u32 vcodec_handle;
-	u32 ocmem_handle;
+	u32 ddr_handle[MSM_VIDC_MAX_DEVICES];
+	u32 ocmem_handle[MSM_VIDC_MAX_DEVICES];
 };
 
 struct on_chip_mem {
