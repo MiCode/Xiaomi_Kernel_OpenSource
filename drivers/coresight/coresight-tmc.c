@@ -1139,6 +1139,7 @@ static struct of_device_id tmc_match[] = {
 	{.compatible = "arm,coresight-tmc"},
 	{}
 };
+EXPORT_COMPAT("arm,coresight-tmc");
 
 static struct platform_driver tmc_driver = {
 	.probe          = tmc_probe,
