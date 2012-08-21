@@ -1851,6 +1851,7 @@ static int __init msm8625_cpu_id(void)
 	/* Part number for 1.2GHz part */
 	case 0x773:
 	case 0x774:
+	case 0x779:
 	case 0x781:
 	case 0x8D1:
 		cpu = MSM8625A;
