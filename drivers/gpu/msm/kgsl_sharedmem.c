@@ -510,6 +510,25 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	struct page **pages = NULL;
 	pgprot_t page_prot = pgprot_writecombine(PAGE_KERNEL);
 	void *ptr;
+	struct sysinfo si;
+
+	/*
+	 * Get the current memory information to be used in deciding if we
+	 * should go ahead with this allocation
+	 */
+
+	si_meminfo(&si);
+
+	/*
+	 * Limit the size of the allocation to the amount of free memory minus
+	 * 32MB. Why 32MB?  Because thats the buffer that page_alloc uses and
+	 * it just seems like a reasonable limit that won't make the OOM killer
+	 * go all serial on us.  Of course, if we are down this low all bets
+	 * are off but above all do no harm.
+	 */
+
+	if (size >= ((si.freeram << PAGE_SHIFT) - SZ_32M))
+		return -ENOMEM;
 
 	/*
 	 * Add guard page to the end of the allocation when the
