@@ -81,7 +81,7 @@ int vp_setup_buffers(struct vcap_client_data *c_data)
 	}
 
 	/* No need to verify vp_client is not NULL caller does so */
-	vp_act = &dev->vp_client->vid_vp_action;
+	vp_act = &dev->vp_client->vp_action;
 
 	spin_lock_irqsave(&dev->vp_client->cap_slock, flags);
 	if (list_empty(&vp_act->in_active)) {
@@ -173,7 +173,7 @@ void update_nr_value(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
 	struct nr_param *par;
-	par = &c_data->vid_vp_action.nr_param;
+	par = &c_data->vp_action.nr_param;
 	if (par->mode == NR_MANUAL) {
 		writel_relaxed(par->window << 24 | par->decay_ratio << 20,
 			VCAP_VP_NR_CONFIG);
@@ -190,7 +190,7 @@ void update_nr_value(struct vcap_client_data *c_data)
 			par->chroma.blend_limit_ratio << 0,
 			VCAP_VP_NR_CHROMA_CONFIG);
 	}
-	c_data->vid_vp_action.nr_update = false;
+	c_data->vp_action.nr_update = false;
 }
 
 static void vp_wq_fnc(struct work_struct *work)
@@ -210,7 +210,7 @@ static void vp_wq_fnc(struct work_struct *work)
 	else
 		return;
 
-	vp_act = &dev->vp_client->vid_vp_action;
+	vp_act = &dev->vp_client->vp_action;
 
 	rc = readl_relaxed(VCAP_OFFSET(0x048));
 	while (!(rc & 0x00000100))
@@ -244,7 +244,7 @@ static void vp_wq_fnc(struct work_struct *work)
 #endif
 
 	/* Cycle Buffers*/
-	if (vp_work->cd->vid_vp_action.nr_param.mode) {
+	if (vp_work->cd->vp_action.nr_param.mode) {
 		if (vp_act->bufNR.nr_pos == TM1_BUF)
 			vp_act->bufNR.nr_pos = BUF_NOT_IN_USE;
 
@@ -340,7 +340,7 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 		return IRQ_HANDLED;
 	}
 
-	vp_act = &dev->vp_client->vid_vp_action;
+	vp_act = &dev->vp_client->vp_action;
 	c_data = dev->vp_client;
 
 	if (vp_act->vp_state == VP_UNKNOWN) {
@@ -467,7 +467,7 @@ int init_motion_buf(struct vcap_client_data *c_data)
 	size_t size = ((c_data->vp_out_fmt.width + 63) >> 6) *
 		((c_data->vp_out_fmt.height + 7) >> 3) * 16;
 
-	if (c_data->vid_vp_action.motionHandle) {
+	if (c_data->vp_action.motionHandle) {
 		pr_err("Motion buffer has already been created");
 		return -ENOEXEC;
 	}
@@ -501,7 +501,7 @@ int init_motion_buf(struct vcap_client_data *c_data)
 	}
 
 	memset(vaddr, 0, size);
-	c_data->vid_vp_action.motionHandle = handle;
+	c_data->vp_action.motionHandle = handle;
 
 	vaddr = NULL;
 	ion_unmap_kernel(dev->ion_client, handle);
@@ -513,14 +513,14 @@ int init_motion_buf(struct vcap_client_data *c_data)
 void deinit_motion_buf(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
-	if (!c_data->vid_vp_action.motionHandle) {
+	if (!c_data->vp_action.motionHandle) {
 		pr_err("Motion buffer has not been created");
 		return;
 	}
 
 	writel_iowmb(0x00000000, VCAP_VP_MOTION_EST_ADDR);
-	ion_free(dev->ion_client, c_data->vid_vp_action.motionHandle);
-	c_data->vid_vp_action.motionHandle = NULL;
+	ion_free(dev->ion_client, c_data->vp_action.motionHandle);
+	c_data->vp_action.motionHandle = NULL;
 	return;
 }
 
@@ -532,7 +532,7 @@ int init_nr_buf(struct vcap_client_data *c_data)
 	unsigned long paddr;
 	int rc;
 
-	if (c_data->vid_vp_action.bufNR.nr_handle) {
+	if (c_data->vp_action.bufNR.nr_handle) {
 		pr_err("NR buffer has already been created");
 		return -ENOEXEC;
 	}
@@ -557,16 +557,16 @@ int init_nr_buf(struct vcap_client_data *c_data)
 		return rc;
 	}
 
-	c_data->vid_vp_action.bufNR.nr_handle = handle;
+	c_data->vp_action.bufNR.nr_handle = handle;
 	update_nr_value(c_data);
 
-	c_data->vid_vp_action.bufNR.paddr = paddr;
+	c_data->vp_action.bufNR.paddr = paddr;
 	rc = readl_relaxed(VCAP_VP_NR_CONFIG2);
 	rc |= (((c_data->vp_out_fmt.width / 16) << 20) | 0x1);
 	writel_relaxed(rc, VCAP_VP_NR_CONFIG2);
 	writel_relaxed(paddr, VCAP_VP_NR_T2_Y_BASE_ADDR);
 	writel_relaxed(paddr + frame_size, VCAP_VP_NR_T2_C_BASE_ADDR);
-	c_data->vid_vp_action.bufNR.nr_pos = NRT2_BUF;
+	c_data->vp_action.bufNR.nr_pos = NRT2_BUF;
 	return 0;
 }
 
@@ -576,11 +576,11 @@ void deinit_nr_buf(struct vcap_client_data *c_data)
 	struct nr_buffer *buf;
 	uint32_t rc;
 
-	if (!c_data->vid_vp_action.bufNR.nr_handle) {
+	if (!c_data->vp_action.bufNR.nr_handle) {
 		pr_err("NR buffer has not been created");
 		return;
 	}
-	buf = &c_data->vid_vp_action.bufNR;
+	buf = &c_data->vp_action.bufNR;
 
 	rc = readl_relaxed(VCAP_VP_NR_CONFIG2);
 	rc &= !(0x0FF00001);
@@ -757,7 +757,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 		pr_err("No active vp client\n");
 		return -ENODEV;
 	}
-	vp_act = &dev->vp_client->vid_vp_action;
+	vp_act = &dev->vp_client->vp_action;
 
 	spin_lock_irqsave(&dev->vp_client->cap_slock, flags);
 	if (list_empty(&vp_act->in_active)) {
@@ -854,7 +854,7 @@ int continue_vp(struct vcap_client_data *c_data)
 		pr_err("No active vp client\n");
 		return -ENODEV;
 	}
-	vp_act = &dev->vp_client->vid_vp_action;
+	vp_act = &dev->vp_client->vp_action;
 
 	if (vp_act->vp_state == VP_UNKNOWN) {
 		pr_err("%s: VP is in an unknown state\n",
