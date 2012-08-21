@@ -1263,8 +1263,8 @@ static struct resource msm8625_resources_sdc3[] = {
 	},
 	{
 		.name	= "dma_chnl",
-		.start	= DMOV_SDC3_CHAN,
-		.end	= DMOV_SDC3_CHAN,
+		.start	= DMOV_NAND_CHAN,
+		.end	= DMOV_NAND_CHAN,
 		.flags	= IORESOURCE_DMA,
 	},
 	{
