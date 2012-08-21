@@ -1,0 +1,29 @@
+perf-script-json-export(1)
+====================
+
+NAME
+----
+perf-script-json-export - Export trace data to JSON
+
+SYNOPSIS
+--------
+[verse]
+'perf script' -g JSON:<script>
+'perf script' -g <script.json>
+'perf script' -s JSON:<script> [option]*
+'perf script' -s <script.json> [option]*
+
+DESCRIPTION
+-----------
+
+This perf script option is used to export perf script data using JSON
+format.  JSON export extesion is identified either by the 'JSON:'
+prefix or the '.json' file extension.
+
+Both command forms export JSON fomatted data.  The '-g'/'--gen-script'
+option does not include actual event data.  Only Definitions.  '-s'
+version includes events and definition data (by default).
+
+SEE ALSO
+--------
+linkperf:perf-script[1]

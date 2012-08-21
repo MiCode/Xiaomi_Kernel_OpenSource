@@ -461,6 +461,7 @@ static void setup_scripting(void)
 {
 	setup_perl_scripting();
 	setup_python_scripting();
+	setup_json_export();
 
 	scripting_ops = &default_scripting_ops;
 }
