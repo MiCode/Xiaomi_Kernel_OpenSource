@@ -385,11 +385,11 @@ static int msm_bus_dbg_fill_cl_buffer(const struct msm_bus_scale_pdata *pdata,
 			pdata->usecase[index].vectors[j].dst);
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\nab     : ");
 	for (j = 0; j < pdata->usecase->num_paths; j++)
-		i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%u  ",
+		i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%llu  ",
 			pdata->usecase[index].vectors[j].ab);
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\nib     : ");
 	for (j = 0; j < pdata->usecase->num_paths; j++)
-		i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%u  ",
+		i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%llu  ",
 			pdata->usecase[index].vectors[j].ib);
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n");
 

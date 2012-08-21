@@ -227,13 +227,13 @@ error:
  */
 static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		struct msm_bus_inode_info *slave, int index,
-		unsigned long curr_clk_hz, unsigned long req_clk_hz,
-		unsigned long bwsum_hz, int clk_flag, int ctx,
+		uint64_t curr_clk_hz, uint64_t req_clk_hz,
+		uint64_t bwsum_hz, int clk_flag, int ctx,
 		unsigned int cl_active_flag)
 {
 	int i, status = 0;
-	unsigned long max_pclk = 0, rate;
-	unsigned long *pclk = NULL;
+	uint64_t max_pclk = 0, rate;
+	uint64_t *pclk = NULL;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	struct nodeclk *nodeclk;
 
@@ -266,7 +266,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 			info->link_info.sel_clk = &info->link_info.clk[ctx];
 			max_pclk = max(max_pclk, *info->link_info.sel_clk);
 		}
-		MSM_BUS_DBG("max_pclk from gateways: %lu\n", max_pclk);
+		MSM_BUS_DBG("max_pclk from gateways: %llu\n", max_pclk);
 
 		/* Maximum of all slave clocks. */
 
@@ -283,7 +283,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		}
 
 
-		MSM_BUS_DBG("max_pclk from slaves & gws: %lu\n", max_pclk);
+		MSM_BUS_DBG("max_pclk from slaves & gws: %llu\n", max_pclk);
 		fabric->info.link_info.sel_clk =
 			&fabric->info.link_info.clk[ctx];
 		pclk = fabric->info.link_info.sel_clk;
@@ -301,7 +301,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 	if (clk_flag) {
 		nodeclk = &fabric->info.nodeclk[ctx];
 		if (nodeclk->clk) {
-			MSM_BUS_DBG("clks: id: %d set-clk: %lu bwsum_hz:%lu\n",
+			MSM_BUS_DBG("clks: id: %d set-clk: %llu bws_hz:%llu\n",
 			fabric->fabdev.id, *pclk, bwsum_hz);
 			if (nodeclk->rate != *pclk) {
 				nodeclk->dirty = true;
@@ -313,8 +313,8 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		nodeclk = &slave->nodeclk[ctx];
 		if (nodeclk->clk) {
 			rate = *pclk;
-			MSM_BUS_DBG("AXI_clks: id: %d set-clk: %lu "
-			"bwsum_hz: %lu\n" , slave->node_info->priv_id, rate,
+			MSM_BUS_DBG("clks: id: %d set-clk: %llu bws_hz: %llu\n",
+				slave->node_info->priv_id, rate,
 			bwsum_hz);
 			if (nodeclk->rate != rate) {
 				nodeclk->dirty = true;
@@ -337,7 +337,7 @@ skip_set_clks:
 
 void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 	struct msm_bus_inode_info *hop, struct msm_bus_inode_info *info,
-	long int add_bw, int *master_tiers, int ctx)
+	int64_t add_bw, int *master_tiers, int ctx)
 {
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	void *sel_cdata;

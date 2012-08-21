@@ -110,13 +110,13 @@
 		qcom,hsusb-otg-disable-reset;
 		qcom,hsusb-otg-pnoc-errata-fix;
 
-		qcom,msm_bus,name = "usb2";
-		qcom,msm_bus,num_cases = <2>;
-		qcom,msm_bus,active_only = <0>;
-		qcom,msm_bus,num_paths = <1>;
-		qcom,msm_bus,vectors =
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
-				<87 512 60000000 960000000>;
+				<87 512 60000 960000>;
 	};
 
 	android_usb@fc42b0c8 {
@@ -641,13 +641,13 @@
 		HSUSB_3p3-supply = <&pm8941_l24>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
 
-		qcom,msm_bus,name = "usb3";
-		qcom,msm_bus,num_cases = <2>;
-		qcom,msm_bus,active_only = <0>;
-		qcom,msm_bus,num_paths = <1>;
-		qcom,msm_bus,vectors =
+		qcom,msm-bus,name = "usb3";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 				<61 512 0 0>,
-				<61 512 240000000 960000000>;
+				<61 512 240000 960000>;
 	};
 
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
@@ -790,13 +790,13 @@
 
 	qcom,msm-ocmem-audio {
 		compatible = "qcom,msm-ocmem-audio";
-		qcom,msm_bus,name = "audio-ocmem";
-		qcom,msm_bus,num_cases = <2>;
-		qcom,msm_bus,active_only = <0>;
-		qcom,msm_bus,num_paths = <1>;
-		qcom,msm_bus,vectors =
+		qcom,msm-bus,name = "audio-ocmem";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 			<11 604 0 0>,
-			<11 604 32505856 32505856>;
+			<11 604 32506 32506>;
 	};
 
 	qcom,mss@fc880000 {
@@ -917,15 +917,15 @@
 
 	qcom,qseecom@fe806000 {
 		compatible = "qcom,qseecom";
-		qcom,msm_bus,name = "qseecom-noc";
-		qcom,msm_bus,num_cases = <4>;
-		qcom,msm_bus,active_only = <0>;
-		qcom,msm_bus,num_paths = <1>;
-		qcom,msm_bus,vectors =
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
-				<55 512 3936000000 393600000>,
-				<55 512 3936000000 393600000>,
-				<55 512 3936000000 393600000>;
+				<55 512 3936000 393600>,
+				<55 512 3936000 393600>,
+				<55 512 3936000 393600>;
 	};
 
 	qcom,wdt@f9017000 {
