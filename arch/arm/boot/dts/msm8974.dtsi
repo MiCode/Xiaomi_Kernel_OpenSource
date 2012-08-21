@@ -311,6 +311,10 @@
 			"MIC BIAS4 External", "Digital Mic5",
 			"DMIC6", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic6";
+
+		qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
+		taiko-mclk-clk = <&pm8941_clkdiv1>;
+		qcom,taiko-mclk-clk-freq = <9600000>;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
