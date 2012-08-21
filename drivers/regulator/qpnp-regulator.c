@@ -56,7 +56,7 @@ enum qpnp_regulator_logical_type {
 };
 
 enum qpnp_regulator_type {
-	QPNP_REGULATOR_TYPE_HF_BUCK		= 0x03,
+	QPNP_REGULATOR_TYPE_BUCK		= 0x03,
 	QPNP_REGULATOR_TYPE_LDO			= 0x04,
 	QPNP_REGULATOR_TYPE_VS			= 0x05,
 	QPNP_REGULATOR_TYPE_BOOST		= 0x1B,
@@ -87,6 +87,7 @@ enum qpnp_regulator_subtype {
 };
 
 enum qpnp_common_regulator_registers {
+	QPNP_COMMON_REG_DIG_MAJOR_REV		= 0x01,
 	QPNP_COMMON_REG_TYPE			= 0x04,
 	QPNP_COMMON_REG_SUBTYPE			= 0x05,
 	QPNP_COMMON_REG_VOLTAGE_RANGE		= 0x40,
@@ -190,6 +191,8 @@ struct qpnp_regulator_mapping {
 	enum qpnp_regulator_type		type;
 	enum qpnp_regulator_subtype		subtype;
 	enum qpnp_regulator_logical_type	logical_type;
+	u32					revision_min;
+	u32					revision_max;
 	struct regulator_ops			*ops;
 	struct qpnp_voltage_set_points		*set_points;
 	int					hpm_min_load;
@@ -213,11 +216,13 @@ struct qpnp_regulator {
 	u8					ctrl_reg[8];
 };
 
-#define QPNP_VREG_MAP(_type, _subtype, _logical_type, _ops_val, \
-		      _set_points_val, _hpm_min_load) \
+#define QPNP_VREG_MAP(_type, _subtype, _dig_major_min, _dig_major_max, \
+		      _logical_type, _ops_val, _set_points_val, _hpm_min_load) \
 	{ \
 		.type		= QPNP_REGULATOR_TYPE_##_type, \
 		.subtype	= QPNP_REGULATOR_SUBTYPE_##_subtype, \
+		.revision_min	= _dig_major_min, \
+		.revision_max	= _dig_major_max, \
 		.logical_type	= QPNP_REGULATOR_LOGICAL_TYPE_##_logical_type, \
 		.ops		= &qpnp_##_ops_val##_ops, \
 		.set_points	= &_set_points_val##_set_points, \
@@ -262,6 +267,10 @@ static struct qpnp_voltage_range nldo2_ranges[] = {
 	VOLTAGE_RANGE(2,  750000,  775000, 1537500, 12500),
 };
 
+static struct qpnp_voltage_range nldo3_ranges[] = {
+	VOLTAGE_RANGE(0,  375000,  375000, 1537500, 12500),
+};
+
 static struct qpnp_voltage_range smps_ranges[] = {
 	VOLTAGE_RANGE(0,  375000,  375000, 1562500, 12500),
 	VOLTAGE_RANGE(1, 1550000, 1575000, 3125000, 25000),
@@ -281,6 +290,8 @@ static struct qpnp_voltage_set_points nldo1_set_points
 					= SET_POINTS(nldo1_ranges);
 static struct qpnp_voltage_set_points nldo2_set_points
 					= SET_POINTS(nldo2_ranges);
+static struct qpnp_voltage_set_points nldo3_set_points
+					= SET_POINTS(nldo3_ranges);
 static struct qpnp_voltage_set_points smps_set_points = SET_POINTS(smps_ranges);
 static struct qpnp_voltage_set_points ftsmps_set_points
 					= SET_POINTS(ftsmps_ranges);
@@ -292,6 +303,7 @@ static struct qpnp_voltage_set_points *all_set_points[] = {
 	&pldo_set_points,
 	&nldo1_set_points,
 	&nldo2_set_points,
+	&nldo3_set_points,
 	&smps_set_points,
 	&ftsmps_set_points,
 	&boost_set_points,
@@ -959,24 +971,30 @@ static struct regulator_ops qpnp_ftsmps_ops = {
 	.enable_time		= qpnp_regulator_common_enable_time,
 };
 
+/* Maximum possible digital major revision value */
+#define INF 0xFF
+
 static const struct qpnp_regulator_mapping supported_regulators[] = {
-	QPNP_VREG_MAP(HF_BUCK,  GP_CTL,    SMPS,   smps,   smps,   100000),
-	QPNP_VREG_MAP(LDO,      N300,      LDO,    ldo,    nldo1,   10000),
-	QPNP_VREG_MAP(LDO,      N600,      LDO,    ldo,    nldo2,   10000),
-	QPNP_VREG_MAP(LDO,      N1200,     LDO,    ldo,    nldo2,   10000),
-	QPNP_VREG_MAP(LDO,      P50,       LDO,    ldo,    pldo,     5000),
-	QPNP_VREG_MAP(LDO,      P150,      LDO,    ldo,    pldo,    10000),
-	QPNP_VREG_MAP(LDO,      P300,      LDO,    ldo,    pldo,    10000),
-	QPNP_VREG_MAP(LDO,      P600,      LDO,    ldo,    pldo,    10000),
-	QPNP_VREG_MAP(LDO,      P1200,     LDO,    ldo,    pldo,    10000),
-	QPNP_VREG_MAP(VS,       LV100,     VS,     vs,     none,        0),
-	QPNP_VREG_MAP(VS,       LV300,     VS,     vs,     none,        0),
-	QPNP_VREG_MAP(VS,       MV300,     VS,     vs,     none,        0),
-	QPNP_VREG_MAP(VS,       MV500,     VS,     vs,     none,        0),
-	QPNP_VREG_MAP(VS,       HDMI,      VS,     vs,     none,        0),
-	QPNP_VREG_MAP(VS,       OTG,       VS,     vs,     none,        0),
-	QPNP_VREG_MAP(BOOST,    5V_BOOST,  BOOST,  boost,  boost,       0),
-	QPNP_VREG_MAP(FTS,      FTS_CTL,   FTSMPS, ftsmps, ftsmps, 100000),
+	/*           type subtype dig_min dig_max ltype ops setpoints hpm_min */
+	QPNP_VREG_MAP(BUCK,  GP_CTL,   0, INF, SMPS,   smps,   smps,   100000),
+	QPNP_VREG_MAP(LDO,   N300,     0, INF, LDO,    ldo,    nldo1,   10000),
+	QPNP_VREG_MAP(LDO,   N600,     0,   0, LDO,    ldo,    nldo2,   10000),
+	QPNP_VREG_MAP(LDO,   N1200,    0,   0, LDO,    ldo,    nldo2,   10000),
+	QPNP_VREG_MAP(LDO,   N600,     1, INF, LDO,    ldo,    nldo3,   10000),
+	QPNP_VREG_MAP(LDO,   N1200,    1, INF, LDO,    ldo,    nldo3,   10000),
+	QPNP_VREG_MAP(LDO,   P50,      0, INF, LDO,    ldo,    pldo,     5000),
+	QPNP_VREG_MAP(LDO,   P150,     0, INF, LDO,    ldo,    pldo,    10000),
+	QPNP_VREG_MAP(LDO,   P300,     0, INF, LDO,    ldo,    pldo,    10000),
+	QPNP_VREG_MAP(LDO,   P600,     0, INF, LDO,    ldo,    pldo,    10000),
+	QPNP_VREG_MAP(LDO,   P1200,    0, INF, LDO,    ldo,    pldo,    10000),
+	QPNP_VREG_MAP(VS,    LV100,    0, INF, VS,     vs,     none,        0),
+	QPNP_VREG_MAP(VS,    LV300,    0, INF, VS,     vs,     none,        0),
+	QPNP_VREG_MAP(VS,    MV300,    0, INF, VS,     vs,     none,        0),
+	QPNP_VREG_MAP(VS,    MV500,    0, INF, VS,     vs,     none,        0),
+	QPNP_VREG_MAP(VS,    HDMI,     0, INF, VS,     vs,     none,        0),
+	QPNP_VREG_MAP(VS,    OTG,      0, INF, VS,     vs,     none,        0),
+	QPNP_VREG_MAP(BOOST, 5V_BOOST, 0, INF, BOOST,  boost,  boost,       0),
+	QPNP_VREG_MAP(FTS,   FTS_CTL,  0, INF, FTSMPS, ftsmps, ftsmps, 100000),
 };
 
 static int qpnp_regulator_match(struct qpnp_regulator *vreg)
@@ -984,29 +1002,39 @@ static int qpnp_regulator_match(struct qpnp_regulator *vreg)
 	const struct qpnp_regulator_mapping *mapping;
 	struct device_node *node = vreg->spmi_dev->dev.of_node;
 	int rc, i;
-	u8 raw_type[2], type, subtype;
-	u32 type_reg[2];
+	u32 type_reg[2], dig_major_rev;
+	u8 version[QPNP_COMMON_REG_SUBTYPE - QPNP_COMMON_REG_DIG_MAJOR_REV + 1];
+	u8 type, subtype;
 
-	rc = of_property_read_u32_array(node, "qcom,force-type",
-								type_reg, 2);
+	rc = qpnp_vreg_read(vreg, QPNP_COMMON_REG_DIG_MAJOR_REV, version,
+		ARRAY_SIZE(version));
+	if (rc) {
+		vreg_err(vreg, "could not read version registers, rc=%d\n", rc);
+		return rc;
+	}
+	dig_major_rev	= version[QPNP_COMMON_REG_DIG_MAJOR_REV
+					- QPNP_COMMON_REG_DIG_MAJOR_REV];
+	type		= version[QPNP_COMMON_REG_TYPE
+					- QPNP_COMMON_REG_DIG_MAJOR_REV];
+	subtype		= version[QPNP_COMMON_REG_SUBTYPE
+					- QPNP_COMMON_REG_DIG_MAJOR_REV];
+
+	/*
+	 * Override type and subtype register values if qcom,force-type is
+	 * present in the device tree node.
+	 */
+	rc = of_property_read_u32_array(node, "qcom,force-type", type_reg, 2);
 	if (!rc) {
 		type = type_reg[0];
 		subtype = type_reg[1];
-	} else {
-		rc = qpnp_vreg_read(vreg, QPNP_COMMON_REG_TYPE, raw_type, 2);
-		if (rc) {
-			vreg_err(vreg,
-				"could not read type register, rc=%d\n", rc);
-			return rc;
-		}
-		type = raw_type[0];
-		subtype = raw_type[1];
 	}
 
 	rc = -ENODEV;
 	for (i = 0; i < ARRAY_SIZE(supported_regulators); i++) {
 		mapping = &supported_regulators[i];
-		if (mapping->type == type && mapping->subtype == subtype) {
+		if (mapping->type == type && mapping->subtype == subtype
+		    && mapping->revision_min <= dig_major_rev
+		    && mapping->revision_max >= dig_major_rev) {
 			vreg->logical_type	= mapping->logical_type;
 			vreg->set_points	= mapping->set_points;
 			vreg->hpm_min_load	= mapping->hpm_min_load;
