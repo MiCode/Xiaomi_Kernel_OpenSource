@@ -953,14 +953,10 @@ static int msm_mi2s_set_spk(struct snd_kcontrol *kcontrol,
 static int msm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
-	struct snd_interval *rate = hw_param_interval(params,
-	SNDRV_PCM_HW_PARAM_RATE);
-
 	struct snd_interval *channels = hw_param_interval(params,
 			SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("%s()\n", __func__);
-	rate->min = rate->max = 48000;
+	pr_debug("%s(): channels = %d\n", __func__, msm_mi2s_rx_ch);
 	channels->min = channels->max = msm_mi2s_rx_ch;
 
 	return 0;
@@ -969,15 +965,10 @@ static int msm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 static int msm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
-	struct snd_interval *rate = hw_param_interval(params,
-	SNDRV_PCM_HW_PARAM_RATE);
-
 	struct snd_interval *channels = hw_param_interval(params,
 			SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("%s()\n", __func__);
-	rate->min = rate->max = 48000;
-
+	pr_debug("%s(): channels = %d\n", __func__, msm_mi2s_tx_ch);
 	channels->min = channels->max = msm_mi2s_tx_ch;
 
 	return 0;
@@ -987,14 +978,10 @@ static int msm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 static int msm_i2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
-	struct snd_interval *rate = hw_param_interval(params,
-	SNDRV_PCM_HW_PARAM_RATE);
-
 	struct snd_interval *channels = hw_param_interval(params,
 			SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("%s()\n", __func__);
-	rate->min = rate->max = 48000;
+	pr_debug("%s(): channels = %d\n", __func__, msm_i2s_rx_ch);
 	channels->min = channels->max = msm_i2s_rx_ch;
 
 	return 0;
@@ -1003,15 +990,10 @@ static int msm_i2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 static int msm_i2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
-	struct snd_interval *rate = hw_param_interval(params,
-	SNDRV_PCM_HW_PARAM_RATE);
-
 	struct snd_interval *channels = hw_param_interval(params,
 			SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("%s()\n", __func__);
-	rate->min = rate->max = 48000;
-
+	pr_debug("%s(): channels = %d\n", __func__, msm_i2s_tx_ch);
 	channels->min = channels->max = msm_i2s_tx_ch;
 
 	return 0;
