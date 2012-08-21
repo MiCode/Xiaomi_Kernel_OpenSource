@@ -15,6 +15,7 @@
 #include <linux/list.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/stat.h>
 #include <linux/module.h>
@@ -54,11 +55,14 @@ struct usb_bam_connect_info {
 static struct usb_bam_connect_info usb_bam_connections[CONNECTIONS_NUM];
 static struct usb_bam_pipe_connect ***msm_usb_bam_connections_info;
 static struct usb_bam_pipe_connect *bam_connection_arr;
+void __iomem *qscratch_ram1_reg;
+struct clk *mem_clk;
+struct clk *mem_iface_clk;
 
 static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 						u32 *usb_pipe_idx)
 {
-	int ret;
+	int ret, ram1_value;
 	struct sps_pipe **pipe = &sps_pipes[conn_idx][pipe_dir];
 	struct sps_connect *connection =
 		&sps_connections[conn_idx][pipe_dir];
@@ -77,13 +81,13 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 	ret = sps_get_config(*pipe, connection);
 	if (ret) {
 		pr_err("%s: tx get config failed %d\n", __func__, ret);
-		goto get_config_failed;
+		goto free_sps_endpoint;
 	}
 
 	ret = sps_phy2h(pipe_connection->src_phy_addr, &(connection->source));
 	if (ret) {
 		pr_err("%s: sps_phy2h failed (src BAM) %d\n", __func__, ret);
-		goto get_config_failed;
+		goto free_sps_endpoint;
 	}
 
 	connection->src_pipe_index = pipe_connection->src_pipe_index;
@@ -91,7 +95,7 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 					&(connection->destination));
 	if (ret) {
 		pr_err("%s: sps_phy2h failed (dst BAM) %d\n", __func__, ret);
-		goto get_config_failed;
+		goto free_sps_endpoint;
 	}
 	connection->dest_pipe_index = pipe_connection->dst_pipe_index;
 
@@ -113,7 +117,7 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 		if (ret) {
 			pr_err("%s: data fifo setup failure %d\n", __func__,
 				ret);
-			goto fifo_setup_error;
+			goto free_sps_endpoint;
 		}
 
 		ret = sps_setup_bam2bam_fifo(
@@ -123,11 +127,33 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 		if (ret) {
 			pr_err("%s: desc. fifo setup failure %d\n", __func__,
 				ret);
-			goto fifo_setup_error;
+			goto free_sps_endpoint;
 		}
 	} else if (pipe_connection->mem_type == USB_PRIVATE_MEM) {
 		pr_debug("%s: USB BAM using private memory\n", __func__);
-		/* BAM is using dedicated USB private memory, map it */
+
+		if (IS_ERR(mem_clk) || IS_ERR(mem_iface_clk)) {
+			pr_err("%s: Failed to enable USB mem_clk\n", __func__);
+			ret = IS_ERR(mem_clk);
+			goto free_sps_endpoint;
+		}
+
+		clk_prepare_enable(mem_clk);
+		clk_prepare_enable(mem_iface_clk);
+
+		/*
+		 * Enable USB PRIVATE RAM to be used for BAM FIFOs
+		 * HSUSB: Only RAM13 is used for BAM FIFOs
+		 * SSUSB: RAM11, 12, 13 are used for BAM FIFOs
+		 */
+		if (pdata->usb_active_bam == HSUSB_BAM)
+			ram1_value = 0x4;
+		else
+			ram1_value = 0x7;
+
+		pr_debug("Writing 0x%x to QSCRATCH_RAM1\n", ram1_value);
+		writel_relaxed(ram1_value, qscratch_ram1_reg);
+
 		data_mem_buf[conn_idx][pipe_dir].phys_base =
 			pipe_connection->data_fifo_base_offset +
 				pdata->usb_base_address;
@@ -187,8 +213,7 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 
 error:
 	sps_disconnect(*pipe);
-fifo_setup_error:
-get_config_failed:
+free_sps_endpoint:
 	sps_free_endpoint(*pipe);
 	return ret;
 }
@@ -215,6 +240,13 @@ static int disconnect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
 			  connection->data.base, connection->data.phys_base);
 		dma_free_coherent(&usb_bam_pdev->dev, connection->desc.size,
 			  connection->desc.base, connection->desc.phys_base);
+	} else if (pipe_connection->mem_type == USB_PRIVATE_MEM) {
+		pr_debug("Freeing USB private memory used by BAM PIPE\n");
+		writel_relaxed(0x0, qscratch_ram1_reg);
+		iounmap(connection->data.base);
+		iounmap(connection->desc.base);
+		clk_disable_unprepare(mem_clk);
+		clk_disable_unprepare(mem_iface_clk);
 	}
 
 	connection->options &= ~SPS_O_AUTO_ENABLE;
@@ -597,7 +629,9 @@ static int usb_bam_init(void)
 	void *usb_virt_addr;
 	struct msm_usb_bam_platform_data *pdata =
 		usb_bam_pdev->dev.platform_data;
-	struct resource *res;
+	struct usb_bam_pipe_connect *pipe_connection =
+		&msm_usb_bam_connections_info[pdata->usb_active_bam][0][0];
+	struct resource *res, *ram_resource;
 	int irq;
 
 	res = platform_get_resource_byname(usb_bam_pdev, IORESOURCE_MEM,
@@ -614,10 +648,34 @@ static int usb_bam_init(void)
 		return irq;
 	}
 
-	usb_virt_addr = ioremap(res->start, resource_size(res));
+	usb_virt_addr = devm_ioremap(&usb_bam_pdev->dev, res->start,
+							 resource_size(res));
 	if (!usb_virt_addr) {
 		pr_err("%s: ioremap failed\n", __func__);
 		return -ENOMEM;
+	}
+
+	/* Check if USB3 pipe memory needs to be enabled */
+	if (pipe_connection->mem_type == USB_PRIVATE_MEM) {
+		pr_debug("%s: Enabling USB private memory for: %s\n", __func__,
+				bam_enable_strings[pdata->usb_active_bam]);
+
+		ram_resource = platform_get_resource_byname(usb_bam_pdev,
+					 IORESOURCE_MEM, "qscratch_ram1_reg");
+		if (!res) {
+			dev_err(&usb_bam_pdev->dev, "Unable to get qscratch\n");
+			ret = -ENODEV;
+			goto free_bam_regs;
+		}
+
+		qscratch_ram1_reg = devm_ioremap(&usb_bam_pdev->dev,
+						ram_resource->start,
+						resource_size(ram_resource));
+		if (!qscratch_ram1_reg) {
+			pr_err("%s: ioremap failed for qscratch\n", __func__);
+			ret = -ENOMEM;
+			goto free_bam_regs;
+		}
 	}
 	usb_props.phys_addr = res->start;
 	usb_props.virt_addr = usb_virt_addr;
@@ -630,10 +688,18 @@ static int usb_bam_init(void)
 	ret = sps_register_bam_device(&usb_props, &h_usb);
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto free_qscratch_reg;
 	}
 
 	return 0;
+
+free_qscratch_reg:
+	iounmap(qscratch_ram1_reg);
+free_bam_regs:
+	iounmap(usb_virt_addr);
+
+	return ret;
 }
 
 static ssize_t
@@ -697,6 +763,14 @@ static int usb_bam_probe(struct platform_device *pdev)
 		INIT_WORK(&usb_bam_connections[i].peer_event.wake_w,
 			usb_bam_wake_work);
 	}
+
+	mem_clk = devm_clk_get(&pdev->dev, "mem_clk");
+	if (IS_ERR(mem_clk))
+		dev_dbg(&pdev->dev, "failed to get mem_clock\n");
+
+	mem_iface_clk = devm_clk_get(&pdev->dev, "mem_iface_clk");
+	if (IS_ERR(mem_iface_clk))
+		dev_dbg(&pdev->dev, "failed to get mem_iface_clock\n");
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
