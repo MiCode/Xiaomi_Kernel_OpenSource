@@ -372,6 +372,27 @@ void ocmem_disable_iface_clock(void)
 	pr_debug("ocmem: Disabled iface clock\n");
 }
 
+/* Block-Remapper Clock Operations */
+int ocmem_enable_br_clock(void)
+{
+	int ret;
+
+	ret = clk_prepare_enable(ocmem_pdata->br_clk);
+
+	if (ret) {
+		pr_err("ocmem: Failed to enable br clock\n");
+		return ret;
+	}
+	pr_debug("ocmem: Enabled br clock\n");
+	return 0;
+}
+
+void ocmem_disable_br_clock(void)
+{
+	clk_disable_unprepare(ocmem_pdata->br_clk);
+	pr_debug("ocmem: Disabled br clock\n");
+}
+
 static struct ocmem_plat_data *parse_dt_config(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
@@ -719,6 +740,7 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 	struct device   *dev = &pdev->dev;
 	struct clk *ocmem_core_clk = NULL;
 	struct clk *ocmem_iface_clk = NULL;
+	struct clk *ocmem_br_clk = NULL;
 
 	if (!pdev->dev.of_node) {
 		dev_info(dev, "Missing Configuration in Device Tree\n");
@@ -757,8 +779,16 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 		return PTR_ERR(ocmem_core_clk);
 	};
 
+	ocmem_br_clk = devm_clk_get(dev, "br_clk");
+
+	if (IS_ERR(ocmem_br_clk)) {
+		dev_err(dev, "Unable to get the BR clock\n");
+		return PTR_ERR(ocmem_br_clk);
+	}
+
 	ocmem_pdata->core_clk = ocmem_core_clk;
 	ocmem_pdata->iface_clk = ocmem_iface_clk;
+	ocmem_pdata->br_clk = ocmem_br_clk;
 
 	platform_set_drvdata(pdev, ocmem_pdata);
 
