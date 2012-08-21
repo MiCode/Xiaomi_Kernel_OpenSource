@@ -1,0 +1,14 @@
+Qualcomm BAM Data Multiplexer Driver
+
+Required properties:
+- compatible : should be "qcom,bam_dmux"
+- reg : the location and size of the BAM hardware
+- interrupts : the BAM hardware to apps processor interrupt line
+
+Example:
+
+	qcom,bam_dmux@fc834000 {
+		compatible = "qcom,bam_dmux";
+		reg = <0xfc834000 0x7000>;
+		interrupts = <0 29 1>;
+	};
