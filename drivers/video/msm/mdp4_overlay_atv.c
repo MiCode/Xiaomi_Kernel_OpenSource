@@ -115,8 +115,10 @@ int mdp4_atv_on(struct platform_device *pdev)
 	mdp4_overlayproc_cfg(pipe);
 
 	mdp4_overlay_reg_flush(pipe, 1);
-	mdp4_mixer_stage_up(pipe);
+
+	mdp4_mixer_stage_up(pipe, 0);
 	mdp4_mixer_stage_commit(pipe->mixer_num);
+
 	if (ret == 0)
 		mdp_pipe_ctrl(MDP_OVERLAY1_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
@@ -139,7 +141,7 @@ int mdp4_atv_off(struct platform_device *pdev)
 
 	/* dis-engage rgb2 from mixer1 */
 	if (atv_pipe) {
-		mdp4_mixer_stage_down(atv_pipe);
+		mdp4_mixer_stage_down(atv_pipe, 1);
 		mdp4_iommu_unmap(atv_pipe);
 	}
 
@@ -185,8 +187,9 @@ void mdp4_atv_overlay(struct msm_fb_data_type *mfd)
 	mdp4_overlay_mdp_perf_req(pipe, mfd);
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
 	mdp4_overlay_rgb_setup(pipe);
+
 	mdp4_overlay_reg_flush(pipe, 0);
-	mdp4_mixer_stage_up(pipe);
+	mdp4_mixer_stage_up(pipe, 0);
 	mdp4_mixer_stage_commit(pipe->mixer_num);
 	printk(KERN_INFO "mdp4_atv_overlay: pipe=%x ndx=%d\n",
 					(int)pipe, pipe->pipe_ndx);
