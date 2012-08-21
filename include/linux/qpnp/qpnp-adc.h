@@ -175,17 +175,19 @@ enum qpnp_adc_calib_type {
 
 /**
  * enum qpnp_adc_channel_scaling_param - pre-scaling AMUX ratio.
- * %CHAN_PATH_SCALING1: ratio of {1, 1}
- * %CHAN_PATH_SCALING2: ratio of {1, 3}
- * %CHAN_PATH_SCALING3: ratio of {1, 4}
- * %CHAN_PATH_SCALING4: ratio of {1, 6}
+ * %CHAN_PATH_SCALING0: ratio of {1, 1}
+ * %CHAN_PATH_SCALING1: ratio of {1, 3}
+ * %CHAN_PATH_SCALING2: ratio of {1, 4}
+ * %CHAN_PATH_SCALING3: ratio of {1, 6}
+ * %CHAN_PATH_SCALING4: ratio of {1, 20}
  * %CHAN_PATH_NONE: Do not use this pre-scaling ratio type.
  *
  * The pre-scaling is applied for signals to be within the voltage range
  * of the ADC.
  */
 enum qpnp_adc_channel_scaling_param {
-	PATH_SCALING1 = 0,
+	PATH_SCALING0 = 0,
+	PATH_SCALING1,
 	PATH_SCALING2,
 	PATH_SCALING3,
 	PATH_SCALING4,
@@ -197,8 +199,8 @@ enum qpnp_adc_channel_scaling_param {
  *				   digital data relative to ADC reference.
  * %ADC_SCALE_DEFAULT: Default scaling to convert raw adc code to voltage.
  * %ADC_SCALE_BATT_THERM: Conversion to temperature based on btm parameters.
+ * %ADC_SCALE_PA_THERM: Returns temperature in degC.
  * %ADC_SCALE_PMIC_THERM: Returns result in milli degree's Centigrade.
- * %ADC_SCALE_XTERN_CHGR_CUR: Returns current across 0.1 ohm resistor.
  * %ADC_SCALE_XOTHERM: Returns XO thermistor voltage in degree's Centigrade.
  * %ADC_SCALE_NONE: Do not use this scaling type.
  */
@@ -701,6 +703,75 @@ int32_t qpnp_adc_scale_default(int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt);
+/**
+ * qpnp_adc_scale_pmic_therm() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. Performs the AMUX out as 2mV/K and returns
+ *		the temperature in milli degC.
+ * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_prop:	adc properties of the qpnp adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	Individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	Physical result to be stored.
+ */
+int32_t qpnp_adc_scale_pmic_therm(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
+ * qpnp_adc_scale_batt_therm() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. Returns the temperature in degC.
+ * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t qpnp_adc_scale_batt_therm(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
+ * qpnp_adc_scale_batt_id() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset.
+ * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t qpnp_adc_scale_batt_id(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
+ * qpnp_adc_scale_tdkntcg_therm() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. Returns the temperature of the xo therm in mili
+		degC.
+ * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t qpnp_adc_tdkntcg_therm(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
+ * qpnp_vadc_is_ready() - Clients can use this API to check if the
+ *			  device is ready to use.
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int32_t qpnp_vadc_is_ready(void);
 #else
 static inline int32_t qpnp_vadc_read(uint32_t channel,
 				struct qpnp_vadc_result *result)
@@ -712,8 +783,30 @@ static inline int32_t qpnp_vadc_conv_seq_request(
 { return -ENXIO; }
 static inline int32_t qpnp_adc_scale_default(int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
-			const struct qpnp_adc_chan_properties *chan_prop,
-			struct qpnp_adc_chan_result *chan_rslt)
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_pmic_therm(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_batt_therm(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_batt_id(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_tdkntcg_therm(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_vadc_is_read(void)
 { return -ENXIO; }
 #endif
 
@@ -742,6 +835,13 @@ int32_t qpnp_iadc_get_gain(int32_t *result);
  */
 int32_t qpnp_iadc_get_offset(enum qpnp_iadc_channels channel,
 						int32_t *result);
+/**
+ * qpnp_iadc_is_ready() - Clients can use this API to check if the
+ *			  device is ready to use.
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int32_t qpnp_iadc_is_ready(void);
 #else
 static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 							int *result)
@@ -750,6 +850,8 @@ static inline int32_t qpnp_iadc_get_gain(int32_t *result)
 { return -ENXIO; }
 static inline int32_t qpnp_iadc_get_offset(enum qpnp_iadc_channels channel,
 						int32_t *result)
+{ return -ENXIO; }
+static inline int32_t qpnp_iadc_is_read(void)
 { return -ENXIO; }
 #endif
 
