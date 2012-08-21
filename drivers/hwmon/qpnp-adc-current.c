@@ -33,6 +33,15 @@
 #include <linux/platform_device.h>
 
 /* QPNP IADC register definition */
+#define QPNP_IADC_REVISION1				0x0
+#define QPNP_IADC_REVISION2				0x1
+#define QPNP_IADC_REVISION3				0x2
+#define QPNP_IADC_REVISION4				0x3
+#define QPNP_IADC_PERPH_TYPE				0x4
+#define QPNP_IADC_PERH_SUBTYPE				0x5
+
+#define QPNP_IADC_SUPPORTED_REVISION2			1
+
 #define QPNP_STATUS1					0x8
 #define QPNP_STATUS1_OP_MODE				4
 #define QPNP_STATUS1_MULTI_MEAS_EN			BIT(3)
@@ -67,13 +76,14 @@
 #define QPNP_INT_CLR_FIFO_NOT_EMPTY_INT_EN		BIT(1)
 #define QPNP_INT_CLR_EOC_INT_EN_CLR			BIT(0)
 #define QPNP_INT_CLR_MASK				0x1f
-#define QPNP_MODE_CTL					0x40
+#define QPNP_IADC_MODE_CTL				0x40
 #define QPNP_OP_MODE_SHIFT				4
 #define QPNP_USE_BMS_DATA				BIT(4)
 #define QPNP_VADC_SYNCH_EN				BIT(2)
 #define QPNP_OFFSET_RMV_EN				BIT(1)
 #define QPNP_ADC_TRIM_EN				BIT(0)
-#define QPNP_EN_CTL1					0x46
+#define QPNP_IADC_EN_CTL1				0x46
+#define QPNP_IADC_ADC_EN				BIT(7)
 #define QPNP_ADC_CH_SEL_CTL				0x48
 #define QPNP_ADC_DIG_PARAM				0x50
 #define QPNP_ADC_CLK_SEL_MASK				0x3
@@ -101,13 +111,6 @@
 #define QPNP_DATA1					0x61
 #define QPNP_CONV_TIMEOUT_ERR				2
 
-#define QPNP_IADC_MODE_CTL				0x40
-#define QPNP_IADC_USE_BMS_DATA				BIT(4)
-#define QPNP_IADC_RESERVED_BIT3				BIT(3)
-#define QPNP_IADC_VADC_SYNC_EN				BIT(2)
-#define QPNP_IADC_OFFSET_RMV_EN				BIT(1)
-#define QPNP_IADC_ADC_TRIM_EN				BIT(0)
-
 #define QPNP_IADC_ADC_CH_SEL_CTL			0x48
 #define QPNP_IADC_ADC_CHX_SEL_SHIFT			3
 
@@ -121,16 +124,18 @@
 #define QPNP_IADC_DATA0					0x60
 #define QPNP_IADC_DATA1					0x61
 
-#define QPNP_ADC_CONV_TIME_MIN				2000
-#define QPNP_ADC_CONV_TIME_MAX				2200
+#define QPNP_ADC_CONV_TIME_MIN				8000
+#define QPNP_ADC_CONV_TIME_MAX				8200
 
-#define QPNP_ADC_GAIN_CALCULATION			2500
+#define QPNP_ADC_GAIN_CALCULATION_UV			17857
+#define QPNP_IADC_RSENSE_MILLI_FACTOR			1000
 
 struct qpnp_iadc_drv {
 	struct qpnp_adc_drv		*adc;
 	int32_t				rsense;
 	struct device			*iadc_hwmon;
 	bool				iadc_init_calib;
+	bool				iadc_initialized;
 	struct sensor_device_attribute		sens_attr[0];
 };
 
@@ -223,6 +228,31 @@ static irqreturn_t qpnp_iadc_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int32_t qpnp_iadc_enable(bool state)
+{
+	int rc = 0;
+	u8 data = 0;
+
+	data = QPNP_IADC_ADC_EN;
+	if (state) {
+		rc = qpnp_iadc_write_reg(QPNP_IADC_EN_CTL1,
+					data);
+		if (rc < 0) {
+			pr_err("IADC enable failed\n");
+			return rc;
+		}
+	} else {
+		rc = qpnp_iadc_write_reg(QPNP_IADC_EN_CTL1,
+					(~data & QPNP_IADC_ADC_EN));
+		if (rc < 0) {
+			pr_err("IADC disable failed\n");
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static int32_t qpnp_iadc_read_conversion_result(int32_t *data)
 {
 	uint8_t rslt_lsb, rslt_msb;
@@ -242,12 +272,9 @@ static int32_t qpnp_iadc_read_conversion_result(int32_t *data)
 
 	*data = (rslt_msb << 8) | rslt_lsb;
 
-	rc = qpnp_vadc_check_result(data);
-	if (rc < 0) {
-		pr_err("VADC data check failed\n");
+	rc = qpnp_iadc_enable(false);
+	if (rc)
 		return rc;
-	}
-
 	return 0;
 }
 
@@ -259,10 +286,7 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 	u8 qpnp_iadc_conv_req = 0, qpnp_iadc_dig_param_reg = 0;
 	int32_t rc = 0;
 
-	qpnp_iadc_mode_reg |= (QPNP_IADC_USE_BMS_DATA | QPNP_IADC_USE_BMS_DATA
-			| QPNP_IADC_OFFSET_RMV_EN | QPNP_IADC_ADC_TRIM_EN);
-
-	qpnp_iadc_ch_sel_reg = channel << QPNP_IADC_ADC_CHX_SEL_SHIFT;
+	qpnp_iadc_ch_sel_reg = channel;
 
 	qpnp_iadc_dig_param_reg |= iadc->adc->amux_prop->decimation <<
 					QPNP_IADC_DEC_RATIO_SEL;
@@ -310,6 +334,10 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 		return rc;
 	}
 
+	rc = qpnp_iadc_enable(true);
+	if (rc)
+		return rc;
+
 	rc = qpnp_iadc_write_reg(QPNP_CONV_REQ, qpnp_iadc_conv_req);
 	if (rc) {
 		pr_err("qpnp adc read adc failed with %d\n", rc);
@@ -353,17 +381,53 @@ fail:
 	return rc;
 }
 
+static int32_t qpnp_iadc_version_check(void)
+{
+	uint8_t revision;
+	int rc;
+
+	rc = qpnp_iadc_read_reg(QPNP_IADC_REVISION2, &revision);
+	if (rc < 0) {
+		pr_err("qpnp adc result read failed with %d\n", rc);
+		return rc;
+	}
+
+	if (revision < QPNP_IADC_SUPPORTED_REVISION2) {
+		pr_err("IADC Version not supported\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int32_t qpnp_iadc_is_ready(void)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(qpnp_iadc_is_ready);
+
 int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 						int32_t *result)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	int32_t vsense_mv = 0, rc;
 
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+
 	mutex_lock(&iadc->adc->adc_lock);
 
 	if (!iadc->iadc_init_calib) {
+		rc = qpnp_iadc_version_check();
+		if (rc)
+			goto fail;
 		rc = qpnp_iadc_init_calib();
-		if (!rc) {
+		if (rc) {
 			pr_err("Calibration failed\n");
 			goto fail;
 		} else
@@ -376,12 +440,11 @@ int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 		goto fail;
 	}
 
-	vsense_mv = ((*result - iadc->adc->calib.offset)/
-			(iadc->adc->calib.gain - iadc->adc->calib.offset))
-			* QPNP_ADC_GAIN_CALCULATION;
+	*result = ((vsense_mv - iadc->adc->calib.offset) *
+				QPNP_ADC_GAIN_CALCULATION_UV)/
+			(iadc->adc->calib.gain - iadc->adc->calib.offset);
 
-	*result = (vsense_mv/qpnp_iadc->rsense);
-
+	*result = (*result / (qpnp_iadc->rsense));
 fail:
 	mutex_unlock(&iadc->adc->adc_lock);
 
