@@ -2822,19 +2822,24 @@ static void __init msm8960_gfx_init(void)
 		msm_kgsl_3d0.dev.platform_data;
 	uint32_t soc_platform_version = socinfo_get_version();
 
+	/* Fixup data that needs to change based on GPU ID */
 	if (cpu_is_msm8960ab()) {
 		kgsl_3d0_pdata->chipid = ADRENO_CHIPID(3, 2, 1, 0);
 		/* 8960PRO nominal clock rate is 325Mhz instead of 320Mhz */
 		kgsl_3d0_pdata->pwrlevel[1].gpu_freq = 325000000;
-	} else if (SOCINFO_VERSION_MAJOR(soc_platform_version) == 1) {
-		kgsl_3d0_pdata->pwrlevel[0].gpu_freq = 320000000;
-		kgsl_3d0_pdata->pwrlevel[1].gpu_freq = 266667000;
-	} else if (SOCINFO_VERSION_MAJOR(soc_platform_version) >= 3) {
-		/* 8960v3 GPU registers returns 5 for patch release
-		 * but it should be 6, so dummy up the chipid here
-		 * based the platform type
-		 */
-		kgsl_3d0_pdata->chipid = ADRENO_CHIPID(2, 2, 0, 6);
+	} else {
+		kgsl_3d0_pdata->iommu_count = 1;
+		if (SOCINFO_VERSION_MAJOR(soc_platform_version) == 1) {
+			kgsl_3d0_pdata->pwrlevel[0].gpu_freq = 320000000;
+			kgsl_3d0_pdata->pwrlevel[1].gpu_freq = 266667000;
+		}
+		if (SOCINFO_VERSION_MAJOR(soc_platform_version) >= 3) {
+			/* 8960v3 GPU registers returns 5 for patch release
+			 * but it should be 6, so dummy up the chipid here
+			 * based the platform type
+			 */
+			kgsl_3d0_pdata->chipid = ADRENO_CHIPID(2, 2, 0, 6);
+		}
 	}
 
 	/* Register the 3D core */
