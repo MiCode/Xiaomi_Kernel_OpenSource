@@ -1592,6 +1592,47 @@ struct platform_device msm8625_kgsl_3d0 = {
 	},
 };
 
+enum {
+	MSM8625,
+	MSM8625A,
+	MSM8625AB,
+};
+
+static int __init msm8625_cpu_id(void)
+{
+	int raw_id, cpu;
+
+	raw_id = socinfo_get_raw_id();
+	switch (raw_id) {
+	/* Part number for 1GHz part */
+	case 0x770:
+	case 0x771:
+	case 0x77C:
+	case 0x780:
+	case 0x8D0:
+		cpu = MSM8625;
+		break;
+	/* Part number for 1.2GHz part */
+	case 0x773:
+	case 0x774:
+	case 0x781:
+	case 0x8D1:
+		cpu = MSM8625A;
+		break;
+	case 0x775:
+	case 0x776:
+	case 0x77D:
+	case 0x782:
+	case 0x8D2:
+		cpu = MSM8625AB;
+		break;
+	default:
+		pr_err("Invalid Raw ID\n");
+		return -ENODEV;
+	}
+	return cpu;
+}
+
 static struct resource cpr_resources[] = {
 	{
 		.start = MSM8625_INT_CPR_IRQ0,
@@ -1608,12 +1649,12 @@ static struct resource cpr_resources[] = {
  * These are various Vdd levels supported by PMIC
  */
 static uint32_t msm_c2_pmic_mv[] __initdata = {
-	1300, 12875 / 10, 1275, 12625 / 10, 1250,
-	12375 / 10, 1225, 12125 / 10, 1200, 11875 / 10,
-	1175, 11625 / 10, 1150, 11375 / 10, 1125,
-	11125 / 10, 1100, 10875 / 10, 1075, 10625 / 10,
-	1050, 10375 / 10, 1025, 10125 / 10, 0, 0, 0, 0,
-	0, 0, 0, 1000,
+	1300000, 1287500, 1275000, 1262500, 1250000,
+	1237500, 1225000, 1212500, 1200000, 1187500,
+	1175000, 1162500, 1150000, 1137500, 1125000,
+	1112500, 1100000, 1087500, 1075000, 1062500,
+	1050000, 1037500, 1025000, 1012500, 0, 0, 0,
+	0, 0, 0, 0, 1000,
 };
 
 /**
@@ -1633,10 +1674,10 @@ static struct msm_cpr_mode msm_cpr_mode_data[] = {
 			},
 			.ring_osc = 0,
 			.step_quot = ~0,
-			.tgt_volt_offset = 1,
-			.Vmax = 1200,
-			.Vmin = 1000,
-			.calibrated_mV = 1100,
+			.tgt_volt_offset = 0,
+			.Vmax = 1200000,
+			.Vmin = 1000000,
+			.calibrated_uV = 1100000,
 	},
 	[TURBO_MODE] = {
 			.ring_osc_data = {
@@ -1651,23 +1692,47 @@ static struct msm_cpr_mode msm_cpr_mode_data[] = {
 			},
 			.ring_osc = 0,
 			.step_quot = ~0,
-			.tgt_volt_offset = 1,
-			.Vmax = 1350,
-			.Vmin = 1250,
-			.calibrated_mV = 1300,
+			.tgt_volt_offset = 0,
+			.Vmax = 1350000,
+			.Vmin = 1150000,
+			.calibrated_uV = 1300000,
 	},
 };
 
 struct msm_cpr_vp_data vp_data = {
-	.min_volt = 1000,
-	.max_volt = 1350,
-	.default_volt = 1300,
-	.step_size = (12500 / 1000),
+	.min_volt = 1000000,
+	.max_volt = 1350000,
+	.default_volt = 1300000,
+	.step_size = 12500,
 };
+
+static uint32_t
+msm_cpr_get_quot(uint32_t max_quot, uint32_t max_freq, uint32_t new_freq)
+{
+	uint32_t quot;
+
+	/* This formula is as per chip characterization data */
+	quot = max_quot - ((max_freq / 10 - new_freq / 10) * 9) + 20;
+
+	return quot;
+}
+
+static void msm_cpr_clk_enable(void)
+{
+	uint32_t reg_val;
+
+	/* Select TCXO (19.2MHz) as clock source */
+	reg_val = readl_relaxed(A11S_TEST_BUS_SEL_ADDR);
+	reg_val |= RBCPR_CLK_MUX_SEL;
+	writel_relaxed(reg_val, A11S_TEST_BUS_SEL_ADDR);
+
+	/* Get CPR out of reset */
+	writel_relaxed(0x1, RBCPR_SW_RESET_N);
+}
 
 static struct msm_cpr_config msm_cpr_pdata = {
 	.ref_clk_khz = 19200,
-	.delay_us = 10000,
+	.delay_us = 25000,
 	.irq_line = 0,
 	.cpr_mode_data = msm_cpr_mode_data,
 	.tgt_count_div_N = 1,
@@ -1678,8 +1743,12 @@ static struct msm_cpr_config msm_cpr_pdata = {
 	.dn_threshold = 2,
 	.up_margin = 0,
 	.dn_margin = 0,
-	.nom_freq_limit = 1008000,
+	.max_nom_freq = 700800,
+	.max_freq = 1401600,
+	.max_quot = 0,
 	.vp_data = &vp_data,
+	.get_quot = msm_cpr_get_quot,
+	.clk_enable = msm_cpr_clk_enable,
 };
 
 static struct platform_device msm8625_device_cpr = {
@@ -1701,7 +1770,6 @@ static void __init msm_cpr_init(void)
 {
 	struct cpr_info_type *cpr_info = NULL;
 	uint8_t ring_osc = 0;
-	uint32_t reg_val;
 
 	cpr_info = kzalloc(sizeof(struct cpr_info_type), GFP_KERNEL);
 	if (!cpr_info) {
@@ -1728,21 +1796,19 @@ static void __init msm_cpr_init(void)
 	msm_cpr_mode_data[TURBO_MODE].ring_osc_data[ring_osc].gcnt = 19;
 	msm_cpr_mode_data[NORMAL_MODE].ring_osc_data[ring_osc].gcnt = 19;
 
-	/* The multiplier and offset are as per PTE data */
-	msm_cpr_mode_data[TURBO_MODE].ring_osc_data[ring_osc].target_count =
-		cpr_info->turbo_quot * 10 + 440;
-	msm_cpr_mode_data[NORMAL_MODE].ring_osc_data[ring_osc].target_count =
-		cpr_info->turbo_quot / msm_cpr_pdata.tgt_count_div_N;
+	/**
+	 * The scaling factor and offset are as per chip characterization data
+	 * This formula is used since available fuse bits in the chip are not
+	 * enough to represent the value of maximum quot
+	 */
+	msm_cpr_pdata.max_quot = cpr_info->turbo_quot * 10 + 610;
 
 	/**
 	 * Bits 4:0 of pvs_fuse provide mapping to the safe boot up voltage.
 	 * Boot up mode is by default Turbo.
 	 */
-	msm_cpr_mode_data[TURBO_MODE].calibrated_mV =
+	msm_cpr_mode_data[TURBO_MODE].calibrated_uV =
 				msm_c2_pmic_mv[cpr_info->pvs_fuse & 0x1F];
-
-	/* TODO: Store the tgt_volt_offset values for the modes from PTE */
-
 
 	pr_debug("%s: cpr: ring_osc: 0x%x\n", __func__,
 		msm_cpr_mode_data[TURBO_MODE].ring_osc);
@@ -1750,13 +1816,12 @@ static void __init msm_cpr_init(void)
 	pr_debug("%s: cpr: pvs_fuse: 0x%x\n", __func__, cpr_info->pvs_fuse);
 	kfree(cpr_info);
 
-	/* Select TCXO (19.2MHz) as clock source */
-	reg_val = readl_relaxed(A11S_TEST_BUS_SEL_ADDR);
-	reg_val |= RBCPR_CLK_MUX_SEL;
-	writel_relaxed(reg_val, A11S_TEST_BUS_SEL_ADDR);
+	if (msm8625_cpu_id() == MSM8625A)
+		msm_cpr_pdata.max_freq = 1209600;
+	else if (msm8625_cpu_id() == MSM8625)
+		msm_cpr_pdata.max_freq = 1008000;
 
-	/* Get CPR out of reset */
-	writel_relaxed(0x1, RBCPR_SW_RESET_N);
+	msm_cpr_clk_enable();
 
 	platform_device_register(&msm8625_vp_device);
 	platform_device_register(&msm8625_device_cpr);
@@ -1828,47 +1893,6 @@ struct clock_init_data msm8625_dummy_clock_init_data __initdata = {
 	.table = msm_clock_8625_dummy,
 	.size = ARRAY_SIZE(msm_clock_8625_dummy),
 };
-enum {
-	MSM8625,
-	MSM8625A,
-	MSM8625AB,
-};
-
-static int __init msm8625_cpu_id(void)
-{
-	int raw_id, cpu;
-
-	raw_id = socinfo_get_raw_id();
-	switch (raw_id) {
-	/* Part number for 1GHz part */
-	case 0x770:
-	case 0x771:
-	case 0x77C:
-	case 0x780:
-	case 0x8D0:
-		cpu = MSM8625;
-		break;
-	/* Part number for 1.2GHz part */
-	case 0x773:
-	case 0x774:
-	case 0x779:
-	case 0x781:
-	case 0x8D1:
-		cpu = MSM8625A;
-		break;
-	case 0x775:
-	case 0x776:
-	case 0x77D:
-	case 0x782:
-	case 0x8D2:
-		cpu = MSM8625AB;
-		break;
-	default:
-		pr_err("Invalid Raw ID\n");
-		return -ENODEV;
-	}
-	return cpu;
-}
 
 int __init msm7x2x_misc_init(void)
 {

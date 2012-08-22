@@ -120,10 +120,10 @@ enum cpr_interrupt {
 
 /**
  * struct msm_vp_data - structure for VP configuration
- * @min_volt_mV: minimum milivolt level for VP
- * @max_volt_mV: maximum milivolt level for VP
- * @default_volt_mV: default milivolt for VP
- * @step_size_mV: step size of voltage
+ * @min_volt: minimum microvolt level for VP
+ * @max_volt: maximum microvolt level for VP
+ * @default_volt: default microvolt for VP
+ * @step_size: step size of voltage in microvolt
  */
 struct msm_cpr_vp_data {
 	int min_volt;
@@ -135,11 +135,11 @@ struct msm_cpr_vp_data {
 /**
  * struct msm_cpr_osc -  Data for CPR ring oscillator
  * @gcnt: gate count value for the oscillator
- * @target_count: target value for ring oscillator
+ * @quot: target value for ring oscillator
  */
 struct msm_cpr_osc {
 	int gcnt;
-	uint32_t target_count;
+	uint32_t quot;
 };
 
 /**
@@ -156,7 +156,7 @@ struct msm_cpr_mode {
 	uint32_t step_quot;
 	uint32_t Vmax;
 	uint32_t Vmin;
-	uint32_t calibrated_mV;
+	uint32_t calibrated_uV;
 };
 
 /**
@@ -180,8 +180,13 @@ struct msm_cpr_config {
 	uint32_t dn_threshold;
 	uint32_t up_margin;
 	uint32_t dn_margin;
-	uint32_t nom_freq_limit;
+	uint32_t max_nom_freq;
+	uint32_t max_freq;
+	uint32_t max_quot;
 	struct msm_cpr_vp_data *vp_data;
+	uint32_t (*get_quot)(uint32_t max_quot, uint32_t max_freq,
+				uint32_t new_freq);
+	void (*clk_enable)(void);
 };
 
 /**
