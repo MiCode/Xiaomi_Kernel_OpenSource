@@ -16,6 +16,10 @@
 #define GIC_PPI_START		16
 #define GIC_SPI_START		32
 
+#ifdef CONFIG_MSM_FIQ
+#define FIQ_START               0
+#endif
+
 /* As per QGIC2 PPI 16 aka 0 is reserved */
 #define MSM8625_INT_A5_PMU_IRQ		(GIC_PPI_START + 1)
 #define MSM8625_INT_DEBUG_TIMER_EXP	(GIC_PPI_START + 2)
