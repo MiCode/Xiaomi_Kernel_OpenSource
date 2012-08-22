@@ -34,6 +34,8 @@
 
 #define MSM_CAM_IOCTL_MAGIC 'm'
 
+#define MAX_SERVER_PAYLOAD_LENGTH 8192
+
 #define MSM_CAM_IOCTL_GET_SENSOR_INFO \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 1, struct msm_camsensor_info *)
 
