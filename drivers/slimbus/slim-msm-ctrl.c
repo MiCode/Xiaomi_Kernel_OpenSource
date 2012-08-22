@@ -16,7 +16,6 @@
 #include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/dma-mapping.h>
 #include <linux/slimbus/slimbus.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
@@ -26,60 +25,10 @@
 #include <linux/of_slimbus.h>
 #include <mach/sps.h>
 #include <mach/qdsp6v2/apr.h>
-
-/* Per spec.max 40 bytes per received message */
-#define SLIM_RX_MSGQ_BUF_LEN	40
-
-#define SLIM_USR_MC_GENERIC_ACK		0x25
-#define SLIM_USR_MC_MASTER_CAPABILITY	0x0
-#define SLIM_USR_MC_REPORT_SATELLITE	0x1
-#define SLIM_USR_MC_ADDR_QUERY		0xD
-#define SLIM_USR_MC_ADDR_REPLY		0xE
-#define SLIM_USR_MC_DEFINE_CHAN		0x20
-#define SLIM_USR_MC_DEF_ACT_CHAN	0x21
-#define SLIM_USR_MC_CHAN_CTRL		0x23
-#define SLIM_USR_MC_RECONFIG_NOW	0x24
-#define SLIM_USR_MC_REQ_BW		0x28
-#define SLIM_USR_MC_CONNECT_SRC		0x2C
-#define SLIM_USR_MC_CONNECT_SINK	0x2D
-#define SLIM_USR_MC_DISCONNECT_PORT	0x2E
-
-/* MSM Slimbus peripheral settings */
-#define MSM_SLIM_PERF_SUMM_THRESHOLD	0x8000
-#define MSM_SLIM_NCHANS			32
-#define MSM_SLIM_NPORTS			24
-#define MSM_SLIM_AUTOSUSPEND		MSEC_PER_SEC
-
-/*
- * Need enough descriptors to receive present messages from slaves
- * if received simultaneously. Present message needs 3 descriptors
- * and this size will ensure around 10 simultaneous reports.
- */
-#define MSM_SLIM_DESC_NUM		32
-
-#define SLIM_MSG_ASM_FIRST_WORD(l, mt, mc, dt, ad) \
-		((l) | ((mt) << 5) | ((mc) << 8) | ((dt) << 15) | ((ad) << 16))
+#include "slim-msm.h"
 
 #define MSM_SLIM_NAME	"msm_slim_ctrl"
 #define SLIM_ROOT_FREQ 24576000
-
-#define MSM_CONCUR_MSG	8
-#define SAT_CONCUR_MSG	8
-#define DEF_WATERMARK	(8 << 1)
-#define DEF_ALIGN	0
-#define DEF_PACK	(1 << 6)
-#define ENABLE_PORT	1
-
-#define DEF_BLKSZ	0
-#define DEF_TRANSZ	0
-
-#define SAT_MAGIC_LSB	0xD9
-#define SAT_MAGIC_MSB	0xC5
-#define SAT_MSG_VER	0x1
-#define SAT_MSG_PROT	0x1
-#define MSM_SAT_SUCCSS	0x20
-#define MSM_MAX_NSATS	2
-#define MSM_MAX_SATCH	32
 
 #define QC_MFGID_LSB	0x2
 #define QC_MFGID_MSB	0x17
@@ -90,82 +39,6 @@
 #define QC_MSM_DEVS	5
 #define INIT_MX_RETRIES 10
 #define DEF_RETRY_MS	10
-
-#define PGD_THIS_EE(r, v) ((v) ? PGD_THIS_EE_V2(r) : PGD_THIS_EE_V1(r))
-#define PGD_PORT(r, p, v) ((v) ? PGD_PORT_V2(r, p) : PGD_PORT_V1(r, p))
-#define CFG_PORT(r, v) ((v) ? CFG_PORT_V2(r) : CFG_PORT_V1(r))
-
-#define PGD_THIS_EE_V2(r) (dev->base + (r ## _V2) + (dev->ee * 0x1000))
-#define PGD_PORT_V2(r, p) (dev->base + (r ## _V2) + ((p) * 0x1000))
-#define CFG_PORT_V2(r) ((r ## _V2))
-/* Component registers */
-enum comp_reg_v2 {
-	COMP_CFG_V2		= 4,
-	COMP_TRUST_CFG_V2	= 0x3000,
-};
-
-/* Manager PGD registers */
-enum pgd_reg_v2 {
-	PGD_CFG_V2		= 0x800,
-	PGD_STAT_V2		= 0x804,
-	PGD_INT_EN_V2		= 0x810,
-	PGD_INT_STAT_V2		= 0x814,
-	PGD_INT_CLR_V2		= 0x818,
-	PGD_OWN_EEn_V2		= 0x300C,
-	PGD_PORT_INT_EN_EEn_V2	= 0x5000,
-	PGD_PORT_INT_ST_EEn_V2	= 0x5004,
-	PGD_PORT_INT_CL_EEn_V2	= 0x5008,
-	PGD_PORT_CFGn_V2	= 0x14000,
-	PGD_PORT_STATn_V2	= 0x14004,
-	PGD_PORT_PARAMn_V2	= 0x14008,
-	PGD_PORT_BLKn_V2	= 0x1400C,
-	PGD_PORT_TRANn_V2	= 0x14010,
-	PGD_PORT_MCHANn_V2	= 0x14014,
-	PGD_PORT_PSHPLLn_V2	= 0x14018,
-	PGD_PORT_PC_CFGn_V2	= 0x8000,
-	PGD_PORT_PC_VALn_V2	= 0x8004,
-	PGD_PORT_PC_VFR_TSn_V2	= 0x8008,
-	PGD_PORT_PC_VFR_STn_V2	= 0x800C,
-	PGD_PORT_PC_VFR_CLn_V2	= 0x8010,
-	PGD_IE_STAT_V2		= 0x820,
-	PGD_VE_STAT_V2		= 0x830,
-};
-
-#define PGD_THIS_EE_V1(r) (dev->base + (r ## _V1) + (dev->ee * 16))
-#define PGD_PORT_V1(r, p) (dev->base + (r ## _V1) + ((p) * 32))
-#define CFG_PORT_V1(r) ((r ## _V1))
-/* Component registers */
-enum comp_reg_v1 {
-	COMP_CFG_V1		= 0,
-	COMP_TRUST_CFG_V1	= 0x14,
-};
-
-/* Manager PGD registers */
-enum pgd_reg_v1 {
-	PGD_CFG_V1		= 0x1000,
-	PGD_STAT_V1		= 0x1004,
-	PGD_INT_EN_V1		= 0x1010,
-	PGD_INT_STAT_V1		= 0x1014,
-	PGD_INT_CLR_V1		= 0x1018,
-	PGD_OWN_EEn_V1		= 0x1020,
-	PGD_PORT_INT_EN_EEn_V1	= 0x1030,
-	PGD_PORT_INT_ST_EEn_V1	= 0x1034,
-	PGD_PORT_INT_CL_EEn_V1	= 0x1038,
-	PGD_PORT_CFGn_V1	= 0x1080,
-	PGD_PORT_STATn_V1	= 0x1084,
-	PGD_PORT_PARAMn_V1	= 0x1088,
-	PGD_PORT_BLKn_V1	= 0x108C,
-	PGD_PORT_TRANn_V1	= 0x1090,
-	PGD_PORT_MCHANn_V1	= 0x1094,
-	PGD_PORT_PSHPLLn_V1	= 0x1098,
-	PGD_PORT_PC_CFGn_V1	= 0x1600,
-	PGD_PORT_PC_VALn_V1	= 0x1604,
-	PGD_PORT_PC_VFR_TSn_V1	= 0x1608,
-	PGD_PORT_PC_VFR_STn_V1	= 0x160C,
-	PGD_PORT_PC_VFR_CLn_V1	= 0x1610,
-	PGD_IE_STAT_V1		= 0x1700,
-	PGD_VE_STAT_V1		= 0x1710,
-};
 
 /* Manager registers */
 enum mgr_reg {
@@ -217,12 +90,6 @@ enum intf_reg {
 	INTF_VE_STAT	= 0x640,
 };
 
-enum rsc_grp {
-	EE_MGR_RSC_GRP	= 1 << 10,
-	EE_NGD_2	= 2 << 6,
-	EE_NGD_1	= 0,
-};
-
 enum mgr_intr {
 	MGR_INT_RECFG_DONE	= 1 << 24,
 	MGR_INT_TX_NACKED_2	= 1 << 25,
@@ -239,117 +106,7 @@ enum frm_cfg {
 	INTR_WAKE	= 19,
 };
 
-enum msm_ctrl_state {
-	MSM_CTRL_AWAKE,
-	MSM_CTRL_SLEEPING,
-	MSM_CTRL_ASLEEP,
-};
-
-struct msm_slim_sps_bam {
-	u32			hdl;
-	void __iomem		*base;
-	int			irq;
-};
-
-struct msm_slim_endp {
-	struct sps_pipe			*sps;
-	struct sps_connect		config;
-	struct sps_register_event	event;
-	struct sps_mem_buffer		buf;
-	struct completion		*xcomp;
-	bool				connected;
-};
-
-struct msm_slim_ctrl {
-	struct slim_controller  ctrl;
-	struct slim_framer	framer;
-	struct device		*dev;
-	void __iomem		*base;
-	struct resource		*slew_mem;
-	u32			curr_bw;
-	u8			msg_cnt;
-	u32			tx_buf[10];
-	u8			rx_msgs[MSM_CONCUR_MSG][SLIM_RX_MSGQ_BUF_LEN];
-	spinlock_t		rx_lock;
-	int			head;
-	int			tail;
-	int			irq;
-	int			err;
-	int			ee;
-	struct completion	*wr_comp;
-	struct msm_slim_sat	*satd[MSM_MAX_NSATS];
-	struct msm_slim_endp	pipes[7];
-	struct msm_slim_sps_bam	bam;
-	struct msm_slim_endp	rx_msgq;
-	struct completion	rx_msgq_notify;
-	struct task_struct	*rx_msgq_thread;
-	struct clk		*rclk;
-	struct clk		*hclk;
-	struct mutex		tx_lock;
-	u8			pgdla;
-	bool			use_rx_msgqs;
-	int			pipe_b;
-	struct completion	reconf;
-	bool			reconf_busy;
-	bool			chan_active;
-	enum msm_ctrl_state	state;
-	int			nsats;
-	u32			ver;
-};
-
-struct msm_sat_chan {
-	u8 chan;
-	u16 chanh;
-	int req_rem;
-	int req_def;
-	bool reconf;
-};
-
-struct msm_slim_sat {
-	struct slim_device	satcl;
-	struct msm_slim_ctrl	*dev;
-	struct workqueue_struct *wq;
-	struct work_struct	wd;
-	u8			sat_msgs[SAT_CONCUR_MSG][40];
-	struct msm_sat_chan	*satch;
-	u8			nsatch;
-	bool			sent_capability;
-	bool			pending_reconf;
-	bool			pending_capability;
-	int			shead;
-	int			stail;
-	spinlock_t lock;
-};
-
 static struct msm_slim_sat *msm_slim_alloc_sat(struct msm_slim_ctrl *dev);
-
-static int msm_slim_rx_enqueue(struct msm_slim_ctrl *dev, u32 *buf, u8 len)
-{
-	spin_lock(&dev->rx_lock);
-	if ((dev->tail + 1) % MSM_CONCUR_MSG == dev->head) {
-		spin_unlock(&dev->rx_lock);
-		dev_err(dev->dev, "RX QUEUE full!");
-		return -EXFULL;
-	}
-	memcpy((u8 *)dev->rx_msgs[dev->tail], (u8 *)buf, len);
-	dev->tail = (dev->tail + 1) % MSM_CONCUR_MSG;
-	spin_unlock(&dev->rx_lock);
-	return 0;
-}
-
-static int msm_slim_rx_dequeue(struct msm_slim_ctrl *dev, u8 *buf)
-{
-	unsigned long flags;
-	spin_lock_irqsave(&dev->rx_lock, flags);
-	if (dev->tail == dev->head) {
-		spin_unlock_irqrestore(&dev->rx_lock, flags);
-		return -ENODATA;
-	}
-	memcpy(buf, (u8 *)dev->rx_msgs[dev->head], 40);
-	dev->head = (dev->head + 1) % MSM_CONCUR_MSG;
-	spin_unlock_irqrestore(&dev->rx_lock, flags);
-	return 0;
-}
 
 static int msm_sat_enqueue(struct msm_slim_sat *sat, u32 *buf, u8 len)
 {
@@ -397,36 +154,6 @@ static bool msm_is_sat_dev(u8 *e_addr)
 		(e_addr[1] == QC_DEVID_SAT1 || e_addr[1] == QC_DEVID_SAT2))
 		return true;
 	return false;
-}
-
-static int msm_slim_get_ctrl(struct msm_slim_ctrl *dev)
-{
-#ifdef CONFIG_PM_RUNTIME
-	int ref = 0;
-	int ret = pm_runtime_get_sync(dev->dev);
-	if (ret >= 0) {
-		ref = atomic_read(&dev->dev->power.usage_count);
-		if (ref <= 0) {
-			dev_err(dev->dev, "reference count -ve:%d", ref);
-			ret = -ENODEV;
-		}
-	}
-	return ret;
-#else
-	return -ENODEV;
-#endif
-}
-static void msm_slim_put_ctrl(struct msm_slim_ctrl *dev)
-{
-#ifdef CONFIG_PM_RUNTIME
-	int ref;
-	pm_runtime_mark_last_busy(dev->dev);
-	ref = atomic_read(&dev->dev->power.usage_count);
-	if (ref <= 0)
-		dev_err(dev->dev, "reference count mismatch:%d", ref);
-	else
-		pm_runtime_put(dev->dev);
-#endif
 }
 
 static struct msm_slim_sat *addr_to_sat(struct msm_slim_ctrl *dev, u8 laddr)
@@ -622,159 +349,6 @@ static irqreturn_t msm_slim_interrupt(int irq, void *d)
 	return IRQ_HANDLED;
 }
 
-static int
-msm_slim_init_endpoint(struct msm_slim_ctrl *dev, struct msm_slim_endp *ep)
-{
-	int ret;
-	struct sps_pipe *endpoint;
-	struct sps_connect *config = &ep->config;
-
-	/* Allocate the endpoint */
-	endpoint = sps_alloc_endpoint();
-	if (!endpoint) {
-		dev_err(dev->dev, "sps_alloc_endpoint failed\n");
-		return -ENOMEM;
-	}
-
-	/* Get default connection configuration for an endpoint */
-	ret = sps_get_config(endpoint, config);
-	if (ret) {
-		dev_err(dev->dev, "sps_get_config failed 0x%x\n", ret);
-		goto sps_config_failed;
-	}
-
-	ep->sps = endpoint;
-	return 0;
-
-sps_config_failed:
-	sps_free_endpoint(endpoint);
-	return ret;
-}
-
-static void
-msm_slim_free_endpoint(struct msm_slim_endp *ep)
-{
-	sps_free_endpoint(ep->sps);
-	ep->sps = NULL;
-}
-
-static int msm_slim_sps_mem_alloc(
-		struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem, u32 len)
-{
-	dma_addr_t phys;
-
-	mem->size = len;
-	mem->min_size = 0;
-	mem->base = dma_alloc_coherent(dev->dev, mem->size, &phys, GFP_KERNEL);
-
-	if (!mem->base) {
-		dev_err(dev->dev, "dma_alloc_coherent(%d) failed\n", len);
-		return -ENOMEM;
-	}
-
-	mem->phys_base = phys;
-	memset(mem->base, 0x00, mem->size);
-	return 0;
-}
-
-static void
-msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
-{
-	dma_free_coherent(dev->dev, mem->size, mem->base, mem->phys_base);
-	mem->size = 0;
-	mem->base = NULL;
-	mem->phys_base = 0;
-}
-
-static void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn)
-{
-	u32 set_cfg = DEF_WATERMARK | DEF_ALIGN | DEF_PACK | ENABLE_PORT;
-	u32 int_port = readl_relaxed(PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
-					dev->ver));
-	writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_CFGn, pn, dev->ver));
-	writel_relaxed(DEF_BLKSZ, PGD_PORT(PGD_PORT_BLKn, pn, dev->ver));
-	writel_relaxed(DEF_TRANSZ, PGD_PORT(PGD_PORT_TRANn, pn, dev->ver));
-	writel_relaxed((int_port | 1 << pn) , PGD_THIS_EE(PGD_PORT_INT_EN_EEn,
-								dev->ver));
-	/* Make sure that port registers are updated before returning */
-	mb();
-}
-
-static int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
-{
-	struct msm_slim_endp *endpoint = &dev->pipes[pn];
-	struct sps_connect *cfg = &endpoint->config;
-	u32 stat;
-	int ret = sps_get_config(dev->pipes[pn].sps, cfg);
-	if (ret) {
-		dev_err(dev->dev, "sps pipe-port get config error%x\n", ret);
-		return ret;
-	}
-	cfg->options = SPS_O_DESC_DONE | SPS_O_ERROR |
-				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
-
-	if (dev->pipes[pn].connected) {
-		ret = sps_set_config(dev->pipes[pn].sps, cfg);
-		if (ret) {
-			dev_err(dev->dev, "sps pipe-port set config erro:%x\n",
-						ret);
-			return ret;
-		}
-	}
-
-	stat = readl_relaxed(PGD_PORT(PGD_PORT_STATn, (pn + dev->pipe_b),
-					dev->ver));
-	if (dev->ctrl.ports[pn].flow == SLIM_SRC) {
-		cfg->destination = dev->bam.hdl;
-		cfg->source = SPS_DEV_HANDLE_MEM;
-		cfg->dest_pipe_index = ((stat & (0xFF << 4)) >> 4);
-		cfg->src_pipe_index = 0;
-		dev_dbg(dev->dev, "flow src:pipe num:%d",
-					cfg->dest_pipe_index);
-		cfg->mode = SPS_MODE_DEST;
-	} else {
-		cfg->source = dev->bam.hdl;
-		cfg->destination = SPS_DEV_HANDLE_MEM;
-		cfg->src_pipe_index = ((stat & (0xFF << 4)) >> 4);
-		cfg->dest_pipe_index = 0;
-		dev_dbg(dev->dev, "flow dest:pipe num:%d",
-					cfg->src_pipe_index);
-		cfg->mode = SPS_MODE_SRC;
-	}
-	/* Space for desciptor FIFOs */
-	cfg->desc.size = MSM_SLIM_DESC_NUM * sizeof(struct sps_iovec);
-	cfg->config = SPS_CONFIG_DEFAULT;
-	ret = sps_connect(dev->pipes[pn].sps, cfg);
-	if (!ret) {
-		dev->pipes[pn].connected = true;
-		msm_hw_set_port(dev, pn + dev->pipe_b);
-	}
-	return ret;
-}
-
-static u32 *msm_get_msg_buf(struct slim_controller *ctrl, int len)
-{
-	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
-	/*
-	 * Currently we block a transaction until the current one completes.
-	 * In case we need multiple transactions, use message Q
-	 */
-	return dev->tx_buf;
-}
-
-static int msm_send_msg_buf(struct slim_controller *ctrl, u32 *buf, u8 len)
-{
-	int i;
-	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
-	for (i = 0; i < (len + 3) >> 2; i++) {
-		dev_dbg(dev->dev, "TX data:0x%x\n", buf[i]);
-		writel_relaxed(buf[i], dev->base + MGR_TX_MSG + (i * 4));
-	}
-	/* Guarantee that message is sent before returning */
-	mb();
-	return 0;
-}
-
 static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 {
 	DECLARE_COMPLETION_ONSTACK(done);
@@ -820,7 +394,7 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		}
 	}
 	txn->rl--;
-	pbuf = msm_get_msg_buf(ctrl, txn->rl);
+	pbuf = msm_get_msg_buf(dev, txn->rl);
 	dev->wr_comp = NULL;
 	dev->err = 0;
 
@@ -890,7 +464,7 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		mc == SLIM_MSG_MC_BEGIN_RECONFIGURATION)
 		dev->reconf_busy = true;
 	dev->wr_comp = &done;
-	msm_send_msg_buf(ctrl, pbuf, txn->rl);
+	msm_send_msg_buf(dev, pbuf, txn->rl, MGR_TX_MSG);
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout)
 		dev->wr_comp = NULL;
@@ -956,7 +530,7 @@ static int msm_set_laddr(struct slim_controller *ctrl, const u8 *ea,
 retry_laddr:
 	init_completion(&done);
 	mutex_lock(&dev->tx_lock);
-	buf = msm_get_msg_buf(ctrl, 9);
+	buf = msm_get_msg_buf(dev, 9);
 	buf[0] = SLIM_MSG_ASM_FIRST_WORD(9, SLIM_MSG_MT_CORE,
 					SLIM_MSG_MC_ASSIGN_LOGICAL_ADDRESS,
 					SLIM_MSG_DEST_LOGICALADDR,
@@ -965,7 +539,7 @@ retry_laddr:
 	buf[2] = laddr;
 
 	dev->wr_comp = &done;
-	ret = msm_send_msg_buf(ctrl, buf, 9);
+	ret = msm_send_msg_buf(dev, buf, 9, MGR_TX_MSG);
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout)
 		dev->err = -ETIMEDOUT;
@@ -1007,74 +581,6 @@ static int msm_clk_pause_wakeup(struct slim_controller *ctrl)
 	 */
 	usleep_range(5000, 5000);
 	return 0;
-}
-
-static int msm_config_port(struct slim_controller *ctrl, u8 pn)
-{
-	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
-	struct msm_slim_endp *endpoint;
-	int ret = 0;
-	if (ctrl->ports[pn].req == SLIM_REQ_HALF_DUP ||
-		ctrl->ports[pn].req == SLIM_REQ_MULTI_CH)
-		return -EPROTONOSUPPORT;
-	if (pn >= (MSM_SLIM_NPORTS - dev->pipe_b))
-		return -ENODEV;
-
-	endpoint = &dev->pipes[pn];
-	ret = msm_slim_init_endpoint(dev, endpoint);
-	dev_dbg(dev->dev, "sps register bam error code:%x\n", ret);
-	return ret;
-}
-
-static enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,
-				u8 pn, u8 **done_buf, u32 *done_len)
-{
-	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctr);
-	struct sps_iovec sio;
-	int ret;
-	if (done_len)
-		*done_len = 0;
-	if (done_buf)
-		*done_buf = NULL;
-	if (!dev->pipes[pn].connected)
-		return SLIM_P_DISCONNECT;
-	ret = sps_get_iovec(dev->pipes[pn].sps, &sio);
-	if (!ret) {
-		if (done_len)
-			*done_len = sio.size;
-		if (done_buf)
-			*done_buf = (u8 *)sio.addr;
-	}
-	dev_dbg(dev->dev, "get iovec returned %d\n", ret);
-	return SLIM_P_INPROGRESS;
-}
-
-static int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, u8 *iobuf,
-			u32 len, struct completion *comp)
-{
-	struct sps_register_event sreg;
-	int ret;
-	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
-	if (pn >= 7)
-		return -ENODEV;
-
-
-	ctrl->ports[pn].xcomp = comp;
-	sreg.options = (SPS_EVENT_DESC_DONE|SPS_EVENT_ERROR);
-	sreg.mode = SPS_TRIGGER_WAIT;
-	sreg.xfer_done = comp;
-	sreg.callback = NULL;
-	sreg.user = &ctrl->ports[pn];
-	ret = sps_register_event(dev->pipes[pn].sps, &sreg);
-	if (ret) {
-		dev_dbg(dev->dev, "sps register event error:%x\n", ret);
-		return ret;
-	}
-	ret = sps_transfer_one(dev->pipes[pn].sps, (u32)iobuf, len, NULL,
-				SPS_IOVEC_FLAG_INT);
-	dev_dbg(dev->dev, "sps submit xfer error code:%x\n", ret);
-
-	return ret;
 }
 
 static int msm_sat_define_ch(struct msm_slim_sat *sat, u8 *buf, u8 len, u8 mc)
@@ -1521,95 +1027,6 @@ static struct msm_slim_sat *msm_slim_alloc_sat(struct msm_slim_ctrl *dev)
 	return sat;
 }
 
-static void
-msm_slim_rx_msgq_event(struct msm_slim_ctrl *dev, struct sps_event_notify *ev)
-{
-	u32 *buf = ev->data.transfer.user;
-	struct sps_iovec *iovec = &ev->data.transfer.iovec;
-
-	/*
-	 * Note the virtual address needs to be offset by the same index
-	 * as the physical address or just pass in the actual virtual address
-	 * if the sps_mem_buffer is not needed.  Note that if completion is
-	 * used, the virtual address won't be available and will need to be
-	 * calculated based on the offset of the physical address
-	 */
-	if (ev->event_id == SPS_EVENT_DESC_DONE) {
-
-		pr_debug("buf = 0x%p, data = 0x%x\n", buf, *buf);
-
-		pr_debug("iovec = (0x%x 0x%x 0x%x)\n",
-			iovec->addr, iovec->size, iovec->flags);
-
-	} else {
-		dev_err(dev->dev, "%s: unknown event %d\n",
-					__func__, ev->event_id);
-	}
-}
-
-static void msm_slim_rx_msgq_cb(struct sps_event_notify *notify)
-{
-	struct msm_slim_ctrl *dev = (struct msm_slim_ctrl *)notify->user;
-	msm_slim_rx_msgq_event(dev, notify);
-}
-
-/* Queue up Rx message buffer */
-static inline int
-msm_slim_post_rx_msgq(struct msm_slim_ctrl *dev, int ix)
-{
-	int ret;
-	u32 flags = SPS_IOVEC_FLAG_INT;
-	struct msm_slim_endp *endpoint = &dev->rx_msgq;
-	struct sps_mem_buffer *mem = &endpoint->buf;
-	struct sps_pipe *pipe = endpoint->sps;
-
-	/* Rx message queue buffers are 4 bytes in length */
-	u8 *virt_addr = mem->base + (4 * ix);
-	u32 phys_addr = mem->phys_base + (4 * ix);
-
-	pr_debug("index:%d, phys:0x%x, virt:0x%p\n", ix, phys_addr, virt_addr);
-
-	ret = sps_transfer_one(pipe, phys_addr, 4, virt_addr, flags);
-	if (ret)
-		dev_err(dev->dev, "transfer_one() failed 0x%x, %d\n", ret, ix);
-
-	return ret;
-}
-
-static inline int
-msm_slim_rx_msgq_get(struct msm_slim_ctrl *dev, u32 *data, int offset)
-{
-	struct msm_slim_endp *endpoint = &dev->rx_msgq;
-	struct sps_mem_buffer *mem = &endpoint->buf;
-	struct sps_pipe *pipe = endpoint->sps;
-	struct sps_iovec iovec;
-	int index;
-	int ret;
-
-	ret = sps_get_iovec(pipe, &iovec);
-	if (ret) {
-		dev_err(dev->dev, "sps_get_iovec() failed 0x%x\n", ret);
-		goto err_exit;
-	}
-
-	pr_debug("iovec = (0x%x 0x%x 0x%x)\n",
-		iovec.addr, iovec.size, iovec.flags);
-	BUG_ON(iovec.addr < mem->phys_base);
-	BUG_ON(iovec.addr >= mem->phys_base + mem->size);
-
-	/* Calculate buffer index */
-	index = (iovec.addr - mem->phys_base) / 4;
-	*(data + offset) = *((u32 *)mem->base + index);
-
-	pr_debug("buf = 0x%p, data = 0x%x\n", (u32 *)mem->base + index, *data);
-
-	/* Add buffer back to the queue */
-	(void)msm_slim_post_rx_msgq(dev, index);
-
-err_exit:
-	return ret;
-}
-
 static int msm_slim_rx_msgq_thread(void *data)
 {
 	struct msm_slim_ctrl *dev = (struct msm_slim_ctrl *)data;
@@ -1672,219 +1089,6 @@ static int msm_slim_rx_msgq_thread(void *data)
 	}
 
 	return 0;
-}
-
-static int __devinit msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev)
-{
-	int i, ret;
-	u32 pipe_offset;
-	struct msm_slim_endp *endpoint = &dev->rx_msgq;
-	struct sps_connect *config = &endpoint->config;
-	struct sps_mem_buffer *descr = &config->desc;
-	struct sps_mem_buffer *mem = &endpoint->buf;
-	struct completion *notify = &dev->rx_msgq_notify;
-
-	struct sps_register_event sps_error_event; /* SPS_ERROR */
-	struct sps_register_event sps_descr_event; /* DESCR_DONE */
-
-	init_completion(notify);
-	if (!dev->use_rx_msgqs)
-		goto rx_thread_create;
-
-	/* Allocate the endpoint */
-	ret = msm_slim_init_endpoint(dev, endpoint);
-	if (ret) {
-		dev_err(dev->dev, "init_endpoint failed 0x%x\n", ret);
-		goto sps_init_endpoint_failed;
-	}
-
-	/* Get the pipe indices for the message queues */
-	pipe_offset = (readl_relaxed(dev->base + MGR_STATUS) & 0xfc) >> 2;
-	dev_dbg(dev->dev, "Message queue pipe offset %d\n", pipe_offset);
-
-	config->mode = SPS_MODE_SRC;
-	config->source = dev->bam.hdl;
-	config->destination = SPS_DEV_HANDLE_MEM;
-	config->src_pipe_index = pipe_offset;
-	config->options = SPS_O_DESC_DONE | SPS_O_ERROR |
-				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
-
-	/* Allocate memory for the FIFO descriptors */
-	ret = msm_slim_sps_mem_alloc(dev, descr,
-				MSM_SLIM_DESC_NUM * sizeof(struct sps_iovec));
-	if (ret) {
-		dev_err(dev->dev, "unable to allocate SPS descriptors\n");
-		goto alloc_descr_failed;
-	}
-
-	ret = sps_connect(endpoint->sps, config);
-	if (ret) {
-		dev_err(dev->dev, "sps_connect failed 0x%x\n", ret);
-		goto sps_connect_failed;
-	}
-
-	/* Register completion for DESC_DONE */
-	init_completion(notify);
-	memset(&sps_descr_event, 0x00, sizeof(sps_descr_event));
-
-	sps_descr_event.mode = SPS_TRIGGER_CALLBACK;
-	sps_descr_event.options = SPS_O_DESC_DONE;
-	sps_descr_event.user = (void *)dev;
-	sps_descr_event.xfer_done = notify;
-
-	ret = sps_register_event(endpoint->sps, &sps_descr_event);
-	if (ret) {
-		dev_err(dev->dev, "sps_connect() failed 0x%x\n", ret);
-		goto sps_reg_event_failed;
-	}
-
-	/* Register callback for errors */
-	memset(&sps_error_event, 0x00, sizeof(sps_error_event));
-	sps_error_event.mode = SPS_TRIGGER_CALLBACK;
-	sps_error_event.options = SPS_O_ERROR;
-	sps_error_event.user = (void *)dev;
-	sps_error_event.callback = msm_slim_rx_msgq_cb;
-
-	ret = sps_register_event(endpoint->sps, &sps_error_event);
-	if (ret) {
-		dev_err(dev->dev, "sps_connect() failed 0x%x\n", ret);
-		goto sps_reg_event_failed;
-	}
-
-	/* Allocate memory for the message buffer(s), N descrs, 4-byte mesg */
-	ret = msm_slim_sps_mem_alloc(dev, mem, MSM_SLIM_DESC_NUM * 4);
-	if (ret) {
-		dev_err(dev->dev, "dma_alloc_coherent failed\n");
-		goto alloc_buffer_failed;
-	}
-
-	/*
-	 * Call transfer_one for each 4-byte buffer
-	 * Use (buf->size/4) - 1 for the number of buffer to post
-	 */
-
-	/* Setup the transfer */
-	for (i = 0; i < (MSM_SLIM_DESC_NUM - 1); i++) {
-		ret = msm_slim_post_rx_msgq(dev, i);
-		if (ret) {
-			dev_err(dev->dev, "post_rx_msgq() failed 0x%x\n", ret);
-			goto sps_transfer_failed;
-		}
-	}
-
-rx_thread_create:
-	/* Fire up the Rx message queue thread */
-	dev->rx_msgq_thread = kthread_run(msm_slim_rx_msgq_thread, dev,
-					MSM_SLIM_NAME "_rx_msgq_thread");
-	if (!dev->rx_msgq_thread) {
-		dev_err(dev->dev, "Failed to start Rx message queue thread\n");
-		/* Tear-down BAMs or return? */
-		if (!dev->use_rx_msgqs)
-			return -EIO;
-		else
-			ret = -EIO;
-	} else
-		return 0;
-
-sps_transfer_failed:
-	msm_slim_sps_mem_free(dev, mem);
-alloc_buffer_failed:
-	memset(&sps_error_event, 0x00, sizeof(sps_error_event));
-	sps_register_event(endpoint->sps, &sps_error_event);
-sps_reg_event_failed:
-	sps_disconnect(endpoint->sps);
-sps_connect_failed:
-	msm_slim_sps_mem_free(dev, descr);
-alloc_descr_failed:
-	msm_slim_free_endpoint(endpoint);
-sps_init_endpoint_failed:
-	dev->use_rx_msgqs = 0;
-	return ret;
-}
-
-/* Registers BAM h/w resource with SPS driver and initializes msgq endpoints */
-static int __devinit
-msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem)
-{
-	int i, ret;
-	u32 bam_handle;
-	struct sps_bam_props bam_props = {0};
-
-	static struct sps_bam_sec_config_props sec_props = {
-		.ees = {
-			[0] = {		/* LPASS */
-				.vmid = 0,
-				.pipe_mask = 0xFFFF98,
-			},
-			[1] = {		/* Krait Apps */
-				.vmid = 1,
-				.pipe_mask = 0x3F000007,
-			},
-			[2] = {		/* Modem */
-				.vmid = 2,
-				.pipe_mask = 0x00000060,
-			},
-		},
-	};
-
-	bam_props.ee = dev->ee;
-	bam_props.virt_addr = dev->bam.base;
-	bam_props.phys_addr = bam_mem->start;
-	bam_props.irq = dev->bam.irq;
-	bam_props.manage = SPS_BAM_MGR_LOCAL;
-	bam_props.summing_threshold = MSM_SLIM_PERF_SUMM_THRESHOLD;
-
-	bam_props.sec_config = SPS_BAM_SEC_DO_CONFIG;
-	bam_props.p_sec_config_props = &sec_props;
-
-	bam_props.options = SPS_O_DESC_DONE | SPS_O_ERROR |
-				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
-
-	/* First 7 bits are for message Qs */
-	for (i = 7; i < 32; i++) {
-		/* Check what pipes are owned by Apps. */
-		if ((sec_props.ees[dev->ee].pipe_mask >> i) & 0x1)
-			break;
-	}
-	dev->pipe_b = i - 7;
-
-	/* Register the BAM device with the SPS driver */
-	ret = sps_register_bam_device(&bam_props, &bam_handle);
-	if (ret) {
-		dev_err(dev->dev, "disabling BAM: reg-bam failed 0x%x\n", ret);
-		dev->use_rx_msgqs = 0;
-		goto init_rx_msgq;
-	}
-	dev->bam.hdl = bam_handle;
-	dev_dbg(dev->dev, "SLIM BAM registered, handle = 0x%x\n", bam_handle);
-
-init_rx_msgq:
-	ret = msm_slim_init_rx_msgq(dev);
-	if (ret)
-		dev_err(dev->dev, "msm_slim_init_rx_msgq failed 0x%x\n", ret);
-	if (ret && bam_handle) {
-		sps_deregister_bam_device(bam_handle);
-		dev->bam.hdl = 0L;
-	}
-	return ret;
-}
-
-static void msm_slim_sps_exit(struct msm_slim_ctrl *dev)
-{
-	if (dev->use_rx_msgqs) {
-		struct msm_slim_endp *endpoint = &dev->rx_msgq;
-		struct sps_connect *config = &endpoint->config;
-		struct sps_mem_buffer *descr = &config->desc;
-		struct sps_mem_buffer *mem = &endpoint->buf;
-		struct sps_register_event sps_event;
-		memset(&sps_event, 0x00, sizeof(sps_event));
-		msm_slim_sps_mem_free(dev, mem);
-		sps_register_event(endpoint->sps, &sps_event);
-		sps_disconnect(endpoint->sps);
-		msm_slim_sps_mem_free(dev, descr);
-		msm_slim_free_endpoint(endpoint);
-		sps_deregister_bam_device(dev->bam.hdl);
-	}
 }
 
 static void msm_slim_prg_slew(struct platform_device *pdev,
@@ -2052,12 +1256,20 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	else
 		clk_prepare_enable(dev->hclk);
 
-	ret = msm_slim_sps_init(dev, bam_mem);
+	ret = msm_slim_sps_init(dev, bam_mem, MGR_STATUS);
 	if (ret != 0) {
 		dev_err(dev->dev, "error SPS init\n");
 		goto err_sps_init_failed;
 	}
 
+	/* Fire up the Rx message queue thread */
+	dev->rx_msgq_thread = kthread_run(msm_slim_rx_msgq_thread, dev,
+					MSM_SLIM_NAME "_rx_msgq_thread");
+	if (IS_ERR(dev->rx_msgq_thread)) {
+		ret = PTR_ERR(dev->rx_msgq_thread);
+		dev_err(dev->dev, "Failed to start Rx message queue thread\n");
+		goto err_thread_create_failed;
+	}
 
 	dev->framer.rootfreq = SLIM_ROOT_FREQ >> 3;
 	dev->framer.superfreq =
@@ -2183,6 +1395,8 @@ err_ctrl_failed:
 err_clk_get_failed:
 	kfree(dev->satd);
 err_request_irq_failed:
+	kthread_stop(dev->rx_msgq_thread);
+err_thread_create_failed:
 	msm_slim_sps_exit(dev);
 err_sps_init_failed:
 	if (dev->hclk) {
