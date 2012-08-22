@@ -1167,7 +1167,9 @@ static int mdss_fb_handle_pp_ioctl(void __user *argp)
 			break;
 
 		case mdp_lut_pgc:
-			ret = -ENOTSUPP;
+			ret = mdss_mdp_argc_config(
+				&mdp_pp.data.lut_cfg_data.data.pgc_lut_data,
+				&copyback);
 			break;
 
 		case mdp_lut_hist:
