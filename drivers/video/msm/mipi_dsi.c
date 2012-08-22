@@ -101,7 +101,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	mdp_bus_scale_update_request(0);
 #endif
 
-	spin_lock_bh(&dsi_clk_lock);
 	mipi_dsi_clk_disable();
 
 	/* disbale dsi engine */
@@ -110,7 +109,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	mipi_dsi_phy_ctrl(0);
 
 	mipi_dsi_ahb_ctrl(0);
-	spin_unlock_bh(&dsi_clk_lock);
 
 	mipi_dsi_unprepare_clocks();
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
