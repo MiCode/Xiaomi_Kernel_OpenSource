@@ -142,6 +142,7 @@ static struct acpuclk_krait_params acpuclk_8960ab_params __initdata = {
 	.l2_freq_tbl_size = sizeof(l2_freq_tbl),
 	.bus_scale = &bus_scale_data,
 	.qfprom_phys_base = 0x00700000,
+	.stby_khz = 384000,
 };
 
 static int __init acpuclk_8960ab_probe(struct platform_device *pdev)
