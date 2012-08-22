@@ -643,10 +643,10 @@ static inline void bam_write_reg_field(void *base, u32 offset,
  */
 int bam_init(void *base, u32 ee,
 		u16 summing_threshold,
-		u32 irq_mask, u32 *version, u32 *num_pipes)
+		u32 irq_mask, u32 *version,
+		u32 *num_pipes, u32 p_rst)
 {
-	/* disable bit#11 because of HW bug */
-	u32 cfg_bits = 0xffffffff & ~(1 << 11);
+	u32 cfg_bits;
 	u32 ver = 0;
 
 	SPS_DBG2("sps:%s:bam=0x%x(va).ee=%d.", __func__, (u32) base, ee);
@@ -666,6 +666,11 @@ int bam_init(void *base, u32 ee,
 		SPS_ERR("sps:bam 0x%x(va) summing_threshold is zero , "
 				"use default 4.\n", (u32) base);
 	}
+
+	if (p_rst)
+		cfg_bits = 0xffffffff & ~(3 << 11);
+	else
+		cfg_bits = 0xffffffff & ~(1 << 11);
 
 	bam_write_reg_field(base, CTRL, BAM_SW_RST, 1);
 	/* No delay needed */
