@@ -66,6 +66,9 @@ do {									\
 	msg_mask_tbl_ptr += 4;						\
 	*(int *)(msg_mask_tbl_ptr) = MSG_SSID_ ## XX ## _LAST;		\
 	msg_mask_tbl_ptr += 4;						\
+	/* mimic the last entry as actual_last while creation */	\
+	*(int *)(msg_mask_tbl_ptr) = MSG_SSID_ ## XX ## _LAST;		\
+	msg_mask_tbl_ptr += 4;						\
 	/* increment by MAX_SSID_PER_RANGE cells */			\
 	msg_mask_tbl_ptr += MAX_SSID_PER_RANGE * sizeof(int);		\
 } while (0)
@@ -552,8 +555,7 @@ static void diag_print_mask_table(void)
 {
 /* Enable this to print mask table when updated */
 #ifdef MASK_DEBUG
-	int first;
-	int last;
+	int first, last, actual_last;
 	uint8_t *ptr = driver->msg_masks;
 	int i = 0;
 	pr_info("diag: F3 message mask table\n");
@@ -562,11 +564,12 @@ static void diag_print_mask_table(void)
 		ptr += 4;
 		last = *(uint32_t *)ptr;
 		ptr += 4;
-		printk(KERN_INFO "SSID %d - %d\n", first, last);
-		for (i = 0 ; i <= last - first ; i++)
-			printk(KERN_INFO "MASK:%x\n", *((uint32_t *)ptr + i));
+		actual_last = *(uint32_t *)ptr;
+		ptr += 4;
+		pr_info("diag: SSID %d, %d - %d\n", first, last, actual_last);
+		for (i = 0 ; i <= actual_last - first ; i++)
+			pr_info("diag: MASK:%x\n", *((uint32_t *)ptr + i));
 		ptr += MAX_SSID_PER_RANGE*4;
-
 	}
 #endif
 }
@@ -609,7 +612,7 @@ static void diag_set_msg_mask(int rt_mask)
 	mutex_lock(&driver->diagchar_mutex);
 	while (*(uint32_t *)(ptr + 4)) {
 		first_ssid = *(uint32_t *)ptr;
-		ptr += 4;
+		ptr += 8; /* increment by 8 to skip 'last' */
 		last_ssid = *(uint32_t *)ptr;
 		ptr += 4;
 		parse_ptr = ptr;
@@ -625,9 +628,8 @@ static void diag_set_msg_mask(int rt_mask)
 
 static void diag_update_msg_mask(int start, int end , uint8_t *buf)
 {
-	int found = 0;
-	int first;
-	int last;
+	int found = 0, first, last, actual_last;
+	uint8_t *actual_last_ptr;
 	uint8_t *ptr = driver->msg_masks;
 	uint8_t *ptr_buffer_start = &(*(driver->msg_masks));
 	uint8_t *ptr_buffer_end = &(*(driver->msg_masks)) + MSG_MASK_SIZE;
@@ -640,23 +642,23 @@ static void diag_update_msg_mask(int start, int end , uint8_t *buf)
 		ptr += 4;
 		last = *(uint32_t *)ptr;
 		ptr += 4;
-		if (start >= first && start <= last) {
+		actual_last = *(uint32_t *)ptr;
+		actual_last_ptr = ptr;
+		ptr += 4;
+		if (start >= first && start <= actual_last) {
 			ptr += (start - first)*4;
-			if (end <= last)
-				if (CHK_OVERFLOW(ptr_buffer_start, ptr,
-						  ptr_buffer_end,
-						  (((end - start)+1)*4))) {
-					pr_debug("diag: update ssid start %d,"
-						 " end %d\n", start, end);
-					memcpy(ptr, buf , ((end - start)+1)*4);
-				} else
-					printk(KERN_CRIT "Not enough"
-							 " buffer space for"
-							 " MSG_MASK\n");
-			else
-				printk(KERN_INFO "Unable to copy"
-						 " mask change\n");
-
+			if (end > actual_last) {
+				pr_info("diag: ssid range mismatch\n");
+				actual_last = end;
+				*(uint32_t *)(actual_last_ptr) = end;
+			}
+			if (CHK_OVERFLOW(ptr_buffer_start, ptr, ptr_buffer_end,
+					  (((end - start)+1)*4))) {
+				pr_debug("diag: update ssid start %d, end %d\n",
+								 start, end);
+				memcpy(ptr, buf , ((end - start)+1)*4);
+			} else
+				pr_alert("diag: Not enough space MSG_MASK\n");
 			found = 1;
 			break;
 		} else {
@@ -671,16 +673,16 @@ static void diag_update_msg_mask(int start, int end , uint8_t *buf)
 			ptr += 4;
 			memcpy(ptr, &(end), 4);
 			ptr += 4;
+			memcpy(ptr, &(end), 4); /* create actual_last entry */
+			ptr += 4;
 			pr_debug("diag: adding NEW ssid start %d, end %d\n",
 								 start, end);
 			memcpy(ptr, buf , ((end - start) + 1)*4);
 		} else
-			printk(KERN_CRIT " Not enough buffer"
-					 " space for MSG_MASK\n");
+			pr_alert("diag: Not enough buffer space for MSG_MASK\n");
 	}
 	mutex_unlock(&driver->diagchar_mutex);
 	diag_print_mask_table();
-
 }
 
 void diag_toggle_event_mask(int toggle)
@@ -956,7 +958,7 @@ void diag_send_msg_mask_update(smd_channel_t *ch, int updated_ssid_first,
 						int updated_ssid_last, int proc)
 {
 	void *buf = driver->buf_msg_mask_update;
-	int first, last, size = -ENOMEM, retry_count = 0, timer;
+	int first, last, actual_last, size = -ENOMEM, retry_count = 0, timer;
 	int header_size = sizeof(struct diag_ctrl_msg_mask);
 	uint8_t *ptr = driver->msg_masks;
 
@@ -966,18 +968,21 @@ void diag_send_msg_mask_update(smd_channel_t *ch, int updated_ssid_first,
 		ptr += 4;
 		last = *(uint32_t *)ptr;
 		ptr += 4;
-		if ((updated_ssid_first >= first && updated_ssid_last <= last)
-					 || (updated_ssid_first == ALL_SSID)) {
+		actual_last = *(uint32_t *)ptr;
+		ptr += 4;
+		if ((updated_ssid_first >= first && updated_ssid_last <=
+			 actual_last) || (updated_ssid_first == ALL_SSID)) {
 			/* send f3 mask update */
 			driver->msg_mask->cmd_type = DIAG_CTRL_MSG_F3_MASK;
-			driver->msg_mask->msg_mask_size = last - first + 1;
+			driver->msg_mask->msg_mask_size = actual_last -
+								 first + 1;
 			driver->msg_mask->data_len = 11 +
 					 4 * (driver->msg_mask->msg_mask_size);
 			driver->msg_mask->stream_id = 1; /* 2, if dual stream */
 			driver->msg_mask->status = 3; /* status valid mask */
 			driver->msg_mask->msg_mode = 0; /* Legcay mode */
 			driver->msg_mask->ssid_first = first;
-			driver->msg_mask->ssid_last = last;
+			driver->msg_mask->ssid_last = actual_last;
 			memcpy(buf, driver->msg_mask, header_size);
 			memcpy(buf+header_size, ptr,
 				 4 * (driver->msg_mask->msg_mask_size));
@@ -999,8 +1004,8 @@ void diag_send_msg_mask_update(smd_channel_t *ch, int updated_ssid_first,
 	 "fail %d, tried %d\n", proc, size,
 	 header_size + 4*(driver->msg_mask->msg_mask_size));
 				else
-					pr_debug("diag: sending mask update for"
-		"ssid first %d, last %d on PROC %d\n", first, last, proc);
+					pr_debug("diag: sending mask update for ssid first %d, last %d on PROC %d\n",
+						first, actual_last, proc);
 			} else
 				pr_err("diag: proc %d, ch invalid msg mask"
 						 "update\n", proc);
@@ -1092,7 +1097,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			rt_mask_ptr = driver->msg_masks;
 			while (*(uint32_t *)(rt_mask_ptr + 4)) {
 				rt_first_ssid = *(uint32_t *)rt_mask_ptr;
-				rt_mask_ptr += 4;
+				rt_mask_ptr += 8; /* +8 to skip 'last' */
 				rt_last_ssid = *(uint32_t *)rt_mask_ptr;
 				rt_mask_ptr += 4;
 				if (ssid_first == rt_first_ssid && ssid_last ==
