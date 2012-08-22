@@ -1,0 +1,50 @@
+* Qualcomm HDMI Tx
+
+Required properties:
+- cell-index: hdmi tx controller index
+- compatible: must be "qcom,hdmi-tx"
+- reg: offset and length of the register regions(s) for the device.
+- reg-names: a list of strings that map in order to the list of regs.
+
+- <supply-name>-supply: phandle to the regulator device tree node.
+- <compatible-name>-supply-names: a list of strings that map in order
+  to the list of supplies.
+- <<compatible-name>-supply-type: a type of supply(ies) mentioned above.
+    0 = supply with controlled output
+    1 = supply without controlled output. i.e. voltage switch
+- <compatible-name>-min-voltage-level: specifies minimum voltage level
+  of supply(ies) mentioned above.
+- <compatible-name>-max-voltage-level: specifies maximum voltage level
+  of supply(ies) mentioned above.
+- <compatible-name>-op-mode: specifies optimum operating mode of
+  supply(ies) mentioned above.
+
+- gpios: specifies gpios assigned for the device.
+- <compatible-name>-gpio-names: a list of strings that map in order to
+  the list of gpios
+
+Example:
+	qcom,hdmi_tx@fd922100 {
+		cell-index = <0>;
+		compatible = "qcom,hdmi-tx";
+		reg =	<0xfd922100 0x35C>,
+			<0xfd922500 0x7C>,
+			<0xfc4b8000 0x60F0>;
+		reg-names = "core_physical", "phy_physical", "qfprom_physical";
+
+		hpd-5v-supply = <&pm8941_mvs2>;
+		core-vdda-supply = <&pm8941_l12>;
+		core-vcc-supply = <&pm8941_s3>;
+		qcom,hdmi-tx-supply-names = "hpd-5v", "core-vdda", "core-vcc";
+		qcom,hdmi-tx-supply-type = <0 1 1>;
+		qcom,hdmi-tx-min-voltage-level = <0 1800000 1800000>;
+		qcom,hdmi-tx-max-voltage-level = <0 1800000 1800000>;
+		qcom,hdmi-tx-op-mode = <0 1800000 0>;
+
+		gpios = <&msmgpio 31 0>,
+			<&msmgpio 32 0>,
+			<&msmgpio 33 0>,
+			<&msmgpio 34 0>;
+		qcom,hdmi-tx-gpio-names =
+			"cec-pin", "hpd-ddc-clk", "hpd-ddc-data", "hpd-pin";
+	};
