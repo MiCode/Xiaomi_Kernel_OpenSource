@@ -260,14 +260,14 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 		SET_S2CR_N(base, num, 0);
 		SET_S2CR_CBNDX(base, num, ctx);
 		/* Set security bit override to be Non-secure */
-		SET_S2CR_NSCFG(base, sids[i], 3);
-
-		SET_CBAR_N(base, ctx, 0);
-		/* Stage 1 Context with Stage 2 bypass */
-		SET_CBAR_TYPE(base, ctx, 1);
-		/* Route page faults to the non-secure interrupt */
-		SET_CBAR_IRPTNDX(base, ctx, 1);
+		SET_S2CR_NSCFG(base, num, 3);
 	}
+
+	SET_CBAR_N(base, ctx, 0);
+	/* Stage 1 Context with Stage 2 bypass */
+	SET_CBAR_TYPE(base, ctx, 1);
+	/* Route page faults to the non-secure interrupt */
+	SET_CBAR_IRPTNDX(base, ctx, 1);
 
        /* Find if this page table is used elsewhere, and re-use ASID */
 	found = 0;
