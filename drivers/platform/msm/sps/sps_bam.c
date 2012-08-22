@@ -254,7 +254,8 @@ int sps_bam_enable(struct sps_bam *dev)
 				  dev->props.ee,
 				  (u16) dev->props.summing_threshold,
 				  irq_mask,
-				  &dev->version, &num_pipes);
+				  &dev->version, &num_pipes,
+				  dev->props.options & SPS_BAM_NO_EXT_P_RST);
 	else
 		/* No, so just verify that it is enabled */
 		rc = bam_check(dev->base, &dev->version, &num_pipes);

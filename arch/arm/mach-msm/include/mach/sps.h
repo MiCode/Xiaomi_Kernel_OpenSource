@@ -75,6 +75,8 @@
 #define SPS_BAM_OPT_BAMDMA          (1UL << 2)
 /* BAM IRQ is registered for apps wakeup */
 #define SPS_BAM_OPT_IRQ_WAKEUP      (1UL << 3)
+/* Ignore external block pipe reset */
+#define SPS_BAM_NO_EXT_P_RST        (1UL << 4)
 
 /* BAM device management flags */
 
