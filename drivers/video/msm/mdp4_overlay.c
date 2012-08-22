@@ -2534,6 +2534,22 @@ static int mdp4_calc_pipe_mdp_clk(struct msm_fb_data_type *mfd,
 	rst >>= shift;
 
 	/*
+	 * There is one special case for the panels that have low
+	 * v_back_porch (<=4), mdp clk should be fast enough to buffer
+	 * 4 lines input during back porch time if scaling is
+	 * required(FIR).
+	 */
+	if ((mfd->panel_info.lcdc.v_back_porch <= 4) &&
+	    (pipe->src_h != pipe->dst_h)) {
+		u32 clk = 0;
+		clk = 4 * (pclk >> shift) / mfd->panel_info.lcdc.v_back_porch;
+		clk <<= shift;
+		pr_debug("%s: mdp clk rate %d based on low vbp %d\n",
+			 __func__, clk, mfd->panel_info.lcdc.v_back_porch);
+		rst = (rst > clk) ? rst : clk;
+	}
+
+	/*
 	 * If the calculated mdp clk is less than panel pixel clk,
 	 * most likely due to upscaling, mdp clk rate will be set to
 	 * greater than pclk. Now the driver uses 1.15 as the
@@ -3634,4 +3650,3 @@ done:
 	mutex_unlock(&mfd->dma->ov_mutex);
 	return err;
 }
-
