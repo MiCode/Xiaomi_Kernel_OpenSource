@@ -330,7 +330,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		return -ENOMEM;
 	}
 	prtd->substream = substream;
-	prtd->audio_client->perf_mode = false;
 	prtd->audio_client = q6asm_audio_client_alloc(
 				(app_cb)event_handler, prtd);
 	if (!prtd->audio_client) {
@@ -338,6 +337,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		kfree(prtd);
 		return -ENOMEM;
 	}
+	prtd->audio_client->perf_mode = false;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		runtime->hw = msm_pcm_hardware_playback;
 		ret = q6asm_open_write(prtd->audio_client,
