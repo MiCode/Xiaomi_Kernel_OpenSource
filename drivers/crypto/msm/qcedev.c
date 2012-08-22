@@ -2038,18 +2038,6 @@ static int qcedev_probe(struct platform_device *pdev)
 	podev->pdev = pdev;
 	platform_set_drvdata(pdev, podev);
 
-	if (podev->platform_support.bus_scale_table != NULL) {
-		podev->bus_scale_handle =
-			msm_bus_scale_register_client(
-				(struct msm_bus_scale_pdata *)
-				podev->platform_support.bus_scale_table);
-		if (!podev->bus_scale_handle) {
-			printk(KERN_ERR "%s not able to get bus scale\n",
-								__func__);
-			rc =  -ENOMEM;
-			goto err;
-		}
-	}
 	rc = misc_register(&podev->miscdevice);
 	qce_hw_support(podev->qce, &podev->ce_support);
 	if (podev->ce_support.bam) {
@@ -2069,6 +2057,18 @@ static int qcedev_probe(struct platform_device *pdev)
 		podev->platform_support.bus_scale_table =
 				platform_support->bus_scale_table;
 		podev->platform_support.sha_hmac = platform_support->sha_hmac;
+	}
+	if (podev->platform_support.bus_scale_table != NULL) {
+		podev->bus_scale_handle =
+			msm_bus_scale_register_client(
+				(struct msm_bus_scale_pdata *)
+				podev->platform_support.bus_scale_table);
+		if (!podev->bus_scale_handle) {
+			pr_err("%s not able to get bus scale\n",
+				__func__);
+			rc =  -ENOMEM;
+			goto err;
+		}
 	}
 	if (rc >= 0)
 		return 0;
