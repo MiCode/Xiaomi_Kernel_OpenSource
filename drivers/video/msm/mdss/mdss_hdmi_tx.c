@@ -24,6 +24,7 @@
 
 #include "mdss_fb.h"
 #include "mdss_hdmi_tx.h"
+#include "mdss_hdmi_edid.h"
 #include "mdss.h"
 #include "mdss_panel.h"
 
@@ -148,6 +149,26 @@ static struct hdmi_tx_ctrl *hdmi_tx_get_drvdata_from_sysfs_dev(
 		return NULL;
 	}
 } /* hdmi_tx_get_drvdata_from_sysfs_dev */
+
+/* todo: Fix this. Right now this is declared in hdmi_util.h */
+void *hdmi_get_featuredata_from_sysfs_dev(struct device *device,
+	u32 feature_type)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+
+	if (!device || feature_type > HDMI_TX_FEAT_MAX) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return NULL;
+	}
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(device);
+	if (hdmi_ctrl)
+		return hdmi_ctrl->feature_data[feature_type];
+	else
+		return NULL;
+
+} /* hdmi_tx_get_featuredata_from_sysfs_dev */
+EXPORT_SYMBOL(hdmi_get_featuredata_from_sysfs_dev);
 
 static ssize_t hdmi_tx_sysfs_rda_connected(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -354,6 +375,34 @@ static void hdmi_tx_sysfs_remove(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->kobj = NULL;
 } /* hdmi_tx_sysfs_remove */
 
+/* Enable HDMI features */
+static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	struct hdmi_edid_init_data edid_init_data;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	edid_init_data.base = hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO].base;
+	edid_init_data.mutex = &hdmi_ctrl->mutex;
+	edid_init_data.sysfs_kobj = hdmi_ctrl->kobj;
+	edid_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
+
+	hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] =
+		hdmi_edid_init(&edid_init_data);
+	if (!hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) {
+		DEV_ERR("%s: hdmi_edid_init failed\n", __func__);
+		return -EPERM;
+	}
+	hdmi_edid_set_video_resolution(
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
+		hdmi_ctrl->video_resolution);
+
+	return 0;
+} /* hdmi_tx_init_features */
+
 static inline u32 hdmi_tx_is_controller_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	return HDMI_REG_R_ND(hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO].base,
@@ -462,6 +511,33 @@ static int hdmi_tx_clk_set_rate(struct hdmi_tx_platform_data *pdata,
 	return rc;
 } /* hdmi_tx_clk_set_rate */
 
+static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int status;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!hdmi_tx_is_controller_on(hdmi_ctrl)) {
+		DEV_ERR("%s: failed: HDMI controller is off", __func__);
+		status = -ENXIO;
+		goto error;
+	}
+
+	hdmi_ddc_config(&hdmi_ctrl->ddc_ctrl);
+
+	status = hdmi_edid_read(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
+	if (!status)
+		DEV_DBG("%s: hdmi_edid_read success\n", __func__);
+	else
+		DEV_ERR("%s: hdmi_edid_read failed\n", __func__);
+
+error:
+	return status;
+} /* hdmi_tx_read_sink_info */
+
 static void hdmi_tx_hpd_state_work(struct work_struct *work)
 {
 	u32 hpd_state = false;
@@ -513,6 +589,8 @@ static void hdmi_tx_hpd_state_work(struct work_struct *work)
 	mutex_unlock(&hdmi_ctrl->mutex);
 
 	if (hpd_state) {
+		/* todo: what if EDID read fails? */
+		hdmi_tx_read_sink_info(hdmi_ctrl);
 		DEV_INFO("HDMI HPD: sense CONNECTED: send ONLINE\n");
 		kobject_uevent(hdmi_ctrl->kobj, KOBJ_ONLINE);
 		switch_set_state(&hdmi_ctrl->sdev, 1);
@@ -653,6 +731,8 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl)
 	clk_disable_unprepare(pdata->clk[HDMI_TX_AHB_CLK]);
 
 	hdmi_ctrl->video_resolution = format;
+	hdmi_edid_set_video_resolution(
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID], format);
 
 end:
 	return rc;
@@ -809,6 +889,9 @@ static void hdmi_tx_set_avi_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	/* Data Byte 01: 0 Y1 Y0 A0 B1 B0 S1 S0 */
 	avi_iframe[3]  = hdmi_tx_avi_iframe_lut[0][mode];
+	avi_iframe[3] |= hdmi_edid_get_sink_scaninfo(
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
+		hdmi_ctrl->video_resolution);
 
 	/* Data Byte 02: C1 C0 M1 M0 R3 R2 R1 R0 */
 	avi_iframe[4]  = hdmi_tx_avi_iframe_lut[1][mode];
@@ -1001,11 +1084,19 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 	if (power_on) {
 		/* ENABLE */
 		reg_val |= BIT(0); /* Enable the block */
-		if (hdmi_ctrl->present_hdcp)
-			/* HDMI_Encryption_ON */
-			reg_val |= BIT(1) | BIT(2);
-		else
+		if (hdmi_edid_get_sink_mode(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) == 0) {
+			if (hdmi_ctrl->present_hdcp)
+				/* HDMI Encryption */
+				reg_val |= BIT(2);
 			reg_val |= BIT(1);
+		} else {
+			if (hdmi_ctrl->present_hdcp)
+				/* HDMI_Encryption_ON */
+				reg_val |= BIT(1) | BIT(2);
+			else
+				reg_val |= BIT(1);
+		}
 	} else {
 		reg_val = BIT(1);
 	}
@@ -1566,6 +1657,9 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
+	if (!hdmi_ddc_isr(&hdmi_ctrl->ddc_ctrl))
+		return IRQ_HANDLED;
+
 	DEV_DBG("%s: HPD<Ctrl=%04x, State=%04x>\n", __func__, hpd_int_ctrl,
 		hpd_int_status);
 
@@ -1641,6 +1735,9 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID])
+		hdmi_edid_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
+
 	switch_dev_unregister(&hdmi_ctrl->sdev);
 	del_timer_sync(&hdmi_ctrl->hpd_state_timer);
 	if (hdmi_ctrl->workq)
@@ -1678,6 +1775,10 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_ERR("%s: hdmi_tx_workq creation failed.\n", __func__);
 		goto fail_create_workq;
 	}
+
+	/* todo: May be move this ? */
+	hdmi_ctrl->ddc_ctrl.base = pdata->io[HDMI_TX_CORE_IO].base;
+	init_completion(&hdmi_ctrl->ddc_ctrl.ddc_sw_done);
 
 	INIT_WORK(&hdmi_ctrl->hpd_state_work, hdmi_tx_hpd_state_work);
 	init_timer(&hdmi_ctrl->hpd_state_timer);
@@ -2210,12 +2311,19 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 	if (rc) {
 		DEV_ERR("%s: hdmi_tx_sysfs_create failed.rc=%d\n",
 			__func__, rc);
-		goto failed_sysfs_create;
+		goto failed_reg_panel;
+	}
+
+	rc = hdmi_tx_init_features(hdmi_ctrl);
+	if (rc) {
+		DEV_ERR("%s: init_features failed.rc=%d\n", __func__, rc);
+		goto failed_init_features;
 	}
 
 	return rc;
 
-failed_sysfs_create:
+failed_init_features:
+	hdmi_tx_sysfs_remove(hdmi_ctrl);
 failed_reg_panel:
 	hdmi_tx_dev_deinit(hdmi_ctrl);
 failed_dev_init:

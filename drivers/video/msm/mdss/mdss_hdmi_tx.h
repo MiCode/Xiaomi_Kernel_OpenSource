@@ -80,6 +80,8 @@ struct hdmi_tx_ctrl {
 	u8 spd_product_description[16];
 
 	struct hdmi_tx_ddc_ctrl ddc_ctrl;
+
+	void *feature_data[HDMI_TX_FEAT_MAX];
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */

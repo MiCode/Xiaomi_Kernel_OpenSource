@@ -369,6 +369,13 @@ u32 hdmi_reg_r(void __iomem *addr, u32 offset, u32 debug);
 #define FRAME_PACKING		0x20
 #define SIDE_BY_SIDE_HALF	0x40
 
+enum hdmi_tx_feature_type {
+	HDMI_TX_FEAT_EDID,
+	HDMI_TX_FEAT_HDCP,
+	HDMI_TX_FEAT_CEC,
+	HDMI_TX_FEAT_MAX,
+};
+
 struct hdmi_disp_mode_timing_type {
 	u32	video_format;
 	u32	active_h;
@@ -412,6 +419,9 @@ const struct hdmi_disp_mode_timing_type *hdmi_get_supported_mode(u32 mode);
 void hdmi_set_supported_mode(u32 mode);
 const char *hdmi_get_video_fmt_2string(u32 format);
 ssize_t hdmi_get_video_3d_fmt_2string(u32 format, char *buf);
+
+/* todo: Fix this. Right now this is defined in mdss_hdmi_tx.c */
+void *hdmi_get_featuredata_from_sysfs_dev(struct device *device, u32 type);
 
 /* DDC */
 void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *);
