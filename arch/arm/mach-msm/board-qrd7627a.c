@@ -75,6 +75,13 @@
 #define I2C_PIN_CTL       0x15
 #define I2C_NORMAL        0x40
 
+#define SNDDEV_CAP_NONE 0x0
+#define SNDDEV_CAP_RX 0x1 /* RX direction */
+#define SNDDEV_CAP_TX 0x2 /* TX direction */
+#define SNDDEV_CAP_VOICE 0x4 /* Support voice call */
+#define SNDDEV_CAP_FM 0x10 /* Support FM radio */
+#define SNDDEV_CAP_TTY 0x20 /* Support TTY */
+
 static struct platform_device msm_wlan_ar6000_pm_device = {
 	.name           = "wlan_ar6000_pm_dev",
 	.id             = -1,
@@ -454,6 +461,56 @@ static struct platform_device msm_device_snd = {
 	},
 };
 
+#define CAD(desc, num, cap) { .name = #desc, .id = num, .capability = cap, }
+static struct cad_endpoint cad_endpoints_list[] = {
+	CAD(NONE, 0, SNDDEV_CAP_NONE),
+	CAD(HANDSET_SPKR, 1, (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE)),
+	CAD(HANDSET_MIC, 2, (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE)),
+	CAD(HEADSET_MIC, 3, (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE)),
+	CAD(HEADSET_SPKR_MONO, 4, (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE)),
+	CAD(HEADSET_SPKR_STEREO, 5, (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE)),
+	CAD(SPEAKER_PHONE_MIC, 6, (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE)),
+	CAD(SPEAKER_PHONE_MONO, 7, (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE)),
+	CAD(SPEAKER_PHONE_STEREO, 8, (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE)),
+	CAD(BT_SCO_MIC, 9, (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE)),
+	CAD(BT_SCO_SPKR, 10, (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE)),
+	CAD(BT_A2DP_SPKR, 11, (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE)),
+	CAD(TTY_HEADSET_MIC, 12, (SNDDEV_CAP_TX | \
+			SNDDEV_CAP_VOICE | SNDDEV_CAP_TTY)),
+	CAD(TTY_HEADSET_SPKR, 13, (SNDDEV_CAP_RX | \
+			SNDDEV_CAP_VOICE | SNDDEV_CAP_TTY)),
+	CAD(HEADSET_STEREO_PLUS_SPKR_MONO_RX, 19, (SNDDEV_CAP_TX | \
+				SNDDEV_CAP_VOICE)),
+	CAD(LP_FM_HEADSET_SPKR_STEREO_RX, 25, (SNDDEV_CAP_TX | SNDDEV_CAP_FM)),
+	CAD(I2S_RX, 26, (SNDDEV_CAP_RX)),
+	CAD(SPEAKER_PHONE_MIC_ENDFIRE, 45, (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE)),
+	CAD(HANDSET_MIC_ENDFIRE, 46, (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE)),
+	CAD(I2S_TX, 48, (SNDDEV_CAP_TX)),
+	CAD(LP_FM_HEADSET_SPKR_STEREO_PLUS_HEADSET_SPKR_STEREO_RX, 57, \
+				(SNDDEV_CAP_FM | SNDDEV_CAP_RX)),
+	CAD(FM_DIGITAL_HEADSET_SPKR_STEREO, 65, \
+			(SNDDEV_CAP_FM | SNDDEV_CAP_RX)),
+	CAD(FM_DIGITAL_SPEAKER_PHONE_MONO, 67, \
+			(SNDDEV_CAP_FM | SNDDEV_CAP_RX)),
+	CAD(FM_DIGITAL_BT_A2DP_SPKR, 69, \
+			(SNDDEV_CAP_FM | SNDDEV_CAP_RX)),
+	CAD(MAX, 80, SNDDEV_CAP_NONE),
+};
+#undef CAD
+
+static struct msm_cad_endpoints msm_device_cad_endpoints = {
+	.endpoints = cad_endpoints_list,
+	.num = sizeof(cad_endpoints_list) / sizeof(struct cad_endpoint)
+};
+
+static struct platform_device msm_device_cad = {
+	.name = "msm_cad",
+	.id = -1,
+	.dev    = {
+		.platform_data = &msm_device_cad_endpoints
+	},
+};
+
 #define DEC0_FORMAT ((1<<MSM_ADSP_CODEC_MP3)| \
 	(1<<MSM_ADSP_CODEC_AAC)|(1<<MSM_ADSP_CODEC_WMA)| \
 	(1<<MSM_ADSP_CODEC_WMAPRO)|(1<<MSM_ADSP_CODEC_AMRWB)| \
@@ -702,6 +759,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_batt_device,
 	&msm_device_adspdec,
 	&msm_device_snd,
+	&msm_device_cad,
 	&asoc_msm_pcm,
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
