@@ -338,18 +338,26 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 			WCD9XXX_A_CHIP_VERSION) & 0x1F;
 	pr_info("%s : Codec version %u initialized\n",
 		__func__, wcd9xxx->version);
+	pr_info("idbyte_0[%08x] idbyte_1[%08x] idbyte_2[%08x] idbyte_3[%08x]\n",
+		wcd9xxx->idbyte_0, wcd9xxx->idbyte_1,
+		wcd9xxx->idbyte_2, wcd9xxx->idbyte_3);
 
-	if (wcd9xxx->idbyte_0 == 0x2) {
+	if (wcd9xxx->idbyte_0 == 0x2 && wcd9xxx->idbyte_1 == 0x0 &&
+		   wcd9xxx->idbyte_2 == 0x0 && wcd9xxx->idbyte_3 == 0x1) {
 		wcd9xxx_dev = tabla_devs;
 		wcd9xxx_dev_size = ARRAY_SIZE(tabla_devs);
-	} else if (wcd9xxx->idbyte_0 == 0x1) {
+	} else if (wcd9xxx->idbyte_0 == 0x1 && wcd9xxx->idbyte_1 == 0x0 &&
+		   wcd9xxx->idbyte_2 == 0x0 && wcd9xxx->idbyte_3 == 0x1) {
 		wcd9xxx_dev = tabla1x_devs;
 		wcd9xxx_dev_size = ARRAY_SIZE(tabla1x_devs);
 	} else if (wcd9xxx->idbyte_0 == 0x0 && wcd9xxx->idbyte_1 == 0x0 &&
 		   wcd9xxx->idbyte_2 == 0x2 && wcd9xxx->idbyte_3 == 0x1) {
 		wcd9xxx_dev = taiko_devs;
 		wcd9xxx_dev_size = ARRAY_SIZE(taiko_devs);
-	} else if (wcd9xxx->idbyte_0 == 0x0) {
+	} else if ((wcd9xxx->idbyte_0 == 0x0 && wcd9xxx->idbyte_1 == 0x0 &&
+		   wcd9xxx->idbyte_2 == 0x0 && wcd9xxx->idbyte_3 == 0x1) ||
+		   (wcd9xxx->idbyte_0 == 0x1 && wcd9xxx->idbyte_1 == 0x0 &&
+		   wcd9xxx->idbyte_2 == 0x1 && wcd9xxx->idbyte_3 == 0x1)) {
 		wcd9xxx_dev = sitar_devs;
 		wcd9xxx_dev_size = ARRAY_SIZE(sitar_devs);
 	}
