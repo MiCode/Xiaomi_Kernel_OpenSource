@@ -57,7 +57,7 @@ static struct page_info *alloc_largest_available(unsigned long size,
 			continue;
 		if (split_pages)
 			split_page(page, orders[i]);
-		info = kmap(page);
+		info = kmalloc(sizeof(struct page_info *), GFP_KERNEL);
 		info->page = page;
 		info->order = orders[i];
 		return info;
@@ -118,7 +118,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 			sg = sg_next(sg);
 		}
 		list_del(&info->list);
-		kunmap(page);
+		kfree(info);
 	}
 
 	dma_sync_sg_for_device(NULL, table->sgl, table->nents,
@@ -137,7 +137,7 @@ err:
 		else
 			__free_pages(info->page, info->order);
 
-		kunmap(info->page);
+		kfree(info);
 	}
 	return -ENOMEM;
 }
