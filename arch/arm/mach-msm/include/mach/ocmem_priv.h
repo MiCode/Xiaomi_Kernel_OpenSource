@@ -137,49 +137,12 @@ struct ocmem_handle {
 	struct ocmem_req *req;
 };
 
-static inline struct ocmem_buf *handle_to_buffer(struct ocmem_handle *handle)
-{
-	if (handle)
-		return &handle->buffer;
-	else
-		return NULL;
-}
-
-static inline struct ocmem_handle *buffer_to_handle(struct ocmem_buf *buffer)
-{
-	if (buffer)
-		return container_of(buffer, struct ocmem_handle, buffer);
-	else
-		return NULL;
-}
-
-static inline struct ocmem_req *handle_to_req(struct ocmem_handle *handle)
-{
-	if (handle)
-		return handle->req;
-	else
-		return NULL;
-}
-
-static inline struct ocmem_handle *req_to_handle(struct ocmem_req *req)
-{
-	if (req && req->buffer)
-		return container_of(req->buffer, struct ocmem_handle, buffer);
-	else
-		return NULL;
-}
-
-/* Simple wrappers which will have debug features added later */
-static inline int ocmem_read(void *at)
-{
-	return readl_relaxed(at);
-}
-
-static inline int ocmem_write(unsigned long val, void *at)
-{
-	writel_relaxed(val, at);
-	return 0;
-}
+struct ocmem_buf *handle_to_buffer(struct ocmem_handle *);
+struct ocmem_handle *buffer_to_handle(struct ocmem_buf *);
+struct ocmem_req *handle_to_req(struct ocmem_handle *);
+struct ocmem_handle *req_to_handle(struct ocmem_req *);
+int ocmem_read(void *);
+int ocmem_write(unsigned long, void *);
 
 struct ocmem_zone *get_zone(unsigned);
 int zone_active(int);
