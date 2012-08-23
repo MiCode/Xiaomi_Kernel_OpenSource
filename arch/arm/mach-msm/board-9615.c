@@ -612,7 +612,7 @@ static int msm_hsusb_vbus_power(bool on)
 static int shelby_phy_init_seq[] = {
 	0x44, 0x80,/* set VBUS valid threshold and
 			disconnect valid threshold */
-	0x38, 0x81, /* update DC voltage level */
+	0x68, 0x81, /* update DC voltage level */
 	0x24, 0x82,/* set preemphasis and rise/fall time */
 	0x13, 0x83,/* set source impedance adjustment */
 	-1};
