@@ -95,6 +95,10 @@ Subnode Required:
 - qcom,descriptor-fifo-offset: descriptor fifo offset address
 - qcom,descriptor-fifo-size: descriptor fifo size
 
+Optional properties :
+- qcom,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
+	    while performing PIPE RESET
+
 Example USB BAM controller device node:
 
 	qcom,usbbam@f9304000 {
@@ -109,6 +113,7 @@ Example USB BAM controller device node:
 		qcom,usb-total-bam-num = <2>;
 		qcom,usb-bam-num-pipes = <16>;
 		qcom,usb-base-address = <0xf9200000>;
+		qcom,ignore-core-reset-ack;
 
 		qcom,pipe1 {
 			label = "usb-to-peri-qdss-dwc3";

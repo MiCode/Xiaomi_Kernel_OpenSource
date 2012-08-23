@@ -539,6 +539,9 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		return NULL;
 	}
 
+	pdata->ignore_core_reset_ack = of_property_read_bool(node,
+					"qcom,ignore-core-reset-ack");
+
 	for_each_child_of_node(pdev->dev.of_node, node)
 		pipe_entry++;
 
@@ -684,6 +687,12 @@ static int usb_bam_init(void)
 	usb_props.summing_threshold = USB_SUMMING_THRESHOLD;
 	usb_props.event_threshold = 512;
 	usb_props.num_pipes = pdata->usb_bam_num_pipes;
+	/*
+	 * HSUSB and HSIC Cores don't support RESET ACK signal to BAMs
+	 * Hence, let BAM to ignore acknowledge from USB while resetting PIPE
+	 */
+	if (pdata->ignore_core_reset_ack && pdata->usb_active_bam != SSUSB_BAM)
+		usb_props.options = SPS_BAM_NO_EXT_P_RST;
 
 	ret = sps_register_bam_device(&usb_props, &h_usb);
 	if (ret < 0) {
