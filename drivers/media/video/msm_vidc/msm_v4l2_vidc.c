@@ -29,6 +29,7 @@
 #include "msm_vidc_debug.h"
 #include "vidc_hal_api.h"
 #include "msm_smem.h"
+#include "msm_vidc_ssr.h"
 
 #define BASE_DEVICE_NUMBER 32
 #define SHARED_QSIZE 0x1000000
@@ -584,7 +585,7 @@ static int msm_v4l2_release_output_buffers(struct msm_v4l2_vid_inst *v4l2_inst)
 				buffer_info.m.planes[0].reserved[1],
 				buffer_info.m.planes[0].length);
 			rc = msm_vidc_release_buf(v4l2_inst->vidc_inst,
-				&buffer_info);
+					&buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
 					"Failed Release buffer: %d, %d, %d\n",
@@ -1243,6 +1244,9 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	core->debugfs_root = msm_vidc_debugfs_init_core(
 		core, vidc_driver->debugfs_root);
 	pdev->dev.platform_data = core;
+	rc = msm_vidc_ssr_init(core);
+	if (rc < 0)
+		dprintk(VIDC_ERR, "msm_vidc : Sub Systrem Restart failed\n");
 	return rc;
 
 err_cores_exceeded:
@@ -1271,6 +1275,7 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 	vidc_hal_delete_device(core->device);
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
+	rc = msm_vidc_ssr_uninit(core);
 	v4l2_device_unregister(&core->v4l2_dev);
 	if (core->resources.ocmem.handle)
 		ocmem_notifier_unregister(core->resources.ocmem.handle,
