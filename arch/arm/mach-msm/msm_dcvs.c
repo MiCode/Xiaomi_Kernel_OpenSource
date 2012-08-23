@@ -582,7 +582,7 @@ int msm_dcvs_freq_sink_register(struct msm_dcvs_freq *drv)
 	if (core->idle_driver) {
 		core->actual_freq = core->freq_driver->get_frequency(drv);
 		/* Notify TZ to start receiving idle info for the core */
-		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_ENABLE_CORE, 1,
+		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1,
 					   &ret1, &ret2);
 		core->idle_driver->enable(core->idle_driver,
 				MSM_DCVS_ENABLE_IDLE_PULSE);
@@ -615,7 +615,7 @@ int msm_dcvs_freq_sink_unregister(struct msm_dcvs_freq *drv)
 		core->idle_driver->enable(core->idle_driver,
 				MSM_DCVS_DISABLE_IDLE_PULSE);
 		/* Notify TZ to stop receiving idle info for the core */
-		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_ENABLE_CORE, 0,
+		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 0,
 					   &ret1, &ret2);
 		hrtimer_cancel(&core->timer);
 		core->idle_driver->enable(core->idle_driver,

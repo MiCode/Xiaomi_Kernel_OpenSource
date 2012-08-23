@@ -14,12 +14,17 @@
 #define _ARCH_ARM_MACH_MSM_MSM_DCVS_SCM_H
 
 enum msm_dcvs_scm_event {
-	MSM_DCVS_SCM_IDLE_ENTER,
-	MSM_DCVS_SCM_IDLE_EXIT,
-	MSM_DCVS_SCM_QOS_TIMER_EXPIRED,
-	MSM_DCVS_SCM_CLOCK_FREQ_UPDATE,
-	MSM_DCVS_SCM_ENABLE_CORE,
-	MSM_DCVS_SCM_RESET_CORE,
+	MSM_DCVS_SCM_IDLE_ENTER = 0, /* Core enters idle */
+	MSM_DCVS_SCM_IDLE_EXIT = 1, /* Core exits idle */
+	MSM_DCVS_SCM_QOS_TIMER_EXPIRED = 2, /* Core slack timer expired */
+	MSM_DCVS_SCM_CLOCK_FREQ_UPDATE = 3, /* Core freq change complete */
+	MSM_DCVS_SCM_CORE_ONLINE = 4, /* Core is online */
+	MSM_DCVS_SCM_CORE_OFFLINE = 5, /* Core is offline */
+	MSM_DCVS_SCM_CORE_UNAVAILABLE = 6, /* Core is offline + unavailable */
+	MSM_DCVS_SCM_DCVS_ENABLE = 7, /* DCVS is enabled/disabled for core */
+	MSM_DCVS_SCM_MPD_ENABLE = 8, /* Enable/disable MP Decision */
+	MSM_DCVS_SCM_RUNQ_UPDATE = 9, /* Update running threads */
+	MSM_DCVS_SCM_MPD_QOS_TIMER_EXPIRED = 10, /* MPDecision slack timer */
 };
 
 struct msm_dcvs_algo_param {

@@ -18,6 +18,8 @@
 #define CORE_NAME_MAX (32)
 #define CORES_MAX (10)
 
+#define CPU_OFFSET	1  /* used to notify TZ the core number */
+
 enum msm_core_idle_state {
 	MSM_DCVS_IDLE_ENTER,
 	MSM_DCVS_IDLE_EXIT,
