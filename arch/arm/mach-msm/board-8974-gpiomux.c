@@ -78,6 +78,47 @@ static struct gpiomux_setting lcd_en_sus_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting atmel_resout_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting atmel_resout_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting atmel_int_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting atmel_int_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
+	{
+		.gpio      = 60,		/* TOUCH RESET */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &atmel_resout_act_cfg,
+			[GPIOMUX_SUSPENDED] = &atmel_resout_sus_cfg,
+		},
+	},
+	{
+		.gpio      = 61,		/* TOUCH IRQ */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &atmel_int_act_cfg,
+			[GPIOMUX_SUSPENDED] = &atmel_int_sus_cfg,
+		},
+	},
+
+};
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
@@ -110,6 +151,18 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
 			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
+		},
+	},
+	{
+		.gpio      = 6,		/* BLSP1 QUP2 I2C_DAT */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 7,		/* BLSP1 QUP2 I2C_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
 	{
@@ -171,4 +224,5 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install(msm8974_slimbus_config,
 			ARRAY_SIZE(msm8974_slimbus_config));
 
+	msm_gpiomux_install(msm_touch_configs, ARRAY_SIZE(msm_touch_configs));
 }
