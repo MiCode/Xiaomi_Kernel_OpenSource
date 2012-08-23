@@ -102,8 +102,6 @@ static inline void mdss_mdp_intr_done(int index)
 	spin_lock(&mdss_mdp_intr_lock);
 	fnc = mdp_intr_cb[index].func;
 	arg = mdp_intr_cb[index].arg;
-	if (fnc != NULL)
-		mdp_intr_cb[index].func = NULL;
 	spin_unlock(&mdss_mdp_intr_lock);
 	if (fnc)
 		fnc(arg);
