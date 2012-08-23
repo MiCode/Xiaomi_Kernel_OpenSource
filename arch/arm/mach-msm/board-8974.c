@@ -268,11 +268,6 @@ void __init msm_8974_reserve(void)
 	msm_reserve();
 }
 
-static struct platform_device android_usb_device = {
-	.name	= "android_usb",
-	.id	= -1,
-};
-
 #define BIMC_BASE	0xfc380000
 #define BIMC_SIZE	0x0006A000
 #define SYS_NOC_BASE	0xfc460000
@@ -463,7 +458,6 @@ static void __init msm8974_init_buses(void)
 void __init msm_8974_add_devices(void)
 {
 	platform_device_register(&msm_device_smd_8974);
-	platform_device_register(&android_usb_device);
 }
 
 /*
