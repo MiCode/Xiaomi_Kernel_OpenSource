@@ -2696,6 +2696,23 @@ struct platform_device apq8064_msm_gov_device = {
 	},
 };
 
+static struct msm_mpd_algo_param apq8064_mpd_algo_param = {
+	.em_win_size_min_us	= 10000,
+	.em_win_size_max_us	= 100000,
+	.em_max_util_pct	= 90,
+	.online_util_pct_min	= 60,
+	.slack_time_min_us	= 50000,
+	.slack_time_max_us	= 100000,
+};
+
+struct platform_device apq8064_msm_mpd_device = {
+	.name	= "msm_mpdecision",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &apq8064_mpd_algo_param,
+	},
+};
+
 #ifdef CONFIG_MSM_VCAP
 #define VCAP_HW_BASE         0x05900000
 
