@@ -2341,6 +2341,16 @@ config MSM_OCMEM_DEBUG
 	  Choosing one of these options allows debugging of each
 	  individual subsystem separately.
 
+config MSM_OCMEM_NONSECURE
+	bool "OCMEM Non Secure Mode"
+	depends on MSM_OCMEM_DEBUG
+	help
+	  Disable OCMEM interaction with secure processor.
+	  By default OCMEM is secured and accesses for each master
+	  is requested by the OCMEM driver. Selecting this option
+	  causes the OCMEM memory to be in non-secure state unless
+	  its locked down by the secure processor.
+
 config MSM_OCMEM_POWER_DEBUG
 	bool "OCMEM Power Debug Support"
 	depends on MSM_OCMEM_DEBUG
