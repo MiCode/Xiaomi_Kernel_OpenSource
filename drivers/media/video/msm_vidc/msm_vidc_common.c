@@ -1584,3 +1584,27 @@ fail_kzalloc:
 err_no_mem:
 	return rc;
 }
+
+int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
+{
+	int rc =  0;
+	bool ip_flush = false;
+	bool op_flush = false;
+	ip_flush = flags & V4L2_QCOM_CMD_FLUSH_OUTPUT;
+	op_flush = flags & V4L2_QCOM_CMD_FLUSH_CAPTURE;
+
+	if (ip_flush && !op_flush) {
+		pr_warn("Input only flush not supported\n");
+		return 0;
+	}
+	mutex_lock(&inst->sync_lock);
+	if (inst->in_reconfig && !ip_flush && op_flush) {
+		rc = vidc_hal_session_flush(inst->session,
+				HAL_FLUSH_OUTPUT);
+	} else {
+		rc = vidc_hal_session_flush(inst->session,
+				HAL_FLUSH_ALL);
+	}
+	mutex_unlock(&inst->sync_lock);
+	return rc;
+}

@@ -674,6 +674,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	unsigned long flags;
 	struct vb2_buf_entry *temp;
 	struct list_head *ptr, *next;
+	inst->in_reconfig = false;
 	rc = msm_comm_set_scratch_buffers(inst);
 	if (rc) {
 		pr_err("Failed to set scratch buffers: %d\n", rc);
@@ -786,62 +787,18 @@ static void msm_vdec_buf_queue(struct vb2_buffer *vb)
 int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 {
 	int rc = 0;
-	bool ip_flush = false,
-	     op_flush = false;
-
 	switch (dec->cmd) {
 	case V4L2_DEC_QCOM_CMD_FLUSH:
-		mutex_lock(&inst->sync_lock);
-		ip_flush = dec->flags & V4L2_DEC_QCOM_CMD_FLUSH_OUTPUT;
-		op_flush = dec->flags & V4L2_DEC_QCOM_CMD_FLUSH_CAPTURE;
-		/* Only support flush on decoder (for now)*/
-		if (inst->session_type == MSM_VIDC_ENCODER) {
-			pr_err("Buffer flushing not supported for encoder\n");
-			rc = -ENOTSUPP;
-			mutex_unlock(&inst->sync_lock);
-			break;
-		}
-
-		/* Certain types of flushes aren't supported such as: */
-		/* 1) Input only flush */
-		if (ip_flush && !op_flush) {
-			pr_err("Input only flush not supported\n");
-			rc = -ENOTSUPP;
-			mutex_unlock(&inst->sync_lock);
-			break;
-		}
-
-		/* 2) Output only flush when in reconfig */
-		if (!ip_flush && op_flush && !inst->in_reconfig) {
-			pr_err("Output only flush only supported when reconfiguring\n");
-			rc = -ENOTSUPP;
-			mutex_unlock(&inst->sync_lock);
-			break;
-		}
-
-		/* Finally flush */
-		if (op_flush && ip_flush)
-			rc = vidc_hal_session_flush(inst->session,
-					HAL_FLUSH_ALL);
-		else if (ip_flush)
-			rc = vidc_hal_session_flush(inst->session,
-					HAL_FLUSH_INPUT);
-		else if (op_flush)
-			rc = vidc_hal_session_flush(inst->session,
-					HAL_FLUSH_OUTPUT);
-		mutex_unlock(&inst->sync_lock);
+		rc = msm_comm_flush(inst, dec->flags);
 		break;
 	case V4L2_DEC_CMD_STOP:
 		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
-		if (rc)
-			pr_err("Failed to close instance\n");
 		break;
 	default:
 		pr_err("Unknown Decoder Command\n");
 		rc = -ENOTSUPP;
 		goto exit;
 	}
-
 	if (rc) {
 		pr_err("Failed to exec decoder cmd %d\n", dec->cmd);
 		goto exit;

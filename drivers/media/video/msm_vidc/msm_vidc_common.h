@@ -31,6 +31,7 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct vb2_buffer *vb);
 int msm_comm_scale_clocks(struct msm_vidc_core *core, enum session_type type);
+int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
 #define IS_PRIV_CTRL(idx) (\
 		(V4L2_CTRL_ID2CLASS(idx) == V4L2_CTRL_CLASS_MPEG) && \
 		V4L2_CTRL_DRIVER_PRIV(idx))
