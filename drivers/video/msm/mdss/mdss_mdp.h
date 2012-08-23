@@ -268,6 +268,8 @@ static inline u32 mdss_mdp_ctl_read(struct mdss_mdp_ctl *ctl, u32 reg)
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num);
 void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num);
+int mdss_mdp_hist_irq_enable(u32 irq);
+void mdss_mdp_hist_irq_disable(u32 irq);
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num);
 int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);
@@ -308,6 +310,13 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config, u32 *copyback);
 int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config, u32 *copyback);
 int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config, u32 *copyback);
 int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config, u32 *copyback);
+
+int mdss_mdp_histogram_start(struct mdp_histogram_start_req *req);
+int mdss_mdp_histogram_stop(u32 block);
+int mdss_mdp_hist_collect(struct fb_info *info,
+		   struct mdp_histogram_data *hist, u32 *hist_data_addr);
+void mdss_mdp_hist_intr_done(u32 isr);
+
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum);
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_locked(u32 type);

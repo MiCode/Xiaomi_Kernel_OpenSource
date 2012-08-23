@@ -194,6 +194,7 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_VIG_CSC_0_BASE			0x280
 #define MDSS_MDP_REG_VIG_CSC_1_BASE			0x320
 
+#define MDSS_MDP_REG_VIG_HIST_CTL_BASE			0x2C4
 #define MDSS_MDP_REG_VIG_HIST_LUT_BASE			0x2F0
 
 #define MDSS_MDP_SCALE_FILTER_NEAREST		0x0
@@ -334,8 +335,9 @@ enum mdss_mdp_dspp_index {
 #define MDSS_MDP_REG_DSPP_OP_MODE			0x000
 #define MDSS_MDP_REG_DSPP_PCC_BASE			0x030
 #define MDSS_MDP_REG_DSPP_DITHER_DEPTH			0x150
-#define MDSS_MDP_REG_DSPP_PA_BASE			0x238
+#define MDSS_MDP_REG_DSPP_HIST_CTL_BASE			0x210
 #define MDSS_MDP_REG_DSPP_HIST_LUT_BASE			0x230
+#define MDSS_MDP_REG_DSPP_PA_BASE			0x238
 #define MDSS_MDP_REG_DSPP_GAMUT_BASE			0x2DC
 
 enum mdss_mpd_intf_index {

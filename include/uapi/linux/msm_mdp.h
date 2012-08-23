@@ -393,7 +393,7 @@ struct mdp_histogram_start_req {
 
 struct mdp_histogram_data {
 	uint32_t block;
-	uint8_t bin_cnt;
+	uint32_t bin_cnt;
 	uint32_t *c0;
 	uint32_t *c1;
 	uint32_t *c2;

@@ -16,6 +16,8 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include <linux/uaccess.h>
+#include <linux/spinlock.h>
+#include <linux/delay.h>
 
 struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_RGB2RGB] = {
@@ -78,6 +80,28 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 #define IGC_LUT_ENTRIES	256
 #define GC_LUT_SEGMENTS	16
 #define ENHIST_LUT_ENTRIES 256
+#define HIST_V_SIZE	256
+
+#define HIST_WAIT_TIMEOUT	1000
+/* hist collect state */
+enum {
+	HIST_UNKNOWN,
+	HIST_IDLE,
+	HIST_RESET,
+	HIST_START,
+	HIST_READY,
+};
+
+struct pp_hist_col_info {
+	u32 col_state;
+	u32 col_en;
+	u32 read_request;
+	u32 hist_cnt_read;
+	u32 hist_cnt_sent;
+	u32 frame_cnt;
+	struct completion comp;
+	u32 data[HIST_V_SIZE];
+};
 
 static u32 dither_matrix[16] = {
 	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10};
@@ -114,6 +138,7 @@ struct pp_sts_type {
 #define PP_FLAGS_DIRTY_ENHIST	0x10
 #define PP_FLAGS_DIRTY_DITHER	0x20
 #define PP_FLAGS_DIRTY_GAMUT	0x40
+#define PP_FLAGS_DIRTY_HIST_COL	0x80
 
 #define PP_STS_ENABLE	0x1
 #define PP_STS_GAMUT_FIRST	0x2
@@ -138,12 +163,21 @@ struct mdss_pp_res_type {
 	struct mdp_dither_cfg_data dither_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_gamut_cfg_data gamut_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	uint16_t gamut_tbl[MDSS_BLOCK_DISP_NUM][GAMUT_TOTAL_TABLE_SIZE];
+	struct pp_hist_col_info
+		*hist_col[MDSS_BLOCK_DISP_NUM][MDSS_MDP_MAX_DSPP];
+	u32 hist_data[MDSS_BLOCK_DISP_NUM][HIST_V_SIZE];
 	/* physical info */
 	struct pp_sts_type pp_dspp_sts[MDSS_MDP_MAX_DSPP];
+	struct pp_hist_col_info dspp_hist[MDSS_MDP_MAX_DSPP];
 };
 
 static DEFINE_MUTEX(mdss_pp_mutex);
+static DEFINE_SPINLOCK(mdss_hist_lock);
+static DEFINE_MUTEX(mdss_mdp_hist_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
+
+
+static void pp_hist_read(u32 v_base, struct pp_hist_col_info *hist_info);
 
 static void pp_update_pcc_regs(u32 offset,
 				struct mdp_pcc_cfg_data *cfg_ptr);
@@ -328,14 +362,37 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	struct mdp_igc_lut_data *igc_config;
 	struct mdp_hist_lut_data *enhist_cfg;
 	struct mdp_dither_cfg_data *dither_cfg;
+	struct pp_hist_col_info *hist_info;
 	struct pp_sts_type *pp_sts;
-	u32 data, tbl_idx;
+	u32 data, tbl_idx, col_state;
 	int i;
 	dspp_num = mixer->num;
 	/* no corresponding dspp */
 	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
 		(dspp_num >= MDSS_MDP_MAX_DSPP))
 		return 0;
+	base = MDSS_MDP_REG_DSPP_OFFSET(dspp_num);
+	hist_info = &mdss_pp_res->dspp_hist[dspp_num];
+	if (hist_info->col_en) {
+		/* HIST_EN & AUTO_CLEAR */
+		opmode |= (1 << 16) | (1 << 17);
+		mutex_lock(&mdss_mdp_hist_mutex);
+		if (hist_info->col_state == HIST_READY)
+			pp_hist_read(base + MDSS_MDP_REG_DSPP_HIST_CTL_BASE +
+				0x1C, hist_info);
+		spin_lock(&mdss_hist_lock);
+		col_state = hist_info->col_state;
+		if ((col_state == HIST_IDLE) ||
+			(col_state == HIST_READY) ||
+			(col_state == HIST_START)) {
+			/* Kick off collection */
+			MDSS_MDP_REG_WRITE(base +
+				MDSS_MDP_REG_DSPP_HIST_CTL_BASE, 1);
+			hist_info->col_state = HIST_START;
+		}
+		spin_unlock(&mdss_hist_lock);
+		mutex_unlock(&mdss_mdp_hist_mutex);
+	}
 
 	if (disp_num < MDSS_BLOCK_DISP_NUM)
 		flags = mdss_pp_res->pp_disp_flags[disp_num];
@@ -343,10 +400,9 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 		flags = 0;
 
 	/* nothing to update */
-	if (!flags)
+	if ((!flags) && (!(hist_info->col_en)))
 		return 0;
 	pp_sts = &mdss_pp_res->pp_dspp_sts[dspp_num];
-	base = MDSS_MDP_REG_DSPP_OFFSET(dspp_num);
 	if (flags & PP_FLAGS_DIRTY_PA) {
 		pa_config = &mdss_pp_res->pa_disp_cfg[disp_num];
 		if (pa_config->flags & MDP_PP_OPS_WRITE) {
@@ -562,7 +618,6 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback)
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		pa_offset = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
 			  MDSS_MDP_REG_DSPP_PA_BASE;
-
 		config->hue_adj = MDSS_MDP_REG_READ(pa_offset);
 		pa_offset += 4;
 		config->sat_adj = MDSS_MDP_REG_READ(pa_offset);
@@ -1186,4 +1241,305 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config, u32 *copyback)
 gamut_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
+}
+static void pp_hist_read(u32 v_base, struct pp_hist_col_info *hist_info)
+{
+	int i, i_start;
+	u32 data;
+	data = MDSS_MDP_REG_READ(v_base);
+	i_start = data >> 24;
+	hist_info->data[i_start] = data & 0xFFFFFF;
+	for (i = i_start + 1; i < HIST_V_SIZE; i++)
+		hist_info->data[i] = MDSS_MDP_REG_READ(v_base) & 0xFFFFFF;
+	for (i = 0; i < i_start - 1; i++)
+		hist_info->data[i] = MDSS_MDP_REG_READ(v_base) & 0xFFFFFF;
+	hist_info->hist_cnt_read++;
+}
+
+int mdss_mdp_histogram_start(struct mdp_histogram_start_req *req)
+{
+	u32 ctl_base, done_shift_bit;
+	struct pp_hist_col_info *hist_info;
+	int i, ret = 0;
+	u32 disp_num, dspp_num = 0;
+	u32 mixer_cnt, mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+
+	if ((req->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(req->block >= MDP_BLOCK_MAX))
+		return -EINVAL;
+
+	mutex_lock(&mdss_mdp_hist_mutex);
+	disp_num = req->block - MDP_LOGICAL_BLOCK_DISP_0;
+	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+
+	if (!mixer_cnt) {
+		pr_err("%s, no dspp connects to disp %d",
+			__func__, disp_num);
+		ret = -EPERM;
+		goto hist_start_exit;
+	}
+	if (mixer_cnt >= MDSS_MDP_MAX_DSPP) {
+		pr_err("%s, Too many dspp connects to disp %d",
+			__func__, mixer_cnt);
+		ret = -EPERM;
+		goto hist_start_exit;
+	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	for (i = 0; i < mixer_cnt; i++) {
+		dspp_num = mixer_id[i];
+		hist_info = &mdss_pp_res->dspp_hist[dspp_num];
+		done_shift_bit = (dspp_num * 4) + 12;
+		/* check if it is idle */
+		if (hist_info->col_en) {
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+			pr_info("%s Hist collection has already been enabled %d",
+				__func__, dspp_num);
+			goto hist_start_exit;
+		}
+		spin_lock(&mdss_hist_lock);
+		hist_info->frame_cnt = req->frame_cnt;
+		init_completion(&hist_info->comp);
+		hist_info->hist_cnt_read = 0;
+		hist_info->hist_cnt_sent = 0;
+		hist_info->read_request = false;
+		hist_info->col_state = HIST_RESET;
+		hist_info->col_en = true;
+		spin_unlock(&mdss_hist_lock);
+		mdss_pp_res->hist_col[disp_num][i] =
+			&mdss_pp_res->dspp_hist[dspp_num];
+		mdss_mdp_hist_irq_enable(3 << done_shift_bit);
+		ctl_base = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
+			  MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
+		MDSS_MDP_REG_WRITE(ctl_base + 8, req->frame_cnt);
+		/* Kick out reset start */
+		MDSS_MDP_REG_WRITE(ctl_base + 4, 1);
+	}
+	for (i = mixer_cnt; i < MDSS_MDP_MAX_DSPP; i++)
+		mdss_pp_res->hist_col[disp_num][i] = 0;
+	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_HIST_COL;
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+hist_start_exit:
+	mutex_unlock(&mdss_mdp_hist_mutex);
+	return ret;
+}
+
+int mdss_mdp_histogram_stop(u32 block)
+{
+	int i, ret = 0;
+	u32 dspp_num, disp_num, ctl_base, done_bit;
+	struct pp_hist_col_info *hist_info;
+	u32 mixer_cnt, mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+
+	if ((block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(block >= MDP_BLOCK_MAX))
+		return -EINVAL;
+
+	mutex_lock(&mdss_mdp_hist_mutex);
+	disp_num = block - MDP_LOGICAL_BLOCK_DISP_0;
+	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+
+	if (!mixer_cnt) {
+		pr_err("%s, no dspp connects to disp %d",
+			__func__, disp_num);
+		ret = -EPERM;
+		goto hist_stop_exit;
+	}
+	if (mixer_cnt >= MDSS_MDP_MAX_DSPP) {
+		pr_err("%s, Too many dspp connects to disp %d",
+			__func__, mixer_cnt);
+		ret = -EPERM;
+		goto hist_stop_exit;
+	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	for (i = 0; i < mixer_cnt; i++) {
+		dspp_num = mixer_id[i];
+		hist_info = &mdss_pp_res->dspp_hist[dspp_num];
+		done_bit = 3 << ((dspp_num * 4) + 12);
+		ctl_base = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
+			  MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
+		if (hist_info->col_en == false) {
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+			goto hist_stop_exit;
+		}
+		complete_all(&hist_info->comp);
+		spin_lock(&mdss_hist_lock);
+		hist_info->col_en = false;
+		hist_info->col_state = HIST_UNKNOWN;
+		spin_unlock(&mdss_hist_lock);
+		mdss_mdp_hist_irq_disable(done_bit);
+		MDSS_MDP_REG_WRITE(ctl_base, (1 << 1));/* cancel */
+	}
+	for (i = 0; i < MDSS_MDP_MAX_DSPP; i++)
+		mdss_pp_res->hist_col[disp_num][i] = 0;
+	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_HIST_COL;
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+hist_stop_exit:
+	mutex_unlock(&mdss_mdp_hist_mutex);
+	return ret;
+}
+
+int mdss_mdp_hist_collect(struct fb_info *info,
+		  struct mdp_histogram_data *hist, u32 *hist_data_addr)
+{
+	int i, j, wait_ret, ret = 0;
+	u32 timeout, v_base;
+	struct pp_hist_col_info *hist_info;
+	u32 dspp_num, disp_num, ctl_base;
+	u32 mixer_cnt, mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+
+	if ((hist->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(hist->block >= MDP_BLOCK_MAX))
+		return -EINVAL;
+
+	mutex_lock(&mdss_mdp_hist_mutex);
+	disp_num = hist->block - MDP_LOGICAL_BLOCK_DISP_0;
+	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+
+	if (!mixer_cnt) {
+		pr_err("%s, no dspp connects to disp %d",
+			__func__, disp_num);
+		ret = -EPERM;
+		goto hist_collect_exit;
+	}
+	if (mixer_cnt >= MDSS_MDP_MAX_DSPP) {
+		pr_err("%s, Too many dspp connects to disp %d",
+			__func__, mixer_cnt);
+		ret = -EPERM;
+		goto hist_collect_exit;
+	}
+	hist_info = &mdss_pp_res->dspp_hist[0];
+	for (i = 0; i < mixer_cnt; i++) {
+		dspp_num = mixer_id[i];
+		hist_info = &mdss_pp_res->dspp_hist[dspp_num];
+		ctl_base = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
+			  MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
+		if ((hist_info->col_en == 0) ||
+			(hist_info->col_state == HIST_UNKNOWN)) {
+			ret = -EINVAL;
+			goto hist_collect_exit;
+		}
+		spin_lock(&mdss_hist_lock);
+		if ((hist_info->col_state == HIST_READY) ||
+			(hist_info->hist_cnt_read == 0)) {
+			/* wait for hist done if cache has no data */
+			if ((hist_info->col_state != HIST_READY) &&
+				(hist_info->hist_cnt_read == 0)) {
+				hist_info->read_request = true;
+				spin_unlock(&mdss_hist_lock);
+				timeout = HIST_WAIT_TIMEOUT *
+					hist_info->frame_cnt;
+				mutex_unlock(&mdss_mdp_hist_mutex);
+				wait_ret = wait_for_completion_killable_timeout(
+					&(hist_info->comp), timeout);
+
+				mutex_lock(&mdss_mdp_hist_mutex);
+				hist_info->read_request = false;
+				if (wait_ret == 0) {
+					ret = -ETIMEDOUT;
+					pr_debug("%s: bin collection timedout",
+						__func__);
+					goto hist_collect_exit;
+				} else if (wait_ret < 0) {
+					ret = -EINTR;
+					pr_debug("%s: bin collection interrupted",
+						__func__);
+					goto hist_collect_exit;
+				}
+				if (hist_info->col_state != HIST_READY) {
+					ret = -EBUSY;
+					pr_err("%s: collection state is not ready: %d",
+						__func__, hist_info->col_state);
+					goto hist_collect_exit;
+				}
+			} else {
+				spin_unlock(&mdss_hist_lock);
+			}
+			if (hist_info->col_state == HIST_READY) {
+				v_base = ctl_base + 0x1C;
+				mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+				pp_hist_read(v_base, hist_info);
+				mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+				spin_lock(&mdss_hist_lock);
+				hist_info->col_state = HIST_IDLE;
+				spin_unlock(&mdss_hist_lock);
+			}
+		} else {
+			spin_unlock(&mdss_hist_lock);
+		}
+		hist_info->hist_cnt_sent = hist_info->hist_cnt_read;
+	}
+	if (mixer_cnt > 1) {
+		memset(&mdss_pp_res->hist_data[disp_num][0],
+			0, HIST_V_SIZE * sizeof(u32));
+		for (i = 0; i < mixer_cnt; i++) {
+			dspp_num = mixer_id[i];
+			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
+			for (j = 0; j < HIST_V_SIZE; j++)
+				mdss_pp_res->hist_data[disp_num][i] +=
+					hist_info->data[i];
+		}
+		*hist_data_addr = (u32)&mdss_pp_res->hist_data[disp_num][0];
+	} else {
+		*hist_data_addr = (u32)hist_info->data;
+	}
+
+hist_collect_exit:
+	mutex_unlock(&mdss_mdp_hist_mutex);
+	return ret;
+}
+void mdss_mdp_hist_intr_done(u32 isr)
+{
+	u32 isr_blk, blk_idx;
+	struct pp_hist_col_info *hist_info;
+	isr &= 0x333333;
+	while (isr != 0) {
+		if (isr & 0xFFF000) {
+			if (isr & 0x3000) {
+				blk_idx = 0;
+				isr_blk = (isr >> 12) & 0x3;
+				isr &= ~0x3000;
+			} else if (isr & 0x30000) {
+				blk_idx = 1;
+				isr_blk = (isr >> 16) & 0x3;
+				isr &= ~0x30000;
+			} else {
+				blk_idx = 2;
+				isr_blk = (isr >> 20) & 0x3;
+				isr &= ~0x300000;
+			}
+			hist_info = &mdss_pp_res->dspp_hist[blk_idx];
+		} else {
+			if (isr & 0x3) {
+				blk_idx = 0;
+				isr_blk = isr & 0x3;
+				isr &= ~0x3;
+			} else if (isr & 0x30) {
+				blk_idx = 1;
+				isr_blk = (isr >> 4) & 0x3;
+				isr &= ~0x30;
+			} else {
+				blk_idx = 2;
+				isr_blk = (isr >> 8) & 0x3;
+				isr &= ~0x300;
+			}
+			/* SSPP block, not support yet*/
+			continue;
+		}
+		/* Histogram Done Interrupt */
+		if ((isr_blk & 0x1) &&
+			(hist_info->col_en)) {
+			spin_lock(&mdss_hist_lock);
+			hist_info->col_state = HIST_READY;
+			spin_unlock(&mdss_hist_lock);
+			if (hist_info->read_request)
+				complete(&hist_info->comp);
+		}
+		/* Histogram Reset Done Interrupt */
+		if ((isr_blk & 0x2) &&
+			(hist_info->col_en)) {
+				spin_lock(&mdss_hist_lock);
+				hist_info->col_state = HIST_IDLE;
+				spin_unlock(&mdss_hist_lock);
+		}
+	};
 }
