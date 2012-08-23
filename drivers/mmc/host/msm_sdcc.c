@@ -725,12 +725,6 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 		mmc_hostname(host->mmc), __func__,
 		notify->event_id);
 
-	if (msmsdcc_is_dml_busy(host)) {
-		/* oops !!! this should never happen. */
-		pr_err("%s: %s: Received SPS EOT event"
-			" but DML HW is still busy !!!\n",
-			mmc_hostname(host->mmc), __func__);
-	}
 	/*
 	 * Got End of transfer event!!! Check if all of the data
 	 * has been transferred?
@@ -1241,25 +1235,12 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 		if (is_dma_mode(host) && !msmsdcc_config_dma(host, data)) {
 			datactrl |= MCI_DPSM_DMAENABLE;
 		} else if (is_sps_mode(host)) {
-			if (!msmsdcc_is_dml_busy(host)) {
-				if (!msmsdcc_sps_start_xfer(host, data)) {
-					/* Now kick start DML transfer */
-					mb();
-					msmsdcc_dml_start_xfer(host, data);
-					datactrl |= MCI_DPSM_DMAENABLE;
-					host->sps.busy = 1;
-				}
-			} else {
-				/*
-				 * Can't proceed with new transfer as
-				 * previous trasnfer is already in progress.
-				 * There is no point of going into PIO mode
-				 * as well. Is this a time to do kernel panic?
-				 */
-				pr_err("%s: %s: DML HW is busy!!!"
-					" Can't perform new SPS transfers"
-					" now\n", mmc_hostname(host->mmc),
-					__func__);
+			if (!msmsdcc_sps_start_xfer(host, data)) {
+				/* Now kick start DML transfer */
+				mb();
+				msmsdcc_dml_start_xfer(host, data);
+				datactrl |= MCI_DPSM_DMAENABLE;
+				host->sps.busy = 1;
 			}
 		}
 	}
