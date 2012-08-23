@@ -361,9 +361,15 @@ static DECLARE_WORK(smsm_cb_work, notify_smsm_cb_clients_worker);
 static DEFINE_MUTEX(smsm_lock);
 static struct smsm_state_info *smsm_states;
 static int spinlocks_initialized;
-static RAW_NOTIFIER_HEAD(smsm_driver_state_notifier_list);
-static DEFINE_MUTEX(smsm_driver_state_notifier_lock);
-static void smsm_driver_state_notify(uint32_t state, void *data);
+
+/**
+ * Variables to indicate smd module initialization.
+ * Dependents to register for smd module init notifier.
+ */
+static int smd_module_inited;
+static RAW_NOTIFIER_HEAD(smd_module_init_notifier_list);
+static DEFINE_MUTEX(smd_module_init_notifier_lock);
+static void smd_module_init_notify(uint32_t state, void *data);
 
 static inline void smd_write_intr(unsigned int val,
 				const void __iomem *addr)
@@ -2465,13 +2471,6 @@ static int smsm_init(void)
 	int i;
 	struct smsm_size_info_type *smsm_size_info;
 
-	i = remote_spin_lock_init(&remote_spinlock, SMEM_SPINLOCK_SMEM_ALLOC);
-	if (i) {
-		pr_err("%s: remote spinlock init failed %d\n", __func__, i);
-		return i;
-	}
-	spinlocks_initialized = 1;
-
 	smsm_size_info = smem_alloc(SMEM_SMSM_SIZE_INFO,
 				sizeof(struct smsm_size_info_type));
 	if (smsm_size_info) {
@@ -2530,7 +2529,6 @@ static int smsm_init(void)
 		return i;
 
 	wmb();
-	smsm_driver_state_notify(SMSM_INIT, NULL);
 	return 0;
 }
 
@@ -3104,37 +3102,40 @@ int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 }
 EXPORT_SYMBOL(smsm_state_cb_deregister);
 
-int smsm_driver_state_notifier_register(struct notifier_block *nb)
+int smd_module_init_notifier_register(struct notifier_block *nb)
 {
 	int ret;
 	if (!nb)
 		return -EINVAL;
-	mutex_lock(&smsm_driver_state_notifier_lock);
-	ret = raw_notifier_chain_register(&smsm_driver_state_notifier_list, nb);
-	mutex_unlock(&smsm_driver_state_notifier_lock);
+	mutex_lock(&smd_module_init_notifier_lock);
+	ret = raw_notifier_chain_register(&smd_module_init_notifier_list, nb);
+	if (smd_module_inited)
+		nb->notifier_call(nb, 0, NULL);
+	mutex_unlock(&smd_module_init_notifier_lock);
 	return ret;
 }
-EXPORT_SYMBOL(smsm_driver_state_notifier_register);
+EXPORT_SYMBOL(smd_module_init_notifier_register);
 
-int smsm_driver_state_notifier_unregister(struct notifier_block *nb)
+int smd_module_init_notifier_unregister(struct notifier_block *nb)
 {
 	int ret;
 	if (!nb)
 		return -EINVAL;
-	mutex_lock(&smsm_driver_state_notifier_lock);
-	ret = raw_notifier_chain_unregister(&smsm_driver_state_notifier_list,
+	mutex_lock(&smd_module_init_notifier_lock);
+	ret = raw_notifier_chain_unregister(&smd_module_init_notifier_list,
 					    nb);
-	mutex_unlock(&smsm_driver_state_notifier_lock);
+	mutex_unlock(&smd_module_init_notifier_lock);
 	return ret;
 }
-EXPORT_SYMBOL(smsm_driver_state_notifier_unregister);
+EXPORT_SYMBOL(smd_module_init_notifier_unregister);
 
-static void smsm_driver_state_notify(uint32_t state, void *data)
+static void smd_module_init_notify(uint32_t state, void *data)
 {
-	mutex_lock(&smsm_driver_state_notifier_lock);
-	raw_notifier_call_chain(&smsm_driver_state_notifier_list,
+	mutex_lock(&smd_module_init_notifier_lock);
+	smd_module_inited = 1;
+	raw_notifier_call_chain(&smd_module_init_notifier_list,
 				state, data);
-	mutex_unlock(&smsm_driver_state_notifier_lock);
+	mutex_unlock(&smd_module_init_notifier_lock);
 }
 
 int smd_core_init(void)
@@ -3547,12 +3548,29 @@ static struct platform_driver msm_smd_driver = {
 int __init msm_smd_init(void)
 {
 	static bool registered;
+	int rc;
 
 	if (registered)
 		return 0;
 
 	registered = true;
-	return platform_driver_register(&msm_smd_driver);
+	rc = remote_spin_lock_init(&remote_spinlock, SMEM_SPINLOCK_SMEM_ALLOC);
+	if (rc) {
+		pr_err("%s: remote spinlock init failed %d\n", __func__, rc);
+		return rc;
+	}
+	spinlocks_initialized = 1;
+
+	rc = platform_driver_register(&msm_smd_driver);
+	if (rc) {
+		pr_err("%s: msm_smd_driver register failed %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	smd_module_init_notify(0, NULL);
+
+	return 0;
 }
 
 module_init(msm_smd_init);
