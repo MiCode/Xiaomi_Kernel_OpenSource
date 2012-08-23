@@ -139,6 +139,10 @@ static inline void msm_spm_drv_set_vctl(struct msm_spm_driver_data *dev,
 
 	dev->reg_shadow[MSM_SPM_REG_SAW2_PMIC_DATA_1] &= ~0x3F;
 	dev->reg_shadow[MSM_SPM_REG_SAW2_PMIC_DATA_1] |= (vlevel & 0x3F);
+
+	dev->reg_shadow[MSM_SPM_REG_SAW2_PMIC_DATA_1] &= ~0x3F0000;
+	dev->reg_shadow[MSM_SPM_REG_SAW2_PMIC_DATA_1] |=
+						((vlevel & 0x3F) << 16);
 }
 
 static inline void msm_spm_drv_set_vctl2(struct msm_spm_driver_data *dev,
