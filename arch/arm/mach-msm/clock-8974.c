@@ -35,7 +35,6 @@ enum {
 	GCC_BASE,
 	MMSS_BASE,
 	LPASS_BASE,
-	MSS_BASE,
 	APCS_BASE,
 	N_BASES,
 };
@@ -45,7 +44,6 @@ static void __iomem *virt_bases[N_BASES];
 #define GCC_REG_BASE(x) (void __iomem *)(virt_bases[GCC_BASE] + (x))
 #define MMSS_REG_BASE(x) (void __iomem *)(virt_bases[MMSS_BASE] + (x))
 #define LPASS_REG_BASE(x) (void __iomem *)(virt_bases[LPASS_BASE] + (x))
-#define MSS_REG_BASE(x) (void __iomem *)(virt_bases[MSS_BASE] + (x))
 #define APCS_REG_BASE(x) (void __iomem *)(virt_bases[APCS_BASE] + (x))
 
 #define GPLL0_MODE_REG                 0x0000
@@ -112,7 +110,6 @@ static void __iomem *virt_bases[N_BASES];
 #define MMSS_DEBUG_CLK_CTL_REG         0x0900
 #define LPASS_DEBUG_CLK_CTL_REG        0x29000
 #define LPASS_LPA_PLL_VOTE_APPS_REG    0x2000
-#define MSS_DEBUG_CLK_CTL_REG          0x0078
 
 #define GLB_CLK_DIAG_REG               0x001C
 
@@ -300,7 +297,6 @@ static void __iomem *virt_bases[N_BASES];
 #define OXILI_BCR                 0x4020
 #define OXILICX_BCR               0x4030
 #define LPASS_Q6SS_BCR            0x6000
-#define MSS_Q6SS_BCR              0x1068
 
 #define OCMEM_SYS_NOC_AXI_CBCR                   0x0244
 #define OCMEM_NOC_CFG_AHB_CBCR                   0x0248
@@ -498,8 +494,6 @@ static void __iomem *virt_bases[N_BASES];
 #define LPASS_Q6_AXI_CBCR			 0x11C0
 #define Q6SS_AHBM_CBCR				 0x22004
 #define AUDIO_WRAPPER_BR_CBCR			 0x24000
-#define MSS_XO_Q6_CBCR                           0x108C
-#define MSS_BUS_Q6_CBCR                          0x10A4
 #define MSS_CFG_AHB_CBCR                         0x0280
 #define MSS_Q6_BIMC_AXI_CBCR			 0x0284
 
@@ -4586,31 +4580,6 @@ static struct branch_clk audio_wrapper_br_clk = {
 	},
 };
 
-static struct branch_clk mss_xo_q6_clk = {
-	.cbcr_reg = MSS_XO_Q6_CBCR,
-	.bcr_reg = MSS_Q6SS_BCR,
-	.has_sibling = 1,
-	.base = &virt_bases[MSS_BASE],
-	.c = {
-		.dbg_name = "mss_xo_q6_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(mss_xo_q6_clk.c),
-		.depends = &gcc_mss_cfg_ahb_clk.c,
-	},
-};
-
-static struct branch_clk mss_bus_q6_clk = {
-	.cbcr_reg = MSS_BUS_Q6_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[MSS_BASE],
-	.c = {
-		.dbg_name = "mss_bus_q6_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(mss_bus_q6_clk.c),
-		.depends = &gcc_mss_cfg_ahb_clk.c,
-	},
-};
-
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -4795,8 +4764,6 @@ struct measure_mux_entry measure_mux[] = {
 	{&q6ss_ahbm_clk.c,			LPASS_BASE, 0x001d},
 	{&audio_core_ixfabric_clk.c,		LPASS_BASE, 0x0059},
 	{&audio_wrapper_br_clk.c,		LPASS_BASE, 0x0022},
-	{&mss_bus_q6_clk.c,			MSS_BASE, 0x003b},
-	{&mss_xo_q6_clk.c,			MSS_BASE, 0x0007},
 
 	{&l2_m_clk,				APCS_BASE, 0x0081},
 	{&krait0_m_clk,				APCS_BASE, 0x0080},
@@ -4858,13 +4825,6 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		/* Activate debug clock output */
 		regval |= BIT(20);
 		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL_REG));
-		break;
-
-	case MSS_BASE:
-		writel_relaxed(0, MSS_REG_BASE(MSS_DEBUG_CLK_CTL_REG));
-		clk_sel = 0x32;
-		regval = BVAL(5, 0, measure_mux[i].debug_mux);
-		writel_relaxed(regval, MSS_REG_BASE(MSS_DEBUG_CLK_CTL_REG));
 		break;
 
 	case APCS_BASE:
@@ -5376,10 +5336,9 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_oe_clk", audio_core_lpaif_pcmoe_clk.c,
 						"msm-dai-q6.4106"),
 	CLK_LOOKUP("br_clk", audio_wrapper_br_clk.c, "fdd00000.qcom,ocmem"),
-	CLK_LOOKUP("core_clk",       mss_xo_q6_clk.c,  "pil-q6v5-mss"),
+
 	CLK_LOOKUP("bus_clk", gcc_mss_q6_bimc_axi_clk.c, "pil-q6v5-mss"),
 	CLK_LOOKUP("iface_clk", gcc_mss_cfg_ahb_clk.c, "pil-q6v5-mss"),
-	CLK_LOOKUP("reg_clk",       mss_bus_q6_clk.c,  "pil-q6v5-mss"),
 	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c,  "pil-q6v5-mss"),
 
 	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c,  "pil-q6v5-lpass"),
@@ -5771,9 +5730,6 @@ static void __init msm8974_clock_post_init(void)
 #define LPASS_CC_PHYS		0xFE000000
 #define LPASS_CC_SIZE		SZ_256K
 
-#define MSS_CC_PHYS		0xFC980000
-#define MSS_CC_SIZE		SZ_16K
-
 #define APCS_GCC_CC_PHYS	0xF9011000
 #define APCS_GCC_CC_SIZE	SZ_4K
 
@@ -5808,10 +5764,6 @@ static void __init msm8974_clock_pre_init(void)
 	virt_bases[LPASS_BASE] = ioremap(LPASS_CC_PHYS, LPASS_CC_SIZE);
 	if (!virt_bases[LPASS_BASE])
 		panic("clock-8974: Unable to ioremap LPASS_CC memory!");
-
-	virt_bases[MSS_BASE] = ioremap(MSS_CC_PHYS, MSS_CC_SIZE);
-	if (!virt_bases[MSS_BASE])
-		panic("clock-8974: Unable to ioremap MSS_CC memory!");
 
 	virt_bases[APCS_BASE] = ioremap(APCS_GCC_CC_PHYS, APCS_GCC_CC_SIZE);
 	if (!virt_bases[APCS_BASE])
