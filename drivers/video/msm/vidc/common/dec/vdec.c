@@ -936,9 +936,10 @@ static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
 					SZ_4K, 0, (unsigned long *)&iova,
 					(unsigned long *)&buffer_size,
 					UNCACHED, 0);
-			if (rc) {
-				ERR("%s():get_ION_kernel physical addr fail\n",
-						 __func__);
+			if (rc || !iova) {
+				ERR(
+				"%s():get_ION_kernel physical addr fail, rc = %d iova = 0x%lx\n",
+					__func__, rc, iova);
 				goto ion_map_error;
 			}
 			vcd_h264_mv_buffer->physical_addr = (u8 *) iova;
