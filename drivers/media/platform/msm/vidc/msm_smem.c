@@ -36,7 +36,7 @@ static int get_device_address(struct ion_client *clnt,
 	pr_debug("\n In %s  domain: %d, Partition: %d\n",
 		__func__, domain_num, partition_num);
 	rc = ion_map_iommu(clnt, hndl, domain_num, partition_num, align,
-			0, iova, buffer_size, flags, 0);
+			0, iova, buffer_size, UNCACHED, 0);
 	if (rc)
 		pr_err("ion_map_iommu failed(%d).domain: %d,partition: %d\n",
 				rc, domain_num, partition_num);
@@ -217,21 +217,11 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 static int ion_mem_clean_invalidate(struct smem_client *clt,
 	struct msm_smem *mem)
 {
-	unsigned long ionflag;
-	int rc;
-	rc = ion_handle_get_flags(clt->clnt, mem->smem_priv, &ionflag);
-	if (rc) {
-		pr_err("Failed to get ion flags: %p, %p\n",
-			clt, mem->smem_priv);
-		goto fail_get_flags;
-	}
-	if (ionflag == CACHED) {
-		pr_err("Flushing the caches\n");
-		rc = msm_ion_do_cache_op(clt->clnt, mem->smem_priv, mem->kvaddr,
-				mem->size, ION_IOC_CLEAN_INV_CACHES);
-	}
-fail_get_flags:
-	return rc;
+	/*
+	 * Note: We're always mapping into iommu as uncached
+	 * as a result we don't need to flush/clean anything
+	 */
+	return 0;
 }
 
 int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem)
