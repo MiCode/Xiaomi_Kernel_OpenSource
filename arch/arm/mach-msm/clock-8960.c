@@ -1208,8 +1208,6 @@ static struct branch_clk vcap_p_clk = {
 	.b = {
 		.ctl_reg = AHB_EN3_REG,
 		.en_mask = BIT(1),
-		.hwcg_reg = AHB_EN3_REG,
-		.hwcg_mask = BIT(0),
 		.reset_reg = SW_RESET_AHB2_REG,
 		.reset_mask = BIT(2),
 		.halt_reg = DBG_BUS_VEC_J_REG,
@@ -6332,7 +6330,7 @@ static void __init reg_init(void)
 	}
 
 	if (cpu_is_apq8064() || cpu_is_apq8064ab())
-		rmwreg(0x00000001, AHB_EN3_REG, 0x00000001);
+		rmwreg(0x00000000, AHB_EN3_REG, 0x00000001);
 
 	/* Deassert all locally-owned MM AHB resets. */
 	rmwreg(0, SW_RESET_AHB_REG, 0xFFF7DFFF);
