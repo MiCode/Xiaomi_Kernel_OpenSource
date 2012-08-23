@@ -28,6 +28,8 @@
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
 #include <mach/subsystem_restart.h>
+#include <mach/msm_bus_board.h>
+#include <mach/msm_bus.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -77,6 +79,7 @@ struct venus_data {
 	u32 fw_sz;
 	u32 fw_min_paddr;
 	u32 fw_max_paddr;
+	u32 bus_perf_client;
 };
 
 #define subsys_to_drv(d) container_of(d, struct venus_data, subsys_desc)
@@ -147,6 +150,41 @@ static void venus_clock_disable_unprepare(struct device *dev)
 		clk_disable_unprepare(drv->clks[i]);
 }
 
+static struct msm_bus_vectors pil_venus_unvote_bw_vector[] = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors pil_venus_vote_bw_vector[] = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 16 * 19 * 1000000UL, /* At least 19.2MHz on bus. */
+	},
+};
+
+static struct msm_bus_paths pil_venus_bw_tbl[] = {
+	{
+		.num_paths = ARRAY_SIZE(pil_venus_unvote_bw_vector),
+		.vectors = pil_venus_unvote_bw_vector,
+	},
+	{
+		.num_paths = ARRAY_SIZE(pil_venus_vote_bw_vector),
+		.vectors = pil_venus_vote_bw_vector,
+	},
+};
+
+static struct msm_bus_scale_pdata pil_venus_client_pdata = {
+	.usecase = pil_venus_bw_tbl,
+	.num_usecases = ARRAY_SIZE(pil_venus_bw_tbl),
+	.name = "pil-venus",
+};
+
 static int pil_venus_make_proxy_vote(struct pil_desc *pil)
 {
 	struct venus_data *drv = dev_get_drvdata(pil->dev);
@@ -161,19 +199,36 @@ static int pil_venus_make_proxy_vote(struct pil_desc *pil)
 	rc = regulator_enable(drv->gdsc);
 	if (rc) {
 		dev_err(pil->dev, "GDSC enable failed\n");
-		return rc;
+		goto err_regulator;
 	}
 
 	rc = venus_clock_prepare_enable(pil->dev);
-	if (rc)
-		regulator_disable(drv->gdsc);
+	if (rc) {
+		dev_err(pil->dev, "clock prepare and enable failed\n");
+		goto err_clock;
+	}
 
+	rc = msm_bus_scale_client_update_request(drv->bus_perf_client, 1);
+	if (rc) {
+		dev_err(pil->dev, "bandwith request failed\n");
+		goto err_bw;
+	}
+
+	return 0;
+
+err_bw:
+	venus_clock_disable_unprepare(pil->dev);
+err_clock:
+	regulator_disable(drv->gdsc);
+err_regulator:
 	return rc;
 }
 
 static void pil_venus_remove_proxy_vote(struct pil_desc *pil)
 {
 	struct venus_data *drv = dev_get_drvdata(pil->dev);
+
+	msm_bus_scale_client_update_request(drv->bus_perf_client, 0);
 
 	venus_clock_disable_unprepare(pil->dev);
 
@@ -437,6 +492,13 @@ static int pil_venus_probe(struct platform_device *pdev)
 	rc = venus_clock_setup(&pdev->dev);
 	if (rc)
 		return rc;
+
+	drv->bus_perf_client =
+			msm_bus_scale_register_client(&pil_venus_client_pdata);
+	if (!drv->bus_perf_client) {
+		dev_err(&pdev->dev, "Failed to register bus client\n");
+		return -EINVAL;
+	}
 
 	drv->iommu_fw_ctx  = msm_iommu_get_ctx("venus_fw");
 	if (!drv->iommu_fw_ctx) {
