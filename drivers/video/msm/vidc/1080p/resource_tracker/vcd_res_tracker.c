@@ -85,9 +85,10 @@ static void *res_trk_pmem_map
 				&iova,
 				&buffer_size,
 				UNCACHED, 0);
-		if (ret) {
-			DDL_MSG_ERROR("%s():DDL ION client iommu map failed\n",
-						 __func__);
+		if (ret || !iova) {
+			DDL_MSG_ERROR(
+			"%s():DDL ION client iommu map failed, ret = %d iova = 0x%lx\n",
+			__func__, ret, iova);
 			goto ion_unmap_bail_out;
 		}
 		addr->mapped_buffer = NULL;
