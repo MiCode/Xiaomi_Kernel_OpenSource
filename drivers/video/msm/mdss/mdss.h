@@ -55,6 +55,7 @@ struct mdss_data_type {
 	u32 irq_buzy;
 
 	u32 mdp_irq_mask;
+	u32 mdp_hist_irq_mask;
 
 	u32 suspend;
 	u32 timeout;
