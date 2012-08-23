@@ -615,6 +615,49 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		mfd->kickoff_fnc(mfd->ctl);
 }
 
+static void mdss_mdp_overlay_handle_vsync(struct mdss_mdp_ctl *ctl, ktime_t t)
+{
+	struct device *dev;
+	char buf[64];
+	char *envp[2];
+
+	if (!ctl || !ctl->mfd || !ctl->mfd->fbi) {
+		pr_warn("Invalid handle for vsync\n");
+		return;
+	}
+
+	dev = ctl->mfd->fbi->dev;
+
+	snprintf(buf, sizeof(buf), "VSYNC=%llu", ktime_to_ns(t));
+	envp[0] = buf;
+	envp[1] = NULL;
+	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
+
+	pr_debug("sent vsync on ctl=%d ts=%llu\n", ctl->num, ktime_to_ns(t));
+}
+
+static int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
+{
+	struct mdss_mdp_ctl *ctl = mfd->ctl;
+	int rc;
+
+	if (!ctl)
+		return -ENODEV;
+	if (!ctl->set_vsync_handler)
+		return -ENOTSUPP;
+
+	pr_debug("vsync en=%d\n", en);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	if (en)
+		rc = ctl->set_vsync_handler(ctl, mdss_mdp_overlay_handle_vsync);
+	else
+		rc = ctl->set_vsync_handler(ctl, NULL);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+
+	return rc;
+}
+
 static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 				     struct fb_cursor *cursor)
 {
@@ -819,6 +862,16 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			}
 		} else {
 			ret = 0;
+		}
+		break;
+
+	case MSMFB_VSYNC_CTRL:
+	case MSMFB_OVERLAY_VSYNC_CTRL:
+		if (!copy_from_user(&val, argp, sizeof(val))) {
+			ret = mdss_mdp_overlay_vsync_ctrl(mfd, val);
+		} else {
+			pr_err("MSMFB_OVERLAY_VSYNC_CTRL failed (%d)\n", ret);
+			ret = -EFAULT;
 		}
 		break;
 
