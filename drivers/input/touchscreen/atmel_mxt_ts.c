@@ -2773,7 +2773,7 @@ static const struct i2c_device_id mxt_id[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, mxt_id);
-#ifdef OF_CONFIG
+#ifdef CONFIG_OF
 static struct of_device_id mxt_match_table[] = {
 	{ .compatible = "atmel,mxt-ts",},
 	{ },
