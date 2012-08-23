@@ -733,6 +733,30 @@ static void diag_disable_log_mask(void)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
+int chk_equip_id_and_mask(int equip_id, uint8_t *buf)
+{
+	int i = 0, flag = 0, num_items, offset;
+	unsigned char *ptr_data;
+	struct mask_info *ptr = (struct mask_info *)(driver->log_masks);
+
+	pr_debug("diag: received equip id = %d\n", equip_id);
+	/* Check if this is valid equipment ID */
+	for (i = 0; i < MAX_EQUIP_ID; i++) {
+		if ((ptr->equip_id == equip_id) && (ptr->index != 0)) {
+			offset = ptr->index;
+			num_items = ptr->num_items;
+			flag = 1;
+			break;
+		}
+		ptr++;
+	}
+	if (!flag)
+		return -EPERM;
+	ptr_data = driver->log_masks + offset;
+	memcpy(buf, ptr_data, (num_items+7)/8);
+	return 0;
+}
+
 static void diag_update_log_mask(int equip_id, uint8_t *buf, int num_items)
 {
 	uint8_t *temp = buf;
@@ -1023,7 +1047,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	int rt_mask, rt_first_ssid, rt_last_ssid, rt_mask_size;
 	unsigned char *temp = buf;
 	uint8_t *rt_mask_ptr;
-	int data_type;
+	int data_type, equip_id, num_items;
 #if defined(CONFIG_DIAG_OVER_USB)
 	int payload_length;
 	unsigned char *ptr;
@@ -1053,6 +1077,29 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 				diag_send_log_mask_update(driver->ch_wcnss_cntl,
 								 *(int *)buf);
 			ENCODE_RSP_AND_SEND(12 + payload_length - 1);
+			return 0;
+		} else
+			buf = temp;
+#endif
+	} /* Get log masks */
+	else if (*buf == 0x73 && *(int *)(buf+4) == 4) {
+#if defined(CONFIG_DIAG_OVER_USB)
+		if (!(driver->ch) && chk_apps_only()) {
+			equip_id = *(int *)(buf + 8);
+			num_items = *(int *)(buf + 12);
+			driver->apps_rsp_buf[0] = 0x73;
+			driver->apps_rsp_buf[1] = 0x0;
+			driver->apps_rsp_buf[2] = 0x0;
+			driver->apps_rsp_buf[3] = 0x0;
+			*(int *)(driver->apps_rsp_buf + 4) = 0x4;
+			if (!chk_equip_id_and_mask(equip_id,
+						 driver->apps_rsp_buf+20))
+				*(int *)(driver->apps_rsp_buf + 8) = 0x0;
+			else
+				*(int *)(driver->apps_rsp_buf + 8) = 0x1;
+			*(int *)(driver->apps_rsp_buf + 12) = equip_id;
+			*(int *)(driver->apps_rsp_buf + 16) = num_items;
+			ENCODE_RSP_AND_SEND(20+(num_items+7)/8-1);
 			return 0;
 		} else
 			buf = temp;
