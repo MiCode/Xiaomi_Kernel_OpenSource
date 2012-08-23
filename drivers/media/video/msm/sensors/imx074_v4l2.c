@@ -168,44 +168,6 @@ static struct msm_sensor_output_info_t imx074_dimensions[] = {
 	},
 };
 
-static struct msm_camera_csi_params imx074_csic_params = {
-	.data_format = CSI_10BIT,
-	.lane_cnt    = 4,
-	.lane_assign = 0xe4,
-	.dpcm_scheme = 0,
-	.settle_cnt  = 0x14,
-};
-
-static struct msm_camera_csi_params *imx074_csic_params_array[] = {
-	&imx074_csic_params,
-	&imx074_csic_params,
-};
-
-static struct msm_camera_csid_vc_cfg imx074_cid_cfg[] = {
-	{0, CSI_RAW10, CSI_DECODE_10BIT},
-	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
-	{2, CSI_RESERVED_DATA_0, CSI_DECODE_8BIT},
-};
-
-static struct msm_camera_csi2_params imx074_csi_params = {
-	.csid_params = {
-		.lane_cnt = 4,
-		.lut_params = {
-			.num_cid = ARRAY_SIZE(imx074_cid_cfg),
-			.vc_cfg = imx074_cid_cfg,
-		},
-	},
-	.csiphy_params = {
-		.lane_cnt = 4,
-		.settle_cnt = 0x1B,
-	},
-};
-
-static struct msm_camera_csi2_params *imx074_csi_params_array[] = {
-	&imx074_csi_params,
-	&imx074_csi_params,
-};
-
 static struct msm_sensor_output_reg_addr_t imx074_reg_addr = {
 	.x_output = 0x34C,
 	.y_output = 0x34E,
@@ -222,6 +184,13 @@ static struct msm_sensor_exp_gain_info_t imx074_exp_gain_info = {
 	.coarse_int_time_addr = 0x202,
 	.global_gain_addr = 0x204,
 	.vert_offset = 3,
+};
+
+static enum msm_camera_vreg_name_t imx074_veg_seq[] = {
+	CAM_VDIG,
+	CAM_VIO,
+	CAM_VANA,
+	CAM_VAF,
 };
 
 static const struct i2c_device_id imx074_i2c_id[] = {
@@ -302,12 +271,12 @@ static struct msm_sensor_ctrl_t imx074_s_ctrl = {
 	.msm_sensor_reg = &imx074_regs,
 	.sensor_i2c_client = &imx074_sensor_i2c_client,
 	.sensor_i2c_addr = 0x34,
+	.vreg_seq = imx074_veg_seq,
+	.num_vreg_seq = ARRAY_SIZE(imx074_veg_seq),
 	.sensor_output_reg_addr = &imx074_reg_addr,
 	.sensor_id_info = &imx074_id_info,
 	.sensor_exp_gain_info = &imx074_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csic_params = &imx074_csic_params_array[0],
-	.csi_params = &imx074_csi_params_array[0],
 	.msm_sensor_mutex = &imx074_mut,
 	.sensor_i2c_driver = &imx074_i2c_driver,
 	.sensor_v4l2_subdev_info = imx074_subdev_info,

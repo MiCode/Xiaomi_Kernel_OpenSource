@@ -193,6 +193,16 @@ static int vfe40_config_axi(
 	msm_camera_io_memcpy(axi_ctrl->share_ctrl->vfebase +
 		vfe40_cmd[VFE_CMD_AXI_OUT_CFG].offset, axi_cfg,
 		vfe40_cmd[VFE_CMD_AXI_OUT_CFG].length - V40_AXI_CH_INF_LEN);
+	msm_camera_io_w(*ch_info++,
+		axi_ctrl->share_ctrl->vfebase + VFE_RDI0_CFG);
+	if (msm_camera_io_r(axi_ctrl->share_ctrl->vfebase +
+		V40_GET_HW_VERSION_OFF) ==
+		VFE40_HW_NUMBER) {
+		msm_camera_io_w(*ch_info++,
+			axi_ctrl->share_ctrl->vfebase + VFE_RDI1_CFG);
+		msm_camera_io_w(*ch_info++,
+			axi_ctrl->share_ctrl->vfebase + VFE_RDI2_CFG);
+	}
 	return 0;
 }
 
@@ -330,6 +340,8 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 		break;
 	case CMD_AXI_STOP:
 		axi_stop(axi_ctrl);
+		break;
+	case CMD_AXI_RESET:
 		break;
 	default:
 		pr_err("%s Unsupported AXI configuration %x ", __func__,

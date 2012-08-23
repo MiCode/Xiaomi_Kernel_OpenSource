@@ -1184,35 +1184,17 @@ static struct msm_sensor_output_info_t mt9m114_dimensions[] = {
 	},
 };
 
-static struct msm_camera_csid_vc_cfg mt9m114_cid_cfg[] = {
-	{0, CSI_YUV422_8, CSI_DECODE_8BIT},
-	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
-};
-
-static struct msm_camera_csi2_params mt9m114_csi_params = {
-	.csid_params = {
-		.lane_cnt = 1,
-		.lut_params = {
-			.num_cid = 2,
-			.vc_cfg = mt9m114_cid_cfg,
-		},
-	},
-	.csiphy_params = {
-		.lane_cnt = 1,
-		.settle_cnt = 0x14,
-	},
-};
-
-static struct msm_camera_csi2_params *mt9m114_csi_params_array[] = {
-	&mt9m114_csi_params,
-	&mt9m114_csi_params,
-};
-
 static struct msm_sensor_output_reg_addr_t mt9m114_reg_addr = {
 	.x_output = 0xC868,
 	.y_output = 0xC86A,
 	.line_length_pclk = 0xC868,
 	.frame_length_lines = 0xC86A,
+};
+
+static enum msm_camera_vreg_name_t mt9m114_veg_seq[] = {
+	CAM_VIO,
+	CAM_VDIG,
+	CAM_VANA,
 };
 
 static struct msm_sensor_id_info_t mt9m114_id_info = {
@@ -1288,10 +1270,13 @@ static struct msm_sensor_ctrl_t mt9m114_s_ctrl = {
 	.num_v4l2_ctrl = ARRAY_SIZE(mt9m114_v4l2_ctrl_info),
 	.sensor_i2c_client = &mt9m114_sensor_i2c_client,
 	.sensor_i2c_addr = 0x90,
+	.vreg_seq = mt9m114_veg_seq,
+	.num_vreg_seq = ARRAY_SIZE(mt9m114_veg_seq),
 	.sensor_output_reg_addr = &mt9m114_reg_addr,
 	.sensor_id_info = &mt9m114_id_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csi_params = &mt9m114_csi_params_array[0],
+	.min_delay = 30,
+	.power_seq_delay = 60,
 	.msm_sensor_mutex = &mt9m114_mut,
 	.sensor_i2c_driver = &mt9m114_i2c_driver,
 	.sensor_v4l2_subdev_info = mt9m114_subdev_info,

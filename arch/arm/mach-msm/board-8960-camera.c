@@ -13,7 +13,7 @@
 
 #include <asm/mach-types.h>
 #include <linux/gpio.h>
-#include <mach/board.h>
+#include <mach/camera.h>
 #include <mach/msm_bus_board.h>
 #include <mach/gpiomux.h>
 #include "devices.h"
@@ -452,17 +452,11 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	},
 };
 
-static struct camera_vreg_t msm_8960_back_cam_vreg[] = {
+static struct camera_vreg_t msm_8960_cam_vreg[] = {
 	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
 	{"cam_vio", REG_VS, 0, 0, 0},
 	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
 	{"cam_vaf", REG_LDO, 2800000, 2800000, 300000},
-};
-
-static struct camera_vreg_t msm_8960_front_cam_vreg[] = {
-	{"cam_vio", REG_VS, 0, 0, 0},
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
 };
 
 static struct gpio msm8960_common_cam_gpio[] = {
@@ -549,8 +543,8 @@ static struct msm_camera_csi_lane_params imx074_csi_lane_params = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_imx074 = {
 	.mount_angle	= 90,
-	.cam_vreg = msm_8960_back_cam_vreg,
-	.num_vreg = ARRAY_SIZE(msm_8960_back_cam_vreg),
+	.cam_vreg = msm_8960_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8960_cam_vreg),
 	.gpio_conf = &msm_8960_back_cam_gpio_conf,
 	.csi_lane_params = &imx074_csi_lane_params,
 };
@@ -577,13 +571,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx074_data = {
 	.eeprom_info = &imx074_eeprom_info,
 };
 
-static struct camera_vreg_t msm_8960_mt9m114_vreg[] = {
-	{"cam_vio", REG_VS, 0, 0, 0},
-	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vaf", REG_LDO, 2800000, 2800000, 300000},
-};
-
 static struct msm_camera_sensor_flash_data flash_mt9m114 = {
 	.flash_type = MSM_CAMERA_FLASH_NONE
 };
@@ -593,10 +580,16 @@ static struct msm_camera_csi_lane_params mt9m114_csi_lane_params = {
 	.csi_lane_mask = 0x1,
 };
 
+static struct camera_vreg_t mt9m114_cam_vreg[] = {
+	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000, 50},
+	{"cam_vio", REG_VS, 0, 0, 0, 50},
+	{"cam_vana", REG_LDO, 2800000, 2850000, 85600, 50},
+};
+
 static struct msm_camera_sensor_platform_info sensor_board_info_mt9m114 = {
 	.mount_angle = 90,
-	.cam_vreg = msm_8960_mt9m114_vreg,
-	.num_vreg = ARRAY_SIZE(msm_8960_mt9m114_vreg),
+	.cam_vreg = mt9m114_cam_vreg,
+	.num_vreg = ARRAY_SIZE(mt9m114_cam_vreg),
 	.gpio_conf = &msm_8960_front_cam_gpio_conf,
 	.csi_lane_params = &mt9m114_csi_lane_params,
 };
@@ -622,8 +615,8 @@ static struct msm_camera_csi_lane_params ov2720_csi_lane_params = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_ov2720 = {
 	.mount_angle	= 0,
-	.cam_vreg = msm_8960_front_cam_vreg,
-	.num_vreg = ARRAY_SIZE(msm_8960_front_cam_vreg),
+	.cam_vreg = msm_8960_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8960_cam_vreg),
 	.gpio_conf = &msm_8960_front_cam_gpio_conf,
 	.csi_lane_params = &ov2720_csi_lane_params,
 };
@@ -638,13 +631,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 	.sensor_type = BAYER_SENSOR,
 };
 
-static struct camera_vreg_t msm_8960_s5k3l1yx_vreg[] = {
-	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vio", REG_VS, 0, 0, 0},
-	{"cam_vaf", REG_LDO, 2800000, 2800000, 300000},
-};
-
 static struct msm_camera_sensor_flash_data flash_s5k3l1yx = {
 	.flash_type = MSM_CAMERA_FLASH_NONE,
 };
@@ -656,8 +642,8 @@ static struct msm_camera_csi_lane_params s5k3l1yx_csi_lane_params = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_s5k3l1yx = {
 	.mount_angle  = 0,
-	.cam_vreg = msm_8960_s5k3l1yx_vreg,
-	.num_vreg = ARRAY_SIZE(msm_8960_s5k3l1yx_vreg),
+	.cam_vreg = msm_8960_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8960_cam_vreg),
 	.gpio_conf = &msm_8960_back_cam_gpio_conf,
 	.csi_lane_params = &s5k3l1yx_csi_lane_params,
 };
@@ -686,13 +672,6 @@ static struct msm_camera_csi_lane_params imx091_csi_lane_params = {
 	.csi_lane_mask = 0xF,
 };
 
-static struct camera_vreg_t msm_8960_imx091_vreg[] = {
-	{"cam_vana", REG_LDO, 2800000, 2850000, 85600},
-	{"cam_vaf", REG_LDO, 2800000, 2800000, 300000},
-	{"cam_vdig", REG_LDO, 1200000, 1200000, 105000},
-	{"cam_vio", REG_VS, 0, 0, 0},
-};
-
 static struct msm_camera_sensor_flash_data flash_imx091 = {
 	.flash_type	= MSM_CAMERA_FLASH_LED,
 #ifdef CONFIG_MSM_CAMERA_FLASH
@@ -702,8 +681,8 @@ static struct msm_camera_sensor_flash_data flash_imx091 = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_imx091 = {
 	.mount_angle	= 0,
-	.cam_vreg = msm_8960_imx091_vreg,
-	.num_vreg = ARRAY_SIZE(msm_8960_imx091_vreg),
+	.cam_vreg = msm_8960_cam_vreg,
+	.num_vreg = ARRAY_SIZE(msm_8960_cam_vreg),
 	.gpio_conf = &msm_8960_back_cam_gpio_conf,
 	.csi_lane_params = &imx091_csi_lane_params,
 };
@@ -715,6 +694,9 @@ static struct i2c_board_info imx091_eeprom_i2c_info = {
 static struct msm_eeprom_info imx091_eeprom_info = {
 	.board_info     = &imx091_eeprom_i2c_info,
 	.bus_id         = MSM_8960_GSBI4_QUP_I2C_BUS_ID,
+	.eeprom_i2c_slave_addr = 0xA1,
+	.eeprom_reg_addr = 0x05,
+	.eeprom_read_length = 6,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_imx091_data = {

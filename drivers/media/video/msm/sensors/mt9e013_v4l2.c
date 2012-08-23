@@ -325,22 +325,6 @@ static struct msm_sensor_output_info_t mt9e013_dimensions[] = {
 	},
 };
 
-static struct msm_camera_csi_params mt9e013_csi_params = {
-	.data_format = CSI_10BIT,
-	.lane_cnt    = 2,
-	.lane_assign = 0xe4,
-	.dpcm_scheme = 0,
-	.settle_cnt  = 0x18,
-};
-
-static struct msm_camera_csi_params *mt9e013_csi_params_array[] = {
-	&mt9e013_csi_params,
-	&mt9e013_csi_params,
-	&mt9e013_csi_params,
-	&mt9e013_csi_params,
-	&mt9e013_csi_params,
-};
-
 static struct msm_sensor_output_reg_addr_t mt9e013_reg_addr = {
 	.x_output = 0x34C,
 	.y_output = 0x34E,
@@ -472,7 +456,6 @@ static struct msm_sensor_fn_t mt9e013_func_tbl = {
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
-	.sensor_get_csi_params = msm_sensor_get_csi_params,
 };
 
 static struct msm_sensor_reg_t mt9e013_regs = {
@@ -497,7 +480,6 @@ static struct msm_sensor_ctrl_t mt9e013_s_ctrl = {
 	.sensor_id_info = &mt9e013_id_info,
 	.sensor_exp_gain_info = &mt9e013_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csic_params = &mt9e013_csi_params_array[0],
 	.msm_sensor_mutex = &mt9e013_mut,
 	.sensor_i2c_driver = &mt9e013_i2c_driver,
 	.sensor_v4l2_subdev_info = mt9e013_subdev_info,

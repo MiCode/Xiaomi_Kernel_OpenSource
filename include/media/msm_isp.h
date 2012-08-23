@@ -68,6 +68,9 @@
 #define MSG_ID_RDI0_UPDATE_ACK          49
 #define MSG_ID_RDI1_UPDATE_ACK          50
 #define MSG_ID_RDI2_UPDATE_ACK          51
+#define MSG_ID_PIX0_UPDATE_ACK          52
+#define MSG_ID_PREV_STOP_ACK            53
+
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
@@ -324,29 +327,9 @@ struct msm_mctl_pp_divert_pp {
 struct msm_vpe_clock_rate {
 	uint32_t rate;
 };
-struct msm_pp_crop {
-	uint32_t  src_x;
-	uint32_t  src_y;
-	uint32_t  src_w;
-	uint32_t  src_h;
-	uint32_t  dst_x;
-	uint32_t  dst_y;
-	uint32_t  dst_w;
-	uint32_t  dst_h;
-	uint8_t update_flag;
-};
+
 #define MSM_MCTL_PP_VPE_FRAME_ACK    (1<<0)
 #define MSM_MCTL_PP_VPE_FRAME_TO_APP (1<<1)
-
-struct msm_mctl_pp_frame_cmd {
-	uint32_t cookie;
-	uint8_t  vpe_output_action;
-	uint32_t src_buf_handle;
-	uint32_t dest_buf_handle;
-	struct msm_pp_crop crop;
-	int path;
-	/* TBD: 3D related */
-};
 
 #define VFE_OUTPUTS_MAIN_AND_PREVIEW    BIT(0)
 #define VFE_OUTPUTS_MAIN_AND_VIDEO      BIT(1)

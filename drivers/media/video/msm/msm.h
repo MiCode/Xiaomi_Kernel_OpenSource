@@ -140,6 +140,11 @@ struct isp_msg_output {
 	uint32_t  frameCounter;
 };
 
+struct rdi_count_msg {
+	uint32_t rdi_interface;
+	uint32_t count;
+};
+
 /* message id for v4l2_subdev_notify*/
 enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_ISP_MSG_EVT, /* arg = enum ISP_MESSAGE_ID */
@@ -148,11 +153,9 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_VFE_MSG_COMP_STATS, /* arg = struct msm_stats_buf */
 	NOTIFY_VFE_BUF_EVT, /* arg = struct msm_vfe_resp */
 	NOTIFY_VFE_CAMIF_ERROR,
-	NOTIFY_VFE_SOF_COUNT, /*arg = int*/
+	NOTIFY_VFE_PIX_SOF_COUNT, /*arg = int*/
+	NOTIFY_AXI_RDI_SOF_COUNT, /*arg = struct rdi_count_msg*/
 	NOTIFY_PCLK_CHANGE, /* arg = pclk */
-	NOTIFY_CSIPHY_CFG, /* arg = msm_camera_csiphy_params */
-	NOTIFY_CSID_CFG, /* arg = msm_camera_csid_params */
-	NOTIFY_CSIC_CFG, /* arg = msm_camera_csic_params */
 	NOTIFY_VFE_IRQ,
 	NOTIFY_AXI_IRQ,
 	NOTIFY_GESTURE_EVT, /* arg = v4l2_event */
@@ -201,10 +204,36 @@ struct msm_isp_color_fmt {
 	enum v4l2_colorspace colorspace;
 };
 
+struct msm_cam_return_frame_info {
+	int dirty;
+	int node_type;
+	struct timeval timestamp;
+};
+
+struct msm_cam_timestamp {
+	uint8_t present;
+	struct timeval timestamp;
+};
+
+struct msm_cam_buf_map_info {
+	int fd;
+	uint32_t data_offset;
+	unsigned long paddr;
+	unsigned long len;
+	struct file *file;
+	struct ion_handle *handle;
+};
+
+struct msm_cam_meta_frame {
+	struct msm_pp_frame frame;
+	/* Mapping information per plane */
+	struct msm_cam_buf_map_info map[VIDEO_MAX_PLANES];
+};
+
 struct msm_mctl_pp_frame_info {
 	int user_cmd;
-	struct msm_pp_frame src_frame;
-	struct msm_pp_frame dest_frame;
+	struct msm_cam_meta_frame src_frame;
+	struct msm_cam_meta_frame dest_frame;
 	struct msm_mctl_pp_frame_cmd pp_frame_cmd;
 	struct msm_cam_media_controller *p_mctl;
 };
@@ -242,6 +271,10 @@ struct msm_cam_media_controller {
 	int (*mctl_vbqueue_init)(struct msm_cam_v4l2_dev_inst *pcam,
 				struct vb2_queue *q, enum v4l2_buf_type type);
 	int (*mctl_ufmt_init)(struct msm_cam_media_controller *p_mctl);
+	int (*isp_config)(struct msm_cam_media_controller *pmctl,
+		 unsigned int cmd, unsigned long arg);
+	int (*isp_notify)(struct msm_cam_media_controller *pmctl,
+		struct v4l2_subdev *sd, unsigned int notification, void *arg);
 
 	/* the following reflect the HW topology information*/
 	struct v4l2_subdev *sensor_sdev; /* sensor sub device */
@@ -253,10 +286,10 @@ struct msm_cam_media_controller {
 	struct v4l2_subdev *gemini_sdev; /* gemini sub device */
 	struct v4l2_subdev *vpe_sdev; /* vpe sub device */
 	struct v4l2_subdev *axi_sdev; /* axi sub device */
+	struct v4l2_subdev *vfe_sdev; /* vfe sub device */
 	struct v4l2_subdev *eeprom_sdev; /* eeprom sub device */
 	struct v4l2_subdev *cpp_sdev;/*cpp sub device*/
 
-	struct msm_isp_ops *isp_sdev;    /* isp sub device : camif/VFE */
 	struct msm_cam_config_dev *config_device;
 
 	/*mctl session control information*/
@@ -282,21 +315,6 @@ struct msm_cam_media_controller {
 	uint32_t ping_imem_cbcr;
 	uint32_t pong_imem_y;
 	uint32_t pong_imem_cbcr;
-};
-
-/* abstract camera device represents a VFE and connected sensor */
-struct msm_isp_ops {
-	char *config_dev_name;
-
-	int (*isp_config)(struct msm_cam_media_controller *pmctl,
-		 unsigned int cmd, unsigned long arg);
-	int (*isp_notify)(struct v4l2_subdev *sd,
-		unsigned int notification, void *arg);
-	int (*isp_pp_cmd)(struct msm_cam_media_controller *pmctl,
-		 struct msm_mctl_pp_cmd, void *data);
-
-	/* vfe subdevice */
-	struct v4l2_subdev *sd;
 };
 
 struct msm_isp_buf_info {
@@ -373,6 +391,9 @@ struct msm_cam_v4l2_device {
 	struct v4l2_subdev *act_sdev; /* actuator sub device */
 	struct v4l2_subdev *eeprom_sdev; /* actuator sub device */
 	struct msm_camera_sensor_info *sdata;
+
+	struct msm_device_queue eventData_q; /*payload for events sent to app*/
+	struct mutex event_lock;
 };
 
 static inline struct msm_cam_v4l2_device *to_pcam(
@@ -571,11 +592,13 @@ struct msm_cam_buf_handle {
 
 /* ISP related functions */
 void msm_isp_vfe_dev_init(struct v4l2_subdev *vd);
+int msm_isp_config(struct msm_cam_media_controller *pmctl,
+			 unsigned int cmd, unsigned long arg);
+int msm_isp_notify(struct msm_cam_media_controller *pmctl,
+	struct v4l2_subdev *sd, unsigned int notification, void *arg);
 /*
 int msm_isp_register(struct msm_cam_v4l2_device *pcam);
 */
-int msm_isp_register(struct msm_cam_server_dev *psvr);
-void msm_isp_unregister(struct msm_cam_server_dev *psvr);
 int msm_sensor_register(struct v4l2_subdev *);
 int msm_isp_init_module(int g_num_config_nodes);
 
@@ -589,7 +612,8 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *pmctl,
 	uint32_t frame_id);
 int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
 	struct msm_cam_buf_handle *buf_handle,
-	struct msm_free_buf *frame, int dirty, int node_type);
+	struct msm_free_buf *frame,
+	struct msm_cam_return_frame_info *ret_frame);
 int msm_mctl_reserve_free_buf(struct msm_cam_media_controller *pmctl,
 	struct msm_cam_v4l2_dev_inst *pcam_inst,
 	struct msm_cam_buf_handle *buf_handle,
@@ -670,6 +694,10 @@ struct msm_cam_v4l2_dev_inst *msm_mctl_get_pcam_inst(
 	struct msm_cam_buf_handle *buf_handle);
 int msm_mctl_buf_return_buf(struct msm_cam_media_controller *pmctl,
 	int image_mode, struct msm_frame_buffer *buf);
+int msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
+	struct ion_client *client);
+int msm_mctl_unmap_user_frame(struct msm_cam_meta_frame *meta_frame,
+	struct ion_client *client);
 int msm_mctl_pp_mctl_divert_done(struct msm_cam_media_controller *p_mctl,
 	void __user *arg);
 void msm_release_ion_client(struct kref *ref);

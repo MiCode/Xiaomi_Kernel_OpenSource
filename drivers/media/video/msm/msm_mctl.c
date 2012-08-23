@@ -138,7 +138,38 @@ static struct msm_isp_color_fmt msm_isp_formats[] = {
 	.pxlcode	= V4L2_MBUS_FMT_YUYV8_2X8, /* YUV sensor */
 	.colorspace = V4L2_COLORSPACE_JPEG,
 	},
-
+	{
+	.name	   = "SAEC",
+	.depth	  = 16,
+	.bitsperpxl = 16,
+	.fourcc	 = V4L2_PIX_FMT_STATS_AE,
+	.pxlcode	= V4L2_MBUS_FMT_SBGGR10_1X10, /* YUV sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
+	{
+	.name	   = "SAWB",
+	.depth	  = 16,
+	.bitsperpxl = 16,
+	.fourcc	 = V4L2_PIX_FMT_STATS_AWB,
+	.pxlcode	= V4L2_MBUS_FMT_SBGGR10_1X10, /* YUV sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
+	{
+	.name	   = "SAFC",
+	.depth	  = 16,
+	.bitsperpxl = 16,
+	.fourcc	 = V4L2_PIX_FMT_STATS_AF,
+	.pxlcode	= V4L2_MBUS_FMT_SBGGR10_1X10, /* YUV sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
+	{
+	.name      = "SHST",
+	.depth    = 16,
+	.bitsperpxl = 16,
+	.fourcc  = V4L2_PIX_FMT_STATS_IHST,
+	.pxlcode        = V4L2_MBUS_FMT_SBGGR10_1X10, /* YUV sensor */
+	.colorspace = V4L2_COLORSPACE_JPEG,
+	},
 };
 
 static int msm_get_sensor_info(
@@ -422,17 +453,36 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
 				VIDIOC_MSM_AXI_CFG, (void __user *)arg);
 		else
-			rc = p_mctl->isp_sdev->isp_config(p_mctl, cmd, arg);
+			rc = p_mctl->isp_config(p_mctl, cmd, arg);
 		break;
 	case MSM_CAM_IOCTL_ISPIF_IO_CFG:
 		rc = v4l2_subdev_call(p_mctl->ispif_sdev,
 			core, ioctl, VIDIOC_MSM_ISPIF_CFG, argp);
 		break;
+
+	case MSM_CAM_IOCTL_CSIPHY_IO_CFG:
+		if (p_mctl->csiphy_sdev)
+			rc = v4l2_subdev_call(p_mctl->csiphy_sdev,
+				core, ioctl, VIDIOC_MSM_CSIPHY_CFG, argp);
+		break;
+
+	case MSM_CAM_IOCTL_CSIC_IO_CFG:
+		if (p_mctl->csic_sdev)
+			rc = v4l2_subdev_call(p_mctl->csic_sdev,
+				core, ioctl, VIDIOC_MSM_CSIC_CFG, argp);
+		break;
+
+	case MSM_CAM_IOCTL_CSID_IO_CFG:
+		if (p_mctl->csid_sdev)
+			rc = v4l2_subdev_call(p_mctl->csid_sdev,
+				core, ioctl, VIDIOC_MSM_CSID_CFG, argp);
+		break;
+
 	default:
 		/* ISP config*/
 		D("%s:%d: go to default. Calling msm_isp_config\n",
 			__func__, __LINE__);
-		rc = p_mctl->isp_sdev->isp_config(p_mctl, cmd, arg);
+		rc = p_mctl->isp_config(p_mctl, cmd, arg);
 		break;
 	}
 	D("%s: !!! cmd = %d, rc = %d\n",
@@ -459,7 +509,6 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	/* open sub devices - once only*/
 	if (!p_mctl->opencnt) {
 		struct msm_sensor_csi_info csi_info;
-		uint32_t csid_version = 0;
 		wake_lock(&p_mctl->wake_lock);
 
 		csid_core = camdev->csid_core;
@@ -485,39 +534,10 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto act_power_up_failed;
 		}
 
-		if (p_mctl->csiphy_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-				VIDIOC_MSM_CSIPHY_INIT, NULL);
-			if (rc < 0) {
-				pr_err("%s: csiphy initialization failed %d\n",
-					__func__, rc);
-				goto csiphy_init_failed;
-			}
-		}
-
-		if (p_mctl->csid_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
-				VIDIOC_MSM_CSID_INIT, &csid_version);
-			if (rc < 0) {
-				pr_err("%s: csid initialization failed %d\n",
-					__func__, rc);
-				goto csid_init_failed;
-			}
-			csi_info.is_csic = 0;
-		}
-
-		if (p_mctl->csic_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
-				VIDIOC_MSM_CSIC_INIT, &csid_version);
-			if (rc < 0) {
-				pr_err("%s: csic initialization failed %d\n",
-					__func__, rc);
-				goto csic_init_failed;
-			}
+		if (p_mctl->csic_sdev)
 			csi_info.is_csic = 1;
-		}
-
-		csi_info.csid_version = csid_version;
+		else
+			csi_info.is_csic = 0;
 		rc = v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
 				VIDIOC_MSM_SENSOR_CSID_INFO, &csi_info);
 		if (rc < 0) {
@@ -540,26 +560,6 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	return rc;
 
 msm_csi_version:
-	if (p_mctl->csic_sdev)
-		if (v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
-			VIDIOC_MSM_CSIC_RELEASE, NULL) < 0)
-			pr_err("%s: csic release failed %d\n", __func__, rc);
-csic_init_failed:
-	if (p_mctl->csid_sdev)
-		if (v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
-			VIDIOC_MSM_CSID_RELEASE, NULL) < 0)
-			pr_err("%s: csid release failed %d\n", __func__, rc);
-csid_init_failed:
-	if (p_mctl->csiphy_sdev)
-		if (v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-			VIDIOC_MSM_CSIPHY_RELEASE,
-			sinfo->sensor_platform_info->csi_lane_params) < 0)
-			pr_err("%s: csiphy release failed %d\n", __func__, rc);
-csiphy_init_failed:
-	if (p_mctl->act_sdev)
-		if (v4l2_subdev_call(p_mctl->act_sdev, core,
-			s_power, 0) < 0)
-			pr_err("%s: act power down failed:%d\n", __func__, rc);
 act_power_up_failed:
 	if (v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0) < 0)
 		pr_err("%s: sensor powerdown failed: %d\n", __func__, rc);
@@ -707,6 +707,9 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 	pmctl->mctl_open = msm_mctl_open;
 	pmctl->mctl_cmd = msm_mctl_cmd;
 	pmctl->mctl_release = msm_mctl_release;
+	pmctl->isp_config = msm_isp_config;
+	pmctl->isp_notify = msm_isp_notify;
+
 	/* init mctl buf */
 	msm_mctl_buf_init(pcam);
 	memset(&pmctl->pp_info, 0, sizeof(pmctl->pp_info));
