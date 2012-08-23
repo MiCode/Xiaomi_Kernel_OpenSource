@@ -250,8 +250,6 @@ static int32_t msm_actuator_move_focus(
 			target_step_pos = dest_step_pos;
 			target_lens_pos =
 				a_ctrl->step_position_table[target_step_pos];
-			if (curr_lens_pos == target_lens_pos)
-				return rc;
 			rc = a_ctrl->func_tbl->
 				actuator_write_focus(
 					a_ctrl,
@@ -272,8 +270,6 @@ static int32_t msm_actuator_move_focus(
 			target_step_pos = step_boundary;
 			target_lens_pos =
 				a_ctrl->step_position_table[target_step_pos];
-			if (curr_lens_pos == target_lens_pos)
-				return rc;
 			rc = a_ctrl->func_tbl->
 				actuator_write_focus(
 					a_ctrl,
