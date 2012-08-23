@@ -1251,9 +1251,16 @@ int msm_venc_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
 int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc)
 {
 	int rc = 0;
-	rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
+	switch (enc->cmd) {
+	case V4L2_ENC_QCOM_CMD_FLUSH:
+		rc = msm_comm_flush(inst, enc->flags);
+		break;
+	case V4L2_ENC_CMD_STOP:
+		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
+		break;
+	}
 	if (rc)
-		pr_err("Failed to close instance\n");
+		pr_err("Command: %d failed with rc = %d\n", enc->cmd, rc);
 	return rc;
 }
 
