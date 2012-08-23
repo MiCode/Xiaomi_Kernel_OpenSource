@@ -113,22 +113,22 @@ static inline void mdss_mdp_intr_done(int index)
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 {
-	u32 isr, mask;
+	u32 isr, mask, hist_isr, hist_mask;
 
 
 	isr = MDSS_MDP_REG_READ(MDSS_MDP_REG_INTR_STATUS);
 
-	pr_debug("isr=%x\n", isr);
-
 	if (isr == 0)
-		goto done;
+		goto mdp_isr_done;
+
+	pr_debug("isr=%x\n", isr);
 
 	mask = MDSS_MDP_REG_READ(MDSS_MDP_REG_INTR_EN);
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_CLEAR, isr);
 
 	isr &= mask;
 	if (isr == 0)
-		goto done;
+		goto mdp_isr_done;
 
 	if (isr & MDSS_MDP_INTR_PING_PONG_0_DONE)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0);
@@ -160,7 +160,17 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	if (isr & MDSS_MDP_INTR_WB_2_DONE)
 		mdss_mdp_intr_done(MDP_INTR_WB_2);
 
-done:
+mdp_isr_done:
+	hist_isr = MDSS_MDP_REG_READ(MDSS_MDP_REG_HIST_INTR_STATUS);
+	if (hist_isr == 0)
+		goto hist_isr_done;
+	hist_mask = MDSS_MDP_REG_READ(MDSS_MDP_REG_HIST_INTR_EN);
+	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_HIST_INTR_CLEAR, hist_isr);
+	hist_isr &= hist_mask;
+	if (hist_isr == 0)
+		goto hist_isr_done;
+	mdss_mdp_hist_intr_done(hist_isr);
+hist_isr_done:
 	return IRQ_HANDLED;
 }
 

@@ -1206,6 +1206,9 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	void __user *argp = (void __user *)arg;
+	struct mdp_histogram_data hist;
+	struct mdp_histogram_start_req hist_req;
+	u32 block, hist_data_addr = 0;
 	struct mdp_page_protection fb_page_protection;
 	int ret = -ENOSYS;
 
@@ -1216,6 +1219,43 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 
 	case MSMFB_SET_LUT:
 		ret = mdss_fb_set_lut(info, argp);
+		break;
+
+	case MSMFB_HISTOGRAM:
+		if (!mfd->panel_power_on)
+			return -EPERM;
+
+		ret = copy_from_user(&hist, argp, sizeof(hist));
+		if (ret)
+			return ret;
+
+		ret = mdss_mdp_hist_collect(info, &hist, &hist_data_addr);
+		if ((ret == 0) && hist_data_addr) {
+			ret = copy_to_user(hist.c0, (u32 *)hist_data_addr,
+				sizeof(u32) * hist.bin_cnt);
+			if (ret == 0)
+				ret = copy_to_user(argp, &hist,
+						   sizeof(hist));
+		}
+		break;
+
+	case MSMFB_HISTOGRAM_START:
+		if (!mfd->panel_power_on)
+			return -EPERM;
+
+		ret = copy_from_user(&hist_req, argp, sizeof(hist_req));
+		if (ret)
+			return ret;
+
+		ret = mdss_mdp_histogram_start(&hist_req);
+		break;
+
+	case MSMFB_HISTOGRAM_STOP:
+		ret = copy_from_user(&block, argp, sizeof(int));
+		if (ret)
+			return ret;
+
+		ret = mdss_mdp_histogram_stop(block);
 		break;
 
 	case MSMFB_GET_PAGE_PROTECTION:
