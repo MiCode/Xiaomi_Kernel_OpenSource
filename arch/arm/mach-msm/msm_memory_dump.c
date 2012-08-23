@@ -20,7 +20,7 @@
 
 
 /*TODO: Needs to be set to correct value */
-#define DUMP_TABLE_OFFSET	0x20
+#define DUMP_TABLE_OFFSET	0x14
 #define MSM_DUMP_TABLE_VERSION	MK_TABLE(1, 0)
 
 static struct msm_memory_dump mem_dump_data;
@@ -67,7 +67,8 @@ static int __init init_memory_dump(void)
 	table = mem_dump_data.dump_table_ptr;
 	table->version = MSM_DUMP_TABLE_VERSION;
 	mem_dump_data.dump_table_phys = virt_to_phys(table);
-	/* TODO: Need to write physical address of table to IMEM */
+	writel_relaxed(mem_dump_data.dump_table_phys,
+				MSM_IMEM_BASE + DUMP_TABLE_OFFSET);
 	atomic_notifier_chain_register(&panic_notifier_list,
 						&msm_memory_dump_blk);
 	printk(KERN_INFO "MSM Memory Dump table set up\n");
