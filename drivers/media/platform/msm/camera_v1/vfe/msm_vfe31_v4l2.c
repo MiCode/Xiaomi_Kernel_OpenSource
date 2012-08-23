@@ -367,7 +367,7 @@ static unsigned long vfe31_stats_dqbuf(enum msm_stats_enum_type stats_type)
 	rc = vfe31_ctrl->stats_ops.dqbuf(vfe31_ctrl->stats_ops.stats_ctrl,
 			stats_type, &buf);
 	if (rc < 0) {
-		pr_err("%s: dq stats buf (type = %d) err = %d",
+		CDBG("%s: dq stats buf (type = %d) err = %d",
 			__func__, stats_type, rc);
 		return 0L;
 	}

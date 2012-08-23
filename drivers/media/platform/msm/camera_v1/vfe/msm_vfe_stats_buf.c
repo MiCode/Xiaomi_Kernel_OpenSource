@@ -363,7 +363,7 @@ static int msm_stats_dqbuf(struct msm_stats_bufq_ctrl *stats_ctrl,
 		}
 	}
 	if (!(*pp_stats_buf)) {
-		pr_err("%s: no free stats buf, type = %d",
+		D("%s: no free stats buf, type = %d",
 			__func__, stats_type);
 		rc = -1;
 		return rc;
