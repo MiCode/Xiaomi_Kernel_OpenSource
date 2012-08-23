@@ -41,7 +41,7 @@ import sys
 version = 'build-all.py, version 0.01'
 
 build_dir = '../all-kernels'
-make_command = ["vmlinux", "modules"]
+make_command = ["vmlinux", "modules", "dtbs"]
 make_env = os.environ
 make_env.update({
         'ARCH': 'arm',
