@@ -374,7 +374,14 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 	int rc = 0;
 	int i;
 	struct vidc_buffer_addr_info buffer_info;
-
+	struct msm_vidc_core *core = inst->core;
+	if (inst->state == MSM_VIDC_CORE_INVALID ||
+			core->state == VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR,
+			"Core %p in bad state, ignoring release output buf\n",
+				core);
+		goto exit;
+	}
 	switch (b->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
@@ -392,7 +399,7 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 			buffer_info.extradata_addr =
 				inst->extradata_handle->device_addr;
 			rc = vidc_hal_session_release_buffers(
-				(void *)inst->session, &buffer_info);
+					(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
 					"vidc_hal_session_release_buffers failed\n");
@@ -402,6 +409,7 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "Buffer type not recognized: %d\n", b->type);
 		break;
 	}
+exit:
 	return rc;
 }
 
@@ -842,6 +850,8 @@ static void msm_vdec_buf_queue(struct vb2_buffer *vb)
 int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 {
 	int rc = 0;
+	struct v4l2_event dqevent = {0};
+	struct msm_vidc_core *core = inst->core;
 	switch (dec->cmd) {
 	case V4L2_DEC_QCOM_CMD_FLUSH:
 		rc = msm_comm_flush(inst, dec->flags);
@@ -853,6 +863,15 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 		rc = msm_comm_release_persist_buffers(inst);
 		if (rc)
 			pr_err("Failed to release persist buffers: %d\n", rc);
+		if (inst->state == MSM_VIDC_CORE_INVALID ||
+			core->state == VIDC_CORE_INVALID) {
+			dprintk(VIDC_ERR,
+				"Core %p in bad state, Sending CLOSE event\n",
+					core);
+			dqevent.type = V4L2_EVENT_MSM_VIDC_CLOSE_DONE;
+			v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+			goto exit;
+		}
 		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
 		break;
 	default:

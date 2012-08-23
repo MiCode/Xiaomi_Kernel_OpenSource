@@ -23,6 +23,7 @@
 #include "vidc_hal_api.h"
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
+#include "msm_vidc_ssr.h"
 
 #define HW_RESPONSE_TIMEOUT (5 * 60 * 1000)
 
@@ -312,7 +313,7 @@ static void handle_sys_release_res_done(
 	complete(&core->completions[SYS_MSG_INDEX(cmd)]);
 }
 
-static inline void change_inst_state(struct msm_vidc_inst *inst,
+void change_inst_state(struct msm_vidc_inst *inst,
 	enum instance_state state)
 {
 	unsigned long flags;
@@ -506,6 +507,13 @@ static void handle_session_flush(enum command_response cmd, void *data)
 	} else {
 		dprintk(VIDC_ERR, "Failed to get valid response for flush\n");
 	}
+}
+
+static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
+{
+	subsystem_restart("msm_vidc");
+	dprintk(VIDC_ERR,
+		"msm_vidc: Sub System Restart initiated\n");
 }
 
 
@@ -743,6 +751,9 @@ void handle_cmd_response(enum command_response cmd, void *data)
 	case SESSION_GET_SEQ_HDR_DONE:
 		handle_seq_hdr_done(cmd, data);
 		break;
+	case SYS_WATCHDOG_TIMEOUT:
+		handle_sys_watchdog_timeout(cmd, data);
+		break;
 	default:
 		dprintk(VIDC_ERR, "response unhandled\n");
 		break;
@@ -854,7 +865,7 @@ fail_pil_get:
 	return rc;
 }
 
-static void msm_comm_unload_fw(struct msm_vidc_core *core)
+void msm_comm_unload_fw(struct msm_vidc_core *core)
 {
 	if (!core) {
 		dprintk(VIDC_ERR, "Invalid paramter: %p\n", core);
@@ -901,7 +912,7 @@ ocmem_set_failed:
 	return rc;
 }
 
-static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
+int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 {
 	struct vidc_resource_hdr rhdr;
 	int rc = 0;
@@ -967,7 +978,7 @@ ocmem_set_failed:
 	return rc;
 }
 
-static int msm_comm_free_ocmem(struct msm_vidc_core *core)
+int msm_comm_free_ocmem(struct msm_vidc_core *core)
 {
 	int rc = 0;
 	if (core->resources.ocmem.buf) {
@@ -1343,30 +1354,43 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 {
 	int rc = 0;
 	int flipped_state;
+	struct msm_vidc_core *core;
 	if (!inst) {
 		dprintk(VIDC_ERR,
-			"Invalid instance pointer = %p\n", inst);
+				"Invalid instance pointer = %p\n", inst);
 		return -EINVAL;
 	}
 	dprintk(VIDC_DBG,
-		"Trying to move inst: %p from: 0x%x to 0x%x\n",
-				inst, inst->state, state);
+			"Trying to move inst: %p from: 0x%x to 0x%x\n",
+			inst, inst->state, state);
+	core = inst->core;
+	if (!core) {
+		dprintk(VIDC_ERR,
+				"Invalid core pointer = %p\n", inst);
+		return -EINVAL;
+	}
 	mutex_lock(&inst->sync_lock);
+	if (inst->state == MSM_VIDC_CORE_INVALID ||
+			core->state == VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR,
+				"Core is in bad state can't change the state");
+		goto exit;
+	}
 	flipped_state = inst->state;
 	if (flipped_state < MSM_VIDC_STOP
-		&& state > MSM_VIDC_STOP) {
+			&& state > MSM_VIDC_STOP) {
 		flipped_state = MSM_VIDC_STOP + (MSM_VIDC_STOP - flipped_state);
 		flipped_state &= 0xFFFE;
 		flipped_state = flipped_state - 1;
 	} else if (flipped_state > MSM_VIDC_STOP
-		&& state < MSM_VIDC_STOP) {
+			&& state < MSM_VIDC_STOP) {
 		flipped_state = MSM_VIDC_STOP -
-				(flipped_state - MSM_VIDC_STOP + 1);
+			(flipped_state - MSM_VIDC_STOP + 1);
 		flipped_state &= 0xFFFE;
 		flipped_state = flipped_state - 1;
 	}
 	dprintk(VIDC_DBG,
-		"flipped_state = 0x%x\n", flipped_state);
+			"flipped_state = 0x%x\n", flipped_state);
 	switch (flipped_state) {
 	case MSM_VIDC_CORE_UNINIT_DONE:
 	case MSM_VIDC_CORE_INIT:
@@ -1421,14 +1445,14 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		if (rc || state <= inst->state)
 			break;
 		dprintk(VIDC_DBG,
-			"Moving to release resources done state\n");
+				"Moving to release resources done state\n");
 	case MSM_VIDC_CLOSE:
 		rc = msm_comm_session_close(flipped_state, inst);
 		if (rc || state <= inst->state)
 			break;
 	case MSM_VIDC_CLOSE_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_CLOSE_DONE,
-			SESSION_END_DONE);
+				SESSION_END_DONE);
 		if (rc || state <= inst->state)
 			break;
 	case MSM_VIDC_CORE_UNINIT:
@@ -1441,11 +1465,12 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		rc = -EINVAL;
 		break;
 	}
+exit:
 	mutex_unlock(&inst->sync_lock);
 	if (rc)
 		dprintk(VIDC_ERR,
-			"Failed to move from state: %d to %d\n",
-			inst->state, state);
+				"Failed to move from state: %d to %d\n",
+				inst->state, state);
 	return rc;
 }
 
@@ -1456,11 +1481,23 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 	struct msm_vidc_inst *inst;
 	struct vb2_buf_entry *entry;
 	struct vidc_frame_data frame_data;
+	struct msm_vidc_core *core;
 	q = vb->vb2_queue;
 	inst = q->drv_priv;
-
 	if (!inst || !vb) {
 		dprintk(VIDC_ERR, "Invalid input: %p, %p\n", inst, vb);
+		return -EINVAL;
+	}
+	core = inst->core;
+	if (!core) {
+		dprintk(VIDC_ERR,
+			"Invalid input: %p, %p, %p\n", inst, core, vb);
+		return -EINVAL;
+	}
+
+	if (inst->state == MSM_VIDC_CORE_INVALID ||
+		core->state == VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR, "Core is in bad state. Can't Queue\n");
 		return -EINVAL;
 	}
 	if (inst->state != MSM_VIDC_START_DONE) {
@@ -1580,7 +1617,6 @@ exit:
 	mutex_unlock(&inst->sync_lock);
 	return rc;
 }
-
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 {
 	struct msm_smem *handle;
@@ -1589,6 +1625,18 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 	struct vidc_buffer_addr_info buffer_info;
 	int rc = 0;
 	unsigned long flags;
+	struct msm_vidc_core *core;
+	if (!inst) {
+		dprintk(VIDC_ERR,
+				"Invalid instance pointer = %p\n", inst);
+		return -EINVAL;
+	}
+	core = inst->core;
+	if (!core) {
+		dprintk(VIDC_ERR,
+				"Invalid core pointer = %p\n", core);
+		return -EINVAL;
+	}
 	spin_lock_irqsave(&inst->lock, flags);
 	if (!list_empty(&inst->internalbufs)) {
 		list_for_each_safe(ptr, next, &inst->internalbufs) {
@@ -1599,13 +1647,17 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr = handle->device_addr;
-			rc = vidc_hal_session_release_buffers(
-				(void *) inst->session,	&buffer_info);
-			if (rc)
-				dprintk(VIDC_WARN,
-					"Failed to release scratch buffer: 0x%x, %d",
-					buffer_info.align_device_addr,
-					buffer_info.buffer_size);
+			if (inst->state != MSM_VIDC_CORE_INVALID &&
+					core->state != VIDC_CORE_INVALID) {
+				rc = vidc_hal_session_release_buffers(
+						(void *) inst->session,
+							&buffer_info);
+				if (rc)
+					dprintk(VIDC_WARN,
+						"Rel scrtch buf fail:0x%x, %d",
+						buffer_info.align_device_addr,
+						buffer_info.buffer_size);
+			}
 			list_del(&buf->list);
 			spin_unlock_irqrestore(&inst->lock, flags);
 			msm_smem_free(inst->mem_client, buf->handle);
@@ -1625,23 +1677,39 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 	struct vidc_buffer_addr_info buffer_info;
 	int rc = 0;
 	unsigned long flags;
+	struct msm_vidc_core *core;
+	if (!inst) {
+		dprintk(VIDC_ERR,
+				"Invalid instance pointer = %p\n", inst);
+		return -EINVAL;
+	}
+	core = inst->core;
+	if (!core) {
+		dprintk(VIDC_ERR,
+				"Invalid core pointer = %p\n", core);
+		return -EINVAL;
+	}
 	spin_lock_irqsave(&inst->lock, flags);
 	if (!list_empty(&inst->persistbufs)) {
 		list_for_each_safe(ptr, next, &inst->persistbufs) {
 			buf = list_entry(ptr, struct internal_buf,
-				list);
+					list);
 			handle = buf->handle;
 			buffer_info.buffer_size = handle->size;
 			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr = handle->device_addr;
-			rc = vidc_hal_session_release_buffers(
-				(void *) inst->session,	&buffer_info);
-			if (rc)
-				dprintk(VIDC_WARN,
-					"Failed to release persist buffer 0x%x, %d\n",
-					buffer_info.align_device_addr,
-					buffer_info.buffer_size);
+			if (inst->state != MSM_VIDC_CORE_INVALID &&
+					core->state != VIDC_CORE_INVALID) {
+				rc = vidc_hal_session_release_buffers(
+						(void *) inst->session,
+							&buffer_info);
+				if (rc)
+					dprintk(VIDC_WARN,
+						"Rel prst buf fail:0x%x, %d",
+						buffer_info.align_device_addr,
+						buffer_info.buffer_size);
+			}
 			list_del(&buf->list);
 			spin_unlock_irqrestore(&inst->lock, flags);
 			msm_smem_free(inst->mem_client, buf->handle);
@@ -1779,6 +1847,50 @@ err_no_mem:
 	return rc;
 }
 
+static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
+{
+	struct v4l2_event dqevent = {0};
+	struct list_head *ptr, *next;
+	struct vb2_buffer *vb;
+	if (!list_empty(&inst->bufq[CAPTURE_PORT].
+				vb2_bufq.queued_list)) {
+		list_for_each_safe(ptr, next,
+				&inst->bufq[CAPTURE_PORT].
+				vb2_bufq.queued_list) {
+			vb = container_of(ptr,
+					struct vb2_buffer,
+					queued_entry);
+			if (vb) {
+				vb->v4l2_planes[0].bytesused = 0;
+				mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
+				vb2_buffer_done(vb,
+						VB2_BUF_STATE_DONE);
+				mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
+			}
+		}
+	}
+	if (!list_empty(&inst->bufq[OUTPUT_PORT].
+				vb2_bufq.queued_list)) {
+		list_for_each_safe(ptr, next,
+				&inst->bufq[OUTPUT_PORT].
+				vb2_bufq.queued_list) {
+			vb = container_of(ptr,
+					struct vb2_buffer,
+					queued_entry);
+			if (vb) {
+				vb->v4l2_planes[0].bytesused = 0;
+				mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
+				vb2_buffer_done(vb,
+						VB2_BUF_STATE_DONE);
+				mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
+			}
+		}
+	}
+	dqevent.type = V4L2_EVENT_MSM_VIDC_FLUSH_DONE;
+	dqevent.id = 0;
+	v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+	return;
+}
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 {
 	int rc =  0;
@@ -1787,12 +1899,34 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	struct list_head *ptr, *next;
 	struct vb2_buf_entry *temp;
 	struct mutex *lock;
+	struct msm_vidc_core *core;
+	if (!inst) {
+		dprintk(VIDC_ERR,
+				"Invalid instance pointer = %p\n", inst);
+		return -EINVAL;
+	}
+	core = inst->core;
+	if (!core) {
+		dprintk(VIDC_ERR,
+				"Invalid core pointer = %p\n", core);
+		return -EINVAL;
+	}
+
 	ip_flush = flags & V4L2_QCOM_CMD_FLUSH_OUTPUT;
 	op_flush = flags & V4L2_QCOM_CMD_FLUSH_CAPTURE;
+
 	if (ip_flush && !op_flush) {
 		dprintk(VIDC_WARN, "Input only flush not supported\n");
 		return 0;
 	}
+	if (inst->state == MSM_VIDC_CORE_INVALID ||
+			core->state == VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR,
+				"Core %p and inst %p are in bad state\n",
+					core, inst);
+		msm_comm_flush_in_invalid_state(inst);
+	}
+
 	mutex_lock(&inst->sync_lock);
 	if (inst->in_reconfig && !ip_flush && op_flush) {
 		if (!list_empty(&inst->pendingq)) {
