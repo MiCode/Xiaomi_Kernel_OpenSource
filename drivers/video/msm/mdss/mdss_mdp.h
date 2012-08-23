@@ -107,6 +107,9 @@ enum mdss_mdp_csc_type {
 	MDSS_MDP_MAX_CSC
 };
 
+struct mdss_mdp_ctl;
+typedef void (*mdp_vsync_handler_t)(struct mdss_mdp_ctl *, ktime_t);
+
 struct mdss_mdp_ctl {
 	u32 num;
 	u32 ref_cnt;
@@ -138,6 +141,7 @@ struct mdss_mdp_ctl {
 	int (*stop_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*display_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
+	int (*set_vsync_handler) (struct mdss_mdp_ctl *, mdp_vsync_handler_t);
 
 	void *priv_data;
 };
