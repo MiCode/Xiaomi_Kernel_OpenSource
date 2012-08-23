@@ -353,18 +353,21 @@ static ssize_t msm_lpm_resource_attr_store(struct kobject *kobj,
 
 /* lpm resource handling functions */
 /* Common */
-static void msm_lpm_notify_common(struct msm_rpm_notifier_data *rpm_notifier_cb,
+static void msm_lpm_notify_common(struct msm_rpm_notifier_data *cb,
 				struct msm_lpm_resource *rs)
 {
-	if ((rpm_notifier_cb->rsc_type == rs->rs_data.type) &&
-			(rpm_notifier_cb->rsc_id == rs->rs_data.id) &&
-			(rpm_notifier_cb->key == rs->rs_data.key)) {
-		BUG_ON(rpm_notifier_cb->size > MAX_RS_SIZE);
+	if ((cb->rsc_type == rs->rs_data.type) &&
+		(cb->rsc_id == rs->rs_data.id) &&
+		(cb->key == rs->rs_data.key)) {
+
+		BUG_ON(cb->size > MAX_RS_SIZE);
 
 		if (rs->valid) {
-			if (rpm_notifier_cb->value)
-				memcpy(&rs->rs_data.value,
-				rpm_notifier_cb->value, rpm_notifier_cb->size);
+			if (cb->value) {
+				memcpy(&rs->rs_data.value, cb->value, cb->size);
+				msm_rpm_add_kvp_data_noirq(rs->rs_data.handle,
+						cb->key, cb->value, cb->size);
+			}
 			else
 				rs->rs_data.value = rs->rs_data.default_value;
 
