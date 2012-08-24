@@ -1197,11 +1197,13 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 			HAL_PARAM_VENC_H264_DEBLOCK_CONTROL;
 		h264_db_control.slice_alpha_offset = control.value;
 		pdata = &h264_db_control;
+		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA:
 		property_id =
 			HAL_PARAM_VENC_H264_DEBLOCK_CONTROL;
 		h264_db_control.slice_beta_offset = control.value;
 		pdata = &h264_db_control;
+		break;
 	default:
 		break;
 	}
@@ -1534,7 +1536,7 @@ int msm_venc_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
 			"Failed to find buffer queue for type = %d\n", i);
 		return -EINVAL;
 	}
-	dprintk(VIDC_DBG, "Calling streamoff\n");
+	dprintk(VIDC_DBG, "Calling streamoff on port: %d\n", i);
 	rc = vb2_streamoff(q, i);
 	if (rc)
 		dprintk(VIDC_ERR, "streamoff failed on port: %d\n", i);

@@ -585,9 +585,16 @@ static void handle_fbd(enum command_response cmd, void *data)
 			vb->v4l2_buf.timestamp =
 				ns_to_timeval(time_usec * NSEC_PER_USEC);
 		}
+		vb->v4l2_buf.flags = 0;
 
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_CODECCONFIG)
+			vb->v4l2_buf.flags &= ~V4L2_QCOM_BUF_FLAG_CODECCONFIG;
+
+		if (!inst->fbd_count)
+			vb->v4l2_buf.flags = V4L2_BUF_FLAG_KEYFRAME;
+		++inst->fbd_count;
 
 		switch (fill_buf_done->picture_type) {
 		case HAL_PICTURE_IDR:
@@ -604,6 +611,8 @@ static void handle_fbd(enum command_response cmd, void *data)
 		case HAL_UNUSED_PICT:
 			/* Do we need to care about these? */
 		case HAL_FRAME_YUV:
+			break;
+		default:
 			break;
 		}
 
@@ -639,6 +648,31 @@ static void handle_fbd(enum command_response cmd, void *data)
 		}
 
 	}
+}
+
+static void  handle_seq_hdr_done(enum command_response cmd, void *data)
+{
+	struct msm_vidc_cb_data_done *response = data;
+	struct msm_vidc_inst *inst;
+	struct vb2_buffer *vb;
+	struct vidc_hal_fbd *fill_buf_done;
+	if (!response) {
+		pr_err("Invalid response from vidc_hal\n");
+		return;
+	}
+	inst = (struct msm_vidc_inst *)response->session_id;
+	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
+	vb = get_vb_from_device_addr(&inst->vb2_bufq[CAPTURE_PORT],
+		(u32)fill_buf_done->packet_buffer1);
+	if (vb)
+		vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
+
+	vb->v4l2_buf.flags = V4L2_QCOM_BUF_FLAG_CODECCONFIG;
+
+	dprintk(VIDC_DBG, "Filled length = %d; flags %x\n",
+				vb->v4l2_planes[0].bytesused,
+				vb->v4l2_buf.flags);
+	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 }
 
 void handle_cmd_response(enum command_response cmd, void *data)
@@ -683,6 +717,9 @@ void handle_cmd_response(enum command_response cmd, void *data)
 		break;
 	case SESSION_FLUSH_DONE:
 		handle_session_flush(cmd, data);
+		break;
+	case SESSION_GET_SEQ_HDR_DONE:
+		handle_seq_hdr_done(cmd, data);
 		break;
 	default:
 		dprintk(VIDC_ERR, "response unhandled\n");
@@ -1159,6 +1196,8 @@ static int msm_comm_session_init(int flipped_state,
 			inst->session_type, fourcc);
 		goto exit;
 	}
+	inst->ftb_count = 0;
+	inst->fbd_count = 0;
 	change_inst_state(inst, MSM_VIDC_OPEN);
 exit:
 	return rc;
@@ -1422,7 +1461,6 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 	} else {
 		int64_t time_usec = timeval_to_ns(&vb->v4l2_buf.timestamp);
 		do_div(time_usec, NSEC_PER_USEC);
-
 		memset(&frame_data, 0 , sizeof(struct vidc_frame_data));
 		frame_data.alloc_len = vb->v4l2_planes[0].length;
 		frame_data.filled_len = vb->v4l2_planes[0].bytesused;
@@ -1451,6 +1489,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 					&frame_data);
 			dprintk(VIDC_DBG, "Sent etb to HAL\n");
 		} else if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+			struct vidc_seq_hdr seq_hdr;
 			frame_data.filled_len = 0;
 			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
 			if (inst->extradata_handle) {
@@ -1465,8 +1504,23 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			dprintk(VIDC_DBG,
 				" extradata_addr: %d\n",
 				frame_data.extradata_addr);
-			rc = vidc_hal_session_ftb((void *) inst->session,
-					&frame_data);
+			if (!inst->ftb_count &&
+			   inst->session_type == MSM_VIDC_ENCODER) {
+				seq_hdr.seq_hdr = (u8 *) vb->v4l2_planes[0].
+					m.userptr;
+				seq_hdr.seq_hdr_len = vb->v4l2_planes[0].length;
+				rc = vidc_hal_session_get_seq_hdr((void *)
+						inst->session, &seq_hdr);
+				if (!rc) {
+					inst->vb2_seq_hdr = vb;
+					dprintk(VIDC_DBG, "Seq_hdr: %p\n",
+						inst->vb2_seq_hdr);
+				}
+			} else {
+				rc = vidc_hal_session_ftb((void *)
+					inst->session, &frame_data);
+			}
+			inst->ftb_count++;
 		} else {
 			dprintk(VIDC_ERR,
 				"This capability is not supported: %d\n",

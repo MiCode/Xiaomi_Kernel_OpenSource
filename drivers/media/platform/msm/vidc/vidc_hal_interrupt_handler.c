@@ -577,6 +577,8 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 		data_done.output_done.packet_buffer1 = pkt->packet_buffer;
 		data_done.output_done.extra_data_buffer =
 			pkt->extra_data_buffer;
+		dprintk(VIDC_DBG, "FBD: Received buf: %p, of len: %d\n",
+				   pkt->packet_buffer, pkt->filled_len);
 	} else if (is_decoder == 1) {
 		struct hfi_msg_session_fbd_uncompressed_plane0_packet *pkt =
 		(struct	hfi_msg_session_fbd_uncompressed_plane0_packet *)
@@ -731,6 +733,29 @@ static void hal_process_session_end_done(struct hal_device *device,
 	device->callback(SESSION_END_DONE, &cmd_done);
 }
 
+static void hal_process_session_get_seq_hdr_done(struct hal_device *device,
+	struct hfi_msg_session_get_sequence_header_done_packet *pkt)
+{
+	struct msm_vidc_cb_data_done data_done;
+	if (!pkt || pkt->size !=
+		sizeof(struct
+		hfi_msg_session_get_sequence_header_done_packet)) {
+		dprintk(VIDC_ERR, "bad packet/packet size: %d", pkt->size);
+		return;
+	}
+	memset(&data_done, 0, sizeof(struct msm_vidc_cb_data_done));
+	data_done.device_id = device->device_id;
+	data_done.size = sizeof(struct msm_vidc_cb_data_done);
+	data_done.session_id =
+		((struct hal_session *) pkt->session_id)->session_id;
+	data_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	data_done.output_done.packet_buffer1 = pkt->sequence_header;
+	data_done.output_done.filled_len1 = pkt->header_len;
+	dprintk(VIDC_INFO, "seq_hdr: %p, Length: %d",
+		   pkt->sequence_header, pkt->header_len);
+	device->callback(SESSION_GET_SEQ_HDR_DONE, &data_done);
+}
+
 static void hal_process_msg_packet(struct hal_device *device,
 	struct vidc_hal_msg_pkt_hdr *msg_hdr)
 {
@@ -805,6 +830,11 @@ static void hal_process_msg_packet(struct hal_device *device,
 			(struct hfi_msg_sys_release_resource_done_packet *)
 			msg_hdr);
 		break;
+	case HFI_MSG_SESSION_GET_SEQUENCE_HEADER_DONE:
+		hal_process_session_get_seq_hdr_done(device, (struct
+			hfi_msg_session_get_sequence_header_done_packet
+			 *) msg_hdr);
+		break;
 	default:
 		dprintk(VIDC_ERR, "UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);
 		break;
@@ -815,7 +845,7 @@ void vidc_hal_response_handler(struct hal_device *device)
 {
 	u8 packet[VIDC_IFACEQ_MED_PKT_SIZE];
 
-	dprintk(VIDC_INFO, "############vidc_hal_response_handler\n");
+	dprintk(VIDC_INFO, "#####vidc_hal_response_handler#####\n");
 	if (device) {
 		while (!vidc_hal_iface_msgq_read(device, packet)) {
 			hal_process_msg_packet(device,
