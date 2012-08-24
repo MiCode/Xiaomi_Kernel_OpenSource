@@ -1278,11 +1278,21 @@ static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)
 {
 	int rc = -ENOMEM;
 	struct video_device *pvdev = NULL;
-	struct i2c_client *client = v4l2_get_subdevdata(pcam->sensor_sdev);
+	struct i2c_client *client = NULL;
+	struct platform_device *pdev = NULL;
 	D("%s\n", __func__);
 
 	/* first register the v4l2 device */
-	pcam->v4l2_dev.dev = &client->dev;
+	if (pcam->sensor_sdev->flags & V4L2_SUBDEV_FL_IS_I2C) {
+		client = v4l2_get_subdevdata(pcam->sensor_sdev);
+		pcam->v4l2_dev.dev = &client->dev;
+		pcam->media_dev.dev = &client->dev;
+	} else {
+		pdev = v4l2_get_subdevdata(pcam->sensor_sdev);
+		pcam->v4l2_dev.dev = &pdev->dev;
+		pcam->media_dev.dev = &pdev->dev;
+	}
+
 	rc = v4l2_device_register(pcam->v4l2_dev.dev, &pcam->v4l2_dev);
 	if (rc < 0)
 		return -EINVAL;
@@ -1299,7 +1309,6 @@ static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)
 
 	strlcpy(pcam->media_dev.model, QCAMERA_NAME,
 			sizeof(pcam->media_dev.model));
-	pcam->media_dev.dev = &client->dev;
 	rc = media_device_register(&pcam->media_dev);
 	pvdev->v4l2_dev = &pcam->v4l2_dev;
 	pcam->v4l2_dev.mdev = &pcam->media_dev;
@@ -1358,7 +1367,7 @@ static struct v4l2_subdev *msm_actuator_probe(
 
 	D("%s called\n", __func__);
 
-	if (!actuator_info)
+	if (!actuator_info || !actuator_info->board_info)
 		goto probe_fail;
 
 	adapter = i2c_get_adapter(actuator_info->bus_id);
@@ -1401,7 +1410,7 @@ static struct v4l2_subdev *msm_eeprom_probe(
 
 	D("%s called\n", __func__);
 
-	if (!eeprom_info)
+	if (!eeprom_info || !eeprom_info->board_info)
 		goto probe_fail;
 
 	adapter = i2c_get_adapter(eeprom_info->bus_id);

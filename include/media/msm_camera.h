@@ -1339,7 +1339,7 @@ struct msm_camera_csid_vc_cfg {
 };
 
 struct csi_lane_params_t {
-	uint8_t csi_lane_assign;
+	uint16_t csi_lane_assign;
 	uint8_t csi_lane_mask;
 	uint8_t csi_if;
 	uint8_t csid_core[2];

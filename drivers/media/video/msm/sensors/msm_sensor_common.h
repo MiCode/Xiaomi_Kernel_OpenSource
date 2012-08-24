@@ -23,6 +23,7 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <mach/camera.h>
 #include <media/msm_camera.h>
 #include <media/v4l2-subdev.h>
@@ -101,6 +102,11 @@ struct msm_sensor_reg_t {
 	uint8_t num_conf;
 };
 
+enum msm_sensor_device_type_t {
+	MSM_SENSOR_I2C_DEVICE,
+	MSM_SENSOR_PLATFORM_DEVICE,
+};
+
 struct v4l2_subdev_info {
 	enum v4l2_mbus_pixelcode code;
 	enum v4l2_colorspace colorspace;
@@ -177,6 +183,7 @@ struct msm_sensor_ctrl_t {
 	int num_vreg_seq;
 	struct msm_camera_power_seq_t *power_seq;
 	int num_power_seq;
+	enum msm_sensor_device_type_t sensor_device_type;
 
 	struct msm_sensor_output_reg_addr_t *sensor_output_reg_addr;
 	struct msm_sensor_id_info_t *sensor_id_info;
@@ -201,7 +208,7 @@ struct msm_sensor_ctrl_t {
 	struct v4l2_subdev_ops *sensor_v4l2_subdev_ops;
 	struct msm_sensor_fn_t *func_tbl;
 	struct regulator **reg_ptr;
-	struct clk *cam_clk;
+	struct clk *cam_clk[2];
 	long clk_rate;
 	enum msm_sensor_state sensor_state;
 	/* Number of frames to delay after start / stop stream in Q10 format.

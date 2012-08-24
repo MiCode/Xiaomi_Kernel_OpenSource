@@ -27,19 +27,6 @@
 #define S_I2C_DBG(fmt, args...) CDBG(fmt, ##args)
 #endif
 
-enum msm_camera_i2c_cmd_type {
-	MSM_CAMERA_I2C_CMD_WRITE,
-	MSM_CAMERA_I2C_CMD_POLL,
-};
-
-struct msm_camera_i2c_reg_conf {
-	uint16_t reg_addr;
-	uint16_t reg_data;
-	enum msm_camera_i2c_data_type dt;
-	enum msm_camera_i2c_cmd_type cmd_type;
-	int16_t mask;
-};
-
 struct msm_camera_i2c_client {
 	struct i2c_client *client;
 	struct msm_camera_cci_client *cci_client;
