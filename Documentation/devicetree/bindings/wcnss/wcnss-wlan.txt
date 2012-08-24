@@ -1,0 +1,45 @@
+* Qualcomm WCNSS Platform Driver
+
+WCNSS driver is the platform driver. It is used for performing the cold
+boot-up of the wireless device. It is responsible for adjusting
+the necessary I/O rails and enabling appropriate gpios for wireless
+connectivity subsystem.
+
+Required properties:
+- compatible: "wcnss_wlan"
+- reg: offset and length of the register set for the device. The pair
+  corresponds to PRONTO.
+- interupts: Pronto to Apps interrupts for tx done and rx pending.
+- qcom,pronto-vddmx-supply: regulator to supply pronto pll.
+- qcom,pronto-vddcx-supply: regulator to supply WLAN/BT/FM digital module.
+- qcom,pronto-vddpx-supply: regulator to supply WLAN DAC.
+- qcom,iris-vddxo-supply  : regulator to supply RF XO.
+- qcom,iris-vddrfa-supply : regulator to supply RFA digital.
+- qcom,iris-vddpa-supply  : regulator to supply RF PA.
+- qcom,iris-vdddig-supply : regulator to supply RF digital(BT/FM).
+- gpios: gpio numbers to configure 5-wire interface of WLAN connectivity
+- qcom,has_48mhz_xo: boolean flag to determine the usage of 24MHz XO from RF
+- qcom,has_pronto_hw: boolean flag to determine the revId of the WLAN subsystem
+
+Example:
+
+    qcom,wcnss-wlan@fb000000 {
+        compatible = "qcom,wcnss_wlan";
+        reg = <0xfb000000 0x280000>;
+        reg-names = "wcnss_mmio";
+        interrupts = <0 145 0 0 146 0>;
+        interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+
+        qcom,pronto-vddmx-supply = <&pm8841_s1>;
+        qcom,pronto-vddcx-supply = <&pm8841_s2>;
+        qcom,pronto-vddpx-supply = <&pm8941_s3>;
+        qcom,iris-vddxo-supply = <&pm8941_l6>;
+        qcom,iris-vddrfa-supply = <&pm8941_l11>;
+        qcom,iris-vddpa-supply = <&pm8941_l19>;
+        qcom,iris-vdddig-supply = <&pm8941_l3>;
+
+        gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>,
+                <&msmgpio 39 0>, <&msmgpio 40 0>;
+        qcom,has_48mhz_xo;
+        qcom,has_pronto_hw;
+    };

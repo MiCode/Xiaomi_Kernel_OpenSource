@@ -23,6 +23,8 @@
 #include <linux/gpio.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <mach/peripheral-loader.h>
 #include <mach/msm_smd.h>
 
@@ -76,6 +78,7 @@ static struct {
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned int	serial_number;
 	int		thermal_mitigation;
+	enum wcnss_hw_type	wcnss_hw_type;
 	void		(*tm_notify)(struct device *, int);
 	struct wcnss_wlan_config wlan_config;
 	struct delayed_work wcnss_work;
@@ -225,11 +228,42 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 
 static void wcnss_post_bootup(struct work_struct *work)
 {
-	pr_info("%s: Cancel APPS vote for Iris & Riva\n", __func__);
+	pr_info("%s: Cancel APPS vote for Iris & WCNSS\n", __func__);
 
-	/* Since Riva is up, cancel any APPS vote for Iris & Riva VREGs  */
+	/* Since WCNSS is up, cancel any APPS vote for Iris & WCNSS VREGs  */
 	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
 		WCNSS_WLAN_SWITCH_OFF);
+
+}
+
+static int
+wcnss_pronto_gpios_config(struct device *dev, bool enable)
+{
+	int rc = 0;
+	int i, j;
+	int WCNSS_WLAN_NUM_GPIOS = 5;
+
+	for (i = 0; i < WCNSS_WLAN_NUM_GPIOS; i++) {
+		int gpio = of_get_gpio(dev->of_node, i);
+		if (enable) {
+			rc = gpio_request(gpio, "wcnss_wlan");
+			if (rc) {
+				pr_err("WCNSS gpio_request %d err %d\n",
+					gpio, rc);
+				goto fail;
+			}
+		} else
+			gpio_free(gpio);
+	}
+
+	return rc;
+
+fail:
+	for (j = WCNSS_WLAN_NUM_GPIOS-1; j >= 0; j--) {
+		int gpio = of_get_gpio(dev->of_node, i);
+		gpio_free(gpio);
+	}
+	return rc;
 }
 
 static int
@@ -469,6 +503,15 @@ void wcnss_allow_suspend()
 }
 EXPORT_SYMBOL(wcnss_allow_suspend);
 
+int wcnss_hardware_type(void)
+{
+	if (penv)
+		return penv->wcnss_hw_type;
+	else
+		return -ENODEV;
+}
+EXPORT_SYMBOL(wcnss_hardware_type);
+
 static int wcnss_smd_tx(void *data, int len)
 {
 	int ret = 0;
@@ -551,6 +594,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
 	struct qcom_wcnss_opts *pdata;
+	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
+									"qcom,has_pronto_hw");
 
 	/* make sure we are only triggered once */
 	if (penv->triggered)
@@ -559,25 +604,36 @@ wcnss_trigger_config(struct platform_device *pdev)
 
 	/* initialize the WCNSS device configuration */
 	pdata = pdev->dev.platform_data;
-	if (WCNSS_CONFIG_UNSPECIFIED == has_48mhz_xo)
-		has_48mhz_xo = pdata->has_48mhz_xo;
+	if (WCNSS_CONFIG_UNSPECIFIED == has_48mhz_xo) {
+		if (has_pronto_hw) {
+			has_48mhz_xo = of_property_read_bool(pdev->dev.of_node,
+										"qcom,has_48mhz_xo");
+			penv->wcnss_hw_type = WCNSS_PRONTO_HW;
+		} else {
+			penv->wcnss_hw_type = WCNSS_RIVA_HW;
+			has_48mhz_xo = pdata->has_48mhz_xo;
+		}
+	}
 	penv->wlan_config.use_48mhz_xo = has_48mhz_xo;
 
 	penv->thermal_mitigation = 0;
 	strlcpy(penv->wcnss_version, "INVALID", WCNSS_VERSION_LEN);
 
-	penv->gpios_5wire = platform_get_resource_byname(pdev, IORESOURCE_IO,
-							"wcnss_gpios_5wire");
-
-	/* allocate 5-wire GPIO resources */
-	if (!penv->gpios_5wire) {
-		dev_err(&pdev->dev, "insufficient IO resources\n");
-		ret = -ENOENT;
-		goto fail_gpio_res;
-	}
-
 	/* Configure 5 wire GPIOs */
-	ret = wcnss_gpios_config(penv->gpios_5wire, true);
+	if (!has_pronto_hw) {
+		penv->gpios_5wire = platform_get_resource_byname(pdev,
+					IORESOURCE_IO, "wcnss_gpios_5wire");
+
+		/* allocate 5-wire GPIO resources */
+		if (!penv->gpios_5wire) {
+			dev_err(&pdev->dev, "insufficient IO resources\n");
+			ret = -ENOENT;
+			goto fail_gpio_res;
+		}
+		ret = wcnss_gpios_config(penv->gpios_5wire, true);
+	} else
+		ret = wcnss_pronto_gpios_config(&pdev->dev, true);
+
 	if (ret) {
 		dev_err(&pdev->dev, "WCNSS gpios config failed.\n");
 		goto fail_gpio_res;
@@ -627,7 +683,10 @@ fail_pil:
 	wcnss_wlan_power(&pdev->dev, &penv->wlan_config,
 				WCNSS_WLAN_SWITCH_OFF);
 fail_power:
-	wcnss_gpios_config(penv->gpios_5wire, false);
+	if (has_pronto_hw)
+		ret = wcnss_pronto_gpios_config(&pdev->dev, false);
+	else
+		wcnss_gpios_config(penv->gpios_5wire, false);
 fail_gpio_res:
 	kfree(penv);
 	penv = NULL;
@@ -724,11 +783,21 @@ static const struct dev_pm_ops wcnss_wlan_pm_ops = {
 	.resume		= wcnss_wlan_resume,
 };
 
+#ifdef CONFIG_WCNSS_CORE_PRONTO
+static struct of_device_id msm_wcnss_pronto_match[] = {
+	{.compatible = "qcom,wcnss_wlan"},
+	{}
+};
+#endif
+
 static struct platform_driver wcnss_wlan_driver = {
 	.driver = {
 		.name	= DEVICE,
 		.owner	= THIS_MODULE,
 		.pm	= &wcnss_wlan_pm_ops,
+#ifdef CONFIG_WCNSS_CORE_PRONTO
+		.of_match_table = msm_wcnss_pronto_match,
+#endif
 	},
 	.probe	= wcnss_wlan_probe,
 	.remove	= wcnss_wlan_remove,
