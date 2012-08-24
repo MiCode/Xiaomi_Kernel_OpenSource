@@ -458,3 +458,39 @@ int msm_camera_config_gpio_table(struct msm_camera_sensor_info *sinfo,
 	}
 	return rc;
 }
+
+void msm_camera_bus_scale_cfg(uint32_t bus_perf_client,
+		enum msm_bus_perf_setting perf_setting)
+{
+	int rc = 0;
+	if (!bus_perf_client) {
+		pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
+		return;
+	}
+
+	switch (perf_setting) {
+	case S_EXIT:
+		rc = msm_bus_scale_client_update_request(bus_perf_client, 1);
+		msm_bus_scale_unregister_client(bus_perf_client);
+		break;
+	case S_PREVIEW:
+		rc = msm_bus_scale_client_update_request(bus_perf_client, 1);
+		break;
+	case S_VIDEO:
+		rc = msm_bus_scale_client_update_request(bus_perf_client, 2);
+		break;
+	case S_CAPTURE:
+		rc = msm_bus_scale_client_update_request(bus_perf_client, 3);
+		break;
+	case S_ZSL:
+		rc = msm_bus_scale_client_update_request(bus_perf_client, 4);
+		break;
+	case S_LIVESHOT:
+		rc = msm_bus_scale_client_update_request(bus_perf_client, 5);
+		break;
+	case S_DEFAULT:
+		break;
+	default:
+		pr_warning("%s: INVALID CASE\n", __func__);
+	}
+}

@@ -700,4 +700,6 @@ int msm_camera_config_gpio_table
 	(struct msm_camera_sensor_info *sinfo, int gpio_en);
 int msm_camera_request_gpio_table
 	(struct msm_camera_sensor_info *sinfo, int gpio_en);
+void msm_camera_bus_scale_cfg(uint32_t bus_perf_client,
+		enum msm_bus_perf_setting perf_setting);
 #endif
