@@ -119,6 +119,8 @@ struct vss_unmap_memory_cmd {
 #define VSS_IMVM_CMD_CREATE_FULL_CONTROL_SESSION	0x000110FE
 /* Create a new full control MVM session. */
 
+#define VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION_V2	0x000112BF
+
 #define APRV2_IBASIC_CMD_DESTROY_SESSION		0x0001003C
 /**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
 

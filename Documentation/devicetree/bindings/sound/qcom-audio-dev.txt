@@ -30,6 +30,12 @@ Required properties:
 
  - compatible : "qcom,msm-voip-dsp"
 
+* msm-pcm-voice
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-voice"
+
 * msm-stub-codec
 
 Required properties:
