@@ -78,6 +78,9 @@
 #define MISC_LOGIC_RST_STB           1
 #define STROBED_RST_EN               0
 
+#define ISPIF_RST_CMD_MASK           0xFE0F1FFF
+#define ISPIF_RST_CMD_1_MASK         0xFC0F1FF9
+
 #define PIX_INTF_0_OVERFLOW_IRQ      12
 #define RAW_INTF_0_OVERFLOW_IRQ      25
 #define RAW_INTF_1_OVERFLOW_IRQ      25

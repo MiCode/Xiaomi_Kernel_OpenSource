@@ -28,6 +28,7 @@
 #define MIPI_CSIPHY_LNCK_MISC1_ADDR              0x128
 #define MIPI_CSIPHY_GLBL_RESET_ADDR              0x140
 #define MIPI_CSIPHY_GLBL_PWR_CFG_ADDR            0x144
+#define MIPI_CSIPHY_GLBL_IRQ_CMD_ADDR            0x164
 #define MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR       0x180
 #define MIPI_CSIPHY_INTERRUPT_MASK0_ADDR         0x1A0
 #define MIPI_CSIPHY_INTERRUPT_MASK_VAL           0x6F
@@ -37,5 +38,6 @@
 #define MIPI_CSIPHY_MODE_CONFIG_SHIFT            0x4
 #define MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR        0x1E0
 #define MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR           0x1E8
+#define CSIPHY_VERSION                           0x0
 
 #endif

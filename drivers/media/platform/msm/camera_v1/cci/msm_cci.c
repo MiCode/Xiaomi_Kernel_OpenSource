@@ -24,11 +24,10 @@
 #include "msm_cam_cci_hwreg.h"
 
 #define V4L2_IDENT_CCI 50005
-#define CCI_I2C_QUEUE_0_SIZE 2
+#define CCI_I2C_QUEUE_0_SIZE 64
 #define CCI_I2C_QUEUE_1_SIZE 16
 
-#undef CDBG
-#define CDBG pr_debug
+#define CCI_TIMEOUT msecs_to_jiffies(100)
 
 static void msm_cci_set_clk_param(struct cci_device *cci_dev)
 {
@@ -127,8 +126,9 @@ static int32_t msm_cci_validate_queue(struct cci_device *cci_dev,
 		msm_camera_io_w(reg_val, cci_dev->base + CCI_QUEUE_START_ADDR);
 		CDBG("%s line %d wait_for_completion_interruptible\n",
 			__func__, __LINE__);
-		wait_for_completion_interruptible(&cci_dev->
-			cci_master_info[master].reset_complete);
+		wait_for_completion_interruptible_timeout(&cci_dev->
+			cci_master_info[master].reset_complete, CCI_TIMEOUT);
+
 		rc = cci_dev->cci_master_info[master].status;
 		if (rc < 0)
 			pr_err("%s failed rc %d\n", __func__, rc);
@@ -234,6 +234,9 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	read_cfg = &c_ctrl->cfg.cci_i2c_read_cfg;
 	mutex_lock(&cci_dev->cci_master_info[master].mutex);
 	CDBG("%s master %d, queue %d\n", __func__, master, queue);
+	CDBG("%s set param sid 0x%x retries %d id_map %d\n", __func__,
+		c_ctrl->cci_info->sid, c_ctrl->cci_info->retries,
+		c_ctrl->cci_info->id_map);
 	val = CCI_I2C_SET_PARAM_CMD | c_ctrl->cci_info->sid << 4 |
 		c_ctrl->cci_info->retries << 16 |
 		c_ctrl->cci_info->id_map << 18;
@@ -285,9 +288,8 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 
 	val = 1 << ((master * 2) + queue);
 	msm_camera_io_w(val, cci_dev->base + CCI_QUEUE_START_ADDR);
-
-	wait_for_completion_interruptible(&cci_dev->
-		cci_master_info[master].reset_complete);
+	wait_for_completion_interruptible_timeout(&cci_dev->
+		cci_master_info[master].reset_complete, CCI_TIMEOUT);
 
 	read_bytes = (read_cfg->num_byte / 4) + 1;
 	index = 0;
@@ -328,6 +330,9 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	cci_dev = v4l2_get_subdevdata(sd);
 	master = c_ctrl->cci_info->cci_i2c_master;
 	CDBG("%s master %d, queue %d\n", __func__, master, queue);
+	CDBG("%s set param sid 0x%x retries %d id_map %d\n", __func__,
+		c_ctrl->cci_info->sid, c_ctrl->cci_info->retries,
+		c_ctrl->cci_info->id_map);
 	mutex_lock(&cci_dev->cci_master_info[master].mutex);
 	val = CCI_I2C_SET_PARAM_CMD | c_ctrl->cci_info->sid << 4 |
 		c_ctrl->cci_info->retries << 16 |
@@ -366,7 +371,7 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 
 	val = msm_camera_io_r(cci_dev->base + CCI_I2C_M0_Q0_CUR_WORD_CNT_ADDR +
 		master * 0x200 + queue * 0x100);
-	CDBG("%s line %d size of queue %d\n", __func__, __LINE__, val);
+	CDBG("%s:%d cur word count %d\n", __func__, __LINE__, val);
 	CDBG("%s:%d CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR\n", __func__, __LINE__);
 	msm_camera_io_w(val, cci_dev->base + CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR +
 		master * 0x200 + queue * 0x100);
@@ -378,8 +383,9 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 
 	CDBG("%s line %d wait_for_completion_interruptible\n",
 		__func__, __LINE__);
-	wait_for_completion_interruptible(&cci_dev->
-		cci_master_info[master].reset_complete);
+	wait_for_completion_interruptible_timeout(&cci_dev->
+		cci_master_info[master].reset_complete, CCI_TIMEOUT);
+
 ERROR:
 	mutex_unlock(&cci_dev->cci_master_info[master].mutex);
 	return rc;
@@ -395,7 +401,10 @@ static int msm_cci_subdev_g_chip_ident(struct v4l2_subdev *sd,
 }
 
 static struct msm_cam_clk_info cci_clk_info[] = {
-	{"cci_clk_src", 19200000},
+	{"camss_top_ahb_clk", -1},
+	{"cci_src_clk", 19200000},
+	{"cci_ahb_clk", -1},
+	{"cci_clk", -1},
 };
 
 static int32_t msm_cci_init(struct v4l2_subdev *sd)
@@ -411,7 +420,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd)
 	rc = msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
 		cci_dev->cci_clk, ARRAY_SIZE(cci_clk_info), 1);
 	if (rc < 0) {
-		CDBG("%s: regulator enable failed\n", __func__);
+		CDBG("%s: clk enable failed\n", __func__);
 		goto clk_enable_failed;
 	}
 
@@ -421,8 +430,9 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd)
 	cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
 	msm_camera_io_w(0xFFFFFFFF, cci_dev->base + CCI_RESET_CMD_ADDR);
 	msm_camera_io_w(0x1, cci_dev->base + CCI_RESET_CMD_ADDR);
-	wait_for_completion_interruptible(&cci_dev->cci_master_info[MASTER_0].
-		reset_complete);
+	wait_for_completion_interruptible_timeout(
+		&cci_dev->cci_master_info[MASTER_0].reset_complete,
+		CCI_TIMEOUT);
 	msm_cci_set_clk_param(cci_dev);
 	msm_camera_io_w(0xFFFFFFFF, cci_dev->base + CCI_IRQ_MASK_0_ADDR);
 	msm_camera_io_w(0xFFFFFFFF, cci_dev->base + CCI_IRQ_CLEAR_0_ADDR);
@@ -535,6 +545,12 @@ static irqreturn_t msm_cci_irq(int irq_num, void *data)
 		cci_dev->cci_master_info[MASTER_1].reset_pending = TRUE;
 		msm_camera_io_w(CCI_M1_RESET_RMSK,
 			cci_dev->base + CCI_RESET_CMD_ADDR);
+	} else {
+		pr_err("%s unhandled irq 0x%x\n", __func__, irq);
+		cci_dev->cci_master_info[MASTER_0].status = 0;
+		complete(&cci_dev->cci_master_info[MASTER_0].reset_complete);
+		cci_dev->cci_master_info[MASTER_1].status = 0;
+		complete(&cci_dev->cci_master_info[MASTER_1].reset_complete);
 	}
 	return IRQ_HANDLED;
 }
@@ -685,11 +701,6 @@ static int msm_cci_probe(struct platform_device *pdev)
 		rc = -EBUSY;
 		goto cci_release_mem;
 	}
-
-	CDBG("%s line %d cci irq start %d end %d\n", __func__,
-		__LINE__,
-		new_cci_dev->irq->start,
-		new_cci_dev->irq->end);
 
 	new_cci_dev->pdev = pdev;
 	msm_cci_initialize_cci_params(new_cci_dev);

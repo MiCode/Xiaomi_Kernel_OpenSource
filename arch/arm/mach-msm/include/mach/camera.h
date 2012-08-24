@@ -308,6 +308,19 @@ struct msm_camera_cci_gpio_cfg {
 	uint16_t i2c_queue;
 };
 
+enum msm_camera_i2c_cmd_type {
+	MSM_CAMERA_I2C_CMD_WRITE,
+	MSM_CAMERA_I2C_CMD_POLL,
+};
+
+struct msm_camera_i2c_reg_conf {
+	uint16_t reg_addr;
+	uint16_t reg_data;
+	enum msm_camera_i2c_data_type dt;
+	enum msm_camera_i2c_cmd_type cmd_type;
+	int16_t mask;
+};
+
 struct msm_camera_cci_i2c_write_cfg {
 	struct msm_camera_i2c_reg_conf *reg_conf_tbl;
 	enum msm_camera_i2c_reg_addr_type addr_type;

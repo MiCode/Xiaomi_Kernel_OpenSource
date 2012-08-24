@@ -78,6 +78,7 @@ int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 			csiphybase + MIPI_CSIPHY_GLBL_RESET_ADDR);
 	}
 
+	lane_mask &= 0x1f;
 	while (lane_mask & 0x1f) {
 		if (!(lane_mask & 0x1)) {
 			j++;
@@ -105,18 +106,23 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 	int i;
 	struct csiphy_device *csiphy_dev = data;
 
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 8; i++) {
 		irq = msm_camera_io_r(
 			csiphy_dev->base +
 			MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR + 0x4*i);
 		msm_camera_io_w(irq,
 			csiphy_dev->base +
 			MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR + 0x4*i);
-		CDBG("%s MIPI_CSIPHY%d_INTERRUPT_STATUS%d = 0x%x\n",
+		pr_err("%s MIPI_CSIPHY%d_INTERRUPT_STATUS%d = 0x%x\n",
 			 __func__, csiphy_dev->pdev->id, i, irq);
+		msm_camera_io_w(0x1, csiphy_dev->base +
+			MIPI_CSIPHY_GLBL_IRQ_CMD_ADDR);
+		msm_camera_io_w(0x0, csiphy_dev->base +
+			MIPI_CSIPHY_GLBL_IRQ_CMD_ADDR);
+		msm_camera_io_w(0x0,
+			csiphy_dev->base +
+			MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR + 0x4*i);
 	}
-	msm_camera_io_w(0x1, csiphy_dev->base + 0x164);
-	msm_camera_io_w(0x0, csiphy_dev->base + 0x164);
 	return IRQ_HANDLED;
 }
 
@@ -136,8 +142,14 @@ static int msm_csiphy_subdev_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static struct msm_cam_clk_info csiphy_clk_info[] = {
+static struct msm_cam_clk_info csiphy_8960_clk_info[] = {
 	{"csiphy_timer_src_clk", 177780000},
+	{"csiphy_timer_clk", -1},
+};
+
+static struct msm_cam_clk_info csiphy_8974_clk_info[] = {
+	{"ispif_ahb_clk", -1},
+	{"csiphy_timer_src_clk", 200000000},
 	{"csiphy_timer_clk", -1},
 };
 
@@ -165,8 +177,14 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		return rc;
 	}
 
-	rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev, csiphy_clk_info,
-			csiphy_dev->csiphy_clk, ARRAY_SIZE(csiphy_clk_info), 1);
+	if (CSIPHY_VERSION != CSIPHY_VERSION_V3)
+		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_8960_clk_info), 1);
+	else
+		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_8974_clk_info), 1);
 
 	if (rc < 0) {
 		pr_err("%s: csiphy clk enable failed\n", __func__);
@@ -235,8 +253,14 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 #if DBG_CSIPHY
 	disable_irq(csiphy_dev->irq->start);
 #endif
-	msm_cam_clk_enable(&csiphy_dev->pdev->dev, csiphy_clk_info,
-		csiphy_dev->csiphy_clk, ARRAY_SIZE(csiphy_clk_info), 0);
+	if (CSIPHY_VERSION != CSIPHY_VERSION_V3)
+		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_8960_clk_info), 0);
+	else
+		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
+			ARRAY_SIZE(csiphy_8974_clk_info), 0);
 
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
@@ -317,7 +341,6 @@ static int csiphy_probe(struct platform_device *pdev)
 	int rc = 0;
 	struct msm_cam_subdev_info sd_info;
 
-	CDBG("%s: device id = %d\n", __func__, pdev->id);
 	new_csiphy_dev = kzalloc(sizeof(struct csiphy_device), GFP_KERNEL);
 	if (!new_csiphy_dev) {
 		pr_err("%s: no enough memory\n", __func__);
@@ -337,6 +360,7 @@ static int csiphy_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node)
 		of_property_read_u32((&pdev->dev)->of_node,
 			"cell-index", &pdev->id);
+	CDBG("%s: device id = %d\n", __func__, pdev->id);
 
 	new_csiphy_dev->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "csiphy");
