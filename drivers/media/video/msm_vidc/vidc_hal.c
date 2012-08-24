@@ -253,7 +253,6 @@ static int read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 	}
 
 	qinfo =	(struct vidc_iface_q_info *) info;
-	dprintk(VIDC_DBG, "In : ");
 	queue = (struct hfi_queue_header *) qinfo->q_hdr;
 
 	if (!queue) {
@@ -529,7 +528,7 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 					dev->hal_client,
 			VIDC_IFACEQ_TABLE_SIZE, 1, SMEM_UNCACHED, domain);
 	if (rc) {
-		dprintk(VIDC_ERR, ":iface_q_table_alloc_fail");
+		dprintk(VIDC_ERR, "iface_q_table_alloc_fail");
 		return -ENOMEM;
 	}
 	q_tbl_hdr = (struct hfi_queue_table_header *)
@@ -549,7 +548,7 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 				dev->hal_client, VIDC_IFACEQ_QUEUE_SIZE,
 				1, SMEM_UNCACHED, domain);
 		if (rc) {
-			dprintk(VIDC_ERR, ":iface_q_table_alloc[%d]_fail", i);
+			dprintk(VIDC_ERR, "iface_q_table_alloc[%d]_fail", i);
 			vidc_hal_interface_queues_release(dev);
 			return -ENOMEM;
 		} else {
@@ -637,7 +636,7 @@ int vidc_hal_core_init(void *device, int domain)
 	if (device) {
 		dev = device;
 	} else {
-		dprintk(VIDC_ERR, ":invalid device");
+		dprintk(VIDC_ERR, "Invalid device");
 		return -ENODEV;
 	}
 	enable_irq(dev->hal_data->irq);
@@ -700,7 +699,7 @@ int vidc_hal_core_release(void *device)
 	if (device) {
 		dev = device;
 	} else {
-		dprintk(VIDC_ERR, ":invalid device");
+		dprintk(VIDC_ERR, "invalid device");
 		return -ENODEV;
 	}
 	write_register(dev->hal_data->register_base_addr,
@@ -720,7 +719,7 @@ int vidc_hal_core_pc_prep(void *device)
 	if (device) {
 		dev = device;
 	} else {
-		dprintk(VIDC_ERR, ":invalid device");
+		dprintk(VIDC_ERR, "invalid device");
 		return -ENODEV;
 	}
 	pkt.size = sizeof(struct hfi_cmd_sys_pc_prep_packet);
@@ -768,7 +767,7 @@ int vidc_hal_core_set_resource(void *device,
 	struct hal_device *dev;
 
 	if (!device || !resource_hdr || !resource_value) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "set_res: Invalid Params");
 		return -EINVAL;
 	} else {
 		dev = device;
@@ -798,7 +797,7 @@ int vidc_hal_core_set_resource(void *device,
 		break;
 	}
 	default:
-		dprintk(VIDC_INFO, "In  called for resource %d",
+		dprintk(VIDC_INFO, "Invalid res_id in set_res %d",
 						resource_hdr->resource_id);
 		break;
 	}
@@ -813,7 +812,7 @@ int vidc_hal_core_release_resource(void *device,
 	struct hal_device *dev;
 
 	if (!device || !resource_hdr) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Inv-Params in rel_res");
 		return -EINVAL;
 	} else {
 		dev = device;
@@ -838,7 +837,7 @@ int vidc_hal_core_ping(void *device)
 	if (device) {
 		dev = device;
 	} else {
-		dprintk(VIDC_ERR, ":invalid device");
+		dprintk(VIDC_ERR, "invalid device");
 		return -ENODEV;
 	}
 	pkt.size = sizeof(struct hfi_cmd_sys_ping_packet);
@@ -877,7 +876,8 @@ static u32 get_hfi_buffer(int hal_buffer)
 		buffer = HFI_BUFFER_INTERNAL_PERSIST;
 		break;
 	default:
-		dprintk(VIDC_ERR, "Invalid buffer type : 0x%x\n", hal_buffer);
+		dprintk(VIDC_ERR, "Invalid buffer :0x%x\n",
+				hal_buffer);
 		buffer = 0;
 		break;
 	}
@@ -892,13 +892,13 @@ int vidc_hal_session_set_property(void *sess,
 	struct hal_session *session;
 
 	if (!sess || !pdata) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	} else {
 		session = sess;
 	}
 
-	dprintk(VIDC_INFO, "IN func: , with property id: %d", ptype);
+	dprintk(VIDC_INFO, "in set_prop,with prop id: 0x%x", ptype);
 	pkt->size = sizeof(struct hfi_cmd_session_set_property_packet);
 	pkt->packet_type = HFI_CMD_SESSION_SET_PROPERTY;
 	pkt->session_id = (u32) session;
@@ -1238,11 +1238,11 @@ int vidc_hal_session_set_property(void *sess,
 	}
 	case HAL_PARAM_VENC_RATE_CONTROL:
 	{
-		u32 *rc_mode;
+		u32 *rc;
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VENC_RATE_CONTROL;
-		rc_mode = (u32 *)pdata;
-		switch ((enum hal_rate_control) *rc_mode) {
+		rc = (u32 *)pdata;
+		switch ((enum hal_rate_control) *rc) {
 		case HAL_RATE_CONTROL_OFF:
 		pkt->rg_property_data[1] = HFI_RATE_CONTROL_OFF;
 			break;
