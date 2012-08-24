@@ -63,9 +63,8 @@
 
 #define JACK_DETECT_GPIO 38
 
-#define APQ_I2S_SLAVE_CONFIG	0
 /* MCLK selection GPIOs from PMIC */
-#define PM_GPIO_MCLK_MDM	10
+#define PM_GPIO_MCLK_MDM	27
 #define PM_GPIO_MCLK_APQ	41
 
 /* SPKR I2S Configuration */
@@ -170,10 +169,8 @@ enum {
 };
 
 
-#if APQ_I2S_SLAVE_CONFIG
 static u32 mdm_mclk_gpio = PM8921_GPIO_PM_TO_SYS(PM_GPIO_MCLK_MDM);
 static u32 apq_mclk_gpio = PM8921_GPIO_PM_TO_SYS(PM_GPIO_MCLK_APQ);
-#endif
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
 static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
 static int msm_spk_control;
@@ -186,9 +183,6 @@ static int msm_slim_3_rx_ch = 1;
 static struct clk *i2s_rx_bit_clk;
 static struct clk *i2s_tx_bit_clk;
 
-#if (!APQ_I2S_SLAVE_CONFIG)
-static struct clk *mi2s_osr_clk;
-#endif
 static struct clk *mi2s_bit_clk;
 
 static int msm_i2s_rx_ch = 1;
@@ -1020,7 +1014,6 @@ static int msm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
-#if APQ_I2S_SLAVE_CONFIG
 	struct pm_gpio param = {
 		.direction      = PM_GPIO_DIR_OUT,
 		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
@@ -1030,14 +1023,13 @@ static int msm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		.out_strength   = PM_GPIO_STRENGTH_MED,
 		.function       = PM_GPIO_FUNC_NORMAL,
 	};
-#endif
+
 	pr_debug("%s(), dev_name(%s)\n", __func__, dev_name(cpu_dai->dev));
 	ret = gpio_request(GPIO_MI2S_MCLK, "MI2S_MCLK");
 	if (ret)
 		pr_err("%s: Failed to request gpio %d\n", __func__,
 			   GPIO_MI2S_MCLK);
 
-#if APQ_I2S_SLAVE_CONFIG
 	/* APQ provides the mclk to codec */
 	ret = gpio_request(mdm_mclk_gpio, "MDM_MCLK_SWITCH");
 	if (ret) {
@@ -1052,6 +1044,7 @@ static int msm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	else
 		gpio_direction_output(mdm_mclk_gpio, 0);
 
+	pr_debug("%s: Config mdm_mclk_gpio\n", __func__);
 	ret = gpio_request(apq_mclk_gpio, "APQ_MCLK_SWITCH");
 	if (ret) {
 		pr_err("%s: Failed to request gpio %d\n", __func__,
@@ -1064,12 +1057,9 @@ static int msm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			apq_mclk_gpio);
 	else
 		gpio_direction_output(apq_mclk_gpio, 1);
-	pr_debug("%s: Config mdm_mclk_gpio and apq_mclk_gpio\n",
-	__func__);
-#else
-	pr_debug("%s: Not config mdm_mclk_gpio and apq_mclk_gpio\n",
-	__func__);
-#endif
+
+	pr_debug("%s: Config apq_mclk_gpio\n", __func__);
+
 	snd_soc_dapm_new_controls(dapm, apq8064_dapm_widgets,
 				ARRAY_SIZE(apq8064_dapm_widgets));
 
@@ -1154,12 +1144,10 @@ static int msm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	ret = tabla_hs_detect(codec, &mbhc_cfg);
 
-#if APQ_I2S_SLAVE_CONFIG
 	/* MDM provides the mclk to codec */
 	gpio_direction_output(apq_mclk_gpio, 0);
 	gpio_direction_output(mdm_mclk_gpio, 1);
-	pr_debug("%s: Should not running here if no clock switch\n", __func__);
-#endif
+	pr_debug("%s: Clock switch to MDM\n", __func__);
 	/* Should we add code to put back codec clock?*/
 	gpio_free(GPIO_MI2S_MCLK);
 	pr_debug("%s: Free MCLK GPIO\n", __func__);
@@ -1184,13 +1172,6 @@ static void msm_mi2s_shutdown(struct snd_pcm_substream *substream)
 			clk_put(mi2s_bit_clk);
 			mi2s_bit_clk = NULL;
 		}
-#if (!APQ_I2S_SLAVE_CONFIG)
-		if (mi2s_osr_clk) {
-			clk_disable_unprepare(mi2s_osr_clk);
-			clk_put(mi2s_osr_clk);
-			mi2s_osr_clk = NULL;
-		}
-#endif
 		msm_mi2s_free_gpios();
 	}
 }
@@ -1232,8 +1213,6 @@ static int msm_mi2s_startup(struct snd_pcm_substream *substream)
 	if (atomic_inc_return(&mi2s_rsc_ref) == 1) {
 		pr_debug("%s: acquire mi2s resources\n", __func__);
 		msm_configure_mi2s_gpio();
-
-#if APQ_I2S_SLAVE_CONFIG
 		pr_debug("%s: APQ is MI2S slave\n", __func__);
 		mi2s_bit_clk = clk_get(cpu_dai->dev, "bit_clk");
 		if (IS_ERR(mi2s_bit_clk))
@@ -1248,38 +1227,6 @@ static int msm_mi2s_startup(struct snd_pcm_substream *substream)
 		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBM_CFM);
 		if (IS_ERR_VALUE(ret))
 			pr_err("set format for CPU dai failed\n");
-#else
-		pr_debug("%s: APQ is MI2S master\n", __func__);
-		mi2s_osr_clk = clk_get(cpu_dai->dev, "osr_clk");
-		if (IS_ERR(mi2s_osr_clk))
-			return PTR_ERR(mi2s_osr_clk);
-		clk_set_rate(mi2s_osr_clk, TABLA_EXT_CLK_RATE);
-		ret = clk_prepare_enable(mi2s_osr_clk);
-		if (IS_ERR_VALUE(ret)) {
-			pr_err("Unable to enable mi2s_osr_clk\n");
-			clk_put(mi2s_osr_clk);
-			return ret;
-		}
-		mi2s_bit_clk = clk_get(cpu_dai->dev, "bit_clk");
-		if (IS_ERR(mi2s_bit_clk)) {
-			pr_err("Unable to get mi2s_bit_clk\n");
-			clk_disable_unprepare(mi2s_osr_clk);
-			clk_put(mi2s_osr_clk);
-			return PTR_ERR(mi2s_bit_clk);
-		}
-		clk_set_rate(mi2s_bit_clk, 8);
-		ret = clk_prepare_enable(mi2s_bit_clk);
-		if (IS_ERR_VALUE(ret)) {
-			pr_err("Unable to enable mi2s_bit_clk\n");
-			clk_disable_unprepare(mi2s_osr_clk);
-			clk_put(mi2s_osr_clk);
-			clk_put(mi2s_bit_clk);
-			return ret;
-		}
-		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
-		if (IS_ERR_VALUE(ret))
-			pr_err("set format for CPU dai failed\n");
-#endif
 	}
 
 	return ret;
@@ -2010,57 +1957,11 @@ static int msm_proxy_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 static int msm_aux_pcm_get_gpios(void)
 {
-	int ret = 0;
-
-	pr_debug("%s\n", __func__);
-
-	ret = gpio_request(GPIO_AUX_PCM_DOUT, "AUX PCM DOUT");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM DOUT",
-				__func__, GPIO_AUX_PCM_DOUT);
-		goto fail_dout;
-	}
-
-	ret = gpio_request(GPIO_AUX_PCM_DIN, "AUX PCM DIN");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM DIN",
-				__func__, GPIO_AUX_PCM_DIN);
-		goto fail_din;
-	}
-
-	ret = gpio_request(GPIO_AUX_PCM_SYNC, "AUX PCM SYNC");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM SYNC",
-				__func__, GPIO_AUX_PCM_SYNC);
-		goto fail_sync;
-	}
-	ret = gpio_request(GPIO_AUX_PCM_CLK, "AUX PCM CLK");
-	if (ret < 0) {
-		pr_err("%s: Failed to request gpio(%d): AUX PCM CLK",
-				__func__, GPIO_AUX_PCM_CLK);
-		goto fail_clk;
-	}
-
 	return 0;
-
-fail_clk:
-	gpio_free(GPIO_AUX_PCM_SYNC);
-fail_sync:
-	gpio_free(GPIO_AUX_PCM_DIN);
-fail_din:
-	gpio_free(GPIO_AUX_PCM_DOUT);
-fail_dout:
-
-	return ret;
 }
 
 static int msm_aux_pcm_free_gpios(void)
 {
-	gpio_free(GPIO_AUX_PCM_DIN);
-	gpio_free(GPIO_AUX_PCM_DOUT);
-	gpio_free(GPIO_AUX_PCM_SYNC);
-	gpio_free(GPIO_AUX_PCM_CLK);
-
 	return 0;
 }
 static int msm_startup(struct snd_pcm_substream *substream)
@@ -2428,6 +2329,14 @@ static struct snd_soc_dai_link msm_dai_delta_slim[] = {
 static struct snd_soc_dai_link msm_dai[] = {
 	/* FrontEnd DAI Links */
 	{
+		/*
+		 * In APQ8064 I2S platform, there is no playback support
+		 * only voice call is supported so there is no even system
+		 * tone or dialing tone which is by design because I2S clock
+		 * is provided by MDM which matches voice call sample rate
+		 * 8kHz or 16kHz while system tone is 48kHz. We disable the
+		 * playback by feeding the audio to AUX PCM port.
+		 */
 		.name = "MSM8960 Media1",
 		.stream_name = "MultiMedia1",
 		.cpu_dai_name	= "MultiMedia1",
