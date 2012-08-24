@@ -46,12 +46,16 @@ enum src_id {
  */
 enum pvs {
 	PVS_SLOW = 0,
-	PVS_NOMINAL,
-	PVS_FAST,
-	PVS_FASTER,
-	PVS_UNKNOWN,
-	NUM_PVS
+	PVS_NOMINAL = 1,
+	PVS_FAST = 3,
+	PVS_FASTER = 4,
+	NUM_PVS = 7
 };
+
+/**
+ * The maximum number of speed bins.
+ */
+#define NUM_SPEED_BINS (16)
 
 /**
  * enum scalables - IDs of frequency scalable hardware blocks.
@@ -186,8 +190,8 @@ struct hfpll_data {
 	const bool has_droop_ctl;
 	const u32 droop_offset;
 	const u32 droop_val;
-	const u32 low_vdd_l_max;
-	const u32 nom_vdd_l_max;
+	u32 low_vdd_l_max;
+	u32 nom_vdd_l_max;
 	const u32 low_vco_l_max;
 	const int vdd[NUM_HFPLL_VDD];
 };
@@ -237,7 +241,7 @@ struct pvs_table {
  * @scalable: Array of scalables.
  * @scalable_size: Size of @scalable.
  * @hfpll_data: HFPLL configuration data.
- * @pvs_tables: CPU frequency tables.
+ * @pvs_tables: 2D array of CPU frequency tables.
  * @l2_freq_tbl: L2 frequency table.
  * @l2_freq_tbl_size: Size of @l2_freq_tbl.
  * @pte_efuse_phys: Physical address of PTE EFUSE.
@@ -248,7 +252,7 @@ struct acpuclk_krait_params {
 	struct scalable *scalable;
 	size_t scalable_size;
 	struct hfpll_data *hfpll_data;
-	struct pvs_table *pvs_tables;
+	struct pvs_table (*pvs_tables)[NUM_PVS];
 	struct l2_level *l2_freq_tbl;
 	size_t l2_freq_tbl_size;
 	phys_addr_t pte_efuse_phys;
