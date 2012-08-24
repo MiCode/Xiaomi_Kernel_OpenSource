@@ -1926,7 +1926,7 @@ void mdp4_mixer_blend_setup(int mixer)
 	int i, off, ptype, alpha_drop = 0;
 	int d_alpha, s_alpha;
 	unsigned char *overlay_base;
-	uint32 c0, c1, c2;
+	uint32 c0, c1, c2, base_premulti;
 
 
 	d_pipe = ctrl->stage[mixer][MDP4_MIXER_STAGE_BASE];
@@ -1936,6 +1936,8 @@ void mdp4_mixer_blend_setup(int mixer)
 	}
 
 	blend = &ctrl->blend[mixer][MDP4_MIXER_STAGE0];
+	base_premulti = ctrl->blend[mixer][MDP4_MIXER_STAGE_BASE].op &
+		MDP4_BLEND_FG_ALPHA_BG_CONST;
 	for (i = MDP4_MIXER_STAGE0; i < MDP4_MIXER_STAGE_MAX; i++) {
 		blend->solidfill = 0;
 		blend->op = (MDP4_BLEND_FG_ALPHA_FG_CONST |
@@ -1976,9 +1978,13 @@ void mdp4_mixer_blend_setup(int mixer)
 		} else if (s_alpha) {
 			if (!alpha_drop) {
 				blend->op = MDP4_BLEND_BG_ALPHA_FG_PIXEL;
-				if (!(s_pipe->flags & MDP_BLEND_FG_PREMULT))
+				if ((!(s_pipe->flags & MDP_BLEND_FG_PREMULT)) &&
+						((i != MDP4_MIXER_STAGE0) ||
+							(!base_premulti)))
 					blend->op |=
 						MDP4_BLEND_FG_ALPHA_FG_PIXEL;
+				else
+					blend->fg_alpha = 0xff;
 			} else
 				blend->op = MDP4_BLEND_BG_ALPHA_FG_CONST;
 
@@ -1988,9 +1994,14 @@ void mdp4_mixer_blend_setup(int mixer)
 			if (ptype == OVERLAY_TYPE_VIDEO) {
 				blend->op = (MDP4_BLEND_FG_ALPHA_BG_PIXEL |
 					MDP4_BLEND_FG_INV_ALPHA);
-				if (!(s_pipe->flags & MDP_BLEND_FG_PREMULT))
+				if ((!(s_pipe->flags & MDP_BLEND_FG_PREMULT)) &&
+						((i != MDP4_MIXER_STAGE0) ||
+							(!base_premulti)))
 					blend->op |=
 						MDP4_BLEND_BG_ALPHA_BG_PIXEL;
+				else
+					blend->fg_alpha = 0xff;
+
 				blend->co3_sel = 0; /* use bg alpha */
 			} else {
 				/* s_pipe is rgb without alpha */
@@ -3684,4 +3695,23 @@ int mdp4_v4l2_overlay_play(struct fb_info *info, struct mdp4_overlay_pipe *pipe,
 done:
 	mutex_unlock(&mfd->dma->ov_mutex);
 	return err;
+}
+int mdp4_update_base_blend(struct msm_fb_data_type *mfd,
+			struct mdp_blend_cfg *mdp_blend_cfg)
+{
+	int ret = 0;
+	u32 mixer_num;
+	struct blend_cfg *blend;
+	mixer_num = mdp4_get_mixer_num(mfd->panel_info.type);
+	if (!ctrl)
+		return -EPERM;
+	blend = &ctrl->blend[mixer_num][MDP4_MIXER_STAGE_BASE];
+	if (mdp_blend_cfg->is_premultiplied) {
+		blend->bg_alpha = 0xFF;
+		blend->op = MDP4_BLEND_FG_ALPHA_BG_CONST;
+	} else {
+		blend->op = MDP4_BLEND_FG_ALPHA_FG_PIXEL;
+		blend->bg_alpha = 0;
+	}
+	return ret;
 }

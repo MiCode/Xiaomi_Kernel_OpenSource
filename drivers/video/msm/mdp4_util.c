@@ -3091,3 +3091,16 @@ int mdp4_qseed_cfg(struct mdp_qseed_cfg_data *config)
 error:
 	return ret;
 }
+u32 mdp4_get_mixer_num(u32 panel_type)
+{
+	u32 mixer_num;
+	if ((panel_type == TV_PANEL) ||
+			(panel_type == DTV_PANEL))
+		mixer_num = MDP4_MIXER1;
+	else if (panel_type == WRITEBACK_PANEL) {
+		mixer_num = MDP4_MIXER2;
+	} else {
+		mixer_num = MDP4_MIXER0;
+	}
+	return mixer_num;
+}
