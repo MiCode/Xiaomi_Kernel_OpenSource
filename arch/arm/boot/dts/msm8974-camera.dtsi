@@ -19,6 +19,7 @@
 		reg = <0xfd8C0000 0x10000>;
 		reg-names = "server";
 	};
+
 	qcom,csiphy@fda0ac00 {
 		cell-index = <0>;
 		compatible = "qcom,csiphy";
@@ -27,6 +28,7 @@
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
 	};
+
 	qcom,csiphy@fda0b000 {
 		cell-index = <1>;
 		compatible = "qcom,csiphy";
@@ -35,6 +37,7 @@
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
 	};
+
 	qcom,csiphy@fda0b400 {
 		cell-index = <2>;
 		compatible = "qcom,csiphy";
@@ -43,6 +46,7 @@
 		interrupts = <0 80 0>;
 		interrupt-names = "csiphy";
 	};
+
 	qcom,csid@fda08000  {
 		cell-index = <0>;
 		compatible = "qcom,csid";
@@ -50,7 +54,9 @@
 		reg-names = "csid";
 		interrupts = <0 51 0>;
 		interrupt-names = "csid";
+                mipi_csi_vdd-supply = <&pm8941_l12>;
 	};
+
 	qcom,csid@fda08400 {
 		cell-index = <1>;
 		compatible = "qcom,csid";
@@ -58,7 +64,9 @@
 		reg-names = "csid";
 		interrupts = <0 52 0>;
 		interrupt-names = "csid";
+                mipi_csi_vdd-supply = <&pm8941_l12>;
 	};
+
 	qcom,csid@fda08800 {
 		cell-index = <2>;
 		compatible = "qcom,csid";
@@ -66,7 +74,9 @@
 		reg-names = "csid";
 		interrupts = <0 53 0>;
 		interrupt-names = "csid";
+                mipi_csi_vdd-supply = <&pm8941_l12>;
 	};
+
 	qcom,csid@fda08C00 {
 		cell-index = <3>;
 		compatible = "qcom,csid";
@@ -74,7 +84,9 @@
 		reg-names = "csid";
 		interrupts = <0 54 0>;
 		interrupt-names = "csid";
+                mipi_csi_vdd-supply = <&pm8941_l12>;
 	};
+
 	qcom,ispif@fda0A000 {
 		cell-index = <0>;
 		compatible = "qcom,ispif";
@@ -83,14 +95,7 @@
 		interrupts = <0 55 0>;
 		interrupt-names = "ispif";
 	};
-	qcom,cci@fda0C000 {
-		cell-index = <0>;
-		compatible = "qcom,cci";
-		reg = <0xfda0C000 0x1000>;
-		reg-names = "cci";
-		interrupts = <0 50 0>;
-		interrupt-names = "cci";
-	};
+
 	qcom,vfe@fda10000 {
 		cell-index = <0>;
 		compatible = "qcom,vfe40";
@@ -101,6 +106,7 @@
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe>;
 	};
+
 	qcom,vfe@fda14000 {
 		cell-index = <1>;
 		compatible = "qcom,vfe40";
@@ -111,6 +117,7 @@
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe>;
 	};
+
 	qcom,jpeg@fda1c000 {
 		cell-index = <0>;
 		compatible = "qcom,jpeg";
@@ -119,6 +126,7 @@
 		interrupts = <0 59 0>;
 		interrupt-names = "jpeg";
 	};
+
 	qcom,jpeg@fda20000 {
 		cell-index = <1>;
 		compatible = "qcom,jpeg";
@@ -127,6 +135,7 @@
 		interrupts = <0 60 0>;
 		interrupt-names = "jpeg";
 	};
+
 	qcom,jpeg@fda24000 {
 		cell-index = <2>;
 		compatible = "qcom,jpeg";
@@ -135,12 +144,14 @@
 		interrupts = <0 61 0>;
 		interrupt-names = "jpeg";
 	};
+
 	qcom,irqrouter@fda00000 {
 		cell-index = <0>;
 		compatible = "qcom,irqrouter";
 		reg = <0xfda00000 0x100>;
 		reg-names = "irqrouter";
 	};
+
 	qcom,cpp@fda04000 {
 		cell-index = <0>;
 		compatible = "qcom,cpp";
@@ -149,5 +160,99 @@
 		interrupts = <0 49 0>;
 		interrupt-names = "cpp";
 		vdd-supply = <&gdsc_vfe>;
+	};
+
+	qcom,cci@fda0C000 {
+		cell-index = <0>;
+		compatible = "qcom,cci";
+		reg = <0xfda0C000 0x1000>;
+                #address-cells = <1>;
+                #size-cells = <1>;
+                ranges;
+		reg-names = "cci";
+		interrupts = <0 50 0>;
+		interrupt-names = "cci";
+
+		qcom,camera@6e {
+			compatible = "qcom,s5k3l1yx";
+			reg = <0x6e 0x0>;
+			qcom,csi-if = <1>;
+			qcom,csid-core = <0>;
+			qcom,is-vpe = <1>;
+			qcom,flash-type = <0>;
+			qcom,mount-angle = <90>;
+			qcom,sensor-name = "s5k3l1yx";
+			cam_vdig-supply = <&pm8941_l3>;
+			cam_vana-supply = <&pm8941_l17>;
+			cam_vio-supply = <&pm8941_lvs3>;
+			cam_vaf-supply = <&pm8941_l23>;
+			qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio",
+					     "cam_vaf";
+			qcom,cam-vreg-type = <0 0 1 0>;
+			qcom,cam-vreg-min-voltage = <1225000 2850000 0 3000000>;
+			qcom,cam-vreg-max-voltage = <1225000 2850000 0 3000000>;
+			qcom,cam-vreg-op-mode = <105000 80000 0 100000>;
+			qcom,gpio-no-mux = <0>;
+			gpios = <&msmgpio 15 0>,
+				<&msmgpio 19 0>,
+				<&msmgpio 20 0>,
+				<&msmgpio 90 0>;
+			qcom,gpio-common-tbl-num = <0 1 2>;
+			qcom,gpio-common-tbl-flags = <1 1 1>;
+			qcom,gpio-common-tbl-label = "CAMIF_MCLK",
+						     "CAMIF_I2C_DATA",
+						     "CAMIF_I2C_CLK";
+			qcom,gpio-req-tbl-num = <3>;
+			qcom,gpio-req-tbl-flags = <0>;
+			qcom,gpio-req-tbl-label = "CAM_RESET1";
+			qcom,gpio-set-tbl-num = <3 3>;
+			qcom,gpio-set-tbl-flags = <0 2>;
+			qcom,gpio-set-tbl-delay = <1000 30000>;
+			qcom,csi-lane-assign = <0x4320>;
+			qcom,csi-lane-mask = <0x1F>;
+			qcom,csi-phy-sel = <0>;
+			qcom,camera-type = <0>;
+			qcom,sensor-type = <0>;
+		};
+
+		qcom,camera@6c {
+			compatible = "qcom,ov2720";
+			reg = <0x6c 0x0>;
+			qcom,csi-if = <1>;
+			qcom,csid-core = <1>;
+			qcom,is-vpe = <1>;
+			qcom,flash-type = <0>;
+			qcom,mount-angle = <0>;
+			qcom,sensor-name = "ov2720";
+			cam_vdig-supply = <&pm8941_l3>;
+			cam_vana-supply = <&pm8941_l17>;
+			cam_vio-supply = <&pm8941_lvs3>;
+			qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio";
+			qcom,cam-vreg-type = <0 0 1>;
+			qcom,cam-vreg-min-voltage = <1225000 2850000 0>;
+			qcom,cam-vreg-max-voltage = <1225000 2850000 0>;
+			qcom,cam-vreg-op-mode = <105000 80000 0>;
+			qcom,gpio-no-mux = <0>;
+			gpios = <&msmgpio 16 0>,
+				<&msmgpio 19 0>,
+				<&msmgpio 20 0>,
+				<&msmgpio 92 0>;
+			qcom,gpio-common-tbl-num = <0 1 2>;
+			qcom,gpio-common-tbl-flags = <1 1 1>;
+			qcom,gpio-common-tbl-label = "CAMIF_MCLK",
+						     "CAMIF_I2C_DATA",
+						     "CAMIF_I2C_CLK";
+			qcom,gpio-req-tbl-num = <3>;
+			qcom,gpio-req-tbl-flags = <0>;
+			qcom,gpio-req-tbl-label = "CAM_RESET1";
+			qcom,gpio-set-tbl-num = <3 3>;
+			qcom,gpio-set-tbl-flags = <0 2>;
+			qcom,gpio-set-tbl-delay = <1000 4000>;
+			qcom,csi-lane-assign = <0x4320>;
+			qcom,csi-lane-mask = <0x7>;
+			qcom,csi-phy-sel = <1>;
+			qcom,camera-type = <0>;
+			qcom,sensor-type = <0>;
+		};
 	};
 };
