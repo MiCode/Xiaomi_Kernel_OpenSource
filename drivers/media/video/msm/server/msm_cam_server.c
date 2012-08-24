@@ -11,6 +11,7 @@
  *
  */
 
+#include <linux/of.h>
 #include "msm_cam_server.h"
 #include "msm_csid.h"
 #include "msm_csic.h"
@@ -2180,7 +2181,7 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 		break;
 
 	case AXI_DEV:
-		if (index >= MAX_NUM_VPE_DEV) {
+		if (index >= MAX_NUM_AXI_DEV) {
 			pr_err("%s Invalid AXI idx %d", __func__, index);
 			err = -EINVAL;
 			break;
@@ -3121,12 +3122,19 @@ static int __exit msm_camera_exit(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id msm_cam_server_dt_match[] = {
+	{.compatible = "qcom,cam_server"},
+}
+
+MODULE_DEVICE_TABLE(of, msm_cam_server_dt_match);
+
 static struct platform_driver msm_cam_server_driver = {
 	.probe = msm_camera_probe,
 	.remove = msm_camera_exit,
 	.driver = {
 		.name = "msm_cam_server",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_cam_server_dt_match,
 	},
 };
 
