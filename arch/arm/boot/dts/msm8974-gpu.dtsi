@@ -85,40 +85,68 @@
 
 			compatible = "qcom,dcvs-core-info";
 
-			qcom,core-max-time-us = <100000>;
-			qcom,algo-slack-time-us = <39000>;
-			qcom,algo-disable-pc-threshold = <86000>;
-			qcom,algo-ss-window-size = <1000000>;
-			qcom,algo-ss-util-pct = <95>;
+			qcom,core-core-type = <1>;
+
+			qcom,algo-disable-pc-threshold = <0>;
+			qcom,algo-em-win-size-min-us = <100000>;
+			qcom,algo-em-win-size-max-us = <300000>;
 			qcom,algo-em-max-util-pct = <97>;
+			qcom,algo-group-id = <95>;
+			qcom,algo-max-freq-chg-time-us = <100000>;
+			qcom,algo-slack-mode-dynamic = <100000>;
+			qcom,algo-slack-weight-thresh-pct = <0>;
+			qcom,algo-slack-time-min-us = <39000>;
+			qcom,algo-slack-time-max-us = <39000>;
+			qcom,algo-ss-win-size-min-us = <1000000>;
+			qcom,algo-ss-win-size-max-us = <1000000>;
+			qcom,algo-ss-util-pct = <95>;
 			qcom,algo-ss-iobusy-conv = <100>;
+
+			qcom,energy-active-coeff-a = <2492>;
+			qcom,energy-active-coeff-b = <0>;
+			qcom,energy-active-coeff-c = <0>;
+			qcom,energy-leakage-coeff-a = <11>;
+			qcom,energy-leakage-coeff-b = <157150>;
+			qcom,energy-leakage-coeff-c = <0>;
+			qcom,energy-leakage-coeff-d = <0>;
+
+			qcom,power-current-temp = <25>;
+			qcom,power-num-freq = <4>;
 
 			qcom,dcvs-freq@0 {
 				reg = <0>;
 				qcom,freq = <0>;
-				qcom,idle-energy = <0>;
-				qcom,active-energy = <333932>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
 			};
 
 			qcom,dcvs-freq@1 {
 				reg = <1>;
 				qcom,freq = <0>;
-				qcom,idle-energy = <0>;
-				qcom,active-energy = <497532>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
 			};
 
 			qcom,dcvs-freq@2 {
 				reg = <2>;
 				qcom,freq = <0>;
-				qcom,idle-energy = <0>;
-				qcom,active-energy = <707610>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
 			};
 
 			qcom,dcvs-freq@3 {
 				reg = <3>;
 				qcom,freq = <0>;
-				qcom,idle-energy = <0>;
-				qcom,active-energy = <844545>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <844545>;
+				qcom,leakage-energy-offset = <0>;
 			};
 		};
 

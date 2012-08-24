@@ -39,22 +39,34 @@ enum {
 };
 
 struct core_attribs {
+	struct kobj_attribute core_id;
 	struct kobj_attribute idle_enabled;
 	struct kobj_attribute freq_change_enabled;
 	struct kobj_attribute actual_freq;
 	struct kobj_attribute freq_change_us;
 
-	struct kobj_attribute max_time_us;
-
-	struct kobj_attribute slack_time_us;
-	struct kobj_attribute scale_slack_time;
-	struct kobj_attribute scale_slack_time_pct;
 	struct kobj_attribute disable_pc_threshold;
-	struct kobj_attribute em_window_size;
+	struct kobj_attribute em_win_size_min_us;
+	struct kobj_attribute em_win_size_max_us;
 	struct kobj_attribute em_max_util_pct;
-	struct kobj_attribute ss_window_size;
-	struct kobj_attribute ss_util_pct;
+	struct kobj_attribute group_id;
+	struct kobj_attribute max_freq_chg_time_us;
+	struct kobj_attribute slack_mode_dynamic;
+	struct kobj_attribute slack_time_min_us;
+	struct kobj_attribute slack_time_max_us;
+	struct kobj_attribute slack_weight_thresh_pct;
 	struct kobj_attribute ss_iobusy_conv;
+	struct kobj_attribute ss_win_size_min_us;
+	struct kobj_attribute ss_win_size_max_us;
+	struct kobj_attribute ss_util_pct;
+
+	struct kobj_attribute active_coeff_a;
+	struct kobj_attribute active_coeff_b;
+	struct kobj_attribute active_coeff_c;
+	struct kobj_attribute leakage_coeff_a;
+	struct kobj_attribute leakage_coeff_b;
+	struct kobj_attribute leakage_coeff_c;
+	struct kobj_attribute leakage_coeff_d;
 
 	struct attribute_group attrib_group;
 };
@@ -68,6 +80,7 @@ struct dcvs_core {
 	uint32_t max_time_us; /* core param */
 
 	struct msm_dcvs_algo_param algo_param;
+	struct msm_dcvs_energy_curve_coeffs coeffs;
 	struct msm_dcvs_idle *idle_driver;
 	struct msm_dcvs_freq *freq_driver;
 
@@ -78,12 +91,12 @@ struct dcvs_core {
 	struct task_struct *task;
 	struct core_attribs attrib;
 	uint32_t handle;
-	uint32_t group_id;
 	uint32_t freq_pending;
 	struct hrtimer timer;
 	int32_t timer_disabled;
 	/* track if kthread for change_freq is active */
 	int32_t change_freq_activated;
+	struct msm_dcvs_core_info *info;
 };
 
 static int msm_dcvs_debug;
@@ -365,6 +378,39 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
 	return count; \
 }
 
+#define DCVS_ENERGY_PARAM(_name) \
+static ssize_t msm_dcvs_attr_##_name##_show(struct kobject *kobj,\
+		struct kobj_attribute *attr, char *buf) \
+{ \
+	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, _name); \
+	return snprintf(buf, PAGE_SIZE, "%d\n", core->coeffs._name); \
+} \
+static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
+		struct kobj_attribute *attr, const char *buf, size_t count) \
+{ \
+	int ret = 0; \
+	int32_t val = 0; \
+	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, _name); \
+	mutex_lock(&core->lock); \
+	ret = kstrtoint(buf, 10, &val); \
+	if (ret) { \
+		__err("Invalid input %s for %s\n", buf, __stringify(_name));\
+	} else { \
+		int32_t old_val = core->coeffs._name; \
+		core->coeffs._name = val; \
+		ret = msm_dcvs_scm_set_power_params(core->handle, \
+			&core->info->power_param, &core->info->freq_tbl[0], \
+				&core->coeffs); \
+		if (ret) { \
+			core->coeffs._name = old_val; \
+			__err("Error(%d) in setting %d for coeffs param %s\n",\
+					ret, val, __stringify(_name)); \
+		} \
+	} \
+	mutex_unlock(&core->lock); \
+	return count; \
+}
+
 #define DCVS_RO_ATTRIB(i, _name) \
 	core->attrib._name.attr.name = __stringify(_name); \
 	core->attrib._name.attr.mode = S_IRUGO; \
@@ -383,27 +429,40 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
  * Function declarations for different attributes.
  * Gets used when setting the attribute show and store parameters.
  */
+DCVS_PARAM_SHOW(core_id, core->handle)
 DCVS_PARAM_SHOW(idle_enabled, (core->idle_driver != NULL))
 DCVS_PARAM_SHOW(freq_change_enabled, (core->freq_driver != NULL))
 DCVS_PARAM_SHOW(actual_freq, (core->actual_freq))
 DCVS_PARAM_SHOW(freq_change_us, (core->freq_change_us))
-DCVS_PARAM_SHOW(max_time_us, (core->max_time_us))
 
-DCVS_ALGO_PARAM(slack_time_us)
-DCVS_ALGO_PARAM(scale_slack_time)
-DCVS_ALGO_PARAM(scale_slack_time_pct)
 DCVS_ALGO_PARAM(disable_pc_threshold)
-DCVS_ALGO_PARAM(em_window_size)
+DCVS_ALGO_PARAM(em_win_size_min_us)
+DCVS_ALGO_PARAM(em_win_size_max_us)
 DCVS_ALGO_PARAM(em_max_util_pct)
-DCVS_ALGO_PARAM(ss_window_size)
-DCVS_ALGO_PARAM(ss_util_pct)
+DCVS_ALGO_PARAM(group_id)
+DCVS_ALGO_PARAM(max_freq_chg_time_us)
+DCVS_ALGO_PARAM(slack_mode_dynamic)
+DCVS_ALGO_PARAM(slack_time_min_us)
+DCVS_ALGO_PARAM(slack_time_max_us)
+DCVS_ALGO_PARAM(slack_weight_thresh_pct)
 DCVS_ALGO_PARAM(ss_iobusy_conv)
+DCVS_ALGO_PARAM(ss_win_size_min_us)
+DCVS_ALGO_PARAM(ss_win_size_max_us)
+DCVS_ALGO_PARAM(ss_util_pct)
+
+DCVS_ENERGY_PARAM(active_coeff_a)
+DCVS_ENERGY_PARAM(active_coeff_b)
+DCVS_ENERGY_PARAM(active_coeff_c)
+DCVS_ENERGY_PARAM(leakage_coeff_a)
+DCVS_ENERGY_PARAM(leakage_coeff_b)
+DCVS_ENERGY_PARAM(leakage_coeff_c)
+DCVS_ENERGY_PARAM(leakage_coeff_d)
 
 static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 {
 	int ret = 0;
 	struct kobject *core_kobj = NULL;
-	const int attr_count = 15;
+	const int attr_count = 27;
 
 	BUG_ON(!cores_kobj);
 
@@ -415,23 +474,37 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 		goto done;
 	}
 
-	DCVS_RO_ATTRIB(0, idle_enabled);
-	DCVS_RO_ATTRIB(1, freq_change_enabled);
-	DCVS_RO_ATTRIB(2, actual_freq);
-	DCVS_RO_ATTRIB(3, freq_change_us);
-	DCVS_RO_ATTRIB(4, max_time_us);
 
-	DCVS_RW_ATTRIB(5, slack_time_us);
-	DCVS_RW_ATTRIB(6, scale_slack_time);
-	DCVS_RW_ATTRIB(7, scale_slack_time_pct);
-	DCVS_RW_ATTRIB(8, disable_pc_threshold);
-	DCVS_RW_ATTRIB(9, em_window_size);
-	DCVS_RW_ATTRIB(10, em_max_util_pct);
-	DCVS_RW_ATTRIB(11, ss_window_size);
-	DCVS_RW_ATTRIB(12, ss_util_pct);
-	DCVS_RW_ATTRIB(13, ss_iobusy_conv);
+	DCVS_RO_ATTRIB(0, core_id);
+	DCVS_RO_ATTRIB(1, idle_enabled);
+	DCVS_RO_ATTRIB(2, freq_change_enabled);
+	DCVS_RO_ATTRIB(3, actual_freq);
+	DCVS_RO_ATTRIB(4, freq_change_us);
 
-	core->attrib.attrib_group.attrs[14] = NULL;
+	DCVS_RW_ATTRIB(5, disable_pc_threshold);
+	DCVS_RW_ATTRIB(6, em_win_size_min_us);
+	DCVS_RW_ATTRIB(7, em_win_size_max_us);
+	DCVS_RW_ATTRIB(8, em_max_util_pct);
+	DCVS_RW_ATTRIB(9, group_id);
+	DCVS_RW_ATTRIB(10, max_freq_chg_time_us);
+	DCVS_RW_ATTRIB(11, slack_mode_dynamic);
+	DCVS_RW_ATTRIB(12, slack_time_min_us);
+	DCVS_RW_ATTRIB(13, slack_time_max_us);
+	DCVS_RW_ATTRIB(14, slack_weight_thresh_pct);
+	DCVS_RW_ATTRIB(15, ss_iobusy_conv);
+	DCVS_RW_ATTRIB(16, ss_win_size_min_us);
+	DCVS_RW_ATTRIB(17, ss_win_size_max_us);
+	DCVS_RW_ATTRIB(18, ss_util_pct);
+
+	DCVS_RW_ATTRIB(19, active_coeff_a);
+	DCVS_RW_ATTRIB(20, active_coeff_b);
+	DCVS_RW_ATTRIB(21, active_coeff_c);
+	DCVS_RW_ATTRIB(22, leakage_coeff_a);
+	DCVS_RW_ATTRIB(23, leakage_coeff_b);
+	DCVS_RW_ATTRIB(24, leakage_coeff_c);
+	DCVS_RW_ATTRIB(25, leakage_coeff_d);
+
+	core->attrib.attrib_group.attrs[26] = NULL;
 
 	core_kobj = kobject_create_and_add(core->core_name, cores_kobj);
 	if (!core_kobj) {
@@ -497,11 +570,13 @@ static struct dcvs_core *msm_dcvs_get_core(const char *name, int add_to_list)
 	return core;
 }
 
-int msm_dcvs_register_core(const char *core_name, uint32_t group_id,
+int msm_dcvs_register_core(const char *core_name,
 		struct msm_dcvs_core_info *info)
 {
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
+	uint32_t ret1;
+	uint32_t ret2;
 
 	if (!core_name || !core_name[0])
 		return ret;
@@ -511,29 +586,29 @@ int msm_dcvs_register_core(const char *core_name, uint32_t group_id,
 		return ret;
 
 	mutex_lock(&core->lock);
-	if (group_id) {
-		/**
-		 * Create a group for cores, if this core is part of a group
-		 * if the group_id is 0, the core is not part of a group.
-		 * If the group_id already exits, it will through an error
-		 * which we will ignore.
-		 */
-		ret = msm_dcvs_scm_create_group(group_id);
-		if (ret == -ENOMEM)
-			goto bail;
-	}
-	core->group_id = group_id;
 
-	core->max_time_us = info->core_param.max_time_us;
+	core->info = info;
 	memcpy(&core->algo_param, &info->algo_param,
 			sizeof(struct msm_dcvs_algo_param));
 
-	ret = msm_dcvs_scm_register_core(core->handle, group_id,
-			&info->core_param, info->freq_tbl);
+	memcpy(&core->coeffs, &info->energy_coeffs,
+			sizeof(struct msm_dcvs_energy_curve_coeffs));
+
+	ret = msm_dcvs_scm_register_core(core->handle, &info->core_param);
 	if (ret)
 		goto bail;
 
 	ret = msm_dcvs_scm_set_algo_params(core->handle, &info->algo_param);
+	if (ret)
+		goto bail;
+
+	ret = msm_dcvs_scm_set_power_params(core->handle, &info->power_param,
+				&info->freq_tbl[0], &core->coeffs);
+	if (ret)
+		goto bail;
+
+	ret = msm_dcvs_scm_event(core->handle, MSM_DCVS_SCM_CORE_ONLINE,
+				core->actual_freq, 0, &ret1, &ret2);
 	if (ret)
 		goto bail;
 

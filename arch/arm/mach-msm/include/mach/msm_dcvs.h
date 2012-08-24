@@ -90,15 +90,16 @@ int msm_dcvs_idle(int handle, enum msm_core_idle_state state,
  * before the sink driver can be registered.
  */
 struct msm_dcvs_core_info {
-	struct msm_dcvs_freq_entry *freq_tbl;
-	struct msm_dcvs_core_param core_param;
-	struct msm_dcvs_algo_param algo_param;
+	struct msm_dcvs_freq_entry		*freq_tbl;
+	struct msm_dcvs_core_param		core_param;
+	struct msm_dcvs_algo_param		algo_param;
+	struct msm_dcvs_energy_curve_coeffs	energy_coeffs;
+	struct msm_dcvs_power_params		power_param;
 };
 
 /**
  * msm_dcvs_register_core
  * @core_name: Unique name identifier for the core.
- * @group_id: Cores that are to be grouped for synchronized frequency scaling
  * @info: The core specific algorithm parameters.
  * @return :
  *	0 on success,
@@ -108,9 +109,8 @@ struct msm_dcvs_core_info {
  * Register the core with msm_dcvs driver. Done once at init before calling
  * msm_dcvs_freq_sink_register
  * Cores that need to run synchronously must share the same group id.
- * If a core doesnt care to be in any group, the group_id should be 0.
  */
-extern int msm_dcvs_register_core(const char *core_name, uint32_t group_id,
+extern int msm_dcvs_register_core(const char *core_name,
 		struct msm_dcvs_core_info *info);
 
 /**

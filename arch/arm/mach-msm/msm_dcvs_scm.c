@@ -21,17 +21,15 @@
 #include <mach/scm.h>
 #include <mach/msm_dcvs_scm.h>
 
-#define DCVS_CMD_CREATE_GROUP		1
 #define DCVS_CMD_REGISTER_CORE		2
 #define DCVS_CMD_SET_ALGO_PARAM		3
 #define DCVS_CMD_EVENT			4
 #define DCVS_CMD_INIT			5
+#define DCVS_CMD_SET_POWER_PARAM	6
 
 struct scm_register_core {
 	uint32_t core_id;
-	uint32_t group_id;
 	phys_addr_t core_param_phy;
-	phys_addr_t freq_phy;
 };
 
 struct scm_algo {
@@ -42,6 +40,13 @@ struct scm_algo {
 struct scm_init {
 	uint32_t phy;
 	uint32_t size;
+};
+
+struct scm_pwr_param {
+	uint32_t	core_id;
+	phys_addr_t	pwr_param_phy;
+	phys_addr_t	freq_phy;
+	phys_addr_t	coeffs_phy;
 };
 
 struct msm_algo_param {
@@ -77,49 +82,25 @@ int msm_dcvs_scm_init(size_t size)
 }
 EXPORT_SYMBOL(msm_dcvs_scm_init);
 
-int msm_dcvs_scm_create_group(uint32_t id)
-{
-	int ret = 0;
-
-	ret = scm_call(SCM_SVC_DCVS, DCVS_CMD_CREATE_GROUP,
-			&id, sizeof(uint32_t), NULL, 0);
-
-	return ret;
-}
-EXPORT_SYMBOL(msm_dcvs_scm_create_group);
-
-int msm_dcvs_scm_register_core(uint32_t core_id, uint32_t group_id,
-		struct msm_dcvs_core_param *param,
-		struct msm_dcvs_freq_entry *freq)
+int msm_dcvs_scm_register_core(uint32_t core_id,
+		struct msm_dcvs_core_param *param)
 {
 	int ret = 0;
 	struct scm_register_core reg_data;
 	struct msm_dcvs_core_param *p = NULL;
-	struct msm_dcvs_freq_entry *f = NULL;
 
 	p = kzalloc(PAGE_ALIGN(sizeof(struct msm_dcvs_core_param)), GFP_KERNEL);
 	if (!p)
 		return -ENOMEM;
 
-	f = kzalloc(PAGE_ALIGN(sizeof(struct msm_dcvs_freq_entry) *
-				param->num_freq), GFP_KERNEL);
-	if (!f) {
-		kfree(p);
-		return -ENOMEM;
-	}
-
 	memcpy(p, param, sizeof(struct msm_dcvs_core_param));
-	memcpy(f, freq, sizeof(struct msm_dcvs_freq_entry) * param->num_freq);
 
 	reg_data.core_id = core_id;
-	reg_data.group_id = group_id;
 	reg_data.core_param_phy = virt_to_phys(p);
-	reg_data.freq_phy = virt_to_phys(f);
 
 	ret = scm_call(SCM_SVC_DCVS, DCVS_CMD_REGISTER_CORE,
 			&reg_data, sizeof(reg_data), NULL, 0);
 
-	kfree(f);
 	kfree(p);
 
 	return ret;
@@ -136,7 +117,6 @@ int msm_dcvs_scm_set_algo_params(uint32_t core_id,
 	p = kzalloc(PAGE_ALIGN(sizeof(struct msm_algo_param)), GFP_KERNEL);
 	if (!p)
 		return -ENOMEM;
-
 
 	p->type = MSM_DCVS_ALGO_DCVS_PARAM;
 	memcpy(&p->u.dcvs_param, param, sizeof(struct msm_dcvs_algo_param));
@@ -177,6 +157,60 @@ int msm_mpd_scm_set_algo_params(struct msm_mpd_algo_param *param)
 	return ret;
 }
 EXPORT_SYMBOL(msm_mpd_scm_set_algo_params);
+
+int msm_dcvs_scm_set_power_params(uint32_t core_id,
+		struct msm_dcvs_power_params *pwr_param,
+		struct msm_dcvs_freq_entry *freq_entry,
+		struct msm_dcvs_energy_curve_coeffs *coeffs)
+{
+	int ret = 0;
+	struct scm_pwr_param pwr;
+	struct msm_dcvs_power_params *pwrt = NULL;
+	struct msm_dcvs_freq_entry *freqt = NULL;
+	struct msm_dcvs_energy_curve_coeffs *coefft = NULL;
+
+	pwrt = kzalloc(PAGE_ALIGN(sizeof(struct msm_dcvs_power_params)),
+			GFP_KERNEL);
+	if (!pwrt)
+		return -ENOMEM;
+
+	freqt = kzalloc(PAGE_ALIGN(sizeof(struct msm_dcvs_freq_entry)
+				* pwr_param->num_freq),
+			GFP_KERNEL);
+	if (!freqt) {
+		kfree(pwrt);
+		return -ENOMEM;
+	}
+
+	coefft = kzalloc(PAGE_ALIGN(
+				sizeof(struct msm_dcvs_energy_curve_coeffs)),
+				GFP_KERNEL);
+	if (!coefft) {
+		kfree(pwrt);
+		kfree(freqt);
+		return -ENOMEM;
+	}
+
+	memcpy(pwrt, pwr_param, sizeof(struct msm_dcvs_power_params));
+	memcpy(freqt, freq_entry,
+			sizeof(struct msm_dcvs_freq_entry)*pwr_param->num_freq);
+	memcpy(coefft, coeffs, sizeof(struct msm_dcvs_energy_curve_coeffs));
+
+	pwr.core_id = core_id;
+	pwr.pwr_param_phy = virt_to_phys(pwrt);
+	pwr.freq_phy = virt_to_phys(freqt);
+	pwr.coeffs_phy = virt_to_phys(coefft);
+
+	ret = scm_call(SCM_SVC_DCVS, DCVS_CMD_SET_POWER_PARAM,
+			&pwr, sizeof(pwr), NULL, 0);
+
+	kfree(pwrt);
+	kfree(freqt);
+	kfree(coefft);
+
+	return ret;
+}
+EXPORT_SYMBOL(msm_dcvs_scm_set_power_params);
 
 int msm_dcvs_scm_event(uint32_t core_id,
 		enum msm_dcvs_scm_event event_id,

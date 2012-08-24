@@ -2414,7 +2414,6 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm8930_rtb_device,
 	&msm8930_cpu_idle_device,
-	&msm8930_msm_gov_device,
 	&msm_bus_8930_apps_fabric,
 	&msm_bus_8930_sys_fabric,
 	&msm_bus_8930_mm_fabric,
