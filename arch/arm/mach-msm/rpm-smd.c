@@ -490,12 +490,13 @@ static int msm_rpm_read_smd_data(char *buf)
 
 	pkt_sz = smd_cur_packet_size(msm_rpm_data.ch_info);
 
+	if (!pkt_sz)
+		return -EAGAIN;
+
 	BUG_ON(pkt_sz > MAX_ERR_BUFFER_SIZE);
 
 	if (pkt_sz != smd_read_avail(msm_rpm_data.ch_info))
 		return -EAGAIN;
-
-	BUG_ON(pkt_sz == 0);
 
 	do {
 		int len;
