@@ -5,74 +5,135 @@ etc).
 
 Required properties:
 
-- qcom,core-max-time-us:	Maximum time limit in micorseconds for switching clock rate.
-				Limited to this value if switching time takes longer than this limit. Typical value is 100000.
-- qcom,algo-slack-time-us:	Time in microseconds after which the QoS guarantee will kick in
-				and the clock rate will increased as necessary. Typical value is about 30000.
-- qcom,algo-disable-pc-threshold:	If core frequency (kHz) is higher than this value, power collapse is disallowed. Set to 0 for GPU.
-- qcom,algo-ss-window-size:	Steady state window size in microseconds.
-- qcom,algo-ss-util-pct:	When determining the steady state level, this percentage value is used to provide headroom
-				from the utilized cpu to the selected level.
-- qcom,algo-ee-max-util-pct:	When determining the level with the lowest energy, any level that exceeds this busy
-				percentage, for the measured work in the last window, is disqualified for performance reasons.
-- qcom,algo-ss-iobusy-conv:	Used to convert correlation time into assumed IO Busy time, which is removed
-				from measured elapsed time when computing cpu utilization.
+- qcom,core-core-type:	indicates whether this core is a CPU(0) or a GPU(1)
 
+- qcom,algo-disable-pc-threshold:	sets highest frequency at which DCVS
+					will allow the CPU to power collapse.
+- qcom,algo-em-win-size-min-us:		sets minimum Energy Minimization(EM)
+					window size.
+- qcom,algo-em-win-size-max-us:		sets maximum EM window size.
+- qcom,algo-em-max-util-pct:		sets maximum CPU utilization that will
+					not be exceeded by any core when
+					MP-decision decides the number of
+					online cores.
+- qcom,algo-group-id:			specifies a group index of a core.
+- qcom,algo-max-freq-chg-time-us:	shows time taken for the most recent
+					frequency change.
+- qcom,algo-slack-mode-dynamic:	 	specifies if dynamic slack mode is
+					enabled or not.
+- qcom,algo-slack-weight-thresh-pct:	sets occurrence percentage of CPU
+					activity that will make slack timer
+					triggered.
+- qcom,algo-slack-time-min-us:		specifies the slack time that slack
+					timer would be set if the current clock
+					frequency is zero.
+- qcom,algo-slack-time-max-us:		sets maximum slack timer value to be
+					used by slack timer.
+- qcom,algo-ss-win-size-min-us:		sets minimum steady state window size.
+- qcom,algo-ss-win-size-max-us:		sets maximum steady state window size.
+- qcom,algo-ss-util-pct:		sets target CPU utilization during
+					steady-state.
+- qcom,algo-ss-iobusy-conv:		specifies how wait time (i/o busy time)
+					is incorporated into the steady-state
+					algorithm.
+
+- qcom,energy-active-coeff-a:	sets active power equation coefficient a.
+- qcom,energy-active-coeff-b:	sets active power equation coefficient b.
+- qcom,energy-active-coeff-c:	sets active power equation coefficient c.
+- qcom,energy-leakage-coeff-a:	sets leakage power equation coefficient a.
+- qcom,energy-leakage-coeff-b:	sets leakage power equation coefficient b.
+- qcom,energy-leakage-coeff-c:	sets leakage power equation coefficient c.
+- qcom,energy-leakage-coeff-d:	sets leakage power equation coefficient d.
+
+- qcom,power-current-temp:	the current temperature in degCelcius.
+- qcom,power-num-freq:		the number of freq this core supports.
 
 A number of frequency levels are represented as sub-nodes:
 
 required properties:
 - reg:			The index of the frequency entry
 - qcom,freq		The frequency of the DVS entry (in kHZ)
-- qcom,idle-energy: 	The idle energy cost of the entry (in micro watts)
-- qcom,active-energy:	The active energy cost of the entry (in micro watts)
+- qcom,is_trans_level	This frequency is transient step for DCVS
+- qcom,active-energy-offset:	The active energy cost of the entry
+- qcom,leakage-energy-offset: 	The leakage energy cost of the entry
 
 Sample:
 
 qcom,kgsl-3d0@fdb00000 {
 	...
-	qcom,dcvs-core-info {
-		#address-cells = <1>;
-		#size-cells = <0>;
+		qcom,dcvs-core-info {
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-		compatible = "qcom,dcvs-core-info";
+			compatible = "qcom,dcvs-core-info";
 
-		qcom,core-max-time-us = <100000>;
-		qcom,algo-slack-time-us = <39000>;
-		qcom,algo-disable-pc-threshold = <86000>;
-		qcom,algo-ss-window-size = <1000000>;
-		qcom,algo-ss-util-pct = <95>;
-		qcom,algo-em-max-util-pct = <97>;
-		qcom,algo-ss-iobusy-conv = <100>;
+			qcom,num_cores = <1>;
+			qcom,sensors = <0>;
 
-		qcom,dcvs-freq@0 {
-			reg = <0>;
-			qcom,freq = <0>;
-			qcom,idle-energy = <0>;
-			qcom,active-energy = <333932>;
+			qcom,core-core-type = <1>;
+
+			qcom,algo-disable-pc-threshold = <0>;
+			qcom,algo-em-win-size-min-us = <100000>;
+			qcom,algo-em-win-size-max-us = <300000>;
+			qcom,algo-em-max-util-pct = <97>;
+			qcom,algo-group-id = <95>;
+			qcom,algo-max-freq-chg-time-us = <100000>;
+			qcom,algo-slack-mode-dynamic = <100000>;
+			qcom,algo-slack-weight-thresh-pct = <0>;
+			qcom,algo-slack-time-min-us = <39000>;
+			qcom,algo-slack-time-max-us = <39000>;
+			qcom,algo-ss-win-size-min-us = <1000000>;
+			qcom,algo-ss-win-size-max-us = <1000000>;
+			qcom,algo-ss-util-pct = <95>;
+			qcom,algo-ss-iobusy-conv = <100>;
+
+			qcom,energy-active-coeff-a = <2492>;
+			qcom,energy-active-coeff-b = <0>;
+			qcom,energy-active-coeff-c = <0>;
+			qcom,energy-leakage-coeff-a = <11>;
+			qcom,energy-leakage-coeff-b = <157150>;
+			qcom,energy-leakage-coeff-c = <0>;
+			qcom,energy-leakage-coeff-d = <0>;
+
+			qcom,power-current-temp = <25>;
+			qcom,power-num-freq = <4>;
+
+			qcom,dcvs-freq@0 {
+				reg = <0>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@1 {
+				reg = <1>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@2 {
+				reg = <2>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@3 {
+				reg = <3>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <844545>;
+				qcom,leakage-energy-offset = <0>;
+			};
 		};
-
-		qcom,dcvs-freq@1 {
-			reg = <1>;
-			qcom,freq = <0>;
-			qcom,idle-energy = <0>;
-			qcom,active-energy = <497532>;
-		};
-
-		qcom,dcvs-freq@2 {
-			reg = <2>;
-			qcom,freq = <0>;
-			qcom,idle-energy = <0>;
-			qcom,active-energy = <707610>;
-		};
-
-		qcom,dcvs-freq@3 {
-			reg = <3>;
-			qcom,freq = <0>;
-			qcom,idle-energy = <0>;
-			qcom,active-energy = <844545>;
-		};
-	};
 	...
 };
 

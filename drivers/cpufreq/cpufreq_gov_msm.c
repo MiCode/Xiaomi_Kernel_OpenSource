@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,7 +138,6 @@ static int __devinit msm_gov_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int cpu;
-	uint32_t group_id = 0x43505530; /* CPU0 */
 	struct msm_dcvs_core_info *core = NULL;
 
 	core = pdev->dev.platform_data;
@@ -146,7 +145,7 @@ static int __devinit msm_gov_probe(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		mutex_init(&per_cpu(gov_mutex, cpu));
 		snprintf(core_name[cpu], 10, "cpu%d", cpu);
-		ret = msm_dcvs_register_core(core_name[cpu], group_id, core);
+		ret = msm_dcvs_register_core(core_name[cpu], core);
 		if (ret)
 			pr_err("Unable to register core for %d\n", cpu);
 	}

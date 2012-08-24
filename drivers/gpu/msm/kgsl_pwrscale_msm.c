@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,9 +170,8 @@ static int msm_init(struct kgsl_device *device,
 	/* Fill in frequency table from low to high, reversing order. */
 	low_level = pwr->num_pwrlevels - KGSL_PWRLEVEL_LAST_OFFSET;
 	for (i = 0; i <= low_level; i++)
-		tbl[i].freq =
-			pwr->pwrlevels[low_level - i].gpu_freq / 1000;
-	ret = msm_dcvs_register_core(device->name, 0, priv->core_info);
+		tbl[i].freq = pwr->pwrlevels[low_level - i].gpu_freq / 1000;
+	ret = msm_dcvs_register_core(device->name, priv->core_info);
 	if (ret) {
 		KGSL_PWR_ERR(device, "msm_dcvs_register_core failed");
 		goto err;
