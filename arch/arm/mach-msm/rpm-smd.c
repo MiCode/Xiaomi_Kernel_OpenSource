@@ -773,7 +773,6 @@ EXPORT_SYMBOL(msm_rpm_send_request_noirq);
 int msm_rpm_wait_for_ack(uint32_t msg_id)
 {
 	struct msm_rpm_wait_data *elem;
-	int rc = 0;
 
 	if (!msg_id)
 		return -EINVAL;
@@ -785,15 +784,9 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 	if (!elem)
 		return 0;
 
-	rc = wait_for_completion_timeout(&elem->ack, msecs_to_jiffies(1));
-	if (!rc) {
-		pr_warn("%s(): Timed out after 1 ms\n", __func__);
-		rc = -ETIMEDOUT;
-	} else {
-		rc = elem->errno;
-		msm_rpm_free_list_entry(elem);
-	}
-	return rc;
+	wait_for_completion(&elem->ack);
+	msm_rpm_free_list_entry(elem);
+	return elem->errno;
 }
 EXPORT_SYMBOL(msm_rpm_wait_for_ack);
 
@@ -964,10 +957,7 @@ static int __devinit msm_rpm_dev_probe(struct platform_device *pdev)
 		complete(&msm_rpm_data.smd_open);
 	}
 
-	ret = wait_for_completion_timeout(&msm_rpm_data.smd_open,
-			msecs_to_jiffies(5));
-
-	BUG_ON(!ret);
+	wait_for_completion(&msm_rpm_data.smd_open);
 
 	smd_disable_read_intr(msm_rpm_data.ch_info);
 
