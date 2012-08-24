@@ -18,10 +18,9 @@
 #include <linux/types.h>
 #include <linux/workqueue.h>
 
-#define MDSS_REG_WRITE(addr, val) writel_relaxed(val, mdss_reg_base + addr)
-#define MDSS_REG_READ(addr) readl_relaxed(mdss_reg_base + addr)
+#define MDSS_REG_WRITE(addr, val) writel_relaxed(val, mdss_res->mdp_base + addr)
+#define MDSS_REG_READ(addr) readl_relaxed(mdss_res->mdp_base + addr)
 
-extern unsigned char *mdss_reg_base;
 extern spinlock_t dsi_clk_lock;
 
 enum mdss_mdp_clk_type {
@@ -34,7 +33,7 @@ enum mdss_mdp_clk_type {
 	MDSS_MAX_CLK
 };
 
-struct mdss_res_type {
+struct mdss_data_type {
 	u32 rev;
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
@@ -42,6 +41,9 @@ struct mdss_res_type {
 
 	struct workqueue_struct *clk_ctrl_wq;
 	struct delayed_work clk_ctrl_worker;
+	char __iomem *mdp_base;
+
+	struct platform_device *pdev;
 
 	u32 irq;
 	u32 irq_mask;
@@ -69,7 +71,7 @@ struct mdss_res_type {
 	u32 *pipe_type_map;
 	u32 *mixer_type_map;
 };
-extern struct mdss_res_type *mdss_res;
+extern struct mdss_data_type *mdss_res;
 
 enum mdss_hw_index {
 	MDSS_HW_MDP,
