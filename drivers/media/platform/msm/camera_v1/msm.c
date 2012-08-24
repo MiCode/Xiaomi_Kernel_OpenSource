@@ -934,7 +934,7 @@ static int msm_open(struct file *f)
 			pcam_inst->my_index,
 			pcam->vnode_id, pcam->use_count);
 	pcam->use_count++;
-	D("%s use_count %d\n", __func__, pcam->use_count);
+	D("%s Inst %p use_count %d\n", __func__, pcam_inst, pcam->use_count);
 	if (pcam->use_count == 1) {
 		server_q_idx = msm_find_free_queue();
 		if (server_q_idx < 0)
