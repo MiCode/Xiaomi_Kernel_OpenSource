@@ -598,6 +598,10 @@
 		compatible = "qcom,msm-voip-dsp";
 	};
 
+	qcom,msm-pcm-voice {
+		compatible = "qcom,msm-pcm-voice";
+	};
+
 	qcom,msm-stub-codec {
 		compatible = "qcom,msm-stub-codec";
 	};
