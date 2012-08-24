@@ -533,6 +533,11 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_PACK_3D, 0);
 	}
 
+	/* request bus bandwidth for panel commands */
+	ctl->clk_rate = MDP_CLK_DEFAULT_RATE;
+	ctl->bus_ib_quota = SZ_1M;
+	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
+
 	ret = pdata->on(pdata);
 
 start_fail:
