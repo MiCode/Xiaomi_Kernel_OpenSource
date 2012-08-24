@@ -583,6 +583,8 @@ void msm_8974_init_gpiomux(void);
 void msm9625_init_gpiomux(void);
 void msm_map_mpq8092_io(void);
 void mpq8092_init_gpiomux(void);
+void msm_map_msm8226_io(void);
+void msm8226_init_irq(void);
 
 struct mmc_platform_data;
 int msm_add_sdcc(unsigned int controller,
