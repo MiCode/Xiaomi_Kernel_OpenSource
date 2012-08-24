@@ -1334,7 +1334,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		config->fsg.nluns = 2;
 		config->fsg.luns[1].cdrom = 1;
 		config->fsg.luns[1].ro = 1;
-		config->fsg.luns[1].removable = 1;
+		config->fsg.luns[1].removable = 0;
 		name[1] = "lun0";
 	}
 
