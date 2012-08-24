@@ -93,6 +93,7 @@ enum pm8921_chg_led_src_config {
  *			however, this should only be enabled for devices which
  *			control the DC OVP FETs otherwise this option should
  *			remain disabled
+ * @has_dc_supply:	report DC online if this bit is set in board file
  * @trkl_voltage:	the trkl voltage in (mV) below which hw controlled
  *			 trkl charging happens with linear charger
  * @weak_voltage:	the weak voltage (mV) below which hw controlled
@@ -142,6 +143,7 @@ struct pm8921_charger_platform_data {
 	int64_t				batt_id_max;
 	bool				keep_btm_on_suspend;
 	bool				dc_unplug_check;
+	bool				has_dc_supply;
 	int				trkl_voltage;
 	int				weak_voltage;
 	int				trkl_current;
