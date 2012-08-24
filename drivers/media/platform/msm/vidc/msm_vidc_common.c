@@ -1384,13 +1384,21 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 		frame_data.filled_len = vb->v4l2_planes[0].bytesused;
 		frame_data.device_addr = vb->v4l2_planes[0].m.userptr;
 		frame_data.timestamp = time_usec;
+		frame_data.flags = 0;
 		frame_data.clnt_data = (u32)vb;
 		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			frame_data.buffer_type = HAL_BUFFER_INPUT;
 			if (vb->v4l2_buf.flags & V4L2_BUF_FLAG_EOS) {
-				frame_data.flags = HAL_BUFFERFLAG_EOS;
+				frame_data.flags |= HAL_BUFFERFLAG_EOS;
 				pr_debug("Received EOS on output capability\n");
 			}
+
+			if (vb->v4l2_buf.flags &
+					V4L2_QCOM_BUF_FLAG_CODECCONFIG) {
+				frame_data.flags |= HAL_BUFFERFLAG_CODECCONFIG;
+				pr_debug("Received CODECCONFIG on output capability\n");
+			}
+
 			pr_debug("Sending etb to hal: Alloc: %d :filled: %d\n",
 				frame_data.alloc_len, frame_data.filled_len);
 			rc = vidc_hal_session_etb((void *) inst->session,
