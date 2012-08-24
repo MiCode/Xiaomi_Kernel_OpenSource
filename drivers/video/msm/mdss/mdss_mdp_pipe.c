@@ -397,7 +397,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			else
 				scale_config |= /* G/Y, A */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
+					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
 
 			if (pipe->src.h <= chr_dst_h)
 				scale_config |= /* CrCb */
@@ -455,7 +455,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			else
 				scale_config |= /* G/Y, A */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
+					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
 
 			if (pipe->src.w <= chr_dst_w)
 				scale_config |= /* CrCb */
