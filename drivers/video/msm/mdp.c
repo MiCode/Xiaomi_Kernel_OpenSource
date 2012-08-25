@@ -1285,34 +1285,6 @@ static void send_vsync_work(struct work_struct *work)
 	kobject_uevent_env(&(vsync_cntrl.dev->kobj), KOBJ_CHANGE, envp);
 }
 
-void mdp3_vsync_irq_enable(int intr, int term)
-{
-	unsigned long flag;
-
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	outp32(MDP_INTR_CLEAR, intr);
-	mdp_intr_mask |= intr;
-	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-	mdp_enable_irq(term);
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-}
-
-void mdp3_vsync_irq_disable(int intr, int term)
-{
-	unsigned long flag;
-
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	/* required to synchronize between frame update and vsync
-	 * since both use the same LCDC_FRAME_START interrupt
-	 */
-	if (intr == LCDC_FRAME_START && dma2_data.waiting == FALSE) {
-		mdp_intr_mask &= ~intr;
-		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-	}
-	mdp_disable_irq(term);
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-}
-
 #ifdef CONFIG_FB_MSM_MDP303
 /* vsync_isr_handler: Called from isr context*/
 static void vsync_isr_handler(void)
@@ -1770,6 +1742,7 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 	struct mdp_hist_mgmt *mgmt = NULL;
 	char *base_addr;
 	int i, ret;
+	int vsync_isr;
 	/* Ensure all the register write are complete */
 	mb();
 
@@ -1789,8 +1762,23 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 		goto out;
 
 	/*Primary Vsync interrupt*/
-	if (mdp_interrupt & MDP_PRIM_RDPTR)
-		vsync_isr_handler();
+	if (mdp_interrupt & MDP_PRIM_RDPTR) {
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		vsync_isr = vsync_cntrl.vsync_irq_enabled;
+		if (!vsync_isr) {
+			mdp_intr_mask &= ~MDP_PRIM_RDPTR;
+			outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+		}
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+		if (vsync_isr) {
+			vsync_isr_handler();
+		} else {
+			mdp_pipe_ctrl(MDP_CMD_BLOCK,
+				MDP_BLOCK_POWER_OFF, TRUE);
+			complete(&vsync_cntrl.vsync_wait);
+		}
+	}
 
 	/* DMA3 TV-Out Start */
 	if (mdp_interrupt & TV_OUT_DMA3_START) {
@@ -1838,21 +1826,26 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 		if (mdp_interrupt & LCDC_FRAME_START) {
 			dma = &dma2_data;
 			spin_lock_irqsave(&mdp_spin_lock, flag);
+			vsync_isr = vsync_cntrl.vsync_irq_enabled;
 			/* let's disable LCDC interrupt */
 			if (dma->waiting) {
 				dma->waiting = FALSE;
 				complete(&dma->comp);
 			}
 
-			if (vsync_cntrl.vsync_irq_enabled)
-				vsync_isr_handler();
-
-			if (!vsync_cntrl.vsync_irq_enabled && !(dma->waiting)) {
+			if (!vsync_isr) {
 				mdp_intr_mask &= ~LCDC_FRAME_START;
 				outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 			}
-
 			spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+			if (vsync_isr) {
+				vsync_isr_handler();
+			} else {
+				mdp_pipe_ctrl(MDP_CMD_BLOCK,
+					MDP_BLOCK_POWER_OFF, TRUE);
+				complete(&vsync_cntrl.vsync_wait);
+			}
 		}
 
 		/* DMA2 LCD-Out Complete */
@@ -1983,6 +1976,7 @@ static void mdp_drv_init(void)
 		atomic_set(&mdp_block_power_cnt[i], 0);
 	}
 	INIT_WORK(&(vsync_cntrl.vsync_work), send_vsync_work);
+	init_completion(&vsync_cntrl.vsync_wait);
 #ifdef MSM_FB_ENABLE_DBGFS
 	{
 		struct dentry *root;

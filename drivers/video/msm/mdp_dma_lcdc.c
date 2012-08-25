@@ -330,17 +330,26 @@ int mdp_lcdc_off(struct platform_device *pdev)
 
 void mdp_dma_lcdc_vsync_ctrl(int enable)
 {
+	unsigned long flag;
 	if (vsync_cntrl.vsync_irq_enabled == enable)
 		return;
 
+	spin_lock_irqsave(&mdp_spin_lock, flag);
 	vsync_cntrl.vsync_irq_enabled = enable;
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
 	if (enable) {
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-		mdp3_vsync_irq_enable(LCDC_FRAME_START, MDP_VSYNC_TERM);
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		outp32(MDP_INTR_CLEAR, LCDC_FRAME_START);
+		mdp_intr_mask |= LCDC_FRAME_START;
+		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+		mdp_enable_irq(MDP_VSYNC_TERM);
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	} else {
-		mdp3_vsync_irq_disable(LCDC_FRAME_START, MDP_VSYNC_TERM);
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+		INIT_COMPLETION(vsync_cntrl.vsync_wait);
+		wait_for_completion(&vsync_cntrl.vsync_wait);
+		mdp_disable_irq(MDP_VSYNC_TERM);
 	}
 }
 
