@@ -371,7 +371,8 @@ static int config_buf(struct usb_configuration *config,
 	c->bConfigurationValue = config->bConfigurationValue;
 	c->iConfiguration = config->iConfiguration;
 	c->bmAttributes = USB_CONFIG_ATT_ONE | config->bmAttributes;
-	c->bMaxPower = config->bMaxPower ? : (CONFIG_USB_GADGET_VBUS_DRAW / 2);
+	c->bMaxPower = config->bMaxPower ? :
+		(CONFIG_USB_GADGET_VBUS_DRAW / config->cdev->vbus_draw_units);
 
 	/* There may be e.g. OTG descriptors */
 	if (config->descriptors) {
@@ -688,7 +689,8 @@ static int set_config(struct usb_composite_dev *cdev,
 	}
 
 	/* when we return, be sure our power usage is valid */
-	power = c->bMaxPower ? (2 * c->bMaxPower) : CONFIG_USB_GADGET_VBUS_DRAW;
+	power = c->bMaxPower ? (cdev->vbus_draw_units * c->bMaxPower) :
+			CONFIG_USB_GADGET_VBUS_DRAW;
 done:
 	usb_gadget_vbus_draw(gadget, power);
 
@@ -1113,12 +1115,16 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				count_configs(cdev, USB_DT_DEVICE);
 			cdev->desc.bMaxPacketSize0 =
 				cdev->gadget->ep0->maxpacket;
+			cdev->vbus_draw_units = 2;
 			if (gadget_is_superspeed(gadget)) {
 				if (gadget->speed >= USB_SPEED_SUPER) {
 					cdev->desc.bcdUSB = cpu_to_le16(0x0300);
 					cdev->desc.bMaxPacketSize0 = 9;
+					cdev->vbus_draw_units = 8;
+					DBG(cdev, "Config SS device in SS\n");
 				} else {
 					cdev->desc.bcdUSB = cpu_to_le16(0x0210);
+					DBG(cdev, "Config SS device in HS\n");
 				}
 			}
 
@@ -1576,7 +1582,8 @@ composite_resume(struct usb_gadget *gadget)
 		maxpower = cdev->config->bMaxPower;
 
 		usb_gadget_vbus_draw(gadget, maxpower ?
-			(2 * maxpower) : CONFIG_USB_GADGET_VBUS_DRAW);
+			(cdev->vbus_draw_units * maxpower) :
+			CONFIG_USB_GADGET_VBUS_DRAW);
 	}
 
 	cdev->suspended = 0;
