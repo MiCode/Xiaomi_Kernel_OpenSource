@@ -606,8 +606,8 @@ static int32_t msm_sensor_init_flash_data(struct device_node *of_node,
 		return -ENOMEM;
 	}
 
-	rc = of_property_read_u32(of_node, "flash_type", &val);
-	CDBG("%s flash_type %d, rc %d\n", __func__, val, rc);
+	rc = of_property_read_u32(of_node, "qcom,flash-type", &val);
+	CDBG("%s qcom,flash-type %d, rc %d\n", __func__, val, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR;
@@ -626,8 +626,8 @@ static int32_t msm_sensor_init_vreg_data(struct device_node *of_node,
 	uint32_t count = 0;
 	uint32_t *val_array = NULL;
 
-	count = of_property_count_strings(of_node, "cam_vreg_name");
-	CDBG("%s cam_vreg_name count %d\n", __func__, count);
+	count = of_property_count_strings(of_node, "qcom,cam-vreg-name");
+	CDBG("%s qcom,cam-vreg-name count %d\n", __func__, count);
 
 	if (!count)
 		return 0;
@@ -641,8 +641,8 @@ static int32_t msm_sensor_init_vreg_data(struct device_node *of_node,
 
 	pinfo->num_vreg = count;
 	for (i = 0; i < count; i++) {
-		rc = of_property_read_string_index(of_node, "cam_vreg_name", i,
-			&pinfo->cam_vreg[i].reg_name);
+		rc = of_property_read_string_index(of_node,
+			"qcom,cam-vreg-name", i, &pinfo->cam_vreg[i].reg_name);
 		CDBG("%s reg_name[%d] = %s\n", __func__, i,
 			pinfo->cam_vreg[i].reg_name);
 		if (rc < 0) {
@@ -658,8 +658,8 @@ static int32_t msm_sensor_init_vreg_data(struct device_node *of_node,
 		goto ERROR1;
 	}
 
-	rc = of_property_read_u32_array(of_node, "cam_vreg_type", val_array,
-		count);
+	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-type",
+		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR2;
@@ -670,7 +670,7 @@ static int32_t msm_sensor_init_vreg_data(struct device_node *of_node,
 			pinfo->cam_vreg[i].type);
 	}
 
-	rc = of_property_read_u32_array(of_node, "cam_vreg_min_voltage",
+	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-min-voltage",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -682,7 +682,7 @@ static int32_t msm_sensor_init_vreg_data(struct device_node *of_node,
 			i, pinfo->cam_vreg[i].min_voltage);
 	}
 
-	rc = of_property_read_u32_array(of_node, "cam_vreg_max_voltage",
+	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-max-voltage",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -694,8 +694,8 @@ static int32_t msm_sensor_init_vreg_data(struct device_node *of_node,
 			i, pinfo->cam_vreg[i].max_voltage);
 	}
 
-	rc = of_property_read_u32_array(of_node, "cam_vreg_op_mode", val_array,
-		count);
+	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-op-mode",
+		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR2;
@@ -724,12 +724,12 @@ static int32_t msm_sensor_init_gpio_common_tbl_data(struct device_node *of_node,
 	uint32_t count = 0;
 	uint32_t *val_array = NULL;
 
-	if (!of_get_property(of_node, "gpio_common_tbl_num", &count))
+	if (!of_get_property(of_node, "qcom,gpio-common-tbl-num", &count))
 		return 0;
 
 	count /= sizeof(uint32_t);
 	if (!count) {
-		pr_err("%s gpio_common_tbl_num 0\n", __func__);
+		pr_err("%s qcom,gpio-common-tbl-num 0\n", __func__);
 		return 0;
 	} else if (count > gpio_array_size) {
 		pr_err("%s gpio common tbl size exceeds gpio array\n",
@@ -752,7 +752,7 @@ static int32_t msm_sensor_init_gpio_common_tbl_data(struct device_node *of_node,
 	}
 	gconf->cam_gpio_common_tbl_size = count;
 
-	rc = of_property_read_u32_array(of_node, "gpio_common_tbl_num",
+	rc = of_property_read_u32_array(of_node, "qcom,gpio-common-tbl-num",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -769,7 +769,7 @@ static int32_t msm_sensor_init_gpio_common_tbl_data(struct device_node *of_node,
 			gconf->cam_gpio_common_tbl[i].gpio);
 	}
 
-	rc = of_property_read_u32_array(of_node, "gpio_common_tbl_flags",
+	rc = of_property_read_u32_array(of_node, "qcom,gpio-common-tbl-flags",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -783,7 +783,7 @@ static int32_t msm_sensor_init_gpio_common_tbl_data(struct device_node *of_node,
 
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node,
-			"gpio_common_tbl_label", i,
+			"qcom,gpio-common-tbl-label", i,
 			&gconf->cam_gpio_common_tbl[i].label);
 		CDBG("%s cam_gpio_common_tbl[%d].label = %s\n", __func__, i,
 			gconf->cam_gpio_common_tbl[i].label);
@@ -812,12 +812,12 @@ static int32_t msm_sensor_init_gpio_req_tbl_data(struct device_node *of_node,
 	uint32_t count = 0;
 	uint32_t *val_array = NULL;
 
-	if (!of_get_property(of_node, "gpio_req_tbl_num", &count))
+	if (!of_get_property(of_node, "qcom,gpio-req-tbl-num", &count))
 		return 0;
 
 	count /= sizeof(uint32_t);
 	if (!count) {
-		pr_err("%s gpio_req_tbl_num 0\n", __func__);
+		pr_err("%s qcom,gpio-req-tbl-num 0\n", __func__);
 		return 0;
 	}
 
@@ -836,7 +836,7 @@ static int32_t msm_sensor_init_gpio_req_tbl_data(struct device_node *of_node,
 	}
 	gconf->cam_gpio_req_tbl_size = count;
 
-	rc = of_property_read_u32_array(of_node, "gpio_req_tbl_num",
+	rc = of_property_read_u32_array(of_node, "qcom,gpio-req-tbl-num",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -853,7 +853,7 @@ static int32_t msm_sensor_init_gpio_req_tbl_data(struct device_node *of_node,
 			gconf->cam_gpio_req_tbl[i].gpio);
 	}
 
-	rc = of_property_read_u32_array(of_node, "gpio_req_tbl_flags",
+	rc = of_property_read_u32_array(of_node, "qcom,gpio-req-tbl-flags",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -867,7 +867,7 @@ static int32_t msm_sensor_init_gpio_req_tbl_data(struct device_node *of_node,
 
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node,
-			"gpio_req_tbl_label", i,
+			"qcom,gpio-req-tbl-label", i,
 			&gconf->cam_gpio_req_tbl[i].label);
 		CDBG("%s cam_gpio_req_tbl[%d].label = %s\n", __func__, i,
 			gconf->cam_gpio_req_tbl[i].label);
@@ -896,12 +896,12 @@ static int32_t msm_sensor_init_gpio_set_tbl_data(struct device_node *of_node,
 	uint32_t count = 0;
 	uint32_t *val_array = NULL;
 
-	if (!of_get_property(of_node, "gpio_set_tbl_num", &count))
+	if (!of_get_property(of_node, "qcom,gpio-set-tbl-num", &count))
 		return 0;
 
 	count /= sizeof(uint32_t);
 	if (!count) {
-		pr_err("%s gpio_set_tbl_num 0\n", __func__);
+		pr_err("%s qcom,gpio-set-tbl-num 0\n", __func__);
 		return 0;
 	}
 
@@ -920,7 +920,7 @@ static int32_t msm_sensor_init_gpio_set_tbl_data(struct device_node *of_node,
 	}
 	gconf->cam_gpio_set_tbl_size = count;
 
-	rc = of_property_read_u32_array(of_node, "gpio_set_tbl_num",
+	rc = of_property_read_u32_array(of_node, "qcom,gpio-set-tbl-num",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -937,7 +937,7 @@ static int32_t msm_sensor_init_gpio_set_tbl_data(struct device_node *of_node,
 			gconf->cam_gpio_set_tbl[i].gpio);
 	}
 
-	rc = of_property_read_u32_array(of_node, "gpio_set_tbl_flags",
+	rc = of_property_read_u32_array(of_node, "qcom,gpio-set-tbl-flags",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -949,7 +949,7 @@ static int32_t msm_sensor_init_gpio_set_tbl_data(struct device_node *of_node,
 			gconf->cam_gpio_set_tbl[i].flags);
 	}
 
-	rc = of_property_read_u32_array(of_node, "gpio_set_tbl_delay",
+	rc = of_property_read_u32_array(of_node, "qcom,gpio-set-tbl-delay",
 		val_array, count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -1106,8 +1106,8 @@ static int32_t msm_sensor_init_csi_data(struct device_node *of_node,
 	struct msm_camera_sensor_platform_info *pinfo =
 		sensordata->sensor_platform_info;
 
-	rc = of_property_read_u32(of_node, "csi_if", &count);
-	CDBG("%s csi_if %d, rc %d\n", __func__, count, rc);
+	rc = of_property_read_u32(of_node, "qcom,csi-if", &count);
+	CDBG("%s qcom,csi-if %d, rc %d\n", __func__, count, rc);
 	if (rc < 0 || !count)
 		return rc;
 	sensordata->csi_if = count;
@@ -1126,25 +1126,27 @@ static int32_t msm_sensor_init_csi_data(struct device_node *of_node,
 		goto ERROR1;
 	}
 
-	rc = of_property_read_u32_array(of_node, "csid_core", val_array, count);
+	rc = of_property_read_u32_array(of_node, "qcom,csid-core", val_array,
+		count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR2;
 	}
 	for (i = 0; i < count; i++) {
 		sensordata->pdata[i].csid_core = val_array[i];
-		CDBG("%s csid_core[%d].csid_core = %d\n", __func__, i,
+		CDBG("%s csi_data[%d].csid_core = %d\n", __func__, i,
 			sensordata->pdata[i].csid_core);
 	}
 
-	rc = of_property_read_u32_array(of_node, "is_vpe", val_array, count);
+	rc = of_property_read_u32_array(of_node, "qcom,is-vpe", val_array,
+		count);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR2;
 	}
 	for (i = 0; i < count; i++) {
 		sensordata->pdata[i].is_vpe = val_array[i];
-		CDBG("%s csid_core[%d].is_vpe = %d\n", __func__, i,
+		CDBG("%s csi_data[%d].is_vpe = %d\n", __func__, i,
 			sensordata->pdata[i].is_vpe);
 	}
 
@@ -1156,16 +1158,16 @@ static int32_t msm_sensor_init_csi_data(struct device_node *of_node,
 		goto ERROR2;
 	}
 
-	rc = of_property_read_u32(of_node, "csi_lane_assign", &val);
-	CDBG("%s csi_lane_assign %x, rc %d\n", __func__, val, rc);
+	rc = of_property_read_u32(of_node, "qcom,csi-lane-assign", &val);
+	CDBG("%s qcom,csi-lane-assign %x, rc %d\n", __func__, val, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR3;
 	}
 	pinfo->csi_lane_params->csi_lane_assign = val;
 
-	rc = of_property_read_u32(of_node, "csi_lane_mask", &val);
-	CDBG("%s csi_lane_mask %x, rc %d\n", __func__, val, rc);
+	rc = of_property_read_u32(of_node, "qcom,csi-lane-mask", &val);
+	CDBG("%s qcom,csi-lane-mask %x, rc %d\n", __func__, val, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR3;
@@ -1189,8 +1191,8 @@ static int32_t msm_sensor_init_actuator_data(struct device_node *of_node,
 	int32_t rc = 0;
 	uint32_t val = 0;
 
-	rc = of_property_read_u32(of_node, "actuator_cam_name", &val);
-	CDBG("%s actuator_cam_name %d, rc %d\n", __func__, val, rc);
+	rc = of_property_read_u32(of_node, "qcom,actuator-cam-name", &val);
+	CDBG("%s qcom,actuator-cam-name %d, rc %d\n", __func__, val, rc);
 	if (rc < 0)
 		return 0;
 
@@ -1204,13 +1206,13 @@ static int32_t msm_sensor_init_actuator_data(struct device_node *of_node,
 
 	sensordata->actuator_info->cam_name = val;
 
-	rc = of_property_read_u32(of_node, "actuator_vcm_pwd", &val);
-	CDBG("%s actuator_vcm_pwd %d, rc %d\n", __func__, val, rc);
+	rc = of_property_read_u32(of_node, "qcom,actuator-vcm-pwd", &val);
+	CDBG("%s qcom,actuator-vcm-pwd %d, rc %d\n", __func__, val, rc);
 	if (!rc)
 		sensordata->actuator_info->vcm_pwd = val;
 
-	rc = of_property_read_u32(of_node, "actuator_vcm_enable", &val);
-	CDBG("%s actuator_vcm_enable %d, rc %d\n", __func__, val, rc);
+	rc = of_property_read_u32(of_node, "qcom,actuator-vcm-enable", &val);
+	CDBG("%s qcom,actuator-vcm-enable %d, rc %d\n", __func__, val, rc);
 	if (!rc)
 		sensordata->actuator_info->vcm_enable = val;
 
@@ -1240,25 +1242,25 @@ static int32_t msm_sensor_init_sensor_data(struct platform_device *pdev,
 
 	sensordata = s_ctrl->sensordata;
 
-	rc = of_property_read_string(of_node, "sensor_name",
+	rc = of_property_read_string(of_node, "qcom,sensor-name",
 		&sensordata->sensor_name);
-	CDBG("%s sensor_name %s, rc %d\n", __func__,
+	CDBG("%s qcom,sensor-name %s, rc %d\n", __func__,
 		sensordata->sensor_name, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR1;
 	}
 
-	rc = of_property_read_u32(of_node, "camera_type", &val);
-	CDBG("%s camera_type %d, rc %d\n", __func__, val, rc);
+	rc = of_property_read_u32(of_node, "qcom,camera-type", &val);
+	CDBG("%s qcom,camera-type %d, rc %d\n", __func__, val, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR1;
 	}
 	sensordata->camera_type = val;
 
-	rc = of_property_read_u32(of_node, "sensor_type", &val);
-	CDBG("%s sensor_type %d, rc %d\n", __func__, val, rc);
+	rc = of_property_read_u32(of_node, "qcom,sensor-type", &val);
+	CDBG("%s qcom,sensor-type %d, rc %d\n", __func__, val, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR1;
@@ -1281,8 +1283,10 @@ static int32_t msm_sensor_init_sensor_data(struct platform_device *pdev,
 
 	pinfo = sensordata->sensor_platform_info;
 
-	rc = of_property_read_u32(of_node, "mount_angle", &pinfo->mount_angle);
-	CDBG("%s mount_angle %d, rc %d\n", __func__, pinfo->mount_angle, rc);
+	rc = of_property_read_u32(of_node, "qcom,mount-angle",
+		&pinfo->mount_angle);
+	CDBG("%s qcom,mount-angle %d, rc %d\n", __func__, pinfo->mount_angle,
+		rc);
 	if (rc < 0) {
 		/* Set default mount angle */
 		pinfo->mount_angle = 0;
@@ -1309,7 +1313,8 @@ static int32_t msm_sensor_init_sensor_data(struct platform_device *pdev,
 		goto ERROR4;
 	}
 	gconf = pinfo->gpio_conf;
-	rc = of_property_read_u32(of_node, "gpio_no_mux", &gconf->gpio_no_mux);
+	rc = of_property_read_u32(of_node, "qcom,gpio-no-mux",
+		&gconf->gpio_no_mux);
 	CDBG("%s gconf->gpio_no_mux %d, rc %d\n", __func__,
 		gconf->gpio_no_mux, rc);
 	if (rc < 0) {
