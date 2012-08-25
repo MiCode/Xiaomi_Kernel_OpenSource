@@ -577,6 +577,13 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 	ctl->power_on = false;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+	if (pdata->intf_unprepare)
+		ret = pdata->intf_unprepare(pdata);
+
+	if (ret)
+		pr_err("%s: intf_unprepare failed\n", __func__);
+
 	if (ctl->stop_fnc)
 		ret = ctl->stop_fnc(ctl);
 	else
@@ -586,6 +593,7 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 		pr_warn("error powering off intf ctl=%d\n", ctl->num);
 
 	ret = pdata->off(pdata);
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	ctl->play_cnt = 0;
