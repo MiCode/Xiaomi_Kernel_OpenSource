@@ -559,10 +559,10 @@ void __init msm8930_init_pmic(void)
 					&msm8930_ssbi_pm8038_pdata;
 		pm8038_platform_data.num_regulators
 			= msm8930_pm8038_regulator_pdata_len;
-		if (machine_is_apq8064_mtp())
+		if (machine_is_msm8930_mtp())
 			pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
-		else if (machine_is_apq8064_liquid())
-			pm8921_bms_pdata.battery_type = BATT_DESAY;
+		else if (machine_is_msm8930_cdp())
+			pm8921_chg_pdata.has_dc_supply = true;
 	} else {
 		/* PM8917 configuration */
 		pmic_reset_irq = PM8917_IRQ_BASE + PM8921_RESOUT_IRQ;
@@ -570,9 +570,9 @@ void __init msm8930_init_pmic(void)
 					&msm8930_ssbi_pm8917_pdata;
 		pm8917_platform_data.num_regulators
 			= msm8930_pm8917_regulator_pdata_len;
-		if (machine_is_apq8064_mtp())
+		if (machine_is_msm8930_mtp())
 			pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
-		else if (machine_is_apq8064_liquid())
-			pm8921_bms_pdata.battery_type = BATT_DESAY;
+		else if (machine_is_msm8930_cdp())
+			pm8921_chg_pdata.has_dc_supply = true;
 	}
 }

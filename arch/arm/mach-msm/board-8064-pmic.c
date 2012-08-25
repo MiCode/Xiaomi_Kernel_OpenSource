@@ -494,5 +494,7 @@ void __init apq8064_init_pmic(void)
 		apq8064_pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
 	} else if (machine_is_apq8064_liquid()) {
 		apq8064_pm8921_bms_pdata.battery_type = BATT_DESAY;
+	} else if (machine_is_apq8064_cdp()) {
+		apq8064_pm8921_chg_pdata.has_dc_supply = true;
 	}
 }
