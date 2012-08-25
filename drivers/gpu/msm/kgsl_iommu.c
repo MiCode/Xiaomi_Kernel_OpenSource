@@ -121,6 +121,8 @@ static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu)
 				continue;
 			iommu_drvdata = dev_get_drvdata(
 					iommu_unit->dev[j].dev->parent);
+			if (iommu_drvdata->aclk)
+				clk_disable_unprepare(iommu_drvdata->aclk);
 			if (iommu_drvdata->clk)
 				clk_disable_unprepare(iommu_drvdata->clk);
 			clk_disable_unprepare(iommu_drvdata->pclk);
@@ -244,6 +246,17 @@ static int kgsl_iommu_enable_clk(struct kgsl_mmu *mmu,
 				if (ret) {
 					clk_disable_unprepare(
 						iommu_drvdata->pclk);
+					goto done;
+				}
+			}
+			if (iommu_drvdata->aclk) {
+				ret = clk_prepare_enable(iommu_drvdata->aclk);
+				if (ret) {
+					if (iommu_drvdata->clk)
+						clk_disable_unprepare(
+							iommu_drvdata->clk);
+					clk_disable_unprepare(
+							iommu_drvdata->pclk);
 					goto done;
 				}
 			}
@@ -756,9 +769,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000001);
 		kgsl_regwrite(mmu->device, MH_MMU_MPU_END,
 			mh->mpu_base +
-			iommu->iommu_units
-				[iommu->unit_count - 1].reg_map.gpuaddr -
-				PAGE_SIZE);
+			iommu->iommu_units[0].reg_map.gpuaddr);
 	} else {
 		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
 	}
