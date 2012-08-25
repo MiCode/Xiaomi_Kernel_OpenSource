@@ -305,14 +305,14 @@
 	qcom,mpm@fc4281d0 {
 		compatible = "qcom,mpm-v2";
 		reg = <0xfc4281d0 0x1000>, /* MSM_RPM_MPM_BASE 4K */
-		    <0xfa006000 0x1000>;   /* MSM_APCS_GCC_BASE 4K */
+		    <0xf9011008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
 		reg-names = "vmpm", "ipc";
 		interrupts = <0 171 1>;
 
-		qcom,ipc-bit-offset = <0>;
+		qcom,ipc-bit-offset = <1>;
 
 		qcom,gic-parent = <&intc>;
-		qcom,gic-map = <41 180>, /* usb2_hsic_async_wakeup_irq */
+		qcom,gic-map = <47 180>, /* usb2_hsic_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
