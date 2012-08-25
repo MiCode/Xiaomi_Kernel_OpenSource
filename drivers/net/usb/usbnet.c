@@ -89,6 +89,8 @@ static const char driver_name [] = "usbnet";
 
 static struct workqueue_struct	*usbnet_wq;
 
+static DECLARE_WAIT_QUEUE_HEAD(unlink_wakeup);
+
 /* use ethtool to change the level for any given device */
 static int msg_level = -1;
 module_param (msg_level, int, 0);
@@ -664,7 +666,6 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
 // precondition: never called in_interrupt
 static void usbnet_terminate_urbs(struct usbnet *dev)
 {
-	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(unlink_wakeup);
 	DECLARE_WAITQUEUE(wait, current);
 	int temp;
 
@@ -1240,7 +1241,7 @@ static void usbnet_bh (unsigned long param)
 	// waiting for all pending urbs to complete?
 	if (dev->wait) {
 		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
-			wake_up (dev->wait);
+			wake_up(&unlink_wakeup);
 		}
 
 	// or are we maybe short a few urbs?
