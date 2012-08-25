@@ -271,7 +271,7 @@ resubmit_int_urb:
 			__func__, status);
 }
 
-static int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
+int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
 {
 	int	retval = 0;
 
@@ -296,18 +296,6 @@ int rmnet_usb_ctrl_stop_rx(struct rmnet_ctrl_dev *dev)
 	usb_kill_urb(dev->inturb);
 
 	return 0;
-}
-
-int rmnet_usb_ctrl_start(struct rmnet_ctrl_dev *dev)
-{
-	int	status = 0;
-
-	mutex_lock(&dev->dev_lock);
-	if (dev->is_opened)
-		status = rmnet_usb_ctrl_start_rx(dev);
-	mutex_unlock(&dev->dev_lock);
-
-	return status;
 }
 
 static int rmnet_usb_ctrl_alloc_rx(struct rmnet_ctrl_dev *dev)
