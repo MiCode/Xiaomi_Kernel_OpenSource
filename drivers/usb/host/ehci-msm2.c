@@ -59,6 +59,7 @@ struct msm_hcd {
 	uint32_t				pmic_gpio_int_cnt;
 	atomic_t				pm_usage_cnt;
 	struct wake_lock			wlock;
+	struct work_struct			phy_susp_fail_work;
 };
 
 static inline struct msm_hcd *hcd_to_mhcd(struct usb_hcd *hcd)
@@ -539,6 +540,19 @@ static int msm_hsusb_reset(struct msm_hcd *mhcd)
 	return 0;
 }
 
+static void msm_ehci_phy_susp_fail_work(struct work_struct *w)
+{
+	struct msm_hcd *mhcd = container_of(w, struct msm_hcd,
+					phy_susp_fail_work);
+	struct usb_hcd *hcd = mhcd_to_hcd(mhcd);
+
+	msm_ehci_vbus_power(mhcd, 0);
+	usb_remove_hcd(hcd);
+	msm_hsusb_reset(mhcd);
+	usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
+	msm_ehci_vbus_power(mhcd, 1);
+}
+
 #define PHY_SUSPEND_TIMEOUT_USEC	(500 * 1000)
 #define PHY_RESUME_TIMEOUT_USEC		(100 * 1000)
 
@@ -571,8 +585,8 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 		while (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD)) {
 			if (time_after(jiffies, timeout)) {
 				dev_err(mhcd->dev, "Unable to suspend PHY\n");
-				msm_hsusb_reset(mhcd);
-				break;
+				schedule_work(&mhcd->phy_susp_fail_work);
+				return -ETIMEDOUT;
 			}
 			udelay(1);
 		}
@@ -992,6 +1006,7 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 1);
 	wake_lock_init(&mhcd->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
 	wake_lock(&mhcd->wlock);
+	INIT_WORK(&mhcd->phy_susp_fail_work, msm_ehci_phy_susp_fail_work);
 	/*
 	 * This pdev->dev is assigned parent of root-hub by USB core,
 	 * hence, runtime framework automatically calls this driver's
