@@ -80,6 +80,7 @@ enum dsi_panel_bl_ctrl {
 	BL_PWM,
 	BL_WLED,
 	BL_DCS_CMD,
+	UNKNOWN_CTRL,
 };
 
 #define DSI_NON_BURST_SYNCH_PULSE	0
@@ -247,18 +248,26 @@ struct mdss_panel_common_pdata {
 	struct mdss_panel_info panel_info;
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
-	void (*bl_ctrl) (u32 bl_level);
+	void (*bl_fnc) (struct mdss_panel_data *pdata, u32 bl_level);
 };
 
 struct mdss_dsi_drv_pdata {
 	struct regulator *vdd_vreg;
 	struct regulator *vdd_io_vreg;
 	struct regulator *dsi_vreg;
+};
+
+struct mdss_dsi_ctrl_pdata {
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
+	struct mdss_panel_data panel_data;
+	unsigned char *ctrl_base;
+	char bl_ctrl;
 };
+
 int dsi_panel_device_register(struct platform_device *pdev,
-			      struct mdss_panel_common_pdata *panel_data);
+			      struct mdss_panel_common_pdata *panel_data,
+			      char bl_ctrl);
 
 char *mdss_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mdss_dsi_buf_init(struct dsi_buf *dp);
@@ -271,7 +280,7 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 int mdss_dsi_cmd_dma_tx(struct dsi_buf *dp,
 				struct mdss_panel_data *pdata);
 int mdss_dsi_cmd_reg_tx(u32 data,
-				struct mdss_panel_data *pdata);
+				unsigned char *ctrl_base);
 int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 			struct dsi_buf *tp, struct dsi_buf *rp,
 			struct dsi_cmd_desc *cmds, int len);
@@ -293,6 +302,7 @@ void mdss_dsi_controller_cfg(int enable,
 void mdss_dsi_sw_reset(struct mdss_panel_data *pdata);
 
 irqreturn_t mdss_dsi_isr(int irq, void *ptr);
+void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 
 void mipi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);
 int mdss_dsi_clk_div_config(u8 bpp, u8 lanes,
@@ -301,10 +311,9 @@ int mdss_dsi_clk_init(struct platform_device *pdev);
 void mdss_dsi_clk_deinit(struct device *dev);
 void mdss_dsi_prepare_clocks(void);
 void mdss_dsi_unprepare_clocks(void);
-unsigned char *mdss_dsi_get_base_adr(void);
 void mdss_dsi_panel_reset(int enable);
-void mdss_dsi_phy_enable(struct mdss_panel_data *pdata, int on);
+void mdss_dsi_phy_enable(unsigned char *ctrl_base, int on);
 void mdss_dsi_phy_init(struct mdss_panel_data *pdata);
-void mdss_dsi_phy_sw_reset(struct mdss_panel_data *pdata);
+void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base);
 
 #endif /* MDSS_DSI_H */
