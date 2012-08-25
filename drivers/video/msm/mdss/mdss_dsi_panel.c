@@ -40,20 +40,6 @@ static struct mdss_dsi_phy_ctrl phy_params;
 static int rst_gpio;
 static int disp_en;
 
-struct qpnp_pin_cfg param = {
-	.mode = QPNP_PIN_MODE_DIG_OUT,
-	.output_type = QPNP_PIN_OUT_BUF_OPEN_DRAIN_NMOS,
-	.invert = QPNP_PIN_INVERT_ENABLE,
-	.pull = QPNP_PIN_MPP_PULL_UP_30KOHM,
-	.vin_sel = QPNP_PIN_VIN3,
-	.out_strength = QPNP_PIN_OUT_STRENGTH_HIGH,
-	.select = QPNP_PIN_SEL_DTEST3,
-	.master_en = QPNP_PIN_MASTER_ENABLE,
-	.aout_ref = QPNP_PIN_AOUT_0V625,
-	.ain_route = QPNP_PIN_AIN_AMUX_CH7,
-	.cs_out = QPNP_PIN_CS_OUT_20MA,
-};
-
 void mdss_dsi_panel_reset(int enable)
 {
 	if (!disp_en)
@@ -64,13 +50,20 @@ void mdss_dsi_panel_reset(int enable)
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
 
+	pr_debug("%s: enable = %d\n", __func__, enable);
+
 	if (enable) {
-		gpio_set_value(disp_en, 1);
 		gpio_set_value(rst_gpio, 1);
-		usleep(10);
+		msleep(20);
+		wmb();
 		gpio_set_value(rst_gpio, 0);
-		usleep(200);
+		udelay(200);
+		wmb();
 		gpio_set_value(rst_gpio, 1);
+		msleep(20);
+		wmb();
+		gpio_set_value(disp_en, 1);
+		wmb();
 	} else {
 		gpio_set_value(rst_gpio, 0);
 		gpio_set_value(disp_en, 0);
@@ -113,7 +106,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	pr_debug("%s:%d, debug info (mode) : %d\n", __func__, __LINE__,
 		 mipi->mode);
 
-	mdss_dsi_panel_reset(1);
+	mdss_dsi_sw_reset(pdata);
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
 		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf, dsi_panel_on_cmds,
@@ -141,8 +134,6 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		pr_debug("%s:%d, CMD mode not supported", __func__, __LINE__);
 		return -EINVAL;
 	}
-
-	mdss_dsi_panel_reset(0);
 
 	return 0;
 }
@@ -202,14 +193,6 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
 	} else {
-	  rc = qpnp_pin_config(rst_gpio, &param);
-		if (rc) {
-			pr_err("request reset gpio failed, rc=%d\n",
-				rc);
-			gpio_free(disp_en);
-			return rc;
-		}
-
 		rc = gpio_request(rst_gpio, "disp_rst_n");
 		if (rc) {
 			pr_err("request reset gpio failed, rc=%d\n",
@@ -328,7 +311,7 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	panel_data->panel_info.mipi.frame_rate = (!rc ? tmp : 60);
 
 	data = of_get_property(np, "qcom,panel-phy-regulatorSettings", &len);
-	if ((!data) || (len != 8)) {
+	if ((!data) || (len != 7)) {
 		pr_err("%s:%d, Unable to read Phy regulator settings",
 		       __func__, __LINE__);
 		goto error;

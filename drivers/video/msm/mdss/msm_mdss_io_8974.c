@@ -212,25 +212,34 @@ void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
 {
 	/* start phy sw reset */
 	MIPI_OUTP(ctrl_base + 0x12c, 0x0001);
+	udelay(1000);
 	wmb();
-	usleep(1);
 	/* end phy sw reset */
 	MIPI_OUTP(ctrl_base + 0x12c, 0x0000);
+	udelay(100);
 	wmb();
-	usleep(1);
 }
 
 void mdss_dsi_phy_enable(unsigned char *ctrl_base, int on)
 {
 	if (on) {
+		MIPI_OUTP(ctrl_base + 0x03cc, 0x03);
+		wmb();
+		usleep(100);
 		MIPI_OUTP(ctrl_base + 0x0220, 0x006);
-		usleep(10);
+		wmb();
+		usleep(100);
 		MIPI_OUTP(ctrl_base + 0x0268, 0x001);
-		usleep(10);
+		wmb();
+		usleep(100);
 		MIPI_OUTP(ctrl_base + 0x0268, 0x000);
-		usleep(10);
+		wmb();
+		usleep(100);
 		MIPI_OUTP(ctrl_base + 0x0220, 0x007);
 		wmb();
+		MIPI_OUTP(ctrl_base + 0x03cc, 0x01);
+		wmb();
+		usleep(100);
 
 		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
 		MIPI_OUTP(ctrl_base + 0x0470, 0x07e);
@@ -266,12 +275,25 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 
 	pd = ((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db;
 
+	/* Strength ctrl 0 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, 0x07);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, pd->strength[0]);
+
 	off = 0x0580;	/* phy regulator ctrl settings */
-	for (i = 0; i < 8; i++) {
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->regulator[i]);
-		wmb();
-		off += 4;
-	}
+	/* Regulator ctrl - CAL_PWD_CFG */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 6), pd->regulator[6]);
+	/* Regulator ctrl - TEST */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 5), pd->regulator[5]);
+	/* Regulator ctrl 3 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 3), pd->regulator[3]);
+	/* Regulator ctrl 2 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 2), pd->regulator[2]);
+	/* Regulator ctrl 1 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 1), pd->regulator[1]);
+	/* Regulator ctrl 0 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 0), pd->regulator[0]);
+	/* Regulator ctrl 4 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 4), pd->regulator[4]);
 
 	off = 0x0440;	/* phy timing ctrl 0 - 11 */
 	for (i = 0; i < 12; i++) {
@@ -280,17 +302,15 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 		off += 4;
 	}
 
-	/* Strength ctrl 0 - 1 */
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, pd->strength[0]);
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0488, pd->strength[1]);
+	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_1 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0474, 0x00);
+	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0470, 0x5f);
 	wmb();
 
-	off = 0x04b4;	/* phy BIST ctrl 0 - 5 */
-	for (i = 0; i < 6; i++) {
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->bistCtrl[i]);
-		wmb();
-		off += 4;
-	}
+	/* Strength ctrl 1 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0488, pd->strength[1]);
+	wmb();
 
 	/* 4 lanes + clk lane configuration */
 	/* lane config n * (0 - 4) & DataPath setup */
@@ -304,4 +324,20 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 			off += 4;
 		}
 	}
+
+	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0470, 0x7f);
+	wmb();
+
+	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x04d4, 0x01);
+	wmb();
+
+	off = 0x04b4;	/* phy BIST ctrl 0 - 5 */
+	for (i = 0; i < 6; i++) {
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->bistCtrl[i]);
+		wmb();
+		off += 4;
+	}
+
 }

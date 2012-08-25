@@ -86,7 +86,7 @@ struct lcdc_panel_info {
 
 /* DSI PHY configuration */
 struct mdss_dsi_phy_ctrl {
-	uint32_t regulator[8];
+	uint32_t regulator[7];
 	uint32_t timing[12];
 	uint32_t ctrl[4];
 	uint32_t strength[2];
@@ -180,6 +180,7 @@ struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
 	void (*set_backlight) (struct mdss_panel_data *pdata,
 							u32 bl_level);
+	int (*intf_unprepare) (struct mdss_panel_data *pdata);
 	unsigned char *mmss_cc_base;
 
 	/* function entry chain */
