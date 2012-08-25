@@ -178,8 +178,8 @@ struct mdss_panel_info {
 
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
-	void (*set_backlight) (u32 bl_level);
-	unsigned char *dsi_base;
+	void (*set_backlight) (struct mdss_panel_data *pdata,
+							u32 bl_level);
 	unsigned char *mmss_cc_base;
 
 	/* function entry chain */

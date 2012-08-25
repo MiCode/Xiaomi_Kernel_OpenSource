@@ -27,7 +27,6 @@
 static struct mdss_dsi_drv_pdata dsi_drv;
 
 static unsigned char *mdss_dsi_base;
-static unsigned char *mmss_cc_base;
 
 static int mdss_dsi_regulator_init(struct platform_device *pdev)
 {
@@ -170,6 +169,14 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
 	struct mdss_panel_info *pinfo;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
 
 	pinfo = &pdata->panel_info;
 
@@ -178,7 +185,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 
 	mdss_dsi_op_mode_config(DSI_CMD_MODE, pdata);
 
-	ret = dsi_drv.off(pdata);
+	ret = ctrl_pdata->off(pdata);
 	if (ret) {
 		pr_err("%s: Panel OFF failed\n", __func__);
 		return ret;
@@ -188,7 +195,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	mdss_dsi_clk_disable(pdata);
 
 	/* disable dsi engine */
-	MIPI_OUTP(mdss_dsi_base + 0x0004, 0);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, 0);
 
 	spin_unlock_bh(&dsi_clk_lock);
 
@@ -214,14 +221,22 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, data;
 	u32 dummy_xres, dummy_yres;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
 
 	pinfo = &pdata->panel_info;
 
-	MIPI_OUTP(mdss_dsi_base + 0x118, 1);
-	MIPI_OUTP(mdss_dsi_base + 0x118, 0);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x118, 1);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x118, 0);
 
-	mdss_dsi_phy_sw_reset(pdata);
-	mdss_dsi_phy_enable(pdata, 1);
+	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
+	mdss_dsi_phy_enable((ctrl_pdata->ctrl_base), 1);
 	mdss_dsi_phy_init(pdata);
 
 	mdss_dsi_prepare_clocks();
@@ -248,20 +263,20 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 		dummy_xres = pdata->panel_info.lcdc.xres_pad;
 		dummy_yres = pdata->panel_info.lcdc.yres_pad;
 
-		MIPI_OUTP(mdss_dsi_base + 0x24,
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x24,
 			((hspw + hbp + width + dummy_xres) << 16 |
 			(hspw + hbp)));
-		MIPI_OUTP(mdss_dsi_base + 0x28,
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x28,
 			((vspw + vbp + height + dummy_yres) << 16 |
 			(vspw + vbp)));
-		MIPI_OUTP(mdss_dsi_base + 0x2C,
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
 			(vspw + vbp + height + dummy_yres +
 				vfp - 1) << 16 | (hspw + hbp +
 				width + dummy_xres + hfp - 1));
 
-		MIPI_OUTP(mdss_dsi_base + 0x30, (hspw << 16));
-		MIPI_OUTP(mdss_dsi_base + 0x34, 0);
-		MIPI_OUTP(mdss_dsi_base + 0x38, (vspw << 16));
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x30, (hspw << 16));
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x34, 0);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x38, (vspw << 16));
 
 	} else {		/* command mode */
 		if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
@@ -277,13 +292,13 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 
 		/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
 		data = (ystride << 16) | (mipi->vc << 8) | DTYPE_DCS_LWRITE;
-		MIPI_OUTP(mdss_dsi_base + 0x60, data);
-		MIPI_OUTP(mdss_dsi_base + 0x58, data);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x60, data);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x58, data);
 
 		/* DSI_COMMAND_MODE_MDP_STREAM_TOTAL */
 		data = height << 16 | width;
-		MIPI_OUTP(mdss_dsi_base + 0x64, data);
-		MIPI_OUTP(mdss_dsi_base + 0x5C, data);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, data);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, data);
 	}
 
 	mdss_dsi_host_init(mipi, pdata);
@@ -291,9 +306,9 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
 
-		tmp = MIPI_INP(mdss_dsi_base + 0xac);
+		tmp = MIPI_INP((ctrl_pdata->ctrl_base) + 0xac);
 		tmp |= (1<<28);
-		MIPI_OUTP(mdss_dsi_base + 0xac, tmp);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0xac, tmp);
 		wmb();
 	}
 
@@ -303,7 +318,7 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 		return ret;
 	}
 
-	ret = dsi_drv.on(pdata);
+	ret = ctrl_pdata->on(pdata);
 	if (ret) {
 		pr_err("%s: unable to initialize the panel\n", __func__);
 		return ret;
@@ -313,16 +328,6 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 
 	pr_debug("%s-:\n", __func__);
 	return ret;
-}
-
-unsigned char *mdss_dsi_get_base_adr(void)
-{
-	return mdss_dsi_base;
-}
-
-unsigned char *mdss_dsi_get_clk_base(void)
-{
-	return mmss_cc_base;
 }
 
 static int mdss_dsi_resource_initialized;
@@ -351,35 +356,17 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 			}
 		}
 
-		mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-		if (!mdss_dsi_mres) {
-			pr_err("%s:%d unable to get the MDSS resources",
-				       __func__, __LINE__);
-			return -ENOMEM;
-		}
-		if (mdss_dsi_mres) {
-			mmss_cc_base = ioremap(mdss_dsi_mres->start,
-				resource_size(mdss_dsi_mres));
-			if (!mmss_cc_base) {
-				pr_err("%s:%d unable to remap dsi resources",
-					       __func__, __LINE__);
-				return -ENOMEM;
-			}
-		}
-
 		rc = mdss_dsi_regulator_init(pdev);
 		if (rc) {
 			dev_err(&pdev->dev,
 				"%s: failed to init regulator, rc=%d\n",
 							__func__, rc);
 			iounmap(mdss_dsi_base);
-			iounmap(mmss_cc_base);
 			return rc;
 		}
 
 		if (mdss_dsi_clk_init(pdev)) {
 			iounmap(mdss_dsi_base);
-			iounmap(mmss_cc_base);
 			return -EPERM;
 		}
 
@@ -390,7 +377,6 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 				"%s: failed to add child nodes, rc=%d\n",
 							__func__, rc);
 			iounmap(mdss_dsi_base);
-			iounmap(mmss_cc_base);
 			return rc;
 		}
 
@@ -415,13 +401,14 @@ static int mdss_dsi_remove(struct platform_device *pdev)
 struct device dsi_dev;
 
 int dsi_panel_device_register(struct platform_device *pdev,
-			      struct mdss_panel_common_pdata *panel_data)
+			      struct mdss_panel_common_pdata *panel_data,
+			      char backlight_ctrl)
 {
 	struct mipi_panel_info *mipi;
 	int rc;
 	u8 lanes = 0, bpp;
 	u32 h_period, v_period, dsi_pclk_rate;
-	struct mdss_panel_data *pdata = NULL;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	h_period = ((panel_data->panel_info.lcdc.h_pulse_width)
 			+ (panel_data->panel_info.lcdc.h_back_porch)
@@ -487,34 +474,33 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		dsi_pclk_rate = 35000000;
 	mipi->dsi_pclk_rate = dsi_pclk_rate;
 
-	dsi_drv.on = panel_data->on;
-	dsi_drv.off = panel_data->off;
-
-	/*
-	 * data chain
-	 */
-	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
+	ctrl_pdata = devm_kzalloc(&pdev->dev,
+		sizeof(struct mdss_dsi_ctrl_pdata), GFP_KERNEL);
+	if (!ctrl_pdata)
 		return -ENOMEM;
 
-	pdata->on = mdss_dsi_on;
-	pdata->off = mdss_dsi_off;
-	memcpy(&(pdata->panel_info), &(panel_data->panel_info),
-	       sizeof(struct mdss_panel_info));
+	(ctrl_pdata->panel_data).on = mdss_dsi_on;
+	(ctrl_pdata->panel_data).off = mdss_dsi_off;
+	memcpy(&((ctrl_pdata->panel_data).panel_info),
+				&(panel_data->panel_info),
+				       sizeof(struct mdss_panel_info));
 
-	pdata->dsi_base = mdss_dsi_base;
-	pdata->mmss_cc_base = mmss_cc_base;
-	pdata->set_backlight = panel_data->bl_ctrl;
-
+	mdss_dsi_irq_handler_config(ctrl_pdata);
+	(ctrl_pdata->panel_data).set_backlight = panel_data->bl_fnc;
+	(ctrl_pdata->ctrl_base) = mdss_dsi_base;
+	(ctrl_pdata->bl_ctrl) = backlight_ctrl;
 	/*
 	 * register in mdp driver
 	 */
-	rc = mdss_register_panel(pdata);
+	rc = mdss_register_panel(&(ctrl_pdata->panel_data));
 	if (rc) {
 		dev_err(&pdev->dev, "unable to register MIPI DSI panel\n");
-		devm_kfree(&pdev->dev, pdata);
+		devm_kfree(&pdev->dev, ctrl_pdata);
 		return rc;
 	}
+
+	ctrl_pdata->on = panel_data->on;
+	ctrl_pdata->off = panel_data->off;
 
 	pr_debug("%s: Panal data initialized\n", __func__);
 	return 0;

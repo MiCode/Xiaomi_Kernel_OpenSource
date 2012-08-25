@@ -431,7 +431,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 			return;
 		}
 		mfd->bl_level = bkl_lvl;
-		pdata->set_backlight(mfd->bl_level);
+		pdata->set_backlight(pdata, mfd->bl_level);
 		bl_level_old = mfd->bl_level;
 		mutex_unlock(&mfd->lock);
 	}
@@ -446,7 +446,7 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 		if ((pdata) && (pdata->set_backlight)) {
 			mutex_lock(&mfd->lock);
 			mfd->bl_level = unset_bl_level;
-			pdata->set_backlight(mfd->bl_level);
+			pdata->set_backlight(pdata, mfd->bl_level);
 			bl_level_old = unset_bl_level;
 			mutex_unlock(&mfd->lock);
 			bl_updated = 1;

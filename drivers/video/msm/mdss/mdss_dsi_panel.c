@@ -33,7 +33,6 @@ static int num_of_on_cmds;
 static int num_of_off_cmds;
 static char *on_cmds, *off_cmds;
 
-static char bl_ctrl;
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 static struct mdss_dsi_phy_ctrl phy_params;
@@ -78,10 +77,20 @@ void mdss_dsi_panel_reset(int enable)
 	}
 }
 
-static void mdss_dsi_panel_bl_ctrl(u32 bl_level)
+static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
+							u32 bl_level)
 {
-	if (bl_ctrl) {
-		switch (bl_ctrl) {
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	if (ctrl_pdata->bl_ctrl) {
+		switch (ctrl_pdata->bl_ctrl) {
 		case BL_WLED:
 			led_trigger_event(bl_led_trigger, bl_level);
 			break;
@@ -139,7 +148,8 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 }
 
 static int mdss_panel_parse_dt(struct platform_device *pdev,
-			    struct mdss_panel_common_pdata *panel_data)
+			       struct mdss_panel_common_pdata *panel_data,
+			       char *bl_ctrl)
 {
 	struct device_node *np = pdev->dev.of_node;
 	u32 res[6], tmp;
@@ -236,7 +246,7 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	if (!strncmp(bl_ctrl_type, "bl_ctrl_wled", 12)) {
 		led_trigger_register_simple("bkl-trigger", &bl_led_trigger);
 		pr_debug("%s: SUCCESS-> WLED TRIGGER register\n", __func__);
-		bl_ctrl = BL_WLED;
+		*bl_ctrl = BL_WLED;
 	}
 
 	rc = of_property_read_u32_array(np,
@@ -481,6 +491,7 @@ static int mdss_dsi_panel_probe(struct platform_device *pdev)
 	int rc = 0;
 	static struct mdss_panel_common_pdata vendor_pdata;
 	static const char *panel_name;
+	char bl_ctrl = UNKNOWN_CTRL;
 
 	if (pdev->dev.parent == NULL) {
 		pr_err("%s: parent device missing\n", __func__);
@@ -498,15 +509,15 @@ static int mdss_dsi_panel_probe(struct platform_device *pdev)
 	else
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 
-	rc = mdss_panel_parse_dt(pdev, &vendor_pdata);
+	rc = mdss_panel_parse_dt(pdev, &vendor_pdata, &bl_ctrl);
 	if (rc)
 		return rc;
 
 	vendor_pdata.on = mdss_dsi_panel_on;
 	vendor_pdata.off = mdss_dsi_panel_off;
-	vendor_pdata.bl_ctrl = mdss_dsi_panel_bl_ctrl;
+	vendor_pdata.bl_fnc = mdss_dsi_panel_bl_ctrl;
 
-	rc = dsi_panel_device_register(pdev, &vendor_pdata);
+	rc = dsi_panel_device_register(pdev, &vendor_pdata, bl_ctrl);
 	if (rc)
 		return rc;
 
