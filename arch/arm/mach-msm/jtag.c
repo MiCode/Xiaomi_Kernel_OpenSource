@@ -1070,6 +1070,20 @@ void msm_jtag_restore_state(void)
 
 	cpu = raw_smp_processor_id();
 
+	/* Attempt restore only if save has been done. If power collapse
+	 * is disabled, hotplug off of non-boot core will result in WFI
+	 * and hence msm_jtag_save_state will not occur. Subsequently,
+	 * during hotplug on of non-boot core when msm_jtag_restore_state
+	 * is called via msm_platform_secondary_init, this check will help
+	 * bail us out without restoring.
+	 */
+	if (msm_jtag_save_cntr[cpu] == msm_jtag_restore_cntr[cpu])
+		return;
+	else if (msm_jtag_save_cntr[cpu] != msm_jtag_restore_cntr[cpu] + 1)
+		pr_err_ratelimited("jtag imbalance, save:%lu, restore:%lu\n",
+				   (unsigned long)msm_jtag_save_cntr[cpu],
+				   (unsigned long)msm_jtag_restore_cntr[cpu]);
+
 	msm_jtag_restore_cntr[cpu]++;
 	/* ensure counter is updated before moving forward */
 	mb();
