@@ -100,17 +100,21 @@ static int mdss_dsi_panel_power_on(int enable)
 			return ret;
 		}
 
-		ret = regulator_enable(dsi_drv.vdd_vreg);
-		if (ret) {
-			pr_err("%s: Failed to enable regulator.\n", __func__);
-			return ret;
-		}
-
 		ret = regulator_enable(dsi_drv.vdd_io_vreg);
 		if (ret) {
 			pr_err("%s: Failed to enable regulator.\n", __func__);
 			return ret;
 		}
+		msleep(20);
+		wmb();
+
+		ret = regulator_enable(dsi_drv.vdd_vreg);
+		if (ret) {
+			pr_err("%s: Failed to enable regulator.\n", __func__);
+			return ret;
+		}
+		msleep(20);
+		wmb();
 
 		ret = regulator_enable(dsi_drv.dsi_vreg);
 		if (ret) {
@@ -130,13 +134,13 @@ static int mdss_dsi_panel_power_on(int enable)
 			return ret;
 		}
 
-		ret = regulator_disable(dsi_drv.vdd_io_vreg);
+		ret = regulator_disable(dsi_drv.dsi_vreg);
 		if (ret) {
 			pr_err("%s: Failed to disable regulator.\n", __func__);
 			return ret;
 		}
 
-		ret = regulator_disable(dsi_drv.dsi_vreg);
+		ret = regulator_disable(dsi_drv.vdd_io_vreg);
 		if (ret) {
 			pr_err("%s: Failed to disable regulator.\n", __func__);
 			return ret;
@@ -165,11 +169,11 @@ static int mdss_dsi_panel_power_on(int enable)
 	return 0;
 }
 
-static int mdss_dsi_off(struct mdss_panel_data *pdata)
+static int mdss_dsi_ctrl_unprepare(struct mdss_panel_data *pdata)
 {
-	int ret = 0;
 	struct mdss_panel_info *pinfo;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	int ret = 0;
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
@@ -180,9 +184,6 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 
 	pinfo = &pdata->panel_info;
 
-	if (pdata->panel_info.type == MIPI_VIDEO_PANEL)
-		mdss_dsi_controller_cfg(0, pdata);
-
 	mdss_dsi_op_mode_config(DSI_CMD_MODE, pdata);
 
 	ret = ctrl_pdata->off(pdata);
@@ -191,15 +192,22 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 		return ret;
 	}
 
+	return ret;
+}
+
+static int mdss_dsi_off(struct mdss_panel_data *pdata)
+{
+	int ret = 0;
+
 	spin_lock_bh(&dsi_clk_lock);
 	mdss_dsi_clk_disable(pdata);
-
-	/* disable dsi engine */
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, 0);
 
 	spin_unlock_bh(&dsi_clk_lock);
 
 	mdss_dsi_unprepare_clocks();
+
+	/* disable DSI controller */
+	mdss_dsi_controller_cfg(0, pdata);
 
 	ret = mdss_dsi_panel_power_on(0);
 	if (ret) {
@@ -232,11 +240,13 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 
 	pinfo = &pdata->panel_info;
 
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x118, 1);
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x118, 0);
+	ret = mdss_dsi_panel_power_on(1);
+	if (ret) {
+		pr_err("%s: Panel power on failed\n", __func__);
+		return ret;
+	}
 
 	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
-	mdss_dsi_phy_enable((ctrl_pdata->ctrl_base), 1);
 	mdss_dsi_phy_init(pdata);
 
 	mdss_dsi_prepare_clocks();
@@ -310,12 +320,6 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 		tmp |= (1<<28);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0xac, tmp);
 		wmb();
-	}
-
-	ret = mdss_dsi_panel_power_on(1);
-	if (ret) {
-		pr_err("%s: Panel power on failed\n", __func__);
-		return ret;
 	}
 
 	ret = ctrl_pdata->on(pdata);
@@ -481,6 +485,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 	(ctrl_pdata->panel_data).on = mdss_dsi_on;
 	(ctrl_pdata->panel_data).off = mdss_dsi_off;
+	(ctrl_pdata->panel_data).intf_unprepare = mdss_dsi_ctrl_unprepare;
 	memcpy(&((ctrl_pdata->panel_data).panel_info),
 				&(panel_data->panel_info),
 				       sizeof(struct mdss_panel_info));
