@@ -928,6 +928,8 @@ struct vfe31_ctrl_type {
 	uint32_t snapshot_frame_cnt;
 	struct msm_stats_bufq_ctrl stats_ctrl;
 	struct msm_stats_ops stats_ops;
+	struct device *iommu_ctx_imgwr;
+	struct device *iommu_ctx_misc;
 };
 
 enum VFE31_STATS_NUM {

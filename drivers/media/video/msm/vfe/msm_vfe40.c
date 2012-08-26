@@ -415,7 +415,7 @@ static unsigned long vfe40_stats_flush_enqueue(
 		stats_buf = &bufq->bufs[i];
 		rc = vfe40_ctrl->stats_ops.enqueue_buf(
 				vfe40_ctrl->stats_ops.stats_ctrl,
-				&(stats_buf->info), NULL);
+				&(stats_buf->info), NULL, -1);
 		if (rc < 0) {
 			pr_err("%s: dq stats buf (type = %d) err = %d",
 				 __func__, stats_type, rc);
@@ -3308,7 +3308,7 @@ static irqreturn_t vfe40_parse_irq(int irq_num, void *data)
 
 static long vfe_stats_bufq_sub_ioctl(
 	struct vfe40_ctrl_type *vfe_ctrl,
-	struct msm_vfe_cfg_cmd *cmd, void *ion_client)
+	struct msm_vfe_cfg_cmd *cmd, void *ion_client, int domain_num)
 {
 	long rc = 0;
 	switch (cmd->cmd_type) {
@@ -3357,7 +3357,7 @@ static long vfe_stats_bufq_sub_ioctl(
 	rc = vfe_ctrl->stats_ops.enqueue_buf(
 			&vfe_ctrl->stats_ctrl,
 			(struct msm_stats_buf_info *)cmd->value,
-			vfe_ctrl->stats_ops.client);
+			vfe_ctrl->stats_ops.client, domain_num);
 	break;
 	case VFE_CMD_STATS_FLUSH_BUFQ:
 	{
@@ -3419,7 +3419,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case VFE_CMD_STATS_FLUSH_BUFQ:
 		/* for easy porting put in one envelope */
 		rc = vfe_stats_bufq_sub_ioctl(vfe40_ctrl,
-				cmd, vfe_params->data);
+				cmd, vfe_params->data, pmctl->domain_num);
 		return rc;
 	default:
 		if (cmd->cmd_type != CMD_CONFIG_PING_ADDR &&

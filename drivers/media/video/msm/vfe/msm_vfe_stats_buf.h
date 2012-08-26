@@ -55,8 +55,8 @@ struct msm_stats_ops {
 	struct msm_stats_bufq_ctrl *stats_ctrl;
 	struct ion_client *client;
 	int (*enqueue_buf) (struct msm_stats_bufq_ctrl *stats_ctrl,
-						struct msm_stats_buf_info *info,
-						struct ion_client *client);
+				struct msm_stats_buf_info *info,
+				struct ion_client *client, int domain_num);
 	int (*qbuf) (struct msm_stats_bufq_ctrl *stats_ctrl,
 				 enum msm_stats_enum_type stats_type,
 				 int buf_idx);
@@ -69,10 +69,10 @@ struct msm_stats_ops {
 	int (*buf_unprepare) (struct msm_stats_bufq_ctrl *stats_ctrl,
 		enum msm_stats_enum_type stats_type,
 		int buf_idx,
-		struct ion_client *client);
+		struct ion_client *client, int domain_num);
 	int (*buf_prepare) (struct msm_stats_bufq_ctrl *stats_ctrl,
-						struct msm_stats_buf_info *info,
-						struct ion_client *client);
+				struct msm_stats_buf_info *info,
+				struct ion_client *client, int domain_num);
 	int (*reqbuf) (struct msm_stats_bufq_ctrl *stats_ctrl,
 				   struct msm_stats_reqbuf *reqbuf,
 				   struct ion_client *client);
