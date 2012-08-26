@@ -21,7 +21,7 @@
 #include <mach/rpm.h>
 #include "msm_bus_core.h"
 
-#define NMASTERS 45
+#define NMASTERS 55
 #define NSLAVES 75
 #define NFAB_8960 5
 
