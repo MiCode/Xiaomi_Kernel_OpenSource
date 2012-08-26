@@ -851,6 +851,7 @@ static int __devinit msm_lpmrs_probe(struct platform_device *pdev)
 		msm_lpm_l2.rs_data.default_value = MSM_LPM_L2_CACHE_HSFS_OPEN;
 		msm_lpm_l2.rs_data.value = MSM_LPM_L2_CACHE_HSFS_OPEN;
 	}
+	msm_pm_set_l2_flush_flag(0);
 	return 0;
 fail:
 	return ret;
