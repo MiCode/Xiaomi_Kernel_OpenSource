@@ -1868,9 +1868,10 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 					(unsigned long *)&iova,
 					(unsigned long *)&buffer_size,
 					UNCACHED, 0);
-			if (rc) {
-				ERR("%s():ION map iommu addr fail\n",
-					 __func__);
+			if (rc || !iova) {
+				ERR(
+				"%s():ION map iommu addr fail, rc = %d, iova = 0x%lx\n",
+					__func__, rc, iova);
 				goto map_ion_error;
 			}
 			control->physical_addr =  (u8 *) iova;
