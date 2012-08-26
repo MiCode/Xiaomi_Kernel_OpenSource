@@ -62,6 +62,7 @@ static struct resource msm_fb_resources[] = {
 #define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME "mipi_video_toshiba_wsvga"
 #define MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME "mipi_video_chimei_wxga"
 #define HDMI_PANEL_NAME "hdmi_msm"
+#define MHL_PANEL_NAME "hdmi_msm,mhl_8334"
 #define TVOUT_PANEL_NAME "tvout_msm"
 
 #define LVDS_PIXEL_MAP_PATTERN_1	1
@@ -73,9 +74,16 @@ static unsigned char hdmi_is_primary = 1;
 static unsigned char hdmi_is_primary;
 #endif
 
+static unsigned char mhl_display_enabled;
+
 unsigned char apq8064_hdmi_as_primary_selected(void)
 {
 	return hdmi_is_primary;
+}
+
+unsigned char apq8064_mhl_display_enabled(void)
+{
+	return mhl_display_enabled;
 }
 
 static void set_mdp_clocks_for_wuxga(void);
@@ -1067,7 +1075,15 @@ void __init apq8064_set_display_params(char *prim_panel, char *ext_panel,
 			PANEL_NAME_MAX_LEN);
 		pr_debug("msm_fb_pdata.ext_panel_name %s\n",
 			msm_fb_pdata.ext_panel_name);
+
+		if (!strncmp((char *)msm_fb_pdata.ext_panel_name,
+			MHL_PANEL_NAME, strnlen(MHL_PANEL_NAME,
+				PANEL_NAME_MAX_LEN))) {
+			pr_debug("MHL is external display by boot parameter\n");
+			mhl_display_enabled = 1;
+		}
 	}
 
 	msm_fb_pdata.ext_resolution = resolution;
+	hdmi_msm_data.is_mhl_enabled = mhl_display_enabled;
 }
