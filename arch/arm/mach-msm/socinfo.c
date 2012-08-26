@@ -830,3 +830,17 @@ const int cpu_is_krait_v2(void)
 		return 0;
 	};
 }
+
+const int cpu_is_krait_v3(void)
+{
+	switch (read_cpuid_id()) {
+	case 0x512F04D0:
+	case 0x511F06F0:
+	case 0x511F06F1:
+	case 0x510F05D0:
+		return 1;
+
+	default:
+		return 0;
+	};
+}
