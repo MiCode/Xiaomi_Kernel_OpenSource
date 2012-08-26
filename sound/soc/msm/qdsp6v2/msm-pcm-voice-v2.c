@@ -466,6 +466,9 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static __devinit int msm_pcm_probe(struct platform_device *pdev)
 {
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s", "msm-pcm-voice");
+
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	return snd_soc_register_platform(&pdev->dev,
 				   &msm_soc_platform);
@@ -477,10 +480,17 @@ static int msm_pcm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id msm_voice_dt_match[] = {
+	{.compatible = "qcom,msm-pcm-voice"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, msm_voice_dt_match);
+
 static struct platform_driver msm_pcm_driver = {
 	.driver = {
 		.name = "msm-pcm-voice",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_voice_dt_match,
 	},
 	.probe = msm_pcm_probe,
 	.remove = __devexit_p(msm_pcm_remove),

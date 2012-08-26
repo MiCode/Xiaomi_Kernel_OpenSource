@@ -823,6 +823,22 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_id = MSM_FRONTEND_DAI_VOIP,
 	},
 	{
+		.name = "Circuit-Switch Voice",
+		.stream_name = "CS-Voice",
+		.cpu_dai_name   = "CS-VOICE",
+		.platform_name  = "msm-pcm-voice",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_CS_VOICE,
+	},
+	{
 		.name = "MSM8974 LPA",
 		.stream_name = "LPA",
 		.cpu_dai_name	= "MultiMedia3",
