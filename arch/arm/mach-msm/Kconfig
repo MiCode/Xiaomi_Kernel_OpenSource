@@ -2115,7 +2115,7 @@ config MSM_MEMORY_DUMP
 
 config MSM_DLOAD_MODE
 	bool "Enable download mode on crashes"
-	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM9615
+	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM9615 || ARCH_MSM8974
 	default n
 	help
 		This makes the SoC enter download mode when it resets
