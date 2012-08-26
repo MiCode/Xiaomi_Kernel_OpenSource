@@ -64,7 +64,7 @@ struct snd_jack {
 	int type;
 	const char *id;
 	char name[100];
-	unsigned int key[6];   /* Keep in sync with definitions above */
+	unsigned int key[8];   /* Keep in sync with definitions above */
 	void *private_data;
 	void (*private_free)(struct snd_jack *);
 };
