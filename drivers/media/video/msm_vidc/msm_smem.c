@@ -81,12 +81,11 @@ static int ion_user_to_kernel(struct smem_client *client,
 		goto fail_device_address;
 	}
 
-	mem->kvaddr += offset;
 	mem->mem_type = client->mem_type;
 	mem->smem_priv = hndl;
-	mem->device_addr = iova + offset;
+	mem->device_addr = iova;
 	mem->size = buffer_size;
-	pr_debug("Buffer device address: 0x%lx, size: %d\n",
+	pr_err("NOTE: Buffer device address: 0x%lx, size: %d\n",
 		mem->device_addr, mem->size);
 	return rc;
 fail_device_address:
@@ -145,8 +144,8 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 		goto fail_device_address;
 	}
 	mem->device_addr = iova;
-	pr_debug("device_address = 0x%lx, kvaddr = 0x%p\n",
-		mem->device_addr, mem->kvaddr);
+	pr_err("NOTE: device_address = 0x%lx, kvaddr = 0x%p, size = %d\n",
+		mem->device_addr, mem->kvaddr, size);
 	mem->size = size;
 	return rc;
 fail_device_address:
