@@ -1290,7 +1290,7 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 		/* Do we need to apply any queued changes? */
 		if (sort[w->id] != cur_sort || w->reg != cur_reg ||
 		    w->dapm != cur_dapm || w->subseq != cur_subseq) {
-			if (!list_empty(&pending))
+			if (cur_dapm && !list_empty(&pending))
 				dapm_seq_run_coalesced(cur_dapm, &pending);
 
 			if (cur_dapm && cur_dapm->seq_notifier) {
@@ -1350,7 +1350,7 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 				"Failed to apply widget power: %d\n", ret);
 	}
 
-	if (!list_empty(&pending))
+	if (cur_dapm && !list_empty(&pending))
 		dapm_seq_run_coalesced(cur_dapm, &pending);
 
 	if (cur_dapm && cur_dapm->seq_notifier) {
@@ -1567,6 +1567,8 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 
 	trace_snd_soc_dapm_start(card);
 
+	mutex_lock(&card->dapm_power_mutex);
+
 	list_for_each_entry(d, &card->dapm_list, list) {
 		if (d->n_widgets || d->codec == NULL) {
 			if (d->idle_bias_off)
@@ -1681,6 +1683,8 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	pop_dbg(dapm->dev, card->pop_time,
 		"DAPM sequencing finished, waiting %dms\n", card->pop_time);
 	pop_wait(card->pop_time);
+
+	mutex_unlock(&card->dapm_power_mutex);
 
 	trace_snd_soc_dapm_done(card);
 
@@ -3092,9 +3096,9 @@ int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	if (stream == NULL)
 		return 0;
 
-	//mutex_lock(&codec->mutex);
+	mutex_lock(&codec->mutex);
 	soc_dapm_stream_event(&codec->dapm, stream, event);
-	//mutex_unlock(&codec->mutex);
+	mutex_unlock(&codec->mutex);
 
 	return 0;
 }
