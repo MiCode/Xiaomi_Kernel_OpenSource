@@ -5181,7 +5181,9 @@ static void msmsdcc_dt_get_cd_wp_gpio(struct device *dev,
 	pdata->status_gpio = of_get_named_gpio_flags(np,
 			"cd-gpios", 0, &flags);
 	if (gpio_is_valid(pdata->status_gpio)) {
-		pdata->status_irq = gpio_to_irq(pdata->status_gpio);
+		struct platform_device *pdev = container_of(dev,
+						struct platform_device, dev);
+		pdata->status_irq = platform_get_irq_byname(pdev, "status_irq");
 		pdata->is_status_gpio_active_low = flags & OF_GPIO_ACTIVE_LOW;
 	}
 
