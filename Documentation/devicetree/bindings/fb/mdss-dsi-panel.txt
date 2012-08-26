@@ -14,6 +14,16 @@ Required properties:
 - qcom,mdss-pan-bpp:			Specifies the panel bits per pixel. Default value is 24(rgb888).
 					18 = for rgb666
 					16 = for rgb565
+- qcom,panel-phy-regulatorSettings:	An array of length 8 that specifies the PHY
+					regulator settings for the panel.
+- qcom,panel-phy-timingSettings:	An array of length 12 that specifies the PHY
+					timing settings for the panel.
+- qcom,panel-phy-strengthCtrl:		An array of length 2 that specifies the PHY
+					strengthCtrl settings for the panel.
+- qcom,panel-phy-bistCtrl:		An array of length 6 that specifies the PHY
+					BIST ctrl settings for the panel.
+- qcom,panel-phy-laneConfig:		An array of length 45 that specifies the PHY
+					lane configuration settings for the panel.
 - qcom,mdss-panel-on-cmds:		An array of variable length that lists the init commands
 					of the panel. Each command will have the format specified
 					as below:
@@ -42,9 +52,16 @@ Required structure:
 
 Optional properties:
 - label:		        	A string used as a descriptive name of the panel
+- qcom,enable-gpio:			Specifies the panel lcd/display enable gpio.
+- qcom,rst-gpio:			Specifies the panel reset gpio.
 - qcom,mdss-pan-porch-values:		An array of size 6 that specifies the panel blanking values.
 - qcom,mdss-pan-underflow-clr:		Specifies the controller settings for the panel underflow clear
 					settings. Default value is 0xff.
+- qcom,mdss-pan-bl-ctrl:		A string that specifies the implementation of backlight
+					control for this panel.
+					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
+					"bl_ctrl_wled" = Backlight controlled by WLED.
+					"bl_ctrl_dcs_cmds" = Backlight controlled by DCS commands.
 - qcom,mdss-pan-bl-levels:		Specifies the backlight levels supported by the panel.
 					Default range is 1 to 255.
 
