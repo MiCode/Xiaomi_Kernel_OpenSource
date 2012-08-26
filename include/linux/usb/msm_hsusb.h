@@ -378,6 +378,7 @@ struct msm_hsic_host_platform_data {
 	unsigned strobe;
 	unsigned data;
 	struct msm_bus_scale_pdata *bus_scale_table;
+	unsigned log2_irq_thresh;
 };
 
 struct msm_usb_host_platform_data {

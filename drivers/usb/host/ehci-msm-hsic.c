@@ -1287,13 +1287,15 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	mehci = hcd_to_hsic(hcd);
 	mehci->dev = &pdev->dev;
+	pdata = mehci->dev->platform_data;
 
 	mehci->ehci.susp_sof_bug = 1;
 	mehci->ehci.reset_sof_bug = 1;
 
 	mehci->ehci.resume_sof_bug = 1;
 
-	mehci->ehci.max_log2_irq_thresh = 6;
+	if (pdata)
+		mehci->ehci.log2_irq_thresh = pdata->log2_irq_thresh;
 
 	res = platform_get_resource_byname(pdev,
 			IORESOURCE_IRQ,
@@ -1376,7 +1378,6 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "mode debugfs file is"
 			"not available\n");
 
-	pdata = mehci->dev->platform_data;
 	if (pdata && pdata->bus_scale_table) {
 		mehci->bus_perf_client =
 		    msm_bus_scale_register_client(pdata->bus_scale_table);
