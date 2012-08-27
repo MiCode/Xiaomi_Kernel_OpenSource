@@ -324,7 +324,7 @@ int32_t msm_sensor_bayer_config(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 		rc = msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->dev,
-			clk_info, &s_ctrl->cam_clk,
+			clk_info, s_ctrl->cam_clk,
 			clk_setting.num_clk_info,
 			clk_setting.enable);
 		kfree(clk_info);
@@ -470,7 +470,7 @@ int32_t msm_sensor_bayer_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 			rc = msm_cam_clk_enable(
 				&s_ctrl->sensor_i2c_client->client->dev,
-				cam_clk_info, &s_ctrl->cam_clk,
+				cam_clk_info, s_ctrl->cam_clk,
 				ARRAY_SIZE(cam_clk_info), 1);
 			if (rc < 0) {
 				pr_err("%s: clk enable failed\n", __func__);
@@ -523,7 +523,7 @@ ERROR:
 			break;
 		case CONFIG_CLK:
 			msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->
-				dev, cam_clk_info, &s_ctrl->cam_clk,
+				dev, cam_clk_info, s_ctrl->cam_clk,
 				ARRAY_SIZE(cam_clk_info), 0);
 			break;
 		case ENABLE_GPIO:
@@ -594,7 +594,7 @@ int32_t msm_sensor_bayer_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 			break;
 		case CONFIG_CLK:
 			msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->
-				dev, cam_clk_info, &s_ctrl->cam_clk,
+				dev, cam_clk_info, s_ctrl->cam_clk,
 				ARRAY_SIZE(cam_clk_info), 0);
 			break;
 		case ENABLE_GPIO:

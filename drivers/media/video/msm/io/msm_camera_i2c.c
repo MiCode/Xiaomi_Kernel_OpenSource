@@ -84,6 +84,7 @@ int32_t msm_camera_i2c_write(struct msm_camera_i2c_client *client,
 		cci_ctrl.cci_info = client->cci_client;
 		cci_ctrl.cfg.cci_i2c_write_cfg.reg_conf_tbl = &reg_conf_tbl;
 		cci_ctrl.cfg.cci_i2c_write_cfg.data_type = data_type;
+		cci_ctrl.cfg.cci_i2c_write_cfg.addr_type = client->addr_type;
 		cci_ctrl.cfg.cci_i2c_write_cfg.size = 1;
 		rc = v4l2_subdev_call(client->cci_client->cci_subdev,
 				core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
@@ -381,6 +382,7 @@ int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 		cci_ctrl.cci_info = client->cci_client;
 		cci_ctrl.cfg.cci_i2c_write_cfg.reg_conf_tbl = reg_conf_tbl;
 		cci_ctrl.cfg.cci_i2c_write_cfg.data_type = data_type;
+		cci_ctrl.cfg.cci_i2c_write_cfg.addr_type = client->addr_type;
 		cci_ctrl.cfg.cci_i2c_write_cfg.size = size;
 		rc = v4l2_subdev_call(client->cci_client->cci_subdev,
 				core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);

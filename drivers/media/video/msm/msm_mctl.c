@@ -1601,12 +1601,20 @@ int msm_setup_mctl_node(struct msm_cam_v4l2_device *pcam)
 {
 	int rc = -EINVAL;
 	struct video_device *pvdev = NULL;
-	struct i2c_client *client = v4l2_get_subdevdata(pcam->sensor_sdev);
-
+	struct i2c_client *client = NULL;
+	struct platform_device *pdev = NULL;
 	D("%s\n", __func__);
 
 	/* first register the v4l2 device */
-	pcam->mctl_node.v4l2_dev.dev = &client->dev;
+	if (pcam->sensor_sdev->flags & V4L2_SUBDEV_FL_IS_I2C) {
+		client = v4l2_get_subdevdata(pcam->sensor_sdev);
+		pcam->mctl_node.v4l2_dev.dev = &client->dev;
+	} else {
+		pdev = v4l2_get_subdevdata(pcam->sensor_sdev);
+		pcam->mctl_node.v4l2_dev.dev = &pdev->dev;
+	}
+
+	/* first register the v4l2 device */
 	rc = v4l2_device_register(pcam->mctl_node.v4l2_dev.dev,
 				&pcam->mctl_node.v4l2_dev);
 	if (rc < 0)
