@@ -113,9 +113,7 @@ static int cpufreq_governor_msm(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
-		mutex_lock(&per_cpu(gov_mutex, cpu));
 		msm_dcvs_freq_sink_unregister(dcvs_notifier);
-		mutex_unlock(&per_cpu(gov_mutex, cpu));
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
