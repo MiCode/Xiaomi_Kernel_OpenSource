@@ -760,6 +760,16 @@ __acquires(ci->lock)
 
 	spin_unlock(&ci->lock);
 
+	if (ci->suspended) {
+		if (ci->platdata->notify_event)
+			ci->platdata->notify_event(ci,
+			CI13XXX_CONTROLLER_RESUME_EVENT);
+		if (ci->transceiver)
+			usb_phy_set_suspend(ci->transceiver, 0);
+		ci->driver->resume(&ci->gadget);
+		ci->suspended = 0;
+	}
+
 	/*stop charging upon reset */
 	if (ci->transceiver)
 		usb_phy_set_power(ci->transceiver, 0);
