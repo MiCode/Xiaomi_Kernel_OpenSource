@@ -2705,7 +2705,10 @@ static void __init msm8930_cdp_init(void)
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
 	platform_device_register(&msm8930_device_rpm_regulator);
-	msm_clock_init(&msm8930_clock_init_data);
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+		msm_clock_init(&msm8930_pm8917_clock_init_data);
+	else
+		msm_clock_init(&msm8930_clock_init_data);
 	msm_otg_pdata.phy_init_seq = hsusb_phy_init_seq;
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	android_usb_pdata.swfi_latency =
