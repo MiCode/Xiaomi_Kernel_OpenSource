@@ -10,7 +10,8 @@ Required properties:
   "reg-names" examples are "core_mem", "dml_mem" and "bam_mem"
   - interrupts : should contain SDCC core interrupt.
   - interrupt-names : indicates interrupts passed to driver (via interrupts property) by name.
-  "interrupt-names" examples are "core_irq", "bam_irq" and "status_irq"
+  "core_irq" is mandatory, "bam_irq" is mandatory only when BAM DMA engine is used,
+  "status_irq" and "sdiowakeup_irq" are optional.
   - qcom,sdcc-clk-rates : specifies supported SDCC clock frequencies, Units - Hz.
   - qcom,sdcc-sup-voltages: specifies supported voltage ranges for card. Should always be
 			specified in pairs (min, max), Units - mV.
@@ -28,6 +29,8 @@ Optional Properties:
 	- qcom,sdcc-bus-speed-mode - specifies supported bus speed modes by host.
 	- qcom,sdcc-current-limit - specifies max. current the host can drive.
 	- qcom,sdcc-xpc - specifies if the host can supply more than 150mA for SDXC cards.
+	- qcom,dat1-mpm-int - specifies MPM interrupt number corresponding to DAT1 line of SDCC
+					(used only if slot has dedicated DAT1 MSM pin (not GPIO))
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,sdcc-<supply>-always_on - specifies whether supply should be kept "on" always.

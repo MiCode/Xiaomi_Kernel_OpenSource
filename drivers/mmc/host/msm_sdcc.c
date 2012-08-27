@@ -5633,6 +5633,8 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 		pdata->nonremovable = true;
 	if (of_get_property(np, "qcom,sdcc-disable_cmd23", NULL))
 		pdata->disable_cmd23 = true;
+	of_property_read_u32(np, "qcom,dat1-mpm-int",
+					&pdata->mpm_sdiowakeup_int);
 
 	return pdata;
 err:
@@ -5961,6 +5963,14 @@ msmsdcc_probe(struct platform_device *pdev)
 	 */
 	disable_irq(core_irqres->start);
 	host->sdcc_irq_disabled = 1;
+
+	if (!plat->sdiowakeup_irq) {
+		/* Check if registered as IORESOURCE_IRQ */
+		plat->sdiowakeup_irq =
+			platform_get_irq_byname(pdev, "sdiowakeup_irq");
+		if (plat->sdiowakeup_irq < 0)
+			plat->sdiowakeup_irq = 0;
+	}
 
 	if (plat->sdiowakeup_irq) {
 		wake_lock_init(&host->sdio_wlock, WAKE_LOCK_SUSPEND,
