@@ -101,7 +101,9 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	if (!bl_lvl && value)
 		bl_lvl = 1;
 
+	mutex_lock(&mfd->lock);
 	mdss_fb_set_backlight(mfd, bl_lvl);
+	mutex_unlock(&mfd->lock);
 }
 
 static struct led_classdev backlight_led = {
@@ -209,6 +211,8 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->mdp_fb_page_protection = MDP_FB_PAGE_PROTECTION_WRITECOMBINE;
 	mfd->panel_info.frame_count = 0;
 	mfd->bl_level = 0;
+	mfd->bl_scale = 1024;
+	mfd->bl_min_lvl = 30;
 	mfd->fb_imgType = MDP_RGBA_8888;
 
 	mfd->pdev = pdev;
@@ -416,9 +420,46 @@ static struct platform_driver mdss_fb_driver = {
 static int unset_bl_level, bl_updated;
 static int bl_level_old;
 
+static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
+						struct mdp_bl_scale_data *data)
+{
+	int ret = 0;
+	int curr_bl;
+	mutex_lock(&mfd->lock);
+	curr_bl = mfd->bl_level;
+	mfd->bl_scale = data->scale;
+	mfd->bl_min_lvl = data->min_lvl;
+	pr_debug("update scale = %d, min_lvl = %d\n", mfd->bl_scale,
+							mfd->bl_min_lvl);
+
+	/* update current backlight to use new scaling*/
+	mdss_fb_set_backlight(mfd, curr_bl);
+	mutex_unlock(&mfd->lock);
+	return ret;
+}
+
+static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
+{
+	u32 temp = *bl_lvl;
+	pr_debug("input = %d, scale = %d", temp, mfd->bl_scale);
+	if (temp >= mfd->bl_min_lvl) {
+		/* bl_scale is the numerator of scaling fraction (x/1024)*/
+		temp = (temp * mfd->bl_scale) / 1024;
+
+		/*if less than minimum level, use min level*/
+		if (temp < mfd->bl_min_lvl)
+			temp = mfd->bl_min_lvl;
+	}
+	pr_debug("output = %d", temp);
+
+	(*bl_lvl) = temp;
+}
+
+/* must call this function from within mfd->lock */
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 {
 	struct mdss_panel_data *pdata;
+	u32 temp = bkl_lvl;
 
 	if (!mfd->panel_power_on || !bl_updated) {
 		unset_bl_level = bkl_lvl;
@@ -430,15 +471,22 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
 	if ((pdata) && (pdata->set_backlight)) {
-		mutex_lock(&mfd->lock);
-		if (bl_level_old == bkl_lvl) {
-			mutex_unlock(&mfd->lock);
+		mdss_fb_scale_bl(mfd, &temp);
+		/*
+		 * Even though backlight has been scaled, want to show that
+		 * backlight has been set to bkl_lvl to those that read from
+		 * sysfs node. Thus, need to set bl_level even if it appears
+		 * the backlight has already been set to the level it is at,
+		 * as well as setting bl_level to bkl_lvl even though the
+		 * backlight has been set to the scaled value.
+		 */
+		if (bl_level_old == temp) {
+			mfd->bl_level = bkl_lvl;
 			return;
 		}
+		pdata->set_backlight(pdata, temp);
 		mfd->bl_level = bkl_lvl;
-		pdata->set_backlight(pdata, mfd->bl_level);
-		bl_level_old = mfd->bl_level;
-		mutex_unlock(&mfd->lock);
+		bl_level_old = temp;
 	}
 }
 
@@ -1124,7 +1172,8 @@ static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 	return 0;
 }
 
-static int mdss_fb_handle_pp_ioctl(void __user *argp)
+static int mdss_fb_handle_pp_ioctl(struct msm_fb_data_type *mfd,
+							void __user *argp)
 {
 	int ret;
 	struct msmfb_mdp_pp mdp_pp;
@@ -1178,6 +1227,10 @@ static int mdss_fb_handle_pp_ioctl(void __user *argp)
 	case mdp_op_gamut_cfg:
 		ret = mdss_mdp_gamut_config(&mdp_pp.data.gamut_cfg_data,
 				&copyback);
+		break;
+	case mdp_bl_scale_cfg:
+		ret = mdss_bl_scale_config(mfd, (struct mdp_bl_scale_data *)
+						&mdp_pp.data.bl_scale_data);
 		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL.\n");
@@ -1256,7 +1309,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	case MSMFB_MDP_PP:
-		ret = mdss_fb_handle_pp_ioctl(argp);
+		ret = mdss_fb_handle_pp_ioctl(mfd, argp);
 		break;
 
 	default:
