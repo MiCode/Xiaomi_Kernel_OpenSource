@@ -2653,7 +2653,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 		tx_ps.pi = radio->pi;
 		tx_ps.pty = radio->pty;
 		tx_ps.ps_repeatcount = radio->ps_repeatcount;
-		tx_ps.ps_len = bytes_to_copy;
+		tx_ps.ps_num = (bytes_to_copy / PS_STRING_LEN);
 
 		retval = radio_hci_request(radio->fm_hdev, hci_trans_ps_req,
 				(unsigned long)&tx_ps, RADIO_HCI_TIMEOUT);
@@ -2672,7 +2672,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 		tx_rt.rt_control =  0x01;
 		tx_rt.pi = radio->pi;
 		tx_rt.pty = radio->pty;
-		tx_rt.ps_len = bytes_to_copy;
+		tx_rt.rt_len = bytes_to_copy;
 
 		retval = radio_hci_request(radio->fm_hdev, hci_trans_rt_req,
 				(unsigned long)&tx_rt, RADIO_HCI_TIMEOUT);
