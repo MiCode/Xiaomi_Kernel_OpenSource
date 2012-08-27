@@ -468,7 +468,11 @@ static int mipi_dsi_panel_power(int on)
 
 		gpio_set_value_cansleep(gpio36, 0);
 		gpio_set_value_cansleep(gpio25, 1);
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+			gpio_set_value_cansleep(gpio26, 1);
 	} else {
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+			gpio_set_value_cansleep(gpio26, 0);
 		gpio_set_value_cansleep(gpio25, 0);
 		gpio_set_value_cansleep(gpio36, 1);
 
@@ -599,7 +603,11 @@ static int lvds_panel_power(int on)
 
 		gpio_set_value_cansleep(gpio36, 0);
 		gpio_set_value_cansleep(mpp3, 1);
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+			gpio_set_value_cansleep(gpio26, 1);
 	} else {
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+			gpio_set_value_cansleep(gpio26, 0);
 		gpio_set_value_cansleep(mpp3, 0);
 		gpio_set_value_cansleep(gpio36, 1);
 
