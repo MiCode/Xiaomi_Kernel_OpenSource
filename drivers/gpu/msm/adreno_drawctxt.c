@@ -169,6 +169,14 @@ int adreno_drawctxt_create(struct kgsl_device *device,
 	if (flags & KGSL_CONTEXT_PER_CONTEXT_TS)
 		drawctxt->flags |= CTXT_FLAGS_PER_CONTEXT_TS;
 
+	if (flags & KGSL_CONTEXT_USER_GENERATED_TS) {
+		if (!(flags & KGSL_CONTEXT_PER_CONTEXT_TS)) {
+			ret = -EINVAL;
+			goto err;
+		}
+		drawctxt->flags |= CTXT_FLAGS_USER_GENERATED_TS;
+	}
+
 	ret = adreno_dev->gpudev->ctxt_create(adreno_dev, drawctxt);
 	if (ret)
 		goto err;
