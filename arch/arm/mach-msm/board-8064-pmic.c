@@ -26,6 +26,7 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/restart.h>
+#include <mach/socinfo.h>
 #include "devices.h"
 #include "board-8064.h"
 
@@ -403,7 +404,6 @@ apq8064_pm8921_bms_pdata __devinitdata = {
 
 static struct pm8921_platform_data
 apq8064_pm8921_platform_data __devinitdata = {
-	.regulator_pdatas	= msm8064_pm8921_regulator_pdata,
 	.irq_pdata		= &apq8064_pm8921_irq_pdata,
 	.gpio_pdata		= &apq8064_pm8921_gpio_pdata,
 	.mpp_pdata		= &apq8064_pm8921_mpp_pdata,
@@ -460,8 +460,17 @@ void __init apq8064_init_pmic(void)
 						&apq8064_ssbi_pm8921_pdata;
 	apq8064_device_ssbi_pmic2.dev.platform_data =
 				&apq8064_ssbi_pm8821_pdata;
-	apq8064_pm8921_platform_data.num_regulators =
-					msm8064_pm8921_regulator_pdata_len;
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917) {
+		apq8064_pm8921_platform_data.regulator_pdatas
+			= msm8064_pm8921_regulator_pdata;
+		apq8064_pm8921_platform_data.num_regulators
+			= msm8064_pm8921_regulator_pdata_len;
+	} else {
+		apq8064_pm8921_platform_data.regulator_pdatas
+			= msm8064_pm8917_regulator_pdata;
+		apq8064_pm8921_platform_data.num_regulators
+			= msm8064_pm8917_regulator_pdata_len;
+	}
 
 	if (machine_is_apq8064_mtp()) {
 		apq8064_pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
