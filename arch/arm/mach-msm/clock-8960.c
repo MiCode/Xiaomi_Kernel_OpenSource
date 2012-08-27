@@ -393,6 +393,7 @@ static int set_vdd_dig_8960(struct clk_vdd_class *vdd_class, int level)
 
 static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig_8960);
 
+static int rpm_vreg_dig_8930 = RPM_VREG_ID_PM8038_VDD_DIG_CORNER;
 static int set_vdd_dig_8930(struct clk_vdd_class *vdd_class, int level)
 {
 	static const int vdd_corner[] = {
@@ -401,7 +402,7 @@ static int set_vdd_dig_8930(struct clk_vdd_class *vdd_class, int level)
 		[VDD_DIG_NOMINAL] = RPM_VREG_CORNER_NOMINAL,
 		[VDD_DIG_HIGH]    = RPM_VREG_CORNER_HIGH,
 	};
-	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8038_VDD_DIG_CORNER,
+	return rpm_vreg_set_voltage(rpm_vreg_dig_8930,
 					RPM_VREG_VOTER3,
 					vdd_corner[level],
 					RPM_VREG_CORNER_HIGH, 1);
@@ -465,6 +466,36 @@ static int set_vdd_sr2_hdmi_pll_8064(struct clk_vdd_class *vdd_class, int level)
 {
 	return rpm_vreg_set_voltage(RPM_VREG_ID_PM8921_LVS7, RPM_VREG_VOTER3,
 				    sr2_lreg_uv[level], sr2_lreg_uv[level], 1);
+}
+
+static int set_vdd_sr2_hdmi_pll_8930_pm8917(struct clk_vdd_class *vdd_class,
+	int level)
+{
+	int rc = 0;
+
+	if (level == VDD_SR2_HDMI_PLL_OFF) {
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8917_L23,
+				RPM_VREG_VOTER3, 0, 0, 1);
+		if (rc)
+			return rc;
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8917_S8,
+				RPM_VREG_VOTER3, 0, 0, 1);
+		if (rc)
+			rpm_vreg_set_voltage(RPM_VREG_ID_PM8917_L23,
+				RPM_VREG_VOTER3, 1800000, 1800000, 1);
+	} else {
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8917_S8,
+				RPM_VREG_VOTER3, 2050000, 2100000, 1);
+		if (rc)
+			return rc;
+		rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8917_L23,
+				RPM_VREG_VOTER3, 1800000, 1800000, 1);
+		if (rc)
+			rpm_vreg_set_voltage(RPM_VREG_ID_PM8917_S8,
+					RPM_VREG_VOTER3, 0, 0, 1);
+	}
+
+	return rc;
 }
 
 static int set_vdd_sr2_hdmi_pll_8930(struct clk_vdd_class *vdd_class, int level)
@@ -6421,12 +6452,8 @@ static void __init msm8960_clock_pre_init(void)
 	/* Initialize clock registers. */
 	reg_init();
 
-	if (cpu_is_apq8064()) {
+	if (cpu_is_apq8064())
 		vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8064;
-	} else if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
-		vdd_dig.set_vdd = set_vdd_dig_8930;
-		vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8930;
-	}
 
 	/* Detect PLL4 programmed for alternate 491.52MHz clock plan. */
 	if (readl_relaxed(LCC_PLL0_L_VAL_REG) == 0x12) {
@@ -6508,6 +6535,25 @@ static void __init msm8960_clock_pre_init(void)
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 
 	clk_ops_local_pll.enable = sr_pll_clk_enable;
+}
+
+static void __init msm8930_pm8917_clock_pre_init(void)
+{
+	/* detect pmic8917 from board file, and call this init function */
+
+	vdd_dig.set_vdd = set_vdd_dig_8930;
+	rpm_vreg_dig_8930 = RPM_VREG_ID_PM8917_VDD_DIG_CORNER;
+	vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8930_pm8917;
+
+	msm8960_clock_pre_init();
+}
+
+static void __init msm8930_clock_pre_init(void)
+{
+	vdd_dig.set_vdd = set_vdd_dig_8930;
+	vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8930;
+
+	msm8960_clock_pre_init();
 }
 
 static void __init msm8960_clock_post_init(void)
@@ -6620,7 +6666,15 @@ struct clock_init_data apq8064_clock_init_data __initdata = {
 struct clock_init_data msm8930_clock_init_data __initdata = {
 	.table = msm_clocks_8930,
 	.size = ARRAY_SIZE(msm_clocks_8930),
-	.pre_init = msm8960_clock_pre_init,
+	.pre_init = msm8930_clock_pre_init,
+	.post_init = msm8960_clock_post_init,
+	.late_init = msm8960_clock_late_init,
+};
+
+struct clock_init_data msm8930_pm8917_clock_init_data __initdata = {
+	.table = msm_clocks_8930,
+	.size = ARRAY_SIZE(msm_clocks_8930),
+	.pre_init = msm8930_pm8917_clock_pre_init,
 	.post_init = msm8960_clock_post_init,
 	.late_init = msm8960_clock_late_init,
 };
