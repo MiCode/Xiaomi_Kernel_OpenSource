@@ -1181,13 +1181,18 @@ static struct i2c_board_info cs8427_device_info[] __initdata = {
 #define HAP_SHIFT_LVL_OE_GPIO		PM8921_MPP_PM_TO_SYS(8)
 #define ISA1200_HAP_EN_GPIO		PM8921_GPIO_PM_TO_SYS(33)
 #define ISA1200_HAP_LEN_GPIO		PM8921_GPIO_PM_TO_SYS(20)
-#define ISA1200_HAP_CLK			PM8921_GPIO_PM_TO_SYS(44)
+#define ISA1200_HAP_CLK_PM8921		PM8921_GPIO_PM_TO_SYS(44)
+#define ISA1200_HAP_CLK_PM8917		PM8921_GPIO_PM_TO_SYS(38)
 
 static int isa1200_clk_enable(bool on)
 {
+	unsigned int gpio = ISA1200_HAP_CLK_PM8921;
 	int rc = 0;
 
-	gpio_set_value_cansleep(ISA1200_HAP_CLK, on);
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+		gpio = ISA1200_HAP_CLK_PM8917;
+
+	gpio_set_value_cansleep(gpio, on);
 
 	if (on) {
 		rc = pm8xxx_aux_clk_control(CLK_MP3_2, XO_DIV_1, true);
@@ -1206,25 +1211,29 @@ static int isa1200_clk_enable(bool on)
 	return rc;
 
 err_gpio_dis:
-	gpio_set_value_cansleep(ISA1200_HAP_CLK, !on);
+	gpio_set_value_cansleep(gpio, !on);
 	return rc;
 }
 
 static int isa1200_dev_setup(bool enable)
 {
+	unsigned int gpio = ISA1200_HAP_CLK_PM8921;
 	int rc = 0;
+
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+		gpio = ISA1200_HAP_CLK_PM8917;
 
 	if (!enable)
 		goto free_gpio;
 
-	rc = gpio_request(ISA1200_HAP_CLK, "haptics_clk");
+	rc = gpio_request(gpio, "haptics_clk");
 	if (rc) {
 		pr_err("%s: unable to request gpio %d config(%d)\n",
-			__func__, ISA1200_HAP_CLK, rc);
+			__func__, gpio, rc);
 		return rc;
 	}
 
-	rc = gpio_direction_output(ISA1200_HAP_CLK, 0);
+	rc = gpio_direction_output(gpio, 0);
 	if (rc) {
 		pr_err("%s: unable to set direction\n", __func__);
 		goto free_gpio;
@@ -1233,7 +1242,7 @@ static int isa1200_dev_setup(bool enable)
 	return 0;
 
 free_gpio:
-	gpio_free(ISA1200_HAP_CLK);
+	gpio_free(gpio);
 	return rc;
 }
 
@@ -2529,14 +2538,16 @@ static int ethernet_init(void)
 }
 #endif
 
-#define GPIO_KEY_HOME		PM8921_GPIO_PM_TO_SYS(27)
-#define GPIO_KEY_VOLUME_UP	PM8921_GPIO_PM_TO_SYS(35)
-#define GPIO_KEY_VOLUME_DOWN	PM8921_GPIO_PM_TO_SYS(38)
-#define GPIO_KEY_CAM_FOCUS	PM8921_GPIO_PM_TO_SYS(3)
-#define GPIO_KEY_CAM_SNAP	PM8921_GPIO_PM_TO_SYS(4)
-#define GPIO_KEY_ROTATION	PM8921_GPIO_PM_TO_SYS(42)
+#define GPIO_KEY_HOME			PM8921_GPIO_PM_TO_SYS(27)
+#define GPIO_KEY_VOLUME_UP		PM8921_GPIO_PM_TO_SYS(35)
+#define GPIO_KEY_VOLUME_DOWN_PM8921	PM8921_GPIO_PM_TO_SYS(38)
+#define GPIO_KEY_VOLUME_DOWN_PM8917	PM8921_GPIO_PM_TO_SYS(30)
+#define GPIO_KEY_CAM_FOCUS		PM8921_GPIO_PM_TO_SYS(3)
+#define GPIO_KEY_CAM_SNAP		PM8921_GPIO_PM_TO_SYS(4)
+#define GPIO_KEY_ROTATION_PM8921	PM8921_GPIO_PM_TO_SYS(42)
+#define GPIO_KEY_ROTATION_PM8917	PM8921_GPIO_PM_TO_SYS(8)
 
-static struct gpio_keys_button cdp_keys[] = {
+static struct gpio_keys_button cdp_keys_pm8921[] = {
 	{
 		.code           = KEY_HOME,
 		.gpio           = GPIO_KEY_HOME,
@@ -2557,7 +2568,7 @@ static struct gpio_keys_button cdp_keys[] = {
 	},
 	{
 		.code           = KEY_VOLUMEDOWN,
-		.gpio           = GPIO_KEY_VOLUME_DOWN,
+		.gpio           = GPIO_KEY_VOLUME_DOWN_PM8921,
 		.desc           = "volume_down_key",
 		.active_low     = 1,
 		.type		= EV_KEY,
@@ -2566,7 +2577,45 @@ static struct gpio_keys_button cdp_keys[] = {
 	},
 	{
 		.code           = SW_ROTATE_LOCK,
-		.gpio           = GPIO_KEY_ROTATION,
+		.gpio           = GPIO_KEY_ROTATION_PM8921,
+		.desc           = "rotate_key",
+		.active_low     = 1,
+		.type		= EV_SW,
+		.debounce_interval = 15,
+	},
+};
+
+static struct gpio_keys_button cdp_keys_pm8917[] = {
+	{
+		.code           = KEY_HOME,
+		.gpio           = GPIO_KEY_HOME,
+		.desc           = "home_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = KEY_VOLUMEUP,
+		.gpio           = GPIO_KEY_VOLUME_UP,
+		.desc           = "volume_up_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = KEY_VOLUMEDOWN,
+		.gpio           = GPIO_KEY_VOLUME_DOWN_PM8917,
+		.desc           = "volume_down_key",
+		.active_low     = 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code           = SW_ROTATE_LOCK,
+		.gpio           = GPIO_KEY_ROTATION_PM8917,
 		.desc           = "rotate_key",
 		.active_low     = 1,
 		.type		= EV_SW,
@@ -2575,8 +2624,8 @@ static struct gpio_keys_button cdp_keys[] = {
 };
 
 static struct gpio_keys_platform_data cdp_keys_data = {
-	.buttons        = cdp_keys,
-	.nbuttons       = ARRAY_SIZE(cdp_keys),
+	.buttons        = cdp_keys_pm8921,
+	.nbuttons       = ARRAY_SIZE(cdp_keys_pm8921),
 };
 
 static struct platform_device cdp_kp_pdev = {
@@ -2608,7 +2657,7 @@ static struct gpio_keys_button mtp_keys[] = {
 	},
 	{
 		.code           = KEY_VOLUMEDOWN,
-		.gpio           = GPIO_KEY_VOLUME_DOWN,
+		.gpio           = GPIO_KEY_VOLUME_DOWN_PM8921,
 		.desc           = "volume_down_key",
 		.active_low     = 1,
 		.type		= EV_KEY,
@@ -2641,7 +2690,7 @@ static struct platform_device mtp_kp_pdev = {
 static struct gpio_keys_button mpq_keys[] = {
 	{
 		.code           = KEY_VOLUMEDOWN,
-		.gpio           = GPIO_KEY_VOLUME_DOWN,
+		.gpio           = GPIO_KEY_VOLUME_DOWN_PM8921,
 		.desc           = "volume_down_key",
 		.active_low     = 1,
 		.type		= EV_KEY,
@@ -2935,9 +2984,19 @@ static void enable_avc_i2c_bus(void)
 		gpio_set_value_cansleep(avc_i2c_en_mpp, 1);
 }
 
+/* Modify platform data values to match requirements for PM8917. */
+static void __init apq8064_pm8917_pdata_fixup(void)
+{
+	cdp_keys_data.buttons = cdp_keys_pm8917;
+	cdp_keys_data.nbuttons = ARRAY_SIZE(cdp_keys_pm8917);
+}
+
 static void __init apq8064_common_init(void)
 {
 	u32 platform_version;
+
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+		apq8064_pm8917_pdata_fixup();
 	platform_device_register(&msm_gpio_device);
 	msm_tsens_early_init(&apq_tsens_pdata);
 	msm_thermal_init(&msm_thermal_pdata);
