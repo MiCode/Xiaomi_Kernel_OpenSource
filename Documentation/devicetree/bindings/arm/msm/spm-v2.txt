@@ -31,7 +31,6 @@ Optional properties
 - qcom,saw2-avs-limit: The AVS limit register
 - qcom,saw2-avs-dly: The AVS delay register is used to specify the delay values
 	between AVS controller requests
-- qcom,saw2-pmic-dly: The delay values for waiting on PMIC response
 - qcom,saw2-pmic-data0..7: Specify the pmic data value and the associated FTS
 	index to send the PMIC data to
 - qcom,saw2-vctl-port: The FTS port used for changing voltage
