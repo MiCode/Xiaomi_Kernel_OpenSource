@@ -115,7 +115,7 @@ static void msm_ispif_sel_csid_core(struct ispif_device *ispif,
 	uint8_t intftype, uint8_t csid, uint8_t vfe_intf)
 {
 	int rc = 0;
-	uint32_t data;
+	uint32_t data = 0;
 
 	if (ispif->csid_version <= CSID_VERSION_V2) {
 		if (ispif->ispif_clk[intftype] == NULL) {
@@ -154,14 +154,16 @@ static void msm_ispif_sel_csid_core(struct ispif_device *ispif,
 		data |= (csid << 20);
 		break;
 	}
-	msm_camera_io_w(data, ispif->base + ISPIF_INPUT_SEL_ADDR +
-		(0x200 * vfe_intf));
+	if (data) {
+		msm_camera_io_w(data, ispif->base + ISPIF_INPUT_SEL_ADDR +
+			(0x200 * vfe_intf));
+	}
 }
 
 static void msm_ispif_enable_intf_cids(struct ispif_device *ispif,
 	uint8_t intftype, uint16_t cid_mask, uint8_t vfe_intf)
 {
-	uint32_t data;
+	uint32_t data = 0;
 	mutex_lock(&ispif->mutex);
 	switch (intftype) {
 	case PIX0:
@@ -211,7 +213,7 @@ static int32_t msm_ispif_validate_intf_status(struct ispif_device *ispif,
 	uint8_t intftype, uint8_t vfe_intf)
 {
 	int32_t rc = 0;
-	uint32_t data;
+	uint32_t data = 0;
 	mutex_lock(&ispif->mutex);
 	switch (intftype) {
 	case PIX0:
