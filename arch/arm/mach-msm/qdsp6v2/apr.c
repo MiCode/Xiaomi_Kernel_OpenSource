@@ -687,6 +687,7 @@ static int __init apr_init(void)
 				spin_lock_init(&client[i][j].svc[k].w_lock);
 			}
 		}
+	apr_set_subsys_state();
 	mutex_init(&q6.lock);
 	dsp_debug_register(adsp_state);
 	apr_reset_workqueue = create_singlethread_workqueue("apr_driver");
@@ -703,7 +704,6 @@ static int __init apr_late_init(void)
 	init_waitqueue_head(&modem_wait);
 	subsys_notif_register_notifier("modem", &mnb);
 	subsys_notif_register_notifier("lpass", &lnb);
-	apr_set_subsys_state();
 	return ret;
 }
 late_initcall(apr_late_init);
