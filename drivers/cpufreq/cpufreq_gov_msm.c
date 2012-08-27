@@ -139,13 +139,16 @@ static int __devinit msm_gov_probe(struct platform_device *pdev)
 	int ret = 0;
 	int cpu;
 	struct msm_dcvs_core_info *core = NULL;
+	int sensor = 0;
 
 	core = pdev->dev.platform_data;
 
 	for_each_possible_cpu(cpu) {
 		mutex_init(&per_cpu(gov_mutex, cpu));
 		snprintf(core_name[cpu], 10, "cpu%d", cpu);
-		ret = msm_dcvs_register_core(core_name[cpu], core);
+		if (cpu < core->num_cores)
+			sensor = core->sensors[cpu];
+		ret = msm_dcvs_register_core(core_name[cpu], core, sensor);
 		if (ret)
 			pr_err("Unable to register core for %d\n", cpu);
 	}

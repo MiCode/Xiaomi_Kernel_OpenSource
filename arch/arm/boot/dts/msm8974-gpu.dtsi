@@ -85,6 +85,9 @@
 
 			compatible = "qcom,dcvs-core-info";
 
+			qcom,num-cores = <1>;
+			qcom,sensors = <0>;
+
 			qcom,core-core-type = <1>;
 
 			qcom,algo-disable-pc-threshold = <0>;

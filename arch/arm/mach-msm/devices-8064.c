@@ -2646,6 +2646,8 @@ static struct msm_dcvs_freq_entry apq8064_freq[] = {
 
 static struct msm_dcvs_core_info apq8064_core_info = {
 	.freq_tbl	= &apq8064_freq[0],
+	.num_cores	= 4,
+	.sensors	= (int[]){7, 8, 9, 10},
 	.core_param	= {
 		.core_type	= MSM_DCVS_CORE_TYPE_CPU,
 	},

@@ -32,6 +32,8 @@ static struct msm_dcvs_freq_entry grp3d_freq[] = {
 
 static struct msm_dcvs_core_info grp3d_core_info = {
 	.freq_tbl	= &grp3d_freq[0],
+	.num_cores	= 1,
+	.sensors	= (int[]){0},
 	.core_param	= {
 		.core_type	= MSM_DCVS_CORE_TYPE_GPU,
 	},

@@ -171,7 +171,8 @@ static int msm_init(struct kgsl_device *device,
 	low_level = pwr->num_pwrlevels - KGSL_PWRLEVEL_LAST_OFFSET;
 	for (i = 0; i <= low_level; i++)
 		tbl[i].freq = pwr->pwrlevels[low_level - i].gpu_freq / 1000;
-	ret = msm_dcvs_register_core(device->name, priv->core_info);
+	ret = msm_dcvs_register_core(device->name, priv->core_info,
+			priv->core_info->sensors[0]);
 	if (ret) {
 		KGSL_PWR_ERR(device, "msm_dcvs_register_core failed");
 		goto err;
