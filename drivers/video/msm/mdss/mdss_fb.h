@@ -83,6 +83,8 @@ struct msm_fb_data_type {
 	unsigned long cursor_buf_iova;
 
 	u32 bl_level;
+	u32 bl_scale;
+	u32 bl_min_lvl;
 	struct mutex lock;
 
 	struct platform_device *pdev;
