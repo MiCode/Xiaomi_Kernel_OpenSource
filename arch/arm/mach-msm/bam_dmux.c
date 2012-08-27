@@ -1711,6 +1711,20 @@ static void ul_wakeup(void)
 	}
 
 	/*
+	 * if this gets hit, that means restart_notifier_cb() has started
+	 * but probably not finished, thus we know SSR has happened, but
+	 * haven't been able to send that info to our clients yet.
+	 * in that case, abort the ul_wakeup() so that we don't undo any
+	 * work restart_notifier_cb() has done.  The clients will be notified
+	 * shortly.  No cleanup necessary (reschedule the wakeup) as our and
+	 * their SSR handling will cover it
+	 */
+	if (unlikely(in_global_reset == 1)) {
+		mutex_unlock(&wakeup_lock);
+		return;
+	}
+
+	/*
 	 * if someone is voting for UL before bam is inited (modem up first
 	 * time), set flag for init to kickoff ul wakeup once bam is inited
 	 */
