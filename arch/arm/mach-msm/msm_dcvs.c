@@ -649,6 +649,8 @@ int msm_dcvs_register_core(const char *core_name,
 		goto bail;
 	}
 
+	core->task = kthread_create(msm_dcvs_do_freq, (void *)core,
+			"msm_dcvs/%d", core->handle);
 bail:
 	mutex_unlock(&core->lock);
 	return ret;
@@ -674,8 +676,6 @@ int msm_dcvs_freq_sink_register(struct msm_dcvs_freq *drv)
 		__info("Frequency notifier for %s being replaced\n",
 				core->core_name);
 	core->freq_driver = drv;
-	core->task = kthread_create(msm_dcvs_do_freq, (void *)core,
-			"msm_dcvs/%d", core->handle);
 	if (IS_ERR(core->task)) {
 		mutex_unlock(&core->lock);
 		return -EFAULT;
@@ -731,7 +731,6 @@ int msm_dcvs_freq_sink_unregister(struct msm_dcvs_freq *drv)
 	core->freq_pending = 0;
 	core->freq_driver = NULL;
 	mutex_unlock(&core->lock);
-	kthread_stop(core->task);
 
 	return 0;
 }
