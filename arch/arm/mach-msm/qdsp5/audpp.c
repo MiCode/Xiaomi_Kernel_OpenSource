@@ -34,6 +34,8 @@
 
 #include <mach/qdsp5/qdsp5audppcmdi.h>
 #include <mach/qdsp5/qdsp5audppmsg.h>
+#include <mach/qdsp5/qdsp5audpp.h>
+#include <mach/qdsp5v2/audio_acdbi.h>
 #include <mach/debug_mm.h>
 
 #include "evlog.h"
@@ -85,19 +87,7 @@ static DEFINE_MUTEX(audpp_dec_lock);
 #define AUDPP_CMD_IIR_FLAG_DIS	  0x0000
 #define AUDPP_CMD_IIR_FLAG_ENA	  -1
 
-#define AUDPP_CMD_VOLUME_PAN		0
-#define AUDPP_CMD_IIR_TUNING_FILTER	1
-#define AUDPP_CMD_EQUALIZER		2
-#define AUDPP_CMD_ADRC			3
-#define AUDPP_CMD_SPECTROGRAM		4
-#define AUDPP_CMD_QCONCERT		5
-#define AUDPP_CMD_SIDECHAIN_TUNING_FILTER	6
-#define AUDPP_CMD_SAMPLING_FREQUENCY	7
-#define AUDPP_CMD_QAFX			8
-#define AUDPP_CMD_QRUMBLE		9
-#define AUDPP_CMD_MBADRC		10
-
-#define MAX_EVENT_CALLBACK_CLIENTS 	1
+#define MAX_EVENT_CALLBACK_CLIENTS	2
 
 #define AUDPP_CONCURRENCY_DEFAULT 6	/* All non tunnel mode */
 #define AUDPP_MAX_DECODER_CNT 5
@@ -334,6 +324,11 @@ static void audpp_dsp_event(void *data, unsigned id, size_t len,
 		break;
 	case ADSP_MESSAGE_ID:
 		MM_DBG("Received ADSP event: module enable/disable(audpptask)");
+		break;
+	case AUDPP_MSG_FEAT_QUERY_DM_DONE:
+		MM_INFO(" RTC ACK --> %x %x %x\n", msg[0],\
+			msg[1], msg[2]);
+		acdb_rtc_set_err(msg[2]);
 		break;
 	default:
 		MM_ERR("unhandled msg id %x\n", id);

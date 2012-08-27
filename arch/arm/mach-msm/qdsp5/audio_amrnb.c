@@ -51,6 +51,7 @@
 #include <mach/qdsp5/qdsp5audppmsg.h>
 #include <mach/qdsp5/qdsp5audplaycmdi.h>
 #include <mach/qdsp5/qdsp5audplaymsg.h>
+#include <mach/qdsp5/qdsp5audpp.h>
 #include <mach/qdsp5/qdsp5rmtcmdi.h>
 #include <mach/debug_mm.h>
 #include <mach/msm_memtypes.h>
