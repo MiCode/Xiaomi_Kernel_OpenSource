@@ -7,10 +7,14 @@ Required properties:
 
 - qcom,core-core-type:	indicates whether this core is a CPU(0) or a GPU(1)
 
+- qcom,num-cores:	The number of cores this entry represents
+- qcom,sensors:		The vector of sensor ids for the cores
+
 - qcom,algo-disable-pc-threshold:	sets highest frequency at which DCVS
 					will allow the CPU to power collapse.
 - qcom,algo-em-win-size-min-us:		sets minimum Energy Minimization(EM)
 					window size.
+
 - qcom,algo-em-win-size-max-us:		sets maximum EM window size.
 - qcom,algo-em-max-util-pct:		sets maximum CPU utilization that will
 					not be exceeded by any core when
@@ -67,7 +71,7 @@ qcom,kgsl-3d0@fdb00000 {
 
 			compatible = "qcom,dcvs-core-info";
 
-			qcom,num_cores = <1>;
+			qcom,num-cores = <1>;
 			qcom,sensors = <0>;
 
 			qcom,core-core-type = <1>;
