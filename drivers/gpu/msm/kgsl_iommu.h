@@ -15,15 +15,23 @@
 
 #include <mach/iommu.h>
 
-/* IOMMU registers and masks */
-#define KGSL_IOMMU_TTBR0			0x10
-#define KGSL_IOMMU_TTBR1			0x14
-#define KGSL_IOMMU_FSR				0x20
+#define KGSL_IOMMU_CTX_OFFSET_V1	0
+#define KGSL_IOMMU_CTX_SHIFT		12
 
-#define KGSL_IOMMU_TTBR0_PA_MASK		0x0003FFFF
-#define KGSL_IOMMU_TTBR0_PA_SHIFT		14
-#define KGSL_IOMMU_CTX_TLBIALL			0x800
-#define KGSL_IOMMU_CTX_SHIFT			12
+enum kgsl_iommu_reg_map {
+	KGSL_IOMMU_GLOBAL_BASE = 0,
+	KGSL_IOMMU_CTX_TTBR0,
+	KGSL_IOMMU_CTX_TTBR1,
+	KGSL_IOMMU_CTX_FSR,
+	KGSL_IOMMU_CTX_TLBIALL,
+	KGSL_IOMMU_REG_MAX
+};
+
+struct kgsl_iommu_register_list {
+	unsigned int reg_offset;
+	unsigned int reg_mask;
+	unsigned int reg_shift;
+};
 
 /*
  * Max number of iommu units that the gpu core can have
@@ -35,20 +43,25 @@
 #define KGSL_IOMMU_MAX_DEVS_PER_UNIT 2
 
 /* Macros to read/write IOMMU registers */
-#define KGSL_IOMMU_SET_IOMMU_REG(base_addr, ctx, REG, val)		\
-		writel_relaxed(val, base_addr +				\
-				(ctx << KGSL_IOMMU_CTX_SHIFT) +		\
-				KGSL_IOMMU_##REG)
+#define KGSL_IOMMU_SET_CTX_REG(iommu, iommu_unit, ctx, REG, val)	\
+		writel_relaxed(val,					\
+		iommu_unit->reg_map.hostptr +				\
+		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
+		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
+		iommu->ctx_offset)
 
-#define KGSL_IOMMU_GET_IOMMU_REG(base_addr, ctx, REG)			\
-		readl_relaxed(base_addr +				\
-			(ctx << KGSL_IOMMU_CTX_SHIFT) +			\
-			KGSL_IOMMU_##REG)
+#define KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit, ctx, REG)		\
+		readl_relaxed(						\
+		iommu_unit->reg_map.hostptr +				\
+		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
+		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
+		iommu->ctx_offset)
 
 /* Gets the lsb value of pagetable */
-#define KGSL_IOMMMU_PT_LSB(pt_val)					\
-		(pt_val & ~(KGSL_IOMMU_TTBR0_PA_MASK <<			\
-				KGSL_IOMMU_TTBR0_PA_SHIFT))
+#define KGSL_IOMMMU_PT_LSB(iommu, pt_val) \
+	(pt_val &							\
+	~(iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_mask <<	\
+	iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_shift))
 
 /* offset at which a nop command is placed in setstate_memory */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
@@ -99,6 +112,9 @@ struct kgsl_iommu_unit {
  * @clk_event_queued: Indicates whether an event to disable clocks
  * is already queued or not
  * @device: Pointer to kgsl device
+ * @ctx_offset: The context offset to be added to base address when
+ * accessing IOMMU registers
+ * @iommu_reg_list: List of IOMMU registers { offset, map, shift } array
  */
 struct kgsl_iommu {
 	struct kgsl_iommu_unit iommu_units[KGSL_IOMMU_MAX_UNITS];
@@ -106,6 +122,8 @@ struct kgsl_iommu {
 	unsigned int iommu_last_cmd_ts;
 	bool clk_event_queued;
 	struct kgsl_device *device;
+	unsigned int ctx_offset;
+	struct kgsl_iommu_register_list *iommu_reg_list;
 };
 
 /*
