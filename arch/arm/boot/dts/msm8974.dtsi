@@ -527,6 +527,57 @@
 					 <0x1e70008c>; /* LPG_CHAN12 */
 
 		qcom,pm8941@1 {
+			qcom,leds@d300 {
+				status = "okay";
+				qcom,flash_0 {
+					qcom,max-current = <1000>;
+					qcom,default-state = "off";
+					qcom,headroom = <0>;
+					qcom,duration = <1280>;
+					qcom,clamp-curr = <200>;
+					qcom,startup-dly = <1>;
+					qcom,safety-timer;
+					label = "flash";
+					linux,default-trigger =
+						"flash0_trigger";
+					qcom,id = <1>;
+					linux,name = "led:flash_0";
+					qcom,current = <625>;
+				};
+
+				qcom,flash_1 {
+					qcom,max-current = <1000>;
+					qcom,default-state = "off";
+					qcom,headroom = <0>;
+					qcom,duration = <1280>;
+					qcom,clamp-curr = <200>;
+					qcom,startup-dly = <1>;
+					qcom,safety-timer;
+					linux,default-trigger =
+						"flash1_trigger";
+					label = "flash";
+					qcom,id = <2>;
+					linux,name = "led:flash_1";
+					qcom,current = <625>;
+				};
+			};
+
+			qcom,leds@d400 {
+				status = "disabled";
+			};
+
+			qcom,leds@d500 {
+				status = "disabled";
+			};
+
+			qcom,leds@d600 {
+				status = "disabled";
+			};
+
+			qcom,leds@d700 {
+				status = "disabled";
+			};
+
 			qcom,leds@d800 {
 				status = "okay";
 				qcom,wled_0 {
@@ -535,7 +586,7 @@
 					linux,default-trigger = "bkl-trigger";
 					qcom,cs-out-en;
 					qcom,op-fdbck;
-					qcom,default-state = "on";
+					qcom,default-state = "off";
 					qcom,max-current = <25>;
 					qcom,ctrl-delay-us = <0>;
 					qcom,boost-curr-lim = <3>;
@@ -582,6 +633,7 @@
 			qcom,leds@e100 {
 				status = "disabled";
 			};
+
 		};
 	};
 
