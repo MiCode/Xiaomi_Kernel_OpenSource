@@ -1758,7 +1758,7 @@ static void pairing_connect_complete_cb(struct hci_conn *conn, u8 status)
 		return;
 	}
 
-	if (status)
+	if (status || conn->pending_sec_level < BT_SECURITY_MEDIUM)
 		pairing_complete(cmd, status);
 
 	hci_conn_put(conn);
