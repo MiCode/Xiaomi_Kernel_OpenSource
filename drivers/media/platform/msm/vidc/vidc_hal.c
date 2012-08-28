@@ -607,6 +607,28 @@ static int vidc_hal_core_start_cpu(struct hal_device *device)
 	return rc;
 }
 
+static void set_vbif_registers(struct hal_device *device)
+{
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VENUS0_VENUS_WRAPPER_VBIF_REQ_PRIORITY, 0, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VENUS0_VENUS_WRAPPER_VBIF_PRIORITY_LEVEL, 0, 0);
+	write_register(device->hal_data->register_base_addr,
+		VIDC_VBIF_ARB_CTL, 0x30, 0);
+	write_register(device->hal_data->register_base_addr,
+		VIDC_VBIF_ROUND_ROBIN_QOS_ARB, 0x1, 0);
+	write_register(device->hal_data->register_base_addr,
+		VIDC_VBIF_OUT_AXI_AOOO_EN, 0x00000FFF, 0);
+	write_register(device->hal_data->register_base_addr,
+		VIDC_VBIF_OUT_AXI_AOOO, 0x0FFF0FFF, 0);
+	write_register(device->hal_data->register_base_addr,
+		VIDC_VBIF_OUT_AXI_AMEMTYPE_CONF0, 0x22222222, 0);
+	write_register(device->hal_data->register_base_addr,
+		VIDC_VBIF_OUT_AXI_AMEMTYPE_CONF1, 0x00002222, 0);
+	write_register(device->hal_data->register_base_addr,
+		VIDC_VBIF_DDR_OUT_MAX_BURST, 0x00000707, 0);
+}
+
 int vidc_hal_core_init(void *device, int domain)
 {
 	struct hfi_cmd_sys_init_packet pkt;
@@ -627,7 +649,7 @@ int vidc_hal_core_init(void *device, int domain)
 	/*Disable Dynamic clock gating for Venus VBIF*/
 	write_register(dev->hal_data->register_base_addr,
 				   VIDC_VENUS_VBIF_CLK_ON, 1, 0);
-
+	set_vbif_registers(dev);
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(SMEM_ION);
 		if (dev->hal_client == NULL) {
