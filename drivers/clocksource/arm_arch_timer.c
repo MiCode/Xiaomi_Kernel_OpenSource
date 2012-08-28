@@ -82,6 +82,11 @@ static inline void timer_set_mode(const int access, int mode)
 		ctrl &= ~ARCH_TIMER_CTRL_ENABLE;
 		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl);
 		break;
+	case CLOCK_EVT_MODE_ONESHOT:
+		ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL);
+		ctrl |= ARCH_TIMER_CTRL_ENABLE;
+		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl);
+		break;
 	default:
 		break;
 	}
@@ -103,11 +108,9 @@ static inline void set_next_event(const int access, unsigned long evt)
 {
 	unsigned long ctrl;
 	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL);
-	ctrl &= ~(ARCH_TIMER_CTRL_ENABLE | ARCH_TIMER_CTRL_IT_MASK);
+	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
 	arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl);
 	arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt);
-	ctrl |= ARCH_TIMER_CTRL_ENABLE;
-	arch_specific_timer->reg_write(ARCH_TIMER_REG_CTRL, ctrl);
 }
 
 static int arch_timer_set_next_event_virt(unsigned long evt,
