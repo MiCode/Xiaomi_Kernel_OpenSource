@@ -3712,7 +3712,7 @@ static void vfe32_process_reset_irq(
 static void vfe32_process_camif_sof_irq(
 		struct vfe32_ctrl_type *vfe32_ctrl)
 {
-	if (vfe32_ctrl->share_ctrl->operation_mode &
+	if (vfe32_ctrl->share_ctrl->operation_mode ==
 		VFE_OUTPUTS_RAW) {
 		if (vfe32_ctrl->share_ctrl->start_ack_pending) {
 			vfe32_ctrl->share_ctrl->start_ack_pending = FALSE;
@@ -5624,6 +5624,10 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 
 	if (axi_ctrl->share_ctrl->outpath.output_mode &
 			VFE32_OUTPUT_MODE_PRIMARY) {
+		if (vfe_params.cmd_type == AXI_CMD_RAW_CAPTURE)
+			irq_comp_mask |= (
+				0x1 << axi_ctrl->share_ctrl->outpath.out0.ch0);
+		else
 		irq_comp_mask |= (
 			0x1 << axi_ctrl->share_ctrl->outpath.out0.ch0 |
 			0x1 << axi_ctrl->share_ctrl->outpath.out0.ch1);
