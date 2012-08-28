@@ -31,11 +31,11 @@
 #define SMUX_UT_ECHO_ACK_FAIL 0xF2
 
 /* Maximum number of packets in retry queue */
-#define SMUX_RX_RETRY_MAX_PKTS 32
-#define SMUX_RX_WM_HIGH        16
-#define SMUX_RX_WM_LOW          4
-#define SMUX_TX_WM_LOW          2
-#define SMUX_TX_WM_HIGH         4
+#define SMUX_RX_RETRY_MAX_PKTS 128
+#define SMUX_RX_WM_HIGH          4
+#define SMUX_RX_WM_LOW           0
+#define SMUX_TX_WM_LOW           2
+#define SMUX_TX_WM_HIGH          4
 
 struct tty_struct;
 
