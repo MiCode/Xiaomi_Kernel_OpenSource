@@ -3,6 +3,8 @@ MSM SuperSpeed USB3.0 SoC controller
 Required properties :
 - compatible : should be "qcom,dwc-usb3-msm"
 - reg : offset and length of the register set in the memory map
+	offset and length of the TCSR register for routing USB
+	signals to either picoPHY0 or picoPHY1.
 - interrupts: IRQ lines used by this controller
 - interrupt-names : Required interrupt resource entries are:
 	"irq" : Interrupt for DWC3 core
@@ -18,7 +20,8 @@ Required properties :
 Example MSM USB3.0 controller device node :
 	usb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
-		reg = <0xF9200000 0xFA000>;
+		reg = <0xF9200000 0xFA000>,
+		      <0xFD4AB000 0x4>;
 		interrupts = <0 131 0 0 179 0>;
 		interrupt-names = "irq", "otg_irq";
 		SSUSB_VDDCX-supply = <&pm8841_s2>;

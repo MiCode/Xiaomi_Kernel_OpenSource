@@ -1378,6 +1378,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct platform_device *dwc3;
 	struct dwc3_msm *msm;
 	struct resource *res;
+	void __iomem *tcsr;
 	int ret = 0;
 
 	msm = devm_kzalloc(&pdev->dev, sizeof(*msm), GFP_KERNEL);
@@ -1482,6 +1483,25 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg enable failed\n");
 		goto free_hs_ldo_init;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res) {
+		dev_dbg(&pdev->dev, "missing TCSR memory resource\n");
+	} else {
+		tcsr = devm_ioremap_nocache(&pdev->dev, res->start,
+			resource_size(res));
+		if (!tcsr) {
+			dev_dbg(&pdev->dev, "tcsr ioremap failed\n");
+		} else {
+			/* Enable USB3 on the primary USB port. */
+			writel_relaxed(0x1, tcsr);
+			/*
+			 * Ensure that TCSR write is completed before
+			 * USB registers initialization.
+			 */
+			mb();
+		}
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
