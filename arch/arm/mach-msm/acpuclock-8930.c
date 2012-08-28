@@ -45,6 +45,39 @@ static struct hfpll_data hfpll_data __initdata = {
 	.vdd[HFPLL_VDD_HIGH] = LVL_HIGH,
 };
 
+static struct scalable scalable_pm8917[] __initdata = {
+	[CPU0] = {
+		.hfpll_phys_base = 0x00903200,
+		.aux_clk_sel_phys = 0x02088014,
+		.aux_clk_sel = 3,
+		.l2cpmr_iaddr = 0x4501,
+		.vreg[VREG_CORE] = { "krait0", 1300000 },
+		.vreg[VREG_MEM]  = { "krait0_mem", 1150000 },
+		.vreg[VREG_DIG]  = { "krait0_dig", 1150000 },
+		.vreg[VREG_HFPLL_A] = { "krait0_s8", 2050000 },
+		.vreg[VREG_HFPLL_B] = { "krait0_l23", 1800000 },
+	},
+	[CPU1] = {
+		.hfpll_phys_base = 0x00903300,
+		.aux_clk_sel_phys = 0x02098014,
+		.aux_clk_sel = 3,
+		.l2cpmr_iaddr = 0x5501,
+		.vreg[VREG_CORE] = { "krait1", 1300000 },
+		.vreg[VREG_MEM]  = { "krait1_mem", 1150000 },
+		.vreg[VREG_DIG]  = { "krait1_dig", 1150000 },
+		.vreg[VREG_HFPLL_A] = { "krait1_s8", 2050000 },
+		.vreg[VREG_HFPLL_B] = { "krait1_l23", 1800000 },
+	},
+	[L2] = {
+		.hfpll_phys_base = 0x00903400,
+		.aux_clk_sel_phys = 0x02011028,
+		.aux_clk_sel = 3,
+		.l2cpmr_iaddr = 0x0500,
+		.vreg[VREG_HFPLL_A] = { "l2_s8", 2050000 },
+		.vreg[VREG_HFPLL_B] = { "l2_l23", 1800000 },
+	},
+};
+
 static struct scalable scalable[] __initdata = {
 	[CPU0] = {
 		.hfpll_phys_base = 0x00903200,
@@ -193,6 +226,10 @@ static struct acpuclk_krait_params acpuclk_8930_params __initdata = {
 
 static int __init acpuclk_8930_probe(struct platform_device *pdev)
 {
+	struct acpuclk_platform_data *pdata = pdev->dev.platform_data;
+	if (pdata && pdata->uses_pm8917)
+		acpuclk_8930_params.scalable = scalable_pm8917;
+
 	return acpuclk_krait_init(&pdev->dev, &acpuclk_8930_params);
 }
 
