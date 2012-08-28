@@ -271,6 +271,9 @@ static int mdm9615_headset_gpios_configured;
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
+static struct platform_device *mdm9615_snd_device_slim;
+static struct platform_device *mdm9615_snd_device_i2s;
+
 static bool hs_detect_use_gpio;
 module_param(hs_detect_use_gpio, bool, 0444);
 MODULE_PARM_DESC(hs_detect_use_gpio, "Use GPIO for headset detection");
@@ -1448,10 +1451,28 @@ static void msm9615_i2s_shutdown(struct snd_pcm_substream *substream)
 		 pintf->intf_status[i2s_intf][MSM_DIR_TX]);
 }
 
+static void  mdm9615_install_codec_i2s_gpio(void)
+{
+	msm_gpiomux_install(msm9615_audio_prim_i2s_codec_configs,
+			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
+}
+static int msm9615_i2s_prepare(struct snd_pcm_substream *substream)
+{
+	u8 ret = 0;
+
+	if (wcd9xxx_get_intf_type() < 0)
+		ret = -ENODEV;
+	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
+		mdm9615_install_codec_i2s_gpio();
+
+	return ret;
+}
+
 static struct snd_soc_ops msm9615_i2s_be_ops = {
 	.startup = msm9615_i2s_startup,
 	.shutdown = msm9615_i2s_shutdown,
 	.hw_params = msm9615_i2s_hw_params,
+	.prepare = msm9615_i2s_prepare,
 };
 
 static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -2068,13 +2089,18 @@ static struct snd_soc_dai_link mdm9615_slimbus_dai[
 					 ARRAY_SIZE(mdm9615_dai_slimbus_tabla)];
 
 
-static struct snd_soc_card snd_soc_card_mdm9615 = {
-		.name		= "mdm9615-tabla-snd-card",
+static struct snd_soc_card snd_soc_card_mdm9615[] = {
+	[0] = {
+		.name = "mdm9615-tabla-snd-card",
 		.controls = tabla_mdm9615_controls,
 		.num_controls = ARRAY_SIZE(tabla_mdm9615_controls),
+	},
+	[1] = {
+		.name = "mdm9615-tabla-snd-card-i2s",
+		.controls = tabla_mdm9615_controls,
+		.num_controls = ARRAY_SIZE(tabla_mdm9615_controls),
+	},
 };
-
-static struct platform_device *mdm9615_snd_device;
 
 static int mdm9615_configure_headset_mic_gpios(void)
 {
@@ -2127,11 +2153,6 @@ static void mdm9615_free_headset_mic_gpios(void)
 	}
 }
 
-void  __init install_codec_i2s_gpio(void)
-{
-	msm_gpiomux_install(msm9615_audio_prim_i2s_codec_configs,
-			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
-}
 static int __init mdm9615_audio_init(void)
 {
 	int ret;
@@ -2146,53 +2167,69 @@ static int __init mdm9615_audio_init(void)
 		pr_err("Calibration data allocation failed\n");
 		return -ENOMEM;
 	}
+	mdm9615_snd_device_slim = platform_device_alloc("soc-audio", 0);
+	if (!mdm9615_snd_device_slim) {
+		pr_err("Platform device allocation failed\n");
+		kfree(mbhc_cfg.calibration);
+		return -ENOMEM;
+	}
 
-	mdm9615_snd_device = platform_device_alloc("soc-audio", 0);
-	if (!mdm9615_snd_device) {
+	/* Install SLIM specific links */
+	memcpy(mdm9615_slimbus_dai, mdm9615_dai_common,
+			sizeof(mdm9615_dai_common));
+	memcpy(mdm9615_slimbus_dai + ARRAY_SIZE(mdm9615_dai_common),
+		       mdm9615_dai_slimbus_tabla,
+		       sizeof(mdm9615_dai_slimbus_tabla));
+	snd_soc_card_mdm9615[0].dai_link = mdm9615_slimbus_dai;
+	snd_soc_card_mdm9615[0].num_links =
+				ARRAY_SIZE(mdm9615_slimbus_dai);
+
+	mdm9615_snd_device_i2s = platform_device_alloc("soc-audio", 1);
+	if (!mdm9615_snd_device_i2s) {
 		pr_err("Platform device allocation failed\n");
 		kfree(mbhc_cfg.calibration);
 		return -ENOMEM;
 	}
 	pr_err("%s: Interface Type = %d\n", __func__,
 			wcd9xxx_get_intf_type());
-	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
-		memcpy(mdm9615_slimbus_dai, mdm9615_dai_common,
-			sizeof(mdm9615_dai_common));
-		memcpy(mdm9615_slimbus_dai + ARRAY_SIZE(mdm9615_dai_common),
-		       mdm9615_dai_slimbus_tabla,
-		       sizeof(mdm9615_dai_slimbus_tabla));
-		snd_soc_card_mdm9615.dai_link = mdm9615_slimbus_dai;
-		snd_soc_card_mdm9615.num_links =
-				ARRAY_SIZE(mdm9615_slimbus_dai);
-	} else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
-		install_codec_i2s_gpio();
-		memcpy(mdm9615_i2s_dai, mdm9615_dai_common,
-		       sizeof(mdm9615_dai_common));
-		memcpy(mdm9615_i2s_dai + ARRAY_SIZE(mdm9615_dai_common),
-		       mdm9615_dai_i2s_tabla,
-		       sizeof(mdm9615_dai_i2s_tabla));
-		snd_soc_card_mdm9615.dai_link = mdm9615_i2s_dai;
-		snd_soc_card_mdm9615.num_links =
-				ARRAY_SIZE(mdm9615_i2s_dai);
-	} else{
-		snd_soc_card_mdm9615.dai_link = mdm9615_dai_common;
-		snd_soc_card_mdm9615.num_links =
-				ARRAY_SIZE(mdm9615_dai_common);
-	}
 
-	platform_set_drvdata(mdm9615_snd_device, &snd_soc_card_mdm9615);
-	ret = platform_device_add(mdm9615_snd_device);
+	/* Install I2S specific links */
+	memcpy(mdm9615_i2s_dai, mdm9615_dai_common,
+	       sizeof(mdm9615_dai_common));
+	memcpy(mdm9615_i2s_dai + ARRAY_SIZE(mdm9615_dai_common),
+	       mdm9615_dai_i2s_tabla,
+	       sizeof(mdm9615_dai_i2s_tabla));
+	snd_soc_card_mdm9615[1].dai_link = mdm9615_i2s_dai;
+	snd_soc_card_mdm9615[1].num_links =
+				ARRAY_SIZE(mdm9615_i2s_dai);
+	platform_set_drvdata(mdm9615_snd_device_slim, &snd_soc_card_mdm9615[0]);
+	ret = platform_device_add(mdm9615_snd_device_slim);
 	if (ret) {
-		platform_device_put(mdm9615_snd_device);
+		pr_err("%s Slim platform_device_add fail\n", __func__);
+		platform_device_put(mdm9615_snd_device_slim);
 		kfree(mbhc_cfg.calibration);
 		return ret;
 	}
+	platform_set_drvdata(mdm9615_snd_device_i2s, &snd_soc_card_mdm9615[1]);
+	ret = platform_device_add(mdm9615_snd_device_i2s);
+	if (ret) {
+		pr_err("%s I2S platform_device_add fail\n", __func__);
+		platform_device_put(mdm9615_snd_device_i2s);
+		kfree(mbhc_cfg.calibration);
+		return ret;
+	}
+
 	if (mdm9615_configure_headset_mic_gpios()) {
 		pr_err("%s Fail to configure headset mic gpios\n", __func__);
 		mdm9615_headset_gpios_configured = 0;
 	} else
 		mdm9615_headset_gpios_configured = 1;
 
+	/*
+	 * Irrespective of audio interface type get virtual address
+	 * of LPAIF registers as it may not  be guaranted that I2S
+	 * will probed successfully in Init.
+	 */
 	atomic_set(&msm9615_auxpcm_ref, 0);
 	atomic_set(&msm9615_sec_auxpcm_ref, 0);
 	msm9x15_i2s_ctl.sif_virt_addr = ioremap(LPASS_SIF_MUX_ADDR, 4);
@@ -2214,7 +2251,8 @@ static void __exit mdm9615_audio_exit(void)
 		return ;
 	}
 	mdm9615_free_headset_mic_gpios();
-	platform_device_unregister(mdm9615_snd_device);
+	platform_device_unregister(mdm9615_snd_device_slim);
+	platform_device_unregister(mdm9615_snd_device_i2s);
 	kfree(mbhc_cfg.calibration);
 	iounmap(msm9x15_i2s_ctl.sif_virt_addr);
 	iounmap(msm9x15_i2s_ctl.spare_virt_addr);
