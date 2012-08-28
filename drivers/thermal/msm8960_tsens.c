@@ -159,6 +159,7 @@ struct tsens_tm_device {
 	enum platform_type		hw_type;
 	int				pm_tsens_thr_data;
 	int				pm_tsens_cntl;
+	struct work_struct		tsens_work;
 	struct tsens_tm_device_sensor	sensor[0];
 };
 
@@ -610,9 +611,10 @@ static void notify_uspace_tsens_fn(struct work_struct *work)
 					NULL, "type");
 }
 
-static irqreturn_t tsens_isr(int irq, void *data)
+static void tsens_scheduler_fn(struct work_struct *work)
 {
-	struct tsens_tm_device *tm = data;
+	struct tsens_tm_device *tm = container_of(work, struct tsens_tm_device,
+					tsens_work);
 	unsigned int threshold, threshold_low, i, code, reg, sensor, mask;
 	unsigned int sensor_addr;
 	bool upper_th_x, lower_th_x;
@@ -627,6 +629,7 @@ static irqreturn_t tsens_isr(int irq, void *data)
 		writel_relaxed(reg | TSENS_LOWER_STATUS_CLR |
 			TSENS_UPPER_STATUS_CLR, TSENS_CNTL_ADDR);
 	}
+
 	mask = ~(TSENS_LOWER_STATUS_CLR | TSENS_UPPER_STATUS_CLR);
 	threshold = readl_relaxed(TSENS_THRESHOLD_ADDR);
 	threshold_low = (threshold & TSENS_THRESHOLD_LOWER_LIMIT_MASK)
@@ -658,9 +661,7 @@ static irqreturn_t tsens_isr(int irq, void *data)
 				/* Notify user space */
 				schedule_work(&tm->sensor[i].work);
 				adc_code = readl_relaxed(sensor_addr);
-				pr_info("\nTrip point triggered by "
-					"current temperature (%d degrees) "
-					"measured by Temperature-Sensor %d\n",
+				pr_debug("Trigger (%d degrees) for sensor %d\n",
 					tsens_tz_code_to_degC(adc_code, i), i);
 			}
 		}
@@ -672,6 +673,12 @@ static irqreturn_t tsens_isr(int irq, void *data)
 	else
 	writel_relaxed(reg & mask, TSENS_CNTL_ADDR);
 	mb();
+}
+
+static irqreturn_t tsens_isr(int irq, void *data)
+{
+	schedule_work(&tmdev->tsens_work);
+
 	return IRQ_HANDLED;
 }
 
@@ -869,8 +876,7 @@ static int tsens_calib_sensors8660(void)
 			tmdev->sensor[TSENS_MAIN_SENSOR].calib_data =
 			tmdev->sensor[TSENS_MAIN_SENSOR].calib_data_backup;
 	if (!tmdev->sensor[TSENS_MAIN_SENSOR].calib_data) {
-		pr_err("%s: No temperature sensor data for calibration"
-				" in QFPROM!\n", __func__);
+		pr_err("QFPROM TSENS calibration data not present\n");
 		return -ENODEV;
 	}
 
@@ -901,8 +907,7 @@ static int tsens_calib_sensors8960(void)
 			tmdev->sensor[i].calib_data =
 				tmdev->sensor[i].calib_data_backup;
 		if (!tmdev->sensor[i].calib_data) {
-			WARN(1, "%s: No temperature sensor:%d data for"
-			" calibration in QFPROM!\n", __func__, i);
+			pr_err("QFPROM TSENS calibration data not present\n");
 			return -ENODEV;
 		}
 		tmdev->sensor[i].offset = (TSENS_CAL_DEGC *
@@ -1026,6 +1031,7 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 			thermal_zone_device_unregister(tmdev->sensor[i].tz_dev);
 		goto fail;
 	}
+	INIT_WORK(&tmdev->tsens_work, tsens_scheduler_fn);
 
 	pr_debug("%s: OK\n", __func__);
 	mb();
