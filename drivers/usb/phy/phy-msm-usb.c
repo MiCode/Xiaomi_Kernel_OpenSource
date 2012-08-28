@@ -1464,6 +1464,11 @@ static int msm_otg_mhl_register_callback(struct msm_otg *motg,
 	struct usb_phy *phy = &motg->phy;
 	int ret;
 
+	if (!motg->pdata->mhl_enable) {
+		dev_dbg(phy->dev, "MHL feature not enabled\n");
+		return -ENODEV;
+	}
+
 	if (motg->pdata->otg_control != OTG_PMIC_CONTROL ||
 			!motg->pdata->pmic_id_irq) {
 		dev_dbg(phy->dev, "MHL can not be supported without PMIC Id\n");
