@@ -1983,10 +1983,10 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 			0x18000000);
 	}
 
-	if (adreno_is_a203(adreno_dev))
-		/* For A203 increase number of clocks that RBBM
-		 * will wait before de-asserting Register Clock
-		 * Active signal */
+	if (adreno_is_a20x(adreno_dev))
+		/* For A20X based targets increase number of clocks
+		 * that RBBM will wait before de-asserting Register
+		 * Clock Active signal */
 		adreno_regwrite(device, REG_RBBM_CNTL, 0x0000FFFF);
 	else
 		adreno_regwrite(device, REG_RBBM_CNTL, 0x00004442);
