@@ -98,6 +98,22 @@ static uint8_t msm_gic_irq_to_smsm[NR_IRQS] = {
 	[MSM8625_INT_ADSP_A11]		= SMSM_FAKE_IRQ,
 };
 
+static uint16_t msm_bypassed_apps_irqs[] = {
+	MSM8625_INT_CPR_IRQ0,
+};
+
+/* Check IRQ falls into bypassed list are not */
+static bool msm_mpm_bypass_apps_irq(unsigned int irq)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(msm_bypassed_apps_irqs); i++)
+		if (irq == msm_bypassed_apps_irqs[i])
+			return true;
+
+	return false;
+}
+
 static void msm_gic_mask_irq(struct irq_data *d)
 {
 	unsigned int index = GIC_IRQ_INDEX(d->irq);
@@ -105,6 +121,10 @@ static void msm_gic_mask_irq(struct irq_data *d)
 	int smsm_irq = msm_gic_irq_to_smsm[d->irq];
 
 	mask = GIC_IRQ_MASK(d->irq);
+
+	/* check whether irq to be bypassed are not */
+	if (msm_mpm_bypass_apps_irq(d->irq))
+		return;
 
 	if (smsm_irq == 0) {
 		msm_gic_irq_idle_disable[index] &= ~mask;
@@ -121,6 +141,10 @@ static void msm_gic_unmask_irq(struct irq_data *d)
 	int smsm_irq = msm_gic_irq_to_smsm[d->irq];
 
 	mask = GIC_IRQ_MASK(d->irq);
+
+	/* check whether irq to be bypassed are not */
+	if (msm_mpm_bypass_apps_irq(d->irq))
+		return;
 
 	if (smsm_irq == 0) {
 		msm_gic_irq_idle_disable[index] |= mask;
@@ -139,6 +163,10 @@ static int msm_gic_set_irq_wake(struct irq_data *d, unsigned int on)
 		pr_err("bad wake up irq %d\n", d->irq);
 		return  -EINVAL;
 	}
+
+	/* check whether irq to be bypassed are not */
+	if (msm_mpm_bypass_apps_irq(d->irq))
+		return 0;
 
 	if (smsm_irq == SMSM_FAKE_IRQ)
 		return 0;
