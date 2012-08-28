@@ -147,6 +147,8 @@ struct pm8921_bms_chip {
 	int			ibat_at_cv_ua;
 	int			soc_at_cv;
 	int			prev_chg_soc;
+
+	struct power_supply	*batt_psy;
 };
 
 /*
@@ -1917,6 +1919,16 @@ static bool is_shutdown_soc_within_limits(struct pm8921_bms_chip *chip, int soc)
 
 	return 1;
 }
+
+static void update_power_supply(struct pm8921_bms_chip *chip)
+{
+	if (chip->batt_psy == NULL || chip->batt_psy < 0)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (chip->batt_psy > 0)
+		power_supply_changed(chip->batt_psy);
+}
+
 /*
  * Remaining Usable Charge = remaining_charge (charge at ocv instance)
  *				- coloumb counter charge
@@ -1938,6 +1950,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	int new_ucc_uah;
 	int new_rbatt;
 	int shutdown_soc;
+	int new_calculated_soc;
 	static int firsttime = 1;
 
 	calculate_soc_params(chip, raw, batt_temp, chargecycles,
@@ -2055,10 +2068,14 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	mutex_unlock(&soc_invalidation_mutex);
 
 	pr_debug("SOC before adjustment = %d\n", soc);
-	calculated_soc = adjust_soc(chip, soc, batt_temp, chargecycles,
+	new_calculated_soc = adjust_soc(chip, soc, batt_temp, chargecycles,
 			rbatt, fcc_uah, unusable_charge_uah, cc_uah);
 
-	pr_debug("calculated SOC = %d\n", calculated_soc);
+	pr_debug("calculated SOC = %d\n", new_calculated_soc);
+	if (new_calculated_soc != calculated_soc)
+		update_power_supply(chip);
+
+	calculated_soc = new_calculated_soc;
 	firsttime = 0;
 	return calculated_soc;
 }
