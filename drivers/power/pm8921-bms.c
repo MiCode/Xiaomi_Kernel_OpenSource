@@ -814,28 +814,26 @@ static int interpolate_ocv(struct pm8921_bms_chip *chip,
 }
 
 static int interpolate_pc(struct pm8921_bms_chip *chip,
-				int batt_temp, int ocv)
+				int batt_temp_degc, int ocv)
 {
 	int i, j, pcj, pcj_minus_one, pc;
 	int rows = chip->pc_temp_ocv_lut->rows;
 	int cols = chip->pc_temp_ocv_lut->cols;
 
-	/* batt_temp is in tenths of degC - convert it to degC for lookups */
-	batt_temp = batt_temp/10;
 
-	if (batt_temp < chip->pc_temp_ocv_lut->temp[0]) {
-		pr_debug("batt_temp %d < known temp range for pc\n", batt_temp);
-		batt_temp = chip->pc_temp_ocv_lut->temp[0];
+	if (batt_temp_degc < chip->pc_temp_ocv_lut->temp[0]) {
+		pr_debug("batt_temp %d < known temp range\n", batt_temp_degc);
+		batt_temp_degc = chip->pc_temp_ocv_lut->temp[0];
 	}
-	if (batt_temp > chip->pc_temp_ocv_lut->temp[cols - 1]) {
-		pr_debug("batt_temp %d > known temp range for pc\n", batt_temp);
-		batt_temp = chip->pc_temp_ocv_lut->temp[cols - 1];
+	if (batt_temp_degc > chip->pc_temp_ocv_lut->temp[cols - 1]) {
+		pr_debug("batt_temp %d > known temp range\n", batt_temp_degc);
+		batt_temp_degc = chip->pc_temp_ocv_lut->temp[cols - 1];
 	}
 
 	for (j = 0; j < cols; j++)
-		if (batt_temp <= chip->pc_temp_ocv_lut->temp[j])
+		if (batt_temp_degc <= chip->pc_temp_ocv_lut->temp[j])
 			break;
-	if (batt_temp == chip->pc_temp_ocv_lut->temp[j]) {
+	if (batt_temp_degc == chip->pc_temp_ocv_lut->temp[j]) {
 		/* found an exact match for temp in the table */
 		if (ocv >= chip->pc_temp_ocv_lut->ocv[0][j])
 			return chip->pc_temp_ocv_lut->percent[0];
@@ -858,7 +856,7 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 	}
 
 	/*
-	 * batt_temp is within temperature for
+	 * batt_temp_degc is within temperature for
 	 * column j-1 and j
 	 */
 	if (ocv >= chip->pc_temp_ocv_lut->ocv[0][j])
@@ -898,7 +896,7 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 				chip->pc_temp_ocv_lut->temp[j-1],
 				pcj,
 				chip->pc_temp_ocv_lut->temp[j],
-				batt_temp);
+				batt_temp_degc);
 			return pc;
 		}
 	}
@@ -910,7 +908,7 @@ static int interpolate_pc(struct pm8921_bms_chip *chip,
 		return pcj_minus_one;
 
 	pr_debug("%d ocv wasn't found for temp %d in the LUT returning 100%%",
-							ocv, batt_temp);
+							ocv, batt_temp_degc);
 	return 100;
 }
 
@@ -1120,7 +1118,7 @@ static int calculate_pc(struct pm8921_bms_chip *chip, int ocv_uv, int batt_temp,
 {
 	int pc, scalefactor;
 
-	pc = interpolate_pc(chip, batt_temp, ocv_uv / 1000);
+	pc = interpolate_pc(chip, batt_temp / 10, ocv_uv / 1000);
 	pr_debug("pc = %u for ocv = %dmicroVolts batt_temp = %d\n",
 					pc, ocv_uv, batt_temp);
 
