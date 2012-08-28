@@ -100,6 +100,7 @@
 #include "pm-boot.h"
 #include "msm_watchdog.h"
 #include "board-8930.h"
+#include "acpuclock-krait.h"
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -2669,6 +2670,8 @@ static void __init register_i2c_devices(void)
 /* Modify platform data values to match requirements for PM8917. */
 static void __init msm8930_pm8917_pdata_fixup(void)
 {
+	struct acpuclk_platform_data *pdata;
+
 	mhl_platform_data.gpio_mhl_power = MHL_POWER_GPIO_PM8917;
 
 	gpio_keys_8930_pdata.buttons = keys_8930_pm8917;
@@ -2681,6 +2684,9 @@ static void __init msm8930_pm8917_pdata_fixup(void)
 
 	msm8930_device_rpm_regulator.dev.platform_data
 		= &msm8930_pm8917_rpm_regulator_pdata;
+
+	pdata = msm8930_device_acpuclk.dev.platform_data;
+	pdata->uses_pm8917 = true;
 }
 
 static void __init msm8930_cdp_init(void)
