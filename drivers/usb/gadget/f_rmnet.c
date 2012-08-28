@@ -488,6 +488,8 @@ static void frmnet_suspend(struct usb_function *f)
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		break;
+	case USB_GADGET_XPORT_HSUART:
+		break;
 	case USB_GADGET_XPORT_NONE:
 		break;
 	default:
@@ -514,6 +516,8 @@ static void frmnet_resume(struct usb_function *f)
 		gbam_resume(&dev->port, port_num, dxport);
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		break;
+	case USB_GADGET_XPORT_HSUART:
 		break;
 	case USB_GADGET_XPORT_NONE:
 		break;
