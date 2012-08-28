@@ -1159,15 +1159,16 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 	if (mmc_cmd_type(cmd) == MMC_CMD_ADTC)
 		*c |= MCI_CSPM_DATCMD;
 
-	/* Check if AUTO CMD19 is required or not? */
-	if (host->tuning_needed && host->en_auto_cmd19 &&
-		!(host->mmc->ios.timing == MMC_TIMING_MMC_HS200)) {
-
+	/* Check if AUTO CMD19/CMD21 is required or not? */
+	if (host->tuning_needed &&
+		(host->en_auto_cmd19 || host->en_auto_cmd21)) {
 		/*
 		 * For open ended block read operation (without CMD23),
-		 * AUTO_CMD19 bit should be set while sending the READ command.
+		 * AUTO_CMD19/AUTO_CMD21 bit should be set while sending
+		 * the READ command.
 		 * For close ended block read operation (with CMD23),
-		 * AUTO_CMD19 bit should be set while sending CMD23.
+		 * AUTO_CMD19/AUTO_CMD21 bit should be set while sending
+		 * CMD23.
 		 */
 		if ((cmd->opcode == MMC_SET_BLOCK_COUNT &&
 			host->curr.mrq->cmd->opcode ==
@@ -1179,6 +1180,9 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 			if (host->en_auto_cmd19 &&
 			    host->mmc->ios.timing == MMC_TIMING_UHS_SDR104)
 				*c |= MCI_CSPM_AUTO_CMD19;
+			else if (host->en_auto_cmd21 &&
+			    host->mmc->ios.timing == MMC_TIMING_MMC_HS200)
+				*c |= MCI_CSPM_AUTO_CMD21;
 		}
 	}
 
@@ -4829,6 +4833,8 @@ static inline void set_auto_cmd_setting(struct device *dev,
 		spin_lock_irqsave(&host->lock, flags);
 		if (is_cmd19)
 			host->en_auto_cmd19 = !!temp;
+		else
+			host->en_auto_cmd21 = !!temp;
 		spin_unlock_irqrestore(&host->lock, flags);
 	}
 }
@@ -4848,6 +4854,25 @@ store_enable_auto_cmd19(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count)
 {
 	set_auto_cmd_setting(dev, buf, true);
+
+	return count;
+}
+
+static ssize_t
+show_enable_auto_cmd21(struct device *dev, struct device_attribute *attr,
+		       char *buf)
+{
+	struct mmc_host *mmc = dev_get_drvdata(dev);
+	struct msmsdcc_host *host = mmc_priv(mmc);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", host->en_auto_cmd21);
+}
+
+static ssize_t
+store_enable_auto_cmd21(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	set_auto_cmd_setting(dev, buf, false);
 
 	return count;
 }
@@ -5998,7 +6023,7 @@ msmsdcc_probe(struct platform_device *pdev)
 		goto remove_polling_file;
 
 	if (!is_auto_cmd19(host))
-		goto exit;
+		goto add_auto_cmd21_atrr;
 
 	/* Sysfs entry for AUTO CMD19 control */
 	host->auto_cmd19_attr.show = show_enable_auto_cmd19;
@@ -6010,9 +6035,26 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove_idle_timeout_file;
 
+ add_auto_cmd21_atrr:
+	if (!is_auto_cmd21(host))
+		goto exit;
+
+	/* Sysfs entry for AUTO CMD21 control */
+	host->auto_cmd21_attr.show = show_enable_auto_cmd21;
+	host->auto_cmd21_attr.store = store_enable_auto_cmd21;
+	sysfs_attr_init(&host->auto_cmd21_attr.attr);
+	host->auto_cmd21_attr.attr.name = "enable_auto_cmd21";
+	host->auto_cmd21_attr.attr.mode = S_IRUGO | S_IWUSR;
+	ret = device_create_file(&pdev->dev, &host->auto_cmd21_attr);
+	if (ret)
+		goto remove_auto_cmd19_attr_file;
+
  exit:
 	return 0;
 
+ remove_auto_cmd19_attr_file:
+	if (is_auto_cmd19(host))
+		device_remove_file(&pdev->dev, &host->auto_cmd19_attr);
  remove_idle_timeout_file:
 	device_remove_file(&pdev->dev, &host->idle_timeout);
  remove_polling_file:
@@ -6097,6 +6139,8 @@ static int msmsdcc_remove(struct platform_device *pdev)
 
 	if (is_auto_cmd19(host))
 		device_remove_file(&pdev->dev, &host->auto_cmd19_attr);
+	if (is_auto_cmd21(host))
+		device_remove_file(&pdev->dev, &host->auto_cmd21_attr);
 	device_remove_file(&pdev->dev, &host->max_bus_bw);
 	if (!plat->status_irq)
 		device_remove_file(&pdev->dev, &host->polling);
