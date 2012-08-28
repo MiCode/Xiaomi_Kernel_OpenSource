@@ -43,7 +43,7 @@ static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
 #ifdef CONFIG_MSM_SCM
 static int __devinit msm_pm_tz_boot_init(void)
 {
-	int flag = 0;
+	unsigned int flag = 0;
 	if (num_possible_cpus() == 1)
 		flag = SCM_FLAG_WARMBOOT_CPU0;
 	else if (num_possible_cpus() == 2)
@@ -54,7 +54,7 @@ static int __devinit msm_pm_tz_boot_init(void)
 	else
 		__WARN();
 
-	return scm_set_boot_addr((void *)virt_to_phys(msm_pm_boot_entry), flag);
+	return scm_set_boot_addr(virt_to_phys(msm_pm_boot_entry), flag);
 }
 
 static void msm_pm_config_tz_before_pc(unsigned int cpu,

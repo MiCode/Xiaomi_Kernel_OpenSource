@@ -22,9 +22,12 @@
 #define SCM_FLAG_WARMBOOT_CPU3		0x40
 
 #ifdef CONFIG_MSM_SCM
-int scm_set_boot_addr(void *addr, int flags);
+int scm_set_boot_addr(phys_addr_t addr, unsigned int flags);
 #else
-static inline int scm_set_boot_addr(void *addr, int flags) { return 0; }
+static inline int scm_set_boot_addr(phys_addr_t addr, unsigned int flags)
+{
+	return 0;
+}
 #endif
 
 #endif

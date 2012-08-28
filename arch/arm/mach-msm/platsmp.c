@@ -184,7 +184,7 @@ static int cold_boot_flags[] = {
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	int ret;
-	int flag = 0;
+	unsigned int flag = 0;
 	unsigned long timeout;
 
 	pr_debug("Starting secondary CPU %d\n", cpu);
@@ -198,8 +198,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 		__WARN();
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
-		ret = scm_set_boot_addr((void *)
-					virt_to_phys(msm_secondary_startup),
+		ret = scm_set_boot_addr(virt_to_phys(msm_secondary_startup),
 					flag);
 		if (ret == 0)
 			release_secondary(cpu);
