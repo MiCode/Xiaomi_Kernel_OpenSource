@@ -85,6 +85,7 @@ enum wled_ovp_threshold {
  *  @dig_mod_gen_en - digital module generator
  *  @cs_out_en - current sink output enable
  *  @op_fdbck - selection of output as feedback for the boost
+ *  @cabc_en - enable cabc for backlight pwm control
  */
 struct wled_config_data {
 	u8	num_strings;
@@ -95,6 +96,7 @@ struct wled_config_data {
 	bool	dig_mod_gen_en;
 	bool	cs_out_en;
 	bool	op_fdbck;
+	bool	cabc_en;
 };
 
 /**
