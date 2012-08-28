@@ -531,40 +531,62 @@ static int mhl_chip_init(void)
 static int mhl_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
-	int ret = -ENODEV;
+	int ret;
+	struct msm_mhl_platform_data *tmp = client->dev.platform_data;
+	if (!tmp->mhl_enabled) {
+		ret = -ENODEV;
+		pr_warn("MHL feautre left disabled\n");
+		goto probe_early_exit;
+	}
 	mhl_msm_state->mhl_data = kzalloc(sizeof(struct msm_mhl_platform_data),
 		GFP_KERNEL);
 	if (!(mhl_msm_state->mhl_data)) {
 		ret = -ENOMEM;
 		pr_err("MHL I2C Probe failed - no mem\n");
-		goto probe_exit;
+		goto probe_early_exit;
 	}
 	mhl_msm_state->i2c_client = client;
-
 	spin_lock_init(&mhl_state_lock);
-
 	i2c_set_clientdata(client, mhl_msm_state);
 	mhl_msm_state->mhl_data = client->dev.platform_data;
 	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
 		mhl_msm_state->mhl_data->irq);
 	msc_send_workqueue = create_workqueue("mhl_msc_cmd_queue");
 
-	if (!mhl_msm_state->mhl_data->mhl_enabled) {
-		pr_info("MHL Display not enabled\n");
-		return -ENODEV;
-	}
-
+	mhl_msm_state->cur_state = POWER_STATE_D0_MHL;
 	/* Init GPIO stuff here */
 	ret = mhl_sii_gpio_setup(1);
-	if (ret == -1) {
+	if (ret) {
 		pr_err("MHL: mhl_gpio_init has failed\n");
 		ret = -ENODEV;
+		goto probe_early_exit;
+	}
+	mhl_sii_power_on();
+	/* MHL SII 8334 chip specific init */
+	mhl_chip_init();
+	init_completion(&mhl_msm_state->rgnd_done);
+	/* Request IRQ stuff here */
+	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
+		mhl_msm_state->mhl_data->irq);
+	ret = request_threaded_irq(mhl_msm_state->mhl_data->irq, NULL,
+				   &mhl_tx_isr,
+				 IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+				 "mhl_tx_isr", mhl_msm_state);
+	if (ret) {
+		pr_err("request_threaded_irq failed, status: %d\n",
+			ret);
 		goto probe_exit;
+	} else {
+		pr_debug("request_threaded_irq succeeded\n");
 	}
 
-	mhl_sii_power_on();
+	INIT_WORK(&mhl_msm_state->mhl_msc_send_work, mhl_msc_send_work);
+	INIT_LIST_HEAD(&mhl_msm_state->list_cmd);
+	mhl_msm_state->msc_command_put_work = list_cmd_put;
+	mhl_msm_state->msc_command_get_work = list_cmd_get;
+	init_completion(&mhl_msm_state->msc_cmd_done);
 
-	pr_debug("I2C PROBE successful\n");
+	pr_debug("i2c probe successful\n");
 	return 0;
 
 probe_exit:
@@ -574,6 +596,7 @@ probe_exit:
 		kfree(mhl_msm_state->mhl_data);
 		mhl_msm_state->mhl_data = NULL;
 	}
+probe_early_exit:
 	return ret;
 }
 
@@ -636,7 +659,6 @@ static int __init mhl_msm_init(void)
 		ret = -ENOMEM;
 		goto init_exit;
 	}
-
 	mhl_msm_state->i2c_client = NULL;
 	ret = i2c_add_driver(&mhl_sii_i2c_driver);
 	if (ret) {
@@ -645,6 +667,7 @@ static int __init mhl_msm_init(void)
 		goto init_exit;
 	} else {
 		if (mhl_msm_state->i2c_client == NULL) {
+			i2c_del_driver(&mhl_sii_i2c_driver);
 			pr_err("MHL: I2C driver add failed\n");
 			ret = -ENODEV;
 			goto init_exit;
@@ -652,36 +675,9 @@ static int __init mhl_msm_init(void)
 		pr_info("MHL: I2C driver added\n");
 	}
 
-	/* Request IRQ stuff here */
-	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
-		mhl_msm_state->mhl_data->irq);
-	ret = request_threaded_irq(mhl_msm_state->mhl_data->irq, NULL,
-				   &mhl_tx_isr,
-				 IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-				 "mhl_tx_isr", mhl_msm_state);
-	if (ret != 0) {
-		pr_err("request_threaded_irq failed, status: %d\n",
-			ret);
-		ret = -EACCES; /* Error code???? */
-		goto init_exit;
-	} else
-		pr_debug("request_threaded_irq succeeded\n");
-
-	INIT_WORK(&mhl_msm_state->mhl_msc_send_work, mhl_msc_send_work);
-	mhl_msm_state->cur_state = POWER_STATE_D0_MHL;
-	INIT_LIST_HEAD(&mhl_msm_state->list_cmd);
-	mhl_msm_state->msc_command_put_work = list_cmd_put;
-	mhl_msm_state->msc_command_get_work = list_cmd_get;
-	init_completion(&mhl_msm_state->msc_cmd_done);
-
-	/* MHL SII 8334 chip specific init */
-	mhl_chip_init();
-	init_completion(&mhl_msm_state->rgnd_done);
 	return 0;
-
 init_exit:
 	pr_err("Exiting from the init with err\n");
-	i2c_del_driver(&mhl_sii_i2c_driver);
 	if (!mhl_msm_state) {
 		kfree(mhl_msm_state);
 		mhl_msm_state = NULL;
@@ -846,9 +842,6 @@ static int  mhl_msm_read_rgnd_int(void)
 	if (0x02 == rgnd_imp) {
 		pr_debug("MHL: MHL DEVICE!!!\n");
 		mhl_i2c_reg_modify(TX_PAGE_3, 0x0018, BIT0, BIT0);
-		/*
-		 * Handling the MHL event in driver
-		 */
 		mhl_msm_state->mhl_mode = TRUE;
 		if (notify_usb_online)
 			notify_usb_online(1);
@@ -985,8 +978,7 @@ static void int_5_isr(void)
 	uint8_t intr_5_stat;
 
 	/*
-	 * Clear INT 5 ??
-	 * Probably need to revisit this later
+	 * Clear INT 5
 	 * INTR5 is related to FIFO underflow/overflow reset
 	 * which is handled in 8334 by auto FIFO reset
 	 */
@@ -1464,6 +1456,7 @@ static int mhl_msc_recv_write_stat(u8 offset, u8 value)
 }
 
 
+/* MSC, RCP, RAP messages - mandatory for compliance */
 static void mhl_cbus_isr(void)
 {
 	uint8_t regval;
@@ -1477,7 +1470,10 @@ static void mhl_cbus_isr(void)
 	if (regval == 0xff)
 		return;
 
-	/* clear all interrupts that were raised even if we did not process */
+	/*
+	 * clear all interrupts that were raised
+	 * even if we did not process
+	 */
 	if (regval)
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x08, regval);
 
