@@ -81,6 +81,42 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg);
 static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma);
 
+void mdss_fb_no_update_notify_timer_cb(unsigned long data)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
+	if (!mfd)
+		pr_err("%s mfd NULL\n", __func__);
+	complete(&mfd->no_update.comp);
+}
+
+static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
+							unsigned long *argp)
+{
+	int ret, notify;
+
+	ret = copy_from_user(&notify, argp, sizeof(int));
+	if (ret) {
+		pr_err("%s:ioctl failed\n", __func__);
+		return ret;
+	}
+
+	if (notify > NOTIFY_UPDATE_STOP)
+		return -EINVAL;
+
+	if (notify == NOTIFY_UPDATE_START) {
+		INIT_COMPLETION(mfd->update.comp);
+		ret = wait_for_completion_interruptible_timeout(
+						&mfd->update.comp, 4 * HZ);
+	} else {
+		INIT_COMPLETION(mfd->no_update.comp);
+		ret = wait_for_completion_interruptible_timeout(
+						&mfd->no_update.comp, 4 * HZ);
+	}
+	if (ret == 0)
+		ret = -ETIMEDOUT;
+	return (ret > 0) ? 0 : ret;
+}
+
 #define MAX_BACKLIGHT_BRIGHTNESS 255
 static int lcd_backlight_registered;
 
@@ -272,6 +308,11 @@ static int mdss_fb_remove(struct platform_device *pdev)
 	if (mdss_fb_suspend_sub(mfd))
 		pr_err("msm_fb_remove: can't stop the device %d\n",
 			    mfd->index);
+
+	if (mfd->no_update.timer.function)
+		del_timer(&mfd->no_update.timer);
+	complete(&mfd->no_update.comp);
+	complete(&mfd->update.comp);
 
 	/* remove /dev/fb* */
 	unregister_framebuffer(mfd->fbi);
@@ -870,6 +911,13 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 
 	mfd->op_enable = true;
 
+	mutex_init(&mfd->no_update.lock);
+	init_timer(&mfd->no_update.timer);
+	mfd->no_update.timer.function = mdss_fb_no_update_notify_timer_cb;
+	mfd->no_update.timer.data = (unsigned long)mfd;
+	init_completion(&mfd->update.comp);
+	init_completion(&mfd->no_update.comp);
+
 	if (mfd->lut_update) {
 		ret = fb_alloc_cmap(&fbi->cmap, 256, 0);
 		if (ret)
@@ -1310,6 +1358,10 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 
 	case MSMFB_MDP_PP:
 		ret = mdss_fb_handle_pp_ioctl(mfd, argp);
+		break;
+
+	case MSMFB_NOTIFY_UPDATE:
+		ret = mdss_fb_notify_update(mfd, argp);
 		break;
 
 	default:
