@@ -125,6 +125,7 @@
 		reg-names = "jpeg";
 		interrupts = <0 59 0>;
 		interrupt-names = "jpeg";
+                vdd-supply = <&gdsc_jpeg>;
 	};
 
 	qcom,jpeg@fda20000 {
@@ -134,6 +135,7 @@
 		reg-names = "jpeg";
 		interrupts = <0 60 0>;
 		interrupt-names = "jpeg";
+		vdd-supply = <&gdsc_jpeg>;
 	};
 
 	qcom,jpeg@fda24000 {
@@ -143,6 +145,7 @@
 		reg-names = "jpeg";
 		interrupts = <0 61 0>;
 		interrupt-names = "jpeg";
+		vdd-supply = <&gdsc_jpeg>;
 	};
 
 	qcom,irqrouter@fda00000 {
