@@ -299,9 +299,11 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 
 	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	__set_bit(gpio, msm_gpio.enabled_irqs);
-	__msm_gpio_set_intr_status(gpio);
-	__msm_gpio_set_intr_cfg_enable(gpio, 1);
-	mb();
+	if (!__msm_gpio_get_intr_cfg_enable(gpio)) {
+		__msm_gpio_set_intr_status(gpio);
+		__msm_gpio_set_intr_cfg_enable(gpio, 1);
+		mb();
+	}
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 
 	if (msm_gpio_irq_extn.irq_mask)

@@ -21,6 +21,7 @@ void __msm_gpio_set_polarity(unsigned gpio, unsigned val);
 unsigned __msm_gpio_get_intr_status(unsigned gpio);
 void __msm_gpio_set_intr_status(unsigned gpio);
 unsigned __msm_gpio_get_intr_config(unsigned gpio);
+unsigned __msm_gpio_get_intr_cfg_enable(unsigned gpio);
 void __msm_gpio_set_intr_cfg_enable(unsigned gpio, unsigned val);
 void __msm_gpio_set_intr_cfg_type(unsigned gpio, unsigned type);
 void __gpio_tlmm_config(unsigned config);
