@@ -58,6 +58,15 @@
 			status = "okay";
 			compatible = "qcom,rpm-regulator-smd";
 		};
+		pm8841_s1_so: regulator-s1-so {
+			regulator-name = "8841_s1_so";
+			qcom,set = <2>;
+			regulator-min-microvolt = <675000>;
+			regulator-max-microvolt = <1050000>;
+			qcom,init-voltage = <675000>;
+			status = "okay";
+			compatible = "qcom,rpm-regulator-smd";
+		};
 	};
 
 	rpm-regulator-smpb2 {
