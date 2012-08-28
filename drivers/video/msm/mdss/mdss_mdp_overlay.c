@@ -406,6 +406,15 @@ static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 	if (IS_ERR_VALUE(ret))
 		return ret;
 
+	complete(&mfd->update.comp);
+	mutex_lock(&mfd->no_update.lock);
+	if (mfd->no_update.timer.function)
+		del_timer(&(mfd->no_update.timer));
+
+	mfd->no_update.timer.expires = jiffies + (2 * HZ);
+	add_timer(&mfd->no_update.timer);
+	mutex_unlock(&mfd->no_update.lock);
+
 	mutex_lock(&mfd->lock);
 	list_for_each_entry_safe(pipe, tmp, &mfd->pipes_cleanup, cleanup_list) {
 		list_del(&pipe->cleanup_list);

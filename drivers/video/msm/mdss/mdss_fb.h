@@ -41,6 +41,13 @@ struct disp_info_type_suspend {
 	int panel_power_on;
 };
 
+struct disp_info_notify {
+	int type;
+	struct timer_list timer;
+	struct completion comp;
+	struct mutex lock;
+};
+
 struct msm_fb_data_type {
 	u32 key;
 	u32 index;
@@ -100,6 +107,8 @@ struct msm_fb_data_type {
 	struct list_head overlay_list;
 	struct list_head pipes_used;
 	struct list_head pipes_cleanup;
+	struct disp_info_notify update;
+	struct disp_info_notify no_update;
 };
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
