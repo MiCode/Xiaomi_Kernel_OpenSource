@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -122,31 +122,9 @@ static int is_session_invalid(u32 decoding, u32 flags)
 	client_count = vcd_get_clients_security_info(&sec_info);
 	secure_session_running = (sec_info.secure_enc > 0) ||
 			(sec_info.secure_dec > 0);
-	if (!decoding && is_secure) {
-		if ((sec_info.secure_dec == 1))
-			VCD_MSG_LOW("SE-SD: SUCCESS\n");
-		else {
-			VCD_MSG_LOW("SE is permitted only with SD: FAILURE\n");
-			return -EACCES;
-		}
-	} else if (!decoding && !is_secure) {
+	if (!is_secure) {
 		if (secure_session_running) {
-			VCD_MSG_LOW("SD-NSE: FAILURE\n");
-			VCD_MSG_LOW("SE-NSE: FAILURE\n");
-			return -EACCES;
-		}
-	} else if (decoding && is_secure) {
-		if (client_count > 0) {
-			VCD_MSG_LOW("S/NS-SD: FAILURE\n");
-			if (sec_info.secure_enc > 0 ||
-				sec_info.non_secure_enc > 0) {
-				return -EAGAIN;
-			}
-			return -EACCES;
-		}
-	} else {
-		if (sec_info.secure_dec > 0) {
-			VCD_MSG_LOW("SD-NSD: FAILURE\n");
+			pr_err("Secure vs non secure session: FAILURE\n");
 			return -EACCES;
 		}
 	}
