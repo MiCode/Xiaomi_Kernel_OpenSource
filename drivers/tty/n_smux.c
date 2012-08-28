@@ -236,6 +236,7 @@ struct smux_ldisc_t {
 	int is_initialized;
 	int platform_devs_registered;
 	int in_reset;
+	int remote_is_alive;
 	int ld_open_count;
 	struct tty_struct *tty;
 
@@ -444,6 +445,7 @@ static void smux_enter_reset(void)
 {
 	SMUX_ERR("%s: unrecoverable failure, waiting for ssr\n", __func__);
 	smux.in_reset = 1;
+	smux.remote_is_alive = 0;
 }
 
 /**
@@ -1974,10 +1976,20 @@ static void smux_rx_handle_idle(const unsigned char *data,
 			break;
 		case SMUX_WAKEUP_REQ:
 			SMUX_PWR("smux: smux: RX Wakeup REQ\n");
+			if (unlikely(!smux.remote_is_alive)) {
+				mutex_lock(&smux.mutex_lha0);
+				smux.remote_is_alive = 1;
+				mutex_unlock(&smux.mutex_lha0);
+			}
 			smux_handle_wakeup_req();
 			break;
 		case SMUX_WAKEUP_ACK:
 			SMUX_PWR("smux: smux: RX Wakeup ACK\n");
+			if (unlikely(!smux.remote_is_alive)) {
+				mutex_lock(&smux.mutex_lha0);
+				smux.remote_is_alive = 1;
+				mutex_unlock(&smux.mutex_lha0);
+			}
 			smux_handle_wakeup_ack();
 			break;
 		default:
@@ -2128,6 +2140,24 @@ void smux_rx_state_machine(const unsigned char *data,
 
 	queue_work(smux_rx_wq, &work.work);
 	wait_for_completion(&work.work_complete);
+}
+
+/**
+ * Returns true if the remote side has acknowledged a wakeup
+ * request previously, so we know that the link is alive and active.
+ *
+ * @returns true for is alive, false for not alive
+ */
+bool smux_remote_is_active(void)
+{
+	bool is_active = false;
+
+	mutex_lock(&smux.mutex_lha0);
+	if (smux.remote_is_alive)
+		is_active = true;
+	mutex_unlock(&smux.mutex_lha0);
+
+	return is_active;
 }
 
 /**
@@ -3449,6 +3479,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 		SMUX_DBG("smux: %s: ssr - before shutdown\n", __func__);
 		mutex_lock(&smux.mutex_lha0);
 		smux.in_reset = 1;
+		smux.remote_is_alive = 0;
 		mutex_unlock(&smux.mutex_lha0);
 		return NOTIFY_DONE;
 	} else if (code == SUBSYS_AFTER_POWERUP) {
@@ -3512,6 +3543,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 	smux.rx_activity_flag = 0;
 	smux.rx_state = SMUX_RX_IDLE;
 	smux.in_reset = 0;
+	smux.remote_is_alive = 0;
 	mutex_unlock(&smux.mutex_lha0);
 
 	return NOTIFY_DONE;
@@ -3635,6 +3667,7 @@ static void smuxld_close(struct tty_struct *tty)
 
 	/* Disconnect from TTY */
 	smux.tty = NULL;
+	smux.remote_is_alive = 0;
 	mutex_unlock(&smux.mutex_lha0);
 	SMUX_DBG("smux: %s: ldisc complete\n", __func__);
 }
@@ -3756,6 +3789,7 @@ static int __init smux_init(void)
 	smux.tty = NULL;
 	smux.ld_open_count = 0;
 	smux.in_reset = 0;
+	smux.remote_is_alive = 0;
 	smux.is_initialized = 1;
 	smux.platform_devs_registered = 0;
 	smux_byte_loopback = 0;

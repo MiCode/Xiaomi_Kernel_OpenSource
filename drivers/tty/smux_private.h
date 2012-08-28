@@ -180,6 +180,7 @@ int smux_serialize(struct smux_pkt_t *pkt, char *out,
 void smux_rx_state_machine(const unsigned char *data, int len, int flag);
 void smuxld_receive_buf(struct tty_struct *tty, const unsigned char *cp,
 			   char *fp, int count);
+bool smux_remote_is_active(void);
 
 /* testing parameters */
 extern int smux_byte_loopback;
