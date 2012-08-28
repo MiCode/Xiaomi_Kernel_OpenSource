@@ -48,6 +48,7 @@ struct audio_locks {
 	wait_queue_head_t write_wait;
 	wait_queue_head_t eos_wait;
 	wait_queue_head_t enable_wait;
+	wait_queue_head_t flush_wait;
 };
 
 struct msm_audio {
@@ -75,6 +76,7 @@ struct msm_audio {
 	atomic_t out_count;
 	atomic_t in_count;
 	atomic_t out_needed;
+	atomic_t eos;
 	int out_head;
 	int periods;
 	int mmap_flag;
