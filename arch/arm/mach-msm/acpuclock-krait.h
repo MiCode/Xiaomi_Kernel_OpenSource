@@ -253,9 +253,16 @@ struct acpuclk_krait_params {
 };
 
 /**
+ * struct acpuclk_platform_data - PMIC configuration data.
+ * @uses_pm8917: Boolean indicates presence of pm8917.
+ */
+struct acpuclk_platform_data {
+	bool uses_pm8917;
+};
+
+/**
  * acpuclk_krait_init - Initialize the Krait CPU clock driver give SoC params.
  */
 extern int acpuclk_krait_init(struct device *dev,
 			      const struct acpuclk_krait_params *params);
-
 #endif
