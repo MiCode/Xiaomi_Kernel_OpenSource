@@ -956,27 +956,54 @@ void res_trk_secure_set(void)
 
 int res_trk_open_secure_session()
 {
-	int rc;
-
-	if (res_trk_check_for_sec_session() == 1) {
-		mutex_lock(&resource_context.secure_lock);
+	int rc, memtype;
+	if (!res_trk_check_for_sec_session()) {
+		pr_err("Secure sessions are not active\n");
+		return -EINVAL;
+	}
+	mutex_lock(&resource_context.secure_lock);
+	if (!resource_context.sec_clk_heap) {
 		pr_err("Securing...\n");
 		rc = res_trk_enable_iommu_clocks();
 		if (rc) {
 			pr_err("IOMMU clock enabled failed while open");
 			goto error_open;
 		}
-		msm_ion_secure_heap(ION_HEAP(resource_context.memtype));
-		msm_ion_secure_heap(ION_HEAP(resource_context.cmd_mem_type));
-
-		if (resource_context.vidc_platform_data->secure_wb_heap)
-			msm_ion_secure_heap(ION_HEAP(ION_CP_WB_HEAP_ID));
-
+		memtype = ION_HEAP(resource_context.memtype);
+		rc = msm_ion_secure_heap(memtype);
+		if (rc) {
+			pr_err("ION heap secure failed heap id %d rc %d\n",
+				   resource_context.memtype, rc);
+			goto disable_iommu_clks;
+		}
+		memtype = ION_HEAP(resource_context.cmd_mem_type);
+		rc = msm_ion_secure_heap(memtype);
+		if (rc) {
+			pr_err("ION heap secure failed heap id %d rc %d\n",
+				   resource_context.cmd_mem_type, rc);
+			goto unsecure_memtype_heap;
+		}
+		if (resource_context.vidc_platform_data->secure_wb_heap) {
+			memtype = ION_HEAP(ION_CP_WB_HEAP_ID);
+			rc = msm_ion_secure_heap(memtype);
+			if (rc) {
+				pr_err("WB_HEAP_ID secure failed rc %d\n", rc);
+				goto unsecure_cmd_heap;
+			}
+		}
+		resource_context.sec_clk_heap = 1;
 		res_trk_disable_iommu_clocks();
-		mutex_unlock(&resource_context.secure_lock);
 	}
+	mutex_unlock(&resource_context.secure_lock);
 	return 0;
+unsecure_cmd_heap:
+	msm_ion_unsecure_heap(ION_HEAP(resource_context.memtype));
+unsecure_memtype_heap:
+	msm_ion_unsecure_heap(ION_HEAP(resource_context.cmd_mem_type));
+disable_iommu_clks:
+	res_trk_disable_iommu_clocks();
 error_open:
+	resource_context.sec_clk_heap = 0;
 	mutex_unlock(&resource_context.secure_lock);
 	return rc;
 }
@@ -984,12 +1011,13 @@ error_open:
 int res_trk_close_secure_session()
 {
 	int rc;
-	if (res_trk_check_for_sec_session() == 1) {
+	if (res_trk_check_for_sec_session() == 1 &&
+		resource_context.sec_clk_heap) {
 		pr_err("Unsecuring....\n");
 		mutex_lock(&resource_context.secure_lock);
 		rc = res_trk_enable_iommu_clocks();
 		if (rc) {
-			pr_err("IOMMU clock enabled failed while close");
+			pr_err("IOMMU clock enabled failed while close\n");
 			goto error_close;
 		}
 		msm_ion_unsecure_heap(ION_HEAP(resource_context.cmd_mem_type));
@@ -999,6 +1027,7 @@ int res_trk_close_secure_session()
 			msm_ion_unsecure_heap(ION_HEAP(ION_CP_WB_HEAP_ID));
 
 		res_trk_disable_iommu_clocks();
+		resource_context.sec_clk_heap = 0;
 		mutex_unlock(&resource_context.secure_lock);
 	}
 	return 0;
