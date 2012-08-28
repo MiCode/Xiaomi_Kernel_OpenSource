@@ -64,7 +64,8 @@ static int clk_rpmrs_handoff(struct rpm_clk *r)
 
 	if (!r->branch) {
 		r->last_set_khz = iv.value;
-		r->last_set_sleep_khz = iv.value;
+		if (!r->active_only)
+			r->last_set_sleep_khz = iv.value;
 		r->c.rate = iv.value * r->factor;
 	}
 
