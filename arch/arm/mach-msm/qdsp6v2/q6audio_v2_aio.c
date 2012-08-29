@@ -19,7 +19,7 @@
 #include <linux/wait.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <asm/ioctls.h>
 #include "audio_utils_aio.h"
 
@@ -107,6 +107,46 @@ void audio_aio_cb(uint32_t opcode, uint32_t token,
 		break;
 	default:
 		break;
+	}
+}
+
+void extract_meta_out_info(struct q6audio_aio *audio,
+		struct audio_aio_buffer_node *buf_node, int dir)
+{
+	struct dec_meta_out *meta_data = buf_node->kvaddr;
+	uint32_t temp;
+
+	if (dir) { /* input buffer - Write */
+		if (audio->buf_cfg.meta_info_enable)
+			memcpy(&buf_node->meta_info.meta_in,
+			(char *)buf_node->kvaddr, sizeof(struct dec_meta_in));
+		else
+			memset(&buf_node->meta_info.meta_in,
+			0, sizeof(struct dec_meta_in));
+		pr_debug("%s[%p]:i/p: msw_ts 0x%lx lsw_ts 0x%lx nflags 0x%8x\n",
+			__func__, audio,
+			buf_node->meta_info.meta_in.ntimestamp.highpart,
+			buf_node->meta_info.meta_in.ntimestamp.lowpart,
+			buf_node->meta_info.meta_in.nflags);
+	} else { /* output buffer - Read */
+		memcpy((char *)buf_node->kvaddr,
+			&buf_node->meta_info.meta_out,
+			sizeof(struct dec_meta_out));
+		meta_data->meta_out_dsp[0].nflags = 0x00000000;
+		temp = meta_data->meta_out_dsp[0].msw_ts;
+		meta_data->meta_out_dsp[0].msw_ts =
+				meta_data->meta_out_dsp[0].lsw_ts;
+		meta_data->meta_out_dsp[0].lsw_ts = temp;
+
+		pr_debug("%s[%p]:o/p: msw_ts 0x%8x lsw_ts 0x%8x nflags 0x%8x, num_frames = %d\n",
+		__func__, audio,
+		((struct dec_meta_out *)buf_node->kvaddr)->\
+			meta_out_dsp[0].msw_ts,
+		((struct dec_meta_out *)buf_node->kvaddr)->\
+			meta_out_dsp[0].lsw_ts,
+		((struct dec_meta_out *)buf_node->kvaddr)->\
+			meta_out_dsp[0].nflags,
+		((struct dec_meta_out *)buf_node->kvaddr)->num_of_frames);
 	}
 }
 
