@@ -5088,10 +5088,10 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("vsync_clk", mdss_vsync_clk.c, "mdp.0"),
 
 	/* MM sensor clocks */
-	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6e.qcom,s5k3l1yx"),
-	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6c.qcom,ov2720"),
-	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6e.qcom,s5k3l1yx"),
-	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6c.qcom,ov2720"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6c.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_mclk1_clk.c, ""),
 	CLK_LOOKUP("cam_clk", camss_mclk2_clk.c, ""),
 	CLK_LOOKUP("cam_clk", camss_mclk3_clk.c, ""),

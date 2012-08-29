@@ -704,7 +704,9 @@ static int msm_cci_probe(struct platform_device *pdev)
 
 	new_cci_dev->pdev = pdev;
 	msm_cci_initialize_cci_params(new_cci_dev);
-
+	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	if (rc)
+		pr_err("%s: failed to add child nodes, rc=%d\n", __func__, rc);
 	CDBG("%s line %d\n", __func__, __LINE__);
 	return 0;
 
