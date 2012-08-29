@@ -123,6 +123,7 @@ struct mpu3050_sensor {
 	struct delayed_work input_work;
 	u32    use_poll;
 	u32    poll_interval;
+	u32    dlpf_index;
 };
 
 struct sensor_regulator {
@@ -136,6 +137,39 @@ struct sensor_regulator mpu_vreg[] = {
 	{NULL, "vdd", 2100000, 3600000},
 	{NULL, "vlogic", 1800000, 1800000},
 };
+
+struct dlpf_cfg_tb {
+	u8  cfg;	/* cfg index */
+	u32 lpf_bw;	/* low pass filter bandwidth in Hz */
+	u32 sample_rate; /* analog sample rate in Khz, 1 or 8 */
+};
+
+static struct dlpf_cfg_tb dlpf_table[] = {
+	{6,   5, 1},
+	{5,  10, 1},
+	{4,  20, 1},
+	{3,  42, 1},
+	{2,  98, 1},
+	{1, 188, 1},
+	{0, 256, 8},
+};
+
+static u8 interval_to_dlpf_cfg(u32 interval)
+{
+	u32 sample_rate = 1000 / interval;
+	u32 i;
+
+	/* the filter bandwidth needs to be greater or
+	 * equal to half of the sample rate
+	 */
+	for (i = 0; i < sizeof(dlpf_table)/sizeof(dlpf_table[0]); i++) {
+		if (dlpf_table[i].lpf_bw * 2 >= sample_rate)
+			return i;
+	}
+
+	/* return the maximum possible */
+	return --i;
+}
 
 static int mpu3050_config_regulator(struct i2c_client *client, bool on)
 {
@@ -217,6 +251,9 @@ static ssize_t mpu3050_attr_set_polling_rate(struct device *dev,
 {
 	struct mpu3050_sensor *sensor = dev_get_drvdata(dev);
 	unsigned long interval_ms;
+	unsigned int  dlpf_index;
+	u8  divider, reg;
+	int ret;
 
 	if (kstrtoul(buf, 10, &interval_ms))
 		return -EINVAL;
@@ -224,12 +261,27 @@ static ssize_t mpu3050_attr_set_polling_rate(struct device *dev,
 		(interval_ms > MPU3050_MAX_POLL_INTERVAL))
 		return -EINVAL;
 
-	if (sensor)
-		sensor->poll_interval = interval_ms;
+	dlpf_index = interval_to_dlpf_cfg(interval_ms);
+	divider = interval_ms * dlpf_table[dlpf_index].sample_rate - 1;
 
-	/* Output frequency divider. The poll interval */
-	i2c_smbus_write_byte_data(sensor->client, MPU3050_SMPLRT_DIV,
-					interval_ms - 1);
+	if (sensor->dlpf_index != dlpf_index) {
+		/* Set low pass filter and full scale */
+		reg = dlpf_table[dlpf_index].cfg;
+		reg |= MPU3050_DEFAULT_FS_RANGE << 3;
+		reg |= MPU3050_EXT_SYNC_NONE << 5;
+		ret = i2c_smbus_write_byte_data(sensor->client,
+				MPU3050_DLPF_FS_SYNC, reg);
+		if (ret == 0)
+			sensor->dlpf_index = dlpf_index;
+	}
+
+	if (sensor->poll_interval != interval_ms) {
+		/* Output frequency divider. The poll interval */
+		ret = i2c_smbus_write_byte_data(sensor->client,
+				MPU3050_SMPLRT_DIV, divider);
+		if (ret == 0)
+			sensor->poll_interval = interval_ms;
+	}
 
 	return size;
 }
@@ -482,8 +534,8 @@ static int __devinit mpu3050_hw_init(struct mpu3050_sensor *sensor)
 		return ret;
 
 	/* Set low pass filter and full scale */
-	reg = MPU3050_DEFAULT_FS_RANGE;
-	reg |= MPU3050_DLPF_CFG_42HZ << 3;
+	reg = MPU3050_DLPF_CFG_42HZ;
+	reg |= MPU3050_DEFAULT_FS_RANGE << 3;
 	reg |= MPU3050_EXT_SYNC_NONE << 5;
 	ret = i2c_smbus_write_byte_data(client, MPU3050_DLPF_FS_SYNC, reg);
 	if (ret < 0)
