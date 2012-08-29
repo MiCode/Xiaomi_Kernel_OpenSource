@@ -1265,6 +1265,9 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		}
 
 		rate = c_data->vc_format.clk_freq / 100 * 102;
+		if ((c_data->vc_format.hactive_end -
+				c_data->vc_format.hactive_start) > 539)
+			rate = 200000000;
 		rate_rc = clk_round_rate(dev->vcap_clk, rate);
 		if (rate_rc <= 0) {
 			pr_err("%s: Failed core rnd_rate\n", __func__);
