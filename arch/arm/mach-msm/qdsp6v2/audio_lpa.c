@@ -707,6 +707,15 @@ void q6_audlpa_out_cb(uint32_t opcode, uint32_t token,
 	case RESET_EVENTS:
 		reset_device();
 		break;
+	case APR_BASIC_RSP_RESULT:
+		switch (payload[0]) {
+		case ASM_STREAM_CMD_CLOSE:
+			audlpa_unmap_ion_region(audio);
+			break;
+		default:
+			break;
+		}
+		break;
 	default:
 		break;
 	}
@@ -1126,7 +1135,6 @@ static int audio_release(struct inode *inode, struct file *file)
 	if (audio->out_enabled)
 		audlpa_async_flush(audio);
 	audio->wflush = 0;
-	audlpa_unmap_ion_region(audio);
 	audio_disable(audio);
 	msm_clear_session_id(audio->ac->session);
 	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, audio->ac->session);
