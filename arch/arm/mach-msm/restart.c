@@ -129,7 +129,11 @@ static void __msm_power_off(int lower_pshold)
 	pm8xxx_reset_pwr_off(0);
 
 	if (lower_pshold) {
-		__raw_writel(0, PSHOLD_CTL_SU);
+		if (!use_restart_v2())
+			__raw_writel(0, PSHOLD_CTL_SU);
+		else
+			__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
+
 		mdelay(10000);
 		printk(KERN_ERR "Powering off has failed\n");
 	}
