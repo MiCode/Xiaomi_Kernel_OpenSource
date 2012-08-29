@@ -2853,11 +2853,7 @@ static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip)
 		pr_debug("Exiting ichg_meas_ua = %d > 0\n", ichg_meas_ua);
 		return;
 	}
-	if (ichg_meas_ua <= ichg_threshold_ua) {
-		pr_debug("Exiting ichg_meas_ua = %d < ichg_threshold_ua = %d\n",
-					ichg_meas_ua, ichg_threshold_ua);
-		return;
-	}
+
 	ichg_meas_ma = ichg_meas_ua / 1000;
 
 	/* rconn_mohm is in milliOhms */
