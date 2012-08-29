@@ -1,0 +1,198 @@
+Introduction
+============
+
+The MSM ADSPRPC driver implements an IPC (Inter-Processor Communication)
+mechanism that allows for clients to transparently make remote method
+invocations across processor boundaries.
+
+The below diagram depicts invocation of a single method where the client
+and objects reside on different processors. An object could expose
+multiple methods which can be grouped together and referred to as an
+interface.
+
+: ,--------,        ,------,  ,-----------,  ,------,        ,--------,
+: |        | method |      |  |           |  |      | method |        |
+: | Client |------->| Stub |->| Transport |->| Skel |------->| Object |
+: |        |        |      |  |           |  |      |        |        |
+: `--------`        `------`  `-----------`  `------`        `--------`
+
+Client:    Linux user mode process that initiates the remote invocation
+Stub:      Auto generated code linked in with the user mode process that
+           takes care of marshaling parameters
+Transport: Involved in carrying an invocation from a client to an
+           object. This involves two portions: 1) MSM ADSPRPC Linux
+           kernel driver that receives the remote invocation, queues
+           them up and then waits for the response after signaling the
+           remote side. 2) Service running on the remote side that
+           dequeues the messages from the queue and dispatches them for
+           processing.
+Skel:      Auto generated code that takes care of un-marshaling
+           parameters
+Object:    Method implementation
+
+Hardware description
+====================
+
+The driver interfaces with the components in the DSP subsystem and does
+not drive or manage any hardware resources.
+
+Software description
+====================
+
+The MSM ADSPRPC driver uses SMD (Shared Memory Driver) to send and
+receive messages with the remote processor. The SMD channel used for
+communication is opened during initialization of the driver and is
+closed when the driver module is unloaded. The driver does not expose
+HLOS memory to the remote processor but rather communication of
+invocation parameters happen over ION allocated buffers.
+
+The driver receives remote call invocations via an ioctl call. When a
+remote call invocation is received, the driver does the following:
+- Retrieves the invocation parameters
+- Copies input buffers in HLOS memory to ION allocated buffers
+- Allocates ION buffers for output buffers in HLOS memory as required
+- Scatter-gathers list of pages for ION allocated input and output
+  buffers
+- Coalesces information about the contiguous page buffers
+- Builds up a message with the received information
+- Sends the message to a remote processor through an SMD channel
+- Waits for a response from the remote processor through the SMD channel
+- Reads the message available from the shared memory SMD channel
+- Copies back from ION buffers to HLOS memory for output buffers
+- Returns the response of the remote invocation
+
+Design
+======
+
+The design goals of this transport mechanism are:
+- Fast and efficient ways to transfer huge buffers across
+  inter-processor boundaries
+- Zero copy of ION allocated buffers passed during invocations
+
+To achieve the zero copy approach of ION allocated user space buffers,
+the driver scatter-gathers the list of pages of the buffers being passed
+in. This information is then sent over to the remote processor for it
+to map into its address space.
+
+The invocation requests sent over the SMD channel carry context
+information as to whom the request is originating from. The responses
+received over the SMD channel have context information in the message
+which is then used to wake the thread waiting for a response.
+
+If the remote processor goes down and gets restarted, the SMD channel
+is re-initialized when the remote processor comes back up. An
+error code would be returned to the client for all invocations that
+happen before the SMD channel could get completely re-initialized.
+
+Power Management
+================
+
+None
+
+SMP/multi-core
+==============
+
+The driver uses semaphores to wake up clients waiting for a remote
+invocation response.
+
+Security
+========
+
+Use of the zero copy approach results in a page-size granularity of
+all buffers being passed to the remote processor. The objects that will
+be manipulating these buffers on the remote processor will be signed
+and trusted entities, thereby alleviating any fear of intentional
+scribbling of these buffers.
+
+Performance
+===========
+
+In order to minimize latencies across remote invocations:
+- messages exchanged between the remote processors are kept short
+- zero copy approach for ION allocated user space buffers
+
+Interface
+=========
+
+The driver exposes a user space interface through /dev/adsprpc-smd and
+the user space clients send commands to the driver by using the
+following ioctl command:
+
+- FASTRPC_IOCTL_INVOKE: Parameters passed in includes the buffers and
+  data related to remote invocation.
+
+  /*
+   * Information about the input/output buffer or an handle to the
+   * object being passed in the remote invocation
+   *
+   * @pv:     Pointer to input/output buffer
+   * @len:    Length of the input/output buffer
+   * @handle: Handle to the remote object
+   */
+  typedef union {
+	struct remote_buf {
+		void *pv;
+		int len;
+	} buf;
+	unsigned int handle;
+  } remote_arg;
+
+  /*
+   * Invocation parameters passed via ioctl call by the client
+   *
+   * @handle: Handle to the object on which the method is to be
+   *          invoked
+   * @sc:     Scalars detailing the parameters being passed in
+   *          bits 0-3: Number of output handles
+   *          bits 4-7: Number of input handles
+   *          bits 8-15: Number of output buffers
+   *          bits 16-23: Number of input buffers
+   *          bits 24-28: Method to be invoked
+   *          bits 29-31: Method attributes
+   * @pra:    Remote arguments to be passed for method invocation
+   */
+  struct fastrpc_ioctl_invoke {
+	unsigned int handle;
+	unsigned int sc;
+	remote_arg *pra;
+  };
+
+Driver parameters
+=================
+
+None
+
+Config options
+==============
+
+None
+
+Dependencies
+============
+
+The ADSPRPC driver requires that the ADSP RPC SMD channel be created and
+the SMD subsystem be initialized. During initialization, the driver
+opens an existing SMD edge channel between ADSP and Apps processor. On
+success, the driver waits for the "channel opened" event from SMD,
+acknowledging the channel availability from the remote SMD driver for
+communication to begin.
+
+User space utilities
+====================
+
+None
+
+Other
+=====
+
+None
+
+Known issues
+============
+
+None
+
+To do
+=====
+
+None
