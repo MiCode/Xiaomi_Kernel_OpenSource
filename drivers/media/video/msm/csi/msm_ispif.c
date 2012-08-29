@@ -264,8 +264,8 @@ static int msm_ispif_config(struct ispif_device *ispif,
 	for (i = 0; i < params_len; i++) {
 		intftype = ispif_params[i].intftype;
 		vfe_intf = ispif_params[i].vfe_intf;
-		CDBG("%s intftype %x, vfe_intf %d\n", __func__, intftype,
-			vfe_intf);
+		CDBG("%s intftype %x, vfe_intf %d, csid %d\n", __func__,
+			intftype, vfe_intf, ispif_params[i].csid);
 		if ((intftype >= INTF_MAX) ||
 			(ispif->csid_version <= CSID_VERSION_V2 &&
 			vfe_intf > VFE0) ||

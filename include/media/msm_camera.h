@@ -1353,6 +1353,7 @@ struct csi_lane_params_t {
 	uint8_t csi_lane_mask;
 	uint8_t csi_if;
 	uint8_t csid_core[2];
+	uint8_t csi_phy_sel;
 };
 
 struct msm_camera_csid_lut_params {
