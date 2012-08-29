@@ -1107,7 +1107,7 @@ adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
 		return -ENOMEM;
 
 	adreno_dev->gmem_size = adreno_dev->ocmem_hdl->len;
-	adreno_dev->gmem_base = adreno_dev->ocmem_hdl->addr;
+	adreno_dev->ocmem_base = adreno_dev->ocmem_hdl->addr;
 
 	return 0;
 }
