@@ -5,8 +5,12 @@ SD/MMC/SDIO cards.
 
 Required properties:
   - compatible : should be "qcom,msm-sdcc"
-  - reg : should contain SDCC, BAM register map.
+  - reg : should contain SDCC, SDCC-DML and BAM register map.
+  - reg-names : indicates various resources passed to driver (via reg proptery) by name.
+  "reg-names" examples are "core_mem", "dml_mem" and "bam_mem"
   - interrupts : should contain SDCC core interrupt.
+  - interrupt-names : indicates interrupts passed to driver (via interrupts property) by name.
+  "interrupt-names" examples are "core_irq", "bam_irq" and "status_irq"
   - qcom,sdcc-clk-rates : specifies supported SDCC clock frequencies, Units - Hz.
   - qcom,sdcc-sup-voltages: specifies supported voltage ranges for card. Should always be
 			specified in pairs (min, max), Units - mV.
