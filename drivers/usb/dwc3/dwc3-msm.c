@@ -1574,7 +1574,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	msm->dwc3 = dwc3;
 
 	pm_runtime_set_active(msm->dev);
-	pm_runtime_enable(msm->dev);
 
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-dbm-eps",
 				 &msm->dbm_num_eps)) {
