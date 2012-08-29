@@ -213,9 +213,9 @@ static inline void msmsdcc_sps_exit(struct msmsdcc_host *host) {}
 #endif /* CONFIG_MMC_MSM_SPS_SUPPORT */
 
 /**
- * Apply soft reset to all SDCC BAM pipes
+ * Apply reset
  *
- * This function applies soft reset to SDCC BAM pipe.
+ * This function resets SPS BAM and DML cores.
  *
  * This function should be called to recover from error
  * conditions encountered during CMD/DATA tranfsers with card.
@@ -223,43 +223,64 @@ static inline void msmsdcc_sps_exit(struct msmsdcc_host *host) {}
  * @host - Pointer to driver's host structure
  *
  */
-static void msmsdcc_sps_pipes_reset_and_restore(struct msmsdcc_host *host)
+static int msmsdcc_bam_dml_reset_and_restore(struct msmsdcc_host *host)
 {
 	int rc;
 
+	/* Reset and init DML */
+	rc = msmsdcc_dml_init(host);
+	if (rc) {
+		pr_err("%s: msmsdcc_dml_init error=%d\n",
+				mmc_hostname(host->mmc), rc);
+		goto out;
+	}
+
 	/* Reset all SDCC BAM pipes */
 	rc = msmsdcc_sps_reset_ep(host, &host->sps.prod);
-	if (rc)
-		pr_err("%s:msmsdcc_sps_reset_ep(prod) error=%d\n",
+	if (rc) {
+		pr_err("%s: msmsdcc_sps_reset_ep(prod) error=%d\n",
 				mmc_hostname(host->mmc), rc);
-	rc = msmsdcc_sps_reset_ep(host, &host->sps.cons);
-	if (rc)
-		pr_err("%s:msmsdcc_sps_reset_ep(cons) error=%d\n",
-				mmc_hostname(host->mmc), rc);
+		goto out;
+	}
 
-	if (host->sps.reset_device) {
-		rc = sps_device_reset(host->sps.bam_handle);
-		if (rc)
-			pr_err("%s: sps_device_reset error=%d\n",
+	rc = msmsdcc_sps_reset_ep(host, &host->sps.cons);
+	if (rc) {
+		pr_err("%s: msmsdcc_sps_reset_ep(cons) error=%d\n",
 				mmc_hostname(host->mmc), rc);
-		host->sps.reset_device = false;
+		goto out;
+	}
+
+	/* Reset BAM */
+	rc = sps_device_reset(host->sps.bam_handle);
+	if (rc) {
+		pr_err("%s: sps_device_reset error=%d\n",
+				mmc_hostname(host->mmc), rc);
+		goto out;
 	}
 
 	/* Restore all BAM pipes connections */
 	rc = msmsdcc_sps_restore_ep(host, &host->sps.prod);
-	if (rc)
-		pr_err("%s:msmsdcc_sps_restore_ep(prod) error=%d\n",
+	if (rc) {
+		pr_err("%s: msmsdcc_sps_restore_ep(prod) error=%d\n",
 				mmc_hostname(host->mmc), rc);
+		goto out;
+	}
+
 	rc = msmsdcc_sps_restore_ep(host, &host->sps.cons);
 	if (rc)
-		pr_err("%s:msmsdcc_sps_restore_ep(cons) error=%d\n",
+		pr_err("%s: msmsdcc_sps_restore_ep(cons) error=%d\n",
 				mmc_hostname(host->mmc), rc);
+	else
+		host->sps.reset_bam = false;
+
+out:
+	return rc;
 }
 
 /**
  * Apply soft reset
  *
- * This function applies soft reset to SDCC core and DML core.
+ * This function applies soft reset to SDCC core.
  *
  * This function should be called to recover from error
  * conditions encountered with CMD/DATA tranfsers with card.
@@ -354,25 +375,25 @@ static void msmsdcc_hard_reset(struct msmsdcc_host *host)
 static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 {
 	if (is_soft_reset(host)) {
-		if (is_sps_mode(host)) {
-			/* Reset DML first */
-			msmsdcc_dml_reset(host);
+		if (is_sps_mode(host))
 			/*
-			 * delay the SPS pipe reset in thread context as
+			 * delay the SPS BAM reset in thread context as
 			 * sps_connect/sps_disconnect APIs can be called
 			 * only from non-atomic context.
 			 */
-			host->sps.pipe_reset_pending = true;
-		}
-		mb();
+			host->sps.reset_bam = true;
+
 		msmsdcc_soft_reset(host);
 
 		pr_debug("%s: Applied soft reset to Controller\n",
 				mmc_hostname(host->mmc));
-
-		if (is_sps_mode(host))
-			msmsdcc_dml_init(host);
 	} else {
+		/*
+		 * When there is a requirement to use this hard reset,
+		 * BAM needs to be reconfigured as well by calling
+		 * msmsdcc_sps_exit and msmsdcc_sps_init.
+		 */
+
 		/* Give Clock reset (hard reset) to controller */
 		u32	mci_clk = 0;
 		u32	mci_mask0 = 0;
@@ -2086,6 +2107,7 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long		flags;
+	int retries = 5;
 
 	/*
 	 * Get the SDIO AL client out of LPM.
@@ -2094,10 +2116,14 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (host->plat->is_sdio_al_client)
 		msmsdcc_sdio_al_lpm(mmc, false);
 
-	/* check if sps pipe reset is pending? */
-	if (is_sps_mode(host) && host->sps.pipe_reset_pending) {
-		msmsdcc_sps_pipes_reset_and_restore(host);
-		host->sps.pipe_reset_pending = false;
+	/* check if sps bam needs to be reset */
+	if (is_sps_mode(host) && host->sps.reset_bam) {
+		while (retries) {
+			if (!msmsdcc_bam_dml_reset_and_restore(host))
+				break;
+			pr_err("%s: msmsdcc_bam_dml_reset_and_restore returned error. %d attempts left.\n",
+					mmc_hostname(host->mmc), --retries);
+		}
 	}
 
 	spin_lock_irqsave(&host->lock, flags);
@@ -2118,8 +2144,9 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	/*
 	 * Don't start the request if SDCC is not in proper state to handle it
 	 */
-	if (!host->pwr || !atomic_read(&host->clks_on)
-			|| host->sdcc_irq_disabled) {
+	if (!host->pwr || !atomic_read(&host->clks_on) ||
+			host->sdcc_irq_disabled ||
+			host->sps.reset_bam) {
 		WARN(1, "%s: %s: SDCC is in bad state. don't process"
 		     " new request (CMD%d)\n", mmc_hostname(host->mmc),
 		     __func__, mrq->cmd->opcode);
@@ -4599,11 +4626,8 @@ msmsdcc_sps_bam_global_irq_cb(enum sps_callback_case sps_cb_case, void *user)
 	BUG_ON(!is_sps_mode(host));
 
 	if (sps_cb_case == SPS_CALLBACK_BAM_ERROR_IRQ) {
-		/**
-		 * Reset the all endpoints along with reseting the sps device.
-		 */
-		host->sps.pipe_reset_pending = true;
-		host->sps.reset_device = true;
+		/* Reset all endpoints along with resetting bam. */
+		host->sps.reset_bam = true;
 
 		pr_err("%s: BAM Global ERROR IRQ happened\n",
 			mmc_hostname(host->mmc));
@@ -5018,6 +5042,10 @@ static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
 			mmc_hostname(host->mmc), host->curr.xfer_size,
 			host->curr.data_xfered, host->curr.xfer_remain);
 	}
+
+	if (host->sps.reset_bam)
+		pr_err("%s: SPS BAM reset failed: sps reset_bam=%d\n",
+			mmc_hostname(host->mmc), host->sps.reset_bam);
 
 	pr_err("%s: got_dataend=%d, prog_enable=%d,"
 		" wait_for_auto_prog_done=%d, got_auto_prog_done=%d,"
