@@ -221,7 +221,7 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 {
 	uint32_t rc = 0;
 	uint32_t val = 0;
-	int32_t read_bytes = 0;
+	int32_t read_words = 0, exp_words = 0;
 	int32_t index = 0, first_byte = 0;
 	uint32_t i = 0;
 	enum cci_i2c_master_t master;
@@ -291,7 +291,15 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	wait_for_completion_interruptible_timeout(&cci_dev->
 		cci_master_info[master].reset_complete, CCI_TIMEOUT);
 
-	read_bytes = (read_cfg->num_byte / 4) + 1;
+	read_words = msm_camera_io_r(cci_dev->base +
+		CCI_I2C_M0_READ_BUF_LEVEL_ADDR + master * 0x100);
+	exp_words = ((read_cfg->num_byte / 4) + 1);
+	if (read_words != exp_words) {
+		pr_err("%s:%d read_words = %d, exp words = %d\n", __func__,
+			__LINE__, read_words, exp_words);
+		memset(read_cfg->data, 0, read_cfg->num_byte);
+		goto ERROR;
+	}
 	index = 0;
 	CDBG("%s index %d num_type %d\n", __func__, index,
 		read_cfg->num_byte);
@@ -313,7 +321,7 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 				index++;
 			}
 		}
-	} while (--read_bytes > 0);
+	} while (--read_words > 0);
 ERROR:
 	mutex_unlock(&cci_dev->cci_master_info[master].mutex);
 	return rc;
