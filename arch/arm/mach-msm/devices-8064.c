@@ -2734,8 +2734,8 @@ static struct msm_bus_vectors vcap_1080_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_CAP,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 1920 * 1080 * 3 * 60,
-		.ib = 1920 * 1080 * 3 * 60 * 1.5,
+		.ab = 1920 * 1080 * 10 * 60,
+		.ib = 1920 * 1080 * 10 * 60 * 1.5,
 	},
 };
 
