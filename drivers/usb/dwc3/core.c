@@ -559,13 +559,6 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 			goto err1;
 		}
 
-		ret = dwc3_host_init(dwc);
-		if (ret) {
-			dev_err(dev, "failed to initialize host\n");
-			dwc3_otg_exit(dwc);
-			goto err1;
-		}
-
 		ret = dwc3_gadget_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize gadget\n");
