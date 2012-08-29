@@ -634,7 +634,8 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 #define MMSSNOC_AHB_ID  0x3
 
 #define BIMC_ID		0x0
-#define OCMEM_ID	0x1
+#define OXILI_ID	0x1
+#define OCMEM_ID	0x2
 
 enum {
 	D0_ID = 1,
@@ -652,6 +653,8 @@ DEFINE_CLK_RPM_SMD(mmssnoc_ahb_clk, mmssnoc_ahb_a_clk, RPM_BUS_CLK_TYPE,
 
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
 DEFINE_CLK_RPM_SMD(ocmemgx_clk, ocmemgx_a_clk, RPM_MEM_CLK_TYPE, OCMEM_ID,
+			NULL);
+DEFINE_CLK_RPM_SMD(gfx3d_clk_src, gfx3d_a_clk_src, RPM_MEM_CLK_TYPE, OXILI_ID,
 			NULL);
 
 DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_a_clk_src,
@@ -773,7 +776,7 @@ static DEFINE_CLK_VOTER(cnoc_msmbus_a_clk, &cnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_clk, &bimc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, &bimc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_acpu_a_clk, &bimc_a_clk.c, LONG_MAX);
-static DEFINE_CLK_VOTER(ocmemgx_gfx3d_clk, &ocmemgx_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(oxili_gfx3d_clk_src, &gfx3d_clk_src.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_clk, &ocmemgx_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_a_clk, &ocmemgx_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, LONG_MAX);
@@ -4012,7 +4015,7 @@ static struct branch_clk oxilicx_axi_clk = {
 
 static struct branch_clk oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
-	.parent = &ocmemgx_gfx3d_clk.c,
+	.parent = &oxili_gfx3d_clk_src.c,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "oxili_gfx3d_clk",
