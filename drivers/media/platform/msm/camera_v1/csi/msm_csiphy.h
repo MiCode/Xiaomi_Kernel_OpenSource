@@ -20,6 +20,11 @@
 
 #define MAX_CSIPHY 3
 
+enum msm_csiphy_state_t {
+	CSIPHY_POWER_UP,
+	CSIPHY_POWER_DOWN,
+};
+
 struct csiphy_device {
 	struct platform_device *pdev;
 	struct v4l2_subdev subdev;
@@ -29,6 +34,7 @@ struct csiphy_device {
 	void __iomem *base;
 	struct mutex mutex;
 	uint32_t hw_version;
+	enum msm_csiphy_state_t csiphy_state;
 
 	struct clk *csiphy_clk[3];
 	uint8_t ref_count;

@@ -162,6 +162,13 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		return rc;
 	}
 
+	if (csiphy_dev->csiphy_state == CSIPHY_POWER_UP) {
+		pr_err("%s: csiphy invalid state %d\n", __func__,
+			csiphy_dev->csiphy_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
 	if (csiphy_dev->ref_count++) {
 		CDBG("%s csiphy refcount = %d\n", __func__,
 			csiphy_dev->ref_count);
@@ -202,6 +209,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	csiphy_dev->hw_version =
 		msm_camera_io_r(csiphy_dev->base + MIPI_CSIPHY_HW_VERSION_ADDR);
 
+	csiphy_dev->csiphy_state = CSIPHY_POWER_UP;
 	return 0;
 }
 
@@ -217,6 +225,13 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		pr_err("%s csiphy dev NULL / ref_count ZERO\n", __func__);
 		return 0;
 	}
+
+	if (csiphy_dev->csiphy_state != CSIPHY_POWER_UP) {
+		pr_err("%s: csiphy invalid state %d\n", __func__,
+			csiphy_dev->csiphy_state);
+		return -EINVAL;
+	}
+
 	CDBG("%s csiphy_params, lane assign %x mask = %x\n",
 		__func__,
 		csi_lane_params->csi_lane_assign,
@@ -264,6 +279,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
+	csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
 	return 0;
 }
 
@@ -408,6 +424,7 @@ static int csiphy_probe(struct platform_device *pdev)
 	new_csiphy_dev->subdev.entity.name = pdev->name;
 	new_csiphy_dev->subdev.entity.revision =
 		new_csiphy_dev->subdev.devnode->num;
+	new_csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
 	return 0;
 
 csiphy_no_resource:

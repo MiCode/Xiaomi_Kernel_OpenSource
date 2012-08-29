@@ -18,6 +18,11 @@
 #include <media/v4l2-subdev.h>
 #include <media/msm_camera.h>
 
+enum msm_csid_state_t {
+	CSID_POWER_UP,
+	CSID_POWER_DOWN,
+};
+
 struct csid_device {
 	struct platform_device *pdev;
 	struct v4l2_subdev subdev;
@@ -29,6 +34,7 @@ struct csid_device {
 	struct mutex mutex;
 	struct completion reset_complete;
 	uint32_t hw_version;
+	enum msm_csid_state_t csid_state;
 
 	struct clk *csid_clk[5];
 };

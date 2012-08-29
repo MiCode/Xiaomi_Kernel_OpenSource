@@ -679,6 +679,14 @@ static int msm_ispif_init(struct ispif_device *ispif,
 {
 	int rc = 0;
 	CDBG("%s called %d\n", __func__, __LINE__);
+
+	if (ispif->ispif_state == ISPIF_POWER_UP) {
+		pr_err("%s: ispif invalid state %d\n", __func__,
+			ispif->ispif_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
 	spin_lock_init(&ispif_tasklet_lock);
 	INIT_LIST_HEAD(&ispif_tasklet_q);
 	rc = request_irq(ispif->irq->start, msm_io_ispif_irq,
@@ -701,11 +709,18 @@ static int msm_ispif_init(struct ispif_device *ispif,
 			return rc;
 	}
 	rc = msm_ispif_reset(ispif);
+	ispif->ispif_state = ISPIF_POWER_UP;
 	return rc;
 }
 
 static void msm_ispif_release(struct ispif_device *ispif)
 {
+	if (ispif->ispif_state != ISPIF_POWER_UP) {
+		pr_err("%s: ispif invalid state %d\n", __func__,
+			ispif->ispif_state);
+		return;
+	}
+
 	CDBG("%s, free_irq\n", __func__);
 	free_irq(ispif->irq->start, ispif);
 	tasklet_kill(&ispif->ispif_tasklet);
@@ -717,6 +732,7 @@ static void msm_ispif_release(struct ispif_device *ispif)
 		msm_cam_clk_enable(&ispif->pdev->dev, ispif_8960_clk_info,
 			ispif->ispif_clk, ARRAY_SIZE(ispif_8960_clk_info), 0);
 	}
+	ispif->ispif_state = ISPIF_POWER_DOWN;
 }
 
 static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
@@ -853,6 +869,7 @@ static int ispif_probe(struct platform_device *pdev)
 	ispif->subdev.entity.group_id = ISPIF_DEV;
 	ispif->subdev.entity.name = pdev->name;
 	ispif->subdev.entity.revision = ispif->subdev.devnode->num;
+	ispif->ispif_state = ISPIF_POWER_DOWN;
 	return 0;
 
 ispif_no_mem:
