@@ -649,13 +649,13 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 #define OXILI_ID	0x1
 #define OCMEM_ID	0x2
 
-enum {
-	D0_ID = 1,
-	D1_ID,
-	A0_ID,
-	A1_ID,
-	A2_ID,
-};
+#define D0_ID		 1
+#define D1_ID		 2
+#define A0_ID		 3
+#define A1_ID		 4
+#define A2_ID		 5
+#define DIFF_CLK_ID	 7
+#define DIV_CLK_ID	11
 
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
@@ -678,6 +678,8 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_d1, cxo_d1_a, D1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_a0, cxo_a0_a, A0_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_a1, cxo_a1_a, A1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(cxo_a2, cxo_a2_a, A2_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(div_clk, div_a_clk, DIV_CLK_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(diff_clk, diff_a_clk, DIFF_CLK_ID);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_d0_pin, cxo_d0_a_pin, D0_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_d1_pin, cxo_d1_a_pin, D1_ID);
@@ -5146,6 +5148,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("sleep_clk", gcc_usb30_sleep_clk.c, "msm_dwc3"),
 	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "msm_dwc3"),
 	CLK_LOOKUP("sleep_b_clk", gcc_usb2b_phy_sleep_clk.c, "msm_dwc3"),
+	CLK_LOOKUP("ref_clk", diff_clk.c, "msm_dwc3"),
 	CLK_LOOKUP("iface_clk", gcc_usb_hs_ahb_clk.c,     "msm_otg"),
 	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c,   "msm_otg"),
 	CLK_LOOKUP("iface_clk", gcc_usb_hsic_ahb_clk.c,	  "msm_hsic_host"),
