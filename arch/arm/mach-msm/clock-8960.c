@@ -6237,7 +6237,7 @@ static void __init reg_init(void)
 		rmwreg(0x00000003, AHB_EN_REG,  0x6C000103);
 		writel_relaxed(0x000007F9, AHB_EN2_REG);
 	} else {
-		rmwreg(0x44000000, AHB_EN_REG,  0x6C000103);
+		rmwreg(0x40000000, AHB_EN_REG,  0x6C000103);
 		writel_relaxed(0x3C7097F9, AHB_EN2_REG);
 	}
 
