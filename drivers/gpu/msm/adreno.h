@@ -252,6 +252,11 @@ static inline int adreno_is_a320(struct adreno_device *adreno_dev)
 	return (adreno_dev->gpurev == ADRENO_REV_A320);
 }
 
+static inline int adreno_is_a330(struct adreno_device *adreno_dev)
+{
+	return (adreno_dev->gpurev == ADRENO_REV_A330);
+}
+
 static inline int adreno_rb_ctxtswitch(unsigned int *cmd)
 {
 	return (cmd[0] == cp_nop_packet(1) &&

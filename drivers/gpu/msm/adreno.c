@@ -1094,7 +1094,7 @@ err:
 static int
 adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
 {
-	if (adreno_dev->gpurev != ADRENO_REV_A330)
+	if (!adreno_is_a330(adreno_dev))
 		return 0;
 
 	/* OCMEM is only needed once, do not support consective allocation */
@@ -1115,7 +1115,7 @@ adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
 static void
 adreno_ocmem_gmem_free(struct adreno_device *adreno_dev)
 {
-	if (adreno_dev->gpurev != ADRENO_REV_A330)
+	if (!adreno_is_a330(adreno_dev))
 		return;
 
 	if (adreno_dev->ocmem_hdl == NULL)

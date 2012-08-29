@@ -2698,7 +2698,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = &adreno_dev->dev;
 
 	/* Set up 16 deep read/write request queues */
-	if (adreno_dev->gpurev == ADRENO_REV_A330) {
+	if (adreno_is_a330(adreno_dev)) {
 		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF0, 0x18181818);
 		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF1, 0x18181818);
 		adreno_regwrite(device, A3XX_VBIF_OUT_RD_LIM_CONF0, 0x18181818);
@@ -2781,7 +2781,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 			A3XX_RBBM_CLOCK_CTL_DEFAULT);
 
 	/* Set the OCMEM base address for A330 */
-	if (adreno_dev->gpurev == ADRENO_REV_A330) {
+	if (adreno_is_a330(adreno_dev)) {
 		adreno_regwrite(device, A3XX_RB_GMEM_BASE_ADDR,
 			(unsigned int)(adreno_dev->ocmem_base >> 14));
 	}
