@@ -62,6 +62,7 @@ Optional Properties:
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
+- qcom,strtstp-sleepwake:  Boolean. Enables use of GPU SLUMBER instead of SLEEP for power savings
 
 Example of A330 GPU in MSM8974:
 
