@@ -111,51 +111,64 @@ static struct vreg_set_points *all_set_points[] = {
 };
 
 #define LDO(_id, _name, _name_pc, _ranges, _hpm_min_load, _requires_cxo) \
-	[RPM_VREG_ID_PM8038_##_id] = { \
+	[RPM_VREG_ID_PM##_id] = { \
 		.req = { \
-			[0] = { .id = MSM_RPM_ID_PM8038_##_id##_0, }, \
-			[1] = { .id = MSM_RPM_ID_PM8038_##_id##_1, }, \
+			[0] = { .id = MSM_RPM_ID_PM##_id##_0, }, \
+			[1] = { .id = MSM_RPM_ID_PM##_id##_1, }, \
 		}, \
 		.hpm_min_load  = RPM_VREG_8930_##_hpm_min_load##_HPM_MIN_LOAD, \
 		.type		 = RPM_REGULATOR_TYPE_LDO, \
 		.set_points	 = &_ranges##_set_points, \
 		.part		 = &ldo_parts, \
-		.id		 = RPM_VREG_ID_PM8038_##_id, \
+		.id		 = RPM_VREG_ID_PM##_id, \
 		.rdesc.name	 = _name, \
 		.rdesc_pc.name	 = _name_pc, \
 		.requires_cxo	 = _requires_cxo, \
 	}
 
 #define SMPS(_id, _name, _name_pc, _ranges, _hpm_min_load) \
-	[RPM_VREG_ID_PM8038_##_id] = { \
+	[RPM_VREG_ID_PM##_id] = { \
 		.req = { \
-			[0] = { .id = MSM_RPM_ID_PM8038_##_id##_0, }, \
-			[1] = { .id = MSM_RPM_ID_PM8038_##_id##_1, }, \
+			[0] = { .id = MSM_RPM_ID_PM##_id##_0, }, \
+			[1] = { .id = MSM_RPM_ID_PM##_id##_1, }, \
 		}, \
 		.hpm_min_load  = RPM_VREG_8930_##_hpm_min_load##_HPM_MIN_LOAD, \
 		.type		 = RPM_REGULATOR_TYPE_SMPS, \
 		.set_points	 = &_ranges##_set_points, \
 		.part		 = &smps_parts, \
-		.id		 = RPM_VREG_ID_PM8038_##_id, \
+		.id		 = RPM_VREG_ID_PM##_id, \
 		.rdesc.name	 = _name, \
 		.rdesc_pc.name	 = _name_pc, \
 	}
 
 #define LVS(_id, _name, _name_pc) \
-	[RPM_VREG_ID_PM8038_##_id] = { \
+	[RPM_VREG_ID_PM##_id] = { \
 		.req = { \
-			[0] = { .id = MSM_RPM_ID_PM8038_##_id, }, \
+			[0] = { .id = MSM_RPM_ID_PM##_id, }, \
 			[1] = { .id = -1, }, \
 		}, \
 		.type		 = RPM_REGULATOR_TYPE_VS, \
 		.part		 = &switch_parts, \
-		.id		 = RPM_VREG_ID_PM8038_##_id, \
+		.id		 = RPM_VREG_ID_PM##_id, \
+		.rdesc.name	 = _name, \
+		.rdesc_pc.name	 = _name_pc, \
+	}
+
+#define MVS(_vreg_id, _name, _name_pc, _rpm_id) \
+	[RPM_VREG_ID_PM##_vreg_id] = { \
+		.req = { \
+			[0] = { .id = MSM_RPM_ID_##_rpm_id, }, \
+			[1] = { .id = -1, }, \
+		}, \
+		.type		 = RPM_REGULATOR_TYPE_VS, \
+		.part		 = &switch_parts, \
+		.id		 = RPM_VREG_ID_PM##_vreg_id, \
 		.rdesc.name	 = _name, \
 		.rdesc_pc.name	 = _name_pc, \
 	}
 
 #define CORNER(_id, _rpm_id, _name, _ranges) \
-	[RPM_VREG_ID_PM8038_##_id] = { \
+	[RPM_VREG_ID_PM##_id] = { \
 		.req = { \
 			[0] = { .id = MSM_RPM_ID_##_rpm_id, }, \
 			[1] = { .id = -1, }, \
@@ -163,50 +176,105 @@ static struct vreg_set_points *all_set_points[] = {
 		.type		 = RPM_REGULATOR_TYPE_CORNER, \
 		.set_points	 = &_ranges##_set_points, \
 		.part		 = &corner_parts, \
-		.id		 = RPM_VREG_ID_PM8038_##_id, \
+		.id		 = RPM_VREG_ID_PM##_id, \
 		.rdesc.name	 = _name, \
 	}
 
-static struct vreg vregs[] = {
-	LDO(L1,   "8038_l1",   NULL,          nldo1200, LDO_1200, 1),
-	LDO(L2,   "8038_l2",   "8038_l2_pc",  nldo,     LDO_150,  1),
-	LDO(L3,   "8038_l3",   "8038_l3_pc",  pldo,     LDO_50,   0),
-	LDO(L4,   "8038_l4",   "8038_l4_pc",  pldo,     LDO_50,   0),
-	LDO(L5,   "8038_l5",   "8038_l5_pc",  pldo,     LDO_600,  0),
-	LDO(L6,   "8038_l6",   "8038_l6_pc",  pldo,     LDO_600,  0),
-	LDO(L7,   "8038_l7",   "8038_l7_pc",  pldo,     LDO_600,  0),
-	LDO(L8,   "8038_l8",   "8038_l8_pc",  pldo,     LDO_300,  0),
-	LDO(L9,   "8038_l9",   "8038_l9_pc",  pldo,     LDO_300,  0),
-	LDO(L10,  "8038_l10",  "8038_l10_pc", pldo,     LDO_600,  0),
-	LDO(L11,  "8038_l11",  "8038_l11_pc", pldo,     LDO_600,  0),
-	LDO(L12,  "8038_l12",  "8038_l12_pc", nldo,     LDO_300,  1),
-	LDO(L13,  "8038_l13",  NULL,          ln_ldo,   LDO_5,    0),
-	LDO(L14,  "8038_l14",  "8038_l14_pc", pldo,     LDO_50,   0),
-	LDO(L15,  "8038_l15",  "8038_l15_pc", pldo,     LDO_150,  0),
-	LDO(L16,  "8038_l16",  NULL,          nldo1200, LDO_1200, 1),
-	LDO(L17,  "8038_l17",  "8038_l17_pc", pldo,     LDO_150,  0),
-	LDO(L18,  "8038_l18",  "8038_l18_pc", pldo,     LDO_50,   0),
-	LDO(L19,  "8038_l19",  NULL,          nldo1200, LDO_1200, 1),
-	LDO(L20,  "8038_l20",  NULL,          nldo1200, LDO_1200, 1),
-	LDO(L21,  "8038_l21",  "8038_l21_pc", pldo,     LDO_150,  0),
-	LDO(L22,  "8038_l22",  "8038_l22_pc", pldo,     LDO_50,   0),
-	LDO(L23,  "8038_l23",  "8038_l23_pc", pldo,     LDO_50,   0),
-	LDO(L24,  "8038_l24",  NULL,          nldo1200, LDO_1200, 1),
-	LDO(L25,  "8038_l25",  NULL,          ln_ldo,   LDO_5,    0),
-	LDO(L26,  "8038_l26",  "8038_l26_pc", nldo,     LDO_150,  1),
-	LDO(L27,  "8038_l27",  NULL,          nldo1200, LDO_1200, 1),
+static struct vreg vregs_msm8930_pm8038[] = {
+	LDO(8038_L1,   "8038_l1",   NULL,          nldo1200, LDO_1200, 1),
+	LDO(8038_L2,   "8038_l2",   "8038_l2_pc",  nldo,     LDO_150,  1),
+	LDO(8038_L3,   "8038_l3",   "8038_l3_pc",  pldo,     LDO_50,   0),
+	LDO(8038_L4,   "8038_l4",   "8038_l4_pc",  pldo,     LDO_50,   0),
+	LDO(8038_L5,   "8038_l5",   "8038_l5_pc",  pldo,     LDO_600,  0),
+	LDO(8038_L6,   "8038_l6",   "8038_l6_pc",  pldo,     LDO_600,  0),
+	LDO(8038_L7,   "8038_l7",   "8038_l7_pc",  pldo,     LDO_600,  0),
+	LDO(8038_L8,   "8038_l8",   "8038_l8_pc",  pldo,     LDO_300,  0),
+	LDO(8038_L9,   "8038_l9",   "8038_l9_pc",  pldo,     LDO_300,  0),
+	LDO(8038_L10,  "8038_l10",  "8038_l10_pc", pldo,     LDO_600,  0),
+	LDO(8038_L11,  "8038_l11",  "8038_l11_pc", pldo,     LDO_600,  0),
+	LDO(8038_L12,  "8038_l12",  "8038_l12_pc", nldo,     LDO_300,  1),
+	LDO(8038_L13,  "8038_l13",  NULL,          ln_ldo,   LDO_5,    0),
+	LDO(8038_L14,  "8038_l14",  "8038_l14_pc", pldo,     LDO_50,   0),
+	LDO(8038_L15,  "8038_l15",  "8038_l15_pc", pldo,     LDO_150,  0),
+	LDO(8038_L16,  "8038_l16",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(8038_L17,  "8038_l17",  "8038_l17_pc", pldo,     LDO_150,  0),
+	LDO(8038_L18,  "8038_l18",  "8038_l18_pc", pldo,     LDO_50,   0),
+	LDO(8038_L19,  "8038_l19",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(8038_L20,  "8038_l20",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(8038_L21,  "8038_l21",  "8038_l21_pc", pldo,     LDO_150,  0),
+	LDO(8038_L22,  "8038_l22",  "8038_l22_pc", pldo,     LDO_50,   0),
+	LDO(8038_L23,  "8038_l23",  "8038_l23_pc", pldo,     LDO_50,   0),
+	LDO(8038_L24,  "8038_l24",  NULL,          nldo1200, LDO_1200, 1),
+	LDO(8038_L25,  "8038_l25",  NULL,          ln_ldo,   LDO_5,    0),
+	LDO(8038_L26,  "8038_l26",  "8038_l26_pc", nldo,     LDO_150,  1),
+	LDO(8038_L27,  "8038_l27",  NULL,          nldo1200, LDO_1200, 1),
 
-	SMPS(S1,  "8038_s1",   "8038_s1_pc",  smps,     SMPS_1500),
-	SMPS(S2,  "8038_s2",   "8038_s2_pc",  smps,     SMPS_1500),
-	SMPS(S3,  "8038_s3",   "8038_s3_pc",  smps,     SMPS_1500),
-	SMPS(S4,  "8038_s4",   "8038_s4_pc",  smps,     SMPS_1500),
-	SMPS(S5,  "8038_s5",   NULL,          ftsmps,   SMPS_2000),
-	SMPS(S6,  "8038_s6",   NULL,          ftsmps,   SMPS_2000),
+	SMPS(8038_S1,  "8038_s1",   "8038_s1_pc",  smps,     SMPS_1500),
+	SMPS(8038_S2,  "8038_s2",   "8038_s2_pc",  smps,     SMPS_1500),
+	SMPS(8038_S3,  "8038_s3",   "8038_s3_pc",  smps,     SMPS_1500),
+	SMPS(8038_S4,  "8038_s4",   "8038_s4_pc",  smps,     SMPS_1500),
+	SMPS(8038_S5,  "8038_s5",   NULL,          ftsmps,   SMPS_2000),
+	SMPS(8038_S6,  "8038_s6",   NULL,          ftsmps,   SMPS_2000),
 
-	LVS(LVS1, "8038_lvs1", "8038_lvs1_pc"),
-	LVS(LVS2, "8038_lvs2", "8038_lvs2_pc"),
+	LVS(8038_LVS1, "8038_lvs1", "8038_lvs1_pc"),
+	LVS(8038_LVS2, "8038_lvs2", "8038_lvs2_pc"),
 
-	CORNER(VDD_DIG_CORNER, VOLTAGE_CORNER, "vdd_dig_corner", corner),
+	CORNER(8038_VDD_DIG_CORNER, VOLTAGE_CORNER, "vdd_dig_corner", corner),
+};
+
+static struct vreg vregs_msm8930_pm8917[] = {
+	LDO(8917_L1,   "8917_l1",   "8917_l1_pc",  nldo,     LDO_150,  1),
+	LDO(8917_L2,   "8917_l2",   "8917_l2_pc",  nldo,     LDO_150,  1),
+	LDO(8917_L3,   "8917_l3",   "8917_l3_pc",  pldo,     LDO_150,  0),
+	LDO(8917_L4,   "8917_l4",   "8917_l4_pc",  pldo,     LDO_50,   0),
+	LDO(8917_L5,   "8917_l5",   "8917_l5_pc",  pldo,     LDO_300,  0),
+	LDO(8917_L6,   "8917_l6",   "8917_l6_pc",  pldo,     LDO_600,  0),
+	LDO(8917_L7,   "8917_l7",   "8917_l7_pc",  pldo,     LDO_150,  0),
+	LDO(8917_L8,   "8917_l8",   "8917_l8_pc",  pldo,     LDO_300,  0),
+	LDO(8917_L9,   "8917_l9",   "8917_l9_pc",  pldo,     LDO_300,  0),
+	LDO(8917_L10,  "8917_l10",  "8917_l10_pc", pldo,     LDO_600,  0),
+	LDO(8917_L11,  "8917_l11",  "8917_l11_pc", pldo,     LDO_150,  0),
+	LDO(8917_L12,  "8917_l12",  "8917_l12_pc", nldo,     LDO_150,  1),
+	LDO(8917_L14,  "8917_l14",  "8917_l14_pc", pldo,     LDO_50,   0),
+	LDO(8917_L15,  "8917_l15",  "8917_l15_pc", pldo,     LDO_150,  0),
+	LDO(8917_L16,  "8917_l16",  "8917_l16_pc", pldo,     LDO_300,  0),
+	LDO(8917_L17,  "8917_l17",  "8917_l17_pc", pldo,     LDO_150,  0),
+	LDO(8917_L18,  "8917_l18",  "8917_l18_pc", nldo,     LDO_150,  1),
+	LDO(8917_L21,  "8917_l21",  "8917_l21_pc", pldo,     LDO_150,  0),
+	LDO(8917_L22,  "8917_l22",  "8917_l22_pc", pldo,     LDO_150,  0),
+	LDO(8917_L23,  "8917_l23",  "8917_l23_pc", pldo,     LDO_150,  0),
+	LDO(8917_L24,  "8917_l24",  NULL,          nldo1200, LDO_1200, 0),
+	LDO(8917_L25,  "8917_l25",  NULL,          nldo1200, LDO_1200, 0),
+	LDO(8917_L26,  "8917_l26",  NULL,          nldo1200, LDO_1200, 0),
+	LDO(8917_L27,  "8917_l27",  NULL,          nldo1200, LDO_1200, 0),
+	LDO(8917_L28,  "8917_l28",  NULL,          nldo1200, LDO_1200, 0),
+	LDO(8917_L29,  "8917_l29",  "8917_l29_pc", pldo,     LDO_150,  0),
+	LDO(8917_L30,  "8917_l30",  "8917_l30_pc", pldo,     LDO_150,  0),
+	LDO(8917_L31,  "8917_l31",  "8917_l31_pc", pldo,     LDO_150,  0),
+	LDO(8917_L32,  "8917_l32",  "8917_l32_pc", pldo,     LDO_150,  0),
+	LDO(8917_L33,  "8917_l33",  "8917_l33_pc", pldo,     LDO_150,  0),
+	LDO(8917_L34,  "8917_l34",  "8917_l34_pc", pldo,     LDO_150,  0),
+	LDO(8917_L35,  "8917_l35",  "8917_l35_pc", pldo,     LDO_300,  0),
+	LDO(8917_L36,  "8917_l36",  "8917_l36_pc", pldo,     LDO_50,   0),
+
+	SMPS(8917_S1,  "8917_s1",   "8917_s1_pc",  smps,     SMPS_1500),
+	SMPS(8917_S2,  "8917_s2",   "8917_s2_pc",  smps,     SMPS_1500),
+	SMPS(8917_S3,  "8917_s3",   "8917_s3_pc",  smps,     SMPS_1500),
+	SMPS(8917_S4,  "8917_s4",   "8917_s4_pc",  smps,     SMPS_1500),
+	SMPS(8917_S5,  "8917_s5",   NULL,          ftsmps,   SMPS_2000),
+	SMPS(8917_S6,  "8917_s6",   NULL,          ftsmps,   SMPS_2000),
+	SMPS(8917_S7,  "8917_s7",   "8917_s7_pc",  smps,     SMPS_1500),
+	SMPS(8917_S8,  "8917_s8",   "8917_s8_pc",  smps,     SMPS_1500),
+
+	LVS(8917_LVS1, "8917_lvs1", "8917_lvs1_pc"),
+	LVS(8917_LVS3, "8917_lvs3", "8917_lvs3_pc"),
+	LVS(8917_LVS4, "8917_lvs4", "8917_lvs4_pc"),
+	LVS(8917_LVS5, "8917_lvs5", "8917_lvs5_pc"),
+	LVS(8917_LVS6, "8917_lvs6", "8917_lvs6_pc"),
+	LVS(8917_LVS7, "8917_lvs7", "8917_lvs7_pc"),
+	MVS(8917_USB_OTG,  "8917_usb_otg",  NULL, USB_OTG_SWITCH),
+
+	CORNER(8917_VDD_DIG_CORNER, VOLTAGE_CORNER, "vdd_dig_corner", corner),
 };
 
 static const char *pin_func_label[] = {
@@ -237,17 +305,18 @@ static const char *pin_control_label[] = {
 	" A2",
 };
 
-static int is_real_id(int id)
+static int is_real_id_msm8930_pm8038(int id)
 {
 	return (id >= 0) && (id <= RPM_VREG_ID_PM8038_MAX_REAL);
 }
 
-static int pc_id_to_real_id(int id)
+static int pc_id_to_real_id_msm8930_pm8038(int id)
 {
 	int real_id = 0;
 
 	if (id >= RPM_VREG_ID_PM8038_L2_PC && id <= RPM_VREG_ID_PM8038_L12_PC)
-		real_id = id - RPM_VREG_ID_PM8038_L2_PC;
+		real_id = id - RPM_VREG_ID_PM8038_L2_PC
+				+ RPM_VREG_ID_PM8038_L2;
 	else if (id >= RPM_VREG_ID_PM8038_L14_PC
 			&& id <= RPM_VREG_ID_PM8038_L15_PC)
 		real_id = id - RPM_VREG_ID_PM8038_L14_PC
@@ -274,9 +343,33 @@ static int pc_id_to_real_id(int id)
 	return real_id;
 }
 
-static struct vreg_config config = {
-	.vregs			= vregs,
-	.vregs_len		= ARRAY_SIZE(vregs),
+static int is_real_id_msm8930_pm8917(int id)
+{
+	return (id >= 0) && (id <= RPM_VREG_ID_PM8917_MAX_REAL);
+}
+
+static int pc_id_to_real_id_msm8930_pm8917(int id)
+{
+	int real_id = 0;
+
+	if (id >= RPM_VREG_ID_PM8917_L1_PC && id <= RPM_VREG_ID_PM8917_L23_PC)
+		real_id = id - RPM_VREG_ID_PM8917_L1_PC
+				+ RPM_VREG_ID_PM8917_L1;
+	else if (id >= RPM_VREG_ID_PM8917_L29_PC
+			&& id <= RPM_VREG_ID_PM8917_S4_PC)
+		real_id = id - RPM_VREG_ID_PM8917_L29_PC
+				+ RPM_VREG_ID_PM8917_L29;
+	else if (id >= RPM_VREG_ID_PM8917_S7_PC
+			&& id <= RPM_VREG_ID_PM8917_LVS7_PC)
+		real_id = id - RPM_VREG_ID_PM8917_S7_PC
+				+ RPM_VREG_ID_PM8917_S7;
+
+	return real_id;
+}
+
+static struct vreg_config config_msm8930_pm8038 = {
+	.vregs			= vregs_msm8930_pm8038,
+	.vregs_len		= ARRAY_SIZE(vregs_msm8930_pm8038),
 
 	.vreg_id_min		= RPM_VREG_ID_PM8038_L1,
 	.vreg_id_max		= RPM_VREG_ID_PM8038_MAX,
@@ -299,11 +392,45 @@ static struct vreg_config config = {
 	.label_power_mode	= power_mode_label,
 	.label_power_mode_len	= ARRAY_SIZE(power_mode_label),
 
-	.is_real_id		= is_real_id,
-	.pc_id_to_real_id	= pc_id_to_real_id,
+	.is_real_id		= is_real_id_msm8930_pm8038,
+	.pc_id_to_real_id	= pc_id_to_real_id_msm8930_pm8038,
+};
+
+static struct vreg_config config_msm8930_pm8917 = {
+	.vregs			= vregs_msm8930_pm8917,
+	.vregs_len		= ARRAY_SIZE(vregs_msm8930_pm8917),
+
+	.vreg_id_min		= RPM_VREG_ID_PM8917_L1,
+	.vreg_id_max		= RPM_VREG_ID_PM8917_MAX,
+
+	.pin_func_none		= RPM_VREG_PIN_FN_8930_NONE,
+	.pin_func_sleep_b	= RPM_VREG_PIN_FN_8930_SLEEP_B,
+
+	.mode_lpm		= REGULATOR_MODE_IDLE,
+	.mode_hpm		= REGULATOR_MODE_NORMAL,
+
+	.set_points		= all_set_points,
+	.set_points_len		= ARRAY_SIZE(all_set_points),
+
+	.label_pin_ctrl		= pin_control_label,
+	.label_pin_ctrl_len	= ARRAY_SIZE(pin_control_label),
+	.label_pin_func		= pin_func_label,
+	.label_pin_func_len	= ARRAY_SIZE(pin_func_label),
+	.label_force_mode	= force_mode_label,
+	.label_force_mode_len	= ARRAY_SIZE(force_mode_label),
+	.label_power_mode	= power_mode_label,
+	.label_power_mode_len	= ARRAY_SIZE(power_mode_label),
+
+	.is_real_id		= is_real_id_msm8930_pm8917,
+	.pc_id_to_real_id	= pc_id_to_real_id_msm8930_pm8917,
 };
 
 struct vreg_config *get_config_8930(void)
 {
-	return &config;
+	return &config_msm8930_pm8038;
+}
+
+struct vreg_config *get_config_8930_pm8917(void)
+{
+	return &config_msm8930_pm8917;
 }
