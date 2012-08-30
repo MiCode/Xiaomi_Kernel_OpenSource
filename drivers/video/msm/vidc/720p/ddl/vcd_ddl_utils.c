@@ -124,7 +124,7 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 					ddl_context->video_ion_client,
 					alloc_size,
 					SZ_4K,
-					buff_addr->mem_type);
+					buff_addr->mem_type, 0);
 		if (!buff_addr->alloc_handle) {
 			ERR("\n%s(): DDL ION alloc failed\n",
 					__func__);

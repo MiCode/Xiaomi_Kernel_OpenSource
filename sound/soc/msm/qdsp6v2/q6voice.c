@@ -3453,7 +3453,7 @@ static int voice_alloc_oob_shared_mem(void)
 
 	v->shmem_info.sh_buf.handle = ion_alloc(v->shmem_info.sh_buf.client,
 						bufsz * bufcnt, SZ_4K,
-						(0x1 << ION_AUDIO_HEAP_ID));
+						(0x1 << ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL((void *)v->shmem_info.sh_buf.handle)) {
 		pr_err("%s: ION memory allocation failed\n",
 			__func__);
@@ -3521,7 +3521,7 @@ static int voice_alloc_oob_mem_table(void)
 
 	v->shmem_info.memtbl.handle = ion_alloc(v->shmem_info.memtbl.client,
 				sizeof(struct vss_imemory_table_t), SZ_4K,
-				(0x1 << ION_AUDIO_HEAP_ID));
+				(0x1 << ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL((void *) v->shmem_info.memtbl.handle)) {
 		pr_err("%s: ION memory allocation for memtbl failed\n",
 			__func__);
