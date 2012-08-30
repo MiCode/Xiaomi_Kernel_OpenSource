@@ -74,6 +74,12 @@ int vp_setup_buffers(struct vcap_client_data *c_data)
 	dev = c_data->dev;
 	dprintk(2, "Start setup buffers\n");
 
+	if (dev->vp_shutdown) {
+		dprintk(1, "%s: VP shutting down, no buf setup\n",
+			__func__);
+		return -EPERM;
+	}
+
 	/* No need to verify vp_client is not NULL caller does so */
 	vp_act = &dev->vp_client->vid_vp_action;
 
@@ -262,6 +268,8 @@ static void vp_wq_fnc(struct work_struct *work)
 		writel_relaxed(0x00000000, VCAP_VP_INTERRUPT_ENABLE);
 		writel_iowmb(irq, VCAP_VP_INT_CLEAR);
 		atomic_set(&dev->vp_enabled, 0);
+		if (dev->vp_shutdown)
+			wake_up(&dev->vp_dummy_waitq);
 		return;
 	}
 
@@ -350,30 +358,60 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 	return IRQ_HANDLED;
 }
 
+int vp_sw_reset(struct vcap_dev *dev)
+{
+	int timeout;
+	writel_iowmb(0x00000010, VCAP_SW_RESET_REQ);
+	timeout = 10000;
+	while (1) {
+		if (!(readl_relaxed(VCAP_SW_RESET_STATUS) & 0x10))
+			break;
+		timeout--;
+		if (timeout == 0) {
+			/* This should not happen */
+			pr_err("VP is not resetting properly\n");
+			writel_iowmb(0x00000000, VCAP_SW_RESET_REQ);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 void vp_stop_capture(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
+	int rc;
 
-	writel_iowmb(0x00000000, VCAP_VP_CTRL);
+	dev->vp_shutdown = true;
 	flush_workqueue(dev->vcap_wq);
 
-	if (atomic_read(&dev->vp_enabled) == 1)
-		disable_irq(dev->vpirq->start);
+	if (atomic_read(&dev->vp_enabled) == 1) {
+		rc = wait_event_interruptible_timeout(dev->vp_dummy_waitq,
+				!atomic_read(&dev->vp_enabled),
+				msecs_to_jiffies(50));
+		if (rc == 0 && atomic_read(&dev->vp_enabled) == 1) {
+			/* This should not happen, if it does hw is stuck */
+			pr_err("%s: VP Timeout and VP still running\n",
+				__func__);
+		}
+	}
 
-	writel_iowmb(0x00000001, VCAP_VP_SW_RESET);
-	writel_iowmb(0x00000000, VCAP_VP_SW_RESET);
+	vp_sw_reset(dev);
+	dev->vp_shutdown = false;
 }
 
 int config_vp_format(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev = c_data->dev;
+	int rc;
 
 	INIT_WORK(&dev->vp_to_vc_work.work, mov_buf_to_vc);
 	dev->vp_to_vc_work.cd = c_data;
 
 	/* SW restart VP */
-	writel_iowmb(0x00000001, VCAP_VP_SW_RESET);
-	writel_iowmb(0x00000000, VCAP_VP_SW_RESET);
+	rc = vp_sw_reset(dev);
+	if (rc < 0)
+		return rc;
 
 	/* Film Mode related settings */
 	writel_iowmb(0x00000000, VCAP_VP_FILM_PROJECTION_T0);
@@ -668,20 +706,18 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 
 	dev->vp_dummy_event = true;
 
+	enable_irq(dev->vpirq->start);
 	writel_relaxed(0x01100101, VCAP_VP_INTERRUPT_ENABLE);
 	writel_iowmb(0x00000000, VCAP_VP_CTRL);
 	writel_iowmb(0x00010000, VCAP_VP_CTRL);
 
-	enable_irq(dev->vpirq->start);
 	rc = wait_event_interruptible_timeout(dev->vp_dummy_waitq,
 		dev->vp_dummy_complete, msecs_to_jiffies(50));
 	if (!rc && !dev->vp_dummy_complete) {
 		pr_err("%s: VP dummy event timeout", __func__);
 		rc = -ETIME;
-		writel_iowmb(0x00000000, VCAP_VP_CTRL);
 
-		writel_iowmb(0x00000001, VCAP_VP_SW_RESET);
-		writel_iowmb(0x00000000, VCAP_VP_SW_RESET);
+		vp_sw_reset(dev);
 		dev->vp_dummy_complete = false;
 	}
 
