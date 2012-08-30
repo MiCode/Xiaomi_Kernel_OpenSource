@@ -87,7 +87,6 @@ static void event_handler(uint32_t opcode,
 	unsigned long flag = 0;
 	int i = 0;
 
-	pr_debug("%s\n", __func__);
 	spin_lock_irqsave(&the_locks.event_lock, flag);
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE_V2: {
