@@ -15,6 +15,8 @@
 
 #include <linux/memory_alloc.h>
 
+#define MSM_IOMMU_DOMAIN_SECURE	0x1
+
 enum {
 	VIDEO_DOMAIN,
 	CAMERA_DOMAIN,
@@ -67,6 +69,7 @@ struct msm_iova_layout {
 	int npartitions;
 	const char *client_name;
 	unsigned int domain_flags;
+	unsigned int is_secure;
 };
 
 #if defined(CONFIG_MSM_IOMMU)
