@@ -34,7 +34,7 @@
 
 #define SMUX_NOTIFY_FIFO_SIZE	128
 #define SMUX_TX_QUEUE_SIZE	256
-#define SMUX_PKT_LOG_SIZE 80
+#define SMUX_PKT_LOG_SIZE 128
 
 /* Maximum size we can accept in a single RX buffer */
 #define TTY_RECEIVE_ROOM 65536
