@@ -1527,10 +1527,6 @@ static int __devinit __wfd_probe(struct platform_device *pdev)
 	}
 
 	wfd_priv = pdev->dev.platform_data;
-	if (wfd_priv && wfd_priv->wfd_check_mdp_iommu_split) {
-		wfd_dev->mdp_iommu_split_domain =
-			wfd_priv->wfd_check_mdp_iommu_split();
-	}
 
 	pdev->dev.platform_data = (void *) wfd_dev;
 
@@ -1574,6 +1570,11 @@ static int __devinit __wfd_probe(struct platform_device *pdev)
 		mutex_init(&wfd_dev[c].dev_lock);
 		wfd_dev[c].ion_client = ion_client;
 		wfd_dev[c].in_use = false;
+		if (wfd_priv && wfd_priv->wfd_check_mdp_iommu_split) {
+			wfd_dev[c].mdp_iommu_split_domain =
+				wfd_priv->wfd_check_mdp_iommu_split();
+		}
+
 		switch (WFD_DEVICE_NUMBER_BASE + c) {
 		case WFD_DEVICE_SECURE:
 			wfd_dev[c].secure_device = true;
