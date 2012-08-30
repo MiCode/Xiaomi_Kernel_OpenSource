@@ -103,10 +103,12 @@
  */
 #define QSCRATCH_REG_OFFSET	(0x000F8800)
 #define QSCRATCH_GENERAL_CFG	(QSCRATCH_REG_OFFSET + 0x08)
+#define HS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x10)
 #define CHARGING_DET_CTRL_REG	(QSCRATCH_REG_OFFSET + 0x18)
 #define CHARGING_DET_OUTPUT_REG	(QSCRATCH_REG_OFFSET + 0x1C)
 #define ALT_INTERRUPT_EN_REG	(QSCRATCH_REG_OFFSET + 0x20)
 #define HS_PHY_IRQ_STAT_REG	(QSCRATCH_REG_OFFSET + 0x24)
+#define SS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x30)
 
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
@@ -1572,6 +1574,27 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	dwc3->dev.dma_parms = pdev->dev.dma_parms;
 	msm->resource_size = resource_size(res);
 	msm->dwc3 = dwc3;
+
+	/* SSPHY Initialization: Use ref_clk from pads and set its parameters */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
+	msleep(30);
+	/* Assert SSPHY reset */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210082);
+	usleep_range(2000, 2200);
+	/* De-assert SSPHY reset - power and ref_clock must be ON */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
+	usleep_range(2000, 2200);
+	/* Ref clock must be stable now, enable ref clock for HS mode */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210102);
+	usleep_range(2000, 2200);
+	/*
+	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
+	 * and disable RETENTION (power-on default is ENABLED)
+	 */
+	dwc3_msm_write_reg(msm->base, HS_PHY_CTRL_REG, 0x5220bb2);
+	usleep_range(2000, 2200);
+	/* Disable (bypass) VBUS filter */
+	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x38);
 
 	pm_runtime_set_active(msm->dev);
 
