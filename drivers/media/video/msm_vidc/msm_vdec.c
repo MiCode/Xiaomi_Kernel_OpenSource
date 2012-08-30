@@ -598,6 +598,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	int i, rc = 0;
 	struct msm_vidc_inst *inst;
 	unsigned long flags;
+	struct hal_buffer_requirements *bufreq;
 	if (!q || !q->drv_priv) {
 		pr_err("Invalid input, q = %p\n", q);
 		return -EINVAL;
@@ -628,7 +629,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			break;
 		}
 		*num_planes = 1;
-
 		spin_lock_irqsave(&inst->lock, flags);
 		if (*num_buffers && *num_buffers >
 			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].
@@ -642,17 +642,12 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			rc = vidc_hal_session_set_property(inst->session,
 					property_id, &new_buf_count);
 
-			spin_unlock_irqrestore(&inst->lock, flags);
-			if (!rc && msm_comm_try_get_bufreqs(inst)) {
-				/* We are allowed to reject clients' request for
-				 * more buffers and suggest our own bufreq */
-				pr_warn("Unable to increase the number of output buffers to %d\n",
-						*num_buffers);
-			}
-			spin_lock_irqsave(&inst->lock, flags);
 		}
-		*num_buffers = inst->buff_req.buffer[HAL_BUFFER_OUTPUT].
-							buffer_count_actual;
+		bufreq = &inst->buff_req.buffer[HAL_BUFFER_OUTPUT];
+		if (bufreq->buffer_count_actual > *num_buffers)
+			*num_buffers =  bufreq->buffer_count_actual;
+		else
+			bufreq->buffer_count_actual = *num_buffers ;
 		spin_unlock_irqrestore(&inst->lock, flags);
 
 		pr_debug("count =  %d, size = %d, alignment = %d\n",
@@ -679,11 +674,6 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	unsigned long flags;
 	struct vb2_buf_entry *temp;
 	struct list_head *ptr, *next;
-	rc = msm_comm_try_get_bufreqs(inst);
-	if (rc) {
-		pr_err("Failed to get buffer requirements : %d\n", rc);
-		goto fail_start;
-	}
 	rc = msm_comm_set_scratch_buffers(inst);
 	if (rc) {
 		pr_err("Failed to set scratch buffers: %d\n", rc);
