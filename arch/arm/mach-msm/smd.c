@@ -377,24 +377,6 @@ static inline void smd_write_intr(unsigned int val,
 	__raw_writel(val, addr);
 }
 
-#ifdef CONFIG_WCNSS
-static inline void wakeup_v1_riva(void)
-{
-	/*
-	 * workaround hack for RIVA v1 hardware bug
-	 * trigger GPIO 40 to wake up RIVA from power collaspe
-	 * not to be sent to customers
-	 */
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {
-		__raw_writel(0x0, MSM_TLMM_BASE + 0x1284);
-		__raw_writel(0x2, MSM_TLMM_BASE + 0x1284);
-	}
-	/* end workaround */
-}
-#else
-static inline void wakeup_v1_riva(void) {}
-#endif
-
 static inline void notify_modem_smd(void)
 {
 	static const struct interrupt_config_item *intr
@@ -441,7 +423,6 @@ static inline void notify_wcnss_smd(void)
 {
 	static const struct interrupt_config_item *intr
 		= &private_intr_config[SMD_WCNSS].smd;
-	wakeup_v1_riva();
 
 	if (intr->out_base) {
 		++interrupt_stats[SMD_WCNSS].smd_out_config_count;
@@ -511,7 +492,6 @@ static inline void notify_wcnss_smsm(void)
 {
 	static const struct interrupt_config_item *intr
 		= &private_intr_config[SMD_WCNSS].smsm;
-	wakeup_v1_riva();
 
 	if (intr->out_base) {
 		++interrupt_stats[SMD_WCNSS].smsm_out_config_count;
