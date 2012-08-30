@@ -71,7 +71,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 		alloc_size = (alloc_size+4095) & ~4095;
 		addr->alloc_handle = ion_alloc(
 		ddl_context->video_ion_client, alloc_size, SZ_4K,
-			res_trk_get_mem_type());
+			res_trk_get_mem_type(), 0);
 		if (IS_ERR_OR_NULL(addr->alloc_handle)) {
 			DDL_MSG_ERROR("%s() :DDL ION alloc failed\n",
 						 __func__);

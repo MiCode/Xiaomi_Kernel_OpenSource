@@ -843,7 +843,7 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 
 	MM_DBG("allocating mem sz = %d\n", DMASZ);
 	handle = ion_alloc(client, DMASZ, SZ_4K,
-		ION_HEAP(ION_AUDIO_HEAP_ID));
+		ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL(handle)) {
 		MM_ERR("Unable to create allocate O/P buffers\n");
 		rc = -ENOMEM;

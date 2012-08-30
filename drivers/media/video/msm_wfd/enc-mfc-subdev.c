@@ -1932,7 +1932,7 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 	struct vcd_property_enc_recon_buffer *ctrl = NULL;
 	unsigned long phy_addr;
 	int i = 0;
-	int flags = 0;
+	int heap_mask = 0;
 	u32 len;
 	control.width = inst->width;
 	control.height = inst->height;
@@ -1945,8 +1945,8 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Failed to get recon buf size\n");
 		goto err;
 	}
-	flags = ION_HEAP(ION_CP_MM_HEAP_ID);
-	flags |= inst->secure ? ION_SECURE : ION_HEAP(ION_IOMMU_HEAP_ID);
+	heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
+	heap_mask |= inst->secure ? ION_SECURE : ION_HEAP(ION_IOMMU_HEAP_ID);
 
 	if (vcd_get_ion_status()) {
 		for (i = 0; i < 4; ++i) {
@@ -1957,7 +1957,7 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 			ctrl->user_virtual_addr = (void *)i;
 			client_ctx->recon_buffer_ion_handle[i]
 				= ion_alloc(client_ctx->user_ion_client,
-			control.size, SZ_8K, flags);
+			control.size, SZ_8K, heap_mask, 0);
 
 			ctrl->kernel_virtual_addr = ion_map_kernel(
 				client_ctx->user_ion_client,
