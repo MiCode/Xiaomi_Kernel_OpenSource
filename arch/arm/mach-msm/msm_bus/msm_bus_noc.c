@@ -189,10 +189,10 @@ static uint32_t noc_sat_field(uint64_t bw, uint32_t ws, uint32_t qos_freq)
 }
 
 static void noc_set_qos_mode(struct msm_bus_noc_info *ninfo, uint32_t mport,
-	uint8_t mode)
+	uint8_t mode, uint8_t perm_mode)
 {
 	if (mode < NOC_QOS_MODE_MAX &&
-		((1 << mode) & ninfo->mas_modes[mport])) {
+		((1 << mode) & perm_mode)) {
 		uint32_t reg_val;
 
 		reg_val = readl_relaxed(NOC_QOS_MODEn_ADDR(ninfo->base,
@@ -297,13 +297,13 @@ static void msm_bus_noc_set_qos_bw(struct msm_bus_noc_info *ninfo,
 }
 
 uint8_t msm_bus_noc_get_qos_mode(struct msm_bus_noc_info *ninfo,
-	uint32_t mport)
+	uint32_t mport, uint32_t mode, uint32_t perm_mode)
 {
-	if (NOC_QOS_MODES_ALL_PERM == ninfo->mas_modes[mport])
+	if (NOC_QOS_MODES_ALL_PERM == perm_mode)
 		return readl_relaxed(NOC_QOS_MODEn_ADDR(ninfo->base,
 			mport)) & NOC_QOS_MODEn_MODE_BMSK;
 	else
-		return 31 - __CLZ(ninfo->mas_modes[mport] &
+		return 31 - __CLZ(mode &
 			NOC_QOS_MODES_ALL_PERM);
 }
 
@@ -320,9 +320,9 @@ void msm_bus_noc_get_qos_priority(struct msm_bus_noc_info *ninfo,
 }
 
 void msm_bus_noc_get_qos_bw(struct msm_bus_noc_info *ninfo,
-	uint32_t mport, struct msm_bus_noc_qos_bw *qbw)
+	uint32_t mport, uint8_t perm_mode, struct msm_bus_noc_qos_bw *qbw)
 {
-	if (ninfo->mas_modes[mport] & (NOC_QOS_PERM_MODE_LIMITER |
+	if (perm_mode & (NOC_QOS_PERM_MODE_LIMITER |
 		NOC_QOS_PERM_MODE_REGULATOR)) {
 		uint32_t bw_val = readl_relaxed(NOC_QOS_BWn_ADDR(ninfo->
 			base, mport)) & NOC_QOS_BWn_BW_BMSK;
@@ -375,7 +375,7 @@ static int msm_bus_noc_mas_init(struct msm_bus_noc_info *ninfo,
 		}
 
 		noc_set_qos_mode(ninfo, info->node_info->qport[i], info->
-			node_info->mode);
+			node_info->mode, info->node_info->perm_mode);
 	}
 
 	return 0;
