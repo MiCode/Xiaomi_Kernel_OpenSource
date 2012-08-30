@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-
-#include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/mutex.h>
 #include <linux/wait.h>
@@ -355,8 +353,6 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 						usc->priv);
 				break;
 			default:
-				pr_debug("%s: command[0x%x] wrong response\n",
-					 __func__, payload[0]);
 				break;
 			}
 		}
@@ -366,19 +362,6 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 	switch (data->opcode) {
 	case USM_DATA_EVENT_READ_DONE: {
 		struct us_port_data *port = &usc->port[OUT];
-
-		pr_debug("%s: R-D: stat=%d; buff=%x; size=%d; off=%d\n",
-			 __func__,
-			 payload[READDONE_IDX_STATUS],
-			 payload[READDONE_IDX_BUFFER],
-			 payload[READDONE_IDX_SIZE],
-			 payload[READDONE_IDX_OFFSET]);
-		pr_debug("msw_ts=%d; lsw_ts=%d; flags=%d; id=%d; num=%d\n",
-			 payload[READDONE_IDX_MSW_TS],
-			 payload[READDONE_IDX_LSW_TS],
-			 payload[READDONE_IDX_FLAGS],
-			 payload[READDONE_IDX_ID],
-			 payload[READDONE_IDX_NUMFRAMES]);
 
 		spin_lock_irqsave(&port->dsp_lock, dsp_flags);
 		if (payload[READDONE_IDX_STATUS]) {
@@ -425,10 +408,6 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 	case USM_DATA_EVENT_WRITE_DONE: {
 		struct us_port_data *port = &usc->port[IN];
 
-		pr_debug("%s W-D: code[0x%x]; status[0x%x]; token[%d]",
-			 __func__,
-			 payload[0], payload[1], token);
-
 		if (payload[WRITEDONE_IDX_STATUS]) {
 			pr_err("%s: wrong WRITEDONE_IDX_STATUS[%d]\n",
 			       __func__,
@@ -442,10 +421,6 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 			port->dsp_buf = 0;
 		spin_unlock_irqrestore(&port->dsp_lock, dsp_flags);
 
-		pr_debug("%s: WRITE_DONE: token=%d; dsp_buf=%d; cpu_buf=%d\n",
-			__func__,
-			token, port->dsp_buf, port->cpu_buf);
-
 		break;
 	} /* case USM_DATA_EVENT_WRITE_DONE */
 
@@ -458,8 +433,6 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 	} /* case USM_SESSION_EVENT_SIGNAL_DETECT_RESULT */
 
 	default:
-		pr_debug("%s: not supported code [0x%x]",
-			 __func__, data->opcode);
 		return 0;
 
 	} /* switch */
@@ -498,9 +471,6 @@ uint32_t q6usm_get_virtual_address(int dir,
 static void q6usm_add_hdr(struct us_client *usc, struct apr_hdr *hdr,
 			  uint32_t pkt_size, bool cmd_flg)
 {
-	pr_debug("%s: pkt size=%d; cmd_flg=%d\n",
-		 __func__, pkt_size, cmd_flg);
-	pr_debug("**************\n");
 	mutex_lock(&usc->cmd_lock);
 	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
 				       APR_HDR_LEN(sizeof(struct apr_hdr)),\
@@ -523,9 +493,6 @@ static void q6usm_add_hdr(struct us_client *usc, struct apr_hdr *hdr,
 static void q6usm_add_mmaphdr(struct us_client *usc, struct apr_hdr *hdr,
 			      uint32_t pkt_size, bool cmd_flg)
 {
-	pr_debug("%s: pkt size=%d cmd_flg=%d\n",
-		 __func__, pkt_size, cmd_flg);
-	pr_debug("**************\n");
 	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
 				       APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	hdr->src_port = 0;
@@ -1067,11 +1034,6 @@ int q6usm_write(struct us_client *usc, uint32_t write_ind)
 		cmd_write.uid = port->cpu_buf;
 		cmd_write.hdr.token = port->cpu_buf;
 
-		pr_debug("%s:buf addr[0x%x] size[%d] token[%d] uid[%d]\n",
-			 __func__, cmd_write.buf_add, cmd_write.buf_size,
-			 cmd_write.hdr.token, cmd_write.uid);
-		pr_debug("%s: data=0x%p\n", __func__, port->data);
-
 		++(port->cpu_buf);
 		if (port->cpu_buf == port->buf_cnt)
 			port->cpu_buf = 0;
@@ -1088,9 +1050,6 @@ int q6usm_write(struct us_client *usc, uint32_t write_ind)
 
 		rc = 0;
 	}
-
-	pr_debug("%s:exit: rc=%d; write_ind=%d; cpu_buf=%d; dsp_buf=%d\n",
-		__func__, rc, write_ind, port->cpu_buf, port->dsp_buf);
 
 	return rc;
 }
@@ -1136,8 +1095,6 @@ int q6usm_cmd(struct us_client *usc, int cmd)
 		goto fail_cmd;
 	}
 
-	pr_debug("%s:session[%d]opcode[0x%x] ", __func__,
-		 usc->session,  hdr.opcode);
 	rc = apr_send_pkt(usc->apr, (uint32_t *) &hdr);
 	if (rc < 0) {
 		pr_err("%s: Command 0x%x failed\n", __func__, hdr.opcode);
@@ -1204,6 +1161,3 @@ static int __init q6usm_init(void)
 }
 
 device_initcall(q6usm_init);
-
-MODULE_DESCRIPTION("Interface with QDSP6:USM");
-MODULE_VERSION(DRV_VERSION);
