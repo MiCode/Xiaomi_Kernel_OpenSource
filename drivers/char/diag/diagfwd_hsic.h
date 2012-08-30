@@ -14,12 +14,10 @@
 #define DIAGFWD_HSIC_H
 
 #include <mach/diag_bridge.h>
-#define N_MDM_WRITE	1 /* Upgrade to 2 with ping pong buffer */
-#define N_MDM_READ	1
 
 int diagfwd_connect_bridge(int);
 int diagfwd_disconnect_bridge(int);
-int diagfwd_write_complete_hsic(void);
+int diagfwd_write_complete_hsic(struct diag_request *);
 int diagfwd_cancel_hsic(void);
 void diagfwd_bridge_init(void);
 void diagfwd_bridge_exit(void);
