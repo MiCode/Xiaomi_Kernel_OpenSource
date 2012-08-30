@@ -107,7 +107,6 @@ static void event_handler(uint32_t opcode,
 	uint32_t idx = 0;
 	uint32_t size = 0;
 
-	pr_err("%s\n", __func__);
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE_V2: {
 		pr_debug("ASM_DATA_EVENT_WRITE_DONE_V2\n");
