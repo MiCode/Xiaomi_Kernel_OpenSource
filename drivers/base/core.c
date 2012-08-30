@@ -827,11 +827,13 @@ static int device_add_class_symlinks(struct device *dev)
 	if (!dev->class)
 		return 0;
 
+#ifndef CONFIG_ANDROID
 	error = sysfs_create_link(&dev->kobj,
 				  &dev->class->p->subsys.kobj,
 				  "subsystem");
 	if (error)
 		goto out;
+#endif
 
 	if (dev->parent && device_is_not_partition(dev)) {
 		error = sysfs_create_link(&dev->kobj, &dev->parent->kobj,
