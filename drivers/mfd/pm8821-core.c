@@ -29,6 +29,9 @@
 #define REG_MPP_BASE		0x050
 #define REG_IRQ_BASE		0x100
 
+#define REG_TEMP_ALARM_CTRL	0x01B
+#define REG_TEMP_ALARM_PWM	0x09B
+
 #define PM8821_VERSION_MASK	0xFFF0
 #define PM8821_VERSION_VALUE	0x0BF0
 #define PM8821_REVISION_MASK	0x000F
@@ -142,6 +145,29 @@ static struct mfd_cell debugfs_cell __devinitdata = {
 	.pdata_size	= sizeof("pm8821-dbg"),
 };
 
+static const struct resource thermal_alarm_cell_resources[] __devinitconst = {
+	SINGLE_IRQ_RESOURCE("pm8821_tempstat_irq", PM8821_TEMPSTAT_IRQ),
+	SINGLE_IRQ_RESOURCE("pm8821_overtemp_irq", PM8821_OVERTEMP_IRQ),
+};
+
+static struct pm8xxx_tm_core_data thermal_alarm_cdata = {
+	.adc_type			= PM8XXX_TM_ADC_NONE,
+	.reg_addr_temp_alarm_ctrl	= REG_TEMP_ALARM_CTRL,
+	.reg_addr_temp_alarm_pwm	= REG_TEMP_ALARM_PWM,
+	.tm_name			= "pm8821_tz",
+	.irq_name_temp_stat		= "pm8821_tempstat_irq",
+	.irq_name_over_temp		= "pm8821_overtemp_irq",
+	.default_no_adc_temp		= 37000,
+};
+
+static struct mfd_cell thermal_alarm_cell __devinitdata = {
+	.name		= PM8XXX_TM_DEV_NAME,
+	.id		= 1,
+	.resources	= thermal_alarm_cell_resources,
+	.num_resources	= ARRAY_SIZE(thermal_alarm_cell_resources),
+	.platform_data	= &thermal_alarm_cdata,
+	.pdata_size	= sizeof(struct pm8xxx_tm_core_data),
+};
 
 static int __devinit
 pm8821_add_subdevices(const struct pm8821_platform_data *pdata,
@@ -180,6 +206,14 @@ pm8821_add_subdevices(const struct pm8821_platform_data *pdata,
 	ret = mfd_add_devices(pmic->dev, 0, &debugfs_cell, 1, NULL, irq_base);
 	if (ret) {
 		pr_err("Failed to add debugfs subdevice ret=%d\n", ret);
+		goto bail;
+	}
+
+	ret = mfd_add_devices(pmic->dev, 0, &thermal_alarm_cell, 1, NULL,
+				irq_base);
+	if (ret) {
+		pr_err("Failed to add thermal alarm subdevice ret=%d\n",
+			ret);
 		goto bail;
 	}
 
