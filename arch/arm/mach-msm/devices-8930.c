@@ -32,6 +32,7 @@
 #include "rpm_stats.h"
 #include "rpm_rbcpr_stats.h"
 #include "footswitch.h"
+#include "acpuclock-krait.h"
 
 #ifdef CONFIG_MSM_MPM
 #include <mach/mpm.h>
@@ -639,9 +640,16 @@ struct platform_device msm8627_device_acpuclk = {
 	.id		= -1,
 };
 
+static struct acpuclk_platform_data acpuclk_8930_pdata = {
+	.uses_pm8917 = false,
+};
+
 struct platform_device msm8930_device_acpuclk = {
 	.name		= "acpuclk-8930",
 	.id		= -1,
+	.dev = {
+		.platform_data = &acpuclk_8930_pdata,
+	},
 };
 
 struct platform_device msm8930aa_device_acpuclk = {

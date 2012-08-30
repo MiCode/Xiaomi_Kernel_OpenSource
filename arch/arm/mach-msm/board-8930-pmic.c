@@ -165,6 +165,8 @@ static struct pm8xxx_mpp_init pm8038_mpps[] __initdata = {
 
 /* Initial PM8917 GPIO configurations */
 static struct pm8xxx_gpio_init pm8917_gpios[] __initdata = {
+	/* Backlight enable control */
+	PM8917_GPIO_OUTPUT(24, 1),
 	/* keys GPIOs */
 	PM8917_GPIO_INPUT(27, PM_GPIO_PULL_UP_30),
 	PM8917_GPIO_INPUT(28, PM_GPIO_PULL_UP_30),
@@ -533,7 +535,7 @@ static struct pm8921_platform_data pm8917_platform_data __devinitdata = {
 	.rtc_pdata              = &pm8xxx_rtc_pdata,
 	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
 	.misc_pdata		= &pm8xxx_misc_pdata,
-	.regulator_pdatas	= msm8930_pm8038_regulator_pdata,
+	.regulator_pdatas	= msm8930_pm8917_regulator_pdata,
 	.charger_pdata		= &pm8921_chg_pdata,
 	.bms_pdata		= &pm8921_bms_pdata,
 	.adc_pdata		= &pm8917_adc_pdata,
@@ -557,20 +559,20 @@ void __init msm8930_init_pmic(void)
 					&msm8930_ssbi_pm8038_pdata;
 		pm8038_platform_data.num_regulators
 			= msm8930_pm8038_regulator_pdata_len;
-		if (machine_is_apq8064_mtp())
+		if (machine_is_msm8930_mtp())
 			pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
-		else if (machine_is_apq8064_liquid())
-			pm8921_bms_pdata.battery_type = BATT_DESAY;
+		else if (machine_is_msm8930_cdp())
+			pm8921_chg_pdata.has_dc_supply = true;
 	} else {
 		/* PM8917 configuration */
 		pmic_reset_irq = PM8917_IRQ_BASE + PM8921_RESOUT_IRQ;
 		msm8960_device_ssbi_pmic.dev.platform_data =
 					&msm8930_ssbi_pm8917_pdata;
-		pm8038_platform_data.num_regulators
-			= msm8930_pm8038_regulator_pdata_len;
-		if (machine_is_apq8064_mtp())
+		pm8917_platform_data.num_regulators
+			= msm8930_pm8917_regulator_pdata_len;
+		if (machine_is_msm8930_mtp())
 			pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
-		else if (machine_is_apq8064_liquid())
-			pm8921_bms_pdata.battery_type = BATT_DESAY;
+		else if (machine_is_msm8930_cdp())
+			pm8921_chg_pdata.has_dc_supply = true;
 	}
 }
