@@ -689,7 +689,7 @@ static const uint32_t msg_bld_masks_22[] = {
 /* LOG CODES */
 
 #define LOG_0	0x0
-#define LOG_1	0x15A7
+#define LOG_1	0x1636
 #define LOG_2	0x0
 #define LOG_3	0x0
 #define LOG_4	0x4910
