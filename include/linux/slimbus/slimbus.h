@@ -1011,6 +1011,15 @@ extern void slim_msg_response(struct slim_controller *ctrl, u8 *reply, u8 tid,
 extern struct slim_controller *slim_busnum_to_ctrl(u32 busnum);
 
 /*
+ * slim_ctrl_add_boarddevs: Add devices registered by board-info
+ * @ctrl: Controller to which these devices are to be added to.
+ * This API is called by controller when it is up and running.
+ * If devices on a controller were registered before controller,
+ * this will make sure that they get probed when controller is up
+ */
+extern void slim_ctrl_add_boarddevs(struct slim_controller *ctrl);
+
+/*
  * slim_register_board_info: Board-initialization routine.
  * @info: List of all devices on all controllers present on the board.
  * @n: number of entries.

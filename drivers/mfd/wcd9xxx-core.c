@@ -27,9 +27,9 @@
 #include <linux/i2c.h>
 #include <sound/soc.h>
 
-#define WCD9XXX_SLIM_GLA_MAX_RETRIES 5
 #define WCD9XXX_REGISTER_START_OFFSET 0x800
 #define WCD9XXX_SLIM_RW_MAX_TRIES 3
+#define SLIMBUS_PRESENT_TIMEOUT 100
 
 #define MAX_WCD9XXX_DEVICE	4
 #define TABLA_I2C_MODE	0x03
@@ -1054,12 +1054,31 @@ err:
 	return NULL;
 }
 
+static int wcd9xxx_slim_get_laddr(struct slim_device *sb,
+				  const u8 *e_addr, u8 e_len, u8 *laddr)
+{
+	int ret;
+	const unsigned long timeout = jiffies +
+				      msecs_to_jiffies(SLIMBUS_PRESENT_TIMEOUT);
+
+	do {
+		ret = slim_get_logical_addr(sb, e_addr, e_len, laddr);
+		if (!ret)
+			break;
+		/* Give SLIMBUS time to report present and be ready. */
+		usleep_range(1000, 1000);
+		pr_debug_ratelimited("%s: retyring get logical addr\n",
+				     __func__);
+	} while time_before(jiffies, timeout);
+
+	return ret;
+}
+
 static int wcd9xxx_slim_probe(struct slim_device *slim)
 {
 	struct wcd9xxx *wcd9xxx;
 	struct wcd9xxx_pdata *pdata;
 	int ret = 0;
-	int sgla_retry_cnt;
 
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
@@ -1104,10 +1123,12 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		goto err_supplies;
 	}
 
-	ret = slim_get_logical_addr(wcd9xxx->slim, wcd9xxx->slim->e_addr,
-		ARRAY_SIZE(wcd9xxx->slim->e_addr), &wcd9xxx->slim->laddr);
+	ret = wcd9xxx_slim_get_laddr(wcd9xxx->slim, wcd9xxx->slim->e_addr,
+				     ARRAY_SIZE(wcd9xxx->slim->e_addr),
+				     &wcd9xxx->slim->laddr);
 	if (ret) {
-		pr_err("fail to get slimbus logical address %d\n", ret);
+		pr_err("%s: failed to get slimbus %s logical address: %d\n",
+		       __func__, wcd9xxx->slim->name, ret);
 		goto err_reset;
 	}
 	wcd9xxx->read_dev = wcd9xxx_slim_read_device;
@@ -1130,28 +1151,14 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		goto err_reset;
 	}
 
-	sgla_retry_cnt = 0;
-
-	while (1) {
-		ret = slim_get_logical_addr(wcd9xxx->slim_slave,
-			wcd9xxx->slim_slave->e_addr,
-			ARRAY_SIZE(wcd9xxx->slim_slave->e_addr),
-			&wcd9xxx->slim_slave->laddr);
-		if (ret) {
-			if (sgla_retry_cnt++ < WCD9XXX_SLIM_GLA_MAX_RETRIES) {
-				/* Give SLIMBUS slave time to report present
-				   and be ready.
-				 */
-				usleep_range(1000, 1000);
-				pr_debug("%s: retry slim_get_logical_addr()\n",
-					__func__);
-				continue;
-			}
-			pr_err("fail to get slimbus slave logical address"
-				" %d\n", ret);
-			goto err_slim_add;
-		}
-		break;
+	ret = wcd9xxx_slim_get_laddr(wcd9xxx->slim_slave,
+				     wcd9xxx->slim_slave->e_addr,
+				     ARRAY_SIZE(wcd9xxx->slim_slave->e_addr),
+				     &wcd9xxx->slim_slave->laddr);
+	if (ret) {
+		pr_err("%s: failed to get slimbus %s logical address: %d\n",
+		       __func__, wcd9xxx->slim->name, ret);
+		goto err_slim_add;
 	}
 	wcd9xxx_inf_la = wcd9xxx->slim_slave->laddr;
 	wcd9xxx_intf = WCD9XXX_INTERFACE_TYPE_SLIMBUS;
