@@ -399,7 +399,7 @@ static int ehci_msm_run(struct usb_hcd *hcd)
 	ehci_writel(ehci, ehci->command, &ehci->regs->command);
 	ehci_readl(ehci, &ehci->regs->command); /* unblock posted writes */
 
-	hcd->state = HC_STATE_RUNNING;
+	ehci->rh_state = EHCI_RH_RUNNING;
 
 	/*Enable appropriate Interrupts*/
 	ehci_writel(ehci, INTR_MASK, &ehci->regs->intr_enable);
