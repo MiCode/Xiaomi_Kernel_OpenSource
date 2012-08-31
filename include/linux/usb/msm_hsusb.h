@@ -438,6 +438,7 @@ struct usb_bam_pipe_connect {
  * @usb_bam_num_pipes: max number of pipes to use.
  * @active_conn_num: number of active pipe connections.
  * @usb_base_address: BAM physical address.
+ * @ignore_core_reset_ack: BAM can ignore ACK from USB core during PIPE RESET
  */
 struct msm_usb_bam_platform_data {
 	struct usb_bam_pipe_connect *connections;
@@ -445,6 +446,7 @@ struct msm_usb_bam_platform_data {
 	int usb_bam_num_pipes;
 	u32 total_bam_num;
 	u32 usb_base_address;
+	bool ignore_core_reset_ack;
 };
 
 enum usb_bam {
