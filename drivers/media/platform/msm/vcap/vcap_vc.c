@@ -27,14 +27,6 @@
 #include <media/vcap_fmt.h>
 #include "vcap_vc.h"
 
-static unsigned debug;
-
-#define dprintk(level, fmt, arg...)					\
-	do {								\
-		if (debug >= level)					\
-			printk(KERN_DEBUG "VC: " fmt, ## arg);		\
-	} while (0)
-
 void config_buffer(struct vcap_client_data *c_data,
 			struct vcap_buffer *buf,
 			void __iomem *y_addr,
@@ -73,7 +65,7 @@ static void mov_buf_to_vp(struct work_struct *work)
 
 		vb_vc = vp_work->cd->vc_vidq.bufs[p.index];
 		if (NULL == vb_vc) {
-			dprintk(1, "%s: buffer is NULL\n", __func__);
+			pr_debug("%s: buffer is NULL\n", __func__);
 			vcvp_qbuf(&vp_work->cd->vc_vidq, &p);
 			return;
 		}
@@ -81,7 +73,7 @@ static void mov_buf_to_vp(struct work_struct *work)
 
 		vb_vp = vp_work->cd->vp_in_vidq.bufs[p.index];
 		if (NULL == vb_vp) {
-			dprintk(1, "%s: buffer is NULL\n", __func__);
+			pr_debug("%s: buffer is NULL\n", __func__);
 			vcvp_qbuf(&vp_work->cd->vc_vidq, &p);
 			return;
 		}
@@ -145,7 +137,7 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 
 	irq = readl_relaxed(VCAP_VC_INT_STATUS);
 
-	dprintk(1, "%s: irq=0x%08x\n", __func__, irq);
+	pr_debug("%s: irq=0x%08x\n", __func__, irq);
 
 	c_data = dev->vc_client;
 	if (!c_data->streaming) {
@@ -254,6 +246,8 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 			v4l2_event_queue(dev->vfd, &v4l2_evt);
 			c_data->vc_action.top_field =
 				!c_data->vc_action.top_field;
+
+			atomic_inc(&dev->dbg_p.vc_drop_count);
 			continue;
 		}
 		buf = list_entry(c_data->vc_action.active.next,
@@ -296,12 +290,13 @@ int vc_hw_kick_off(struct vcap_client_data *c_data)
 {
 	struct vc_action *vc_action = &c_data->vc_action;
 	struct vcap_dev *dev;
+	struct timeval tv;
 	unsigned long flags = 0;
 	int rc, i, counter = 0;
 	struct vcap_buffer *buf;
 
 	dev = c_data->dev;
-	dprintk(2, "Start Kickoff\n");
+	pr_debug("Start Kickoff\n");
 
 	if (dev->vc_client == NULL) {
 		pr_err("No active vc client\n");
@@ -343,6 +338,11 @@ int vc_hw_kick_off(struct vcap_client_data *c_data)
 		c_data->vc_action.last_ts / VCAP_USEC;
 	c_data->vc_action.vc_ts.tv_usec =
 		c_data->vc_action.last_ts % VCAP_USEC;
+
+	atomic_set(&dev->dbg_p.vc_drop_count, 0);
+	do_gettimeofday(&tv);
+	dev->dbg_p.vc_timestamp = (uint32_t) (tv.tv_sec * VCAP_USEC +
+		tv.tv_usec);
 
 	rc = 0;
 	for (i = 0; i < c_data->vc_action.tot_buf; i++)
@@ -416,7 +416,7 @@ int config_vc_format(struct vcap_client_data *c_data)
 	rc = readl_relaxed(VCAP_VC_NPL_CTRL);
 	writel_iowmb(0x00000002, VCAP_VC_NPL_CTRL);
 
-	dprintk(2, "%s: Starting VC configuration\n", __func__);
+	pr_debug("%s: Starting VC configuration\n", __func__);
 	writel_iowmb(0x00000002, VCAP_VC_NPL_CTRL);
 	writel_iowmb(0x00000004 | vc_format->color_space << 1 |
 			vc_format->mode << 3 |
@@ -464,7 +464,7 @@ int config_vc_format(struct vcap_client_data *c_data)
 	writel_relaxed(0x00006b38, VCAP_VC_IN_CTRL5);
 
 	writel_iowmb(0x00000001 , VCAP_OFFSET(0x0d00));
-	dprintk(2, "%s: Done VC configuration\n", __func__);
+	pr_debug("%s: Done VC configuration\n", __func__);
 
 	return 0;
 }
@@ -473,7 +473,7 @@ int detect_vc(struct vcap_dev *dev)
 {
 	int result;
 	result = readl_relaxed(VCAP_HARDWARE_VERSION_REG);
-	dprintk(1, "Hardware version: %08x\n", result);
+	pr_debug("Hardware version: %08x\n", result);
 	if (result != VCAP_HARDWARE_VERSION)
 		return -ENODEV;
 	INIT_WORK(&dev->vc_to_vp_work.work, mov_buf_to_vp);
