@@ -1,0 +1,49 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "skeleton.dtsi"
+
+/ {
+	model = "Qualcomm MPQ8092 Simulator";
+	compatible = "qcom,mpq8092-sim", "qcom,mpq8092";
+	interrupt-parent = <&intc>;
+
+	intc: interrupt-controller@f9000000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0xf9000000 0x1000>,
+		<0xf9002000 0x1000>;
+	};
+
+	timer {
+		compatible = "qcom,msm-qtimer", "arm,armv7-timer";
+		interrupts = <1 2 0>, <1 3 0>;
+		clock-frequency = <19200000>;
+	};
+
+	serial@f991f000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991f000 0x1000>;
+		interrupts = <0 109 0>;
+	};
+
+	serial@f995e000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf995e000 0x1000>;
+		interrupts = <0 114 0>;
+	};
+
+};
+
