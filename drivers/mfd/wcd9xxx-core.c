@@ -1137,11 +1137,8 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	wcd9xxx->irq_base = pdata->irq_base;
 	wcd9xxx_pgd_la = wcd9xxx->slim->laddr;
 
-	if (pdata->num_irqs < TABLA_NUM_IRQS) {
-		pr_err("%s: Error, not enough interrupt lines allocated\n",
-			__func__);
-		goto err_reset;
-	}
+	if (pdata->num_irqs < TABLA_NUM_IRQS)
+		pr_warn("%s: Not enough interrupt lines allocated\n", __func__);
 
 	wcd9xxx->slim_slave = &pdata->slimbus_slave_device;
 
