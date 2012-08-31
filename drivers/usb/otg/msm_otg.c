@@ -3437,6 +3437,11 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		pdata = msm_otg_dt_to_pdata(pdev);
 		if (!pdata)
 			return -ENOMEM;
+
+		pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+		if (!pdata->bus_scale_table)
+			dev_dbg(&pdev->dev, "bus scaling is disabled\n");
+
 		ret = msm_otg_setup_devices(pdev, pdata->mode, true);
 		if (ret) {
 			dev_err(&pdev->dev, "devices setup failed\n");

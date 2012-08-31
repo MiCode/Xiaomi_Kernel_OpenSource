@@ -35,6 +35,13 @@ Optional properties :
   0 will be treated as 500mA
 - qcom,hsusb-otg-pclk-src-name: The source of pclk
 - qcom,hsusb-otg-pmic-id-irq: ID, routed to PMIC IRQ number
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+  below optional properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,active_only
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -51,6 +58,14 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-power-budget = <500>;
 		qcom,hsusb-otg-pclk-src-name = "dfab_usb_clk";
 		qcom,hsusb-otg-pmic-id-irq = <47>
+
+		qcom,msm_bus,name = "usb2";
+		qcom,msm_bus,num_cases = <2>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+				<87 512 0 0>,
+				<87 512 60000000 960000000>;
 	};
 
 ANDROID USB:
