@@ -370,7 +370,7 @@ static void defer_kevent(struct work_struct *work)
 
 		status = usb_autopm_get_interface(dev->intf);
 		if (status < 0) {
-			dev_err(&dev->intf->dev,
+			dev_dbg(&dev->intf->dev,
 				"can't acquire interface, status %d\n", status);
 			return;
 		}
@@ -389,7 +389,7 @@ static void defer_kevent(struct work_struct *work)
 
 		status = usb_autopm_get_interface(dev->intf);
 		if (status < 0) {
-			dev_err(&dev->intf->dev,
+			dev_dbg(&dev->intf->dev,
 				"can't acquire interface, status %d\n", status);
 			return;
 		}
@@ -478,7 +478,7 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 
 	result = usb_autopm_get_interface(dev->intf);
 	if (result < 0) {
-		dev_err(&dev->intf->dev, "%s: resume failure\n", __func__);
+		dev_dbg(&dev->intf->dev, "%s: resume failure\n", __func__);
 		goto pm_error;
 	}
 
