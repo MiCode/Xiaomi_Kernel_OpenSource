@@ -483,3 +483,26 @@ void __init msm_map_msm9625_io(void)
 	msm_map_io(msm9625_io_desc, ARRAY_SIZE(msm9625_io_desc));
 }
 #endif /* CONFIG_ARCH_MSM9625 */
+
+#ifdef CONFIG_ARCH_MPQ8092
+static struct map_desc mpq8092_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(QGIC_DIST, MPQ8092),
+	MSM_CHIP_DEVICE(QGIC_CPU, MPQ8092),
+	MSM_CHIP_DEVICE(APCS_GCC, MPQ8092),
+	MSM_CHIP_DEVICE(TLMM, MPQ8092),
+	{
+		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
+		.length =   MSM_SHARED_RAM_SIZE,
+		.type =     MT_DEVICE,
+	},
+#ifdef CONFIG_DEBUG_MPQ8092_UART
+	MSM_DEVICE(DEBUG_UART),
+#endif
+};
+
+void __init msm_map_mpq8092_io(void)
+{
+	msm_shared_ram_phys = MSM8974_MSM_SHARED_RAM_PHYS;
+	msm_map_io(mpq8092_io_desc, ARRAY_SIZE(mpq8092_io_desc));
+}
+#endif /* CONFIG_ARCH_MPQ8092 */
