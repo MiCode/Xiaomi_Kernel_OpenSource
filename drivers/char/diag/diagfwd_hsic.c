@@ -84,7 +84,6 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 			 * asynchronous.  Once the read is complete the read
 			 * callback function will be called.
 			 */
-			int err;
 			pr_debug("diag: read from HSIC\n");
 			num_reads_submitted++;
 			err = diag_bridge_read((char *)buf_in_hsic,
