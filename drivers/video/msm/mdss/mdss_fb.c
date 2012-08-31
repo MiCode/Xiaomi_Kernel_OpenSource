@@ -186,7 +186,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	/*
 	 * alloc framebuffer info + par data
 	 */
-	fbi = framebuffer_alloc(sizeof(struct msm_fb_data_type), &pdev->dev);
+	fbi = framebuffer_alloc(sizeof(struct msm_fb_data_type), NULL);
 	if (fbi == NULL) {
 		pr_err("can't allocate framebuffer info data!\n");
 		return -ENOMEM;
