@@ -119,6 +119,13 @@ static struct gpiomux_setting wlan_suspend_config = {
 	.dir = GPIOMUX_IN,
 };
 
+static struct gpiomux_setting tabla_reset = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
 static struct msm_gpiomux_config msm9615_audio_codec_configs[] __initdata = {
 	{
 		.gpio = 24,
@@ -126,6 +133,12 @@ static struct msm_gpiomux_config msm9615_audio_codec_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cdc_mclk,
 		},
 	},
+	{
+		.gpio	= 84,		/* SYS_RST_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &tabla_reset,
+		},
+	}
 };
 
 static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
