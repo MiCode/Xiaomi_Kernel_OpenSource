@@ -2463,6 +2463,11 @@ static int mdp4_calc_pipe_mdp_clk(struct msm_fb_data_type *mfd,
 		mfd->panel_info.type == MIPI_CMD_PANEL) ?
 		mfd->panel_info.mipi.dsi_pclk_rate :
 		mfd->panel_info.clk_rate;
+
+	if (mfd->panel_info.type == LVDS_PANEL &&
+		mfd->panel_info.lvds.channel_mode == LVDS_DUAL_CHANNEL_MODE)
+		pclk = pclk << 1;
+
 	if (!pclk) {
 		pipe->req_clk = mdp_max_clk;
 		pr_err("%s panel pixel clk is zero!\n", __func__);
