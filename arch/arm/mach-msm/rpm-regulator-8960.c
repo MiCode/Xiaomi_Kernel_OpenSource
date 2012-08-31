@@ -74,6 +74,11 @@ static struct vreg_range nldo1200_ranges[] = {
 	VOLTAGE_RANGE( 750000, 1537500, 12500),
 };
 
+static struct vreg_range ln_ldo_ranges[] = {
+	VOLTAGE_RANGE( 690000, 1110000,  60000),
+	VOLTAGE_RANGE(1380000, 2220000, 120000),
+};
+
 static struct vreg_range smps_ranges[] = {
 	VOLTAGE_RANGE( 375000,  737500, 12500),
 	VOLTAGE_RANGE( 750000, 1487500, 12500),
@@ -93,6 +98,7 @@ static struct vreg_range ncp_ranges[] = {
 static struct vreg_set_points pldo_set_points = SET_POINTS(pldo_ranges);
 static struct vreg_set_points nldo_set_points = SET_POINTS(nldo_ranges);
 static struct vreg_set_points nldo1200_set_points = SET_POINTS(nldo1200_ranges);
+static struct vreg_set_points ln_ldo_set_points = SET_POINTS(ln_ldo_ranges);
 static struct vreg_set_points smps_set_points = SET_POINTS(smps_ranges);
 static struct vreg_set_points ftsmps_set_points = SET_POINTS(ftsmps_ranges);
 static struct vreg_set_points ncp_set_points = SET_POINTS(ncp_ranges);
@@ -101,6 +107,7 @@ static struct vreg_set_points *all_set_points[] = {
 	&pldo_set_points,
 	&nldo_set_points,
 	&nldo1200_set_points,
+	&ln_ldo_set_points,
 	&smps_set_points,
 	&ftsmps_set_points,
 	&ncp_set_points,
@@ -190,6 +197,7 @@ static struct vreg vregs[] = {
 	LDO(L10,  "8921_l10",  "8921_l10_pc", pldo,     LDO_600,  0),
 	LDO(L11,  "8921_l11",  "8921_l11_pc", pldo,     LDO_150,  0),
 	LDO(L12,  "8921_l12",  "8921_l12_pc", nldo,     LDO_150,  1),
+	LDO(L13,  "8921_l13",  NULL,          ln_ldo,   LDO_5,    0),
 	LDO(L14,  "8921_l14",  "8921_l14_pc", pldo,     LDO_50,   0),
 	LDO(L15,  "8921_l15",  "8921_l15_pc", pldo,     LDO_150,  0),
 	LDO(L16,  "8921_l16",  "8921_l16_pc", pldo,     LDO_300,  0),
@@ -264,8 +272,12 @@ static int pc_id_to_real_id(int id)
 {
 	int real_id;
 
-	if (id >= RPM_VREG_ID_PM8921_L1_PC && id <= RPM_VREG_ID_PM8921_L23_PC)
+	if (id >= RPM_VREG_ID_PM8921_L1_PC && id <= RPM_VREG_ID_PM8921_L12_PC)
 		real_id = id - RPM_VREG_ID_PM8921_L1_PC;
+	else if (id >= RPM_VREG_ID_PM8921_L14_PC
+			&& id <= RPM_VREG_ID_PM8921_L23_PC)
+		real_id = id - RPM_VREG_ID_PM8921_L14_PC
+				+ RPM_VREG_ID_PM8921_L14;
 	else if (id >= RPM_VREG_ID_PM8921_L29_PC
 			&& id <= RPM_VREG_ID_PM8921_S4_PC)
 		real_id = id - RPM_VREG_ID_PM8921_L29_PC
