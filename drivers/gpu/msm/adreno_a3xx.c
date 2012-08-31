@@ -2699,13 +2699,13 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 
 	/* Set up 16 deep read/write request queues */
 	if (adreno_dev->gpurev == ADRENO_REV_A330) {
-		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF0, 0x01010101);
-		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF1, 0x01010101);
-		adreno_regwrite(device, A3XX_VBIF_OUT_RD_LIM_CONF0, 0x01010101);
-		adreno_regwrite(device, A3XX_VBIF_OUT_WR_LIM_CONF0, 0x01010101);
+		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF0, 0x18181818);
+		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF1, 0x18181818);
+		adreno_regwrite(device, A3XX_VBIF_OUT_RD_LIM_CONF0, 0x18181818);
+		adreno_regwrite(device, A3XX_VBIF_OUT_WR_LIM_CONF0, 0x18181818);
 		adreno_regwrite(device, A3XX_VBIF_DDR_OUT_MAX_BURST, 0x0000303);
-		adreno_regwrite(device, A3XX_VBIF_IN_WR_LIM_CONF0, 0x01010101);
-		adreno_regwrite(device, A3XX_VBIF_IN_WR_LIM_CONF1, 0x01010101);
+		adreno_regwrite(device, A3XX_VBIF_IN_WR_LIM_CONF0, 0x18181818);
+		adreno_regwrite(device, A3XX_VBIF_IN_WR_LIM_CONF1, 0x18181818);
 		/* Enable WR-REQ */
 		adreno_regwrite(device, A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x00003F);
 
@@ -2721,6 +2721,11 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 		/* Enable 1K sort */
 		adreno_regwrite(device, A3XX_VBIF_ABIT_SORT, 0x1FFFF);
 		adreno_regwrite(device, A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4);
+
+		/* Diable VBIF clock gating. This is to enable AXI running
+		 * higher frequency than GPU.
+		 */
+		adreno_regwrite(device, A3XX_VBIF_CLKON, 1);
 	} else {
 		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010);
 		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF1, 0x10101010);
