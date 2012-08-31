@@ -42,7 +42,8 @@ static struct msm_camera_power_seq_t imx091_power_seq[] = {
 	{REQUEST_VREG, 0},
 	{ENABLE_VREG, 0},
 	{ENABLE_GPIO, 0},
-	{CONFIG_CLK, 0},
+	{CONFIG_CLK, 1},
+	{CONFIG_I2C_MUX, 0},
 };
 
 static const struct i2c_device_id imx091_i2c_id[] = {
