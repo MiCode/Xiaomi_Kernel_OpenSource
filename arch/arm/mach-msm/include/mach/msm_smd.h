@@ -309,6 +309,24 @@ const char *smd_pid_to_subsystem(uint32_t pid);
  */
 int smd_is_pkt_avail(smd_channel_t *ch);
 
+/**
+ * smd_module_init_notifier_register() - Register a smd module
+ *					 init notifier block
+ * @nb: Notifier block to be registered
+ *
+ * In order to mark the dependency on SMD Driver module initialization
+ * register a notifier using this API. Once the smd module_init is
+ * done, notification will be passed to the registered module.
+ */
+int smd_module_init_notifier_register(struct notifier_block *nb);
+
+/**
+ * smd_module_init_notifier_register() - Unregister a smd module
+ *					 init notifier block
+ * @nb: Notifier block to be registered
+ */
+int smd_module_init_notifier_unregister(struct notifier_block *nb);
+
 /*
  * SMD initialization function that registers for a SMD platform driver.
  *
@@ -434,6 +452,16 @@ static inline const char *smd_pid_to_subsystem(uint32_t pid)
 }
 
 static inline int smd_is_pkt_avail(smd_channel_t *ch)
+{
+	return -ENODEV;
+}
+
+static inline int smd_module_init_notifier_register(struct notifier_block *nb)
+{
+	return -ENODEV;
+}
+
+static inline int smd_module_init_notifier_unregister(struct notifier_block *nb)
 {
 	return -ENODEV;
 }
