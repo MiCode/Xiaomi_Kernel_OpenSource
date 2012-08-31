@@ -404,7 +404,7 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
 
 	result = usb_autopm_get_interface(dev->intf);
 	if (result < 0) {
-		dev_err(dev->devicep, "%s: Unable to resume interface: %d\n",
+		dev_dbg(dev->devicep, "%s: Unable to resume interface: %d\n",
 			__func__, result);
 
 		/*
@@ -669,7 +669,7 @@ static int rmnet_ctrl_tiocmset(struct rmnet_ctrl_dev *dev, unsigned int set,
 
 	retval = usb_autopm_get_interface(dev->intf);
 	if (retval < 0) {
-		dev_err(dev->devicep, "%s: Unable to resume interface: %d\n",
+		dev_dbg(dev->devicep, "%s: Unable to resume interface: %d\n",
 			__func__, retval);
 		return retval;
 	}

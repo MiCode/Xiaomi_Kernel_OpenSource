@@ -404,7 +404,7 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 
 	result = usb_autopm_get_interface_async(dev->intf);
 	if (result < 0) {
-		dev_err(&dev->intf->dev, "%s: unable to resume interface: %d\n",
+		dev_dbg(&dev->intf->dev, "%s: unable to resume interface: %d\n",
 			__func__, result);
 
 		/*
