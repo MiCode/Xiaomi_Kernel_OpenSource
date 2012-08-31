@@ -41,6 +41,22 @@
 #define VCAP_BASE (dev->vcapbase)
 #define VCAP_OFFSET(off) (VCAP_BASE + off)
 
+struct reg_range {
+	u32 min_val;
+	u32 max_val;
+};
+
+#define VCAP_REG_RANGE_1_MIN	0x0
+#define VCAP_REG_RANGE_1_MAX	0x48
+#define VCAP_REG_RANGE_2_MIN	0x100
+#define VCAP_REG_RANGE_2_MAX	0x104
+#define VCAP_REG_RANGE_3_MIN	0x400
+#define VCAP_REG_RANGE_3_MAX	0x7F0
+#define VCAP_REG_RANGE_4_MIN	0x800
+#define VCAP_REG_RANGE_4_MAX	0x8A0
+#define VCAP_REG_RANGE_5_MIN	0xC00
+#define VCAP_REG_RANGE_5_MAX	0xDF0
+
 #define VCAP_SW_RESET_REQ (VCAP_BASE + 0x024)
 #define VCAP_SW_RESET_STATUS (VCAP_BASE + 0x028)
 
@@ -128,6 +144,16 @@ struct vp_work_t {
 	struct vcap_client_data *cd;
 };
 
+struct vcap_debugfs_params {
+	atomic_t vc_drop_count;
+	uint32_t vc_timestamp;
+	uint32_t vp_timestamp;
+	uint32_t vp_ewma;/* Exponential moving average */
+	uint32_t clk_rate;
+	uint32_t bw_request;
+	uint32_t reg_addr;
+};
+
 struct vcap_dev {
 	struct v4l2_device		v4l2_dev;
 
@@ -176,6 +202,7 @@ struct vcap_dev {
 
 	struct nr_param			nr_param;
 	bool					nr_update;
+	struct vcap_debugfs_params	dbg_p;
 };
 
 struct vp_format_data {

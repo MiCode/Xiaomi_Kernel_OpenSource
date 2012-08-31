@@ -19,6 +19,8 @@
 #include <linux/videodev2.h>
 #include <linux/platform_device.h>
 #include <linux/memory_alloc.h>
+#include <linux/ctype.h>
+#include <linux/debugfs.h>
 
 #include <mach/board.h>
 #include <mach/gpio.h>
@@ -51,13 +53,31 @@
 
 static struct vcap_dev *vcap_ctrl;
 
-static unsigned debug;
-
-#define dprintk(level, fmt, arg...)					\
-	do {								\
-		if (debug >= level)					\
-			printk(KERN_DEBUG "VCAP: " fmt, ## arg);	\
-	} while (0)
+#ifdef CONFIG_DEBUG_FS
+static struct dentry *vcap_debugfs_base;
+static struct reg_range debug_reg_range[] = {
+	{
+		VCAP_REG_RANGE_1_MIN,
+		VCAP_REG_RANGE_1_MAX,
+	},
+	{
+		VCAP_REG_RANGE_2_MIN,
+		VCAP_REG_RANGE_2_MAX,
+	},
+	{
+		VCAP_REG_RANGE_3_MIN,
+		VCAP_REG_RANGE_3_MAX,
+	},
+	{
+		VCAP_REG_RANGE_4_MIN,
+		VCAP_REG_RANGE_4_MAX,
+	},
+	{
+		VCAP_REG_RANGE_5_MIN,
+		VCAP_REG_RANGE_5_MAX,
+	},
+};
+#endif
 
 int vcap_reg_powerup(struct vcap_dev *dev)
 {
@@ -91,7 +111,7 @@ int config_gpios(int on, struct vcap_platform_data *pdata)
 	int num_gpios = pdata->num_gpios;
 	unsigned *gpios = pdata->gpios;
 
-	dprintk(4, "GPIO config start\n");
+	pr_debug("GPIO config start\n");
 	if (on) {
 		for (i = 0; i < num_gpios; i++) {
 			ret = gpio_request(gpios[i], "vcap:vc");
@@ -112,7 +132,7 @@ int config_gpios(int on, struct vcap_platform_data *pdata)
 		for (i = 0; i < num_gpios; i++)
 			gpio_free(gpios[i]);
 	}
-	dprintk(4, "GPIO config exit\n");
+	pr_debug("GPIO config exit\n");
 	return 0;
 gpio_failed:
 	for (i--; i >= 0; i--)
@@ -151,6 +171,7 @@ int vcap_clk_powerup(struct vcap_dev *dev, struct device *ddev,
 		pr_err("%s: Failed core set_rate %d\n", __func__, ret);
 		goto fail_vcap_clk;
 	}
+	dev->dbg_p.clk_rate = (uint32_t) rate;
 
 	dev->vcap_npl_clk = clk_get(ddev, "vcap_npl_clk");
 	if (IS_ERR(dev->vcap_npl_clk)) {
@@ -198,6 +219,7 @@ fail_vcap_npl_clk_unprep:
 	dev->vcap_npl_clk = NULL;
 
 fail_vcap_clk:
+	dev->dbg_p.clk_rate = 0;
 	clk_disable(dev->vcap_clk);
 fail_vcap_clk_unprep:
 	clk_unprepare(dev->vcap_clk);
@@ -228,6 +250,8 @@ void vcap_clk_powerdown(struct vcap_dev *dev)
 		clk_put(dev->vcap_clk);
 		dev->vcap_clk = NULL;
 	}
+
+	dev->dbg_p.clk_rate = 0;
 }
 
 int vcap_get_bus_client_handle(struct vcap_dev *dev)
@@ -244,6 +268,7 @@ int vcap_enable(struct vcap_dev *dev, struct device *ddev,
 		unsigned long rate)
 {
 	int rc;
+	pr_debug("Enter %s", __func__);
 
 	rc = vcap_reg_powerup(dev);
 	if (rc < 0)
@@ -259,6 +284,7 @@ int vcap_enable(struct vcap_dev *dev, struct device *ddev,
 		goto gpio_failed;
 	writel_relaxed(0x00030003, VCAP_OFFSET(0xD78));
 	writel_relaxed(0x00030003, VCAP_OFFSET(0xD7C));
+	pr_debug("Success Exit %s", __func__);
 	return 0;
 
 gpio_failed:
@@ -274,10 +300,12 @@ reg_failed:
 
 int vcap_disable(struct vcap_dev *dev)
 {
+	pr_debug("Enter %s", __func__);
 	config_gpios(0, dev->vcap_pdata);
 
 	msm_bus_scale_unregister_client(dev->bus_client_handle);
 	dev->bus_client_handle = 0;
+	dev->dbg_p.bw_request = 0;
 	vcap_clk_powerdown(dev);
 	vcap_reg_powerdown(dev);
 	return 0;
@@ -311,34 +339,34 @@ int vcvp_qbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 	struct vb2_buffer *vb;
 
 	if (q->fileio) {
-		dprintk(1, "%s: file io in progress\n", __func__);
+		pr_debug("%s: file io in progress\n", __func__);
 		return -EBUSY;
 	}
 
 	if (b->type != q->type) {
-		dprintk(1, "%s: invalid buffer type\n", __func__);
+		pr_debug("%s: invalid buffer type\n", __func__);
 		return -EINVAL;
 	}
 
 	if (b->index >= q->num_buffers) {
-		dprintk(1, "%s: buffer index out of range\n", __func__);
+		pr_debug("%s: buffer index out of range\n", __func__);
 		return -EINVAL;
 	}
 
 	vb = q->bufs[b->index];
 	if (NULL == vb) {
-		dprintk(1, "%s: buffer is NULL\n", __func__);
+		pr_debug("%s: buffer is NULL\n", __func__);
 		return -EINVAL;
 	}
 
 	if (b->memory != q->memory) {
-		dprintk(1, "%s: invalid memory type\n", __func__);
+		pr_debug("%s: invalid memory type\n", __func__);
 		return -EINVAL;
 	}
 
 	if (vb->state != VB2_BUF_STATE_DEQUEUED &&
 			vb->state != VB2_BUF_STATE_PREPARED) {
-		dprintk(1, "%s: buffer already in use\n", __func__);
+		pr_err("%s: buffer already in use\n", __func__);
 		return -EINVAL;
 	}
 
@@ -361,17 +389,17 @@ int vcvp_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 	unsigned long flags;
 
 	if (q->fileio) {
-		dprintk(1, "%s: file io in progress\n", __func__);
+		pr_debug("%s: file io in progress\n", __func__);
 		return -EBUSY;
 	}
 
 	if (b->type != q->type) {
-		dprintk(1, "%s: invalid buffer type\n", __func__);
+		pr_debug("%s: invalid buffer type\n", __func__);
 		return -EINVAL;
 	}
 
 	if (!q->streaming) {
-		dprintk(1, "Streaming off, will not wait for buffers\n");
+		pr_debug("Streaming off, will not wait for buffers\n");
 		return -EINVAL;
 	}
 
@@ -384,13 +412,13 @@ int vcvp_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 
 		switch (vb->state) {
 		case VB2_BUF_STATE_DONE:
-			dprintk(3, "%s: Returning done buffer\n", __func__);
+			pr_debug("%s: Returning done buffer\n", __func__);
 			break;
 		case VB2_BUF_STATE_ERROR:
-			dprintk(3, "%s: Ret done buf with err\n", __func__);
+			pr_debug("%s: Ret done buf with err\n", __func__);
 			break;
 		default:
-			dprintk(1, "%s: Invalid buffer state\n", __func__);
+			pr_debug("%s: Invalid buffer state\n", __func__);
 			return -EINVAL;
 		}
 
@@ -402,7 +430,7 @@ int vcvp_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 		return 0;
 	}
 
-	dprintk(1, "No buffers to dequeue\n");
+	pr_debug("%s: No buffers to dequeue\n", __func__);
 	return -EAGAIN;
 }
 
@@ -415,28 +443,28 @@ int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 	int rc;
 
 	if (q->fileio) {
-		dprintk(1, "%s: file io in progress\n", __func__);
+		pr_debug("%s: file io in progress\n", __func__);
 		return -EBUSY;
 	}
 
 	if (b->type != q->type) {
-		dprintk(1, "%s: invalid buffer type\n", __func__);
+		pr_debug("%s: invalid buffer type\n", __func__);
 		return -EINVAL;
 	}
 
 	if (b->index >= q->num_buffers) {
-		dprintk(1, "%s: buffer index out of range\n", __func__);
+		pr_debug("%s: buffer index out of range\n", __func__);
 		return -EINVAL;
 	}
 
 	vb = q->bufs[b->index];
 	if (NULL == vb) {
-		dprintk(1, "%s: buffer is NULL\n", __func__);
+		pr_debug("%s: buffer is NULL\n", __func__);
 		return -EINVAL;
 	}
 
 	if (vb->state != VB2_BUF_STATE_DEQUEUED) {
-		dprintk(1, "%s: buffer already in use\n", __func__);
+		pr_debug("%s: buffer already in use\n", __func__);
 		return -EINVAL;
 	}
 
@@ -468,7 +496,7 @@ void free_ion_handle_work(struct vcap_dev *dev, struct vb2_buffer *vb)
 
 	buf = container_of(vb, struct vcap_buffer, vb);
 	if (buf->ion_handle == NULL) {
-		dprintk(1, "%s: no ION handle to free\n", __func__);
+		pr_debug("%s: no ION handle to free\n", __func__);
 		return;
 	}
 	buf->paddr = 0;
@@ -546,7 +574,7 @@ static void capture_buffer_queue(struct vb2_buffer *vb)
 static int capture_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vcap_client_data *c_data = vb2_get_drv_priv(vq);
-	dprintk(2, "VC start streaming\n");
+	pr_debug("VC start streaming\n");
 	return vc_start_capture(c_data);
 }
 
@@ -643,7 +671,7 @@ static void vp_in_buffer_queue(struct vb2_buffer *vb)
 
 static int vp_in_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
-	dprintk(2, "VP IN start streaming\n");
+	pr_debug("VP IN start streaming\n");
 	return 0;
 }
 
@@ -652,7 +680,7 @@ static int vp_in_stop_streaming(struct vb2_queue *vq)
 	struct vcap_client_data *c_data = vb2_get_drv_priv(vq);
 	struct vb2_buffer *vb;
 
-	dprintk(2, "VP stop streaming\n");
+	pr_debug("VP IN stop streaming\n");
 
 	while (!list_empty(&c_data->vp_action.in_active)) {
 		struct vcap_buffer *buf;
@@ -749,7 +777,7 @@ static int vp_out_stop_streaming(struct vb2_queue *vq)
 	struct vcap_client_data *c_data = vb2_get_drv_priv(vq);
 	struct vb2_buffer *vb;
 
-	dprintk(2, "VP out q stop streaming\n");
+	pr_debug("VP OUT q stop streaming\n");
 	vp_stop_capture(c_data);
 
 	while (!list_empty(&c_data->vp_action.out_active)) {
@@ -890,7 +918,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 	struct vcap_dev *dev = c_data->dev;
 	int rc;
 
-	dprintk(3, "In Req Buf %08x\n", (unsigned int)rb->type);
+	pr_debug("VCAP: In Req Buf %08x\n", (unsigned int)rb->type);
 	c_data->op_mode = determine_mode(c_data);
 	if (c_data->op_mode == UNKNOWN_VCAP_OP) {
 		pr_err("VCAP Error: %s: VCAP in unknown mode\n", __func__);
@@ -968,25 +996,25 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct vb2_queue *q;
 	int rc;
 
-	dprintk(3, "In Q Buf %08x\n", (unsigned int)p->type);
+	pr_debug("VCAP In Q Buf %08x\n", (unsigned int)p->type);
 	switch (p->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		if (c_data->op_mode == VC_AND_VP_VCAP_OP) {
 			/* If buffer in vp_in_q it will be coming back */
 			q = &c_data->vp_in_vidq;
 			if (p->index >= q->num_buffers) {
-				dprintk(1, "qbuf: buffer index out of range\n");
+				pr_debug("VCAP qbuf: buffer index out of range\n");
 				return -EINVAL;
 			}
 
 			vb = q->bufs[p->index];
 			if (NULL == vb) {
-				dprintk(1, "qbuf: buffer is NULL\n");
+				pr_debug("VCAP qbuf: buffer is NULL\n");
 				return -EINVAL;
 			}
 
 			if (vb->state != VB2_BUF_STATE_DEQUEUED) {
-				dprintk(1, "qbuf: buffer already in use\n");
+				pr_debug("VCAP qbuf: buffer already in use\n");
 				return -EINVAL;
 			}
 			rc = get_phys_addr(c_data->dev, &c_data->vc_vidq, p);
@@ -1035,7 +1063,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	int rc;
 
-	dprintk(3, "In DQ Buf %08x\n", (unsigned int)p->type);
+	pr_debug("VCAP In DQ Buf %08x\n", (unsigned int)p->type);
 	switch (p->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		if (c_data->op_mode == VC_AND_VP_VCAP_OP)
@@ -1072,18 +1100,18 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 int streamon_validate_q(struct vb2_queue *q)
 {
 	if (q->fileio) {
-		dprintk(1, "streamon: file io in progress\n");
+		pr_debug("%s: file io in progress\n", __func__);
 		return -EBUSY;
 	}
 
 	if (q->streaming) {
-		dprintk(1, "streamon: already streaming\n");
+		pr_debug("%s: already streaming\n", __func__);
 		return -EBUSY;
 	}
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 		if (list_empty(&q->queued_list)) {
-			dprintk(1, "streamon: no output buffers queued\n");
+			pr_debug("%s: no output buffers queued\n", __func__);
 			return -EINVAL;
 		}
 	}
@@ -1103,10 +1131,11 @@ int request_bus_bw(struct vcap_dev *dev, unsigned long rate)
 		idx++;
 	} while (idx < length);
 	if (idx == length) {
-		pr_err("VCAP: Defaulting to highest BW request\n");
+		pr_info("VCAP: Defaulting to highest BW request\n");
 		idx--;
 	}
 	msm_bus_scale_client_update_request(dev->bus_client_handle, idx);
+	dev->dbg_p.bw_request = bus_vectors[idx].vectors[0].ab;
 	return 0;
 }
 
@@ -1118,7 +1147,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	unsigned long rate;
 	long rate_rc;
 
-	dprintk(3, "In Stream ON\n");
+	pr_debug("VCAP: In Stream ON\n");
 	if (determine_mode(c_data) != c_data->op_mode) {
 		pr_err("VCAP Error: %s: s_fmt called after req_buf", __func__);
 		return -ENOTRECOVERABLE;
@@ -1159,6 +1188,8 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		rc = clk_set_rate(dev->vcap_clk, rate);
 		if (rc < 0)
 			goto free_res;
+
+		dev->dbg_p.clk_rate = (uint32_t) rate;
 
 		rate = (c_data->vc_format.hactive_end -
 			c_data->vc_format.hactive_start);
@@ -1204,6 +1235,8 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		}
 		rate = (unsigned long)rate_rc;
 		rc = clk_set_rate(dev->vcap_clk, rate);
+
+		dev->dbg_p.clk_rate = (uint32_t) rate;
 		if (rc < 0)
 			goto free_res;
 
@@ -1278,6 +1311,8 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		rc = clk_set_rate(dev->vcap_clk, rate);
 		if (rc < 0)
 			goto free_res;
+
+		dev->dbg_p.clk_rate = (uint32_t) rate;
 
 		rate = (c_data->vc_format.hactive_end -
 			c_data->vc_format.hactive_start);
@@ -1376,12 +1411,12 @@ free_res:
 int streamoff_validate_q(struct vb2_queue *q)
 {
 	if (q->fileio) {
-		dprintk(1, "streamoff: file io in progress\n");
+		pr_debug("%s: file io in progress\n", __func__);
 		return -EBUSY;
 	}
 
 	if (!q->streaming) {
-		dprintk(1, "streamoff: not streaming\n");
+		pr_debug("%s: not streaming\n", __func__);
 		return -EINVAL;
 	}
 	return 0;
@@ -1791,7 +1826,7 @@ static unsigned int vcap_poll(struct file *file,
 	struct vb2_queue *q;
 	unsigned int mask = 0;
 
-	dprintk(1, "Enter slect/poll\n");
+	pr_debug("%s: Enter slect/poll\n", __func__);
 
 	switch (c_data->op_mode) {
 	case VC_VCAP_OP:
@@ -1866,13 +1901,276 @@ static irqreturn_t vcap_vc_handler(int irq_num, void *data)
 	return vc_handler(vcap_ctrl);
 }
 
+#ifdef CONFIG_DEBUG_FS
+/* Query VCAP resource usage */
+static ssize_t read_dump_info(struct file *file, char __user *user_buf,
+	size_t len, loff_t *ppos)
+{
+	struct vcap_dev *dev = file->private_data;
+	char str_buf[512];
+	size_t tot_size = 0, size;
+
+	if (dev->vc_client) {
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"VCAP: VC\n");
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vc_resourse = %d\n", dev->vc_resource);
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vc_enabled = %d\n", atomic_read(&dev->vc_enabled));
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vc_client id = %p\n", dev->vc_client);
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vc_queue_count = %d\n",
+			atomic_read(&dev->vc_client->vc_vidq.queued_count));
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vc_total_buffers = %d\n",
+			dev->vc_client->vc_action.tot_buf);
+		tot_size += size;
+	} else {
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+				"VCAP: VC not in use\n");
+		tot_size += size;
+	}
+	if (dev->vp_client) {
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"VCAP: VP\n");
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vp_resourse = %d\n", dev->vp_resource);
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vp_enabled = %d\n", atomic_read(&dev->vp_enabled));
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vp_client id = %p\n", dev->vp_client);
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vp_in_queue_count = %d\n",
+			atomic_read(
+				&dev->vp_client->vp_in_vidq.queued_count));
+		tot_size += size;
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"vp_out_queue_count = %d\n",
+			atomic_read(
+				&dev->vp_client->vp_out_vidq.queued_count));
+		tot_size += size;
+	} else {
+		size = scnprintf(str_buf + tot_size, sizeof(str_buf) - tot_size,
+			"VCAP: VP not in use\n");
+		tot_size += size;
+	}
+
+	return simple_read_from_buffer(user_buf, len, ppos, str_buf, tot_size);
+}
+
+static const struct file_operations dump_info_fops = {
+	.read =		read_dump_info,
+	.open =		simple_open,
+	.llseek =	default_llseek,
+};
+
+static int vcap_debug_clk_rate_get(void *data, u64 *val)
+{
+	struct vcap_dev *dev = data;
+	*val = (u64)dev->dbg_p.clk_rate;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(clk_rate_fops, vcap_debug_clk_rate_get,
+	NULL, "%llu\n");
+
+static int vcap_debug_bw_req_get(void *data, u64 *val)
+{
+	struct vcap_dev *dev = data;
+	*val = (u64)dev->dbg_p.bw_request;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(bw_req_fops, vcap_debug_bw_req_get,
+	NULL, "%llu\n");
+
+static int vcap_debug_drop_frames_get(void *data, u64 *val)
+{
+	struct vcap_dev *dev = data;
+	struct timeval tv;
+	int drop_count;
+
+	if (!dev->vc_resource)
+		return -EPERM;
+	drop_count = atomic_read(&dev->dbg_p.vc_drop_count);
+	atomic_set(&dev->dbg_p.vc_drop_count, 0);
+
+	do_gettimeofday(&tv);
+	dev->dbg_p.vc_timestamp = (uint32_t) (tv.tv_sec * VCAP_USEC +
+		tv.tv_usec);
+
+	*val = (u64)drop_count;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(tot_frame_drop_fops, vcap_debug_drop_frames_get,
+	NULL, "%llu\n");
+
+static int vcap_debug_drop_fps_get(void *data, u64 *val)
+{
+	struct vcap_dev *dev = data;
+	struct timeval tv;
+	int drop_count;
+	uint32_t new_ts;
+
+	if (!dev->vc_resource)
+		return -EPERM;
+	drop_count = atomic_read(&dev->dbg_p.vc_drop_count);
+	atomic_set(&dev->dbg_p.vc_drop_count, 0);
+
+	do_gettimeofday(&tv);
+	new_ts = (uint32_t) (tv.tv_sec * VCAP_USEC +
+		tv.tv_usec);
+
+	if ((new_ts - dev->dbg_p.vc_timestamp) / VCAP_USEC &&
+				new_ts > dev->dbg_p.vc_timestamp)
+		drop_count /= ((new_ts - dev->dbg_p.vc_timestamp) / VCAP_USEC);
+	else
+		drop_count = 0;
+
+	dev->dbg_p.vc_timestamp = new_ts;
+	*val = (u64)drop_count;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(drop_fps_fops, vcap_debug_drop_fps_get,
+	NULL, "%llu\n");
+
+static int vcap_debug_vp_lat_get(void *data, u64 *val)
+{
+	struct vcap_dev *dev = data;
+
+	if (!dev->vp_resource)
+		return -EPERM;
+	*val = (u64)dev->dbg_p.vp_ewma;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(vp_lat_fops, vcap_debug_vp_lat_get,
+	NULL, "%llu\n");
+
+/* Read/Write to VCAP Registers */
+static int vcap_debug_reg_set(void *data, u64 val)
+{
+	struct vcap_dev *dev = data;
+	int i;
+	for (i = 0; i < ARRAY_SIZE(debug_reg_range); i++) {
+		if (val >= debug_reg_range[i].min_val && val <=
+				debug_reg_range[i].max_val)
+			break;
+	}
+	if (i == ARRAY_SIZE(debug_reg_range))
+		return -EINVAL;
+	dev->dbg_p.reg_addr = (uint32_t) val;
+	return 0;
+}
+
+static int vcap_debug_reg_get(void *data, u64 *val)
+{
+	struct vcap_dev *dev = data;
+	*val = (u64)dev->dbg_p.reg_addr;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(vcap_reg_fops, vcap_debug_reg_get,
+	vcap_debug_reg_set, "0x%08llx\n")
+
+static int vcap_debug_reg_rdwr_set(void *data, u64 val)
+{
+	struct vcap_dev *dev = data;
+	u32 reg_val = (u32) val;
+
+	writel_iowmb(reg_val, VCAP_OFFSET(dev->dbg_p.reg_addr));
+	return 0;
+}
+
+static int vcap_debug_reg_rdwr_get(void *data, u64 *val)
+{
+	struct vcap_dev *dev = data;
+	*val = (u64)readl_relaxed(VCAP_OFFSET(dev->dbg_p.reg_addr));
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(vcap_reg_rdwr_fops, vcap_debug_reg_rdwr_get,
+	vcap_debug_reg_rdwr_set, "0x%08llx\n");
+
+static int vcap_debugfs_init(struct vcap_dev *dev)
+{
+	vcap_debugfs_base = debugfs_create_dir("vcap", NULL);
+	if (!vcap_debugfs_base)
+		return -ENOMEM;
+
+	if (!debugfs_create_file("dump_info", S_IRUGO,
+			vcap_debugfs_base, dev, &dump_info_fops))
+		goto error;
+
+	if (!debugfs_create_file("vcap_core_clk_rate", S_IRUGO,
+			vcap_debugfs_base, dev, &clk_rate_fops))
+		goto error;
+
+	if (!debugfs_create_file("vcap_bw_req", S_IRUGO,
+			vcap_debugfs_base, dev, &bw_req_fops))
+		goto error;
+
+	if (!debugfs_create_file("vc_total_frames_drop", S_IRUGO,
+			vcap_debugfs_base, dev, &tot_frame_drop_fops))
+		goto error;
+
+	if (!debugfs_create_file("vc_drop_fps", S_IRUGO,
+			vcap_debugfs_base, dev, &drop_fps_fops))
+		goto error;
+
+	if (!debugfs_create_file("vp_avg_completion_t", S_IRUGO,
+			vcap_debugfs_base, dev, &vp_lat_fops))
+		goto error;
+
+	if (!debugfs_create_file("vcap_reg_addr", S_IRUGO | S_IWUSR,
+			vcap_debugfs_base, dev, &vcap_reg_fops))
+		goto error;
+
+	if (!debugfs_create_file("vcap_reg_val", S_IRUGO | S_IWUSR,
+			vcap_debugfs_base, dev, &vcap_reg_rdwr_fops))
+		goto error;
+	return 0;
+
+error:
+	debugfs_remove_recursive(vcap_debugfs_base);
+	vcap_debugfs_base = NULL;
+	return -ENOMEM;
+}
+
+static void vcap_debugfs_remove(void)
+{
+	if (vcap_debugfs_base) {
+		debugfs_remove_recursive(vcap_debugfs_base);
+		vcap_debugfs_base = NULL;
+	}
+}
+#else
+
+static int vcap_debugfs_init(struct vcap_dev *dev)
+{
+	return 0;
+}
+static void vcap_debugfs_remove(void) {}
+#endif
+
 static int __devinit vcap_probe(struct platform_device *pdev)
 {
 	struct vcap_dev *dev;
 	struct video_device *vfd;
 	int ret;
 
-	dprintk(1, "Probe started\n");
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -1949,6 +2247,7 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 	if (ret)
 		goto unreg_dev;
 	msm_bus_scale_client_update_request(dev->bus_client_handle, 0);
+	dev->dbg_p.bw_request = 0;
 
 	ret = detect_vc(dev);
 
@@ -1987,6 +2286,11 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 		goto rel_vcap_wq;
 	}
 
+	atomic_set(&dev->dbg_p.vc_drop_count, 0);
+	ret = vcap_debugfs_init(dev);
+	if (ret < 0)
+		pr_err("VCAP debugfs failed to load");
+
 	dev->vc_tot_buf = 2;
 	atomic_set(&dev->vc_enabled, 0);
 	atomic_set(&dev->vp_enabled, 0);
@@ -1996,7 +2300,6 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 	init_waitqueue_head(&dev->vp_dummy_waitq);
 	vcap_disable(dev);
 
-	dprintk(1, "Exit probe succesfully");
 	return 0;
 rel_vcap_wq:
 	destroy_workqueue(dev->vcap_wq);
@@ -2020,6 +2323,7 @@ free_dev:
 static int __devexit vcap_remove(struct platform_device *pdev)
 {
 	struct vcap_dev *dev = vcap_ctrl;
+	vcap_debugfs_remove();
 	ion_client_destroy(dev->ion_client);
 	flush_workqueue(dev->vcap_wq);
 	destroy_workqueue(dev->vcap_wq);
