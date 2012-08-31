@@ -60,6 +60,8 @@
 
 #if defined(CONFIG_ARCH_MSM8974)
 #include "irqs-8974.h"
+#elif defined(CONFIG_ARCH_MPQ8092)
+#include "irqs-8092.h"
 #elif defined(CONFIG_ARCH_MSM9615)
 #include "irqs-9615.h"
 #elif defined(CONFIG_ARCH_MSM9625)
