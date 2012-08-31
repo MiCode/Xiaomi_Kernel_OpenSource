@@ -279,7 +279,6 @@ static void populate_codec_list(struct compr_audio *compr,
 static int msm_compr_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct compr_audio *compr;
 	struct msm_audio *prtd;
 	int ret = 0;
@@ -319,9 +318,6 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	pr_info("%s: session ID %d\n", __func__, prtd->audio_client->session);
 
 	prtd->session_id = prtd->audio_client->session;
-	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
-			prtd->session_id, substream->stream);
-
 	prtd->cmd_ack = 1;
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0,
@@ -460,6 +456,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct compr_audio *compr = runtime->private_data;
 	struct msm_audio *prtd = &compr->prtd;
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
@@ -477,6 +474,9 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		pr_err("%s: Session out open failed\n", __func__);
 		return -ENOMEM;
 	}
+	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+			prtd->session_id, substream->stream);
+
 	ret = q6asm_set_io_mode(prtd->audio_client, ASYNC_IO_MODE);
 	if (ret < 0) {
 		pr_err("%s: Set IO mode failed\n", __func__);
