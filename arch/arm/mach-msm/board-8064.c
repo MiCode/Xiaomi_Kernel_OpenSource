@@ -1164,8 +1164,10 @@ static int enable_100KHz_ls(int enable)
 			return ret;
 		}
 		gpio_direction_output(SX150X_GPIO(1, 10), 1);
-	} else
+	} else {
+		gpio_direction_output(SX150X_GPIO(1, 10), 0);
 		gpio_free(SX150X_GPIO(1, 10));
+	}
 	return ret;
 }
 
