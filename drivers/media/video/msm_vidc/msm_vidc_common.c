@@ -48,96 +48,48 @@
 	__mbs;\
 })
 
-/*While adding entries to this array make sure
- * they are in descending order.
- * Look @ msm_comm_get_load function*/
-static const u32 clocks_table[][2] = {
-	{979200, 410000000},
-	{560145, 266670000},
-	{421161, 200000000},
-	{243000, 133330000},
-	{108000, 100000000},
-	{36000, 50000000},
-};
-
 static const u32 bus_table[] = {
 	0,
-	9216000,
-	27648000,
-	62208000,
+	36000,
+	110400,
+	244800,
+	489000,
+	783360,
+	979200,
 };
-
-static int msm_comm_get_bus_load(struct msm_vidc_core *core)
-{
-	struct msm_vidc_inst *inst = NULL;
-	int load = 0;
-	if (!core) {
-		pr_err("Invalid args: %p\n", core);
-		return -EINVAL;
-	}
-	list_for_each_entry(inst, &core->instances, list) {
-		load += VIDC_BUS_LOAD(inst->prop.height,
-				inst->prop.width, inst->prop.fps,
-				2000000);
-	}
-	return load;
-}
 
 static int get_bus_vector(int load)
 {
 	int num_rows = sizeof(bus_table)/(sizeof(u32));
 	int i;
 	for (i = num_rows - 1; i > 0; i--) {
-		if ((load >= bus_table[i]) || (i == 1))
+		if (load >= bus_table[i])
 			break;
 	}
-	pr_err("Required bus = %d\n", i);
+	pr_debug("Required bus = %d\n", i);
 	return i;
 }
 
-int msm_comm_scale_bus(struct msm_vidc_core *core)
-{
-	int load;
-	int rc = 0;
-	if (!core) {
-		pr_err("Invalid args: %p\n", core);
-		return -EINVAL;
-	}
-	load = msm_comm_get_bus_load(core);
-	if (load <= 0) {
-		pr_err("Failed to scale bus for %d load\n",
-			load);
-		goto fail_scale_bus;
-	}
-	rc = msm_bus_scale_client_update_request(
-			core->resources.bus_info.vcodec_handle,
-			get_bus_vector(load));
-	if (rc) {
-		pr_err("Failed to scale bus: %d\n", rc);
-		goto fail_scale_bus;
-	}
-	rc = msm_bus_scale_client_update_request(
-			core->resources.bus_info.ocmem_handle,
-			get_bus_vector(load));
-	if (rc) {
-		pr_err("Failed to scale bus: %d\n", rc);
-		goto fail_scale_bus;
-	}
-fail_scale_bus:
-	return rc;
-}
-
-static int msm_comm_get_load(struct msm_vidc_core *core)
+static int msm_comm_get_load(struct msm_vidc_core *core,
+	enum session_type type)
 {
 	struct msm_vidc_inst *inst = NULL;
 	int num_mbs_per_sec = 0;
+	unsigned long flags;
 	if (!core) {
 		pr_err("Invalid args: %p\n", core);
 		return -EINVAL;
 	}
-	list_for_each_entry(inst, &core->instances, list)
-		num_mbs_per_sec += NUM_MBS_PER_SEC(inst->prop.height,
-				inst->prop.width, inst->prop.fps);
+	list_for_each_entry(inst, &core->instances, list) {
+		spin_lock_irqsave(&inst->lock, flags);
+		if (inst->session_type == type &&
+			inst->state >= MSM_VIDC_OPEN_DONE &&
+			inst->state < MSM_VIDC_STOP_DONE) {
+			num_mbs_per_sec += NUM_MBS_PER_SEC(inst->prop.height,
+					inst->prop.width, inst->prop.fps);
+		}
+		spin_unlock_irqrestore(&inst->lock, flags);
+	}
 	return num_mbs_per_sec;
 }
 
@@ -153,8 +105,35 @@ static unsigned long get_clock_rate(struct core_clock *clock,
 			break;
 		ret = table[i].freq;
 	}
-	pr_err("Required clock rate = %lu\n", ret);
+	pr_debug("Required clock rate = %lu\n", ret);
 	return ret;
+}
+
+int msm_comm_scale_bus(struct msm_vidc_core *core, enum session_type type)
+{
+	int load;
+	int rc = 0;
+	if (!core || type >= MSM_VIDC_MAX_DEVICES) {
+		pr_err("Invalid args: %p, %d\n", core, type);
+		return -EINVAL;
+	}
+	load = msm_comm_get_load(core, type);
+	rc = msm_bus_scale_client_update_request(
+			core->resources.bus_info.ddr_handle[type],
+			get_bus_vector(load));
+	if (rc) {
+		pr_err("Failed to scale bus: %d\n", rc);
+		goto fail_scale_bus;
+	}
+	rc = msm_bus_scale_client_update_request(
+			core->resources.bus_info.ocmem_handle[type],
+			get_bus_vector(load));
+	if (rc) {
+		pr_err("Failed to scale bus: %d\n", rc);
+		goto fail_scale_bus;
+	}
+fail_scale_bus:
+	return rc;
 }
 
 struct msm_vidc_core *get_vidc_core(int core_id)
@@ -695,7 +674,7 @@ void handle_cmd_response(enum command_response cmd, void *data)
 	}
 }
 
-int msm_comm_scale_clocks(struct msm_vidc_core *core)
+int msm_comm_scale_clocks(struct msm_vidc_core *core, enum session_type type)
 {
 	int num_mbs_per_sec;
 	int rc = 0;
@@ -703,8 +682,9 @@ int msm_comm_scale_clocks(struct msm_vidc_core *core)
 		pr_err("Invalid args: %p\n", core);
 		return -EINVAL;
 	}
-	num_mbs_per_sec = msm_comm_get_load(core);
-	pr_err("num_mbs_per_sec = %d\n", num_mbs_per_sec);
+	num_mbs_per_sec = msm_comm_get_load(core, MSM_VIDC_ENCODER);
+	num_mbs_per_sec += msm_comm_get_load(core, MSM_VIDC_DECODER);
+	pr_debug("num_mbs_per_sec = %d\n", num_mbs_per_sec);
 	rc = clk_set_rate(core->resources.clock[VCODEC_CLK].clk,
 			get_clock_rate(&core->resources.clock[VCODEC_CLK],
 				num_mbs_per_sec));
@@ -712,7 +692,7 @@ int msm_comm_scale_clocks(struct msm_vidc_core *core)
 		pr_err("Failed to set clock rate: %d\n", rc);
 		goto fail_clk_set_rate;
 	}
-	rc = msm_comm_scale_bus(core);
+	rc = msm_comm_scale_bus(core, type);
 	if (rc)
 		pr_err("Failed to scale bus bandwidth\n");
 fail_clk_set_rate:
@@ -767,11 +747,6 @@ static int msm_comm_load_fw(struct msm_vidc_core *core)
 	if (!core) {
 		pr_err("Invalid paramter: %p\n", core);
 		return -EINVAL;
-	}
-	rc = msm_comm_scale_clocks(core);
-	if (rc) {
-		pr_err("Failed to set clock rate: %d\n", rc);
-		goto fail_pil_get;
 	}
 
 	if (!core->resources.fw.cookie)
@@ -1004,6 +979,11 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 				core->id, core->state);
 		goto core_already_inited;
 	}
+	rc = msm_comm_scale_clocks(core, inst->session_type);
+	if (rc) {
+		pr_err("Failed to set clock rate: %d\n", rc);
+		goto fail_load_fw;
+	}
 	rc = msm_comm_load_fw(core);
 	if (rc) {
 		pr_err("Failed to load video firmware\n");
@@ -1040,6 +1020,10 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		pr_err("Video core: %d is already in state: %d\n",
 				core->id, core->state);
 		goto core_already_uninited;
+	}
+	if (msm_comm_scale_clocks(core, inst->session_type)) {
+		pr_warn("Failed to scale clocks while closing\n");
+		pr_warn("Power might be impacted\n");
 	}
 	if (list_empty(&core->instances)) {
 		msm_comm_unset_ocmem(core);

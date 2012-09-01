@@ -652,6 +652,9 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		pr_err("Failed to set persist buffers: %d\n", rc);
 		goto fail_start;
 	}
+	if (msm_comm_scale_clocks(inst->core, inst->session_type))
+		pr_warn("Failed to scale clocks. Performance might be impacted\n");
+
 	rc = msm_comm_try_state(inst, MSM_VIDC_START_DONE);
 	if (rc) {
 		pr_err("Failed to move inst: %p to start done state\n",
@@ -689,14 +692,10 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	pr_debug("Streamon called on: %d capability\n", q->type);
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-		if (msm_comm_scale_clocks(inst->core))
-			pr_err("Failed to scale clocks. Performance/power might be impacted\n");
 		if (inst->vb2_bufq[CAPTURE_PORT].streaming)
 			rc = start_streaming(inst);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		if (msm_comm_scale_clocks(inst->core))
-			pr_err("Failed to scale clocks. Performance/power might be impacted\n");
 		if (inst->vb2_bufq[OUTPUT_PORT].streaming)
 			rc = start_streaming(inst);
 		break;
@@ -729,6 +728,9 @@ static int msm_venc_stop_streaming(struct vb2_queue *q)
 		rc = -EINVAL;
 		break;
 	}
+	if (msm_comm_scale_clocks(inst->core, inst->session_type))
+		pr_warn("Failed to scale clocks. Power might be impacted\n");
+
 	if (rc)
 		pr_err("Failed to move inst: %p, cap = %d to state: %d\n",
 				inst, q->type, MSM_VIDC_CLOSE_DONE);
