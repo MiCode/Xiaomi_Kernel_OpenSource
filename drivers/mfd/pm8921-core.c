@@ -63,6 +63,7 @@ struct pm8921 {
 	struct mfd_cell					*mfd_regulators;
 	struct pm8xxx_regulator_core_platform_data	*regulator_cdata;
 	u32						rev_registers;
+	u8						restart_reason;
 };
 
 static int pm8921_readb(const struct device *dev, u16 addr, u8 *val)
@@ -133,6 +134,14 @@ static int pm8921_get_revision(const struct device *dev)
 	return pmic->rev_registers & PM8921_REVISION_MASK;
 }
 
+static u8 pm8921_restart_reason(const struct device *dev)
+{
+	const struct pm8xxx_drvdata *pm8921_drvdata = dev_get_drvdata(dev);
+	const struct pm8921 *pmic = pm8921_drvdata->pm_chip_data;
+
+	return pmic->restart_reason;
+}
+
 static struct pm8xxx_drvdata pm8921_drvdata = {
 	.pmic_readb		= pm8921_readb,
 	.pmic_writeb		= pm8921_writeb,
@@ -141,6 +150,7 @@ static struct pm8xxx_drvdata pm8921_drvdata = {
 	.pmic_read_irq_stat	= pm8921_read_irq_stat,
 	.pmic_get_version	= pm8921_get_version,
 	.pmic_get_revision	= pm8921_get_revision,
+	.pmic_restart_reason	= pm8921_restart_reason,
 };
 
 static struct resource gpio_cell_resources[] = {
@@ -815,17 +825,6 @@ bail:
 	return ret;
 }
 
-static const char * const pm8921_restart_reason[] = {
-	[0] = "Unknown",
-	[1] = "Triggered from CBL (external charger)",
-	[2] = "Triggered from KPD (power key press)",
-	[3] = "Triggered from CHG (usb charger insertion)",
-	[4] = "Triggered from SMPL (sudden momentary power loss)",
-	[5] = "Triggered from RTC (real time clock)",
-	[6] = "Triggered by Hard Reset",
-	[7] = "Triggered by General Purpose Trigger",
-};
-
 static const char * const pm8921_rev_names[] = {
 	[PM8XXX_REVISION_8921_TEST]	= "test",
 	[PM8XXX_REVISION_8921_1p0]	= "1.0",
@@ -918,8 +917,9 @@ static int __devinit pm8921_probe(struct platform_device *pdev)
 		pr_err("Cannot read restart reason rc=%d\n", rc);
 		goto err_read_rev;
 	}
-	val &= PM8921_RESTART_REASON_MASK;
-	pr_info("PMIC Restart Reason: %s\n", pm8921_restart_reason[val]);
+	val &= PM8XXX_RESTART_REASON_MASK;
+	pr_info("PMIC Restart Reason: %s\n", pm8xxx_restart_reason_str[val]);
+	pmic->restart_reason = val;
 
 	rc = pm8921_add_subdevices(pdata, pmic);
 	if (rc) {
