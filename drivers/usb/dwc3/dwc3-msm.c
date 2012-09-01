@@ -34,6 +34,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <mach/rpm-regulator.h>
+#include <mach/msm_bus.h>
 
 #include "dwc3_otg.h"
 #include "core.h"
@@ -149,6 +150,8 @@ struct dwc3_msm {
 	struct delayed_work	chg_work;
 	enum usb_chg_state	chg_state;
 	u8			dcd_retries;
+	u32			bus_perf_client;
+	struct msm_bus_scale_pdata	*bus_scale_table;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1226,6 +1229,8 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
+	int ret;
+
 	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
 
 	if (atomic_read(&mdwc->in_lpm)) {
@@ -1240,6 +1245,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	dwc3_ssusb_ldo_enable(0);
 	wake_unlock(&mdwc->wlock);
 
+	if (mdwc->bus_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+						mdwc->bus_perf_client, 0);
+		if (ret)
+			dev_err(mdwc->dev, "Failed to reset bus bw vote\n");
+	}
+
 	atomic_set(&mdwc->in_lpm, 1);
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 
@@ -1248,11 +1260,20 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 {
+	int ret;
+
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 
 	if (!atomic_read(&mdwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already resumed\n", __func__);
 		return 0;
+	}
+
+	if (mdwc->bus_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+						mdwc->bus_perf_client, 1);
+		if (ret)
+			dev_err(mdwc->dev, "Failed to vote for bus scaling\n");
 	}
 
 	wake_lock(&mdwc->wlock);
@@ -1625,6 +1646,18 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register dwc3 device\n");
 		goto put_pdev;
+	}
+
+	msm->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (!msm->bus_scale_table) {
+		dev_err(&pdev->dev, "bus scaling is disabled\n");
+	} else {
+		msm->bus_perf_client =
+			msm_bus_scale_register_client(msm->bus_scale_table);
+		ret = msm_bus_scale_client_update_request(
+						msm->bus_perf_client, 1);
+		if (ret)
+			dev_err(&pdev->dev, "Failed to vote for bus scaling\n");
 	}
 
 	/* Reset the DBM */
