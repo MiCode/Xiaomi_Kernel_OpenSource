@@ -15,7 +15,6 @@
 
 #include <linux/switch.h>
 #include "mdss_hdmi_util.h"
-#include "mdss_io_util.h"
 
 enum hdmi_tx_clk_type {
 	HDMI_TX_AHB_CLK,

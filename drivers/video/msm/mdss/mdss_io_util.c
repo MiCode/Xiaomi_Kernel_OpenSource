@@ -14,6 +14,56 @@
 #include <linux/io.h>
 #include "mdss_io_util.h"
 
+void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
+{
+	u32 in_val;
+
+	if (!io || !io->base) {
+		pr_err("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (offset > io->len) {
+		pr_err("%s: offset out of range\n", __func__);
+		return;
+	}
+
+	writel_relaxed(value, io->base + offset);
+	if (debug) {
+		in_val = readl_relaxed(io->base + offset);
+		pr_debug("[%08x] => %08x [%08x]\n", (u32)(io->base + offset),
+			value, in_val);
+	}
+} /* dss_reg_w */
+
+u32 dss_reg_r(struct dss_io_data *io, u32 offset, u32 debug)
+{
+	u32 value;
+	if (!io || !io->base) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (offset > io->len) {
+		pr_err("%s: offset out of range\n", __func__);
+		return -EINVAL;
+	}
+
+	value = readl_relaxed(io->base + offset);
+	if (debug)
+		pr_debug("[%08x] <= %08x\n", (u32)(io->base + offset), value);
+
+	return value;
+} /* dss_reg_r */
+
+void dss_reg_dump(void __iomem *base, u32 length, const char *prefix,
+	u32 debug)
+{
+	if (debug)
+		print_hex_dump(KERN_INFO, prefix, DUMP_PREFIX_OFFSET, 32, 4,
+			(void *)base, length, false);
+} /* dss_reg_dump */
+
 static struct resource *msm_dss_get_res_byname(struct platform_device *pdev,
 	unsigned int type, const char *name)
 {

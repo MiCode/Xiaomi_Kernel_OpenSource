@@ -16,7 +16,7 @@
 #include "mdss_hdmi_util.h"
 
 struct hdmi_edid_init_data {
-	void __iomem *base;
+	struct dss_io_data *io;
 	struct mutex *mutex;
 	struct kobject *sysfs_kobj;
 
