@@ -1401,6 +1401,7 @@ static int __init diagchar_init(void)
 		driver->mask_check = 0;
 		mutex_init(&driver->diagchar_mutex);
 		init_waitqueue_head(&driver->wait_q);
+		init_waitqueue_head(&driver->smd_wait_q);
 		INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 		INIT_WORK(&(driver->diag_read_smd_work), diag_read_smd_work_fn);
 		INIT_WORK(&(driver->diag_read_smd_cntl_work),
