@@ -32,7 +32,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>          /* kfree, kzalloc */
 #include <linux/gpio.h>
-
 #include <mach/dma.h>
 #include <mach/msm_tsif.h>
 
@@ -273,36 +272,6 @@ static void tsif_clocks_off(unsigned long data)
 /* ===clocks end=== */
 /* ===gpio begin=== */
 
-static void tsif_gpios_free(const struct msm_gpio *table, int size)
-{
-	int i;
-	const struct msm_gpio *g;
-	for (i = size-1; i >= 0; i--) {
-		g = table + i;
-		gpio_free(GPIO_PIN(g->gpio_cfg));
-	}
-}
-
-static int tsif_gpios_request(const struct msm_gpio *table, int size)
-{
-	int rc;
-	int i;
-	const struct msm_gpio *g;
-	for (i = 0; i < size; i++) {
-		g = table + i;
-		rc = gpio_request(GPIO_PIN(g->gpio_cfg), g->label);
-		if (rc) {
-			pr_err("gpio_request(%d) <%s> failed: %d\n",
-			       GPIO_PIN(g->gpio_cfg), g->label ?: "?", rc);
-			goto err;
-		}
-	}
-	return 0;
-err:
-	tsif_gpios_free(table, i);
-	return rc;
-}
-
 static int tsif_gpios_disable(const struct msm_gpio *table, int size)
 {
 	int rc = 0;
@@ -357,19 +326,14 @@ err:
 
 static int tsif_gpios_request_enable(const struct msm_gpio *table, int size)
 {
-	int rc = tsif_gpios_request(table, size);
-	if (rc)
-		return rc;
+	int rc;
 	rc = tsif_gpios_enable(table, size);
-	if (rc)
-		tsif_gpios_free(table, size);
 	return rc;
 }
 
 static void tsif_gpios_disable_free(const struct msm_gpio *table, int size)
 {
 	tsif_gpios_disable(table, size);
-	tsif_gpios_free(table, size);
 }
 
 static int tsif_start_gpios(struct msm_tsif_device *tsif_device)
@@ -1029,6 +993,7 @@ static int action_open(struct msm_tsif_device *tsif_device)
 
 	struct msm_tsif_platform_data *pdata =
 		tsif_device->pdev->dev.platform_data;
+
 	dev_info(&tsif_device->pdev->dev, "%s\n", __func__);
 	if (tsif_device->state != tsif_state_stopped)
 		return -EAGAIN;
@@ -1038,14 +1003,6 @@ static int action_open(struct msm_tsif_device *tsif_device)
 		return rc;
 	}
 	tsif_device->state = tsif_state_running;
-
-	/* make sure the GPIO's are set up */
-	rc = tsif_start_gpios(tsif_device);
-	if (rc) {
-		dev_err(&tsif_device->pdev->dev, "failed to start GPIOs\n");
-		tsif_dma_exit(tsif_device);
-		return rc;
-	}
 
 	/*
 	 * DMA should be scheduled prior to TSIF hardware initialization,
@@ -1062,9 +1019,20 @@ static int action_open(struct msm_tsif_device *tsif_device)
 	rc = tsif_start_hw(tsif_device);
 	if (rc) {
 		dev_err(&tsif_device->pdev->dev, "Unable to start HW\n");
-		tsif_stop_gpios(tsif_device);
 		tsif_dma_exit(tsif_device);
 		tsif_clock(tsif_device, 0);
+		disable_irq(tsif_device->irq);
+		return rc;
+	}
+
+	/* make sure the GPIO's are set up */
+	rc = tsif_start_gpios(tsif_device);
+	if (rc) {
+		dev_err(&tsif_device->pdev->dev, "failed to start GPIOs\n");
+		tsif_stop_hw(tsif_device);
+		tsif_dma_exit(tsif_device);
+		tsif_clock(tsif_device, 0);
+		disable_irq(tsif_device->irq);
 		return rc;
 	}
 
@@ -1073,11 +1041,16 @@ static int action_open(struct msm_tsif_device *tsif_device)
 		dev_err(&tsif_device->pdev->dev,
 			"Runtime PM: Unable to wake up the device, rc = %d\n",
 			result);
+		tsif_stop_gpios(tsif_device);
+		tsif_stop_hw(tsif_device);
+		tsif_dma_exit(tsif_device);
+		tsif_clock(tsif_device, 0);
+		disable_irq(tsif_device->irq);
 		return result;
 	}
 
 	wake_lock(&tsif_device->wake_lock);
-	return rc;
+	return 0;
 }
 
 static int action_close(struct msm_tsif_device *tsif_device)
@@ -1094,7 +1067,7 @@ static int action_close(struct msm_tsif_device *tsif_device)
 	 * there are any outstanding reads on the bus, and if we
 	 * stop the TSIF too quickly, it can cause a bus error.
 	 */
-	msleep(100);
+	msleep(250);
 
 	/* now we can stop the core */
 	tsif_stop_hw(tsif_device);
