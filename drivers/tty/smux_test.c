@@ -690,6 +690,7 @@ static int smux_ut_remote_ssr_basic(char *buf, int max)
 	};
 	int i = 0;
 	int failed = 0;
+	int retry_count = 0;
 	int ret;
 
 	i += scnprintf(buf + i, max - i, "Running %s\n", __func__);
@@ -701,7 +702,13 @@ static int smux_ut_remote_ssr_basic(char *buf, int max)
 
 		i += smux_ut_basic_core(buf + i, max - i, test_data, __func__);
 		subsystem_restart("external_modem");
-		msleep(5000);
+
+		do {
+			msleep(500);
+			++retry_count;
+			UT_ASSERT_INT(retry_count, <, 20);
+		} while (!smux_remote_is_active() && !failed);
+
 		i += smux_ut_basic_core(buf + i, max - i, test_data, __func__);
 		break;
 	}
@@ -721,6 +728,7 @@ static int smux_ut_remote_ssr_open(char *buf, int max)
 	static struct smux_mock_callback cb_data;
 	static int cb_initialized;
 	int ret;
+	int retry_count;
 	int i = 0;
 	int failed = 0;
 
@@ -763,6 +771,14 @@ static int smux_ut_remote_ssr_open(char *buf, int max)
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
+
+		/* wait for remote side to finish booting */
+		retry_count = 0;
+		do {
+			msleep(500);
+			++retry_count;
+			UT_ASSERT_INT(retry_count, <, 20);
+		} while (!smux_remote_is_active() && !failed);
 		break;
 	}
 
@@ -795,6 +811,7 @@ static int smux_ut_remote_ssr_rx_buff_retry(char *buf, int max)
 	static int cb_initialized;
 	int i = 0;
 	int failed = 0;
+	int retry_count;
 	int ret;
 
 	i += scnprintf(buf + i, max - i, "Running %s\n", __func__);
@@ -841,12 +858,16 @@ static int smux_ut_remote_ssr_rx_buff_retry(char *buf, int max)
 		subsystem_restart("external_modem");
 
 		/* verify SSR completed */
-		UT_ASSERT_INT(ret, ==, 0);
-		UT_ASSERT_INT(
-			(int)wait_for_completion_timeout(
-				&cb_data.cb_completion, 5*HZ),
-			>, 0);
-		UT_ASSERT_INT(cb_data.cb_count, ==, 1);
+		retry_count = 0;
+		while (cb_data.event_disconnected_ssr == 0) {
+			(void)wait_for_completion_timeout(
+				&cb_data.cb_completion, HZ);
+			INIT_COMPLETION(cb_data.cb_completion);
+			++retry_count;
+			UT_ASSERT_INT(retry_count, <, 10);
+		}
+		if (failed)
+			break;
 		UT_ASSERT_INT(cb_data.event_disconnected, ==, 1);
 		UT_ASSERT_INT(cb_data.event_disconnected_ssr, ==, 1);
 		mock_cb_data_reset(&cb_data);
@@ -854,6 +875,14 @@ static int smux_ut_remote_ssr_rx_buff_retry(char *buf, int max)
 		/* close port */
 		ret = msm_smux_close(SMUX_TEST_LCID);
 		UT_ASSERT_INT(ret, ==, 0);
+
+		/* wait for remote side to finish booting */
+		retry_count = 0;
+		do {
+			msleep(500);
+			++retry_count;
+			UT_ASSERT_INT(retry_count, <, 20);
+		} while (!smux_remote_is_active() && !failed);
 		break;
 	}
 
