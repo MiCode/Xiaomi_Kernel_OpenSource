@@ -31,6 +31,17 @@ enum discovery_result_enum {
 	MHL_DISCOVERY_RESULT_MHL,
 };
 
+struct msc_command_struct {
+	u8 command;
+	u8 offset;
+	u8 length;
+	union {
+		u8 data[16];
+		u8 *burst_data;
+	} payload;
+	u8 retval;
+};
+
 /* USB driver interface  */
 
 #ifdef CONFIG_FB_MSM_HDMI_MHL_8334
@@ -68,6 +79,9 @@ struct mhl_msm_state_t {
 	/* Device Discovery stuff */
 	int mhl_mode;
 	struct completion rgnd_done;
+	struct completion msc_cmd_done;
+	uint8_t devcap_state;
+	uint8_t path_en_state;
 };
 
 enum {
