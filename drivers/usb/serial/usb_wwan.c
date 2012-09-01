@@ -283,6 +283,7 @@ static void usb_wwan_in_work(struct work_struct *w)
 {
 	struct usb_wwan_port_private *portdata =
 		container_of(w, struct usb_wwan_port_private, in_work);
+	struct usb_wwan_intf_private *intfdata;
 	struct list_head *q = &portdata->in_urb_list;
 	struct urb *urb;
 	unsigned char *data;
@@ -304,7 +305,9 @@ static void usb_wwan_in_work(struct work_struct *w)
 		if (!tty)
 			break;
 
-		list_del_init(&urb->urb_list);
+		/* list_empty() will still be false after this; it means
+		 * URB is still being processed */
+		list_del(&urb->urb_list);
 
 		spin_unlock_irqrestore(&portdata->in_lock, flags);
 
@@ -326,18 +329,27 @@ static void usb_wwan_in_work(struct work_struct *w)
 			spin_unlock_irqrestore(&portdata->in_lock, flags);
 			return;
 		}
+
+		/* re-init list pointer to indicate we are done with it */
+		INIT_LIST_HEAD(&urb->urb_list);
+
 		portdata->n_read = 0;
+		intfdata = port->serial->private;
 
-		usb_anchor_urb(urb, &portdata->submitted);
-		err = usb_submit_urb(urb, GFP_ATOMIC);
-		if (err) {
-			usb_unanchor_urb(urb);
-			if (err != -EPERM)
-				pr_err("%s: submit read urb failed:%d",
-						__func__, err);
+		spin_lock_irqsave(&intfdata->susp_lock, flags);
+		if (!intfdata->suspended && !urb->anchor) {
+			usb_anchor_urb(urb, &portdata->submitted);
+			err = usb_submit_urb(urb, GFP_ATOMIC);
+			if (err) {
+				usb_unanchor_urb(urb);
+				if (err != -EPERM)
+					pr_err("%s: submit read urb failed:%d",
+							__func__, err);
+			}
+
+			usb_mark_last_busy(port->serial->dev);
 		}
-
-		usb_mark_last_busy(port->serial->dev);
+		spin_unlock_irqrestore(&intfdata->susp_lock, flags);
 		spin_lock_irqsave(&portdata->in_lock, flags);
 	}
 	spin_unlock_irqrestore(&portdata->in_lock, flags);
@@ -348,6 +360,7 @@ static void usb_wwan_indat_callback(struct urb *urb)
 	int err;
 	int endpoint;
 	struct usb_wwan_port_private *portdata;
+	struct usb_wwan_intf_private *intfdata;
 	struct usb_serial_port *port;
 	int status = urb->status;
 	unsigned long flags;
@@ -357,6 +370,7 @@ static void usb_wwan_indat_callback(struct urb *urb)
 	endpoint = usb_pipeendpoint(urb->pipe);
 	port = urb->context;
 	portdata = usb_get_serial_port_data(port);
+	intfdata = port->serial->private;
 
 	usb_mark_last_busy(port->serial->dev);
 
@@ -372,6 +386,13 @@ static void usb_wwan_indat_callback(struct urb *urb)
 
 	dbg("%s: nonzero status: %d on endpoint %02x.",
 		__func__, status, endpoint);
+
+	spin_lock(&intfdata->susp_lock);
+	if (intfdata->suspended || !portdata->opened) {
+		spin_unlock(&intfdata->susp_lock);
+		return;
+	}
+	spin_unlock(&intfdata->susp_lock);
 
 	if (status != -ESHUTDOWN) {
 		usb_anchor_urb(urb, &portdata->submitted);
@@ -850,11 +871,17 @@ int usb_wwan_resume(struct usb_serial *serial)
 
 		for (j = 0; j < N_IN_URB; j++) {
 			urb = portdata->in_urbs[j];
+
+			/* don't re-submit if it already was submitted or if
+			 * it is being processed by in_work */
+			if (urb->anchor || !list_empty(&urb->urb_list))
+				continue;
+
 			usb_anchor_urb(urb, &portdata->submitted);
 			err = usb_submit_urb(urb, GFP_ATOMIC);
 			if (err < 0) {
-				err("%s: Error %d for bulk URB %d",
-				    __func__, err, i);
+				err("%s: Error %d for bulk URB[%d]:%p %d",
+				    __func__, err, j, urb, i);
 				usb_unanchor_urb(urb);
 				intfdata->suspended = 1;
 				spin_unlock_irq(&intfdata->susp_lock);
