@@ -97,6 +97,8 @@ struct dcvs_core {
 	int sensor;
 	int pending_freq;
 	wait_queue_head_t wait_q;
+	int (*set_frequency)(struct msm_dcvs_freq *self, unsigned int freq);
+	unsigned int (*get_frequency)(struct msm_dcvs_freq *self);
 };
 
 static int msm_dcvs_debug;
@@ -123,7 +125,7 @@ static int __msm_dcvs_change_freq(struct dcvs_core *core)
 	uint32_t slack_us = 0;
 	uint32_t ret1 = 0;
 
-	if (!core->freq_driver || !core->freq_driver->set_frequency) {
+	if (!core->freq_driver || !core->set_frequency) {
 		/* Core may have unregistered or hotplugged */
 		return -ENODEV;
 	}
@@ -151,8 +153,7 @@ repeat:
 	 * We will need to get back the actual frequency in KHz and
 	 * the record the time taken to change it.
 	 */
-	ret = core->freq_driver->set_frequency(core->freq_driver,
-				requested_freq);
+	ret = core->set_frequency(core->freq_driver, requested_freq);
 	if (ret <= 0) {
 		__err("Core %s failed to set freq %u\n",
 				core->core_name, requested_freq);
@@ -576,7 +577,10 @@ static struct dcvs_core *msm_dcvs_get_core(const char *name, int add_to_list)
 }
 
 int msm_dcvs_register_core(const char *core_name,
-		struct msm_dcvs_core_info *info, int sensor)
+	struct msm_dcvs_core_info *info,
+	int (*set_frequency)(struct msm_dcvs_freq *self, unsigned int freq),
+	unsigned int (*get_frequency)(struct msm_dcvs_freq *self),
+	int sensor)
 {
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
@@ -592,6 +596,9 @@ int msm_dcvs_register_core(const char *core_name,
 
 	mutex_lock(&core->lock);
 
+	core->set_frequency = set_frequency;
+	core->get_frequency = get_frequency;
+
 	core->info = info;
 	memcpy(&core->algo_param, &info->algo_param,
 			sizeof(struct msm_dcvs_algo_param));
@@ -601,8 +608,8 @@ int msm_dcvs_register_core(const char *core_name,
 
 	pr_debug("registering core with sensor %d\n", sensor);
 	core->sensor = sensor;
-	ret = msm_dcvs_scm_register_core(core->handle,
-			&info->core_param);
+
+	ret = msm_dcvs_scm_register_core(core->handle, &info->core_param);
 	if (ret)
 		goto bail;
 
@@ -639,14 +646,14 @@ void msm_dcvs_update_limits(struct msm_dcvs_freq *drv)
 {
 	struct dcvs_core *core;
 
-	if (!drv || !drv->core_name || !drv->get_frequency)
+	if (!drv || !drv->core_name)
 		return;
 
 	core = msm_dcvs_get_core(drv->core_name, false);
-	core->actual_freq = drv->get_frequency(drv);
+	core->actual_freq = core->get_frequency(drv);
 }
 
-int msm_dcvs_freq_sink_register(struct msm_dcvs_freq *drv)
+int msm_dcvs_freq_sink_start(struct msm_dcvs_freq *drv)
 {
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
@@ -674,7 +681,7 @@ int msm_dcvs_freq_sink_register(struct msm_dcvs_freq *drv)
 		__info("Enabling idle pulse for %s\n", core->core_name);
 
 	if (core->idle_driver) {
-		core->actual_freq = core->freq_driver->get_frequency(drv);
+		core->actual_freq = core->get_frequency(drv);
 		/* Notify TZ to start receiving idle info for the core */
 		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1,
 					   &ret1, &ret2);
@@ -686,9 +693,9 @@ int msm_dcvs_freq_sink_register(struct msm_dcvs_freq *drv)
 
 	return core->handle;
 }
-EXPORT_SYMBOL(msm_dcvs_freq_sink_register);
+EXPORT_SYMBOL(msm_dcvs_freq_sink_start);
 
-int msm_dcvs_freq_sink_unregister(struct msm_dcvs_freq *drv)
+int msm_dcvs_freq_sink_stop(struct msm_dcvs_freq *drv)
 {
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
@@ -722,7 +729,7 @@ int msm_dcvs_freq_sink_unregister(struct msm_dcvs_freq *drv)
 
 	return 0;
 }
-EXPORT_SYMBOL(msm_dcvs_freq_sink_unregister);
+EXPORT_SYMBOL(msm_dcvs_freq_sink_stop);
 
 int msm_dcvs_idle_source_register(struct msm_dcvs_idle *drv)
 {
