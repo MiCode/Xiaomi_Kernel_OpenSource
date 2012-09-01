@@ -290,8 +290,8 @@ unsigned long gen_pool_alloc_aligned(struct gen_pool *pool, size_t size,
 
 retry:
 		start_bit = bitmap_find_next_zero_area_off(chunk->bits, chunk_size,
-						       0, nbits, align_mask,
-						       chunk->start_addr);
+						   0, nbits, align_mask,
+						   chunk->start_addr >> order);
 		if (start_bit >= chunk_size)
 			continue;
 		remain = bitmap_set_ll(chunk->bits, start_bit, nbits);
