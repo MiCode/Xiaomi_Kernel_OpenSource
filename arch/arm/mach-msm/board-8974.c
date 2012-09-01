@@ -383,6 +383,11 @@ static struct platform_device msm_bus_ocmem_vnoc = {
 	.id    = MSM_BUS_FAB_OCMEM_VNOC,
 };
 
+static struct platform_device msm_fm_platform_init = {
+	.name  = "iris_fm",
+	.id    = -1,
+};
+
 static struct platform_device *msm_bus_8974_devices[] = {
 	&msm_bus_sys_noc,
 	&msm_bus_bimc,
@@ -391,6 +396,7 @@ static struct platform_device *msm_bus_8974_devices[] = {
 	&msm_bus_periph_noc,
 	&msm_bus_config_noc,
 	&msm_bus_ocmem_vnoc,
+	&msm_fm_platform_init,
 };
 
 static ssize_t mxt336s_vkeys_show(struct kobject *kobj,
