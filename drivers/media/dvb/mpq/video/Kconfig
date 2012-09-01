@@ -1,0 +1,16 @@
+config DVB_MPQ_VIDEO
+	tristate "DVB Video Device"
+	depends on DVB_MPQ
+
+	---help---
+	  This is a dvb/video interface with extensions for
+	  Qualcomm Chipset Video hardware. For dvb/video
+	  specification please check http://linuxtv.org/
+
+	  Say Y or M if you own such a device and want to use it.
+
+config DVB_MPQ_NUM_VIDEO_DEVICES
+	int "Number of video devices"
+	depends on DVB_MPQ_VIDEO
+	default 4
+	range 1 255
