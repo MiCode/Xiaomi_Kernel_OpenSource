@@ -172,6 +172,7 @@ static int msm_init(struct kgsl_device *device,
 	for (i = 0; i <= low_level; i++)
 		tbl[i].freq = pwr->pwrlevels[low_level - i].gpu_freq / 1000;
 	ret = msm_dcvs_register_core(device->name, priv->core_info,
+			msm_set_freq, msm_get_freq,
 			priv->core_info->sensors[0]);
 	if (ret) {
 		KGSL_PWR_ERR(device, "msm_dcvs_register_core failed");
@@ -189,9 +190,7 @@ static int msm_init(struct kgsl_device *device,
 	}
 
 	priv->freq_sink.core_name = device->name;
-	priv->freq_sink.set_frequency = msm_set_freq;
-	priv->freq_sink.get_frequency = msm_get_freq;
-	ret = msm_dcvs_freq_sink_register(&priv->freq_sink);
+	ret = msm_dcvs_freq_sink_start(&priv->freq_sink);
 	if (ret >= 0) {
 		if (device->ftbl->isidle(device)) {
 			priv->gpu_busy = 0;
@@ -221,7 +220,7 @@ static void msm_close(struct kgsl_device *device,
 	if (pwrscale->priv == NULL)
 		return;
 	msm_dcvs_idle_source_unregister(&priv->idle_source);
-	msm_dcvs_freq_sink_unregister(&priv->freq_sink);
+	msm_dcvs_freq_sink_stop(&priv->freq_sink);
 	kfree(pwrscale->priv);
 	pwrscale->priv = NULL;
 	msm_restore_io_fraction(device);
