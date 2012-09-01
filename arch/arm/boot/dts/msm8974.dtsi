@@ -101,10 +101,12 @@
 	sdcc1: qcom,sdcc@f9824000 {
 		cell-index = <1>; /* SDC1 eMMC slot */
 		compatible = "qcom,msm-sdcc";
-		reg = <0xf9824000 0x1000>;
-		reg-names = "core_mem";
-		interrupts = <0 123 0>;
-		interrupt-names = "core_irq";
+		reg = <0xf9824000 0x800>,
+			<0xf9824800 0x100>,
+			<0xf9804000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		interrupts = <0 123 0>, <0 137 0>;
+		interrupt-names = "core_irq", "bam_irq";
 		vdd-supply = <&pm8941_l20>;
 		vdd-io-supply = <&pm8941_s3>;
 
@@ -130,10 +132,12 @@
 	sdcc2: qcom,sdcc@f98a4000 {
 		cell-index = <2>; /* SDC2 SD card slot */
 		compatible = "qcom,msm-sdcc";
-		reg = <0xf98a4000 0x1000>;
-		reg-names = "core_mem";
-		interrupts = <0 125 0>;
-		interrupt-names = "core_irq";
+		reg = <0xf98a4000 0x800>,
+			<0xf98a4800 0x100>,
+			<0xf9884000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		interrupts = <0 125 0>, <0 220 0>;
+		interrupt-names = "core_irq", "bam_irq";
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_l13>;
 
@@ -161,10 +165,12 @@
 	sdcc3: qcom,sdcc@f9864000 {
 		cell-index = <3>; /* SDC3 SDIO slot */
 		compatible = "qcom,msm-sdcc";
-		reg = <0xf9864000 0x1000>;
-		reg-names = "core_mem";
-		interrupts = <0 127 0>;
-		interrupt-names = "core_irq";
+		reg = <0xf9864000 0x800>,
+			<0xf9864800 0x100>,
+			<0xf9844000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		interrupts = <0 127 0>, <0 223 0>;
+		interrupt-names = "core_irq", "bam_irq";
 
 		gpios = <&msmgpio 40 0>, /* CLK */
 			<&msmgpio 39 0>, /* CMD */
@@ -184,10 +190,12 @@
 	sdcc4: qcom,sdcc@f98e4000 {
 		cell-index = <4>; /* SDC4 SDIO slot */
 		compatible = "qcom,msm-sdcc";
-		reg = <0xf98e4000 0x1000>;
-		reg-names = "core_mem";
-		interrupts = <0 129 0>;
-		interrupt-names = "core_irq";
+		reg = <0xf98e4000 0x800>,
+			<0xf98e4800 0x100>,
+			<0xf98c4000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		interrupts = <0 129 0>, <0 226 0>;
+		interrupt-names = "core_irq", "bam_irq";
 
 		gpios = <&msmgpio 93 0>, /* CLK */
 			<&msmgpio 91 0>, /* CMD */
