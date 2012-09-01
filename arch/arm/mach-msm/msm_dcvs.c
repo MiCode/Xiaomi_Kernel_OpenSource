@@ -74,7 +74,6 @@ struct core_attribs {
 
 struct dcvs_core {
 	char core_name[CORE_NAME_MAX];
-	uint32_t new_freq[MAX_PENDING];
 	uint32_t actual_freq;
 	uint32_t freq_change_us;
 
@@ -92,13 +91,11 @@ struct dcvs_core {
 	struct task_struct *task;
 	struct core_attribs attrib;
 	uint32_t handle;
-	uint32_t freq_pending;
 	struct hrtimer timer;
 	int32_t timer_disabled;
-	/* track if kthread for change_freq is active */
-	int32_t change_freq_activated;
 	struct msm_dcvs_core_info *info;
 	int sensor;
+	int pending_freq;
 };
 
 static int msm_dcvs_debug;
@@ -129,24 +126,12 @@ static int __msm_dcvs_change_freq(struct dcvs_core *core)
 		/* Core may have unregistered or hotplugged */
 		return -ENODEV;
 	}
-repeat:
 	spin_lock_irqsave(&core->cpu_lock, flags);
-	if (unlikely(!core->freq_pending)) {
-		spin_unlock_irqrestore(&core->cpu_lock, flags);
-		return ret;
-	}
-	requested_freq = core->new_freq[core->freq_pending - 1];
-	if (unlikely(core->freq_pending > 1) &&
-		(msm_dcvs_debug & MSM_DCVS_DEBUG_FREQ_CHANGE)) {
-		int i;
-		for (i = 0; i < core->freq_pending - 1; i++) {
-			__info("Core %s missing freq %u\n",
-				core->core_name, core->new_freq[i]);
-		}
-	}
+repeat:
+
+	requested_freq = core->pending_freq;
 	time_start = core->time_start;
 	core->time_start = 0;
-	core->freq_pending = 0;
 	/**
 	 * Cancel the timers, we dont want the timer firing as we are
 	 * changing the clock rate. Dont let idle_exit and others setup
@@ -154,10 +139,11 @@ repeat:
 	 */
 	hrtimer_cancel(&core->timer);
 	core->timer_disabled = 1;
+	if (requested_freq == core->actual_freq)
+		goto out;
+
 	spin_unlock_irqrestore(&core->cpu_lock, flags);
 
-	if (requested_freq == core->actual_freq)
-		return ret;
 
 	/**
 	 * Call the frequency sink driver to change the frequency
@@ -231,14 +217,19 @@ repeat:
 			core->actual_freq, prev_freq,
 			core->freq_change_us, slack_us);
 
+	spin_lock_irqsave(&core->cpu_lock, flags);
 	/**
 	 * By the time we are done with freq changes, we could be asked to
 	 * change again. Check before exiting.
 	 */
-	if (core->freq_pending)
+	if (core->pending_freq)
 		goto repeat;
 
-	core->change_freq_activated = 0;
+
+out: /* should always be jumped to with the spin_lock held */
+	core->pending_freq = 0;
+	spin_unlock_irqrestore(&core->cpu_lock, flags);
+
 	return ret;
 }
 
@@ -307,31 +298,20 @@ static int msm_dcvs_update_freq(struct dcvs_core *core,
 		else
 			__err("Error (%d) sending SCM event %d for core %s\n",
 				ret, event, core->core_name);
-		goto freq_done;
+		goto out;
 	}
 
-	if ((core->actual_freq != new_freq) &&
-			(core->new_freq[core->freq_pending] != new_freq)) {
-		if (core->freq_pending >= MAX_PENDING - 1)
-			core->freq_pending = MAX_PENDING - 1;
-		core->new_freq[core->freq_pending++] = new_freq;
+	if (core->actual_freq != new_freq && core->pending_freq != new_freq) {
+		core->pending_freq = new_freq;
 		core->time_start = ktime_to_ns(ktime_get());
 
-		/* Schedule the frequency change */
-		if (!core->task)
-			__err("Uninitialized task for core %s\n",
-					core->core_name);
-		else {
-			if (freq_changed)
-				*freq_changed = 1;
-			core->change_freq_activated = 1;
+		if (core->task)
 			wake_up_process(core->task);
-		}
 	} else {
 		if (freq_changed)
 			*freq_changed = 0;
 	}
-freq_done:
+out:
 	spin_unlock_irqrestore(&core->cpu_lock, flags);
 
 	return ret;
@@ -728,7 +708,6 @@ int msm_dcvs_freq_sink_unregister(struct msm_dcvs_freq *drv)
 		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 			__info("Enabling LPM for %s\n", core->core_name);
 	}
-	core->freq_pending = 0;
 	core->freq_driver = NULL;
 	mutex_unlock(&core->lock);
 
@@ -814,7 +793,7 @@ int msm_dcvs_idle(int handle, enum msm_core_idle_state state, uint32_t iowaited)
 			__err("Error (%d) sending idle exit for %s\n",
 					ret, core->core_name);
 		/* only start slack timer if change_freq won't */
-		if (freq_changed || core->change_freq_activated)
+		if (freq_changed)
 			break;
 		if (timer_interval_us && !core->timer_disabled) {
 			ret = hrtimer_start(&core->timer,
