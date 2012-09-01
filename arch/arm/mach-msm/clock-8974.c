@@ -2382,7 +2382,7 @@ static struct rcg_clk axi_clk_src = {
 		.dbg_name = "axi_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 282000000,
-				  HIGH, 320000000),
+				  HIGH, 400000000),
 		CLK_INIT(axi_clk_src.c),
 	},
 };
