@@ -152,4 +152,11 @@ extern int msm_dcvs_freq_sink_register(struct msm_dcvs_freq *drv);
  */
 extern int msm_dcvs_freq_sink_unregister(struct msm_dcvs_freq *drv);
 
+/**
+ * msm_dcvs_update_limits
+ * @drv: The sink driver
+ *
+ * Update the frequency known to dcvs when the limits are changed.
+ */
+extern void msm_dcvs_update_limits(struct msm_dcvs_freq *drv);
 #endif

@@ -635,6 +635,17 @@ bail:
 }
 EXPORT_SYMBOL(msm_dcvs_register_core);
 
+void msm_dcvs_update_limits(struct msm_dcvs_freq *drv)
+{
+	struct dcvs_core *core;
+
+	if (!drv || !drv->core_name || !drv->get_frequency)
+		return;
+
+	core = msm_dcvs_get_core(drv->core_name, false);
+	core->actual_freq = drv->get_frequency(drv);
+}
+
 int msm_dcvs_freq_sink_register(struct msm_dcvs_freq *drv)
 {
 	int ret = -EINVAL;
