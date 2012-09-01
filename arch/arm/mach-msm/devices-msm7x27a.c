@@ -1688,8 +1688,8 @@ static struct msm_cpr_mode msm_cpr_mode_data[] = {
 			.ring_osc = 0,
 			.step_quot = ~0,
 			.tgt_volt_offset = 0,
-			.Vmax = 1200000,
-			.Vmin = 1000000,
+			.nom_Vmax = 1350000,
+			.nom_Vmin = 1250000,
 			.calibrated_uV = 1100000,
 	},
 	[TURBO_MODE] = {
@@ -1706,8 +1706,10 @@ static struct msm_cpr_mode msm_cpr_mode_data[] = {
 			.ring_osc = 0,
 			.step_quot = ~0,
 			.tgt_volt_offset = 0,
-			.Vmax = 1350000,
-			.Vmin = 1150000,
+			.turbo_Vmax = 1350000,
+			.turbo_Vmin = 950000,
+			.nom_Vmax = 1350000,
+			.nom_Vmin = 950000,
 			.calibrated_uV = 1300000,
 	},
 };

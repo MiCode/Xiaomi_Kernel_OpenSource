@@ -154,8 +154,10 @@ struct msm_cpr_mode {
 	int ring_osc;
 	int32_t tgt_volt_offset;
 	uint32_t step_quot;
-	uint32_t Vmax;
-	uint32_t Vmin;
+	uint32_t turbo_Vmax;
+	uint32_t turbo_Vmin;
+	uint32_t nom_Vmax;
+	uint32_t nom_Vmin;
 	uint32_t calibrated_uV;
 };
 
