@@ -12,6 +12,7 @@
 
 #ifndef __HDMI_UTIL_H__
 #define __HDMI_UTIL_H__
+#include "mdss_io_util.h"
 
 #define DEV_INFO(fmt, args...)	pr_info(fmt, ##args)
 #define DEV_WARN(fmt, args...)	pr_warn(fmt, ##args)
@@ -23,15 +24,7 @@
 #define DEV_DBG(args...)	(void)0
 #endif
 
-#define PORT_DEBUG 0
 #define REG_DUMP 0
-void hdmi_reg_w(void __iomem *addr, u32 offset, u32 value, u32 debug);
-u32 hdmi_reg_r(void __iomem *addr, u32 offset, u32 debug);
-
-#define HDMI_REG_W_ND(addr, offset, val)  hdmi_reg_w(addr, offset, val, false)
-#define HDMI_REG_W(addr, offset, val)     hdmi_reg_w(addr, offset, val, true)
-#define HDMI_REG_R_ND(addr, offset)       hdmi_reg_r(addr, offset, false)
-#define HDMI_REG_R(addr, offset)          hdmi_reg_r(addr, offset, true)
 
 /* HDMI_TX Registers */
 #define HDMI_CTRL                        (0x00000000)
@@ -220,7 +213,7 @@ u32 hdmi_reg_r(void __iomem *addr, u32 offset, u32 debug);
 #define HDMI_TPG_BLK_WHT_PATTERN_FRAMES  (0x00000358)
 #define HDMI_TPG_RGB_MAPPING             (0x0000035C)
 
-/* HDMI PHY Registers, use them with PHY base and _ND macro */
+/* HDMI PHY Registers */
 #define HDMI_PHY_ANA_CFG0                (0x00000000)
 #define HDMI_PHY_ANA_CFG1                (0x00000004)
 #define HDMI_PHY_PD_CTRL0                (0x00000010)
@@ -230,6 +223,10 @@ u32 hdmi_reg_r(void __iomem *addr, u32 offset, u32 debug);
 #define HDMI_PHY_BIST_PATN1              (0x00000040)
 #define HDMI_PHY_BIST_PATN2              (0x00000044)
 #define HDMI_PHY_BIST_PATN3              (0x00000048)
+
+/* QFPROM Registers for HDMI/HDCP */
+#define QFPROM_RAW_FEAT_CONFIG_ROW0_LSB  (0x000000F8)
+#define QFPROM_RAW_FEAT_CONFIG_ROW0_MSB  (0x000000FC)
 
 /* all video formats defined by EIA CEA 861D */
 #define HDMI_VFRMT_640x480p60_4_3	0
@@ -397,7 +394,7 @@ struct hdmi_disp_mode_timing_type {
 };
 
 struct hdmi_tx_ddc_ctrl {
-	void __iomem *base;
+	struct dss_io_data *io;
 	struct completion ddc_sw_done;
 };
 
@@ -411,9 +408,6 @@ struct hdmi_tx_ddc_data {
 	u32 no_align;
 	int retry;
 };
-
-void hdmi_reg_dump(void __iomem *base, u32 length, const char *prefix);
-const char *hdmi_reg_name(u32 offset);
 
 const struct hdmi_disp_mode_timing_type *hdmi_get_supported_mode(u32 mode);
 void hdmi_set_supported_mode(u32 mode);
