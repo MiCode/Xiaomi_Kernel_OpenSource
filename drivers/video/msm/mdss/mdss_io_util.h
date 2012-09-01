@@ -22,6 +22,15 @@ struct dss_io_data {
 	void __iomem *base;
 };
 
+void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug);
+u32 dss_reg_r(struct dss_io_data *io, u32 offset, u32 debug);
+void dss_reg_dump(void __iomem *base, u32 len, const char *prefix, u32 debug);
+
+#define DSS_REG_W_ND(io, offset, val)  dss_reg_w(io, offset, val, false)
+#define DSS_REG_W(io, offset, val)     dss_reg_w(io, offset, val, true)
+#define DSS_REG_R_ND(io, offset)       dss_reg_r(io, offset, false)
+#define DSS_REG_R(io, offset)          dss_reg_r(io, offset, true)
+
 enum dss_vreg_type {
 	DSS_REG_LDO,
 	DSS_REG_VS,
