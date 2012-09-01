@@ -56,6 +56,11 @@ typedef enum {
 	MAX_PHYS_TARGET_NUM,
 } DISP_TARGET_PHYS;
 
+enum {
+	BLT_SWITCH_TG_OFF,
+	BLT_SWITCH_TG_ON
+};
+
 /* panel info type */
 struct lcd_panel_info {
 	__u32 vsync_enable;
@@ -65,6 +70,7 @@ struct lcd_panel_info {
 	__u32 v_pulse_width;
 	__u32 hw_vsync_mode;
 	__u32 vsync_notifier_period;
+	__u32 blt_ctrl;
 	__u32 rev;
 };
 
