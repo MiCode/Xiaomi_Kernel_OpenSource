@@ -96,6 +96,7 @@ struct dcvs_core {
 	struct msm_dcvs_core_info *info;
 	int sensor;
 	int pending_freq;
+	wait_queue_head_t wait_q;
 };
 
 static int msm_dcvs_debug;
@@ -260,23 +261,20 @@ static int msm_dcvs_do_freq(void *data)
 	static struct sched_param param = {.sched_priority = MAX_RT_PRIO - 1};
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
-	set_current_state(TASK_UNINTERRUPTIBLE);
 
 	while (!kthread_should_stop()) {
-		mutex_lock(&core->lock);
-		__msm_dcvs_change_freq(core);
-		__msm_dcvs_report_temp(core);
-		mutex_unlock(&core->lock);
-
-		schedule();
+		wait_event(core->wait_q, !(core->pending_freq == 0 ||
+					  core->pending_freq == -1) ||
+					  kthread_should_stop());
 
 		if (kthread_should_stop())
 			break;
 
-		set_current_state(TASK_UNINTERRUPTIBLE);
+		mutex_lock(&core->lock);
+		__msm_dcvs_change_freq(core);
+		__msm_dcvs_report_temp(core);
+		mutex_unlock(&core->lock);
 	}
-
-	__set_current_state(TASK_RUNNING);
 
 	return 0;
 }
@@ -306,7 +304,7 @@ static int msm_dcvs_update_freq(struct dcvs_core *core,
 		core->time_start = ktime_to_ns(ktime_get());
 
 		if (core->task)
-			wake_up_process(core->task);
+			wake_up(&core->wait_q);
 	} else {
 		if (freq_changed)
 			*freq_changed = 0;
@@ -628,8 +626,8 @@ int msm_dcvs_register_core(const char *core_name,
 		core_handles[core->handle - CORE_HANDLE_OFFSET] = NULL;
 		goto bail;
 	}
-
-	core->task = kthread_create(msm_dcvs_do_freq, (void *)core,
+	init_waitqueue_head(&core->wait_q);
+	core->task = kthread_run(msm_dcvs_do_freq, (void *)core,
 			"msm_dcvs/%d", core->handle);
 bail:
 	mutex_unlock(&core->lock);
