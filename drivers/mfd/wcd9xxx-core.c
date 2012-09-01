@@ -283,8 +283,6 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 			return ret;
 		}
 
-		gpio_direction_output(wcd9xxx->reset_gpio, 1);
-		msleep(20);
 		gpio_direction_output(wcd9xxx->reset_gpio, 0);
 		msleep(20);
 		gpio_direction_output(wcd9xxx->reset_gpio, 1);
