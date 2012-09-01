@@ -404,17 +404,21 @@ static void msm_spi_setup_dm_transfer(struct msm_spi *dd)
 		if (bytes_sent < 0)
 			bytes_sent = 0;
 	}
-
 	/* We'll send in chunks of SPI_MAX_LEN if larger than
-	 * 4K bytes for targets that doesn't support infinite
-	 * mode. Make sure this doesn't happen on targets that
-	 * support infinite mode.
+	 * 4K bytes for targets that have only 12 bits in
+	 * QUP_MAX_OUTPUT_CNT register. If the target supports
+	 * more than 12bits then we send the data in chunks of
+	 * the infinite_mode value that is defined in the
+	 * corresponding board file.
 	 */
 	if (!dd->pdata->infinite_mode)
-		bytes_to_send = dd->tx_bytes_remaining / SPI_MAX_LEN ?
-				SPI_MAX_LEN : dd->tx_bytes_remaining;
+		dd->max_trfr_len = SPI_MAX_LEN;
 	else
-		bytes_to_send = dd->tx_bytes_remaining;
+		dd->max_trfr_len = (dd->pdata->infinite_mode) *
+			   (dd->bytes_per_word);
+
+	bytes_to_send = min_t(u32, dd->tx_bytes_remaining,
+			      dd->max_trfr_len);
 
 	num_transfers = DIV_ROUND_UP(bytes_to_send, dd->bytes_per_word);
 	dd->unaligned_len = bytes_to_send % dd->burst_size;
@@ -520,10 +524,11 @@ static void msm_spi_enqueue_dm_commands(struct msm_spi *dd)
 		msm_dmov_enqueue_cmd(dd->rx_dma_chan, &dd->rx_hdr);
 }
 
-/* SPI core on targets that does not support infinite mode can send maximum of
-   4K transfers, Therefore, we are sending several chunks of 3K or less
-   (depending on how much is left). Upon completion we send the next chunk,
-   or complete the transfer if everything is finished. On targets that support
+/* SPI core on targets that does not support infinite mode can send
+   maximum of 4K transfers or 64K transfers depending up on size of
+   MAX_OUTPUT_COUNT register, Therefore, we are sending in several
+   chunks. Upon completion we send the next chunk, or complete the
+   transfer if everything is finished. On targets that support
    infinite mode, we send all the bytes in as single chunk.
 */
 static int msm_spi_dm_send_next(struct msm_spi *dd)
@@ -536,9 +541,8 @@ static int msm_spi_dm_send_next(struct msm_spi *dd)
 
 	/* On targets which does not support infinite mode,
 	   We need to send more chunks, if we sent max last time  */
-	if ((!dd->pdata->infinite_mode) &&
-	    (dd->tx_bytes_remaining > SPI_MAX_LEN)) {
-		dd->tx_bytes_remaining -= SPI_MAX_LEN;
+	if (dd->tx_bytes_remaining > dd->max_trfr_len) {
+		dd->tx_bytes_remaining -= dd->max_trfr_len;
 		if (msm_spi_set_state(dd, SPI_OP_STATE_RESET))
 			return 0;
 		dd->read_len = dd->write_len = 0;
@@ -2047,6 +2051,7 @@ skip_dma_resources:
 	}
 
 	spi_debugfs_init(dd);
+
 	return 0;
 
 err_attrs:
