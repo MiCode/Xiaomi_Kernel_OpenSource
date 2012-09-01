@@ -502,6 +502,7 @@ struct msm_mhl_platform_data {
 	uint32_t gpio_mhl_power;
 	/* GPIO no. for hdmi-mhl mux */
 	uint32_t gpio_hdmi_mhl_mux;
+	bool mhl_enabled;
 };
 
 struct msm_i2c_platform_data {
