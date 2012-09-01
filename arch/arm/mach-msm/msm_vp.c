@@ -53,8 +53,11 @@
  * 750mV is minimum voltage of MSMC2 smps.
  */
 #define VOLT_TO_BIT(x) (((x-750)/(12500/1000)) + 0x20)
-#define VREG_VREF_SEL  (1 << 5)
-#define VREG_PD_EN     (1 << 6)
+#define VREG_VREF_SEL		(1 << 5)
+#define VREG_VREF_SEL_SHIFT	(0x5)
+#define VREG_PD_EN		(1 << 6)
+#define VREG_PD_EN_SHIFT	(0x6)
+#define VREG_LVL_M		(0x1F)
 
 /**
  * struct msm_vp -  Structure for VP
@@ -113,9 +116,21 @@ static int vp_reg_set_voltage(struct regulator_dev *rdev, int min_uV,
 
 static int vp_reg_get_voltage(struct regulator_dev *rdev)
 {
-	struct msm_vp *vp = rdev_get_drvdata(rdev);
+	uint32_t reg_val, perf_level, vlevel, cur_plevel;
+	uint32_t vref_sel, pd_en;
+	uint32_t cur_voltage;
 
-	return MV_TO_UV(vp->current_voltage);
+	reg_val = readl_relaxed(VDD_SVS_PLEVEL_ADDR);
+	perf_level = reg_val & 0x07;
+
+	cur_plevel = readl_relaxed(VDD_APC_PLEVEL(perf_level));
+	vref_sel = (cur_plevel >> VREG_VREF_SEL_SHIFT) & 0x1;
+	pd_en = (cur_plevel >> VREG_PD_EN_SHIFT) & 0x1;
+	vlevel = cur_plevel & VREG_LVL_M;
+
+	cur_voltage = (750000 + (pd_en * 12500) +
+				(vlevel * 25000)) * (2 - vref_sel);
+	return cur_voltage;
 }
 
 static int vp_reg_enable(struct regulator_dev *rdev)
