@@ -2579,20 +2579,38 @@ int slim_reconfigure_now(struct slim_device *sb)
 	u32 segdist;
 	struct slim_pending_ch *pch;
 
+	mutex_lock(&ctrl->sched.m_reconf);
+	mutex_lock(&ctrl->m_ctrl);
 	/*
 	 * If there are no pending changes from this client, avoid sending
 	 * the reconfiguration sequence
 	 */
 	if (sb->pending_msgsl == sb->cur_msgsl &&
 		list_empty(&sb->mark_define) &&
-		list_empty(&sb->mark_removal) &&
 		list_empty(&sb->mark_suspend)) {
-		pr_debug("SLIM_CL: skip reconfig sequence");
-		return 0;
+		struct list_head *pos, *next;
+		list_for_each_safe(pos, next, &sb->mark_removal) {
+			struct slim_ich *slc;
+			pch = list_entry(pos, struct slim_pending_ch, pending);
+			slc = &ctrl->chans[pch->chan];
+			if (slc->def > 0)
+				slc->def--;
+			/* Disconnect source port to free it up */
+			if (SLIM_HDL_TO_LA(slc->srch) == sb->laddr)
+				slc->srch = 0;
+			if (slc->def != 0) {
+				list_del(&pch->pending);
+				kfree(pch);
+			}
+		}
+		if (list_empty(&sb->mark_removal)) {
+			mutex_unlock(&ctrl->m_ctrl);
+			mutex_unlock(&ctrl->sched.m_reconf);
+			pr_info("SLIM_CL: skip reconfig sequence");
+			return 0;
+		}
 	}
 
-	mutex_lock(&ctrl->sched.m_reconf);
-	mutex_lock(&ctrl->m_ctrl);
 	ctrl->sched.pending_msgsl += sb->pending_msgsl - sb->cur_msgsl;
 	list_for_each_entry(pch, &sb->mark_define, pending) {
 		struct slim_ich *slc = &ctrl->chans[pch->chan];
@@ -2848,13 +2866,7 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 				ret = -ENOTCONN;
 				break;
 			}
-			if (slc->def > 0)
-				slc->def--;
-			/* Disconnect source port to free it up */
-			if (SLIM_HDL_TO_LA(slc->srch) == sb->laddr)
-				slc->srch = 0;
-			if (slc->def == 0)
-				ret = add_pending_ch(&sb->mark_removal, chan);
+			ret = add_pending_ch(&sb->mark_removal, chan);
 			if (ret)
 				break;
 		}
