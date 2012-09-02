@@ -62,6 +62,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	u32 hsync_period, vsync_period;
 	u32 hsync_start_x, hsync_end_x, display_v_start, display_v_end;
 	u32 active_h_start, active_h_end, active_v_start, active_v_end;
+	u32 den_polarity, hsync_polarity, vsync_polarity;
 	u32 display_hctl, active_hctl, hsync_ctl, polarity_ctl;
 	int off;
 
@@ -114,9 +115,18 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 
 	hsync_ctl = (hsync_period << 16) | p->hsync_pulse_width;
 	display_hctl = (hsync_end_x << 16) | hsync_start_x;
-	polarity_ctl = (0 << 2) |	/* DEN Polarity */
-		       (0 << 1) |      /* VSYNC Polarity */
-		       (0);	       /* HSYNC Polarity */
+
+	den_polarity = 0;
+	if (MDSS_INTF_HDMI ==  ctl->intf_type) {
+		hsync_polarity = p->yres >= 720 ? 0 : 1;
+		vsync_polarity = p->yres >= 720 ? 0 : 1;
+	} else {
+		hsync_polarity = 0;
+		vsync_polarity = 0;
+	}
+	polarity_ctl = (den_polarity << 2)   | /*  DEN Polarity  */
+		       (vsync_polarity << 1) | /* VSYNC Polarity */
+		       (hsync_polarity << 0);  /* HSYNC Polarity */
 
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_HSYNC_CTL, hsync_ctl);
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
