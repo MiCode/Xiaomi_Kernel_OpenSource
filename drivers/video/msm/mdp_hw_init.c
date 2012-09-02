@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -584,7 +584,7 @@ static void mdp_load_lut_param(void)
 
 #define   IRQ_EN_1__MDP_IRQ___M    0x00000800
 
-void mdp_hw_init(void)
+void mdp_hw_init(int splash)
 {
 	int i;
 
@@ -632,7 +632,8 @@ void mdp_hw_init(void)
 	MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x01e4, 0);
 
 #ifndef CONFIG_FB_MSM_MDP22
-	MDP_OUTP(MDP_BASE + 0xE0000, 0);
+	if (!splash)
+		MDP_OUTP(MDP_BASE + 0xE0000, 0);
 	MDP_OUTP(MDP_BASE + 0x100, 0xffffffff);
 	MDP_OUTP(MDP_BASE + 0x90070, 0);
 #endif
