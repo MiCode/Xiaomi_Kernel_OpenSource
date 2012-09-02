@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,7 +149,8 @@ static noinline unsigned long cpaccess_dummy(unsigned long write_val)
 
 	asm volatile (".globl cpaccess_dummy_inst\n"
 			"cpaccess_dummy_inst:\n\t"
-			"mrc p15, 0, %0, c0, c0, 0\n\t" : "=r" (ret));
+			"mrc p15, 0, %0, c0, c0, 0\n\t" : "=r" (ret) :
+				"r" (write_val));
 	return ret;
 } __attribute__((aligned(32)))
 
