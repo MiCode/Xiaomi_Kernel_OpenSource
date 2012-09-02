@@ -1727,7 +1727,7 @@ msm_cpr_get_quot(uint32_t max_quot, uint32_t max_freq, uint32_t new_freq)
 	uint32_t quot;
 
 	/* This formula is as per chip characterization data */
-	quot = max_quot - ((max_freq / 10 - new_freq / 10) * 9) + 20;
+	quot = max_quot - ((max_freq / 10 - new_freq / 10) * 5);
 
 	return quot;
 }
