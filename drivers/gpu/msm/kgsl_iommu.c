@@ -36,6 +36,14 @@ static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x800, 0, 0 },			/* TLBIALL */
 };
 
+static struct kgsl_iommu_register_list kgsl_iommuv2_reg[KGSL_IOMMU_REG_MAX] = {
+	{ 0, 0, 0 },				/* GLOBAL_BASE */
+	{ 0x20, 0x00FFFFFF, 14 },		/* TTBR0 */
+	{ 0x28, 0x00FFFFFF, 14 },		/* TTBR1 */
+	{ 0x58, 0, 0 },				/* FSR */
+	{ 0x618, 0, 0 }				/* TLBIALL */
+};
+
 static int get_iommu_unit(struct device *dev, struct kgsl_mmu **mmu_out,
 			struct kgsl_iommu_unit **iommu_unit_out)
 {
@@ -354,8 +362,13 @@ void *kgsl_iommu_create_pagetable(void)
 				sizeof(struct kgsl_iommu_pt));
 		return NULL;
 	}
-	iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
+	/* L2 redirect is not stable on IOMMU v2 */
+	if (msm_soc_version_supports_iommu_v1())
+		iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
 					MSM_IOMMU_DOMAIN_PT_CACHEABLE);
+	else
+		iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
+					0);
 	if (!iommu_pt->domain) {
 		KGSL_CORE_ERR("Failed to create iommu domain\n");
 		kfree(iommu_pt);
@@ -703,6 +716,14 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	iommu->iommu_reg_list = kgsl_iommuv1_reg;
 	iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
 
+	if (msm_soc_version_supports_iommu_v1()) {
+		iommu->iommu_reg_list = kgsl_iommuv1_reg;
+		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
+	} else {
+		iommu->iommu_reg_list = kgsl_iommuv2_reg;
+		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2;
+	}
+
 	/* A nop is required in an indirect buffer when switching
 	 * pagetables in-stream */
 	kgsl_sharedmem_writel(&mmu->setstate_memory,
@@ -733,19 +754,17 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 	int status = 0;
 	int i = 0;
 	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_pt *iommu_pt;
 	struct kgsl_pagetable *pagetable = NULL;
 
 	/* If chip is not 8960 then we use the 2nd context bank for pagetable
 	 * switching on the 3D side for which a separate table is allocated */
-	if (!cpu_is_msm8960()) {
+	if (!cpu_is_msm8960() && msm_soc_version_supports_iommu_v1()) {
 		mmu->priv_bank_table =
 			kgsl_mmu_getpagetable(KGSL_MMU_PRIV_BANK_TABLE_NAME);
 		if (mmu->priv_bank_table == NULL) {
 			status = -ENOMEM;
 			goto err;
 		}
-		iommu_pt = mmu->priv_bank_table->priv;
 	}
 	mmu->defaultpagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
 	/* Return error if the default pagetable doesn't exist */
@@ -756,16 +775,18 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 	pagetable = mmu->priv_bank_table ? mmu->priv_bank_table :
 				mmu->defaultpagetable;
 	/* Map the IOMMU regsiters to only defaultpagetable */
-	for (i = 0; i < iommu->unit_count; i++) {
-		iommu->iommu_units[i].reg_map.priv |=
-					KGSL_MEMFLAGS_GLOBAL;
-		status = kgsl_mmu_map(pagetable,
-			&(iommu->iommu_units[i].reg_map),
-			GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
-		if (status) {
-			iommu->iommu_units[i].reg_map.priv &=
-						~KGSL_MEMFLAGS_GLOBAL;
-			goto err;
+	if (msm_soc_version_supports_iommu_v1()) {
+		for (i = 0; i < iommu->unit_count; i++) {
+			iommu->iommu_units[i].reg_map.priv |=
+						KGSL_MEMFLAGS_GLOBAL;
+			status = kgsl_mmu_map(pagetable,
+				&(iommu->iommu_units[i].reg_map),
+				GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+			if (status) {
+				iommu->iommu_units[i].reg_map.priv &=
+							~KGSL_MEMFLAGS_GLOBAL;
+				goto err;
+			}
 		}
 	}
 	return status;
@@ -884,7 +905,7 @@ kgsl_iommu_unmap(void *mmu_specific_pt,
 	 * Flushing only required if per process pagetables are used. With
 	 * global case, flushing will happen inside iommu_map function
 	 */
-	if (!ret)
+	if (!ret && msm_soc_version_supports_iommu_v1())
 		*tlb_flags = UINT_MAX;
 #endif
 	return 0;
