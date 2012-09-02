@@ -107,14 +107,30 @@ static void mov_buf_to_vp(struct work_struct *work)
 	}
 }
 
+static uint8_t correct_buf_num(uint32_t reg)
+{
+	int i;
+	bool block_found = false;
+	for (i = 0; i < VCAP_VC_MAX_BUF; i++) {
+		if (reg & (0x2 << i)) {
+			block_found = true;
+			continue;
+		}
+		if (block_found)
+			return i;
+	}
+	return 0;
+}
+
 irqreturn_t vc_handler(struct vcap_dev *dev)
 {
 	uint32_t irq, timestamp;
-	enum rdy_buf vc_buf_status, buf_ind;
 	struct vcap_buffer *buf;
 	struct vb2_buffer *vb = NULL;
 	struct vcap_client_data *c_data;
 	struct v4l2_event v4l2_evt;
+	uint8_t i, idx, buf_num, tot, done_count = 0;
+	bool work_todo = false;
 
 	irq = readl_relaxed(VCAP_VC_INT_STATUS);
 
@@ -154,106 +170,75 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
 
-	vc_buf_status = irq & VC_BUFFER_WRITTEN;
-	dprintk(1, "Done buf status = %d\n", vc_buf_status);
-
-	if (vc_buf_status == VC_NO_BUF) {
+	if (!(irq & VC_BUFFER_MASK)) {
 		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
 		pr_err("VC IRQ shows some error\n");
 		return IRQ_HANDLED;
 	}
 
 	if (dev->vc_client == NULL) {
+		/* This should never happen */
 		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
 		pr_err("VC: There is no active vc client\n");
 		return IRQ_HANDLED;
 	}
+	c_data = dev->vc_client;
 
-	spin_lock(&dev->vc_client->cap_slock);
-	if (list_empty(&dev->vc_client->vid_vc_action.active)) {
-		/* Just leave we have no new queued buffers */
-		spin_unlock(&dev->vc_client->cap_slock);
-		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
-			VCAP_VC_BUF_OVERWRITE_EVENT;
-		v4l2_event_queue(dev->vfd, &v4l2_evt);
-		dprintk(1, "We have no more avilable buffers\n");
-		return IRQ_HANDLED;
+	for (i = 0; i < VCAP_VC_MAX_BUF; i++) {
+		if (0x2 & (irq >> i))
+			done_count++;
 	}
-	spin_unlock(&dev->vc_client->cap_slock);
 
+	/* Double check expected buffers are done */
+	buf_num = c_data->vc_action.buf_num;
+	tot = c_data->vc_action.tot_buf;
+	for (i = 0; i < done_count; i++) {
+		if (!(irq & (0x1 << (((buf_num + i) % tot) + 1)))) {
+			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+				VCAP_VC_UNEXPECT_BUF_DONE;
+			v4l2_event_queue(dev->vfd, &v4l2_evt);
+			pr_debug("Unexpected buffer done\n");
+			c_data->vc_action.buf_num =
+				correct_buf_num(irq) % tot;
+			writel_relaxed(irq, VCAP_VC_INT_CLEAR);
+			return IRQ_HANDLED;
+		}
+	}
+
+	/* If here we know which buffers are done */
 	timestamp = readl_relaxed(VCAP_VC_TIMESTAMP);
 
-	buf_ind = dev->vc_client->vid_vc_action.buf_ind;
-
-	if (vc_buf_status == VC_BUF1N2) {
-		/* There are 2 buffer ready */
-		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-		return IRQ_HANDLED;
-	} else if (buf_ind != vc_buf_status) {
-		/* buffer is out of sync */
-		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-		return IRQ_HANDLED;
-	}
-
-	if (buf_ind == VC_BUF1) {
-		dprintk(1, "Got BUF1\n");
-		vb = &dev->vc_client->vid_vc_action.buf1->vb;
-		spin_lock(&dev->vc_client->cap_slock);
-		if (list_empty(&dev->vc_client->vid_vc_action.active)) {
-			spin_unlock(&dev->vc_client->cap_slock);
+	c_data->vc_action.buf_num = (buf_num + done_count) % tot;
+	for (i = 0; i < done_count; i++) {
+		idx = (buf_num + i) % tot;
+		vb = &c_data->vc_action.buf[idx]->vb;
+		spin_lock(&c_data->cap_slock);
+		if (list_empty(&c_data->vc_action.active)) {
+			spin_unlock(&c_data->cap_slock);
 			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 				VCAP_VC_BUF_OVERWRITE_EVENT;
 			v4l2_event_queue(dev->vfd, &v4l2_evt);
-			writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-			return IRQ_HANDLED;
+			continue;
 		}
-		buf = list_entry(dev->vc_client->vid_vc_action.active.next,
+		buf = list_entry(c_data->vc_action.active.next,
 				struct vcap_buffer, list);
 		list_del(&buf->list);
-		spin_unlock(&dev->vc_client->cap_slock);
+		spin_unlock(&c_data->cap_slock);
 		/* Config vc with this new buffer */
-		config_buffer(c_data, buf, VCAP_VC_Y_ADDR_1,
-				VCAP_VC_C_ADDR_1);
-
-		vb->v4l2_buf.timestamp.tv_usec = timestamp;
+		config_buffer(c_data, buf, VCAP_VC_Y_ADDR_1 + 0x8 * idx,
+				VCAP_VC_C_ADDR_1 + 0x8 * idx);
+		vb->v4l2_buf.timestamp.tv_usec = timestamp -
+			1000000 / c_data->vc_format.frame_rate *
+			(done_count - 1 - i);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-		dev->vc_client->vid_vc_action.buf1 = buf;
-		dev->vc_client->vid_vc_action.buf_ind = VC_BUF2;
-		irq = VC_BUF1;
-	} else {
-		dprintk(1, "Got BUF2\n");
-		spin_lock(&dev->vc_client->cap_slock);
-		vb = &dev->vc_client->vid_vc_action.buf2->vb;
-		if (list_empty(&dev->vc_client->vid_vc_action.active)) {
-			spin_unlock(&dev->vc_client->cap_slock);
-			writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
-				VCAP_VC_BUF_OVERWRITE_EVENT;
-			v4l2_event_queue(dev->vfd, &v4l2_evt);
-			return IRQ_HANDLED;
-		}
-		buf = list_entry(dev->vc_client->vid_vc_action.active.next,
-						 struct vcap_buffer, list);
-		list_del(&buf->list);
-		spin_unlock(&dev->vc_client->cap_slock);
-		/* Config vc with this new buffer */
-		config_buffer(c_data, buf, VCAP_VC_Y_ADDR_2,
-				VCAP_VC_C_ADDR_2);
-
-		vb->v4l2_buf.timestamp.tv_usec = timestamp;
-		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-
-		dev->vc_client->vid_vc_action.buf2 = buf;
-		dev->vc_client->vid_vc_action.buf_ind = VC_BUF1;
-		irq = VC_BUF2;
+		work_todo = true;
+		c_data->vc_action.buf[idx] = buf;
 	}
 
-	if (c_data->op_mode == VC_AND_VP_VCAP_OP)
+	if (work_todo && c_data->op_mode == VC_AND_VP_VCAP_OP)
 		queue_work(dev->vcap_wq, &dev->vc_to_vp_work.work);
 
 	writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-
 	return IRQ_HANDLED;
 }
 
@@ -264,58 +249,59 @@ int vc_start_capture(struct vcap_client_data *c_data)
 
 int vc_hw_kick_off(struct vcap_client_data *c_data)
 {
-	struct vcap_action *vid_vc_action = &c_data->vid_vc_action;
+	struct vc_action *vc_action = &c_data->vc_action;
 	struct vcap_dev *dev;
 	unsigned long flags = 0;
-	int rc, counter = 0;
+	int rc, i, counter = 0;
 	struct vcap_buffer *buf;
 
 	dev = c_data->dev;
-	vid_vc_action->buf_ind = VC_BUF1;
 	dprintk(2, "Start Kickoff\n");
 
 	if (dev->vc_client == NULL) {
 		pr_err("No active vc client\n");
 		return -ENODEV;
 	}
+	c_data->vc_action.buf_num = 0;
 	spin_lock_irqsave(&dev->vc_client->cap_slock, flags);
-	if (list_empty(&dev->vc_client->vid_vc_action.active)) {
+	if (list_empty(&dev->vc_client->vc_action.active)) {
 		spin_unlock_irqrestore(&dev->vc_client->cap_slock, flags);
 		pr_err("%s: VC We have no more avilable buffers\n",
 				__func__);
 		return -EINVAL;
 	}
 
-	list_for_each_entry(buf, &vid_vc_action->active, list)
+	list_for_each_entry(buf, &vc_action->active, list)
 		counter++;
 
-	if (counter < 2) {
+	if (counter < c_data->vc_action.tot_buf) {
 		/* not enough buffers have been queued */
 		spin_unlock_irqrestore(&dev->vc_client->cap_slock, flags);
 		return -EINVAL;
 	}
 
-	vid_vc_action->buf1 = list_entry(vid_vc_action->active.next,
+	for (i = 0; i < c_data->vc_action.tot_buf; i++) {
+		vc_action->buf[i] = list_entry(vc_action->active.next,
 			struct vcap_buffer, list);
-	list_del(&vid_vc_action->buf1->list);
-
-	vid_vc_action->buf2 = list_entry(vid_vc_action->active.next,
-			struct vcap_buffer, list);
-	list_del(&vid_vc_action->buf2->list);
-
+		list_del(&vc_action->buf[i]->list);
+	}
 	spin_unlock_irqrestore(&dev->vc_client->cap_slock, flags);
 
-	config_buffer(c_data, vid_vc_action->buf1, VCAP_VC_Y_ADDR_1,
-			VCAP_VC_C_ADDR_1);
-	config_buffer(c_data, vid_vc_action->buf2, VCAP_VC_Y_ADDR_2,
-			VCAP_VC_C_ADDR_2);
+	for (i = 0; i < c_data->vc_action.tot_buf; i++) {
+		config_buffer(c_data, vc_action->buf[i],
+			VCAP_VC_Y_ADDR_1 + i * 8,
+			VCAP_VC_C_ADDR_1 + i * 8);
+	}
 
+	rc = 0;
+	for (i = 0; i < c_data->vc_action.tot_buf; i++)
+		rc = rc << 1 | 0x2;
+	writel_relaxed(rc, VCAP_VC_INT_MASK);
+
+	enable_irq(dev->vcirq->start);
 	rc = readl_relaxed(VCAP_VC_CTRL);
 	writel_iowmb(rc | 0x1, VCAP_VC_CTRL);
 
-	writel_relaxed(0x6, VCAP_VC_INT_MASK);
-
-	enable_irq(dev->vcirq->start);
 	return 0;
 }
 
@@ -383,7 +369,9 @@ int config_vc_format(struct vcap_client_data *c_data)
 	writel_iowmb(0x00000002, VCAP_VC_NPL_CTRL);
 	writel_iowmb(0x00000004 | vc_format->color_space << 1 |
 			vc_format->mode << 3 |
-			vc_format->mode << 10, VCAP_VC_CTRL);
+			(c_data->vc_action.tot_buf - 2) << 4 |
+			vc_format->mode << 10,
+			VCAP_VC_CTRL);
 
 	writel_relaxed(vc_format->h_polar << 4 |
 			vc_format->v_polar << 0, VCAP_VC_POLARITY);

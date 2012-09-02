@@ -62,6 +62,7 @@
 #define VCAP_VC_TIMESTAMP (VCAP_BASE + 0x0034)
 
 #define VC_BUFFER_WRITTEN (0x3 << 1)
+#define VC_BUFFER_MASK 0x7E
 
 int vc_start_capture(struct vcap_client_data *c_data);
 int vc_hw_kick_off(struct vcap_client_data *c_data);
