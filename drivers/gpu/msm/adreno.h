@@ -98,6 +98,7 @@ struct adreno_device {
 	unsigned int ib_check_level;
 	unsigned int fast_hang_detect;
 	struct ocmem_buf *ocmem_hdl;
+	unsigned int ocmem_base;
 };
 
 struct adreno_gpudev {
