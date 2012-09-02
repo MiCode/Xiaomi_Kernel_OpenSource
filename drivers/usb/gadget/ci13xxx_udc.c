@@ -2056,6 +2056,16 @@ __acquires(udc->lock)
 
 	spin_unlock(udc->lock);
 
+	if (udc->suspended) {
+		if (udc->udc_driver->notify_event)
+			udc->udc_driver->notify_event(udc,
+			CI13XXX_CONTROLLER_RESUME_EVENT);
+		if (udc->transceiver)
+			usb_phy_set_suspend(udc->transceiver, 0);
+		udc->driver->resume(&udc->gadget);
+		udc->suspended = 0;
+	}
+
 	/*stop charging upon reset */
 	if (udc->transceiver)
 		usb_phy_set_power(udc->transceiver, 0);
