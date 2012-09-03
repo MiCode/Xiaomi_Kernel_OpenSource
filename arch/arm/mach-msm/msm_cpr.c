@@ -569,7 +569,7 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 {
 	struct msm_cpr *cpr = container_of(nb, struct msm_cpr, freq_transition);
 	struct cpufreq_freqs *freqs = data;
-	uint32_t quot, new_freq;
+	uint32_t quot, new_freq, ctl_reg;
 
 	switch (val) {
 	case CPUFREQ_PRECHANGE:
@@ -593,6 +593,7 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 
 	case CPUFREQ_POSTCHANGE:
 		pr_debug("post freq change notification to cpr\n");
+		ctl_reg = cpr_read_reg(cpr, RBCPR_CTL);
 		/**
 		 * As per chip characterization data, use max nominal freq
 		 * to calculate quot for all lower frequencies too
@@ -619,6 +620,14 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 		 * state if vdd had hit Vmax / Vmin earlier
 		 */
 		cpr_irq_set(cpr, INT_MASK & ~MID_INT, 1);
+
+		/**
+		 * Clear the auto NACK down bit if enabled in the freq.
+		 * transition phase.
+		 */
+		if (ctl_reg & SW_AUTO_CONT_NACK_DN_EN)
+			cpr_modify_reg(cpr, RBCPR_CTL,
+				 SW_AUTO_CONT_NACK_DN_EN_M, 0);
 		pr_debug("RBIF_IRQ_EN(0): 0x%x\n",
 			cpr_read_reg(cpr, RBIF_IRQ_EN(cpr->config->irq_line)));
 		pr_debug("RBCPR_CTL: 0x%x\n",
