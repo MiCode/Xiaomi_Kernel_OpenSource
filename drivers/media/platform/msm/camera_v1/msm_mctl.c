@@ -449,10 +449,11 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		break;
 			/* ISFIF config*/
 	case MSM_CAM_IOCTL_AXI_CONFIG:
-		if (p_mctl->axi_sdev)
+		if (p_mctl->axi_sdev) {
+			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, p_mctl);
 			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
 				VIDIOC_MSM_AXI_CFG, (void __user *)arg);
-		else
+		} else
 			rc = p_mctl->isp_config(p_mctl, cmd, arg);
 		break;
 	case MSM_CAM_IOCTL_ISPIF_IO_CFG:
@@ -476,6 +477,22 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		if (p_mctl->csid_sdev)
 			rc = v4l2_subdev_call(p_mctl->csid_sdev,
 				core, ioctl, VIDIOC_MSM_CSID_CFG, argp);
+		break;
+
+	case MSM_CAM_IOCTL_AXI_INIT:
+		if (p_mctl->axi_sdev) {
+			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, p_mctl);
+			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
+				VIDIOC_MSM_AXI_INIT, (void __user *)arg);
+		}
+		break;
+
+	case MSM_CAM_IOCTL_AXI_RELEASE:
+		if (p_mctl->axi_sdev) {
+			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, p_mctl);
+			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
+				VIDIOC_MSM_AXI_RELEASE, NULL);
+		}
 		break;
 
 	default:
@@ -575,7 +592,6 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
 		VIDIOC_MSM_SENSOR_RELEASE, NULL);
 
@@ -590,6 +606,7 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	}
 
 	if (p_mctl->axi_sdev) {
+		v4l2_set_subdev_hostdata(p_mctl->axi_sdev, p_mctl);
 		v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
 			VIDIOC_MSM_AXI_RELEASE, NULL);
 	}

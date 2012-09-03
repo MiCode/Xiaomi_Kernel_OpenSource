@@ -29,7 +29,6 @@
 
 static atomic_t ispif_irq_cnt;
 static spinlock_t ispif_tasklet_lock;
-static spinlock_t ispif_sof_lock;
 static struct list_head ispif_tasklet_q;
 
 static int msm_ispif_intf_reset(struct ispif_device *ispif,
@@ -343,10 +342,9 @@ static uint32_t msm_ispif_get_cid_mask(struct ispif_device *ispif,
 static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint16_t intfmask,
 	uint8_t intf_cmd_mask, uint8_t vfe_intf)
 {
-	uint8_t vc = 0;
+	uint8_t vc = 0, val = 0;
 	uint16_t mask = intfmask, intfnum = 0;
 	uint32_t cid_mask = 0;
-	uint32_t global_intf_cmd_mask = 0xFFFFFFFF;
 	uint32_t global_intf_cmd_mask1 = 0xFFFFFFFF;
 	while (mask != 0) {
 		if (!(intfmask & (0x1 << intfnum))) {
@@ -360,12 +358,15 @@ static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint16_t intfmask,
 
 		while (cid_mask != 0) {
 			if ((cid_mask & 0xf) != 0x0) {
-				if (intfnum != RDI2)
-					global_intf_cmd_mask &=
-						~((0x3 & ~intf_cmd_mask)
-						<< ((vc * 2) +
+				if (intfnum != RDI2) {
+					val = (intf_cmd_mask>>(vc*2)) & 0x3;
+					ispif->global_intf_cmd_mask |=
+						(0x3 << ((vc * 2) +
 						(intfnum * 8)));
-				else
+					ispif->global_intf_cmd_mask &=
+						~((0x3 & ~val) << ((vc * 2) +
+						(intfnum * 8)));
+				} else
 					global_intf_cmd_mask1 &=
 						~((0x3 & ~intf_cmd_mask)
 						<< ((vc * 2) + 8));
@@ -376,7 +377,7 @@ static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint16_t intfmask,
 		mask >>= 1;
 		intfnum++;
 	}
-	msm_camera_io_w(global_intf_cmd_mask,
+	msm_camera_io_w(ispif->global_intf_cmd_mask,
 		ispif->base + ISPIF_INTF_CMD_ADDR + (0x200 * vfe_intf));
 	if (global_intf_cmd_mask1 != 0xFFFFFFFF)
 		msm_camera_io_w(global_intf_cmd_mask1,
@@ -388,11 +389,20 @@ static int msm_ispif_abort_intf_transfer(struct ispif_device *ispif,
 	uint16_t intfmask, uint8_t vfe_intf)
 {
 	int rc = 0;
-	uint8_t intf_cmd_mask = 0x02;
+	uint8_t intf_cmd_mask = 0xAA;
+	uint16_t intfnum = 0, mask = intfmask;
 	mutex_lock(&ispif->mutex);
 	CDBG("%s intfmask %x intf_cmd_mask %x\n", __func__, intfmask,
 		intf_cmd_mask);
 	msm_ispif_intf_cmd(ispif, intfmask, intf_cmd_mask, vfe_intf);
+	while (mask != 0) {
+		if (intfmask & (0x1 << intfnum))
+			ispif->global_intf_cmd_mask |= (0xFF << (intfnum * 8));
+		mask >>= 1;
+		intfnum++;
+		if (intfnum == RDI2)
+			break;
+	}
 	mutex_unlock(&ispif->mutex);
 	return rc;
 }
@@ -400,11 +410,11 @@ static int msm_ispif_abort_intf_transfer(struct ispif_device *ispif,
 static int msm_ispif_start_intf_transfer(struct ispif_device *ispif,
 	uint16_t intfmask, uint8_t vfe_intf)
 {
-	uint8_t intf_cmd_mask = 0x01;
+	uint8_t intf_cmd_mask = 0x55;
 	int rc = 0;
 	mutex_lock(&ispif->mutex);
 	rc = msm_ispif_intf_reset(ispif, intfmask, vfe_intf);
-	CDBG("%s intfmask %x intf_cmd_mask %x\n", __func__, intfmask,
+	CDBG("%s intfmask start after%x intf_cmd_mask %x\n", __func__, intfmask,
 		intf_cmd_mask);
 	msm_ispif_intf_cmd(ispif, intfmask, intf_cmd_mask, vfe_intf);
 	mutex_unlock(&ispif->mutex);
@@ -472,6 +482,9 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 			default:
 				break;
 			}
+			if (intfnum != RDI2)
+				ispif->global_intf_cmd_mask |= (0xFF <<
+					(intfnum * 8));
 		}
 		mask >>= 1;
 		intfnum++;
@@ -547,26 +560,6 @@ static void ispif_do_tasklet(unsigned long data)
 		spin_unlock_irqrestore(&ispif_tasklet_lock,
 			flags);
 
-		spin_lock_irqsave(&ispif_sof_lock, flags);
-		if (qcmd->ispifInterruptStatus0 &
-			ISPIF_IRQ_STATUS_RDI0_SOF_MASK) {
-			CDBG("%s: ispif RDI0 irq status", __func__);
-			ispif->rdi0_sof_count++;
-			send_rdi_sof(ispif, RDI_0, ispif->rdi0_sof_count);
-		}
-		if (qcmd->ispifInterruptStatus1 &
-			ISPIF_IRQ_STATUS_RDI1_SOF_MASK) {
-			CDBG("%s: ispif RDI1 irq status", __func__);
-			ispif->rdi1_sof_count++;
-			send_rdi_sof(ispif, RDI_1, ispif->rdi1_sof_count);
-		}
-		if (qcmd->ispifInterruptStatus2 &
-			ISPIF_IRQ_STATUS_RDI2_SOF_MASK) {
-			CDBG("%s: ispif RDI2 irq status", __func__);
-			ispif->rdi2_sof_count++;
-			send_rdi_sof(ispif, RDI_2, ispif->rdi2_sof_count);
-		}
-		spin_unlock_irqrestore(&ispif_sof_lock, flags);
 		kfree(qcmd);
 	}
 }
@@ -586,6 +579,7 @@ static void ispif_process_irq(struct ispif_device *ispif,
 	qcmd->ispifInterruptStatus0 = out->ispifIrqStatus0;
 	qcmd->ispifInterruptStatus1 = out->ispifIrqStatus1;
 	qcmd->ispifInterruptStatus2 = out->ispifIrqStatus2;
+
 	if (qcmd->ispifInterruptStatus0 &
 			ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
 			CDBG("%s: ispif PIX irq status", __func__);
@@ -593,6 +587,25 @@ static void ispif_process_irq(struct ispif_device *ispif,
 			v4l2_subdev_notify(&ispif->subdev,
 				NOTIFY_VFE_PIX_SOF_COUNT,
 				(void *)&ispif->pix_sof_count);
+	}
+
+	if (qcmd->ispifInterruptStatus0 &
+			ISPIF_IRQ_STATUS_RDI0_SOF_MASK) {
+			CDBG("%s: ispif RDI0 irq status", __func__);
+			ispif->rdi0_sof_count++;
+			send_rdi_sof(ispif, RDI_0, ispif->rdi0_sof_count);
+	}
+	if (qcmd->ispifInterruptStatus1 &
+		ISPIF_IRQ_STATUS_RDI1_SOF_MASK) {
+		CDBG("%s: ispif RDI1 irq status", __func__);
+		ispif->rdi1_sof_count++;
+		send_rdi_sof(ispif, RDI_1, ispif->rdi1_sof_count);
+	}
+	if (qcmd->ispifInterruptStatus2 &
+		ISPIF_IRQ_STATUS_RDI2_SOF_MASK) {
+		CDBG("%s: ispif RDI2 irq status", __func__);
+		ispif->rdi2_sof_count++;
+		send_rdi_sof(ispif, RDI_2, ispif->rdi2_sof_count);
 	}
 
 	spin_lock_irqsave(&ispif_tasklet_lock, flags);
@@ -693,6 +706,7 @@ static int msm_ispif_init(struct ispif_device *ispif,
 	INIT_LIST_HEAD(&ispif_tasklet_q);
 	rc = request_irq(ispif->irq->start, msm_io_ispif_irq,
 		IRQF_TRIGGER_RISING, "ispif", ispif);
+	ispif->global_intf_cmd_mask = 0xFFFFFFFF;
 	init_completion(&ispif->reset_complete);
 
 	tasklet_init(&ispif->ispif_tasklet,

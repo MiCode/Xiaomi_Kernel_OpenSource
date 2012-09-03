@@ -782,7 +782,7 @@ struct vfe32_output_ch {
 	int8_t ch0;
 	int8_t ch1;
 	int8_t ch2;
-	uint32_t  capture_cnt;
+	int32_t  capture_cnt;
 	uint32_t  frame_drop_cnt;
 	struct msm_free_buf ping;
 	struct msm_free_buf pong;
@@ -959,6 +959,9 @@ struct vfe_share_ctrl_t {
 	int8_t stop_ack_pending;
 	enum vfe_output_state liveshot_state;
 	uint32_t vfe_capture_count;
+	int32_t rdi0_capture_count;
+	int32_t rdi1_capture_count;
+	uint8_t update_counter;
 
 	uint32_t operation_mode;     /* streaming or snapshot */
 	uint32_t current_mode;
@@ -969,6 +972,7 @@ struct vfe_share_ctrl_t {
 	uint8_t sync_abort;
 	uint16_t cmd_type;
 	uint8_t vfe_reset_flag;
+	uint8_t dual_enabled;
 
 	uint8_t axi_ref_cnt;
 	uint16_t comp_output_mode;
