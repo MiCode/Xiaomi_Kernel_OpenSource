@@ -37,6 +37,7 @@ void q6_audio_cb(uint32_t opcode, uint32_t token,
 	case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
 	case ASM_DATA_EVENT_ENC_SR_CM_NOTIFY:
+	case APR_BASIC_RSP_RESULT:
 		audio_aio_cb(opcode, token, payload, audio);
 		break;
 	default:
@@ -105,6 +106,15 @@ void audio_aio_cb(uint32_t opcode, uint32_t token,
 		e_payload.stream_info.chan_info = audio->pcm_cfg.channel_count;
 		e_payload.stream_info.sample_rate = audio->pcm_cfg.sample_rate;
 		audio_aio_post_event(audio, AUDIO_EVENT_STREAM_INFO, e_payload);
+		break;
+	case APR_BASIC_RSP_RESULT:
+		switch (payload[0]) {
+		case ASM_STREAM_CMD_CLOSE:
+			audio_aio_unmap_ion_region(audio);
+			break;
+		default:
+			break;
+		}
 		break;
 	default:
 		break;
