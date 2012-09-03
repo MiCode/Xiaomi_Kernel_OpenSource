@@ -1727,7 +1727,7 @@ msm_cpr_get_quot(uint32_t max_quot, uint32_t max_freq, uint32_t new_freq)
 	uint32_t quot;
 
 	/* This formula is as per chip characterization data */
-	quot = max_quot - ((max_freq / 10 - new_freq / 10) * 9) + 20;
+	quot = max_quot - ((max_freq / 10 - new_freq / 10) * 5);
 
 	return quot;
 }
@@ -1816,7 +1816,7 @@ static void __init msm_cpr_init(void)
 	 * This formula is used since available fuse bits in the chip are not
 	 * enough to represent the value of maximum quot
 	 */
-	msm_cpr_pdata.max_quot = cpr_info->turbo_quot * 10 + 610;
+	msm_cpr_pdata.max_quot = cpr_info->turbo_quot * 10 + 600;
 
 	/**
 	 * Bits 4:0 of pvs_fuse provide mapping to the safe boot up voltage.
