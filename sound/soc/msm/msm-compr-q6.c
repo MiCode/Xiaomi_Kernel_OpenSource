@@ -1014,8 +1014,10 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			compr->codec = FORMAT_AMR_WB_PLUS;
 			break;
 		default:
-			pr_err("msm_compr_ioctl failed..unknown codec\n");
-			return -EFAULT;
+			/*Needed for the HDMI IN compressed use case*/
+			pr_debug("FORMAT_LINEAR_PCM\n");
+			compr->codec = FORMAT_LINEAR_PCM;
+			break;
 		}
 		return 0;
 	case SNDRV_PCM_IOCTL1_RESET:
