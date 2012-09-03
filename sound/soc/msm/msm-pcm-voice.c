@@ -464,6 +464,7 @@ static int msm_voice_tty_mode_put(struct snd_kcontrol *kcontrol,
 
 	voc_set_tty_mode(voc_get_session_id(VOICE_SESSION_NAME), tty_mode);
 
+	voc_set_tty_mode(voc_get_session_id(SGLTE_SESSION_NAME), tty_mode);
 	return 0;
 }
 static int msm_voice_widevoice_put(struct snd_kcontrol *kcontrol,
@@ -475,7 +476,8 @@ static int msm_voice_widevoice_put(struct snd_kcontrol *kcontrol,
 
 	voc_set_widevoice_enable(voc_get_session_id(VOICE_SESSION_NAME),
 				 wv_enable);
-
+	voc_set_widevoice_enable(voc_get_session_id(SGLTE_SESSION_NAME),
+				 wv_enable);
 	return 0;
 }
 
@@ -496,6 +498,8 @@ static int msm_voice_slowtalk_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: st enable=%d\n", __func__, st_enable);
 
 	voc_set_pp_enable(voc_get_session_id(VOICE_SESSION_NAME),
+			MODULE_ID_VOICE_MODULE_ST, st_enable);
+	voc_set_pp_enable(voc_get_session_id(SGLTE_SESSION_NAME),
 			MODULE_ID_VOICE_MODULE_ST, st_enable);
 
 	return 0;
@@ -518,6 +522,8 @@ static int msm_voice_fens_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: fens enable=%d\n", __func__, fens_enable);
 
 	voc_set_pp_enable(voc_get_session_id(VOICE_SESSION_NAME),
+			MODULE_ID_VOICE_MODULE_FENS, fens_enable);
+	voc_set_pp_enable(voc_get_session_id(SGLTE_SESSION_NAME),
 			MODULE_ID_VOICE_MODULE_FENS, fens_enable);
 
 	return 0;
