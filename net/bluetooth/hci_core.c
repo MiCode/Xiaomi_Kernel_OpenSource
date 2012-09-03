@@ -2291,7 +2291,6 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 			if (count > hdev->acl_cnt)
 				return;
 
-			hci_dev_lock(hdev);
 			hci_conn_enter_active_mode(conn, bt_cb(skb)->force_active);
 
 			hci_send_frame(skb);
@@ -2301,7 +2300,6 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 			quote -= count;
 
 			conn->sent += count;
-			hci_dev_unlock(hdev);
 		}
 	}
 }
