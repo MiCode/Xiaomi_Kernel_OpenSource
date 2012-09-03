@@ -53,8 +53,8 @@ static void define_value(enum print_arg_type field_type,
 
 	value = eval_flag(field_value);
 
-	fprintf(ofp , ",\n[\"%s\",%d,{\"field\":\"%s\",\"value\":%llu,
-			\"name\":\"%s\"}]",
+	fprintf(ofp,
+		",\n[\"%s\",%d,{\"field\":\"%s\",\"value\":%llu,\"name\":\"%s\"}]",
 		handler_name, id, field_name, value, field_str);
 }
 
@@ -77,12 +77,12 @@ static void define_field(enum print_arg_type field_type,
 {
 	if (field_type == PRINT_FLAGS) {
 		const char *handler_name = "define_flag_field";
-		fprintf(ofp , ",\n[\"%s\",%d,{\"field\":\"%s\",
-				\"delim\":\"%s\"}]",
-				handler_name, id, field_name, delim);
+		fprintf(ofp,
+			",\n[\"%s\",%d,{\"field\":\"%s\",\"delim\":\"%s\"}]",
+			handler_name, id, field_name, delim);
 	} else {
 		const char *handler_name = "define_symbol_field";
-		fprintf(ofp , ",\n[\"%s\",%d,{\"field\":\"%s\"}]",
+		fprintf(ofp, ",\n[\"%s\",%d,{\"field\":\"%s\"}]",
 				handler_name, id, field_name);
 	}
 }
@@ -140,27 +140,27 @@ static void define_event(struct event *event)
 	const char *handler_name = "define_event";
 	struct format_field *field = 0;
 
-	fprintf(ofp , ",\n[\"%s\",%d,{\"system\":\"%s\",
-			\"name\":\"%s\",\"args\":{",
+	fprintf(ofp,
+		",\n[\"%s\",%d,{\"system\":\"%s\",\"name\":\"%s\",\"args\":{",
 			handler_name, event->id, ev_system, ev_name);
 
-	fprintf(ofp , "%s\"%s\":%d", prefix(indx), "common_s", indx);
+	fprintf(ofp, "%s\"%s\":%d", prefix(indx), "common_s", indx);
 	indx++;
-	fprintf(ofp , "%s\"%s\":%d", prefix(indx), "common_ns", indx);
+	fprintf(ofp, "%s\"%s\":%d", prefix(indx), "common_ns", indx);
 	indx++;
-	fprintf(ofp , "%s\"%s\":%d", prefix(indx), "common_cpu", indx);
+	fprintf(ofp, "%s\"%s\":%d", prefix(indx), "common_cpu", indx);
 	indx++;
-	fprintf(ofp , "%s\"%s\":%d", prefix(indx), "common_comm", indx);
+	fprintf(ofp, "%s\"%s\":%d", prefix(indx), "common_comm", indx);
 	indx++;
 	for (field = event->format.common_fields; field; field = field->next) {
-		fprintf(ofp , "%s\"%s\":%d", prefix(indx), field->name, indx);
+		fprintf(ofp, "%s\"%s\":%d", prefix(indx), field->name, indx);
 		indx++;
 	}
 	for (field = event->format.fields; field; field = field->next) {
-		fprintf(ofp , "%s\"%s\":%d", prefix(indx), field->name, indx);
+		fprintf(ofp, "%s\"%s\":%d", prefix(indx), field->name, indx);
 		indx++;
 	}
-	fprintf(ofp , "}}]");
+	fprintf(ofp, "}}]");
 }
 
 static inline struct event *find_cache_event(int type)
@@ -191,14 +191,14 @@ static void json_process_field(int indx, void *data, struct format_field *field)
 			offset &= 0xffff;
 		} else
 			offset = field->offset;
-		fprintf(ofp , "%s\"%s\"", prefix(indx), (char *)data + offset);
+		fprintf(ofp, "%s\"%s\"", prefix(indx), (char *)data + offset);
 	} else { /* FIELD_IS_NUMERIC */
 		val = read_size(data + field->offset, field->size);
 		if (field->flags & FIELD_IS_SIGNED)
-			fprintf(ofp , "%s%lld", prefix(indx),
+			fprintf(ofp, "%s%lld", prefix(indx),
 					(long long int) val);
 		else
-			fprintf(ofp , "%s%llu", prefix(indx), val);
+			fprintf(ofp, "%s%llu", prefix(indx), val);
 	}
 }
 
@@ -227,7 +227,7 @@ static void json_process_event(union perf_event *pevent __unused,
 	s = nsecs / NSECS_PER_SEC;
 	ns = nsecs - s * NSECS_PER_SEC;
 
-	fprintf(ofp , ",\n[\"event\",%d,[%lu,%lu,%d,\"%s\"",
+	fprintf(ofp, ",\n[\"event\",%d,[%lu,%lu,%d,\"%s\"",
 			type, s, ns, cpu, comm);
 
 	indx += 4;
@@ -258,7 +258,7 @@ static int json_start_script(const char *script, int argc __unused,
 	} else
 		ofp = stdout;
 
-	fprintf(ofp , "[[\"trace_start\"]");
+	fprintf(ofp, "[[\"trace_start\"]");
 
 	return err;
 }
@@ -270,7 +270,7 @@ static int json_stop_script(void)
 {
 	int err = 0;
 
-	fprintf(ofp , ",\n[\"trace_end\"]]");
+	fprintf(ofp, ",\n[\"trace_end\"]]");
 
 	return err;
 }
@@ -288,14 +288,14 @@ static int json_generate_script(const char *outfile)
 		fprintf(stderr, "couldn't open %s\n", fname);
 		return -EBADF;
 	}
-	fprintf(ofp ,  "[[\"generate_start\"]");
+	fprintf(ofp, "[[\"generate_start\"]");
 
 	while ((event = trace_find_next_event(event))) {
 		define_event(event);
 		define_event_symbols(event, event->print_fmt.args);
 	}
 
-	fprintf(ofp ,  ",\n[\"generate_end\"]]");
+	fprintf(ofp, ",\n[\"generate_end\"]]");
 
 	fclose(ofp);
 
