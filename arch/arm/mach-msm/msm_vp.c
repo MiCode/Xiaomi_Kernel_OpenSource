@@ -88,8 +88,8 @@ static int vp_reg_set_voltage(struct regulator_dev *rdev, int min_uV,
 	 * in corresponding PLEVEL register.
 	 */
 	cur_plevel = readl_relaxed(VDD_APC_PLEVEL(perf_level));
-	/* clear lower 6 bits */
-	cur_plevel &= ~0x3F;
+	/* clear lower 7 bits */
+	cur_plevel &= ~(0x7F);
 	cur_plevel |= (plevel | VREG_VREF_SEL);
 	if (fine_step_volt >= 12500)
 		cur_plevel |= VREG_PD_EN;

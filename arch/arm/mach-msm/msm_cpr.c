@@ -56,6 +56,8 @@ struct msm_cpr {
 	bool max_volt_set;
 	void __iomem *base;
 	unsigned int irq;
+	uint32_t cur_Vmin;
+	uint32_t cur_Vmax;
 	struct mutex cpr_mutex;
 	struct regulator *vreg_cx;
 	const struct msm_cpr_config *config;
@@ -189,7 +191,7 @@ cpr_2pt_kv_analysis(struct msm_cpr *cpr, struct msm_cpr_mode *chip_data)
 	 * voltage, offset is always subtracted from it.
 	 *
 	 */
-	level_uV = chip_data->Vmax -
+	level_uV = chip_data->turbo_Vmax -
 		(chip_data->tgt_volt_offset * cpr->vp->step_size);
 	pr_debug("tgt_volt_uV = %d\n", level_uV);
 
@@ -319,8 +321,8 @@ cpr_up_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 	 * freq switch handler and CPR interrupt handler here
 	 */
 	/* Set New PMIC voltage */
-	set_volt_uV = (new_volt < chip_data->Vmax ? new_volt
-				: chip_data->Vmax);
+	set_volt_uV = (new_volt < cpr->cur_Vmax ? new_volt
+				: cpr->cur_Vmax);
 	rc = regulator_set_voltage(cpr->vreg_cx, set_volt_uV,
 					set_volt_uV);
 	if (rc) {
@@ -331,7 +333,7 @@ cpr_up_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 	}
 	pr_info("(railway_voltage: %d uV)\n", set_volt_uV);
 
-	cpr->max_volt_set = (set_volt_uV == chip_data->Vmax) ? 1 : 0;
+	cpr->max_volt_set = (set_volt_uV == cpr->cur_Vmax) ? 1 : 0;
 
 	/* Clear all the interrupts */
 	cpr_write_reg(cpr, RBIF_IRQ_CLEAR, ALL_CPR_IRQ);
@@ -361,8 +363,8 @@ cpr_dn_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 	 * freq switch handler and CPR interrupt handler here
 	 */
 	/* Set New PMIC volt */
-	set_volt_uV = (new_volt > chip_data->Vmin ? new_volt
-				: chip_data->Vmin);
+	set_volt_uV = (new_volt > cpr->cur_Vmin ? new_volt
+				: cpr->cur_Vmin);
 	rc = regulator_set_voltage(cpr->vreg_cx, set_volt_uV,
 					set_volt_uV);
 	if (rc) {
@@ -378,7 +380,7 @@ cpr_dn_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 	/* Clear all the interrupts */
 	cpr_write_reg(cpr, RBIF_IRQ_CLEAR, ALL_CPR_IRQ);
 
-	if (new_volt <= chip_data->Vmin) {
+	if (new_volt <= cpr->cur_Vmin) {
 		/*
 		 * Disable down interrupt to App after we hit Vmin
 		 * It shall be enabled after we service an up interrupt
@@ -598,9 +600,15 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 		 * As per chip characterization data, use max nominal freq
 		 * to calculate quot for all lower frequencies too
 		 */
-		new_freq = (freqs->new > cpr->config->max_nom_freq)
-					? freqs->new
-					: cpr->config->max_nom_freq;
+		if (freqs->new > cpr->config->max_nom_freq) {
+			new_freq = freqs->new;
+			cpr->cur_Vmin = cpr->config->cpr_mode_data[1].turbo_Vmin;
+			cpr->cur_Vmax = cpr->config->cpr_mode_data[1].turbo_Vmax;
+		} else {
+			new_freq = cpr->config->max_nom_freq;
+			cpr->cur_Vmin = cpr->config->cpr_mode_data[1].nom_Vmin;
+			cpr->cur_Vmax = cpr->config->cpr_mode_data[1].nom_Vmax;
+		}
 
 		/* Configure CPR for the new frequency */
 		quot = cpr->config->get_quot(cpr->config->max_quot,
@@ -750,6 +758,10 @@ static int __devinit msm_cpr_probe(struct platform_device *pdev)
 
 	/* Initialize platform_data */
 	cpr->config = pdata;
+
+	/* Set initial Vmin,Vmax equal to turbo */
+	cpr->cur_Vmin = cpr->config->cpr_mode_data[1].turbo_Vmin;
+	cpr->cur_Vmax = cpr->config->cpr_mode_data[1].turbo_Vmax;
 
 	cpr_pdev = pdev;
 
