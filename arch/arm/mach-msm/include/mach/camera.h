@@ -632,6 +632,7 @@ enum msm_bus_perf_setting {
 	S_STEREO_CAPTURE,
 	S_DEFAULT,
 	S_LIVESHOT,
+	S_DUAL,
 	S_EXIT
 };
 

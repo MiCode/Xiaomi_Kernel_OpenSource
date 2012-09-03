@@ -44,6 +44,7 @@ struct ispif_device {
 	uint32_t rdi0_sof_count;
 	uint32_t rdi1_sof_count;
 	uint32_t rdi2_sof_count;
+	uint32_t global_intf_cmd_mask;
 	struct tasklet_struct ispif_tasklet;
 	enum msm_ispif_state_t ispif_state;
 };

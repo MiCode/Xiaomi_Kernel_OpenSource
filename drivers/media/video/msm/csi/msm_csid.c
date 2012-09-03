@@ -61,6 +61,7 @@ static int msm_csid_cid_lut(
 			((csid_lut_params->vc_cfg[i].cid % 4) * 8));
 		msm_camera_io_w(val, csidbase + CSID_CID_LUT_VC_0_ADDR +
 			(csid_lut_params->vc_cfg[i].cid >> 2) * 4);
+
 		val = (csid_lut_params->vc_cfg[i].decode_format << 4) | 0x3;
 		msm_camera_io_w(val, csidbase + CSID_CID_n_CFG_ADDR +
 			(csid_lut_params->vc_cfg[i].cid * 4));
