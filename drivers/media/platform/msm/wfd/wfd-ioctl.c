@@ -153,7 +153,7 @@ static int wfd_allocate_ion_buffer(struct ion_client *client,
 		bool secure, struct mem_region *mregion)
 {
 	struct ion_handle *handle;
-	void *kvaddr, *phys_addr;
+	void *kvaddr = NULL, *phys_addr = NULL;
 	unsigned long size;
 	unsigned int alloc_regions = 0;
 	int rc;
@@ -209,7 +209,9 @@ static int wfd_allocate_ion_buffer(struct ion_client *client,
 	return rc;
 alloc_fail:
 	if (!IS_ERR_OR_NULL(handle)) {
-		ion_unmap_kernel(client, handle);
+		if (!IS_ERR_OR_NULL(kvaddr))
+			ion_unmap_kernel(client, handle);
+
 		ion_free(client, handle);
 
 		mregion->kvaddr = NULL;
