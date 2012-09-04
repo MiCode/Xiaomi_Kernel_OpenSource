@@ -1852,6 +1852,9 @@ int pm8921_disable_source_current(bool disable)
 	}
 	if (disable)
 		pr_warn("current drawn from chg=0, battery provides current\n");
+
+	pm_chg_usb_suspend_enable(the_chip, disable);
+
 	return pm_chg_charge_dis(the_chip, disable);
 }
 EXPORT_SYMBOL(pm8921_disable_source_current);
