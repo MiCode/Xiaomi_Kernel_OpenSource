@@ -5,7 +5,7 @@
 #include <uapi/linux/epm_adc.h>
 
 struct epm_chan_properties {
-	uint32_t resistorValue;
+	uint32_t resistorvalue;
 	uint32_t gain;
 };
 
