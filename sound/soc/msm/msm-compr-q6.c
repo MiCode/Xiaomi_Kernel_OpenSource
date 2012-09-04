@@ -337,7 +337,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 		pr_debug("SND_AUDIOCODEC_WMA\n");
 		memset(&wma_cfg, 0x0, sizeof(struct asm_wma_cfg));
 		wma_cfg.format_tag = compr->info.codec_param.codec.format;
-		wma_cfg.ch_cfg = runtime->channels;
+		wma_cfg.ch_cfg = compr->info.codec_param.codec.ch_in;
 		wma_cfg.sample_rate = compr->info.codec_param.codec.sample_rate;
 		wma_cfg.avg_bytes_per_sec =
 			compr->info.codec_param.codec.bit_rate/8;
