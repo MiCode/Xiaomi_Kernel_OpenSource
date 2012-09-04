@@ -81,6 +81,7 @@ void msm8960_init_fb(void);
 void msm8960_init_pmic(void);
 void msm8960_init_mmc(void);
 int msm8960_init_gpiomux(void);
+void __init configure_msm8960_power_grid(void);
 unsigned char msm8960_hdmi_as_primary_selected(void);
 void msm8960_allocate_fb_region(void);
 void msm8960_set_display_params(char *prim_panel, char *ext_panel);
