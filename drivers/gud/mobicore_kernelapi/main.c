@@ -1,7 +1,7 @@
-/**
+/*
  * MobiCore KernelApi module
  *
- * <!-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
+ * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/netlink.h>
 #include <linux/kthread.h>
+#include <linux/device.h>
 #include <net/sock.h>
 
 #include <linux/list.h>
@@ -29,23 +30,27 @@ struct mc_kernelapi_ctx {
 	atomic_t counter;
 };
 
-struct mc_kernelapi_ctx *mod_ctx; /* = NULL; */
+struct mc_kernelapi_ctx *mod_ctx;
 
-/*----------------------------------------------------------------------------*/
+/* Define a MobiCore Kernel API device structure for use with dev_debug() etc */
+struct device_driver mc_kernel_api_name = {
+	.name = "mckernelapi"
+};
+
+struct device mc_kernel_api_subname = {
+	.init_name = "", /* Set to 'mcapi' at mcapi_init() time */
+	.driver = &mc_kernel_api_name
+};
+
+struct device *mc_kapi = &mc_kernel_api_subname;
+
 /* get a unique ID */
-unsigned int mcapi_unique_id(
-	void
-)
+unsigned int mcapi_unique_id(void)
 {
-	return (unsigned int)atomic_inc_return(
-		&(mod_ctx->counter));
+	return (unsigned int)atomic_inc_return(&(mod_ctx->counter));
 }
 
-
-/*----------------------------------------------------------------------------*/
-static struct connection *mcapi_find_connection(
-	uint32_t seq
-)
+static struct connection *mcapi_find_connection(uint32_t seq)
 {
 	struct connection *tmp;
 	struct list_head *pos;
@@ -60,24 +65,21 @@ static struct connection *mcapi_find_connection(
 	return NULL;
 }
 
-/*----------------------------------------------------------------------------*/
-void mcapi_insert_connection(
-	struct connection *connection
-)
+void mcapi_insert_connection(struct connection *connection)
 {
 	list_add_tail(&(connection->list), &(mod_ctx->peers));
 	connection->socket_descriptor = mod_ctx->sk;
 }
 
-void mcapi_remove_connection(
-	uint32_t seq
-)
+void mcapi_remove_connection(uint32_t seq)
 {
 	struct connection *tmp;
 	struct list_head *pos, *q;
 
-	/* Delete all session objects. Usually this should not be needed as
-	   closeDevice() requires that all sessions have been closed before.*/
+	/*
+	 * Delete all session objects. Usually this should not be needed as
+	 * closeDevice() requires that all sessions have been closed before.
+	 */
 	list_for_each_safe(pos, q, &mod_ctx->peers) {
 		tmp = list_entry(pos, struct connection, list);
 		if (tmp->sequence_magic == seq) {
@@ -87,11 +89,7 @@ void mcapi_remove_connection(
 	}
 }
 
-/*----------------------------------------------------------------------------*/
-static int mcapi_process(
-	struct sk_buff *skb,
-	struct nlmsghdr *nlh
-)
+static int mcapi_process(struct sk_buff *skb, struct nlmsghdr *nlh)
 {
 	struct connection *c;
 	int length;
@@ -102,13 +100,14 @@ static int mcapi_process(
 	pid = nlh->nlmsg_pid;
 	length = nlh->nlmsg_len;
 	seq = nlh->nlmsg_seq;
-	MCDRV_DBG_VERBOSE("nlmsg len %d type %d pid 0x%X seq %d\n",
-		   length, nlh->nlmsg_type, pid, seq);
+	MCDRV_DBG_VERBOSE(mc_kapi, "nlmsg len %d type %d pid 0x%X seq %d\n",
+			  length, nlh->nlmsg_type, pid, seq);
 	do {
 		c = mcapi_find_connection(seq);
 		if (!c) {
-			MCDRV_ERROR("Invalid incomming connection - seq=%u!",
-				seq);
+			MCDRV_ERROR(mc_kapi,
+				    "Invalid incomming connection - seq=%u!",
+				    seq);
 			ret = -1;
 			break;
 		}
@@ -121,10 +120,7 @@ static int mcapi_process(
 	return ret;
 }
 
-/*----------------------------------------------------------------------------*/
-static void mcapi_callback(
-	struct sk_buff *skb
-)
+static void mcapi_callback(struct sk_buff *skb)
 {
 	struct nlmsghdr *nlh = nlmsg_hdr(skb);
 	int len = skb->len;
@@ -141,19 +137,20 @@ static void mcapi_callback(
 	}
 }
 
-/*----------------------------------------------------------------------------*/
 static int __init mcapi_init(void)
 {
-	printk(KERN_INFO "Mobicore API module initialized!\n");
+	dev_set_name(mc_kapi, "mcapi");
+
+	dev_info(mc_kapi, "Mobicore API module initialized!\n");
 
 	mod_ctx = kzalloc(sizeof(struct mc_kernelapi_ctx), GFP_KERNEL);
 
 	/* start kernel thread */
 	mod_ctx->sk = netlink_kernel_create(&init_net, MC_DAEMON_NETLINK, 0,
-					mcapi_callback, NULL, THIS_MODULE);
+					    mcapi_callback, NULL, THIS_MODULE);
 
 	if (!mod_ctx->sk) {
-		MCDRV_ERROR("register of recieve handler failed");
+		MCDRV_ERROR(mc_kapi, "register of recieve handler failed");
 		return -EFAULT;
 	}
 
@@ -163,7 +160,7 @@ static int __init mcapi_init(void)
 
 static void __exit mcapi_exit(void)
 {
-	printk(KERN_INFO "Unloading Mobicore API module.\n");
+	dev_info(mc_kapi, "Unloading Mobicore API module.\n");
 
 	if (mod_ctx->sk != NULL) {
 		netlink_kernel_release(mod_ctx->sk);
