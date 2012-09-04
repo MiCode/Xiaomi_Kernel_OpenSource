@@ -307,6 +307,7 @@ config ARCH_MSM8625
 	select ARM_TICKET_LOCKS
 	select MSM_RUN_QUEUE_STATS
 	select MIGHT_HAVE_CACHE_L2X0
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_MSM9625
 	bool "MSM9625"
@@ -398,6 +399,7 @@ config ARCH_MSM7X27A
 	select ARM_GIC
 	select ARCH_MSM_CORTEXMP
 	select MIGHT_HAVE_CACHE_L2X0
+	select ARM_HAS_SG_CHAIN
 
 config  MSM_VIC
 	bool
