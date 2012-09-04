@@ -254,7 +254,7 @@
 			qcom,csi-lane-assign = <0x4320>;
 			qcom,csi-lane-mask = <0x7>;
 			qcom,csi-phy-sel = <1>;
-			qcom,camera-type = <0>;
+			qcom,camera-type = <1>;
 			qcom,sensor-type = <0>;
 		};
 	};
