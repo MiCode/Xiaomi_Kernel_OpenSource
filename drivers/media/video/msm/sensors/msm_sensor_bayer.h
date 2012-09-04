@@ -65,6 +65,8 @@ long msm_sensor_bayer_subdev_ioctl(struct v4l2_subdev *sd,
 int32_t msm_sensor_bayer_get_csi_params(struct msm_sensor_ctrl_t *s_ctrl,
 		struct csi_lane_params_t *sensor_output_info);
 
+int32_t msm_sensor_bayer_eeprom_read(struct msm_sensor_ctrl_t *s_ctrl);
+
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, void __user *)
 
