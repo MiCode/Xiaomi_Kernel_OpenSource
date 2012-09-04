@@ -88,6 +88,8 @@
 #define QC_DEVID_SAT2	0x4
 #define QC_DEVID_PGD	0x5
 #define QC_MSM_DEVS	5
+#define INIT_MX_RETRIES 10
+#define DEF_RETRY_MS	10
 
 #define PGD_THIS_EE(r, v) ((v) ? PGD_THIS_EE_V2(r) : PGD_THIS_EE_V1(r))
 #define PGD_PORT(r, p, v) ((v) ? PGD_PORT_V2(r, p) : PGD_PORT_V1(r, p))
@@ -175,6 +177,7 @@ enum mgr_reg {
 	MGR_INT_CLR	= 0x218,
 	MGR_TX_MSG	= 0x230,
 	MGR_RX_MSG	= 0x270,
+	MGR_IE_STAT	= 0x2F0,
 	MGR_VE_STAT	= 0x300,
 };
 
@@ -449,8 +452,34 @@ static irqreturn_t msm_slim_interrupt(int irq, void *d)
 			writel_relaxed(MGR_INT_TX_MSG_SENT,
 					dev->base + MGR_INT_CLR);
 		else {
+			u32 mgr_stat = readl_relaxed(dev->base + MGR_STATUS);
+			u32 mgr_ie_stat = readl_relaxed(dev->base +
+						MGR_IE_STAT);
+			u32 frm_stat = readl_relaxed(dev->base + FRM_STAT);
+			u32 frm_cfg = readl_relaxed(dev->base + FRM_CFG);
+			u32 frm_intr_stat = readl_relaxed(dev->base +
+						FRM_INT_STAT);
+			u32 frm_ie_stat = readl_relaxed(dev->base +
+						FRM_IE_STAT);
+			u32 intf_stat = readl_relaxed(dev->base + INTF_STAT);
+			u32 intf_intr_stat = readl_relaxed(dev->base +
+						INTF_INT_STAT);
+			u32 intf_ie_stat = readl_relaxed(dev->base +
+						INTF_IE_STAT);
+
 			writel_relaxed(MGR_INT_TX_NACKED_2,
 					dev->base + MGR_INT_CLR);
+			pr_err("TX Nack MGR dump:int_stat:0x%x, mgr_stat:0x%x",
+					stat, mgr_stat);
+			pr_err("TX Nack MGR dump:ie_stat:0x%x", mgr_ie_stat);
+			pr_err("TX Nack FRM dump:int_stat:0x%x, frm_stat:0x%x",
+					frm_intr_stat, frm_stat);
+			pr_err("TX Nack FRM dump:frm_cfg:0x%x, ie_stat:0x%x",
+					frm_cfg, frm_ie_stat);
+			pr_err("TX Nack INTF dump:intr_st:0x%x, intf_stat:0x%x",
+					intf_intr_stat, intf_stat);
+			pr_err("TX Nack INTF dump:ie_stat:0x%x", intf_ie_stat);
+
 			dev->err = -EIO;
 		}
 		/*
@@ -863,7 +892,8 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	dev->wr_comp = &done;
 	msm_send_msg_buf(ctrl, pbuf, txn->rl);
 	timeout = wait_for_completion_timeout(&done, HZ);
-
+	if (!timeout)
+		dev->wr_comp = NULL;
 	if (mc == SLIM_MSG_MC_RECONFIGURE_NOW) {
 		if ((txn->mc == (SLIM_MSG_MC_RECONFIGURE_NOW |
 					SLIM_MSG_CLK_PAUSE_SEQ_FLG)) &&
@@ -903,13 +933,28 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	return timeout ? dev->err : -ETIMEDOUT;
 }
 
+static void msm_slim_wait_retry(struct msm_slim_ctrl *dev)
+{
+	int msec_per_frm = 0;
+	int sfr_per_sec;
+	/* Wait for 1 superframe, or default time and then retry */
+	sfr_per_sec = dev->framer.superfreq /
+			(1 << (SLIM_MAX_CLK_GEAR - dev->ctrl.clkgear));
+	if (sfr_per_sec)
+		msec_per_frm = MSEC_PER_SEC / sfr_per_sec;
+	if (msec_per_frm < DEF_RETRY_MS)
+		msec_per_frm = DEF_RETRY_MS;
+	msleep(msec_per_frm);
+}
 static int msm_set_laddr(struct slim_controller *ctrl, const u8 *ea,
 				u8 elen, u8 laddr)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
-	DECLARE_COMPLETION_ONSTACK(done);
-	int timeout;
+	struct completion done;
+	int timeout, ret, retries = 0;
 	u32 *buf;
+retry_laddr:
+	init_completion(&done);
 	mutex_lock(&dev->tx_lock);
 	buf = msm_get_msg_buf(ctrl, 9);
 	buf[0] = SLIM_MSG_ASM_FIRST_WORD(9, SLIM_MSG_MT_CORE,
@@ -920,10 +965,27 @@ static int msm_set_laddr(struct slim_controller *ctrl, const u8 *ea,
 	buf[2] = laddr;
 
 	dev->wr_comp = &done;
-	msm_send_msg_buf(ctrl, buf, 9);
+	ret = msm_send_msg_buf(ctrl, buf, 9);
 	timeout = wait_for_completion_timeout(&done, HZ);
+	if (!timeout)
+		dev->err = -ETIMEDOUT;
+	if (dev->err) {
+		ret = dev->err;
+		dev->err = 0;
+		dev->wr_comp = NULL;
+	}
 	mutex_unlock(&dev->tx_lock);
-	return timeout ? dev->err : -ETIMEDOUT;
+	if (ret) {
+		pr_err("set LADDR:0x%x failed:ret:%d, retrying", laddr, ret);
+		if (retries < INIT_MX_RETRIES) {
+			msm_slim_wait_retry(dev);
+			retries++;
+			goto retry_laddr;
+		} else {
+			pr_err("set LADDR failed after retrying:ret:%d", ret);
+		}
+	}
+	return ret;
 }
 
 static int msm_clk_pause_wakeup(struct slim_controller *ctrl)
@@ -1154,6 +1216,8 @@ static void msm_slim_rxwq(struct msm_slim_ctrl *dev)
 				msm_sat_enqueue(sat, (u32 *)buf, len);
 				queue_work(sat->wq, &sat->wd);
 			}
+			if (ret)
+				pr_err("assign laddr failed, error:%d", ret);
 		} else if (mc == SLIM_MSG_MC_REPLY_INFORMATION ||
 				mc == SLIM_MSG_MC_REPLY_VALUE) {
 			u8 tid = buf[3];
@@ -1196,7 +1260,7 @@ static void slim_sat_rxprocess(struct work_struct *work)
 		bool gen_ack = false;
 		u8 tid;
 		u8 wbuf[8];
-		int i;
+		int i, retries = 0;
 		txn.mt = SLIM_MSG_MT_SRC_REFERRED_USER;
 		txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 		txn.ec = 0;
@@ -1209,7 +1273,6 @@ static void slim_sat_rxprocess(struct work_struct *work)
 
 		if (mt == SLIM_MSG_MT_CORE &&
 			mc == SLIM_MSG_MC_REPORT_PRESENT) {
-			u8 laddr;
 			u8 e_addr[6];
 			for (i = 0; i < 6; i++)
 				e_addr[i] = buf[7-i];
@@ -1219,8 +1282,6 @@ static void slim_sat_rxprocess(struct work_struct *work)
 				if (satv >= 0)
 					sat->pending_capability = true;
 			}
-			slim_assign_laddr(&dev->ctrl, e_addr, 6, &laddr);
-			sat->satcl.laddr = laddr;
 			/*
 			 * Since capability message is already sent, present
 			 * message will indicate subsystem hosting this
@@ -1232,7 +1293,7 @@ static void slim_sat_rxprocess(struct work_struct *work)
 				for (i = 0; i < sat->nsatch; i++) {
 					if (sat->satch[i].reconf) {
 						pr_err("SSR, sat:%d, rm ch:%d",
-							laddr,
+							sat->satcl.laddr,
 							sat->satch[i].chan);
 						slim_control_ch(&sat->satcl,
 							sat->satch[i].chanh,
@@ -1284,8 +1345,21 @@ send_capability:
 			wbuf[3] = SAT_MSG_PROT;
 			txn.wbuf = wbuf;
 			txn.len = 4;
-			sat->sent_capability = true;
-			msm_xfer_msg(&dev->ctrl, &txn);
+			ret = msm_xfer_msg(&dev->ctrl, &txn);
+			if (ret) {
+				pr_err("capability for:0x%x fail:%d, retry:%d",
+						sat->satcl.laddr, ret, retries);
+				if (retries < INIT_MX_RETRIES) {
+					msm_slim_wait_retry(dev);
+					retries++;
+					goto send_capability;
+				} else {
+					pr_err("failed after all retries:%d",
+							ret);
+				}
+			} else {
+				sat->sent_capability = true;
+			}
 			break;
 		case SLIM_USR_MC_ADDR_QUERY:
 			memcpy(&wbuf[1], &buf[4], 6);
