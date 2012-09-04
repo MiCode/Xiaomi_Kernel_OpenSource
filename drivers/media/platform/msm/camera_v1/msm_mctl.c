@@ -267,6 +267,11 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			core, ioctl, VIDIOC_MSM_SENSOR_CFG, argp);
 			break;
 
+	case MSM_CAM_IOCTL_OEM:
+	 rc = v4l2_subdev_call(p_mctl->sensor_sdev,
+		 core, ioctl, VIDIOC_MSM_SENSOR_CFG, argp);
+		 break;
+
 	case MSM_CAM_IOCTL_SENSOR_V4l2_S_CTRL: {
 			struct v4l2_control v4l2_ctrl;
 			CDBG("subdev call\n");
