@@ -145,26 +145,31 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 
 	v4l2_evt.id = 0;
 	if (irq & 0x8000200) {
+		writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 			VCAP_VC_PIX_ERR_EVENT;
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
 	if (irq & 0x40000200) {
+		writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 			VCAP_VC_LINE_ERR_EVENT;
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
 	if (irq & 0x20000200) {
+		writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 			VCAP_VC_VSYNC_ERR_EVENT;
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
 	if (irq & 0x00000800) {
+		writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 			VCAP_VC_NPL_OFLOW_ERR_EVENT;
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
 	if (irq & 0x00000400) {
+		writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 			VCAP_VC_LBUF_OFLOW_ERR_EVENT;
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
