@@ -760,7 +760,7 @@ static void _qce_dump_descr_fifos(struct qce_device *pce_dev)
 {
 	int i, j, ents;
 	struct sps_iovec *iovec = pce_dev->ce_sps.in_transfer.iovec;
-	uint32_t cmd_flags = SPS_IOVEC_FLAG_CMD | SPS_IOVEC_FLAG_NWD;
+	uint32_t cmd_flags = SPS_IOVEC_FLAG_CMD;
 
 	printk(KERN_INFO "==============================================\n");
 	printk(KERN_INFO "CONSUMER (TX/IN/DEST) PIPE DESCRIPTOR\n");
@@ -806,11 +806,11 @@ static void _qce_sps_iovec_count_init(struct qce_device *pce_dev)
 	pce_dev->ce_sps.out_transfer.iovec_count = 0;
 }
 
-static void _qce_set_eot_flag(struct sps_transfer *sps_bam_pipe)
+static void _qce_set_flag(struct sps_transfer *sps_bam_pipe, uint32_t flag)
 {
 	struct sps_iovec *iovec = sps_bam_pipe->iovec +
 					(sps_bam_pipe->iovec_count - 1);
-	iovec->flags |= SPS_IOVEC_FLAG_EOT;
+	iovec->flags |= flag;
 }
 
 static void _qce_sps_add_data(uint32_t addr, uint32_t len,
@@ -870,7 +870,7 @@ static int _qce_sps_add_cmd(struct qce_device *pce_dev, uint32_t flag,
 					sps_bam_pipe->iovec_count;
 	iovec->size = cmdptr->size;
 	iovec->addr = GET_PHYS_ADDR(cmdptr->cmdlist);
-	iovec->flags = SPS_IOVEC_FLAG_CMD | SPS_IOVEC_FLAG_NWD | flag;
+	iovec->flags = SPS_IOVEC_FLAG_CMD | flag;
 	sps_bam_pipe->iovec_count++;
 
 	return 0;
@@ -959,7 +959,7 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 		/* Producer pipe will handle this connection */
 		sps_connect_info->mode = SPS_MODE_SRC;
 		sps_connect_info->options =
-			SPS_O_AUTO_ENABLE | SPS_O_EOT;
+			SPS_O_AUTO_ENABLE | SPS_O_EOT | SPS_O_DESC_DONE;
 	} else {
 		/* For CE consumer transfer, source should be
 		 * system memory where as destination should
@@ -1009,6 +1009,9 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 	}
 
 	sps_event->mode = SPS_TRIGGER_CALLBACK;
+	if (is_producer)
+		sps_event->options = SPS_O_EOT | SPS_O_DESC_DONE;
+	else
 	sps_event->options = SPS_O_EOT;
 	sps_event->xfer_done = NULL;
 	sps_event->user = (void *)pce_dev;
@@ -2260,7 +2263,9 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		_qce_sps_add_sg_data(pce_dev, areq->src, totallen_in,
 					&pce_dev->ce_sps.in_transfer);
 
-		_qce_set_eot_flag(&pce_dev->ce_sps.in_transfer);
+		_qce_set_flag(&pce_dev->ce_sps.in_transfer,
+				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
+
 		_qce_sps_add_sg_data(pce_dev, areq->dst, out_len +
 					areq->assoclen + hw_pad_out,
 				&pce_dev->ce_sps.out_transfer);
@@ -2274,7 +2279,8 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 					&pce_dev->ce_sps.in_transfer);
 		_qce_sps_add_sg_data(pce_dev, areq->src, areq->cryptlen,
 					&pce_dev->ce_sps.in_transfer);
-		_qce_set_eot_flag(&pce_dev->ce_sps.in_transfer);
+		_qce_set_flag(&pce_dev->ce_sps.in_transfer,
+				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
 		/* Pass through to ignore associated (+iv, if applicable) data*/
 		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.ignore_buffer),
@@ -2378,7 +2384,8 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 					&pce_dev->ce_sps.in_transfer);
 	_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
 					&pce_dev->ce_sps.in_transfer);
-	_qce_set_eot_flag(&pce_dev->ce_sps.in_transfer);
+	_qce_set_flag(&pce_dev->ce_sps.in_transfer,
+				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
 	_qce_sps_add_sg_data(pce_dev, areq->dst, areq->nbytes,
 					&pce_dev->ce_sps.out_transfer);
@@ -2447,7 +2454,8 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 					&pce_dev->ce_sps.in_transfer);
 	_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
 						 &pce_dev->ce_sps.in_transfer);
-	_qce_set_eot_flag(&pce_dev->ce_sps.in_transfer);
+	_qce_set_flag(&pce_dev->ce_sps.in_transfer,
+				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
 	_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
