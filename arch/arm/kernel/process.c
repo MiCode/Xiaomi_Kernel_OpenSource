@@ -206,6 +206,7 @@ void machine_shutdown(void)
  */
 void machine_halt(void)
 {
+	preempt_disable();
 	smp_send_stop();
 
 	local_irq_disable();
@@ -220,6 +221,7 @@ void machine_halt(void)
  */
 void machine_power_off(void)
 {
+	preempt_disable();
 	smp_send_stop();
 
 	if (pm_power_off)
@@ -239,6 +241,7 @@ void machine_power_off(void)
  */
 void machine_restart(char *cmd)
 {
+	preempt_disable();
 	smp_send_stop();
 
 	arm_pm_restart(reboot_mode, cmd);
