@@ -294,6 +294,7 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 	mdp4_mixer_stage_commit(pipe->mixer_num);
 
 	mdp4_writeback_overlay_kickoff(mfd, pipe);
+	mdp4_writeback_dma_busy_wait(mfd);
 
 	/* move current committed iommu to freelist */
 	mdp4_overlay_iommu_pipe_free(pipe->pipe_ndx, 0);
