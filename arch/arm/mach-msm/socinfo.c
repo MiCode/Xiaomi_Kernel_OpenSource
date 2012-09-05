@@ -280,6 +280,9 @@ static enum msm_cpu cpu_of_id[] = {
 	[143] = MSM_CPU_8930AA,
 	[144] = MSM_CPU_8930AA,
 
+	/* 8092 IDs */
+	[146] = MSM_CPU_8092,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -715,6 +718,11 @@ static void * __init setup_dummy_socinfo(void)
 			sizeof(dummy_socinfo.build_id));
 	} else if (machine_is_msm8625_rumi3())
 		dummy_socinfo.id = 127;
+	else if (early_machine_is_mpq8092()) {
+		dummy_socinfo.id = 146;
+		strlcpy(dummy_socinfo.build_id, "mpq8092 - ",
+		sizeof(dummy_socinfo.build_id));
+	}
 	strlcat(dummy_socinfo.build_id, "Dummy socinfo",
 		sizeof(dummy_socinfo.build_id));
 	return (void *) &dummy_socinfo;

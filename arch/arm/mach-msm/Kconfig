@@ -263,6 +263,18 @@ config ARCH_MSM8974
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
 
+config ARCH_MPQ8092
+	bool "MPQ8092"
+	select ARCH_MSM_KRAITMP
+	select GPIO_MSM_V3
+	select ARM_GIC
+	select MULTI_IRQ_HANDLER
+	select CPU_V7
+	select MSM_GPIOMUX
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
+	select MSM_NOPM
+
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
 	select ARCH_MSM_SCORPION
@@ -889,6 +901,7 @@ config PHYS_OFFSET
 	default "0x80200000" if ARCH_MSM8960
 	default "0x80200000" if ARCH_MSM8930
 	default "0x00000000" if ARCH_MSM8974
+	default "0x00000000" if ARCH_MPQ8092
 	default "0x10000000" if ARCH_FSM9XXX
 	default "0x20200000" if ARCH_MSM9625
 	default "0x00200000" if !MSM_STACKED_MEMORY
@@ -1028,6 +1041,14 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8974 devices.
+
+	config DEBUG_MPQ8092_UART
+                bool "Kernel low-level debugging messages via MPQ8092 UART"
+                depends on ARCH_MPQ8092
+                select MSM_HAS_DEBUG_UART_HS_V14
+                help
+                  Say Y here if you want the debug print routines to direct
+                  their output to the serial port on MPQ8092 devices.
 endchoice
 
 choice
