@@ -63,7 +63,6 @@ static int mpq_get_dev_frm_client(struct video_client_ctx *client_ctx,
 {
 	int i;
 
-	mutex_lock(&mpq_dvb_video_device->lock);
 	for (i = 0; i < DVB_MPQ_NUM_VIDEO_DEVICES; i++) {
 		if (mpq_dvb_video_device->dev_inst[i].client_ctx ==
 						client_ctx) {
@@ -71,7 +70,6 @@ static int mpq_get_dev_frm_client(struct video_client_ctx *client_ctx,
 			break;
 		}
 	}
-	mutex_unlock(&mpq_dvb_video_device->lock);
 
 	if (i == DVB_MPQ_NUM_VIDEO_DEVICES)
 		return -ENODEV;
@@ -423,26 +421,26 @@ static void mpq_int_vid_dec_input_frame_done(
 		mutex_unlock(&client_ctx->msg_queue_lock);
 		wake_up(&client_ctx->msg_wait);
 	} else {
-		bcast_msg = kzalloc(sizeof(struct mpq_bcast_msg),
-					GFP_KERNEL);
-		if (!bcast_msg) {
-			DBG("mpq_int_vid_dec_input_frame_done(): "\
-				"cannot allocate mpq_bcast_msg buffer\n");
-			return;
-		}
-
 		if (event == VCD_EVT_RESP_INPUT_DONE) {
+			bcast_msg = kzalloc(sizeof(struct mpq_bcast_msg),
+						GFP_KERNEL);
+			if (!bcast_msg) {
+				DBG("mpq_int_vid_dec_input_frame_done(): "\
+				"cannot allocate mpq_bcast_msg buffer\n");
+				return;
+			}
+
 			bcast_msg->info.code = MPQ_BCAST_MSG_IBD;
 			bcast_msg->info.data =
 				(unsigned int)vcd_frame_data->frm_clnt_data;
+
+			dmx_data = dev_inst->dmx_src_data;
+
+			mutex_lock(&dmx_data->msg_queue_lock);
+			list_add_tail(&bcast_msg->list, &dmx_data->msg_queue);
+			mutex_unlock(&dmx_data->msg_queue_lock);
+			wake_up(&dmx_data->msg_wait);
 		}
-
-		dmx_data = dev_inst->dmx_src_data;
-
-		mutex_lock(&dmx_data->msg_queue_lock);
-		list_add_tail(&bcast_msg->list, &dmx_data->msg_queue);
-		mutex_unlock(&dmx_data->msg_queue_lock);
-		wake_up(&dmx_data->msg_wait);
 	}
 }
 
