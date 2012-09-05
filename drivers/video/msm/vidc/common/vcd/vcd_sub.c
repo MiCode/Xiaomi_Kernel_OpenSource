@@ -3051,6 +3051,7 @@ u32 vcd_req_perf_level(
 {
 	u32 rc;
 	u32 res_trk_perf_level;
+	u32 turbo_perf_level;
 	if (!perf_level) {
 		VCD_MSG_ERROR("Invalid parameters\n");
 		return -EINVAL;
@@ -3060,10 +3061,13 @@ u32 vcd_req_perf_level(
 		rc = -ENOTSUPP;
 		goto perf_level_not_supp;
 	}
+	turbo_perf_level = get_res_trk_perf_level(VCD_PERF_LEVEL_TURBO);
 	rc = vcd_set_perf_level(cctxt->dev_ctxt, res_trk_perf_level);
 	if (!rc) {
 		cctxt->reqd_perf_lvl = res_trk_perf_level;
 		cctxt->perf_set_by_client = 1;
+		if (res_trk_perf_level == turbo_perf_level)
+			cctxt->is_turbo_enabled = true;
 	}
 perf_level_not_supp:
 	return rc;
