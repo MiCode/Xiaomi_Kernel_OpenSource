@@ -806,7 +806,7 @@ static void vfe40_set_default_reg_values(
 		vfe40_ctrl->share_ctrl->vfebase + VFE_DEMUX_GAIN_0);
 	msm_camera_io_w(0x800080,
 		vfe40_ctrl->share_ctrl->vfebase + VFE_DEMUX_GAIN_1);
-	msm_camera_io_w(0xFFFFF,
+	msm_camera_io_w(0x198FFFFF,
 		vfe40_ctrl->share_ctrl->vfebase + VFE_CGC_OVERRIDE);
 
 	msm_camera_io_w(0,
@@ -1289,6 +1289,12 @@ static void vfe40_start_common(struct vfe40_ctrl_type *vfe40_ctrl)
 			vfe40_ctrl->share_ctrl->vfebase +
 			VFE_REG_UPDATE_CMD);
 
+	msm_camera_io_w_mb(0x00003fff,
+			vfe40_ctrl->share_ctrl->vfebase +
+			V40_AXI_BUS_CMD_OFF);
+	msm_camera_io_w_mb(1,
+			vfe40_ctrl->share_ctrl->vfebase +
+			V40_BUS_PM_CMD);
 	if (vfe_operation_mode) {
 		msm_camera_io_w_mb(1, vfe40_ctrl->share_ctrl->vfebase +
 			VFE_CAMIF_COMMAND);
@@ -1345,8 +1351,6 @@ static int vfe40_zsl(
 	vfe40_ctrl->share_ctrl->start_ack_pending = TRUE;
 	vfe40_start_common(vfe40_ctrl);
 
-	msm_camera_io_w(1, vfe40_ctrl->share_ctrl->vfebase + 0x18C);
-	msm_camera_io_w(1, vfe40_ctrl->share_ctrl->vfebase + 0x188);
 	return 0;
 }
 static int vfe40_capture_raw(
@@ -1381,12 +1385,9 @@ static int vfe40_capture(
 
 	vfe40_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
 
-	vfe40_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
 
 	vfe40_start_common(vfe40_ctrl);
 	/* for debug */
-	msm_camera_io_w(1, vfe40_ctrl->share_ctrl->vfebase + 0x18C);
-	msm_camera_io_w(1, vfe40_ctrl->share_ctrl->vfebase + 0x188);
 	return 0;
 }
 
@@ -1639,7 +1640,7 @@ static int configure_pingpong_buffers(
 	outch = vfe40_get_ch(path, axi_ctrl->share_ctrl);
 	if (outch->ping.ch_paddr[0] && outch->pong.ch_paddr[0]) {
 		/* Configure Preview Ping Pong */
-		pr_info("%s Configure ping/pong address for %d",
+		pr_info("%s Configure ping/pong address for %d\n",
 						__func__, path);
 		vfe40_put_ch_ping_addr(
 			axi_ctrl->share_ctrl->vfebase, outch->ch0,
@@ -3153,7 +3154,6 @@ void axi_stop_rdi1(struct vfe_share_ctrl_t *share_ctrl)
 		irq_mask &= ~(0x1 << (share_ctrl->outpath.out3.ch0 +
 			VFE_WM_OFFSET));
 	}
-
 	msm_camera_io_w_mb(reg_update,
 		share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 	msm_camera_io_w(irq_mask, share_ctrl->vfebase +
@@ -3326,7 +3326,6 @@ static void vfe40_process_reg_update_irq(
 				msm_camera_io_w(0, share_ctrl->vfebase +
 					vfe40_AXI_WM_CFG[
 				share_ctrl->outpath.out0.ch1]);
-
 				share_ctrl->liveshot_state = VFE_STATE_STOPPED;
 				msm_camera_io_w_mb(1, share_ctrl->vfebase +
 				VFE_REG_UPDATE_CMD);
@@ -3387,11 +3386,10 @@ static void vfe40_process_reg_update_irq(
 				msm_camera_io_w_mb
 				(CAMIF_COMMAND_STOP_AT_FRAME_BOUNDARY,
 					share_ctrl->vfebase +
-				VFE_CAMIF_COMMAND);
+					VFE_CAMIF_COMMAND);
 				vfe40_ctrl->snapshot_frame_cnt = -1;
 				vfe40_ctrl->frame_skip_cnt = 31;
-					vfe40_ctrl->frame_skip_pattern =
-								0xffffffff;
+				vfe40_ctrl->frame_skip_pattern = 0xffffffff;
 			} /*if snapshot count is 0*/
 		} /*if frame is not being dropped*/
 		vfe40_ctrl->snapshot_frame_cnt++;
@@ -3607,6 +3605,8 @@ static void vfe40_process_error_irq(
 static void vfe40_process_common_error_irq(
 	struct axi_ctrl_t *axi_ctrl, uint32_t errStatus)
 {
+	if (errStatus & VFE40_IMASK_BUS_BDG_HALT_ACK)
+		pr_err("vfe40_irq: BUS BDG HALT ACK\n");
 
 	if (errStatus & VFE40_IMASK_IMG_MAST_0_BUS_OVFL)
 		pr_err("vfe40_irq: image master 0 bus overflow\n");
@@ -5455,9 +5455,14 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 
 	if (axi_ctrl->share_ctrl->outpath.output_mode &
 			VFE40_OUTPUT_MODE_PRIMARY) {
-		irq_comp_mask |= (
-			0x1 << axi_ctrl->share_ctrl->outpath.out0.ch0 |
-			0x1 << axi_ctrl->share_ctrl->outpath.out0.ch1);
+		if (vfe_params.cmd_type == AXI_CMD_RAW_CAPTURE) {
+			irq_comp_mask |=
+				0x1 << axi_ctrl->share_ctrl->outpath.out0.ch0;
+		} else {
+			irq_comp_mask |= (
+				0x1 << axi_ctrl->share_ctrl->outpath.out0.ch0 |
+				0x1 << axi_ctrl->share_ctrl->outpath.out0.ch1);
+		}
 		irq_mask |= VFE_IRQ_STATUS0_IMAGE_COMPOSIT_DONE0_MASK;
 	} else if (axi_ctrl->share_ctrl->outpath.output_mode &
 			   VFE40_OUTPUT_MODE_PRIMARY_ALL_CHNLS) {
@@ -5551,12 +5556,21 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 	default:
 		if (axi_ctrl->share_ctrl->outpath.output_mode &
 			VFE40_OUTPUT_MODE_PRIMARY) {
-			msm_camera_io_w(1, axi_ctrl->share_ctrl->vfebase +
-				vfe40_AXI_WM_CFG[axi_ctrl->
-				share_ctrl->outpath.out0.ch0]);
-			msm_camera_io_w(1, axi_ctrl->share_ctrl->vfebase +
-				vfe40_AXI_WM_CFG[axi_ctrl->
-				share_ctrl->outpath.out0.ch1]);
+			if (vfe_params.cmd_type == AXI_CMD_RAW_CAPTURE) {
+				msm_camera_io_w(1,
+					axi_ctrl->share_ctrl->vfebase +
+					vfe40_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out0.ch0]);
+			} else {
+				msm_camera_io_w(1,
+					axi_ctrl->share_ctrl->vfebase +
+					vfe40_AXI_WM_CFG[axi_ctrl
+					->share_ctrl->outpath.out0.ch0]);
+				msm_camera_io_w(1,
+					axi_ctrl->share_ctrl->vfebase +
+					vfe40_AXI_WM_CFG[axi_ctrl->
+					share_ctrl->outpath.out0.ch1]);
+			}
 		} else if (axi_ctrl->share_ctrl->outpath.output_mode &
 				VFE40_OUTPUT_MODE_PRIMARY_ALL_CHNLS) {
 			msm_camera_io_w(1, axi_ctrl->share_ctrl->vfebase +
@@ -5592,6 +5606,7 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 		}
 		break;
 	}
+
 	if (axi_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI0)
 		msm_camera_io_w(1, axi_ctrl->share_ctrl->vfebase +
 			vfe40_AXI_WM_CFG[axi_ctrl->share_ctrl->
