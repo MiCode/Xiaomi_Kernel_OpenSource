@@ -367,7 +367,8 @@ static int gic_retrigger(struct irq_data *d)
 	if (gic_arch_extn.irq_retrigger)
 		return gic_arch_extn.irq_retrigger(d);
 
-	return -ENXIO;
+	/* the genirq layer expects 0 for a failure */
+	return 0;
 }
 
 #ifdef CONFIG_SMP
