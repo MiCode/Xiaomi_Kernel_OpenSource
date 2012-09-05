@@ -378,7 +378,7 @@
 				label = "usb_in";
 				qcom,channel-num = <0>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <20>;
+				qcom,pre-div-channel-scaling = <4>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -389,7 +389,7 @@
 				label = "vchg_sns";
 				qcom,channel-num = <2>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <6>;
+				qcom,pre-div-channel-scaling = <3>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -400,7 +400,7 @@
 				label = "vcoin";
 				qcom,channel-num = <5>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <3>;
+				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -411,7 +411,7 @@
 				label = "vbat_sns";
 				qcom,channel-num = <6>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <3>;
+				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -422,7 +422,7 @@
 				label = "vph_pwr";
 				qcom,channel-num = <7>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <3>;
+				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -433,7 +433,7 @@
 				label = "ref_625mv";
 				qcom,channel-num = <9>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <1>;
+				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -441,10 +441,10 @@
 			};
 
 			chan@10 {
-				label = "ref_1125v";
+				label = "ref_1250v";
 				qcom,channel-num = <10>;
 				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <1>;
+				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
