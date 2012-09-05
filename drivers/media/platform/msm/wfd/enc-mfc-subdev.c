@@ -1352,6 +1352,48 @@ static long venc_set_max_perf_level(struct video_client_ctx *client_ctx,
 err_set_perf_level:
 	return rc;
 }
+
+static long venc_set_avc_delimiter(struct video_client_ctx *client_ctx,
+			__s32 flag)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_avc_delimiter_enable delimiter_flag;
+	if (!client_ctx)
+		return -EINVAL;
+
+	vcd_property_hdr.prop_id = VCD_I_ENABLE_DELIMITER_FLAG;
+	vcd_property_hdr.sz =
+			sizeof(struct vcd_property_avc_delimiter_enable);
+	delimiter_flag.avc_delimiter_enable_flag = flag;
+	return vcd_set_property(client_ctx->vcd_handle,
+				&vcd_property_hdr, &delimiter_flag);
+}
+
+static long venc_get_avc_delimiter(struct video_client_ctx *client_ctx,
+			__s32 *flag)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_avc_delimiter_enable delimiter_flag;
+	int rc = 0;
+
+	if (!client_ctx || !flag)
+		return -EINVAL;
+
+	vcd_property_hdr.prop_id = VCD_I_ENABLE_DELIMITER_FLAG;
+	vcd_property_hdr.sz =
+			sizeof(struct vcd_property_avc_delimiter_enable);
+	rc = vcd_get_property(client_ctx->vcd_handle,
+				&vcd_property_hdr, &delimiter_flag);
+
+	if (rc < 0) {
+		WFD_MSG_ERR("Failed getting property for delimiter");
+		return rc;
+	}
+
+	*flag = delimiter_flag.avc_delimiter_enable_flag;
+	return rc;
+}
+
 static long venc_set_header_mode(struct video_client_ctx *client_ctx,
 		__s32 mode)
 {
@@ -2232,6 +2274,9 @@ static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 	case V4L2_CID_MPEG_QCOM_SET_PERF_LEVEL:
 		rc = venc_set_max_perf_level(client_ctx, ctrl->value);
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER:
+		rc = venc_set_avc_delimiter(client_ctx, ctrl->value);
+		break;
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 		rc = venc_set_entropy_mode(client_ctx, ctrl->value);
 		break;
@@ -2302,6 +2347,9 @@ static long venc_get_property(struct v4l2_subdev *sd, void *arg)
 		break;
 	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB:
 		rc = venc_get_cyclic_intra_refresh_mb(client_ctx, &ctrl->value);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER:
+		rc = venc_get_avc_delimiter(client_ctx, &ctrl->value);
 		break;
 	default:
 		WFD_MSG_ERR("Get property not suported: %d\n", ctrl->id);

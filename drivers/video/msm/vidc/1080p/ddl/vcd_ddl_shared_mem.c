@@ -83,6 +83,8 @@
 #define VIDC_SM_ENC_EXT_CTRL_ADDR                    0x0028
 #define VIDC_SM_ENC_EXT_CTRL_VBV_BUFFER_SIZE_BMSK    0xffff0000
 #define VIDC_SM_ENC_EXT_CTRL_VBV_BUFFER_SIZE_SHFT    16
+#define VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_BMSK    0x00000800
+#define VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_SHFT    11
 #define VIDC_SM_ENC_EXT_CTRL_H263_CPCFC_ENABLE_BMSK  0x80
 #define VIDC_SM_ENC_EXT_CTRL_H263_CPCFC_ENABLE_SHFT  7
 #define VIDC_SM_ENC_EXT_CTRL_SPS_PPS_CONTROL_BMSK    0X100
@@ -446,10 +448,10 @@ void vidc_sm_set_extended_encoder_control(struct ddl_buf_addr
 	*shared_mem, u32 hec_enable,
 	enum VIDC_SM_frame_skip frame_skip_mode,
 	u32 seq_hdr_in_band, u32 vbv_buffer_size, u32 cpcfc_enable,
-	u32 sps_pps_control, u32 closed_gop_enable)
+	u32 sps_pps_control, u32 closed_gop_enable,
+	u32 au_delim_enable)
 {
 	u32 enc_ctrl;
-
 	enc_ctrl = VIDC_SETFIELD((hec_enable) ? 1 : 0,
 			VIDC_SM_ENC_EXT_CTRL_HEC_ENABLE_SHFT,
 			VIDC_SM_ENC_EXT_CTRL_HEC_ENABLE_BMSK) |
@@ -470,7 +472,11 @@ void vidc_sm_set_extended_encoder_control(struct ddl_buf_addr
 			VIDC_SM_ENC_EXT_CTRL_SPS_PPS_CONTROL_BMSK) |
 			VIDC_SETFIELD(closed_gop_enable,
 			VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_SHFT,
-			VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_BMSK);
+			VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_BMSK) |
+			VIDC_SETFIELD((au_delim_enable) ? 1 : 0,
+			VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_SHFT,
+			VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_BMSK);
+
 	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_ENC_EXT_CTRL_ADDR, enc_ctrl);
 }
 
