@@ -3463,7 +3463,6 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 
 	mdp4_overlay_mdp_perf_req(mfd, ctrl->plist);
 
-
 	if (pipe->mixer_num == MDP4_MIXER0) {
 		if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
 			/* cndx = 0 */
@@ -3483,23 +3482,9 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 		if (ctrl->panel_mode & MDP4_PANEL_DTV)
 			mdp4_dtv_pipe_queue(0, pipe);/* cndx = 0 */
 	} else if (pipe->mixer_num == MDP4_MIXER2) {
-
-		if (pipe->pipe_type == OVERLAY_TYPE_VIDEO)
-			mdp4_overlay_vg_setup(pipe);  /* video/graphic pipe */
-		else
-			mdp4_overlay_rgb_setup(pipe);	/* rgb pipe */
-
-		mdp4_mixer_stage_up(pipe, 0);
-
 		ctrl->mixer2_played++;
-		if (ctrl->panel_mode & MDP4_PANEL_WRITEBACK) {
-			mdp4_writeback_dma_busy_wait(mfd);
-			mdp4_writeback_kickoff_video(mfd, pipe);
-		}
-
-		if (!(pipe->flags & MDP_OV_PLAY_NOWAIT))
-			mdp4_iommu_unmap(pipe);
-		mdp4_stat.overlay_play[pipe->mixer_num]++;
+		if (ctrl->panel_mode & MDP4_PANEL_WRITEBACK)
+			mdp4_wfd_pipe_queue(0, pipe);/* cndx = 0 */
 	}
 
 	mutex_unlock(&mfd->dma->ov_mutex);
