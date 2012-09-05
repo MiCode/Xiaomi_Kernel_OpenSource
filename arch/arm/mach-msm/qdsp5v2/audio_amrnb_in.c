@@ -27,7 +27,7 @@
 #include <linux/wait.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_audio_amrnb.h>
-#include <linux/android_pmem.h>
+#include <linux/msm_ion.h>
 #include <linux/memory_alloc.h>
 
 #include <mach/iommu.h>
@@ -105,6 +105,8 @@ struct audio_in {
 	int running;
 	int stopped; /* set when stopped, cleared on flush */
 	char *build_id;
+	struct ion_client *client;
+	struct ion_handle *buff_handle;
 };
 
 struct audio_frame {
@@ -766,8 +768,9 @@ static int audamrnb_in_release(struct inode *inode, struct file *file)
 	audio->audrec = NULL;
 	audio->opened = 0;
 	if (audio->data) {
-		iounmap(audio->map_v_read);
-		free_contiguous_memory_by_paddr(audio->phys);
+		ion_unmap_kernel(audio->client, audio->buff_handle);
+		ion_free(audio->client, audio->buff_handle);
+		ion_client_destroy(audio->client);
 		audio->data = NULL;
 	}
 	mutex_unlock(&audio->lock);
@@ -779,27 +782,62 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 	struct audio_in *audio = &the_audio_amrnb_in;
 	int rc;
 	int encid;
+	int len = 0;
+	unsigned long ionflag = 0;
+	ion_phys_addr_t addr = 0;
+	struct ion_handle *handle = NULL;
+	struct ion_client *client = NULL;
 
 	mutex_lock(&audio->lock);
 	if (audio->opened) {
 		rc = -EBUSY;
 		goto done;
 	}
-	audio->phys = allocate_contiguous_ebi_nomap(DMASZ, SZ_4K);
-	if (audio->phys) {
-		audio->map_v_read = ioremap(audio->phys, DMASZ);
-		if (IS_ERR(audio->map_v_read)) {
-			MM_ERR("could not map DMA buffers\n");
-			rc = -ENOMEM;
-			free_contiguous_memory_by_paddr(audio->phys);
-			goto done;
-		}
-		audio->data = audio->map_v_read;
-	} else {
-		MM_ERR("could not allocate DMA buffers\n");
+
+	client = msm_ion_client_create(UINT_MAX, "Audio_AMR_In_Client");
+	if (IS_ERR_OR_NULL(client)) {
+		MM_ERR("Unable to create ION client\n");
 		rc = -ENOMEM;
-		goto done;
+		goto client_create_error;
 	}
+	audio->client = client;
+
+	handle = ion_alloc(client, DMASZ, SZ_4K,
+		ION_HEAP(ION_AUDIO_HEAP_ID));
+	if (IS_ERR_OR_NULL(handle)) {
+		MM_ERR("Unable to create allocate O/P buffers\n");
+		rc = -ENOMEM;
+		goto buff_alloc_error;
+	}
+	audio->buff_handle = handle;
+
+	rc = ion_phys(client, handle, &addr, &len);
+	if (rc) {
+		MM_ERR("O/P buffers:Invalid phy: %x sz: %x\n",
+			(unsigned int) addr, (unsigned int) len);
+		goto buff_get_phys_error;
+	} else {
+		MM_INFO("O/P buffers:valid phy: %x sz: %x\n",
+			(unsigned int) addr, (unsigned int) len);
+	}
+	audio->phys = (int32_t)addr;
+
+	rc = ion_handle_get_flags(client, handle, &ionflag);
+	if (rc) {
+		MM_ERR("could not get flags for the handle\n");
+		goto buff_get_flags_error;
+	}
+
+	audio->map_v_read = ion_map_kernel(client, handle, ionflag);
+	if (IS_ERR(audio->map_v_read)) {
+		MM_ERR("could not map write buffers\n");
+		rc = -ENOMEM;
+		goto buff_map_error;
+	}
+	audio->data = audio->map_v_read;
+	MM_DBG("write buf: phy addr 0x%08x kernel addr 0x%08x\n",
+		audio->phys, (int)audio->data);
+
 	MM_DBG("Memory addr = 0x%8x  phy addr = 0x%8x\n",\
 		(int) audio->data, (int) audio->phys);
 	if ((file->f_mode & FMODE_WRITE) &&
@@ -871,6 +909,14 @@ evt_error:
 	msm_adsp_put(audio->audrec);
 	audpreproc_aenc_free(audio->enc_id);
 	mutex_unlock(&audio->lock);
+	ion_unmap_kernel(client, audio->buff_handle);
+buff_map_error:
+buff_get_phys_error:
+buff_get_flags_error:
+	ion_free(client, audio->buff_handle);
+buff_alloc_error:
+	ion_client_destroy(client);
+client_create_error:
 	return rc;
 }
 
