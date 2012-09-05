@@ -147,7 +147,7 @@ struct vcd_dev_ctxt {
 	u32 reqd_perf_lvl;
 	u32 curr_perf_lvl;
 	u32 set_perf_lvl_pending;
-	u32 turbo_mode_set;
+	bool turbo_mode_set;
 };
 
 struct vcd_clnt_status {
@@ -214,6 +214,7 @@ struct vcd_clnt_ctxt {
 	u32 meta_mode;
 	int perf_set_by_client;
 	int secure;
+	bool is_turbo_enabled;
 };
 
 #define VCD_BUFFERPOOL_INUSE_DECREMENT(val) \
