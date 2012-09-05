@@ -256,18 +256,29 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 		SET_SMR_MASK(base, num, 0);
 		SET_SMR_ID(base, num, sids[i]);
 
-		/* Set VMID = 0 */
 		SET_S2CR_N(base, num, 0);
 		SET_S2CR_CBNDX(base, num, ctx);
+		SET_S2CR_MEMATTR(base, num, 0x0A);
 		/* Set security bit override to be Non-secure */
 		SET_S2CR_NSCFG(base, num, 3);
 	}
 
 	SET_CBAR_N(base, ctx, 0);
+
 	/* Stage 1 Context with Stage 2 bypass */
 	SET_CBAR_TYPE(base, ctx, 1);
+
 	/* Route page faults to the non-secure interrupt */
 	SET_CBAR_IRPTNDX(base, ctx, 1);
+
+	/* Set VMID to non-secure HLOS */
+	SET_CBAR_VMID(base, ctx, 3);
+
+	/* Bypass is treated as inner-shareable */
+	SET_CBAR_BPSHCFG(base, ctx, 2);
+
+	/* Do not downgrade memory attributes */
+	SET_CBAR_MEMATTR(base, ctx, 0x0A);
 
        /* Find if this page table is used elsewhere, and re-use ASID */
 	found = 0;
