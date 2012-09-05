@@ -983,6 +983,15 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 				ret = -ETIMEDOUT;
 			} else
 				ret = 0;
+		} else if (ret < 0 && !msg->comp) {
+			struct slim_msg_txn *txn;
+			dev_err(&ctrl->dev, "slimbus Read error");
+			mutex_lock(&ctrl->m_ctrl);
+			txn = ctrl->txnt[tid];
+			/* Invalidate the transaction */
+			ctrl->txnt[tid] = NULL;
+			mutex_unlock(&ctrl->m_ctrl);
+			kfree(txn);
 		}
 
 	} else
