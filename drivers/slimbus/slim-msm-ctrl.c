@@ -1400,7 +1400,7 @@ send_capability:
 			ret = slim_reconfigure_now(&sat->satcl);
 			for (i = 0; i < sat->nsatch; i++) {
 				struct msm_sat_chan *sch = &sat->satch[i];
-				if (sch->req_rem) {
+				if (sch->req_rem && sch->reconf) {
 					if (!ret) {
 						slim_dealloc_ch(&sat->satcl,
 								sch->chanh);
