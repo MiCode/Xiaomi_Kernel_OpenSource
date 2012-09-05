@@ -156,28 +156,68 @@ static int a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
 	return DEBUG_SECTION_SZ(size);
 }
 
-#define CP_ROQ_SIZE 128
+/* This is the ROQ buffer size on both the A305 and A320 */
+#define A320_CP_ROQ_SIZE 128
+/* This is the ROQ buffer size on the A330 */
+#define A330_CP_ROQ_SIZE 512
 
 static int a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
 		int remain, void *priv)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = snapshot;
 	unsigned int *data = snapshot + sizeof(*header);
-	int i;
+	int i, size;
 
-	if (remain < DEBUG_SECTION_SZ(CP_ROQ_SIZE)) {
+	/* The size of the ROQ buffer is core dependent */
+	size = adreno_is_a330(adreno_dev) ?
+		A330_CP_ROQ_SIZE : A320_CP_ROQ_SIZE;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
 		return 0;
 	}
 
 	header->type = SNAPSHOT_DEBUG_CP_ROQ;
-	header->size = CP_ROQ_SIZE;
+	header->size = size;
 
 	adreno_regwrite(device, A3XX_CP_ROQ_ADDR, 0x0);
-	for (i = 0; i < CP_ROQ_SIZE; i++)
+	for (i = 0; i < size; i++)
 		adreno_regread(device, A3XX_CP_ROQ_DATA, &data[i]);
 
-	return DEBUG_SECTION_SZ(CP_ROQ_SIZE);
+	return DEBUG_SECTION_SZ(size);
+}
+
+#define A330_CP_MERCIU_QUEUE_SIZE 32
+
+static int a330_snapshot_cp_merciu(struct kgsl_device *device, void *snapshot,
+		int remain, void *priv)
+{
+	struct kgsl_snapshot_debug *header = snapshot;
+	unsigned int *data = snapshot + sizeof(*header);
+	int i, size;
+
+	/* The MERCIU data is two dwords per entry */
+	size = A330_CP_MERCIU_QUEUE_SIZE << 1;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP MERCIU DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_MERCIU;
+	header->size = size;
+
+	adreno_regwrite(device, A3XX_CP_MERCIU_ADDR, 0x0);
+
+	for (i = 0; i < A330_CP_MERCIU_QUEUE_SIZE; i++) {
+		adreno_regread(device, A3XX_CP_MERCIU_DATA,
+			&data[(i * 2)]);
+		adreno_regread(device, A3XX_CP_MERCIU_DATA2,
+			&data[(i * 2) + 1]);
+	}
+
+	return DEBUG_SECTION_SZ(size);
 }
 
 #define DEBUGFS_BLOCK_SIZE 0x40
@@ -265,15 +305,26 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	int *remain, int hang)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	struct kgsl_snapshot_registers regs;
+	struct kgsl_snapshot_registers_list list;
+	struct kgsl_snapshot_registers regs[2];
 
-	regs.regs = (unsigned int *) a3xx_registers;
-	regs.count = a3xx_registers_count;
+	regs[0].regs = (unsigned int *) a3xx_registers;
+	regs[0].count = a3xx_registers_count;
+
+	list.registers = regs;
+	list.count = 1;
+
+	/* For A330, append the additional list of new registers to grab */
+	if (adreno_is_a330(adreno_dev)) {
+		regs[1].regs = (unsigned int *) a330_registers;
+		regs[1].count = a330_registers_count;
+		list.count++;
+	}
 
 	/* Master set of (non debug) registers */
 	snapshot = kgsl_snapshot_add_section(device,
 		KGSL_SNAPSHOT_SECTION_REGS, snapshot, remain,
-		kgsl_snapshot_dump_regs, &regs);
+		kgsl_snapshot_dump_regs, &list);
 
 	/* CP_STATE_DEBUG indexed registers */
 	snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
@@ -321,6 +372,12 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	snapshot = kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a3xx_snapshot_cp_roq, NULL);
+
+	if (adreno_is_a330(adreno_dev)) {
+		snapshot = kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
+			a330_snapshot_cp_merciu, NULL);
+	}
 
 	snapshot = a3xx_snapshot_debugbus(device, snapshot, remain);
 

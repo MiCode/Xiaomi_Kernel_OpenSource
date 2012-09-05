@@ -69,6 +69,14 @@ const unsigned int a3xx_registers[] = {
 
 const unsigned int a3xx_registers_count = ARRAY_SIZE(a3xx_registers) / 2;
 
+/* The set of additional registers to be dumped for A330 */
+
+const unsigned int a330_registers[] = {
+	0x1d0, 0x1d0, 0x1d4, 0x1d4, 0x453, 0x453,
+};
+
+const unsigned int a330_registers_count = ARRAY_SIZE(a330_registers) / 2;
+
 /* Simple macro to facilitate bit setting in the gmem2sys and sys2gmem
  * functions.
  */
@@ -2698,7 +2706,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = &adreno_dev->dev;
 
 	/* Set up 16 deep read/write request queues */
-	if (adreno_dev->gpurev == ADRENO_REV_A330) {
+	if (adreno_is_a330(adreno_dev)) {
 		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF0, 0x18181818);
 		adreno_regwrite(device, A3XX_VBIF_IN_RD_LIM_CONF1, 0x18181818);
 		adreno_regwrite(device, A3XX_VBIF_OUT_RD_LIM_CONF0, 0x18181818);
@@ -2781,7 +2789,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 			A3XX_RBBM_CLOCK_CTL_DEFAULT);
 
 	/* Set the OCMEM base address for A330 */
-	if (adreno_dev->gpurev == ADRENO_REV_A330) {
+	if (adreno_is_a330(adreno_dev)) {
 		adreno_regwrite(device, A3XX_RB_GMEM_BASE_ADDR,
 			(unsigned int)(adreno_dev->ocmem_base >> 14));
 	}
