@@ -427,7 +427,7 @@ void ddl_set_core_start_time(const char *func_name, u32 index)
 		time_data->ddl_t1 = act_time;
 		DDL_MSG_LOW("\n%s(): Start Time (%u)", func_name, act_time);
 	} else if (vidc_msg_timing) {
-		DDL_MSG_TIME("\n%s(): Timer already started! St(%u) Act(%u)",
+		DDL_MSG_LOW("\n%s(): Timer already started! St(%u) Act(%u)",
 			func_name, time_data->ddl_t1, act_time);
 	}
 }
