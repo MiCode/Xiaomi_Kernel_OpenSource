@@ -13,7 +13,8 @@
 / {
 	tmc_etr: tmc@fc322000 {
 		compatible = "arm,coresight-tmc";
-		reg = <0xfc322000 0x1000>;
+		reg = <0xfc322000 0x1000>,
+		      <0xfc37c000 0x3000>;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
@@ -173,5 +174,14 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <3>;
+	};
+
+	csr: csr@fc302000 {
+		compatible = "qcom,coresight-csr";
+		reg = <0xfc302000 0x1000>;
+
+		coresight-id = <14>;
+		coresight-name = "coresight-csr";
+		coresight-nr-inports = <0>;
 	};
 };
