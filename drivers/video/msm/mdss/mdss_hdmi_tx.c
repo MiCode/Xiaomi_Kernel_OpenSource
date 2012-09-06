@@ -1172,6 +1172,41 @@ fail_hdmi_app_clk:
 	return rc;
 } /* hdmi_tx_clk_ctrl_update */
 
+static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
+	enum hdmi_tx_power_module_type module, int config)
+{
+	int rc = 0;
+	struct dss_module_power *power_data = NULL;
+
+	if (!hdmi_ctrl || module >= HDMI_TX_MAX_PM) {
+		DEV_ERR("%s: Error: invalid input\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	power_data = &hdmi_ctrl->pdata.power_data[module];
+	if (!power_data) {
+		DEV_ERR("%s: Error: invalid power data\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (config)
+		rc = msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
+			power_data->vreg_config, power_data->num_vreg, 1);
+	else
+		rc = msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
+			power_data->vreg_config, power_data->num_vreg, 0);
+
+	if (rc)
+		DEV_ERR("%s: Failed to %s %s vreg. Error=%d\n",
+			__func__, config ? "config" : "deconfig",
+			hdmi_pm_name(module), rc);
+
+exit:
+	return rc;
+} /* hdmi_tx_config_power */
+
 static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable)
 {
@@ -1192,20 +1227,12 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	}
 
 	if (enable) {
-		rc = msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
-			power_data->vreg_config, power_data->num_vreg, 1);
-		if (rc) {
-			DEV_ERR("%s: Failed to config %s vreg. Error=%d\n",
-				__func__, hdmi_pm_name(module), rc);
-			return rc;
-		}
-
 		rc = msm_dss_enable_vreg(power_data->vreg_config,
 			power_data->num_vreg, 1);
 		if (rc) {
 			DEV_ERR("%s: Failed to enable %s vreg. Error=%d\n",
 				__func__, hdmi_pm_name(module), rc);
-			goto deconfig_vreg;
+			goto error;
 		}
 
 		rc = msm_dss_enable_gpio(power_data->gpio_config,
@@ -1218,15 +1245,14 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	} else {
 		msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 0);
+		msm_dss_enable_vreg(power_data->vreg_config,
+			power_data->num_vreg, 0);
 	}
 
 	return rc;
 
 disable_vreg:
 	msm_dss_enable_vreg(power_data->vreg_config, power_data->num_vreg, 0);
-deconfig_vreg:
-	msm_dss_config_vreg(&hdmi_ctrl->pdev->dev, power_data->vreg_config,
-		power_data->num_vreg, 0);
 error:
 	return rc;
 } /* hdmi_tx_enable_power */
@@ -1833,6 +1859,84 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return rc;
 } /* hdmi_tx_register_panel */
 
+static void hdmi_tx_deinit_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int i;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	/* CLK */
+	hdmi_tx_clk_deinit(&hdmi_ctrl->pdata);
+
+	/* VREG */
+	for (i = HDMI_TX_MAX_PM - 1; i >= 0; i--) {
+		if (hdmi_tx_config_power(hdmi_ctrl, i, 0))
+			DEV_ERR("%s: '%s' power deconfig fail\n",
+				__func__, hdmi_pm_name(i));
+	}
+
+	/* IO */
+	for (i = HDMI_TX_MAX_IO - 1; i >= 0; i--) {
+		if (hdmi_ctrl->pdata.io[i].base)
+			iounmap(hdmi_ctrl->pdata.io[i].base);
+		hdmi_ctrl->pdata.io[i].base = NULL;
+		hdmi_ctrl->pdata.io[i].len = 0;
+	}
+} /* hdmi_tx_deinit_resource */
+
+static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int i, rc = 0;
+	struct hdmi_tx_platform_data *pdata = NULL;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	pdata = &hdmi_ctrl->pdata;
+
+	/* IO */
+	for (i = 0; i < HDMI_TX_MAX_IO; i++) {
+		rc = msm_dss_ioremap_byname(hdmi_ctrl->pdev, &pdata->io[i],
+			hdmi_tx_io_name(i));
+		if (rc) {
+			DEV_ERR("%s: '%s' remap failed\n", __func__,
+				hdmi_tx_io_name(i));
+			goto error;
+		}
+		DEV_INFO("%s: '%s': start = 0x%x, len=0x%x\n", __func__,
+			hdmi_tx_io_name(i), (u32)pdata->io[i].base,
+			pdata->io[i].len);
+	}
+
+	/* VREG */
+	for (i = 0; i < HDMI_TX_MAX_PM; i++) {
+		rc = hdmi_tx_config_power(hdmi_ctrl, i, 1);
+		if (rc) {
+			DEV_ERR("%s: '%s' power config failed.rc=%d\n",
+				__func__, hdmi_pm_name(i), rc);
+			goto error;
+		}
+	}
+
+	/* CLK */
+	rc = hdmi_tx_clk_init(hdmi_ctrl->pdev, pdata);
+	if (rc) {
+		DEV_ERR("%s: FAILED: clk init. rc=%d\n", __func__, rc);
+		goto error;
+	}
+
+	return rc;
+
+error:
+	hdmi_tx_deinit_resource(hdmi_ctrl);
+	return rc;
+} /* hdmi_tx_init_resource */
+
 static void hdmi_tx_put_dt_vreg_data(struct device *dev,
 	struct dss_module_power *module_power)
 {
@@ -2179,20 +2283,11 @@ static void hdmi_tx_put_dt_data(struct device *dev,
 		return;
 	}
 
-	hdmi_tx_clk_deinit(pdata);
-
 	for (i = HDMI_TX_MAX_PM - 1; i >= 0; i--)
 		hdmi_tx_put_dt_vreg_data(dev, &pdata->power_data[i]);
 
 	for (i = HDMI_TX_MAX_PM - 1; i >= 0; i--)
 		hdmi_tx_put_dt_gpio_data(dev, &pdata->power_data[i]);
-
-	for (i = HDMI_TX_MAX_IO - 1; i >= 0; i--) {
-		if (pdata->io[i].base)
-			iounmap(pdata->io[i].base);
-		pdata->io[i].base = NULL;
-		pdata->io[i].len = 0;
-	}
 } /* hdmi_tx_put_dt_data */
 
 static int hdmi_tx_get_dt_data(struct platform_device *pdev,
@@ -2216,20 +2311,6 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 	}
 	DEV_DBG("%s: id=%d\n", __func__, pdev->id);
 
-	/* IO */
-	for (i = 0; i < HDMI_TX_MAX_IO; i++) {
-		rc = msm_dss_ioremap_byname(pdev, &pdata->io[i],
-			hdmi_tx_io_name(i));
-		if (rc) {
-			DEV_ERR("%s: '%s' remap failed\n", __func__,
-				hdmi_tx_io_name(i));
-			goto error;
-		}
-		DEV_INFO("%s: '%s': start = 0x%x, len=0x%x\n", __func__,
-			hdmi_tx_io_name(i), (u32)pdata->io[i].base,
-			pdata->io[i].len);
-	}
-
 	/* GPIO */
 	for (i = 0; i < HDMI_TX_MAX_PM; i++) {
 		rc = hdmi_tx_get_dt_gpio_data(&pdev->dev,
@@ -2250,13 +2331,6 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 				__func__, hdmi_pm_name(i), rc);
 			goto error;
 		}
-	}
-
-	/* CLK */
-	rc = hdmi_tx_clk_init(pdev, pdata);
-	if (rc) {
-		DEV_ERR("%s: FAILED: clk init. rc=%d\n", __func__, rc);
-		goto error;
 	}
 
 	return rc;
@@ -2295,6 +2369,13 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 		goto failed_dt_data;
 	}
 
+	rc = hdmi_tx_init_resource(hdmi_ctrl);
+	if (rc) {
+		DEV_ERR("%s: FAILED: resource init. rc=%d\n",
+			__func__, rc);
+		goto failed_res_init;
+	}
+
 	rc = hdmi_tx_dev_init(hdmi_ctrl);
 	if (rc) {
 		DEV_ERR("%s: FAILED: hdmi_tx_dev_init. rc=%d\n", __func__, rc);
@@ -2327,6 +2408,8 @@ failed_init_features:
 failed_reg_panel:
 	hdmi_tx_dev_deinit(hdmi_ctrl);
 failed_dev_init:
+	hdmi_tx_deinit_resource(hdmi_ctrl);
+failed_res_init:
 	hdmi_tx_put_dt_data(&pdev->dev, &hdmi_ctrl->pdata);
 failed_dt_data:
 	devm_kfree(&pdev->dev, hdmi_ctrl);
@@ -2344,6 +2427,7 @@ static int hdmi_tx_remove(struct platform_device *pdev)
 
 	hdmi_tx_sysfs_remove(hdmi_ctrl);
 	hdmi_tx_dev_deinit(hdmi_ctrl);
+	hdmi_tx_deinit_resource(hdmi_ctrl);
 	hdmi_tx_put_dt_data(&pdev->dev, &hdmi_ctrl->pdata);
 	devm_kfree(&hdmi_ctrl->pdev->dev, hdmi_ctrl);
 

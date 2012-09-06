@@ -32,7 +32,7 @@ int msm_dss_ioremap_byname(struct platform_device *pdev,
 {
 	struct resource *res = NULL;
 
-	if (!pdev) {
+	if (!pdev || !io_data) {
 		pr_err("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
@@ -65,10 +65,11 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 			curr_vreg = &in_vreg[i];
 			curr_vreg->vreg = regulator_get(dev,
 				curr_vreg->vreg_name);
-			if (IS_ERR(curr_vreg->vreg)) {
-				pr_err("%s: %s get failed\n",
+			rc = IS_ERR(curr_vreg->vreg);
+			if (rc) {
+				pr_err("%s: %s get failed. rc=%d\n",
 					 __func__,
-					 curr_vreg->vreg_name);
+					 curr_vreg->vreg_name, rc);
 				curr_vreg->vreg = NULL;
 				goto vreg_get_fail;
 			}
@@ -100,8 +101,7 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 	} else {
 		for (i = num_vreg-1; i >= 0; i--) {
 			curr_vreg = &in_vreg[i];
-			if (curr_vreg->vreg &&
-				regulator_is_enabled(curr_vreg->vreg)) {
+			if (curr_vreg->vreg) {
 				if (curr_vreg->type == DSS_REG_LDO) {
 					if (curr_vreg->optimum_voltage >= 0) {
 						regulator_set_optimum_mode(
@@ -134,7 +134,7 @@ vreg_get_fail:
 		curr_vreg = &in_vreg[i];
 		goto vreg_unconfig;
 	}
-	return -EPERM;
+	return rc;
 } /* msm_dss_config_vreg */
 
 int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
@@ -142,9 +142,10 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 	int i = 0, rc = 0;
 	if (enable) {
 		for (i = 0; i < num_vreg; i++) {
-			if (IS_ERR(in_vreg[i].vreg)) {
-				pr_err("%s: %s null regulator\n",
-					__func__, in_vreg[i].vreg_name);
+			rc = IS_ERR(in_vreg[i].vreg);
+			if (rc) {
+				pr_err("%s: %s regulator error. rc=%d\n",
+					__func__, in_vreg[i].vreg_name, rc);
 				goto disable_vreg;
 			}
 			rc = regulator_enable(in_vreg[i].vreg);
@@ -156,7 +157,8 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 		}
 	} else {
 		for (i = num_vreg-1; i >= 0; i--)
-			regulator_disable(in_vreg[i].vreg);
+			if (regulator_is_enabled(in_vreg[i].vreg))
+				regulator_disable(in_vreg[i].vreg);
 	}
 	return rc;
 
