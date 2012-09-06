@@ -14,7 +14,7 @@
 #define _MSM_SMEM_H_
 
 #include <linux/types.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 enum smem_type {
 	SMEM_ION,
