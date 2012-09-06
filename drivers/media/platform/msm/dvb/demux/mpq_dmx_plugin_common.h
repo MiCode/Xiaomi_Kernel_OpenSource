@@ -13,7 +13,7 @@
 #ifndef _MPQ_DMX_PLUGIN_COMMON_H
 #define _MPQ_DMX_PLUGIN_COMMON_H
 
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #include "dvbdev.h"
 #include "dmxdev.h"
