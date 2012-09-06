@@ -78,6 +78,7 @@ static int msm_route_compressed2_vol_control;
 static const DECLARE_TLV_DB_LINEAR(compressed2_rx_vol_gain, 0,
 			INT_RX_VOL_MAX_STEPS);
 static int msm_route_ec_ref_rx;
+static char channel_mapping[PCM_FORMAT_MAX_NUM_CHANNEL];
 
 /* Equal to Frontend after last of the MULTIMEDIA SESSIONS */
 #define MAX_EQ_SESSIONS		MSM_FRONTEND_DAI_CS_VOICE
@@ -859,6 +860,27 @@ static int msm_routing_get_compressed_vol_mixer(struct snd_kcontrol *kcontrol,
 {
 
 	ucontrol->value.integer.value[0] = msm_route_compressed_vol_control;
+	return 0;
+}
+
+static int msm_routing_get_channel_map_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int i;
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+		ucontrol->value.integer.value[i] = channel_mapping[i];
+	return 0;
+}
+
+static int msm_routing_put_channel_map_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int i;
+
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+		channel_mapping[i] = (char)(ucontrol->value.integer.value[i]);
+	multi_ch_pcm_set_channel_map(channel_mapping);
+
 	return 0;
 }
 
@@ -1891,6 +1913,12 @@ static const struct snd_kcontrol_new compressed2_vol_mixer_controls[] = {
 	msm_routing_set_compressed2_vol_mixer, compressed2_rx_vol_gain),
 };
 
+static const struct snd_kcontrol_new multi_ch_channel_map_mixer_controls[] = {
+	SOC_SINGLE_MULTI_EXT("Playback Channel Map", SND_SOC_NOPM, 0, 8,
+	0, 8, msm_routing_get_channel_map_mixer,
+	msm_routing_put_channel_map_mixer),
+};
+
 static const struct snd_kcontrol_new lpa_SRS_trumedia_controls[] = {
 	{.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 	.name = "SRS TruMedia",
@@ -2867,6 +2895,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				ec_ref_rx_mixer_controls,
 			ARRAY_SIZE(ec_ref_rx_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				multi_ch_channel_map_mixer_controls,
+			ARRAY_SIZE(multi_ch_channel_map_mixer_controls));
 	return 0;
 }
 

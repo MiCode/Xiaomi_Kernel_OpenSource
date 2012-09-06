@@ -81,6 +81,8 @@ struct msm_audio {
 	int periods;
 	int mmap_flag;
 	atomic_t pending_buffer;
+	bool set_channel_map;
+	char channel_map[8];
 };
 
 struct output_meta_data_st {

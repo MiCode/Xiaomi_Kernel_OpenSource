@@ -126,4 +126,6 @@ int multi_ch_pcm_set_volume(unsigned volume);
 
 int compressed_set_volume(unsigned volume);
 
+void multi_ch_pcm_set_channel_map(char *channel_mapping);
+
 #endif /*_MSM_PCM_H*/
