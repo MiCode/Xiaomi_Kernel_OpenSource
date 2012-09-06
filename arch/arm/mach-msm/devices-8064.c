@@ -36,7 +36,7 @@
 #include <mach/msm_smd.h>
 #include <mach/msm_dcvs.h>
 #include <mach/msm_rtb.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include "clock.h"
 #include "devices.h"
 #include "footswitch.h"
