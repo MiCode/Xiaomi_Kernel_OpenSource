@@ -1604,10 +1604,12 @@ void mipi_dsi_cmdlist_commit(int from_mdp)
 		mipi_dsi_cmd_mdp_busy();
 	}
 
-	if (req->flags && CMD_REQ_RX)
+	mipi_dsi_clk_cfg(1);
+	if (req->flags & CMD_REQ_RX)
 		mipi_dsi_cmdlist_rx(req);
 	else
 		mipi_dsi_cmdlist_tx(req);
+	mipi_dsi_clk_cfg(0);
 
 	mutex_unlock(&cmd_mutex);
 }

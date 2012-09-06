@@ -480,7 +480,7 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 void mdp4_dmae_done_dtv(void);
 void mdp4_dtv_wait4vsync(int cndx, long long *vtime);
-void mdp4_dtv_vsync_ctrl(int cndx, int enable);
+void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable);
 void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 #else
 static inline void mdp4_overlay_dtv_start(void)
@@ -516,7 +516,7 @@ static inline void mdp4_dtv_wait4vsync(int cndx, long long *vtime)
 {
     /* empty */
 }
-static inline void mdp4_dtv_vsync_ctrl(int cndx, long long *vtime)
+static inline void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable)
 {
     /* empty */
 }
@@ -548,7 +548,7 @@ int mdp4_atv_on(struct platform_device *pdev);
 int mdp4_atv_off(struct platform_device *pdev);
 void mdp4_dsi_video_fxn_register(cmd_fxn_t fxn);
 void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd);
-void mdp4_lcdc_vsync_ctrl(int cndx, int enable);
+void mdp4_lcdc_vsync_ctrl(struct fb_info *info, int enable);
 void mdp4_overlay0_done_dsi_video(int cndx);
 void mdp4_overlay0_done_dsi_cmd(int cndx);
 void mdp4_primary_rdptr(void);
@@ -773,8 +773,8 @@ void mdp4_dsi_cmd_wait4vsync(int cndx, long long *vtime);
 void mdp4_dsi_video_wait4vsync(int cndx, long long *vtime);
 void mdp4_dsi_cmd_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_video_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
-void mdp4_dsi_cmd_vsync_ctrl(int cndx, int enable);
-void mdp4_dsi_video_vsync_ctrl(int cndx, int enable);
+void mdp4_dsi_cmd_vsync_ctrl(struct fb_info *info, int enable);
+void mdp4_dsi_video_vsync_ctrl(struct fb_info *info, int enable);
 #ifdef CONFIG_FB_MSM_MDP303
 static inline void mdp4_dsi_cmd_del_timer(void)
 {
@@ -822,10 +822,12 @@ static inline void mdp4_dsi_video_pipe_queue(int cndx,
 			struct mdp4_overlay_pipe *pipe)
 {
 }
-static inline void mdp4_dsi_cmd_vsync_ctrl(int cndx, int enable)
+static inline void mdp4_dsi_cmd_vsync_ctrl(struct fb_info *info,
+				int enable)
 {
 }
-static inline void mdp4_dsi_video_vsync_ctrl(int cndx, int enable)
+static inline void mdp4_dsi_video_vsync_ctrl(struct fb_info *info,
+				int enable)
 {
 }
 

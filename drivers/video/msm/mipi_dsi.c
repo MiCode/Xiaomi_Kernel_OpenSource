@@ -79,6 +79,14 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	mdp4_overlay_dsi_state_set(ST_DSI_SUSPEND);
 
+	/* make sure dsi clk is on so that
+	 * dcs commands can be sent
+	 */
+	mipi_dsi_clk_cfg(1);
+
+	/* make sure dsi_cmd_mdp is idle */
+	mipi_dsi_cmd_mdp_busy();
+
 	/*
 	 * Desctiption: change to DSI_CMD_MODE since it needed to
 	 * tx DCS dsiplay off comamnd to panel
