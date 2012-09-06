@@ -439,7 +439,7 @@ static int qpnp_lpg_change_table(struct pwm_device *pwm,
 	int			i, pwm_size, rc = 0;
 	int			burst_size = SPMI_MAX_BUF_LEN;
 	int			list_len = lut->list_len << 1;
-	int			offset = lut->lo_index << 2;
+	int			offset = lut->lo_index << 1;
 
 	pwm_size = QPNP_GET_PWM_SIZE(
 			chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]) &
