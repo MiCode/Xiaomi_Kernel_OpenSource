@@ -13,7 +13,7 @@
 
 #include <linux/export.h>
 #include <linux/err.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/memory_alloc.h>
