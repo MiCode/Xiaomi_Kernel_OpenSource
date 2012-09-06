@@ -990,10 +990,10 @@ static void bridge_disconnect(struct usb_interface *intf)
 	}
 
 	ch_id--;
-	ctrl_bridge_disconnect(ch_id);
+	ctrl_bridge_disconnect(dev->id);
 	platform_device_unregister(dev->pdev);
 	usb_set_intfdata(intf, NULL);
-	__dev[ch_id] = NULL;
+	__dev[dev->id] = NULL;
 
 	cancel_work_sync(&dev->process_rx_w);
 	cancel_work_sync(&dev->kevent);
