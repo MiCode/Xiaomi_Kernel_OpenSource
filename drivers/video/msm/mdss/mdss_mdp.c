@@ -608,7 +608,7 @@ static int mdss_hw_init(struct mdss_data_type *mdata)
 
 static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 {
-	u32 rc;
+	u32 rc = 0;
 
 	rc = mdss_mdp_irq_clk_setup(mdata);
 	if (rc)
@@ -638,6 +638,13 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	mdata->suspend = false;
 	mdata->prim_ptype = NO_PANEL;
 	mdata->irq_ena = false;
+
+	mdata->iclient = msm_ion_client_create(-1, mdata->pdev->name);
+	if (IS_ERR_OR_NULL(mdata->iclient)) {
+		pr_err("msm_ion_client_create() return error (%p)\n",
+				mdata->iclient);
+		mdata->iclient = NULL;
+	}
 
 	rc = mdss_hw_init(mdata);
 
