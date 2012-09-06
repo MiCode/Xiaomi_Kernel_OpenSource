@@ -77,7 +77,7 @@
 #endif
 
 #include <linux/smsc3503.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/ion.h>
 #include <mach/mdm2.h>
 #include <mach/mdm-peripheral.h>
