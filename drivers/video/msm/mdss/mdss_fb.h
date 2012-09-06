@@ -14,7 +14,7 @@
 #ifndef MDSS_FB_H
 #define MDSS_FB_H
 
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/list.h>
 #include <linux/msm_mdp.h>
 #include <linux/types.h>
