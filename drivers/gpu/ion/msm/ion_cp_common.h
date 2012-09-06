@@ -15,7 +15,7 @@
 #define ION_CP_COMMON_H
 
 #include <asm-generic/errno-base.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #define ION_CP_V1	1
 #define ION_CP_V2	2

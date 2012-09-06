@@ -31,6 +31,7 @@
 #include <mach/iommu_domains.h>
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
+#include <linux/msm_ion.h>
 
 struct ion_carveout_heap {
 	struct ion_heap heap;
