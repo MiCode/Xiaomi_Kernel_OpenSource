@@ -469,7 +469,7 @@ static void armpmu_enable(struct pmu *pmu)
 	int enabled = bitmap_weight(hw_events->used_mask, armpmu->num_events);
 	int idx;
 
-	if (armpmu->from_idle) {
+	if (*hw_events->from_idle) {
 		for (idx = 0; idx <= cpu_pmu->num_events; ++idx) {
 			struct perf_event *event = hw_events->events[idx];
 
@@ -480,8 +480,11 @@ static void armpmu_enable(struct pmu *pmu)
 		}
 
 		/* Reset bit so we don't needlessly re-enable counters.*/
-		armpmu->from_idle = 0;
+		*hw_events->from_idle = 0;
 	}
+
+	/* So we don't start the PMU before enabling counters after idle. */
+	barrier();
 
 	if (enabled)
 		armpmu->start(armpmu);

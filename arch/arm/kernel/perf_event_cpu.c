@@ -34,6 +34,7 @@
 /* Set at runtime when we know what CPU type we are. */
 static struct arm_pmu *cpu_pmu;
 
+static DEFINE_PER_CPU(u32, from_idle);
 static DEFINE_PER_CPU(struct perf_event * [ARMPMU_MAX_HWEVENTS], hw_events);
 static DEFINE_PER_CPU(unsigned long [BITS_TO_LONGS(ARMPMU_MAX_HWEVENTS)], used_mask);
 static DEFINE_PER_CPU(struct pmu_hw_events, cpu_hw_events);
@@ -142,6 +143,7 @@ static void cpu_pmu_init(struct arm_pmu *cpu_pmu)
 		struct pmu_hw_events *events = &per_cpu(cpu_hw_events, cpu);
 		events->events = per_cpu(hw_events, cpu);
 		events->used_mask = per_cpu(used_mask, cpu);
+		events->from_idle = per_cpu(from_idle, cpu);
 		raw_spin_lock_init(&events->pmu_lock);
 	}
 
@@ -235,7 +237,7 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 			 * Flip this bit so armpmu_enable knows it needs
 			 * to re-enable active counters.
 			 */
-			cpu_pmu->from_idle = 1;
+			__get_cpu_var(from_idle) = 1;
 			cpu_pmu->reset(NULL);
 			perf_pmu_enable(&cpu_pmu->pmu);
 		}
