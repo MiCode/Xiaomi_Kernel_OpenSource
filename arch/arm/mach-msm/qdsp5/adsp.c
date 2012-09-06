@@ -720,11 +720,22 @@ static void handle_adsp_rtos_mtoa_app(struct rpc_request_hdr *req)
 	mutex_lock(&module->lock);
 	switch (event) {
 	case RPC_ADSP_RTOS_MOD_READY:
-		MM_INFO("module %s: READY\n", module->name);
-		module->state = ADSP_STATE_ENABLED;
-		wake_up(&module->state_wait);
-		adsp_set_image(module->info, image);
-		break;
+		if (module->state == ADSP_STATE_ENABLING) {
+			MM_INFO("module %s: READY\n", module->name);
+			module->state = ADSP_STATE_ENABLED;
+			wake_up(&module->state_wait);
+			adsp_set_image(module->info, image);
+			break;
+		} else {
+			MM_ERR("module %s got READY event in state[%d]\n",
+								module->name,
+								module->state);
+			rpc_send_accepted_void_reply(rpc_cb_server_client,
+						req->xid,
+						RPC_ACCEPTSTAT_GARBAGE_ARGS);
+			mutex_unlock(&module->lock);
+			return;
+		}
 	case RPC_ADSP_RTOS_MOD_DISABLE:
 		MM_INFO("module %s: DISABLED\n", module->name);
 		module->state = ADSP_STATE_DISABLED;
