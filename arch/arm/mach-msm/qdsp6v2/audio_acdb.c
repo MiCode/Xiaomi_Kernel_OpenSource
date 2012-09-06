@@ -15,7 +15,7 @@
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/uaccess.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/mm.h>
 #include <mach/qdsp6v2/audio_acdb.h>
 

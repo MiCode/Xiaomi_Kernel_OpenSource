@@ -24,7 +24,7 @@
 #include <linux/debugfs.h>
 #include <linux/list.h>
 #include <linux/slab.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <asm/ioctls.h>
 #include <asm/atomic.h>
 #include "q6audio_common.h"

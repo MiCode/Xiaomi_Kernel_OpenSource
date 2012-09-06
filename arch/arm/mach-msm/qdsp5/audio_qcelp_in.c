@@ -33,7 +33,7 @@
 
 
 #include <linux/memory_alloc.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
