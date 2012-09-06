@@ -37,7 +37,7 @@
 #include <linux/msm_audio.h>
 #include <linux/memory_alloc.h>
 #include <linux/msm_audio_ac3.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #include <mach/msm_adsp.h>
 #include <mach/iommu.h>

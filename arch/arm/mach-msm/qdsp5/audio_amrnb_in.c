@@ -37,7 +37,7 @@
 #include <linux/delay.h>
 #include <linux/msm_audio_amrnb.h>
 #include <linux/memory_alloc.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #include "audmgr.h"
 
