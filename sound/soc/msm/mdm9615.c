@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/mfd/wcd9xxx/core.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -42,10 +43,8 @@
 #define SAMPLE_RATE_8KHZ 8000
 #define SAMPLE_RATE_16KHZ 16000
 
-#define BOTTOM_SPK_AMP_POS	0x1
-#define BOTTOM_SPK_AMP_NEG	0x2
-#define TOP_SPK_AMP_POS		0x4
-#define TOP_SPK_AMP_NEG		0x8
+#define TOP_AND_BOTTOM_SPK_AMP_POS	0x1
+#define TOP_AND_BOTTOM_SPK_AMP_NEG	0x2
 
 #define GPIO_AUX_PCM_DOUT 23
 #define GPIO_AUX_PCM_DIN 22
@@ -61,6 +60,10 @@
 
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
+
+#define PM8018_IRQ_BASE			(NR_MSM_IRQS + NR_GPIO_IRQS)
+#define JACK_DETECT_GPIO 3
+#define JACK_DETECT_INT PM8018_GPIO_IRQ(PM8018_IRQ_BASE, JACK_DETECT_GPIO)
 
 /*
  * Added for I2S
@@ -245,16 +248,13 @@ enum msm9x15_set_i2s_clk {
 /*
  * Added for I2S
  */
-
-static u32 top_spk_pamp_gpio  = PM8018_GPIO_PM_TO_SYS(3);
-static u32 bottom_spk_pamp_gpio = PM8018_GPIO_PM_TO_SYS(5);
+static u32 top_and_bottom_spk_pamp_gpio = PM8018_GPIO_PM_TO_SYS(5);
 
 void *sif_virt_addr;
 void *secpcm_portslc_virt_addr;
 
 static int mdm9615_spk_control;
-static int mdm9615_ext_bottom_spk_pamp;
-static int mdm9615_ext_top_spk_pamp;
+static int mdm9615_ext_top_and_bottom_spk_pamp;
 static int mdm9615_slim_0_rx_ch = 1;
 static int mdm9615_slim_0_tx_ch = 1;
 
@@ -270,6 +270,14 @@ static int mdm9615_headset_gpios_configured;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
+
+static bool hs_detect_use_gpio;
+module_param(hs_detect_use_gpio, bool, 0444);
+MODULE_PARM_DESC(hs_detect_use_gpio, "Use GPIO for headset detection");
+
+static bool hs_detect_use_firmware;
+module_param(hs_detect_use_firmware, bool, 0444);
+MODULE_PARM_DESC(hs_detect_use_firmware, "Use firmware for headset detection");
 
 static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
@@ -300,39 +308,26 @@ static void mdm9615_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 		.function       = PM_GPIO_FUNC_NORMAL,
 	};
 
-	if (spk_amp_gpio == bottom_spk_pamp_gpio) {
+	if (spk_amp_gpio == top_and_bottom_spk_pamp_gpio) {
 
-		ret = gpio_request(bottom_spk_pamp_gpio, "BOTTOM_SPK_AMP");
+		ret = gpio_request(top_and_bottom_spk_pamp_gpio,
+				   "TOP_AND_BOTTOM_SPK_AMP");
 		if (ret) {
-			pr_err("%s: Error requesting BOTTOM SPK AMP GPIO %u\n",
-				__func__, bottom_spk_pamp_gpio);
+			pr_err("%s: Error requesting TOP AND BOTTOM SPK AMP GPIO %u\n",
+				__func__, top_and_bottom_spk_pamp_gpio);
 			return;
 		}
-		ret = pm8xxx_gpio_config(bottom_spk_pamp_gpio, &param);
+		ret = pm8xxx_gpio_config(top_and_bottom_spk_pamp_gpio, &param);
 		if (ret)
-			pr_err("%s: Failed to configure Bottom Spk Ampl"
-				" gpio %u\n", __func__, bottom_spk_pamp_gpio);
+			pr_err("%s: Failed to configure Top & Bottom Spk Ampl\n"
+				"gpio %u\n", __func__,
+				top_and_bottom_spk_pamp_gpio);
 		else {
-			pr_debug("%s: enable Bottom spkr amp gpio\n", __func__);
-			gpio_direction_output(bottom_spk_pamp_gpio, 1);
+			pr_debug("%s: enable Top & Bottom spkr amp gpio\n",
+				 __func__);
+			gpio_direction_output(top_and_bottom_spk_pamp_gpio, 1);
 		}
 
-	} else if (spk_amp_gpio == top_spk_pamp_gpio) {
-
-		ret = gpio_request(top_spk_pamp_gpio, "TOP_SPK_AMP");
-		if (ret) {
-			pr_err("%s: Error requesting GPIO %d\n", __func__,
-				top_spk_pamp_gpio);
-			return;
-		}
-		ret = pm8xxx_gpio_config(top_spk_pamp_gpio, &param);
-		if (ret)
-			pr_err("%s: Failed to configure Top Spk Ampl"
-				" gpio %u\n", __func__, top_spk_pamp_gpio);
-		else {
-			pr_debug("%s: enable Top spkr amp gpio\n", __func__);
-			gpio_direction_output(top_spk_pamp_gpio, 1);
-		}
 	} else {
 		pr_err("%s: ERROR : Invalid External Speaker Ampl GPIO."
 			" gpio = %u\n", __func__, spk_amp_gpio);
@@ -342,49 +337,30 @@ static void mdm9615_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 
 static void mdm9615_ext_spk_power_amp_on(u32 spk)
 {
-	if (spk & (BOTTOM_SPK_AMP_POS | BOTTOM_SPK_AMP_NEG)) {
-
-		if ((mdm9615_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
-			(mdm9615_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
-
-			pr_debug("%s() External Bottom Speaker Ampl already "
+	if (spk & (TOP_AND_BOTTOM_SPK_AMP_POS | TOP_AND_BOTTOM_SPK_AMP_NEG)) {
+		if ((mdm9615_ext_top_and_bottom_spk_pamp &
+		     TOP_AND_BOTTOM_SPK_AMP_POS) &&
+		    (mdm9615_ext_top_and_bottom_spk_pamp &
+		     TOP_AND_BOTTOM_SPK_AMP_NEG)) {
+			pr_debug("%s() External Speaker Ampl already "
 				"turned on. spk = 0x%08x\n", __func__, spk);
 			return;
 		}
 
-		mdm9615_ext_bottom_spk_pamp |= spk;
+		mdm9615_ext_top_and_bottom_spk_pamp |= spk;
 
-		if ((mdm9615_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
-			(mdm9615_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
-
-			mdm9615_enable_ext_spk_amp_gpio(bottom_spk_pamp_gpio);
-			pr_debug("%s: slepping 4 ms after turning on external "
-				" Bottom Speaker Ampl\n", __func__);
+		if ((mdm9615_ext_top_and_bottom_spk_pamp &
+		     TOP_AND_BOTTOM_SPK_AMP_POS) &&
+		    (mdm9615_ext_top_and_bottom_spk_pamp &
+		     TOP_AND_BOTTOM_SPK_AMP_NEG)) {
+			mdm9615_enable_ext_spk_amp_gpio(
+					top_and_bottom_spk_pamp_gpio);
+			pr_debug("%s: slepping 4 ms after turning on external\n"
+				"Speaker Ampl\n", __func__);
 			usleep_range(4000, 4000);
 		}
 
-	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
-
-		if ((mdm9615_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
-			(mdm9615_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
-
-			pr_debug("%s() External Top Speaker Ampl already"
-				"turned on. spk = 0x%08x\n", __func__, spk);
-			return;
-		}
-
-		mdm9615_ext_top_spk_pamp |= spk;
-
-		if ((mdm9615_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
-			(mdm9615_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
-
-			mdm9615_enable_ext_spk_amp_gpio(top_spk_pamp_gpio);
-			pr_debug("%s: sleeping 4 ms after turning on "
-				" external Top Speaker Ampl\n", __func__);
-			usleep_range(4000, 4000);
-		}
-	} else  {
-
+	} else {
 		pr_err("%s: ERROR : Invalid External Speaker Ampl. spk = 0x%08x\n",
 			__func__, spk);
 		return;
@@ -393,33 +369,20 @@ static void mdm9615_ext_spk_power_amp_on(u32 spk)
 
 static void mdm9615_ext_spk_power_amp_off(u32 spk)
 {
-	if (spk & (BOTTOM_SPK_AMP_POS | BOTTOM_SPK_AMP_NEG)) {
+	if (spk & (TOP_AND_BOTTOM_SPK_AMP_POS | TOP_AND_BOTTOM_SPK_AMP_NEG)) {
 
-		if (!mdm9615_ext_bottom_spk_pamp)
+		if (!mdm9615_ext_top_and_bottom_spk_pamp)
 			return;
 
-		gpio_direction_output(bottom_spk_pamp_gpio, 0);
-		gpio_free(bottom_spk_pamp_gpio);
-		mdm9615_ext_bottom_spk_pamp = 0;
+		gpio_direction_output(top_and_bottom_spk_pamp_gpio, 0);
+		gpio_free(top_and_bottom_spk_pamp_gpio);
+		mdm9615_ext_top_and_bottom_spk_pamp = 0;
 
 		pr_debug("%s: sleeping 4 ms after turning off external Bottom"
 			" Speaker Ampl\n", __func__);
 
 		usleep_range(4000, 4000);
 
-	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
-
-		if (!mdm9615_ext_top_spk_pamp)
-			return;
-
-		gpio_direction_output(top_spk_pamp_gpio, 0);
-		gpio_free(top_spk_pamp_gpio);
-		mdm9615_ext_top_spk_pamp = 0;
-
-		pr_debug("%s: sleeping 4 ms after turning off external Top"
-			" Spkaker Ampl\n", __func__);
-
-		usleep_range(4000, 4000);
 	} else  {
 
 		pr_err("%s: ERROR : Invalid Ext Spk Ampl. spk = 0x%08x\n",
@@ -434,15 +397,11 @@ static void mdm9615_ext_control(struct snd_soc_codec *codec)
 
 	pr_debug("%s: mdm9615_spk_control = %d", __func__, mdm9615_spk_control);
 	if (mdm9615_spk_control == MDM9615_SPK_ON) {
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk Pos");
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk Neg");
 	} else {
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Bottom Pos");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Bottom Neg");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top Pos");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top Neg");
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Pos");
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Neg");
 	}
 
 	snd_soc_dapm_sync(dapm);
@@ -474,14 +433,12 @@ static int mdm9615_spkramp_event(struct snd_soc_dapm_widget *w,
 	pr_debug("%s() %x\n", __func__, SND_SOC_DAPM_EVENT_ON(event));
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		if (!strncmp(w->name, "Ext Spk Bottom Pos", 18))
-			mdm9615_ext_spk_power_amp_on(BOTTOM_SPK_AMP_POS);
-		else if (!strncmp(w->name, "Ext Spk Bottom Neg", 18))
-			mdm9615_ext_spk_power_amp_on(BOTTOM_SPK_AMP_NEG);
-		else if (!strncmp(w->name, "Ext Spk Top Pos", 15))
-			mdm9615_ext_spk_power_amp_on(TOP_SPK_AMP_POS);
-		else if  (!strncmp(w->name, "Ext Spk Top Neg", 15))
-			mdm9615_ext_spk_power_amp_on(TOP_SPK_AMP_NEG);
+		if (!strncmp(w->name, "Ext Spk Pos", 11))
+			mdm9615_ext_spk_power_amp_on(
+					TOP_AND_BOTTOM_SPK_AMP_POS);
+		else if (!strncmp(w->name, "Ext Spk Neg", 11))
+			mdm9615_ext_spk_power_amp_on(
+					TOP_AND_BOTTOM_SPK_AMP_NEG);
 		else {
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
@@ -489,14 +446,12 @@ static int mdm9615_spkramp_event(struct snd_soc_dapm_widget *w,
 		}
 
 	} else {
-		if (!strncmp(w->name, "Ext Spk Bottom Pos", 18))
-			mdm9615_ext_spk_power_amp_off(BOTTOM_SPK_AMP_POS);
-		else if (!strncmp(w->name, "Ext Spk Bottom Neg", 18))
-			mdm9615_ext_spk_power_amp_off(BOTTOM_SPK_AMP_NEG);
-		else if (!strncmp(w->name, "Ext Spk Top Pos", 15))
-			mdm9615_ext_spk_power_amp_off(TOP_SPK_AMP_POS);
-		else if  (!strncmp(w->name, "Ext Spk Top Neg", 15))
-			mdm9615_ext_spk_power_amp_off(TOP_SPK_AMP_NEG);
+		if (!strncmp(w->name, "Ext Spk Pos", 11))
+			mdm9615_ext_spk_power_amp_off(
+					TOP_AND_BOTTOM_SPK_AMP_POS);
+		else if (!strncmp(w->name, "Ext Spk Neg", 11))
+			mdm9615_ext_spk_power_amp_off(
+					TOP_AND_BOTTOM_SPK_AMP_NEG);
 		else {
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
@@ -557,11 +512,8 @@ static const struct snd_soc_dapm_widget mdm9615_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 	mdm9615_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_SPK("Ext Spk Bottom Pos", mdm9615_spkramp_event),
-	SND_SOC_DAPM_SPK("Ext Spk Bottom Neg", mdm9615_spkramp_event),
-
-	SND_SOC_DAPM_SPK("Ext Spk Top Pos", mdm9615_spkramp_event),
-	SND_SOC_DAPM_SPK("Ext Spk Top Neg", mdm9615_spkramp_event),
+	SND_SOC_DAPM_SPK("Ext Spk Pos", mdm9615_spkramp_event),
+	SND_SOC_DAPM_SPK("Ext Spk Neg", mdm9615_spkramp_event),
 
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -584,11 +536,11 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"LDO_H", NULL, "MCLK"},
 
 	/* Speaker path */
-	{"Ext Spk Bottom Pos", NULL, "LINEOUT1"},
-	{"Ext Spk Bottom Neg", NULL, "LINEOUT3"},
+	{"Ext Spk Pos", NULL, "LINEOUT1"},
+	{"Ext Spk Neg", NULL, "LINEOUT3"},
 
-	{"Ext Spk Top Pos", NULL, "LINEOUT2"},
-	{"Ext Spk Top Neg", NULL, "LINEOUT4"},
+	{"Ext Spk Pos", NULL, "LINEOUT2"},
+	{"Ext Spk Neg", NULL, "LINEOUT4"},
 
 	/* Microphone path */
 	{"AMIC1", NULL, "MIC BIAS1 External"},
@@ -1006,10 +958,8 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_add_routes(dapm, common_audio_map,
 		ARRAY_SIZE(common_audio_map));
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Pos");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Neg");
 
 	snd_soc_dapm_sync(dapm);
 
@@ -1510,6 +1460,13 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct pm_gpio jack_gpio_cfg = {
+		.direction = PM_GPIO_DIR_IN,
+		.pull = PM_GPIO_PULL_NO,
+		.function = PM_GPIO_FUNC_NORMAL,
+		.vin_sel = 2,
+		.inv_int_pol = 0,
+	};
 
 	pr_debug("%s(), dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -1521,10 +1478,8 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_add_routes(dapm, common_audio_map,
 		ARRAY_SIZE(common_audio_map));
 
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Pos");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Neg");
 
 	snd_soc_dapm_sync(dapm);
 
@@ -1544,6 +1499,22 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return err;
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+
+	if (hs_detect_use_gpio) {
+		mbhc_cfg.gpio = PM8018_GPIO_PM_TO_SYS(JACK_DETECT_GPIO);
+		mbhc_cfg.gpio_irq = JACK_DETECT_INT;
+	}
+
+	if (mbhc_cfg.gpio) {
+		err = pm8xxx_gpio_config(mbhc_cfg.gpio, &jack_gpio_cfg);
+		if (err) {
+			pr_err("%s: pm8xxx_gpio_config JACK_DETECT failed %d\n",
+			       __func__, err);
+			return err;
+		}
+	}
+
+	mbhc_cfg.read_fw_bin = hs_detect_use_firmware;
 
 	err = tabla_hs_detect(codec, &mbhc_cfg);
 
