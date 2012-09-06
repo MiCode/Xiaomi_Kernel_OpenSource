@@ -58,6 +58,7 @@
 #define MSM_VPE_DRV_NAME "msm_vpe"
 #define MSM_GEMINI_DRV_NAME "msm_gemini"
 #define MSM_MERCURY_DRV_NAME "msm_mercury"
+#define MSM_JPEG_DRV_NAME "msm_jpeg"
 #define MSM_I2C_MUX_DRV_NAME "msm_cam_i2c_mux"
 #define MSM_IRQ_ROUTER_DRV_NAME "msm_cam_irq_router"
 #define MSM_CPP_DRV_NAME "msm_cpp"
