@@ -592,6 +592,7 @@ static int mipi_nt35510_create_sysfs(struct platform_device *pdev)
 static int __devinit mipi_nt35510_lcd_probe(struct platform_device *pdev)
 {
 	struct platform_device *pthisdev = NULL;
+	struct msm_fb_panel_data *pdata;
 	pr_debug("%s\n", __func__);
 
 	if (pdev->id == 0) {
@@ -600,6 +601,11 @@ static int __devinit mipi_nt35510_lcd_probe(struct platform_device *pdev)
 			spin_lock_init(&mipi_nt35510_pdata->bl_spinlock);
 		return 0;
 	}
+
+	pdata = pdev->dev.platform_data;
+	if (mipi_nt35510_pdata && mipi_nt35510_pdata->rotate_panel()
+			&& pdata->panel_info.type == MIPI_CMD_PANEL)
+		pdata->panel_info.lcd.refx100 = 6200;
 
 	pthisdev = msm_fb_add_device(pdev);
 	mipi_nt35510_create_sysfs(pthisdev);
