@@ -66,6 +66,7 @@ struct qce_device {
 	struct clk *ce_core_src_clk;	/* Handle to CE src clk*/
 	struct clk *ce_core_clk;	/* Handle to CE clk */
 	struct clk *ce_clk;		/* Handle to CE clk */
+	struct clk *ce_bus_clk;	/* Handle to CE AXI clk*/
 
 	qce_comp_func_ptr_t qce_cb;	/* qce callback function pointer */
 
@@ -2559,6 +2560,7 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 	struct clk *ce_core_clk;
 	struct clk *ce_clk;
 	struct clk *ce_core_src_clk;
+	struct clk *ce_bus_clk;
 
 	/* Get CE3 src core clk. */
 	ce_core_src_clk = clk_get(pce_dev->pdev, "core_clk_src");
@@ -2600,6 +2602,19 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 	}
 	pce_dev->ce_clk = ce_clk;
 
+	/* Get CE AXI clk */
+	ce_bus_clk = clk_get(pce_dev->pdev, "bus_clk");
+	if (IS_ERR(ce_bus_clk)) {
+		rc = PTR_ERR(ce_bus_clk);
+		pr_err("Unable to get CE BUS interface clk\n");
+		if (pce_dev->ce_core_src_clk != NULL)
+			clk_put(pce_dev->ce_core_src_clk);
+		clk_put(pce_dev->ce_core_clk);
+		clk_put(pce_dev->ce_clk);
+		goto err_clk;
+	}
+	pce_dev->ce_bus_clk = ce_bus_clk;
+
 	/* Enable CE core clk */
 	rc = clk_prepare_enable(pce_dev->ce_core_clk);
 	if (rc) {
@@ -2619,6 +2634,18 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 				clk_put(pce_dev->ce_core_src_clk);
 			clk_put(pce_dev->ce_core_clk);
 			clk_put(pce_dev->ce_clk);
+			goto err_clk;
+		}
+		/* Enable AXI clk */
+		rc = clk_prepare_enable(pce_dev->ce_bus_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE BUS clk\n");
+			clk_disable_unprepare(pce_dev->ce_core_clk);
+			if (pce_dev->ce_core_src_clk != NULL)
+				clk_put(pce_dev->ce_core_src_clk);
+			clk_put(pce_dev->ce_core_clk);
+			clk_put(pce_dev->ce_clk);
+			clk_put(pce_dev->ce_bus_clk);
 			goto err_clk;
 		}
 	}
@@ -2712,10 +2739,12 @@ int qce_close(void *handle)
 
 	clk_disable_unprepare(pce_dev->ce_clk);
 	clk_disable_unprepare(pce_dev->ce_core_clk);
+	clk_disable_unprepare(pce_dev->ce_bus_clk);
 	if (pce_dev->ce_core_src_clk != NULL)
 		clk_put(pce_dev->ce_core_src_clk);
 	clk_put(pce_dev->ce_clk);
 	clk_put(pce_dev->ce_core_clk);
+	clk_put(pce_dev->ce_bus_clk);
 
 	qce_sps_exit(pce_dev);
 	kfree(handle);
