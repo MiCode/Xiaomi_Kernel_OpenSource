@@ -195,6 +195,8 @@ struct etm_drvdata {
 	uint32_t			timestamp_event;
 };
 
+static struct etm_drvdata *etm0drvdata;
+
 /* ETM clock is derived from the processor clock and gets enabled on a
  * logical OR of below items on Krait (pass2 onwards):
  * 1.CPMR[ETMCLKEN] is 1
@@ -1459,6 +1461,16 @@ err:
 	return ret;
 }
 
+static void __devinit etm_copy_arch_data(struct etm_drvdata *drvdata)
+{
+	drvdata->arch = etm0drvdata->arch;
+	drvdata->nr_addr_cmp = etm0drvdata->nr_addr_cmp;
+	drvdata->nr_cntr = etm0drvdata->nr_cntr;
+	drvdata->nr_ext_inp = etm0drvdata->nr_ext_inp;
+	drvdata->nr_ext_out = etm0drvdata->nr_ext_out;
+	drvdata->nr_ctxid_cmp = etm0drvdata->nr_ctxid_cmp;
+}
+
 static void __devinit etm_init_default_data(struct etm_drvdata *drvdata)
 {
 	int i;
@@ -1564,9 +1576,20 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	if (ret)
 		goto err0;
 
-	ret = etm_init_arch_data(drvdata);
-	if (ret)
-		goto err1;
+	/* Use CPU0 to populate read-only configuration data for ETM0. For other
+	 * ETMs copy it over from ETM0.
+	 */
+	if (drvdata->cpu == 0) {
+		ret = etm_init_arch_data(drvdata);
+		if (ret)
+			goto err1;
+		etm0drvdata = drvdata;
+	} else {
+		if (etm0drvdata)
+			etm_copy_arch_data(drvdata);
+		else
+			goto err1;
+	}
 	etm_init_default_data(drvdata);
 
 	clk_disable_unprepare(drvdata->clk);
