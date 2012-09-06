@@ -23,7 +23,6 @@
 #include <linux/delay.h>
 #include <linux/smp.h>
 #include <linux/wakelock.h>
-#include <linux/pm_qos.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
 #include <linux/mutex.h>
@@ -156,7 +155,6 @@ struct etm_drvdata {
 	struct clk			*clk;
 	struct mutex			mutex;
 	struct wake_lock		wake_lock;
-	struct pm_qos_request		qos_req;
 	int				cpu;
 	uint8_t				arch;
 	uint8_t				nr_addr_cmp;
@@ -260,9 +258,10 @@ static void etm_clr_prog(struct etm_drvdata *drvdata)
 	     etm_readl(drvdata, ETMSR));
 }
 
-static void __etm_enable(struct etm_drvdata *drvdata)
+static void __etm_enable(void *info)
 {
 	int i;
+	struct etm_drvdata *drvdata = info;
 
 	ETM_UNLOCK(drvdata);
 	/* Vote for ETM power/clock enable */
@@ -307,6 +306,8 @@ static void __etm_enable(struct etm_drvdata *drvdata)
 
 	etm_clr_prog(drvdata);
 	ETM_LOCK(drvdata);
+
+	dev_dbg(drvdata->dev, "cpu: %d enable smp call done\n", drvdata->cpu);
 }
 
 static int etm_enable(struct coresight_device *csdev)
@@ -315,36 +316,31 @@ static int etm_enable(struct coresight_device *csdev)
 	int ret;
 
 	wake_lock(&drvdata->wake_lock);
-	/* 1. causes all online cpus to come out of idle PC
-	 * 2. prevents idle PC until save restore flag is enabled atomically
-	 *
-	 * we rely on the user to prevent hotplug on/off racing with this
-	 * operation and to ensure cores where trace is expected to be turned
-	 * on are already hotplugged on
-	 */
-	pm_qos_update_request(&drvdata->qos_req, 0);
 
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		goto err_clk;
 
 	mutex_lock(&drvdata->mutex);
-	__etm_enable(drvdata);
+	/* executing __etm_enable on the cpu whose ETM is being enabled
+	 * ensures that register writes occur when cpu is powered.
+	 */
+	smp_call_function_single(drvdata->cpu, __etm_enable, drvdata, 1);
 	mutex_unlock(&drvdata->mutex);
 
-	pm_qos_update_request(&drvdata->qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&drvdata->wake_lock);
 
 	dev_info(drvdata->dev, "ETM tracing enabled\n");
 	return 0;
 err_clk:
-	pm_qos_update_request(&drvdata->qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&drvdata->wake_lock);
 	return ret;
 }
 
-static void __etm_disable(struct etm_drvdata *drvdata)
+static void __etm_disable(void *info)
 {
+	struct etm_drvdata *drvdata = info;
+
 	ETM_UNLOCK(drvdata);
 	etm_set_prog(drvdata);
 
@@ -354,6 +350,8 @@ static void __etm_disable(struct etm_drvdata *drvdata)
 	/* Vote for ETM power/clock disable */
 	etm_set_pwrdwn(drvdata);
 	ETM_LOCK(drvdata);
+
+	dev_dbg(drvdata->dev, "cpu: %d disable smp call done\n", drvdata->cpu);
 }
 
 static void etm_disable(struct coresight_device *csdev)
@@ -361,22 +359,16 @@ static void etm_disable(struct coresight_device *csdev)
 	struct etm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
 	wake_lock(&drvdata->wake_lock);
-	/* 1. causes all online cpus to come out of idle PC
-	 * 2. prevents idle PC until save restore flag is disabled atomically
-	 *
-	 * we rely on the user to prevent hotplug on/off racing with this
-	 * operation and to ensure cores where trace is expected to be turned
-	 * off are already hotplugged on
-	 */
-	pm_qos_update_request(&drvdata->qos_req, 0);
 
 	mutex_lock(&drvdata->mutex);
-	__etm_disable(drvdata);
+	/* executing __etm_disable on the cpu whose ETM is being disabled
+	 * ensures that register writes occur when cpu is powered.
+	 */
+	smp_call_function_single(drvdata->cpu, __etm_disable, drvdata, 1);
 	mutex_unlock(&drvdata->mutex);
 
 	clk_disable_unprepare(drvdata->clk);
 
-	pm_qos_update_request(&drvdata->qos_req, PM_QOS_DEFAULT_VALUE);
 	wake_unlock(&drvdata->wake_lock);
 
 	dev_info(drvdata->dev, "ETM tracing disabled\n");
@@ -1557,8 +1549,6 @@ static int __devinit etm_probe(struct platform_device *pdev)
 
 	mutex_init(&drvdata->mutex);
 	wake_lock_init(&drvdata->wake_lock, WAKE_LOCK_SUSPEND, "coresight-etm");
-	pm_qos_add_request(&drvdata->qos_req, PM_QOS_CPU_DMA_LATENCY,
-			   PM_QOS_DEFAULT_VALUE);
 
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk)) {
@@ -1621,7 +1611,6 @@ static int __devinit etm_probe(struct platform_device *pdev)
 err1:
 	clk_disable_unprepare(drvdata->clk);
 err0:
-	pm_qos_remove_request(&drvdata->qos_req);
 	wake_lock_destroy(&drvdata->wake_lock);
 	mutex_destroy(&drvdata->mutex);
 	return ret;
@@ -1632,7 +1621,6 @@ static int __devexit etm_remove(struct platform_device *pdev)
 	struct etm_drvdata *drvdata = platform_get_drvdata(pdev);
 
 	coresight_unregister(drvdata->csdev);
-	pm_qos_remove_request(&drvdata->qos_req);
 	wake_lock_destroy(&drvdata->wake_lock);
 	mutex_destroy(&drvdata->mutex);
 	return 0;
