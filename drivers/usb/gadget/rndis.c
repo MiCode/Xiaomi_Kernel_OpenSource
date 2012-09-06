@@ -586,11 +586,11 @@ static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 	resp->DeviceFlags = cpu_to_le32(RNDIS_DF_CONNECTIONLESS);
 	resp->Medium = cpu_to_le32(RNDIS_MEDIUM_802_3);
 	resp->MaxPacketsPerTransfer = cpu_to_le32(params->max_pkt_per_xfer);
-	resp->MaxTransferSize = cpu_to_le32(params->max_pkt_per_xfer *
-		(params->dev->mtu
+	resp->MaxTransferSize = cpu_to_le32(
+		  params->dev->mtu
 		+ sizeof(struct ethhdr)
 		+ sizeof(struct rndis_packet_msg_type)
-		+ 22));
+		+ 22);
 	resp->PacketAlignmentFactor = cpu_to_le32(0);
 	resp->AFListOffset = cpu_to_le32(0);
 	resp->AFListSize = cpu_to_le32(0);
@@ -902,8 +902,7 @@ int rndis_register(void (*resp_avail)(void *v), void *v)
 			rndis_per_dev_params[i].used = 1;
 			rndis_per_dev_params[i].resp_avail = resp_avail;
 			rndis_per_dev_params[i].v = v;
-			rndis_per_dev_params[i].max_pkt_per_xfer =
-							TX_SKB_HOLD_THRESHOLD;
+			rndis_per_dev_params[i].max_pkt_per_xfer = 1;
 			pr_debug("%s: configNr = %d\n", __func__, i);
 			return i;
 		}
