@@ -577,11 +577,25 @@ static int process_map(struct ocmem_req *req, unsigned long start,
 	rc = ocmem_enable_iface_clock();
 
 	if (rc < 0)
+		goto iface_clock_fail;
+
+	rc = ocmem_enable_br_clock();
+
+	if (rc < 0)
+		goto br_clock_fail;
+
+	rc = do_map(req);
+
+	if (rc < 0)
 		goto process_map_fail;
 
-	return do_map(req);
+	return 0;
 
 process_map_fail:
+	ocmem_disable_br_clock();
+br_clock_fail:
+	ocmem_disable_iface_clock();
+iface_clock_fail:
 	ocmem_disable_core_clock();
 core_clock_fail:
 	pr_err("ocmem: Failed to map ocmem request\n");
@@ -598,6 +612,7 @@ static int process_unmap(struct ocmem_req *req, unsigned long start,
 	if (rc < 0)
 		goto process_unmap_fail;
 
+	ocmem_disable_br_clock();
 	ocmem_disable_iface_clock();
 	ocmem_disable_core_clock();
 

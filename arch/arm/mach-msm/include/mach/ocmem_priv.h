@@ -101,6 +101,7 @@ struct ocmem_plat_data {
 	unsigned long base;
 	struct clk *core_clk;
 	struct clk *iface_clk;
+	struct clk *br_clk;
 	struct ocmem_partition *parts;
 	int nr_parts;
 	void __iomem *reg_base;
@@ -203,6 +204,8 @@ int ocmem_memory_off(int, unsigned long, unsigned long);
 int ocmem_memory_on(int, unsigned long, unsigned long);
 int ocmem_enable_core_clock(void);
 int ocmem_enable_iface_clock(void);
+int ocmem_enable_br_clock(void);
 void ocmem_disable_core_clock(void);
 void ocmem_disable_iface_clock(void);
+void ocmem_disable_br_clock(void);
 #endif
