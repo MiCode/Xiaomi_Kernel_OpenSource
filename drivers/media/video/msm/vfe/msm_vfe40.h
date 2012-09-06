@@ -204,6 +204,7 @@ enum vfe_output_state {
 #define V40_AXI_OUT_LEN           344
 #define V40_AXI_CFG_LEN           71
 
+#define V40_BUS_PM_CMD            0x00000270
 #define V40_FOV_ENC_OFF           0x00000854
 #define V40_FOV_ENC_LEN           16
 #define V40_FOV_VIEW_OFF          0x00000864
@@ -719,7 +720,7 @@ struct vfe40_output_ch {
 #define VFE40_IMASK_ERROR_ONLY_0  0x0
 /* when normal case, don't want to block error status. */
 /* bit 0-21 are error irq bits */
-#define VFE40_IMASK_COMMON_ERROR_ONLY_1       0x0000FE00
+#define VFE40_IMASK_COMMON_ERROR_ONLY_1       0x0000FF00
 #define VFE40_IMASK_VFE_ERROR_ONLY_1          0x00FF01FF
 #define VFE40_IMASK_CAMIF_ERROR               (0x00000001<<0)
 #define VFE40_IMASK_BHIST_OVWR                (0x00000001<<1)
@@ -729,6 +730,7 @@ struct vfe40_output_ch {
 #define VFE40_IMASK_REALIGN_BUF_CB_OVFL       (0x00000001<<5)
 #define VFE40_IMASK_REALIGN_BUF_CR_OVFL       (0x00000001<<6)
 #define VFE40_IMASK_VIOLATION                 (0x00000001<<7)
+#define VFE40_IMASK_BUS_BDG_HALT_ACK          (0x00000001<<8)
 #define VFE40_IMASK_IMG_MAST_0_BUS_OVFL       (0x00000001<<9)
 #define VFE40_IMASK_IMG_MAST_1_BUS_OVFL       (0x00000001<<10)
 #define VFE40_IMASK_IMG_MAST_2_BUS_OVFL       (0x00000001<<11)
