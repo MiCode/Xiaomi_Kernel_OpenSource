@@ -76,7 +76,7 @@
 #include <mach/msm_xo.h>
 #include <mach/restart.h>
 
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/ion.h>
 #include <mach/mdm2.h>
 #include <mach/msm_rtb.h>
