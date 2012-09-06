@@ -45,6 +45,13 @@
 			qcom,memory-reservation-size = <0x2000>;
 		};
 
+		qcom,ion-heap@23 { /* PIL1 HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <23>;
+			qcom,heap-align = <0x10000>;
+			qcom,memory-fixed = <0xd200000 0x2800000>;
+		};
+
 		qcom,ion-heap@24 { /* SF HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <24>;
@@ -55,6 +62,13 @@
 
 		qcom,ion-heap@25 { /* IOMMU HEAP */
 			reg = <25>;
+		};
+
+		qcom,ion-heap@26 { /* PIL2 HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <26>;
+			qcom,heap-align = <0x10000>;
+			qcom,memory-fixed = <0x8400000 0x4e00000>;
 		};
 
 		qcom,ion-heap@27 { /* QSECOM HEAP */
