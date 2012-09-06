@@ -1566,6 +1566,68 @@ exit:
 	return rc;
 }
 
+int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
+{
+	struct msm_smem *handle;
+	struct list_head *ptr, *next;
+	struct internal_buf *buf;
+	struct vidc_buffer_addr_info buffer_info;
+	int rc = 0;
+	unsigned long flags;
+	spin_lock_irqsave(&inst->lock, flags);
+	if (!list_empty(&inst->internalbufs)) {
+		list_for_each_safe(ptr, next, &inst->internalbufs) {
+			buf = list_entry(ptr, struct internal_buf,
+					list);
+			handle = buf->handle;
+			buffer_info.buffer_size = handle->size;
+			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr = handle->device_addr;
+			rc = vidc_hal_session_release_buffers(
+				(void *) inst->session,	&buffer_info);
+			list_del(&buf->list);
+			msm_smem_free(inst->mem_client, buf->handle);
+			kfree(buf);
+		}
+	}
+	spin_unlock_irqrestore(&inst->lock, flags);
+	return rc;
+}
+
+int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
+{
+	struct msm_smem *handle;
+	struct list_head *ptr, *next;
+	struct internal_buf *buf;
+	struct vidc_buffer_addr_info buffer_info;
+	int rc = 0;
+	unsigned long flags;
+	spin_lock_irqsave(&inst->lock, flags);
+	if (!list_empty(&inst->persistbufs)) {
+		list_for_each_safe(ptr, next, &inst->persistbufs) {
+			buf = list_entry(ptr, struct internal_buf,
+				list);
+			handle = buf->handle;
+			buffer_info.buffer_size = handle->size;
+			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr = handle->device_addr;
+			rc = vidc_hal_session_release_buffers(
+				(void *) inst->session,	&buffer_info);
+			if (rc)
+				dprintk(VIDC_WARN,
+					"Failed in %s for buffer %ld\n",
+					__func__, handle->device_addr);
+			list_del(&buf->list);
+			msm_smem_free(inst->mem_client, buf->handle);
+			kfree(buf);
+		}
+	}
+	spin_unlock_irqrestore(&inst->lock, flags);
+	return rc;
+}
+
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -1586,6 +1648,17 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 		list_for_each_safe(ptr, next, &inst->internalbufs) {
 			binfo = list_entry(ptr, struct internal_buf,
 					list);
+			handle = binfo->handle;
+			buffer_info.buffer_size = handle->size;
+			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr = handle->device_addr;
+			rc = vidc_hal_session_release_buffers(
+				(void *) inst->session, &buffer_info);
+			if (rc)
+				dprintk(VIDC_WARN,
+					"Failed in release %s for buffer %ld\n",
+					__func__, handle->device_addr);
 			list_del(&binfo->list);
 			msm_smem_free(inst->mem_client, binfo->handle);
 			kfree(binfo);
