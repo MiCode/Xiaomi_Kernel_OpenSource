@@ -1519,7 +1519,7 @@ void mipi_dsi_cmd_mdp_busy(void)
 {
 	u32 status;
 	unsigned long flags;
-	int need_wait;
+	int need_wait = 0;
 
 	spin_lock_irqsave(&dsi_mdp_lock, flags);
 	status = MIPI_INP(MIPI_DSI_BASE + 0x0004);/* DSI_STATUS */
