@@ -756,6 +756,8 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 	struct msm_v4l2_vid_inst *v4l2_inst;
 	int plane = 0;
 	int i, rc = 0;
+	int smem_flags = 0;
+	int domain;
 	vidc_inst = get_vidc_inst(file, fh);
 	v4l2_inst = get_v4l2_inst(file, fh);
 	if (!v4l2_inst->mem_client) {
@@ -776,6 +778,7 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 		goto exit;
 	}
 	for (i = 0; i < b->length; ++i) {
+		smem_flags = 0;
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
 			!b->m.planes[i].length) {
@@ -792,8 +795,22 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 			kfree(binfo);
 			goto exit;
 		}
+		if ((vidc_inst->mode == VIDC_SECURE)
+				&& (!EXTRADATA_IDX(b->length)
+					|| (i != EXTRADATA_IDX(b->length)))) {
+			smem_flags |= SMEM_SECURE;
+			domain =
+			vidc_inst->core->resources.io_map[CP_MAP].domain;
+		} else
+			domain =
+			vidc_inst->core->resources.io_map[NS_MAP].domain;
+
+		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+			smem_flags |= SMEM_INPUT;
+
 		temp = get_same_fd_buffer(&v4l2_inst->registered_bufs,
 				b->m.planes[i].reserved[0], &plane);
+
 		if (temp) {
 			binfo->type = b->type;
 			binfo->fd[i] = b->m.planes[i].reserved[0];
@@ -807,8 +824,7 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 			handle = msm_smem_user_to_kernel(v4l2_inst->mem_client,
 			b->m.planes[i].reserved[0],
 			b->m.planes[i].reserved[1],
-			vidc_inst->core->resources.io_map[NS_MAP].domain,
-			0);
+			domain,	0, smem_flags);
 			if (!handle) {
 				dprintk(VIDC_ERR,
 					"Failed to get device buffer address\n");
@@ -1119,9 +1135,11 @@ static int register_iommu_domains(struct platform_device *pdev,
 					- SHARED_QSIZE;
 			partition[1].size = SHARED_QSIZE;
 			layout.npartitions = 2;
+			layout.is_secure = 0;
 		} else {
 			partition[0].size = io_map[i].addr_range[1];
 			layout.npartitions = 1;
+			layout.is_secure = 1;
 		}
 		layout.partitions = &partition[0];
 		layout.client_name = io_map[i].name;

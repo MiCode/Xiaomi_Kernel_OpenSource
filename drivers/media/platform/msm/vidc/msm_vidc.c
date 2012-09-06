@@ -413,7 +413,7 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst) {
-		pr_err("Failed to allocate memory\n")	;
+		dprintk(VIDC_ERR, "Failed to allocate memory\n");
 		rc = -ENOMEM;
 		goto err_invalid_core;
 	}

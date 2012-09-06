@@ -541,7 +541,7 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 	mem_addr = &dev->mem_addr;
 	rc = vidc_hal_alloc((void *) mem_addr,
 			dev->hal_client, uc_size, 1,
-			SMEM_UNCACHED, domain);
+			0, domain);
 	if (rc) {
 		dprintk(VIDC_ERR, "iface_q_table_alloc_fail");
 		return -ENOMEM;

@@ -210,6 +210,11 @@ struct msm_vidc_ssr_info {
 	bool ssr_in_progress;
 };
 
+enum msm_vidc_mode {
+	VIDC_NON_SECURE,
+	VIDC_SECURE,
+};
+
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex sync_lock;
@@ -260,6 +265,7 @@ struct msm_vidc_inst {
 	void *priv;
 	struct msm_vidc_debug debug;
 	struct buf_count count;
+	enum msm_vidc_mode mode;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
