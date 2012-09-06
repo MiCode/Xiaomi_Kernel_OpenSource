@@ -218,8 +218,27 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	if (prtd->enabled)
 		return 0;
 
+	if (!prtd->set_channel_map) {
+		memset(prtd->channel_map, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
+		if (prtd->channel_mode == 1) {
+			prtd->channel_map[0] = PCM_CHANNEL_FL;
+		} else if (prtd->channel_mode == 2) {
+			prtd->channel_map[0] = PCM_CHANNEL_FL;
+			prtd->channel_map[0] = PCM_CHANNEL_FR;
+		} else if (prtd->channel_mode == 6) {
+			prtd->channel_map[0] = PCM_CHANNEL_FC;
+			prtd->channel_map[0] = PCM_CHANNEL_FL;
+			prtd->channel_map[0] = PCM_CHANNEL_FR;
+			prtd->channel_map[0] = PCM_CHANNEL_LB;
+			prtd->channel_map[0] = PCM_CHANNEL_RB;
+			prtd->channel_map[0] = PCM_CHANNEL_LFE;
+		} else {
+			pr_err("%s: ERROR.unsupported num_ch = %u\n", __func__,
+				prtd->channel_mode);
+		}
+	}
 	ret = q6asm_media_format_block_multi_ch_pcm(prtd->audio_client,
-			runtime->rate, runtime->channels);
+			runtime->rate, runtime->channels, prtd->channel_map);
 	if (ret < 0)
 		pr_info("%s: CMD Format block failed\n", __func__);
 
@@ -389,6 +408,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	}
 
 	prtd->dsp_cnt = 0;
+	prtd->set_channel_map = false;
 	runtime->private_data = prtd;
 	pr_debug("substream->pcm->device = %d\n", substream->pcm->device);
 	pr_debug("soc_prtd->dai_link->be_id = %d\n", soc_prtd->dai_link->be_id);
