@@ -113,7 +113,6 @@ struct arm_pmu {
 	struct mutex	reserve_mutex;
 	u64		max_period;
 	struct platform_device	*plat_device;
-	u32		from_idle;
 	irqreturn_t	(*handle_irq)(int irq_num, void *dev);
 	int     	(*request_pmu_irq)(int irq, irq_handler_t *irq_h);
 	void    	(*free_pmu_irq)(int irq);

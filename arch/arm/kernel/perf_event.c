@@ -41,6 +41,7 @@
  */
 #define ARMPMU_MAX_HWEVENTS		32
 
+static DEFINE_PER_CPU(u32, from_idle);
 static DEFINE_PER_CPU(struct perf_event * [ARMPMU_MAX_HWEVENTS], hw_events);
 static DEFINE_PER_CPU(unsigned long [BITS_TO_LONGS(ARMPMU_MAX_HWEVENTS)], used_mask);
 static DEFINE_PER_CPU(struct pmu_hw_events, cpu_hw_events);
@@ -602,7 +603,7 @@ static void armpmu_enable(struct pmu *pmu)
 	int enabled = bitmap_weight(hw_events->used_mask, armpmu->num_events);
 	int idx;
 
-	if (armpmu->from_idle) {
+	if (__get_cpu_var(from_idle)) {
 		for (idx = 0; idx <= cpu_pmu->num_events; ++idx) {
 			struct perf_event *event = hw_events->events[idx];
 
@@ -613,8 +614,11 @@ static void armpmu_enable(struct pmu *pmu)
 		}
 
 		/* Reset bit so we don't needlessly re-enable counters.*/
-		armpmu->from_idle = 0;
+		__get_cpu_var(from_idle) = 0;
 	}
+
+	/* So we don't start the PMU before enabling counters after idle. */
+	barrier();
 
 	if (enabled)
 		armpmu->start();
@@ -731,7 +735,6 @@ static void __init cpu_pmu_init(struct arm_pmu *armpmu)
  * UNKNOWN at reset, the PMU must be explicitly reset to avoid reading
  * junk values out of them.
  */
-
 static int __cpuinit pmu_cpu_notify(struct notifier_block *b,
 					unsigned long action, void *hcpu)
 {
@@ -805,7 +808,7 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 			 * Flip this bit so armpmu_enable knows it needs
 			 * to re-enable active counters.
 			 */
-			cpu_pmu->from_idle = 1;
+			__get_cpu_var(from_idle) = 1;
 			cpu_pmu->reset(NULL);
 			perf_pmu_enable(&cpu_pmu->pmu);
 		}
