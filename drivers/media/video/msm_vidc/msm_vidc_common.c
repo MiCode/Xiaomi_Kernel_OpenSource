@@ -18,6 +18,7 @@
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
 #include <mach/subsystem_restart.h>
+#include <mach/scm.h>
 
 #include "msm_vidc_common.h"
 #include "vidc_hal_api.h"
@@ -49,6 +50,18 @@
 	u32 __mbs = (__h >> 4) * (__w >> 4);\
 	__mbs;\
 })
+
+#define TZBSP_MEM_PROTECT_VIDEO_VAR 0x8
+struct tzbsp_memprot {
+	u32 cp_start;
+	u32 cp_size;
+	u32 cp_nonpixel_start;
+	u32 cp_nonpixel_size;
+};
+
+struct tzbsp_resp {
+	int ret;
+};
 
 static const u32 bus_table[] = {
 	0,
@@ -137,6 +150,31 @@ int msm_comm_scale_bus(struct msm_vidc_core *core, enum session_type type)
 		goto fail_scale_bus;
 	}
 fail_scale_bus:
+	return rc;
+}
+
+static int protect_cp_mem(struct msm_vidc_core *core)
+{
+	struct tzbsp_memprot memprot;
+	unsigned int resp = 0;
+	int rc = 0;
+	struct msm_vidc_iommu_info *io_map = core->resources.io_map;
+	if (!io_map) {
+		dprintk(VIDC_ERR, "invalid params: %p\n", io_map);
+		return -EINVAL;
+	}
+	memprot.cp_start = 0x0;
+	memprot.cp_size = io_map[CP_MAP].addr_range[0] +
+			io_map[CP_MAP].addr_range[1];
+	memprot.cp_nonpixel_start = 0;
+	memprot.cp_nonpixel_size = 0;
+
+	rc = scm_call(SCM_SVC_CP, TZBSP_MEM_PROTECT_VIDEO_VAR, &memprot,
+			sizeof(memprot), &resp, sizeof(resp));
+	if (rc)
+		dprintk(VIDC_ERR,
+		"Failed to protect memory , rc is :%d, response : %d\n",
+		rc, resp);
 	return rc;
 }
 
@@ -924,13 +962,16 @@ static int msm_comm_load_fw(struct msm_vidc_core *core)
 		rc = -ENOMEM;
 		goto fail_subsystem_get;
 	}
-
 	rc = msm_comm_enable_clks(core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to enable clocks: %d\n", rc);
 		goto fail_enable_clks;
 	}
-
+	rc = protect_cp_mem(core);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to protect memory\n");
+		goto fail_iommu_attach;
+	}
 	rc = msm_comm_iommu_attach(core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to attach iommu");
@@ -1841,6 +1882,8 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	struct internal_buf *binfo;
 	struct vidc_buffer_addr_info buffer_info;
 	unsigned long flags;
+	int domain;
+	unsigned long smem_flags = 0;
 	struct hal_buffer_requirements *scratch_buf =
 		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_SCRATCH];
 	int i;
@@ -1850,14 +1893,18 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 		scratch_buf->buffer_size);
 	if (msm_comm_release_scratch_buffers(inst))
 		dprintk(VIDC_WARN, "Failed to release scratch buffers\n");
+	if (inst->mode == VIDC_SECURE) {
+		domain = inst->core->resources.io_map[CP_MAP].domain;
+		smem_flags |= SMEM_SECURE;
+	} else
+		domain = inst->core->resources.io_map[NS_MAP].domain;
 
 	if (scratch_buf->buffer_size) {
 		for (i = 0; i < scratch_buf->buffer_count_actual;
 				i++) {
 			handle = msm_smem_alloc(inst->mem_client,
-				scratch_buf->buffer_size, 1, SMEM_UNCACHED,
-				inst->core->resources.io_map[NS_MAP].domain,
-				0, 0);
+				scratch_buf->buffer_size, 1, smem_flags,
+				domain, 0, 0);
 			if (!handle) {
 				dprintk(VIDC_ERR,
 					"Failed to allocate scratch memory\n");
@@ -1903,6 +1950,8 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 	struct internal_buf *binfo;
 	struct vidc_buffer_addr_info buffer_info;
 	unsigned long flags;
+	unsigned long smem_flags = 0;
+	int domain;
 	struct hal_buffer_requirements *persist_buf =
 		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_PERSIST];
 	int i;
@@ -1916,12 +1965,17 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 		return rc;
 	}
 
+	if (inst->mode == VIDC_SECURE) {
+		domain = inst->core->resources.io_map[CP_MAP].domain;
+		flags |= SMEM_SECURE;
+	} else
+		domain = inst->core->resources.io_map[NS_MAP].domain;
+
 	if (persist_buf->buffer_size) {
 		for (i = 0;	i <	persist_buf->buffer_count_actual; i++) {
 			handle = msm_smem_alloc(inst->mem_client,
-				persist_buf->buffer_size, 1, SMEM_UNCACHED,
-				inst->core->resources.io_map[NS_MAP].domain,
-				0, 0);
+				persist_buf->buffer_size, 1, smem_flags,
+				domain, 0, 0);
 			if (!handle) {
 				dprintk(VIDC_ERR,
 					"Failed to allocate persist memory\n");

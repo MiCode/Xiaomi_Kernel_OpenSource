@@ -20,9 +20,10 @@ enum smem_type {
 	SMEM_ION,
 };
 
-enum smem_cache_prop {
-	SMEM_CACHED,
-	SMEM_UNCACHED,
+enum smem_prop {
+	SMEM_CACHED = 0x1,
+	SMEM_SECURE = 0x2,
+	SMEM_INPUT = 0x4,
 };
 
 struct msm_smem {
@@ -32,6 +33,7 @@ struct msm_smem {
 	unsigned long device_addr;
 	int domain;
 	int partition_num;
+	int flags;
 	void *smem_priv;
 };
 
@@ -41,6 +43,6 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 void msm_smem_free(void *clt, struct msm_smem *mem);
 void msm_smem_delete_client(void *clt);
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset, int
-		domain, int partition);
+		domain, int partition, int flags);
 int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem);
 #endif
