@@ -22,7 +22,7 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/socinfo.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/ion.h>
 
 #include "devices.h"
