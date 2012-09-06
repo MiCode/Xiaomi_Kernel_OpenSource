@@ -29,7 +29,7 @@
 #include <linux/power/ltc4088-charger.h>
 #include <linux/gpio.h>
 #include <linux/msm_tsens.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/memory.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
