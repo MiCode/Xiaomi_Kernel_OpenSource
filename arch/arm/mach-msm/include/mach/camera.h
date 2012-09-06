@@ -24,7 +24,7 @@
 
 #include <mach/board.h>
 #include <media/msm_camera.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/iommu_domains.h>
 
 #define CONFIG_MSM_CAMERA_DEBUG

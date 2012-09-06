@@ -33,7 +33,7 @@
 #include <mach/camera.h>
 #include <mach/iommu.h>
 #include <media/msm_isp.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/iommu.h>
 #include <media/msm_gestures.h>
 

@@ -15,7 +15,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 int msm_mercury_platform_clk_enable(void);
 int msm_mercury_platform_clk_disable(void);
