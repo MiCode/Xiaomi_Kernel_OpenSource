@@ -501,16 +501,10 @@ static int __rmnet_open(struct net_device *dev)
 static int __rmnet_close(struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
-	int rc;
-	unsigned long flags;
 
-	if (p->ch) {
-		rc = smd_close(p->ch);
-		spin_lock_irqsave(&p->lock, flags);
-		p->ch = 0;
-		spin_unlock_irqrestore(&p->lock, flags);
-		return rc;
-	} else
+	if (p->ch)
+		return 0;
+	else
 		return -EBADF;
 }
 
@@ -529,12 +523,9 @@ static int rmnet_open(struct net_device *dev)
 
 static int rmnet_stop(struct net_device *dev)
 {
-	struct rmnet_private *p = netdev_priv(dev);
-
 	DBG0("[%s] rmnet_stop()\n", dev->name);
 
 	netif_stop_queue(dev);
-	tasklet_kill(&p->tsklt);
 
 	/* TODO: unload modem safely,
 	   currently, this causes unnecessary unloads */
