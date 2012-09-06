@@ -1885,7 +1885,16 @@ int q6asm_enc_cfg_blk_multi_ch_pcm(struct audio_client *ac,
 	enc_cfg.enc_blk.cfg.mpcm.sample_rate = rate;
 	enc_cfg.enc_blk.cfg.mpcm.is_signed = 1;
 	enc_cfg.enc_blk.cfg.mpcm.is_interleaved = 1;
-	if (channels == 2) {
+	if (channels == 1) {
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[0] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[1] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[2] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[3] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[4] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[5] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[6] = 0;
+		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[7] = 0;
+	} else if (channels == 2) {
 		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[0] = PCM_CHANNEL_FL;
 		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[1] = PCM_CHANNEL_FR;
 		enc_cfg.enc_blk.cfg.mpcm.channel_mapping[2] = 0;
@@ -2040,6 +2049,11 @@ int q6asm_set_encdec_chan_map(struct audio_client *ac,
 	} else if (num_channels == 2) {
 		channel_mapping[0] = PCM_CHANNEL_FL;
 		channel_mapping[1] = PCM_CHANNEL_FR;
+	} else if (num_channels == 4) {
+		channel_mapping[0] = PCM_CHANNEL_FL;
+		channel_mapping[1] = PCM_CHANNEL_FR;
+		channel_mapping[1] = PCM_CHANNEL_LB;
+		channel_mapping[1] = PCM_CHANNEL_RB;
 	} else if (num_channels == 6) {
 		channel_mapping[0] = PCM_CHANNEL_FC;
 		channel_mapping[1] = PCM_CHANNEL_FL;
@@ -2047,6 +2061,15 @@ int q6asm_set_encdec_chan_map(struct audio_client *ac,
 		channel_mapping[3] = PCM_CHANNEL_LB;
 		channel_mapping[4] = PCM_CHANNEL_RB;
 		channel_mapping[5] = PCM_CHANNEL_LFE;
+	} else if (num_channels == 8) {
+		channel_mapping[0] = PCM_CHANNEL_FC;
+		channel_mapping[1] = PCM_CHANNEL_FL;
+		channel_mapping[2] = PCM_CHANNEL_FR;
+		channel_mapping[3] = PCM_CHANNEL_LB;
+		channel_mapping[4] = PCM_CHANNEL_RB;
+		channel_mapping[5] = PCM_CHANNEL_LFE;
+		channel_mapping[6] = PCM_CHANNEL_FLC;
+		channel_mapping[7] = PCM_CHANNEL_FRC;
 	} else {
 		pr_err("%s: ERROR.unsupported num_ch = %u\n", __func__,
 				num_channels);
@@ -2303,6 +2326,11 @@ int q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
 	} else if (channels == 2) {
 		channel_mapping[0] = PCM_CHANNEL_FL;
 		channel_mapping[1] = PCM_CHANNEL_FR;
+	} else if (channels == 4) {
+		channel_mapping[0] = PCM_CHANNEL_FL;
+		channel_mapping[1] = PCM_CHANNEL_FR;
+		channel_mapping[1] = PCM_CHANNEL_LB;
+		channel_mapping[1] = PCM_CHANNEL_RB;
 	} else if (channels == 6) {
 		channel_mapping[0] = PCM_CHANNEL_FC;
 		channel_mapping[1] = PCM_CHANNEL_FL;
@@ -2310,6 +2338,15 @@ int q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
 		channel_mapping[3] = PCM_CHANNEL_LB;
 		channel_mapping[4] = PCM_CHANNEL_RB;
 		channel_mapping[5] = PCM_CHANNEL_LFE;
+	} else if (channels == 8) {
+		channel_mapping[0] = PCM_CHANNEL_FC;
+		channel_mapping[1] = PCM_CHANNEL_FL;
+		channel_mapping[2] = PCM_CHANNEL_FR;
+		channel_mapping[3] = PCM_CHANNEL_LB;
+		channel_mapping[4] = PCM_CHANNEL_RB;
+		channel_mapping[5] = PCM_CHANNEL_LFE;
+		channel_mapping[6] = PCM_CHANNEL_FLC;
+		channel_mapping[7] = PCM_CHANNEL_FRC;
 	} else {
 		pr_err("%s: ERROR.unsupported num_ch = %u\n", __func__,
 				channels);
