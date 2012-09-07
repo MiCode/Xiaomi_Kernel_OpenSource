@@ -53,7 +53,7 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	struct msm_vidc_core *core = file->private_data;
 	int i = 0;
 	if (!core) {
-		pr_err("Invalid params, core: %p\n", core);
+		dprintk(VIDC_ERR, "Invalid params, core: %p\n", core);
 		return 0;
 	}
 	INIT_DBG_BUF(dbg_buf);
@@ -85,23 +85,23 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 	struct dentry *dir = NULL;
 	char debugfs_name[MAX_DEBUGFS_NAME];
 	if (!core) {
-		pr_err("Invalid params, core: %p\n", core);
+		dprintk(VIDC_ERR, "Invalid params, core: %p\n", core);
 		goto failed_create_dir;
 	}
 	msm_vidc_debug = 0;
 	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "core%d", core->id);
 	dir = debugfs_create_dir(debugfs_name, parent);
 	if (!dir) {
-		pr_err("Failed to create debugfs for msm_vidc\n");
+		dprintk(VIDC_ERR, "Failed to create debugfs for msm_vidc\n");
 		goto failed_create_dir;
 	}
 	if (!debugfs_create_file("info", S_IRUGO, dir, core, &core_info_fops)) {
-		pr_err("debugfs_create_file: fail\n");
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
 	if (!debugfs_create_u32("debug_level", S_IRUGO | S_IWUSR,
 			parent,	&msm_vidc_debug)) {
-		pr_err("debugfs_create_file: fail\n");
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
 failed_create_dir:
@@ -120,7 +120,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	struct msm_vidc_inst *inst = file->private_data;
 	int i, j;
 	if (!inst) {
-		pr_err("Invalid params, core: %p\n", inst);
+		dprintk(VIDC_ERR, "Invalid params, core: %p\n", inst);
 		return 0;
 	}
 	INIT_DBG_BUF(dbg_buf);
@@ -167,19 +167,20 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 	struct dentry *dir = NULL;
 	char debugfs_name[MAX_DEBUGFS_NAME];
 	if (!inst) {
-		pr_err("Invalid params, inst: %p\n", inst);
+		dprintk(VIDC_ERR, "Invalid params, inst: %p\n", inst);
 		goto failed_create_dir;
 	}
 	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "inst_%p", inst);
 	dir = debugfs_create_dir(debugfs_name, parent);
 	if (!dir) {
-		pr_err("Failed to create debugfs for msm_vidc\n");
+		dprintk(VIDC_ERR, "Failed to create debugfs for msm_vidc\n");
 		goto failed_create_dir;
 	}
 	if (!debugfs_create_file("info", S_IRUGO, dir, inst, &inst_info_fops)) {
-		pr_err("debugfs_create_file: fail\n");
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
+
 failed_create_dir:
 	return dir;
 }

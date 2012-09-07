@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include "vidc_hal.h"
+#include "msm_vidc_debug.h"
 
 static enum vidc_status vidc_map_hal_err_status(int hfi_err)
 {
@@ -81,10 +82,10 @@ void hal_process_sess_evt_seq_changed(struct hal_device *device,
 	struct hfi_frame_size frame_sz;
 	u8 *data_ptr;
 	int prop_id;
-	HAL_MSG_LOW("RECEIVED:EVENT_NOTIFY");
+	dprintk(VIDC_DBG, "RECEIVED:EVENT_NOTIFY");
 	if (sizeof(struct hfi_msg_event_notify_packet)
 		> pkt->size) {
-		HAL_MSG_ERROR("hal_process_session_init_done:bad_pkt_size");
+		dprintk(VIDC_ERR, "hal_process_session_init_done:bad_pkt_size");
 		return;
 	}
 
@@ -139,30 +140,30 @@ void hal_process_sess_evt_seq_changed(struct hal_device *device,
 static void hal_process_event_notify(struct hal_device *device,
 	struct hfi_msg_event_notify_packet *pkt)
 {
-	HAL_MSG_LOW("RECVD:EVENT_NOTIFY");
+	dprintk(VIDC_DBG, "RECVD:EVENT_NOTIFY");
 
 	if (!device || !pkt ||
 		pkt->size < sizeof(struct hfi_msg_event_notify_packet)) {
-		HAL_MSG_ERROR("Invalid Params in %s", __func__);
+		dprintk(VIDC_ERR, "Invalid Params");
 		return;
 	}
 
 	switch (pkt->event_id) {
 	case HFI_EVENT_SYS_ERROR:
-		HAL_MSG_INFO("HFI_EVENT_SYS_ERROR");
+		dprintk(VIDC_INFO, "HFI_EVENT_SYS_ERROR");
 		break;
 	case HFI_EVENT_SESSION_ERROR:
-		HAL_MSG_INFO("HFI_EVENT_SESSION_ERROR");
+		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR");
 		break;
 	case HFI_EVENT_SESSION_SEQUENCE_CHANGED:
-		HAL_MSG_INFO("HFI_EVENT_SESSION_SEQUENCE_CHANGED");
+		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_SEQUENCE_CHANGED");
 		hal_process_sess_evt_seq_changed(device, pkt);
 		break;
 	case HFI_EVENT_SESSION_PROPERTY_CHANGED:
-		HAL_MSG_INFO("HFI_EVENT_SESSION_PROPERTY_CHANGED");
+		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_PROPERTY_CHANGED");
 		break;
 	default:
-		HAL_MSG_INFO("hal_process_event_notify:unkown_event_id");
+		dprintk(VIDC_INFO, "hal_process_event_notify:unkown_event_id");
 		break;
 	}
 }
@@ -177,9 +178,9 @@ static void hal_process_sys_init_done(struct hal_device *device,
 	int prop_id;
 	enum vidc_status status = VIDC_ERR_NONE;
 
-	HAL_MSG_LOW("RECEIVED:SYS_INIT_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SYS_INIT_DONE");
 	if (sizeof(struct hfi_msg_sys_init_done_packet) > pkt->size) {
-		HAL_MSG_ERROR("hal_process_sys_init_done:bad_pkt_size: %d",
+		dprintk(VIDC_ERR, "hal_process_sys_init_done:bad_pkt_size: %d",
 				pkt->size);
 		return;
 	}
@@ -188,7 +189,7 @@ static void hal_process_sys_init_done(struct hal_device *device,
 
 	if (!status) {
 		if (pkt->num_properties == 0) {
-			HAL_MSG_ERROR("hal_process_sys_init_done:"
+			dprintk(VIDC_ERR, "hal_process_sys_init_done:"
 						"no_properties");
 			status = VIDC_ERR_FAIL;
 			goto err_no_prop;
@@ -198,7 +199,7 @@ static void hal_process_sys_init_done(struct hal_device *device,
 			hfi_msg_sys_init_done_packet) + sizeof(u32);
 
 		if (rem_bytes == 0) {
-			HAL_MSG_ERROR("hal_process_sys_init_done:"
+			dprintk(VIDC_ERR, "hal_process_sys_init_done:"
 						"missing_prop_info");
 			status = VIDC_ERR_FAIL;
 			goto err_no_prop;
@@ -231,7 +232,7 @@ static void hal_process_sys_init_done(struct hal_device *device,
 				break;
 			}
 			default:
-				HAL_MSG_ERROR("hal_process_sys_init_done:"
+				dprintk(VIDC_ERR, "hal_process_sys_init_done:"
 							"bad_prop_id");
 				status = VIDC_ERR_BAD_PARAM;
 				break;
@@ -259,11 +260,12 @@ static void hal_process_sys_rel_resource_done(struct hal_device *device,
 	enum vidc_status status = VIDC_ERR_NONE;
 	u32 pkt_size;
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
-	HAL_MSG_ERROR("RECEIVED:SYS_RELEASE_RESOURCE_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SYS_RELEASE_RESOURCE_DONE");
 	pkt_size = sizeof(struct hfi_msg_sys_release_resource_done_packet);
 	if (pkt_size > pkt->size) {
-		HAL_MSG_ERROR("hal_process_sys_rel_resource_done:bad size:%d",
-				pkt->size);
+		dprintk(VIDC_ERR,
+			"hal_process_sys_rel_resource_done:bad size:%d",
+			pkt->size);
 		return;
 	}
 	status = vidc_map_hal_err_status((u32)pkt->error_type);
@@ -290,14 +292,15 @@ static void hal_process_sess_get_prop_buf_req(
 	u32 req_bytes;
 	enum vidc_status rc = VIDC_ERR_NONE;
 
-	HAL_MSG_LOW("Entered %s", __func__);
+	dprintk(VIDC_DBG, "Entered ");
 	req_bytes = prop->size - sizeof(
 	struct hfi_msg_session_property_info_packet);
 
 	if (req_bytes == 0 || (req_bytes % sizeof(
 		struct hfi_buffer_requirements))) {
-		HAL_MSG_ERROR("hal_process_sess_get_prop_buf_req:bad_pkt_size:"
-					" %d", req_bytes);
+		dprintk(VIDC_ERR,
+			"hal_process_sess_get_prop_buf_req:bad_pkt_size: %d",
+			req_bytes);
 		return;
 	}
 
@@ -309,11 +312,11 @@ static void hal_process_sess_get_prop_buf_req(
 			buffer_count_actual)
 			|| (hfi_buf_req->buffer_alignment == 0)
 			|| (hfi_buf_req->buffer_size == 0)) {
-			HAL_MSG_ERROR("hal_process_sess_get_prop_buf_req:"
+			dprintk(VIDC_ERR, "hal_process_sess_get_prop_buf_req:"
 						"bad_buf_req");
 			rc = VIDC_ERR_FAIL;
 		}
-		HAL_MSG_LOW("got buffer requirements for: %d",
+		dprintk(VIDC_DBG, "got buffer requirements for: %d",
 					hfi_buf_req->buffer_type);
 		switch (hfi_buf_req->buffer_type) {
 		case HFI_BUFFER_INPUT:
@@ -362,8 +365,9 @@ static void hal_process_sess_get_prop_buf_req(
 				HAL_BUFFER_INTERNAL_PERSIST;
 			break;
 		default:
-			HAL_MSG_ERROR("%s: bad_buffer_type: %d",
-				__func__, hfi_buf_req->buffer_type);
+			dprintk(VIDC_ERR,
+			"hal_process_sess_get_prop_buf_req: bad_buffer_type: %d",
+			hfi_buf_req->buffer_type);
 			break;
 		}
 		req_bytes -= sizeof(struct hfi_buffer_requirements);
@@ -377,15 +381,16 @@ static void hal_process_session_prop_info(struct hal_device *device,
 	struct msm_vidc_cb_cmd_done cmd_done;
 	struct buffer_requirements buff_req;
 
-	HAL_MSG_INFO("Received SESSION_PROPERTY_INFO");
+	dprintk(VIDC_DBG, "Received SESSION_PROPERTY_INFO");
 
 	if (pkt->size < sizeof(struct hfi_msg_session_property_info_packet)) {
-		HAL_MSG_ERROR("hal_process_session_prop_info:bad_pkt_size");
+		dprintk(VIDC_ERR, "hal_process_session_prop_info:bad_pkt_size");
 		return;
 	}
 
 	if (pkt->num_properties == 0) {
-		HAL_MSG_ERROR("hal_process_session_prop_info:no_properties");
+		dprintk(VIDC_ERR,
+			"hal_process_session_prop_info:no_properties");
 		return;
 	}
 
@@ -404,7 +409,7 @@ static void hal_process_session_prop_info(struct hal_device *device,
 		device->callback(SESSION_PROPERTY_INFO, &cmd_done);
 		break;
 	default:
-		HAL_MSG_ERROR("hal_process_session_prop_info:"
+		dprintk(VIDC_ERR, "hal_process_session_prop_info:"
 					"unknown_prop_id: %d",
 				pkt->rg_property_data[0]);
 		break;
@@ -417,10 +422,10 @@ static void hal_process_session_init_done(struct hal_device *device,
 	struct msm_vidc_cb_cmd_done cmd_done;
 	struct vidc_hal_session_init_done session_init_done;
 
-	HAL_MSG_LOW("RECEIVED:SESSION_INIT_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_INIT_DONE");
 	if (sizeof(struct hfi_msg_sys_session_init_done_packet)
 		> pkt->size) {
-		HAL_MSG_ERROR("hal_process_session_init_done:bad_pkt_size");
+		dprintk(VIDC_ERR, "hal_process_session_init_done:bad_pkt_size");
 		return;
 	}
 
@@ -445,11 +450,11 @@ static void hal_process_session_load_res_done(struct hal_device *device,
 	struct hfi_msg_session_load_resources_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
-	HAL_MSG_LOW("RECEIVED:SESSION_LOAD_RESOURCES_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_LOAD_RESOURCES_DONE");
 
 	if (sizeof(struct hfi_msg_session_load_resources_done_packet) !=
 		pkt->size) {
-		HAL_MSG_ERROR("hal_process_session_load_res_done:"
+		dprintk(VIDC_ERR, "hal_process_session_load_res_done:"
 		" bad packet size: %d", pkt->size);
 		return;
 	}
@@ -470,10 +475,10 @@ static void hal_process_session_flush_done(struct hal_device *device,
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 
-	HAL_MSG_LOW("RECEIVED:SESSION_FLUSH_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_FLUSH_DONE");
 
 	if (sizeof(struct hfi_msg_session_flush_done_packet) != pkt->size) {
-		HAL_MSG_ERROR("hal_process_session_flush_done: "
+		dprintk(VIDC_ERR, "hal_process_session_flush_done: "
 		"bad packet size: %d", pkt->size);
 		return;
 	}
@@ -493,11 +498,11 @@ static void hal_process_session_etb_done(struct hal_device *device,
 {
 	struct msm_vidc_cb_data_done data_done;
 
-	HAL_MSG_LOW("RECEIVED:SESSION_ETB_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_ETB_DONE");
 
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_session_empty_buffer_done_packet)) {
-		HAL_MSG_ERROR("hal_process_session_etb_done:bad_pkt_size");
+		dprintk(VIDC_ERR, "hal_process_session_etb_done:bad_pkt_size");
 		return;
 	}
 
@@ -525,13 +530,13 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 	struct hal_session *session;
 
 	if (!msg_hdr) {
-		HAL_MSG_ERROR("Invalid Params in %s", __func__);
+		dprintk(VIDC_ERR, "Invalid Params in ");
 		return;
 	}
 
 	session = (struct hal_session *)
 		((struct hal_session *)	pack->session_id)->session_id;
-	HAL_MSG_ERROR("RECEIVED:SESSION_FTB_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_FTB_DONE");
 
 	memset(&data_done, 0, sizeof(struct msm_vidc_cb_data_done));
 
@@ -542,11 +547,13 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 		if (sizeof(struct
 			hfi_msg_session_fill_buffer_done_compressed_packet)
 			!= pkt->size) {
-			HAL_MSG_ERROR("%s: bad_pkt_size", __func__);
+			dprintk(VIDC_ERR,
+				"hal_process_session_ftb_done: bad_pkt_size");
 			return;
 		} else if (pkt->error_type != HFI_ERR_NONE) {
-			HAL_MSG_ERROR("%s: got buffer back with error %x",
-					__func__, pkt->error_type);
+			dprintk(VIDC_ERR,
+				"got buffer back with error %x",
+				pkt->error_type);
 			/* Proceed with the FBD */
 		}
 
@@ -577,7 +584,7 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 		if (sizeof(struct
 		hfi_msg_session_fbd_uncompressed_plane0_packet)
 		> pkt->size) {
-			HAL_MSG_ERROR("hal_process_session_ftb_done:"
+			dprintk(VIDC_ERR, "hal_process_session_ftb_done:"
 						"bad_pkt_size");
 			return;
 		}
@@ -623,11 +630,11 @@ static void hal_process_session_start_done(struct hal_device *device,
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 
-	HAL_MSG_LOW("RECEIVED:SESSION_START_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_START_DONE");
 
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_session_start_done_packet)) {
-		HAL_MSG_ERROR("hal_process_session_start_done:"
+		dprintk(VIDC_ERR, "hal_process_session_start_done:"
 		"bad packet/packet size: %d", pkt->size);
 		return;
 	}
@@ -647,11 +654,11 @@ static void hal_process_session_stop_done(struct hal_device *device,
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 
-	HAL_MSG_LOW("RECEIVED:SESSION_STOP_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_STOP_DONE");
 
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_session_stop_done_packet)) {
-		HAL_MSG_ERROR("hal_process_session_stop_done:"
+		dprintk(VIDC_ERR, "hal_process_session_stop_done:"
 		"bad packet/packet size: %d", pkt->size);
 		return;
 	}
@@ -671,11 +678,11 @@ static void hal_process_session_rel_res_done(struct hal_device *device,
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 
-	HAL_MSG_LOW("RECEIVED:SESSION_RELEASE_RESOURCES_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_RELEASE_RESOURCES_DONE");
 
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_session_release_resources_done_packet)) {
-		HAL_MSG_ERROR("hal_process_session_rel_res_done:"
+		dprintk(VIDC_ERR, "hal_process_session_rel_res_done:"
 		"bad packet/packet size: %d", pkt->size);
 		return;
 	}
@@ -697,18 +704,18 @@ static void hal_process_session_end_done(struct hal_device *device,
 	struct list_head *curr, *next;
 	struct hal_session *sess_close;
 
-	HAL_MSG_LOW("RECEIVED:SESSION_END_DONE");
+	dprintk(VIDC_DBG, "RECEIVED:SESSION_END_DONE");
 
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_sys_session_end_done_packet)) {
-		HAL_MSG_ERROR("hal_process_session_end_done: "
+		dprintk(VIDC_ERR, "hal_process_session_end_done: "
 		"bad packet/packet size: %d", pkt->size);
 		return;
 	}
 
 	list_for_each_safe(curr, next, &device->sess_head) {
 		sess_close = list_entry(curr, struct hal_session, list);
-		HAL_MSG_MEDIUM("deleted the session: 0x%x",
+		dprintk(VIDC_INFO, "deleted the session: 0x%x",
 					   sess_close->session_id);
 		list_del(&sess_close->list);
 		kfree(sess_close);
@@ -729,13 +736,12 @@ static void hal_process_msg_packet(struct hal_device *device,
 {
 	if (!device || !msg_hdr || msg_hdr->size <
 		VIDC_IFACEQ_MIN_PKT_SIZE) {
-		HAL_MSG_ERROR("hal_process_msg_packet:bad"
+		dprintk(VIDC_ERR, "hal_process_msg_packet:bad"
 			"packet/packet size: %d", msg_hdr->size);
 		return;
 	}
 
-	HAL_MSG_ERROR("Received: 0x%x in %s", msg_hdr->packet, __func__);
-
+	dprintk(VIDC_INFO, "Received: 0x%x in ", msg_hdr->packet);
 	switch (msg_hdr->packet) {
 	case HFI_MSG_EVENT_NOTIFY:
 		hal_process_event_notify(device,
@@ -800,7 +806,7 @@ static void hal_process_msg_packet(struct hal_device *device,
 			msg_hdr);
 		break;
 	default:
-		HAL_MSG_ERROR("UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);
+		dprintk(VIDC_ERR, "UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);
 		break;
 	}
 }
@@ -809,13 +815,13 @@ void vidc_hal_response_handler(struct hal_device *device)
 {
 	u8 packet[VIDC_IFACEQ_MED_PKT_SIZE];
 
-	HAL_MSG_INFO("############vidc_hal_response_handler\n");
+	dprintk(VIDC_INFO, "############vidc_hal_response_handler\n");
 	if (device) {
 		while (!vidc_hal_iface_msgq_read(device, packet)) {
 			hal_process_msg_packet(device,
 				(struct vidc_hal_msg_pkt_hdr *)	packet);
 		}
 	} else {
-		HAL_MSG_ERROR("SPURIOUS_INTERRUPT");
+		dprintk(VIDC_ERR, "SPURIOUS_INTERRUPT");
 	}
 }
