@@ -219,7 +219,7 @@ static void __stm_enable(struct stm_drvdata *drvdata)
 
 	stm_writel(drvdata, 0xFFF, STMSYNCR);
 	/* SYNCEN is read-only and HWTEN is not implemented */
-	stm_writel(drvdata, 0x30003, STMTCSR);
+	stm_writel(drvdata, 0x100003, STMTCSR);
 
 	STM_LOCK(drvdata);
 }
@@ -283,7 +283,7 @@ static void __stm_disable(struct stm_drvdata *drvdata)
 {
 	STM_UNLOCK(drvdata);
 
-	stm_writel(drvdata, 0x30000, STMTCSR);
+	stm_writel(drvdata, 0x100000, STMTCSR);
 
 	STM_LOCK(drvdata);
 
