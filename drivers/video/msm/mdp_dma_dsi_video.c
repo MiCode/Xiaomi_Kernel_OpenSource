@@ -254,6 +254,8 @@ void mdp_dma_video_vsync_ctrl(int enable)
 		return;
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
+	if (!enable)
+		INIT_COMPLETION(vsync_cntrl.vsync_wait);
 	vsync_cntrl.vsync_irq_enabled = enable;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
@@ -266,7 +268,6 @@ void mdp_dma_video_vsync_ctrl(int enable)
 		mdp_enable_irq(MDP_VSYNC_TERM);
 		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	} else {
-		INIT_COMPLETION(vsync_cntrl.vsync_wait);
 		wait_for_completion(&vsync_cntrl.vsync_wait);
 		mdp_disable_irq(MDP_VSYNC_TERM);
 	}
