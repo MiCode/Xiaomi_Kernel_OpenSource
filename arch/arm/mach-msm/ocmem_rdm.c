@@ -38,8 +38,12 @@
 
 #define DM_INTR_CLR (0x8)
 #define DM_INTR_MASK (0xC)
-#define DM_GEN_STATUS (0x10)
-#define DM_STATUS (0x14)
+#define DM_INT_STATUS (0x10)
+#define DM_GEN_STATUS (0x14)
+#define DM_CLR_OFFSET (0x18)
+#define DM_CLR_SIZE (0x1C)
+#define DM_CLR_PATTERN (0x20)
+#define DM_CLR_TRIGGER (0x24)
 #define DM_CTRL (0x1000)
 #define DM_TBL_BASE (0x1010)
 #define DM_TBL_IDX(x) ((x) * 0x18)
@@ -82,8 +86,9 @@
 #define DM_DIR_SHIFT 0x0
 
 #define DM_DONE 0x1
-#define DM_INTR_ENABLE 0x0
-#define DM_INTR_DISABLE 0x1
+#define DM_MASK_RESET 0x0
+#define DM_INTR_RESET 0x20003
+#define DM_CLR_ENABLE 0x1
 
 static void *br_base;
 static void *dm_base;
@@ -122,11 +127,58 @@ static inline int client_slot_start(int id)
 
 static irqreturn_t ocmem_dm_irq_handler(int irq, void *dev_id)
 {
+	unsigned status;
+	unsigned irq_status;
+	status = ocmem_read(dm_base + DM_GEN_STATUS);
+	irq_status = ocmem_read(dm_base + DM_INT_STATUS);
+	pr_debug("irq:dm_status %x irq_status %x\n", status, irq_status);
+	if (irq_status & BIT(0)) {
+		pr_debug("Data mover completed\n");
+		irq_status &= ~BIT(0);
+		ocmem_write(irq_status, dm_base + DM_INTR_CLR);
+	} else if (irq_status & BIT(1)) {
+		pr_debug("Data clear engine completed\n");
+		irq_status &= ~BIT(1);
+		ocmem_write(irq_status, dm_base + DM_INTR_CLR);
+	} else {
+		BUG_ON(1);
+	}
 	atomic_set(&dm_pending, 0);
-	ocmem_write(DM_INTR_DISABLE, dm_base + DM_INTR_CLR);
 	wake_up_interruptible(&dm_wq);
 	return IRQ_HANDLED;
 }
+
+#ifdef CONFIG_MSM_OCMEM_NONSECURE
+int ocmem_clear(unsigned long start, unsigned long size)
+{
+	atomic_set(&dm_pending, 1);
+	/* Clear DM Mask */
+	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
+	/* Clear DM Interrupts */
+	ocmem_write(DM_INTR_RESET, dm_base + DM_INTR_CLR);
+	/* DM CLR offset */
+	ocmem_write(start, dm_base + DM_CLR_OFFSET);
+	/* DM CLR size */
+	ocmem_write(size, dm_base + DM_CLR_SIZE);
+	/* Wipe out memory as "OCMM" */
+	ocmem_write(0x4D4D434F, dm_base + DM_CLR_PATTERN);
+	/* The offset, size and pattern for clearing must be set
+	 * before triggering the clearing engine
+	 */
+	mb();
+	/* Trigger Data Clear */
+	ocmem_write(DM_CLR_ENABLE, dm_base + DM_CLR_TRIGGER);
+
+	wait_event_interruptible(dm_wq,
+		atomic_read(&dm_pending) == 0);
+	return 0;
+}
+#else
+int ocmem_clear(unsigned long start, unsigned long size)
+{
+	return 0;
+}
+#endif
 
 /* Lock during transfers */
 int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
@@ -195,9 +247,13 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 	dm_ctrl |= (DM_BLOCK_256 << DM_BR_BLK_SHIFT);
 	dm_ctrl |= (direction << DM_DIR_SHIFT);
 
-	status = ocmem_read(dm_base + DM_STATUS);
+	status = ocmem_read(dm_base + DM_GEN_STATUS);
 	pr_debug("Transfer status before %x\n", status);
 	atomic_set(&dm_pending, 1);
+	/* The DM and BR tables must be programmed before triggering the
+	 * Data Mover else the coherent transfer would be corrupted
+	 */
+	mb();
 	/* Trigger DM */
 	ocmem_write(dm_ctrl, dm_base + DM_CTRL);
 	pr_debug("ocmem: rdm: dm_ctrl %x br_ctrl %x\n", dm_ctrl, br_ctrl);
@@ -236,8 +292,10 @@ int ocmem_rdm_init(struct platform_device *pdev)
 	}
 
 	init_waitqueue_head(&dm_wq);
+	/* Clear DM Mask */
+	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
 	/* enable dm interrupts */
-	ocmem_write(DM_INTR_ENABLE, dm_base + DM_INTR_MASK);
+	ocmem_write(DM_INTR_RESET, dm_base + DM_INTR_CLR);
 	ocmem_disable_core_clock();
 	return 0;
 }
