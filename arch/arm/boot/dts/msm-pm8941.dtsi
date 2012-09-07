@@ -385,11 +385,44 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
+			chan@1 {
+				label = "dc_in";
+				qcom,channel-num = <1>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <4>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
 			chan@2 {
 				label = "vchg_sns";
 				qcom,channel-num = <2>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <3>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@3 {
+				label = "spare1";
+				qcom,channel-num = <3>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <6>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@4 {
+				label = "spare2";
+				qcom,channel-num = <4>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <6>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
 				qcom,hw-settle-time = <0>;
@@ -429,6 +462,17 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
+			chan@8 {
+				label = "die_temp";
+				qcom,channel-num = <8>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
 			chan@9 {
 				label = "ref_625mv";
 				qcom,channel-num = <9>;
@@ -447,6 +491,39 @@
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@48 {
+				label = "batt_therm";
+				qcom,channel-num = <48>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <1>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@49 {
+				label = "batt_id";
+				qcom,channel-num = <49>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@50 {
+				label = "xo_therm1";
+				qcom,channel-num = <49>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <4>;
 				qcom,hw-settle-time = <0>;
 				qcom,fast-avg-setup = <0>;
 			};
