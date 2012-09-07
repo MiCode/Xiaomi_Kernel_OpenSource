@@ -1097,6 +1097,7 @@ static int qce_sps_init(struct qce_device *pce_dev)
 	/* SPS driver wll handle the crypto BAM IRQ */
 	bam.irq = (u32)pce_dev->ce_sps.bam_irq;
 	bam.manage = SPS_BAM_MGR_LOCAL;
+	bam.ee = 1;
 
 	pr_debug("bam physical base=0x%x\n", (u32)bam.phys_addr);
 	pr_debug("bam virtual base=0x%x\n", (u32)bam.virt_addr);
