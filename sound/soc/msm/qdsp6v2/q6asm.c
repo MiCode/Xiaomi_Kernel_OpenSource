@@ -1060,8 +1060,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: ASM_SESSION_CMDRSP_GET_SESSIONTIME_V3, payload[0] = %d, payload[1] = %d, payload[2] = %d\n",
 				 __func__,
 				 payload[0], payload[1], payload[2]);
-		ac->time_stamp = (uint64_t)(((uint64_t)payload[1] << 32) |
-				payload[2]);
+		ac->time_stamp = (uint64_t)(((uint64_t)payload[2] << 32) |
+				payload[1]);
 		if (atomic_read(&ac->cmd_state)) {
 			atomic_set(&ac->cmd_state, 0);
 			wake_up(&ac->cmd_wait);
