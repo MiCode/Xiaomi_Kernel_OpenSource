@@ -844,8 +844,8 @@
 		reg = <0xfd440000 0x20000>,
 		      <0xfd444000 0x8000>;
 		reg-names = "crypto-base","crypto-bam-base";
-		interrupts = <0 235 0>;
-		qcom,bam-pipe-pair = <0>;
+		interrupts = <0 236 0>;
+		qcom,bam-pipe-pair = <1>;
 	};
 
         qcom,qcrypto@fd444000 {
@@ -853,8 +853,8 @@
 		reg = <0xfd440000 0x20000>,
 		      <0xfd444000 0x8000>;
 		reg-names = "crypto-base","crypto-bam-base";
-		interrupts = <0 235 0>;
-		qcom,bam-pipe-pair = <1>;
+		interrupts = <0 236 0>;
+		qcom,bam-pipe-pair = <2>;
 	};
 
 	qcom,usbbam@f9304000 {
