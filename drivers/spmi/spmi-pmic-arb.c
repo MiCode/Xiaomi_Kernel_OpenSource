@@ -638,6 +638,12 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		return -ENODEV;
 	pmic_arb->channel = (u8)prop;
 
+	ret = irq_set_irq_wake(pmic_arb->pic_irq, 1);
+	if (unlikely(ret)) {
+		pr_err("Unable to set wakeup irq, err=%d\n", ret);
+		return -ENODEV;
+	}
+
 	pmic_arb->dev = &pdev->dev;
 	platform_set_drvdata(pdev, pmic_arb);
 	spmi_set_ctrldata(&pmic_arb->controller, pmic_arb);
@@ -679,6 +685,7 @@ err_reg_controller:
 	spmi_del_controller(&pmic_arb->controller);
 err_add_controller:
 	platform_set_drvdata(pdev, NULL);
+	irq_set_irq_wake(pmic_arb->pic_irq, 0);
 	return ret;
 }
 
@@ -686,7 +693,7 @@ static int spmi_pmic_arb_remove(struct platform_device *pdev)
 {
 	struct spmi_pmic_arb_dev *pmic_arb = platform_get_drvdata(pdev);
 
-	free_irq(pmic_arb->pic_irq, pmic_arb);
+	irq_set_irq_wake(pmic_arb->pic_irq, 0);
 	platform_set_drvdata(pdev, NULL);
 	spmi_del_controller(&pmic_arb->controller);
 	return 0;
