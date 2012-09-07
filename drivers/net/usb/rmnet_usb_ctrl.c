@@ -122,6 +122,55 @@ static int is_dev_connected(struct rmnet_ctrl_dev *dev)
 	return 0;
 }
 
+static void get_encap_work(struct work_struct *w)
+{
+	struct usb_device	*udev;
+	struct rmnet_ctrl_dev	*dev =
+			container_of(w, struct rmnet_ctrl_dev, get_encap_work);
+	int			status;
+
+	udev = interface_to_usbdev(dev->intf);
+
+	status = usb_autopm_get_interface(dev->intf);
+	if (status < 0 && status != -EAGAIN && status != -EACCES) {
+		dev->get_encap_failure_cnt++;
+		return;
+	}
+
+	usb_fill_control_urb(dev->rcvurb, udev,
+				usb_rcvctrlpipe(udev, 0),
+				(unsigned char *)dev->in_ctlreq,
+				dev->rcvbuf,
+				DEFAULT_READ_URB_LENGTH,
+				resp_avail_cb, dev);
+
+
+	usb_anchor_urb(dev->rcvurb, &dev->rx_submitted);
+	status = usb_submit_urb(dev->rcvurb, GFP_KERNEL);
+	if (status) {
+		dev->get_encap_failure_cnt++;
+		usb_unanchor_urb(dev->rcvurb);
+		usb_autopm_put_interface(dev->intf);
+		dev_err(dev->devicep,
+		"%s: Error submitting Read URB %d\n", __func__, status);
+		goto resubmit_int_urb;
+	}
+
+	return;
+
+resubmit_int_urb:
+	/*check if it is already submitted in resume*/
+	if (!dev->inturb->anchor) {
+		usb_anchor_urb(dev->inturb, &dev->rx_submitted);
+		status = usb_submit_urb(dev->inturb, GFP_KERNEL);
+		if (status) {
+			usb_unanchor_urb(dev->inturb);
+			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+				__func__, status);
+		}
+	}
+}
+
 static void notification_available_cb(struct urb *urb)
 {
 	int				status;
@@ -133,12 +182,13 @@ static void notification_available_cb(struct urb *urb)
 
 	switch (urb->status) {
 	case 0:
+	/*if non zero lenght of data received while unlink*/
+	case -ENOENT:
 		/*success*/
 		break;
 
 	/*do not resubmit*/
 	case -ESHUTDOWN:
-	case -ENOENT:
 	case -ECONNRESET:
 	case -EPROTO:
 		return;
@@ -156,26 +206,17 @@ static void notification_available_cb(struct urb *urb)
 		goto resubmit_int_urb;
 	}
 
+	if (!urb->actual_length)
+		return;
+
 	ctrl = urb->transfer_buffer;
 
 	switch (ctrl->bNotificationType) {
 	case USB_CDC_NOTIFY_RESPONSE_AVAILABLE:
 		dev->resp_avail_cnt++;
-		usb_fill_control_urb(dev->rcvurb, udev,
-					usb_rcvctrlpipe(udev, 0),
-					(unsigned char *)dev->in_ctlreq,
-					dev->rcvbuf,
-					DEFAULT_READ_URB_LENGTH,
-					resp_avail_cb, dev);
-
-		status = usb_submit_urb(dev->rcvurb, GFP_ATOMIC);
-		if (status) {
-			dev_err(dev->devicep,
-			"%s: Error submitting Read URB %d\n", __func__, status);
-			goto resubmit_int_urb;
-		}
 
 		usb_mark_last_busy(udev);
+		queue_work(dev->wq, &dev->get_encap_work);
 
 		if (!dev->resp_available) {
 			dev->resp_available = true;
@@ -189,10 +230,13 @@ static void notification_available_cb(struct urb *urb)
 	}
 
 resubmit_int_urb:
+	usb_anchor_urb(urb, &dev->rx_submitted);
 	status = usb_submit_urb(urb, GFP_ATOMIC);
-	if (status)
+	if (status) {
+		usb_unanchor_urb(urb);
 		dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
 		__func__, status);
+	}
 
 	return;
 }
@@ -207,6 +251,8 @@ static void resp_avail_cb(struct urb *urb)
 	size_t				cpkt_size = 0;
 
 	udev = interface_to_usbdev(dev->intf);
+
+	usb_autopm_put_interface_async(dev->intf);
 
 	switch (urb->status) {
 	case 0:
@@ -263,41 +309,41 @@ static void resp_avail_cb(struct urb *urb)
 	wake_up(&dev->read_wait_queue);
 
 resubmit_int_urb:
-	/*re-submit int urb to check response available*/
-	usb_mark_last_busy(udev);
-	status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
-	if (status)
-		dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
-			__func__, status);
+	/*check if it is already submitted in resume*/
+	if (!dev->inturb->anchor) {
+		usb_mark_last_busy(udev);
+		usb_anchor_urb(dev->inturb, &dev->rx_submitted);
+		status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
+		if (status) {
+			usb_unanchor_urb(dev->inturb);
+			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+				__func__, status);
+		}
+	}
 }
 
 int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
 {
 	int	retval = 0;
 
+	usb_anchor_urb(dev->inturb, &dev->rx_submitted);
 	retval = usb_submit_urb(dev->inturb, GFP_KERNEL);
-	if (retval < 0)
-		dev_err(dev->devicep, "%s Intr submit %d\n", __func__, retval);
+	if (retval < 0) {
+		usb_unanchor_urb(dev->inturb);
+		dev_err(dev->devicep, "%s Intr submit %d\n", __func__,
+				retval);
+	}
 
 	return retval;
 }
 
-int rmnet_usb_ctrl_stop_rx(struct rmnet_ctrl_dev *dev)
+int rmnet_usb_ctrl_suspend(struct rmnet_ctrl_dev *dev)
 {
-	if (!is_dev_connected(dev)) {
-		dev_dbg(dev->devicep, "%s: Ctrl device disconnected\n",
-			__func__);
-		return -ENODEV;
-	}
-
-	dev_dbg(dev->devicep, "%s\n", __func__);
-
-	usb_kill_urb(dev->rcvurb);
-	usb_kill_urb(dev->inturb);
+	if (!flush_work_sync(&dev->get_encap_work))
+		usb_kill_anchored_urbs(&dev->rx_submitted);
 
 	return 0;
 }
-
 static int rmnet_usb_ctrl_alloc_rx(struct rmnet_ctrl_dev *dev)
 {
 	int	retval = -ENOMEM;
@@ -826,7 +872,6 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 
 void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 {
-	rmnet_usb_ctrl_stop_rx(dev);
 
 	mutex_lock(&dev->dev_lock);
 
@@ -839,13 +884,16 @@ void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 
 	wake_up(&dev->read_wait_queue);
 
+	cancel_work_sync(&dev->get_encap_work);
+
+	usb_kill_anchored_urbs(&dev->tx_submitted);
+	usb_kill_anchored_urbs(&dev->rx_submitted);
+
 	usb_free_urb(dev->inturb);
 	dev->inturb = NULL;
 
 	kfree(dev->intbuf);
 	dev->intbuf = NULL;
-
-	usb_kill_anchored_urbs(&dev->tx_submitted);
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -879,6 +927,7 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 				"cbits_tomdm:              %d\n"
 				"mdm_wait_timeout:         %u\n"
 				"zlp_cnt:                  %u\n"
+				"get_encap_failure_cnt     %u\n"
 				"dev opened:               %s\n",
 				dev, dev->name,
 				dev->snd_encap_cmd_cnt,
@@ -890,6 +939,7 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 				dev->cbits_tomdm,
 				dev->mdm_wait_timeout,
 				dev->zlp_cnt,
+				dev->get_encap_failure_cnt,
 				dev->is_opened ? "OPEN" : "CLOSE");
 
 	}
@@ -968,12 +1018,21 @@ int rmnet_usb_ctrl_init(void)
 		/*for debug purpose*/
 		snprintf(dev->name, CTRL_DEV_MAX_LEN, "hsicctl%d", n);
 
+		dev->wq = create_singlethread_workqueue(dev->name);
+		if (!dev->wq) {
+			pr_err("unable to allocate workqueue");
+			kfree(dev);
+			goto error0;
+		}
+
 		mutex_init(&dev->dev_lock);
 		spin_lock_init(&dev->rx_lock);
 		init_waitqueue_head(&dev->read_wait_queue);
 		init_waitqueue_head(&dev->open_wait_queue);
 		INIT_LIST_HEAD(&dev->rx_list);
 		init_usb_anchor(&dev->tx_submitted);
+		init_usb_anchor(&dev->rx_submitted);
+		INIT_WORK(&dev->get_encap_work, get_encap_work);
 
 		status = rmnet_usb_ctrl_alloc_rx(dev);
 		if (status < 0) {
@@ -1074,6 +1133,7 @@ void rmnet_usb_ctrl_exit(void)
 		device_remove_file(ctrl_dev[i]->devicep, &dev_attr_modem_wait);
 #endif
 		cdev_del(&ctrl_dev[i]->cdev);
+		destroy_workqueue(ctrl_dev[i]->wq);
 		kfree(ctrl_dev[i]);
 		ctrl_dev[i] = NULL;
 		device_destroy(ctrldev_classp, MKDEV(MAJOR(ctrldev_num), i));

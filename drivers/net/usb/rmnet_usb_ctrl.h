@@ -34,6 +34,7 @@ struct rmnet_ctrl_dev {
 	struct urb		*rcvurb;
 	struct urb		*inturb;
 	struct usb_anchor	tx_submitted;
+	struct usb_anchor	rx_submitted;
 	void			*rcvbuf;
 	void			*intbuf;
 	struct usb_ctrlrequest	*in_ctlreq;
@@ -43,6 +44,9 @@ struct rmnet_ctrl_dev {
 	struct list_head	rx_list;
 	wait_queue_head_t	read_wait_queue;
 	wait_queue_head_t	open_wait_queue;
+
+	struct workqueue_struct	*wq;
+	struct work_struct	get_encap_work;
 
 	unsigned		is_opened;
 
@@ -66,6 +70,7 @@ struct rmnet_ctrl_dev {
 	unsigned int		snd_encap_cmd_cnt;
 	unsigned int		get_encap_resp_cnt;
 	unsigned int		resp_avail_cnt;
+	unsigned int		get_encap_failure_cnt;
 	unsigned int		set_ctrl_line_state_cnt;
 	unsigned int		tx_ctrl_err_cnt;
 	unsigned int		zlp_cnt;
@@ -74,7 +79,7 @@ struct rmnet_ctrl_dev {
 extern struct rmnet_ctrl_dev *ctrl_dev[];
 
 extern int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *);
-extern int rmnet_usb_ctrl_stop_rx(struct rmnet_ctrl_dev *);
+extern int rmnet_usb_ctrl_suspend(struct rmnet_ctrl_dev *dev);
 extern int rmnet_usb_ctrl_init(void);
 extern void rmnet_usb_ctrl_exit(void);
 extern int rmnet_usb_ctrl_probe(struct usb_interface *intf,
