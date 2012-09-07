@@ -399,6 +399,7 @@ int32_t msm_sensor_get_csi_params(struct msm_sensor_ctrl_t *s_ctrl,
 			csi_lane_assign;
 		sensor_output_info->csi_lane_mask = csi_lane_params->
 			csi_lane_mask;
+		sensor_output_info->csi_phy_sel = csi_lane_params->csi_phy_sel;
 	}
 	sensor_output_info->csi_if = s_ctrl->sensordata->csi_if;
 	for (index = 0; index < sensor_output_info->csi_if; index++)
@@ -1173,6 +1174,14 @@ static int32_t msm_sensor_init_csi_data(struct device_node *of_node,
 		goto ERROR3;
 	}
 	pinfo->csi_lane_params->csi_lane_mask = val;
+
+	rc = of_property_read_u32(of_node, "qcom,csi-phy-sel", &val);
+	CDBG("%s qcom,csi-phy-sel %x, rc %d\n", __func__, val, rc);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR3;
+	}
+	pinfo->csi_lane_params->csi_phy_sel = val;
 
 	kfree(val_array);
 	return rc;
