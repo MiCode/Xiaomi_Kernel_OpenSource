@@ -13,7 +13,6 @@
 #ifndef MSM_JPEG_COMMON_H
 #define MSM_JPEG_COMMON_H
 
-#define MSM_JPEG_DEBUG
 #ifdef MSM_JPEG_DEBUG
 #define JPEG_DBG(fmt, args...) printk(fmt, ##args)
 #else
