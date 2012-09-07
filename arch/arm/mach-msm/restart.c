@@ -24,6 +24,7 @@
 #include <linux/mfd/pmic8058.h>
 #include <linux/mfd/pmic8901.h>
 #include <linux/mfd/pm8xxx/misc.h>
+#include <linux/qpnp/power-on.h>
 
 #include <asm/mach-types.h>
 
@@ -127,6 +128,7 @@ static void __msm_power_off(int lower_pshold)
 	set_dload_mode(0);
 #endif
 	pm8xxx_reset_pwr_off(0);
+	qpnp_pon_system_pwr_off(0);
 
 	if (lower_pshold) {
 		if (!use_restart_v2())
@@ -207,6 +209,7 @@ static void msm_restart_prepare(const char *cmd)
 #endif
 
 	pm8xxx_reset_pwr_off(1);
+	qpnp_pon_system_pwr_off(1);
 
 	if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
