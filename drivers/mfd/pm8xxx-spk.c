@@ -22,8 +22,11 @@
 #include <linux/mfd/pm8xxx/spk.h>
 
 #define PM8XXX_SPK_CTL1_REG_OFF		0
-#define PM8XXX_SPK_TEST_REG_1_OFF	1
-#define PM8XXX_SPK_TEST_REG_2_OFF	2
+#define PM8XXX_SPK_CTL2_REG_OFF		1
+#define PM8XXX_SPK_CTL3_REG_OFF		2
+#define PM8XXX_SPK_CTL4_REG_OFF		3
+#define PM8XXX_SPK_TEST_REG_1_OFF	4
+#define PM8XXX_SPK_TEST_REG_2_OFF	5
 
 #define PM8XXX_SPK_BANK_SEL		4
 #define PM8XXX_SPK_BANK_WRITE		0x80
@@ -194,6 +197,7 @@ static int __devinit pm8xxx_spk_probe(struct platform_device *pdev)
 {
 	const struct pm8xxx_spk_platform_data *pdata = pdev->dev.platform_data;
 	int ret = 0;
+	u8 value = 0;
 
 	if (!pdata) {
 		pr_err("missing platform data\n");
@@ -236,6 +240,23 @@ static int __devinit pm8xxx_spk_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_handle;
 	}
+	value = ((the_spk_chip->pdata.cd_ng_threshold << 5) |
+		the_spk_chip->pdata.cd_nf_preamp_bias << 3);
+	pr_debug("Setting SPK_CTL2_REG = %02x\n", value);
+	pm8xxx_spk_write(PM8XXX_SPK_CTL2_REG_OFF, value);
+
+	value = ((the_spk_chip->pdata.cd_ng_hold << 5) |
+		(the_spk_chip->pdata.cd_ng_max_atten << 1) |
+		the_spk_chip->pdata.noise_mute);
+	pr_debug("Setting SPK_CTL3_REG = %02x\n", value);
+	pm8xxx_spk_write(PM8XXX_SPK_CTL3_REG_OFF, value);
+
+	value = ((the_spk_chip->pdata.cd_ng_decay_rate << 5) |
+		(the_spk_chip->pdata.cd_ng_attack_rate << 3) |
+		the_spk_chip->pdata.cd_delay << 2);
+	pr_debug("Setting SPK_CTL4_REG = %02x\n", value);
+	pm8xxx_spk_write(PM8XXX_SPK_CTL4_REG_OFF, value);
+
 	return pm8xxx_spk_config();
 err_handle:
 	pr_err("pm8xxx_spk_probe failed."
