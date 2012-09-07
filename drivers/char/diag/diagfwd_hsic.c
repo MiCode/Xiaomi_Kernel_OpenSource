@@ -32,12 +32,7 @@
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
 
-#define N_MDM_WRITE	8
-#define N_MDM_READ	1
-
 #define READ_HSIC_BUF_SIZE 2048
-
-#define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
 
 static void diag_read_hsic_work_fn(struct work_struct *work)
 {
@@ -107,11 +102,12 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	} while (buf_in_hsic);
 
 	/*
-	 * If there are no buffers available or for some reason there
-	 * was no hsic data, and if no unrecoverable error occurred
+	 * If there are read buffers available and for some reason the
+	 * read was not queued, and if no unrecoverable error occurred
 	 * (-ENODEV is an unrecoverable error), then set up the next read
 	 */
-	if ((num_reads_submitted == 0) && (err != -ENODEV))
+	if ((driver->count_hsic_pool < driver->poolsize_hsic) &&
+		(num_reads_submitted == 0) && (err != -ENODEV))
 		queue_work(driver->diag_bridge_wq,
 				 &driver->diag_read_hsic_work);
 }
@@ -132,8 +128,12 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 		return;
 	}
 
-	/* Note that zero length is valid and still needs to be sent */
-	if (actual_size >= 0) {
+	/*
+	 * Note that zero length is valid and still needs to be sent to
+	 * the USB only when we are logging data to the USB
+	 */
+	if ((actual_size > 0) ||
+		((actual_size == 0) && (driver->logging_mode == USB_MODE))) {
 		if (!buf) {
 			pr_err("diag: Out of diagmem for HSIC\n");
 		} else {
@@ -213,8 +213,9 @@ static void diag_hsic_resume(void *ctxt)
 	pr_debug("diag: hsic_resume\n");
 	driver->hsic_suspend = 0;
 
-	if ((driver->logging_mode == MEMORY_DEVICE_MODE) ||
-				(driver->usb_mdm_connected))
+	if ((driver->count_hsic_pool < driver->poolsize_hsic) &&
+		((driver->logging_mode == MEMORY_DEVICE_MODE) ||
+				(driver->usb_mdm_connected)))
 		queue_work(driver->diag_bridge_wq,
 			 &driver->diag_read_hsic_work);
 }
@@ -347,19 +348,19 @@ int diagfwd_disconnect_bridge(int process_cable)
 		usb_diag_free_req(driver->mdm_ch);
 	}
 
-	if (driver->logging_mode == USB_MODE) {
-		if (driver->hsic_device_enabled) {
-			driver->in_busy_hsic_read_on_device = 1;
-			driver->in_busy_hsic_write = 1;
-			/* Turn off communication over usb mdm and hsic */
-			return diag_hsic_close();
-		} else if (driver->diag_smux_enabled) {
-			driver->in_busy_smux = 1;
-			driver->lcid = LCID_INVALID;
-			driver->smux_connected = 0;
-			/* Turn off communication over usb mdm and smux */
-			msm_smux_close(LCID_VALID);
-		}
+	if (driver->hsic_device_enabled &&
+		driver->logging_mode != MEMORY_DEVICE_MODE) {
+		driver->in_busy_hsic_read_on_device = 1;
+		driver->in_busy_hsic_write = 1;
+		/* Turn off communication over usb mdm and hsic */
+		return diag_hsic_close();
+	} else if (driver->diag_smux_enabled &&
+		driver->logging_mode == USB_MODE) {
+		driver->in_busy_smux = 1;
+		driver->lcid = LCID_INVALID;
+		driver->smux_connected = 0;
+		/* Turn off communication over usb mdm and smux */
+		msm_smux_close(LCID_VALID);
 	}
 	return 0;
 }
@@ -629,6 +630,7 @@ void diagfwd_bridge_init(void)
 	driver->read_len_mdm = 0;
 	driver->write_len_mdm = 0;
 	driver->num_hsic_buf_tbl_entries = 0;
+	spin_lock_init(&driver->hsic_spinlock);
 	if (driver->usb_buf_mdm_out  == NULL)
 		driver->usb_buf_mdm_out = kzalloc(USB_MAX_OUT_BUF,
 							 GFP_KERNEL);
