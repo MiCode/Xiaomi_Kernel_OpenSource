@@ -481,7 +481,7 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 		.line_length_pclk = 5336,
 		.frame_length_lines = 3052,
 		.vt_pixel_clk = 330000000,
-		.op_pixel_clk = 320000000,
+		.op_pixel_clk = 264000000,
 		.binning_factor = 1,
 	},
 	/* 30 fps preview */
@@ -491,7 +491,7 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 		.line_length_pclk = 4480,
 		.frame_length_lines = 2412,
 		.vt_pixel_clk = 330000000,
-		.op_pixel_clk = 320000000,
+		.op_pixel_clk = 264000000,
 		.binning_factor = 1,
 	},
 	/* 60 fps video */
@@ -501,7 +501,7 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 		.line_length_pclk = 5336,
 		.frame_length_lines = 992,
 		.vt_pixel_clk = 330000000,
-		.op_pixel_clk = 320000000,
+		.op_pixel_clk = 264000000,
 		.binning_factor = 1,
 	},
 	/* 90 fps video */
@@ -511,7 +511,7 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 		.line_length_pclk = 5336,
 		.frame_length_lines = 664,
 		.vt_pixel_clk = 330000000,
-		.op_pixel_clk = 320000000,
+		.op_pixel_clk = 264000000,
 		.binning_factor = 1,
 	},
 	/* 120 fps video */
@@ -521,7 +521,7 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 		.line_length_pclk = 5336,
 		.frame_length_lines = 514,
 		.vt_pixel_clk = 330000000,
-		.op_pixel_clk = 320000000,
+		.op_pixel_clk = 264000000,
 		.binning_factor = 1,
 	},
 	/* 24 fps snapshot */
