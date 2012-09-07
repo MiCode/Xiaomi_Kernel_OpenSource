@@ -30,6 +30,7 @@
 				     <0x0 0x8 0x4>;
 			interrupt-names = "kpdpwr", "resin", "resin-bark";
 			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
