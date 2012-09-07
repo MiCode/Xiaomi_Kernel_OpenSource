@@ -35,6 +35,7 @@
 #define QPNP_PON_RESIN_S1_TIMER(base)	(base + 0x44)
 #define QPNP_PON_RESIN_S2_TIMER(base)	(base + 0x45)
 #define QPNP_PON_RESIN_S2_CNTL(base)	(base + 0x46)
+#define QPNP_PON_PS_HOLD_RST_CTL(base)	(base + 0x5A)
 
 #define QPNP_PON_RESIN_PULL_UP		BIT(0)
 #define QPNP_PON_KPDPWR_PULL_UP		BIT(1)
@@ -49,6 +50,10 @@
 #define QPNP_PON_KPDPWR_N_SET		BIT(0)
 #define QPNP_PON_RESIN_N_SET		BIT(1)
 #define QPNP_PON_RESIN_BARK_N_SET	BIT(4)
+
+#define QPNP_PON_RESET_EN		BIT(7)
+#define QPNP_PON_WARM_RESET		BIT(0)
+#define QPNP_PON_SHUTDOWN		BIT(2)
 
 /* Ranges */
 #define QPNP_PON_S1_TIMER_MAX		10256
@@ -84,6 +89,8 @@ struct qpnp_pon {
 	struct delayed_work bark_work;
 };
 
+static struct qpnp_pon *sys_reset_dev;
+
 static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
 	0 , 32, 56, 80, 138, 184, 272, 408, 608, 904, 1352, 2048,
 	3072, 4480, 6720, 10256
@@ -112,6 +119,57 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 			"Unable to write to addr=%x, rc(%d)\n", addr, rc);
 	return rc;
 }
+
+/**
+ * qpnp_pon_system_pwr_off - Configure system-reset PMIC for shutdown or reset
+ * @reset: Configures for shutdown if 0, or reset if 1.
+ *
+ * This function will only configure a single PMIC. The other PMICs in the
+ * system are slaved off of it and require no explicit configuration. Once
+ * the system-reset PMIC is configured properly, the MSM can drop PS_HOLD to
+ * activate the specified configuration.
+ */
+int qpnp_pon_system_pwr_off(bool reset)
+{
+	int rc;
+	struct qpnp_pon *pon = sys_reset_dev;
+
+	if (!pon)
+		return -ENODEV;
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon->base),
+							QPNP_PON_RESET_EN, 0);
+	if (rc)
+		dev_err(&pon->spmi->dev,
+			"Unable to write to addr=%x, rc(%d)\n",
+				QPNP_PON_PS_HOLD_RST_CTL(pon->base), rc);
+
+	/*
+	 * We need 10 sleep clock cycles here. But since the clock is
+	 * internally generated, we need to add 50% tolerance to be
+	 * conservative.
+	 */
+	udelay(500);
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon->base),
+			   QPNP_PON_WARM_RESET | QPNP_PON_SHUTDOWN,
+			   reset ? QPNP_PON_WARM_RESET : QPNP_PON_SHUTDOWN);
+	if (rc)
+		dev_err(&pon->spmi->dev,
+			"Unable to write to addr=%x, rc(%d)\n",
+				QPNP_PON_PS_HOLD_RST_CTL(pon->base), rc);
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon->base),
+							QPNP_PON_RESET_EN,
+							QPNP_PON_RESET_EN);
+	if (rc)
+		dev_err(&pon->spmi->dev,
+			"Unable to write to addr=%x, rc(%d)\n",
+				QPNP_PON_PS_HOLD_RST_CTL(pon->base), rc);
+
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_pon_system_pwr_off);
 
 static struct qpnp_pon_config *
 qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
@@ -662,13 +720,22 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	struct resource *pon_resource;
 	struct device_node *itr = NULL;
 	u32 delay = 0;
-	int rc = 0;
+	int rc, sys_reset;
 
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
 	if (!pon) {
 		dev_err(&spmi->dev, "Can't allocate qpnp_pon\n");
 		return -ENOMEM;
+	}
+
+	sys_reset = of_property_read_bool(spmi->dev.of_node,
+						"qcom,system-reset");
+	if (sys_reset && sys_reset_dev) {
+		dev_err(&spmi->dev, "qcom,system-reset property can only be specified for one device on the system\n");
+		return -EINVAL;
+	} else if (sys_reset) {
+		sys_reset_dev = pon;
 	}
 
 	pon->spmi = spmi;

@@ -13,7 +13,7 @@ Required properties:
 - interrupts:	Specifies the interrupt associated with PON.
 
 Optional properties:
-- qcom,pon-dbc-delay:		The debouce delay for the power-key interrupt
+- qcom,pon-dbc-delay		The debouce delay for the power-key interrupt
 				specifed in us. The value ranges from 2 seconds
 				to 1/64 of a second. Possible values are -
 				- 2, 1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64
@@ -24,11 +24,15 @@ Optional properties:
 				reset source. All the child nodes are optional,
 				if none of them are specified the driver fails
 				to register.
+- qcom,system-reset		Specifies that this PON peripheral can be used
+				to reset the system. This property can only be
+				used by one device on the system. It is an error
+				to include it more than once.
 
 All the below properties are in the sub-node section (properties of the child
 node).
 
-- qcom,pull-up:			The initial state of the reset pin under
+- qcom,pull-up			The initial state of the reset pin under
 				consideration.
 				0 = No pull-up
 				1 = pull-up enabled
