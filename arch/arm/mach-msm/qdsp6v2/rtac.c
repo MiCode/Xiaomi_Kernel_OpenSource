@@ -353,7 +353,7 @@ void rtac_remove_voice(u32 cvs_handle)
 	return;
 }
 
-static int get_voice_index(u32 cvs_handle)
+static int get_voice_index_cvs(u32 cvs_handle)
 {
 	u32 i;
 
@@ -364,6 +364,32 @@ static int get_voice_index(u32 cvs_handle)
 
 	pr_err("%s: No voice index for CVS handle %d found returning 0\n",
 	       __func__, cvs_handle);
+	return 0;
+}
+
+static int get_voice_index_cvp(u32 cvp_handle)
+{
+	u32 i;
+
+	for (i = 0; i < rtac_voice_data.num_of_voice_combos; i++) {
+		if (rtac_voice_data.voice[i].cvp_handle == cvp_handle)
+			return i;
+	}
+
+	pr_err("%s: No voice index for CVP handle %d found returning 0\n",
+	       __func__, cvp_handle);
+	return 0;
+}
+
+static int get_voice_index(u32 mode, u32 handle)
+{
+	if (mode == RTAC_CVP)
+		return get_voice_index_cvp(handle);
+	if (mode == RTAC_CVS)
+		return get_voice_index_cvs(handle);
+
+	pr_err("%s: Invalid mode %d, returning 0\n",
+	       __func__, mode);
 	return 0;
 }
 
@@ -752,7 +778,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 	u32	count = 0;
 	u32	bytes_returned = 0;
 	u32	payload_size;
-	u16	dest_port;
+	u32	dest_port;
 	struct	apr_hdr	voice_params;
 	pr_debug("%s\n", __func__);
 
@@ -819,10 +845,10 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 	voice_params.src_svc = 0;
 	voice_params.src_domain = APR_DOMAIN_APPS;
 	voice_params.src_port = voice_session_id[
-					get_voice_index(dest_port)];
+					get_voice_index(mode, dest_port)];
 	voice_params.dest_svc = 0;
 	voice_params.dest_domain = APR_DOMAIN_MODEM;
-	voice_params.dest_port = dest_port;
+	voice_params.dest_port = (u16)dest_port;
 	voice_params.token = 0;
 	voice_params.opcode = opcode;
 
