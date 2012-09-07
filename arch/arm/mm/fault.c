@@ -32,6 +32,9 @@
 
 #include "fault.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/exception.h>
+
 #ifdef CONFIG_MMU
 
 #ifdef CONFIG_KPROBES
@@ -167,6 +170,8 @@ __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		struct pt_regs *regs)
 {
 	struct siginfo si;
+
+	trace_user_fault(tsk, addr, fsr);
 
 #ifdef CONFIG_DEBUG_USER
 	if (((user_debug & UDBG_SEGV) && (sig == SIGSEGV)) ||
