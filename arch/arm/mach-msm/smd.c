@@ -911,15 +911,16 @@ void smd_channel_reset(uint32_t restart_pid)
 	unsigned long flags;
 
 	SMD_DBG("%s: starting reset\n", __func__);
+
+	/* release any held spinlocks */
+	remote_spin_release(&remote_spinlock, restart_pid);
+	remote_spin_release_all(restart_pid);
+
 	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared) * 64);
 	if (!shared) {
 		pr_err("%s: allocation table not initialized\n", __func__);
 		return;
 	}
-
-	/* release any held spinlocks */
-	remote_spin_release(&remote_spinlock, restart_pid);
-	remote_spin_release_all(restart_pid);
 
 	/* reset SMSM entry */
 	if (smsm_info.state) {
