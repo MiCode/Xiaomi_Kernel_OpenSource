@@ -781,17 +781,21 @@ static void smd_channel_probe_worker(struct work_struct *work)
  * @pid:       Processor ID of processor on edge
  * @local_ch:  Channel that belongs to processor @pid
  * @remote_ch: Other side of edge contained @pid
+ * @is_word_access_ch: Bool, is this a word aligned access channel
  *
  * Returns 0 for not on edge, 1 for found on edge
  */
-static int pid_is_on_edge(struct smd_shared_v2 *shared2,
+static int pid_is_on_edge(void *shared2,
 		uint32_t type, uint32_t pid,
-		struct smd_half_channel **local_ch,
-		struct smd_half_channel **remote_ch
+		void **local_ch,
+		void **remote_ch,
+		int is_word_access_ch
 		)
 {
 	int ret = 0;
 	struct edge_to_pid *edge;
+	void *ch0;
+	void *ch1;
 
 	*local_ch = 0;
 	*remote_ch = 0;
@@ -799,15 +803,23 @@ static int pid_is_on_edge(struct smd_shared_v2 *shared2,
 	if (!shared2 || (type >= ARRAY_SIZE(edge_to_pids)))
 		return 0;
 
+	if (is_word_access_ch) {
+		ch0 = &((struct smd_shared_v2_word_access *)(shared2))->ch0;
+		ch1 = &((struct smd_shared_v2_word_access *)(shared2))->ch1;
+	} else {
+		ch0 = &((struct smd_shared_v2 *)(shared2))->ch0;
+		ch1 = &((struct smd_shared_v2 *)(shared2))->ch1;
+	}
+
 	edge = &edge_to_pids[type];
 	if (edge->local_pid != edge->remote_pid) {
 		if (pid == edge->local_pid) {
-			*local_ch = &shared2->ch0;
-			*remote_ch = &shared2->ch1;
+			*local_ch = ch0;
+			*remote_ch = ch1;
 			ret = 1;
 		} else if (pid == edge->remote_pid) {
-			*local_ch = &shared2->ch1;
-			*remote_ch = &shared2->ch0;
+			*local_ch = ch1;
+			*remote_ch = ch0;
 			ret = 1;
 		}
 	}
@@ -859,14 +871,29 @@ const char *smd_pid_to_subsystem(uint32_t pid)
 }
 EXPORT_SYMBOL(smd_pid_to_subsystem);
 
-static void smd_reset_edge(struct smd_half_channel *ch, unsigned new_state)
+static void smd_reset_edge(void *void_ch, unsigned new_state,
+				int is_word_access_ch)
 {
-	if (ch->state != SMD_SS_CLOSED) {
-		ch->state = new_state;
-		ch->fDSR = 0;
-		ch->fCTS = 0;
-		ch->fCD = 0;
-		ch->fSTATE = 1;
+	if (is_word_access_ch) {
+		struct smd_half_channel_word_access *ch =
+			(struct smd_half_channel_word_access *)(void_ch);
+		if (ch->state != SMD_SS_CLOSED) {
+			ch->state = new_state;
+			ch->fDSR = 0;
+			ch->fCTS = 0;
+			ch->fCD = 0;
+			ch->fSTATE = 1;
+		}
+	} else {
+		struct smd_half_channel *ch =
+			(struct smd_half_channel *)(void_ch);
+		if (ch->state != SMD_SS_CLOSED) {
+			ch->state = new_state;
+			ch->fDSR = 0;
+			ch->fCTS = 0;
+			ch->fCD = 0;
+			ch->fSTATE = 1;
+		}
 	}
 }
 
@@ -874,10 +901,11 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 		unsigned new_state, unsigned pid)
 {
 	unsigned n;
-	struct smd_shared_v2 *shared2;
+	void *shared2;
 	uint32_t type;
-	struct smd_half_channel *local_ch;
-	struct smd_half_channel *remote_ch;
+	void *local_ch;
+	void *remote_ch;
+	int is_word_access;
 
 	for (n = 0; n < SMD_CHANNELS; n++) {
 		if (!shared[n].ref_count)
@@ -886,12 +914,19 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 			continue;
 
 		type = SMD_CHANNEL_TYPE(shared[n].type);
-		shared2 = smem_alloc(SMEM_SMD_BASE_ID + n, sizeof(*shared2));
+		is_word_access = is_word_access_ch(type);
+		if (is_word_access)
+			shared2 = smem_alloc(SMEM_SMD_BASE_ID + n,
+				sizeof(struct smd_shared_v2_word_access));
+		else
+			shared2 = smem_alloc(SMEM_SMD_BASE_ID + n,
+				sizeof(struct smd_shared_v2));
 		if (!shared2)
 			continue;
 
-		if (pid_is_on_edge(shared2, type, pid, &local_ch, &remote_ch))
-			smd_reset_edge(local_ch, new_state);
+		if (pid_is_on_edge(shared2, type, pid, &local_ch, &remote_ch,
+							is_word_access))
+			smd_reset_edge(local_ch, new_state, is_word_access);
 
 		/*
 		 * ModemFW is in the same subsystem as ModemSW, but has
@@ -899,8 +934,8 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared,
 		 */
 		if (pid == SMSM_MODEM &&
 				pid_is_on_edge(shared2, type, SMD_MODEM_Q6_FW,
-				 &local_ch, &remote_ch))
-			smd_reset_edge(local_ch, new_state);
+				 &local_ch, &remote_ch, is_word_access))
+			smd_reset_edge(local_ch, new_state, is_word_access);
 	}
 }
 
