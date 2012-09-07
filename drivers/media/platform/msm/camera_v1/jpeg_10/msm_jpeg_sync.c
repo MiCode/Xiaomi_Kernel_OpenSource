@@ -477,9 +477,11 @@ int msm_jpeg_input_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 
 	buf_p->y_buffer_addr    = msm_jpeg_platform_v2p(buf_cmd.fd,
 		buf_cmd.y_len + buf_cmd.cbcr_len, &buf_p->file,
-		&buf_p->handle, pgmn_dev->domain_num) + buf_cmd.offset;
+		&buf_p->handle, pgmn_dev->domain_num) + buf_cmd.offset
+		+ buf_cmd.y_off;
 	buf_p->y_len          = buf_cmd.y_len;
-	buf_p->cbcr_buffer_addr = buf_p->y_buffer_addr + buf_cmd.y_len;
+	buf_p->cbcr_buffer_addr = buf_p->y_buffer_addr + buf_cmd.y_len
+						+ buf_cmd.cbcr_off;
 	buf_p->cbcr_len       = buf_cmd.cbcr_len;
 	buf_p->num_of_mcu_rows = buf_cmd.num_of_mcu_rows;
 	JPEG_DBG("%s: y_addr=%x, y_len=%x, cbcr_addr=%x, cbcr_len=%x, fd =%d\n",
