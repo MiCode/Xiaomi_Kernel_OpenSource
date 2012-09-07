@@ -85,6 +85,9 @@ VREG_CONSUMERS(L12) = {
 	REGULATOR_SUPPLY("cam_vdig",		"4-0020"),
 	REGULATOR_SUPPLY("8921_l12",		NULL),
 };
+VREG_CONSUMERS(L13) = {
+	REGULATOR_SUPPLY("8921_l13",		NULL),
+};
 VREG_CONSUMERS(L14) = {
 	REGULATOR_SUPPLY("8921_l14",		NULL),
 };
@@ -657,6 +660,7 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L10, 0, 1, 0, 2900000, 2900000, NULL,          0,     0),
 	RPM_LDO(L11, 0, 1, 0, 3000000, 3000000, NULL,          0,     0),
 	RPM_LDO(L12, 0, 1, 0, 1200000, 1200000, "8921_s4",     0,     0),
+	RPM_LDO(L13, 0, 0, 0, 2220000, 2220000, NULL,          0,     0),
 	RPM_LDO(L14, 0, 1, 0, 1800000, 1800000, NULL,          0,     0),
 	RPM_LDO(L15, 0, 1, 0, 1800000, 2950000, NULL,          0,     0),
 	RPM_LDO(L16, 0, 1, 0, 2800000, 2800000, NULL,          0,     0),
