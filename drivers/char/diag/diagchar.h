@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/mempool.h>
 #include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <mach/msm_smd.h>
@@ -305,6 +306,7 @@ struct diagchar_dev {
 	mempool_t *diag_hsic_write_pool;
 	int num_hsic_buf_tbl_entries;
 	struct diag_write_device *hsic_buf_tbl;
+	spinlock_t hsic_spinlock;
 #endif
 };
 
