@@ -32,6 +32,7 @@
 #include <mach/memory.h>
 #include <mach/sps.h>
 #include <mach/usb_bam.h>
+#include <mach/msm_memory_dump.h>
 
 #include "coresight-priv.h"
 
@@ -79,6 +80,11 @@ do {									\
 #define BYTES_PER_WORD		4
 #define TMC_ETR_BAM_PIPE_INDEX	0
 #define TMC_ETR_BAM_NR_PIPES	2
+
+#define TMC_ETFETB_DUMP_VER_OFF	(4)
+#define TMC_ETFETB_DUMP_VER	(1)
+#define TMC_REG_DUMP_VER_OFF	(4)
+#define TMC_REG_DUMP_VER	(1)
 
 enum tmc_config_type {
 	TMC_CONFIG_TYPE_ETB,
@@ -986,6 +992,11 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	struct coresight_platform_data *pdata;
 	struct tmc_drvdata *drvdata;
 	struct resource *res;
+	uint32_t reg_size;
+	static int etfetb_count;
+	static int count;
+	void *baddr;
+	struct msm_client_dump dump;
 	struct coresight_desc *desc;
 
 	if (pdev->dev.of_node) {
@@ -1004,6 +1015,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+	reg_size = resource_size(res);
 
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
@@ -1031,7 +1043,8 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR)
 		drvdata->size = SZ_1M;
 	else
-		drvdata->size = tmc_readl(drvdata, TMC_RSZ) * BYTES_PER_WORD;
+		drvdata->size = (tmc_readl(drvdata, TMC_RSZ) * BYTES_PER_WORD)
+				+ PAGE_SIZE;
 
 	clk_disable_unprepare(drvdata->clk);
 
@@ -1053,10 +1066,39 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 		if (ret)
 			goto err0;
 	} else {
-		drvdata->buf = devm_kzalloc(dev, drvdata->size, GFP_KERNEL);
-		if (!drvdata->buf)
+		baddr = devm_kzalloc(dev, drvdata->size, GFP_KERNEL);
+		if (!baddr)
 			return -ENOMEM;
+		drvdata->buf = baddr + PAGE_SIZE;
+		*(uint32_t *)(baddr + TMC_ETFETB_DUMP_VER_OFF) =
+							TMC_ETFETB_DUMP_VER;
+		dump.id = MSM_TMC_ETFETB + etfetb_count;
+		dump.start_addr = virt_to_phys(baddr);
+		dump.end_addr = dump.start_addr + drvdata->size;
+		ret = msm_dump_table_register(&dump);
+		/* Don't free the buffer in case of error since it can still
+		 * be used to provide dump collection via the device node
+		 */
+		if (ret)
+			dev_info(dev, "TMC ETF-ETB dump setup failed\n");
+		etfetb_count++;
 	}
+
+	baddr = devm_kzalloc(dev, PAGE_SIZE + reg_size, GFP_KERNEL);
+	if (baddr) {
+		*(uint32_t *)(baddr + TMC_REG_DUMP_VER_OFF) = TMC_REG_DUMP_VER;
+		dump.id = MSM_TMC0_REG + count;
+		dump.start_addr = virt_to_phys(baddr);
+		dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
+		ret = msm_dump_table_register(&dump);
+		if (ret) {
+			devm_kfree(dev, baddr);
+			dev_info(dev, "TMC REG dump setup failed\n");
+		}
+	} else {
+		dev_info(dev, "TMC REG dump space allocation failed\n");
+	}
+	count++;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc) {
