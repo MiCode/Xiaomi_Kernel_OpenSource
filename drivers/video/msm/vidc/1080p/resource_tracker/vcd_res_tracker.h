@@ -57,6 +57,7 @@ struct res_trk_context {
 	u32 mmu_clks_on;
 	u32 secure_session;
 	struct mutex secure_lock;
+	u32 sec_clk_heap;
 };
 
 #if DEBUG
