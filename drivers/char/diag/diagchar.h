@@ -279,12 +279,14 @@ struct diagchar_dev {
 	struct diag_request *write_ptr_mdm;
 	/* HSIC variables */
 	int hsic_ch;
+	int hsic_inited;
 	int hsic_device_enabled;
 	int hsic_device_opened;
 	int hsic_suspend;
 	int in_busy_hsic_read_on_device;
 	int in_busy_hsic_write;
 	struct work_struct diag_read_hsic_work;
+	struct mutex bridge_mutex;
 	/* USB MDM channel variables */
 	int usb_mdm_connected;
 	int read_len_mdm;

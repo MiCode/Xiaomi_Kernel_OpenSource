@@ -106,7 +106,7 @@ void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 			printk(KERN_ALERT "Unable to destroy STRUCT mempool");
 	}
 #ifdef CONFIG_DIAG_BRIDGE_CODE
-	if (driver->diag_hsic_pool && (driver->hsic_device_enabled == 0)) {
+	if (driver->diag_hsic_pool && (driver->hsic_inited == 0)) {
 		if (driver->count_hsic_pool == 0) {
 			mempool_destroy(driver->diag_hdlc_pool);
 			driver->diag_hdlc_pool = NULL;
@@ -114,8 +114,7 @@ void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 			pr_err("Unable to destroy HDLC mempool");
 	}
 
-	if (driver->diag_hsic_write_pool &&
-		(driver->hsic_device_enabled == 0)) {
+	if (driver->diag_hsic_write_pool && (driver->hsic_inited == 0)) {
 		/*
 		 * Free up struct pool ONLY if there are no outstanding
 		 * transactions(aggregation buffer) with USB
