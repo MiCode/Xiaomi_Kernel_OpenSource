@@ -720,7 +720,7 @@ void msm_release_ion_client(struct kref *ref);
 int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 	struct msm_cam_subdev_info *sd_info);
 int msm_mctl_find_sensor_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index);
+	uint8_t csiphy_core_index, uint8_t csid_core_index);
 int msm_server_open_client(int *p_qidx);
 int msm_server_send_ctrl(struct msm_ctrl_cmd *out, int ctrl_id);
 int msm_server_close_client(int idx);

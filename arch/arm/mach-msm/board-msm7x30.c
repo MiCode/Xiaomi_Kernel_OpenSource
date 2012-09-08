@@ -884,6 +884,7 @@ static struct i2c_board_info cy8info[] __initdata = {
 #ifdef CONFIG_MSM_CAMERA_V4L2
 static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	{
+		.csiphy_core = 0,
 		.csid_core = 0,
 		.is_vpe    = 1,
 		.ioclk = {
@@ -891,6 +892,7 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 		},
 	},
 	{
+		.csiphy_core = 0,
 		.csid_core = 0,
 		.is_vpe    = 1,
 		.ioclk = {

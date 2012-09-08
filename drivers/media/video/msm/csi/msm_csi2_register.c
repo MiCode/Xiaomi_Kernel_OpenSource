@@ -16,18 +16,21 @@
 #include "msm_csi_register.h"
 
 int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index, struct msm_cam_server_dev *server_dev)
+	uint8_t csiphy_code_index, uint8_t csid_core_index,
+	struct msm_cam_server_dev *server_dev)
 {
 	int rc = -ENODEV;
 
+	CDBG("%s csiphy sel %d csid sel %d\n", __func__, csiphy_code_index,
+		csid_core_index);
 	/* register csiphy subdev */
-	p_mctl->csiphy_sdev = server_dev->csiphy_device[core_index];
+	p_mctl->csiphy_sdev = server_dev->csiphy_device[csiphy_code_index];
 	if (!p_mctl->csiphy_sdev)
 		goto out;
 	v4l2_set_subdev_hostdata(p_mctl->csiphy_sdev, p_mctl);
 
 	/* register csid subdev */
-	p_mctl->csid_sdev = server_dev->csid_device[core_index];
+	p_mctl->csid_sdev = server_dev->csid_device[csid_core_index];
 	if (!p_mctl->csid_sdev)
 		goto out;
 	v4l2_set_subdev_hostdata(p_mctl->csid_sdev, p_mctl);

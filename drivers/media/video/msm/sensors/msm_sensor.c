@@ -402,7 +402,8 @@ int32_t msm_sensor_get_csi_params(struct msm_sensor_ctrl_t *s_ctrl,
 			csi_lane_assign;
 		sensor_output_info->csi_lane_mask = csi_lane_params->
 			csi_lane_mask;
-		sensor_output_info->csi_phy_sel = csi_lane_params->csi_phy_sel;
+		sensor_output_info->csi_phy_sel =
+			s_ctrl->sensordata->pdata->csiphy_core;
 	}
 	sensor_output_info->csi_if = s_ctrl->sensordata->csi_if;
 	for (index = 0; index < sensor_output_info->csi_if; index++)
@@ -1184,8 +1185,7 @@ static int32_t msm_sensor_init_csi_data(struct device_node *of_node,
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR3;
 	}
-	pinfo->csi_lane_params->csi_phy_sel = val;
-
+	sensordata->pdata->csiphy_core = val;
 	kfree(val_array);
 	return rc;
 ERROR3:
@@ -1762,6 +1762,8 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		s_ctrl->sensor_i2c_addr >> 1;
 	s_ctrl->sensor_i2c_client->cci_client->retries = 3;
 	s_ctrl->sensor_i2c_client->cci_client->id_map = 0;
+	if (!s_ctrl->wait_num_frames)
+		s_ctrl->wait_num_frames = 1 * Q10;
 
 	rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
 	if (rc < 0) {
@@ -1777,6 +1779,8 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	if (rc < 0)
 		goto probe_fail;
 
+	pr_err("%s %s probe succeeded\n", __func__,
+		s_ctrl->sensordata->sensor_name);
 	v4l2_subdev_init(&s_ctrl->sensor_v4l2_subdev,
 		s_ctrl->sensor_v4l2_subdev_ops);
 	snprintf(s_ctrl->sensor_v4l2_subdev.name,

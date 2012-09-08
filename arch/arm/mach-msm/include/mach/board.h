@@ -63,6 +63,7 @@ struct msm_camera_device_platform_data {
 	uint8_t csid_core;
 	uint8_t is_vpe;
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
+	uint8_t csiphy_core;
 };
 
 #ifdef CONFIG_SENSORS_MT9T013
@@ -177,7 +178,6 @@ struct msm_gpio_set_tbl {
 struct msm_camera_csi_lane_params {
 	uint16_t csi_lane_assign;
 	uint16_t csi_lane_mask;
-	uint8_t csi_phy_sel;
 };
 
 struct msm_camera_gpio_conf {
