@@ -103,6 +103,10 @@ int msm_mctl_check_pp(struct msm_cam_media_controller *p_mctl,
 		if (p_mctl->pp_info.pp_ctrl.pp_msg_type == OUTPUT_TYPE_T)
 			*pp_type = OUTPUT_TYPE_T;
 		break;
+	case MSM_V4L2_EXT_CAPTURE_MODE_RDI:
+		if (p_mctl->pp_info.pp_ctrl.pp_msg_type & OUTPUT_TYPE_R)
+			*pp_type = OUTPUT_TYPE_R;
+		break;
 	default:
 		break;
 	}
@@ -405,8 +409,8 @@ int msm_mctl_pp_proc_cmd(struct msm_cam_media_controller *p_mctl,
 			ERR_COPY_FROM_USER();
 			return -EFAULT;
 		}
-		D("%s: PP_PATH, path=%d",
-			__func__, divert_pp.path);
+		D("%s: Divert Image mode =%d Enable %d",
+			__func__, divert_pp.path, divert_pp.enable);
 		spin_lock_irqsave(&p_mctl->pp_info.lock, flags);
 		if (divert_pp.enable)
 			p_mctl->pp_info.pp_ctrl.pp_msg_type |= divert_pp.path;
