@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -495,6 +495,9 @@ static const struct attribute_group *coresight_attr_grps_source[] = {
 };
 
 static struct device_type coresight_dev_type[] = {
+	{
+		.name = "none",
+	},
 	{
 		.name = "sink",
 		.groups = coresight_attr_grps_sink,
