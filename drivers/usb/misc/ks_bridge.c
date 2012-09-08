@@ -594,6 +594,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ksb->fs_dev = (struct miscdevice *)id->driver_info;
 	misc_register(ksb->fs_dev);
 
+	ifc->needs_remote_wakeup = 1;
 	usb_enable_autosuspend(ksb->udev);
 
 	pr_debug("usb dev connected");
@@ -656,6 +657,7 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 	spin_unlock_irqrestore(&ksb->lock, flags);
 
 	misc_deregister(ksb->fs_dev);
+	ifc->needs_remote_wakeup = 0;
 	usb_put_dev(ksb->udev);
 	ksb->ifc = NULL;
 	usb_set_intfdata(ifc, NULL);
