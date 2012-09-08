@@ -1,5 +1,6 @@
 * Qualcomm MSM CCI
 
+[First level nodes]
 Required properties:
 - cell-index: cci hardware core index
 - compatible :
@@ -11,6 +12,102 @@ Required properties:
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
 
+[Second level nodes]
+* Qualcomm MSM Sensor
+
+MSM sensor node contains properties of camera sensor
+
+Required properties:
+- compatible : should be "qcom" followed by sensor name
+    - "qcom,s5k3l1yx"
+- reg : should contain i2c slave address of the camera sensor and
+    length of data field which is 0x0
+- qcom,csi-if : should contain number of csid cores required at the receiver
+    side
+    - 1 for 2D sensor
+    - 2 for 3D sensor
+- qcom,csid-core : should contain csid core instance that will used to receive
+    sensor data
+    - 0, 1, 2, 3
+- qcom,is-vpe : should be enabled if VPE module is required for post processing
+    of this sensor
+    - 1 if required, 0 otherwise
+- qcom,sensor-name : should contain unique sensor name to differentiate from
+    other sensor
+    - "s5k3l1yx"
+- cam_vdig-supply : should contain regulator from which digital voltage is
+    supplied
+- cam_vana-supply : should contain regulator from which analog voltage is
+    supplied
+- cam_vio-supply : should contain regulator from which IO voltage is supplied
+- qcom,cam-vreg-name : should contain names of all regulators needed by this
+    sensor
+    - "cam_vdig", "cam_vana", "cam_vio", "cam_vaf"
+- qcom,cam-vreg-type : should contain regulator type for regulators mentioned in
+    qcom,cam-vreg-name property (in the same order)
+    - 0 for LDO and 1 for LVS
+- qcom,cam-vreg-min-voltage : should contain minimum voltage level for
+    regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-max-voltage : should contain maximum voltage level for
+    regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-op-mode : should contain optimum voltage level for regulators
+    mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,camera-type : should contain sensor type
+    - 0 -> back camera 2D
+    - 1 -> front camera 2D
+    - 2 -> back camera 3D
+    - 3 -> back camera int 3D
+- qcom,sensor-type : should contain format of data that sensor streams
+    - 0 -> bayer format
+    - 1 -> yuv format
+
+Optional properties:
+- qcom,flash-type : should contain flash type if flash is supported for this
+    sensor
+    - 0 if flash is not supported, 1 if flash is supported
+- qcom,mount-angle : should contain the physical mount angle of the sensor on
+    the target
+    - 0, 90, 180, 360
+- qcom,gpio-no-mux : should contain field to indicate whether gpio mux table is
+    available
+    - 1 if gpio mux is not available, 0 otherwise
+- cam_vaf-supply : should contain regulator from which AF voltage is supplied
+- gpios : should contain phandle to gpio controller node and array of
+    #gpio-cells specifying specific gpio (controller specific)
+- qcom,gpio-common-tbl-num : should contain index to gpios shared between
+    different sensors
+- qcom,gpio-common-tbl-flags : should contain direction of gpios present in
+    qcom,gpio-common-tbl-num property (in the same order)
+- qcom,gpio-common-tbl-label : should contain name of gpios present in
+    qcom,gpio-common-tbl-num property (in the same order)
+- qcom,gpio-req-tbl-num : should contain index to gpios specific to this sensor
+- qcom,gpio-req-tbl-flags : should contain direction of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-req-tbl-label : should contain name of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-set-tbl-num : should contain index of gpios that need to be
+    configured by msm
+- qcom,gpio-set-tbl-flags : should contain value to be configured for the gpios
+    present in qcom,gpio-set-tbl-num property (in the same order)
+- qcom,gpio-set-tbl-delay : should contain amount of delay after configuring
+    gpios as specified in gpio_set_tbl_flags property (in the same order)
+- qcom,csi-lane-assign : should contain lane assignment value to map CSIPHY
+    lanes to CSID lanes
+    - 0x4320
+- qcom,csi-lane-mask : should contain lane mask that specifies CSIPHY lanes to
+    be enabled
+- qcom,csi-phy-sel : should contain CSIPHY core instance from which CSID should
+    receive data
+- qcom,actuator-cam-name : should contain actuator cam name associated with
+    this sensor
+    - If actuator does not exist, this property should not be initialized
+    - If actuator exist, this field should indicate the index of actuator to
+      be used
+- qcom,actuator-vcm-pwd : should contain the gpio pin of vcm power to be enabled
+    for actuator
+- qcom,actuator-vcm-enable : should contain value to be set for actuator vcm
+    gpio
+
 Example:
 
    qcom,cci@0xfda0c000 {
@@ -20,4 +117,43 @@ Example:
        reg-names = "cci";
        interrupts = <0 50 0>;
        interrupt-names = "cci";
+       qcom,s5k3l1yx@6e {
+               compatible = "qcom,s5k3l1yx";
+               reg = <0x6e 0x0>;
+               qcom,csi-if = <1>;
+               qcom,csid-core = <0>;
+               qcom,is-vpe = <1>;
+               qcom,flash-type = <0>;
+               qcom,mount-angle = <90>;
+               qcom,sensor-name = "s5k3l1yx";
+               cam_vdig-supply = <&pm8941_l3>;
+               cam_vana-supply = <&pm8941_l17>;
+               cam_vio-supply = <&pm8941_lvs3>;
+               cam_vaf-supply = <&pm8941_l23>;
+               qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio", "cam_vaf";
+               qcom,cam-vreg-type = <0 0 1 0>;
+               qcom,cam-vreg-min-voltage = <1225000 2850000 0 3000000>;
+               qcom,cam-vreg-max-voltage = <1225000 2850000 0 3000000>;
+               qcom,cam-vreg-op-mode = <105000 80000 0 100000>;
+               qcom,gpio-no-mux = <0>;
+               gpios = <&msmgpio 15 0>,
+                       <&msmgpio 19 0>,
+                       <&msmgpio 20 0>,
+                       <&msmgpio 90 0>;
+               qcom,gpio-common-tbl-num = <0 1 2>;
+               qcom,gpio-common-tbl-flags = <1 1 1>;
+               qcom,gpio-common-tbl-label = "CAMIF_MCLK", "CAMIF_I2C_DATA",
+                                            "CAMIF_I2C_CLK";
+               qcom,gpio-req-tbl-num = <3>;
+               qcom,gpio-req-tbl-flags = <0>;
+               qcom,gpio-req-tbl-label = "CAM_RESET1";
+               qcom,gpio-set-tbl-num = <3 3>;
+               qcom,gpio-set-tbl-flags = <0 2>;
+               qcom,gpio-set-tbl-delay = <1000 4000>;
+               qcom,csi-lane-assign = <0x4320>;
+               qcom,csi-lane-mask = <0x1F>;
+               qcom,csi-phy-sel = <0>;
+               qcom,camera-type = <0>;
+               qcom,sensor-type = <0>;
+       };
    };
