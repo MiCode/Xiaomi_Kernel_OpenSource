@@ -1987,9 +1987,9 @@ static struct local_vote_clk gcc_ce2_ahb_clk = {
 	.en_mask = BIT(0),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
-		.dbg_name = "gcc_ce1_ahb_clk",
+		.dbg_name = "gcc_ce2_ahb_clk",
 		.ops = &clk_ops_vote,
-		CLK_INIT(gcc_ce1_ahb_clk.c),
+		CLK_INIT(gcc_ce2_ahb_clk.c),
 	},
 };
 
@@ -1999,7 +1999,7 @@ static struct local_vote_clk gcc_ce2_axi_clk = {
 	.en_mask = BIT(1),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
-		.dbg_name = "gcc_ce1_axi_clk",
+		.dbg_name = "gcc_ce2_axi_clk",
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_ce2_axi_clk.c),
 	},
@@ -5014,6 +5014,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_clk", gcc_blsp2_uart5_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp2_uart6_apps_clk.c, ""),
 
+	CLK_LOOKUP("core_clk_src", ce1_clk_src.c, ""),
 	CLK_LOOKUP("core_clk", gcc_ce1_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_ce2_clk.c, ""),
 	CLK_LOOKUP("iface_clk", gcc_ce1_ahb_clk.c, ""),
