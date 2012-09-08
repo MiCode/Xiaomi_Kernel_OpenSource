@@ -14,6 +14,46 @@
 #include <linux/io.h>
 #include "mdss_io_util.h"
 
+static struct resource *msm_dss_get_res_byname(struct platform_device *pdev,
+	unsigned int type, const char *name)
+{
+	struct resource *res = NULL;
+
+	res = platform_get_resource_byname(pdev, type, name);
+	if (!res)
+		pr_err("%s: '%s' resource not found\n", __func__, name);
+
+	return res;
+}
+
+
+int msm_dss_ioremap_byname(struct platform_device *pdev,
+	struct dss_io_data *io_data, const char *name)
+{
+	struct resource *res = NULL;
+
+	if (!pdev) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	res = msm_dss_get_res_byname(pdev, IORESOURCE_MEM, name);
+	if (!res) {
+		pr_err("%s: '%s' msm_dss_get_res_byname failed\n",
+			__func__, name);
+		return -ENODEV;
+	}
+
+	io_data->len = resource_size(res);
+	io_data->base = ioremap(res->start, io_data->len);
+	if (!io_data->base) {
+		pr_err("%s: '%s' ioremap failed\n", __func__, name);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 	int num_vreg, int config)
 {
