@@ -290,21 +290,33 @@ static struct msm_gpiomux_config msm8974_slimbus_config[] __initdata = {
 
 static struct gpiomux_setting cam_settings[] = {
 	{
-		.func = GPIOMUX_FUNC_1, /*active 1*/
+		.func = GPIOMUX_FUNC_1, /*active 1*/ /* 0 */
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_NONE,
 	},
 
 	{
-		.func = GPIOMUX_FUNC_1, /*suspend*/
+		.func = GPIOMUX_FUNC_1, /*suspend*/ /* 1 */
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_DOWN,
 	},
 
 	{
-		.func = GPIOMUX_FUNC_1, /*i2c suspend*/
+		.func = GPIOMUX_FUNC_1, /*i2c suspend*/ /* 2 */
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_KEEPER,
+	},
+
+	{
+		.func = GPIOMUX_FUNC_GPIO, /*active 0*/ /* 3 */
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+
+	{
+		.func = GPIOMUX_FUNC_GPIO, /*suspend 0*/ /* 4 */
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_DOWN,
 	},
 };
 
@@ -333,8 +345,8 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 	{
 		.gpio = 18, /* WEBCAM1_RESET_N / CAM_MCLK3 */
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_settings[0],
-			[GPIOMUX_SUSPENDED] = &cam_settings[1],
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[4],
 		},
 	},
 	{
