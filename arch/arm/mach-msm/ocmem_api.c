@@ -131,6 +131,7 @@ struct ocmem_buf *ocmem_allocate(int client_id, unsigned long size)
 	return __ocmem_allocate_range(client_id, size, size,
 					size, can_block, can_wait);
 }
+EXPORT_SYMBOL(ocmem_allocate);
 
 struct ocmem_buf *ocmem_allocate_nowait(int client_id, unsigned long size)
 {
@@ -162,6 +163,7 @@ struct ocmem_buf *ocmem_allocate_nowait(int client_id, unsigned long size)
 	return __ocmem_allocate_range(client_id, size, size,
 					size, can_block, can_wait);
 }
+EXPORT_SYMBOL(ocmem_allocate_nowait);
 
 struct ocmem_buf *ocmem_allocate_range(int client_id, unsigned long min,
 		unsigned long goal, unsigned long step)
@@ -202,6 +204,7 @@ struct ocmem_buf *ocmem_allocate_range(int client_id, unsigned long min,
 	return __ocmem_allocate_range(client_id, min, goal,
 				step, can_block, can_wait);
 }
+EXPORT_SYMBOL(ocmem_allocate_range);
 
 struct ocmem_buf *ocmem_allocate_nb(int client_id, unsigned long size)
 {
@@ -242,6 +245,7 @@ struct ocmem_buf *ocmem_allocate_nb(int client_id, unsigned long size)
 						can_block, can_wait);
 
 }
+EXPORT_SYMBOL(ocmem_allocate_nb);
 
 int ocmem_free(int client_id, struct ocmem_buf *buffer)
 {
@@ -263,6 +267,7 @@ int ocmem_free(int client_id, struct ocmem_buf *buffer)
 
 	return __ocmem_free(client_id, buffer);
 }
+EXPORT_SYMBOL(ocmem_free);
 
 int ocmem_shrink(int client_id, struct ocmem_buf *buffer, unsigned long len)
 {
@@ -279,6 +284,7 @@ int ocmem_shrink(int client_id, struct ocmem_buf *buffer, unsigned long len)
 
 	return __ocmem_shrink(client_id, buffer, len);
 }
+EXPORT_SYMBOL(ocmem_shrink);
 
 int pre_validate_chunk_list(struct ocmem_map_list *list)
 {
@@ -350,6 +356,7 @@ int ocmem_map(int client_id, struct ocmem_buf *buffer,
 	mutex_unlock(&handle->handle_mutex);
 	return ret;
 }
+EXPORT_SYMBOL(ocmem_map);
 
 int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 			struct ocmem_map_list *list)
@@ -390,6 +397,7 @@ int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 	mutex_unlock(&handle->handle_mutex);
 	return ret;
 }
+EXPORT_SYMBOL(ocmem_unmap);
 
 unsigned long get_max_quota(int client_id)
 {
@@ -427,6 +435,7 @@ int ocmem_evict(int client_id)
 	mutex_unlock(&ocmem_eviction_lock);
 	return ret;
 }
+EXPORT_SYMBOL(ocmem_evict);
 
 int ocmem_restore(int client_id)
 {
@@ -448,6 +457,7 @@ int ocmem_restore(int client_id)
 	mutex_unlock(&ocmem_eviction_lock);
 	return ret;
 }
+EXPORT_SYMBOL(ocmem_restore);
 
 /* Wrappers until power control is transitioned to clients */
 enum ocmem_power_state ocmem_get_power_state(int client_id,
