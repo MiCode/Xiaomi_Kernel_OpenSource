@@ -222,7 +222,7 @@
 			compatible = "qcom,ov2720";
 			reg = <0x6c 0x0>;
 			qcom,csi-if = <1>;
-			qcom,csid-core = <1>;
+			qcom,csid-core = <0>;
 			qcom,is-vpe = <1>;
 			qcom,flash-type = <0>;
 			qcom,mount-angle = <0>;
