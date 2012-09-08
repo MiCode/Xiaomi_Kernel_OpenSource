@@ -529,7 +529,8 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		wake_lock(&p_mctl->wake_lock);
 
 		csid_core = camdev->csid_core;
-		rc = msm_mctl_find_sensor_subdevs(p_mctl, csid_core);
+		rc = msm_mctl_find_sensor_subdevs(p_mctl, camdev->csiphy_core,
+			csid_core);
 		if (rc < 0) {
 			pr_err("%s: msm_mctl_find_sensor_subdevs failed:%d\n",
 				__func__, rc);

@@ -12,5 +12,5 @@
  */
 
 int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index,
+	uint8_t csiphy_code_index, uint8_t csid_core_index,
 	struct msm_cam_server_dev *server_dev);
