@@ -236,6 +236,7 @@ typedef struct rndis_params
 
 	u32			vendorID;
 	u8			max_pkt_per_xfer;
+	u8			pkt_alignment_factor;
 	const char		*vendorDescr;
 	void			(*resp_avail)(void *v);
 	void			*v;
