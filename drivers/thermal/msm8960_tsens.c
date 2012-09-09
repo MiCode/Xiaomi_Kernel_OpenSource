@@ -682,20 +682,6 @@ static irqreturn_t tsens_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void tsens8960_sensor_mode_init(void)
-{
-	unsigned int reg_cntl = 0;
-
-	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
-	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MDM_9615 ||
-			tmdev->hw_type == APQ_8064) {
-		writel_relaxed(reg_cntl &
-				~((((1 << tmdev->tsens_num_sensor) - 1) >> 1)
-				<< (TSENS_SENSOR0_SHIFT + 1)), TSENS_CNTL_ADDR);
-		tmdev->sensor[TSENS_MAIN_SENSOR].mode = THERMAL_DEVICE_ENABLED;
-	}
-}
-
 #ifdef CONFIG_PM
 static int tsens_suspend(struct device *dev)
 {
@@ -1018,10 +1004,7 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 			rc = -ENODEV;
 			goto fail;
 		}
-		tmdev->sensor[i].mode = THERMAL_DEVICE_DISABLED;
 	}
-
-	tsens8960_sensor_mode_init();
 
 	rc = request_irq(TSENS_UPPER_LOWER_INT, tsens_isr,
 		IRQF_TRIGGER_RISING, "tsens_interrupt", tmdev);
