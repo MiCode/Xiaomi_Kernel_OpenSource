@@ -20,6 +20,8 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 
+#include <mach/iommu_domains.h>
+
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
@@ -699,7 +701,12 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		return;
 	}
 
-	data.p[0].addr = fbi->fix.smem_start + offset;
+	if (is_mdss_iommu_attached())
+		data.p[0].addr = mfd->iova;
+	else
+		data.p[0].addr = fbi->fix.smem_start;
+
+	data.p[0].addr += offset;
 	data.p[0].len = fbi->fix.smem_len - offset;
 	data.num_planes = 1;
 
@@ -788,12 +795,25 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 	u32 blendcfg;
 	int off, ret = 0;
 
-	if (!mfd->cursor_buf) {
+	if (!mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		mfd->cursor_buf = dma_alloc_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
 					(dma_addr_t *) &mfd->cursor_buf_phys,
 					GFP_KERNEL);
 		if (!mfd->cursor_buf) {
 			pr_err("can't allocate cursor buffer\n");
+			return -ENOMEM;
+		}
+
+		ret = msm_iommu_map_contig_buffer(mfd->cursor_buf_phys,
+						mdss_get_iommu_domain(), 0,
+						MDSS_MDP_CURSOR_SIZE, SZ_4K,
+						0, &(mfd->cursor_buf_iova));
+		if (IS_ERR_VALUE(ret)) {
+			dma_free_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
+					  mfd->cursor_buf,
+					  (dma_addr_t) mfd->cursor_buf_phys);
+			pr_err("unable to map cursor buffer to iommu(%d)\n",
+			       ret);
 			return -ENOMEM;
 		}
 	}
@@ -817,11 +837,16 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 				   (img->dy << 16) | img->dx);
 
 	if (cursor->set & FB_CUR_SETIMAGE) {
-		int calpha_en, transp_en, alpha, size;
+		int calpha_en, transp_en, alpha, size, cursor_addr;
 		ret = copy_from_user(mfd->cursor_buf, img->data,
 				     img->width * img->height * 4);
 		if (ret)
 			return ret;
+
+		if (is_mdss_iommu_attached())
+			cursor_addr = mfd->cursor_buf_iova;
+		else
+			cursor_addr = mfd->cursor_buf_phys;
 
 		if (img->bg_color == 0xffffffff)
 			transp_en = 0;
@@ -841,7 +866,7 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_CURSOR_STRIDE,
 				   img->width * 4);
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_CURSOR_BASE_ADDR,
-				   mfd->cursor_buf_phys);
+				   cursor_addr);
 
 		wmb();
 
