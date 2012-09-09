@@ -681,13 +681,13 @@ static int slim_processtxn(struct slim_controller *ctrl, u8 dt, u16 mc, u16 ec,
 }
 
 static int ctrl_getlogical_addr(struct slim_controller *ctrl, const u8 *eaddr,
-				u8 e_len, u8 *laddr)
+				u8 e_len, u8 *entry)
 {
 	u8 i;
 	for (i = 0; i < ctrl->num_dev; i++) {
 		if (ctrl->addrt[i].valid &&
 			memcmp(ctrl->addrt[i].eaddr, eaddr, e_len) == 0) {
-			*laddr = i;
+			*entry = i;
 			return 0;
 		}
 	}
@@ -699,23 +699,28 @@ static int ctrl_getlogical_addr(struct slim_controller *ctrl, const u8 *eaddr,
  * @ctrl: Controller with which device is enumerated.
  * @e_addr: 6-byte elemental address of the device.
  * @e_len: buffer length for e_addr
- * @laddr: Return logical address.
+  * @laddr: Return logical address (if valid flag is false)
+  * @valid: true if laddr holds a valid address that controller wants to
+  *	set for this enumeration address. Otherwise framework sets index into
+  *	address table as logical address.
  * Called by controller in response to REPORT_PRESENT. Framework will assign
  * a logical address to this enumeration address.
  * Function returns -EXFULL to indicate that all logical addresses are already
  * taken.
  */
 int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
-				u8 e_len, u8 *laddr)
+				u8 e_len, u8 *laddr, bool valid)
 {
 	int ret;
 	u8 i = 0;
+	bool exists = false;
 	struct slim_device *sbdev;
 	mutex_lock(&ctrl->m_ctrl);
 	/* already assigned */
-	if (ctrl_getlogical_addr(ctrl, e_addr, e_len, laddr) == 0)
-		i = *laddr;
-	else {
+	if (ctrl_getlogical_addr(ctrl, e_addr, e_len, &i) == 0) {
+		*laddr = ctrl->addrt[i].laddr;
+		exists = true;
+	} else {
 		if (ctrl->num_dev >= 254) {
 			ret = -EXFULL;
 			goto ret_assigned_laddr;
@@ -737,22 +742,26 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 		}
 		memcpy(ctrl->addrt[i].eaddr, e_addr, e_len);
 		ctrl->addrt[i].valid = true;
+		/* Preferred address is index into table */
+		if (!valid)
+			*laddr = i;
 	}
 
-	ret = ctrl->set_laddr(ctrl, ctrl->addrt[i].eaddr, 6, i);
+	ret = ctrl->set_laddr(ctrl, (const u8 *)&ctrl->addrt[i].eaddr, 6,
+				*laddr);
 	if (ret) {
 		ctrl->addrt[i].valid = false;
 		goto ret_assigned_laddr;
 	}
-	*laddr = i;
+	ctrl->addrt[i].laddr = *laddr;
 
-	dev_dbg(&ctrl->dev, "setting slimbus l-addr:%x\n", i);
+	dev_dbg(&ctrl->dev, "setting slimbus l-addr:%x\n", *laddr);
 ret_assigned_laddr:
 	mutex_unlock(&ctrl->m_ctrl);
-	if (ret)
+	if (exists || ret)
 		return ret;
 
-	pr_info("slimbus laddr:0x%x, EAPC:0x%x:0x%x", i,
+	pr_info("slimbus:%d laddr:0x%x, EAPC:0x%x:0x%x", ctrl->nr, *laddr,
 				e_addr[1], e_addr[2]);
 	mutex_lock(&ctrl->m_ctrl);
 	list_for_each_entry(sbdev, &ctrl->devs, dev_list) {
@@ -785,12 +794,21 @@ int slim_get_logical_addr(struct slim_device *sb, const u8 *e_addr,
 				u8 e_len, u8 *laddr)
 {
 	int ret = 0;
+	u8 entry;
 	struct slim_controller *ctrl = sb->ctrl;
 	if (!ctrl || !laddr || !e_addr || e_len != 6)
 		return -EINVAL;
 	mutex_lock(&ctrl->m_ctrl);
-	ret = ctrl_getlogical_addr(ctrl, e_addr, e_len, laddr);
+	ret = ctrl_getlogical_addr(ctrl, e_addr, e_len, &entry);
+	if (!ret)
+		*laddr = ctrl->addrt[entry].laddr;
 	mutex_unlock(&ctrl->m_ctrl);
+	if (ret == -ENXIO && ctrl->get_laddr) {
+		ret = ctrl->get_laddr(ctrl, e_addr, e_len, laddr);
+		if (!ret)
+			ret = slim_assign_laddr(ctrl, e_addr, e_len, laddr,
+						true);
+	}
 	return ret;
 }
 EXPORT_SYMBOL_GPL(slim_get_logical_addr);
@@ -943,8 +961,6 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 	u16 ec;
 	u8 tid, mlen = 6;
 
-	if (sbdev->laddr != SLIM_LA_MANAGER && sbdev->laddr >= ctrl->num_dev)
-		return -ENXIO;
 	ret = slim_ele_access_sanity(msg, mc, rbuf, wbuf, len);
 	if (ret)
 		goto xfer_err;
