@@ -114,7 +114,6 @@ struct clk_ops {
  * @depends: non-direct parent of clock to enable when this clock is enabled
  * @vdd_class: voltage scaling requirement class
  * @fmax: maximum frequency in Hz supported at each voltage level
- * @warned: true if the clock has warned of incorrect usage, false otherwise
  */
 struct clk {
 	uint32_t flags;
@@ -128,7 +127,6 @@ struct clk {
 	struct list_head children;
 	struct list_head siblings;
 
-	bool warned;
 	unsigned count;
 	spinlock_t lock;
 	unsigned prepare_count;
