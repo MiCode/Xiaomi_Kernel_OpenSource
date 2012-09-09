@@ -2209,7 +2209,8 @@ struct msm_ver_num_info {
  *      ------------------------------------
  *      Bits    :  Purpose
  *      ------------------------------------
- *      31 - 24 :  Reserved.
+ *      31      :  is Dev ID valid?
+ *      30 - 24 :  Dev ID.
  *      23      :  is Image mode valid?
  *      22 - 16 :  Image mode.
  *      15      :  is MCTL PP inst idx valid?
@@ -2217,6 +2218,12 @@ struct msm_ver_num_info {
  *      7       :  is Video inst idx valid?
  *      6 - 0   :  Video inst idx.
  */
+#define CLR_DEVID_MODE(handle)	(handle &= 0x00FFFFFF)
+#define SET_DEVID_MODE(handle, data)	\
+	(handle |= ((0x1 << 31) | ((data & 0x7F) << 24)))
+#define GET_DEVID_MODE(handle)	\
+	((handle & 0x80000000) ? ((handle & 0x7F000000) >> 24) : 0xFF)
+
 #define CLR_IMG_MODE(handle)	(handle &= 0xFF00FFFF)
 #define SET_IMG_MODE(handle, data)	\
 	(handle |= ((0x1 << 23) | ((data & 0x7F) << 16)))
