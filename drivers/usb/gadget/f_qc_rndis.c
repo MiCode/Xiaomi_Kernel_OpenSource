@@ -882,6 +882,11 @@ rndis_qc_bind(struct usb_configuration *c, struct usb_function *f)
 
 	rndis_set_max_pkt_xfer(rndis->config, rndis->max_pkt_per_xfer);
 
+	/* In case of aggregated packets QC device will request
+	 * aliment to 4 (2^2).
+	 */
+	rndis_set_pkt_alignment_factor(rndis->config, 2);
+
 	/* NOTE:  all that is done without knowing or caring about
 	 * the network link ... which is unavailable to this code
 	 * until we're activated via set_alt().
