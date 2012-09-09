@@ -69,5 +69,5 @@ int msm_cam_server_request_irq(void *arg);
 int msm_cam_server_update_irqmap(
 	struct msm_cam_server_irqmap_entry *entry);
 int msm_cam_server_config_interface_map(u32 extendedmode,
-	uint32_t mctl_handle);
+	uint32_t mctl_handle, int vnode_id, int is_bayer_sensor);
 #endif /* _MSM_CAM_SERVER_H */

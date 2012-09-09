@@ -109,13 +109,20 @@ void msm_destroy_v4l2_event_queue(struct v4l2_fh *eventHandle)
 	v4l2_fh_exit(eventHandle);
 }
 
-int msm_cam_server_config_interface_map(u32 extendedmode, uint32_t mctl_handle)
+int msm_cam_server_config_interface_map(u32 extendedmode,
+	uint32_t mctl_handle, int vnode_id, int is_bayer_sensor)
 {
 	int i = 0;
 	int rc = 0;
 	int old_handle;
 	int interface;
 
+	if (vnode_id >= MAX_NUM_ACTIVE_CAMERA) {
+		pr_err("%s: invalid msm_dev node id = %d", __func__, vnode_id);
+		return -EINVAL;
+	}
+	D("%s: extendedmode = %d, vnode_id = %d, is_bayer_sensor = %d",
+		__func__, extendedmode, vnode_id, is_bayer_sensor);
 	switch (extendedmode) {
 	case MSM_V4L2_EXT_CAPTURE_MODE_RDI:
 		interface = RDI_0;
@@ -130,18 +137,50 @@ int msm_cam_server_config_interface_map(u32 extendedmode, uint32_t mctl_handle)
 		interface = PIX_0;
 		break;
 	}
+
 	for (i = 0; i < INTF_MAX; i++) {
 		if (g_server_dev.interface_map_table[i].interface ==
 							interface) {
+			if (is_bayer_sensor && interface == PIX_0) {
+				if (g_server_dev.
+					interface_map_table[i].mctl_handle &&
+					!g_server_dev.interface_map_table[i].
+						is_bayer_sensor) {
+					/* in simultaneous camera usecase
+					 * SoC does not use PIX interface */
+					g_server_dev.interface_map_table[i].
+						mctl_handle = 0;
+				}
+			}
 			old_handle =
 				g_server_dev.interface_map_table[i].mctl_handle;
 			if (old_handle == 0) {
 				g_server_dev.interface_map_table[i].mctl_handle
 					= mctl_handle;
-			} else if (old_handle != mctl_handle) {
-				pr_err("%s: interface_map[%d] was set: %d\n",
-					__func__, i, old_handle);
-				rc = -EINVAL;
+				g_server_dev.interface_map_table[i].
+					is_bayer_sensor = is_bayer_sensor;
+				g_server_dev.interface_map_table[i].vnode_id
+					= vnode_id;
+			} else {
+				if (!g_server_dev.interface_map_table[i].
+					is_bayer_sensor &&
+					(extendedmode ==
+					MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW ||
+					extendedmode ==
+					MSM_V4L2_EXT_CAPTURE_MODE_VIDEO ||
+					extendedmode ==
+					MSM_V4L2_EXT_CAPTURE_MODE_MAIN ||
+					extendedmode ==
+					MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL)) {
+					D("%s: SoC sensor, image_mode = %d",
+					__func__, extendedmode);
+					break;
+				}
+				if (old_handle != mctl_handle) {
+					pr_err("%s: iface_map[%d] is set: %d\n",
+						__func__, i, old_handle);
+					rc = -EINVAL;
+				}
 			}
 			break;
 		}
@@ -156,9 +195,10 @@ void msm_cam_server_clear_interface_map(uint32_t mctl_handle)
 {
 	int i;
 	for (i = 0; i < INTF_MAX; i++)
-		if (g_server_dev.interface_map_table[i].mctl_handle ==
-								mctl_handle)
-			g_server_dev.interface_map_table[i].mctl_handle = 0;
+		if (g_server_dev.interface_map_table[i].
+			mctl_handle == mctl_handle)
+			g_server_dev.interface_map_table[i].
+				mctl_handle = 0;
 }
 
 struct iommu_domain *msm_cam_server_get_domain()
@@ -181,7 +221,7 @@ uint32_t msm_cam_server_get_mctl_handle(void)
 			g_server_dev.mctl[i].handle =
 				(++g_server_dev.mctl_handle_cnt) << 8 | i;
 			memset(&g_server_dev.mctl[i].mctl,
-				   0, sizeof(g_server_dev.mctl[i].mctl));
+				0, sizeof(g_server_dev.mctl[i].mctl));
 			return g_server_dev.mctl[i].handle;
 		}
 	}
@@ -245,7 +285,7 @@ static int msm_ctrl_cmd_done(void *arg)
 	if (copy_from_user(command, (void __user *)ioctl_ptr->ioctl_ptr,
 					   sizeof(struct msm_ctrl_cmd))) {
 		pr_err("%s: copy_from_user failed, size=%d\n",
-			   __func__, sizeof(struct msm_ctrl_cmd));
+			__func__, sizeof(struct msm_ctrl_cmd));
 		goto ctrl_cmd_done_error;
 	}
 
@@ -1028,6 +1068,7 @@ static int msm_cam_server_open_session(struct msm_cam_server_dev *ps,
 	}
 	/* book keeping this camera session*/
 	ps->pcam_active[pcam->server_queue_idx] = pcam;
+	ps->opened_pcam[pcam->vnode_id] = pcam;
 	atomic_inc(&ps->number_pcam_active);
 
 	D("config pcam = 0x%p\n", pcam);
@@ -1053,7 +1094,7 @@ static int msm_cam_server_close_session(struct msm_cam_server_dev *ps,
 
 	atomic_dec(&ps->number_pcam_active);
 	ps->pcam_active[pcam->server_queue_idx] = NULL;
-
+	ps->opened_pcam[pcam->vnode_id] = NULL;
 	for (i = 0; i < INTF_MAX; i++) {
 		if (ps->interface_map_table[i].mctl_handle ==
 			pcam->mctl_handle)
@@ -1562,7 +1603,6 @@ static uint32_t msm_camera_server_find_mctl(
 {
 	int i;
 	uint32_t interface;
-
 	switch (notification) {
 	case NOTIFY_ISP_MSG_EVT:
 		if (((struct isp_msg_event *)arg)->msg_id ==
@@ -1587,14 +1627,28 @@ static uint32_t msm_camera_server_find_mctl(
 	case NOTIFY_VFE_BUF_EVT: {
 		struct msm_vfe_resp *rp;
 		struct msm_frame_info *frame_info;
+		uint8_t vnode_id;
+
 		rp = (struct msm_vfe_resp *)arg;
 		frame_info = rp->evt_msg.data;
-		if (frame_info->path == VFE_MSG_OUTPUT_TERTIARY1)
-			interface = RDI_0;
-		else if (frame_info->path == VFE_MSG_OUTPUT_TERTIARY2)
-			interface = RDI_1;
-		else
-			interface = PIX_0;
+		if (frame_info->inst_handle) {
+			vnode_id = GET_DEVID_MODE(frame_info->inst_handle);
+			if (vnode_id < MAX_NUM_ACTIVE_CAMERA &&
+				g_server_dev.opened_pcam[vnode_id]) {
+				return g_server_dev.
+					opened_pcam[vnode_id]->mctl_handle;
+			} else {
+				pr_err("%s: cannot find mctl handle", __func__);
+				return 0;
+			}
+		} else {
+			if (frame_info->path == VFE_MSG_OUTPUT_TERTIARY1)
+				interface = RDI_0;
+			else if (frame_info->path == VFE_MSG_OUTPUT_TERTIARY2)
+				interface = RDI_1;
+			else
+				interface = PIX_0;
+		}
 		}
 		break;
 	case NOTIFY_AXI_RDI_SOF_COUNT: {
@@ -1609,7 +1663,6 @@ static uint32_t msm_camera_server_find_mctl(
 		interface = PIX_0;
 		break;
 	}
-
 	for (i = 0; i < INTF_MAX; i++) {
 		if (interface == g_server_dev.interface_map_table[i].interface)
 			break;

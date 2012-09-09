@@ -899,6 +899,7 @@ static int msm_mctl_dev_close(struct file *f)
 	pcam->mctl_node.dev_inst[pcam_inst->my_index] = NULL;
 	msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
 	CLR_MCTLPP_INST_IDX(pcam_inst->inst_handle);
+	CLR_DEVID_MODE(pcam_inst->inst_handle);
 	CLR_IMG_MODE(pcam_inst->inst_handle);
 	mutex_unlock(&pcam_inst->inst_lock);
 	mutex_destroy(&pcam_inst->inst_lock);
@@ -1477,18 +1478,30 @@ static int msm_mctl_v4l2_s_parm(struct file *f, void *pctx,
 				struct v4l2_streamparm *a)
 {
 	int rc = 0;
+	int is_bayer_sensor = 0;
+	struct msm_cam_media_controller *pmctl = NULL;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 	pcam_inst->image_mode = (a->parm.capture.extendedmode & 0x7F);
+
+	pmctl = msm_cam_server_get_mctl(pcam_inst->pcam->mctl_handle);
+	if (!pmctl) {
+		pr_err("%s: invalid mctl controller", __func__);
+		return -EINVAL;
+	}
+	/* save msm_dev node idx for subdev notify lookup */
+	SET_DEVID_MODE(pcam_inst->inst_handle, pmctl->pcam_ptr->vnode_id);
 	SET_IMG_MODE(pcam_inst->inst_handle, pcam_inst->image_mode);
 	SET_MCTLPP_INST_IDX(pcam_inst->inst_handle, pcam_inst->my_index);
 	pcam_inst->pcam->mctl_node.dev_inst_map[pcam_inst->image_mode] =
 		pcam_inst;
 	pcam_inst->path = msm_mctl_vidbuf_get_path(pcam_inst->image_mode);
-
+	if (pcam_inst->pcam->sdata->sensor_type == BAYER_SENSOR)
+		is_bayer_sensor = 1;
 	rc = msm_cam_server_config_interface_map(pcam_inst->image_mode,
-			pcam_inst->pcam->mctl_handle);
+			pcam_inst->pcam->mctl_handle,
+			pcam_inst->pcam->vnode_id, is_bayer_sensor);
 	D("%s path=%d, image mode = %d rc=%d\n", __func__,
 		pcam_inst->path, pcam_inst->image_mode, rc);
 	return rc;

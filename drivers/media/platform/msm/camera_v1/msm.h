@@ -515,12 +515,14 @@ struct irqmgr_intr_lkup_table {
 };
 
 struct interface_map {
-	/* The interafce a particular stream belongs to.
+	/* The interface a particular stream belongs to.
 	 * PIX0, RDI0, RDI1, or RDI2
 	 */
 	int interface;
-	/* The handle of the mctl intstance interface runs on */
+	/* The handle of the mctl instance, interface runs on */
 	uint32_t mctl_handle;
+	int vnode_id;
+	int is_bayer_sensor;
 };
 
 /* abstract camera server device for all sensor successfully probed*/
@@ -539,6 +541,8 @@ struct msm_cam_server_dev {
 	struct msm_cam_config_dev_info config_info;
 	/* active working camera device - only one allowed at this time*/
 	struct msm_cam_v4l2_device *pcam_active[MAX_NUM_ACTIVE_CAMERA];
+	/* save the opened pcam for finding the mctl when doing buf lookup */
+	struct msm_cam_v4l2_device *opened_pcam[MAX_NUM_ACTIVE_CAMERA];
 	/* number of camera devices opened*/
 	atomic_t number_pcam_active;
 	struct v4l2_queue_util server_command_queue;
