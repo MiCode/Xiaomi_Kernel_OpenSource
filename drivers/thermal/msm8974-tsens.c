@@ -533,8 +533,8 @@ static int tsens_calib_sensors(void)
 			tmdev->sensor[i].calib_data_point1 = 492;
 		}
 		goto compute_intercept_slope;
-	} else if (tsens_calibration_mode == TSENS_ONE_POINT_CALIB ||
-				TSENS_TWO_POINT_CALIB) {
+	} else if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB) ||
+			(tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
 		tsens_base1_data = (calib_data[0] & TSENS_BASE1_MASK);
 		tsens0_point1 = (calib_data[0] & TSENS0_POINT1_MASK) >>
 							TSENS0_POINT1_SHIFT;
@@ -610,8 +610,8 @@ static int tsens_calib_sensors(void)
 		(((tsens_base1_data) << 2) | TSENS_BIT_APPEND) + tsens10_point1;
 	}
 
-	if (tsens_calibration_mode == (TSENS_ONE_POINT_CALIB_OPTION_2 ||
-					TSENS_TWO_POINT_CALIB)) {
+	if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2) ||
+			(tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
 		tmdev->sensor[0].calib_data_point1 =
 		((((tsens_base1_data) + tsens0_point1) << 2) |
 						TSENS_BIT_APPEND);
