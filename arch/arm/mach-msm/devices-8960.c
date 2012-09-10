@@ -4034,16 +4034,6 @@ struct platform_device msm8960_device_ebi1_ch1_erp = {
 	.resource	= msm_ebi1_ch1_erp_resources,
 };
 
-static int msm8960_LPM_latency = 1000; /* >100 usec for WFI */
-
-struct platform_device msm8960_cpu_idle_device = {
-	.name   = "msm_cpu_idle",
-	.id     = -1,
-	.dev = {
-		.platform_data = &msm8960_LPM_latency,
-	},
-};
-
 static struct resource msm_cache_erp_resources[] = {
 	{
 		.name = "l1_irq",

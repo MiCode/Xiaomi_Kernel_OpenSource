@@ -566,16 +566,6 @@ struct platform_device msm8930_rpm_rbcpr_device = {
 	.resource = &msm_rpm_rbcpr_resource,
 };
 
-static int msm8930_LPM_latency = 1000; /* >100 usec for WFI */
-
-struct platform_device msm8930_cpu_idle_device = {
-	.name   = "msm_cpu_idle",
-	.id     = -1,
-	.dev = {
-		.platform_data = &msm8930_LPM_latency,
-	},
-};
-
 struct platform_device msm_bus_8930_sys_fabric = {
 	.name  = "msm_bus_fabric",
 	.id    =  MSM_BUS_FAB_SYSTEM,
