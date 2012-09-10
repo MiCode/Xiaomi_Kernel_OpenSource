@@ -316,6 +316,10 @@ static int pm8xxx_tz_set_mode(struct thermal_zone_device *thermal,
 	if (!chip)
 		return -EINVAL;
 
+	/* Mask software override requests if they are not allowed. */
+	if (!chip->cdata.allow_software_override)
+		mode = THERMAL_DEVICE_DISABLED;
+
 	if (mode != chip->mode) {
 		if (mode == THERMAL_DEVICE_ENABLED)
 			pm8xxx_tm_shutdown_override(chip,
