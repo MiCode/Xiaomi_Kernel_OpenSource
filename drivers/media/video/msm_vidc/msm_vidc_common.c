@@ -63,7 +63,9 @@ static int get_bus_vector(int load)
 {
 	int num_rows = sizeof(bus_table)/(sizeof(u32));
 	int i;
-	for (i = num_rows - 1; i > 0; i--) {
+	if (!load)
+		return 0;
+	for (i = num_rows - 1; i > 1; i--) {
 		if (load >= bus_table[i])
 			break;
 	}

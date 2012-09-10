@@ -659,7 +659,7 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 				plane.reserved[0] = bi->fd;
 				plane.reserved[1] = bi->buff_off;
 				plane.length = bi->size;
-				plane.m.userptr = bi->uvaddr;
+				plane.m.userptr = bi->device_addr;
 				buffer_info.m.planes = &plane;
 				buffer_info.length = 1;
 				dprintk(VIDC_DBG,
