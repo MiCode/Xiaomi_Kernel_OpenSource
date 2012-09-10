@@ -35,7 +35,7 @@
  * control for which core is the next to come out of the secondary
  * boot "holding pen"
  */
-int pen_release = -1;
+volatile int pen_release = -1;
 
 static bool cold_boot_done;
 
