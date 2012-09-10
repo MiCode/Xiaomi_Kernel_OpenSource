@@ -80,6 +80,8 @@ void __init msm8226_init_irq(void)
 
 void __init msm8226_init(struct of_dev_auxdata **adata)
 {
+	msm8226_init_gpiomux();
+
 	msm_clock_init(&msm_dummy_clock_init_data);
 
 	*adata = msm8226_auxdata_lookup;
