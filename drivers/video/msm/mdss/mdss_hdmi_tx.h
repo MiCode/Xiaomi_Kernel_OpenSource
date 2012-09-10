@@ -16,13 +16,6 @@
 #include <linux/switch.h>
 #include "mdss_hdmi_util.h"
 
-enum hdmi_tx_clk_type {
-	HDMI_TX_AHB_CLK,
-	HDMI_TX_APP_CLK,
-	HDMI_TX_EXTP_CLK,
-	HDMI_TX_MAX_CLK
-};
-
 enum hdmi_tx_io_type {
 	HDMI_TX_CORE_IO,
 	HDMI_TX_PHY_IO,
@@ -41,9 +34,6 @@ struct hdmi_tx_platform_data {
 	/* Data filled from device tree nodes */
 	struct dss_io_data io[HDMI_TX_MAX_IO];
 	struct dss_module_power power_data[HDMI_TX_MAX_PM];
-
-	/* clk and regulator handles */
-	struct clk *clk[HDMI_TX_MAX_CLK];
 };
 
 struct hdmi_tx_ctrl {
