@@ -40,9 +40,11 @@ enum msm_core_control_event {
  */
 struct msm_dcvs_idle {
 	const char *core_name;
-	/* Enable/Disable idle state/notifications */
-	int (*enable)(struct msm_dcvs_idle *self,
-			enum msm_core_control_event event);
+};
+
+struct msm_gov_platform_data {
+	struct msm_dcvs_core_info *info;
+	int latency;
 };
 
 /**
@@ -129,6 +131,8 @@ extern int msm_dcvs_register_core(
 	struct msm_dcvs_core_info *info,
 	int (*set_frequency)(struct msm_dcvs_freq *self, unsigned int freq),
 	unsigned int (*get_frequency)(struct msm_dcvs_freq *self),
+	int (*idle_enable)(struct msm_dcvs_idle *self,
+			enum msm_core_control_event event),
 	int sensor);
 
 /**
