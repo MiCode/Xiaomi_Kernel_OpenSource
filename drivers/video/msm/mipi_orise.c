@@ -53,6 +53,7 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct mipi_panel_info *mipi;
 	struct msm_panel_info *pinfo;
+	struct dcs_cmd_req cmdreq;
 
 	mfd = platform_get_drvdata(pdev);
 	if (!mfd)
@@ -63,12 +64,21 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
 	pinfo = &mfd->panel_info;
 	mipi  = &mfd->panel_info.mipi;
 
+	memset(&cmdreq, 0, sizeof(cmdreq));
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		mipi_dsi_cmds_tx(&orise_tx_buf, orise_video_on_cmds,
-			ARRAY_SIZE(orise_video_on_cmds));
+		cmdreq.cmds = orise_video_on_cmds;
+		cmdreq.cmds_cnt = ARRAY_SIZE(orise_video_on_cmds);
+		cmdreq.flags = CMD_REQ_COMMIT;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;
+		mipi_dsi_cmdlist_put(&cmdreq);
 	} else {
-		mipi_dsi_cmds_tx(&orise_tx_buf, orise_cmd_on_cmds,
-			ARRAY_SIZE(orise_cmd_on_cmds));
+		cmdreq.cmds = orise_cmd_on_cmds;
+		cmdreq.cmds_cnt = ARRAY_SIZE(orise_cmd_on_cmds);
+		cmdreq.flags = CMD_REQ_COMMIT;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;
+		mipi_dsi_cmdlist_put(&cmdreq);
 
 		mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
 	}
@@ -79,6 +89,7 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
 static int mipi_orise_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
+	struct dcs_cmd_req cmdreq;
 
 	mfd = platform_get_drvdata(pdev);
 
@@ -87,8 +98,13 @@ static int mipi_orise_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(&orise_tx_buf, orise_display_off_cmds,
-			ARRAY_SIZE(orise_display_off_cmds));
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = orise_display_off_cmds;
+	cmdreq.cmds_cnt = ARRAY_SIZE(orise_display_off_cmds);
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+	mipi_dsi_cmdlist_put(&cmdreq);
 
 	return 0;
 }

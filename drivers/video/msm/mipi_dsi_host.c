@@ -1130,11 +1130,15 @@ int mipi_dsi_cmd_reg_tx(uint32 data)
 	return 4;
 }
 
+static int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp);
+static int mipi_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen);
+
 /*
  * mipi_dsi_cmds_tx:
  * thread context only
  */
-int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
+static int mipi_dsi_cmds_tx(struct dsi_buf *tp,
+			struct dsi_cmd_desc *cmds, int cnt)
 {
 	struct dsi_cmd_desc *cm;
 	uint32 dsi_ctrl, ctrl;
@@ -1187,122 +1191,8 @@ static struct dsi_cmd_desc pkt_size_cmd[] = {
  * len should be either 4 or 8
  * any return data more than MIPI_DSI_LEN need to be break down
  * to multiple transactions.
- *
- * ov_mutex need to be acquired before call this function.
  */
-int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
-			struct dsi_buf *tp, struct dsi_buf *rp,
-			struct dsi_cmd_desc *cmds, int rlen)
-{
-	int cnt, len, diff, pkt_size;
-	char cmd;
-
-	if (mfd->panel_info.mipi.no_max_pkt_size) {
-		/* Only support rlen = 4*n */
-		rlen += 3;
-		rlen &= ~0x03;
-	}
-
-	len = rlen;
-	diff = 0;
-
-	if (len <= 2)
-		cnt = 4;	/* short read */
-	else {
-		if (len > MIPI_DSI_LEN)
-			len = MIPI_DSI_LEN;	/* 8 bytes at most */
-
-		len = (len + 3) & ~0x03; /* len 4 bytes align */
-		diff = len - rlen;
-		/*
-		 * add extra 2 bytes to len to have overall
-		 * packet size is multipe by 4. This also make
-		 * sure 4 bytes dcs headerlocates within a
-		 * 32 bits register after shift in.
-		 * after all, len should be either 6 or 10.
-		 */
-		len += 2;
-		cnt = len + 6; /* 4 bytes header + 2 bytes crc */
-	}
-
-	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		/* make sure mdp dma is not txing pixel data */
-#ifdef CONFIG_FB_MSM_MDP303
-			mdp3_dsi_cmd_dma_busy_wait(mfd);
-#endif
-	}
-
-	if (!mfd->panel_info.mipi.no_max_pkt_size) {
-		/* packet size need to be set at every read */
-		pkt_size = len;
-		max_pktsize[0] = pkt_size;
-		mipi_dsi_enable_irq(DSI_CMD_TERM);
-		mipi_dsi_buf_init(tp);
-		mipi_dsi_cmd_dma_add(tp, pkt_size_cmd);
-		mipi_dsi_cmd_dma_tx(tp);
-	}
-
-	mipi_dsi_enable_irq(DSI_CMD_TERM);
-	mipi_dsi_buf_init(tp);
-	mipi_dsi_cmd_dma_add(tp, cmds);
-
-	/* transmit read comamnd to client */
-	mipi_dsi_cmd_dma_tx(tp);
-
-	/*
-	 * once cmd_dma_done interrupt received,
-	 * return data from client is ready and stored
-	 * at RDBK_DATA register already
-	 */
-	mipi_dsi_buf_init(rp);
-	if (mfd->panel_info.mipi.no_max_pkt_size) {
-		/*
-		 * expect rlen = n * 4
-		 * short alignement for start addr
-		 */
-		rp->data += 2;
-	}
-
-	mipi_dsi_cmd_dma_rx(rp, cnt);
-
-	if (mfd->panel_info.mipi.no_max_pkt_size) {
-		/*
-		 * remove extra 2 bytes from previous
-		 * rx transaction at shift register
-		 * which was inserted during copy
-		 * shift registers to rx buffer
-		 * rx payload start from long alignment addr
-		 */
-		rp->data += 2;
-	}
-
-	cmd = rp->data[0];
-	switch (cmd) {
-	case DTYPE_ACK_ERR_RESP:
-		pr_debug("%s: rx ACK_ERR_PACLAGE\n", __func__);
-		break;
-	case DTYPE_GEN_READ1_RESP:
-	case DTYPE_DCS_READ1_RESP:
-		mipi_dsi_short_read1_resp(rp);
-		break;
-	case DTYPE_GEN_READ2_RESP:
-	case DTYPE_DCS_READ2_RESP:
-		mipi_dsi_short_read2_resp(rp);
-		break;
-	case DTYPE_GEN_LREAD_RESP:
-	case DTYPE_DCS_LREAD_RESP:
-		mipi_dsi_long_read_resp(rp);
-		rp->len -= 2; /* extra 2 bytes added */
-		rp->len -= diff; /* align bytes */
-		break;
-	default:
-		break;
-	}
-
-	return rp->len;
-}
-
-int mipi_dsi_cmds_rx_new(struct dsi_buf *tp, struct dsi_buf *rp,
+static int mipi_dsi_cmds_rx(struct dsi_buf *tp, struct dsi_buf *rp,
 			struct dcs_cmd_req *req, int rlen)
 {
 	struct dsi_cmd_desc *cmds;
@@ -1411,7 +1301,7 @@ int mipi_dsi_cmds_rx_new(struct dsi_buf *tp, struct dsi_buf *rp,
 	return rp->len;
 }
 
-int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
+static int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 {
 
 	unsigned long flags;
@@ -1458,7 +1348,7 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	return tp->len;
 }
 
-int mipi_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen)
+static int mipi_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen)
 {
 	uint32 *lp, data;
 	int i, off, cnt;
@@ -1563,12 +1453,17 @@ void mipi_dsi_cmdlist_rx(struct dcs_cmd_req *req)
 	struct dsi_buf *rp;
 
 	mipi_dsi_buf_init(&dsi_tx_buf);
-	mipi_dsi_buf_init(&dsi_rx_buf);
 
 	tp = &dsi_tx_buf;
-	rp = &dsi_rx_buf;
 
-	len = mipi_dsi_cmds_rx_new(tp, rp, req, req->rlen);
+	if (req->rbuf)
+		rp = req->rbuf;
+	else
+		rp = &dsi_rx_buf;
+
+	mipi_dsi_buf_init(rp);
+
+	len = mipi_dsi_cmds_rx(tp, rp, req, req->rlen);
 	dp = (u32 *)rp->data;
 
 	if (req->cb)
