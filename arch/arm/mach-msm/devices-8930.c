@@ -543,8 +543,8 @@ struct platform_device msm8930_rpm_stat_device = {
 };
 
 static struct resource msm_rpm_rbcpr_resource = {
-	.start = 0x0010CB00,
-	.end = 0x0010CB00 + SZ_8K - 1,
+	.start = 0x0010DB00,
+	.end = 0x0010DB00 + SZ_8K - 1,
 	.flags = IORESOURCE_MEM,
 };
 
