@@ -305,6 +305,12 @@ config WCNSS_CORE_PRONTO
 	---help---
 	  Pronto Support for the Qualcomm WCNSS triple play connectivity subsystem
 
+config WCNSS_MEM_PRE_ALLOC
+	tristate "WCNSS pre-alloc memory support"
+	depends on WCNSS_CORE
+	---help---
+	  Pre-allocate memory for the WLAN driver module
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
