@@ -589,18 +589,19 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 static int vidc_hal_core_start_cpu(struct hal_device *device)
 {
 	u32 ctrl_status = 0, count = 0, rc = 0;
+	int max_tries = 100;
 	write_register(device->hal_data->register_base_addr,
 			VIDC_WRAPPER_INTR_MASK, 0, 0);
 	write_register(device->hal_data->register_base_addr,
 			VIDC_CPU_CS_SCIACMDARG3, 1, 0);
-	while (!ctrl_status && count < 25) {
+	while (!ctrl_status && count < max_tries) {
 		ctrl_status = read_register(
 		device->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG0);
 		usleep_range(500, 1000);
 		count++;
 	}
-	if (count >= 25)
+	if (count >= max_tries)
 		rc = -ETIME;
 	return rc;
 }
@@ -608,23 +609,33 @@ static int vidc_hal_core_start_cpu(struct hal_device *device)
 static void set_vbif_registers(struct hal_device *device)
 {
 	write_register(device->hal_data->register_base_addr,
-			VIDC_VENUS0_VENUS_WRAPPER_VBIF_REQ_PRIORITY, 0, 0);
+			VIDC_VBIF_OUT_AXI_AOOO_EN, 0x00000FFF, 0);
 	write_register(device->hal_data->register_base_addr,
-			VIDC_VENUS0_VENUS_WRAPPER_VBIF_PRIORITY_LEVEL, 0, 0);
+			VIDC_VBIF_OUT_AXI_AOOO, 0x0FFF0FFF, 0);
 	write_register(device->hal_data->register_base_addr,
-		VIDC_VBIF_ARB_CTL, 0x30, 0);
+			VIDC_VENUS_VBIF_CLK_ON, 1, 0);
 	write_register(device->hal_data->register_base_addr,
-		VIDC_VBIF_ROUND_ROBIN_QOS_ARB, 0x1, 0);
+			VIDC_VBIF_IN_RD_LIM_CONF0, 0x10101001, 0);
 	write_register(device->hal_data->register_base_addr,
-		VIDC_VBIF_OUT_AXI_AOOO_EN, 0x00000FFF, 0);
+			VIDC_VBIF_IN_RD_LIM_CONF1, 0x10101010, 0);
 	write_register(device->hal_data->register_base_addr,
-		VIDC_VBIF_OUT_AXI_AOOO, 0x0FFF0FFF, 0);
+			VIDC_VBIF_IN_RD_LIM_CONF2, 0x10101010, 0);
 	write_register(device->hal_data->register_base_addr,
-		VIDC_VBIF_OUT_AXI_AMEMTYPE_CONF0, 0x22222222, 0);
+			VIDC_VBIF_IN_RD_LIM_CONF3, 0x00000010, 0);
 	write_register(device->hal_data->register_base_addr,
-		VIDC_VBIF_OUT_AXI_AMEMTYPE_CONF1, 0x00002222, 0);
+			VIDC_VBIF_IN_WR_LIM_CONF0, 0x1010100f, 0);
 	write_register(device->hal_data->register_base_addr,
-		VIDC_VBIF_DDR_OUT_MAX_BURST, 0x00000707, 0);
+			VIDC_VBIF_IN_WR_LIM_CONF1, 0x10101010, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VBIF_IN_WR_LIM_CONF2, 0x10101010, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VBIF_IN_WR_LIM_CONF3, 0x00000010, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VBIF_OUT_RD_LIM_CONF0, 0x00001010, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VBIF_OUT_WR_LIM_CONF0, 0x00001010, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VBIF_ARB_CTL, 0x00000030, 0);
 }
 
 int vidc_hal_core_init(void *device, int domain)

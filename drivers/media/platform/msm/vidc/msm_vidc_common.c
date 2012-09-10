@@ -737,7 +737,7 @@ int msm_comm_scale_clocks(struct msm_vidc_core *core, enum session_type type)
 		dprintk(VIDC_ERR, "Invalid args: %p\n", core);
 		return -EINVAL;
 	}
-	num_mbs_per_sec = msm_comm_get_load(core, MSM_VIDC_ENCODER);
+	num_mbs_per_sec = 2 * msm_comm_get_load(core, MSM_VIDC_ENCODER);
 	num_mbs_per_sec += msm_comm_get_load(core, MSM_VIDC_DECODER);
 	dprintk(VIDC_INFO, "num_mbs_per_sec = %d\n", num_mbs_per_sec);
 	rc = clk_set_rate(core->resources.clock[VCODEC_CLK].clk,
