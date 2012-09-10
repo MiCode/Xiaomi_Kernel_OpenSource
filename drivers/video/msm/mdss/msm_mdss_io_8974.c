@@ -208,45 +208,45 @@ void mdss_dsi_clk_disable(struct mdss_panel_data *pdata)
 	mdss_dsi_clk_on = 0;
 }
 
-void mdss_dsi_phy_sw_reset(struct mdss_panel_data *pdata)
+void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
 {
 	/* start phy sw reset */
-	MIPI_OUTP((pdata->dsi_base) + 0x12c, 0x0001);
+	MIPI_OUTP(ctrl_base + 0x12c, 0x0001);
 	wmb();
 	usleep(1);
 	/* end phy sw reset */
-	MIPI_OUTP((pdata->dsi_base) + 0x12c, 0x0000);
+	MIPI_OUTP(ctrl_base + 0x12c, 0x0000);
 	wmb();
 	usleep(1);
 }
 
-void mdss_dsi_phy_enable(struct mdss_panel_data *pdata, int on)
+void mdss_dsi_phy_enable(unsigned char *ctrl_base, int on)
 {
 	if (on) {
-		MIPI_OUTP((pdata->dsi_base) + 0x0220, 0x006);
+		MIPI_OUTP(ctrl_base + 0x0220, 0x006);
 		usleep(10);
-		MIPI_OUTP((pdata->dsi_base) + 0x0268, 0x001);
+		MIPI_OUTP(ctrl_base + 0x0268, 0x001);
 		usleep(10);
-		MIPI_OUTP((pdata->dsi_base) + 0x0268, 0x000);
+		MIPI_OUTP(ctrl_base + 0x0268, 0x000);
 		usleep(10);
-		MIPI_OUTP((pdata->dsi_base) + 0x0220, 0x007);
+		MIPI_OUTP(ctrl_base + 0x0220, 0x007);
 		wmb();
 
 		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x07e);
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x06e);
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x06c);
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x064);
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x065);
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x075);
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x077);
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x07f);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x07e);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x06e);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x06c);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x064);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x065);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x075);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x077);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x07f);
 		wmb();
 
 	} else {
-		MIPI_OUTP((pdata->dsi_base) + 0x0220, 0x006);
+		MIPI_OUTP(ctrl_base + 0x0220, 0x006);
 		usleep(10);
-		MIPI_OUTP((pdata->dsi_base) + 0x0470, 0x000);
+		MIPI_OUTP(ctrl_base + 0x0470, 0x000);
 		wmb();
 	}
 }
@@ -255,31 +255,39 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_phy_ctrl *pd;
 	int i, off, ln, offset;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	pd = (pdata->panel_info.mipi).dsi_phy_db;
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	pd = ((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db;
 
 	off = 0x0580;	/* phy regulator ctrl settings */
 	for (i = 0; i < 8; i++) {
-		MIPI_OUTP((pdata->dsi_base) + off, pd->regulator[i]);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->regulator[i]);
 		wmb();
 		off += 4;
 	}
 
 	off = 0x0440;	/* phy timing ctrl 0 - 11 */
 	for (i = 0; i < 12; i++) {
-		MIPI_OUTP((pdata->dsi_base) + off, pd->timing[i]);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->timing[i]);
 		wmb();
 		off += 4;
 	}
 
 	/* Strength ctrl 0 - 1 */
-	MIPI_OUTP((pdata->dsi_base) + 0x0484, pd->strength[0]);
-	MIPI_OUTP((pdata->dsi_base) + 0x0488, pd->strength[1]);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, pd->strength[0]);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0488, pd->strength[1]);
 	wmb();
 
 	off = 0x04b4;	/* phy BIST ctrl 0 - 5 */
 	for (i = 0; i < 6; i++) {
-		MIPI_OUTP((pdata->dsi_base) + off, pd->bistCtrl[i]);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->bistCtrl[i]);
 		wmb();
 		off += 4;
 	}
@@ -290,7 +298,8 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 		off = 0x0300 + (ln * 0x40);
 		for (i = 0; i < 9; i++) {
 			offset = i + (ln * 9);
-			MIPI_OUTP((pdata->dsi_base) + off, pd->laneCfg[offset]);
+			MIPI_OUTP((ctrl_pdata->ctrl_base) + off,
+							pd->laneCfg[offset]);
 			wmb();
 			off += 4;
 		}
