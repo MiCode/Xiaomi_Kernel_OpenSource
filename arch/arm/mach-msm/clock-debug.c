@@ -175,16 +175,18 @@ static int clock_debug_print_clock(struct clk *c)
 {
 	char *start = "";
 
-	if (!c || !c->count)
+	if (!c || !c->prepare_count)
 		return 0;
 
 	pr_info("\t");
 	do {
 		if (c->vdd_class)
-			pr_cont("%s%s [%ld, %lu]", start, c->dbg_name, c->rate,
+			pr_cont("%s%s:%u:%u [%ld, %lu]", start, c->dbg_name,
+				c->prepare_count, c->count, c->rate,
 				c->vdd_class->cur_level);
 		else
-			pr_cont("%s%s [%ld]", start, c->dbg_name, c->rate);
+			pr_cont("%s%s:%u:%u [%ld]", start, c->dbg_name,
+				c->prepare_count, c->count, c->rate);
 		start = " -> ";
 	} while ((c = clk_get_parent(c)));
 
