@@ -810,6 +810,22 @@ static int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_be_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+			struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
+	channels->min =  channels->max = 2;
+
+	return 0;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
@@ -1340,7 +1356,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.codec_dai_name = "spdif_rx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SEC_I2S_RX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_hw_params_fixup = msm_be_i2s_hw_params_fixup,
 		.ops = &mpq8064_sec_i2s_rx_be_ops,
 		.ignore_pmdown_time = 1, /* this dainlink has playback support */
 	},
