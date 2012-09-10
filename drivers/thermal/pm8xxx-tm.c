@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -457,8 +457,7 @@ static void pm8xxx_tm_work(struct work_struct *work)
 	thermal_zone_device_update(chip->tz_dev);
 
 	/* Notify user space */
-	if (chip->mode == THERMAL_DEVICE_ENABLED)
-		kobject_uevent(&chip->tz_dev->device.kobj, KOBJ_CHANGE);
+	sysfs_notify(&chip->tz_dev->device.kobj, NULL, "type");
 
 bail:
 	enable_irq(chip->tempstat_irq);
