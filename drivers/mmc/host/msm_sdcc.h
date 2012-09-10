@@ -346,7 +346,7 @@ struct msmsdcc_host {
 	void __iomem		*dml_base;
 	void __iomem		*bam_base;
 
-	int			pdev_id;
+	struct platform_device	*pdev;
 
 	struct msmsdcc_curr_req	curr;
 
