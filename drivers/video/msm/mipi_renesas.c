@@ -1122,6 +1122,7 @@ static int mipi_renesas_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	struct mipi_panel_info *mipi;
+	struct dcs_cmd_req cmdreq;
 
 	mfd = platform_get_drvdata(pdev);
 	mipi  = &mfd->panel_info.mipi;
@@ -1131,24 +1132,47 @@ static int mipi_renesas_lcd_on(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_sleep_off_cmds,
-			ARRAY_SIZE(renesas_sleep_off_cmds));
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = renesas_sleep_off_cmds;
+	cmdreq.cmds_cnt = ARRAY_SIZE(renesas_sleep_off_cmds);
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+	mipi_dsi_cmdlist_put(&cmdreq);
 
 	mipi_set_tx_power_mode(1);
-	mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_display_on_cmds,
-			ARRAY_SIZE(renesas_display_on_cmds));
+
+	cmdreq.cmds = renesas_display_on_cmds;
+	cmdreq.cmds_cnt = ARRAY_SIZE(renesas_display_on_cmds);
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+	mipi_dsi_cmdlist_put(&cmdreq);
 
 	if (cpu_is_msm7x25a() || cpu_is_msm7x25aa() || cpu_is_msm7x25ab()) {
-		mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_hvga_on_cmds,
-			ARRAY_SIZE(renesas_hvga_on_cmds));
+		cmdreq.cmds = renesas_hvga_on_cmds;
+		cmdreq.cmds_cnt = ARRAY_SIZE(renesas_hvga_on_cmds);
+		cmdreq.flags = CMD_REQ_COMMIT;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;
+		mipi_dsi_cmdlist_put(&cmdreq);
 	}
 
-	if (mipi->mode == DSI_VIDEO_MODE)
-		mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_video_on_cmds,
-			ARRAY_SIZE(renesas_video_on_cmds));
-	else
-		mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_cmd_on_cmds,
-			ARRAY_SIZE(renesas_cmd_on_cmds));
+	if (mipi->mode == DSI_VIDEO_MODE) {
+		cmdreq.cmds = renesas_video_on_cmds;
+		cmdreq.cmds_cnt = ARRAY_SIZE(renesas_video_on_cmds);
+		cmdreq.flags = CMD_REQ_COMMIT;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;
+		mipi_dsi_cmdlist_put(&cmdreq);
+	} else {
+		cmdreq.cmds = renesas_cmd_on_cmds;
+		cmdreq.cmds_cnt = ARRAY_SIZE(renesas_cmd_on_cmds);
+		cmdreq.flags = CMD_REQ_COMMIT;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;
+		mipi_dsi_cmdlist_put(&cmdreq);
+	}
 	mipi_set_tx_power_mode(0);
 
 	return 0;
@@ -1157,6 +1181,7 @@ static int mipi_renesas_lcd_on(struct platform_device *pdev)
 static int mipi_renesas_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
+	struct dcs_cmd_req cmdreq;
 
 	mfd = platform_get_drvdata(pdev);
 
@@ -1165,8 +1190,13 @@ static int mipi_renesas_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(&renesas_tx_buf, renesas_display_off_cmds,
-			ARRAY_SIZE(renesas_display_off_cmds));
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = renesas_display_off_cmds;
+	cmdreq.cmds_cnt = ARRAY_SIZE(renesas_display_off_cmds);
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+	mipi_dsi_cmdlist_put(&cmdreq);
 
 	return 0;
 }
