@@ -4499,6 +4499,10 @@ static int select_idle_sibling(struct task_struct *p, int target)
 	if (i != target && cpus_share_cache(i, target) && idle_cpu(i))
 		return i;
 
+	if (!(current->flags & PF_WAKE_UP_IDLE) &&
+	    !(p->flags & PF_WAKE_UP_IDLE))
+		return target;
+
 	/*
 	 * Otherwise, iterate the domains and find an elegible idle cpu.
 	 */
