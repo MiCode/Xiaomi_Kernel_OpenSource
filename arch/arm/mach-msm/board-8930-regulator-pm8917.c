@@ -196,6 +196,8 @@ VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("mhl_iovcc18",		"0-0039"),
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"sitar-slim"),
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"sitar1p1-slim"),
+	REGULATOR_SUPPLY("vdd-io",		"spi0.0"),
+	REGULATOR_SUPPLY("vdd-phy",		"spi0.0"),
 };
 VREG_CONSUMERS(S5) = {
 	REGULATOR_SUPPLY("8917_s5",		NULL),
