@@ -328,8 +328,8 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 		ret = kgsl_snapshot_get_object(device, ptbase,
 				sp_vs_pvt_mem_addr, 8192,
 				SNAPSHOT_GPU_OBJECT_GENERIC);
-
 		snapshot_frozen_objsize += ret;
+		sp_vs_pvt_mem_addr = 0;
 	}
 
 	if (sp_fs_pvt_mem_addr) {
@@ -337,6 +337,7 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 				sp_fs_pvt_mem_addr, 8192,
 				SNAPSHOT_GPU_OBJECT_GENERIC);
 		snapshot_frozen_objsize += ret;
+		sp_fs_pvt_mem_addr = 0;
 	}
 
 	/* Finally: VBOs */
@@ -359,7 +360,13 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 				0, SNAPSHOT_GPU_OBJECT_GENERIC);
 			snapshot_frozen_objsize += ret;
 		}
+
+		vbo[i].base = 0;
+		vbo[i].stride = 0;
 	}
+
+	vfd_control_0 = 0;
+	vfd_index_max = 0;
 }
 
 /*
@@ -473,21 +480,33 @@ static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
 		unsigned int gpuaddr, unsigned int dwords)
 {
 	int i, ret, rem = dwords;
-	unsigned int *src = (unsigned int *) adreno_convertaddr(device, ptbase,
-		gpuaddr, dwords << 2);
+	unsigned int *src;
+
+	/*
+	 * If the object is already in the list, we don't need to parse it again
+	 */
+
+	if (kgsl_snapshot_have_object(device, ptbase, gpuaddr, dwords << 2))
+		return;
+
+	src = (unsigned int *) adreno_convertaddr(device, ptbase, gpuaddr,
+		dwords << 2);
 
 	if (src == NULL)
 		return;
 
-	for (i = 0; rem != 0; rem--, i++) {
+	for (i = 0; rem > 0; rem--, i++) {
 		int pktsize;
 
+		/* If the packet isn't a type 1 or a type 3, then don't bother
+		 * parsing it - it is likely corrupted */
+
 		if (!pkt_is_type0(src[i]) && !pkt_is_type3(src[i]))
-			continue;
+			break;
 
 		pktsize = type3_pkt_size(src[i]);
 
-		if ((pktsize + 1) > rem)
+		if (!pktsize || (pktsize + 1) > rem)
 			break;
 
 		if (pkt_is_type3(src[i])) {
@@ -650,27 +669,11 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		*data = rbptr[index];
 
 		/*
-		 * Sometimes the rptr is located in the middle of a packet.
-		 * try to adust for that by modifying the rptr to match a
-		 * packet boundary. Unfortunately for us, it is hard to tell
-		 * which dwords are legitimate type0 header and which are just
-		 * random data so only do the adjustments for type3 packets
-		 */
-
-		if (pkt_is_type3(rbptr[index])) {
-			unsigned int pktsize =
-				type3_pkt_size(rbptr[index]);
-			if (index +  pktsize > rptr)
-				rptr = (index + pktsize) %
-					rb->sizedwords;
-		}
-
-		/*
 		 * Only parse IBs between the start and the rptr or the next
 		 * context switch, whichever comes first
 		 */
 
-		if (index == ib_parse_start)
+		if (parse_ibs == 0 && index == ib_parse_start)
 			parse_ibs = 1;
 		else if (index == rptr || adreno_rb_ctxtswitch(&rbptr[index]))
 			parse_ibs = 0;
