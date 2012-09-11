@@ -32,8 +32,9 @@
 #include "q6voice.h"
 #include "audio_ocmem.h"
 
+#define SHARED_MEM_BUF 2
 #define VOIP_MAX_Q_LEN 10
-#define VOIP_MAX_VOC_PKT_SIZE 640
+#define VOIP_MAX_VOC_PKT_SIZE 4096
 #define VOIP_MIN_VOC_PKT_SIZE 320
 
 /* Length of the DSP frame info header added to the voc packet. */
@@ -259,8 +260,8 @@ static unsigned int supported_sample_rates[] = {8000, 16000};
 
 /* capture path */
 static void voip_process_ul_pkt(uint8_t *voc_pkt,
-					uint32_t pkt_len,
-					void *private_data)
+				uint32_t pkt_len,
+				void *private_data)
 {
 	struct voip_buf_node *buf_node = NULL;
 	struct voip_drv_info *prtd = private_data;
@@ -315,8 +316,8 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 		default: {
 			buf_node->frame.len = pkt_len;
 			memcpy(&buf_node->frame.voc_pkt[0],
-				voc_pkt,
-				buf_node->frame.len);
+			       voc_pkt,
+			       buf_node->frame.len);
 			list_add_tail(&buf_node->list, &prtd->out_queue);
 		}
 		}
@@ -334,14 +335,11 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 }
 
 /* playback path */
-static void voip_process_dl_pkt(uint8_t *voc_pkt,
-					uint32_t *pkt_len,
-					void *private_data)
+static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 {
 	struct voip_buf_node *buf_node = NULL;
 	struct voip_drv_info *prtd = private_data;
 	unsigned long dsp_flags;
-
 
 	if (prtd->playback_substream == NULL)
 		return;
@@ -355,14 +353,18 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt,
 		switch (prtd->mode) {
 		case MODE_AMR:
 		case MODE_AMR_WB: {
-			/* Add the DSP frame info header. Header format:
+			*((uint32_t *)voc_pkt) = buf_node->frame.len +
+							DSP_FRAME_HDR_LEN;
+			/* Advance to the header of voip packet */
+			voc_pkt = voc_pkt + sizeof(uint32_t);
+			/*
+			 * Add the DSP frame info header. Header format:
 			 * Bits 0-3: Frame rate
 			 * Bits 4-7: Frame type
 			 */
 			*voc_pkt = ((buf_node->frame.header.frame_type &
 					0x0F) << 4) | (prtd->rate_type & 0x0F);
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
-			*pkt_len = buf_node->frame.len + DSP_FRAME_HDR_LEN;
 			memcpy(voc_pkt,
 				&buf_node->frame.voc_pkt[0],
 				buf_node->frame.len);
@@ -372,12 +374,16 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt,
 		case MODE_IS127:
 		case MODE_4GV_NB:
 		case MODE_4GV_WB: {
-			/* Add the DSP frame info header. Header format:
+			*((uint32_t *)voc_pkt) = buf_node->frame.len +
+							 DSP_FRAME_HDR_LEN;
+			/* Advance to the header of voip packet */
+			voc_pkt = voc_pkt + sizeof(uint32_t);
+			/*
+			 * Add the DSP frame info header. Header format:
 			 * Bits 0-3 : Frame rate
-			*/
+			 */
 			*voc_pkt = buf_node->frame.header.packet_rate & 0x0F;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
-			*pkt_len = buf_node->frame.len + DSP_FRAME_HDR_LEN;
 
 			memcpy(voc_pkt,
 				&buf_node->frame.voc_pkt[0],
@@ -387,22 +393,19 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt,
 			break;
 		}
 		default: {
-			*pkt_len = buf_node->frame.len;
-
+			*((uint32_t *)voc_pkt) = buf_node->frame.len;
+			voc_pkt = voc_pkt + sizeof(uint32_t);
 			memcpy(voc_pkt,
-				&buf_node->frame.voc_pkt[0],
-				buf_node->frame.len);
-
+			       &buf_node->frame.voc_pkt[0],
+			       buf_node->frame.len);
 			list_add_tail(&buf_node->list, &prtd->free_in_queue);
 		}
 		}
-		pr_debug("dl_pkt: pkt_len=%d, frame_len=%d\n", *pkt_len,
-			buf_node->frame.len);
 		prtd->pcm_playback_irq_pos += prtd->pcm_count;
 		spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
 		snd_pcm_period_elapsed(prtd->playback_substream);
 	} else {
-		*pkt_len = 0;
+		*((uint32_t *)voc_pkt) = 0;
 		spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
 		pr_err("DL data not available\n");
 	}
@@ -556,7 +559,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 		pr_err("%s: No free DL buffs\n", __func__);
 		ret = -ETIMEDOUT;
 	} else {
-		pr_err("%s: playback copy  was interrupted\n", __func__);
+		pr_err("%s: playback copy was interrupted %d\n", __func__, ret);
 	}
 
 	return  ret;
