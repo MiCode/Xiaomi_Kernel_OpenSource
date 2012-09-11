@@ -2036,7 +2036,8 @@ static int __init msm_audio_init(void)
 	int ret;
 	u32	version = socinfo_get_platform_version();
 	if (!cpu_is_apq8064() || (socinfo_get_id() == 130) ||
-		SOCINFO_VERSION_MINOR(version) == 1) {
+		(machine_is_apq8064_mtp() &&
+		(SOCINFO_VERSION_MINOR(version) == 1))) {
 		pr_info("%s: Not APQ8064 in SLIMBUS mode\n", __func__);
 		return -ENODEV;
 	}
