@@ -35,6 +35,7 @@
 
 #include <mach/msm_smd.h>
 #include <mach/peripheral-loader.h>
+#include <mach/msm_ipc_logging.h>
 
 #include "smd_private.h"
 #ifdef CONFIG_ARCH_FSM9XXX
@@ -89,6 +90,9 @@ static void check_and_wakeup_reader(struct smd_pkt_dev *smd_pkt_devp);
 static void check_and_wakeup_writer(struct smd_pkt_dev *smd_pkt_devp);
 static uint32_t is_modem_smsm_inited(void);
 
+#define SMD_PKT_IPC_LOG_PAGE_CNT 2
+static void *smd_pkt_ilctxt;
+
 static int msm_smd_pkt_debug_mask;
 module_param_named(debug_mask, msm_smd_pkt_debug_mask,
 		int, S_IRUGO | S_IWUSR | S_IWGRP);
@@ -105,22 +109,44 @@ enum {
 #define DEBUG
 
 #ifdef DEBUG
+
+#define SMD_PKT_LOG_STRING(x...) \
+do { \
+	if (smd_pkt_ilctxt) \
+		ipc_log_string(smd_pkt_ilctxt, "<SMD_PKT>: "x); \
+} while (0)
+
+#define SMD_PKT_LOG_BUF(buf, cnt) \
+do { \
+	char log_buf[128]; \
+	int i; \
+	if (smd_pkt_ilctxt) { \
+		i = cnt < 16 ? cnt : 16; \
+		hex_dump_to_buffer(buf, i, 16, 1, log_buf, \
+				   sizeof(log_buf), false); \
+		ipc_log_string(smd_pkt_ilctxt, "<SMD_PKT>: %s", log_buf); \
+	} \
+} while (0)
+
 #define D_STATUS(x...) \
 do { \
 	if (msm_smd_pkt_debug_mask & SMD_PKT_STATUS) \
 		pr_info("Status: "x); \
+	SMD_PKT_LOG_STRING(x); \
 } while (0)
 
 #define D_READ(x...) \
 do { \
 	if (msm_smd_pkt_debug_mask & SMD_PKT_READ) \
 		pr_info("Read: "x); \
+	SMD_PKT_LOG_STRING(x); \
 } while (0)
 
 #define D_WRITE(x...) \
 do { \
 	if (msm_smd_pkt_debug_mask & SMD_PKT_WRITE) \
 		pr_info("Write: "x); \
+	SMD_PKT_LOG_STRING(x); \
 } while (0)
 
 #define D_READ_DUMP_BUFFER(prestr, cnt, buf) \
@@ -129,6 +155,7 @@ do { \
 		print_hex_dump(KERN_INFO, prestr, \
 			       DUMP_PREFIX_NONE, 16, 1, \
 			       buf, cnt, 1); \
+	SMD_PKT_LOG_BUF(buf, cnt); \
 } while (0)
 
 #define D_WRITE_DUMP_BUFFER(prestr, cnt, buf) \
@@ -137,12 +164,14 @@ do { \
 		print_hex_dump(KERN_INFO, prestr, \
 			       DUMP_PREFIX_NONE, 16, 1, \
 			       buf, cnt, 1); \
+	SMD_PKT_LOG_BUF(buf, cnt); \
 } while (0)
 
 #define D_POLL(x...) \
 do { \
 	if (msm_smd_pkt_debug_mask & SMD_PKT_POLL) \
 		pr_info("Poll: "x); \
+	SMD_PKT_LOG_STRING(x); \
 } while (0)
 
 #define E_SMD_PKT_SSR(x) \
@@ -1031,6 +1060,9 @@ static int __init smd_pkt_init(void)
 	}
 
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
+
+	smd_pkt_ilctxt = ipc_log_context_create(SMD_PKT_IPC_LOG_PAGE_CNT,
+						"smd_pkt");
 
 	D_STATUS("SMD Packet Port Driver Initialized.\n");
 	return 0;
