@@ -14,6 +14,7 @@
 #include <linux/regulator/pm8xxx-regulator.h>
 #include <linux/regulator/msm-gpio-regulator.h>
 #include <mach/rpm-regulator.h>
+#include <mach/socinfo.h>
 
 #include "board-8960.h"
 
@@ -219,9 +220,16 @@ VREG_CONSUMERS(LVS5) = {
 	REGULATOR_SUPPLY("cam_vio",		"4-0020"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0034"),
 };
+/* This mapping is used for CDP only. */
+VREG_CONSUMERS(CDP_LVS6) = {
+	REGULATOR_SUPPLY("8921_lvs6",		NULL),
+	REGULATOR_SUPPLY("vdd-io",		"spi0.0"),
+};
+/* This mapping is used for non-CDP targets only. */
 VREG_CONSUMERS(LVS6) = {
 	REGULATOR_SUPPLY("8921_lvs6",		NULL),
-	REGULATOR_SUPPLY("vdd_io",		"spi0.0"),
+	REGULATOR_SUPPLY("vdd-io",		"spi0.0"),
+	REGULATOR_SUPPLY("vdd-phy",		"spi0.0"),
 };
 VREG_CONSUMERS(LVS7) = {
 	REGULATOR_SUPPLY("8921_lvs7",		NULL),
@@ -241,7 +249,7 @@ VREG_CONSUMERS(EXT_5V) = {
 };
 VREG_CONSUMERS(EXT_L2) = {
 	REGULATOR_SUPPLY("ext_l2",		NULL),
-	REGULATOR_SUPPLY("vdd_phy",		"spi0.0"),
+	REGULATOR_SUPPLY("vdd-phy",		"spi0.0"),
 };
 VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
@@ -605,3 +613,26 @@ struct rpm_regulator_platform_data msm_rpm_regulator_pdata __devinitdata = {
 	.consumer_map		= msm_rpm_regulator_consumer_mapping,
 	.consumer_map_len = ARRAY_SIZE(msm_rpm_regulator_consumer_mapping),
 };
+
+/*
+ * Fix up regulator consumer data that moves to a different regulator based on
+ * the current target.
+ */
+void __init configure_msm8960_power_grid(void)
+{
+	static struct rpm_regulator_init_data *rpm_data;
+	int i;
+
+	if (machine_is_msm8960_cdp()) {
+		/* Only modify LVS6 consumers for CDP targets. */
+		for (i = 0; i < ARRAY_SIZE(msm_rpm_regulator_init_data); i++) {
+			rpm_data = &msm_rpm_regulator_init_data[i];
+			if (rpm_data->id == RPM_VREG_ID_PM8921_LVS6) {
+				rpm_data->init_data.consumer_supplies
+					= vreg_consumers_CDP_LVS6;
+				rpm_data->init_data.num_consumer_supplies
+					= ARRAY_SIZE(vreg_consumers_CDP_LVS6);
+			}
+		}
+	}
+}
