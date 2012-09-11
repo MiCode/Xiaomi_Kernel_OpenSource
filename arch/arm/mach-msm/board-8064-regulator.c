@@ -189,6 +189,7 @@ VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("vcc_i2c",		"3-0024"),
 	REGULATOR_SUPPLY("vddp",		"0-0048"),
 	REGULATOR_SUPPLY("hdmi_lvl_tsl",	"hdmi_msm.0"),
+	REGULATOR_SUPPLY("vdd-io",		"spi0.2"),
 };
 VREG_CONSUMERS(S5) = {
 	REGULATOR_SUPPLY("8921_s5",		NULL),
@@ -252,7 +253,7 @@ VREG_CONSUMERS(EXT_MPP8) = {
 };
 VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
-	REGULATOR_SUPPLY("vdd_io",		"spi0.2"),
+	REGULATOR_SUPPLY("vdd-phy",		"spi0.2"),
 	REGULATOR_SUPPLY("mhl_usb_hs_switch",	"msm_otg"),
 	REGULATOR_SUPPLY("lvds_vccs_3p3v",      "lvds.0"),
 	REGULATOR_SUPPLY("dsi1_vccs_3p3v",      "mipi_dsi.1"),
