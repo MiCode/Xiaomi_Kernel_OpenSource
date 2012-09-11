@@ -1369,8 +1369,8 @@ static void trigger_event(struct sps_bam *dev,
 	}
 
 	if (event_reg->callback) {
-		event_reg->callback(&sps_event->notify);
 		SPS_DBG("sps:trigger_event.using callback.");
+		event_reg->callback(&sps_event->notify);
 	}
 
 }
