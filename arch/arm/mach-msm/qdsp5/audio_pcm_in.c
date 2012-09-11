@@ -26,7 +26,7 @@
 #include <linux/kthread.h>
 #include <linux/wait.h>
 #include <linux/dma-mapping.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #include <linux/delay.h>
 

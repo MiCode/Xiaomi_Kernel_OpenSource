@@ -38,7 +38,7 @@
 #include <linux/delay.h>
 #include <linux/earlysuspend.h>
 #include <linux/list.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/slab.h>
 #include <linux/msm_audio.h>
 
