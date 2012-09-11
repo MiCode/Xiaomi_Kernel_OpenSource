@@ -15,6 +15,11 @@
 
 #include <mach/diag_bridge.h>
 
+#define N_MDM_WRITE	8
+#define N_MDM_READ	1
+
+#define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
+
 int diagfwd_connect_bridge(int);
 int diagfwd_disconnect_bridge(int);
 int diagfwd_write_complete_hsic(struct diag_request *);
