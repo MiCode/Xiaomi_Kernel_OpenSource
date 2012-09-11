@@ -65,7 +65,8 @@ static DEFINE_SPINLOCK(boot_lock);
 /*
  * MP_CORE_IPC will be used to generate interrupt and can be used by either
  * of core.
- * To bring core1 out of GDFS we need to raise the SPI using the MP_CORE_IPC.
+ * To bring secondary cores out of GDFS we need to raise the SPI using the
+ * MP_CORE_IPC.
  */
 static void raise_clear_spi(unsigned int cpu, bool set)
 {
@@ -112,7 +113,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 
 	/* clear the IPC1(SPI-8) pending SPI */
 	if (power_collapsed) {
-		raise_clear_spi(1, false);
+		raise_clear_spi(cpu, false);
 		clear_pending_spi(MSM8625_INT_ACSR_MP_CORE_IPC1);
 		power_collapsed = 0;
 	}
@@ -124,7 +125,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	spin_unlock(&boot_lock);
 }
 
-static int  __cpuinit msm8625_release_secondary(void)
+static int  __cpuinit msm8625_release_secondary(unsigned int cpu)
 {
 	void __iomem *base_ptr;
 	int value = 0;
@@ -145,7 +146,7 @@ static int  __cpuinit msm8625_release_secondary(void)
 	}
 
 	if (!value) {
-		pr_err("Core 1 cannot be brought out of Reset!!!\n");
+		pr_err("Core %u cannot be brought out of Reset!!!\n", cpu);
 		return -ENODEV;
 	}
 
@@ -173,8 +174,8 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	preset_lpj = loops_per_jiffy;
 
 	if (cold_boot_done == false) {
-		if (msm8625_release_secondary()) {
-			pr_err("Failed to release secondary core\n");
+		if (msm8625_release_secondary(cpu)) {
+			pr_err("Failed to release core %u\n", cpu);
 			return -ENODEV;
 		}
 		cold_boot_done = true;
@@ -200,13 +201,13 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * and branch to the address found there.
 	 *
 	 * power_collapsed is the flag which will be updated for Powercollapse.
-	 * Once we are out of PC, as Core1 will be in the state of GDFS which
-	 * needs to be brought out by raising an SPI.
+	 * Once we are out of PC, as secondary cores will be in the state of
+	 * GDFS which needs to be brought out by raising an SPI.
 	 */
 
 	if (power_collapsed) {
 		core1_gic_configure_and_raise();
-		raise_clear_spi(1, true);
+		raise_clear_spi(cpu, true);
 	} else {
 		gic_raise_softirq(cpumask_of(cpu), 1);
 	}
