@@ -277,6 +277,7 @@ enum vidc_1080p_decode_frame{
 	VIDC_1080P_DECODE_FRAMETYPE_P          = 2,
 	VIDC_1080P_DECODE_FRAMETYPE_B          = 3,
 	VIDC_1080P_DECODE_FRAMETYPE_OTHERS     = 4,
+	VIDC_1080P_DECODE_FRAMETYPE_IDR        = 5,
 	VIDC_1080P_DECODE_FRAMETYPE_32BIT      = 0x7FFFFFFF
 };
 enum vidc_1080P_decode_frame_correct_type {

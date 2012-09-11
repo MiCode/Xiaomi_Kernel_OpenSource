@@ -520,8 +520,12 @@ void vidc_1080p_get_decode_frame(
 	u32 frame = 0;
 
 	VIDC_HWIO_IN(REG_760102, &frame);
-	*pe_frame = (enum vidc_1080p_decode_frame)
-		(frame & VIDC_1080P_SI_RG8_DECODE_FRAMETYPE_MASK);
+	if (frame & 0x10)
+		*pe_frame = (enum vidc_1080p_decode_frame)
+			VIDC_1080P_DECODE_FRAMETYPE_IDR;
+	else
+		*pe_frame = (enum vidc_1080p_decode_frame)
+			(frame & VIDC_1080P_SI_RG8_DECODE_FRAMETYPE_MASK);
 }
 
 void vidc_1080p_get_decode_frame_result(

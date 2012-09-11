@@ -45,7 +45,7 @@
 #define VIDC_SM_DISP_PIC_PROFILE_DISP_PIC_PROFILE_SHFT      0
 
 #define VIDC_SM_DISP_PIC_FRAME_TYPE_ADDR                    0x00c0
-#define VIDC_SM_DISP_PIC_FRAME_TYPE_BMSK                    0x00000003
+#define VIDC_SM_DISP_PIC_FRAME_TYPE_BMSK                    0x0000003f
 #define VIDC_SM_DISP_PIC_FRAME_TYPE_SHFT                    0
 
 #define VIDC_SM_FREE_LUMA_DPB_ADDR                          0x00c4
