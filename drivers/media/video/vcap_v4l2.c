@@ -1222,7 +1222,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		rc = init_motion_buf(c_data);
 		if (rc < 0)
 			goto free_res;
-		if (c_data->vp_action.nr_param.mode) {
+		if (dev->nr_param.mode) {
 			rc = init_nr_buf(c_data);
 			if (rc < 0)
 				goto s_on_deinit_m_buf;
@@ -1311,7 +1311,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		if (rc < 0)
 			goto free_res;
 
-		if (c_data->vp_action.nr_param.mode) {
+		if (dev->nr_param.mode) {
 			rc = init_nr_buf(c_data);
 			if (rc < 0)
 				goto s_on_deinit_m_buf;
@@ -1344,7 +1344,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	return 0;
 
 s_on_deinit_nr_buf:
-	if (c_data->vp_action.nr_param.mode)
+	if (dev->nr_param.mode)
 		deinit_nr_buf(c_data);
 s_on_deinit_m_buf:
 	deinit_motion_buf(c_data);
@@ -1439,7 +1439,7 @@ int streamoff_work(struct vcap_client_data *c_data)
 			return rc;
 
 		deinit_motion_buf(c_data);
-		if (c_data->vp_action.nr_param.mode)
+		if (dev->nr_param.mode)
 			deinit_nr_buf(c_data);
 		atomic_set(&c_data->dev->vp_enabled, 0);
 		return rc;
@@ -1487,7 +1487,7 @@ int streamoff_work(struct vcap_client_data *c_data)
 			return rc;
 
 		deinit_motion_buf(c_data);
-		if (c_data->vp_action.nr_param.mode)
+		if (dev->nr_param.mode)
 			deinit_nr_buf(c_data);
 		atomic_set(&c_data->dev->vc_enabled, 0);
 		atomic_set(&c_data->dev->vp_enabled, 0);
@@ -1549,7 +1549,7 @@ static long vidioc_default(struct file *file, void *fh, bool valid_prio,
 
 		if (c_data->streaming != 0 &&
 				(!(!((struct nr_param *) arg)->mode) !=
-				!(!(c_data->vp_action.nr_param.mode)))) {
+				!(!(dev->nr_param.mode)))) {
 			pr_err("ERR: Trying to toggle on/off while VP is already running");
 			return -EBUSY;
 		}
@@ -1562,20 +1562,20 @@ static long vidioc_default(struct file *file, void *fh, bool valid_prio,
 			return ret;
 		}
 		param = (struct nr_param *) arg;
-		c_data->vp_action.nr_param = *param;
+		dev->nr_param = *param;
 		if (param->mode == NR_AUTO)
-			s_default_nr_val(&c_data->vp_action.nr_param);
-		c_data->vp_action.nr_update = true;
+			s_default_nr_val(&dev->nr_param);
+		dev->nr_update = true;
 		spin_unlock_irqrestore(&c_data->cap_slock, flags);
 		break;
 	case VCAPIOC_NR_G_PARAMS:
-		*((struct nr_param *)arg) = c_data->vp_action.nr_param;
-		if (c_data->vp_action.nr_param.mode != NR_DISABLE) {
+		*((struct nr_param *)arg) = dev->nr_param;
+		if (dev->nr_param.mode != NR_DISABLE) {
 			if (c_data->streaming)
 				nr_g_param(c_data, (struct nr_param *) arg);
 			else
 				(*(struct nr_param *) arg) =
-					c_data->vp_action.nr_param;
+					dev->nr_param;
 		}
 		break;
 	case VCAPIOC_S_NUM_VC_BUF:
