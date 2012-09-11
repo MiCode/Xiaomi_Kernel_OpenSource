@@ -38,14 +38,15 @@ Examples:
 	       #size-cells = <1>;
                partition@0 {
                        label = "boot";
-                       reg = <0x00000000 0x1000>;
+                       reg = <0x0 0x1000>;
+		       read-only;
                };
-               partition@00020000 {
+               partition@20000 {
                        label = "userdata";
-                       reg = <0x00020000 0x1000>;
+                       reg = <0x20000 0x1000>;
                };
-               partition@00040000 {
+               partition@40000 {
                        label = "system";
-                       reg = <0x00040000 0x1000>;
+                       reg = <0x40000 0x1000>;
                };
        };
