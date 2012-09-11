@@ -914,14 +914,13 @@ static int msm_comm_alloc_ocmem(struct msm_vidc_core *core,
 		unsigned long size)
 {
 	int rc = 0;
-	unsigned long flags;
 	struct ocmem_buf *ocmem_buffer;
+	mutex_lock(&core->sync_lock);
 	if (!core || !size) {
 		dprintk(VIDC_ERR,
 			"Invalid param, core: %p, size: %lu\n", core, size);
 		return -EINVAL;
 	}
-	spin_lock_irqsave(&core->lock, flags);
 	ocmem_buffer = core->resources.ocmem.buf;
 	if (!ocmem_buffer ||
 		ocmem_buffer->len < size) {
@@ -944,22 +943,19 @@ static int msm_comm_alloc_ocmem(struct msm_vidc_core *core,
 			size, ocmem_buffer->len);
 
 ocmem_set_failed:
-	spin_unlock_irqrestore(&core->lock, flags);
+	mutex_unlock(&core->sync_lock);
 	return rc;
 }
 
 static int msm_comm_free_ocmem(struct msm_vidc_core *core)
 {
 	int rc = 0;
-	unsigned long flags;
-	spin_lock_irqsave(&core->lock, flags);
 	if (core->resources.ocmem.buf) {
 		rc = ocmem_free(OCMEM_VIDEO, core->resources.ocmem.buf);
 		if (rc)
 			dprintk(VIDC_ERR, "Failed to free ocmem\n");
 	}
 	core->resources.ocmem.buf = NULL;
-	spin_unlock_irqrestore(&core->lock, flags);
 	return rc;
 }
 
