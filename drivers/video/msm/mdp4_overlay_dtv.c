@@ -1013,6 +1013,8 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	}
 
 	mutex_lock(&mfd->dma->ov_mutex);
+	mdp4_overlay_mdp_perf_upd(mfd, 1);
 	mdp4_dtv_pipe_commit();
+	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
