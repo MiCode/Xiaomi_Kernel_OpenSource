@@ -1039,6 +1039,7 @@ psy_not_supported:
 static int msm_otg_notify_chg_type(struct msm_otg *motg)
 {
 	static int charger_type;
+
 	/*
 	 * TODO
 	 * Unify OTG driver charger types and power supply charger types
@@ -1061,7 +1062,14 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 	else
 		charger_type = POWER_SUPPLY_TYPE_BATTERY;
 
-	return pm8921_set_usb_power_supply_type(charger_type);
+	if (!psy) {
+		pr_err("No USB power supply registered!\n");
+		return -EINVAL;
+	}
+
+	pr_debug("setting usb power supply type %d\n", charger_type);
+	power_supply_set_supply_type(psy, charger_type);
+	return 0;
 }
 
 static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
