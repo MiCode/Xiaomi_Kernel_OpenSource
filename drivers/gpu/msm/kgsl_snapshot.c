@@ -289,6 +289,32 @@ static void kgsl_snapshot_put_object(struct kgsl_device *device,
 	kfree(obj);
 }
 
+/* ksgl_snapshot_have_object - Return 1 if the object has been processed
+ *@device - the device that is being snapshotted
+ * @ptbase - the pagetable base of the object to freeze
+ * @gpuaddr - The gpu address of the object to freeze
+ * @size - the size of the object (may not always be the size of the region)
+ *
+ * Return 1 if the object is already in the list - this can save us from
+ * having to parse the sme thing over again.
+*/
+int kgsl_snapshot_have_object(struct kgsl_device *device, unsigned int ptbase,
+	unsigned int gpuaddr, unsigned int size)
+{
+	struct kgsl_snapshot_object *obj;
+
+	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
+		if (obj->ptbase != ptbase)
+			continue;
+
+		if ((gpuaddr >= obj->gpuaddr) &&
+			((gpuaddr + size) <= (obj->gpuaddr + obj->size)))
+			return 1;
+	}
+
+	return 0;
+}
+
 /* kgsl_snapshot_get_object - Mark a GPU buffer to be frozen
  * @device - the device that is being snapshotted
  * @ptbase - the pagetable base of the object to freeze
