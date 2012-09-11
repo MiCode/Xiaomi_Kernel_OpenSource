@@ -1380,104 +1380,6 @@ static struct vm_area_struct *kgsl_get_vma_from_start_addr(unsigned int addr)
 	return vma;
 }
 
-static long
-kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
-				unsigned int cmd, void *data)
-{
-	int result = 0, len = 0;
-	struct kgsl_process_private *private = dev_priv->process_priv;
-	struct kgsl_sharedmem_from_vmalloc *param = data;
-	struct kgsl_mem_entry *entry = NULL;
-	struct vm_area_struct *vma;
-
-	KGSL_DEV_ERR_ONCE(dev_priv->device, "IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC"
-			" is deprecated\n");
-	if (!kgsl_mmu_enabled())
-		return -ENODEV;
-
-	if (!param->hostptr) {
-		KGSL_CORE_ERR("invalid hostptr %x\n", param->hostptr);
-		result = -EINVAL;
-		goto error;
-	}
-
-	vma = kgsl_get_vma_from_start_addr(param->hostptr);
-	if (!vma) {
-		result = -EINVAL;
-		goto error;
-	}
-
-	/*
-	 * If the user specified a length, use it, otherwise try to
-	 * infer the length if the vma region
-	 */
-	if (param->gpuaddr != 0) {
-		len = param->gpuaddr;
-	} else {
-		/*
-		 * For this to work, we have to assume the VMA region is only
-		 * for this single allocation.  If it isn't, then bail out
-		 */
-		if (vma->vm_pgoff || (param->hostptr != vma->vm_start)) {
-			KGSL_CORE_ERR("VMA region does not match hostaddr\n");
-			result = -EINVAL;
-			goto error;
-		}
-
-		len = vma->vm_end - vma->vm_start;
-	}
-
-	/* Make sure it fits */
-	if (len == 0 || param->hostptr + len > vma->vm_end) {
-		KGSL_CORE_ERR("Invalid memory allocation length %d\n", len);
-		result = -EINVAL;
-		goto error;
-	}
-
-	entry = kgsl_mem_entry_create();
-	if (entry == NULL) {
-		result = -ENOMEM;
-		goto error;
-	}
-
-	result = kgsl_sharedmem_page_alloc_user(&entry->memdesc,
-					     private->pagetable, len,
-					     param->flags);
-	if (result != 0)
-		goto error_free_entry;
-
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-
-	result = kgsl_sharedmem_map_vma(vma, &entry->memdesc);
-	if (result) {
-		KGSL_CORE_ERR("kgsl_sharedmem_map_vma failed: %d\n", result);
-		goto error_free_alloc;
-	}
-
-	param->gpuaddr = entry->memdesc.gpuaddr;
-
-	entry->memtype = KGSL_MEM_ENTRY_KERNEL;
-
-	kgsl_mem_entry_attach_process(entry, private);
-
-	trace_kgsl_mem_alloc(entry);
-	/* Process specific statistics */
-	kgsl_process_add_stats(private, entry->memtype, len);
-
-	kgsl_check_idle(dev_priv->device);
-	return 0;
-
-error_free_alloc:
-	kgsl_sharedmem_free(&entry->memdesc);
-
-error_free_entry:
-	kfree(entry);
-
-error:
-	kgsl_check_idle(dev_priv->device);
-	return result;
-}
-
 static inline int _check_region(unsigned long start, unsigned long size,
 				uint64_t len)
 {
@@ -2161,8 +2063,6 @@ static const struct {
 			kgsl_ioctl_map_user_mem, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SHAREDMEM_FREE,
 			kgsl_ioctl_sharedmem_free, 0),
-	KGSL_IOCTL_FUNC(IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC,
-			kgsl_ioctl_sharedmem_from_vmalloc, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE,
 			kgsl_ioctl_sharedmem_flush_cache, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_ALLOC,

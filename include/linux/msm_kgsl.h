@@ -367,6 +367,12 @@ struct kgsl_bind_gmem_shadow {
     _IOW(KGSL_IOC_TYPE, 0x22, struct kgsl_bind_gmem_shadow)
 
 /* add a block of memory into the GPU address space */
+
+/*
+ * IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC deprecated 09/2012
+ * use IOCTL_KGSL_GPUMEM_ALLOC instead
+ */
+
 struct kgsl_sharedmem_from_vmalloc {
 	unsigned int gpuaddr;	/*output param */
 	unsigned int hostptr;
