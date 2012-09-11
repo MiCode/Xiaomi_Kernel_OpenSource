@@ -639,6 +639,8 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 					RBCPR_GCNT_TARGET(cpr->curr_osc)));
 		pr_debug("%s: new_freq: %d, set_freq: %d, quot: %d\n", __func__,
 			freqs->new, new_freq, quot);
+		pr_info("%s: PVS Voltage setting is: %d\n", __func__,
+			regulator_get_voltage(cpr->vreg_cx));
 
 		enable_irq(cpr->irq);
 		/**
