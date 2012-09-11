@@ -505,7 +505,6 @@ void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 
 int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 {
-	int rc = -1;
 	u32 ddc_int_ctrl;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
@@ -519,12 +518,11 @@ int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL,
 			ddc_int_ctrl | BIT(1));
 		complete(&ddc_ctrl->ddc_sw_done);
-		return 0;
 	}
 
 	DEV_DBG("%s: ddc_int_ctrl=%04x\n", __func__, ddc_int_ctrl);
 
-	return rc;
+	return 0;
 } /* hdmi_ddc_isr */
 
 int hdmi_ddc_read(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
