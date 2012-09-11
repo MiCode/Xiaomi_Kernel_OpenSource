@@ -842,21 +842,9 @@ void bam_exit(void *base, u32 ee)
 static void bam_output_register_content(void *base)
 {
 	u32 num_pipes;
-	u32 test_bus_selection[] = {0x1, 0x2, 0x3, 0x4, 0xD, 0x10,
-			0x41, 0x42, 0x43, 0x44, 0x45, 0x46};
 	u32 i;
-	u32 size = sizeof(test_bus_selection) / sizeof(u32);
 
-	for (i = 0; i < size; i++) {
-		bam_write_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL,
-					test_bus_selection[i]);
-
-		SPS_INFO("sps:bam 0x%x(va);BAM_TEST_BUS_REG is"
-			"0x%x when BAM_TEST_BUS_SEL is 0x%x.",
-			(u32) base, bam_read_reg(base, TEST_BUS_REG),
-			bam_read_reg_field(base, TEST_BUS_SEL,
-					BAM_TESTBUS_SEL));
-	}
+	print_bam_test_bus_reg(base, 0);
 
 	print_bam_reg(base);
 
@@ -1359,7 +1347,7 @@ void print_bam_pipe_selected_reg(void *virt_addr, u32 pipe_index)
 }
 
 /* output descriptor FIFO of a pipe */
-void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index)
+void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index, u32 option)
 {
 	void *base = virt_addr;
 	u32 pipe = pipe_index;
@@ -1393,33 +1381,93 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index)
 
 	desc_fifo = (u32 *) phys_to_virt(desc_fifo_addr);
 
-	SPS_INFO("-------------------- begin of FIFO --------------------\n");
+	if (option == 100) {
+		SPS_INFO("----- start of data blocks -----\n");
+		for (i = 0; i < desc_fifo_size; i += 8) {
+			u32 *data_block_vir;
+			u32 data_block_phy = desc_fifo[i / 4];
 
-	for (i = 0; i < desc_fifo_size; i += 0x10)
-		SPS_INFO("addr 0x%x: 0x%x, 0x%x, 0x%x, 0x%x.\n",
-			desc_fifo_addr + i,
-			desc_fifo[i / 4], desc_fifo[(i / 4) + 1],
-			desc_fifo[(i / 4) + 2], desc_fifo[(i / 4) + 3]);
+			if (data_block_phy) {
+				data_block_vir =
+					(u32 *) phys_to_virt(data_block_phy);
 
-	SPS_INFO("--------------------  end of FIFO  --------------------\n");
+				SPS_INFO("desc addr:0x%x; data addr:0x%x:\n",
+					desc_fifo_addr + i, data_block_phy);
+				SPS_INFO("0x%x, 0x%x, 0x%x, 0x%x\n",
+					data_block_vir[0], data_block_vir[1],
+					data_block_vir[2], data_block_vir[3]);
+				SPS_INFO("0x%x, 0x%x, 0x%x, 0x%x\n",
+					data_block_vir[4], data_block_vir[5],
+					data_block_vir[6], data_block_vir[7]);
+				SPS_INFO("0x%x, 0x%x, 0x%x, 0x%x\n",
+					data_block_vir[8], data_block_vir[9],
+					data_block_vir[10], data_block_vir[11]);
+				SPS_INFO("0x%x, 0x%x, 0x%x, 0x%x\n\n",
+					data_block_vir[12], data_block_vir[13],
+					data_block_vir[14], data_block_vir[15]);
+			}
+		}
+		SPS_INFO("----- end of data blocks -----\n");
+	} else if (option) {
+		u32 size = option * 128;
+		u32 current_desc = bam_pipe_get_desc_read_offset(base,
+								pipe_index);
+		u32 begin = 0;
+		u32 end = desc_fifo_size;
+
+		if (current_desc > size / 2)
+			begin = current_desc - size / 2;
+
+		if (desc_fifo_size > current_desc + size / 2)
+			end = current_desc + size / 2;
+
+		SPS_INFO("------------- begin of partial FIFO -------------\n");
+
+		for (i = begin; i < end; i += 0x10)
+			SPS_INFO("addr 0x%x: 0x%x, 0x%x, 0x%x, 0x%x.\n",
+				desc_fifo_addr + i,
+				desc_fifo[i / 4], desc_fifo[(i / 4) + 1],
+				desc_fifo[(i / 4) + 2], desc_fifo[(i / 4) + 3]);
+
+		SPS_INFO("-------------  end of partial FIFO  -------------\n");
+	} else {
+		SPS_INFO("----------------- begin of FIFO -----------------\n");
+
+		for (i = 0; i < desc_fifo_size; i += 0x10)
+			SPS_INFO("addr 0x%x: 0x%x, 0x%x, 0x%x, 0x%x.\n",
+				desc_fifo_addr + i,
+				desc_fifo[i / 4], desc_fifo[(i / 4) + 1],
+				desc_fifo[(i / 4) + 2], desc_fifo[(i / 4) + 3]);
+
+		SPS_INFO("-----------------  end of FIFO  -----------------\n");
+	}
 }
 
 /* output BAM_TEST_BUS_REG with specified TEST_BUS_SEL */
 void print_bam_test_bus_reg(void *base, u32 tb_sel)
 {
 	u32 i;
-	u32 test_bus_selection[] = {0x1, 0x2, 0x3, 0x4, 0xD, 0x10,
+	u32 test_bus_selection[] = {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+			0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf,
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+			0x20, 0x21, 0x22, 0x23,
 			0x41, 0x42, 0x43, 0x44, 0x45, 0x46};
 	u32 size = sizeof(test_bus_selection) / sizeof(u32);
 
-	if ((base == NULL) || (tb_sel == 0))
+	if (base == NULL) {
+		SPS_ERR("sps:%s:BAM is NULL.\n", __func__);
 		return;
+	}
 
-	SPS_INFO("\nsps:Specified TEST_BUS_SEL value: 0x%x\n", tb_sel);
-	bam_write_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL, tb_sel);
-	SPS_INFO("sps:BAM_TEST_BUS_REG: 0x%x when TEST_BUS_SEL: 0x%x\n\n",
-		bam_read_reg(base, TEST_BUS_REG),
-		bam_read_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL));
+	if (tb_sel) {
+		SPS_INFO("\nsps:Specified TEST_BUS_SEL value: 0x%x\n", tb_sel);
+		bam_write_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL,
+					tb_sel);
+		SPS_INFO("sps:BAM_TEST_BUS_REG:0x%x for TEST_BUS_SEL:0x%x\n\n",
+			bam_read_reg(base, TEST_BUS_REG),
+			bam_read_reg_field(base, TEST_BUS_SEL,
+						BAM_TESTBUS_SEL));
+	}
 
 	/* output other selections */
 	for (i = 0; i < size; i++) {
