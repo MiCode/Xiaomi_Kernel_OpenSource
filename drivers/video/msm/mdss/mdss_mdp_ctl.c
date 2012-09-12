@@ -494,6 +494,11 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 	}
 	ctl = mfd->ctl;
 
+	if (ctl->power_on) {
+		WARN(1, "already on!\n");
+		return 0;
+	}
+
 	mutex_lock(&ctl->lock);
 
 	ctl->power_on = true;
@@ -571,7 +576,18 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 
 	ctl = mfd->ctl;
 
+	if (!ctl->power_on) {
+		WARN(1, "already off!\n");
+		return 0;
+	}
+
 	pr_debug("ctl_num=%d\n", mfd->ctl->num);
+
+	mdss_mdp_overlay_release_all(mfd);
+
+	/* request bus bandwidth for panel commands */
+	ctl->bus_ib_quota = SZ_1M;
+	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
 
 	mutex_lock(&ctl->lock);
 	ctl->power_on = false;
@@ -601,8 +617,6 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
 
 	mutex_unlock(&ctl->lock);
-
-	mdss_mdp_overlay_release_all(mfd);
 
 	if (!mfd->ref_cnt)
 		mdss_mdp_ctl_destroy(mfd);
