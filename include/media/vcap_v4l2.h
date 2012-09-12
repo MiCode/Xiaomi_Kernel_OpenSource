@@ -14,7 +14,6 @@
 #ifndef VCAP_V4L2_H
 #define VCAP_V4L2_H
 
-#define TOP_FIELD_FIX
 #ifdef __KERNEL__
 #include <linux/types.h>
 #include <linux/videodev2.h>
@@ -88,6 +87,8 @@ struct vc_action {
 	uint8_t					tot_buf;
 	uint8_t					buf_num;
 
+	bool					top_field;
+
 	struct timeval			vc_ts;
 	uint32_t				last_ts;
 
@@ -107,9 +108,6 @@ struct vp_action {
 
 	/* Buffer index */
 	enum vp_state			vp_state;
-#ifdef TOP_FIELD_FIX
-	bool					top_field;
-#endif
 
 	/* Buffers inside vc */
 	struct vcap_buffer      *bufTm1;
