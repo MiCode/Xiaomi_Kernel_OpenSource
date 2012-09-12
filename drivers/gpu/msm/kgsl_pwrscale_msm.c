@@ -20,21 +20,21 @@
 #include "kgsl_trace.h"
 
 struct msm_priv {
-	struct kgsl_device *device;
-	int enabled;
-	int handle;
-	unsigned int cur_freq;
-	struct msm_dcvs_idle idle_source;
-	struct msm_dcvs_freq freq_sink;
-	struct msm_dcvs_core_info *core_info;
-	int gpu_busy;
+	struct kgsl_device		*device;
+	int				enabled;
+	unsigned int			cur_freq;
+	struct msm_dcvs_core_info	*core_info;
+	int				gpu_busy;
+	int				dcvs_core_id;
 };
 
-static int msm_idle_enable(struct msm_dcvs_idle *self,
-					enum msm_core_control_event event)
+/* reference to be used in idle and freq callbacks */
+static struct msm_priv *the_msm_priv;
+
+static int msm_idle_enable(int type_core_num,
+		enum msm_core_control_event event)
 {
-	struct msm_priv *priv = container_of(self, struct msm_priv,
-								idle_source);
+	struct msm_priv *priv = the_msm_priv;
 
 	switch (event) {
 	case MSM_DCVS_ENABLE_IDLE_PULSE:
@@ -53,12 +53,10 @@ static int msm_idle_enable(struct msm_dcvs_idle *self,
 /* Set the requested frequency if it is within 5MHz (delta) of a
  * supported frequency.
  */
-static int msm_set_freq(struct msm_dcvs_freq *self,
-						unsigned int freq)
+static int msm_set_freq(int core_num, unsigned int freq)
 {
 	int i, delta = 5000000;
-	struct msm_priv *priv = container_of(self, struct msm_priv,
-								freq_sink);
+	struct msm_priv *priv = the_msm_priv;
 	struct kgsl_device *device = priv->device;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
@@ -79,10 +77,10 @@ static int msm_set_freq(struct msm_dcvs_freq *self,
 	return priv->cur_freq / 1000;
 }
 
-static unsigned int msm_get_freq(struct msm_dcvs_freq *self)
+static unsigned int msm_get_freq(int core_num)
 {
-	struct msm_priv *priv = container_of(self, struct msm_priv,
-								freq_sink);
+	struct msm_priv *priv = the_msm_priv;
+
 	/* return current frequency in kHz */
 	return priv->cur_freq / 1000;
 }
@@ -92,7 +90,7 @@ static void msm_busy(struct kgsl_device *device,
 {
 	struct msm_priv *priv = pwrscale->priv;
 	if (priv->enabled && !priv->gpu_busy) {
-		msm_dcvs_idle(priv->handle, MSM_DCVS_IDLE_EXIT, 0);
+		msm_dcvs_idle(priv->dcvs_core_id, MSM_DCVS_IDLE_EXIT, 0);
 		trace_kgsl_mpdcvs(device, 1);
 		priv->gpu_busy = 1;
 	}
@@ -106,7 +104,8 @@ static void msm_idle(struct kgsl_device *device,
 
 	if (priv->enabled && priv->gpu_busy)
 		if (device->ftbl->isidle(device)) {
-			msm_dcvs_idle(priv->handle, MSM_DCVS_IDLE_ENTER, 0);
+			msm_dcvs_idle(priv->dcvs_core_id,
+					MSM_DCVS_IDLE_ENTER, 0);
 			trace_kgsl_mpdcvs(device, 0);
 			priv->gpu_busy = 0;
 		}
@@ -119,7 +118,7 @@ static void msm_sleep(struct kgsl_device *device,
 	struct msm_priv *priv = pwrscale->priv;
 
 	if (priv->enabled && priv->gpu_busy) {
-		msm_dcvs_idle(priv->handle, MSM_DCVS_IDLE_ENTER, 0);
+		msm_dcvs_idle(priv->dcvs_core_id, MSM_DCVS_IDLE_ENTER, 0);
 		trace_kgsl_mpdcvs(device, 0);
 		priv->gpu_busy = 0;
 	}
@@ -154,7 +153,7 @@ static int msm_init(struct kgsl_device *device,
 {
 	struct msm_priv *priv;
 	struct msm_dcvs_freq_entry *tbl;
-	int i, ret, low_level;
+	int i, ret = -EINVAL, low_level;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct platform_device *pdev =
 		container_of(device->parentdev, struct platform_device, dev);
@@ -171,29 +170,24 @@ static int msm_init(struct kgsl_device *device,
 	low_level = pwr->num_pwrlevels - KGSL_PWRLEVEL_LAST_OFFSET;
 	for (i = 0; i <= low_level; i++)
 		tbl[i].freq = pwr->pwrlevels[low_level - i].gpu_freq / 1000;
-	ret = msm_dcvs_register_core(device->name, priv->core_info,
-			msm_set_freq, msm_get_freq, msm_idle_enable,
-			priv->core_info->sensors[0]);
-	if (ret) {
+	priv->dcvs_core_id = msm_dcvs_register_core(MSM_DCVS_CORE_TYPE_GPU, 0,
+				priv->core_info,
+				msm_set_freq, msm_get_freq, msm_idle_enable,
+				priv->core_info->sensors[0]);
+	if (priv->dcvs_core_id < 0) {
 		KGSL_PWR_ERR(device, "msm_dcvs_register_core failed");
 		goto err;
 	}
 
 	priv->device = device;
-	priv->idle_source.core_name = device->name;
-	priv->handle = msm_dcvs_idle_source_register(&priv->idle_source);
-	if (priv->handle < 0) {
-		ret = priv->handle;
-		KGSL_PWR_ERR(device, "msm_dcvs_idle_source_register failed\n");
-		goto err;
-	}
 
-	priv->freq_sink.core_name = device->name;
-	ret = msm_dcvs_freq_sink_start(&priv->freq_sink);
+	the_msm_priv = priv;
+	ret = msm_dcvs_freq_sink_start(priv->dcvs_core_id);
 	if (ret >= 0) {
 		if (device->ftbl->isidle(device)) {
 			priv->gpu_busy = 0;
-			msm_dcvs_idle(priv->handle, MSM_DCVS_IDLE_ENTER, 0);
+			msm_dcvs_idle(priv->dcvs_core_id,
+					MSM_DCVS_IDLE_ENTER, 0);
 		} else {
 			priv->gpu_busy = 1;
 		}
@@ -202,7 +196,6 @@ static int msm_init(struct kgsl_device *device,
 	}
 
 	KGSL_PWR_ERR(device, "msm_dcvs_freq_sink_register failed\n");
-	msm_dcvs_idle_source_unregister(&priv->idle_source);
 
 err:
 	kfree(pwrscale->priv);
@@ -218,8 +211,7 @@ static void msm_close(struct kgsl_device *device,
 
 	if (pwrscale->priv == NULL)
 		return;
-	msm_dcvs_idle_source_unregister(&priv->idle_source);
-	msm_dcvs_freq_sink_stop(&priv->freq_sink);
+	msm_dcvs_freq_sink_stop(priv->dcvs_core_id);
 	kfree(pwrscale->priv);
 	pwrscale->priv = NULL;
 	msm_restore_io_fraction(device);
