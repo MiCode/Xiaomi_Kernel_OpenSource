@@ -39,9 +39,13 @@
 #ifdef CONFIG_MSM_QDSS
 extern void msm_qdss_csr_enable_bam_to_usb(void);
 extern void msm_qdss_csr_disable_bam_to_usb(void);
+extern unsigned int etm_readl_cp14(uint32_t off);
+extern void etm_writel_cp14(uint32_t val, uint32_t off);
 #else
 static inline void msm_qdss_csr_enable_bam_to_usb(void) {}
 static inline void msm_qdss_csr_disable_bam_to_usb(void) {}
+static inline unsigned int etm_readl_cp14(uint32_t off) { return 0; }
+static inline void etm_writel_cp14(uint32_t val, uint32_t off) {}
 #endif
 
 #endif
