@@ -1961,7 +1961,7 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 
 			ctrl->kernel_virtual_addr = ion_map_kernel(
 				client_ctx->user_ion_client,
-				client_ctx->recon_buffer_ion_handle[i],	0);
+				client_ctx->recon_buffer_ion_handle[i]);
 
 			if (IS_ERR_OR_NULL(ctrl->kernel_virtual_addr)) {
 				WFD_MSG_ERR("ion map kernel failed\n");

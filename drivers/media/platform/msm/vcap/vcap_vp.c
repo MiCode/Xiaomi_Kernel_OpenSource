@@ -483,7 +483,7 @@ int init_motion_buf(struct vcap_client_data *c_data)
 		return rc;
 	}
 
-	vaddr = ion_map_kernel(dev->ion_client, handle, ionflag);
+	vaddr = ion_map_kernel(dev->ion_client, handle);
 	if (IS_ERR(vaddr)) {
 		pr_err("%s: Map motion buffer failed\n", __func__);
 		ion_free(dev->ion_client, handle);

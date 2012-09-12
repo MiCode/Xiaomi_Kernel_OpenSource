@@ -76,8 +76,7 @@ static int alloc_mem(struct fastrpc_buf *buf)
 				ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 	VERIFY(0 == IS_ERR_OR_NULL(buf->handle));
 	buf->virt = 0;
-	VERIFY(0 != (buf->virt = ion_map_kernel(clnt, buf->handle,
-						ION_FLAG_CACHED)));
+	VERIFY(0 != (buf->virt = ion_map_kernel(clnt, buf->handle)));
 	VERIFY(0 == ion_phys(clnt, buf->handle, &buf->phys, &buf->size));
  bail:
 	if (err && !IS_ERR_OR_NULL(buf->handle))

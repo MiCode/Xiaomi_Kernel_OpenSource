@@ -741,7 +741,7 @@ static int audlpa_ion_add(struct audio *audio,
 		pr_err("%s: could not get flags for the handle\n", __func__);
 		goto flag_error;
 	}
-	kvaddr = (unsigned long)ion_map_kernel(audio->client, handle, ionflag);
+	kvaddr = (unsigned long)ion_map_kernel(audio->client, handle);
 	if (IS_ERR_OR_NULL((void *)kvaddr)) {
 		pr_err("%s: could not get virtual address\n", __func__);
 		goto map_error;

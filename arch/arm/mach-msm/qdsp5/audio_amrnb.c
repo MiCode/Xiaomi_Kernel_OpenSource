@@ -1018,8 +1018,7 @@ static long audamrnb_ioctl(struct file *file, unsigned int cmd,
 					break;
 				}
 				audio->map_v_read = ion_map_kernel(
-					audio->client,
-					handle, ionflag);
+					audio->client, handle);
 			if (IS_ERR(audio->map_v_read)) {
 				MM_ERR("failed to map read buf\n");
 				ion_free(audio->client, handle);
@@ -1562,7 +1561,7 @@ static int audamrnb_open(struct inode *inode, struct file *file)
 		goto output_buff_get_flags_error;
 	}
 
-	audio->map_v_write = ion_map_kernel(client, handle, ionflag);
+	audio->map_v_write = ion_map_kernel(client, handle);
 	if (IS_ERR(audio->map_v_write)) {
 		MM_ERR("could not map write buffers\n");
 		rc = -ENOMEM;

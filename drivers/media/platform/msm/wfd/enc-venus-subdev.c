@@ -617,7 +617,7 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 	}
 
 	mregion->kvaddr = ion_map_kernel(venc_ion_client,
-				mregion->ion_handle, flags);
+				mregion->ion_handle);
 
 	if (IS_ERR_OR_NULL(mregion->kvaddr)) {
 		WFD_MSG_ERR("Failed to map buffer into kernel\n");

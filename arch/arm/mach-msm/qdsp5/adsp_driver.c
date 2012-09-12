@@ -139,7 +139,7 @@ static int get_ion_region_info(int fd, struct adsp_ion_region *region)
 		pr_err("%s: could not get flags for the handle\n", __func__);
 		goto flag_error;
 	}
-	temp_ptr = ion_map_kernel(region->client, region->handle, ionflag);
+	temp_ptr = ion_map_kernel(region->client, region->handle);
 	if (IS_ERR_OR_NULL(temp_ptr)) {
 		pr_err("%s: could not get virtual address\n", __func__);
 		goto map_error;

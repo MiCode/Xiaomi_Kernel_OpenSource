@@ -1133,8 +1133,7 @@ static int mpq_int_vid_dec_set_h264_mv_buffers(
 		}
 		vcd_h264_mv_buffer->kernel_virtual_addr =
 			(u8 *) ion_map_kernel(client_ctx->user_ion_client,
-					client_ctx->h264_mv_ion_handle,
-					ionflag);
+					client_ctx->h264_mv_ion_handle);
 		if (!vcd_h264_mv_buffer->kernel_virtual_addr) {
 			DBG("%s(): get_ION_kernel virtual addr failed\n",
 				 __func__);

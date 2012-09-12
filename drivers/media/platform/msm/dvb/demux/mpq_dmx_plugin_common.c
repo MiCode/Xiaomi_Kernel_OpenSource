@@ -948,8 +948,7 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 
 	payload_buffer =
 		ion_map_kernel(mpq_demux->ion_client,
-					   feed_data->payload_buff_handle,
-					   0);
+					   feed_data->payload_buff_handle);
 
 	if (IS_ERR_OR_NULL(payload_buffer)) {
 		ret = PTR_ERR(payload_buffer);
