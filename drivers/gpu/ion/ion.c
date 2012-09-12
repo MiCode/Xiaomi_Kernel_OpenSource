@@ -107,24 +107,6 @@ struct ion_handle {
 
 static void ion_iommu_release(struct kref *kref);
 
-static int ion_validate_buffer_flags(struct ion_buffer *buffer,
-					unsigned long flags)
-{
-	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt ||
-		buffer->iommu_map_cnt) {
-		if (buffer->flags != flags) {
-			pr_err("%s: buffer was already mapped with flags %lx,"
-				" cannot map with flags %lx\n", __func__,
-				buffer->flags, flags);
-			return 1;
-		}
-
-	} else {
-		buffer->flags = flags;
-	}
-	return 0;
-}
-
 /* this function should only be called while dev->lock is held */
 static void ion_buffer_add(struct ion_device *dev,
 			   struct ion_buffer *buffer)
@@ -1247,12 +1229,6 @@ static int ion_share_set_flags(struct ion_client *client,
 
 	buffer = handle->buffer;
 
-	mutex_lock(&buffer->lock);
-	if (ion_validate_buffer_flags(buffer, ion_flags)) {
-		mutex_unlock(&buffer->lock);
-		return -EEXIST;
-	}
-	mutex_unlock(&buffer->lock);
 	return 0;
 }
 
