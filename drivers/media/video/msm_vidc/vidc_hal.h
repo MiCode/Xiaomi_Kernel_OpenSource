@@ -20,20 +20,6 @@
 #include "msm_smem.h"
 #include "vidc_hal_helper.h"
 
-#ifdef HAL_MSG_LOG
-#define HAL_MSG_LOW(x...)		pr_info(KERN_INFO x)
-#define HAL_MSG_MEDIUM(x...)	pr_info(KERN_INFO x)
-#define HAL_MSG_HIGH(x...)		pr_info(KERN_INFO x)
-#else
-#define HAL_MSG_LOW(x...)
-#define HAL_MSG_MEDIUM(x...)
-#define HAL_MSG_HIGH(x...)
-#endif
-
-#define HAL_MSG_ERROR(x...)		pr_err(KERN_INFO x)
-#define HAL_MSG_FATAL(x...)		pr_err(KERN_INFO x)
-#define HAL_MSG_INFO(x...)		pr_info(KERN_INFO x)
-
 #define HFI_MASK_QHDR_TX_TYPE			0xFF000000
 #define HFI_MASK_QHDR_RX_TYPE			0x00FF0000
 #define HFI_MASK_QHDR_PRI_TYPE			0x0000FF00
