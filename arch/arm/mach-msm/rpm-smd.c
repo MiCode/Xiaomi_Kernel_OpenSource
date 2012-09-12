@@ -823,7 +823,6 @@ int msm_rpm_wait_for_ack_noirq(uint32_t msg_id)
 	unsigned long flags;
 	int rc = 0;
 	uint32_t id = 0;
-	int count = 0;
 
 	if (!msg_id)  {
 		pr_err("%s(): Invalid msg id\n", __func__);
@@ -853,7 +852,7 @@ int msm_rpm_wait_for_ack_noirq(uint32_t msg_id)
 		goto wait_ack_cleanup;
 	}
 
-	while ((id != msg_id) && (count++ < 10)) {
+	while (id != msg_id) {
 		if (smd_is_pkt_avail(msm_rpm_data.ch_info)) {
 			int errno;
 			char buf[MAX_ERR_BUFFER_SIZE] = {};
@@ -862,17 +861,11 @@ int msm_rpm_wait_for_ack_noirq(uint32_t msg_id)
 			id = msm_rpm_get_msg_id_from_ack(buf);
 			errno = msm_rpm_get_error_from_ack(buf);
 			msm_rpm_process_ack(id, errno);
-		} else
-			udelay(100);
+		}
 	}
 
-	if (count == 10) {
-		rc = -ETIMEDOUT;
-		pr_warn("%s(): Timed out after 1ms\n", __func__);
-	} else {
-		rc = elem->errno;
-		msm_rpm_free_list_entry(elem);
-	}
+	rc = elem->errno;
+	msm_rpm_free_list_entry(elem);
 wait_ack_cleanup:
 	irq_process = false;
 	spin_unlock_irqrestore(&msm_rpm_data.smd_lock_read, flags);
