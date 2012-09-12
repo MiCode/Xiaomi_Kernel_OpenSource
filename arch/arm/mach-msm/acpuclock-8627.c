@@ -104,6 +104,7 @@ static struct l2_level l2_freq_tbl[] __initdata = {
 	[9]  = { {  864000, HFPLL, 1, 0, 0x20 }, LVL_HIGH, 1150000, 4 },
 	[10] = { {  918000, HFPLL, 1, 0, 0x22 }, LVL_HIGH, 1150000, 4 },
 	[11] = { {  972000, HFPLL, 1, 0, 0x24 }, LVL_HIGH, 1150000, 4 },
+	{ }
 };
 
 /* TODO: Update core voltages when data is available. */
