@@ -526,7 +526,7 @@ int mdp4_lcdc_on(struct platform_device *pdev)
 	mdp4_overlayproc_cfg(pipe);
 
 	mdp4_overlay_reg_flush(pipe, 1);
-	mdp4_mixer_stage_up(pipe);
+	mdp4_mixer_stage_up(pipe, 0);
 
 
 	/*
@@ -667,7 +667,7 @@ int mdp4_lcdc_off(struct platform_device *pdev)
 			vctrl->base_pipe = NULL;
 		} else {
 			/* system suspending */
-			mdp4_mixer_stage_down(vctrl->base_pipe);
+			mdp4_mixer_stage_down(vctrl->base_pipe, 1);
 			mdp4_overlay_iommu_pipe_free(
 				vctrl->base_pipe->pipe_ndx, 1);
 		}
