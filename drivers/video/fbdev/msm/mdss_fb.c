@@ -326,7 +326,6 @@ int mdss_fb_suspend_all(void)
 	struct fb_info *fbi;
 	int ret, i;
 	int result = 0;
-	console_lock();
 	for (i = 0; i < fbi_list_index; i++) {
 		fbi = fbi_list[i];
 		fb_set_suspend(fbi, FBINFO_STATE_SUSPENDED);
@@ -337,7 +336,6 @@ int mdss_fb_suspend_all(void)
 			result = ret;
 		}
 	}
-	console_unlock();
 	return result;
 }
 
@@ -347,7 +345,6 @@ int mdss_fb_resume_all(void)
 	int ret, i;
 	int result = 0;
 
-	console_lock();
 	for (i = 0; i < fbi_list_index; i++) {
 		fbi = fbi_list[i];
 
@@ -355,7 +352,6 @@ int mdss_fb_resume_all(void)
 		if (ret == 0)
 			fb_set_suspend(fbi, FBINFO_STATE_RUNNING);
 	}
-	console_unlock();
 	return result;
 }
 
