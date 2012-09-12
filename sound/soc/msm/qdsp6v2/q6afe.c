@@ -30,6 +30,7 @@ struct afe_ctl {
 	atomic_t state;
 	atomic_t status;
 	wait_queue_head_t wait[AFE_MAX_PORTS];
+	struct task_struct *task;
 	void (*tx_cb) (uint32_t opcode,
 		uint32_t token, uint32_t *payload, void *priv);
 	void (*rx_cb) (uint32_t opcode,
@@ -58,6 +59,9 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			atomic_set(&this_afe.state, 0);
 			this_afe.apr = NULL;
 		}
+		/* send info to user */
+		pr_debug("task_name = %s pid = %d\n",
+			this_afe.task->comm, this_afe.task->pid);
 		return 0;
 	}
 	pr_debug("%s:opcode = 0x%x cmd = 0x%x status = 0x%x\n",
@@ -248,7 +252,7 @@ void afe_send_cal(u16 port_id)
 		afe_send_cal_block(RX_CAL, port_id);
 }
 
-int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
+int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	u32 rate) /* This function is no blocking */
 {
 	struct afe_port_cmd_device_start start;
@@ -274,8 +278,9 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 
 	ret = afe_q6_interface_prepare();
-	if (ret != 0)
+	if (IS_ERR_VALUE(ret))
 		return ret;
+
 	if (q6audio_validate_port(port_id) < 0) {
 		pr_err("%s: Failed : Invalid Port id = %d\n", __func__,
 				port_id);
@@ -338,6 +343,8 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 
 	config.port = *afe_config;
 
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
 	if (ret < 0) {
 		pr_err("%s: AFE enable for port %d failed\n", __func__,
@@ -345,7 +352,20 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
+	ret = wait_event_timeout(this_afe.wait[index],
+				(atomic_read(&this_afe.state) == 0),
+					msecs_to_jiffies(TIMEOUT_MS));
 
+	if (!ret) {
+		pr_err("%s: wait_event timeout IF CONFIG\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
 	/* send AFE cal */
 	afe_send_cal(port_id);
 
@@ -360,6 +380,7 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 	pr_debug("%s: cmd device start opcode[0x%x] port id[0x%x]\n",
 		 __func__, start.hdr.opcode, start.port_id);
 
+	atomic_set(&this_afe.state, 1);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &start);
 
 	if (IS_ERR_VALUE(ret)) {
@@ -368,6 +389,21 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+				(atomic_read(&this_afe.state) == 0),
+					msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout PORT START\n", __func__);
+		 ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (this_afe.task != current)
+		this_afe.task = current;
+
+	pr_debug("task_name = %s pid = %d\n",
+		this_afe.task->comm, this_afe.task->pid);
 
 	return 0;
 
@@ -506,8 +542,7 @@ int afe_open(u16 port_id,
 	config.pdata.param_size =  sizeof(config.port);
 
 	config.port = *afe_config;
-	pr_debug("%s: param PL size=%d iparam_size[%d][%d %d %d %d]"
-		" param_id[%x]\n",
+	pr_debug("%s: param PL size=%d iparam_size[%d][%d %d %d %d] param_id[%x]\n",
 		__func__, config.param.payload_size, config.pdata.param_size,
 		sizeof(config), sizeof(config.param), sizeof(config.port),
 		sizeof(struct apr_hdr), config.pdata.param_id);
@@ -653,8 +688,8 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 
 	/* RX ports numbers are even .TX ports numbers are odd. */
 	if (port_id % 2 == 0) {
-		pr_err("%s: Failed : afe loopback gain only for TX ports."
-			" port_id %d\n", __func__, port_id);
+		pr_err("%s: Failed : afe loopback gain only for TX ports. port_id %d\n",
+				__func__, port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -1319,7 +1354,7 @@ static int afe_get_parameters(char *buf, long int *param1, int num_of_par)
 			else
 				base = 10;
 
-			if (strict_strtoul(token, base, &param1[cnt]) != 0)
+			if (kstrtoul(token, base, &param1[cnt]) != 0)
 				return -EINVAL;
 
 			token = strsep(&buf, " ");
@@ -1389,8 +1424,7 @@ static ssize_t afe_debug_write(struct file *filp,
 			}
 
 			if (param[1] < 0 || param[1] > 100) {
-				pr_err("%s: Error, volume shoud be 0 to 100"
-					" percentage param = %lu\n",
+				pr_err("%s: Error, volume shoud be 0 to 100 percentage param = %lu\n",
 					__func__, param[1]);
 				rc = -EINVAL;
 				goto afe_error;
