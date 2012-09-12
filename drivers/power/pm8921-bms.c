@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  *
  */
-#define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#define pr_fmt(fmt)	"%s: " fmt, __func__
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
@@ -22,6 +22,7 @@
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/ccadc.h>
+#include <linux/mfd/pm8xxx/batterydata-lib.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
@@ -224,7 +225,6 @@ module_param_cb(bms_end_percent, &bms_ro_param_ops, &bms_end_percent, 0644);
 module_param_cb(bms_end_ocv_uv, &bms_ro_param_ops, &bms_end_ocv_uv, 0644);
 module_param_cb(bms_end_cc_uah, &bms_ro_param_ops, &bms_end_cc_uah, 0644);
 
-static int interpolate_fcc(struct pm8921_bms_chip *chip, int batt_temp);
 static void readjust_fcc_table(void)
 {
 	struct single_row_lut *temp, *old;
@@ -241,7 +241,7 @@ static void readjust_fcc_table(void)
 		return;
 	}
 
-	fcc = interpolate_fcc(the_chip, last_real_fcc_batt_temp);
+	fcc = interpolate_fcc(the_chip->fcc_temp_lut, last_real_fcc_batt_temp);
 
 	temp->cols = the_chip->fcc_temp_lut->cols;
 	for (i = 0; i < the_chip->fcc_temp_lut->cols; i++) {
@@ -583,342 +583,6 @@ static int read_vsense_avg(struct pm8921_bms_chip *chip, int *result)
 	return 0;
 }
 
-static int linear_interpolate(int y0, int x0, int y1, int x1, int x)
-{
-	if (y0 == y1 || x == x0)
-		return y0;
-	if (x1 == x0 || x == x1)
-		return y1;
-
-	return y0 + ((y1 - y0) * (x - x0) / (x1 - x0));
-}
-
-static int interpolate_single_lut(struct single_row_lut *lut, int x)
-{
-	int i, result;
-
-	if (x < lut->x[0]) {
-		pr_debug("x %d less than known range return y = %d lut = %pS\n",
-							x, lut->y[0], lut);
-		return lut->y[0];
-	}
-	if (x > lut->x[lut->cols - 1]) {
-		pr_debug("x %d more than known range return y = %d lut = %pS\n",
-						x, lut->y[lut->cols - 1], lut);
-		return lut->y[lut->cols - 1];
-	}
-
-	for (i = 0; i < lut->cols; i++)
-		if (x <= lut->x[i])
-			break;
-	if (x == lut->x[i]) {
-		result = lut->y[i];
-	} else {
-		result = linear_interpolate(
-			lut->y[i - 1],
-			lut->x[i - 1],
-			lut->y[i],
-			lut->x[i],
-			x);
-	}
-	return result;
-}
-
-static int interpolate_fcc(struct pm8921_bms_chip *chip, int batt_temp)
-{
-	/* batt_temp is in tenths of degC - convert it to degC for lookups */
-	batt_temp = batt_temp/10;
-	return interpolate_single_lut(chip->fcc_temp_lut, batt_temp);
-}
-
-static int interpolate_fcc_adjusted(struct pm8921_bms_chip *chip, int batt_temp)
-{
-	/* batt_temp is in tenths of degC - convert it to degC for lookups */
-	batt_temp = batt_temp/10;
-	return interpolate_single_lut(chip->adjusted_fcc_temp_lut, batt_temp);
-}
-
-static int interpolate_scalingfactor_fcc(struct pm8921_bms_chip *chip,
-								int cycles)
-{
-	/*
-	 * sf table could be null when no battery aging data is available, in
-	 * that case return 100%
-	 */
-	if (chip->fcc_sf_lut)
-		return interpolate_single_lut(chip->fcc_sf_lut, cycles);
-	else
-		return 100;
-}
-
-static int interpolate_scalingfactor(struct pm8921_bms_chip *chip,
-				struct sf_lut *sf_lut,
-				int row_entry, int pc)
-{
-	int i, scalefactorrow1, scalefactorrow2, scalefactor;
-	int rows, cols;
-	int row1 = 0;
-	int row2 = 0;
-
-	/*
-	 * sf table could be null when no battery aging data is available, in
-	 * that case return 100%
-	 */
-	if (!sf_lut)
-		return 100;
-
-	rows = sf_lut->rows;
-	cols = sf_lut->cols;
-	if (pc > sf_lut->percent[0]) {
-		pr_debug("pc %d greater than known pc ranges for sfd\n", pc);
-		row1 = 0;
-		row2 = 0;
-	}
-	if (pc < sf_lut->percent[rows - 1]) {
-		pr_debug("pc %d less than known pc ranges for sf", pc);
-		row1 = rows - 1;
-		row2 = rows - 1;
-	}
-	for (i = 0; i < rows; i++) {
-		if (pc == sf_lut->percent[i]) {
-			row1 = i;
-			row2 = i;
-			break;
-		}
-		if (pc > sf_lut->percent[i]) {
-			row1 = i - 1;
-			row2 = i;
-			break;
-		}
-	}
-
-	if (row_entry < sf_lut->row_entries[0])
-		row_entry = sf_lut->row_entries[0];
-	if (row_entry > sf_lut->row_entries[cols - 1])
-		row_entry = sf_lut->row_entries[cols - 1];
-
-	for (i = 0; i < cols; i++)
-		if (row_entry <= sf_lut->row_entries[i])
-			break;
-	if (row_entry == sf_lut->row_entries[i]) {
-		scalefactor = linear_interpolate(
-				sf_lut->sf[row1][i],
-				sf_lut->percent[row1],
-				sf_lut->sf[row2][i],
-				sf_lut->percent[row2],
-				pc);
-		return scalefactor;
-	}
-
-	scalefactorrow1 = linear_interpolate(
-				sf_lut->sf[row1][i - 1],
-				sf_lut->row_entries[i - 1],
-				sf_lut->sf[row1][i],
-				sf_lut->row_entries[i],
-				row_entry);
-
-	scalefactorrow2 = linear_interpolate(
-				sf_lut->sf[row2][i - 1],
-				sf_lut->row_entries[i - 1],
-				sf_lut->sf[row2][i],
-				sf_lut->row_entries[i],
-				row_entry);
-
-	scalefactor = linear_interpolate(
-				scalefactorrow1,
-				sf_lut->percent[row1],
-				scalefactorrow2,
-				sf_lut->percent[row2],
-				pc);
-
-	return scalefactor;
-}
-
-static int is_between(int left, int right, int value)
-{
-	if (left >= right && left >= value && value >= right)
-		return 1;
-	if (left <= right && left <= value && value <= right)
-		return 1;
-
-	return 0;
-}
-
-/* get ocv given a soc  -- reverse lookup */
-static int interpolate_ocv(struct pm8921_bms_chip *chip,
-				int batt_temp_degc, int pc)
-{
-	int i, ocvrow1, ocvrow2, ocv;
-	int rows, cols;
-	int row1 = 0;
-	int row2 = 0;
-
-	rows = chip->pc_temp_ocv_lut->rows;
-	cols = chip->pc_temp_ocv_lut->cols;
-	if (pc > chip->pc_temp_ocv_lut->percent[0]) {
-		pr_debug("pc %d greater than known pc ranges for sfd\n", pc);
-		row1 = 0;
-		row2 = 0;
-	}
-	if (pc < chip->pc_temp_ocv_lut->percent[rows - 1]) {
-		pr_debug("pc %d less than known pc ranges for sf\n", pc);
-		row1 = rows - 1;
-		row2 = rows - 1;
-	}
-	for (i = 0; i < rows; i++) {
-		if (pc == chip->pc_temp_ocv_lut->percent[i]) {
-			row1 = i;
-			row2 = i;
-			break;
-		}
-		if (pc > chip->pc_temp_ocv_lut->percent[i]) {
-			row1 = i - 1;
-			row2 = i;
-			break;
-		}
-	}
-
-	if (batt_temp_degc < chip->pc_temp_ocv_lut->temp[0])
-		batt_temp_degc = chip->pc_temp_ocv_lut->temp[0];
-	if (batt_temp_degc > chip->pc_temp_ocv_lut->temp[cols - 1])
-		batt_temp_degc = chip->pc_temp_ocv_lut->temp[cols - 1];
-
-	for (i = 0; i < cols; i++)
-		if (batt_temp_degc <= chip->pc_temp_ocv_lut->temp[i])
-			break;
-	if (batt_temp_degc == chip->pc_temp_ocv_lut->temp[i]) {
-		ocv = linear_interpolate(
-				chip->pc_temp_ocv_lut->ocv[row1][i],
-				chip->pc_temp_ocv_lut->percent[row1],
-				chip->pc_temp_ocv_lut->ocv[row2][i],
-				chip->pc_temp_ocv_lut->percent[row2],
-				pc);
-		return ocv;
-	}
-
-	ocvrow1 = linear_interpolate(
-				chip->pc_temp_ocv_lut->ocv[row1][i - 1],
-				chip->pc_temp_ocv_lut->temp[i - 1],
-				chip->pc_temp_ocv_lut->ocv[row1][i],
-				chip->pc_temp_ocv_lut->temp[i],
-				batt_temp_degc);
-
-	ocvrow2 = linear_interpolate(
-				chip->pc_temp_ocv_lut->ocv[row2][i - 1],
-				chip->pc_temp_ocv_lut->temp[i - 1],
-				chip->pc_temp_ocv_lut->ocv[row2][i],
-				chip->pc_temp_ocv_lut->temp[i],
-				batt_temp_degc);
-
-	ocv = linear_interpolate(
-				ocvrow1,
-				chip->pc_temp_ocv_lut->percent[row1],
-				ocvrow2,
-				chip->pc_temp_ocv_lut->percent[row2],
-				pc);
-
-	return ocv;
-}
-
-static int interpolate_pc(struct pm8921_bms_chip *chip,
-				int batt_temp_degc, int ocv)
-{
-	int i, j, pcj, pcj_minus_one, pc;
-	int rows = chip->pc_temp_ocv_lut->rows;
-	int cols = chip->pc_temp_ocv_lut->cols;
-
-
-	if (batt_temp_degc < chip->pc_temp_ocv_lut->temp[0]) {
-		pr_debug("batt_temp %d < known temp range\n", batt_temp_degc);
-		batt_temp_degc = chip->pc_temp_ocv_lut->temp[0];
-	}
-	if (batt_temp_degc > chip->pc_temp_ocv_lut->temp[cols - 1]) {
-		pr_debug("batt_temp %d > known temp range\n", batt_temp_degc);
-		batt_temp_degc = chip->pc_temp_ocv_lut->temp[cols - 1];
-	}
-
-	for (j = 0; j < cols; j++)
-		if (batt_temp_degc <= chip->pc_temp_ocv_lut->temp[j])
-			break;
-	if (batt_temp_degc == chip->pc_temp_ocv_lut->temp[j]) {
-		/* found an exact match for temp in the table */
-		if (ocv >= chip->pc_temp_ocv_lut->ocv[0][j])
-			return chip->pc_temp_ocv_lut->percent[0];
-		if (ocv <= chip->pc_temp_ocv_lut->ocv[rows - 1][j])
-			return chip->pc_temp_ocv_lut->percent[rows - 1];
-		for (i = 0; i < rows; i++) {
-			if (ocv >= chip->pc_temp_ocv_lut->ocv[i][j]) {
-				if (ocv == chip->pc_temp_ocv_lut->ocv[i][j])
-					return
-					chip->pc_temp_ocv_lut->percent[i];
-				pc = linear_interpolate(
-					chip->pc_temp_ocv_lut->percent[i],
-					chip->pc_temp_ocv_lut->ocv[i][j],
-					chip->pc_temp_ocv_lut->percent[i - 1],
-					chip->pc_temp_ocv_lut->ocv[i - 1][j],
-					ocv);
-				return pc;
-			}
-		}
-	}
-
-	/*
-	 * batt_temp_degc is within temperature for
-	 * column j-1 and j
-	 */
-	if (ocv >= chip->pc_temp_ocv_lut->ocv[0][j])
-		return chip->pc_temp_ocv_lut->percent[0];
-	if (ocv <= chip->pc_temp_ocv_lut->ocv[rows - 1][j - 1])
-		return chip->pc_temp_ocv_lut->percent[rows - 1];
-
-	pcj_minus_one = 0;
-	pcj = 0;
-	for (i = 0; i < rows-1; i++) {
-		if (pcj == 0
-			&& is_between(chip->pc_temp_ocv_lut->ocv[i][j],
-				chip->pc_temp_ocv_lut->ocv[i+1][j], ocv)) {
-			pcj = linear_interpolate(
-				chip->pc_temp_ocv_lut->percent[i],
-				chip->pc_temp_ocv_lut->ocv[i][j],
-				chip->pc_temp_ocv_lut->percent[i + 1],
-				chip->pc_temp_ocv_lut->ocv[i+1][j],
-				ocv);
-		}
-
-		if (pcj_minus_one == 0
-			&& is_between(chip->pc_temp_ocv_lut->ocv[i][j-1],
-				chip->pc_temp_ocv_lut->ocv[i+1][j-1], ocv)) {
-
-			pcj_minus_one = linear_interpolate(
-				chip->pc_temp_ocv_lut->percent[i],
-				chip->pc_temp_ocv_lut->ocv[i][j-1],
-				chip->pc_temp_ocv_lut->percent[i + 1],
-				chip->pc_temp_ocv_lut->ocv[i+1][j-1],
-				ocv);
-		}
-
-		if (pcj && pcj_minus_one) {
-			pc = linear_interpolate(
-				pcj_minus_one,
-				chip->pc_temp_ocv_lut->temp[j-1],
-				pcj,
-				chip->pc_temp_ocv_lut->temp[j],
-				batt_temp_degc);
-			return pc;
-		}
-	}
-
-	if (pcj)
-		return pcj;
-
-	if (pcj_minus_one)
-		return pcj_minus_one;
-
-	pr_debug("%d ocv wasn't found for temp %d in the LUT returning 100%%",
-							ocv, batt_temp_degc);
-	return 100;
-}
-
 #define BMS_MODE_BIT	BIT(6)
 #define EN_VBAT_BIT	BIT(5)
 #define OVERRIDE_MODE_DELAY_MS	20
@@ -1042,7 +706,7 @@ static int get_rbatt(struct pm8921_bms_chip *chip, int soc_rbatt, int batt_temp)
 	}
 	/* Convert the batt_temp to DegC from deciDegC */
 	batt_temp = batt_temp / 10;
-	scalefactor = interpolate_scalingfactor(chip, chip->rbatt_sf_lut,
+	scalefactor = interpolate_scalingfactor(chip->rbatt_sf_lut,
 							batt_temp, soc_rbatt);
 	pr_debug("rbatt sf = %d for batt_temp = %d, soc_rbatt = %d\n",
 				scalefactor, batt_temp, soc_rbatt);
@@ -1069,16 +733,18 @@ static int calculate_fcc_uah(struct pm8921_bms_chip *chip, int batt_temp,
 	int initfcc, result, scalefactor = 0;
 
 	if (chip->adjusted_fcc_temp_lut == NULL) {
-		initfcc = interpolate_fcc(chip, batt_temp);
+		initfcc = interpolate_fcc(chip->fcc_temp_lut, batt_temp);
 
-		scalefactor = interpolate_scalingfactor_fcc(chip, chargecycles);
+		scalefactor = interpolate_scalingfactor_fcc(chip->fcc_sf_lut,
+				chargecycles);
 
 		/* Multiply the initial FCC value by the scale factor. */
 		result = (initfcc * scalefactor * 1000) / 100;
 		pr_debug("fcc = %d uAh\n", result);
 		return result;
 	} else {
-		return 1000 * interpolate_fcc_adjusted(chip, batt_temp);
+		return 1000 * interpolate_fcc(chip->adjusted_fcc_temp_lut,
+				batt_temp);
 	}
 }
 
@@ -1120,17 +786,18 @@ static int adc_based_ocv(struct pm8921_bms_chip *chip, int *ocv)
 	return 0;
 }
 
-static int calculate_pc(struct pm8921_bms_chip *chip, int ocv_uv, int batt_temp,
-							int chargecycles)
+static int calculate_pc(struct pm8921_bms_chip *chip, int ocv_uv,
+					int batt_temp, int chargecycles)
 {
 	int pc, scalefactor;
 
-	pc = interpolate_pc(chip, batt_temp / 10, ocv_uv / 1000);
+	pc = interpolate_pc(chip->pc_temp_ocv_lut,
+			batt_temp / 10, ocv_uv / 1000);
 	pr_debug("pc = %u for ocv = %dmicroVolts batt_temp = %d\n",
 					pc, ocv_uv, batt_temp);
 
-	scalefactor = interpolate_scalingfactor(chip,
-					chip->pc_sf_lut, chargecycles, pc);
+	scalefactor = interpolate_scalingfactor(chip->pc_sf_lut,
+			chargecycles, pc);
 	pr_debug("scalefactor = %u batt_temp = %d\n", scalefactor, batt_temp);
 
 	/* Multiply the initial FCC value by the scale factor. */
@@ -1183,7 +850,8 @@ static int calculate_termination_uuc(struct pm8921_bms_chip *chip,
 	int uuc_rbatt_uv;
 
 	for (i = 0; i <= 100; i++) {
-		ocv_mv = interpolate_ocv(chip, batt_temp_degc, i);
+		ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut,
+				batt_temp_degc, i);
 		rbatt_mohm = get_rbatt(chip, i, batt_temp);
 		unusable_uv = (rbatt_mohm * i_ma) + (chip->v_cutoff * 1000);
 		delta_uv = ocv_mv * 1000 - unusable_uv;
@@ -1239,8 +907,8 @@ static int adjust_uuc(struct pm8921_bms_chip *chip, int fcc_uah,
 	new_uuc = (fcc_uah * chip->prev_pc_unusable) / 100;
 
 	/* also find update the iavg_ma accordingly */
-	new_unusable_mv = interpolate_ocv(chip, batt_temp_degc,
-						chip->prev_pc_unusable);
+	new_unusable_mv = interpolate_ocv(chip->pc_temp_ocv_lut,
+			batt_temp_degc, chip->prev_pc_unusable);
 	if (new_unusable_mv < chip->v_cutoff)
 		new_unusable_mv = chip->v_cutoff;
 
@@ -1531,11 +1199,11 @@ static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
 	pc = DIV_ROUND_CLOSEST((int)rc * 100, fcc_uah);
 	pc = clamp(pc, 0, 100);
 
-	ocv = interpolate_ocv(chip, batt_temp_degc, pc);
+	ocv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
 
 	pr_debug("s_soc = %d, fcc = %d uuc = %d rc = %d, pc = %d, ocv mv = %d\n",
 			shutdown_soc, fcc_uah, uuc_uah, (int)rc, pc, ocv);
-	new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
+	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv);
 	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
 
 	while (abs(new_pc - pc) > 1) {
@@ -1545,7 +1213,8 @@ static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
 			delta_mv = -1 * delta_mv;
 
 		ocv = ocv + delta_mv;
-		new_pc = interpolate_pc(chip, batt_temp_degc, ocv);
+		new_pc = interpolate_pc(chip->pc_temp_ocv_lut,
+				batt_temp_degc, ocv);
 		pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
 	}
 
