@@ -60,6 +60,9 @@ static int msm_hdmi_sample_rate = MSM_HDMI_SAMPLE_RATE_48KHZ;
 struct workqueue_struct *hdmi_work_queue;
 struct hdmi_msm_state_type *hdmi_msm_state;
 
+/* Enable HDCP by default */
+static bool hdcp_feature_on = true;
+
 DEFINE_MUTEX(hdmi_msm_state_mutex);
 EXPORT_SYMBOL(hdmi_msm_state_mutex);
 static DEFINE_MUTEX(hdcp_auth_state_mutex);
@@ -4873,6 +4876,27 @@ static void __exit hdmi_msm_exit(void)
 	platform_device_unregister(&this_device);
 	platform_driver_unregister(&this_driver);
 }
+
+static int set_hdcp_feature_on(const char *val, const struct kernel_param *kp)
+{
+	int rv = param_set_bool(val, kp);
+
+	if (rv)
+		return rv;
+
+	pr_debug("%s: HDCP feature = %d\n", __func__, hdcp_feature_on);
+
+	return 0;
+}
+
+static struct kernel_param_ops hdcp_feature_on_param_ops = {
+	.set = set_hdcp_feature_on,
+	.get = param_get_bool,
+};
+
+module_param_cb(hdcp, &hdcp_feature_on_param_ops, &hdcp_feature_on,
+			S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(hdcp, "Enable or Disable HDCP");
 
 module_init(hdmi_msm_init);
 module_exit(hdmi_msm_exit);
