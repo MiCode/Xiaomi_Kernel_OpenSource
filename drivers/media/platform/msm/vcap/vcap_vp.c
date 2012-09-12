@@ -200,9 +200,7 @@ static void vp_wq_fnc(struct work_struct *work)
 	unsigned long flags = 0;
 	uint32_t irq;
 	int rc;
-#ifndef TOP_FIELD_FIX
-	bool top_field;
-#endif
+	bool top_field = 0;
 
 	if (vp_work && vp_work->cd && vp_work->cd->dev)
 		dev = vp_work->cd->dev;
@@ -242,9 +240,6 @@ static void vp_wq_fnc(struct work_struct *work)
 	/* Cycle to next state */
 	if (vp_act->vp_state != VP_NORMAL)
 		vp_act->vp_state++;
-#ifdef TOP_FIELD_FIX
-	vp_act->top_field = !vp_act->top_field;
-#endif
 
 	/* Cycle Buffers*/
 	if (dev->nr_param.mode) {
@@ -277,18 +272,11 @@ static void vp_wq_fnc(struct work_struct *work)
 	}
 
 	/* Config VP */
-#ifndef TOP_FIELD_FIX
 	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_TOP)
 		top_field = 1;
-#endif
 
-#ifdef TOP_FIELD_FIX
-	writel_iowmb(0x00000000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-	writel_iowmb(0x00010000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-#else
 	writel_iowmb(0x00000000 | top_field, VCAP_VP_CTRL);
 	writel_iowmb(0x00010000 | top_field, VCAP_VP_CTRL);
-#endif
 	enable_irq(dev->vpirq->start);
 	writel_iowmb(irq, VCAP_VP_INT_CLEAR);
 }
@@ -746,9 +734,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 	unsigned long flags = 0;
 	unsigned int chroma_fmt = 0;
 	int size;
-#ifndef TOP_FIELD_FIX
-	bool top_field;
-#endif
+	bool top_field = 0;
 
 	if (!c_data->streaming)
 		return -ENOEXEC;
@@ -821,21 +807,12 @@ int kickoff_vp(struct vcap_client_data *c_data)
 			chroma_fmt << 11 | 0x1 << 4, VCAP_VP_OUT_CONFIG);
 
 	/* Enable Interrupt */
-#ifdef TOP_FIELD_FIX
-	vp_act->top_field = 1;
-#else
 	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_TOP)
 		top_field = 1;
-#endif
 	vp_act->vp_state = VP_FRAME2;
 	writel_relaxed(0x01100001, VCAP_VP_INTERRUPT_ENABLE);
-#ifdef TOP_FIELD_FIX
-	writel_iowmb(0x00000000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-	writel_iowmb(0x00010000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-#else
 	writel_iowmb(0x00000000 | top_field, VCAP_VP_CTRL);
 	writel_iowmb(0x00010000 | top_field, VCAP_VP_CTRL);
-#endif
 	atomic_set(&c_data->dev->vp_enabled, 1);
 	enable_irq(dev->vpirq->start);
 	return 0;
@@ -846,9 +823,7 @@ int continue_vp(struct vcap_client_data *c_data)
 	struct vcap_dev *dev;
 	struct vp_action *vp_act;
 	int rc;
-#ifndef TOP_FIELD_FIX
-	bool top_field;
-#endif
+	bool top_field = 0;
 
 	dprintk(2, "Start Continue\n");
 	dev = c_data->dev;
@@ -869,20 +844,13 @@ int continue_vp(struct vcap_client_data *c_data)
 	if (rc < 0)
 		return rc;
 
-#ifndef TOP_FIELD_FIX
 	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_TOP)
 		top_field = 1;
-#endif
 
 	/* Config VP & Enable Interrupt */
 	writel_relaxed(0x01100001, VCAP_VP_INTERRUPT_ENABLE);
-#ifdef TOP_FIELD_FIX
-	writel_iowmb(0x00000000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-	writel_iowmb(0x00010000 | vp_act->top_field << 0, VCAP_VP_CTRL);
-#else
 	writel_iowmb(0x00000000 | top_field, VCAP_VP_CTRL);
 	writel_iowmb(0x00010000 | top_field, VCAP_VP_CTRL);
-#endif
 
 	atomic_set(&c_data->dev->vp_enabled, 1);
 	enable_irq(dev->vpirq->start);
