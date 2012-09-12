@@ -379,6 +379,7 @@ struct msm_hsic_host_platform_data {
 	unsigned data;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	unsigned log2_irq_thresh;
+	u32 swfi_latency;
 };
 
 struct msm_usb_host_platform_data {
