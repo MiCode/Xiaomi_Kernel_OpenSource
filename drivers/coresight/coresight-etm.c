@@ -35,20 +35,45 @@
 
 #include "coresight-priv.h"
 
-#define etm_writel(drvdata, val, off)	\
+#define etm_writel_mm(drvdata, val, off)  \
 			__raw_writel((val), drvdata->base + off)
-#define etm_readl(drvdata, off)		\
+#define etm_readl_mm(drvdata, off)        \
 			__raw_readl(drvdata->base + off)
+
+#define etm_writel(drvdata, val, off)					\
+({									\
+	if (cpu_is_krait_v3())						\
+		etm_writel_cp14(val, off);				\
+	else								\
+		etm_writel_mm(drvdata, val, off);			\
+})
+#define etm_readl(drvdata, off)						\
+({									\
+	uint32_t val;							\
+	if (cpu_is_krait_v3())						\
+		val = etm_readl_cp14(off);				\
+	else								\
+		val = etm_readl_mm(drvdata, off);			\
+	val;								\
+})
 
 #define ETM_LOCK(drvdata)						\
 do {									\
+	/* recommended by spec to ensure ETM writes are committed prior
+	 * to resuming execution
+	 */								\
 	mb();								\
-	etm_writel(drvdata, 0x0, CORESIGHT_LAR);			\
+	isb();								\
+	etm_writel_mm(drvdata, 0x0, CORESIGHT_LAR);			\
 } while (0)
 #define ETM_UNLOCK(drvdata)						\
 do {									\
-	etm_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
+	etm_writel_mm(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);	\
+	/* ensure unlock and any pending writes are committed prior to
+	 * programming ETM registers
+	 */								\
 	mb();								\
+	isb();								\
 } while (0)
 
 /*
@@ -218,18 +243,24 @@ static void etm_set_pwrup(struct etm_drvdata *drvdata)
 {
 	uint32_t etmpdcr;
 
-	etmpdcr = etm_readl(drvdata, ETMPDCR);
+	etmpdcr = etm_readl_mm(drvdata, ETMPDCR);
 	etmpdcr |= BIT(3);
-	etm_writel(drvdata, etmpdcr, ETMPDCR);
+	etm_writel_mm(drvdata, etmpdcr, ETMPDCR);
+	/* ensure pwrup completes before subsequent cp14 accesses */
+	mb();
+	isb();
 }
 
 static void etm_clr_pwrup(struct etm_drvdata *drvdata)
 {
 	uint32_t etmpdcr;
 
-	etmpdcr = etm_readl(drvdata, ETMPDCR);
+	/* ensure pending cp14 accesses complete before clearing pwrup */
+	mb();
+	isb();
+	etmpdcr = etm_readl_mm(drvdata, ETMPDCR);
 	etmpdcr &= ~BIT(3);
-	etm_writel(drvdata, etmpdcr, ETMPDCR);
+	etm_writel_mm(drvdata, etmpdcr, ETMPDCR);
 }
 
 static void etm_set_prog(struct etm_drvdata *drvdata)
@@ -240,6 +271,10 @@ static void etm_set_prog(struct etm_drvdata *drvdata)
 	etmcr = etm_readl(drvdata, ETMCR);
 	etmcr |= BIT(10);
 	etm_writel(drvdata, etmcr, ETMCR);
+	/* recommended by spec for cp14 accesses to ensure etmcr write is
+	 * complete before polling etmsr
+	 */
+	isb();
 	for (count = TIMEOUT_US; BVAL(etm_readl(drvdata, ETMSR), 1) != 1
 				&& count > 0; count--)
 		udelay(1);
@@ -255,6 +290,10 @@ static void etm_clr_prog(struct etm_drvdata *drvdata)
 	etmcr = etm_readl(drvdata, ETMCR);
 	etmcr &= ~BIT(10);
 	etm_writel(drvdata, etmcr, ETMCR);
+	/* recommended by spec for cp14 accesses to ensure etmcr write is
+	 * complete before polling etmsr
+	 */
+	isb();
 	for (count = TIMEOUT_US; BVAL(etm_readl(drvdata, ETMSR), 1) != 0
 				&& count > 0; count--)
 		udelay(1);
@@ -1416,14 +1455,21 @@ static bool __devinit etm_arch_supported(uint8_t arch)
 	return true;
 }
 
-static void __devinit etm_init_arch_data(struct etm_drvdata *drvdata)
+static void __devinit etm_prepare_arch(struct etm_drvdata *drvdata)
+{
+	/* Unlock OS lock first to allow memory mapped reads and writes. This
+	 * is required for Krait pass1
+	 * */
+	etm_os_unlock(NULL);
+	smp_call_function(etm_os_unlock, NULL, 1);
+}
+
+static void __devinit etm_init_arch_data(void *info)
 {
 	uint32_t etmidr;
 	uint32_t etmccr;
+	struct etm_drvdata *drvdata = info;
 
-	/* Unlock OS lock first to allow memory mapped reads and writes */
-	etm_os_unlock(NULL);
-	smp_call_function(etm_os_unlock, NULL, 1);
 	ETM_UNLOCK(drvdata);
 	/* Vote for ETM power/clock enable */
 	etm_set_pwrup(drvdata);
@@ -1569,7 +1615,9 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	 * ETMs copy it over from ETM0.
 	 */
 	if (drvdata->cpu == 0) {
-		etm_init_arch_data(drvdata);
+		etm_prepare_arch(drvdata);
+		smp_call_function_single(drvdata->cpu, etm_init_arch_data,
+					 drvdata, 1);
 		etm0drvdata = drvdata;
 	} else {
 		etm_copy_arch_data(drvdata);
