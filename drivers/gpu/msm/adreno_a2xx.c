@@ -1507,7 +1507,7 @@ static void a2xx_drawctxt_save(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	if (context == NULL || (context->flags & CTXT_FLAGS_BEING_DESTOYED))
+	if (context == NULL || (context->flags & CTXT_FLAGS_BEING_DESTROYED))
 		return;
 
 	if (context->flags & CTXT_FLAGS_GPU_HANG)
