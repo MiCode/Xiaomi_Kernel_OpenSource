@@ -73,6 +73,9 @@ struct core_attribs {
 };
 
 struct dcvs_core {
+	enum msm_dcvs_core_type type;
+	/* this is the number in each type for example cpu 0,1,2 and gpu 0,1 */
+	int type_core_num;
 	char core_name[CORE_NAME_MAX];
 	uint32_t actual_freq;
 	uint32_t freq_change_us;
@@ -81,8 +84,6 @@ struct dcvs_core {
 
 	struct msm_dcvs_algo_param algo_param;
 	struct msm_dcvs_energy_curve_coeffs coeffs;
-	struct msm_dcvs_idle *idle_driver;
-	struct msm_dcvs_freq *freq_driver;
 
 	/* private */
 	int64_t time_start;
@@ -90,16 +91,17 @@ struct dcvs_core {
 	spinlock_t cpu_lock;
 	struct task_struct *task;
 	struct core_attribs attrib;
-	uint32_t handle;
+	uint32_t dcvs_core_id;
 	struct hrtimer timer;
 	int32_t timer_disabled;
 	struct msm_dcvs_core_info *info;
 	int sensor;
 	int pending_freq;
 	wait_queue_head_t wait_q;
-	int (*set_frequency)(struct msm_dcvs_freq *self, unsigned int freq);
-	unsigned int (*get_frequency)(struct msm_dcvs_freq *self);
-	int (*idle_enable)(struct msm_dcvs_idle *self,
+
+	int (*set_frequency)(int type_core_num, unsigned int freq);
+	unsigned int (*get_frequency)(int type_core_num);
+	int (*idle_enable)(int type_core_num,
 			enum msm_core_control_event event);
 };
 
@@ -110,10 +112,8 @@ module_param_named(enable, msm_dcvs_enabled, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static struct dentry		*debugfs_base;
 
 static struct dcvs_core core_list[CORES_MAX];
-static DEFINE_MUTEX(core_list_lock);
 
 static struct kobject *cores_kobj;
-static struct dcvs_core *core_handles[CORES_MAX];
 
 /* Change core frequency, called with core mutex locked */
 static int __msm_dcvs_change_freq(struct dcvs_core *core)
@@ -127,7 +127,7 @@ static int __msm_dcvs_change_freq(struct dcvs_core *core)
 	uint32_t slack_us = 0;
 	uint32_t ret1 = 0;
 
-	if (!core->freq_driver || !core->set_frequency) {
+	if (!core->set_frequency) {
 		/* Core may have unregistered or hotplugged */
 		return -ENODEV;
 	}
@@ -155,7 +155,7 @@ repeat:
 	 * We will need to get back the actual frequency in KHz and
 	 * the record the time taken to change it.
 	 */
-	ret = core->set_frequency(core->freq_driver, requested_freq);
+	ret = core->set_frequency(core->type_core_num, requested_freq);
 	if (ret <= 0) {
 		__err("Core %s failed to set freq %u\n",
 				core->core_name, requested_freq);
@@ -177,15 +177,14 @@ repeat:
 	 * Disable low power modes if the actual frequency is >
 	 * disable_pc_threshold.
 	 */
-	if (core->actual_freq >
-			core->algo_param.disable_pc_threshold) {
-		core->idle_enable(core->idle_driver,
+	if (core->actual_freq > core->algo_param.disable_pc_threshold) {
+		core->idle_enable(core->type_core_num,
 				MSM_DCVS_DISABLE_HIGH_LATENCY_MODES);
 		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 			__info("Disabling LPM for %s\n", core->core_name);
 	} else if (core->actual_freq <=
 			core->algo_param.disable_pc_threshold) {
-		core->idle_enable(core->idle_driver,
+		core->idle_enable(core->type_core_num,
 				MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
 		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 			__info("Enabling LPM for %s\n", core->core_name);
@@ -196,8 +195,10 @@ repeat:
 	 * to this frequency and that will get us the new slack
 	 * timer
 	 */
-	ret = msm_dcvs_scm_event(core->handle, MSM_DCVS_SCM_CLOCK_FREQ_UPDATE,
-		core->actual_freq, (uint32_t)time_end, &slack_us, &ret1);
+	ret = msm_dcvs_scm_event(core->dcvs_core_id,
+			MSM_DCVS_SCM_CLOCK_FREQ_UPDATE,
+			core->actual_freq, (uint32_t)time_end,
+			&slack_us, &ret1);
 	if (!ret) {
 		/* Reset the slack timer */
 		if (slack_us) {
@@ -253,7 +254,8 @@ static int __msm_dcvs_report_temp(struct dcvs_core *core)
 			return -ENODEV;
 	}
 
-	ret = msm_dcvs_scm_set_power_params(core->handle, &info->power_param,
+	ret = msm_dcvs_scm_set_power_params(core->dcvs_core_id,
+			&info->power_param,
 			&info->freq_tbl[0], &core->coeffs);
 	return ret;
 }
@@ -291,7 +293,7 @@ static int msm_dcvs_update_freq(struct dcvs_core *core,
 	uint32_t new_freq = 0;
 
 	spin_lock_irqsave(&core->cpu_lock, flags);
-	ret = msm_dcvs_scm_event(core->handle, event, param0,
+	ret = msm_dcvs_scm_event(core->dcvs_core_id, event, param0,
 				core->actual_freq, &new_freq, ret1);
 	if (ret) {
 		if (ret == -13)
@@ -374,7 +376,7 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
 	} else { \
 		uint32_t old_val = core->algo_param._name; \
 		core->algo_param._name = val; \
-		ret = msm_dcvs_scm_set_algo_params(core->handle, \
+		ret = msm_dcvs_scm_set_algo_params(core->dcvs_core_id, \
 				&core->algo_param); \
 		if (ret) { \
 			core->algo_param._name = old_val; \
@@ -406,7 +408,7 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
 	} else { \
 		int32_t old_val = core->coeffs._name; \
 		core->coeffs._name = val; \
-		ret = msm_dcvs_scm_set_power_params(core->handle, \
+		ret = msm_dcvs_scm_set_power_params(core->dcvs_core_id, \
 			&core->info->power_param, &core->info->freq_tbl[0], \
 				&core->coeffs); \
 		if (ret) { \
@@ -437,9 +439,9 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
  * Function declarations for different attributes.
  * Gets used when setting the attribute show and store parameters.
  */
-DCVS_PARAM_SHOW(core_id, core->handle)
-DCVS_PARAM_SHOW(idle_enabled, (core->idle_driver != NULL))
-DCVS_PARAM_SHOW(freq_change_enabled, (core->freq_driver != NULL))
+DCVS_PARAM_SHOW(core_id, core->dcvs_core_id)
+DCVS_PARAM_SHOW(idle_enabled, (core->idle_enable != NULL))
+DCVS_PARAM_SHOW(freq_change_enabled, (core->set_frequency != NULL))
 DCVS_PARAM_SHOW(actual_freq, (core->actual_freq))
 DCVS_PARAM_SHOW(freq_change_us, (core->freq_change_us))
 
@@ -535,107 +537,71 @@ done:
 	return ret;
 }
 
-/* Return the core if found or add to list if @add_to_list is true */
-static struct dcvs_core *msm_dcvs_add_core(const char *name, int *pos)
+/* Return the core and initialize non platform data specific numbers in it */
+static struct dcvs_core *msm_dcvs_add_core(enum msm_dcvs_core_type type,
+								int num)
 {
 	struct dcvs_core *core = NULL;
 	int i;
-	int empty = -1;
+	char name[CORE_NAME_MAX];
 
-	if (!name[0] ||
-		(strnlen(name, CORE_NAME_MAX - 1) == CORE_NAME_MAX - 1))
-		return core;
-
-	mutex_lock(&core_list_lock);
-	for (i = 0; i < CORES_MAX; i++) {
-		core = &core_list[i];
-		if ((empty < 0) && !core->core_name[0]) {
-			empty = i;
-			continue;
-		}
-		if (!strncmp(name, core->core_name, CORE_NAME_MAX)) {
-			if (pos != NULL)
-				*pos = i;
-			/*
-			 * found a core with the same name, return NULL and
-			 * set pos
-			 */
-			core = NULL;
-			goto out;
-		}
+	switch (type) {
+	case MSM_DCVS_CORE_TYPE_CPU:
+		i = CPU_OFFSET + num;
+		BUG_ON(i >= GPU_OFFSET);
+		snprintf(name, CORE_NAME_MAX, "cpu%d", num);
+		break;
+	case MSM_DCVS_CORE_TYPE_GPU:
+		i = GPU_OFFSET + num;
+		BUG_ON(i >= CORES_MAX);
+		snprintf(name, CORE_NAME_MAX, "gpu%d", num);
+		break;
+	default:
+		return NULL;
 	}
 
-	/* Check for core_list full */
-	if (empty < 0) {
-		*pos = 0;
-		core = NULL;
-		goto out;
-	}
-
-	core = &core_list[empty];
+	core = &core_list[i];
+	core->dcvs_core_id = i;
 	strlcpy(core->core_name, name, CORE_NAME_MAX);
 	mutex_init(&core->lock);
 	spin_lock_init(&core->cpu_lock);
-	core->handle = empty + CORE_HANDLE_OFFSET;
-	hrtimer_init(&core->timer,
-			CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+	hrtimer_init(&core->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
 	core->timer.function = msm_dcvs_core_slack_timer;
-	if (pos != NULL)
-		*pos = empty;
-
-out:
-	mutex_unlock(&core_list_lock);
 	return core;
 }
 
 /* Return the core if found or add to list if @add_to_list is true */
-static struct dcvs_core *msm_dcvs_get_core(const char *name, int *pos)
+static struct dcvs_core *msm_dcvs_get_core(int offset)
 {
-	struct dcvs_core *core = NULL;
-	int i;
-
-	if (!name[0] ||
-		(strnlen(name, CORE_NAME_MAX - 1) == CORE_NAME_MAX - 1))
-		return core;
-
-	mutex_lock(&core_list_lock);
-	for (i = 0; i < CORES_MAX; i++) {
-		core = &core_list[i];
-		if (!strncmp(name, core->core_name, CORE_NAME_MAX)) {
-			if (pos != NULL)
-				*pos = i;
-			break;
-		}
-	}
-
-	mutex_unlock(&core_list_lock);
-
-	return core;
+	/* if the handle is still not set bug */
+	BUG_ON(core_list[offset].dcvs_core_id == -1);
+	return &core_list[offset];
 }
 
-int msm_dcvs_register_core(const char *core_name,
+
+int msm_dcvs_register_core(
+	enum msm_dcvs_core_type type,
+	int type_core_num,
 	struct msm_dcvs_core_info *info,
-	int (*set_frequency)(struct msm_dcvs_freq *self, unsigned int freq),
-	unsigned int (*get_frequency)(struct msm_dcvs_freq *self),
-	int (*idle_enable)(struct msm_dcvs_idle *self,
+	int (*set_frequency)(int type_core_num, unsigned int freq),
+	unsigned int (*get_frequency)(int type_core_num),
+	int (*idle_enable)(int type_core_num,
 					enum msm_core_control_event event),
 	int sensor)
 {
 	int ret = -EINVAL;
-	int pos = 0;
 	struct dcvs_core *core = NULL;
 	uint32_t ret1;
 	uint32_t ret2;
 
-	if (!core_name || !core_name[0])
-		return ret;
-
-	core = msm_dcvs_add_core(core_name, &pos);
+	core = msm_dcvs_add_core(type, type_core_num);
 	if (!core)
 		return ret;
 
 	mutex_lock(&core->lock);
 
+	core->type = type;
+	core->type_core_num = type_core_num;
 	core->set_frequency = set_frequency;
 	core->get_frequency = get_frequency;
 	core->idle_enable = idle_enable;
@@ -647,24 +613,39 @@ int msm_dcvs_register_core(const char *core_name,
 	memcpy(&core->coeffs, &info->energy_coeffs,
 			sizeof(struct msm_dcvs_energy_curve_coeffs));
 
-	info->core_param.core_bitmask_id = 1 << pos;
-	pr_debug("registering core with sensor %d\n", sensor);
+	/*
+	 * The tz expects cpu0 to represent bit 0 in the mask, however the
+	 * dcvs_core_id needs to start from 1, dcvs_core_id = 0 is used to
+	 * indicate that this request is not associated with any core.
+	 * mpdecision
+	 */
+	info->core_param.core_bitmask_id
+				= 1 << (core->dcvs_core_id - CPU_OFFSET);
 	core->sensor = sensor;
 
-	ret = msm_dcvs_scm_register_core(core->handle, &info->core_param);
-	if (ret)
+	ret = msm_dcvs_scm_register_core(core->dcvs_core_id, &info->core_param);
+	if (ret) {
+		__err("%s: scm register core fail handle = %d ret = %d\n",
+					__func__, core->dcvs_core_id, ret);
 		goto bail;
+	}
 
-	ret = msm_dcvs_scm_set_algo_params(core->handle, &info->algo_param);
-	if (ret)
+	ret = msm_dcvs_scm_set_algo_params(core->dcvs_core_id,
+							&info->algo_param);
+	if (ret) {
+		__err("%s: scm algo params failed ret = %d\n", __func__, ret);
 		goto bail;
+	}
 
-	ret = msm_dcvs_scm_set_power_params(core->handle, &info->power_param,
+	ret = msm_dcvs_scm_set_power_params(core->dcvs_core_id,
+				&info->power_param,
 				&info->freq_tbl[0], &core->coeffs);
-	if (ret)
+	if (ret) {
+		__err("%s: scm power params failed ret = %d\n", __func__, ret);
 		goto bail;
+	}
 
-	ret = msm_dcvs_scm_event(core->handle, MSM_DCVS_SCM_CORE_ONLINE,
+	ret = msm_dcvs_scm_event(core->dcvs_core_id, MSM_DCVS_SCM_CORE_ONLINE,
 				core->actual_freq, 0, &ret1, &ret2);
 	if (ret)
 		goto bail;
@@ -672,48 +653,53 @@ int msm_dcvs_register_core(const char *core_name,
 	ret = msm_dcvs_setup_core_sysfs(core);
 	if (ret) {
 		__err("Unable to setup core %s sysfs\n", core->core_name);
-		core_handles[core->handle - CORE_HANDLE_OFFSET] = NULL;
 		goto bail;
 	}
 	init_waitqueue_head(&core->wait_q);
 	core->task = kthread_run(msm_dcvs_do_freq, (void *)core,
-			"msm_dcvs/%d", core->handle);
-bail:
+			"msm_dcvs/%d", core->dcvs_core_id);
+	ret = core->dcvs_core_id;
 	mutex_unlock(&core->lock);
 	return ret;
+bail:
+	mutex_unlock(&core->lock);
+	core->dcvs_core_id = -1;
+	return -EINVAL;
 }
 EXPORT_SYMBOL(msm_dcvs_register_core);
 
-void msm_dcvs_update_limits(struct msm_dcvs_freq *drv)
+void msm_dcvs_update_limits(int dcvs_core_id)
 {
 	struct dcvs_core *core;
 
-	if (!drv || !drv->core_name)
+	if (dcvs_core_id < CPU_OFFSET || dcvs_core_id > CORES_MAX) {
+		__err("%s invalid dcvs_core_id = %d returning -EINVAL\n",
+				__func__, dcvs_core_id);
 		return;
+	}
 
-	core = msm_dcvs_get_core(drv->core_name, NULL);
-	core->actual_freq = core->get_frequency(drv);
+	core = msm_dcvs_get_core(dcvs_core_id);
+	core->actual_freq = core->get_frequency(core->type_core_num);
 }
 
-int msm_dcvs_freq_sink_start(struct msm_dcvs_freq *drv)
+int msm_dcvs_freq_sink_start(int dcvs_core_id)
 {
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
 	uint32_t ret1;
 	uint32_t ret2;
 
-	if (!drv || !drv->core_name)
-		return ret;
+	if (dcvs_core_id < CPU_OFFSET || dcvs_core_id > CORES_MAX) {
+		__err("%s invalid dcvs_core_id = %d returning -EINVAL\n",
+				__func__, dcvs_core_id);
+		return -EINVAL;
+	}
 
-	core = msm_dcvs_get_core(drv->core_name, NULL);
+	core = msm_dcvs_get_core(dcvs_core_id);
 	if (!core)
 		return ret;
 
 	mutex_lock(&core->lock);
-	if (core->freq_driver && (msm_dcvs_debug & MSM_DCVS_DEBUG_NOTIFIER))
-		__info("Frequency notifier for %s being replaced\n",
-				core->core_name);
-	core->freq_driver = drv;
 	if (IS_ERR(core->task)) {
 		mutex_unlock(&core->lock);
 		return -EFAULT;
@@ -722,101 +708,56 @@ int msm_dcvs_freq_sink_start(struct msm_dcvs_freq *drv)
 	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 		__info("Enabling idle pulse for %s\n", core->core_name);
 
-	if (core->idle_driver) {
-		core->actual_freq = core->get_frequency(drv);
-		/* Notify TZ to start receiving idle info for the core */
-		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1,
+	core->actual_freq = core->get_frequency(core->type_core_num);
+	/* Notify TZ to start receiving idle info for the core */
+	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1,
 					   &ret1, &ret2);
-		core->idle_enable(core->idle_driver,
-				MSM_DCVS_ENABLE_IDLE_PULSE);
-	}
+	core->idle_enable(core->type_core_num, MSM_DCVS_ENABLE_IDLE_PULSE);
 
 	mutex_unlock(&core->lock);
 
-	return core->handle;
+	return core->dcvs_core_id;
 }
 EXPORT_SYMBOL(msm_dcvs_freq_sink_start);
 
-int msm_dcvs_freq_sink_stop(struct msm_dcvs_freq *drv)
+int msm_dcvs_freq_sink_stop(int dcvs_core_id)
 {
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
 	uint32_t ret1;
 	uint32_t ret2;
 
-	if (!drv || !drv->core_name)
-		return ret;
+	if (dcvs_core_id < 0 || dcvs_core_id > CORES_MAX) {
+		pr_err("%s invalid dcvs_core_id = %d returning -EINVAL\n",
+				__func__, dcvs_core_id);
+		return -EINVAL;
+	}
 
-	core = msm_dcvs_get_core(drv->core_name, NULL);
+	core = msm_dcvs_get_core(dcvs_core_id);
 	if (!core)
 		return ret;
 
 	mutex_lock(&core->lock);
 	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 		__info("Disabling idle pulse for %s\n", core->core_name);
-	if (core->idle_driver) {
-		core->idle_enable(core->idle_driver,
-				MSM_DCVS_DISABLE_IDLE_PULSE);
-		/* Notify TZ to stop receiving idle info for the core */
-		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 0,
-					   &ret1, &ret2);
-		hrtimer_cancel(&core->timer);
-		core->idle_enable(core->idle_driver,
-				MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
-		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
-			__info("Enabling LPM for %s\n", core->core_name);
-	}
-	core->freq_driver = NULL;
+
+	core->idle_enable(core->type_core_num, MSM_DCVS_DISABLE_IDLE_PULSE);
+	/* Notify TZ to stop receiving idle info for the core */
+	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 0,
+				   &ret1, &ret2);
+	hrtimer_cancel(&core->timer);
+	core->idle_enable(core->type_core_num,
+			MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
+	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
+		__info("Enabling LPM for %s\n", core->core_name);
 	mutex_unlock(&core->lock);
 
 	return 0;
 }
 EXPORT_SYMBOL(msm_dcvs_freq_sink_stop);
 
-int msm_dcvs_idle_source_register(struct msm_dcvs_idle *drv)
-{
-	int ret = -EINVAL;
-	struct dcvs_core *core = NULL;
-
-	if (!drv || !drv->core_name)
-		return ret;
-
-	core = msm_dcvs_get_core(drv->core_name, NULL);
-	if (!core)
-		return ret;
-
-	mutex_lock(&core->lock);
-	if (core->idle_driver && (msm_dcvs_debug & MSM_DCVS_DEBUG_NOTIFIER))
-		__info("Idle notifier for %s being replaced\n",
-				core->core_name);
-	core->idle_driver = drv;
-	mutex_unlock(&core->lock);
-
-	return core->handle;
-}
-EXPORT_SYMBOL(msm_dcvs_idle_source_register);
-
-int msm_dcvs_idle_source_unregister(struct msm_dcvs_idle *drv)
-{
-	int ret = -EINVAL;
-	struct dcvs_core *core = NULL;
-
-	if (!drv || !drv->core_name)
-		return ret;
-
-	core = msm_dcvs_get_core(drv->core_name, NULL);
-	if (!core)
-		return ret;
-
-	mutex_lock(&core->lock);
-	core->idle_driver = NULL;
-	mutex_unlock(&core->lock);
-
-	return 0;
-}
-EXPORT_SYMBOL(msm_dcvs_idle_source_unregister);
-
-int msm_dcvs_idle(int handle, enum msm_core_idle_state state, uint32_t iowaited)
+int msm_dcvs_idle(int dcvs_core_id, enum msm_core_idle_state state,
+						uint32_t iowaited)
 {
 	int ret = 0;
 	struct dcvs_core *core = NULL;
@@ -824,11 +765,12 @@ int msm_dcvs_idle(int handle, enum msm_core_idle_state state, uint32_t iowaited)
 	uint32_t r0, r1;
 	uint32_t freq_changed = 0;
 
-	if (handle >= CORE_HANDLE_OFFSET &&
-			(handle - CORE_HANDLE_OFFSET) < CORES_MAX)
-		core = &core_list[handle - CORE_HANDLE_OFFSET];
+	if (dcvs_core_id < CPU_OFFSET || dcvs_core_id > CORES_MAX) {
+		pr_err("invalid dcvs_core_id = %d ret -EINVAL\n", dcvs_core_id);
+		return -EINVAL;
+	}
 
-	BUG_ON(!core);
+	core = msm_dcvs_get_core(dcvs_core_id);
 
 	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 		__info("Core %s idle state %d\n", core->core_name, state);
@@ -836,7 +778,7 @@ int msm_dcvs_idle(int handle, enum msm_core_idle_state state, uint32_t iowaited)
 	switch (state) {
 	case MSM_DCVS_IDLE_ENTER:
 		hrtimer_cancel(&core->timer);
-		ret = msm_dcvs_scm_event(core->handle,
+		ret = msm_dcvs_scm_event(core->dcvs_core_id,
 				MSM_DCVS_SCM_IDLE_ENTER, 0, 0, &r0, &r1);
 		if (ret)
 			__err("Error (%d) sending idle enter for %s\n",
@@ -917,6 +859,7 @@ late_initcall(msm_dcvs_late_init);
 static int __init msm_dcvs_early_init(void)
 {
 	int ret = 0;
+	int i;
 
 	if (!msm_dcvs_enabled) {
 		__info("Not enabled (%d)\n", msm_dcvs_enabled);
@@ -927,6 +870,8 @@ static int __init msm_dcvs_early_init(void)
 	if (ret)
 		__err("Unable to initialize DCVS err=%d\n", ret);
 
+	for (i = 0; i < CORES_MAX; i++)
+		core_list[i].dcvs_core_id = -1;
 	return ret;
 }
 postcore_initcall(msm_dcvs_early_init);
