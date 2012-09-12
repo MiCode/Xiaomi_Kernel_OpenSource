@@ -823,7 +823,7 @@ static int audpcm_ion_add(struct audio *audio,
 		pr_err("%s: could not get flags for the handle\n", __func__);
 		goto flag_error;
 	}
-	kvaddr = (unsigned long)ion_map_kernel(audio->client, handle, ionflag);
+	kvaddr = (unsigned long)ion_map_kernel(audio->client, handle);
 	if (IS_ERR_OR_NULL((void *)kvaddr)) {
 		pr_err("%s: could not get virtual address\n", __func__);
 		goto map_error;
@@ -1602,7 +1602,7 @@ static int audio_open(struct inode *inode, struct file *file)
 			goto output_buff_get_flags_error;
 		}
 
-		audio->map_v_write = ion_map_kernel(client, handle, ionflag);
+		audio->map_v_write = ion_map_kernel(client, handle);
 		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("could not map write buffers\n");
 			rc = -ENOMEM;

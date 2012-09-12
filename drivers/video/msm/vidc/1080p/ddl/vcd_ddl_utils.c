@@ -84,7 +84,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 			ionflag = CACHED;
 		kernel_vaddr = (unsigned long *) ion_map_kernel(
 					ddl_context->video_ion_client,
-					addr->alloc_handle, ionflag);
+					addr->alloc_handle);
 		if (IS_ERR_OR_NULL(kernel_vaddr)) {
 				DDL_MSG_ERROR("%s() :DDL ION map failed\n",
 							 __func__);

@@ -254,7 +254,6 @@ static int __qseecom_set_sb_memory(struct qseecom_registered_listener_list *svc,
 				struct qseecom_register_listener_req *listener)
 {
 	int ret = 0;
-	unsigned int flags = 0;
 	struct qseecom_register_listener_ireq req;
 	struct qseecom_command_scm_resp resp;
 	ion_phys_addr_t pa;
@@ -271,8 +270,7 @@ static int __qseecom_set_sb_memory(struct qseecom_registered_listener_list *svc,
 	ret = ion_phys(qseecom.ion_clnt, svc->ihandle, &pa, &svc->sb_length);
 
 	/* Populate the structure for sending scm call to load image */
-	svc->sb_virt = (char *) ion_map_kernel(qseecom.ion_clnt,
-							svc->ihandle, flags);
+	svc->sb_virt = (char *) ion_map_kernel(qseecom.ion_clnt, svc->ihandle);
 	svc->sb_phys = pa;
 
 	if (qseecom.qseos_version == QSEOS_VERSION_14) {
@@ -494,7 +492,6 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 {
 	ion_phys_addr_t pa;
 	int32_t ret;
-	unsigned int flags = 0;
 	struct qseecom_set_sb_mem_param_req req;
 	uint32_t len;
 
@@ -513,8 +510,7 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 	ret = ion_phys(qseecom.ion_clnt, data->client.ihandle, &pa, &len);
 	/* Populate the structure for sending scm call to load image */
 	data->client.sb_virt = (char *) ion_map_kernel(qseecom.ion_clnt,
-							data->client.ihandle,
-							flags);
+							data->client.ihandle);
 	data->client.sb_phys = pa;
 	data->client.sb_length = req.sb_len;
 	data->client.user_virt_sb_base = req.virt_sb_base;
