@@ -274,6 +274,7 @@ static int mdss_mdp_video_prepare(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	if (ctx->timegen_en) {
+		INIT_COMPLETION(ctx->pp_comp);
 		pr_debug("waiting for ping pong %d done\n", ctx->pp_num);
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
 		wait_for_completion_interruptible(&ctx->pp_comp);
@@ -312,7 +313,7 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		wmb();
 	}
 
-	wait_for_completion_interruptible(&ctx->vsync_comp);
+	wait_for_completion(&ctx->vsync_comp);
 	if (!ctx->vsync_handler)
 		mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num);
 	mutex_unlock(&ctx->vsync_lock);
