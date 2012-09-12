@@ -69,6 +69,7 @@ struct pm8xxx_tm_chip {
 	struct device			*dev;
 	struct thermal_zone_device	*tz_dev;
 	unsigned long			temp;
+	unsigned int			prev_stage;
 	enum thermal_device_mode	mode;
 	unsigned int			thresh;
 	unsigned int			stage;
@@ -423,28 +424,13 @@ static void pm8xxx_tm_work(struct work_struct *work)
 {
 	struct pm8xxx_tm_chip *chip
 		= container_of(work, struct pm8xxx_tm_chip, irq_work);
-	int rc;
+	unsigned long temp = 0;
+	int rc, stage, thresh;
 	u8 reg;
 
 	rc = pm8xxx_tm_read_ctrl(chip, &reg);
 	if (rc < 0)
 		goto bail;
-
-	if (chip->cdata.adc_type == PM8XXX_TM_ADC_NONE) {
-		rc = pm8xxx_tm_update_temp_no_adc(chip);
-		if (rc < 0)
-			goto bail;
-		pr_info("%s: Temp Alarm - stage=%u, threshold=%u, "
-			"temp=%lu mC\n", chip->cdata.tm_name, chip->stage,
-			chip->thresh, chip->temp);
-	} else {
-		chip->stage = (reg & TEMP_ALARM_CTRL_STATUS_MASK)
-				>> TEMP_ALARM_CTRL_STATUS_SHIFT;
-		chip->thresh = (reg & TEMP_ALARM_CTRL_THRESH_MASK)
-				>> TEMP_ALARM_CTRL_THRESH_SHIFT;
-		pr_info("%s: Temp Alarm - stage=%u, threshold=%u\n",
-			chip->cdata.tm_name, chip->stage, chip->thresh);
-	}
 
 	/* Clear status bits. */
 	if (reg & (TEMP_ALARM_CTRL_ST2_SD | TEMP_ALARM_CTRL_ST3_SD)) {
@@ -454,10 +440,36 @@ static void pm8xxx_tm_work(struct work_struct *work)
 		pm8xxx_tm_write_ctrl(chip, reg);
 	}
 
+	stage = (reg & TEMP_ALARM_CTRL_STATUS_MASK)
+		>> TEMP_ALARM_CTRL_STATUS_SHIFT;
+	thresh = (reg & TEMP_ALARM_CTRL_THRESH_MASK)
+		>> TEMP_ALARM_CTRL_THRESH_SHIFT;
+
 	thermal_zone_device_update(chip->tz_dev);
 
-	/* Notify user space */
-	sysfs_notify(&chip->tz_dev->device.kobj, NULL, "type");
+	if (stage != chip->prev_stage) {
+		chip->prev_stage = stage;
+
+		switch (chip->cdata.adc_type) {
+		case PM8XXX_TM_ADC_NONE:
+			rc = pm8xxx_tz_get_temp_no_adc(chip->tz_dev, &temp);
+			break;
+		case PM8XXX_TM_ADC_PM8058_ADC:
+			rc = pm8xxx_tz_get_temp_pm8058_adc(chip->tz_dev, &temp);
+			break;
+		case PM8XXX_TM_ADC_PM8XXX_ADC:
+			rc = pm8xxx_tz_get_temp_pm8xxx_adc(chip->tz_dev, &temp);
+			break;
+		}
+		if (rc < 0)
+			goto bail;
+
+		pr_crit("%s: PMIC Temp Alarm - stage=%u, threshold=%u, temp=%lu mC\n",
+			chip->cdata.tm_name, stage, thresh, temp);
+
+		/* Notify user space */
+		sysfs_notify(&chip->tz_dev->device.kobj, NULL, "type");
+	}
 
 bail:
 	enable_irq(chip->tempstat_irq);
