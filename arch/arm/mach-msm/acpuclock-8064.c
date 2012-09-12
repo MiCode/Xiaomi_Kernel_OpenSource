@@ -122,6 +122,7 @@ static struct l2_level l2_freq_tbl[] __initdata __initdata = {
 	[13] = { { 1080000, HFPLL, 1, 0, 0x28 }, 1150000, 1150000, 5 },
 	[14] = { { 1134000, HFPLL, 1, 0, 0x2A }, 1150000, 1150000, 5 },
 	[15] = { { 1188000, HFPLL, 1, 0, 0x2C }, 1150000, 1150000, 5 },
+	{ }
 };
 
 static struct acpu_level acpu_freq_tbl_slow[] __initdata = {
