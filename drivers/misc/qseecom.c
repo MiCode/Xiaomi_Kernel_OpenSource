@@ -773,7 +773,8 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 	bool unload = false;
 	bool found_app = false;
 
-	if (qseecom.qseos_version == QSEOS_VERSION_14) {
+	if ((qseecom.qseos_version == QSEOS_VERSION_14) &&
+				(data->client.app_id > 0)) {
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
 								list) {
@@ -784,7 +785,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 					break;
 				} else {
 					ptr_app->ref_cnt--;
-					pr_warn("Can't unload app with id %d (it is inuse)\n",
+					pr_warn("Can't unload app(%d) inuse\n",
 							ptr_app->app_id);
 					break;
 				}
@@ -792,10 +793,11 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 		}
 		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
 								flags);
-	}
-	if (found_app == false)  {
-		pr_err("Cannot find app with id = %d\n", data->client.app_id);
-		return -EINVAL;
+		if (found_app == false) {
+			pr_err("Cannot find app with id = %d\n",
+						data->client.app_id);
+			return -EINVAL;
+		}
 	}
 
 	if ((unload) && (qseecom.qseos_version == QSEOS_VERSION_14)) {
