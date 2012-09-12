@@ -64,3 +64,4 @@ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_UID_CPUTIME) += uid_cputime.o
 obj-y				+= qcom/
+obj-$(CONFIG_TI_DRV2667) += ti_drv2667.o
