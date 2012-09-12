@@ -47,7 +47,7 @@ static struct msm_bus_vectors enc_ocmem_perf1_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
 		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 414700000,
+		.ab = 138200000,
 		.ib = 1222000000,
 	},
 };
@@ -56,7 +56,7 @@ static struct msm_bus_vectors enc_ocmem_perf2_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
 		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 940000000,
+		.ab = 414700000,
 		.ib = 1222000000,
 	},
 };
@@ -65,7 +65,7 @@ static struct msm_bus_vectors enc_ocmem_perf3_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
 		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 1880000000,
+		.ab = 940000000,
 		.ib = 2444000000U,
 	},
 };
@@ -111,7 +111,7 @@ static struct msm_bus_vectors dec_ocmem_perf1_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
 		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 456200000,
+		.ab = 176900000,
 		.ib = 1556640000,
 	},
 };
@@ -120,7 +120,7 @@ static struct msm_bus_vectors dec_ocmem_perf2_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
 		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 864800000,
+		.ab = 456200000,
 		.ib = 1556640000,
 	},
 };
@@ -129,8 +129,8 @@ static struct msm_bus_vectors dec_ocmem_perf3_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
 		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 1729600000,
-		.ib = 3113280000U,
+		.ab = 864800000,
+		.ib = 1556640000,
 	},
 };
 
