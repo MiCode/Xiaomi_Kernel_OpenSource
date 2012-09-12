@@ -1,0 +1,44 @@
+TI DRV2667 is a haptic controller chip. It can drive piezo haptics
+and can operate in two modes - analog and digital.
+
+Required properties:
+
+-compatible	: should be "ti,drv2667".
+-reg		: i2c address to be used.
+-vdd-supply	: regulator to power the chip.
+-vdd-i2c-supply	: regulator to power i2c bus.
+
+Optional properties:
+
+-ti,label		: Name to be registered with timedoutput class.
+-ti,mode		: Mode to be supported, 0 to 3 - FIFO, RAM, WAVE and ANALOG.
+-ti,wav-seq		: Wave Sequence composed of 11 bytes - wave form id,
+				Header size, start upper byte, start lower byte,
+				stop upper byte, stop lower byte, repeat count,
+				amplitude, frequency, duration and envelope
+-ti,gain		: Gain to be programmed for the chip.
+-ti,idle-timeout-ms	: Idle timeout in ms to be programmed for the chip to go into
+				low power mode after finishing its operation.
+-ti,max-runtime-ms	: Maximum time in ms for which chip can drive haptics.
+
+Example:
+	i2c@f9967000 {
+		ti-drv2667@59 {
+			compatible = "ti,drv2667";
+			reg = <0x59>;
+			vdd-supply = <&drv2667_vreg>;
+			vdd-i2c-supply = <&pm8941_s3>;
+			ti,label = "vibrator";
+			ti,gain = <3>;
+			ti,idle-timeout-ms = <20>;
+			ti,max-runtime-ms = <15000>;
+			ti,mode = <2>;
+			ti,wav-seq = [
+				/* wave form id */
+				01
+				/* header size, start and stop bytes */
+				05 80 06 00 09
+				/* repeat, amp, freq, duration, envelope */
+				01 ff 19 02 00];
+		};
+	};
