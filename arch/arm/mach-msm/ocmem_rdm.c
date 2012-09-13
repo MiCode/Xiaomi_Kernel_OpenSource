@@ -93,8 +93,8 @@
 static void *br_base;
 static void *dm_base;
 
-static atomic_t dm_pending;
-static wait_queue_head_t dm_wq;
+struct completion dm_clear_event;
+struct completion dm_transfer_event;
 /* Shadow tables for debug purposes */
 struct ocmem_br_table {
 	unsigned int offset;
@@ -136,22 +136,22 @@ static irqreturn_t ocmem_dm_irq_handler(int irq, void *dev_id)
 		pr_debug("Data mover completed\n");
 		irq_status &= ~BIT(0);
 		ocmem_write(irq_status, dm_base + DM_INTR_CLR);
+		complete(&dm_transfer_event);
 	} else if (irq_status & BIT(1)) {
 		pr_debug("Data clear engine completed\n");
 		irq_status &= ~BIT(1);
 		ocmem_write(irq_status, dm_base + DM_INTR_CLR);
+		complete(&dm_clear_event);
 	} else {
 		BUG_ON(1);
 	}
-	atomic_set(&dm_pending, 0);
-	wake_up_interruptible(&dm_wq);
 	return IRQ_HANDLED;
 }
 
 #ifdef CONFIG_MSM_OCMEM_NONSECURE
 int ocmem_clear(unsigned long start, unsigned long size)
 {
-	atomic_set(&dm_pending, 1);
+	INIT_COMPLETION(dm_clear_event);
 	/* Clear DM Mask */
 	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
 	/* Clear DM Interrupts */
@@ -169,8 +169,8 @@ int ocmem_clear(unsigned long start, unsigned long size)
 	/* Trigger Data Clear */
 	ocmem_write(DM_CLR_ENABLE, dm_base + DM_CLR_TRIGGER);
 
-	wait_event_interruptible(dm_wq,
-		atomic_read(&dm_pending) == 0);
+	wait_for_completion(&dm_clear_event);
+
 	return 0;
 }
 #else
@@ -249,7 +249,7 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 
 	status = ocmem_read(dm_base + DM_GEN_STATUS);
 	pr_debug("Transfer status before %x\n", status);
-	atomic_set(&dm_pending, 1);
+	INIT_COMPLETION(dm_transfer_event);
 	/* The DM and BR tables must be programmed before triggering the
 	 * Data Mover else the coherent transfer would be corrupted
 	 */
@@ -258,9 +258,7 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 	ocmem_write(dm_ctrl, dm_base + DM_CTRL);
 	pr_debug("ocmem: rdm: dm_ctrl %x br_ctrl %x\n", dm_ctrl, br_ctrl);
 
-	wait_event_interruptible(dm_wq,
-		atomic_read(&dm_pending) == 0);
-
+	wait_for_completion(&dm_transfer_event);
 	ocmem_disable_core_clock();
 	return 0;
 }
@@ -291,7 +289,8 @@ int ocmem_rdm_init(struct platform_device *pdev)
 		return rc;
 	}
 
-	init_waitqueue_head(&dm_wq);
+	init_completion(&dm_clear_event);
+	init_completion(&dm_transfer_event);
 	/* Clear DM Mask */
 	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
 	/* enable dm interrupts */
