@@ -595,6 +595,14 @@
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
+
+		qcom,msm_bus,name = "usb3";
+		qcom,msm_bus,num_cases = <2>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+				<61 512 0 0>,
+				<61 512 240000000 960000000>;
 	};
 
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

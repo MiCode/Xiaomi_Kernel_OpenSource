@@ -17,6 +17,15 @@ Required properties :
   the MSM USB3.0 core (which also includes the Synopsys DesignWare
   USB3.0 controller)
 
+Optional properties :
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+  below optional properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,active_only
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
+
 Example MSM USB3.0 controller device node :
 	usb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
@@ -30,4 +39,12 @@ Example MSM USB3.0 controller device node :
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>
+
+		qcom,msm_bus,name = "usb3";
+		qcom,msm_bus,num_cases = <2>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+				<61 512 0 0>,
+				<61 512 240000000 960000000>;
 	};
