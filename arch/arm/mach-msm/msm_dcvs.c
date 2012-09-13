@@ -33,12 +33,6 @@
 #define __info(f, ...) pr_info("MSM_DCVS: %s: " f, __func__, __VA_ARGS__)
 #define MAX_PENDING	(5)
 
-enum {
-	MSM_DCVS_DEBUG_NOTIFIER    = BIT(0),
-	MSM_DCVS_DEBUG_IDLE_PULSE  = BIT(1),
-	MSM_DCVS_DEBUG_FREQ_CHANGE = BIT(2),
-};
-
 struct core_attribs {
 	struct kobj_attribute core_id;
 	struct kobj_attribute idle_enabled;
@@ -105,7 +99,6 @@ struct dcvs_core {
 			enum msm_core_control_event event);
 };
 
-static int msm_dcvs_debug;
 static int msm_dcvs_enabled = 1;
 module_param_named(enable, msm_dcvs_enabled, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
@@ -166,9 +159,6 @@ repeat:
 	}
 
 	time_end = ktime_to_ns(ktime_get());
-	if (msm_dcvs_debug & MSM_DCVS_DEBUG_FREQ_CHANGE)
-		__info("Core %s Time end %llu Time start: %llu\n",
-			core->core_name, time_end, time_start);
 	time_end -= time_start;
 	do_div(time_end, NSEC_PER_USEC);
 	core->freq_change_us = (uint32_t)time_end;
@@ -180,14 +170,10 @@ repeat:
 	if (core->actual_freq > core->algo_param.disable_pc_threshold) {
 		core->idle_enable(core->type_core_num,
 				MSM_DCVS_DISABLE_HIGH_LATENCY_MODES);
-		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
-			__info("Disabling LPM for %s\n", core->core_name);
 	} else if (core->actual_freq <=
 			core->algo_param.disable_pc_threshold) {
 		core->idle_enable(core->type_core_num,
 				MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
-		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
-			__info("Enabling LPM for %s\n", core->core_name);
 	}
 
 	/**
@@ -214,13 +200,6 @@ repeat:
 		__err("Error sending core (%s) freq change (%u)\n",
 				core->core_name, core->actual_freq);
 	}
-
-	if (msm_dcvs_debug & MSM_DCVS_DEBUG_FREQ_CHANGE)
-		__info("Freq %u requested for core %s (actual %u prev %u) "
-			"change time %u us slack time %u us\n",
-			requested_freq, core->core_name,
-			core->actual_freq, prev_freq,
-			core->freq_change_us, slack_us);
 
 	spin_lock_irqsave(&core->cpu_lock, flags);
 	/**
@@ -326,9 +305,6 @@ static enum hrtimer_restart msm_dcvs_core_slack_timer(struct hrtimer *timer)
 	struct dcvs_core *core = container_of(timer, struct dcvs_core, timer);
 	uint32_t ret1;
 	uint32_t ret2;
-
-	if (msm_dcvs_debug & MSM_DCVS_DEBUG_FREQ_CHANGE)
-		__info("Slack timer fired for core %s\n", core->core_name);
 
 	/**
 	 * Timer expired, notify TZ
@@ -525,8 +501,6 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 	ret = sysfs_create_group(core_kobj, &core->attrib.attrib_group);
 	if (ret)
 		__err("Cannot create core %s attr group\n", core->core_name);
-	else if (msm_dcvs_debug & MSM_DCVS_DEBUG_NOTIFIER)
-		__info("Setting up attributes for core %s\n", core->core_name);
 
 done:
 	if (ret) {
@@ -705,9 +679,6 @@ int msm_dcvs_freq_sink_start(int dcvs_core_id)
 		return -EFAULT;
 	}
 
-	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
-		__info("Enabling idle pulse for %s\n", core->core_name);
-
 	core->actual_freq = core->get_frequency(core->type_core_num);
 	/* Notify TZ to start receiving idle info for the core */
 	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1,
@@ -738,9 +709,6 @@ int msm_dcvs_freq_sink_stop(int dcvs_core_id)
 		return ret;
 
 	mutex_lock(&core->lock);
-	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
-		__info("Disabling idle pulse for %s\n", core->core_name);
-
 	core->idle_enable(core->type_core_num, MSM_DCVS_DISABLE_IDLE_PULSE);
 	/* Notify TZ to stop receiving idle info for the core */
 	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 0,
@@ -748,8 +716,6 @@ int msm_dcvs_freq_sink_stop(int dcvs_core_id)
 	hrtimer_cancel(&core->timer);
 	core->idle_enable(core->type_core_num,
 			MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
-	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
-		__info("Enabling LPM for %s\n", core->core_name);
 	mutex_unlock(&core->lock);
 
 	return 0;
@@ -771,9 +737,6 @@ int msm_dcvs_idle(int dcvs_core_id, enum msm_core_idle_state state,
 	}
 
 	core = msm_dcvs_get_core(dcvs_core_id);
-
-	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
-		__info("Core %s idle state %d\n", core->core_name, state);
 
 	switch (state) {
 	case MSM_DCVS_IDLE_ENTER:
@@ -835,13 +798,6 @@ static int __init msm_dcvs_late_init(void)
 	if (!debugfs_base) {
 		__err("Cannot create debugfs base %s\n", "msm_dcvs");
 		ret = -ENOENT;
-		goto err;
-	}
-
-	if (!debugfs_create_u32("debug_mask", S_IRUGO | S_IWUSR,
-				debugfs_base, &msm_dcvs_debug)) {
-		__err("Cannot create debugfs entry %s\n", "debug_mask");
-		ret = -ENOMEM;
 		goto err;
 	}
 
