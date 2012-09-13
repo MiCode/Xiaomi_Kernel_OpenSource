@@ -20,8 +20,8 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 
-/* 1.10 bus fudge factor */
-#define MDSS_MDP_BUS_FUDGE_FACTOR(val) ALIGN((((val) * 11) / 10), SZ_16M)
+/* 1.5 bus fudge factor */
+#define MDSS_MDP_BUS_FUDGE_FACTOR(val) ALIGN((((val) * 3) / 2), SZ_16M)
 /* 1.25 clock fudge factor */
 #define MDSS_MDP_CLK_FUDGE_FACTOR(val) (((val) * 5) / 4)
 
@@ -63,7 +63,6 @@ static int mdss_mdp_ctl_perf_commit(u32 flags)
 		}
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_BUS) {
-		bus_ab_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ab_quota);
 		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ib_quota);
 		mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
 	}
