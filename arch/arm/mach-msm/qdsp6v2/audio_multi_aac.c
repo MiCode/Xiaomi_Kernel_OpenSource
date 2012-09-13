@@ -43,8 +43,13 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		struct msm_audio_aac_config *aac_config;
 		uint32_t sbr_ps = 0x00;
 		aac_config = (struct msm_audio_aac_config *)audio->codec_cfg;
-		aac_cfg.ch_cfg = aac_config->channel_configuration;
-		aac_cfg.sample_rate =  audio->pcm_cfg.sample_rate;
+		if (audio->feedback == TUNNEL_MODE) {
+			aac_cfg.sample_rate = aac_config->sample_rate;
+			aac_cfg.ch_cfg = aac_config->channel_configuration;
+		} else {
+			aac_cfg.sample_rate =  audio->pcm_cfg.sample_rate;
+			aac_cfg.ch_cfg = audio->pcm_cfg.channel_count;
+		}
 		pr_debug("%s: AUDIO_START session_id[%d]\n", __func__,
 						audio->ac->session);
 		if (audio->feedback == NON_TUNNEL_MODE) {
