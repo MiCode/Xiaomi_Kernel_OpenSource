@@ -282,7 +282,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 
 		mutex_lock(&mfd->lock);
-		list_add(&pipe->list, &mfd->overlay_list);
+		list_add(&pipe->used_list, &mfd->pipes_used);
 		mutex_unlock(&mfd->lock);
 		pipe->mixer = mixer;
 		pipe->mfd = mfd;
@@ -395,24 +395,31 @@ static inline int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data)
 
 static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 {
-	int ret;
+	struct mdss_mdp_pipe *pipe, *tmp;
+	struct msm_fb_data_type *mfd = ctl->mfd;
+	int i, ret;
 
-	if (ctl->mfd->kickoff_fnc)
-		ret = ctl->mfd->kickoff_fnc(ctl);
+	if (mfd->kickoff_fnc)
+		ret = mfd->kickoff_fnc(ctl);
 	else
 		ret = mdss_mdp_display_commit(ctl, NULL);
 	if (IS_ERR_VALUE(ret))
 		return ret;
 
-	pr_debug("freeing previous buffers\n");
+	mutex_lock(&mfd->lock);
+	list_for_each_entry_safe(pipe, tmp, &mfd->pipes_cleanup, cleanup_list) {
+		list_del(&pipe->cleanup_list);
+		for (i = 0; i < ARRAY_SIZE(pipe->buffers); i++)
+			mdss_mdp_overlay_free_buf(&pipe->buffers[i]);
 
-	mutex_lock(&ctl->mfd->lock);
-	if (!list_empty(&ctl->mfd->overlay_list)) {
-		struct mdss_mdp_pipe *pipe;
+		mdss_mdp_pipe_destroy(pipe);
+	}
+
+	if (!list_empty(&mfd->pipes_used)) {
 		struct mdss_mdp_data *data;
 		int buf_ndx;
 
-		list_for_each_entry(pipe, &ctl->mfd->overlay_list, list) {
+		list_for_each_entry(pipe, &mfd->pipes_used, used_list) {
 			buf_ndx = (pipe->play_cnt - 1) & 1; /* prev buffer */
 			data = &pipe->buffers[buf_ndx];
 
@@ -423,9 +430,7 @@ static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 			}
 		}
 	}
-	mutex_unlock(&ctl->mfd->lock);
-
-	pr_debug("done freeing previous buffers\n");
+	mutex_unlock(&mfd->lock);
 
 	return ret;
 }
@@ -433,8 +438,7 @@ static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 {
 	struct mdss_mdp_pipe *pipe;
-	struct mdss_mdp_pipe *cleanup_pipes[MDSS_MDP_MAX_SSPP];
-	int i, ret = 0, clean_cnt = 0;
+	int i, ret = 0;
 	u32 pipe_ndx, unset_ndx = 0;
 
 	if (!mfd || !mfd->ctl)
@@ -460,28 +464,15 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 		if (pipe_ndx & ndx) {
 			unset_ndx |= pipe_ndx;
 			pipe = mdss_mdp_pipe_get_locked(pipe_ndx);
-			if (pipe) {
-				mutex_lock(&mfd->lock);
-				list_del(&pipe->list);
-				mutex_unlock(&mfd->lock);
-				mdss_mdp_mixer_pipe_unstage(pipe);
-				cleanup_pipes[clean_cnt++] = pipe;
-			} else {
+			if (!pipe) {
 				pr_warn("unknown pipe ndx=%x\n", pipe_ndx);
+				continue;
 			}
-		}
-	}
-
-	if (clean_cnt) {
-		int j;
-		ret = mdss_mdp_overlay_kickoff(mfd->ctl);
-
-		for (i = 0; i < clean_cnt; i++) {
-			pipe = cleanup_pipes[i];
-			for (j = 0; j < ARRAY_SIZE(pipe->buffers); j++)
-				mdss_mdp_overlay_free_buf(&pipe->buffers[i]);
-
-			mdss_mdp_pipe_destroy(pipe);
+			mutex_lock(&mfd->lock);
+			list_del(&pipe->used_list);
+			list_add(&pipe->cleanup_list, &mfd->pipes_cleanup);
+			mutex_unlock(&mfd->lock);
+			mdss_mdp_mixer_pipe_unstage(pipe);
 		}
 	}
 
@@ -495,8 +486,8 @@ int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 	int cnt = 0;
 
 	mutex_lock(&mfd->lock);
-	if (!list_empty(&mfd->overlay_list)) {
-		list_for_each_entry(pipe, &mfd->overlay_list, list) {
+	if (!list_empty(&mfd->pipes_used)) {
+		list_for_each_entry(pipe, &mfd->pipes_used, used_list) {
 			if (pipe->ndx & MDSS_MDP_ROT_SESSION_MASK) {
 				struct mdss_mdp_rotator_session *rot;
 				rot = mdss_mdp_rotator_session_get(pipe->ndx);
@@ -513,6 +504,7 @@ int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 	if (unset_ndx) {
 		pr_debug("%d pipes need cleanup (%x)\n", cnt, unset_ndx);
 		mdss_mdp_overlay_unset(mfd, unset_ndx);
+		mdss_mdp_overlay_kickoff(mfd->ctl);
 	}
 
 	return 0;
@@ -1065,7 +1057,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	if (mfd->panel_info.type == WRITEBACK_PANEL)
 		mfd->kickoff_fnc = mdss_mdp_wb_kickoff;
 
-	INIT_LIST_HEAD(&mfd->overlay_list);
+	INIT_LIST_HEAD(&mfd->pipes_used);
+	INIT_LIST_HEAD(&mfd->pipes_cleanup);
 
 	return 0;
 }

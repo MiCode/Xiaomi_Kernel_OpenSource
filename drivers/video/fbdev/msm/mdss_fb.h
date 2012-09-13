@@ -96,6 +96,8 @@ struct msm_fb_data_type {
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_wb *wb;
 	struct list_head overlay_list;
+	struct list_head pipes_used;
+	struct list_head pipes_cleanup;
 };
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
