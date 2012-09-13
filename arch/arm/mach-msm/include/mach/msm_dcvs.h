@@ -67,6 +67,7 @@ int msm_dcvs_idle(int dcvs_core_id, enum msm_core_idle_state state,
 struct msm_dcvs_core_info {
 	int					num_cores;
 	int					*sensors;
+	int					thermal_poll_ms;
 	struct msm_dcvs_freq_entry		*freq_tbl;
 	struct msm_dcvs_core_param		core_param;
 	struct msm_dcvs_algo_param		algo_param;

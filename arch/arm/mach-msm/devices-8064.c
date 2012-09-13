@@ -2661,13 +2661,14 @@ static struct msm_dcvs_freq_entry apq8064_freq[] = {
 };
 
 static struct msm_dcvs_core_info apq8064_core_info = {
-	.freq_tbl	= &apq8064_freq[0],
-	.num_cores	= 4,
-	.sensors	= (int[]){7, 8, 9, 10},
-	.core_param	= {
+	.freq_tbl		= &apq8064_freq[0],
+	.num_cores		= 4,
+	.sensors		= (int[]){7, 8, 9, 10},
+	.thermal_poll_ms	= 60000,
+	.core_param		= {
 		.core_type	= MSM_DCVS_CORE_TYPE_CPU,
 	},
-	.algo_param	= {
+	.algo_param		= {
 		.disable_pc_threshold		= 1458000,
 		.em_win_size_min_us		= 100000,
 		.em_win_size_max_us		= 300000,
@@ -2683,7 +2684,7 @@ static struct msm_dcvs_core_info apq8064_core_info = {
 		.ss_win_size_max_us		= 1000000,
 		.ss_util_pct			= 95,
 	},
-	.energy_coeffs	= {
+	.energy_coeffs		= {
 		.active_coeff_a		= 336,
 		.active_coeff_b		= 0,
 		.active_coeff_c		= 0,
@@ -2693,7 +2694,7 @@ static struct msm_dcvs_core_info apq8064_core_info = {
 		.leakage_coeff_c	= 3329,
 		.leakage_coeff_d	= -277,
 	},
-	.power_param	= {
+	.power_param		= {
 		.current_temp	= 25,
 		.num_freq	= ARRAY_SIZE(apq8064_freq),
 	}

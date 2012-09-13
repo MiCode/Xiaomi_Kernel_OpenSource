@@ -62,6 +62,8 @@ struct core_attribs {
 	struct kobj_attribute leakage_coeff_c;
 	struct kobj_attribute leakage_coeff_d;
 
+	struct kobj_attribute thermal_poll_ms;
+
 	struct attribute_group attrib_group;
 };
 
@@ -127,6 +129,7 @@ struct dcvs_core {
 	int pending_freq;
 
 	struct hrtimer	slack_timer;
+	struct delayed_work	temperature_work;
 };
 
 static int msm_dcvs_enabled = 1;
@@ -317,26 +320,43 @@ out:   /* should always be jumped to with the spin_lock held */
 	return ret;
 }
 
-static int __msm_dcvs_report_temp(struct dcvs_core *core)
+static void msm_dcvs_report_temp_work(struct work_struct *work)
 {
+	struct dcvs_core *core = container_of(work,
+					struct dcvs_core,
+					temperature_work.work);
 	struct msm_dcvs_core_info *info = core->info;
 	struct tsens_device tsens_dev;
 	int ret;
 	unsigned long temp = 0;
+	int interval_ms;
 
 	tsens_dev.sensor_num = core->sensor;
 	ret = tsens_get_temp(&tsens_dev, &temp);
-	if (!ret) {
+	if (!temp) {
 		tsens_dev.sensor_num = 0;
 		ret = tsens_get_temp(&tsens_dev, &temp);
-		if (!ret)
-			return -ENODEV;
+		if (!temp)
+			goto out;
 	}
+
+	if (temp == info->power_param.current_temp)
+		goto out;
+	info->power_param.current_temp = temp;
 
 	ret = msm_dcvs_scm_set_power_params(core->dcvs_core_id,
 			&info->power_param,
 			&info->freq_tbl[0], &core->coeffs);
-	return ret;
+out:
+	if (info->thermal_poll_ms == 0)
+		interval_ms = 60000;
+	else if (info->thermal_poll_ms < 1000)
+		interval_ms = 1000;
+	else
+		interval_ms = info->thermal_poll_ms;
+
+	schedule_delayed_work(&core->temperature_work,
+			msecs_to_jiffies(interval_ms));
 }
 
 static int msm_dcvs_do_freq(void *data)
@@ -355,7 +375,6 @@ static int msm_dcvs_do_freq(void *data)
 			break;
 
 		__msm_dcvs_change_freq(core);
-		__msm_dcvs_report_temp(core);
 	}
 
 	return 0;
@@ -463,6 +482,28 @@ static ssize_t msm_dcvs_attr_##_name##_show(struct kobject *kobj, \
 { \
 	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, _name); \
 	return snprintf(buf, PAGE_SIZE, "%d\n", v); \
+}
+
+#define DCVS_PARAM_STORE(_name) \
+static ssize_t msm_dcvs_attr_##_name##_show(struct kobject *kobj,\
+		struct kobj_attribute *attr, char *buf) \
+{ \
+	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, _name); \
+	return snprintf(buf, PAGE_SIZE, "%d\n", core->info->_name); \
+} \
+static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
+		struct kobj_attribute *attr, const char *buf, size_t count) \
+{ \
+	int ret = 0; \
+	uint32_t val = 0; \
+	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, _name); \
+	ret = kstrtouint(buf, 10, &val); \
+	if (ret) { \
+		__err("Invalid input %s for %s\n", buf, __stringify(_name));\
+	} else { \
+		core->info->_name = val; \
+	} \
+	return count; \
 }
 
 #define DCVS_ALGO_PARAM(_name) \
@@ -573,11 +614,13 @@ DCVS_ENERGY_PARAM(leakage_coeff_b)
 DCVS_ENERGY_PARAM(leakage_coeff_c)
 DCVS_ENERGY_PARAM(leakage_coeff_d)
 
+DCVS_PARAM_STORE(thermal_poll_ms)
+
 static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 {
 	int ret = 0;
 	struct kobject *core_kobj = NULL;
-	const int attr_count = 27;
+	const int attr_count = 28;
 
 	BUG_ON(!cores_kobj);
 
@@ -618,7 +661,8 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 	DCVS_RW_ATTRIB(24, leakage_coeff_c);
 	DCVS_RW_ATTRIB(25, leakage_coeff_d);
 
-	core->attrib.attrib_group.attrs[26] = NULL;
+	DCVS_RW_ATTRIB(26, thermal_poll_ms);
+	core->attrib.attrib_group.attrs[27] = NULL;
 
 	core_kobj = kobject_create_and_add(core->core_name, cores_kobj);
 	if (!core_kobj) {
@@ -762,6 +806,10 @@ int msm_dcvs_register_core(
 	core->task = kthread_run(msm_dcvs_do_freq, (void *)core,
 			"msm_dcvs/%d", core->dcvs_core_id);
 	ret = core->dcvs_core_id;
+
+	INIT_DELAYED_WORK(&core->temperature_work, msm_dcvs_report_temp_work);
+	schedule_delayed_work(&core->temperature_work,
+			msecs_to_jiffies(info->thermal_poll_ms));
 	return ret;
 bail:
 	core->dcvs_core_id = -1;

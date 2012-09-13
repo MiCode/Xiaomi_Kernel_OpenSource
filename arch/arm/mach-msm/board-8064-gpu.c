@@ -31,13 +31,14 @@ static struct msm_dcvs_freq_entry grp3d_freq[] = {
 };
 
 static struct msm_dcvs_core_info grp3d_core_info = {
-	.freq_tbl	= &grp3d_freq[0],
-	.num_cores	= 1,
-	.sensors	= (int[]){0},
-	.core_param	= {
+	.freq_tbl		= &grp3d_freq[0],
+	.num_cores		= 1,
+	.sensors		= (int[]){0},
+	.thermal_poll_ms	= 60000,
+	.core_param		= {
 		.core_type	= MSM_DCVS_CORE_TYPE_GPU,
 	},
-	.algo_param	= {
+	.algo_param		= {
 		.disable_pc_threshold	= 0,
 		.em_win_size_min_us	= 100000,
 		.em_win_size_max_us	= 300000,
@@ -53,8 +54,7 @@ static struct msm_dcvs_core_info grp3d_core_info = {
 		.ss_iobusy_conv		= 100,
 	},
 
-
-	.energy_coeffs	= {
+	.energy_coeffs		= {
 		.leakage_coeff_a	= -17720,
 		.leakage_coeff_b	= 37,
 		.leakage_coeff_c	= 3329,
@@ -65,7 +65,7 @@ static struct msm_dcvs_core_info grp3d_core_info = {
 		.active_coeff_c		= 0
 	},
 
-	.power_param	= {
+	.power_param		= {
 		.current_temp	= 25,
 		.num_freq	= ARRAY_SIZE(grp3d_freq),
 	}
