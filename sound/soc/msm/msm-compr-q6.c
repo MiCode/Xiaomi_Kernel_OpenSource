@@ -578,7 +578,9 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			if (compr->info.codec_param.codec.id ==
-					SND_AUDIOCODEC_AC3_PASS_THROUGH) {
+					SND_AUDIOCODEC_AC3_PASS_THROUGH ||
+					compr->info.codec_param.codec.id ==
+					SND_AUDIOCODEC_DTS_PASS_THROUGH) {
 				msm_pcm_routing_reg_psthr_stream(
 					soc_prtd->dai_link->be_id,
 					prtd->session_id, substream->stream,

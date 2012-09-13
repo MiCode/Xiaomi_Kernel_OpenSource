@@ -271,8 +271,10 @@ void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 	}
 
 	mutex_lock(&routing_lock);
-
-	fe_dai_map[fedai_id][session_type] = dspst_id;
+	if (enable)
+		fe_dai_map[fedai_id][session_type] = dspst_id;
+	else
+		fe_dai_map[fedai_id][session_type] = INVALID_SESSION;
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
