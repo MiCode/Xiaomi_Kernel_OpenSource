@@ -254,6 +254,8 @@ static struct vfe40_cmd_type vfe40_cmd[] = {
 		V40_COLORXFORM_ENC_CFG_OFF, 0xFF},
 	[161] = {VFE_CMD_COLORXFORM_VIEW_UPDATE, V40_COLORXFORM_VIEW_CFG_LEN,
 		V40_COLORXFORM_VIEW_CFG_OFF, 0xFF},
+	[163] = {VFE_CMD_STATS_BE_START, V40_STATS_BE_LEN, V40_STATS_BE_OFF},
+	[164] = {VFE_CMD_STATS_BE_STOP},
 };
 
 static const uint32_t vfe40_AXI_WM_CFG[] = {
@@ -822,28 +824,33 @@ static void vfe40_set_default_reg_values(
 	CDBG("%s: Use bayer stats = %d\n", __func__,
 		 vfe40_use_bayer_stats(vfe40_ctrl));
 
-	msm_camera_io_w(0x8350001F,
-	vfe40_ctrl->share_ctrl->vfebase +
-			VFE_BUS_STATS_HIST_WR_UB_CFG);
-	msm_camera_io_w(0x8370002F,
-		vfe40_ctrl->share_ctrl->vfebase +
-			VFE_BUS_STATS_BG_WR_UB_CFG);
-	msm_camera_io_w(0x83A0002F,
-		vfe40_ctrl->share_ctrl->vfebase +
-			VFE_BUS_STATS_BF_WR_UB_CFG);
-	msm_camera_io_w(0x83D0000F,
+	msm_camera_io_w(0x82F80007,
 		vfe40_ctrl->share_ctrl->vfebase +
 			VFE_BUS_STATS_RS_WR_UB_CFG);
-	msm_camera_io_w(0x83E00007,
+	msm_camera_io_w(0x8300000F,
 		vfe40_ctrl->share_ctrl->vfebase +
 			VFE_BUS_STATS_CS_WR_UB_CFG);
-	msm_camera_io_w(0x83E80007,
+
+	msm_camera_io_w(0x8310003F,
+		vfe40_ctrl->share_ctrl->vfebase +
+			VFE_BUS_STATS_BG_WR_UB_CFG);
+	msm_camera_io_w(0x8350003F,
+		vfe40_ctrl->share_ctrl->vfebase +
+			VFE_BUS_STATS_BE_WR_UB_CFG);
+	msm_camera_io_w(0x8390003F,
+		vfe40_ctrl->share_ctrl->vfebase +
+			VFE_BUS_STATS_BF_WR_UB_CFG);
+
+	msm_camera_io_w(0x83D0000F,
+	vfe40_ctrl->share_ctrl->vfebase +
+			VFE_BUS_STATS_HIST_WR_UB_CFG);
+	msm_camera_io_w(0x83E0000F,
 		vfe40_ctrl->share_ctrl->vfebase +
 			VFE_BUS_STATS_SKIN_WR_UB_CFG);
+
 	msm_camera_io_w(0x83F0000F,
 		vfe40_ctrl->share_ctrl->vfebase +
 			VFE_BUS_STATS_AWB_WR_UB_CFG);
-
 
 	/* stats frame subsample config*/
 	msm_camera_io_w(0xFFFFFFFF,
@@ -852,6 +859,9 @@ static void vfe40_set_default_reg_values(
 	msm_camera_io_w(0xFFFFFFFF,
 		vfe40_ctrl->share_ctrl->vfebase +
 			VFE_BUS_STATS_BG_WR_FRAMEDROP_PATTERN);
+	msm_camera_io_w(0xFFFFFFFF,
+		vfe40_ctrl->share_ctrl->vfebase +
+			VFE_BUS_STATS_BE_WR_FRAMEDROP_PATTERN);
 	msm_camera_io_w(0xFFFFFFFF,
 		vfe40_ctrl->share_ctrl->vfebase +
 			VFE_BUS_STATS_BF_WR_FRAMEDROP_PATTERN);
@@ -877,6 +887,9 @@ static void vfe40_set_default_reg_values(
 			VFE_BUS_STATS_BG_WR_IRQ_SUBSAMPLE_PATTERN);
 	msm_camera_io_w(0xFFFFFFFF,
 		vfe40_ctrl->share_ctrl->vfebase +
+			VFE_BUS_STATS_BE_WR_IRQ_SUBSAMPLE_PATTERN);
+	msm_camera_io_w(0xFFFFFFFF,
+		vfe40_ctrl->share_ctrl->vfebase +
 			VFE_BUS_STATS_BF_WR_IRQ_SUBSAMPLE_PATTERN);
 	msm_camera_io_w(0xFFFFFFFF,
 		vfe40_ctrl->share_ctrl->vfebase +
@@ -898,13 +911,16 @@ static void vfe40_reset_internal_variables(
 	struct vfe40_ctrl_type *vfe40_ctrl)
 {
 	/* Stats control variables. */
-	memset(&(vfe40_ctrl->afbfStatsControl), 0,
+	memset(&(vfe40_ctrl->bfStatsControl), 0,
 		sizeof(struct vfe_stats_control));
 
 	memset(&(vfe40_ctrl->awbStatsControl), 0,
 		sizeof(struct vfe_stats_control));
 
-	memset(&(vfe40_ctrl->aecbgStatsControl), 0,
+	memset(&(vfe40_ctrl->bgStatsControl), 0,
+		sizeof(struct vfe_stats_control));
+
+	memset(&(vfe40_ctrl->beStatsControl), 0,
 		sizeof(struct vfe_stats_control));
 
 	memset(&(vfe40_ctrl->bhistStatsControl), 0,
@@ -1090,7 +1106,6 @@ static int vfe_stats_awb_buf_init(
 {
 	uint32_t addr;
 	unsigned long flags;
-
 	spin_lock_irqsave(&vfe40_ctrl->stats_bufq_lock, flags);
 	addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl, MSM_STATS_TYPE_AWB);
 	spin_unlock_irqrestore(&vfe40_ctrl->stats_bufq_lock, flags);
@@ -1115,7 +1130,40 @@ static int vfe_stats_awb_buf_init(
 	return 0;
 }
 
-static uint32_t vfe_stats_aec_bg_buf_init(
+static uint32_t vfe_stats_be_buf_init(
+	struct vfe40_ctrl_type *vfe40_ctrl)
+{
+	uint32_t addr;
+	unsigned long flags;
+	uint32_t stats_type;
+
+	stats_type = MSM_STATS_TYPE_BE;
+	spin_lock_irqsave(&vfe40_ctrl->stats_bufq_lock, flags);
+	addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl, stats_type);
+	spin_unlock_irqrestore(&vfe40_ctrl->stats_bufq_lock, flags);
+	if (!addr) {
+		pr_err("%s: dq BE ping buf from free buf queue\n",
+			__func__);
+		return -ENOMEM;
+	}
+	msm_camera_io_w(addr,
+		vfe40_ctrl->share_ctrl->vfebase +
+		VFE_BUS_STATS_BE_WR_PING_ADDR);
+	spin_lock_irqsave(&vfe40_ctrl->stats_bufq_lock, flags);
+	addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl, stats_type);
+	spin_unlock_irqrestore(&vfe40_ctrl->stats_bufq_lock, flags);
+	if (!addr) {
+		pr_err("%s: dq BE pong buf from free buf queue\n",
+			__func__);
+		return -ENOMEM;
+	}
+	msm_camera_io_w(addr,
+		vfe40_ctrl->share_ctrl->vfebase +
+		VFE_BUS_STATS_BE_WR_PONG_ADDR);
+	return 0;
+}
+
+static uint32_t vfe_stats_bg_buf_init(
 	struct vfe40_ctrl_type *vfe40_ctrl)
 {
 	uint32_t addr;
@@ -1148,7 +1196,7 @@ static uint32_t vfe_stats_aec_bg_buf_init(
 	return 0;
 }
 
-static int vfe_stats_af_bf_buf_init(
+static int vfe_stats_bf_buf_init(
 	struct vfe40_ctrl_type *vfe40_ctrl)
 {
 	uint32_t addr;
@@ -1193,7 +1241,6 @@ static uint32_t vfe_stats_bhist_buf_init(
 {
 	uint32_t addr;
 	unsigned long flags;
-
 	spin_lock_irqsave(&vfe40_ctrl->stats_bufq_lock, flags);
 	addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl, MSM_STATS_TYPE_BHIST);
 	spin_unlock_irqrestore(&vfe40_ctrl->stats_bufq_lock, flags);
@@ -1860,7 +1907,7 @@ static int vfe40_proc_general(
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
-		rc = vfe_stats_aec_bg_buf_init(vfe40_ctrl);
+		rc = vfe_stats_bg_buf_init(vfe40_ctrl);
 		if (rc < 0) {
 			pr_err("%s: cannot config ping/pong address of AEC",
 				 __func__);
@@ -1894,7 +1941,7 @@ static int vfe40_proc_general(
 			rc = -EFAULT;
 			goto proc_general_done;
 		}
-		rc = vfe_stats_af_bf_buf_init(vfe40_ctrl);
+		rc = vfe_stats_bf_buf_init(vfe40_ctrl);
 		if (rc < 0) {
 			pr_err("%s: cannot config ping/pong address of AF",
 				__func__);
@@ -2034,15 +2081,25 @@ static int vfe40_proc_general(
 		break;
 
 	case VFE_CMD_STATS_BG_START:
+	case VFE_CMD_STATS_BE_START:
 	case VFE_CMD_STATS_BF_START:
 	case VFE_CMD_STATS_BHIST_START: {
 		old_val = msm_camera_io_r(
 			vfe40_ctrl->share_ctrl->vfebase + VFE_STATS_CFG);
 		module_val = msm_camera_io_r(
 			vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
-		if (VFE_CMD_STATS_BG_START == cmd->id) {
+
+		if (VFE_CMD_STATS_BE_START == cmd->id) {
+			module_val |= BE_ENABLE_MASK;
+			rc = vfe_stats_be_buf_init(vfe40_ctrl);
+			if (rc < 0) {
+				pr_err("%s: cannot config ping/pong address of BG",
+					__func__);
+				goto proc_general_done;
+			}
+		} else if (VFE_CMD_STATS_BG_START == cmd->id) {
 			module_val |= BG_ENABLE_MASK;
-			rc = vfe_stats_aec_bg_buf_init(vfe40_ctrl);
+			rc = vfe_stats_bg_buf_init(vfe40_ctrl);
 			if (rc < 0) {
 				pr_err("%s: cannot config ping/pong address of BG",
 					__func__);
@@ -2050,7 +2107,7 @@ static int vfe40_proc_general(
 			}
 		} else if (VFE_CMD_STATS_BF_START == cmd->id) {
 			module_val |= BF_ENABLE_MASK;
-			rc = vfe_stats_af_bf_buf_init(vfe40_ctrl);
+			rc = vfe_stats_bf_buf_init(vfe40_ctrl);
 			if (rc < 0) {
 				pr_err("%s: cannot config ping/pong address of BF",
 					__func__);
@@ -2683,11 +2740,6 @@ static int vfe40_proc_general(
 		break;
 
 	case VFE_CMD_STATS_AWB_STOP: {
-		if (vfe40_use_bayer_stats(vfe40_ctrl)) {
-			/* Error */
-			rc = -EFAULT;
-			goto proc_general_done;
-		}
 		old_val = msm_camera_io_r(
 			vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~AWB_ENABLE_MASK;
@@ -2695,28 +2747,35 @@ static int vfe40_proc_general(
 			vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
 		}
 		break;
-	case VFE_CMD_STATS_AE_STOP: {
-		if (vfe40_use_bayer_stats(vfe40_ctrl)) {
-			/* Error */
-			rc = -EFAULT;
-			goto proc_general_done;
-		}
+	case VFE_CMD_STATS_BG_STOP: {
 		old_val = msm_camera_io_r(
 			vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
-		old_val &= BG_ENABLE_MASK;
+		old_val &= ~BG_ENABLE_MASK;
 		msm_camera_io_w(old_val,
 			vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
 		}
 		break;
-	case VFE_CMD_STATS_AF_STOP: {
-		if (vfe40_use_bayer_stats(vfe40_ctrl)) {
-			/* Error */
-			rc = -EFAULT;
-			goto proc_general_done;
-		}
+	case VFE_CMD_STATS_BF_STOP: {
 		old_val = msm_camera_io_r(
 			vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~BF_ENABLE_MASK;
+		msm_camera_io_w(old_val,
+		vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
+
+		rc = vfe40_stats_flush_enqueue(vfe40_ctrl,
+				MSM_STATS_TYPE_BF);
+		if (rc < 0) {
+			pr_err("%s: dq stats buf err = %d",
+				   __func__, rc);
+			return -EINVAL;
+			}
+		}
+		break;
+
+	case VFE_CMD_STATS_BE_STOP: {
+		old_val = msm_camera_io_r(
+			vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
+		old_val &= ~BE_ENABLE_MASK;
 		msm_camera_io_w(old_val,
 			vfe40_ctrl->share_ctrl->vfebase + VFE_MODULE_CFG);
 		}
@@ -2749,8 +2808,6 @@ static int vfe40_proc_general(
 		}
 		break;
 
-	case VFE_CMD_STATS_BG_STOP:
-	case VFE_CMD_STATS_BF_STOP:
 	case VFE_CMD_STATS_BHIST_STOP: {
 		if (!vfe40_use_bayer_stats(vfe40_ctrl)) {
 			/* Error */
@@ -2765,15 +2822,6 @@ static int vfe40_proc_general(
 
 		msm_camera_io_w(old_val,
 			vfe40_ctrl->share_ctrl->vfebase + VFE_STATS_CFG);
-		if (VFE_CMD_STATS_BF_STOP == cmd->id) {
-			rc = vfe40_stats_flush_enqueue(vfe40_ctrl,
-					MSM_STATS_TYPE_BF);
-			if (rc < 0) {
-				pr_err("%s: dq stats buf err = %d",
-					   __func__, rc);
-				return -EINVAL;
-			}
-		}
 		}
 		break;
 
@@ -4010,6 +4058,16 @@ static void vfe_send_stats_msg(
 				vfe40_ctrl->stats_ops.client);
 		}
 		break;
+	case statsBeNum:{
+		msgStats.id = MSG_ID_STATS_BE;
+		stats_type = MSM_STATS_TYPE_BE;
+		rc = vfe40_ctrl->stats_ops.dispatch(
+				vfe40_ctrl->stats_ops.stats_ctrl,
+				stats_type, bufAddress,
+				&msgStats.buf_idx, &vaddr, &msgStats.fd,
+				vfe40_ctrl->stats_ops.client);
+		}
+		break;
 	case statsBfNum:{
 		msgStats.id = MSG_ID_STATS_BF;
 		stats_type =  MSM_STATS_TYPE_BF;
@@ -4096,9 +4154,9 @@ static void vfe_send_comp_stats_msg(
 
 	msgStats.status_bits = status_bits;
 
-	msgStats.aec.buff = vfe40_ctrl->aecbgStatsControl.bufToRender;
+	msgStats.aec.buff = vfe40_ctrl->bgStatsControl.bufToRender;
 	msgStats.awb.buff = vfe40_ctrl->awbStatsControl.bufToRender;
-	msgStats.af.buff = vfe40_ctrl->afbfStatsControl.bufToRender;
+	msgStats.af.buff = vfe40_ctrl->bfStatsControl.bufToRender;
 
 	msgStats.ihist.buff = vfe40_ctrl->ihistStatsControl.bufToRender;
 	msgStats.rs.buff = vfe40_ctrl->rsStatsControl.bufToRender;
@@ -4113,6 +4171,29 @@ static void vfe_send_comp_stats_msg(
 				&msgStats);
 }
 
+static void vfe40_process_stats_be_irq(struct vfe40_ctrl_type *vfe40_ctrl)
+{
+	unsigned long flags;
+	uint32_t addr;
+	uint32_t stats_type;
+	stats_type = MSM_STATS_TYPE_BE;
+	spin_lock_irqsave(&vfe40_ctrl->stats_bufq_lock, flags);
+	addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl, stats_type);
+	spin_unlock_irqrestore(&vfe40_ctrl->stats_bufq_lock, flags);
+	if (addr) {
+		vfe40_ctrl->beStatsControl.bufToRender =
+			vfe40_process_stats_irq_common(vfe40_ctrl, statsBeNum,
+			addr);
+
+		vfe_send_stats_msg(vfe40_ctrl,
+			vfe40_ctrl->beStatsControl.bufToRender, statsBeNum);
+	} else{
+		vfe40_ctrl->beStatsControl.droppedStatsFrameCount++;
+		CDBG("%s: droppedStatsFrameCount = %d", __func__,
+			vfe40_ctrl->beStatsControl.droppedStatsFrameCount);
+	}
+}
+
 static void vfe40_process_stats_bg_irq(struct vfe40_ctrl_type *vfe40_ctrl)
 {
 	unsigned long flags;
@@ -4123,16 +4204,16 @@ static void vfe40_process_stats_bg_irq(struct vfe40_ctrl_type *vfe40_ctrl)
 	addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl, stats_type);
 	spin_unlock_irqrestore(&vfe40_ctrl->stats_bufq_lock, flags);
 	if (addr) {
-		vfe40_ctrl->aecbgStatsControl.bufToRender =
+		vfe40_ctrl->bgStatsControl.bufToRender =
 			vfe40_process_stats_irq_common(vfe40_ctrl, statsBgNum,
 			addr);
 
 		vfe_send_stats_msg(vfe40_ctrl,
-			vfe40_ctrl->aecbgStatsControl.bufToRender, statsBgNum);
+			vfe40_ctrl->bgStatsControl.bufToRender, statsBgNum);
 	} else{
-		vfe40_ctrl->aecbgStatsControl.droppedStatsFrameCount++;
+		vfe40_ctrl->bgStatsControl.droppedStatsFrameCount++;
 		CDBG("%s: droppedStatsFrameCount = %d", __func__,
-			vfe40_ctrl->aecbgStatsControl.droppedStatsFrameCount);
+			vfe40_ctrl->bgStatsControl.droppedStatsFrameCount);
 	}
 }
 
@@ -4167,16 +4248,16 @@ static void vfe40_process_stats_bf_irq(struct vfe40_ctrl_type *vfe40_ctrl)
 	addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl, stats_type);
 	spin_unlock_irqrestore(&vfe40_ctrl->stats_bufq_lock, flags);
 	if (addr) {
-		vfe40_ctrl->afbfStatsControl.bufToRender =
+		vfe40_ctrl->bfStatsControl.bufToRender =
 			vfe40_process_stats_irq_common(vfe40_ctrl, statsBfNum,
 			addr);
 
 		vfe_send_stats_msg(vfe40_ctrl,
-			vfe40_ctrl->afbfStatsControl.bufToRender, statsBfNum);
+			vfe40_ctrl->bfStatsControl.bufToRender, statsBfNum);
 	} else{
-		vfe40_ctrl->afbfStatsControl.droppedStatsFrameCount++;
+		vfe40_ctrl->bfStatsControl.droppedStatsFrameCount++;
 		CDBG("%s: droppedStatsFrameCount = %d", __func__,
-			vfe40_ctrl->afbfStatsControl.droppedStatsFrameCount);
+			vfe40_ctrl->bfStatsControl.droppedStatsFrameCount);
 	}
 }
 
@@ -4277,22 +4358,39 @@ static void vfe40_process_stats(struct vfe40_ctrl_type *vfe40_ctrl,
 
 	CDBG("%s, stats = 0x%x\n", __func__, status_bits);
 	spin_lock_irqsave(&vfe40_ctrl->stats_bufq_lock, flags);
-	stats_type = MSM_STATS_TYPE_BG;
 
+	stats_type = MSM_STATS_TYPE_BE;
+	if (status_bits & VFE_IRQ_STATUS0_STATS_BE) {
+		addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl,
+				stats_type);
+		if (addr) {
+			vfe40_ctrl->beStatsControl.bufToRender =
+				vfe40_process_stats_irq_common(
+				vfe40_ctrl, statsBeNum, addr);
+			process_stats = true;
+		} else{
+			vfe40_ctrl->beStatsControl.bufToRender = 0;
+			vfe40_ctrl->beStatsControl.droppedStatsFrameCount++;
+		}
+	} else {
+		vfe40_ctrl->beStatsControl.bufToRender = 0;
+	}
+
+	stats_type = MSM_STATS_TYPE_BG;
 	if (status_bits & VFE_IRQ_STATUS0_STATS_BG) {
 		addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl,
 				stats_type);
 		if (addr) {
-			vfe40_ctrl->aecbgStatsControl.bufToRender =
+			vfe40_ctrl->bgStatsControl.bufToRender =
 				vfe40_process_stats_irq_common(
 				vfe40_ctrl, statsBgNum, addr);
 			process_stats = true;
 		} else{
-			vfe40_ctrl->aecbgStatsControl.bufToRender = 0;
-			vfe40_ctrl->aecbgStatsControl.droppedStatsFrameCount++;
+			vfe40_ctrl->bgStatsControl.bufToRender = 0;
+			vfe40_ctrl->bgStatsControl.droppedStatsFrameCount++;
 		}
 	} else {
-		vfe40_ctrl->aecbgStatsControl.bufToRender = 0;
+		vfe40_ctrl->bgStatsControl.bufToRender = 0;
 	}
 
 	if (status_bits & VFE_IRQ_STATUS0_STATS_AWB) {
@@ -4317,17 +4415,17 @@ static void vfe40_process_stats(struct vfe40_ctrl_type *vfe40_ctrl,
 		addr = (uint32_t)vfe40_stats_dqbuf(vfe40_ctrl,
 					stats_type);
 		if (addr) {
-			vfe40_ctrl->afbfStatsControl.bufToRender =
+			vfe40_ctrl->bfStatsControl.bufToRender =
 				vfe40_process_stats_irq_common(
 				vfe40_ctrl, statsBfNum,
 				addr);
 			process_stats = true;
 		} else {
-			vfe40_ctrl->afbfStatsControl.bufToRender = 0;
-			vfe40_ctrl->afbfStatsControl.droppedStatsFrameCount++;
+			vfe40_ctrl->bfStatsControl.bufToRender = 0;
+			vfe40_ctrl->bfStatsControl.droppedStatsFrameCount++;
 		}
 	} else {
-		vfe40_ctrl->afbfStatsControl.bufToRender = 0;
+		vfe40_ctrl->bfStatsControl.bufToRender = 0;
 	}
 
 	if (status_bits & VFE_IRQ_STATUS0_STATS_IHIST) {
@@ -4436,6 +4534,10 @@ static void vfe40_process_irq(
 		CDBG("Stats BG irq occured.\n");
 		vfe40_process_stats_bg_irq(vfe40_ctrl);
 		break;
+	case VFE_IRQ_STATUS0_STATS_BE:
+		CDBG("Stats BE irq occured.\n");
+		vfe40_process_stats_be_irq(vfe40_ctrl);
+		break;
 	case VFE_IRQ_STATUS0_STATS_BF:
 		CDBG("Stats BF irq occured.\n");
 		vfe40_process_stats_bf_irq(vfe40_ctrl);
@@ -4516,6 +4618,8 @@ static void axi40_do_tasklet(unsigned long data)
 			stat_interrupt =
 				(qcmd->vfeInterruptStatus0 &
 					VFE_IRQ_STATUS0_STATS_BG) |
+				(qcmd->vfeInterruptStatus0 &
+					VFE_IRQ_STATUS0_STATS_BE) |
 				(qcmd->vfeInterruptStatus0 &
 					VFE_IRQ_STATUS0_STATS_AWB) |
 				(qcmd->vfeInterruptStatus0 &
@@ -4603,6 +4707,12 @@ static void axi40_do_tasklet(unsigned long data)
 					v4l2_subdev_notify(&vfe40_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_BG);
+
+				if (qcmd->vfeInterruptStatus0 &
+						VFE_IRQ_STATUS0_STATS_BE)
+					v4l2_subdev_notify(&vfe40_ctrl->subdev,
+					NOTIFY_VFE_IRQ,
+					(void *)VFE_IRQ_STATUS0_STATS_BE);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_AWB)
@@ -4874,6 +4984,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		cmd->cmd_type != CMD_STATS_CS_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_AF_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_BG_BUF_RELEASE &&
+		cmd->cmd_type != CMD_STATS_BE_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_BF_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_BHIST_BUF_RELEASE &&
 		cmd->cmd_type != CMD_VFE_PIX_SOF_COUNT_UPDATE &&
@@ -4917,6 +5028,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		(cmd->cmd_type == CMD_STATS_CS_ENABLE)    ||
 		(cmd->cmd_type == CMD_STATS_AEC_ENABLE)   ||
 		(cmd->cmd_type == CMD_STATS_BG_ENABLE)    ||
+		(cmd->cmd_type == CMD_STATS_BE_ENABLE)    ||
 		(cmd->cmd_type == CMD_STATS_BF_ENABLE)    ||
 		(cmd->cmd_type == CMD_STATS_BHIST_ENABLE)) {
 		struct axidata *axid;
@@ -4940,6 +5052,7 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		switch (cmd->cmd_type) {
 		case CMD_STATS_AEC_ENABLE:
 		case CMD_STATS_BG_ENABLE:
+		case CMD_STATS_BE_ENABLE:
 		case CMD_STATS_BF_ENABLE:
 		case CMD_STATS_BHIST_ENABLE:
 		case CMD_STATS_AWB_ENABLE:
