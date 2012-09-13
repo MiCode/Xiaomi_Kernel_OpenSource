@@ -21,6 +21,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 
+#include <asm/mach-types.h>
 #include <mach/msm_iomap.h>
 
 #include "peripheral-loader.h"
@@ -358,12 +359,18 @@ static struct platform_driver pil_riva_driver = {
 
 static int __init pil_riva_init(void)
 {
+	if (machine_is_mpq8064_hrd()) {
+		pr_err("pil_riva not supported on this target\n");
+		return 0;
+	}
 	return platform_driver_register(&pil_riva_driver);
 }
 module_init(pil_riva_init);
 
 static void __exit pil_riva_exit(void)
 {
+	if (machine_is_mpq8064_hrd())
+		return;
 	platform_driver_unregister(&pil_riva_driver);
 }
 module_exit(pil_riva_exit);

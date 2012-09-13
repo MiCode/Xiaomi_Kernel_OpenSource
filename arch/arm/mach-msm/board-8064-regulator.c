@@ -47,6 +47,7 @@ VREG_CONSUMERS(L4) = {
 	REGULATOR_SUPPLY("8921_l4",		NULL),
 	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_otg"),
 	REGULATOR_SUPPLY("iris_vddxo",		"wcnss_wlan.0"),
+	REGULATOR_SUPPLY("bha_vddxo",		"bt_power"),
 };
 VREG_CONSUMERS(L5) = {
 	REGULATOR_SUPPLY("8921_l5",		NULL),
@@ -75,6 +76,7 @@ VREG_CONSUMERS(L9) = {
 VREG_CONSUMERS(L10) = {
 	REGULATOR_SUPPLY("8921_l10",		NULL),
 	REGULATOR_SUPPLY("iris_vddpa",		"wcnss_wlan.0"),
+	REGULATOR_SUPPLY("bha_vddpa",		"bt_power"),
 };
 VREG_CONSUMERS(L11) = {
 	REGULATOR_SUPPLY("8921_l11",		NULL),
@@ -182,6 +184,7 @@ VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("CDC_VDDA_TX",		"0-000d"),
 	REGULATOR_SUPPLY("CDC_VDDA_RX",		"0-000d"),
 	REGULATOR_SUPPLY("riva_vddpx",		"wcnss_wlan.0"),
+	REGULATOR_SUPPLY("bha_vddpx",		"bt_power"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-005b"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-0024"),
 	REGULATOR_SUPPLY("vddp",		"0-0048"),

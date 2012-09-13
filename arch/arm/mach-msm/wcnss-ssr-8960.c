@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/wcnss_wlan.h>
 #include <linux/err.h>
+#include <asm/mach-types.h>
 #include <mach/irqs.h>
 #include <mach/scm.h>
 #include <mach/subsystem_restart.h>
@@ -221,6 +222,11 @@ static int __init riva_ssr_module_init(void)
 {
 	int ret;
 
+	if (machine_is_mpq8064_hrd()) {
+		pr_err("Riva not supported on this target\n");
+		return 0;
+	}
+
 	ret = smsm_state_cb_register(SMSM_WCNSS_STATE, SMSM_RESET,
 					smsm_state_cb_hdlr, 0);
 	if (ret < 0) {
@@ -259,6 +265,8 @@ out:
 
 static void __exit riva_ssr_module_exit(void)
 {
+	if (machine_is_mpq8064_hrd())
+		return;
 	subsys_unregister(riva_8960_dev);
 	free_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ, NULL);
 }
