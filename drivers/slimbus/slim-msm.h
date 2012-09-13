@@ -167,6 +167,7 @@ struct msm_slim_ctrl {
 	struct device		*dev;
 	void __iomem		*base;
 	struct resource		*slew_mem;
+	struct resource		*bam_mem;
 	u32			curr_bw;
 	u8			msg_cnt;
 	u32			tx_buf[10];
