@@ -1222,6 +1222,74 @@ static struct i2c_board_info apq8064_tabla_i2c_device_info[] __initdata = {
 	},
 };
 
+static struct wcd9xxx_pdata mpq8064_ashiko20_platform_data = {
+	.slimbus_slave_device = {
+		.name = "tabla-slave",
+		.e_addr = {0, 0, 0x60, 0, 0x17, 2},
+	},
+	.irq = MSM_GPIO_TO_INT(42),
+	.irq_base = TABLA_INTERRUPT_BASE,
+	.num_irqs = NR_WCD9XXX_IRQS,
+	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
+	.micbias = {
+		.ldoh_v = TABLA_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.cfilt3_mv = 1800,
+		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
+		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
+		.bias3_cfilt_sel = TABLA_CFILT3_SEL,
+		.bias4_cfilt_sel = TABLA_CFILT3_SEL,
+	},
+	.regulator = {
+	{
+		.name = "CDC_VDD_CP",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_CP_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_RX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_RX_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_TX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_TX_CUR_MAX,
+	},
+	{
+		.name = "VDDIO_CDC",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_VDDIO_CDC_CUR_MAX,
+	},
+	{
+		.name = "HRD_VDDD_CDC_D",
+		.min_uV = 1200000,
+		.max_uV = 1200000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
+	},
+	{
+		.name = "HRD_CDC_VDDA_A_1P2V",
+		.min_uV = 1200000,
+		.max_uV = 1200000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
+	},
+	},
+};
+
+static struct slim_device mpq8064_slim_ashiko20 = {
+	.name = "tabla2x-slim",
+	.e_addr = {0, 1, 0x60, 0, 0x17, 2},
+	.dev = {
+		.platform_data = &mpq8064_ashiko20_platform_data,
+	},
+};
+
+
 /* enable the level shifter for cs8427 to make sure the I2C
  * clock is running at 100KHz and voltage levels are at 3.3
  * and 5 volts
@@ -3285,6 +3353,10 @@ static void __init apq8064_common_init(void)
 		}
 	}
 	platform_device_register(&apq8064_slim_ctrl);
+	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv()) {
+		apq8064_slim_devices[ARRAY_SIZE(apq8064_slim_devices) - 1].\
+			slim_slave = &mpq8064_slim_ashiko20;
+	}
 	slim_register_board_info(apq8064_slim_devices,
 		ARRAY_SIZE(apq8064_slim_devices));
 	if (!PLATFORM_IS_MPQ8064()) {
