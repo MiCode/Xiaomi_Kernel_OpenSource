@@ -147,7 +147,7 @@ static void mdp4_dsi_video_blt_ov_update(struct mdp4_overlay_pipe *pipe);
 static void mdp4_dsi_video_wait4dmap(int cndx);
 static void mdp4_dsi_video_wait4ov(int cndx);
 
-int mdp4_dsi_video_pipe_commit(void)
+int mdp4_dsi_video_pipe_commit(int cndx, int wait)
 {
 
 	int  i, undx;
@@ -159,7 +159,7 @@ int mdp4_dsi_video_pipe_commit(void)
 	unsigned long flags;
 	int cnt = 0;
 
-	vctrl = &vsync_ctrl_db[0];
+	vctrl = &vsync_ctrl_db[cndx];
 
 	mutex_lock(&vctrl->update_lock);
 	undx =  vctrl->update_ndx;
@@ -252,6 +252,13 @@ int mdp4_dsi_video_pipe_commit(void)
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
 	mdp4_stat.overlay_commit[pipe->mixer_num]++;
+
+	if (wait) {
+		if (pipe->ov_blt_addr)
+			mdp4_dsi_video_wait4ov(cndx);
+		else
+			mdp4_dsi_video_wait4dmap(cndx);
+	}
 
 	return cnt;
 }
@@ -1075,13 +1082,13 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
 
 	mutex_lock(&mfd->dma->ov_mutex);
-	mdp4_dsi_video_pipe_commit();
+	mdp4_dsi_video_pipe_commit(cndx, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 
 	if (pipe->ov_blt_addr)
-		mdp4_dsi_video_wait4ov(0);
+		mdp4_dsi_video_wait4ov(cndx);
 	else
-		mdp4_dsi_video_wait4dmap(0);
+		mdp4_dsi_video_wait4dmap(cndx);
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 }
