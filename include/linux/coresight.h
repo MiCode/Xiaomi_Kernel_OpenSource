@@ -30,11 +30,6 @@
 #define CORESIGHT_COMPIDR2	(0xFF8)
 #define CORESIGHT_COMPIDR3	(0xFFC)
 
-/* DBGv7 with baseline CP14 registers implemented */
-#define ARM_DEBUG_ARCH_V7B	(0x3)
-/* DBGv7 with all CP14 registers implemented */
-#define ARM_DEBUG_ARCH_V7	(0x4)
-#define ARM_DEBUG_ARCH_V7_1	(0x5)
 #define ETM_ARCH_V3_3		(0x23)
 #define PFT_ARCH_V1_1		(0x31)
 
