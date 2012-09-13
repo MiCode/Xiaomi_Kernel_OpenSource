@@ -942,12 +942,17 @@ static int __init msm_dcvs_early_init(void)
 		return 0;
 	}
 
-	ret = msm_dcvs_scm_init(10 * 1024);
-	if (ret)
+
+	/* Only need about 32kBytes for normal operation */
+	ret = msm_dcvs_scm_init(SZ_32K);
+	if (ret) {
 		__err("Unable to initialize DCVS err=%d\n", ret);
+		goto done;
+	}
 
 	for (i = 0; i < CORES_MAX; i++)
 		core_list[i].dcvs_core_id = -1;
+done:
 	return ret;
 }
 postcore_initcall(msm_dcvs_early_init);
