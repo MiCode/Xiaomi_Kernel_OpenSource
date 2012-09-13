@@ -1,0 +1,24 @@
+* Qualcomm Krait L1 / L2 cache dumping device
+This is a virtual device that dumps the contents of L1 and L2 caches in the
+event of a kernel panic or a watchdog trigger.
+
+Required properties:
+- compatible:			Should be "qcom,cache_dump"
+- qcom,l1-dump-size:		Amount of memory needed for L1 dump(s), in bytes
+- qcom,l2-dump-size:		Amount of memory needed for L2 dump, in bytes
+- qcom,memory-reservation-size: Combined reserved memory for the dump buffers
+- qcom,memory-reservation-type: Type of memory to be reserved
+
+Optional properties:
+- qcom,use-imem-dump-offset: If specified, store cache dump buffer addresses
+  in IMEM rather than using the memory dump reservation table.
+
+Example:
+	qcom,cache_dump {
+		compatible = "qcom,cache_dump";
+		qcom,l1-dump-size = <0x100000>;
+		qcom,l2-dump-size = <0x400000>;
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x500000>;
+	};
+
