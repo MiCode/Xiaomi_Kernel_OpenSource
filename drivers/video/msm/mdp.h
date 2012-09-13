@@ -94,9 +94,11 @@ extern unsigned char hdmi_prim_resolution;
 
 struct vsync {
 	ktime_t vsync_time;
+	struct completion vsync_comp;
 	struct device *dev;
 	struct work_struct vsync_work;
 	int vsync_irq_enabled;
+	int vsync_dma_enabled;
 	int disabled_clocks;
 };
 
