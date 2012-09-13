@@ -426,6 +426,10 @@ static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
 			stats.aec.buff = stats.buffer;
 			stats.aec.fd = stats.fd;
 			break;
+		case MSG_ID_STATS_BE:
+			stats.be.buff = stats.buffer;
+			stats.be.fd = stats.fd;
+			break;
 		case MSG_ID_STATS_AF:
 		case MSG_ID_STATS_BF:
 			stats.af.buff = stats.buffer;
@@ -514,6 +518,7 @@ static int msm_config_vfe(struct v4l2_subdev *sd,
 	CDBG("%s: cmd_type %d\n", __func__, cfgcmd.cmd_type);
 	switch (cfgcmd.cmd_type) {
 	case CMD_STATS_BG_ENABLE:
+	case CMD_STATS_BE_ENABLE:
 	case CMD_STATS_BF_ENABLE:
 	case CMD_STATS_BHIST_ENABLE:
 	case CMD_STATS_AF_ENABLE:
@@ -611,6 +616,8 @@ static int msm_put_stats_buffer(struct v4l2_subdev *sd,
 			cfgcmd.cmd_type = CMD_STATS_BUF_RELEASE;
 		else if (buf.type == STAT_BG)
 			cfgcmd.cmd_type = CMD_STATS_BG_BUF_RELEASE;
+		else if (buf.type == STAT_BE)
+			cfgcmd.cmd_type = CMD_STATS_BE_BUF_RELEASE;
 		else if (buf.type == STAT_BF)
 			cfgcmd.cmd_type = CMD_STATS_BF_BUF_RELEASE;
 		else if (buf.type == STAT_BHIST)

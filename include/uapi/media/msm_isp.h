@@ -70,6 +70,7 @@
 #define MSG_ID_RDI2_UPDATE_ACK          51
 #define MSG_ID_PIX0_UPDATE_ACK          52
 #define MSG_ID_PREV_STOP_ACK            53
+#define MSG_ID_STATS_BE                 54
 
 
 /* ISP command IDs */
@@ -236,7 +237,8 @@
 #define VFE_CMD_COLORXFORM_ENC_UPDATE                   160
 #define VFE_CMD_COLORXFORM_VIEW_UPDATE                  161
 #define VFE_CMD_TEST_GEN_CFG                            162
-
+#define VFE_CMD_STATS_BE_START                          163
+#define VFE_CMD_STATS_BE_STOP                           164
 struct msm_isp_cmd {
 	int32_t  id;
 	uint16_t length;
