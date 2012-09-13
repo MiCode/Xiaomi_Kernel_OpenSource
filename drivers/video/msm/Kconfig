@@ -820,14 +820,6 @@ config FB_MSM_HDMI_MSM_PANEL_DVI_SUPPORT
 	---help---
 	  Support for DVI mode for MSM HDMI 1080p Panel
 
-config FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
-	depends on FB_MSM_HDMI_MSM_PANEL
-	bool "Use HDCP mode"
-	default y
-	---help---
-	  Support for HDCP mode for MSM HDMI 1080p Panel
-	  Choose to enable HDCP
-
 config FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	depends on FB_MSM_HDMI_MSM_PANEL
 	bool "Enable CEC"
