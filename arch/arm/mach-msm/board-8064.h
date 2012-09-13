@@ -110,6 +110,10 @@ void apq8064_init_gpu(void);
 void apq8064_pm8xxx_gpio_mpp_init(void);
 void __init configure_apq8064_pm8917_power_grid(void);
 
+#if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
+void __init apq8064_bt_power_init(void);
+#endif
+
 #define PLATFORM_IS_MPQ8064() \
 	(machine_is_mpq8064_hrd() || \
 	 machine_is_mpq8064_dtv() || \
