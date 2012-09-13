@@ -18,12 +18,13 @@
 #include <linux/ion.h>
 #include <linux/iommu.h>
 #include <mach/iommu.h>
+#include "msm_jpeg_sync.h"
 
-
-void msm_jpeg_platform_p2v(struct file  *file,
-				struct ion_handle **ionhandle, int domain_num);
-uint32_t msm_jpeg_platform_v2p(int fd, uint32_t len, struct file **file,
-				struct ion_handle **ionhandle, int domain_num);
+void msm_jpeg_platform_p2v(struct msm_jpeg_device *pgmn_dev, struct file *file,
+	struct ion_handle **ionhandle, int domain_num);
+uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
+	uint32_t len, struct file **file, struct ion_handle **ionhandle,
+	int domain_num);
 
 int msm_jpeg_platform_clk_enable(void);
 int msm_jpeg_platform_clk_disable(void);

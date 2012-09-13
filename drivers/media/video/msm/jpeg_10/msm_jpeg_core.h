@@ -15,6 +15,7 @@
 
 #include <linux/interrupt.h>
 #include "msm_jpeg_hw.h"
+#include "msm_jpeg_sync.h"
 
 #define msm_jpeg_core_buf msm_jpeg_hw_buf
 
@@ -23,13 +24,17 @@ irqreturn_t msm_jpeg_core_irq(int irq_num, void *context);
 void msm_jpeg_core_irq_install(int (*irq_handler) (int, void *, void *));
 void msm_jpeg_core_irq_remove(void);
 
-int msm_jpeg_core_fe_buf_update(struct msm_jpeg_core_buf *buf);
-int msm_jpeg_core_we_buf_update(struct msm_jpeg_core_buf *buf);
-int msm_jpeg_core_we_buf_reset(struct msm_jpeg_hw_buf *buf);
+int msm_jpeg_core_fe_buf_update(struct msm_jpeg_device *pgmn_dev,
+	struct msm_jpeg_core_buf *buf);
+int msm_jpeg_core_we_buf_update(struct msm_jpeg_device *pgmn_dev,
+	struct msm_jpeg_core_buf *buf);
+int msm_jpeg_core_we_buf_reset(struct msm_jpeg_device *pgmn_dev,
+	struct msm_jpeg_hw_buf *buf);
 
-int msm_jpeg_core_reset(uint8_t op_mode, void *base, int size);
-int msm_jpeg_core_fe_start(void);
+int msm_jpeg_core_reset(struct msm_jpeg_device *pgmn_dev, uint8_t op_mode,
+	void *base, int size);
+int msm_jpeg_core_fe_start(struct msm_jpeg_device *);
 
-void msm_jpeg_core_release(int, int);
-void msm_jpeg_core_init(void);
+void msm_jpeg_core_release(struct msm_jpeg_device *, int);
+void msm_jpeg_core_init(struct msm_jpeg_device *);
 #endif /* MSM_JPEG_CORE_H */

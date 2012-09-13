@@ -14,12 +14,13 @@
 #define MSM_JPEG_COMMON_H
 
 #ifdef MSM_JPEG_DEBUG
-#define JPEG_DBG(fmt, args...) printk(fmt, ##args)
+#define JPEG_DBG(fmt, args...) pr_info(fmt, ##args)
 #else
 #define JPEG_DBG(fmt, args...) do { } while (0)
 #endif
 
 #define JPEG_PR_ERR   pr_err
+#define JPEG_DBG_HIGH   pr_err
 
 enum JPEG_MODE {
 	JPEG_MODE_DISABLE,

@@ -31,9 +31,7 @@
 #include "msm_jpeg_common.h"
 
 #define MSM_JPEG_NAME "jpeg"
-#define MSM_JPEGE1_NAME "jpege1"
-#define MSM_JPEGD_NAME "jpegd"
-
+#define DEV_NAME_LEN 10
 
 static int msm_jpeg_open(struct inode *inode, struct file *filp)
 {
@@ -146,7 +144,7 @@ static int msm_jpeg_init_dev(struct platform_device *pdev)
 	int rc = -1;
 	struct device *dev;
 	struct msm_jpeg_device *msm_jpeg_device_p;
-	char devname[10];
+	char devname[DEV_NAME_LEN];
 
 	msm_jpeg_device_p = kzalloc(sizeof(struct msm_jpeg_device), GFP_ATOMIC);
 	if (!msm_jpeg_device_p) {
@@ -158,7 +156,7 @@ static int msm_jpeg_init_dev(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		of_property_read_u32((&pdev->dev)->of_node, "cell-index",
-								&pdev->id);
+			&pdev->id);
 
 	snprintf(devname, sizeof(devname), "%s%d", MSM_JPEG_NAME, pdev->id);
 
