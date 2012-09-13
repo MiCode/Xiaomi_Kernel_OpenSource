@@ -33,10 +33,6 @@
 #define MAX_PENDING	(5)
 
 struct core_attribs {
-	struct kobj_attribute core_id;
-	struct kobj_attribute idle_enabled;
-	struct kobj_attribute freq_change_enabled;
-	struct kobj_attribute actual_freq;
 	struct kobj_attribute freq_change_us;
 
 	struct kobj_attribute disable_pc_threshold;
@@ -585,10 +581,6 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
  * Function declarations for different attributes.
  * Gets used when setting the attribute show and store parameters.
  */
-DCVS_PARAM_SHOW(core_id, core->dcvs_core_id)
-DCVS_PARAM_SHOW(idle_enabled, (core->idle_enable != NULL))
-DCVS_PARAM_SHOW(freq_change_enabled, (core->set_frequency != NULL))
-DCVS_PARAM_SHOW(actual_freq, (core->actual_freq))
 DCVS_PARAM_SHOW(freq_change_us, (core->freq_change_us))
 
 DCVS_ALGO_PARAM(disable_pc_threshold)
@@ -620,7 +612,7 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 {
 	int ret = 0;
 	struct kobject *core_kobj = NULL;
-	const int attr_count = 28;
+	const int attr_count = 24;
 
 	BUG_ON(!cores_kobj);
 
@@ -632,37 +624,33 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 		goto done;
 	}
 
-	DCVS_RO_ATTRIB(0, core_id);
-	DCVS_RO_ATTRIB(1, idle_enabled);
-	DCVS_RO_ATTRIB(2, freq_change_enabled);
-	DCVS_RO_ATTRIB(3, actual_freq);
-	DCVS_RO_ATTRIB(4, freq_change_us);
+	DCVS_RO_ATTRIB(0, freq_change_us);
 
-	DCVS_RW_ATTRIB(5, disable_pc_threshold);
-	DCVS_RW_ATTRIB(6, em_win_size_min_us);
-	DCVS_RW_ATTRIB(7, em_win_size_max_us);
-	DCVS_RW_ATTRIB(8, em_max_util_pct);
-	DCVS_RW_ATTRIB(9, group_id);
-	DCVS_RW_ATTRIB(10, max_freq_chg_time_us);
-	DCVS_RW_ATTRIB(11, slack_mode_dynamic);
-	DCVS_RW_ATTRIB(12, slack_time_min_us);
-	DCVS_RW_ATTRIB(13, slack_time_max_us);
-	DCVS_RW_ATTRIB(14, slack_weight_thresh_pct);
-	DCVS_RW_ATTRIB(15, ss_iobusy_conv);
-	DCVS_RW_ATTRIB(16, ss_win_size_min_us);
-	DCVS_RW_ATTRIB(17, ss_win_size_max_us);
-	DCVS_RW_ATTRIB(18, ss_util_pct);
+	DCVS_RW_ATTRIB(1, disable_pc_threshold);
+	DCVS_RW_ATTRIB(2, em_win_size_min_us);
+	DCVS_RW_ATTRIB(3, em_win_size_max_us);
+	DCVS_RW_ATTRIB(4, em_max_util_pct);
+	DCVS_RW_ATTRIB(5, group_id);
+	DCVS_RW_ATTRIB(6, max_freq_chg_time_us);
+	DCVS_RW_ATTRIB(7, slack_mode_dynamic);
+	DCVS_RW_ATTRIB(8, slack_weight_thresh_pct);
+	DCVS_RW_ATTRIB(9, slack_time_min_us);
+	DCVS_RW_ATTRIB(10, slack_time_max_us);
+	DCVS_RW_ATTRIB(11, ss_iobusy_conv);
+	DCVS_RW_ATTRIB(12, ss_win_size_min_us);
+	DCVS_RW_ATTRIB(13, ss_win_size_max_us);
+	DCVS_RW_ATTRIB(14, ss_util_pct);
 
-	DCVS_RW_ATTRIB(19, active_coeff_a);
-	DCVS_RW_ATTRIB(20, active_coeff_b);
-	DCVS_RW_ATTRIB(21, active_coeff_c);
-	DCVS_RW_ATTRIB(22, leakage_coeff_a);
-	DCVS_RW_ATTRIB(23, leakage_coeff_b);
-	DCVS_RW_ATTRIB(24, leakage_coeff_c);
-	DCVS_RW_ATTRIB(25, leakage_coeff_d);
+	DCVS_RW_ATTRIB(15, active_coeff_a);
+	DCVS_RW_ATTRIB(16, active_coeff_b);
+	DCVS_RW_ATTRIB(17, active_coeff_c);
+	DCVS_RW_ATTRIB(18, leakage_coeff_a);
+	DCVS_RW_ATTRIB(19, leakage_coeff_b);
+	DCVS_RW_ATTRIB(20, leakage_coeff_c);
+	DCVS_RW_ATTRIB(21, leakage_coeff_d);
+	DCVS_RW_ATTRIB(22, thermal_poll_ms);
 
-	DCVS_RW_ATTRIB(26, thermal_poll_ms);
-	core->attrib.attrib_group.attrs[27] = NULL;
+	core->attrib.attrib_group.attrs[23] = NULL;
 
 	core_kobj = kobject_create_and_add(core->core_name, cores_kobj);
 	if (!core_kobj) {
