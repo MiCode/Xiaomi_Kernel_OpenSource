@@ -229,6 +229,12 @@
 #define MSM_CAM_IOCTL_OEM \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 65, struct sensor_cfg_data *)
 
+#define MSM_CAM_IOCTL_AXI_INIT \
+	_IOWR(MSM_CAM_IOCTL_MAGIC, 66, uint8_t *)
+
+#define MSM_CAM_IOCTL_AXI_RELEASE \
+	_IO(MSM_CAM_IOCTL_MAGIC, 67)
+
 struct v4l2_event_and_payload {
 	struct v4l2_event evt;
 	uint32_t payload_length;
@@ -2011,7 +2017,7 @@ struct msm_mctl_set_sdev_data {
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 17, struct msm_mctl_pp_params *)
 
 #define VIDIOC_MSM_AXI_INIT \
-	_IO('V', BASE_VIDIOC_PRIVATE + 18)
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, uint8_t *)
 
 #define VIDIOC_MSM_AXI_RELEASE \
 	_IO('V', BASE_VIDIOC_PRIVATE + 19)
@@ -2044,7 +2050,7 @@ struct msm_camera_v4l2_ioctl_t {
 struct msm_camera_vfe_params_t {
 	uint32_t operation_mode;
 	uint32_t capture_count;
-	uint32_t skip_abort;
+	uint8_t  skip_reset;
 	uint8_t  stop_immediately;
 	uint16_t port_info;
 	uint32_t inst_handle;

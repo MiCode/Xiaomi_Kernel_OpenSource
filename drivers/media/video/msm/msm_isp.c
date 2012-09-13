@@ -640,6 +640,7 @@ static int msm_vfe_stats_buf_ioctl(struct v4l2_subdev *sd,
 {
 	struct msm_vfe_cfg_cmd cfgcmd;
 	int rc = 0;
+	v4l2_set_subdev_hostdata(sd, mctl);
 	switch (cmd) {
 	case MSM_CAM_IOCTL_STATS_REQBUF: {
 		struct msm_stats_reqbuf reqbuf;
