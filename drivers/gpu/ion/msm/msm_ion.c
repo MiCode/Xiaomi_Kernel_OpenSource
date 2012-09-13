@@ -264,7 +264,7 @@ static void msm_ion_allocate(struct ion_platform_heap *heap)
 
 	if (!heap->base && heap->extra_data) {
 		unsigned int align = 0;
-		switch (heap->type) {
+		switch ((int) heap->type) {
 		case ION_HEAP_TYPE_CARVEOUT:
 			align =
 			((struct ion_co_heap_pdata *) heap->extra_data)->align;
@@ -346,7 +346,7 @@ static int msm_init_extra_data(struct ion_platform_heap *heap,
 {
 	int ret = 0;
 
-	switch (heap->type) {
+	switch ((int) heap->type) {
 	case ION_HEAP_TYPE_CP:
 	{
 		heap->extra_data = kzalloc(sizeof(struct ion_cp_heap_pdata),
@@ -414,7 +414,7 @@ static void msm_ion_get_heap_align(struct device_node *node,
 
 	int ret = of_property_read_u32(node, "qcom,heap-align", &val);
 	if (!ret) {
-		switch (heap->type) {
+		switch ((int) heap->type) {
 		case ION_HEAP_TYPE_CP:
 		{
 			struct ion_cp_heap_pdata *extra =
