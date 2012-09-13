@@ -147,7 +147,6 @@ static DEFINE_MUTEX(app_access_lock);
 
 static int qsee_bw_count;
 static int qsee_sfpb_bw_count;
-static struct clk *qseecom_bus_clk;
 static uint32_t qsee_perf_client;
 
 struct qseecom_registered_listener_list {
@@ -1201,11 +1200,6 @@ static int qsee_vote_for_clock(int32_t clk_type)
 
 	switch (clk_type) {
 	case CLK_DFAB:
-		/* Check if the clk is valid */
-		if (IS_ERR_OR_NULL(qseecom_bus_clk)) {
-			pr_warn("qseecom bus clock is null or error");
-			return -EINVAL;
-		}
 		mutex_lock(&qsee_bw_mutex);
 		if (!qsee_bw_count) {
 			ret = msm_bus_scale_client_update_request(
@@ -1247,11 +1241,6 @@ static void qsee_disable_clock_vote(int32_t clk_type)
 
 	switch (clk_type) {
 	case CLK_DFAB:
-		/* Check if the DFAB clk is valid */
-		if (IS_ERR_OR_NULL(qseecom_bus_clk)) {
-			pr_warn("qseecom bus clock is null or error");
-			return;
-		}
 		mutex_lock(&qsee_bw_mutex);
 		if (qsee_bw_count > 0) {
 			if (qsee_bw_count-- == 1) {
@@ -1733,7 +1722,6 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 	uint32_t system_call_id = QSEOS_CHECK_VERSION_CMD;
 
 	qsee_bw_count = 0;
-	qseecom_bus_clk = NULL;
 	qsee_perf_client = 0;
 
 	rc = alloc_chrdev_region(&qseecom_device_no, 0, 1, QSEECOM_DEV);
@@ -1801,17 +1789,8 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 		qsee_perf_client = msm_bus_scale_register_client(
 						qseecom_platform_support);
 
-		if (!qsee_perf_client) {
+		if (!qsee_perf_client)
 			pr_err("Unable to register bus client\n");
-		} else {
-			qseecom_bus_clk = clk_get(class_dev, "bus_clk");
-			if (IS_ERR(qseecom_bus_clk)) {
-				qseecom_bus_clk = NULL;
-			} else if (qseecom_bus_clk != NULL) {
-				pr_debug("Enabled DFAB clock");
-				clk_set_rate(qseecom_bus_clk, 64000000);
-			}
-		}
 	}
 	return 0;
 
@@ -1855,8 +1834,6 @@ static int __devinit qseecom_init(void)
 
 static void __devexit qseecom_exit(void)
 {
-	clk_put(qseecom_bus_clk);
-
 	device_destroy(driver_class, qseecom_device_no);
 	class_destroy(driver_class);
 	unregister_chrdev_region(qseecom_device_no, 1);
