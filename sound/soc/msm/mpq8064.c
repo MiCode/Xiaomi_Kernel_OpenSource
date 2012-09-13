@@ -54,7 +54,7 @@
 #define GPIO_SEC_I2S_RX_WS   48
 #define GPIO_SEC_I2S_RX_DOUT 49
 #define GPIO_SEC_I2S_RX_MCLK 50
-#define I2S_MCLK_RATE 1536000
+#define I2S_MCLK_RATE 12288000
 
 #define GPIO_MI2S_WS     27
 #define GPIO_MI2S_SCLK   28
@@ -813,14 +813,11 @@ static int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 static int msm_be_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
 
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
 	pr_debug("%s()\n", __func__);
-	rate->min = rate->max = 48000;
 	channels->min =  channels->max = 2;
 
 	return 0;
