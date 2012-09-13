@@ -21,6 +21,14 @@
  */
 struct pm8xxx_spk_platform_data {
 	bool spk_add_enable;
+	int cd_ng_threshold;
+	int cd_nf_preamp_bias;
+	int cd_ng_hold;
+	int cd_ng_max_atten;
+	int noise_mute;
+	int cd_ng_decay_rate;
+	int cd_ng_attack_rate;
+	int cd_delay;
 };
 
 /*

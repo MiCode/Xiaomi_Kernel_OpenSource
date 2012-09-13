@@ -34,7 +34,7 @@
 #define REG_IRQ_BASE            0x1BB
 
 #define REG_SPK_BASE		0x253
-#define REG_SPK_REGISTERS	3
+#define REG_SPK_REGISTERS	6
 
 #define REG_TEMP_ALARM_CTRL	0x01B
 #define REG_TEMP_ALARM_PWM	0x09B
@@ -293,7 +293,7 @@ static const struct resource resources_spk[] __devinitconst = {
 	[0] = {
 		.name   = PM8XXX_SPK_DEV_NAME,
 		.start  = REG_SPK_BASE,
-		.end    = REG_SPK_BASE + REG_SPK_REGISTERS,
+		.end    = REG_SPK_BASE + REG_SPK_REGISTERS - 1,
 		.flags  = IORESOURCE_IO,
 	},
 };
