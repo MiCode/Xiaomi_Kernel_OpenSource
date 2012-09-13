@@ -199,17 +199,21 @@ enum qpnp_adc_channel_scaling_param {
  *				   digital data relative to ADC reference.
  * %ADC_SCALE_DEFAULT: Default scaling to convert raw adc code to voltage.
  * %ADC_SCALE_BATT_THERM: Conversion to temperature based on btm parameters.
- * %ADC_SCALE_PA_THERM: Returns temperature in degC.
+ * %ADC_SCALE_THERM_100K_PULLUP: Returns temperature in degC.
+ *				 Uses a mapping table with 100K pullup.
  * %ADC_SCALE_PMIC_THERM: Returns result in milli degree's Centigrade.
  * %ADC_SCALE_XOTHERM: Returns XO thermistor voltage in degree's Centigrade.
+ * %ADC_SCALE_THERM_150K_PULLUP: Returns temperature in degC.
+ *				 Uses a mapping table with 150K pullup.
  * %ADC_SCALE_NONE: Do not use this scaling type.
  */
 enum qpnp_adc_scale_fn_type {
 	SCALE_DEFAULT = 0,
 	SCALE_BATT_THERM,
-	SCALE_PA_THERM,
+	SCALE_THERM_100K_PULLUP,
 	SCALE_PMIC_THERM,
 	SCALE_XOTHERM,
+	SCALE_THERM_150K_PULLUP,
 	SCALE_NONE,
 };
 
@@ -766,6 +770,40 @@ int32_t qpnp_adc_tdkntcg_therm(int32_t adc_code,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt);
 /**
+ * qpnp_adc_scale_therm_pu1() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. Returns the temperature of the therm in degC.
+ *		It uses a mapping table computed for a 150K pull-up.
+ *		Pull-up1 is an internal pull-up on the AMUX of 150K.
+ * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t qpnp_adc_scale_therm_pu1(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
+ * qpnp_adc_scale_therm_pu2() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. Returns the temperature of the therm in degC.
+ *		It uses a mapping table computed for a 100K pull-up.
+ *		Pull-up2 is an internal pull-up on the AMUX of 100K.
+ * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t qpnp_adc_scale_therm_pu2(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
  * qpnp_vadc_is_ready() - Clients can use this API to check if the
  *			  device is ready to use.
  * @result:	0 on success and -EPROBE_DEFER when probe for the device
@@ -805,6 +843,16 @@ static inline int32_t qpnp_adc_tdkntcg_therm(int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_therm_pu1(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_therm_pu2(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
 { return -ENXIO; }
 static inline int32_t qpnp_vadc_is_read(void)
 { return -ENXIO; }

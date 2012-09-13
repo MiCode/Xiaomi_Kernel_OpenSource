@@ -299,6 +299,80 @@ static const struct qpnp_vadc_map_pt adcmap_ntcg_104ef_104fb[] = {
 	{419,		128000}
 };
 
+static const struct qpnp_vadc_map_pt adcmap_100k_104ef_104fb[] = {
+	{-40,	1758},
+	{-35,	1742},
+	{-30,	1719},
+	{-25,	1691},
+	{-20,	1654},
+	{-15,	1608},
+	{-10,	1551},
+	{-5,	1483},
+	{0,	1404},
+	{5,	1315},
+	{10,	1218},
+	{15,	1114},
+	{20,	1007},
+	{25,	900},
+	{30,	795},
+	{35,	696},
+	{40,	605},
+	{45,	522},
+	{50,	448},
+	{55,	383},
+	{60,	327},
+	{65,	278},
+	{70,	237},
+	{75,	202},
+	{80,	172},
+	{85,	146},
+	{90,	125},
+	{95,	107},
+	{100,	92},
+	{105,	79},
+	{110,	68},
+	{115,	59},
+	{120,	51},
+	{125,	44}
+};
+
+static const struct qpnp_vadc_map_pt adcmap_150k_104ef_104fb[] = {
+	{-40,	1738},
+	{-35,	1714},
+	{-30,	1682},
+	{-25,	1641},
+	{-20,	1589},
+	{-15,	1526},
+	{-10,	1451},
+	{-5,	1363},
+	{0,	1266},
+	{5,	1159},
+	{10,	1048},
+	{15,	936},
+	{20,	825},
+	{25,	720},
+	{30,	622},
+	{35,	533},
+	{40,	454},
+	{45,	385},
+	{50,	326},
+	{55,	275},
+	{60,	232},
+	{65,	195},
+	{70,	165},
+	{75,	139},
+	{80,	118},
+	{85,	100},
+	{90,	85},
+	{95,	73},
+	{100,	62},
+	{105,	53},
+	{110,	46},
+	{115,	40},
+	{120,	34},
+	{125,	30}
+};
+
 static int32_t qpnp_adc_map_linear(const struct qpnp_vadc_map_pt *pts,
 		uint32_t tablesize, int32_t input, int64_t *output)
 {
@@ -503,6 +577,42 @@ int32_t qpnp_adc_scale_batt_therm(int32_t adc_code,
 			&adc_chan_result->physical);
 }
 EXPORT_SYMBOL_GPL(qpnp_adc_scale_batt_therm);
+
+int32_t qpnp_adc_scale_therm_pu1(int32_t adc_code,
+		const struct qpnp_adc_properties *adc_properties,
+		const struct qpnp_vadc_chan_properties *chan_properties,
+		struct qpnp_vadc_result *adc_chan_result)
+{
+	int64_t therm_voltage = 0;
+
+	therm_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
+			adc_properties, chan_properties);
+
+	qpnp_adc_map_linear(adcmap_150k_104ef_104fb,
+		ARRAY_SIZE(adcmap_150k_104ef_104fb),
+		therm_voltage, &adc_chan_result->physical);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qpnp_adc_scale_therm_pu1);
+
+int32_t qpnp_adc_scale_therm_pu2(int32_t adc_code,
+		const struct qpnp_adc_properties *adc_properties,
+		const struct qpnp_vadc_chan_properties *chan_properties,
+		struct qpnp_vadc_result *adc_chan_result)
+{
+	int64_t therm_voltage = 0;
+
+	therm_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
+			adc_properties, chan_properties);
+
+	qpnp_adc_map_linear(adcmap_100k_104ef_104fb,
+		ARRAY_SIZE(adcmap_100k_104ef_104fb),
+		therm_voltage, &adc_chan_result->physical);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qpnp_adc_scale_therm_pu2);
 
 int32_t qpnp_adc_scale_batt_id(int32_t adc_code,
 		const struct qpnp_adc_properties *adc_properties,
