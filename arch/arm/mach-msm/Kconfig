@@ -2043,6 +2043,15 @@ config MSM_MODEM_SSR_8974
 	 restarts the modem or the 8974 when the modem encounters a fatal error,
 	 depending on the restart level selected in the subsystem restart driver.
 
+config MSM_ADSP_SSR_8974
+	bool "MSM 8974 adsp restart driver"
+	depends on (ARCH_MSM8974)
+	help
+	 This option enables the adsp restart driver for the MSM8974.
+	 It monitors the adsp SMSM status bits and the adsp watchdog line and
+	 restarts the adsp or the 8974 when the adsp encounters a fatal error,
+	 depending on the restart level selected in the subsystem restart driver.
+
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"
 	depends on ARCH_MSM7X30 || (ARCH_QSD8X50 && MSM_SOC_REV_A)
