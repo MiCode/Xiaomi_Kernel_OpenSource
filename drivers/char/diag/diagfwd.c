@@ -50,7 +50,7 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 struct diag_master_table entry;
-smd_channel_t *ch_temp = NULL, *chqdsp_temp = NULL, *ch_wcnss_temp = NULL;
+smd_channel_t *ch_temp = NULL, *chlpass_temp = NULL, *ch_wcnss_temp = NULL;
 int diag_event_num_bytes;
 int diag_event_config;
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
@@ -353,11 +353,11 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			driver->in_busy_2 = 0;
 			queue_work(driver->diag_wq, &(driver->
 							diag_read_smd_work));
-		} else if (proc_num == QDSP_DATA) {
-			driver->in_busy_qdsp_1 = 0;
-			driver->in_busy_qdsp_2 = 0;
+		} else if (proc_num == LPASS_DATA) {
+			driver->in_busy_lpass_1 = 0;
+			driver->in_busy_lpass_2 = 0;
 			queue_work(driver->diag_wq, &(driver->
-						diag_read_smd_qdsp_work));
+						diag_read_smd_lpass_work));
 		}  else if (proc_num == WCNSS_DATA) {
 			driver->in_busy_wcnss_1 = 0;
 			driver->in_busy_wcnss_2 = 0;
@@ -403,7 +403,7 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 					    buf, write_ptr->length, 1);
 #endif /* DIAG DEBUG */
 			err = usb_diag_write(driver->legacy_ch, write_ptr);
-		} else if (proc_num == QDSP_DATA) {
+		} else if (proc_num == LPASS_DATA) {
 			write_ptr->buf = buf;
 			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		} else if (proc_num == WCNSS_DATA) {
@@ -510,24 +510,24 @@ void __diag_smd_wcnss_send_req(void)
 	}
 }
 
-void __diag_smd_qdsp_send_req(void)
+void __diag_smd_lpass_send_req(void)
 {
 	void *buf = NULL;
-	int *in_busy_qdsp_ptr = NULL;
-	struct diag_request *write_ptr_qdsp = NULL;
+	int *in_busy_lpass_ptr = NULL;
+	struct diag_request *write_ptr_lpass = NULL;
 
-	if (!driver->in_busy_qdsp_1) {
-		buf = driver->buf_in_qdsp_1;
-		write_ptr_qdsp = driver->write_ptr_qdsp_1;
-		in_busy_qdsp_ptr = &(driver->in_busy_qdsp_1);
-	} else if (!driver->in_busy_qdsp_2) {
-		buf = driver->buf_in_qdsp_2;
-		write_ptr_qdsp = driver->write_ptr_qdsp_2;
-		in_busy_qdsp_ptr = &(driver->in_busy_qdsp_2);
+	if (!driver->in_busy_lpass_1) {
+		buf = driver->buf_in_lpass_1;
+		write_ptr_lpass = driver->write_ptr_lpass_1;
+		in_busy_lpass_ptr = &(driver->in_busy_lpass_1);
+	} else if (!driver->in_busy_lpass_2) {
+		buf = driver->buf_in_lpass_2;
+		write_ptr_lpass = driver->write_ptr_lpass_2;
+		in_busy_lpass_ptr = &(driver->in_busy_lpass_2);
 	}
 
-	if (driver->chqdsp && buf) {
-		int r = smd_read_avail(driver->chqdsp);
+	if (driver->chlpass && buf) {
+		int r = smd_read_avail(driver->chlpass);
 
 		if (r > IN_BUF_SIZE) {
 			if (r < MAX_IN_BUF_SIZE) {
@@ -542,18 +542,18 @@ void __diag_smd_qdsp_send_req(void)
 		}
 		if (r > 0) {
 			if (!buf)
-				printk(KERN_INFO "Out of diagmem for QDSP\n");
+				printk(KERN_INFO "Out of diagmem for LPASS\n");
 			else {
 				APPEND_DEBUG('i');
-				smd_read(driver->chqdsp, buf, r);
+				smd_read(driver->chlpass, buf, r);
 				APPEND_DEBUG('j');
-				write_ptr_qdsp->length = r;
-				*in_busy_qdsp_ptr = 1;
-				diag_device_write(buf, QDSP_DATA,
-							 write_ptr_qdsp);
+				write_ptr_lpass->length = r;
+				*in_busy_lpass_ptr = 1;
+				diag_device_write(buf, LPASS_DATA,
+							 write_ptr_lpass);
 			}
 		}
-	} else if (driver->chqdsp && !buf &&
+	} else if (driver->chlpass && !buf &&
 		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
 		chk_logging_wakeup();
 	}
@@ -856,9 +856,9 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 						RESET_ID)
 						return;
 				smd_write(driver->ch, buf, len);
-			} else if (entry.client_id == QDSP_PROC &&
-							 driver->chqdsp) {
-				smd_write(driver->chqdsp, buf, len);
+			} else if (entry.client_id == LPASS_PROC &&
+							 driver->chlpass) {
+				smd_write(driver->chlpass, buf, len);
 			} else if (entry.client_id == WCNSS_PROC &&
 							 driver->ch_wcnss) {
 				smd_write(driver->ch_wcnss, buf, len);
@@ -877,12 +877,12 @@ void diag_modem_mask_update_fn(struct work_struct *work)
 	diag_send_event_mask_update(driver->ch_cntl, diag_event_num_bytes);
 }
 
-void diag_qdsp_mask_update_fn(struct work_struct *work)
+void diag_lpass_mask_update_fn(struct work_struct *work)
 {
-	diag_send_msg_mask_update(driver->chqdsp_cntl, ALL_SSID,
-						   ALL_SSID, QDSP_PROC);
-	diag_send_log_mask_update(driver->chqdsp_cntl, ALL_EQUIP_ID);
-	diag_send_event_mask_update(driver->chqdsp_cntl, diag_event_num_bytes);
+	diag_send_msg_mask_update(driver->chlpass_cntl, ALL_SSID,
+						   ALL_SSID, LPASS_PROC);
+	diag_send_log_mask_update(driver->chlpass_cntl, ALL_EQUIP_ID);
+	diag_send_event_mask_update(driver->chlpass_cntl, diag_event_num_bytes);
 }
 
 void diag_wcnss_mask_update_fn(struct work_struct *work)
@@ -1078,8 +1078,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			if (driver->ch_cntl)
 				diag_send_log_mask_update(driver->ch_cntl,
 								 *(int *)buf);
-			if (driver->chqdsp_cntl)
-				diag_send_log_mask_update(driver->chqdsp_cntl,
+			if (driver->chlpass_cntl)
+				diag_send_log_mask_update(driver->chlpass_cntl,
 								 *(int *)buf);
 			if (driver->ch_wcnss_cntl)
 				diag_send_log_mask_update(driver->ch_wcnss_cntl,
@@ -1128,8 +1128,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			if (driver->ch_cntl)
 				diag_send_log_mask_update(driver->ch_cntl,
 								 ALL_EQUIP_ID);
-			if (driver->chqdsp_cntl)
-				diag_send_log_mask_update(driver->chqdsp_cntl,
+			if (driver->chlpass_cntl)
+				diag_send_log_mask_update(driver->chlpass_cntl,
 								 ALL_EQUIP_ID);
 			if (driver->ch_wcnss_cntl)
 				diag_send_log_mask_update(driver->ch_wcnss_cntl,
@@ -1187,9 +1187,9 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			if (driver->ch_cntl)
 				diag_send_msg_mask_update(driver->ch_cntl,
 					 ssid_first, ssid_last, MODEM_PROC);
-			if (driver->chqdsp_cntl)
-				diag_send_msg_mask_update(driver->chqdsp_cntl,
-					 ssid_first, ssid_last, QDSP_PROC);
+			if (driver->chlpass_cntl)
+				diag_send_msg_mask_update(driver->chlpass_cntl,
+					 ssid_first, ssid_last, LPASS_PROC);
 			if (driver->ch_wcnss_cntl)
 				diag_send_msg_mask_update(driver->ch_wcnss_cntl,
 					 ssid_first, ssid_last, WCNSS_PROC);
@@ -1214,9 +1214,9 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			if (driver->ch_cntl)
 				diag_send_msg_mask_update(driver->ch_cntl,
 					 ALL_SSID, ALL_SSID, MODEM_PROC);
-			if (driver->chqdsp_cntl)
-				diag_send_msg_mask_update(driver->chqdsp_cntl,
-					 ALL_SSID, ALL_SSID, QDSP_PROC);
+			if (driver->chlpass_cntl)
+				diag_send_msg_mask_update(driver->chlpass_cntl,
+					 ALL_SSID, ALL_SSID, LPASS_PROC);
 			if (driver->ch_wcnss_cntl)
 				diag_send_msg_mask_update(driver->ch_wcnss_cntl,
 					 ALL_SSID, ALL_SSID, WCNSS_PROC);
@@ -1242,9 +1242,10 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			if (driver->ch_cntl)
 				diag_send_event_mask_update(driver->ch_cntl,
 							 diag_event_num_bytes);
-			if (driver->chqdsp_cntl)
-				diag_send_event_mask_update(driver->chqdsp_cntl,
-							 diag_event_num_bytes);
+			if (driver->chlpass_cntl)
+				diag_send_event_mask_update(
+						driver->chlpass_cntl,
+						diag_event_num_bytes);
 			if (driver->ch_wcnss_cntl)
 				diag_send_event_mask_update(
 				driver->ch_wcnss_cntl, diag_event_num_bytes);
@@ -1265,9 +1266,10 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			if (driver->ch_cntl)
 				diag_send_event_mask_update(driver->ch_cntl,
 							 diag_event_num_bytes);
-			if (driver->chqdsp_cntl)
-				diag_send_event_mask_update(driver->chqdsp_cntl,
-							 diag_event_num_bytes);
+			if (driver->chlpass_cntl)
+				diag_send_event_mask_update(
+						driver->chlpass_cntl,
+						diag_event_num_bytes);
 			if (driver->ch_wcnss_cntl)
 				diag_send_event_mask_update(
 				driver->ch_wcnss_cntl, diag_event_num_bytes);
@@ -1651,8 +1653,8 @@ void diag_process_hdlc(void *data, unsigned len)
 		if (chk_apps_only()) {
 			diag_send_error_rsp(hdlc.dest_idx);
 		} else { /* APQ 8060, Let Q6 respond */
-			if (driver->chqdsp)
-				smd_write(driver->chqdsp, driver->hdlc_buf,
+			if (driver->chlpass)
+				smd_write(driver->chlpass, driver->hdlc_buf,
 						  hdlc.dest_idx - 3);
 		}
 		type = 0;
@@ -1695,18 +1697,18 @@ int diagfwd_connect(void)
 	driver->usb_connected = 1;
 	driver->in_busy_1 = 0;
 	driver->in_busy_2 = 0;
-	driver->in_busy_qdsp_1 = 0;
-	driver->in_busy_qdsp_2 = 0;
+	driver->in_busy_lpass_1 = 0;
+	driver->in_busy_lpass_2 = 0;
 	driver->in_busy_wcnss_1 = 0;
 	driver->in_busy_wcnss_2 = 0;
 
 	/* Poll SMD channels to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
+	queue_work(driver->diag_wq, &(driver->diag_read_smd_lpass_work));
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_work));
 	/* Poll SMD CNTL channels to check for data */
 	diag_smd_cntl_notify(NULL, SMD_EVENT_DATA);
-	diag_smd_qdsp_cntl_notify(NULL, SMD_EVENT_DATA);
+	diag_smd_lpass_cntl_notify(NULL, SMD_EVENT_DATA);
 	diag_smd_wcnss_cntl_notify(NULL, SMD_EVENT_DATA);
 	/* Poll USB channel to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_work));
@@ -1730,8 +1732,8 @@ int diagfwd_disconnect(void)
 	if (driver->logging_mode == USB_MODE) {
 		driver->in_busy_1 = 1;
 		driver->in_busy_2 = 1;
-		driver->in_busy_qdsp_1 = 1;
-		driver->in_busy_qdsp_2 = 1;
+		driver->in_busy_lpass_1 = 1;
+		driver->in_busy_lpass_2 = 1;
 		driver->in_busy_wcnss_1 = 1;
 		driver->in_busy_wcnss_2 = 1;
 	}
@@ -1757,14 +1759,16 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 		driver->in_busy_2 = 0;
 		APPEND_DEBUG('O');
 		queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
-	} else if (buf == (void *)driver->buf_in_qdsp_1) {
-		driver->in_busy_qdsp_1 = 0;
+	} else if (buf == (void *)driver->buf_in_lpass_1) {
+		driver->in_busy_lpass_1 = 0;
 		APPEND_DEBUG('p');
-		queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
-	} else if (buf == (void *)driver->buf_in_qdsp_2) {
-		driver->in_busy_qdsp_2 = 0;
+		queue_work(driver->diag_wq,
+				&(driver->diag_read_smd_lpass_work));
+	} else if (buf == (void *)driver->buf_in_lpass_2) {
+		driver->in_busy_lpass_2 = 0;
 		APPEND_DEBUG('P');
-		queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
+		queue_work(driver->diag_wq,
+				&(driver->diag_read_smd_lpass_work));
 	} else if (buf == driver->buf_in_wcnss_1) {
 		driver->in_busy_wcnss_1 = 0;
 		APPEND_DEBUG('r');
@@ -1890,18 +1894,18 @@ static void diag_smd_notify(void *ctxt, unsigned event)
 }
 
 #if defined(CONFIG_MSM_N_WAY_SMD)
-static void diag_smd_qdsp_notify(void *ctxt, unsigned event)
+static void diag_smd_lpass_notify(void *ctxt, unsigned event)
 {
 	if (event == SMD_EVENT_CLOSE) {
 		queue_work(driver->diag_cntl_wq,
 			 &(driver->diag_clean_lpass_reg_work));
-		driver->chqdsp = 0;
+		driver->chlpass = 0;
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
-		if (chqdsp_temp)
-			driver->chqdsp = chqdsp_temp;
+		if (chlpass_temp)
+			driver->chlpass = chlpass_temp;
 	}
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
+	queue_work(driver->diag_wq, &(driver->diag_read_smd_lpass_work));
 }
 #endif
 
@@ -1929,9 +1933,9 @@ static int diag_smd_probe(struct platform_device *pdev)
 	}
 #if defined(CONFIG_MSM_N_WAY_SMD)
 	if (pdev->id == SMD_APPS_QDSP) {
-		r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP
-			, &driver->chqdsp, driver, diag_smd_qdsp_notify);
-		chqdsp_temp = driver->chqdsp;
+		r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP,
+			&driver->chlpass, driver, diag_smd_lpass_notify);
+		chlpass_temp = driver->chlpass;
 	}
 #endif
 	if (pdev->id == SMD_APPS_WCNSS) {
@@ -2023,17 +2027,17 @@ void diagfwd_init(void)
 			goto err;
 		kmemleak_not_leak(driver->buf_in_2);
 	}
-	if (driver->buf_in_qdsp_1 == NULL) {
-		driver->buf_in_qdsp_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
-		if (driver->buf_in_qdsp_1 == NULL)
+	if (driver->buf_in_lpass_1 == NULL) {
+		driver->buf_in_lpass_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_lpass_1 == NULL)
 			goto err;
-		kmemleak_not_leak(driver->buf_in_qdsp_1);
+		kmemleak_not_leak(driver->buf_in_lpass_1);
 	}
-	if (driver->buf_in_qdsp_2 == NULL) {
-		driver->buf_in_qdsp_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
-		if (driver->buf_in_qdsp_2 == NULL)
+	if (driver->buf_in_lpass_2 == NULL) {
+		driver->buf_in_lpass_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_lpass_2 == NULL)
 			goto err;
-		kmemleak_not_leak(driver->buf_in_qdsp_2);
+		kmemleak_not_leak(driver->buf_in_lpass_2);
 	}
 	if (driver->buf_in_wcnss_1 == NULL) {
 		driver->buf_in_wcnss_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
@@ -2137,19 +2141,19 @@ void diagfwd_init(void)
 			goto err;
 		kmemleak_not_leak(driver->write_ptr_2);
 	}
-	if (driver->write_ptr_qdsp_1 == NULL) {
-		driver->write_ptr_qdsp_1 = kzalloc(
+	if (driver->write_ptr_lpass_1 == NULL) {
+		driver->write_ptr_lpass_1 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->write_ptr_qdsp_1 == NULL)
+		if (driver->write_ptr_lpass_1 == NULL)
 			goto err;
-		kmemleak_not_leak(driver->write_ptr_qdsp_1);
+		kmemleak_not_leak(driver->write_ptr_lpass_1);
 	}
-	if (driver->write_ptr_qdsp_2 == NULL) {
-		driver->write_ptr_qdsp_2 = kzalloc(
+	if (driver->write_ptr_lpass_2 == NULL) {
+		driver->write_ptr_lpass_2 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->write_ptr_qdsp_2 == NULL)
+		if (driver->write_ptr_lpass_2 == NULL)
 			goto err;
-		kmemleak_not_leak(driver->write_ptr_qdsp_2);
+		kmemleak_not_leak(driver->write_ptr_lpass_2);
 	}
 	if (driver->write_ptr_wcnss_1 == NULL) {
 		driver->write_ptr_wcnss_1 = kzalloc(
@@ -2190,8 +2194,8 @@ void diagfwd_init(void)
 	INIT_WORK(&(driver->diag_read_work), diag_read_work_fn);
 	INIT_WORK(&(driver->diag_modem_mask_update_work),
 						 diag_modem_mask_update_fn);
-	INIT_WORK(&(driver->diag_qdsp_mask_update_work),
-						 diag_qdsp_mask_update_fn);
+	INIT_WORK(&(driver->diag_lpass_mask_update_work),
+						 diag_lpass_mask_update_fn);
 	INIT_WORK(&(driver->diag_wcnss_mask_update_work),
 						 diag_wcnss_mask_update_fn);
 	driver->legacy_ch = usb_diag_open(DIAG_LEGACY, driver,
@@ -2212,8 +2216,8 @@ err:
 		kfree(driver->msg_mask);
 		kfree(driver->buf_in_1);
 		kfree(driver->buf_in_2);
-		kfree(driver->buf_in_qdsp_1);
-		kfree(driver->buf_in_qdsp_2);
+		kfree(driver->buf_in_lpass_1);
+		kfree(driver->buf_in_lpass_2);
 		kfree(driver->buf_in_wcnss_1);
 		kfree(driver->buf_in_wcnss_2);
 		kfree(driver->buf_msg_mask_update);
@@ -2231,8 +2235,8 @@ err:
 		kfree(driver->pkt_buf);
 		kfree(driver->write_ptr_1);
 		kfree(driver->write_ptr_2);
-		kfree(driver->write_ptr_qdsp_1);
-		kfree(driver->write_ptr_qdsp_2);
+		kfree(driver->write_ptr_lpass_1);
+		kfree(driver->write_ptr_lpass_2);
 		kfree(driver->write_ptr_wcnss_1);
 		kfree(driver->write_ptr_wcnss_2);
 		kfree(driver->usb_read_ptr);
@@ -2245,10 +2249,10 @@ err:
 void diagfwd_exit(void)
 {
 	smd_close(driver->ch);
-	smd_close(driver->chqdsp);
+	smd_close(driver->chlpass);
 	smd_close(driver->ch_wcnss);
 	driver->ch = 0;		/* SMD can make this NULL */
-	driver->chqdsp = 0;
+	driver->chlpass = 0;
 	driver->ch_wcnss = 0;
 #ifdef CONFIG_DIAG_OVER_USB
 	if (driver->usb_connected)
@@ -2263,8 +2267,8 @@ void diagfwd_exit(void)
 	kfree(driver->msg_mask);
 	kfree(driver->buf_in_1);
 	kfree(driver->buf_in_2);
-	kfree(driver->buf_in_qdsp_1);
-	kfree(driver->buf_in_qdsp_2);
+	kfree(driver->buf_in_lpass_1);
+	kfree(driver->buf_in_lpass_2);
 	kfree(driver->buf_in_wcnss_1);
 	kfree(driver->buf_in_wcnss_2);
 	kfree(driver->buf_msg_mask_update);
@@ -2282,8 +2286,8 @@ void diagfwd_exit(void)
 	kfree(driver->pkt_buf);
 	kfree(driver->write_ptr_1);
 	kfree(driver->write_ptr_2);
-	kfree(driver->write_ptr_qdsp_1);
-	kfree(driver->write_ptr_qdsp_2);
+	kfree(driver->write_ptr_lpass_1);
+	kfree(driver->write_ptr_lpass_2);
 	kfree(driver->write_ptr_wcnss_1);
 	kfree(driver->write_ptr_wcnss_2);
 	kfree(driver->usb_read_ptr);

@@ -80,10 +80,10 @@ struct diag_ctrl_msg_mask {
 void diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
 void diag_read_smd_cntl_work_fn(struct work_struct *);
-void diag_read_smd_qdsp_cntl_work_fn(struct work_struct *);
+void diag_read_smd_lpass_cntl_work_fn(struct work_struct *);
 void diag_read_smd_wcnss_cntl_work_fn(struct work_struct *);
 void diag_smd_cntl_notify(void *ctxt, unsigned event);
-void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event);
+void diag_smd_lpass_cntl_notify(void *ctxt, unsigned event);
 void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event);
 void diag_clean_modem_reg_fn(struct work_struct *);
 void diag_clean_lpass_reg_fn(struct work_struct *);
