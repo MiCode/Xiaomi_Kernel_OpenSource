@@ -21,7 +21,7 @@
 #include <linux/platform_device.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
-#include "msm_jpeg_core.h"
+#include "msm_jpeg_hw.h"
 
 #define JPEG_7X 0x1
 #define JPEG_8X60 (0x1 << 1)
@@ -88,6 +88,17 @@ struct msm_jpeg_device {
 	struct iommu_domain *domain;
 	struct device *iommu_ctx_arr[3];
 	int iommu_cnt;
+	int decode_flag;
+	struct ion_client *jpeg_client;
+	void *jpeg_vbif;
+	int release_buf;
+	struct msm_jpeg_hw_pingpong fe_pingpong_buf;
+	struct msm_jpeg_hw_pingpong we_pingpong_buf;
+	int we_pingpong_index;
+	int reset_done_ack;
+	spinlock_t reset_lock;
+	wait_queue_head_t reset_wait;
+	uint32_t res_size;
 };
 
 int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev);

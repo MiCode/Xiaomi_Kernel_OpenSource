@@ -26,36 +26,32 @@
 #include "msm_jpeg_common.h"
 #include "msm_jpeg_hw.h"
 
-/* AXI rate in KHz */
-struct ion_client *jpeg_client;
-static void *jpeg_vbif;
-
-void msm_jpeg_platform_p2v(struct file  *file,
-				struct ion_handle **ionhandle, int domain_num)
+void msm_jpeg_platform_p2v(struct msm_jpeg_device *pgmn_dev, struct file  *file,
+	struct ion_handle **ionhandle, int domain_num)
 {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_unmap_iommu(jpeg_client, *ionhandle, domain_num, 0);
-	ion_free(jpeg_client, *ionhandle);
+	ion_unmap_iommu(pgmn_dev->jpeg_client, *ionhandle, domain_num, 0);
+	ion_free(pgmn_dev->jpeg_client, *ionhandle);
 	*ionhandle = NULL;
 #elif CONFIG_ANDROID_PMEM
 	put_pmem_file(file);
 #endif
 }
 
-uint32_t msm_jpeg_platform_v2p(int fd, uint32_t len, struct file **file_p,
-				struct ion_handle **ionhandle, int domain_num)
-{
+uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
+	uint32_t len, struct file **file_p, struct ion_handle **ionhandle,
+	int domain_num) {
 	unsigned long paddr;
 	unsigned long size;
 	int rc;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	*ionhandle = ion_import_dma_buf(jpeg_client, fd);
+	*ionhandle = ion_import_dma_buf(pgmn_dev->jpeg_client, fd);
 	if (IS_ERR_OR_NULL(*ionhandle))
 		return 0;
 
-	rc = ion_map_iommu(jpeg_client, *ionhandle, domain_num, 0,
-			 SZ_4K, 0, &paddr, (unsigned long *)&size, UNCACHED, 0);
-	JPEG_DBG("%s:%d] addr 0x%x size %ld", __func__, __LINE__,
+	rc = ion_map_iommu(pgmn_dev->jpeg_client, *ionhandle, domain_num, 0,
+		SZ_4K, 0, &paddr, (unsigned long *)&size, UNCACHED,
+0); JPEG_DBG("%s:%d] addr 0x%x size %ld", __func__, __LINE__,
 							(uint32_t)paddr, size);
 
 #elif CONFIG_ANDROID_PMEM
@@ -81,7 +77,7 @@ uint32_t msm_jpeg_platform_v2p(int fd, uint32_t len, struct file **file_p,
 	return paddr;
 error1:
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_free(jpeg_client, *ionhandle);
+	ion_free(pgmn_dev->jpeg_client, *ionhandle);
 #endif
 	return 0;
 }
@@ -149,10 +145,10 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	}
 	jpeg_irq = jpeg_irq_res->start;
 	JPEG_DBG("%s base address: 0x%x, jpeg irq number: %d\n", __func__,
-						jpeg_mem->start, jpeg_irq);
+		jpeg_mem->start, jpeg_irq);
 
 	jpeg_io = request_mem_region(jpeg_mem->start,
-					resource_size(jpeg_mem), pdev->name);
+		resource_size(jpeg_mem), pdev->name);
 	if (!jpeg_io) {
 		JPEG_PR_ERR("%s: region already claimed\n", __func__);
 		return -EBUSY;
@@ -165,14 +161,14 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 		goto fail1;
 	}
 
-	jpeg_vbif = ioremap(VBIF_BASE_ADDRESS, VBIF_REGION_SIZE);
-	if (!jpeg_vbif) {
+	pgmn_dev->jpeg_vbif = ioremap(VBIF_BASE_ADDRESS, VBIF_REGION_SIZE);
+	if (!pgmn_dev->jpeg_vbif) {
 		rc = -ENOMEM;
 		JPEG_PR_ERR("%s:%d] ioremap failed\n", __func__, __LINE__);
 		goto fail1;
 	}
 	JPEG_DBG("%s:%d] jpeg_vbif 0x%x", __func__, __LINE__,
-						(uint32_t)jpeg_vbif);
+		(uint32_t)pgmn_dev->jpeg_vbif);
 
 	pgmn_dev->jpeg_fs = regulator_get(&pgmn_dev->pdev->dev, "vdd");
 	rc = regulator_enable(pgmn_dev->jpeg_fs);
@@ -202,9 +198,8 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 					(uint32_t)pgmn_dev->iommu_ctx_arr[i]);
 	}
 #endif
-	set_vbif_params(jpeg_vbif);
+	set_vbif_params(pgmn_dev->jpeg_vbif);
 
-	msm_jpeg_hw_init(jpeg_base, resource_size(jpeg_mem));
 	rc = request_irq(jpeg_irq, handler, IRQF_TRIGGER_RISING, "jpeg",
 		context);
 	if (rc) {
@@ -218,7 +213,7 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	*irq  = jpeg_irq;
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	jpeg_client = msm_ion_client_create(-1, "camera/jpeg");
+	pgmn_dev->jpeg_client = msm_ion_client_create(-1, "camera/jpeg");
 #endif
 	JPEG_DBG("%s:%d] success\n", __func__, __LINE__);
 
@@ -276,11 +271,11 @@ int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
 		regulator_disable(pgmn_dev->jpeg_fs);
 		pgmn_dev->jpeg_fs = NULL;
 	}
-	iounmap(jpeg_vbif);
+	iounmap(pgmn_dev->jpeg_vbif);
 	iounmap(base);
 	release_mem_region(mem->start, resource_size(mem));
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_client_destroy(jpeg_client);
+	ion_client_destroy(pgmn_dev->jpeg_client);
 #endif
 	JPEG_DBG("%s:%d] success\n", __func__, __LINE__);
 	return result;

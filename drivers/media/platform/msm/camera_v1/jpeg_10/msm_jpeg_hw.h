@@ -28,6 +28,8 @@ struct msm_jpeg_hw_buf {
 	uint32_t cbcr_len;
 	uint32_t num_of_mcu_rows;
 	struct ion_handle *handle;
+	uint32_t pln2_addr;
+	uint32_t pln2_offset;
 };
 
 struct msm_jpeg_hw_pingpong {
@@ -38,14 +40,14 @@ struct msm_jpeg_hw_pingpong {
 };
 
 int msm_jpeg_hw_pingpong_update(struct msm_jpeg_hw_pingpong *pingpong_hw,
-	struct msm_jpeg_hw_buf *buf);
+	struct msm_jpeg_hw_buf *buf, void *);
 void *msm_jpeg_hw_pingpong_irq(struct msm_jpeg_hw_pingpong *pingpong_hw);
 void *msm_jpeg_hw_pingpong_active_buffer(struct msm_jpeg_hw_pingpong
 	*pingpong_hw);
 
-void msm_jpeg_hw_irq_clear(uint32_t, uint32_t);
-int msm_jpeg_hw_irq_get_status(void);
-long msm_jpeg_hw_encode_output_size(void);
+void msm_jpeg_hw_irq_clear(uint32_t, uint32_t, void *);
+int msm_jpeg_hw_irq_get_status(void *);
+long msm_jpeg_hw_encode_output_size(void *);
 #define MSM_JPEG_HW_MASK_COMP_FRAMEDONE \
 		MSM_JPEG_HW_IRQ_STATUS_FRAMEDONE_MASK
 #define MSM_JPEG_HW_MASK_COMP_FE \
@@ -56,13 +58,14 @@ long msm_jpeg_hw_encode_output_size(void);
 #define MSM_JPEG_HW_MASK_COMP_RESET_ACK \
 		MSM_JPEG_HW_IRQ_STATUS_RESET_ACK_MASK
 #define MSM_JPEG_HW_MASK_COMP_ERR \
-		(MSM_JPEG_HW_IRQ_STATUS_FE_RTOVF_MASK | \
-		MSM_JPEG_HW_IRQ_STATUS_FE_VFE_OVERFLOW_MASK | \
-		MSM_JPEG_HW_IRQ_STATUS_WE_Y_BUFFER_OVERFLOW_MASK | \
-		MSM_JPEG_HW_IRQ_STATUS_WE_CBCR_BUFFER_OVERFLOW_MASK | \
-		MSM_JPEG_HW_IRQ_STATUS_WE_CH0_DATAFIFO_OVERFLOW_MASK | \
-		MSM_JPEG_HW_IRQ_STATUS_WE_CH1_DATAFIFO_OVERFLOW_MASK | \
-		MSM_JPEG_HW_IRQ_STATUS_BUS_ERROR_MASK | \
+		(MSM_JPEG_HW_IRQ_STATUS_DCD_UNESCAPED_FF | \
+		MSM_JPEG_HW_IRQ_STATUS_DCD_HUFFMAN_ERROR | \
+		MSM_JPEG_HW_IRQ_STATUS_DCD_COEFFICIENT_ERR | \
+		MSM_JPEG_HW_IRQ_STATUS_DCD_MISSING_BIT_STUFF | \
+		MSM_JPEG_HW_IRQ_STATUS_DCD_SCAN_UNDERFLOW | \
+		MSM_JPEG_HW_IRQ_STATUS_DCD_INVALID_RSM | \
+		MSM_JPEG_HW_IRQ_STATUS_DCD_INVALID_RSM_SEQ | \
+		MSM_JPEG_HW_IRQ_STATUS_DCD_MISSING_RSM | \
 		MSM_JPEG_HW_IRQ_STATUS_VIOLATION_MASK)
 
 #define msm_jpeg_hw_irq_is_frame_done(jpeg_irq_status) \
@@ -77,25 +80,26 @@ long msm_jpeg_hw_encode_output_size(void);
 	(jpeg_irq_status & MSM_JPEG_HW_MASK_COMP_ERR)
 
 void msm_jpeg_hw_fe_buffer_update(struct msm_jpeg_hw_buf *p_input,
-	uint8_t pingpong_index);
+	uint8_t pingpong_index, void *);
 void msm_jpeg_hw_we_buffer_update(struct msm_jpeg_hw_buf *p_input,
-	uint8_t pingpong_index);
+	uint8_t pingpong_index, void *);
 
 void msm_jpeg_hw_we_buffer_cfg(uint8_t is_realtime);
 
-void msm_jpeg_hw_fe_start(void);
+void msm_jpeg_hw_fe_start(void *);
 void msm_jpeg_hw_clk_cfg(void);
 
 void msm_jpeg_hw_reset(void *base, int size);
 void msm_jpeg_hw_irq_cfg(void);
-void msm_jpeg_hw_init(void *base, int size);
 
-uint32_t msm_jpeg_hw_read(struct msm_jpeg_hw_cmd *hw_cmd_p);
-void msm_jpeg_hw_write(struct msm_jpeg_hw_cmd *hw_cmd_p);
-int msm_jpeg_hw_wait(struct msm_jpeg_hw_cmd *hw_cmd_p, int m_us);
-void msm_jpeg_hw_delay(struct msm_jpeg_hw_cmd *hw_cmd_p, int m_us);
-int msm_jpeg_hw_exec_cmds(struct msm_jpeg_hw_cmd *hw_cmd_p, int m_cmds);
+uint32_t msm_jpeg_hw_read(struct msm_jpeg_hw_cmd *, void *);
+void msm_jpeg_hw_write(struct msm_jpeg_hw_cmd *, void *);
+int msm_jpeg_hw_wait(struct msm_jpeg_hw_cmd *, int, void *);
+void msm_jpeg_hw_delay(struct msm_jpeg_hw_cmd *, int);
+int msm_jpeg_hw_exec_cmds(struct msm_jpeg_hw_cmd *, int ,
+	uint32_t , void *);
 void msm_jpeg_hw_region_dump(int size);
-void msm_jpeg_io_dump(int size);
+void msm_jpeg_io_dump(void *base, int size);
+void msm_jpeg_decode_status(void *base);
 
 #endif /* MSM_JPEG_HW_H */
