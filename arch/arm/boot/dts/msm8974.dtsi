@@ -883,6 +883,15 @@
 
 	qcom,qseecom@fe806000 {
 		compatible = "qcom,qseecom";
+		qcom,msm_bus,name = "qseecom-noc";
+		qcom,msm_bus,num_cases = <4>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+				<55 512 0 0>,
+				<55 512 3936000000 393600000>,
+				<55 512 3936000000 393600000>,
+				<55 512 3936000000 393600000>;
 	};
 
 	qcom,wdt@f9017000 {
