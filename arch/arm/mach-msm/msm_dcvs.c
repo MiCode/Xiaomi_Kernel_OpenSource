@@ -146,6 +146,29 @@ static void force_stop_slack_timer(struct dcvs_core *core)
 	spin_unlock_irqrestore(&core->idle_state_change_lock, flags);
 }
 
+static void force_start_slack_timer(struct dcvs_core *core, int slack_us)
+{
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&core->idle_state_change_lock, flags);
+
+	/*
+	 * only start the timer if governor is not stopped
+	 */
+	if (slack_us != 0) {
+		ret = hrtimer_start(&core->slack_timer,
+				ktime_set(0, slack_us * 1000),
+				HRTIMER_MODE_REL_PINNED);
+		if (ret) {
+			pr_err("%s Failed to start timer ret = %d\n",
+					core->core_name, ret);
+		}
+	}
+
+	spin_unlock_irqrestore(&core->idle_state_change_lock, flags);
+}
+
 static void stop_slack_timer(struct dcvs_core *core)
 {
 	unsigned long flags;
@@ -825,6 +848,8 @@ int msm_dcvs_freq_sink_start(int dcvs_core_id)
 	struct dcvs_core *core = NULL;
 	uint32_t ret1;
 	unsigned long flags;
+	int new_freq;
+	int timer_interval_us;
 
 	if (dcvs_core_id < CPU_OFFSET || dcvs_core_id > CORES_MAX) {
 		__err("%s invalid dcvs_core_id = %d returning -EINVAL\n",
@@ -849,6 +874,21 @@ int msm_dcvs_freq_sink_start(int dcvs_core_id)
 
 	/* Notify TZ to start receiving idle info for the core */
 	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1, &ret1);
+
+	ret = msm_dcvs_scm_event(
+		core->dcvs_core_id, MSM_DCVS_SCM_CORE_ONLINE, core->actual_freq,
+		0, &new_freq, &timer_interval_us);
+	if (ret)
+		__err("Error (%d) DCVS sending online for %s\n",
+				ret, core->core_name);
+
+	if (new_freq != 0) {
+		spin_lock_irqsave(&core->pending_freq_lock, flags);
+		request_freq_change(core, new_freq);
+		spin_unlock_irqrestore(&core->pending_freq_lock, flags);
+	}
+	force_start_slack_timer(core, timer_interval_us);
+
 
 	core->idle_enable(core->type_core_num, MSM_DCVS_ENABLE_IDLE_PULSE);
 	return 0;
