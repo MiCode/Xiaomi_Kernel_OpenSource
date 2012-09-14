@@ -11,6 +11,8 @@
  */
 
 /include/ "skeleton.dtsi"
+/include/ "mpq8092-iommu.dtsi"
+/include/ "msm-gdsc.dtsi"
 
 / {
 	model = "Qualcomm MPQ8092";
