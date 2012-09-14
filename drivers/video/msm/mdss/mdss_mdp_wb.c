@@ -388,7 +388,7 @@ static int mdss_mdp_wb_dequeue(struct msm_fb_data_type *mfd,
 		ret = -ENOBUFS;
 	}
 	mutex_unlock(&wb->lock);
-	return 0;
+	return ret;
 }
 
 static void mdss_mdp_wb_callback(void *arg)
