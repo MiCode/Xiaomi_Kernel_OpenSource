@@ -71,6 +71,13 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 
 		write_ptrs_available--;
 
+		/*
+		 * No sense queuing a read if the hsic bridge was
+		 * closed in another thread
+		 */
+		if (!driver->hsic_ch)
+			break;
+
 		buf_in_hsic = diagmem_alloc(driver, READ_HSIC_BUF_SIZE,
 							POOL_TYPE_HSIC);
 		if (buf_in_hsic) {
@@ -107,7 +114,8 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	 * (-ENODEV is an unrecoverable error), then set up the next read
 	 */
 	if ((driver->count_hsic_pool < driver->poolsize_hsic) &&
-		(num_reads_submitted == 0) && (err != -ENODEV))
+		(num_reads_submitted == 0) && (err != -ENODEV) &&
+		(driver->hsic_ch != 0))
 		queue_work(driver->diag_bridge_wq,
 				 &driver->diag_read_hsic_work);
 }
@@ -146,7 +154,7 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 			/* If an error, return buffer to the pool */
 			if (err) {
 				diagmem_free(driver, buf, POOL_TYPE_HSIC);
-				pr_err("diag: In %s, error calling diag_device_write, err: %d\n",
+				pr_err_ratelimited("diag: In %s, error calling diag_device_write, err: %d\n",
 					__func__, err);
 			}
 		}
