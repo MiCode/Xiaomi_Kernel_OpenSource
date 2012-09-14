@@ -723,7 +723,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 			/* Make sure PLL4 is off before reprogramming */
 			if ((plls_enabled & (1 << tgt_s->pll))) {
 				clk_disable(pll_clk[tgt_s->pll].clk);
-				plls_enabled &= (0 << tgt_s->pll);
+				plls_enabled &= ~(1 << tgt_s->pll);
 			}
 			acpuclk_config_pll4(tgt_s->pll_rate);
 			pll_clk[tgt_s->pll].clk->rate = tgt_s->a11clk_khz*1000;
