@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1205,45 +1205,33 @@ static void hdmi_edid_extract_latency_fields(const uint8 *in_buf)
 static void hdmi_edid_extract_speaker_allocation_data(const uint8 *in_buf)
 {
 	uint8 len;
-	const uint8 *sad = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 4,
+	const uint8 *sadb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 4,
 			&len);
 
-	if (sad == NULL)
+	if (sadb == NULL)
 		return;
 
-	external_common_state->speaker_allocation_block = sad[1];
-	DEV_DBG("EDID: speaker allocation data SP byte = %08x %s%s%s%s%s%s%s\n",
-		sad[1],
-		(sad[1] & BIT(0)) ? "FL/FR," : "",
-		(sad[1] & BIT(1)) ? "LFE," : "",
-		(sad[1] & BIT(2)) ? "FC," : "",
-		(sad[1] & BIT(3)) ? "RL/RR," : "",
-		(sad[1] & BIT(4)) ? "RC," : "",
-		(sad[1] & BIT(5)) ? "FLC/FRC," : "",
-		(sad[1] & BIT(6)) ? "RLC/RRC," : "");
+	if (len != MAX_SPKR_ALLOC_DATA_BLOCK_SIZE)
+		return;
+
+	memcpy(external_common_state->spkr_alloc_data_block, sadb + 1, len);
+	external_common_state->sadb_size = len;
 }
 
 static void hdmi_edid_extract_audio_data_blocks(const uint8 *in_buf)
 {
 	uint8 len;
-	const uint8 *sad = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 1,
+	const uint8 *adb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 1,
 			&len);
-	uint32 *adb = external_common_state->audio_data_blocks;
 
-	if (sad == NULL)
+	if (external_common_state->audio_data_block == NULL)
 		return;
 
-	external_common_state->audio_data_block_cnt = 0;
-	while (len >= 3 && external_common_state->audio_data_block_cnt < 16) {
-		DEV_DBG("EDID: Audio Data Block=<ch=%d, format=%d "
-			"sampling=0x%02x bit-depth=0x%02x>\n",
-			(sad[1] & 0x7)+1, sad[1] >> 3, sad[2], sad[3]);
-		*adb++ = (uint32)sad[1] + ((uint32)sad[2] << 8)
-			+ ((uint32)sad[2] << 16);
-		++external_common_state->audio_data_block_cnt;
-		len -= 3;
-		sad += 3;
-	}
+	if (len > MAX_AUDIO_DATA_BLOCK_SIZE)
+		return;
+
+	memcpy(external_common_state->audio_data_block, adb + 1, len);
+	external_common_state->adb_size = len;
 }
 
 static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
@@ -1874,6 +1862,12 @@ int hdmi_common_read_edid(void)
 		sizeof(external_common_state->disp_mode_list));
 	memset(edid_buf, 0, sizeof(edid_buf));
 	external_common_state->default_res_supported = false;
+	memset(external_common_state->audio_data_block, 0,
+		sizeof(external_common_state->audio_data_block));
+	memset(external_common_state->spkr_alloc_data_block, 0,
+		sizeof(external_common_state->spkr_alloc_data_block));
+	external_common_state->adb_size = 0;
+	external_common_state->sadb_size = 0;
 
 	status = hdmi_common_read_edid_block(0, edid_buf);
 	if (status || !check_edid_header(edid_buf)) {
