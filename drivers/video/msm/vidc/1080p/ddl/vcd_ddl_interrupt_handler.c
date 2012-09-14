@@ -1258,6 +1258,8 @@ static u32 ddl_decoder_output_done_callback(
 				output_vcd_frm->flags |=
 					VCD_FRAME_FLAG_DATACORRUPT;
 		}
+		if (decoder->codec.codec != VCD_CODEC_H264)
+			output_vcd_frm->flags &= ~VCD_FRAME_FLAG_DATACORRUPT;
 		output_vcd_frm->ip_frm_tag = dec_disp_info->tag_top;
 		vidc_sm_get_picture_times(&ddl->shared_mem
 			[ddl->command_channel],
