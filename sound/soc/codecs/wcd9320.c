@@ -685,7 +685,7 @@ static int taiko_config_gain_compander(
 				u32 compander, u32 enable, int event)
 {
 	int value = 0;
-	int mask = 1 << 4;
+	int mask = 1 << 5;
 	int gain = 0;
 	int gain_offset;
 	if (compander >= COMPANDER_MAX) {
@@ -828,19 +828,23 @@ static int taiko_config_compander(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* Halt the compander*/
-		snd_soc_update_bits(codec, TAIKO_A_CDC_COMP1_B1_CTL +
-			w->shift * 8, 1 << 2, 1 << 2);
+		if (taiko->comp_enabled[w->shift] != 0) {
+			snd_soc_update_bits(codec, TAIKO_A_CDC_COMP1_B1_CTL +
+				w->shift * 8, 1 << 2, 1 << 2);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Restore the gain */
-		taiko_config_gain_compander(codec, w->shift,
-				taiko->comp_enabled[w->shift], event);
-		/* Disable the compander*/
-		snd_soc_update_bits(codec, TAIKO_A_CDC_COMP1_B1_CTL +
-			w->shift * 8, 0x03, 0x00);
-		/* Turn off the clock for compander in pair*/
-		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_RX_B2_CTL,
-			0x03 << comp_shift[w->shift], 0);
+		if (taiko->comp_enabled[w->shift] != 0) {
+			taiko_config_gain_compander(codec, w->shift,
+					taiko->comp_enabled[w->shift], event);
+			/* Disable the compander*/
+			snd_soc_update_bits(codec, TAIKO_A_CDC_COMP1_B1_CTL +
+					w->shift * 8, 0x03, 0x00);
+			/* Turn off the clock for compander in pair*/
+			snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_RX_B2_CTL,
+				0x03 << comp_shift[w->shift], 0);
+		}
 		break;
 	}
 	return 0;
@@ -1716,7 +1720,7 @@ static void taiko_codec_enable_bandgap(struct snd_soc_codec *codec,
 		usleep_range(100, 100);
 		taiko_codec_enable_audio_mode_bandgap(codec);
 	} else if (choice == TAIKO_BANDGAP_OFF) {
-		snd_soc_write(codec, TAIKO_A_BIAS_CENTRAL_BG_CTL, 0x00);
+		snd_soc_write(codec, TAIKO_A_BIAS_CENTRAL_BG_CTL, 0x50);
 	} else {
 		pr_err("%s: Error, Invalid bandgap settings\n", __func__);
 	}
@@ -1730,7 +1734,7 @@ static void taiko_codec_disable_clock_block(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, TAIKO_A_CLK_BUFF_EN2, 0x04, 0x00);
 	usleep_range(50, 50);
 	snd_soc_update_bits(codec, TAIKO_A_CLK_BUFF_EN2, 0x02, 0x02);
-	snd_soc_update_bits(codec, TAIKO_A_CLK_BUFF_EN1, 0x05, 0x00);
+	snd_soc_update_bits(codec, TAIKO_A_CLK_BUFF_EN1, 0x01, 0x00);
 	usleep_range(50, 50);
 	taiko->clock_active = false;
 }
@@ -1815,10 +1819,9 @@ static int taiko_codec_enable_clock_block(struct snd_soc_codec *codec,
 		/* switch to MCLK */
 		snd_soc_update_bits(codec, TAIKO_A_CLK_BUFF_EN1, 0x08, 0x00);
 
-		if (taiko->mbhc_polling_active) {
+		if (taiko->mbhc_polling_active)
 			snd_soc_write(codec, TAIKO_A_CLK_BUFF_EN2, 0x02);
-			taiko_codec_enable_config_mode(codec, 0);
-		}
+		taiko_codec_enable_config_mode(codec, 0);
 	}
 
 	snd_soc_update_bits(codec, TAIKO_A_CLK_BUFF_EN1, 0x01, 0x01);
@@ -2658,7 +2661,7 @@ out:
 	return ret;
 }
 
-static int taiko_codec_reset_interpolator(struct snd_soc_dapm_widget *w,
+static int taiko_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
@@ -4295,25 +4298,25 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MIXER_E("RX1 MIX2", TAIKO_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
-		0, taiko_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
+		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX2 MIX2", TAIKO_A_CDC_CLK_RX_B1_CTL, 1, 0, NULL,
-		0, taiko_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
+		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX7 MIX2", TAIKO_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
-		0, taiko_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
+		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX4 MIX1", TAIKO_A_CDC_CLK_RX_B1_CTL, 3, 0, NULL,
-		0, taiko_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
+		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX5 MIX1", TAIKO_A_CDC_CLK_RX_B1_CTL, 4, 0, NULL,
-		0, taiko_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
+		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX6 MIX1", TAIKO_A_CDC_CLK_RX_B1_CTL, 5, 0, NULL,
-		0, taiko_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
+		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX7 MIX1", TAIKO_A_CDC_CLK_RX_B1_CTL, 6, 0, NULL,
-		0, taiko_codec_reset_interpolator, SND_SOC_DAPM_PRE_PMU |
+		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -4321,11 +4324,11 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX3 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	SND_SOC_DAPM_MUX_E("RX4 DSM MUX", TAIKO_A_CDC_CLK_RX_B1_CTL, 3, 0,
-		&rx4_dsm_mux, taiko_codec_reset_interpolator,
+		&rx4_dsm_mux, taiko_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU),
 
 	SND_SOC_DAPM_MUX_E("RX6 DSM MUX", TAIKO_A_CDC_CLK_RX_B1_CTL, 5, 0,
-		&rx6_dsm_mux, taiko_codec_reset_interpolator,
+		&rx6_dsm_mux, taiko_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU),
 
 	SND_SOC_DAPM_MIXER("RX1 CHAIN", TAIKO_A_CDC_RX1_B6_CTL, 5, 0, NULL, 0),
@@ -4381,10 +4384,10 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("CLASS_H_EAR", TAIKO_A_CDC_CLSH_B1_CTL, 4, 0,
 		taiko_codec_enable_class_h, SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_SUPPLY("CLASS_H_HPH_R", TAIKO_A_CDC_CLSH_B1_CTL, 3, 0,
+	SND_SOC_DAPM_SUPPLY("CLASS_H_HPH_L", TAIKO_A_CDC_CLSH_B1_CTL, 3, 0,
 		taiko_codec_enable_class_h, SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_SUPPLY("CLASS_H_HPH_L", TAIKO_A_CDC_CLSH_B1_CTL, 2, 0,
+	SND_SOC_DAPM_SUPPLY("CLASS_H_HPH_R", TAIKO_A_CDC_CLSH_B1_CTL, 2, 0,
 		taiko_codec_enable_class_h, SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_SUPPLY("CP", TAIKO_A_NCP_EN, 0, 0,
@@ -7088,7 +7091,7 @@ done:
 	return rc;
 }
 
-static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
+static const struct taiko_reg_mask_val taiko_reg_defaults[] = {
 
 	/* set MCLk to 9.6 */
 	TAIKO_REG_VAL(TAIKO_A_CHIP_CTL, 0x0A),
@@ -7096,14 +7099,10 @@ static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
 
 	/* EAR PA deafults  */
 	TAIKO_REG_VAL(TAIKO_A_RX_EAR_CMBUFF, 0x05),
-	/* HPH PA */
-	TAIKO_REG_VAL(TAIKO_A_RX_HPH_BIAS_PA, 0x7A),
 
 	/** BUCK and NCP defaults for EAR and HS */
 	TAIKO_REG_VAL(TAIKO_A_BUCK_CTRL_CCL_4, 0x50),
-	TAIKO_REG_VAL(TAIKO_A_BUCK_CTRL_VCL_1, 0x08),
 	TAIKO_REG_VAL(TAIKO_A_BUCK_CTRL_CCL_1, 0x5B),
-	TAIKO_REG_VAL(TAIKO_A_NCP_CLK, 0xFC),
 
 	/* CLASS-H defaults for EAR and HS */
 	TAIKO_REG_VAL(TAIKO_A_CDC_CLSH_BUCK_NCP_VARS, 0x00),
@@ -7119,7 +7118,6 @@ static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
 	 * set HPHL and EAR PA ref gain to 0 DB.
 	 */
 	TAIKO_REG_VAL(TAIKO_A_CDC_CLSH_B1_CTL, 0x26),
-
 
 	/* RX deafults */
 	TAIKO_REG_VAL(TAIKO_A_CDC_RX1_B5_CTL, 0x78),
@@ -7142,20 +7140,50 @@ static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
 	TAIKO_REG_VAL(TAIKO_A_CDC_RX7_B6_CTL, 0x80),
 };
 
+static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
+	/*
+	 * The following only need to be written for Taiko 1.0 parts.
+	 * Taiko 2.0 will have appropriate defaults for these registers.
+	 */
+	/* Choose max non-overlap time for NCP */
+	TAIKO_REG_VAL(TAIKO_A_NCP_CLK, 0xFC),
+	/* Use 25mV/50mV for deltap/m to reduce ripple */
+	TAIKO_REG_VAL(TAIKO_A_BUCK_CTRL_VCL_1, 0x08),
+	/*
+	 * Set DISABLE_MODE_SEL<1:0> to 0b10 (disable PWM in auto mode).
+	 * Note that the other bits of this register will be changed during
+	 * Rx PA bring up.
+	 */
+	TAIKO_REG_VAL(TAIKO_A_BUCK_MODE_3, 0xCE),
+	/* Reduce HPH DAC bias to 70% */
+	TAIKO_REG_VAL(TAIKO_A_RX_HPH_BIAS_PA, 0x7A),
+	/*Reduce EAR DAC bias to 70% */
+	TAIKO_REG_VAL(TAIKO_A_RX_EAR_BIAS_PA, 0x76),
+	/* Reduce LINE DAC bias to 70% */
+	TAIKO_REG_VAL(TAIKO_A_RX_LINE_BIAS_PA, 0x78),
+};
+
 static void taiko_update_reg_defaults(struct snd_soc_codec *codec)
 {
 	u32 i;
+	struct wcd9xxx *taiko_core = dev_get_drvdata(codec->dev->parent);
 
-	for (i = 0; i < ARRAY_SIZE(taiko_1_0_reg_defaults); i++)
-		snd_soc_write(codec, taiko_1_0_reg_defaults[i].reg,
+	for (i = 0; i < ARRAY_SIZE(taiko_reg_defaults); i++)
+		snd_soc_write(codec, taiko_reg_defaults[i].reg,
+				taiko_reg_defaults[i].val);
+
+	if (TAIKO_IS_1_0(taiko_core->version)) {
+		for (i = 0; i < ARRAY_SIZE(taiko_1_0_reg_defaults); i++)
+			snd_soc_write(codec, taiko_1_0_reg_defaults[i].reg,
 				taiko_1_0_reg_defaults[i].val);
+	}
 }
 
 static const struct taiko_reg_mask_val taiko_codec_reg_init_val[] = {
 	/* Initialize current threshold to 350MA
 	 * number of wait and run cycles to 4096
 	 */
-	{TAIKO_A_RX_HPH_OCP_CTL, 0xE0, 0x60},
+	{TAIKO_A_RX_HPH_OCP_CTL, 0xE1, 0x61},
 	{TAIKO_A_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 
 	/* Initialize gain registers to use register gain */
@@ -7185,7 +7213,7 @@ static const struct taiko_reg_mask_val taiko_codec_reg_init_val[] = {
 
 	/* Use 16 bit sample size for RX */
 	{TAIKO_A_CDC_CONN_RX_SB_B1_CTL, 0xFF, 0xAA},
-	{TAIKO_A_CDC_CONN_RX_SB_B2_CTL, 0xFF, 0xAA},
+	{TAIKO_A_CDC_CONN_RX_SB_B2_CTL, 0xFF, 0x2A},
 
 	/*enable HPF filter for TX paths */
 	{TAIKO_A_CDC_TX1_MUX_CTL, 0x8, 0x0},
@@ -7601,7 +7629,7 @@ static struct snd_soc_codec_driver soc_codec_dev_taiko = {
 	.volatile_register = taiko_volatile,
 
 	.reg_cache_size = TAIKO_CACHE_SIZE,
-	.reg_cache_default = taiko_reg_defaults,
+	.reg_cache_default = taiko_reset_reg_defaults,
 	.reg_word_size = 1,
 
 	.controls = taiko_snd_controls,

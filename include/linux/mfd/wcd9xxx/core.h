@@ -37,6 +37,12 @@
 #define SITAR_IS_1P1(ver) \
 	((ver == SITAR_VERSION_1P1) ? 1 : 0)
 
+
+#define TAIKO_VERSION_1_0	0
+#define TAIKO_IS_1_0(ver) \
+	((ver == TAIKO_VERSION_1_0) ? 1 : 0)
+
+
 enum {
 	TABLA_IRQ_SLIMBUS = 0,
 	TABLA_IRQ_MBHC_REMOVAL,
