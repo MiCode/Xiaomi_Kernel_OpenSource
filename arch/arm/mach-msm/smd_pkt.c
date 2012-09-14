@@ -65,6 +65,7 @@ struct smd_pkt_dev {
 	wait_queue_head_t ch_opened_wait_queue;
 
 	int i;
+	int ref_cnt;
 
 	int blocking_write;
 	int is_open;
@@ -270,6 +271,7 @@ static long smd_pkt_ioctl(struct file *file, unsigned int cmd,
 	if (!smd_pkt_devp)
 		return -EINVAL;
 
+	mutex_lock(&smd_pkt_devp->ch_lock);
 	switch (cmd) {
 	case TIOCMGET:
 		D_STATUS("%s TIOCMGET command on smd_pkt_dev id:%d\n",
@@ -288,6 +290,7 @@ static long smd_pkt_ioctl(struct file *file, unsigned int cmd,
 		pr_err("%s: Unrecognized ioctl command %d\n", __func__, cmd);
 		ret = -1;
 	}
+	mutex_unlock(&smd_pkt_devp->ch_lock);
 
 	return ret;
 }
@@ -867,9 +870,12 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			smd_pkt_devp->ch_size =
 				smd_write_avail(smd_pkt_devp->ch);
 			r = 0;
+			smd_pkt_devp->ref_cnt++;
 			D_STATUS("Finished %s on smd_pkt_dev id:%d\n",
 				 __func__, smd_pkt_devp->i);
 		}
+	} else {
+		smd_pkt_devp->ref_cnt++;
 	}
 release_pil:
 	if (peripheral && (r < 0))
@@ -902,12 +908,14 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 	D_STATUS("Begin %s on smd_pkt_dev id:%d\n",
 		 __func__, smd_pkt_devp->i);
 
-	clean_and_signal(smd_pkt_devp);
-
 	mutex_lock(&smd_pkt_devp->ch_lock);
 	mutex_lock(&smd_pkt_devp->rx_lock);
 	mutex_lock(&smd_pkt_devp->tx_lock);
-	if (smd_pkt_devp->ch != 0) {
+	if (smd_pkt_devp->ref_cnt > 0)
+		smd_pkt_devp->ref_cnt--;
+
+	if (smd_pkt_devp->ch != 0 && smd_pkt_devp->ref_cnt == 0) {
+		clean_and_signal(smd_pkt_devp);
 		r = smd_close(smd_pkt_devp->ch);
 		smd_pkt_devp->ch = 0;
 		smd_pkt_devp->blocking_write = 0;
@@ -916,15 +924,15 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 		smd_pkt_devp->driver.probe = NULL;
 		if (smd_pkt_devp->pil)
 			pil_put(smd_pkt_devp->pil);
+		smd_pkt_devp->has_reset = 0;
+		smd_pkt_devp->do_reset_notification = 0;
+		smd_pkt_devp->wakelock_locked = 0;
+		wake_lock_destroy(&smd_pkt_devp->pa_wake_lock);
 	}
 	mutex_unlock(&smd_pkt_devp->tx_lock);
 	mutex_unlock(&smd_pkt_devp->rx_lock);
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
-	smd_pkt_devp->has_reset = 0;
-	smd_pkt_devp->do_reset_notification = 0;
-	smd_pkt_devp->wakelock_locked = 0;
-	wake_lock_destroy(&smd_pkt_devp->pa_wake_lock);
 	D_STATUS("Finished %s on smd_pkt_dev id:%d\n",
 		 __func__, smd_pkt_devp->i);
 
