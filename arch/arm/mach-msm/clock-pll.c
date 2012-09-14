@@ -126,6 +126,34 @@ struct clk_ops clk_ops_pll_vote = {
 	.handoff = pll_vote_clk_handoff,
 };
 
+static void __pll_config_reg(void __iomem *pll_config, struct pll_freq_tbl *f,
+			struct pll_config_masks *masks)
+{
+	u32 regval;
+
+	regval = readl_relaxed(pll_config);
+
+	/* Enable the MN counter if used */
+	if (f->m_val)
+		regval |= masks->mn_en_mask;
+
+	/* Set pre-divider and post-divider values */
+	regval &= ~masks->pre_div_mask;
+	regval |= f->pre_div_val;
+	regval &= ~masks->post_div_mask;
+	regval |= f->post_div_val;
+
+	/* Select VCO setting */
+	regval &= ~masks->vco_mask;
+	regval |= f->vco_val;
+
+	/* Enable main output if it has not been enabled */
+	if (masks->main_output_mask && !(regval & masks->main_output_mask))
+		regval |= masks->main_output_mask;
+
+	writel_relaxed(regval, pll_config);
+}
+
 static void __pll_clk_enable_reg(void __iomem *mode_reg)
 {
 	u32 mode = readl_relaxed(mode_reg);
@@ -204,6 +232,34 @@ static enum handoff local_pll_clk_handoff(struct clk *c)
 static struct clk *local_pll_clk_get_parent(struct clk *c)
 {
 	return to_pll_clk(c)->parent;
+}
+
+static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
+{
+	struct pll_freq_tbl *nf;
+	struct pll_clk *pll = to_pll_clk(c);
+	u32 mode;
+
+	mode = readl_relaxed(PLL_MODE_REG(pll));
+
+	/* Don't change PLL's rate if it is enabled */
+	if ((mode & PLL_MODE_MASK) == PLL_MODE_MASK)
+		return -EBUSY;
+
+	for (nf = pll->freq_tbl; nf->freq_hz != PLL_FREQ_END
+			&& nf->freq_hz != rate; nf++)
+		;
+
+	if (nf->freq_hz == PLL_FREQ_END)
+		return -EINVAL;
+
+	writel_relaxed(nf->l_val, PLL_L_REG(pll));
+	writel_relaxed(nf->m_val, PLL_M_REG(pll));
+	writel_relaxed(nf->n_val, PLL_N_REG(pll));
+
+	__pll_config_reg(PLL_CONFIG_REG(pll), nf, &pll->masks);
+
+	return 0;
 }
 
 int sr_pll_clk_enable(struct clk *c)
@@ -288,6 +344,7 @@ out:
 struct clk_ops clk_ops_local_pll = {
 	.enable = local_pll_clk_enable,
 	.disable = local_pll_clk_disable,
+	.set_rate = local_pll_clk_set_rate,
 	.handoff = local_pll_clk_handoff,
 	.get_parent = local_pll_clk_get_parent,
 };
