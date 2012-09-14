@@ -673,7 +673,7 @@ const u8 taiko_reg_readable[TAIKO_CACHE_SIZE] = {
 	[TAIKO_A_CDC_MAD_BEACON_IIR_CTL_VAL] = 1,
 };
 
-const u8 taiko_reg_defaults[TAIKO_CACHE_SIZE] = {
+const u8 taiko_reset_reg_defaults[TAIKO_CACHE_SIZE] = {
 	[TAIKO_A_CHIP_CTL] = TAIKO_A_CHIP_CTL__POR,
 	[TAIKO_A_CHIP_STATUS] = TAIKO_A_CHIP_STATUS__POR,
 	[TAIKO_A_CHIP_ID_BYTE_0] = TAIKO_A_CHIP_ID_BYTE_0__POR,
