@@ -86,7 +86,10 @@ static void msm_sensor_delay_frames(struct msm_sensor_ctrl_t *s_ctrl)
 			output_settings[s_ctrl->curr_res].vt_pixel_clk /
 			s_ctrl->curr_frame_length_lines /
 			s_ctrl->curr_line_length_pclk;
-		delay = (1000 * s_ctrl->wait_num_frames) / fps / Q10;
+		if (fps == 0)
+			delay = s_ctrl->min_delay;
+		else
+			delay = (1000 * s_ctrl->wait_num_frames) / fps / Q10;
 	}
 	CDBG("%s fps = %ld, delay = %d, min_delay %d\n", __func__, fps,
 		delay, s_ctrl->min_delay);
