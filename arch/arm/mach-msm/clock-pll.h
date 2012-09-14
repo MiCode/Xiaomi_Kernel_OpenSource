@@ -58,6 +58,45 @@ static inline struct pll_shared_clk *to_pll_shared_clk(struct clk *c)
 void msm_shared_pll_control_init(void);
 
 /**
+ * struct pll_freq_tbl - generic PLL frequency definition
+ * @freq_hz: pll frequency in hz
+ * @l_val: pll l value
+ * @m_val: pll m value
+ * @n_val: pll n value
+ * @post_div_val: pll post divider value
+ * @pre_div_val: pll pre-divider value
+ * @vco_val: pll vco value
+ */
+struct pll_freq_tbl {
+	const u32 freq_hz;
+	const u32 l_val;
+	const u32 m_val;
+	const u32 n_val;
+	const u32 post_div_val;
+	const u32 pre_div_val;
+	const u32 vco_val;
+};
+
+/**
+ * struct pll_config_masks - PLL config masks struct
+ * @post_div_mask: mask for post divider bits location
+ * @pre_div_mask: mask for pre-divider bits location
+ * @vco_mask: mask for vco bits location
+ * @mn_en_mask: ORed with pll config register to enable the mn counter
+ * @main_output_mask: ORed with pll config register to enable the main output
+ */
+struct pll_config_masks {
+	u32 post_div_mask;
+	u32 pre_div_mask;
+	u32 vco_mask;
+	u32 mn_en_mask;
+	u32 main_output_mask;
+};
+
+#define PLL_FREQ_END	(UINT_MAX-1)
+#define PLL_F_END { .freq_hz = PLL_FREQ_END }
+
+/**
  * struct pll_vote_clk - phase locked loop (HW voteable)
  * @soft_vote: soft voting variable for multiple PLL software instances
  * @soft_vote_mask: soft voting mask for multiple PLL software instances
@@ -96,14 +135,29 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
 /**
  * struct pll_clk - phase locked loop
  * @mode_reg: enable register
+ * @l_reg: l value register
+ * @m_reg: m value register
+ * @n_reg: n value register
+ * @config_reg: configuration register, contains mn divider enable, pre divider,
+ *   post divider and vco configuration. register name can be configure register
+ *   or user_ctl register depending on targets
  * @status_reg: status register, contains the lock detection bit
+ * @masks: masks used for settings in config_reg
+ * @freq_tbl: pll freq table
  * @parent: clock source
  * @c: clk
  * @base: pointer to base address of ioremapped registers.
  */
 struct pll_clk {
 	void __iomem *const mode_reg;
+	void __iomem *const l_reg;
+	void __iomem *const m_reg;
+	void __iomem *const n_reg;
+	void __iomem *const config_reg;
 	void __iomem *const status_reg;
+
+	struct pll_config_masks masks;
+	struct pll_freq_tbl *freq_tbl;
 
 	struct clk *parent;
 	struct clk c;
