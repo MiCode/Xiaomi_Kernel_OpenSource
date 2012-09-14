@@ -30,6 +30,8 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/android.h>
 
+#include <mach/diag_dload.h>
+
 #include "gadget_chips.h"
 
 /*
@@ -163,6 +165,7 @@ struct android_configuration {
 	struct list_head list_item;
 };
 
+struct dload_struct __iomem *diag_dload;
 static struct class *android_class;
 static struct list_head android_dev_list;
 static int android_dev_count;
@@ -173,6 +176,7 @@ static struct android_configuration *alloc_android_config
 						(struct android_dev *dev);
 static void free_android_config(struct android_dev *dev,
 				struct android_configuration *conf);
+static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum);
 
 /* string IDs are assigned dynamically */
 #define STRING_MANUFACTURER_IDX		0
@@ -741,8 +745,12 @@ static int diag_function_bind_config(struct android_usb_function *f,
 		notify = NULL;
 		name = strsep(&b, ",");
 		/* Allow only first diag channel to update pid and serial no */
-		if (dev->pdata && !once++)
-			notify = dev->pdata->update_pid_and_serial_num;
+		if (!once++) {
+			if (dev->pdata && dev->pdata->update_pid_and_serial_num)
+				notify = dev->pdata->update_pid_and_serial_num;
+			else
+				notify = usb_diag_update_pid_and_serial_num;
+		}
 
 		if (name) {
 			err = diag_function_add(c, name, notify);
@@ -2239,10 +2247,49 @@ static void free_android_config(struct android_dev *dev,
 	kfree(conf);
 }
 
+static int usb_diag_update_pid_and_serial_num(u32 pid, const char *snum)
+{
+	struct dload_struct local_diag_dload = { 0 };
+	int *src, *dst, i;
+
+	if (!diag_dload) {
+		pr_debug("%s: unable to update PID and serial_no\n", __func__);
+		return -ENODEV;
+	}
+
+	pr_debug("%s: dload:%p pid:%x serial_num:%s\n",
+				__func__, diag_dload, pid, snum);
+
+	/* update pid */
+	local_diag_dload.magic_struct.pid = PID_MAGIC_ID;
+	local_diag_dload.pid = pid;
+
+	/* update serial number */
+	if (!snum) {
+		local_diag_dload.magic_struct.serial_num = 0;
+		memset(&local_diag_dload.serial_number, 0,
+				SERIAL_NUMBER_LENGTH);
+	} else {
+		local_diag_dload.magic_struct.serial_num = SERIAL_NUM_MAGIC_ID;
+		strlcpy((char *)&local_diag_dload.serial_number, snum,
+				SERIAL_NUMBER_LENGTH);
+	}
+
+	/* Copy to shared struct (accesses need to be 32 bit aligned) */
+	src = (int *)&local_diag_dload;
+	dst = (int *)diag_dload;
+
+	for (i = 0; i < sizeof(*diag_dload) / 4; i++)
+		*dst++ = *src++;
+
+	return 0;
+}
+
 static int __devinit android_probe(struct platform_device *pdev)
 {
 	struct android_usb_platform_data *pdata = pdev->dev.platform_data;
 	struct android_dev *android_dev;
+	struct resource *res;
 	int ret = 0;
 
 	if (!android_class) {
@@ -2276,6 +2323,19 @@ static int __devinit android_probe(struct platform_device *pdev)
 		composite_driver.usb_core_id = pdata->usb_core_id;
 	else
 		composite_driver.usb_core_id = 0; /*To backward compatibility*/
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res) {
+		diag_dload = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+		if (!diag_dload) {
+			dev_err(&pdev->dev, "ioremap failed\n");
+			ret = -ENOMEM;
+			goto err_dev;
+		}
+	} else {
+		dev_dbg(&pdev->dev, "failed to get mem resource\n");
+	}
 
 	ret = android_create_device(android_dev, composite_driver.usb_core_id);
 	if (ret) {
@@ -2355,8 +2415,17 @@ static const struct platform_device_id android_id_table[] __devinitconst = {
 	},
 };
 
+static struct of_device_id usb_android_dt_match[] = {
+	{	.compatible = "qcom,android-usb",
+	},
+	{}
+};
+
 static struct platform_driver android_platform_driver = {
-	.driver = { .name = "android_usb"},
+	.driver = {
+		.name = "android_usb",
+		.of_match_table = usb_android_dt_match,
+	},
 	.probe = android_probe,
 	.remove = android_remove,
 	.id_table = android_id_table,
