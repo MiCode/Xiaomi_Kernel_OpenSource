@@ -248,7 +248,7 @@ config MENELAUS
 
 config MARIMBA_CORE
 	tristate "Marimba Core"
-	depends on I2C && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM7X27A)
+	depends on I2C && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM7X27A || ARCH_MSM8960)
 	default n
 	help
 	  Enables the Marimba Core driver. The core driver provides
