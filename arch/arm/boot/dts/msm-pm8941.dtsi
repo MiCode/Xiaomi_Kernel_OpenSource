@@ -517,9 +517,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@50 {
-				label = "xo_therm1";
-				qcom,channel-num = <49>;
+			chan@178 {
+				label = "xo_therm_pu2";
+				qcom,channel-num = <178>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
