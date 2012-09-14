@@ -608,6 +608,9 @@ static int vidc_hal_core_start_cpu(struct hal_device *device)
 
 static void set_vbif_registers(struct hal_device *device)
 {
+	/*Disable Dynamic clock gating for Venus VBIF*/
+	write_register(device->hal_data->register_base_addr,
+				   VIDC_VENUS_VBIF_CLK_ON, 1, 0);
 	write_register(device->hal_data->register_base_addr,
 			VIDC_VBIF_OUT_AXI_AOOO_EN, 0x00000FFF, 0);
 	write_register(device->hal_data->register_base_addr,
@@ -636,6 +639,8 @@ static void set_vbif_registers(struct hal_device *device)
 			VIDC_VBIF_OUT_WR_LIM_CONF0, 0x00001010, 0);
 	write_register(device->hal_data->register_base_addr,
 			VIDC_VBIF_ARB_CTL, 0x00000030, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VENUS0_WRAPPER_VBIF_REQ_PRIORITY, 0x5555556, 0);
 }
 
 int vidc_hal_core_init(void *device, int domain)
@@ -654,10 +659,6 @@ int vidc_hal_core_init(void *device, int domain)
 	INIT_LIST_HEAD(&dev->sess_head);
 	spin_lock_init(&dev->read_lock);
 	spin_lock_init(&dev->write_lock);
-
-	/*Disable Dynamic clock gating for Venus VBIF*/
-	write_register(dev->hal_data->register_base_addr,
-				   VIDC_VENUS_VBIF_CLK_ON, 1, 0);
 	set_vbif_registers(dev);
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(SMEM_ION);
