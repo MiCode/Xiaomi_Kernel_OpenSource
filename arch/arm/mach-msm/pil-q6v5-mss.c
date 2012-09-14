@@ -84,18 +84,9 @@ static int pil_mss_enable_clks(struct q6v5_data *drv)
 	ret = clk_prepare_enable(drv->ahb_clk);
 	if (ret)
 		goto err_ahb_clk;
-	ret = clk_reset(drv->core_clk, CLK_RESET_DEASSERT);
-	if (ret)
-		goto err_reset;
-	ret = clk_prepare_enable(drv->core_clk);
-	if (ret)
-		goto err_core_clk;
 	ret = clk_prepare_enable(drv->axi_clk);
 	if (ret)
 		goto err_axi_clk;
-	ret = clk_prepare_enable(drv->reg_clk);
-	if (ret)
-		goto err_reg_clk;
 	ret = clk_prepare_enable(drv->rom_clk);
 	if (ret)
 		goto err_rom_clk;
@@ -109,14 +100,8 @@ static int pil_mss_enable_clks(struct q6v5_data *drv)
 	return 0;
 
 err_rom_clk:
-	clk_disable_unprepare(drv->reg_clk);
-err_reg_clk:
 	clk_disable_unprepare(drv->axi_clk);
 err_axi_clk:
-	clk_disable_unprepare(drv->core_clk);
-err_core_clk:
-	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
-err_reset:
 	clk_disable_unprepare(drv->ahb_clk);
 err_ahb_clk:
 	return ret;
@@ -125,10 +110,7 @@ err_ahb_clk:
 static void pil_mss_disable_clks(struct q6v5_data *drv)
 {
 	clk_disable_unprepare(drv->rom_clk);
-	clk_disable_unprepare(drv->reg_clk);
 	clk_disable_unprepare(drv->axi_clk);
-	clk_disable_unprepare(drv->core_clk);
-	clk_reset(drv->core_clk, CLK_RESET_ASSERT);
 	clk_disable_unprepare(drv->ahb_clk);
 }
 
@@ -321,17 +303,9 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->ahb_clk))
 		return PTR_ERR(drv->ahb_clk);
 
-	drv->core_clk = devm_clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(drv->core_clk))
-		return PTR_ERR(drv->core_clk);
-
 	drv->axi_clk = devm_clk_get(&pdev->dev, "bus_clk");
 	if (IS_ERR(drv->axi_clk))
 		return PTR_ERR(drv->axi_clk);
-
-	drv->reg_clk = devm_clk_get(&pdev->dev, "reg_clk");
-	if (IS_ERR(drv->reg_clk))
-		return PTR_ERR(drv->reg_clk);
 
 	drv->rom_clk = devm_clk_get(&pdev->dev, "mem_clk");
 	if (IS_ERR(drv->rom_clk))
