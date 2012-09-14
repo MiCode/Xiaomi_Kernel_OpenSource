@@ -26,6 +26,7 @@
 #include <linux/mfd/pm8xxx/misc.h>
 
 #include <asm/mach-types.h>
+#include <asm/cacheflush.h>
 
 #include <mach/msm_iomap.h>
 #include <mach/restart.h>
@@ -221,6 +222,8 @@ static void msm_restart_prepare(const char *cmd)
 			__raw_writel(0x77665501, restart_reason);
 		}
 	}
+
+	flush_cache_all();
 }
 
 void msm_restart(char mode, const char *cmd)
