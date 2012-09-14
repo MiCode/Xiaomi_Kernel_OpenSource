@@ -2380,7 +2380,6 @@ static struct i2c_board_info sii_device_info[] __initdata = {
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi4_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
-	.keep_ahb_clk_on = 1,
 };
 
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi3_pdata = {
@@ -2801,6 +2800,9 @@ static struct platform_device *cdp_devices[] __initdata = {
 
 static void __init msm8960_i2c_init(void)
 {
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		msm8960_i2c_qup_gsbi4_pdata.keep_ahb_clk_on = 1;
+
 	msm8960_device_qup_i2c_gsbi4.dev.platform_data =
 					&msm8960_i2c_qup_gsbi4_pdata;
 
