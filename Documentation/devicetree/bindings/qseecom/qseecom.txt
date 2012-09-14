@@ -2,9 +2,21 @@
 
 Required properties:
 - compatible : Should be "qcom,qseecom"
+- qcom, msm_bus,name: Should be "qseecom-noc"
+- qcom, msm_bus,num_cases: Depends on the use cases for bus scaling
+- qcom, msm_bus,num_paths: The paths for source and destination ports
+- qcom, msm_bus,vectors: Vectors for bus topology.
 
 Example:
-
 	qcom,qseecom@fe806000 {
 		compatible = "qcom,qseecom";
+		qcom,msm_bus,name = "qseecom-noc";
+		qcom,msm_bus,num_cases = <4>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+			<55 512 0 0>,
+			<55 512 3936000000 393600000>,
+			<55 512 3936000000 393600000>,
+			<55 512 3936000000 393600000>;
 	};
