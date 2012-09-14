@@ -32,6 +32,7 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
+#include <linux/input/mt.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
@@ -1698,22 +1699,9 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 			cyttsp_debug("ST->F1:%3d X:%3d Y:%3d Z:%3d\n", \
 				cur_st_tch[CY_ST_FNGR1_IDX], \
 				st_x1, st_y1, st_z1);
-			if (cur_st_tch[CY_ST_FNGR2_IDX] < CY_NUM_TRK_ID) {
-				input_report_key(ts->input, BTN_2, CY_TCH);
-				input_report_abs(ts->input, ABS_HAT0X, st_x2);
-				input_report_abs(ts->input, ABS_HAT0Y, st_y2);
-				cyttsp_debug("ST->F2:%3d X:%3d Y:%3d Z:%3d\n", \
-					cur_st_tch[CY_ST_FNGR2_IDX],
-					st_x2, st_y2, st_z2);
-			} else {
-				input_report_key(ts->input,
-					BTN_2,
-					CY_NTCH);
-			}
 		} else {
 			input_report_abs(ts->input, ABS_PRESSURE, CY_NTCH);
 			input_report_key(ts->input, BTN_TOUCH, CY_NTCH);
-			input_report_key(ts->input, BTN_2, CY_NTCH);
 		}
 		/* update platform data for the current single touch info */
 		ts->prv_st_tch[CY_ST_FNGR1_IDX] = cur_st_tch[CY_ST_FNGR1_IDX];
@@ -1857,6 +1845,9 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 					id, tmp_trk[id], \
 					id, snd_trk[id]);
 				if (snd_trk[id] < CY_NUM_TRK_ID) {
+					input_mt_slot(ts->input, snd_trk[id]);
+					input_mt_report_slot_state(ts->input,
+						MT_TOOL_FINGER, true);
 					input_report_abs(ts->input,
 						ABS_MT_TOUCH_MAJOR,
 						cur_mt_z[snd_trk[id]]);
@@ -1869,7 +1860,6 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 					input_report_abs(ts->input,
 						ABS_MT_POSITION_Y,
 						cur_mt_pos[snd_trk[id]][CY_YPOS]);
-					CY_MT_SYNC(ts->input);
 					cyttsp_debug("MT1->TID:%2d X:%3d Y:%3d Z:%3d touch-sent\n", \
 						snd_trk[id], \
 						cur_mt_pos[snd_trk[id]][CY_XPOS], \
@@ -1877,19 +1867,10 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 						cur_mt_z[snd_trk[id]]);
 				} else if (ts->prv_mt_tch[id] < CY_NUM_TRK_ID) {
 					/* void out this touch */
-					input_report_abs(ts->input,
-						ABS_MT_TOUCH_MAJOR,
-						CY_NTCH);
-					input_report_abs(ts->input,
-						ABS_MT_WIDTH_MAJOR,
-						curr_tool_width);
-					input_report_abs(ts->input,
-						ABS_MT_POSITION_X,
-						ts->prv_mt_pos[ts->prv_mt_tch[id]][CY_XPOS]);
-					input_report_abs(ts->input,
-						ABS_MT_POSITION_Y,
-						ts->prv_mt_pos[ts->prv_mt_tch[id]][CY_YPOS]);
-					CY_MT_SYNC(ts->input);
+					input_mt_slot(ts->input,
+						ts->prv_mt_tch[id]);
+					input_mt_report_slot_state(ts->input,
+						MT_TOOL_FINGER, false);
 					cyttsp_debug("MT2->TID:%2d X:%3d Y:%3d Z:%3d lift off-sent\n", \
 						ts->prv_mt_tch[id], \
 						ts->prv_mt_pos[ts->prv_mt_tch[id]][CY_XPOS], \
@@ -2679,7 +2660,6 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 	set_bit(EV_KEY, input_device->evbit);
 	set_bit(EV_ABS, input_device->evbit);
 	set_bit(BTN_TOUCH, input_device->keybit);
-	set_bit(BTN_2, input_device->keybit);
 	set_bit(INPUT_PROP_DIRECT, input_device->propbit);
 
 	if (ts->platform_data->use_gestures)
@@ -2693,10 +2673,6 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 		ABS_TOOL_WIDTH, 0, CY_LARGE_TOOL_WIDTH, 0 , 0);
 	input_set_abs_params(input_device,
 		ABS_PRESSURE, 0, CY_MAXZ, 0, 0);
-	input_set_abs_params(input_device,
-		ABS_HAT0X, 0, ts->platform_data->panel_maxx, 0, 0);
-	input_set_abs_params(input_device,
-		ABS_HAT0Y, 0, ts->platform_data->panel_maxy, 0, 0);
 	if (ts->platform_data->use_gestures) {
 		input_set_abs_params(input_device,
 			ABS_HAT1X, 0, CY_MAXZ, 0, 0);
@@ -2714,6 +2690,7 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 			ABS_MT_TOUCH_MAJOR, 0, CY_MAXZ, 0, 0);
 		input_set_abs_params(input_device,
 			ABS_MT_WIDTH_MAJOR, 0, CY_LARGE_TOOL_WIDTH, 0, 0);
+		input_mt_init_slots(input_device, CY_NUM_TRK_ID);
 		if (ts->platform_data->use_trk_id) {
 			input_set_abs_params(input_device,
 				ABS_MT_TRACKING_ID, 0, CY_NUM_TRK_ID, 0, 0);
