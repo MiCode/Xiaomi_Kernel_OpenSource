@@ -50,7 +50,7 @@ static inline u32 dwc3_readl(void __iomem *base, u32 offset)
 	 * space, see dwc3_probe in core.c.
 	 * However, the offsets are given starting from xHCI address space.
 	 */
-	return readl_relaxed(base + (offset - DWC3_GLOBALS_REGS_START));
+	return readl(base + (offset - DWC3_GLOBALS_REGS_START));
 }
 
 static inline void dwc3_writel(void __iomem *base, u32 offset, u32 value)
@@ -60,7 +60,7 @@ static inline void dwc3_writel(void __iomem *base, u32 offset, u32 value)
 	 * space, see dwc3_probe in core.c.
 	 * However, the offsets are given starting from xHCI address space.
 	 */
-	writel_relaxed(value, base + (offset - DWC3_GLOBALS_REGS_START));
+	writel(value, base + (offset - DWC3_GLOBALS_REGS_START));
 }
 
 #endif /* __DRIVERS_USB_DWC3_IO_H */
