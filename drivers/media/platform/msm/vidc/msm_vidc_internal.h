@@ -233,7 +233,6 @@ struct msm_vidc_inst {
 	u32 reconfig_height;
 	struct dentry *debugfs_root;
 	u32 ftb_count;
-	u32 fbd_count;
 	struct vb2_buffer *vb2_seq_hdr;
 	void *priv;
 };

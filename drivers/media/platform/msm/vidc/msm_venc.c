@@ -444,6 +444,17 @@ static const struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << L_MODE)
 		),
 	},
+	{
+		.id = V4L2_CID_QCOM_VIDEO_SYNC_FRAME_SEQ_HDR,
+		.name = "CodecConfig with sync frame",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = 0,
+		.maximum = 1,
+		.default_value = 1,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -625,7 +636,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			sizes[i] = inst->fmts[OUTPUT_PORT]->get_frame_size(
 					i, inst->prop.height, inst->prop.width);
 		}
-
 		break;
 	default:
 		dprintk(VIDC_ERR, "Invalid q type = %d\n", q->type);
@@ -641,6 +651,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	unsigned long flags;
 	struct vb2_buf_entry *temp;
 	struct list_head *ptr, *next;
+
 	rc = msm_comm_try_get_bufreqs(inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -785,6 +796,7 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct hal_intra_refresh intra_refresh;
 	struct hal_multi_slice_control multi_slice_control;
 	struct hal_h264_db_control h264_db_control;
+	struct hal_enable enable;
 	u32 property_id = 0;
 	u32 property_val = 0;
 	void *pdata;
@@ -1203,6 +1215,12 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 			HAL_PARAM_VENC_H264_DEBLOCK_CONTROL;
 		h264_db_control.slice_beta_offset = control.value;
 		pdata = &h264_db_control;
+		break;
+	case V4L2_CID_QCOM_VIDEO_SYNC_FRAME_SEQ_HDR:
+		property_id =
+			HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER;
+		enable.enable = control.value;
+		pdata = &enable;
 		break;
 	default:
 		break;

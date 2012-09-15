@@ -1170,6 +1170,16 @@ int vidc_hal_session_set_property(void *sess,
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
+	case HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER:
+	{
+		struct hfi_enable *hfi;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER;
+		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
 	case HAL_CONFIG_VENC_REQUEST_IFRAME:
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME;
