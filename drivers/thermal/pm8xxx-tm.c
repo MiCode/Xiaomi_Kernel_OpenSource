@@ -65,7 +65,7 @@
 
 struct pm8xxx_tm_chip {
 	struct pm8xxx_tm_core_data	cdata;
-	struct work_struct		irq_work;
+	struct delayed_work		irq_work;
 	struct device			*dev;
 	struct thermal_zone_device	*tz_dev;
 	unsigned long			temp;
@@ -82,6 +82,9 @@ enum pmic_thermal_override_mode {
 	SOFTWARE_OVERRIDE_DISABLED = 0,
 	SOFTWARE_OVERRIDE_ENABLED,
 };
+
+/* Delay between TEMP_STAT IRQ going high and status value changing in ms. */
+#define STATUS_REGISTER_DELAY_MS	40
 
 static inline int pm8xxx_tm_read_ctrl(struct pm8xxx_tm_chip *chip, u8 *reg)
 {
@@ -422,8 +425,10 @@ static struct thermal_zone_device_ops pm8xxx_thermal_zone_ops_pm8058_adc = {
 
 static void pm8xxx_tm_work(struct work_struct *work)
 {
+	struct delayed_work *dwork
+		= container_of(work, struct delayed_work, work);
 	struct pm8xxx_tm_chip *chip
-		= container_of(work, struct pm8xxx_tm_chip, irq_work);
+		= container_of(dwork, struct pm8xxx_tm_chip, irq_work);
 	unsigned long temp = 0;
 	int rc, stage, thresh;
 	u8 reg;
@@ -472,17 +477,15 @@ static void pm8xxx_tm_work(struct work_struct *work)
 	}
 
 bail:
-	enable_irq(chip->tempstat_irq);
-	enable_irq(chip->overtemp_irq);
+	return;
 }
 
 static irqreturn_t pm8xxx_tm_isr(int irq, void *data)
 {
 	struct pm8xxx_tm_chip *chip = data;
 
-	disable_irq_nosync(chip->tempstat_irq);
-	disable_irq_nosync(chip->overtemp_irq);
-	schedule_work(&chip->irq_work);
+	schedule_delayed_work(&chip->irq_work,
+		msecs_to_jiffies(STATUS_REGISTER_DELAY_MS) + 1);
 
 	return IRQ_HANDLED;
 }
@@ -621,7 +624,7 @@ static int __devinit pm8xxx_tm_probe(struct platform_device *pdev)
 	chip->mode = THERMAL_DEVICE_DISABLED;
 	thermal_zone_device_update(chip->tz_dev);
 
-	INIT_WORK(&chip->irq_work, pm8xxx_tm_work);
+	INIT_DELAYED_WORK(&chip->irq_work, pm8xxx_tm_work);
 
 	rc = request_irq(chip->tempstat_irq, pm8xxx_tm_isr, IRQF_TRIGGER_RISING,
 		chip->cdata.irq_name_temp_stat, chip);
@@ -646,7 +649,7 @@ static int __devinit pm8xxx_tm_probe(struct platform_device *pdev)
 err_free_irq_tempstat:
 	free_irq(chip->tempstat_irq, chip);
 err_cancel_work:
-	cancel_work_sync(&chip->irq_work);
+	cancel_delayed_work_sync(&chip->irq_work);
 err_free_tz:
 	thermal_zone_device_unregister(chip->tz_dev);
 err_fail_adc:
@@ -662,7 +665,7 @@ static int __devexit pm8xxx_tm_remove(struct platform_device *pdev)
 
 	if (chip) {
 		platform_set_drvdata(pdev, NULL);
-		cancel_work_sync(&chip->irq_work);
+		cancel_delayed_work_sync(&chip->irq_work);
 		free_irq(chip->overtemp_irq, chip);
 		free_irq(chip->tempstat_irq, chip);
 		pm8xxx_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_DISABLED);
