@@ -222,7 +222,7 @@ static int msm_mctl_set_vfe_output_mode(struct msm_cam_media_controller
 		pr_err("%s Copy from user failed ", __func__);
 		rc = -EFAULT;
 	} else {
-		pr_info("%s: mctl=0x%p, vfe output mode =0x%x",
+		pr_debug("%s: mctl=0x%p, vfe output mode =0x%x\n",
 		  __func__, p_mctl, p_mctl->vfe_output_mode);
 	}
 	return rc;
