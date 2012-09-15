@@ -31,6 +31,7 @@
 #include <linux/coresight.h>
 #include <asm/sections.h>
 #include <mach/socinfo.h>
+#include <mach/msm_memory_dump.h>
 
 #include "coresight-priv.h"
 
@@ -130,6 +131,9 @@ do {									\
 #define ETM_ALL_MASK		(0xFFFFFFFF)
 
 #define ETM_SEQ_STATE_MAX_VAL	(0x2)
+
+#define ETM_REG_DUMP_VER_OFF	(4)
+#define ETM_REG_DUMP_VER	(1)
 
 enum etm_addr_type {
 	ETM_ADDR_TYPE_NONE,
@@ -1517,7 +1521,10 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	struct coresight_platform_data *pdata;
 	struct etm_drvdata *drvdata;
 	struct resource *res;
-	static int etm_count;
+	uint32_t reg_size;
+	static int count;
+	void *baddr;
+	struct msm_client_dump dump;
 	struct coresight_desc *desc;
 
 	/* Fail probe for Krait pass3 until supported */
@@ -1542,6 +1549,7 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+	reg_size = resource_size(res);
 
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
@@ -1560,7 +1568,7 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	if (ret)
 		goto err0;
 
-	drvdata->cpu = etm_count++;
+	drvdata->cpu = count++;
 
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
@@ -1583,6 +1591,21 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	etm_init_default_data(drvdata);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	baddr = devm_kzalloc(dev, PAGE_SIZE + reg_size, GFP_KERNEL);
+	if (baddr) {
+		*(uint32_t *)(baddr + ETM_REG_DUMP_VER_OFF) = ETM_REG_DUMP_VER;
+		dump.id = MSM_ETM0_REG + drvdata->cpu;
+		dump.start_addr = virt_to_phys(baddr);
+		dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
+		ret = msm_dump_table_register(&dump);
+		if (ret) {
+			devm_kfree(dev, baddr);
+			dev_err(dev, "ETM REG dump setup failed\n");
+		}
+	} else {
+		dev_err(dev, "ETM REG dump space allocation failed\n");
+	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc) {
