@@ -1416,9 +1416,8 @@ static bool __devinit etm_arch_supported(uint8_t arch)
 	return true;
 }
 
-static int __devinit etm_init_arch_data(struct etm_drvdata *drvdata)
+static void __devinit etm_init_arch_data(struct etm_drvdata *drvdata)
 {
-	int ret;
 	uint32_t etmidr;
 	uint32_t etmccr;
 
@@ -1436,10 +1435,6 @@ static int __devinit etm_init_arch_data(struct etm_drvdata *drvdata)
 	/* find all capabilities */
 	etmidr = etm_readl(drvdata, ETMIDR);
 	drvdata->arch = BMVAL(etmidr, 4, 11);
-	if (etm_arch_supported(drvdata->arch) == false) {
-		ret = -EINVAL;
-		goto err;
-	}
 
 	etmccr = etm_readl(drvdata, ETMCCR);
 	drvdata->nr_addr_cmp = BMVAL(etmccr, 0, 3) * 2;
@@ -1451,10 +1446,6 @@ static int __devinit etm_init_arch_data(struct etm_drvdata *drvdata)
 	/* Vote for ETM power/clock disable */
 	etm_set_pwrdwn(drvdata);
 	ETM_LOCK(drvdata);
-
-	return 0;
-err:
-	return ret;
 }
 
 static void __devinit etm_copy_arch_data(struct etm_drvdata *drvdata)
@@ -1578,15 +1569,14 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	 * ETMs copy it over from ETM0.
 	 */
 	if (drvdata->cpu == 0) {
-		ret = etm_init_arch_data(drvdata);
-		if (ret)
-			goto err1;
+		etm_init_arch_data(drvdata);
 		etm0drvdata = drvdata;
 	} else {
-		if (etm0drvdata)
-			etm_copy_arch_data(drvdata);
-		else
-			goto err1;
+		etm_copy_arch_data(drvdata);
+	}
+	if (etm_arch_supported(drvdata->arch) == false) {
+		ret = -EINVAL;
+		goto err1;
 	}
 	etm_init_default_data(drvdata);
 
