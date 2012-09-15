@@ -40,9 +40,10 @@ Required properties:
 			Select from the following unsigned int.
 			0 : Default scaling to convert raw adc code to voltage.
 			1 : Conversion to temperature based on btm parameters.
-			2 : Returns result in milli degree's Centigrade.
+			2 : Returns result in degC for 100k pull-up.
 			3 : Returns current across 0.1 ohm resistor.
 			4 : Returns XO thermistor voltage in degree's Centigrade.
+			5 : Returns result in degC for 150k pull-up.
 - qcom,hw-settle-time : Settling period for the channel before ADC read.
 			Select from the following unsigned int.
 			0 : 0us
