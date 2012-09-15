@@ -1643,6 +1643,10 @@ static uint32_t msm_camera_server_find_mctl(
 
 		rp = (struct msm_vfe_resp *)arg;
 		frame_info = rp->evt_msg.data;
+		if (!frame_info) {
+			interface = PIX_0;
+			break;
+		}
 		if (frame_info->inst_handle) {
 			vnode_id = GET_DEVID_MODE(frame_info->inst_handle);
 			if (vnode_id < MAX_NUM_ACTIVE_CAMERA &&
