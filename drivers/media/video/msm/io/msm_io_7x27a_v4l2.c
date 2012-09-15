@@ -139,10 +139,10 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 	switch (perf_setting) {
 	case S_INIT:
 		add_axi_qos();
-		break;
-	case S_PREVIEW:
 		update_axi_qos(MSM_AXI_QOS_PREVIEW);
 		axi_allocate(AXI_FLOW_VIEWFINDER_HI);
+		break;
+	case S_PREVIEW:
 		break;
 	case S_VIDEO:
 		update_axi_qos(MSM_AXI_QOS_RECORDING);

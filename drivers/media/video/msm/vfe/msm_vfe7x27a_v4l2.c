@@ -1561,6 +1561,11 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 		return 0;
 
+	case CMD_AXI_START:
+	case CMD_AXI_STOP:
+	case CMD_AXI_RESET:
+		return 0;
+
 	case CMD_CONFIG_FREE_BUF_ADDR: {
 		int path = *((int *)cmd->value);
 		struct buf_info *outch = vfe2x_get_ch(path);
@@ -1853,9 +1858,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 						flags);
 				if (op_mode & SNAPSHOT_MASK_MODE) {
 					vfe2x_ctrl->stop_pending = 0;
-					vfe2x_send_isp_msg(vfe2x_ctrl,
-						msgs_map[MSG_STOP_ACK].
-						isp_id);
 					spin_unlock_irqrestore(
 							&vfe2x_ctrl->table_lock,
 							flags);
