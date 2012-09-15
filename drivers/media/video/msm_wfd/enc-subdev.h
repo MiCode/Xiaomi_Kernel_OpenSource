@@ -14,7 +14,7 @@
 #ifndef _WFD_ENC_SUBDEV_
 #define _WFD_ENC_SUBDEV_
 
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <media/v4l2-subdev.h>
 #include <media/videobuf2-core.h>
 #define VENC_MAGIC_IOCTL 'V'
