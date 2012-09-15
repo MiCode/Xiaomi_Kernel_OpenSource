@@ -12,7 +12,7 @@
  */
 #include <linux/err.h>
 #include <linux/io.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/mm.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
