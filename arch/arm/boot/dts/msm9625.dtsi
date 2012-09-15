@@ -213,6 +213,31 @@
 		interrupt-names = "core_irq", "bam_irq", "status_irq";
 		cd-gpios = <&msmgpio 66 0>;
 	};
+
+	sdcc3: qcom,sdcc@f9864000 {
+		cell-index = <3>; /* SDC3 SDIO slot */
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf9864000 0x800>,
+		      <0xf9864800 0x100>,
+		      <0xf9844000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		interrupts = <0 127 0>, <0 223 0>;
+		interrupt-names = "core_irq", "bam_irq";
+
+		gpios = <&msmgpio 25 0>,
+			<&msmgpio 24 0>,
+			<&msmgpio 16 0>,
+			<&msmgpio 17 0>,
+			<&msmgpio 18 0>,
+			<&msmgpio 19 0>;
+		qcom,sdcc-gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
+		qcom,sdcc-sup-voltages = <2950 2950>;
+		qcom,sdcc-bus-width = <4>;
+		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
+		status = "disable";
+	};
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
