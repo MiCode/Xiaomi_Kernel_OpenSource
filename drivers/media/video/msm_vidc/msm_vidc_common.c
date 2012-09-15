@@ -600,10 +600,8 @@ static void handle_fbd(enum command_response cmd, void *data)
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_EOS;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_CODECCONFIG)
 			vb->v4l2_buf.flags &= ~V4L2_QCOM_BUF_FLAG_CODECCONFIG;
-
-		if (!inst->fbd_count)
-			vb->v4l2_buf.flags = V4L2_BUF_FLAG_KEYFRAME;
-		++inst->fbd_count;
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_SYNCFRAME)
+			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
 
 		switch (fill_buf_done->picture_type) {
 		case HAL_PICTURE_IDR:
@@ -1203,7 +1201,6 @@ static int msm_comm_session_init(int flipped_state,
 		goto exit;
 	}
 	inst->ftb_count = 0;
-	inst->fbd_count = 0;
 	change_inst_state(inst, MSM_VIDC_OPEN);
 exit:
 	return rc;
