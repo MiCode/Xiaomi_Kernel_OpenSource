@@ -1035,13 +1035,16 @@ struct vfe40_ctrl_type {
 	uint32_t simultaneous_sof_stat;
 };
 
-#define statsAeNum      0
-#define statsAfNum      1
-#define statsAwbNum     2
-#define statsRsNum      3
-#define statsCsNum      4
-#define statsIhistNum   5
-#define statsSkinNum    6
+#define statsBeNum      0
+#define statsBgNum      1
+#define statsBfNum      2
+#define statsAwbNum     3
+#define statsRsNum      4
+#define statsCsNum      5
+#define statsIhistNum   6
+#define statsSkinNum    7
+
+#define VFE_STATS_BUS_REG_NUM  6
 
 struct vfe_cmd_stats_ack {
 	uint32_t  nextStatsBuf;
