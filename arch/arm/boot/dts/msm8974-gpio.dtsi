@@ -109,6 +109,13 @@
 
 			gpio@d200 {
 				status = "ok";
+				qcom,mode = <1>;		/* QPNP_PIN_MODE_DIG_OUT */
+				qcom,output-type = <0>;		/* QPNP_PIN_OUT_BUF_CMOS */
+				qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+				qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+				qcom,out-strength = <2>;	/* QPNP_PIN_OUT_STRENGTH_MED */
+				qcom,src-select = <0>;		/* QPNP_PIN_SEL_FUNC_CONSTANT */
+				qcom,master-en = <1>;
 			};
 
 			gpio@d300 {
