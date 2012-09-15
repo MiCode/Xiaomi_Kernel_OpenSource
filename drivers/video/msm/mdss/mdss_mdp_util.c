@@ -16,7 +16,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/errno.h>
 #include <linux/file.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/iommu.h>
 #include <linux/msm_kgsl.h>
 #include <linux/spinlock.h>
