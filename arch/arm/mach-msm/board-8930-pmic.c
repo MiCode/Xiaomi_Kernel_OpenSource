@@ -180,6 +180,8 @@ static struct pm8xxx_gpio_init pm8917_gpios[] __initdata = {
 
 /* Initial PM8917 MPP configurations */
 static struct pm8xxx_mpp_init pm8917_mpps[] __initdata = {
+	PM8917_MPP_INIT(PM8XXX_AMUX_MPP_3, A_INPUT,
+				PM8XXX_MPP_AIN_AMUX_CH8, DIN_TO_INT),
 };
 
 void __init msm8930_pm8038_gpio_mpp_init(void)
@@ -526,6 +528,8 @@ static struct pm8xxx_adc_amux pm8917_adc_channels_data[] = {
 	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
 	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
+	{"pa_therm1", ADC_MPP_1_AMUX8, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
 };
 
