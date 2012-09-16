@@ -1057,8 +1057,14 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case AUDIO_GET_STATS: {
 		struct msm_audio_stats stats;
+		uint64_t timestamp;
 		stats.byte_count = atomic_read(&audio->in_bytes);
 		stats.sample_count = atomic_read(&audio->in_samples);
+		timestamp = q6asm_get_session_time(audio->ac);
+		if (timestamp >= 0)
+			memcpy(&stats.unused[0], &timestamp, sizeof(timestamp));
+		else
+			pr_debug("Error while getting timestamp\n");
 		if (copy_to_user((void *)arg, &stats, sizeof(stats)))
 			rc = -EFAULT;
 		break;
