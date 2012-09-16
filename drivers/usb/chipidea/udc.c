@@ -1814,6 +1814,11 @@ static int ci13xxx_start(struct usb_gadget *gadget,
 	spin_unlock_irqrestore(&ci->lock, flags);
 	if (retval || put)
 		pm_runtime_put_sync(&ci->gadget.dev);
+
+	if (ci->platadata->notify_event)
+			ci->platadata->notify_event(ci,
+				CI13XXX_CONTROLLER_UDC_STARTED_EVENT);
+
 	return retval;
 }
 

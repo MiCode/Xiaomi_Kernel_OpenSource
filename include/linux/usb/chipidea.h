@@ -28,6 +28,7 @@ struct ci13xxx_platform_data {
 #define CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT	3
 #define CI13XXX_CONTROLLER_RESUME_EVENT		4
 #define CI13XXX_CONTROLLER_DISCONNECT_EVENT	5
+#define CI13XXX_CONTROLLER_UDC_STARTED_EVENT	6
 	void	(*notify_event) (struct ci13xxx *ci, unsigned event);
 };
 
