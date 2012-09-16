@@ -67,6 +67,8 @@
 #define USB_PHY_VDD_DIG_VOL_MIN	1045000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX	1320000 /* uV */
 
+#define USB_SUSPEND_DELAY_TIME	(500 * HZ/1000) /* 500 msec */
+
 static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
@@ -686,7 +688,8 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 	if (aca_enabled())
 		return 0;
 
-	if (atomic_read(&motg->in_lpm) == suspend)
+	if (atomic_read(&motg->in_lpm) == suspend &&
+		!atomic_read(&motg->suspend_work_pending))
 		return 0;
 
 	if (suspend) {
@@ -705,7 +708,9 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 			if (!(motg->caps & ALLOW_LPM_ON_DEV_SUSPEND))
 				break;
 			set_bit(A_BUS_SUSPEND, &motg->inputs);
-			queue_work(system_nrt_wq, &motg->sm_work);
+			atomic_set(&motg->suspend_work_pending, 1);
+			queue_delayed_work(system_nrt_wq, &motg->suspend_work,
+				USB_SUSPEND_DELAY_TIME);
 			break;
 
 		default:
@@ -2752,6 +2757,14 @@ static void msm_otg_sm_work(struct work_struct *w)
 		queue_work(system_nrt_wq, &motg->sm_work);
 }
 
+static void msm_otg_suspend_work(struct work_struct *w)
+{
+	struct msm_otg *motg =
+		container_of(w, struct msm_otg, suspend_work.work);
+	atomic_set(&motg->suspend_work_pending, 0);
+	msm_otg_sm_work(&motg->sm_work);
+}
+
 static irqreturn_t msm_otg_irq(int irq, void *data)
 {
 	struct msm_otg *motg = data;
@@ -3629,6 +3642,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
 	INIT_DELAYED_WORK(&motg->pmic_id_status_work, msm_pmic_id_status_w);
+	INIT_DELAYED_WORK(&motg->suspend_work, msm_otg_suspend_work);
 	setup_timer(&motg->id_timer, msm_otg_id_timer_func,
 				(unsigned long) motg);
 	ret = request_irq(motg->irq, msm_otg_irq, IRQF_SHARED,
@@ -3791,6 +3805,7 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_delayed_work_sync(&motg->pmic_id_status_work);
+	cancel_delayed_work_sync(&motg->suspend_work);
 	cancel_work_sync(&motg->sm_work);
 
 	pm_runtime_resume(&pdev->dev);
