@@ -1477,9 +1477,9 @@ void __init apq8064_init_gpiomux(void)
 		pr_err(KERN_ERR "msm_gpiomux_init failed %d\n", rc);
 		return;
 	}
-
-	msm_gpiomux_install(wcnss_5wire_interface,
-			ARRAY_SIZE(wcnss_5wire_interface));
+	if (!(machine_is_mpq8064_hrd()))
+		msm_gpiomux_install(wcnss_5wire_interface,
+				ARRAY_SIZE(wcnss_5wire_interface));
 
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		 machine_is_mpq8064_dtv()) {
