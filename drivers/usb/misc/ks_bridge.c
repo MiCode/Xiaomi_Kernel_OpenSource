@@ -277,6 +277,9 @@ static ssize_t ksb_fs_write(struct file *fp, const char __user *buf,
 	unsigned long		flags;
 	struct ks_bridge	*ksb = fp->private_data;
 
+	if (!test_bit(USB_DEV_CONNECTED, &ksb->flags))
+		return -ENODEV;
+
 	pkt = ksb_alloc_data_pkt(count, GFP_KERNEL, ksb);
 	if (IS_ERR(pkt)) {
 		pr_err("unable to allocate data packet");
@@ -540,6 +543,8 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	struct usb_endpoint_descriptor	*ep_desc;
 	int				i;
 	struct ks_bridge		*ksb;
+	unsigned long			flags;
+	struct data_pkt			*pkt;
 
 	ifc_num = ifc->cur_altsetting->desc.bInterfaceNumber;
 
@@ -593,6 +598,23 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 
 	dbg_log_event(ksb, "PID-ATT", id->idProduct, 0);
 
+	/*free up stale buffers if any from previous disconnect*/
+	spin_lock_irqsave(&ksb->lock, flags);
+	while (!list_empty(&ksb->to_ks_list)) {
+		pkt = list_first_entry(&ksb->to_ks_list,
+				struct data_pkt, list);
+		list_del_init(&pkt->list);
+		ksb_free_data_pkt(pkt);
+		ksb->alloced_read_pkts--;
+	}
+	while (!list_empty(&ksb->to_mdm_list)) {
+		pkt = list_first_entry(&ksb->to_mdm_list,
+				struct data_pkt, list);
+		list_del_init(&pkt->list);
+		ksb_free_data_pkt(pkt);
+	}
+	spin_unlock_irqrestore(&ksb->lock, flags);
+
 	ksb->fs_dev = (struct miscdevice *)id->driver_info;
 	misc_register(ksb->fs_dev);
 
@@ -641,6 +663,8 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 	wake_up(&ksb->ks_wait_q);
 	cancel_work_sync(&ksb->to_mdm_work);
 
+	misc_deregister(ksb->fs_dev);
+
 	usb_kill_anchored_urbs(&ksb->submitted);
 
 	spin_lock_irqsave(&ksb->lock, flags);
@@ -649,6 +673,7 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 				struct data_pkt, list);
 		list_del_init(&pkt->list);
 		ksb_free_data_pkt(pkt);
+		ksb->alloced_read_pkts--;
 	}
 	while (!list_empty(&ksb->to_mdm_list)) {
 		pkt = list_first_entry(&ksb->to_mdm_list,
@@ -658,7 +683,6 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 	}
 	spin_unlock_irqrestore(&ksb->lock, flags);
 
-	misc_deregister(ksb->fs_dev);
 	ifc->needs_remote_wakeup = 0;
 	usb_put_dev(ksb->udev);
 	ksb->ifc = NULL;
