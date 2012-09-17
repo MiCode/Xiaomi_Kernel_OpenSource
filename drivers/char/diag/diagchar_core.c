@@ -93,6 +93,9 @@ do {								\
 	ret += length;						\
 } while (0)
 
+/* Identifier for data from MDM */
+#define MDM_TOKEN	-1
+
 static void drain_timer_func(unsigned long data)
 {
 	queue_work(driver->diag_wq , &(driver->diag_drain_work));
@@ -650,6 +653,10 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 {
 	int index = -1, i = 0, ret = 0;
 	int num_data = 0, data_type;
+#if defined(CONFIG_DIAG_SDIO_PIPE) || defined(CONFIG_DIAG_BRIDGE_CODE)
+	int mdm_token = MDM_TOKEN;
+#endif
+
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == current->tgid)
 			index = i;
@@ -789,6 +796,8 @@ drop:
 		/* copy 9K data over SDIO */
 		if (driver->in_busy_sdio == 1) {
 			num_data++;
+			/*Copy the negative  token of data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret, mdm_token, 4);
 			/*Copy the length of data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
 				 (driver->write_ptr_mdm->length), 4);
@@ -818,6 +827,14 @@ drop:
 					 i, (unsigned int)hsic_buf_tbl[i].buf,
 					hsic_buf_tbl[i].length);
 				num_data++;
+
+				/* Copy the negative token */
+				if (copy_to_user(buf+ret, &mdm_token, 4)) {
+					num_data--;
+					goto drop_hsic;
+				}
+				ret += 4;
+
 				/* Copy the length of data being passed */
 				if (copy_to_user(buf+ret,
 					(void *)&(hsic_buf_tbl[i].length),
@@ -845,6 +862,21 @@ drop_hsic:
 				/* Call the write complete function */
 				diagfwd_write_complete_hsic(NULL);
 			}
+		}
+		if (driver->in_busy_smux == 1) {
+			num_data++;
+
+			/* Copy the negative  token of data being passed */
+			COPY_USER_SPACE_OR_EXIT(buf+ret, mdm_token, 4);
+			/* Copy the length of data being passed */
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+					(driver->write_ptr_mdm->length), 4);
+			/* Copy the actual data being passed */
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+					*(driver->buf_in_smux),
+					driver->write_ptr_mdm->length);
+			pr_debug("diag: SMUX  data copied\n");
+			driver->in_busy_smux = 0;
 		}
 #endif
 		/* copy number of data fields */
@@ -950,6 +982,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			      size_t count, loff_t *ppos)
 {
 	int err, ret = 0, pkt_type;
+	bool mdm_mask = false;
 #ifdef DIAG_DEBUG
 	int length = 0, i;
 #endif
@@ -985,6 +1018,12 @@ static int diagchar_write(struct file *file, const char __user *buf,
 							 payload_size);
 		/* Check masks for On-Device logging */
 		if (driver->mask_check) {
+			/* Check if mask is for MDM or MSM */
+			if (*(int *)driver->user_space_data == MDM_TOKEN) {
+				mdm_mask = true;
+				driver->user_space_data += 4;
+				buf += 4;
+			}
 			if (!mask_request_validate(driver->user_space_data)) {
 				pr_alert("diag: mask request Invalid\n");
 				return -EFAULT;
@@ -998,7 +1037,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 #endif
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* send masks to 9k too */
-		if (driver->sdio_ch) {
+		if (driver->sdio_ch && mdm_mask) {
 			wait_event_interruptible(driver->wait_q,
 				 (sdio_write_avail(driver->sdio_ch) >=
 					 payload_size));
@@ -1010,7 +1049,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 #endif
 #ifdef CONFIG_DIAG_BRIDGE_CODE
 		/* send masks to 9k too */
-		if (driver->hsic_ch && (payload_size > 0)) {
+		if (driver->hsic_ch && (payload_size > 0) && mdm_mask) {
 			/* wait sending mask updates if HSIC ch not ready */
 			if (driver->in_busy_hsic_write)
 				wait_event_interruptible(driver->wait_q,
@@ -1032,9 +1071,22 @@ static int diagchar_write(struct file *file, const char __user *buf,
 					driver->in_busy_hsic_write = 0;
 			}
 		}
+		if (driver->diag_smux_enabled && mdm_mask && driver->lcid) {
+			if (payload_size > 0) {
+				err = msm_smux_write(driver->lcid, NULL,
+						driver->user_space_data,
+						payload_size);
+				if (err) {
+					pr_err("diag:send mask to MDM err %d",
+							err);
+					return err;
+				}
+			}
+		}
 #endif
 		/* send masks to 8k now */
-		diag_process_hdlc((void *)(driver->user_space_data),
+		if (!mdm_mask)
+			diag_process_hdlc((void *)(driver->user_space_data),
 							 payload_size);
 		return 0;
 	}
