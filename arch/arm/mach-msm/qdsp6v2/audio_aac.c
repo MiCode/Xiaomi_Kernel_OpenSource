@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -81,7 +81,13 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		aac_cfg.spectral_data_resilience =
 			aac_config->aac_spectral_data_resilience_flag;
 		aac_cfg.ch_cfg = audio->pcm_cfg.channel_count;
-		aac_cfg.sample_rate =  audio->pcm_cfg.sample_rate;
+		if (audio->feedback == TUNNEL_MODE) {
+			aac_cfg.sample_rate = aac_config->sample_rate;
+			aac_cfg.ch_cfg = aac_config->channel_configuration;
+		} else {
+			aac_cfg.sample_rate =  audio->pcm_cfg.sample_rate;
+			aac_cfg.ch_cfg = audio->pcm_cfg.channel_count;
+		}
 
 		pr_debug("%s:format=%x aot=%d  ch=%d sr=%d\n",
 			__func__, aac_cfg.format,
