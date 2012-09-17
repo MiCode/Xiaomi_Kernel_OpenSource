@@ -3205,6 +3205,11 @@ static int ci13xxx_start(struct usb_gadget_driver *driver,
 	spin_unlock_irqrestore(udc->lock, flags);
 	if (retval || put)
 		pm_runtime_put_sync(&udc->gadget.dev);
+
+	if (udc->udc_driver->notify_event)
+			udc->udc_driver->notify_event(udc,
+				CI13XXX_CONTROLLER_UDC_STARTED_EVENT);
+
 	return retval;
 }
 
