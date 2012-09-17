@@ -640,26 +640,6 @@ static void gbam_disconnect_work(struct work_struct *w)
 	clear_bit(BAM_CH_OPENED, &d->flags);
 }
 
-static void gbam2bam_disconnect_work(struct work_struct *w)
-{
-	struct gbam_port *port =
-			container_of(w, struct gbam_port, disconnect_w);
-	unsigned long		flags;
-
-	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock(&port->port_lock_dl);
-	port->port_usb = 0;
-	spin_unlock(&port->port_lock_dl);
-	spin_unlock_irqrestore(&port->port_lock_ul, flags);
-
-	/* disable endpoints */
-	usb_ep_disable(port->gr->out);
-	usb_ep_disable(port->gr->in);
-
-	port->gr->in->driver_data = NULL;
-	port->gr->out->driver_data = NULL;
-}
-
 static void gbam_connect_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, connect_w);
@@ -699,29 +679,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	struct bam_ch_info *d = &port->data_ch;
 	u32 sps_params;
 	int ret;
-	unsigned long flags;
-
-	ret = usb_ep_enable(port->gr->in);
-	if (ret) {
-		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
-				__func__, port->gr->in);
-		return;
-	}
-	port->gr->in->driver_data = port;
-
-	ret = usb_ep_enable(port->gr->out);
-	if (ret) {
-		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
-				__func__, port->gr->out);
-		port->gr->in->driver_data = 0;
-		return;
-	}
-	port->gr->out->driver_data = port;
-	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock(&port->port_lock_dl);
-	port->port_usb = port->gr;
-	spin_unlock(&port->port_lock_dl);
-	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 	ret = usb_bam_connect(d->connection_idx, &d->src_pipe_idx,
 						  &d->dst_pipe_idx);
@@ -916,7 +873,6 @@ static int gbam2bam_port_alloc(int portno)
 	spin_lock_init(&port->port_lock_dl);
 
 	INIT_WORK(&port->connect_w, gbam2bam_connect_work);
-	INIT_WORK(&port->disconnect_w, gbam2bam_disconnect_work);
 
 	/* data ch */
 	d = &port->data_ch;
@@ -1071,7 +1027,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	d = &port->data_ch;
 	port->gr = gr;
 
-	if (trans == USB_GADGET_XPORT_BAM) {
+	if (trans == USB_GADGET_XPORT_BAM)
 		gbam_free_buffers(port);
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
@@ -1081,12 +1037,15 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
-		/* disable endpoints */
-		usb_ep_disable(gr->out);
-		usb_ep_disable(gr->in);
-	}
+	/* disable endpoints */
+	usb_ep_disable(gr->out);
+	usb_ep_disable(gr->in);
 
-	queue_work(gbam_wq, &port->disconnect_w);
+	gr->in->driver_data = NULL;
+	gr->out->driver_data = NULL;
+
+	if (trans == USB_GADGET_XPORT_BAM)
+		queue_work(gbam_wq, &port->disconnect_w);
 }
 
 int gbam_connect(struct grmnet *gr, u8 port_num,
@@ -1121,36 +1080,37 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 
 	d = &port->data_ch;
 
-	if (trans == USB_GADGET_XPORT_BAM) {
-		ret = usb_ep_enable(gr->in);
-		if (ret) {
-			pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
-					__func__, gr->in);
-			return ret;
-		}
-		gr->in->driver_data = port;
+	ret = usb_ep_enable(gr->in);
+	if (ret) {
+		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
+			__func__, gr->in);
+		return ret;
+	}
+	gr->in->driver_data = port;
 
-		ret = usb_ep_enable(gr->out);
-		if (ret) {
-			pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
-					__func__, gr->out);
-			gr->in->driver_data = 0;
-			return ret;
-		}
-		gr->out->driver_data = port;
+	ret = usb_ep_enable(gr->out);
+	if (ret) {
+		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
+			__func__, gr->out);
+		gr->in->driver_data = 0;
+		return ret;
+	}
+	gr->out->driver_data = port;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
 	spin_lock(&port->port_lock_dl);
 	port->port_usb = gr;
 
+	if (trans == USB_GADGET_XPORT_BAM) {
 		d->to_host = 0;
 		d->to_modem = 0;
 		d->pending_with_bam = 0;
 		d->tohost_drp_cnt = 0;
 		d->tomodem_drp_cnt = 0;
+	}
+
 	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
-	}
 
 	if (trans == USB_GADGET_XPORT_BAM2BAM) {
 		port->gr = gr;
