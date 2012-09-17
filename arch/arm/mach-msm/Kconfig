@@ -357,6 +357,8 @@ config ARCH_MSM9625
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
 	select GPIO_MSM_V3
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
 endmenu
 
 choice
