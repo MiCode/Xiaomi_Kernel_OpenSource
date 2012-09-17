@@ -105,7 +105,7 @@
 
 
 #if defined(CONFIG_ARCH_MSM9615) || defined(CONFIG_ARCH_MSM7X27) \
-	|| defined(CONFIG_ARCH_MSM7X30)
+	|| defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM9625)
 #define MSM_SHARED_RAM_SIZE	SZ_1M
 #else
 #define MSM_SHARED_RAM_SIZE	SZ_2M
