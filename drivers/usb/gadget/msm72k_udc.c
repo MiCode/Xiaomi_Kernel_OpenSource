@@ -294,15 +294,17 @@ static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 
 static inline enum chg_type usb_get_chg_type(struct usb_info *ui)
 {
-	if ((readl(USB_PORTSC) & PORTSC_LS) == PORTSC_LS)
+	if ((readl_relaxed(USB_PORTSC) & PORTSC_LS) == PORTSC_LS) {
 		return USB_CHG_TYPE__WALLCHARGER;
-	else {
+	} else if (ui->pdata->prop_chg) {
 		if (ui->gadget.speed == USB_SPEED_LOW ||
 			ui->gadget.speed == USB_SPEED_FULL ||
 			ui->gadget.speed == USB_SPEED_HIGH)
 			return USB_CHG_TYPE__SDP;
 		else
 			return USB_CHG_TYPE__INVALID;
+	} else {
+		return USB_CHG_TYPE__SDP;
 	}
 }
 
@@ -332,7 +334,7 @@ static int usb_get_max_power(struct usb_info *ui)
 
 	if (temp == USB_CHG_TYPE__WALLCHARGER && !ui->proprietary_chg)
 		return USB_WALLCHARGER_CHG_CURRENT;
-	else
+	else if (ui->pdata->prop_chg)
 		return USB_PROPRIETARY_CHG_CURRENT;
 
 	if (suspended || !configured)
@@ -2049,6 +2051,54 @@ const struct file_operations prime_fail_ops = {
 	.write = debug_reprime_ep,
 };
 
+static ssize_t debug_prop_chg_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct usb_info *ui = file->private_data;
+	char kbuf[2];
+
+	memset(kbuf, 0, sizeof(kbuf));
+
+	if (copy_from_user(kbuf, buf, sizeof(kbuf)))
+		return -EFAULT;
+
+	if (!strncmp(kbuf, "1", 1))
+		ui->pdata->prop_chg = 1;
+	else
+		ui->pdata->prop_chg = 0;
+
+	return count;
+}
+
+static ssize_t debug_prop_chg_read(struct file *file, char __user *ubuf,
+				 size_t count, loff_t *ppos)
+{
+	struct usb_info *ui = file->private_data;
+	char kbuf[2];
+	size_t c = 0;
+
+	memset(kbuf, 0, sizeof(kbuf));
+
+	c = scnprintf(kbuf, sizeof(kbuf), "%d\n", ui->pdata->prop_chg);
+
+	if (copy_to_user(ubuf, kbuf, c))
+		return -EFAULT;
+
+	return simple_read_from_buffer(ubuf, count, ppos, kbuf, c);
+}
+
+static int debug_prop_chg_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+const struct file_operations debug_prop_chg_ops = {
+	.open = debug_prop_chg_open,
+	.read = debug_prop_chg_read,
+	.write = debug_prop_chg_write,
+};
+
 static void usb_debugfs_init(struct usb_info *ui)
 {
 	struct dentry *dent;
@@ -2063,6 +2113,8 @@ static void usb_debugfs_init(struct usb_info *ui)
 						&debug_wlocks_ops);
 	debugfs_create_file("prime_fail_countt", 0666, dent, ui,
 						&prime_fail_ops);
+	debugfs_create_file("proprietary_chg", 0666, dent, ui,
+						&debug_prop_chg_ops);
 }
 #else
 static void usb_debugfs_init(struct usb_info *ui) {}
