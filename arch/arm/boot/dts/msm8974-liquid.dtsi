@@ -11,6 +11,7 @@
  */
 
 /include/ "msm8974-camera-sensor-liquid.dtsi"
+/include/ "msm8974-leds.dtsi"
 
 / {
 	serial@f991e000 {

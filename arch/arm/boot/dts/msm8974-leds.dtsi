@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+	qcom,pm8941@1 {
+		qcom,leds@d000 {
+			status = "okay";
+			qcom,rgb_0 {
+				label = "rgb";
+				linux,name = "led:rgb_red";
+				qcom,mode = <0>;
+				qcom,pwm-channel = <6>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				qcom,id = <3>;
+				linux,default-trigger =
+					"battery-charging";
+			};
+
+			qcom,rgb_1 {
+				label = "rgb";
+				linux,name = "led:rgb_green";
+				qcom,mode = <0>;
+				qcom,pwm-channel = <5>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				qcom,id = <4>;
+				linux,default-trigger = "battery-full";
+			};
+		};
+
+		qcom,leds@d100 {
+			status = "disabled";
+		};
+
+		qcom,leds@d2000 {
+			status = "disabled";
+		};
+
+		qcom,leds@d300 {
+			status = "okay";
+			qcom,flash_0 {
+				qcom,max-current = <1000>;
+				qcom,default-state = "off";
+				qcom,headroom = <0>;
+				qcom,duration = <1280>;
+				qcom,clamp-curr = <200>;
+				qcom,startup-dly = <1>;
+				qcom,safety-timer;
+				label = "flash";
+				linux,default-trigger =
+					"flash0_trigger";
+				qcom,id = <1>;
+				linux,name = "led:flash_0";
+				qcom,current = <625>;
+			};
+
+			qcom,flash_1 {
+				qcom,max-current = <1000>;
+				qcom,default-state = "off";
+				qcom,headroom = <0>;
+				qcom,duration = <1280>;
+				qcom,clamp-curr = <200>;
+				qcom,startup-dly = <1>;
+				qcom,safety-timer;
+				linux,default-trigger =
+					"flash1_trigger";
+				label = "flash";
+				qcom,id = <2>;
+				linux,name = "led:flash_1";
+				qcom,current = <625>;
+			};
+		};
+
+		qcom,leds@d400 {
+			status = "disabled";
+		};
+
+		qcom,leds@d500 {
+			status = "disabled";
+		};
+
+		qcom,leds@d600 {
+			status = "disabled";
+		};
+
+		qcom,leds@d700 {
+			status = "disabled";
+		};
+	};
+};
+
