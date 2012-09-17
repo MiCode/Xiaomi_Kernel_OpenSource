@@ -827,7 +827,8 @@ done:
 		goto out;
 
 	/* Change the AXI bus frequency if we can. */
-	if (strt_s->axiclk_khz != tgt_s->axiclk_khz) {
+	if (reason != SETRATE_PC &&
+		strt_s->axiclk_khz != tgt_s->axiclk_khz) {
 		res = clk_set_rate(drv_state.ebi1_clk,
 				tgt_s->axiclk_khz * 1000);
 		if (res < 0)
