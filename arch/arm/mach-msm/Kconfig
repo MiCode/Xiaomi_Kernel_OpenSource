@@ -362,6 +362,8 @@ config ARCH_MSM9625
 	select MULTI_IRQ_HANDLER
 	select GPIO_MSM_V3
 	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
 
 endmenu
 
