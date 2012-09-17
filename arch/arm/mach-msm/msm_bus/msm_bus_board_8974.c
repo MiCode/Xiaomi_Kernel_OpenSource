@@ -1046,9 +1046,8 @@ static struct msm_bus_node_info bimc_info[]  = {
 		.qport = qports_kmpss,
 		.ws = 10000,
 		.mas_hw_id = MAS_APPSS_PROC,
-		.prio_lvl = 0,
-		.prio_rd = 2,
-		.prio_wr = 2,
+		.prio_rd = 1,
+		.prio_wr = 1,
 	},
 	{
 		.id = MSM_BUS_MASTER_AMPSS_M1,
@@ -1061,6 +1060,8 @@ static struct msm_bus_node_info bimc_info[]  = {
 		.qport = qports_kmpss,
 		.ws = 10000,
 		.mas_hw_id = MAS_APPSS_PROC,
+		.prio_rd = 1,
+		.prio_wr = 1,
 	},
 	{
 		.id = MSM_BUS_MASTER_MSS_PROC,
