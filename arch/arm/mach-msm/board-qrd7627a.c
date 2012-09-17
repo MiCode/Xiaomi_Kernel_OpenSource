@@ -275,6 +275,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 
 static struct msm_hsusb_gadget_platform_data msm_gadget_pdata = {
 	.is_phy_status_timer_on = 1,
+	.prop_chg = 0,
 };
 
 #ifdef CONFIG_SERIAL_MSM_HS
