@@ -267,7 +267,7 @@ int adsp_ion_do_cache_op(struct msm_adsp_module *module,
 			module->name, vaddr, len);
 		return ret;
 	}
-	if ((region->ion_flag == CACHED) && region->handle) {
+	if ((region->ion_flag == ION_FLAG_CACHED) && region->handle) {
 		len = ((((len) + 31) & (~31)) + 32);
 		ret = msm_ion_do_cache_op(region->client, region->handle,
 				(void *)paddr, len, cmd);

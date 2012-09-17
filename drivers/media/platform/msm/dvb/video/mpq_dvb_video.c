@@ -572,7 +572,7 @@ static void mpq_int_vid_dec_output_frame_done(
 		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_OUTPUT,
 				pmem_fd, kernel_vaddr, buffer_index,
 				&buff_handle);
-		if (ion_flag == CACHED && buff_handle) {
+		if (ion_flag == ION_FLAG_CACHED && buff_handle) {
 			msm_ion_do_cache_op(
 				client_ctx->user_ion_client,
 				buff_handle,
@@ -1145,7 +1145,7 @@ static int mpq_int_vid_dec_set_h264_mv_buffers(
 				VIDEO_DOMAIN, VIDEO_MAIN_POOL,
 				SZ_4K, 0, (unsigned long *)&iova,
 				(unsigned long *)&buffer_size,
-				UNCACHED, 0);
+				0, 0);
 		if (rc) {
 			DBG("%s():get_ION_kernel physical addr fail\n",
 						 __func__);
@@ -1502,7 +1502,7 @@ static int mpq_int_vid_dec_decode_frame(struct video_client_ctx *client_ctx,
 						kernel_vaddr,
 						buffer_index,
 						&buff_handle);
-			if (ion_flag == CACHED && buff_handle) {
+			if (ion_flag == ION_FLAG_CACHED && buff_handle) {
 				msm_ion_do_cache_op(
 				client_ctx->user_ion_client,
 				buff_handle,
