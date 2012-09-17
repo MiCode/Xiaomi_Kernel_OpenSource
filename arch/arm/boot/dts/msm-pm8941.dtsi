@@ -993,6 +993,24 @@
 			status = "disabled";
 		};
 
+		qcom,leds@d000 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd000 0x100>;
+			label = "rgb";
+		};
+
+		qcom,leds@d100 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd100 0x100>;
+			label = "rgb";
+		};
+
+		qcom,leds@d200 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd200 0x100>;
+			label = "rgb";
+		};
+
 		qcom,leds@d300 {
 			compatible = "qcom,leds-qpnp";
 			reg = <0xd300 0x100>;
