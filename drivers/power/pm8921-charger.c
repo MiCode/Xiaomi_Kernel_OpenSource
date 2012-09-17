@@ -3302,6 +3302,7 @@ static void determine_initial_state(struct pm8921_chg_chip *chip)
 {
 	unsigned long flags;
 	int fsm_state;
+	int is_fast_chg;
 
 	chip->dc_present = !!is_dc_chg_plugged_in(chip);
 	chip->usb_present = !!is_usb_chg_plugged_in(chip);
@@ -3329,9 +3330,17 @@ static void determine_initial_state(struct pm8921_chg_chip *chip)
 	if (usb_chg_current) {
 		/* reissue a vbus draw call */
 		__pm8921_charger_vbus_draw(usb_chg_current);
-		fastchg_irq_handler(chip->pmic_chg_irq[FASTCHG_IRQ], chip);
 	}
 	spin_unlock_irqrestore(&vbus_lock, flags);
+	/*
+	 * The bootloader could have started charging, a fastchg interrupt
+	 * might not happen. Check the real time status and if it is fast
+	 * charging invoke the handler so that the eoc worker could be
+	 * started
+	 */
+	is_fast_chg = pm_chg_get_rt_status(chip, FASTCHG_IRQ);
+	if (is_fast_chg)
+		fastchg_irq_handler(chip->pmic_chg_irq[FASTCHG_IRQ], chip);
 
 	fsm_state = pm_chg_get_fsm_state(chip);
 	if (is_battery_charging(fsm_state)) {
