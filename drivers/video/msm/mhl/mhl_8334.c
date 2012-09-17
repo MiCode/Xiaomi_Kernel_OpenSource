@@ -62,6 +62,9 @@ static irqreturn_t mhl_tx_isr(int irq, void *dev_id);
 void (*notify_usb_online)(int online);
 static void mhl_drive_hpd(uint8_t to_state);
 static int mhl_send_msc_command(struct msc_command_struct *req);
+static void list_cmd_put(struct msc_command_struct *cmd);
+static struct msc_command_struct *list_cmd_get(void);
+static void mhl_msc_send_work(struct work_struct *work);
 
 static struct i2c_driver mhl_sii_i2c_driver = {
 	.driver = {
@@ -618,7 +621,7 @@ static void list_cmd_put(struct msc_command_struct *cmd)
 	list_add_tail(&new_cmd->msc_queue_envelope, &mhl_msm_state->list_cmd);
 }
 
-struct msc_command_struct *list_cmd_get(void)
+static struct msc_command_struct *list_cmd_get(void)
 {
 	struct msc_cmd_envelope *cmd_env =
 		list_first_entry(&mhl_msm_state->list_cmd,
