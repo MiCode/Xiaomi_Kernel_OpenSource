@@ -418,6 +418,18 @@ struct sdhci_host {
  */
 #define SDHCI_QUIRK2_NEED_DELAY_AFTER_INT_CLK_RST	(1<<16)
 
+/*
+ * Read Transfer Active/ Write Transfer Active may be not
+ * de-asserted after end of transaction. Issue reset for DAT line.
+ */
+#define SDHCI_QUIRK2_RDWR_TX_ACTIVE_EOT                 (1<<17)
+/*
+ * Slow interrupt clearance at 400KHz may cause
+ * host controller driver interrupt handler to
+ * be called twice.
+ */
+#define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<18)
+
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
