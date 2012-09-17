@@ -119,7 +119,7 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 				0,
 				(unsigned long *)&iova,
 				(unsigned long *)&buffer_size,
-				UNCACHED, 0);
+				0, 0);
 			if (ret || !iova) {
 				pr_err(
 				"%s() ION iommu map failed, ret = %d, iova = 0x%lx",

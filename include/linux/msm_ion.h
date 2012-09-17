@@ -1,5 +1,4 @@
 /*
- * include/linux/ion.h
  *
  * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
