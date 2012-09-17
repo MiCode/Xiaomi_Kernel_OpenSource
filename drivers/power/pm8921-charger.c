@@ -3319,7 +3319,7 @@ static void determine_initial_state(struct pm8921_chg_chip *chip)
 	chip->usb_present = !!is_usb_chg_plugged_in(chip);
 
 	notify_usb_of_the_plugin_event(chip->usb_present);
-	if (chip->usb_present) {
+	if (chip->usb_present || chip->dc_present) {
 		schedule_delayed_work(&chip->unplug_check_work,
 			round_jiffies_relative(msecs_to_jiffies
 				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
