@@ -119,12 +119,17 @@ static void adsp_log_failure_reason(void)
 	wmb();
 }
 
+static void restart_adsp(void)
+{
+	adsp_log_failure_reason();
+	subsystem_restart("adsp");
+}
+
 static void adsp_fatal_fn(struct work_struct *work)
 {
 	pr_err("%s %s: Watchdog bite received from Q6!\n", MODULE_NAME,
 		__func__);
-	adsp_log_failure_reason();
-	panic(MODULE_NAME ": Resetting the SoC");
+	restart_adsp();
 }
 
 static void adsp_smsm_state_cb(void *data, uint32_t old_state,
@@ -137,8 +142,7 @@ static void adsp_smsm_state_cb(void *data, uint32_t old_state,
 	if (new_state & SMSM_RESET) {
 		pr_debug("%s: ADSP SMSM state changed to SMSM_RESET, new_state= 0x%x, old_state = 0x%x\n",
 			 __func__, new_state, old_state);
-		adsp_log_failure_reason();
-		panic(MODULE_NAME ": Resetting the SoC");
+		restart_adsp();
 	}
 }
 
@@ -156,7 +160,7 @@ static int adsp_shutdown(const struct subsys_desc *subsys)
 	/* The write needs to go through before the q6 is shutdown. */
 	mb();
 
-	pil_force_shutdown("q6");
+	pil_force_shutdown("adsp");
 	disable_irq_nosync(ADSP_Q6SS_WDOG_EXPIRED);
 
 	return 0;
@@ -171,7 +175,7 @@ static int adsp_powerup(const struct subsys_desc *subsys)
 		msleep(10000);
 	}
 
-	ret = pil_force_boot("q6");
+	ret = pil_force_boot("adsp");
 	enable_irq(ADSP_Q6SS_WDOG_EXPIRED);
 	return ret;
 }
