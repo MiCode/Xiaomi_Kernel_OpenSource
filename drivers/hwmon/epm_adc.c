@@ -102,8 +102,6 @@
 #define EPM_PSOC_BUFFERED_DATA_LENGTH			48
 #define EPM_PSOC_BUFFERED_DATA_LENGTH2			54
 
-#define EPM_SPI_NOR_CS_N_GPIO		53
-
 struct epm_adc_drv {
 	struct platform_device		*pdev;
 	struct device			*hwmon;
@@ -171,14 +169,6 @@ static int epm_adc_i2c_expander_register(void)
 static int epm_adc_gpio_configure_expander_enable(void)
 {
 	int rc = 0;
-
-	rc = gpio_request(EPM_SPI_NOR_CS_N_GPIO, "SPI_NOR_CS_N");
-	if (!rc)
-		gpio_direction_output(EPM_SPI_NOR_CS_N_GPIO, 1);
-	else {
-		pr_err("Configure spi nor Failed\n");
-		return -EINVAL;
-	}
 
 	if (epm_adc_first_request) {
 		rc = gpio_request(GPIO_EPM_GLOBAL_ENABLE, "EPM_GLOBAL_EN");
@@ -521,27 +511,27 @@ static int epm_adc_ads_scale_result(struct epm_adc_drv *epm_adc,
 	struct epm_adc_platform_data *pdata = epm_adc->pdev->dev.platform_data;
 	uint32_t chan_idx = (conv->device_idx * pdata->chan_per_adc) +
 					conv->channel_idx;
-	int64_t *adc_scaled_data = 0;
+	int64_t adc_scaled_data = 0;
 
 	/* Get the channel number */
 	channel_num = (adc_raw_data[0] & EPM_ADC_ADS_CHANNEL_DATA_CHID);
 	sign_bit    = 1;
 	/* This is the 16-bit raw data */
-	*adc_scaled_data = ((adc_raw_data[1] << 8) | adc_raw_data[2]);
+	adc_scaled_data = ((adc_raw_data[1] << 8) | adc_raw_data[2]);
 	/* Obtain the internal system reading */
 	if (channel_num == EPM_ADC_ADS_CHANNEL_VCC) {
-		*adc_scaled_data *= EPM_ADC_SCALE_MILLI;
-		do_div(*adc_scaled_data, EPM_ADC_SCALE_CODE_VOLTS);
+		adc_scaled_data *= EPM_ADC_SCALE_MILLI;
+		do_div(adc_scaled_data, EPM_ADC_SCALE_CODE_VOLTS);
 	} else if (channel_num == EPM_ADC_ADS_CHANNEL_GAIN) {
-		do_div(*adc_scaled_data, EPM_ADC_SCALE_CODE_GAIN);
+		do_div(adc_scaled_data, EPM_ADC_SCALE_CODE_GAIN);
 	} else if (channel_num == EPM_ADC_ADS_CHANNEL_REF) {
-		*adc_scaled_data *= EPM_ADC_SCALE_MILLI;
-		do_div(*adc_scaled_data, EPM_ADC_SCALE_CODE_VOLTS);
+		adc_scaled_data *= EPM_ADC_SCALE_MILLI;
+		do_div(adc_scaled_data, EPM_ADC_SCALE_CODE_VOLTS);
 	} else if (channel_num == EPM_ADC_ADS_CHANNEL_TEMP) {
 		/* Convert Code to micro-volts */
 		/* Use this formula to get the temperature reading */
-		*adc_scaled_data -= EPM_ADC_TEMP_TO_DEGC_COEFF;
-		do_div(*adc_scaled_data, EPM_ADC_TEMP_SENSOR_COEFF);
+		adc_scaled_data -= EPM_ADC_TEMP_TO_DEGC_COEFF;
+		do_div(adc_scaled_data, EPM_ADC_TEMP_SENSOR_COEFF);
 	} else if (channel_num == EPM_ADC_ADS_CHANNEL_OFFSET) {
 		/* The offset should be zero */
 		pr_debug("%s: ADC Channel Offset\n", __func__);
@@ -553,31 +543,31 @@ static int epm_adc_ads_scale_result(struct epm_adc_drv *epm_adc,
 		 * mvVRef is in milli-volts and resistorvalue is in micro-ohms.
 		 * Hence, I = V/R gives us current in kilo-amps.
 		 */
-		if (*adc_scaled_data & EPM_ADC_MAX_NEGATIVE_SCALE_CODE) {
+		if (adc_scaled_data & EPM_ADC_MAX_NEGATIVE_SCALE_CODE) {
 			sign_bit = -1;
-			*adc_scaled_data = (~*adc_scaled_data
+			adc_scaled_data = (~adc_scaled_data
 				& EPM_ADC_NEG_LSB_CODE);
 		}
-		if (*adc_scaled_data != 0) {
-			*adc_scaled_data *= EPM_ADC_SCALE_FACTOR;
+		if (adc_scaled_data != 0) {
+			adc_scaled_data *= EPM_ADC_SCALE_FACTOR;
 			 /* Device is calibrated for 1LSB = VREF/7800h.*/
-			*adc_scaled_data *= EPM_ADC_MILLI_VOLTS_SOURCE;
-			do_div(*adc_scaled_data, EPM_ADC_VREF_CODE);
+			adc_scaled_data *= EPM_ADC_MILLI_VOLTS_SOURCE;
+			do_div(adc_scaled_data, EPM_ADC_VREF_CODE);
 			 /* Data will now be in micro-volts.*/
-			*adc_scaled_data *= EPM_ADC_SCALE_MILLI;
+			adc_scaled_data *= EPM_ADC_SCALE_MILLI;
 			 /* Divide by amplifier gain value.*/
-			do_div(*adc_scaled_data, pdata->channel[chan_idx].gain);
+			do_div(adc_scaled_data, pdata->channel[chan_idx].gain);
 			 /* Data will now be in nano-volts.*/
-			do_div(*adc_scaled_data, EPM_ADC_SCALE_FACTOR);
-			*adc_scaled_data *= EPM_ADC_SCALE_MILLI;
+			do_div(adc_scaled_data, EPM_ADC_SCALE_FACTOR);
+			adc_scaled_data *= EPM_ADC_SCALE_MILLI;
 			 /* Data is now in micro-amps.*/
-			do_div(*adc_scaled_data,
+			do_div(adc_scaled_data,
 				pdata->channel[chan_idx].resistorvalue);
 			 /* Set the sign bit for lekage current. */
-			*adc_scaled_data *= sign_bit;
+			adc_scaled_data *= sign_bit;
 		}
 	}
-	conv->physical = (int32_t) *adc_scaled_data;
+	conv->physical = (int32_t) adc_scaled_data;
 
 	return 0;
 }
@@ -1600,16 +1590,15 @@ static int __devinit epm_adc_psoc_spi_probe(struct spi_device *spi)
 	struct device_node *node = spi->dev.of_node;
 	int rc = 0;
 
-	if (!node) {
-		dev_err(&spi->dev, "no platform data?\n");
-		pr_info("Error in the probe\n");
-		return -EINVAL;
-	}
-
 	if (node)
 		rc = get_device_tree_data(spi);
-	else
-		return -ENODEV;
+	else {
+		epm_adc = epm_adc_drv;
+		epm_adc_drv->epm_spi_client = spi;
+		epm_adc_drv->epm_spi_client->bits_per_word =
+				EPM_ADC_ADS_SPI_BITS_PER_WORD;
+		return rc;
+	}
 
 	epm_adc = epm_adc_drv;
 	epm_adc->misc.name = EPM_ADC_DRIVER_NAME;
