@@ -279,6 +279,7 @@ void mdss_mdp_footswitch_ctrl(int on);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd);
+int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
 

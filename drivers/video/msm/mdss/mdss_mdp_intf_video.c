@@ -183,7 +183,7 @@ static int mdss_mdp_video_set_vsync_handler(struct mdss_mdp_ctl *ctl,
 	if (mutex_lock_interruptible(&ctx->vsync_lock))
 		return -EINTR;
 
-	if (!ctx->timegen_en) {
+	if (vsync_handler && !ctx->timegen_en) {
 		ctx->vsync_time = ktime_get();
 		schedule_work(&ctx->vsync_work);
 	}
@@ -212,6 +212,9 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 		pr_err("invalid ctx for ctl=%d\n", ctl->num);
 		return -ENODEV;
 	}
+
+	if (ctx->vsync_handler)
+		mdss_mdp_video_set_vsync_handler(ctl, NULL);
 
 	if (ctx->timegen_en) {
 		off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
