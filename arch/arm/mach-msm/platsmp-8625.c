@@ -39,8 +39,17 @@ volatile int pen_release = -1;
 
 static DEFINE_PER_CPU(bool, cold_boot_done);
 
+struct per_cpu_data {
+	unsigned int reset_off;
+	unsigned int offset;
+	unsigned int ipc_irq;
+	void __iomem *reset_core_base;
+};
+
 static uint32_t *msm8625_boot_vector;
-static void __iomem *reset_core1_base;
+
+
+static struct per_cpu_data cpu_data[CONFIG_NR_CPUS];
 
 /*
  * Write pen_release in a way that is guaranteed to be visible to all
@@ -114,7 +123,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	/* clear the IPC1(SPI-8) pending SPI */
 	if (power_collapsed) {
 		raise_clear_spi(cpu, false);
-		clear_pending_spi(MSM8625_INT_ACSR_MP_CORE_IPC1);
+		clear_pending_spi(cpu_data[cpu].ipc_irq);
 		power_collapsed = 0;
 	}
 
@@ -138,7 +147,7 @@ static int  __cpuinit msm8625_release_secondary(unsigned int cpu)
 	 */
 	timeout = jiffies + usecs_to_jiffies(20);
 	while (time_before(jiffies, timeout)) {
-		value = __raw_readl(MSM_CFG_CTL_BASE + 0x3c);
+		value = __raw_readl(MSM_CFG_CTL_BASE + cpu_data[cpu].offset);
 		if ((value & MSM_CORE_STATUS_MSK) ==
 				MSM_CORE_STATUS_MSK)
 			break;
@@ -150,21 +159,23 @@ static int  __cpuinit msm8625_release_secondary(unsigned int cpu)
 		return -ENODEV;
 	}
 
-	base_ptr = ioremap_nocache(CORE_RESET_BASE, SZ_4);
+	base_ptr = ioremap_nocache(CORE_RESET_BASE +
+			cpu_data[cpu].reset_off, SZ_4);
 	if (!base_ptr)
 		return -ENODEV;
-	/* Reset core 1 out of reset */
+
+	/* Reset core out of reset */
 	__raw_writel(0x0, base_ptr);
 	mb();
 
-	reset_core1_base = base_ptr;
+	cpu_data[cpu].reset_core_base = base_ptr;
 
 	return 0;
 }
 
 void __iomem *core1_reset_base(void)
 {
-	return reset_core1_base;
+	return cpu_data[1].reset_core_base;
 }
 
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
@@ -248,6 +259,34 @@ void __init smp_init_cpus(void)
 	set_smp_cross_call(gic_raise_softirq);
 }
 
+static void per_cpu_data(unsigned int cpu, unsigned int off,
+	unsigned int off1, unsigned int irq)
+{
+	cpu_data[cpu].reset_off = off;
+	cpu_data[cpu].offset    = off1;
+	cpu_data[cpu].ipc_irq   = irq;
+}
+
+static void enable_boot_remapper(unsigned long bit, unsigned int off)
+{
+	int value;
+
+	/* Enable boot remapper address */
+	value = __raw_readl(MSM_CFG_CTL_BASE + off);
+	__raw_writel(value | bit, MSM_CFG_CTL_BASE + off) ;
+	mb();
+}
+
+static void remapper_address(unsigned long phys, unsigned int off)
+{
+	/*
+	 * Write the address of secondary startup into the
+	 * boot remapper register. The secondary CPU branches to this address.
+	 */
+	__raw_writel(phys, (MSM_CFG_CTL_BASE + off));
+	mb();
+}
+
 static void __init msm8625_boot_vector_init(uint32_t *boot_vector,
 		unsigned long entry)
 {
@@ -261,8 +300,8 @@ static void __init msm8625_boot_vector_init(uint32_t *boot_vector,
 
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
-	int i, value;
-	void __iomem *second_ptr;
+	int i, cpu;
+	void __iomem *cpu_ptr;
 
 	/*
 	 * Initialise the present map, which describes the set of CPUs
@@ -273,25 +312,28 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 
 	scu_enable(scu_base_addr());
 
-	/*
-	 * Write the address of secondary startup into the
-	 * boot remapper register. The secondary CPU branches to this address.
-	 */
-	__raw_writel(MSM8625_CPU_PHYS, (MSM_CFG_CTL_BASE + 0x34));
-	mb();
-
-	second_ptr = ioremap_nocache(MSM8625_CPU_PHYS, SZ_8);
-	if (!second_ptr) {
-		pr_err("failed to ioremap for secondary core\n");
+	cpu_ptr = ioremap_nocache(MSM8625_CPU_PHYS, SZ_8);
+	if (!cpu_ptr) {
+		pr_err("failed to ioremap for secondary cores\n");
 		return;
 	}
 
-	msm8625_boot_vector_init(second_ptr,
+	msm8625_boot_vector_init(cpu_ptr,
 			virt_to_phys(msm_secondary_startup));
-	iounmap(second_ptr);
 
-	/* Enable boot remapper address: bit 26 for core1 */
-	value = __raw_readl(MSM_CFG_CTL_BASE + 0x30);
-	__raw_writel(value | (0x4 << 24), MSM_CFG_CTL_BASE + 0x30) ;
-	mb();
+	iounmap(cpu_ptr);
+
+	for_each_possible_cpu(cpu) {
+		switch (cpu) {
+		case 0:
+			break;
+		case 1:
+			remapper_address(MSM8625_CPU_PHYS, 0x34);
+			per_cpu_data(cpu, 0x0, 0x3c,
+					MSM8625_INT_ACSR_MP_CORE_IPC1);
+			enable_boot_remapper(BIT(26), 0x30);
+			break;
+		}
+
+	}
 }
