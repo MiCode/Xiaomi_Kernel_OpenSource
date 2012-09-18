@@ -240,7 +240,7 @@ struct pvs_table {
  * @pvs_tables: CPU frequency tables.
  * @l2_freq_tbl: L2 frequency table.
  * @l2_freq_tbl_size: Size of @l2_freq_tbl.
- * @qfprom_phys_base: Physical base address of QFPROM.
+ * @pte_efuse_phys: Physical address of PTE EFUSE.
  * @bus_scale: MSM bus driver parameters.
  * @stby_khz: KHz value corresponding to an always-on clock source.
  */
@@ -251,7 +251,7 @@ struct acpuclk_krait_params {
 	struct pvs_table *pvs_tables;
 	struct l2_level *l2_freq_tbl;
 	size_t l2_freq_tbl_size;
-	phys_addr_t qfprom_phys_base;
+	phys_addr_t pte_efuse_phys;
 	struct msm_bus_scale_pdata *bus_scale;
 	unsigned long stby_khz;
 };
