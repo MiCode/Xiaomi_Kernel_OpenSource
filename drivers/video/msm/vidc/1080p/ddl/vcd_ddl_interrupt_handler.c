@@ -364,7 +364,7 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 				ddl->command_channel);
 		} else {
 			u32 seq_hdr_only_frame = false;
-			u32 need_reconfig = false;
+			u32 need_reconfig = false, eos_present = 0;
 			struct vcd_frame_data *input_vcd_frm =
 				&ddl->input_frame.vcd_frm;
 			need_reconfig = ddl_check_reconfig(ddl);
@@ -380,15 +380,25 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 				input_vcd_frm->offset +=
 					seq_hdr_info.dec_frm_size;
 				input_vcd_frm->data_len = 0;
-				input_vcd_frm->flags |=
-					VCD_FRAME_FLAG_CODECCONFIG;
-				ddl->input_frame.frm_trans_end =
-					!need_reconfig;
-				ddl_context->ddl_callback(
+				eos_present =
+				input_vcd_frm->flags & VCD_FRAME_FLAG_EOS;
+				if (!eos_present) {
+					input_vcd_frm->flags |=
+						VCD_FRAME_FLAG_CODECCONFIG;
+					ddl->input_frame.frm_trans_end =
+						!need_reconfig;
+					ddl_context->ddl_callback(
 					VCD_EVT_RESP_INPUT_DONE,
 					VCD_S_SUCCESS, &ddl->input_frame,
 					sizeof(struct ddl_frame_data_tag),
 					(u32 *) ddl, ddl->client_data);
+				} else {
+					input_vcd_frm->flags &=
+					~(VCD_FRAME_FLAG_CODECCONFIG);
+					seq_hdr_only_frame = false;
+					pr_err("%s() Codec config buffer with eos\n",
+						__func__);
+				}
 			} else {
 				if (decoder->codec.codec ==
 					VCD_CODEC_VC1_RCV) {
