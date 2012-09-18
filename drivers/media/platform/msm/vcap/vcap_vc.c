@@ -122,6 +122,17 @@ static uint8_t correct_buf_num(uint32_t reg)
 	return 0;
 }
 
+static struct timeval interpolate_ts(struct timeval tv, uint32_t delta)
+{
+	if (tv.tv_usec < delta) {
+		tv.tv_sec--;
+		tv.tv_usec += VCAP_USEC - delta;
+	} else {
+		tv.tv_usec -= delta;
+	}
+	return tv;
+}
+
 irqreturn_t vc_handler(struct vcap_dev *dev)
 {
 	uint32_t irq, timestamp;
@@ -212,6 +223,20 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 
 	/* If here we know which buffers are done */
 	timestamp = readl_relaxed(VCAP_VC_TIMESTAMP);
+	if (timestamp < c_data->vc_action.last_ts) {
+		c_data->vc_action.vc_ts.tv_usec +=
+			(0xFFFFFFFF - c_data->vc_action.last_ts) +
+			timestamp + 1;
+	} else {
+		c_data->vc_action.vc_ts.tv_usec +=
+			timestamp - c_data->vc_action.last_ts;
+	}
+
+	c_data->vc_action.vc_ts.tv_sec +=
+		c_data->vc_action.vc_ts.tv_usec / VCAP_USEC;
+	c_data->vc_action.vc_ts.tv_usec =
+		c_data->vc_action.vc_ts.tv_usec % VCAP_USEC;
+	c_data->vc_action.last_ts = timestamp;
 
 	c_data->vc_action.buf_num = (buf_num + done_count) % tot;
 	for (i = 0; i < done_count; i++) {
@@ -232,9 +257,10 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 		/* Config vc with this new buffer */
 		config_buffer(c_data, buf, VCAP_VC_Y_ADDR_1 + 0x8 * idx,
 				VCAP_VC_C_ADDR_1 + 0x8 * idx);
-		vb->v4l2_buf.timestamp.tv_usec = timestamp -
+		vb->v4l2_buf.timestamp = interpolate_ts(
+			c_data->vc_action.vc_ts,
 			1000000 / c_data->vc_format.frame_rate *
-			(done_count - 1 - i);
+			(done_count - 1 - i));
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		work_todo = true;
 		c_data->vc_action.buf[idx] = buf;
@@ -297,6 +323,12 @@ int vc_hw_kick_off(struct vcap_client_data *c_data)
 			VCAP_VC_Y_ADDR_1 + i * 8,
 			VCAP_VC_C_ADDR_1 + i * 8);
 	}
+
+	c_data->vc_action.last_ts = readl_relaxed(VCAP_VC_TIMESTAMP);
+	c_data->vc_action.vc_ts.tv_sec =
+		c_data->vc_action.last_ts / VCAP_USEC;
+	c_data->vc_action.vc_ts.tv_usec =
+		c_data->vc_action.last_ts % VCAP_USEC;
 
 	rc = 0;
 	for (i = 0; i < c_data->vc_action.tot_buf; i++)
