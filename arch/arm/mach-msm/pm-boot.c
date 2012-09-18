@@ -211,7 +211,10 @@ static int __devinit msm_pm_boot_probe(struct platform_device *pdev)
 	char *key = NULL;
 	uint32_t val = 0;
 	int ret = 0;
-	int flag = 0;
+	uint32_t vaddr_val;
+
+	pdata.p_addr = 0;
+	vaddr_val = 0;
 
 	key = "qcom,mode";
 	ret = of_property_read_u32(pdev->dev.of_node, key, &val);
@@ -223,24 +226,43 @@ static int __devinit msm_pm_boot_probe(struct platform_device *pdev)
 
 	key = "qcom,phy-addr";
 	ret = of_property_read_u32(pdev->dev.of_node, key, &val);
-	if (ret && pdata.mode == MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS)
-		goto fail;
-	if (!ret) {
+	if (!ret)
 		pdata.p_addr = val;
-		flag++;
-	}
+
 
 	key = "qcom,virt-addr";
-	ret = of_property_read_u32(pdev->dev.of_node, key, &val);
-	if (ret && pdata.mode == MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT)
-		goto fail;
-	if (!ret) {
-		pdata.v_addr = (void *)val;
-		flag++;
-	}
+	ret = of_property_read_u32(pdev->dev.of_node, key, &vaddr_val);
 
-	if (pdata.mode == MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR && (flag != 2)) {
-		key = "addresses for boot remap";
+	switch (pdata.mode) {
+	case MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS:
+		if (!pdata.p_addr) {
+			key = "qcom,phy-addr";
+			goto fail;
+		}
+		break;
+	case MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT:
+		if (!vaddr_val)
+			goto fail;
+
+		pdata.v_addr = (void *)vaddr_val;
+		break;
+	case MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR:
+		if (!vaddr_val)
+			goto fail;
+
+		pdata.v_addr = ioremap_nocache(vaddr_val, SZ_8);
+
+		pdata.p_addr = allocate_contiguous_ebi_nomap(SZ_8, SZ_64K);
+		if (!pdata.p_addr) {
+			key = "qcom,phy-addr";
+			goto fail;
+		}
+		break;
+	case MSM_PM_BOOT_CONFIG_TZ:
+		break;
+	default:
+		pr_err("%s: Unsupported boot mode %d",
+			__func__, pdata.mode);
 		goto fail;
 	}
 
