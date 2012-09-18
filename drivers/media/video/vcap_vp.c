@@ -233,6 +233,10 @@ static void vp_wq_fnc(struct work_struct *work)
 			queue_work(dev->vcap_wq, &dev->vp_to_vc_work.work);
 	}
 
+	if (vp_act->bufT0 != NULL && vp_act->vp_state == VP_NORMAL) {
+		vp_act->bufOut->vb.v4l2_buf.timestamp =
+			vp_act->bufT0->vb.v4l2_buf.timestamp;
+	}
 	vb2_buffer_done(&vp_act->bufOut->vb, VB2_BUF_STATE_DONE);
 
 	/* Cycle to next state */
