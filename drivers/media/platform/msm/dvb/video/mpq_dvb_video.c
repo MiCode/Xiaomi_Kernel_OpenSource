@@ -55,6 +55,8 @@ static char vid_thread_names[DVB_MPQ_NUM_VIDEO_DEVICES][10] = {
 
 static int mpq_int_vid_dec_decode_frame(struct video_client_ctx *client_ctx,
 				struct video_data_buffer *input_frame);
+static int mpq_int_vid_dec_get_buffer_req(struct video_client_ctx *client_ctx,
+				  struct video_buffer_req *vdec_buf_req);
 
 static struct mpq_dvb_video_dev *mpq_dvb_video_device;
 
@@ -819,11 +821,32 @@ static int mpq_int_vid_dec_set_frame_resolution(
 		return 0;
 }
 
+static int mpq_int_set_out_buffer_req(struct video_client_ctx *client_ctx,
+					struct video_buffer_req *vdec_buf_req)
+{
+	struct vcd_buffer_requirement buffer_req;
+	u32 vcd_status = VCD_ERR_FAIL;
+
+	buffer_req.actual_count = vdec_buf_req->num_output_buffers;
+	buffer_req.align = vdec_buf_req->output_buf_prop.alignment;
+	buffer_req.max_count = vdec_buf_req->num_output_buffers;
+	buffer_req.min_count = vdec_buf_req->num_output_buffers;
+	buffer_req.sz = vdec_buf_req->output_buf_prop.buf_size;
+
+	vcd_status = vcd_set_buffer_requirements(client_ctx->vcd_handle,
+			VCD_BUFFER_OUTPUT, &buffer_req);
+	if (vcd_status)
+		return -EFAULT;
+	else
+		return 0;
+}
+
 static int mpq_int_set_full_hd_frame_resolution(
 				struct video_client_ctx *client_ctx)
 {
 	struct vdec_picsize pic_res;
 	int rc;
+	struct video_buffer_req vdec_buf_req;
 
 	pic_res.frame_height = 1080;
 	pic_res.frame_width  = 1920;
@@ -840,6 +863,15 @@ static int mpq_int_set_full_hd_frame_resolution(
 	if (rc)
 		DBG("Failed in mpq_int_vid_dec_set_cont_on_reconfig : %d\n",\
 			rc);
+
+	rc = mpq_int_vid_dec_get_buffer_req(client_ctx, &vdec_buf_req);
+	if (rc)
+		DBG("Failed in mpq_int_vid_dec_get_buffer_req : %d\n", rc);
+
+	vdec_buf_req.num_output_buffers = 15;
+	rc = mpq_int_set_out_buffer_req(client_ctx, &vdec_buf_req);
+	if (rc)
+		DBG("Failed in mpq_int_set_out_buffer_req (15) : %d\n", rc);
 
 	return rc;
 
