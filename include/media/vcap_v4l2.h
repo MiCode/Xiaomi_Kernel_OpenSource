@@ -38,6 +38,7 @@
 		writel_relaxed(val, addr);	\
 	} while (0)
 
+#define VCAP_USEC (1000000)
 #define VCAP_BASE (dev->vcapbase)
 #define VCAP_OFFSET(off) (VCAP_BASE + off)
 
@@ -86,6 +87,9 @@ struct vc_action {
 	/* Buffer index */
 	uint8_t					tot_buf;
 	uint8_t					buf_num;
+
+	struct timeval			vc_ts;
+	uint32_t				last_ts;
 
 	/* Buffers inside vc */
 	struct vcap_buffer      *buf[6];
