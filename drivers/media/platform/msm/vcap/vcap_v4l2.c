@@ -257,6 +257,8 @@ int vcap_enable(struct vcap_dev *dev, struct device *ddev,
 	rc = config_gpios(1, dev->vcap_pdata);
 	if (rc < 0)
 		goto gpio_failed;
+	writel_relaxed(0x00030003, VCAP_OFFSET(0xD78));
+	writel_relaxed(0x00030003, VCAP_OFFSET(0xD7C));
 	return 0;
 
 gpio_failed:
