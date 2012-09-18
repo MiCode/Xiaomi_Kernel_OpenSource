@@ -23,6 +23,8 @@ DEFINE_MUTEX(ov5647_mut);
 
 static struct msm_camera_i2c_reg_conf ov5647_start_settings[] = {
 	{0x4202, 0x00},  /* streaming on */
+	{0x0100, 0x01},
+	{0x4800, 0x04},
 };
 
 static struct msm_camera_i2c_reg_conf ov5647_stop_settings[] = {
