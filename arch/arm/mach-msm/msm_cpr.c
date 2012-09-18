@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +64,7 @@ struct msm_cpr {
 	unsigned int irq;
 	uint32_t cur_Vmin;
 	uint32_t cur_Vmax;
+	uint32_t prev_volt_uV;
 	struct mutex cpr_mutex;
 	struct regulator *vreg_cx;
 	const struct msm_cpr_config *config;
@@ -205,10 +205,10 @@ cpr_2pt_kv_analysis(struct msm_cpr *cpr, struct msm_cpr_mode *chip_data)
 	/* Call the PMIC specific routine to set the voltage */
 	rc = regulator_set_voltage(cpr->vreg_cx, level_uV, level_uV);
 	if (rc) {
-		pr_err("%s: Initial voltage set at %duV failed. %d\n",
-			__func__, level_uV, rc);
+		pr_err("Initial voltage set at %duV failed\n", level_uV);
 		return;
 	}
+
 	rc = regulator_enable(cpr->vreg_cx);
 	if (rc) {
 		pr_err("failed to enable %s, rc=%d\n", "vdd_cx", rc);
@@ -248,8 +248,7 @@ cpr_2pt_kv_analysis(struct msm_cpr *cpr, struct msm_cpr_mode *chip_data)
 	/* Call the PMIC specific routine to set the voltage */
 	rc = regulator_set_voltage(cpr->vreg_cx, level_uV, level_uV);
 	if (rc) {
-		pr_err("%s: Voltage set at %duV failed. %d\n",
-			__func__, level_uV, rc);
+		pr_err("Voltage set at %duV failed\n", level_uV);
 		return;
 	}
 
@@ -329,7 +328,7 @@ static void cpr_irq_set(struct msm_cpr *cpr, uint32_t irq, bool enable)
 static void
 cpr_up_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 {
-	int rc, set_volt_uV;
+	int set_volt_uV, rc;
 	struct msm_cpr_mode *chip_data;
 
 	chip_data = &cpr->config->cpr_mode_data[cpr->cpr_mode];
@@ -341,15 +340,20 @@ cpr_up_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 	/* Set New PMIC voltage */
 	set_volt_uV = (new_volt < cpr->cur_Vmax ? new_volt
 				: cpr->cur_Vmax);
-	rc = regulator_set_voltage(cpr->vreg_cx, set_volt_uV,
-					set_volt_uV);
+
+	if (cpr->prev_volt_uV == set_volt_uV)
+		rc = regulator_sync_voltage(cpr->vreg_cx);
+	else
+		rc = regulator_set_voltage(cpr->vreg_cx, set_volt_uV,
+							set_volt_uV);
 	if (rc) {
-		pr_err("%s: Voltage set at %duV failed. %d\n",
-			__func__, set_volt_uV, rc);
+		pr_err("Unable to set_voltage = %d, rc(%d)\n", set_volt_uV, rc);
 		cpr_irq_clr_and_nack(cpr, BIT(4) | BIT(0));
 		return;
 	}
+
 	pr_info("(railway_voltage: %d uV)\n", set_volt_uV);
+	cpr->prev_volt_uV = set_volt_uV;
 
 	cpr->max_volt_set = (set_volt_uV == cpr->cur_Vmax) ? 1 : 0;
 
@@ -371,7 +375,7 @@ cpr_up_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 static void
 cpr_dn_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 {
-	int rc, set_volt_uV;
+	int set_volt_uV, rc;
 	struct msm_cpr_mode *chip_data;
 
 	chip_data = &cpr->config->cpr_mode_data[cpr->cpr_mode];
@@ -383,15 +387,20 @@ cpr_dn_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 	/* Set New PMIC volt */
 	set_volt_uV = (new_volt > cpr->cur_Vmin ? new_volt
 				: cpr->cur_Vmin);
-	rc = regulator_set_voltage(cpr->vreg_cx, set_volt_uV,
-					set_volt_uV);
+
+	if (cpr->prev_volt_uV == set_volt_uV)
+		rc = regulator_sync_voltage(cpr->vreg_cx);
+	else
+		rc = regulator_set_voltage(cpr->vreg_cx, set_volt_uV,
+							set_volt_uV);
 	if (rc) {
-		pr_err("%s: Voltage at %duV failed %d\n",
-			__func__, set_volt_uV, rc);
+		pr_err("Unable to set_voltage = %d, rc(%d)\n", set_volt_uV, rc);
 		cpr_irq_clr_and_nack(cpr, BIT(2) | BIT(0));
 		return;
 	}
+
 	pr_info("(railway_voltage: %d uV)\n", set_volt_uV);
+	cpr->prev_volt_uV = set_volt_uV;
 
 	cpr->max_volt_set = 0;
 
@@ -637,8 +646,8 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 		pr_debug("RBCPR_GCNT_TARGET(%d): = 0x%x\n", cpr->curr_osc,
 			readl_relaxed(cpr->base +
 					RBCPR_GCNT_TARGET(cpr->curr_osc)));
-		pr_debug("%s: new_freq: %d, set_freq: %d, quot: %d\n", __func__,
-			freqs->new, new_freq, quot);
+		pr_debug("%s: new_freq: %d, quot_freq: %d, quot: %d\n",
+			__func__, freqs->new, new_freq, quot);
 		pr_info("%s: PVS Voltage setting is: %d\n", __func__,
 			regulator_get_voltage(cpr->vreg_cx));
 
@@ -656,6 +665,8 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 		if (ctl_reg & SW_AUTO_CONT_NACK_DN_EN)
 			cpr_modify_reg(cpr, RBCPR_CTL,
 				 SW_AUTO_CONT_NACK_DN_EN_M, 0);
+		if (cpr->max_volt_set)
+			cpr->max_volt_set = 0;
 		pr_debug("RBIF_IRQ_EN(0): 0x%x\n",
 			cpr_read_reg(cpr, RBIF_IRQ_EN(cpr->config->irq_line)));
 		pr_debug("RBCPR_CTL: 0x%x\n",
