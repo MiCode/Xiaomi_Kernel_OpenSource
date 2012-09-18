@@ -56,6 +56,7 @@ struct msm_fb_data_type {
 	int op_enable;
 	u32 fb_imgType;
 	u32 dst_format;
+	int vsync_pending;
 
 	int hw_refresh;
 
