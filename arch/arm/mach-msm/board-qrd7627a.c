@@ -33,6 +33,7 @@
 #include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/msm_ion.h>
 #include <linux/i2c-gpio.h>
+#include <linux/regulator/onsemi-ncp6335d.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -619,6 +620,41 @@ static struct platform_device qrd_vreg_gpio_ext_1p8v_sku3_1 __devinitdata = {
 	},
 };
 
+/* Regulator configuration for the NCP6335D buck */
+struct regulator_consumer_supply ncp6335d_consumer_supplies[] = {
+	REGULATOR_SUPPLY("ncp6335d", NULL),
+};
+
+static struct regulator_init_data ncp6335d_init_data = {
+	.constraints	= {
+		.name		= "ncp6335d_sw",
+		.min_uV		= 600000,
+		.max_uV		= 1400000,
+		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS |
+				REGULATOR_CHANGE_MODE,
+		.valid_modes_mask = REGULATOR_MODE_NORMAL |
+				REGULATOR_MODE_FAST,
+		.initial_mode	= REGULATOR_MODE_NORMAL,
+		.always_on	= 1,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(ncp6335d_consumer_supplies),
+	.consumer_supplies = ncp6335d_consumer_supplies,
+};
+
+static struct ncp6335d_platform_data ncp6335d_pdata = {
+	.init_data = &ncp6335d_init_data,
+	.default_vsel = NCP6335D_VSEL0,
+	.slew_rate_ns = 166,
+};
+
+static struct i2c_board_info i2c2_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("ncp6335d", 0x38 >> 1),
+		.platform_data = &ncp6335d_pdata,
+	},
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&android_usb_device,
 	&msm_batt_device,
@@ -1029,6 +1065,11 @@ static void __init msm_qrd_init(void)
 
 	msm_pm_register_irqs();
 	msm_fb_add_devices();
+
+	if (machine_is_qrd_skud_prime())
+		i2c_register_board_info(2, i2c2_info,
+				ARRAY_SIZE(i2c2_info));
+
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 	msm7627a_bt_power_init();
