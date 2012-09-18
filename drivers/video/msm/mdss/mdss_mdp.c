@@ -846,10 +846,17 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		pr_err("unable to initialize mdss mdp resources\n");
 		goto probe_done;
 	}
+	rc = mdss_mdp_pp_init(&pdev->dev);
+	if (rc) {
+		pr_err("unable to initialize mdss pp resources\n");
+		goto probe_done;
+	}
 	rc = mdss_mdp_bus_scale_register(mdata);
 probe_done:
-	if (IS_ERR_VALUE(rc))
+	if (IS_ERR_VALUE(rc)) {
 		mdss_res = NULL;
+		mdss_mdp_pp_term(&pdev->dev);
+	}
 
 	return rc;
 }
@@ -942,6 +949,7 @@ static int mdss_mdp_remove(struct platform_device *pdev)
 	if (!mdata)
 		return -ENODEV;
 	pm_runtime_disable(&pdev->dev);
+	mdss_mdp_pp_term(&pdev->dev);
 	mdss_mdp_bus_scale_unregister(mdata);
 	return 0;
 }
