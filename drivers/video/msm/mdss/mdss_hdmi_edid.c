@@ -358,34 +358,25 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 		DEV_DBG("EDID: reading block(%d) with block-size=%d\n",
 			block, block_size);
 		for (i = 0; i < 0x80; i += block_size) {
-			/*Read EDID twice with 32bit alighnment too */
-			if (block < 2) {
-				memset(&ddc_data, 0, sizeof(ddc_data));
-				ddc_data.dev_addr = 0xA0;
-				ddc_data.offset   = block*0x80 + i;
-				ddc_data.data_buf = edid_buf+i;
-				ddc_data.data_len = block_size;
-				ddc_data.retry    = 1;
-				ddc_data.what     = "EDID";
-				ddc_data.no_align = false;
+			memset(&ddc_data, 0, sizeof(ddc_data));
+			ddc_data.dev_addr    = 0xA0;
+			ddc_data.offset      = block*0x80 + i;
+			ddc_data.data_buf    = edid_buf+i;
+			ddc_data.data_len    = block_size;
+			ddc_data.request_len = block_size;
+			ddc_data.retry       = 1;
+			ddc_data.what        = "EDID";
+			ddc_data.no_align    = false;
 
+			/*Read EDID twice with 32bit alighnment too */
+			if (block < 2)
 				status = hdmi_ddc_read(
 					edid_ctrl->init_data.ddc_ctrl,
 					&ddc_data);
-			} else {
-				memset(&ddc_data, 0, sizeof(ddc_data));
-				ddc_data.dev_addr    = 0xA0;
-				ddc_data.offset      = block*0x80 + i;
-				ddc_data.data_buf    = edid_buf+i;
-				ddc_data.data_len    = block_size;
-				ddc_data.request_len = block_size;
-				ddc_data.retry       = 1;
-				ddc_data.what        = "EDID";
-
+			else
 				status = hdmi_ddc_read_seg(
 					edid_ctrl->init_data.ddc_ctrl,
 					&ddc_data);
-			}
 			if (status)
 				break;
 		}
@@ -413,7 +404,7 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 	}
 
 	print_len = 0x80;
-	for (ndx = 0; ndx < print_len; ndx += 16)
+	for (ndx = 0; ndx < print_len; ndx += 4)
 		DEV_DBG("EDID[%02x-%02x] %02x %02x %02x %02x\n",
 			ndx, ndx+3,
 			b[ndx+0], b[ndx+1], b[ndx+2], b[ndx+3]);
