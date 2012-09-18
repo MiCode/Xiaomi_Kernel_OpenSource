@@ -548,6 +548,9 @@ void mdp_dma_vsync_ctrl(int enable)
 		return;
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
+	if (!enable)
+		INIT_COMPLETION(vsync_cntrl.vsync_wait);
+
 	vsync_cntrl.vsync_irq_enabled = enable;
 	disabled_clocks = vsync_cntrl.disabled_clocks;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
@@ -568,6 +571,9 @@ void mdp_dma_vsync_ctrl(int enable)
 		vsync_cntrl.disabled_clocks = 0;
 	}
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+	if (vsync_cntrl.vsync_irq_enabled &&
+		atomic_read(&vsync_cntrl.suspend) == 0)
+		atomic_set(&vsync_cntrl.vsync_resume, 1);
 }
 
 void mdp_lcd_update_workqueue_handler(struct work_struct *work)
