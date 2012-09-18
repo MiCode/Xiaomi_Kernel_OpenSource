@@ -58,11 +58,13 @@ struct restart_log {
 enum subsys_state {
 	SUBSYS_OFFLINE,
 	SUBSYS_ONLINE,
+	SUBSYS_CRASHED,
 };
 
 static const char * const subsys_states[] = {
 	[SUBSYS_OFFLINE] = "OFFLINE",
 	[SUBSYS_ONLINE] = "ONLINE",
+	[SUBSYS_CRASHED] = "CRASHED",
 };
 
 struct subsys_device {
@@ -71,7 +73,7 @@ struct subsys_device {
 	char wlname[64];
 	struct work_struct work;
 	spinlock_t restart_lock;
-	int restart_count;
+	bool restarting;
 
 	void *notify;
 	struct device dev;
@@ -105,6 +107,21 @@ static ssize_t state_show(struct device *dev, struct device_attribute *attr,
 {
 	enum subsys_state state = to_subsys(dev)->state;
 	return snprintf(buf, PAGE_SIZE, "%s\n", subsys_states[state]);
+}
+
+static void subsys_set_state(struct subsys_device *subsys,
+			     enum subsys_state state)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&subsys->restart_lock, flags);
+	if (subsys->state != state) {
+		subsys->state = state;
+		spin_unlock_irqrestore(&subsys->restart_lock, flags);
+		sysfs_notify(&subsys->dev.kobj, NULL, "state");
+		return;
+	}
+	spin_unlock_irqrestore(&subsys->restart_lock, flags);
 }
 
 static struct device_attribute subsys_attrs[] = {
@@ -333,6 +350,7 @@ static void subsystem_shutdown(struct subsys_device *dev, void *data)
 	if (dev->desc->shutdown(dev->desc) < 0)
 		panic("subsys-restart: [%p]: Failed to shutdown %s!",
 			current, name);
+	subsys_set_state(dev, SUBSYS_OFFLINE);
 }
 
 static void subsystem_ramdump(struct subsys_device *dev, void *data)
@@ -351,6 +369,7 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 	pr_info("[%p]: Powering up %s\n", current, name);
 	if (dev->desc->powerup(dev->desc) < 0)
 		panic("[%p]: Failed to powerup %s!", current, name);
+	subsys_set_state(dev, SUBSYS_ONLINE);
 }
 
 static int __find_subsys(struct device *dev, void *data)
@@ -418,7 +437,10 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	 * Now that we've acquired the shutdown lock, either we're the first to
 	 * restart these subsystems or some other thread is doing the powerup
 	 * sequence for these subsystems. In the latter case, panic and bail
-	 * out, since a subsystem died in its powerup sequence.
+	 * out, since a subsystem died in its powerup sequence. This catches
+	 * the case where a subsystem in a restart order isn't the one
+	 * who initiated the original restart but has crashed while the restart
+	 * order is being rebooted.
 	 */
 	if (!mutex_trylock(powerup_lock))
 		panic("%s[%p]: Subsystem died during powerup!",
@@ -465,32 +487,36 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 out:
 	spin_lock_irqsave(&dev->restart_lock, flags);
-	dev->restart_count--;
-	if (!dev->restart_count)
-		wake_unlock(&dev->wake_lock);
+	dev->restarting = false;
+	wake_unlock(&dev->wake_lock);
 	spin_unlock_irqrestore(&dev->restart_lock, flags);
 }
 
 static void __subsystem_restart_dev(struct subsys_device *dev)
 {
 	struct subsys_desc *desc = dev->desc;
+	const char *name = dev->desc->name;
 	unsigned long flags;
 
 	pr_debug("Restarting %s [level=%d]!\n", desc->name, restart_level);
 
+	/*
+	 * We want to allow drivers to call subsystem_restart{_dev}() as many
+	 * times as they want up until the point where the subsystem is
+	 * shutdown.
+	 */
 	spin_lock_irqsave(&dev->restart_lock, flags);
-	if (!dev->restart_count)
-		wake_lock(&dev->wake_lock);
-	dev->restart_count++;
-	spin_unlock_irqrestore(&dev->restart_lock, flags);
-
-	if (!queue_work(ssr_wq, &dev->work)) {
-		spin_lock_irqsave(&dev->restart_lock, flags);
-		dev->restart_count--;
-		if (!dev->restart_count)
-			wake_unlock(&dev->wake_lock);
-		spin_unlock_irqrestore(&dev->restart_lock, flags);
+	if (dev->state != SUBSYS_CRASHED) {
+		if (dev->state == SUBSYS_ONLINE && !dev->restarting) {
+			dev->restarting = true;
+			dev->state = SUBSYS_CRASHED;
+			wake_lock(&dev->wake_lock);
+			queue_work(ssr_wq, &dev->work);
+		} else {
+			panic("Subsystem %s crashed during SSR!", name);
+		}
 	}
+	spin_unlock_irqrestore(&dev->restart_lock, flags);
 }
 
 int subsystem_restart_dev(struct subsys_device *dev)
@@ -644,6 +670,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->dev.parent = desc->dev;
 	subsys->dev.bus = &subsys_bus_type;
 	subsys->dev.release = subsys_device_release;
+	subsys->state = SUBSYS_ONLINE; /* Until proper refcounting appears */
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 	subsys->restart_order = update_restart_order(subsys);
