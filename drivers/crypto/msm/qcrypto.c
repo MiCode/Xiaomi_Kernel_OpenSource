@@ -919,7 +919,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 
 			for (sg = areq->dst; bytes != nbytes; sg++) {
 				memcpy(sg_virt(sg),
-				((char *)rctx->data + rctx->assoclen + bytes),
+				((char *)rctx->data + areq->assoclen + bytes),
 								sg->length);
 				bytes += sg->length;
 			}
