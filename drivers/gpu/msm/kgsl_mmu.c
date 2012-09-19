@@ -606,6 +606,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	int ret;
 	struct gen_pool *pool;
 	int size;
+	int page_align = ilog2(PAGE_SIZE);
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
 		if (memdesc->sglen == 1) {
@@ -630,7 +631,17 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	/* Allocate from kgsl pool if it exists for global mappings */
 	pool = _get_pool(pagetable, memdesc->priv);
 
-	memdesc->gpuaddr = gen_pool_alloc(pool, size);
+	/* Allocate aligned virtual addresses for iommu. This allows
+	 * more efficient pagetable entries if the physical memory
+	 * is also aligned. Don't do this for GPUMMU, because
+	 * the address space is so small.
+	 */
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype() &&
+	    (memdesc->priv & KGSL_MEMALIGN_MASK)) {
+		page_align = (memdesc->priv & KGSL_MEMALIGN_MASK)
+				>> KGSL_MEMALIGN_SHIFT;
+	}
+	memdesc->gpuaddr = gen_pool_alloc_aligned(pool, size, page_align);
 	if (memdesc->gpuaddr == 0) {
 		KGSL_CORE_ERR("gen_pool_alloc(%d) failed from pool: %s\n",
 			size,

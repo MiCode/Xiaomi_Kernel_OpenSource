@@ -135,7 +135,8 @@ struct kgsl_memdesc {
 	unsigned int size;
 	unsigned int priv;
 	struct scatterlist *sg;
-	unsigned int sglen;
+	unsigned int sglen; /* Active entries in the sglist */
+	unsigned int sglen_alloc;  /* Allocated entries in the sglist */
 	struct kgsl_memdesc_ops *ops;
 	int flags;
 };
