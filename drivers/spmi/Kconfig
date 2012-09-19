@@ -21,7 +21,6 @@ config SPMI_MSM_PMIC_ARB
 
 config MSM_QPNP_INT
 	depends on SPARSE_IRQ
-	depends on ARCH_MSM8974
 	depends on SPMI
 	depends on OF_SPMI
 	bool "MSM QPNP INT"
