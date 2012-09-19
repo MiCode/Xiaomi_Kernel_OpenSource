@@ -60,6 +60,11 @@ int diag_bridge_open(struct diag_bridge_ops *ops)
 		return -ENODEV;
 	}
 
+	if (dev->ops) {
+		pr_err("bridge already opened");
+		return -EALREADY;
+	}
+
 	dev->ops = ops;
 	dev->err = 0;
 
@@ -81,6 +86,16 @@ static void diag_bridge_delete(struct kref *kref)
 void diag_bridge_close(void)
 {
 	struct diag_bridge	*dev = __dev;
+
+	if (!dev) {
+		pr_err("dev is null");
+		return;
+	}
+
+	if (!dev->ops) {
+		pr_err("can't close bridge that was not open");
+		return;
+	}
 
 	dev_dbg(&dev->ifc->dev, "%s:\n", __func__);
 

@@ -558,6 +558,7 @@ static ssize_t diag_dbgfs_read_hsic(struct file *file, char __user *ubuf,
 
 	ret = scnprintf(buf, DEBUG_BUF_SIZE,
 		"hsic ch: %d\n"
+		"hsic_inited: %d\n"
 		"hsic enabled: %d\n"
 		"hsic_opened: %d\n"
 		"hsic_suspend: %d\n"
@@ -575,6 +576,7 @@ static ssize_t diag_dbgfs_read_hsic(struct file *file, char __user *ubuf,
 		"diag_disconnect_work: %d\n"
 		"diag_usb_read_complete_work: %d\n",
 		driver->hsic_ch,
+		driver->hsic_inited,
 		driver->hsic_device_enabled,
 		driver->hsic_device_opened,
 		driver->hsic_suspend,
