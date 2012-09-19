@@ -229,6 +229,14 @@ static const struct msm_vidc_format vdec_formats[] = {
 		.type = OUTPUT_PORT,
 	},
 	{
+		.name = "VC1 SP",
+		.description = "VC-1 compressed format G",
+		.fourcc = V4L2_PIX_FMT_VC1_ANNEX_L,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_compressed,
+		.type = OUTPUT_PORT,
+	},
+	{
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
@@ -524,6 +532,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		inst->prop.width = f->fmt.pix_mp.width;
+		inst->prop.height = f->fmt.pix_mp.height;
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 			ARRAY_SIZE(vdec_formats), f->fmt.pix_mp.pixelformat,
 			OUTPUT_PORT);
