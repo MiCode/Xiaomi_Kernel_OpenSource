@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _ARCH_ARM_MACH_MSM_CP14_H_
-#define _ARCH_ARM_MACH_MSM_CP14_H_
+#ifndef __ASM_HARDWARE_CP14_H
+#define __ASM_HARDWARE_CP14_H
 
 #include <linux/types.h>
 
