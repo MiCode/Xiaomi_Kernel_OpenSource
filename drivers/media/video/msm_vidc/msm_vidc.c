@@ -21,6 +21,8 @@
 #include "msm_smem.h"
 #include <linux/delay.h>
 
+#define MAX_EVENTS 30
+
 int msm_vidc_poll(void *instance, struct file *filp,
 		struct poll_table_struct *wait)
 {
@@ -55,9 +57,28 @@ int msm_vidc_poll(void *instance, struct file *filp,
 	return rc;
 }
 
+int msm_vidc_get_iommu_maps(void *instance,
+		struct msm_vidc_iommu_info maps[MAX_MAP])
+{
+	struct msm_vidc_inst *inst = instance;
+	int c = 0;
+
+	if (!inst || !maps)
+		return -EINVAL;
+
+	for (c = 0; c < MAX_MAP; ++c)
+		maps[c] = inst->core->resources.io_map[c];
+
+	return 0;
+}
+
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !cap)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_querycap(instance, cap);
 	else if (inst->session_type == MSM_VIDC_ENCODER)
@@ -67,6 +88,10 @@ int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !f)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_enum_fmt(instance, f);
 	else if (inst->session_type == MSM_VIDC_ENCODER)
@@ -76,6 +101,10 @@ int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f)
 int msm_vidc_s_fmt(void *instance, struct v4l2_format *f)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !f)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_s_fmt(instance, f);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -85,6 +114,10 @@ int msm_vidc_s_fmt(void *instance, struct v4l2_format *f)
 int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !f)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_g_fmt(instance, f);
 	else if (inst->session_type == MSM_VIDC_ENCODER)
@@ -94,6 +127,10 @@ int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !control)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_s_ctrl(instance, control);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -103,6 +140,10 @@ int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !control)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_g_ctrl(instance, control);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -112,6 +153,10 @@ int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !b)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_reqbufs(instance, b);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -122,6 +167,10 @@ int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !b)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_prepare_buf(instance, b);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -132,6 +181,10 @@ int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 int msm_vidc_release_buf(void *instance, struct v4l2_buffer *b)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !b)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_release_buf(instance, b);
 	return -EINVAL;
@@ -156,6 +209,10 @@ int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec)
 int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !b)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_qbuf(instance, b);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -166,6 +223,10 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !b)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_dqbuf(instance, b);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -176,6 +237,10 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 int msm_vidc_streamon(void *instance, enum v4l2_buf_type i)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_streamon(instance, i);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -186,6 +251,10 @@ int msm_vidc_streamon(void *instance, enum v4l2_buf_type i)
 int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 {
 	struct msm_vidc_inst *inst = instance;
+
+	if (!inst)
+		return -EINVAL;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_streamoff(instance, i);
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -193,13 +262,13 @@ int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 	return -EINVAL;
 }
 
-void *vidc_get_userptr(void *alloc_ctx, unsigned long vaddr,
+static void *vidc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 				unsigned long size, int write)
 {
 	return (void *)0xdeadbeef;
 }
 
-void vidc_put_userptr(void *buf_priv)
+static void vidc_put_userptr(void *buf_priv)
 {
 }
 
@@ -232,9 +301,60 @@ static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 	return vb2_queue_init(q);
 }
 
-int msm_vidc_open(void *vidc_inst, int core_id, int session_type)
+static int setup_event_queue(void *inst,
+				struct video_device *pvdev)
 {
-	struct msm_vidc_inst *inst = (struct msm_vidc_inst *)vidc_inst;
+	int rc = 0;
+	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
+	spin_lock_init(&pvdev->fh_lock);
+	INIT_LIST_HEAD(&pvdev->fh_list);
+
+	v4l2_fh_init(&vidc_inst->event_handler, pvdev);
+	v4l2_fh_add(&vidc_inst->event_handler);
+
+	return rc;
+}
+
+int msm_vidc_subscribe_event(void *inst, struct v4l2_event_subscription *sub)
+{
+	int rc = 0;
+	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
+
+	if (!inst || !sub)
+		return -EINVAL;
+
+	rc = v4l2_event_subscribe(&vidc_inst->event_handler, sub, MAX_EVENTS);
+	return rc;
+}
+
+
+int msm_vidc_unsubscribe_event(void *inst, struct v4l2_event_subscription *sub)
+{
+	int rc = 0;
+	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
+
+	if (!inst || !sub)
+		return -EINVAL;
+
+	rc = v4l2_event_unsubscribe(&vidc_inst->event_handler, sub);
+	return rc;
+}
+
+int msm_vidc_dqevent(void *inst, struct v4l2_event *event)
+{
+	int rc = 0;
+	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
+
+	if (!inst || !event)
+		return -EINVAL;
+
+	rc = v4l2_event_dequeue(&vidc_inst->event_handler, event, false);
+	return rc;
+}
+
+void *msm_vidc_open(int core_id, int session_type)
+{
+	struct msm_vidc_inst *inst = NULL;
 	struct msm_vidc_core *core = NULL;
 	unsigned long flags;
 	int rc = 0;
@@ -249,6 +369,13 @@ int msm_vidc_open(void *vidc_inst, int core_id, int session_type)
 	if (!core) {
 		dprintk(VIDC_ERR,
 			"Failed to find core for core_id = %d\n", core_id);
+		goto err_invalid_core;
+	}
+
+	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
+	if (!inst) {
+		pr_err("Failed to allocate memory\n")	;
+		rc = -ENOMEM;
 		goto err_invalid_core;
 	}
 
@@ -276,6 +403,7 @@ int msm_vidc_open(void *vidc_inst, int core_id, int session_type)
 		msm_venc_inst_init(inst);
 		msm_venc_ctrl_init(inst);
 	}
+
 	rc = vb2_bufq_init(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 			session_type);
 	if (rc) {
@@ -298,17 +426,20 @@ int msm_vidc_open(void *vidc_inst, int core_id, int session_type)
 	}
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
+
+	setup_event_queue(inst, &core->vdev[core_id].vdev);
+
 	spin_lock_irqsave(&core->lock, flags);
 	list_add_tail(&inst->list, &core->instances);
 	spin_unlock_irqrestore(&core->lock, flags);
-	return rc;
+	return inst;
 fail_init:
 	msm_smem_delete_client(inst->mem_client);
 fail_mem_client:
 	kfree(inst);
 	inst = NULL;
 err_invalid_core:
-	return rc;
+	return inst;
 }
 
 static void cleanup_instance(struct msm_vidc_inst *inst)
@@ -360,6 +491,10 @@ int msm_vidc_close(void *instance)
 	struct msm_vidc_core *core;
 	struct list_head *ptr, *next;
 	int rc = 0;
+
+	if (!inst)
+		return -EINVAL;
+
 	core = inst->core;
 	mutex_lock(&core->sync_lock);
 	list_for_each_safe(ptr, next, &core->instances) {
@@ -373,6 +508,7 @@ int msm_vidc_close(void *instance)
 		dprintk(VIDC_ERR,
 			"Failed to move video instance to uninit state\n");
 	cleanup_instance(inst);
+	kfree(inst);
 	dprintk(VIDC_DBG, "Closed the instance\n");
 	return 0;
 }

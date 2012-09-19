@@ -14,8 +14,8 @@
 #ifndef _MSM_VIDC_H_
 #define _MSM_VIDC_H_
 
-#include <linux/videodev2.h>
 #include <linux/poll.h>
+#include <linux/videodev2.h>
 
 enum core_id {
 	MSM_VIDC_CORE_0 = 0,
@@ -28,7 +28,21 @@ enum session_type {
 	MSM_VIDC_MAX_DEVICES,
 };
 
-int msm_vidc_open(void *vidc_inst, int core_id, int session_type);
+struct msm_vidc_iommu_info {
+	u32 addr_range[2];
+	char name[64];
+	char ctx[64];
+	int domain;
+	int partition;
+};
+
+enum msm_vidc_io_maps {
+	CP_MAP,
+	NS_MAP,
+	MAX_MAP
+};
+
+void *msm_vidc_open(int core_id, int session_type);
 int msm_vidc_close(void *instance);
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap);
 int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
@@ -47,4 +61,11 @@ int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec);
 int msm_vidc_encoder_cmd(void *instance, struct v4l2_encoder_cmd *enc);
 int msm_vidc_poll(void *instance, struct file *filp,
 		struct poll_table_struct *pt);
+int msm_vidc_get_iommu_maps(void *instance,
+		struct msm_vidc_iommu_info maps[MAX_MAP]);
+int msm_vidc_subscribe_event(void *instance,
+		struct v4l2_event_subscription *sub);
+int msm_vidc_unsubscribe_event(void *instance,
+		struct v4l2_event_subscription *sub);
+int msm_vidc_dqevent(void *instance, struct v4l2_event *event);
 #endif

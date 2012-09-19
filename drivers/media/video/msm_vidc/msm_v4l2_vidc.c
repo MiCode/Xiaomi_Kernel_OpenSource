@@ -31,7 +31,6 @@
 #include "msm_smem.h"
 
 #define BASE_DEVICE_NUMBER 32
-#define MAX_EVENTS 30
 #define SHARED_QSIZE 0x1000000
 
 static struct msm_bus_vectors enc_ocmem_init_vectors[]  = {
@@ -451,7 +450,7 @@ struct buffer_info {
 };
 
 struct msm_v4l2_vid_inst {
-	struct msm_vidc_inst vidc_inst;
+	struct msm_vidc_inst *vidc_inst;
 	void *mem_client;
 	struct list_head registered_bufs;
 };
@@ -468,22 +467,7 @@ static inline struct msm_v4l2_vid_inst *get_v4l2_inst(struct file *filp,
 	struct msm_vidc_inst *vidc_inst;
 	vidc_inst = container_of(filp->private_data,
 			struct msm_vidc_inst, event_handler);
-	return container_of((void *)vidc_inst,
-			struct msm_v4l2_vid_inst, vidc_inst);
-}
-
-static int msm_vidc_v4l2_setup_event_queue(void *inst,
-				struct video_device *pvdev)
-{
-	int rc = 0;
-	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
-	spin_lock_init(&pvdev->fh_lock);
-	INIT_LIST_HEAD(&pvdev->fh_list);
-
-	v4l2_fh_init(&vidc_inst->event_handler, pvdev);
-	v4l2_fh_add(&vidc_inst->event_handler);
-
-	return rc;
+	return (struct msm_v4l2_vid_inst *)vidc_inst->priv;
 }
 
 struct buffer_info *get_registered_buf(struct list_head *list,
@@ -556,7 +540,8 @@ static int msm_v4l2_open(struct file *filp)
 		rc = -ENOMEM;
 		goto fail_mem_client;
 	}
-	rc = msm_vidc_open(&v4l2_inst->vidc_inst, core->id, vid_dev->type);
+
+	v4l2_inst->vidc_inst = msm_vidc_open(core->id, vid_dev->type);
 	if (rc) {
 		dprintk(VIDC_ERR,
 		"Failed to create video instance, core: %d, type = %d\n",
@@ -565,9 +550,9 @@ static int msm_v4l2_open(struct file *filp)
 		goto fail_open;
 	}
 	INIT_LIST_HEAD(&v4l2_inst->registered_bufs);
-	rc = msm_vidc_v4l2_setup_event_queue(&v4l2_inst->vidc_inst, vdev);
+	v4l2_inst->vidc_inst->priv = v4l2_inst;
 	clear_bit(V4L2_FL_USES_V4L2_FH, &vdev->flags);
-	filp->private_data = &(v4l2_inst->vidc_inst.event_handler);
+	filp->private_data = &(v4l2_inst->vidc_inst->event_handler);
 	return rc;
 fail_open:
 	msm_smem_delete_client(v4l2_inst->mem_client);
@@ -667,7 +652,7 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 					buffer_info.m.planes[0].reserved[0],
 					buffer_info.m.planes[0].reserved[1],
 					buffer_info.m.planes[0].length);
-				rc = msm_vidc_release_buf(&v4l2_inst->vidc_inst,
+				rc = msm_vidc_release_buf(v4l2_inst->vidc_inst,
 					&buffer_info);
 				list_del(&bi->list);
 				if (bi->handle)
@@ -752,7 +737,7 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 		list_add_tail(&binfo->list, &v4l2_inst->registered_bufs);
 		b->m.planes[i].m.userptr = binfo->device_addr;
 	}
-	rc = msm_vidc_prepare_buf(&v4l2_inst->vidc_inst, b);
+	rc = msm_vidc_prepare_buf(v4l2_inst->vidc_inst, b);
 exit:
 	return rc;
 }
@@ -794,7 +779,7 @@ int msm_v4l2_qbuf(struct file *file, void *fh,
 			}
 		}
 	}
-	rc = msm_vidc_qbuf(&v4l2_inst->vidc_inst, b);
+	rc = msm_vidc_qbuf(v4l2_inst->vidc_inst, b);
 err_invalid_buff:
 	return rc;
 }
@@ -823,17 +808,17 @@ int msm_v4l2_streamoff(struct file *file, void *fh,
 static int msm_v4l2_subscribe_event(struct v4l2_fh *fh,
 				struct v4l2_event_subscription *sub)
 {
-	int rc = 0;
-	rc = v4l2_event_subscribe(fh, sub, MAX_EVENTS);
-	return rc;
+	struct msm_vidc_inst *vidc_inst = container_of(fh,
+			struct msm_vidc_inst, event_handler);
+	return msm_vidc_subscribe_event((void *)vidc_inst, sub);
 }
 
 static int msm_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 				struct v4l2_event_subscription *sub)
 {
-	int rc = 0;
-	rc = v4l2_event_unsubscribe(fh, sub);
-	return rc;
+	struct msm_vidc_inst *vidc_inst = container_of(fh,
+			struct msm_vidc_inst, event_handler);
+	return msm_vidc_unsubscribe_event((void *)vidc_inst, sub);
 }
 
 static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
@@ -936,7 +921,7 @@ static int register_iommu_domains(struct platform_device *pdev,
 	struct msm_iova_layout layout;
 	int rc = 0;
 	int i;
-	struct iommu_info *io_map = core->resources.io_map;
+	struct msm_vidc_iommu_info *io_map = core->resources.io_map;
 	strlcpy(io_map[CP_MAP].name, "vidc-cp-map",
 			sizeof(io_map[CP_MAP].name));
 	strlcpy(io_map[CP_MAP].ctx, "venus_cp",
