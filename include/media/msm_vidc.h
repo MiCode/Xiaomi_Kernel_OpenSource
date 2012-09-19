@@ -68,4 +68,5 @@ int msm_vidc_subscribe_event(void *instance,
 int msm_vidc_unsubscribe_event(void *instance,
 		struct v4l2_event_subscription *sub);
 int msm_vidc_dqevent(void *instance, struct v4l2_event *event);
+int msm_vidc_wait(void *instance);
 #endif
