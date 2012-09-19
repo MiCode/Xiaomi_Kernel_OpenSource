@@ -2096,7 +2096,7 @@ static int dump_routing_table(char *buf, int max)
 			mutex_lock(&rt_entry->lock);
 			i += scnprintf(buf + i, max - i,
 				       "Node Id: 0x%08x\n", rt_entry->node_id);
-			if (j == IPC_ROUTER_NID_LOCAL) {
+			if (rt_entry->node_id == IPC_ROUTER_NID_LOCAL) {
 				i += scnprintf(buf + i, max - i,
 				       "XPRT Name: Loopback\n");
 				i += scnprintf(buf + i, max - i,
