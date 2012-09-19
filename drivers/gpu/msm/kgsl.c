@@ -357,7 +357,7 @@ kgsl_create_context(struct kgsl_device_private *dev_priv)
 
 	/* MAX - 1, there is one memdesc in memstore for device info */
 	if (id >= KGSL_MEMSTORE_MAX) {
-		KGSL_DRV_ERR(dev_priv->device, "cannot have more than %d "
+		KGSL_DRV_INFO(dev_priv->device, "cannot have more than %d "
 				"ctxts due to memstore limitation\n",
 				KGSL_MEMSTORE_MAX);
 		idr_remove(&dev_priv->device->context_idr, id);
@@ -1080,11 +1080,8 @@ static long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
 	int result;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(dev_priv->device, "invalid context_id %d\n",
-			param->context_id);
+	if (context == NULL)
 		return -EINVAL;
-	}
 	/*
 	 * A reference count is needed here, because waittimestamp may
 	 * block with the device mutex unlocked and userspace could
@@ -1108,17 +1105,11 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	context = kgsl_find_context(dev_priv, param->drawctxt_id);
 	if (context == NULL) {
 		result = -EINVAL;
-		KGSL_DRV_ERR(dev_priv->device,
-			"invalid context_id %d\n",
-			param->drawctxt_id);
 		goto done;
 	}
 
 	if (param->flags & KGSL_CONTEXT_SUBMIT_IB_LIST) {
 		if (!param->numibs) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Invalid numibs as parameter: %d\n",
-				 param->numibs);
 			result = -EINVAL;
 			goto done;
 		}
@@ -1129,9 +1120,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		 */
 
 		if (param->numibs > 10000) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Too many IBs submitted. count: %d max 10000\n",
-				param->numibs);
 			result = -EINVAL;
 			goto done;
 		}
@@ -1218,11 +1206,8 @@ static long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 	struct kgsl_context *context;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(dev_priv->device, "invalid context_id %d\n",
-			param->context_id);
+	if (context == NULL)
 		return -EINVAL;
-	}
 
 	return _cmdstream_readtimestamp(dev_priv, context,
 			param->type, &param->timestamp);
@@ -1287,11 +1272,8 @@ static long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
 	struct kgsl_context *context;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(dev_priv->device,
-			"invalid drawctxt context_id %d\n", param->context_id);
+	if (context == NULL)
 		return -EINVAL;
-	}
 
 	return _cmdstream_freememontimestamp(dev_priv, param->gpuaddr,
 			context, param->timestamp, param->type);
