@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt)	"%s: " fmt, __func__
+#define pr_fmt(fmt)	"BMS: %s: " fmt, __func__
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 #include <linux/power_supply.h>
 #include <linux/spmi.h>
+#include <linux/mfd/pm8xxx/batterydata-lib.h>
 
 /* Interrupt offsets */
 #define INT_RT_STS(base)		(base + 0x10)
@@ -100,6 +101,14 @@ struct qpnp_bms_chip {
 	int				adjust_soc_low_threshold;
 	int				adjust_soc_high_threshold;
 	int				chg_term;
+	enum battery_type		batt_type;
+	unsigned int			fcc;
+	struct single_row_lut		*fcc_temp_lut;
+	struct single_row_lut		*fcc_sf_lut;
+	struct pc_temp_ocv_lut		*pc_temp_ocv_lut;
+	struct sf_lut			*pc_sf_lut;
+	struct sf_lut			*rbatt_sf_lut;
+	int				default_rbatt_mohm;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -210,6 +219,61 @@ static int qpnp_bms_power_set_property(struct power_supply *psy,
 	return 0;
 }
 
+#define PALLADIUM_ID_MIN	0x7F40
+#define PALLADIUM_ID_MAX	0x7F5A
+#define DESAY_5200_ID_MIN	0x7F7F
+#define DESAY_5200_ID_MAX	0x802F
+static int64_t read_battery_id(struct qpnp_bms_chip *chip)
+{
+	return PALLADIUM_ID_MIN+1;
+}
+
+static int set_battery_data(struct qpnp_bms_chip *chip)
+{
+	int64_t battery_id;
+
+	if (chip->batt_type == BATT_DESAY)
+		goto desay;
+	else if (chip->batt_type == BATT_PALLADIUM)
+		goto palladium;
+
+	battery_id = read_battery_id(chip);
+	if (battery_id < 0) {
+		pr_err("cannot read battery id err = %lld\n", battery_id);
+		return battery_id;
+	}
+
+	if (is_between(PALLADIUM_ID_MIN, PALLADIUM_ID_MAX, battery_id)) {
+		goto palladium;
+	} else if (is_between(DESAY_5200_ID_MIN, DESAY_5200_ID_MAX,
+				battery_id)) {
+		goto desay;
+	} else {
+		pr_warn("invalid battid, palladium 1500 assumed batt_id %llx\n",
+				battery_id);
+		goto palladium;
+	}
+
+palladium:
+		chip->fcc = palladium_1500_data.fcc;
+		chip->fcc_temp_lut = palladium_1500_data.fcc_temp_lut;
+		chip->fcc_sf_lut = palladium_1500_data.fcc_sf_lut;
+		chip->pc_temp_ocv_lut = palladium_1500_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = palladium_1500_data.pc_sf_lut;
+		chip->rbatt_sf_lut = palladium_1500_data.rbatt_sf_lut;
+		chip->default_rbatt_mohm
+				= palladium_1500_data.default_rbatt_mohm;
+		return 0;
+desay:
+		chip->fcc = desay_5200_data.fcc;
+		chip->fcc_temp_lut = desay_5200_data.fcc_temp_lut;
+		chip->pc_temp_ocv_lut = desay_5200_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = desay_5200_data.pc_sf_lut;
+		chip->rbatt_sf_lut = desay_5200_data.rbatt_sf_lut;
+		chip->default_rbatt_mohm = desay_5200_data.default_rbatt_mohm;
+		return 0;
+}
+
 #define SPMI_PROPERTY_READ(chip_prop, qpnp_spmi_property, retval, errlabel)\
 do {									\
 	retval = of_property_read_u32(spmi->dev.of_node,		\
@@ -257,6 +321,12 @@ qpnp_bms_probe(struct spmi_device *spmi)
 			chip->base + BMS1_REVISION2, 1);
 	if (rc) {
 		pr_err("Error reading version register %d\n", rc);
+		goto error_read;
+	}
+
+	rc = set_battery_data(chip);
+	if (rc) {
+		pr_err("Bad battery data %d\n", rc);
 		goto error_read;
 	}
 
