@@ -78,7 +78,7 @@ struct usm_cfg_common {
 } __packed;
 
 /* Max number of static located transparent data (bytes) */
-#define USM_MAX_CFG_DATA_SIZE 20
+#define USM_MAX_CFG_DATA_SIZE 100
 struct usm_encode_cfg_blk {
 	u32 frames_per_buf;
 	u32 format_id;

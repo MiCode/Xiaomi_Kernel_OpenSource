@@ -20,6 +20,7 @@
 
 #define FORMAT_USPS_EPOS	0x00000000
 #define FORMAT_USRAW		0x00000001
+#define FORMAT_USPROX		0x00000002
 #define INVALID_FORMAT		0xffffffff
 
 #define IN			0x000
