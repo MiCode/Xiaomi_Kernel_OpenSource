@@ -143,6 +143,7 @@ struct l2_level {
  * @l2_level: L2 configuration to use.
  * @vdd_core: CPU core voltage in uV.
  * @ua_core: CPU core current consumption in uA.
+ * @avsdscr_setting: AVS DSCR configuration.
  */
 struct acpu_level {
 	const int use_for_scaling;
@@ -150,6 +151,7 @@ struct acpu_level {
 	const unsigned int l2_level;
 	int vdd_core;
 	int ua_core;
+	unsigned int avsdscr_setting;
 };
 
 /**
@@ -203,6 +205,7 @@ struct hfpll_data {
  * @l2_vote: L2 performance level vote associate with the current CPU speed.
  * @vreg: Array of voltage regulators needed by the scalable.
  * @initialized: Flag set to true when per_cpu_init() has been called.
+ * @avs_enabled: True if avs is enabled for the scalabale. False otherwise.
  */
 struct scalable {
 	const phys_addr_t hfpll_phys_base;
@@ -214,6 +217,7 @@ struct scalable {
 	unsigned int l2_vote;
 	struct vreg vreg[NUM_VREG];
 	bool initialized;
+	bool avs_enabled;
 };
 
 /**

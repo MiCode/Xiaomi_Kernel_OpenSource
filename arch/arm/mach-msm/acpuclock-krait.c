@@ -36,6 +36,7 @@
 
 #include "acpuclock.h"
 #include "acpuclock-krait.h"
+#include "avs.h"
 
 /* MUX source selects. */
 #define PRI_SRC_SEL_SEC_SRC	0
@@ -472,6 +473,12 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	vdd_data.vdd_core = calculate_vdd_core(tgt);
 	vdd_data.ua_core = tgt->ua_core;
 
+	/* Disable AVS before voltage switch */
+	if (reason == SETRATE_CPUFREQ && drv.scalable[cpu].avs_enabled) {
+		AVS_DISABLE(cpu);
+		drv.scalable[cpu].avs_enabled = false;
+	}
+
 	/* Increase VDD levels if needed. */
 	if (reason == SETRATE_CPUFREQ || reason == SETRATE_HOTPLUG) {
 		rc = increase_vdd(cpu, &vdd_data, reason);
@@ -506,6 +513,12 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 
 	/* Drop VDD levels if we can. */
 	decrease_vdd(cpu, &vdd_data, reason);
+
+	/* Re-enable AVS */
+	if (reason == SETRATE_CPUFREQ && tgt->avsdscr_setting) {
+		AVS_ENABLE(cpu, tgt->avsdscr_setting);
+		drv.scalable[cpu].avs_enabled = true;
+	}
 
 	dev_dbg(drv.dev, "ACPU%d speed change complete\n", cpu);
 
@@ -926,9 +939,11 @@ static const int krait_needs_vmin(void)
 
 static void krait_apply_vmin(struct acpu_level *tbl)
 {
-	for (; tbl->speed.khz != 0; tbl++)
+	for (; tbl->speed.khz != 0; tbl++) {
 		if (tbl->vdd_core < 1150000)
 			tbl->vdd_core = 1150000;
+		tbl->avsdscr_setting = 0;
+	}
 }
 
 static int __init select_freq_plan(u32 qfprom_phys)
