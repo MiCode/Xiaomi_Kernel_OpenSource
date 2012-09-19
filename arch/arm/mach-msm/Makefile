@@ -209,6 +209,7 @@ ifdef CONFIG_CPU_IDLE
 	obj-$(CONFIG_ARCH_MSM8960) += cpuidle.o
 	obj-$(CONFIG_ARCH_MSM8X60) += cpuidle.o
 	obj-$(CONFIG_ARCH_MSM9615) += cpuidle.o
+	obj-$(CONFIG_ARCH_MSM9625) += cpuidle.o
 	obj-$(CONFIG_ARCH_MSM8974) += cpuidle.o
 endif
 
@@ -318,6 +319,7 @@ ifdef CONFIG_MSM_RPM
 endif
 ifdef CONFIG_MSM_RPM_SMD
 	obj-$(CONFIG_ARCH_MSM8974) += lpm_levels.o lpm_resources.o
+	obj-$(CONFIG_ARCH_MSM9625) += lpm_levels.o lpm_resources.o
 endif
 obj-$(CONFIG_MSM_MPM_OF) += mpm-of.o
 obj-$(CONFIG_MSM_MPM) += mpm.o
