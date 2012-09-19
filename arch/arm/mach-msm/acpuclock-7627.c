@@ -739,7 +739,8 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 			}
 		}
 
-		if (!(plls_enabled & (1 << tgt_s->pll))) {
+		if ((tgt_s->pll != ACPU_PLL_TCXO) &&
+				!(plls_enabled & (1 << tgt_s->pll))) {
 			rc = clk_enable(pll_clk[tgt_s->pll].clk);
 			if (rc < 0) {
 				pr_err("PLL%d enable failed (%d)\n",
