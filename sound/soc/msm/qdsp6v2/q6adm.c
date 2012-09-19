@@ -41,6 +41,14 @@ struct adm_ctl {
 	wait_queue_head_t wait[Q6_AFE_MAX_PORTS];
 };
 
+static struct acdb_cal_block mem_addr_audproc[MAX_AUDPROC_TYPES];
+static struct acdb_cal_block mem_addr_audvol[MAX_AUDPROC_TYPES];
+
+/* 0 - (MAX_AUDPROC_TYPES -1):				audproc handles */
+/* (MAX_AUDPROC_TYPES -1) - (2 * MAX_AUDPROC_TYPES -1):	audvol handles */
+atomic_t mem_map_handles[(2 * MAX_AUDPROC_TYPES)];
+atomic_t mem_map_index;
+
 static struct adm_ctl			this_adm;
 
 static int32_t adm_callback(struct apr_client_data *data, void *priv)
@@ -63,6 +71,18 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			}
 			this_adm.apr = NULL;
 		}
+		pr_debug("Resetting calibration blocks");
+		for (i = 0; i < MAX_AUDPROC_TYPES; i++) {
+			/* Device calibration */
+			mem_addr_audproc[i].cal_size = 0;
+			mem_addr_audproc[i].cal_kvaddr = 0;
+			mem_addr_audproc[i].cal_paddr = 0;
+
+			/* Volume calibration */
+			mem_addr_audvol[i].cal_size = 0;
+			mem_addr_audvol[i].cal_kvaddr = 0;
+			mem_addr_audvol[i].cal_paddr = 0;
+		}
 		return 0;
 	}
 
@@ -82,17 +102,22 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			switch (payload[0]) {
 			case ADM_CMD_SET_PP_PARAMS_V5:
 				if (rtac_make_adm_callback(
-					payload, data->payload_size))
+					payload, data->payload_size)) {
 					pr_debug("%s: payload[0]: 0x%x\n",
 						__func__, payload[0]);
 					break;
+				}
 			case ADM_CMD_DEVICE_CLOSE_V5:
 			case ADM_CMD_SHARED_MEM_UNMAP_REGIONS:
-			case ADM_CMD_SHARED_MEM_MAP_REGIONS:
 			case ADM_CMD_MATRIX_MAP_ROUTINGS_V5:
-				pr_debug("ADM_CMD_MATRIX_MAP_ROUTINGS\n");
+				pr_debug("%s: Basic callback received, wake up.\n",
+					__func__);
 				atomic_set(&this_adm.copp_stat[index], 1);
 				wake_up(&this_adm.wait[index]);
+				break;
+			case ADM_CMD_SHARED_MEM_MAP_REGIONS:
+				/* Block until memory handle comes back */
+				/* via ADM_CMDRSP_SHARED_MEM_MAP_REGIONS */
 				break;
 			default:
 				pr_err("%s: Unknown Cmd: 0x%x\n", __func__,
@@ -125,6 +150,14 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			rtac_make_adm_callback(payload,
 				data->payload_size);
 			break;
+		case ADM_CMDRSP_SHARED_MEM_MAP_REGIONS:
+			pr_debug("%s: ADM_CMDRSP_SHARED_MEM_MAP_REGIONS\n",
+				__func__);
+			atomic_set(&mem_map_handles[
+				atomic_read(&mem_map_index)], *payload);
+			atomic_set(&this_adm.copp_stat[0], 1);
+			wake_up(&this_adm.wait[index]);
+			break;
 		default:
 			pr_err("%s: Unknown cmd:0x%x\n", __func__,
 							data->opcode);
@@ -134,12 +167,143 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
-/* TODO: send_adm_cal_block function to be defined
-	when calibration available for 8974 */
+static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
+{
+	s32				result = 0;
+	struct adm_cmd_set_pp_params_v5	adm_params;
+	int index = afe_get_port_index(port_id);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d portid %d\n",
+				__func__, index, port_id);
+		return 0;
+	}
+
+	pr_debug("%s: Port id %d, index %d\n", __func__, port_id, index);
+
+	if (!aud_cal || aud_cal->cal_size == 0) {
+		pr_debug("%s: No ADM cal to send for port_id = %d!\n",
+			__func__, port_id);
+		result = -EINVAL;
+		goto done;
+	}
+
+	adm_params.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(20), APR_PKT_VER);
+	adm_params.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(adm_params));
+	adm_params.hdr.src_svc = APR_SVC_ADM;
+	adm_params.hdr.src_domain = APR_DOMAIN_APPS;
+	adm_params.hdr.src_port = port_id;
+	adm_params.hdr.dest_svc = APR_SVC_ADM;
+	adm_params.hdr.dest_domain = APR_DOMAIN_ADSP;
+	adm_params.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	adm_params.hdr.token = port_id;
+	adm_params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+	adm_params.payload_addr_lsw = aud_cal->cal_paddr;
+	adm_params.payload_addr_msw = 0;
+	adm_params.mem_map_handle = atomic_read(&mem_map_handles[
+					atomic_read(&mem_map_index)]);
+	adm_params.payload_size = aud_cal->cal_size;
+
+	atomic_set(&this_adm.copp_stat[index], 0);
+	pr_debug("%s: Sending SET_PARAMS payload = 0x%x, size = %d\n",
+		__func__, adm_params.payload_addr_lsw,
+		adm_params.payload_size);
+	result = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_params);
+	if (result < 0) {
+		pr_err("%s: Set params failed port = %d payload = 0x%x\n",
+			__func__, port_id, aud_cal->cal_paddr);
+		result = -EINVAL;
+		goto done;
+	}
+	/* Wait for the callback */
+	result = wait_event_timeout(this_adm.wait[index],
+		atomic_read(&this_adm.copp_stat[index]),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!result) {
+		pr_err("%s: Set params timed out port = %d, payload = 0x%x\n",
+			__func__, port_id, aud_cal->cal_paddr);
+		result = -EINVAL;
+		goto done;
+	}
+
+	result = 0;
+done:
+	return result;
+}
+
 static void send_adm_cal(int port_id, int path)
 {
-	/* function to be defined when calibration available for 8974 */
+	int			result = 0;
+	s32			acdb_path;
+	struct acdb_cal_block	aud_cal;
+	int			size = 4096;
 	pr_debug("%s\n", __func__);
+
+	/* Maps audio_dev_ctrl path definition to ACDB definition */
+	acdb_path = path - 1;
+
+	pr_debug("%s: Sending audproc cal\n", __func__);
+	get_audproc_cal(acdb_path, &aud_cal);
+
+	/* map & cache buffers used */
+	if (((mem_addr_audproc[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
+		(aud_cal.cal_size > 0)) ||
+		(aud_cal.cal_size > mem_addr_audproc[acdb_path].cal_size)) {
+
+		atomic_set(&mem_map_index, acdb_path);
+		if (mem_addr_audproc[acdb_path].cal_paddr != 0)
+			adm_memory_unmap_regions(port_id,
+				&mem_addr_audproc[acdb_path].cal_paddr,
+				&size, 1);
+
+		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
+						0, &aud_cal.cal_size, 1);
+		if (result < 0)
+			pr_err("ADM audproc mmap did not work! path = %d, addr = 0x%x, size = %d\n",
+				acdb_path, aud_cal.cal_paddr,
+				aud_cal.cal_size);
+		else
+			mem_addr_audproc[acdb_path] = aud_cal;
+	}
+
+	if (!send_adm_cal_block(port_id, &aud_cal))
+		pr_debug("%s: Audproc cal sent for port id: %d, path %d\n",
+			__func__, port_id, acdb_path);
+	else
+		pr_debug("%s: Audproc cal not sent for port id: %d, path %d\n",
+			__func__, port_id, acdb_path);
+
+	pr_debug("%s: Sending audvol cal\n", __func__);
+	get_audvol_cal(acdb_path, &aud_cal);
+
+	/* map & cache buffers used */
+	if (((mem_addr_audvol[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
+		(aud_cal.cal_size > 0))  ||
+		(aud_cal.cal_size > mem_addr_audvol[acdb_path].cal_size)) {
+
+		atomic_set(&mem_map_index, (acdb_path + MAX_AUDPROC_TYPES));
+		if (mem_addr_audvol[acdb_path].cal_paddr != 0)
+			adm_memory_unmap_regions(port_id,
+				&mem_addr_audvol[acdb_path].cal_paddr,
+				&size, 1);
+
+		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
+						0, &aud_cal.cal_size, 1);
+		if (result < 0)
+			pr_err("ADM audvol mmap did not work! path = %d, addr = 0x%x, size = %d\n",
+				acdb_path, aud_cal.cal_paddr,
+				aud_cal.cal_size);
+		else
+			mem_addr_audvol[acdb_path] = aud_cal;
+	}
+
+	if (!send_adm_cal_block(port_id, &aud_cal))
+		pr_debug("%s: Audvol cal sent for port id: %d, path %d\n",
+			__func__, port_id, acdb_path);
+	else
+		pr_debug("%s: Audvol cal not sent for port id: %d, path %d\n",
+			__func__, port_id, acdb_path);
 }
 
 int adm_connect_afe_port(int mode, int session_id, int port_id)
@@ -572,7 +736,8 @@ int adm_memory_unmap_regions(int32_t port_id, uint32_t *buf_add,
 	unmap_regions.hdr.dest_port = 0;
 	unmap_regions.hdr.token = 0;
 	unmap_regions.hdr.opcode = ADM_CMD_SHARED_MEM_UNMAP_REGIONS;
-	unmap_regions.mem_map_handle = this_adm.mem_map_handle[index];
+	unmap_regions.mem_map_handle = atomic_read(&mem_map_handles[
+						atomic_read(&mem_map_index)]);
 	atomic_set(&this_adm.copp_stat[0], 0);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *) &unmap_regions);
 	if (ret < 0) {
