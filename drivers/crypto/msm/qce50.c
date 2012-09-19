@@ -487,7 +487,10 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 		pce->data = auth_cfg;
 
 		pce = cmdlistinfo->auth_seg_size;
-		pce->data = totallen_in;
+		if (creq->dir == QCE_ENCRYPT)
+			pce->data = totallen_in;
+		else
+			pce->data = totallen_in - creq->authsize;
 		pce = cmdlistinfo->auth_seg_start;
 		pce->data = 0;
 	}
@@ -503,7 +506,8 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 		encr_cfg |= (CRYPTO_ENCR_MODE_XTS << CRYPTO_ENCR_MODE);
 		break;
 	case QCE_MODE_CCM:
-		encr_cfg |= (CRYPTO_ENCR_MODE_CCM << CRYPTO_ENCR_MODE);
+		encr_cfg |= (CRYPTO_ENCR_MODE_CCM << CRYPTO_ENCR_MODE) |
+				(CRYPTO_LAST_CCM_XFR << CRYPTO_LAST_CCM);
 		break;
 	case QCE_MODE_CTR:
 	default:
@@ -1930,7 +1934,9 @@ static int _setup_aead_cmdlistptrs(struct qce_device *pdev,
 		auth_cfg &= ~(1 << CRYPTO_USE_HW_KEY_AUTH);
 		encr_cfg = (CRYPTO_ENCR_KEY_SZ_AES256 << CRYPTO_ENCR_KEY_SZ) |
 			(CRYPTO_ENCR_ALG_AES << CRYPTO_ENCR_ALG) |
-			((CRYPTO_ENCR_MODE_CCM << CRYPTO_ENCR_MODE));
+			(CRYPTO_ENCR_MODE_CCM << CRYPTO_ENCR_MODE) |
+			(CRYPTO_LAST_CCM_XFR << CRYPTO_LAST_CCM);
+
 		key_reg = 8;
 	}
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
@@ -2161,8 +2167,10 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	struct qce_cmdlist_info *cmdlistinfo = NULL;
 	struct qce_cmdlist_info *auth_cmdlistinfo = NULL;
 
-	if (q_req->mode != QCE_MODE_CCM)
+	if (q_req->mode != QCE_MODE_CCM) {
 		ivsize = crypto_aead_ivsize(aead);
+		auth_cmdlistinfo = &pce_dev->ce_sps.cmdlistptr.aead_sha1_hmac;
+	}
 
 	ce_burst_size = pce_dev->ce_sps.ce_burst_size;
 	if (q_req->dir == QCE_ENCRYPT) {
@@ -2770,13 +2778,11 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 	ce_support->aes_xts = true;
 	ce_support->ota = false;
 	ce_support->bam = true;
-	if (pce_dev->ce_sps.minor_version) {
+	ce_support->aes_ccm = true;
+	if (pce_dev->ce_sps.minor_version)
 		ce_support->aligned_only = false;
-		ce_support->aes_ccm = true;
-	} else {
+	else
 		ce_support->aligned_only = true;
-		ce_support->aes_ccm = false;
-	}
 	return 0;
 }
 EXPORT_SYMBOL(qce_hw_support);
