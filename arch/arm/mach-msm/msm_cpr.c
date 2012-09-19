@@ -44,6 +44,8 @@
  */
 #define TIMER_COUNT(freq, delay) ((freq * delay) / 1000)
 #define ALL_CPR_IRQ 0x3F
+#define STEP_QUOT_MAX 25
+#define STEP_QUOT_MIN 12
 
 /* Need platform device handle for suspend and resume APIs */
 static struct platform_device *cpr_pdev;
@@ -269,8 +271,19 @@ cpr_2pt_kv_analysis(struct msm_cpr *cpr, struct msm_cpr_mode *chip_data)
 		goto err_poll_result;
 	}
 	quot2 = (cpr_read_reg(cpr, RBCPR_DEBUG1) & QUOT_SLOW_M) >> 12;
-	chip_data->step_quot = (quot1 - quot2) / 4;
-	pr_info("%s: Calculated Step Quot is %d\n",
+	/*
+	 * Based on chip characterization data, it is good to add some
+	 * margin on top of calculated step quot to help reduce the
+	 * number of CPR interrupts. The present value suggested is 3.
+	 * Further, if the step quot is outside range, clamp it to the
+	 * maximum permitted value.
+	 */
+	chip_data->step_quot = ((quot1 - quot2) / 4) + 3;
+	if (chip_data->step_quot < STEP_QUOT_MIN ||
+			chip_data->step_quot > STEP_QUOT_MAX)
+		chip_data->step_quot = STEP_QUOT_MAX;
+
+	pr_info("%s: Step Quot is %d\n",
 			__func__, chip_data->step_quot);
 	/* Disable the cpr */
 	cpr_modify_reg(cpr, RBCPR_CTL, LOOP_EN_M, DISABLE_CPR);
