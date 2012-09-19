@@ -943,7 +943,7 @@ EXPORT_SYMBOL(msm_rpm_exit_sleep);
 
 static bool msm_rpm_set_standalone(void)
 {
-	if (machine_is_msm8974()) {
+	if (machine_is_msm9625()) {
 		pr_warn("%s(): Running in standalone mode, requests "
 				"will not be sent to RPM\n", __func__);
 		standalone = true;
