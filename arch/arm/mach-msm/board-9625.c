@@ -34,6 +34,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_smd.h>
+#include <mach/rpm-smd.h>
 #include "clock.h"
 #include "modem_notifier.h"
 
@@ -281,6 +282,7 @@ void __init msm9625_add_drivers(void)
 {
 	msm_init_modem_notifier_list();
 	msm_smd_init();
+	msm_rpm_driver_init();
 }
 
 void __init msm9625_init(void)
