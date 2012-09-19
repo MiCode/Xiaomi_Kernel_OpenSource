@@ -39,6 +39,8 @@
 #include <mach/rpm-regulator-smd.h>
 #include "clock.h"
 #include "modem_notifier.h"
+#include "lpm_resources.h"
+#include "spm.h"
 
 #define MSM_KERNEL_EBI_SIZE	0x51000
 
@@ -68,7 +70,6 @@ static struct reserve_info msm9625_reserve_info __initdata = {
 	.calculate_reserve_sizes = msm9625_calculate_reserve_sizes,
 	.paddr_to_memtype = msm9625_paddr_to_memtype,
 };
-
 
 #define L2CC_AUX_CTRL	((0x1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) | \
 			(0x2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
@@ -285,7 +286,9 @@ void __init msm9625_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
+	msm_lpmrs_module_init();
 	rpm_regulator_smd_driver_init();
+	msm_spm_device_init();
 }
 
 void __init msm9625_init(void)
