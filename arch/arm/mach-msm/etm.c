@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +24,7 @@
 #include <linux/pm_qos.h>
 
 #include <asm/atomic.h>
-
-#include "cp14.h"
+#include <asm/hardware/cp14.h>
 
 #define LOG_BUF_LEN			32768
 /* each slot is 4 bytes, 8kb total */
