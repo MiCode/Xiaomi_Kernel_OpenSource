@@ -330,9 +330,14 @@ skip_pc_debug3:
 	ldr     pc, [r1]                 /* jump                           */
 
 ENTRY(msm_pm_set_l2_flush_flag)
-	ldr r1, =msm_pm_flush_l2_flag
-	str r0, [r1]
-	bx lr
+	ldr     r1, =msm_pm_flush_l2_flag
+	str     r0, [r1]
+	bx      lr
+
+ENTRY(msm_pm_get_l2_flush_flag)
+	ldr     r1, =msm_pm_flush_l2_flag
+	ldr     r0, [r1]
+	bx      lr
 
 	.data
 
