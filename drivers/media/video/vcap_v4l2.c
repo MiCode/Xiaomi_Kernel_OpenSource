@@ -340,6 +340,7 @@ int vcvp_qbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
+	vb->v4l2_buf.timestamp = b->timestamp;
 	list_add_tail(&vb->queued_entry, &q->queued_list);
 	vb->state = VB2_BUF_STATE_QUEUED;
 
