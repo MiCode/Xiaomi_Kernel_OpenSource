@@ -207,8 +207,16 @@ void wcd9xxx_free_irq(struct wcd9xxx *wcd9xxx, int irq, void *data);
 void wcd9xxx_enable_irq(struct wcd9xxx *wcd9xxx, int irq);
 void wcd9xxx_disable_irq(struct wcd9xxx *wcd9xxx, int irq);
 void wcd9xxx_disable_irq_sync(struct wcd9xxx *wcd9xxx, int irq);
-#ifdef CONFIG_OF
+#if defined(CONFIG_WCD9310_CODEC) || \
+	defined(CONFIG_WCD9304_CODEC) || \
+	defined(CONFIG_WCD9320_CODEC)
 int __init wcd9xxx_irq_of_init(struct device_node *node,
 			       struct device_node *parent);
-#endif /* CONFIG_OF */
+#else
+static inline int __init wcd9xxx_irq_of_init(struct device_node *node,
+			       struct device_node *parent)
+{
+	return 0;
+}
+#endif
 #endif
