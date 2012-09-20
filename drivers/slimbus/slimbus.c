@@ -2641,7 +2641,15 @@ int slim_reconfigure_now(struct slim_device *sb)
 		slc->state = SLIM_CH_SUSPENDED;
 	}
 
-	ret = slim_allocbw(sb, &subframe, &clkgear);
+	/*
+	 * Controller can override default channel scheduling algorithm.
+	 * (e.g. if controller needs to use fixed channel scheduling based
+	 * on number of channels)
+	 */
+	if (ctrl->allocbw)
+		ret = ctrl->allocbw(sb, &subframe, &clkgear);
+	else
+		ret = slim_allocbw(sb, &subframe, &clkgear);
 
 	if (!ret) {
 		ret = slim_processtxn(ctrl, SLIM_MSG_DEST_BROADCAST,
