@@ -363,6 +363,7 @@ struct mxt_data {
 	int t38_start_addr;
 	bool update_cfg;
 	const char *fw_name;
+	bool no_force_update;
 };
 
 static struct dentry *debug_base;
@@ -984,9 +985,9 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 			continue;
 		}
 
-		/* check whether report id is part of T9 or T15 */
 		id = reportid - data->t9_min_reportid;
 
+		 /* check whether report id is part of T9,T15 or T42*/
 		if (reportid >= data->t9_min_reportid &&
 					reportid <= data->t9_max_reportid)
 			mxt_input_touchevent(data, &message, id);
@@ -1273,25 +1274,18 @@ static int mxt_get_config(struct mxt_data *data)
 			data->cfg_version[0], data->cfg_version[1],
 			data->cfg_version[2]);
 
-	/* It is possible that the config data on the controller is not
-	 * versioned and the version number returns 0. In this case,
-	 * find a match without the config version checking.
-	 */
-	error = mxt_search_config_array(data,
-				data->cfg_version[0] != 0 ? true : false);
+	/* configuration update requires major match */
+	error = mxt_search_config_array(data, true);
+
+	/* if no_force_update is false , try again with false
+	as the second parameter to mxt_search_config_array */
+	if (error && (data->no_force_update == false))
+		error = mxt_search_config_array(data, false);
+
 	if (error) {
-		/* If a match wasn't found for a non-zero config version,
-		 * it means the controller has the wrong config data. Search
-		 * for a best match based on controller and firmware version,
-		 * but not config version.
-		 */
-		if (data->cfg_version[0])
-			error = mxt_search_config_array(data, false);
-		if (error) {
-			dev_err(dev,
-				"Unable to find matching config in pdata\n");
-			return error;
-		}
+		dev_err(dev,
+			"Unable to find matching config in pdata\n");
+		return error;
 	}
 
 	return 0;
@@ -1418,13 +1412,62 @@ static int mxt_save_objects(struct mxt_data *data)
 	return 0;
 }
 
+static int mxt_update_cfg(struct mxt_data *data)
+{
+	int error;
+	const u8 *cfg_ver;
+
+	/* Get config data from platform data */
+	error = mxt_get_config(data);
+	if (error)
+		dev_dbg(&data->client->dev, "Config info not found.\n");
+
+	/* Check register init values */
+	if (data->config_info && data->config_info->config) {
+		if (data->update_cfg) {
+			error = mxt_check_reg_init(data);
+			if (error) {
+				dev_err(&data->client->dev,
+					"Failed to check reg init value\n");
+				return error;
+			}
+
+			error = mxt_backup_nv(data);
+			if (error) {
+				dev_err(&data->client->dev, "Failed to back up NV\n");
+				return error;
+			}
+
+			cfg_ver = data->config_info->config +
+						data->cfg_version_idx;
+			dev_info(&data->client->dev,
+				"Config updated from %d.%d.%d to %d.%d.%d\n",
+				data->cfg_version[0], data->cfg_version[1],
+				data->cfg_version[2],
+				cfg_ver[0], cfg_ver[1], cfg_ver[2]);
+
+			memcpy(data->cfg_version, cfg_ver, MXT_CFG_VERSION_LEN);
+		}
+	} else {
+		dev_info(&data->client->dev,
+			"No cfg data defined, skipping check reg init\n");
+	}
+
+	error = mxt_save_objects(data);
+	if (error)
+		return error;
+
+	return 0;
+}
+
+
+
 static int mxt_initialize(struct mxt_data *data)
 {
 	struct i2c_client *client = data->client;
 	struct mxt_info *info = &data->info;
 	int error;
 	u8 val;
-	const u8 *cfg_ver;
 
 	error = mxt_get_info(data);
 	if (error) {
@@ -1465,46 +1508,9 @@ static int mxt_initialize(struct mxt_data *data)
 	if (error)
 		goto free_object_table;
 
-	/* Get config data from platform data */
-	error = mxt_get_config(data);
-	if (error)
-		dev_dbg(&client->dev, "Config info not found.\n");
-
-	/* Check register init values */
-	if (data->config_info && data->config_info->config) {
-		if (data->update_cfg) {
-			error = mxt_check_reg_init(data);
-			if (error) {
-				dev_err(&client->dev,
-					"Failed to check reg init value\n");
-				goto free_object_table;
-			}
-
-			error = mxt_backup_nv(data);
-			if (error) {
-				dev_err(&client->dev, "Failed to back up NV\n");
-				goto free_object_table;
-			}
-
-			cfg_ver = data->config_info->config +
-							data->cfg_version_idx;
-			dev_info(&client->dev,
-				"Config updated from %d.%d.%d to %d.%d.%d\n",
-				data->cfg_version[0], data->cfg_version[1],
-				data->cfg_version[2],
-				cfg_ver[0], cfg_ver[1], cfg_ver[2]);
-
-			memcpy(data->cfg_version, cfg_ver, MXT_CFG_VERSION_LEN);
-		}
-	} else {
-		dev_info(&client->dev,
-			"No cfg data defined, skipping check reg init\n");
-	}
-
-	error = mxt_save_objects(data);
+	error = mxt_update_cfg(data);
 	if (error)
 		goto free_object_table;
-
 	/* Update matrix size at info struct */
 	error = mxt_read_reg(client, MXT_MATRIX_X_SIZE, &val);
 	if (error)
@@ -1732,6 +1738,30 @@ mxt_search_fw_name(struct mxt_data *data, u8 bootldr_id)
 	return fw_name;
 }
 
+static ssize_t mxt_force_cfg_update_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	int flag = buf[0]-'0';
+	int error;
+	data->no_force_update = !flag;
+
+	if (data->state == APPMODE) {
+		disable_irq(data->irq);
+		error = mxt_update_cfg(data);
+		enable_irq(data->irq);
+		if (error)
+			return error;
+	} else {
+		dev_err(dev,
+		"Not in APPMODE, Unable to force cfg update\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
 static ssize_t mxt_update_fw_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
@@ -1742,7 +1772,7 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 	u8 bootldr_id;
 	u8 cfg_version[MXT_CFG_VERSION_LEN] = {0};
 
-
+	data->no_force_update = false;
 	/* If fw_name is set, then the existing firmware has an upgrade */
 	if (!data->fw_name) {
 		/*
@@ -1824,10 +1854,12 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 
 static DEVICE_ATTR(object, 0444, mxt_object_show, NULL);
 static DEVICE_ATTR(update_fw, 0664, NULL, mxt_update_fw_store);
+static DEVICE_ATTR(force_cfg_update, 0664, NULL, mxt_force_cfg_update_store);
 
 static struct attribute *mxt_attrs[] = {
 	&dev_attr_object.attr,
 	&dev_attr_update_fw.attr,
+	&dev_attr_force_cfg_update.attr,
 	NULL
 };
 
@@ -2433,6 +2465,10 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 	pdata->i2c_pull_up = of_property_read_bool(np, "atmel,i2c-pull-up");
 	pdata->digital_pwr_regulator = of_property_read_bool(np,
 						"atmel,dig-reg-support");
+
+	pdata->no_force_update = of_property_read_bool(np,
+						"atmel,no-force-update");
+
 	/* reset, irq gpio info */
 	pdata->reset_gpio = of_get_named_gpio_flags(np, "atmel,reset-gpio",
 				0, &pdata->reset_gpio_flags);
@@ -2583,6 +2619,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	data->client = client;
 	data->input_dev = input_dev;
 	data->pdata = pdata;
+	data->no_force_update = pdata->no_force_update;
 
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(EV_KEY, input_dev->evbit);
