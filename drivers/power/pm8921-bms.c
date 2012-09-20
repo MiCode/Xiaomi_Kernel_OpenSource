@@ -3248,7 +3248,10 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	check_initial_ocv(chip);
 
 	/* start periodic hkadc calibration */
-	schedule_delayed_work(&chip->calib_hkadc_delayed_work, 0);
+	calib_hkadc(chip);
+	schedule_delayed_work(&chip->calib_hkadc_delayed_work,
+			round_jiffies_relative(msecs_to_jiffies
+			(HKADC_CALIB_DELAY_MS)));
 
 	/* enable the vbatt reading interrupts for scheduling hkadc calib */
 	pm8921_bms_enable_irq(chip, PM8921_BMS_GOOD_OCV);
