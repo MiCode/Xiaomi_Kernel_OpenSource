@@ -42,8 +42,6 @@ static struct usb_interface_descriptor ac_interface_desc = {
 	.bInterfaceSubClass =	USB_SUBCLASS_AUDIOCONTROL,
 };
 
-DECLARE_UAC_AC_HEADER_DESCRIPTOR(2);
-
 #define UAC_DT_AC_HEADER_LENGTH	UAC_DT_AC_HEADER_SIZE(AUDIO_NUM_INTERFACES)
 /* 1 input terminal, 1 output terminal and 1 feature unit */
 #define UAC_DT_TOTAL_LENGTH (UAC_DT_AC_HEADER_LENGTH \
@@ -125,8 +123,6 @@ static struct uac1_as_header_descriptor as_header_desc = {
 	.bDelay =		1,
 	.wFormatTag =		UAC_FORMAT_TYPE_I_PCM,
 };
-
-DECLARE_UAC_FORMAT_TYPE_I_DISCRETE_DESC(1);
 
 static struct uac_format_type_i_discrete_descriptor_1 as_type_i_desc = {
 	.bLength =		UAC_FORMAT_TYPE_I_DISCRETE_DESC_SIZE(1),

@@ -67,6 +67,8 @@
 #ifdef CONFIG_TARGET_CORE
 #include "f_tcm.c"
 #endif
+#include "u_uac1.c"
+#include "f_uac1.c"
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -885,6 +887,18 @@ static struct android_usb_function mbim_function = {
 	.init		= mbim_function_init,
 };
 
+/* PERIPHERAL AUDIO */
+static int audio_function_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	return audio_bind_config(c);
+}
+
+static struct android_usb_function audio_function = {
+	.name		= "audio",
+	.bind_config	= audio_function_bind_config,
+};
+
 
 /* DIAG */
 static char diag_clients[32];	    /*enabled DIAG clients- "diag[,diag_mdm]" */
@@ -1691,6 +1705,7 @@ static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
 	&mbim_function,
 	&ecm_qc_function,
+	&audio_function,
 	&rmnet_smd_function,
 	&rmnet_sdio_function,
 	&rmnet_smd_sdio_function,
