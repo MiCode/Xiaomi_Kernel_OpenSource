@@ -20,6 +20,7 @@
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
 #include <linux/cpu.h>
+#include <linux/hrtimer.h>
 #include <mach/rpm.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach-types.h>
@@ -37,6 +38,7 @@
 enum {
 	MSM_RPMRS_DEBUG_OUTPUT = BIT(0),
 	MSM_RPMRS_DEBUG_BUFFER = BIT(1),
+	MSM_RPMRS_DEBUG_EVENT_TIMER = BIT(2),
 };
 
 static int msm_rpmrs_debug_mask;
@@ -891,8 +893,8 @@ s32 msm_cpuidle_get_deep_idle_latency(void)
 }
 
 static void *msm_rpmrs_lowest_limits(bool from_idle,
-		enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
-		uint32_t sleep_us, uint32_t *power)
+		enum msm_pm_sleep_mode sleep_mode,
+		struct msm_pm_time_params *time_param, uint32_t *power)
 {
 	unsigned int cpu = smp_processor_id();
 	struct msm_rpmrs_level *best_level = NULL;
@@ -900,6 +902,8 @@ static void *msm_rpmrs_lowest_limits(bool from_idle,
 	bool gpio_detectable = false;
 	int i;
 	uint32_t pwr;
+	uint32_t next_wakeup_us = time_param->sleep_us;
+	bool modify_event_timer;
 
 	if (sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) {
 		irqs_detectable = msm_mpm_irqs_detectable(from_idle);
@@ -909,16 +913,32 @@ static void *msm_rpmrs_lowest_limits(bool from_idle,
 	for (i = 0; i < msm_rpmrs_level_count; i++) {
 		struct msm_rpmrs_level *level = &msm_rpmrs_levels[i];
 
+		modify_event_timer = false;
+
 		if (!level->available)
 			continue;
 
 		if (sleep_mode != level->sleep_mode)
 			continue;
 
-		if (latency_us < level->latency_us)
+		if (time_param->latency_us < level->latency_us)
 			continue;
 
-		if (sleep_us <= level->time_overhead_us)
+		if (time_param->next_event_us &&
+				time_param->next_event_us < level->latency_us)
+			continue;
+
+		if (time_param->next_event_us) {
+			if ((time_param->next_event_us < time_param->sleep_us)
+			|| ((time_param->next_event_us - level->latency_us) <
+				time_param->sleep_us)) {
+				modify_event_timer = true;
+				next_wakeup_us = time_param->next_event_us -
+						level->latency_us;
+			}
+		}
+
+		if (next_wakeup_us <= level->time_overhead_us)
 			continue;
 
 		if (!msm_rpmrs_irqs_detectable(&level->rs_limits,
@@ -929,18 +949,17 @@ static void *msm_rpmrs_lowest_limits(bool from_idle,
 			if (!cpu && msm_rpm_local_request_is_outstanding())
 					break;
 
-
-		if (sleep_us <= 1) {
+		if (next_wakeup_us <= 1) {
 			pwr = level->energy_overhead;
-		} else if (sleep_us <= level->time_overhead_us) {
-			pwr = level->energy_overhead / sleep_us;
-		} else if ((sleep_us >> 10) > level->time_overhead_us) {
+		} else if (next_wakeup_us <= level->time_overhead_us) {
+			pwr = level->energy_overhead / next_wakeup_us;
+		} else if ((next_wakeup_us >> 10) > level->time_overhead_us) {
 			pwr = level->steady_state_power;
 		} else {
 			pwr = level->steady_state_power;
 			pwr -= (level->time_overhead_us *
-					level->steady_state_power)/sleep_us;
-			pwr += level->energy_overhead / sleep_us;
+				level->steady_state_power)/next_wakeup_us;
+			pwr += level->energy_overhead / next_wakeup_us;
 		}
 
 		if (!best_level ||
@@ -950,6 +969,12 @@ static void *msm_rpmrs_lowest_limits(bool from_idle,
 			best_level = level;
 			if (power)
 				*power = pwr;
+			if (modify_event_timer && best_level->latency_us > 1)
+				time_param->modified_time_us =
+					time_param->next_event_us -
+							best_level->latency_us;
+			else
+				time_param->modified_time_us = 0;
 		}
 	}
 
