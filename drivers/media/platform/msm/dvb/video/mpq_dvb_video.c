@@ -868,7 +868,7 @@ static int mpq_int_set_full_hd_frame_resolution(
 	if (rc)
 		DBG("Failed in mpq_int_vid_dec_get_buffer_req : %d\n", rc);
 
-	vdec_buf_req.num_output_buffers = 15;
+	vdec_buf_req.num_output_buffers = 12;
 	rc = mpq_int_set_out_buffer_req(client_ctx, &vdec_buf_req);
 	if (rc)
 		DBG("Failed in mpq_int_set_out_buffer_req (15) : %d\n", rc);
