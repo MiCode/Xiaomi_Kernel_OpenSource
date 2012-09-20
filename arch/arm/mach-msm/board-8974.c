@@ -13,13 +13,11 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
-#include <linux/of_irq.h>
 #include <linux/memory.h>
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -27,9 +25,10 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/krait-regulator.h>
 #include <linux/msm_thermal.h>
-#include <linux/mfd/wcd9xxx/core.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
+#include <asm/mach/map.h>
+#include <asm/mach/arch.h>
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
@@ -38,12 +37,12 @@
 #endif
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
+#include <mach/restart.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
-#include <mach/qpnp-int.h>
 #include <mach/socinfo.h>
 #include <mach/msm_bus_board.h>
-#include <mach/mpm.h>
+#include "board-dt.h"
 #include "clock.h"
 #include "devices.h"
 #include "spm.h"
@@ -62,7 +61,7 @@ static int __init kernel_ebi1_mem_size_setup(char *p)
 early_param("kernel_ebi1_mem_size", kernel_ebi1_mem_size_setup);
 #endif
 
-static struct memtype_reserve msm_8974_reserve_table[] __initdata = {
+static struct memtype_reserve msm8974_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
 	[MEMTYPE_EBI0] = {
@@ -73,7 +72,7 @@ static struct memtype_reserve msm_8974_reserve_table[] __initdata = {
 	},
 };
 
-static int msm_8974_paddr_to_memtype(unsigned int paddr)
+static int msm8974_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
 }
@@ -81,7 +80,7 @@ static int msm_8974_paddr_to_memtype(unsigned int paddr)
 static void __init reserve_ebi_memory(void)
 {
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
-	msm_8974_reserve_table[MEMTYPE_EBI1].size += kernel_ebi1_mem_size;
+	msm8974_reserve_table[MEMTYPE_EBI1].size += kernel_ebi1_mem_size;
 #endif
 }
 
@@ -247,26 +246,21 @@ struct platform_device msm_device_smd_8974 = {
 	}
 };
 
-static void __init msm_8974_calculate_reserve_sizes(void)
+static void __init msm8974_calculate_reserve_sizes(void)
 {
 	reserve_ebi_memory();
 }
 
-static struct reserve_info msm_8974_reserve_info __initdata = {
-	.memtype_reserve_table = msm_8974_reserve_table,
-	.calculate_reserve_sizes = msm_8974_calculate_reserve_sizes,
-	.paddr_to_memtype = msm_8974_paddr_to_memtype,
+static struct reserve_info msm8974_reserve_info __initdata = {
+	.memtype_reserve_table = msm8974_reserve_table,
+	.calculate_reserve_sizes = msm8974_calculate_reserve_sizes,
+	.paddr_to_memtype = msm8974_paddr_to_memtype,
 };
 
-static void __init msm_8974_early_memory(void)
+static void __init msm8974_early_memory(void)
 {
-	reserve_info = &msm_8974_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msm_8974_reserve_table);
-}
-
-void __init msm_8974_reserve(void)
-{
-	msm_reserve();
+	reserve_info = &msm8974_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8974_reserve_table);
 }
 
 #define BIMC_BASE	0xfc380000
@@ -456,7 +450,7 @@ static void __init msm8974_init_buses(void)
 				ARRAY_SIZE(msm_bus_8974_devices));
 };
 
-void __init msm_8974_add_devices(void)
+void __init msm8974_add_devices(void)
 {
 	platform_device_register(&msm_device_smd_8974);
 }
@@ -467,7 +461,7 @@ void __init msm_8974_add_devices(void)
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-void __init msm_8974_add_drivers(void)
+void __init msm8974_add_drivers(void)
 {
 	msm_init_modem_notifier_list();
 	msm_smd_init();
@@ -485,32 +479,7 @@ void __init msm_8974_add_drivers(void)
 	mxt_init_vkeys_8974();
 }
 
-static struct of_device_id irq_match[] __initdata  = {
-	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
-	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
-	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
-	{ .compatible = "qcom,wcd9xxx-irq", .data = wcd9xxx_irq_of_init, },
-	{}
-};
-static struct of_device_id mpm_match[] __initdata = {
-	{.compatible = "qcom,mpm-v2", },
-	{},
-};
-
-void __init msm_8974_init_irq(void)
-{
-	struct device_node *node;
-
-	of_irq_init(irq_match);
-	node = of_find_matching_node(NULL, mpm_match);
-
-	WARN_ON(!node);
-
-	if (node)
-		of_mpm_init(node);
-}
-
-static struct of_dev_auxdata msm_8974_auxdata_lookup[] __initdata = {
+static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
 			"msm_otg", NULL),
 	OF_DEV_AUXDATA("qcom,dwc-usb3-msm", 0xF9200000, \
@@ -577,16 +546,43 @@ static struct of_dev_auxdata msm_8974_auxdata_lookup[] __initdata = {
 	{}
 };
 
-void __init msm_8974_init(struct of_dev_auxdata **adata)
+static void __init msm8974_map_io(void)
 {
+	msm_map_8974_io();
+	if (socinfo_init() < 0)
+		pr_err("%s: socinfo_init() failed\n", __func__);
+}
+
+void __init msm8974_init(void)
+{
+	struct of_dev_auxdata *adata = msm8974_auxdata_lookup;
+
 	msm_8974_init_gpiomux();
-
-	*adata = msm_8974_auxdata_lookup;
-
 	regulator_has_full_constraints();
+	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
+
+	msm8974_add_devices();
+	msm8974_add_drivers();
 }
 
-void __init msm_8974_very_early(void)
+void __init msm8974_init_very_early(void)
 {
-	msm_8974_early_memory();
+	msm8974_early_memory();
 }
+
+static const char *msm8974_dt_match[] __initconst = {
+	"qcom,msm8974",
+	NULL
+};
+
+DT_MACHINE_START(MSM8974_DT, "Qualcomm MSM 8974 (Flattened Device Tree)")
+	.map_io = msm8974_map_io,
+	.init_irq = msm_dt_init_irq,
+	.init_machine = msm8974_init,
+	.handle_irq = gic_handle_irq,
+	.timer = &msm_dt_timer,
+	.dt_compat = msm8974_dt_match,
+	.reserve = msm_reserve,
+	.init_very_early = msm8974_init_very_early,
+	.restart = msm_restart,
+MACHINE_END
