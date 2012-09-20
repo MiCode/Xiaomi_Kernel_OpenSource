@@ -2607,4 +2607,13 @@ config MSM_HSIC_SYSMON_TEST
 	  can be read and written to send character data to the sysmon port of
 	  the modem over USB.
 
+config MSM_RPC_PMIC
+	tristate "MSM RPC PMIC driver"
+	depends on MSM_ONCRPCROUTER
+	help
+	 This driver supports the PMIC functionality over RPC for those MSM's
+	 which do not have a direct access to PMIC. It supports ability to
+	 configure MPP, GPIO and all the other supported peripherals of the
+	 PMIC.
+
 endif
