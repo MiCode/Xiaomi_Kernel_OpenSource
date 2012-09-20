@@ -1779,6 +1779,7 @@ static irqreturn_t
 msmsdcc_irq(int irq, void *dev_id)
 {
 	struct msmsdcc_host	*host = dev_id;
+	struct mmc_host		*mmc = host->mmc;
 	u32			status;
 	int			ret = 0;
 	int			timer = 0;
@@ -1820,6 +1821,12 @@ msmsdcc_irq(int irq, void *dev_id)
 				 */
 				wake_lock(&host->sdio_wlock);
 			} else {
+				if (!mmc->card || !mmc_card_sdio(mmc->card)) {
+					WARN(1, "%s: SDCC core interrupt received for non-SDIO cards when SDCC clocks are off\n",
+					     mmc_hostname(mmc));
+					ret = 1;
+					break;
+				}
 				spin_unlock(&host->lock);
 				mmc_signal_sdio_irq(host->mmc);
 				spin_lock(&host->lock);
@@ -1848,6 +1855,12 @@ msmsdcc_irq(int irq, void *dev_id)
 #endif
 
 		if (status & MCI_SDIOINTROPE) {
+			if (!mmc->card || mmc_card_sdio(mmc->card)) {
+				WARN(1, "%s: SDIO interrupt received for non-SDIO card\n",
+					mmc_hostname(mmc));
+				ret = 1;
+				break;
+			}
 			if (host->sdcc_suspending)
 				wake_lock(&host->sdio_suspend_wlock);
 			spin_unlock(&host->lock);
@@ -2825,6 +2838,14 @@ static u32 msmsdcc_setup_pwr(struct msmsdcc_host *host, struct mmc_ios *ios)
 		msmsdcc_set_vdd_io_vol(host, VDD_IO_LOW, 0);
 		msmsdcc_update_io_pad_pwr_switch(host);
 		msmsdcc_setup_pins(host, false);
+		/*
+		 * Reset the mask to prevent hitting any pending interrupts
+		 * after powering up the card again.
+		 */
+		if (atomic_read(&host->clks_on)) {
+			writel_relaxed(0, host->base + MMCIMASK0);
+			mb();
+		}
 		break;
 	case MMC_POWER_UP:
 		/* writing PWR_UP bit is redundant */
