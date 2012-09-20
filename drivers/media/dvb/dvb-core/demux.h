@@ -109,6 +109,24 @@ struct dmx_data_ready {
 	};
 };
 
+/*
+ * struct data_buffer: Parameters of buffer allocated by
+ * demux device for input/output. Can be used to directly map the
+ * demux-device buffer to HW output if HW supports it.
+ */
+struct data_buffer {
+	/* dvb_ringbuffer managed by demux-device */
+	const struct dvb_ringbuffer *ringbuff;
+
+
+	/*
+	 * Private handle returned by kernel demux when
+	 * map_buffer is called in case external buffer
+	 * is used. NULL if buffer is allocated internally.
+	 */
+	void *priv_handle;
+};
+
 /*--------------------------------------------------------------------------*/
 /* TS packet reception */
 /*--------------------------------------------------------------------------*/
@@ -168,7 +186,7 @@ typedef int (*dmx_ts_data_ready_cb)(
 struct dmx_ts_feed {
 	int is_filtering; /* Set to non-zero when filtering in progress */
 	struct dmx_demux *parent; /* Back-pointer */
-	const struct dvb_ringbuffer *buffer;
+	struct data_buffer buffer;
 	void *priv; /* Pointer to private data of the API client */
 	int (*set) (struct dmx_ts_feed *feed,
 		    u16 pid,
@@ -198,7 +216,7 @@ struct dmx_section_filter {
 	u8 filter_mask [DMX_MAX_FILTER_SIZE];
 	u8 filter_mode [DMX_MAX_FILTER_SIZE];
 	struct dmx_section_feed* parent; /* Back-pointer */
-	const struct dvb_ringbuffer *buffer;
+	struct data_buffer buffer;
 	void* priv; /* Pointer to private data of the API client */
 };
 
@@ -316,6 +334,8 @@ struct dmx_demux {
 	u32 capabilities;            /* Bitfield of capability flags */
 	struct dmx_frontend* frontend;    /* Front-end connected to the demux */
 	void* priv;                  /* Pointer to private data of the API client */
+	struct data_buffer dvr_input; /* DVR input buffer */
+
 	int (*open) (struct dmx_demux* demux);
 	int (*close) (struct dmx_demux* demux);
 	int (*write) (struct dmx_demux *demux, const char *buf, size_t count);
@@ -359,6 +379,13 @@ struct dmx_demux {
 
 	int (*get_stc) (struct dmx_demux* demux, unsigned int num,
 			u64 *stc, unsigned int *base);
+
+	int (*map_buffer) (struct dmx_demux *demux,
+			struct dmx_buffer *dmx_buffer,
+			void **priv_handle, void **mem);
+
+	int (*unmap_buffer) (struct dmx_demux *demux,
+			void *priv_handle);
 };
 
 #endif /* #ifndef __DEMUX_H */
