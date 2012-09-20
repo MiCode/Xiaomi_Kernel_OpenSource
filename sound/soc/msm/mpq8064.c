@@ -134,7 +134,7 @@ static int msm_ext_top_spk_pamp;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
 static int msm_hdmi_rx_ch = 8;
-
+static int mi2s_rate_variable;
 static struct clk *codec_clk;
 static int clk_users;
 
@@ -517,6 +517,7 @@ static const char *slim0_rx_ch_text[] = {"One", "Two"};
 static const char *slim0_tx_ch_text[] = {"One", "Two", "Three", "Four"};
 static const char * const hdmi_rx_ch_text[] = {"Two", "Three", "Four",
 					"Five", "Six", "Seven", "Eight"};
+static const char * const mi2s_rate[] = {"Default", "Variable"};
 
 
 static const struct soc_enum msm_enum[] = {
@@ -524,6 +525,7 @@ static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, slim0_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(7, hdmi_rx_ch_text),
+	SOC_ENUM_SINGLE_EXT(2, mi2s_rate),
 
 };
 
@@ -584,6 +586,20 @@ static int msm_hdmi_rx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm_mi2s_rate_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	mi2s_rate_variable = ucontrol->value.integer.value[0];
+	pr_debug("%s: mi2s_rate_variable = %d\n", __func__, mi2s_rate_variable);
+	return 0;
+}
+
+static int msm_mi2s_rate_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mi2s_rate_variable;
+	return 0;
+}
 
 static const struct snd_kcontrol_new tabla_msm_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm_enum[0], msm_get_spk,
@@ -594,6 +610,9 @@ static const struct snd_kcontrol_new tabla_msm_controls[] = {
 		msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
 	SOC_ENUM_EXT("HDMI_RX Channels", msm_enum[3],
 		msm_hdmi_rx_ch_get, msm_hdmi_rx_ch_put),
+	SOC_ENUM_EXT("SEC RX Rate", msm_enum[4],
+					msm_mi2s_rate_get,
+					msm_mi2s_rate_put),
 
 };
 
@@ -813,11 +832,16 @@ static int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 static int msm_be_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
 
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("%s()\n", __func__);
+	pr_debug("%s mi2s_rate_variable = %d\n", __func__, mi2s_rate_variable);
+	/*Configure the sample rate as 48000 KHz for the LPCM playback*/
+	if (!mi2s_rate_variable)
+		rate->min = rate->max = 48000;
 	channels->min =  channels->max = 2;
 
 	return 0;
