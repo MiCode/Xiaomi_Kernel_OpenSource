@@ -300,7 +300,7 @@ static void __init msm8625_boot_vector_init(uint32_t *boot_vector,
 
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
-	int i, cpu;
+	int i, cpu, value;
 	void __iomem *cpu_ptr;
 
 	/*
@@ -332,6 +332,19 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 			per_cpu_data(cpu, 0x0, 0x3c,
 					MSM8625_INT_ACSR_MP_CORE_IPC1);
 			enable_boot_remapper(BIT(26), 0x30);
+			break;
+		case 2:
+			remapper_address((MSM8625_CPU_PHYS >> 16), 0x4C);
+			per_cpu_data(cpu, 0x8, 0x50,
+					MSM8625_INT_ACSR_MP_CORE_IPC2);
+			enable_boot_remapper(BIT(25), 0x48);
+			break;
+		case 3:
+			value = __raw_readl(MSM_CFG_CTL_BASE + 0x4C);
+			remapper_address(value | MSM8625_CPU_PHYS, 0x4C);
+			per_cpu_data(cpu, 0xC, 0x50,
+					MSM8625_INT_ACSR_MP_CORE_IPC3);
+			enable_boot_remapper(BIT(26), 0x48);
 			break;
 		}
 
