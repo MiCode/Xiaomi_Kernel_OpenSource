@@ -331,6 +331,10 @@ struct snd_enc_generic {
 	__u32 bw;	/* encoder bandwidth */
 	__s32 reserved[15];
 };
+struct snd_dec_dts {
+	__u32 modelIdLength;
+	__u8 *modelId;
+};
 
 union snd_codec_options {
 	struct snd_enc_wma wma;
@@ -338,6 +342,7 @@ union snd_codec_options {
 	struct snd_enc_real real;
 	struct snd_enc_flac flac;
 	struct snd_enc_generic generic;
+	struct snd_dec_dts dts;
 };
 
 /** struct snd_codec_desc - description of codec capabilities

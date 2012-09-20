@@ -30,7 +30,7 @@
 #include <mach/qdsp6v2/rtac.h>
 #include <mach/qdsp6v2/audio_acdb.h>
 
-#include "q6core.h"
+#include <mach/qdsp6v2/q6core.h>
 
 
 #define TIMEOUT_MS 3000

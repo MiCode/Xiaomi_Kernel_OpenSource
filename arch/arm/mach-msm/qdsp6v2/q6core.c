@@ -26,7 +26,7 @@
 #include <linux/delay.h>
 #include <mach/msm_smd.h>
 #include <mach/qdsp6v2/apr.h>
-#include "q6core.h"
+#include <mach/qdsp6v2/q6core.h>
 
 #define TIMEOUT_MS 1000
 
@@ -78,6 +78,10 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 
 			bus_bw_resp_received = 1;
 			wake_up(&bus_bw_req_wait);
+			break;
+		case ADSP_CMD_SET_DTS_MODEL_ID:
+			pr_debug("ADSP_CMD_SET_DTS_MODEL_ID status[0x%x]\n",
+					payload1[1]);
 			break;
 		default:
 			pr_err("Invalid cmd rsp[0x%x][0x%x]\n",
@@ -380,6 +384,35 @@ static ssize_t apr_debug_write(struct file *file, const char __user *buf,
 		pr_info("Unknown Command\n");
 
 	return count;
+}
+
+uint32_t core_set_dts_model_id(uint32_t id_size, uint8_t *id)
+{
+	struct adsp_dts_modelid payload;
+	int rc = 0;
+	pr_debug("core_set_dts_model_id(): Enter\n");
+	core_open();
+	if (core_handle_q) {
+		payload.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		payload.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+					sizeof(uint32_t)+id_size);
+		payload.hdr.src_port = 0;
+		payload.hdr.dest_port = 0;
+		payload.hdr.token = 0;
+		payload.hdr.opcode = ADSP_CMD_SET_DTS_MODEL_ID;
+		payload.model_ID_size = id_size;
+		memcpy(payload.model_ID, id, id_size+1);
+		pr_debug("Send DTS sec opcode=%x modelID = %s, size=%d\n",
+			payload.hdr.opcode, (char *)payload.model_ID,
+			payload.model_ID_size);
+		rc = apr_send_pkt(core_handle_q, (uint32_t *)&payload);
+		if (rc < 0)
+			pr_err("%s: SET_DTS_DTS_MODEL_ID failed op[0x%x]rc[%d]\n",
+				__func__, payload.hdr.opcode, rc);
+	}
+	pr_debug("core_set_dts_model_id(): Exit\n");
+	return rc;
 }
 
 static const struct file_operations apr_debug_fops = {
