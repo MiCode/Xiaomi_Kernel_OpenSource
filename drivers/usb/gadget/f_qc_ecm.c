@@ -305,7 +305,7 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 {
 	int ret;
 
-	ecm_qc_bam_port.func = dev->port.func;
+	ecm_qc_bam_port.cdev = dev->port.func.config->cdev;
 	ecm_qc_bam_port.in = dev->port.in_ep;
 	ecm_qc_bam_port.out = dev->port.out_ep;
 
