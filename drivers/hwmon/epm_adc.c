@@ -99,6 +99,17 @@
 #define EPM_GLOBAL_ENABLE_MIN_DELAY			5000
 #define EPM_GLOBAL_ENABLE_MAX_DELAY			5100
 
+#define EPM_AVG_BUF_MASK1				0xfff00000
+#define EPM_AVG_BUF_MASK2				0xfff00
+#define EPM_AVG_BUF_MASK3				0xff
+#define EPM_AVG_BUF_MASK4				0xf0000000
+#define EPM_AVG_BUF_MASK5				0xfff0000
+#define EPM_AVG_BUF_MASK6				0xfff0
+#define EPM_AVG_BUF_MASK7				0xf
+#define EPM_AVG_BUF_MASK8				0xff000000
+#define EPM_AVG_BUF_MASK9				0xfff000
+#define EPM_AVG_BUF_MASK10				0xfff
+
 #define EPM_PSOC_BUFFERED_DATA_LENGTH			48
 #define EPM_PSOC_BUFFERED_DATA_LENGTH2			54
 
@@ -109,6 +120,7 @@ struct epm_adc_drv {
 	struct mutex			conv_lock;
 	uint32_t			bus_id;
 	struct miscdevice		misc;
+	uint32_t			channel_mask;
 	struct epm_chan_properties	epm_psoc_ch_prop[0];
 };
 
@@ -567,21 +579,26 @@ static int epm_adc_ads_scale_result(struct epm_adc_drv *epm_adc,
 			adc_scaled_data *= sign_bit;
 		}
 	}
+
 	conv->physical = (int32_t) adc_scaled_data;
 
 	return 0;
 }
 
-static int epm_psoc_scale_result(uint16_t *adc_raw_data, uint32_t index)
+static int epm_psoc_scale_result(uint32_t result, uint32_t index)
 {
 	struct epm_adc_drv *epm_adc = epm_adc_drv;
+	int32_t result_cur;
+
 	/* result = 2.048V/(32767 * gain * rsense) */
-	*adc_raw_data = (EPM_PSOC_VREF_VOLTAGE/EPM_PSOC_MAX_ADC_CODE_16_BIT)
-				* (*adc_raw_data);
-	*adc_raw_data = *adc_raw_data/
+	result_cur = (((EPM_PSOC_VREF_VOLTAGE * result)/
+				EPM_PSOC_MAX_ADC_CODE_16_BIT) * 1000);
+
+	result_cur = (result_cur/
 		(epm_adc->epm_psoc_ch_prop[index].gain *
-			epm_adc->epm_psoc_ch_prop[index].resistorvalue);
-	return 0;
+			epm_adc->epm_psoc_ch_prop[index].resistorvalue));
+
+	return result_cur;
 }
 
 static int epm_adc_blocking_conversion(struct epm_adc_drv *epm_adc,
@@ -702,6 +719,9 @@ static int epm_psoc_init(struct epm_adc_drv *epm_adc,
 	if (rc)
 		return rc;
 
+	rc = spi_sync(epm_adc->epm_spi_client, &m);
+	if (rc)
+		return rc;
 	init_resp->cmd			= rx_buf[0];
 	init_resp->version		= rx_buf[1];
 	init_resp->compatible_ver	= rx_buf[2];
@@ -757,7 +777,6 @@ static int epm_psoc_channel_configure(struct epm_adc_drv *epm_adc,
 	chan_num = rx_buf[2] << 24 | (rx_buf[3] << 16) | (rx_buf[4] << 8) |
 						rx_buf[5];
 	psoc_chan_configure->channel_num	= chan_num;
-	pr_debug("dev_num:%d, chan_num:%d\n", rx_buf[1], chan_num);
 
 	return rc;
 }
@@ -949,7 +968,7 @@ static int epm_psoc_get_avg_buffered_switch_data(struct epm_adc_drv *epm_adc,
 	struct spi_message m;
 	struct spi_transfer t;
 	char tx_buf[64], rx_buf[64];
-	int rc = 0, i;
+	int rc = 0, i = 0, j = 0, z = 0;
 
 	spi_setup(epm_adc->epm_spi_client);
 
@@ -985,6 +1004,57 @@ static int epm_psoc_get_avg_buffered_switch_data(struct epm_adc_drv *epm_adc,
 
 	for (i = 0; i < EPM_PSOC_BUFFERED_DATA_LENGTH2; i++)
 		psoc_get_meas->avg_data[i] = rx_buf[10 + i];
+
+	i = j = 0;
+	for (z = 0; z < 4; z++) {
+		psoc_get_meas->data[i].channel = i;
+		psoc_get_meas->data[i].avg_buffer_sample =
+				rx_buf[10 + j] & EPM_AVG_BUF_MASK1;
+		i++;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+			rx_buf[10 + j] & EPM_AVG_BUF_MASK2;
+		i++;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+				rx_buf[10 + j] & EPM_AVG_BUF_MASK3;
+		psoc_get_meas->data[i].avg_buffer_sample <<= 8;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+		psoc_get_meas->data[i].avg_buffer_sample |
+				(rx_buf[10 + j] & EPM_AVG_BUF_MASK4);
+		i++;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+				rx_buf[10 + j] & EPM_AVG_BUF_MASK5;
+		i++;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+				rx_buf[10 + j] & EPM_AVG_BUF_MASK6;
+		i++;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+				rx_buf[10 + j] & EPM_AVG_BUF_MASK7;
+		psoc_get_meas->data[i].avg_buffer_sample <<= 4;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+		psoc_get_meas->data[i].avg_buffer_sample |
+				(rx_buf[10 + j] & EPM_AVG_BUF_MASK8);
+		i++;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+				rx_buf[10 + j] & EPM_AVG_BUF_MASK9;
+		i++;
+		j++;
+		psoc_get_meas->data[i].avg_buffer_sample =
+				rx_buf[10 + j] & EPM_AVG_BUF_MASK10;
+	}
+
+	for (z = 0; z < 32; z++) {
+		if (psoc_get_meas->data[z].avg_buffer_sample != 0)
+			psoc_get_meas->data[z].result = epm_psoc_scale_result(
+				psoc_get_meas->data[z].avg_buffer_sample, z);
+	}
 
 	return rc;
 }
@@ -1407,7 +1477,6 @@ static ssize_t epm_adc_psoc_show_in(struct device *dev,
 	struct epm_psoc_init_resp init_resp;
 	struct epm_psoc_channel_configure psoc_chan_configure;
 	struct epm_psoc_get_data psoc_get_meas;
-	int16_t *adc_code = 0;
 	int rc = 0;
 
 	rc = epm_adc_psoc_gpio_init(true);
@@ -1421,15 +1490,16 @@ static ssize_t epm_adc_psoc_show_in(struct device *dev,
 	init_resp.cmd = EPM_PSOC_INIT_CMD;
 	rc = epm_psoc_init(epm_adc, &init_resp);
 	if (rc) {
-		pr_info("PSOC init failed %d\n", rc);
+		pr_err("PSOC init failed %d\n", rc);
 		return 0;
 	}
+
 
 	psoc_chan_configure.channel_num = (1 << attr->index);
 	psoc_chan_configure.cmd = EPM_PSOC_CHANNEL_ENABLE_DISABLE_CMD;
 	rc = epm_psoc_channel_configure(epm_adc, &psoc_chan_configure);
 	if (rc) {
-		pr_info("PSOC channel configure failed\n");
+		pr_err("PSOC channel configure failed\n");
 		return 0;
 	}
 
@@ -1441,20 +1511,13 @@ static ssize_t epm_adc_psoc_show_in(struct device *dev,
 	psoc_get_meas.chan_num = attr->index;
 	rc = epm_psoc_get_data(epm_adc, &psoc_get_meas);
 	if (rc) {
-		pr_info("PSOC get data failed\n");
+		pr_err("PSOC get data failed\n");
 		return 0;
 	}
 
-	*adc_code = psoc_get_meas.reading_value;
-
-	rc = epm_psoc_scale_result(adc_code,
-			psoc_chan_configure.channel_num);
-	if (rc) {
-		pr_info("Scale result failed\n");
-		return 0;
-	}
-
-	psoc_get_meas.reading_value = *adc_code;
+	psoc_get_meas.reading_value = epm_psoc_scale_result(
+			psoc_get_meas.reading_value,
+			attr->index);
 
 	rc = epm_adc_psoc_gpio_init(false);
 	if (rc) {
@@ -1503,7 +1566,7 @@ static struct sensor_device_attribute epm_adc_psoc_in_attrs[] = {
 static int epm_adc_psoc_init_hwmon(struct spi_device *spi,
 						struct epm_adc_drv *epm_adc)
 {
-	int i, rc, num_chans = 15;
+	int i, rc, num_chans = 31;
 
 	for (i = 0; i < num_chans; i++) {
 		rc = device_create_file(&spi->dev,
@@ -1521,8 +1584,8 @@ static int get_device_tree_data(struct spi_device *spi)
 {
 	const struct device_node *node = spi->dev.of_node;
 	struct epm_adc_drv *epm_adc;
-	int32_t *epm_ch_gain, *epm_ch_rsense;
-	u32 rc = 0, epm_num_channels, i;
+	u32 *epm_ch_gain, *epm_ch_rsense;
+	u32 rc = 0, epm_num_channels, i, channel_mask;
 
 	if (!node)
 		return -EINVAL;
@@ -1535,14 +1598,14 @@ static int get_device_tree_data(struct spi_device *spi)
 	}
 
 	epm_ch_gain = devm_kzalloc(&spi->dev,
-				epm_num_channels, GFP_KERNEL);
+			epm_num_channels * sizeof(u32), GFP_KERNEL);
 	if (!epm_ch_gain) {
 		dev_err(&spi->dev, "cannot allocate gain\n");
 		return -ENOMEM;
 	}
 
 	epm_ch_rsense = devm_kzalloc(&spi->dev,
-				epm_num_channels, GFP_KERNEL);
+			epm_num_channels * sizeof(u32), GFP_KERNEL);
 	if (!epm_ch_rsense) {
 		dev_err(&spi->dev, "cannot allocate rsense\n");
 		return -ENOMEM;
@@ -1562,6 +1625,13 @@ static int get_device_tree_data(struct spi_device *spi)
 		return rc;
 	}
 
+	rc = of_property_read_u32(node,
+			"qcom,channel-type", &channel_mask);
+	if (rc) {
+		dev_err(&spi->dev, "missing channel mask\n");
+		return -ENODEV;
+	}
+
 	epm_adc = devm_kzalloc(&spi->dev,
 			sizeof(struct epm_adc_drv) +
 			(epm_num_channels *
@@ -1579,6 +1649,7 @@ static int get_device_tree_data(struct spi_device *spi)
 							epm_ch_gain[i];
 	}
 
+	epm_adc->channel_mask = channel_mask;
 	epm_adc_drv = epm_adc;
 
 	return 0;
@@ -1586,13 +1657,16 @@ static int get_device_tree_data(struct spi_device *spi)
 
 static int epm_adc_psoc_spi_probe(struct spi_device *spi)
 {
+
 	struct epm_adc_drv *epm_adc;
 	struct device_node *node = spi->dev.of_node;
 	int rc = 0;
 
-	if (node)
+	if (node) {
 		rc = get_device_tree_data(spi);
-	else {
+		if (rc)
+			return rc;
+	} else {
 		epm_adc = epm_adc_drv;
 		epm_adc_drv->epm_spi_client = spi;
 		epm_adc_drv->epm_spi_client->bits_per_word =
@@ -1619,7 +1693,6 @@ static int epm_adc_psoc_spi_probe(struct spi_device *spi)
 	}
 
 	mutex_init(&epm_adc->conv_lock);
-
 	return rc;
 }
 
@@ -1656,8 +1729,9 @@ static ssize_t epm_adc_show_in(struct device *dev,
 	conv.device_idx = attr->index / pdata->chan_per_adc;
 	conv.channel_idx = attr->index % pdata->chan_per_adc;
 	conv.physical = 0;
-	pr_debug("%s: device_idx=%d channel_idx=%d", __func__, conv.device_idx,
+	pr_info("%s: device_idx=%d channel_idx=%d", __func__, conv.device_idx,
 			conv.channel_idx);
+
 	if (!epm_adc_expander_register) {
 		rc = epm_adc_i2c_expander_register();
 		if (rc) {
@@ -1680,6 +1754,7 @@ static ssize_t epm_adc_show_in(struct device *dev,
 			__func__, rc);
 		return 0;
 	}
+
 	rc = epm_adc_hw_deinit(epm_adc);
 	if (rc) {
 		pr_err("%s: epm_adc_hw_deinit() failed, rc = %d",

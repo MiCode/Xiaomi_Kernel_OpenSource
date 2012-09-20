@@ -62,12 +62,19 @@ struct epm_psoc_set_channel {
 	uint32_t	channel_mask;
 };
 
+struct result_buffer {
+	uint32_t	channel;
+	uint32_t	avg_buffer_sample;
+	uint32_t	result;
+};
+
 struct epm_psoc_get_avg_buffered_switch_data {
-	u8		cmd;
-	u8		status;
-	uint32_t	timestamp_start;
-	uint32_t	channel_mask;
-	u8		avg_data[54];
+	u8			cmd;
+	u8			status;
+	uint32_t		timestamp_start;
+	uint32_t		channel_mask;
+	u8			avg_data[54];
+	struct result_buffer	data[54];
 };
 
 struct epm_psoc_set_channel_switch {
