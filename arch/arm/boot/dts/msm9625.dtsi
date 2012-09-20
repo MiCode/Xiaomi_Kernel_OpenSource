@@ -55,7 +55,7 @@
 		compatible = "qcom,msm_sps";
 		reg = <0xf9984000 0x15000>,
 		      <0xf9999000 0xb000>,
-		      <0xfe800000 0x4800>;
+		      <0xfe803000 0x4800>;
 		interrupts = <0 94 0>;
 		qcom,device-type = <2>;
 	};
