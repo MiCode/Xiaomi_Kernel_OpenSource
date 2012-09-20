@@ -8379,8 +8379,9 @@ static int tabla_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct tabla_priv *tabla = platform_get_drvdata(pdev);
-	dev_dbg(dev, "%s: system resume\n", __func__);
-	tabla->mbhc_last_resume = jiffies;
+	dev_dbg(dev, "%s: system resume tabla %p\n", __func__, tabla);
+	if (tabla)
+		tabla->mbhc_last_resume = jiffies;
 	return 0;
 }
 
