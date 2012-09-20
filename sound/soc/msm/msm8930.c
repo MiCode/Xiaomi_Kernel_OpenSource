@@ -66,6 +66,7 @@ static int msm8930_headset_gpios_configured;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
+static atomic_t auxpcm_rsc_ref;
 
 static int msm8930_enable_codec_ext_clk(
 		struct snd_soc_codec *codec, int enable,
@@ -860,8 +861,10 @@ static int msm8930_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 
-	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	ret = msm8930_aux_pcm_get_gpios();
+	pr_debug("%s(): substream = %s, auxpcm_rsc_ref counter = %d\n",
+		__func__, substream->name, atomic_read(&auxpcm_rsc_ref));
+	if (atomic_inc_return(&auxpcm_rsc_ref) == 1)
+		ret = msm8930_aux_pcm_get_gpios();
 	if (ret < 0) {
 		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
 		return -EINVAL;
@@ -872,8 +875,10 @@ static int msm8930_auxpcm_startup(struct snd_pcm_substream *substream)
 
 static void msm8930_auxpcm_shutdown(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s(): substream = %s\n", __func__, substream->name);
-	msm8930_aux_pcm_free_gpios();
+	pr_debug("%s(): substream = %s, auxpcm_rsc_ref counter = %d\n",
+		__func__, substream->name, atomic_read(&auxpcm_rsc_ref));
+	if (atomic_dec_return(&auxpcm_rsc_ref) == 0)
+		msm8930_aux_pcm_free_gpios();
 }
 
 static void msm8930_shutdown(struct snd_pcm_substream *substream)
@@ -1229,6 +1234,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = msm8930_auxpcm_be_params_fixup,
+		.ops = &msm8930_auxpcm_be_ops,
 	},
 	/* Incall Music BACK END DAI Link */
 	{
@@ -1336,6 +1342,7 @@ static int __init msm8930_audio_init(void)
 	} else
 		msm8930_headset_gpios_configured = 1;
 
+	atomic_set(&auxpcm_rsc_ref, 0);
 	return ret;
 
 }
