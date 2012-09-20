@@ -110,21 +110,22 @@ struct mdp_csc_cfg_data csc_cfg_matrix[CSC_MAX_BLOCKS] = {
 	.csc_data = {
 			(0),
 			{
-				0x0200, 0x0000, 0x0000,
-				0x0000, 0x0200, 0x0000,
-				0x0000, 0x0000, 0x0200,
+				0x0083, 0x0102, 0x0032,
+				0x1fb5, 0x1f6c, 0x00e1,
+				0x00e1, 0x1f45, 0x1fdc,
 			},
 			{
 				0x0, 0x0, 0x0,
 			},
 			{
-				0, 0, 0,
+				0x0010, 0x0080, 0x0080,
 			},
 			{
 				0, 0xff, 0, 0xff, 0, 0xff,
 			},
 			{
-				0, 0xff, 0, 0xff, 0, 0xff,
+				0x0010, 0x00eb, 0x0010,
+				0x00f0, 0x0010, 0x00f0,
 			},
 		},
 	},
@@ -133,21 +134,22 @@ struct mdp_csc_cfg_data csc_cfg_matrix[CSC_MAX_BLOCKS] = {
 	.csc_data = {
 			(0),
 			{
-				0x0200, 0x0000, 0x0000,
-				0x0000, 0x0200, 0x0000,
-				0x0000, 0x0000, 0x0200,
+				0x0083, 0x0102, 0x0032,
+				0x1fb5, 0x1f6c, 0x00e1,
+				0x00e1, 0x1f45, 0x1fdc,
 			},
 			{
 				0x0, 0x0, 0x0,
 			},
 			{
-				0, 0, 0,
+				0x0010, 0x0080, 0x0080,
 			},
 			{
 				0, 0xff, 0, 0xff, 0, 0xff,
 			},
 			{
-				0, 0xff, 0, 0xff, 0, 0xff,
+				0x0010, 0x00eb, 0x0010,
+				0x00f0, 0x0010, 0x00f0,
 			},
 		},
 	},
@@ -175,7 +177,6 @@ struct mdp_csc_cfg_data csc_cfg_matrix[CSC_MAX_BLOCKS] = {
 		},
 	},
 };
-
 
 unsigned is_mdp4_hw_reset(void)
 {
@@ -2138,7 +2139,7 @@ static uint32_t mdp4_csc_block2base(uint32_t block)
 		base = 0x1A000;
 		break;
 	case MDP_BLOCK_OVERLAY_2:
-		base = (mdp_rev >= MDP_REV_44) ? 0x8A000 : 0x0;
+		base = (mdp_rev >= MDP_REV_43) ? 0x8A000 : 0x0;
 		break;
 	case MDP_BLOCK_VG_1:
 		base = 0x24000;
@@ -2658,7 +2659,7 @@ static uint32_t mdp_pp_block2argc(uint32_t block)
 		break;
 
 	case MDP_BLOCK_OVERLAY_2:
-		valid = (mdp_rev >= MDP_REV_44) ? 1 : 0;
+		valid = (mdp_rev >= MDP_REV_43) ? 1 : 0;
 		break;
 
 	default:
