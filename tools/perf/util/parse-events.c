@@ -308,7 +308,7 @@ const char *__event_name(int type, u64 config, char *pmu_name)
 {
 	static char buf[32];
 
-	if (type == PERF_TYPE_RAW) {
+	if (!pmu_name && type == PERF_TYPE_RAW) {
 		sprintf(buf, "raw 0x%" PRIx64, config);
 		return buf;
 	}
@@ -684,6 +684,7 @@ int parse_events_add_pmu(struct list_head *list, int *idx,
 {
 	struct perf_event_attr attr;
 	struct perf_pmu *pmu;
+	char *ev_name;
 
 	pmu = perf_pmu__find(name);
 	if (!pmu)
@@ -700,7 +701,9 @@ int parse_events_add_pmu(struct list_head *list, int *idx,
 	if (perf_pmu__config(pmu, &attr, head_config))
 		return -EINVAL;
 
-	return add_event(list, idx, &attr, pmu->name);
+	ev_name = (char *) __event_name(attr.type, attr.config, pmu->name);
+
+	return add_event(list, idx, &attr, ev_name);
 }
 
 void parse_events_update_lists(struct list_head *list_event,
