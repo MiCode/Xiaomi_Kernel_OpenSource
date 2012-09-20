@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1187,6 +1187,9 @@ static int audio_mvs_thread(void *data)
 			       rpc_hdr_len);
 
 			break;
+		} else if ((rpc_hdr_len == 0) &&
+				(audio->state == AUDIO_MVS_CLOSED)) {
+			break;
 		} else if (rpc_hdr_len < RPC_COMMON_HDR_SZ) {
 			continue;
 		} else {
@@ -1353,8 +1356,11 @@ static int audio_mvs_release(struct inode *inode, struct file *file)
 	mutex_lock(&audio->lock);
 	if (audio->state == AUDIO_MVS_STARTED)
 		audio_mvs_stop(audio);
-	audio_mvs_free_buf(audio);
 	audio->state = AUDIO_MVS_CLOSED;
+	msm_rpc_read_wakeup(audio->rpc_endpt);
+	msm_rpc_close(audio->rpc_endpt);
+	audio->task = NULL;
+	audio_mvs_free_buf(audio);
 	mutex_unlock(&audio->lock);
 
 	MM_DBG("Release done\n");
