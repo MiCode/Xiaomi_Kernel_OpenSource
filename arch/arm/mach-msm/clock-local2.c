@@ -474,10 +474,10 @@ static int branch_clk_list_rate(struct clk *c, unsigned n)
 	if (branch->has_sibling == 1)
 		return -ENXIO;
 
-	if (branch->parent)
-		return rcg_clk_list_rate(branch->parent, n);
+	if (branch->parent && branch->parent->ops->list_rate)
+		return branch->parent->ops->list_rate(branch->parent, n);
 	else
-		return 0;
+		return -ENXIO;
 }
 
 static enum handoff branch_clk_handoff(struct clk *c)
