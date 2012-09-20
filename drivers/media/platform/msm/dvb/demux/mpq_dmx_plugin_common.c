@@ -595,7 +595,7 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 	 * for decoder's buffers.
 	 */
 	mpq_dmx_info.ion_client =
-		msm_ion_client_create(UINT_MAX, "demux client");
+		msm_ion_client_create(UINT_MAX, "demux_client");
 
 	if (IS_ERR_OR_NULL(mpq_dmx_info.ion_client)) {
 		MPQ_DVB_ERR_PRINT(
@@ -603,6 +603,8 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 				__func__);
 
 		result = PTR_ERR(mpq_dmx_info.ion_client);
+		if (!result)
+			result = -ENOMEM;
 		mpq_dmx_info.ion_client = NULL;
 		goto init_failed_free_demux_devices;
 	}
@@ -683,7 +685,7 @@ void mpq_dmx_plugin_exit(void)
 
 	if (mpq_dmx_info.devices != NULL) {
 		for (i = 0; i < mpq_demux_device_num; i++) {
-			mpq_demux = mpq_dmx_info.devices+i;
+			mpq_demux = mpq_dmx_info.devices + i;
 
 			if (mpq_demux->is_initialized) {
 				mpq_demux->demux.dmx.remove_frontend(
@@ -764,6 +766,107 @@ int mpq_dmx_set_source(
 }
 EXPORT_SYMBOL(mpq_dmx_set_source);
 
+int mpq_dmx_map_buffer(struct dmx_demux *demux, struct dmx_buffer *dmx_buffer,
+		void **priv_handle, void **kernel_mem)
+{
+	struct dvb_demux *dvb_demux = demux->priv;
+	struct mpq_demux *mpq_demux;
+	struct ion_handle *ion_handle;
+	unsigned long ionflag = 0;
+	int ret;
+
+	if ((mpq_dmx_info.devices == NULL) || (dvb_demux == NULL) ||
+		(priv_handle == NULL) || (kernel_mem == NULL)) {
+		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	mpq_demux = dvb_demux->priv;
+	if (mpq_demux == NULL) {
+		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	ion_handle = ion_import_dma_buf(mpq_demux->ion_client,
+					dmx_buffer->handle);
+	if (IS_ERR_OR_NULL(ion_handle)) {
+		ret = PTR_ERR(ion_handle);
+		if (!ret)
+			ret = -ENOMEM;
+
+		MPQ_DVB_ERR_PRINT("%s: ion_import_dma_buf failed %d\n",
+			__func__, ret);
+		goto map_buffer_failed;
+	}
+
+	ret = ion_handle_get_flags(mpq_demux->ion_client, ion_handle, &ionflag);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT("%s: ion_handle_get_flags failed %d\n",
+			__func__, ret);
+		goto map_buffer_failed_free_buff;
+	}
+
+	if (ionflag & ION_SECURE) {
+		MPQ_DVB_DBG_PRINT("%s: secured buffer\n", __func__);
+		/* TBD: Set buffer as secured */
+		*kernel_mem = NULL;
+	} else {
+		*kernel_mem = ion_map_kernel(mpq_demux->ion_client,
+						ion_handle, ionflag);
+		if (*kernel_mem == NULL) {
+			MPQ_DVB_ERR_PRINT("%s: ion_map_kernel failed\n",
+				__func__);
+			ret = -ENOMEM;
+			goto map_buffer_failed_free_buff;
+		}
+	}
+
+	*priv_handle = (void *)ion_handle;
+	return 0;
+
+map_buffer_failed_free_buff:
+	ion_free(mpq_demux->ion_client, ion_handle);
+map_buffer_failed:
+	return ret;
+}
+EXPORT_SYMBOL(mpq_dmx_map_buffer);
+
+int mpq_dmx_unmap_buffer(struct dmx_demux *demux,
+		void *priv_handle)
+{
+	struct dvb_demux *dvb_demux = demux->priv;
+	struct ion_handle *ion_handle = priv_handle;
+	struct mpq_demux *mpq_demux;
+	unsigned long ionflag = 0;
+	int ret;
+
+	if ((mpq_dmx_info.devices == NULL) || (dvb_demux == NULL) ||
+		(priv_handle == NULL)) {
+		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	mpq_demux = dvb_demux->priv;
+	if (mpq_demux == NULL) {
+		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = ion_handle_get_flags(mpq_demux->ion_client, ion_handle, &ionflag);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT("%s: ion_handle_get_flags failed %d\n",
+			__func__, ret);
+		return -EINVAL;
+	}
+
+	if (!(ionflag & ION_SECURE))
+		ion_unmap_kernel(mpq_demux->ion_client, ion_handle);
+
+	ion_free(mpq_demux->ion_client, ion_handle);
+
+	return 0;
+}
+EXPORT_SYMBOL(mpq_dmx_unmap_buffer);
 
 int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 {
@@ -836,9 +939,10 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 
 		MPQ_DVB_ERR_PRINT(
 			"%s: FAILED to allocate payload buffer %d\n",
-			__func__,
-			ret);
+			__func__, ret);
 
+		if (!ret)
+			ret = -ENOMEM;
 		goto init_failed_free_packet_buffer;
 	}
 
@@ -852,9 +956,10 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 
 		MPQ_DVB_ERR_PRINT(
 			"%s: FAILED to map payload buffer %d\n",
-			__func__,
-			ret);
+			__func__, ret);
 
+		if (!ret)
+			ret = -ENOMEM;
 		goto init_failed_free_payload_buffer;
 	}
 
@@ -922,8 +1027,7 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 		MPQ_DVB_ERR_PRINT(
 			"%s: mpq_adapter_register_stream_if failed, "
 			"err = %d\n",
-			__func__,
-			ret);
+			__func__, ret);
 		goto init_failed_unmap_payload_buffer;
 	}
 
@@ -991,8 +1095,7 @@ int mpq_dmx_terminate_video_feed(struct dvb_demux_feed *feed)
 
 	wake_up_all(&feed_data->video_buffer->raw_data.queue);
 
-	mpq_adapter_unregister_stream_if(
-		feed_data->stream_interface);
+	mpq_adapter_unregister_stream_if(feed_data->stream_interface);
 
 	vfree(feed_data->video_buffer->packet_data.data);
 

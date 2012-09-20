@@ -579,6 +579,24 @@ static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
 	caps->max_bitrate = 144;
 	caps->demod_input_max_bitrate = 72;
 	caps->memory_input_max_bitrate = 72;
+	caps->section.flags = 0;
+	caps->section.max_size = 0xFFFFFFFF;
+	caps->section.size_alignment = 0;
+	caps->pes.flags = 0;
+	caps->pes.max_size = 0xFFFFFFFF;
+	caps->pes.size_alignment = 0;
+	caps->recording_188_tsp.flags = 0;
+	caps->recording_188_tsp.max_size = 0xFFFFFFFF;
+	caps->recording_188_tsp.size_alignment = 0;
+	caps->recording_192_tsp.flags = 0;
+	caps->recording_192_tsp.max_size = 0xFFFFFFFF;
+	caps->recording_192_tsp.size_alignment = 0;
+	caps->playback_188_tsp.flags = 0;
+	caps->playback_188_tsp.max_size = 0xFFFFFFFF;
+	caps->playback_188_tsp.size_alignment = 0;
+	caps->playback_192_tsp.flags = 0;
+	caps->playback_192_tsp.max_size = 0xFFFFFFFF;
+	caps->playback_192_tsp.size_alignment = 0;
 
 	return 0;
 }
@@ -645,6 +663,8 @@ static int mpq_tsif_dmx_init(
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;
 	mpq_demux->dmxdev.demux->get_caps = mpq_tsif_dmx_get_caps;
+	mpq_demux->dmxdev.demux->map_buffer = mpq_dmx_map_buffer;
+	mpq_demux->dmxdev.demux->unmap_buffer = mpq_dmx_unmap_buffer;
 
 	result = dvb_dmxdev_init(&mpq_demux->dmxdev, mpq_adapter);
 	if (result < 0) {
