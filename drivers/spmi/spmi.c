@@ -22,6 +22,8 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 
+#include "spmi-dbgfs.h"
+
 struct spmii_boardinfo {
 	struct list_head	list;
 	struct spmi_boardinfo	board_info;
@@ -755,6 +757,7 @@ static int spmi_register_controller(struct spmi_controller *ctrl)
 	list_add_tail(&ctrl->list, &spmi_ctrl_list);
 	mutex_unlock(&board_lock);
 
+	spmi_dfs_add_controller(ctrl);
 	return 0;
 
 exit:
