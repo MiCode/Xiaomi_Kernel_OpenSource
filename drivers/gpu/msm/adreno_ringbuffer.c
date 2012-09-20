@@ -969,8 +969,8 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 					drawctxt, 0,
 					&link[0], (cmds - link));
 
-	KGSL_CMD_INFO(device, "ctxt %d g %08x numibs %d ts %d\n",
-		context->id, (unsigned int)ibdesc, numibs, *timestamp);
+	KGSL_CMD_INFO(device, "<%d:0x%x> g %08x numibs %d\n",
+		context->id, *timestamp, (unsigned int)ibdesc, numibs);
 
 	kfree(link);
 

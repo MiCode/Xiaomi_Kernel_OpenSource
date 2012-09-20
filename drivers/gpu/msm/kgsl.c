@@ -1107,9 +1107,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 
 	if (param->flags & KGSL_CONTEXT_SUBMIT_IB_LIST) {
-		KGSL_DRV_INFO(dev_priv->device,
-			"Using IB list mode for ib submission, numibs: %d\n",
-			param->numibs);
 		if (!param->numibs) {
 			KGSL_DRV_ERR(dev_priv->device,
 				"Invalid numibs as parameter: %d\n",
