@@ -393,21 +393,12 @@ int mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		  (index << 16) |
 		  (value << 8) |
 		  set;
-		cmd.flags = MMC_CMD_AC;
-	if (index == EXT_CSD_BKOPS_START &&
-	    card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2)
-		cmd.flags |= MMC_RSP_SPI_R1 | MMC_RSP_R1;
-	else
-		cmd.flags |= MMC_RSP_SPI_R1B | MMC_RSP_R1B;
+	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
 	cmd.cmd_timeout_ms = timeout_ms;
 
 	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
 	if (err)
 		return err;
-
-	/* No need to check card status in case of BKOPS switch*/
-	if (index == EXT_CSD_BKOPS_START)
-		return 0;
 
 	/* Must check status to be sure of no errors */
 	do {

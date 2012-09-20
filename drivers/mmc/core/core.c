@@ -43,12 +43,6 @@
 #include "sd_ops.h"
 #include "sdio_ops.h"
 
-/*
- * The Background operations can take a long time, depends on the house keeping
- * operations the card has to perform
- */
-#define MMC_BKOPS_MAX_TIMEOUT    (4 * 60 * 1000) /* max time to wait in ms */
-
 static struct workqueue_struct *workqueue;
 
 /*
@@ -277,74 +271,6 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 	led_trigger_event(host->led, LED_FULL);
 	host->ops->request(host, mrq);
 }
-
-/**
- *	mmc_start_bkops - start BKOPS for supported cards
- *	@card: MMC card to start BKOPS
- *
- *	Start background operations whenever requested.
- *	when the urgent BKOPS bit is set in a R1 command response
- *	then background operations should be started immediately.
-*/
-void mmc_start_bkops(struct mmc_card *card)
-{
-	int err;
-	unsigned long flags;
-	int timeout;
-
-	BUG_ON(!card);
-	if (!card->ext_csd.bkops_en || !(card->host->caps2 & MMC_CAP2_BKOPS))
-		return;
-
-	if (mmc_card_check_bkops(card)) {
-		spin_lock_irqsave(&card->host->lock, flags);
-		mmc_card_clr_check_bkops(card);
-		spin_unlock_irqrestore(&card->host->lock, flags);
-		if (mmc_is_exception_event(card, EXT_CSD_URGENT_BKOPS))
-			if (card->ext_csd.raw_bkops_status)
-				mmc_card_set_need_bkops(card);
-	}
-
-	/*
-	 * If card is already doing bkops or need for
-	 * bkops flag is not set, then do nothing just
-	 * return
-	 */
-	if (mmc_card_doing_bkops(card) || !mmc_card_need_bkops(card))
-		return;
-
-	mmc_claim_host(card->host);
-
-	timeout = (card->ext_csd.raw_bkops_status >= EXT_CSD_BKOPS_LEVEL_2) ?
-		MMC_BKOPS_MAX_TIMEOUT : 0;
-
-	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-			EXT_CSD_BKOPS_START, 1, timeout);
-	if (err) {
-		pr_warning("%s: error %d starting bkops\n",
-			   mmc_hostname(card->host), err);
-		mmc_card_clr_need_bkops(card);
-		goto out;
-	}
-
-	spin_lock_irqsave(&card->host->lock, flags);
-	mmc_card_clr_need_bkops(card);
-
-	/*
-	 * For urgent bkops status (LEVEL_2 and more)
-	 * bkops executed synchronously, otherwise
-	 * the operation is in progress
-	 */
-	if (card->ext_csd.raw_bkops_status >= EXT_CSD_BKOPS_LEVEL_2)
-		mmc_card_set_check_bkops(card);
-	else
-		mmc_card_set_doing_bkops(card);
-
-	spin_unlock_irqrestore(&card->host->lock, flags);
-out:
-	mmc_release_host(card->host);
-}
-EXPORT_SYMBOL(mmc_start_bkops);
 
 static void mmc_wait_done(struct mmc_request *mrq)
 {
@@ -579,69 +505,6 @@ int mmc_wait_for_cmd(struct mmc_host *host, struct mmc_command *cmd, int retries
 }
 
 EXPORT_SYMBOL(mmc_wait_for_cmd);
-
-/**
- *	mmc_interrupt_bkops - interrupt ongoing BKOPS
- *	@card: MMC card to check BKOPS
- *
- *	Send HPI command to interrupt ongoing background operations,
- *	to allow rapid servicing of foreground operations,e.g. read/
- *	writes. Wait until the card comes out of the programming state
- *	to avoid errors in servicing read/write requests.
- */
-int mmc_interrupt_bkops(struct mmc_card *card)
-{
-	int err = 0;
-	unsigned long flags;
-
-	BUG_ON(!card);
-
-	err = mmc_interrupt_hpi(card);
-
-	spin_lock_irqsave(&card->host->lock, flags);
-	mmc_card_clr_doing_bkops(card);
-	spin_unlock_irqrestore(&card->host->lock, flags);
-
-	return err;
-}
-EXPORT_SYMBOL(mmc_interrupt_bkops);
-
-int mmc_read_bkops_status(struct mmc_card *card)
-{
-	int err;
-	u8 ext_csd[512];
-
-	mmc_claim_host(card->host);
-	err = mmc_send_ext_csd(card, ext_csd);
-	mmc_release_host(card->host);
-	if (err)
-		return err;
-
-	card->ext_csd.raw_bkops_status = ext_csd[EXT_CSD_BKOPS_STATUS];
-	card->ext_csd.raw_exception_status = ext_csd[EXT_CSD_EXP_EVENTS_STATUS];
-
-	return 0;
-}
-EXPORT_SYMBOL(mmc_read_bkops_status);
-
-int mmc_is_exception_event(struct mmc_card *card, unsigned int value)
-{
-	int err;
-
-	err = mmc_read_bkops_status(card);
-	if (err) {
-		pr_err("%s: Didn't read bkops status : %d\n",
-		       mmc_hostname(card->host), err);
-		return 0;
-	}
-
-	/* In eMMC 4.41, R1_EXCEPTION_EVENT is URGENT_BKOPS */
-	if (card->ext_csd.rev == 5)
-		return 1;
-
-	return (card->ext_csd.raw_exception_status & value) ? 1 : 0;
-}
-EXPORT_SYMBOL(mmc_is_exception_event);
 
 /**
  *	mmc_set_data_timeout - set the timeout for a data command
@@ -1297,7 +1160,7 @@ void mmc_power_up(struct mmc_host *host)
 		bit = fls(host->ocr_avail) - 1;
 
 	host->ios.vdd = bit;
-	if (mmc_host_is_spi(host)) 
+	if (mmc_host_is_spi(host))
 		host->ios.chip_select = MMC_CS_HIGH;
 	else {
 		host->ios.chip_select = MMC_CS_DONTCARE;
@@ -1334,7 +1197,7 @@ void mmc_power_off(struct mmc_host *host)
 
 	host->ios.clock = 0;
 	host->ios.vdd = 0;
-	
+
 
 	/*
 	 * Reset ocr mask to be the highest possible voltage supported for
@@ -2507,12 +2370,8 @@ int mmc_suspend_host(struct mmc_host *host)
 				err = -EBUSY;
 
 		if (!err) {
-			if (host->bus_ops->suspend) {
-				if (mmc_card_doing_bkops(host->card))
-					mmc_interrupt_bkops(host->card);
-
+			if (host->bus_ops->suspend)
 				err = host->bus_ops->suspend(host);
-			}
 			if (!(host->card && mmc_card_sdio(host->card)))
 				mmc_release_host(host);
 

@@ -247,8 +247,6 @@ struct mmc_host {
 				 MMC_CAP2_PACKED_WR) /* Allow packed commands */
 #define MMC_CAP2_PACKED_WR_CONTROL (1 << 12) /* Allow write packing control */
 #define MMC_CAP2_SANITIZE	(1 << 13)		/* Support Sanitize */
-#define MMC_CAP2_BKOPS		    (1 << 14)	/* BKOPS supported */
-#define MMC_CAP2_INIT_BKOPS	    (1 << 15)	/* Need to set BKOPS_EN */
 #define MMC_CAP2_POWER_OFF_VCCQ_DURING_SUSPEND	(1 << 16)
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
