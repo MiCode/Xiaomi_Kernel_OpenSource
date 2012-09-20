@@ -388,6 +388,7 @@ bool msm_mpm_irqs_detectable(bool from_idle)
 {
 	unsigned long *apps_irq_bitmap;
 	int debug_mask;
+	int i = 0;
 
 	if (from_idle) {
 		apps_irq_bitmap = msm_mpm_enabled_apps_irqs;
@@ -400,15 +401,17 @@ bool msm_mpm_irqs_detectable(bool from_idle)
 	}
 
 	if (debug_mask) {
-		static char buf[DIV_ROUND_UP(MSM_MPM_NR_APPS_IRQS, 32)*9+1];
+		i = find_first_bit(apps_irq_bitmap, MSM_MPM_NR_APPS_IRQS);
+		while (i < MSM_MPM_NR_APPS_IRQS) {
+			struct irq_desc *desc = i ?
+				irq_to_desc(i) : NULL;
+			pr_info("%s: cannot monitor irq=%d %s\n",
+			__func__, i, desc->name);
+			i = find_next_bit(apps_irq_bitmap,
+				MSM_MPM_NR_APPS_IRQS, i + 1);
+		}
 
-		bitmap_scnprintf(buf, sizeof(buf), apps_irq_bitmap,
-				MSM_MPM_NR_APPS_IRQS);
-		buf[sizeof(buf) - 1] = '\0';
-
-		pr_info("%s: cannot monitor %s", __func__, buf);
 	}
-
 	return (bool)__bitmap_empty(apps_irq_bitmap, MSM_MPM_NR_APPS_IRQS);
 }
 
