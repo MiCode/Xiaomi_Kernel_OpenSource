@@ -289,9 +289,10 @@ void msm_rpm_free_request(struct msm_rpm_request *handle)
 
 	if (!handle)
 		return;
-	for (i = 0; i < handle->write_idx; i++)
+	for (i = 0; i < handle->num_elements; i++)
 		kfree(handle->kvp[i].value);
 	kfree(handle->kvp);
+	kfree(handle->buf);
 	kfree(handle);
 }
 EXPORT_SYMBOL(msm_rpm_free_request);
