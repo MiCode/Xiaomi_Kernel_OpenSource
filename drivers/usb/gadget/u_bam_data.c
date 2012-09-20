@@ -35,7 +35,7 @@ static int n_bam2bam_data_ports;
 #define MSM_VENDOR_ID			BIT(16)
 
 struct data_port {
-	struct usb_function		func;
+	struct usb_composite_dev	*cdev;
 	struct usb_ep			*in;
 	struct usb_ep			*out;
 };
@@ -324,5 +324,56 @@ free_bam_ports:
 	destroy_workqueue(bam_data_wq);
 
 	return ret;
+}
+
+static int bam_data_wake_cb(void *param)
+{
+	struct bam_data_port *port = (struct bam_data_port *)param;
+	struct data_port *d_port = port->port_usb;
+
+	pr_info("%s: woken up by peer\n", __func__);
+
+	if (!d_port) {
+		pr_err("FAILED: d_port == NULL");
+		return -ENODEV;
+	}
+
+	if (!d_port->cdev) {
+		pr_err("FAILED: d_port->cdev == NULL");
+		return -ENODEV;
+	}
+
+	if (!d_port->cdev->gadget) {
+		pr_err("FAILED: d_port->cdev->gadget == NULL");
+		return -ENODEV;
+	}
+
+	return usb_gadget_wakeup(d_port->cdev->gadget);
+}
+
+void bam_data_suspend(u8 port_num)
+{
+
+	struct bam_data_port	*port;
+	struct bam_data_ch_info *d;
+
+	port = bam2bam_data_ports[port_num];
+	d = &port->data_ch;
+
+	pr_info("%s: suspended port %d\n", __func__, port_num);
+	usb_bam_register_wake_cb(d->connection_idx, bam_data_wake_cb, port);
+}
+
+void bam_data_resume(u8 port_num)
+{
+
+	struct bam_data_port	*port;
+	struct bam_data_ch_info *d;
+
+	port = bam2bam_data_ports[port_num];
+	d = &port->data_ch;
+
+	pr_info("%s: resumed port %d\n", __func__, port_num);
+	usb_bam_register_wake_cb(d->connection_idx, NULL, NULL);
 }
 

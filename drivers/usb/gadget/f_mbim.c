@@ -66,8 +66,8 @@ enum mbim_notify_state {
 };
 
 struct f_mbim {
-	struct usb_function function;
-	struct usb_composite_dev *cdev;
+	struct usb_function		function;
+	struct usb_composite_dev	*cdev;
 
 	atomic_t	online;
 	bool		is_open;
@@ -1254,6 +1254,20 @@ static void mbim_disable(struct usb_function *f)
 	pr_info("mbim deactivated\n");
 }
 
+#define MBIM_ACTIVE_PORT	0
+
+static void mbim_suspend(struct usb_function *f)
+{
+	pr_info("mbim suspended\n");
+	bam_data_suspend(MBIM_ACTIVE_PORT);
+}
+
+static void mbim_resume(struct usb_function *f)
+{
+	pr_info("mbim resumed\n");
+	bam_data_resume(MBIM_ACTIVE_PORT);
+}
+
 /*---------------------- function driver setup/binding ---------------------*/
 
 static int
@@ -1286,6 +1300,8 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	mbim_data_nop_intf.bInterfaceNumber = status;
 	mbim_data_intf.bInterfaceNumber = status;
 	mbim_union_desc.bSlaveInterface0 = status;
+
+	mbim->bam_port.cdev = cdev;
 
 	status = -ENODEV;
 
@@ -1460,6 +1476,8 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 	mbim->function.get_alt = mbim_get_alt;
 	mbim->function.setup = mbim_setup;
 	mbim->function.disable = mbim_disable;
+	mbim->function.suspend = mbim_suspend;
+	mbim->function.resume = mbim_resume;
 
 	INIT_LIST_HEAD(&mbim->cpkt_req_q);
 	INIT_LIST_HEAD(&mbim->cpkt_resp_q);
