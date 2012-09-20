@@ -1599,26 +1599,6 @@ static int audio_mvs_open(struct inode *inode, struct file *file)
 
 	MM_DBG("\n");
 
-	memset(&audio_mvs_info, 0, sizeof(audio_mvs_info));
-	mutex_init(&audio_mvs_info.lock);
-	mutex_init(&audio_mvs_info.in_lock);
-	mutex_init(&audio_mvs_info.out_lock);
-
-	init_waitqueue_head(&audio_mvs_info.wait);
-	init_waitqueue_head(&audio_mvs_info.mode_wait);
-	init_waitqueue_head(&audio_mvs_info.out_wait);
-
-	INIT_LIST_HEAD(&audio_mvs_info.in_queue);
-	INIT_LIST_HEAD(&audio_mvs_info.free_in_queue);
-	INIT_LIST_HEAD(&audio_mvs_info.out_queue);
-	INIT_LIST_HEAD(&audio_mvs_info.free_out_queue);
-
-	wake_lock_init(&audio_mvs_info.suspend_lock,
-		       WAKE_LOCK_SUSPEND,
-		       "audio_mvs_suspend");
-	pm_qos_add_request(&audio_mvs_info.pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
-				PM_QOS_DEFAULT_VALUE);
-
 	audio_mvs_info.rpc_endpt = msm_rpc_connect_compatible(MVS_PROG,
 					MVS_VERS_COMP_VER2,
 					MSM_RPC_UNINTERRUPTIBLE);
@@ -1702,6 +1682,26 @@ struct miscdevice audio_mvs_misc = {
 };
 static int __init audio_mvs_init(void)
 {
+	memset(&audio_mvs_info, 0, sizeof(audio_mvs_info));
+	mutex_init(&audio_mvs_info.lock);
+	mutex_init(&audio_mvs_info.in_lock);
+	mutex_init(&audio_mvs_info.out_lock);
+
+	init_waitqueue_head(&audio_mvs_info.wait);
+	init_waitqueue_head(&audio_mvs_info.mode_wait);
+	init_waitqueue_head(&audio_mvs_info.out_wait);
+
+	INIT_LIST_HEAD(&audio_mvs_info.in_queue);
+	INIT_LIST_HEAD(&audio_mvs_info.free_in_queue);
+	INIT_LIST_HEAD(&audio_mvs_info.out_queue);
+	INIT_LIST_HEAD(&audio_mvs_info.free_out_queue);
+
+	wake_lock_init(&audio_mvs_info.suspend_lock,
+		       WAKE_LOCK_SUSPEND,
+		       "audio_mvs_suspend");
+	pm_qos_add_request(&audio_mvs_info.pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
+
 	return misc_register(&audio_mvs_misc);
 }
 
