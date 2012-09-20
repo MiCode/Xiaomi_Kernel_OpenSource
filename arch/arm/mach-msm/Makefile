@@ -98,19 +98,6 @@ obj-$(CONFIG_MSM_IPC_LOGGING) += ipc_logging_debug.o
 endif
 obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o remote_spinlock.o smd_private.o
 obj-y += socinfo.o
-ifndef CONFIG_ARCH_MSM9615
-ifndef CONFIG_ARCH_APQ8064
-ifndef CONFIG_ARCH_MSM8960
-ifndef CONFIG_ARCH_MSM8X60
-ifndef CONFIG_ARCH_MSM8974
-ifndef CONFIG_ARCH_MPQ8092
-	obj-$(CONFIG_MSM_ONCRPCROUTER) += rpc_hsusb.o rpc_pmapp.o rpc_fsusb.o
-endif
-endif
-endif
-endif
-endif
-endif
 ifndef CONFIG_ARCH_MSM8960
 ifndef CONFIG_ARCH_MSM8X60
 ifndef CONFIG_ARCH_APQ8064
@@ -393,6 +380,9 @@ obj-$(CONFIG_MSM_RPM_SMD) += rpm-smd.o
 obj-$(CONFIG_MSM_CPR) += msm_cpr.o
 obj-$(CONFIG_MSM_VP_REGULATOR) += msm_vp.o
 obj-$(CONFIG_MSM_RPC_PMIC) += pmic.o
+obj-$(CONFIG_MSM_RPC_USB) += rpc_hsusb.o rpc_fsusb.o
+obj-$(CONFIG_MSM_RPC_PMAPP) += rpc_pmapp.o
+
 
 ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o

@@ -2616,4 +2616,22 @@ config MSM_RPC_PMIC
 	 configure MPP, GPIO and all the other supported peripherals of the
 	 PMIC.
 
+config MSM_RPC_USB
+	tristate "MSM RPC USB driver"
+	depends on MSM_ONCRPCROUTER
+	help
+	 This driver supports the USB configuration support over the RPC
+	 interface. It support the HS USB module connected to the MSM
+	 and FS USB which is connected over the PMIC. This support is
+	 required for MSMs on which the APPS does not have a direct access
+	 to the PMIC.
+
+config MSM_RPC_PMAPP
+	tristate "MSM RPC PMIC APP driver"
+	depends on MSM_ONCRPCROUTER
+	help
+	 This driver supports the configuration of various PMIC APP modules
+	 such as display backlight, vreg pin-ctrl, smps clock over the RPC
+	 interface. This support is required for MSMs on which the APPS
+	 does not have a direct access to the PMIC.
 endif
