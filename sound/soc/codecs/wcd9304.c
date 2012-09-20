@@ -41,6 +41,7 @@
 #define ADC_DMIC_SEL_ADC	0
 #define	ADC_DMIC_SEL_DMIC	1
 
+#define NUM_AMIC 3
 #define NUM_DECIMATORS 4
 #define NUM_INTERPOLATORS 3
 #define BITS_PER_REG 8
@@ -4860,6 +4861,7 @@ static int sitar_handle_pdata(struct sitar_priv *sitar)
 	u8 flag = pdata->amic_settings.use_pdata;
 	u8 i = 0, j = 0;
 	u8 val_txfe = 0, value = 0;
+	int amic_reg_count = 0;
 
 	if (!pdata) {
 		rc = -ENODEV;
@@ -4905,7 +4907,8 @@ static int sitar_handle_pdata(struct sitar_priv *sitar)
 	snd_soc_update_bits(codec, SITAR_A_MICB_2_CTL, 0x10,
 		(pdata->micbias.bias2_cap_mode << 4));
 
-	for (i = 0; i < 6; j++, i += 2) {
+	amic_reg_count = (NUM_AMIC % 2) ? NUM_AMIC + 1 : NUM_AMIC;
+	for (i = 0; i < amic_reg_count; j++, i += 2) {
 		if (flag & (0x01 << i)) {
 			value = (leg_mode & (0x01 << i)) ? 0x10 : 0x00;
 			val_txfe = (txfe_bypass & (0x01 << i)) ? 0x20 : 0x00;
