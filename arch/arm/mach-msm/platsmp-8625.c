@@ -37,7 +37,7 @@
  */
 volatile int pen_release = -1;
 
-static bool cold_boot_done;
+static DEFINE_PER_CPU(bool, cold_boot_done);
 
 static uint32_t *msm8625_boot_vector;
 static void __iomem *reset_core1_base;
@@ -173,12 +173,12 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 	preset_lpj = loops_per_jiffy;
 
-	if (cold_boot_done == false) {
+	if (per_cpu(cold_boot_done, cpu) == false) {
 		if (msm8625_release_secondary(cpu)) {
 			pr_err("Failed to release core %u\n", cpu);
 			return -ENODEV;
 		}
-		cold_boot_done = true;
+		per_cpu(cold_boot_done, cpu) = true;
 	}
 
 	/*
