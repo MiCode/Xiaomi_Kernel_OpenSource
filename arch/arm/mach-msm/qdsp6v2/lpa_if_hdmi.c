@@ -26,7 +26,7 @@
 #include <mach/msm_hdmi_audio.h>
 #include <mach/audio_dma_msm8k.h>
 #include <sound/dai.h>
-#include "q6core.h"
+#include <mach/qdsp6v2/q6core.h>
 
 #define DMA_ALLOC_BUF_SZ		(SZ_4K * 16)
 

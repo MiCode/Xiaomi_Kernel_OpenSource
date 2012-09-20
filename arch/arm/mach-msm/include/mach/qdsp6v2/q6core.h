@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,8 +45,18 @@ struct adsp_power_collapse {
 	uint32_t power_collapse;
 };
 
+#define ADSP_CMD_SET_DTS_MODEL_ID 0x00012917
+
+struct adsp_dts_modelid {
+	struct apr_hdr hdr;
+	uint32_t  model_ID_size;
+	uint8_t   model_ID[128];
+};
+
 int core_req_bus_bandwith(u16 bus_id, u32 ab_bps, u32 ib_bps);
 
 uint32_t core_get_adsp_version(void);
+
+uint32_t core_set_dts_model_id(uint32_t id_size, uint8_t *id);
 
 #endif /* __Q6CORE_H__ */

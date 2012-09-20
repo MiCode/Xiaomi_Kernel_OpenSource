@@ -875,8 +875,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_READ_COMPRESSED:
 			if (atomic_read(&ac->cmd_state) && wakeup_flag) {
 				atomic_set(&ac->cmd_state, 0);
-				if (payload[1] == ADSP_EUNSUPPORTED) {
-					pr_debug("paload[1]:%d unsupported",
+				if (payload[1] == ADSP_EUNSUPPORTED ||
+					payload[1] == ADSP_EFAILED) {
+					pr_debug("payload[1]:%d unsupported",
 								payload[1]);
 					atomic_set(&ac->cmd_response, 1);
 				}
