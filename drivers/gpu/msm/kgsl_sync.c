@@ -58,6 +58,15 @@ static int kgsl_sync_pt_has_signaled(struct sync_pt *pt)
 	return 0;
 }
 
+static int kgsl_sync_pt_compare(struct sync_pt *a, struct sync_pt *b)
+{
+	struct kgsl_sync_pt *kpt_a = (struct kgsl_sync_pt *) a;
+	struct kgsl_sync_pt *kpt_b = (struct kgsl_sync_pt *) b;
+	unsigned int ts_a = kpt_a->timestamp;
+	unsigned int ts_b = kpt_b->timestamp;
+	return timestamp_cmp(ts_a, ts_b);
+}
+
 struct kgsl_fence_event_priv {
 	struct kgsl_context *context;
 };
@@ -172,6 +181,7 @@ fail_pt:
 static const struct sync_timeline_ops kgsl_sync_timeline_ops = {
 	.dup = kgsl_sync_pt_dup,
 	.has_signaled = kgsl_sync_pt_has_signaled,
+	.compare = kgsl_sync_pt_compare,
 };
 
 int kgsl_sync_timeline_create(struct kgsl_context *context)
