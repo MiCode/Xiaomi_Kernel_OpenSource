@@ -829,6 +829,8 @@ void mdp4_dmap_done_lcdc(int cndx)
 	}
 	vctrl = &vsync_ctrl_db[cndx];
 	pipe = vctrl->base_pipe;
+	if (pipe == NULL)
+		return;
 
 	spin_lock(&vctrl->spin_lock);
 	vsync_irq_disable(INTR_DMA_P_DONE, MDP_DMAP_TERM);
@@ -867,6 +869,8 @@ void mdp4_overlay0_done_lcdc(int cndx)
 
 	vctrl = &vsync_ctrl_db[cndx];
 	pipe = vctrl->base_pipe;
+	if (pipe == NULL)
+		return;
 
 	spin_lock(&vctrl->spin_lock);
 	vsync_irq_disable(INTR_OVERLAY0_DONE, MDP_OVERLAY0_TERM);
