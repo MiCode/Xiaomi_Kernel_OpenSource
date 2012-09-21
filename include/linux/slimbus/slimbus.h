@@ -143,10 +143,15 @@ struct slim_framer {
  * struct slim_addrt: slimbus address used internally by the slimbus framework.
  * @valid: If the device is still there or if the address can be reused.
  * @eaddr: 6-bytes-long elemental address
+ * @laddr: It is possible that controller will set a predefined logical address
+ *	rather than the one assigned by framework. (i.e. logical address may
+ *	not be same as index into this table). This entry will store the
+ *	logical address value for this enumeration address.
  */
 struct slim_addrt {
 	bool	valid;
 	u8	eaddr[6];
+	u8	laddr;
 };
 
 /*
@@ -500,6 +505,9 @@ enum slim_clk_state {
  *	send unicast message to this device with its logical address.
  * @allocbw: Controller can override default reconfiguration and channel
  *	scheduling algorithm.
+ * @get_laddr: It is possible that controller needs to set fixed logical
+ *	address table and get_laddr can be used in that case so that controller
+ *	can do this assignment.
  * @wakeup: This function pointer implements controller-specific procedure
  *	to wake it up from clock-pause. Framework will call this to bring
  *	the controller out of clock pause.
@@ -546,6 +554,8 @@ struct slim_controller {
 				const u8 *ea, u8 elen, u8 laddr);
 	int			(*allocbw)(struct slim_device *sb,
 				int *subfrmc, int *clkgear);
+	int			(*get_laddr)(struct slim_controller *ctrl,
+				const u8 *ea, u8 elen, u8 *laddr);
 	int			(*wakeup)(struct slim_controller *ctrl);
 	int			(*config_port)(struct slim_controller *ctrl,
 				u8 port);
@@ -983,14 +993,17 @@ extern void slim_remove_device(struct slim_device *sbdev);
  * @ctrl: Controller with which device is enumerated.
  * @e_addr: 6-byte elemental address of the device.
  * @e_len: buffer length for e_addr
- * @laddr: Return logical address.
+ * @laddr: Return logical address (if valid flag is false)
+ * @valid: true if laddr holds a valid address that controller wants to
+ *	set for this enumeration address. Otherwise framework sets index into
+ *	address table as logical address.
  * Called by controller in response to REPORT_PRESENT. Framework will assign
  * a logical address to this enumeration address.
  * Function returns -EXFULL to indicate that all logical addresses are already
  * taken.
  */
 extern int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
-				u8 e_len, u8 *laddr);
+				u8 e_len, u8 *laddr, bool valid);
 
 /*
  * slim_msg_response: Deliver Message response received from a device to the

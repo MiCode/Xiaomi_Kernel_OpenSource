@@ -699,7 +699,8 @@ static void msm_slim_rxwq(struct msm_slim_ctrl *dev)
 			for (i = 0; i < 6; i++)
 				e_addr[i] = buf[7-i];
 
-			ret = slim_assign_laddr(&dev->ctrl, e_addr, 6, &laddr);
+			ret = slim_assign_laddr(&dev->ctrl, e_addr, 6, &laddr,
+						false);
 			/* Is this Qualcomm ported generic device? */
 			if (!ret && e_addr[5] == QC_MFGID_LSB &&
 				e_addr[4] == QC_MFGID_MSB &&
