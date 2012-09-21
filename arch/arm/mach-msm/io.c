@@ -503,7 +503,7 @@ static struct map_desc mpq8092_io_desc[] __initdata = {
 
 void __init msm_map_mpq8092_io(void)
 {
-	msm_shared_ram_phys = MSM8092_MSM_SHARED_RAM_PHYS;
+	msm_shared_ram_phys = MPQ8092_MSM_SHARED_RAM_PHYS;
 	msm_map_io(mpq8092_io_desc, ARRAY_SIZE(mpq8092_io_desc));
 }
 #endif /* CONFIG_ARCH_MPQ8092 */
