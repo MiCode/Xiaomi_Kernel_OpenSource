@@ -220,6 +220,7 @@ static void ghsic_data_write_tohost(struct work_struct *w)
 		req->context = skb;
 		req->buf = skb->data;
 		req->length = skb->len;
+		req->zero = 1;
 
 		port->n_tx_req_queued++;
 		if (port->n_tx_req_queued == ghsic_data_tx_intr_thld) {
