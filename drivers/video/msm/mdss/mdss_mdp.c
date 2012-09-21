@@ -128,6 +128,8 @@ struct mdss_hw mdss_mdp_hw = {
 static DEFINE_SPINLOCK(mdss_lock);
 struct mdss_hw *mdss_irq_handlers[MDSS_MAX_HW_BLK];
 
+static int mdss_mdp_register_early_suspend(struct mdss_data_type *mdata);
+
 static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
 {
 	struct mdss_hw *hw;
@@ -852,6 +854,16 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 	rc = mdss_mdp_bus_scale_register(mdata);
+	if (rc) {
+		pr_err("unable to register bus scaling\n");
+		goto probe_done;
+	}
+
+	rc = mdss_mdp_register_early_suspend(mdata);
+	if (rc) {
+		pr_err("unable to register early suspend\n");
+		goto probe_done;
+	}
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
 		mdss_res = NULL;
@@ -932,7 +944,7 @@ static inline int mdss_mdp_resume_sub(struct mdss_data_type *mdata)
 	return ret;
 }
 
-#if defined(CONFIG_PM)
+#if defined(CONFIG_PM) && !defined(CONFIG_HAS_EARLYSUSPEND)
 static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
@@ -961,6 +973,54 @@ static int mdss_mdp_resume(struct platform_device *pdev)
 #define mdss_mdp_resume NULL
 #endif
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void mdss_mdp_early_suspend(struct early_suspend *h)
+{
+	struct mdss_data_type *mdata;
+	mdata = container_of(h, struct mdss_data_type, early_suspend);
+
+	pr_debug("display early suspend\n");
+
+	mdss_mdp_suspend_sub(mdata);
+}
+
+static void mdss_mdp_late_resume(struct early_suspend *h)
+{
+	struct mdss_data_type *mdata;
+	mdata = container_of(h, struct mdss_data_type, early_suspend);
+
+	pr_debug("display early resume\n");
+
+	mdss_mdp_resume_sub(mdata);
+}
+
+static int mdss_mdp_register_early_suspend(struct mdss_data_type *mdata)
+{
+	mdata->early_suspend.suspend = mdss_mdp_early_suspend;
+	mdata->early_suspend.resume = mdss_mdp_late_resume;
+	mdata->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	register_early_suspend(&mdata->early_suspend);
+
+	return 0;
+}
+
+static int mdss_mdp_remove_early_suspend(struct mdss_data_type *mdata)
+{
+	unregister_early_suspend(&mdata->early_suspend);
+
+	return 0;
+}
+#else
+static int mdss_mdp_register_early_suspend(struct mdss_data_type *mdata)
+{
+	return 0;
+}
+static int mdss_mdp_remove_early_suspend(struct mdss_data_type *mdata)
+{
+	return 0;
+}
+#endif
+
 static int mdss_mdp_remove(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
@@ -969,6 +1029,7 @@ static int mdss_mdp_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	mdss_mdp_pp_term(&pdev->dev);
 	mdss_mdp_bus_scale_unregister(mdata);
+	mdss_mdp_remove_early_suspend(mdata);
 	return 0;
 }
 
