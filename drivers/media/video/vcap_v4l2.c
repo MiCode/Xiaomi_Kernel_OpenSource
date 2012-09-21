@@ -1957,8 +1957,10 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 
 	/* init video device*/
 	vfd = video_device_alloc();
-	if (!vfd)
+	if (!vfd) {
+		ret = -ENOMEM;
 		goto deinit_vc;
+	}
 
 	*vfd = vcap_template;
 	vfd->v4l2_dev = &dev->v4l2_dev;
@@ -1972,6 +1974,7 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 
 	dev->vcap_wq = create_workqueue("vcap");
 	if (!dev->vcap_wq) {
+		ret = -ENOMEM;
 		pr_err("Could not create workqueue");
 		goto rel_vdev;
 	}
@@ -1979,6 +1982,8 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 	dev->ion_client = msm_ion_client_create(-1, "vcap");
 	if (IS_ERR((void *)dev->ion_client)) {
 		pr_err("could not get ion client");
+		ret = PTR_ERR(dev->ion_client);
+		dev->ion_client = NULL;
 		goto rel_vcap_wq;
 	}
 
