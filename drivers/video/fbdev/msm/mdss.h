@@ -15,6 +15,7 @@
 #define MDSS_H
 
 #include <linux/msm_ion.h>
+#include <linux/earlysuspend.h>
 #include <linux/msm_mdp.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
@@ -75,6 +76,8 @@ struct mdss_data_type {
 	struct ion_client *iclient;
 	int iommu_domain;
 	int iommu_attached;
+
+	struct early_suspend early_suspend;
 };
 extern struct mdss_data_type *mdss_res;
 
