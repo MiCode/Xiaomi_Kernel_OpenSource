@@ -77,6 +77,11 @@ enum msm_otg_phy_reg_mode {
 	USB_PHY_REG_LPM_OFF,
 };
 
+static char *override_phy_init;
+module_param(override_phy_init, charp, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(override_phy_init,
+	"Override HSUSB PHY Init Settings");
+
 static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
@@ -384,12 +389,26 @@ static struct usb_phy_io_ops msm_otg_io_ops = {
 static void ulpi_init(struct msm_otg *motg)
 {
 	struct msm_otg_platform_data *pdata = motg->pdata;
-	int *seq = pdata->phy_init_seq;
+	int aseq[10];
+	int *seq = NULL;
+
+	if (override_phy_init) {
+		pr_debug("%s(): HUSB PHY Init:%s\n", __func__,
+				override_phy_init);
+		get_options(override_phy_init, ARRAY_SIZE(aseq), aseq);
+		seq = &aseq[1];
+	} else {
+		seq = pdata->phy_init_seq;
+	}
 
 	if (!seq)
 		return;
 
 	while (seq[0] >= 0) {
+		if (override_phy_init)
+			pr_debug("ulpi: write 0x%02x to 0x%02x\n",
+					seq[0], seq[1]);
+
 		dev_vdbg(motg->phy.dev, "ulpi: write 0x%02x to 0x%02x\n",
 				seq[0], seq[1]);
 		ulpi_write(&motg->phy, seq[0], seq[1]);
