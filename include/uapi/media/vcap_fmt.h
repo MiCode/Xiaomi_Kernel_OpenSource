@@ -13,6 +13,7 @@
 
 #ifndef __UAPI_VCAP_FMT_H
 #define __UAPI_VCAP_FMT_H
+#include <linux/videodev2.h>
 
 #define V4L2_BUF_TYPE_INTERLACED_IN_DECODER (V4L2_BUF_TYPE_PRIVATE)
 
