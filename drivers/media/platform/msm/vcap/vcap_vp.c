@@ -304,7 +304,7 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 	}
 	if (irq & 0x01000000) {
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
-			VCAP_VC_LINE_ERR_EVENT;
+			VCAP_VP_REG_W_ERR_EVENT;
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
 	if (irq & 0x00020000) {
