@@ -861,82 +861,100 @@ probe_done:
 	return rc;
 }
 
-void mdss_mdp_footswitch_ctrl(int on)
+static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 {
 	mutex_lock(&mdp_suspend_mutex);
-	if (!mdss_res->suspend || mdss_res->eintf_ena || !mdss_res->fs) {
+	if (!mdata->suspend || mdata->eintf_ena || !mdata->fs) {
 		mutex_unlock(&mdp_suspend_mutex);
 		return;
 	}
 
-	if (on && !mdss_res->fs_ena) {
+	if (on && !mdata->fs_ena) {
 		pr_debug("Enable MDP FS\n");
-		regulator_enable(mdss_res->fs);
+		regulator_enable(mdata->fs);
 		mdss_iommu_attach();
-		mdss_res->fs_ena = true;
-	} else if (!on && mdss_res->fs_ena) {
+		mdata->fs_ena = true;
+	} else if (!on && mdata->fs_ena) {
 		pr_debug("Disable MDP FS\n");
 		mdss_iommu_dettach();
-		regulator_disable(mdss_res->fs);
-		mdss_res->fs_ena = false;
+		regulator_disable(mdata->fs);
+		mdata->fs_ena = false;
 	}
 	mutex_unlock(&mdp_suspend_mutex);
 }
 
-#ifdef CONFIG_PM
-static void mdss_mdp_suspend_sub(void)
-{
-	cancel_delayed_work(&mdss_res->clk_ctrl_worker);
-
-	flush_workqueue(mdss_res->clk_ctrl_wq);
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_MASTER_OFF, false);
-
-	mutex_lock(&mdp_suspend_mutex);
-	mdss_res->suspend = true;
-	mutex_unlock(&mdp_suspend_mutex);
-}
-
-static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
+static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)
 {
 	int ret;
-	pr_debug("display suspend");
 
 	ret = mdss_fb_suspend_all();
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("Unable to suspend all fb panels (%d)\n", ret);
 		return ret;
 	}
-	mdss_mdp_suspend_sub();
-	if (mdss_res->clk_ena) {
+
+	cancel_delayed_work(&mdata->clk_ctrl_worker);
+
+	flush_workqueue(mdata->clk_ctrl_wq);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_MASTER_OFF, false);
+
+	mutex_lock(&mdp_suspend_mutex);
+	mdata->suspend = true;
+	mutex_unlock(&mdp_suspend_mutex);
+
+	if (mdata->clk_ena) {
 		pr_err("MDP suspend failed\n");
 		return -EBUSY;
 	}
-	mdss_mdp_footswitch_ctrl(false);
+	mdss_mdp_footswitch_ctrl(mdata, false);
+
+	pr_debug("suspend done\n");
 
 	return 0;
 }
 
-static int mdss_mdp_resume(struct platform_device *pdev)
+static inline int mdss_mdp_resume_sub(struct mdss_data_type *mdata)
 {
-	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 	int ret = 0;
 
-	if (!mdata)
-		return -ENODEV;
-
-	pr_debug("resume display");
-
-	mdss_mdp_footswitch_ctrl(true);
+	mdss_mdp_footswitch_ctrl(mdata, true);
 	mutex_lock(&mdp_suspend_mutex);
-	mdss_res->suspend = false;
+	mdata->suspend = false;
 	mutex_unlock(&mdp_suspend_mutex);
 	mdss_hw_init(mdata);
 	ret = mdss_fb_resume_all();
 	if (IS_ERR_VALUE(ret))
 		pr_err("Unable to resume all fb panels (%d)\n", ret);
 
+	pr_debug("resume done\n");
+
 	return ret;
+}
+
+#if defined(CONFIG_PM)
+static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	if (!mdata)
+		return -ENODEV;
+
+	pr_debug("display suspend\n");
+
+	return mdss_mdp_suspend_sub(mdata);
+}
+
+static int mdss_mdp_resume(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	if (!mdata)
+		return -ENODEV;
+
+	pr_debug("display resume\n");
+
+	return mdss_mdp_resume_sub(mdata);
 }
 #else
 #define mdss_mdp_suspend NULL
