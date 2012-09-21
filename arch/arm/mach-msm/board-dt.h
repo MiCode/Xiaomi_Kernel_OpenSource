@@ -12,3 +12,4 @@
 
 void __init msm_dt_init_irq(void);
 void __init msm_dt_init_irq_nompm(void);
+void __init msm_dt_init_irq_l2x0(void);
