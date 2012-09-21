@@ -376,81 +376,67 @@ int32_t msm_camera_i2c_write_tbl(struct msm_camera_i2c_client *client,
 {
 	int i;
 	int32_t rc = -EFAULT;
-	if (client->cci_client) {
-		struct msm_camera_cci_ctrl cci_ctrl;
-		cci_ctrl.cmd = MSM_CCI_I2C_WRITE;
-		cci_ctrl.cci_info = client->cci_client;
-		cci_ctrl.cfg.cci_i2c_write_cfg.reg_conf_tbl = reg_conf_tbl;
-		cci_ctrl.cfg.cci_i2c_write_cfg.data_type = data_type;
-		cci_ctrl.cfg.cci_i2c_write_cfg.addr_type = client->addr_type;
-		cci_ctrl.cfg.cci_i2c_write_cfg.size = size;
-		rc = v4l2_subdev_call(client->cci_client->cci_subdev,
-				core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
-		CDBG("%s line %d rc = %d\n", __func__, __LINE__, rc);
-		rc = cci_ctrl.status;
-	} else {
-		for (i = 0; i < size; i++) {
-			enum msm_camera_i2c_data_type dt;
-			if (reg_conf_tbl->cmd_type == MSM_CAMERA_I2C_CMD_POLL) {
-				rc = msm_camera_i2c_poll(client,
+	for (i = 0; i < size; i++) {
+		enum msm_camera_i2c_data_type dt;
+		if (reg_conf_tbl->cmd_type == MSM_CAMERA_I2C_CMD_POLL) {
+			rc = msm_camera_i2c_poll(client,
+				reg_conf_tbl->reg_addr,
+				reg_conf_tbl->reg_data,
+				reg_conf_tbl->dt);
+		} else {
+			if (reg_conf_tbl->dt == 0)
+				dt = data_type;
+			else
+				dt = reg_conf_tbl->dt;
+			switch (dt) {
+			case MSM_CAMERA_I2C_BYTE_DATA:
+			case MSM_CAMERA_I2C_WORD_DATA:
+				rc = msm_camera_i2c_write(
+					client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data, dt);
+				break;
+			case MSM_CAMERA_I2C_SET_BYTE_MASK:
+				rc = msm_camera_i2c_set_mask(client,
 					reg_conf_tbl->reg_addr,
 					reg_conf_tbl->reg_data,
-					reg_conf_tbl->dt);
-			} else {
-				if (reg_conf_tbl->dt == 0)
-					dt = data_type;
-				else
-					dt = reg_conf_tbl->dt;
-				switch (dt) {
-				case MSM_CAMERA_I2C_BYTE_DATA:
-				case MSM_CAMERA_I2C_WORD_DATA:
-					rc = msm_camera_i2c_write(
-						client,
-						reg_conf_tbl->reg_addr,
-						reg_conf_tbl->reg_data, dt);
-					break;
-				case MSM_CAMERA_I2C_SET_BYTE_MASK:
-					rc = msm_camera_i2c_set_mask(client,
-						reg_conf_tbl->reg_addr,
-						reg_conf_tbl->reg_data,
-						MSM_CAMERA_I2C_BYTE_DATA, 1);
-					break;
-				case MSM_CAMERA_I2C_UNSET_BYTE_MASK:
-					rc = msm_camera_i2c_set_mask(client,
-						reg_conf_tbl->reg_addr,
-						reg_conf_tbl->reg_data,
-						MSM_CAMERA_I2C_BYTE_DATA, 0);
-					break;
-				case MSM_CAMERA_I2C_SET_WORD_MASK:
-					rc = msm_camera_i2c_set_mask(client,
-						reg_conf_tbl->reg_addr,
-						reg_conf_tbl->reg_data,
-						MSM_CAMERA_I2C_WORD_DATA, 1);
-					break;
-				case MSM_CAMERA_I2C_UNSET_WORD_MASK:
-					rc = msm_camera_i2c_set_mask(client,
-						reg_conf_tbl->reg_addr,
-						reg_conf_tbl->reg_data,
-						MSM_CAMERA_I2C_WORD_DATA, 0);
-					break;
-				case MSM_CAMERA_I2C_SET_BYTE_WRITE_MASK_DATA:
-					rc = msm_camera_i2c_set_write_mask_data(
-						client,
-						reg_conf_tbl->reg_addr,
-						reg_conf_tbl->reg_data,
-						reg_conf_tbl->mask,
-						MSM_CAMERA_I2C_BYTE_DATA);
-					break;
-				default:
-					pr_err("%s: Unsupport data type: %d\n",
-						__func__, dt);
-					break;
-				}
-			}
-			if (rc < 0)
+					MSM_CAMERA_I2C_BYTE_DATA, 1);
 				break;
-			reg_conf_tbl++;
+			case MSM_CAMERA_I2C_UNSET_BYTE_MASK:
+				rc = msm_camera_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_BYTE_DATA, 0);
+				break;
+			case MSM_CAMERA_I2C_SET_WORD_MASK:
+				rc = msm_camera_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_WORD_DATA, 1);
+				break;
+			case MSM_CAMERA_I2C_UNSET_WORD_MASK:
+				rc = msm_camera_i2c_set_mask(client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					MSM_CAMERA_I2C_WORD_DATA, 0);
+				break;
+			case MSM_CAMERA_I2C_SET_BYTE_WRITE_MASK_DATA:
+				rc = msm_camera_i2c_set_write_mask_data(
+					client,
+					reg_conf_tbl->reg_addr,
+					reg_conf_tbl->reg_data,
+					reg_conf_tbl->mask,
+					MSM_CAMERA_I2C_BYTE_DATA);
+				break;
+			default:
+				pr_err("%s: Unsupport data type: %d\n",
+					__func__, dt);
+				break;
+			}
 		}
+		if (rc < 0)
+			break;
+		reg_conf_tbl++;
 	}
 	return rc;
 }
