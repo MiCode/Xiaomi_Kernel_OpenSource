@@ -817,14 +817,32 @@ static int mdp_histogram_enable(struct mdp_hist_mgmt *mgmt)
 	}
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	base = (uint32_t) (MDP_BASE + mgmt->base);
+	/*First make sure that device is not collecting histogram*/
+	mgmt->mdp_is_hist_data = FALSE;
+	mgmt->mdp_is_hist_valid = FALSE;
+	mgmt->mdp_is_hist_init = FALSE;
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	outp32(MDP_INTR_CLEAR, mgmt->intr);
+	mdp_intr_mask &= ~mgmt->intr;
+	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+	MDP_OUTP(base + 0x001C, 0);
+	MDP_OUTP(base + 0x0018, INTR_HIST_DONE | INTR_HIST_RESET_SEQ_DONE);
+	MDP_OUTP(base + 0x0024, 0);
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+	mutex_unlock(&mgmt->mdp_hist_mutex);
+	cancel_work_sync(&mgmt->mdp_histogram_worker);
+	mutex_lock(&mgmt->mdp_hist_mutex);
+
+	/*Then initialize histogram*/
 	INIT_COMPLETION(mgmt->mdp_hist_comp);
 
-	base = (uint32_t) (MDP_BASE + mgmt->base);
+	spin_lock_irqsave(&mdp_spin_lock, flag);
 	MDP_OUTP(base + 0x0018, INTR_HIST_DONE | INTR_HIST_RESET_SEQ_DONE);
 	MDP_OUTP(base + 0x0010, 1);
 	MDP_OUTP(base + 0x001C, INTR_HIST_DONE | INTR_HIST_RESET_SEQ_DONE);
 
-	spin_lock_irqsave(&mdp_spin_lock, flag);
 	outp32(MDP_INTR_CLEAR, mgmt->intr);
 	mdp_intr_mask |= mgmt->intr;
 	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
@@ -1752,10 +1770,8 @@ void mdp_histogram_handle_isr(struct mdp_hist_mgmt *mgmt)
 	isr &= mask;
 	if (isr & INTR_HIST_RESET_SEQ_DONE)
 		__mdp_histogram_kickoff(mgmt);
-
-	if (isr & INTR_HIST_DONE) {
+	else if (isr & INTR_HIST_DONE)
 		queue_work(mdp_hist_wq, &mgmt->mdp_histogram_worker);
-	}
 }
 
 #ifndef CONFIG_FB_MSM_MDP40
