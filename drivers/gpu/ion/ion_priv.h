@@ -181,6 +181,15 @@ struct ion_heap {
 };
 
 /**
+ * ion_buffer_fault_user_mappings - fault in user mappings of this buffer
+ * @buffer:		buffer
+ *
+ * indicates whether userspace mappings of this buffer will be faulted
+ * in, this can affect how buffers are allocated from the heap.
+ */
+bool ion_buffer_fault_user_mappings(struct ion_buffer *buffer);
+
+/**
  * struct mem_map_data - represents information about the memory map for a heap
  * @node:		rb node used to store in the tree of mem_map_data
  * @addr:		start address of memory region.
