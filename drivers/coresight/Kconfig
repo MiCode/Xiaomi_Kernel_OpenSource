@@ -30,3 +30,12 @@ config MSM_QDSS_ETM_DEFAULT_ENABLE
 
 	  For production builds, you should probably say 'N' here to avoid
 	  potential power, performance and memory penalty.
+
+config CONTROL_TRACE
+	tristate "Turn on to control tracing"
+	help
+	  Builds module to abort tracing on a user space data, instruction
+	  or prefetch abort.
+
+	  For production builds, you should probably say 'N' here to avoid
+	  potential power, performance and memory penalty.
