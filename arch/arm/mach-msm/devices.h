@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/devices.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -240,7 +240,8 @@ extern struct platform_device msm_cpudai_incall_record_rx;
 extern struct platform_device msm_cpudai_incall_record_tx;
 extern struct platform_device msm_i2s_cpudai0;
 extern struct platform_device msm_i2s_cpudai1;
-
+extern struct platform_device msm_i2s_cpudai4;
+extern struct platform_device msm_i2s_cpudai5;
 extern struct platform_device msm_pil_q6v3;
 extern struct platform_device msm_pil_modem;
 extern struct platform_device msm_pil_tzapps;

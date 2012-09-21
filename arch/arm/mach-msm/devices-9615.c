@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -569,6 +569,15 @@ struct platform_device msm_i2s_cpudai0 = {
 struct platform_device msm_i2s_cpudai1 = {
 	.name   = "msm-dai-q6",
 	.id     = PRIMARY_I2S_TX,
+};
+struct platform_device msm_i2s_cpudai4 = {
+	.name   = "msm-dai-q6",
+	.id     = SECONDARY_I2S_RX,
+};
+
+struct platform_device msm_i2s_cpudai5 = {
+	.name   = "msm-dai-q6",
+	.id     = SECONDARY_I2S_TX,
 };
 struct platform_device msm_voip = {
 	.name	= "msm-voip-dsp",

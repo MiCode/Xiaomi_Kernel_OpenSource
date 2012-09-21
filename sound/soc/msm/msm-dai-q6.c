@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -674,6 +674,7 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
 	case SECONDARY_I2S_RX:
+	case SECONDARY_I2S_TX:
 		rc = msm_dai_q6_cdc_hw_params(params, dai, substream->stream);
 		break;
 
@@ -1379,6 +1380,7 @@ static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
 	case SECONDARY_I2S_RX:
+	case SECONDARY_I2S_TX:
 		rc = msm_dai_q6_cdc_set_fmt(dai, fmt);
 		break;
 	default:
@@ -1831,6 +1833,7 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_i2s_rx_dai);
 		break;
 	case PRIMARY_I2S_TX:
+	case SECONDARY_I2S_TX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_i2s_tx_dai);
 		break;
 	case PCM_RX:
