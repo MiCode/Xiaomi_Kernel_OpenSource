@@ -2277,6 +2277,9 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 			return -EINVAL;
 	}
 
+	/* need calibration during wakeup? */
+	pdata->need_calibration = of_property_read_bool(np,
+					"atmel,need-calibration");
 	/* config array size */
 	pdata->config_array_size = 0;
 	temp = NULL;
@@ -2763,6 +2766,14 @@ static int mxt_resume(struct device *dev)
 			mutex_unlock(&input_dev->mutex);
 			return error;
 		}
+	}
+
+	/* calibrate */
+	if (data->pdata->need_calibration) {
+		error = mxt_write_object(data, MXT_GEN_COMMAND_T6,
+					MXT_COMMAND_CALIBRATE, 1);
+		if (error < 0)
+			dev_dbg(dev, "sending calibration command failed\n");
 	}
 
 	mutex_unlock(&input_dev->mutex);

@@ -78,6 +78,7 @@ struct mxt_platform_data {
 	int irq_gpio;
 	u32 irq_gpio_flags;
 	int *key_codes;
+	bool need_calibration;
 
 	u8(*read_chg) (void);
 	int (*init_hw) (bool);

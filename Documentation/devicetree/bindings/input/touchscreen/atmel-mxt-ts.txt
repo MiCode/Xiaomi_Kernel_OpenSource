@@ -27,6 +27,8 @@ Optional property:
  - vcc_i2c-supply		: Power source required to pull up i2c bus
  - atmel,dig-reg-support	: specify to indicate digital regulator is
 					needed
+ - atmel,need-calibration	: specify to indicate whether calibration is
+					needed during wakeup.
 
 Example:
 	i2c@f9966000 {
