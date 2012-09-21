@@ -21,11 +21,8 @@
 #include <linux/of_irq.h>
 #include <linux/memory.h>
 #include <asm/mach/map.h>
-#include <asm/hardware/cache-l2x0.h>
 #include <asm/hardware/gic.h>
-#include <asm/arch_timer.h>
 #include <asm/mach/arch.h>
-#include <asm/mach/time.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/restart.h>
@@ -35,19 +32,15 @@
 #include <mach/msm_memtypes.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_smd.h>
-#include <mach/scm.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
-#include <mach/mpm.h>
+#include "board-dt.h"
 #include "clock.h"
 #include "modem_notifier.h"
 #include "lpm_resources.h"
 #include "spm.h"
 
 #define MSM_KERNEL_EBI_SIZE	0x51000
-#define SCM_SVC_L2CC_PL310	16
-#define L2CC_PL310_CTRL_ID	1
-#define L2CC_PL310_ON		1
 
 static struct memtype_reserve msm9625_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -76,10 +69,6 @@ static struct reserve_info msm9625_reserve_info __initdata = {
 	.paddr_to_memtype = msm9625_paddr_to_memtype,
 };
 
-#define L2CC_AUX_CTRL	((0x1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) | \
-			(0x2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
-			(0x1 << L2X0_AUX_CTRL_EVNT_MON_BUS_EN_SHIFT))
-
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
@@ -103,13 +92,6 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };
 
-static struct of_device_id irq_match[] __initdata  = {
-	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
-	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
-	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
-	{}
-};
-
 static const char *msm9625_dt_match[] __initconst = {
 	"qcom,msm9625",
 	NULL
@@ -127,34 +109,6 @@ static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9864000, \
 			"msm_sdcc.3", NULL),
 	{}
-};
-
-static struct of_device_id mpm_match[] __initdata = {
-	{.compatible = "qcom,mpm-v2", },
-	{},
-};
-
-void __init msm9625_init_irq(void)
-{
-	struct device_node *node;
-	scm_call_atomic1(SCM_SVC_L2CC_PL310, L2CC_PL310_CTRL_ID, L2CC_PL310_ON);
-	l2x0_of_init(0, ~0UL);
-	of_irq_init(irq_match);
-	node = of_find_matching_node(NULL, mpm_match);
-
-	WARN_ON(!node);
-
-	if (node)
-		of_mpm_init(node);
-}
-
-static void __init msm_dt_timer_init(void)
-{
-	arch_timer_of_register();
-}
-
-static struct sys_timer msm_dt_timer = {
-	.init = msm_dt_timer_init
 };
 
 static void __init msm9625_early_memory(void)
@@ -331,9 +285,9 @@ void __init msm9625_init(void)
 	msm9625_add_drivers();
 }
 
-DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
+DT_MACHINE_START(MSM9625_DT, "Qualcomm MSM 9625 (Flattened Device Tree)")
 	.map_io = msm_map_msm9625_io,
-	.init_irq = msm9625_init_irq,
+	.init_irq = msm_dt_init_irq_l2x0,
 	.init_machine = msm9625_init,
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
