@@ -571,6 +571,15 @@ struct platform_device msm_i2s_cpudai1 = {
 	.name   = "msm-dai-q6",
 	.id     = PRIMARY_I2S_TX,
 };
+struct platform_device msm_i2s_cpudai4 = {
+	.name   = "msm-dai-q6",
+	.id     = SECONDARY_I2S_RX,
+};
+
+struct platform_device msm_i2s_cpudai5 = {
+	.name   = "msm-dai-q6",
+	.id     = SECONDARY_I2S_TX,
+};
 struct platform_device msm_voip = {
 	.name	= "msm-voip-dsp",
 	.id	= -1,

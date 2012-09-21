@@ -910,6 +910,8 @@ static struct platform_device *common_devices[] = {
 	&msm_voip,
 	&msm_i2s_cpudai0,
 	&msm_i2s_cpudai1,
+	&msm_i2s_cpudai4,
+	&msm_i2s_cpudai5,
 	&msm_pcm_hostless,
 	&msm_cpudai_afe_01_rx,
 	&msm_cpudai_afe_01_tx,
