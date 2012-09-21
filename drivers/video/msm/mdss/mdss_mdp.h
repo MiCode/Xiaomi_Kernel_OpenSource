@@ -275,7 +275,6 @@ void mdss_mdp_set_clk_rate(unsigned long min_clk_rate);
 unsigned long mdss_mdp_get_clk_rate(u32 clk_idx);
 int mdss_mdp_vsync_clk_enable(int enable);
 void mdss_mdp_clk_ctrl(int enable, int isr);
-void mdss_mdp_footswitch_ctrl(int on);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd);
