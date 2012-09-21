@@ -153,6 +153,7 @@ struct branch {
 };
 
 extern struct clk_ops clk_ops_branch;
+extern struct clk_ops clk_ops_smi_2x;
 extern struct clk_ops clk_ops_reset;
 
 int branch_reset(struct branch *b, enum clk_reset_action action);
