@@ -25,6 +25,8 @@
 #define BYTE_BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr)			((nr) / BITS_PER_BYTE)
 
+#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 100
+
 struct wcd9xxx_irq {
 	bool level;
 };
@@ -106,11 +108,17 @@ bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 {
 	enum wcd9xxx_pm_state os;
 
-	/* wcd9xxx_{lock/unlock}_sleep will be called by wcd9xxx_irq_thread
+	/*
+	 * wcd9xxx_{lock/unlock}_sleep will be called by wcd9xxx_irq_thread
 	 * and its subroutines only motly.
 	 * but btn0_lpress_fn is not wcd9xxx_irq_thread's subroutine and
-	 * it can race with wcd9xxx_irq_thread.
-	 * so need to embrace wlock_holders with mutex.
+	 * It can race with wcd9xxx_irq_thread.
+	 * So need to embrace wlock_holders with mutex.
+	 *
+	 * If system didn't resume, we can simply return false so codec driver's
+	 * IRQ handler can return without handling IRQ.
+	 * As interrupt line is still active, codec will have another IRQ to
+	 * retry shortly.
 	 */
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (wcd9xxx->wlock_holders++ == 0) {
@@ -124,11 +132,11 @@ bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 						WCD9XXX_PM_AWAKE)) ==
 						    WCD9XXX_PM_SLEEPABLE ||
 			 (os == WCD9XXX_PM_AWAKE)),
-			5 * HZ)) {
-		pr_err("%s: system didn't resume within 5000ms, state %d, "
-		       "wlock %d\n", __func__, wcd9xxx->pm_state,
-		       wcd9xxx->wlock_holders);
-		WARN_ON(1);
+			msecs_to_jiffies(WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS))) {
+		pr_warn("%s: system didn't resume within %dms, s %d, w %d\n",
+			__func__,
+			WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS, wcd9xxx->pm_state,
+			wcd9xxx->wlock_holders);
 		wcd9xxx_unlock_sleep(wcd9xxx);
 		return false;
 	}
@@ -141,8 +149,14 @@ void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx)
 {
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (--wcd9xxx->wlock_holders == 0) {
-		wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
-		pr_debug("%s: releasing wake lock\n", __func__);
+		pr_debug("%s: releasing wake lock pm_state %d -> %d\n",
+			 __func__, wcd9xxx->pm_state, WCD9XXX_PM_SLEEPABLE);
+		/*
+		 * if wcd9xxx_lock_sleep failed, pm_state would be still
+		 * WCD9XXX_PM_ASLEEP, don't overwrite
+		 */
+		if (likely(wcd9xxx->pm_state == WCD9XXX_PM_AWAKE))
+			wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
 		pm_qos_update_request(&wcd9xxx->pm_qos_req,
 				PM_QOS_DEFAULT_VALUE);
 	}
