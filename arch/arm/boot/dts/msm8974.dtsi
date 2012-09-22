@@ -860,6 +860,14 @@
 		interrupt-names = "l1_irq", "l2_irq";
 	};
 
+	qcom,cache_dump {
+		compatible = "qcom,cache_dump";
+		qcom,l1-dump-size = <0x100000>;
+		qcom,l2-dump-size = <0x500000>;
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x600000>; /* 6M EBI1 buffer */
+	};
+
 	tsens@fc4a8000 {
 		compatible = "qcom,msm-tsens";
 		reg = <0xfc4a8000 0x2000>,
