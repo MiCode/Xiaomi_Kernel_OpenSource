@@ -2311,6 +2311,73 @@ static long venc_get_property(struct v4l2_subdev *sd, void *arg)
 	return rc;
 }
 
+long venc_mmap(struct v4l2_subdev *sd, void *arg)
+{
+	struct venc_inst *inst = sd->dev_priv;
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion = NULL;
+	unsigned long rc = 0, size = 0;
+	void *paddr = NULL;
+
+	if (!sd) {
+		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
+		return -EINVAL;
+	} else if (!mmap || !mmap->mregion) {
+		WFD_MSG_ERR("Memregion required for %s\n", __func__);
+		return -EINVAL;
+	}
+
+	mregion = mmap->mregion;
+	if (mregion->size % SZ_4K != 0) {
+		WFD_MSG_ERR("Memregion not aligned to %d\n", SZ_4K);
+		return -EINVAL;
+	}
+
+	if (inst->secure) {
+		rc = ion_phys(mmap->ion_client, mregion->ion_handle,
+				(unsigned long *)&paddr,
+				(size_t *)&size);
+	} else {
+		rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
+				VIDEO_DOMAIN, VIDEO_MAIN_POOL, SZ_4K,
+				0, (unsigned long *)&paddr,
+				&size, 0, 0);
+	}
+
+	if (rc) {
+		WFD_MSG_ERR("Failed to get physical addr\n");
+		paddr = NULL;
+	} else if (size < mregion->size) {
+		WFD_MSG_ERR("Failed to map enough memory\n");
+		rc = -ENOMEM;
+	}
+
+	mregion->paddr = paddr;
+	return rc;
+}
+
+long venc_munmap(struct v4l2_subdev *sd, void *arg)
+{
+	struct venc_inst *inst = sd->dev_priv;
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion = NULL;
+	if (!sd) {
+		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
+		return -EINVAL;
+	} else if (!mregion) {
+		WFD_MSG_ERR("Memregion required for %s\n", __func__);
+		return -EINVAL;
+	}
+
+	mregion = mmap->mregion;
+	if (!inst->secure) {
+		ion_unmap_iommu(mmap->ion_client, mregion->ion_handle,
+				VIDEO_DOMAIN, VIDEO_MAIN_POOL);
+	}
+
+	return 0;
+}
+
 long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	long rc = 0;
@@ -2373,6 +2440,12 @@ long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case ENCODE_FLUSH:
 		rc = venc_flush_buffers(sd, arg);
+		break;
+	case ENC_MMAP:
+		rc = venc_mmap(sd, arg);
+		break;
+	case ENC_MUNMAP:
+		rc = venc_munmap(sd, arg);
 		break;
 	default:
 		rc = -1;

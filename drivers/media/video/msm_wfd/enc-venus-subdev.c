@@ -245,6 +245,7 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	struct venc_inst *inst = NULL;
 	struct venc_msg_ops *vmops = arg;
 	struct v4l2_event_subscription event = {0};
+	struct msm_vidc_iommu_info maps[MAX_MAP];
 	int rc = 0;
 
 	if (!vmops) {
@@ -264,6 +265,7 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 		goto venc_open_fail;
 	}
 
+	inst->secure = false;
 	inst->vmops = *vmops;
 	INIT_LIST_HEAD(&inst->registered_output_bufs.list);
 	INIT_LIST_HEAD(&inst->registered_input_bufs.list);
@@ -290,6 +292,15 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Failed to subscribe to FLUSH_DONE event\n");
 		goto vidc_subscribe_fail;
 	}
+
+	rc = msm_vidc_get_iommu_maps(inst->vidc_context, maps);
+	if (rc) {
+		WFD_MSG_ERR("Failed to retreive domain mappings\n");
+		rc = -ENODATA;
+		goto vidc_subscribe_fail;
+	}
+
+	inst->domain = maps[inst->secure ? CP_MAP : NS_MAP].domain;
 
 	inst->callback_thread = kthread_run(venc_vidc_callback_thread, inst,
 					"venc_vidc_callback_thread");
@@ -580,7 +591,8 @@ set_input_buffer_fail:
 	return rc;
 }
 
-static int venc_map_user_to_kernel(struct mem_region *mregion)
+static int venc_map_user_to_kernel(struct venc_inst *inst,
+		struct mem_region *mregion)
 {
 	int rc = 0;
 	unsigned long flags = 0, size = 0;
@@ -588,7 +600,6 @@ static int venc_map_user_to_kernel(struct mem_region *mregion)
 		rc = -EINVAL;
 		goto venc_map_fail;
 	}
-
 
 	mregion->ion_handle = ion_import_dma_buf(venc_ion_client, mregion->fd);
 	if (IS_ERR_OR_NULL(mregion->ion_handle)) {
@@ -604,7 +615,7 @@ static int venc_map_user_to_kernel(struct mem_region *mregion)
 		WFD_MSG_ERR("Failed to get ion flags %d\n", rc);
 		goto venc_map_fail;
 	}
-	/* TODO: skip for secure */
+
 	mregion->kvaddr = ion_map_kernel(venc_ion_client,
 				mregion->ion_handle, flags);
 
@@ -616,8 +627,8 @@ static int venc_map_user_to_kernel(struct mem_region *mregion)
 	}
 
 	rc = ion_map_iommu(venc_ion_client, mregion->ion_handle,
-			VIDEO_DOMAIN, VIDEO_MAIN_POOL, SZ_4K,
-			0, (unsigned long *)&mregion->paddr, &size, flags, 0);
+			inst->domain, 0, SZ_4K, 0,
+			(unsigned long *)&mregion->paddr, &size, flags, 0);
 
 	if (rc) {
 		WFD_MSG_ERR("Failed to map into iommu\n");
@@ -630,21 +641,22 @@ static int venc_map_user_to_kernel(struct mem_region *mregion)
 	return 0;
 venc_map_iommu_size_fail:
 	ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
-			VIDEO_DOMAIN, VIDEO_MAIN_POOL);
+			inst->domain, 0);
 venc_map_iommu_map_fail:
 	ion_unmap_kernel(venc_ion_client, mregion->ion_handle);
 venc_map_fail:
 	return rc;
 }
 
-static int venc_unmap_user_to_kernel(struct mem_region *mregion)
+static int venc_unmap_user_to_kernel(struct venc_inst *inst,
+		struct mem_region *mregion)
 {
 	if (!mregion || !mregion->ion_handle)
 		return 0;
 
 	if (mregion->paddr) {
 		ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
-				VIDEO_DOMAIN, VIDEO_MAIN_POOL);
+				inst->domain, 0);
 		mregion->paddr = NULL;
 	}
 
@@ -694,7 +706,7 @@ static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
 	*mregion = *(struct mem_region *)arg;
 	INIT_LIST_HEAD(&mregion->list);
 
-	rc = venc_map_user_to_kernel(mregion);
+	rc = venc_map_user_to_kernel(inst, mregion);
 	if (rc) {
 		WFD_MSG_ERR("Failed to map output buffer\n");
 		goto venc_set_output_buffer_map_fail;
@@ -725,7 +737,7 @@ static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
 	list_add_tail(&mregion->list, &inst->registered_output_bufs.list);
 	return rc;
 venc_set_output_buffer_prepare_fail:
-	venc_unmap_user_to_kernel(mregion);
+	venc_unmap_user_to_kernel(inst, mregion);
 venc_set_output_buffer_map_fail:
 	kfree(mregion);
 venc_set_output_buffer_fail:
@@ -953,7 +965,7 @@ static long venc_free_buffer(struct venc_inst *inst, int type,
 	}
 
 	if (unmap_user_buffer) {
-		int rc = venc_unmap_user_to_kernel(mregion);
+		int rc = venc_unmap_user_to_kernel(inst, mregion);
 		if (rc)
 			WFD_MSG_WARN("Unable to unmap user buffer\n");
 	}
@@ -1067,6 +1079,67 @@ static long venc_get_property(struct v4l2_subdev *sd, void *arg)
 	return msm_vidc_g_ctrl(inst->vidc_context, (struct v4l2_control *)arg);
 }
 
+long venc_mmap(struct v4l2_subdev *sd, void *arg)
+{
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion = NULL;
+	unsigned long rc = 0, size = 0;
+	void *paddr = NULL;
+	struct venc_inst *inst = NULL;
+
+	if (!sd) {
+		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
+		return -EINVAL;
+	} else if (!mmap || !mmap->mregion) {
+		WFD_MSG_ERR("Memregion required for %s\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = (struct venc_inst *)sd->dev_priv;
+	mregion = mmap->mregion;
+	if (mregion->size % SZ_4K != 0) {
+		WFD_MSG_ERR("Memregion not aligned to %d\n", SZ_4K);
+		return -EINVAL;
+	}
+
+	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
+			inst->domain, 0, SZ_4K, 0, (unsigned long *)&paddr,
+			&size, 0, 0);
+
+	if (rc) {
+		WFD_MSG_ERR("Failed to get physical addr\n");
+		paddr = NULL;
+	} else if (size < mregion->size) {
+		WFD_MSG_ERR("Failed to map enough memory\n");
+		rc = -ENOMEM;
+	}
+
+	mregion->paddr = paddr;
+	return rc;
+}
+
+long venc_munmap(struct v4l2_subdev *sd, void *arg)
+{
+	struct mem_region_map *mmap = arg;
+	struct mem_region *mregion = NULL;
+	struct venc_inst *inst = NULL;
+
+	if (!sd) {
+		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
+		return -EINVAL;
+	} else if (!mmap || !mmap->mregion) {
+		WFD_MSG_ERR("Memregion required for %s\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = (struct venc_inst *)sd->dev_priv;
+	mregion = mmap->mregion;
+
+	ion_unmap_iommu(mmap->ion_client, mregion->ion_handle,
+			inst->domain, 0);
+	return 0;
+}
+
 long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	long rc = 0;
@@ -1129,6 +1202,12 @@ long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case ENCODE_FLUSH:
 		rc = venc_flush_buffers(sd, arg);
+		break;
+	case ENC_MMAP:
+		rc = venc_mmap(sd, arg);
+		break;
+	case ENC_MUNMAP:
+		rc = venc_munmap(sd, arg);
 		break;
 	default:
 		WFD_MSG_ERR("Unknown ioctl %d to enc-subdev\n", cmd);
