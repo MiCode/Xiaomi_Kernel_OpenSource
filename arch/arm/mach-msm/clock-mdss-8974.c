@@ -67,7 +67,9 @@ static unsigned char *mdss_dsi_base;
 static int pll_byte_clk_rate;
 static int pll_pclk_rate;
 static int pll_initialized;
+static int pll_enabled;
 static struct clk *mdss_dsi_ahb_clk;
+static unsigned long dsi_pll_rate;
 
 static void __iomem *hdmi_phy_base;
 static void __iomem *hdmi_phy_pll_base;
@@ -135,6 +137,7 @@ static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	int pll_divcfg1, pll_divcfg2;
 	int half_bitclk_rate;
 
+	pr_debug("%s:\n", __func__);
 	if (pll_initialized)
 		return 0;
 
@@ -193,10 +196,13 @@ static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	REG_W(0x00, mdss_dsi_base + 0x0290); /* CAL CFG9 */
 	REG_W(0x20, mdss_dsi_base + 0x029c); /* EFUSE CFG */
 
+	dsi_pll_rate = rate;
+
 	pll_byte_clk_rate = 53000000;
 	pll_pclk_rate = 105000000;
 
 	clk_disable(mdss_dsi_ahb_clk);
+	pr_debug("%s: **** PLL initialized success\n", __func__);
 	pll_initialized = 1;
 
 	return 0;
@@ -206,10 +212,18 @@ static int mdss_dsi_pll_enable(struct clk *c)
 {
 	u32 status;
 	u32 max_reads, timeout_us;
-	static int pll_enabled;
+	int i;
 
 	if (pll_enabled)
 		return 0;
+
+	if (!pll_initialized) {
+		if (dsi_pll_rate)
+			mdss_dsi_pll_byte_set_rate(c, dsi_pll_rate);
+		else
+			pr_err("%s: Calling clk_en before set_rate\n",
+						__func__);
+	}
 
 	if (!mdss_dsi_ahb_clk) {
 		pr_err("%s: mdss_dsi_ahb_clk not initialized\n",
@@ -218,26 +232,39 @@ static int mdss_dsi_pll_enable(struct clk *c)
 	}
 
 	clk_enable(mdss_dsi_ahb_clk);
-	/* PLL power up */
-	REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
-	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
-	udelay(20);
-	REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
-	udelay(20);
-	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
 
-	/* poll for PLL ready status */
-	max_reads = 20;
-	timeout_us = 100;
-	if (readl_poll_timeout_noirq((mdss_dsi_base + 0x02c0),
-			   status,
-			   ((status & 0x01) == 1),
-				     max_reads, timeout_us)) {
+	/* PLL power up */
+	for (i = 0; i < 3; i++) {
+		REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
+		REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(20);
+		REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(20);
+		REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+
+		/* poll for PLL ready status */
+		max_reads = 20;
+		timeout_us = 100;
+		if (readl_poll_timeout_noirq((mdss_dsi_base + 0x02c0),
+				   status,
+				   ((status & 0x01) == 1),
+					     max_reads, timeout_us)) {
+			pr_debug("%s: DSI PLL status=%x failed to Lock\n",
+			       __func__, status);
+			pr_debug("%s:Trying to power UP PLL again\n",
+			       __func__);
+		} else
+			break;
+	}
+
+	if ((status & 0x01) != 1) {
 		pr_err("%s: DSI PLL status=%x failed to Lock\n",
 		       __func__, status);
 		clk_disable(mdss_dsi_ahb_clk);
 		return -EINVAL;
 	}
+
+	pr_debug("%s: **** PLL Lock success\n", __func__);
 	clk_disable(mdss_dsi_ahb_clk);
 	pll_enabled = 1;
 
@@ -253,6 +280,9 @@ static void mdss_dsi_pll_disable(struct clk *c)
 	clk_enable(mdss_dsi_ahb_clk);
 	writel_relaxed(0x00, mdss_dsi_base + 0x0220); /* GLB CFG */
 	clk_disable(mdss_dsi_ahb_clk);
+	pr_debug("%s: **** disable pll Initialize\n", __func__);
+	pll_initialized = 0;
+	pll_enabled = 0;
 }
 
 void hdmi_pll_disable(void)
