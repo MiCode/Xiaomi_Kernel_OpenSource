@@ -748,7 +748,7 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 	default:
 		break;
 	}
-	return 0;
+	return NOTIFY_OK;
 }
 
 #ifdef CONFIG_PM
