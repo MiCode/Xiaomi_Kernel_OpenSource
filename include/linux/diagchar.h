@@ -109,7 +109,7 @@ the appropriate macros. */
 /* This needs to be modified manually now, when we add
  a new RANGE of SSIDs to the msg_mask_tbl */
 #define MSG_MASK_TBL_CNT		24
-#define EVENT_LAST_ID			0x08AD
+#define EVENT_LAST_ID			0x08C5
 
 #define MSG_SSID_0			0
 #define MSG_SSID_0_LAST			93
