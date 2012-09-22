@@ -471,12 +471,19 @@ int audio_aio_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 
 	pr_debug("%s[%p]:\n", __func__, audio);
 
-	mutex_lock(&audio->write_lock);
 	audio->eos_rsp = 0;
 
+	pr_debug("%s[%p]Wait for write done from DSP\n", __func__, audio);
 	rc = wait_event_interruptible(audio->write_wait,
 					(list_empty(&audio->out_queue)) ||
 					audio->wflush || audio->stopped);
+
+	if (audio->stopped || audio->wflush) {
+		pr_debug("%s[%p]: Audio Flushed or Stopped,this is not EOS\n"
+			, __func__, audio);
+		audio->wflush = 0;
+		rc = -EBUSY;
+	}
 
 	if (rc < 0) {
 		pr_err("%s[%p]: wait event for list_empty failed, rc = %d\n",
@@ -485,11 +492,14 @@ int audio_aio_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 	}
 
 	rc = q6asm_cmd(audio->ac, CMD_EOS);
+	pr_debug("%s[%p]: EOS cmd sent to DSP\n", __func__, audio);
 
 	if (rc < 0)
 		pr_err("%s[%p]: q6asm_cmd failed, rc = %d",
 			__func__, audio, rc);
 
+	pr_debug("%s[%p]: wait for RENDERED_EOS from DSP\n"
+		, __func__, audio);
 	rc = wait_event_interruptible(audio->write_wait,
 					(audio->eos_rsp || audio->wflush ||
 					audio->stopped));
@@ -500,22 +510,18 @@ int audio_aio_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 		goto done;
 	}
 
-	if (audio->eos_rsp == 1) {
-		rc = audio_aio_enable(audio);
-		if (rc)
-			pr_err("%s[%p]: audio enable failed\n",
-				__func__, audio);
-		else {
-			audio->drv_status &= ~ADRV_STATUS_PAUSE;
-			audio->enabled = 1;
-		}
+	if (audio->stopped || audio->wflush) {
+		audio->wflush = 0;
+		pr_debug("%s[%p]: Audio Flushed or Stopped,this is not EOS\n"
+			, __func__, audio);
+		rc = -EBUSY;
 	}
 
-	if (audio->stopped || audio->wflush)
-		rc = -EBUSY;
+	if (audio->eos_rsp == 1)
+		pr_debug("%s[%p]: EOS\n", __func__, audio);
+
 
 done:
-	mutex_unlock(&audio->write_lock);
 	mutex_lock(&audio->lock);
 	audio->drv_status &= ~ADRV_STATUS_FSYNC;
 	mutex_unlock(&audio->lock);
@@ -963,7 +969,8 @@ static void audio_aio_ioport_reset(struct q6audio_aio *audio)
 			audio->drv_ops.out_flush(audio);
 		} else
 			audio->drv_ops.out_flush(audio);
-		audio->drv_ops.in_flush(audio);
+		if (audio->feedback == NON_TUNNEL_MODE)
+			audio->drv_ops.in_flush(audio);
 	}
 }
 
@@ -1167,7 +1174,11 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rc = -EINTR;
 		} else {
 			audio->rflush = 0;
-			audio->wflush = 0;
+			if (audio->drv_status & ADRV_STATUS_FSYNC)
+				wake_up(&audio->write_wait);
+			else
+				audio->wflush = 0;
+
 		}
 		audio->eos_flag = 0;
 		audio->eos_rsp = 0;
