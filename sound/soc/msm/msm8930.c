@@ -1307,7 +1307,7 @@ static int __init msm8930_audio_init(void)
 {
 	int ret;
 
-	if (!cpu_is_msm8930() && !cpu_is_msm8930aa() && !cpu_is_msm8627()) {
+	if (!soc_class_is_msm8930()) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return -ENODEV ;
 	}
@@ -1346,7 +1346,7 @@ module_init(msm8930_audio_init);
 
 static void __exit msm8930_audio_exit(void)
 {
-	if (!cpu_is_msm8930() && !cpu_is_msm8930aa() && !cpu_is_msm8627()) {
+	if (!soc_class_is_msm8930()) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return ;
 	}

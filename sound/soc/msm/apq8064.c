@@ -2076,7 +2076,7 @@ static int __init msm_audio_init(void)
 {
 	int ret;
 	u32	version = socinfo_get_platform_version();
-	if (!(cpu_is_apq8064() || cpu_is_apq8064ab()) ||
+	if (!soc_class_is_apq8064() ||
 		(socinfo_get_id() == 130) ||
 		(machine_is_apq8064_mtp() &&
 		(SOCINFO_VERSION_MINOR(version) == 1))) {
@@ -2117,8 +2117,7 @@ module_init(msm_audio_init);
 
 static void __exit msm_audio_exit(void)
 {
-	if (!(cpu_is_apq8064() || cpu_is_apq8064ab()) ||
-				 (socinfo_get_id() == 130)) {
+	if (!soc_class_is_apq8064() || socinfo_get_id() == 130) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return ;
 	}

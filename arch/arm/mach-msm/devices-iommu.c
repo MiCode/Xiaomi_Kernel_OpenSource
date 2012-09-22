@@ -1017,13 +1017,13 @@ static int __init iommu_init(void)
 				ARRAY_SIZE(msm_iommu_gfx2d_devs));
 	}
 
-	if (cpu_is_apq8064() || cpu_is_msm8960ab() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064() || cpu_is_msm8960ab()) {
 		platform_add_devices(msm_iommu_jpegd_devs,
 				ARRAY_SIZE(msm_iommu_jpegd_devs));
 		platform_add_devices(msm_iommu_adreno3xx_gfx_devs,
 				ARRAY_SIZE(msm_iommu_adreno3xx_gfx_devs));
 	}
-	if (cpu_is_apq8064() || cpu_is_apq8064ab())
+	if (soc_class_is_apq8064())
 		platform_add_devices(msm_iommu_vcap_devs,
 				ARRAY_SIZE(msm_iommu_vcap_devs));
 
@@ -1039,14 +1039,14 @@ static int __init iommu_init(void)
 				ARRAY_SIZE(msm_iommu_gfx2d_ctx_devs));
 	}
 
-	if (cpu_is_apq8064() || cpu_is_msm8960ab() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064() || cpu_is_msm8960ab()) {
 		platform_add_devices(msm_iommu_jpegd_ctx_devs,
 				ARRAY_SIZE(msm_iommu_jpegd_ctx_devs));
 
 		platform_add_devices(msm_iommu_adreno3xx_ctx_devs,
 				ARRAY_SIZE(msm_iommu_adreno3xx_ctx_devs));
 	}
-	if (cpu_is_apq8064() || cpu_is_apq8064ab())
+	if (soc_class_is_apq8064())
 		platform_add_devices(msm_iommu_vcap_ctx_devs,
 			ARRAY_SIZE(msm_iommu_vcap_ctx_devs));
 
@@ -1081,12 +1081,12 @@ static void __exit iommu_exit(void)
 		for (i = 0; i < ARRAY_SIZE(msm_iommu_jpegd_devs); i++)
 			platform_device_unregister(msm_iommu_jpegd_devs[i]);
 	}
-	if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064()) {
 		for (i = 0; i < ARRAY_SIZE(msm_iommu_vcap_ctx_devs); i++)
 			platform_device_unregister(msm_iommu_vcap_ctx_devs[i]);
 	}
 
-	if (cpu_is_apq8064() || cpu_is_msm8960ab() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064() || cpu_is_msm8960ab()) {
 		for (i = 0; i < ARRAY_SIZE(msm_iommu_adreno3xx_ctx_devs);
 			   i++)
 			platform_device_unregister(
@@ -1097,7 +1097,7 @@ static void __exit iommu_exit(void)
 			platform_device_unregister(
 				msm_iommu_jpegd_ctx_devs[i]);
 
-		if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
+		if (soc_class_is_apq8064()) {
 			for (i = 0; i < ARRAY_SIZE(msm_iommu_vcap_devs);
 			   i++)
 				platform_device_unregister(
