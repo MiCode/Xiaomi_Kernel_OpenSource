@@ -17,7 +17,8 @@
 
 enum dump_client_type {
 	MSM_CPU_CTXT = 0,
-	MSM_CACHE,
+	MSM_L1_CACHE,
+	MSM_L2_CACHE,
 	MSM_OCMEM,
 	MSM_TMC_ETFETB,
 	MSM_ETM0_REG,
