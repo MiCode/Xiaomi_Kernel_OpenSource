@@ -54,7 +54,7 @@
 	defined(CONFIG_ARCH_MSM7X25) || defined(CONFIG_ARCH_MSM7X01A) || \
 	defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_MSM7X30) || \
 	defined(CONFIG_ARCH_MSM9625) || defined(CONFIG_ARCH_MPQ8092) || \
-	defined(CONFIG_ARCH_MSM8226)
+	defined(CONFIG_ARCH_MSM8226) || defined(CONFIG_ARCH_MSM8910)
 
 /* Unified iomap */
 
@@ -122,6 +122,7 @@
 #include "msm_iomap-9625.h"
 #include "msm_iomap-8092.h"
 #include "msm_iomap-8226.h"
+#include "msm_iomap-8910.h"
 
 #else
 /* Legacy single-target iomap */

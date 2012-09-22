@@ -529,3 +529,22 @@ void __init msm_map_msm8226_io(void)
 	msm_map_io(msm_8226_io_desc, ARRAY_SIZE(msm_8226_io_desc));
 }
 #endif /* CONFIG_ARCH_MSM8226 */
+
+#ifdef CONFIG_ARCH_MSM8910
+static struct map_desc msm8910_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(APCS_GCC, MSM8910),
+	MSM_CHIP_DEVICE(TLMM, MSM8910),
+	MSM_CHIP_DEVICE(IMEM, MSM8910),
+	{
+		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
+		.length =   MSM_SHARED_RAM_SIZE,
+		.type =     MT_DEVICE,
+	},
+};
+
+void __init msm_map_msm8910_io(void)
+{
+	msm_shared_ram_phys = MSM8910_MSM_SHARED_RAM_PHYS;
+	msm_map_io(msm8910_io_desc, ARRAY_SIZE(msm8910_io_desc));
+}
+#endif /* CONFIG_ARCH_MSM8910 */
