@@ -2163,6 +2163,9 @@ unsigned int adreno_hang_detect(struct kgsl_device *device,
 	if (!adreno_dev->fast_hang_detect)
 		return 0;
 
+	if (device->ftbl->isidle(device))
+		return 0;
+
 	for (i = 0; i < hang_detect_regs_count; i++) {
 
 		if (hang_detect_regs[i] == 0)
