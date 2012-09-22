@@ -814,12 +814,18 @@ static int msm_cpr_suspend(struct device *dev)
 
 void msm_cpr_pm_resume(void)
 {
+	if (!enable)
+		return;
+
 	msm_cpr_resume(&cpr_pdev->dev);
 }
 EXPORT_SYMBOL(msm_cpr_pm_resume);
 
 void msm_cpr_pm_suspend(void)
 {
+	if (!enable)
+		return;
+
 	msm_cpr_suspend(&cpr_pdev->dev);
 }
 EXPORT_SYMBOL(msm_cpr_pm_suspend);
@@ -827,14 +833,26 @@ EXPORT_SYMBOL(msm_cpr_pm_suspend);
 
 void msm_cpr_disable(void)
 {
-	struct msm_cpr *cpr = platform_get_drvdata(cpr_pdev);
+	struct msm_cpr *cpr;
+
+	if (!enable)
+		return;
+
+	cpr = platform_get_drvdata(cpr_pdev);
+
 	cpr_disable(cpr);
 }
 EXPORT_SYMBOL(msm_cpr_disable);
 
 void msm_cpr_enable(void)
 {
-	struct msm_cpr *cpr = platform_get_drvdata(cpr_pdev);
+	struct msm_cpr *cpr;
+
+	if (!enable)
+		return;
+
+	cpr = platform_get_drvdata(cpr_pdev);
+
 	cpr_enable(cpr);
 }
 EXPORT_SYMBOL(msm_cpr_enable);
