@@ -861,6 +861,16 @@ void mdss_dsi_controller_cfg(int enable,
 			       sleep_us, timeout_us))
 		pr_info("%s: FIFO status=%x failed\n", __func__, status);
 
+	/* Check for VIDEO_MODE_ENGINE_BUSY */
+	if (readl_poll_timeout(((ctrl_pdata->ctrl_base) + 0x0008),
+			   status,
+			   ((status & 0x08) == 0),
+			       sleep_us, timeout_us)) {
+		pr_debug("%s: DSI status=%x\n", __func__, status);
+		pr_debug("%s: Doing sw reset\n", __func__);
+		mdss_dsi_sw_reset(pdata);
+	}
+
 	dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0004);
 	if (enable)
 		dsi_ctrl |= 0x01;
@@ -884,14 +894,21 @@ void mdss_dsi_op_mode_config(int mode,
 		return;
 	}
 
-
 	dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0004);
-	dsi_ctrl &= ~0x07;
+	/*If Video enabled, Keep Video and Cmd mode ON */
+	if (dsi_ctrl & 0x02)
+		dsi_ctrl &= ~0x05;
+	else
+		dsi_ctrl &= ~0x07;
+
 	if (mode == DSI_VIDEO_MODE) {
 		dsi_ctrl |= 0x03;
 		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK;
 	} else {		/* command mode */
 		dsi_ctrl |= 0x05;
+		if (pdata->panel_info.type == MIPI_VIDEO_PANEL)
+			dsi_ctrl |= 0x02;
+
 		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK | DSI_INTR_ERROR_MASK |
 				DSI_INTR_CMD_MDP_DONE_MASK;
 	}
@@ -1102,6 +1119,7 @@ int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		mdss_dsi_buf_init(tp);
 		mdss_dsi_cmd_dma_add(tp, pkt_size_cmd);
 		mdss_dsi_cmd_dma_tx(tp, pdata);
+		pr_debug("%s: Max packet size sent\n", __func__);
 	}
 
 	mdss_dsi_buf_init(tp);
@@ -1161,6 +1179,7 @@ int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		rp->len -= diff; /* align bytes */
 		break;
 	default:
+		pr_debug("%s: Unknown cmd received\n", __func__);
 		break;
 	}
 
@@ -1261,6 +1280,8 @@ int mdss_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen,
 	for (i = 0; i < cnt; i++) {
 		data = (u32)MIPI_INP((ctrl_pdata->ctrl_base) + off);
 		*lp++ = ntohl(data);	/* to network byte order */
+		pr_debug("%s: data = 0x%x and ntohl(data) = 0x%x\n",
+					 __func__, data, ntohl(data));
 		off -= 4;
 		rp->len += sizeof(*lp);
 	}
