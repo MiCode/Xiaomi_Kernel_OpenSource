@@ -931,11 +931,11 @@ static int mdss_mdp_resume(struct platform_device *pdev)
 	mutex_lock(&mdp_suspend_mutex);
 	mdss_res->suspend = false;
 	mutex_unlock(&mdp_suspend_mutex);
+	mdss_hw_init(mdata);
 	ret = mdss_fb_resume_all();
 	if (IS_ERR_VALUE(ret))
 		pr_err("Unable to resume all fb panels (%d)\n", ret);
 
-	mdss_hw_init(mdata);
 	return ret;
 }
 #else
