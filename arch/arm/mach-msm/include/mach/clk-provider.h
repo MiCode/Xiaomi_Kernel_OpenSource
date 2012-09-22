@@ -20,6 +20,7 @@
 #include <linux/list.h>
 #include <linux/clkdev.h>
 #include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <mach/clk.h>
 
 /*
@@ -53,7 +54,7 @@ struct clk_vdd_class {
 	int (*set_vdd)(struct clk_vdd_class *v_class, int level);
 	int level_votes[MAX_VDD_LEVELS];
 	unsigned long cur_level;
-	spinlock_t lock;
+	struct mutex lock;
 };
 
 #define DEFINE_VDD_CLASS(_name, _set_vdd) \
@@ -61,7 +62,7 @@ struct clk_vdd_class {
 		.class_name = #_name, \
 		.set_vdd = _set_vdd, \
 		.cur_level = ARRAY_SIZE(_name.level_votes), \
-		.lock = __SPIN_LOCK_UNLOCKED(lock) \
+		.lock = __MUTEX_INITIALIZER(_name.lock) \
 	}
 
 enum handoff {
