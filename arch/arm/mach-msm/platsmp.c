@@ -183,9 +183,8 @@ static int __cpuinit release_secondary(unsigned int cpu)
 	    machine_is_msm8226_sim())
 		return krait_release_secondary_sim(0xf9088000, cpu);
 
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
-	    cpu_is_apq8064() || cpu_is_msm8627() || cpu_is_msm8960ab() ||
-						cpu_is_apq8064ab())
+	if (soc_class_is_msm8960() || soc_class_is_msm8930() ||
+	    soc_class_is_apq8064())
 		return krait_release_secondary(0x02088000, cpu);
 
 	if (cpu_is_msm8974())
