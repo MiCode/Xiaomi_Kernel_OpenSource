@@ -85,6 +85,8 @@ struct msm_jpeg_buf {
 
 	uint32_t num_of_mcu_rows;
 	uint32_t offset;
+	uint32_t pln2_off;
+	uint32_t pln2_len;
 };
 
 #define MSM_JPEG_HW_CMD_TYPE_READ      0
