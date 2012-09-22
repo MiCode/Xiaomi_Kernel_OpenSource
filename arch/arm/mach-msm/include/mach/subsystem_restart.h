@@ -70,6 +70,8 @@ extern void subsystem_put(void *subsystem);
 extern struct subsys_device *subsys_register(struct subsys_desc *desc);
 extern void subsys_unregister(struct subsys_device *dev);
 
+extern void subsys_default_online(struct subsys_device *dev);
+
 #else
 
 static inline int get_restart_level(void)
@@ -101,6 +103,8 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 }
 
 static inline void subsys_unregister(struct subsys_device *dev) { }
+
+static inline void subsys_default_online(struct subsys_device *dev) { }
 
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 

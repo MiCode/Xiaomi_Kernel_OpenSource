@@ -681,6 +681,7 @@ int mdm_common_create(struct platform_device  *pdev,
 		ret = PTR_ERR(mdm_subsys_dev);
 		goto fatal_err;
 	}
+	subsys_default_online(mdm_subsys_dev);
 
 	/* ERR_FATAL irq. */
 	irq = MSM_GPIO_TO_INT(mdm_drv->mdm2ap_errfatal_gpio);

@@ -354,6 +354,7 @@ static int __init charm_modem_probe(struct platform_device *pdev)
 		ret = PTR_ERR(charm_subsys);
 		goto fatal_err;
 	}
+	subsys_default_online(charm_subsys);
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
