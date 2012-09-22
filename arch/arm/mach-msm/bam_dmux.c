@@ -1809,6 +1809,10 @@ static void reconnect_to_bam(void)
 	in_global_reset = 0;
 	vote_dfab();
 	if (!power_management_only_mode) {
+		sps_disconnect(bam_tx_pipe);
+		sps_disconnect(bam_rx_pipe);
+		__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
+		__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
 		i = sps_device_reset(a2_device_handle);
 		if (i)
 			pr_err("%s: device reset failed rc = %d\n", __func__,
@@ -1861,12 +1865,6 @@ static void disconnect_to_bam(void)
 
 	/* tear down BAM connection */
 	INIT_COMPLETION(bam_connection_completion);
-	if (!power_management_only_mode) {
-		sps_disconnect(bam_tx_pipe);
-		sps_disconnect(bam_rx_pipe);
-		__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
-		__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
-	}
 	unvote_dfab();
 
 	mutex_lock(&bam_rx_pool_mutexlock);
