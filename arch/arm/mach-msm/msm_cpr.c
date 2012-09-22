@@ -871,12 +871,15 @@ static int __devinit msm_cpr_probe(struct platform_device *pdev)
 
 	if (!pdata) {
 		pr_err("CPR: Platform data is not available\n");
+		enable = false;
 		return -EIO;
 	}
 
 	cpr = devm_kzalloc(&pdev->dev, sizeof(struct msm_cpr), GFP_KERNEL);
-	if (!cpr)
+	if (!cpr) {
+		enable = false;
 		return -ENOMEM;
+	}
 
 	/* Initialize platform_data */
 	cpr->config = pdata;
@@ -991,6 +994,7 @@ err_reg_get:
 err_ioremap:
 	iounmap(base);
 out:
+	enable = false;
 	return res;
 }
 
