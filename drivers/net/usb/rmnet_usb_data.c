@@ -87,7 +87,6 @@ static int rmnet_usb_suspend(struct usb_interface *iface, pm_message_t message)
 {
 	struct usbnet		*unet;
 	struct rmnet_ctrl_dev	*dev;
-	int			time = 0;
 	int			retval = 0;
 
 	unet = usb_get_intfdata(iface);
@@ -107,19 +106,12 @@ static int rmnet_usb_suspend(struct usb_interface *iface, pm_message_t message)
 
 	retval = usbnet_suspend(iface, message);
 	if (!retval) {
-		if (message.event & PM_EVENT_SUSPEND) {
-			time = usb_wait_anchor_empty_timeout(&dev->tx_submitted,
-								1000);
-			if (!time)
-				usb_kill_anchored_urbs(&dev->tx_submitted);
-
-			retval = rmnet_usb_ctrl_stop_rx(dev);
-			iface->dev.power.power_state.event = message.event;
-		}
-		/*  TBD : do we need to set/clear usbnet->udev->reset_resume*/
-		} else
+		retval = rmnet_usb_ctrl_suspend(dev);
+		iface->dev.power.power_state.event = message.event;
+	} else {
 		dev_dbg(&iface->dev,
 			"%s: device is busy can not suspend\n", __func__);
+	}
 
 fail:
 	return retval;
