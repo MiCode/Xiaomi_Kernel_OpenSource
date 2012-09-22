@@ -24,7 +24,7 @@ endif
 
 obj-y += acpuclock.o
 obj-$(CONFIG_HW_PERF_EVENTS) += perf_trace_counters.o
-obj-$(CONFIG_ARCH_MSM_KRAIT) += acpuclock-krait.o
+obj-$(CONFIG_ARCH_MSM_KRAIT) += acpuclock-krait.o clock-krait.o
 ifdef CONFIG_ARCH_MSM_KRAIT
 obj-$(CONFIG_DEBUG_FS) += acpuclock-krait-debug.o
 endif
