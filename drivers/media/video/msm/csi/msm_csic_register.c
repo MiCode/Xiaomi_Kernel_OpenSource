@@ -16,11 +16,12 @@
 #include "msm_csi_register.h"
 
 int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index, struct msm_cam_server_dev *server_dev)
+	uint8_t csiphy_code_index, uint8_t csid_core_index,
+	struct msm_cam_server_dev *server_dev)
 {
 	int rc = -ENODEV;
 
-	p_mctl->csic_sdev = server_dev->csic_device[core_index];
+	p_mctl->csic_sdev = server_dev->csic_device[csid_core_index];
 	if (!p_mctl->csic_sdev)
 		goto out;
 	v4l2_set_subdev_hostdata(p_mctl->csic_sdev, p_mctl);

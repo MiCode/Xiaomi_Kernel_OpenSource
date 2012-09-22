@@ -1801,13 +1801,14 @@ static struct v4l2_subdev  *msm_cam_find_subdev_node(
 }
 
 int msm_mctl_find_sensor_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index)
+	uint8_t csiphy_core_index, uint8_t csid_core_index)
 {
 	int rc = -ENODEV;
 
 	v4l2_set_subdev_hostdata(p_mctl->sensor_sdev, p_mctl);
 
-	rc = msm_csi_register_subdevs(p_mctl, core_index, &g_server_dev);
+	rc = msm_csi_register_subdevs(p_mctl, csiphy_core_index,
+		csid_core_index, &g_server_dev);
 	if (rc < 0)
 		pr_err("%s: Could not find sensor subdevs\n", __func__);
 

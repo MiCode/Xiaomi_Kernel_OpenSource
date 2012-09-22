@@ -139,12 +139,14 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k4e1_data;
 
 struct msm_camera_device_platform_data msm_camera_device_data_csi1[] = {
 	{
+		.csiphy_core = 1,
 		.csid_core = 1,
 		.ioclk = {
 			.vfe_clk_rate = 192000000,
 		},
 	},
 	{
+		.csiphy_core = 1,
 		.csid_core = 1,
 		.ioclk = {
 			.vfe_clk_rate = 266667000,
@@ -154,12 +156,14 @@ struct msm_camera_device_platform_data msm_camera_device_data_csi1[] = {
 
 struct msm_camera_device_platform_data msm_camera_device_data_csi0[] = {
 	{
+		.csiphy_core = 0,
 		.csid_core = 0,
 		.ioclk = {
 			.vfe_clk_rate = 192000000,
 		},
 	},
 	{
+		.csiphy_core = 0,
 		.csid_core = 0,
 		.ioclk = {
 			.vfe_clk_rate = 266667000,
