@@ -747,6 +747,16 @@ fail_start:
 	return rc;
 }
 
+static inline int stop_streaming(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to move inst: %p to start done state\n", inst);
+	return rc;
+}
+
 static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct msm_vidc_inst *inst;
@@ -788,13 +798,11 @@ static int msm_vdec_stop_streaming(struct vb2_queue *q)
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (!inst->vb2_bufq[CAPTURE_PORT].streaming)
-			rc = msm_comm_try_state(inst,
-				MSM_VIDC_RELEASE_RESOURCES_DONE);
+			rc = stop_streaming(inst);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (!inst->vb2_bufq[OUTPUT_PORT].streaming)
-			rc = msm_comm_try_state(inst,
-				MSM_VIDC_RELEASE_RESOURCES_DONE);
+			rc = stop_streaming(inst);
 		break;
 	default:
 		dprintk(VIDC_ERR,
@@ -830,6 +838,12 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 		rc = msm_comm_flush(inst, dec->flags);
 		break;
 	case V4L2_DEC_CMD_STOP:
+		rc = msm_comm_release_scratch_buffers(inst);
+		if (rc)
+			pr_err("Failed to release scratch buffers: %d\n", rc);
+		rc = msm_comm_release_persist_buffers(inst);
+		if (rc)
+			pr_err("Failed to release persist buffers: %d\n", rc);
 		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
 		break;
 	default:

@@ -561,22 +561,69 @@ fail_mem_client:
 fail_nomem:
 	return rc;
 }
+static int msm_v4l2_release_output_buffers(struct msm_v4l2_vid_inst *v4l2_inst)
+{
+	struct list_head *ptr, *next;
+	struct buffer_info *bi;
+	struct v4l2_buffer buffer_info;
+	struct v4l2_plane plane;
+	int rc = 0;
+	list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
+		bi = list_entry(ptr, struct buffer_info, list);
+		if (bi->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+			buffer_info.type = bi->type;
+			plane.reserved[0] = bi->fd;
+			plane.reserved[1] = bi->buff_off;
+			plane.length = bi->size;
+			plane.m.userptr = bi->device_addr;
+			buffer_info.m.planes = &plane;
+			buffer_info.length = 1;
+			dprintk(VIDC_DBG,
+				"Releasing buffer: %d, %d, %d\n",
+				buffer_info.m.planes[0].reserved[0],
+				buffer_info.m.planes[0].reserved[1],
+				buffer_info.m.planes[0].length);
+			rc = msm_vidc_release_buf(&v4l2_inst->vidc_inst,
+				&buffer_info);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"Failed Release buffer: %d, %d, %d\n",
+					buffer_info.m.planes[0].reserved[0],
+					buffer_info.m.planes[0].reserved[1],
+					buffer_info.m.planes[0].length);
+			list_del(&bi->list);
+			if (bi->handle)
+				msm_smem_free(v4l2_inst->mem_client,
+					bi->handle);
+			kfree(bi);
+			}
+	}
+	return rc;
+}
 
 static int msm_v4l2_close(struct file *filp)
 {
-	int rc;
+	int rc = 0;
 	struct list_head *ptr, *next;
-	struct buffer_info *binfo;
+	struct buffer_info *bi;
 	struct msm_vidc_inst *vidc_inst;
 	struct msm_v4l2_vid_inst *v4l2_inst;
 	vidc_inst = get_vidc_inst(filp, NULL);
 	v4l2_inst = get_v4l2_inst(filp, NULL);
+	rc = msm_v4l2_release_output_buffers(v4l2_inst);
+	if (rc)
+		dprintk(VIDC_WARN,
+			"Failed in %s for release output buffers\n", __func__);
 	rc = msm_vidc_close(vidc_inst);
 	list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
-		binfo = list_entry(ptr, struct buffer_info, list);
-		list_del(&binfo->list);
-		msm_smem_free(v4l2_inst->mem_client, binfo->handle);
-		kfree(binfo);
+		bi = list_entry(ptr, struct buffer_info, list);
+		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			list_del(&bi->list);
+			if (bi->handle)
+				msm_smem_free(v4l2_inst->mem_client,
+					bi->handle);
+			kfree(bi);
+		}
 	}
 	msm_smem_delete_client(v4l2_inst->mem_client);
 	kfree(v4l2_inst);
@@ -630,38 +677,13 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 {
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
 	struct msm_v4l2_vid_inst *v4l2_inst;
-	struct list_head *ptr, *next;
-	int rc;
-	struct buffer_info *bi;
-	struct v4l2_buffer buffer_info;
-	struct v4l2_plane plane;
+	int rc = 0;
 	v4l2_inst = get_v4l2_inst(file, NULL);
-	if (b->count == 0) {
-		list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
-			bi = list_entry(ptr, struct buffer_info, list);
-			if (bi->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				buffer_info.type = bi->type;
-				plane.reserved[0] = bi->fd;
-				plane.reserved[1] = bi->buff_off;
-				plane.length = bi->size;
-				plane.m.userptr = bi->device_addr;
-				buffer_info.m.planes = &plane;
-				buffer_info.length = 1;
-				dprintk(VIDC_DBG,
-					"Releasing buffer: %d, %d, %d\n",
-					buffer_info.m.planes[0].reserved[0],
-					buffer_info.m.planes[0].reserved[1],
-					buffer_info.m.planes[0].length);
-				rc = msm_vidc_release_buf(v4l2_inst->vidc_inst,
-					&buffer_info);
-				list_del(&bi->list);
-				if (bi->handle)
-					msm_smem_free(v4l2_inst->mem_client,
-							bi->handle);
-				kfree(bi);
-			}
-		}
-	}
+	if (b->count == 0)
+		rc = msm_v4l2_release_output_buffers(v4l2_inst);
+	if (rc)
+		dprintk(VIDC_WARN,
+			"Failed in %s for release output buffers\n", __func__);
 	return msm_vidc_reqbufs((void *)vidc_inst, b);
 }
 
@@ -824,7 +846,15 @@ static int msm_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
 				struct v4l2_decoder_cmd *dec)
 {
+	struct msm_v4l2_vid_inst *v4l2_inst;
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	int rc = 0;
+	v4l2_inst = get_v4l2_inst(file, NULL);
+	if (dec->cmd == V4L2_DEC_CMD_STOP)
+		rc = msm_v4l2_release_output_buffers(v4l2_inst);
+	if (rc)
+		dprintk(VIDC_WARN,
+			"Failed in %s for release output buffers\n", __func__);
 	return msm_vidc_decoder_cmd((void *)vidc_inst, dec);
 }
 
