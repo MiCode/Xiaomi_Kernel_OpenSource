@@ -332,7 +332,7 @@ struct mpq_video_feed_info {
  * them to the dvb adapter.
  *
  * @dmx_init_func: Pointer to the function to be used
- *  to initialize demux of the udnerlying HW plugin.
+ *  to initialize demux of the underlying HW plugin.
  *
  * Return     error code
  *
@@ -359,6 +359,38 @@ void mpq_dmx_plugin_exit(void);
  * demux API set_source routine.
  */
 int mpq_dmx_set_source(struct dmx_demux *demux, const dmx_source_t *src);
+
+/**
+ * mpq_dmx_map_buffer - map user-space buffer into kernel space.
+ *
+ * @demux: The demux device.
+ * @dmx_buffer: The demux buffer from user-space, assumes that
+ * buffer handle is ION file-handle.
+ * @priv_handle: Saves ION-handle of the buffer imported by this function.
+ * @kernel_mem: Saves kernel mapped address of the buffer.
+ *
+ * Return     error code
+ *
+ * The function maps the buffer into kernel memory only if the buffer
+ * was not allocated with secure flag, otherwise the returned kernel
+ * memory address is set to NULL.
+ */
+int mpq_dmx_map_buffer(struct dmx_demux *demux, struct dmx_buffer *dmx_buffer,
+		void **priv_handle, void **kernel_mem);
+
+/**
+ * mpq_dmx_unmap_buffer - unmap user-space buffer from kernel space memory.
+ *
+ * @demux: The demux device.
+ * @priv_handle: ION-handle of the buffer returned from mpq_dmx_map_buffer.
+ *
+ * Return     error code
+ *
+ * The function unmaps the buffer from kernel memory only if the buffer
+ * was not allocated with secure flag.
+ */
+int mpq_dmx_unmap_buffer(struct dmx_demux *demux,
+		void *priv_handle);
 
 /**
  * mpq_dmx_init_video_feed - Initializes video feed
@@ -396,8 +428,7 @@ int mpq_dmx_terminate_video_feed(struct dvb_demux_feed *feed);
  *
  * Return     error code.
  */
-int mpq_dmx_decoder_fullness_init(
-		struct dvb_demux_feed *feed);
+int mpq_dmx_decoder_fullness_init(struct dvb_demux_feed *feed);
 
 /**
  * mpq_dmx_decoder_fullness_wait - Checks whether decoder buffer
@@ -408,8 +439,7 @@ int mpq_dmx_decoder_fullness_init(
  *
  * Return     error code.
  */
-int mpq_dmx_decoder_fullness_wait(
-		struct dvb_demux_feed *feed,
+int mpq_dmx_decoder_fullness_wait(struct dvb_demux_feed *feed,
 		size_t required_space);
 
 /**
@@ -422,8 +452,7 @@ int mpq_dmx_decoder_fullness_wait(
  *
  * Return     error code.
  */
-int mpq_dmx_decoder_fullness_abort(
-		struct dvb_demux_feed *feed);
+int mpq_dmx_decoder_fullness_abort(struct dvb_demux_feed *feed);
 
 /**
  * mpq_dmx_decoder_buffer_status - Returns the
@@ -452,9 +481,7 @@ int mpq_dmx_decoder_buffer_status(struct dvb_demux_feed *feed,
  * the packet and does not write them to the output buffer.
  * Scrambled packets are bypassed.
  */
-int mpq_dmx_process_video_packet(
-		struct dvb_demux_feed *feed,
-		const u8 *buf);
+int mpq_dmx_process_video_packet(struct dvb_demux_feed *feed, const u8 *buf);
 
 /**
  * mpq_dmx_process_pcr_packet - Extract PCR/STC pairs from
@@ -475,9 +502,7 @@ int mpq_dmx_process_video_packet(
  * The function callbacks dmxdev after extraction of the pcr/stc
  * pair.
  */
-int mpq_dmx_process_pcr_packet(
-			struct dvb_demux_feed *feed,
-			const u8 *buf);
+int mpq_dmx_process_pcr_packet(struct dvb_demux_feed *feed, const u8 *buf);
 
 /**
  * mpq_dmx_is_video_feed - Returns whether the PES feed

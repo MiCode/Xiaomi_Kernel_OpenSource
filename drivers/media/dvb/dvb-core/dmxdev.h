@@ -113,6 +113,8 @@ struct dmxdev_filter {
 	enum dmxdev_state state;
 	struct dmxdev *dev;
 	struct dvb_ringbuffer buffer;
+	void *priv_buff_handle;
+	enum dmx_buffer_mode buffer_mode;
 	u32 flush_data_len;
 
 	struct mutex mutex;
@@ -139,9 +141,10 @@ struct dmxdev {
 
 	int filternum;
 	int capabilities;
-#define DMXDEV_CAP_DUPLEX	0x1
-#define DMXDEV_CAP_PULL_MODE	0x2
-#define DMXDEV_CAP_INDEXING	0x4
+#define DMXDEV_CAP_DUPLEX	0x01
+#define DMXDEV_CAP_PULL_MODE	0x02
+#define DMXDEV_CAP_INDEXING	0x04
+#define DMXDEV_CAP_EXTERNAL_BUFFS_ONLY	0x08
 
 	enum dmx_playback_mode_t playback_mode;
 	dmx_source_t source;
@@ -153,12 +156,15 @@ struct dmxdev {
 	struct dmx_frontend *dvr_orig_fe;
 
 	struct dvb_ringbuffer dvr_buffer;
+	void *dvr_priv_buff_handle;
+	enum dmx_buffer_mode dvr_buffer_mode;
 	struct dmxdev_events_queue dvr_output_events;
 	struct dmxdev_filter *dvr_feed;
 	u32 dvr_flush_data_len;
 	int dvr_feeds_count;
 
 	struct dvb_ringbuffer dvr_input_buffer;
+	enum dmx_buffer_mode dvr_input_buffer_mode;
 	struct workqueue_struct *dvr_input_workqueue;
 
 #define DVR_BUFFER_SIZE (10*188*1024)

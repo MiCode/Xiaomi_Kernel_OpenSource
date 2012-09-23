@@ -1794,6 +1794,8 @@ int dvb_dmx_init(struct dvb_demux *dvbdemux)
 	dmx->release_ts_feed = dvbdmx_release_ts_feed;
 	dmx->allocate_section_feed = dvbdmx_allocate_section_feed;
 	dmx->release_section_feed = dvbdmx_release_section_feed;
+	dmx->map_buffer = NULL;
+	dmx->unmap_buffer = NULL;
 
 	dmx->add_frontend = dvbdmx_add_frontend;
 	dmx->remove_frontend = dvbdmx_remove_frontend;

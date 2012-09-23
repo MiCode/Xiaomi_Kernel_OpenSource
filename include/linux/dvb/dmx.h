@@ -307,6 +307,22 @@ struct dmx_filter_event {
 	} params;
 };
 
+/* Filter's buffer requirement returned in dmx_caps */
+struct dmx_buffer_requirement {
+	/* Buffer size alignment, 0 means no special requirement */
+	__u32 size_alignment;
+
+	/* Maximum buffer size allowed */
+	__u32 max_size;
+	__u32 flags;
+
+/* Buffer allocated as physically contiguous memory */
+#define DMX_BUFFER_CONTIGEOUS_MEM			0x1
+
+/* If the filter's data is decrypted, the buffer should be secured one */
+#define DMX_BUFFER_SECURED_IF_DECRYPTED		0x2
+};
+
 typedef struct dmx_caps {
 	__u32 caps;
 
@@ -363,6 +379,23 @@ typedef struct dmx_caps {
 
 	/* Max bitrate from single memory input. Mbit/sec */
 	int memory_input_max_bitrate;
+
+	struct dmx_buffer_requirement section;
+
+	/* For PES not sent to decoder */
+	struct dmx_buffer_requirement pes;
+
+	/* Recording buffer for recording of 188 bytes packets */
+	struct dmx_buffer_requirement recording_188_tsp;
+
+	/* Recording buffer for recording of 192 bytes packets */
+	struct dmx_buffer_requirement recording_192_tsp;
+
+	/* DVR input buffer for playback of 188 bytes packets */
+	struct dmx_buffer_requirement playback_188_tsp;
+
+	/* DVR input buffer for playback of 192 bytes packets */
+	struct dmx_buffer_requirement playback_192_tsp;
 } dmx_caps_t;
 
 typedef enum {
@@ -410,6 +443,28 @@ struct dmx_stc {
 	__u64 stc;		/* output: stc in 'base'*90 kHz units */
 };
 
+enum dmx_buffer_mode {
+	/*
+	 * demux buffers are allocated internally
+	 * by the demux driver. This is the default mode.
+	 * DMX_SET_BUFFER_SIZE can be used to set the size of
+	 * this buffer.
+	 */
+	DMX_BUFFER_MODE_INTERNAL,
+
+	/*
+	 * demux buffers are allocated externally and provided
+	 * to demux through DMX_SET_BUFFER.
+	 * When this mode is used DMX_SET_BUFFER_SIZE and
+	 * mmap are prohibited.
+	 */
+	DMX_BUFFER_MODE_EXTERNAL,
+};
+
+struct dmx_buffer {
+	unsigned int size;
+	int handle;
+};
 
 #define DMX_START                _IO('o', 41)
 #define DMX_STOP                 _IO('o', 42)
@@ -430,5 +485,7 @@ struct dmx_stc {
 #define DMX_FEED_DATA			 _IO('o', 58)
 #define DMX_SET_PLAYBACK_MODE	 _IOW('o', 59, enum dmx_playback_mode_t)
 #define DMX_GET_EVENT			 _IOR('o', 60, struct dmx_filter_event)
+#define DMX_SET_BUFFER_MODE		 _IOW('o', 61, enum dmx_buffer_mode)
+#define DMX_SET_BUFFER			 _IOW('o', 62, struct dmx_buffer)
 
 #endif /*_DVBDMX_H_*/

@@ -490,6 +490,8 @@ static int dvb_dvr_open(struct inode *inode, struct file *file)
 		dvb_ringbuffer_init(&dmxdev->dvr_buffer, mem, DVR_BUFFER_SIZE);
 		dvb_dmxdev_flush_events(&dmxdev->dvr_output_events);
 		dmxdev->dvr_feeds_count = 0;
+		dmxdev->dvr_buffer_mode = DMX_BUFFER_MODE_INTERNAL;
+		dmxdev->dvr_priv_buff_handle = NULL;
 
 		dvbdev->readers--;
 	} else if (!dvbdev->writers) {
@@ -517,10 +519,14 @@ static int dvb_dvr_open(struct inode *inode, struct file *file)
 
 		dmxdev->demux->disconnect_frontend(dmxdev->demux);
 		dmxdev->demux->connect_frontend(dmxdev->demux, front);
+		dmxdev->dvr_input_buffer_mode = DMX_BUFFER_MODE_INTERNAL;
 
 		dvb_ringbuffer_init(&dmxdev->dvr_input_buffer,
 							mem,
 							DVR_BUFFER_SIZE);
+
+		dmxdev->demux->dvr_input.priv_handle = NULL;
+		dmxdev->demux->dvr_input.ringbuff = &dmxdev->dvr_input_buffer;
 		dvbdev->writers--;
 	}
 
@@ -545,7 +551,16 @@ static int dvb_dvr_release(struct inode *inode, struct file *file)
 			dmxdev->dvr_buffer.data = NULL;
 			spin_unlock_irq(&dmxdev->lock);
 			wake_up_all(&dmxdev->dvr_buffer.queue);
-			vfree(mem);
+
+			if (dmxdev->dvr_buffer_mode == DMX_BUFFER_MODE_INTERNAL)
+				vfree(mem);
+		}
+
+		if ((dmxdev->dvr_buffer_mode == DMX_BUFFER_MODE_EXTERNAL) &&
+			dmxdev->dvr_priv_buff_handle) {
+			dmxdev->demux->unmap_buffer(dmxdev->demux,
+					dmxdev->dvr_priv_buff_handle);
+			dmxdev->dvr_priv_buff_handle = NULL;
 		}
 	} else {
 		int i;
@@ -589,7 +604,17 @@ static int dvb_dvr_release(struct inode *inode, struct file *file)
 			spin_lock_irq(&dmxdev->dvr_in_lock);
 			dmxdev->dvr_input_buffer.data = NULL;
 			spin_unlock_irq(&dmxdev->dvr_in_lock);
-			vfree(mem);
+
+			if (dmxdev->dvr_buffer_mode == DMX_BUFFER_MODE_INTERNAL)
+				vfree(mem);
+		}
+
+		if ((dmxdev->dvr_input_buffer_mode ==
+			DMX_BUFFER_MODE_EXTERNAL) &&
+			(dmxdev->demux->dvr_input.priv_handle)) {
+			dmxdev->demux->unmap_buffer(dmxdev->demux,
+					dmxdev->demux->dvr_input.priv_handle);
+			dmxdev->demux->dvr_input.priv_handle = NULL;
 		}
 	}
 	/* TODO */
@@ -611,6 +636,7 @@ static int dvb_dvr_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct dvb_device *dvbdev = filp->private_data;
 	struct dmxdev *dmxdev = dvbdev->priv;
 	struct dvb_ringbuffer *buffer;
+	enum dmx_buffer_mode buffer_mode;
 	int vma_size;
 	int buffer_size;
 	int ret;
@@ -627,10 +653,18 @@ static int dvb_dvr_mmap(struct file *filp, struct vm_area_struct *vma)
 		return -ENODEV;
 	}
 
-	if ((filp->f_flags & O_ACCMODE) == O_RDONLY)
+	if ((filp->f_flags & O_ACCMODE) == O_RDONLY) {
 		buffer = &dmxdev->dvr_buffer;
-	else
+		buffer_mode = dmxdev->dvr_buffer_mode;
+	} else {
 		buffer = &dmxdev->dvr_input_buffer;
+		buffer_mode = dmxdev->dvr_input_buffer_mode;
+	}
+
+	if (buffer_mode == DMX_BUFFER_MODE_EXTERNAL) {
+		mutex_unlock(&dmxdev->mutex);
+		return -EINVAL;
+	}
 
 	vma_size = vma->vm_end - vma->vm_start;
 
@@ -669,7 +703,8 @@ static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 	if (!dmxdev->demux->write)
 		return -EOPNOTSUPP;
 
-	if ((file->f_flags & O_ACCMODE) == O_RDONLY)
+	if (((file->f_flags & O_ACCMODE) == O_RDONLY) ||
+		(!src->data))
 		return -EINVAL;
 
 	if ((file->f_flags & O_NONBLOCK) &&
@@ -859,20 +894,23 @@ static int dvb_dvr_set_buffer_size(struct dmxdev *dmxdev,
 	void *newmem;
 	void *oldmem;
 	spinlock_t *lock;
+	enum dmx_buffer_mode buffer_mode;
 
 	dprintk("function : %s\n", __func__);
 
 	if ((f_flags & O_ACCMODE) == O_RDONLY) {
 		buf = &dmxdev->dvr_buffer;
 		lock = &dmxdev->lock;
+		buffer_mode = dmxdev->dvr_buffer_mode;
 	} else {
 		buf = &dmxdev->dvr_input_buffer;
 		lock = &dmxdev->dvr_in_lock;
+		buffer_mode = dmxdev->dvr_input_buffer_mode;
 	}
 
 	if (buf->size == size)
 		return 0;
-	if (!size)
+	if ((!size) || (buffer_mode == DMX_BUFFER_MODE_EXTERNAL))
 		return -EINVAL;
 
 	newmem = vmalloc_user(size);
@@ -899,6 +937,72 @@ static int dvb_dvr_set_buffer_size(struct dmxdev *dmxdev,
 	spin_unlock_irq(lock);
 
 	vfree(oldmem);
+
+	return 0;
+}
+
+static int dvb_dvr_set_buffer_mode(struct dmxdev *dmxdev,
+			unsigned int f_flags, enum dmx_buffer_mode mode)
+{
+	if ((mode != DMX_BUFFER_MODE_INTERNAL) &&
+		(mode != DMX_BUFFER_MODE_EXTERNAL))
+		return -EINVAL;
+
+	if ((mode == DMX_BUFFER_MODE_INTERNAL) &&
+		(dmxdev->capabilities & DMXDEV_CAP_EXTERNAL_BUFFS_ONLY))
+		return -EINVAL;
+
+	if ((mode == DMX_BUFFER_MODE_EXTERNAL) &&
+		(!dmxdev->demux->map_buffer || !dmxdev->demux->unmap_buffer))
+		return -EINVAL;
+
+	if ((f_flags & O_ACCMODE) == O_RDONLY)
+		dmxdev->dvr_buffer_mode = mode;
+	else
+		dmxdev->dvr_input_buffer_mode = mode;
+
+	return 0;
+}
+
+static int dvb_dvr_set_buffer(struct dmxdev *dmxdev,
+			unsigned int f_flags, struct dmx_buffer *dmx_buffer)
+{
+	struct dvb_ringbuffer *buf;
+	spinlock_t *lock;
+	enum dmx_buffer_mode buffer_mode;
+	void **buff_handle;
+	void *newmem;
+	void *oldmem;
+
+	if ((f_flags & O_ACCMODE) == O_RDONLY) {
+		buf = &dmxdev->dvr_buffer;
+		lock = &dmxdev->lock;
+		buffer_mode = dmxdev->dvr_buffer_mode;
+		buff_handle = &dmxdev->dvr_priv_buff_handle;
+	} else {
+		buf = &dmxdev->dvr_input_buffer;
+		lock = &dmxdev->dvr_in_lock;
+		buffer_mode = dmxdev->dvr_input_buffer_mode;
+		buff_handle = &dmxdev->demux->dvr_input.priv_handle;
+	}
+
+	if ((!dmx_buffer->size) ||
+		(buffer_mode == DMX_BUFFER_MODE_INTERNAL))
+		return -EINVAL;
+
+	oldmem = *buff_handle;
+	if (dmxdev->demux->map_buffer(dmxdev->demux, dmx_buffer,
+				buff_handle, &newmem))
+		return -ENOMEM;
+
+	spin_lock_irq(lock);
+	buf->data = newmem;
+	buf->size = dmx_buffer->size;
+	dvb_ringbuffer_reset(buf);
+	spin_unlock_irq(lock);
+
+	if (oldmem)
+		dmxdev->demux->unmap_buffer(dmxdev->demux, oldmem);
 
 	return 0;
 }
@@ -1058,7 +1162,7 @@ static int dvb_dmxdev_set_buffer_size(struct dmxdev_filter *dmxdevfilter,
 
 	if (buf->size == size)
 		return 0;
-	if (!size)
+	if ((!size) || (dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL))
 		return -EINVAL;
 	if (dmxdevfilter->state >= DMXDEV_STATE_GO)
 		return -EBUSY;
@@ -1078,6 +1182,85 @@ static int dvb_dmxdev_set_buffer_size(struct dmxdev_filter *dmxdevfilter,
 	spin_unlock_irq(&dmxdevfilter->dev->lock);
 
 	vfree(oldmem);
+	return 0;
+}
+
+static int dvb_dmxdev_set_buffer_mode(struct dmxdev_filter *dmxdevfilter,
+					enum dmx_buffer_mode mode)
+{
+	struct dvb_ringbuffer *buf = &dmxdevfilter->buffer;
+	struct dmxdev *dmxdev = dmxdevfilter->dev;
+	void *oldmem;
+
+	if (dmxdevfilter->state >= DMXDEV_STATE_GO)
+		return -EBUSY;
+
+	if ((mode != DMX_BUFFER_MODE_INTERNAL) &&
+		(mode != DMX_BUFFER_MODE_EXTERNAL))
+		return -EINVAL;
+
+	if ((mode == DMX_BUFFER_MODE_INTERNAL) &&
+		(dmxdev->capabilities & DMXDEV_CAP_EXTERNAL_BUFFS_ONLY))
+		return -EINVAL;
+
+	if ((mode == DMX_BUFFER_MODE_EXTERNAL) &&
+		(!dmxdev->demux->map_buffer || !dmxdev->demux->unmap_buffer))
+		return -EINVAL;
+
+	if (mode == dmxdevfilter->buffer_mode)
+		return 0;
+
+	oldmem = buf->data;
+	spin_lock_irq(&dmxdevfilter->dev->lock);
+	buf->data = NULL;
+	spin_unlock_irq(&dmxdevfilter->dev->lock);
+
+	dmxdevfilter->buffer_mode = mode;
+
+	if (mode == DMX_BUFFER_MODE_INTERNAL) {
+		/* switched from external to internal */
+		if (dmxdevfilter->priv_buff_handle) {
+			dmxdev->demux->unmap_buffer(dmxdev->demux,
+				dmxdevfilter->priv_buff_handle);
+			dmxdevfilter->priv_buff_handle = NULL;
+		}
+	} else if (oldmem) {
+		/* switched from internal to external */
+		vfree(oldmem);
+	}
+
+	return 0;
+}
+
+static int dvb_dmxdev_set_buffer(struct dmxdev_filter *dmxdevfilter,
+					struct dmx_buffer *buffer)
+{
+	struct dvb_ringbuffer *buf = &dmxdevfilter->buffer;
+	struct dmxdev *dmxdev = dmxdevfilter->dev;
+	void *newmem;
+	void *oldmem;
+
+	if (dmxdevfilter->state >= DMXDEV_STATE_GO)
+		return -EBUSY;
+
+	if ((!buffer->size) ||
+		(dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_INTERNAL))
+		return -EINVAL;
+
+	oldmem = dmxdevfilter->priv_buff_handle;
+	if (dmxdev->demux->map_buffer(dmxdev->demux, buffer,
+			&dmxdevfilter->priv_buff_handle, &newmem))
+		return -ENOMEM;
+
+	spin_lock_irq(&dmxdevfilter->dev->lock);
+	buf->data = newmem;
+	buf->size = buffer->size;
+	dvb_ringbuffer_reset(buf);
+	spin_unlock_irq(&dmxdevfilter->dev->lock);
+
+	if (oldmem)
+		dmxdev->demux->unmap_buffer(dmxdev->demux, oldmem);
+
 	return 0;
 }
 
@@ -1962,12 +2145,14 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 	tsfeed->priv = filter;
 
 	if (filter->params.pes.output == DMX_OUT_TS_TAP) {
-		tsfeed->buffer = &dmxdev->dvr_buffer;
+		tsfeed->buffer.ringbuff = &dmxdev->dvr_buffer;
+		tsfeed->buffer.priv_handle = dmxdev->dvr_priv_buff_handle;
 		if (!dmxdev->dvr_feeds_count)
 			dmxdev->dvr_feed = filter;
 		dmxdev->dvr_feeds_count++;
 	} else {
-		tsfeed->buffer = &filter->buffer;
+		tsfeed->buffer.ringbuff = &filter->buffer;
+		tsfeed->buffer.priv_handle = filter->priv_buff_handle;
 	}
 
 	if (tsfeed->data_ready_cb) {
@@ -2028,6 +2213,9 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 		dvb_dmxdev_filter_stop(filter);
 
 	if (!filter->buffer.data) {
+		if ((filter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) ||
+			(dmxdev->capabilities & DMXDEV_CAP_EXTERNAL_BUFFS_ONLY))
+			return -ENOMEM;
 		mem = vmalloc_user(filter->buffer.size);
 		if (!mem)
 			return -ENOMEM;
@@ -2105,7 +2293,8 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 		}
 
 		(*secfilter)->priv = filter;
-		(*secfilter)->buffer = &filter->buffer;
+		(*secfilter)->buffer.ringbuff = &filter->buffer;
+		(*secfilter)->buffer.priv_handle = filter->priv_buff_handle;
 
 		memcpy(&((*secfilter)->filter_value[3]),
 		       &(para->filter.filter[1]), DMX_FILTER_SIZE - 1);
@@ -2182,6 +2371,8 @@ static int dvb_demux_open(struct inode *inode, struct file *file)
 	mutex_init(&dmxdevfilter->mutex);
 	file->private_data = dmxdevfilter;
 
+	dmxdevfilter->buffer_mode = DMX_BUFFER_MODE_INTERNAL;
+	dmxdevfilter->priv_buff_handle = NULL;
 	dvb_ringbuffer_init(&dmxdevfilter->buffer, NULL, 8192);
 	dvb_dmxdev_flush_events(&dmxdevfilter->events);
 
@@ -2212,7 +2403,15 @@ static int dvb_dmxdev_filter_free(struct dmxdev *dmxdev,
 		spin_lock_irq(&dmxdev->lock);
 		dmxdevfilter->buffer.data = NULL;
 		spin_unlock_irq(&dmxdev->lock);
-		vfree(mem);
+		if (dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_INTERNAL)
+			vfree(mem);
+	}
+
+	if ((dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) &&
+		(dmxdevfilter->priv_buff_handle)) {
+		dmxdev->demux->unmap_buffer(dmxdev->demux,
+			dmxdevfilter->priv_buff_handle);
+		dmxdevfilter->priv_buff_handle = NULL;
 	}
 
 	dvb_dmxdev_filter_state_set(dmxdevfilter, DMXDEV_STATE_FREE);
@@ -2487,6 +2686,25 @@ static int dvb_demux_do_ioctl(struct file *file,
 		mutex_unlock(&dmxdevfilter->mutex);
 		break;
 
+	case DMX_SET_BUFFER_MODE:
+		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+			mutex_unlock(&dmxdev->mutex);
+			return -ERESTARTSYS;
+		}
+		ret = dvb_dmxdev_set_buffer_mode(dmxdevfilter,
+				*(enum dmx_buffer_mode *)parg);
+		mutex_unlock(&dmxdevfilter->mutex);
+		break;
+
+	case DMX_SET_BUFFER:
+		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+			mutex_unlock(&dmxdev->mutex);
+			return -ERESTARTSYS;
+		}
+		ret = dvb_dmxdev_set_buffer(dmxdevfilter, parg);
+		mutex_unlock(&dmxdevfilter->mutex);
+		break;
+
 	case DMX_GET_BUFFER_STATUS:
 		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
 			mutex_unlock(&dmxdev->mutex);
@@ -2679,7 +2897,8 @@ static int dvb_demux_mmap(struct file *filp, struct vm_area_struct *vma)
 		return -ERESTARTSYS;
 	}
 
-	if (!dmxdevfilter->buffer.data) {
+	if ((!dmxdevfilter->buffer.data) ||
+		(dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL)) {
 		mutex_unlock(&dmxdevfilter->mutex);
 		mutex_unlock(&dmxdev->mutex);
 		return -EINVAL;
@@ -2765,6 +2984,15 @@ static int dvb_dvr_do_ioctl(struct file *file,
 	switch (cmd) {
 	case DMX_SET_BUFFER_SIZE:
 		ret = dvb_dvr_set_buffer_size(dmxdev, file->f_flags, arg);
+		break;
+
+	case DMX_SET_BUFFER_MODE:
+		ret = dvb_dvr_set_buffer_mode(dmxdev, file->f_flags,
+			*(enum dmx_buffer_mode *)parg);
+		break;
+
+	case DMX_SET_BUFFER:
+		ret = dvb_dvr_set_buffer(dmxdev, file->f_flags, parg);
 		break;
 
 	case DMX_GET_BUFFER_STATUS:
