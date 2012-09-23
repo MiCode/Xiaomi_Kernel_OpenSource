@@ -205,6 +205,10 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 			done_count++;
 	}
 
+	/* Assign field value in case somehow got out of sync */
+	if (c_data->vc_format.mode == HAL_VCAP_MODE_INT && done_count == 1)
+		c_data->vc_action.top_field = !(irq & 0x1);
+
 	/* Double check expected buffers are done */
 	buf_num = c_data->vc_action.buf_num;
 	tot = c_data->vc_action.tot_buf;
@@ -248,6 +252,8 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 				VCAP_VC_BUF_OVERWRITE_EVENT;
 			v4l2_event_queue(dev->vfd, &v4l2_evt);
+			c_data->vc_action.top_field =
+				!c_data->vc_action.top_field;
 			continue;
 		}
 		buf = list_entry(c_data->vc_action.active.next,
@@ -261,6 +267,14 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 			c_data->vc_action.vc_ts,
 			1000000 / c_data->vc_format.frame_rate *
 			(done_count - 1 - i));
+		if (c_data->vc_format.mode == HAL_VCAP_MODE_INT) {
+			if (c_data->vc_action.top_field)
+				vb->v4l2_buf.field = V4L2_FIELD_TOP;
+			else
+				vb->v4l2_buf.field = V4L2_FIELD_BOTTOM;
+			c_data->vc_action.top_field =
+				!c_data->vc_action.top_field;
+		}
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		work_todo = true;
 		c_data->vc_action.buf[idx] = buf;
