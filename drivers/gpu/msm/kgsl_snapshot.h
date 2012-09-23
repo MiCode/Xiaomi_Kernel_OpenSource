@@ -311,5 +311,8 @@ void *kgsl_snapshot_indexed_registers(struct kgsl_device *device,
 int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	unsigned int gpuaddr, unsigned int size, unsigned int type);
 
+int kgsl_snapshot_have_object(struct kgsl_device *device, unsigned int ptbase,
+	unsigned int gpuaddr, unsigned int size);
+
 #endif
 #endif
