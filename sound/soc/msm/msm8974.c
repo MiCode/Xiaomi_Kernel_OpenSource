@@ -865,7 +865,20 @@ static struct snd_soc_dai_link msm8974_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-
+	{
+		.name = "MSM8974 Media2",
+		.stream_name = "MultiMedia2",
+		.cpu_dai_name	= "MultiMedia2",
+		.platform_name = "msm-pcm-dsp",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			 SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA2,
+	},
 	/* AUX PCM Backend DAI Links */
 	{
 		.name = LPASS_BE_AUXPCM_RX,
