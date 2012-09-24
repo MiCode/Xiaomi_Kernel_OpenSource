@@ -27,8 +27,6 @@ struct kgsl_process_private;
 #define KGSL_CACHE_OP_FLUSH     0x02
 #define KGSL_CACHE_OP_CLEAN     0x03
 
-/** Set if the memdesc describes cached memory */
-#define KGSL_MEMFLAGS_CACHED    0x00000001
 /** Set if the memdesc is mapped into all pagetables */
 #define KGSL_MEMFLAGS_GLOBAL    0x00000002
 
@@ -136,6 +134,7 @@ kgsl_allocate(struct kgsl_memdesc *memdesc,
 {
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
 		return kgsl_sharedmem_ebimem(memdesc, pagetable, size);
+	memdesc->priv |= (KGSL_MEMTYPE_KERNEL << KGSL_MEMTYPE_SHIFT);
 	return kgsl_sharedmem_page_alloc(memdesc, pagetable, size);
 }
 
@@ -144,10 +143,17 @@ kgsl_allocate_user(struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable,
 		size_t size, unsigned int flags)
 {
+	int ret;
+	unsigned int mask = (KGSL_MEMTYPE_MASK | KGSL_MEMFLAGS_GPUREADONLY);
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
-		return kgsl_sharedmem_ebimem_user(memdesc, pagetable, size,
+		ret = kgsl_sharedmem_ebimem_user(memdesc, pagetable, size,
 						  flags);
-	return kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size, flags);
+	else
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size,
+							flags);
+	if (ret == 0)
+		memdesc->priv |= flags & mask;
+	return ret;
 }
 
 static inline int

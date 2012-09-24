@@ -540,7 +540,6 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 
 	memdesc->size = size;
 	memdesc->pagetable = pagetable;
-	memdesc->priv = KGSL_MEMFLAGS_CACHED;
 	memdesc->ops = &kgsl_page_alloc_ops;
 
 	memdesc->sg = kgsl_sg_alloc(sglen);
