@@ -796,6 +796,10 @@ static inline int mdp4_lcdc_off(struct platform_device *pdev)
 {
 	return 0;
 }
+static inline int mdp4_mddi_off(struct platform_device *pdev)
+{
+	return 0;
+}
 static inline int mdp4_dsi_cmd_on(struct platform_device *pdev)
 {
 	return 0;
@@ -808,6 +812,19 @@ static inline int mdp4_lcdc_on(struct platform_device *pdev)
 {
 	return 0;
 }
+static inline int mdp4_mddi_on(struct platform_device *pdev)
+{
+	return 0;
+}
+#endif
+
+
+#ifndef CONFIG_FB_MSM_MDDI
+static inline void mdp4_mddi_rdptr_init(int cndx)
+{
+	/* empty */
+}
+
 #endif
 
 void set_cont_splashScreen_status(int);
