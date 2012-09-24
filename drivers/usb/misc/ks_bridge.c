@@ -168,11 +168,10 @@ read_start:
 		size_t len;
 
 		pkt = list_first_entry(&ksb->to_ks_list, struct data_pkt, list);
-		len = min_t(size_t, space, pkt->len);
-		pkt->n_read += len;
+		len = min_t(size_t, space, pkt->len - pkt->n_read);
 		spin_unlock_irqrestore(&ksb->lock, flags);
 
-		ret = copy_to_user(buf + copied, pkt->buf, len);
+		ret = copy_to_user(buf + copied, pkt->buf + pkt->n_read, len);
 		if (ret) {
 			pr_err("copy_to_user failed err:%d\n", ret);
 			ksb_free_data_pkt(pkt);
@@ -180,6 +179,7 @@ read_start:
 			return ret;
 		}
 
+		pkt->n_read += len;
 		space -= len;
 		copied += len;
 
