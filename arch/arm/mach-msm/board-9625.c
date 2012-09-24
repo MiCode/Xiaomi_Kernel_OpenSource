@@ -37,6 +37,7 @@
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
+#include <mach/mpm.h>
 #include "clock.h"
 #include "modem_notifier.h"
 #include "lpm_resources.h"
@@ -124,10 +125,22 @@ static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
 	{}
 };
 
+static struct of_device_id mpm_match[] __initdata = {
+	{.compatible = "qcom,mpm-v2", },
+	{},
+};
+
 void __init msm9625_init_irq(void)
 {
+	struct device_node *node;
 	l2x0_of_init(L2CC_AUX_CTRL, L2X0_AUX_CTRL_MASK);
 	of_irq_init(irq_match);
+	node = of_find_matching_node(NULL, mpm_match);
+
+	WARN_ON(!node);
+
+	if (node)
+		of_mpm_init(node);
 }
 
 static void __init msm_dt_timer_init(void)
