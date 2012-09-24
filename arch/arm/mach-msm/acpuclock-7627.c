@@ -719,6 +719,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 				 */
 				clk_enable(pll_clk[backup_s->pll].clk);
 				acpuclk_set_div(backup_s);
+				update_jiffies(cpu, backup_s->lpj);
 			}
 			/* Make sure PLL4 is off before reprogramming */
 			if ((plls_enabled & (1 << tgt_s->pll))) {
@@ -736,6 +737,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 				 */
 				clk_enable(pll_clk[backup_s->pll].clk);
 				acpuclk_set_div(backup_s);
+				update_jiffies(cpu, backup_s->lpj);
 			}
 		}
 
