@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 #include <linux/power_supply.h>
 #include <linux/spmi.h>
+#include <linux/rtc.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/mfd/pm8xxx/batterydata-lib.h>
 
@@ -76,6 +77,8 @@
 #define IAVG_START			600
 #define SOC_ZERO			0xFF
 
+#define IAVG_SAMPLES 16
+
 #define QPNP_BMS_DEV_NAME "qcom,qpnp-bms"
 
 struct soc_params {
@@ -125,6 +128,7 @@ struct qpnp_bms_chip {
 
 	struct mutex			bms_output_lock;
 	struct mutex			last_ocv_uv_mutex;
+	struct mutex			soc_invalidation_mutex;
 
 	unsigned int			start_percent;
 	unsigned int			end_percent;
@@ -136,6 +140,26 @@ struct qpnp_bms_chip {
 	int				low_soc_calc_threshold;
 	int				low_soc_calculate_soc_ms;
 	int				calculate_soc_ms;
+
+	uint16_t			ocv_reading_at_100;
+	int64_t				cc_reading_at_100;
+	uint16_t			prev_last_good_ocv_raw;
+	int				last_ocv_uv;
+	int				last_cc_uah;
+	unsigned long			tm_sec;
+	bool				first_time_calc_soc;
+	bool				first_time_calc_uuc;
+	int				pon_ocv_uv;
+
+	int				iavg_samples_ma[IAVG_SAMPLES];
+	int				iavg_index;
+	int				iavg_num_samples;
+	struct timespec			t_soc_queried;
+	int				last_soc;
+
+	int				charge_time_us;
+	int				catch_up_time_us;
+	struct single_row_lut		*adjusted_fcc_temp_lut;
 
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
@@ -407,18 +431,638 @@ static int get_battery_voltage(int *result_uv)
 	return 0;
 }
 
+#define CC_36_BIT_MASK 0xFFFFFFFFFLL
+
+static int read_cc_raw(struct qpnp_bms_chip *chip, int64_t *reading)
+{
+	int64_t raw_reading;
+	int rc;
+
+	rc = qpnp_read_wrapper(chip, (u8 *)&raw_reading,
+			chip->base + BMS1_CC_DATA0, 5);
+	if (rc) {
+		pr_err("Error reading cc: rc = %d\n", rc);
+		return -ENXIO;
+	}
+
+	raw_reading = raw_reading & CC_36_BIT_MASK;
+	/* convert 36 bit signed value into 64 signed value */
+	*reading = (raw_reading >> 35) == 0LL ?
+		raw_reading : ((-1LL ^ CC_36_BIT_MASK) | raw_reading);
+	pr_debug("before conversion: %llx, after conversion: %llx\n",
+			raw_reading, *reading);
+
+	return 0;
+}
+
+static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
+				struct raw_soc_params *raw)
+{
+	chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
+	raw->last_good_ocv_uv = convert_vbatt_raw_to_uv(chip,
+					raw->last_good_ocv_raw);
+	chip->last_ocv_uv = raw->last_good_ocv_uv;
+}
+
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw)
 {
-	/* TODO add real reads */
+	int rc;
+
+	mutex_lock(&chip->bms_output_lock);
+	lock_output_data(chip);
+
+	rc = qpnp_read_wrapper(chip, (u8 *)&raw->last_good_ocv_raw,
+			chip->base + BMS1_OCV_FOR_SOC_DATA0, 2);
+	if (rc) {
+		pr_err("Error reading ocv: rc = %d\n", rc);
+		return -ENXIO;
+	}
+
+	rc = read_cc_raw(chip, &raw->cc);
+	if (rc) {
+		pr_err("Failed to read raw cc data, rc = %d\n", rc);
+		return rc;
+	}
+
+	unlock_output_data(chip);
+	mutex_unlock(&chip->bms_output_lock);
+
+	if (chip->prev_last_good_ocv_raw == 0) {
+		convert_and_store_ocv(chip, raw);
+		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
+	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
+		convert_and_store_ocv(chip, raw);
+		/* forget the old cc value upon ocv */
+		chip->last_cc_uah = 0;
+	} else {
+		raw->last_good_ocv_uv = chip->last_ocv_uv;
+	}
+
+	/* fake a high OCV if done charging */
+	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw) {
+		chip->ocv_reading_at_100 = 0;
+		chip->cc_reading_at_100 = 0;
+	} else {
+		/*
+		 * force 100% ocv by selecting the highest voltage the
+		 * battery could ever reach
+		 */
+		raw->last_good_ocv_uv = chip->max_voltage_uv;
+		chip->last_ocv_uv = chip->max_voltage_uv;
+	}
+	pr_debug("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
+			raw->last_good_ocv_raw, raw->last_good_ocv_uv);
+	pr_debug("cc_raw= 0x%llx\n", raw->cc);
 	return 0;
+}
+
+static int calculate_pc(struct qpnp_bms_chip *chip, int ocv_uv,
+							int batt_temp)
+{
+	int pc;
+
+	pc = interpolate_pc(chip->pc_temp_ocv_lut,
+			batt_temp / 10, ocv_uv / 1000);
+	pr_debug("pc = %u %% for ocv = %d uv batt_temp = %d\n",
+					pc, ocv_uv, batt_temp);
+	/* Multiply the initial FCC value by the scale factor. */
+	return pc;
+}
+
+static int calculate_fcc(struct qpnp_bms_chip *chip, int batt_temp)
+{
+	int fcc_uah;
+
+	if (chip->adjusted_fcc_temp_lut == NULL) {
+		/* interpolate_fcc returns a mv value. */
+		fcc_uah = interpolate_fcc(chip->fcc_temp_lut,
+						batt_temp) * 1000;
+		pr_debug("fcc = %d uAh\n", fcc_uah);
+		return fcc_uah;
+	} else {
+		return 1000 * interpolate_fcc(chip->adjusted_fcc_temp_lut,
+				batt_temp);
+	}
+}
+
+/* calculate remaining charge at the time of ocv */
+static int calculate_ocv_charge(struct qpnp_bms_chip *chip,
+						struct raw_soc_params *raw,
+						int fcc_uah,
+						int batt_temp)
+{
+	int  ocv_uv, pc;
+
+	ocv_uv = raw->last_good_ocv_uv;
+	pc = calculate_pc(chip, ocv_uv, batt_temp);
+	pr_debug("ocv_uv = %d pc = %d\n", ocv_uv, pc);
+	return (fcc_uah * pc) / 100;
+}
+
+#define CC_RESOLUTION_N		542535
+#define CC_RESOLUTION_D		100000
+
+static s64 cc_to_uv(s64 cc)
+{
+	return div_s64(cc * CC_RESOLUTION_N, CC_RESOLUTION_D);
+}
+
+#define CC_READING_TICKS	56
+#define SLEEP_CLK_HZ		32764
+#define SECONDS_PER_HOUR	3600
+
+static s64 cc_uv_to_nvh(s64 cc_uv)
+{
+	return div_s64(cc_uv * CC_READING_TICKS * 1000,
+			SLEEP_CLK_HZ * SECONDS_PER_HOUR);
+}
+
+/**
+ * calculate_cc-
+ * @chip:		the bms chip pointer
+ * @cc:			the cc reading from bms h/w
+ * @val:		return value
+ * @coulomb_counter:	adjusted coulomb counter for 100%
+ *
+ * RETURNS: in val pointer coulomb counter based charger in uAh
+ *          (micro Amp hour)
+ */
+static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
+{
+	int64_t cc_voltage_uv, cc_nvh, cc_uah;
+	cc_voltage_uv = cc;
+	cc_voltage_uv -= chip->cc_reading_at_100;
+	pr_debug("cc = %lld. after subtracting 0x%llx cc = %lld\n",
+					cc, chip->cc_reading_at_100,
+					cc_voltage_uv);
+	cc_voltage_uv = cc_to_uv(cc_voltage_uv);
+	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv, QPNP_ADC_GAIN_NV);
+	pr_debug("cc_voltage_uv = %lld uv\n", cc_voltage_uv);
+	cc_nvh = cc_uv_to_nvh(cc_voltage_uv);
+	pr_debug("cc_nvh = %lld nano_volt_hour\n", cc_nvh);
+	cc_uah = div_s64(cc_nvh, chip->r_sense_mohm);
+	/* cc_raw had 4 bits of extra precision.
+	   By now it should be within 32 bit range */
+	return (int)cc_uah;
+}
+
+static int get_rbatt(struct qpnp_bms_chip *chip,
+					int soc_rbatt_mohm, int batt_temp)
+{
+	int rbatt_mohm, scalefactor;
+
+	rbatt_mohm = chip->default_rbatt_mohm;
+	pr_debug("rbatt before scaling = %d\n", rbatt_mohm);
+	if (chip->rbatt_sf_lut == NULL)  {
+		pr_debug("RBATT = %d\n", rbatt_mohm);
+		return rbatt_mohm;
+	}
+	/* Convert the batt_temp to DegC from deciDegC */
+	batt_temp = batt_temp / 10;
+	scalefactor = interpolate_scalingfactor(chip->rbatt_sf_lut,
+						batt_temp, soc_rbatt_mohm);
+	pr_debug("rbatt sf = %d for batt_temp = %d, soc_rbatt = %d\n",
+				scalefactor, batt_temp, soc_rbatt_mohm);
+	rbatt_mohm = (rbatt_mohm * scalefactor) / 100;
+
+	rbatt_mohm += chip->r_conn_mohm;
+	pr_debug("adding r_conn_mohm = %d rbatt = %d\n",
+				chip->r_conn_mohm, rbatt_mohm);
+
+	pr_debug("RBATT = %d\n", rbatt_mohm);
+	return rbatt_mohm;
+}
+
+static void calculate_iavg(struct qpnp_bms_chip *chip, int cc_uah,
+				int *iavg_ua)
+{
+	int delta_cc_uah, delta_time_s, rc;
+	struct rtc_time tm;
+	struct rtc_device *rtc;
+	unsigned long now_tm_sec = 0;
+
+	rc = 0;
+	/* if anything fails report the previous iavg_ua */
+	*iavg_ua = chip->prev_iavg_ua;
+
+	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+	if (rtc == NULL) {
+		pr_err("%s: unable to open rtc device (%s)\n",
+			__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
+		goto out;
+	}
+
+	rc = rtc_read_time(rtc, &tm);
+	if (rc) {
+		pr_err("Error reading rtc device (%s) : %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto out;
+	}
+
+	rc = rtc_valid_tm(&tm);
+	if (rc) {
+		pr_err("Invalid RTC time (%s): %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto out;
+	}
+	rtc_tm_to_time(&tm, &now_tm_sec);
+
+	if (chip->tm_sec == 0) {
+		get_battery_current(chip, iavg_ua);
+		goto out;
+	}
+
+	delta_time_s = (now_tm_sec - chip->tm_sec);
+
+	/* use the previous iavg if called within 15 seconds */
+	if (delta_time_s < 15) {
+		*iavg_ua = chip->prev_iavg_ua;
+		goto out;
+	}
+
+	delta_cc_uah = cc_uah - chip->last_cc_uah;
+
+	*iavg_ua = div_s64((s64)delta_cc_uah * 3600, delta_time_s);
+
+	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_s = %d delta_cc = %d iavg_ua = %d\n",
+				chip->tm_sec, now_tm_sec,
+				delta_time_s, delta_cc_uah, (int)*iavg_ua);
+
+out:
+	/* remember the iavg */
+	chip->prev_iavg_ua = *iavg_ua;
+
+	/* remember cc_uah */
+	chip->last_cc_uah = cc_uah;
+
+	/* remember this time */
+	chip->tm_sec = now_tm_sec;
+}
+
+static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
+					struct soc_params *params,
+					int batt_temp, int uuc_iavg_ma,
+					int *ret_pc_unusable)
+{
+	int unusable_uv, pc_unusable, uuc_uah;
+	int i = 0;
+	int ocv_mv;
+	int batt_temp_degc = batt_temp / 10;
+	int rbatt_mohm;
+	int delta_uv;
+	int prev_delta_uv = 0;
+	int prev_rbatt_mohm = 0;
+	int uuc_rbatt_mohm;
+
+	for (i = 0; i <= 100; i++) {
+		ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut,
+				batt_temp_degc, i);
+		rbatt_mohm = get_rbatt(chip, i, batt_temp);
+		unusable_uv = (rbatt_mohm * uuc_iavg_ma)
+							+ (chip->v_cutoff_uv);
+		delta_uv = ocv_mv * 1000 - unusable_uv;
+
+		pr_debug("soc = %d ocv = %d rbat = %d u_uv = %d delta_v = %d\n",
+				i, ocv_mv, rbatt_mohm, unusable_uv, delta_uv);
+
+		if (delta_uv > 0)
+			break;
+
+		prev_delta_uv = delta_uv;
+		prev_rbatt_mohm = rbatt_mohm;
+	}
+
+	uuc_rbatt_mohm = linear_interpolate(rbatt_mohm, delta_uv,
+					prev_rbatt_mohm, prev_delta_uv,
+					0);
+
+	unusable_uv = (uuc_rbatt_mohm * uuc_iavg_ma) + (chip->v_cutoff_uv);
+
+	pc_unusable = calculate_pc(chip, unusable_uv, batt_temp);
+	uuc_uah = (params->fcc_uah * pc_unusable) / 100;
+	pr_debug("For uuc_iavg_ma = %d, unusable_rbatt = %d unusable_uv = %d unusable_pc = %d uuc = %d\n",
+					uuc_iavg_ma,
+					uuc_rbatt_mohm, unusable_uv,
+					pc_unusable, uuc_uah);
+	*ret_pc_unusable = pc_unusable;
+	return uuc_uah;
+}
+
+static int adjust_uuc(struct qpnp_bms_chip *chip,
+			struct soc_params *params,
+			int new_pc_unusable,
+			int new_uuc_uah,
+			int batt_temp)
+{
+	int new_unusable_mv, new_iavg_ma;
+	int batt_temp_degc = batt_temp / 10;
+
+	if (chip->prev_pc_unusable == -EINVAL
+		|| abs(chip->prev_pc_unusable - new_pc_unusable) <= 1) {
+		chip->prev_pc_unusable = new_pc_unusable;
+		return new_uuc_uah;
+	}
+
+	/* the uuc is trying to change more than 1% restrict it */
+	if (new_pc_unusable > chip->prev_pc_unusable)
+		chip->prev_pc_unusable++;
+	else
+		chip->prev_pc_unusable--;
+
+	new_uuc_uah = (params->fcc_uah * chip->prev_pc_unusable) / 100;
+
+	/* also find update the iavg_ma accordingly */
+	new_unusable_mv = interpolate_ocv(chip->pc_temp_ocv_lut,
+			batt_temp_degc, chip->prev_pc_unusable);
+	if (new_unusable_mv < chip->v_cutoff_uv/1000)
+		new_unusable_mv = chip->v_cutoff_uv/1000;
+
+	new_iavg_ma = (new_unusable_mv * 1000 - chip->v_cutoff_uv)
+						/ params->rbatt;
+	if (new_iavg_ma == 0)
+		new_iavg_ma = 1;
+	chip->prev_uuc_iavg_ma = new_iavg_ma;
+	pr_debug("Restricting UUC to %d (%d%%) unusable_mv = %d iavg_ma = %d\n",
+					new_uuc_uah, chip->prev_pc_unusable,
+					new_unusable_mv, new_iavg_ma);
+
+	return new_uuc_uah;
+}
+
+#define CHARGING_IAVG_MA 250
+#define MIN_SECONDS_FOR_VALID_SAMPLE	20
+static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
+					struct soc_params *params,
+					int batt_temp)
+{
+	int uuc_uah_iavg;
+	int i;
+	int uuc_iavg_ma = params->iavg_ua / 1000;
+	int pc_unusable;
+
+	/*
+	 * if called first time, fill all the samples with
+	 * the shutdown_iavg_ma
+	 */
+	if (chip->first_time_calc_uuc && chip->shutdown_iavg_ma != 0) {
+		pr_debug("Using shutdown_iavg_ma = %d in all samples\n",
+				chip->shutdown_iavg_ma);
+		for (i = 0; i < IAVG_SAMPLES; i++)
+			chip->iavg_samples_ma[i] = chip->shutdown_iavg_ma;
+
+		chip->iavg_index = 0;
+		chip->iavg_num_samples = IAVG_SAMPLES;
+	}
+
+	/*
+	 * if charging use a nominal avg current to keep
+	 * a reasonable UUC while charging
+	 */
+	if (uuc_iavg_ma < 0)
+		uuc_iavg_ma = CHARGING_IAVG_MA;
+	chip->iavg_samples_ma[chip->iavg_index] = uuc_iavg_ma;
+	chip->iavg_index = (chip->iavg_index + 1) % IAVG_SAMPLES;
+	chip->iavg_num_samples++;
+	if (chip->iavg_num_samples >= IAVG_SAMPLES)
+		chip->iavg_num_samples = IAVG_SAMPLES;
+
+	/* now that this sample is added calcualte the average */
+	uuc_iavg_ma = 0;
+	if (chip->iavg_num_samples != 0) {
+		for (i = 0; i < chip->iavg_num_samples; i++) {
+			pr_debug("iavg_samples_ma[%d] = %d\n", i,
+					chip->iavg_samples_ma[i]);
+			uuc_iavg_ma += chip->iavg_samples_ma[i];
+		}
+
+		uuc_iavg_ma = DIV_ROUND_CLOSEST(uuc_iavg_ma,
+						chip->iavg_num_samples);
+	}
+
+	uuc_uah_iavg = calculate_termination_uuc(chip, params, uuc_iavg_ma,
+						batt_temp, &pc_unusable);
+	pr_debug("uuc_iavg_ma = %d uuc with iavg = %d\n",
+						uuc_iavg_ma, uuc_uah_iavg);
+
+	chip->prev_uuc_iavg_ma = uuc_iavg_ma;
+	/* restrict the uuc such that it can increase only by one percent */
+	uuc_uah_iavg = adjust_uuc(chip, params, pc_unusable,
+					uuc_uah_iavg, batt_temp);
+
+	chip->first_time_calc_uuc = 0;
+	return uuc_uah_iavg;
+}
+
+static void find_ocv_for_soc(struct qpnp_bms_chip *chip,
+				struct soc_params *params,
+				int batt_temp,
+				int shutdown_soc,
+				int *ret_ocv_uv)
+{
+	s64 ocv_charge_uah;
+	int pc, new_pc;
+	int batt_temp_degc = batt_temp / 10;
+	int ocv_uv;
+
+	ocv_charge_uah = (s64)shutdown_soc
+				* (params->fcc_uah - params->uuc_uah);
+	ocv_charge_uah = div_s64(ocv_charge_uah, 100)
+				+ params->cc_uah + params->uuc_uah;
+	pc = DIV_ROUND_CLOSEST((int)ocv_charge_uah * 100, params->fcc_uah);
+	pc = clamp(pc, 0, 100);
+
+	ocv_uv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
+
+	pr_debug("s_soc = %d, fcc = %d uuc = %d rc = %d, pc = %d, ocv mv = %d\n",
+					shutdown_soc, params->fcc_uah,
+					params->uuc_uah, (int)ocv_charge_uah,
+					pc, ocv_uv);
+	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv_uv);
+	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv_uv);
+
+	while (abs(new_pc - pc) > 1) {
+		int delta_mv = 5;
+
+		if (new_pc > pc)
+			delta_mv = -1 * delta_mv;
+
+		ocv_uv = ocv_uv + delta_mv;
+		new_pc = interpolate_pc(chip->pc_temp_ocv_lut,
+				batt_temp_degc, ocv_uv);
+		pr_debug("test revlookup pc = %d for ocv = %d\n",
+				new_pc, ocv_uv);
+	}
+
+	*ret_ocv_uv = ocv_uv * 1000;
+	params->ocv_charge_uah = (int)ocv_charge_uah;
+}
+
+static void calculate_soc_params(struct qpnp_bms_chip *chip,
+						struct raw_soc_params *raw,
+						struct soc_params *params,
+						int batt_temp)
+{
+	int soc_rbatt;
+
+	params->fcc_uah = calculate_fcc(chip, batt_temp);
+	pr_debug("FCC = %uuAh batt_temp = %d\n", params->fcc_uah, batt_temp);
+
+	/* calculate remainging charge */
+	params->ocv_charge_uah = calculate_ocv_charge(
+						chip, raw,
+						params->fcc_uah,
+						batt_temp);
+	pr_debug("ocv_charge_uah = %uuAh\n", params->ocv_charge_uah);
+
+	/* calculate cc micro_volt_hour */
+	params->cc_uah = calculate_cc(chip, raw->cc);
+	pr_debug("cc_uah = %duAh raw->cc = %llx cc = %lld after subtracting %llx\n",
+				params->cc_uah, raw->cc,
+				(int64_t)raw->cc - chip->cc_reading_at_100,
+				chip->cc_reading_at_100);
+
+	soc_rbatt = ((params->ocv_charge_uah - params->cc_uah) * 100)
+							/ params->fcc_uah;
+	if (soc_rbatt < 0)
+		soc_rbatt = 0;
+	params->rbatt = get_rbatt(chip, soc_rbatt, batt_temp);
+
+	calculate_iavg(chip, params->cc_uah, &params->iavg_ua);
+
+	params->uuc_uah = calculate_unusable_charge_uah(chip, params,
+							batt_temp);
+	pr_debug("UUC = %uuAh\n", params->uuc_uah);
+}
+
+static bool is_shutdown_soc_within_limits(struct qpnp_bms_chip *chip, int soc)
+{
+	if (chip->shutdown_soc_invalid) {
+		pr_debug("NOT forcing shutdown soc = %d\n", chip->shutdown_soc);
+		return 0;
+	}
+
+	if (abs(chip->shutdown_soc - soc) > chip->shutdown_soc_valid_limit) {
+		pr_debug("rejecting shutdown soc = %d, soc = %d limit = %d\n",
+			chip->shutdown_soc, soc,
+			chip->shutdown_soc_valid_limit);
+		chip->shutdown_soc_invalid = 1;
+		return 0;
+	}
+
+	return 1;
+}
+
+static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
+							int soc, int batt_temp)
+{
+	pr_debug("Do not adjust\n");
+	return soc;
 }
 
 static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 					struct raw_soc_params *raw,
 					int batt_temp)
 {
-	chip->calculated_soc = 50;
+	int soc, new_ocv_uv;
+	int shutdown_soc, new_calculated_soc, remaining_usable_charge_uah;
+	struct soc_params params;
+
+	calculate_soc_params(chip, raw, &params, batt_temp);
+	/* calculate remaining usable charge */
+	remaining_usable_charge_uah = params.ocv_charge_uah
+					- params.cc_uah
+					- params.uuc_uah;
+
+	pr_debug("RUC = %duAh\n", remaining_usable_charge_uah);
+	if (params.fcc_uah - params.uuc_uah <= 0) {
+		pr_warn("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
+						params.fcc_uah,
+						params.uuc_uah);
+		soc = 0;
+	} else {
+		soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
+					(params.fcc_uah
+						- params.uuc_uah));
+	}
+
+	if (chip->first_time_calc_soc && soc < 0) {
+		/*
+		 * first time calcualtion and the pon ocv  is too low resulting
+		 * in a bad soc. Adjust ocv to get 0 soc
+		 */
+		pr_debug("soc is %d, adjusting pon ocv to make it 0\n", soc);
+		find_ocv_for_soc(chip, &params, batt_temp, 0, &new_ocv_uv);
+		chip->last_ocv_uv = new_ocv_uv;
+
+		remaining_usable_charge_uah = params.ocv_charge_uah
+					- params.cc_uah
+					- params.uuc_uah;
+
+		soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
+					(params.fcc_uah
+						- params.uuc_uah));
+		pr_debug("DONE for O soc is %d, pon ocv adjusted to %duV\n",
+				soc, chip->last_ocv_uv);
+	}
+
+	if (soc > 100)
+		soc = 100;
+
+	if (soc < 0) {
+		pr_err("bad rem_usb_chg = %d rem_chg %d, cc_uah %d, unusb_chg %d\n",
+				remaining_usable_charge_uah,
+				params.ocv_charge_uah,
+				params.cc_uah, params.uuc_uah);
+
+		pr_err("for bad rem_usb_chg last_ocv_uv = %d batt_temp = %d fcc = %d soc =%d\n",
+				chip->last_ocv_uv, batt_temp,
+				params.fcc_uah, soc);
+		soc = 0;
+	}
+
+	mutex_lock(&chip->soc_invalidation_mutex);
+	shutdown_soc = chip->shutdown_soc;
+
+	if (chip->first_time_calc_soc && soc != shutdown_soc
+			&& is_shutdown_soc_within_limits(chip, soc)) {
+		/*
+		 * soc for the first time - use shutdown soc
+		 * to adjust pon ocv since it is a small percent away from
+		 * the real soc
+		 */
+		pr_debug("soc = %d before forcing shutdown_soc = %d\n",
+							soc, shutdown_soc);
+		find_ocv_for_soc(chip, &params, batt_temp,
+					shutdown_soc, &new_ocv_uv);
+		chip->pon_ocv_uv = chip->last_ocv_uv;
+		chip->last_ocv_uv = new_ocv_uv;
+
+		remaining_usable_charge_uah = params.ocv_charge_uah
+					- params.cc_uah
+					- params.uuc_uah;
+
+		soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
+					(params.fcc_uah
+						- params.uuc_uah));
+
+		pr_debug("DONE for shutdown_soc = %d soc is %d, adjusted ocv to %duV\n",
+				shutdown_soc, soc, chip->last_ocv_uv);
+	}
+	mutex_unlock(&chip->soc_invalidation_mutex);
+
+	pr_debug("SOC before adjustment = %d\n", soc);
+	new_calculated_soc = adjust_soc(chip, &params, soc, batt_temp);
+
+	if (new_calculated_soc != chip->calculated_soc
+			&& chip->bms_psy.name != NULL) {
+		power_supply_changed(&chip->bms_psy);
+		pr_debug("power supply changed\n");
+	}
+
+	chip->calculated_soc = new_calculated_soc;
+	pr_debug("Set calculated SOC = %d\n", chip->calculated_soc);
+	chip->first_time_calc_soc = 0;
 	return chip->calculated_soc;
 }
 
@@ -472,6 +1116,168 @@ static void calculate_soc_work(struct work_struct *work)
 			(chip->calculate_soc_ms)));
 }
 
+static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
+				int soc)
+{
+	u8 temp;
+	int rc;
+	int iavg_ma = chip->prev_uuc_iavg_ma;
+
+	if (iavg_ma > IAVG_START)
+		temp = (iavg_ma - IAVG_START) / IAVG_STEP_SIZE_MA;
+	else
+		temp = 0;
+
+	rc = qpnp_write_wrapper(chip, &temp,
+			chip->base + IAVG_STORAGE_REG, 1);
+
+	if (soc == 0)
+		temp = SOC_ZERO;
+	else
+		temp = soc;
+
+	/* don't store soc if temperature is below 5degC */
+	if (batt_temp > IGNORE_SOC_TEMP_DECIDEG)
+		rc = qpnp_write_wrapper(chip, &temp,
+				chip->base + SOC_STORAGE_REG, 1);
+}
+
+#define SOC_CATCHUP_SEC_MAX		600
+#define SOC_CATCHUP_SEC_PER_PERCENT	60
+#define MAX_CATCHUP_SOC	(SOC_CATCHUP_SEC_MAX/SOC_CATCHUP_SEC_PER_PERCENT)
+static int scale_soc_while_chg(struct qpnp_bms_chip *chip,
+				int delta_time_us, int new_soc, int prev_soc)
+{
+	int chg_time_sec;
+	int catch_up_sec;
+	int scaled_soc;
+	int numerator;
+
+	/*
+	 * The device must be charging for reporting a higher soc, if
+	 * not ignore this soc and continue reporting the prev_soc.
+	 * Also don't report a high value immediately slowly scale the
+	 * value from prev_soc to the new soc based on a charge time
+	 * weighted average
+	 */
+
+	/* if not charging, return last soc */
+	if (chip->start_percent == -EINVAL)
+		return prev_soc;
+
+	chg_time_sec = DIV_ROUND_UP(chip->charge_time_us, USEC_PER_SEC);
+	catch_up_sec = DIV_ROUND_UP(chip->catch_up_time_us, USEC_PER_SEC);
+	pr_debug("cts= %d catch_up_sec = %d\n", chg_time_sec, catch_up_sec);
+
+	/*
+	 * if charging for more than catch_up time, simply return
+	 * new soc
+	 */
+	if (chg_time_sec > catch_up_sec)
+		return new_soc;
+
+	numerator = (catch_up_sec - chg_time_sec) * prev_soc
+			+ chg_time_sec * new_soc;
+	scaled_soc = numerator / catch_up_sec;
+
+	pr_debug("cts = %d new_soc = %d prev_soc = %d scaled_soc = %d\n",
+			chg_time_sec, new_soc, prev_soc, scaled_soc);
+
+	return scaled_soc;
+}
+
+/*
+ * bms_fake_battery is set in setups where a battery emulator is used instead
+ * of a real battery. This makes the bms driver report a different/fake value
+ * regardless of the calculated state of charge.
+ */
+static int bms_fake_battery = -EINVAL;
+module_param(bms_fake_battery, int, 0644);
+
+static int report_state_of_charge(struct qpnp_bms_chip *chip)
+{
+	int soc;
+	int delta_time_us;
+	struct timespec now;
+	struct qpnp_vadc_result result;
+	int batt_temp;
+	int rc;
+
+	if (bms_fake_battery != -EINVAL) {
+		pr_debug("Returning Fake SOC = %d%%\n", bms_fake_battery);
+		return bms_fake_battery;
+	}
+
+	soc = chip->calculated_soc;
+
+	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
+
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+					LR_MUX1_BATT_THERM, rc);
+		return rc;
+	}
+	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	batt_temp = (int)result.physical;
+
+	do_posix_clock_monotonic_gettime(&now);
+	if (chip->t_soc_queried.tv_sec != 0) {
+		delta_time_us
+		= (now.tv_sec - chip->t_soc_queried.tv_sec) * USEC_PER_SEC
+			+ (now.tv_nsec - chip->t_soc_queried.tv_nsec) / 1000;
+	} else {
+		/* calculation for the first time */
+		delta_time_us = 0;
+	}
+
+	/*
+	 * account for charge time - limit it to SOC_CATCHUP_SEC to
+	 * avoid overflows when charging continues for extended periods
+	 */
+	if (chip->start_percent != -EINVAL) {
+		if (chip->charge_time_us == 0) {
+			/*
+			 * calculating soc for the first time
+			 * after start of chg. Initialize catchup time
+			 */
+			if (abs(soc - chip->last_soc) < MAX_CATCHUP_SOC)
+				chip->catch_up_time_us =
+				(soc - chip->last_soc)
+					* SOC_CATCHUP_SEC_PER_PERCENT
+					* USEC_PER_SEC;
+			else
+				chip->catch_up_time_us =
+				SOC_CATCHUP_SEC_MAX * USEC_PER_SEC;
+
+			if (chip->catch_up_time_us < 0)
+				chip->catch_up_time_us = 0;
+		}
+
+		/* add charge time */
+		if (chip->charge_time_us < SOC_CATCHUP_SEC_MAX * USEC_PER_SEC)
+			chip->charge_time_us += delta_time_us;
+
+		/* end catchup if calculated soc and last soc are same */
+		if (chip->last_soc == soc)
+			chip->catch_up_time_us = 0;
+	}
+
+	/* last_soc < soc  ... scale and catch up */
+	if (chip->last_soc != -EINVAL && chip->last_soc < soc && soc != 100)
+		soc = scale_soc_while_chg(chip, delta_time_us,
+						soc, chip->last_soc);
+
+	pr_debug("last_soc = %d, calculated_soc = %d, soc = %d\n",
+			chip->last_soc, chip->calculated_soc, soc);
+	chip->last_soc = soc;
+	backup_soc_and_iavg(chip, batt_temp, chip->last_soc);
+	pr_debug("Reported SOC = %d\n", chip->last_soc);
+	chip->t_soc_queried = now;
+
+	return chip->last_soc;
+}
+
 static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
 {
 	int voltage_range_uv, voltage_remaining_uv, voltage_based_soc;
@@ -491,8 +1297,8 @@ static int get_prop_bms_capacity(struct qpnp_bms_chip *chip)
 {
 	if (use_voltage_soc)
 		return calculate_soc_from_voltage(chip);
-
-	return chip->calculated_soc;
+	else
+		return report_state_of_charge(chip);
 }
 
 /* Returns instantaneous current in uA */
@@ -775,7 +1581,10 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->prev_pc_unusable = -EINVAL;
 	chip->soc_at_cv = -EINVAL;
 	chip->calculated_soc = -EINVAL;
+	chip->last_soc = -EINVAL;
 	chip->last_vbat_read_uv = -EINVAL;
+	chip->first_time_calc_soc = 1;
+	chip->first_time_calc_uuc = 1;
 }
 
 static int 
@@ -797,6 +1606,7 @@ qpnp_bms_probe(struct spmi_device *spmi)
 
 	mutex_init(&chip->bms_output_lock);
 	mutex_init(&chip->last_ocv_uv_mutex);
+	mutex_init(&chip->soc_invalidation_mutex);
 
 	bms_resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
 	if (!bms_resource) {
