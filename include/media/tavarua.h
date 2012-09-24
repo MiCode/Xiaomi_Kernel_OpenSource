@@ -104,6 +104,7 @@ int tavarua_set_audio_path(int digital_on, int analog_on);
 #define MARIMBA_2_1	0x02010204
 #define BAHAMA_1_0	0x0302010A
 #define BAHAMA_2_0	0x04020205
+#define BAHAMA_2_1      0x04020309
 #define WAIT_TIMEOUT 2000
 #define RADIO_INIT_TIME 15
 #define TAVARUA_DELAY 10
