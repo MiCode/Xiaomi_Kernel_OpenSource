@@ -21,10 +21,6 @@
 #include <linux/gfp.h>
 #include <linux/msm_ipc.h>
 
-#ifdef CONFIG_ANDROID_PARANOID_NETWORK
-#include <linux/android_aid.h>
-#endif
-
 #include <asm/string.h>
 #include <asm/atomic.h>
 
@@ -33,6 +29,7 @@
 #include <mach/msm_ipc_router.h>
 
 #include "ipc_router.h"
+#include "msm_ipc_router_security.h"
 
 #define msm_ipc_sk(sk) ((struct msm_ipc_sock *)(sk))
 #define msm_ipc_sk_port(sk) ((struct msm_ipc_port *)(msm_ipc_sk(sk)->port))
@@ -40,21 +37,6 @@
 static int sockets_enabled;
 static struct proto msm_ipc_proto;
 static const struct proto_ops msm_ipc_proto_ops;
-
-#ifdef CONFIG_ANDROID_PARANOID_NETWORK
-static inline int check_permissions(void)
-{
-	int rc = 0;
-	if (!current_euid() || in_egroup_p(AID_NET_RAW))
-		rc = 1;
-	return rc;
-}
-# else
-static inline int check_permissions(void)
-{
-	return 1;
-}
-#endif
 
 static struct sk_buff_head *msm_ipc_router_build_msg(unsigned int num_sect,
 					  struct iovec const *msg_sect,
@@ -193,7 +175,8 @@ static int msm_ipc_router_create(struct net *net,
 	void *pil;
 
 	if (!check_permissions()) {
-		pr_err("%s: Do not have permissions\n", __func__);
+		pr_err("%s: %s Do not have permissions\n",
+			__func__, current->comm);
 		return -EPERM;
 	}
 
@@ -223,6 +206,7 @@ static int msm_ipc_router_create(struct net *net,
 		return -ENOMEM;
 	}
 
+	port_ptr->check_send_permissions = msm_ipc_check_send_permissions;
 	sock->ops = &msm_ipc_proto_ops;
 	sock_init_data(sock, sk);
 	sk->sk_rcvtimeo = DEFAULT_RCV_TIMEO;
@@ -443,6 +427,10 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 
 	case IPC_ROUTER_IOCTL_BIND_CONTROL_PORT:
 		ret = msm_ipc_router_bind_control_port(port_ptr);
+		break;
+
+	case IPC_ROUTER_IOCTL_CONFIG_SEC_RULES:
+		ret = msm_ipc_config_sec_rules((void *)arg);
 		break;
 
 	default:
