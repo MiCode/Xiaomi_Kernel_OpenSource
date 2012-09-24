@@ -18,4 +18,9 @@
 	model = "Qualcomm MSM 9625 RUMI";
 	compatible = "qcom,msm9625-rumi", "qcom,msm9625";
 	qcom,msm-id = <134 15 0>;
+
+	chosen{
+		bootargs = "root=/dev/ram rw init=/init console=ttyHSL0,115200n8 initrd=0x00000000,0x00000000 mem=29M@0x00200000 mem=10M@0x07600000";
+
+	};
 };
