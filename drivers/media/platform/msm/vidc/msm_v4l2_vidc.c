@@ -583,7 +583,7 @@ static int msm_v4l2_release_output_buffers(struct msm_v4l2_vid_inst *v4l2_inst)
 				buffer_info.m.planes[0].reserved[0],
 				buffer_info.m.planes[0].reserved[1],
 				buffer_info.m.planes[0].length);
-			rc = msm_vidc_release_buf(&v4l2_inst->vidc_inst,
+			rc = msm_vidc_release_buf(v4l2_inst->vidc_inst,
 				&buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
