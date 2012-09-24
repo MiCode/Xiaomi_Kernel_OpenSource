@@ -249,8 +249,8 @@ static struct pm8xxx_keypad_platform_data keypad_data_liquid = {
 static const unsigned int keymap[] = {
 	KEY(0, 0, KEY_VOLUMEUP),
 	KEY(0, 1, KEY_VOLUMEDOWN),
-	KEY(0, 2, KEY_CAMERA_SNAPSHOT),
-	KEY(0, 3, KEY_CAMERA_FOCUS),
+	KEY(0, 2, KEY_CAMERA_FOCUS),
+	KEY(0, 3, KEY_CAMERA_SNAPSHOT),
 };
 
 static struct matrix_keymap_data keymap_data = {
