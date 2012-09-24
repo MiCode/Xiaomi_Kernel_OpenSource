@@ -2,7 +2,7 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
-#define KGSL_VERSION_MINOR        12
+#define KGSL_VERSION_MINOR        13
 
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM		0x00000001
@@ -17,6 +17,33 @@
 
 /* Memory allocayion flags */
 #define KGSL_MEMFLAGS_GPUREADONLY	0x01000000
+
+#define KGSL_MEMTYPE_MASK		0x0000FF00
+#define KGSL_MEMTYPE_SHIFT		8
+
+/* Memory types for which allocations are made */
+#define KGSL_MEMTYPE_OBJECTANY			0
+#define KGSL_MEMTYPE_FRAMEBUFFER		1
+#define KGSL_MEMTYPE_RENDERBUFFER		2
+#define KGSL_MEMTYPE_ARRAYBUFFER		3
+#define KGSL_MEMTYPE_ELEMENTARRAYBUFFER		4
+#define KGSL_MEMTYPE_VERTEXARRAYBUFFER		5
+#define KGSL_MEMTYPE_TEXTURE			6
+#define KGSL_MEMTYPE_SURFACE			7
+#define KGSL_MEMTYPE_EGL_SURFACE		8
+#define KGSL_MEMTYPE_GL				9
+#define KGSL_MEMTYPE_CL				10
+#define KGSL_MEMTYPE_CL_BUFFER_MAP		11
+#define KGSL_MEMTYPE_CL_BUFFER_NOMAP		12
+#define KGSL_MEMTYPE_CL_IMAGE_MAP		13
+#define KGSL_MEMTYPE_CL_IMAGE_NOMAP		14
+#define KGSL_MEMTYPE_CL_KERNEL_STACK		15
+#define KGSL_MEMTYPE_COMMAND			16
+#define KGSL_MEMTYPE_2D				17
+#define KGSL_MEMTYPE_EGL_IMAGE			18
+#define KGSL_MEMTYPE_EGL_SHADOW			19
+#define KGSL_MEMTYPE_MULTISAMPLE		20
+#define KGSL_MEMTYPE_KERNEL			255
 
 /* generic flag values */
 #define KGSL_FLAGS_NORMALMODE  0x00000000
@@ -278,8 +305,7 @@ struct kgsl_map_user_mem {
 	unsigned int offset;
 	unsigned int hostptr;   /*input param */
 	enum kgsl_user_mem_type memtype;
-	unsigned int reserved;	/* May be required to add
-				params for another mem type */
+	unsigned int flags;
 };
 
 #define IOCTL_KGSL_MAP_USER_MEM \

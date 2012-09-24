@@ -729,7 +729,8 @@ int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
 		return 0;
 
 	gpuaddr = memdesc->gpuaddr;
-	memdesc->priv |= KGSL_MEMFLAGS_GLOBAL;
+	memdesc->priv |= KGSL_MEMFLAGS_GLOBAL
+			| (KGSL_MEMTYPE_KERNEL << KGSL_MEMTYPE_SHIFT);
 
 	result = kgsl_mmu_map(pagetable, memdesc, protflags);
 	if (result)
