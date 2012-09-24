@@ -79,6 +79,7 @@ struct rmnet_private {
 	unsigned long timeout_us;
 #endif
 	spinlock_t lock;
+	spinlock_t tx_queue_lock;
 	struct tasklet_struct tsklt;
 	/* IOCTL specified mode (protocol, QoS header) */
 	u32 operation_mode;
@@ -346,12 +347,15 @@ static void smux_write_done(void *dev, const void *meta_data)
 		 ((struct net_device *)(dev))->name, p->stats.tx_packets,
 		 skb->len, skb->mark);
 	dev_kfree_skb_any(skb);
+
+	spin_lock_irqsave(&p->tx_queue_lock, flags);
 	if (netif_queue_stopped(dev) &&
 		msm_smux_is_ch_low(p->ch_id)) {
 		DBG0("%s: Low WM hit, waking queue=%p\n",
 			 __func__, skb);
 		netif_wake_queue(dev);
 	}
+	spin_unlock_irqrestore(&p->tx_queue_lock, flags);
 }
 
 void rmnet_smux_notify(void *priv, int event_type, const void *metadata)
@@ -475,14 +479,20 @@ void rmnet_smux_notify(void *priv, int event_type, const void *metadata)
 
 	case SMUX_LOW_WM_HIT:
 		dev = priv;
+		p = netdev_priv(priv);
 		DBG0("[%s] Low WM hit dev:%s\n", __func__, dev->name);
+		spin_lock_irqsave(&p->tx_queue_lock, flags);
 		netif_start_queue(dev);
+		spin_unlock_irqrestore(&p->tx_queue_lock, flags);
 		break;
 
 	case SMUX_HIGH_WM_HIT:
 		dev = priv;
-		DBG0("[%s] Low WM hit dev:%s\n", __func__, dev->name);
+		p = netdev_priv(priv);
+		DBG0("[%s] High WM hit dev:%s\n", __func__, dev->name);
+		spin_lock_irqsave(&p->tx_queue_lock, flags);
 		netif_stop_queue(dev);
+		spin_unlock_irqrestore(&p->tx_queue_lock, flags);
 		break;
 
 	default:
@@ -573,7 +583,6 @@ static int rmnet_change_mtu(struct net_device *dev, int new_mtu)
 static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
-	int smux_ret;
 	struct QMI_QOS_HDR_S *qmih;
 	u32 opmode;
 	unsigned long flags;
@@ -593,21 +602,13 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	dev->trans_start = jiffies;
 
-	/* if write() succeeds, skb access is unsafe in this process */
-	smux_ret = msm_smux_write(p->ch_id, skb, skb->data, skb->len);
-
-	if (smux_ret != 0 && smux_ret != -EAGAIN) {
-		pr_err("[%s] %s: write returned error %d",
-			   dev->name, __func__, smux_ret);
-		return -EPERM;
-	}
-
-	return smux_ret;
+	return msm_smux_write(p->ch_id, skb, skb->data, skb->len);
 }
 
 static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
+	unsigned long flags;
 	int ret = 0;
 
 	if (netif_queue_stopped(dev) || (p->device_state == DEVICE_INACTIVE)) {
@@ -616,15 +617,8 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		return 0;
 	}
 
+	spin_lock_irqsave(&p->tx_queue_lock, flags);
 	ret = _rmnet_xmit(skb, dev);
-
-	if (ret == -EPERM) {
-		/* Do not stop the queue here.
-		 * It will lead to ir-recoverable state.
-		 */
-		ret = NETDEV_TX_BUSY;
-		goto exit;
-	}
 
 	if (msm_smux_is_ch_full(p->ch_id) || (ret == -EAGAIN)) {
 		/*
@@ -636,9 +630,9 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		 */
 		netif_stop_queue(dev);
 		ret = NETDEV_TX_BUSY;
-		goto exit;
 	}
-exit:
+	spin_unlock_irqrestore(&p->tx_queue_lock, flags);
+
 	return ret;
 }
 
@@ -892,6 +886,7 @@ static int __init rmnet_init(void)
 		p->ch_id = n;
 		p->in_reset = 0;
 		spin_lock_init(&p->lock);
+		spin_lock_init(&p->tx_queue_lock);
 #ifdef CONFIG_MSM_RMNET_DEBUG
 		p->timeout_us = timeout_us;
 		p->wakeups_xmit = p->wakeups_rcv = 0;
