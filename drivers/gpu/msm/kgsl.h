@@ -182,6 +182,8 @@ struct kgsl_mem_entry *kgsl_sharedmem_find_region(
 	struct kgsl_process_private *private, unsigned int gpuaddr,
 	size_t size);
 
+void kgsl_get_memory_usage(char *str, size_t len, unsigned int memflags);
+
 int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	void (*cb)(struct kgsl_device *, void *, u32, u32), void *priv,
 	void *owner);
