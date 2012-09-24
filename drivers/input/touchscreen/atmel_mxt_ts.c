@@ -1355,7 +1355,8 @@ static int mxt_save_objects(struct mxt_data *data)
 	}
 	data->t9_max_reportid = t9_object->max_reportid;
 	data->t9_min_reportid = t9_object->max_reportid -
-					t9_object->num_report_ids + 1;
+					(t9_object->num_report_ids *
+					(t9_object->instances + 1)) + 1;
 
 	if (data->pdata->key_codes) {
 		t15_object = mxt_get_object(data, MXT_TOUCH_KEYARRAY_T15);
@@ -1364,7 +1365,8 @@ static int mxt_save_objects(struct mxt_data *data)
 		else {
 			data->t15_max_reportid = t15_object->max_reportid;
 			data->t15_min_reportid = t15_object->max_reportid -
-						t15_object->num_report_ids + 1;
+					(t15_object->num_report_ids *
+					(t15_object->instances + 1)) + 1;
 		}
 	}
 
@@ -1375,7 +1377,8 @@ static int mxt_save_objects(struct mxt_data *data)
 	else {
 		data->t42_max_reportid = t42_object->max_reportid;
 		data->t42_min_reportid = t42_object->max_reportid -
-					t42_object->num_report_ids + 1;
+					(t42_object->num_report_ids *
+					(t42_object->instances + 1)) + 1;
 	}
 
 	return 0;
