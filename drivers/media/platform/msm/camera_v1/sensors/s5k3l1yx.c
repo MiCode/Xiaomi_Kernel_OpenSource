@@ -442,6 +442,43 @@ static struct msm_camera_i2c_reg_conf s5k3l1yx_recommend_settings[] = {
 	{0x0B00, 0x00},
 };
 
+static struct msm_camera_i2c_reg_conf s5k3l1yx_19mhz_prev_settings[] = {
+	{0x0501, 0x00}, /* compression_algorithim_L(1d) */
+	{0x0112, 0x0A}, /* CCP_data_format_H */
+	{0x0113, 0x0A}, /* CCP_data_format_L raw8=0808 ,DCPM10 -->8= 0A08 */
+	{0x0306, 0x00}, /* pll_multiplier */
+	{0x0307, 0xCE}, /* pll_multiplier */
+	{0x0202, 0x06}, /* coarse_integration_time */
+	{0x0203, 0x00}, /* coarse_integration_time */
+	{0x0340, 0x09}, /* frame_length_lines */
+	{0x0341, 0x6C}, /* frame_length_lines */
+	{0x0342, 0x11}, /* line_length_pck */
+	{0x0343, 0x80}, /* line_length_pck */
+	{0x0344, 0x00}, /* x_addr_start */
+	{0x0345, 0x18}, /* x_addr_start */
+	{0x0346, 0x00}, /* y_addr_start */
+	{0x0347, 0x00}, /* y_addr_start */
+	{0x0348, 0x0F}, /* x_addr_end */
+	{0x0349, 0x97}, /* x_addr_end */
+	{0x034A, 0x0B}, /* y_addr_end */
+	{0x034B, 0xC7}, /* y_addr_end */
+	{0x034C, 0x07}, /* x_output_size */
+	{0x034D, 0xC0}, /* x_output_size */
+	{0x034E, 0x05}, /* y_output_size */
+	{0x034F, 0xE4}, /* y_output_size */
+	{0x0380, 0x00}, /* x_even_inc */
+	{0x0381, 0x01}, /* x_even_inc */
+	{0x0382, 0x00}, /* x_odd_inc */
+	{0x0383, 0x03}, /* x_odd_inc */
+	{0x0384, 0x00}, /* y_even_inc */
+	{0x0385, 0x01}, /* y_even_inc */
+	{0x0386, 0x00}, /* y_odd_inc */
+	{0x0387, 0x03}, /* y_odd_inc */
+	{0x0900, 0x01}, /* binning_mode */
+	{0x0901, 0x22}, /* binning_type */
+	{0x0902, 0x01}, /* binning_weighting */
+};
+
 static struct v4l2_subdev_info s5k3l1yx_subdev_info[] = {
 	{
 	.code   = V4L2_MBUS_FMT_SBGGR10_1X10,
@@ -471,6 +508,8 @@ static struct msm_camera_i2c_conf_array s5k3l1yx_confs[] = {
 					MSM_CAMERA_I2C_BYTE_DATA},
 	{&s5k3l1yx_dpcm_settings[0],
 	ARRAY_SIZE(s5k3l1yx_dpcm_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
+	{&s5k3l1yx_19mhz_prev_settings[0],
+	ARRAY_SIZE(s5k3l1yx_19mhz_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 };
 
 static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
@@ -532,6 +571,16 @@ static struct msm_sensor_output_info_t s5k3l1yx_dimensions[] = {
 		.frame_length_lines = 3052,
 		.vt_pixel_clk = 330000000,
 		.op_pixel_clk = 320000000,
+		.binning_factor = 1,
+	},
+	/* 30 fps preview with 19.2 input clock*/
+	{
+		.x_output = 1984,
+		.y_output = 1508,
+		.line_length_pclk = 4480,
+		.frame_length_lines = 2412,
+		.vt_pixel_clk = 330000000,
+		.op_pixel_clk = 264000000,
 		.binning_factor = 1,
 	},
 };
