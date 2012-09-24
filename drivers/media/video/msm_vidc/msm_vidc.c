@@ -489,8 +489,10 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 				buf = list_entry(ptr, struct internal_buf,
 						list);
 				list_del(&buf->list);
+				spin_unlock_irqrestore(&inst->lock, flags);
 				msm_smem_free(inst->mem_client, buf->handle);
 				kfree(buf);
+				spin_lock_irqsave(&inst->lock, flags);
 			}
 		}
 		if (!list_empty(&inst->persistbufs)) {
@@ -498,12 +500,17 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 				buf = list_entry(ptr, struct internal_buf,
 						list);
 				list_del(&buf->list);
+				spin_unlock_irqrestore(&inst->lock, flags);
 				msm_smem_free(inst->mem_client, buf->handle);
 				kfree(buf);
+				spin_lock_irqsave(&inst->lock, flags);
 			}
 		}
-		if (inst->extradata_handle)
+		if (inst->extradata_handle) {
+			spin_unlock_irqrestore(&inst->lock, flags);
 			msm_smem_free(inst->mem_client, inst->extradata_handle);
+			spin_lock_irqsave(&inst->lock, flags);
+		}
 		spin_unlock_irqrestore(&inst->lock, flags);
 		msm_smem_delete_client(inst->mem_client);
 		debugfs_remove_recursive(inst->debugfs_root);

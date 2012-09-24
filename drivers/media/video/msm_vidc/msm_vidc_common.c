@@ -1587,8 +1587,10 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 			rc = vidc_hal_session_release_buffers(
 				(void *) inst->session,	&buffer_info);
 			list_del(&buf->list);
+			spin_unlock_irqrestore(&inst->lock, flags);
 			msm_smem_free(inst->mem_client, buf->handle);
 			kfree(buf);
+			spin_lock_irqsave(&inst->lock, flags);
 		}
 	}
 	spin_unlock_irqrestore(&inst->lock, flags);
@@ -1620,8 +1622,10 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 					"Failed in %s for buffer %ld\n",
 					__func__, handle->device_addr);
 			list_del(&buf->list);
+			spin_unlock_irqrestore(&inst->lock, flags);
 			msm_smem_free(inst->mem_client, buf->handle);
 			kfree(buf);
+			spin_lock_irqsave(&inst->lock, flags);
 		}
 	}
 	spin_unlock_irqrestore(&inst->lock, flags);
@@ -1660,8 +1664,10 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 					"Failed in release %s for buffer %ld\n",
 					__func__, handle->device_addr);
 			list_del(&binfo->list);
+			spin_unlock_irqrestore(&inst->lock, flags);
 			msm_smem_free(inst->mem_client, binfo->handle);
 			kfree(binfo);
+			spin_lock_irqsave(&inst->lock, flags);
 		}
 	}
 	spin_unlock_irqrestore(&inst->lock, flags);
