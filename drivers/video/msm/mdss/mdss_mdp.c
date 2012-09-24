@@ -49,6 +49,7 @@
 #include "mdss.h"
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
+#include "mdss_debug.h"
 
 struct mdss_data_type *mdss_res;
 
@@ -772,6 +773,19 @@ int mdss_iommu_init(struct mdss_data_type *mdata)
 	return 0;
 }
 
+static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
+{
+	int rc;
+
+	rc = mdss_debugfs_init(mdata);
+	if (rc)
+		return rc;
+
+	mdss_debug_register_base(NULL, mdata->mdp_base, mdata->mdp_reg_size);
+
+	return 0;
+}
+
 static int mdss_hw_init(struct mdss_data_type *mdata)
 {
 	char *base = mdata->vbif_base;
@@ -875,8 +889,9 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 
+	mdata->mdp_reg_size = resource_size(res);
 	mdata->mdp_base = devm_ioremap(&pdev->dev, res->start,
-				       resource_size(res));
+				       mdata->mdp_reg_size);
 	if (unlikely(!mdata->mdp_base)) {
 		pr_err("unable to map MDP base\n");
 		rc = -ENOMEM;
@@ -933,6 +948,11 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		pr_err("unable to register early suspend\n");
 		goto probe_done;
 	}
+
+	rc = mdss_mdp_debug_init(mdata);
+	if (rc)
+		pr_err("unable to initialize mdp debugging\n");
+
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
 		mdss_res = NULL;
@@ -1103,6 +1123,7 @@ static int mdss_mdp_remove(struct platform_device *pdev)
 	mdss_mdp_pp_term(&pdev->dev);
 	mdss_mdp_bus_scale_unregister(mdata);
 	mdss_mdp_remove_early_suspend(mdata);
+	mdss_debugfs_remove(mdata);
 	return 0;
 }
 
