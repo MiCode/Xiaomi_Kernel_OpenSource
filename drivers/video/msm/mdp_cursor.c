@@ -52,7 +52,11 @@ void mdp_cursor_ctrl_workqueue_handler(struct work_struct *work)
 
 	/* disable vsync */
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	mdp_disable_irq(MDP_OVERLAY0_TERM);
+	if (hdmi_prim_display)
+		mdp_disable_irq(MDP_OVERLAY1_TERM);
+	else
+		mdp_disable_irq(MDP_OVERLAY0_TERM);
+
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 }
 
@@ -78,29 +82,37 @@ void mdp_hw_cursor_done(void)
 	 *
 	 * Moving this code out of the ISR will cause the MDP to underrun!
 	 */
+	uint32_t base = 0;
+
+	if (hdmi_prim_display)
+		base = ((uint32_t)(MDP_BASE + 0xB0000));
+	else
+		base = ((uint32_t)(MDP_BASE + 0x90000));
+
+
 	spin_lock(&mdp_spin_lock);
 	if (sync_disabled) {
 		spin_unlock(&mdp_spin_lock);
 		return;
 	}
 
-	MDP_OUTP(MDP_BASE + 0x90044, (height << 16) | width);
-	MDP_OUTP(MDP_BASE + 0x90048, cursor_buf_phys);
+	MDP_OUTP(base + 0x44, (height << 16) | width);
+	MDP_OUTP(base + 0x48, cursor_buf_phys);
 
-	MDP_OUTP(MDP_BASE + 0x90060,
+	MDP_OUTP(base + 0x60,
 		 (transp_en << 3) | (calpha_en << 1) |
-		 (inp32(MDP_BASE + 0x90060) & 0x1));
+		 (inp32(base + 0x60) & 0x1));
 
-	MDP_OUTP(MDP_BASE + 0x90064, (alpha << 24));
-	MDP_OUTP(MDP_BASE + 0x90068, (0xffffff & bg_color));
-	MDP_OUTP(MDP_BASE + 0x9006C, (0xffffff & bg_color));
+	MDP_OUTP(base + 0x64, (alpha << 24));
+	MDP_OUTP(base + 0x68, (0xffffff & bg_color));
+	MDP_OUTP(base + 0x6C, (0xffffff & bg_color));
 
 	/* enable/disable the cursor as per the last request */
-	if (cursor_enabled && !(inp32(MDP_BASE + 0x90060) & (0x1)))
-		MDP_OUTP(MDP_BASE + 0x90060, inp32(MDP_BASE + 0x90060) | 0x1);
-	else if (!cursor_enabled && (inp32(MDP_BASE + 0x90060) & (0x1)))
-		MDP_OUTP(MDP_BASE + 0x90060,
-					inp32(MDP_BASE + 0x90060) & (~0x1));
+	if (cursor_enabled && !(inp32(base + 0x60) & (0x1)))
+		MDP_OUTP(base + 0x60, inp32(base + 0x60) | 0x1);
+	else if (!cursor_enabled && (inp32(base + 0x60) & (0x1)))
+		MDP_OUTP(base + 0x60,
+					inp32(base + 0x60) & (~0x1));
 
 	/* enqueue the task to disable MDP interrupts */
 	queue_work(mdp_cursor_ctrl_wq, &mdp_cursor_ctrl_worker);
@@ -119,17 +131,26 @@ static void mdp_hw_cursor_enable_vsync(void)
 	if (sync_disabled) {
 
 		/* cancel pending task to disable MDP interrupts */
-		if (work_pending(&mdp_cursor_ctrl_worker))
+		if (work_pending(&mdp_cursor_ctrl_worker)) {
 			cancel_work_sync(&mdp_cursor_ctrl_worker);
-		else
+		} else {
 			/* enable irq */
-			mdp_enable_irq(MDP_OVERLAY0_TERM);
+			if (hdmi_prim_display)
+				mdp_enable_irq(MDP_OVERLAY1_TERM);
+			else
+				mdp_enable_irq(MDP_OVERLAY0_TERM);
+		}
 
 		sync_disabled = 0;
 
 		/* enable vsync intr */
-		outp32(MDP_INTR_CLEAR, INTR_OVERLAY0_DONE);
-		mdp_intr_mask |= INTR_OVERLAY0_DONE;
+		if (hdmi_prim_display) {
+			outp32(MDP_INTR_CLEAR, INTR_OVERLAY1_DONE);
+			mdp_intr_mask |= INTR_OVERLAY1_DONE;
+		} else {
+			outp32(MDP_INTR_CLEAR, INTR_OVERLAY0_DONE);
+			mdp_intr_mask |= INTR_OVERLAY0_DONE;
+		}
 		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 	}
 }
@@ -140,14 +161,20 @@ int mdp_hw_cursor_sync_update(struct fb_info *info, struct fb_cursor *cursor)
 	struct fb_image *img = &cursor->image;
 	unsigned long flag;
 	int sync_needed = 0, ret = 0;
+	uint32_t base = 0;
 
 	if ((img->width > MDP_CURSOR_WIDTH) ||
 	    (img->height > MDP_CURSOR_HEIGHT) ||
 	    (img->depth != 32))
 		return -EINVAL;
 
+	if (hdmi_prim_display)
+		base = ((uint32_t)(MDP_BASE + 0xB0000));
+	else
+		base = ((uint32_t)(MDP_BASE + 0x90000));
+
 	if (cursor->set & FB_CUR_SETPOS)
-		MDP_OUTP(MDP_BASE + 0x9004c, (img->dy << 16) | img->dx);
+		MDP_OUTP(base + 0x4c, (img->dy << 16) | img->dx);
 
 	if (cursor->set & FB_CUR_SETIMAGE) {
 		ret = copy_from_user(mfd->cursor_buf, img->data,
