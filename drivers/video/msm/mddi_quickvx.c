@@ -263,21 +263,9 @@
 
 int ql_mddi_write(uint32 address, uint32 value)
 {
-	uint32 regval = 0;
 	int ret = 0;
 
 	ret = mddi_queue_register_write(address, value, TRUE, 0);
-
-	if (!ret) {
-		ret = mddi_queue_register_read(address, &regval, TRUE, 0);
-		if (regval != value) {
-			MDDI_MSG_DEBUG("\nMismatch: ql_mddi_write[0x%x]->0x%x "
-				"r0x%x\n", address, value, regval);
-		} else {
-			MDDI_MSG_DEBUG("\nMatch: ql_mddi_write[0x%x]->0x%x "
-				"r0x%x\n", address, value, regval);
-		}
-	}
 
 	return ret;
 }
@@ -294,8 +282,6 @@ int ql_mddi_read(uint32 address, uint32 *regval)
 
 int ql_send_spi_cmd_to_lcd(uint32 index, uint32 cmd)
 {
-	int retry, ret;
-	uint32 readval;
 
 	MDDI_MSG_DEBUG("\n %s(): index 0x%x, cmd 0x%x", __func__, index, cmd);
 	/* do the index phase */
@@ -308,18 +294,6 @@ int ql_send_spi_cmd_to_lcd(uint32 index, uint32 cmd)
 
 	/* set start */
 	ql_mddi_write(QUICKVX_SPI_CTRL_REG,  QL_SPI_CTRL_LCD_START);
-	retry = 0;
-
-	do {
-		ret = ql_mddi_read(QUICKVX_SPI_CTRL_REG, &readval);
-
-		if (ret || ++retry > 5) {
-			MDDI_MSG_DEBUG("\n ql_send_spi_cmd_to_lcd: retry "
-				"timeout at index phase, ret = %d", ret);
-			return -EIO;
-		}
-		mddi_wait(1);
-	} while ((readval & QL_SPI_CTRL_MASK_rTxDone) == 0);
 
 	/* do the command phase */
 	/* send 24 bits in the cmd phase */
@@ -331,18 +305,6 @@ int ql_send_spi_cmd_to_lcd(uint32 index, uint32 cmd)
 
 	/* set start */
 	ql_mddi_write(QUICKVX_SPI_CTRL_REG,  QL_SPI_CTRL_LCD_START);
-	retry = 0;
-
-	do {
-		ret = ql_mddi_read(QUICKVX_SPI_CTRL_REG, &readval);
-
-		if (ret || ++retry > 5) {
-			MDDI_MSG_DEBUG("\n ql_send_spi_cmd_to_lcd: retry "
-				"timeout at cmd phase, ret = %d", ret);
-			return -EIO;
-		}
-		mddi_wait(1);
-	} while ((readval & QL_SPI_CTRL_MASK_rTxDone) == 0);
 
 	return 0;
 }
@@ -350,8 +312,6 @@ int ql_send_spi_cmd_to_lcd(uint32 index, uint32 cmd)
 
 int ql_send_spi_data_from_lcd(uint32 index, uint32 *value)
 {
-	int retry, ret;
-	uint32 readval;
 
 	MDDI_MSG_DEBUG("\n %s(): index 0x%x", __func__, index);
 	/* do the index phase */
@@ -364,19 +324,6 @@ int ql_send_spi_data_from_lcd(uint32 index, uint32 *value)
 
 	/* set start */
 	ql_mddi_write(QUICKVX_SPI_CTRL_REG,  QL_SPI_CTRL_LCD_START);
-	retry = 0;
-
-	do {
-		ret = ql_mddi_read(QUICKVX_SPI_CTRL_REG, &readval);
-
-		if (ret || ++retry > 5) {
-			MDDI_MSG_DEBUG("\n ql_send_spi_cmd_to_lcd: retry "
-				"timeout at index phase, ret = %d", ret);
-			return -EIO;
-		}
-		mddi_wait(1);
-	} while ((readval & QL_SPI_CTRL_MASK_rTxDone) == 0);
-
 	/* do the command phase */
 	/* send 8 bits  and read 24 bits in the cmd phase, so total 32 bits */
 	ql_mddi_write(QUICKVX_SPI_TLEN_REG, 31);
@@ -387,29 +334,9 @@ int ql_send_spi_data_from_lcd(uint32 index, uint32 *value)
 
 	/* set start */
 	ql_mddi_write(QUICKVX_SPI_CTRL_REG,  QL_SPI_CTRL_LCD_START);
-	retry = 0;
 
-	do {
-		ret = ql_mddi_read(QUICKVX_SPI_CTRL_REG, &readval);
+	return 0;
 
-		if (ret || ++retry > 5) {
-			MDDI_MSG_DEBUG("\n ql_send_spi_cmd_to_lcd: retry "
-				"timeout at cmd phase, ret = %d", ret);
-			return -EIO;
-		}
-		mddi_wait(1);
-	} while ((readval & QL_SPI_CTRL_MASK_rTxDone) == 0);
-
-	/* value will appear at lower 16 bits */
-	ret = ql_mddi_read(QUICKVX_SPI_RX0_REG, value);
-
-	if (!ret) {
-		*value = *value & 0xffff;
-		MDDI_MSG_DEBUG("\n QUICKVX_SPI_RX0_REG value = 0x%x", *value);
-	} else
-		MDDI_MSG_DEBUG("\n Read QUICKVX_SPI_RX0_REG Failed");
-
-	return ret;
 }
 
 /* Global Variables */
