@@ -62,6 +62,7 @@ struct mdss_data_type {
 	struct delayed_work clk_ctrl_worker;
 	struct platform_device *pdev;
 	char __iomem *mdp_base;
+	size_t mdp_reg_size;
 	char __iomem *vbif_base;
 
 	u32 irq;
@@ -94,6 +95,7 @@ struct mdss_data_type {
 	struct mdss_iommu_map_type *iommu_map;
 
 	struct early_suspend early_suspend;
+	void *debug_data;
 };
 extern struct mdss_data_type *mdss_res;
 
