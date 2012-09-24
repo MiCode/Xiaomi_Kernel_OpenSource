@@ -86,6 +86,7 @@ struct msm_cpr {
 	uint32_t cur_Vmax;
 	uint32_t prev_volt_uV;
 	struct mutex cpr_mutex;
+	spinlock_t cpr_lock;
 	struct regulator *vreg_cx;
 	const struct msm_cpr_config *config;
 	struct notifier_block freq_transition;
@@ -153,17 +154,17 @@ static void cpr_regs_dump_all(struct msm_cpr *cpr)
 /* Enable the CPR H/W Block */
 static void cpr_enable(struct msm_cpr *cpr)
 {
-	mutex_lock(&cpr->cpr_mutex);
+	spin_lock(&cpr->cpr_lock);
 	cpr_modify_reg(cpr, RBCPR_CTL, LOOP_EN_M, ENABLE_CPR);
-	mutex_unlock(&cpr->cpr_mutex);
+	spin_unlock(&cpr->cpr_lock);
 }
 
 /* Disable the CPR H/W Block */
 static void cpr_disable(struct msm_cpr *cpr)
 {
-	mutex_lock(&cpr->cpr_mutex);
+	spin_lock(&cpr->cpr_lock);
 	cpr_modify_reg(cpr, RBCPR_CTL, LOOP_EN_M, DISABLE_CPR);
-	mutex_unlock(&cpr->cpr_mutex);
+	spin_unlock(&cpr->cpr_lock);
 }
 
 static int32_t cpr_poll_result(struct msm_cpr *cpr)
@@ -900,7 +901,7 @@ static int __devinit msm_cpr_probe(struct platform_device *pdev)
 
 	cpr->vp = pdata->vp_data;
 
-	mutex_init(&cpr->cpr_mutex);
+	spin_lock_init(&cpr->cpr_lock);
 
 	/* Initialize the Voltage domain for CPR */
 	cpr->vreg_cx = regulator_get(&pdev->dev, "vddx_cx");
@@ -986,7 +987,6 @@ static int __devexit msm_cpr_remove(struct platform_device *pdev)
 	regulator_put(cpr->vreg_cx);
 	free_irq(cpr->irq, cpr);
 	iounmap(cpr->base);
-	mutex_destroy(&cpr->cpr_mutex);
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
