@@ -55,6 +55,7 @@ struct msm_ipc_port {
 
 	void *endpoint;
 	void (*notify)(unsigned event, void *priv);
+	int (*check_send_permissions)(void *data);
 
 	uint32_t num_tx;
 	uint32_t num_rx;
