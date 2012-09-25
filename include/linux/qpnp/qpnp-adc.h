@@ -129,7 +129,7 @@ enum qpnp_iadc_channels {
 	INTERNAL_RSENSE = 0,
 	EXTERNAL_RSENSE,
 	ALT_LEAD_PAIR,
-	GAIN_CALIBRATION_25MV,
+	GAIN_CALIBRATION_17P857MV,
 	OFFSET_CALIBRATION_SHORT_CADC_LEADS,
 	OFFSET_CALIBRATION_CSP_CSN,
 	OFFSET_CALIBRATION_CSP2_CSN2,
@@ -590,13 +590,31 @@ struct qpnp_vadc_scale_fn {
  * @channel - Channel for which the historical offset and gain is
  *	      calculated. Available channels are internal rsense,
  *	      external rsense and alternate lead pairs.
- * @offset - Offset value for the channel.
- * @gain - Gain of the channel.
+ * @offset_raw - raw Offset value for the channel.
+ * @gain_raw - raw Gain of the channel.
+ * @ideal_offset_uv - ideal offset value for the channel.
+ * @ideal_gain_nv - ideal gain for the channel.
+ * @offset_uv - converted value of offset in uV.
+ * @gain_uv - converted value of gain in uV.
  */
 struct qpnp_iadc_calib {
 	enum qpnp_iadc_channels		channel;
-	int32_t				offset;
-	int32_t				gain;
+	uint16_t			offset_raw;
+	uint16_t			gain_raw;
+	uint32_t			ideal_offset_uv;
+	uint32_t			ideal_gain_nv;
+	uint32_t			offset_uv;
+	uint32_t			gain_uv;
+};
+
+/**
+ * struct qpnp_iadc_result - IADC read result structure.
+ * @oresult_uv - Result of ADC in uV.
+ * @result_ua - Result of ADC in uA.
+ */
+struct qpnp_iadc_result {
+	int32_t				result_uv;
+	int32_t				result_ua;
 };
 
 /**
@@ -854,7 +872,7 @@ static inline int32_t qpnp_adc_scale_therm_pu2(int32_t adc_code,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt);
 { return -ENXIO; }
-static inline int32_t qpnp_vadc_is_read(void)
+static inline int32_t qpnp_vadc_is_ready(void)
 { return -ENXIO; }
 #endif
 
@@ -867,22 +885,17 @@ static inline int32_t qpnp_vadc_is_read(void)
  * @result:	Current across rsens in mV.
  */
 int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
-							int32_t *result);
+				struct qpnp_iadc_result *result);
 /**
- * qpnp_iadc_get_gain() - Performs gain calibration over 25mV reference
- *			  across CCADC.
- * @result:	Gain result across 25mV reference.
+ * qpnp_iadc_get_gain_and_offset() - Performs gain calibration
+ *				over 17.8571mV and offset over selected
+ *				channel. Channel can be internal rsense,
+ *				external rsense and alternate lead pair.
+ * @result:	result structure where the gain and offset is stored of
+ *		type qpnp_iadc_calib.
  */
-int32_t qpnp_iadc_get_gain(int32_t *result);
+int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result);
 
-/**
- * qpnp_iadc_get_offset() - Performs offset calibration over selected
- *			    channel. Channel can be internal rsense,
- *			    external rsense and alternate lead pair.
- * @result:	Gain result across 25mV reference.
- */
-int32_t qpnp_iadc_get_offset(enum qpnp_iadc_channels channel,
-						int32_t *result);
 /**
  * qpnp_iadc_is_ready() - Clients can use this API to check if the
  *			  device is ready to use.
@@ -892,14 +905,12 @@ int32_t qpnp_iadc_get_offset(enum qpnp_iadc_channels channel,
 int32_t qpnp_iadc_is_ready(void);
 #else
 static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
-							int *result)
+						struct qpnp_iadc_result *result)
 { return -ENXIO; }
-static inline int32_t qpnp_iadc_get_gain(int32_t *result)
+static inline int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib
+									*result)
 { return -ENXIO; }
-static inline int32_t qpnp_iadc_get_offset(enum qpnp_iadc_channels channel,
-						int32_t *result)
-{ return -ENXIO; }
-static inline int32_t qpnp_iadc_is_read(void)
+static inline int32_t qpnp_iadc_is_ready(void)
 { return -ENXIO; }
 #endif
 
