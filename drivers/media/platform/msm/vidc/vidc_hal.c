@@ -177,7 +177,7 @@ static int write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
 		new_write_idx -= queue->qhdr_q_size;
 		memcpy(write_ptr, packet, (packet_size_in_words -
 			new_write_idx) << 2);
-		memcpy((void *)queue->qhdr_start_addr,
+		memcpy((void *)qinfo->q_array.align_virtual_addr,
 			packet + ((packet_size_in_words - new_write_idx) << 2),
 			new_write_idx  << 2);
 	}
@@ -285,8 +285,9 @@ static int read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 		memcpy(packet, read_ptr,
 			(packet_size_in_words - new_read_idx) << 2);
 		memcpy(packet + ((packet_size_in_words -
-				new_read_idx) << 2),
-			(u8 *)queue->qhdr_start_addr, new_read_idx << 2);
+			new_read_idx) << 2),
+			(u8 *)qinfo->q_array.align_virtual_addr,
+			new_read_idx << 2);
 	}
 
 	queue->qhdr_read_idx = new_read_idx;
