@@ -1167,41 +1167,35 @@ void msm_gic_restore(void)
 /*
  * Configure the GIC after we come out of power collapse.
  * This function will configure some of the GIC registers so as to prepare the
- * core1 to receive an SPI(ACSR_MP_CORE_IPC1, (32 + 8)), which will bring
- * core1 out of GDFS.
+ * secondary cores to receive an SPI(ACSR_MP_CORE_IPC1/IPC2/IPC3, 40/92/93),
+ * which will bring cores out of GDFS.
  */
-void core1_gic_configure_and_raise(void)
+void gic_configure_and_raise(unsigned int irq, unsigned int cpu)
 {
 	struct gic_chip_data *gic = &gic_data[0];
+	struct irq_data *d = irq_get_irq_data(irq);
 	void __iomem *base = gic_data_dist_base(gic);
-	unsigned int value = 0;
+	unsigned int value = 0, byte_offset, offset, bit;
 	unsigned long flags;
+
+	offset = ((gic_irq(d) / 32) * 4);
+	bit = BIT(gic_irq(d) % 32);
 
 	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 
-	value = __raw_readl(base + GIC_DIST_ACTIVE_BIT + 0x4);
-	value |= BIT(8);
-	__raw_writel(value, base + GIC_DIST_ACTIVE_BIT + 0x4);
+	value = __raw_readl(base + GIC_DIST_ACTIVE_BIT + offset);
+	__raw_writel(value | bit, base + GIC_DIST_ACTIVE_BIT + offset);
 	mb();
 
-	value = __raw_readl(base + GIC_DIST_TARGET + 0x24);
-	value |= BIT(13);
-	__raw_writel(value, base + GIC_DIST_TARGET + 0x24);
+	value = __raw_readl(base + GIC_DIST_TARGET + (gic_irq(d) / 4) * 4);
+	byte_offset = (gic_irq(d) % 4) * 8;
+	value |= 1 << (cpu + byte_offset);
+	__raw_writel(value, base + GIC_DIST_TARGET + (gic_irq(d) / 4) * 4);
 	mb();
 
-	value = __raw_readl(base + GIC_DIST_TARGET + 0x28);
-	value |= BIT(1);
-	__raw_writel(value, base + GIC_DIST_TARGET + 0x28);
+	value =  __raw_readl(base + GIC_DIST_ENABLE_SET + offset);
+	__raw_writel(value | bit, base + GIC_DIST_ENABLE_SET + offset);
 	mb();
 
-	value =  __raw_readl(base + GIC_DIST_ENABLE_SET + 0x4);
-	value |= BIT(8);
-	__raw_writel(value, base + GIC_DIST_ENABLE_SET + 0x4);
-	mb();
-
-	value =  __raw_readl(base + GIC_DIST_PENDING_SET + 0x4);
-	value |= BIT(8);
-	__raw_writel(value, base + GIC_DIST_PENDING_SET + 0x4);
-	mb();
 	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
