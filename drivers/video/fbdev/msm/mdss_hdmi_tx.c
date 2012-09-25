@@ -20,7 +20,7 @@
 #include <linux/of_gpio.h>
 #include <linux/types.h>
 
-/* #define DEBUG */
+#define REG_DUMP 0
 
 #include "mdss_fb.h"
 #include "mdss_hdmi_tx.h"
