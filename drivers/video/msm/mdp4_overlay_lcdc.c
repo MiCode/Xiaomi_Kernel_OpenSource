@@ -657,6 +657,11 @@ int mdp4_lcdc_off(struct platform_device *pdev)
 
 	lcdc_enabled = 0;
 
+	if (vctrl->vsync_irq_enabled) {
+		vctrl->vsync_irq_enabled = 0;
+		vsync_irq_disable(INTR_PRIMARY_VSYNC, MDP_PRIM_VSYNC_TERM);
+	}
+
 	if (pipe) {
 		/* sanity check, free pipes besides base layer */
 		mdp4_overlay_unset_mixer(pipe->mixer_num);
