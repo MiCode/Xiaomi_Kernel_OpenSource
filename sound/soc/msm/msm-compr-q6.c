@@ -499,6 +499,13 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 			pr_err("%s: CMD Format block" \
 				"failed: %d\n", __func__, ret);
 		break;
+	case SND_AUDIOCODEC_PCM:
+		pr_debug("SND_AUDIOCODEC_PCM\n");
+		ret = q6asm_enc_cfg_blk_multi_ch_pcm(prtd->audio_client,
+			 prtd->samp_rate, prtd->channel_mode);
+		if (ret < 0)
+			pr_info("%s: CMD Format block failed\n", __func__);
+		break;
 	default:
 		pr_debug("No config for codec %d\n", codec->id);
 	}
@@ -511,6 +518,7 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 		read_param.uid = i;
 		switch (codec->id) {
 		case SND_AUDIOCODEC_AMRWB:
+		case SND_AUDIOCODEC_PCM:
 			read_param.len = prtd->pcm_count
 					- COMPRE_CAPTURE_HEADER_SIZE;
 			read_param.paddr = (unsigned long)(buf[i].phys)
@@ -521,10 +529,14 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 					buf[i].data);
 			q6asm_async_read(prtd->audio_client, &read_param);
 			break;
-		default:
+		case SND_AUDIOCODEC_PASS_THROUGH:
 			read_param.paddr = (unsigned long)(buf[i].phys);
 			q6asm_async_read_compressed(prtd->audio_client,
 				&read_param);
+			break;
+		default:
+			pr_err("Invalid format");
+			ret = -EINVAL;
 			break;
 		}
 	}
@@ -620,7 +632,7 @@ static void populate_codec_list(struct compr_audio *compr,
 {
 	pr_debug("%s\n", __func__);
 	/* MP3 Block */
-	compr->info.compr_cap.num_codecs = 10;
+	compr->info.compr_cap.num_codecs = 12;
 	compr->info.compr_cap.min_fragment_size = runtime->hw.period_bytes_min;
 	compr->info.compr_cap.max_fragment_size = runtime->hw.period_bytes_max;
 	compr->info.compr_cap.min_fragments = runtime->hw.periods_min;
@@ -635,6 +647,8 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.codecs[7] = SND_AUDIOCODEC_DTS_PASS_THROUGH;
 	compr->info.compr_cap.codecs[8] = SND_AUDIOCODEC_AMRWB;
 	compr->info.compr_cap.codecs[9] = SND_AUDIOCODEC_AMRWBPLUS;
+	compr->info.compr_cap.codecs[10] = SND_AUDIOCODEC_PASS_THROUGH;
+	compr->info.compr_cap.codecs[11] = SND_AUDIOCODEC_PCM;
 	/* Add new codecs here and update num_codecs*/
 }
 
@@ -909,12 +923,30 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 					prtd->audio_client->perf_mode,
 					prtd->session_id, substream->stream);
 			break;
-		default:
+		case SND_AUDIOCODEC_PCM:
+			pr_debug("q6asm_open_read(FORMAT_PCM)\n");
+			ret = q6asm_open_read(prtd->audio_client,
+				FORMAT_MULTI_CHANNEL_LINEAR_PCM);
+			if (ret < 0) {
+				pr_err("%s: compressed Session open failed\n",
+					__func__);
+				return -ENOMEM;
+			}
+			pr_debug("msm_pcm_routing_reg_phy_stream\n");
+			msm_pcm_routing_reg_phy_stream(
+					soc_prtd->dai_link->be_id,
+					prtd->audio_client->perf_mode,
+					prtd->session_id, substream->stream);
+			break;
+		case SND_AUDIOCODEC_PASS_THROUGH:
 			pr_debug("q6asm_open_read_compressed(COMPRESSED_META_DATA_MODE)\n");
 			ret = q6asm_open_read_compressed(prtd->audio_client,
 				MAX_NUM_FRAMES_PER_BUFFER,
 				COMPRESSED_META_DATA_MODE);
 			break;
+		default:
+			pr_err("Invalid codec for compressed session open\n");
+			return -EFAULT;
 		}
 
 		if (ret < 0) {
@@ -1063,11 +1095,19 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_AMRWBPLUS\n");
 			compr->codec = FORMAT_AMR_WB_PLUS;
 			break;
-		default:
-			/*Needed for the HDMI IN compressed use case*/
-			pr_debug("FORMAT_LINEAR_PCM\n");
-			compr->codec = FORMAT_LINEAR_PCM;
+		case SND_AUDIOCODEC_PASS_THROUGH:
+			/* format pass through is used for HDMI IN compressed
+			   where the decoder format is indicated by LPASS */
+			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_PASSTHROUGH\n");
+			compr->codec = FORMAT_PASS_THROUGH;
 			break;
+		case SND_AUDIOCODEC_PCM:
+			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_PCM\n");
+			compr->codec = FORMAT_MULTI_CHANNEL_LINEAR_PCM;
+			break;
+		default:
+			pr_err("msm_compr_ioctl failed..unknown codec\n");
+			return -EFAULT;
 		}
 		return 0;
 	case SNDRV_PCM_IOCTL1_RESET:
