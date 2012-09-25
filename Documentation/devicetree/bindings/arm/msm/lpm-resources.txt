@@ -8,13 +8,25 @@ system.The lpm-resources device tree node represents the shared resources
 that need to be monitored for usage requirement to check if a given low power
 state can be entered.Each resource is identified by a combination of the name,
 id,type and key which is also used by the RPM to identify a shared resource.
+The name and resource-type are required nodes; the type, id and key are
+optional nodes which are needed if the resource type is RPM shared resource
+(MSM_LPM_RPM_RS_TYPE).
 
-The required nodes for lpm-resources are:
+The nodes for lpm-resources are:
+
+Required Nodes:
 
 - compatible: "qcom,lpm-resources"
 - reg: The numeric level id
 - qcom,name: The name of the low power resource represented
              as a string.
+- qcom,resource-type: The type of the LPM resource.
+   MSM_LPM_RPM_RS_TYPE    = 0
+   MSM_LPM_LOCAL_RS_TYPE  = 1
+
+
+Optional Nodes:
+
 - qcom,type: The type of resource used like smps or pxo
              represented as a hex value.
 - qcom,id: The id representing a device within a resource type.
@@ -25,6 +37,7 @@ Example:
             qcom,lpm-resources@0 {
                         reg = <0x0>;
                         qcom,name = "vdd-dig";
+                        qcom,resource-type = <0>;
                         qcom,type = <0x62706d73>;   /* "smpb" */
                         qcom,id = <0x02>;
                         qcom,key = <0x6e726f63>;   /* "corn" */
