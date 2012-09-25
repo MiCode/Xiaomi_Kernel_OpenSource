@@ -30,6 +30,7 @@
 #include <asm/cacheflush.h>
 #include <mach/rpc_hsusb.h>
 #include <mach/socinfo.h>
+#include <mach/clk-provider.h>
 
 #include "devices.h"
 #include "devices-msm7x2xa.h"

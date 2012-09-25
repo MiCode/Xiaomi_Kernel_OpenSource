@@ -15,7 +15,8 @@
 #define __ARCH_ARM_MACH_MSM_CLOCK_LOCAL_2_H
 
 #include <linux/spinlock.h>
-#include "clock.h"
+#include <mach/clk-provider.h>
+#include <mach/clk.h>
 
 /*
  * Generic frequency-definition structs and macros

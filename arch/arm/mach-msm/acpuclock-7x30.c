@@ -32,7 +32,6 @@
 #include <asm/mach-types.h>
 
 #include "smd_private.h"
-#include "clock.h"
 #include "acpuclock.h"
 #include "spm.h"
 

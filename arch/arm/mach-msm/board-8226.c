@@ -40,6 +40,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
+#include <mach/clk-provider.h>
 #include "clock.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {

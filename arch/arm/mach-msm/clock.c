@@ -23,7 +23,7 @@
 #include <linux/clkdev.h>
 #include <linux/list.h>
 #include <trace/events/power.h>
-
+#include <mach/clk-provider.h>
 #include "clock.h"
 
 struct handoff_clk {

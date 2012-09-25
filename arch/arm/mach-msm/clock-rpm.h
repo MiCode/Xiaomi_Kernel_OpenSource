@@ -16,6 +16,7 @@
 
 #include <mach/rpm.h>
 #include <mach/rpm-smd.h>
+#include <mach/clk-provider.h>
 
 #define RPM_SMD_KEY_RATE	0x007A484B
 #define RPM_SMD_KEY_ENABLE	0x62616E45

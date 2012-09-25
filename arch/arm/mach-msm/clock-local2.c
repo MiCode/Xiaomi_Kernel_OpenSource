@@ -24,8 +24,8 @@
 #include <linux/clk.h>
 
 #include <mach/clk.h>
+#include <mach/clk-provider.h>
 
-#include "clock.h"
 #include "clock-local2.h"
 
 /*

@@ -82,6 +82,7 @@
 #include "pm-boot.h"
 #include "spm.h"
 #include "acpuclock.h"
+#include "clock.h"
 #include <mach/dal_axi.h>
 #include <mach/msm_serial_hs.h>
 #include <mach/qdsp5v2/mi2s.h>

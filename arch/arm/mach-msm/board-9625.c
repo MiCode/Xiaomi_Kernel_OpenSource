@@ -29,6 +29,7 @@
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
+#include <mach/clk-provider.h>
 #include "clock.h"
 
 #define L2CC_AUX_CTRL	((0x1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) | \
