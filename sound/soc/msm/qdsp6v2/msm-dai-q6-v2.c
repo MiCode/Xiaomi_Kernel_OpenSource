@@ -540,6 +540,14 @@ static int msm_dai_q6_bt_fm_hw_params(struct snd_pcm_hw_params *params,
 
 	memset(&dai_data->port_config, 0, sizeof(dai_data->port_config));
 
+	pr_debug("%s: setting bt_fm parameters\n", __func__);
+
+	dai_data->port_config.int_bt_fm.bt_fm_cfg_minor_version =
+					AFE_API_VERSION_INTERNAL_BT_FM_CONFIG;
+	dai_data->port_config.int_bt_fm.num_channels = dai_data->channels;
+	dai_data->port_config.int_bt_fm.sample_rate = dai_data->rate;
+	dai_data->port_config.int_bt_fm.bit_width = 16;
+
 	return 0;
 }
 
@@ -805,6 +813,36 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 
+static struct snd_soc_dai_driver msm_dai_q6_afe_rx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_min =     8000,
+		.rate_max =	48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai = {
+	.capture = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 4,
+		.rate_min =     8000,
+		.rate_max =	48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_rx_dai = {
 	.playback = {
 		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
@@ -827,6 +865,34 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_tx_dai = {
 		.channels_max = 1,
 		.rate_min = 8000,
 		.rate_max = 16000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_bt_sco_rx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 1,
+		.rate_max = 16000,
+		.rate_min = 8000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_bt_sco_tx_dai = {
+	.capture = {
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 1,
+		.rate_max = 16000,
+		.rate_min = 8000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -1083,6 +1149,22 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case SLIMBUS_1_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					  &msm_dai_q6_slimbus_1_tx_dai);
+		break;
+	case INT_BT_SCO_RX:
+		rc = snd_soc_register_dai(&pdev->dev,
+					&msm_dai_q6_bt_sco_rx_dai);
+		break;
+	case INT_BT_SCO_TX:
+		rc = snd_soc_register_dai(&pdev->dev,
+					&msm_dai_q6_bt_sco_tx_dai);
+		break;
+	case RT_PROXY_DAI_001_RX:
+	case RT_PROXY_DAI_002_RX:
+		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_afe_rx_dai);
+		break;
+	case RT_PROXY_DAI_001_TX:
+	case RT_PROXY_DAI_002_TX:
+		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_afe_tx_dai);
 		break;
 	default:
 		rc = -ENODEV;

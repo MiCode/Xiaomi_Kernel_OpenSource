@@ -29,6 +29,8 @@
 #include <sound/control.h>
 #include <sound/q6adm-v2.h>
 #include <asm/dma.h>
+#include <linux/memory_alloc.h>
+#include <mach/msm_subsystem_map.h>
 #include "msm-pcm-afe-v2.h"
 
 #define MIN_PERIOD_SIZE (128 * 2)
@@ -63,6 +65,11 @@ static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt)
 	struct snd_pcm_substream *substream = prtd->substream;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	u32 mem_map_handle = 0;
+
+	mem_map_handle = afe_req_mmap_handle();
+	if (!mem_map_handle)
+		pr_err("%s: mem_map_handle is NULL\n", __func__);
+
 	if (prtd->start) {
 		pr_debug("sending frame to DSP: poll_time: %d\n",
 				prtd->poll_time);
@@ -89,10 +96,15 @@ static enum hrtimer_restart afe_hrtimer_rec_callback(struct hrtimer *hrt)
 	struct snd_pcm_substream *substream = prtd->substream;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	u32 mem_map_handle = 0;
+
+	mem_map_handle = afe_req_mmap_handle();
+	if (!mem_map_handle)
+		pr_err("%s: mem_map_handle is NULL\n", __func__);
+
 	if (prtd->start) {
 		if (prtd->dsp_cnt == runtime->periods)
 			prtd->dsp_cnt = 0;
-		pr_err("%s: mem_map_handle 0x%x\n", __func__, mem_map_handle);
+		pr_debug("%s: mem_map_handle 0x%x\n", __func__, mem_map_handle);
 		afe_rt_proxy_port_read(
 		(prtd->dma_addr + (prtd->dsp_cnt
 		* snd_pcm_lib_period_bytes(prtd->substream))), mem_map_handle,
@@ -137,9 +149,6 @@ static void pcm_afe_process_tx_pkt(uint32_t opcode,
 						runtime->channels * 2)));
 				pr_debug("prtd->poll_time: %d",
 						prtd->poll_time);
-				hrtimer_start(&prtd->hrt,
-					ns_to_ktime(0),
-					HRTIMER_MODE_REL);
 				break;
 			}
 			case AFE_EVENT_RTPORT_STOP:
@@ -203,9 +212,6 @@ static void pcm_afe_process_rx_pkt(uint32_t opcode,
 				snd_pcm_lib_period_bytes(prtd->substream)
 					* 1000 * 1000)/(runtime->rate
 					* runtime->channels * 2)));
-			hrtimer_start(&prtd->hrt,
-				ns_to_ktime(0),
-				HRTIMER_MODE_REL);
 			pr_debug("prtd->poll_time : %d", prtd->poll_time);
 			break;
 		}
@@ -321,13 +327,21 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 	runtime->hw = msm_afe_hardware;
 	prtd->substream = substream;
 	runtime->private_data = prtd;
-	mutex_unlock(&prtd->lock);
+	prtd->audio_client = q6afe_audio_client_alloc(prtd);
+	if (!prtd->audio_client) {
+		pr_debug("%s: Could not allocate memory\n", __func__);
+		kfree(prtd);
+		mutex_unlock(&prtd->lock);
+		return -ENOMEM;
+	}
+
 	hrtimer_init(&prtd->hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		prtd->hrt.function = afe_hrtimer_callback;
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		prtd->hrt.function = afe_hrtimer_rec_callback;
 
+	mutex_unlock(&prtd->lock);
 	ret = snd_pcm_hw_constraint_list(runtime, 0,
 				SNDRV_PCM_HW_PARAM_RATE,
 				&constraints_sample_rates);
@@ -350,6 +364,7 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 	struct pcm_afe_info *prtd;
 	struct snd_soc_pcm_runtime *rtd = NULL;
 	struct snd_soc_dai *dai = NULL;
+	int dir = IN;
 	int ret = 0;
 
 	pr_debug("%s\n", __func__);
@@ -365,17 +380,19 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 	mutex_lock(&prtd->lock);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		dir = IN;
 		ret =  afe_unregister_get_events(dai->id);
 		if (ret < 0)
 			pr_err("AFE unregister for events failed\n");
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		dir = OUT;
 		ret =  afe_unregister_get_events(dai->id);
 		if (ret < 0)
 			pr_err("AFE unregister for events failed\n");
 	}
 	hrtimer_cancel(&prtd->hrt);
 
-	rc = afe_cmd_memory_unmap(runtime->dma_addr);
+	rc = afe_cmd_memory_unmap(afe_req_mmap_handle());
 	if (rc < 0)
 		pr_err("AFE memory unmap failed\n");
 
@@ -384,15 +401,14 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 	if (dma_buf == NULL) {
 		pr_debug("dma_buf is NULL\n");
 			goto done;
-		}
-	if (dma_buf->area != NULL) {
-		dma_free_coherent(substream->pcm->card->dev,
-			runtime->hw.buffer_bytes_max, dma_buf->area,
-			dma_buf->addr);
-		dma_buf->area = NULL;
 	}
+
+	if (dma_buf->area)
+		dma_buf->area = NULL;
+	q6afe_audio_client_buf_free_contiguous(dir, prtd->audio_client);
 done:
 	pr_debug("%s: dai->id =%x\n", __func__, dai->id);
+	q6afe_audio_client_free(prtd->audio_client);
 	mutex_unlock(&prtd->lock);
 	prtd->prepared--;
 	kfree(prtd);
@@ -420,14 +436,21 @@ static int msm_afe_mmap(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct pcm_afe_info *prtd = runtime->private_data;
+	int result = 0;
 
 	pr_debug("%s\n", __func__);
 	prtd->mmap_flag = 1;
-	dma_mmap_coherent(substream->pcm->card->dev, vma,
-				runtime->dma_area,
-				runtime->dma_addr,
-				runtime->dma_bytes);
-	return 0;
+	if (runtime->dma_addr && runtime->dma_bytes) {
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		result = remap_pfn_range(vma, vma->vm_start,
+				runtime->dma_addr >> PAGE_SHIFT,
+				runtime->dma_bytes,
+				vma->vm_page_prot);
+	} else {
+		pr_err("Physical address or size of buf is NULL");
+		return -EINVAL;
+	}
+	return result;
 }
 static int msm_afe_trigger(struct snd_pcm_substream *substream, int cmd)
 {
@@ -441,6 +464,8 @@ static int msm_afe_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("%s: SNDRV_PCM_TRIGGER_START\n", __func__);
 		prtd->start = 1;
+		hrtimer_start(&prtd->hrt, ns_to_ktime(0),
+					HRTIMER_MODE_REL);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -460,27 +485,45 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	struct pcm_afe_info *prtd = runtime->private_data;
-	int rc;
+	struct afe_audio_buffer *buf;
+	int dir, rc;
 
 	pr_debug("%s:\n", __func__);
 
 	mutex_lock(&prtd->lock);
-
-	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
-	dma_buf->dev.dev = substream->pcm->card->dev;
-	dma_buf->private_data = NULL;
-	dma_buf->area = dma_alloc_coherent(dma_buf->dev.dev,
-				runtime->hw.buffer_bytes_max,
-				&dma_buf->addr, GFP_KERNEL);
-
-	pr_debug("%s: dma_buf->area: 0x%p, dma_buf->addr: 0x%x", __func__,
-			(unsigned int *) dma_buf->area, dma_buf->addr);
-	if (!dma_buf->area) {
-		pr_err("%s:MSM AFE memory allocation failed\n", __func__);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dir = IN;
+	else
+		dir = OUT;
+	rc = q6afe_audio_client_buf_alloc_contiguous(dir,
+			prtd->audio_client,
+			runtime->hw.period_bytes_min,
+			runtime->hw.periods_max);
+	if (rc < 0) {
+		pr_err("Audio Start: Buffer Allocation failed rc = %d\n", rc);
 		mutex_unlock(&prtd->lock);
 		return -ENOMEM;
 	}
+	buf = prtd->audio_client->port[dir].buf;
+
+	if (buf == NULL || buf[0].data == NULL) {
+		mutex_unlock(&prtd->lock);
+		return -ENOMEM;
+	}
+
+	pr_debug("%s:buf = %p\n", __func__, buf);
+	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
+	dma_buf->dev.dev = substream->pcm->card->dev;
+	dma_buf->private_data = NULL;
+	dma_buf->area = buf[0].data;
+	dma_buf->addr = buf[0].phys;
 	dma_buf->bytes = runtime->hw.buffer_bytes_max;
+	if (!dma_buf->area) {
+		pr_err("%s:MSM AFE physical memory allocation failed\n",
+							__func__);
+		mutex_unlock(&prtd->lock);
+		return -ENOMEM;
+	}
 	memset(dma_buf->area, 0, runtime->hw.buffer_bytes_max);
 	prtd->dma_addr = (u32) dma_buf->addr;
 
@@ -542,6 +585,9 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static int msm_afe_probe(struct platform_device *pdev)
 {
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s", "msm-pcm-afe");
+
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	return snd_soc_register_platform(&pdev->dev,
 				   &msm_soc_platform);
@@ -553,11 +599,17 @@ static int msm_afe_remove(struct platform_device *pdev)
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
 }
+static const struct of_device_id msm_pcm_afe_dt_match[] = {
+	{.compatible = "qcom,msm-pcm-afe"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, msm_pcm_afe_dt_match);
 
 static struct platform_driver msm_afe_driver = {
 	.driver = {
 		.name = "msm-pcm-afe",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_pcm_afe_dt_match,
 	},
 	.probe = msm_afe_probe,
 	.remove = msm_afe_remove,

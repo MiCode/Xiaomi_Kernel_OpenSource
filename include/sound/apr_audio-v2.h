@@ -1890,6 +1890,7 @@ union afe_port_config {
 	struct afe_param_id_hdmi_multi_chan_audio_cfg hdmi_multi_ch;
 	struct afe_param_id_slimbus_cfg           slim_sch;
 	struct afe_param_id_rt_proxy_port_cfg     rtproxy;
+	struct afe_param_id_internal_bt_fm_cfg    int_bt_fm;
 } __packed;
 
 struct afe_audioif_config_command {
