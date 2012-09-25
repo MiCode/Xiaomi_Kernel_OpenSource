@@ -16,6 +16,7 @@
 
 #include "kgsl.h"
 #include "kgsl_device.h"
+#include "kgsl_sharedmem.h"
 
 /*default log levels is error for everything*/
 #define KGSL_LOG_LEVEL_DEFAULT 3
@@ -23,6 +24,7 @@
 
 struct dentry *kgsl_debugfs_dir;
 static struct dentry *pm_d_debugfs;
+struct dentry *proc_d_debugfs;
 
 static int pm_dump_set(void *data, u64 val)
 {
@@ -146,9 +148,80 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 
 }
 
+static const char * const memtype_strings[] = {
+	"gpumem",
+	"pmem",
+	"ashmem",
+	"usermap",
+	"ion",
+};
+
+static const char *memtype_str(int memtype)
+{
+	if (memtype < ARRAY_SIZE(memtype_strings))
+		return memtype_strings[memtype];
+	return "unknown";
+}
+
+static int process_mem_print(struct seq_file *s, void *unused)
+{
+	struct kgsl_mem_entry *entry;
+	struct rb_node *node;
+	struct kgsl_process_private *private = s->private;
+	char flags[3];
+	char usage[16];
+
+	spin_lock(&private->mem_lock);
+	seq_printf(s, "%8s %8s %5s %10s %16s %5s\n",
+		   "gpuaddr", "size", "flags", "type", "usage", "sglen");
+	for (node = rb_first(&private->mem_rb); node; node = rb_next(node)) {
+		struct kgsl_memdesc *m;
+
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+		m = &entry->memdesc;
+
+		flags[0] = m->priv & KGSL_MEMFLAGS_GLOBAL ?  'g' : '-';
+		flags[1] = m->priv & KGSL_MEMFLAGS_GPUREADONLY ? 'r' : '-';
+		flags[2] = '\0';
+
+		kgsl_get_memory_usage(usage, sizeof(usage), m->priv);
+
+		seq_printf(s, "%08x %8d %5s %10s %16s %5d\n",
+			   m->gpuaddr, m->size, flags,
+			   memtype_str(entry->memtype), usage, m->sglen);
+	}
+	spin_unlock(&private->mem_lock);
+	return 0;
+}
+
+static int process_mem_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, process_mem_print, inode->i_private);
+}
+
+static const struct file_operations process_mem_fops = {
+	.open = process_mem_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+void
+kgsl_process_init_debugfs(struct kgsl_process_private *private)
+{
+	unsigned char name[16];
+
+	snprintf(name, sizeof(name), "%d", private->pid);
+
+	private->debug_root = debugfs_create_dir(name, proc_d_debugfs);
+	debugfs_create_file("mem", 0400, private->debug_root, private,
+			    &process_mem_fops);
+}
+
 void kgsl_core_debugfs_init(void)
 {
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", 0);
+	proc_d_debugfs = debugfs_create_dir("proc", kgsl_debugfs_dir);
 }
 
 void kgsl_core_debugfs_close(void)
