@@ -41,9 +41,12 @@ struct hdmi_tx_ctrl {
 	struct hdmi_tx_platform_data pdata;
 	struct mdss_panel_data panel_data;
 
+	int audio_sample_rate;
+
 	struct mutex mutex;
 	struct kobject *kobj;
 	struct switch_dev sdev;
+	struct switch_dev audio_sdev;
 	struct workqueue_struct *workq;
 
 	uint32_t video_resolution;
