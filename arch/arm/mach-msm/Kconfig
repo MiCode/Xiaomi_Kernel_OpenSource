@@ -2052,6 +2052,15 @@ config MSM_ADSP_SSR_8974
 	 restarts the adsp or the 8974 when the adsp encounters a fatal error,
 	 depending on the restart level selected in the subsystem restart driver.
 
+config MSM_WCNSS_SSR_8974
+	tristate "MSM 8974 WCNSS restart module"
+	depends on (ARCH_MSM8974)
+	help
+	 This option enables the WCNSS restart module for MSM8974. It monitors
+	 WCNSS SMSM status bits and WCNSS hardware watchdog interrupt line; and
+	 depending on the restart level, it will restart WCNSS when a fatal error
+	 occurs at WCNSS.
+
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"
 	depends on ARCH_MSM7X30 || (ARCH_QSD8X50 && MSM_SOC_REV_A)
