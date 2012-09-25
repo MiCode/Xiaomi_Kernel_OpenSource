@@ -412,7 +412,32 @@ int clk_set_flags(struct clk *clk, unsigned long flags)
 }
 EXPORT_SYMBOL(clk_set_flags);
 
-static struct clock_init_data __initdata *clk_init_data;
+static struct clock_init_data *clk_init_data;
+
+/**
+ * msm_clock_register() - Register additional clock tables
+ * @table: Table of clocks
+ * @size: Size of @table
+ *
+ * Upon return, clock APIs may be used to control clocks registered using this
+ * function. This API may only be used after msm_clock_init() has completed.
+ * Unlike msm_clock_init(), this function may be called multiple times with
+ * different clock lists and used after the kernel has finished booting.
+ */
+int msm_clock_register(struct clk_lookup *table, size_t size)
+{
+	if (!clk_init_data)
+		return -ENODEV;
+
+	if (!table)
+		return -EINVAL;
+
+	clkdev_add_table(table, size);
+	clock_debug_register(table, size);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_clock_register);
 
 static enum handoff __init __handoff_clk(struct clk *clk)
 {
@@ -466,12 +491,22 @@ out:
 	return ret;
 }
 
-void __init msm_clock_init(struct clock_init_data *data)
+/**
+ * msm_clock_init() - Register and initialize a clock driver
+ * @data: Driver-specific clock initialization data
+ *
+ * Upon return from this call, clock APIs may be used to control
+ * clocks registered with this API.
+ */
+int __init msm_clock_init(struct clock_init_data *data)
 {
 	unsigned n;
 	struct clk_lookup *clock_tbl;
 	size_t num_clocks;
 	struct clk *clk;
+
+	if (!data)
+		return -EINVAL;
 
 	clk_init_data = data;
 	if (clk_init_data->pre_init)
@@ -499,16 +534,17 @@ void __init msm_clock_init(struct clock_init_data *data)
 
 	if (clk_init_data->post_init)
 		clk_init_data->post_init();
+
+	clock_debug_init();
+	clock_debug_register(clock_tbl, num_clocks);
+
+	return 0;
 }
 
 static int __init clock_late_init(void)
 {
 	struct handoff_clk *h, *h_temp;
-	int n, ret = 0;
-
-	clock_debug_init(clk_init_data);
-	for (n = 0; n < clk_init_data->size; n++)
-		clock_debug_add(clk_init_data->table[n].clk);
+	int ret = 0;
 
 	pr_info("%s: Removing enables held for handed-off clocks\n", __func__);
 	list_for_each_entry_safe(h, h_temp, &handoff_list, list) {
