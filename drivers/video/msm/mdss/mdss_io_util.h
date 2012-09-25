@@ -17,6 +17,15 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 
+#ifdef DEBUG
+#define DEV_DBG(fmt, args...)   pr_err(fmt, ##args)
+#else
+#define DEV_DBG(fmt, args...)   pr_debug(fmt, ##args)
+#endif
+#define DEV_INFO(fmt, args...)  pr_info(fmt, ##args)
+#define DEV_WARN(fmt, args...)  pr_warn(fmt, ##args)
+#define DEV_ERR(fmt, args...)   pr_err(fmt, ##args)
+
 struct dss_io_data {
 	u32 len;
 	void __iomem *base;

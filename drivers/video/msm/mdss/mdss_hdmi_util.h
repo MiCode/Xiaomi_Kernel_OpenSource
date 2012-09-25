@@ -14,18 +14,6 @@
 #define __HDMI_UTIL_H__
 #include "mdss_io_util.h"
 
-#define DEV_INFO(fmt, args...)	pr_info(fmt, ##args)
-#define DEV_WARN(fmt, args...)	pr_warn(fmt, ##args)
-#define DEV_ERR(fmt, args...)	pr_err(fmt, ##args)
-
-#ifdef DEBUG
-#define DEV_DBG(fmt, args...)	pr_err(fmt, ##args)
-#else
-#define DEV_DBG(args...)	(void)0
-#endif
-
-#define REG_DUMP 0
-
 /* HDMI_TX Registers */
 #define HDMI_CTRL                        (0x00000000)
 #define HDMI_TEST_PATTERN                (0x00000010)

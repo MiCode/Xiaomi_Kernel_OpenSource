@@ -19,19 +19,19 @@ void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
 	u32 in_val;
 
 	if (!io || !io->base) {
-		pr_err("%s: invalid input\n", __func__);
+		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
 
 	if (offset > io->len) {
-		pr_err("%s: offset out of range\n", __func__);
+		DEV_ERR("%s: offset out of range\n", __func__);
 		return;
 	}
 
 	writel_relaxed(value, io->base + offset);
 	if (debug) {
 		in_val = readl_relaxed(io->base + offset);
-		pr_debug("[%08x] => %08x [%08x]\n", (u32)(io->base + offset),
+		DEV_DBG("[%08x] => %08x [%08x]\n", (u32)(io->base + offset),
 			value, in_val);
 	}
 } /* dss_reg_w */
@@ -40,18 +40,18 @@ u32 dss_reg_r(struct dss_io_data *io, u32 offset, u32 debug)
 {
 	u32 value;
 	if (!io || !io->base) {
-		pr_err("%s: invalid input\n", __func__);
+		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
 
 	if (offset > io->len) {
-		pr_err("%s: offset out of range\n", __func__);
+		DEV_ERR("%s: offset out of range\n", __func__);
 		return -EINVAL;
 	}
 
 	value = readl_relaxed(io->base + offset);
 	if (debug)
-		pr_debug("[%08x] <= %08x\n", (u32)(io->base + offset), value);
+		DEV_DBG("[%08x] <= %08x\n", (u32)(io->base + offset), value);
 
 	return value;
 } /* dss_reg_r */
@@ -71,7 +71,7 @@ static struct resource *msm_dss_get_res_byname(struct platform_device *pdev,
 
 	res = platform_get_resource_byname(pdev, type, name);
 	if (!res)
-		pr_err("%s: '%s' resource not found\n", __func__, name);
+		DEV_ERR("%s: '%s' resource not found\n", __func__, name);
 
 	return res;
 }
@@ -83,13 +83,13 @@ int msm_dss_ioremap_byname(struct platform_device *pdev,
 	struct resource *res = NULL;
 
 	if (!pdev || !io_data) {
-		pr_err("%s: invalid input\n", __func__);
+		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
 
 	res = msm_dss_get_res_byname(pdev, IORESOURCE_MEM, name);
 	if (!res) {
-		pr_err("%s: '%s' msm_dss_get_res_byname failed\n",
+		DEV_ERR("%s: '%s' msm_dss_get_res_byname failed\n",
 			__func__, name);
 		return -ENODEV;
 	}
@@ -97,7 +97,7 @@ int msm_dss_ioremap_byname(struct platform_device *pdev,
 	io_data->len = resource_size(res);
 	io_data->base = ioremap(res->start, io_data->len);
 	if (!io_data->base) {
-		pr_err("%s: '%s' ioremap failed\n", __func__, name);
+		DEV_ERR("%s: '%s' ioremap failed\n", __func__, name);
 		return -EIO;
 	}
 
@@ -117,7 +117,7 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 				curr_vreg->vreg_name);
 			rc = IS_ERR(curr_vreg->vreg);
 			if (rc) {
-				pr_err("%s: %s get failed. rc=%d\n",
+				DEV_ERR("%s: %s get failed. rc=%d\n",
 					 __func__,
 					 curr_vreg->vreg_name, rc);
 				curr_vreg->vreg = NULL;
@@ -129,7 +129,7 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 					curr_vreg->min_voltage,
 					curr_vreg->max_voltage);
 				if (rc < 0) {
-					pr_err("%s: %s set voltage failed\n",
+					DEV_ERR("%s: %s set voltage failed\n",
 						__func__,
 						curr_vreg->vreg_name);
 					goto vreg_set_voltage_fail;
@@ -139,7 +139,7 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 						curr_vreg->vreg,
 						curr_vreg->optimum_voltage);
 					if (rc < 0) {
-						pr_err(
+						DEV_ERR(
 						"%s: %s set opt mode failed\n",
 						__func__,
 						curr_vreg->vreg_name);
@@ -194,13 +194,13 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 		for (i = 0; i < num_vreg; i++) {
 			rc = IS_ERR(in_vreg[i].vreg);
 			if (rc) {
-				pr_err("%s: %s regulator error. rc=%d\n",
+				DEV_ERR("%s: %s regulator error. rc=%d\n",
 					__func__, in_vreg[i].vreg_name, rc);
 				goto disable_vreg;
 			}
 			rc = regulator_enable(in_vreg[i].vreg);
 			if (rc < 0) {
-				pr_err("%s: %s enable failed\n",
+				DEV_ERR("%s: %s enable failed\n",
 					__func__, in_vreg[i].vreg_name);
 				goto disable_vreg;
 			}
@@ -226,7 +226,7 @@ int msm_dss_enable_gpio(struct dss_gpio *in_gpio, int num_gpio, int enable)
 			rc = gpio_request(in_gpio[i].gpio,
 				in_gpio[i].gpio_name);
 			if (rc < 0) {
-				pr_err("%s: %s enable failed\n",
+				DEV_ERR("%s: %s enable failed\n",
 					__func__, in_gpio[i].gpio_name);
 				goto disable_gpio;
 			}
