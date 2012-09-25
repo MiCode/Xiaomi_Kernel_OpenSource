@@ -104,6 +104,11 @@ struct msm_lpm_rs_data {
 	struct msm_rpm_request *handle;
 };
 
+enum {
+	MSM_LPM_RPM_RS_TYPE = 0,
+	MSM_LPM_LOCAL_RS_TYPE = 1,
+};
+
 struct msm_lpm_resource {
 	struct msm_lpm_rs_data rs_data;
 	uint32_t sleep_value;
@@ -126,7 +131,7 @@ static struct msm_lpm_resource msm_lpm_l2 = {
 	.aggregate = msm_lpm_aggregate_l2,
 	.flush = msm_lpm_flush_l2,
 	.notify = NULL,
-	.valid = true,
+	.valid = false,
 	.rs_data = {
 		.value = MSM_LPM_L2_CACHE_ACTIVE,
 		.default_value = MSM_LPM_L2_CACHE_ACTIVE,
@@ -787,6 +792,7 @@ static int __devinit msm_lpmrs_probe(struct platform_device *pdev)
 		struct msm_lpm_resource *rs = NULL;
 		const char *val;
 		int i;
+		uint32_t resource_type;
 
 		key = "qcom,name";
 		ret = of_property_read_string(node, key, &val);
@@ -810,49 +816,73 @@ static int __devinit msm_lpmrs_probe(struct platform_device *pdev)
 			continue;
 		}
 
-		key = "qcom,type";
-		ret = of_property_read_u32(node, key, &rs->rs_data.type);
+		key = "qcom,resource-type";
+		ret = of_property_read_u32(node, key, &resource_type);
 		if (ret) {
-			pr_err("Failed to read type\n");
+			pr_err("Failed to read resource-type\n");
 			goto fail;
 		}
 
-		key = "qcom,id";
-		ret = of_property_read_u32(node, key, &rs->rs_data.id);
-		if (ret) {
-			pr_err("Failed to read id\n");
+		switch (resource_type) {
+		case MSM_LPM_RPM_RS_TYPE:
+			key = "qcom,type";
+			ret = of_property_read_u32(node, key,
+						&rs->rs_data.type);
+			if (ret) {
+				pr_err("Failed to read type\n");
+				goto fail;
+			}
+
+			key = "qcom,id";
+			ret = of_property_read_u32(node, key, &rs->rs_data.id);
+			if (ret) {
+				pr_err("Failed to read id\n");
+				goto fail;
+			}
+
+			key = "qcom,key";
+			ret = of_property_read_u32(node, key, &rs->rs_data.key);
+			if (ret) {
+				pr_err("Failed to read key\n");
+				goto fail;
+			}
+
+			rs->rs_data.handle = msm_lpm_create_rpm_request(
+						rs->rs_data.type,
+						rs->rs_data.id);
+
+			if (!rs->rs_data.handle) {
+				pr_err("%s: Failed to allocate handle for %s\n",
+						__func__, rs->name);
+				ret = -1;
+				goto fail;
+			}
+			/* fall through */
+
+		case MSM_LPM_LOCAL_RS_TYPE:
+			rs->valid = true;
+			break;
+		default:
+			pr_err("%s: Invalid resource type %d", __func__,
+					resource_type);
 			goto fail;
 		}
-
-		key = "qcom,key";
-		ret = of_property_read_u32(node, key, &rs->rs_data.key);
-		if (ret) {
-			pr_err("Failed to read key\n");
-			goto fail;
-		}
-
-		rs->rs_data.handle = msm_lpm_create_rpm_request(
-					rs->rs_data.type, rs->rs_data.id);
-
-		if (!rs->rs_data.handle) {
-			pr_err("%s: Failed to allocate handle for %s\n",
-					__func__, rs->name);
-			ret = -1;
-			goto fail;
-		}
-
-		rs->valid = true;
 	}
 	msm_rpm_register_notifier(&msm_lpm_rpm_nblk);
 	msm_lpm_init_rpm_ctl();
-	register_hotcpu_notifier(&msm_lpm_cpu_nblk);
-	/* For UP mode, set the default to HSFS OPEN*/
-	if (num_possible_cpus() == 1) {
-		msm_lpm_l2.rs_data.default_value = MSM_LPM_L2_CACHE_HSFS_OPEN;
-		msm_lpm_l2.rs_data.value = MSM_LPM_L2_CACHE_HSFS_OPEN;
-	}
-	msm_pm_set_l2_flush_flag(0);
-	return 0;
+
+	if (msm_lpm_l2.valid) {
+		register_hotcpu_notifier(&msm_lpm_cpu_nblk);
+		/* For UP mode, set the default to HSFS OPEN*/
+		if (num_possible_cpus() == 1) {
+			msm_lpm_l2.rs_data.default_value =
+					MSM_LPM_L2_CACHE_HSFS_OPEN;
+			msm_lpm_l2.rs_data.value = MSM_LPM_L2_CACHE_HSFS_OPEN;
+		}
+		msm_pm_set_l2_flush_flag(0);
+	} else
+		msm_pm_set_l2_flush_flag(1);
+
 fail:
 	return ret;
 }
