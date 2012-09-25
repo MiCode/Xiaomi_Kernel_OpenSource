@@ -1,0 +1,11 @@
+* Qualcomm MSM Wifi Display (WFD)
+
+Required properties:
+- compatible :
+	- "qcom,msm-wfd"
+
+Example:
+
+	qcom,wfd {
+		compatible = "qcom,msm-wfd";
+	};

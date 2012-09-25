@@ -1596,12 +1596,21 @@ static int __devexit __wfd_remove(struct platform_device *pdev)
 	kfree(wfd_dev);
 	return 0;
 }
+
+static const struct of_device_id msm_wfd_dt_match[] = {
+	{.compatible = "qcom,msm-wfd"},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, msm_vidc_dt_match);
+
 static struct platform_driver wfd_driver = {
 	.probe =  __wfd_probe,
 	.remove = __wfd_remove,
 	.driver = {
 		.name = "msm_wfd",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_wfd_dt_match,
 	}
 };
 
