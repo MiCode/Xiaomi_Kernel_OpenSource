@@ -1143,18 +1143,6 @@ static int32_t msm_sensor_init_csi_data(struct device_node *of_node,
 			sensordata->pdata[i].csid_core);
 	}
 
-	rc = of_property_read_u32_array(of_node, "qcom,is-vpe", val_array,
-		count);
-	if (rc < 0) {
-		pr_err("%s failed %d\n", __func__, __LINE__);
-		goto ERROR2;
-	}
-	for (i = 0; i < count; i++) {
-		sensordata->pdata[i].is_vpe = val_array[i];
-		CDBG("%s csi_data[%d].is_vpe = %d\n", __func__, i,
-			sensordata->pdata[i].is_vpe);
-	}
-
 	pinfo->csi_lane_params = kzalloc(
 		sizeof(struct msm_camera_csi_lane_params), GFP_KERNEL);
 	if (!pinfo->csi_lane_params) {
