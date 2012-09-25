@@ -316,6 +316,9 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 					mfd->op_enable);
 		if (ret)
 			pr_warn("can't turn on display!\n");
+
+		if (mfd->vsync_pending)
+			mdss_mdp_overlay_vsync_ctrl(mfd, mfd->vsync_pending);
 	}
 
 	return ret;

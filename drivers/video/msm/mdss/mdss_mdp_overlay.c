@@ -765,7 +765,7 @@ static void mdss_mdp_overlay_handle_vsync(struct mdss_mdp_ctl *ctl, ktime_t t)
 	pr_debug("sent vsync on ctl=%d ts=%llu\n", ctl->num, ktime_to_ns(t));
 }
 
-static int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
+int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 {
 	struct mdss_mdp_ctl *ctl = mfd->ctl;
 	int rc;
@@ -776,6 +776,11 @@ static int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 		return -ENOTSUPP;
 
 	pr_debug("vsync en=%d\n", en);
+
+	if (!ctl->power_on) {
+		mfd->vsync_pending = en;
+		return 0;
+	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	if (en)
