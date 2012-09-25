@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,22 +214,22 @@ static struct etm_drvdata *etm0drvdata;
  * clock vote in the driver and the save-restore code uses 1. above
  * for its vote
  */
-static void etm_set_pwrdwn(struct etm_drvdata *drvdata)
+static void etm_set_pwrup(struct etm_drvdata *drvdata)
 {
-	uint32_t etmcr;
+	uint32_t etmpdcr;
 
-	etmcr = etm_readl(drvdata, ETMCR);
-	etmcr |= BIT(0);
-	etm_writel(drvdata, etmcr, ETMCR);
+	etmpdcr = etm_readl(drvdata, ETMPDCR);
+	etmpdcr |= BIT(3);
+	etm_writel(drvdata, etmpdcr, ETMPDCR);
 }
 
-static void etm_clr_pwrdwn(struct etm_drvdata *drvdata)
+static void etm_clr_pwrup(struct etm_drvdata *drvdata)
 {
-	uint32_t etmcr;
+	uint32_t etmpdcr;
 
-	etmcr = etm_readl(drvdata, ETMCR);
-	etmcr &= ~BIT(0);
-	etm_writel(drvdata, etmcr, ETMCR);
+	etmpdcr = etm_readl(drvdata, ETMPDCR);
+	etmpdcr &= ~BIT(3);
+	etm_writel(drvdata, etmpdcr, ETMPDCR);
 }
 
 static void etm_set_prog(struct etm_drvdata *drvdata)
@@ -269,7 +269,7 @@ static void __etm_enable(void *info)
 
 	ETM_UNLOCK(drvdata);
 	/* Vote for ETM power/clock enable */
-	etm_clr_pwrdwn(drvdata);
+	etm_set_pwrup(drvdata);
 	etm_set_prog(drvdata);
 
 	etm_writel(drvdata, drvdata->ctrl | BIT(10), ETMCR);
@@ -352,7 +352,7 @@ static void __etm_disable(void *info)
 	etm_writel(drvdata, 0x6F | BIT(14), ETMTEEVR);
 
 	/* Vote for ETM power/clock disable */
-	etm_set_pwrdwn(drvdata);
+	etm_clr_pwrup(drvdata);
 	ETM_LOCK(drvdata);
 
 	dev_dbg(drvdata->dev, "cpu: %d disable smp call done\n", drvdata->cpu);
@@ -1426,7 +1426,7 @@ static void __devinit etm_init_arch_data(struct etm_drvdata *drvdata)
 	smp_call_function(etm_os_unlock, NULL, 1);
 	ETM_UNLOCK(drvdata);
 	/* Vote for ETM power/clock enable */
-	etm_clr_pwrdwn(drvdata);
+	etm_set_pwrup(drvdata);
 	/* Set prog bit. It will be set from reset but this is included to
 	 * ensure it is set
 	 */
@@ -1444,7 +1444,7 @@ static void __devinit etm_init_arch_data(struct etm_drvdata *drvdata)
 	drvdata->nr_ctxid_cmp = BMVAL(etmccr, 24, 25);
 
 	/* Vote for ETM power/clock disable */
-	etm_set_pwrdwn(drvdata);
+	etm_clr_pwrup(drvdata);
 	ETM_LOCK(drvdata);
 }
 
