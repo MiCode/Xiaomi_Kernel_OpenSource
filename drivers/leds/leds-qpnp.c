@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/leds.h>
 #include <linux/err.h>
+#include <linux/spinlock.h>
 #include <linux/of_platform.h>
 #include <linux/of_device.h>
 #include <linux/spmi.h>
@@ -163,7 +164,7 @@ struct qpnp_led_data {
 	int			id;
 	u16			base;
 	u8			reg;
-	struct mutex		lock;
+	spinlock_t		lock;
 	struct wled_config_data *wled_cfg;
 	int			max_current;
 	bool			default_on;
@@ -299,7 +300,7 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 		return;
 	}
 
-	mutex_lock(&led->lock);
+	spin_lock(&led->lock);
 	led->cdev.brightness = value;
 
 	switch (led->id) {
@@ -313,7 +314,7 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 		dev_err(led->cdev.dev, "Invalid LED(%d)\n", led->id);
 		break;
 	}
-	mutex_unlock(&led->lock);
+	spin_unlock(&led->lock);
 }
 
 static int qpnp_led_set_max_brightness(struct qpnp_led_data *led)
@@ -653,7 +654,7 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 		return -EINVAL;
 	}
 
-	mutex_init(&led->lock);
+	spin_lock_init(&led->lock);
 
 	rc =  qpnp_led_initialize(led);
 	if (rc < 0)
@@ -680,7 +681,6 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 	return 0;
 
 fail_id_check:
-	mutex_destroy(&led->lock);
 	led_classdev_unregister(&led->cdev);
 	return rc;
 }
@@ -689,7 +689,6 @@ static int qpnp_leds_remove(struct spmi_device *spmi)
 {
 	struct qpnp_led_data *led  = dev_get_drvdata(&spmi->dev);
 
-	mutex_destroy(&led->lock);
 	led_classdev_unregister(&led->cdev);
 
 	return 0;
