@@ -233,7 +233,7 @@ static int pil_pronto_probe(struct platform_device *pdev)
 	int ret;
 	uint32_t regval;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pmu_base");
 	if (!res)
 		return -EINVAL;
 
@@ -246,14 +246,14 @@ static int pil_pronto_probe(struct platform_device *pdev)
 	if (!drv->base)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "clk_base");
 	if (!res)
 		return -EINVAL;
 
 	drv->reset_base = devm_ioremap(&pdev->dev, res->start,
 					resource_size(res));
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "halt_base");
 	if (!res)
 		return -EINVAL;
 

@@ -172,7 +172,7 @@ static int pil_mba_driver_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rmb_base");
 	if (!res)
 		return -EINVAL;
 	drv->reg_base = devm_ioremap(&pdev->dev, res->start,
@@ -180,7 +180,8 @@ static int pil_mba_driver_probe(struct platform_device *pdev)
 	if (!drv->reg_base)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					    "metadata_base");
 	if (res) {
 		drv->metadata_base = devm_ioremap(&pdev->dev, res->start,
 						  resource_size(res));

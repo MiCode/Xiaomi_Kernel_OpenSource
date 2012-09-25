@@ -259,20 +259,21 @@ static int pil_mss_driver_probe(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "qcom,pil-self-auth",
 			     &drv->self_auth);
 	if (drv->self_auth) {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						    "rmb_base");
 		drv->rmb_base = devm_ioremap(&pdev->dev, res->start,
 					     resource_size(res));
 		if (!drv->rmb_base)
 			return -ENOMEM;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "restart_reg");
 	drv->restart_reg = devm_ioremap(&pdev->dev, res->start,
 					resource_size(res));
 	if (!drv->restart_reg)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 4);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "clamp_reg");
 	drv->io_clamp_reg = devm_ioremap(&pdev->dev, res->start,
 					resource_size(res));
 	if (!drv->io_clamp_reg)

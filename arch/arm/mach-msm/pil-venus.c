@@ -388,7 +388,8 @@ static int pil_venus_probe(struct platform_device *pdev)
 	struct pil_desc *desc;
 	int rc;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					    "wrapper_base");
 	if (!res)
 		return -EINVAL;
 
@@ -402,7 +403,7 @@ static int pil_venus_probe(struct platform_device *pdev)
 	if (!drv->venus_wrapper_base)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vbif_base");
 	if (!res)
 		return -EINVAL;
 

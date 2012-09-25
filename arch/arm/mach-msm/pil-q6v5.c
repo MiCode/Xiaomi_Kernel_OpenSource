@@ -205,14 +205,14 @@ struct pil_desc *pil_q6v5_init(struct platform_device *pdev)
 		return ERR_PTR(-ENOMEM);
 	platform_set_drvdata(pdev, drv);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qdsp6_base");
 	if (!res)
 		return ERR_PTR(-EINVAL);
 	drv->reg_base = devm_ioremap(&pdev->dev, res->start,
 				     resource_size(res));
 	if (!drv->reg_base)
 		return ERR_PTR(-ENOMEM);
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "halt_base");
 	drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
 					  resource_size(res));
 	if (!drv->axi_halt_base)
