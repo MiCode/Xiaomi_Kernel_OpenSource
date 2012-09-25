@@ -82,6 +82,7 @@ static struct msm_sensor_fn_t imx091_func_tbl = {
 	.sensor_power_up = msm_sensor_bayer_power_up,
 	.sensor_power_down = msm_sensor_bayer_power_down,
 	.sensor_get_csi_params = msm_sensor_bayer_get_csi_params,
+	.sensor_read_eeprom = msm_sensor_bayer_eeprom_read,
 };
 
 static struct msm_sensor_ctrl_t imx091_s_ctrl = {
