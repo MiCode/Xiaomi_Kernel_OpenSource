@@ -150,8 +150,11 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 		     (fmt->bits[C1_B_Cb] << 2) |
 		     (fmt->bits[C0_G_Y] << 0);
 
-	if (fmt->alpha_enable)
+	if (fmt->bits[C3_ALPHA] || fmt->alpha_enable) {
 		dst_format |= BIT(8); /* DSTC3_EN */
+		if (!fmt->alpha_enable)
+			dst_format |= BIT(14); /* DST_ALPHA_X */
+	}
 
 	if (fmt->fetch_planes != MDSS_MDP_PLANE_PLANAR) {
 		pattern = (fmt->element[3] << 24) | (fmt->element[2] << 15) |
