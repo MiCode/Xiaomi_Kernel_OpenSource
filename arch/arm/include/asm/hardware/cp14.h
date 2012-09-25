@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _ARCH_ARM_MACH_MSM_CP14_H_
-#define _ARCH_ARM_MACH_MSM_CP14_H_
+#ifndef __ASM_HARDWARE_CP14_H
+#define __ASM_HARDWARE_CP14_H
 
 #include <linux/types.h>
 
