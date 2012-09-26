@@ -1095,7 +1095,7 @@ static int audmp3_ion_add(struct audio *audio,
 		goto flag_error;
 	}
 
-	temp_ptr = ion_map_kernel(audio->client, handle, ionflag);
+	temp_ptr = ion_map_kernel(audio->client, handle);
 	if (IS_ERR_OR_NULL(temp_ptr)) {
 		pr_err("%s: could not get virtual address\n", __func__);
 		goto map_error;
@@ -1558,8 +1558,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				}
 
 				audio->map_v_read = ion_map_kernel(
-					audio->client,
-					handle, ionflag);
+					audio->client, handle);
 
 				if (IS_ERR(audio->map_v_read)) {
 					MM_ERR("map of read buf failed\n");
@@ -2280,7 +2279,7 @@ static int audio_open(struct inode *inode, struct file *file)
 			goto output_buff_get_flags_error;
 		}
 
-		audio->map_v_write = ion_map_kernel(client, handle, ionflag);
+		audio->map_v_write = ion_map_kernel(client, handle);
 		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("could not map write buffers\n");
 			rc = -ENOMEM;

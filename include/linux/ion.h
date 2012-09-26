@@ -375,8 +375,7 @@ struct sg_table *ion_sg_table(struct ion_client *client,
  * can be used to access this address. If no flags are specified, this
  * will return a non-secure uncached mapping.
  */
-void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
-			unsigned long flags);
+void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle);
 
 /**
  * ion_unmap_kernel() - destroy a kernel mapping for a handle
@@ -430,7 +429,6 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
  *		address space will be mapped to a dummy buffer.
  * @iova - pointer to store the iova address
  * @buffer_size - pointer to store the size of the buffer
- * @flags - flags for options to map
  * @iommu_flags - flags specific to the iommu.
  *
  * Maps the handle into the iova space specified via domain number. Iova

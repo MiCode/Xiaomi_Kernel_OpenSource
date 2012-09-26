@@ -3469,7 +3469,7 @@ static int voice_alloc_oob_shared_mem(void)
 	}
 
 	mem_addr = ion_map_kernel(v->shmem_info.sh_buf.client,
-				  v->shmem_info.sh_buf.handle, 0);
+				  v->shmem_info.sh_buf.handle);
 	if (IS_ERR_OR_NULL(mem_addr)) {
 		pr_err("%s: ION memory mapping failed\n", __func__);
 		goto err_ion_handle;
@@ -3537,8 +3537,7 @@ static int voice_alloc_oob_mem_table(void)
 	}
 
 	v->shmem_info.memtbl.data = ion_map_kernel(v->shmem_info.memtbl.client,
-						   v->shmem_info.memtbl.handle,
-						   0);
+						   v->shmem_info.memtbl.handle);
 	if (IS_ERR_OR_NULL((void *)v->shmem_info.memtbl.data)) {
 		pr_err("%s: ION memory mapping for memtbl failed\n",
 				__func__);

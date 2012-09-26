@@ -132,7 +132,7 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	mem->domain = domain;
 	mem->partition_num = partition;
 	if (map_kernel) {
-		mem->kvaddr = ion_map_kernel(client->clnt, hndl, 0);
+		mem->kvaddr = ion_map_kernel(client->clnt, hndl);
 		if (!mem->kvaddr) {
 			dprintk(VIDC_ERR,
 				"Failed to map shared mem in kernel\n");

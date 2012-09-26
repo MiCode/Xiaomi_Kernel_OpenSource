@@ -775,8 +775,7 @@ out:
 }
 EXPORT_SYMBOL(ion_unmap_iommu);
 
-void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
-			unsigned long flags)
+void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 {
 	struct ion_buffer *buffer;
 	void *vaddr;
@@ -796,11 +795,6 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
 		       __func__);
 		mutex_unlock(&client->lock);
 		return ERR_PTR(-ENODEV);
-	}
-
-	if (ion_validate_buffer_flags(buffer, flags)) {
-		mutex_unlock(&client->lock);
-		return ERR_PTR(-EEXIST);
 	}
 
 	mutex_lock(&buffer->lock);
