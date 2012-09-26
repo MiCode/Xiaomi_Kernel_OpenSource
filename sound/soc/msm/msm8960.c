@@ -1018,6 +1018,8 @@ static int msm8960_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s channels->min %u channels->max %u ()\n", __func__,
 			channels->min, channels->max);
 
+	if (channels->max < 2)
+		channels->min = channels->max = 2;
 	rate->min = rate->max = 48000;
 
 	return 0;
