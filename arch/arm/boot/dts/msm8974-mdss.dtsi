@@ -18,6 +18,8 @@
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
+		qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+		qcom,memory-reservation-size = <0x800000>; /* size 8MB */
 	};
 
 	mdss_dsi: qcom,mdss_dsi@fd922800 {
