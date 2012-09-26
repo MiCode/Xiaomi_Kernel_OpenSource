@@ -231,8 +231,11 @@ int apr_load_adsp_image(void)
 			apr_set_q6_state(APR_SUBSYS_LOADED);
 			pr_debug("APR: Image is loaded, stated\n");
 		}
-	} else
+	} else if (apr_get_q6_state() == APR_SUBSYS_LOADED) {
+		pr_debug("APR: q6 image already loaded\n");
+	} else {
 		pr_debug("APR: cannot load state %d\n", apr_get_q6_state());
+	}
 	mutex_unlock(&q6.lock);
 	return rc;
 }
@@ -658,8 +661,8 @@ static int lpass_notifier_cb(struct notifier_block *this, unsigned long code,
 		pr_debug("L-notify: Bootup started\n");
 		break;
 	case SUBSYS_AFTER_POWERUP:
-		if (apr_cmpxchg_q6_state(APR_SUBSYS_DOWN, APR_SUBSYS_UP) ==
-					     APR_SUBSYS_DOWN)
+		if (apr_cmpxchg_q6_state(APR_SUBSYS_DOWN,
+				APR_SUBSYS_LOADED) == APR_SUBSYS_DOWN)
 			wake_up(&dsp_wait);
 		pr_debug("L-Notify: Bootup Completed\n");
 		break;
@@ -703,7 +706,7 @@ static int __init apr_late_init(void)
 	init_waitqueue_head(&dsp_wait);
 	init_waitqueue_head(&modem_wait);
 	subsys_notif_register_notifier("modem", &mnb);
-	subsys_notif_register_notifier("lpass", &lnb);
+	subsys_notif_register_notifier(apr_get_lpass_subsys_name(), &lnb);
 	return ret;
 }
 late_initcall(apr_late_init);

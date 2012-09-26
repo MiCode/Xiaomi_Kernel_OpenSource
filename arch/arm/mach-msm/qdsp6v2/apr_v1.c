@@ -21,6 +21,8 @@
 #include <mach/qdsp6v2/dsp_debug.h>
 #include <mach/peripheral-loader.h>
 
+static const char *lpass_subsys_name = "lpass";
+
 struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 			     uint32_t src_port, void *priv)
 {
@@ -130,4 +132,9 @@ void apr_set_subsys_state(void)
 {
 	apr_set_q6_state(APR_SUBSYS_UP);
 	apr_set_modem_state(APR_SUBSYS_UP);
+}
+
+const char *apr_get_lpass_subsys_name(void)
+{
+	return lpass_subsys_name;
 }
