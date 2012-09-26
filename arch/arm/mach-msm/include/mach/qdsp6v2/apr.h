@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,4 +165,5 @@ void apr_set_modem_state(enum apr_subsys_state state);
 enum apr_subsys_state apr_get_q6_state(void);
 int apr_set_q6_state(enum apr_subsys_state state);
 void apr_set_subsys_state(void);
+const char *apr_get_lpass_subsys_name(void);
 #endif
