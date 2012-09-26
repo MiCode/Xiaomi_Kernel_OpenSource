@@ -27,8 +27,8 @@
 static int get_poll_flags(void *instance)
 {
 	struct msm_vidc_inst *inst = instance;
-	struct vb2_queue *outq = &inst->vb2_bufq[OUTPUT_PORT];
-	struct vb2_queue *capq = &inst->vb2_bufq[CAPTURE_PORT];
+	struct vb2_queue *outq = &inst->bufq[OUTPUT_PORT].vb2_bufq;
+	struct vb2_queue *capq = &inst->bufq[CAPTURE_PORT].vb2_bufq;
 	struct vb2_buffer *out_vb = NULL;
 	struct vb2_buffer *cap_vb = NULL;
 	unsigned long flags;
@@ -62,8 +62,8 @@ int msm_vidc_poll(void *instance, struct file *filp,
 		struct poll_table_struct *wait)
 {
 	struct msm_vidc_inst *inst = instance;
-	struct vb2_queue *outq = &inst->vb2_bufq[OUTPUT_PORT];
-	struct vb2_queue *capq = &inst->vb2_bufq[CAPTURE_PORT];
+	struct vb2_queue *outq = &inst->bufq[OUTPUT_PORT].vb2_bufq;
+	struct vb2_queue *capq = &inst->bufq[CAPTURE_PORT].vb2_bufq;
 
 	poll_wait(filp, &inst->event_handler.wait, wait);
 	poll_wait(filp, &capq->done_wq, wait);
@@ -306,9 +306,9 @@ static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 {
 	struct vb2_queue *q = NULL;
 	if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		q = &inst->vb2_bufq[CAPTURE_PORT];
+		q = &inst->bufq[CAPTURE_PORT].vb2_bufq;
 	} else if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		q = &inst->vb2_bufq[OUTPUT_PORT];
+		q = &inst->bufq[OUTPUT_PORT].vb2_bufq;
 	} else {
 		dprintk(VIDC_ERR, "buf_type = %d not recognised\n", type);
 		return -EINVAL;
@@ -404,6 +404,8 @@ void *msm_vidc_open(int core_id, int session_type)
 	}
 
 	mutex_init(&inst->sync_lock);
+	mutex_init(&inst->bufq[CAPTURE_PORT].lock);
+	mutex_init(&inst->bufq[OUTPUT_PORT].lock);
 	spin_lock_init(&inst->lock);
 	inst->session_type = session_type;
 	INIT_LIST_HEAD(&inst->pendingq);

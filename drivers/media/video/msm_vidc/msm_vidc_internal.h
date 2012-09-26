@@ -188,6 +188,11 @@ struct session_prop {
 	u32 bitrate;
 };
 
+struct buf_queue {
+	struct vb2_queue vb2_bufq;
+	struct mutex lock;
+};
+
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex sync_lock;
@@ -216,7 +221,7 @@ struct msm_vidc_inst {
 	struct session_prop prop;
 	int state;
 	const struct msm_vidc_format *fmts[MAX_PORT_NUM];
-	struct vb2_queue vb2_bufq[MAX_PORT_NUM];
+	struct buf_queue bufq[MAX_PORT_NUM];
 	spinlock_t lock;
 	struct list_head pendingq;
 	struct list_head internalbufs;
