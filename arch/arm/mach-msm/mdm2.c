@@ -110,8 +110,12 @@ static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
 
 	/* Wait for the modem to complete its power down actions. */
 	for (i = 20; i > 0; i--) {
-		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
+		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0) {
+			if (mdm_debug_mask & MDM_DEBUG_MASK_SHDN_LOG)
+				pr_info("%s: mdm2ap_status went low, i = %d\n",
+					__func__, i);
 			break;
+		}
 		msleep(100);
 	}
 	if (i == 0) {
