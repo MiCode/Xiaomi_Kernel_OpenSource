@@ -1206,33 +1206,6 @@ struct dma_buf_ops dma_buf_ops = {
 	.kunmap = ion_dma_buf_kunmap,
 };
 
-static int ion_share_set_flags(struct ion_client *client,
-				struct ion_handle *handle,
-				unsigned long flags)
-{
-	struct ion_buffer *buffer;
-	bool valid_handle;
-	unsigned long ion_flags = 0;
-	if (flags & O_DSYNC)
-		ion_flags = ION_SET_UNCACHED(ion_flags);
-	else
-		ion_flags = ION_SET_CACHED(ion_flags);
-
-
-	mutex_lock(&client->lock);
-	valid_handle = ion_handle_validate(client, handle);
-	mutex_unlock(&client->lock);
-	if (!valid_handle) {
-		WARN(1, "%s: invalid handle passed to set_flags.\n", __func__);
-		return -EINVAL;
-	}
-
-	buffer = handle->buffer;
-
-	return 0;
-}
-
-
 int ion_share_dma_buf(struct ion_client *client, struct ion_handle *handle)
 {
 	struct ion_buffer *buffer;
@@ -1343,13 +1316,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_SHARE:
 	{
 		struct ion_fd_data data;
-		int ret;
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
 			return -EFAULT;
-
-		ret = ion_share_set_flags(client, data.handle, filp->f_flags);
-		if (ret)
-			return ret;
 
 		data.fd = ion_share_dma_buf(client, data.handle);
 		if (copy_to_user((void __user *)arg, &data, sizeof(data)))
