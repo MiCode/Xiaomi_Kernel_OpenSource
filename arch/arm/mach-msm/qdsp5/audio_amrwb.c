@@ -977,7 +977,7 @@ static long audamrwb_ioctl(struct file *file, unsigned int cmd,
 				handle = ion_alloc(audio->client,
 					(config.buffer_size *
 					config.buffer_count),
-					SZ_4K, ION_HEAP(ION_AUDIO_HEAP_ID));
+					SZ_4K, ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 				if (IS_ERR_OR_NULL(handle)) {
 					MM_ERR("Unable to alloc I/P buffs\n");
 					audio->input_buff_handle = NULL;
@@ -1600,7 +1600,7 @@ static int audamrwb_open(struct inode *inode, struct file *file)
 	audio->client = client;
 
 	handle = ion_alloc(client, mem_sz, SZ_4K,
-		ION_HEAP(ION_AUDIO_HEAP_ID));
+		ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL(handle)) {
 		MM_ERR("Unable to create allocate O/P buffers\n");
 		goto output_buff_alloc_error;
