@@ -1060,8 +1060,58 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 				struct soc_params *params, int soc,
 				int vbat_uv, int ibat_ua, int batt_temp)
 {
-	/* TODO do charging adjustments */
-	return soc;
+	int chg_soc;
+
+	if (chip->soc_at_cv == -EINVAL) {
+		/* In constant current charging return the calc soc */
+		if (vbat_uv <= chip->max_voltage_uv)
+			pr_debug("CC CHG SOC %d\n", soc);
+
+		/* Note the CC to CV point */
+		if (vbat_uv >= chip->max_voltage_uv) {
+			chip->soc_at_cv = soc;
+			chip->prev_chg_soc = soc;
+			chip->ibat_at_cv_ua = ibat_ua;
+			pr_debug("CC_TO_CV ibat_ua = %d CHG SOC %d\n",
+					ibat_ua, soc);
+		}
+		return soc;
+	}
+
+	/*
+	 * battery is in CV phase - begin liner inerpolation of soc based on
+	 * battery charge current
+	 */
+
+	/*
+	 * if voltage lessened (possibly because of a system load)
+	 * keep reporting the prev chg soc
+	 */
+	if (vbat_uv <= chip->max_voltage_uv) {
+		pr_debug("vbat %d < max = %d CC CHG SOC %d\n",
+			vbat_uv, chip->max_voltage_uv, chip->prev_chg_soc);
+		return chip->prev_chg_soc;
+	}
+
+	chg_soc = linear_interpolate(chip->soc_at_cv, chip->ibat_at_cv_ua,
+					100, -100000,
+					ibat_ua);
+
+	/* always report a higher soc */
+	if (chg_soc > chip->prev_chg_soc) {
+		int new_ocv_uv;
+
+		chip->prev_chg_soc = chg_soc;
+
+		find_ocv_for_soc(chip, params, batt_temp, chg_soc, &new_ocv_uv);
+		chip->last_ocv_uv = new_ocv_uv;
+		pr_debug("CC CHG ADJ OCV = %d CHG SOC %d\n",
+				new_ocv_uv,
+				chip->prev_chg_soc);
+	}
+
+	pr_debug("Reporting CHG SOC %d\n", chip->prev_chg_soc);
+	return chip->prev_chg_soc;
 }
 
 static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
