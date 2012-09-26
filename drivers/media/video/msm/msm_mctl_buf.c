@@ -898,7 +898,7 @@ static int __msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
 			meta_frame->map[i].handle);
 		if (ion_map_iommu(client, meta_frame->map[i].handle,
 				domain_num, 0, SZ_4K,
-				0, &paddr, &len, UNCACHED, 0) < 0) {
+				0, &paddr, &len, 0, 0) < 0) {
 			pr_err("%s: cannot map address plane %d", __func__, i);
 			ion_free(client, meta_frame->map[i].handle);
 			/* Roll back previous plane mappings, if any */

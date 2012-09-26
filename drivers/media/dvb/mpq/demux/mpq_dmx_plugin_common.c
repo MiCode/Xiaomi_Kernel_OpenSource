@@ -932,7 +932,8 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 		ion_alloc(mpq_demux->ion_client,
 				  actual_buffer_size,
 				  SZ_4K,
-				  (ION_HEAP(ION_CP_MM_HEAP_ID) | CACHED), 0);
+				  ION_HEAP(ION_CP_MM_HEAP_ID),
+				  ION_FLAG_CACHED);
 
 	if (IS_ERR_OR_NULL(feed_data->payload_buff_handle)) {
 		ret = PTR_ERR(feed_data->payload_buff_handle);

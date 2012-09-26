@@ -136,7 +136,7 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	if (IS_ERR_OR_NULL(region->handle))
 		goto out1;
 	if (ion_map_iommu(client, region->handle, domain_num, 0,
-				  SZ_4K, 0, &paddr, &len, UNCACHED, 0) < 0)
+				  SZ_4K, 0, &paddr, &len, 0, 0) < 0)
 		goto out2;
 #elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
