@@ -22,6 +22,7 @@
 #include <linux/power_supply.h>
 #include <linux/spmi.h>
 #include <linux/rtc.h>
+#include <linux/delay.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/mfd/pm8xxx/batterydata-lib.h>
 
@@ -39,6 +40,8 @@
 #define BMS1_OCV_USE_HIGH_LIMIT_THR0	0x4A
 #define BMS1_OCV_USE_HIGH_LIMIT_THR1	0x4B
 #define BMS1_OCV_USE_LIMIT_CTL		0x4C
+/* Delay control */
+#define BMS1_S1_DELAY_CTL		0x5A
 /* CC interrupt threshold */
 #define BMS1_CC_THR0			0x7A
 #define BMS1_CC_THR1			0x7B
@@ -99,6 +102,7 @@ struct raw_soc_params {
 struct qpnp_bms_chip {
 	struct device			*dev;
 	struct power_supply		bms_psy;
+	struct power_supply		*batt_psy;
 	struct spmi_device		*spmi;
 	u16				base;
 
@@ -156,6 +160,7 @@ struct qpnp_bms_chip {
 	int				iavg_num_samples;
 	struct timespec			t_soc_queried;
 	int				last_soc;
+	int				last_soc_est;
 
 	int				charge_time_us;
 	int				catch_up_time_us;
@@ -953,10 +958,231 @@ static bool is_shutdown_soc_within_limits(struct qpnp_bms_chip *chip, int soc)
 	return 1;
 }
 
+#define BMS_OVERRIDE_MODE_EN_BIT	BIT(7)
+#define EN_VBAT_BIT			BIT(0)
+#define OVERRIDE_MODE_DELAY_MS		20
+static int override_mode_batt_v_and_i(
+		struct qpnp_bms_chip *chip, int *ibat_ua, int *vbat_uv)
+{
+	int16_t vsense_raw, vbat_raw;
+	int vsense_uv, rc;
+	u8 delay;
+
+	mutex_lock(&chip->bms_output_lock);
+
+	delay = 0x00;
+	rc = qpnp_write_wrapper(chip, &delay,
+			chip->base + BMS1_S1_DELAY_CTL, 1);
+	if (rc)
+		pr_err("unable to write into BMS1_S1_DELAY, rc: %d\n", rc);
+
+	rc = qpnp_masked_write(chip, BMS1_MODE_CTL,
+			BMS_OVERRIDE_MODE_EN_BIT | EN_VBAT_BIT,
+			BMS_OVERRIDE_MODE_EN_BIT | EN_VBAT_BIT);
+	if (rc)
+		pr_err("unable to write into BMS1_MODE_CTL, rc: %d\n", rc);
+
+	msleep(OVERRIDE_MODE_DELAY_MS);
+
+	lock_output_data(chip);
+	qpnp_read_wrapper(chip, (u8 *)&vsense_raw,
+			chip->base + BMS1_VSENSE_AVG_DATA0, 2);
+	qpnp_read_wrapper(chip, (u8 *)&vbat_raw,
+			chip->base + BMS1_VBAT_AVG_DATA0, 2);
+	unlock_output_data(chip);
+
+	rc = qpnp_masked_write(chip, BMS1_MODE_CTL,
+			BMS_OVERRIDE_MODE_EN_BIT | EN_VBAT_BIT, 0);
+
+	delay = 0x0B;
+	rc = qpnp_write_wrapper(chip, &delay,
+			chip->base + BMS1_S1_DELAY_CTL, 1);
+	if (rc)
+		pr_err("unable to write into BMS1_S1_DELAY, rc: %d\n", rc);
+
+	mutex_unlock(&chip->bms_output_lock);
+
+	*vbat_uv = convert_vbatt_raw_to_uv(chip, vbat_raw);
+	vsense_uv = convert_vsense_to_uv(chip, vsense_raw);
+	*ibat_ua = vsense_uv * 1000 / (int)chip->r_sense_mohm;
+
+	pr_debug("vsense_raw = 0x%x vbat_raw = 0x%x ibat_ua = %d vbat_uv = %d\n",
+			(uint16_t)vsense_raw, (uint16_t)vbat_raw,
+			*ibat_ua, *vbat_uv);
+	return 0;
+}
+
+static int get_simultaneous_batt_v_and_i(
+						struct qpnp_bms_chip *chip,
+						int *ibat_ua, int *vbat_uv)
+{
+	int rc;
+	union power_supply_propval ret = {0,};
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the status property */
+		chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_STATUS, &ret);
+	} else {
+		/* default to using separate vbat/ibat if unregistered */
+		ret.intval = POWER_SUPPLY_STATUS_FULL;
+	}
+
+	if (ret.intval == POWER_SUPPLY_STATUS_FULL) {
+		pr_debug("batfet is open using separate vbat and ibat meas\n");
+		rc = get_battery_voltage(vbat_uv);
+		if (rc < 0) {
+			pr_err("adc vbat failed err = %d\n", rc);
+			return rc;
+		}
+		rc = get_battery_current(chip, ibat_ua);
+		if (rc < 0) {
+			pr_err("bms ibat failed err = %d\n", rc);
+			return rc;
+		}
+	} else {
+		return override_mode_batt_v_and_i(chip, ibat_ua, vbat_uv);
+	}
+
+	return 0;
+}
+
+static int bound_soc(int soc)
+{
+	soc = max(0, soc);
+	soc = min(100, soc);
+	return soc;
+}
+
+static int charging_adjustments(struct qpnp_bms_chip *chip,
+				struct soc_params *params, int soc,
+				int vbat_uv, int ibat_ua, int batt_temp)
+{
+	/* TODO do charging adjustments */
+	return soc;
+}
+
 static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 							int soc, int batt_temp)
 {
-	pr_debug("Do not adjust\n");
+	int ibat_ua = 0, vbat_uv = 0;
+	int ocv_est_uv = 0, soc_est = 0, pc_est = 0, pc = 0;
+	int delta_ocv_uv = 0;
+	int n = 0;
+	int rc_new_uah = 0;
+	int pc_new = 0;
+	int soc_new = 0;
+	int slope = 0;
+	int rc = 0;
+	int delta_ocv_uv_limit = 0;
+
+	rc = get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
+	if (rc < 0) {
+		pr_err("simultaneous vbat ibat failed err = %d\n", rc);
+		goto out;
+	}
+
+	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
+
+	ocv_est_uv = vbat_uv + (ibat_ua * params->rbatt)/1000;
+	pc_est = calculate_pc(chip, ocv_est_uv, batt_temp);
+	soc_est = div_s64((s64)params->fcc_uah * pc_est - params->uuc_uah*100,
+				(s64)params->fcc_uah - params->uuc_uah);
+	soc_est = bound_soc(soc_est);
+
+	if (ibat_ua < 0) {
+		soc = charging_adjustments(chip, params, soc, vbat_uv, ibat_ua,
+				batt_temp);
+		goto out;
+	}
+
+	/*
+	 * do not adjust
+	 * if soc is same as what bms calculated
+	 * if soc_est is between 45 and 25, this is the flat portion of the
+	 * curve where soc_est is not so accurate. We generally don't want to
+	 * adjust when soc_est is inaccurate except for the cases when soc is
+	 * way far off (higher than 50 or lesser than 20).
+	 * Also don't adjust soc if it is above 90 becuase it might be pulled
+	 * low and cause a bad user experience
+	 */
+	if (soc_est == soc
+		|| (is_between(45, chip->adjust_soc_low_threshold, soc_est)
+		&& is_between(50, chip->adjust_soc_low_threshold - 5, soc))
+		|| soc >= 90)
+		goto out;
+
+	if (chip->last_soc_est == -EINVAL)
+		chip->last_soc_est = soc;
+
+	n = min(200, max(1 , soc + soc_est + chip->last_soc_est));
+	chip->last_soc_est = soc_est;
+
+	pc = calculate_pc(chip, chip->last_ocv_uv, batt_temp);
+	if (pc > 0) {
+		pc_new = calculate_pc(chip,
+				chip->last_ocv_uv - (++slope * 1000),
+				batt_temp);
+		while (pc_new == pc) {
+			/* start taking 10mV steps */
+			slope = slope + 10;
+			pc_new = calculate_pc(chip,
+				chip->last_ocv_uv - (slope * 1000),
+				batt_temp);
+		}
+	} else {
+		/*
+		 * pc is already at the lowest point,
+		 * assume 1 millivolt translates to 1% pc
+		 */
+		pc = 1;
+		pc_new = 0;
+		slope = 1;
+	}
+
+	delta_ocv_uv = div_s64((soc - soc_est) * (s64)slope * 1000,
+							n * (pc - pc_new));
+
+	if (abs(delta_ocv_uv) > delta_ocv_uv_limit) {
+		pr_debug("limiting delta ocv %d limit = %d\n", delta_ocv_uv,
+				delta_ocv_uv_limit);
+
+		if (delta_ocv_uv > 0)
+			delta_ocv_uv = delta_ocv_uv_limit;
+		else
+			delta_ocv_uv = -1 * delta_ocv_uv_limit;
+		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
+	}
+
+	chip->last_ocv_uv -= delta_ocv_uv;
+
+	if (chip->last_ocv_uv >= chip->max_voltage_uv)
+		chip->last_ocv_uv = chip->max_voltage_uv;
+
+	/* calculate the soc based on this new ocv */
+	pc_new = calculate_pc(chip, chip->last_ocv_uv, batt_temp);
+	rc_new_uah = (params->fcc_uah * pc_new) / 100;
+	soc_new = (rc_new_uah - params->cc_uah - params->uuc_uah)*100
+					/ (params->fcc_uah - params->uuc_uah);
+	soc_new = bound_soc(soc_new);
+
+	/*
+	 * if soc_new is ZERO force it higher so that phone doesnt report soc=0
+	 * soc = 0 should happen only when soc_est == 0
+	 */
+	if (soc_new == 0 && soc_est != 0)
+		soc_new = 1;
+
+	soc = soc_new;
+
+out:
+	pr_debug("ibat_ua = %d, vbat_uv = %d, ocv_est_uv = %d, pc_est = %d, soc_est = %d, n = %d, delta_ocv_uv = %d, last_ocv_uv = %d, pc_new = %d, soc_new = %d, rbatt = %d, slope = %d\n",
+		ibat_ua, vbat_uv, ocv_est_uv, pc_est,
+		soc_est, n, delta_ocv_uv, chip->last_ocv_uv,
+		pc_new, soc_new, params->rbatt, slope);
+
 	return soc;
 }
 
@@ -1583,6 +1809,7 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->calculated_soc = -EINVAL;
 	chip->last_soc = -EINVAL;
 	chip->last_vbat_read_uv = -EINVAL;
+	chip->last_soc_est = -EINVAL;
 	chip->first_time_calc_soc = 1;
 	chip->first_time_calc_uuc = 1;
 }
