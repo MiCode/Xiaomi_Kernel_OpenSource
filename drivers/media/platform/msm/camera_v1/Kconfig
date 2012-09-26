@@ -208,6 +208,15 @@ config OV8825
 	  two mipi lanes, required for msm8625 platform.
 	  Say Y here if this is msm8625 variant platform.
 
+config IMX135
+	bool "Sensor imx135 (Sony 13MP)"
+	depends on MSM_CAMERA
+	---help---
+	  Support for IMX135 sensor driver.
+	  This is a Sony 13MP Bayer Sensor with autofocus and video HDR
+	  support.
+	  Say Y if the platform uses IMX135 sensor.
+
 config VB6801
 	bool "Sensor vb6801"
 	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
