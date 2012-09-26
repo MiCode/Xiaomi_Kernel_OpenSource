@@ -1022,6 +1022,8 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
+	struct vsync_update *vp;
+	int undx;
 
 	pr_debug("%s+:\n", __func__);
 
@@ -1052,6 +1054,16 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 		 * then, clock need to be turned off here
 		 */
 		mdp_clk_ctrl(0);
+	}
+
+	undx =  vctrl->update_ndx;
+	vp = &vctrl->vlist[undx];
+	if (vp->update_cnt) {
+		/*
+		 * pipe's iommu will be freed at next overlay play
+		 * and iommu_drop statistic will be increased by one
+		 */
+		vp->update_cnt = 0;     /* empty queue */
 	}
 
 	vctrl->clk_enabled = 0;
