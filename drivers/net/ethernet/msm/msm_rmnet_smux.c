@@ -620,7 +620,7 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	spin_lock_irqsave(&p->tx_queue_lock, flags);
 	ret = _rmnet_xmit(skb, dev);
 
-	if (msm_smux_is_ch_full(p->ch_id) || (ret == -EAGAIN)) {
+	if (ret == -EAGAIN) {
 		/*
 		 * EAGAIN means we attempted to overflow the high watermark
 		 * Clearly the queue is not stopped like it should be, so
