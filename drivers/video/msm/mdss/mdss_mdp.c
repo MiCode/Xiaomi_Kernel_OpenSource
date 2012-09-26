@@ -1085,8 +1085,10 @@ static int mdss_mdp_remove(struct platform_device *pdev)
 
 static const struct of_device_id mdss_mdp_dt_match[] = {
 	{ .compatible = "qcom,mdss_mdp",},
+	{}
 };
 MODULE_DEVICE_TABLE(of, mdss_mdp_dt_match);
+EXPORT_COMPAT("qcom,mdss_mdp");
 
 static struct platform_driver mdss_mdp_driver = {
 	.probe = mdss_mdp_probe,
