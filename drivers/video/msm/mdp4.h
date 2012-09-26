@@ -306,10 +306,16 @@ struct mdp4_overlay_pipe {
 	uint32 is_fg;		/* control alpha & color key */
 	uint32 srcp0_addr;	/* interleave, luma */
 	uint32 srcp0_ystride;
+	struct file *srcp0_file;
+	int put0_need;
 	uint32 srcp1_addr;	/* pseudoplanar, chroma plane */
 	uint32 srcp1_ystride;
+	struct file *srcp1_file;
+	int put1_need;
 	uint32 srcp2_addr;	/* planar color 2*/
 	uint32 srcp2_ystride;
+	struct file *srcp2_file;
+	int put2_need;
 	uint32 srcp3_addr;	/* alpha/color 3 */
 	uint32 srcp3_ystride;
 	uint32 fetch_plane;
