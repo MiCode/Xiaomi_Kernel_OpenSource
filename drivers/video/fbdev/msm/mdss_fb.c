@@ -42,6 +42,9 @@
 #include <linux/vmalloc.h>
 
 #include <mach/board.h>
+#include <mach/memory.h>
+#include <mach/msm_memtypes.h>
+#include <mach/iommu_domains.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -596,37 +599,17 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 	size *= mfd->fb_page;
 
 	if (mfd->index == 0) {
-		struct ion_client *iclient = mdss_get_ionclient();
-
-		if (iclient) {
-			mfd->ihdl = ion_alloc(iclient, size, SZ_4K,
-					 ION_HEAP(ION_CP_MM_HEAP_ID) |
-					 ION_HEAP(ION_SF_HEAP_ID), 0);
-			if (IS_ERR_OR_NULL(mfd->ihdl)) {
-				pr_err("unable to alloc fbmem from ion (%p)\n",
-					mfd->ihdl);
-				return -ENOMEM;
-			}
-
-			virt = ion_map_kernel(iclient, mfd->ihdl);
-			ion_phys(iclient, mfd->ihdl, &phys, &size);
-
-			if (is_mdss_iommu_attached()) {
-				ion_map_iommu(iclient, mfd->ihdl,
-					      mdss_get_iommu_domain(),
-					      0, SZ_4K, 0, &mfd->iova,
-					      (unsigned long *) &size,
-					      0, 0);
-			}
-		} else {
-			virt = dma_alloc_coherent(NULL, size,
-					(dma_addr_t *) &phys, GFP_KERNEL);
-			if (!virt) {
-				pr_err("unable to alloc fbmem size=%u\n", size);
-				return -ENOMEM;
-			}
+		virt = allocate_contiguous_memory(size, MEMTYPE_EBI1, SZ_1M, 0);
+		if (!virt) {
+			pr_err("unable to alloc fbmem size=%u\n", size);
+			return -ENOMEM;
 		}
-
+		phys = memory_pool_node_paddr(virt);
+		if (is_mdss_iommu_attached()) {
+			msm_iommu_map_contig_buffer(phys,
+				mdss_get_iommu_domain(), 0, size, SZ_4K, 0,
+				&(mfd->iova));
+		}
 		pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
 			size, virt, phys, mfd->index);
 	} else {
