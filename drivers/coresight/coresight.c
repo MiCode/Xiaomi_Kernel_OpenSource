@@ -377,8 +377,10 @@ void coresight_abort(void)
 
 	list_for_each_entry(cd, &coresight_devs, dev_link) {
 		if (cd->id == curr_sink) {
-			if (cd->enable && cd->ops->sink_ops->abort)
+			if (cd->enable && cd->ops->sink_ops->abort) {
 				cd->ops->sink_ops->abort(cd);
+				cd->enable = false;
+			}
 		}
 	}
 out:
