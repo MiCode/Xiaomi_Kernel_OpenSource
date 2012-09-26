@@ -1594,6 +1594,11 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			rc = vidc_hal_session_release_buffers(
 				(void *) inst->session,	&buffer_info);
+			if (rc)
+				dprintk(VIDC_WARN,
+					"Failed to release scratch buffer: 0x%x, %d",
+					buffer_info.align_device_addr,
+					buffer_info.buffer_size);
 			list_del(&buf->list);
 			spin_unlock_irqrestore(&inst->lock, flags);
 			msm_smem_free(inst->mem_client, buf->handle);
@@ -1627,8 +1632,9 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 				(void *) inst->session,	&buffer_info);
 			if (rc)
 				dprintk(VIDC_WARN,
-					"Failed in %s for buffer %ld\n",
-					__func__, handle->device_addr);
+					"Failed to release persist buffer 0x%x, %d\n",
+					buffer_info.align_device_addr,
+					buffer_info.buffer_size);
 			list_del(&buf->list);
 			spin_unlock_irqrestore(&inst->lock, flags);
 			msm_smem_free(inst->mem_client, buf->handle);
@@ -1645,7 +1651,6 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct msm_smem *handle;
 	struct internal_buf *binfo;
-	struct list_head *ptr, *next;
 	struct vidc_buffer_addr_info buffer_info;
 	unsigned long flags;
 	struct hal_buffer_requirements *scratch_buf =
@@ -1655,30 +1660,9 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 		"scratch: num = %d, size = %d\n",
 		scratch_buf->buffer_count_actual,
 		scratch_buf->buffer_size);
-	spin_lock_irqsave(&inst->lock, flags);
-	if (!list_empty(&inst->internalbufs)) {
-		list_for_each_safe(ptr, next, &inst->internalbufs) {
-			binfo = list_entry(ptr, struct internal_buf,
-					list);
-			handle = binfo->handle;
-			buffer_info.buffer_size = handle->size;
-			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
-			buffer_info.num_buffers = 1;
-			buffer_info.align_device_addr = handle->device_addr;
-			rc = vidc_hal_session_release_buffers(
-				(void *) inst->session, &buffer_info);
-			if (rc)
-				dprintk(VIDC_WARN,
-					"Failed in release %s for buffer %ld\n",
-					__func__, handle->device_addr);
-			list_del(&binfo->list);
-			spin_unlock_irqrestore(&inst->lock, flags);
-			msm_smem_free(inst->mem_client, binfo->handle);
-			kfree(binfo);
-			spin_lock_irqsave(&inst->lock, flags);
-		}
-	}
-	spin_unlock_irqrestore(&inst->lock, flags);
+	if (msm_comm_release_scratch_buffers(inst))
+		dprintk(VIDC_WARN, "Failed to release scratch buffers\n");
+
 	if (scratch_buf->buffer_size) {
 		for (i = 0; i < scratch_buf->buffer_count_actual;
 				i++) {
