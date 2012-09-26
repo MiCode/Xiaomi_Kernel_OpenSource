@@ -97,47 +97,6 @@ extern uint32_t SMSM_NUM_HOSTS;
 
 #define SMSM_SUBSYS2AP_STATUS         0x00008000
 
-#ifdef CONFIG_MSM_SMD
-void *smem_alloc(unsigned id, unsigned size);
-#else
-void *smem_alloc(unsigned id, unsigned size)
-{
-	return NULL;
-}
-#endif
-void *smem_alloc2(unsigned id, unsigned size_in);
-void *smem_get_entry(unsigned id, unsigned *size);
-int smsm_change_state(uint32_t smsm_entry,
-		      uint32_t clear_mask, uint32_t set_mask);
-
-/*
- * Changes the global interrupt mask.  The set and clear masks are re-applied
- * every time the global interrupt mask is updated for callback registration
- * and de-registration.
- *
- * The clear mask is applied first, so if a bit is set to 1 in both the clear
- * mask and the set mask, the result will be that the interrupt is set.
- *
- * @smsm_entry  SMSM entry to change
- * @clear_mask  1 = clear bit, 0 = no-op
- * @set_mask    1 = set bit, 0 = no-op
- *
- * @returns 0 for success, < 0 for error
- */
-int smsm_change_intr_mask(uint32_t smsm_entry,
-			  uint32_t clear_mask, uint32_t set_mask);
-int smsm_get_intr_mask(uint32_t smsm_entry, uint32_t *intr_mask);
-uint32_t smsm_get_state(uint32_t smsm_entry);
-int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
-	void (*notify)(void *, uint32_t old_state, uint32_t new_state),
-	void *data);
-int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
-	void (*notify)(void *, uint32_t, uint32_t), void *data);
-void smsm_print_sleep_info(uint32_t sleep_delay, uint32_t sleep_limit,
-	uint32_t irq_mask, uint32_t wakeup_reason, uint32_t pending_irqs);
-void smsm_reset_modem(unsigned mode);
-void smsm_reset_modem_cont(void);
-void smd_sleep_exit(void);
 
 #define SMEM_NUM_SMD_STREAM_CHANNELS        64
 #define SMEM_NUM_SMD_BLOCK_CHANNELS         64
@@ -250,8 +209,128 @@ enum {
 	SMSM_NUM_INTR_MUX = 8,
 };
 
+#ifdef CONFIG_MSM_SMD
+void *smem_alloc(unsigned id, unsigned size);
+void *smem_alloc2(unsigned id, unsigned size_in);
+void *smem_get_entry(unsigned id, unsigned *size);
+int smsm_change_state(uint32_t smsm_entry,
+		      uint32_t clear_mask, uint32_t set_mask);
+
+/*
+ * Changes the global interrupt mask.  The set and clear masks are re-applied
+ * every time the global interrupt mask is updated for callback registration
+ * and de-registration.
+ *
+ * The clear mask is applied first, so if a bit is set to 1 in both the clear
+ * mask and the set mask, the result will be that the interrupt is set.
+ *
+ * @smsm_entry  SMSM entry to change
+ * @clear_mask  1 = clear bit, 0 = no-op
+ * @set_mask    1 = set bit, 0 = no-op
+ *
+ * @returns 0 for success, < 0 for error
+ */
+int smsm_change_intr_mask(uint32_t smsm_entry,
+			  uint32_t clear_mask, uint32_t set_mask);
+int smsm_get_intr_mask(uint32_t smsm_entry, uint32_t *intr_mask);
+uint32_t smsm_get_state(uint32_t smsm_entry);
+int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
+	void (*notify)(void *, uint32_t old_state, uint32_t new_state),
+	void *data);
+int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
+	void (*notify)(void *, uint32_t, uint32_t), void *data);
+void smsm_print_sleep_info(uint32_t sleep_delay, uint32_t sleep_limit,
+	uint32_t irq_mask, uint32_t wakeup_reason, uint32_t pending_irqs);
+void smsm_reset_modem(unsigned mode);
+void smsm_reset_modem_cont(void);
+void smd_sleep_exit(void);
+
+
 int smsm_check_for_modem_crash(void);
 void *smem_find(unsigned id, unsigned size);
 void *smem_get_entry(unsigned id, unsigned *size);
+#else
+static inline void *smem_alloc(unsigned id, unsigned size)
+{
+	return NULL;
+}
 
+static inline void *smem_alloc2(unsigned id, unsigned size_in)
+{
+	return NULL;
+}
+
+static inline void *smem_get_entry(unsigned id, unsigned *size)
+{
+	return NULL;
+}
+
+static inline int smsm_change_state(uint32_t smsm_entry,
+		      uint32_t clear_mask, uint32_t set_mask)
+{
+	return -ENODEV;
+}
+
+/*
+ * Changes the global interrupt mask.  The set and clear masks are re-applied
+ * every time the global interrupt mask is updated for callback registration
+ * and de-registration.
+ *
+ * The clear mask is applied first, so if a bit is set to 1 in both the clear
+ * mask and the set mask, the result will be that the interrupt is set.
+ *
+ * @smsm_entry  SMSM entry to change
+ * @clear_mask  1 = clear bit, 0 = no-op
+ * @set_mask    1 = set bit, 0 = no-op
+ *
+ * @returns 0 for success, < 0 for error
+ */
+static inline int smsm_change_intr_mask(uint32_t smsm_entry,
+			  uint32_t clear_mask, uint32_t set_mask)
+{
+	return -ENODEV;
+}
+
+static inline int smsm_get_intr_mask(uint32_t smsm_entry, uint32_t *intr_mask)
+{
+	return -ENODEV;
+}
+static inline uint32_t smsm_get_state(uint32_t smsm_entry)
+{
+	return 0;
+}
+static inline int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
+	void (*notify)(void *, uint32_t old_state, uint32_t new_state),
+	void *data)
+{
+	return -ENODEV;
+}
+static inline int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
+	void (*notify)(void *, uint32_t, uint32_t), void *data)
+{
+	return -ENODEV;
+}
+static inline void smsm_print_sleep_info(uint32_t sleep_delay,
+	uint32_t sleep_limit, uint32_t irq_mask, uint32_t wakeup_reason,
+	uint32_t pending_irqs)
+{
+}
+static inline void smsm_reset_modem(unsigned mode)
+{
+}
+static inline void smsm_reset_modem_cont(void)
+{
+}
+static inline void smd_sleep_exit(void)
+{
+}
+static inline int smsm_check_for_modem_crash(void)
+{
+	return -ENODEV;
+}
+static inline void *smem_find(unsigned id, unsigned size)
+{
+	return NULL;
+}
+#endif
 #endif
