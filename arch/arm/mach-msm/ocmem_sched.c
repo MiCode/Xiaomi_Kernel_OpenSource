@@ -65,6 +65,7 @@ enum client_prio {
 	MAX_OCMEM_PRIO = PRIO_OCMEM + 1,
 };
 
+static void __iomem *ocmem_vaddr;
 static struct list_head sched_queue[MAX_OCMEM_PRIO];
 static struct mutex sched_queue_mutex;
 
@@ -1670,6 +1671,34 @@ err_allocate_fail:
 	return -EINVAL;
 }
 
+static int do_dump(struct ocmem_req *req, unsigned long addr)
+{
+
+	void __iomem *req_vaddr;
+	unsigned long offset = 0x0;
+
+	down_write(&req->rw_sem);
+
+	offset = phys_to_offset(req->req_start);
+
+	req_vaddr = ocmem_vaddr + offset;
+
+	if (!req_vaddr)
+		goto err_do_dump;
+
+	pr_debug("Dumping client %s buffer ocmem p: %lx (v: %p) to ddr %lx\n",
+				get_name(req->owner), req->req_start,
+				req_vaddr, addr);
+
+	memcpy((void *)addr, req_vaddr, req->req_sz);
+
+	up_write(&req->rw_sem);
+	return 0;
+err_do_dump:
+	up_write(&req->rw_sem);
+	return -EINVAL;
+}
+
 int process_restore(int id)
 {
 	struct ocmem_req *req = NULL;
@@ -1828,6 +1857,38 @@ do_allocate_error:
 	return -EINVAL;
 }
 
+int process_dump(int id, struct ocmem_handle *handle, unsigned long addr)
+{
+	struct ocmem_req *req = NULL;
+	int rc = 0;
+
+	req = handle_to_req(handle);
+
+	if (!req)
+		return -EINVAL;
+
+	if (!is_mapped(req)) {
+		pr_err("Buffer is not mapped\n");
+		goto dump_error;
+	}
+
+	inc_ocmem_stat(zone_of(req), NR_DUMP_REQUESTS);
+
+	mutex_lock(&sched_mutex);
+	rc = do_dump(req, addr);
+	mutex_unlock(&sched_mutex);
+
+	if (rc < 0)
+		goto dump_error;
+
+	inc_ocmem_stat(zone_of(req), NR_DUMP_COMPLETE);
+	return 0;
+
+dump_error:
+	pr_err("Dumping OCMEM memory failed for client %d\n", id);
+	return -EINVAL;
+}
+
 static void ocmem_sched_wk_func(struct work_struct *work)
 {
 
@@ -1906,6 +1967,7 @@ int ocmem_sched_init(struct platform_device *pdev)
 	pdata = platform_get_drvdata(pdev);
 	mutex_init(&sched_mutex);
 	mutex_init(&sched_queue_mutex);
+	ocmem_vaddr = pdata->vbase;
 	for (i = MIN_PRIO; i < MAX_OCMEM_PRIO; i++)
 		INIT_LIST_HEAD(&sched_queue[i]);
 
