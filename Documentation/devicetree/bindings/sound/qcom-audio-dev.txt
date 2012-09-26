@@ -123,16 +123,18 @@ Required properties:
 
  - compatible :                            "qcom,msm-ocmem-audio"
 
- - qcom,msm-ocmem-audio-src-id:            Master port id
+ - qcom,msm_bus,name:                      Client name
 
- - qcom,msm-ocmem-audio-dst-id:            Slave port id
+ - qcom,msm_bus,num_cases:                 Total number of use cases
 
- - qcom,msm-ocmem-audio-ab:                arbitrated bandwidth
-                                           in Bytes/s
+ - qcom,msm_bus,active_only:               Context flag for requests in active or
+                                           dual (active & sleep) contex
 
- - qcom,msm-ocmem-audio-ib:                instantaneous bandwidth
-                                           in Bytes/s
+ - qcom,msm_bus,num_paths:                 Total number of master-slave pairs
 
+ - qcom,msm_bus,vectors:                   Arrays of unsigned integers representing:
+                                           master-id, slave-id, arbitrated bandwidth,
+                                           instantaneous bandwidth
 Example:
 
         qcom,msm-pcm {
@@ -234,10 +236,13 @@ Example:
 
 	qcom,msm-ocmem-audio {
 		compatible = "qcom,msm-ocmem-audio";
-		qcom,msm-ocmem-audio-src-id = <11>;
-		qcom,msm-ocmem-audio-dst-id = <604>;
-		qcom,msm-ocmem-audio-ab = <209715200>;
-		qcom,msm-ocmem-audio-ib = <471859200>;
+		qcom,msm_bus,name = "audio-ocmem";
+		qcom,msm_bus,num_cases = <2>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+			<11 604 0 0>,
+			<11 604 32505856 325058560>;
 	};
 
 * MSM8974 ASoC Machine driver
