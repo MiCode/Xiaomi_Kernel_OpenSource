@@ -108,9 +108,9 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	unsigned long ionflags = 0;
 	int rc = 0;
 	if (flags == SMEM_CACHED)
-		ionflags |= ION_SET_CACHE(CACHED);
+		ionflags = ION_SET_CACHED(ionflags);
 	else
-		ionflags |= ION_SET_CACHE(UNCACHED);
+		ionflags = ION_SET_UNCACHED(ionflags);
 
 	ionflags = ionflags | ION_HEAP(ION_CP_MM_HEAP_ID);
 	if (align < 4096)
