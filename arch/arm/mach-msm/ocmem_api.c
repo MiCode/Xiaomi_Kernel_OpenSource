@@ -399,6 +399,36 @@ int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 }
 EXPORT_SYMBOL(ocmem_unmap);
 
+int ocmem_dump(int client_id, struct ocmem_buf *buffer,
+			unsigned long dst_phys_addr)
+{
+	int ret = 0;
+	struct ocmem_handle *handle = NULL;
+
+	if (!check_id(client_id)) {
+		pr_err("ocmem: Invalid client id: %d\n", client_id);
+		return -EINVAL;
+	}
+
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client id: %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return -EINVAL;
+	}
+
+	if (!buffer) {
+		pr_err("ocmem: Invalid buffer\n");
+		return -EINVAL;
+	}
+
+	handle = buffer_to_handle(buffer);
+	mutex_lock(&handle->handle_mutex);
+	ret = process_dump(client_id, handle, dst_phys_addr);
+	mutex_unlock(&handle->handle_mutex);
+	return ret;
+}
+EXPORT_SYMBOL(ocmem_dump);
+
 unsigned long get_max_quota(int client_id)
 {
 	if (!check_id(client_id)) {

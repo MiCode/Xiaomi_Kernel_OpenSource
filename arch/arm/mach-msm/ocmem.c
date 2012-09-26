@@ -82,6 +82,8 @@ static const char *zstat_names[NR_OCMEM_ZSTAT_ITEMS] = {
 	"Transfer failures",
 	"Evictions",
 	"Restorations",
+	"Dump requests",
+	"Dump completed",
 };
 
 struct ocmem_quota_table {

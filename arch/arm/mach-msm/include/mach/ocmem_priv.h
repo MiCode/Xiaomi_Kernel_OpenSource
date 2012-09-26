@@ -56,6 +56,8 @@ enum ocmem_zstat_item {
 	NR_TRANSFER_FAILS,
 	NR_EVICTIONS,
 	NR_RESTORES,
+	NR_DUMP_REQUESTS,
+	NR_DUMP_COMPLETE,
 	NR_OCMEM_ZSTAT_ITEMS,
 };
 
@@ -198,6 +200,7 @@ int process_xfer(int, struct ocmem_handle *, struct ocmem_map_list *, int);
 int process_evict(int);
 int process_restore(int);
 int process_shrink(int, struct ocmem_handle *, unsigned long);
+int process_dump(int, struct ocmem_handle *, unsigned long);
 int ocmem_rdm_transfer(int, struct ocmem_map_list *,
 				unsigned long, int);
 int ocmem_clear(unsigned long, unsigned long);

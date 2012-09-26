@@ -134,6 +134,9 @@ int ocmem_map(int client_id, struct ocmem_buf *buffer,
 int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 			struct ocmem_map_list *list);
 
+int ocmem_dump(int client_id, struct ocmem_buf *buffer,
+				unsigned long dst_phys_addr);
+
 /* Priority Enforcement APIs */
 int ocmem_evict(int client_id);
 
