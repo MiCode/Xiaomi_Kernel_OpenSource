@@ -560,16 +560,32 @@ static int mdss_mdp_vig_setup(struct mdss_mdp_pipe *pipe)
 
 	pr_debug("pnum=%x\n", pipe->num);
 
-	if (pipe->src_fmt->is_yuv)
-		opmode |= (0 << 19) |	/* DST_DATA=RGB */
-			  (1 << 18) |	/* SRC_DATA=YCBCR */
-			  (1 << 17);	/* CSC_1_EN */
-
-	/* only need to program once */
-	if (pipe->play_cnt == 0) {
-		mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1,
-				   MDSS_MDP_CSC_YUV2RGB);
+	/* CSC Post Processing enabled? */
+	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
+		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_CSC_CFG) {
+			if (pipe->pp_cfg.csc_cfg.flags & MDP_CSC_FLAG_ENABLE)
+				opmode |= 1 << 17;	/* CSC_1_EN */
+			if (pipe->pp_cfg.csc_cfg.flags & MDP_CSC_FLAG_YUV_IN)
+				opmode |= 1 << 18;	/* SRC_DATA=YCBCR */
+			if (pipe->pp_cfg.csc_cfg.flags & MDP_CSC_FLAG_YUV_OUT)
+				opmode |= 1 << 19;	/* DST_DATA=YCBCR */
+			/* only need to program once */
+			if (pipe->play_cnt == 0)
+				mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_SSPP,
+				  pipe->num, 1, &pipe->pp_cfg.csc_cfg);
+		}
+	} else {
+		if (pipe->src_fmt->is_yuv)
+			opmode |= (0 << 19) |	/* DST_DATA=RGB */
+				  (1 << 18) |	/* SRC_DATA=YCBCR */
+				  (1 << 17);	/* CSC_1_EN */
+		/* only need to program once */
+		if (pipe->play_cnt == 0) {
+			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1,
+					   MDSS_MDP_CSC_YUV2RGB);
+		}
 	}
+
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_OP_MODE, opmode);
 
 	return 0;
