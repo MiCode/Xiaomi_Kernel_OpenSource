@@ -2022,6 +2022,7 @@ static int msm7627a_panic_handler(struct notifier_block *this,
 
 static struct notifier_block panic_handler = {
 	.notifier_call = msm7627a_panic_handler,
+	.priority = INT_MAX,
 };
 
 static int __init panic_register(void)
