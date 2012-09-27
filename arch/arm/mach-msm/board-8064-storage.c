@@ -338,6 +338,11 @@ void __init apq8064_init_mmc(void)
 		apq8064_add_sdcc(2, apq8064_sdc2_pdata);
 
 	if (apq8064_sdc3_pdata) {
+		if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv()) {
+			apq8064_sdc3_pdata->uhs_caps &= ~(MMC_CAP_UHS_SDR12 |
+				MMC_CAP_UHS_SDR25 | MMC_CAP_UHS_DDR50 |
+				MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104);
+		}
 		if (!machine_is_apq8064_cdp()) {
 			apq8064_sdc3_pdata->wpswitch_gpio = 0;
 			apq8064_sdc3_pdata->is_wpswitch_active_low = false;
