@@ -1709,9 +1709,9 @@ static struct msm_cpr_mode msm_cpr_mode_data[] = {
 			.step_quot = ~0,
 			.tgt_volt_offset = 0,
 			.turbo_Vmax = 1350000,
-			.turbo_Vmin = 1200000,
+			.turbo_Vmin = 1100000,
 			.nom_Vmax = 1350000,
-			.nom_Vmin = 1050000,
+			.nom_Vmin = 1100000,
 			.calibrated_uV = 1300000,
 	},
 };
@@ -1749,7 +1749,7 @@ static void msm_cpr_clk_enable(void)
 
 static struct msm_cpr_config msm_cpr_pdata = {
 	.ref_clk_khz = 19200,
-	.delay_us = 25000,
+	.delay_us = 1000,
 	.irq_line = 0,
 	.cpr_mode_data = msm_cpr_mode_data,
 	.tgt_count_div_N = 1,
@@ -1757,7 +1757,7 @@ static struct msm_cpr_config msm_cpr_pdata = {
 	.ceiling = 40,
 	.sw_vlevel = 20,
 	.up_threshold = 1,
-	.dn_threshold = 3,
+	.dn_threshold = 4,
 	.up_margin = 0,
 	.dn_margin = 0,
 	.max_nom_freq = 700800,
