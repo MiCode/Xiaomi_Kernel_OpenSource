@@ -24,7 +24,7 @@
 #include <linux/cdev.h>
 #include <linux/list.h>
 #include <linux/hash.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/msm_smd.h>
 #include <mach/ion.h>
 #include "adsprpc_shared.h"
