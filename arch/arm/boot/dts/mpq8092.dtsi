@@ -25,6 +25,15 @@
 		<0xf9002000 0x1000>;
 	};
 
+	msmgpio: gpio@fd510000 {
+		compatible = "qcom,msm-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		reg = <0xfd510000 0x4000>;
+	};
+
 	timer {
 		compatible = "qcom,msm-qtimer", "arm,armv7-timer";
 		interrupts = <1 2 0>, <1 3 0>;
