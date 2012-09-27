@@ -212,10 +212,6 @@ static irqreturn_t z180_irq_handler(struct kgsl_device *device)
 
 			queue_work(device->work_queue, &device->ts_expired_ws);
 			wake_up_interruptible(&device->wait_queue);
-
-			atomic_notifier_call_chain(
-				&(device->ts_notifier_list),
-				device->id, NULL);
 		}
 	}
 
