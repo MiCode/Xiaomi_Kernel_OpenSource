@@ -199,11 +199,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
 
-	spin_lock_bh(&dsi_clk_lock);
 	mdss_dsi_clk_disable(pdata);
-
-	spin_unlock_bh(&dsi_clk_lock);
-
 	mdss_dsi_unprepare_clocks();
 
 	/* disable DSI controller */
@@ -250,11 +246,7 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 	mdss_dsi_phy_init(pdata);
 
 	mdss_dsi_prepare_clocks();
-
-	spin_lock_bh(&dsi_clk_lock);
-
 	mdss_dsi_clk_enable(pdata);
-	spin_unlock_bh(&dsi_clk_lock);
 
 	clk_rate = pdata->panel_info.clk_rate;
 	clk_rate = min(clk_rate, pdata->panel_info.clk_max);
