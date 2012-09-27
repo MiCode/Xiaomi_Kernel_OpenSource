@@ -36,6 +36,7 @@
 #include <mach/scm.h>
 #include "msm_watchdog.h"
 #include "timer.h"
+#include "wdog_debug.h"
 
 #define WDT0_RST	0x38
 #define WDT0_EN		0x40
@@ -250,8 +251,11 @@ void msm_restart(char mode, const char *cmd)
 		__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
 		__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
 		__raw_writel(1, msm_tmr0_base + WDT0_EN);
-	} else
+	} else {
+		/* Needed for 8974: Reset GCC_WDOG_DEBUG register */
+		msm_disable_wdog_debug();
 		__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
+	}
 
 	mdelay(10000);
 	printk(KERN_ERR "Restarting has failed\n");
