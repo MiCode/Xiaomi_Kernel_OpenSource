@@ -13,6 +13,7 @@ struct epm_chan_request {
 	int32_t physical;
 };
 
+#ifdef __KERNEL__
 struct epm_psoc_init_resp {
 	u8	cmd;
 	u8	version;
@@ -91,7 +92,6 @@ struct epm_psoc_set_vadc {
 	uint32_t	vadc_voltage;
 };
 
-#ifdef __KERNEL__
 struct epm_chan_properties {
 	uint32_t resistorvalue;
 	uint32_t gain;
