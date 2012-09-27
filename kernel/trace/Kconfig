@@ -418,6 +418,19 @@ config FUNCTION_PROFILER
 
 	  If in doubt, say N.
 
+config CPU_FREQ_SWITCH_PROFILER
+	bool "CPU frequency switch time profiler"
+	select GENERIC_TRACER
+	help
+	  This option enables the CPU frequency switch profiler. A file is
+	  created in debugfs called "cpu_freq_switch_profile_enabled", which
+	  defaults to zero. When a 1 is echoed into this file, profiling begins.
+	  When a zero is echoed, profiling stops. A "cpu_freq_switch" file is
+	  also created in the trace_stats directory; this file shows the
+	  switches that have occurred and duration statistics.
+
+	  If in doubt, say N.
+
 config FTRACE_MCOUNT_RECORD
 	def_bool y
 	depends on DYNAMIC_FTRACE
