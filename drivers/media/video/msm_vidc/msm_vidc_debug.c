@@ -181,7 +181,46 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
-
+	inst->debug.pdata[FRAME_PROCESSING].sampling = true;
 failed_create_dir:
 	return dir;
 }
+
+void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
+	enum msm_vidc_debugfs_event e)
+{
+	struct msm_vidc_debug *d = &inst->debug;
+	char a[64] = "Frame processing";
+	switch (e) {
+	case MSM_VIDC_DEBUGFS_EVENT_ETB:
+		inst->count.etb++;
+		if (inst->count.ftb > inst->count.fbd) {
+			d->pdata[FRAME_PROCESSING].name[0] = '\0';
+			tic(inst, FRAME_PROCESSING, a);
+		}
+	break;
+	case MSM_VIDC_DEBUGFS_EVENT_EBD:
+		inst->count.ebd++;
+		if (inst->count.ebd == inst->count.etb)
+			toc(inst, FRAME_PROCESSING);
+	break;
+	case MSM_VIDC_DEBUGFS_EVENT_FTB: {
+		inst->count.ftb++;
+		if (inst->count.etb > inst->count.ebd) {
+			d->pdata[FRAME_PROCESSING].name[0] = '\0';
+			tic(inst, FRAME_PROCESSING, a);
+		}
+	}
+	break;
+	case MSM_VIDC_DEBUGFS_EVENT_FBD:
+		inst->count.fbd++;
+		inst->debug.counter++;
+		if (inst->count.fbd == inst->count.ftb)
+			toc(inst, FRAME_PROCESSING);
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid state in debugfs: %d\n", e);
+		break;
+	}
+}
+
