@@ -141,6 +141,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <0>;
+		qcom,pc-save;
 	};
 
 	etm1: etm@fc33d000 {
@@ -153,6 +154,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <1>;
+		qcom,pc-save;
 	};
 
 	etm2: etm@fc33e000 {
@@ -165,6 +167,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <2>;
+		qcom,pc-save;
 	};
 
 	etm3: etm@fc33f000 {
@@ -177,6 +180,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <3>;
+		qcom,pc-save;
 	};
 
 	csr: csr@fc302000 {
