@@ -31,6 +31,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/android_pmem.h>
 #include <sound/timer.h>
+#include <mach/qdsp6v2/q6core.h>
 
 #include "msm-compr-q6.h"
 #include "msm-pcm-routing.h"
@@ -1079,13 +1080,37 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			pr_debug("SND_AUDIOCODEC_DTS_PASS_THROUGH\n");
 			compr->codec = FORMAT_DTS;
 			break;
-		case SND_AUDIOCODEC_DTS:
+		case SND_AUDIOCODEC_DTS: {
+			char modelId[128];
+			struct snd_dec_dts opt_dts =
+				compr->info.codec_param.codec.options.dts;
+			int modelIdLength = opt_dts.modelIdLength;
 			pr_debug("SND_AUDIOCODEC_DTS\n");
+			if (copy_from_user(modelId, (void *)opt_dts.modelId,
+				modelIdLength))
+				pr_err("%s: ERROR: copy modelId\n", __func__);
+			modelId[modelIdLength] = '\0';
+			pr_debug("%s: Received modelId =%s,length=%d\n",
+				__func__, modelId, modelIdLength);
+			core_set_dts_model_id(modelIdLength, modelId);
 			compr->codec = FORMAT_DTS;
+			}
 			break;
-		case SND_AUDIOCODEC_DTS_LBR:
-			pr_debug("SND_AUDIOCODEC_DTS\n");
+		case SND_AUDIOCODEC_DTS_LBR:{
+			char modelId[128];
+			struct snd_dec_dts opt_dts =
+				compr->info.codec_param.codec.options.dts;
+			int modelIdLength = opt_dts.modelIdLength;
+			pr_debug("SND_AUDIOCODEC_DTS_LBR\n");
+			if (copy_from_user(modelId, (void *)opt_dts.modelId,
+					modelIdLength))
+				pr_err("%s: ERROR: copy modelId\n", __func__);
+			modelId[modelIdLength] = '\0';
+			pr_debug("%s: Received modelId =%s,length=%d\n",
+				__func__, modelId, modelIdLength);
+			core_set_dts_model_id(modelIdLength, modelId);
 			compr->codec = FORMAT_DTS_LBR;
+			}
 			break;
 		case SND_AUDIOCODEC_AMRWB:
 			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_AMRWB\n");
