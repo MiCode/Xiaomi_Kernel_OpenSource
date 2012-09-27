@@ -79,7 +79,6 @@
 #if defined(CONFIG_DEBUG_FS)
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *);
 static struct dentry *debugfs_dir;
-static struct dentry *debugfs_file;
 static int  msmsdcc_dbg_init(void);
 #endif
 
@@ -4806,7 +4805,7 @@ show_idle_timeout(struct device *dev, struct device_attribute *attr,
 	struct msmsdcc_host *host = mmc_priv(mmc);
 
 	return snprintf(buf, PAGE_SIZE, "%u (Min 5 sec)\n",
-		host->idle_tout_ms / 1000);
+		host->idle_tout / 1000);
 }
 
 static ssize_t
@@ -4821,7 +4820,7 @@ store_idle_timeout(struct device *dev, struct device_attribute *attr,
 	if (!kstrtou32(buf, 0, &timeout)
 			&& (timeout > MSM_MMC_DEFAULT_IDLE_TIMEOUT / 1000)) {
 		spin_lock_irqsave(&host->lock, flags);
-		host->idle_tout_ms = timeout * 1000;
+		host->idle_tout = timeout * 1000;
 		spin_unlock_irqrestore(&host->lock, flags);
 	}
 	return count;
@@ -5947,7 +5946,7 @@ msmsdcc_probe(struct platform_device *pdev)
 		pm_runtime_enable(&(pdev)->dev);
 	}
 #endif
-	host->idle_tout_ms = MSM_MMC_DEFAULT_IDLE_TIMEOUT;
+	host->idle_tout = MSM_MMC_DEFAULT_IDLE_TIMEOUT;
 	setup_timer(&host->req_tout_timer, msmsdcc_req_tout_timer_hdlr,
 			(unsigned long)host);
 
@@ -6126,6 +6125,16 @@ msmsdcc_probe(struct platform_device *pdev)
 	return ret;
 }
 
+#ifdef CONFIG_DEBUG_FS
+static void msmsdcc_remove_debugfs(struct msmsdcc_host *host)
+{
+	debugfs_remove_recursive(host->debugfs_host_dir);
+	host->debugfs_host_dir = NULL;
+}
+#else
+static void msmsdcc_remove_debugfs(msmsdcc_host *host) {}
+#endif
+
 static int msmsdcc_remove(struct platform_device *pdev)
 {
 	struct mmc_host *mmc = mmc_get_drvdata(pdev);
@@ -6151,6 +6160,8 @@ static int msmsdcc_remove(struct platform_device *pdev)
 	if (!plat->status_irq)
 		device_remove_file(&pdev->dev, &host->polling);
 	device_remove_file(&pdev->dev, &host->idle_timeout);
+
+	msmsdcc_remove_debugfs(host);
 
 	del_timer_sync(&host->req_tout_timer);
 	tasklet_kill(&host->dma_tlet);
@@ -6449,7 +6460,7 @@ static int msmsdcc_runtime_idle(struct device *dev)
 		return 0;
 
 	/* Idle timeout is not configurable for now */
-	pm_schedule_suspend(dev, host->idle_tout_ms);
+	pm_schedule_suspend(dev, host->idle_tout);
 
 	return -EAGAIN;
 }
@@ -6595,7 +6606,6 @@ static void __exit msmsdcc_exit(void)
 	platform_driver_unregister(&msmsdcc_driver);
 
 #if defined(CONFIG_DEBUG_FS)
-	debugfs_remove(debugfs_file);
 	debugfs_remove(debugfs_dir);
 #endif
 }
@@ -6607,59 +6617,57 @@ MODULE_DESCRIPTION("Qualcomm Multimedia Card Interface driver");
 MODULE_LICENSE("GPL");
 
 #if defined(CONFIG_DEBUG_FS)
-
-static int
-msmsdcc_dbg_state_open(struct inode *inode, struct file *file)
+static int msmsdcc_dbg_idle_tout_get(void *data, u64 *val)
 {
-	file->private_data = inode->i_private;
+	struct msmsdcc_host *host = data;
+
+	*val = host->idle_tout / 1000L;
 	return 0;
 }
 
-static ssize_t
-msmsdcc_dbg_state_read(struct file *file, char __user *ubuf,
-		       size_t count, loff_t *ppos)
+static int msmsdcc_dbg_idle_tout_set(void *data, u64 val)
 {
-	struct msmsdcc_host *host = (struct msmsdcc_host *) file->private_data;
-	char buf[200];
-	int max, i;
+	struct msmsdcc_host *host = data;
+	unsigned long flags;
 
-	i = 0;
-	max = sizeof(buf) - 1;
+	spin_lock_irqsave(&host->lock, flags);
+	host->idle_tout = (u32)val * 1000;
+	spin_unlock_irqrestore(&host->lock, flags);
 
-	i += scnprintf(buf + i, max - i, "STAT: %p %p %p\n", host->curr.mrq,
-		       host->curr.cmd, host->curr.data);
-	if (host->curr.cmd) {
-		struct mmc_command *cmd = host->curr.cmd;
-
-		i += scnprintf(buf + i, max - i, "CMD : %.8x %.8x %.8x\n",
-			      cmd->opcode, cmd->arg, cmd->flags);
-	}
-	if (host->curr.data) {
-		struct mmc_data *data = host->curr.data;
-		i += scnprintf(buf + i, max - i,
-			      "DAT0: %.8x %.8x %.8x %.8x %.8x %.8x\n",
-			      data->timeout_ns, data->timeout_clks,
-			      data->blksz, data->blocks, data->error,
-			      data->flags);
-		i += scnprintf(buf + i, max - i, "DAT1: %.8x %.8x %.8x %p\n",
-			      host->curr.xfer_size, host->curr.xfer_remain,
-			      host->curr.data_xfered, host->dma.sg);
-	}
-
-	return simple_read_from_buffer(ubuf, count, ppos, buf, i);
+	return 0;
 }
 
-static const struct file_operations msmsdcc_dbg_state_ops = {
-	.read	= msmsdcc_dbg_state_read,
-	.open	= msmsdcc_dbg_state_open,
-};
+DEFINE_SIMPLE_ATTRIBUTE(msmsdcc_dbg_idle_tout_ops,
+			msmsdcc_dbg_idle_tout_get,
+			msmsdcc_dbg_idle_tout_set,
+			"%llu\n");
 
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *host)
 {
-	if (debugfs_dir) {
-		debugfs_file = debugfs_create_file(mmc_hostname(host->mmc),
-							0644, debugfs_dir, host,
-							&msmsdcc_dbg_state_ops);
+	int err = 0;
+
+	if (!debugfs_dir)
+		return;
+
+	host->debugfs_host_dir = debugfs_create_dir(
+			mmc_hostname(host->mmc), debugfs_dir);
+	if (IS_ERR(host->debugfs_host_dir)) {
+		err = PTR_ERR(host->debugfs_host_dir);
+		host->debugfs_host_dir = NULL;
+		pr_err("%s: Failed to create debugfs dir for host with err=%d\n",
+			mmc_hostname(host->mmc), err);
+		return;
+	}
+
+	host->debugfs_idle_tout = debugfs_create_file("idle_tout",
+		S_IRUSR | S_IWUSR, host->debugfs_host_dir, host,
+		&msmsdcc_dbg_idle_tout_ops);
+
+	if (IS_ERR(host->debugfs_idle_tout)) {
+		err = PTR_ERR(host->debugfs_idle_tout);
+		host->debugfs_idle_tout = NULL;
+		pr_err("%s: Failed to create idle_tout debugfs entry with err=%d\n",
+			mmc_hostname(host->mmc), err);
 	}
 }
 
@@ -6667,7 +6675,7 @@ static int __init msmsdcc_dbg_init(void)
 {
 	int err;
 
-	debugfs_dir = debugfs_create_dir("msmsdcc", 0);
+	debugfs_dir = debugfs_create_dir("msm_sdcc", 0);
 	if (IS_ERR(debugfs_dir)) {
 		err = PTR_ERR(debugfs_dir);
 		debugfs_dir = NULL;
