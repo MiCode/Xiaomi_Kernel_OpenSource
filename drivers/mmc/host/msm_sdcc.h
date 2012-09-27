@@ -416,6 +416,8 @@ struct msmsdcc_host {
 	bool pending_resume;
 	unsigned int idle_tout;			/* Timeout in msecs */
 	bool pending_dpsm_reset;
+	bool enforce_pio_mode;
+	bool print_pm_stats;
 	struct msmsdcc_msm_bus_vote msm_bus_vote;
 	struct device_attribute	max_bus_bw;
 	struct device_attribute	polling;
@@ -424,8 +426,8 @@ struct msmsdcc_host {
 	struct device_attribute auto_cmd21_attr;
 	struct dentry *debugfs_host_dir;
 	struct dentry *debugfs_idle_tout;
-	bool enforce_pio_mode;
 	struct dentry *debugfs_pio_mode;
+	struct dentry *debugfs_pm_stats;
 };
 
 #define MSMSDCC_VERSION_STEP_MASK	0x0000FFFF

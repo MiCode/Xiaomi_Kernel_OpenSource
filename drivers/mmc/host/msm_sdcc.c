@@ -6343,6 +6343,23 @@ static inline void msmsdcc_ungate_clock(struct msmsdcc_host *host)
 }
 #endif
 
+#if CONFIG_DEBUG_FS
+static void msmsdcc_print_pm_stats(struct msmsdcc_host *host, ktime_t start,
+		const char *func)
+{
+	ktime_t diff;
+
+	if (host->print_pm_stats) {
+		diff = ktime_sub(ktime_get(), start);
+		pr_info("%s: %s: Completed in %llu usec\n", func,
+		mmc_hostname(host->mmc), (u64)ktime_to_us(diff));
+	}
+}
+#else
+static void msmsdcc_print_pm_stats(struct msmsdcc_host *host, ktime_t start,
+		const char *func) {}
+#endif
+
 static int
 msmsdcc_runtime_suspend(struct device *dev)
 {
@@ -6350,6 +6367,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	int rc = 0;
 	unsigned long flags;
+	ktime_t start = ktime_get();
 
 	if (host->plat->is_sdio_al_client) {
 		rc = 0;
@@ -6406,6 +6424,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 out:
 	/* set bus bandwidth to 0 immediately */
 	msmsdcc_msm_bus_cancel_work_and_set_vote(host, NULL);
+	msmsdcc_print_pm_stats(host, start, __func__);
 	return rc;
 }
 
@@ -6415,9 +6434,10 @@ msmsdcc_runtime_resume(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
+	ktime_t start = ktime_get();
 
 	if (host->plat->is_sdio_al_client)
-		return 0;
+		goto out;
 
 	pr_debug("%s: %s: start\n", mmc_hostname(mmc), __func__);
 	if (mmc) {
@@ -6452,6 +6472,8 @@ msmsdcc_runtime_resume(struct device *dev)
 	}
 	host->pending_resume = false;
 	pr_debug("%s: %s: end\n", mmc_hostname(mmc), __func__);
+out:
+	msmsdcc_print_pm_stats(host, start, __func__);
 	return 0;
 }
 
@@ -6474,17 +6496,19 @@ static int msmsdcc_pm_suspend(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	int rc = 0;
+	ktime_t start = ktime_get();
 
-	if (host->plat->is_sdio_al_client)
-		return 0;
-
-
+	if (host->plat->is_sdio_al_client) {
+		rc = 0;
+		goto out;
+	}
 	if (host->plat->status_irq)
 		disable_irq(host->plat->status_irq);
 
 	if (!pm_runtime_suspended(dev))
 		rc = msmsdcc_runtime_suspend(dev);
-
+ out:
+	msmsdcc_print_pm_stats(host, start, __func__);
 	return rc;
 }
 
@@ -6517,10 +6541,12 @@ static int msmsdcc_pm_resume(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	int rc = 0;
+	ktime_t start = ktime_get();
 
-	if (host->plat->is_sdio_al_client)
-		return 0;
-
+	if (host->plat->is_sdio_al_client) {
+		rc = 0;
+		goto out;
+	}
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		rc = msmsdcc_runtime_resume(dev);
 	/*
@@ -6536,7 +6562,8 @@ static int msmsdcc_pm_resume(struct device *dev)
 		msmsdcc_check_status((unsigned long)host);
 		enable_irq(host->plat->status_irq);
 	}
-
+out:
+	msmsdcc_print_pm_stats(host, start, __func__);
 	return rc;
 }
 
@@ -6671,6 +6698,31 @@ DEFINE_SIMPLE_ATTRIBUTE(msmsdcc_dbg_pio_mode_ops,
 			msmsdcc_dbg_pio_mode_set,
 			"%llu\n");
 
+static int msmsdcc_dbg_pm_stats_get(void *data, u64 *val)
+{
+	struct msmsdcc_host *host = data;
+
+	*val = !!host->print_pm_stats;
+	return 0;
+}
+
+static int msmsdcc_dbg_pm_stats_set(void *data, u64 val)
+{
+	struct msmsdcc_host *host = data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+	host->print_pm_stats = !!val;
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(msmsdcc_dbg_pm_stats_ops,
+			msmsdcc_dbg_pm_stats_get,
+			msmsdcc_dbg_pm_stats_set,
+			"%llu\n");
+
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *host)
 {
 	int err = 0;
@@ -6707,6 +6759,16 @@ static void msmsdcc_dbg_createhost(struct msmsdcc_host *host)
 		err = PTR_ERR(host->debugfs_pio_mode);
 		host->debugfs_pio_mode = NULL;
 		pr_err("%s: Failed to create pio_mode debugfs entry with err=%d\n",
+			mmc_hostname(host->mmc), err);
+	}
+
+	host->debugfs_pm_stats = debugfs_create_file("pm_stats",
+		S_IRUSR | S_IWUSR, host->debugfs_host_dir, host,
+		&msmsdcc_dbg_pm_stats_ops);
+	if (IS_ERR(host->debugfs_pm_stats)) {
+		err = PTR_ERR(host->debugfs_pm_stats);
+		host->debugfs_pm_stats = NULL;
+		pr_err("%s: Failed to create pm_stats debugfs entry with err=%d\n",
 			mmc_hostname(host->mmc), err);
 	}
 }
