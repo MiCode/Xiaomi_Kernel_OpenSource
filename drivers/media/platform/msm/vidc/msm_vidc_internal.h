@@ -193,6 +193,37 @@ struct buf_queue {
 	struct mutex lock;
 };
 
+enum profiling_points {
+	SYS_INIT = 0,
+	SESSION_INIT,
+	LOAD_RESOURCES,
+	FRAME_PROCESSING,
+	FW_IDLE,
+	MAX_PROFILING_POINTS,
+};
+
+struct buf_count {
+	int etb;
+	int ftb;
+	int fbd;
+	int ebd;
+};
+
+struct profile_data {
+	int start;
+	int stop;
+	int cumulative;
+	char name[64];
+	int sampling;
+	int average;
+};
+
+struct msm_vidc_debug {
+	struct profile_data pdata[MAX_PROFILING_POINTS];
+	int profile;
+	int counter;
+};
+
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex sync_lock;
@@ -240,6 +271,8 @@ struct msm_vidc_inst {
 	u32 ftb_count;
 	struct vb2_buffer *vb2_seq_hdr;
 	void *priv;
+	struct msm_vidc_debug debug;
+	struct buf_count count;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
@@ -259,5 +292,4 @@ struct msm_vidc_ctrl {
 void handle_cmd_response(enum command_response cmd, void *data);
 int msm_vidc_ocmem_notify_handler(struct notifier_block *this,
 		unsigned long event, void *data);
-
 #endif

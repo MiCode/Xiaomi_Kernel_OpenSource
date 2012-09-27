@@ -521,6 +521,7 @@ static void handle_session_close(enum command_response cmd, void *data)
 		dqevent.id = 0;
 		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
 		wake_up(&inst->kernel_event_queue);
+		show_stats(inst);
 	} else {
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for session close\n");
@@ -571,6 +572,7 @@ static void handle_ebd(enum command_response cmd, void *data)
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
 		wake_up(&inst->kernel_event_queue);
+		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_EBD);
 	}
 }
 
@@ -636,6 +638,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
 		wake_up(&inst->kernel_event_queue);
+		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FBD);
 	} else {
 		/*
 		 * FIXME:
@@ -1499,6 +1502,9 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				frame_data.alloc_len, frame_data.filled_len);
 			rc = vidc_hal_session_etb((void *) inst->session,
 					&frame_data);
+			if (!rc)
+				msm_vidc_debugfs_update(inst,
+					MSM_VIDC_DEBUGFS_EVENT_ETB);
 			dprintk(VIDC_DBG, "Sent etb to HAL\n");
 		} else if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			struct vidc_seq_hdr seq_hdr;
@@ -1531,6 +1537,9 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			} else {
 				rc = vidc_hal_session_ftb((void *)
 					inst->session, &frame_data);
+			if (!rc)
+				msm_vidc_debugfs_update(inst,
+					MSM_VIDC_DEBUGFS_EVENT_FTB);
 			}
 			inst->ftb_count++;
 		} else {

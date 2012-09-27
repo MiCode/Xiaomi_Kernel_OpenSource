@@ -14,12 +14,16 @@
 #ifndef __MSM_VIDC_DEBUG__
 #define __MSM_VIDC_DEBUG__
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include "msm_vidc_internal.h"
 
 #define VIDC_DBG_TAG "msm_vidc: %d: "
 
-/*To enable messages OR these values and
-* echo the result to debugfs file*/
+/* To enable messages OR these values and
+ * echo the result to debugfs file.
+ *
+ * To enable all messages set debug_level = 0x101F
+ */
 
 enum vidc_msg_prio {
 	VIDC_ERR  = 0x0001,
@@ -30,17 +34,85 @@ enum vidc_msg_prio {
 	VIDC_FW   = 0x1000,
 };
 
+enum msm_vidc_debugfs_event {
+	MSM_VIDC_DEBUGFS_EVENT_ETB,
+	MSM_VIDC_DEBUGFS_EVENT_EBD,
+	MSM_VIDC_DEBUGFS_EVENT_FTB,
+	MSM_VIDC_DEBUGFS_EVENT_FBD,
+};
+
 extern int msm_vidc_debug;
 #define dprintk(__level, __fmt, arg...)	\
 	do { \
 		if (msm_vidc_debug & __level) \
-			printk(KERN_DEBUG VIDC_DBG_TAG __fmt,\
-				__level, ## arg); \
+			printk(KERN_DEBUG VIDC_DBG_TAG \
+				__fmt, __level, ## arg); \
 	} while (0)
 
 struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		struct dentry *parent);
 struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 		struct dentry *parent);
+void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
+		enum msm_vidc_debugfs_event e);
+
+static inline void tic(struct msm_vidc_inst *i, enum profiling_points p,
+				 char *b)
+{
+	struct timeval __ddl_tv;
+	if (!i->debug.pdata[p].name[0])
+		memcpy(i->debug.pdata[p].name, b, 64);
+	if ((msm_vidc_debug & VIDC_PROF) &&
+		i->debug.pdata[p].sampling) {
+		do_gettimeofday(&__ddl_tv);
+		i->debug.pdata[p].start =
+			(__ddl_tv.tv_sec * 1000) + (__ddl_tv.tv_usec / 1000);
+			i->debug.pdata[p].sampling = false;
+	}
+}
+
+static inline void toc(struct msm_vidc_inst *i, enum profiling_points p)
+{
+	struct timeval __ddl_tv;
+	if ((msm_vidc_debug & VIDC_PROF) &&
+		!i->debug.pdata[p].sampling) {
+		do_gettimeofday(&__ddl_tv);
+		i->debug.pdata[p].stop = (__ddl_tv.tv_sec * 1000)
+		+ (__ddl_tv.tv_usec / 1000);
+		i->debug.pdata[p].cumulative =
+		(i->debug.pdata[p].stop - i->debug.pdata[p].start);
+		if (i->count.fbd) {
+			if (i->debug.pdata[p].average != 0) {
+				i->debug.pdata[p].average = ((i->debug.pdata[p].
+					average * (i->count.fbd -
+					i->debug.counter) +
+					i->debug.pdata[p].cumulative)
+					/ i->count.fbd);
+			} else {
+				i->debug.pdata[p].average =
+					i->debug.pdata[p].cumulative
+					/ i->count.fbd;
+			}
+		}
+		i->debug.counter = 0;
+		i->debug.pdata[p].cumulative = 0;
+		i->debug.pdata[p].sampling = true;
+	}
+}
+
+static inline void show_stats(struct msm_vidc_inst *i)
+{
+	int x;
+	for (x = 0; x < MAX_PROFILING_POINTS; x++) {
+		if ((i->debug.pdata[x].name[0])  &&
+			(msm_vidc_debug & VIDC_PROF)) {
+			dprintk(VIDC_PROF, "%s averaged %d ms/sample\n",
+				i->debug.pdata[x].name,
+				i->debug.pdata[x].average);
+			dprintk(VIDC_PROF, "%s Samples: %d",
+					i->debug.pdata[x].name, i->count.fbd);
+		}
+	}
+}
 
 #endif
