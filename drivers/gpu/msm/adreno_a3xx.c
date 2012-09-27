@@ -2587,9 +2587,6 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 
 	/* Schedule work to free mem and issue ibs */
 	queue_work(device->work_queue, &device->ts_expired_ws);
-
-	atomic_notifier_call_chain(&device->ts_notifier_list,
-				   device->id, NULL);
 }
 
 #define A3XX_IRQ_CALLBACK(_c) { .func = _c }
