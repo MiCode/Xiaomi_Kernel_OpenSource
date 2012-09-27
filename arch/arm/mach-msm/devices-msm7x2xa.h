@@ -33,6 +33,6 @@ int  ar600x_wlan_power(bool on);
 void __init msm8x25_spm_device_init(void);
 void __init msm_pm_register_cpr_ops(void);
 void __init msm8x25_kgsl_3d0_init(void);
-void __iomem *core1_reset_base(void);
+void __iomem *core_reset_base(unsigned int);
 extern void setup_mm_for_reboot(void);
 #endif
