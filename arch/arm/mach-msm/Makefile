@@ -383,6 +383,7 @@ obj-$(CONFIG_MSM_RPC_PMIC) += pmic.o
 obj-$(CONFIG_MSM_RPC_USB) += rpc_hsusb.o rpc_fsusb.o
 obj-$(CONFIG_MSM_RPC_PMAPP) += rpc_pmapp.o
 
+obj-$(CONFIG_MSM_ENABLE_WDOG_DEBUG_CONTROL) += wdog_debug.o
 
 ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
