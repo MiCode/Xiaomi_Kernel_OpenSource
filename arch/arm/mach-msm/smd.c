@@ -36,6 +36,8 @@
 #include <linux/notifier.h>
 #include <linux/sort.h>
 #include <linux/suspend.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_notif.h>
@@ -3501,6 +3503,295 @@ smem_areas_alloc_fail:
 	return err_ret;
 }
 
+static int parse_smd_devicetree(struct device_node *node,
+						void *irq_out_base)
+{
+	uint32_t edge;
+	char *key;
+	int ret;
+	uint32_t irq_offset;
+	uint32_t irq_bitmask;
+	uint32_t irq_line;
+	unsigned long irq_flags = IRQF_TRIGGER_RISING;
+	const char *pilstr;
+	struct interrupt_config_item *private_irq;
+
+	key = "qcom,smd-edge";
+	ret = of_property_read_u32(node, key, &edge);
+	if (ret)
+		goto missing_key;
+	SMD_DBG("%s: %s = %d", __func__, key, edge);
+
+	key = "qcom,smd-irq-offset";
+	ret = of_property_read_u32(node, key, &irq_offset);
+	if (ret)
+		goto missing_key;
+	SMD_DBG("%s: %s = %x", __func__, key, irq_offset);
+
+	key = "qcom,smd-irq-bitmask";
+	ret = of_property_read_u32(node, key, &irq_bitmask);
+	if (ret)
+		goto missing_key;
+	SMD_DBG("%s: %s = %x", __func__, key, irq_bitmask);
+
+	key = "interrupts";
+	irq_line = irq_of_parse_and_map(node, 0);
+	if (!irq_line)
+		goto missing_key;
+	SMD_DBG("%s: %s = %d", __func__, key, irq_line);
+
+	key = "qcom,pil-string";
+	pilstr = of_get_property(node, key, NULL);
+	if (pilstr)
+		SMD_DBG("%s: %s = %s", __func__, key, pilstr);
+
+	key = "qcom,irq-no-suspend";
+	ret = of_property_read_bool(node, key);
+	if (ret)
+		irq_flags |= IRQF_NO_SUSPEND;
+
+	private_irq = &private_intr_config[edge_to_pids[edge].remote_pid].smd;
+	private_irq->out_bit_pos = irq_bitmask;
+	private_irq->out_offset = irq_offset;
+	private_irq->out_base = irq_out_base;
+	private_irq->irq_id = irq_line;
+
+	ret = request_irq(irq_line,
+				private_irq->irq_handler,
+				irq_flags,
+				"smd_dev",
+				NULL);
+	if (ret < 0) {
+		pr_err("%s: request_irq() failed on %d\n", __func__, irq_line);
+		return ret;
+	} else {
+		ret = enable_irq_wake(irq_line);
+		if (ret < 0)
+			pr_err("%s: enable_irq_wake() failed on %d\n", __func__,
+					irq_line);
+	}
+
+	if (pilstr)
+		strlcpy(edge_to_pids[edge].subsys_name, pilstr,
+						SMD_MAX_CH_NAME_LEN);
+
+	return 0;
+
+missing_key:
+	pr_err("%s: missing key: %s", __func__, key);
+	return -ENODEV;
+}
+
+static int parse_smsm_devicetree(struct device_node *node,
+						void *irq_out_base)
+{
+	uint32_t edge;
+	char *key;
+	int ret;
+	uint32_t irq_offset;
+	uint32_t irq_bitmask;
+	uint32_t irq_line;
+	struct interrupt_config_item *private_irq;
+
+	key = "qcom,smsm-edge";
+	ret = of_property_read_u32(node, key, &edge);
+	if (ret)
+		goto missing_key;
+	SMD_DBG("%s: %s = %d", __func__, key, edge);
+
+	key = "qcom,smsm-irq-offset";
+	ret = of_property_read_u32(node, key, &irq_offset);
+	if (ret)
+		goto missing_key;
+	SMD_DBG("%s: %s = %x", __func__, key, irq_offset);
+
+	key = "qcom,smsm-irq-bitmask";
+	ret = of_property_read_u32(node, key, &irq_bitmask);
+	if (ret)
+		goto missing_key;
+	SMD_DBG("%s: %s = %x", __func__, key, irq_bitmask);
+
+	key = "interrupts";
+	irq_line = irq_of_parse_and_map(node, 0);
+	if (!irq_line)
+		goto missing_key;
+	SMD_DBG("%s: %s = %d", __func__, key, irq_line);
+
+	private_irq = &private_intr_config[edge_to_pids[edge].remote_pid].smsm;
+	private_irq->out_bit_pos = irq_bitmask;
+	private_irq->out_offset = irq_offset;
+	private_irq->out_base = irq_out_base;
+	private_irq->irq_id = irq_line;
+
+	ret = request_irq(irq_line,
+				private_irq->irq_handler,
+				IRQF_TRIGGER_RISING,
+				"smsm_dev",
+				NULL);
+	if (ret < 0) {
+		pr_err("%s: request_irq() failed on %d\n", __func__, irq_line);
+		return ret;
+	} else {
+		ret = enable_irq_wake(irq_line);
+		if (ret < 0)
+			pr_err("%s: enable_irq_wake() failed on %d\n", __func__,
+					irq_line);
+	}
+
+	return 0;
+
+missing_key:
+	pr_err("%s: missing key: %s", __func__, key);
+	return -ENODEV;
+}
+
+static void unparse_smd_devicetree(struct device_node *node)
+{
+	uint32_t irq_line;
+
+	irq_line = irq_of_parse_and_map(node, 0);
+
+	free_irq(irq_line, NULL);
+}
+
+static void unparse_smsm_devicetree(struct device_node *node)
+{
+	uint32_t irq_line;
+
+	irq_line = irq_of_parse_and_map(node, 0);
+
+	free_irq(irq_line, NULL);
+}
+
+static int smd_core_devicetree_init(struct platform_device *pdev)
+{
+	char *key;
+	struct resource *r;
+	void *irq_out_base;
+	void *aux_mem_base;
+	uint32_t aux_mem_size;
+	int temp_string_size = 11; /* max 3 digit count */
+	char temp_string[temp_string_size];
+	int count;
+	struct device_node *node;
+	int ret;
+	const char *compatible;
+	int subnode_num = 0;
+
+	disable_smsm_reset_handshake = 1;
+
+	key = "irq-reg-base";
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
+	if (!r) {
+		pr_err("%s: missing '%s'\n", __func__, key);
+		return -ENODEV;
+	}
+	irq_out_base = (void *)(r->start);
+	SMD_DBG("%s: %s = %p", __func__, key, irq_out_base);
+
+	count = 1;
+	while (1) {
+		scnprintf(temp_string, temp_string_size, "aux-mem%d", count);
+		r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+								temp_string);
+		if (!r)
+			break;
+
+		++num_smem_areas;
+		++count;
+		if (count > 999) {
+			pr_err("%s: max num aux mem regions reached\n",
+								__func__);
+			break;
+		}
+	}
+
+	if (num_smem_areas) {
+		smem_areas = kmalloc(sizeof(struct smem_area) * num_smem_areas,
+					GFP_KERNEL);
+		if (!smem_areas) {
+			pr_err("%s: smem areas kmalloc failed\n", __func__);
+			num_smem_areas = 0;
+			return -ENOMEM;
+		}
+		count = 1;
+		while (1) {
+			scnprintf(temp_string, temp_string_size, "aux-mem%d",
+									count);
+			r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+								temp_string);
+			if (!r)
+				break;
+			aux_mem_base = (void *)(r->start);
+			aux_mem_size = (uint32_t)(resource_size(r));
+			SMD_DBG("%s: %s = %p %x", __func__, temp_string,
+					aux_mem_base, aux_mem_size);
+			smem_areas[count - 1].phys_addr = aux_mem_base;
+			smem_areas[count - 1].size = aux_mem_size;
+			smem_areas[count - 1].virt_addr = ioremap_nocache(
+				(unsigned long)(smem_areas[count-1].phys_addr),
+				smem_areas[count - 1].size);
+			if (!smem_areas[count - 1].virt_addr) {
+				pr_err("%s: ioremap_nocache() of addr:%p size: %x\n",
+					__func__,
+					smem_areas[count - 1].phys_addr,
+					smem_areas[count - 1].size);
+				ret = -ENOMEM;
+				goto free_smem_areas;
+			}
+
+			++count;
+			if (count > 999) {
+				pr_err("%s: max num aux mem regions reached\n",
+								__func__);
+				break;
+			}
+		}
+		sort(smem_areas, num_smem_areas,
+				sizeof(struct smem_area),
+				sort_cmp_func, NULL);
+	}
+
+	for_each_child_of_node(pdev->dev.of_node, node) {
+		compatible = of_get_property(node, "compatible", NULL);
+		if (!strcmp(compatible, "qcom,smd")) {
+			ret = parse_smd_devicetree(node, irq_out_base);
+			if (ret)
+				goto rollback_subnodes;
+		} else if (!strcmp(compatible, "qcom,smsm")) {
+			ret = parse_smsm_devicetree(node, irq_out_base);
+			if (ret)
+				goto rollback_subnodes;
+		} else {
+			pr_err("%s: invalid child node named: %s\n", __func__,
+							compatible);
+			ret = -ENODEV;
+			goto rollback_subnodes;
+		}
+		++subnode_num;
+	}
+
+	return 0;
+
+rollback_subnodes:
+	count = 0;
+	for_each_child_of_node(pdev->dev.of_node, node) {
+		if (count >= subnode_num)
+			break;
+		++count;
+		compatible = of_get_property(node, "compatible", NULL);
+		if (!strcmp(compatible, "qcom,smd"))
+			unparse_smd_devicetree(node);
+		else
+			unparse_smsm_devicetree(node);
+	}
+free_smem_areas:
+	num_smem_areas = 0;
+	kfree(smem_areas);
+	smem_areas = NULL;
+	return ret;
+}
+
 static int msm_smd_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -3521,8 +3812,12 @@ static int msm_smd_probe(struct platform_device *pdev)
 
 	if (pdev) {
 		if (pdev->dev.of_node) {
-			pr_err("SMD: Device tree not currently supported\n");
-			return -ENODEV;
+			ret = smd_core_devicetree_init(pdev);
+			if (ret) {
+				pr_err("%s: device tree init failed\n",
+								__func__);
+				return ret;
+			}
 		} else if (pdev->dev.platform_data) {
 			ret = smd_core_platform_init(pdev);
 			if (ret) {
@@ -3599,11 +3894,17 @@ static __init int modem_restart_late_init(void)
 }
 late_initcall(modem_restart_late_init);
 
+static struct of_device_id msm_smem_match_table[] = {
+	{ .compatible = "qcom,smem" },
+	{},
+};
+
 static struct platform_driver msm_smd_driver = {
 	.probe = msm_smd_probe,
 	.driver = {
 		.name = MODULE_NAME,
 		.owner = THIS_MODULE,
+		.of_match_table = msm_smem_match_table,
 	},
 };
 
