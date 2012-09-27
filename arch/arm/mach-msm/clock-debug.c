@@ -218,6 +218,28 @@ static const struct file_operations list_rates_fops = {
 	.release	= seq_release,
 };
 
+static int clock_parent_show(struct seq_file *m, void *unused)
+{
+	struct clk *clock = m->private;
+	struct clk *parent = clk_get_parent(clock);
+
+	seq_printf(m, "%s\n", (parent ? parent->dbg_name : "None"));
+
+	return 0;
+}
+
+static int clock_parent_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, clock_parent_show, inode->i_private);
+}
+
+static const struct file_operations clock_parent_fops = {
+	.open		= clock_parent_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 static struct dentry *debugfs_base;
 static u32 debug_suspend;
 
@@ -272,6 +294,10 @@ static int clock_debug_add(struct clk *clock)
 
 	if (clock->vdd_class && !debugfs_create_file("fmax_rates",
 				S_IRUGO, clk_dir, clock, &fmax_rates_fops))
+			goto error;
+
+	if (!debugfs_create_file("parent", S_IRUGO, clk_dir, clock,
+				&clock_parent_fops))
 			goto error;
 
 	return 0;
