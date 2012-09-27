@@ -425,6 +425,19 @@ EXPORT_SYMBOL(clk_set_flags);
 
 static struct clock_init_data *clk_init_data;
 
+static void init_sibling_lists(struct clk_lookup *clock_tbl, size_t num_clocks)
+{
+	struct clk *clk, *parent;
+	unsigned n;
+
+	for (n = 0; n < num_clocks; n++) {
+		clk = clock_tbl[n].clk;
+		parent = clk_get_parent(clk);
+		if (parent && list_empty(&clk->siblings))
+			list_add(&clk->siblings, &parent->children);
+	}
+}
+
 /**
  * msm_clock_register() - Register additional clock tables
  * @table: Table of clocks
@@ -443,6 +456,7 @@ int msm_clock_register(struct clk_lookup *table, size_t size)
 	if (!table)
 		return -EINVAL;
 
+	init_sibling_lists(table, size);
 	clkdev_add_table(table, size);
 	clock_debug_register(table, size);
 
@@ -514,10 +528,11 @@ int __init msm_clock_init(struct clock_init_data *data)
 	unsigned n;
 	struct clk_lookup *clock_tbl;
 	size_t num_clocks;
-	struct clk *clk;
 
 	if (!data)
 		return -EINVAL;
+
+	clock_debug_init();
 
 	clk_init_data = data;
 	if (clk_init_data->pre_init)
@@ -526,14 +541,6 @@ int __init msm_clock_init(struct clock_init_data *data)
 	clock_tbl = data->table;
 	num_clocks = data->size;
 
-	for (n = 0; n < num_clocks; n++) {
-		struct clk *parent;
-		clk = clock_tbl[n].clk;
-		parent = clk_get_parent(clk);
-		if (parent && list_empty(&clk->siblings))
-			list_add(&clk->siblings, &parent->children);
-	}
-
 	/*
 	 * Detect and preserve initial clock state until clock_late_init() or
 	 * a driver explicitly changes it, whichever is first.
@@ -541,13 +548,10 @@ int __init msm_clock_init(struct clock_init_data *data)
 	for (n = 0; n < num_clocks; n++)
 		__handoff_clk(clock_tbl[n].clk);
 
-	clkdev_add_table(clock_tbl, num_clocks);
+	msm_clock_register(clock_tbl, num_clocks);
 
 	if (clk_init_data->post_init)
 		clk_init_data->post_init();
-
-	clock_debug_init();
-	clock_debug_register(clock_tbl, num_clocks);
 
 	return 0;
 }
