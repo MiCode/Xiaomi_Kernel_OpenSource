@@ -873,6 +873,10 @@ static bool msmsdcc_is_dma_possible(struct msmsdcc_host *host,
 	bool ret = true;
 	u32 xfer_size = data->blksz * data->blocks;
 
+	if (host->enforce_pio_mode) {
+		ret = false;
+		goto out;
+	}
 	if (is_sps_mode(host)) {
 		/*
 		 * BAM Mode: Fall back on PIO if size is less
@@ -891,7 +895,7 @@ static bool msmsdcc_is_dma_possible(struct msmsdcc_host *host,
 		/* PIO Mode */
 		ret = false;
 	}
-
+ out:
 	return ret;
 }
 
@@ -6642,6 +6646,31 @@ DEFINE_SIMPLE_ATTRIBUTE(msmsdcc_dbg_idle_tout_ops,
 			msmsdcc_dbg_idle_tout_set,
 			"%llu\n");
 
+static int msmsdcc_dbg_pio_mode_get(void *data, u64 *val)
+{
+	struct msmsdcc_host *host = data;
+
+	*val = (u64) host->enforce_pio_mode;
+	return 0;
+}
+
+static int msmsdcc_dbg_pio_mode_set(void *data, u64 val)
+{
+	struct msmsdcc_host *host = data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+	host->enforce_pio_mode = !!val;
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(msmsdcc_dbg_pio_mode_ops,
+			msmsdcc_dbg_pio_mode_get,
+			msmsdcc_dbg_pio_mode_set,
+			"%llu\n");
+
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *host)
 {
 	int err = 0;
@@ -6667,6 +6696,17 @@ static void msmsdcc_dbg_createhost(struct msmsdcc_host *host)
 		err = PTR_ERR(host->debugfs_idle_tout);
 		host->debugfs_idle_tout = NULL;
 		pr_err("%s: Failed to create idle_tout debugfs entry with err=%d\n",
+			mmc_hostname(host->mmc), err);
+	}
+
+	host->debugfs_pio_mode = debugfs_create_file("pio_mode",
+		S_IRUSR | S_IWUSR, host->debugfs_host_dir, host,
+		&msmsdcc_dbg_pio_mode_ops);
+
+	if (IS_ERR(host->debugfs_pio_mode)) {
+		err = PTR_ERR(host->debugfs_pio_mode);
+		host->debugfs_pio_mode = NULL;
+		pr_err("%s: Failed to create pio_mode debugfs entry with err=%d\n",
 			mmc_hostname(host->mmc), err);
 	}
 }
