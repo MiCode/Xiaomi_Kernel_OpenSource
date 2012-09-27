@@ -52,7 +52,7 @@ endif
    zreladdr-$(CONFIG_ARCH_MSM9615)	:= 0x40808000
 
 # MSM9625
-   zreladdr-$(CONFIG_ARCH_MSM9625)	:= 0x20208000
+   zreladdr-$(CONFIG_ARCH_MSM9625)	:= 0x00208000
 
 # MSM8226
    zreladdr-$(CONFIG_ARCH_MSM8226)	:= 0x00008000
