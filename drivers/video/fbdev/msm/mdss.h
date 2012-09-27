@@ -25,8 +25,6 @@
 #define MDSS_REG_WRITE(addr, val) writel_relaxed(val, mdss_res->mdp_base + addr)
 #define MDSS_REG_READ(addr) readl_relaxed(mdss_res->mdp_base + addr)
 
-extern spinlock_t dsi_clk_lock;
-
 enum mdss_mdp_clk_type {
 	MDSS_CLK_AHB,
 	MDSS_CLK_AXI,
