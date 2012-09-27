@@ -1073,7 +1073,7 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 	uint8 *buf;
 	unsigned int buf_offset;
 	int bpp;
-	int cndx = 0;
+	int cnt, cndx = 0;
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
 
@@ -1104,12 +1104,14 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 
 	mdp_update_pm(mfd, vsync_ctrl_db[0].vsync_time);
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
-	mdp4_dsi_video_pipe_commit(cndx, 0);
 
-	if (pipe->ov_blt_addr)
-		mdp4_dsi_video_wait4ov(cndx);
-	else
-		mdp4_dsi_video_wait4dmap(cndx);
+	cnt = mdp4_dsi_video_pipe_commit(cndx, 0);
+	if (cnt) {
+		if (pipe->ov_blt_addr)
+			mdp4_dsi_video_wait4ov(cndx);
+		else
+			mdp4_dsi_video_wait4dmap(cndx);
+	}
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
