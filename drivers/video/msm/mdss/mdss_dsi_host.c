@@ -32,8 +32,6 @@ static spinlock_t dsi_irq_lock;
 static spinlock_t dsi_mdp_lock;
 static int dsi_mdp_busy;
 
-spinlock_t dsi_clk_lock;
-
 struct mdss_hw mdss_dsi_hw = {
 	.hw_ndx = MDSS_HW_DSI0,
 	.ptr = NULL,
@@ -45,7 +43,6 @@ void mdss_dsi_init(void)
 	init_completion(&dsi_dma_comp);
 	spin_lock_init(&dsi_irq_lock);
 	spin_lock_init(&dsi_mdp_lock);
-	spin_lock_init(&dsi_clk_lock);
 }
 
 void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
