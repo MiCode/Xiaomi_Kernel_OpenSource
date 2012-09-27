@@ -1,4 +1,19 @@
 Qualcomm SLIMBUS controller
+Qualcomm implements 2 type of slimbus controllers:
+1. "qcom,slim-msm": This controller is used if applications processor
+	driver is controlling slimbus master component. This driver is
+	responsible for communicating with slave HW directly using
+	messaging interface, and doing data channel management. Driver
+	also communicates with satellite component (driver implemented
+	by other execution environment, such as ADSP) to get its
+	requirements for data channel and bandwidth requirements.
+2. "qcom,slim-ngd": This controller is used if applications processor
+	driver is controlling slimbus satellite component (also known as
+	Non-ported Generic Device, or NGD). This is light-weight slimbus
+	controller responsible for communicating with slave HW directly
+	over bus messaging interface, and communicating with master component
+	(driver residing on other execution environment, such as ADSP)
+	for bandwidth and data channel management.
 
 Required properties:
 
@@ -8,7 +23,8 @@ Required properties:
 	 "slimbus_physical": Physical adderss of controller register blocks
 	 "slimbus_bam_physical": Physical address of Bus Access Module (BAM)
 				 for this controller
- - compatible : should be "qcom,slim-msm"
+ - compatible : should be "qcom,slim-msm" if this is master component driver
+ - compatible : should be "qcom,slim-ngd" if this is satellite component driver
  - cell-index : SLIMBUS number used for this controller
  - interrupts : Interrupt numbers used by this controller
  - interrupt-names : Required interrupt resource entries are:
