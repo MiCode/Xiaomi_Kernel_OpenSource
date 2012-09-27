@@ -36,7 +36,7 @@
 				SND_JACK_BTN_6 | SND_JACK_BTN_7)
 
 extern const u8 taiko_reg_readable[TAIKO_CACHE_SIZE];
-extern const u8 taiko_reg_defaults[TAIKO_CACHE_SIZE];
+extern const u8 taiko_reset_reg_defaults[TAIKO_CACHE_SIZE];
 
 enum taiko_micbias_num {
 	TAIKO_MICBIAS1 = 0,
