@@ -642,6 +642,11 @@ static void cpr_config(struct msm_cpr *cpr)
 					cpr->config->delay_us);
 	cpr_write_reg(cpr, RBCPR_TIMER_INTERVAL, delay_count);
 
+	/* Use Consecutive Down to avoid any interrupt due to spike */
+	cpr_write_reg(cpr, RBIF_TIMER_ADJUST, (0x2 << RBIF_CONS_DN_SHIFT));
+	msm_cpr_debug(MSM_CPR_DEBUG_CONFIG, "RBIF_TIMER_ADJUST: 0x%x\n",
+		readl_relaxed(cpr->base + RBIF_TIMER_ADJUST));
+
 	/* Enable the Timer */
 	cpr_modify_reg(cpr, RBCPR_CTL, TIMER_M, ENABLE_TIMER);
 
