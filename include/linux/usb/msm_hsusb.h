@@ -294,6 +294,8 @@ struct msm_otg_platform_data {
  * @xo_handle: TCXO buffer handle
  * @bus_perf_client: Bus performance client handle to request BUS bandwidth
  * @mhl_enabled: MHL driver registration successful and MHL enabled.
+ * @chg_check_timer: The timer used to implement the workaround to detect
+ *               very slow plug in of wall charger.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -323,6 +325,7 @@ struct msm_otg {
 #define A_CONN		15
 #define B_BUS_REQ	16
 #define MHL	        17
+#define B_FALSE_SDP	18
 	unsigned long inputs;
 	struct work_struct sm_work;
 	bool sm_work_pending;
@@ -345,6 +348,7 @@ struct msm_otg {
 	struct msm_xo_voter *xo_handle;
 	uint32_t bus_perf_client;
 	bool mhl_enabled;
+	struct timer_list chg_check_timer;
 	/*
 	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v
 	 * analog regulators while going to low power mode.
