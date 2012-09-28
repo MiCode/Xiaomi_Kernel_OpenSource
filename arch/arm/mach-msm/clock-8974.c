@@ -2183,6 +2183,18 @@ static struct branch_clk gcc_tsif_ref_clk = {
 	},
 };
 
+struct branch_clk gcc_sys_noc_usb3_axi_clk = {
+	.cbcr_reg = SYS_NOC_USB3_AXI_CBCR,
+	.parent = &usb30_master_clk_src.c,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_sys_noc_usb3_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_sys_noc_usb3_axi_clk.c),
+	},
+};
+
 static struct branch_clk gcc_usb30_master_clk = {
 	.cbcr_reg = USB30_MASTER_CBCR,
 	.bcr_reg = USB_30_BCR,
@@ -2193,6 +2205,7 @@ static struct branch_clk gcc_usb30_master_clk = {
 		.dbg_name = "gcc_usb30_master_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb30_master_clk.c),
+		.depends = &gcc_sys_noc_usb3_axi_clk.c,
 	},
 };
 
@@ -2204,18 +2217,6 @@ static struct branch_clk gcc_usb30_mock_utmi_clk = {
 		.dbg_name = "gcc_usb30_mock_utmi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb30_mock_utmi_clk.c),
-	},
-};
-
-struct branch_clk gcc_sys_noc_usb3_axi_clk = {
-	.cbcr_reg = SYS_NOC_USB3_AXI_CBCR,
-	.parent = &usb30_master_clk_src.c,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_sys_noc_usb3_axi_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_sys_noc_usb3_axi_clk.c),
 	},
 };
 
