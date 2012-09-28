@@ -1606,6 +1606,26 @@ struct platform_device msm8625_kgsl_3d0 = {
 	},
 };
 
+static struct resource pl310_resources[] = {
+	{
+		.start = 0xC0400000,
+		.end   = 0xC0400000 + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name   = "l2_irq",
+		.start  = MSM8625_INT_L2CC_INTR,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device pl310_erp_device = {
+	.name           = "pl310_erp",
+	.id             = -1,
+	.resource       = pl310_resources,
+	.num_resources  = ARRAY_SIZE(pl310_resources),
+};
+
 enum {
 	MSM8625,
 	MSM8625A,
@@ -1953,6 +1973,11 @@ int __init msm7x2x_misc_init(void)
 	if (cpu_is_msm8625() &&
 			(SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2))
 		msm_cpr_init();
+
+	if (!cpu_is_msm8625())
+		pl310_resources[1].start = INT_L2CC_INTR;
+
+	platform_device_register(&pl310_erp_device);
 
 	return 0;
 }
