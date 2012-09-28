@@ -25,6 +25,7 @@ enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_CTX_TTBR1,
 	KGSL_IOMMU_CTX_FSR,
 	KGSL_IOMMU_CTX_TLBIALL,
+	KGSL_IOMMU_CTX_RESUME,
 	KGSL_IOMMU_REG_MAX
 };
 
@@ -77,6 +78,8 @@ struct kgsl_iommu_register_list {
  * @ctx_id: This iommu units context id. It can be either 0 or 1
  * @clk_enabled: If set indicates that iommu clocks of this iommu context
  * are on, else the clocks are off
+ * fault: Flag when set indicates that this iommu device has caused a page
+ * fault
  */
 struct kgsl_iommu_device {
 	struct device *dev;
@@ -85,6 +88,7 @@ struct kgsl_iommu_device {
 	enum kgsl_iommu_context_id ctx_id;
 	bool clk_enabled;
 	struct kgsl_device *kgsldev;
+	int fault;
 };
 
 /*
