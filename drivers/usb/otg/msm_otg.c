@@ -52,6 +52,7 @@
 #define DRIVER_NAME	"msm_otg"
 
 #define ID_TIMER_FREQ		(jiffies + msecs_to_jiffies(500))
+#define CHG_RECHECK_DELAY	(jiffies + msecs_to_jiffies(2000))
 #define ULPI_IO_TIMEOUT_USEC	(10 * 1000)
 #define USB_PHY_3P3_VOL_MIN	3050000 /* uV */
 #define USB_PHY_3P3_VOL_MAX	3300000 /* uV */
@@ -1629,6 +1630,26 @@ static bool msm_chg_mhl_detect(struct msm_otg *motg)
 	return ret;
 }
 
+static void msm_otg_chg_check_timer_func(unsigned long data)
+{
+	struct msm_otg *motg = (struct msm_otg *) data;
+	struct usb_otg *otg = motg->phy.otg;
+
+	if (atomic_read(&motg->in_lpm) ||
+		!test_bit(B_SESS_VLD, &motg->inputs) ||
+		otg->phy->state != OTG_STATE_B_PERIPHERAL ||
+		otg->gadget->speed != USB_SPEED_UNKNOWN) {
+		dev_dbg(otg->phy->dev, "Nothing to do in chg_check_timer\n");
+		return;
+	}
+
+	if ((readl_relaxed(USB_PORTSC) & PORTSC_LS) == PORTSC_LS) {
+		dev_dbg(otg->phy->dev, "DCP is detected as SDP\n");
+		set_bit(B_FALSE_SDP, &motg->inputs);
+		queue_work(system_nrt_wq, &motg->sm_work);
+	}
+}
+
 static bool msm_chg_aca_detect(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
@@ -2347,6 +2368,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 					msm_otg_start_peripheral(otg, 1);
 					otg->phy->state =
 						OTG_STATE_B_PERIPHERAL;
+					mod_timer(&motg->chg_check_timer,
+							CHG_RECHECK_DELAY);
 					break;
 				default:
 					break;
@@ -2367,6 +2390,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 			break;
 		} else {
 			pr_debug("chg_work cancel");
+			del_timer_sync(&motg->chg_check_timer);
+			clear_bit(B_FALSE_SDP, &motg->inputs);
 			cancel_delayed_work_sync(&motg->chg_work);
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
 			motg->chg_type = USB_INVALID_CHARGER;
@@ -2404,7 +2429,15 @@ static void msm_otg_sm_work(struct work_struct *w)
 		}
 		break;
 	case OTG_STATE_B_PERIPHERAL:
-		if (!test_bit(ID, &motg->inputs) ||
+		if (test_bit(B_SESS_VLD, &motg->inputs) &&
+				test_bit(B_FALSE_SDP, &motg->inputs)) {
+			pr_debug("B_FALSE_SDP\n");
+			msm_otg_start_peripheral(otg, 0);
+			motg->chg_type = USB_DCP_CHARGER;
+			clear_bit(B_FALSE_SDP, &motg->inputs);
+			otg->phy->state = OTG_STATE_B_IDLE;
+			work = 1;
+		} else if (!test_bit(ID, &motg->inputs) ||
 				test_bit(ID_A, &motg->inputs) ||
 				test_bit(ID_B, &motg->inputs) ||
 				!test_bit(B_SESS_VLD, &motg->inputs)) {
@@ -3708,6 +3741,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&motg->pmic_id_status_work, msm_pmic_id_status_w);
 	INIT_DELAYED_WORK(&motg->suspend_work, msm_otg_suspend_work);
 	setup_timer(&motg->id_timer, msm_otg_id_timer_func,
+				(unsigned long) motg);
+	setup_timer(&motg->chg_check_timer, msm_otg_chg_check_timer_func,
 				(unsigned long) motg);
 	ret = request_irq(motg->irq, msm_otg_irq, IRQF_SHARED,
 					"msm_otg", motg);
