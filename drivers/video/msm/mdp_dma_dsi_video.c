@@ -250,16 +250,18 @@ int mdp_dsi_video_off(struct platform_device *pdev)
 void mdp_dma_video_vsync_ctrl(int enable)
 {
 	unsigned long flag;
+	int disabled_clocks;
 	if (vsync_cntrl.vsync_irq_enabled == enable)
 		return;
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	if (!enable)
-		INIT_COMPLETION(vsync_cntrl.vsync_wait);
 	vsync_cntrl.vsync_irq_enabled = enable;
+	if (!enable)
+		vsync_cntrl.disabled_clocks = 0;
+	disabled_clocks = vsync_cntrl.disabled_clocks;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
-	if (enable) {
+	if (enable && disabled_clocks) {
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		spin_lock_irqsave(&mdp_spin_lock, flag);
 		outp32(MDP_INTR_CLEAR, LCDC_FRAME_START);
@@ -267,9 +269,6 @@ void mdp_dma_video_vsync_ctrl(int enable)
 		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 		mdp_enable_irq(MDP_VSYNC_TERM);
 		spin_unlock_irqrestore(&mdp_spin_lock, flag);
-	} else {
-		wait_for_completion(&vsync_cntrl.vsync_wait);
-		mdp_disable_irq(MDP_VSYNC_TERM);
 	}
 }
 

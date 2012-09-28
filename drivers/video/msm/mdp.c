@@ -1808,16 +1808,16 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 		if (!vsync_isr) {
 			mdp_intr_mask &= ~MDP_PRIM_RDPTR;
 			outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+			mdp_disable_irq_nosync(MDP_VSYNC_TERM);
+			vsync_cntrl.disabled_clocks = 1;
+		} else {
+			vsync_isr_handler();
 		}
 		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
-		if (vsync_isr) {
-			vsync_isr_handler();
-		} else {
+		if (!vsync_isr)
 			mdp_pipe_ctrl(MDP_CMD_BLOCK,
 				MDP_BLOCK_POWER_OFF, TRUE);
-			complete(&vsync_cntrl.vsync_wait);
-		}
 	}
 
 	/* DMA3 TV-Out Start */
@@ -1870,16 +1870,16 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 			if (!vsync_isr) {
 				mdp_intr_mask &= ~LCDC_FRAME_START;
 				outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+				mdp_disable_irq_nosync(MDP_VSYNC_TERM);
+				vsync_cntrl.disabled_clocks = 1;
+			} else {
+				vsync_isr_handler();
 			}
 			spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
-			if (vsync_isr) {
-				vsync_isr_handler();
-			} else {
+			if (!vsync_isr)
 				mdp_pipe_ctrl(MDP_CMD_BLOCK,
 					MDP_BLOCK_POWER_OFF, TRUE);
-				complete(&vsync_cntrl.vsync_wait);
-			}
 		}
 
 		/* DMA2 LCD-Out Complete */
@@ -2010,7 +2010,7 @@ static void mdp_drv_init(void)
 		atomic_set(&mdp_block_power_cnt[i], 0);
 	}
 	INIT_WORK(&(vsync_cntrl.vsync_work), send_vsync_work);
-	init_completion(&vsync_cntrl.vsync_wait);
+	vsync_cntrl.disabled_clocks = 1;
 #ifdef MSM_FB_ENABLE_DBGFS
 	{
 		struct dentry *root;
