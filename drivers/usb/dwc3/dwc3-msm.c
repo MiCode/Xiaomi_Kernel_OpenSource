@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
+#include <linux/ratelimit.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
@@ -34,6 +35,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <mach/rpm-regulator.h>
+#include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
 
 #include "dwc3_otg.h"
@@ -127,6 +129,7 @@ struct dwc3_msm {
 	u8 ep_num_mapping[DBM_MAX_EPS];
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
 	struct list_head req_complete_list;
+	struct msm_xo_voter	*xo_handle;
 	struct clk		*ref_clk;
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
@@ -143,6 +146,8 @@ struct dwc3_msm {
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	atomic_t		in_lpm;
+	int			hs_phy_irq;
+	bool			lpm_irq_seen;
 	struct delayed_work	resume_work;
 	struct wake_lock	wlock;
 	struct dwc3_charger	charger;
@@ -1238,12 +1243,35 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
-	clk_disable_unprepare(mdwc->iface_clk);
-	clk_disable_unprepare(mdwc->core_clk);
+	/* Sequence to put hardware in low power state:
+	 * 1. Set OTGDISABLE to disable OTG block in HSPHY (saves power)
+	 * 2. Clear charger detection control fields
+	 * 3. SUSPEND PHY and turn OFF core clock after some delay
+	 * 4. Clear interrupt latch register and enable BSV HV interrupt
+	 * 5. Enable PHY retention
+	 */
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x1000, 0x1000);
+	dwc3_msm_write_readback(mdwc->base, CHARGING_DET_CTRL_REG, 0x37, 0x0);
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
+						0xC00000, 0x800000);
+
+	usleep_range(1000, 1200);
 	clk_disable_unprepare(mdwc->ref_clk);
-	dwc3_hsusb_ldo_enable(0);
-	dwc3_ssusb_ldo_enable(0);
-	wake_unlock(&mdwc->wlock);
+
+	dwc3_msm_write_reg(mdwc->base, HS_PHY_IRQ_STAT_REG, 0xFFF);
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x8000, 0x8000);
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x0);
+
+	/* make sure above writes are completed before turning off clocks */
+	wmb();
+	clk_disable_unprepare(mdwc->core_clk);
+	clk_disable_unprepare(mdwc->iface_clk);
+
+	/* USB PHY no more requires TCXO */
+	ret = msm_xo_mode_vote(mdwc->xo_handle, MSM_XO_MODE_OFF);
+	if (ret)
+		dev_err(mdwc->dev, "%s failed to devote for TCXO buffer%d\n",
+						__func__, ret);
 
 	if (mdwc->bus_perf_client) {
 		ret = msm_bus_scale_client_update_request(
@@ -1252,7 +1280,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "Failed to reset bus bw vote\n");
 	}
 
+	wake_unlock(&mdwc->wlock);
 	atomic_set(&mdwc->in_lpm, 1);
+
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 
 	return 0;
@@ -1269,6 +1299,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
+	wake_lock(&mdwc->wlock);
+
 	if (mdwc->bus_perf_client) {
 		ret = msm_bus_scale_client_update_request(
 						mdwc->bus_perf_client, 1);
@@ -1276,14 +1308,41 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "Failed to vote for bus scaling\n");
 	}
 
-	wake_lock(&mdwc->wlock);
+	/* Vote for TCXO while waking up USB HSPHY */
+	ret = msm_xo_mode_vote(mdwc->xo_handle, MSM_XO_MODE_ON);
+	if (ret)
+		dev_err(mdwc->dev, "%s failed to vote for TCXO buffer%d\n",
+						__func__, ret);
+
 	clk_prepare_enable(mdwc->ref_clk);
-	clk_prepare_enable(mdwc->core_clk);
+	usleep_range(1000, 1200);
+
 	clk_prepare_enable(mdwc->iface_clk);
-	dwc3_hsusb_ldo_enable(1);
-	dwc3_ssusb_ldo_enable(1);
+	clk_prepare_enable(mdwc->core_clk);
+
+	/* Disable HV interrupt */
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x8000, 0x0);
+	/* Disable Retention */
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x2);
+
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+	      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) | 0xF0000000);
+	/* 20usec delay required before de-asserting PHY RESET */
+	udelay(20);
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+	      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) & 0x7FFFFFFF);
+
+	/* Bring PHY out of suspend */
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0xC00000, 0x0);
 
 	atomic_set(&mdwc->in_lpm, 0);
+
+	/* match disable_irq call from isr */
+	if (mdwc->lpm_irq_seen && mdwc->hs_phy_irq) {
+		enable_irq(mdwc->hs_phy_irq);
+		mdwc->lpm_irq_seen = false;
+	}
+
 	dev_info(mdwc->dev, "DWC3 exited from low power mode\n");
 
 	return 0;
@@ -1403,6 +1462,22 @@ error:
 	debugfs_remove_recursive(dwc3_debugfs_root);
 }
 
+static irqreturn_t msm_dwc3_irq(int irq, void *data)
+{
+	struct dwc3_msm *mdwc = data;
+
+	if (atomic_read(&mdwc->in_lpm)) {
+		dev_dbg(mdwc->dev, "%s received in LPM\n", __func__);
+		mdwc->lpm_irq_seen = true;
+		disable_irq_nosync(irq);
+		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
+	} else {
+		pr_info_ratelimited("%s: IRQ outside LPM\n", __func__);
+	}
+
+	return IRQ_HANDLED;
+}
+
 static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -1426,6 +1501,20 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&msm->chg_work, dwc3_chg_detect_work);
 	INIT_DELAYED_WORK(&msm->resume_work, dwc3_resume_work);
 
+	msm->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
+	if (IS_ERR(msm->xo_handle)) {
+		dev_err(&pdev->dev, "%s unable to get TCXO buffer handle\n",
+								__func__);
+		return PTR_ERR(msm->xo_handle);
+	}
+
+	ret = msm_xo_mode_vote(msm->xo_handle, MSM_XO_MODE_ON);
+	if (ret) {
+		dev_err(&pdev->dev, "%s failed to vote for TCXO buffer%d\n",
+						__func__, ret);
+		goto free_xo_handle;
+	}
+
 	/*
 	 * DWC3 Core requires its CORE CLK (aka master / bus clk) to
 	 * run at 125Mhz in SSUSB mode and >60MHZ for HSUSB mode.
@@ -1433,7 +1522,8 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	msm->core_clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(msm->core_clk)) {
 		dev_err(&pdev->dev, "failed to get core_clk\n");
-		return PTR_ERR(msm->core_clk);
+		ret = PTR_ERR(msm->core_clk);
+		goto free_xo_handle;
 	}
 	clk_set_rate(msm->core_clk, 125000000);
 	clk_prepare_enable(msm->core_clk);
@@ -1548,6 +1638,21 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto free_hs_ldo_init;
 	}
 
+	/* DWC3 has separate IRQ line for OTG events (ID/BSV etc.) */
+	msm->hs_phy_irq = platform_get_irq_byname(pdev, "hs_phy_irq");
+	if (msm->hs_phy_irq < 0) {
+		dev_dbg(&pdev->dev, "platform_get_irq for hs_phy_irq failed\n");
+		msm->hs_phy_irq = 0;
+	} else {
+		ret = request_irq(msm->hs_phy_irq, msm_dwc3_irq,
+			IRQF_TRIGGER_RISING, "msm_dwc3", msm);
+		if (ret) {
+			dev_err(&pdev->dev, "request irq failed (HSPHY INT)\n");
+			goto disable_hs_ldo;
+		}
+		enable_irq_wake(msm->hs_phy_irq);
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
 		dev_dbg(&pdev->dev, "missing TCSR memory resource\n");
@@ -1571,7 +1676,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
 		ret = -ENODEV;
-		goto disable_hs_ldo;
+		goto free_hsphy_irq;
 	}
 
 	msm->base = devm_ioremap_nocache(&pdev->dev, res->start,
@@ -1579,14 +1684,14 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	if (!msm->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENODEV;
-		goto disable_hs_ldo;
+		goto free_hsphy_irq;
 	}
 
 	dwc3 = platform_device_alloc("dwc3", -1);
 	if (!dwc3) {
 		dev_err(&pdev->dev, "couldn't allocate dwc3 device\n");
 		ret = -ENODEV;
-		goto disable_hs_ldo;
+		goto free_hsphy_irq;
 	}
 
 	dwc3->dev.parent = &pdev->dev;
@@ -1618,6 +1723,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x38);
 
 	pm_runtime_set_active(msm->dev);
+	pm_runtime_enable(msm->dev);
 
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-dbm-eps",
 				 &msm->dbm_num_eps)) {
@@ -1699,6 +1805,9 @@ put_xcvr:
 	platform_device_del(dwc3);
 put_pdev:
 	platform_device_put(dwc3);
+free_hsphy_irq:
+	if (msm->hs_phy_irq)
+		free_irq(msm->hs_phy_irq, msm);
 disable_hs_ldo:
 	dwc3_hsusb_ldo_enable(0);
 free_hs_ldo_init:
@@ -1725,6 +1834,8 @@ disable_iface_clk:
 	clk_disable_unprepare(msm->iface_clk);
 disable_core_clk:
 	clk_disable_unprepare(msm->core_clk);
+free_xo_handle:
+	msm_xo_put(msm->xo_handle);
 
 	return ret;
 }
@@ -1756,6 +1867,7 @@ static int __devexit dwc3_msm_remove(struct platform_device *pdev)
 	clk_disable_unprepare(msm->sleep_clk);
 	clk_disable_unprepare(msm->hsphy_sleep_clk);
 	clk_disable_unprepare(msm->ref_clk);
+	msm_xo_put(msm->xo_handle);
 
 	return 0;
 }
@@ -1849,7 +1961,7 @@ static struct platform_driver dwc3_msm_driver = {
 	},
 };
 
-MODULE_LICENSE("GPLV2");
+MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DesignWare USB3 MSM Glue Layer");
 
 static int __devinit dwc3_msm_init(void)
