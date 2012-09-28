@@ -497,6 +497,12 @@ struct mdp_gamut_cfg_data {
 	uint16_t *b_tbl[MDP_GAMUT_TABLE_NUM];
 };
 
+struct mdp_calib_config_data {
+	uint32_t ops;
+	uint32_t addr;
+	uint32_t data;
+};
+
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
@@ -506,6 +512,7 @@ enum {
 	mdp_op_pa_cfg,
 	mdp_op_dither_cfg,
 	mdp_op_gamut_cfg,
+	mdp_op_calib_cfg,
 	mdp_op_max,
 };
 
@@ -520,6 +527,7 @@ struct msmfb_mdp_pp {
 		struct mdp_pa_cfg_data pa_cfg_data;
 		struct mdp_dither_cfg_data dither_cfg_data;
 		struct mdp_gamut_cfg_data gamut_cfg_data;
+		struct mdp_calib_config_data calib_cfg;
 	} data;
 };
 
