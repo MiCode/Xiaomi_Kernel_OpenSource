@@ -104,6 +104,7 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
+	msm_vidc_debug = 0x3;
 failed_create_dir:
 	return dir;
 }
