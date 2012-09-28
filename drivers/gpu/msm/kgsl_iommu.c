@@ -34,6 +34,7 @@ static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x14, 0x0003FFFF, 14 },		/* TTBR1 */
 	{ 0x20, 0, 0 },				/* FSR */
 	{ 0x800, 0, 0 },			/* TLBIALL */
+	{ 0x820, 0, 0 },			/* RESUME */
 };
 
 static struct kgsl_iommu_register_list kgsl_iommuv2_reg[KGSL_IOMMU_REG_MAX] = {
@@ -41,7 +42,8 @@ static struct kgsl_iommu_register_list kgsl_iommuv2_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x20, 0x00FFFFFF, 14 },		/* TTBR0 */
 	{ 0x28, 0x00FFFFFF, 14 },		/* TTBR1 */
 	{ 0x58, 0, 0 },				/* FSR */
-	{ 0x618, 0, 0 }				/* TLBIALL */
+	{ 0x618, 0, 0 },			/* TLBIALL */
+	{ 0x008, 0, 0 }				/* RESUME */
 };
 
 static int get_iommu_unit(struct device *dev, struct kgsl_mmu **mmu_out,
@@ -124,9 +126,19 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	KGSL_MEM_CRIT(iommu_dev->kgsldev, "context = %d FSR = %X\n",
 		iommu_dev->ctx_id, fsr);
 
+	mmu->fault = 1;
+	iommu_dev->fault = 1;
+
 	trace_kgsl_mmu_pagefault(iommu_dev->kgsldev, addr,
 			kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase), 0);
 
+	/*
+	 * We do not want the h/w to resume fetching data from an iommu unit
+	 * that has faulted, this is better for debugging as it will stall
+	 * the GPU and trigger a snapshot. To stall the transaction return
+	 * EBUSY error.
+	 */
+	ret = -EBUSY;
 done:
 	return ret;
 }
@@ -859,12 +871,13 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	 */
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
-		for (j = 0; j < iommu_unit->dev_count; j++)
+		for (j = 0; j < iommu_unit->dev_count; j++) {
 			iommu_unit->dev[j].pt_lsb = KGSL_IOMMMU_PT_LSB(iommu,
 						KGSL_IOMMU_GET_CTX_REG(iommu,
 						iommu_unit,
 						iommu_unit->dev[j].ctx_id,
 						TTBR0));
+		}
 	}
 
 	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
@@ -945,6 +958,7 @@ kgsl_iommu_map(void *mmu_specific_pt,
 static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
+	int i, j;
 	/*
 	 *  stop device mmu
 	 *
@@ -957,8 +971,25 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 		mmu->hwpagetable = NULL;
 
 		mmu->flags &= ~KGSL_FLAGS_STARTED;
-	}
 
+		if (mmu->fault) {
+			for (i = 0; i < iommu->unit_count; i++) {
+				struct kgsl_iommu_unit *iommu_unit =
+					&iommu->iommu_units[i];
+				for (j = 0; j < iommu_unit->dev_count; j++) {
+					if (iommu_unit->dev[j].fault) {
+						kgsl_iommu_enable_clk(mmu, j);
+						KGSL_IOMMU_SET_CTX_REG(iommu,
+						iommu_unit,
+						iommu_unit->dev[j].ctx_id,
+						RESUME, 1);
+						iommu_unit->dev[j].fault = 0;
+					}
+				}
+			}
+			mmu->fault = 0;
+		}
+	}
 	/* switch off MMU clocks and cancel any events it has queued */
 	iommu->clk_event_queued = false;
 	kgsl_cancel_events(mmu->device, mmu);

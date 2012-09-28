@@ -175,6 +175,7 @@ struct kgsl_mmu {
 	struct kgsl_pagetable  *hwpagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
 	void *priv;
+	int fault;
 };
 
 #include "kgsl_gpummu.h"
