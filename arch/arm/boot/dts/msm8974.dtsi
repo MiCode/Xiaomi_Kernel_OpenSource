@@ -632,6 +632,7 @@
 		compatible = "qcom,pil-q6v5-lpass";
 		reg = <0xfe200000 0x00100>,
 		      <0xfd485100 0x00010>;
+		reg-names = "qdsp6_base", "halt_base";
 
 		qcom,firmware-name = "adsp";
 	};
@@ -726,6 +727,9 @@
 		      <0xfc820000 0x020>,
 		      <0xfc401680 0x004>,
 		      <0xfc980008 0x004>;
+		reg-names = "qdsp6_base", "halt_base", "rmb_base",
+			    "restart_reg", "clamp_reg";
+
 		vdd_mss-supply = <&pm8841_s3>;
 
 		qcom,firmware-name = "mba";
@@ -736,6 +740,7 @@
 		compatible = "qcom,pil-mba";
 		reg = <0xfc820000 0x0020>,
 		      <0x0d1fc000 0x4000>;
+		reg-names = "rmb_base", "metadata_base";
 
 		qcom,firmware-name = "modem";
 		qcom,depends-on    = "mba";
@@ -746,6 +751,7 @@
 		reg = <0xfb21b000 0x3000>,
 		      <0xfc401700 0x4>,
 		      <0xfd485300 0xc>;
+		reg-names = "pmu_base", "clk_base", "halt_base";
 		vdd_pronto_pll-supply = <&pm8941_l12>;
 
 		qcom,firmware-name = "wcnss";
@@ -850,6 +856,7 @@
 		compatible = "qcom,pil-venus";
 		reg = <0xfdce0000 0x4000>,
 		      <0xfdc80208 0x8>;
+		reg-names = "wrapper_base", "vbif_base";
 		vdd-supply = <&gdsc_venus>;
 
 		qcom,firmware-name = "venus";
