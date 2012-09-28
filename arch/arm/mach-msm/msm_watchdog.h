@@ -72,6 +72,7 @@ struct msm_watchdog_dump {
 
 void msm_wdog_fiq_setup(void *stack);
 extern unsigned int msm_wdog_fiq_length, msm_wdog_fiq_start;
+extern unsigned int msm7k_fiq_start, msm7k_fiq_length;
 
 #ifdef CONFIG_MSM_WATCHDOG
 void pet_watchdog(void);
