@@ -23,7 +23,7 @@
 #include <asm/mach/time.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
-
+#include <mach/msm_memtypes.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
@@ -46,6 +46,38 @@ struct clock_init_data mpq8092_clock_init_data __initdata = {
 	.table = msm_clocks_dummy,
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };
+
+static struct memtype_reserve mpq8092_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags  =       MEMTYPE_FLAGS_1M_ALIGN,
+		},
+	[MEMTYPE_EBI1] = {
+		.flags  =       MEMTYPE_FLAGS_1M_ALIGN,
+		},
+};
+
+static int mpq8092_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
+
+static struct reserve_info mpq8092_reserve_info __initdata = {
+	.memtype_reserve_table = mpq8092_reserve_table,
+	.paddr_to_memtype = mpq8092_paddr_to_memtype,
+};
+
+static void __init mpq8092_early_memory(void)
+{
+	reserve_info = &mpq8092_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, mpq8092_reserve_table);
+}
+
+static void __init mpq8092_dt_reserve(void)
+{
+	msm_reserve();
+}
 
 void __init mpq8092_init_irq(void)
 {
@@ -107,4 +139,6 @@ DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.handle_irq = gic_handle_irq,
 	.timer = &mpq8092_dt_timer,
 	.dt_compat = mpq8092_dt_match,
+	.reserve = mpq8092_dt_reserve,
+	.init_very_early = mpq8092_early_memory,
 MACHINE_END
