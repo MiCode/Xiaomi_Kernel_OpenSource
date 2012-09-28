@@ -11,18 +11,24 @@ Required properties:
 - compatible:	Must be "qcom,qpnp-power-on"
 - reg:		Specifies the SPMI address and size for this PON (power-on) peripheral
 - interrupts:	Specifies the interrupt associated with PON.
+- interrupt-names:	Specify the interrupt names associated with interrupts. Must be
+			one of "kpdpwr", "kpdpwr-bark", "resin", "resin-bark", "cblpwr".
+			Bark interrupts are associated with system reset configuration
+			to allow default reset configuration to be activated. If system
+			reset configuration is not supported then bark interrupts are
+			nops.
 
 Optional properties:
-- qcom,pon-dbc-delay		The debouce delay for the power-key interrupt
-				specifed in us. The value ranges from 2 seconds
+- qcom,pon-dbc-delay		The debounce delay for the power-key interrupt
+				specified in us. The value ranges from 2 seconds
 				to 1/64 of a second. Possible values are -
 				- 2, 1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64
 				- Intermediate value is rounded down to the
 				nearest valid value.
 - qcom,pon_1 ...pon_n		These represent the child nodes which describe
 				the properties (reset, key) for each of the pon
-				reset source. All the child nodes are optional,
-				if none of them are specified the driver fails
+				reset source. All the child nodes are optional.
+				If none of them is specified, the driver fails
 				to register.
 - qcom,system-reset		Specifies that this PON peripheral can be used
 				to reset the system. This property can only be
@@ -32,32 +38,32 @@ Optional properties:
 All the below properties are in the sub-node section (properties of the child
 node).
 
+Sub-node required properties:
+- qcom,pon-type			The type of PON/RESET source. The driver
+				currently supports KPDPWR(0), RESIN(1) and
+				CBLPWR(2) pon/reset sources.
+
+Sub-node optional properties:
 - qcom,pull-up			The initial state of the reset pin under
 				consideration.
 				0 = No pull-up
 				1 = pull-up enabled
-				This property is optional and is set to '0'
-				if not specified.
-- qcom,pon-type			The type of PON/RESET source. The driver
-				currently supports KPDPWR(0) and RESIN(1)
-				pon/reset sources. This property must be
-				specified.
+				This property is set to '0' if not specified.
 - qcom,support-reset		Indicates if this PON source supports
 				reset functionality.
 				0 = Not supported
 				1 = Supported
-				This property is optional and is set to '0'
-				if not specified.
-- qcom,s1-timer			The debouce timer for the BARK interrupt for
+				This property is set to '0' if not specified.
+- qcom,s1-timer			The debounce timer for the BARK interrupt for
 				that reset source. Value is specified in ms.
 				Supported values are -
 				- 0, 32, 56, 80, 128, 184, 272, 408, 608, 904
 				  1352, 2048, 3072, 4480, 6720, 10256
 				This property must be specified only if
 				'support-reset' is set to 1.
-- qcom,s2-timer			The debouce timer for the S2 reset specified
+- qcom,s2-timer			The debounce timer for the S2 reset specified
 				in ms. On the expiry of this timer, the PMIC
-				executes the reset sequence. Supoprted values -
+				executes the reset sequence. Supported values -
 				- 0, 10, 50, 100, 250, 500, 1000, 2000
 				This property is required only if
 				'support-reset' is set to 1.
@@ -68,7 +74,7 @@ node).
 				'support-reset' is set to 1.
 - linux,code			The input key-code associated with the reset source.
 				The reset source in its default configuration can be
-				used to support standard keys. This property is optional.
+				used to support standard keys.
 
 Example:
 	qcom,power-on@800 {
