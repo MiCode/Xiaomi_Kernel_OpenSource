@@ -22,6 +22,7 @@
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
+#include <mach/qpnp-int.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
@@ -32,6 +33,7 @@
 static struct of_device_id irq_match[] __initdata  = {
 	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
 	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
+	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
 	{}
 };
 
