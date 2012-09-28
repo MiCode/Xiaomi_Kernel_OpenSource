@@ -6,6 +6,8 @@ Required properties :
 - compatible : should be "qcom,hsusb-otg"
 - regs : offset and length of the register set in the memory map
 - interrupts: IRQ line
+- interrupt-names: OTG interrupt name(s) referenced in interrupts above
+            HSUSB OTG expects "core_irq" and optionally "async_irq".
 - qcom,hsusb-otg-phy-type: PHY type can be one of
             1 - Chipidea 45nm PHY
 	    2 - Synopsis 28nm PHY
@@ -48,6 +50,7 @@ Example HSUSB OTG controller device node :
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9690000 0x400>;
 		interrupts = <134>;
+		interrupt-names = "core_irq";
 
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;

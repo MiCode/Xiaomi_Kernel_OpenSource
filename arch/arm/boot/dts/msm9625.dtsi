@@ -66,6 +66,26 @@
 		interrupts = <0 109 0>;
 	};
 
+	usb@f9a55000 {
+		compatible = "qcom,hsusb-otg";
+		reg = <0xf9a55000 0x400>;
+		interrupts = <0 134 0 0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+		HSUSB_VDDCX-supply = <&pm8019_l12>;
+		HSUSB_1p8-supply = <&pm8019_l2>;
+		HSUSB_3p3-supply = <&pm8019_l4>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-disable-reset;
+	};
+
+	android_usb@fc42b0c8 {
+		compatible = "qcom,android-usb";
+		reg = <0xfc42b0c8 0xc8>;
+	};
+
 	qcom,nand@f9ac0000 {
 		compatible = "qcom,msm-nand";
 		reg = <0xf9ac0000 0x1000>,
