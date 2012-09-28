@@ -711,8 +711,12 @@ int msm_isp_config(struct msm_cam_media_controller *pmctl,
 
 	int rc = -EINVAL;
 	void __user *argp = (void __user *)arg;
-	struct v4l2_subdev *sd = pmctl->vfe_sdev;
-
+	struct v4l2_subdev *sd;
+	if (!pmctl->vfe_sdev) {
+		pr_err("%s vfe subdev is NULL\n", __func__);
+		return -ENXIO;
+	}
+	sd = pmctl->vfe_sdev;
 	D("%s: cmd %d\n", __func__, _IOC_NR(cmd));
 	switch (cmd) {
 	case MSM_CAM_IOCTL_CONFIG_VFE:
