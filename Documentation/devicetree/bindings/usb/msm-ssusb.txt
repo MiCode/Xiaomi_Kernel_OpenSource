@@ -25,14 +25,17 @@ Optional properties :
     - qcom,msm_bus,active_only
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
+- interrupt-names : Optional interrupt resource entries are:
+    "hs_phy_irq" : Interrupt from HSPHY for asynchronous events in LPM.
+	This is not used if wakeup events are received externally (e.g. PMIC)
 
 Example MSM USB3.0 controller device node :
 	usb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xF9200000 0xFA000>,
 		      <0xFD4AB000 0x4>;
-		interrupts = <0 131 0 0 179 0>;
-		interrupt-names = "irq", "otg_irq";
+		interrupts = <0 131 0>, <0 179 0>, <0 133 0>;
+		interrupt-names = "irq", "otg_irq", "hs_phy_irq";
 		SSUSB_VDDCX-supply = <&pm8841_s2>;
 		SSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_VDDCX-supply = <&pm8841_s2>;

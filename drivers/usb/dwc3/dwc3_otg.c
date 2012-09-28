@@ -293,19 +293,19 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			/* ext_xceiver would have taken h/w out of LPM by now */
 			pm_runtime_get(phy->dev);
 		}
+	} else if (event == DWC3_EVENT_XCEIV_STATE) {
+		if (ext_xceiv->id == DWC3_ID_FLOAT)
+			set_bit(ID, &dotg->inputs);
+		else
+			clear_bit(ID, &dotg->inputs);
+
+		if (ext_xceiv->bsv)
+			set_bit(B_SESS_VLD, &dotg->inputs);
+		else
+			clear_bit(B_SESS_VLD, &dotg->inputs);
+
+		schedule_work(&dotg->sm_work);
 	}
-
-	if (ext_xceiv->id == DWC3_ID_FLOAT)
-		set_bit(ID, &dotg->inputs);
-	else
-		clear_bit(ID, &dotg->inputs);
-
-	if (ext_xceiv->bsv)
-		set_bit(B_SESS_VLD, &dotg->inputs);
-	else
-		clear_bit(B_SESS_VLD, &dotg->inputs);
-
-	schedule_work(&dotg->sm_work);
 }
 
 /**
@@ -339,20 +339,9 @@ int dwc3_set_ext_xceiv(struct usb_otg *otg, struct dwc3_ext_xceiv *ext_xceiv)
 static irqreturn_t dwc3_otg_interrupt(int irq, void *_dotg)
 {
 	struct dwc3_otg *dotg = (struct dwc3_otg *)_dotg;
-	struct usb_phy *phy = dotg->otg.phy;
 	u32 osts, oevt_reg;
 	int ret = IRQ_NONE;
 	int handled_irqs = 0;
-
-	/*
-	 * If PHY is in retention mode then this interrupt would not be fired.
-	 * ext_xcvr (parent) is responsible for bringing h/w out of LPM.
-	 * OTG driver just need to increment power count and can safely
-	 * assume that h/w is out of low power state now.
-	 * TODO: explicitly disable OEVTEN interrupts if ext_xceiv is present
-	 */
-	if (pm_runtime_status_suspended(phy->dev))
-		pm_runtime_get(phy->dev);
 
 	oevt_reg = dwc3_readl(dotg->regs, DWC3_OEVT);
 
