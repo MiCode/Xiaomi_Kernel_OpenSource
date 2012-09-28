@@ -946,7 +946,6 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 			     struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	u32 len;
 
 	if (var->rotate != FB_ROTATE_UR)
 		return -EINVAL;
@@ -1025,9 +1024,12 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 	if ((var->xres_virtual <= 0) || (var->yres_virtual <= 0))
 		return -EINVAL;
 
-	len = var->xres_virtual * var->yres_virtual * (var->bits_per_pixel / 8);
-	if (len > info->fix.smem_len)
-		return -EINVAL;
+	if (info->fix.smem_start) {
+		u32 len = var->xres_virtual * var->yres_virtual *
+			(var->bits_per_pixel / 8);
+		if (len > info->fix.smem_len)
+			return -EINVAL;
+	}
 
 	if ((var->xres == 0) || (var->yres == 0))
 		return -EINVAL;
