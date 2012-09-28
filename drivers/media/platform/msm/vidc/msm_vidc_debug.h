@@ -18,19 +18,24 @@
 
 #define VIDC_DBG_TAG "msm_vidc: %d: "
 
+/*To enable messages OR these values and
+* echo the result to debugfs file*/
+
 enum vidc_msg_prio {
-	VIDC_ERR,
-	VIDC_WARN,
-	VIDC_INFO,
-	VIDC_DBG,
+	VIDC_ERR  = 0x0001,
+	VIDC_WARN = 0x0002,
+	VIDC_INFO = 0x0004,
+	VIDC_DBG  = 0x0008,
+	VIDC_PROF = 0x0010,
+	VIDC_FW   = 0x1000,
 };
 
 extern int msm_vidc_debug;
-#define dprintk(level, fmt, arg...)	\
-	do {							\
-		if (msm_vidc_debug >= level) \
-			printk(KERN_DEBUG VIDC_DBG_TAG fmt, \
-				level, ## arg); \
+#define dprintk(__level, __fmt, arg...)	\
+	do { \
+		if (msm_vidc_debug & __level) \
+			printk(KERN_DEBUG VIDC_DBG_TAG __fmt,\
+				__level, ## arg); \
 	} while (0)
 
 struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
