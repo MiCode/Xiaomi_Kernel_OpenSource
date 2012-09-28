@@ -512,8 +512,9 @@ static void rndis_qc_response_available(void *_rndis)
 static void rndis_qc_response_complete(struct usb_ep *ep,
 						struct usb_request *req)
 {
-	struct f_rndis_qc			*rndis = req->context;
+	struct f_rndis_qc		*rndis = req->context;
 	int				status = req->status;
+	struct usb_composite_dev	*cdev = rndis->port.func.config->cdev;
 
 	/* after TX:
 	 *  - USB_CDC_GET_ENCAPSULATED_RESPONSE (ep0/control)
