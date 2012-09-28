@@ -403,6 +403,8 @@ static void ecm_qc_notify(struct f_ecm_qc *ecm)
 static void ecm_qc_notify_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_ecm_qc			*ecm = req->context;
+	struct usb_composite_dev	*cdev = ecm->port.func.config->cdev;
+	struct usb_cdc_notification	*event = req->buf;
 
 	switch (req->status) {
 	case 0:
@@ -584,6 +586,7 @@ static int ecm_qc_get_alt(struct usb_function *f, unsigned intf)
 static void ecm_qc_disable(struct usb_function *f)
 {
 	struct f_ecm_qc		*ecm = func_to_ecm_qc(f);
+	struct usb_composite_dev	*cdev = ecm->port.func.config->cdev;
 
 	DBG(cdev, "ecm deactivated\n");
 
