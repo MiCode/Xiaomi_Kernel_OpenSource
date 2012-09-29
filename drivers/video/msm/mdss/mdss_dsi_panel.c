@@ -106,8 +106,6 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	pr_debug("%s:%d, debug info (mode) : %d\n", __func__, __LINE__,
 		 mipi->mode);
 
-	mdss_dsi_sw_reset(pdata);
-
 	if (mipi->mode == DSI_VIDEO_MODE) {
 		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf, dsi_panel_on_cmds,
 			num_of_on_cmds);
