@@ -31,6 +31,7 @@ Optional properties:
 			 component
 - coresight-child-ports : list of input port numbers of the children
 - coresight-default-sink : represents the default compile time CoreSight sink
+- qcom,pc-save : program counter save implemented
 
 Examples:
 
@@ -103,4 +104,5 @@ Examples:
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <0>;
+		qcom,pc-save;
 	};

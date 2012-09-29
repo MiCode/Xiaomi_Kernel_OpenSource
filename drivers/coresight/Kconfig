@@ -31,6 +31,16 @@ config MSM_QDSS_ETM_DEFAULT_ENABLE
 	  For production builds, you should probably say 'N' here to avoid
 	  potential power, performance and memory penalty.
 
+config MSM_QDSS_ETM_PCSAVE_DEFAULT_ENABLE
+	bool "Turn on PC saving by default"
+	depends on MSM_QDSS
+	help
+	  Turns on program counter saving on reset by default. Otherwise,
+	  PC saving is disabled by default but can be enabled via sysfs.
+
+	  For production builds, you should probably say 'N' here to avoid
+	  potential power penalty.
+
 config CONTROL_TRACE
 	tristate "Turn on to control tracing"
 	help
