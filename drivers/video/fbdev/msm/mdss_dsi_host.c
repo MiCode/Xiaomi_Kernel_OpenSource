@@ -813,6 +813,7 @@ void mipi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata)
 void mdss_dsi_sw_reset(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	u32 dsi_ctrl;
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
@@ -820,6 +821,16 @@ void mdss_dsi_sw_reset(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
+
+	dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0004);
+	dsi_ctrl &= ~0x01;
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, dsi_ctrl);
+	wmb();
+
+	/* turn esc, byte, dsi, pclk, sclk, hclk on */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x11c,
+					0x23f); /* DSI_CLK_CTRL */
+	wmb();
 
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x118, 0x01);
 	wmb();
