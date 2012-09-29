@@ -368,8 +368,8 @@ int msm_jpeg_output_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 		buf_cmd.fd);
 
 	buf_p->y_buffer_addr = msm_jpeg_platform_v2p(pgmn_dev, buf_cmd.fd,
-		buf_cmd.y_len, &buf_p->file, &buf_p->handle,
-		pgmn_dev->domain_num);
+		buf_cmd.y_len + buf_cmd.cbcr_len + buf_cmd.pln2_len,
+		&buf_p->file, &buf_p->handle, pgmn_dev->domain_num);
 	if (!buf_p->y_buffer_addr) {
 		JPEG_PR_ERR("%s:%d] v2p wrong\n", __func__, __LINE__);
 		kfree(buf_p);
@@ -382,11 +382,23 @@ int msm_jpeg_output_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 	else
 		buf_p->cbcr_buffer_addr = 0x0;
 
-	JPEG_DBG("%s:%d] After v2p pln0_addr =0x%x,pln0_len %d pl1_len %d",
+	if (buf_cmd.pln2_len)
+		buf_p->pln2_addr = buf_p->cbcr_buffer_addr +
+			buf_cmd.cbcr_len;
+	else
+		buf_p->pln2_addr = 0x0;
+
+	JPEG_DBG("%s:%d]After v2p pln0_addr %x pln0_len %d",
 		__func__, __LINE__, buf_p->y_buffer_addr,
-		buf_cmd.y_len, buf_cmd.cbcr_len);
+		buf_cmd.y_len);
+
+	JPEG_DBG("pl1_len %d, pln1_addr %x, pln2_adrr %x,pln2_len %d",
+		buf_cmd.cbcr_len, buf_p->cbcr_buffer_addr,
+		buf_p->pln2_addr, buf_cmd.pln2_len);
+
 	buf_p->y_len = buf_cmd.y_len;
 	buf_p->cbcr_len = buf_cmd.cbcr_len;
+	buf_p->pln2_len = buf_cmd.pln2_len;
 	buf_p->vbuf = buf_cmd;
 
 	msm_jpeg_q_in(&pgmn_dev->output_buf_q, buf_p);
@@ -489,23 +501,31 @@ int msm_jpeg_input_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 		(int) buf_cmd.vaddr, buf_cmd.y_len);
 
 	buf_p->y_buffer_addr    = msm_jpeg_platform_v2p(pgmn_dev, buf_cmd.fd,
-		buf_cmd.y_len + buf_cmd.cbcr_len, &buf_p->file,
-		&buf_p->handle, pgmn_dev->domain_num) + buf_cmd.offset
-		+ buf_cmd.y_off;
+		buf_cmd.y_len + buf_cmd.cbcr_len + buf_cmd.pln2_len,
+		&buf_p->file, &buf_p->handle, pgmn_dev->domain_num) +
+		buf_cmd.offset + buf_cmd.y_off;
 	buf_p->y_len          = buf_cmd.y_len;
 	buf_p->cbcr_len       = buf_cmd.cbcr_len;
+	buf_p->pln2_len       = buf_cmd.pln2_len;
 	buf_p->num_of_mcu_rows = buf_cmd.num_of_mcu_rows;
-	buf_p->y_len = buf_cmd.y_len;
-	buf_p->cbcr_len = buf_cmd.cbcr_len;
+
 	if (buf_cmd.cbcr_len)
-		buf_p->cbcr_buffer_addr = buf_p->y_buffer_addr + buf_cmd.y_len
-			+ buf_cmd.cbcr_off;
+		buf_p->cbcr_buffer_addr = buf_p->y_buffer_addr +
+		buf_cmd.y_len + buf_cmd.cbcr_off;
 	else
 		buf_p->cbcr_buffer_addr = 0x0;
 
-	JPEG_DBG("%s: y_addr=%x, y_len=%x, cbcr_addr=%x, cbcr_len=%x, fd =%d\n",
+	if (buf_cmd.pln2_len)
+		buf_p->pln2_addr = buf_p->cbcr_buffer_addr +
+		buf_cmd.cbcr_len + buf_cmd.pln2_off;
+	else
+		buf_p->pln2_addr = 0x0;
+
+	JPEG_DBG("%s: y_addr=%x, y_len=%x, cbcr_addr=%x, cbcr_len=%d",
 		__func__, buf_p->y_buffer_addr, buf_p->y_len,
-		buf_p->cbcr_buffer_addr, buf_p->cbcr_len, buf_cmd.fd);
+		buf_p->cbcr_buffer_addr, buf_p->cbcr_len);
+	JPEG_DBG("pln2_addr = %x, pln2_len = %d, fd =%d\n",
+		buf_p->pln2_addr, buf_p->pln2_len, buf_cmd.fd);
 
 	if (!buf_p->y_buffer_addr) {
 		JPEG_PR_ERR("%s:%d] v2p wrong\n", __func__, __LINE__);
@@ -733,9 +753,11 @@ int msm_jpeg_start(struct msm_jpeg_device *pgmn_dev, void * __user arg)
 	for (i = 0; i < 2; i++)
 		kfree(buf_out_free[i]);
 
-	msm_jpeg_io_dump(pgmn_dev->base, JPEG_REG_SIZE);
+	JPEG_DBG_HIGH("%s:%d] START\n", __func__, __LINE__);
+	wmb();
 	rc = msm_jpeg_ioctl_hw_cmds(pgmn_dev, arg);
-	JPEG_DBG("%s:%d]\n", __func__, __LINE__);
+	wmb();
+	JPEG_DBG("%s:%d]", __func__, __LINE__);
 	return rc;
 }
 
