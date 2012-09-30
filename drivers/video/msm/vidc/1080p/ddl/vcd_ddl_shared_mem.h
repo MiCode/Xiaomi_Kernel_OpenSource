@@ -106,7 +106,7 @@ void vidc_sm_set_extended_encoder_control(
 	struct ddl_buf_addr *shared_mem, u32 hec_enable,
 	enum VIDC_SM_frame_skip  frame_skip_mode, u32 seq_hdr_in_band,
 	u32 vbv_buffer_size, u32 cpcfc_enable, u32 sps_pps_control,
-	u32 closed_gop_enable);
+	u32 closed_gop_enable, u32 au_delim_enable);
 void vidc_sm_set_encoder_param_change(struct ddl_buf_addr *shared_mem,
 	u32 bit_rate_chg, u32 frame_rate_chg, u32 i_period_chg);
 void vidc_sm_set_encoder_vop_time(struct ddl_buf_addr *shared_mem,
