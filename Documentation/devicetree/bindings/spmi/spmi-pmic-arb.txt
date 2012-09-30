@@ -10,6 +10,10 @@ Required properties:
 - qcom,pmic-arb-channel : the assigned channel number for channel registers.
 - qcom,pmic-arb-ppid-map : an array used to map a 12-bit PPID to 8-bit APID.
 
+Optional properties:
+- qcom,not-wakeup : boolean property which indicates that SPMI PMIC interrupts
+	should not be treated as wakeup sources
+
 Peripherals on the SPMI bus are identified with a 12-bit identifier (PPID)
 which is composed of a 4-bit slave address and an 8-bit peripheral identifier.
 The PMIC Arbiter hardware uses an 8-bit APID (Arbiter Peripheral Identifier)
