@@ -45,7 +45,7 @@
 #include "timer.h"
 
 #define DRV_NAME	"msm_dsps"
-#define DRV_VERSION	"4.02"
+#define DRV_VERSION	"4.03"
 
 
 #define PPSS_TIMER0_32KHZ_REG	0x1004
@@ -771,6 +771,11 @@ static int dsps_shutdown(const struct subsys_desc *subsys)
 {
 	pr_debug("%s\n", __func__);
 	disable_irq_nosync(drv->wdog_irq);
+	if (drv->pdata->ppss_wdog_unmasked_int_en_reg) {
+		writel_relaxed(0, (drv->ppss_base+
+			drv->pdata->ppss_wdog_unmasked_int_en_reg));
+		mb(); /* Make sure wdog is disabled before shutting down */
+	}
 	pil_force_shutdown(drv->pdata->pil_name);
 	dsps_power_off_handler();
 	return 0;
@@ -799,6 +804,7 @@ static int dsps_powerup(const struct subsys_desc *subsys)
 static void dsps_crash_shutdown(const struct subsys_desc *subsys)
 {
 	pr_debug("%s\n", __func__);
+	disable_irq_nosync(drv->wdog_irq);
 	dsps_crash_shutdown_g = 1;
 	smsm_change_state(SMSM_DSPS_STATE, SMSM_RESET, SMSM_RESET);
 }
