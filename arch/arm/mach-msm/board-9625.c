@@ -30,6 +30,7 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/clk-provider.h>
+#include <mach/qpnp-int.h>
 #include "clock.h"
 
 #define L2CC_AUX_CTRL	((0x1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) | \
@@ -62,6 +63,7 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
 static struct of_device_id irq_match[] __initdata  = {
 	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
 	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
+	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
 	{}
 };
 
