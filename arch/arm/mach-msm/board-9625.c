@@ -75,6 +75,8 @@ static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
 			"msm_serial_hsl.0", NULL),
 	OF_DEV_AUXDATA("qcom,spi-qup-v2", 0xF9928000, \
 			"spi_qsd.1", NULL),
+	OF_DEV_AUXDATA("qcom,spmi-pmic-arb", 0xFC4C0000, \
+			"spmi-pmic-arb.0", NULL),
 	{}
 };
 
