@@ -27,4 +27,3 @@ obj-$(CONFIG_MSM_QDSP6V2_CODECS) += rtac_v2.o q6audio_v2.o q6audio_v2_aio.o
 obj-$(CONFIG_MSM_QDSP6V2_CODECS) += audio_mp3.o audio_amrnb.o audio_amrwb.o audio_evrc.o audio_qcelp.o amrwb_in.o
 obj-$(CONFIG_MSM_ADSP_LOADER) += adsp-loader.o
 obj-$(CONFIG_MSM_ULTRASOUND_A) += ultrasound/version_a/
-obj-m += adsprpc.o

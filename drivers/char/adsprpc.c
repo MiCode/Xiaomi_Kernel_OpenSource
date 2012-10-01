@@ -519,13 +519,12 @@ static int get_dev(struct fastrpc_apps *me, struct fastrpc_device **rdev)
 {
 	struct hlist_head *head;
 	struct fastrpc_device *dev = 0;
-	struct hlist_node *n;
 	uint32_t h = hash_32(current->tgid, RPC_HASH_BITS);
 	int err = 0;
 
 	spin_lock(&me->hlock);
 	head = &me->htbl[h];
-	hlist_for_each_entry(dev, n, head, hn) {
+	hlist_for_each_entry(dev, head, hn) {
 		if (dev->tgid == current->tgid) {
 			hlist_del(&dev->hn);
 			break;
@@ -661,14 +660,13 @@ static void cleanup_current_dev(void)
 	struct fastrpc_apps *me = &gfa;
 	uint32_t h = hash_32(current->tgid, RPC_HASH_BITS);
 	struct hlist_head *head;
-	struct hlist_node *pos;
 	struct fastrpc_device *dev;
 
  rnext:
 	dev = 0;
 	spin_lock(&me->hlock);
 	head = &me->htbl[h];
-	hlist_for_each_entry(dev, pos, head, hn) {
+	hlist_for_each_entry(dev, head, hn) {
 		if (dev->tgid == current->tgid) {
 			hlist_del(&dev->hn);
 			break;
