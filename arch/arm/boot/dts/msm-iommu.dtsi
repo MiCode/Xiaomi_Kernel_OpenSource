@@ -108,6 +108,32 @@
 		qcom,needs-alt-core-clk;
 		status = "disabled";
 
+		qcom,iommu-bfb-regs =  <0x204c
+					0x2050
+					0x2514
+					0x2540
+					0x256c
+					0x20ac
+					0x215c
+					0x220c
+					0x2314
+					0x2394
+					0x2414
+					0x2008>;
+
+		qcom,iommu-bfb-data =  <0xffffffff
+					0xffffffff
+					0x00000004
+					0x00000010
+					0x00000000
+					0x00000000
+					0x00000001
+					0x00000021
+					0x0
+					0x1
+					0x81
+					0x0>;
+
 		qcom,iommu-ctx@fdb18000 {
 			reg = <0xfdb18000 0x1000>;
 			interrupts = <0 241 0>;
