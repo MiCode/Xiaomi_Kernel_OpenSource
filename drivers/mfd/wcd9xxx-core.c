@@ -263,6 +263,7 @@ static struct wcd9xx_codec_type {
 	{{0x0, 0x0, 0x2, 0x1}, taiko_devs, ARRAY_SIZE(taiko_devs)},
 	{{0x0, 0x0, 0x0, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs)},
 	{{0x1, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs)},
+	{{0x2, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs)},
 };
 
 static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
@@ -314,18 +315,17 @@ static int wcd9xxx_check_codec_type(struct wcd9xxx *wcd9xxx,
 					struct mfd_cell **wcd9xxx_dev,
 					int *wcd9xxx_dev_size)
 {
-	struct wcd9xx_codec_type *cdc = wcd9xxx_codecs;
-	int index;
+	int i;
 	int ret;
-	index = WCD9XXX_A_CHIP_ID_BYTE_0;
-	while (index <= WCD9XXX_A_CHIP_ID_BYTE_3) {
-		ret = wcd9xxx_reg_read(wcd9xxx, index);
+	i = WCD9XXX_A_CHIP_ID_BYTE_0;
+	while (i <= WCD9XXX_A_CHIP_ID_BYTE_3) {
+		ret = wcd9xxx_reg_read(wcd9xxx, i);
 		if (ret < 0)
 			goto exit;
-		wcd9xxx->idbyte[index-WCD9XXX_A_CHIP_ID_BYTE_0] = (u8)ret;
+		wcd9xxx->idbyte[i-WCD9XXX_A_CHIP_ID_BYTE_0] = (u8)ret;
 		pr_debug("%s: wcd9xx read = %x, byte = %x\n", __func__, ret,
-			index);
-		index++;
+			i);
+		i++;
 	}
 
 	/* Read codec version */
@@ -333,18 +333,19 @@ static int wcd9xxx_check_codec_type(struct wcd9xxx *wcd9xxx,
 	if (ret < 0)
 		goto exit;
 	wcd9xxx->version = (u8)ret & 0x1F;
-
-	while (cdc < (cdc + ARRAY_SIZE(wcd9xxx_codecs)) && cdc != NULL) {
-		if ((cdc->byte[0] == wcd9xxx->idbyte[0]) &&
-		    (cdc->byte[1] == wcd9xxx->idbyte[1]) &&
-		    (cdc->byte[2] == wcd9xxx->idbyte[2]) &&
-		    (cdc->byte[3] == wcd9xxx->idbyte[3])) {
-			pr_info("%s: codec is %s", __func__, cdc->dev->name);
-			*wcd9xxx_dev = cdc->dev;
-			*wcd9xxx_dev_size = cdc->size;
+	i = 0;
+	while (i < ARRAY_SIZE(wcd9xxx_codecs)) {
+		if ((wcd9xxx_codecs[i].byte[0] == wcd9xxx->idbyte[0]) &&
+		    (wcd9xxx_codecs[i].byte[1] == wcd9xxx->idbyte[1]) &&
+		    (wcd9xxx_codecs[i].byte[2] == wcd9xxx->idbyte[2]) &&
+		    (wcd9xxx_codecs[i].byte[3] == wcd9xxx->idbyte[3])) {
+			pr_info("%s: codec is %s", __func__,
+				wcd9xxx_codecs[i].dev->name);
+			*wcd9xxx_dev = wcd9xxx_codecs[i].dev;
+			*wcd9xxx_dev_size = wcd9xxx_codecs[i].size;
 			break;
 		}
-		cdc++;
+		i++;
 	}
 	if (*wcd9xxx_dev == NULL || *wcd9xxx_dev_size == 0)
 		ret = -ENODEV;
