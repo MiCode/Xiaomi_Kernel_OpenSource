@@ -489,7 +489,7 @@ static inline void set_default_hw_caps(struct msmsdcc_host *host)
 	if ((step == 0x18) && (minor >= 3))
 		host->hw_caps |= MSMSDCC_AUTO_CMD21;
 
-	if (version >= 0x2b) /* SDCC v4 2.1.0 and greater */
+	if (step >= 0x2b) /* SDCC v4 2.1.0 and greater */
 		host->hw_caps |= MSMSDCC_SW_RST | MSMSDCC_AUTO_CMD21;
 }
 
