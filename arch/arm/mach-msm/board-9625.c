@@ -289,6 +289,7 @@ void __init msm9625_add_drivers(void)
 	msm_lpmrs_module_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
+	msm_clock_init(&msm9625_clock_init_data);
 }
 
 void __init msm9625_init(void)
@@ -297,7 +298,6 @@ void __init msm9625_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm9625_init_gpiomux();
-	msm_clock_init(&msm_dummy_clock_init_data);
 	of_platform_populate(NULL, of_default_bus_match_table,
 			msm9625_auxdata_lookup, NULL);
 	msm9625_add_devices();
