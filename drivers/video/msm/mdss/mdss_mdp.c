@@ -522,11 +522,15 @@ int mdss_mdp_vsync_clk_enable(int enable)
 
 void mdss_mdp_set_clk_rate(unsigned long min_clk_rate)
 {
+	struct mdss_data_type *mdata = mdss_res;
 	unsigned long clk_rate;
 	struct clk *clk = mdss_mdp_get_clk(MDSS_CLK_MDP_SRC);
 	if (clk) {
 		mutex_lock(&mdp_clk_lock);
-		clk_rate = clk_round_rate(clk, min_clk_rate);
+		if (min_clk_rate < mdata->max_mdp_clk_rate)
+			clk_rate = clk_round_rate(clk, min_clk_rate);
+		else
+			clk_rate = mdata->max_mdp_clk_rate;
 		if (IS_ERR_VALUE(clk_rate)) {
 			pr_err("unable to round rate err=%ld\n", clk_rate);
 		} else if (clk_rate != clk_get_rate(clk)) {
@@ -636,6 +640,15 @@ static inline int mdss_mdp_irq_clk_register(struct mdss_data_type *mdata,
 static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 {
 	int ret;
+
+	ret = of_property_read_u32(mdata->pdev->dev.of_node,
+			"qcom,max-clk-rate", &mdata->max_mdp_clk_rate);
+	if (ret) {
+		pr_err("failed to get max mdp clock rate\n");
+		return ret;
+	}
+
+	pr_debug("max mdp clk rate=%d\n", mdata->max_mdp_clk_rate);
 
 	ret = devm_request_irq(&mdata->pdev->dev, mdata->irq, mdss_irq_handler,
 			 IRQF_DISABLED,	"MDSS", mdata);
