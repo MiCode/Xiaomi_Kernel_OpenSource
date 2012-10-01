@@ -351,6 +351,7 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_ctl *ctl;
 	u32 width, height;
+	int ret = 0;
 
 	if (!mfd)
 		return -ENODEV;
@@ -363,23 +364,30 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 		return -EINVAL;
 	}
 
-	ctl = mdss_mdp_ctl_alloc();
-
-	if (!ctl) {
-		pr_err("unable to allocate ctl\n");
-		return -ENOMEM;
+	if (!mfd->ctl) {
+		ctl = mdss_mdp_ctl_alloc();
+		if (!ctl) {
+			pr_err("unable to allocate ctl\n");
+			return -ENOMEM;
+		}
+		ctl->mfd = mfd;
+		mfd->ctl = ctl;
+	} else {
+		ctl = mfd->ctl;
 	}
 
-	ctl->mfd = mfd;
 	ctl->width = width;
 	ctl->height = height;
 	ctl->dst_format = mfd->panel_info.out_format;
 
-	ctl->mixer_left = mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
 	if (!ctl->mixer_left) {
-		pr_err("unable to allocate layer mixer\n");
-		mdss_mdp_ctl_free(ctl);
-		return -ENOMEM;
+		ctl->mixer_left =
+			mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
+		if (!ctl->mixer_left) {
+			pr_err("unable to allocate layer mixer\n");
+			ret = -ENOMEM;
+			goto ctl_init_fail;
+		}
 	}
 
 	if (width > MAX_MIXER_WIDTH)
@@ -390,17 +398,20 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 	ctl->mixer_left->ctl = ctl;
 
 	if (width < ctl->width) {
-		ctl->mixer_right =
-			mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
-		if (!ctl->mixer_right) {
-			pr_err("unable to allocate right layer mixer\n");
-			mdss_mdp_mixer_free(ctl->mixer_left);
-			mdss_mdp_ctl_free(ctl);
-			return -ENOMEM;
+		if (ctl->mixer_right == NULL) {
+			ctl->mixer_right =
+				mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
+			if (!ctl->mixer_right) {
+				pr_err("unable to allocate right mixer\n");
+				ret = -ENOMEM;
+				goto ctl_init_fail;
+			}
 		}
 		ctl->mixer_right->width = width;
 		ctl->mixer_right->height = height;
 		ctl->mixer_right->ctl = ctl;
+	} else if (ctl->mixer_right) {
+		mdss_mdp_mixer_free(ctl->mixer_right);
 	}
 
 	switch (mfd->panel_info.type) {
@@ -432,9 +443,8 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 		break;
 	default:
 		pr_err("unsupported panel type (%d)\n", mfd->panel_info.type);
-		mdss_mdp_ctl_free(ctl);
-		return -EINVAL;
-
+		ret = -EINVAL;
+		goto ctl_init_fail;
 	}
 
 	ctl->opmode |= (ctl->intf_num << 4);
@@ -444,9 +454,17 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 			       MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT;
 	}
 
-	mfd->ctl = ctl;
+ctl_init_fail:
+	if (IS_ERR_VALUE(ret)) {
+		if (ctl->mixer_left)
+			mdss_mdp_mixer_free(ctl->mixer_left);
+		if (ctl->mixer_right)
+			mdss_mdp_mixer_free(ctl->mixer_right);
+		mdss_mdp_ctl_free(ctl);
+		mfd->ctl = NULL;
+	}
 
-	return 0;
+	return ret;
 }
 
 static int mdss_mdp_ctl_destroy(struct msm_fb_data_type *mfd)
@@ -487,12 +505,11 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 		return -ENODEV;
 	}
 
-	if (!mfd->ctl) {
-		if (mdss_mdp_ctl_init(mfd)) {
-			pr_err("unable to initialize ctl\n");
-			return -ENODEV;
-		}
+	if (mdss_mdp_ctl_init(mfd)) {
+		pr_err("unable to initialize ctl\n");
+		return -ENODEV;
 	}
+
 	ctl = mfd->ctl;
 
 	if (ctl->power_on) {
