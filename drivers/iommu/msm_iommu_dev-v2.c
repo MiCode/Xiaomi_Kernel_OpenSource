@@ -29,6 +29,66 @@
 #include <mach/iommu_hw-v2.h>
 #include <mach/iommu.h>
 
+static int msm_iommu_parse_bfb_settings(struct platform_device *pdev,
+				    struct msm_iommu_drvdata *drvdata)
+{
+	struct msm_iommu_bfb_settings *bfb_settings;
+	u32 nreg, nval;
+	int ret, i;
+
+	/*
+	 * It is not valid for a device to have the qcom,iommu-bfb-regs
+	 * property but not the qcom,iommu-bfb-data property, and vice versa.
+	 */
+	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-bfb-regs", &nreg)) {
+		if (of_get_property(pdev->dev.of_node, "qcom,iommu-bfb-data",
+				    &nval))
+			return -EINVAL;
+		return 0;
+	}
+
+	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-bfb-data", &nval))
+		return -EINVAL;
+
+	if (nreg >= sizeof(bfb_settings->regs))
+		return -EINVAL;
+
+	if (nval >= sizeof(bfb_settings->data))
+		return -EINVAL;
+
+	if (nval != nreg)
+		return -EINVAL;
+
+	bfb_settings = devm_kzalloc(&pdev->dev, sizeof(*bfb_settings),
+				    GFP_KERNEL);
+	if (!bfb_settings)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+					 "qcom,iommu-bfb-regs",
+					 bfb_settings->regs,
+					 nreg / sizeof(*bfb_settings->regs));
+	if (ret)
+		return ret;
+
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+					 "qcom,iommu-bfb-data",
+					 bfb_settings->data,
+					 nval / sizeof(*bfb_settings->data));
+	if (ret)
+		return ret;
+
+	bfb_settings->length = nreg / sizeof(*bfb_settings->regs);
+
+	for (i = 0; i < bfb_settings->length; i++)
+		if (bfb_settings->regs[i] < IMPLDEF_OFFSET ||
+		    bfb_settings->regs[i] >= IMPLDEF_OFFSET + IMPLDEF_LENGTH)
+			return -EINVAL;
+
+	drvdata->bfb_settings = bfb_settings;
+	return 0;
+}
+
 static int msm_iommu_parse_dt(struct platform_device *pdev,
 				struct msm_iommu_drvdata *drvdata)
 {
@@ -37,6 +97,10 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	u32 nsmr;
 
 	ret = device_move(&pdev->dev, &msm_iommu_root_dev->dev, DPM_ORDER_NONE);
+	if (ret)
+		goto fail;
+
+	ret = msm_iommu_parse_bfb_settings(pdev, drvdata);
 	if (ret)
 		goto fail;
 
