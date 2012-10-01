@@ -1,0 +1,43 @@
+Subsystem Trace Points: rpm_smd
+
+The rpm-smd tracing system captures the events related to sending/receiving
+messages to/from RPM hardware. The tracing system adds the following events to
+capture the transactions with the RPM driver.
+
+1) RPM send message
+===================
+rpm_send_message: ctx:%s set:%s rsc_type:0%x(%s),rsc_id:i0x%x, id:%u
+
+The event captures the parameters of the message that was sent to the RPM.
+
+The 'ctx' parameters takes one of the following string constants to indicate
+if the request was made in atomic/non-atomic context.
+ . "sleep" - non-atomic context
+ . "noslp" - atomic context
+
+The 'set' parameter takes one of the following string values to indicate if
+the message affects active or sleep set value of the resource
+ . "act" - active set configuraion
+ . "slp" - sleep set configuration
+
+The 'rsc_type' and 'rsc_id' identify the resource whose parametes is being
+modified. The 4 bytes string equivalent of the resource type is also displayed
+for easier identification of resources.
+
+The 'id' parameter is the id that RPM uses to acknowledge the receipt of the
+message in its ACK message
+
+
+2) RPM ack message
+=================
+rpm_ack_recd: ctx:%s id:%u
+
+The event captures the acknowledgement messages received from the RPM after
+successfully send a message request.
+
+The 'ctx' parameter has the same string constants referred to the "RPM Send
+Message"
+
+The 'id' parameter is the id that RPM uses to acknowledge the receipt of the
+message in its ACK message
+

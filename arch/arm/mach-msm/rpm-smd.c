@@ -36,7 +36,8 @@
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
 #include "rpm-notifier.h"
-
+#define CREATE_TRACE_POINTS
+#include "trace_rpm_smd.h"
 /* Debug Definitions */
 
 enum {
@@ -773,6 +774,10 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 	spin_unlock_irqrestore(&msm_rpm_data.smd_lock_write, flags);
 
 	if (ret == msg_size) {
+		trace_rpm_send_message(noirq, cdata->msg_hdr.set,
+				cdata->msg_hdr.resource_type,
+				cdata->msg_hdr.resource_id,
+				cdata->msg_hdr.msg_id);
 		for (i = 0; (i < cdata->write_idx); i++)
 			cdata->kvp[i].valid = false;
 		cdata->msg_hdr.data_len = 0;
@@ -828,6 +833,8 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 		return 0;
 
 	wait_for_completion(&elem->ack);
+	trace_rpm_ack_recd(0, msg_id);
+
 	msm_rpm_free_list_entry(elem);
 	return elem->errno;
 }
@@ -880,6 +887,8 @@ int msm_rpm_wait_for_ack_noirq(uint32_t msg_id)
 	}
 
 	rc = elem->errno;
+	trace_rpm_ack_recd(1, msg_id);
+
 	msm_rpm_free_list_entry(elem);
 wait_ack_cleanup:
 	spin_unlock_irqrestore(&msm_rpm_data.smd_lock_read, flags);
