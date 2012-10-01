@@ -254,8 +254,6 @@ struct mmc_card *mmc_alloc_card(struct mmc_host *host, struct device_type *type)
 	card->dev.release = mmc_release_card;
 	card->dev.type = type;
 
-	spin_lock_init(&card->wr_pack_stats.lock);
-
 	return card;
 }
 
@@ -357,8 +355,6 @@ void mmc_remove_card(struct mmc_card *card)
 		}
 		device_del(&card->dev);
 	}
-
-	kfree(card->wr_pack_stats.packing_events);
 
 	put_device(&card->dev);
 }
