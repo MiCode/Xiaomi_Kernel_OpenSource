@@ -37,6 +37,23 @@
 #ifdef CONFIG_MSM_MPM
 #include <mach/mpm.h>
 #endif
+#define MSM8930_PC_CNTR_PHYS	(MSM8930_IMEM_PHYS + 0x664)
+#define MSM8930_PC_CNTR_SIZE		0x40
+
+static struct resource msm8930_resources_pccntr[] = {
+	{
+		.start	= MSM8930_PC_CNTR_PHYS,
+		.end	= MSM8930_PC_CNTR_PHYS + MSM8930_PC_CNTR_SIZE,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm8930_pc_cntr = {
+	.name		= "pc-cntr",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(msm8930_resources_pccntr),
+	.resource	= msm8930_resources_pccntr,
+};
 
 struct msm_rpm_platform_data msm8930_rpm_data __initdata = {
 	.reg_base_addrs = {
