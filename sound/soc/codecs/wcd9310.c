@@ -6526,7 +6526,7 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 	s16 mb_v[num_det];
 	s32 mic_mv[num_det];
 	bool inval;
-	bool highdelta;
+	bool highdelta = false;
 	bool ahighv = false, highv;
 	bool gndmicswapped = false;
 
@@ -6587,26 +6587,29 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 			if (vddioswitch)
 				__tabla_codec_switch_micbias(tabla->codec, 0,
 							     false, false);
-			/* claim UNSUPPORTED plug insertion when
-			 * good headset is detected but HPHR GND switch makes
-			 * delta difference */
-			if (i == (num_det - 2) && highdelta && !ahighv)
-				gndmicswapped = true;
-			else if (i == (num_det - 1) && inval) {
-				if (gndmicswapped)
-					plug_type[0] = PLUG_TYPE_GND_MIC_SWAP;
-				else
-					plug_type[0] = PLUG_TYPE_INVALID;
-			}
 		}
 		pr_debug("%s: DCE #%d, %04x, V %d, scaled V %d, GND %d, "
 			 "VDDIO %d, inval %d\n", __func__,
 			 i + 1, mb_v[i] & 0xffff, mic_mv[i], scaled, gndswitch,
 			 vddioswitch, inval);
 		/* don't need to run further DCEs */
-		if (ahighv && inval)
+		if ((ahighv || !vddioswitch) && inval)
 			break;
 		mic_mv[i] = scaled;
+
+		/*
+		 * claim UNSUPPORTED plug insertion when
+		 * good headset is detected but HPHR GND switch makes
+		 * delta difference
+		 */
+		if (i == (num_det - 2) && highdelta && !ahighv)
+			gndmicswapped = true;
+		else if (i == (num_det - 1) && inval) {
+			if (gndmicswapped)
+				plug_type[0] = PLUG_TYPE_GND_MIC_SWAP;
+			else
+				plug_type[0] = PLUG_TYPE_INVALID;
+		}
 	}
 
 	for (i = 0; (plug_type[0] != PLUG_TYPE_GND_MIC_SWAP && !inval) &&
