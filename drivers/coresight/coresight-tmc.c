@@ -1060,6 +1060,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 			goto err0;
 		}
 		memset(drvdata->vaddr, 0, drvdata->size);
+		drvdata->buf = drvdata->vaddr;
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 
 		ret = tmc_etr_bam_init(pdev, drvdata);
