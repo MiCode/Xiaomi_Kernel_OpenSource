@@ -60,6 +60,7 @@ struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
 	struct regulator *fs;
+	u32 max_mdp_clk_rate;
 
 	struct workqueue_struct *clk_ctrl_wq;
 	struct work_struct clk_ctrl_worker;
