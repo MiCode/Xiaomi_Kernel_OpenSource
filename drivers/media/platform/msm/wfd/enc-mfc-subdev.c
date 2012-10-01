@@ -2199,7 +2199,7 @@ static long venc_free_recon_buffers(struct v4l2_subdev *sd, void *arg)
 			if (rc)
 				WFD_MSG_ERR("Failed to free recon buffer\n");
 
-			if (IS_ERR_OR_NULL(
+			if (!IS_ERR_OR_NULL(
 				client_ctx->recon_buffer_ion_handle[i])) {
 				if (!inst->secure) {
 					ion_unmap_iommu(
