@@ -333,6 +333,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct compr_audio *compr = runtime->private_data;
+	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = &compr->prtd;
 	struct asm_aac_cfg aac_cfg;
 	struct asm_wma_cfg wma_cfg;
@@ -374,11 +375,14 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 			pr_err("%s: CMD Format block failed\n", __func__);
 		break;
 	case SND_AUDIOCODEC_AC3_PASS_THROUGH:
-		pr_debug("compressd playback, no need to send"
-			" the decoder params\n");
-		break;
 	case SND_AUDIOCODEC_DTS_PASS_THROUGH:
-		pr_debug("compressd DTS playback,dont send the decoder params\n");
+		pr_debug("compressd playback, no need to send decoder params");
+		pr_debug("decoder id: %d\n",
+			compr->info.codec_param.codec.id);
+		msm_pcm_routing_reg_psthr_stream(
+					soc_prtd->dai_link->be_id,
+					prtd->session_id, substream->stream,
+					1);
 		break;
 	case SND_AUDIOCODEC_WMA:
 		pr_debug("SND_AUDIOCODEC_WMA\n");
@@ -471,6 +475,7 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct compr_audio *compr = runtime->private_data;
+	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = &compr->prtd;
 	struct audio_buffer *buf = prtd->audio_client->port[OUT].buf;
 	struct snd_codec *codec = &compr->info.codec_param.codec;
@@ -545,6 +550,15 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 
 	prtd->enabled = 1;
 
+	if (compr->info.codec_param.codec.id ==
+			SND_AUDIOCODEC_AC3_PASS_THROUGH ||
+			compr->info.codec_param.codec.id ==
+			SND_AUDIOCODEC_DTS_PASS_THROUGH)
+		msm_pcm_routing_reg_psthr_stream(
+					soc_prtd->dai_link->be_id,
+					prtd->session_id, substream->stream,
+					1);
+
 	return ret;
 }
 
@@ -552,7 +566,6 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct compr_audio *compr = runtime->private_data;
 	struct msm_audio *prtd = &compr->prtd;
 
@@ -560,28 +573,7 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 		prtd->pcm_irq_pos = 0;
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			if (compr->info.codec_param.codec.id ==
-				SND_AUDIOCODEC_AC3_PASS_THROUGH ||
-					compr->info.codec_param.codec.id ==
-					SND_AUDIOCODEC_DTS_PASS_THROUGH) {
-				msm_pcm_routing_reg_psthr_stream(
-					soc_prtd->dai_link->be_id,
-					prtd->session_id, substream->stream,
-					1);
-			}
-		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			switch (compr->info.codec_param.codec.id) {
-			case SND_AUDIOCODEC_AMRWB:
-				break;
-			default:
-				msm_pcm_routing_reg_psthr_stream(
-					soc_prtd->dai_link->be_id,
-					prtd->session_id, substream->stream,
-					1);
-				break;
-			}
-		}
+		/* intentional fall-through */
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("%s: Trigger start\n", __func__);
@@ -589,29 +581,6 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 		atomic_set(&prtd->start, 1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
-		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			if (compr->info.codec_param.codec.id ==
-					SND_AUDIOCODEC_AC3_PASS_THROUGH ||
-					compr->info.codec_param.codec.id ==
-					SND_AUDIOCODEC_DTS_PASS_THROUGH) {
-				msm_pcm_routing_reg_psthr_stream(
-					soc_prtd->dai_link->be_id,
-					prtd->session_id, substream->stream,
-					0);
-			}
-		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			switch (compr->info.codec_param.codec.id) {
-			case SND_AUDIOCODEC_AMRWB:
-				break;
-			default:
-				msm_pcm_routing_reg_psthr_stream(
-					soc_prtd->dai_link->be_id,
-					prtd->session_id, substream->stream,
-					0);
-				break;
-			}
-		}
 		atomic_set(&prtd->start, 0);
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -768,11 +737,18 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 	compressed_audio.prtd = NULL;
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
-	if (!(compr->info.codec_param.codec.id ==
-			SND_AUDIOCODEC_AC3_PASS_THROUGH))
+	if ((compr->info.codec_param.codec.id !=
+			SND_AUDIOCODEC_AC3_PASS_THROUGH) &&
+			(compr->info.codec_param.codec.id !=
+			SND_AUDIOCODEC_DTS_PASS_THROUGH))
 		msm_pcm_routing_dereg_phy_stream(
 			soc_prtd->dai_link->be_id,
 			SNDRV_PCM_STREAM_PLAYBACK);
+	else
+		msm_pcm_routing_reg_psthr_stream(
+					soc_prtd->dai_link->be_id,
+					prtd->session_id, substream->stream,
+					0);
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
 	return 0;
@@ -791,8 +767,17 @@ static int msm_compr_capture_close(struct snd_pcm_substream *substream)
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
-	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
-				SNDRV_PCM_STREAM_CAPTURE);
+	if (compr->info.codec_param.codec.id ==
+			SND_AUDIOCODEC_AC3_PASS_THROUGH ||
+			compr->info.codec_param.codec.id ==
+			SND_AUDIOCODEC_DTS_PASS_THROUGH)
+		msm_pcm_routing_reg_psthr_stream(
+					soc_prtd->dai_link->be_id,
+					prtd->session_id, substream->stream,
+					0);
+	else
+		msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
+					SNDRV_PCM_STREAM_CAPTURE);
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
 
