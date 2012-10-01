@@ -60,20 +60,18 @@
 #define __TOSTR__(x) __STR__(x)
 #define __FILE_LINE__ __FILE__ ":" __TOSTR__(__LINE__)
 
-#define VERIFY(val) \
+#define VERIFY(err, val) \
 do {\
 	VERIFY_IPRINTF(__FILE_LINE__"info: calling: " #val "\n");\
 	if (0 == (val)) {\
-		err = err == 0 ? -1 : err;\
-		VERIFY_EPRINTF(__FILE_LINE__"error: %d: " #val "\n", err);\
-		goto bail;\
+		(err) = (err) == 0 ? -1 : (err);\
+		VERIFY_EPRINTF(__FILE_LINE__"error: %d: " #val "\n", (err));\
 	} else {\
 		VERIFY_IPRINTF(__FILE_LINE__"info: passed: " #val "\n");\
 	} \
 } while (0)
 #endif
 
-#define remote_handle_t uint32_t
 #define remote_arg_t    union remote_arg
 
 struct remote_buf {
@@ -83,18 +81,18 @@ struct remote_buf {
 
 union remote_arg {
 	struct remote_buf buf;	/* buffer info */
-	remote_handle_t h;	/* remote handle */
+	uint32_t h;		/* remote handle */
 };
 
 struct fastrpc_ioctl_invoke {
-	remote_handle_t handle;	/* remote handle */
+	uint32_t handle;	/* remote handle */
 	uint32_t sc;		/* scalars describing the data */
 	remote_arg_t *pra;	/* remote arguments list */
 };
 
 struct smq_null_invoke {
 	struct smq_invoke_ctx *ctx; /* invoke caller context */
-	remote_handle_t handle;	    /* handle to invoke */
+	uint32_t handle;	    /* handle to invoke */
 	uint32_t sc;		    /* scalars structure describing the data */
 };
 

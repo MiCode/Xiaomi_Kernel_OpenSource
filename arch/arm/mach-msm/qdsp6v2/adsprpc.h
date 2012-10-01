@@ -36,8 +36,7 @@
 #define RPC_TIMEOUT	(5 * HZ)
 #define RPC_HASH_BITS	5
 #define RPC_HASH_SZ	(1 << RPC_HASH_BITS)
-
-#define ALIGN_8(a)	ALIGN(a, 8)
+#define BALIGN		32
 
 #define LOCK_MMAP(kernel)\
 		do {\
@@ -87,14 +86,26 @@ static inline int buf_get_pages(void *addr, int sz, int nr_pages, int access,
 	uint32_t pfn;
 	int n = -1, err = 0;
 
-	VERIFY(0 != access_ok(access ? VERIFY_WRITE : VERIFY_READ,
+	VERIFY(err, 0 != access_ok(access ? VERIFY_WRITE : VERIFY_READ,
 			      (void __user *)start, len));
-	VERIFY(0 != (vma = find_vma(current->mm, start)));
-	VERIFY(((uint32_t)addr + sz) <= vma->vm_end);
+	if (err)
+		goto bail;
+	VERIFY(err, 0 != (vma = find_vma(current->mm, start)));
+	if (err)
+		goto bail;
+	VERIFY(err, ((uint32_t)addr + sz) <= vma->vm_end);
+	if (err)
+		goto bail;
 	n = 0;
-	VERIFY(0 != (vma->vm_flags & VM_PFNMAP));
-	VERIFY(0 != (vma->vm_flags & VM_PFN_AT_MMAP));
-	VERIFY(nr_elems > 0);
+	VERIFY(err, 0 != (vma->vm_flags & VM_PFNMAP));
+	if (err)
+		goto bail;
+	VERIFY(err, 0 != (vma->vm_flags & VM_PFN_AT_MMAP));
+	if (err)
+		goto bail;
+	VERIFY(err, nr_elems > 0);
+	if (err)
+		goto bail;
 	pfn = vma->vm_pgoff + ((start - vma->vm_start) >> PAGE_SHIFT);
 	pages->addr = __pfn_to_phys(pfn);
 	pages->size = len;
