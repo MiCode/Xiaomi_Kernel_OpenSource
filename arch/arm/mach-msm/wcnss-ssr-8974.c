@@ -25,7 +25,7 @@ static int ss_restart_inprogress;
 static int wcnss_crash;
 static struct subsys_device *wcnss_ssr_dev;
 
-#define WCNSS_APSS_WDOG_BITE_RESET_RDY_IRQ		231
+#define WCNSS_APSS_WDOG_BITE_RESET_RDY_IRQ		181
 
 static void log_wcnss_sfr(void)
 {
