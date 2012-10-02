@@ -31,7 +31,38 @@
 #include <mach/gpio.h>
 #include <mach/clk-provider.h>
 #include <mach/qpnp-int.h>
+#include <mach/msm_memtypes.h>
 #include "clock.h"
+
+#define MSM_KERNEL_EBI_SIZE	0x51000
+
+static struct memtype_reserve msm9625_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+	[MEMTYPE_EBI1] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+};
+
+static int msm9625_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
+
+static void __init msm9625_calculate_reserve_sizes(void)
+{
+	msm9625_reserve_table[MEMTYPE_EBI1].size += MSM_KERNEL_EBI_SIZE;
+}
+
+static struct reserve_info msm9625_reserve_info __initdata = {
+	.memtype_reserve_table = msm9625_reserve_table,
+	.calculate_reserve_sizes = msm9625_calculate_reserve_sizes,
+	.paddr_to_memtype = msm9625_paddr_to_memtype,
+};
+
 
 #define L2CC_AUX_CTRL	((0x1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) | \
 			(0x2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
@@ -97,6 +128,13 @@ static struct sys_timer msm_dt_timer = {
 	.init = msm_dt_timer_init
 };
 
+static void __init msm9625_reserve(void)
+{
+	reserve_info = &msm9625_reserve_info;
+	msm_reserve();
+}
+
+
 void __init msm9625_init(void)
 {
 	if (socinfo_init() < 0)
@@ -115,4 +153,5 @@ DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
 	.dt_compat = msm9625_dt_match,
+	.reserve = msm9625_reserve,
 MACHINE_END
