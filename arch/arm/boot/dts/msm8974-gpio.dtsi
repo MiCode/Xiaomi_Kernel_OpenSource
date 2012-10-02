@@ -17,11 +17,9 @@
 		pm8941_gpios: pm8941_gpios {
 
 			gpio@c000 {
-				status = "ok";
 			};
 
 			gpio@c100 {
-				status = "ok";
 			};
 
 			gpio@c200 {
@@ -29,7 +27,6 @@
 				qcom,pull = <0>;
 				qcom,vin-sel = <2>;
 				qcom,select = <0>;
-				status = "ok";
 			};
 
 			gpio@c300 {
@@ -37,7 +34,6 @@
 				qcom,pull = <0>;
 				qcom,vin-sel = <2>;
 				qcom,select = <0>;
-				status = "ok";
 			};
 
 			gpio@c400 {
@@ -45,47 +41,36 @@
 				qcom,pull = <0>;
 				qcom,vin-sel = <2>;
 				qcom,select = <0>;
-				status = "ok";
 			};
 
 			gpio@c500 {
-				status = "ok";
 			};
 
 			gpio@c600 {
-				status = "ok";
 			};
 
 			gpio@c700 {
-				status = "ok";
 			};
 
 			gpio@c800 {
-				status = "ok";
 			};
 
 			gpio@c900 {
-				status = "ok";
 			};
 
 			gpio@ca00 {
-				status = "ok";
 			};
 
 			gpio@cb00 {
-				status = "ok";
 			};
 
 			gpio@cc00 {
-				status = "ok";
 			};
 
 			gpio@cd00 {
-				status = "ok";
 			};
 
 			gpio@ce00 {
-				status = "ok";
 				qcom,mode = <1>;
 				qcom,output-type = <0>;
 				qcom,pull = <5>;
@@ -96,19 +81,15 @@
 			};
 
 			gpio@cf00 {
-				status = "ok";
 			};
 
 			gpio@d000 {
-				status = "ok";
 			};
 
 			gpio@d100 {
-				status = "ok";
 			};
 
 			gpio@d200 {
-				status = "ok";
 				qcom,mode = <1>;		/* QPNP_PIN_MODE_DIG_OUT */
 				qcom,output-type = <0>;		/* QPNP_PIN_OUT_BUF_CMOS */
 				qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
@@ -119,97 +100,75 @@
 			};
 
 			gpio@d300 {
-				status = "ok";
 			};
 
 			gpio@d400 {
-				status = "ok";
 			};
 
 			gpio@d500 {
-				status = "ok";
 			};
 
 			gpio@d600 {
-				status = "ok";
 			};
 
 			gpio@d700 {
-				status = "ok";
 			};
 
 			gpio@d800 {
-				status = "ok";
 			};
 
 			gpio@d900 {
-				status = "ok";
 			};
 
 			gpio@da00 {
-				status = "ok";
 			};
 
 			gpio@db00 {
-				status = "ok";
 			};
 
 			gpio@dc00 {
 				qcom,pull = <0>; /* set to default pull */
 				qcom,master-en = <1>;
 				qcom,vin-sel = <2>; /* select 1.8 V source */
-				status = "ok";
 			};
 
 			gpio@dd00 {
-				status = "ok";
 			};
 
 			gpio@de00 {
-				status = "ok";
 			};
 
 			gpio@df00 {
-				status = "ok";
 			};
 
 			gpio@e000 {
-				status = "ok";
 			};
 
 			gpio@e100 {
-				status = "ok";
 			};
 
 			gpio@e200 {
-				status = "ok";
 			};
 
 			gpio@e300 {
-				status = "ok";
 			};
 		};
 
 		pm8941_mpps: pm8941_mpps {
 
 			mpp@a000 {
-				status = "ok";
 			};
 
 			mpp@a100 {
-				status = "ok";
 			};
 
 			mpp@a200 {
-				status = "ok";
 			};
 
 			mpp@a300 {
-				status = "ok";
 			};
 
 			mpp@a400 {
-				status = "ok";
 				/* SPI_ETH config */
 				qcom,mode = <1>; /* DIG_OUT */
 				qcom,output-type = <0>; /* CMOS */
@@ -219,7 +178,6 @@
 			};
 
 			mpp@a500 {
-				status = "ok";
 				/* SPI_ETH_RST config */
 				qcom,mode = <1>; /* DIG_OUT */
 				qcom,output-type = <0>; /* CMOS */
@@ -229,11 +187,9 @@
 			};
 
 			mpp@a600 {
-				status = "ok";
 			};
 
 			mpp@a700 {
-				status = "ok";
 			};
 		};
 	};
@@ -243,19 +199,15 @@
 		pm8841_mpps: pm8841_mpps {
 
 			mpp@a000 {
-				status = "ok";
 			};
 
 			mpp@a100 {
-				status = "ok";
 			};
 
 			mpp@a200 {
-				status = "ok";
 			};
 
 			mpp@a300 {
-				status = "ok";
 			};
 		};
 	};
