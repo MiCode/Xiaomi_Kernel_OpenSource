@@ -16,13 +16,13 @@
 #include <linux/platform_device.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
+#include <linux/of_device.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
-#include <sound/apr_audio.h>
-#include <sound/q6afe.h>
-#include <sound/q6adm.h>
-#include <sound/msm-dai-q6.h>
+#include <sound/apr_audio-v2.h>
+#include <sound/q6afe-v2.h>
+#include <sound/msm-dai-q6-v2.h>
 #include <mach/msm_hdmi_audio.h>
 
 
@@ -44,7 +44,7 @@ static int msm_dai_q6_hdmi_format_put(struct snd_kcontrol *kcontrol,
 
 	struct msm_dai_q6_hdmi_dai_data *dai_data = kcontrol->private_data;
 	int value = ucontrol->value.integer.value[0];
-	dai_data->port_config.hdmi_multi_ch.data_type = value;
+	dai_data->port_config.hdmi_multi_ch.datatype = value;
 	pr_debug("%s: value = %d\n", __func__, value);
 	return 0;
 }
@@ -55,7 +55,7 @@ static int msm_dai_q6_hdmi_format_get(struct snd_kcontrol *kcontrol,
 
 	struct msm_dai_q6_hdmi_dai_data *dai_data = kcontrol->private_data;
 	ucontrol->value.integer.value[0] =
-		dai_data->port_config.hdmi_multi_ch.data_type;
+		dai_data->port_config.hdmi_multi_ch.datatype;
 	return 0;
 }
 
@@ -95,6 +95,9 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 	dai_data->channels = params_channels(params);
 	dai_data->rate = params_rate(params);
 	dai_data->port_config.hdmi_multi_ch.reserved = 0;
+	dai_data->port_config.hdmi_multi_ch.hdmi_cfg_minor_version = 1;
+	dai_data->port_config.hdmi_multi_ch.sample_rate = dai_data->rate;
+	dai_data->port_config.hdmi_multi_ch.bit_width = 16;
 
 	switch (dai_data->channels) {
 	case 2:
@@ -123,12 +126,14 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 				dai_data->channels);
 		return -EINVAL;
 	}
-	dev_dbg(dai->dev, "%s() num_ch = %u rate =%u channel_allocation = %u data type = %d\n",
+	dev_dbg(dai->dev, "%s() minor version: %u samplerate: %u bitwidth: %u num_ch = %u channel_allocation = %u datatype = %d\n",
 		 __func__,
+		dai_data->port_config.hdmi_multi_ch.hdmi_cfg_minor_version,
+		dai_data->port_config.hdmi_multi_ch.sample_rate,
+		dai_data->port_config.hdmi_multi_ch.bit_width,
 		dai_data->channels,
-		dai_data->rate,
 		dai_data->port_config.hdmi_multi_ch.channel_allocation,
-		dai_data->port_config.hdmi_multi_ch.data_type);
+		dai_data->port_config.hdmi_multi_ch.datatype);
 
 	return 0;
 }
@@ -247,9 +252,20 @@ static struct snd_soc_dai_driver msm_dai_q6_hdmi_hdmi_rx_dai = {
 /* To do: change to register DAIs as batch */
 static __devinit int msm_dai_q6_hdmi_dev_probe(struct platform_device *pdev)
 {
-	int rc = 0;
+	int rc, id;
+	const char *q6_dev_id = "qcom,msm-dai-q6-dev-id";
 
-	dev_dbg(&pdev->dev, "dev name %s dev-id %d\n",
+	rc = of_property_read_u32(pdev->dev.of_node, q6_dev_id, &id);
+	if (rc) {
+		dev_err(&pdev->dev,
+			"%s: missing %s in dt node\n", __func__, q6_dev_id);
+		return rc;
+	}
+
+	pdev->id = id;
+	dev_set_name(&pdev->dev, "%s.%d", "msm-dai-q6-hdmi", id);
+
+	pr_debug("%s: dev name %s, id:%d\n", __func__,
 			dev_name(&pdev->dev), pdev->id);
 
 	switch (pdev->id) {
@@ -271,12 +287,19 @@ static __devexit int msm_dai_q6_hdmi_dev_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id msm_dai_q6_hdmi_dt_match[] = {
+	{.compatible = "qcom,msm-dai-q6-hdmi"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, msm_dai_q6_hdmi_dt_match);
+
 static struct platform_driver msm_dai_q6_hdmi_driver = {
 	.probe  = msm_dai_q6_hdmi_dev_probe,
 	.remove = msm_dai_q6_hdmi_dev_remove,
 	.driver = {
 		.name = "msm-dai-q6-hdmi",
 		.owner = THIS_MODULE,
+		.of_match_table = msm_dai_q6_hdmi_dt_match,
 	},
 };
 
