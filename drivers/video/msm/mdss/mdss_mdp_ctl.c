@@ -360,6 +360,8 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 	mdss_mdp_mixer_free(mixer);
 	mdss_mdp_ctl_free(ctl);
 
+	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
+
 	return 0;
 }
 
