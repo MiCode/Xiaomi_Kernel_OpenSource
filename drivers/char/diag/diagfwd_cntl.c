@@ -221,6 +221,8 @@ static void diag_smd_cntl_send_req(int proc_num)
 					pr_err("diag: drop reg proc %d\n",
 								 proc_num);
 				kfree(temp);
+			} else if (type != DIAG_CTRL_MSG_REG) {
+				flag = 1;
 			}
 			buf = buf + HDR_SIZ + data_len;
 		}
