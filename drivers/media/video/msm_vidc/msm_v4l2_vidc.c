@@ -958,14 +958,22 @@ static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
 		rc = msm_v4l2_release_output_buffers(v4l2_inst);
 	if (rc)
 		dprintk(VIDC_WARN,
-			"Failed in %s for release output buffers\n", __func__);
+			"Failed to release dec output buffers: %d\n", rc);
 	return msm_vidc_decoder_cmd((void *)vidc_inst, dec);
 }
 
 static int msm_v4l2_encoder_cmd(struct file *file, void *fh,
 				struct v4l2_encoder_cmd *enc)
 {
+	struct msm_v4l2_vid_inst *v4l2_inst;
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	int rc = 0;
+	v4l2_inst = get_v4l2_inst(file, NULL);
+	if (enc->cmd == V4L2_ENC_CMD_STOP)
+		rc = msm_v4l2_release_output_buffers(v4l2_inst);
+	if (rc)
+		dprintk(VIDC_WARN,
+			"Failed to release enc output buffers: %d\n", rc);
 	return msm_vidc_encoder_cmd((void *)vidc_inst, enc);
 }
 
