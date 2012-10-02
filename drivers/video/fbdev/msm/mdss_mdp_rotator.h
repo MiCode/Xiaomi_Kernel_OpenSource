@@ -17,7 +17,7 @@
 
 #include "mdss_mdp.h"
 
-#define MDSS_MDP_ROT_SESSION_MASK	0x80000000
+#define MDSS_MDP_ROT_SESSION_MASK	0x40000000
 
 struct mdss_mdp_rotator_session {
 	u32 session_id;
