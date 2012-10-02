@@ -528,6 +528,7 @@ static void handle_session_close(enum command_response cmd, void *data)
 		dqevent.type = V4L2_EVENT_MSM_VIDC_CLOSE_DONE;
 		dqevent.id = 0;
 		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+		inst->session = NULL;
 		wake_up(&inst->kernel_event_queue);
 		show_stats(inst);
 	} else {
