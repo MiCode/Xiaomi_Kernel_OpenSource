@@ -326,7 +326,6 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	}
 
 	pipe->params_changed++;
-	pipe->play_cnt = 0;
 
 	req->id = pipe->ndx;
 
