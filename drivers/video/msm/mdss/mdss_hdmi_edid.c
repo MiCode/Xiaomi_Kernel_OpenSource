@@ -1392,7 +1392,7 @@ void *hdmi_edid_init(struct hdmi_edid_init_data *init_data)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = NULL;
 
-	if (!init_data || !init_data->base ||
+	if (!init_data || !init_data->io ||
 		!init_data->mutex || !init_data->sysfs_kobj ||
 		!init_data->ddc_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
