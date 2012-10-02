@@ -203,7 +203,7 @@
 			};
 		};
 
-		pm8941_gpios {
+		pm8941_gpios: gpios {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
@@ -393,7 +393,7 @@
 			};
 		};
 
-		pm8941_mpps {
+		pm8941_mpps: mpps {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
