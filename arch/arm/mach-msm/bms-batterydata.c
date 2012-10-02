@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/mfd/pm8xxx/pm8921-bms.h>
+#include <linux/mfd/pm8xxx/batterydata-lib.h>
 
 static struct single_row_lut fcc_temp = {
 	.x		= {-20, 0, 25, 40, 65},
@@ -99,7 +99,7 @@ static struct sf_lut rbatt_sf = {
 	}
 };
 
-struct pm8921_bms_battery_data palladium_1500_data = {
+struct bms_battery_data palladium_1500_data = {
 	.fcc			= 1500,
 	.fcc_temp_lut		= &fcc_temp,
 	.pc_temp_ocv_lut	= &pc_temp_ocv,

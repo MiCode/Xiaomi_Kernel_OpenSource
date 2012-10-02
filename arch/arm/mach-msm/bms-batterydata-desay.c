@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/mfd/pm8xxx/pm8921-bms.h>
+#include <linux/mfd/pm8xxx/batterydata-lib.h>
 
 static struct single_row_lut desay_5200_fcc_temp = {
 	.x		= {-20, 0, 25, 40},
@@ -76,7 +76,7 @@ static struct sf_lut desay_5200_pc_sf = {
 	},
 };
 
-struct pm8921_bms_battery_data desay_5200_data = {
+struct bms_battery_data desay_5200_data = {
 	.fcc			= 5200,
 	.fcc_temp_lut		= &desay_5200_fcc_temp,
 	.fcc_sf_lut		= &desay_5200_fcc_sf,
