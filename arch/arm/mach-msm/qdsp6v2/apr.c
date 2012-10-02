@@ -55,7 +55,7 @@ struct apr_svc_table {
 	int client_id;
 };
 
-static const struct apr_svc_table svc_tbl_audio[] = {
+static const struct apr_svc_table svc_tbl_qdsp6[] = {
 	{
 		.name = "AFE",
 		.idx = 0,
@@ -108,6 +108,12 @@ static const struct apr_svc_table svc_tbl_audio[] = {
 		.name = "USM",
 		.idx = 8,
 		.id = APR_SVC_USM,
+		.client_id = APR_CLIENT_AUDIO,
+	},
+	{
+		.name = "VIDC",
+		.idx = 9,
+		.id = APR_SVC_VIDC,
 		.client_id = APR_CLIENT_AUDIO,
 	},
 };
@@ -387,6 +393,8 @@ void apr_cb_func(void *buf, int len, void *priv)
 		    svc == APR_SVC_TEST_CLIENT || svc == APR_SVC_ADSP_MVM ||
 		    svc == APR_SVC_ADSP_CVS || svc == APR_SVC_ADSP_CVP)
 			clnt = APR_CLIENT_AUDIO;
+		else if (svc == APR_SVC_VIDC)
+			clnt = APR_CLIENT_AUDIO;
 		else {
 			pr_err("APR: Wrong svc :%d\n", svc);
 			return;
@@ -441,8 +449,8 @@ int apr_get_svc(const char *svc_name, int dest_id, int *client_id,
 	int ret = 0;
 
 	if (dest_id == APR_DEST_QDSP6) {
-		tbl = (struct apr_svc_table *)&svc_tbl_audio;
-		size = ARRAY_SIZE(svc_tbl_audio);
+		tbl = (struct apr_svc_table *)&svc_tbl_qdsp6;
+		size = ARRAY_SIZE(svc_tbl_qdsp6);
 	} else {
 		tbl = (struct apr_svc_table *)&svc_tbl_voice;
 		size = ARRAY_SIZE(svc_tbl_voice);
