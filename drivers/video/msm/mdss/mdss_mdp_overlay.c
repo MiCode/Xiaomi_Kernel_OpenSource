@@ -636,7 +636,14 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 	if (pipe == NULL) {
 		struct mdp_overlay req;
 		struct fb_info *fbi = mfd->fbi;
+		struct mdss_mdp_mixer *mixer;
 		int ret, bpp;
+
+		mixer = mdss_mdp_mixer_get(mfd->ctl, MDSS_MDP_MIXER_MUX_LEFT);
+		if (!mixer) {
+			pr_err("unable to retrieve mixer\n");
+			return -ENODEV;
+		}
 
 		memset(&req, 0, sizeof(req));
 
@@ -646,20 +653,22 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 		req.src.height = fbi->var.yres;
 		req.src.width = fbi->fix.line_length / bpp;
 		if (mixer_mux == MDSS_MDP_MIXER_MUX_RIGHT) {
-			if (req.src.width <= MAX_MIXER_WIDTH)
-				return -ENODEV;
+			if (req.src.width <= mixer->width) {
+				pr_warn("right fb pipe not needed\n");
+				return -EINVAL;
+			}
 
 			req.flags |= MDSS_MDP_RIGHT_MIXER;
-			req.src_rect.x = MAX_MIXER_WIDTH;
-			req.src_rect.w = fbi->var.xres - MAX_MIXER_WIDTH;
+			req.src_rect.x = mixer->width;
+			req.src_rect.w = fbi->var.xres - mixer->width;
 		} else {
 			req.src_rect.x = 0;
-			req.src_rect.w = MIN(fbi->var.xres, MAX_MIXER_WIDTH);
+			req.src_rect.w = MIN(fbi->var.xres, mixer->width);
 		}
 
 		req.src_rect.y = 0;
 		req.src_rect.h = req.src.height;
-		req.dst_rect.x = req.src_rect.x;
+		req.dst_rect.x = 0;
 		req.dst_rect.y = 0;
 		req.dst_rect.w = req.src_rect.w;
 		req.dst_rect.h = req.src_rect.h;
@@ -696,6 +705,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 
 	if (fbi->fix.smem_len == 0) {
 		pr_warn("fb memory not allocated\n");
+		mdss_mdp_overlay_kickoff(mfd->ctl);
 		return;
 	}
 

@@ -382,17 +382,18 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 		return -ENOMEM;
 	}
 
-	ctl->mixer_left->width = MIN(width, MAX_MIXER_WIDTH);
+	if (width > MAX_MIXER_WIDTH)
+		width /= 2;
+
+	ctl->mixer_left->width = width;
 	ctl->mixer_left->height = height;
 	ctl->mixer_left->ctl = ctl;
 
-	width -= ctl->mixer_left->width;
-
-	if (width) {
+	if (width < ctl->width) {
 		ctl->mixer_right =
-		mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
+			mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
 		if (!ctl->mixer_right) {
-			pr_err("unable to allocate layer mixer\n");
+			pr_err("unable to allocate right layer mixer\n");
 			mdss_mdp_mixer_free(ctl->mixer_left);
 			mdss_mdp_ctl_free(ctl);
 			return -ENOMEM;
