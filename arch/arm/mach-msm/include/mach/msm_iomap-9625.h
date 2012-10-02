@@ -34,9 +34,27 @@
 #define MSM9625_TLMM_PHYS	0xFD510000
 #define MSM9625_TLMM_SIZE	SZ_16K
 
+/*
+ * TODO: Revert IMEM_PHYS back to actual
+ * address 0xfe807800
+ * after IMEM issues resolved.
+ *
+ */
+#define MSM9625_IMEM_PHYS	0xFC42B000
+#define MSM9625_IMEM_SIZE	SZ_2K
+
 #ifdef CONFIG_DEBUG_MSM9625_UART
 #define MSM_DEBUG_UART_BASE	IOMEM(0xFA71E000)
 #define MSM_DEBUG_UART_PHYS	0xF991E000
 #endif
+
+/*
+ * IMEM is retained for secure watchdog reset
+ * Debug Image looks at actual IMEM to
+ * do memory dumping.
+ */
+
+#define MSM9625_DBG_IMEM_PHYS	0xFE807800
+#define MSM9625_DBG_IMEM_SIZE	SZ_4K
 
 #endif
