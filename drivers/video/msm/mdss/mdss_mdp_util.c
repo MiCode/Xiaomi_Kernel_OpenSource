@@ -214,7 +214,7 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 	} else {
 		u8 hmap[] = { 1, 2, 1, 2 };
 		u8 vmap[] = { 1, 1, 2, 2 };
-		u8 horiz, vert, stride_align;
+		u8 horiz, vert, stride_align, height_align;
 
 		horiz = hmap[fmt->chroma_sample];
 		vert = vmap[fmt->chroma_sample];
@@ -222,18 +222,21 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 		switch (format) {
 		case MDP_Y_CR_CB_GH2V2:
 			stride_align = 16;
+			height_align = 1;
 			break;
 		case MDP_Y_CBCR_H2V2_VENUS:
 			stride_align = 32;
+			height_align = 32;
 			break;
 		default:
 			stride_align = 1;
+			height_align = 1;
 			break;
 		}
 
 		ps->ystride[0] = ALIGN(w, stride_align);
 		ps->ystride[1] = ALIGN(w / horiz, stride_align);
-		ps->plane_size[0] = ps->ystride[0] * h;
+		ps->plane_size[0] = ps->ystride[0] * ALIGN(h, height_align);
 		ps->plane_size[1] = ps->ystride[1] * (h / vert);
 
 		if (fmt->fetch_planes == MDSS_MDP_PLANE_PSEUDO_PLANAR) {
