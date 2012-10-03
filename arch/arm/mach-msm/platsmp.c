@@ -165,7 +165,8 @@ static int __cpuinit release_secondary(unsigned int cpu)
 		return krait_release_secondary_sim(0xf9088000, cpu);
 
 	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
-	    cpu_is_apq8064() || cpu_is_msm8627() || cpu_is_msm8960ab())
+	    cpu_is_apq8064() || cpu_is_msm8627() || cpu_is_msm8960ab() ||
+						cpu_is_apq8064ab())
 		return krait_release_secondary(0x02088000, cpu);
 
 	if (cpu_is_msm8974())
