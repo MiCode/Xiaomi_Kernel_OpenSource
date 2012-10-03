@@ -219,8 +219,6 @@ u32 vcd_init_device_context(struct vcd_drv_ctxt *drv_ctxt,
 						   VCD_DEVICE_STATE_INITING,
 						   ev_code);
 	}
-	dev_ctxt->turbo_mode_set = 0;
-
 	return rc;
 }
 
