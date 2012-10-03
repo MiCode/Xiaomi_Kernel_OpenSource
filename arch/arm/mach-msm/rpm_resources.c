@@ -945,7 +945,8 @@ static void *msm_rpmrs_lowest_limits(bool from_idle,
 					irqs_detectable, gpio_detectable))
 			continue;
 
-		if (MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == sleep_mode)
+		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == sleep_mode)
+			|| (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == sleep_mode))
 			if (!cpu && msm_rpm_local_request_is_outstanding())
 					break;
 
