@@ -311,7 +311,7 @@ static int msm_ctrl_cmd_done(void *arg)
 	if (command->length > 0) {
 		command->value =
 			g_server_dev.server_queue[command->queue_idx].ctrl_data;
-		if (command->length > max_control_command_size) {
+		if (command->length > MAX_SERVER_PAYLOAD_LENGTH) {
 			pr_err("%s: user data %d is too big (max %d)\n",
 				__func__, command->length,
 				max_control_command_size);
@@ -476,20 +476,22 @@ int msm_server_private_general(struct msm_cam_v4l2_device *pcam,
 		struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
 {
 	struct msm_ctrl_cmd ctrlcmd;
-	void *temp_data;
+	void *temp_data = NULL;
 	int rc;
-	temp_data = kzalloc(ioctl_ptr->len, GFP_KERNEL);
-	if (!temp_data) {
-		pr_err("%s could not allocate memory\n", __func__);
-		rc = -ENOMEM;
-		goto end;
-	}
-	if (copy_from_user((void *)temp_data,
-		(void __user *)ioctl_ptr->ioctl_ptr,
-		ioctl_ptr->len)) {
-		ERR_COPY_FROM_USER();
-		rc = -EFAULT;
-		goto copy_from_user_failed;
+	if (ioctl_ptr->len > 0) {
+		temp_data = kzalloc(ioctl_ptr->len, GFP_KERNEL);
+		if (!temp_data) {
+			pr_err("%s could not allocate memory\n", __func__);
+			rc = -ENOMEM;
+			goto end;
+		}
+		if (copy_from_user((void *)temp_data,
+			(void __user *)ioctl_ptr->ioctl_ptr,
+			ioctl_ptr->len)) {
+			ERR_COPY_FROM_USER();
+			rc = -EFAULT;
+			goto copy_from_user_failed;
+		}
 	}
 
 	mutex_lock(&pcam->vid_lock);
@@ -505,6 +507,16 @@ int msm_server_private_general(struct msm_cam_v4l2_device *pcam,
 	rc = msm_server_control(&g_server_dev, 0, &ctrlcmd);
 	if (rc < 0)
 		pr_err("%s: send event failed\n", __func__);
+	else {
+		if (ioctl_ptr->len > 0) {
+			if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
+				(void *)temp_data,
+				ioctl_ptr->len)) {
+				ERR_COPY_TO_USER();
+				rc = -EFAULT;
+			}
+		}
+	}
 	mutex_unlock(&pcam->vid_lock);
 
 	kfree(temp_data);
@@ -1519,7 +1531,12 @@ int msm_server_begin_session(struct msm_cam_v4l2_device *pcam,
 	pcam->server_queue_idx = server_q_idx;
 	queue = &g_server_dev.server_queue[server_q_idx];
 	queue->ctrl_data = kzalloc(sizeof(uint8_t) *
-			max_control_command_size, GFP_KERNEL);
+			MAX_SERVER_PAYLOAD_LENGTH, GFP_KERNEL);
+	if (queue->ctrl_data == NULL) {
+		pr_err("%s: Could not allocate memory\n", __func__);
+		rc = -ENOMEM;
+		goto error;
+	}
 	msm_queue_init(&queue->ctrl_q, "control");
 	msm_queue_init(&queue->eventData_q, "eventdata");
 	queue->queue_active = 1;
@@ -2523,7 +2540,11 @@ int msm_server_open_client(int *p_qidx)
 	*p_qidx = server_q_idx;
 	queue = &g_server_dev.server_queue[server_q_idx];
 	queue->ctrl_data = kzalloc(sizeof(uint8_t) *
-		max_control_command_size, GFP_KERNEL);
+		MAX_SERVER_PAYLOAD_LENGTH, GFP_KERNEL);
+	if (!queue->ctrl_data) {
+		pr_err("%s: Could not find memory\n", __func__);
+		return -ENOMEM;
+	}
 	msm_queue_init(&queue->ctrl_q, "control");
 	msm_queue_init(&queue->eventData_q, "eventdata");
 	queue->queue_active = 1;
