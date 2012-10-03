@@ -724,6 +724,13 @@ static int __devinit stm_probe(struct platform_device *pdev)
 
 	dev_info(drvdata->dev, "STM initialized\n");
 
+	/*
+	 * Enable and disable STM to undo the temporary default STM enable
+	 * done by RPM.
+	 */
+	coresight_enable(drvdata->csdev);
+	coresight_disable(drvdata->csdev);
+
 	if (boot_enable)
 		coresight_enable(drvdata->csdev);
 
