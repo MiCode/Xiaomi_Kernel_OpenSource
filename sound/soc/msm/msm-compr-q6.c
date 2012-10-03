@@ -551,9 +551,7 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 	prtd->enabled = 1;
 
 	if (compr->info.codec_param.codec.id ==
-			SND_AUDIOCODEC_AC3_PASS_THROUGH ||
-			compr->info.codec_param.codec.id ==
-			SND_AUDIOCODEC_DTS_PASS_THROUGH)
+			SND_AUDIOCODEC_PASS_THROUGH)
 		msm_pcm_routing_reg_psthr_stream(
 					soc_prtd->dai_link->be_id,
 					prtd->session_id, substream->stream,
@@ -768,9 +766,7 @@ static int msm_compr_capture_close(struct snd_pcm_substream *substream)
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 	if (compr->info.codec_param.codec.id ==
-			SND_AUDIOCODEC_AC3_PASS_THROUGH ||
-			compr->info.codec_param.codec.id ==
-			SND_AUDIOCODEC_DTS_PASS_THROUGH)
+			SND_AUDIOCODEC_PASS_THROUGH)
 		msm_pcm_routing_reg_psthr_stream(
 					soc_prtd->dai_link->be_id,
 					prtd->session_id, substream->stream,
