@@ -2410,7 +2410,8 @@ static int msmsdcc_setup_vreg(struct msmsdcc_host *host, bool enable,
 
 	curr_slot = host->plat->vreg_data;
 	if (!curr_slot) {
-		rc = -EINVAL;
+		pr_debug("%s: vreg info unavailable, assuming the slot is powered by always on domain\n",
+			 mmc_hostname(host->mmc));
 		goto out;
 	}
 
