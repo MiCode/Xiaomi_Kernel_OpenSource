@@ -112,6 +112,7 @@ struct msm_spm_platform_data {
 	uint32_t ver_reg;
 	uint32_t vctl_port;
 	uint32_t phase_port;
+	uint32_t pfm_port;
 
 	uint8_t awake_vlevel;
 	uint32_t vctl_timeout_us;
@@ -196,6 +197,12 @@ int msm_spm_apcs_set_vdd(unsigned int vlevel);
  */
 int msm_spm_apcs_set_phase(unsigned int phase_cnt);
 
+/** msm_spm_enable_fts_lpm() : Enable FTS to switch to low power
+ *                             when the cores are in low power modes
+ * @mode: The mode configuration for FTS
+ */
+int msm_spm_enable_fts_lpm(uint32_t mode);
+
 /* Internal low power management specific functions */
 
 /**
@@ -231,6 +238,11 @@ static inline int msm_spm_apcs_set_vdd(unsigned int vlevel)
 }
 
 static inline int msm_spm_apcs_set_phase(unsigned int phase_cnt)
+{
+	return -ENOSYS;
+}
+
+static inline int msm_spm_enable_fts_lpm(uint32_t mode)
 {
 	return -ENOSYS;
 }

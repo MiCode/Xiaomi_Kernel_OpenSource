@@ -33,8 +33,10 @@ Optional properties
 	between AVS controller requests
 - qcom,saw2-pmic-data0..7: Specify the pmic data value and the associated FTS
 	index to send the PMIC data to
-- qcom,saw2-vctl-port: The FTS port used for changing voltage
-- qcom,saw2-phase-port: The FTS port used for changing the number of phases
+- qcom,saw2-vctl-port: The PVC (PMIC Virtual Channel) port used for changing
+	voltage
+- qcom,saw2-phase-port: The PVC port used for changing the number of phases
+- qcom,saw2-pfm-port: The PVC port used for enabling PWM/PFM modes
 - qcom,saw2-spm-cmd-wfi: The WFI command sequence
 - qcom,saw2-spm-cmd-ret: The Retention command sequence
 - qcom,saw2-spm-cmd-spc: The Standalone PC command sequence
