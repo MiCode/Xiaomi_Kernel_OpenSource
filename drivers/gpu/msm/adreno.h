@@ -115,6 +115,44 @@ struct adreno_device {
 	unsigned int gpu_cycles;
 };
 
+#define PERFCOUNTER_FLAG_NONE 0x0
+#define PERFCOUNTER_FLAG_KERNEL 0x1
+
+/* Structs to maintain the list of active performance counters */
+
+/**
+ * struct adreno_perfcount_register: register state
+ * @countable: countable the register holds
+ * @refcount: number of users of the register
+ * @offset: register hardware offset
+ */
+struct adreno_perfcount_register {
+	unsigned int countable;
+	unsigned int refcount;
+	unsigned int offset;
+	unsigned int flags;
+};
+
+/**
+ * struct adreno_perfcount_group: registers for a hardware group
+ * @regs: available registers for this group
+ * @reg_count: total registers for this group
+ */
+struct adreno_perfcount_group {
+	struct adreno_perfcount_register *regs;
+	unsigned int reg_count;
+};
+
+/**
+ * adreno_perfcounts: all available perfcounter groups
+ * @groups: available groups for this device
+ * @group_count: total groups for this device
+ */
+struct adreno_perfcounters {
+	struct adreno_perfcount_group *groups;
+	unsigned int group_count;
+};
+
 struct adreno_gpudev {
 	/*
 	 * These registers are in a different location on A3XX,  so define
@@ -125,6 +163,8 @@ struct adreno_gpudev {
 	unsigned int reg_cp_pfp_ucode_addr;
 	/* keeps track of when we need to execute the draw workaround code */
 	int ctx_switches_since_last_draw;
+
+	struct adreno_perfcounters *perfcounters;
 
 	/* GPU specific function hooks */
 	int (*ctxt_create)(struct adreno_device *, struct adreno_context *);
@@ -137,8 +177,14 @@ struct adreno_gpudev {
 	unsigned int (*irq_pending)(struct adreno_device *);
 	void * (*snapshot)(struct adreno_device *, void *, int *, int);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
+	void (*perfcounter_init)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
 	unsigned int (*busy_cycles)(struct adreno_device *);
+	void (*perfcounter_enable)(struct adreno_device *, unsigned int group,
+		unsigned int counter, unsigned int countable);
+	uint64_t (*perfcounter_read)(struct adreno_device *adreno_dev,
+		unsigned int group, unsigned int counter,
+		unsigned int offset);
 };
 
 /*
@@ -257,6 +303,13 @@ void adreno_dump_rb(struct kgsl_device *device, const void *buf,
 
 unsigned int adreno_ft_detect(struct kgsl_device *device,
 						unsigned int *prev_reg_val);
+
+int adreno_perfcounter_get(struct adreno_device *adreno_dev,
+	unsigned int groupid, unsigned int countable, unsigned int *offset,
+	unsigned int flags);
+
+int adreno_perfcounter_put(struct adreno_device *adreno_dev,
+	unsigned int groupid, unsigned int countable);
 
 static inline int adreno_is_a200(struct adreno_device *adreno_dev)
 {
