@@ -1032,6 +1032,12 @@
 		reg = <0xfc834000 0x7000>;
 		interrupts = <0 29 1>;
 	};
+
+        qcom,msm-wdog-debug@fc401000 {
+               compatible = "qcom,msm-wdog-debug";
+               reg = <0xfc401000 0x1000>;
+        };
+
 };
 
 /include/ "msm-pm8x41-rpm-regulator.dtsi"
