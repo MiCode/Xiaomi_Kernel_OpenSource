@@ -866,6 +866,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 
 		size = (c_data->vc_format.hactive_end -
 			c_data->vc_format.hactive_start);
+		size = VCAP_STRIDE_CALC(size);
 
 		if (c_data->vc_format.color_space)
 			size *= 3;

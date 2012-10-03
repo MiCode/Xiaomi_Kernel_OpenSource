@@ -38,6 +38,12 @@
 	} while (0)
 
 #define VCAP_USEC (1000000)
+
+#define VCAP_STRIDE_ALIGN 0x10
+#define VCAP_STRIDE_CALC(x) (((x / VCAP_STRIDE_ALIGN) + \
+			(!(!(x % VCAP_STRIDE_ALIGN)))) * \
+			VCAP_STRIDE_ALIGN)
+
 #define VCAP_BASE (dev->vcapbase)
 #define VCAP_OFFSET(off) (VCAP_BASE + off)
 
