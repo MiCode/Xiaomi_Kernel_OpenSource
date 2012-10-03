@@ -2704,26 +2704,22 @@ static unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev)
 static unsigned int a3xx_busy_cycles(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int reg, val;
-
-	/* Freeze the counter */
-	adreno_regread(device, A3XX_RBBM_RBBM_CTL, &reg);
-	reg &= ~RBBM_RBBM_CTL_ENABLE_PWR_CTR1;
-	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, reg);
+	unsigned int val;
+	unsigned int ret = 0;
 
 	/* Read the value */
 	adreno_regread(device, A3XX_RBBM_PERFCTR_PWR_1_LO, &val);
 
-	/* Reset the counter */
-	reg |= RBBM_RBBM_CTL_RESET_PWR_CTR1;
-	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, reg);
+	/* Return 0 for the first read */
+	if (adreno_dev->gpu_cycles != 0) {
+		if (val < adreno_dev->gpu_cycles)
+			ret = (0xFFFFFFFF - adreno_dev->gpu_cycles) + val;
+		else
+			ret = val - adreno_dev->gpu_cycles;
+	}
 
-	/* Re-enable the counter */
-	reg &= ~RBBM_RBBM_CTL_RESET_PWR_CTR1;
-	reg |= RBBM_RBBM_CTL_ENABLE_PWR_CTR1;
-	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, reg);
-
-	return val;
+	adreno_dev->gpu_cycles = val;
+	return ret;
 }
 
 struct a3xx_vbif_data {
@@ -2844,6 +2840,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct a3xx_vbif_data *vbif = NULL;
 	int i;
+	unsigned int reg;
 
 	for (i = 0; i < ARRAY_SIZE(a3xx_vbif_platforms); i++) {
 		if (a3xx_vbif_platforms[i].devfunc(adreno_dev)) {
@@ -2924,6 +2921,20 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 		adreno_regwrite(device, A3XX_SP_PERFCOUNTER7_SELECT,
 			SP_FS_CFLOW_INSTRUCTIONS);
 	}
+
+	adreno_regwrite(device, A3XX_SP_PERFCOUNTER7_SELECT,
+		SP_FS_FULL_ALU_INSTRUCTIONS);
+
+	/* Turn on the GPU busy counter and let it run free */
+
+	adreno_dev->gpu_cycles = 0;
+
+	adreno_regread(device, A3XX_RBBM_RBBM_CTL, &reg);
+	reg |= RBBM_RBBM_CTL_RESET_PWR_CTR1;
+	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, reg);
+	reg &= ~RBBM_RBBM_CTL_RESET_PWR_CTR1;
+	reg |= RBBM_RBBM_CTL_ENABLE_PWR_CTR1;
+	adreno_regwrite(device, A3XX_RBBM_RBBM_CTL, reg);
 }
 
 /* Defined in adreno_a3xx_snapshot.c */
