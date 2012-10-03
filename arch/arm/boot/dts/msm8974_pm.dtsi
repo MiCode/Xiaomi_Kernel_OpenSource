@@ -28,6 +28,8 @@
 		qcom,saw2-spm-dly= <0x20000400>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
+		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 c0 a0 90 03 d0 98 a2 c0
+				0b 00 42 1b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 80 10 90 a0 b0 03 3b 98 a2 b0 82
 				10 0b 30 06 26 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 20 80 10 90 a0 b0 07 3b 98 a2 b0 82
@@ -49,6 +51,8 @@
 		qcom,saw2-spm-dly= <0x20000400>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
+		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 c0 a0 90 03 d0 98 a2 c0
+				0b 00 42 1b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 80 10 90 a0 b0 03 3b 98 a2 b0 82
 				10 0b 30 06 26 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 20 80 10 90 a0 b0 07 3b 98 a2 b0 82
@@ -70,6 +74,8 @@
 		qcom,saw2-spm-dly= <0x20000400>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
+		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 c0 a0 90 03 d0 98 a2 c0
+				0b 00 42 1b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 80 10 90 a0 b0 03 3b 98 a2 b0 82
 				10 0b 30 06 26 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 20 80 10 90 a0 b0 07 3b 98 a2 b0 82
@@ -91,6 +97,8 @@
 		qcom,saw2-spm-dly= <0x20000400>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
+		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 c0 a0 90 03 d0 98 a2 c0
+				0b 00 42 1b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 80 10 90 a0 b0 03 3b 98 a2 b0 82
 				10 0b 30 06 26 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 20 80 10 90 a0 b0 07 3b 98 a2 b0 82
@@ -174,6 +182,22 @@
 
 		qcom,lpm-level@1 {
 			reg = <0x1>;
+			qcom,mode = <4>;        /* MSM_PM_SLEEP_MODE_RETENTION*/
+			qcom,xo = <1>;          /* ON */
+			qcom,l2 = <3>;          /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
+			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
+			qcom,vdd-dig-upper-bound = <5>; /* MAX */
+			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,latency-us = <1500>;
+			qcom,ss-power = <200>;
+			qcom,energy-overhead = <576000>;
+			qcom,time-overhead = <2000>;
+		};
+
+
+		qcom,lpm-level@2 {
+			reg = <0x2>;
 			qcom,mode = <2>;        /* MSM_PM_SLEEP_MODE_STANDALONE_POWER_COLLAPSE */
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <3>;          /* ACTIVE */
@@ -187,8 +211,8 @@
 			qcom,time-overhead = <2000>;
 		};
 
-		qcom,lpm-level@2 {
-			reg = <0x2>;
+		qcom,lpm-level@3 {
+			reg = <0x3>;
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <1>;          /* GDHS */
@@ -202,8 +226,8 @@
 			qcom,time-overhead = <8500>;
 		};
 
-		qcom,lpm-level@3 {
-			reg = <0x3>;
+		qcom,lpm-level@4 {
+			reg = <0x4>;
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <0>;          /* OFF */
@@ -217,8 +241,8 @@
 			qcom,time-overhead = <9000>;
 		};
 
-		qcom,lpm-level@4 {
-			reg = <0x4>;
+		qcom,lpm-level@5 {
+			reg = <0x5>;
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <0>;          /* OFF */
@@ -232,8 +256,8 @@
 			qcom,time-overhead = <10000>;
 		};
 
-		qcom,lpm-level@5 {
-			reg = <0x5>;
+		qcom,lpm-level@6 {
+			reg = <0x6>;
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <1>;          /* GDHS */
@@ -247,8 +271,8 @@
 			qcom,time-overhead = <12000>;
 		};
 
-		qcom,lpm-level@6 {
-			reg = <0x6>;
+		qcom,lpm-level@7 {
+			reg = <0x7>;
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <0>;          /* OFF */
@@ -262,8 +286,8 @@
 			qcom,time-overhead = <18000>;
 		};
 
-		qcom,lpm-level@7 {
-			reg = <0x7>;
+		qcom,lpm-level@8 {
+			reg = <0x8>;
 			qcom,mode= <3>;         /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <0>;          /* OFF */
@@ -277,8 +301,8 @@
 			qcom,time-overhead = <23500>;
 		};
 
-		qcom,lpm-level@8 {
-			reg = <0x8>;
+		qcom,lpm-level@9 {
+			reg = <0x9>;
 			qcom,mode= <3>;         /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <0>;          /* OFF */
