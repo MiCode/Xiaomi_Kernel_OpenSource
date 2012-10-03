@@ -14,12 +14,19 @@
 
 #include "spm.h"
 
+enum msm_spm_pmic_port {
+	MSM_SPM_PMIC_VCTL_PORT,
+	MSM_SPM_PMIC_PHASE_PORT,
+	MSM_SPM_PMIC_PFM_PORT,
+};
+
 struct msm_spm_driver_data {
 	uint32_t major;
 	uint32_t minor;
 	uint32_t ver_reg;
 	uint32_t vctl_port;
 	uint32_t phase_port;
+	uint32_t pfm_port;
 	void __iomem *reg_base_addr;
 	uint32_t vctl_timeout_us;
 	uint32_t avs_timeout_us;
@@ -42,6 +49,6 @@ int msm_spm_drv_write_seq_data(struct msm_spm_driver_data *dev,
 void msm_spm_drv_flush_seq_entry(struct msm_spm_driver_data *dev);
 int msm_spm_drv_set_spm_enable(struct msm_spm_driver_data *dev,
 		bool enable);
-int msm_spm_drv_set_phase(struct msm_spm_driver_data *dev,
-		unsigned int phase_cnt);
+int msm_spm_drv_set_pmic_data(struct msm_spm_driver_data *dev,
+		enum msm_spm_pmic_port port, unsigned int data);
 #endif
