@@ -117,14 +117,20 @@ static int is_session_invalid(u32 decoding, u32 flags)
 	int is_secure;
 	struct client_security_info sec_info;
 	int client_count = 0;
-	int secure_session_running = 0;
+	int secure_session_running = 0, non_secure_runnung = 0;
 	is_secure = (flags & VCD_CP_SESSION) ? 1 : 0;
 	client_count = vcd_get_clients_security_info(&sec_info);
 	secure_session_running = (sec_info.secure_enc > 0) ||
 			(sec_info.secure_dec > 0);
+	non_secure_runnung = sec_info.non_secure_dec + sec_info.non_secure_enc;
 	if (!is_secure) {
 		if (secure_session_running) {
-			pr_err("Secure vs non secure session: FAILURE\n");
+			pr_err("non secure session failed secure running\n");
+			return -EACCES;
+		}
+	} else {
+		if (non_secure_runnung) {
+			pr_err("Secure session failed non secure running\n");
 			return -EACCES;
 		}
 	}
