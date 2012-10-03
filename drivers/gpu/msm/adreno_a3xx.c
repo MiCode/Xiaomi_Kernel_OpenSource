@@ -2833,6 +2833,17 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 		adreno_regwrite(device, A3XX_RB_GMEM_BASE_ADDR,
 			(unsigned int)(adreno_dev->ocmem_base >> 14));
 	}
+
+	/* Turn on performance counters */
+	adreno_regwrite(device, A3XX_RBBM_PERFCTR_CTL, 0x01);
+
+	/*
+	 * Set SP perfcounter 7 to count SP_FS_FULL_ALU_INSTRUCTIONS
+	 * we will use this to augment our hang detection
+	 */
+
+	adreno_regwrite(device, A3XX_SP_PERFCOUNTER7_SELECT,
+		SP_FS_FULL_ALU_INSTRUCTIONS);
 }
 
 /* Defined in adreno_a3xx_snapshot.c */
