@@ -333,10 +333,6 @@ cpr_up_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 
 	chip_data = &cpr->config->cpr_mode_data[cpr->cpr_mode];
 
-	/**
-	 * FIXME: Need to handle a potential race condition between
-	 * freq switch handler and CPR interrupt handler here
-	 */
 	/* Set New PMIC voltage */
 	set_volt_uV = (new_volt < cpr->cur_Vmax ? new_volt
 				: cpr->cur_Vmax);
@@ -380,10 +376,6 @@ cpr_dn_event_handler(struct msm_cpr *cpr, uint32_t new_volt)
 
 	chip_data = &cpr->config->cpr_mode_data[cpr->cpr_mode];
 
-	/**
-	 * FIXME: Need to handle a potential race condition between
-	 * freq switch handler and CPR interrupt handler here
-	 */
 	/* Set New PMIC volt */
 	set_volt_uV = (new_volt > cpr->cur_Vmin ? new_volt
 				: cpr->cur_Vmin);
@@ -534,7 +526,7 @@ static irqreturn_t cpr_irq0_handler(int irq, void *dev_id)
 
 static void cpr_config(struct msm_cpr *cpr)
 {
-	uint32_t delay_count, cnt = 0, rc, tmp_uV;
+	uint32_t delay_count, cnt = 0, rc;
 	struct msm_cpr_mode *chip_data;
 
 	chip_data = &cpr->config->cpr_mode_data[cpr->cpr_mode];
@@ -577,14 +569,9 @@ static void cpr_config(struct msm_cpr *cpr)
 	/* Configure the step quot */
 	cpr_2pt_kv_analysis(cpr, chip_data);
 
-	/**
-	 * Call the PMIC specific routine to set the voltage
-	 * Set with an extra step since it helps as per
-	 * characterization data.
-	 */
-	chip_data->calibrated_uV +=  cpr->vp->step_size;
-	tmp_uV = chip_data->calibrated_uV;
-	rc = regulator_set_voltage(cpr->vreg_cx, tmp_uV, tmp_uV);
+	/* Call the PMIC specific routine to set the voltage */
+	rc = regulator_set_voltage(cpr->vreg_cx, chip_data->calibrated_uV,
+					chip_data->calibrated_uV);
 	if (rc)
 		pr_err("%s: Voltage set failed %d\n", __func__, rc);
 
