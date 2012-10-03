@@ -1,0 +1,290 @@
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/* QPNP controlled regulators: */
+
+&spmi_bus {
+
+	qcom,pm8644@1 {
+
+		pm8644_s3: regulator@1a00 {
+			regulator-min-microvolt = <1350000>;
+			regulator-max-microvolt = <1350000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			qcom,system-load = <100000>;
+			status = "okay";
+		};
+
+		pm8644_s4: regulator@1d00 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			qcom,system-load = <100000>;
+			status = "okay";
+		};
+
+		pm8644_s5: regulator@2000 {
+			regulator-min-microvolt = <2150000>;
+			regulator-max-microvolt = <2150000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_s6: regulator@2300 {
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <900000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_s7: regulator@2600 {
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <900000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_s8: regulator@2900 {
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <900000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l1: regulator@4000 {
+			parent-supply = <&pm8644_s3>;
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1225000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			qcom,system-load = <10000>;
+			status = "okay";
+		};
+
+		pm8644_l2: regulator@4100 {
+			parent-supply = <&pm8644_s3>;
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <900000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l3: regulator@4200 {
+			parent-supply = <&pm8644_s3>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l4: regulator@4300 {
+			parent-supply = <&pm8644_s3>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l6: regulator@4500 {
+			parent-supply = <&pm8644_s5>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l8: regulator@4700 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l9: regulator@4800 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l10: regulator@4900 {
+			regulator-min-microvolt = <2000000>;
+			regulator-max-microvolt = <2000000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l11: regulator@4a00 {
+			parent-supply = <&pm8644_s3>;
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l12: regulator@4b00 {
+			parent-supply = <&pm8644_s5>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l13: regulator@4c00 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l14: regulator@4d00 {
+			parent-supply = <&pm8644_s5>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l15: regulator@4e00 {
+			parent-supply = <&pm8644_s5>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l16: regulator@4f00 {
+			parent-supply = <&pm8644_s4>;
+			regulator-min-microvolt = <750000>;
+			regulator-max-microvolt = <750000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l17: regulator@5000 {
+			regulator-min-microvolt = <3150000>;
+			regulator-max-microvolt = <3150000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			qcom,system-load = <100000>;
+			status = "okay";
+		};
+
+		pm8644_l18: regulator@5100 {
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l19: regulator@5200 {
+			parent-supply = <&pm8644_s4>;
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <1500000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l20: regulator@5300 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l21: regulator@5400 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l22: regulator@5500 {
+			regulator-min-microvolt = <2500000>;
+			regulator-max-microvolt = <2500000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l23: regulator@5600 {
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3000000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_l24: regulator@5700 {
+			regulator-min-microvolt = <3075000>;
+			regulator-max-microvolt = <3075000>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_lvs1: regulator@8000 {
+			parent-supply = <&pm8644_s4>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_lvs2: regulator@8100 {
+			parent-supply = <&pm8644_s4>;
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_mvs1: regulator@8200 {
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		pm8644_mvs2: regulator@8300 {
+			qcom,enable-time = <200>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+	};
+};
+
