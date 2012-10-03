@@ -111,14 +111,12 @@ struct vreg {
  * @khz: Clock rate in KHz.
  * @src: Clock source ID.
  * @pri_src_sel: Input to select on the primary MUX.
- * @sec_src_sel: Input to select on the secondary MUX.
  * @pll_l_val: HFPLL "L" value to be applied when an HFPLL source is selected.
  */
 struct core_speed {
 	unsigned long khz;
 	int src;
 	u32 pri_src_sel;
-	u32 sec_src_sel;
 	u32 pll_l_val;
 };
 
@@ -200,6 +198,7 @@ struct hfpll_data {
  * @hfpll_base: Virtual base address of HFPLL registers.
  * @aux_clk_sel_phys: Physical address of auxiliary MUX.
  * @aux_clk_sel: Auxiliary mux input to select at boot.
+ * @sec_clk_sel: Secondary mux input to select at boot.
  * @l2cpmr_iaddr: Indirect address of the CPMR MUX/divider CP15 register.
  * @cur_speed: Pointer to currently-set speed.
  * @l2_vote: L2 performance level vote associate with the current CPU speed.
@@ -212,6 +211,7 @@ struct scalable {
 	void __iomem *hfpll_base;
 	const phys_addr_t aux_clk_sel_phys;
 	const u32 aux_clk_sel;
+	const u32 sec_clk_sel;
 	const u32 l2cpmr_iaddr;
 	const struct core_speed *cur_speed;
 	unsigned int l2_vote;
