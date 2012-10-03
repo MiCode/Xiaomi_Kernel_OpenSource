@@ -133,6 +133,18 @@ static void unvote_rate_vdd(struct clk *clk, unsigned long rate)
 	unvote_vdd_level(clk->vdd_class, level);
 }
 
+/* Returns true if the rate is valid without voting for it */
+static bool is_rate_valid(struct clk *clk, unsigned long rate)
+{
+	int level;
+
+	if (!clk->vdd_class)
+		return true;
+
+	level = find_vdd_level(clk, rate);
+	return level >= 0;
+}
+
 int clk_prepare(struct clk *clk)
 {
 	int ret = 0;
@@ -331,14 +343,16 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 		/* Enforce vdd requirements for target frequency. */
 		rc = vote_rate_vdd(clk, rate);
 		if (rc)
-			goto err_vote_vdd;
+			goto out;
 		rc = clk->ops->set_rate(clk, rate);
 		if (rc)
 			goto err_set_rate;
 		/* Release vdd requirements for starting frequency. */
 		unvote_rate_vdd(clk, start_rate);
-	} else {
+	} else if (is_rate_valid(clk, rate)) {
 		rc = clk->ops->set_rate(clk, rate);
+	} else {
+		rc = -EINVAL;
 	}
 
 	if (!rc)
@@ -349,7 +363,6 @@ out:
 
 err_set_rate:
 	unvote_rate_vdd(clk, rate);
-err_vote_vdd:
 	goto out;
 }
 EXPORT_SYMBOL(clk_set_rate);
