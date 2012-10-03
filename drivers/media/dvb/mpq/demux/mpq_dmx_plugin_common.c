@@ -812,7 +812,7 @@ int mpq_dmx_map_buffer(struct dmx_demux *demux, struct dmx_buffer *dmx_buffer,
 		*kernel_mem = NULL;
 	} else {
 		*kernel_mem = ion_map_kernel(mpq_demux->ion_client,
-						ion_handle, ionflag);
+						ion_handle);
 		if (*kernel_mem == NULL) {
 			MPQ_DVB_ERR_PRINT("%s: ion_map_kernel failed\n",
 				__func__);
