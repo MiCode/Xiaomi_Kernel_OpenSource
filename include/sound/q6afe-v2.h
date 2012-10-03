@@ -13,6 +13,8 @@
 #define __Q6AFE_V2_H__
 #include <sound/apr_audio-v2.h>
 
+#define IN			0x000
+#define OUT			0x001
 #define MSM_AFE_MONO        0
 #define MSM_AFE_MONO_RIGHT  1
 #define MSM_AFE_MONO_LEFT   2
@@ -71,6 +73,40 @@ enum {
 	AFE_MAX_PORTS
 };
 
+struct afe_audio_buffer {
+	dma_addr_t phys;
+	void       *data;
+	uint32_t   used;
+	uint32_t   size;/* size of buffer */
+	uint32_t   actual_size; /* actual number of bytes read by DSP */
+	struct      ion_handle *handle;
+	struct      ion_client *client;
+};
+
+struct afe_audio_port_data {
+	struct afe_audio_buffer *buf;
+	uint32_t	    max_buf_cnt;
+	uint32_t	    dsp_buf;
+	uint32_t	    cpu_buf;
+	struct list_head    mem_map_handle;
+	uint32_t	    tmp_hdl;
+	/* read or write locks */
+	struct mutex	    lock;
+	spinlock_t	    dsp_lock;
+};
+
+struct afe_audio_client {
+	atomic_t	       cmd_state;
+	/* Relative or absolute TS */
+	uint32_t	       time_flag;
+	void		       *priv;
+	uint64_t	       time_stamp;
+	struct mutex	       cmd_lock;
+	/* idx:1 out port, 0: in port*/
+	struct afe_audio_port_data port[2];
+	wait_queue_head_t      cmd_wait;
+};
+
 int afe_open(u16 port_id, union afe_port_config *afe_config, int rate);
 int afe_close(int port_id);
 int afe_loopback(u16 enable, u16 rx_port, u16 tx_port);
@@ -80,6 +116,7 @@ int afe_validate_port(u16 port_id);
 int afe_get_port_index(u16 port_id);
 int afe_start_pseudo_port(u16 port_id);
 int afe_stop_pseudo_port(u16 port_id);
+uint32_t afe_req_mmap_handle(void);
 int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz);
 int afe_cmd_memory_map_nowait(int port_id, u32 dma_addr_p, u32 dma_buf_sz);
 int afe_cmd_memory_unmap(u32 dma_addr_p);
@@ -98,6 +135,14 @@ int afe_port_stop_nowait(int port_id);
 int afe_apply_gain(u16 port_id, u16 gain);
 int afe_q6_interface_prepare(void);
 int afe_get_port_type(u16 port_id);
+int q6afe_audio_client_buf_alloc_contiguous(unsigned int dir,
+			struct afe_audio_client *ac,
+			unsigned int bufsz,
+			unsigned int bufcnt);
+struct afe_audio_client *q6afe_audio_client_alloc(void *priv);
+int q6afe_audio_client_buf_free_contiguous(unsigned int dir,
+			struct afe_audio_client *ac);
+void q6afe_audio_client_free(struct afe_audio_client *ac);
 /* if port_id is virtual, convert to physical..
  * if port_id is already physical, return physical
  */
