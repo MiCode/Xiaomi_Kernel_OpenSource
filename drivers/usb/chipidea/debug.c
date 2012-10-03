@@ -54,6 +54,44 @@ static const struct file_operations ci_device_fops = {
 };
 
 /**
+ * dbg_prime_fail: prints a PRIME FAIL event
+ * @addr: endpoint address
+ * @mEp:  endpoint structure
+ */
+static void dbg_prime_fail(u8 addr, const char *name,
+				const struct ci13xxx_ep *mEp)
+{
+	char msg[DBG_DATA_MSG];
+	struct ci13xxx_req *req;
+	struct list_head *ptr = NULL;
+
+	if (mEp != NULL) {
+		scnprintf(msg, sizeof(msg),
+			  "PRIME fail EP%d%s QH:%08X",
+			  mEp->num, mEp->dir ? "IN" : "OUT", mEp->qh.ptr->cap);
+		dbg_print(addr, name, 0, msg);
+		scnprintf(msg, sizeof(msg),
+				"cap:%08X %08X %08X\n",
+				mEp->qh.ptr->curr, mEp->qh.ptr->td.next,
+				mEp->qh.ptr->td.token);
+		dbg_print(addr, "QHEAD", 0, msg);
+
+		list_for_each(ptr, &mEp->qh.queue) {
+			req = list_entry(ptr, struct ci13xxx_req, queue);
+			scnprintf(msg, sizeof(msg),
+					"%08X:%08X:%08X\n",
+					req->dma, req->ptr->next,
+					req->ptr->token);
+			dbg_print(addr, "REQ", 0, msg);
+			scnprintf(msg, sizeof(msg), "%08X:%d\n",
+					req->ptr->page[0],
+					req->req.status);
+			dbg_print(addr, "REQPAGE", 0, msg);
+		}
+	}
+}
+
+/**
  * ci_port_test_show: reads port test mode
  */
 static int ci_port_test_show(struct seq_file *s, void *data)
@@ -318,12 +356,14 @@ static ssize_t ci_dtds_write(struct file *file, const char __user *ubuf,
 	n = hw_ep_bit(mEp->num, mEp->dir);
 	pr_info("%s: prime:%08x stat:%08x ep#%d dir:%s"
 			"dTD_update_fail_count: %lu "
-			"mEp->dTD_update_fail_count: %lu\n", __func__,
+			"mEp->dTD_update_fail_count: %lu"
+			"mEp->prime_fail_count: %lu\n", __func__,
 			hw_read(ci, OP_ENDPTPRIME, ~0),
 			hw_read(ci, OP_ENDPTSTAT, ~0),
 			mEp->num, mEp->dir ? "IN" : "OUT",
 			udc->dTD_update_fail_count,
-			mEp->dTD_update_fail_count);
+			mEp->dTD_update_fail_count,
+			mEp->prime_fail_count);
 
 	pr_info("QH: cap:%08x cur:%08x next:%08x token:%08x\n",
 			mEp->qh.ptr->cap, mEp->qh.ptr->curr,

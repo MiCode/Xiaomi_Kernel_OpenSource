@@ -32,6 +32,8 @@
 
 #define ATDTW_SET_DELAY		100 /* 100msec delay */
 #define REMOTE_WAKEUP_DELAY	msecs_to_jiffies(200)
+#define EP_PRIME_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
+#define MAX_PRIME_CHECK_RETRY	3 /*Wait for 3sec for EP prime failure */
 
 /* Turns on streaming. overrides CI13XXX_DISABLE_STREAMING */
 static unsigned int streaming;
@@ -223,8 +225,6 @@ static int hw_ep_prime(struct ci13xxx *ci, int num, int dir, int is_ctrl)
 
 	hw_write(ci, OP_ENDPTPRIME, BIT(n), BIT(n));
 
-	while (hw_read(ci, OP_ENDPTPRIME, BIT(n)))
-		cpu_relax();
 	if (is_ctrl && dir == RX && hw_read(ci, OP_ENDPTSETUPSTAT, BIT(num)))
 		return -EAGAIN;
 
@@ -400,6 +400,57 @@ static int hw_usb_reset(struct ci13xxx *ci)
 static inline u8 _usb_addr(struct ci13xxx_ep *ep)
 {
 	return ((ep->dir == TX) ? USB_ENDPOINT_DIR_MASK : 0) | ep->num;
+}
+
+static void ep_prime_timer_func(unsigned long data)
+{
+	struct ci13xxx_ep *mEp = (struct ci13xxx_ep *)data;
+	struct ci13xxx_req *req;
+	struct list_head *ptr = NULL;
+	int n = hw_ep_bit(mEp->num, mEp->dir);
+	unsigned long flags;
+
+
+	spin_lock_irqsave(mEp->lock, flags);
+	if (!hw_cread(CAP_ENDPTPRIME, BIT(n)))
+		goto out;
+
+	if (list_empty(&mEp->qh.queue))
+		goto out;
+
+	req = list_entry(mEp->qh.queue.next, struct ci13xxx_req, queue);
+
+	mb();
+	if (!(TD_STATUS_ACTIVE & req->ptr->token))
+		goto out;
+
+	mEp->prime_timer_count++;
+	if (mEp->prime_timer_count == MAX_PRIME_CHECK_RETRY) {
+		mEp->prime_timer_count = 0;
+		pr_info("ep%d dir:%s QH:cap:%08x cur:%08x next:%08x tkn:%08x\n",
+				mEp->num, mEp->dir ? "IN" : "OUT",
+				mEp->qh.ptr->cap, mEp->qh.ptr->curr,
+				mEp->qh.ptr->td.next, mEp->qh.ptr->td.token);
+		list_for_each(ptr, &mEp->qh.queue) {
+			req = list_entry(ptr, struct ci13xxx_req, queue);
+			pr_info("\treq:%08xnext:%08xtkn:%08xpage0:%08xsts:%d\n",
+					req->dma, req->ptr->next,
+					req->ptr->token, req->ptr->page[0],
+					req->req.status);
+		}
+		dbg_prime_fail(0xFF, "PRIMEF", mEp);
+		mEp->prime_fail_count++;
+	} else {
+		mod_timer(&mEp->prime_timer, EP_PRIME_CHECK_DELAY);
+	}
+
+	spin_unlock_irqrestore(mEp->lock, flags);
+	return;
+
+out:
+	mEp->prime_timer_count = 0;
+	spin_unlock_irqrestore(mEp->lock, flags);
+
 }
 
 /**
@@ -578,6 +629,8 @@ prime:
 
 	ret = hw_ep_prime(ci, mEp->num, mEp->dir,
 			   mEp->type == USB_ENDPOINT_XFER_CONTROL);
+	if (!ret)
+		mod_timer(&mEp->prime_timer, EP_PRIME_CHECK_DELAY);
 done:
 	return ret;
 }
@@ -996,6 +1049,8 @@ __acquires(mEp->lock)
 	int req_dequeue = 1;
 	struct ci13xxx *ci = mEp->ci;
 
+	del_timer(&mEp->prime_timer);
+	mEp->prime_timer_count = 0;
 	list_for_each_entry_safe(mReq, mReqTemp, &mEp->qh.queue,
 			queue) {
 dequeue:
@@ -1323,6 +1378,8 @@ static int ep_disable(struct usb_ep *ep)
 
 	/* only internal SW should disable ctrl endpts */
 
+	del_timer(&mEp->prime_timer);
+	mEp->prime_timer_count = 0;
 	direction = mEp->dir;
 	do {
 		retval |= _ep_nuke(mEp);
@@ -1555,6 +1612,8 @@ static void ep_fifo_flush(struct usb_ep *ep)
 
 	spin_lock_irqsave(mEp->lock, flags);
 
+	del_timer(&mEp->prime_timer);
+	mEp->prime_timer_count = 0;
 	hw_ep_flush(mEp->ci, mEp->num, mEp->dir);
 
 	spin_unlock_irqrestore(mEp->lock, flags);
@@ -1733,6 +1792,8 @@ static int init_eps(struct ci13xxx *ci)
 			mEp->ep.maxpacket = (unsigned short)~0;
 
 			INIT_LIST_HEAD(&mEp->qh.queue);
+			setup_timer(&mEp->prime_timer, ep_prime_timer_func,
+				(unsigned long) mEp);
 			mEp->qh.ptr = dma_pool_alloc(ci->qh_pool, GFP_KERNEL,
 						     &mEp->qh.dma);
 			if (mEp->qh.ptr == NULL)
