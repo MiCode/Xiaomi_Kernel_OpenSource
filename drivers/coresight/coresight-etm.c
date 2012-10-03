@@ -224,8 +224,9 @@ struct etm_drvdata {
 
 static struct etm_drvdata *etm0drvdata;
 
-/* ETM clock is derived from the processor clock and gets enabled on a
- * logical OR of below items on Krait (pass2 onwards):
+/*
+ * ETM clock is derived from the processor clock and gets enabled on a
+ * logical OR of below items on Krait (v2 onwards):
  * 1.CPMR[ETMCLKEN] is 1
  * 2.ETMCR[PD] is 0
  * 3.ETMPDCR[PU] is 1
@@ -235,10 +236,34 @@ static struct etm_drvdata *etm0drvdata;
  * 1., 2. and 3. above are permanent enables whereas 4. and 5. are temporary
  * enables
  *
- * We rely on 5. to be able to access ETMCR and then use 2. above for ETM
- * clock vote in the driver and the save-restore code uses 1. above
+ * We rely on 5. to be able to access ETMCR/ETMPDCR and then use 2./3. above
+ * for ETM clock vote in the driver and the save-restore code uses 1. above
  * for its vote
  */
+static void etm_set_pwrdwn(struct etm_drvdata *drvdata)
+{
+	uint32_t etmcr;
+
+	/* ensure pending cp14 accesses complete before setting pwrdwn */
+	mb();
+	isb();
+	etmcr = etm_readl(drvdata, ETMCR);
+	etmcr |= BIT(0);
+	etm_writel(drvdata, etmcr, ETMCR);
+}
+
+static void etm_clr_pwrdwn(struct etm_drvdata *drvdata)
+{
+	uint32_t etmcr;
+
+	etmcr = etm_readl(drvdata, ETMCR);
+	etmcr &= ~BIT(0);
+	etm_writel(drvdata, etmcr, ETMCR);
+	/* ensure pwrup completes before subsequent cp14 accesses */
+	mb();
+	isb();
+}
+
 static void etm_set_pwrup(struct etm_drvdata *drvdata)
 {
 	uint32_t etmpdcr;
@@ -304,14 +329,22 @@ static void etm_clr_prog(struct etm_drvdata *drvdata)
 static void __etm_enable(void *info)
 {
 	int i;
+	uint32_t etmcr;
 	struct etm_drvdata *drvdata = info;
 
 	ETM_UNLOCK(drvdata);
 	/* Vote for ETM power/clock enable */
 	etm_set_pwrup(drvdata);
+	/*
+	 * Clear power down bit since when this bit is set writes to
+	 * certain registers might be ignored.
+	 */
+	etm_clr_pwrdwn(drvdata);
 	etm_set_prog(drvdata);
 
-	etm_writel(drvdata, drvdata->ctrl | BIT(10), ETMCR);
+	etmcr = etm_readl(drvdata, ETMCR);
+	etmcr &= (BIT(10) | BIT(0));
+	etm_writel(drvdata, drvdata->ctrl | etmcr, ETMCR);
 	etm_writel(drvdata, drvdata->trigger_event, ETMTRIGGER);
 	etm_writel(drvdata, drvdata->startstop_ctrl, ETMTSSCR);
 	etm_writel(drvdata, drvdata->enable_event, ETMTEEVR);
@@ -390,6 +423,7 @@ static void __etm_disable(void *info)
 	/* program trace enable to low by using always false event */
 	etm_writel(drvdata, 0x6F | BIT(14), ETMTEEVR);
 
+	etm_set_pwrdwn(drvdata);
 	/* Vote for ETM power/clock disable */
 	etm_clr_pwrup(drvdata);
 	ETM_LOCK(drvdata);
@@ -1473,6 +1507,11 @@ static void __devinit etm_init_arch_data(void *info)
 	ETM_UNLOCK(drvdata);
 	/* Vote for ETM power/clock enable */
 	etm_set_pwrup(drvdata);
+	/*
+	 * Clear power down bit since when this bit is set writes to
+	 * certain registers might be ignored.
+	 */
+	etm_clr_pwrdwn(drvdata);
 	/* Set prog bit. It will be set from reset but this is included to
 	 * ensure it is set
 	 */
@@ -1489,6 +1528,7 @@ static void __devinit etm_init_arch_data(void *info)
 	drvdata->nr_ext_out = BMVAL(etmccr, 20, 22);
 	drvdata->nr_ctxid_cmp = BMVAL(etmccr, 24, 25);
 
+	etm_set_pwrdwn(drvdata);
 	/* Vote for ETM power/clock disable */
 	etm_clr_pwrup(drvdata);
 	ETM_LOCK(drvdata);
