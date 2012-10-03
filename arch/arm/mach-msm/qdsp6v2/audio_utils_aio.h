@@ -210,7 +210,6 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 int audio_aio_fsync(struct file *file, loff_t start, loff_t end, int datasync);
 void audio_aio_async_out_flush(struct q6audio_aio *audio);
 void audio_aio_async_in_flush(struct q6audio_aio *audio);
-void audio_aio_unmap_ion_region(struct q6audio_aio *audio);
 #ifdef CONFIG_DEBUG_FS
 ssize_t audio_aio_debug_open(struct inode *inode, struct file *file);
 ssize_t audio_aio_debug_read(struct file *file, char __user *buf,
