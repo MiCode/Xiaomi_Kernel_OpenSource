@@ -5478,7 +5478,8 @@ static void __init reserve_ion_memory(void)
 	for (i = 0; i < ion_pdata.nr; i++) {
 		struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
 
-		if (heap->extra_data && heap->type == ION_HEAP_TYPE_CP) {
+		if (heap->extra_data &&
+			heap->type == (enum ion_heap_type) ION_HEAP_TYPE_CP) {
 			int map_all = ((struct ion_cp_heap_pdata *)
 				heap->extra_data)->iommu_map_all;
 
