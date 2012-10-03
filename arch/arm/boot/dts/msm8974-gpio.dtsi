@@ -139,22 +139,18 @@
 			};
 
 			gpio@d800 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@d900 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@da00 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@db00 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
@@ -166,37 +162,30 @@
 			};
 
 			gpio@dd00 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@de00 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@df00 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@e000 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@e100 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@e200 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
 			gpio@e300 {
-				qcom,out-strength = <1>;
 				status = "ok";
 			};
 		};
