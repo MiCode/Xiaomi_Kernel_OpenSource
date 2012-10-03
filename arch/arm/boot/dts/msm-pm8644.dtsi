@@ -287,4 +287,436 @@
 			};
 		};
 	};
+
+	qcom,pm8644@1 {
+		spmi-slave-container;
+		reg = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		regulator@1400 {
+			regulator-name = "8644_s1";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1400 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1400 {
+				reg = <0x1400 0x100>;
+			};
+			qcom,ps@1500 {
+				reg = <0x1500 0x100>;
+			};
+			qcom,freq@1600 {
+				reg = <0x1600 0x100>;
+			};
+		};
+
+		regulator@1700 {
+			regulator-name = "8644_s2";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1700 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1700 {
+				reg = <0x1700 0x100>;
+			};
+			qcom,ps@1800 {
+				reg = <0x1800 0x100>;
+			};
+			qcom,freq@1900 {
+				reg = <0x1900 0x100>;
+			};
+		};
+
+		regulator@1a00 {
+			regulator-name = "8644_s3";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1a00 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1a00 {
+				reg = <0x1a00 0x100>;
+			};
+			qcom,ps@1b00 {
+				reg = <0x1b00 0x100>;
+			};
+			qcom,freq@1c00 {
+				reg = <0x1c00 0x100>;
+			};
+		};
+
+		regulator@1d00 {
+			regulator-name = "8644_s4";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1d00 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1d00 {
+				reg = <0x1d00 0x100>;
+			};
+			qcom,ps@1e00 {
+				reg = <0x1e00 0x100>;
+			};
+			qcom,freq@1f00 {
+				reg = <0x1f00 0x100>;
+			};
+		};
+
+		regulator@2000 {
+			regulator-name = "8644_s5";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2000 0x300>;
+			status = "disabled";
+
+			qcom,ctl@2000 {
+				reg = <0x2000 0x100>;
+			};
+			qcom,ps@2100 {
+				reg = <0x2100 0x100>;
+			};
+			qcom,freq@2200 {
+				reg = <0x2200 0x100>;
+			};
+		};
+
+		regulator@2300 {
+			regulator-name = "8644_s6";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2300 0x300>;
+			status = "disabled";
+
+			qcom,ctl@2300 {
+				reg = <0x2300 0x100>;
+			};
+			qcom,ps@2400 {
+				reg = <0x2400 0x100>;
+			};
+			qcom,freq@2500 {
+				reg = <0x2500 0x100>;
+			};
+		};
+
+		regulator@2600 {
+			regulator-name = "8644_s7";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2600 0x300>;
+			status = "disabled";
+
+			qcom,ctl@2600 {
+				reg = <0x2600 0x100>;
+			};
+			qcom,ps@2700 {
+				reg = <0x2700 0x100>;
+			};
+			qcom,freq@2800 {
+				reg = <0x2800 0x100>;
+			};
+		};
+
+		regulator@2900 {
+			regulator-name = "8644_s8";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2900 0x300>;
+			status = "disabled";
+
+			qcom,ctl@2900 {
+				reg = <0x2900 0x100>;
+			};
+			qcom,ps@2a00 {
+				reg = <0x2a00 0x100>;
+			};
+			qcom,freq@2b00 {
+				reg = <0x2b00 0x100>;
+			};
+		};
+
+		regulator@2c00 {
+			regulator-name = "8644_s9";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2c00 0x300>;
+			status = "disabled";
+
+			qcom,ctl@2c00 {
+				reg = <0x2c00 0x100>;
+			};
+			qcom,ps@2d00 {
+				reg = <0x2d00 0x100>;
+			};
+			qcom,freq@2e00 {
+				reg = <0x2e00 0x100>;
+			};
+		};
+
+		regulator@2f00 {
+			regulator-name = "8644_s10";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2f00 0x300>;
+			status = "disabled";
+
+			qcom,ctl@2f00 {
+				reg = <0x2f00 0x100>;
+			};
+			qcom,ps@3000 {
+				reg = <0x3000 0x100>;
+			};
+			qcom,freq@3100 {
+				reg = <0x3100 0x100>;
+			};
+		};
+
+		regulator@3200 {
+			regulator-name = "8644_s11";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x3200 0x300>;
+			status = "disabled";
+
+			qcom,ctl@3200 {
+				reg = <0x3200 0x100>;
+			};
+			qcom,ps@3300 {
+				reg = <0x3300 0x100>;
+			};
+			qcom,freq@3400 {
+				reg = <0x3400 0x100>;
+			};
+		};
+
+		regulator@4000 {
+			regulator-name = "8644_l1";
+			reg = <0x4000 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4100 {
+			regulator-name = "8644_l2";
+			reg = <0x4100 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4200 {
+			regulator-name = "8644_l3";
+			reg = <0x4200 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4300 {
+			regulator-name = "8644_l4";
+			reg = <0x4300 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4400 {
+			regulator-name = "8644_l5";
+			reg = <0x4400 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			qcom,force-type = <0x04 0x10>;
+			status = "disabled";
+		};
+
+		regulator@4500 {
+			regulator-name = "8644_l6";
+			reg = <0x4500 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4600 {
+			regulator-name = "8644_l7";
+			reg = <0x4600 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			qcom,force-type = <0x04 0x10>;
+			status = "disabled";
+		};
+
+		regulator@4700 {
+			regulator-name = "8644_l8";
+			reg = <0x4700 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4800 {
+			regulator-name = "8644_l9";
+			reg = <0x4800 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4900 {
+			regulator-name = "8644_l10";
+			reg = <0x4900 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4a00 {
+			regulator-name = "8644_l11";
+			reg = <0x4a00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4b00 {
+			regulator-name = "8644_l12";
+			reg = <0x4b00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4c00 {
+			regulator-name = "8644_l13";
+			reg = <0x4c00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4d00 {
+			regulator-name = "8644_l14";
+			reg = <0x4d00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4e00 {
+			regulator-name = "8644_l15";
+			reg = <0x4e00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4f00 {
+			regulator-name = "8644_l16";
+			reg = <0x4f00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5000 {
+			regulator-name = "8644_l17";
+			reg = <0x5000 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5100 {
+			regulator-name = "8644_l18";
+			reg = <0x5100 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5200 {
+			regulator-name = "8644_l19";
+			reg = <0x5200 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5300 {
+			regulator-name = "8644_l20";
+			reg = <0x5300 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5400 {
+			regulator-name = "8644_l21";
+			reg = <0x5400 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5500 {
+			regulator-name = "8644_l22";
+			reg = <0x5500 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5600 {
+			regulator-name = "8644_l23";
+			reg = <0x5600 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5700 {
+			regulator-name = "8644_l24";
+			reg = <0x5700 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5800 {
+			regulator-name = "8644_l25";
+			reg = <0x5800 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@8000 {
+			regulator-name = "8644_lvs1";
+			reg = <0x8000 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@8100 {
+			regulator-name = "8644_lvs2";
+			reg = <0x8100 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@8200 {
+			regulator-name = "8644_mvs1";
+			reg = <0x8200 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@8300 {
+			regulator-name = "8644_mvs2";
+			reg = <0x8300 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+	};
 };

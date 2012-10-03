@@ -231,3 +231,4 @@
 };
 
 /include/ "msm-pm8644.dtsi"
+/include/ "mpq8092-regulator.dtsi"
