@@ -4,9 +4,7 @@ QPNP (Qualcomm Plug N Play) LEDs driver is used for
 controlling LEDs that are part of PMIC on Qualcomm reference
 platforms. The PMIC is connected to Host processor via
 SPMI bus. This driver supports various LED modules such as
-WLED (white LED), RGB LED and flash LED. The first version of
-the driver supports WLED and other features are added in the
-next versions.
+WLED (white LED), RGB LED and flash LED.
 
 Required Properties:
 - compatible	: should be "qcom,leds-qpnp"
@@ -48,27 +46,60 @@ Optional properties for flash:
 - linux,default-trigger: trigger the led from external modules such as display
 - qcom,default-state:  default state of the led, should be "on" or "off"
 
+RGB Led is a tri-colored led, Red, Blue & Green.
+
+Required properties for RGB led:
+- qcom,mode: mode the led should operate in, options 0 = PWM, 1 = LPG
+- qcom,pwm-channel: pwm channel the led will operate on
+- qcom,pwm-us: time the pwm device will modulate at (us)
+
+Required properties for LPG mode only:
+- qcom,duty-ms: duty cycle time the led will operate at (ms)
+- qcom,duty-pcts: array of values for duty cycle to go through
+- qcom,start-idx: starting point duty-pcts array
+
+Optional properties for RGB led:
+- linux,default-trigger: trigger the led from external modules such as display
+- qcom,default-state:  default state of the led, should be "on" or "off"
+
 Example:
 
-	qcom,leds@d800 {
-			compatible = "qcom,leds-qpnp";
-			status = "okay";
-			qcom,wled_0 {
-				linux,default-trigger = "bkl-trigger"
-				label = "wled";
-				qcom,cs-out-en;
-				qcom,op-fdbck;
-				qcom,default-state "off";
-				qcom,max-current = <25>;
-				qcom,ctrl-delay-us = <0>;
-				qcom,boost-curr-lim = <3>;
-				qcom,cp-sel = <0>;
-				qcom,switch-freq = <2>;
-				qcom,ovp-val = <2>;
-				qcom,num-strings = <1>;
-				qcom,id = <0>;
-				linux,name = "led:wled_backlight";
-			};
+	qcom,leds@d000 {
+		status = "okay";
+		qcom,rgb_pwm {
+			label = "rgb";
+			linux,name = "led:rgb_red";
+			qcom,mode = <0>;
+			qcom,pwm-channel = <6>;
+			qcom,pwm-us = <1000>;
+			qcom,duty-ms = <20>;
+			qcom,start-idx = <1>;
+			qcom,idx-len = <10>;
+			qcom,duty-pcts = [00 19 32 4B 64
+					 64 4B 32 19 00];
+			qcom,max-current = <12>;
+			qcom,default-state = "off";
+			qcom,id = <3>;
+			linux,default-trigger =
+				"battery-charging";
+		};
+
+		qcom,rgb_lpg {
+			label = "rgb";
+			linux,name = "led:rgb_blue";
+			qcom,mode = <1>;
+			qcom,pwm-channel = <4>;
+			qcom,pwm-us = <1000>;
+			qcom,duty-ms = <20>;
+			qcom,start-idx = <1>;
+			qcom,idx-len = <10>;
+			qcom,duty-pcts = [00 19 32 4B 64
+					 64 4B 32 19 00];
+			qcom,max-current = <12>;
+			qcom,default-state = "off";
+			qcom,id = <5>;
+			linux,default-trigger = "none";
+		};
 	};
 
 	qcom,leds@d300 {
@@ -88,5 +119,26 @@ Example:
 				linux,name = "led:flash_0";
 				qcom,current = <625>;
 				qcom,id = <1>;
+			};
+	};
+
+	qcom,leds@d800 {
+			compatible = "qcom,leds-qpnp";
+			status = "okay";
+			qcom,wled_0 {
+				linux,default-trigger = "bkl-trigger"
+				label = "wled";
+				qcom,cs-out-en;
+				qcom,op-fdbck;
+				qcom,default-state "off";
+				qcom,max-current = <25>;
+				qcom,ctrl-delay-us = <0>;
+				qcom,boost-curr-lim = <3>;
+				qcom,cp-sel = <0>;
+				qcom,switch-freq = <2>;
+				qcom,ovp-val = <2>;
+				qcom,num-strings = <1>;
+				qcom,id = <0>;
+				linux,name = "led:wled_backlight";
 			};
 	};
