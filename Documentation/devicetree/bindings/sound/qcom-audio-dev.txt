@@ -48,6 +48,12 @@ Required properties:
 
  - compatible : "qcom,msm-dai-fe"
 
+* msm-pcm-afe
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-afe"
+
 * msm-dai-q6
 
 [First Level Nodes]

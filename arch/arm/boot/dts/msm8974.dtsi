@@ -673,6 +673,10 @@
 		compatible = "qcom,msm-dai-fe";
 	};
 
+	qcom,msm-pcm-afe {
+		compatible = "qcom,msm-pcm-afe";
+	};
+
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
 		qcom,msm-dai-q6-sb-0-rx {
