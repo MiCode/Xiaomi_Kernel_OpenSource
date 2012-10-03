@@ -461,6 +461,12 @@ static void cpr_set_vdd(struct msm_cpr *cpr, enum cpr_action action)
 			return;
 		}
 
+		/**
+		 * As per chip characterization recommendation, add a step
+		 * to up error steps to increase system stability
+		 */
+		error_step += 1;
+
 		/* Calculte new PMIC voltage */
 		new_volt = curr_volt + (error_step * cpr->vp->step_size);
 		pr_debug("UP_INT: new_volt: %d\n", new_volt);
@@ -478,6 +484,13 @@ static void cpr_set_vdd(struct msm_cpr *cpr, enum cpr_action action)
 			cpr_irq_clr_and_nack(cpr, BIT(2) | BIT(0));
 			return;
 		}
+
+		/**
+		 * As per chip characterization recommendation, deduct 2 steps
+		 * from down error steps to decrease chances of getting closer
+		 * to the system level Vmin, thereby improving stability
+		 */
+		error_step -= 2;
 
 		/* Calculte new PMIC voltage */
 		new_volt = curr_volt - (error_step * cpr->vp->step_size);
