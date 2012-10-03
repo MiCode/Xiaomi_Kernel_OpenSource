@@ -1709,9 +1709,9 @@ static struct msm_cpr_mode msm_cpr_mode_data[] = {
 			.step_quot = ~0,
 			.tgt_volt_offset = 0,
 			.turbo_Vmax = 1350000,
-			.turbo_Vmin = 950000,
+			.turbo_Vmin = 1200000,
 			.nom_Vmax = 1350000,
-			.nom_Vmin = 950000,
+			.nom_Vmin = 1050000,
 			.calibrated_uV = 1300000,
 	},
 };
@@ -1729,7 +1729,7 @@ msm_cpr_get_quot(uint32_t max_quot, uint32_t max_freq, uint32_t new_freq)
 	uint32_t quot;
 
 	/* This formula is as per chip characterization data */
-	quot = max_quot - (((max_freq - new_freq) * 5) / 10);
+	quot = max_quot - (((max_freq - new_freq) * 7) / 10);
 
 	return quot;
 }
