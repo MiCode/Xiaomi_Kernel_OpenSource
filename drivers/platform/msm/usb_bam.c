@@ -258,6 +258,11 @@ int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 	struct usb_bam_connect_info *connection = &usb_bam_connections[idx];
 	int ret;
 
+	if (!usb_bam_pdev) {
+		pr_err("%s: usb_bam device not found\n", __func__);
+		return -ENODEV;
+	}
+
 	if (idx >= CONNECTIONS_NUM) {
 		pr_err("%s: Invalid connection index\n",
 			__func__);
@@ -715,12 +720,9 @@ static ssize_t
 usb_bam_show_enable(struct device *dev, struct device_attribute *attr,
 		    char *buf)
 {
-	struct platform_device *pdev =
-		container_of(dev, struct platform_device, dev);
-	struct msm_usb_bam_platform_data *pdata =
-		usb_bam_pdev->dev.platform_data;
+	struct msm_usb_bam_platform_data *pdata = dev->platform_data;
 
-	if (!pdev || !pdata)
+	if (!pdata)
 		return 0;
 	return scnprintf(buf, PAGE_SIZE, "%s\n",
 			 bam_enable_strings[pdata->usb_active_bam]);
@@ -730,12 +732,14 @@ static ssize_t usb_bam_store_enable(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
-	struct platform_device *pdev = container_of(dev,
-		struct platform_device, dev);
-	struct msm_usb_bam_platform_data *pdata =
-		usb_bam_pdev->dev.platform_data;
+	struct msm_usb_bam_platform_data *pdata = dev->platform_data;
 	char str[10], *pstr;
 	int ret, i;
+
+	if (!pdata) {
+		dev_err(dev, "no usb_bam pdata found\n");
+		return -ENODEV;
+	}
 
 	strlcpy(str, buf, sizeof(str));
 	pstr = strim(str);
@@ -745,12 +749,12 @@ static ssize_t usb_bam_store_enable(struct device *dev,
 			pdata->usb_active_bam = i;
 	}
 
-	dev_dbg(&pdev->dev, "active_bam=%s\n",
+	dev_dbg(dev, "active_bam=%s\n",
 		bam_enable_strings[pdata->usb_active_bam]);
 
 	ret = usb_bam_init();
 	if (ret) {
-		dev_err(&pdev->dev, "failed to initialize usb bam\n");
+		dev_err(dev, "failed to initialize usb bam\n");
 		return ret;
 	}
 
