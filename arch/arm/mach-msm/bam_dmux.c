@@ -223,6 +223,7 @@ static void handle_bam_mux_cmd(struct work_struct *work);
 static void rx_timer_work_func(struct work_struct *work);
 
 static DECLARE_WORK(rx_timer_work, rx_timer_work_func);
+static struct delayed_work queue_rx_work;
 
 static struct workqueue_struct *bam_mux_rx_workqueue;
 static struct workqueue_struct *bam_mux_tx_workqueue;
@@ -430,21 +431,27 @@ static void queue_rx(void)
 	rx_len_cached = bam_rx_pool_len;
 	mutex_unlock(&bam_rx_pool_mutexlock);
 
-	while (rx_len_cached < NUM_BUFFERS) {
+	while (bam_connection_is_active && rx_len_cached < NUM_BUFFERS) {
 		if (in_global_reset)
 			goto fail;
 
-		info = kmalloc(sizeof(struct rx_pkt_info), GFP_KERNEL);
+		info = kmalloc(sizeof(struct rx_pkt_info),
+						GFP_NOWAIT | __GFP_NOWARN);
 		if (!info) {
-			pr_err("%s: unable to alloc rx_pkt_info\n", __func__);
+			DMUX_LOG_KERR(
+			"%s: unable to alloc rx_pkt_info, will retry later\n",
+								__func__);
 			goto fail;
 		}
 
 		INIT_WORK(&info->work, handle_bam_mux_cmd);
 
-		info->skb = __dev_alloc_skb(BUFFER_SIZE, GFP_KERNEL);
+		info->skb = __dev_alloc_skb(BUFFER_SIZE,
+						GFP_NOWAIT | __GFP_NOWARN);
 		if (info->skb == NULL) {
-			DMUX_LOG_KERR("%s: unable to alloc skb\n", __func__);
+			DMUX_LOG_KERR(
+				"%s: unable to alloc skb, will retry later\n",
+								__func__);
 			goto fail_info;
 		}
 		ptr = skb_put(info->skb, BUFFER_SIZE);
@@ -488,9 +495,14 @@ fail_info:
 
 fail:
 	if (rx_len_cached == 0) {
-		DMUX_LOG_KERR("%s: RX queue failure\n", __func__);
-		in_global_reset = 1;
+		DMUX_LOG_KERR("%s: rescheduling\n", __func__);
+		schedule_delayed_work(&queue_rx_work, msecs_to_jiffies(100));
 	}
+}
+
+static void queue_rx_work_func(struct work_struct *work)
+{
+	queue_rx();
 }
 
 static void bam_mux_process_data(struct sk_buff *rx_skb)
@@ -2422,6 +2434,7 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	init_completion(&bam_connection_completion);
 	init_completion(&dfab_unvote_completion);
 	INIT_DELAYED_WORK(&ul_timeout_work, ul_timeout);
+	INIT_DELAYED_WORK(&queue_rx_work, queue_rx_work_func);
 	wake_lock_init(&bam_wakelock, WAKE_LOCK_SUSPEND, "bam_dmux_wakelock");
 
 	rc = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_A2_POWER_CONTROL,
