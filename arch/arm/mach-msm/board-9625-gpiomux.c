@@ -18,8 +18,8 @@
 #include <mach/gpiomux.h>
 
 static struct gpiomux_setting gpio_uart_config = {
-	.func = GPIOMUX_FUNC_2,
-	.drv = GPIOMUX_DRV_16MA,
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 	.dir = GPIOMUX_OUT_HIGH,
 };
@@ -38,13 +38,13 @@ static struct gpiomux_setting gpio_spi_config = {
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
-		.gpio      = 45,	       /* BLSP1 UART TX */
+		.gpio      = 8,	       /* BLSP1 UART TX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
 		},
 	},
 	{
-		.gpio      = 46,	       /* BLSP1 UART RX */
+		.gpio      = 9,	       /* BLSP1 UART RX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
 		},
