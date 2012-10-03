@@ -76,12 +76,16 @@ int marimba_read_bahama_ver(struct marimba *marimba)
 	rc = marimba_read_bit_mask(marimba, 0x00,  &bahama_version, 1, 0x1F);
 	if (rc < 0)
 		return rc;
+	pr_debug("%s: Bahama version: 0x%x\n", __func__, bahama_version);
 	switch (bahama_version) {
 	case 0x08: /* varient of bahama v1 */
 	case 0x10:
 	case 0x00:
 		return BAHAMA_VER_1_0;
 	case 0x09: /* variant of bahama v2 */
+	case 0x0a: /* variant of bahama v2.1 */
+	/* Falling through because initialization */
+	/* and configuration for 2.0 and 2.1 are same */
 		return BAHAMA_VER_2_0;
 	default:
 		return BAHAMA_VER_UNSUPPORTED;
