@@ -902,6 +902,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	unsigned int i;
 	struct adreno_context *drawctxt;
 	unsigned int start_index = 0;
+	int ret;
 
 	if (device->state & KGSL_STATE_HUNG)
 		return -EBUSY;
@@ -948,9 +949,15 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 		if (unlikely(adreno_dev->ib_check_level >= 1 &&
 		    !_parse_ibs(dev_priv, ibdesc[i].gpuaddr,
 				ibdesc[i].sizedwords))) {
-			kfree(link);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto done;
 		}
+
+		if (ibdesc[i].sizedwords == 0) {
+			ret = -EINVAL;
+			goto done;
+		}
+
 		*cmds++ = CP_HDR_INDIRECT_BUFFER_PFD;
 		*cmds++ = ibdesc[i].gpuaddr;
 		*cmds++ = ibdesc[i].sizedwords;
@@ -972,7 +979,6 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	KGSL_CMD_INFO(device, "<%d:0x%x> g %08x numibs %d\n",
 		context->id, *timestamp, (unsigned int)ibdesc, numibs);
 
-	kfree(link);
 
 #ifdef CONFIG_MSM_KGSL_CFF_DUMP
 	/*
@@ -982,13 +988,16 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	 */
 	adreno_idle(device);
 #endif
+
 	/* If context hung and recovered then return error so that the
 	 * application may handle it */
-	if (drawctxt->flags & CTXT_FLAGS_GPU_HANG_RECOVERED)
-		return -EDEADLK;
-	else
-		return 0;
 
+	ret = (drawctxt->flags & CTXT_FLAGS_GPU_HANG_RECOVERED) ?
+		-EDEADLK : 0;
+
+done:
+	kfree(link);
+	return ret;
 }
 
 static int _find_start_of_cmd_seq(struct adreno_ringbuffer *rb,
