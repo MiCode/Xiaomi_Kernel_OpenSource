@@ -28,6 +28,7 @@
 #include <asm/mach/time.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
+#include <mach/restart.h>
 #include <mach/gpio.h>
 #include <mach/clk-provider.h>
 #include <mach/qpnp-int.h>
@@ -308,4 +309,5 @@ DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.timer = &msm_dt_timer,
 	.dt_compat = msm9625_dt_match,
 	.reserve = msm9625_reserve,
+	.restart = msm_restart,
 MACHINE_END
