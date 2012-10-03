@@ -2643,4 +2643,12 @@ config MSM_RPC_PMAPP
 	 such as display backlight, vreg pin-ctrl, smps clock over the RPC
 	 interface. This support is required for MSMs on which the APPS
 	 does not have a direct access to the PMIC.
+
+config MSM_ENABLE_WDOG_DEBUG_CONTROL
+	bool "MSM Watchdog driver to disable debug Image"
+	help
+	 This driver supports the configuration of the GCC_WDOG_DEBUG register
+	 used to control debug image.
+	 This support is currently required for MSM8974 to disable debug image
+	 on PS HOLD reset
 endif
