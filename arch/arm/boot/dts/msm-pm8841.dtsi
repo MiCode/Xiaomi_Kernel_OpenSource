@@ -22,7 +22,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm8841_mpps {
+		pm8841_mpps: mpps {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
