@@ -58,37 +58,6 @@ static int msm8910_paddr_to_memtype(unsigned int paddr)
 	return MEMTYPE_EBI1;
 }
 
-static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "f9a55000.usb", OFF),
-	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "f9a55000.usb", OFF),
-	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("dfab_clk",	DFAB_CLK,	"msm_sps", OFF),
-	CLK_DUMMY("iface_clk",  NULL, "fd890000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",   NULL, "fd890000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",  NULL, "fd860000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",   NULL, "fd860000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",  NULL, "fd870000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",   NULL, "fd870000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",  NULL, "fd880000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",   NULL, "fd880000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",  NULL, "fd000000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",   NULL, "fd000000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",  NULL, "fd010000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",   NULL, "fd010000.qcom,iommu", OFF),
-};
-
-static struct clock_init_data msm_dummy_clock_init_data __initdata = {
-	.table = msm_clocks_dummy,
-	.size = ARRAY_SIZE(msm_clocks_dummy),
-};
-
 static struct of_dev_auxdata msm8910_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
 			"msm_sdcc.1", NULL),
@@ -118,7 +87,11 @@ void __init msm8910_init(void)
 	struct of_dev_auxdata *adata = msm8910_auxdata_lookup;
 
 	msm8910_init_gpiomux();
-	msm_clock_init(&msm_dummy_clock_init_data);
+
+	if (machine_is_msm8910_rumi())
+		msm_clock_init(&msm8910_rumi_clock_init_data);
+	else
+		msm_clock_init(&msm8910_clock_init_data);
 
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
