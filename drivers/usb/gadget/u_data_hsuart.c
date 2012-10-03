@@ -244,9 +244,7 @@ static void ghsuart_data_write_tomdm(struct work_struct *w)
 		pr_debug("%s: port:%p tom:%lu pno:%d\n", __func__,
 				port, port->to_modem, port->port_num);
 
-		spin_unlock_irqrestore(&port->rx_lock, flags);
 		ret = msm_smux_write(port->ch_id, skb, skb->data, skb->len);
-		spin_lock_irqsave(&port->rx_lock, flags);
 		if (ret < 0) {
 			if (ret == -EAGAIN) {
 				/*flow control*/
