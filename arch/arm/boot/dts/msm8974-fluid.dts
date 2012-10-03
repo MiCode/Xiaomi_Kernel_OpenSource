@@ -155,6 +155,10 @@
 	};
 };
 
+&sdcc1 {
+	qcom,sdcc-bus-width = <4>;
+};
+
 &sdcc2 {
 	#address-cells = <0>;
 	interrupt-parent = <&sdcc2>;
