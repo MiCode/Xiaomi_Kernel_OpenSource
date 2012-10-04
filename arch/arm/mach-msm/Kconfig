@@ -1903,7 +1903,7 @@ config MSM_PIL
 
 config MSM_PIL_MODEM
 	tristate "Modem (ARM11) Boot Support"
-	depends on MSM_PIL
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down ARM11 Modem processors.
 
