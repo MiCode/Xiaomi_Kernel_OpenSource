@@ -5090,6 +5090,8 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		writel_relaxed(0x80|BVAL(5, 3, clk_sel), GCC_APCS_CLK_DIAG);
 		measure->sample_ticks = 0x4000;
 		measure->multiplier = 2;
+		if (cpu_is_krait_v3())
+			measure->multiplier = 8;
 		break;
 	default:
 		ret = -EPERM;
