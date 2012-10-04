@@ -626,7 +626,9 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		}
 		*num_planes = 1;
 		spin_lock_irqsave(&inst->lock, flags);
-		*num_buffers = inst->buff_req.buffer[0].buffer_count_actual;
+		*num_buffers = inst->buff_req.buffer[0].buffer_count_actual =
+			max(*num_buffers, inst->buff_req.buffer[0].
+			buffer_count_actual);
 		spin_unlock_irqrestore(&inst->lock, flags);
 		dprintk(VIDC_DBG, "size = %d, alignment = %d, count = %d\n",
 				inst->buff_req.buffer[0].buffer_size,
