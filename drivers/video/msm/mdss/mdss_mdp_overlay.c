@@ -703,7 +703,6 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	fbi = mfd->fbi;
 
 	if (fbi->fix.smem_len == 0) {
-		pr_warn("fb memory not allocated\n");
 		mdss_mdp_overlay_kickoff(mfd->ctl);
 		return;
 	}
