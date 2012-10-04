@@ -10,6 +10,9 @@
  * GNU General Public License for more details.
  *
  */
+
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
@@ -745,8 +748,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 					IORESOURCE_MEM, "tsens_physical");
 	if (!tmdev->res_tsens_mem) {
 		pr_err("Could not get tsens physical address resource\n");
-		rc = -EINVAL;
-		goto fail_free_irq;
+		return -EINVAL;
 	}
 
 	tmdev->tsens_len = tmdev->res_tsens_mem->end -
@@ -756,8 +758,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 				tmdev->tsens_len, tmdev->res_tsens_mem->name);
 	if (!res_mem) {
 		pr_err("Request tsens physical memory region failed\n");
-		rc = -EINVAL;
-		goto fail_free_irq;
+		return -EINVAL;
 	}
 
 	tmdev->tsens_addr = ioremap(res_mem->start, tmdev->tsens_len);
@@ -807,9 +808,6 @@ fail_unmap_tsens_region:
 	if (tmdev->res_tsens_mem)
 		release_mem_region(tmdev->res_tsens_mem->start,
 					tmdev->tsens_len);
-fail_free_irq:
-	free_irq(tmdev->tsens_irq, tmdev);
-
 	return rc;
 }
 
@@ -829,8 +827,10 @@ static int tsens_tm_probe(struct platform_device *pdev)
 
 	tmdev->pdev = pdev;
 	rc = tsens_calib_sensors();
-	if (rc < 0)
+	if (rc < 0) {
+		pr_err("Calibration failed\n");
 		goto fail;
+	}
 
 	tsens_hw_init();
 
@@ -850,8 +850,7 @@ fail:
 	if (tmdev->res_tsens_mem)
 		release_mem_region(tmdev->res_tsens_mem->start,
 			tmdev->tsens_len);
-	free_irq(tmdev->tsens_irq, tmdev);
-	kfree(tmdev);
+	tmdev = NULL;
 
 	return rc;
 }
@@ -935,7 +934,6 @@ static int tsens_tm_remove(struct platform_device *pdev)
 				tmdev->tsens_len);
 	free_irq(tmdev->tsens_irq, tmdev);
 	platform_set_drvdata(pdev, NULL);
-	kfree(tmdev);
 
 	return 0;
 }
