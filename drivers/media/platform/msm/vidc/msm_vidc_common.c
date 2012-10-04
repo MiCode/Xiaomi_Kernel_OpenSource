@@ -1451,7 +1451,6 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 	int rc = 0;
 	struct vb2_queue *q;
 	struct msm_vidc_inst *inst;
-	unsigned long flags;
 	struct vb2_buf_entry *entry;
 	struct vidc_frame_data frame_data;
 	q = vb->vb2_queue;
@@ -1468,10 +1467,9 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				goto err_no_mem;
 			}
 			entry->vb = vb;
-			dprintk(VIDC_DBG, "Queueing buffer in pendingq\n");
-			spin_lock_irqsave(&inst->lock, flags);
+			mutex_lock(&inst->sync_lock);
 			list_add_tail(&entry->list, &inst->pendingq);
-			spin_unlock_irqrestore(&inst->lock, flags);
+			mutex_unlock(&inst->sync_lock);
 	} else {
 		int64_t time_usec = timeval_to_ns(&vb->v4l2_buf.timestamp);
 		do_div(time_usec, NSEC_PER_USEC);
@@ -1777,18 +1775,46 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	int rc =  0;
 	bool ip_flush = false;
 	bool op_flush = false;
+	struct list_head *ptr, *next;
+	struct vb2_buf_entry *temp;
+	struct mutex *lock;
 	ip_flush = flags & V4L2_QCOM_CMD_FLUSH_OUTPUT;
 	op_flush = flags & V4L2_QCOM_CMD_FLUSH_CAPTURE;
-
 	if (ip_flush && !op_flush) {
 		dprintk(VIDC_WARN, "Input only flush not supported\n");
 		return 0;
 	}
 	mutex_lock(&inst->sync_lock);
 	if (inst->in_reconfig && !ip_flush && op_flush) {
+		if (!list_empty(&inst->pendingq)) {
+			/*Execution can never reach here since port reconfig
+			 * wont happen unless pendingq is emptied out
+			 * (both pendingq and flush being secured with same
+			 * lock). Printing a message here incase this breaks.*/
+			dprintk(VIDC_WARN,
+			"FLUSH BUG: Pending q not empty! It should be empty\n");
+		}
 		rc = vidc_hal_session_flush(inst->session,
 				HAL_FLUSH_OUTPUT);
 	} else {
+		if (!list_empty(&inst->pendingq)) {
+			/*If flush is called after queueing buffers but before
+			 * streamon driver should flush the pending queue*/
+			list_for_each_safe(ptr, next, &inst->pendingq) {
+				temp =
+				list_entry(ptr, struct vb2_buf_entry, list);
+				if (temp->vb->v4l2_buf.type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+					lock = &inst->bufq[CAPTURE_PORT].lock;
+				else
+					lock = &inst->bufq[OUTPUT_PORT].lock;
+				mutex_lock(lock);
+				vb2_buffer_done(temp->vb, VB2_BUF_STATE_DONE);
+				mutex_unlock(lock);
+				list_del(&temp->list);
+				kfree(temp);
+			}
+		}
 		rc = vidc_hal_session_flush(inst->session,
 				HAL_FLUSH_ALL);
 	}
