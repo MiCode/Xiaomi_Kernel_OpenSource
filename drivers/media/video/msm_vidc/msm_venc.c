@@ -648,7 +648,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	unsigned long flags;
 	struct vb2_buf_entry *temp;
 	struct list_head *ptr, *next;
 
@@ -679,7 +678,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to move inst: %p to start done state\n", inst);
 		goto fail_start;
 	}
-	spin_lock_irqsave(&inst->lock, flags);
+	mutex_lock(&inst->sync_lock);
 	if (!list_empty(&inst->pendingq)) {
 		list_for_each_safe(ptr, next, &inst->pendingq) {
 			temp = list_entry(ptr, struct vb2_buf_entry, list);
@@ -693,7 +692,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			kfree(temp);
 		}
 	}
-	spin_unlock_irqrestore(&inst->lock, flags);
+	mutex_unlock(&inst->sync_lock);
 	return rc;
 fail_start:
 	return rc;
