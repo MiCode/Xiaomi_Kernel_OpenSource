@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010, 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,7 +123,8 @@ struct audio {
 	uint64_t bytecount_given;
 	uint64_t bytecount_query;
 
-	struct list_head pmem_region_queue; /* protected by lock */
+	struct list_head ion_region_queue; /* protected by lock */
+	struct ion_client *client;
 
 	int eq_enable;
 	int eq_needs_commit;
