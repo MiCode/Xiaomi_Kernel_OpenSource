@@ -1499,6 +1499,7 @@ static u8 mmc_blk_prep_packed_list(struct mmc_queue *mq, struct request *req)
 
 		if (mmc_large_sec(card) &&
 				!IS_ALIGNED(blk_rq_sectors(next), 8)) {
+			MMC_BLK_UPDATE_STOP_REASON(stats, LARGE_SEC_ALIGN);
 			put_back = 1;
 			break;
 		}
