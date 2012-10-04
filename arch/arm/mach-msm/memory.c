@@ -173,51 +173,29 @@ char *memtype_name[] = {
 
 struct reserve_info *reserve_info;
 
-/* size of all memory banks contiguous to and below this one */
-static unsigned long total_size(unsigned long bank)
-{
-	int i;
-	struct membank *mb = &meminfo.bank[bank];
-	int memtype = reserve_info->paddr_to_memtype(mb->start);
-	unsigned long size;
-
-	size = mb->size;
-	for (i = bank - 1, mb = &meminfo.bank[bank - 1]; i >= 0; i--, mb--) {
-		if (mb->start + mb->size != (mb + 1)->start)
-			break;
-		if (reserve_info->paddr_to_memtype(mb->start) != memtype)
-			break;
-		size += mb->size;
-	}
-	return size;
-}
-
 /**
  * calculate_reserve_limits() - calculate reserve limits for all
  * memtypes
  *
  * for each memtype in the reserve_info->memtype_reserve_table, sets
- * the `limit' field to the largest size of any membank for that
+ * the `limit' field to the largest size of any memblock of that
  * memtype.
  */
 static void __init calculate_reserve_limits(void)
 {
-	int i;
-	struct membank *mb;
+	struct memblock_region *mr;
 	int memtype;
 	struct memtype_reserve *mt;
-	unsigned long size;
 
-	for (i = 0, mb = &meminfo.bank[0]; i < meminfo.nr_banks; i++, mb++)  {
-		memtype = reserve_info->paddr_to_memtype(mb->start);
+	for_each_memblock(memory, mr) {
+		memtype = reserve_info->paddr_to_memtype(mr->base);
 		if (memtype == MEMTYPE_NONE) {
-			pr_warning("unknown memory type for bank at %lx\n",
-				(long unsigned int)mb->start);
+			pr_warning("unknown memory type for region at %lx\n",
+				(long unsigned int)mr->base);
 			continue;
 		}
 		mt = &reserve_info->memtype_reserve_table[memtype];
-		size = total_size(i);
-		mt->limit = max(mt->limit, size);
+		mt->limit = max_t(unsigned long, mt->limit, mr->size);
 	}
 }
 
@@ -240,46 +218,38 @@ static void __init adjust_reserve_sizes(void)
 
 static void __init reserve_memory_for_mempools(void)
 {
-	int i, memtype, membank_type;
+	int memtype, memreg_type;
 	struct memtype_reserve *mt;
-	struct membank *mb;
+	struct memblock_region *mr, *mr_candidate = NULL;
 	int ret;
-	unsigned long size;
 
 	mt = &reserve_info->memtype_reserve_table[0];
 	for (memtype = 0; memtype < MEMTYPE_MAX; memtype++, mt++) {
 		if (mt->flags & MEMTYPE_FLAGS_FIXED || !mt->size)
 			continue;
 
-		/* We know we will find memory bank(s) of the proper size
-		 * as we have limited the size of the memory pool for
-		 * each memory type to the largest total size of the memory
-		 * banks which are contiguous and of the correct memory type.
-		 * Choose the memory bank with the highest physical
+		/* Choose the memory block with the highest physical
 		 * address which is large enough, so that we will not
 		 * take memory from the lowest memory bank which the kernel
 		 * is in (and cause boot problems) and so that we might
 		 * be able to steal memory that would otherwise become
 		 * highmem.
 		 */
-		for (i = meminfo.nr_banks - 1; i >= 0; i--) {
-			mb = &meminfo.bank[i];
-			membank_type =
-				reserve_info->paddr_to_memtype(mb->start);
-			if (memtype != membank_type)
+		for_each_memblock(memory, mr) {
+			memreg_type =
+				reserve_info->paddr_to_memtype(mr->base);
+			if (memtype != memreg_type)
 				continue;
-			size = total_size(i);
-			if (size >= mt->size) {
-				/* mt->size may be larger than mb->size, all
-				 * this means is that we are carving the memory
-				 * pool out of multiple contiguous memory banks.
-				 */
-				mt->start = mb->start + (mb->size - mt->size);
-				ret = memblock_remove(mt->start, mt->size);
-				BUG_ON(ret);
-				break;
-			}
+			if (mr->size >= mt->size
+				&& (mr_candidate == NULL
+					|| mr->base > mr_candidate->base))
+				mr_candidate = mr;
 		}
+		BUG_ON(mr_candidate == NULL);
+		/* bump mt up against the top of the region */
+		mt->start = mr_candidate->base + mr_candidate->size - mt->size;
+		ret = memblock_remove(mt->start, mt->size);
+		BUG_ON(ret);
 	}
 }
 
