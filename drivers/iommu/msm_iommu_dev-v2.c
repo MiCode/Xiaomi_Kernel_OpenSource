@@ -110,6 +110,10 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	}
 
 	drvdata->name = dev_name(&pdev->dev);
+	drvdata->sec_id = -1;
+	of_property_read_u32(pdev->dev.of_node, "qcom,iommu-secure-id",
+				&drvdata->sec_id);
+	return 0;
 fail:
 	return ret;
 }

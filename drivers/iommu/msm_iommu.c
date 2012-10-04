@@ -48,6 +48,9 @@ __asm__ __volatile__ (							\
 #define MSM_IOMMU_ATTR_CACHED_WB_NWA	0x2
 #define MSM_IOMMU_ATTR_CACHED_WT	0x3
 
+struct bus_type msm_iommu_sec_bus_type = {
+	.name = "msm_iommu_sec_bus",
+};
 
 static inline void clean_pte(unsigned long *start, unsigned long *end,
 			     int redirect)
