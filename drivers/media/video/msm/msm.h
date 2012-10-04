@@ -210,11 +210,13 @@ struct msm_cam_return_frame_info {
 	int dirty;
 	int node_type;
 	struct timeval timestamp;
+	uint32_t frame_id;
 };
 
 struct msm_cam_timestamp {
 	uint8_t present;
 	struct timeval timestamp;
+	uint32_t frame_id;
 };
 
 struct msm_cam_buf_map_info {
