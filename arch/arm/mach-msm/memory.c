@@ -173,45 +173,33 @@ char *memtype_name[] = {
 
 struct reserve_info *reserve_info;
 
-static unsigned long stable_size(struct membank *mb,
-	unsigned long unstable_limit)
-{
-	unsigned long upper_limit = mb->start + mb->size;
-
-	if (!unstable_limit)
-		return mb->size;
-
-	/* Check for 32 bit roll-over */
-	if (upper_limit >= mb->start) {
-		/* If we didn't roll over we can safely make the check below */
-		if (upper_limit <= unstable_limit)
-			return mb->size;
-	}
-
-	if (mb->start >= unstable_limit)
-		return 0;
-	return unstable_limit - mb->start;
-}
-
-/* stable size of all memory banks contiguous to and below this one */
-static unsigned long total_stable_size(unsigned long bank)
+/* size of all memory banks contiguous to and below this one */
+static unsigned long total_size(unsigned long bank)
 {
 	int i;
 	struct membank *mb = &meminfo.bank[bank];
 	int memtype = reserve_info->paddr_to_memtype(mb->start);
 	unsigned long size;
 
-	size = stable_size(mb, reserve_info->low_unstable_address);
+	size = mb->size;
 	for (i = bank - 1, mb = &meminfo.bank[bank - 1]; i >= 0; i--, mb--) {
 		if (mb->start + mb->size != (mb + 1)->start)
 			break;
 		if (reserve_info->paddr_to_memtype(mb->start) != memtype)
 			break;
-		size += stable_size(mb, reserve_info->low_unstable_address);
+		size += mb->size;
 	}
 	return size;
 }
 
+/**
+ * calculate_reserve_limits() - calculate reserve limits for all
+ * memtypes
+ *
+ * for each memtype in the reserve_info->memtype_reserve_table, sets
+ * the `limit' field to the largest size of any membank for that
+ * memtype.
+ */
 static void __init calculate_reserve_limits(void)
 {
 	int i;
@@ -228,7 +216,7 @@ static void __init calculate_reserve_limits(void)
 			continue;
 		}
 		mt = &reserve_info->memtype_reserve_table[memtype];
-		size = total_stable_size(i);
+		size = total_size(i);
 		mt->limit = max(mt->limit, size);
 	}
 }
@@ -272,7 +260,7 @@ static void __init reserve_memory_for_mempools(void)
 		 * take memory from the lowest memory bank which the kernel
 		 * is in (and cause boot problems) and so that we might
 		 * be able to steal memory that would otherwise become
-		 * highmem. However, do not use unstable memory.
+		 * highmem.
 		 */
 		for (i = meminfo.nr_banks - 1; i >= 0; i--) {
 			mb = &meminfo.bank[i];
@@ -280,17 +268,13 @@ static void __init reserve_memory_for_mempools(void)
 				reserve_info->paddr_to_memtype(mb->start);
 			if (memtype != membank_type)
 				continue;
-			size = total_stable_size(i);
+			size = total_size(i);
 			if (size >= mt->size) {
-				size = stable_size(mb,
-					reserve_info->low_unstable_address);
-				if (!size)
-					continue;
-				/* mt->size may be larger than size, all this
-				 * means is that we are carving the memory pool
-				 * out of multiple contiguous memory banks.
+				/* mt->size may be larger than mb->size, all
+				 * this means is that we are carving the memory
+				 * pool out of multiple contiguous memory banks.
 				 */
-				mt->start = mb->start + (size - mt->size);
+				mt->start = mb->start + (mb->size - mt->size);
 				ret = memblock_remove(mt->start, mt->size);
 				BUG_ON(ret);
 				break;
