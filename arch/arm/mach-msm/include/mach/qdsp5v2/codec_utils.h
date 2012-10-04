@@ -123,7 +123,8 @@ struct audio {
 	uint64_t bytecount_given;
 	uint64_t bytecount_query;
 
-	struct list_head pmem_region_queue; /* protected by lock */
+	struct list_head ion_region_queue; /* protected by lock */
+	struct ion_client *client;
 
 	int eq_enable;
 	int eq_needs_commit;
