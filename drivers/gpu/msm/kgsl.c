@@ -507,24 +507,6 @@ static struct kgsl_device *kgsl_get_minor(int minor)
 	return ret;
 }
 
-int kgsl_register_ts_notifier(struct kgsl_device *device,
-			      struct notifier_block *nb)
-{
-	BUG_ON(device == NULL);
-	return atomic_notifier_chain_register(&device->ts_notifier_list,
-					      nb);
-}
-EXPORT_SYMBOL(kgsl_register_ts_notifier);
-
-int kgsl_unregister_ts_notifier(struct kgsl_device *device,
-				struct notifier_block *nb)
-{
-	BUG_ON(device == NULL);
-	return atomic_notifier_chain_unregister(&device->ts_notifier_list,
-						nb);
-}
-EXPORT_SYMBOL(kgsl_unregister_ts_notifier);
-
 int kgsl_check_timestamp(struct kgsl_device *device,
 	struct kgsl_context *context, unsigned int timestamp)
 {

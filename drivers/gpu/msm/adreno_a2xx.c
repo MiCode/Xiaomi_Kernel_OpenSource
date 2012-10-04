@@ -1749,9 +1749,6 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 	if (status & (CP_INT_CNTL__IB1_INT_MASK | CP_INT_CNTL__RB_INT_MASK)) {
 		queue_work(device->work_queue, &device->ts_expired_ws);
 		wake_up_interruptible_all(&device->wait_queue);
-		atomic_notifier_call_chain(&(device->ts_notifier_list),
-					   device->id,
-					   NULL);
 	}
 }
 
