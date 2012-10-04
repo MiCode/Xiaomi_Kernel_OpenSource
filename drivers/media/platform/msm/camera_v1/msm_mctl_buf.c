@@ -434,7 +434,11 @@ int msm_mctl_buf_done_proc(
 		D("%s Copying timestamp as %ld.%ld", __func__,
 			cam_ts->timestamp.tv_sec, cam_ts->timestamp.tv_usec);
 		buf->vidbuf.v4l2_buf.timestamp = cam_ts->timestamp;
+		buf->vidbuf.v4l2_buf.sequence  = cam_ts->frame_id;
 	}
+	D("%s Notify user about buffer %d image_mode %d frame_id %d", __func__,
+		buf->vidbuf.v4l2_buf.index, pcam_inst->image_mode,
+		buf->vidbuf.v4l2_buf.sequence);
 	vb2_buffer_done(&buf->vidbuf, VB2_BUF_STATE_DONE);
 	return 0;
 }
@@ -821,6 +825,7 @@ int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
 		__func__, pcam_inst, frame->ch_paddr[0], ret_frame->dirty);
 	cam_ts.present = 1;
 	cam_ts.timestamp = ret_frame->timestamp;
+	cam_ts.frame_id   = ret_frame->frame_id;
 	if (ret_frame->dirty)
 		/* the frame is dirty, not going to disptach to app */
 		rc = msm_mctl_release_free_buf(pmctl, pcam_inst, frame);

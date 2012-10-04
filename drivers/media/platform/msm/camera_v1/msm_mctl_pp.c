@@ -636,6 +636,9 @@ int msm_mctl_pp_done(
 	ret_frame.dirty = dirty;
 	ret_frame.node_type = 0;
 	ret_frame.timestamp = frame.timestamp;
+	ret_frame.frame_id   = frame.frame_id;
+	D("%s frame_id: %d buffer idx %d\n", __func__,
+		frame.frame_id, frame.buf_idx);
 	rc = msm_mctl_buf_done_pp(p_mctl, &buf_handle, &buf, &ret_frame);
 	return rc;
 }
