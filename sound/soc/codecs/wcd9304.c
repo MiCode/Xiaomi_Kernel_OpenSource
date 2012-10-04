@@ -4976,6 +4976,7 @@ static const struct sitar_reg_mask_val sitar_1_1_reg_defaults[] = {
 	SITAR_REG_VAL(SITAR_A_CDC_RX1_B6_CTL, 0x80),
 
 	SITAR_REG_VAL(SITAR_A_CDC_CLSG_FREQ_THRESH_B3_CTL, 0x1B),
+	SITAR_REG_VAL(SITAR_A_CDC_CLSG_FREQ_THRESH_B4_CTL, 0x5B),
 
 };
 
