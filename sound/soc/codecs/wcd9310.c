@@ -33,6 +33,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+#include <linux/irq.h>
+#include <linux/wakelock.h>
+#include <linux/suspend.h>
 #include "wcd9310.h"
 
 static int cfilt_adjust_ms = 10;
@@ -339,6 +342,9 @@ struct tabla_priv {
 	 * is detected as headphone
 	 */
 	struct work_struct hs_correct_plug_work_nogpio;
+
+	bool gpio_irq_resend;
+	struct wake_lock irq_resend_wlock;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_poke;
@@ -7352,9 +7358,18 @@ static irqreturn_t tabla_mechanical_plug_detect_irq(int irq, void *data)
 {
 	int r = IRQ_HANDLED;
 	struct snd_soc_codec *codec = data;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
 	if (unlikely(wcd9xxx_lock_sleep(codec->control_data) == false)) {
 		pr_warn("%s: failed to hold suspend\n", __func__);
+		/*
+		 * Give up this IRQ for now and resend this IRQ so IRQ can be
+		 * handled after system resume
+		 */
+		TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
+		tabla->gpio_irq_resend = true;
+		TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
+		wake_lock_timeout(&tabla->irq_resend_wlock, HZ);
 		r = IRQ_NONE;
 	} else {
 		tabla_hs_gpio_handler(codec);
@@ -8267,6 +8282,15 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		goto err_hphr_ocp_irq;
 	}
 	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPR_FAULT);
+
+	/*
+	 * Register suspend lock and notifier to resend edge triggered
+	 * gpio IRQs
+	 */
+	wake_lock_init(&tabla->irq_resend_wlock, WAKE_LOCK_SUSPEND,
+		       "tabla_gpio_irq_resend");
+	tabla->gpio_irq_resend = false;
+
 	for (i = 0; i < ARRAY_SIZE(tabla_dai); i++) {
 		switch (tabla_dai[i].id) {
 		case AIF1_PB:
@@ -8331,6 +8355,9 @@ static int tabla_codec_remove(struct snd_soc_codec *codec)
 {
 	int i;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	wake_lock_destroy(&tabla->irq_resend_wlock);
+
 	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
 	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
 	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL, tabla);
@@ -8380,11 +8407,29 @@ static int tabla_suspend(struct device *dev)
 
 static int tabla_resume(struct device *dev)
 {
+	int irq;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct tabla_priv *tabla = platform_get_drvdata(pdev);
+
 	dev_dbg(dev, "%s: system resume tabla %p\n", __func__, tabla);
-	if (tabla)
+	if (tabla) {
+		TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
 		tabla->mbhc_last_resume = jiffies;
+		if (tabla->gpio_irq_resend) {
+			WARN_ON(!tabla->mbhc_cfg.gpio_irq);
+			tabla->gpio_irq_resend = false;
+
+			irq = tabla->mbhc_cfg.gpio_irq;
+			pr_debug("%s: Resending GPIO IRQ %d\n", __func__, irq);
+			irq_set_pending(irq);
+			check_irq_resend(irq_to_desc(irq), irq);
+
+			/* release suspend lock */
+			wake_unlock(&tabla->irq_resend_wlock);
+		}
+		TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
+	}
+
 	return 0;
 }
 
