@@ -2209,9 +2209,6 @@ static void __init msm9625_clock_post_init(void)
 	 */
 	clk_prepare_enable(&cxo_a_clk_src.c);
 
-	/* TODO :FIXME */
-	clk_prepare_enable(&gcc_qpic_ahb_clk.c);
-
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb_hs_system_clk_src.c,
 			usb_hs_system_clk_src.freq_tbl[0].freq_hz);
