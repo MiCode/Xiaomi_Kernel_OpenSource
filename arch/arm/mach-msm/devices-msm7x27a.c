@@ -1819,6 +1819,22 @@ static void __init msm_cpr_init(void)
 	 * enough to represent the value of maximum quot
 	 */
 	msm_cpr_pdata.max_quot = cpr_info->turbo_quot * 10 + 600;
+	/**
+	 * Fused Quot value for 1.2GHz on a 1.2GHz part is lower than
+	 * the quot value calculated using the scaling factor formula for
+	 * 1.2GHz when running on a 1.4GHz part. So, prop up the Quot for
+	 * a 1.2GHz part by a chip characterization recommended value.
+	 * Ditto for a 1.0GHz part.
+	 */
+	if (msm8625_cpu_id() == MSM8625A) {
+		msm_cpr_pdata.max_quot += 100;
+		if (msm_cpr_pdata.max_quot > 1400)
+			msm_cpr_pdata.max_quot = 1400;
+	} else if (msm8625_cpu_id() == MSM8625) {
+		msm_cpr_pdata.max_quot += 120;
+		if (msm_cpr_pdata.max_quot > 1350)
+			msm_cpr_pdata.max_quot = 1350;
+	}
 
 	/**
 	 * Bits 4:0 of pvs_fuse provide mapping to the safe boot up voltage.
