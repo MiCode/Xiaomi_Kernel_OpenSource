@@ -328,13 +328,15 @@ static void adsp_set_state(char *state)
 
 #define subsys_to_lpass(d) container_of(d, struct lpass_data, subsys_desc)
 
-static int adsp_shutdown(const struct subsys_desc *subsys)
+static int adsp_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct lpass_data *drv = subsys_to_lpass(subsys);
 
-	send_q6_nmi();
-	/* The write needs to go through before the q6 is shutdown. */
-	mb();
+	if (force_stop) {
+		send_q6_nmi();
+		/* The write needs to go through before the q6 is shutdown. */
+		mb();
+	}
 	pil_shutdown(&drv->q6->desc);
 	disable_irq_nosync(drv->subsys_desc.wdog_bite_irq);
 
@@ -380,19 +382,6 @@ static irqreturn_t adsp_wdog_bite_irq(int irq, void *dev_id)
 
 	schedule_work(&drv->work);
 	return IRQ_HANDLED;
-}
-
-static int lpass_start(const struct subsys_desc *desc)
-{
-	struct lpass_data *drv = subsys_to_drv(desc);
-
-	return pil_boot(&drv->q6->desc);
-}
-
-static void lpass_stop(const struct subsys_desc *desc)
-{
-	struct lpass_data *drv = subsys_to_drv(desc);
-	pil_shutdown(&drv->q6->desc);
 }
 
 static int pil_lpass_driver_probe(struct platform_device *pdev)
@@ -459,8 +448,6 @@ static int pil_lpass_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.powerup = adsp_powerup;
 	drv->subsys_desc.ramdump = adsp_ramdump;
 	drv->subsys_desc.crash_shutdown = adsp_crash_shutdown;
-	drv->subsys_desc.start = lpass_start;
-	drv->subsys_desc.stop = lpass_stop;
 	drv->subsys_desc.err_fatal_handler = adsp_err_fatal_intr_handler;
 	drv->subsys_desc.wdog_bite_handler = adsp_wdog_bite_irq;
 

@@ -443,7 +443,7 @@ static void subsystem_shutdown(struct subsys_device *dev, void *data)
 	const char *name = dev->desc->name;
 
 	pr_info("[%p]: Shutting down %s\n", current, name);
-	if (dev->desc->shutdown(dev->desc) < 0)
+	if (dev->desc->shutdown(dev->desc, true) < 0)
 		panic("subsys-restart: [%p]: Failed to shutdown %s!",
 			current, name);
 	subsys_set_state(dev, SUBSYS_OFFLINE);
@@ -498,8 +498,11 @@ static int subsys_start(struct subsys_device *subsys)
 {
 	int ret;
 
+	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_POWERUP,
+								NULL);
+
 	init_completion(&subsys->err_ready);
-	ret = subsys->desc->start(subsys->desc);
+	ret = subsys->desc->powerup(subsys->desc);
 	if (ret)
 		return ret;
 
@@ -509,21 +512,27 @@ static int subsys_start(struct subsys_device *subsys)
 	}
 
 	ret = wait_for_err_ready(subsys);
-	if (ret)
+	if (ret) {
 		/* pil-boot succeeded but we need to shutdown
 		 * the device because error ready timed out.
 		 */
-		subsys->desc->stop(subsys->desc);
-	else
+		subsys->desc->shutdown(subsys->desc, false);
+		return ret;
+	} else {
 		subsys_set_state(subsys, SUBSYS_ONLINE);
+	}
 
+	notify_each_subsys_device(&subsys, 1, SUBSYS_AFTER_POWERUP,
+								NULL);
 	return ret;
 }
 
 static void subsys_stop(struct subsys_device *subsys)
 {
-	subsys->desc->stop(subsys->desc);
+	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_SHUTDOWN, NULL);
+	subsys->desc->shutdown(subsys->desc, false);
 	subsys_set_state(subsys, SUBSYS_OFFLINE);
+	notify_each_subsys_device(&subsys, 1, SUBSYS_AFTER_SHUTDOWN, NULL);
 }
 
 static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
@@ -1096,6 +1105,7 @@ static int subsys_setup_irqs(struct subsys_device *subsys)
 				desc->name, ret);
 			return ret;
 		}
+		disable_irq(desc->wdog_bite_irq);
 	}
 
 	if (desc->err_ready_irq) {

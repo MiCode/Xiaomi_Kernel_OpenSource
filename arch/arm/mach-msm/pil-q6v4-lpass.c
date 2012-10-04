@@ -192,28 +192,12 @@ static void send_q6_nmi(void)
 
 #define subsys_to_lpass(d) container_of(d, struct lpass_q6v4, subsys_desc)
 
-static int lpass_start(const struct subsys_desc *desc)
-{
-	struct lpass_q6v4 *drv = subsys_to_lpass(desc);
-
-	if (drv->loadable)
-		return pil_boot(&drv->q6.desc);
-	return 0;
-}
-
-static void lpass_stop(const struct subsys_desc *desc)
-{
-	struct lpass_q6v4 *drv = subsys_to_lpass(desc);
-
-	if (drv->loadable)
-		pil_shutdown(&drv->q6.desc);
-}
-
-static int lpass_shutdown(const struct subsys_desc *subsys)
+static int lpass_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct lpass_q6v4 *drv = subsys_to_lpass(subsys);
 
-	send_q6_nmi();
+	if (force_stop)
+		send_q6_nmi();
 	if (drv->loadable)
 		pil_shutdown(&drv->q6.desc);
 	disable_irq_nosync(drv->q6.wdog_irq);
@@ -255,9 +239,7 @@ static irqreturn_t lpass_wdog_bite_irq(int irq, void *dev_id)
 {
 	struct lpass_q6v4 *drv = dev_id;
 
-	disable_irq_nosync(drv->q6.wdog_irq);
 	schedule_work(&drv->work);
-
 	return IRQ_HANDLED;
 }
 
@@ -318,8 +300,6 @@ static int pil_q6v4_lpass_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.name = "adsp";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
-	drv->subsys_desc.start = lpass_start;
-	drv->subsys_desc.stop = lpass_stop;
 	drv->subsys_desc.shutdown = lpass_shutdown;
 	drv->subsys_desc.powerup = lpass_powerup;
 	drv->subsys_desc.ramdump = lpass_ramdump;
@@ -345,6 +325,7 @@ static int pil_q6v4_lpass_driver_probe(struct platform_device *pdev)
 			IRQF_TRIGGER_RISING, dev_name(&pdev->dev), drv);
 	if (ret)
 		goto err_irq;
+	disable_irq(q6->wdog_irq);
 
 	ret = smsm_state_cb_register(SMSM_Q6_STATE, SMSM_RESET,
 			lpass_smsm_state_cb, drv);

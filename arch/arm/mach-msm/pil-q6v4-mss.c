@@ -172,39 +172,19 @@ static void restart_modem(struct q6v4_modem *drv)
 
 #define desc_to_modem(d) container_of(d, struct q6v4_modem, subsys_desc)
 
-static int modem_start(const struct subsys_desc *desc)
-{
-	struct q6v4_modem *drv = desc_to_modem(desc);
-	int ret = 0;
-
-	if (drv->loadable) {
-		ret = pil_boot(&drv->q6_fw.desc);
-		if (ret)
-			return ret;
-		ret = pil_boot(&drv->q6_sw.desc);
-		if (ret)
-			pil_shutdown(&drv->q6_fw.desc);
-	}
-	return ret;
-}
-
-static void modem_stop(const struct subsys_desc *desc)
-{
-	struct q6v4_modem *drv = desc_to_modem(desc);
-	if (drv->loadable) {
-		pil_shutdown(&drv->q6_sw.desc);
-		pil_shutdown(&drv->q6_fw.desc);
-	}
-}
-
-static int modem_shutdown(const struct subsys_desc *subsys)
+static int modem_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct q6v4_modem *drv = desc_to_modem(subsys);
 
-	/* The watchdogs keep running even after the modem is shutdown */
-	writel_relaxed(0x0, drv->q6_fw.wdog_base + 0x24);
-	writel_relaxed(0x0, drv->q6_sw.wdog_base + 0x24);
-	mb();
+	if (force_stop) {
+		/*
+		 * The watchdogs keep running even after the modem
+		 * is shutdown.
+		 */
+		writel_relaxed(0x0, drv->q6_fw.wdog_base + 0x24);
+		writel_relaxed(0x0, drv->q6_sw.wdog_base + 0x24);
+		mb();
+	}
 
 	if (drv->loadable) {
 		pil_shutdown(&drv->q6_sw.desc);
@@ -418,8 +398,6 @@ static int pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.depends_on = "adsp";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
-	drv->subsys_desc.start = modem_start;
-	drv->subsys_desc.stop = modem_stop;
 	drv->subsys_desc.shutdown = modem_shutdown;
 	drv->subsys_desc.powerup = modem_powerup;
 	drv->subsys_desc.ramdump = modem_ramdump;
@@ -456,12 +434,14 @@ static int pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 			dev_name(&pdev->dev), drv);
 	if (ret)
 		goto err_irq;
+	disable_irq(drv_fw->wdog_irq);
 
 	ret = devm_request_irq(&pdev->dev, drv_sw->wdog_irq,
 			modem_wdog_bite_irq, IRQF_TRIGGER_RISING,
 			dev_name(&pdev->dev), drv);
 	if (ret)
 		goto err_irq;
+	disable_irq(drv_sw->wdog_irq);
 
 	scm_pas_init(MSM_BUS_MASTER_SPS);
 

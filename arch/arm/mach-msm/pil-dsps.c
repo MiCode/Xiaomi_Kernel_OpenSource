@@ -166,27 +166,19 @@ static void dsps_smsm_state_cb(void *data, uint32_t old_state,
 	}
 }
 
-static int dsps_start(const struct subsys_desc *desc)
+static int dsps_shutdown(const struct subsys_desc *desc, bool force_stop)
 {
 	struct dsps_data *drv = desc_to_drv(desc);
 
-	return pil_boot(&drv->desc);
-}
-
-static void dsps_stop(const struct subsys_desc *desc)
-{
-	struct dsps_data *drv = desc_to_drv(desc);
-	pil_shutdown(&drv->desc);
-}
-
-static int dsps_shutdown(const struct subsys_desc *desc)
-{
-	struct dsps_data *drv = desc_to_drv(desc);
-	disable_irq_nosync(drv->wdog_irq);
-	if (drv->ppss_base) {
-		writel_relaxed(0, drv->ppss_base + PPSS_WDOG_UNMASKED_INT_EN);
-		mb(); /* Make sure wdog is disabled before shutting down */
+	if (force_stop) {
+		if (drv->ppss_base) {
+			writel_relaxed(0, drv->ppss_base +
+					PPSS_WDOG_UNMASKED_INT_EN);
+			/* Make sure wdog is disabled before shutting down */
+			mb();
+		}
 	}
+	disable_irq_nosync(drv->wdog_irq);
 	pil_shutdown(&drv->desc);
 	return 0;
 }
@@ -305,8 +297,6 @@ static int pil_dsps_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.name = "dsps";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
-	drv->subsys_desc.start = dsps_start;
-	drv->subsys_desc.stop = dsps_stop;
 	drv->subsys_desc.shutdown = dsps_shutdown;
 	drv->subsys_desc.powerup = dsps_powerup;
 	drv->subsys_desc.ramdump = dsps_ramdump,
@@ -334,6 +324,7 @@ static int pil_dsps_driver_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "request_irq failed\n");
 			goto err_smsm;
 		}
+		disable_irq(drv->wdog_irq);
 	} else {
 		drv->wdog_irq = -1;
 		dev_dbg(&pdev->dev, "ppss_wdog not supported\n");

@@ -223,7 +223,6 @@ static void q6_fatal_fn(struct work_struct *work)
 
 	pr_err("Watchdog bite received from Q6!\n");
 	subsystem_restart_dev(drv->subsys);
-	enable_irq(drv->irq);
 }
 
 static void send_q6_nmi(struct q6v3_data *drv)
@@ -238,30 +237,16 @@ static void send_q6_nmi(struct q6v3_data *drv)
 	pr_info("Q6 NMI was sent.\n");
 }
 
-static int lpass_q6_start(const struct subsys_desc *subsys)
+static int lpass_q6_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct q6v3_data *drv;
 
 	drv = container_of(subsys, struct q6v3_data, subsys_desc);
-	return pil_boot(&drv->pil_desc);
-}
-
-static void lpass_q6_stop(const struct subsys_desc *subsys)
-{
-	struct q6v3_data *drv;
-
-	drv = container_of(subsys, struct q6v3_data, subsys_desc);
-	pil_shutdown(&drv->pil_desc);
-}
-
-static int lpass_q6_shutdown(const struct subsys_desc *subsys)
-{
-	struct q6v3_data *drv;
-
-	drv = container_of(subsys, struct q6v3_data, subsys_desc);
-	send_q6_nmi(drv);
-	writel_relaxed(0x0, drv->wd_base + 0x24);
-	mb();
+	if (force_stop) {
+		send_q6_nmi(drv);
+		writel_relaxed(0x0, drv->wd_base + 0x24);
+		mb();
+	}
 
 	pil_shutdown(&drv->pil_desc);
 	disable_irq_nosync(drv->irq);
@@ -305,8 +290,6 @@ static irqreturn_t lpass_wdog_bite_irq(int irq, void *dev_id)
 	struct q6v3_data *drv = dev_id;
 
 	ret = schedule_work(&drv->fatal_wrk);
-	disable_irq_nosync(drv->irq);
-
 	return IRQ_HANDLED;
 }
 
@@ -373,8 +356,6 @@ static int pil_q6v3_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.name = "adsp";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
-	drv->subsys_desc.start = lpass_q6_start;
-	drv->subsys_desc.stop = lpass_q6_stop;
 	drv->subsys_desc.shutdown = lpass_q6_shutdown;
 	drv->subsys_desc.powerup = lpass_q6_powerup;
 	drv->subsys_desc.ramdump = lpass_q6_ramdump;
@@ -402,6 +383,7 @@ static int pil_q6v3_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to request wdog irq.\n");
 		goto err_irq;
 	}
+	disable_irq(drv->irq);
 
 	return 0;
 err_irq:

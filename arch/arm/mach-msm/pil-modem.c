@@ -333,48 +333,35 @@ static int modem_notif_handler(struct notifier_block *nb, unsigned long code,
 	return NOTIFY_DONE;
 }
 
-static int modem_start(const struct subsys_desc *subsys)
+static int modem_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct modem_data *drv;
 
 	drv = container_of(subsys, struct modem_data, subsys_desc);
-	return pil_boot(&drv->pil_desc);
-}
 
-static void modem_stop(const struct subsys_desc *subsys)
-{
-	struct modem_data *drv;
+	if (force_stop) {
+		/*
+		* If the modem didn't already crash, setting SMSM_RESET here
+		* will help flush caches etc. The ignore_smsm_ack flag is set
+		* to ignore the SMSM_RESET notification that is generated due
+		* to the modem settings its own SMSM_RESET bit in response to
+		* the apps setting the apps SMSM_RESET bit.
+		*/
+		if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
+			drv->ignore_smsm_ack = 1;
+			smsm_reset_modem(SMSM_RESET);
+		}
 
-	drv = container_of(subsys, struct modem_data, subsys_desc);
-	pil_shutdown(&drv->pil_desc);
-}
-
-static int modem_shutdown(const struct subsys_desc *subsys)
-{
-	struct modem_data *drv;
-
-	drv = container_of(subsys, struct modem_data, subsys_desc);
-	/*
-	 * If the modem didn't already crash, setting SMSM_RESET here will help
-	 * flush caches etc. The ignore_smsm_ack flag is set to ignore the
-	 * SMSM_RESET notification that is generated due to the modem settings
-	 * its own SMSM_RESET bit in response to the apps setting the apps
-	 * SMSM_RESET bit.
-	 */
-	if (!(smsm_get_state(SMSM_MODEM_STATE) & SMSM_RESET)) {
-		drv->ignore_smsm_ack = 1;
-		smsm_reset_modem(SMSM_RESET);
+		/* Disable the modem watchdog to allow clean modem bootup */
+		writel_relaxed(0x0, drv->wdog + 0x8);
+		/*
+		 * The write above needs to go through before the modem is
+		 * powered up again.
+		 */
+		mb();
+		/* Wait here to allow the modem to clean up caches, etc. */
+		msleep(20);
 	}
-
-	/* Disable the modem watchdog to allow clean modem bootup */
-	writel_relaxed(0x0, drv->wdog + 0x8);
-	/*
-	 * The write above needs to go through before the modem is powered up
-	 * again.
-	 */
-	mb();
-	/* Wait here to allow the modem to clean up caches, etc. */
-	msleep(20);
 
 	pil_shutdown(&drv->pil_desc);
 	disable_irq_nosync(drv->irq);
@@ -469,8 +456,6 @@ static int pil_modem_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.depends_on = "adsp";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
-	drv->subsys_desc.start = modem_start;
-	drv->subsys_desc.stop = modem_stop;
 	drv->subsys_desc.shutdown = modem_shutdown;
 	drv->subsys_desc.powerup = modem_powerup;
 	drv->subsys_desc.ramdump = modem_ramdump;
@@ -497,6 +482,7 @@ static int pil_modem_driver_probe(struct platform_device *pdev)
 			IRQF_TRIGGER_RISING, "modem_watchdog", drv);
 	if (ret)
 		goto err_irq;
+	disable_irq(drv->irq);
 	return 0;
 
 err_irq:

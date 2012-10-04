@@ -2717,8 +2717,14 @@ static int adsp_state_callback(struct notifier_block *nb, unsigned long value,
 {
 	bool timedout;
 	unsigned long timeout;
+	static bool booted_once;
 
 	if (value == SUBSYS_AFTER_POWERUP) {
+
+		if (!booted_once) {
+			booted_once = true;
+			return NOTIFY_OK;
+		}
 		pr_debug("%s: ADSP is about to power up. bring up codec\n",
 			 __func__);
 
