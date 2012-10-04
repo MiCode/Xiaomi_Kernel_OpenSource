@@ -41,4 +41,5 @@ void msm_smem_get_cpr_info(struct cpr_info_type *cpr_info)
 	cpr_info->ring_osc = temp_cpr_info->ring_osc;
 	cpr_info->turbo_quot = temp_cpr_info->turbo_quot;
 	cpr_info->pvs_fuse = temp_cpr_info->pvs_fuse;
+	cpr_info->floor_fuse = temp_cpr_info->floor_fuse;
 }

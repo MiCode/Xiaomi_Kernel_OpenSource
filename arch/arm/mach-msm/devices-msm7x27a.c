@@ -1730,9 +1730,9 @@ static struct msm_cpr_mode msm_cpr_mode_data[] = {
 			.step_quot = ~0,
 			.tgt_volt_offset = 0,
 			.turbo_Vmax = 1350000,
-			.turbo_Vmin = 1100000,
+			.turbo_Vmin = 1150000,
 			.nom_Vmax = 1350000,
-			.nom_Vmin = 1100000,
+			.nom_Vmin = 1150000,
 			.calibrated_uV = 1300000,
 	},
 };
@@ -1864,10 +1864,25 @@ static void __init msm_cpr_init(void)
 	msm_cpr_mode_data[TURBO_MODE].calibrated_uV =
 				msm_c2_pmic_mv[cpr_info->pvs_fuse & 0x1F];
 
+	if ((cpr_info->floor_fuse & 0x3) == 0x0) {
+		msm_cpr_mode_data[TURBO_MODE].nom_Vmin = 1000000;
+		msm_cpr_mode_data[TURBO_MODE].turbo_Vmin = 1100000;
+	} else if ((cpr_info->floor_fuse & 0x3) == 0x1) {
+		msm_cpr_mode_data[TURBO_MODE].nom_Vmin = 1050000;
+		msm_cpr_mode_data[TURBO_MODE].turbo_Vmin = 1100000;
+	} else if ((cpr_info->floor_fuse & 0x3) == 0x2) {
+		msm_cpr_mode_data[TURBO_MODE].nom_Vmin = 1100000;
+		msm_cpr_mode_data[TURBO_MODE].turbo_Vmin = 1100000;
+	}
+
 	pr_debug("%s: cpr: ring_osc: 0x%x\n", __func__,
 		msm_cpr_mode_data[TURBO_MODE].ring_osc);
 	pr_debug("%s: cpr: turbo_quot: 0x%x\n", __func__, cpr_info->turbo_quot);
 	pr_debug("%s: cpr: pvs_fuse: 0x%x\n", __func__, cpr_info->pvs_fuse);
+	pr_debug("%s: cpr: floor_fuse: 0x%x\n", __func__, cpr_info->floor_fuse);
+	pr_debug("%s: cpr: nom_Vmin: %d, turbo_Vmin: %d\n", __func__,
+		msm_cpr_mode_data[TURBO_MODE].nom_Vmin,
+		msm_cpr_mode_data[TURBO_MODE].turbo_Vmin);
 	kfree(cpr_info);
 
 	if (msm8625_cpu_id() == MSM8625A)

@@ -33,10 +33,12 @@ struct boot_symmetric_key_info {
 	uint8_t  iv[MAX_SEC_KEY_PAYLOAD]; /* Initialization Vector */
 };
 
+/* floor_fuse to re-use the fuse bit earlier used by ring_osc */
 struct cpr_info_type {
-	uint8_t ring_osc;         /* CPR FUSE [0]: TURBO RO SEL BIT */
-	uint8_t turbo_quot;        /* CPRFUSE[1:7] : TURBO QUOT*/
-	uint8_t pvs_fuse;         /* TURBO PVS FUSE */
+	uint8_t ring_osc;   /* CPR FUSE [0]: TURBO RO SEL BIT */
+	uint8_t turbo_quot; /* CPRFUSE[1:7] : TURBO QUOT*/
+	uint8_t pvs_fuse;   /* TURBO PVS FUSE */
+	uint8_t floor_fuse; /* Vmin Selection. b1: FAB_ID(2), b0: CPR_fuse[0] */
 };
 
 struct boot_info_for_apps {
@@ -47,7 +49,7 @@ struct boot_info_for_apps {
 	uint16_t boot_keys_pressed[MAX_KEY_EVENTS]; /* Log of key presses */
 	uint32_t timetick; /* Modem tick timer value before apps out of reset */
 	struct cpr_info_type cpr_info;
-	uint8_t PAD[25];
+	uint8_t PAD[24];
 };
 
 void msm_smem_get_cpr_info(struct cpr_info_type *cpr_info);
