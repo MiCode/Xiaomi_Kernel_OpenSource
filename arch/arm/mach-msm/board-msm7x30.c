@@ -5189,7 +5189,7 @@ static int bluetooth_power(int on)
 
 	int bahama_not_marimba = bahama_present();
 
-	if (bahama_not_marimba == -1) {
+	if (bahama_not_marimba < 0) {
 		printk(KERN_WARNING "%s: bahama_present: %d\n",
 				__func__, bahama_not_marimba);
 		return -ENODEV;
