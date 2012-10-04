@@ -37,6 +37,8 @@
 #include "diagfwd_smux.h"
 #endif
 #include <linux/timer.h>
+#include "diag_debugfs.h"
+#include "diag_masks.h"
 
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
@@ -1422,6 +1424,7 @@ static int __init diagchar_init(void)
 		diag_debugfs_init();
 		diagfwd_init();
 		diagfwd_cntl_init();
+		diag_masks_init();
 		driver->dci_state = diag_dci_init();
 		diag_sdio_fn(INIT);
 		diag_bridge_fn(INIT);
@@ -1457,6 +1460,7 @@ fail:
 	diagchar_cleanup();
 	diagfwd_exit();
 	diagfwd_cntl_exit();
+	diag_masks_exit();
 	diag_sdio_fn(EXIT);
 	diag_bridge_fn(EXIT);
 	return -1;
@@ -1470,6 +1474,7 @@ static void diagchar_exit(void)
 	diagmem_exit(driver, POOL_TYPE_ALL);
 	diagfwd_exit();
 	diagfwd_cntl_exit();
+	diag_masks_exit();
 	diag_sdio_fn(EXIT);
 	diag_bridge_fn(EXIT);
 	diag_debugfs_cleanup();
