@@ -169,8 +169,10 @@ static void __reset_iommu(void __iomem *base, int smt_size)
 	mb();
 }
 
-static void __program_iommu(void __iomem *base, int smt_size)
+static void __program_iommu(void __iomem *base, int smt_size,
+			    struct msm_iommu_bfb_settings *bfb_settings)
 {
+	int i;
 	__reset_iommu(base, smt_size);
 
 	SET_CR0_SMCFCFG(base, 1);
@@ -181,6 +183,12 @@ static void __program_iommu(void __iomem *base, int smt_size)
 	SET_CR0_GFIE(base, 1);
 	SET_CR0_GFRE(base, 1);
 	SET_CR0_CLIENTPD(base, 0);
+
+	if (bfb_settings)
+		for (i = 0; i < bfb_settings->length; i++)
+			SET_GLOBAL_REG(base, bfb_settings->regs[i],
+					     bfb_settings->data[i]);
+
 	mb();	/* Make sure writes complete before returning */
 }
 
@@ -416,7 +424,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	}
 
 	if (!msm_iommu_ctx_attached(dev->parent))
-		__program_iommu(iommu_drvdata->base, iommu_drvdata->nsmr);
+		__program_iommu(iommu_drvdata->base, iommu_drvdata->nsmr,
+				iommu_drvdata->bfb_settings);
 
 	__program_context(iommu_drvdata->base, ctx_drvdata->num,
 		iommu_drvdata->ncb, __pa(priv->pt.fl_table),

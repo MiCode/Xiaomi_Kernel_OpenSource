@@ -19,6 +19,19 @@ Required properties:
 Optional properties:
 - qcom,needs-alt-core-clk : boolean to enable the secondary core clock for
   access to the IOMMU configuration registers
+- qcom,iommu-bfb-regs : An array of unsigned 32-bit integers corresponding to
+  BFB register addresses that need to be configured for performance tuning
+  purposes. If this property is present, the qcom,iommu-bfb-data must also be
+  present. Register addresses are specified as an offset from the base of the
+  IOMMU hardware block. This property may be omitted if no BFB register
+  configuration needs to be done for a particular IOMMU hardware instance. The
+  registers specified by this property shall fall within the IOMMU
+  implementation-defined register region.
+- qcom,iommu-bfb-data : An array of unsigned 32-bit integers representing the
+  values to be programmed into the corresponding registers given by the
+  qcom,iommu-bfb-regs property. If this property is present, the
+  qcom,iommu-bfb-regs property shall also be present, and the lengths of both
+  properties shall be the same.
 
 Example:
 
@@ -26,6 +39,8 @@ Example:
                 compatible = "qcom,msm-smmu-v2";
                 reg = <0xfda64000 0x10000>;
 		vdd-supply = <&gdsc_iommu>;
+		qcom,iommu-bfb-regs = <0x204c 0x2050>;
+		qcom,iommu-bfb-data = <0xffff 0xffce>;
 
                 qcom,iommu-ctx@fda6c000 {
                         reg = <0xfda6c000 0x1000>;
