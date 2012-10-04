@@ -5,6 +5,7 @@
  *  Copyright (C) 2003 Deep Blue Solutions, Ltd, All Rights Reserved.
  *  Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -5450,7 +5451,7 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 	struct mmc_platform_data *pdata;
 	struct device_node *np = dev->of_node;
 	u32 bus_width = 0;
-	u32 *clk_table, *sup_voltages;
+	u32 *clk_table = NULL, *sup_voltages = NULL;
 	int clk_table_len, sup_volt_len, len;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
