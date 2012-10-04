@@ -116,8 +116,18 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				wake_up(&this_adm.wait[index]);
 				break;
 			case ADM_CMD_SHARED_MEM_MAP_REGIONS:
-				/* Block until memory handle comes back */
-				/* via ADM_CMDRSP_SHARED_MEM_MAP_REGIONS */
+				pr_debug("%s: ADM_CMD_SHARED_MEM_MAP_REGIONS\n",
+					__func__);
+				/* Should only come here if there is an APR */
+				/* error or malformed APR packet. Otherwise */
+				/* response will be returned as */
+				/* ADM_CMDRSP_SHARED_MEM_MAP_REGIONS */
+				if (payload[1] != 0) {
+					pr_err("%s: ADM map error, resuming\n",
+						__func__);
+					atomic_set(&this_adm.copp_stat[0], 1);
+					wake_up(&this_adm.wait[index]);
+				}
 				break;
 			default:
 				pr_err("%s: Unknown Cmd: 0x%x\n", __func__,
@@ -247,24 +257,27 @@ static void send_adm_cal(int port_id, int path)
 	get_audproc_cal(acdb_path, &aud_cal);
 
 	/* map & cache buffers used */
+	atomic_set(&mem_map_index, acdb_path);
 	if (((mem_addr_audproc[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
 		(aud_cal.cal_size > 0)) ||
 		(aud_cal.cal_size > mem_addr_audproc[acdb_path].cal_size)) {
 
-		atomic_set(&mem_map_index, acdb_path);
 		if (mem_addr_audproc[acdb_path].cal_paddr != 0)
 			adm_memory_unmap_regions(port_id,
 				&mem_addr_audproc[acdb_path].cal_paddr,
 				&size, 1);
 
 		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
-						0, &aud_cal.cal_size, 1);
-		if (result < 0)
+						0, &size, 1);
+		if (result < 0) {
 			pr_err("ADM audproc mmap did not work! path = %d, addr = 0x%x, size = %d\n",
 				acdb_path, aud_cal.cal_paddr,
 				aud_cal.cal_size);
-		else
-			mem_addr_audproc[acdb_path] = aud_cal;
+		} else {
+			mem_addr_audproc[acdb_path].cal_paddr =
+							aud_cal.cal_paddr;
+			mem_addr_audproc[acdb_path].cal_size = size;
+		}
 	}
 
 	if (!send_adm_cal_block(port_id, &aud_cal))
@@ -278,24 +291,27 @@ static void send_adm_cal(int port_id, int path)
 	get_audvol_cal(acdb_path, &aud_cal);
 
 	/* map & cache buffers used */
+	atomic_set(&mem_map_index, (acdb_path + MAX_AUDPROC_TYPES));
 	if (((mem_addr_audvol[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
 		(aud_cal.cal_size > 0))  ||
 		(aud_cal.cal_size > mem_addr_audvol[acdb_path].cal_size)) {
 
-		atomic_set(&mem_map_index, (acdb_path + MAX_AUDPROC_TYPES));
 		if (mem_addr_audvol[acdb_path].cal_paddr != 0)
 			adm_memory_unmap_regions(port_id,
 				&mem_addr_audvol[acdb_path].cal_paddr,
 				&size, 1);
 
 		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
-						0, &aud_cal.cal_size, 1);
-		if (result < 0)
+						0, &size, 1);
+		if (result < 0) {
 			pr_err("ADM audvol mmap did not work! path = %d, addr = 0x%x, size = %d\n",
 				acdb_path, aud_cal.cal_paddr,
 				aud_cal.cal_size);
-		else
-			mem_addr_audvol[acdb_path] = aud_cal;
+		} else {
+			mem_addr_audvol[acdb_path].cal_paddr =
+							aud_cal.cal_paddr;
+			mem_addr_audvol[acdb_path].cal_size = size;
+		}
 	}
 
 	if (!send_adm_cal_block(port_id, &aud_cal))
@@ -664,8 +680,8 @@ int adm_memory_map_regions(int port_id,
 								APR_PKT_VER);
 	mmap_regions->hdr.pkt_size = cmd_size;
 	mmap_regions->hdr.src_port = 0;
-	mmap_regions->hdr.dest_port = 0;
-	mmap_regions->hdr.token = 0;
+	mmap_regions->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	mmap_regions->hdr.token = port_id;
 	mmap_regions->hdr.opcode = ADM_CMD_SHARED_MEM_MAP_REGIONS;
 	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL & 0x00ff;
 	mmap_regions->num_regions = bufcnt & 0x00ff;
@@ -733,8 +749,8 @@ int adm_memory_unmap_regions(int32_t port_id, uint32_t *buf_add,
 							APR_PKT_VER);
 	unmap_regions.hdr.pkt_size = cmd_size;
 	unmap_regions.hdr.src_port = 0;
-	unmap_regions.hdr.dest_port = 0;
-	unmap_regions.hdr.token = 0;
+	unmap_regions.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	unmap_regions.hdr.token = port_id;
 	unmap_regions.hdr.opcode = ADM_CMD_SHARED_MEM_UNMAP_REGIONS;
 	unmap_regions.mem_map_handle = atomic_read(&mem_map_handles[
 						atomic_read(&mem_map_index)]);
