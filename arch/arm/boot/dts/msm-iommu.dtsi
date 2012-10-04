@@ -49,6 +49,7 @@
 		ranges;
 		reg = <0xfd928000 0x10000>;
 		vdd-supply = <&gdsc_mdss>;
+		qcom,iommu-secure-id = <1>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fd930000 {
@@ -73,6 +74,7 @@
 		ranges;
 		reg = <0xfdc84000 0x10000>;
 		vdd-supply = <&gdsc_venus>;
+		qcom,iommu-secure-id = <0>;
 		qcom,needs-alt-core-clk;
 		status = "disabled";
 
