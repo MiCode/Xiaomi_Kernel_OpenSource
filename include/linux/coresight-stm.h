@@ -28,6 +28,7 @@ enum {
 	STM_OPTION_GUARANTEED		= 0x80,
 };
 
+#ifdef __KERNEL__
 #define stm_log_inv(entity_id, proto_id, data, size)			\
 	stm_trace(STM_OPTION_NONE, entity_id, proto_id, data, size)
 
@@ -56,5 +57,6 @@ static inline int stm_trace(uint32_t options, uint8_t entity_id,
 	return 0;
 }
 #endif
+#endif /* __KERNEL__ */
 
 #endif
