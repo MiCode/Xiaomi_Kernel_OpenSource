@@ -127,6 +127,8 @@ unsigned int hang_detect_regs[] = {
 	REG_CP_IB1_BUFSZ,
 	REG_CP_IB2_BASE,
 	REG_CP_IB2_BUFSZ,
+	0,
+	0
 };
 
 const unsigned int hang_detect_regs_count = ARRAY_SIZE(hang_detect_regs);
@@ -1233,6 +1235,12 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	 */
 	hang_detect_regs[0] = adreno_dev->gpudev->reg_rbbm_status;
 
+	/* Add A3XX specific registers for hang detection */
+	if (adreno_is_a3xx(adreno_dev)) {
+		hang_detect_regs[6] = A3XX_RBBM_PERFCTR_SP_7_LO;
+		hang_detect_regs[7] = A3XX_RBBM_PERFCTR_SP_7_HI;
+	}
+
 	status = kgsl_mmu_start(device);
 	if (status)
 		goto error_clk_off;
@@ -2156,6 +2164,10 @@ unsigned int adreno_hang_detect(struct kgsl_device *device,
 		return 0;
 
 	for (i = 0; i < hang_detect_regs_count; i++) {
+
+		if (hang_detect_regs[i] == 0)
+			continue;
+
 		adreno_regread(device, hang_detect_regs[i],
 					   &curr_reg_val[i]);
 		if (curr_reg_val[i] != prev_reg_val[i]) {
