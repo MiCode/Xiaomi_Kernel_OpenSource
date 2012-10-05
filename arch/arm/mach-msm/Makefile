@@ -202,6 +202,7 @@ endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
 obj-$(CONFIG_MSM_MODEM_SSR_8974) += modem-ssr-8974.o
 obj-$(CONFIG_MSM_ADSP_SSR_8974) += adsp-8974.o
+obj-$(CONFIG_MSM_WCNSS_SSR_8974) += wcnss-ssr-8974.o
 
 ifdef CONFIG_CPU_IDLE
 	obj-$(CONFIG_ARCH_APQ8064) += cpuidle.o

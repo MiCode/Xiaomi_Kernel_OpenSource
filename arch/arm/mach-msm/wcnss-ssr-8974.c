@@ -14,7 +14,11 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/err.h>
-
+#include <linux/platform_device.h>
+#include <linux/workqueue.h>
+#include <linux/wcnss_wlan.h>
+#include <linux/delay.h>
+#include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
 
@@ -24,6 +28,7 @@
 static int ss_restart_inprogress;
 static int wcnss_crash;
 static struct subsys_device *wcnss_ssr_dev;
+static struct delayed_work cancel_vote_work;
 
 #define WCNSS_APSS_WDOG_BITE_RESET_RDY_IRQ		181
 
@@ -98,14 +103,44 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void wcnss_post_bootup(struct work_struct *work)
+{
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+
+	pr_debug(MODULE_NAME ": Cancel APPS vote for Iris & Pronto\n");
+
+	wcnss_wlan_power(&pdev->dev, pwlanconfig,
+		WCNSS_WLAN_SWITCH_OFF);
+}
 
 static int wcnss_shutdown(const struct subsys_desc *subsys)
 {
+	pil_force_shutdown("wcnss");
+	flush_delayed_work(&cancel_vote_work);
+	wcnss_flush_delayed_boot_votes();
+	disable_irq_nosync(WCNSS_APSS_WDOG_BITE_RESET_RDY_IRQ);
+
 	return 0;
 }
 
 static int wcnss_powerup(const struct subsys_desc *subsys)
 {
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+	int    ret = -1;
+
+	if (pdev && pwlanconfig)
+		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_ON);
+	if (!ret) {
+		msleep(1000);
+		pil_force_boot("wcnss");
+	}
+	ss_restart_inprogress = false;
+	enable_irq(WCNSS_APSS_WDOG_BITE_RESET_RDY_IRQ);
+	schedule_delayed_work(&cancel_vote_work, msecs_to_jiffies(5000));
+
 	return 0;
 }
 
@@ -154,6 +189,8 @@ static int __init wcnss_ssr_init(void)
 	wcnss_ssr_dev = subsys_register(&wcnss_ssr);
 	if (IS_ERR(wcnss_ssr_dev))
 		return PTR_ERR(wcnss_ssr_dev);
+
+	INIT_DELAYED_WORK(&cancel_vote_work, wcnss_post_bootup);
 
 	pr_info("%s: module initialized\n", MODULE_NAME);
 out:
