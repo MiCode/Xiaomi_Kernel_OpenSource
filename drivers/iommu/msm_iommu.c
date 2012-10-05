@@ -772,6 +772,55 @@ static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
 		&& (len >= align);
 }
 
+static int check_range(unsigned long *fl_table, unsigned int va,
+				 unsigned int len)
+{
+	unsigned int offset = 0;
+	unsigned long *fl_pte;
+	unsigned long fl_offset;
+	unsigned long *sl_table;
+	unsigned long sl_start, sl_end;
+	int i;
+
+	fl_offset = FL_OFFSET(va);	/* Upper 12 bits */
+	fl_pte = fl_table + fl_offset;	/* int pointers, 4 bytes */
+
+	while (offset < len) {
+		if (*fl_pte & FL_TYPE_TABLE) {
+			sl_start = SL_OFFSET(va);
+			sl_table =  __va(((*fl_pte) & FL_BASE_MASK));
+			sl_end = ((len - offset) / SZ_4K) + sl_start;
+
+			if (sl_end > NUM_SL_PTE)
+				sl_end = NUM_SL_PTE;
+
+			for (i = sl_start; i < sl_end; i++) {
+				if (sl_table[i] != 0) {
+					pr_err("%08x - %08x already mapped\n",
+						va, va + SZ_4K);
+					return -EBUSY;
+				}
+				offset += SZ_4K;
+				va += SZ_4K;
+			}
+
+
+			sl_start = 0;
+		} else {
+			if (*fl_pte != 0) {
+				pr_err("%08x - %08x already mapped\n",
+				       va, va + SZ_1M);
+				return -EBUSY;
+			}
+			va += SZ_1M;
+			offset += SZ_1M;
+			sl_start = 0;
+		}
+		fl_pte++;
+	}
+	return 0;
+}
+
 static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 			       struct scatterlist *sg, unsigned int len,
 			       int prot)
@@ -804,6 +853,9 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 		ret = -EINVAL;
 		goto fail;
 	}
+	ret = check_range(fl_table, va, len);
+	if (ret)
+		goto fail;
 
 	fl_offset = FL_OFFSET(va);	/* Upper 12 bits */
 	fl_pte = fl_table + fl_offset;	/* int pointers, 4 bytes */
