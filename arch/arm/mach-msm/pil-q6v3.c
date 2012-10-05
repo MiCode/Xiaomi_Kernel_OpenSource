@@ -19,9 +19,15 @@
 #include <linux/elf.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/workqueue.h>
+#include <linux/interrupt.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/subsystem_restart.h>
+#include <mach/scm.h>
+#include <mach/peripheral-loader.h>
 
+#include "ramdump.h"
 #include "peripheral-loader.h"
 #include "scm-pas.h"
 
@@ -60,11 +66,34 @@
 #define Q6_STRAP_TCM_BASE	(0x28C << 15)
 #define Q6_STRAP_TCM_CONFIG	0x28B
 
+#define SCM_Q6_NMI_CMD		0x1
+
+/**
+ * struct q6v3_data - LPASS driver data
+ * @base: register base
+ * @wk_base: wakeup register base
+ * @wd_base: watchdog register base
+ * @start_addr: address that processor starts running at
+ * @irq: watchdog irq
+ * @pil: peripheral handle
+ * @subsys: subsystem restart handle
+ * @subsys_desc: subsystem restart descriptor
+ * @fatal_wrk: fatal error workqueue
+ * @pll: pll clock handle
+ * @ramdump_dev: ramdump device
+ */
 struct q6v3_data {
 	void __iomem *base;
+	void __iomem *wk_base;
+	void __iomem *wd_base;
 	unsigned long start_addr;
+	int irq;
 	struct pil_device *pil;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
+	struct work_struct fatal_wrk;
 	struct clk *pll;
+	struct ramdump_device *ramdump_dev;
 };
 
 static int pil_q6v3_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -198,11 +227,96 @@ static struct pil_reset_ops pil_q6v3_ops_trusted = {
 	.proxy_unvote = pil_q6v3_remove_proxy_votes,
 };
 
+static void q6_fatal_fn(struct work_struct *work)
+{
+	struct q6v3_data *drv = container_of(work, struct q6v3_data, fatal_wrk);
+
+	pr_err("Watchdog bite received from Q6!\n");
+	subsystem_restart_dev(drv->subsys);
+	enable_irq(drv->irq);
+}
+
+static void send_q6_nmi(struct q6v3_data *drv)
+{
+	/* Send NMI to QDSP6 via an SCM call. */
+	scm_call_atomic1(SCM_SVC_UTIL, SCM_Q6_NMI_CMD, 0x1);
+
+	/* Wakeup the Q6 */
+	writel_relaxed(0x2000, drv->wk_base + 0x1c);
+	/* Q6 requires atleast 100ms to dump caches etc.*/
+	mdelay(100);
+	pr_info("Q6 NMI was sent.\n");
+}
+
+static int lpass_q6_shutdown(const struct subsys_desc *subsys)
+{
+	struct q6v3_data *drv;
+
+	drv = container_of(subsys, struct q6v3_data, subsys_desc);
+	send_q6_nmi(drv);
+	writel_relaxed(0x0, drv->wd_base + 0x24);
+	mb();
+
+	pil_force_shutdown("q6");
+	disable_irq_nosync(drv->irq);
+
+	return 0;
+}
+
+static int lpass_q6_powerup(const struct subsys_desc *subsys)
+{
+	struct q6v3_data *drv;
+	int ret;
+
+	drv = container_of(subsys, struct q6v3_data, subsys_desc);
+	ret = pil_force_boot("q6");
+	enable_irq(drv->irq);
+	return ret;
+}
+
+/* FIXME: Get address, size from PIL */
+static struct ramdump_segment q6_segments[] = {
+	{ 0x46700000, 0x47f00000 - 0x46700000 },
+	{ 0x28400000, 0x12800 }
+};
+
+static int lpass_q6_ramdump(int enable, const struct subsys_desc *subsys)
+{
+	struct q6v3_data *drv;
+
+	drv = container_of(subsys, struct q6v3_data, subsys_desc);
+	if (enable)
+		return do_ramdump(drv->ramdump_dev, q6_segments,
+				ARRAY_SIZE(q6_segments));
+	else
+		return 0;
+}
+
+static void lpass_q6_crash_shutdown(const struct subsys_desc *subsys)
+{
+	struct q6v3_data *drv;
+
+	drv = container_of(subsys, struct q6v3_data, subsys_desc);
+	send_q6_nmi(drv);
+}
+
+static irqreturn_t lpass_wdog_bite_irq(int irq, void *dev_id)
+{
+	int ret;
+	struct q6v3_data *drv = dev_id;
+
+	ret = schedule_work(&drv->fatal_wrk);
+	disable_irq_nosync(drv->irq);
+
+	return IRQ_HANDLED;
+}
+
 static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 {
 	struct q6v3_data *drv;
 	struct resource *res;
 	struct pil_desc *desc;
+	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
@@ -217,13 +331,33 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	if (!drv->base)
 		return -ENOMEM;
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!drv)
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res)
+		return -EINVAL;
+
+	drv->wk_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!drv->wk_base)
 		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (!res)
+		return -EINVAL;
+
+	drv->wd_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!drv->wd_base)
+		return -ENOMEM;
+
+	drv->irq = platform_get_irq(pdev, 0);
+	if (drv->irq < 0)
+		return drv->irq;
 
 	drv->pll = devm_clk_get(&pdev->dev, "pll4");
 	if (IS_ERR(drv->pll))
 		return PTR_ERR(drv->pll);
+
+	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
+	if (!drv)
+		return -ENOMEM;
 
 	desc->name = "q6";
 	desc->dev = &pdev->dev;
@@ -239,15 +373,51 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	}
 
 	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil)) {
+	if (IS_ERR(drv->pil))
 		return PTR_ERR(drv->pil);
+
+	drv->subsys_desc.name = "lpass";
+	drv->subsys_desc.shutdown = lpass_q6_shutdown;
+	drv->subsys_desc.powerup = lpass_q6_powerup;
+	drv->subsys_desc.ramdump = lpass_q6_ramdump;
+	drv->subsys_desc.crash_shutdown = lpass_q6_crash_shutdown;
+
+	INIT_WORK(&drv->fatal_wrk, q6_fatal_fn);
+
+	drv->ramdump_dev = create_ramdump_device("lpass");
+	if (!drv->ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_ramdump;
 	}
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		ret = PTR_ERR(drv->subsys);
+		goto err_subsys;
+	}
+
+	ret = devm_request_irq(&pdev->dev, drv->irq, lpass_wdog_bite_irq,
+			       IRQF_TRIGGER_RISING, "lpass_wdog", drv);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to request wdog irq.\n");
+		goto err_irq;
+	}
+
 	return 0;
+err_irq:
+	subsys_unregister(drv->subsys);
+err_subsys:
+	destroy_ramdump_device(drv->ramdump_dev);
+err_ramdump:
+	msm_pil_unregister(drv->pil);
+	return ret;
 }
 
 static int __devexit pil_q6v3_driver_exit(struct platform_device *pdev)
 {
 	struct q6v3_data *drv = platform_get_drvdata(pdev);
+	subsys_unregister(drv->subsys);
+	destroy_ramdump_device(drv->ramdump_dev);
 	msm_pil_unregister(drv->pil);
 	return 0;
 }

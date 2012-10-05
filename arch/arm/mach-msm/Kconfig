@@ -1909,7 +1909,7 @@ config MSM_PIL_MODEM
 
 config MSM_PIL_QDSP6V3
 	tristate "QDSP6v3 (Hexagon) Boot Support"
-	depends on MSM_PIL
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down QDSP6v3 processors (hexagon).
 	  The QDSP6 is a low power DSP used in audio software applications.

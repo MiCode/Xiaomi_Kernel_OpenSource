@@ -192,13 +192,30 @@ void __init msm8x60_init_irq(void)
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE, (void *)MSM_QGIC_CPU_BASE);
 }
 
-#define MSM_LPASS_QDSP6SS_PHYS 0x28800000
+#define MSM_LPASS_QDSP6SS_PHYS		0x28800000
+#define MSM_LPASS_QDSP6SS_WDOG_PHYS	0x28882000
+#define MSM_LPASS_QDSP6SS_IM_PHYS	0x288A0000
 
 static struct resource msm_8660_q6_resources[] = {
 	{
 		.start  = MSM_LPASS_QDSP6SS_PHYS,
 		.end    = MSM_LPASS_QDSP6SS_PHYS + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = MSM_LPASS_QDSP6SS_IM_PHYS,
+		.end    = MSM_LPASS_QDSP6SS_IM_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = MSM_LPASS_QDSP6SS_WDOG_PHYS,
+		.end    = MSM_LPASS_QDSP6SS_WDOG_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start	= LPASS_Q6SS_WDOG_EXPIRED,
+		.end	= LPASS_Q6SS_WDOG_EXPIRED,
+		.flags	= IORESOURCE_IRQ,
 	},
 };
 
