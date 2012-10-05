@@ -941,6 +941,8 @@ static struct msm_spm_platform_data msm_spm_data __initdata = {
 
 static void __init fsm9xxx_init(void)
 {
+	msm_clock_init(&fsm9xxx_clock_init_data);
+
 	regulator_has_full_constraints();
 
 #if defined(CONFIG_I2C_SSBI) || defined(CONFIG_MSM_SSBI)
@@ -977,7 +979,6 @@ static void __init fsm9xxx_map_io(void)
 {
 	msm_shared_ram_phys = 0x00100000;
 	msm_map_fsm9xxx_io();
-	msm_clock_init(&fsm9xxx_clock_init_data);
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed!\n",
 		       __func__);
