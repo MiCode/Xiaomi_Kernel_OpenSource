@@ -383,7 +383,7 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 
 	/* Enable Clock gating */
 	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL,
-			A3XX_RBBM_CLOCK_CTL_DEFAULT);
+		adreno_a3xx_rbbm_clock_ctl_default(adreno_dev));
 
 	return snapshot;
 }
