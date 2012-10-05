@@ -179,6 +179,8 @@ void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int value);
 
 int adreno_dump(struct kgsl_device *device, int manual);
+unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
+							*adreno_dev);
 
 struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 						unsigned int pt_base,
