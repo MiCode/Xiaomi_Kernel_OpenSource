@@ -10,23 +10,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MACH_STM_H
-#define __MACH_STM_H
+#ifndef __LINUX_CORESIGHT_STM_H_
+#define __LINUX_CORESIGHT_STM_H_
 
-enum {
-	OST_ENTITY_NONE			= 0x0,
-	OST_ENTITY_FTRACE_EVENTS	= 0x1,
-	OST_ENTITY_TRACE_PRINTK		= 0x2,
-	OST_ENTITY_TRACE_MARKER		= 0x4,
-	OST_ENTITY_DEV_NODE		= 0x8,
-	OST_ENTITY_ALL			= 0xF,
-};
-
-enum {
-	STM_OPTION_NONE			= 0x0,
-	STM_OPTION_TIMESTAMPED		= 0x08,
-	STM_OPTION_GUARANTEED		= 0x80,
-};
+#include <uapi/linux/coresight-stm.h>
 
 #define stm_log_inv(entity_id, proto_id, data, size)			\
 	stm_trace(STM_OPTION_NONE, entity_id, proto_id, data, size)
