@@ -31,6 +31,7 @@ static struct gpiomux_setting gpio_eth_config = {
 	.drv = GPIOMUX_DRV_8MA,
 	.func = GPIOMUX_FUNC_GPIO,
 };
+#endif
 
 /* The SPI configurations apply to GSBI 5*/
 static struct gpiomux_setting gpio_spi_config = {
@@ -60,6 +61,7 @@ static struct gpiomux_setting gpio_epm_spi_cs_config = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 struct msm_gpiomux_config apq8064_ethernet_configs[] = {
 	{
 		.gpio = 43,
@@ -682,7 +684,6 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi1_uart_config,
 		},
 	},
-#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
 		.gpio      = 51,		/* GSBI5 QUP SPI_DATA_MOSI */
 		.settings = {
@@ -713,7 +714,6 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
-#endif
 	{
 		.gpio      = 30,		/* FP CS */
 		.settings = {
