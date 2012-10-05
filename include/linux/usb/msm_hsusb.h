@@ -192,9 +192,6 @@ enum usb_vdd_value {
  * @mhl_enable: indicates MHL connector or not.
  * @disable_reset_on_disconnect: perform USB PHY and LINK reset
  *              on USB cable disconnection.
- * @enable_dcd: Enable Data Contact Detection circuit. if not set
- *              wait for 600msec before proceeding to primary
- *              detection.
  * @enable_lpm_on_suspend: Enable the USB core to go into Low
  *              Power Mode, when USB bus is suspended but cable
  *              is connected.
@@ -216,7 +213,6 @@ struct msm_otg_platform_data {
 	unsigned int mpm_otgsessvld_int;
 	bool mhl_enable;
 	bool disable_reset_on_disconnect;
-	bool enable_dcd;
 	bool enable_lpm_on_dev_suspend;
 	bool core_clk_always_on_workaround;
 	struct msm_bus_scale_pdata *bus_scale_table;
