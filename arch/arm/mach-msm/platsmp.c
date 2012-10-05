@@ -177,17 +177,9 @@ static int __cpuinit release_secondary(unsigned int cpu)
 }
 
 DEFINE_PER_CPU(int, cold_boot_done);
-static int cold_boot_flags[] = {
-	0,
-	SCM_FLAG_COLDBOOT_CPU1,
-	SCM_FLAG_COLDBOOT_CPU2,
-	SCM_FLAG_COLDBOOT_CPU3,
-};
 
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
-	int ret;
-	unsigned int flag = 0;
 	unsigned long timeout;
 
 	pr_debug("Starting secondary CPU %d\n", cpu);
@@ -195,19 +187,8 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	/* Set preset_lpj to avoid subsequent lpj recalculations */
 	preset_lpj = loops_per_jiffy;
 
-	if (cpu > 0 && cpu < ARRAY_SIZE(cold_boot_flags))
-		flag = cold_boot_flags[cpu];
-	else
-		__WARN();
-
 	if (per_cpu(cold_boot_done, cpu) == false) {
-		ret = scm_set_boot_addr(virt_to_phys(msm_secondary_startup),
-					flag);
-		if (ret == 0)
-			release_secondary(cpu);
-		else
-			printk(KERN_DEBUG "Failed to set secondary core boot "
-					  "address\n");
+		release_secondary(cpu);
 		per_cpu(cold_boot_done, cpu) = true;
 	}
 
@@ -275,6 +256,28 @@ void __init smp_init_cpus(void)
 	set_smp_cross_call(gic_raise_softirq);
 }
 
+static int cold_boot_flags[] __initdata = {
+	0,
+	SCM_FLAG_COLDBOOT_CPU1,
+	SCM_FLAG_COLDBOOT_CPU2,
+	SCM_FLAG_COLDBOOT_CPU3,
+};
+
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
+	int cpu, map;
+	unsigned int flags = 0;
+
+	for_each_present_cpu(cpu) {
+		map = cpu_logical_map(cpu);
+		if (map > ARRAY_SIZE(cold_boot_flags)) {
+			set_cpu_present(cpu, false);
+			__WARN();
+			continue;
+		}
+		flags |= cold_boot_flags[map];
+	}
+
+	if (scm_set_boot_addr(virt_to_phys(msm_secondary_startup), flags))
+		pr_warn("Failed to set CPU boot address\n");
 }
