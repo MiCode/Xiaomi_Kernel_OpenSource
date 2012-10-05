@@ -587,6 +587,25 @@ static void axi_enable_irq(struct vfe_share_ctrl_t *share_ctrl)
 	atomic_set(&share_ctrl->handle_common_irq, 1);
 }
 
+static void axi_clear_all_interrupts(struct vfe_share_ctrl_t *share_ctrl)
+{
+	atomic_set(&share_ctrl->handle_common_irq, 0);
+	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
+		share_ctrl->vfebase + VFE_IRQ_MASK_0);
+	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
+		share_ctrl->vfebase + VFE_IRQ_MASK_1);
+
+	/* clear all pending interrupts*/
+	msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
+		share_ctrl->vfebase + VFE_IRQ_CLEAR_0);
+	msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
+		share_ctrl->vfebase + VFE_IRQ_CLEAR_1);
+	/* Ensure the write order while writing
+	*to the command register using the barrier */
+	msm_camera_io_w_mb(1,
+		share_ctrl->vfebase + VFE_IRQ_CMD);
+}
+
 static void axi_disable_irq(struct vfe_share_ctrl_t *share_ctrl,
 	uint32_t mode)
 {
@@ -631,24 +650,6 @@ static void axi_disable_irq(struct vfe_share_ctrl_t *share_ctrl,
 			irq_mask &= ~0x000FE000;
 		msm_camera_io_w(irq_mask, share_ctrl->vfebase +
 			VFE_IRQ_MASK_0);
-	}
-	/*Dont Disable for concurrent*/
-	if (share_ctrl->axi_ref_cnt == 1) {
-		atomic_set(&share_ctrl->handle_common_irq, 0);
-		msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
-			share_ctrl->vfebase + VFE_IRQ_MASK_0);
-		msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
-			share_ctrl->vfebase + VFE_IRQ_MASK_1);
-
-		/* clear all pending interrupts*/
-		msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
-			share_ctrl->vfebase + VFE_IRQ_CLEAR_0);
-		msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
-			share_ctrl->vfebase + VFE_IRQ_CLEAR_1);
-		/* Ensure the write order while writing
-		*to the command register using the barrier */
-		msm_camera_io_w_mb(1,
-			share_ctrl->vfebase + VFE_IRQ_CMD);
 	}
 }
 
@@ -5554,6 +5555,8 @@ void msm_axi_subdev_release(struct v4l2_subdev *sd)
 	axi_ctrl->share_ctrl->axi_ref_cnt--;
 	if (axi_ctrl->share_ctrl->axi_ref_cnt > 0)
 		return;
+
+	axi_clear_all_interrupts(axi_ctrl->share_ctrl);
 	axi_ctrl->share_ctrl->dual_enabled = 0;
 	disable_irq(axi_ctrl->vfeirq->start);
 	tasklet_kill(&axi_ctrl->vfe32_tasklet);
