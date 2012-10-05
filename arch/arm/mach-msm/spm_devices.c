@@ -48,7 +48,6 @@ static struct msm_spm_device msm_spm_l2_device;
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_spm_device, msm_cpu_spm_device);
 
 
-/* Must be called on the same cpu as the one being set to */
 static void msm_spm_smp_set_vdd(void *data)
 {
 	struct msm_spm_device *dev;
@@ -66,10 +65,27 @@ int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 	info.cpu = cpu;
 	info.vlevel = vlevel;
 
-	/* Set to true to block on vdd change */
-	ret = smp_call_function_single(cpu, msm_spm_smp_set_vdd, &info, true);
-	if (!ret)
+	if (cpu_online(cpu)) {
+		/**
+		 * We do not want to set the voltage of another core from
+		 * this core, as its possible that we may race the vdd change
+		 * with the SPM state machine of that core, which could also
+		 * be changing the voltage of that core during power collapse.
+		 * Hence, set the function to be executed on that core and block
+		 * until the vdd change is complete.
+		 */
+		ret = smp_call_function_single(cpu, msm_spm_smp_set_vdd,
+				&info, true);
+		if (!ret)
+			ret = info.err;
+	} else {
+		/**
+		 * Since the core is not online, it is safe to set the vdd
+		 * directly.
+		 */
+		msm_spm_smp_set_vdd(&info);
 		ret = info.err;
+	}
 
 	return ret;
 }
