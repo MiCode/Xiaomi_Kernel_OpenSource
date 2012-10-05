@@ -141,6 +141,13 @@ int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm);
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel);
 
 /**
+ * msm_spm_get_vdd(): Get core voltage
+ * @cpu: core id
+ * @return: Returns encoded PMIC data.
+ */
+unsigned int msm_spm_get_vdd(unsigned int cpu);
+
+/**
  * msm_spm_turn_on_cpu_rail(): Power on cpu rail before turning on core
  * @cpu: core id
  */
@@ -237,6 +244,11 @@ static inline int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 static inline int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 {
 	return -ENOSYS;
+}
+
+static inline unsigned int msm_spm_get_vdd(unsigned int cpu)
+{
+	return 0;
 }
 
 static inline void msm_spm_reinit(void)
