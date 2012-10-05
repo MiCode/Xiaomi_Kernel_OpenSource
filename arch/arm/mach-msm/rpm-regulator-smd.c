@@ -1286,7 +1286,7 @@ static int __devinit rpm_vreg_device_probe(struct platform_device *pdev)
 		}
 	}
 
-	of_property_read_u32(node, "qcom,system_load", &reg->system_load);
+	of_property_read_u32(node, "qcom,system-load", &reg->system_load);
 
 	rpm_vreg_lock(rpm_vreg);
 	list_add(&reg->list, &rpm_vreg->reg_list);
