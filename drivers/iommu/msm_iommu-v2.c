@@ -208,6 +208,17 @@ static void __reset_context(void __iomem *base, int ctx)
 	mb();
 }
 
+static void __release_smg(void __iomem *base, int ctx, int smt_size)
+{
+	int i;
+
+	/* Invalidate any SMGs associated with this context */
+	for (i = 0; i < smt_size; i++)
+		if (GET_SMR_VALID(base, i) &&
+		    GET_S2CR_CBNDX(base, i) == ctx)
+			SET_SMR_VALID(base, i, 0);
+}
+
 static void __program_context(void __iomem *base, int ctx, int ncb,
 				phys_addr_t pgtable, int redirect,
 				u32 *sids, int len, int smt_size)
@@ -467,6 +478,9 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 		GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_drvdata->num));
 
 	__reset_context(iommu_drvdata->base, ctx_drvdata->num);
+	__release_smg(iommu_drvdata->base, ctx_drvdata->num,
+		      iommu_drvdata->nsmr);
+
 	__disable_clocks(iommu_drvdata);
 
 	regulator_disable(iommu_drvdata->gdsc);
