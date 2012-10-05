@@ -239,6 +239,19 @@
 		qcom,bam-dma-res-pipes = <6>;
 	};
 
+	spi@f9966000 {
+		compatible = "qcom,spi-qup-v2";
+		cell-index = <7>;
+		reg = <0xf9966000 0x1000>;
+		interrupts = <0 104 0>;
+		spi-max-frequency = <19200000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&msmgpio 56 0>, /* CLK  */
+			<&msmgpio 54 0>, /* MISO */
+			<&msmgpio 53 0>; /* MOSI */
+		cs-gpios = <&msmgpio 55 0>;
+	};
 
 	slim@fe12f000 {
 		cell-index = <1>;
