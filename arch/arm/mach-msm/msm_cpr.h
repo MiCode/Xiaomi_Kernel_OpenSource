@@ -72,6 +72,9 @@
 #define SW_AUTO_CONT_ACK_EN	BIT(5)
 #define SW_AUTO_CONT_NACK_DN_EN	BIT(6)
 
+/* Shift Values */
+#define RBIF_CONS_DN_SHIFT (0x4)
+
 /* Test values for RBCPR RUMI Testing */
 #define GNT_CNT			0xC0
 #define TARGET			0xEFF
