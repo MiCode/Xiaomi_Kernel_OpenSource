@@ -752,6 +752,9 @@ cpr_freq_transition(struct notifier_block *nb, unsigned long val,
 			"RBIF_IRQ_STATUS: 0x%x\n",
 			cpr_read_reg(cpr, RBIF_IRQ_STATUS));
 
+		/* Clear all the interrupts */
+		cpr_write_reg(cpr, RBIF_IRQ_CLEAR, ALL_CPR_IRQ);
+
 		cpr_enable(cpr);
 		break;
 	default:
@@ -785,6 +788,9 @@ static int msm_cpr_resume(struct device *dev)
 	cpr_write_reg(cpr, RBCPR_CTL,
 		cpr_save_state.rbcpr_ctl);
 
+	/* Clear all the interrupts */
+	cpr_write_reg(cpr, RBIF_IRQ_CLEAR, ALL_CPR_IRQ);
+
 	enable_irq(cpr->irq);
 	cpr_enable(cpr);
 
@@ -800,6 +806,9 @@ static int msm_cpr_suspend(struct device *dev)
 	/* Disable CPR measurement before IRQ to avoid pending interrupts */
 	cpr_disable(cpr);
 	disable_irq(cpr->irq);
+
+	/* Clear all the interrupts */
+	cpr_write_reg(cpr, RBIF_IRQ_CLEAR, ALL_CPR_IRQ);
 
 	cpr_save_state.rbif_timer_interval =
 		cpr_read_reg(cpr, RBCPR_TIMER_INTERVAL);
