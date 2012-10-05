@@ -1254,6 +1254,7 @@ static int ep_enable(struct usb_ep *ep,
 	int retval = 0;
 	unsigned long flags;
 	u32 cap = 0;
+	unsigned mult = 0;
 
 	if (ep == NULL || desc == NULL)
 		return -EINVAL;
@@ -1273,13 +1274,15 @@ static int ep_enable(struct usb_ep *ep,
 
 	mEp->ep.maxpacket = usb_endpoint_maxp(desc);
 
-	if (mEp->type == USB_ENDPOINT_XFER_CONTROL)
+	if (mEp->type == USB_ENDPOINT_XFER_CONTROL) {
 		cap |=  QH_IOS;
-	else if (mEp->type == USB_ENDPOINT_XFER_ISOC) {
+	} else if (mEp->type == USB_ENDPOINT_XFER_ISOC) {
 		cap &= ~QH_MULT;
-		cap |= BIT(30);
-	} else
-		cap &= ~QH_ZLT;
+		mult = ((mEp->ep.maxpacket >> QH_MULT_SHIFT) + 1) & 0x03;
+		cap |= (mult << ffs_nr(QH_MULT));
+	} else {
+		cap |= QH_ZLT;
+	}
 	cap |= (mEp->ep.maxpacket << __ffs(QH_MAX_PKT)) & QH_MAX_PKT;
 
 	mEp->qh.ptr->cap = cpu_to_le32(cap);
