@@ -597,8 +597,12 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
+	case SLIMBUS_3_RX:
+	case SLIMBUS_4_RX:
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_3_TX:
+	case SLIMBUS_4_TX:
 		rc = msm_dai_q6_slim_bus_hw_params(params, dai,
 				substream->stream);
 		break;
@@ -708,6 +712,8 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 	switch (dai->id) {
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
+	case SLIMBUS_3_RX:
+	case SLIMBUS_4_RX:
 		/*
 		 * channel number to be between 128 and 255.
 		 * For RX port use channel numbers
@@ -730,6 +736,8 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 		break;
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_3_TX:
+	case SLIMBUS_4_TX:
 		/*
 		 * channel number to be between 128 and 255.
 		 * For TX port use channel numbers
@@ -845,12 +853,13 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai = {
 
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_rx_dai = {
 	.playback = {
-		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+		SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.channels_min = 1,
-		.channels_max = 1,
+		.channels_max = 2,
 		.rate_min = 8000,
-		.rate_max = 16000,
+		.rate_max = 48000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -859,12 +868,13 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_rx_dai = {
 
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_tx_dai = {
 	.capture = {
-		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+		SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.channels_min = 1,
-		.channels_max = 1,
+		.channels_max = 2,
 		.rate_min = 8000,
-		.rate_max = 16000,
+		.rate_max = 48000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -1173,10 +1183,14 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 					  &msm_dai_q6_slimbus_tx_dai);
 		break;
 	case SLIMBUS_1_RX:
+	case SLIMBUS_3_RX:
+	case SLIMBUS_4_RX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					  &msm_dai_q6_slimbus_1_rx_dai);
 		break;
 	case SLIMBUS_1_TX:
+	case SLIMBUS_3_TX:
+	case SLIMBUS_4_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					  &msm_dai_q6_slimbus_1_tx_dai);
 		break;
