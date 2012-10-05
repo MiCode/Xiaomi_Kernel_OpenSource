@@ -778,6 +778,9 @@ static int taiko_config_compander(struct snd_soc_dapm_widget *w,
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 	u32 rate = taiko->comp_fs[w->shift];
 
+	pr_debug("%s: %s event %d enabled = %d", __func__, w->name,
+		event, taiko->comp_enabled[w->shift]);
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (taiko->comp_enabled[w->shift] != 0) {
@@ -3123,7 +3126,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT4 DAC", NULL, "RX6 DSM MUX"},
 
 	{"SPK PA", NULL, "SPK DAC"},
-	{"SPK DAC", NULL, "RX7 MIX1"},
+	{"SPK DAC", NULL, "RX7 MIX2"},
 
 	{"RX1 CHAIN", NULL, "RX1 MIX2"},
 	{"RX2 CHAIN", NULL, "RX2 MIX2"},
@@ -4297,13 +4300,17 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 			   taiko_spk_dac_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX7 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+
 	SND_SOC_DAPM_MIXER_E("RX1 MIX2", TAIKO_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
 		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX2 MIX2", TAIKO_A_CDC_CLK_RX_B1_CTL, 1, 0, NULL,
 		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_MIXER_E("RX7 MIX2", TAIKO_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
+	SND_SOC_DAPM_MIXER_E("RX3 MIX1", TAIKO_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
 		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER_E("RX4 MIX1", TAIKO_A_CDC_CLK_RX_B1_CTL, 3, 0, NULL,
@@ -4315,13 +4322,9 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER_E("RX6 MIX1", TAIKO_A_CDC_CLK_RX_B1_CTL, 5, 0, NULL,
 		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_MIXER_E("RX7 MIX1", TAIKO_A_CDC_CLK_RX_B1_CTL, 6, 0, NULL,
+	SND_SOC_DAPM_MIXER_E("RX7 MIX2", TAIKO_A_CDC_CLK_RX_B1_CTL, 6, 0, NULL,
 		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
-
-	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX3 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	SND_SOC_DAPM_MUX_E("RX4 DSM MUX", TAIKO_A_CDC_CLK_RX_B1_CTL, 3, 0,
 		&rx4_dsm_mux, taiko_codec_enable_interpolator,
