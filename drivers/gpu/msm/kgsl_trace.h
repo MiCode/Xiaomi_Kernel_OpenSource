@@ -315,16 +315,18 @@ TRACE_EVENT(kgsl_mem_alloc,
 	TP_STRUCT__entry(
 		__field(unsigned int, gpuaddr)
 		__field(unsigned int, size)
+		__field(unsigned int, tgid)
 	),
 
 	TP_fast_assign(
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
+		__entry->tgid = mem_entry->priv->pid;
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%d",
-		__entry->gpuaddr, __entry->size
+		"gpuaddr=0x%08x size=%d tgid=%d",
+		__entry->gpuaddr, __entry->size, __entry->tgid
 	)
 );
 
@@ -339,6 +341,7 @@ TRACE_EVENT(kgsl_mem_map,
 		__field(unsigned int, size)
 		__field(int, fd)
 		__field(int, type)
+		__field(unsigned int, tgid)
 	),
 
 	TP_fast_assign(
@@ -346,12 +349,13 @@ TRACE_EVENT(kgsl_mem_map,
 		__entry->size = mem_entry->memdesc.size;
 		__entry->fd = fd;
 		__entry->type = mem_entry->memtype;
+		__entry->tgid = mem_entry->priv->pid;
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%d type=%d fd=%d",
+		"gpuaddr=0x%08x size=%d type=%d fd=%d tgid=%d",
 		__entry->gpuaddr, __entry->size,
-		__entry->type, __entry->fd
+		__entry->type, __entry->fd, __entry->tgid
 	)
 );
 
@@ -366,17 +370,20 @@ TRACE_EVENT(kgsl_mem_free,
 		__field(unsigned int, size)
 		__field(int, type)
 		__field(int, fd)
+		__field(unsigned int, tgid)
 	),
 
 	TP_fast_assign(
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
 		__entry->type = mem_entry->memtype;
+		__entry->tgid = mem_entry->priv->pid;
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%d type=%d",
-		__entry->gpuaddr, __entry->size, __entry->type
+		"gpuaddr=0x%08x size=%d type=%d tgid=%d",
+		__entry->gpuaddr, __entry->size, __entry->type,
+		__entry->tgid
 	)
 );
 
