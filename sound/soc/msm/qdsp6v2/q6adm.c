@@ -51,6 +51,24 @@ atomic_t mem_map_index;
 
 static struct adm_ctl			this_adm;
 
+static void adm_callback_debug_print(struct apr_client_data *data)
+{
+	uint32_t *payload;
+	payload = data->payload;
+
+	if (data->payload_size >= 8)
+		pr_debug("%s: code = 0x%x PL#0[%x], PL#1[%x], size = %d\n",
+			__func__, data->opcode, payload[0], payload[1],
+			data->payload_size);
+	else if (data->payload_size >= 4)
+		pr_debug("%s: code = 0x%x PL#0[%x], size = %d\n",
+			__func__, data->opcode, payload[0],
+			data->payload_size);
+	else
+		pr_debug("%s: code = 0x%x, size = %d\n",
+			__func__, data->opcode, data->payload_size);
+}
+
 static int32_t adm_callback(struct apr_client_data *data, void *priv)
 {
 	uint32_t *payload;
@@ -86,10 +104,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 		return 0;
 	}
 
-	pr_debug("%s: code = 0x%x PL#0[%x], PL#1[%x], size = %d\n", __func__,
-			data->opcode, payload[0], payload[1],
-					data->payload_size);
-
+	adm_callback_debug_print(data);
 	if (data->payload_size) {
 		index = q6audio_get_port_index(data->token);
 		if (index < 0 || index >= Q6_AFE_MAX_PORTS) {
@@ -99,6 +114,10 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 		}
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
 			pr_debug("APR_BASIC_RSP_RESULT id %x\n", payload[0]);
+			if (payload[1] != 0) {
+				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
+					__func__, payload[0], payload[1]);
+			}
 			switch (payload[0]) {
 			case ADM_CMD_SET_PP_PARAMS_V5:
 				if (rtac_make_adm_callback(
