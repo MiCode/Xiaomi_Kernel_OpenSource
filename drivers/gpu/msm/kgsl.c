@@ -1752,6 +1752,8 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	if (result)
 		goto error;
 
+	entry->memdesc.priv |= param->flags & KGSL_MEMTYPE_MASK;
+
 	result = kgsl_mmu_map(private->pagetable,
 			      &entry->memdesc,
 			      GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
