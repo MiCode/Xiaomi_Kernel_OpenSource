@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/devices.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -446,6 +446,8 @@ extern struct platform_device msm8930aa_device_acpuclk;
 extern struct platform_device msm8960_device_acpuclk;
 extern struct platform_device msm8960ab_device_acpuclk;
 extern struct platform_device msm9615_device_acpuclk;
+
+extern struct platform_device apq8064_msm_mpd_device;
 
 extern struct platform_device msm_gpio_device;
 
