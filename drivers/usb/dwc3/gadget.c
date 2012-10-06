@@ -2350,6 +2350,13 @@ static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
 		}
 	}
 
+	if (next == DWC3_LINK_STATE_U0) {
+		if (dwc->link_state == DWC3_LINK_STATE_U3)
+			dwc->gadget_driver->resume(&dwc->gadget);
+	} else if (next == DWC3_LINK_STATE_U3) {
+		dwc->gadget_driver->suspend(&dwc->gadget);
+	}
+
 	dwc->link_state = next;
 
 	dev_vdbg(dwc->dev, "%s link %d\n", __func__, dwc->link_state);
