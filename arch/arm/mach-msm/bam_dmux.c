@@ -171,7 +171,6 @@ struct rx_pkt_info {
 
 #define A2_NUM_PIPES		6
 #define A2_SUMMING_THRESHOLD	4096
-#define A2_DEFAULT_DESCRIPTORS	32
 #define A2_PHYS_BASE		0x124C2000
 #define A2_PHYS_SIZE		0x2000
 #define BUFFER_SIZE		2048
