@@ -819,6 +819,10 @@ static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv)
 	}
 	sid = (data->token >> 8) & 0x0F;
 	ac = q6asm_get_audio_client(sid);
+	if (!ac) {
+		pr_debug("%s: session[%d] already freed\n", __func__, sid);
+		return 0;
+	}
 	pr_debug("%s:ptr0[0x%x]ptr1[0x%x]opcode[0x%x] token[0x%x]payload_s[%d] src[%d] dest[%d]sid[%d]dir[%d]\n",
 		__func__, payload[0], payload[1], data->opcode, data->token,
 		data->payload_size, data->src_port, data->dest_port, sid, dir);
