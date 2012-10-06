@@ -34,6 +34,7 @@
 
 #include "msm-compr-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
+#include "audio_ocmem.h"
 
 #define COMPRE_CAPTURE_NUM_PERIODS	16
 /* Allocate the worst case frame size for compressed audio */
@@ -440,6 +441,9 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 		prtd->pcm_irq_pos = 0;
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			audio_ocmem_process_req(AUDIO, true);
+
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			switch (compr->info.codec_param.codec.id) {
 			case SND_AUDIOCODEC_AMRWB:
@@ -459,6 +463,9 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			audio_ocmem_process_req(AUDIO, false);
+
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			switch (compr->info.codec_param.codec.id) {
 			case SND_AUDIOCODEC_AMRWB:
