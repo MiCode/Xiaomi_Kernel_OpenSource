@@ -148,9 +148,9 @@ fail:
 	return ret;
 }
 
-static void __reset_iommu(void __iomem *base, int smt_size)
+static void __reset_iommu(void __iomem *base)
 {
-	int i;
+	int i, smt_size;
 
 	SET_ACR(base, 0);
 	SET_NSACR(base, 0);
@@ -162,6 +162,7 @@ static void __reset_iommu(void __iomem *base, int smt_size)
 	SET_PMCR(base, 0);
 	SET_SCR1(base, 0);
 	SET_SSDR_N(base, 0, 0);
+	smt_size = GET_IDR0_NUMSMRG(base);
 
 	for (i = 0; i < smt_size; i++)
 		SET_SMR_VALID(base, i, 0);
@@ -169,11 +170,11 @@ static void __reset_iommu(void __iomem *base, int smt_size)
 	mb();
 }
 
-static void __program_iommu(void __iomem *base, int smt_size,
+static void __program_iommu(void __iomem *base,
 			    struct msm_iommu_bfb_settings *bfb_settings)
 {
 	int i;
-	__reset_iommu(base, smt_size);
+	__reset_iommu(base);
 
 	SET_CR0_SMCFCFG(base, 1);
 	SET_CR0_USFCFG(base, 1);
@@ -208,9 +209,10 @@ static void __reset_context(void __iomem *base, int ctx)
 	mb();
 }
 
-static void __release_smg(void __iomem *base, int ctx, int smt_size)
+static void __release_smg(void __iomem *base, int ctx)
 {
-	int i;
+	int i, smt_size;
+	smt_size = GET_IDR0_NUMSMRG(base);
 
 	/* Invalidate any SMGs associated with this context */
 	for (i = 0; i < smt_size; i++)
@@ -221,14 +223,14 @@ static void __release_smg(void __iomem *base, int ctx, int smt_size)
 
 static void __program_context(void __iomem *base, int ctx, int ncb,
 				phys_addr_t pgtable, int redirect,
-				u32 *sids, int len, int smt_size)
+				u32 *sids, int len)
 {
 	unsigned int prrr, nmrr;
 	unsigned int pn;
-	int i, j, found, num = 0;
+	int i, j, found, num = 0, smt_size;
 
 	__reset_context(base, ctx);
-
+	smt_size = GET_IDR0_NUMSMRG(base);
 	pn = pgtable >> CB_TTBR0_ADDR_SHIFT;
 	SET_TTBCR(base, ctx, 0);
 	SET_CB_TTBR0_ADDR(base, ctx, pn);
@@ -435,13 +437,12 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	}
 
 	if (!msm_iommu_ctx_attached(dev->parent))
-		__program_iommu(iommu_drvdata->base, iommu_drvdata->nsmr,
+		__program_iommu(iommu_drvdata->base,
 				iommu_drvdata->bfb_settings);
 
 	__program_context(iommu_drvdata->base, ctx_drvdata->num,
 		iommu_drvdata->ncb, __pa(priv->pt.fl_table),
-		priv->pt.redirect, ctx_drvdata->sids, ctx_drvdata->nsid,
-		iommu_drvdata->nsmr);
+		priv->pt.redirect, ctx_drvdata->sids, ctx_drvdata->nsid);
 	__disable_clocks(iommu_drvdata);
 
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
@@ -478,8 +479,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 		GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_drvdata->num));
 
 	__reset_context(iommu_drvdata->base, ctx_drvdata->num);
-	__release_smg(iommu_drvdata->base, ctx_drvdata->num,
-		      iommu_drvdata->nsmr);
+	__release_smg(iommu_drvdata->base, ctx_drvdata->num);
 
 	__disable_clocks(iommu_drvdata);
 
