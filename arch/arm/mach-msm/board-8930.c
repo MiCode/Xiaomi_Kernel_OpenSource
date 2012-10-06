@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2414,7 +2414,6 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm8930_rtb_device,
 	&msm8930_cpu_idle_device,
-	&msm8930_msm_gov_device,
 	&msm_bus_8930_apps_fabric,
 	&msm_bus_8930_sys_fabric,
 	&msm_bus_8930_mm_fabric,

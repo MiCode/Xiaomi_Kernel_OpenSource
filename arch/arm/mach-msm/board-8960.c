@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2763,7 +2763,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_watchdog,
 	&msm8960_rtb_device,
 	&msm8960_cpu_idle_device,
-	&msm8960_msm_gov_device,
 	&msm8960_device_cache_erp,
 	&msm8960_device_ebi1_ch0_erp,
 	&msm8960_device_ebi1_ch1_erp,
