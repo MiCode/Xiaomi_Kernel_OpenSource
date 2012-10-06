@@ -35,6 +35,7 @@
 #include <linux/wakelock.h>
 #include <linux/notifier.h>
 #include <linux/sort.h>
+#include <linux/suspend.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/system.h>
@@ -552,6 +553,26 @@ static void notify_other_smsm(uint32_t smsm_entry, uint32_t notify_mask)
 		smsm_cb_snapshot(0);
 	}
 }
+
+static int smsm_pm_notifier(struct notifier_block *nb,
+				unsigned long event, void *unused)
+{
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		smsm_change_state(SMSM_APPS_STATE, SMSM_PROC_AWAKE, 0);
+		break;
+
+	case PM_POST_SUSPEND:
+		smsm_change_state(SMSM_APPS_STATE, 0, SMSM_PROC_AWAKE);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block smsm_pm_nb = {
+	.notifier_call = smsm_pm_notifier,
+	.priority = 0,
+};
 
 void smd_diag(void)
 {
@@ -2545,6 +2566,12 @@ static int smsm_init(void)
 		return i;
 
 	wmb();
+
+	smsm_pm_notifier(&smsm_pm_nb, PM_POST_SUSPEND, NULL);
+	i = register_pm_notifier(&smsm_pm_nb);
+	if (i)
+		pr_err("%s: power state notif error %d\n", __func__, i);
+
 	return 0;
 }
 
