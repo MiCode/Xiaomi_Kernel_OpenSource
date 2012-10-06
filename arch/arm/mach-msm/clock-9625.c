@@ -279,6 +279,16 @@ static void __iomem *virt_bases[N_BASES];
 			| BVAL(10, 8, s##_lpass_source_val), \
 	}
 
+#define F_APCS_PLL(f, l, m, n, pre_div, post_div, vco) \
+	{ \
+		.freq_hz = (f), \
+		.l_val = (l), \
+		.m_val = (m), \
+		.n_val = (n), \
+		.pre_div_val = BVAL(14, 12, (pre_div)), \
+		.post_div_val = BVAL(9, 8, (post_div)), \
+		.vco_val = BVAL(21, 20, (vco)), \
+	}
 
 #define VDD_DIG_FMAX_MAP1(l1, f1) \
 	.vdd_class = &vdd_dig, \
@@ -425,16 +435,33 @@ static struct pll_vote_clk gpll1_clk_src = {
 	},
 };
 
+static struct pll_freq_tbl apcs_pll_freq[] = {
+	F_APCS_PLL(748800000, 0x27, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(998400000, 0x34, 0x0, 0x1, 0x0, 0x0, 0x0),
+	PLL_F_END
+};
+
 /*
  * Need to skip handoff of the acpu pll to avoid handoff code
  * to turn off the pll when the acpu is running off this pll.
  */
 static struct pll_clk apcspll_clk_src = {
 	.mode_reg = (void __iomem *)APCS_CPU_PLL_MODE_REG,
+	.l_reg = (void __iomem *)APCS_CPU_PLL_L_REG,
+	.m_reg = (void __iomem *)APCS_CPU_PLL_M_REG,
+	.n_reg = (void __iomem *)APCS_CPU_PLL_N_REG,
+	.config_reg = (void __iomem *)APCS_CPU_PLL_USER_CTL_REG,
 	.status_reg = (void __iomem *)APCS_CPU_PLL_STATUS_REG,
+	.freq_tbl = apcs_pll_freq,
+	.masks = {
+		.vco_mask = BM(21, 20),
+		.pre_div_mask = BM(14, 12),
+		.post_div_mask = BM(9, 8),
+		.mn_en_mask = BIT(24),
+		.main_output_mask = BIT(0),
+	},
 	.base = &virt_bases[APCS_PLL_BASE],
 	.c = {
-		.rate = 998400000,
 		.dbg_name = "apcspll_clk_src",
 		.ops = &clk_ops_local_pll,
 		CLK_INIT(apcspll_clk_src.c),
@@ -2165,32 +2192,6 @@ static struct pll_config lpapll0_config __initdata = {
 	.main_output_mask = BIT(0),
 };
 
-static struct pll_config_regs apcspll_regs __initdata = {
-	.l_reg = (void __iomem *)APCS_CPU_PLL_L_REG,
-	.m_reg = (void __iomem *)APCS_CPU_PLL_M_REG,
-	.n_reg = (void __iomem *)APCS_CPU_PLL_N_REG,
-	.config_reg = (void __iomem *)APCS_CPU_PLL_USER_CTL_REG,
-	.mode_reg = (void __iomem *)APCS_CPU_PLL_MODE_REG,
-	.base = &virt_bases[APCS_PLL_BASE],
-};
-
-/* A5PLL with 998.4MHz */
-static struct pll_config apcspll_config __initdata = {
-	.l = 0x34,
-	.m = 0x0,
-	.n = 0x1,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = BVAL(9, 8, 0x0),
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
 #define PLL_AUX_OUTPUT_BIT 1
 #define PLL_AUX2_OUTPUT_BIT 2
 
@@ -2236,9 +2237,12 @@ static void __init configure_apcs_pll(void)
 {
 	u32 regval;
 
-	configure_sr_hpm_lp_pll(&apcspll_config, &apcspll_regs, 0);
+	clk_set_rate(&apcspll_clk_src.c, 998400000);
+
 	writel_relaxed(0x00141200,
 			APCS_PLL_REG_BASE(APCS_CPU_PLL_CONFIG_CTL_REG));
+
+	/* Enable AUX and AUX2 output */
 	regval = readl_relaxed(APCS_PLL_REG_BASE(APCS_CPU_PLL_USER_CTL_REG));
 	regval |= BIT(PLL_AUX_OUTPUT_BIT) | BIT(PLL_AUX2_OUTPUT_BIT);
 	writel_relaxed(regval, APCS_PLL_REG_BASE(APCS_CPU_PLL_USER_CTL_REG));
