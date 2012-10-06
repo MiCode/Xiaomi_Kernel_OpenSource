@@ -1444,6 +1444,11 @@ static struct resource msm_8960_riva_resources[] = {
 		.end    = 0x03204000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
+	{
+		.start  = RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ,
+		.end    = RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device msm_8960_riva = {
