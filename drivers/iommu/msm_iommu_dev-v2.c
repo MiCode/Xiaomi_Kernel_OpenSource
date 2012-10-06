@@ -94,7 +94,6 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 {
 	struct device_node *child;
 	int ret = 0;
-	u32 nsmr;
 
 	ret = device_move(&pdev->dev, &msm_iommu_root_dev->dev, DPM_ORDER_NONE);
 	if (ret)
@@ -104,18 +103,6 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	if (ret)
 		goto fail;
 
-	ret = of_property_read_u32(pdev->dev.of_node, "qcom,iommu-smt-size",
-				   &nsmr);
-	if (ret)
-		goto fail;
-
-	if (nsmr > MAX_NUM_SMR) {
-		pr_err("Invalid SMT size: %d\n", nsmr);
-		ret = -EINVAL;
-		goto fail;
-	}
-
-	drvdata->nsmr = nsmr;
 	for_each_child_of_node(pdev->dev.of_node, child) {
 		drvdata->ncb++;
 		if (!of_platform_device_create(child, NULL, &pdev->dev))

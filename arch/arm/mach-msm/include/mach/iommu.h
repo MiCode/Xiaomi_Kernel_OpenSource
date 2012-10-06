@@ -88,7 +88,6 @@ struct msm_iommu_bfb_settings {
  * @aclk:	Alternate clock for this IOMMU core, if any
  * @name:	Human-readable name of this IOMMU device
  * @gdsc:	Regulator needed to power this HW block (v2 only)
- * @nsmr:	Size of the SMT on this HW block (v2 only)
  * @bfb_settings: Optional BFB performance tuning parameters
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
@@ -103,7 +102,6 @@ struct msm_iommu_drvdata {
 	struct clk *aclk;
 	const char *name;
 	struct regulator *gdsc;
-	unsigned int nsmr;
 	struct msm_iommu_bfb_settings *bfb_settings;
 };
 
