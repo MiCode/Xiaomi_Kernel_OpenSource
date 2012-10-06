@@ -18,7 +18,6 @@
 		ranges;
 		reg = <0xfda64000 0x10000>;
 		vdd-supply = <&gdsc_jpeg>;
-		qcom,iommu-smt-size = <16>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fda6c000 {
@@ -50,7 +49,6 @@
 		ranges;
 		reg = <0xfd928000 0x10000>;
 		vdd-supply = <&gdsc_mdss>;
-		qcom,iommu-smt-size = <16>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fd930000 {
@@ -75,7 +73,6 @@
 		ranges;
 		reg = <0xfdc84000 0x10000>;
 		vdd-supply = <&gdsc_venus>;
-		qcom,iommu-smt-size = <16>;
 		qcom,needs-alt-core-clk;
 		status = "disabled";
 
@@ -108,7 +105,6 @@
 		ranges;
 		reg = <0xfdb10000 0x10000>;
 		vdd-supply = <&gdsc_oxili_cx>;
-		qcom,iommu-smt-size = <32>;
 		qcom,needs-alt-core-clk;
 		status = "disabled";
 
@@ -134,7 +130,6 @@
 		ranges;
 		reg = <0xfda44000 0x10000>;
 		vdd-supply = <&gdsc_vfe>;
-		qcom,iommu-smt-size = <32>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fda4c000 {
