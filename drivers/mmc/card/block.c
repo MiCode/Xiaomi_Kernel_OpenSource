@@ -1380,6 +1380,7 @@ static void mmc_blk_write_packing_control(struct mmc_queue *mq,
 		if (mq->num_of_potential_packed_wr_reqs >
 				mq->num_wr_reqs_to_start_packing)
 			mq->wr_packing_enabled = true;
+		mq->num_of_potential_packed_wr_reqs = 0;
 		return;
 	}
 
