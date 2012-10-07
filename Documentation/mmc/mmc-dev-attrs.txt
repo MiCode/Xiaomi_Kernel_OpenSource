@@ -8,6 +8,23 @@ The following attributes are read/write.
 
 	force_ro		Enforce read-only access even if write protect switch is off.
 
+	num_wr_reqs_to_start_packing 	This attribute is used to determine
+	the trigger for activating the write packing, in case the write
+	packing control feature is enabled.
+
+	When the MMC manages to reach a point where num_wr_reqs_to_start_packing
+	write requests could be packed, it enables the write packing feature.
+	This allows us to start the write packing only when it is beneficial
+	and has minimum affect on the read latency.
+
+	The number of potential packed requests that will trigger the packing
+	can be configured via sysfs by writing the required value to:
+	/sys/block/<block_dev_name>/num_wr_reqs_to_start_packing.
+
+	The default value of num_wr_reqs_to_start_packing was determined by
+	running parallel lmdd write and lmdd read operations and calculating
+	the max number of packed writes requests.
+
 SD and MMC Device Attributes
 ============================
 

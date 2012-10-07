@@ -283,6 +283,7 @@ struct mmc_host {
 				 MMC_CAP2_PACKED_WR)
 #define MMC_CAP2_NO_PRESCAN_POWERUP (1 << 14)	/* Don't power up before scan */
 #define MMC_CAP2_INIT_BKOPS	    (1 << 15)	/* Need to set BKOPS_EN */
+#define MMC_CAP2_PACKED_WR_CONTROL (1 << 16) /* Allow write packing control */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
