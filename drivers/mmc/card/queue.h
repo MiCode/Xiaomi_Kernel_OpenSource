@@ -45,6 +45,9 @@ struct mmc_queue {
 	struct mmc_queue_req	mqrq[2];
 	struct mmc_queue_req	*mqrq_cur;
 	struct mmc_queue_req	*mqrq_prev;
+	bool			wr_packing_enabled;
+	int			num_of_potential_packed_wr_reqs;
+	int			num_wr_reqs_to_start_packing;
 };
 
 extern int mmc_init_queue(struct mmc_queue *, struct mmc_card *, spinlock_t *,
