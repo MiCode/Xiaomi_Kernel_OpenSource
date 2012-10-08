@@ -112,7 +112,7 @@ static struct rpm_regulator_param params[RPM_REGULATOR_PARAM_MAX] = {
 	PARAM(HEAD_ROOM,       1,  0,  0,  1, "hr",   0, 0x7FFFFFFF, "qcom,init-head-room"),
 	PARAM(QUIET_MODE,      0,  1,  0,  0, "qm",   0, 2,          "qcom,init-quiet-mode"),
 	PARAM(FREQ_REASON,     0,  1,  0,  1, "resn", 0, 8,          "qcom,init-freq-reason"),
-	PARAM(CORNER,          0,  1,  0,  0, "corn", 0, 6,          "qcom,init-voltage-corner"),
+	PARAM(CORNER,          1,  1,  0,  0, "corn", 0, 6,          "qcom,init-voltage-corner"),
 	PARAM(BYPASS,          1,  0,  0,  0, "bypa", 0, 1,          "qcom,init-disallow-bypass"),
 };
 
@@ -1037,6 +1037,19 @@ static struct regulator_ops ldo_ops = {
 	.enable_time		= rpm_vreg_enable_time,
 };
 
+static struct regulator_ops ldo_corner_ops = {
+	.enable			= rpm_vreg_enable,
+	.disable		= rpm_vreg_disable,
+	.is_enabled		= rpm_vreg_is_enabled,
+	.set_voltage		= rpm_vreg_set_voltage_corner,
+	.get_voltage		= rpm_vreg_get_voltage_corner,
+	.list_voltage		= rpm_vreg_list_voltage,
+	.set_mode		= rpm_vreg_set_mode,
+	.get_mode		= rpm_vreg_get_mode,
+	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
+	.enable_time		= rpm_vreg_enable_time,
+};
+
 static struct regulator_ops smps_ops = {
 	.enable			= rpm_vreg_enable,
 	.disable		= rpm_vreg_disable,
@@ -1194,11 +1207,14 @@ static int __devinit rpm_vreg_device_probe(struct platform_device *pdev)
 
 	/*
 	 * Switch to voltage corner regulator ops if qcom,use-voltage-corner
-	 * is specified in the device node (SMPS only).
+	 * is specified in the device node (SMPS and LDO only).
 	 */
-	if (of_find_property(node, "qcom,use-voltage-corner", NULL)
-	    && regulator_type == RPM_REGULATOR_SMD_TYPE_SMPS)
-		reg->rdesc.ops = &smps_corner_ops;
+	if (of_property_read_bool(node, "qcom,use-voltage-corner")) {
+		if (regulator_type == RPM_REGULATOR_SMD_TYPE_SMPS)
+			reg->rdesc.ops = &smps_corner_ops;
+		else if (regulator_type == RPM_REGULATOR_SMD_TYPE_LDO)
+			reg->rdesc.ops = &ldo_corner_ops;
+	}
 
 	if (regulator_type == RPM_REGULATOR_SMD_TYPE_VS)
 		reg->rdesc.n_voltages = 0;
