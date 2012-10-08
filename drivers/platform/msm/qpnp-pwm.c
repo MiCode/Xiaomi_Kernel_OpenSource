@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
 
  *
  * This program is free software; you can redistribute it and/or modify
@@ -168,6 +168,18 @@ enum qpnp_lpg_revision {
 	QPNP_LPG_REVISION_1 = 0x1,
 };
 
+/* LPG LUT MODE STATE */
+enum qpnp_lut_state {
+	QPNP_LUT_ENABLE = 0x0,
+	QPNP_LUT_DISABLE = 0x1,
+};
+
+/* PWM MODE STATE */
+enum qpnp_pwm_state {
+	QPNP_PWM_ENABLE = 0x0,
+	QPNP_PWM_DISABLE = 0x1,
+};
+
 /* SPMI LPG registers */
 enum qpnp_lpg_registers_list {
 	QPNP_LPG_PATTERN_CONFIG,
@@ -294,21 +306,22 @@ static inline void qpnp_set_pwm_type_config(u8 *val, bool glitch,
 				QPNP_EN_GLITCH_REMOVAL_MASK;
 }
 
-static inline void qpnp_set_control(u8 *val, bool pwm_hi, bool pwm_lo,
-			bool pwm_out, bool pwm_src, bool ramp_gen)
+static int qpnp_set_control(bool pwm_hi, bool pwm_lo, bool pwm_out,
+					bool pwm_src, bool ramp_gen)
 {
-	*val = (ramp_gen << QPNP_PWM_EN_RAMP_GEN_SHIFT) &
-				QPNP_PWM_EN_RAMP_GEN_MASK;
-	*val |= (pwm_src << QPNP_PWM_SRC_SELECT_SHIFT) &
-				QPNP_PWM_SRC_SELECT_MASK;
-	*val |= (pwm_out << QPNP_EN_PWM_OUTPUT_SHIFT) &
-				QPNP_EN_PWM_OUTPUT_MASK;
-	*val |= (pwm_lo << QPNP_EN_PWM_LO_SHIFT) & QPNP_EN_PWM_LO_MASK;
-	*val |= (pwm_hi << QPNP_EN_PWM_HIGH_SHIFT) & QPNP_EN_PWM_HIGH_MASK;
+	return (ramp_gen << QPNP_PWM_EN_RAMP_GEN_SHIFT)
+		| (pwm_src << QPNP_PWM_SRC_SELECT_SHIFT)
+		| (pwm_out << QPNP_EN_PWM_OUTPUT_SHIFT)
+		| (pwm_lo << QPNP_EN_PWM_LO_SHIFT)
+		| (pwm_hi << QPNP_EN_PWM_HIGH_SHIFT);
 }
 
-#define QPNP_ENABLE_LUT_CONTROL(p_val)	qpnp_set_control(p_val, 1, 1, 1, 0, 1)
-#define QPNP_ENABLE_PWM_CONTROL(p_val)	qpnp_set_control(p_val, 1, 1, 0, 1, 0)
+#define QPNP_ENABLE_LUT_CONTROL		qpnp_set_control(0, 0, 0, 0, 1)
+#define QPNP_ENABLE_PWM_CONTROL		qpnp_set_control(0, 0, 0, 1, 0)
+#define QPNP_ENABLE_PWM_MODE		qpnp_set_control(1, 1, 1, 1, 0)
+#define QPNP_ENABLE_LPG_MODE		qpnp_set_control(1, 1, 1, 0, 1)
+#define QPNP_DISABLE_PWM_MODE		qpnp_set_control(0, 0, 0, 1, 0)
+#define QPNP_DISABLE_LPG_MODE		qpnp_set_control(0, 0, 0, 0, 1)
 #define QPNP_IS_PWM_CONFIG_SELECTED(val) (val & QPNP_PWM_SRC_SELECT_MASK)
 
 
@@ -339,13 +352,13 @@ static void qpnp_lpg_save(u8 *u8p, u8 mask, u8 val)
 	*u8p |= val & mask;
 }
 
-static int qpnp_lpg_save_and_write(u8 value, u8 mask, u8 *reg, u16 base_addr,
-			u16 offset, u16 size, struct qpnp_lpg_chip *chip)
+static int qpnp_lpg_save_and_write(u8 value, u8 mask, u8 *reg, u16 addr,
+				u16 size, struct qpnp_lpg_chip *chip)
 {
 	qpnp_lpg_save(reg, mask, value);
 
 	return spmi_ext_register_writel(chip->spmi_dev->ctrl,
-	chip->spmi_dev->sid, SPMI_LPG_REG_ADDR(base_addr, offset), reg, size);
+			chip->spmi_dev->sid, addr, reg, size);
 }
 
 /*
@@ -541,7 +554,8 @@ static int qpnp_lpg_save_pwm_value(struct pwm_device *pwm)
 
 	rc = qpnp_lpg_save_and_write(value, mask,
 			&pwm->chip->qpnp_lpg_registers[QPNP_PWM_VALUE_LSB],
-			lpg_config->base_addr, QPNP_PWM_VALUE_LSB, 1, chip);
+			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+			QPNP_PWM_VALUE_LSB), 1, chip);
 	if (rc)
 		return rc;
 
@@ -552,7 +566,8 @@ static int qpnp_lpg_save_pwm_value(struct pwm_device *pwm)
 
 	return qpnp_lpg_save_and_write(value, mask,
 			&pwm->chip->qpnp_lpg_registers[QPNP_PWM_VALUE_MSB],
-			lpg_config->base_addr, QPNP_PWM_VALUE_MSB, 1, chip);
+			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+			QPNP_PWM_VALUE_MSB), 1, chip);
 }
 
 static int qpnp_lpg_configure_pattern(struct pwm_device *pwm)
@@ -570,7 +585,8 @@ static int qpnp_lpg_configure_pattern(struct pwm_device *pwm)
 
 	return qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_LPG_PATTERN_CONFIG],
-		lpg_config->base_addr, QPNP_LPG_PATTERN_CONFIG, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_LPG_PATTERN_CONFIG), 1, chip);
 }
 
 static int qpnp_lpg_configure_pwm(struct pwm_device *pwm)
@@ -601,7 +617,8 @@ static int qpnp_lpg_configure_pwm(struct pwm_device *pwm)
 
 	return qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_LPG_PWM_TYPE_CONFIG],
-		lpg_config->base_addr, QPNP_LPG_PWM_TYPE_CONFIG, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_LPG_PWM_TYPE_CONFIG), 1, chip);
 }
 
 static int qpnp_configure_pwm_control(struct pwm_device *pwm)
@@ -610,7 +627,7 @@ static int qpnp_configure_pwm_control(struct pwm_device *pwm)
 	struct qpnp_lpg_chip	*chip = pwm->chip;
 	u8			value, mask;
 
-	QPNP_ENABLE_PWM_CONTROL(&value);
+	value = QPNP_ENABLE_PWM_CONTROL;
 
 	mask = QPNP_EN_PWM_HIGH_MASK | QPNP_EN_PWM_LO_MASK |
 		QPNP_EN_PWM_OUTPUT_MASK | QPNP_PWM_SRC_SELECT_MASK |
@@ -618,7 +635,8 @@ static int qpnp_configure_pwm_control(struct pwm_device *pwm)
 
 	return qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
-		lpg_config->base_addr, QPNP_ENABLE_CONTROL, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_ENABLE_CONTROL), 1, chip);
 
 }
 
@@ -628,7 +646,7 @@ static int qpnp_configure_lpg_control(struct pwm_device *pwm)
 	struct qpnp_lpg_chip	*chip = pwm->chip;
 	u8			value, mask;
 
-	QPNP_ENABLE_LUT_CONTROL(&value);
+	value = QPNP_ENABLE_LUT_CONTROL;
 
 	mask = QPNP_EN_PWM_HIGH_MASK | QPNP_EN_PWM_LO_MASK |
 		QPNP_EN_PWM_OUTPUT_MASK | QPNP_PWM_SRC_SELECT_MASK |
@@ -636,7 +654,8 @@ static int qpnp_configure_lpg_control(struct pwm_device *pwm)
 
 	return qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
-		lpg_config->base_addr, QPNP_ENABLE_CONTROL, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_ENABLE_CONTROL), 1, chip);
 
 }
 
@@ -654,7 +673,8 @@ static int qpnp_lpg_configure_ramp_step_duration(struct pwm_device *pwm)
 
 	rc = qpnp_lpg_save_and_write(val, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_RAMP_STEP_DURATION_LSB],
-		lpg_config->base_addr, QPNP_RAMP_STEP_DURATION_LSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_RAMP_STEP_DURATION_LSB), 1, chip);
 	if (rc)
 		return rc;
 
@@ -665,7 +685,8 @@ static int qpnp_lpg_configure_ramp_step_duration(struct pwm_device *pwm)
 
 	return qpnp_lpg_save_and_write(val, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_RAMP_STEP_DURATION_MSB],
-		lpg_config->base_addr, QPNP_RAMP_STEP_DURATION_MSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_RAMP_STEP_DURATION_MSB), 1, chip);
 }
 
 static int qpnp_lpg_configure_pause(struct pwm_device *pwm)
@@ -682,7 +703,8 @@ static int qpnp_lpg_configure_pause(struct pwm_device *pwm)
 
 		rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_PAUSE_HI_MULTIPLIER_LSB],
-		lpg_config->base_addr, QPNP_PAUSE_HI_MULTIPLIER_LSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_PAUSE_HI_MULTIPLIER_LSB), 1, chip);
 		if (rc)
 			return rc;
 
@@ -694,14 +716,16 @@ static int qpnp_lpg_configure_pause(struct pwm_device *pwm)
 
 		rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_PAUSE_HI_MULTIPLIER_MSB],
-		lpg_config->base_addr, QPNP_PAUSE_HI_MULTIPLIER_MSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_PAUSE_HI_MULTIPLIER_MSB), 1, chip);
 	} else {
 		value = 0;
 		mask = QPNP_PAUSE_HI_MULTIPLIER_LSB_MASK;
 
 		rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_PAUSE_HI_MULTIPLIER_LSB],
-		lpg_config->base_addr, QPNP_PAUSE_HI_MULTIPLIER_LSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_PAUSE_HI_MULTIPLIER_LSB), 1, chip);
 		if (rc)
 			return rc;
 
@@ -709,7 +733,8 @@ static int qpnp_lpg_configure_pause(struct pwm_device *pwm)
 
 		rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_PAUSE_HI_MULTIPLIER_MSB],
-		lpg_config->base_addr, QPNP_PAUSE_HI_MULTIPLIER_MSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_PAUSE_HI_MULTIPLIER_MSB), 1, chip);
 		if (rc)
 			return rc;
 
@@ -721,7 +746,8 @@ static int qpnp_lpg_configure_pause(struct pwm_device *pwm)
 
 		rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_PAUSE_LO_MULTIPLIER_LSB],
-		lpg_config->base_addr, QPNP_PAUSE_LO_MULTIPLIER_LSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_PAUSE_LO_MULTIPLIER_LSB), 1, chip);
 		if (rc)
 			return rc;
 
@@ -733,14 +759,16 @@ static int qpnp_lpg_configure_pause(struct pwm_device *pwm)
 
 		rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_PAUSE_LO_MULTIPLIER_MSB],
-		lpg_config->base_addr, QPNP_PAUSE_LO_MULTIPLIER_MSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_PAUSE_LO_MULTIPLIER_MSB), 1, chip);
 	} else {
 		value = 0;
 		mask = QPNP_PAUSE_LO_MULTIPLIER_LSB_MASK;
 
 		rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_PAUSE_LO_MULTIPLIER_LSB],
-		lpg_config->base_addr, QPNP_PAUSE_LO_MULTIPLIER_LSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_PAUSE_LO_MULTIPLIER_LSB), 1, chip);
 		if (rc)
 			return rc;
 
@@ -748,7 +776,8 @@ static int qpnp_lpg_configure_pause(struct pwm_device *pwm)
 
 		rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_PAUSE_LO_MULTIPLIER_MSB],
-		lpg_config->base_addr, QPNP_PAUSE_LO_MULTIPLIER_MSB, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_PAUSE_LO_MULTIPLIER_MSB), 1, chip);
 		return rc;
 	}
 
@@ -768,7 +797,8 @@ static int qpnp_lpg_configure_index(struct pwm_device *pwm)
 
 	rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_HI_INDEX],
-		lpg_config->base_addr, QPNP_HI_INDEX, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_HI_INDEX), 1, chip);
 	if (rc)
 		return rc;
 
@@ -777,7 +807,8 @@ static int qpnp_lpg_configure_index(struct pwm_device *pwm)
 
 	rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_LO_INDEX],
-		lpg_config->base_addr, QPNP_LO_INDEX, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_LO_INDEX), 1, chip);
 
 	return rc;
 }
@@ -819,90 +850,85 @@ static int qpnp_lpg_change_lut(struct pwm_device *pwm)
 	return rc;
 }
 
-static int qpnp_lpg_enable_lut(struct pwm_device *pwm)
+static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
+				enum qpnp_lut_state state)
 {
 	struct qpnp_lpg_config	*lpg_config = &pwm->chip->lpg_config;
 	struct qpnp_lpg_chip	*chip = pwm->chip;
-	u8			value, mask, *reg;
+	u8			value1, value2, mask1, mask2;
+	u8			*reg1, *reg2;
 	u16			addr;
+	int			rc;
 
-	value = pwm->chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
-	reg = &pwm->chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
+	value1 = pwm->chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
+	reg1 = &pwm->chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
+	reg2 = &pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL];
+	mask2 = QPNP_EN_PWM_HIGH_MASK | QPNP_EN_PWM_LO_MASK |
+		QPNP_EN_PWM_OUTPUT_MASK | QPNP_PWM_SRC_SELECT_MASK |
+					QPNP_PWM_EN_RAMP_GEN_MASK;
 
 	switch (chip->revision) {
 	case QPNP_LPG_REVISION_0:
-		QPNP_ENABLE_LUT_V0(value);
-		mask = QPNP_RAMP_START_MASK;
+		if (state == QPNP_LUT_ENABLE) {
+			QPNP_ENABLE_LUT_V0(value1);
+			value2 = QPNP_ENABLE_LPG_MODE;
+		} else {
+			QPNP_DISABLE_LUT_V0(value1);
+			value2 = QPNP_DISABLE_LPG_MODE;
+		}
+		mask1 = QPNP_RAMP_START_MASK;
 		addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 					QPNP_RAMP_CONTROL);
 		break;
 	case QPNP_LPG_REVISION_1:
-		QPNP_ENABLE_LUT_V1(value, pwm->pwm_config.channel_id);
-		mask = BIT(pwm->pwm_config.channel_id);
-		addr = lpg_config->lut_base_addr +
-				SPMI_LPG_REV1_RAMP_CONTROL_OFFSET;
-	default:
-		pr_err("Invalid LPG revision\n");
-		return -EINVAL;
-	}
-
-	qpnp_lpg_save(reg, mask, value);
-
-	return spmi_ext_register_writel(chip->spmi_dev->ctrl,
-			chip->spmi_dev->sid, addr, reg, 1);
-}
-
-static int qpnp_lpg_disable_lut(struct pwm_device *pwm)
-{
-	struct qpnp_lpg_config	*lpg_config = &pwm->chip->lpg_config;
-	struct qpnp_lpg_chip	*chip = pwm->chip;
-	u8			value, mask, *reg;
-	u16			addr;
-
-	value = pwm->chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
-	reg = &pwm->chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
-
-	switch (chip->revision) {
-	case QPNP_LPG_REVISION_0:
-		QPNP_DISABLE_LUT_V0(value);
-		mask = QPNP_RAMP_START_MASK;
-		addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
-					QPNP_RAMP_CONTROL);
-		break;
-	case QPNP_LPG_REVISION_1:
-		QPNP_DISABLE_LUT_V1(value, pwm->pwm_config.channel_id);
-		mask = BIT(pwm->pwm_config.channel_id);
+		if (state == QPNP_LUT_ENABLE) {
+			QPNP_ENABLE_LUT_V1(value1, pwm->pwm_config.channel_id);
+			value2 = QPNP_ENABLE_LPG_MODE;
+		} else {
+			QPNP_DISABLE_LUT_V1(value1, pwm->pwm_config.channel_id);
+			value2 = QPNP_DISABLE_LPG_MODE;
+		}
+		mask1 = BIT(pwm->pwm_config.channel_id);
 		addr = lpg_config->lut_base_addr +
 			SPMI_LPG_REV1_RAMP_CONTROL_OFFSET;
 		break;
 	default:
 		pr_err("Invalid LPG revision\n");
 		return -EINVAL;
-		break;
 	}
 
-	qpnp_lpg_save(reg, mask, value);
+	rc = qpnp_lpg_save_and_write(value1, mask1, reg1,
+					addr, 1, chip);
+	if (rc)
+		return rc;
+	addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+				QPNP_ENABLE_CONTROL);
+	return qpnp_lpg_save_and_write(value2, mask2, reg2,
+					addr, 1, chip);
 
-	return spmi_ext_register_writel(chip->spmi_dev->ctrl,
-			chip->spmi_dev->sid, addr, reg, 1);
 }
 
-static int qpnp_lpg_enable_pwm(struct pwm_device *pwm)
+static int qpnp_lpg_configure_pwm_state(struct pwm_device *pwm,
+					enum qpnp_pwm_state state)
 {
 	struct qpnp_lpg_config	*lpg_config = &pwm->chip->lpg_config;
 	struct qpnp_lpg_chip	*chip = pwm->chip;
 	u8			value, mask;
 	int			rc;
 
-	value = pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL];
+	if (state == QPNP_PWM_ENABLE)
+		value = QPNP_ENABLE_PWM_MODE;
+	else
+		value = QPNP_DISABLE_PWM_MODE;
 
-	QPNP_ENABLE_PWM(value);
-
-	mask = QPNP_EN_PWM_OUTPUT_MASK;
+	mask = QPNP_EN_PWM_HIGH_MASK | QPNP_EN_PWM_LO_MASK |
+		QPNP_EN_PWM_OUTPUT_MASK | QPNP_PWM_SRC_SELECT_MASK |
+					QPNP_PWM_EN_RAMP_GEN_MASK;
 
 	rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
-		lpg_config->base_addr, QPNP_ENABLE_CONTROL, 1, chip);
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_ENABLE_CONTROL), 1, chip);
 	if (rc)
 		goto out;
 
@@ -910,27 +936,11 @@ static int qpnp_lpg_enable_pwm(struct pwm_device *pwm)
 	 * Due to LPG hardware bug, in the PWM mode, having enabled PWM,
 	 * We have to write PWM values one more time.
 	 */
-	return qpnp_lpg_save_pwm_value(pwm);
+	if (state == QPNP_PWM_ENABLE)
+		return qpnp_lpg_save_pwm_value(pwm);
 
 out:
 	return rc;
-}
-
-static int qpnp_lpg_disable_pwm(struct pwm_device *pwm)
-{
-	struct qpnp_lpg_config	*lpg_config = &pwm->chip->lpg_config;
-	struct qpnp_lpg_chip	*chip = pwm->chip;
-	u8			value, mask;
-
-	value = pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL];
-
-	QPNP_DISABLE_PWM(value);
-
-	mask = QPNP_EN_PWM_OUTPUT_MASK;
-
-	return qpnp_lpg_save_and_write(value, mask,
-		&pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
-		lpg_config->base_addr, QPNP_ENABLE_CONTROL, 1, chip);
 }
 
 static int _pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
@@ -1063,11 +1073,15 @@ static int _pwm_enable(struct pwm_device *pwm)
 
 	if (QPNP_IS_PWM_CONFIG_SELECTED(
 		chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL]))
-		rc = qpnp_lpg_enable_pwm(pwm);
+		rc = qpnp_lpg_configure_pwm_state(pwm, QPNP_PWM_ENABLE);
 	else
-		rc = qpnp_lpg_enable_lut(pwm);
+		rc = qpnp_lpg_configure_lut_state(pwm, QPNP_LUT_ENABLE);
 
 	mutex_unlock(&pwm->chip->lpg_mutex);
+
+	if (rc)
+		pr_err("Failed to enable PWM channel: %d\n",
+				pwm->pwm_config.channel_id);
 
 	return rc;
 }
@@ -1129,8 +1143,8 @@ void pwm_free(struct pwm_device *pwm)
 	pwm_config = &pwm->pwm_config;
 
 	if (pwm_config->in_use) {
-		qpnp_lpg_disable_pwm(pwm);
-		qpnp_lpg_disable_lut(pwm);
+		qpnp_lpg_configure_pwm_state(pwm, QPNP_PWM_DISABLE);
+		qpnp_lpg_configure_lut_state(pwm, QPNP_LUT_DISABLE);
 		pwm_config->in_use = 0;
 		pwm_config->lable = NULL;
 	}
@@ -1163,6 +1177,9 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 	mutex_lock(&pwm->chip->lpg_mutex);
 	rc = _pwm_config(pwm, duty_us, period_us);
 	mutex_unlock(&pwm->chip->lpg_mutex);
+
+	if (rc)
+		pr_err("Failed to configure PWM mode\n");
 
 	return rc;
 }
@@ -1200,6 +1217,7 @@ void pwm_disable(struct pwm_device *pwm)
 {
 	struct qpnp_pwm_config	*pwm_config;
 	struct qpnp_lpg_chip	*chip;
+	int rc = 0;
 
 	if (pwm == NULL || IS_ERR(pwm) || pwm->chip == NULL) {
 		pr_err("Invalid pwm handle or no pwm_chip\n");
@@ -1214,12 +1232,16 @@ void pwm_disable(struct pwm_device *pwm)
 	if (pwm_config->in_use) {
 		if (QPNP_IS_PWM_CONFIG_SELECTED(
 			chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL]))
-			qpnp_lpg_disable_pwm(pwm);
+			qpnp_lpg_configure_pwm_state(pwm, QPNP_PWM_DISABLE);
 		else
-			qpnp_lpg_disable_lut(pwm);
+			qpnp_lpg_configure_lut_state(pwm, QPNP_LUT_DISABLE);
 	}
 
 	mutex_unlock(&pwm->chip->lpg_mutex);
+
+	if (rc)
+		pr_err("Failed to disable PWM channel: %d\n",
+					pwm_config->channel_id);
 }
 EXPORT_SYMBOL_GPL(pwm_disable);
 
@@ -1251,6 +1273,8 @@ int pwm_change_mode(struct pwm_device *pwm, enum pm_pwm_mode mode)
 
 	mutex_unlock(&pwm->chip->lpg_mutex);
 
+	if (rc)
+		pr_err("Failed to change the mode\n");
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pwm_change_mode);
@@ -1329,11 +1353,15 @@ int pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value)
 	struct qpnp_pwm_config	*pwm_config;
 	int			rc = 0;
 
-	if (pwm == NULL || IS_ERR(pwm))
+	if (pwm == NULL || IS_ERR(pwm)) {
+		pr_err("Invalid parameter passed\n");
 		return -EINVAL;
+	}
 
-	if (pwm->chip == NULL)
+	if (pwm->chip == NULL) {
+		pr_err("Invalid device handle\n");
 		return -ENODEV;
+	}
 
 	lpg_config = &pwm->chip->lpg_config;
 	pwm_config = &pwm->pwm_config;
@@ -1342,6 +1370,7 @@ int pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value)
 
 	if (!pwm_config->in_use || !pwm_config->pwm_period) {
 		rc = -EINVAL;
+		pr_err("PWM channel isn't in use or period value missing\n");
 		goto out_unlock;
 	}
 
@@ -1410,6 +1439,9 @@ int pwm_lut_config(struct pwm_device *pwm, int period_us,
 	rc = _pwm_lut_config(pwm, period_us, duty_pct, lut_params);
 
 	mutex_unlock(&pwm->chip->lpg_mutex);
+
+	if (rc)
+		pr_err("Failed to configure LUT\n");
 
 	return rc;
 }
