@@ -106,9 +106,14 @@ static int audio_ocmem_client_cb(struct notifier_block *this,
 		break;
 	case OCMEM_ALLOC_GROW:
 		audio_ocmem_lcl.buf = data;
+		pr_debug("%s: Alloc grow request received buf->addr: 0x%ld\n",
+				__func__,
+				(audio_ocmem_lcl.buf)->addr);
+
 		atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_GROW);
 		break;
 	case OCMEM_ALLOC_SHRINK:
+		pr_debug("%s: Alloc shrink request received\n", __func__);
 		atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_SHRINK);
 		break;
 	default:
@@ -150,7 +155,11 @@ int audio_ocmem_enable(int cid)
 
 	audio_ocmem_lcl.buf = buf;
 	atomic_set(&audio_ocmem_lcl.audio_exit, 0);
+	atomic_set(&audio_ocmem_lcl.audio_cond, 1);
+	pr_debug("%s: buf->len: %ld\n", __func__, buf->len);
 	if (!buf->len) {
+		pr_debug("%s: buf.len is 0, waiting for ocmem region\n",
+								__func__);
 		wait_event_interruptible(audio_ocmem_lcl.audio_wait,
 			(atomic_read(&audio_ocmem_lcl.audio_cond) == 0)	||
 			(atomic_read(&audio_ocmem_lcl.audio_exit) == 1));
@@ -162,6 +171,7 @@ int audio_ocmem_enable(int cid)
 			goto fail_cmd;
 		}
 	}
+	pr_debug("%s: buf->len: %ld\n", __func__, (audio_ocmem_lcl.buf)->len);
 	if (audio_ocmem_lcl.lp_memseg_ptr == NULL) {
 		/* Retrieve low power segments */
 		ret = core_get_low_power_segments(
@@ -196,13 +206,22 @@ int audio_ocmem_enable(int cid)
 
 	atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_MAP_TRANSITION);
 
+	pr_debug("%s: buf->addr: 0x%ld, len: %ld, audio_state[0x%x]\n",
+				__func__,
+				audio_ocmem_lcl.buf->addr,
+				audio_ocmem_lcl.buf->len,
+				atomic_read(&audio_ocmem_lcl.audio_state));
+
+	atomic_set(&audio_ocmem_lcl.audio_cond, 1);
 	ret = ocmem_map(cid, audio_ocmem_lcl.buf, &audio_ocmem_lcl.mlist);
 	if (ret) {
 		pr_err("%s: ocmem_map failed\n", __func__);
 		goto fail_cmd;
 	}
 
-
+	pr_debug("%s: audio_cond[%d] audio_state[0x%x]\n", __func__,
+				atomic_read(&audio_ocmem_lcl.audio_cond),
+				atomic_read(&audio_ocmem_lcl.audio_state));
 	while ((atomic_read(&audio_ocmem_lcl.audio_state) !=
 						OCMEM_STATE_EXIT)) {
 
@@ -219,6 +238,8 @@ int audio_ocmem_enable(int cid)
 			atomic_set(&audio_ocmem_lcl.audio_cond, 1);
 			break;
 		case OCMEM_STATE_SHRINK:
+			pr_debug("%s: ocmem shrink request process\n",
+							__func__);
 			atomic_set(&audio_ocmem_lcl.audio_cond, 1);
 			ret = ocmem_unmap(cid, audio_ocmem_lcl.buf,
 					&audio_ocmem_lcl.mlist);
@@ -242,9 +263,11 @@ int audio_ocmem_enable(int cid)
 				atomic_read(&audio_ocmem_lcl.audio_state));
 				goto fail_cmd;
 			}
-
+			atomic_set(&audio_ocmem_lcl.audio_cond, 1);
 			break;
 		case OCMEM_STATE_GROW:
+			pr_debug("%s: ocmem grow request process\n",
+							__func__);
 			atomic_set(&audio_ocmem_lcl.audio_cond, 1);
 			ret = ocmem_map(cid, audio_ocmem_lcl.buf,
 						&audio_ocmem_lcl.mlist);
@@ -260,6 +283,7 @@ int audio_ocmem_enable(int cid)
 				atomic_read(&audio_ocmem_lcl.audio_cond) == 0);
 			atomic_set(&audio_ocmem_lcl.audio_state,
 				OCMEM_STATE_MAP_COMPL);
+			atomic_set(&audio_ocmem_lcl.audio_cond, 1);
 			break;
 		}
 	}
@@ -280,8 +304,10 @@ int audio_ocmem_disable(int cid)
 {
 	int ret;
 
+	pr_debug("%s: disable\n", __func__);
 	if (atomic_read(&audio_ocmem_lcl.audio_cond))
 		atomic_set(&audio_ocmem_lcl.audio_cond, 0);
+
 	pr_debug("%s: audio_cond[0x%x], audio_state[0x%x]\n", __func__,
 			 atomic_read(&audio_ocmem_lcl.audio_cond),
 			 atomic_read(&audio_ocmem_lcl.audio_state));
@@ -309,6 +335,7 @@ int audio_ocmem_disable(int cid)
 				atomic_read(&audio_ocmem_lcl.audio_state));
 			goto fail_cmd;
 		}
+		atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_EXIT);
 		pr_debug("%s: ocmem_free success\n", __func__);
 	default:
 		pr_debug("%s: state=%d", __func__,
@@ -345,6 +372,7 @@ static void voice_ocmem_process_workdata(struct work_struct *work)
 		rc = -EINVAL;
 	}
 
+	return;
 }
 /**
  * voice_ocmem_process_req() - disable/enable OCMEM during voice call
@@ -441,6 +469,7 @@ static void audio_ocmem_process_workdata(struct work_struct *work)
 		rc = -EINVAL;
 	}
 
+	return;
 }
 
 /**
