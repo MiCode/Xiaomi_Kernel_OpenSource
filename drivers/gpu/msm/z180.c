@@ -260,6 +260,13 @@ static int z180_setup_pt(struct kgsl_device *device,
 				     GSL_PT_PAGE_RV);
 	if (result)
 		goto error_unmap_memstore;
+	/*
+	 * Set the mpu end to the last "normal" global memory we use.
+	 * For the IOMMU, this will be used to restrict access to the
+	 * mapped registers.
+	 */
+	device->mh.mpu_range = z180_dev->ringbuffer.cmdbufdesc.gpuaddr +
+				z180_dev->ringbuffer.cmdbufdesc.size;
 	return result;
 
 error_unmap_dummy:

@@ -190,7 +190,7 @@ static int process_mem_print(struct seq_file *s, void *unused)
 		entry = rb_entry(node, struct kgsl_mem_entry, node);
 		m = &entry->memdesc;
 
-		flags[0] = m->priv & KGSL_MEMDESC_GLOBAL ?  'g' : '-';
+		flags[0] = kgsl_memdesc_is_global(m) ?  'g' : '-';
 		flags[1] = m->flags & KGSL_MEMFLAGS_GPUREADONLY ? 'r' : '-';
 		flags[2] = get_alignflag(m);
 		flags[3] = '\0';

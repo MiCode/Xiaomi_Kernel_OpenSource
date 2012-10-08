@@ -157,6 +157,17 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 	return 0;
 }
 
+/*
+ * kgsl_memdesc_is_global - is this a globally mapped buffer?
+ * @memdesc: the memdesc
+ *
+ * Returns nonzero if this is a global mapping, 0 otherwise
+ */
+static inline int kgsl_memdesc_is_global(const struct kgsl_memdesc *memdesc)
+{
+	return (memdesc->priv & KGSL_MEMDESC_GLOBAL) != 0;
+}
+
 static inline int
 kgsl_allocate(struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable, size_t size)
