@@ -126,13 +126,14 @@ static void msm_sleep(struct kgsl_device *device,
 	return;
 }
 
-static void msm_remove_io_fraction(struct kgsl_device *device)
+static void msm_set_io_fraction(struct kgsl_device *device,
+				unsigned int value)
 {
 	int i;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	for (i = 0; i < pwr->num_pwrlevels; i++)
-		pwr->pwrlevels[i].io_fraction = 100;
+		pwr->pwrlevels[i].io_fraction = value;
 
 }
 
@@ -191,7 +192,7 @@ static int msm_init(struct kgsl_device *device,
 		} else {
 			priv->gpu_busy = 1;
 		}
-		msm_remove_io_fraction(device);
+		msm_set_io_fraction(device, 0);
 		return 0;
 	}
 
