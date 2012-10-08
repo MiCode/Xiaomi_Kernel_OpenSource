@@ -70,7 +70,7 @@
 			reg = <28>;
 			qcom,heap-align = <0x1000>;
 			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x2B4000>;
+			qcom,memory-reservation-size = <0x314000>;
 		};
 	};
 };
