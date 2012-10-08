@@ -399,7 +399,7 @@ struct mdp_histogram_start_req {
 	uint32_t block;
 	uint8_t frame_cnt;
 	uint8_t bit_mask;
-	uint8_t num_bins;
+	uint16_t num_bins;
 };
 
 /*
