@@ -66,13 +66,17 @@ static int msm_dcvs_freq_set(struct msm_dcvs_freq *self,
 	if (freq > gov->max_freq)
 		freq = gov->max_freq;
 
-	ret = __cpufreq_driver_target(gov->policy, freq, CPUFREQ_RELATION_L);
-	gov->cur_freq = gov->policy->cur;
-
 	mutex_unlock(&per_cpu(gov_mutex, gov->cpu));
 
-	if (!ret)
-		return gov->cur_freq;
+	ret = cpufreq_driver_target(gov->policy, freq, CPUFREQ_RELATION_L);
+
+	if (!ret) {
+		gov->cur_freq = cpufreq_quick_get(gov->cpu);
+		if (freq != gov->cur_freq)
+			pr_err("cpu %d freq %u gov->cur_freq %u didn't match",
+						gov->cpu, freq, gov->cur_freq);
+	}
+	ret = gov->cur_freq;
 
 	return ret;
 }
@@ -82,6 +86,11 @@ static unsigned int msm_dcvs_freq_get(struct msm_dcvs_freq *self)
 	struct msm_gov *gov =
 		container_of(self, struct msm_gov, gov_notifier);
 
+	/*
+	 * the rw_sem in cpufreq is always held when this is called.
+	 * The policy->cur won't be updated in this case - so it is safe to
+	 * access policy->cur
+	 */
 	return gov->cur_freq;
 }
 
