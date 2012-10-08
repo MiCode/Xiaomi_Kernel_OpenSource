@@ -39,8 +39,10 @@
 
 #define QPNP_PON_RESIN_PULL_UP		BIT(0)
 #define QPNP_PON_KPDPWR_PULL_UP		BIT(1)
+#define QPNP_PON_CBLPWR_PULL_UP		BIT(2)
 #define QPNP_PON_S2_CNTL_EN		BIT(7)
 #define QPNP_PON_S2_RESET_ENABLE	BIT(7)
+#define QPNP_PON_DELAY_BIT_SHIFT	6
 
 #define QPNP_PON_S1_TIMER_MASK		(0xF)
 #define QPNP_PON_S2_TIMER_MASK		(0x7)
@@ -49,6 +51,7 @@
 #define QPNP_PON_DBC_DELAY_MASK		(0x7)
 #define QPNP_PON_KPDPWR_N_SET		BIT(0)
 #define QPNP_PON_RESIN_N_SET		BIT(1)
+#define QPNP_PON_CBLPWR_N_SET		BIT(2)
 #define QPNP_PON_RESIN_BARK_N_SET	BIT(4)
 
 #define QPNP_PON_RESET_EN		BIT(7)
@@ -66,6 +69,7 @@
 enum pon_type {
 	PON_KPDPWR,
 	PON_RESIN,
+	PON_CBLPWR,
 };
 
 struct qpnp_pon_config {
@@ -214,6 +218,9 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	case PON_RESIN:
 		pon_rt_bit = QPNP_PON_RESIN_N_SET;
 		break;
+	case PON_CBLPWR:
+		pon_rt_bit = QPNP_PON_CBLPWR_N_SET;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -250,6 +257,18 @@ static irqreturn_t qpnp_resin_irq(int irq, void *_pon)
 	rc = qpnp_pon_input_dispatch(pon, PON_RESIN);
 	if (rc)
 		dev_err(&pon->spmi->dev, "Unable to send input event\n");
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t qpnp_cblpwr_irq(int irq, void *_pon)
+{
+	int rc;
+	struct qpnp_pon *pon = _pon;
+
+	rc = qpnp_pon_input_dispatch(pon, PON_CBLPWR);
+	if (rc)
+		dev_err(&pon->spmi->dev, "Unable to send input event\n");
+
 	return IRQ_HANDLED;
 }
 
@@ -350,6 +369,9 @@ qpnp_config_pull(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 		break;
 	case PON_RESIN:
 		pull_bit = QPNP_PON_RESIN_PULL_UP;
+		break;
+	case PON_CBLPWR:
+		pull_bit = QPNP_PON_CBLPWR_PULL_UP;
 		break;
 	default:
 		return -EINVAL;
@@ -489,6 +511,17 @@ qpnp_pon_request_irqs(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 			}
 		}
 		break;
+	case PON_CBLPWR:
+		rc = devm_request_irq(&pon->spmi->dev, cfg->state_irq,
+							qpnp_cblpwr_irq,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+					"qpnp_cblpwr_status", pon);
+		if (rc < 0) {
+			dev_err(&pon->spmi->dev, "Can't request %d IRQ\n",
+							cfg->state_irq);
+			return rc;
+		}
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -593,6 +626,15 @@ static int __devinit qpnp_pon_config_init(struct qpnp_pon *pon)
 					"Unable to get resin-bark irq\n");
 					return cfg->bark_irq;
 				}
+			}
+			break;
+		case PON_CBLPWR:
+			cfg->state_irq = spmi_get_irq_byname(pon->spmi,
+							NULL, "cblpwr");
+			if (cfg->state_irq < 0) {
+				dev_err(&pon->spmi->dev,
+						"Unable to get cblpwr irq\n");
+				return rc;
 			}
 			break;
 		default:
@@ -763,11 +805,13 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 
 	rc = of_property_read_u32(pon->spmi->dev.of_node,
 				"qcom,pon-dbc-delay", &delay);
-	if (rc && rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read debounce delay\n");
-		return rc;
+	if (rc) {
+		if (rc != -EINVAL) {
+			dev_err(&spmi->dev, "Unable to read debounce delay\n");
+			return rc;
+		}
 	} else {
-		delay = (delay << 6) / USEC_PER_SEC;
+		delay = (delay << QPNP_PON_DELAY_BIT_SHIFT) / USEC_PER_SEC;
 		delay = ilog2(delay);
 		rc = qpnp_pon_masked_write(pon, QPNP_PON_DBC_CTL(pon->base),
 						QPNP_PON_DBC_DELAY_MASK, delay);
