@@ -383,6 +383,14 @@ void __init apq8064_init_mmc(void)
 				apq8064_sdc3_pdata->pin_data->pad_data->\
 					drv->on[i].val = GPIO_CFG_10MA;
 		}
+		if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv()) {
+			apq8064_sdc3_pdata->pin_data->pad_data->\
+				drv->on[0].val = GPIO_CFG_16MA;
+			apq8064_sdc3_pdata->pin_data->pad_data->\
+				drv->on[1].val = GPIO_CFG_10MA;
+			apq8064_sdc3_pdata->pin_data->pad_data->\
+				drv->on[2].val = GPIO_CFG_10MA;
+		}
 		apq8064_add_sdcc(3, apq8064_sdc3_pdata);
 	}
 
