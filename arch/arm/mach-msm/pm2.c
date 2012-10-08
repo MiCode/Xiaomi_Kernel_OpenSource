@@ -487,7 +487,7 @@ static void configure_top_csr(void)
 	void __iomem *base_ptr;
 	unsigned int value = 0;
 
-	base_ptr = core1_reset_base();
+	base_ptr = core_reset_base(1);
 	if (!base_ptr)
 		return;
 
