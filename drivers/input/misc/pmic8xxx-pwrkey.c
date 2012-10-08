@@ -104,27 +104,81 @@ static int pmic8xxx_pwrkey_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(pm8xxx_pwr_key_pm_ops,
 		pmic8xxx_pwrkey_suspend, pmic8xxx_pwrkey_resume);
 
+static int pmic8xxx_set_pon1(struct device *dev, u32 debounce_us, bool pull_up)
+{
+	int err;
+	u32 delay;
+	u8 pon_cntl;
+
+	/* Valid range of pwr key trigger delay is 1/64 sec to 2 seconds. */
+	if (debounce_us > USEC_PER_SEC * 2 ||
+		debounce_us < USEC_PER_SEC / 64) {
+		dev_err(dev, "invalid power key trigger delay\n");
+		return -EINVAL;
+	}
+
+	delay = (debounce_us << 6) / USEC_PER_SEC;
+	delay = ilog2(delay);
+
+	err = pm8xxx_readb(dev->parent, PON_CNTL_1, &pon_cntl);
+	if (err < 0) {
+		dev_err(dev, "failed reading PON_CNTL_1 err=%d\n", err);
+		return err;
+	}
+
+	pon_cntl &= ~PON_CNTL_TRIG_DELAY_MASK;
+	pon_cntl |= (delay & PON_CNTL_TRIG_DELAY_MASK);
+
+	if (pull_up)
+		pon_cntl |= PON_CNTL_PULL_UP;
+	else
+		pon_cntl &= ~PON_CNTL_PULL_UP;
+
+	err = pm8xxx_writeb(dev->parent, PON_CNTL_1, pon_cntl);
+	if (err < 0) {
+		dev_err(dev, "failed writing PON_CNTL_1 err=%d\n", err);
+		return err;
+	}
+
+	return 0;
+}
+
+static ssize_t pmic8xxx_debounce_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t size)
+{
+	struct pmic8xxx_pwrkey *pwrkey = dev_get_drvdata(dev);
+	int err;
+	unsigned long val;
+
+	if (size > 8)
+		return -EINVAL;
+
+	err = kstrtoul(buf, 10, &val);
+	if (err < 0)
+		return err;
+
+	err = pmic8xxx_set_pon1(dev, val, pwrkey->pdata->pull_up);
+	if (err < 0)
+		return err;
+
+	return size;
+}
+
+static DEVICE_ATTR(debounce_us, 0664, NULL, pmic8xxx_debounce_store);
+
 static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 {
 	struct input_dev *pwr;
 	int key_release_irq = platform_get_irq(pdev, 0);
 	int key_press_irq = platform_get_irq(pdev, 1);
 	int err;
-	unsigned int delay;
-	u8 pon_cntl;
 	struct pmic8xxx_pwrkey *pwrkey;
 	const struct pm8xxx_pwrkey_platform_data *pdata =
 					dev_get_platdata(&pdev->dev);
 
 	if (!pdata) {
 		dev_err(&pdev->dev, "power key platform data not supplied\n");
-		return -EINVAL;
-	}
-
-	/* Valid range of pwr key trigger delay is 1/64 sec to 2 seconds. */
-	if (pdata->kpd_trigger_delay_us > USEC_PER_SEC * 2 ||
-		pdata->kpd_trigger_delay_us < USEC_PER_SEC / 64) {
-		dev_err(&pdev->dev, "invalid power key trigger delay\n");
 		return -EINVAL;
 	}
 
@@ -147,25 +201,10 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	pwr->phys = "pmic8xxx_pwrkey/input0";
 	pwr->dev.parent = &pdev->dev;
 
-	delay = (pdata->kpd_trigger_delay_us << 6) / USEC_PER_SEC;
-	delay = ilog2(delay);
-
-	err = pm8xxx_readb(pdev->dev.parent, PON_CNTL_1, &pon_cntl);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed reading PON_CNTL_1 err=%d\n", err);
-		goto free_input_dev;
-	}
-
-	pon_cntl &= ~PON_CNTL_TRIG_DELAY_MASK;
-	pon_cntl |= (delay & PON_CNTL_TRIG_DELAY_MASK);
-	if (pdata->pull_up)
-		pon_cntl |= PON_CNTL_PULL_UP;
-	else
-		pon_cntl &= ~PON_CNTL_PULL_UP;
-
-	err = pm8xxx_writeb(pdev->dev.parent, PON_CNTL_1, pon_cntl);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed writing PON_CNTL_1 err=%d\n", err);
+	err = pmic8xxx_set_pon1(&pdev->dev,
+			pdata->kpd_trigger_delay_us, pdata->pull_up);
+	if (err) {
+		dev_dbg(&pdev->dev, "Can't set PON CTRL1 register: %d\n", err);
 		goto free_input_dev;
 	}
 
@@ -211,12 +250,22 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		goto free_press_irq;
 	}
 
+	err = device_create_file(&pdev->dev, &dev_attr_debounce_us);
+	if (err < 0) {
+		dev_err(&pdev->dev,
+				"dev file creation for debounce failed: %d\n",
+				err);
+		goto free_rel_irq;
+	}
+
 	device_init_wakeup(&pdev->dev, pdata->wakeup);
 
 	return 0;
 
+free_rel_irq:
+	free_irq(key_release_irq, pwrkey);
 free_press_irq:
-	free_irq(key_press_irq, NULL);
+	free_irq(key_press_irq, pwrkey);
 unreg_input_dev:
 	platform_set_drvdata(pdev, NULL);
 	input_unregister_device(pwr);
@@ -236,6 +285,7 @@ static int __devexit pmic8xxx_pwrkey_remove(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 0);
 
+	device_remove_file(&pdev->dev, &dev_attr_debounce_us);
 	free_irq(key_press_irq, pwrkey);
 	free_irq(key_release_irq, pwrkey);
 	input_unregister_device(pwrkey->pwr);
