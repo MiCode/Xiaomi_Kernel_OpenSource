@@ -23,6 +23,7 @@
 #include <linux/spinlock.h>
 #include <linux/stringify.h>
 #include <linux/debugfs.h>
+#include <linux/msm_tsens.h>
 #include <asm/atomic.h>
 #include <asm/page.h>
 #include <mach/msm_dcvs.h>
@@ -97,13 +98,14 @@ struct dcvs_core {
 	/* track if kthread for change_freq is active */
 	int32_t change_freq_activated;
 	struct msm_dcvs_core_info *info;
+	int sensor;
 };
 
 static int msm_dcvs_debug;
 static int msm_dcvs_enabled = 1;
 module_param_named(enable, msm_dcvs_enabled, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
-static struct dentry *debugfs_base;
+static struct dentry		*debugfs_base;
 
 static struct dcvs_core core_list[CORES_MAX];
 static DEFINE_MUTEX(core_list_lock);
@@ -240,6 +242,27 @@ repeat:
 	return ret;
 }
 
+static int __msm_dcvs_report_temp(struct dcvs_core *core)
+{
+	struct msm_dcvs_core_info *info = core->info;
+	struct tsens_device tsens_dev;
+	int ret;
+	unsigned long temp = 0;
+
+	tsens_dev.sensor_num = core->sensor;
+	ret = tsens_get_temp(&tsens_dev, &temp);
+	if (!ret) {
+		tsens_dev.sensor_num = 0;
+		ret = tsens_get_temp(&tsens_dev, &temp);
+		if (!ret)
+			return -ENODEV;
+	}
+
+	ret = msm_dcvs_scm_set_power_params(core->handle, &info->power_param,
+			&info->freq_tbl[0], &core->coeffs);
+	return ret;
+}
+
 static int msm_dcvs_do_freq(void *data)
 {
 	struct dcvs_core *core = (struct dcvs_core *)data;
@@ -251,6 +274,7 @@ static int msm_dcvs_do_freq(void *data)
 	while (!kthread_should_stop()) {
 		mutex_lock(&core->lock);
 		__msm_dcvs_change_freq(core);
+		__msm_dcvs_report_temp(core);
 		mutex_unlock(&core->lock);
 
 		schedule();
@@ -571,7 +595,7 @@ static struct dcvs_core *msm_dcvs_get_core(const char *name, int add_to_list)
 }
 
 int msm_dcvs_register_core(const char *core_name,
-		struct msm_dcvs_core_info *info)
+		struct msm_dcvs_core_info *info, int sensor)
 {
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
@@ -594,7 +618,10 @@ int msm_dcvs_register_core(const char *core_name,
 	memcpy(&core->coeffs, &info->energy_coeffs,
 			sizeof(struct msm_dcvs_energy_curve_coeffs));
 
-	ret = msm_dcvs_scm_register_core(core->handle, &info->core_param);
+	pr_debug("registering core with sensor %d\n", sensor);
+	core->sensor = sensor;
+	ret = msm_dcvs_scm_register_core(core->handle,
+			&info->core_param);
 	if (ret)
 		goto bail;
 

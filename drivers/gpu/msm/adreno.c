@@ -896,6 +896,19 @@ static struct msm_dcvs_core_info *adreno_of_get_dcvs(struct device_node *parent)
 			info->freq_tbl[index].leakage_energy_offset = 0;
 	}
 
+	if (adreno_of_read_property(node, "qcom,num-cores", &info->num_cores))
+		goto err;
+
+	info->sensors = kzalloc(info->num_cores *
+			sizeof(int),
+			GFP_KERNEL);
+
+	for (count = 0; count < info->num_cores; count++) {
+		if (adreno_of_read_property(node, "qcom,sensors",
+			&(info->sensors[count])))
+			goto err;
+	}
+
 	if (adreno_of_read_property(node, "qcom,core-core-type",
 		&info->core_param.core_type))
 		goto err;
