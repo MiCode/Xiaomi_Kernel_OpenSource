@@ -853,13 +853,6 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 	dev_priv->device = device;
 	filep->private_data = dev_priv;
 
-	/* Get file (per process) private struct */
-	dev_priv->process_priv = kgsl_get_process_private(dev_priv);
-	if (dev_priv->process_priv ==  NULL) {
-		result = -ENOMEM;
-		goto err_freedevpriv;
-	}
-
 	mutex_lock(&device->mutex);
 	kgsl_check_suspended(device);
 
@@ -871,12 +864,23 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 
 		if (result) {
 			mutex_unlock(&device->mutex);
-			goto err_putprocess;
+			goto err_freedevpriv;
 		}
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 	}
 	device->open_count++;
 	mutex_unlock(&device->mutex);
+
+	/*
+	 * Get file (per process) private struct. This must be done
+	 * after the first start so that the global pagetable mappings
+	 * are set up before we create the per-process pagetable.
+	 */
+	dev_priv->process_priv = kgsl_get_process_private(dev_priv);
+	if (dev_priv->process_priv ==  NULL) {
+		result = -ENOMEM;
+		goto err_stop;
+	}
 
 	KGSL_DRV_INFO(device, "Initialized %s: mmu=%s pagetable_count=%d\n",
 		device->name, kgsl_mmu_enabled() ? "on" : "off",
@@ -884,8 +888,14 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 
 	return result;
 
-err_putprocess:
-	kgsl_put_process_private(device, dev_priv->process_priv);
+err_stop:
+	mutex_lock(&device->mutex);
+	device->open_count--;
+	if (device->open_count == 0) {
+		result = device->ftbl->stop(device);
+		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
+	}
+	mutex_unlock(&device->mutex);
 err_freedevpriv:
 	filep->private_data = NULL;
 	kfree(dev_priv);
