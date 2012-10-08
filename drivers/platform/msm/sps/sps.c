@@ -1828,19 +1828,6 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 	if (virt_addr != NULL)
 		bam->props.virt_addr = virt_addr;
 
-	if ((bam_props->manage & SPS_BAM_MGR_DEVICE_REMOTE) != 0 &&
-	    (bam_props->manage & SPS_BAM_MGR_MULTI_EE) != 0 &&
-	    bam_props->ee == 0) {
-		/*
-		 * BAM global is owned by a remote processor, so force EE index
-		 * to a non-zero value to insure EE zero globals are not
-		 * modified.
-		 */
-		SPS_DBG2("sps:Setting EE for BAM %x to non-zero",
-				  bam_props->phys_addr);
-		bam->props.ee = 1;
-	}
-
 	ok = sps_bam_device_init(bam);
 	mutex_unlock(&bam->lock);
 	if (ok) {
