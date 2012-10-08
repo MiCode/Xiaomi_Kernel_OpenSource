@@ -22,6 +22,18 @@
 #include "pm.h"
 #include "rpm-notifier.h"
 
+
+enum {
+	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
+	MSM_LPM_LVL_DBG_IDLE_LIMITS = BIT(1),
+};
+
+static int msm_lpm_lvl_dbg_msk;
+
+module_param_named(
+	debug_mask, msm_lpm_lvl_dbg_msk, int, S_IRUGO | S_IWUSR | S_IWGRP
+);
+
 static struct msm_rpmrs_level *msm_lpm_levels;
 static int msm_lpm_level_count;
 
@@ -41,6 +53,7 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 		bool from_idle, bool notify_rpm)
 {
 	int ret = 0;
+	int debug_mask;
 	struct msm_rpmrs_limits *l = (struct msm_rpmrs_limits *)limits;
 
 	ret = msm_rpm_enter_sleep();
@@ -49,6 +62,21 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 				__func__, ret);
 		goto bail;
 	}
+	if (from_idle)
+		debug_mask = msm_lpm_lvl_dbg_msk &
+				MSM_LPM_LVL_DBG_IDLE_LIMITS;
+	else
+		debug_mask = msm_lpm_lvl_dbg_msk &
+				MSM_LPM_LVL_DBG_SUSPEND_LIMITS;
+
+	if (debug_mask)
+		pr_info("%s(): pxo:%d l2:%d mem:0x%x(0x%x) dig:0x%x(0x%x)\n",
+				__func__, l->pxo, l->l2_cache,
+				l->vdd_mem_lower_bound,
+				l->vdd_mem_upper_bound,
+				l->vdd_dig_lower_bound,
+				l->vdd_dig_upper_bound);
+
 	ret = msm_lpmrs_enter_sleep(sclk_count, l, from_idle, notify_rpm);
 bail:
 	return ret;
