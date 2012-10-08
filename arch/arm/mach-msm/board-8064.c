@@ -2718,6 +2718,11 @@ static struct platform_device rc_input_loopback_pdev = {
 	.id	= -1,
 };
 
+static struct platform_device sp_input_loopback_pdev = {
+	.name	= "sp-user-input",
+	.id	= -1,
+};
+
 static int rf4ce_gpio_init(void)
 {
 	if (!machine_is_mpq8064_cdp() &&
@@ -2799,6 +2804,7 @@ static struct platform_device *mpq_devices[] __initdata = {
 #endif
 	&rc_input_loopback_pdev,
 	&mpq8064_device_qup_spi_gsbi6,
+	&sp_input_loopback_pdev,
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {

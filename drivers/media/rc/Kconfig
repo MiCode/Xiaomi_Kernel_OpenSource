@@ -44,6 +44,17 @@ config USER_RC_INPUT
 	   To compile this driver as a module, choose M here: the module will
 	   be called user-rc-input.
 
+config USER_SP_RC_INPUT
+	tristate "User Space Input device wrapper for Standby Processor Remote Control"
+	depends on RC_CORE
+
+	---help---
+	   Say Y if you want to report remote control input events
+	   from userspace.
+
+	   To compile this driver as a module, choose M here: the module will
+	   be called user-sp-input.
+
 config IR_NEC_DECODER
 	tristate "Enable IR raw decoder for the NEC protocol"
 	depends on RC_CORE

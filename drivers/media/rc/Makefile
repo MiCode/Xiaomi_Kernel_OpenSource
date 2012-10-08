@@ -14,6 +14,7 @@ obj-$(CONFIG_IR_SANYO_DECODER) += ir-sanyo-decoder.o
 obj-$(CONFIG_IR_MCE_KBD_DECODER) += ir-mce_kbd-decoder.o
 obj-$(CONFIG_IR_LIRC_CODEC) += ir-lirc-codec.o
 obj-$(CONFIG_USER_RC_INPUT) += user-rc-input.o
+obj-$(CONFIG_USER_SP_RC_INPUT) += user-sp-rc-input.o
 
 # stand-alone IR receivers/transmitters
 obj-$(CONFIG_RC_ATI_REMOTE) += ati_remote.o
