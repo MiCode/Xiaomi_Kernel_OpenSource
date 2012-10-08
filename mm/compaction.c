@@ -812,11 +812,7 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 	int rc = COMPACT_SKIPPED;
 	int alloc_flags = 0;
 
-	/*
-	 * Check whether it is worth even starting compaction. The order check is
-	 * made because an assumption is made that the page allocator can satisfy
-	 * the "cheaper" orders without taking special steps
-	 */
+	/* Check if the GFP flags allow compaction */
 	if (!order || !may_enter_fs || !may_perform_io)
 		return rc;
 
