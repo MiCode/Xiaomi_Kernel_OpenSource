@@ -2332,12 +2332,6 @@ static irqreturn_t pm8921_bms_good_ocv_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t pm8921_bms_vsense_avg_handler(int irq, void *data)
-{
-	pr_debug("irq = %d triggered", irq);
-	return IRQ_HANDLED;
-}
-
 struct pm_bms_irq_init_data {
 	unsigned int	irq_id;
 	char		*name;
@@ -2366,8 +2360,6 @@ struct pm_bms_irq_init_data bms_irq_data[] = {
 				pm8921_bms_ocv_for_r_handler),
 	BMS_IRQ(PM8921_BMS_GOOD_OCV, IRQF_TRIGGER_RISING,
 				pm8921_bms_good_ocv_handler),
-	BMS_IRQ(PM8921_BMS_VSENSE_AVG, IRQF_TRIGGER_RISING,
-				pm8921_bms_vsense_avg_handler),
 };
 
 static void free_irqs(struct pm8921_bms_chip *chip)
