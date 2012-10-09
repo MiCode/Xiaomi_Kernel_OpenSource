@@ -36,11 +36,13 @@ static char core_name[NR_CPUS][10];
 static void msm_gov_check_limits(struct cpufreq_policy *policy)
 {
 	struct msm_gov *gov = &per_cpu(msm_gov_info, policy->cpu);
+	struct msm_dcvs_freq *dcvs_notifier =
+			&(per_cpu(msm_gov_info, policy->cpu).gov_notifier);
 
 	if (policy->max < gov->cur_freq)
 		__cpufreq_driver_target(policy, policy->max,
 				CPUFREQ_RELATION_H);
-	else if (policy->min > gov->min_freq)
+	else if (policy->min > gov->cur_freq)
 		__cpufreq_driver_target(policy, policy->min,
 				CPUFREQ_RELATION_L);
 	else
@@ -50,6 +52,7 @@ static void msm_gov_check_limits(struct cpufreq_policy *policy)
 	gov->cur_freq = policy->cur;
 	gov->min_freq = policy->min;
 	gov->max_freq = policy->max;
+	msm_dcvs_update_limits(dcvs_notifier);
 }
 
 static int msm_dcvs_freq_set(struct msm_dcvs_freq *self,
@@ -91,7 +94,7 @@ static unsigned int msm_dcvs_freq_get(struct msm_dcvs_freq *self)
 	 * The policy->cur won't be updated in this case - so it is safe to
 	 * access policy->cur
 	 */
-	return gov->cur_freq;
+	return gov->policy->cur;
 }
 
 static int cpufreq_governor_msm(struct cpufreq_policy *policy,
