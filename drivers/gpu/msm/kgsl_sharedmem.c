@@ -919,3 +919,42 @@ kgsl_sharedmem_map_vma(struct vm_area_struct *vma,
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_map_vma);
+
+static const char * const memtype_str[] = {
+	[KGSL_MEMTYPE_OBJECTANY] = "any(0)",
+	[KGSL_MEMTYPE_FRAMEBUFFER] = "framebuffer",
+	[KGSL_MEMTYPE_RENDERBUFFER] = "renderbuffer",
+	[KGSL_MEMTYPE_ARRAYBUFFER] = "arraybuffer",
+	[KGSL_MEMTYPE_ELEMENTARRAYBUFFER] = "elementarraybuffer",
+	[KGSL_MEMTYPE_VERTEXARRAYBUFFER] = "vertexarraybuffer",
+	[KGSL_MEMTYPE_TEXTURE] = "texture",
+	[KGSL_MEMTYPE_SURFACE] = "surface",
+	[KGSL_MEMTYPE_EGL_SURFACE] = "egl_surface",
+	[KGSL_MEMTYPE_GL] = "gl",
+	[KGSL_MEMTYPE_CL] = "cl",
+	[KGSL_MEMTYPE_CL_BUFFER_MAP] = "cl_buffer_map",
+	[KGSL_MEMTYPE_CL_BUFFER_NOMAP] = "cl_buffer_nomap",
+	[KGSL_MEMTYPE_CL_IMAGE_MAP] = "cl_image_map",
+	[KGSL_MEMTYPE_CL_IMAGE_NOMAP] = "cl_image_nomap",
+	[KGSL_MEMTYPE_CL_KERNEL_STACK] = "cl_kernel_stack",
+	[KGSL_MEMTYPE_COMMAND] = "command",
+	[KGSL_MEMTYPE_2D] = "2d",
+	[KGSL_MEMTYPE_EGL_IMAGE] = "egl_image",
+	[KGSL_MEMTYPE_EGL_SHADOW] = "egl_shadow",
+	[KGSL_MEMTYPE_MULTISAMPLE] = "egl_multisample",
+	/* KGSL_MEMTYPE_KERNEL handled below, to avoid huge array */
+};
+
+void kgsl_get_memory_usage(char *name, size_t name_size, unsigned int memflags)
+{
+	unsigned char type;
+
+	type = (memflags & KGSL_MEMTYPE_MASK) >> KGSL_MEMTYPE_SHIFT;
+	if (type == KGSL_MEMTYPE_KERNEL)
+		strlcpy(name, "kernel", name_size);
+	else if (type < ARRAY_SIZE(memtype_str) && memtype_str[type] != NULL)
+		strlcpy(name, memtype_str[type], name_size);
+	else
+		snprintf(name, name_size, "unknown(%3d)", type);
+}
+EXPORT_SYMBOL(kgsl_get_memory_usage);
