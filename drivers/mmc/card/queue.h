@@ -12,6 +12,17 @@ struct mmc_blk_request {
 	struct mmc_data		data;
 };
 
+enum mmc_blk_status {
+	MMC_BLK_SUCCESS = 0,
+	MMC_BLK_PARTIAL,
+	MMC_BLK_CMD_ERR,
+	MMC_BLK_RETRY,
+	MMC_BLK_ABORT,
+	MMC_BLK_DATA_ERR,
+	MMC_BLK_ECC_ERR,
+	MMC_BLK_NOMEDIUM,
+};
+
 enum mmc_packed_cmd {
 	MMC_PACKED_NONE = 0,
 	MMC_PACKED_WRITE,
@@ -48,6 +59,8 @@ struct mmc_queue {
 	bool			wr_packing_enabled;
 	int			num_of_potential_packed_wr_reqs;
 	int			num_wr_reqs_to_start_packing;
+	int (*err_check_fn) (struct mmc_card *, struct mmc_async_req *);
+	void (*packed_test_fn) (struct request_queue *, struct mmc_queue_req *);
 };
 
 extern int mmc_init_queue(struct mmc_queue *, struct mmc_card *, spinlock_t *,
@@ -60,5 +73,7 @@ extern unsigned int mmc_queue_map_sg(struct mmc_queue *,
 				     struct mmc_queue_req *);
 extern void mmc_queue_bounce_pre(struct mmc_queue_req *);
 extern void mmc_queue_bounce_post(struct mmc_queue_req *);
+
+extern void print_mmc_packing_stats(struct mmc_card *card);
 
 #endif
