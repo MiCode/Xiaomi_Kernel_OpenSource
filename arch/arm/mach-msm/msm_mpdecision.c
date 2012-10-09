@@ -37,6 +37,8 @@
 #include <asm/page.h>
 #include <mach/msm_dcvs.h>
 #include <mach/msm_dcvs_scm.h>
+#define CREATE_TRACE_POINTS
+#include <trace/events/mpdcvs_trace.h>
 
 #define DEFAULT_RQ_AVG_POLL_MS    (1)
 
@@ -168,6 +170,8 @@ static enum hrtimer_restart msm_mpd_rq_avg_poll_timer(struct hrtimer *timer)
 	if (nr > num_present_hundreds)
 		nr = num_present_hundreds;
 
+	trace_msm_mp_runq("nr_running", nr);
+
 	if (ok_to_update_tz(nr, last_nr)) {
 		hrtimer_try_to_cancel(&msm_mpd.slack_timer);
 		msm_mpd.data.nr = nr;
@@ -263,6 +267,8 @@ static int __ref msm_mpd_update_scm(enum msm_dcvs_scm_event event, int nr)
 		return ret;
 	}
 
+	trace_msm_mp_cpusonline("cpu_online_mp", req_cpu_mask);
+	trace_msm_mp_slacktime("slack_time_mp", slack_us);
 	msm_mpd.slack_us = slack_us;
 	atomic_set(&msm_mpd.algo_cpu_mask, req_cpu_mask);
 	msm_mpd.hpupdate = HPUPDATE_SCHEDULED;
@@ -285,6 +291,8 @@ static int __ref msm_mpd_update_scm(enum msm_dcvs_scm_event event, int nr)
 static enum hrtimer_restart msm_mpd_slack_timer(struct hrtimer *timer)
 {
 	unsigned long flags;
+
+	trace_printk("mpd:slack_timer_fired!\n");
 
 	spin_lock_irqsave(&rq_avg_lock, flags);
 	if (msm_mpd.data.event == MSM_DCVS_SCM_RUNQ_UPDATE)
