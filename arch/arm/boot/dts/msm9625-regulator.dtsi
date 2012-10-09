@@ -184,6 +184,7 @@
 			regulator-max-microvolt = <7>;
 			qcom,use-voltage-corner;
 			status = "okay";
+			qcom,consumer-supplies = "vdd_dig", "";
 		};
 		pm8019_l10_corner_ao: regulator-l10-corner-ao {
 			compatible = "qcom,rpm-regulator-smd";
