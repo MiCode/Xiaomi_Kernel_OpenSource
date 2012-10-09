@@ -2753,6 +2753,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_rpm_device,
 	&msm8960_rpm_log_device,
 	&msm8960_rpm_stat_device,
+	&msm8960_rpm_master_stat_device,
 	&msm_device_tz_log,
 	&coresight_tpiu_device,
 	&coresight_etb_device,
