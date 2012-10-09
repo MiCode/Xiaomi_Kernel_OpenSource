@@ -1693,7 +1693,7 @@ int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 	enc_cfg.bits_per_sample = 16;
 	enc_cfg.sample_rate = rate;
 	enc_cfg.is_signed = 1;
-	channel_mapping = enc_cfg.channel_mapping;  /* ??? PHANI */
+	channel_mapping = enc_cfg.channel_mapping;
 
 	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 
@@ -1743,7 +1743,8 @@ int q6asm_enc_cfg_blk_pcm_native(struct audio_client *ac,
 	enc_cfg.bits_per_sample = 16;
 	enc_cfg.sample_rate = 0;/*rate;*/
 	enc_cfg.is_signed = 1;
-	channel_mapping = enc_cfg.channel_mapping;  /* ??? PHANI */
+	channel_mapping = enc_cfg.channel_mapping;
+
 
 	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 
@@ -1778,27 +1779,36 @@ static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels)
 		lchannel_mapping[0] = PCM_CHANNEL_FL;
 		lchannel_mapping[1] = PCM_CHANNEL_FR;
 	} else if (channels == 3) {
-		lchannel_mapping[0] = PCM_CHANNEL_FC;
-		lchannel_mapping[1] = PCM_CHANNEL_FL;
-		lchannel_mapping[2] = PCM_CHANNEL_FR;
+		lchannel_mapping[0] = PCM_CHANNEL_FL;
+		lchannel_mapping[1] = PCM_CHANNEL_FR;
+		lchannel_mapping[2] = PCM_CHANNEL_FC;
 	} else if (channels == 4) {
-		lchannel_mapping[0] = PCM_CHANNEL_FC;
-		lchannel_mapping[1] = PCM_CHANNEL_FL;
-		lchannel_mapping[2] = PCM_CHANNEL_FR;
+		lchannel_mapping[0] = PCM_CHANNEL_FL;
+		lchannel_mapping[1] = PCM_CHANNEL_FR;
+		lchannel_mapping[2] = PCM_CHANNEL_RB;
 		lchannel_mapping[3] = PCM_CHANNEL_LB;
 	} else if (channels == 5) {
-		lchannel_mapping[0] = PCM_CHANNEL_FC;
-		lchannel_mapping[1] = PCM_CHANNEL_FL;
-		lchannel_mapping[2] = PCM_CHANNEL_FR;
+		lchannel_mapping[0] = PCM_CHANNEL_FL;
+		lchannel_mapping[1] = PCM_CHANNEL_FR;
+		lchannel_mapping[2] = PCM_CHANNEL_FC;
 		lchannel_mapping[3] = PCM_CHANNEL_LB;
 		lchannel_mapping[4] = PCM_CHANNEL_RB;
 	} else if (channels == 6) {
-		lchannel_mapping[0] = PCM_CHANNEL_FC;
-		lchannel_mapping[1] = PCM_CHANNEL_FL;
-		lchannel_mapping[2] = PCM_CHANNEL_FR;
-		lchannel_mapping[3] = PCM_CHANNEL_LB;
-		lchannel_mapping[4] = PCM_CHANNEL_RB;
-		lchannel_mapping[5] = PCM_CHANNEL_LFE;
+		lchannel_mapping[0] = PCM_CHANNEL_FL;
+		lchannel_mapping[1] = PCM_CHANNEL_FR;
+		lchannel_mapping[2] = PCM_CHANNEL_LFE;
+		lchannel_mapping[3] = PCM_CHANNEL_FC;
+		lchannel_mapping[4] = PCM_CHANNEL_LB;
+		lchannel_mapping[5] = PCM_CHANNEL_RB;
+	} else if (channels == 6) {
+		lchannel_mapping[0] = PCM_CHANNEL_FL;
+		lchannel_mapping[1] = PCM_CHANNEL_FR;
+		lchannel_mapping[2] = PCM_CHANNEL_LFE;
+		lchannel_mapping[3] = PCM_CHANNEL_FC;
+		lchannel_mapping[4] = PCM_CHANNEL_LB;
+		lchannel_mapping[5] = PCM_CHANNEL_RB;
+		lchannel_mapping[6] = PCM_CHANNEL_FLC;
+		lchannel_mapping[7] = PCM_CHANNEL_FRC;
 	} else {
 		pr_err("%s: ERROR.unsupported num_ch = %u\n",
 		 __func__, channels);
