@@ -19,6 +19,10 @@
 #define CORES_MAX (10)
 
 #define CPU_OFFSET	1  /* used to notify TZ the core number */
+#define GPU_OFFSET (CORES_MAX * 2/3)  /* there will be more cpus than gpus,
+				     * let the GPU be assigned fewer core
+				     * elements and start later
+				     */
 
 enum msm_core_idle_state {
 	MSM_DCVS_IDLE_ENTER,
@@ -32,56 +36,14 @@ enum msm_core_control_event {
 	MSM_DCVS_DISABLE_HIGH_LATENCY_MODES,
 };
 
-/**
- * struct msm_dcvs_idle
- *
- * API for idle code to register and send idle enter/exit
- * notifications to msm_dcvs driver.
- */
-struct msm_dcvs_idle {
-	const char *core_name;
-};
-
 struct msm_gov_platform_data {
 	struct msm_dcvs_core_info *info;
 	int latency;
 };
 
 /**
- * struct msm_dcvs_freq
- *
- * API for clock driver code to register and receive frequency change
- * request for the core from the msm_dcvs driver.
- */
-struct msm_dcvs_freq {
-	const char *core_name;
-	/* Callback from msm_dcvs to set the core frequency */
-};
-
-/**
- * msm_dcvs_idle_source_register
- * @drv: Pointer to the source driver
- * @return: Handle to be used for sending idle state notifications.
- *
- * Register the idle driver with the msm_dcvs driver to send idle
- * state notifications for the core.
- */
-extern int msm_dcvs_idle_source_register(struct msm_dcvs_idle *drv);
-
-/**
- * msm_dcvs_idle_source_unregister
- * @drv: Pointer to the source driver
- * @return:
- *	0 on success
- *	-EINVAL
- *
- * Description: Unregister the idle driver with the msm_dcvs driver
- */
-extern int msm_dcvs_idle_source_unregister(struct msm_dcvs_idle *drv);
-
-/**
  * msm_dcvs_idle
- * @handle: Handle provided back at registration
+ * @dcvs_core_id: The id returned by msm_dcvs_register_core
  * @state: The enter/exit idle state the core is in
  * @iowaited: iowait in us
  * on iMSM_DCVS_IDLE_EXIT.
@@ -93,7 +55,7 @@ extern int msm_dcvs_idle_source_unregister(struct msm_dcvs_idle *drv);
  *
  * Send idle state notifications to the msm_dcvs driver
  */
-int msm_dcvs_idle(int handle, enum msm_core_idle_state state,
+int msm_dcvs_idle(int dcvs_core_id, enum msm_core_idle_state state,
 		uint32_t iowaited);
 
 /**
@@ -114,7 +76,8 @@ struct msm_dcvs_core_info {
 
 /**
  * msm_dcvs_register_core
- * @core_name: Unique name identifier for the core.
+ * @type: whether this is a CPU or a GPU
+ * @type_core_num: The number of the core for a type
  * @info: The core specific algorithm parameters.
  * @sensor: The thermal sensor number of the core in question
  * @return :
@@ -127,12 +90,13 @@ struct msm_dcvs_core_info {
  * Cores that need to run synchronously must share the same group id.
  */
 extern int msm_dcvs_register_core(
-	const char *core_name,
+	enum msm_dcvs_core_type type,
+	int type_core_num,
 	struct msm_dcvs_core_info *info,
-	int (*set_frequency)(struct msm_dcvs_freq *self, unsigned int freq),
-	unsigned int (*get_frequency)(struct msm_dcvs_freq *self),
-	int (*idle_enable)(struct msm_dcvs_idle *self,
-			enum msm_core_control_event event),
+	int (*set_frequency)(int type_core_num, unsigned int freq),
+	unsigned int (*get_frequency)(int type_core_num),
+	int (*idle_enable)(int type_core_num,
+				enum msm_core_control_event event),
 	int sensor);
 
 /**
@@ -143,7 +107,7 @@ extern int msm_dcvs_register_core(
  * Register the clock driver code with the msm_dvs driver to get notified about
  * frequency change requests.
  */
-extern int msm_dcvs_freq_sink_start(struct msm_dcvs_freq *drv);
+extern int msm_dcvs_freq_sink_start(int dcvs_core_id);
 
 /**
  * msm_dcvs_freq_sink_stop
@@ -155,7 +119,7 @@ extern int msm_dcvs_freq_sink_start(struct msm_dcvs_freq *drv);
  * Unregister the sink driver for the core. This will cause the source driver
  * for the core to stop sending idle pulses.
  */
-extern int msm_dcvs_freq_sink_stop(struct msm_dcvs_freq *drv);
+extern int msm_dcvs_freq_sink_stop(int dcvs_core_id);
 
 /**
  * msm_dcvs_update_limits
@@ -163,5 +127,5 @@ extern int msm_dcvs_freq_sink_stop(struct msm_dcvs_freq *drv);
  *
  * Update the frequency known to dcvs when the limits are changed.
  */
-extern void msm_dcvs_update_limits(struct msm_dcvs_freq *drv);
+extern void msm_dcvs_update_limits(int dcvs_core_id);
 #endif
