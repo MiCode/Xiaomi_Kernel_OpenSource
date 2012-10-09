@@ -30,6 +30,7 @@
 #include <mach/system.h>
 #include <mach/scm.h>
 #include <mach/socinfo.h>
+#include <mach/msm-krait-l2-accessors.h>
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
 #include <asm/pgtable.h>
@@ -413,10 +414,63 @@ void msm_pm_set_max_sleep_time(int64_t max_sleep_time_ns)
 }
 EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
 
+struct reg_data {
+	uint32_t reg;
+	uint32_t val;
+};
 
-/******************************************************************************
- *
- *****************************************************************************/
+static struct reg_data reg_saved_state[] = {
+	{ .reg = 0x4501, },
+	{ .reg = 0x5501, },
+	{ .reg = 0x6501, },
+	{ .reg = 0x7501, },
+	{ .reg = 0x0500, },
+};
+
+static unsigned int active_vdd;
+static bool msm_pm_save_cp15;
+static const unsigned int pc_vdd = 0x98;
+
+static void msm_pm_save_cpu_reg(void)
+{
+	int i;
+
+	/* Only on core0 */
+	if (smp_processor_id())
+		return;
+
+	/**
+	 * On some targets, L2 PC will turn off may reset the core
+	 * configuration for the mux and the default may not make the core
+	 * happy when it resumes.
+	 * Save the active vdd, and set the core vdd to QSB max vdd, so that
+	 * when the core resumes, it is capable of supporting the current QSB
+	 * rate. Then restore the active vdd before switching the acpuclk rate.
+	 */
+	if (msm_pm_get_l2_flush_flag() == 1) {
+		active_vdd = msm_spm_get_vdd(0);
+		for (i = 0; i < ARRAY_SIZE(reg_saved_state); i++)
+			reg_saved_state[i].val =
+				get_l2_indirect_reg(reg_saved_state[i].reg);
+		msm_spm_set_vdd(0, pc_vdd);
+	}
+}
+
+static void msm_pm_restore_cpu_reg(void)
+{
+	int i;
+
+	/* Only on core0 */
+	if (smp_processor_id())
+		return;
+
+	if (msm_pm_get_l2_flush_flag() == 1) {
+		for (i = 0; i < ARRAY_SIZE(reg_saved_state); i++)
+			set_l2_indirect_reg(reg_saved_state[i].reg,
+					reg_saved_state[i].val);
+		msm_spm_set_vdd(0, active_vdd);
+	}
+}
 
 static void *msm_pm_idle_rs_limits;
 static bool msm_pm_use_qtimer;
@@ -558,7 +612,13 @@ static bool msm_pm_power_collapse(bool from_idle)
 		pr_info("CPU%u: %s: change clock rate (old rate = %lu)\n",
 			cpu, __func__, saved_acpuclk_rate);
 
+	if (msm_pm_save_cp15)
+		msm_pm_save_cpu_reg();
+
 	collapsed = msm_pm_spm_power_collapse(cpu, from_idle, true);
+
+	if (msm_pm_save_cp15)
+		msm_pm_restore_cpu_reg();
 
 	if (cpu_online(cpu)) {
 		if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
@@ -593,9 +653,12 @@ static bool msm_pm_power_collapse(bool from_idle)
 	return collapsed;
 }
 
-static void msm_pm_qtimer_available(void)
+static void msm_pm_target_init(void)
 {
-	if (machine_is_msm8974())
+	if (cpu_is_apq8064())
+		msm_pm_save_cp15 = true;
+
+	if (cpu_is_msm8974())
 		msm_pm_use_qtimer = true;
 }
 
@@ -1087,7 +1150,7 @@ static int __init msm_pm_init(void)
 	msm_pm_add_stats(enable_stats, ARRAY_SIZE(enable_stats));
 
 	suspend_set_ops(&msm_pm_ops);
-	msm_pm_qtimer_available();
+	msm_pm_target_init();
 	hrtimer_init(&pm_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
 	msm_cpuidle_init();
 	platform_driver_register(&msm_pc_counter_driver);
