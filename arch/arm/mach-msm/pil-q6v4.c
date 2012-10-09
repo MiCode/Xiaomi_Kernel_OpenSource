@@ -22,7 +22,6 @@
 #include <linux/clk.h>
 
 #include <mach/msm_bus.h>
-#include <mach/msm_iomap.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v4.h"
@@ -34,12 +33,6 @@
 #define QDSP6SS_STRAP_AHB	0x20
 #define QDSP6SS_GFMUX_CTL	0x30
 #define QDSP6SS_PWR_CTL		0x38
-
-#define MSS_S_HCLK_CTL		(MSM_CLK_CTL_BASE + 0x2C70)
-#define MSS_SLP_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2C60)
-#define SFAB_MSS_M_ACLK_CTL	(MSM_CLK_CTL_BASE + 0x2340)
-#define SFAB_MSS_S_HCLK_CTL	(MSM_CLK_CTL_BASE + 0x2C00)
-#define MSS_RESET		(MSM_CLK_CTL_BASE + 0x2C64)
 
 #define Q6SS_SS_ARES		BIT(0)
 #define Q6SS_CORE_ARES		BIT(1)
@@ -59,29 +52,19 @@
 #define Q6SS_CLK_ENA		BIT(1)
 #define Q6SS_SRC_SWITCH_CLK_OVR	BIT(8)
 
-struct q6v4_data {
-	void __iomem *base;
-	void __iomem *modem_base;
-	unsigned long start_addr;
-	struct regulator *vreg;
-	struct regulator *pll_supply;
-	bool vreg_enabled;
-	struct clk *xo;
-	struct pil_device *pil;
-};
-
-static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
+int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
 		size_t size)
 {
 	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct q6v4_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v4_data *drv = pil_to_q6v4_data(pil);
 	drv->start_addr = ehdr->e_entry;
 	return 0;
 }
+EXPORT_SYMBOL(pil_q6v4_init_image);
 
-static int pil_q6v4_make_proxy_votes(struct pil_desc *pil)
+int pil_q6v4_make_proxy_votes(struct pil_desc *pil)
 {
-	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
+	const struct q6v4_data *drv = pil_to_q6v4_data(pil);
 	int ret;
 
 	ret = clk_prepare_enable(drv->xo);
@@ -102,19 +85,21 @@ err_regulator:
 err:
 	return ret;
 }
+EXPORT_SYMBOL(pil_q6v4_make_proxy_votes);
 
-static void pil_q6v4_remove_proxy_votes(struct pil_desc *pil)
+void pil_q6v4_remove_proxy_votes(struct pil_desc *pil)
 {
-	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
+	const struct q6v4_data *drv = pil_to_q6v4_data(pil);
 	if (drv->pll_supply)
 		regulator_disable(drv->pll_supply);
 	clk_disable_unprepare(drv->xo);
 }
+EXPORT_SYMBOL(pil_q6v4_remove_proxy_votes);
 
-static int pil_q6v4_power_up(struct device *dev)
+int pil_q6v4_power_up(struct q6v4_data *drv)
 {
 	int err;
-	struct q6v4_data *drv = dev_get_drvdata(dev);
+	struct device *dev = drv->desc.dev;
 
 	err = regulator_set_voltage(drv->vreg, 743750, 743750);
 	if (err) {
@@ -141,68 +126,27 @@ static int pil_q6v4_power_up(struct device *dev)
 	drv->vreg_enabled = true;
 	return 0;
 }
+EXPORT_SYMBOL(pil_q6v4_power_up);
 
-static DEFINE_MUTEX(pil_q6v4_modem_lock);
-static unsigned pil_q6v4_modem_count;
-
-/* Bring modem subsystem out of reset */
-static void pil_q6v4_init_modem(void __iomem *base, void __iomem *jtag_clk)
+void pil_q6v4_power_down(struct q6v4_data *drv)
 {
-	mutex_lock(&pil_q6v4_modem_lock);
-	if (!pil_q6v4_modem_count) {
-		/* Enable MSS clocks */
-		writel_relaxed(0x10, SFAB_MSS_M_ACLK_CTL);
-		writel_relaxed(0x10, SFAB_MSS_S_HCLK_CTL);
-		writel_relaxed(0x10, MSS_S_HCLK_CTL);
-		writel_relaxed(0x10, MSS_SLP_CLK_CTL);
-		/* Wait for clocks to enable */
-		mb();
-		udelay(10);
-
-		/* De-assert MSS reset */
-		writel_relaxed(0x0, MSS_RESET);
-		mb();
-		udelay(10);
-		/* Enable MSS */
-		writel_relaxed(0x7, base);
+	if (drv->vreg_enabled) {
+		regulator_disable(drv->vreg);
+		drv->vreg_enabled = false;
 	}
-
-	/* Enable JTAG clocks */
-	/* TODO: Remove if/when Q6 software enables them? */
-	writel_relaxed(0x10, jtag_clk);
-
-	pil_q6v4_modem_count++;
-	mutex_unlock(&pil_q6v4_modem_lock);
 }
+EXPORT_SYMBOL(pil_q6v4_power_down);
 
-/* Put modem subsystem back into reset */
-static void pil_q6v4_shutdown_modem(void)
-{
-	mutex_lock(&pil_q6v4_modem_lock);
-	if (pil_q6v4_modem_count)
-		pil_q6v4_modem_count--;
-	if (pil_q6v4_modem_count == 0)
-		writel_relaxed(0x1, MSS_RESET);
-	mutex_unlock(&pil_q6v4_modem_lock);
-}
-
-static int pil_q6v4_reset(struct pil_desc *pil)
+int pil_q6v4_boot(struct pil_desc *pil)
 {
 	u32 reg, err;
-	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
-	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
+	const struct q6v4_data *drv = pil_to_q6v4_data(pil);
 
-	err = pil_q6v4_power_up(pil->dev);
-	if (err)
-		return err;
 	/* Enable Q6 ACLK */
-	writel_relaxed(0x10, pdata->aclk_reg);
-
-	if (drv->modem_base)
-		pil_q6v4_init_modem(drv->modem_base, pdata->jtag_clk_reg);
+	writel_relaxed(0x10, drv->aclk_reg);
 
 	/* Unhalt bus port */
-	err = msm_bus_axi_portunhalt(pdata->bus_port);
+	err = msm_bus_axi_portunhalt(drv->bus_port);
 	if (err)
 		dev_err(pil->dev, "Failed to unhalt bus port\n");
 
@@ -216,8 +160,8 @@ static int pil_q6v4_reset(struct pil_desc *pil)
 			drv->base + QDSP6SS_RST_EVB);
 
 	/* Program TCM and AHB address ranges */
-	writel_relaxed(pdata->strap_tcm_base, drv->base + QDSP6SS_STRAP_TCM);
-	writel_relaxed(pdata->strap_ahb_upper | pdata->strap_ahb_lower,
+	writel_relaxed(drv->strap_tcm_base, drv->base + QDSP6SS_STRAP_TCM);
+	writel_relaxed(drv->strap_ahb_upper | drv->strap_ahb_lower,
 		       drv->base + QDSP6SS_STRAP_AHB);
 
 	/* Turn off Q6 core clock */
@@ -257,15 +201,15 @@ static int pil_q6v4_reset(struct pil_desc *pil)
 
 	return 0;
 }
+EXPORT_SYMBOL(pil_q6v4_boot);
 
-static int pil_q6v4_shutdown(struct pil_desc *pil)
+int pil_q6v4_shutdown(struct pil_desc *pil)
 {
 	u32 reg;
-	struct q6v4_data *drv = dev_get_drvdata(pil->dev);
-	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
+	struct q6v4_data *drv = pil_to_q6v4_data(pil);
 
 	/* Make sure bus port is halted */
-	msm_bus_axi_porthalt(pdata->bus_port);
+	msm_bus_axi_porthalt(drv->bus_port);
 
 	/* Turn off Q6 core clock */
 	writel_relaxed(Q6SS_SRC_SWITCH_CLK_OVR,
@@ -279,188 +223,67 @@ static int pil_q6v4_shutdown(struct pil_desc *pil)
 	/* Turn off Q6 memories */
 	writel_relaxed(Q6SS_CLAMP_IO, drv->base + QDSP6SS_PWR_CTL);
 
-	if (drv->modem_base)
-		pil_q6v4_shutdown_modem();
-
-	if (drv->vreg_enabled) {
-		regulator_disable(drv->vreg);
-		drv->vreg_enabled = false;
-	}
-
 	return 0;
 }
+EXPORT_SYMBOL(pil_q6v4_shutdown);
 
-static struct pil_reset_ops pil_q6v4_ops = {
-	.init_image = pil_q6v4_init_image,
-	.auth_and_reset = pil_q6v4_reset,
-	.shutdown = pil_q6v4_shutdown,
-	.proxy_vote = pil_q6v4_make_proxy_votes,
-	.proxy_unvote = pil_q6v4_remove_proxy_votes,
-};
-
-static int pil_q6v4_init_image_trusted(struct pil_desc *pil,
+int pil_q6v4_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
-	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
-	return pas_init_image(pdata->pas_id, metadata, size);
+	struct q6v4_data *drv = pil_to_q6v4_data(pil);
+	return pas_init_image(drv->pas_id, metadata, size);
 }
+EXPORT_SYMBOL(pil_q6v4_init_image_trusted);
 
-static int pil_q6v4_reset_trusted(struct pil_desc *pil)
+int pil_q6v4_boot_trusted(struct pil_desc *pil)
 {
-	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
+	struct q6v4_data *drv = pil_to_q6v4_data(pil);
 	int err;
 
-	err = pil_q6v4_power_up(pil->dev);
+	err = pil_q6v4_power_up(drv);
 	if (err)
 		return err;
 
 	/* Unhalt bus port */
-	err = msm_bus_axi_portunhalt(pdata->bus_port);
+	err = msm_bus_axi_portunhalt(drv->bus_port);
 	if (err)
 		dev_err(pil->dev, "Failed to unhalt bus port\n");
-	return pas_auth_and_reset(pdata->pas_id);
+	return pas_auth_and_reset(drv->pas_id);
 }
+EXPORT_SYMBOL(pil_q6v4_boot_trusted);
 
-static int pil_q6v4_shutdown_trusted(struct pil_desc *pil)
+int pil_q6v4_shutdown_trusted(struct pil_desc *pil)
 {
 	int ret;
-	struct q6v4_data *drv = dev_get_drvdata(pil->dev);
-	struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
+	struct q6v4_data *drv = pil_to_q6v4_data(pil);
 
 	/* Make sure bus port is halted */
-	msm_bus_axi_porthalt(pdata->bus_port);
+	msm_bus_axi_porthalt(drv->bus_port);
 
-	ret = pas_shutdown(pdata->pas_id);
+	ret = pas_shutdown(drv->pas_id);
 	if (ret)
 		return ret;
 
-	if (drv->vreg_enabled) {
-		regulator_disable(drv->vreg);
-		drv->vreg_enabled = false;
-	}
+	pil_q6v4_power_down(drv);
 
 	return ret;
 }
+EXPORT_SYMBOL(pil_q6v4_shutdown_trusted);
 
-static struct pil_reset_ops pil_q6v4_ops_trusted = {
-	.init_image = pil_q6v4_init_image_trusted,
-	.auth_and_reset = pil_q6v4_reset_trusted,
-	.shutdown = pil_q6v4_shutdown_trusted,
-	.proxy_vote = pil_q6v4_make_proxy_votes,
-	.proxy_unvote = pil_q6v4_remove_proxy_votes,
-};
-
-static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
+void __devinit
+pil_q6v4_init(struct q6v4_data *drv, const struct pil_q6v4_pdata *pdata)
 {
-	const struct pil_q6v4_pdata *pdata = pdev->dev.platform_data;
-	struct q6v4_data *drv;
-	struct resource *res;
-	struct pil_desc *desc;
-	int ret;
+	drv->strap_tcm_base	= pdata->strap_tcm_base;
+	drv->strap_ahb_upper	= pdata->strap_ahb_upper;
+	drv->strap_ahb_lower	= pdata->strap_ahb_lower;
+	drv->aclk_reg		= pdata->aclk_reg;
+	drv->jtag_clk_reg	= pdata->jtag_clk_reg;
+	drv->pas_id		= pdata->pas_id;
+	drv->bus_port		= pdata->bus_port;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -EINVAL;
-
-	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
-	if (!drv)
-		return -ENOMEM;
-	platform_set_drvdata(pdev, drv);
-
-	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	if (!drv->base)
-		return -ENOMEM;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (res) {
-		drv->modem_base = devm_ioremap(&pdev->dev, res->start,
-				resource_size(res));
-		if (!drv->modem_base)
-			return -ENOMEM;
-	}
-
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
-
-	drv->pll_supply = devm_regulator_get(&pdev->dev, "pll_vdd");
-	if (IS_ERR(drv->pll_supply)) {
-		drv->pll_supply = NULL;
-	} else {
-		ret = regulator_set_voltage(drv->pll_supply, 1800000, 1800000);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to set pll voltage\n");
-			return ret;
-		}
-
-		ret = regulator_set_optimum_mode(drv->pll_supply, 100000);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "failed to set pll optimum mode\n");
-			return ret;
-		}
-	}
-
-	desc->name = pdata->name;
-	desc->depends_on = pdata->depends;
-	desc->dev = &pdev->dev;
-	desc->owner = THIS_MODULE;
-	desc->proxy_timeout = 10000;
-
-	if (pas_supported(pdata->pas_id) > 0) {
-		desc->ops = &pil_q6v4_ops_trusted;
-		dev_info(&pdev->dev, "using secure boot\n");
-	} else {
-		desc->ops = &pil_q6v4_ops;
-		dev_info(&pdev->dev, "using non-secure boot\n");
-	}
-
-	drv->vreg = devm_regulator_get(&pdev->dev, "core_vdd");
-	if (IS_ERR(drv->vreg))
-		return PTR_ERR(drv->vreg);
-
-	ret = regulator_set_optimum_mode(drv->vreg, 100000);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Failed to set regulator's mode.\n");
-		return ret;
-	}
-
-	drv->xo = devm_clk_get(&pdev->dev, "xo");
-	if (IS_ERR(drv->xo))
-		return PTR_ERR(drv->xo);
-
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
-	return 0;
+	regulator_set_optimum_mode(drv->vreg, 100000);
 }
-
-static int __devexit pil_q6v4_driver_exit(struct platform_device *pdev)
-{
-	struct q6v4_data *drv = platform_get_drvdata(pdev);
-	msm_pil_unregister(drv->pil);
-	return 0;
-}
-
-static struct platform_driver pil_q6v4_driver = {
-	.probe = pil_q6v4_driver_probe,
-	.remove = __devexit_p(pil_q6v4_driver_exit),
-	.driver = {
-		.name = "pil_qdsp6v4",
-		.owner = THIS_MODULE,
-	},
-};
-
-static int __init pil_q6v4_init(void)
-{
-	return platform_driver_register(&pil_q6v4_driver);
-}
-module_init(pil_q6v4_init);
-
-static void __exit pil_q6v4_exit(void)
-{
-	platform_driver_unregister(&pil_q6v4_driver);
-}
-module_exit(pil_q6v4_exit);
+EXPORT_SYMBOL(pil_q6v4_init);
 
 MODULE_DESCRIPTION("Support for booting QDSP6v4 (Hexagon) processors");
 MODULE_LICENSE("GPL v2");

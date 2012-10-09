@@ -1334,13 +1334,10 @@ struct platform_device msm_device_sdc5 = {
 	},
 };
 
-#define MSM_LPASS_QDSP6SS_PHYS	0x28800000
-#define SFAB_LPASS_Q6_ACLK_CTL	(MSM_CLK_CTL_BASE + 0x23A0)
-
 static struct resource msm_8960_q6_lpass_resources[] = {
 	{
-		.start  = MSM_LPASS_QDSP6SS_PHYS,
-		.end    = MSM_LPASS_QDSP6SS_PHYS + SZ_256 - 1,
+		.start  = 0x28800000,
+		.end    = 0x28800000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 };
@@ -1349,93 +1346,69 @@ static struct pil_q6v4_pdata msm_8960_q6_lpass_data = {
 	.strap_tcm_base  = 0x01460000,
 	.strap_ahb_upper = 0x00290000,
 	.strap_ahb_lower = 0x00000280,
-	.aclk_reg = SFAB_LPASS_Q6_ACLK_CTL,
+	.aclk_reg = MSM_CLK_CTL_BASE + 0x23A0,
 	.name = "q6",
 	.pas_id = PAS_Q6,
 	.bus_port = MSM_BUS_MASTER_LPASS_PROC,
 };
 
 struct platform_device msm_8960_q6_lpass = {
-	.name = "pil_qdsp6v4",
-	.id = 0,
+	.name = "pil-q6v4-lpass",
+	.id = -1,
 	.num_resources  = ARRAY_SIZE(msm_8960_q6_lpass_resources),
 	.resource       = msm_8960_q6_lpass_resources,
 	.dev.platform_data = &msm_8960_q6_lpass_data,
 };
 
-#define MSM_MSS_ENABLE_PHYS	0x08B00000
-#define MSM_FW_QDSP6SS_PHYS	0x08800000
-#define MSS_Q6FW_JTAG_CLK_CTL	(MSM_CLK_CTL_BASE + 0x2C6C)
-#define SFAB_MSS_Q6_FW_ACLK_CTL (MSM_CLK_CTL_BASE + 0x2044)
-
-static struct resource msm_8960_q6_mss_fw_resources[] = {
+static struct resource msm_8960_q6_mss_resources[] = {
 	{
-		.start  = MSM_FW_QDSP6SS_PHYS,
-		.end    = MSM_FW_QDSP6SS_PHYS + SZ_256 - 1,
+		.start  = 0x08800000,
+		.end    = 0x08800000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 	{
-		.start  = MSM_MSS_ENABLE_PHYS,
-		.end    = MSM_MSS_ENABLE_PHYS + 4 - 1,
-		.flags  = IORESOURCE_MEM,
-	},
-};
-
-static struct pil_q6v4_pdata msm_8960_q6_mss_fw_data = {
-	.strap_tcm_base  = 0x00400000,
-	.strap_ahb_upper = 0x00090000,
-	.strap_ahb_lower = 0x00000080,
-	.aclk_reg = SFAB_MSS_Q6_FW_ACLK_CTL,
-	.jtag_clk_reg = MSS_Q6FW_JTAG_CLK_CTL,
-	.name = "modem_fw",
-	.depends = "q6",
-	.pas_id = PAS_MODEM_FW,
-	.bus_port = MSM_BUS_MASTER_MSS_FW_PROC,
-};
-
-struct platform_device msm_8960_q6_mss_fw = {
-	.name = "pil_qdsp6v4",
-	.id = 1,
-	.num_resources  = ARRAY_SIZE(msm_8960_q6_mss_fw_resources),
-	.resource       = msm_8960_q6_mss_fw_resources,
-	.dev.platform_data = &msm_8960_q6_mss_fw_data,
-};
-
-#define MSM_SW_QDSP6SS_PHYS	0x08900000
-#define SFAB_MSS_Q6_SW_ACLK_CTL	(MSM_CLK_CTL_BASE + 0x2040)
-#define MSS_Q6SW_JTAG_CLK_CTL	(MSM_CLK_CTL_BASE + 0x2C68)
-
-static struct resource msm_8960_q6_mss_sw_resources[] = {
-	{
-		.start  = MSM_SW_QDSP6SS_PHYS,
-		.end    = MSM_SW_QDSP6SS_PHYS + SZ_256 - 1,
+		.start  = 0x08B00000,
+		.end    = 0x08B00000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 	{
-		.start  = MSM_MSS_ENABLE_PHYS,
-		.end    = MSM_MSS_ENABLE_PHYS + 4 - 1,
+		.start  = 0x08900000,
+		.end    = 0x08900000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 };
 
-static struct pil_q6v4_pdata msm_8960_q6_mss_sw_data = {
-	.strap_tcm_base  = 0x00420000,
-	.strap_ahb_upper = 0x00090000,
-	.strap_ahb_lower = 0x00000080,
-	.aclk_reg = SFAB_MSS_Q6_SW_ACLK_CTL,
-	.jtag_clk_reg = MSS_Q6SW_JTAG_CLK_CTL,
-	.name = "modem",
-	.depends = "modem_fw",
-	.pas_id = PAS_MODEM_SW,
-	.bus_port = MSM_BUS_MASTER_MSS_SW_PROC,
+static struct pil_q6v4_pdata msm_8960_q6_mss_data[2] = {
+	{
+		.strap_tcm_base  = 0x00400000,
+		.strap_ahb_upper = 0x00090000,
+		.strap_ahb_lower = 0x00000080,
+		.aclk_reg = MSM_CLK_CTL_BASE + 0x2C6C,
+		.jtag_clk_reg = MSM_CLK_CTL_BASE + 0x2044,
+		.name = "modem_fw",
+		.depends = "q6",
+		.pas_id = PAS_MODEM_FW,
+		.bus_port = MSM_BUS_MASTER_MSS_FW_PROC,
+	},
+	{
+		.strap_tcm_base  = 0x00420000,
+		.strap_ahb_upper = 0x00090000,
+		.strap_ahb_lower = 0x00000080,
+		.aclk_reg = MSM_CLK_CTL_BASE + 0x2040,
+		.jtag_clk_reg = MSM_CLK_CTL_BASE + 0x2C68,
+		.name = "modem",
+		.depends = "modem_fw",
+		.pas_id = PAS_MODEM_SW,
+		.bus_port = MSM_BUS_MASTER_MSS_SW_PROC,
+	}
 };
 
-struct platform_device msm_8960_q6_mss_sw = {
-	.name = "pil_qdsp6v4",
-	.id = 2,
-	.num_resources  = ARRAY_SIZE(msm_8960_q6_mss_sw_resources),
-	.resource       = msm_8960_q6_mss_sw_resources,
-	.dev.platform_data = &msm_8960_q6_mss_sw_data,
+struct platform_device msm_8960_q6_mss = {
+	.name = "pil-q6v4-modem",
+	.id = -1,
+	.num_resources  = ARRAY_SIZE(msm_8960_q6_mss_resources),
+	.resource       = msm_8960_q6_mss_resources,
+	.dev.platform_data = msm_8960_q6_mss_data,
 };
 
 static struct resource msm_8960_riva_resources[] = {
