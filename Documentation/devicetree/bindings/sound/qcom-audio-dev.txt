@@ -71,6 +71,7 @@ Required properties:
                             Value is from 16384 to 16393
                             BT SCO port ID value from 12288 to 12289
                             RT Proxy port ID values from 224 to 225 and 240 to 241
+                            FM Rx and TX port ID values from 12292 to 12293
 
 * msm-auxpcm
 
@@ -183,6 +184,16 @@ Example:
 		qcom,msm-dai-q6-bt-sco-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12289>;
+		};
+
+		qcom,msm-dai-q6-int-fm-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12292>;
+		};
+
+		qcom,msm-dai-q6-int-fm-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12293>;
 		};
 
 		qcom,msm-dai-q6-be-afe-pcm-rx {
