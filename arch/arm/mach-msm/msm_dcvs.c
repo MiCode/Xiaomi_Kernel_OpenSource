@@ -536,7 +536,7 @@ done:
 }
 
 /* Return the core if found or add to list if @add_to_list is true */
-static struct dcvs_core *msm_dcvs_get_core(const char *name, int add_to_list)
+static struct dcvs_core *msm_dcvs_add_core(const char *name, int *pos)
 {
 	struct dcvs_core *core = NULL;
 	int i;
@@ -553,26 +553,61 @@ static struct dcvs_core *msm_dcvs_get_core(const char *name, int add_to_list)
 			empty = i;
 			continue;
 		}
-		if (!strncmp(name, core->core_name, CORE_NAME_MAX))
-			break;
+		if (!strncmp(name, core->core_name, CORE_NAME_MAX)) {
+			if (pos != NULL)
+				*pos = i;
+			/*
+			 * found a core with the same name, return NULL and
+			 * set pos
+			 */
+			core = NULL;
+			goto out;
+		}
 	}
 
 	/* Check for core_list full */
-	if ((i == CORES_MAX) && (empty < 0)) {
-		mutex_unlock(&core_list_lock);
-		return NULL;
+	if (empty < 0) {
+		*pos = 0;
+		core = NULL;
+		goto out;
 	}
 
-	if (i == CORES_MAX && add_to_list) {
-		core = &core_list[empty];
-		strlcpy(core->core_name, name, CORE_NAME_MAX);
-		mutex_init(&core->lock);
-		spin_lock_init(&core->cpu_lock);
-		core->handle = empty + CORE_HANDLE_OFFSET;
-		hrtimer_init(&core->timer,
-				CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
-		core->timer.function = msm_dcvs_core_slack_timer;
+	core = &core_list[empty];
+	strlcpy(core->core_name, name, CORE_NAME_MAX);
+	mutex_init(&core->lock);
+	spin_lock_init(&core->cpu_lock);
+	core->handle = empty + CORE_HANDLE_OFFSET;
+	hrtimer_init(&core->timer,
+			CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+	core->timer.function = msm_dcvs_core_slack_timer;
+	if (pos != NULL)
+		*pos = empty;
+
+out:
+	mutex_unlock(&core_list_lock);
+	return core;
+}
+
+/* Return the core if found or add to list if @add_to_list is true */
+static struct dcvs_core *msm_dcvs_get_core(const char *name, int *pos)
+{
+	struct dcvs_core *core = NULL;
+	int i;
+
+	if (!name[0] ||
+		(strnlen(name, CORE_NAME_MAX - 1) == CORE_NAME_MAX - 1))
+		return core;
+
+	mutex_lock(&core_list_lock);
+	for (i = 0; i < CORES_MAX; i++) {
+		core = &core_list[i];
+		if (!strncmp(name, core->core_name, CORE_NAME_MAX)) {
+			if (pos != NULL)
+				*pos = i;
+			break;
+		}
 	}
+
 	mutex_unlock(&core_list_lock);
 
 	return core;
@@ -587,6 +622,7 @@ int msm_dcvs_register_core(const char *core_name,
 	int sensor)
 {
 	int ret = -EINVAL;
+	int pos = 0;
 	struct dcvs_core *core = NULL;
 	uint32_t ret1;
 	uint32_t ret2;
@@ -594,7 +630,7 @@ int msm_dcvs_register_core(const char *core_name,
 	if (!core_name || !core_name[0])
 		return ret;
 
-	core = msm_dcvs_get_core(core_name, true);
+	core = msm_dcvs_add_core(core_name, &pos);
 	if (!core)
 		return ret;
 
@@ -611,6 +647,7 @@ int msm_dcvs_register_core(const char *core_name,
 	memcpy(&core->coeffs, &info->energy_coeffs,
 			sizeof(struct msm_dcvs_energy_curve_coeffs));
 
+	info->core_param.core_bitmask_id = 1 << pos;
 	pr_debug("registering core with sensor %d\n", sensor);
 	core->sensor = sensor;
 
@@ -654,7 +691,7 @@ void msm_dcvs_update_limits(struct msm_dcvs_freq *drv)
 	if (!drv || !drv->core_name)
 		return;
 
-	core = msm_dcvs_get_core(drv->core_name, false);
+	core = msm_dcvs_get_core(drv->core_name, NULL);
 	core->actual_freq = core->get_frequency(drv);
 }
 
@@ -668,7 +705,7 @@ int msm_dcvs_freq_sink_start(struct msm_dcvs_freq *drv)
 	if (!drv || !drv->core_name)
 		return ret;
 
-	core = msm_dcvs_get_core(drv->core_name, true);
+	core = msm_dcvs_get_core(drv->core_name, NULL);
 	if (!core)
 		return ret;
 
@@ -710,7 +747,7 @@ int msm_dcvs_freq_sink_stop(struct msm_dcvs_freq *drv)
 	if (!drv || !drv->core_name)
 		return ret;
 
-	core = msm_dcvs_get_core(drv->core_name, false);
+	core = msm_dcvs_get_core(drv->core_name, NULL);
 	if (!core)
 		return ret;
 
@@ -744,7 +781,7 @@ int msm_dcvs_idle_source_register(struct msm_dcvs_idle *drv)
 	if (!drv || !drv->core_name)
 		return ret;
 
-	core = msm_dcvs_get_core(drv->core_name, true);
+	core = msm_dcvs_get_core(drv->core_name, NULL);
 	if (!core)
 		return ret;
 
@@ -767,7 +804,7 @@ int msm_dcvs_idle_source_unregister(struct msm_dcvs_idle *drv)
 	if (!drv || !drv->core_name)
 		return ret;
 
-	core = msm_dcvs_get_core(drv->core_name, false);
+	core = msm_dcvs_get_core(drv->core_name, NULL);
 	if (!core)
 		return ret;
 
