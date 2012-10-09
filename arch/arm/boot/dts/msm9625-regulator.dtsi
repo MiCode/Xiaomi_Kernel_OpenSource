@@ -10,154 +10,241 @@
  * GNU General Public License for more details.
  */
 
-&spmi_bus {
-	qcom,pm8019@1 {
-		pm8019_s1: regulator@1400 {
+&rpm_bus {
+	rpm-regulator-smpa1 {
+		status = "okay";
+		pm8019_s1: regulator-s1 {
 			regulator-min-microvolt = <800000>;
 			regulator-max-microvolt = <1050000>;
-			qcom,enable-time = <500>;
+			qcom,init-voltage = <1050000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_s2: regulator@1700 {
+	rpm-regulator-smpa2 {
+		status = "okay";
+		qcom,allow-atomic = <1>;
+		pm8019_s2: regulator-s2 {
 			regulator-min-microvolt = <1250000>;
 			regulator-max-microvolt = <1250000>;
+			qcom,init-voltage = <1250000>;
+			qcom,init-current = <100>;
 			qcom,system-load = <100000>;
-			qcom,enable-time = <500>;
 			regulator-always-on;
 			status = "okay";
 		};
+	};
 
-		pm8019_s3: regulator@1a00 {
-			regulator-min-microvolt = <1100000>;
+	rpm-regulator-smpa3 {
+		status = "okay";
+		pm8019_s3: regulator-s3 {
+			regulator-min-microvolt = <1000000>;
 			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			qcom,init-current = <100>;
 			qcom,system-load = <100000>;
-			qcom,enable-time = <500>;
 			regulator-always-on;
 			status = "okay";
 		};
+		pm8019_s3_ao: regulator-s3-ao {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8019_s3_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1100000>;
+			status = "okay";
+		};
+	};
 
-		pm8019_s4: regulator@1d00 {
+	rpm-regulator-smpa4 {
+		status = "okay";
+		pm8019_s4: regulator-s4 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2075000>;
+			qcom,init-voltage = <2075000>;
+			qcom,init-current = <100>;
 			qcom,system-load = <100000>;
-			qcom,enable-time = <500>;
 			regulator-always-on;
 			status = "okay";
 		};
+	};
 
-		pm8019_l1: regulator@4000 {
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		pm8019_l1: regulator-l1 {
 			parent-supply = <&pm8019_s2>;
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1225000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <1225000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l2: regulator@4100 {
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		pm8019_l2: regulator-l2 {
 			parent-supply = <&pm8019_s4>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l3: regulator@4200 {
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		pm8019_l3: regulator-l3 {
 			parent-supply = <&pm8019_s4>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l4: regulator@4300 {
+	rpm-regulator-ldoa4 {
+		status = "okay";
+		pm8019_l4: regulator-l4 {
 			regulator-min-microvolt = <3075000>;
 			regulator-max-microvolt = <3075000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <3075000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l5: regulator@4400 {
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		pm8019_l5: regulator-l5 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2850000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l6: regulator@4500 {
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		pm8019_l6: regulator-l6 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2850000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l7: regulator@4600 {
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		pm8019_l7: regulator-l7 {
 			parent-supply = <&pm8019_s4>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l8: regulator@4700 {
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		pm8019_l8: regulator-l8 {
 			parent-supply = <&pm8019_s4>;
 			regulator-min-microvolt = <2050000>;
 			regulator-max-microvolt = <2050000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <2050000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l9: regulator@4800 {
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		pm8019_l9: regulator-l9 {
 			parent-supply = <&pm8019_s2>;
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			qcom,init-current = <10>;
 			qcom,system-load = <10000>;
-			qcom,enable-time = <200>;
 			regulator-always-on;
 			status = "okay";
 		};
+	};
 
-		pm8019_l10: regulator@4900 {
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pm8019_l10: regulator-l10 {
 			parent-supply = <&pm8019_s3>;
-			regulator-min-microvolt = <1050000>;
+			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1050000>;
-			qcom,system-load = <10000>;
-			qcom,enable-time = <200>;
-			regulator-always-on;
 			status = "okay";
 		};
+		pm8019_l10_corner: regulator-l10-corner {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8019_l10_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+			status = "okay";
+		};
+		pm8019_l10_corner_ao: regulator-l10-corner-ao {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8019_l10_corner_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+			status = "okay";
+		};
+	};
 
-		pm8019_l11: regulator@4a00 {
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		pm8019_l11: regulator-l11 {
 			parent-supply = <&pm8019_s4>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-current = <10>;
 			qcom,system-load = <10000>;
-			qcom,enable-time = <200>;
 			regulator-always-on;
 			status = "okay";
 		};
+	};
 
-		pm8019_l12: regulator@4b00 {
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		pm8019_l12: regulator-l12 {
 			parent-supply = <&pm8019_s3>;
-			regulator-min-microvolt = <1050000>;
+			regulator-min-microvolt = <750000>;
 			regulator-max-microvolt = <1050000>;
-			qcom,system-load = <10000>;
-			qcom,enable-time = <200>;
-			regulator-always-on;
 			status = "okay";
 		};
+		pm8019_l12_ao: regulator-l12-ao {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8019_l12_ao";
+			qcom,set = <1>;
+			parent-supply = <&pm8019_s3_ao>;
+			regulator-min-microvolt = <750000>;
+			regulator-max-microvolt = <1050000>;
+			status = "okay";
+		};
+	};
 
-		pm8019_l13: regulator@4c00 {
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		pm8019_l13: regulator-l13 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <2950000>;
 			status = "okay";
 		};
+	};
 
-		pm8019_l14: regulator@4d00 {
+	rpm-regulator-ldoa14 {
+		status = "okay";
+		pm8019_l14: regulator-l14 {
 			regulator-min-microvolt = <2700000>;
 			regulator-max-microvolt = <2700000>;
-			qcom,enable-time = <200>;
+			qcom,init-voltage = <2700000>;
 			status = "okay";
 		};
 	};
