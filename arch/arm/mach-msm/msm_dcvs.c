@@ -14,7 +14,6 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/mutex.h>
 #include <linux/kthread.h>
 #include <linux/kobject.h>
 #include <linux/ktime.h>
@@ -66,7 +65,38 @@ struct core_attribs {
 	struct attribute_group attrib_group;
 };
 
+enum pending_freq_state {
+	/*
+	 * used by the thread to check if pending_freq was updated while it was
+	 * setting previous frequency - this is written to and used by the
+	 * freq updating thread
+	 */
+	NO_OUTSTANDING_FREQ_CHANGE = 0,
+
+	/*
+	 * This request is set to indicate that the governor is stopped and no
+	 * more frequency change requests are accepted untill it starts again.
+	 * This is checked/used by the threads that want to change the freq
+	 */
+	STOP_FREQ_CHANGE = -1,
+
+	/*
+	 * Any other +ve value means that a freq change was requested and the
+	 * thread has not gotten around to update it
+	 *
+	 * Any other -ve value means that this is the last freq change i.e. a
+	 * freq change was requested but the thread has not run yet and
+	 * meanwhile the governor was stopped.
+	 */
+};
+
 struct dcvs_core {
+	spinlock_t	idle_state_change_lock;
+	/* 0 when not idle (busy)  1 when idle and -1 when governor starts and
+	 * we dont know whether the next call is going to be idle enter or exit
+	 */
+	int		idle_entered;
+
 	enum msm_dcvs_core_type type;
 	/* this is the number in each type for example cpu 0,1,2 and gpu 0,1 */
 	int type_core_num;
@@ -80,23 +110,23 @@ struct dcvs_core {
 	struct msm_dcvs_energy_curve_coeffs coeffs;
 
 	/* private */
-	int64_t time_start;
-	struct mutex lock;
-	spinlock_t cpu_lock;
+	ktime_t time_start;
 	struct task_struct *task;
 	struct core_attribs attrib;
 	uint32_t dcvs_core_id;
-	struct hrtimer timer;
-	int32_t timer_disabled;
 	struct msm_dcvs_core_info *info;
 	int sensor;
-	int pending_freq;
 	wait_queue_head_t wait_q;
 
 	int (*set_frequency)(int type_core_num, unsigned int freq);
 	unsigned int (*get_frequency)(int type_core_num);
 	int (*idle_enable)(int type_core_num,
 			enum msm_core_control_event event);
+
+	spinlock_t	pending_freq_lock;
+	int pending_freq;
+
+	struct hrtimer	slack_timer;
 };
 
 static int msm_dcvs_enabled = 1;
@@ -108,40 +138,119 @@ static struct dcvs_core core_list[CORES_MAX];
 
 static struct kobject *cores_kobj;
 
-/* Change core frequency, called with core mutex locked */
+static void force_stop_slack_timer(struct dcvs_core *core)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&core->idle_state_change_lock, flags);
+	hrtimer_cancel(&core->slack_timer);
+	spin_unlock_irqrestore(&core->idle_state_change_lock, flags);
+}
+
+static void stop_slack_timer(struct dcvs_core *core)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&core->idle_state_change_lock, flags);
+	/* err only for cpu type's GPU's can do idle exit consecutively */
+	if (core->idle_entered == 1 && !(core->dcvs_core_id >= GPU_OFFSET))
+		__err("%s trying to reenter idle", core->core_name);
+	core->idle_entered = 1;
+	hrtimer_cancel(&core->slack_timer);
+	core->idle_entered = 1;
+	spin_unlock_irqrestore(&core->idle_state_change_lock, flags);
+}
+
+static void start_slack_timer(struct dcvs_core *core, int slack_us)
+{
+	unsigned long flags1, flags2;
+	int ret;
+
+	spin_lock_irqsave(&core->idle_state_change_lock, flags2);
+
+	spin_lock_irqsave(&core->pending_freq_lock, flags1);
+
+	/* err only for cpu type's GPU's can do idle enter consecutively */
+	if (core->idle_entered == 0 && !(core->dcvs_core_id >= GPU_OFFSET))
+		__err("%s trying to reexit idle", core->core_name);
+	core->idle_entered = 0;
+	/*
+	 * only start the timer if governor is not stopped
+	 */
+	if (slack_us != 0
+		&& !(core->pending_freq < NO_OUTSTANDING_FREQ_CHANGE)) {
+		ret = hrtimer_start(&core->slack_timer,
+				ktime_set(0, slack_us * 1000),
+				HRTIMER_MODE_REL_PINNED);
+		if (ret) {
+			pr_err("%s Failed to start timer ret = %d\n",
+					core->core_name, ret);
+		}
+	}
+	spin_unlock_irqrestore(&core->pending_freq_lock, flags1);
+
+	spin_unlock_irqrestore(&core->idle_state_change_lock, flags2);
+}
+
+static void restart_slack_timer(struct dcvs_core *core, int slack_us)
+{
+	unsigned long flags1, flags2;
+	int ret;
+
+	spin_lock_irqsave(&core->idle_state_change_lock, flags2);
+
+	hrtimer_cancel(&core->slack_timer);
+
+	spin_lock_irqsave(&core->pending_freq_lock, flags1);
+
+	/*
+	 * only start the timer if idle is not entered
+	 * and governor is not stopped
+	 */
+	if (slack_us != 0 && (core->idle_entered != 1)
+		&& !(core->pending_freq < NO_OUTSTANDING_FREQ_CHANGE)) {
+		ret = hrtimer_start(&core->slack_timer,
+				ktime_set(0, slack_us * 1000),
+				HRTIMER_MODE_REL_PINNED);
+		if (ret) {
+			pr_err("%s Failed to start timer ret = %d\n",
+					core->core_name, ret);
+		}
+	}
+	spin_unlock_irqrestore(&core->pending_freq_lock, flags1);
+	spin_unlock_irqrestore(&core->idle_state_change_lock, flags2);
+}
+
 static int __msm_dcvs_change_freq(struct dcvs_core *core)
 {
 	int ret = 0;
 	unsigned long flags = 0;
-	unsigned int requested_freq = 0;
-	unsigned int prev_freq = 0;
-	int64_t time_start = 0;
-	int64_t time_end = 0;
+	int requested_freq = 0;
+	ktime_t time_start;
 	uint32_t slack_us = 0;
 	uint32_t ret1 = 0;
 
-	if (!core->set_frequency) {
-		/* Core may have unregistered or hotplugged */
-		return -ENODEV;
-	}
-	spin_lock_irqsave(&core->cpu_lock, flags);
+	spin_lock_irqsave(&core->pending_freq_lock, flags);
 repeat:
+	BUG_ON(!core->pending_freq);
+	if (core->pending_freq == STOP_FREQ_CHANGE)
+		BUG();
 
 	requested_freq = core->pending_freq;
 	time_start = core->time_start;
-	core->time_start = 0;
-	/**
-	 * Cancel the timers, we dont want the timer firing as we are
-	 * changing the clock rate. Dont let idle_exit and others setup
-	 * timers as well.
-	 */
-	hrtimer_cancel(&core->timer);
-	core->timer_disabled = 1;
+	core->time_start = ns_to_ktime(0);
+
+	if (requested_freq < 0) {
+		requested_freq = -1 * requested_freq;
+		core->pending_freq = STOP_FREQ_CHANGE;
+	} else {
+		core->pending_freq = NO_OUTSTANDING_FREQ_CHANGE;
+	}
+
 	if (requested_freq == core->actual_freq)
 		goto out;
 
-	spin_unlock_irqrestore(&core->cpu_lock, flags);
-
+	spin_unlock_irqrestore(&core->pending_freq_lock, flags);
 
 	/**
 	 * Call the frequency sink driver to change the frequency
@@ -149,19 +258,15 @@ repeat:
 	 * the record the time taken to change it.
 	 */
 	ret = core->set_frequency(core->type_core_num, requested_freq);
-	if (ret <= 0) {
+	if (ret <= 0)
 		__err("Core %s failed to set freq %u\n",
 				core->core_name, requested_freq);
 		/* continue to call TZ to get updated slack timer */
-	} else {
-		prev_freq = core->actual_freq;
+	else
 		core->actual_freq = ret;
-	}
 
-	time_end = ktime_to_ns(ktime_get());
-	time_end -= time_start;
-	do_div(time_end, NSEC_PER_USEC);
-	core->freq_change_us = (uint32_t)time_end;
+	core->freq_change_us = (uint32_t)ktime_to_us(
+					ktime_sub(ktime_get(), time_start));
 
 	/**
 	 * Disable low power modes if the actual frequency is >
@@ -170,8 +275,7 @@ repeat:
 	if (core->actual_freq > core->algo_param.disable_pc_threshold) {
 		core->idle_enable(core->type_core_num,
 				MSM_DCVS_DISABLE_HIGH_LATENCY_MODES);
-	} else if (core->actual_freq <=
-			core->algo_param.disable_pc_threshold) {
+	} else if (core->actual_freq <= core->algo_param.disable_pc_threshold) {
 		core->idle_enable(core->type_core_num,
 				MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
 	}
@@ -183,36 +287,32 @@ repeat:
 	 */
 	ret = msm_dcvs_scm_event(core->dcvs_core_id,
 			MSM_DCVS_SCM_CLOCK_FREQ_UPDATE,
-			core->actual_freq, (uint32_t)time_end,
+			core->actual_freq, core->freq_change_us,
 			&slack_us, &ret1);
-	if (!ret) {
-		/* Reset the slack timer */
-		if (slack_us) {
-			core->timer_disabled = 0;
-			ret = hrtimer_start(&core->timer,
-				ktime_set(0, slack_us * 1000),
-				HRTIMER_MODE_REL_PINNED);
-			if (ret)
-				__err("Failed to register timer for core %s\n",
-						core->core_name);
-		}
-	} else {
-		__err("Error sending core (%s) freq change (%u)\n",
-				core->core_name, core->actual_freq);
+	if (ret) {
+		__err("Error sending core (%s) dcvs_core_id = %d freq change (%u) reqfreq = %d slack_us=%d ret = %d\n",
+				core->core_name, core->dcvs_core_id,
+				core->actual_freq, requested_freq,
+				slack_us, ret);
 	}
 
-	spin_lock_irqsave(&core->cpu_lock, flags);
+	/* TODO confirm that we get a valid freq from SM even when the above
+	 * FREQ_UPDATE fails
+	 */
+	restart_slack_timer(core, slack_us);
+	spin_lock_irqsave(&core->pending_freq_lock, flags);
+
 	/**
 	 * By the time we are done with freq changes, we could be asked to
 	 * change again. Check before exiting.
 	 */
-	if (core->pending_freq)
+	if (core->pending_freq != NO_OUTSTANDING_FREQ_CHANGE
+		&& core->pending_freq != STOP_FREQ_CHANGE) {
 		goto repeat;
+	}
 
-
-out: /* should always be jumped to with the spin_lock held */
-	core->pending_freq = 0;
-	spin_unlock_irqrestore(&core->cpu_lock, flags);
+out:   /* should always be jumped to with the spin_lock held */
+	spin_unlock_irqrestore(&core->pending_freq_lock, flags);
 
 	return ret;
 }
@@ -254,24 +354,57 @@ static int msm_dcvs_do_freq(void *data)
 		if (kthread_should_stop())
 			break;
 
-		mutex_lock(&core->lock);
 		__msm_dcvs_change_freq(core);
 		__msm_dcvs_report_temp(core);
-		mutex_unlock(&core->lock);
 	}
 
 	return 0;
 }
 
+/* freq_pending_lock should be held */
+static void request_freq_change(struct dcvs_core *core, int new_freq)
+{
+	if (new_freq == NO_OUTSTANDING_FREQ_CHANGE) {
+		if (core->pending_freq != STOP_FREQ_CHANGE) {
+			__err("%s gov started with earlier pending freq %d\n",
+					core->core_name, core->pending_freq);
+		}
+		core->pending_freq = NO_OUTSTANDING_FREQ_CHANGE;
+		return;
+	}
+
+	if (new_freq == STOP_FREQ_CHANGE) {
+		if (core->pending_freq == NO_OUTSTANDING_FREQ_CHANGE)
+			core->pending_freq = STOP_FREQ_CHANGE;
+		else if (core->pending_freq > 0)
+			core->pending_freq = -1 * core->pending_freq;
+		return;
+	}
+
+	if (core->pending_freq < 0) {
+		/* a value less than 0 means that the governor has stopped
+		 * and no more freq changes should be requested
+		 */
+		return;
+	}
+
+	if (core->actual_freq != new_freq && core->pending_freq != new_freq) {
+		core->pending_freq = new_freq;
+		core->time_start = ktime_get();
+		wake_up(&core->wait_q);
+	}
+}
+
 static int msm_dcvs_update_freq(struct dcvs_core *core,
 		enum msm_dcvs_scm_event event, uint32_t param0,
-		uint32_t *ret1, int *freq_changed)
+		uint32_t *ret1)
 {
 	int ret = 0;
 	unsigned long flags = 0;
-	uint32_t new_freq = 0;
+	uint32_t new_freq = -EINVAL;
 
-	spin_lock_irqsave(&core->cpu_lock, flags);
+	spin_lock_irqsave(&core->pending_freq_lock, flags);
+
 	ret = msm_dcvs_scm_event(core->dcvs_core_id, event, param0,
 				core->actual_freq, &new_freq, ret1);
 	if (ret) {
@@ -283,18 +416,18 @@ static int msm_dcvs_update_freq(struct dcvs_core *core,
 		goto out;
 	}
 
-	if (core->actual_freq != new_freq && core->pending_freq != new_freq) {
-		core->pending_freq = new_freq;
-		core->time_start = ktime_to_ns(ktime_get());
-
-		if (core->task)
-			wake_up(&core->wait_q);
-	} else {
-		if (freq_changed)
-			*freq_changed = 0;
+	if (new_freq == 0) {
+		/*
+		 * sometimes TZ gives us a 0 freq back,
+		 * do not queue up a request
+		 */
+		goto out;
 	}
+
+	request_freq_change(core, new_freq);
+
 out:
-	spin_unlock_irqrestore(&core->cpu_lock, flags);
+	spin_unlock_irqrestore(&core->pending_freq_lock, flags);
 
 	return ret;
 }
@@ -302,16 +435,16 @@ out:
 static enum hrtimer_restart msm_dcvs_core_slack_timer(struct hrtimer *timer)
 {
 	int ret = 0;
-	struct dcvs_core *core = container_of(timer, struct dcvs_core, timer);
+	struct dcvs_core *core = container_of(timer,
+					struct dcvs_core, slack_timer);
 	uint32_t ret1;
-	uint32_t ret2;
 
 	/**
 	 * Timer expired, notify TZ
 	 * Dont care about the third arg.
 	 */
 	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_QOS_TIMER_EXPIRED, 0,
-				   &ret1, &ret2);
+				   &ret1);
 	if (ret)
 		__err("Timer expired for core %s but failed to notify.\n",
 				core->core_name);
@@ -345,7 +478,6 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
 	int ret = 0; \
 	uint32_t val = 0; \
 	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, _name); \
-	mutex_lock(&core->lock); \
 	ret = kstrtouint(buf, 10, &val); \
 	if (ret) { \
 		__err("Invalid input %s for %s\n", buf, __stringify(_name));\
@@ -360,7 +492,6 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
 					ret, val, __stringify(_name)); \
 		} \
 	} \
-	mutex_unlock(&core->lock); \
 	return count; \
 }
 
@@ -377,7 +508,6 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
 	int ret = 0; \
 	int32_t val = 0; \
 	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, _name); \
-	mutex_lock(&core->lock); \
 	ret = kstrtoint(buf, 10, &val); \
 	if (ret) { \
 		__err("Invalid input %s for %s\n", buf, __stringify(_name));\
@@ -393,7 +523,6 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
 					ret, val, __stringify(_name)); \
 		} \
 	} \
-	mutex_unlock(&core->lock); \
 	return count; \
 }
 
@@ -459,7 +588,6 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 		ret = -ENOMEM;
 		goto done;
 	}
-
 
 	DCVS_RO_ATTRIB(0, core_id);
 	DCVS_RO_ATTRIB(1, idle_enabled);
@@ -537,10 +665,11 @@ static struct dcvs_core *msm_dcvs_add_core(enum msm_dcvs_core_type type,
 	core = &core_list[i];
 	core->dcvs_core_id = i;
 	strlcpy(core->core_name, name, CORE_NAME_MAX);
-	mutex_init(&core->lock);
-	spin_lock_init(&core->cpu_lock);
-	hrtimer_init(&core->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
-	core->timer.function = msm_dcvs_core_slack_timer;
+	spin_lock_init(&core->pending_freq_lock);
+	spin_lock_init(&core->idle_state_change_lock);
+	hrtimer_init(&core->slack_timer,
+			CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+	core->slack_timer.function = msm_dcvs_core_slack_timer;
 	return core;
 }
 
@@ -572,13 +701,12 @@ int msm_dcvs_register_core(
 	if (!core)
 		return ret;
 
-	mutex_lock(&core->lock);
-
 	core->type = type;
 	core->type_core_num = type_core_num;
 	core->set_frequency = set_frequency;
 	core->get_frequency = get_frequency;
 	core->idle_enable = idle_enable;
+	core->pending_freq = STOP_FREQ_CHANGE;
 
 	core->info = info;
 	memcpy(&core->algo_param, &info->algo_param,
@@ -629,14 +757,13 @@ int msm_dcvs_register_core(
 		__err("Unable to setup core %s sysfs\n", core->core_name);
 		goto bail;
 	}
+	core->idle_entered = -1;
 	init_waitqueue_head(&core->wait_q);
 	core->task = kthread_run(msm_dcvs_do_freq, (void *)core,
 			"msm_dcvs/%d", core->dcvs_core_id);
 	ret = core->dcvs_core_id;
-	mutex_unlock(&core->lock);
 	return ret;
 bail:
-	mutex_unlock(&core->lock);
 	core->dcvs_core_id = -1;
 	return -EINVAL;
 }
@@ -661,7 +788,7 @@ int msm_dcvs_freq_sink_start(int dcvs_core_id)
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
 	uint32_t ret1;
-	uint32_t ret2;
+	unsigned long flags;
 
 	if (dcvs_core_id < CPU_OFFSET || dcvs_core_id > CORES_MAX) {
 		__err("%s invalid dcvs_core_id = %d returning -EINVAL\n",
@@ -673,21 +800,22 @@ int msm_dcvs_freq_sink_start(int dcvs_core_id)
 	if (!core)
 		return ret;
 
-	mutex_lock(&core->lock);
-	if (IS_ERR(core->task)) {
-		mutex_unlock(&core->lock);
-		return -EFAULT;
-	}
-
 	core->actual_freq = core->get_frequency(core->type_core_num);
+
+	spin_lock_irqsave(&core->pending_freq_lock, flags);
+	/* mark that we are ready to accept new frequencies */
+	request_freq_change(core, NO_OUTSTANDING_FREQ_CHANGE);
+	spin_unlock_irqrestore(&core->pending_freq_lock, flags);
+
+	spin_lock_irqsave(&core->idle_state_change_lock, flags);
+	core->idle_entered = -1;
+	spin_unlock_irqrestore(&core->idle_state_change_lock, flags);
+
 	/* Notify TZ to start receiving idle info for the core */
-	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1,
-					   &ret1, &ret2);
+	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1, &ret1);
+
 	core->idle_enable(core->type_core_num, MSM_DCVS_ENABLE_IDLE_PULSE);
-
-	mutex_unlock(&core->lock);
-
-	return core->dcvs_core_id;
+	return 0;
 }
 EXPORT_SYMBOL(msm_dcvs_freq_sink_start);
 
@@ -696,7 +824,8 @@ int msm_dcvs_freq_sink_stop(int dcvs_core_id)
 	int ret = -EINVAL;
 	struct dcvs_core *core = NULL;
 	uint32_t ret1;
-	uint32_t ret2;
+	uint32_t freq;
+	unsigned long flags;
 
 	if (dcvs_core_id < 0 || dcvs_core_id > CORES_MAX) {
 		pr_err("%s invalid dcvs_core_id = %d returning -EINVAL\n",
@@ -705,18 +834,22 @@ int msm_dcvs_freq_sink_stop(int dcvs_core_id)
 	}
 
 	core = msm_dcvs_get_core(dcvs_core_id);
-	if (!core)
+	if (!core) {
+		__err("couldn't find core for coreid = %d\n", dcvs_core_id);
 		return ret;
+	}
 
-	mutex_lock(&core->lock);
 	core->idle_enable(core->type_core_num, MSM_DCVS_DISABLE_IDLE_PULSE);
 	/* Notify TZ to stop receiving idle info for the core */
-	ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 0,
-				   &ret1, &ret2);
-	hrtimer_cancel(&core->timer);
+	ret = msm_dcvs_scm_event(core->dcvs_core_id, MSM_DCVS_SCM_DCVS_ENABLE,
+				0, core->actual_freq, &freq, &ret1);
 	core->idle_enable(core->type_core_num,
 			MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
-	mutex_unlock(&core->lock);
+	spin_lock_irqsave(&core->pending_freq_lock, flags);
+	/* flush out all the pending freq changes */
+	request_freq_change(core, STOP_FREQ_CHANGE);
+	spin_unlock_irqrestore(&core->pending_freq_lock, flags);
+	force_stop_slack_timer(core);
 
 	return 0;
 }
@@ -729,7 +862,6 @@ int msm_dcvs_idle(int dcvs_core_id, enum msm_core_idle_state state,
 	struct dcvs_core *core = NULL;
 	uint32_t timer_interval_us = 0;
 	uint32_t r0, r1;
-	uint32_t freq_changed = 0;
 
 	if (dcvs_core_id < CPU_OFFSET || dcvs_core_id > CORES_MAX) {
 		pr_err("invalid dcvs_core_id = %d ret -EINVAL\n", dcvs_core_id);
@@ -740,33 +872,21 @@ int msm_dcvs_idle(int dcvs_core_id, enum msm_core_idle_state state,
 
 	switch (state) {
 	case MSM_DCVS_IDLE_ENTER:
-		hrtimer_cancel(&core->timer);
+		stop_slack_timer(core);
 		ret = msm_dcvs_scm_event(core->dcvs_core_id,
 				MSM_DCVS_SCM_IDLE_ENTER, 0, 0, &r0, &r1);
-		if (ret)
+		if (ret < 0 && ret != -13)
 			__err("Error (%d) sending idle enter for %s\n",
 					ret, core->core_name);
 		break;
 
 	case MSM_DCVS_IDLE_EXIT:
-		hrtimer_cancel(&core->timer);
 		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_IDLE_EXIT,
-				iowaited, &timer_interval_us, &freq_changed);
+						iowaited, &timer_interval_us);
 		if (ret)
 			__err("Error (%d) sending idle exit for %s\n",
 					ret, core->core_name);
-		/* only start slack timer if change_freq won't */
-		if (freq_changed)
-			break;
-		if (timer_interval_us && !core->timer_disabled) {
-			ret = hrtimer_start(&core->timer,
-				ktime_set(0, timer_interval_us * 1000),
-				HRTIMER_MODE_REL_PINNED);
-
-			if (ret)
-				__err("Failed to register timer for core %s\n",
-				      core->core_name);
-		}
+		start_slack_timer(core, timer_interval_us);
 		break;
 	}
 
