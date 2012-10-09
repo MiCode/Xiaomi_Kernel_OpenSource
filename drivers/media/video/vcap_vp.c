@@ -25,14 +25,6 @@
 #include <media/vcap_fmt.h>
 #include "vcap_vp.h"
 
-static unsigned debug;
-
-#define dprintk(level, fmt, arg...)					\
-	do {								\
-		if (debug >= level)					\
-			printk(KERN_DEBUG "VP: " fmt, ## arg);		\
-	} while (0)
-
 void config_nr_buffer(struct vcap_client_data *c_data,
 			struct vcap_buffer *buf)
 {
@@ -72,10 +64,10 @@ int vp_setup_buffers(struct vcap_client_data *c_data)
 	if (!c_data->streaming)
 		return -ENOEXEC;
 	dev = c_data->dev;
-	dprintk(2, "Start setup buffers\n");
+	pr_debug("VP: Start setup buffers\n");
 
 	if (dev->vp_shutdown) {
-		dprintk(1, "%s: VP shutting down, no buf setup\n",
+		pr_debug("%s: VP shutting down, no buf setup\n",
 			__func__);
 		return -EPERM;
 	}
@@ -86,7 +78,7 @@ int vp_setup_buffers(struct vcap_client_data *c_data)
 	spin_lock_irqsave(&dev->vp_client->cap_slock, flags);
 	if (list_empty(&vp_act->in_active)) {
 		spin_unlock_irqrestore(&dev->vp_client->cap_slock, flags);
-		dprintk(1, "%s: VP We have no more input buffers\n",
+		pr_debug("%s: VP We have no more input buffers\n",
 				__func__);
 		return -EAGAIN;
 	}
@@ -94,7 +86,7 @@ int vp_setup_buffers(struct vcap_client_data *c_data)
 	if (list_empty(&vp_act->out_active)) {
 		spin_unlock_irqrestore(&dev->vp_client->cap_slock,
 			flags);
-		dprintk(1, "%s: VP We have no more output buffers\n",
+		pr_debug("%s: VP We have no more output buffers\n",
 		   __func__);
 		return -EAGAIN;
 	}
@@ -136,7 +128,7 @@ static void mov_buf_to_vc(struct work_struct *work)
 
 		vb_vc = vp_work->cd->vc_vidq.bufs[p.index];
 		if (NULL == vb_vc) {
-			dprintk(1, "%s: buffer is NULL\n", __func__);
+			pr_debug("%s: buffer is NULL\n", __func__);
 			vcvp_qbuf(&vp_work->cd->vp_in_vidq, &p);
 			return;
 		}
@@ -144,7 +136,7 @@ static void mov_buf_to_vc(struct work_struct *work)
 
 		vb_vp = vp_work->cd->vp_in_vidq.bufs[p.index];
 		if (NULL == vb_vp) {
-			dprintk(1, "%s: buffer is NULL\n", __func__);
+			pr_debug("%s: buffer is NULL\n", __func__);
 			vcvp_qbuf(&vp_work->cd->vp_in_vidq, &p);
 			return;
 		}
@@ -158,7 +150,7 @@ static void mov_buf_to_vc(struct work_struct *work)
 		/* This call should not fail */
 		rc = vcvp_qbuf(&vp_work->cd->vc_vidq, &p);
 		if (rc < 0) {
-			dprintk(1, "%s: qbuf to vc failed\n", __func__);
+			pr_err("%s: qbuf to vc failed\n", __func__);
 			buf_vp->ion_handle = buf_vc->ion_handle;
 			buf_vp->paddr = buf_vc->paddr;
 			buf_vc->ion_handle = NULL;
@@ -197,6 +189,7 @@ static void vp_wq_fnc(struct work_struct *work)
 	struct vp_work_t *vp_work = container_of(work, struct vp_work_t, work);
 	struct vcap_dev *dev;
 	struct vp_action *vp_act;
+	struct timeval tv;
 	unsigned long flags = 0;
 	uint32_t irq;
 	int rc;
@@ -278,6 +271,11 @@ static void vp_wq_fnc(struct work_struct *work)
 	writel_iowmb(0x00000000 | top_field, VCAP_VP_CTRL);
 	writel_iowmb(0x00010000 | top_field, VCAP_VP_CTRL);
 	enable_irq(dev->vpirq->start);
+
+	do_gettimeofday(&tv);
+	dev->dbg_p.vp_timestamp = (uint32_t) (tv.tv_sec * VCAP_USEC +
+	tv.tv_usec);
+
 	writel_iowmb(irq, VCAP_VP_INT_CLEAR);
 }
 
@@ -288,6 +286,8 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 	struct v4l2_event v4l2_evt;
 	uint32_t irq;
 	int rc;
+	struct timeval tv;
+	uint32_t new_ts;
 
 	irq = readl_relaxed(VCAP_VP_INT_STATUS);
 	if (dev->vp_dummy_event == true) {
@@ -318,7 +318,7 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
 
-	dprintk(1, "%s: irq=0x%08x\n", __func__, irq);
+	pr_debug("%s: irq=0x%08x\n", __func__, irq);
 	if (!(irq & (VP_PIC_DONE | VP_MODE_CHANGE))) {
 		writel_relaxed(irq, VCAP_VP_INT_CLEAR);
 		pr_err("VP IRQ shows some error\n");
@@ -340,6 +340,17 @@ irqreturn_t vp_handler(struct vcap_dev *dev)
 				__func__);
 		return -EAGAIN;
 	}
+
+	do_gettimeofday(&tv);
+	new_ts = (uint32_t) (tv.tv_sec * VCAP_USEC +
+		tv.tv_usec);
+	if (new_ts > dev->dbg_p.vp_timestamp) {
+		dev->dbg_p.vp_ewma = ((new_ts - dev->dbg_p.vp_timestamp) /
+			10 + (dev->dbg_p.vp_ewma / 10 * 9));
+	}
+
+	dev->dbg_p.vp_timestamp = (uint32_t) (tv.tv_sec * VCAP_USEC +
+	tv.tv_usec);
 
 	INIT_WORK(&dev->vp_work.work, vp_wq_fnc);
 	dev->vp_work.cd = c_data;
@@ -663,7 +674,7 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 	uint32_t reg;
 	int rc = 0;
 
-	dprintk(2, "%s: Start VP dummy event\n", __func__);
+	pr_debug("%s: Start VP dummy event\n", __func__);
 	handle = ion_alloc(dev->ion_client, 0x1200, SZ_4K,
 			ION_HEAP(ION_CP_MM_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL(handle)) {
@@ -723,7 +734,7 @@ int vp_dummy_event(struct vcap_client_data *c_data)
 	c_data->vp_out_fmt.height = height;
 	ion_free(dev->ion_client, handle);
 
-	dprintk(2, "%s: Exit VP dummy event\n", __func__);
+	pr_debug("%s: Exit VP dummy event\n", __func__);
 	return rc;
 }
 
@@ -731,6 +742,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev;
 	struct vp_action *vp_act;
+	struct timeval tv;
 	unsigned long flags = 0;
 	unsigned int chroma_fmt = 0;
 	int size;
@@ -740,7 +752,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 		return -ENOEXEC;
 
 	dev = c_data->dev;
-	dprintk(2, "Start Kickoff\n");
+	pr_debug("Start VP Kickoff\n");
 
 	if (dev->vp_client == NULL) {
 		pr_err("No active vp client\n");
@@ -815,6 +827,11 @@ int kickoff_vp(struct vcap_client_data *c_data)
 	writel_iowmb(0x00010000 | top_field, VCAP_VP_CTRL);
 	atomic_set(&c_data->dev->vp_enabled, 1);
 	enable_irq(dev->vpirq->start);
+
+	do_gettimeofday(&tv);
+	dev->dbg_p.vp_timestamp = (uint32_t) (tv.tv_sec * VCAP_USEC +
+	tv.tv_usec);
+
 	return 0;
 }
 
@@ -822,10 +839,11 @@ int continue_vp(struct vcap_client_data *c_data)
 {
 	struct vcap_dev *dev;
 	struct vp_action *vp_act;
+	struct timeval tv;
 	int rc;
 	bool top_field = 0;
 
-	dprintk(2, "Start Continue\n");
+	pr_debug("Start VP Continue\n");
 	dev = c_data->dev;
 
 	if (dev->vp_client == NULL) {
@@ -854,5 +872,10 @@ int continue_vp(struct vcap_client_data *c_data)
 
 	atomic_set(&c_data->dev->vp_enabled, 1);
 	enable_irq(dev->vpirq->start);
+
+	do_gettimeofday(&tv);
+	dev->dbg_p.vp_timestamp = (uint32_t) (tv.tv_sec * VCAP_USEC +
+	tv.tv_usec);
+
 	return 0;
 }
