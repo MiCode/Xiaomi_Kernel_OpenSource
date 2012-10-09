@@ -274,8 +274,8 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 		}
 		vidc_sm_get_profile_info(&ddl->shared_mem
 			[ddl->command_channel], &disp_profile_info);
-		disp_profile_info.pic_profile = seq_hdr_info.profile;
-		disp_profile_info.pic_level = seq_hdr_info.level;
+		seq_hdr_info.profile = disp_profile_info.pic_profile;
+		seq_hdr_info.level = disp_profile_info.pic_level;
 		ddl_get_dec_profile_level(decoder, seq_hdr_info.profile,
 			seq_hdr_info.level);
 		switch (decoder->codec.codec) {
