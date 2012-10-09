@@ -762,7 +762,7 @@ static struct wcd9xxx_pdata sitar_platform_data = {
 	.regulator = {
 	{
 		.name = "CDC_VDD_CP",
-		.min_uV = 1800000,
+		.min_uV = 2200000,
 		.max_uV = 2200000,
 		.optimum_uA = WCD9XXX_CDC_VDDA_CP_CUR_MAX,
 	},
@@ -828,7 +828,7 @@ static struct wcd9xxx_pdata sitar1p1_platform_data = {
 	.regulator = {
 	{
 		.name = "CDC_VDD_CP",
-		.min_uV = 1800000,
+		.min_uV = 2200000,
 		.max_uV = 2200000,
 		.optimum_uA = WCD9XXX_CDC_VDDA_CP_CUR_MAX,
 	},
@@ -2714,10 +2714,33 @@ static void __init register_i2c_devices(void)
 #endif
 }
 
+/*Modify the WCD9xxx platform data to support supplies from PM8917 */
+static void __init msm8930_pm8917_wcd9xxx_pdata_fixup(
+		struct wcd9xxx_pdata *cdc_pdata)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cdc_pdata->regulator); i++) {
+
+		if (cdc_pdata->regulator[i].name != NULL
+			&& strncmp(cdc_pdata->regulator[i].name,
+				"CDC_VDD_CP", 10) == 0) {
+			cdc_pdata->regulator[i].min_uV =
+				cdc_pdata->regulator[i].max_uV = 1800000;
+			pr_info("%s: CDC_VDD_CP forced to 1.8 volts for PM8917\n",
+				__func__);
+			return;
+		}
+	}
+}
+
 /* Modify platform data values to match requirements for PM8917. */
 static void __init msm8930_pm8917_pdata_fixup(void)
 {
 	struct acpuclk_platform_data *pdata;
+
+	msm8930_pm8917_wcd9xxx_pdata_fixup(&sitar_platform_data);
+	msm8930_pm8917_wcd9xxx_pdata_fixup(&sitar1p1_platform_data);
 
 	mhl_platform_data.gpio_mhl_power = MHL_POWER_GPIO_PM8917;
 
