@@ -423,7 +423,7 @@ static void cyttsp_exit_bl_mode(struct cyttsp *ts)
 static int cyttsp_set_sysinfo_mode(struct cyttsp *ts, u8 sleep)
 {
 	int retval;
-	u8 mode = CY_SYSINFO_MODE | sleep;
+	u8 mode = CY_SYSINFO_MODE + sleep;
 
 	cyttsp_change_state(ts, CY_SYSINFO);
 
@@ -449,10 +449,10 @@ cyttsp_set_sysinfo_mode_exit:
 	return retval;
 }
 
-static int cyttsp_set_opmode(struct cyttsp *ts, u8 sleep)
+static void cyttsp_set_opmode(struct cyttsp *ts, u8 sleep)
 {
 	int retval, tries = 0;
-	u8 host_reg = CY_OP_MODE | sleep;
+	u8 host_reg = CY_OP_MODE + sleep;
 
 	cyttsp_change_state(ts, CY_ACTIVE);
 	do {
@@ -461,8 +461,6 @@ static int cyttsp_set_opmode(struct cyttsp *ts, u8 sleep)
 		if (retval < 0)
 			msleep(20);
 	} while (tries++ < 10 && (retval < 0));
-
-	return retval;
 }
 
 static int cyttsp_set_lp_mode(struct cyttsp *ts)
@@ -881,8 +879,7 @@ static void cyttspfw_flash_start(struct cyttsp *ts, const u8 *data,
 	cyttsp_exit_bl_mode(ts);
 	msleep(100);
 	/* set low power mode and enter application mode*/
-	if (ts->platform_data->use_sleep & CY_LOW_PWR_MODE)
-		cyttsp_set_lp_mode(ts);
+	cyttsp_set_lp_mode(ts);
 }
 
 static void cyttspfw_upgrade_start(struct cyttsp *ts, const u8 *data,
@@ -1158,9 +1155,7 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 				tries++ < 100);
 			cyttsp_putbl(ts, 2, true, false, false);
 		}
-		if (ts->platform_data->use_sleep & CY_LOW_PWR_MODE)
-			cyttsp_set_lp_mode(ts);
-
+		cyttsp_set_lp_mode(ts);
 		goto exit_xy_handler;
 	} else {
 		cur_tch = GET_NUM_TOUCHES(g_xy_data.tt_stat);
@@ -2541,11 +2536,7 @@ static int set_bypass_modes(struct cyttsp *ts)
 
 	/* switch to System Information mode to read versions
 	 * and set interval registers */
-	if (ts->platform_data->use_sleep & CY_LOW_PWR_MODE)
-		retval = cyttsp_set_sysinfo_mode(ts, CY_LOW_PWR_MODE);
-	else
-		retval = cyttsp_set_opmode(ts, CY_OP_MODE);
-
+	retval = cyttsp_set_sysinfo_mode(ts, CY_LOW_PWR_MODE);
 	if (!(retval < CY_OK)) {
 		retval = i2c_smbus_read_i2c_block_data(ts->client,
 			CY_REG_BASE,
@@ -2567,10 +2558,7 @@ static int set_bypass_modes(struct cyttsp *ts)
 	/* switch back to Operational mode */
 	cyttsp_debug("switch back to operational mode\n");
 	if (!(retval < CY_OK)) {
-		if (ts->platform_data->use_sleep & CY_LOW_PWR_MODE)
-			cyttsp_set_opmode(ts, CY_LOW_PWR_MODE);
-		else
-			cyttsp_set_opmode(ts, CY_OP_MODE);
+		cyttsp_set_opmode(ts, CY_LOW_PWR_MODE);
 		/* wait for TTSP Device to complete
 		 * switch to Operational mode */
 		msleep(100);
@@ -2971,8 +2959,7 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 	device_init_wakeup(&client->dev, ts->platform_data->wakeup);
 	mutex_init(&ts->mutex);
-	if (ts->platform_data->use_sleep & CY_LOW_PWR_MODE)
-		retval = cyttsp_set_lp_mode(ts);
+	retval = cyttsp_set_lp_mode(ts);
 
 	cyttsp_info("Start Probe %s\n", \
 		(retval < CY_OK) ? "FAIL" : "PASS");
@@ -3109,10 +3096,7 @@ static int cyttsp_resume(struct device *dev)
 	cyttsp_debug("Wake Up %s\n", \
 		(retval < CY_OK) ? "FAIL" : "PASS");
 
-	if (ts->platform_data->use_sleep & CY_LOW_PWR_MODE)
-		retval = cyttsp_set_lp_mode(ts);
-
-	return retval;
+	return cyttsp_set_lp_mode(ts);
 }
 
 /* Function to manage low power suspend */
