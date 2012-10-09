@@ -596,9 +596,10 @@ void mdp4_overlay_dmae_xy(struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_pipe_staged(int mixer);
 void mdp4_lcdc_primary_vsyn(void);
 void mdp4_overlay0_done_lcdc(int cndx);
-void mdp4_overlay0_done_mddi(struct mdp_dma_data *dma);
+void mdp4_overlay0_done_mddi(int cndx);
 void mdp4_dma_p_done_mddi(struct mdp_dma_data *dma);
 void mdp4_dmap_done_dsi_cmd(int cndx);
+void mdp4_dmap_done_mddi(int cndx);
 void mdp4_dmap_done_dsi_video(int cndx);
 void mdp4_dmap_done_lcdc(int cndx);
 void mdp4_overlay1_done_dtv(void);
@@ -672,6 +673,12 @@ void mdp4_dsi_cmd_overlay_blt(struct msm_fb_data_type *mfd,
 void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req);
 void mdp4_dsi_video_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
+static inline void mdp4_mddi_blt_start(struct msm_fb_data_type *mfd)
+{
+}
+static inline void mdp4_mddi_blt_stop(struct msm_fb_data_type *mfd)
+{
+}
 
 #ifdef CONFIG_FB_MSM_MDP40
 static inline void mdp3_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
@@ -680,6 +687,8 @@ static inline void mdp3_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 }
 #endif
 #else     /* CONFIG_FB_MSM_MIPI_DSI */
+void mdp4_mddi_blt_start(struct msm_fb_data_type *mfd);
+void mdp4_mddi_blt_stop(struct msm_fb_data_type *mfd);
 int mdp4_mddi_overlay_blt_offset(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_blt *req);
 void mdp4_mddi_overlay_blt(struct msm_fb_data_type *mfd,
@@ -687,6 +696,7 @@ void mdp4_mddi_overlay_blt(struct msm_fb_data_type *mfd,
 int mdp4_mddi_overlay_blt_start(struct msm_fb_data_type *mfd);
 int mdp4_mddi_overlay_blt_stop(struct msm_fb_data_type *mfd);
 void mdp4_mddi_blt_dmap_busy_wait(struct msm_fb_data_type *mfd);
+void mdp4_mddi_rdptr_init(int cndx);
 static inline int mdp4_dsi_overlay_blt_start(struct msm_fb_data_type *mfd)
 {
 	return -ENODEV;
@@ -776,10 +786,36 @@ static inline void mdp4_dsi_cmd_del_timer(void)
 {
 	/* empty */
 }
-#else /* CONFIG_FB_MSM_MIPI_DSI */
+#else /* CONFIG_FB_MSM_MDP303 */
 void mdp4_dsi_cmd_del_timer(void);
+static inline int mdp4_mddi_on(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_mddi_off(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline void mdp4_mddi_wait4vsync(int cndx, long long *vtime)
+{
+}
+static inline void mdp4_mddi_vsync_ctrl(struct fb_info *info,
+				int enable)
+{
+}
+static inline void mdp4_mddi_pipe_queue(int cndx,
+			struct mdp4_overlay_pipe *pipe)
+{
+}
 #endif
 #else  /* CONFIG_FB_MSM_MIPI_DSI */
+
+int mdp4_mddi_off(struct platform_device *pdev);
+int mdp4_mddi_on(struct platform_device *pdev);
+void mdp4_mddi_wait4vsync(int cndx, long long *vtime);
+void mdp4_mddi_vsync_ctrl(struct fb_info *info, int enable);
+void mdp4_mddi_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
+void mdp4_overlay_update_mddi(struct msm_fb_data_type *mfd);
 
 static inline int mdp4_dsi_cmd_on(struct platform_device *pdev)
 {

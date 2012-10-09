@@ -557,7 +557,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			mdp4_dmap_done_dsi_cmd(0);
 #else
 		else { /* MDDI */
-			mdp4_dma_p_done_mddi(dma);
+			mdp4_dmap_done_mddi(0);
 			mdp_pipe_ctrl(MDP_DMA2_BLOCK,
 				MDP_BLOCK_POWER_OFF, TRUE);
 			complete(&dma->comp);
@@ -608,7 +608,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				mdp4_overlay0_done_dsi_cmd(0);
 #else
 			if (panel & MDP4_PANEL_MDDI)
-				mdp4_overlay0_done_mddi(dma);
+				mdp4_overlay0_done_mddi(0);
 #endif
 		}
 		mdp_hw_cursor_done();
