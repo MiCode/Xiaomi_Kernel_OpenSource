@@ -201,9 +201,6 @@ static void bring_up_cpu(int cpu)
 		time_taken_ms = ktime_to_ms(ktime_get()) - cpu_action_time_ms;
 		if (time_taken_ms > hp_latencies.hp_up_max_ms)
 			hp_latencies.hp_up_max_ms = time_taken_ms;
-		if (time_taken_ms > 5)
-			pr_warn("cpu_up for cpu%d exceeded 5ms (%d)\n",
-					cpu, time_taken_ms);
 		hp_latencies.hp_up_ms += time_taken_ms;
 		hp_latencies.hp_up_count++;
 		ret = msm_dcvs_scm_event(
@@ -232,9 +229,6 @@ static void bring_down_cpu(int cpu)
 		time_taken_ms = ktime_to_ms(ktime_get()) - cpu_action_time_ms;
 		if (time_taken_ms > hp_latencies.hp_dw_max_ms)
 			hp_latencies.hp_dw_max_ms = time_taken_ms;
-		if (time_taken_ms > 5)
-			pr_warn("cpu_down for cpu%d exceeded 5ms (%d)\n",
-						cpu, time_taken_ms);
 		hp_latencies.hp_dw_ms += time_taken_ms;
 		hp_latencies.hp_dw_count++;
 		ret = msm_dcvs_scm_event(
