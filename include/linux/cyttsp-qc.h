@@ -356,7 +356,6 @@
 #define CY_DLY_BL			300
 #define CY_DLY_DNLOAD			100	/* ms */
 #define CY_NUM_RETRY			4	/* max num touch data read */
-#define CY_HALF_SEC_TMO_MS		500
 
 /* handshake bit in the hst_mode reg */
 #define CY_HNDSHK_BIT			0x80
