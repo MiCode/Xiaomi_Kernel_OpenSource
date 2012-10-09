@@ -2621,6 +2621,11 @@ static void unplug_check_worker(struct work_struct *work)
 		pr_debug("USB charger active\n");
 
 		pm_chg_iusbmax_get(chip, &usb_ma);
+		if (usb_ma == 500 && !usb_target_ma) {
+			pr_debug("Stopping Unplug Check Worker USB == 500mA\n");
+			disable_input_voltage_regulation(chip);
+			return;
+		}
 
 		if (usb_ma <= 100) {
 			pr_debug(
