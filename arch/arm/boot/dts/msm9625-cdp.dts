@@ -17,7 +17,7 @@
 / {
 	model = "Qualcomm MSM 9625 CDP";
 	compatible = "qcom,msm9625-cdp", "qcom,msm9625";
-	qcom,msm-id = <134 1 0>;
+	qcom,msm-id = <134 1 0>, <152 1 0>;
 };
 
 /* PM8019 GPIO and MPP configuration */
