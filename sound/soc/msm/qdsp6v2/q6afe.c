@@ -344,6 +344,8 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		break;
 	case INT_BT_SCO_RX:
 	case INT_BT_SCO_TX:
+	case INT_FM_RX:
+	case INT_FM_TX:
 		cfg_type = AFE_PARAM_ID_INTERNAL_BT_FM_CONFIG;
 		break;
 	default:
