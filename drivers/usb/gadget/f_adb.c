@@ -55,6 +55,7 @@ struct adb_dev {
 	wait_queue_head_t write_wq;
 	struct usb_request *rx_req;
 	int rx_done;
+	bool notify_close;
 };
 
 static struct usb_interface_descriptor adb_interface_desc = {
@@ -423,8 +424,10 @@ static int adb_open(struct inode *ip, struct file *fp)
 	/* clear the error latch */
 	atomic_set(&_adb_dev->error, 0);
 
-	adb_ready_callback();
+	if (_adb_dev->notify_close)
+		adb_ready_callback();
 
+	_adb_dev->notify_close = true;
 	return 0;
 }
 
@@ -432,7 +435,16 @@ static int adb_release(struct inode *ip, struct file *fp)
 {
 	pr_info("adb_release\n");
 
-	adb_closed_callback();
+	/*
+	 * ADB daemon closes the device file after I/O error.  The
+	 * I/O error happen when Rx requests are flushed during
+	 * cable disconnect or bus reset in configured state.  Disabling
+	 * USB configuration and pull-up during these scenarios are
+	 * undesired.  We want to force bus reset only for certain
+	 * commands like "adb root" and "adb usb".
+	 */
+	if (_adb_dev->notify_close)
+		adb_closed_callback();
 
 	adb_unlock(&_adb_dev->open_excl);
 	return 0;
@@ -561,6 +573,12 @@ static void adb_function_disable(struct usb_function *f)
 	struct usb_composite_dev	*cdev = dev->cdev;
 
 	DBG(cdev, "adb_function_disable cdev %p\n", cdev);
+	/*
+	 * Bus reset happened or cable disconnected.  No
+	 * need to disable the configuration now.  We will
+	 * set noify_close to true when device file is re-opened.
+	 */
+	dev->notify_close = false;
 	atomic_set(&dev->online, 0);
 	atomic_set(&dev->error, 1);
 	usb_ep_disable(dev->ep_in);
@@ -607,6 +625,7 @@ static int adb_setup(void)
 	atomic_set(&dev->open_excl, 0);
 	atomic_set(&dev->read_excl, 0);
 	atomic_set(&dev->write_excl, 0);
+	dev->notify_close = true;
 
 	INIT_LIST_HEAD(&dev->tx_idle);
 
