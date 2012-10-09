@@ -607,6 +607,8 @@ static struct platform_device hs_pdev = {
 #define FT5X06_IRQ_GPIO		48
 #define FT5X06_RESET_GPIO	26
 
+#define FT5X16_IRQ_GPIO		122
+
 static ssize_t
 ft5x06_virtual_keys_register(struct kobject *kobj,
 			     struct kobj_attribute *attr,
@@ -617,6 +619,17 @@ ft5x06_virtual_keys_register(struct kobject *kobj,
 	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME)   ":120:510:80:60"
 	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":200:510:80:60"
 	":" __stringify(EV_KEY) ":" __stringify(KEY_BACK)   ":280:510:80:60"
+	"\n");
+}
+
+static ssize_t ft5x16_virtual_keys_register(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 200, \
+	__stringify(EV_KEY) ":" __stringify(KEY_HOME) ":68:984:135:50" \
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":203:984:135:50" \
+	":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":338:984:135:50" \
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":473:984:135:50" \
 	"\n");
 }
 
@@ -658,13 +671,28 @@ static struct i2c_board_info ft5x06_device_info[] __initdata = {
 static void __init ft5x06_touchpad_setup(void)
 {
 	int rc;
+	int irq_gpio;
 
-	rc = gpio_tlmm_config(GPIO_CFG(FT5X06_IRQ_GPIO, 0,
+	if (machine_is_qrd_skud_prime()) {
+		irq_gpio = FT5X16_IRQ_GPIO;
+
+		ft5x06_platformdata.x_max = 540;
+		ft5x06_platformdata.y_max = 960;
+		ft5x06_platformdata.irq_gpio = FT5X16_IRQ_GPIO;
+
+		ft5x06_device_info[0].irq = MSM_GPIO_TO_INT(FT5X16_IRQ_GPIO);
+
+		ft5x06_virtual_keys_attr.show = &ft5x16_virtual_keys_register;
+	} else {
+		irq_gpio = FT5X06_IRQ_GPIO;
+	}
+
+	rc = gpio_tlmm_config(GPIO_CFG(irq_gpio, 0,
 			GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
 			GPIO_CFG_8MA), GPIO_CFG_ENABLE);
 	if (rc)
 		pr_err("%s: gpio_tlmm_config for %d failed\n",
-			__func__, FT5X06_IRQ_GPIO);
+			__func__, irq_gpio);
 
 	rc = gpio_tlmm_config(GPIO_CFG(FT5X06_RESET_GPIO, 0,
 			GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN,
@@ -845,7 +873,8 @@ void __init qrd7627a_add_io_devices(void)
 		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 					mxt_device_info,
 					ARRAY_SIZE(mxt_device_info));
-	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
+	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()
+				|| machine_is_qrd_skud_prime()) {
 		ft5x06_touchpad_setup();
 	}
 
