@@ -99,6 +99,8 @@ struct dcvs_core {
 	wait_queue_head_t wait_q;
 	int (*set_frequency)(struct msm_dcvs_freq *self, unsigned int freq);
 	unsigned int (*get_frequency)(struct msm_dcvs_freq *self);
+	int (*idle_enable)(struct msm_dcvs_idle *self,
+			enum msm_core_control_event event);
 };
 
 static int msm_dcvs_debug;
@@ -177,13 +179,13 @@ repeat:
 	 */
 	if (core->actual_freq >
 			core->algo_param.disable_pc_threshold) {
-		core->idle_driver->enable(core->idle_driver,
+		core->idle_enable(core->idle_driver,
 				MSM_DCVS_DISABLE_HIGH_LATENCY_MODES);
 		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 			__info("Disabling LPM for %s\n", core->core_name);
 	} else if (core->actual_freq <=
 			core->algo_param.disable_pc_threshold) {
-		core->idle_driver->enable(core->idle_driver,
+		core->idle_enable(core->idle_driver,
 				MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
 		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 			__info("Enabling LPM for %s\n", core->core_name);
@@ -580,6 +582,8 @@ int msm_dcvs_register_core(const char *core_name,
 	struct msm_dcvs_core_info *info,
 	int (*set_frequency)(struct msm_dcvs_freq *self, unsigned int freq),
 	unsigned int (*get_frequency)(struct msm_dcvs_freq *self),
+	int (*idle_enable)(struct msm_dcvs_idle *self,
+					enum msm_core_control_event event),
 	int sensor)
 {
 	int ret = -EINVAL;
@@ -598,6 +602,7 @@ int msm_dcvs_register_core(const char *core_name,
 
 	core->set_frequency = set_frequency;
 	core->get_frequency = get_frequency;
+	core->idle_enable = idle_enable;
 
 	core->info = info;
 	memcpy(&core->algo_param, &info->algo_param,
@@ -685,7 +690,7 @@ int msm_dcvs_freq_sink_start(struct msm_dcvs_freq *drv)
 		/* Notify TZ to start receiving idle info for the core */
 		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 1,
 					   &ret1, &ret2);
-		core->idle_driver->enable(core->idle_driver,
+		core->idle_enable(core->idle_driver,
 				MSM_DCVS_ENABLE_IDLE_PULSE);
 	}
 
@@ -713,13 +718,13 @@ int msm_dcvs_freq_sink_stop(struct msm_dcvs_freq *drv)
 	if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 		__info("Disabling idle pulse for %s\n", core->core_name);
 	if (core->idle_driver) {
-		core->idle_driver->enable(core->idle_driver,
+		core->idle_enable(core->idle_driver,
 				MSM_DCVS_DISABLE_IDLE_PULSE);
 		/* Notify TZ to stop receiving idle info for the core */
 		ret = msm_dcvs_update_freq(core, MSM_DCVS_SCM_DCVS_ENABLE, 0,
 					   &ret1, &ret2);
 		hrtimer_cancel(&core->timer);
-		core->idle_driver->enable(core->idle_driver,
+		core->idle_enable(core->idle_driver,
 				MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
 		if (msm_dcvs_debug & MSM_DCVS_DEBUG_IDLE_PULSE)
 			__info("Enabling LPM for %s\n", core->core_name);

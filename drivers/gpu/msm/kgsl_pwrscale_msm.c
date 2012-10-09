@@ -172,7 +172,7 @@ static int msm_init(struct kgsl_device *device,
 	for (i = 0; i <= low_level; i++)
 		tbl[i].freq = pwr->pwrlevels[low_level - i].gpu_freq / 1000;
 	ret = msm_dcvs_register_core(device->name, priv->core_info,
-			msm_set_freq, msm_get_freq,
+			msm_set_freq, msm_get_freq, msm_idle_enable,
 			priv->core_info->sensors[0]);
 	if (ret) {
 		KGSL_PWR_ERR(device, "msm_dcvs_register_core failed");
@@ -180,7 +180,6 @@ static int msm_init(struct kgsl_device *device,
 	}
 
 	priv->device = device;
-	priv->idle_source.enable = msm_idle_enable;
 	priv->idle_source.core_name = device->name;
 	priv->handle = msm_dcvs_idle_source_register(&priv->idle_source);
 	if (priv->handle < 0) {
