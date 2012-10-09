@@ -1629,6 +1629,8 @@ sub process {
 			 $exec_file =~ /^.+\.ihex$/ or
 			 $exec_file =~ /^.+\.hex$/ or
 			 $exec_file =~ /^.+\.HEX$/ or
+			 $exec_file =~ /^.+\.dts$/ or
+			 $exec_file =~ /^.+\.dtsi$/ or
 			 $exec_file =~ /^.+defconfig$/ or
 			 $exec_file =~ /^Makefile$/ or
 			 $exec_file =~ /^Kconfig$/) &&
