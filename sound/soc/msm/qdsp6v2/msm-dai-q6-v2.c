@@ -899,6 +899,36 @@ static struct snd_soc_dai_driver msm_dai_q6_bt_sco_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_fm_rx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 2,
+		.channels_max = 2,
+		.rate_max = 48000,
+		.rate_min = 8000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_fm_tx_dai = {
+	.capture = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 2,
+		.channels_max = 2,
+		.rate_max = 48000,
+		.rate_min = 8000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
 static int __devinit msm_auxpcm_dev_probe(struct platform_device *pdev)
 {
 	int id;
@@ -1157,6 +1187,12 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case INT_BT_SCO_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					&msm_dai_q6_bt_sco_tx_dai);
+		break;
+	case INT_FM_RX:
+		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_fm_rx_dai);
+		break;
+	case INT_FM_TX:
+		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_fm_tx_dai);
 		break;
 	case RT_PROXY_DAI_001_RX:
 	case RT_PROXY_DAI_002_RX:
