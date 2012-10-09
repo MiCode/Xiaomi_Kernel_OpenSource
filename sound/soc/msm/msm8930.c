@@ -183,9 +183,9 @@ static void msm8960_ext_spk_power_amp_on(u32 spk)
 				pm8xxx_spk_enable(MSM8930_SPK_ON);
 			}
 
-			pr_debug("%s: slepping 4 ms after turning on external "
+			pr_debug("%s: sleeping 10 ms after turning on external "
 				" Left Speaker Ampl\n", __func__);
-			usleep_range(4000, 4000);
+			usleep_range(10000, 10000);
 		}
 
 	} else  {
@@ -218,9 +218,9 @@ static void msm8960_ext_spk_power_amp_off(u32 spk)
 
 		pm8xxx_spk_enable(MSM8930_SPK_OFF);
 		msm8930_ext_spk_pamp = 0;
-		pr_debug("%s: slepping 4 ms after turning on external "
+		pr_debug("%s: slepping 10 ms after turning on external "
 			" Left Speaker Ampl\n", __func__);
-		usleep_range(4000, 4000);
+		usleep_range(10000, 10000);
 
 	} else  {
 
