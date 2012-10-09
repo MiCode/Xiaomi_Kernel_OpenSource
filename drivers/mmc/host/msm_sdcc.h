@@ -401,6 +401,7 @@ struct msmsdcc_host {
 	bool io_pad_pwr_switch;
 	bool tuning_in_progress;
 	bool tuning_needed;
+	bool tuning_done;
 	bool en_auto_cmd19;
 	bool en_auto_cmd21;
 	bool sdio_gpio_lpm;
