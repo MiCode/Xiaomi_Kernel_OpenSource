@@ -540,8 +540,8 @@ msm_request_irq(int irq, irq_handler_t *handle_irq)
         int err = 0;
         int cpu;
 
-        err = request_percpu_irq(irq, *handle_irq, "krait-l1-armpmu",
-                        &cpu_hw_events);
+	err = request_percpu_irq(irq, *handle_irq, "l1-armpmu",
+			&cpu_hw_events);
 
         if (!err) {
                 for_each_cpu(cpu, cpu_online_mask) {
