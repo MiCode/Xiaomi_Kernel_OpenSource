@@ -116,16 +116,14 @@ static int cpufreq_governor_msm(struct cpufreq_policy *policy,
 		per_cpu(msm_gov_info, cpu).cpu = cpu;
 		gov->policy = policy;
 		dcvs_notifier->core_name = core_name[cpu];
-		dcvs_notifier->set_frequency = msm_dcvs_freq_set;
-		dcvs_notifier->get_frequency = msm_dcvs_freq_get;
-		handle = msm_dcvs_freq_sink_register(dcvs_notifier);
+		handle = msm_dcvs_freq_sink_start(dcvs_notifier);
 		BUG_ON(handle < 0);
 		msm_gov_check_limits(policy);
 		mutex_unlock(&per_cpu(gov_mutex, cpu));
 		break;
 
 	case CPUFREQ_GOV_STOP:
-		msm_dcvs_freq_sink_unregister(dcvs_notifier);
+		msm_dcvs_freq_sink_stop(dcvs_notifier);
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
@@ -158,7 +156,10 @@ static int __devinit msm_gov_probe(struct platform_device *pdev)
 		snprintf(core_name[cpu], 10, "cpu%d", cpu);
 		if (cpu < core->num_cores)
 			sensor = core->sensors[cpu];
-		ret = msm_dcvs_register_core(core_name[cpu], core, sensor);
+		ret = msm_dcvs_register_core(core_name[cpu], core,
+						msm_dcvs_freq_set,
+						msm_dcvs_freq_get,
+						sensor);
 		if (ret)
 			pr_err("Unable to register core for %d\n", cpu);
 	}
