@@ -1080,6 +1080,7 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 				      unsigned int cmd, void *data)
 {
 	int result = 0;
+	int i = 0;
 	struct kgsl_ringbuffer_issueibcmds *param = data;
 	struct kgsl_ibdesc *ibdesc;
 	struct kgsl_context *context;
@@ -1139,6 +1140,16 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		ibdesc[0].gpuaddr = param->ibdesc_addr;
 		ibdesc[0].sizedwords = param->numibs;
 		param->numibs = 1;
+	}
+
+	for (i = 0; i < param->numibs; i++) {
+		if (!kgsl_mmu_gpuaddr_in_range(ibdesc[i].gpuaddr)) {
+			result = -ERANGE;
+			KGSL_DRV_ERR(dev_priv->device,
+				     "invalid ib base GPU virtual addr %x\n",
+				     ibdesc[i].gpuaddr);
+			goto free_ibdesc;
+		}
 	}
 
 	result = dev_priv->device->ftbl->issueibcmds(dev_priv,
