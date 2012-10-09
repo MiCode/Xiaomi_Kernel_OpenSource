@@ -640,6 +640,26 @@ static void adjust_pon_ocv_raw(struct pm8921_bms_chip *chip,
 		raw->last_good_ocv_raw -= MBG_TRANSIENT_ERROR_RAW;
 }
 
+#define SEL_ALT_OREG_BIT  BIT(2)
+static int ocv_ir_compensation(struct pm8921_bms_chip *chip, int ocv)
+{
+	int compensated_ocv;
+	int ibatt_ua;
+	int rbatt_mohm = chip->default_rbatt_mohm + chip->rconn_mohm;
+
+	pm_bms_masked_write(chip, BMS_TEST1,
+			SEL_ALT_OREG_BIT, SEL_ALT_OREG_BIT);
+
+	/* since the SEL_ALT_OREG_BIT is set this will give us VSENSE_OCV */
+	pm8921_bms_get_battery_current(&ibatt_ua);
+	compensated_ocv = ocv + div_s64((s64)ibatt_ua * rbatt_mohm, 1000);
+	pr_debug("comp ocv = %d, ocv = %d, ibatt_ua = %d, rbatt_mohm = %d\n",
+			compensated_ocv, ocv, ibatt_ua, rbatt_mohm);
+
+	pm_bms_masked_write(chip, BMS_TEST1, SEL_ALT_OREG_BIT, 0);
+	return compensated_ocv;
+}
+
 static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 				struct pm8921_soc_params *raw)
 {
@@ -662,6 +682,8 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 		adjust_pon_ocv_raw(chip, raw);
 		convert_vbatt_raw_to_uv(chip, usb_chg,
 			raw->last_good_ocv_raw, &raw->last_good_ocv_uv);
+		raw->last_good_ocv_uv = ocv_ir_compensation(chip,
+						raw->last_good_ocv_uv);
 		chip->last_ocv_uv = raw->last_good_ocv_uv;
 		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
