@@ -2263,12 +2263,15 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	static uint io_cnt;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct adreno_context *adreno_ctx = context->devctxt;
 	int retries = 0;
 	unsigned int ts_issued;
 	unsigned int context_id = _get_context_id(context);
 	unsigned int time_elapsed = 0;
 	unsigned int prev_reg_val[hang_detect_regs_count];
 	unsigned int wait;
+	unsigned int retry_ts_cmp = 0;
+	unsigned int retry_ts_cmp_msecs = KGSL_SYNCOBJ_SERVER_TIMEOUT;
 
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
@@ -2278,12 +2281,20 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	if (msecs == KGSL_TIMEOUT_DEFAULT)
 		msecs = adreno_dev->wait_timeout;
 
+	/*
+	 * With user generated ts, if this check fails perform this check
+	 * again after 'retry_ts_cmp_msecs' milliseconds.
+	 */
 	if (timestamp_cmp(timestamp, ts_issued) > 0) {
-		KGSL_DRV_ERR(device, "Cannot wait for invalid ts <%d:0x%x>, "
-			"last issued ts <%d:0x%x>\n",
-			context_id, timestamp, context_id, ts_issued);
-		status = -EINVAL;
-		goto done;
+		if (!(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS)) {
+			KGSL_DRV_ERR(device,
+				"Cannot wait for invalid ts <%d:0x%x>, "
+				"last issued ts <%d:0x%x>\n",
+				context_id, timestamp, context_id, ts_issued);
+			status = -EINVAL;
+			goto done;
+		} else
+			retry_ts_cmp = 1;
 	}
 
 	/*
@@ -2353,7 +2364,22 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		time_elapsed += wait;
 		wait = KGSL_TIMEOUT_PART;
 
-		retries++;
+		if (!retry_ts_cmp)
+			retries++;
+		else if (time_elapsed >= retry_ts_cmp_msecs) {
+			ts_issued =
+				adreno_dev->ringbuffer.timestamp[context_id];
+			if (timestamp_cmp(timestamp, ts_issued) > 0) {
+				KGSL_DRV_ERR(device,
+				"Cannot wait for user-generated ts <%d:0x%x>, "
+				"not submitted within server timeout period. "
+				"last issued ts <%d:0x%x>\n",
+				context_id, timestamp, context_id, ts_issued);
+				status = -EINVAL;
+				goto done;
+			}
+			retry_ts_cmp = 0;
+		}
 
 	} while (!msecs || time_elapsed < msecs);
 

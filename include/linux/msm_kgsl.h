@@ -2,7 +2,7 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
-#define KGSL_VERSION_MINOR        13
+#define KGSL_VERSION_MINOR        14
 
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM		0x00000001
@@ -12,6 +12,7 @@
 #define KGSL_CONTEXT_PREAMBLE		0x00000010
 #define KGSL_CONTEXT_TRASH_STATE	0x00000020
 #define KGSL_CONTEXT_PER_CONTEXT_TS	0x00000040
+#define KGSL_CONTEXT_USER_GENERATED_TS	0x00000080
 
 #define KGSL_CONTEXT_INVALID 0xffffffff
 
@@ -65,6 +66,9 @@
 #define KGSL_CLK_MEM	0x00000008
 #define KGSL_CLK_MEM_IFACE 0x00000010
 #define KGSL_CLK_AXI	0x00000020
+
+/* Server Side Sync Timeout in milliseconds */
+#define KGSL_SYNCOBJ_SERVER_TIMEOUT 2000
 
 /*
  * Reset status values for context
