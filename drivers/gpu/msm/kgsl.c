@@ -1643,11 +1643,16 @@ static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 #endif
 
 static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
-		struct kgsl_pagetable *pagetable, int fd)
+		struct kgsl_pagetable *pagetable, void *data)
 {
 	struct ion_handle *handle;
 	struct scatterlist *s;
 	struct sg_table *sg_table;
+	struct kgsl_map_user_mem *param = data;
+	int fd = param->fd;
+
+	if (!param->len)
+		return -EINVAL;
 
 	if (IS_ERR_OR_NULL(kgsl_ion_client))
 		return -ENODEV;
@@ -1752,8 +1757,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		entry->memtype = KGSL_MEM_ENTRY_ASHMEM;
 		break;
 	case KGSL_USER_MEM_TYPE_ION:
-		result = kgsl_setup_ion(entry, private->pagetable,
-			param->fd);
+		result = kgsl_setup_ion(entry, private->pagetable, data);
 		break;
 	default:
 		KGSL_CORE_ERR("Invalid memory type: %x\n", memtype);
