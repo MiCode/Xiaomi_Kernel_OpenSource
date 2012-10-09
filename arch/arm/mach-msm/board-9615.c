@@ -933,6 +933,7 @@ static struct platform_device *common_devices[] = {
 	&msm_bus_def_fab,
 	&msm9615_rpm_log_device,
 	&msm9615_rpm_stat_device,
+	&msm9615_rpm_master_stat_device,
 	&msm_tsens_device,
 };
 
