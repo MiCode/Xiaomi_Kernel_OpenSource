@@ -856,7 +856,7 @@ static int qpnp_lpg_enable_pwm(struct pwm_device *pwm)
 
 	return qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
-		lpg_config->base_addr, QPNP_RAMP_CONTROL, 1, chip);
+		lpg_config->base_addr, QPNP_ENABLE_CONTROL, 1, chip);
 }
 
 static int qpnp_disable_pwm(struct pwm_device *pwm)
@@ -873,7 +873,7 @@ static int qpnp_disable_pwm(struct pwm_device *pwm)
 
 	return qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
-		lpg_config->base_addr, QPNP_RAMP_CONTROL, 1, chip);
+		lpg_config->base_addr, QPNP_ENABLE_CONTROL, 1, chip);
 }
 
 static int _pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
