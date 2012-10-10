@@ -19,6 +19,7 @@
 #include <linux/vmalloc.h>
 #include <linux/iommu.h>
 #include <linux/pfn.h>
+#include <linux/dma-mapping.h>
 #include "ion_priv.h"
 
 #include <asm/mach/map.h>
@@ -80,7 +81,12 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 				goto err3;
 
 			sg_set_page(sg, data->pages[i], PAGE_SIZE, 0);
+			sg_dma_address(sg) = sg_phys(sg);
 		}
+
+		if (!ION_IS_CACHED(flags))
+			dma_sync_sg_for_device(NULL, table->sgl, table->nents,
+						DMA_BIDIRECTIONAL);
 
 		buffer->priv_virt = data;
 		return 0;
