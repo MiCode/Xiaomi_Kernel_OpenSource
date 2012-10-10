@@ -696,6 +696,26 @@ done:
 	return ret;
 }
 
+static int get_core_offset(enum msm_dcvs_core_type type, int num)
+{
+	int offset = -EINVAL;
+
+	switch (type) {
+	case MSM_DCVS_CORE_TYPE_CPU:
+		offset = CPU_OFFSET + num;
+		BUG_ON(offset >= GPU_OFFSET);
+		break;
+	case MSM_DCVS_CORE_TYPE_GPU:
+		offset = GPU_OFFSET + num;
+		BUG_ON(offset >= CORES_MAX);
+		break;
+	default:
+		BUG();
+	}
+
+	return offset;
+}
+
 /* Return the core and initialize non platform data specific numbers in it */
 static struct dcvs_core *msm_dcvs_add_core(enum msm_dcvs_core_type type,
 								int num)
@@ -704,20 +724,14 @@ static struct dcvs_core *msm_dcvs_add_core(enum msm_dcvs_core_type type,
 	int i;
 	char name[CORE_NAME_MAX];
 
-	switch (type) {
-	case MSM_DCVS_CORE_TYPE_CPU:
-		i = CPU_OFFSET + num;
-		BUG_ON(i >= GPU_OFFSET);
-		snprintf(name, CORE_NAME_MAX, "cpu%d", num);
-		break;
-	case MSM_DCVS_CORE_TYPE_GPU:
-		i = GPU_OFFSET + num;
-		BUG_ON(i >= CORES_MAX);
-		snprintf(name, CORE_NAME_MAX, "gpu%d", num);
-		break;
-	default:
+	i = get_core_offset(type, num);
+	if (i < 0)
 		return NULL;
-	}
+
+	if (type == MSM_DCVS_CORE_TYPE_CPU)
+		snprintf(name, CORE_NAME_MAX, "cpu%d", num);
+	else
+		snprintf(name, CORE_NAME_MAX, "gpu%d", num);
 
 	core = &core_list[i];
 	core->dcvs_core_id = i;
@@ -750,9 +764,16 @@ int msm_dcvs_register_core(
 	int sensor)
 {
 	int ret = -EINVAL;
+	int offset;
 	struct dcvs_core *core = NULL;
 	uint32_t ret1;
 	uint32_t ret2;
+
+	offset = get_core_offset(type, type_core_num);
+	if (offset < 0)
+		return ret;
+	if (core_list[offset].dcvs_core_id != -1)
+		return core_list[offset].dcvs_core_id;
 
 	core = msm_dcvs_add_core(type, type_core_num);
 	if (!core)
