@@ -4615,19 +4615,19 @@ static void axi40_do_tasklet(unsigned long data)
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS0_STATS_CS);
 
-				if (qcmd->vfeInterruptStatus0 &
+				if (qcmd->vfeInterruptStatus1 &
 						VFE_IRQ_STATUS1_SYNC_TIMER0)
 					v4l2_subdev_notify(&vfe40_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS1_SYNC_TIMER0);
 
-				if (qcmd->vfeInterruptStatus0 &
+				if (qcmd->vfeInterruptStatus1 &
 						VFE_IRQ_STATUS1_SYNC_TIMER1)
 					v4l2_subdev_notify(&vfe40_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
 					(void *)VFE_IRQ_STATUS1_SYNC_TIMER1);
 
-				if (qcmd->vfeInterruptStatus0 &
+				if (qcmd->vfeInterruptStatus1 &
 						VFE_IRQ_STATUS1_SYNC_TIMER2)
 					v4l2_subdev_notify(&vfe40_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
