@@ -878,6 +878,14 @@
 			<11 604 32506 32506>;
 	};
 
+	qcom,msm-adsp-sensors {
+		compatible = "qcom,msm-adsp-sensors";
+		qcom,msm-adsp-sensors-src-id = <11>;
+		qcom,msm-adsp-sensors-dst-id = <604>;
+		qcom,msm-adsp-sensors-ab = <32505856>;
+		qcom,msm-adsp-sensors-ib = <32505856>;
+	};
+
 	qcom,mss@fc880000 {
 		compatible = "qcom,pil-q6v5-mss";
 		reg = <0xfc880000 0x100>,
