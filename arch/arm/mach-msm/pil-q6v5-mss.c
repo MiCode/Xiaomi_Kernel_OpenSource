@@ -79,7 +79,6 @@ static int pil_mss_power_down(struct device *dev)
 static int pil_mss_enable_clks(struct q6v5_data *drv)
 {
 	int ret;
-	void __iomem *mpll1_config_ctl;
 
 	ret = clk_prepare_enable(drv->ahb_clk);
 	if (ret)
@@ -90,12 +89,6 @@ static int pil_mss_enable_clks(struct q6v5_data *drv)
 	ret = clk_prepare_enable(drv->rom_clk);
 	if (ret)
 		goto err_rom_clk;
-
-	/* TODO: Remove when support for 8974v1.0 HW is dropped. */
-	mpll1_config_ctl = ioremap(0xFC981034, 0x4);
-	writel_relaxed(0x0300403D, mpll1_config_ctl);
-	mb();
-	iounmap(mpll1_config_ctl);
 
 	return 0;
 
