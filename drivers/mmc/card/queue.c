@@ -59,6 +59,7 @@ static int mmc_queue_thread(void *d)
 	struct mmc_queue *mq = d;
 	struct request_queue *q = mq->queue;
 	struct request *req;
+	struct mmc_card *card = mq->card;
 
 	current->flags |= PF_MEMALLOC;
 
@@ -74,6 +75,17 @@ static int mmc_queue_thread(void *d)
 		spin_unlock_irq(q->queue_lock);
 
 		if (req || mq->mqrq_prev->req) {
+			/*
+			 * If this is the first request, BKOPs might be in
+			 * progress and needs to be stopped before issuing the
+			 * request
+			 */
+			if (card->ext_csd.bkops_en &&
+			    card->bkops_info.started_delayed_bkops) {
+				card->bkops_info.started_delayed_bkops = false;
+				mmc_stop_bkops(card);
+			}
+
 			set_current_state(TASK_RUNNING);
 			mq->issue_fn(mq, req);
 		} else {
@@ -81,6 +93,7 @@ static int mmc_queue_thread(void *d)
 				set_current_state(TASK_RUNNING);
 				break;
 			}
+			mmc_start_delayed_bkops(card);
 			up(&mq->thread_sem);
 			schedule();
 			down(&mq->thread_sem);

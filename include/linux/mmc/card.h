@@ -229,6 +229,48 @@ struct mmc_part {
 #define MMC_BLK_DATA_AREA_GP	(1<<2)
 };
 
+/**
+ * struct mmc_bkops_info - BKOPS data
+ * @dw:	Idle time bkops delayed work
+ * @host_suspend_tout_ms:	The host controller idle time,
+ * before getting into suspend
+ * @delay_ms:	The time to start the BKOPS
+ *        delayed work once MMC thread is idle
+ * @poll_for_completion:	Poll on BKOPS completion
+ * @cancel_delayed_work: A flag to indicate if the delayed work
+ *        should be cancelled
+ * @started_delayed_bkops:  A flag to indicate if the delayed
+ *        work was scheduled
+ * @sectors_changed:  number of  sectors written or
+ *       discard since the last idle BKOPS were scheduled
+ */
+struct mmc_bkops_info {
+	struct delayed_work	dw;
+	unsigned int		host_suspend_tout_ms;
+	unsigned int		delay_ms;
+/*
+ * A default time for checking the need for non urgent BKOPS once mmcqd
+ * is idle.
+ */
+#define MMC_IDLE_BKOPS_TIME_MS 2000
+	struct work_struct	poll_for_completion;
+/* Polling timeout and interval for waiting on non-blocking BKOPs completion */
+#define BKOPS_COMPLETION_POLLING_TIMEOUT_MS 10000 /* in ms */
+#define BKOPS_COMPLETION_POLLING_INTERVAL_MS 1000 /* in ms */
+	bool			cancel_delayed_work;
+	bool			started_delayed_bkops;
+	unsigned int		sectors_changed;
+/*
+ * Since canceling the delayed work might have significant effect on the
+ * performance of small requests we won't queue the delayed work every time
+ * mmcqd thread is idle.
+ * The delayed work for idle BKOPS will be scheduled only after a significant
+ * amount of write or discard data.
+ * 100MB is chosen based on benchmark tests.
+ */
+#define BKOPS_MIN_SECTORS_TO_QUEUE_DELAYED_WORK 204800 /* 100MB */
+};
+
 /*
  * MMC device
  */
@@ -304,6 +346,8 @@ struct mmc_card {
 	unsigned int    nr_parts;
 
 	struct mmc_wr_pack_stats wr_pack_stats; /* packed commands stats*/
+
+	struct mmc_bkops_info	bkops_info;
 };
 
 /*
