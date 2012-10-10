@@ -1034,7 +1034,7 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 	 * samples with the the shutdown_iavg_ua
 	 */
 	if (firsttime && chip->shutdown_iavg_ua != 0) {
-		pr_emerg("Using shutdown_iavg_ua = %d in all samples\n",
+		pr_debug("Using shutdown_iavg_ua = %d in all samples\n",
 				chip->shutdown_iavg_ua);
 		for (i = 0; i < IAVG_SAMPLES; i++)
 			iavg_samples[i] = chip->shutdown_iavg_ua;
