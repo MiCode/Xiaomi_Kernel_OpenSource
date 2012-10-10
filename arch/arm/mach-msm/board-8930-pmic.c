@@ -593,4 +593,7 @@ void __init msm8930_init_pmic(void)
 		else if (machine_is_msm8930_cdp())
 			pm8921_chg_pdata.has_dc_supply = true;
 	}
+
+	if (!machine_is_msm8930_mtp())
+		pm8921_chg_pdata.battery_less_hardware = 1;
 }
