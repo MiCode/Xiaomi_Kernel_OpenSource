@@ -159,29 +159,34 @@ static int msm_init(struct kgsl_device *device,
 		container_of(device->parentdev, struct platform_device, dev);
 	struct kgsl_device_platform_data *pdata = pdev->dev.platform_data;
 
-	priv = pwrscale->priv = kzalloc(sizeof(struct msm_priv),
-		GFP_KERNEL);
-	if (pwrscale->priv == NULL)
-		return -ENOMEM;
+	if (the_msm_priv) {
+		priv = pwrscale->priv = the_msm_priv;
+	} else {
+		priv = pwrscale->priv = kzalloc(sizeof(struct msm_priv),
+			GFP_KERNEL);
+		if (pwrscale->priv == NULL)
+			return -ENOMEM;
 
-	priv->core_info = pdata->core_info;
-	tbl = priv->core_info->freq_tbl;
-	/* Fill in frequency table from low to high, reversing order. */
-	low_level = pwr->num_pwrlevels - KGSL_PWRLEVEL_LAST_OFFSET;
-	for (i = 0; i <= low_level; i++)
-		tbl[i].freq = pwr->pwrlevels[low_level - i].gpu_freq / 1000;
-	priv->dcvs_core_id = msm_dcvs_register_core(MSM_DCVS_CORE_TYPE_GPU, 0,
+		priv->core_info = pdata->core_info;
+		tbl = priv->core_info->freq_tbl;
+		/* Fill in frequency table from low to high, reversing order. */
+		low_level = pwr->num_pwrlevels - KGSL_PWRLEVEL_LAST_OFFSET;
+		for (i = 0; i <= low_level; i++)
+			tbl[i].freq =
+				pwr->pwrlevels[low_level - i].gpu_freq / 1000;
+		priv->dcvs_core_id =
+				msm_dcvs_register_core(MSM_DCVS_CORE_TYPE_GPU,
+				0,
 				priv->core_info,
 				msm_set_freq, msm_get_freq, msm_idle_enable,
 				priv->core_info->sensors[0]);
-	if (priv->dcvs_core_id < 0) {
-		KGSL_PWR_ERR(device, "msm_dcvs_register_core failed");
-		goto err;
+		if (priv->dcvs_core_id < 0) {
+			KGSL_PWR_ERR(device, "msm_dcvs_register_core failed");
+			goto err;
+		}
+		the_msm_priv = priv;
 	}
-
 	priv->device = device;
-
-	the_msm_priv = priv;
 	ret = msm_dcvs_freq_sink_start(priv->dcvs_core_id);
 	if (ret >= 0) {
 		if (device->ftbl->isidle(device)) {
@@ -198,7 +203,8 @@ static int msm_init(struct kgsl_device *device,
 	KGSL_PWR_ERR(device, "msm_dcvs_freq_sink_register failed\n");
 
 err:
-	kfree(pwrscale->priv);
+	if (!the_msm_priv)
+		kfree(pwrscale->priv);
 	pwrscale->priv = NULL;
 
 	return ret;
@@ -212,7 +218,6 @@ static void msm_close(struct kgsl_device *device,
 	if (pwrscale->priv == NULL)
 		return;
 	msm_dcvs_freq_sink_stop(priv->dcvs_core_id);
-	kfree(pwrscale->priv);
 	pwrscale->priv = NULL;
 	msm_restore_io_fraction(device);
 }
