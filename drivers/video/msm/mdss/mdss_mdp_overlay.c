@@ -603,7 +603,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	ctl = pipe->mixer->ctl;
 	mdss_mdp_pipe_unlock(pipe);
 
-	if (ret == 0 && !(pipe->flags & MDP_OV_PLAY_NOWAIT))
+	if ((ret == 0) && (mfd->panel_info.type == WRITEBACK_PANEL))
 		ret = mdss_mdp_overlay_kickoff(ctl);
 
 	return ret;
