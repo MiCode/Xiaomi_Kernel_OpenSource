@@ -632,7 +632,6 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 
 #define CXO_ID			0x0
 #define QDSS_ID			0x1
-#define RPM_SCALING_ENABLE_ID	0x2
 
 #define PNOC_ID		0x0
 #define SNOC_ID		0x1
@@ -5745,24 +5744,6 @@ static void __init msm8974_clock_post_init(void)
 
 #define APCS_GCC_CC_PHYS	0xF9011000
 #define APCS_GCC_CC_SIZE	SZ_4K
-
-static void __init enable_rpm_scaling(void)
-{
-	int rc, value = 0x1;
-	struct msm_rpm_kvp kvp = {
-		.key = RPM_SMD_KEY_ENABLE,
-		.data = (void *)&value,
-		.length = sizeof(value),
-	};
-
-	rc = msm_rpm_send_message_noirq(MSM_RPM_CTX_SLEEP_SET,
-			RPM_MISC_CLK_TYPE, RPM_SCALING_ENABLE_ID, &kvp, 1);
-	WARN(rc < 0, "RPM clock scaling (sleep set) did not enable!\n");
-
-	rc = msm_rpm_send_message_noirq(MSM_RPM_CTX_ACTIVE_SET,
-			RPM_MISC_CLK_TYPE, RPM_SCALING_ENABLE_ID, &kvp, 1);
-	WARN(rc < 0, "RPM clock scaling (active set) did not enable!\n");
-}
 
 static void __init msm8974_clock_pre_init(void)
 {

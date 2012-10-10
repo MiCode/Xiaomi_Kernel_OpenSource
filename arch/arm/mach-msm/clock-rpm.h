@@ -54,6 +54,12 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 	return container_of(clk, struct rpm_clk, c);
 }
 
+/*
+ * RPM scaling enable function used for target that has an RPM resource for
+ * rpm clock scaling enable.
+ */
+void enable_rpm_scaling(void);
+
 extern struct clk_rpmrs_data clk_rpmrs_data;
 extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 
