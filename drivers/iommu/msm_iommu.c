@@ -467,6 +467,92 @@ static int __get_pgprot(int prot, int len)
 	return pgprot;
 }
 
+static unsigned long *make_second_level(struct msm_priv *priv,
+					unsigned long *fl_pte)
+{
+	unsigned long *sl;
+	sl = (unsigned long *) __get_free_pages(GFP_KERNEL,
+			get_order(SZ_4K));
+
+	if (!sl) {
+		pr_debug("Could not allocate second level table\n");
+		goto fail;
+	}
+	memset(sl, 0, SZ_4K);
+	clean_pte(sl, sl + NUM_SL_PTE, priv->redirect);
+
+	*fl_pte = ((((int)__pa(sl)) & FL_BASE_MASK) | \
+			FL_TYPE_TABLE);
+
+	clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+fail:
+	return sl;
+}
+
+static int sl_4k(unsigned long *sl_pte, phys_addr_t pa, unsigned int pgprot)
+{
+	int ret = 0;
+
+	if (*sl_pte) {
+		ret = -EBUSY;
+		goto fail;
+	}
+
+	*sl_pte = (pa & SL_BASE_MASK_SMALL) | SL_NG | SL_SHARED
+		| SL_TYPE_SMALL | pgprot;
+fail:
+	return ret;
+}
+
+static int sl_64k(unsigned long *sl_pte, phys_addr_t pa, unsigned int pgprot)
+{
+	int ret = 0;
+
+	int i;
+
+	for (i = 0; i < 16; i++)
+		if (*(sl_pte+i)) {
+			ret = -EBUSY;
+			goto fail;
+		}
+
+	for (i = 0; i < 16; i++)
+		*(sl_pte+i) = (pa & SL_BASE_MASK_LARGE) | SL_NG
+				| SL_SHARED | SL_TYPE_LARGE | pgprot;
+
+fail:
+	return ret;
+}
+
+
+static inline int fl_1m(unsigned long *fl_pte, phys_addr_t pa, int pgprot)
+{
+	if (*fl_pte)
+		return -EBUSY;
+
+	*fl_pte = (pa & 0xFFF00000) | FL_NG | FL_TYPE_SECT | FL_SHARED
+		| pgprot;
+
+	return 0;
+}
+
+
+static inline int fl_16m(unsigned long *fl_pte, phys_addr_t pa, int pgprot)
+{
+	int i;
+	int ret = 0;
+	for (i = 0; i < 16; i++)
+		if (*(fl_pte+i)) {
+			ret = -EBUSY;
+			goto fail;
+		}
+	for (i = 0; i < 16; i++)
+		*(fl_pte+i) = (pa & 0xFF000000) | FL_SUPERSECTION
+			| FL_TYPE_SECT | FL_SHARED | FL_NG | pgprot;
+fail:
+	return ret;
+}
+
 static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			 phys_addr_t pa, size_t len, int prot)
 {
@@ -514,28 +600,16 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	fl_pte = fl_table + fl_offset;	/* int pointers, 4 bytes */
 
 	if (len == SZ_16M) {
-		int i = 0;
-
-		for (i = 0; i < 16; i++)
-			if (*(fl_pte+i)) {
-				ret = -EBUSY;
-				goto fail;
-			}
-
-		for (i = 0; i < 16; i++)
-			*(fl_pte+i) = (pa & 0xFF000000) | FL_SUPERSECTION
-				  | FL_TYPE_SECT | FL_SHARED | FL_NG | pgprot;
+		ret = fl_16m(fl_pte, pa, pgprot);
+		if (ret)
+			goto fail;
 		clean_pte(fl_pte, fl_pte + 16, priv->redirect);
 	}
 
 	if (len == SZ_1M) {
-		if (*fl_pte) {
-			ret = -EBUSY;
+		ret = fl_1m(fl_pte, pa, pgprot);
+		if (ret)
 			goto fail;
-		}
-
-		*fl_pte = (pa & 0xFFF00000) | FL_NG | FL_TYPE_SECT | FL_SHARED
-					    | pgprot;
 		clean_pte(fl_pte, fl_pte + 1, priv->redirect);
 	}
 
@@ -543,22 +617,10 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	if (len == SZ_4K || len == SZ_64K) {
 
 		if (*fl_pte == 0) {
-			unsigned long *sl;
-			sl = (unsigned long *) __get_free_pages(GFP_KERNEL,
-							get_order(SZ_4K));
-
-			if (!sl) {
-				pr_debug("Could not allocate second level table\n");
+			if (make_second_level(priv, fl_pte) == NULL) {
 				ret = -ENOMEM;
 				goto fail;
 			}
-			memset(sl, 0, SZ_4K);
-			clean_pte(sl, sl + NUM_SL_PTE, priv->redirect);
-
-			*fl_pte = ((((int)__pa(sl)) & FL_BASE_MASK) | \
-						      FL_TYPE_TABLE);
-
-			clean_pte(fl_pte, fl_pte + 1, priv->redirect);
 		}
 
 		if (!(*fl_pte & FL_TYPE_TABLE)) {
@@ -572,29 +634,17 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	sl_pte = sl_table + sl_offset;
 
 	if (len == SZ_4K) {
-		if (*sl_pte) {
-			ret = -EBUSY;
+		ret = sl_4k(sl_pte, pa, pgprot);
+		if (ret)
 			goto fail;
-		}
 
-		*sl_pte = (pa & SL_BASE_MASK_SMALL) | SL_NG | SL_SHARED
-						    | SL_TYPE_SMALL | pgprot;
 		clean_pte(sl_pte, sl_pte + 1, priv->redirect);
 	}
 
 	if (len == SZ_64K) {
-		int i;
-
-		for (i = 0; i < 16; i++)
-			if (*(sl_pte+i)) {
-				ret = -EBUSY;
-				goto fail;
-			}
-
-		for (i = 0; i < 16; i++)
-			*(sl_pte+i) = (pa & SL_BASE_MASK_LARGE) | SL_NG
-					  | SL_SHARED | SL_TYPE_LARGE | pgprot;
-
+		ret = sl_64k(sl_pte, pa, pgprot);
+		if (ret)
+			goto fail;
 		clean_pte(sl_pte, sl_pte + 16, priv->redirect);
 	}
 
@@ -712,22 +762,28 @@ static unsigned int get_phys_addr(struct scatterlist *sg)
 	return pa;
 }
 
+static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
+				   int align)
+{
+	return  IS_ALIGNED(va, align) && IS_ALIGNED(pa, align)
+		&& (len >= align);
+}
+
 static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 			       struct scatterlist *sg, unsigned int len,
 			       int prot)
 {
 	unsigned int pa;
 	unsigned int offset = 0;
-	unsigned int pgprot;
 	unsigned long *fl_table;
 	unsigned long *fl_pte;
 	unsigned long fl_offset;
-	unsigned long *sl_table;
+	unsigned long *sl_table = NULL;
 	unsigned long sl_offset, sl_start;
-	unsigned int chunk_offset = 0;
-	unsigned int chunk_pa;
+	unsigned int chunk_size, chunk_offset = 0;
 	int ret = 0;
 	struct msm_priv *priv;
+	unsigned int pgprot4k, pgprot64k, pgprot1m, pgprot16m;
 
 	mutex_lock(&msm_iommu_lock);
 
@@ -736,49 +792,78 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	priv = domain->priv;
 	fl_table = priv->pgtable;
 
-	pgprot = __get_pgprot(prot, SZ_4K);
+	pgprot4k = __get_pgprot(prot, SZ_4K);
+	pgprot64k = __get_pgprot(prot, SZ_64K);
+	pgprot1m = __get_pgprot(prot, SZ_1M);
+	pgprot16m = __get_pgprot(prot, SZ_16M);
 
-	if (!pgprot) {
+	if (!pgprot4k || !pgprot64k || !pgprot1m || !pgprot16m) {
 		ret = -EINVAL;
 		goto fail;
 	}
 
 	fl_offset = FL_OFFSET(va);	/* Upper 12 bits */
 	fl_pte = fl_table + fl_offset;	/* int pointers, 4 bytes */
-
-	sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
-	sl_offset = SL_OFFSET(va);
-
-	chunk_pa = get_phys_addr(sg);
-	if (chunk_pa == 0) {
-		pr_debug("No dma address for sg %p\n", sg);
-		ret = -EINVAL;
-		goto fail;
-	}
+	pa = get_phys_addr(sg);
 
 	while (offset < len) {
-		/* Set up a 2nd level page table if one doesn't exist */
-		if (*fl_pte == 0) {
-			sl_table = (unsigned long *)
-				 __get_free_pages(GFP_KERNEL, get_order(SZ_4K));
+		chunk_size = SZ_4K;
 
-			if (!sl_table) {
-				pr_debug("Could not allocate second level table\n");
+		if (is_fully_aligned(va, pa, sg->length - chunk_offset,
+				     SZ_16M))
+			chunk_size = SZ_16M;
+		else if (is_fully_aligned(va, pa, sg->length - chunk_offset,
+					  SZ_1M))
+			chunk_size = SZ_1M;
+		/* 64k or 4k determined later */
+
+		/* for 1M and 16M, only first level entries are required */
+		if (chunk_size >= SZ_1M) {
+			if (chunk_size == SZ_16M) {
+				ret = fl_16m(fl_pte, pa, pgprot16m);
+				if (ret)
+					goto fail;
+				clean_pte(fl_pte, fl_pte + 16, priv->redirect);
+				fl_pte += 16;
+			} else if (chunk_size == SZ_1M) {
+				ret = fl_1m(fl_pte, pa, pgprot1m);
+				if (ret)
+					goto fail;
+				clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+				fl_pte++;
+			}
+
+			offset += chunk_size;
+			chunk_offset += chunk_size;
+			va += chunk_size;
+			pa += chunk_size;
+
+			if (chunk_offset >= sg->length && offset < len) {
+				chunk_offset = 0;
+				sg = sg_next(sg);
+				pa = get_phys_addr(sg);
+				if (pa == 0) {
+					pr_debug("No dma address for sg %p\n",
+							sg);
+					ret = -EINVAL;
+					goto fail;
+				}
+			}
+			continue;
+		}
+		/* for 4K or 64K, make sure there is a second level table */
+		if (*fl_pte == 0) {
+			if (!make_second_level(priv, fl_pte)) {
 				ret = -ENOMEM;
 				goto fail;
 			}
-
-			memset(sl_table, 0, SZ_4K);
-			clean_pte(sl_table, sl_table + NUM_SL_PTE,
-				  priv->redirect);
-
-			*fl_pte = ((((int)__pa(sl_table)) & FL_BASE_MASK) |
-							    FL_TYPE_TABLE);
-			clean_pte(fl_pte, fl_pte + 1, priv->redirect);
-		} else
-			sl_table = (unsigned long *)
-					       __va(((*fl_pte) & FL_BASE_MASK));
-
+		}
+		if (!(*fl_pte & FL_TYPE_TABLE)) {
+			ret = -EBUSY;
+			goto fail;
+		}
+		sl_table = __va(((*fl_pte) & FL_BASE_MASK));
+		sl_offset = SL_OFFSET(va);
 		/* Keep track of initial position so we
 		 * don't clean more than we have to
 		 */
@@ -786,21 +871,39 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 
 		/* Build the 2nd level page table */
 		while (offset < len && sl_offset < NUM_SL_PTE) {
-			pa = chunk_pa + chunk_offset;
-			sl_table[sl_offset] = (pa & SL_BASE_MASK_SMALL) |
-				     pgprot | SL_NG | SL_SHARED | SL_TYPE_SMALL;
-			sl_offset++;
-			offset += SZ_4K;
 
-			chunk_offset += SZ_4K;
+			/* Map a large 64K page if the chunk is large enough and
+			 * the pa and va are aligned
+			 */
+
+			if (is_fully_aligned(va, pa, sg->length - chunk_offset,
+					     SZ_64K))
+				chunk_size = SZ_64K;
+			else
+				chunk_size = SZ_4K;
+
+			if (chunk_size == SZ_4K) {
+				sl_4k(&sl_table[sl_offset], pa, pgprot4k);
+				sl_offset++;
+			} else {
+				BUG_ON(sl_offset + 16 > NUM_SL_PTE);
+				sl_64k(&sl_table[sl_offset], pa, pgprot64k);
+				sl_offset += 16;
+			}
+
+
+			offset += chunk_size;
+			chunk_offset += chunk_size;
+			va += chunk_size;
+			pa += chunk_size;
 
 			if (chunk_offset >= sg->length && offset < len) {
 				chunk_offset = 0;
 				sg = sg_next(sg);
-				chunk_pa = get_phys_addr(sg);
-				if (chunk_pa == 0) {
+				pa = get_phys_addr(sg);
+				if (pa == 0) {
 					pr_debug("No dma address for sg %p\n",
-						 sg);
+							sg);
 					ret = -EINVAL;
 					goto fail;
 				}
@@ -808,7 +911,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 		}
 
 		clean_pte(sl_table + sl_start, sl_table + sl_offset,
-			  priv->redirect);
+				priv->redirect);
 
 		fl_pte++;
 		sl_offset = 0;
@@ -842,45 +945,53 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 	fl_offset = FL_OFFSET(va);	/* Upper 12 bits */
 	fl_pte = fl_table + fl_offset;	/* int pointers, 4 bytes */
 
-	sl_start = SL_OFFSET(va);
-
 	while (offset < len) {
-		sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
-		sl_end = ((len - offset) / SZ_4K) + sl_start;
+		if (*fl_pte & FL_TYPE_TABLE) {
+			sl_start = SL_OFFSET(va);
+			sl_table =  __va(((*fl_pte) & FL_BASE_MASK));
+			sl_end = ((len - offset) / SZ_4K) + sl_start;
 
-		if (sl_end > NUM_SL_PTE)
-			sl_end = NUM_SL_PTE;
+			if (sl_end > NUM_SL_PTE)
+				sl_end = NUM_SL_PTE;
 
-		memset(sl_table + sl_start, 0, (sl_end - sl_start) * 4);
-		clean_pte(sl_table + sl_start, sl_table + sl_end,
-			  priv->redirect);
+			memset(sl_table + sl_start, 0, (sl_end - sl_start) * 4);
+			clean_pte(sl_table + sl_start, sl_table + sl_end,
+					priv->redirect);
 
-		offset += (sl_end - sl_start) * SZ_4K;
+			offset += (sl_end - sl_start) * SZ_4K;
+			va += (sl_end - sl_start) * SZ_4K;
 
-		/* Unmap and free the 2nd level table if all mappings in it
-		 * were removed. This saves memory, but the table will need
-		 * to be re-allocated the next time someone tries to map these
-		 * VAs.
-		 */
-		used = 0;
+			/* Unmap and free the 2nd level table if all mappings
+			 * in it were removed. This saves memory, but the table
+			 * will need to be re-allocated the next time someone
+			 * tries to map these VAs.
+			 */
+			used = 0;
 
-		/* If we just unmapped the whole table, don't bother
-		 * seeing if there are still used entries left.
-		 */
-		if (sl_end - sl_start != NUM_SL_PTE)
-			for (i = 0; i < NUM_SL_PTE; i++)
-				if (sl_table[i]) {
-					used = 1;
-					break;
-				}
-		if (!used) {
-			free_page((unsigned long)sl_table);
+			/* If we just unmapped the whole table, don't bother
+			 * seeing if there are still used entries left.
+			 */
+			if (sl_end - sl_start != NUM_SL_PTE)
+				for (i = 0; i < NUM_SL_PTE; i++)
+					if (sl_table[i]) {
+						used = 1;
+						break;
+					}
+			if (!used) {
+				free_page((unsigned long)sl_table);
+				*fl_pte = 0;
+
+				clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+			}
+
+			sl_start = 0;
+		} else {
 			*fl_pte = 0;
-
 			clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+			va += SZ_1M;
+			offset += SZ_1M;
+			sl_start = 0;
 		}
-
-		sl_start = 0;
 		fl_pte++;
 	}
 
