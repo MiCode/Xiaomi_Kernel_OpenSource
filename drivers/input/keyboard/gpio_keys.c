@@ -557,6 +557,7 @@ static int gpio_keys_get_devtree_pdata(struct device *dev,
 	memset(pdata, 0, sizeof *pdata);
 
 	pdata->rep = !!of_get_property(node, "autorepeat", NULL);
+	pdata->name = of_get_property(node, "input-name", NULL);
 
 	/* First count the subnodes */
 	pdata->nbuttons = 0;
