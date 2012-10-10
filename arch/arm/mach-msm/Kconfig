@@ -356,6 +356,8 @@ config ARCH_MSM9625
 	select CPU_V7
 	select MSM_GPIOMUX
 	select MSM_RPM_SMD
+	select MSM_NATIVE_RESTART
+	select MSM_RESTART_V2
 	select MULTI_IRQ_HANDLER
 	select GPIO_MSM_V3
 	select MAY_HAVE_SPARSE_IRQ

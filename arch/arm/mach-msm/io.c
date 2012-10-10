@@ -461,6 +461,7 @@ void __init msm_map_msm8625_io(void) { return; }
 static struct map_desc msm9625_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM9625),
 	MSM_CHIP_DEVICE(TLMM, MSM9625),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM9625),
 	MSM_CHIP_DEVICE(TMR, MSM9625),
 	MSM_CHIP_DEVICE(IMEM, MSM9625),
 	{
