@@ -1437,6 +1437,7 @@ int vidc_hal_session_set_property(void *sess,
 				prop->multi_slice);
 			break;
 		}
+		hfi->slice_size = prop->slice_size;
 		pkt->size += sizeof(u32) + sizeof(struct
 					hfi_multi_slice_control);
 		break;
