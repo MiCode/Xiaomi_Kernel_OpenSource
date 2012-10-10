@@ -110,7 +110,6 @@ static int __devinit msm_wdog_debug_probe(struct platform_device *pdev)
 		goto err;
 	wdog_data->dev = &pdev->dev;
 	platform_set_drvdata(pdev, wdog_data);
-	msm_enable_wdog_debug();
 	return 0;
 err:
 	kzfree(wdog_data);
