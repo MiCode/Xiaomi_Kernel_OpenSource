@@ -352,7 +352,7 @@ u32 __branch_disable_reg(const struct branch *b, const char *name)
 	u32 reg_val;
 
 	reg_val = b->ctl_reg ? readl_relaxed(b->ctl_reg) : 0;
-	if (b->en_mask) {
+	if (b->ctl_reg && b->en_mask) {
 		reg_val &= ~(b->en_mask);
 		writel_relaxed(reg_val, b->ctl_reg);
 	}
