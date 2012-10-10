@@ -93,6 +93,14 @@ struct clk_vdd_class {
 		.lock = __MUTEX_INITIALIZER(_name.lock) \
 	}
 
+#define DEFINE_VDD_REGS_INIT(_name, _num_regulators) \
+	struct clk_vdd_class _name = { \
+		.class_name = #_name, \
+		.regulator = (struct regulator * [_num_regulators]) {}, \
+		.num_regulators = _num_regulators, \
+		.lock = __MUTEX_INITIALIZER(_name.lock) \
+	}
+
 enum handoff {
 	HANDOFF_ENABLED_CLK,
 	HANDOFF_DISABLED_CLK,

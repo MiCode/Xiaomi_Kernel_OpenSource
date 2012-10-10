@@ -1,0 +1,92 @@
+Qualcomm MSM8974 Krait clock tree
+
+clock-krait-8974 is a device that represents the MSM8974 Krait subsystem
+clock tree. It lists the various power supplies that need to be scaled when
+the clocks are scaled and also other HW specific parameters like fmax tables,
+avs settings table, etc.
+
+Required properties:
+- compatible:		Must be "qcom,clock-krait-8974"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are:
+			"hfpll_l2_clk", "hfpll0_clk", ... "hfpllN_clk", "efuse"
+- cpuX-supply:		The regulator powering the CPUX.
+- l2-dig-supply:	The regulator powering the L2 digital logic.
+- hfpll-dig-supply:	The regulator powering the HFPLL digital domains.
+- hfpll-analog-supply:	The regulator powering the HFPLL analog domains.
+- qcom,l2-fmax:		A table of L2 frequency to voltage mappings that
+			represents the max frequency (Hz) possible for each
+			supported voltage level (uV).
+- qcom,speedX-pvsY-bin-vZ:
+			A table of CPU frequency (Hz) to voltage (uV) and
+			current (uA) mapping that represents the max
+			frequency possible for each supported voltage level
+			for a CPU that's binned as speed bin X, PVS bin Y
+			based on characterization version Z. Speed and PVS
+			bin values can be between [0-7] and the version can
+			be between [0-3]
+
+Optional properties:
+- qcom,avs-tbl:		A table of frequencies (Hz) and their corresponding
+			AVS DSCR register settings (32 bit value) to program
+			into the AVS HW. Frequencies with no AVS support do
+			not need to be listed in the table. If there is no
+			AVS support at all, then the whole property can be
+			omitted.
+
+Example:
+	qcom,clock-krait@f9016000 {
+		compatible = "qcom,clock-krait-8974";
+		reg = <0xf9016000 0x20>,
+			<0xf908a000 0x20>,
+			<0xf909a000 0x20>,
+			<0xf90aa000 0x20>,
+			<0xf90ba000 0x20>,
+			<0xfc4b80b0 0x08>;
+		reg-names = "hfpll_l2_clk", "hfpll0_clk",
+				"hfpll1_clk", "hfpll2_clk",
+				"hfpll3_clk", "efuse";
+		cpu0-supply = <&krait0_vreg>;
+		cpu1-supply = <&krait1_vreg>;
+		cpu2-supply = <&krait2_vreg>;
+		cpu3-supply = <&krait3_vreg>;
+		l2-dig-supply = <&pm8841_s2_corner_ao>;
+		hfpll-dig-supply = <&pm8841_s2_corner_ao>;
+		hfpll-analog-supply = <&pm8941_l12_ao>;
+
+		qcom,l2-fmax =
+			<  576000000 4 /* svs_soc */	>,
+			< 1036800000 5 /* normal */	>,
+			< 1728000000 7 /* super_turbo */>;
+
+		qcom,avs-tbl =
+			<  300000000 0xfa70054 >,
+			< 1574400000 0xfa70100 >;
+
+		qcom,speed0-pvs0-bin-v0 =
+			<          0       0   0 >,
+			<  300000000  815000  73 >,
+				.....
+				.....
+			< 1958400000 1100000 598 >;
+
+		qcom,speed0-pvs1-bin-v0 =
+			<          0       0   0 >,
+			<  300000000  800000  73 >,
+				.....
+				.....
+			< 1958400000 1075000 598 >;
+
+				.....
+				.....
+
+		qcom,speed2-pvs6-bin-v0 =
+			<          0       0   0 >,
+			<  300000000  750000  72 >,
+				.....
+				.....
+			< 2265600000  950000 691 >;
+
+	};
