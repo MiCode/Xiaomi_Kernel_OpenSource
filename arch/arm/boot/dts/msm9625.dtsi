@@ -160,6 +160,19 @@
 					 <0x0c50000c>, /* GPIO6 */
 					 <0x0080000d>; /* PON */
 	};
+
+	i2c@f9925000 {
+		cell-index = <3>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9925000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 97 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+	};
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
