@@ -681,6 +681,7 @@ int msm_mctl_pp_divert_done(
 	ret_frame.dirty = 0;
 	ret_frame.node_type = frame.node_type;
 	ret_frame.timestamp = frame.timestamp;
+	ret_frame.frame_id  = frame.frame_id;
 	D("%s Frame done id: %d\n", __func__, frame.frame_id);
 	rc = msm_mctl_buf_done_pp(p_mctl, &buf_handle, &buf, &ret_frame);
 	return rc;
