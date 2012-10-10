@@ -107,9 +107,8 @@ static int audio_ocmem_client_cb(struct notifier_block *this,
 	case OCMEM_ALLOC_GROW:
 		audio_ocmem_lcl.buf = data;
 		pr_debug("%s: Alloc grow request received buf->addr: 0x%ld\n",
-				__func__,
-				(audio_ocmem_lcl.buf)->addr);
-
+						__func__,
+						(audio_ocmem_lcl.buf)->addr);
 		atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_GROW);
 		break;
 	case OCMEM_ALLOC_SHRINK:
@@ -163,7 +162,6 @@ int audio_ocmem_enable(int cid)
 		wait_event_interruptible(audio_ocmem_lcl.audio_wait,
 			(atomic_read(&audio_ocmem_lcl.audio_cond) == 0)	||
 			(atomic_read(&audio_ocmem_lcl.audio_exit) == 1));
-
 		if (atomic_read(&audio_ocmem_lcl.audio_exit)) {
 			pr_err("%s: audio playback ended while waiting for ocmem\n",
 					__func__);
@@ -200,7 +198,7 @@ int audio_ocmem_enable(int cid)
 	/* vote for ocmem bus bandwidth */
 	ret = msm_bus_scale_client_update_request(
 				audio_ocmem_lcl.audio_ocmem_bus_client,
-				0);
+				1);
 	if (ret)
 		pr_err("%s: failed to vote for bus bandwidth\n", __func__);
 
@@ -343,6 +341,9 @@ int audio_ocmem_disable(int cid)
 		break;
 
 	}
+	msm_bus_scale_client_update_request(
+				audio_ocmem_lcl.audio_ocmem_bus_client,
+				0);
 	return 0;
 fail_cmd:
 	return ret;
@@ -513,86 +514,21 @@ static struct notifier_block audio_ocmem_client_nb = {
 
 static int audio_ocmem_platform_data_populate(struct platform_device *pdev)
 {
-	int ret;
-	struct msm_bus_scale_pdata *audio_ocmem_bus_scale_pdata = NULL;
-	struct msm_bus_vectors *audio_ocmem_bus_vectors = NULL;
-	struct msm_bus_paths *ocmem_audio_bus_paths = NULL;
-	u32 val;
+	struct msm_bus_scale_pdata *audio_ocmem_adata = NULL;
 
 	if (!pdev->dev.of_node) {
 		pr_err("%s: device tree information missing\n", __func__);
 		return -ENODEV;
 	}
-
-	audio_ocmem_bus_vectors = kzalloc(sizeof(struct msm_bus_vectors),
-								GFP_KERNEL);
-	if (!audio_ocmem_bus_vectors) {
-		dev_err(&pdev->dev, "Failed to allocate memory for platform data\n");
-		return -ENOMEM;
+	audio_ocmem_adata = msm_bus_cl_get_pdata(pdev);
+	if (!audio_ocmem_adata) {
+		pr_err("%s: bus device tree allocation failed\n", __func__);
+		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-				"qcom,msm-ocmem-audio-src-id", &val);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: qcom,msm-ocmem-audio-src-id missing in DT node\n",
-				__func__);
-		goto fail1;
-	}
-	audio_ocmem_bus_vectors->src = val;
-	ret = of_property_read_u32(pdev->dev.of_node,
-				"qcom,msm-ocmem-audio-dst-id", &val);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: qcom,msm-ocmem-audio-dst-id missing in DT node\n",
-				__func__);
-		goto fail1;
-	}
-	audio_ocmem_bus_vectors->dst = val;
-	ret = of_property_read_u32(pdev->dev.of_node,
-				"qcom,msm-ocmem-audio-ab", &val);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: qcom,msm-ocmem-audio-ab missing in DT node\n",
-					__func__);
-		goto fail1;
-	}
-	audio_ocmem_bus_vectors->ab = val;
-	ret = of_property_read_u32(pdev->dev.of_node,
-				"qcom,msm-ocmem-audio-ib", &val);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: qcom,msm-ocmem-audio-ib missing in DT node\n",
-					__func__);
-		goto fail1;
-	}
-	audio_ocmem_bus_vectors->ib = val;
+	dev_set_drvdata(&pdev->dev, audio_ocmem_adata);
 
-	ocmem_audio_bus_paths = kzalloc(sizeof(struct msm_bus_paths),
-								GFP_KERNEL);
-	if (!ocmem_audio_bus_paths) {
-		dev_err(&pdev->dev, "Failed to allocate memory for platform data\n");
-		goto fail1;
-	}
-	ocmem_audio_bus_paths->num_paths = 1;
-	ocmem_audio_bus_paths->vectors = audio_ocmem_bus_vectors;
-
-	audio_ocmem_bus_scale_pdata =
-		kzalloc(sizeof(struct msm_bus_scale_pdata), GFP_KERNEL);
-
-	if (!audio_ocmem_bus_scale_pdata) {
-		dev_err(&pdev->dev, "Failed to allocate memory for platform data\n");
-		goto fail2;
-	}
-
-	audio_ocmem_bus_scale_pdata->usecase = ocmem_audio_bus_paths;
-	audio_ocmem_bus_scale_pdata->num_usecases = 1;
-	audio_ocmem_bus_scale_pdata->name = "audio-ocmem";
-
-	dev_set_drvdata(&pdev->dev, audio_ocmem_bus_scale_pdata);
-	return ret;
-
-fail2:
-	kfree(ocmem_audio_bus_paths);
-fail1:
-	kfree(audio_ocmem_bus_vectors);
-	return ret;
+	return 0;
 }
 static int ocmem_audio_client_probe(struct platform_device *pdev)
 {
@@ -657,9 +593,7 @@ static int ocmem_audio_client_remove(struct platform_device *pdev)
 	audio_ocmem_bus_scale_pdata = (struct msm_bus_scale_pdata *)
 					dev_get_drvdata(&pdev->dev);
 
-	kfree(audio_ocmem_bus_scale_pdata->usecase->vectors);
-	kfree(audio_ocmem_bus_scale_pdata->usecase);
-	kfree(audio_ocmem_bus_scale_pdata);
+	msm_bus_cl_clear_pdata(audio_ocmem_bus_scale_pdata);
 	ocmem_notifier_unregister(audio_ocmem_lcl.audio_hdl,
 					&audio_ocmem_client_nb);
 	return 0;
