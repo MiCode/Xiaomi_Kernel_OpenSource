@@ -4145,25 +4145,35 @@ static const struct mmc_host_ops msmsdcc_ops = {
 	.hw_reset = msmsdcc_hw_reset,
 };
 
+static void msmsdcc_enable_status_gpio(struct msmsdcc_host *host)
+{
+	unsigned int gpio_no = host->plat->status_gpio;
+	int status;
+
+	if (!gpio_is_valid(gpio_no))
+		return;
+
+	status = gpio_request(gpio_no, "SD_HW_Detect");
+	if (status)
+		pr_err("%s: %s: gpio_request(%d) failed\n",
+			mmc_hostname(host->mmc), __func__, gpio_no);
+}
+
+static void msmsdcc_disable_status_gpio(struct msmsdcc_host *host)
+{
+	if (gpio_is_valid(host->plat->status_gpio))
+		gpio_free(host->plat->status_gpio);
+}
+
 static unsigned int
 msmsdcc_slot_status(struct msmsdcc_host *host)
 {
 	int status;
-	unsigned int gpio_no = host->plat->status_gpio;
 
-	status = gpio_request(gpio_no, "SD_HW_Detect");
-	if (status) {
-		pr_err("%s: %s: Failed to request GPIO %d\n",
-			mmc_hostname(host->mmc), __func__, gpio_no);
-	} else {
-		status = gpio_direction_input(gpio_no);
-		if (!status) {
-			status = gpio_get_value_cansleep(gpio_no);
-			if (host->plat->is_status_gpio_active_low)
-				status = !status;
-		}
-		gpio_free(gpio_no);
-	}
+	status = gpio_get_value_cansleep(host->plat->status_gpio);
+	if (host->plat->is_status_gpio_active_low)
+		status = !status;
+
 	return status;
 }
 
@@ -5912,11 +5922,12 @@ msmsdcc_probe(struct platform_device *pdev)
 		plat->wpswitch_gpio = -ENOENT;
 
 	if (plat->status || gpio_is_valid(plat->status_gpio)) {
-		if (plat->status)
+		if (plat->status) {
 			host->oldstat = plat->status(mmc_dev(host->mmc));
-		else
+		} else {
+			msmsdcc_enable_status_gpio(host);
 			host->oldstat = msmsdcc_slot_status(host);
-
+		}
 		host->eject = !host->oldstat;
 	}
 
@@ -6099,6 +6110,7 @@ msmsdcc_probe(struct platform_device *pdev)
 
 	if (plat->status_irq)
 		free_irq(plat->status_irq, host);
+	msmsdcc_disable_status_gpio(host);
  sdiowakeup_irq_free:
 	wake_lock_destroy(&host->sdio_suspend_wlock);
 	if (plat->sdiowakeup_irq)
@@ -6195,6 +6207,7 @@ static int msmsdcc_remove(struct platform_device *pdev)
 
 	if (plat->status_irq)
 		free_irq(plat->status_irq, host);
+	msmsdcc_disable_status_gpio(host);
 
 	wake_lock_destroy(&host->sdio_suspend_wlock);
 	if (plat->sdiowakeup_irq) {
@@ -6523,8 +6536,10 @@ static int msmsdcc_pm_suspend(struct device *dev)
 		rc = 0;
 		goto out;
 	}
-	if (host->plat->status_irq)
+	if (host->plat->status_irq) {
 		disable_irq(host->plat->status_irq);
+		msmsdcc_disable_status_gpio(host);
+	}
 
 	if (!pm_runtime_suspended(dev))
 		rc = msmsdcc_runtime_suspend(dev);
@@ -6580,6 +6595,7 @@ static int msmsdcc_pm_resume(struct device *dev)
 		host->pending_resume = true;
 
 	if (host->plat->status_irq) {
+		msmsdcc_enable_status_gpio(host);
 		msmsdcc_check_status((unsigned long)host);
 		enable_irq(host->plat->status_irq);
 	}
