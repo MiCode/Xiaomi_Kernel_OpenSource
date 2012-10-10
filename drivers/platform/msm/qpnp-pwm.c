@@ -273,7 +273,7 @@ struct pwm_device {
 struct qpnp_lpg_chip {
 	struct	spmi_device	*spmi_dev;
 	struct	pwm_device	pwm_dev;
-	struct	mutex		lpg_mutex;
+	spinlock_t		lpg_lock;
 	struct	qpnp_lpg_config	lpg_config;
 	u8	qpnp_lpg_registers[QPNP_TOTAL_LPG_SPMI_REGISTERS];
 	enum qpnp_lpg_revision	revision;
@@ -1066,10 +1066,11 @@ static int _pwm_enable(struct pwm_device *pwm)
 {
 	int rc;
 	struct qpnp_lpg_chip *chip;
+	unsigned long flags;
 
 	chip = pwm->chip;
 
-	mutex_lock(&pwm->chip->lpg_mutex);
+	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 
 	if (QPNP_IS_PWM_CONFIG_SELECTED(
 		chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL]))
@@ -1077,7 +1078,7 @@ static int _pwm_enable(struct pwm_device *pwm)
 	else
 		rc = qpnp_lpg_configure_lut_state(pwm, QPNP_LUT_ENABLE);
 
-	mutex_unlock(&pwm->chip->lpg_mutex);
+	spin_unlock_irqrestore(&pwm->chip->lpg_lock, flags);
 
 	if (rc)
 		pr_err("Failed to enable PWM channel: %d\n",
@@ -1096,6 +1097,7 @@ struct pwm_device *pwm_request(int pwm_id, const char *lable)
 {
 	struct qpnp_lpg_chip	*chip;
 	struct pwm_device	*pwm;
+	unsigned long		flags;
 
 	chip = radix_tree_lookup(&lpg_dev_tree, pwm_id);
 
@@ -1105,7 +1107,7 @@ struct pwm_device *pwm_request(int pwm_id, const char *lable)
 		return ERR_PTR(-EINVAL);
 	}
 
-	mutex_lock(&chip->lpg_mutex);
+	spin_lock_irqsave(&chip->lpg_lock, flags);
 
 	pwm = &chip->pwm_dev;
 
@@ -1119,7 +1121,7 @@ struct pwm_device *pwm_request(int pwm_id, const char *lable)
 		pwm->pwm_config.lable  = lable;
 	}
 
-	mutex_unlock(&chip->lpg_mutex);
+	spin_unlock_irqrestore(&chip->lpg_lock, flags);
 
 	return pwm;
 }
@@ -1132,13 +1134,14 @@ EXPORT_SYMBOL_GPL(pwm_request);
 void pwm_free(struct pwm_device *pwm)
 {
 	struct qpnp_pwm_config	*pwm_config;
+	unsigned long		flags;
 
 	if (pwm == NULL || IS_ERR(pwm) || pwm->chip == NULL) {
 		pr_err("Invalid pwm handle or no pwm_chip\n");
 		return;
 	}
 
-	mutex_lock(&pwm->chip->lpg_mutex);
+	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 
 	pwm_config = &pwm->pwm_config;
 
@@ -1149,7 +1152,7 @@ void pwm_free(struct pwm_device *pwm)
 		pwm_config->lable = NULL;
 	}
 
-	mutex_unlock(&pwm->chip->lpg_mutex);
+	spin_unlock_irqrestore(&pwm->chip->lpg_lock, flags);
 }
 EXPORT_SYMBOL_GPL(pwm_free);
 
@@ -1162,6 +1165,7 @@ EXPORT_SYMBOL_GPL(pwm_free);
 int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 {
 	int rc;
+	unsigned long flags;
 
 	if (pwm == NULL || IS_ERR(pwm) ||
 		duty_us > period_us ||
@@ -1174,9 +1178,9 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 	if (!pwm->pwm_config.in_use)
 		return -EINVAL;
 
-	mutex_lock(&pwm->chip->lpg_mutex);
+	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 	rc = _pwm_config(pwm, duty_us, period_us);
-	mutex_unlock(&pwm->chip->lpg_mutex);
+	spin_unlock_irqrestore(&pwm->chip->lpg_lock, flags);
 
 	if (rc)
 		pr_err("Failed to configure PWM mode\n");
@@ -1217,6 +1221,7 @@ void pwm_disable(struct pwm_device *pwm)
 {
 	struct qpnp_pwm_config	*pwm_config;
 	struct qpnp_lpg_chip	*chip;
+	unsigned long		flags;
 	int rc = 0;
 
 	if (pwm == NULL || IS_ERR(pwm) || pwm->chip == NULL) {
@@ -1224,7 +1229,7 @@ void pwm_disable(struct pwm_device *pwm)
 		return;
 	}
 
-	mutex_lock(&pwm->chip->lpg_mutex);
+	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 
 	chip = pwm->chip;
 	pwm_config = &pwm->pwm_config;
@@ -1232,12 +1237,14 @@ void pwm_disable(struct pwm_device *pwm)
 	if (pwm_config->in_use) {
 		if (QPNP_IS_PWM_CONFIG_SELECTED(
 			chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL]))
-			qpnp_lpg_configure_pwm_state(pwm, QPNP_PWM_DISABLE);
+			rc = qpnp_lpg_configure_pwm_state(pwm,
+						QPNP_PWM_DISABLE);
 		else
-			qpnp_lpg_configure_lut_state(pwm, QPNP_LUT_DISABLE);
+			rc = qpnp_lpg_configure_lut_state(pwm,
+						QPNP_LUT_DISABLE);
 	}
 
-	mutex_unlock(&pwm->chip->lpg_mutex);
+	spin_unlock_irqrestore(&pwm->chip->lpg_lock, flags);
 
 	if (rc)
 		pr_err("Failed to disable PWM channel: %d\n",
@@ -1253,6 +1260,7 @@ EXPORT_SYMBOL_GPL(pwm_disable);
 int pwm_change_mode(struct pwm_device *pwm, enum pm_pwm_mode mode)
 {
 	int rc;
+	unsigned long flags;
 
 	if (pwm == NULL || IS_ERR(pwm) || pwm->chip == NULL) {
 		pr_err("Invalid pwm handle or no pwm_chip\n");
@@ -1264,14 +1272,14 @@ int pwm_change_mode(struct pwm_device *pwm, enum pm_pwm_mode mode)
 		return -EINVAL;
 	}
 
-	mutex_lock(&pwm->chip->lpg_mutex);
+	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 
 	if (mode)
 		rc = qpnp_configure_lpg_control(pwm);
 	else
 		rc = qpnp_configure_pwm_control(pwm);
 
-	mutex_unlock(&pwm->chip->lpg_mutex);
+	spin_unlock_irqrestore(&pwm->chip->lpg_lock, flags);
 
 	if (rc)
 		pr_err("Failed to change the mode\n");
@@ -1291,6 +1299,7 @@ int pwm_config_period(struct pwm_device *pwm,
 	struct qpnp_pwm_config	*pwm_config;
 	struct qpnp_lpg_config	*lpg_config;
 	struct qpnp_lpg_chip	*chip;
+	unsigned long		flags;
 	int			rc = 0;
 
 	if (pwm == NULL || IS_ERR(pwm) || period == NULL)
@@ -1298,7 +1307,7 @@ int pwm_config_period(struct pwm_device *pwm,
 	if (pwm->chip == NULL)
 		return -ENODEV;
 
-	mutex_lock(&pwm->chip->lpg_mutex);
+	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 
 	chip = pwm->chip;
 	pwm_config = &pwm->pwm_config;
@@ -1337,7 +1346,7 @@ int pwm_config_period(struct pwm_device *pwm,
 	}
 
 out_unlock:
-	mutex_unlock(&pwm->chip->lpg_mutex);
+	spin_unlock_irqrestore(&pwm->chip->lpg_lock, flags);
 	return rc;
 }
 EXPORT_SYMBOL(pwm_config_period);
@@ -1351,6 +1360,7 @@ int pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value)
 {
 	struct qpnp_lpg_config	*lpg_config;
 	struct qpnp_pwm_config	*pwm_config;
+	unsigned long		flags;
 	int			rc = 0;
 
 	if (pwm == NULL || IS_ERR(pwm)) {
@@ -1366,7 +1376,7 @@ int pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value)
 	lpg_config = &pwm->chip->lpg_config;
 	pwm_config = &pwm->pwm_config;
 
-	mutex_lock(&pwm->chip->lpg_mutex);
+	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 
 	if (!pwm_config->in_use || !pwm_config->pwm_period) {
 		rc = -EINVAL;
@@ -1386,7 +1396,7 @@ int pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value)
 						pwm_config->channel_id, rc);
 
 out_unlock:
-	mutex_unlock(&pwm->chip->lpg_mutex);
+	spin_unlock_irqrestore(&pwm->chip->lpg_lock, flags);
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pwm_config_pwm_value);
@@ -1401,6 +1411,7 @@ EXPORT_SYMBOL_GPL(pwm_config_pwm_value);
 int pwm_lut_config(struct pwm_device *pwm, int period_us,
 		int duty_pct[], struct lut_params lut_params)
 {
+	unsigned long flags;
 	int rc = 0;
 
 	if (pwm == NULL || IS_ERR(pwm) || !lut_params.idx_len) {
@@ -1434,11 +1445,11 @@ int pwm_lut_config(struct pwm_device *pwm, int period_us,
 		return -EINVAL;
 	}
 
-	mutex_lock(&pwm->chip->lpg_mutex);
+	spin_lock_irqsave(&pwm->chip->lpg_lock, flags);
 
 	rc = _pwm_lut_config(pwm, period_us, duty_pct, lut_params);
 
-	mutex_unlock(&pwm->chip->lpg_mutex);
+	spin_unlock_irqrestore(&pwm->chip->lpg_lock, flags);
 
 	if (rc)
 		pr_err("Failed to configure LUT\n");
@@ -1672,7 +1683,7 @@ static int __devinit qpnp_pwm_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 
-	mutex_init(&chip->lpg_mutex);
+	spin_lock_init(&chip->lpg_lock);
 
 	chip->spmi_dev = spmi;
 	chip->pwm_dev.chip = chip;
@@ -1712,7 +1723,6 @@ failed_insert:
 	kfree(chip->lpg_config.lut_config.duty_pct_list);
 failed_config:
 	dev_set_drvdata(&spmi->dev, NULL);
-	mutex_destroy(&chip->lpg_mutex);
 	kfree(chip);
 	return rc;
 }
@@ -1729,7 +1739,6 @@ static int __devexit qpnp_pwm_remove(struct spmi_device *spmi)
 	if (chip) {
 		lpg_config = &chip->lpg_config;
 		kfree(lpg_config->lut_config.duty_pct_list);
-		mutex_destroy(&chip->lpg_mutex);
 		kfree(chip);
 	}
 
