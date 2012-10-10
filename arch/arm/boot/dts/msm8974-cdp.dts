@@ -30,6 +30,10 @@
 		};
 	};
 
+	qcom,hdmi_tx@fd922100 {
+		status = "ok";
+	};
+
 	i2c@f9924000 {
 		atmel_mxt_ts@4a {
 			compatible = "atmel,mxt-ts";
