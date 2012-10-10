@@ -1026,11 +1026,13 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 
 		dwc->ep0state = EP0_STATUS_PHASE;
 
-		if (dwc->delayed_status) {
+		if (dwc->delayed_status &&
+				list_empty(&dwc->eps[0]->request_list)) {
 			WARN_ON_ONCE(event->endpoint_number != 1);
 			dev_vdbg(dwc->dev, "Mass Storage delayed status\n");
 			return;
 		}
+		dwc->delayed_status = false;
 
 		dwc3_ep0_do_control_status(dwc, event);
 	}
