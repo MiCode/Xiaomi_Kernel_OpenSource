@@ -168,8 +168,9 @@ static int process_mem_print(struct seq_file *s, void *unused)
 	struct kgsl_mem_entry *entry;
 	struct rb_node *node;
 	struct kgsl_process_private *private = s->private;
-	char flags[3];
+	char flags[4];
 	char usage[16];
+	unsigned int align;
 
 	spin_lock(&private->mem_lock);
 	seq_printf(s, "%8s %8s %5s %10s %16s %5s\n",
@@ -182,7 +183,16 @@ static int process_mem_print(struct seq_file *s, void *unused)
 
 		flags[0] = m->priv & KGSL_MEMFLAGS_GLOBAL ?  'g' : '-';
 		flags[1] = m->priv & KGSL_MEMFLAGS_GPUREADONLY ? 'r' : '-';
-		flags[2] = '\0';
+
+		align = (m->priv & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
+		if (align >= ilog2(SZ_1M))
+			flags[2] = 'L';
+		else if (align >= ilog2(SZ_64K))
+			flags[2] = 'l';
+		else
+			flags[2] = '-';
+
+		flags[3] = '\0';
 
 		kgsl_get_memory_usage(usage, sizeof(usage), m->priv);
 

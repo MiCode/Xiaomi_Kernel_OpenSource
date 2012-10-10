@@ -1481,6 +1481,8 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc,
 		return -ENOMEM;
 
 	memdesc->sglen = sglen;
+	memdesc->sglen_alloc = sglen;
+
 	sg_init_table(memdesc->sg, sglen);
 
 	spin_lock(&current->mm->page_table_lock);
@@ -1770,6 +1772,11 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		goto error;
 
 	entry->memdesc.priv |= param->flags & KGSL_MEMTYPE_MASK;
+
+	if (entry->memdesc.size >= SZ_1M)
+		entry->memdesc.priv |= ilog2(SZ_1M) << KGSL_MEMALIGN_SHIFT;
+	else if (entry->memdesc.size >= SZ_64K)
+		entry->memdesc.priv |= ilog2(SZ_64K) << KGSL_MEMALIGN_SHIFT;
 
 	result = kgsl_mmu_map(private->pagetable,
 			      &entry->memdesc,

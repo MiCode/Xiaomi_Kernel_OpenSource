@@ -46,6 +46,13 @@
 #define KGSL_MEMTYPE_MULTISAMPLE		20
 #define KGSL_MEMTYPE_KERNEL			255
 
+/*
+ * Alignment hint, passed as the power of 2 exponent.
+ * i.e 4k (2^12) would be 12, 64k (2^16)would be 16.
+ */
+#define KGSL_MEMALIGN_MASK		0x00FF0000
+#define KGSL_MEMALIGN_SHIFT		16
+
 /* generic flag values */
 #define KGSL_FLAGS_NORMALMODE  0x00000000
 #define KGSL_FLAGS_SAFEMODE    0x00000001
