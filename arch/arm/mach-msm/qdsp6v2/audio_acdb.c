@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/slab.h>
 #include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
@@ -20,7 +21,14 @@
 #include <mach/qdsp6v2/audio_acdb.h>
 
 
-#define MAX_NETWORKS		15
+#define MAX_NETWORKS			15
+#define MAX_IOCTL_DATA			(MAX_NETWORKS * 2)
+#define MAX_COL_SIZE			324
+
+#define ACDB_BLOCK_SIZE			4096
+#define NUM_VOCPROC_BLOCKS		(6 * MAX_NETWORKS)
+#define ACDB_TOTAL_VOICE_ALLOCATION	(ACDB_BLOCK_SIZE * NUM_VOCPROC_BLOCKS)
+
 
 struct sidetone_atomic_cal {
 	atomic_t	enable;
@@ -55,6 +63,15 @@ struct acdb_data {
 	atomic_t			vocproc_total_cal_size;
 	atomic_t			vocstrm_total_cal_size;
 	atomic_t			vocvol_total_cal_size;
+
+	/* Voice Column data */
+	struct acdb_atomic_cal_block	vocproc_col_cal[MAX_VOCPROC_TYPES];
+	uint32_t			*col_data[MAX_VOCPROC_TYPES];
+
+	/* VocProc dev cfg cal*/
+	struct acdb_atomic_cal_block	vocproc_dev_cal[MAX_NETWORKS];
+	atomic_t			vocproc_dev_cal_size;
+	atomic_t			vocproc_dev_total_cal_size;
 
 	/* AFE cal */
 	struct acdb_atomic_cal_block	afe_cal[MAX_AUDPROC_TYPES];
@@ -124,6 +141,15 @@ void store_asm_topology(uint32_t topology)
 	atomic_set(&acdb_data.asm_topology, topology);
 }
 
+void get_voice_cal_allocation(struct acdb_cal_block *cal_block)
+{
+	cal_block->cal_kvaddr =
+		atomic_read(&acdb_data.vocproc_cal[0].cal_kvaddr);
+	cal_block->cal_paddr =
+		atomic_read(&acdb_data.vocproc_cal[0].cal_paddr);
+	cal_block->cal_size = ACDB_TOTAL_VOICE_ALLOCATION;
+}
+
 void get_all_voice_cal(struct acdb_cal_block *cal_block)
 {
 	cal_block->cal_kvaddr =
@@ -175,6 +201,45 @@ void get_all_vocvol_cal(struct acdb_cal_block *cal_block)
 		atomic_read(&acdb_data.vocvol_cal[0].cal_paddr);
 	cal_block->cal_size =
 		atomic_read(&acdb_data.vocvol_total_cal_size);
+}
+
+void get_voice_col_data(uint32_t vocproc_type,
+			struct acdb_cal_block *cal_block)
+{
+	if (cal_block == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		goto done;
+	}
+
+	cal_block->cal_kvaddr = atomic_read(&acdb_data.
+				vocproc_col_cal[vocproc_type].cal_kvaddr);
+	cal_block->cal_paddr = atomic_read(&acdb_data.
+				vocproc_col_cal[vocproc_type].cal_paddr);
+	cal_block->cal_size = atomic_read(&acdb_data.
+				vocproc_col_cal[vocproc_type].cal_size);
+done:
+	return;
+}
+
+void store_voice_col_data(uint32_t vocproc_type, uint32_t cal_size,
+			  uint32_t *cal_data)
+{
+	if (cal_size > MAX_COL_SIZE) {
+		pr_err("%s: col size is to big %d\n", __func__,
+				cal_size);
+		goto done;
+	}
+	if (copy_from_user(acdb_data.col_data[vocproc_type],
+			(void *)((uint8_t *)cal_data + sizeof(cal_size)),
+			cal_size)) {
+		pr_err("%s: fail to copy col size %d\n",
+			__func__, cal_size);
+		goto done;
+	}
+	atomic_set(&acdb_data.vocproc_col_cal[vocproc_type].cal_size,
+		cal_size);
+done:
+	return;
 }
 
 void get_anc_cal(struct acdb_cal_block *cal_block)
@@ -416,6 +481,56 @@ void get_audvol_cal(int32_t path, struct acdb_cal_block *cal_block)
 done:
 	return;
 }
+
+void store_vocproc_dev_cfg_cal(int32_t len, struct cal_block *cal_blocks)
+{
+	int i;
+	pr_debug("%s\n", __func__);
+
+	if (len > MAX_NETWORKS) {
+		pr_err("%s: Calibration sent for %d networks, only %d are supported!\n",
+			__func__, len, MAX_NETWORKS);
+		goto done;
+	}
+
+	atomic_set(&acdb_data.vocproc_dev_total_cal_size, 0);
+	for (i = 0; i < len; i++) {
+		if (cal_blocks[i].cal_offset >
+					atomic64_read(&acdb_data.mem_len)) {
+			pr_err("%s: offset %d is > mem_len %ld\n",
+				__func__, cal_blocks[i].cal_offset,
+				(long)atomic64_read(&acdb_data.mem_len));
+			atomic_set(&acdb_data.vocproc_dev_cal[i].cal_size, 0);
+		} else {
+			atomic_add(cal_blocks[i].cal_size,
+				&acdb_data.vocproc_dev_total_cal_size);
+			atomic_set(&acdb_data.vocproc_dev_cal[i].cal_size,
+				cal_blocks[i].cal_size);
+			atomic_set(&acdb_data.vocproc_dev_cal[i].cal_paddr,
+				cal_blocks[i].cal_offset +
+				atomic64_read(&acdb_data.paddr));
+			atomic_set(&acdb_data.vocproc_dev_cal[i].cal_kvaddr,
+				cal_blocks[i].cal_offset +
+				atomic64_read(&acdb_data.kvaddr));
+		}
+	}
+	atomic_set(&acdb_data.vocproc_dev_cal_size, len);
+done:
+	return;
+}
+
+void get_vocproc_dev_cfg_cal(struct acdb_cal_block *cal_block)
+{
+	pr_debug("%s\n", __func__);
+
+	cal_block->cal_kvaddr =
+		atomic_read(&acdb_data.vocproc_dev_cal[0].cal_kvaddr);
+	cal_block->cal_paddr =
+		atomic_read(&acdb_data.vocproc_dev_cal[0].cal_paddr);
+	cal_block->cal_size =
+		atomic_read(&acdb_data.vocproc_dev_total_cal_size);
+}
+
 
 
 void store_vocproc_cal(int32_t len, struct cal_block *cal_blocks)
@@ -698,7 +813,7 @@ static long acdb_ioctl(struct file *f,
 	int32_t			size;
 	int32_t			map_fd;
 	uint32_t		topology;
-	struct cal_block	data[MAX_NETWORKS];
+	uint32_t		data[MAX_IOCTL_DATA];
 	pr_debug("%s\n", __func__);
 
 	switch (cmd) {
@@ -777,6 +892,18 @@ static long acdb_ioctl(struct file *f,
 		goto done;
 	}
 
+	switch (cmd) {
+	case AUDIO_SET_VOCPROC_COL_CAL:
+		store_voice_col_data(VOCPROC_CAL, size, (uint32_t *)arg);
+		goto done;
+	case AUDIO_SET_VOCSTRM_COL_CAL:
+		store_voice_col_data(VOCSTRM_CAL, size, (uint32_t *)arg);
+		goto done;
+	case AUDIO_SET_VOCVOL_COL_CAL:
+		store_voice_col_data(VOCVOL_CAL, size, (uint32_t *)arg);
+		goto done;
+	}
+
 	if (copy_from_user(data, (void *)(arg + sizeof(size)), size)) {
 
 		pr_err("%s: fail to copy table size %d\n", __func__, size);
@@ -795,58 +922,65 @@ static long acdb_ioctl(struct file *f,
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
 				"size received: %d\n", __func__, size);
-		store_audproc_cal(TX_CAL, data);
+		store_audproc_cal(TX_CAL, (struct cal_block *)data);
 		break;
 	case AUDIO_SET_AUDPROC_RX_CAL:
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
 				"size received: %d\n", __func__, size);
-		store_audproc_cal(RX_CAL, data);
+		store_audproc_cal(RX_CAL, (struct cal_block *)data);
 		break;
 	case AUDIO_SET_AUDPROC_TX_STREAM_CAL:
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
 				"size received: %d\n", __func__, size);
-		store_audstrm_cal(TX_CAL, data);
+		store_audstrm_cal(TX_CAL, (struct cal_block *)data);
 		break;
 	case AUDIO_SET_AUDPROC_RX_STREAM_CAL:
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
 				"size received: %d\n", __func__, size);
-		store_audstrm_cal(RX_CAL, data);
+		store_audstrm_cal(RX_CAL, (struct cal_block *)data);
 		break;
 	case AUDIO_SET_AUDPROC_TX_VOL_CAL:
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
 				"size received: %d\n", __func__, size);
-		store_audvol_cal(TX_CAL, data);
+		store_audvol_cal(TX_CAL, (struct cal_block *)data);
 		break;
 	case AUDIO_SET_AUDPROC_RX_VOL_CAL:
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
 				"size received: %d\n", __func__, size);
-		store_audvol_cal(RX_CAL, data);
+		store_audvol_cal(RX_CAL, (struct cal_block *)data);
 		break;
 	case AUDIO_SET_AFE_TX_CAL:
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More AFE Cal then expected, "
 				"size received: %d\n", __func__, size);
-		store_afe_cal(TX_CAL, data);
+		store_afe_cal(TX_CAL, (struct cal_block *)data);
 		break;
 	case AUDIO_SET_AFE_RX_CAL:
 		if (size > sizeof(struct cal_block))
 			pr_err("%s: More AFE Cal then expected, "
 				"size received: %d\n", __func__, size);
-		store_afe_cal(RX_CAL, data);
+		store_afe_cal(RX_CAL, (struct cal_block *)data);
 		break;
 	case AUDIO_SET_VOCPROC_CAL:
-		store_vocproc_cal(size / sizeof(struct cal_block), data);
+		store_vocproc_cal(size / sizeof(struct cal_block),
+						(struct cal_block *)data);
 		break;
 	case AUDIO_SET_VOCPROC_STREAM_CAL:
-		store_vocstrm_cal(size / sizeof(struct cal_block), data);
+		store_vocstrm_cal(size / sizeof(struct cal_block),
+						(struct cal_block *)data);
 		break;
 	case AUDIO_SET_VOCPROC_VOL_CAL:
-		store_vocvol_cal(size / sizeof(struct cal_block), data);
+		store_vocvol_cal(size / sizeof(struct cal_block),
+						(struct cal_block *)data);
+		break;
+	case AUDIO_SET_VOCPROC_DEV_CFG_CAL:
+		store_vocproc_dev_cfg_cal(size / sizeof(struct cal_block),
+						(struct cal_block *)data);
 		break;
 	case AUDIO_SET_SIDETONE_CAL:
 		if (size > sizeof(struct sidetone_cal))
@@ -855,7 +989,7 @@ static long acdb_ioctl(struct file *f,
 		store_sidetone_cal((struct sidetone_cal *)data);
 		break;
 	case AUDIO_SET_ANC_CAL:
-		store_anc_cal(data);
+		store_anc_cal((struct cal_block *)data);
 		break;
 	default:
 		pr_err("ACDB=> ACDB ioctl not found!\n");
@@ -895,6 +1029,7 @@ static int acdb_mmap(struct file *file, struct vm_area_struct *vma)
 
 static int acdb_release(struct inode *inode, struct file *f)
 {
+	int i;
 	s32 result = 0;
 
 	atomic_dec(&usage_count);
@@ -902,6 +1037,11 @@ static int acdb_release(struct inode *inode, struct file *f)
 
 	pr_debug("%s: ref count %d!\n", __func__,
 		atomic_read(&usage_count));
+
+	for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
+		kfree(acdb_data.col_data[i]);
+		acdb_data.col_data[i] = NULL;
+	}
 
 	if (atomic_read(&usage_count) >= 1)
 		result = -EBUSY;
@@ -927,9 +1067,16 @@ struct miscdevice acdb_misc = {
 
 static int __init acdb_init(void)
 {
+	int i;
 	memset(&acdb_data, 0, sizeof(acdb_data));
 	mutex_init(&acdb_data.acdb_mutex);
 	atomic_set(&usage_count, 0);
+
+	for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
+		acdb_data.col_data[i] = kmalloc(MAX_COL_SIZE, GFP_KERNEL);
+		atomic_set(&acdb_data.vocproc_col_cal[i].cal_kvaddr,
+			(uint32_t)acdb_data.col_data[i]);
+	}
 	return misc_register(&acdb_misc);
 }
 
