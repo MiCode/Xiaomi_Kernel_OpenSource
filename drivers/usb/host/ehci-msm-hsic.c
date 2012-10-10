@@ -81,7 +81,6 @@ struct msm_hsic_hcd {
 	struct wake_lock	wlock;
 	int			peripheral_status_irq;
 	int			wakeup_irq;
-	int			wakeup_gpio;
 	bool			wakeup_irq_enabled;
 	atomic_t		pm_usage_cnt;
 	uint32_t		bus_perf_client;
@@ -525,22 +524,11 @@ static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
 	if (rc < 0) {
 		dev_err(mehci->dev, "gpio request failed for HSIC DATA\n");
 		goto free_strobe;
-		}
-
-	if (mehci->wakeup_gpio) {
-		rc = gpio_request(mehci->wakeup_gpio, "HSIC_WAKEUP_GPIO");
-		if (rc < 0) {
-			dev_err(mehci->dev, "gpio request failed for HSIC WAKEUP\n");
-			goto free_data;
-		}
 	}
 
 	return 0;
 
 free_gpio:
-	if (mehci->wakeup_gpio)
-		gpio_free(mehci->wakeup_gpio);
-free_data:
 	gpio_free(pdata->data);
 free_strobe:
 	gpio_free(pdata->strobe);
@@ -1596,10 +1584,9 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	if (res)
 		mehci->peripheral_status_irq = res->start;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_IO, "wakeup");
+	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "wakeup");
 	if (res) {
-		mehci->wakeup_gpio = res->start;
-		mehci->wakeup_irq = MSM_GPIO_TO_INT(res->start);
+		mehci->wakeup_irq = res->start;
 		dev_dbg(mehci->dev, "wakeup_irq: %d\n", mehci->wakeup_irq);
 	}
 
