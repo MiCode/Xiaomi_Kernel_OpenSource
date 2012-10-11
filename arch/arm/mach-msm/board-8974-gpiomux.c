@@ -128,6 +128,12 @@ static struct gpiomux_setting taiko_reset = {
 	.dir = GPIOMUX_OUT_LOW,
 };
 
+static struct gpiomux_setting taiko_int = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
 	{
 		.gpio      = 60,		/* TOUCH RESET */
@@ -531,7 +537,13 @@ static struct msm_gpiomux_config msm_taiko_config[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &taiko_reset,
 		},
-	}
+	},
+	{
+		.gpio	= 72,		/* CDC_INT */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &taiko_int,
+		},
+	},
 };
 
 void __init msm_8974_init_gpiomux(void)
