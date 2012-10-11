@@ -206,6 +206,11 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 	rot->src_rect.w = req->src_rect.w;
 	rot->src_rect.h = req->src_rect.h;
 
+	if (req->flags & MDP_DEINTERLACE) {
+		rot->rotations |= MDP_DEINTERLACE;
+		rot->src_rect.h /= 2;
+	}
+
 	rot->params_changed++;
 
 	req->id = rot->session_id;
@@ -323,6 +328,15 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		else
 			pr_debug("%s: RGB Pipes don't support CSC/QSEED\n",
 								__func__);
+	}
+
+	if (pipe->flags & MDP_DEINTERLACE) {
+		if (pipe->flags & MDP_SOURCE_ROTATED_90) {
+			pipe->src.w /= 2;
+			pipe->img_width /= 2;
+		} else {
+			pipe->src.h /= 2;
+		}
 	}
 
 	pipe->params_changed++;
