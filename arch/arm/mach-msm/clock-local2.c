@@ -461,13 +461,28 @@ static unsigned long branch_clk_get_rate(struct clk *c)
 
 static int branch_clk_list_rate(struct clk *c, unsigned n)
 {
+	int level, fmax = 0, rate;
 	struct branch_clk *branch = to_branch_clk(c);
+	struct clk *parent = c->parent;
 
 	if (branch->has_sibling == 1)
 		return -ENXIO;
 
-	if (c->parent && c->parent->ops->list_rate)
-		return c->parent->ops->list_rate(c->parent, n);
+	if (!parent || !parent->ops->list_rate)
+		return -ENXIO;
+
+	/* Find max frequency supported within voltage constraints. */
+	if (!parent->vdd_class) {
+		fmax = INT_MAX;
+	} else {
+		for (level = 0; level < parent->num_fmax; level++)
+			if (parent->fmax[level])
+				fmax = parent->fmax[level];
+	}
+
+	rate = parent->ops->list_rate(parent, n);
+	if (rate <= fmax)
+		return rate;
 	else
 		return -ENXIO;
 }
