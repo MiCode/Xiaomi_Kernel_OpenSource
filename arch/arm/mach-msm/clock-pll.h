@@ -82,6 +82,11 @@ struct pll_vote_clk {
 };
 
 extern struct clk_ops clk_ops_pll_vote;
+extern struct clk_ops clk_ops_pll_acpu_vote;
+
+/* Soft voting values */
+#define PLL_SOFT_VOTE_PRIMARY   BIT(0)
+#define PLL_SOFT_VOTE_ACPU      BIT(1)
 
 static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
 {
@@ -114,14 +119,6 @@ static inline struct pll_clk *to_pll_clk(struct clk *c)
 
 int sr_pll_clk_enable(struct clk *c);
 int sr_hpm_lp_pll_clk_enable(struct clk *c);
-
-/*
- * PLL vote clock APIs
- */
-int pll_vote_clk_enable(struct clk *c);
-void pll_vote_clk_disable(struct clk *c);
-struct clk *pll_vote_clk_get_parent(struct clk *c);
-int pll_vote_clk_is_enabled(struct clk *c);
 
 struct pll_config {
 	u32 l;
