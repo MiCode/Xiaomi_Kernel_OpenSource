@@ -38,6 +38,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/scm.h>
 #include <mach/peripheral-loader.h>
+#include <mach/socinfo.h>
 #include "qseecom_legacy.h"
 
 #define QSEECOM_DEV			"qseecom"
@@ -179,6 +180,7 @@ struct qseecom_control {
 	int               send_resp_flag;
 
 	uint32_t          qseos_version;
+	struct device *pdev;
 };
 
 struct qseecom_client_handle {
@@ -208,9 +210,16 @@ struct qseecom_dev_handle {
 	atomic_t          ioctl_count;
 };
 
+struct clk *ce_core_clk;
+struct clk *ce_clk;
+struct clk *ce_core_src_clk;
+struct clk *ce_bus_clk;
+
 /* Function proto types */
 static int qsee_vote_for_clock(int32_t);
 static void qsee_disable_clock_vote(int32_t);
+static int __qseecom_init_clk(void);
+static void __qseecom_disable_clk(void);
 
 static int __qseecom_is_svc_unique(struct qseecom_dev_handle *data,
 		struct qseecom_register_listener_req *svc)
@@ -1735,9 +1744,131 @@ static const struct file_operations qseecom_fops = {
 		.release = qseecom_release
 };
 
+static int __qseecom_init_clk()
+{
+	int rc = 0;
+	struct device *pdev;
+
+	pdev = qseecom.pdev;
+	/* Get CE3 src core clk. */
+	ce_core_src_clk = clk_get(pdev, "core_clk_src");
+	if (!IS_ERR(ce_core_src_clk)) {
+		ce_core_src_clk = ce_core_src_clk;
+
+		/* Set the core src clk @100Mhz */
+		rc = clk_set_rate(ce_core_src_clk, 100000000);
+		if (rc) {
+			clk_put(ce_core_src_clk);
+			pr_err("Unable to set the core src clk @100Mhz.\n");
+			goto err_clk;
+		}
+	} else {
+		pr_warn("Unable to get CE core src clk, set to NULL\n");
+		ce_core_src_clk = NULL;
+	}
+
+	/* Get CE core clk */
+	ce_core_clk = clk_get(pdev, "core_clk");
+	if (IS_ERR(ce_core_clk)) {
+		rc = PTR_ERR(ce_core_clk);
+		pr_err("Unable to get CE core clk\n");
+		if (ce_core_src_clk != NULL)
+			clk_put(ce_core_src_clk);
+		goto err_clk;
+	}
+
+	/* Get CE Interface clk */
+	ce_clk = clk_get(pdev, "iface_clk");
+	if (IS_ERR(ce_clk)) {
+		rc = PTR_ERR(ce_clk);
+		pr_err("Unable to get CE interface clk\n");
+		if (ce_core_src_clk != NULL)
+			clk_put(ce_core_src_clk);
+		clk_put(ce_core_clk);
+		goto err_clk;
+	}
+
+	/* Get CE AXI clk */
+	ce_bus_clk = clk_get(pdev, "bus_clk");
+	if (IS_ERR(ce_bus_clk)) {
+		rc = PTR_ERR(ce_bus_clk);
+		pr_err("Unable to get CE BUS interface clk\n");
+		if (ce_core_src_clk != NULL)
+			clk_put(ce_core_src_clk);
+		clk_put(ce_core_clk);
+		clk_put(ce_clk);
+		goto err_clk;
+	}
+
+	/* Enable CE core clk */
+	rc = clk_prepare_enable(ce_core_clk);
+	if (rc) {
+		pr_err("Unable to enable/prepare CE core clk\n");
+		if (ce_core_src_clk != NULL)
+			clk_put(ce_core_src_clk);
+		clk_put(ce_core_clk);
+		clk_put(ce_clk);
+		goto err_clk;
+	} else {
+		/* Enable CE clk */
+		rc = clk_prepare_enable(ce_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE iface clk\n");
+			clk_disable_unprepare(ce_core_clk);
+			if (ce_core_src_clk != NULL)
+				clk_put(ce_core_src_clk);
+			clk_put(ce_core_clk);
+			clk_put(ce_clk);
+			goto err_clk;
+		} else {
+			/* Enable AXI clk */
+			rc = clk_prepare_enable(ce_bus_clk);
+			if (rc) {
+				pr_err("Unable to enable/prepare CE iface clk\n");
+				clk_disable_unprepare(ce_core_clk);
+				clk_disable_unprepare(ce_clk);
+				if (ce_core_src_clk != NULL)
+					clk_put(ce_core_src_clk);
+				clk_put(ce_core_clk);
+				clk_put(ce_clk);
+				goto err_clk;
+			}
+		}
+	}
+	return rc;
+
+err_clk:
+	if (rc)
+		pr_err("Unable to init CE clks, rc = %d\n", rc);
+	clk_disable_unprepare(ce_clk);
+	clk_disable_unprepare(ce_core_clk);
+	clk_disable_unprepare(ce_bus_clk);
+	if (ce_core_src_clk != NULL)
+		clk_put(ce_core_src_clk);
+	clk_put(ce_clk);
+	clk_put(ce_core_clk);
+	clk_put(ce_bus_clk);
+	return rc;
+}
+
+
+
+static void __qseecom_disable_clk()
+{
+	clk_disable_unprepare(ce_clk);
+	clk_disable_unprepare(ce_core_clk);
+	clk_disable_unprepare(ce_bus_clk);
+	if (ce_core_src_clk != NULL)
+		clk_put(ce_core_src_clk);
+	clk_put(ce_clk);
+	clk_put(ce_core_clk);
+	clk_put(ce_bus_clk);
+}
+
 static int __devinit qseecom_probe(struct platform_device *pdev)
 {
 	int rc;
+	int ret;
 	struct device *class_dev;
 	char qsee_not_legacy = 0;
 	struct msm_bus_scale_pdata *qseecom_platform_support;
@@ -1796,6 +1927,8 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 		pil = NULL;
 		pil_ref_cnt = 0;
 	}
+
+	qseecom.pdev = class_dev;
 	/* Create ION msm client */
 	qseecom.ion_clnt = msm_ion_client_create(0x03, "qseecom-kernel");
 	if (qseecom.ion_clnt == NULL) {
@@ -1805,17 +1938,23 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 	}
 
 	/* register client for bus scaling */
-	if (!pdev->dev.of_node) {
+	if (pdev->dev.of_node) {
+		ret = __qseecom_init_clk();
+		if (ret)
+			goto err;
+		qseecom_platform_support = (struct msm_bus_scale_pdata *)
+						msm_bus_cl_get_pdata(pdev);
+	} else {
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
 						pdev->dev.platform_data;
-		qsee_perf_client = msm_bus_scale_register_client(
-						qseecom_platform_support);
-
-		if (!qsee_perf_client)
-			pr_err("Unable to register bus client\n");
 	}
-	return 0;
 
+	qsee_perf_client = msm_bus_scale_register_client(
+					qseecom_platform_support);
+
+	if (!qsee_perf_client)
+		pr_err("Unable to register bus client\n");
+	return 0;
 err:
 	device_destroy(driver_class, qseecom_device_no);
 class_destroy:
@@ -1856,6 +1995,9 @@ static int __devinit qseecom_init(void)
 
 static void __devexit qseecom_exit(void)
 {
+
+	__qseecom_disable_clk();
+
 	device_destroy(driver_class, qseecom_device_no);
 	class_destroy(driver_class);
 	unregister_chrdev_region(qseecom_device_no, 1);
