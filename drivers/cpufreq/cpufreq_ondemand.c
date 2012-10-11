@@ -869,7 +869,11 @@ bail_acq_sema_failed:
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
-	int i;
+	int i, j;
+	struct cpumask cpus_scheduled;
+	struct cpu_dbs_info_s *dbs_info;
+	cpumask_clear(&cpus_scheduled);
+
 
 	if ((dbs_tuners_ins.powersave_bias == POWERSAVE_BIAS_MAXLEVEL) ||
 		(dbs_tuners_ins.powersave_bias == POWERSAVE_BIAS_MINLEVEL)) {
@@ -878,7 +882,23 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 	}
 
 	for_each_online_cpu(i) {
+		dbs_info = &per_cpu(od_cpu_dbs_info, i);
+
+		if (!dbs_info->cur_policy) {
+			pr_err("Dbs policy is NULL\n");
+			continue;
+		}
+
+		for_each_cpu(j, &cpus_scheduled) {
+			if (cpumask_test_cpu(j, dbs_info->cur_policy->cpus))
+				goto skip_schedule;
+		}
+		cpumask_set_cpu(i, &cpus_scheduled);
 		queue_work_on(i, input_wq, &per_cpu(dbs_refresh_work, i));
+
+		/* This CPU is already running at new frequency */
+skip_schedule:
+		;
 	}
 }
 
