@@ -62,8 +62,6 @@ MODULE_PARM_DESC(audio_capture_buf_size, "Microphone Audio buffer size");
 static int generic_set_cmd(struct usb_audio_control *con, u8 cmd, int value);
 static int generic_get_cmd(struct usb_audio_control *con, u8 cmd);
 
-DECLARE_UAC_AC_HEADER_DESCRIPTOR(2);
-DECLARE_UAC_FORMAT_TYPE_I_DISCRETE_DESC(1);
 
 #define SPEAKER_INPUT_TERMINAL_ID	3
 #define SPEAKER_OUTPUT_TERMINAL_ID	4

@@ -175,6 +175,7 @@ struct uac1_ac_header_descriptor_##n {			\
 	__u8  baInterfaceNr[n];					\
 } __attribute__ ((packed))
 
+DECLARE_UAC_AC_HEADER_DESCRIPTOR(2);
 /* 4.3.2.1 Input Terminal Descriptor */
 struct uac_input_terminal_descriptor {
 	__u8  bLength;			/* in bytes: 12 */
@@ -454,6 +455,7 @@ struct uac_format_type_i_discrete_descriptor_##n {		\
 	__u8  tSamFreq[n][3];					\
 } __attribute__ ((packed))
 
+DECLARE_UAC_FORMAT_TYPE_I_DISCRETE_DESC(1);
 #define UAC_FORMAT_TYPE_I_DISCRETE_DESC_SIZE(n)	(8 + (n * 3))
 
 struct uac_format_type_i_ext_descriptor {
