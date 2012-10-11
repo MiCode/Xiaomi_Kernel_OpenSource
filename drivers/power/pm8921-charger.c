@@ -28,6 +28,7 @@
 #include <linux/debugfs.h>
 #include <linux/slab.h>
 #include <linux/mfd/pm8xxx/batt-alarm.h>
+#include <linux/ratelimit.h>
 
 #include <mach/msm_xo.h>
 #include <mach/msm_hsusb.h>
@@ -247,6 +248,7 @@ struct pm8921_chg_chip {
 	unsigned int			is_bat_cool;
 	unsigned int			is_bat_warm;
 	unsigned int			resume_voltage_delta;
+	int				resume_charge_percent;
 	unsigned int			term_current;
 	unsigned int			vbat_channel;
 	unsigned int			batt_temp_channel;
@@ -1427,7 +1429,24 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 		percent_soc = voltage_based_capacity(chip);
 
 	if (percent_soc <= 10)
-		pr_warn("low battery charge = %d%%\n", percent_soc);
+		pr_warn_ratelimited("low battery charge = %d%%\n",
+						percent_soc);
+
+	if (chip->recent_reported_soc == (chip->resume_charge_percent + 1)
+			&& percent_soc == chip->resume_charge_percent) {
+		pr_debug("soc fell below %d. charging enabled.\n",
+						chip->resume_charge_percent);
+		if (chip->is_bat_warm)
+			pr_warn_ratelimited("battery is warm = %d, do not resume charging at %d%%.\n",
+					chip->is_bat_warm,
+					chip->resume_charge_percent);
+		else if (chip->is_bat_cool)
+			pr_warn_ratelimited("battery is cool = %d, do not resume charging at %d%%.\n",
+					chip->is_bat_cool,
+					chip->resume_charge_percent);
+		else
+			pm_chg_vbatdet_set(the_chip, PM8921_CHG_VBATDET_MAX);
+	}
 
 	chip->recent_reported_soc = percent_soc;
 	return percent_soc;
@@ -2985,12 +3004,10 @@ static int ichg_threshold_ua = -400000;
 module_param(ichg_threshold_ua, int, 0644);
 
 #define PM8921_CHG_VDDMAX_RES_MV	10
-static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip)
+static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip,
+						int vbat_batt_terminal_uv)
 {
-	int ichg_meas_ua, vbat_uv;
-	int ichg_meas_ma;
 	int adj_vdd_max_mv, programmed_vdd_max;
-	int vbat_batt_terminal_uv;
 	int vbat_batt_terminal_mv;
 	int reg_loop;
 	int delta_mv = 0;
@@ -3012,18 +3029,6 @@ static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip)
 			reg_loop);
 		return;
 	}
-
-	pm8921_bms_get_simultaneous_battery_voltage_and_current(&ichg_meas_ua,
-								&vbat_uv);
-	if (ichg_meas_ua >= 0) {
-		pr_debug("Exiting ichg_meas_ua = %d > 0\n", ichg_meas_ua);
-		return;
-	}
-
-	ichg_meas_ma = ichg_meas_ua / 1000;
-
-	/* rconn_mohm is in milliOhms */
-	vbat_batt_terminal_uv = vbat_uv + ichg_meas_ma * the_chip->rconn_mohm;
 	vbat_batt_terminal_mv = vbat_batt_terminal_uv/1000;
 	pm_chg_vddmax_get(the_chip, &programmed_vdd_max);
 
@@ -3059,10 +3064,10 @@ enum {
 
 #define VBAT_TOLERANCE_MV	70
 #define CHG_DISABLE_MSLEEP	100
-static int is_charging_finished(struct pm8921_chg_chip *chip)
+static int is_charging_finished(struct pm8921_chg_chip *chip,
+			int vbat_batt_terminal_uv, int ichg_meas_ma)
 {
-	int vbat_meas_uv, vbat_meas_mv, vbat_programmed, vbatdet_low;
-	int ichg_meas_ma, iterm_programmed;
+	int vbat_programmed, iterm_programmed, vbat_intended;
 	int regulation_loop, fast_chg, vcp;
 	int rc;
 	static int last_vbat_programmed = -EINVAL;
@@ -3079,30 +3084,19 @@ static int is_charging_finished(struct pm8921_chg_chip *chip)
 		if (vcp == 1)
 			return CHG_IN_PROGRESS;
 
-		vbatdet_low = pm_chg_get_rt_status(chip, VBATDET_LOW_IRQ);
-		pr_debug("vbatdet_low = %d\n", vbatdet_low);
-		if (vbatdet_low == 1)
-			return CHG_IN_PROGRESS;
-
 		/* reset count if battery is hot/cold */
 		rc = pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ);
 		pr_debug("batt_temp_ok = %d\n", rc);
 		if (rc == 0)
 			return CHG_IN_PROGRESS;
 
-		/* reset count if battery voltage is less than vddmax */
-		vbat_meas_uv = get_prop_battery_uvolts(chip);
-		if (vbat_meas_uv < 0)
-			return CHG_IN_PROGRESS;
-		vbat_meas_mv = vbat_meas_uv / 1000;
-
 		rc = pm_chg_vddmax_get(chip, &vbat_programmed);
 		if (rc) {
 			pr_err("couldnt read vddmax rc = %d\n", rc);
 			return CHG_IN_PROGRESS;
 		}
-		pr_debug("vddmax = %d vbat_meas_mv=%d\n",
-			 vbat_programmed, vbat_meas_mv);
+		pr_debug("vddmax = %d vbat_batt_terminal_uv=%d\n",
+			 vbat_programmed, vbat_batt_terminal_uv);
 
 		if (last_vbat_programmed == -EINVAL)
 			last_vbat_programmed = vbat_programmed;
@@ -3111,6 +3105,20 @@ static int is_charging_finished(struct pm8921_chg_chip *chip)
 			pr_debug("vddmax = %d last_vdd_max=%d\n",
 				 vbat_programmed, last_vbat_programmed);
 			last_vbat_programmed = vbat_programmed;
+			return CHG_IN_PROGRESS;
+		}
+
+		if (chip->is_bat_cool)
+			vbat_intended = chip->cool_bat_voltage;
+		else if (chip->is_bat_warm)
+			vbat_intended = chip->warm_bat_voltage;
+		else
+			vbat_intended = chip->max_voltage_mv;
+
+		if (vbat_batt_terminal_uv / 1000 < vbat_intended) {
+			pr_debug("terminal_uv:%d < vbat_intended:%d.\n",
+							vbat_batt_terminal_uv,
+							vbat_intended);
 			return CHG_IN_PROGRESS;
 		}
 
@@ -3133,7 +3141,6 @@ static int is_charging_finished(struct pm8921_chg_chip *chip)
 		return CHG_IN_PROGRESS;
 	}
 
-	ichg_meas_ma = (get_prop_batt_current(chip)) / 1000;
 	pr_debug("iterm_programmed = %d ichg_meas_ma=%d\n",
 				iterm_programmed, ichg_meas_ma);
 	/*
@@ -3168,9 +3175,22 @@ static void eoc_worker(struct work_struct *work)
 				struct pm8921_chg_chip, eoc_work);
 	static int count;
 	int end;
+	int vbat_meas_uv, vbat_meas_mv;
+	int ichg_meas_ua, ichg_meas_ma;
+	int vbat_batt_terminal_uv;
 
 	pm_chg_failed_clear(chip, 1);
-	end = is_charging_finished(chip);
+
+	pm8921_bms_get_simultaneous_battery_voltage_and_current(
+					&ichg_meas_ua,	&vbat_meas_uv);
+	vbat_meas_mv = vbat_meas_uv / 1000;
+	/* rconn_mohm is in milliOhms */
+	ichg_meas_ma = ichg_meas_ua / 1000;
+	vbat_batt_terminal_uv = vbat_meas_uv
+					+ ichg_meas_ma
+					* the_chip->rconn_mohm;
+
+	end = is_charging_finished(chip, vbat_batt_terminal_uv, ichg_meas_ma);
 
 	if (end == CHG_NOT_IN_PROGRESS) {
 		count = 0;
@@ -3199,6 +3219,21 @@ static void eoc_worker(struct work_struct *work)
 	if (count == CONSECUTIVE_COUNT) {
 		count = 0;
 		pr_info("End of Charging\n");
+		/* set the vbatdet back, in case it was changed
+		 * to trigger charging */
+		if (chip->is_bat_cool) {
+			pm_chg_vbatdet_set(the_chip,
+				the_chip->cool_bat_voltage
+				- the_chip->resume_voltage_delta);
+		} else if (chip->is_bat_warm) {
+			pm_chg_vbatdet_set(the_chip,
+				the_chip->warm_bat_voltage
+				- the_chip->resume_voltage_delta);
+		} else {
+			pm_chg_vbatdet_set(the_chip,
+				the_chip->max_voltage_mv
+				- the_chip->resume_voltage_delta);
+		}
 
 		pm_chg_auto_enable(chip, 0);
 
@@ -3213,7 +3248,7 @@ static void eoc_worker(struct work_struct *work)
 		chgdone_irq_handler(chip->pmic_chg_irq[CHGDONE_IRQ], chip);
 		wake_unlock(&chip->eoc_wake_lock);
 	} else {
-		adjust_vdd_max_for_fastchg(chip);
+		adjust_vdd_max_for_fastchg(chip, vbat_batt_terminal_uv);
 		pr_debug("EOC count = %d\n", count);
 		schedule_delayed_work(&chip->eoc_work,
 			      round_jiffies_relative(msecs_to_jiffies
@@ -4194,6 +4229,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->min_voltage_mv = pdata->min_voltage;
 	chip->uvd_voltage_mv = pdata->uvd_thresh_voltage;
 	chip->resume_voltage_delta = pdata->resume_voltage_delta;
+	chip->resume_charge_percent = pdata->resume_charge_percent;
 	chip->term_current = pdata->term_current;
 	chip->vbat_channel = pdata->charger_cdata.vbat_channel;
 	chip->batt_temp_channel = pdata->charger_cdata.batt_temp_channel;
