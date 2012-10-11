@@ -25,6 +25,8 @@
  */
 #define BUFFER_BLOCK_SIZE       4096
 
+#define MAX_COL_INFO_SIZE	324
+
 #define VOC_REC_UPLINK		0x00
 #define VOC_REC_DOWNLINK	0x01
 #define VOC_REC_BOTH		0x02
@@ -437,9 +439,13 @@ struct vss_imemory_cmd_unmap_t {
 
 #define APRV2_IBASIC_CMD_DESTROY_SESSION		0x0001003C
 
-#define VSS_ISTREAM_CMD_SET_MUTE			0x00011022
+/*
+ * This command changes the mute setting. The new mute setting will
+ * be applied over the specified ramp duration.
+ */
+#define VSS_IVOLUME_CMD_MUTE_V2				0x0001138B
 
-#define VSS_ISTREAM_CMD_REGISTER_CALIBRATION_DATA	0x00011279
+#define VSS_ISTREAM_CMD_REGISTER_CALIBRATION_DATA_V2    0x00011369
 
 #define VSS_ISTREAM_CMD_DEREGISTER_CALIBRATION_DATA     0x0001127A
 
@@ -541,22 +547,33 @@ struct vss_istream_cmd_create_passive_control_session_t {
 	*/
 } __packed;
 
-struct vss_istream_cmd_set_mute_t {
+#define VSS_IVOLUME_DIRECTION_TX	0
+#define VSS_IVOLUME_DIRECTION_RX	1
+
+#define VSS_IVOLUME_MUTE_OFF		0
+#define VSS_IVOLUME_MUTE_ON		1
+
+#define DEFAULT_MUTE_RAMP_DURATION	500
+
+struct vss_ivolume_cmd_mute_v2_t {
 	uint16_t direction;
-	/**<
-	* 0 : TX only
-	* 1 : RX only
-	* 2 : TX and Rx
-	*/
+	/*
+	 * The direction field sets the direction to apply the mute command.
+	 * The Supported values:
+	 * VSS_IVOLUME_DIRECTION_TX
+	 * VSS_IVOLUME_DIRECTION_RX
+	 */
 	uint16_t mute_flag;
-	/**<
-	* Mute, un-mute.
-	*
-	* 0 : Silence disable
-	* 1 : Silence enable
-	* 2 : CNG enable. Applicable to TX only. If set on RX behavior
-	*     will be the same as 1
-	*/
+	/*
+	 * Turn mute on or off. The Supported values:
+	 * VSS_IVOLUME_MUTE_OFF
+	 * VSS_IVOLUME_MUTE_ON
+	 */
+	uint16_t ramp_duration_ms;
+	/*
+	 * Mute change ramp duration in milliseconds.
+	 * The Supported values: 0 to 5000.
+	 */
 } __packed;
 
 struct vss_istream_cmd_create_full_control_session_t {
@@ -666,14 +683,21 @@ struct vss_istream_cmd_set_enc_dtx_mode_t {
 	 */
 } __packed;
 
-struct vss_istream_cmd_register_calibration_data_t {
-	uint32_t phys_addr;
-	/* Phsical address to be registered with stream. The calibration data
-	 *  is stored at this address.
-	 */
-	uint32_t mem_size;
+struct vss_istream_cmd_register_calibration_data_v2_t {
+	uint32_t cal_mem_handle;
+	/* Handle to the shared memory that holds the calibration data. */
+	uint64_t cal_mem_address;
+	/* Location of calibration data. */
+	uint32_t cal_mem_size;
 	/* Size of the calibration data in bytes. */
-};
+	uint8_t column_info[MAX_COL_INFO_SIZE];
+	/*
+	 * Column info contains the number of columns and the array of columns
+	 * in the calibration table. The order in which the columns are provided
+	 * here must match the order in which they exist in the calibration
+	 * table provided.
+	 */
+} __packed;
 
 struct vss_icommon_cmd_set_ui_property_enable_t {
 	uint32_t module_id;
@@ -705,7 +729,7 @@ struct cvs_destroy_session_cmd {
 
 struct cvs_set_mute_cmd {
 	struct apr_hdr hdr;
-	struct vss_istream_cmd_set_mute_t cvs_set_mute;
+	struct vss_ivolume_cmd_mute_v2_t cvs_set_mute;
 } __packed;
 
 struct cvs_set_media_type_cmd {
@@ -740,7 +764,7 @@ struct cvs_set_enc_dtx_mode_cmd {
 
 struct cvs_register_cal_data_cmd {
 	struct apr_hdr hdr;
-	struct vss_istream_cmd_register_calibration_data_t cvs_cal_data;
+	struct vss_istream_cmd_register_calibration_data_v2_t cvs_cal_data;
 } __packed;
 
 struct cvs_deregister_cal_data_cmd {
@@ -797,11 +821,24 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 #define VSS_IVOCPROC_CMD_DISABLE			0x000110E1
 /**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
 
-#define VSS_IVOCPROC_CMD_REGISTER_CALIBRATION_DATA	0x00011275
-#define VSS_IVOCPROC_CMD_DEREGISTER_CALIBRATION_DATA    0x00011276
+/*
+ * Registers the memory that contains device specific configuration data with
+ * the vocproc. The client must register device configuration data with the
+ * vocproc that corresponds with the device being set on the vocproc.
+ */
+#define VSS_IVOCPROC_CMD_REGISTER_DEVICE_CONFIG		0x00011371
 
-#define VSS_IVOCPROC_CMD_REGISTER_VOLUME_CAL_TABLE      0x00011277
-#define VSS_IVOCPROC_CMD_DEREGISTER_VOLUME_CAL_TABLE    0x00011278
+/*
+ * Deregisters the memory that holds device configuration data from the
+  vocproc.
+*/
+#define VSS_IVOCPROC_CMD_DEREGISTER_DEVICE_CONFIG	0x00011372
+
+#define VSS_IVOCPROC_CMD_REGISTER_CALIBRATION_DATA_V2	0x00011373
+#define VSS_IVOCPROC_CMD_DEREGISTER_CALIBRATION_DATA	0x00011276
+
+#define VSS_IVOCPROC_CMD_REGISTER_VOL_CALIBRATION_DATA	0x00011374
+#define VSS_IVOCPROC_CMD_DEREGISTER_VOL_CALIBRATION_DATA	0x00011375
 
 #define VSS_IVOCPROC_TOPOLOGY_ID_NONE			0x00010F70
 #define VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS		0x00010F71
@@ -846,8 +883,6 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 /*CDMA EVRC-B vocoder modem format */
 #define VSS_MEDIA_ID_4GV_WB_MODEM	0x00010FC4
 /*CDMA EVRC-WB vocoder modem format */
-
-#define VSS_IVOCPROC_CMD_SET_MUTE			0x000110EF
 
 #define VOICE_CMD_SET_PARAM				0x00011006
 #define VOICE_CMD_GET_PARAM				0x00011007
@@ -941,39 +976,54 @@ struct vss_ivocproc_cmd_set_device_t {
 	 */
 } __packed;
 
-struct vss_ivocproc_cmd_register_calibration_data_t {
-	uint32_t phys_addr;
-	/* Phsical address to be registered with vocproc. Calibration data
-	 *  is stored at this address.
+struct vss_ivocproc_cmd_register_device_config_t {
+	uint32_t mem_handle;
+	/*
+	 * Handle to the shared memory that holds the per-network calibration
+	 * data.
 	 */
+	uint64_t mem_address;
+	/* Location of calibration data. */
 	uint32_t mem_size;
 	/* Size of the calibration data in bytes. */
 } __packed;
 
-struct vss_ivocproc_cmd_register_volume_cal_table_t {
-	uint32_t phys_addr;
-	/* Phsical address to be registered with the vocproc. The volume
-	 *  calibration table is stored at this location.
+struct vss_ivocproc_cmd_register_calibration_data_v2_t {
+	uint32_t cal_mem_handle;
+	/*
+	 * Handle to the shared memory that holds the per-network calibration
+	 * data.
 	 */
-
-	uint32_t mem_size;
-	/* Size of the volume calibration table in bytes. */
+	uint64_t cal_mem_address;
+	/* Location of calibration data. */
+	uint32_t cal_mem_size;
+	/* Size of the calibration data in bytes. */
+	uint8_t column_info[MAX_COL_INFO_SIZE];
+	/*
+	 * Column info contains the number of columns and the array of columns
+	 * in the calibration table. The order in which the columns are provided
+	 * here must match the order in which they exist in the calibration
+	 * table provided.
+	 */
 } __packed;
 
-struct vss_ivocproc_cmd_set_mute_t {
-	uint16_t direction;
+struct vss_ivocproc_cmd_register_volume_cal_data_t {
+	uint32_t cal_mem_handle;
 	/*
-	* 0 : TX only.
-	* 1 : RX only.
-	* 2 : TX and Rx.
-	*/
-	uint16_t mute_flag;
+	 * Handle to the shared memory that holds the volume calibration
+	 * data.
+	 */
+	uint64_t cal_mem_address;
+	/* Location of volume calibration data. */
+	uint32_t cal_mem_size;
+	/* Size of the volume calibration data in bytes. */
+	uint8_t column_info[MAX_COL_INFO_SIZE];
 	/*
-	* Mute, un-mute.
-	*
-	* 0 : Disable.
-	* 1 : Enable.
-	*/
+	 * Column info contains the number of columns and the array of columns
+	 * in the calibration table. The order in which the columns are provided
+	 * here must match the order in which they exist in the calibration
+	 * table provided.
+	 */
 } __packed;
 
 struct cvp_create_full_ctl_session_cmd {
@@ -999,27 +1049,36 @@ struct cvp_set_rx_volume_index_cmd {
 	struct vss_ivocproc_cmd_set_volume_index_t cvp_set_vol_idx;
 } __packed;
 
+struct cvp_register_dev_cfg_cmd {
+	struct apr_hdr hdr;
+	struct vss_ivocproc_cmd_register_device_config_t cvp_dev_cfg_data;
+} __packed;
+
+struct cvp_deregister_dev_cfg_cmd {
+	struct apr_hdr hdr;
+} __packed;
+
 struct cvp_register_cal_data_cmd {
 	struct apr_hdr hdr;
-	struct vss_ivocproc_cmd_register_calibration_data_t cvp_cal_data;
+	struct vss_ivocproc_cmd_register_calibration_data_v2_t cvp_cal_data;
 } __packed;
 
 struct cvp_deregister_cal_data_cmd {
 	struct apr_hdr hdr;
 } __packed;
 
-struct cvp_register_vol_cal_table_cmd {
+struct cvp_register_vol_cal_data_cmd {
 	struct apr_hdr hdr;
-	struct vss_ivocproc_cmd_register_volume_cal_table_t cvp_vol_cal_tbl;
+	struct vss_ivocproc_cmd_register_volume_cal_data_t cvp_vol_cal_data;
 } __packed;
 
-struct cvp_deregister_vol_cal_table_cmd {
+struct cvp_deregister_vol_cal_data_cmd {
 	struct apr_hdr hdr;
 } __packed;
 
 struct cvp_set_mute_cmd {
 	struct apr_hdr hdr;
-	struct vss_ivocproc_cmd_set_mute_t cvp_set_mute;
+	struct vss_ivolume_cmd_mute_v2_t cvp_set_mute;
 } __packed;
 
 /* CB for up-link packets. */
@@ -1130,7 +1189,8 @@ struct common_data {
 	/* APR to CVP in the Q6 */
 	void *apr_q6_cvp;
 
-	struct ion_client *client;
+	struct mem_map_table cal_mem_map_table;
+	uint32_t cal_mem_handle;
 	struct cal_mem cvp_cal;
 	struct cal_mem cvs_cal;
 
