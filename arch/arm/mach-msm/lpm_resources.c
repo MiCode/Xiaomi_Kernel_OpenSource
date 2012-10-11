@@ -382,7 +382,7 @@ static void msm_lpm_notify_common(struct msm_rpm_notifier_data *cb,
 static bool msm_lpm_beyond_limits_l2(struct msm_rpmrs_limits *limits)
 {
 	uint32_t l2;
-	bool ret = true;
+	bool ret = false;
 	struct msm_lpm_resource *rs = &msm_lpm_l2;
 
 	if (rs->valid) {
@@ -664,7 +664,7 @@ int msm_lpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 	msm_lpm_get_rpm_notif = false;
 	for (i = 0; i < ARRAY_SIZE(msm_lpm_resources); i++) {
 		rs = msm_lpm_resources[i];
-		if (rs->flush)
+		if (rs->valid && rs->flush)
 			rs->flush(notify_rpm);
 	}
 	msm_lpm_get_rpm_notif = true;
