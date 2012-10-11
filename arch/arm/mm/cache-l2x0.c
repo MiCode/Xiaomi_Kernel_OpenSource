@@ -39,6 +39,8 @@ static unsigned int l2x0_sets;
 static unsigned int l2x0_ways;
 static unsigned long sync_reg_offset = L2X0_CACHE_SYNC;
 static void pl310_save(void);
+static void pl310_resume(void);
+static void l2x0_resume(void);
 
 /* Aurora don't have the cache ID register available, so we have to
  * pass it though the device tree */
@@ -396,10 +398,12 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 #endif
 		if ((l2x0_cache_id & L2X0_CACHE_ID_RTL_MASK) <= L2X0_CACHE_ID_RTL_R3P0)
 			outer_cache.set_debug = pl310_set_debug;
+		outer_cache.resume = pl310_resume;
 		break;
 	case L2X0_CACHE_ID_PART_L210:
 		l2x0_ways = (aux >> 13) & 0xf;
 		type = "L210";
+		outer_cache.resume = l2x0_resume;
 		break;
 
 	case AURORA_CACHE_ID:
@@ -413,6 +417,7 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		/* Assume unknown chips have 8 ways */
 		l2x0_ways = 8;
 		type = "L2x0 series";
+		outer_cache.resume = l2x0_resume;
 		break;
 	}
 
