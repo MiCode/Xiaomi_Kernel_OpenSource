@@ -926,10 +926,15 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (motg->caps & ALLOW_PHY_RETENTION && !host_bus_suspend &&
 		!device_bus_suspend && !dcp) {
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
-		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+		if (motg->pdata->otg_control == OTG_PHY_CONTROL) {
 			/* Enable PHY HV interrupts to wake MPM/Link */
-			phy_ctrl_val |=
-				(PHY_IDHV_INTEN | PHY_OTGSESSVLDHV_INTEN);
+			if ((motg->pdata->mode == USB_OTG) ||
+					(motg->pdata->mode == USB_HOST))
+				phy_ctrl_val |= (PHY_IDHV_INTEN |
+							PHY_OTGSESSVLDHV_INTEN);
+			else
+				phy_ctrl_val |= PHY_OTGSESSVLDHV_INTEN;
+		}
 
 		writel_relaxed(phy_ctrl_val & ~PHY_RETEN, USB_PHY_CTRL);
 		motg->lpm_flags |= PHY_RETENTIONED;
@@ -3770,8 +3775,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 
 	if (motg->async_irq) {
-		ret = request_irq(motg->async_irq, msm_otg_irq, IRQF_SHARED,
-							"msm_otg", motg);
+		ret = request_irq(motg->async_irq, msm_otg_irq,
+					IRQF_TRIGGER_RISING, "msm_otg", motg);
 		if (ret) {
 			dev_err(&pdev->dev, "request irq failed (ASYNC INT)\n");
 			goto free_irq;
