@@ -18,9 +18,15 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/interrupt.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/subsystem_restart.h>
+#include <mach/msm_smsm.h>
+#include <mach/peripheral-loader.h>
 
+#include "smd_private.h"
+#include "ramdump.h"
 #include "peripheral-loader.h"
 #include "pil-q6v4.h"
 #include "scm-pas.h"
@@ -35,6 +41,13 @@ struct q6v4_modem {
 	struct q6v4_data q6_fw;
 	struct q6v4_data q6_sw;
 	void __iomem *modem_base;
+	void *fw_ramdump_dev;
+	void *sw_ramdump_dev;
+	void *smem_ramdump_dev;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
+	int crash_shutdown;
+	int loadable;
 };
 
 static DEFINE_MUTEX(pil_q6v4_modem_lock);
@@ -124,6 +137,138 @@ static struct pil_reset_ops pil_q6v4_modem_ops_trusted = {
 	.proxy_unvote = pil_q6v4_remove_proxy_votes,
 };
 
+static void log_modem_sfr(void)
+{
+	u32 size;
+	char *smem_reason, reason[81];
+
+	smem_reason = smem_get_entry(SMEM_SSR_REASON_MSS0, &size);
+	if (!smem_reason || !size) {
+		pr_err("modem subsystem failure reason: (unknown, smem_get_entry failed).\n");
+		return;
+	}
+	if (!smem_reason[0]) {
+		pr_err("modem subsystem failure reason: (unknown, init string found).\n");
+		return;
+	}
+
+	size = min(size, sizeof(reason)-1);
+	memcpy(reason, smem_reason, size);
+	reason[size] = '\0';
+	pr_err("modem subsystem failure reason: %s.\n", reason);
+
+	smem_reason[0] = '\0';
+	wmb();
+}
+
+static void restart_modem(struct q6v4_modem *drv)
+{
+	log_modem_sfr();
+	subsystem_restart_dev(drv->subsys);
+}
+
+#define desc_to_modem(d) container_of(d, struct q6v4_modem, subsys_desc)
+
+static int modem_shutdown(const struct subsys_desc *subsys)
+{
+	struct q6v4_modem *drv = desc_to_modem(subsys);
+
+	/* The watchdogs keep running even after the modem is shutdown */
+	writel_relaxed(0x0, drv->q6_fw.wdog_base + 0x24);
+	writel_relaxed(0x0, drv->q6_sw.wdog_base + 0x24);
+	mb();
+
+	if (drv->loadable) {
+		pil_force_shutdown("modem");
+		pil_force_shutdown("modem_fw");
+	}
+
+	disable_irq_nosync(drv->q6_fw.wdog_irq);
+	disable_irq_nosync(drv->q6_sw.wdog_irq);
+
+	return 0;
+}
+
+static int modem_powerup(const struct subsys_desc *subsys)
+{
+	struct q6v4_modem *drv = desc_to_modem(subsys);
+
+	if (drv->loadable) {
+		pil_force_boot("modem_fw");
+		pil_force_boot("modem");
+	}
+	enable_irq(drv->q6_fw.wdog_irq);
+	enable_irq(drv->q6_sw.wdog_irq);
+	return 0;
+}
+
+void modem_crash_shutdown(const struct subsys_desc *subsys)
+{
+	struct q6v4_modem *drv = desc_to_modem(subsys);
+
+	drv->crash_shutdown = 1;
+	smsm_reset_modem(SMSM_RESET);
+}
+
+static struct ramdump_segment sw_segments[] = {
+	{0x89000000, 0x8D400000 - 0x89000000},
+};
+
+static struct ramdump_segment fw_segments[] = {
+	{0x8D400000, 0x8DA00000 - 0x8D400000},
+};
+
+static struct ramdump_segment smem_segments[] = {
+	{0x80000000, 0x00200000},
+};
+
+static int modem_ramdump(int enable, const struct subsys_desc *subsys)
+{
+	struct q6v4_modem *drv = desc_to_modem(subsys);
+	int ret;
+
+	if (!enable)
+		return 0;
+
+	ret = do_ramdump(drv->sw_ramdump_dev, sw_segments,
+		ARRAY_SIZE(sw_segments));
+	if (ret < 0)
+		return ret;
+
+	ret = do_ramdump(drv->fw_ramdump_dev, fw_segments,
+		ARRAY_SIZE(fw_segments));
+	if (ret < 0)
+		return ret;
+
+	ret = do_ramdump(drv->smem_ramdump_dev, smem_segments,
+		ARRAY_SIZE(smem_segments));
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
+{
+	struct q6v4_modem *drv = data;
+
+	/* Ignore if we're the one that set SMSM_RESET */
+	if (drv->crash_shutdown)
+		return;
+
+	if (new_state & SMSM_RESET) {
+		pr_err("Probable fatal error on the modem.\n");
+		restart_modem(drv);
+	}
+}
+
+static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
+{
+	struct q6v4_modem *drv = dev_id;
+	restart_modem(drv);
+	return IRQ_HANDLED;
+}
+
 static int __devinit
 pil_q6v4_proc_init(struct q6v4_data *drv, struct platform_device *pdev, int i)
 {
@@ -134,12 +279,21 @@ pil_q6v4_proc_init(struct q6v4_data *drv, struct platform_device *pdev, int i)
 	struct pil_desc *desc;
 	struct resource *res;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1 + i);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1 + (i * 2));
 	if (!res)
 		return -EINVAL;
 
 	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!drv->base)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2 + (i * 2));
+	if (!res)
+		return -EINVAL;
+
+	drv->wdog_base = devm_ioremap(&pdev->dev, res->start,
+			resource_size(res));
+	if (!drv->wdog_base)
 		return -ENOMEM;
 
 	snprintf(reg_name, sizeof(reg_name), "%s_core_vdd", name[i]);
@@ -176,6 +330,7 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct regulator *pll_supply;
 	int ret;
+	const struct pil_q6v4_pdata *pdata = pdev->dev.platform_data;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -185,57 +340,139 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 	drv_fw = &drv->q6_fw;
 	drv_sw = &drv->q6_sw;
 
-	ret = pil_q6v4_proc_init(drv_fw, pdev, 0);
+	drv_fw->wdog_irq = platform_get_irq(pdev, 0);
+	if (drv_fw->wdog_irq < 0)
+		return drv_fw->wdog_irq;
+
+	drv_sw->wdog_irq = platform_get_irq(pdev, 1);
+	if (drv_sw->wdog_irq < 0)
+		return drv_sw->wdog_irq;
+
+	drv->loadable = !!pdata; /* No pdata = don't use PIL */
+	if (drv->loadable) {
+		ret = pil_q6v4_proc_init(drv_fw, pdev, 0);
+		if (ret)
+			return ret;
+
+		ret = pil_q6v4_proc_init(drv_sw, pdev, 1);
+		if (ret)
+			return ret;
+
+		pll_supply = devm_regulator_get(&pdev->dev, "pll_vdd");
+		drv_fw->pll_supply = drv_sw->pll_supply = pll_supply;
+		if (IS_ERR(pll_supply))
+			return PTR_ERR(pll_supply);
+
+		ret = regulator_set_voltage(pll_supply, 1800000, 1800000);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to set pll voltage\n");
+			return ret;
+		}
+
+		ret = regulator_set_optimum_mode(pll_supply, 100000);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "failed to set pll optimum mode\n");
+			return ret;
+		}
+
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res)
+			return -EINVAL;
+
+		drv->modem_base = devm_ioremap(&pdev->dev, res->start,
+				resource_size(res));
+		if (!drv->modem_base)
+			return -ENOMEM;
+
+		drv_fw->pil = msm_pil_register(&drv_fw->desc);
+		if (IS_ERR(drv_fw->pil))
+			return PTR_ERR(drv_fw->pil);
+
+		drv_sw->pil = msm_pil_register(&drv_sw->desc);
+		if (IS_ERR(drv_sw->pil)) {
+			ret = PTR_ERR(drv_sw->pil);
+			goto err_pil_sw;
+		}
+	}
+
+	drv->subsys_desc.name = "modem";
+	drv->subsys_desc.shutdown = modem_shutdown;
+	drv->subsys_desc.powerup = modem_powerup;
+	drv->subsys_desc.ramdump = modem_ramdump;
+	drv->subsys_desc.crash_shutdown = modem_crash_shutdown;
+
+	drv->fw_ramdump_dev = create_ramdump_device("modem_fw");
+	if (!drv->fw_ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_fw_ramdump;
+	}
+
+	drv->sw_ramdump_dev = create_ramdump_device("modem_sw");
+	if (!drv->sw_ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_sw_ramdump;
+	}
+
+	drv->smem_ramdump_dev = create_ramdump_device("smem-modem");
+	if (!drv->smem_ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_smem_ramdump;
+	}
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		ret = PTR_ERR(drv->subsys);
+		goto err_subsys;
+	}
+
+	ret = devm_request_irq(&pdev->dev, drv_fw->wdog_irq,
+			modem_wdog_bite_irq, IRQF_TRIGGER_RISING,
+			dev_name(&pdev->dev), drv);
 	if (ret)
-		return ret;
+		goto err_irq;
 
-	ret = pil_q6v4_proc_init(drv_sw, pdev, 1);
+	ret = devm_request_irq(&pdev->dev, drv_sw->wdog_irq,
+			modem_wdog_bite_irq, IRQF_TRIGGER_RISING,
+			dev_name(&pdev->dev), drv);
 	if (ret)
-		return ret;
+		goto err_irq;
 
-	pll_supply = devm_regulator_get(&pdev->dev, "pll_vdd");
-	drv_fw->pll_supply = drv_sw->pll_supply = pll_supply;
-	if (IS_ERR(pll_supply))
-		return PTR_ERR(pll_supply);
-
-	ret = regulator_set_voltage(pll_supply, 1800000, 1800000);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to set pll voltage\n");
-		return ret;
-	}
-
-	ret = regulator_set_optimum_mode(pll_supply, 100000);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to set pll optimum mode\n");
-		return ret;
-	}
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -EINVAL;
-
-	drv->modem_base = devm_ioremap(&pdev->dev, res->start,
-			resource_size(res));
-	if (!drv->modem_base)
-		return -ENOMEM;
-
-	drv_fw->pil = msm_pil_register(&drv_fw->desc);
-	if (IS_ERR(drv_fw->pil))
-		return PTR_ERR(drv_fw->pil);
-
-	drv_sw->pil = msm_pil_register(&drv_sw->desc);
-	if (IS_ERR(drv_sw->pil)) {
-		msm_pil_unregister(drv_fw->pil);
-		return PTR_ERR(drv_sw->pil);
-	}
+	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
+			smsm_state_cb, drv);
+	if (ret)
+		goto err_irq;
 	return 0;
+
+err_irq:
+	subsys_unregister(drv->subsys);
+err_subsys:
+	destroy_ramdump_device(drv->smem_ramdump_dev);
+err_smem_ramdump:
+	destroy_ramdump_device(drv->sw_ramdump_dev);
+err_sw_ramdump:
+	destroy_ramdump_device(drv->fw_ramdump_dev);
+err_fw_ramdump:
+	if (drv->loadable)
+		msm_pil_unregister(drv_sw->pil);
+err_pil_sw:
+	msm_pil_unregister(drv_fw->pil);
+	return ret;
 }
 
 static int __devexit pil_q6v4_modem_driver_exit(struct platform_device *pdev)
 {
 	struct q6v4_modem *drv = platform_get_drvdata(pdev);
-	msm_pil_unregister(drv->q6_sw.pil);
-	msm_pil_unregister(drv->q6_fw.pil);
+
+	smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET,
+			smsm_state_cb, drv);
+	subsys_unregister(drv->subsys);
+	destroy_ramdump_device(drv->smem_ramdump_dev);
+	destroy_ramdump_device(drv->sw_ramdump_dev);
+	destroy_ramdump_device(drv->fw_ramdump_dev);
+	if (drv->loadable) {
+		msm_pil_unregister(drv->q6_sw.pil);
+		msm_pil_unregister(drv->q6_fw.pil);
+	}
 	return 0;
 }
 
