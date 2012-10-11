@@ -781,11 +781,17 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 
 		switch (mode) {
 		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
+			if (num_online_cpus() > 1) {
+				allow = false;
+				break;
+			}
+			/* fall through */
 		case MSM_PM_SLEEP_MODE_RETENTION:
 			if (!allow)
 				break;
 
-			if (num_online_cpus() > 1) {
+			if (msm_pm_retention_tz_call &&
+				num_online_cpus() > 1) {
 				allow = false;
 				break;
 			}
