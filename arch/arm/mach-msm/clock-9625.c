@@ -362,17 +362,36 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_a0_pin, cxo_a0_a_pin, A0_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_a1_pin, cxo_a1_a_pin, A1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_a2_pin, cxo_a2_a_pin, A2_ID);
 
+static unsigned int soft_vote_gpll0;
+
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
 	.status_reg = (void __iomem *)GPLL0_STATUS_REG,
 	.status_mask = BIT(17),
 	.parent = &cxo_clk_src.c,
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.rate = 600000000,
 		.dbg_name = "gpll0_clk_src",
-		.ops = &clk_ops_pll_vote,
+		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(gpll0_clk_src.c),
+	},
+};
+
+static struct pll_vote_clk gpll0_activeonly_clk_src = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
+	.status_reg = (void __iomem *)GPLL0_STATUS_REG,
+	.status_mask = BIT(17),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.rate = 600000000,
+		.dbg_name = "gpll0_activeonly_clk_src",
+		.ops = &clk_ops_pll_acpu_vote,
+		CLK_INIT(gpll0_activeonly_clk_src.c),
 	},
 };
 
@@ -413,7 +432,6 @@ static struct pll_vote_clk gpll1_clk_src = {
 static struct pll_clk apcspll_clk_src = {
 	.mode_reg = (void __iomem *)APCS_CPU_PLL_MODE_REG,
 	.status_reg = (void __iomem *)APCS_CPU_PLL_STATUS_REG,
-	.parent = &cxo_clk_src.c,
 	.base = &virt_bases[APCS_PLL_BASE],
 	.c = {
 		.rate = 998400000,
@@ -1967,8 +1985,8 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	""),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
-	CLK_LOOKUP("pll0",	gpll0_clk_src.c, "f9010008.qcom,acpuclk"),
-	CLK_LOOKUP("pll14",	apcspll_clk_src.c, "f9010008.qcom,acpuclk"),
+	CLK_LOOKUP("pll0", gpll0_activeonly_clk_src.c, "f9010008.qcom,acpuclk"),
+	CLK_LOOKUP("pll14", apcspll_clk_src.c, "f9010008.qcom,acpuclk"),
 
 	CLK_LOOKUP("dma_bam_pclk", gcc_bam_dma_ahb_clk.c, "msm_sps"),
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "msm_serial_hsl.0"),
