@@ -358,6 +358,9 @@ config ARCH_MSM9625
 	select MSM_RPM_SMD
 	select MSM_NATIVE_RESTART
 	select MSM_RESTART_V2
+	select MSM_SPM_V2
+	select MSM_PM8X60 if PM
+	select MSM_SCM if SMP
 	select MULTI_IRQ_HANDLER
 	select GPIO_MSM_V3
 	select MAY_HAVE_SPARSE_IRQ
