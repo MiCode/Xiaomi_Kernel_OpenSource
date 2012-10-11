@@ -2911,7 +2911,7 @@ static void hphocp_off_report(struct tabla_priv *tabla,
 		/* reset retry counter as PA is turned off signifying
 		 * start of new OCP detection session
 		 */
-		if (TABLA_IRQ_HPH_PA_OCPL_FAULT)
+		if (WCD9XXX_IRQ_HPH_PA_OCPL_FAULT)
 			tabla->hphlocp_cnt = 0;
 		else
 			tabla->hphrocp_cnt = 0;
@@ -2923,14 +2923,16 @@ static void hphlocp_off_report(struct work_struct *work)
 {
 	struct tabla_priv *tabla = container_of(work, struct tabla_priv,
 		hphlocp_work);
-	hphocp_off_report(tabla, SND_JACK_OC_HPHL, TABLA_IRQ_HPH_PA_OCPL_FAULT);
+	hphocp_off_report(tabla, SND_JACK_OC_HPHL,
+			  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 }
 
 static void hphrocp_off_report(struct work_struct *work)
 {
 	struct tabla_priv *tabla = container_of(work, struct tabla_priv,
 		hphrocp_work);
-	hphocp_off_report(tabla, SND_JACK_OC_HPHR, TABLA_IRQ_HPH_PA_OCPR_FAULT);
+	hphocp_off_report(tabla, SND_JACK_OC_HPHR,
+			  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 }
 
 static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
@@ -5120,7 +5122,7 @@ static short __tabla_codec_sta_dce(struct snd_soc_codec *codec, int dce,
 	short bias_value;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 
-	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	if (noreldetection)
 		tabla_turn_onoff_rel_detection(codec, false);
 
@@ -5156,7 +5158,7 @@ static short __tabla_codec_sta_dce(struct snd_soc_codec *codec, int dce,
 
 	if (noreldetection)
 		tabla_turn_onoff_rel_detection(codec, true);
-	wcd9xxx_enable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 
 	return bias_value;
 }
@@ -5345,9 +5347,9 @@ static void tabla_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 		}
 		tabla_set_and_turnoff_hph_padac(codec);
 		hphocp_off_report(tabla, SND_JACK_OC_HPHR,
-				  TABLA_IRQ_HPH_PA_OCPR_FAULT);
+				  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 		hphocp_off_report(tabla, SND_JACK_OC_HPHL,
-				  TABLA_IRQ_HPH_PA_OCPL_FAULT);
+				  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		tabla->current_plug = PLUG_TYPE_NONE;
 		tabla->mbhc_polling_active = false;
 	} else {
@@ -5510,7 +5512,7 @@ static int tabla_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, tabla->reg_addr.micb_4_mbhc, 0x3,
 			    tabla->mbhc_cfg.micbias);
 
-	wcd9xxx_enable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
 	pr_debug("%s: leave\n", __func__);
 	return 0;
@@ -5640,7 +5642,7 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	tabla = snd_soc_codec_get_drvdata(codec);
 	calibration = tabla->mbhc_cfg.calibration;
 
-	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	tabla_turn_onoff_rel_detection(codec, false);
 
 	/* First compute the DCE / STA wait times
@@ -5746,7 +5748,7 @@ void tabla_mbhc_cal(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TABLA_A_MBHC_SCALING_MUX_1, 0x84);
 	usleep_range(100, 100);
 
-	wcd9xxx_enable_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	tabla_turn_onoff_rel_detection(codec, true);
 }
 
@@ -6334,7 +6336,7 @@ static irqreturn_t tabla_hphl_ocp_irq(int irq, void *data)
 					    0x10);
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
-					  TABLA_IRQ_HPH_PA_OCPL_FAULT);
+					  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 			tabla->hph_status |= SND_JACK_OC_HPHL;
 			if (tabla->mbhc_cfg.headset_jack)
 				tabla_snd_soc_jack_report(tabla,
@@ -6368,7 +6370,7 @@ static irqreturn_t tabla_hphr_ocp_irq(int irq, void *data)
 					    0x10);
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
-					  TABLA_IRQ_HPH_PA_OCPR_FAULT);
+					  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 			tabla->hph_status |= SND_JACK_OC_HPHR;
 			if (tabla->mbhc_cfg.headset_jack)
 				tabla_snd_soc_jack_report(tabla,
@@ -6977,7 +6979,7 @@ static void tabla_hs_insert_irq_nogpio(struct tabla_priv *priv, bool is_removal,
 			wcd9xxx_unlock_sleep(core);
 		} else {
 			wcd9xxx_enable_irq(codec->control_data,
-					   TABLA_IRQ_MBHC_INSERTION);
+					   WCD9XXX_IRQ_MBHC_INSERTION);
 			pr_err("%s: Error detecting plug insertion\n",
 			       __func__);
 		}
@@ -7015,7 +7017,7 @@ static irqreturn_t tabla_hs_insert_irq(int irq, void *data)
 
 	pr_debug("%s: enter\n", __func__);
 	TABLA_ACQUIRE_LOCK(priv->codec_resource_lock);
-	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION);
 
 	is_mb_trigger = !!(snd_soc_read(codec, priv->mbhc_bias_regs.mbhc_reg) &
 					0x10);
@@ -7262,7 +7264,8 @@ void mbhc_insert_work(struct work_struct *work)
 	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg, 0x90, 0x00);
 	snd_soc_update_bits(codec, TABLA_A_MBHC_HPH, 0x13, 0x00);
 	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.ctl_reg, 0x01, 0x00);
-	wcd9xxx_disable_irq_sync(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq_sync(codec->control_data,
+				 WCD9XXX_IRQ_MBHC_INSERTION);
 	tabla_codec_detect_plug_type(codec);
 	wcd9xxx_unlock_sleep(tabla_core);
 }
@@ -7485,9 +7488,9 @@ static int tabla_mbhc_init_and_calibrate(struct tabla_priv *tabla)
 	if (!IS_ERR_VALUE(ret)) {
 		snd_soc_update_bits(codec, TABLA_A_RX_HPH_OCP_CTL, 0x10, 0x10);
 		wcd9xxx_enable_irq(codec->control_data,
-				 TABLA_IRQ_HPH_PA_OCPL_FAULT);
+				 WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		wcd9xxx_enable_irq(codec->control_data,
-				 TABLA_IRQ_HPH_PA_OCPR_FAULT);
+				 WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 
 		if (tabla->mbhc_cfg.gpio) {
 			ret = request_threaded_irq(tabla->mbhc_cfg.gpio_irq,
@@ -8218,44 +8221,50 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_dapm_sync(dapm);
 
-	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION,
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_INSERTION,
 		tabla_hs_insert_irq, "Headset insert detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TABLA_IRQ_MBHC_INSERTION);
+		       WCD9XXX_IRQ_MBHC_INSERTION);
 		goto err_insert_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION);
 
-	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL,
-		tabla_hs_remove_irq, "Headset remove detect", tabla);
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_REMOVAL,
+				  tabla_hs_remove_irq,
+				  "Headset remove detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TABLA_IRQ_MBHC_REMOVAL);
+		       WCD9XXX_IRQ_MBHC_REMOVAL);
 		goto err_remove_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL,
-		tabla_dce_handler, "DC Estimation detect", tabla);
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_POTENTIAL,
+				  tabla_dce_handler, "DC Estimation detect",
+				  tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TABLA_IRQ_MBHC_POTENTIAL);
+		       WCD9XXX_IRQ_MBHC_POTENTIAL);
 		goto err_potential_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE,
-		tabla_release_handler, "Button Release detect", tabla);
+	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_MBHC_RELEASE,
+				  tabla_release_handler,
+				  "Button Release detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TABLA_IRQ_MBHC_RELEASE);
+		       WCD9XXX_IRQ_MBHC_RELEASE);
 		goto err_release_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, TABLA_IRQ_SLIMBUS,
-		tabla_slimbus_irq, "SLIMBUS Slave", tabla);
+	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS,
+				  tabla_slimbus_irq, "SLIMBUS Slave", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TABLA_IRQ_SLIMBUS);
+		       WCD9XXX_IRQ_SLIMBUS);
 		goto err_slimbus_irq;
 	}
 
@@ -8264,24 +8273,26 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 			TABLA_SLIM_PGD_PORT_INT_EN0 + i, 0xFF);
 
 	ret = wcd9xxx_request_irq(codec->control_data,
-		TABLA_IRQ_HPH_PA_OCPL_FAULT, tabla_hphl_ocp_irq,
-		"HPH_L OCP detect", tabla);
+				  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
+				  tabla_hphl_ocp_irq,
+				  "HPH_L OCP detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TABLA_IRQ_HPH_PA_OCPL_FAULT);
+		       WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		goto err_hphl_ocp_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPL_FAULT);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 
 	ret = wcd9xxx_request_irq(codec->control_data,
-		TABLA_IRQ_HPH_PA_OCPR_FAULT, tabla_hphr_ocp_irq,
-		"HPH_R OCP detect", tabla);
+				  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT,
+				  tabla_hphr_ocp_irq,
+				  "HPH_R OCP detect", tabla);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TABLA_IRQ_HPH_PA_OCPR_FAULT);
+		       WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 		goto err_hphr_ocp_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, TABLA_IRQ_HPH_PA_OCPR_FAULT);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 
 	/*
 	 * Register suspend lock and notifier to resend edge triggered
@@ -8334,17 +8345,19 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 
 err_hphr_ocp_irq:
 	wcd9xxx_free_irq(codec->control_data,
-			TABLA_IRQ_HPH_PA_OCPL_FAULT, tabla);
+			WCD9XXX_IRQ_HPH_PA_OCPL_FAULT, tabla);
 err_hphl_ocp_irq:
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, tabla);
 err_slimbus_irq:
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_RELEASE, tabla);
 err_release_irq:
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL,
+			 tabla);
 err_potential_irq:
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_REMOVAL, tabla);
 err_remove_irq:
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION,
+			 tabla);
 err_insert_irq:
 err_pdata:
 	mutex_destroy(&tabla->codec_resource_lock);
@@ -8358,11 +8371,13 @@ static int tabla_codec_remove(struct snd_soc_codec *codec)
 
 	wake_lock_destroy(&tabla->irq_resend_wlock);
 
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_SLIMBUS, tabla);
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_RELEASE, tabla);
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_POTENTIAL, tabla);
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL, tabla);
-	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_RELEASE, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL,
+			 tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_REMOVAL, tabla);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION,
+			 tabla);
 	TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
 	tabla_codec_disable_clock_block(codec);
 	TABLA_RELEASE_LOCK(tabla->codec_resource_lock);

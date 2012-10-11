@@ -2769,7 +2769,7 @@ static void hphocp_off_report(struct taiko_priv *taiko,
 		/* reset retry counter as PA is turned off signifying
 		 * start of new OCP detection session
 		 */
-		if (TAIKO_IRQ_HPH_PA_OCPL_FAULT)
+		if (WCD9XXX_IRQ_HPH_PA_OCPL_FAULT)
 			taiko->hphlocp_cnt = 0;
 		else
 			taiko->hphrocp_cnt = 0;
@@ -2780,15 +2780,17 @@ static void hphocp_off_report(struct taiko_priv *taiko,
 static void hphlocp_off_report(struct work_struct *work)
 {
 	struct taiko_priv *taiko = container_of(work, struct taiko_priv,
-		hphlocp_work);
-	hphocp_off_report(taiko, SND_JACK_OC_HPHL, TAIKO_IRQ_HPH_PA_OCPL_FAULT);
+						hphlocp_work);
+	hphocp_off_report(taiko, SND_JACK_OC_HPHL,
+			  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 }
 
 static void hphrocp_off_report(struct work_struct *work)
 {
 	struct taiko_priv *taiko = container_of(work, struct taiko_priv,
-		hphrocp_work);
-	hphocp_off_report(taiko, SND_JACK_OC_HPHR, TAIKO_IRQ_HPH_PA_OCPR_FAULT);
+						hphrocp_work);
+	hphocp_off_report(taiko, SND_JACK_OC_HPHR,
+			  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 }
 
 static int taiko_hph_pa_event(struct snd_soc_dapm_widget *w,
@@ -4684,7 +4686,7 @@ static short __taiko_codec_sta_dce(struct snd_soc_codec *codec, int dce,
 	short bias_value;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	if (noreldetection)
 		taiko_turn_onoff_rel_detection(codec, false);
 
@@ -4720,7 +4722,7 @@ static short __taiko_codec_sta_dce(struct snd_soc_codec *codec, int dce,
 
 	if (noreldetection)
 		taiko_turn_onoff_rel_detection(codec, true);
-	wcd9xxx_enable_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 
 	return bias_value;
 }
@@ -4907,9 +4909,9 @@ static void taiko_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 		}
 		taiko_set_and_turnoff_hph_padac(codec);
 		hphocp_off_report(taiko, SND_JACK_OC_HPHR,
-				  TAIKO_IRQ_HPH_PA_OCPR_FAULT);
+				  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 		hphocp_off_report(taiko, SND_JACK_OC_HPHL,
-				  TAIKO_IRQ_HPH_PA_OCPL_FAULT);
+				  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		taiko->current_plug = PLUG_TYPE_NONE;
 		taiko->mbhc_polling_active = false;
 	} else {
@@ -5053,7 +5055,7 @@ static int taiko_codec_enable_hs_detect(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, taiko->reg_addr.micb_4_mbhc, 0x3,
 			    taiko->mbhc_cfg.micbias);
 
-	wcd9xxx_enable_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION);
+	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION);
 	snd_soc_update_bits(codec, TAIKO_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
 	return 0;
 }
@@ -5162,7 +5164,7 @@ void taiko_mbhc_cal(struct snd_soc_codec *codec)
 	taiko = snd_soc_codec_get_drvdata(codec);
 	calibration = taiko->mbhc_cfg.calibration;
 
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	taiko_turn_onoff_rel_detection(codec, false);
 
 	/* First compute the DCE / STA wait times
@@ -5245,7 +5247,7 @@ void taiko_mbhc_cal(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TAIKO_A_MBHC_SCALING_MUX_1, 0x84);
 	usleep_range(100, 100);
 
-	wcd9xxx_enable_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	taiko_turn_onoff_rel_detection(codec, true);
 }
 
@@ -5795,7 +5797,7 @@ static irqreturn_t taiko_hphl_ocp_irq(int irq, void *data)
 					    0x10);
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
-					  TAIKO_IRQ_HPH_PA_OCPL_FAULT);
+					  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 			taiko->hphlocp_cnt = 0;
 			taiko->hph_status |= SND_JACK_OC_HPHL;
 			if (taiko->mbhc_cfg.headset_jack)
@@ -5828,7 +5830,7 @@ static irqreturn_t taiko_hphr_ocp_irq(int irq, void *data)
 					    0x10);
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
-					  TAIKO_IRQ_HPH_PA_OCPR_FAULT);
+					  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 			taiko->hphrocp_cnt = 0;
 			taiko->hph_status |= SND_JACK_OC_HPHR;
 			if (taiko->mbhc_cfg.headset_jack)
@@ -6354,7 +6356,7 @@ static void taiko_hs_insert_irq_nogpio(struct taiko_priv *priv, bool is_removal,
 			wcd9xxx_unlock_sleep(core);
 		} else {
 			wcd9xxx_enable_irq(codec->control_data,
-					   TAIKO_IRQ_MBHC_INSERTION);
+					   WCD9XXX_IRQ_MBHC_INSERTION);
 			pr_err("%s: Error detecting plug insertion\n",
 			       __func__);
 		}
@@ -6369,7 +6371,7 @@ static irqreturn_t taiko_hs_insert_irq(int irq, void *data)
 
 	pr_debug("%s: enter\n", __func__);
 	TAIKO_ACQUIRE_LOCK(priv->codec_resource_lock);
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION);
 
 	is_mb_trigger = !!(snd_soc_read(codec, priv->mbhc_bias_regs.mbhc_reg) &
 					0x10);
@@ -6593,7 +6595,8 @@ static void taiko_mbhc_insert_work(struct work_struct *work)
 	snd_soc_update_bits(codec, taiko->mbhc_bias_regs.mbhc_reg, 0x90, 0x00);
 	snd_soc_update_bits(codec, TAIKO_A_MBHC_HPH, 0x13, 0x00);
 	snd_soc_update_bits(codec, taiko->mbhc_bias_regs.ctl_reg, 0x01, 0x00);
-	wcd9xxx_disable_irq_sync(codec->control_data, TAIKO_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq_sync(codec->control_data,
+				 WCD9XXX_IRQ_MBHC_INSERTION);
 	taiko_codec_detect_plug_type(codec);
 	wcd9xxx_unlock_sleep(taiko_core);
 }
@@ -6728,9 +6731,9 @@ static int taiko_mbhc_init_and_calibrate(struct taiko_priv *taiko)
 	if (!IS_ERR_VALUE(ret)) {
 		snd_soc_update_bits(codec, TAIKO_A_RX_HPH_OCP_CTL, 0x10, 0x10);
 		wcd9xxx_enable_irq(codec->control_data,
-				 TAIKO_IRQ_HPH_PA_OCPL_FAULT);
+				 WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		wcd9xxx_enable_irq(codec->control_data,
-				 TAIKO_IRQ_HPH_PA_OCPR_FAULT);
+				 WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 
 		if (taiko->mbhc_cfg.gpio) {
 			ret = request_threaded_irq(taiko->mbhc_cfg.gpio_irq,
@@ -7381,48 +7384,51 @@ static int taiko_setup_irqs(struct taiko_priv *taiko)
 	int i;
 	struct snd_soc_codec *codec = taiko->codec;
 
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION,
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_INSERTION,
 				  taiko_hs_insert_irq, "Headset insert detect",
 				  taiko);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_MBHC_INSERTION);
+		       WCD9XXX_IRQ_MBHC_INSERTION);
 		goto err_insert_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq(codec->control_data,
+			    WCD9XXX_IRQ_MBHC_INSERTION);
 
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_REMOVAL,
+	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_MBHC_REMOVAL,
 				  taiko_hs_remove_irq, "Headset remove detect",
 				  taiko);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_MBHC_REMOVAL);
+			WCD9XXX_IRQ_MBHC_REMOVAL);
 		goto err_remove_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL,
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_POTENTIAL,
 				  taiko_dce_handler, "DC Estimation detect",
 				  taiko);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_MBHC_POTENTIAL);
+		       WCD9XXX_IRQ_MBHC_POTENTIAL);
 		goto err_potential_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_MBHC_RELEASE,
+	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_MBHC_RELEASE,
 				 taiko_release_handler, "Button Release detect",
 				 taiko);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_MBHC_RELEASE);
+		       WCD9XXX_IRQ_MBHC_RELEASE);
 		goto err_release_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, TAIKO_IRQ_SLIMBUS,
+	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS,
 				  taiko_slimbus_irq, "SLIMBUS Slave", taiko);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_SLIMBUS);
+		       WCD9XXX_IRQ_SLIMBUS);
 		goto err_slimbus_irq;
 	}
 
@@ -7432,40 +7438,44 @@ static int taiko_setup_irqs(struct taiko_priv *taiko)
 					   0xFF);
 
 	ret = wcd9xxx_request_irq(codec->control_data,
-				  TAIKO_IRQ_HPH_PA_OCPL_FAULT,
+				  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
 				  taiko_hphl_ocp_irq,
 				  "HPH_L OCP detect", taiko);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			TAIKO_IRQ_HPH_PA_OCPL_FAULT);
+		       WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		goto err_hphl_ocp_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_HPH_PA_OCPL_FAULT);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 
 	ret = wcd9xxx_request_irq(codec->control_data,
-				  TAIKO_IRQ_HPH_PA_OCPR_FAULT,
+				  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT,
 				  taiko_hphr_ocp_irq,
 				  "HPH_R OCP detect", taiko);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-		       TAIKO_IRQ_HPH_PA_OCPR_FAULT);
+		       WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 		goto err_hphr_ocp_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, TAIKO_IRQ_HPH_PA_OCPR_FAULT);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
+
+	return 0;
 
 err_hphr_ocp_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_HPH_PA_OCPL_FAULT,
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
 			 taiko);
 err_hphl_ocp_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_SLIMBUS, taiko);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, taiko);
 err_slimbus_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_RELEASE, taiko);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_RELEASE, taiko);
 err_release_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL, taiko);
+	wcd9xxx_free_irq(codec->control_data,
+			 WCD9XXX_IRQ_MBHC_POTENTIAL, taiko);
 err_potential_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_REMOVAL, taiko);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_REMOVAL, taiko);
 err_remove_irq:
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION, taiko);
+	wcd9xxx_free_irq(codec->control_data,
+			 WCD9XXX_IRQ_MBHC_INSERTION, taiko);
 err_insert_irq:
 
 	return ret;
@@ -7600,11 +7610,13 @@ static int taiko_codec_remove(struct snd_soc_codec *codec)
 {
 	int i;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_SLIMBUS, taiko);
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_RELEASE, taiko);
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_POTENTIAL, taiko);
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_REMOVAL, taiko);
-	wcd9xxx_free_irq(codec->control_data, TAIKO_IRQ_MBHC_INSERTION, taiko);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, taiko);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_RELEASE, taiko);
+	wcd9xxx_free_irq(codec->control_data,
+			 WCD9XXX_IRQ_MBHC_POTENTIAL, taiko);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_REMOVAL, taiko);
+	wcd9xxx_free_irq(codec->control_data,
+			 WCD9XXX_IRQ_MBHC_INSERTION, taiko);
 	TAIKO_ACQUIRE_LOCK(taiko->codec_resource_lock);
 	taiko_codec_disable_clock_block(codec);
 	TAIKO_RELEASE_LOCK(taiko->codec_resource_lock);
