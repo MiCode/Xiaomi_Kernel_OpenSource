@@ -713,16 +713,19 @@ static int _sha_complete(struct qce_device *pce_dev)
 {
 	struct ahash_request *areq;
 	unsigned char digest[SHA256_DIGEST_SIZE];
+	uint32_t bytecount32[2];
 
 	areq = (struct ahash_request *) pce_dev->areq;
 	dma_unmap_sg(pce_dev->pdev, areq->src, pce_dev->src_nents,
 				DMA_TO_DEVICE);
 	memcpy(digest, (char *)(&pce_dev->ce_sps.result->auth_iv[0]),
 						SHA256_DIGEST_SIZE);
+	_byte_stream_to_net_words(bytecount32,
+		(unsigned char *)pce_dev->ce_sps.result->auth_byte_count,
+					2 * CRYPTO_REG_SIZE);
 	if (_qce_unlock_other_pipes(pce_dev))
 		return -EINVAL;
-	pce_dev->qce_cb(areq, digest,
-			(char *)pce_dev->ce_sps.result->auth_byte_count,
+	pce_dev->qce_cb(areq, digest, (char *)bytecount32,
 				pce_dev->ce_sps.consumer_status);
 	return 0;
 };
