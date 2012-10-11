@@ -2932,7 +2932,7 @@ static struct rcg_clk edpaux_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_mdss_edplink_clk[] = {
-	F_MDSS(135000000, edppll_270,   2,   0,   0),
+	F_MDSS(162000000, edppll_270,   2,   0,   0),
 	F_MDSS(270000000, edppll_270,  11,   0,   0),
 	F_END
 };
@@ -2952,7 +2952,7 @@ static struct rcg_clk edplink_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_mdss_edppixel_clk[] = {
-	F_MDSS(175000000, edppll_350,   2,   0,   0),
+	F_MDSS(148500000, edppll_350,   2,   0,   0),
 	F_MDSS(350000000, edppll_350,  11,   0,   0),
 	F_END
 };
@@ -5126,8 +5126,9 @@ static struct clk_lookup msm_clocks_8974[] = {
 	/* Multimedia clocks */
 	CLK_LOOKUP("bus_clk_src", axi_clk_src.c, ""),
 	CLK_LOOKUP("bus_clk", mmss_mmssnoc_axi_clk.c, ""),
-	CLK_LOOKUP("core_clk", mdss_edpaux_clk.c, ""),
-	CLK_LOOKUP("core_clk", mdss_edppixel_clk.c, ""),
+	CLK_LOOKUP("core_clk", mdss_edpaux_clk.c, "fd923400.qcom,mdss_edp"),
+	CLK_LOOKUP("pixel_clk", mdss_edppixel_clk.c, "fd923400.qcom,mdss_edp"),
+	CLK_LOOKUP("link_clk", mdss_edplink_clk.c, "fd923400.qcom,mdss_edp"),
 	CLK_LOOKUP("byte_clk", mdss_byte0_clk.c, "fd922800.qcom,mdss_dsi"),
 	CLK_LOOKUP("byte_clk", mdss_byte1_clk.c, ""),
 	CLK_LOOKUP("core_clk", mdss_esc0_clk.c, "fd922800.qcom,mdss_dsi"),
@@ -5287,6 +5288,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_clk", camss_vfe_cpp_clk.c, "fda44000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "mdp.0"),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "mdss_dsi_clk_ctrl"),
+	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd923400.qcom,mdss_edp"),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd928000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", mdss_axi_clk.c, "fd928000.qcom,iommu"),
 	CLK_LOOKUP("bus_clk", mdss_axi_clk.c, "mdp.0"),
