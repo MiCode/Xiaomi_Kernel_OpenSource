@@ -27,6 +27,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/krait-regulator.h>
+#include <mach/msm_iomap.h>
 
 #include "spm.h"
 
@@ -87,6 +88,11 @@
 #define CPU_TRGTD_DBG_RST	0x00000010
 #define APC_PWR_GATE_CTL	0x00000014
 #define APC_LDO_VREF_SET	0x00000018
+#define APC_PWR_GATE_MODE	0x0000001C
+#define APC_PWR_GATE_DLY	0x00000020
+
+#define PWR_GATE_CONFIG		0x00000044
+#define VERSION			0x00000FD0
 
 /* bit definitions for APC_PWR_GATE_CTL */
 #define BHS_CNT_BIT_POS		24
@@ -155,6 +161,8 @@ struct krait_power_vreg {
 	enum krait_supply_mode		mode;
 	void __iomem			*reg_base;
 };
+
+static u32 version;
 
 static void krait_masked_write(struct krait_power_vreg *kvreg,
 					int reg, uint32_t mask, uint32_t val)
@@ -599,6 +607,15 @@ static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 		BHS_SEG_EN_MASK, BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS);
 }
 
+static void glb_init(struct platform_device *pdev)
+{
+	/* configure bi-modal switch */
+	writel_relaxed(0x0008736E, MSM_APCS_GCC_BASE + PWR_GATE_CONFIG);
+	/* read kpss version */
+	version = readl_relaxed(MSM_APCS_GCC_BASE + VERSION);
+	pr_debug("version= 0x%x\n", version);
+}
+
 static int __devinit krait_power_probe(struct platform_device *pdev)
 {
 	struct krait_power_vreg *kvreg;
@@ -614,6 +631,8 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 				"failed to init pmic gang rc = %d\n", rc);
 			return rc;
 		}
+		/* global initializtion */
+		glb_init(pdev);
 	}
 
 	if (pdev->dev.of_node) {
@@ -738,8 +757,10 @@ void secondary_cpu_hs_init(void *base_ptr)
 {
 	/* 605mV retention and 705mV operational voltage */
 	writel_relaxed(0x1C30, base_ptr + APC_LDO_VREF_SET);
-	writel_relaxed(0x430000, base_ptr + 0x20);
-	writel_relaxed(0x21, base_ptr + 0x1C);
+	/* HS_EN_DLY=3; LDO_BYP_DLY=1; */
+	writel_relaxed(0x430000, base_ptr + APC_PWR_GATE_DLY);
+	/* MODE = BHS; EN=1; */
+	writel_relaxed(0x21, base_ptr + APC_PWR_GATE_MODE);
 
 	/* Turn on the BHS, turn off LDO Bypass and power down LDO */
 	writel_relaxed(0x403F007F, base_ptr + APC_PWR_GATE_CTL);
