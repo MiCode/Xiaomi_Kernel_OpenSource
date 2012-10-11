@@ -2088,7 +2088,7 @@ static int
 ext4_ext_in_cache(struct inode *inode, ext4_lblk_t block,
 			struct ext4_extent *ex)
 {
-	struct ext4_ext_cache cex;
+	struct ext4_ext_cache cex = {0, 0, 0};
 	int ret = 0;
 
 	if (ext4_ext_check_cache(inode, block, &cex)) {
