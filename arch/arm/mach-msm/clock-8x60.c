@@ -2971,6 +2971,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 	F_AIF_OSR( 8192000, pll4, 2, 1,  33),
 	F_AIF_OSR(12288000, pll4, 4, 1,  11),
 	F_AIF_OSR(24576000, pll4, 2, 1,  11),
+	F_AIF_OSR(27000000, pxo,  1, 0,   0),
 	F_END
 };
 
@@ -2996,7 +2997,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		.c = { \
 			.dbg_name = #i "_clk", \
 			.ops = &clk_ops_rcg, \
-			VDD_DIG_FMAX_MAP1(LOW, 24576000), \
+			VDD_DIG_FMAX_MAP1(LOW, 27000000), \
 			CLK_INIT(i##_clk.c), \
 		}, \
 	}
@@ -3065,6 +3066,7 @@ static struct clk_freq_tbl clk_tbl_pcm[] = {
 	F_PCM( 8192000, pll4, 2, 1,  33),
 	F_PCM(12288000, pll4, 4, 1,  11),
 	F_PCM(24580000, pll4, 2, 1,  11),
+	F_PCM(27000000, pxo,  1, 0,   0),
 	F_END
 };
 
