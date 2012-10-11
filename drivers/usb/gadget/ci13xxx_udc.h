@@ -108,6 +108,9 @@ struct ci13xxx_ep {
 	struct device                         *device;
 	struct dma_pool                       *td_pool;
 	unsigned long dTD_update_fail_count;
+	unsigned long			      prime_fail_count;
+	int				      prime_timer_count;
+	struct timer_list		      prime_timer;
 };
 
 struct ci13xxx;
