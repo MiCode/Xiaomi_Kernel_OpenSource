@@ -484,6 +484,113 @@ static const struct file_operations mmc_dbg_wr_pack_stats_fops = {
 	.write		= mmc_wr_pack_stats_write,
 };
 
+static int mmc_bkops_stats_open(struct inode *inode, struct file *filp)
+{
+	struct mmc_card *card = inode->i_private;
+
+	filp->private_data = card;
+
+	card->bkops_info.bkops_stats.print_stats = 1;
+	return 0;
+}
+
+static ssize_t mmc_bkops_stats_read(struct file *filp, char __user *ubuf,
+				     size_t cnt, loff_t *ppos)
+{
+	struct mmc_card *card = filp->private_data;
+	struct mmc_bkops_stats *bkops_stats;
+	int i;
+	char *temp_buf;
+
+	if (!card)
+		return cnt;
+
+	bkops_stats = &card->bkops_info.bkops_stats;
+
+	if (!bkops_stats->print_stats)
+		return 0;
+
+	if (!bkops_stats->enabled) {
+		pr_info("%s: bkops statistics are disabled\n",
+			 mmc_hostname(card->host));
+		goto exit;
+	}
+
+	temp_buf = kmalloc(TEMP_BUF_SIZE, GFP_KERNEL);
+	if (!temp_buf)
+		goto exit;
+
+	spin_lock(&bkops_stats->lock);
+
+	memset(ubuf, 0, cnt);
+
+	snprintf(temp_buf, TEMP_BUF_SIZE, "%s: bkops statistics:\n",
+		mmc_hostname(card->host));
+	strlcat(ubuf, temp_buf, cnt);
+
+	for (i = 0 ; i < BKOPS_NUM_OF_SEVERITY_LEVELS ; ++i) {
+		snprintf(temp_buf, TEMP_BUF_SIZE,
+			 "%s: BKOPS: due to level %d: %u\n",
+		 mmc_hostname(card->host), i, bkops_stats->bkops_level[i]);
+		strlcat(ubuf, temp_buf, cnt);
+	}
+
+	snprintf(temp_buf, TEMP_BUF_SIZE,
+		 "%s: BKOPS: stopped due to HPI: %u\n",
+		 mmc_hostname(card->host), bkops_stats->hpi);
+	strlcat(ubuf, temp_buf, cnt);
+
+	snprintf(temp_buf, TEMP_BUF_SIZE,
+		 "%s: BKOPS: how many time host was suspended: %u\n",
+		 mmc_hostname(card->host), bkops_stats->suspend);
+	strlcat(ubuf, temp_buf, cnt);
+
+	spin_unlock(&bkops_stats->lock);
+
+	kfree(temp_buf);
+
+	pr_info("%s", ubuf);
+
+exit:
+	if (bkops_stats->print_stats == 1) {
+		bkops_stats->print_stats = 0;
+		return strnlen(ubuf, cnt);
+	}
+
+	return 0;
+}
+
+static ssize_t mmc_bkops_stats_write(struct file *filp,
+				      const char __user *ubuf, size_t cnt,
+				      loff_t *ppos)
+{
+	struct mmc_card *card = filp->private_data;
+	int value;
+	struct mmc_bkops_stats *bkops_stats;
+
+	if (!card)
+		return cnt;
+
+	bkops_stats = &card->bkops_info.bkops_stats;
+
+	sscanf(ubuf, "%d", &value);
+	if (value) {
+		mmc_blk_init_bkops_statistics(card);
+	} else {
+		spin_lock(&bkops_stats->lock);
+		bkops_stats->enabled = false;
+		spin_unlock(&bkops_stats->lock);
+	}
+
+	return cnt;
+}
+
+static const struct file_operations mmc_dbg_bkops_stats_fops = {
+	.open		= mmc_bkops_stats_open,
+	.read		= mmc_bkops_stats_read,
+	.write		= mmc_bkops_stats_write,
+};
+
 void mmc_add_card_debugfs(struct mmc_card *card)
 {
 	struct mmc_host	*host = card->host;
@@ -520,6 +627,12 @@ void mmc_add_card_debugfs(struct mmc_card *card)
 	    (card->host->caps2 & MMC_CAP2_PACKED_WR))
 		if (!debugfs_create_file("wr_pack_stats", S_IRUSR, root, card,
 					 &mmc_dbg_wr_pack_stats_fops))
+			goto err;
+
+	if (mmc_card_mmc(card) && (card->ext_csd.rev >= 6) &&
+	    card->ext_csd.bkops_en)
+		if (!debugfs_create_file("bkops_stats", S_IRUSR, root, card,
+					 &mmc_dbg_bkops_stats_fops))
 			goto err;
 
 	return;
