@@ -315,6 +315,7 @@ config ARCH_MSM9615
 	select GIC_SECURE
 	select ARCH_MSM_CORTEX_A5
 	select CPU_V7
+	select MIGHT_HAVE_CACHE_L2X0
 	select GPIO_MSM_V2
 	select MSM_GPIOMUX
 	select MSM_RPM
