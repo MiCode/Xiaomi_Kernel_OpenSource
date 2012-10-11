@@ -248,6 +248,7 @@ struct mmc_bkops_info {
 	struct delayed_work	dw;
 	unsigned int		host_suspend_tout_ms;
 	unsigned int		delay_ms;
+	unsigned int		min_sectors_to_queue_delayed_work;
 /*
  * A default time for checking the need for non urgent BKOPS once mmcqd
  * is idle.

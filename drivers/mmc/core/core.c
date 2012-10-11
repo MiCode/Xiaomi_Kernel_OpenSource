@@ -291,7 +291,7 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 		return;
 
 	if (card->bkops_info.sectors_changed <
-	    BKOPS_MIN_SECTORS_TO_QUEUE_DELAYED_WORK)
+	    card->bkops_info.min_sectors_to_queue_delayed_work)
 		return;
 
 	pr_debug("%s: %s: queueing delayed_bkops_work\n",
