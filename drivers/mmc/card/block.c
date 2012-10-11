@@ -121,6 +121,7 @@ struct mmc_blk_data {
 	struct device_attribute force_ro;
 	struct device_attribute power_ro_lock;
 	struct device_attribute num_wr_reqs_to_start_packing;
+	struct device_attribute min_sectors_to_check_bkops_status;
 	int	area_type;
 };
 
@@ -301,6 +302,48 @@ num_wr_reqs_to_start_packing_store(struct device *dev,
 	sscanf(buf, "%d", &value);
 	if (value >= 0)
 		md->queue.num_wr_reqs_to_start_packing = value;
+
+	mmc_blk_put(md);
+	return count;
+}
+
+static ssize_t
+min_sectors_to_check_bkops_status_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct mmc_blk_data *md = mmc_blk_get(dev_to_disk(dev));
+	unsigned int min_sectors_to_check_bkops_status;
+	struct mmc_card *card = md->queue.card;
+	int ret;
+
+	if (!card)
+		return -EINVAL;
+
+	min_sectors_to_check_bkops_status =
+		card->bkops_info.min_sectors_to_queue_delayed_work;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		       min_sectors_to_check_bkops_status);
+
+	mmc_blk_put(md);
+	return ret;
+}
+
+static ssize_t
+min_sectors_to_check_bkops_status_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	int value;
+	struct mmc_blk_data *md = mmc_blk_get(dev_to_disk(dev));
+	struct mmc_card *card = md->queue.card;
+
+	if (!card)
+		return -EINVAL;
+
+	sscanf(buf, "%d", &value);
+	if (value >= 0)
+		card->bkops_info.min_sectors_to_queue_delayed_work = value;
 
 	mmc_blk_put(md);
 	return count;
@@ -2313,6 +2356,19 @@ static int mmc_add_disk(struct mmc_blk_data *md)
 	md->num_wr_reqs_to_start_packing.attr.mode = S_IRUGO | S_IWUSR;
 	ret = device_create_file(disk_to_dev(md->disk),
 				 &md->num_wr_reqs_to_start_packing);
+	if (ret)
+		goto power_ro_lock_fail;
+
+	md->min_sectors_to_check_bkops_status.show =
+		min_sectors_to_check_bkops_status_show;
+	md->min_sectors_to_check_bkops_status.store =
+		min_sectors_to_check_bkops_status_store;
+	sysfs_attr_init(&md->min_sectors_to_check_bkops_status.attr);
+	md->min_sectors_to_check_bkops_status.attr.name =
+		"min_sectors_to_check_bkops_status";
+	md->min_sectors_to_check_bkops_status.attr.mode = S_IRUGO | S_IWUSR;
+	ret = device_create_file(disk_to_dev(md->disk),
+				 &md->min_sectors_to_check_bkops_status);
 	if (ret)
 		goto power_ro_lock_fail;
 
