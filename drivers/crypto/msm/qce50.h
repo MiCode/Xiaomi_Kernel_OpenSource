@@ -36,7 +36,7 @@
 
 /* QCE max number of descriptor in a descriptor list */
 #define QCE_MAX_NUM_DESC    128
-#define SPS_MAX_PKT_SIZE  (64 * 1024  - 1)
+#define SPS_MAX_PKT_SIZE  (32 * 1024  - 64)
 
 /* State of consumer/producer Pipe */
 enum qce_pipe_st_enum {
