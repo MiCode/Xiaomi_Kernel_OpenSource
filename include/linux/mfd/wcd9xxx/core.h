@@ -15,6 +15,8 @@
 
 #include <linux/interrupt.h>
 #include <linux/pm_qos.h>
+#include <linux/platform_device.h>
+#include <linux/of_irq.h>
 
 #define WCD9XXX_NUM_IRQ_REGS 3
 
@@ -44,83 +46,41 @@
 
 
 enum {
-	TABLA_IRQ_SLIMBUS = 0,
-	TABLA_IRQ_MBHC_REMOVAL,
-	TABLA_IRQ_MBHC_SHORT_TERM,
-	TABLA_IRQ_MBHC_PRESS,
-	TABLA_IRQ_MBHC_RELEASE,
-	TABLA_IRQ_MBHC_POTENTIAL,
-	TABLA_IRQ_MBHC_INSERTION,
-	TABLA_IRQ_BG_PRECHARGE,
-	TABLA_IRQ_PA1_STARTUP,
-	TABLA_IRQ_PA2_STARTUP,
-	TABLA_IRQ_PA3_STARTUP,
-	TABLA_IRQ_PA4_STARTUP,
-	TABLA_IRQ_PA5_STARTUP,
-	TABLA_IRQ_MICBIAS1_PRECHARGE,
-	TABLA_IRQ_MICBIAS2_PRECHARGE,
-	TABLA_IRQ_MICBIAS3_PRECHARGE,
-	TABLA_IRQ_HPH_PA_OCPL_FAULT,
-	TABLA_IRQ_HPH_PA_OCPR_FAULT,
-	TABLA_IRQ_EAR_PA_OCPL_FAULT,
-	TABLA_IRQ_HPH_L_PA_STARTUP,
-	TABLA_IRQ_HPH_R_PA_STARTUP,
-	TABLA_IRQ_EAR_PA_STARTUP,
-	TABLA_NUM_IRQS,
+	WCD9XXX_IRQ_SLIMBUS = 0,
+	WCD9XXX_IRQ_MBHC_REMOVAL,
+	WCD9XXX_IRQ_MBHC_SHORT_TERM,
+	WCD9XXX_IRQ_MBHC_PRESS,
+	WCD9XXX_IRQ_MBHC_RELEASE,
+	WCD9XXX_IRQ_MBHC_POTENTIAL,
+	WCD9XXX_IRQ_MBHC_INSERTION,
+	WCD9XXX_IRQ_BG_PRECHARGE,
+	WCD9XXX_IRQ_PA1_STARTUP,
+	WCD9XXX_IRQ_PA2_STARTUP,
+	WCD9XXX_IRQ_PA3_STARTUP,
+	WCD9XXX_IRQ_PA4_STARTUP,
+	WCD9XXX_IRQ_PA5_STARTUP,
+	WCD9XXX_IRQ_MICBIAS1_PRECHARGE,
+	WCD9XXX_IRQ_MICBIAS2_PRECHARGE,
+	WCD9XXX_IRQ_MICBIAS3_PRECHARGE,
+	WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
+	WCD9XXX_IRQ_HPH_PA_OCPR_FAULT,
+	WCD9XXX_IRQ_EAR_PA_OCPL_FAULT,
+	WCD9XXX_IRQ_HPH_L_PA_STARTUP,
+	WCD9XXX_IRQ_HPH_R_PA_STARTUP,
+	WCD9XXX_IRQ_EAR_PA_STARTUP,
+	WCD9XXX_NUM_IRQS,
 };
 
 enum {
-	SITAR_IRQ_SLIMBUS = 0,
-	SITAR_IRQ_MBHC_REMOVAL,
-	SITAR_IRQ_MBHC_SHORT_TERM,
-	SITAR_IRQ_MBHC_PRESS,
-	SITAR_IRQ_MBHC_RELEASE,
-	SITAR_IRQ_MBHC_POTENTIAL,
-	SITAR_IRQ_MBHC_INSERTION,
-	SITAR_IRQ_BG_PRECHARGE,
-	SITAR_IRQ_PA1_STARTUP,
-	SITAR_IRQ_PA2_STARTUP,
-	SITAR_IRQ_PA3_STARTUP,
-	SITAR_IRQ_PA4_STARTUP,
-	SITAR_IRQ_PA5_STARTUP,
-	SITAR_IRQ_MICBIAS1_PRECHARGE,
-	SITAR_IRQ_MICBIAS2_PRECHARGE,
-	SITAR_IRQ_MICBIAS3_PRECHARGE,
-	SITAR_IRQ_HPH_PA_OCPL_FAULT,
-	SITAR_IRQ_HPH_PA_OCPR_FAULT,
-	SITAR_IRQ_EAR_PA_OCPL_FAULT,
-	SITAR_IRQ_HPH_L_PA_STARTUP,
-	SITAR_IRQ_HPH_R_PA_STARTUP,
-	SITAR_IRQ_EAR_PA_STARTUP,
-	SITAR_NUM_IRQS,
+	TABLA_NUM_IRQS = WCD9XXX_NUM_IRQS,
+	SITAR_NUM_IRQS = WCD9XXX_NUM_IRQS,
+	TAIKO_NUM_IRQS = WCD9XXX_NUM_IRQS,
 };
 
 
-enum {
-	TAIKO_IRQ_SLIMBUS = 0,
-	TAIKO_IRQ_MBHC_REMOVAL,
-	TAIKO_IRQ_MBHC_SHORT_TERM,
-	TAIKO_IRQ_MBHC_PRESS,
-	TAIKO_IRQ_MBHC_RELEASE,
-	TAIKO_IRQ_MBHC_POTENTIAL,
-	TAIKO_IRQ_MBHC_INSERTION,
-	TAIKO_IRQ_BG_PRECHARGE,
-	TAIKO_IRQ_PA1_STARTUP,
-	TAIKO_IRQ_PA2_STARTUP,
-	TAIKO_IRQ_PA3_STARTUP,
-	TAIKO_IRQ_PA4_STARTUP,
-	TAIKO_IRQ_PA5_STARTUP,
-	TAIKO_IRQ_MICBIAS1_PRECHARGE,
-	TAIKO_IRQ_MICBIAS2_PRECHARGE,
-	TAIKO_IRQ_MICBIAS3_PRECHARGE,
-	TAIKO_IRQ_HPH_PA_OCPL_FAULT,
-	TAIKO_IRQ_HPH_PA_OCPR_FAULT,
-	TAIKO_IRQ_EAR_PA_OCPL_FAULT,
-	TAIKO_IRQ_HPH_L_PA_STARTUP,
-	TAIKO_IRQ_HPH_R_PA_STARTUP,
-	TAIKO_IRQ_EAR_PA_STARTUP,
-	TAIKO_NUM_IRQS,
-};
+#define MAX(X, Y) (((int)X) >= ((int)Y) ? (X) : (Y))
+#define WCD9XXX_MAX_NUM_IRQS (MAX(MAX(TABLA_NUM_IRQS, SITAR_NUM_IRQS), \
+				  TAIKO_NUM_IRQS))
 
 enum wcd9xxx_pm_state {
 	WCD9XXX_PM_SLEEPABLE,
@@ -136,12 +96,6 @@ struct wcd9xxx {
 	struct mutex xfer_lock;
 	struct mutex irq_lock;
 	u8 version;
-
-	unsigned int irq_base;
-	unsigned int irq;
-	u8 irq_masks_cur[WCD9XXX_NUM_IRQ_REGS];
-	u8 irq_masks_cache[WCD9XXX_NUM_IRQ_REGS];
-	u8 irq_level[WCD9XXX_NUM_IRQ_REGS];
 
 	int reset_gpio;
 
@@ -164,6 +118,13 @@ struct wcd9xxx {
 	int num_tx_port;
 
 	u8 idbyte[4];
+
+	unsigned int irq_base;
+	unsigned int irq;
+	u8 irq_masks_cur[WCD9XXX_NUM_IRQ_REGS];
+	u8 irq_masks_cache[WCD9XXX_NUM_IRQ_REGS];
+	bool irq_level_high[WCD9XXX_MAX_NUM_IRQS];
+	int num_irqs;
 };
 
 int wcd9xxx_reg_read(struct wcd9xxx *wcd9xxx, unsigned short reg);
@@ -187,40 +148,15 @@ enum wcd9xxx_pm_state wcd9xxx_pm_cmpxchg(struct wcd9xxx *wcd9xxx,
 				enum wcd9xxx_pm_state o,
 				enum wcd9xxx_pm_state n);
 
-static inline int wcd9xxx_request_irq(struct wcd9xxx *wcd9xxx, int irq,
-				     irq_handler_t handler, const char *name,
-				     void *data)
-{
-	if (!wcd9xxx->irq_base)
-		return -EINVAL;
-	return request_threaded_irq(wcd9xxx->irq_base + irq, NULL, handler,
-				    IRQF_TRIGGER_RISING, name,
-				    data);
-}
-static inline void wcd9xxx_free_irq(struct wcd9xxx *wcd9xxx,
-				int irq, void *data)
-{
-	if (!wcd9xxx->irq_base)
-		return;
-	free_irq(wcd9xxx->irq_base + irq, data);
-}
-static inline void wcd9xxx_enable_irq(struct wcd9xxx *wcd9xxx, int irq)
-{
-	if (!wcd9xxx->irq_base)
-		return;
-	enable_irq(wcd9xxx->irq_base + irq);
-}
-static inline void wcd9xxx_disable_irq(struct wcd9xxx *wcd9xxx, int irq)
-{
-	if (!wcd9xxx->irq_base)
-		return;
-	disable_irq_nosync(wcd9xxx->irq_base + irq);
-}
-static inline void wcd9xxx_disable_irq_sync(struct wcd9xxx *wcd9xxx, int irq)
-{
-	if (!wcd9xxx->irq_base)
-		return;
-	disable_irq(wcd9xxx->irq_base + irq);
-}
+int wcd9xxx_request_irq(struct wcd9xxx *wcd9xxx, int irq,
+			irq_handler_t handler, const char *name, void *data);
 
+void wcd9xxx_free_irq(struct wcd9xxx *wcd9xxx, int irq, void *data);
+void wcd9xxx_enable_irq(struct wcd9xxx *wcd9xxx, int irq);
+void wcd9xxx_disable_irq(struct wcd9xxx *wcd9xxx, int irq);
+void wcd9xxx_disable_irq_sync(struct wcd9xxx *wcd9xxx, int irq);
+#ifdef CONFIG_OF
+int __init wcd9xxx_irq_of_init(struct device_node *node,
+			       struct device_node *parent);
+#endif /* CONFIG_OF */
 #endif
