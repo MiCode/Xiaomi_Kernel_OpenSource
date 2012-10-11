@@ -214,49 +214,6 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig);
 
 DEFINE_CLK_RPM_BRANCH(cxo_clk, cxo_a_clk, CXO, 19200000);
 
-static DEFINE_SPINLOCK(soft_vote_lock);
-
-static int pll_acpu_vote_clk_enable(struct clk *c)
-{
-	int ret = 0;
-	unsigned long flags;
-	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
-
-	spin_lock_irqsave(&soft_vote_lock, flags);
-
-	if (!*pllv->soft_vote)
-		ret = pll_vote_clk_enable(c);
-	if (ret == 0)
-		*pllv->soft_vote |= (pllv->soft_vote_mask);
-
-	spin_unlock_irqrestore(&soft_vote_lock, flags);
-	return ret;
-}
-
-static void pll_acpu_vote_clk_disable(struct clk *c)
-{
-	unsigned long flags;
-	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
-
-	spin_lock_irqsave(&soft_vote_lock, flags);
-
-	*pllv->soft_vote &= ~(pllv->soft_vote_mask);
-	if (!*pllv->soft_vote)
-		pll_vote_clk_disable(c);
-
-	spin_unlock_irqrestore(&soft_vote_lock, flags);
-}
-
-static struct clk_ops clk_ops_pll_acpu_vote = {
-	.enable = pll_acpu_vote_clk_enable,
-	.disable = pll_acpu_vote_clk_disable,
-	.is_enabled = pll_vote_clk_is_enabled,
-	.get_parent = pll_vote_clk_get_parent,
-};
-
-#define PLL_SOFT_VOTE_PRIMARY	BIT(0)
-#define PLL_SOFT_VOTE_ACPU	BIT(1)
-
 static unsigned int soft_vote_pll0;
 
 static struct pll_vote_clk pll0_clk = {
