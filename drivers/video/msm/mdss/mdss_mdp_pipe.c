@@ -468,6 +468,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 {
 	u32 img_size, src_size, src_xy, dst_size, dst_xy, ystride0, ystride1;
+	u32 width, height;
 
 	pr_debug("pnum=%d wh=%dx%d src={%d,%d,%d,%d} dst={%d,%d,%d,%d}\n",
 		   pipe->num, pipe->img_width, pipe->img_height,
@@ -477,10 +478,21 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 	if (mdss_mdp_scale_setup(pipe))
 		return -EINVAL;
 
-	mdss_mdp_get_plane_sizes(pipe->src_fmt->format, pipe->img_width,
-				 pipe->img_height, &pipe->src_planes);
+	width = pipe->img_width;
+	height = pipe->img_height;
+	mdss_mdp_get_plane_sizes(pipe->src_fmt->format, width, height,
+			&pipe->src_planes);
 
-	img_size = (pipe->img_height << 16) | pipe->img_width;
+	if ((pipe->flags & MDP_DEINTERLACE) &&
+			!(pipe->flags & MDP_SOURCE_ROTATED_90)) {
+		int i;
+		for (i = 0; i < pipe->src_planes.num_planes; i++)
+			pipe->src_planes.ystride[i] *= 2;
+		width *= 2;
+		height /= 2;
+	}
+
+	img_size = (height << 16) | width;
 	src_size = (pipe->src.h << 16) | pipe->src.w;
 	src_xy = (pipe->src.y << 16) | pipe->src.x;
 	dst_size = (pipe->dst.h << 16) | pipe->dst.w;
