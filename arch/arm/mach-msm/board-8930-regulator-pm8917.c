@@ -551,7 +551,7 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	RPM_SMPS(S8, 1, 1, 1, 2050000, 2050000, NULL, 100000, 1p60, NONE, NONE),
 
 	/*	ID     a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
-	RPM_LDO(L1,	 1, 1, 0, 1050000, 1050000, "8917_s4", 0, 10000),
+	RPM_LDO(L1,	 0, 1, 0, 1050000, 1050000, "8917_s4", 0, 10000),
 	RPM_LDO(L2,	 0, 1, 0, 1200000, 1200000, "8917_s4", 0, 0),
 	RPM_LDO(L3,	 0, 1, 0, 3075000, 3075000, NULL,      0, 0),
 	RPM_LDO(L4,	 1, 1, 0, 1800000, 1800000, NULL,      10000, 10000),
