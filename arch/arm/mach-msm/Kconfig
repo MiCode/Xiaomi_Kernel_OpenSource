@@ -1935,7 +1935,7 @@ config MSM_PIL_QDSP6V3
 
 config MSM_PIL_LPASS_QDSP6V4
 	tristate "LPASS QDSP6v4 (Hexagon) Boot Support"
-	depends on MSM_PIL
+	depends on MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down QDSP6v4 processors (hexagon)
 	  in low power audio subsystems. If you would like to record or
@@ -2032,14 +2032,6 @@ config MSM_PIL_PRONTO
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
-
-config MSM_LPASS_8960
-	tristate "MSM 8960 Lpass driver"
-	depends on (ARCH_MSM8960 || ARCH_MSM9615)
-	help
-	 This option enables the lpass driver for the MSM8960 and MSM9615. This monitors
-	 lpass hardware watchdog interrupt lines and plugs into the subsystem
-	 restart and PIL drivers. For MSM9615, it only supports a full chip reset.
 
 config MSM_MODEM_SSR_8974
 	bool "MSM 8974 Modem restart driver"

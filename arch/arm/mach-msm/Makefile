@@ -201,7 +201,6 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
 obj-$(CONFIG_MSM_MODEM_SSR_8974) += modem-ssr-8974.o
-obj-$(CONFIG_MSM_LPASS_8960) += lpass-8960.o
 obj-$(CONFIG_MSM_ADSP_SSR_8974) += adsp-8974.o
 
 ifdef CONFIG_CPU_IDLE
