@@ -1713,7 +1713,7 @@ static void hphocp_off_report(struct sitar_priv *sitar,
 		/* reset retry counter as PA is turned off signifying
 		* start of new OCP detection session
 		*/
-		if (SITAR_IRQ_HPH_PA_OCPL_FAULT)
+		if (WCD9XXX_IRQ_HPH_PA_OCPL_FAULT)
 			sitar->hphlocp_cnt = 0;
 		else
 			sitar->hphrocp_cnt = 0;
@@ -1725,14 +1725,16 @@ static void hphlocp_off_report(struct work_struct *work)
 {
 	struct sitar_priv *sitar = container_of(work, struct sitar_priv,
 		hphlocp_work);
-	hphocp_off_report(sitar, SND_JACK_OC_HPHL, SITAR_IRQ_HPH_PA_OCPL_FAULT);
+	hphocp_off_report(sitar, SND_JACK_OC_HPHL,
+			  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 }
 
 static void hphrocp_off_report(struct work_struct *work)
 {
 	struct sitar_priv *sitar = container_of(work, struct sitar_priv,
 		hphrocp_work);
-	hphocp_off_report(sitar, SND_JACK_OC_HPHR, SITAR_IRQ_HPH_PA_OCPR_FAULT);
+	hphocp_off_report(sitar, SND_JACK_OC_HPHR,
+			  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 }
 
 static int sitar_hph_pa_event(struct snd_soc_dapm_widget *w,
@@ -3187,7 +3189,7 @@ static short __sitar_codec_sta_dce(struct snd_soc_codec *codec, int dce,
 	short bias_value;
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
 
-	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	if (noreldetection)
 		sitar_turn_onoff_rel_detection(codec, false);
 
@@ -3223,7 +3225,7 @@ static short __sitar_codec_sta_dce(struct snd_soc_codec *codec, int dce,
 
 	if (noreldetection)
 		sitar_turn_onoff_rel_detection(codec, true);
-	wcd9xxx_enable_irq(codec->control_data, SITAR_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 
 	return bias_value;
 }
@@ -3441,7 +3443,7 @@ void sitar_mbhc_cal(struct snd_soc_codec *codec)
 	sitar = snd_soc_codec_get_drvdata(codec);
 	calibration = sitar->mbhc_cfg.calibration;
 
-	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	sitar_turn_onoff_rel_detection(codec, false);
 
 	/* First compute the DCE / STA wait times
@@ -3524,7 +3526,7 @@ void sitar_mbhc_cal(struct snd_soc_codec *codec)
 	snd_soc_write(codec, SITAR_A_MBHC_SCALING_MUX_1, 0x84);
 	usleep_range(100, 100);
 
-	wcd9xxx_enable_irq(codec->control_data, SITAR_IRQ_MBHC_POTENTIAL);
+	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	sitar_turn_onoff_rel_detection(codec, true);
 }
 
@@ -3808,9 +3810,9 @@ static void sitar_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 		}
 		sitar_set_and_turnoff_hph_padac(codec);
 		hphocp_off_report(sitar, SND_JACK_OC_HPHR,
-				  SITAR_IRQ_HPH_PA_OCPR_FAULT);
+				  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 		hphocp_off_report(sitar, SND_JACK_OC_HPHL,
-				  SITAR_IRQ_HPH_PA_OCPL_FAULT);
+				  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		sitar->current_plug = PLUG_TYPE_NONE;
 		sitar->mbhc_polling_active = false;
 	} else {
@@ -4232,9 +4234,9 @@ static int sitar_mbhc_init_and_calibrate(struct snd_soc_codec *codec)
 		snd_soc_update_bits(codec, SITAR_A_RX_HPH_OCP_CTL,
 							0x10, 0x10);
 		wcd9xxx_enable_irq(codec->control_data,
-					SITAR_IRQ_HPH_PA_OCPL_FAULT);
+				   WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		wcd9xxx_enable_irq(codec->control_data,
-					SITAR_IRQ_HPH_PA_OCPR_FAULT);
+				   WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 		/* Bootup time detection */
 		sitar_hs_gpio_handler(codec);
 	}
@@ -4624,7 +4626,7 @@ static irqreturn_t sitar_hphl_ocp_irq(int irq, void *data)
 					    0x10);
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
-					  SITAR_IRQ_HPH_PA_OCPL_FAULT);
+					    WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 			sitar->hphlocp_cnt = 0;
 			sitar->hph_status |= SND_JACK_OC_HPHL;
 			if (sitar->mbhc_cfg.headset_jack)
@@ -4657,7 +4659,7 @@ static irqreturn_t sitar_hphr_ocp_irq(int irq, void *data)
 					   0x10);
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
-					 SITAR_IRQ_HPH_PA_OCPR_FAULT);
+					    WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 			sitar->hphrocp_cnt = 0;
 			sitar->hph_status |= SND_JACK_OC_HPHR;
 			if (sitar->mbhc_cfg.headset_jack)
@@ -4680,7 +4682,7 @@ static irqreturn_t sitar_hs_insert_irq(int irq, void *data)
 
 	pr_debug("%s: enter\n", __func__);
 	SITAR_ACQUIRE_LOCK(priv->codec_resource_lock);
-	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION);
 
 	snd_soc_update_bits(codec, SITAR_A_CDC_MBHC_INT_CTL, 0x03, 0x00);
 
@@ -5136,44 +5138,49 @@ static int sitar_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_sync(dapm);
 
 
-	ret = wcd9xxx_request_irq(codec->control_data, SITAR_IRQ_MBHC_INSERTION,
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_INSERTION,
 		sitar_hs_insert_irq, "Headset insert detect", sitar);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			SITAR_IRQ_MBHC_INSERTION);
+		       WCD9XXX_IRQ_MBHC_INSERTION);
 		goto err_insert_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_MBHC_INSERTION);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION);
 
-	ret = wcd9xxx_request_irq(codec->control_data, SITAR_IRQ_MBHC_REMOVAL,
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_REMOVAL,
 		sitar_hs_remove_irq, "Headset remove detect", sitar);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			SITAR_IRQ_MBHC_REMOVAL);
+		       WCD9XXX_IRQ_MBHC_REMOVAL);
 		goto err_remove_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, SITAR_IRQ_MBHC_POTENTIAL,
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_POTENTIAL,
 		sitar_dce_handler, "DC Estimation detect", sitar);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			SITAR_IRQ_MBHC_POTENTIAL);
+		       WCD9XXX_IRQ_MBHC_POTENTIAL);
 		goto err_potential_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, SITAR_IRQ_MBHC_RELEASE,
-		sitar_release_handler, "Button Release detect", sitar);
+	ret = wcd9xxx_request_irq(codec->control_data,
+				  WCD9XXX_IRQ_MBHC_RELEASE,
+				  sitar_release_handler,
+				  "Button Release detect", sitar);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			SITAR_IRQ_MBHC_RELEASE);
+		       WCD9XXX_IRQ_MBHC_RELEASE);
 		goto err_release_irq;
 	}
 
-	ret = wcd9xxx_request_irq(codec->control_data, SITAR_IRQ_SLIMBUS,
-		sitar_slimbus_irq, "SLIMBUS Slave", sitar);
+	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS,
+				  sitar_slimbus_irq, "SLIMBUS Slave", sitar);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			SITAR_IRQ_SLIMBUS);
+		       WCD9XXX_IRQ_SLIMBUS);
 		goto err_slimbus_irq;
 	}
 
@@ -5183,24 +5190,27 @@ static int sitar_codec_probe(struct snd_soc_codec *codec)
 
 
 	ret = wcd9xxx_request_irq(codec->control_data,
-		SITAR_IRQ_HPH_PA_OCPL_FAULT, sitar_hphl_ocp_irq,
-		"HPH_L OCP detect", sitar);
+				  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
+				  sitar_hphl_ocp_irq,
+				  "HPH_L OCP detect", sitar);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			SITAR_IRQ_HPH_PA_OCPL_FAULT);
+		       WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 		goto err_hphl_ocp_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_HPH_PA_OCPL_FAULT);
+	wcd9xxx_disable_irq(codec->control_data,
+			    WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 
 	ret = wcd9xxx_request_irq(codec->control_data,
-		SITAR_IRQ_HPH_PA_OCPR_FAULT, sitar_hphr_ocp_irq,
-		"HPH_R OCP detect", sitar);
+				  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT,
+				  sitar_hphr_ocp_irq, "HPH_R OCP detect",
+				  sitar);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
-			SITAR_IRQ_HPH_PA_OCPR_FAULT);
+		       WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 		goto err_hphr_ocp_irq;
 	}
-	wcd9xxx_disable_irq(codec->control_data, SITAR_IRQ_HPH_PA_OCPR_FAULT);
+	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 
 	for (i = 0; i < ARRAY_SIZE(sitar_dai); i++) {
 		switch (sitar_dai[i].id) {
@@ -5227,23 +5237,20 @@ static int sitar_codec_probe(struct snd_soc_codec *codec)
 	return ret;
 
 err_hphr_ocp_irq:
-	wcd9xxx_free_irq(codec->control_data,
-			SITAR_IRQ_HPH_PA_OCPL_FAULT, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
+			 sitar);
 err_hphl_ocp_irq:
-	wcd9xxx_free_irq(codec->control_data,
-			SITAR_IRQ_SLIMBUS, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, sitar);
 err_slimbus_irq:
-	wcd9xxx_free_irq(codec->control_data,
-			SITAR_IRQ_MBHC_RELEASE, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_RELEASE, sitar);
 err_release_irq:
-	wcd9xxx_free_irq(codec->control_data,
-			SITAR_IRQ_MBHC_POTENTIAL, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL,
+			 sitar);
 err_potential_irq:
-	wcd9xxx_free_irq(codec->control_data,
-			SITAR_IRQ_MBHC_REMOVAL, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_REMOVAL, sitar);
 err_remove_irq:
-	wcd9xxx_free_irq(codec->control_data,
-			SITAR_IRQ_MBHC_INSERTION, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION,
+			 sitar);
 err_insert_irq:
 err_pdata:
 	mutex_destroy(&sitar->codec_resource_lock);
@@ -5254,11 +5261,13 @@ static int sitar_codec_remove(struct snd_soc_codec *codec)
 {
 	int i;
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
-	wcd9xxx_free_irq(codec->control_data, SITAR_IRQ_SLIMBUS, sitar);
-	wcd9xxx_free_irq(codec->control_data, SITAR_IRQ_MBHC_RELEASE, sitar);
-	wcd9xxx_free_irq(codec->control_data, SITAR_IRQ_MBHC_POTENTIAL, sitar);
-	wcd9xxx_free_irq(codec->control_data, SITAR_IRQ_MBHC_REMOVAL, sitar);
-	wcd9xxx_free_irq(codec->control_data, SITAR_IRQ_MBHC_INSERTION, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_RELEASE, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL,
+			 sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_REMOVAL, sitar);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_MBHC_INSERTION,
+			 sitar);
 	SITAR_ACQUIRE_LOCK(sitar->codec_resource_lock);
 	sitar_codec_disable_clock_block(codec);
 	SITAR_RELEASE_LOCK(sitar->codec_resource_lock);

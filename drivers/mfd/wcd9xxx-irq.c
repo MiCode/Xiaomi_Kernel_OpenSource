@@ -18,8 +18,13 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <linux/mfd/wcd9xxx/wcd9310_registers.h>
+#include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
+#include <linux/delay.h>
+#include <linux/irqdomain.h>
 #include <linux/interrupt.h>
-
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/slab.h>
 #include <mach/cpuidle.h>
 
 #define BYTE_BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_BYTE))
@@ -27,19 +32,18 @@
 
 #define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 100
 
-struct wcd9xxx_irq {
-	bool level;
+#ifdef CONFIG_OF
+struct wcd9xxx_irq_drv_data {
+	struct irq_domain *domain;
+	int irq;
 };
+#endif
 
-static struct wcd9xxx_irq wcd9xxx_irqs[TABLA_NUM_IRQS] = {
-	[0] = { .level = 1},
-/* All other wcd9xxx interrupts are edge triggered */
-};
-
-static inline int irq_to_wcd9xxx_irq(struct wcd9xxx *wcd9xxx, int irq)
-{
-	return irq - wcd9xxx->irq_base;
-}
+static int virq_to_phyirq(struct wcd9xxx *wcd9xxx, int virq);
+static int phyirq_to_virq(struct wcd9xxx *wcd9xxx, int irq);
+static unsigned int wcd9xxx_irq_get_upstream_irq(struct wcd9xxx *wcd9xxx);
+static void wcd9xxx_irq_put_upstream_irq(struct wcd9xxx *wcd9xxx);
+static int wcd9xxx_map_irq(struct wcd9xxx *wcd9xxx, int irq);
 
 static void wcd9xxx_irq_lock(struct irq_data *data)
 {
@@ -58,8 +62,9 @@ static void wcd9xxx_irq_sync_unlock(struct irq_data *data)
 		 */
 		if (wcd9xxx->irq_masks_cur[i] != wcd9xxx->irq_masks_cache[i]) {
 			wcd9xxx->irq_masks_cache[i] = wcd9xxx->irq_masks_cur[i];
-			wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_MASK0+i,
-				wcd9xxx->irq_masks_cur[i]);
+			wcd9xxx_reg_write(wcd9xxx,
+					  WCD9XXX_A_INTR_MASK0 + i,
+					  wcd9xxx->irq_masks_cur[i]);
 		}
 	}
 
@@ -69,7 +74,7 @@ static void wcd9xxx_irq_sync_unlock(struct irq_data *data)
 static void wcd9xxx_irq_enable(struct irq_data *data)
 {
 	struct wcd9xxx *wcd9xxx = irq_data_get_irq_chip_data(data);
-	int wcd9xxx_irq = irq_to_wcd9xxx_irq(wcd9xxx, data->irq);
+	int wcd9xxx_irq = virq_to_phyirq(wcd9xxx, data->irq);
 	wcd9xxx->irq_masks_cur[BIT_BYTE(wcd9xxx_irq)] &=
 		~(BYTE_BIT_MASK(wcd9xxx_irq));
 }
@@ -77,9 +82,14 @@ static void wcd9xxx_irq_enable(struct irq_data *data)
 static void wcd9xxx_irq_disable(struct irq_data *data)
 {
 	struct wcd9xxx *wcd9xxx = irq_data_get_irq_chip_data(data);
-	int wcd9xxx_irq = irq_to_wcd9xxx_irq(wcd9xxx, data->irq);
+	int wcd9xxx_irq = virq_to_phyirq(wcd9xxx, data->irq);
 	wcd9xxx->irq_masks_cur[BIT_BYTE(wcd9xxx_irq)]
-			|= BYTE_BIT_MASK(wcd9xxx_irq);
+		|= BYTE_BIT_MASK(wcd9xxx_irq);
+}
+
+static void wcd9xxx_irq_mask(struct irq_data *d)
+{
+	/* do nothing but required as linux calls irq_mask without NULL check */
 }
 
 static struct irq_chip wcd9xxx_irq_chip = {
@@ -88,6 +98,7 @@ static struct irq_chip wcd9xxx_irq_chip = {
 	.irq_bus_sync_unlock = wcd9xxx_irq_sync_unlock,
 	.irq_disable = wcd9xxx_irq_disable,
 	.irq_enable = wcd9xxx_irq_enable,
+	.irq_mask = wcd9xxx_irq_mask,
 };
 
 enum wcd9xxx_pm_state wcd9xxx_pm_cmpxchg(struct wcd9xxx *wcd9xxx,
@@ -167,62 +178,72 @@ EXPORT_SYMBOL_GPL(wcd9xxx_unlock_sleep);
 
 static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
 {
-	if ((irqbit <= TABLA_IRQ_MBHC_INSERTION) &&
-	    (irqbit >= TABLA_IRQ_MBHC_REMOVAL)) {
-		wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_CLEAR0 +
-				  BIT_BYTE(irqbit), BYTE_BIT_MASK(irqbit));
+	if ((irqbit <= WCD9XXX_IRQ_MBHC_INSERTION) &&
+	    (irqbit >= WCD9XXX_IRQ_MBHC_REMOVAL)) {
+		wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_CLEAR0 +
+					   BIT_BYTE(irqbit),
+				  BYTE_BIT_MASK(irqbit));
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-			wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_MODE, 0x02);
-		handle_nested_irq(wcd9xxx->irq_base + irqbit);
+			wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_MODE, 0x02);
+		handle_nested_irq(phyirq_to_virq(wcd9xxx, irqbit));
 	} else {
-		handle_nested_irq(wcd9xxx->irq_base + irqbit);
-		wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_CLEAR0 +
-				  BIT_BYTE(irqbit), BYTE_BIT_MASK(irqbit));
+		handle_nested_irq(phyirq_to_virq(wcd9xxx, irqbit));
+		wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_CLEAR0 +
+					   BIT_BYTE(irqbit),
+				  BYTE_BIT_MASK(irqbit));
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-			wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_MODE, 0x02);
+			wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_MODE, 0x02);
 	}
+}
+
+static int wcd9xxx_num_irq_regs(const struct wcd9xxx *wcd9xxx)
+{
+	return (wcd9xxx->num_irqs / 8) + ((wcd9xxx->num_irqs % 8) ? 1 : 0);
 }
 
 static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 {
 	int ret;
-	struct wcd9xxx *wcd9xxx = data;
-	u8 status[WCD9XXX_NUM_IRQ_REGS];
 	int i;
+	struct wcd9xxx *wcd9xxx = data;
+	int num_irq_regs = wcd9xxx_num_irq_regs(wcd9xxx);
+	u8 status[num_irq_regs];
 
 	if (unlikely(wcd9xxx_lock_sleep(wcd9xxx) == false)) {
 		dev_err(wcd9xxx->dev, "Failed to hold suspend\n");
 		return IRQ_NONE;
 	}
-	ret = wcd9xxx_bulk_read(wcd9xxx, TABLA_A_INTR_STATUS0,
-			       WCD9XXX_NUM_IRQ_REGS, status);
+	ret = wcd9xxx_bulk_read(wcd9xxx, WCD9XXX_A_INTR_STATUS0,
+				num_irq_regs, status);
 	if (ret < 0) {
 		dev_err(wcd9xxx->dev, "Failed to read interrupt status: %d\n",
 			ret);
 		wcd9xxx_unlock_sleep(wcd9xxx);
 		return IRQ_NONE;
 	}
+
 	/* Apply masking */
-	for (i = 0; i < WCD9XXX_NUM_IRQ_REGS; i++)
+	for (i = 0; i < num_irq_regs; i++)
 		status[i] &= ~wcd9xxx->irq_masks_cur[i];
 
 	/* Find out which interrupt was triggered and call that interrupt's
 	 * handler function
 	 */
-	if (status[BIT_BYTE(TABLA_IRQ_SLIMBUS)] &
-	    BYTE_BIT_MASK(TABLA_IRQ_SLIMBUS))
-		wcd9xxx_irq_dispatch(wcd9xxx, TABLA_IRQ_SLIMBUS);
+	if (status[BIT_BYTE(WCD9XXX_IRQ_SLIMBUS)] &
+	    BYTE_BIT_MASK(WCD9XXX_IRQ_SLIMBUS))
+		wcd9xxx_irq_dispatch(wcd9xxx, WCD9XXX_IRQ_SLIMBUS);
 
 	/* Since codec has only one hardware irq line which is shared by
 	 * codec's different internal interrupts, so it's possible master irq
 	 * handler dispatches multiple nested irq handlers after breaking
 	 * order.  Dispatch MBHC interrupts order to follow MBHC state
 	 * machine's order */
-	for (i = TABLA_IRQ_MBHC_INSERTION; i >= TABLA_IRQ_MBHC_REMOVAL; i--) {
+	for (i = WCD9XXX_IRQ_MBHC_INSERTION;
+	     i >= WCD9XXX_IRQ_MBHC_REMOVAL; i--) {
 		if (status[BIT_BYTE(i)] & BYTE_BIT_MASK(i))
 			wcd9xxx_irq_dispatch(wcd9xxx, i);
 	}
-	for (i = TABLA_IRQ_BG_PRECHARGE; i < TABLA_NUM_IRQS; i++) {
+	for (i = WCD9XXX_IRQ_BG_PRECHARGE; i < wcd9xxx->num_irqs; i++) {
 		if (status[BIT_BYTE(i)] & BYTE_BIT_MASK(i))
 			wcd9xxx_irq_dispatch(wcd9xxx, i);
 	}
@@ -231,59 +252,105 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+void wcd9xxx_free_irq(struct wcd9xxx *wcd9xxx, int irq, void *data)
+{
+	free_irq(phyirq_to_virq(wcd9xxx, irq), data);
+}
+
+void wcd9xxx_enable_irq(struct wcd9xxx *wcd9xxx, int irq)
+{
+	enable_irq(phyirq_to_virq(wcd9xxx, irq));
+}
+
+void wcd9xxx_disable_irq(struct wcd9xxx *wcd9xxx, int irq)
+{
+	disable_irq_nosync(phyirq_to_virq(wcd9xxx, irq));
+}
+
+void wcd9xxx_disable_irq_sync(struct wcd9xxx *wcd9xxx, int irq)
+{
+	disable_irq(phyirq_to_virq(wcd9xxx, irq));
+}
+
+static int wcd9xxx_irq_setup_downstream_irq(struct wcd9xxx *wcd9xxx)
+{
+	int irq, virq, ret;
+
+	pr_debug("%s: enter\n", __func__);
+
+	for (irq = 0; irq < wcd9xxx->num_irqs; irq++) {
+		/* Map OF irq */
+		virq = wcd9xxx_map_irq(wcd9xxx, irq);
+		pr_debug("%s: irq %d -> %d\n", __func__, irq, virq);
+		if (virq == NO_IRQ) {
+			pr_err("%s, No interrupt specifier for irq %d\n",
+			       __func__, irq);
+			return NO_IRQ;
+		}
+
+		ret = irq_set_chip_data(virq, wcd9xxx);
+		if (ret) {
+			pr_err("%s: Failed to configure irq %d (%d)\n",
+			       __func__, irq, ret);
+			return ret;
+		}
+
+		if (wcd9xxx->irq_level_high[irq])
+			irq_set_chip_and_handler(virq, &wcd9xxx_irq_chip,
+						 handle_level_irq);
+		else
+			irq_set_chip_and_handler(virq, &wcd9xxx_irq_chip,
+						 handle_edge_irq);
+
+		irq_set_nested_thread(virq, 1);
+	}
+
+	pr_debug("%s: leave\n", __func__);
+
+	return 0;
+}
+
 int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 {
-	int ret;
-	unsigned int i, cur_irq;
+	int i, ret;
+	u8 irq_level[wcd9xxx_num_irq_regs(wcd9xxx)];
 
 	mutex_init(&wcd9xxx->irq_lock);
 
+	wcd9xxx->irq = wcd9xxx_irq_get_upstream_irq(wcd9xxx);
 	if (!wcd9xxx->irq) {
-		dev_warn(wcd9xxx->dev,
-			 "No interrupt specified, no interrupts\n");
-		wcd9xxx->irq_base = 0;
-		return 0;
+		pr_warn("%s: irq driver is not yet initialized\n", __func__);
+		mutex_destroy(&wcd9xxx->irq_lock);
+		return -EPROBE_DEFER;
+	}
+	pr_debug("%s: probed irq %d\n", __func__, wcd9xxx->irq);
+
+	/* Setup downstream IRQs */
+	ret = wcd9xxx_irq_setup_downstream_irq(wcd9xxx);
+	if (ret) {
+		pr_err("%s: Failed to setup downstream IRQ\n", __func__);
+		wcd9xxx_irq_put_upstream_irq(wcd9xxx);
+		return ret;
 	}
 
-	if (!wcd9xxx->irq_base) {
-		dev_err(wcd9xxx->dev,
-			"No interrupt base specified, no interrupts\n");
-		return 0;
-	}
-	/* Mask the individual interrupt sources */
-	for (i = 0, cur_irq = wcd9xxx->irq_base; i < TABLA_NUM_IRQS; i++,
-		cur_irq++) {
+	/* All other wcd9xxx interrupts are edge triggered */
+	wcd9xxx->irq_level_high[0] = true;
 
-		irq_set_chip_data(cur_irq, wcd9xxx);
-
-		if (wcd9xxx_irqs[i].level)
-			irq_set_chip_and_handler(cur_irq, &wcd9xxx_irq_chip,
-					 handle_level_irq);
-		else
-			irq_set_chip_and_handler(cur_irq, &wcd9xxx_irq_chip,
-					 handle_edge_irq);
-
-		irq_set_nested_thread(cur_irq, 1);
-
-		/* ARM needs us to explicitly flag the IRQ as valid
-		 * and will set them noprobe when we do so. */
-#ifdef CONFIG_ARM
-		set_irq_flags(cur_irq, IRQF_VALID);
-#else
-		set_irq_noprobe(cur_irq);
-#endif
-
+	/* mask all the interrupts */
+	memset(irq_level, 0, wcd9xxx_num_irq_regs(wcd9xxx));
+	for (i = 0; i < wcd9xxx->num_irqs; i++) {
 		wcd9xxx->irq_masks_cur[BIT_BYTE(i)] |= BYTE_BIT_MASK(i);
 		wcd9xxx->irq_masks_cache[BIT_BYTE(i)] |= BYTE_BIT_MASK(i);
-		wcd9xxx->irq_level[BIT_BYTE(i)] |= wcd9xxx_irqs[i].level <<
-			(i % BITS_PER_BYTE);
+		irq_level[BIT_BYTE(i)] |=
+		    wcd9xxx->irq_level_high[i] << (i % BITS_PER_BYTE);
 	}
-	for (i = 0; i < WCD9XXX_NUM_IRQ_REGS; i++) {
+
+	for (i = 0; i < wcd9xxx_num_irq_regs(wcd9xxx); i++) {
 		/* Initialize interrupt mask and level registers */
-		wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_LEVEL0 + i,
-			wcd9xxx->irq_level[i]);
-		wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_MASK0 + i,
-			wcd9xxx->irq_masks_cur[i]);
+		wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_LEVEL0 + i,
+				  irq_level[i]);
+		wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_MASK0 + i,
+				  wcd9xxx->irq_masks_cur[i]);
 	}
 
 	ret = request_threaded_irq(wcd9xxx->irq, NULL, wcd9xxx_irq_thread,
@@ -308,10 +375,34 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 			free_irq(wcd9xxx->irq, wcd9xxx);
 	}
 
-	if (ret)
+	if (ret) {
+		pr_err("%s: Failed to init wcd9xxx irq\n", __func__);
+		wcd9xxx_irq_put_upstream_irq(wcd9xxx);
 		mutex_destroy(&wcd9xxx->irq_lock);
+	}
 
 	return ret;
+}
+
+int wcd9xxx_request_irq(struct wcd9xxx *wcd9xxx, int irq, irq_handler_t handler,
+			const char *name, void *data)
+{
+	int virq;
+
+	virq = phyirq_to_virq(wcd9xxx, irq);
+
+	/*
+	 * ARM needs us to explicitly flag the IRQ as valid
+	 * and will set them noprobe when we do so.
+	 */
+#ifdef CONFIG_ARM
+	set_irq_flags(virq, IRQF_VALID);
+#else
+	set_irq_noprobe(virq);
+#endif
+
+	return request_threaded_irq(virq, NULL, handler, IRQF_TRIGGER_RISING,
+				    name, data);
 }
 
 void wcd9xxx_irq_exit(struct wcd9xxx *wcd9xxx)
@@ -319,7 +410,191 @@ void wcd9xxx_irq_exit(struct wcd9xxx *wcd9xxx)
 	if (wcd9xxx->irq) {
 		disable_irq_wake(wcd9xxx->irq);
 		free_irq(wcd9xxx->irq, wcd9xxx);
+		/* Release parent's of node */
+		wcd9xxx_irq_put_upstream_irq(wcd9xxx);
 		device_init_wakeup(wcd9xxx->dev, 0);
 	}
 	mutex_destroy(&wcd9xxx->irq_lock);
 }
+
+#ifndef CONFIG_OF
+static int phyirq_to_virq(struct wcd9xxx *wcd9xxx, int offset)
+{
+	return wcd9xxx->irq_base + offset;
+}
+
+static int virq_to_phyirq(struct wcd9xxx *wcd9xxx, int virq)
+{
+	return virq - wcd9xxx->irq_base;
+}
+
+static unsigned int wcd9xxx_irq_get_upstream_irq(struct wcd9xxx *wcd9xxx)
+{
+	return wcd9xxx->irq;
+}
+
+static void wcd9xxx_irq_put_upstream_irq(struct wcd9xxx *wcd9xxx)
+{
+	/* Do nothing */
+}
+
+static int wcd9xxx_map_irq(struct wcd9xxx *wcd9xxx, int irq)
+{
+	return phyirq_to_virq(wcd9xxx, irq);
+}
+#else
+int __init wcd9xxx_irq_of_init(struct device_node *node,
+			       struct device_node *parent)
+{
+	struct wcd9xxx_irq_drv_data *data;
+
+	pr_debug("%s: node %s, node parent %s\n", __func__,
+		 node->name, node->parent->name);
+
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	/*
+	 * wcd9xxx_intc interrupt controller supports N to N irq mapping with
+	 * single cell binding with irq numbers(offsets) only.
+	 * Use irq_domain_simple_ops that has irq_domain_simple_map and
+	 * irq_domain_xlate_onetwocell.
+	 */
+	data->domain = irq_domain_add_linear(node, WCD9XXX_MAX_NUM_IRQS,
+					     &irq_domain_simple_ops, data);
+	if (!data->domain) {
+		kfree(data);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static struct wcd9xxx_irq_drv_data *
+wcd9xxx_get_irq_drv_d(const struct wcd9xxx *wcd9xxx)
+{
+	struct device_node *pnode;
+	struct irq_domain *domain;
+
+	pnode = of_irq_find_parent(wcd9xxx->dev->of_node);
+	/* Shouldn't happen */
+	if (unlikely(!pnode))
+		return NULL;
+
+	domain = irq_find_host(pnode);
+	return (struct wcd9xxx_irq_drv_data *)domain->host_data;
+}
+
+static int phyirq_to_virq(struct wcd9xxx *wcd9xxx, int offset)
+{
+	struct wcd9xxx_irq_drv_data *data;
+
+	data = wcd9xxx_get_irq_drv_d(wcd9xxx);
+	if (!data) {
+		pr_warn("%s: not registered to interrupt controller\n",
+			__func__);
+		return -EINVAL;
+	}
+	return irq_linear_revmap(data->domain, offset);
+}
+
+static int virq_to_phyirq(struct wcd9xxx *wcd9xxx, int virq)
+{
+	struct irq_data *irq_data = irq_get_irq_data(virq);
+	return irq_data->hwirq;
+}
+
+static unsigned int wcd9xxx_irq_get_upstream_irq(struct wcd9xxx *wcd9xxx)
+{
+	struct wcd9xxx_irq_drv_data *data;
+
+	/* Hold parent's of node */
+	if (!of_node_get(of_irq_find_parent(wcd9xxx->dev->of_node)))
+		return -EINVAL;
+
+	data = wcd9xxx_get_irq_drv_d(wcd9xxx);
+	if (!data) {
+		pr_err("%s: interrupt controller is not registerd\n", __func__);
+		return 0;
+	}
+
+	rmb();
+	return data->irq;
+}
+
+static void wcd9xxx_irq_put_upstream_irq(struct wcd9xxx *wcd9xxx)
+{
+	/* Hold parent's of node */
+	of_node_put(of_irq_find_parent(wcd9xxx->dev->of_node));
+}
+
+static int wcd9xxx_map_irq(struct wcd9xxx *wcd9xxx, int irq)
+{
+	return of_irq_to_resource(wcd9xxx->dev->of_node, irq, NULL);
+}
+
+static int __devinit wcd9xxx_irq_probe(struct platform_device *pdev)
+{
+	int irq;
+	struct irq_domain *domain;
+	struct wcd9xxx_irq_drv_data *data;
+	int ret = -EINVAL;
+
+	irq = platform_get_irq_byname(pdev, "cdc-int");
+	if (irq < 0) {
+		dev_err(&pdev->dev, "%s: Couldn't find cdc-int node(%d)\n",
+			__func__, irq);
+		return -EINVAL;
+	} else {
+		dev_dbg(&pdev->dev, "%s: virq = %d\n", __func__, irq);
+		domain = irq_find_host(pdev->dev.of_node);
+		data = (struct wcd9xxx_irq_drv_data *)domain->host_data;
+		data->irq = irq;
+		wmb();
+		ret = 0;
+	}
+
+	return ret;
+}
+
+static int wcd9xxx_irq_remove(struct platform_device *pdev)
+{
+	struct irq_domain *domain;
+	struct wcd9xxx_irq_drv_data *data;
+
+	domain = irq_find_host(pdev->dev.of_node);
+	data = (struct wcd9xxx_irq_drv_data *)domain->host_data;
+	data->irq = 0;
+	wmb();
+
+	return 0;
+}
+
+static const struct of_device_id of_match[] = {
+	{ .compatible = "qcom,wcd9xxx-irq" },
+	{ }
+};
+
+static struct platform_driver wcd9xxx_irq_driver = {
+	.probe = wcd9xxx_irq_probe,
+	.remove = wcd9xxx_irq_remove,
+	.driver = {
+		.name = "wcd9xxx_intc",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(of_match),
+	},
+};
+
+static int wcd9xxx_irq_drv_init(void)
+{
+	return platform_driver_register(&wcd9xxx_irq_driver);
+}
+subsys_initcall(wcd9xxx_irq_drv_init);
+
+static void wcd9xxx_irq_drv_exit(void)
+{
+	platform_driver_unregister(&wcd9xxx_irq_driver);
+}
+module_exit(wcd9xxx_irq_drv_exit);
+#endif /* CONFIG_OF */

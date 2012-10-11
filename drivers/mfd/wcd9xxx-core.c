@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/slab.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
@@ -257,13 +258,20 @@ static struct wcd9xx_codec_type {
 	u8 byte[4];
 	struct mfd_cell *dev;
 	int size;
+	int num_irqs;
 } wcd9xxx_codecs[] = {
-	{{0x2, 0x0, 0x0, 0x1}, tabla_devs, ARRAY_SIZE(tabla_devs)},
-	{{0x1, 0x0, 0x0, 0x1}, tabla1x_devs, ARRAY_SIZE(tabla1x_devs)},
-	{{0x0, 0x0, 0x2, 0x1}, taiko_devs, ARRAY_SIZE(taiko_devs)},
-	{{0x0, 0x0, 0x0, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs)},
-	{{0x1, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs)},
-	{{0x2, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs)},
+	{{0x2, 0x0, 0x0, 0x1}, tabla_devs, ARRAY_SIZE(tabla_devs),
+	 TABLA_NUM_IRQS},
+	{{0x1, 0x0, 0x0, 0x1}, tabla1x_devs, ARRAY_SIZE(tabla1x_devs),
+	 TABLA_NUM_IRQS},
+	{{0x0, 0x0, 0x2, 0x1}, taiko_devs, ARRAY_SIZE(taiko_devs),
+	 TAIKO_NUM_IRQS},
+	{{0x0, 0x0, 0x0, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
+	 SITAR_NUM_IRQS},
+	{{0x1, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
+	 SITAR_NUM_IRQS},
+	{{0x2, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
+	 SITAR_NUM_IRQS},
 };
 
 static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
@@ -312,8 +320,9 @@ static void wcd9xxx_free_reset(struct wcd9xxx *wcd9xxx)
 	}
 }
 static int wcd9xxx_check_codec_type(struct wcd9xxx *wcd9xxx,
-					struct mfd_cell **wcd9xxx_dev,
-					int *wcd9xxx_dev_size)
+				    struct mfd_cell **wcd9xxx_dev,
+				    int *wcd9xxx_dev_size,
+				    int *wcd9xxx_dev_num_irqs)
 {
 	int i;
 	int ret;
@@ -343,6 +352,7 @@ static int wcd9xxx_check_codec_type(struct wcd9xxx *wcd9xxx,
 				wcd9xxx_codecs[i].dev->name);
 			*wcd9xxx_dev = wcd9xxx_codecs[i].dev;
 			*wcd9xxx_dev_size = wcd9xxx_codecs[i].size;
+			*wcd9xxx_dev_num_irqs = wcd9xxx_codecs[i].num_irqs;
 			break;
 		}
 		i++;
@@ -359,7 +369,7 @@ exit:
 	return ret;
 }
 
-static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
+static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 {
 	int ret;
 	struct mfd_cell *wcd9xxx_dev = NULL;
@@ -379,6 +389,11 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 
 	wcd9xxx_bring_up(wcd9xxx);
 
+	ret = wcd9xxx_check_codec_type(wcd9xxx, &wcd9xxx_dev, &wcd9xxx_dev_size,
+				       &wcd9xxx->num_irqs);
+	if (ret < 0)
+		goto err_irq;
+
 	if (wcd9xxx->irq != -1) {
 		ret = wcd9xxx_irq_init(wcd9xxx);
 		if (ret) {
@@ -386,11 +401,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 			goto err;
 		}
 	}
-	ret = wcd9xxx_check_codec_type(wcd9xxx, &wcd9xxx_dev,
-					&wcd9xxx_dev_size);
 
-	if (ret < 0)
-		goto err_irq;
 	ret = mfd_add_devices(wcd9xxx->dev, -1, wcd9xxx_dev, wcd9xxx_dev_size,
 			      NULL, 0);
 	if (ret != 0) {
@@ -795,10 +806,12 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 
 	wcd9xxx->read_dev = wcd9xxx_i2c_read;
 	wcd9xxx->write_dev = wcd9xxx_i2c_write;
-	wcd9xxx->irq = pdata->irq;
-	wcd9xxx->irq_base = pdata->irq_base;
+	if (!wcd9xxx->dev->of_node) {
+		wcd9xxx->irq = pdata->irq;
+		wcd9xxx->irq_base = pdata->irq_base;
+	}
 
-	ret = wcd9xxx_device_init(wcd9xxx, wcd9xxx->irq);
+	ret = wcd9xxx_device_init(wcd9xxx);
 	if (ret) {
 		pr_err("%s: error, initializing device failed\n", __func__);
 		goto err_device_init;
@@ -1072,7 +1085,6 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 			pdata->reset_gpio);
 		goto err;
 	}
-	pdata->irq = -1;
 
 	ret = wcd9xxx_dt_parse_slim_interface_dev_info(dev,
 			&pdata->slimbus_slave_device);
@@ -1163,14 +1175,12 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	}
 	wcd9xxx->read_dev = wcd9xxx_slim_read_device;
 	wcd9xxx->write_dev = wcd9xxx_slim_write_device;
-	wcd9xxx->irq = pdata->irq;
-	wcd9xxx->irq_base = pdata->irq_base;
 	wcd9xxx_pgd_la = wcd9xxx->slim->laddr;
-
-	if (pdata->num_irqs < TABLA_NUM_IRQS)
-		pr_warn("%s: Not enough interrupt lines allocated\n", __func__);
-
 	wcd9xxx->slim_slave = &pdata->slimbus_slave_device;
+	if (!wcd9xxx->dev->of_node) {
+		wcd9xxx->irq = pdata->irq;
+		wcd9xxx->irq_base = pdata->irq_base;
+	}
 
 	ret = slim_add_device(slim->ctrl, wcd9xxx->slim_slave);
 	if (ret) {
@@ -1190,7 +1200,7 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	wcd9xxx_inf_la = wcd9xxx->slim_slave->laddr;
 	wcd9xxx_intf = WCD9XXX_INTERFACE_TYPE_SLIMBUS;
 
-	ret = wcd9xxx_device_init(wcd9xxx, wcd9xxx->irq);
+	ret = wcd9xxx_device_init(wcd9xxx);
 	if (ret) {
 		pr_err("%s: error, initializing device failed\n", __func__);
 		goto err_slim_add;
