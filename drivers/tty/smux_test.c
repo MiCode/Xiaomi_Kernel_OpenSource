@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/completion.h>
 #include <linux/termios.h>
+#include <linux/sched.h>
 #include <linux/smux.h>
 #include <mach/subsystem_restart.h>
 #include "smux_private.h"
@@ -518,12 +519,17 @@ static int smux_ut_basic_core(char *buf, int max,
 		for (; vectors->data != NULL; ++vectors) {
 			const char *test_data = vectors->data;
 			const unsigned test_len = vectors->len;
+			unsigned long long start_t;
+			unsigned long long end_t;
+			unsigned long long val;
+			unsigned long rem;
 
 			i += scnprintf(buf + i, max - i,
-					"Writing vector %p len %d\n",
+					"Writing vector %p len %d: ",
 					test_data, test_len);
 
 			/* write data */
+			start_t = sched_clock();
 			msm_smux_write(SMUX_TEST_LCID, (void *)0xCAFEFACE,
 					test_data, test_len);
 			UT_ASSERT_INT(ret, ==, 0);
@@ -538,6 +544,7 @@ static int smux_ut_basic_core(char *buf, int max,
 					(int)wait_for_completion_timeout(
 						&cb_data.cb_completion, HZ),
 					>, 0);
+			end_t = sched_clock();
 
 			UT_ASSERT_INT(cb_data.cb_count, >=, 1);
 			UT_ASSERT_INT(cb_data.event_write_done, ==, 1);
@@ -569,16 +576,28 @@ static int smux_ut_basic_core(char *buf, int max,
 				hex_dump_to_buffer(test_data, test_len,
 					16, 1, linebuff, sizeof(linebuff), 1);
 				i += scnprintf(buf + i, max - i,
-						"Expected:\n%s\n\n", linebuff);
+					"Failed\nExpected:\n%s\n\n", linebuff);
 
 				hex_dump_to_buffer(read_event->meta.buffer,
 					read_event->meta.len,
 					16, 1, linebuff, sizeof(linebuff), 1);
 				i += scnprintf(buf + i, max - i,
-						"Actual:\n%s\n", linebuff);
+					"Failed\nActual:\n%s\n", linebuff);
 				failed = 1;
 				break;
 			}
+
+			/* calculate throughput stats */
+			val = end_t - start_t;
+			rem = do_div(val, 1000);
+			i += scnprintf(buf + i, max - i,
+				"OK - %u us",
+				(unsigned int)val);
+
+			val = 1000000000LL * 2 * test_len;
+			rem = do_div(val, end_t - start_t);
+			i += scnprintf(buf + i, max - i,
+				" (%u kB/sec)\n", (unsigned int)val);
 			mock_cb_data_reset(&cb_data);
 		}
 
@@ -1001,6 +1020,7 @@ static int smux_ut_loopback_big_pkt(char *buf, int max, const char *name)
 		{0, 256},
 		{0, 512},
 		{0, 1024},
+		{0, 1500},
 		{0, 2048},
 		{0, 4096},
 		{0, 0},
@@ -1107,6 +1127,59 @@ static int smux_ut_remote_big_pkt(char *buf, int max)
 				"%s: Unable to set loopback mode\n",
 				__func__);
 	}
+
+	return i;
+}
+
+/**
+ * Run a large packet test for throughput metrics.
+ *
+ * Repeatedly send a packet for 100 iterations to get throughput metrics.
+ */
+static int smux_ut_remote_throughput(char *buf, int max)
+{
+	struct test_vector test_data[] = {
+		{0, 1500},
+		{0, 0},
+	};
+	int failed = 0;
+	int i = 0;
+	int loop = 0;
+	struct test_vector *tv;
+	int ret;
+
+	/* generate test data */
+	for (tv = test_data; tv->len > 0; ++tv) {
+		tv->data = kmalloc(tv->len + 32, GFP_KERNEL);
+		if (!tv->data) {
+			i += scnprintf(buf + i, max - i,
+					"%s: Unable to allocate %d bytes\n",
+					__func__, tv->len);
+			failed = 1;
+			goto out;
+		}
+		test_pattern_fill((uint8_t *)tv->data, tv->len, 1);
+	}
+
+	/* run test */
+	i += scnprintf(buf + i, max - i, "Running %s\n", __func__);
+	while (!failed && loop < 100) {
+		ret = msm_smux_set_ch_option(SMUX_TEST_LCID,
+				SMUX_CH_OPTION_REMOTE_LOOPBACK, 0);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		i += smux_ut_basic_core(buf + i, max - i, test_data, __func__);
+		++loop;
+	}
+
+out:
+	if (failed) {
+		pr_err("%s: Failed\n", __func__);
+		i += scnprintf(buf + i, max - i, "\tFailed\n");
+	}
+
+	for (tv = test_data; tv->len > 0; ++tv)
+			kfree(tv->data);
 
 	return i;
 }
@@ -2156,7 +2229,8 @@ static int __init smux_debugfs_init(void)
 			smux_ut_remote_ssr_rx_buff_retry);
 	debug_create("ut_remote_tx_stop", 0444, dent,
 			smux_ut_remote_tx_stop);
-
+	debug_create("ut_remote_throughput", 0444, dent,
+			smux_ut_remote_throughput);
 	return 0;
 }
 
