@@ -574,7 +574,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 {
 	int i, rc = 0;
 	struct msm_vidc_inst *inst;
-	struct hal_frame_size frame_sz;
 	unsigned long flags;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
@@ -596,26 +595,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
-			break;
-		}
-		frame_sz.buffer_type = HAL_BUFFER_INPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
-		dprintk(VIDC_DBG, "width = %d, height = %d\n",
-				frame_sz.width, frame_sz.height);
-		rc = vidc_hal_session_set_property((void *)inst->session,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to set framesize for Output port\n");
-			break;
-		}
-		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		rc = vidc_hal_session_set_property((void *)inst->session,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to set hal property for framesize\n");
 			break;
 		}
 		rc = msm_comm_try_get_bufreqs(inst);
@@ -1346,6 +1325,7 @@ int msm_venc_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	const struct msm_vidc_format *fmt = NULL;
+	struct hal_frame_size frame_sz;
 	int rc = 0;
 	int i;
 	if (!inst || !f) {
@@ -1367,6 +1347,26 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		inst->prop.width = f->fmt.pix_mp.width;
 		inst->prop.height = f->fmt.pix_mp.height;
+		frame_sz.buffer_type = HAL_BUFFER_INPUT;
+		frame_sz.width = inst->prop.width;
+		frame_sz.height = inst->prop.height;
+		dprintk(VIDC_DBG, "width = %d, height = %d\n",
+				frame_sz.width, frame_sz.height);
+		rc = vidc_hal_session_set_property((void *)inst->session,
+				HAL_PARAM_FRAME_SIZE, &frame_sz);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set framesize for Output port\n");
+			goto exit;
+		}
+		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+		rc = vidc_hal_session_set_property((void *)inst->session,
+				HAL_PARAM_FRAME_SIZE, &frame_sz);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set hal property for framesize\n");
+			goto exit;
+		}
 		fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
 			ARRAY_SIZE(venc_formats), f->fmt.pix_mp.pixelformat,
 			OUTPUT_PORT);
