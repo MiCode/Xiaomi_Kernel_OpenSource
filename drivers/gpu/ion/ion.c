@@ -43,15 +43,17 @@
 /**
  * struct ion_device - the metadata of the ion device node
  * @dev:		the actual misc device
- * @buffers:	an rb tree of all the existing buffers
- * @lock:		lock protecting the buffers & heaps trees
+ * @buffers:		an rb tree of all the existing buffers
+ * @buffer_lock:	lock protecting the tree of buffers
+ * @lock:		rwsem protecting the tree of heaps and clients
  * @heaps:		list of all the heaps in the system
  * @user_clients:	list of all the clients created from userspace
  */
 struct ion_device {
 	struct miscdevice dev;
 	struct rb_root buffers;
-	struct mutex lock;
+	struct mutex buffer_lock;
+	struct rw_semaphore lock;
 	struct rb_root heaps;
 	long (*custom_ioctl) (struct ion_client *client, unsigned int cmd,
 			      unsigned long arg);
@@ -213,7 +215,9 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		if (sg_dma_address(sg) == 0)
 			sg_dma_address(sg) = sg_phys(sg);
 	}
+	mutex_lock(&dev->buffer_lock);
 	ion_buffer_add(dev, buffer);
+	mutex_unlock(&dev->buffer_lock);
 	return buffer;
 
 err:
@@ -240,9 +244,9 @@ static void ion_buffer_destroy(struct kref *kref)
 
 	ion_delayed_unsecure(buffer);
 	buffer->heap->ops->free(buffer);
-	mutex_lock(&dev->lock);
+	mutex_lock(&dev->buffer_lock);
 	rb_erase(&buffer->node, &dev->buffers);
-	mutex_unlock(&dev->lock);
+	mutex_unlock(&dev->buffer_lock);
 	if (buffer->flags & ION_FLAG_CACHED)
 		kfree(buffer->dirty);
 	kfree(buffer);
@@ -399,7 +403,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 
 	len = PAGE_ALIGN(len);
 
-	mutex_lock(&dev->lock);
+	down_read(&dev->lock);
 	for (n = rb_first(&dev->heaps); n != NULL; n = rb_next(n)) {
 		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
 		/* if the client doesn't support this heap type */
@@ -438,7 +442,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			}
 		}
 	}
-	mutex_unlock(&dev->lock);
+	up_read(&dev->lock);
 
 	if (buffer == NULL) {
 		trace_ion_alloc_buffer_fail(client->name, dbg_str, len,
@@ -714,7 +718,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	client->task = task;
 	client->pid = pid;
 
-	mutex_lock(&dev->lock);
+	down_write(&dev->lock);
 	p = &dev->clients.rb_node;
 	while (*p) {
 		parent = *p;
@@ -732,7 +736,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	client->debug_root = debugfs_create_file(name, 0664,
 						 dev->debug_root, client,
 						 &debug_client_fops);
-	mutex_unlock(&dev->lock);
+	up_write(&dev->lock);
 
 	return client;
 }
@@ -829,7 +833,7 @@ void ion_client_destroy(struct ion_client *client)
 						     node);
 		ion_handle_destroy(&handle->ref);
 	}
-	mutex_lock(&dev->lock);
+	down_write(&dev->lock);
 	if (client->task)
 		put_task_struct(client->task);
 	rb_erase(&client->node, &dev->clients);
@@ -837,7 +841,7 @@ void ion_client_destroy(struct ion_client *client)
 
 	num_leaks = ion_check_for_and_print_leaks(dev);
 
-	mutex_unlock(&dev->lock);
+	up_write(&dev->lock);
 
 	if (num_leaks) {
 		struct task_struct *current_task = current;
@@ -1576,7 +1580,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	struct ion_device *dev = heap->dev;
 	struct rb_node *n;
 
-	mutex_lock(&dev->lock);
+	mutex_lock(&dev->buffer_lock);
 	seq_printf(s, "%16.s %16.s %16.s\n", "client", "pid", "size");
 
 	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
@@ -1597,7 +1601,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		}
 	}
 	ion_heap_print_debug(s, heap);
-	mutex_unlock(&dev->lock);
+	mutex_unlock(&dev->buffer_lock);
 	return 0;
 }
 
@@ -1625,7 +1629,7 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 		       __func__);
 
 	heap->dev = dev;
-	mutex_lock(&dev->lock);
+	down_write(&dev->lock);
 	while (*p) {
 		parent = *p;
 		entry = rb_entry(parent, struct ion_heap, node);
@@ -1646,7 +1650,7 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 	debugfs_create_file(heap->name, 0664, dev->debug_root, heap,
 			    &debug_heap_fops);
 end:
-	mutex_unlock(&dev->lock);
+	up_write(&dev->lock);
 }
 
 int ion_secure_handle(struct ion_client *client, struct ion_handle *handle,
@@ -1726,7 +1730,7 @@ int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
 	 * traverse the list of heaps available in this system
 	 * and find the heap that is specified.
 	 */
-	mutex_lock(&dev->lock);
+	down_write(&dev->lock);
 	for (n = rb_first(&dev->heaps); n != NULL; n = rb_next(n)) {
 		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
 		if (!ion_heap_allow_heap_secure(heap->type))
@@ -1739,7 +1743,7 @@ int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
 			ret_val = -EINVAL;
 		break;
 	}
-	mutex_unlock(&dev->lock);
+	up_write(&dev->lock);
 	return ret_val;
 }
 EXPORT_SYMBOL(ion_secure_heap);
@@ -1754,7 +1758,7 @@ int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
 	 * traverse the list of heaps available in this system
 	 * and find the heap that is specified.
 	 */
-	mutex_lock(&dev->lock);
+	down_write(&dev->lock);
 	for (n = rb_first(&dev->heaps); n != NULL; n = rb_next(n)) {
 		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
 		if (!ion_heap_allow_heap_secure(heap->type))
@@ -1767,7 +1771,7 @@ int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
 			ret_val = -EINVAL;
 		break;
 	}
-	mutex_unlock(&dev->lock);
+	up_write(&dev->lock);
 	return ret_val;
 }
 EXPORT_SYMBOL(ion_unsecure_heap);
@@ -1780,9 +1784,9 @@ static int ion_debug_leak_show(struct seq_file *s, void *unused)
 	seq_printf(s, "%16.s %16.s %16.s %16.s\n", "buffer", "heap", "size",
 		"ref cnt");
 
-	mutex_lock(&dev->lock);
 	ion_mark_dangling_buffers_locked(dev);
 
+	down_write(&dev->lock);
 	/* Anyone still marked as a 1 means a leaked handle somewhere */
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer *buf = rb_entry(n, struct ion_buffer,
@@ -1793,7 +1797,7 @@ static int ion_debug_leak_show(struct seq_file *s, void *unused)
 				(int)buf, buf->heap->name, buf->size,
 				atomic_read(&buf->ref.refcount));
 	}
-	mutex_unlock(&dev->lock);
+	up_write(&dev->lock);
 	return 0;
 }
 
@@ -1839,7 +1843,8 @@ struct ion_device *ion_device_create(long (*custom_ioctl)
 
 	idev->custom_ioctl = custom_ioctl;
 	idev->buffers = RB_ROOT;
-	mutex_init(&idev->lock);
+	mutex_init(&idev->buffer_lock);
+	init_rwsem(&idev->lock);
 	idev->heaps = RB_ROOT;
 	idev->clients = RB_ROOT;
 	debugfs_create_file("check_leaked_fds", 0664, idev->debug_root, idev,
