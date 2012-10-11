@@ -46,6 +46,8 @@
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
+	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "msm_otg", OFF),
+	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "msm_otg", OFF),
 };
 
 struct clock_init_data msm_dummy_clock_init_data __initdata = {
@@ -62,6 +64,8 @@ static struct of_device_id irq_match[] __initdata  = {
 static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
 			"msm_serial_hsl.0", NULL),
+	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
+			"msm_otg", NULL),
 	{}
 };
 
