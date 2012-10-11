@@ -128,7 +128,7 @@ fail:
 	return ret;
 }
 
-static int msm_iommu_sec_program_iommu(int sec_id)
+int msm_iommu_sec_program_iommu(int sec_id)
 {
 	struct msm_scm_sec_cfg {
 		unsigned int id;
