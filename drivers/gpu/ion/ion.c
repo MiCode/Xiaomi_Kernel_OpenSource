@@ -261,6 +261,12 @@ static void ion_iommu_delayed_unmap(struct ion_buffer *buffer)
 	mutex_unlock(&buffer->lock);
 }
 
+static void ion_delayed_unsecure(struct ion_buffer *buffer)
+{
+	if (buffer->heap->ops->unsecure_buffer)
+		buffer->heap->ops->unsecure_buffer(buffer, 1);
+}
+
 static void ion_buffer_destroy(struct kref *kref)
 {
 	struct ion_buffer *buffer = container_of(kref, struct ion_buffer, ref);
@@ -271,6 +277,7 @@ static void ion_buffer_destroy(struct kref *kref)
 
 	buffer->heap->ops->unmap_dma(buffer->heap, buffer);
 
+	ion_delayed_unsecure(buffer);
 	ion_iommu_delayed_unmap(buffer);
 	buffer->heap->ops->free(buffer);
 	mutex_lock(&dev->lock);
@@ -1642,6 +1649,73 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 			    &debug_heap_fops);
 end:
 	mutex_unlock(&dev->lock);
+}
+
+int ion_secure_handle(struct ion_client *client, struct ion_handle *handle,
+			int version, void *data, int flags)
+{
+	int ret = -EINVAL;
+	struct ion_heap *heap;
+	struct ion_buffer *buffer;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		WARN(1, "%s: invalid handle passed to secure.\n", __func__);
+		goto out_unlock;
+	}
+
+	buffer = handle->buffer;
+	heap = buffer->heap;
+
+	if (heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP) {
+		pr_err("%s: cannot secure buffer from non secure heap\n",
+			__func__);
+		goto out_unlock;
+	}
+
+	BUG_ON(!buffer->heap->ops->secure_buffer);
+	/*
+	 * Protect the handle via the client lock to ensure we aren't
+	 * racing with free
+	 */
+	ret = buffer->heap->ops->secure_buffer(buffer, version, data, flags);
+
+out_unlock:
+	mutex_unlock(&client->lock);
+	return ret;
+}
+
+int ion_unsecure_handle(struct ion_client *client, struct ion_handle *handle)
+{
+	int ret = -EINVAL;
+	struct ion_heap *heap;
+	struct ion_buffer *buffer;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		WARN(1, "%s: invalid handle passed to secure.\n", __func__);
+		goto out_unlock;
+	}
+
+	buffer = handle->buffer;
+	heap = buffer->heap;
+
+	if (heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP) {
+		pr_err("%s: cannot secure buffer from non secure heap\n",
+			__func__);
+		goto out_unlock;
+	}
+
+	BUG_ON(!buffer->heap->ops->unsecure_buffer);
+	/*
+	 * Protect the handle via the client lock to ensure we aren't
+	 * racing with free
+	 */
+	ret = buffer->heap->ops->unsecure_buffer(buffer, 0);
+
+out_unlock:
+	mutex_unlock(&client->lock);
+	return ret;
 }
 
 int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
