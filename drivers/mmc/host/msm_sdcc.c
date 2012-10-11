@@ -1821,7 +1821,7 @@ msmsdcc_irq(int irq, void *dev_id)
 				 */
 				wake_lock(&host->sdio_wlock);
 			} else {
-				if (!mmc->card || !mmc_card_sdio(mmc->card)) {
+				if (mmc->card && !mmc_card_sdio(mmc->card)) {
 					WARN(1, "%s: SDCC core interrupt received for non-SDIO cards when SDCC clocks are off\n",
 					     mmc_hostname(mmc));
 					ret = 1;
@@ -1855,7 +1855,7 @@ msmsdcc_irq(int irq, void *dev_id)
 #endif
 
 		if (status & MCI_SDIOINTROPE) {
-			if (!mmc->card || mmc_card_sdio(mmc->card)) {
+			if (mmc->card && !mmc_card_sdio(mmc->card)) {
 				WARN(1, "%s: SDIO interrupt received for non-SDIO card\n",
 					mmc_hostname(mmc));
 				ret = 1;
