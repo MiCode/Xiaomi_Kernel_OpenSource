@@ -103,7 +103,8 @@ static void gpio_bt_config(void)
 	if (machine_is_msm7627a_qrd1())
 		gpio_bt_sys_rest_en = 114;
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
-				|| machine_is_msm8625_evt())
+				|| machine_is_msm8625_evt()
+				|| machine_is_qrd_skud_prime())
 		gpio_bt_sys_rest_en = 16;
 	if (machine_is_msm8625_qrd7())
 		gpio_bt_sys_rest_en = 88;
@@ -975,6 +976,8 @@ void __init msm7627a_bt_power_init(void)
 	int i, rc = 0;
 	struct device *dev;
 
+	if (machine_is_qrd_skud_prime())
+		return;
 
 	gpio_bt_config();
 
