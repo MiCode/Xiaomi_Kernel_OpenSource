@@ -639,6 +639,7 @@
 		HSUSB_VDDCX-supply = <&pm8841_s2>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
+		vbus_dwc3-supply = <&pm8941_mvs1>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>;
 
 		qcom,msm-bus,name = "usb3";
