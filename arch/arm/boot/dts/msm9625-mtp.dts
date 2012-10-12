@@ -32,6 +32,14 @@
 	};
 
 	gpio@c300 { /* GPIO 4 */
+		/* ext_2p95v regulator enable config */
+		qcom,mode = <1>; /* Digital output */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,invert = <0>; /* Output low */
+		qcom,out-strength = <1>; /* Low */
+		qcom,vin-sel = <2>; /* PM8019 L11 - 1.8V */
+		qcom,src-select = <0>; /* Constant */
+		qcom,master-en = <1>; /* Enable GPIO */
 	};
 
 	gpio@c400 { /* GPIO 5 */
