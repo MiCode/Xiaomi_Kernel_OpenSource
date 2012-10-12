@@ -2311,7 +2311,8 @@ dequeue:
 			 * bits. This is a temporary workaround till
 			 * HW designers come back on this.
 			 */
-			if (retval == -EBUSY && req_dequeue && mEp->dir == 0) {
+			if (retval == -EBUSY && req_dequeue &&
+				(mEp->dir == 0 || mEp->num == 0)) {
 				req_dequeue = 0;
 				udc->dTD_update_fail_count++;
 				mEp->dTD_update_fail_count++;
