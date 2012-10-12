@@ -60,6 +60,7 @@ header-y += audit.h
 header-y += auto_fs.h
 header-y += auto_fs4.h
 header-y += auxvec.h
+header-y += avtimer.h
 header-y += ax25.h
 header-y += b1lli.h
 header-y += baycom.h
