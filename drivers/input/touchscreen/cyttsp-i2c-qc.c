@@ -3,7 +3,6 @@
  * drivers/input/touchscreen/cyttsp-i2c.c
  *
  * Copyright (C) 2009, 2010 Cypress Semiconductor, Inc.
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -43,7 +42,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/firmware.h>
 #include <linux/mutex.h>
-#include <linux/completion.h>
 #include <linux/regulator/consumer.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -59,30 +57,6 @@ module_param_named(tsdebug1, cyttsp_tsdebug1, uint, 0664);
 #define FW_FNAME_LEN 40
 #define TTSP_BUFF_SIZE 50
 
-enum cyttsp_powerstate {
-	CY_IDLE = 0,	/* IC cannot be reached */
-	CY_READY,		/* pre-operational; ready to go to ACTIVE */
-	CY_ACTIVE,	/* app is running, IC is scanning */
-	CY_LOW_PWR,	/* not currently used  */
-	CY_SLEEP,		/* app is running, IC is idle */
-	CY_BL,		/* bootloader is running */
-	CY_LDR,		/* loader is running */
-	CY_SYSINFO,	/* switching to sysinfo mode */
-	CY_INVALID,	/* always last in the list */
-};
-static char *cyttsp_powerstate_string[] = {
-	/* Order must match enum cyttsp_powerstate above */
-	"IDLE",
-	"READY",
-	"ACTIVE",
-	"LOW_PWR",
-	"SLEEP",
-	"BOOTLOADER",
-	"LOADER",
-	"SYSINFO",
-	"INVALID",
-};
-
 /* CY TTSP I2C Driver private data */
 struct cyttsp {
 	struct i2c_client *client;
@@ -92,15 +66,12 @@ struct cyttsp {
 	char phys[32];
 	struct cyttsp_platform_data *platform_data;
 	u8 num_prv_st_tch;
-	u8 power_settings[3];
 	u16 fw_start_addr;
-	enum cyttsp_powerstate power_state;
 	u16 act_trk[CY_NUM_TRK_ID];
 	u16 prv_st_tch[CY_NUM_ST_TCH_ID];
 	u16 prv_mt_tch[CY_NUM_MT_TCH_ID];
 	u16 prv_mt_pos[CY_NUM_TRK_ID][2];
 	atomic_t irq_enabled;
-	struct completion si_int_running;
 	bool cyttsp_update_fw;
 	bool cyttsp_fwloader_mode;
 	bool is_suspended;
@@ -186,67 +157,6 @@ static ssize_t cyttsp_irq_status(struct device *dev,
 	struct cyttsp *ts = i2c_get_clientdata(client);
 	return snprintf(buf, TTSP_BUFF_SIZE, "%u\n",
 				atomic_read(&ts->irq_enabled));
-}
-
-static int cyttsp_hndshk(struct cyttsp *ts, u8 hst_mode)
-{
-	int retval = 0;
-	u8 mode = 0;
-
-	mode = hst_mode & CY_HNDSHK_BIT ?
-		hst_mode & ~CY_HNDSHK_BIT :
-		hst_mode | CY_HNDSHK_BIT;
-
-	retval = i2c_smbus_write_i2c_block_data(ts->client,
-			CY_REG_BASE, sizeof(mode), &mode);
-
-	if (retval < 0) {
-		pr_err("%s: bus write fail on handshake r=%d\n",
-			__func__, retval);
-	}
-
-	return retval;
-}
-
-static void cyttsp_change_state(struct cyttsp *ts,
-	enum cyttsp_powerstate new_state)
-{
-	ts->power_state = new_state;
-	pr_info("%s: %s\n", __func__,
-		(ts->power_state < CY_INVALID) ?
-		cyttsp_powerstate_string[ts->power_state] :
-		"INVALID");
-}
-
-static int cyttsp_wait_ready(struct cyttsp *ts, struct completion *complete,
-	u8 *cmd, size_t cmd_size, unsigned long timeout_ms)
-{
-	unsigned long timeout = 0;
-	unsigned long uretval = 0;
-	int retval = 0;
-
-	timeout = msecs_to_jiffies(timeout_ms);
-	INIT_COMPLETION(*complete);
-	if ((cmd != NULL) && (cmd_size != 0)) {
-		retval = i2c_smbus_write_i2c_block_data(ts->client,
-				CY_REG_BASE, cmd_size, cmd);
-		if (retval < 0) {
-			pr_err("%s: bus write fail switch mode r=%d\n",
-				__func__, retval);
-			cyttsp_change_state(ts, CY_IDLE);
-			goto _cyttsp_wait_ready_exit;
-		}
-	}
-	uretval = wait_for_completion_interruptible_timeout(complete, timeout);
-	if (uretval == 0) {
-		pr_err("%s: Switch Mode Timeout waiting " \
-			"for ready interrupt - try reading regs\n", __func__);
-		/* continue anyway */
-		retval = 0;
-	}
-
-_cyttsp_wait_ready_exit:
-	return retval;
 }
 
 static ssize_t cyttsp_irq_enable(struct device *dev,
@@ -420,75 +330,39 @@ static void cyttsp_exit_bl_mode(struct cyttsp *ts)
 	} while (tries++ < 10 && (retval < 0));
 }
 
-static int cyttsp_set_sysinfo_mode(struct cyttsp *ts, u8 sleep)
-{
-	int retval;
-	u8 mode = CY_SYSINFO_MODE + sleep;
-
-	cyttsp_change_state(ts, CY_SYSINFO);
-
-	retval = cyttsp_wait_ready(ts, &ts->si_int_running,
-		&mode, sizeof(mode), CY_HALF_SEC_TMO_MS);
-
-	if (retval < 0) {
-		pr_err("%s: fail wait ready r=%d\n", __func__, retval);
-		goto cyttsp_set_sysinfo_mode_exit;
-	}
-
-	if (GET_HSTMODE(g_sysinfo_data.hst_mode) !=
-		GET_HSTMODE(CY_SYSINFO_MODE)) {
-		pr_err("%s: Fail enter Sysinfo mode hst_mode=0x%02X\n",
-			__func__, g_sysinfo_data.hst_mode);
-		retval = -EIO;
-	} else {
-		cyttsp_debug("%s: Enter Sysinfo mode hst_mode=0x%02X\n",
-			__func__, g_sysinfo_data.hst_mode);
-	}
-
-cyttsp_set_sysinfo_mode_exit:
-	return retval;
-}
-
-static void cyttsp_set_opmode(struct cyttsp *ts, u8 sleep)
+static void cyttsp_set_sysinfo_mode(struct cyttsp *ts)
 {
 	int retval, tries = 0;
-	u8 host_reg = CY_OP_MODE + sleep;
+	u8 host_reg = CY_SYSINFO_MODE;
 
-	cyttsp_change_state(ts, CY_ACTIVE);
+	do {
+		retval = i2c_smbus_write_i2c_block_data(ts->client,
+			CY_REG_BASE, sizeof(host_reg), &host_reg);
+		if (retval < 0)
+			msleep(20);
+	} while (tries++ < 10 && (retval < 0));
+
+	/* wait for TTSP Device to complete switch to SysInfo mode */
+	if (!(retval < 0)) {
+		retval = i2c_smbus_read_i2c_block_data(ts->client,
+				CY_REG_BASE,
+				sizeof(struct cyttsp_sysinfo_data_t),
+				(u8 *)&g_sysinfo_data);
+	} else
+		pr_err("%s: failed\n", __func__);
+}
+
+static void cyttsp_set_opmode(struct cyttsp *ts)
+{
+	int retval, tries = 0;
+	u8 host_reg = CY_OP_MODE;
+
 	do {
 		retval = i2c_smbus_write_i2c_block_data(ts->client,
 				CY_REG_BASE, sizeof(host_reg), &host_reg);
 		if (retval < 0)
 			msleep(20);
 	} while (tries++ < 10 && (retval < 0));
-}
-
-static int cyttsp_set_lp_mode(struct cyttsp *ts)
-{
-	int retval = 0, tries = 0;
-
-	retval = cyttsp_set_sysinfo_mode(ts, CY_LOW_PWR_MODE);
-	if (retval < 0) {
-		pr_err("%s: failed to enter sysinfo mode, retval =%x\n",
-			__func__, retval);
-		goto exit_low_power_mode;
-	}
-	do {
-		retval = i2c_smbus_write_i2c_block_data(
-			ts->client,
-			CY_REG_ACT_INTRVL,
-			sizeof(ts->power_settings), ts->power_settings);
-		if (retval < 0)
-			msleep(20);
-	} while ((retval < 0) && (tries++ < 5));
-	if (retval < 0)
-		pr_err("%s: failed to write power_settings, retval =%x\n",
-			__func__, retval);
-	msleep(CY_DLY_SYSINFO);
-exit_low_power_mode:
-	cyttsp_set_opmode(ts, CY_LOW_PWR_MODE);
-	return retval;
-
 }
 
 static int str2uc(char *str, u8 *val)
@@ -867,19 +741,21 @@ static void cyttspfw_flash_start(struct cyttsp *ts, const u8 *data,
 			pr_info("%s: firmware upgrade success\n", __func__);
 	}
 
-	/* enable interrupts */
-	if (ts->client->irq == 0)
-		mod_timer(&ts->timer, jiffies + TOUCHSCREEN_TIMEOUT);
-	else
-		enable_irq(ts->client->irq);
-
 	/* enter bootloader idle mode */
 	cyttsp_soft_reset(ts);
 	/* exit bootloader mode */
 	cyttsp_exit_bl_mode(ts);
 	msleep(100);
-	/* set low power mode and enter application mode*/
-	cyttsp_set_lp_mode(ts);
+	/* set sysinfo details */
+	cyttsp_set_sysinfo_mode(ts);
+	/* enter application mode */
+	cyttsp_set_opmode(ts);
+
+	/* enable interrupts */
+	if (ts->client->irq == 0)
+		mod_timer(&ts->timer, jiffies + TOUCHSCREEN_TIMEOUT);
+	else
+		enable_irq(ts->client->irq);
 }
 
 static void cyttspfw_upgrade_start(struct cyttsp *ts, const u8 *data,
@@ -1083,14 +959,15 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 
 	/* compare own irq counter with the device irq counter */
 	if (ts->client->irq) {
+		u8 host_reg;
 		u8 cur_cnt;
 		if (ts->platform_data->use_hndshk) {
-			retval = cyttsp_hndshk(ts, g_xy_data.hst_mode);
-			if (retval < 0) {
-				pr_err("%s: Fail write handshake r=%d\n",
-					__func__, retval);
-				retval = 0;
-			}
+
+			host_reg = g_xy_data.hst_mode & CY_HNDSHK_BIT ?
+				g_xy_data.hst_mode & ~CY_HNDSHK_BIT :
+				g_xy_data.hst_mode | CY_HNDSHK_BIT;
+			retval = i2c_smbus_write_i2c_block_data(ts->client,
+				CY_REG_BASE, sizeof(host_reg), &host_reg);
 		}
 		cur_cnt = g_xy_data.tt_undef[CY_IRQ_CNT_REG];
 		irq_cnt_total++;
@@ -1155,7 +1032,6 @@ static void cyttsp_xy_handler(struct cyttsp *ts)
 				tries++ < 100);
 			cyttsp_putbl(ts, 2, true, false, false);
 		}
-		cyttsp_set_lp_mode(ts);
 		goto exit_xy_handler;
 	} else {
 		cur_tch = GET_NUM_TOUCHES(g_xy_data.tt_stat);
@@ -1996,40 +1872,10 @@ static void cyttsp_timer(unsigned long handle)
 static irqreturn_t cyttsp_irq(int irq, void *handle)
 {
 	struct cyttsp *ts = (struct cyttsp *) handle;
-	int retval = 0;
 
 	cyttsp_xdebug("%s: Got IRQ\n", CY_I2C_NAME);
-	switch (ts->power_state) {
-	case CY_SYSINFO:
-		retval = i2c_smbus_read_i2c_block_data(ts->client,
-			CY_REG_BASE,
-			sizeof(struct cyttsp_sysinfo_data_t),
-			(u8 *)&g_sysinfo_data);
-		if (retval < 0) {
-			pr_err("%s: Fail read status and version regs r=%d\n",
-				__func__, retval);
-			goto cyttsp_irq_sysinfo_exit;
-		}
-		if (ts->platform_data->use_hndshk) {
-			retval = cyttsp_hndshk(ts, g_sysinfo_data.hst_mode);
-			if (retval < 0) {
-				pr_err("%s: Fail write handshake r=%d\n",
-					__func__, retval);
-				retval = 0;
-			}
-		}
-		udelay(100);	/* irq pulse: sysinfo mode switch=50us */
-		complete(&ts->si_int_running);
-cyttsp_irq_sysinfo_exit:
-		break;
-	case CY_ACTIVE:
-		cyttsp_xy_handler(ts);
-		break;
-	default:
-		pr_err("%s: Unexpected power state with interrupt ps=%d\n",
-			__func__, ts->power_state);
-		break;
-	}
+
+	cyttsp_xy_handler(ts);
 
 	return IRQ_HANDLED;
 }
@@ -2395,6 +2241,106 @@ static int cyttsp_power_on(struct cyttsp *ts)
 	}
 
 bypass:
+	/* switch to System Information mode to read versions
+	 * and set interval registers */
+	if (!(retval < CY_OK)) {
+		cyttsp_debug("switch to sysinfo mode\n");
+		host_reg = CY_SYSINFO_MODE;
+		retval = i2c_smbus_write_i2c_block_data(ts->client,
+			CY_REG_BASE, sizeof(host_reg), &host_reg);
+		/* wait for TTSP Device to complete switch to SysInfo mode */
+		msleep(100);
+		if (!(retval < CY_OK)) {
+			retval = i2c_smbus_read_i2c_block_data(ts->client,
+				CY_REG_BASE,
+				sizeof(struct cyttsp_sysinfo_data_t),
+				(u8 *)&g_sysinfo_data);
+			cyttsp_debug("SI2: hst_mode=0x%02X mfg_cmd=0x%02X"\
+				"mfg_stat=0x%02X\n",
+				g_sysinfo_data.hst_mode,
+				g_sysinfo_data.mfg_cmd,
+				g_sysinfo_data.mfg_stat);
+			cyttsp_debug("SI2: bl_ver=0x%02X%02X\n",
+				g_sysinfo_data.bl_verh,
+				g_sysinfo_data.bl_verl);
+			pr_debug("SI2: sysinfo act_int=0x%02X tch_tmout=0x%02X lp_int=0x%02X\n",
+				g_sysinfo_data.act_intrvl,
+				g_sysinfo_data.tch_tmout,
+				g_sysinfo_data.lp_intrvl);
+			pr_info("SI%d: tver=%02X%02X a_id=%02X%02X aver=%02X%02X\n",
+				102,
+				g_sysinfo_data.tts_verh,
+				g_sysinfo_data.tts_verl,
+				g_sysinfo_data.app_idh,
+				g_sysinfo_data.app_idl,
+				g_sysinfo_data.app_verh,
+				g_sysinfo_data.app_verl);
+			cyttsp_info("SI%d: c_id=%02X%02X%02X\n",
+				103,
+				g_sysinfo_data.cid[0],
+				g_sysinfo_data.cid[1],
+				g_sysinfo_data.cid[2]);
+			if (!(retval < CY_OK) &&
+				(CY_DIFF(ts->platform_data->act_intrvl,
+					CY_ACT_INTRVL_DFLT)  ||
+				CY_DIFF(ts->platform_data->tch_tmout,
+					CY_TCH_TMOUT_DFLT) ||
+				CY_DIFF(ts->platform_data->lp_intrvl,
+					CY_LP_INTRVL_DFLT))) {
+				if (!(retval < CY_OK)) {
+					u8 intrvl_ray[sizeof(\
+						ts->platform_data->act_intrvl) +
+						sizeof(\
+						ts->platform_data->tch_tmout) +
+						sizeof(\
+						ts->platform_data->lp_intrvl)];
+					u8 i = 0;
+
+					intrvl_ray[i++] =
+						ts->platform_data->act_intrvl;
+					intrvl_ray[i++] =
+						ts->platform_data->tch_tmout;
+					intrvl_ray[i++] =
+						ts->platform_data->lp_intrvl;
+
+					pr_debug("SI2: platinfo act_intrvl=0x%02X tch_tmout=0x%02X lp_intrvl=0x%02X\n",
+						ts->platform_data->act_intrvl,
+						ts->platform_data->tch_tmout,
+						ts->platform_data->lp_intrvl);
+					/* set intrvl registers */
+					retval = i2c_smbus_write_i2c_block_data(
+						ts->client,
+						CY_REG_ACT_INTRVL,
+						sizeof(intrvl_ray), intrvl_ray);
+					msleep(CY_DLY_SYSINFO);
+				}
+			}
+		}
+		/* switch back to Operational mode */
+		cyttsp_debug("switch back to operational mode\n");
+		if (!(retval < CY_OK)) {
+			host_reg = CY_OP_MODE/* + CY_LOW_PWR_MODE*/;
+			retval = i2c_smbus_write_i2c_block_data(ts->client,
+				CY_REG_BASE,
+				sizeof(host_reg), &host_reg);
+			/* wait for TTSP Device to complete
+			 * switch to Operational mode */
+			msleep(100);
+		}
+	}
+	/* init gesture setup;
+	 * this is required even if not using gestures
+	 * in order to set the active distance */
+	if (!(retval < CY_OK)) {
+		u8 gesture_setup;
+		cyttsp_debug("init gesture setup\n");
+		gesture_setup = ts->platform_data->gest_set;
+		retval = i2c_smbus_write_i2c_block_data(ts->client,
+			CY_REG_GEST_SET,
+			sizeof(gesture_setup), &gesture_setup);
+		msleep(CY_DLY_DFLT);
+	}
+
 	if (!(retval < CY_OK))
 		ts->platform_data->power_state = CY_ACTIVE_STATE;
 	else
@@ -2493,91 +2439,6 @@ error_vdd:
 	return rc;
 }
 
-static void sysinfo_debug_msg(struct cyttsp *ts)
-{
-	cyttsp_debug("SI2: hst_mode=0x%02X mfg_cmd=0x%02X " \
-		"mfg_stat=0x%02X\n", \
-		g_sysinfo_data.hst_mode, \
-		g_sysinfo_data.mfg_cmd, \
-		g_sysinfo_data.mfg_stat);
-	cyttsp_debug("SI2: bl_ver=0x%02X%02X\n", \
-		g_sysinfo_data.bl_verh, \
-		g_sysinfo_data.bl_verl);
-	cyttsp_debug("SI2: sysinfo act_int=0x%02X " \
-		"tch_tmout=0x%02X lp_int=0x%02X\n", \
-		g_sysinfo_data.act_intrvl, \
-		g_sysinfo_data.tch_tmout, \
-		g_sysinfo_data.lp_intrvl);
-	cyttsp_info("SI%d: tver=%02X%02X a_id=%02X%02X " \
-		"aver=%02X%02X\n", \
-		102, \
-		g_sysinfo_data.tts_verh, \
-		g_sysinfo_data.tts_verl, \
-		g_sysinfo_data.app_idh, \
-		g_sysinfo_data.app_idl, \
-		g_sysinfo_data.app_verh, \
-		g_sysinfo_data.app_verl);
-	cyttsp_info("SI%d: c_id=%02X%02X%02X\n", \
-		103, \
-		g_sysinfo_data.cid[0], \
-		g_sysinfo_data.cid[1], \
-		g_sysinfo_data.cid[2]);
-	cyttsp_debug("SI2: platinfo " \
-		"act_intrvl=0x%02X tch_tmout=0x%02X " \
-		"lp_intrvl=0x%02X\n", \
-		ts->platform_data->act_intrvl, \
-		ts->platform_data->tch_tmout, \
-		ts->platform_data->lp_intrvl);
-}
-
-static int set_bypass_modes(struct cyttsp *ts)
-{
-	int retval = 0, tries = 0;
-
-	/* switch to System Information mode to read versions
-	 * and set interval registers */
-	retval = cyttsp_set_sysinfo_mode(ts, CY_LOW_PWR_MODE);
-	if (!(retval < CY_OK)) {
-		retval = i2c_smbus_read_i2c_block_data(ts->client,
-			CY_REG_BASE,
-			sizeof(struct cyttsp_sysinfo_data_t),
-			(u8 *)&g_sysinfo_data);
-		sysinfo_debug_msg(ts);
-		/* set power settings registers */
-		do {
-			retval = i2c_smbus_write_i2c_block_data(ts->client,
-				CY_REG_ACT_INTRVL, sizeof(ts->power_settings),
-				ts->power_settings);
-			if (retval < 0)
-				msleep(20);
-		} while ((retval < 0) && (tries++ < 5));
-		if (retval < 0)
-			pr_err("%s: failed to write  power_settings, " \
-				"retval =%x\n", __func__, retval);
-	}
-	/* switch back to Operational mode */
-	cyttsp_debug("switch back to operational mode\n");
-	if (!(retval < CY_OK)) {
-		cyttsp_set_opmode(ts, CY_LOW_PWR_MODE);
-		/* wait for TTSP Device to complete
-		 * switch to Operational mode */
-		msleep(100);
-	}
-	/* init gesture setup;
-	 * this is required even if not using gestures
-	 * in order to set the active distance */
-	if (!(retval < CY_OK)) {
-		u8 gesture_setup;
-		cyttsp_debug("init gesture setup\n");
-		gesture_setup = ts->platform_data->gest_set;
-		retval = i2c_smbus_write_i2c_block_data(ts->client,
-			CY_REG_GEST_SET,
-			sizeof(gesture_setup), &gesture_setup);
-		msleep(CY_DLY_DFLT);
-	}
-	return retval;
-}
-
 /* cyttsp_initialize: Driver Initialization. This function takes
  * care of the following tasks:
  * 1. Create and register an input device with input layer
@@ -2614,21 +2475,6 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 	input_device->name = CY_I2C_NAME;
 	input_device->phys = ts->phys;
 	input_device->dev.parent = &client->dev;
-
-	ts->power_state = CY_ACTIVE;
-
-	if (ts->platform_data->act_intrvl)
-		ts->power_settings[0] = ts->platform_data->act_intrvl;
-	else
-		ts->power_settings[0] = CY_ACT_INTRVL_DFLT;
-	if (ts->platform_data->tch_tmout)
-		ts->power_settings[1] = ts->platform_data->tch_tmout;
-	else
-		ts->power_settings[1] = CY_TCH_TMOUT_DFLT;
-	if (ts->platform_data->lp_intrvl)
-		ts->power_settings[2] = ts->platform_data->lp_intrvl;
-	else
-		ts->power_settings[2] = CY_LP_INTRVL_DFLT;
 
 	/* init the touch structures */
 	ts->num_prv_st_tch = CY_NTCH;
@@ -2847,7 +2693,6 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 		goto error_rm_dev_file_fupdate_fw;
 	}
 
-	set_bypass_modes(ts);
 	cyttsp_info("%s: Successful registration\n", CY_I2C_NAME);
 
 	goto success;
@@ -2935,8 +2780,6 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 
 		i2c_set_clientdata(client, ts);
 
-		init_completion(&ts->si_int_running);
-
 		error = cyttsp_initialize(client, ts);
 		if (error) {
 			cyttsp_xdebug1("err cyttsp_initialize\n");
@@ -2959,7 +2802,6 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 	device_init_wakeup(&client->dev, ts->platform_data->wakeup);
 	mutex_init(&ts->mutex);
-	retval = cyttsp_set_lp_mode(ts);
 
 	cyttsp_info("Start Probe %s\n", \
 		(retval < CY_OK) ? "FAIL" : "PASS");
@@ -3096,7 +2938,7 @@ static int cyttsp_resume(struct device *dev)
 	cyttsp_debug("Wake Up %s\n", \
 		(retval < CY_OK) ? "FAIL" : "PASS");
 
-	return cyttsp_set_lp_mode(ts);
+	return retval;
 }
 
 /* Function to manage low power suspend */
