@@ -33,11 +33,9 @@
 		#gpio-cells = <2>;
 	};
 
-	timer: msm-qtimer@f9021000 {
+	timer {
 		compatible = "qcom,msm-qtimer", "arm,armv7-timer";
-		reg = <0xf9021000 0x1000>;
-		interrupts = <0 7 0 0 8 0>;
-		irq-is-not-percpu;
+		interrupts = <1 2 0 1 3 0>;
 		clock-frequency = <19200000>;
 	};
 
