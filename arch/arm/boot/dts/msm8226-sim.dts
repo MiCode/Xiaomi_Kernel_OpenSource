@@ -11,7 +11,7 @@
  */
 
 /dts-v1/;
-/include/ "skeleton.dtsi"
+/include/ "msm8226.dtsi"
 /include/ "msm8226-ion.dtsi"
 /include/ "msm8226-camera.dtsi"
 
@@ -19,60 +19,12 @@
 	model = "Qualcomm MSM 8226 Simulator";
 	compatible = "qcom,msm8226-sim", "qcom,msm8226";
 	qcom,msm-id = <145 1 0>;
-	interrupt-parent = <&intc>;
-
-	chosen {
-		bootargs ="root=/dev/ram rw init=/init console=ttyHSL0,115200n8 initrd=0x00000000,0x00000000 mem=512M@0x00000000";
-	};
-
-	intc: interrupt-controller@f9000000 {
-		compatible = "qcom,msm-qgic2";
-		interrupt-controller;
-		#interrupt-cells = <3>;
-		reg = <0xF9000000 0x1000>,
-		      <0xF9002000 0x1000>;
-	};
-
-	msmgpio: gpio@fd510000 {
-		compatible = "qcom,msm-gpio";
-		interrupt-controller;
-		#interrupt-cells = <2>;
-		reg = <0xfd510000 0x4000>;
-		#gpio-cells = <2>;
-	};
-
-	timer {
-		compatible = "qcom,msm-qtimer", "arm,armv7-timer";
-		interrupts = <1 2 0 1 3 0>;
-		clock-frequency = <19200000>;
-	};
 
 	serial@f991f000 {
-		compatible = "qcom,msm-lsuart-v14";
-		reg = <0xf991f000 0x1000>;
-		interrupts = <0 109 0>;
+		status = "ok";
 	};
 
 	serial@f995e000 {
-		compatible = "qcom,msm-lsuart-v14";
-		reg = <0xf995e000 0x1000>;
-		interrupts = <0 114 0>;
+		status = "ok";
 	};
-
-        usb@f9a55000 {
-                compatible = "qcom,hsusb-otg";
-                reg = <0xf9a55000 0x400>;
-                interrupts = <0 134 0>;
-                interrupt-names = "core_irq";
-
-                qcom,hsusb-otg-phy-type = <2>;
-                qcom,hsusb-otg-mode = <1>;
-                qcom,hsusb-otg-otg-control = <1>;
-                qcom,hsusb-otg-disable-reset;
-        };
-
-	android_usb {
-		compatible = "qcom,android-usb";
-	};
-
 };
