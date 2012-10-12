@@ -250,3 +250,12 @@
 		};
 	};
 };
+
+/ {
+	ext_2p95v: regulator-isl80101 {
+		compatible = "regulator-fixed";
+		regulator-name = "ext_2p95v";
+		gpio = <&pm8019_gpios 4 0>;
+		enable-active-high;
+	};
+};
