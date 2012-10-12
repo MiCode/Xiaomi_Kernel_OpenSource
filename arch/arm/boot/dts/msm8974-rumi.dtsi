@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+/include/ "msm8974-camera-sensor.dtsi"
+
 / {
 	timer {
 		clock-frequency = <5000000>;
