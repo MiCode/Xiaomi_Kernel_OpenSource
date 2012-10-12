@@ -19,7 +19,6 @@
 #include <linux/usb/cdc.h>
 
 #include <linux/usb/composite.h>
-#include <linux/usb/android_composite.h>
 #include <linux/platform_device.h>
 
 #include <linux/spinlock.h>
@@ -40,6 +39,9 @@
 #define MBIM_GET_DATAGRAM_COUNT		_IOR(MBIM_IOCTL_MAGIC, 3, u16)
 
 #define NR_MBIM_PORTS			1
+
+/* ID for Microsoft OS String */
+#define MBIM_OS_STRING_ID   0xEE
 
 struct ctrl_pkt {
 	void			*buf;
@@ -354,6 +356,63 @@ static struct usb_gadget_strings mbim_string_table = {
 static struct usb_gadget_strings *mbim_strings[] = {
 	&mbim_string_table,
 	NULL,
+};
+
+/* Microsoft OS Descriptors */
+
+/*
+ * We specify our own bMS_VendorCode byte which Windows will use
+ * as the bRequest value in subsequent device get requests.
+ */
+#define MBIM_VENDOR_CODE	0xA5
+
+/* Microsoft OS String */
+static u8 mbim_os_string[] = {
+	18, /* sizeof(mtp_os_string) */
+	USB_DT_STRING,
+	/* Signature field: "MSFT100" */
+	'M', 0, 'S', 0, 'F', 0, 'T', 0, '1', 0, '0', 0, '0', 0,
+	/* vendor code */
+	MBIM_VENDOR_CODE,
+	/* padding */
+	0
+};
+
+/* Microsoft Extended Configuration Descriptor Header Section */
+struct mbim_ext_config_desc_header {
+	__le32	dwLength;
+	__u16	bcdVersion;
+	__le16	wIndex;
+	__u8	bCount;
+	__u8	reserved[7];
+};
+
+/* Microsoft Extended Configuration Descriptor Function Section */
+struct mbim_ext_config_desc_function {
+	__u8	bFirstInterfaceNumber;
+	__u8	bInterfaceCount;
+	__u8	compatibleID[8];
+	__u8	subCompatibleID[8];
+	__u8	reserved[6];
+};
+
+/* Microsoft Extended Configuration Descriptor */
+static struct {
+	struct mbim_ext_config_desc_header	header;
+	struct mbim_ext_config_desc_function    function;
+} mbim_ext_config_desc = {
+	.header = {
+		.dwLength = __constant_cpu_to_le32(sizeof mbim_ext_config_desc),
+		.bcdVersion = __constant_cpu_to_le16(0x0100),
+		.wIndex = __constant_cpu_to_le16(4),
+		.bCount = 1,
+	},
+	.function = {
+		.bFirstInterfaceNumber = 0,
+		.bInterfaceCount = 1,
+		.compatibleID = { 'A', 'L', 'T', 'R', 'C', 'F', 'G' },
+		/* .subCompatibleID = DYNAMIC */
+	},
 };
 
 /*
@@ -1108,6 +1167,63 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	return value;
 }
 
+/*
+ * This function handles the Microsoft-specific OS descriptor control
+ * requests that are issued by Windows host drivers to determine the
+ * configuration containing the MBIM function.
+ *
+ * Unlike mbim_setup() this function handles two specific device requests,
+ * and only when a configuration has not yet been selected.
+ */
+static int mbim_ctrlrequest(struct usb_composite_dev *cdev,
+			    const struct usb_ctrlrequest *ctrl)
+{
+	int	value = -EOPNOTSUPP;
+	u16	w_index = le16_to_cpu(ctrl->wIndex);
+	u16	w_value = le16_to_cpu(ctrl->wValue);
+	u16	w_length = le16_to_cpu(ctrl->wLength);
+
+	/* only respond to OS desciptors when no configuration selected */
+	if (cdev->config || !mbim_ext_config_desc.function.subCompatibleID[0])
+		return value;
+
+	pr_debug("%02x.%02x v%04x i%04x l%u",
+			ctrl->bRequestType, ctrl->bRequest,
+			w_value, w_index, w_length);
+
+	/* Handle MSFT OS string */
+	if (ctrl->bRequestType ==
+			(USB_DIR_IN | USB_TYPE_STANDARD | USB_RECIP_DEVICE)
+			&& ctrl->bRequest == USB_REQ_GET_DESCRIPTOR
+			&& (w_value >> 8) == USB_DT_STRING
+			&& (w_value & 0xFF) == MBIM_OS_STRING_ID) {
+
+		value = (w_length < sizeof(mbim_os_string) ?
+				w_length : sizeof(mbim_os_string));
+		memcpy(cdev->req->buf, mbim_os_string, value);
+
+	} else if (ctrl->bRequestType ==
+			(USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE)
+			&& ctrl->bRequest == MBIM_VENDOR_CODE && w_index == 4) {
+
+		/* Handle Extended OS descriptor */
+		value = (w_length < sizeof(mbim_ext_config_desc) ?
+				w_length : sizeof(mbim_ext_config_desc));
+		memcpy(cdev->req->buf, &mbim_ext_config_desc, value);
+	}
+
+	/* respond with data transfer or status phase? */
+	if (value >= 0) {
+		int rc;
+		cdev->req->zero = value < w_length;
+		cdev->req->length = value;
+		rc = usb_ep_queue(cdev->gadget->ep0, cdev->req, GFP_ATOMIC);
+		if (rc < 0)
+			pr_err("response queue error: %d", rc);
+	}
+	return value;
+}
+
 static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_mbim		*mbim = func_to_mbim(f);
@@ -1371,6 +1487,17 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 			goto fail;
 	}
 
+	/*
+	 * If MBIM is bound in a config other than the first, tell Windows
+	 * about it by returning the num as a string in the OS descriptor's
+	 * subCompatibleID field. Windows only supports up to config #4.
+	 */
+	if (c->bConfigurationValue >= 2 && c->bConfigurationValue <= 4) {
+		pr_debug("MBIM in configuration %d", c->bConfigurationValue);
+		mbim_ext_config_desc.function.subCompatibleID[0] =
+			c->bConfigurationValue + '0';
+	}
+
 	pr_info("mbim(%d): %s speed IN/%s OUT/%s NOTIFY/%s\n",
 			mbim->port_num,
 			gadget_is_dualspeed(c->cdev->gadget) ? "dual" : "full",
@@ -1412,6 +1539,8 @@ static void mbim_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	kfree(mbim->not_port.notify_req->buf);
 	usb_ep_free_request(mbim->not_port.notify, mbim->not_port.notify_req);
+
+	mbim_ext_config_desc.function.subCompatibleID[0] = 0;
 }
 
 /**

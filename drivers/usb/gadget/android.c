@@ -700,11 +700,19 @@ static int mbim_function_bind_config(struct android_usb_function *f,
 	return mbim_bind_config(c, 0);
 }
 
+static int mbim_function_ctrlrequest(struct android_usb_function *f,
+					struct usb_composite_dev *cdev,
+					const struct usb_ctrlrequest *c)
+{
+	return mbim_ctrlrequest(cdev, c);
+}
+
 static struct android_usb_function mbim_function = {
 	.name		= "usb_mbim",
 	.cleanup	= mbim_function_cleanup,
 	.bind_config	= mbim_function_bind_config,
 	.init		= mbim_function_init,
+	.ctrlrequest	= mbim_function_ctrlrequest,
 };
 
 #ifdef CONFIG_SND_PCM
