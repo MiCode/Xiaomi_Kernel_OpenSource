@@ -4,7 +4,8 @@ SATA nodes are defined to describe on-chip Serial ATA controllers.
 Each SATA controller should have its own node.
 
 Required properties:
-- compatible        : compatible list, contains "calxeda,hb-ahci" or "snps,spear-ahci"
+- compatible        : compatible list, contains "calxeda,hb-ahci" or
+		      "snps,spear-ahci" or "qcom,msm-ahci"
 - interrupts        : <interrupt mapping for SATA IRQ>
 - reg               : <registers mapping>
 
