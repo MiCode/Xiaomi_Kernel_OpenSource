@@ -16,12 +16,14 @@
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 
 #include "core.h"
 #include "dwc3_otg.h"
 #include "io.h"
 #include "xhci.h"
 
+static void dwc3_otg_reset(struct dwc3_otg *dotg);
 
 /**
  * dwc3_otg_set_host_regs - reset dwc3 otg registers to host operation.
@@ -29,7 +31,7 @@
  * This function sets the OTG registers to work in A-Device host mode.
  * This function should be called just before entering to A-Device mode.
  *
- * @w: Pointer to the dwc3 otg workqueue.
+ * @w: Pointer to the dwc3 otg struct
  */
 static void dwc3_otg_set_host_regs(struct dwc3_otg *dotg)
 {
@@ -39,11 +41,26 @@ static void dwc3_otg_set_host_regs(struct dwc3_otg *dotg)
 	octl = dwc3_readl(dotg->regs, DWC3_OCTL);
 	octl &= ~DWC3_OTG_OCTL_PERIMODE;
 	dwc3_writel(dotg->regs, DWC3_OCTL, octl);
+}
 
-	/*
-	 * TODO: add more OTG registers writes for HOST mode here,
-	 * see figure 12-10 A-device flow in dwc3 Synopsis spec
-	 */
+/**
+ * dwc3_otg_set_host_power - Enable port power control for host operation
+ *
+ * This function enables the OTG Port Power required to operate in Host mode
+ * This function should be called only after XHCI driver has set the port
+ * power in PORTSC register.
+ *
+ * @w: Pointer to the dwc3 otg struct
+ */
+void dwc3_otg_set_host_power(struct dwc3_otg *dotg)
+{
+	u32 osts;
+
+	osts = dwc3_readl(dotg->regs, DWC3_OSTS);
+	if (!(osts & 0x8))
+		dev_err(dotg->dwc->dev, "%s: xHCIPrtPower not set\n", __func__);
+
+	dwc3_writel(dotg->regs, DWC3_OCTL, DWC3_OTG_OCTL_PRTPWRCTL);
 }
 
 /**
@@ -80,19 +97,13 @@ static void dwc3_otg_set_peripheral_regs(struct dwc3_otg *dotg)
 static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 {
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-	struct usb_hcd *hcd;
-	struct xhci_hcd *xhci;
 	int ret = 0;
 
-	if (!otg->host)
+	if (!dotg->dwc->xhci)
 		return -EINVAL;
 
-	hcd = bus_to_hcd(otg->host);
-	xhci = hcd_to_xhci(hcd);
 	if (on) {
-		dev_dbg(otg->phy->dev, "%s: turn on host %s\n",
-					__func__, otg->host->bus_name);
-		dwc3_otg_set_host_regs(dotg);
+		dev_dbg(otg->phy->dev, "%s: turn on host\n", __func__);
 
 		/*
 		 * This should be revisited for more testing post-silicon.
@@ -104,25 +115,38 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		 * remove_hcd, But we may not use standard set_host method
 		 * anymore.
 		 */
-		ret = hcd->driver->start(hcd);
+		dwc3_otg_set_host_regs(dotg);
+		ret = platform_device_add(dotg->dwc->xhci);
 		if (ret) {
 			dev_err(otg->phy->dev,
-				"%s: failed to start primary hcd, ret=%d\n",
+				"%s: failed to add XHCI pdev ret=%d\n",
 				__func__, ret);
 			return ret;
 		}
 
-		ret = xhci->shared_hcd->driver->start(xhci->shared_hcd);
+		ret = regulator_enable(dotg->vbus_otg);
 		if (ret) {
-			dev_err(otg->phy->dev,
-				"%s: failed to start secondary hcd, ret=%d\n",
-				__func__, ret);
+			dev_err(otg->phy->dev, "unable to enable vbus_otg\n");
+			platform_device_del(dotg->dwc->xhci);
 			return ret;
 		}
+
+		/* re-init OTG EVTEN register as XHCI reset clears it */
+		dwc3_otg_reset(dotg);
 	} else {
-		dev_dbg(otg->phy->dev, "%s: turn off host %s\n",
-					__func__, otg->host->bus_name);
-		hcd->driver->stop(hcd);
+		dev_dbg(otg->phy->dev, "%s: turn off host\n", __func__);
+
+		platform_device_del(dotg->dwc->xhci);
+
+		ret = regulator_disable(dotg->vbus_otg);
+		if (ret) {
+			dev_err(otg->phy->dev, "unable to disable vbus_otg\n");
+			return ret;
+		}
+
+		/* re-init core and OTG register as XHCI reset clears it */
+		dwc3_post_host_reset_core_init(dotg->dwc);
+		dwc3_otg_reset(dotg);
 	}
 
 	return 0;
@@ -141,26 +165,18 @@ static int dwc3_otg_set_host(struct usb_otg *otg, struct usb_bus *host)
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
 
 	if (host) {
-		dev_dbg(otg->phy->dev, "%s: set host %s\n",
+		dev_dbg(otg->phy->dev, "%s: set host %s, portpower\n",
 					__func__, host->bus_name);
 		otg->host = host;
-
 		/*
-		 * Only after both peripheral and host are set then check
-		 * OTG sm. This prevents unnecessary activation of the sm
-		 * in case the ID is high.
+		 * Though XHCI power would be set by now, but some delay is
+		 * required for XHCI controller before setting OTG Port Power
+		 * TODO: Tune this delay
 		 */
-		if (otg->gadget)
-			schedule_work(&dotg->sm_work);
+		msleep(300);
+		dwc3_otg_set_host_power(dotg);
 	} else {
-		if (otg->phy->state == OTG_STATE_A_HOST) {
-			dwc3_otg_start_host(otg, 0);
-			otg->host = NULL;
-			otg->phy->state = OTG_STATE_UNDEFINED;
-			schedule_work(&dotg->sm_work);
-		} else {
-			otg->host = NULL;
-		}
+		otg->host = NULL;
 	}
 
 	return 0;
@@ -212,14 +228,7 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 		dev_dbg(otg->phy->dev, "%s: set gadget %s\n",
 					__func__, gadget->name);
 		otg->gadget = gadget;
-
-		/*
-		 * Only after both peripheral and host are set then check
-		 * OTG sm. This prevents unnecessary activation of the sm
-		 * in case the ID is grounded.
-		 */
-		if (otg->host)
-			schedule_work(&dotg->sm_work);
+		schedule_work(&dotg->sm_work);
 	} else {
 		if (otg->phy->state == OTG_STATE_B_PERIPHERAL) {
 			dwc3_otg_start_peripheral(otg, 0);
@@ -434,7 +443,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	case OTG_STATE_UNDEFINED:
 		dwc3_otg_init_sm(dotg);
 		/* Switch to A or B-Device according to ID / BSV */
-		if (!test_bit(ID, &dotg->inputs) && phy->otg->host) {
+		if (!test_bit(ID, &dotg->inputs)) {
 			dev_dbg(phy->dev, "!id\n");
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
@@ -450,7 +459,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_B_IDLE:
-		if (!test_bit(ID, &dotg->inputs) && phy->otg->host) {
+		if (!test_bit(ID, &dotg->inputs)) {
 			dev_dbg(phy->dev, "!id\n");
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
@@ -577,6 +586,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
  */
 static void dwc3_otg_reset(struct dwc3_otg *dotg)
 {
+	static int once;
 	/*
 	 * OCFG[2] - OTG-Version = 1
 	 * OCFG[1] - HNPCap = 0
@@ -593,7 +603,10 @@ static void dwc3_otg_reset(struct dwc3_otg *dotg)
 	 * OCTL[1] - DevSetHNPEn = 0
 	 * OCTL[0] - HstSetHNPEn = 0
 	 */
-	dwc3_writel(dotg->regs, DWC3_OCTL, 0x40);
+	if (!once) {
+		dwc3_writel(dotg->regs, DWC3_OCTL, 0x40);
+		once++;
+	}
 
 	/* Clear all otg events (interrupts) indications  */
 	dwc3_writel(dotg->regs, DWC3_OEVT, 0xFFFF);
@@ -640,6 +653,13 @@ int dwc3_otg_init(struct dwc3 *dwc)
 		return -ENOMEM;
 	}
 
+	dotg->vbus_otg = devm_regulator_get(dwc->dev->parent, "vbus_dwc3");
+	if (IS_ERR(dotg->vbus_otg)) {
+		dev_err(dwc->dev, "Unable to get vbus_dwc3 regulator\n");
+		ret = PTR_ERR(dotg->vbus_otg);
+		goto err1;
+	}
+
 	/* DWC3 has separate IRQ line for OTG events (ID/BSV etc.) */
 	dotg->irq = platform_get_irq_byname(to_platform_device(dwc->dev),
 								"otg_irq");
@@ -664,6 +684,7 @@ int dwc3_otg_init(struct dwc3 *dwc)
 		goto err1;
 	}
 
+	dotg->dwc = dwc;
 	dotg->otg.phy->otg = &dotg->otg;
 	dotg->otg.phy->dev = dwc->dev;
 

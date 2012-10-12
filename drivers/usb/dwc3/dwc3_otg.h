@@ -32,9 +32,11 @@ struct dwc3_charger;
  * @inputs: OTG state machine inputs
  */
 struct dwc3_otg {
-	struct usb_otg otg;
-	int irq;
-	void __iomem *regs;
+	struct usb_otg		otg;
+	int			irq;
+	struct dwc3		*dwc;
+	void __iomem		*regs;
+	struct regulator	*vbus_otg;
 	struct work_struct	sm_work;
 	struct dwc3_charger	*charger;
 	struct dwc3_ext_xceiv	*ext_xceiv;

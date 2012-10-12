@@ -166,7 +166,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	phy = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
 	if (phy && phy->otg) {
 		dev_dbg(&pdev->dev, "%s otg support available\n", __func__);
-		hcd->driver->stop(hcd);
 		ret = otg_set_host(phy->otg, &hcd->self);
 		if (ret) {
 			dev_err(&pdev->dev, "%s otg_set_host failed\n",
@@ -210,6 +209,7 @@ static int xhci_plat_remove(struct platform_device *dev)
 
 	usb_remove_hcd(hcd);
 	iounmap(hcd->regs);
+	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	usb_put_hcd(hcd);
 	kfree(xhci);
 

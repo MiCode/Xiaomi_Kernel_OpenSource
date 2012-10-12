@@ -988,4 +988,7 @@ static inline int dwc3_gadget_resume(struct dwc3 *dwc)
 }
 #endif /* !IS_ENABLED(CONFIG_USB_DWC3_HOST) */
 
+void dwc3_gadget_restart(struct dwc3 *dwc);
+void dwc3_post_host_reset_core_init(struct dwc3 *dwc);
+
 #endif /* __DRIVERS_USB_DWC3_CORE_H */

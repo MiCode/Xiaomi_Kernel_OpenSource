@@ -11,7 +11,7 @@ Required properties :
 	"otg_irq" : Interrupt for DWC3 core's OTG Events
 - <supply-name>-supply: phandle to the regulator device tree node
   Required "supply-name" examples are "SSUSB_VDDCX", "SSUSB_1p8",
-  "HSUSB_VDDCX", "HSUSB_1p8", "HSUSB_3p3".
+  "HSUSB_VDDCX", "HSUSB_1p8", "HSUSB_3p3" and "vbus_dwc3".
 - qcom,dwc-usb3-msm-dbm-eps: Number of endpoints avaliable for
   the DBM (Device Bus Manager). The DBM is HW unit which is part of
   the MSM USB3.0 core (which also includes the Synopsys DesignWare
@@ -41,6 +41,7 @@ Example MSM USB3.0 controller device node :
 		HSUSB_VDDCX-supply = <&pm8841_s2>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
+		vbus_dwc3-supply = <&pm8941_mvs1>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>
 
 		qcom,msm_bus,name = "usb3";
