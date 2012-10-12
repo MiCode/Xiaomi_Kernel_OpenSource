@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+/include/ "msm8974-camera-sensor-liquid.dtsi"
+
 / {
 	serial@f991e000 {
 		status = "ok";

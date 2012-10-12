@@ -11,6 +11,7 @@
  */
 
 /include/ "dsi-panel-toshiba-720p-video.dtsi"
+/include/ "msm8974-camera-sensor.dtsi"
 
 / {
 	serial@f991e000 {
