@@ -3245,6 +3245,11 @@ static struct platform_device mpq_keypad_device = {
 	},
 };
 
+static struct platform_device msm_dev_avtimer_device = {
+	.name = "dev_avtimer",
+	.dev = { .platform_data = &dev_avtimer_pdata },
+};
+
 /* Sensors DSPS platform data */
 #define DSPS_PIL_GENERIC_NAME		"dsps"
 static void __init apq8064_init_dsps(void)
@@ -3684,6 +3689,9 @@ static void __init apq8064_cdp_init(void)
 		platform_device_register(&mpq_keypad_device);
 	} else if (machine_is_mpq8064_hrd())
 		platform_device_register(&mpq_hrd_keys_pdev);
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+		machine_is_mpq8064_dtv())
+		platform_device_register(&msm_dev_avtimer_device);
 }
 
 MACHINE_START(APQ8064_CDP, "QCT APQ8064 CDP")
