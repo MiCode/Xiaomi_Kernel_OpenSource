@@ -1726,6 +1726,19 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 			goto next_page;
 		}
 
+		if (use_user_accessible_timers()) {
+			if (!vma && in_user_timers_area(mm, start)) {
+				int goto_next_page = 0;
+				int user_timer_ret = get_user_timer_page(vma,
+					mm, start, gup_flags, pages, i,
+					&goto_next_page);
+				if (goto_next_page)
+					goto next_page;
+				else
+					return user_timer_ret;
+			}
+		}
+
 		if (!vma ||
 		    (vma->vm_flags & (VM_IO | VM_PFNMAP)) ||
 		    !(vm_flags & vma->vm_flags))
