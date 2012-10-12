@@ -2436,6 +2436,7 @@ apq8064_pm8921_device_rpm_regulator __devinitdata = {
 static struct gpio_ir_recv_platform_data gpio_ir_recv_pdata = {
 	.gpio_nr = 88,
 	.active_low = 1,
+	.can_wakeup = true,
 };
 
 static struct platform_device gpio_ir_recv_pdev = {
@@ -3453,6 +3454,8 @@ static void __init apq8064_cdp_init(void)
 	apq8064_common_init();
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv()) {
+		gpio_ir_recv_pdata.swfi_latency =
+					msm_rpmrs_levels[0].latency_us;
 		enable_avc_i2c_bus();
 		msm_rotator_set_split_iommu_domain();
 		platform_add_devices(mpq_devices, ARRAY_SIZE(mpq_devices));
