@@ -42,6 +42,7 @@
 #include <linux/power_supply.h>
 #include <linux/mhl_8334.h>
 
+#include <mach/scm.h>
 #include <mach/clk.h>
 #include <mach/mpm.h>
 #include <mach/msm_xo.h>
@@ -3433,6 +3434,38 @@ static void msm_otg_debugfs_cleanup(void)
 	debugfs_remove_recursive(msm_otg_dbg_root);
 }
 
+#define MSM_OTG_CMD_ID		0x09
+#define MSM_OTG_DEVICE_ID	0x04
+#define MSM_OTG_VMID_IDX	0xFF
+#define MSM_OTG_MEM_TYPE	0x02
+struct msm_otg_scm_cmd_buf {
+	unsigned int device_id;
+	unsigned int vmid_idx;
+	unsigned int mem_type;
+} __attribute__ ((__packed__));
+
+static void msm_otg_pnoc_errata_fix(struct msm_otg *motg)
+{
+	int ret;
+	struct msm_otg_platform_data *pdata = motg->pdata;
+	struct msm_otg_scm_cmd_buf cmd_buf;
+
+	if (!pdata->pnoc_errata_fix)
+		return;
+
+	dev_dbg(motg->phy.dev, "applying fix for pnoc h/w issue\n");
+
+	cmd_buf.device_id = MSM_OTG_DEVICE_ID;
+	cmd_buf.vmid_idx = MSM_OTG_VMID_IDX;
+	cmd_buf.mem_type = MSM_OTG_MEM_TYPE;
+
+	ret = scm_call(SCM_SVC_CP, MSM_OTG_CMD_ID, &cmd_buf,
+				sizeof(cmd_buf), NULL, 0);
+
+	if (ret)
+		dev_err(motg->phy.dev, "scm command failed to update VMIDMT\n");
+}
+
 static u64 msm_otg_dma_mask = DMA_BIT_MASK(64);
 static struct platform_device *msm_otg_add_pdev(
 		struct platform_device *ofdev, const char *name)
@@ -3546,6 +3579,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				&pdata->pmic_id_irq);
 	pdata->disable_reset_on_disconnect = of_property_read_bool(node,
 				"qcom,hsusb-otg-disable-reset");
+	pdata->pnoc_errata_fix = of_property_read_bool(node,
+				"qcom,hsusb-otg-pnoc-errata-fix");
 
 	return pdata;
 }
@@ -3743,6 +3778,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_ldo_init;
 	}
 	clk_prepare_enable(motg->core_clk);
+
+	/* Check if USB mem_type change is needed to workaround PNOC hw issue */
+	msm_otg_pnoc_errata_fix(motg);
 
 	writel(0, USB_USBINTR);
 	writel(0, USB_OTGSC);
