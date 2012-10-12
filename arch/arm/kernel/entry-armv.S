@@ -764,6 +764,97 @@ ENDPROC(__switch_to)
 	.align	5
 	.globl	__kuser_helper_start
 __kuser_helper_start:
+#ifdef GENERIC_TIME_VSYSCALL
+/*
+ * Reference declaration:
+ *
+ *      extern struct timezone __kernel_helper_gtod_timezone
+ *      extern unsigned int __kernel_helper_gtod_seqnum
+ *
+ *  Definition and user space usage example:
+ *
+ *      #define __kernel_helper_gtod_timezone (*(unsigned int*)0xffff0f20)
+ *      #define __kernel_helper_gtod_seqnum   (*(unsigned int*)0xffff0f28)
+ *
+ *      unsigned int prelock, postlock ;
+ *      do {
+ *          prelock = __kernel_helper_gtod_seqnum;
+ *          memcpy(&tz, (void*)&(__kernel_helper_gtod_timezone),
+ *                     sizeof(struct timezone)) ;
+ *          postlock = __kernel_helper_gtod_seqnum;
+ *      } while (prelock != postlock);
+ *
+ * 0xffff0f20-3: tz_minuteswest
+ * 0xffff0f24-7: tz_dsttime
+ * 0xffff0f28-b: sequence #.
+ * 0xffff0f30-3: offset into CONFIG_USER_ACCESSIBLE_TIMER_BASE to get the timer.
+ * 0xffff0f34-7: Feature flag
+ * 0xffff0f38-b: wall-to-mononic: tv_sec
+ * 0xffff0f3c-f: wall-to-mononic: tv_nsec
+ */
+	.globl  __kuser_gtod_timezone
+__kuser_gtod_timezone: @0xffff0f20
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	/* This offset is where the flag to enable the
+	 * user accessible timers is located.
+	 */
+	.word	0
+	.word	0
+	.word	0
+	.align	5
+
+/*
+ * Reference declaration:
+ *
+ *      extern struct timeval __kernel_helper_gtod_timeval
+ *      extern unsigned int __kernel_helper_gtod_seqnum
+ *
+ *  Definition and user space usage example:
+ *
+ *      #define __kernel_helper_gtod_timeval (*(unsigned int*)0xffff0f40)
+ *      #define __kernel_helper_gtod_seqnum   (*(unsigned int*)0xffff0f48)
+ *
+ *      unsigned int prelock, postlock ;
+ *      struct gtod {
+ *          uint64_t  cycle_last;
+ *          uint64_t  mask;
+ *          uint32_t  mult;
+ *          uint32_t  shift;
+ *          uint32_t  tv_sec;
+ *          uint32_t  tv_nsec;
+ *      };
+ *      struct gtod gdtod;
+ *
+ *      do {
+ *          prelock = __kernel_helper_gtod_seqnum;
+ *          memcpy(&gdtod, (void*)&(__kernel_helper_gtod_timeval),
+ *                     sizeof(struct gtod)) ;
+ *          postlock = __kernel_helper_gtod_seqnum;
+ *      } while (prelock != postlock);
+ *
+ * 0xffff0f40-7: cycle_last
+ * 0xffff0f48-f: mask
+ * 0xffff0f50-3: mult
+ * 0xffff0f54-7: shift
+ * 0xffff0f58-b: tv_sec
+ * 0xffff0f5c-f: tv_nsec
+ */
+	.globl  __kuser_gtod_timeval
+__kuser_gtod_timeval:  @0xffff0f40
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.align	5
+#endif
 
 /*
  * Due to the length of some sequences, __kuser_cmpxchg64 spans 2 regular
