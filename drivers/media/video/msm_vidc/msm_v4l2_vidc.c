@@ -486,7 +486,7 @@ struct buffer_info *get_registered_buf(struct list_head *list,
 			|| CONTAINS(buff_off, size, temp->buff_off)
 			|| OVERLAPS(buff_off, size,
 				temp->buff_off, temp->size))) {
-				dprintk(VIDC_WARN,
+				dprintk(VIDC_INFO,
 				"This memory region is already mapped\n");
 				ret = temp;
 				break;
@@ -509,7 +509,7 @@ struct buffer_info *get_same_fd_buffer(struct list_head *list,
 	if (!list_empty(list)) {
 		list_for_each_entry(temp, list, list) {
 			if (temp && temp->fd == fd)  {
-				dprintk(VIDC_ERR, "Found same fd buffer\n");
+				dprintk(VIDC_INFO, "Found same fd buffer\n");
 				ret = temp;
 				break;
 			}
@@ -709,7 +709,7 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 				b->m.planes[i].reserved[1],
 				b->m.planes[i].length);
 		if (binfo) {
-			dprintk(VIDC_WARN,
+			dprintk(VIDC_INFO,
 				"This memory region has already been prepared\n");
 			rc = -EINVAL;
 			goto exit;
@@ -1153,7 +1153,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 		ocmem_notifier_register(OCMEM_VIDEO, &ocmem->vidc_ocmem_nb);
 	if (!ocmem->handle) {
 		dprintk(VIDC_WARN, "Failed to register OCMEM notifier.");
-		dprintk(VIDC_WARN, " Performance will be impacted\n");
+		dprintk(VIDC_INFO, " Performance will be impacted\n");
 	}
 	return rc;
 fail_register_domains:

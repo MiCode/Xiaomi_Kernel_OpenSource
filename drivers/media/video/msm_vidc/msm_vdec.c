@@ -344,7 +344,7 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 				0, 0);
 				if (!inst->extradata_handle) {
 					dprintk(VIDC_ERR,
-						"Failed to allocate extradta memory\n");
+						"Failed to allocate extradata memory\n");
 					rc = -ENOMEM;
 					break;
 				}
@@ -436,7 +436,7 @@ int msm_vdec_dqbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 	rc = vb2_dqbuf(&q->vb2_bufq, b, true);
 	mutex_unlock(&q->lock);
 	if (rc)
-		dprintk(VIDC_WARN, "Failed to dqbuf, %d\n", rc);
+		dprintk(VIDC_DBG, "Failed to dqbuf, %d\n", rc);
 	return rc;
 }
 
@@ -622,7 +622,7 @@ int msm_vdec_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 				sizeof(f->description));
 		f->pixelformat = fmt->fourcc;
 	} else {
-		dprintk(VIDC_WARN, "No more formats found\n");
+		dprintk(VIDC_INFO, "No more formats found\n");
 		rc = -EINVAL;
 	}
 	return rc;
