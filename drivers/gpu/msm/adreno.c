@@ -2263,7 +2263,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	static uint io_cnt;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct adreno_context *adreno_ctx = context->devctxt;
+	struct adreno_context *adreno_ctx = context ? context->devctxt : NULL;
 	int retries = 0;
 	unsigned int ts_issued;
 	unsigned int context_id = _get_context_id(context);
@@ -2286,7 +2286,8 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	 * again after 'retry_ts_cmp_msecs' milliseconds.
 	 */
 	if (timestamp_cmp(timestamp, ts_issued) > 0) {
-		if (!(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS)) {
+		if (adreno_ctx == NULL ||
+			!(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS)) {
 			KGSL_DRV_ERR(device,
 				"Cannot wait for invalid ts <%d:0x%x>, "
 				"last issued ts <%d:0x%x>\n",
