@@ -260,6 +260,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[128] = MSM_CPU_8625,
 	[129] = MSM_CPU_8625,
 	[137] = MSM_CPU_8625,
+	[167] = MSM_CPU_8625,
 
 	/* 8064 MPQ ID */
 	[130] = MSM_CPU_8064,
