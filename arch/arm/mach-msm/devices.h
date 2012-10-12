@@ -244,7 +244,8 @@ extern struct platform_device msm_cpudai_incall_record_rx;
 extern struct platform_device msm_cpudai_incall_record_tx;
 extern struct platform_device msm_i2s_cpudai0;
 extern struct platform_device msm_i2s_cpudai1;
-
+extern struct platform_device msm_i2s_cpudai4;
+extern struct platform_device msm_i2s_cpudai5;
 extern struct platform_device msm_pil_q6v3;
 extern struct platform_device msm_pil_modem;
 extern struct platform_device msm_pil_tzapps;

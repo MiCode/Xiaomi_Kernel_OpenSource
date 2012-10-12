@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,6 +89,20 @@ static struct gpiomux_setting cdc_i2s_sclk = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
+static struct gpiomux_setting audio_sec_i2s[] = {
+	/* Suspend state */
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv  = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_DOWN,
+	},
+	/* Active state */
+	{
+		.func = GPIOMUX_FUNC_2,
+		.drv  = GPIOMUX_DRV_8MA,
+		.pull = GPIOMUX_PULL_NONE,
+	}
+};
 
 static struct gpiomux_setting cdc_i2s_dout = {
 	.func = GPIOMUX_FUNC_1,
@@ -142,6 +156,42 @@ static struct msm_gpiomux_config msm9615_audio_prim_i2s_codec_configs[] = {
 	},
 };
 
+static struct msm_gpiomux_config msm9615_audio_sec_i2s_codec_configs[] = {
+	{
+		.gpio = GPIO_SPKR_I2S_MCLK,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &cdc_i2s_mclk,
+		},
+	},
+	{
+		.gpio = GPIO_SEC_I2S_SCK,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_sec_i2s[0],
+			[GPIOMUX_ACTIVE] = &audio_sec_i2s[1],
+		},
+	},
+	{
+		.gpio = GPIO_SEC_I2S_DOUT,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_sec_i2s[0],
+			[GPIOMUX_ACTIVE] = &audio_sec_i2s[1],
+		},
+	},
+	{
+		.gpio = GPIO_SEC_I2S_WS,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_sec_i2s[0],
+			[GPIOMUX_ACTIVE] = &audio_sec_i2s[1],
+		},
+	},
+	{
+		.gpio = GPIO_SEC_I2S_DIN,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_sec_i2s[0],
+			[GPIOMUX_ACTIVE] = &audio_sec_i2s[1],
+		},
+	},
+};
 /* Physical address for LPA CSR
  * LPA SIF mux registers. These are
  * ioremap( ) for Virtual address.
@@ -273,6 +323,9 @@ static struct snd_soc_jack button_jack;
 
 static struct platform_device *mdm9615_snd_device_slim;
 static struct platform_device *mdm9615_snd_device_i2s;
+
+static u32 sif_reg_value   = 0x0000;
+static u32 spare_reg_value = 0x0000;
 
 static bool hs_detect_use_gpio;
 module_param(hs_detect_use_gpio, bool, 0444);
@@ -947,6 +1000,10 @@ static const struct snd_kcontrol_new tabla_msm9615_i2s_controls[] = {
 		     msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
 	SOC_ENUM_EXT("PRI_TX Channels", mdm9615_enum[2],
 		     msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
+	SOC_ENUM_EXT("SEC_RX Channels", mdm9615_enum[3],
+			msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
+	SOC_ENUM_EXT("SEC_TX Channels", mdm9615_enum[4],
+			msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
 };
 
 static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -1234,47 +1291,64 @@ err:
 	return ret;
 }
 
-static void msm9615_config_i2s_sif_mux(u8 value)
+static void msm9615_config_i2s_sif_mux(u8 value, u8 i2s_intf)
 {
 	struct msm_i2s_ctl *pintf = &msm9x15_i2s_ctl;
-	u32 sif_shadow  = 0x0000;
-	/* Make this variable global if both secondary and
-	 * primary needs to be supported. This is required
-	 * to retain bits in interace and set only specific
-	 * bits in the register. Also set Sec Intf bits.
-	 * Secondary interface bits are 0,1.
-	 **/
-	sif_shadow = (sif_shadow & LPASS_SIF_MUX_CTL_PRI_MUX_SEL_BMSK) |
-		     (value << LPASS_SIF_MUX_CTL_PRI_MUX_SEL_SHFT);
+	u32 sif_shadow = 0x0000;
+
+	pr_debug("%s() Value = 0x%x intf = 0x%x\n", __func__, value, i2s_intf);
+	if (i2s_intf == MSM_INTF_PRIM) {
+		sif_shadow = (sif_shadow & LPASS_SIF_MUX_CTL_PRI_MUX_SEL_BMSK) |
+			     (value << LPASS_SIF_MUX_CTL_PRI_MUX_SEL_SHFT);
+		pr_debug("%s() Sif shadow = 0x%x\n", __func__, sif_shadow);
+		sif_reg_value =
+			((sif_reg_value & LPASS_SIF_MUX_CTL_SEC_MUX_SEL_BMSK) |
+			 sif_shadow);
+	}
+	if (i2s_intf == MSM_INTF_SECN) {
+		sif_shadow = (sif_shadow & LPASS_SIF_MUX_CTL_SEC_MUX_SEL_BMSK) |
+				(value << LPASS_SIF_MUX_CTL_SEC_MUX_SEL_SHFT);
+		pr_debug("%s() Sif shadow = 0x%x\n", __func__, sif_shadow);
+		sif_reg_value =
+			((sif_reg_value & LPASS_SIF_MUX_CTL_PRI_MUX_SEL_BMSK) |
+			sif_shadow);
+	}
 	if (pintf->sif_virt_addr != NULL)
-		iowrite32(sif_shadow, pintf->sif_virt_addr);
+		iowrite32(sif_reg_value, pintf->sif_virt_addr);
 	/* Dont read SIF register. Device crashes. */
-	pr_debug("%s() SIF Reg = 0x%x\n", __func__, sif_shadow);
+	pr_debug("%s() SIF Reg = 0x%x\n", __func__, sif_reg_value);
 }
 
 static void msm9615_config_i2s_spare_mux(u8 value, u8 i2s_intf)
 {
 	struct msm_i2s_ctl *pintf = &msm9x15_i2s_ctl;
 	u32 spare_shadow = 0x0000;
-	/* Make this variable global if both secondary and
-	 * primary needs to be supported. This is required
-	 * to retain bits in interace and set only specific
-	 * bits in the register. Also set Sec Intf bits.
-	 **/
+
+	pr_debug("%s() Value = 0x%x intf = 0x%x\n", __func__, value, i2s_intf);
 	if (i2s_intf == MSM_INTF_PRIM) {
 		/* Configure Primary SIF */
-	    spare_shadow = (spare_shadow & LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_BMSK
-			   ) | (value << LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_SHFT);
+		spare_shadow =
+			(spare_shadow & LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_BMSK) |
+			(value << LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_SHFT);
+		pr_debug("%s() Spare shadow = 0x%x\n", __func__, spare_shadow);
+		spare_reg_value =
+			((spare_shadow & LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_BMSK) |
+			spare_shadow);
 	}
 	if (i2s_intf == MSM_INTF_SECN) {
 		/*Secondary interface configuration*/
-	    spare_shadow = (spare_shadow & LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_BMSK
-			   ) | (value << LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_SHFT);
+		spare_shadow =
+			(spare_shadow & LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_BMSK) |
+			(value << LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_SHFT);
+		pr_debug("%s() Spare shadow = 0x%x\n", __func__, spare_shadow);
+		spare_reg_value =
+			((spare_shadow & LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_BMSK) |
+			spare_shadow);
 	}
 	if (pintf->spare_virt_addr != NULL)
-		iowrite32(spare_shadow, pintf->spare_virt_addr);
+		iowrite32(spare_reg_value, pintf->spare_virt_addr);
 	/* Dont read SPARE register. Device crashes. */
-	pr_debug("%s( ): SPARE Reg =0x%x\n", __func__, spare_shadow);
+	pr_debug("%s( ): SPARE Reg =0x%x\n", __func__, spare_reg_value);
 }
 
 static int msm9615_i2s_hw_params(struct snd_pcm_substream *substream,
@@ -1342,7 +1416,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 					return -EINVAL;
 				}
 				msm9615_config_i2s_sif_mux(
-				       pintf->mux_ctl[MSM_DIR_BOTH].sifconfig);
+				       pintf->mux_ctl[MSM_DIR_BOTH].sifconfig,
+					i2s_intf);
 				msm9615_config_i2s_spare_mux(
 				      pintf->mux_ctl[MSM_DIR_BOTH].spareconfig,
 				      i2s_intf);
@@ -1368,7 +1443,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 					return -EINVAL;
 				}
 				msm9615_config_i2s_sif_mux(
-					pintf->mux_ctl[MSM_DIR_TX].sifconfig);
+					pintf->mux_ctl[MSM_DIR_TX].sifconfig,
+					i2s_intf);
 				msm9615_config_i2s_spare_mux(
 					pintf->mux_ctl[MSM_DIR_TX].spareconfig,
 					i2s_intf);
@@ -1397,7 +1473,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 					return -EINVAL;
 				}
 				msm9615_config_i2s_sif_mux(
-					pintf->mux_ctl[MSM_DIR_RX].sifconfig);
+					pintf->mux_ctl[MSM_DIR_RX].sifconfig,
+					i2s_intf);
 				msm9615_config_i2s_spare_mux(
 					pintf->mux_ctl[MSM_DIR_RX].spareconfig,
 					i2s_intf);
@@ -1451,11 +1528,34 @@ static void msm9615_i2s_shutdown(struct snd_pcm_substream *substream)
 		 pintf->intf_status[i2s_intf][MSM_DIR_TX]);
 }
 
-static void  mdm9615_install_codec_i2s_gpio(void)
+void msm9615_config_port_select(void)
 {
-	msm_gpiomux_install(msm9615_audio_prim_i2s_codec_configs,
-			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
+	iowrite32(SEC_PCM_PORT_SLC_VALUE, secpcm_portslc_virt_addr);
+	pr_debug("%s() port select after updating = 0x%x\n",
+		__func__, ioread32(secpcm_portslc_virt_addr));
 }
+static void  mdm9615_install_codec_i2s_gpio(struct snd_pcm_substream *substream)
+{
+	u8 i2s_intf, i2s_dir;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	if (!msm9615_i2s_intf_dir_sel(cpu_dai->name, &i2s_intf, &i2s_dir)) {
+		pr_debug("%s( ): cpu name = %s intf =%d dir = %d\n",
+			 __func__, cpu_dai->name, i2s_intf, i2s_dir);
+		if (i2s_intf == MSM_INTF_PRIM) {
+			msm_gpiomux_install(
+			msm9615_audio_prim_i2s_codec_configs,
+			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
+		} else if (i2s_intf == MSM_INTF_SECN) {
+			msm_gpiomux_install(msm9615_audio_sec_i2s_codec_configs,
+			ARRAY_SIZE(msm9615_audio_sec_i2s_codec_configs));
+			msm9615_config_port_select();
+
+		}
+	}
+}
+
 static int msm9615_i2s_prepare(struct snd_pcm_substream *substream)
 {
 	u8 ret = 0;
@@ -1463,7 +1563,7 @@ static int msm9615_i2s_prepare(struct snd_pcm_substream *substream)
 	if (wcd9xxx_get_intf_type() < 0)
 		ret = -ENODEV;
 	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-		mdm9615_install_codec_i2s_gpio();
+		mdm9615_install_codec_i2s_gpio(substream);
 
 	return ret;
 }
@@ -1732,15 +1832,6 @@ void msm9615_config_sif_mux(u8 value)
 	iowrite32(sif_shadow, sif_virt_addr);
 	/* Dont read SIF register. Device crashes. */
 	pr_debug("%s() SIF Reg = 0x%x\n", __func__, sif_shadow);
-}
-
-void msm9615_config_port_select(void)
-{
-	pr_debug("%s() port select defualt = 0x%x\n",
-		 __func__, ioread32(secpcm_portslc_virt_addr));
-	iowrite32(SEC_PCM_PORT_SLC_VALUE, secpcm_portslc_virt_addr);
-	pr_debug("%s() port select after updating = 0x%x\n",
-		 __func__, ioread32(secpcm_portslc_virt_addr));
 }
 
 static int mdm9615_auxpcm_startup(struct snd_pcm_substream *substream)
@@ -2049,6 +2140,30 @@ static struct snd_soc_dai_link mdm9615_dai_i2s_tabla[] = {
 		.be_hw_params_fixup = msm9615_i2s_tx_be_hw_params_fixup,
 		.ops = &msm9615_i2s_be_ops,
 	},
+	{
+		.name = LPASS_BE_SEC_I2S_RX,
+		.stream_name = "Secondary I2S Playback",
+		.cpu_dai_name = "msm-dai-q6.4",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_I2S_RX,
+		.be_hw_params_fixup = msm9615_i2s_rx_be_hw_params_fixup,
+		.ops = &msm9615_i2s_be_ops,
+	},
+	{
+		.name = LPASS_BE_SEC_I2S_TX,
+		.stream_name = "Secondary I2S Capture",
+		.cpu_dai_name = "msm-dai-q6.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_I2S_TX,
+		.be_hw_params_fixup = msm9615_i2s_tx_be_hw_params_fixup,
+		.ops = &msm9615_i2s_be_ops,
+	},
 };
 
 static struct snd_soc_dai_link mdm9615_dai_slimbus_tabla[] = {
@@ -2097,8 +2212,8 @@ static struct snd_soc_card snd_soc_card_mdm9615[] = {
 	},
 	[1] = {
 		.name = "mdm9615-tabla-snd-card-i2s",
-		.controls = tabla_mdm9615_controls,
-		.num_controls = ARRAY_SIZE(tabla_mdm9615_controls),
+		.controls = tabla_msm9615_i2s_controls,
+		.num_controls = ARRAY_SIZE(tabla_msm9615_i2s_controls),
 	},
 };
 
