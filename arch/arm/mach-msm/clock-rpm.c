@@ -78,6 +78,13 @@ static int clk_rpmrs_set_rate_smd(struct rpm_clk *r, uint32_t value,
 
 static int clk_rpmrs_handoff_smd(struct rpm_clk *r)
 {
+	if (!r->branch) {
+		r->last_set_khz = INT_MAX;
+		if (!r->active_only)
+			r->last_set_sleep_khz = INT_MAX;
+		r->c.rate = 1 * r->factor;
+	}
+
 	return 0;
 }
 
