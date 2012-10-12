@@ -37,6 +37,7 @@ struct map_desc {
 #define MT_MEMORY_R		16
 #define MT_MEMORY_RW		17
 #define MT_MEMORY_RX		18
+#define MT_DEVICE_USER_ACCESSIBLE	19
 
 #ifdef CONFIG_MMU
 extern void iotable_init(struct map_desc *, int);
