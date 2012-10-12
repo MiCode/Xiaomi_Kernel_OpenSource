@@ -779,6 +779,8 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 		__func__, audio, buf_node, buf_node->paddr,
 		buf_node->buf.data_len,
 		audio->buf_cfg.meta_info_enable);
+	pr_debug("%s[%p]: flags = 0x%x\n", __func__, audio,
+		buf_node->meta_info.meta_in.nflags);
 
 	ac = audio->ac;
 	/* Offset with  appropriate meta */
@@ -798,6 +800,11 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 		param.flags = 0;
 	else
 		param.flags = 0xFF00;
+
+	if ((buf_node != NULL) &&
+		(buf_node->meta_info.meta_in.nflags & AUDIO_DEC_EOF_SET))
+		param.flags |= AUDIO_DEC_EOF_SET;
+
 	param.uid = param.paddr;
 	/* Read command will populate paddr as token */
 	buf_node->token = param.paddr;

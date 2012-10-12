@@ -36,6 +36,7 @@
 #define ADRV_STATUS_FSYNC 0x00000008
 #define ADRV_STATUS_PAUSE 0x00000010
 #define AUDIO_DEC_EOS_SET  0x00000001
+#define AUDIO_DEC_EOF_SET  0x00000010
 #define AUDIO_EVENT_NUM		10
 
 #define __CONTAINS(r, v, l) ({                                  \
