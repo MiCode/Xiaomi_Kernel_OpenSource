@@ -44,10 +44,10 @@
 #include "clock.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
-	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "msm_otg", OFF),
-	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "msm_otg", OFF),
+	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
+	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
+	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "f9a55000.usb", OFF),
+	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "f9a55000.usb", OFF),
 };
 
 struct clock_init_data msm_dummy_clock_init_data __initdata = {
@@ -58,14 +58,6 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
 static struct of_device_id irq_match[] __initdata  = {
 	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
 	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
-	{}
-};
-
-static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
-	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
-			"msm_serial_hsl.0", NULL),
-	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
-			"msm_otg", NULL),
 	{}
 };
 
@@ -83,24 +75,21 @@ void __init msm8226_init_irq(void)
 	of_irq_init(irq_match);
 }
 
-void __init msm8226_init(struct of_dev_auxdata **adata)
+void __init msm8226_init(void)
 {
 	msm8226_init_gpiomux();
 
 	msm_clock_init(&msm_dummy_clock_init_data);
-
-	*adata = msm8226_auxdata_lookup;
 }
 
 void __init msm8226_dt_init(void)
 {
-	struct of_dev_auxdata *adata = NULL;
-	msm8226_init(&adata);
+	msm8226_init();
 
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
-	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
+	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 }
 
 
