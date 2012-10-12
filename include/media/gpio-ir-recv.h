@@ -17,6 +17,7 @@ struct gpio_ir_recv_platform_data {
 	unsigned int gpio_nr;
 	bool active_low;
 	bool can_wakeup;
+	u32 swfi_latency;
 };
 
 #endif /* __GPIO_IR_RECV_H__ */
