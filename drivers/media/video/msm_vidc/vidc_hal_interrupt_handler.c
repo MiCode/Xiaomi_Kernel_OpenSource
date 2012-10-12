@@ -530,7 +530,7 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 	struct hal_session *session;
 
 	if (!msg_hdr) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return;
 	}
 

@@ -234,7 +234,7 @@ const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
 		k++;
 	}
 	if (i == size) {
-		dprintk(VIDC_WARN, "Format not found\n");
+		dprintk(VIDC_INFO, "Format not found\n");
 		return NULL;
 	}
 	return &fmt[i];
@@ -252,7 +252,7 @@ const struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
 				break;
 	}
 	if (i == size) {
-		dprintk(VIDC_WARN, "Format not found\n");
+		dprintk(VIDC_INFO, "Format not found\n");
 		return NULL;
 	}
 	return &fmt[i];
@@ -1094,7 +1094,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	}
 	if (msm_comm_scale_clocks(core, inst->session_type)) {
 		dprintk(VIDC_WARN, "Failed to scale clocks while closing\n");
-		dprintk(VIDC_WARN, "Power might be impacted\n");
+		dprintk(VIDC_INFO, "Power might be impacted\n");
 	}
 	if (list_empty(&core->instances)) {
 		msm_comm_unset_ocmem(core);
@@ -1258,7 +1258,7 @@ static int msm_vidc_start(int flipped_state, struct msm_vidc_inst *inst)
 	rc = vidc_hal_session_start((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
-			"Failed to send load resources\n");
+			"Failed to send start\n");
 		goto exit;
 	}
 	change_inst_state(inst, MSM_VIDC_START);
@@ -1304,7 +1304,7 @@ static int msm_vidc_release_res(int flipped_state, struct msm_vidc_inst *inst)
 	rc = vidc_hal_session_release_res((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
-			"Failed to send load resources\n");
+			"Failed to send release resources\n");
 		goto exit;
 	}
 	change_inst_state(inst, MSM_VIDC_RELEASE_RESOURCES);
@@ -1328,7 +1328,7 @@ static int msm_comm_session_close(int flipped_state, struct msm_vidc_inst *inst)
 	rc = vidc_hal_session_end((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
-			"Failed to send load resources\n");
+			"Failed to send close\n");
 		goto exit;
 	}
 	change_inst_state(inst, MSM_VIDC_OPEN);
