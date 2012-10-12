@@ -195,15 +195,10 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 								void *ss_handle)
 {
 	int ret;
-	switch (code) {
-	case SUBSYS_BEFORE_SHUTDOWN:
-		pr_debug("%s: M-Notify: Shutdown started\n", __func__);
-		ret = sysmon_send_event(SYSMON_SS_LPASS, "modem",
-				SUBSYS_BEFORE_SHUTDOWN);
-		if (ret < 0)
-			pr_err("%s: sysmon_send_event error %d", __func__, ret);
-		break;
-	}
+	pr_debug("%s: M-Notify: event %lu\n", __func__, code);
+	ret = sysmon_send_event(SYSMON_SS_LPASS, "modem", code);
+	if (ret < 0)
+		pr_err("%s: sysmon_send_event error %d", __func__, ret);
 	return NOTIFY_DONE;
 }
 
