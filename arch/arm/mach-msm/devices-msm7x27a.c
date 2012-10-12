@@ -1963,6 +1963,41 @@ struct clock_init_data msm8625_dummy_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clock_8625_dummy),
 };
 
+
+static int __init msm_gpio_config_gps(void)
+{
+	unsigned int gps_gpio = 7;
+	int ret = 0;
+
+	if (!machine_is_msm8625_evb())
+		return ret;
+
+	ret = gpio_tlmm_config(GPIO_CFG(gps_gpio, 0, GPIO_CFG_OUTPUT,
+			GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	if (ret < 0) {
+		pr_err("gpio tlmm failed for gpio-%d\n", gps_gpio);
+		return ret;
+	}
+
+	ret = gpio_request(gps_gpio, "gnss-gpio");
+	if (ret < 0) {
+		pr_err("failed to request gpio-%d\n", gps_gpio);
+		return ret;
+	}
+
+	ret = gpio_direction_input(gps_gpio);
+	if (ret < 0) {
+		pr_err("failed to change direction for gpio-%d\n", gps_gpio);
+		return ret;
+	}
+
+	ret = gpio_export(gps_gpio, true);
+	if (ret < 0)
+		pr_err("failed to export gpio for user\n");
+
+	return ret;
+}
+
 int __init msm7x2x_misc_init(void)
 {
 	if (machine_is_msm8625_rumi3()) {
@@ -1993,6 +2028,9 @@ int __init msm7x2x_misc_init(void)
 		pl310_resources[1].start = INT_L2CC_INTR;
 
 	platform_device_register(&pl310_erp_device);
+
+	if (msm_gpio_config_gps() < 0)
+		pr_err("Error for gpio config for GPS gpio\n");
 
 	return 0;
 }
