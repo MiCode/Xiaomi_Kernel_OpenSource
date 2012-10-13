@@ -71,7 +71,7 @@ static void pil_lpass_disable_clks(struct q6v5_data *drv)
 
 static int pil_lpass_shutdown(struct pil_desc *pil)
 {
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 
 	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base);
 
@@ -93,7 +93,7 @@ static int pil_lpass_shutdown(struct pil_desc *pil)
 
 static int pil_lpass_reset(struct pil_desc *pil)
 {
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	int ret;
 
 	ret = pil_lpass_enable_clks(drv);
@@ -152,14 +152,12 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	struct q6v5_data *drv;
 	struct pil_desc *desc;
 
-	desc = pil_q6v5_init(pdev);
-	if (IS_ERR(desc))
-		return PTR_ERR(desc);
+	drv = pil_q6v5_init(pdev);
+	if (IS_ERR(drv))
+		return PTR_ERR(drv);
+	platform_set_drvdata(pdev, drv);
 
-	drv = platform_get_drvdata(pdev);
-	if (drv == NULL)
-		return -ENODEV;
-
+	desc = &drv->desc;
 	desc->ops = &pil_lpass_ops;
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = PROXY_TIMEOUT_MS;

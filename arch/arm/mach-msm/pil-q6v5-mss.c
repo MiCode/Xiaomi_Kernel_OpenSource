@@ -57,10 +57,10 @@
 static int pbl_mba_boot_timeout_ms = 100;
 module_param(pbl_mba_boot_timeout_ms, int, S_IRUGO | S_IWUSR);
 
-static int pil_mss_power_up(struct device *dev)
+static int pil_mss_power_up(struct q6v5_data *drv)
 {
 	int ret;
-	struct q6v5_data *drv = dev_get_drvdata(dev);
+	struct device *dev = drv->desc.dev;
 
 	ret = regulator_enable(drv->vreg);
 	if (ret)
@@ -69,10 +69,8 @@ static int pil_mss_power_up(struct device *dev)
 	return ret;
 }
 
-static int pil_mss_power_down(struct device *dev)
+static int pil_mss_power_down(struct q6v5_data *drv)
 {
-	struct q6v5_data *drv = dev_get_drvdata(dev);
-
 	return regulator_disable(drv->vreg);
 }
 
@@ -107,9 +105,9 @@ static void pil_mss_disable_clks(struct q6v5_data *drv)
 	clk_disable_unprepare(drv->ahb_clk);
 }
 
-static int wait_for_mba_ready(struct device *dev)
+static int wait_for_mba_ready(struct q6v5_data *drv)
 {
-	struct q6v5_data *drv = dev_get_drvdata(dev);
+	struct device *dev = drv->desc.dev;
 	int ret;
 	u32 status;
 
@@ -143,7 +141,7 @@ static int wait_for_mba_ready(struct device *dev)
 
 static int pil_mss_shutdown(struct pil_desc *pil)
 {
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 
 	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base + MSS_Q6_HALT_BASE);
 	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base + MSS_MODEM_HALT_BASE);
@@ -155,13 +153,13 @@ static int pil_mss_shutdown(struct pil_desc *pil)
 	 * writes performed during the shutdown succeed.
 	 */
 	if (drv->is_booted == false) {
-		pil_mss_power_up(pil->dev);
+		pil_mss_power_up(drv);
 		pil_mss_enable_clks(drv);
 	}
 	pil_q6v5_shutdown(pil);
 
 	pil_mss_disable_clks(drv);
-	pil_mss_power_down(pil->dev);
+	pil_mss_power_down(drv);
 
 	writel_relaxed(1, drv->restart_reg);
 
@@ -172,7 +170,7 @@ static int pil_mss_shutdown(struct pil_desc *pil)
 
 static int pil_mss_reset(struct pil_desc *pil)
 {
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	int ret;
 
 	/* Deassert reset to subsystem and wait for propagation */
@@ -184,7 +182,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 	 * Bring subsystem out of reset and enable required
 	 * regulators and clocks.
 	 */
-	ret = pil_mss_power_up(pil->dev);
+	ret = pil_mss_power_up(drv);
 	if (ret)
 		goto err_power;
 
@@ -211,7 +209,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 
 	/* Wait for MBA to start. Check for PBL and MBA errors while waiting. */
 	if (drv->self_auth) {
-		ret = wait_for_mba_ready(pil->dev);
+		ret = wait_for_mba_ready(drv);
 		if (ret)
 			goto err_auth;
 	}
@@ -225,7 +223,7 @@ err_auth:
 err_q6v5_reset:
 	pil_mss_disable_clks(drv);
 err_clks:
-	pil_mss_power_down(pil->dev);
+	pil_mss_power_down(drv);
 err_power:
 	return ret;
 }
@@ -245,13 +243,12 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 
-	desc = pil_q6v5_init(pdev);
-	if (IS_ERR(desc))
-		return PTR_ERR(desc);
-	drv = platform_get_drvdata(pdev);
-	if (drv == NULL)
-		return -ENODEV;
+	drv = pil_q6v5_init(pdev);
+	if (IS_ERR(drv))
+		return PTR_ERR(drv);
+	platform_set_drvdata(pdev, drv);
 
+	desc = &drv->desc;
 	desc->ops = &pil_mss_ops;
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = PROXY_TIMEOUT_MS;

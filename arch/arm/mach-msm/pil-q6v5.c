@@ -61,7 +61,7 @@
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 {
 	int ret;
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 
 	ret = clk_prepare_enable(drv->xo);
 	if (ret) {
@@ -74,7 +74,7 @@ EXPORT_SYMBOL(pil_q6v5_make_proxy_votes);
 
 void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 {
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	clk_disable_unprepare(drv->xo);
 }
 EXPORT_SYMBOL(pil_q6v5_remove_proxy_votes);
@@ -104,7 +104,7 @@ int pil_q6v5_init_image(struct pil_desc *pil, const u8 *metadata,
 			       size_t size)
 {
 	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	drv->start_addr = ehdr->e_entry;
 	return 0;
 }
@@ -113,7 +113,7 @@ EXPORT_SYMBOL(pil_q6v5_init_image);
 void pil_q6v5_shutdown(struct pil_desc *pil)
 {
 	u32 val;
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 
 	/* Turn off core clock */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_GFMUX_CTL);
@@ -145,7 +145,7 @@ EXPORT_SYMBOL(pil_q6v5_shutdown);
 
 int pil_q6v5_reset(struct pil_desc *pil)
 {
-	struct q6v5_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	u32 val;
 
 	/* Assert resets, stop core */
@@ -193,7 +193,7 @@ int pil_q6v5_reset(struct pil_desc *pil)
 }
 EXPORT_SYMBOL(pil_q6v5_reset);
 
-struct pil_desc __devinit *pil_q6v5_init(struct platform_device *pdev)
+struct q6v5_data __devinit *pil_q6v5_init(struct platform_device *pdev)
 {
 	struct q6v5_data *drv;
 	struct resource *res;
@@ -203,7 +203,6 @@ struct pil_desc __devinit *pil_q6v5_init(struct platform_device *pdev)
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return ERR_PTR(-ENOMEM);
-	platform_set_drvdata(pdev, drv);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qdsp6_base");
 	if (!res)
@@ -233,6 +232,6 @@ struct pil_desc __devinit *pil_q6v5_init(struct platform_device *pdev)
 
 	desc->dev = &pdev->dev;
 
-	return desc;
+	return drv;
 }
 EXPORT_SYMBOL(pil_q6v5_init);
