@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1981,6 +1981,7 @@ enum msm_cam_subdev_type {
 	IRQ_ROUTER_DEV,
 	CPP_DEV,
 	CCI_DEV,
+	FLASH_DEV,
 };
 
 struct msm_mctl_set_sdev_data {
