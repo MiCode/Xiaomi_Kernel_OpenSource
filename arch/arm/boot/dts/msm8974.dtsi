@@ -817,6 +817,7 @@
 		      <0xfc401700 0x4>,
 		      <0xfd485300 0xc>;
 		reg-names = "pmu_base", "clk_base", "halt_base";
+		interrupts = <0 181 1>;
 		vdd_pronto_pll-supply = <&pm8941_l12>;
 
 		qcom,firmware-name = "wcnss";

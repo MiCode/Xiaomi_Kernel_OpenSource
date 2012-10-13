@@ -2029,7 +2029,7 @@ config MSM_PIL_GSS
 
 config MSM_PIL_PRONTO
 	tristate "PRONTO (WCNSS) Boot Support"
-	depends on MSM_PIL
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down the PRONTO processor (WCNSS).
 	  PRONTO is the wireless subsystem processor used in bluetooth, wireless
@@ -2038,15 +2038,6 @@ config MSM_PIL_PRONTO
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
-
-config MSM_WCNSS_SSR_8974
-	tristate "MSM 8974 WCNSS restart module"
-	depends on (ARCH_MSM8974)
-	help
-	 This option enables the WCNSS restart module for MSM8974. It monitors
-	 WCNSS SMSM status bits and WCNSS hardware watchdog interrupt line; and
-	 depending on the restart level, it will restart WCNSS when a fatal error
-	 occurs at WCNSS.
 
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"

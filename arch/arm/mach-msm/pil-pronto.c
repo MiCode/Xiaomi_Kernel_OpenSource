@@ -22,6 +22,14 @@
 #include <linux/iopoll.h>
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
+#include <linux/interrupt.h>
+#include <linux/jiffies.h>
+#include <linux/workqueue.h>
+#include <linux/wcnss_wlan.h>
+
+#include <mach/subsystem_restart.h>
+#include <mach/peripheral-loader.h>
+#include <mach/msm_smsm.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -67,8 +75,14 @@ struct pronto_data {
 	void __iomem *axi_halt_base;
 	unsigned long start_addr;
 	struct pil_device *pil;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
 	struct clk *cxo;
 	struct regulator *vreg;
+	bool restart_inprogress;
+	bool crash;
+	struct delayed_work cancel_vote_work;
+	int irq;
 };
 
 static int pil_pronto_make_proxy_vote(struct pil_desc *pil)
@@ -225,6 +239,129 @@ static struct pil_reset_ops pil_pronto_ops = {
 	.proxy_unvote = pil_pronto_remove_proxy_vote,
 };
 
+#define subsys_to_drv(d) container_of(d, struct pronto_data, subsys_desc)
+
+static void log_wcnss_sfr(void)
+{
+	char *smem_reset_reason;
+	unsigned smem_reset_size;
+
+	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_WCNSS0,
+					   &smem_reset_size);
+
+	if (!smem_reset_reason || !smem_reset_size) {
+		pr_err("wcnss subsystem failure reason:\n"
+		       "(unknown, smem_get_entry failed)");
+	} else if (!smem_reset_reason[0]) {
+		pr_err("wcnss subsystem failure reason:\n"
+		       "(unknown, init string found)");
+	} else {
+		pr_err("wcnss subsystem failure reason: %.81s\n",
+				smem_reset_reason);
+		memset(smem_reset_reason, 0, smem_reset_size);
+		wmb();
+	}
+}
+
+static void restart_wcnss(struct pronto_data *drv)
+{
+	log_wcnss_sfr();
+	subsystem_restart_dev(drv->subsys);
+}
+
+static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
+					uint32_t new_state)
+{
+	struct pronto_data *drv = data;
+
+	drv->crash = true;
+
+	pr_err("wcnss smsm state changed\n");
+
+	if (!(new_state & SMSM_RESET))
+		return;
+
+	if (drv->restart_inprogress) {
+		pr_err("wcnss: Ignoring smsm reset req, restart in progress\n");
+		return;
+	}
+
+	drv->restart_inprogress = true;
+	restart_wcnss(drv);
+}
+
+static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
+{
+	struct pronto_data *drv = dev_id;
+
+	drv->crash = true;
+
+	if (drv->restart_inprogress) {
+		pr_err("Ignoring wcnss bite irq, restart in progress\n");
+		return IRQ_HANDLED;
+	}
+
+	drv->restart_inprogress = true;
+	restart_wcnss(drv);
+
+	return IRQ_HANDLED;
+}
+
+static void wcnss_post_bootup(struct work_struct *work)
+{
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+
+	wcnss_wlan_power(&pdev->dev, pwlanconfig, WCNSS_WLAN_SWITCH_OFF);
+}
+
+static int wcnss_shutdown(const struct subsys_desc *subsys)
+{
+	struct pronto_data *drv = subsys_to_drv(subsys);
+
+	pil_force_shutdown("wcnss");
+	flush_delayed_work(&drv->cancel_vote_work);
+	wcnss_flush_delayed_boot_votes();
+	disable_irq_nosync(drv->irq);
+
+	return 0;
+}
+
+static int wcnss_powerup(const struct subsys_desc *subsys)
+{
+	struct pronto_data *drv = subsys_to_drv(subsys);
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+	int    ret = -1;
+
+	if (pdev && pwlanconfig)
+		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_ON);
+	if (!ret) {
+		msleep(1000);
+		pil_force_boot("wcnss");
+	}
+	drv->restart_inprogress = false;
+	enable_irq(drv->irq);
+	schedule_delayed_work(&drv->cancel_vote_work, msecs_to_jiffies(5000));
+
+	return 0;
+}
+
+static void crash_shutdown(const struct subsys_desc *subsys)
+{
+	struct pronto_data *drv = subsys_to_drv(subsys);
+
+	pr_err("wcnss crash shutdown %d\n", drv->crash);
+	if (!drv->crash)
+		smsm_change_state(SMSM_APPS_STATE, SMSM_RESET, SMSM_RESET);
+}
+
+static int wcnss_ramdump(int enable, const struct subsys_desc *crashed_subsys)
+{
+	return 0;
+}
+
 static int __devinit pil_pronto_probe(struct platform_device *pdev)
 {
 	struct pronto_data *drv;
@@ -241,6 +378,10 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	if (!drv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
+
+	drv->irq = platform_get_irq(pdev, 0);
+	if (drv->irq < 0)
+		return drv->irq;
 
 	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!drv->base)
@@ -303,6 +444,32 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->pil))
 		return PTR_ERR(drv->pil);
 
+	ret = smsm_state_cb_register(SMSM_WCNSS_STATE, SMSM_RESET,
+					smsm_state_cb_hdlr, drv);
+	if (ret < 0)
+		goto err_smsm;
+
+	drv->subsys_desc.name = desc->name;
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.shutdown = wcnss_shutdown;
+	drv->subsys_desc.powerup = wcnss_powerup;
+	drv->subsys_desc.ramdump = wcnss_ramdump;
+	drv->subsys_desc.crash_shutdown = crash_shutdown;
+
+	INIT_DELAYED_WORK(&drv->cancel_vote_work, wcnss_post_bootup);
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		ret = PTR_ERR(drv->subsys);
+		goto err_subsys;
+	}
+
+	ret = devm_request_irq(&pdev->dev, drv->irq, wcnss_wdog_bite_irq_hdlr,
+			IRQF_TRIGGER_HIGH, "wcnss_wdog", drv);
+	if (ret < 0)
+		goto err_irq;
+
 	/* Initialize common_ss GDSCR to wait 4 cycles between states */
 	regval = readl_relaxed(drv->base + PRONTO_PMU_COMMON_GDSCR)
 		& PRONTO_PMU_COMMON_GDSCR_SW_COLLAPSE;
@@ -311,11 +478,22 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	writel_relaxed(regval, drv->base + PRONTO_PMU_COMMON_GDSCR);
 
 	return 0;
+err_irq:
+	subsys_unregister(drv->subsys);
+err_subsys:
+	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
+					smsm_state_cb_hdlr, drv);
+err_smsm:
+	msm_pil_unregister(drv->pil);
+	return ret;
 }
 
 static int __devexit pil_pronto_remove(struct platform_device *pdev)
 {
 	struct pronto_data *drv = platform_get_drvdata(pdev);
+	subsys_unregister(drv->subsys);
+	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
+					smsm_state_cb_hdlr, drv);
 	msm_pil_unregister(drv->pil);
 	return 0;
 }
