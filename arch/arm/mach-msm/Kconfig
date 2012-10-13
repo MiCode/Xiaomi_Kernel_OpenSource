@@ -1958,11 +1958,13 @@ config MSM_PIL_MODEM_QDSP6V4
 	  If unsure, say N.
 
 config MSM_PIL_LPASS_QDSP6V5
-       tristate "LPASS QDSP6v5 (Hexagon) Boot Support"
-       depends on MSM_PIL
-       help
-         Support for booting and shutting down QDSP6v5 (Hexagon) processors
-	 in low power audio subsystems.
+	tristate "LPASS QDSP6v5 (Hexagon) Boot Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	  Support for booting and shutting down QDSP6v5 (Hexagon) processors
+	  in low power audio subsystems. This driver also monitors the ADSP
+	  SMSM status bits and the ADSP's watchdog interrupt and restarts the
+	  ADSP if the processor encounters a fatal error.
 
 config MSM_PIL_MSS_QDSP6V5
        tristate "MSS QDSP6v5 (Hexagon) Boot Support"
@@ -2036,15 +2038,6 @@ config MSM_PIL_PRONTO
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
-
-config MSM_ADSP_SSR_8974
-	bool "MSM 8974 adsp restart driver"
-	depends on (ARCH_MSM8974)
-	help
-	 This option enables the adsp restart driver for the MSM8974.
-	 It monitors the adsp SMSM status bits and the adsp watchdog line and
-	 restarts the adsp or the 8974 when the adsp encounters a fatal error,
-	 depending on the restart level selected in the subsystem restart driver.
 
 config MSM_WCNSS_SSR_8974
 	tristate "MSM 8974 WCNSS restart module"

@@ -217,10 +217,7 @@ struct q6v5_data __devinit *pil_q6v5_init(struct platform_device *pdev)
 	if (!drv->axi_halt_base)
 		return ERR_PTR(-ENOMEM);
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return ERR_PTR(-ENOMEM);
-
+	desc = &drv->desc;
 	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
 				      &desc->name);
 	if (ret)
