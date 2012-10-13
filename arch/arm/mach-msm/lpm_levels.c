@@ -66,12 +66,6 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 	atomic_notifier_call_chain(&__get_cpu_var(lpm_notify_head),
 		MSM_LPM_STATE_ENTER, &sleep_data);
 
-	ret = msm_rpm_enter_sleep();
-	if (ret) {
-		pr_warn("%s(): RPM failed to enter sleep err:%d\n",
-				__func__, ret);
-		goto bail;
-	}
 	if (from_idle)
 		debug_mask = msm_lpm_lvl_dbg_msk &
 				MSM_LPM_LVL_DBG_IDLE_LIMITS;
@@ -88,6 +82,15 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 				l->vdd_dig_upper_bound);
 
 	ret = msm_lpmrs_enter_sleep(sclk_count, l, from_idle, notify_rpm);
+	if (ret) {
+		pr_warn("%s() LPM resources failed to enter sleep\n",
+				__func__);
+		goto bail;
+	}
+	ret = msm_rpm_enter_sleep(debug_mask);
+	if (ret)
+		pr_warn("%s(): RPM failed to enter sleep err:%d\n",
+				__func__, ret);
 bail:
 	return ret;
 }
@@ -95,9 +98,10 @@ bail:
 static void msm_lpm_exit_sleep(void *limits, bool from_idle,
 		bool notify_rpm, bool collapsed)
 {
-	msm_rpm_exit_sleep();
+
 	msm_lpmrs_exit_sleep((struct msm_rpmrs_limits *)limits,
 				from_idle, notify_rpm, collapsed);
+	msm_rpm_exit_sleep();
 	atomic_notifier_call_chain(&__get_cpu_var(lpm_notify_head),
 			MSM_LPM_STATE_EXIT, NULL);
 }
