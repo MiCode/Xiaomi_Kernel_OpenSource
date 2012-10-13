@@ -1973,7 +1973,7 @@ config MSM_PIL_MSS_QDSP6V5
 
 config MSM_PIL_MBA
 	tristate "Support for modem self-authentication"
-	depends on MSM_PIL_MSS_QDSP6V5
+	depends on MSM_PIL_MSS_QDSP6V5 && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting self-authenticating modems using the Modem Boot
 	  Authenticator.
@@ -2036,15 +2036,6 @@ config MSM_PIL_PRONTO
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
-
-config MSM_MODEM_SSR_8974
-	bool "MSM 8974 Modem restart driver"
-	depends on (ARCH_MSM8974)
-	help
-	 This option enables the modem subsystem restart driver for the MSM8974.
-	 It monitors the modem SMSM status bits and the modem watchdog line and
-	 restarts the modem or the 8974 when the modem encounters a fatal error,
-	 depending on the restart level selected in the subsystem restart driver.
 
 config MSM_ADSP_SSR_8974
 	bool "MSM 8974 adsp restart driver"
