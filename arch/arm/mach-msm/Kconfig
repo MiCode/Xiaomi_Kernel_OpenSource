@@ -1998,7 +1998,7 @@ config MSM_PIL_TZAPPS
 
 config MSM_PIL_DSPS
 	tristate "DSPS Boot Support"
-	depends on MSM_PIL
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down ARM7 DSPS processors.
 

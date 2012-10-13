@@ -17,11 +17,17 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/atomic.h>
+#include <linux/interrupt.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/subsystem_restart.h>
+#include <mach/msm_smsm.h>
+#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
+#include "ramdump.h"
 
 #define PPSS_RESET			(MSM_CLK_CTL_BASE + 0x2594)
 #define PPSS_RESET_PROC_RESET		0x2
@@ -30,6 +36,28 @@
 #define CLK_BRANCH_ENA			0x10
 #define PPSS_HCLK_CTL			(MSM_CLK_CTL_BASE + 0x2580)
 #define CLK_HALT_DFAB_STATE		(MSM_CLK_CTL_BASE + 0x2FC8)
+
+#define PPSS_WDOG_UNMASKED_INT_EN	0x1808
+
+struct dsps_data {
+	struct pil_device *pil;
+	struct pil_desc desc;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
+	int crash;
+	int wdog_irq;
+	atomic_t wd_crash;
+	atomic_t crash_in_progress;
+	void __iomem *ppss_base;
+
+	void *ramdump_dev;
+	struct ramdump_segment fw_ramdump_segments[4];
+
+	void *smem_ramdump_dev;
+	struct ramdump_segment smem_ramdump_segments[1];
+};
+
+#define desc_to_drv(d) container_of(d, struct dsps_data, subsys_desc)
 
 static int init_image_dsps(struct pil_desc *pil, const u8 *metadata,
 				     size_t size)
@@ -88,15 +116,143 @@ struct pil_reset_ops pil_dsps_ops_trusted = {
 	.shutdown = shutdown_dsps_trusted,
 };
 
+static void dsps_log_sfr(void)
+{
+	const char dflt_reason[] = "Died too early due to unknown reason";
+	char *smem_reset_reason;
+	unsigned smem_reset_size;
+
+	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_DSPS0,
+		&smem_reset_size);
+	if (smem_reset_reason != NULL && smem_reset_reason[0] != 0) {
+		smem_reset_reason[smem_reset_size-1] = 0;
+		pr_err("%s: DSPS failure: %s\nResetting DSPS\n",
+			__func__, smem_reset_reason);
+		memset(smem_reset_reason, 0, smem_reset_size);
+		wmb();
+	} else
+		pr_err("%s: DSPS failure: %s\nResetting DSPS\n",
+			__func__, dflt_reason);
+}
+
+
+static void dsps_restart_handler(struct dsps_data *drv)
+{
+	pr_debug("%s: Restart lvl %d\n",
+		__func__, get_restart_level());
+
+	if (atomic_add_return(1, &drv->crash_in_progress) > 1) {
+		pr_err("%s: DSPS already resetting. Count %d\n", __func__,
+		       atomic_read(&drv->crash_in_progress));
+	} else {
+		subsystem_restart_dev(drv->subsys);
+	}
+}
+
+static void dsps_smsm_state_cb(void *data, uint32_t old_state,
+			       uint32_t new_state)
+{
+	struct dsps_data *drv = data;
+
+	if (drv->crash == 1) {
+		pr_debug("SMSM_RESET state change ignored\n");
+		drv->crash = 0;
+	} else if (new_state & SMSM_RESET) {
+		dsps_log_sfr();
+		dsps_restart_handler(drv);
+	}
+}
+
+static int dsps_shutdown(const struct subsys_desc *desc)
+{
+	struct dsps_data *drv = desc_to_drv(desc);
+	disable_irq_nosync(drv->wdog_irq);
+	if (drv->ppss_base) {
+		writel_relaxed(0, drv->ppss_base + PPSS_WDOG_UNMASKED_INT_EN);
+		mb(); /* Make sure wdog is disabled before shutting down */
+	}
+	pil_force_shutdown(drv->desc.name);
+	return 0;
+}
+
+static int dsps_powerup(const struct subsys_desc *desc)
+{
+	struct dsps_data *drv = desc_to_drv(desc);
+
+	pil_force_boot(drv->desc.name);
+	atomic_set(&drv->crash_in_progress, 0);
+	enable_irq(drv->wdog_irq);
+
+	return 0;
+}
+
+static int dsps_ramdump(int enable, const struct subsys_desc *desc)
+{
+	int ret;
+	struct dsps_data *drv = desc_to_drv(desc);
+
+	if (!enable)
+		return 0;
+
+	ret = do_ramdump(drv->ramdump_dev,
+		drv->fw_ramdump_segments,
+		ARRAY_SIZE(drv->fw_ramdump_segments));
+	if (ret < 0) {
+		pr_err("%s: Unable to dump DSPS memory (rc = %d).\n",
+		       __func__, ret);
+		return ret;
+	}
+	ret = do_ramdump(drv->smem_ramdump_dev,
+		drv->smem_ramdump_segments,
+		ARRAY_SIZE(drv->smem_ramdump_segments));
+	if (ret < 0) {
+		pr_err("%s: Unable to dump smem memory (rc = %d).\n",
+		       __func__, ret);
+		return ret;
+	}
+	return 0;
+}
+
+static void dsps_crash_shutdown(const struct subsys_desc *desc)
+{
+	struct dsps_data *drv = desc_to_drv(desc);
+
+	disable_irq_nosync(drv->wdog_irq);
+	drv->crash = 1;
+	smsm_change_state(SMSM_DSPS_STATE, SMSM_RESET, SMSM_RESET);
+}
+
+static irqreturn_t dsps_wdog_bite_irq(int irq, void *dev_id)
+{
+	struct dsps_data *drv = dev_id;
+
+	atomic_set(&drv->wd_crash, 1);
+	dsps_log_sfr();
+	dsps_restart_handler(drv);
+	return IRQ_HANDLED;
+}
+
 static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 {
+	struct dsps_data *drv;
 	struct pil_desc *desc;
-	struct pil_device *pil;
+	int ret;
+	struct resource *res;
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
+	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
+	if (!drv)
 		return -ENOMEM;
+	platform_set_drvdata(pdev, drv);
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res) {
+		drv->ppss_base = devm_ioremap(&pdev->dev, res->start,
+					      resource_size(res));
+		if (!drv->ppss_base)
+			return -ENOMEM;
+	}
+
+	desc = &drv->desc;
 	desc->name = pdev->dev.platform_data;
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
@@ -107,17 +263,85 @@ static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 		desc->ops = &pil_dsps_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
-	pil = msm_pil_register(desc);
-	if (IS_ERR(pil))
-		return PTR_ERR(pil);
-	platform_set_drvdata(pdev, pil);
+	drv->pil = msm_pil_register(desc);
+	if (IS_ERR(drv->pil))
+		return PTR_ERR(drv->pil);
+
+	drv->fw_ramdump_segments[0].address = 0x12000000;
+	drv->fw_ramdump_segments[0].size = 0x28000;
+	drv->fw_ramdump_segments[1].address = 0x12040000;
+	drv->fw_ramdump_segments[1].size = 0x4000;
+	drv->fw_ramdump_segments[2].address = 0x12800000;
+	drv->fw_ramdump_segments[2].size = 0x4000;
+	drv->fw_ramdump_segments[3].address = 0x8fe00000;
+	drv->fw_ramdump_segments[3].size = 0x100000;
+	drv->ramdump_dev = create_ramdump_device("dsps");
+	if (!drv->ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_ramdump;
+	}
+
+	drv->smem_ramdump_segments[0].address = PHYS_OFFSET - SZ_2M;
+	drv->smem_ramdump_segments[0].size =  SZ_2M;
+	drv->smem_ramdump_dev = create_ramdump_device("smem-dsps");
+	if (!drv->smem_ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_smem_ramdump;
+	}
+
+	drv->subsys_desc.name = "dsps";
+	drv->subsys_desc.shutdown = dsps_shutdown;
+	drv->subsys_desc.powerup = dsps_powerup;
+	drv->subsys_desc.ramdump = dsps_ramdump,
+	drv->subsys_desc.crash_shutdown = dsps_crash_shutdown;
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		ret = PTR_ERR(drv->subsys);
+		goto err_subsys;
+	}
+
+	ret = smsm_state_cb_register(SMSM_DSPS_STATE, SMSM_RESET,
+				     dsps_smsm_state_cb, drv);
+	if (ret)
+		goto err_smsm;
+
+	drv->wdog_irq = platform_get_irq(pdev, 0);
+	if (drv->wdog_irq >= 0) {
+		ret = devm_request_irq(&pdev->dev, drv->wdog_irq,
+				dsps_wdog_bite_irq, IRQF_TRIGGER_RISING,
+				"dsps_wdog", drv);
+		if (ret) {
+			dev_err(&pdev->dev, "request_irq failed\n");
+			goto err_smsm;
+		}
+	} else {
+		drv->wdog_irq = -1;
+		dev_dbg(&pdev->dev, "ppss_wdog not supported\n");
+	}
+
 	return 0;
+
+err_smsm:
+	subsys_unregister(drv->subsys);
+err_subsys:
+	destroy_ramdump_device(drv->smem_ramdump_dev);
+err_smem_ramdump:
+	destroy_ramdump_device(drv->ramdump_dev);
+err_ramdump:
+	msm_pil_unregister(drv->pil);
+	return ret;
 }
 
 static int __devexit pil_dsps_driver_exit(struct platform_device *pdev)
 {
-	struct pil_device *pil = platform_get_drvdata(pdev);
-	msm_pil_unregister(pil);
+	struct dsps_data *drv = platform_get_drvdata(pdev);
+	smsm_state_cb_deregister(SMSM_DSPS_STATE, SMSM_RESET,
+				 dsps_smsm_state_cb, drv);
+	subsys_unregister(drv->subsys);
+	destroy_ramdump_device(drv->smem_ramdump_dev);
+	destroy_ramdump_device(drv->ramdump_dev);
+	msm_pil_unregister(drv->pil);
 	return 0;
 }
 
