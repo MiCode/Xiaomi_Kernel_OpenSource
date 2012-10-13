@@ -152,6 +152,27 @@ int msm_cam_server_config_interface_map(u32 extendedmode,
 						mctl_handle = 0;
 				}
 			}
+
+			if (!is_bayer_sensor && interface == PIX_0) {
+				if (g_server_dev.
+					interface_map_table[i].mctl_handle &&
+					g_server_dev.interface_map_table[i].
+						is_bayer_sensor) {
+					/* In case of simultaneous camera,
+					 * the YUV sensor could use PIX
+					 * interface to only queue the preview
+					 * or video buffers, but does not
+					 * expect any notifications directly.
+					 * (preview/video data is updated from
+					 * postprocessing in such scenario).
+					 * In such case, there is no need to
+					 * update the mctl_handle in the intf
+					 * map table, since the notification
+					 * will not be sent directly. */
+					break;
+				}
+			}
+
 			old_handle =
 				g_server_dev.interface_map_table[i].mctl_handle;
 			if (old_handle == 0) {
