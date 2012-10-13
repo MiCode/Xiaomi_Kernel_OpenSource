@@ -148,17 +148,14 @@ static void compr_event_handler(uint32_t opcode,
 				((unsigned int)buf[0].phys
 				+ (prtd->out_head * prtd->pcm_count)));
 
-		if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE) {
+		if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
 			time_stamp_flag = SET_TIMESTAMP;
-			memcpy(&output_meta_data, (char *)(buf->data +
+		else
+			time_stamp_flag = NO_TIMESTAMP;
+		memcpy(&output_meta_data, (char *)(buf->data +
 			prtd->out_head * prtd->pcm_count),
 			COMPRE_OUTPUT_METADATA_SIZE);
-		} else {
-			time_stamp_flag = NO_TIMESTAMP;
-			memset(&output_meta_data, 0,
-				 COMPRE_OUTPUT_METADATA_SIZE);
-			output_meta_data.frame_size = prtd->pcm_count;
-		}
+
 		buffer_length = output_meta_data.frame_size;
 		pr_debug("meta_data_length: %d, frame_length: %d\n",
 			 output_meta_data.meta_data_length,
@@ -257,17 +254,13 @@ static void compr_event_handler(uint32_t opcode,
 				__func__, prtd->out_head,
 				((unsigned int)buf[0].phys
 				+ (prtd->out_head * prtd->pcm_count)));
-			if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE) {
+			if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
 				time_stamp_flag = SET_TIMESTAMP;
-				memcpy(&output_meta_data, (char *)(buf->data +
+			else
+				time_stamp_flag = NO_TIMESTAMP;
+			memcpy(&output_meta_data, (char *)(buf->data +
 				prtd->out_head * prtd->pcm_count),
 				COMPRE_OUTPUT_METADATA_SIZE);
-			} else {
-				time_stamp_flag = NO_TIMESTAMP;
-				memset(&output_meta_data, 0,
-				 COMPRE_OUTPUT_METADATA_SIZE);
-				output_meta_data.frame_size = prtd->pcm_count;
-			}
 			buffer_length = output_meta_data.frame_size;
 			pr_debug("meta_data_length: %d, frame_length: %d\n",
 				 output_meta_data.meta_data_length,
@@ -774,7 +767,8 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
-	ret = q6asm_set_io_mode(prtd->audio_client, ASYNC_IO_MODE);
+	ret = q6asm_set_io_mode(prtd->audio_client,
+					(COMPRESSED_IO | ASYNC_IO_MODE));
 	if (ret < 0) {
 		pr_err("%s: Set IO mode failed\n", __func__);
 		return -ENOMEM;
