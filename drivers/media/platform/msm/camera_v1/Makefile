@@ -10,18 +10,19 @@ ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/sensors
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/actuators
   EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/server
+  EXTRA_CFLAGS += -Idrivers/media/platform/msm/camera_v1/flash
   obj-$(CONFIG_MSM_CAMERA) += msm_isp.o msm.o msm_mem.o msm_mctl.o msm_mctl_buf.o msm_mctl_pp.o
   obj-$(CONFIG_MSM_CAMERA) += server/
   obj-$(CONFIG_MSM_CAM_IRQ_ROUTER) += msm_camirq_router.o
   obj-$(CONFIG_MSM_CAMERA) += cci/ eeprom/ sensors/ actuators/ csi/
   obj-$(CONFIG_MSM_CPP) += cpp/
   obj-$(CONFIG_MSM_CAMERA) += msm_gesture.o
+  obj-$(CONFIG_MSM_CAMERA) += flash/
 else
   obj-$(CONFIG_MSM_CAMERA) += msm_camera.o
 endif
 obj-$(CONFIG_MSM_CAMERA) += vfe/
 obj-$(CONFIG_MSM_CAMERA) += msm_axi_qos.o gemini/ mercury/ jpeg_10/
-obj-$(CONFIG_MSM_CAMERA_FLASH) += flash.o
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   obj-$(CONFIG_ARCH_MSM8X60) += msm_vpe.o
   obj-$(CONFIG_ARCH_MSM7X30) += msm_vpe.o msm_axi_qos.o

@@ -1853,6 +1853,14 @@ int msm_mctl_find_sensor_subdevs(struct msm_cam_media_controller *p_mctl,
 	return rc;
 }
 
+int msm_mctl_find_flash_subdev(struct msm_cam_media_controller *p_mctl,
+	uint8_t index)
+{
+	if (index < MAX_NUM_FLASH_DEV)
+		p_mctl->flash_sdev = g_server_dev.flash_device[index];
+	return 0;
+}
+
 static irqreturn_t msm_camera_server_parse_irq(int irq_num, void *data)
 {
 	unsigned long flags;
@@ -2327,6 +2335,16 @@ int msm_cam_register_subdev_node(struct v4l2_subdev *sd,
 				sd_info->irq_num);
 		}
 		break;
+
+	case FLASH_DEV:
+		if (index >= MAX_NUM_FLASH_DEV) {
+			pr_err("%s Invalid flash idx %d", __func__, index);
+			err = -EINVAL;
+			break;
+		}
+		g_server_dev.flash_device[index] = sd;
+		break;
+
 	default:
 		break;
 	}

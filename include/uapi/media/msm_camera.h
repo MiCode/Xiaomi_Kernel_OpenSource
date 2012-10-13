@@ -1978,6 +1978,7 @@ enum msm_cam_subdev_type {
 	IRQ_ROUTER_DEV,
 	CPP_DEV,
 	CCI_DEV,
+	FLASH_DEV,
 };
 
 struct msm_mctl_set_sdev_data {

@@ -508,35 +508,6 @@ struct axidata {
 	struct msm_pmem_region *region;
 };
 
-#ifdef CONFIG_MSM_CAMERA_FLASH
-int msm_camera_flash_set_led_state(
-	struct msm_camera_sensor_flash_data *fdata,
-	unsigned led_state);
-int msm_strobe_flash_init(struct msm_sync *sync, uint32_t sftype);
-int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
-			struct flash_ctrl_data *flash_info);
-#else
-static inline int msm_camera_flash_set_led_state(
-	struct msm_camera_sensor_flash_data *fdata,
-	unsigned led_state)
-{
-	return -ENOTSUPP;
-}
-static inline int msm_strobe_flash_init(
-	struct msm_sync *sync, uint32_t sftype)
-{
-	return -ENOTSUPP;
-}
-static inline int msm_flash_ctrl(
-		struct msm_camera_sensor_info *sdata,
-		struct flash_ctrl_data *flash_info)
-{
-	return -ENOTSUPP;
-}
-#endif
-
-
-
 void msm_camvfe_init(void);
 int msm_camvfe_check(void *);
 void msm_camvfe_fn_init(struct msm_camvfe_fn *, void *);
@@ -704,4 +675,10 @@ int msm_camera_request_gpio_table
 	(struct msm_camera_sensor_info *sinfo, int gpio_en);
 void msm_camera_bus_scale_cfg(uint32_t bus_perf_client,
 		enum msm_bus_perf_setting perf_setting);
+
+int msm_camera_init_gpio_table(struct gpio *gpio_tbl, uint8_t gpio_tbl_size,
+	int gpio_en);
+
+int msm_camera_set_gpio_table(struct msm_gpio_set_tbl *gpio_tbl,
+	uint8_t gpio_tbl_size, int gpio_en);
 #endif

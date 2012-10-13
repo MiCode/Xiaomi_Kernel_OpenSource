@@ -1396,6 +1396,7 @@ static struct v4l2_subdev *msm_actuator_probe(
 		}
 	}
 
+	i2c_put_adapter(adapter);
 	return act_sdev;
 
 client_fail:
@@ -1431,10 +1432,50 @@ static struct v4l2_subdev *msm_eeprom_probe(
 	if (eeprom_sdev == NULL)
 		goto client_fail;
 
+	i2c_put_adapter(adapter);
 	return eeprom_sdev;
 client_fail:
 	pr_err("%s client_fail\n", __func__);
 	i2c_unregister_device(eeprom_client);
+device_fail:
+	pr_err("%s device_fail\n", __func__);
+	i2c_put_adapter(adapter);
+	adapter = NULL;
+probe_fail:
+	pr_err("%s probe_fail\n", __func__);
+	return NULL;
+}
+
+static struct v4l2_subdev *msm_flash_probe(
+	struct msm_camera_sensor_flash_data *flash_info)
+{
+	struct v4l2_subdev *flash_sdev = NULL;
+	struct i2c_adapter *adapter = NULL;
+	void *flash_client = NULL;
+
+	D("%s called\n", __func__);
+
+	if (!flash_info || !flash_info->board_info)
+		goto probe_fail;
+
+	adapter = i2c_get_adapter(flash_info->bus_id);
+	if (!adapter)
+		goto probe_fail;
+
+	flash_client = i2c_new_device(adapter, flash_info->board_info);
+	if (!flash_client)
+		goto device_fail;
+
+	flash_sdev = (struct v4l2_subdev *)i2c_get_clientdata(flash_client);
+	if (flash_sdev == NULL)
+		goto client_fail;
+
+	i2c_put_adapter(adapter);
+	return flash_sdev;
+
+client_fail:
+	pr_err("%s client_fail\n", __func__);
+	i2c_unregister_device(flash_client);
 device_fail:
 	pr_err("%s device_fail\n", __func__);
 	i2c_put_adapter(adapter);
@@ -1471,6 +1512,7 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 
 	pcam->act_sdev = msm_actuator_probe(sdata->actuator_info);
 	pcam->eeprom_sdev = msm_eeprom_probe(sdata->eeprom_info);
+	pcam->flash_sdev = msm_flash_probe(sdata->flash_data);
 
 	D("%s: pcam =0x%p\n", __func__, pcam);
 
@@ -1524,6 +1566,15 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 			pcam->eeprom_sdev);
 		if (rc < 0) {
 			D("%s eeprom sub device register failed\n", __func__);
+			goto failure;
+		}
+	}
+
+	if (pcam->flash_sdev) {
+		rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
+			pcam->flash_sdev);
+		if (rc < 0) {
+			D("%s flash sub device register failed\n", __func__);
 			goto failure;
 		}
 	}

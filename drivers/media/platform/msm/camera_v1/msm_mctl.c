@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundataion. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@
 #include "msm_vfe32.h"
 #include "msm_camera_eeprom.h"
 #include "msm_csi_register.h"
+#include "msm_flash.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_mctl: " fmt, ##args)
@@ -414,14 +415,9 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	}
 
 	case MSM_CAM_IOCTL_FLASH_CTRL: {
-		struct flash_ctrl_data flash_info;
-		if (copy_from_user(&flash_info, argp, sizeof(flash_info))) {
-			ERR_COPY_FROM_USER();
-			rc = -EFAULT;
-		} else {
-			if (msm_sensor_state_check(p_mctl))
-				rc = msm_flash_ctrl(p_mctl->sdata, &flash_info);
-		}
+		if (p_mctl->flash_sdev && msm_sensor_state_check(p_mctl))
+			rc = v4l2_subdev_call(p_mctl->flash_sdev,
+				core, ioctl, VIDIOC_MSM_FLASH_CFG, argp);
 		break;
 	}
 	case MSM_CAM_IOCTL_PICT_PP:
@@ -520,6 +516,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	struct msm_camera_sensor_flash_data *flash_data = sinfo->flash_data;
 	uint8_t csid_core;
 	D("%s\n", __func__);
 	if (!p_mctl) {
@@ -567,6 +564,35 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			pr_err("%s: sensor csi version failed %d\n",
 			__func__, rc);
 			goto msm_csi_version;
+		}
+
+		if (!p_mctl->flash_sdev && flash_data) {
+			if ((flash_data->flash_type == MSM_CAMERA_FLASH_LED) &&
+				(flash_data->flash_src_index >= 0))
+				msm_mctl_find_flash_subdev(p_mctl,
+					flash_data->flash_src_index);
+		}
+
+		if (p_mctl->flash_sdev && p_mctl->sdata->flash_data &&
+			p_mctl->sdata->flash_data->flash_type !=
+			MSM_CAMERA_FLASH_NONE) {
+			rc = v4l2_subdev_call(p_mctl->flash_sdev, core, ioctl,
+					VIDIOC_MSM_FLASH_LED_DATA_CFG,
+					p_mctl->sdata->flash_data);
+			if (rc < 0) {
+				pr_err("%s: set flash led failed %d\n",
+				__func__, rc);
+			}
+		}
+
+		if (p_mctl->flash_sdev && p_mctl->sdata->strobe_flash_data) {
+			rc = v4l2_subdev_call(p_mctl->flash_sdev, core, ioctl,
+					VIDIOC_MSM_FLASH_STROBE_DATA_CFG,
+					p_mctl->sdata->strobe_flash_data);
+			if (rc < 0) {
+				pr_err("%s: set strobe flash led failed %d\n",
+				__func__, rc);
+			}
 		}
 
 		pm_qos_add_request(&p_mctl->pm_qos_req_list,
@@ -739,6 +765,7 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 	pmctl->vfe_output_mode = 0;
 	spin_lock_init(&pmctl->pp_info.lock);
 
+	pmctl->flash_sdev = pcam->flash_sdev;
 	pmctl->act_sdev = pcam->act_sdev;
 	pmctl->eeprom_sdev = pcam->eeprom_sdev;
 	pmctl->sensor_sdev = pcam->sensor_sdev;

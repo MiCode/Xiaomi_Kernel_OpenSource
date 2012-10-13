@@ -187,8 +187,22 @@ static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 #define VFE_CAMIF_TIMER1_GPIO 3
 #define VFE_CAMIF_TIMER2_GPIO 1
 
+static struct gpio flash_init_gpio[] = {
+	{VFE_CAMIF_TIMER1_GPIO, GPIOF_OUT_INIT_LOW, "CAMIF_TIMER1"},
+	{VFE_CAMIF_TIMER2_GPIO, GPIOF_OUT_INIT_LOW, "CAMIF_TIMER2"},
+};
+
+static struct msm_gpio_set_tbl flash_set_gpio[] = {
+	{VFE_CAMIF_TIMER1_GPIO, GPIOF_OUT_INIT_HIGH, 2000},
+	{VFE_CAMIF_TIMER2_GPIO, GPIOF_OUT_INIT_HIGH, 2000},
+};
+
 static struct msm_camera_sensor_flash_src msm_flash_src = {
 	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
+	.init_gpio_tbl = flash_init_gpio,
+	.init_gpio_tbl_size = ARRAY_SIZE(flash_init_gpio),
+	.set_gpio_tbl = flash_set_gpio,
+	.set_gpio_tbl_size = ARRAY_SIZE(flash_set_gpio),
 	._fsrc.ext_driver_src.led_en = VFE_CAMIF_TIMER1_GPIO,
 	._fsrc.ext_driver_src.led_flash_en = VFE_CAMIF_TIMER2_GPIO,
 	._fsrc.ext_driver_src.flash_id = MAM_CAMERA_EXT_LED_FLASH_SC628A,
@@ -531,9 +545,15 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx135_data = {
 	.sensor_type = BAYER_SENSOR,
 };
 
+static struct i2c_board_info sc628a_flash_i2c_info = {
+	I2C_BOARD_INFO("sc628a", 0x6E),
+};
+
 static struct msm_camera_sensor_flash_data flash_imx074 = {
 	.flash_type	= MSM_CAMERA_FLASH_LED,
-	.flash_src	= &msm_flash_src
+	.flash_src	= &msm_flash_src,
+	.board_info     = &sc628a_flash_i2c_info,
+	.bus_id         = APQ_8064_GSBI4_QUP_I2C_BUS_ID,
 };
 
 static struct msm_camera_csi_lane_params imx074_csi_lane_params = {
@@ -738,9 +758,6 @@ static struct i2c_board_info apq8064_camera_i2c_boardinfo[] = {
 	{
 	I2C_BOARD_INFO("ov2720", 0x6C),
 	.platform_data = &msm_camera_sensor_ov2720_data,
-	},
-	{
-	I2C_BOARD_INFO("sc628a", 0x6E),
 	},
 	{
 	I2C_BOARD_INFO("imx091", 0x34),

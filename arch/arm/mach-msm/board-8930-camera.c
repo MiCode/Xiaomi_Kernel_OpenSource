@@ -188,6 +188,17 @@ static struct msm_gpiomux_config msm8930_cam_2d_configs[] = {
 #define VFE_CAMIF_TIMER1_GPIO 2
 #define VFE_CAMIF_TIMER2_GPIO 3
 #define VFE_CAMIF_TIMER3_GPIO_INT 4
+
+static struct gpio flash_init_gpio[] = {
+	{VFE_CAMIF_TIMER1_GPIO, GPIOF_OUT_INIT_LOW, "CAMIF_TIMER1"},
+	{VFE_CAMIF_TIMER2_GPIO, GPIOF_OUT_INIT_LOW, "CAMIF_TIMER2"},
+};
+
+static struct msm_gpio_set_tbl flash_set_gpio[] = {
+	{VFE_CAMIF_TIMER1_GPIO, GPIOF_OUT_INIT_HIGH, 2000},
+	{VFE_CAMIF_TIMER2_GPIO, GPIOF_OUT_INIT_HIGH, 2000},
+};
+
 static struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
 	.flash_trigger = VFE_CAMIF_TIMER2_GPIO,
 	.flash_charge = VFE_CAMIF_TIMER1_GPIO,
@@ -196,14 +207,16 @@ static struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
 	.irq = MSM_GPIO_TO_INT(VFE_CAMIF_TIMER3_GPIO_INT),
 };
 
-#ifdef CONFIG_MSM_CAMERA_FLASH
 static struct msm_camera_sensor_flash_src msm_flash_src = {
 	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
+	.init_gpio_tbl = flash_init_gpio,
+	.init_gpio_tbl_size = ARRAY_SIZE(flash_init_gpio),
+	.set_gpio_tbl = flash_set_gpio,
+	.set_gpio_tbl_size = ARRAY_SIZE(flash_set_gpio),
 	._fsrc.ext_driver_src.led_en = VFE_CAMIF_TIMER1_GPIO,
 	._fsrc.ext_driver_src.led_flash_en = VFE_CAMIF_TIMER2_GPIO,
 	._fsrc.ext_driver_src.flash_id = MAM_CAMERA_EXT_LED_FLASH_TPS61310,
 };
-#endif
 
 static struct msm_bus_vectors cam_init_vectors[] = {
 	{
@@ -476,9 +489,7 @@ static struct msm_actuator_info msm_act_main_cam_0_info = {
 
 static struct msm_camera_sensor_flash_data flash_imx074 = {
 	.flash_type	= MSM_CAMERA_FLASH_LED,
-#ifdef CONFIG_MSM_CAMERA_FLASH
 	.flash_src	= &msm_flash_src
-#endif
 };
 
 static struct msm_camera_csi_lane_params imx074_csi_lane_params = {
@@ -560,9 +571,15 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov2720_data = {
 	.sensor_type = BAYER_SENSOR,
 };
 
+static struct i2c_board_info tps61310_flash_i2c_info = {
+	I2C_BOARD_INFO("tps61310", 0x66),
+};
+
 static struct msm_camera_sensor_flash_data flash_s5k3l1yx = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
-	.flash_src = &msm_flash_src
+	.flash_src = &msm_flash_src,
+	.board_info = &tps61310_flash_i2c_info,
+	.bus_id = MSM_8930_GSBI4_QUP_I2C_BUS_ID,
 };
 
 static struct msm_camera_csi_lane_params s5k3l1yx_csi_lane_params = {
@@ -649,9 +666,6 @@ struct i2c_board_info msm8930_camera_i2c_boardinfo[] = {
 	{
 	I2C_BOARD_INFO("s5k3l1yx", 0x20),
 	.platform_data = &msm_camera_sensor_s5k3l1yx_data,
-	},
-	{
-	I2C_BOARD_INFO("tps61310", 0x66),
 	},
 };
 

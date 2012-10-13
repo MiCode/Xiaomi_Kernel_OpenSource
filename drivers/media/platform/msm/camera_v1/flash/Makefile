@@ -1,0 +1,9 @@
+GCC_VERSION      := $(shell $(CONFIG_SHELL) $(PWD)/scripts/gcc-version.sh $(CROSS_COMPILE)gcc)
+ccflags-y += -Idrivers/media/video/msm
+ccflags-y += -Idrivers/media/video/msm/io
+obj-$(CONFIG_MSM_CAMERA_FLASH) += msm_flash.o
+obj-$(CONFIG_MSM_CAMERA_FLASH_SC628A) += sc628a.o
+obj-$(CONFIG_MSM_CAMERA_FLASH_TPS61310) += tps61310.o
+obj-$(CONFIG_MSM_CAMERA_FLASH_PMIC_FLASH) += pmic8058_flash.o
+obj-$(CONFIG_MSM_CAMERA_FLASH_SGM3141) += sgm3141.o
+obj-$(CONFIG_MSM_CAMERA_FLASH_PMIC8058_PWM) += pmic8058_pwm.o
