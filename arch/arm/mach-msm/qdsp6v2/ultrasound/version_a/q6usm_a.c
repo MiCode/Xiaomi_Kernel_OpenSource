@@ -19,10 +19,8 @@
 #include <linux/slab.h>
 #include <linux/msm_audio.h>
 #include <sound/apr_audio.h>
+#include <mach/qdsp6v2/apr_us_a.h>
 #include "q6usm.h"
-
-/* The driver version*/
-#define DRV_VERSION "1.2"
 
 #define SESSION_MAX 0x02 /* aDSP:USM limit */
 
@@ -57,6 +55,96 @@ struct usm_mmap {
 };
 
 static struct usm_mmap this_mmap;
+
+static void q6usm_add_mmaphdr(struct us_client *usc, struct apr_hdr *hdr,
+			      uint32_t pkt_size, bool cmd_flg)
+{
+	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
+				       APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	hdr->src_port = 0;
+	hdr->dest_port = 0;
+	if (cmd_flg) {
+		hdr->token = 0;
+		atomic_set(&this_mmap.cmd_state, 1);
+	}
+	hdr->pkt_size  = pkt_size;
+	return;
+}
+
+static int q6usm_memory_map(struct us_client *usc, uint32_t buf_add, int dir,
+		     uint32_t bufsz, uint32_t bufcnt)
+{
+	struct usm_stream_cmd_memory_map mem_map;
+	int rc = 0;
+
+	if ((usc == NULL) || (usc->apr == NULL) || (this_mmap.apr == NULL)) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	q6usm_add_mmaphdr(usc, &mem_map.hdr,
+			  sizeof(struct usm_stream_cmd_memory_map), true);
+	mem_map.hdr.opcode = USM_SESSION_CMD_MEMORY_MAP;
+
+	mem_map.buf_add = buf_add;
+	mem_map.buf_size = bufsz * bufcnt;
+	mem_map.mempool_id = 0;
+
+	pr_debug("%s: buf add[%x]  buf_add_parameter[%x]\n",
+		 __func__, mem_map.buf_add, buf_add);
+
+	rc = apr_send_pkt(this_mmap.apr, (uint32_t *) &mem_map);
+	if (rc < 0) {
+		pr_err("%s: mem_map op[0x%x]rc[%d]\n",
+		       __func__, mem_map.hdr.opcode, rc);
+		goto fail_cmd;
+	}
+
+	rc = wait_event_timeout(this_mmap.cmd_wait,
+				(atomic_read(&this_mmap.cmd_state) == 0),
+				Q6USM_TIMEOUT_JIFFIES);
+	if (!rc) {
+		rc = -ETIME;
+		pr_err("%s: timeout. waited for memory_map\n", __func__);
+	} else
+		rc = 0;
+fail_cmd:
+	return rc;
+}
+
+int q6usm_memory_unmap(struct us_client *usc, uint32_t buf_add, int dir)
+{
+	struct usm_stream_cmd_memory_unmap mem_unmap;
+	int rc = 0;
+
+	if ((usc == NULL) || (usc->apr == NULL) || (this_mmap.apr == NULL)) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	q6usm_add_mmaphdr(usc, &mem_unmap.hdr,
+			  sizeof(struct usm_stream_cmd_memory_unmap), true);
+	mem_unmap.hdr.opcode = USM_SESSION_CMD_MEMORY_UNMAP;
+	mem_unmap.buf_add = buf_add;
+
+	rc = apr_send_pkt(this_mmap.apr, (uint32_t *) &mem_unmap);
+	if (rc < 0) {
+		pr_err("%s:mem_unmap op[0x%x]rc[%d]\n",
+		       __func__, mem_unmap.hdr.opcode, rc);
+		goto fail_cmd;
+	}
+
+	rc = wait_event_timeout(this_mmap.cmd_wait,
+				(atomic_read(&this_mmap.cmd_state) == 0),
+				Q6USM_TIMEOUT_JIFFIES);
+	if (!rc) {
+		rc = -ETIME;
+		pr_err("%s: timeout. waited for memory_map\n", __func__);
+	} else
+		rc = 0;
+fail_cmd:
+	return rc;
+}
 
 static int q6usm_session_alloc(struct us_client *usc)
 {
@@ -276,10 +364,11 @@ static int32_t q6usm_mmapcallback(struct apr_client_data *data, void *priv)
 	uint32_t token;
 	uint32_t *payload = data->payload;
 
-	pr_debug("%s: ptr0[0x%x]; ptr1[0x%x]; opcode[0x%x];"
-		 "token[0x%x]; payload_s[%d]; src[%d]; dest[%d];\n",
-		 __func__, payload[0], payload[1], data->opcode, data->token,
-		 data->payload_size, data->src_port, data->dest_port);
+	pr_debug("%s: ptr0[0x%x]; ptr1[0x%x]; opcode[0x%x]\n",
+		 __func__, payload[0], payload[1], data->opcode);
+	pr_debug("%s: token[0x%x]; payload_size[%d]; src[%d]; dest[%d];\n",
+		 __func__, data->token, data->payload_size,
+		 data->src_port, data->dest_port);
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		/* status field check */
@@ -315,6 +404,7 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 	unsigned long dsp_flags;
 	uint32_t *payload = data->payload;
 	uint32_t token = data->token;
+	uint32_t opcode = Q6USM_EVENT_UNDEF;
 
 	if (usc == NULL) {
 		pr_err("%s: client info is NULL\n", __func__);
@@ -363,6 +453,7 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 	case USM_DATA_EVENT_READ_DONE: {
 		struct us_port_data *port = &usc->port[OUT];
 
+		opcode = Q6USM_EVENT_READ_DONE;
 		spin_lock_irqsave(&port->dsp_lock, dsp_flags);
 		if (payload[READDONE_IDX_STATUS]) {
 			pr_err("%s: wrong READDONE[%d]; token[%d]\n",
@@ -408,6 +499,7 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 	case USM_DATA_EVENT_WRITE_DONE: {
 		struct us_port_data *port = &usc->port[IN];
 
+		opcode = Q6USM_EVENT_WRITE_DONE;
 		if (payload[WRITEDONE_IDX_STATUS]) {
 			pr_err("%s: wrong WRITEDONE_IDX_STATUS[%d]\n",
 			       __func__,
@@ -428,6 +520,7 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: US detect result: result=%d",
 			 __func__,
 			 payload[0]);
+		opcode = Q6USM_EVENT_SIGNAL_DETECT_RESULT;
 
 		break;
 	} /* case USM_SESSION_EVENT_SIGNAL_DETECT_RESULT */
@@ -438,19 +531,10 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 	} /* switch */
 
 	if (usc->cb)
-		usc->cb(data->opcode, token,
+		usc->cb(opcode, token,
 			data->payload, usc->priv);
 
 	return 0;
-}
-
-uint32_t q6usm_get_ready_data(int dir, struct us_client *usc)
-{
-	uint32_t ret = 0xffffffff;
-
-	if ((usc != NULL) && ((dir == IN) || (dir == OUT)))
-		ret = usc->port[dir].dsp_buf;
-	return ret;
 }
 
 uint32_t q6usm_get_virtual_address(int dir,
@@ -487,21 +571,6 @@ static void q6usm_add_hdr(struct us_client *usc, struct apr_hdr *hdr,
 	}
 	hdr->pkt_size  = APR_PKT_SIZE(APR_HDR_SIZE, pkt_size);
 	mutex_unlock(&usc->cmd_lock);
-	return;
-}
-
-static void q6usm_add_mmaphdr(struct us_client *usc, struct apr_hdr *hdr,
-			      uint32_t pkt_size, bool cmd_flg)
-{
-	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
-				       APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	hdr->src_port = 0;
-	hdr->dest_port = 0;
-	if (cmd_flg) {
-		hdr->token = 0;
-		atomic_set(&this_mmap.cmd_state, 1);
-	}
-	hdr->pkt_size  = pkt_size;
 	return;
 }
 
@@ -573,7 +642,7 @@ fail_cmd:
 }
 
 
-int q6usm_enc_cfg_blk(struct us_client *usc, struct us_encdec_cfg* us_cfg)
+int q6usm_enc_cfg_blk(struct us_client *usc, struct us_encdec_cfg *us_cfg)
 {
 	uint32_t int_format = INVALID_FORMAT;
 	struct usm_stream_cmd_encdec_cfg_blk  enc_cfg_obj;
@@ -849,80 +918,6 @@ fail_cmd:
 }
 
 
-int q6usm_memory_map(struct us_client *usc, uint32_t buf_add, int dir,
-		     uint32_t bufsz, uint32_t bufcnt)
-{
-	struct usm_stream_cmd_memory_map mem_map;
-	int rc = 0;
-
-	if ((usc == NULL) || (usc->apr == NULL) || (this_mmap.apr == NULL)) {
-		pr_err("%s: APR handle NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	q6usm_add_mmaphdr(usc, &mem_map.hdr,
-			  sizeof(struct usm_stream_cmd_memory_map), true);
-	mem_map.hdr.opcode = USM_SESSION_CMD_MEMORY_MAP;
-
-	mem_map.buf_add = buf_add;
-	mem_map.buf_size = bufsz * bufcnt;
-	mem_map.mempool_id = 0;
-
-	pr_debug("%s: buf add[%x]  buf_add_parameter[%x]\n",
-		 __func__, mem_map.buf_add, buf_add);
-
-	rc = apr_send_pkt(this_mmap.apr, (uint32_t *) &mem_map);
-	if (rc < 0) {
-		pr_err("%s: mem_map op[0x%x]rc[%d]\n",
-		       __func__, mem_map.hdr.opcode, rc);
-		goto fail_cmd;
-	}
-
-	rc = wait_event_timeout(this_mmap.cmd_wait,
-				(atomic_read(&this_mmap.cmd_state) == 0),
-				Q6USM_TIMEOUT_JIFFIES);
-	if (!rc) {
-		rc = -ETIME;
-		pr_err("%s: timeout. waited for memory_map\n", __func__);
-	} else
-		rc = 0;
-fail_cmd:
-	return rc;
-}
-
-int q6usm_memory_unmap(struct us_client *usc, uint32_t buf_add, int dir)
-{
-	struct usm_stream_cmd_memory_unmap mem_unmap;
-	int rc = 0;
-
-	if ((usc == NULL) || (usc->apr == NULL) || (this_mmap.apr == NULL)) {
-		pr_err("%s: APR handle NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	q6usm_add_mmaphdr(usc, &mem_unmap.hdr,
-			  sizeof(struct usm_stream_cmd_memory_unmap), true);
-	mem_unmap.hdr.opcode = USM_SESSION_CMD_MEMORY_UNMAP;
-	mem_unmap.buf_add = buf_add;
-
-	rc = apr_send_pkt(this_mmap.apr, (uint32_t *) &mem_unmap);
-	if (rc < 0) {
-		pr_err("%s:mem_unmap op[0x%x]rc[%d]\n",
-		       __func__, mem_unmap.hdr.opcode, rc);
-		goto fail_cmd;
-	}
-
-	rc = wait_event_timeout(this_mmap.cmd_wait,
-				(atomic_read(&this_mmap.cmd_state) == 0),
-				Q6USM_TIMEOUT_JIFFIES);
-	if (!rc) {
-		rc = -ETIME;
-		pr_err("%s: timeout. waited for memory_map\n", __func__);
-	} else
-		rc = 0;
-fail_cmd:
-	return rc;
-}
 
 int q6usm_read(struct us_client *usc, uint32_t read_ind)
 {
@@ -1057,7 +1052,7 @@ int q6usm_write(struct us_client *usc, uint32_t write_ind)
 	return rc;
 }
 
-bool q6usm_is_write_buf_full(struct us_client *usc, uint32_t* free_region)
+bool q6usm_is_write_buf_full(struct us_client *usc, uint32_t *free_region)
 {
 	struct us_port_data *port = NULL;
 	u32 cpu_buf = 0;
