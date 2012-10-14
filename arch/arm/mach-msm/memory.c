@@ -44,14 +44,14 @@
 #include <../../mm/mm.h>
 #include <linux/fmem.h>
 
-void *strongly_ordered_page;
-char strongly_ordered_mem[PAGE_SIZE*2-4];
+#if defined(CONFIG_ARCH_MSM7X27)
+static void *strongly_ordered_page;
+static char strongly_ordered_mem[PAGE_SIZE*2-4];
 
-void map_page_strongly_ordered(void)
+void __init map_page_strongly_ordered(void)
 {
-#if defined(CONFIG_ARCH_MSM7X27) && !defined(CONFIG_ARCH_MSM7X27A)
 	long unsigned int phys;
-	struct map_desc map;
+	struct map_desc map[1];
 
 	if (strongly_ordered_page)
 		return;
@@ -59,33 +59,26 @@ void map_page_strongly_ordered(void)
 	strongly_ordered_page = (void*)PFN_ALIGN((int)&strongly_ordered_mem);
 	phys = __pa(strongly_ordered_page);
 
-	map.pfn = __phys_to_pfn(phys);
-	map.virtual = MSM_STRONGLY_ORDERED_PAGE;
-	map.length = PAGE_SIZE;
-	map.type = MT_MEMORY_SO;
-	create_mapping(&map);
+	map[0].pfn = __phys_to_pfn(phys);
+	map[0].virtual = MSM_STRONGLY_ORDERED_PAGE;
+	map[0].length = PAGE_SIZE;
+	map[0].type = MT_MEMORY_SO;
+	iotable_init(map, ARRAY_SIZE(map));
 
 	printk(KERN_ALERT "Initialized strongly ordered page successfully\n");
-#endif
 }
-EXPORT_SYMBOL(map_page_strongly_ordered);
+#else
+void map_page_strongly_ordered(void) { }
+#endif
 
+#if defined(CONFIG_ARCH_MSM7X27)
 void write_to_strongly_ordered_memory(void)
 {
-#if defined(CONFIG_ARCH_MSM7X27) && !defined(CONFIG_ARCH_MSM7X27A)
-	if (!strongly_ordered_page) {
-		if (!in_interrupt())
-			map_page_strongly_ordered();
-		else {
-			printk(KERN_ALERT "Cannot map strongly ordered page in "
-				"Interrupt Context\n");
-			/* capture it here before the allocation fails later */
-			BUG();
-		}
-	}
 	*(int *)MSM_STRONGLY_ORDERED_PAGE = 0;
-#endif
 }
+#else
+void write_to_strongly_ordered_memory(void) { }
+#endif
 EXPORT_SYMBOL(write_to_strongly_ordered_memory);
 
 /* These cache related routines make the assumption (if outer cache is
