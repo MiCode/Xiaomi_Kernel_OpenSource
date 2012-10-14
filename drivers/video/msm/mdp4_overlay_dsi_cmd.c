@@ -228,8 +228,10 @@ void mdp4_dsi_cmd_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe)
 
 	vctrl = &vsync_ctrl_db[cndx];
 
-	if (atomic_read(&vctrl->suspend) > 0)
+	if (atomic_read(&vctrl->suspend)) {
+		pr_err("%s: suspended, no more pipe queue\n", __func__);
 		return;
+	}
 
 	mutex_lock(&vctrl->update_lock);
 	undx =  vctrl->update_ndx;
@@ -369,7 +371,7 @@ int mdp4_dsi_cmd_pipe_commit(int cndx, int wait)
 		vsync_irq_enable(INTR_DMA_P_DONE, MDP_DMAP_TERM);
 		vctrl->dmap_koff++;
 	}
-	pr_debug("%s: kickoff\n", __func__);
+	pr_debug("%s: kickoff, pid=%d\n", __func__, current->pid);
 	/* kickoff overlay engine */
 	mdp4_stat.kickoff_ov0++;
 	outpdw(MDP_BASE + 0x0004, 0);
@@ -639,7 +641,6 @@ static void clk_ctrl_work(struct work_struct *work)
 		vctrl->clk_enabled = 0;
 		vctrl->clk_control = 0;
 		spin_unlock_irqrestore(&vctrl->spin_lock, flags);
-		pr_debug("%s: SET_CLK_OFF\n", __func__);
 		/* make sure dsi link is idle */
 		mipi_dsi_mdp_busy_wait();
 		mipi_dsi_clk_cfg(0);
