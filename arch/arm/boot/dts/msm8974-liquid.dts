@@ -54,6 +54,10 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	qcom,hdmi_tx@fd922100 {
+		status = "ok";
+	};
 };
 
 &pm8941_gpios {
