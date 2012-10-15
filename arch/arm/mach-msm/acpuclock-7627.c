@@ -311,7 +311,7 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1401[] = {
 	{ 0 }
 };
 
-/* 8625v2.0 PLL4 @ 1008MHz with GSM capable modem */
+/* 8625 PLL4 @ 1008MHz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008_2p0[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
 	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 0, 61440 },
@@ -326,7 +326,7 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008_2p0[] = {
 	{ 0 }
 };
 
-/* 8625v2.0 PLL4 @ 1008MHz with CDMA capable modem */
+/* 8625 PLL4 @ 1008MHz with CDMA capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
 	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
@@ -985,14 +985,10 @@ static void __devinit select_freq_plan(void)
 
 	/*
 	 * 1008Mhz table selection based on the Lvalue of the PLL
-	 * is conflicting with the 7627AA and 8625 v1.0 1GHz parts
-	 * since v2.0 8625 chips are using different clock plan based
-	 * reprogramming method.
+	 * is conflicting with the 7627AA 1GHz parts since 8625 chips
+	 * are using different clock plan based reprogramming method.
 	 */
-	if (cpu_is_msm8625() &&
-		(SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) &&
-		pll_mhz[ACPU_PLL_4] == 1008) {
-
+	if (cpu_is_msm8625() &&	pll_mhz[ACPU_PLL_4] == 1008) {
 		if (pll_mhz[ACPU_PLL_2] == 245)
 			acpu_freq_tbl =
 				pll0_960_pll1_245_pll2_1200_pll4_1008_2p0;
