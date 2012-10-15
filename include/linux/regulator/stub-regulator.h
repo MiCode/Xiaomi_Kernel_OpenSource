@@ -31,5 +31,24 @@ struct stub_regulator_pdata {
 	int				system_uA;
 };
 
+#ifdef CONFIG_REGULATOR_STUB
+
+/**
+ * regulator_stub_init() - register platform driver for stub-regulator
+ *
+ * This initialization function should be called in systems in which driver
+ * registration ordering must be controlled precisely.
+ */
+
 int __init regulator_stub_init(void);
+
+#else
+
+static inline int __init regulator_stub_init(void)
+{
+	return -ENODEV;
+}
+
+#endif /* CONFIG_REGULATOR_STUB */
+
 #endif
