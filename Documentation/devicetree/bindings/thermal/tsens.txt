@@ -28,6 +28,10 @@ Required properties:
 	       as ADC code/DegC and the value is multipled by a factor
 	       of 1000.
 
+Optional properties:
+- qcom,calibration-less-mode : If present the pre-characterized data for offsets
+		are used else it defaults to use calibration data from QFPROM.
+
 Example:
 
 tsens@fc4a8000 {
@@ -36,6 +40,7 @@ tsens@fc4a8000 {
 	      <0xfc4b80d0 0x5>;
 	reg-names = "tsens_physical", "tsens_eeprom_physical";
 	interrupts = <0 184 0>;
+	qcom,calibration-less-mode;
 	qcom,sensors = <11>;
 	qcom,slope = <1134 1122 1142 1123 1176 1176 1176 1186 1176
 			1176>;
