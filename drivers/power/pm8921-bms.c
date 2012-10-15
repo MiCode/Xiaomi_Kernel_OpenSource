@@ -1216,6 +1216,7 @@ static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
 	int pc, new_pc;
 	int batt_temp_degc = batt_temp / 10;
 	int ocv;
+	int count = 0;
 
 	rc = (s64)shutdown_soc * (fcc_uah - uuc_uah);
 	rc = div_s64(rc, 100) + cc_uah + uuc_uah;
@@ -1229,7 +1230,8 @@ static void find_ocv_for_soc(struct pm8921_bms_chip *chip,
 	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv);
 	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv);
 
-	while (abs(new_pc - pc) > 1) {
+	/* try 10 times to get a close enough pc */
+	while (abs(new_pc - pc) > 1 && count++ < 10) {
 		int delta_mv = 5;
 
 		if (new_pc > pc)
