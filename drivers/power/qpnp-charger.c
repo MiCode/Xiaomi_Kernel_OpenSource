@@ -94,6 +94,11 @@
 
 #define QPNP_CHARGER_DEV_NAME	"qcom,qpnp-charger"
 
+/* Status bits and masks */
+#define CHGR_BOOT_DONE			BIT(7)
+#define CHGR_CHG_EN			BIT(7)
+#define CHGR_ON_BAT_FORCE_BIT		BIT(0)
+
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
 #define CHG_DONE_IRQ			BIT(7)
@@ -198,7 +203,7 @@ struct qpnp_chg_chip {
 };
 
 static struct qpnp_chg_chip *the_chip;
-static int charging_disabled;
+static bool charging_disabled;
 
 static struct of_device_id qpnp_charger_match_table[] = {
 	{ .compatible = QPNP_CHARGER_DEV_NAME, },
@@ -433,6 +438,7 @@ static enum power_supply_property pm_power_props_mains[] = {
 };
 
 static enum power_supply_property msm_batt_power_props[] = {
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -692,6 +698,24 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 }
 
 static int
+qpnp_chg_charge_dis(struct qpnp_chg_chip *chip, int disable)
+{
+	/* This bit forces the charger to run off of the battery rather
+	 * than a connected charger */
+	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
+			CHGR_ON_BAT_FORCE_BIT,
+			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
+}
+
+static int
+qpnp_chg_charge_en(struct qpnp_chg_chip *chip, int enable)
+{
+	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
+			CHGR_CHG_EN,
+			enable ? CHGR_CHG_EN : 0, 1);
+}
+
+static int
 qpnp_batt_power_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
@@ -736,6 +760,9 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_full_design(chip);
 		break;
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		val->intval = !charging_disabled;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -743,27 +770,28 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 	return 0;
 }
 
-#define CHGR_BOOT_DONE	BIT(7)
-#define CHGR_CHG_EN	BIT(7)
-#define CHGR_ON_BAT_FORCE_BIT	BIT(0)
-#define CHGR_BAT_IF_CONST_RDS_EN	BIT(7)
-#define CHGR_BAT_IF_VCP_EN	BIT(0)
 static int
-qpnp_chg_charge_dis(struct qpnp_chg_chip *chip, int disable)
+qpnp_batt_power_set_property(struct power_supply *psy,
+				  enum power_supply_property psp,
+				  const union power_supply_propval *val)
 {
-	/* This bit forces the charger to run off of the battery rather
-	 * than a connected charger */
-	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
-			CHGR_ON_BAT_FORCE_BIT,
-			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
-}
+	struct qpnp_chg_chip *chip = container_of(psy, struct qpnp_chg_chip,
+								batt_psy);
 
-static int
-qpnp_chg_charge_en(struct qpnp_chg_chip *chip, int enable)
-{
-	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
-			CHGR_CHG_EN,
-			enable ? CHGR_CHG_EN : 0, 1);
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		if (val->intval)
+			qpnp_chg_charge_en(chip, val->intval);
+		else
+			qpnp_chg_charge_dis(chip, val->intval);
+		charging_disabled = !(val->intval);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	power_supply_changed(&chip->batt_psy);
+	return 0;
 }
 
 static int
@@ -782,7 +810,7 @@ qpnp_chg_set_disable_status_param(const char *val, struct kernel_param *kp)
 		qpnp_chg_charge_dis(chip, charging_disabled);
 	return 0;
 }
-module_param_call(disabled, qpnp_chg_set_disable_status_param, param_get_uint,
+module_param_call(disabled, qpnp_chg_set_disable_status_param, param_get_bool,
 					&charging_disabled, 0644);
 
 #define QPNP_CHG_VINMIN_MIN_MV		3400
@@ -1234,6 +1262,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	chip->batt_psy.properties = msm_batt_power_props;
 	chip->batt_psy.num_properties = ARRAY_SIZE(msm_batt_power_props);
 	chip->batt_psy.get_property = qpnp_batt_power_get_property;
+	chip->batt_psy.set_property = qpnp_batt_power_set_property;
 	chip->batt_psy.external_power_changed =
 				qpnp_batt_external_power_changed;
 
