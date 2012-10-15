@@ -69,6 +69,7 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.gpio = 0,
 	.gpio_irq = 0,
 	.gpio_level_insert = 1,
+	.detect_extn_cable = true,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
 };
