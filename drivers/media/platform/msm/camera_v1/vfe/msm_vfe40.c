@@ -421,7 +421,16 @@ static struct msm_bus_vectors vfe_video_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 154275840,
+		.ab  = 274406400,
+		.ib  = 617103360,
+	},
+};
+
+static struct msm_bus_vectors vfe_liveshot_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 348192000,
 		.ib  = 617103360,
 	},
 };
@@ -464,6 +473,10 @@ static struct msm_bus_paths vfe_bus_client_config[] = {
 	{
 		ARRAY_SIZE(vfe_zsl_vectors),
 		vfe_zsl_vectors,
+	},
+	{
+		ARRAY_SIZE(vfe_liveshot_vectors),
+		vfe_liveshot_vectors,
 	},
 };
 
@@ -564,23 +577,6 @@ static void axi_disable_irq(struct vfe_share_ctrl_t *share_ctrl)
 			VFE_IRQ_MASK_0);
 	}
 
-	if (share_ctrl->axi_ref_cnt == 1) {
-		atomic_set(&share_ctrl->handle_common_irq, 0);
-	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
-		share_ctrl->vfebase + VFE_IRQ_MASK_0);
-	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
-		share_ctrl->vfebase + VFE_IRQ_MASK_1);
-
-	/* clear all pending interrupts*/
-	msm_camera_io_w(0xFFFFFFFF,
-		share_ctrl->vfebase + VFE_IRQ_CLEAR_0);
-	msm_camera_io_w(0xFFFFFFFF,
-		share_ctrl->vfebase + VFE_IRQ_CLEAR_1);
-	/* Ensure the write order while writing
-	to the command register using the barrier */
-	msm_camera_io_w_mb(1,
-		share_ctrl->vfebase + VFE_IRQ_CMD);
-	}
 }
 
 static void vfe40_stop(struct vfe40_ctrl_type *vfe40_ctrl)
@@ -3338,42 +3334,51 @@ static void vfe40_process_reg_update_irq(
 
 				share_ctrl->liveshot_state =
 				VFE_STATE_STARTED;
+				msm_camera_io_w_mb(1, share_ctrl->vfebase +
+				VFE_REG_UPDATE_CMD);
 		}
 		break;
 	case VFE_STATE_STARTED:
-			share_ctrl->vfe_capture_count--;
-			if (!share_ctrl->vfe_capture_count &&
+		CDBG("%s disabling liveshot output\n", __func__);
+		if (share_ctrl->vfe_capture_count >= 1) {
+			if (share_ctrl->vfe_capture_count == 1 &&
 				(share_ctrl->comp_output_mode &
 				VFE40_OUTPUT_MODE_PRIMARY)) {
 				msm_camera_io_w(0, share_ctrl->vfebase +
 					vfe40_AXI_WM_CFG[
-				share_ctrl->outpath.out0.ch0]);
+					share_ctrl->outpath.out0.ch0]);
 				msm_camera_io_w(0, share_ctrl->vfebase +
 					vfe40_AXI_WM_CFG[
-				share_ctrl->outpath.out0.ch1]);
+					share_ctrl->outpath.out0.ch1]);
+				msm_camera_io_w_mb(1, share_ctrl->vfebase +
+					VFE_REG_UPDATE_CMD);
+			}
+			share_ctrl->vfe_capture_count--;
 		}
 		break;
 	case VFE_STATE_STOP_REQUESTED:
+		CDBG("%s disabling liveshot output from stream off\n",
+			__func__);
 		if (share_ctrl->comp_output_mode &
 			VFE40_OUTPUT_MODE_PRIMARY) {
 			/* Stop requested, stop write masters, and
 			 * trigger REG_UPDATE. Send STOP_LS_ACK in
 			 * next reg update. */
-				msm_camera_io_w(0, share_ctrl->vfebase +
-					vfe40_AXI_WM_CFG[
-				share_ctrl->outpath.out0.ch0]);
-				msm_camera_io_w(0, share_ctrl->vfebase +
-					vfe40_AXI_WM_CFG[
-				share_ctrl->outpath.out0.ch1]);
-				share_ctrl->liveshot_state = VFE_STATE_STOPPED;
-				msm_camera_io_w_mb(1, share_ctrl->vfebase +
+			msm_camera_io_w(0, share_ctrl->vfebase +
+				vfe40_AXI_WM_CFG[
+			share_ctrl->outpath.out0.ch0]);
+			msm_camera_io_w(0, share_ctrl->vfebase +
+				vfe40_AXI_WM_CFG[
+			share_ctrl->outpath.out0.ch1]);
+			share_ctrl->liveshot_state = VFE_STATE_STOPPED;
+			msm_camera_io_w_mb(1, share_ctrl->vfebase +
 				VFE_REG_UPDATE_CMD);
 		}
 		break;
 	case VFE_STATE_STOPPED:
 		CDBG("%s Sending STOP_LS ACK\n", __func__);
 		vfe40_send_isp_msg(&vfe40_ctrl->subdev,
-				share_ctrl->vfeFrameId, MSG_ID_STOP_LS_ACK);
+			share_ctrl->vfeFrameId, MSG_ID_STOP_LS_ACK);
 			share_ctrl->liveshot_state = VFE_STATE_IDLE;
 		break;
 	default:
