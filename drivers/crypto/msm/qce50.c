@@ -767,15 +767,30 @@ static int _ablk_cipher_complete(struct qce_device *pce_dev)
 			if ((pce_dev->mode == QCE_MODE_CTR) ||
 				(pce_dev->mode == QCE_MODE_XTS)) {
 				uint32_t num_blk = 0;
-				uint32_t cntr_iv = 0;
+				uint32_t cntr_iv3 = 0;
+				unsigned long long cntr_iv64 = 0;
+				unsigned char *b = (unsigned char *)(&cntr_iv3);
 
 				memcpy(iv, areq->info, sizeof(iv));
-				if (pce_dev->mode == QCE_MODE_CTR)
+				if (pce_dev->mode != QCE_MODE_XTS)
 					num_blk = areq->nbytes/16;
-				cntr_iv = (u32)(((u32)(*(iv + 14))) << 8) |
-							(u32)(*(iv + 15));
-				*(iv + 14) = (char)((cntr_iv + num_blk) >> 8);
-				*(iv + 15) = (char)((cntr_iv + num_blk) & 0xFF);
+				else
+					num_blk = 1;
+				cntr_iv3 =  ((*(iv + 12) << 24) & 0xff000000) |
+					(((*(iv + 13)) << 16) & 0xff0000) |
+					(((*(iv + 14)) << 8) & 0xff00) |
+					(*(iv + 15) & 0xff);
+				cntr_iv64 =
+					(((unsigned long long)cntr_iv3 &
+					(unsigned long long)0xFFFFFFFFULL) +
+					(unsigned long long)num_blk) %
+					(unsigned long long)(0x100000000ULL);
+
+				cntr_iv3 = (u32)(cntr_iv64 & 0xFFFFFFFF);
+				*(iv + 15) = (char)(*b);
+				*(iv + 14) = (char)(*(b + 1));
+				*(iv + 13) = (char)(*(b + 2));
+				*(iv + 12) = (char)(*(b + 3));
 			}
 		} else {
 			memcpy(iv,
