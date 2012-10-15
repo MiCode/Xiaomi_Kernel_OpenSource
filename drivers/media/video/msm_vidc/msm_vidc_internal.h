@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/videobuf2-core.h>
 #include <media/msm_vidc.h>
+#include <media/msm_media_info.h>
 
 #include "vidc_hal_api.h"
 
@@ -49,33 +50,7 @@
 
 #define MAX_NAME_LENGTH 64
 
-#define NV12_IL_CALC_Y_STRIDE(stride, frame_width, stride_multiple) \
-	{ stride = (frame_width + stride_multiple - 1) & \
-	(0xffffffff - (stride_multiple - 1)); }
-
-#define NV12_IL_CALC_Y_BUFHEIGHT(buf_height, frame_height,\
-	min_buf_height_multiple) \
-	{ buf_height = (frame_height + min_buf_height_multiple - 1) & \
-	(0xffffffff - (min_buf_height_multiple - 1)); }
-
-#define NV12_IL_CALC_UV_STRIDE(stride, frame_width, stride_multiple) \
-	{ stride = ((((frame_width + 1) >> 1) + stride_multiple - 1) & \
-	(0xffffffff - (stride_multiple - 1))) << 1; }
-
-#define NV12_IL_CALC_UV_BUFHEIGHT(buf_height, frame_height,\
-	min_buf_height_multiple) \
-	{ buf_height = ((((frame_height + 1) >> 1) + \
-	min_buf_height_multiple - 1) & (0xffffffff - \
-	(min_buf_height_multiple - 1))); }
-
-#define NV12_IL_CALC_BUF_SIZE(buf_size, y_buf_size, y_stride, \
-	y_buf_height, uv_buf_size, uv_stride, uv_buf_height, uv_alignment) \
-	{ y_buf_size = (y_stride * y_buf_height); \
-	uv_buf_size = (uv_stride * uv_buf_height) + uv_alignment; \
-	buf_size = y_buf_size + uv_buf_size; }
-
 #define EXTRADATA_IDX(__num_planes) (__num_planes - 1)
-
 enum vidc_ports {
 	OUTPUT_PORT,
 	CAPTURE_PORT,
