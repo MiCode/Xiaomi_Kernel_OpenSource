@@ -4288,6 +4288,11 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 						vin_collapse_check_worker);
 	INIT_DELAYED_WORK(&chip->unplug_check_work, unplug_check_worker);
 
+	INIT_WORK(&chip->bms_notify.work, bms_notify);
+	INIT_WORK(&chip->battery_id_valid_work, battery_id_valid);
+
+	INIT_DELAYED_WORK(&chip->update_heartbeat_work, update_heartbeat);
+
 	rc = request_irqs(chip, pdev);
 	if (rc) {
 		pr_err("couldn't register interrupts rc=%d\n", rc);
@@ -4324,19 +4329,13 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	}
 	create_debugfs_entries(chip);
 
-	INIT_WORK(&chip->bms_notify.work, bms_notify);
-	INIT_WORK(&chip->battery_id_valid_work, battery_id_valid);
-
 	/* determine what state the charger is in */
 	determine_initial_state(chip);
 
-	if (chip->update_time) {
-		INIT_DELAYED_WORK(&chip->update_heartbeat_work,
-							update_heartbeat);
+	if (chip->update_time)
 		schedule_delayed_work(&chip->update_heartbeat_work,
 				      round_jiffies_relative(msecs_to_jiffies
 							(chip->update_time)));
-	}
 	return 0;
 
 free_irq:
