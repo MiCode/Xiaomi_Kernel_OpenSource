@@ -47,6 +47,24 @@ int power_supply_set_current_limit(struct power_supply *psy, int limit)
 EXPORT_SYMBOL_GPL(power_supply_set_current_limit);
 
 /**
+ * power_supply_set_charging_enabled - enable or disable charging
+ * @psy:	the power supply to control
+ * @enable:	sets enable property of power supply
+ */
+int power_supply_set_charging_enabled(struct power_supply *psy, bool enable)
+{
+	const union power_supply_propval ret = {enable,};
+
+	if (psy->set_property)
+		return psy->set_property(psy,
+				POWER_SUPPLY_PROP_CHARGING_ENABLED,
+				&ret);
+
+	return -ENXIO;
+}
+EXPORT_SYMBOL_GPL(power_supply_set_charging_enabled);
+
+/**
  * power_supply_set_present - set present state of the power supply
  * @psy:	the power supply to control
  * @enable:	sets present property of power supply
