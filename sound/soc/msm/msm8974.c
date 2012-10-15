@@ -52,10 +52,26 @@
 #define GPIO_AUX_PCM_SYNC 45
 #define GPIO_AUX_PCM_CLK 46
 
-#define TABLA_EXT_CLK_RATE 12288000
+#define WCD9XXX_MBHC_DEF_BUTTONS 8
+#define WCD9XXX_MBHC_DEF_RLOADS 5
+#define TAIKO_EXT_CLK_RATE 9600000
 
-#define TABLA_MBHC_DEF_BUTTONS 8
-#define TABLA_MBHC_DEF_RLOADS 5
+void *def_taiko_mbhc_cal(void);
+static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
+					bool dapm);
+
+static struct wcd9xxx_mbhc_config mbhc_cfg = {
+	.read_fw_bin = false,
+	.calibration = NULL,
+	.micbias = MBHC_MICBIAS2,
+	.mclk_cb_fn = msm_snd_enable_codec_ext_clk,
+	.mclk_rate = TAIKO_EXT_CLK_RATE,
+	.gpio = 0,
+	.gpio_irq = 0,
+	.gpio_level_insert = 1,
+	.insert_detect = true,
+	.swap_gnd_mic = NULL,
+};
 
 struct msm8974_asoc_mach_data {
 	int mclk_gpio;
@@ -82,9 +98,6 @@ static int msm_slim_0_tx_ch = 1;
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
-
-static struct snd_soc_jack hs_jack;
-static struct snd_soc_jack button_jack;
 
 static struct mutex cdc_mclk_mutex;
 static struct q_clkdiv *codec_clk;
@@ -317,7 +330,7 @@ static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int msm8974_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
+static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
 {
 	int ret = 0;
@@ -366,9 +379,9 @@ static int msm8974_mclk_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		return msm8974_enable_codec_ext_clk(w->codec, 1, true);
+		return msm_snd_enable_codec_ext_clk(w->codec, 1, true);
 	case SND_SOC_DAPM_POST_PMD:
-		return msm8974_enable_codec_ext_clk(w->codec, 0, true);
+		return msm_snd_enable_codec_ext_clk(w->codec, 0, true);
 	}
 
 	return 0;
@@ -727,24 +740,15 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
-	err = snd_soc_jack_new(codec, "Headset Jack",
-			       (SND_JACK_HEADSET | SND_JACK_OC_HPHL |
-				SND_JACK_OC_HPHR | SND_JACK_UNSUPPORTED),
-			       &hs_jack);
-	if (err) {
-		pr_err("failed to create new jack\n");
-		return err;
-	}
-
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
-	err = snd_soc_jack_new(codec, "Button Jack",
-			       TAIKO_JACK_BUTTON_MASK, &button_jack);
-	if (err) {
-		pr_err("failed to create new jack\n");
-		return err;
-	}
+	/* start mbhc */
+	mbhc_cfg.calibration = def_taiko_mbhc_cal();
+	if (mbhc_cfg.calibration)
+		err = taiko_hs_detect(codec, &mbhc_cfg);
+	else
+		err = -ENOMEM;
 
 	return err;
 }
@@ -754,6 +758,84 @@ static int msm_snd_startup(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 	return 0;
+}
+
+void *def_taiko_mbhc_cal(void)
+{
+	void *taiko_cal;
+	struct wcd9xxx_mbhc_btn_detect_cfg *btn_cfg;
+	u16 *btn_low, *btn_high;
+	u8 *n_ready, *n_cic, *gain;
+
+	taiko_cal = kzalloc(WCD9XXX_MBHC_CAL_SIZE(WCD9XXX_MBHC_DEF_BUTTONS,
+						WCD9XXX_MBHC_DEF_RLOADS),
+			    GFP_KERNEL);
+	if (!taiko_cal) {
+		pr_err("%s: out of memory\n", __func__);
+		return NULL;
+	}
+
+#define S(X, Y) ((WCD9XXX_MBHC_CAL_GENERAL_PTR(taiko_cal)->X) = (Y))
+	S(t_ldoh, 100);
+	S(t_bg_fast_settle, 100);
+	S(t_shutdown_plug_rem, 255);
+	S(mbhc_nsa, 4);
+	S(mbhc_navg, 4);
+#undef S
+#define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_DET_PTR(taiko_cal)->X) = (Y))
+	S(mic_current, TAIKO_PID_MIC_5_UA);
+	S(hph_current, TAIKO_PID_MIC_5_UA);
+	S(t_mic_pid, 100);
+	S(t_ins_complete, 250);
+	S(t_ins_retry, 200);
+#undef S
+#define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(taiko_cal)->X) = (Y))
+	S(v_no_mic, 30);
+	S(v_hs_max, 2400);
+#undef S
+#define S(X, Y) ((WCD9XXX_MBHC_CAL_BTN_DET_PTR(taiko_cal)->X) = (Y))
+	S(c[0], 62);
+	S(c[1], 124);
+	S(nc, 1);
+	S(n_meas, 3);
+	S(mbhc_nsc, 11);
+	S(n_btn_meas, 1);
+	S(n_btn_con, 2);
+	S(num_btn, WCD9XXX_MBHC_DEF_BUTTONS);
+	S(v_btn_press_delta_sta, 100);
+	S(v_btn_press_delta_cic, 50);
+#undef S
+	btn_cfg = WCD9XXX_MBHC_CAL_BTN_DET_PTR(taiko_cal);
+	btn_low = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_V_BTN_LOW);
+	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
+					       MBHC_BTN_DET_V_BTN_HIGH);
+	btn_low[0] = -50;
+	btn_high[0] = 34;
+	btn_low[1] = 35;
+	btn_high[1] = 52;
+	btn_low[2] = 53;
+	btn_high[2] = 94;
+	btn_low[3] = 95;
+	btn_high[3] = 133;
+	btn_low[4] = 134;
+	btn_high[4] = 171;
+	btn_low[5] = 172;
+	btn_high[5] = 208;
+	btn_low[6] = 209;
+	btn_high[6] = 244;
+	btn_low[7] = 245;
+	btn_high[7] = 330;
+	n_ready = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_READY);
+	n_ready[0] = 80;
+	n_ready[1] = 68;
+	n_cic = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_CIC);
+	n_cic[0] = 60;
+	n_cic[1] = 47;
+	gain = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_GAIN);
+	gain[0] = 11;
+	gain[1] = 9;
+
+	return taiko_cal;
 }
 
 static int msm_snd_hw_params(struct snd_pcm_substream *substream,
