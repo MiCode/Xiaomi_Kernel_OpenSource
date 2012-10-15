@@ -16,27 +16,6 @@
 #include <linux/slimbus/slimbus.h>
 #include <linux/mfd/wcd9xxx/core.h>
 
-/* Channel numbers to be used for each port */
-enum {
-	SLIM_TX_1   = 128,
-	SLIM_TX_2   = 129,
-	SLIM_TX_3   = 130,
-	SLIM_TX_4   = 131,
-	SLIM_TX_5   = 132,
-	SLIM_TX_6   = 133,
-	SLIM_TX_7   = 134,
-	SLIM_TX_8   = 135,
-	SLIM_TX_9   = 136,
-	SLIM_TX_10  = 137,
-	SLIM_RX_1   = 138,
-	SLIM_RX_2   = 139,
-	SLIM_RX_3   = 140,
-	SLIM_RX_4   = 141,
-	SLIM_RX_5   = 142,
-	SLIM_RX_6   = 143,
-	SLIM_RX_7   = 144,
-	SLIM_MAX    = 145
-};
 
 /*
  *  client is expected to give port ids in the range of
@@ -92,30 +71,42 @@ enum {
 /* slave port water mark level
  *   (0: 6bytes, 1: 9bytes, 2: 12 bytes, 3: 15 bytes)
  */
-#define SLAVE_PORT_WATER_MARK_VALUE 2
+#define SLAVE_PORT_WATER_MARK_6BYTES  0
+#define SLAVE_PORT_WATER_MARK_9BYTES  1
+#define SLAVE_PORT_WATER_MARK_12BYTES 2
+#define SLAVE_PORT_WATER_MARK_15BYTES 3
 #define SLAVE_PORT_WATER_MARK_SHIFT 1
 #define SLAVE_PORT_ENABLE           1
 #define SLAVE_PORT_DISABLE          0
-
+#define WATER_MARK_VAL \
+	((SLAVE_PORT_WATER_MARK_12BYTES << SLAVE_PORT_WATER_MARK_SHIFT) | \
+	 (SLAVE_PORT_ENABLE))
 #define BASE_CH_NUM 128
 
 
-int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx, u8 wcd9xxx_pgd_la);
+int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx,
+			   u8 wcd9xxx_pgd_la,
+			   unsigned int tx_num, unsigned int *tx_slot,
+			   unsigned int rx_num, unsigned int *rx_slot);
 
 int wcd9xxx_deinit_slimslave(struct wcd9xxx *wcd9xxx);
 
-int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
-				unsigned int tot_ch, unsigned int rate);
-int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
-				unsigned int tot_ch, unsigned int rate);
-int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
-				unsigned int tot_ch);
-int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
-				unsigned int tot_ch);
+int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx,
+			    struct list_head *wcd9xxx_ch_list,
+			    unsigned int rate, unsigned int bit_width,
+			    u16 *grph);
+int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx,
+			    struct list_head *wcd9xxx_ch_list,
+			    unsigned int rate, unsigned int bit_width,
+				u16 *grph);
+int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx,
+			      struct list_head *wcd9xxx_ch_list, u16 grph);
+int wcd9xxx_close_slim_sch_tx(struct wcd9xxx *wcd9xxx,
+			      struct list_head *wcd9xxx_ch_list, u16 grph);
 int wcd9xxx_get_channel(struct wcd9xxx *wcd9xxx,
 			unsigned int *rx_ch,
 			unsigned int *tx_ch);
 int wcd9xxx_get_slave_port(unsigned int ch_num);
-int wcd9xxx_disconnect_port(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
-				unsigned int tot_ch, unsigned int rx_tx);
+int wcd9xxx_disconnect_port(struct wcd9xxx *wcd9xxx,
+			    struct list_head *wcd9xxx_ch_list, u16 grph);
 #endif /* __WCD9310_SLIMSLAVE_H_ */

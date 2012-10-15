@@ -621,13 +621,6 @@ static int msm8930_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
-		ret = snd_soc_dai_set_channel_map(codec_dai, 0, 0,
-				msm8930_slim_0_rx_ch, rx_ch);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-							       __func__);
-			goto end;
-		}
 	} else {
 		ret = snd_soc_dai_get_channel_map(codec_dai,
 				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
@@ -641,14 +634,6 @@ static int msm8930_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
-		ret = snd_soc_dai_set_channel_map(codec_dai,
-				msm8930_slim_0_tx_ch, tx_ch, 0, 0);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-							       __func__);
-			goto end;
-		}
-
 	}
 end:
 	return ret;
@@ -660,6 +645,14 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
+	/* Tabla SLIMBUS configuration
+	 * RX1, RX2, RX3, RX4, RX5
+	 * TX1, TX2, TX3, TX4, TX5
+	 */
+	unsigned int rx_ch[SITAR_RX_MAX] = {138, 139, 140, 141, 142};
+	unsigned int tx_ch[SITAR_TX_MAX]  = {128, 129, 130, 131, 132};
 
 	pr_debug("%s()\n", __func__);
 
@@ -689,6 +682,9 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return err;
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+
+	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
+				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
 	mbhc_cfg.gpio = 37;
 	mbhc_cfg.gpio_irq = gpio_to_irq(mbhc_cfg.gpio);
