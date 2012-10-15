@@ -1124,10 +1124,12 @@ static int mipi_dsi_panel_msm_power(int on)
 			wmb();
 			lcdc_reset_cfg |= 1;
 			writel_relaxed(lcdc_reset_cfg, lcdc_reset_ptr);
+			msleep(20);
 		} else {
 			gpio_set_value_cansleep(GPIO_LCDC_BRDG_RESET_N, 0);
 			msleep(20);
 			gpio_set_value_cansleep(GPIO_LCDC_BRDG_RESET_N, 1);
+			msleep(20);
 		}
 	} else {
 		gpio_set_value_cansleep(GPIO_LCDC_BRDG_PD, 1);
