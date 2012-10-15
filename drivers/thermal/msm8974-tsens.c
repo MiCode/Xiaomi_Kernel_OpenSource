@@ -149,6 +149,7 @@ struct tsens_tm_device_sensor {
 struct tsens_tm_device {
 	struct platform_device		*pdev;
 	bool				prev_reading_avail;
+	bool				calibration_less_mode;
 	int				tsens_factor;
 	uint32_t			tsens_num_sensor;
 	int				tsens_irq;
@@ -517,6 +518,9 @@ static int tsens_calib_sensors(void)
 	int tsens_base2_data = 0, tsens_calibration_mode = 0, temp = 0;
 	uint32_t calib_data[5];
 
+	if (tmdev->calibration_less_mode)
+		goto calibration_less_mode;
+
 	for (i = 0; i < 5; i++)
 		calib_data[i] = readl_relaxed(tmdev->tsens_calib_addr
 					+ (i * TSENS_SN_ADDR_OFFSET));
@@ -528,6 +532,7 @@ static int tsens_calib_sensors(void)
 	tsens_calibration_mode |= temp;
 
 	if (tsens_calibration_mode == 0) {
+calibration_less_mode:
 		pr_debug("TSENS is calibrationless mode\n");
 		for (i = 0; i < tmdev->tsens_num_sensor; i++) {
 			tmdev->sensor[i].calib_data_point2 = 780;
@@ -708,7 +713,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	tsens_slope_data = devm_kzalloc(&pdev->dev,
-				tsens_num_sensors, GFP_KERNEL);
+			tsens_num_sensors * sizeof(u32), GFP_KERNEL);
 	if (!tsens_slope_data) {
 		dev_err(&pdev->dev, "can not allocate slope data\n");
 		return -ENOMEM;
@@ -735,6 +740,8 @@ static int get_device_tree_data(struct platform_device *pdev)
 		tmdev->sensor[i].slope_mul_tsens_factor = tsens_slope_data[i];
 	tmdev->tsens_factor = TSENS_SLOPE_FACTOR;
 	tmdev->tsens_num_sensor = tsens_num_sensors;
+	tmdev->calibration_less_mode = of_property_read_bool(of_node,
+				"qcom,calibration-less-mode");
 
 	tmdev->tsens_irq = platform_get_irq(pdev, 0);
 	if (tmdev->tsens_irq < 0) {
