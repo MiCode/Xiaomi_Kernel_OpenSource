@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,5 +31,24 @@ struct stub_regulator_pdata {
 	int				system_uA;
 };
 
+#ifdef CONFIG_REGULATOR_STUB
+
+/**
+ * regulator_stub_init() - register platform driver for stub-regulator
+ *
+ * This initialization function should be called in systems in which driver
+ * registration ordering must be controlled precisely.
+ */
+
 int __init regulator_stub_init(void);
+
+#else
+
+static inline int __init regulator_stub_init(void)
+{
+	return -ENODEV;
+}
+
+#endif /* CONFIG_REGULATOR_STUB */
+
 #endif
