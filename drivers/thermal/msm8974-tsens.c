@@ -205,19 +205,15 @@ struct tsens_tm_device *tmdev;
 
 static int tsens_tz_code_to_degc(int adc_code, int sensor_num)
 {
-	int degcbeforefactor, degc;
-	degcbeforefactor = ((adc_code * tmdev->tsens_factor) -
-				tmdev->sensor[sensor_num].offset)/
-			tmdev->sensor[sensor_num].slope_mul_tsens_factor;
+	int degc, num, den;
 
-	if (degcbeforefactor == 0)
-		degc = degcbeforefactor;
-	else if (degcbeforefactor > 0)
-		degc = ((degcbeforefactor * tmdev->tsens_factor) +
-				tmdev->tsens_factor/2)/tmdev->tsens_factor;
-	else
-		degc = ((degcbeforefactor * tmdev->tsens_factor) -
-				tmdev->tsens_factor/2)/tmdev->tsens_factor;
+	num = ((adc_code * tmdev->tsens_factor) -
+				tmdev->sensor[sensor_num].offset);
+	den = (int) tmdev->sensor[sensor_num].slope_mul_tsens_factor;
+	degc = num/den;
+
+	if ((degc >= 0) && (num % den != 0))
+		degc++;
 
 	return degc;
 }
