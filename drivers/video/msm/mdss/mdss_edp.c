@@ -208,6 +208,7 @@ static void mdss_edp_enable(unsigned char *edp_base, int enable)
 int mdss_edp_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_edp_drv_pdata *edp_drv = NULL;
+	int i;
 
 	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata,
 			panel_data);
@@ -216,6 +217,19 @@ int mdss_edp_on(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
+	mdss_edp_prepare_clocks(edp_drv);
+	mdss_edp_clk_enable(edp_drv);
+	mdss_edp_phy_sw_reset(edp_drv->edp_base);
+	mdss_edp_hw_powerup(edp_drv->edp_base, 1);
+	mdss_edp_pll_configure(edp_drv->edp_base, edp_drv->edid.timing[0].pclk);
+
+	for (i = 0; i < edp_drv->dpcd.max_lane_count; ++i)
+		mdss_edp_enable_lane_bist(edp_drv->edp_base, i, 1);
+
+	mdss_edp_enable_mainlink(edp_drv->edp_base, 1);
+	mdss_edp_config_clk(edp_drv->edp_base, edp_drv->mmss_cc_base);
+
+	mdss_edp_phy_misc_cfg(edp_drv->edp_base);
 	mdss_edp_config_sync(edp_drv->edp_base);
 	mdss_edp_config_sw_div(edp_drv->edp_base);
 	mdss_edp_config_static_mdiv(edp_drv->edp_base);
@@ -228,6 +242,7 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_edp_drv_pdata *edp_drv = NULL;
 	int ret = 0;
+	int i;
 
 	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata,
 				panel_data);
@@ -237,7 +252,15 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 	}
 
 	mdss_edp_enable(edp_drv->edp_base, 0);
-	gpio_set_value(edp_drv->gpio_panel_en, 0);
+	mdss_edp_unconfig_clk(edp_drv->edp_base, edp_drv->mmss_cc_base);
+	mdss_edp_enable_mainlink(edp_drv->edp_base, 0);
+
+	for (i = 0; i < edp_drv->dpcd.max_lane_count; ++i)
+		mdss_edp_enable_lane_bist(edp_drv->edp_base, i, 0);
+
+	mdss_edp_hw_powerup(edp_drv->edp_base, 0);
+	mdss_edp_clk_disable(edp_drv);
+	mdss_edp_unprepare_clocks(edp_drv);
 
 	return ret;
 }
@@ -437,9 +460,13 @@ static int mdss_edp_probe(struct platform_device *pdev)
 	if (ret)
 		goto mmss_cc_base_unmap;
 
+	ret = mdss_edp_clk_init(edp_drv);
+	if (ret)
+		goto edp_clk_deinit;
+
 	ret = mdss_edp_gpio_panel_en(edp_drv);
 	if (ret)
-		goto edp_regulator_off;
+		goto edp_clk_deinit;
 
 	mdss_edp_fill_edid_data(edp_drv);
 	mdss_edp_fill_dpcd_data(edp_drv);
@@ -447,7 +474,8 @@ static int mdss_edp_probe(struct platform_device *pdev)
 
 	return 0;
 
-edp_regulator_off:
+edp_clk_deinit:
+	mdss_edp_clk_deinit(edp_drv);
 	mdss_edp_regulator_off(edp_drv);
 mmss_cc_base_unmap:
 	iounmap(edp_drv->mmss_cc_base);

@@ -94,4 +94,20 @@ struct mdss_edp_drv_pdata {
 	int gpio_panel_en;
 };
 
+void mdss_edp_phy_sw_reset(unsigned char *edp_base);
+void mdss_edp_pll_configure(unsigned char *edp_base, int rate);
+void mdss_edp_enable_lane_bist(unsigned char *edp_base, int lane, int enable);
+void mdss_edp_enable_mainlink(unsigned char *edp_base, int enable);
+void mdss_edp_hw_powerup(unsigned char *edp_base, int enable);
+void mdss_edp_clk_enable(struct mdss_edp_drv_pdata *edp_drv);
+void mdss_edp_clk_disable(struct mdss_edp_drv_pdata *edp_drv);
+int mdss_edp_clk_init(struct mdss_edp_drv_pdata *edp_drv);
+void mdss_edp_clk_deinit(struct mdss_edp_drv_pdata *edp_drv);
+void mdss_edp_prepare_clocks(struct mdss_edp_drv_pdata *edp_drv);
+void mdss_edp_unprepare_clocks(struct mdss_edp_drv_pdata *edp_drv);
+void mdss_edp_config_clk(unsigned char *edp_base, unsigned char *mmss_cc_base);
+void mdss_edp_unconfig_clk(unsigned char *edp_base,
+		unsigned char *mmss_cc_base);
+void mdss_edp_phy_misc_cfg(unsigned char *edp_base);
+
 #endif /* MDSS_EDP_H */
