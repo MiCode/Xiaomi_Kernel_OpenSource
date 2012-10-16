@@ -847,6 +847,7 @@ static int qpnp_lpg_enable_pwm(struct pwm_device *pwm)
 	struct qpnp_lpg_config	*lpg_config = &pwm->chip->lpg_config;
 	struct qpnp_lpg_chip	*chip = pwm->chip;
 	u8			value, mask;
+	int			rc;
 
 	value = pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL];
 
@@ -854,9 +855,20 @@ static int qpnp_lpg_enable_pwm(struct pwm_device *pwm)
 
 	mask = QPNP_EN_PWM_OUTPUT_MASK;
 
-	return qpnp_lpg_save_and_write(value, mask,
+	rc = qpnp_lpg_save_and_write(value, mask,
 		&pwm->chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
 		lpg_config->base_addr, QPNP_ENABLE_CONTROL, 1, chip);
+	if (rc)
+		goto out;
+
+	/*
+	 * Due to LPG hardware bug, in the PWM mode, having enabled PWM,
+	 * We have to write PWM values one more time.
+	 */
+	return qpnp_lpg_save_pwm_value(pwm);
+
+out:
+	return rc;
 }
 
 static int qpnp_disable_pwm(struct pwm_device *pwm)
