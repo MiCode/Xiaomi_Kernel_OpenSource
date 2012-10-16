@@ -86,7 +86,7 @@ void msm_qdss_csr_enable_bam_to_usb(void)
 	CSR_UNLOCK(drvdata);
 
 	usbbamctrl = csr_readl(drvdata, CSR_USBBAMCTRL);
-	usbbamctrl = (usbbamctrl & ~0x3) | BLKSIZE_256;
+	usbbamctrl = (usbbamctrl & ~0x3) | BLKSIZE_2048;
 	csr_writel(drvdata, usbbamctrl, CSR_USBBAMCTRL);
 
 	usbflshctrl = csr_readl(drvdata, CSR_USBFLSHCTRL);
