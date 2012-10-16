@@ -153,8 +153,6 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 			   p->hsync_skew);
 	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_POLARITY_CTL,
 			   polarity_ctl);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_PANEL_FORMAT,
-			   MDSS_MDP_PANEL_FORMAT_RGB888);
 
 	return 0;
 }
