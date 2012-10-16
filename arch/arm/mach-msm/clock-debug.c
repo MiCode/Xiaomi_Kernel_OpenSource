@@ -157,7 +157,7 @@ static int fmax_rates_show(struct seq_file *m, void *unused)
 			   clock->dbg_name, clock->rate);
 		return 0;
 	}
-	for (level = 0; level < ARRAY_SIZE(clock->fmax); level++) {
+	for (level = 0; level < clock->num_fmax; level++) {
 		if (vdd_level == level)
 			seq_printf(m, "[%lu] ", clock->fmax[level]);
 		else
@@ -189,7 +189,7 @@ static int list_rates_show(struct seq_file *m, void *unused)
 	if (!clock->vdd_class) {
 		fmax = INT_MAX;
 	} else {
-		for (level = 0; level < ARRAY_SIZE(clock->fmax); level++)
+		for (level = 0; level < clock->num_fmax; level++)
 			if (clock->fmax[level])
 				fmax = clock->fmax[level];
 	}
