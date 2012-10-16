@@ -175,6 +175,15 @@ static int register_fabric_info(struct platform_device *pdev,
 			}
 		}
 
+		if (info->node_info->iface_clk_node) {
+			info->iface_clk.clk = clk_get_sys(info->node_info->
+				iface_clk_node, "iface_clk");
+			if (IS_ERR(info->iface_clk.clk)) {
+				MSM_BUS_ERR("ERR: Couldn't get clk %s\n",
+					info->node_info->iface_clk_node);
+			}
+		}
+
 		ret = info->node_info->gateway ?
 			msm_bus_fabric_add_fab(fabric, info) :
 			msm_bus_fabric_add_node(fabric, info);
@@ -187,6 +196,12 @@ static int register_fabric_info(struct platform_device *pdev,
 		if (fabric->fabdev.hw_algo.node_init == NULL)
 			continue;
 
+		if (info->iface_clk.clk) {
+			MSM_BUS_DBG("Enabled iface clock for node init: %d\n",
+				info->node_info->priv_id);
+			clk_prepare_enable(info->iface_clk.clk);
+		}
+
 		for (j = 0; j < NUM_CTX; j++)
 			clk_prepare_enable(fabric->info.nodeclk[j].clk);
 
@@ -198,6 +213,14 @@ static int register_fabric_info(struct platform_device *pdev,
 
 		for (j = 0; j < NUM_CTX; j++)
 			clk_disable_unprepare(fabric->info.nodeclk[j].clk);
+
+		if (info->iface_clk.clk) {
+			MSM_BUS_DBG("Disable iface_clk after node init: %d\n",
+				info->node_info->priv_id);
+			clk_disable_unprepare(info->iface_clk.clk);
+		}
+
+
 	}
 
 	MSM_BUS_DBG("Fabric: %d nmasters: %d nslaves: %d\n"
@@ -355,13 +378,34 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 		return;
 	}
 
+	/* Enable clocks before accessing QoS registers */
 	for (i = 0; i < NUM_CTX; i++)
 		clk_prepare_enable(fabric->info.nodeclk[i].clk);
 
+	if (info->iface_clk.clk)
+		clk_prepare_enable(info->iface_clk.clk);
+
+	if (hop->iface_clk.clk)
+		clk_prepare_enable(hop->iface_clk.clk);
+
 	fabdev->hw_algo.update_bw(hop, info, fabric->pdata, sel_cdata,
 		master_tiers, add_bw);
+
+	/* Disable clocks after accessing QoS registers */
 	for (i = 0; i < NUM_CTX; i++)
 		clk_disable_unprepare(fabric->info.nodeclk[i].clk);
+
+	if (info->iface_clk.clk) {
+		MSM_BUS_DBG("Commented: Will disable clock for info: %d\n",
+			info->node_info->priv_id);
+		clk_disable_unprepare(info->iface_clk.clk);
+	}
+
+	if (hop->iface_clk.clk) {
+		MSM_BUS_DBG("Commented Will disable clock for hop: %d\n",
+			hop->node_info->priv_id);
+		clk_disable_unprepare(hop->iface_clk.clk);
+	}
 
 	fabric->arb_dirty = true;
 }

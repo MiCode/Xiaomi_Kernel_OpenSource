@@ -29,6 +29,7 @@ struct msm_bus_fabric_registration {
 	unsigned int len;
 	int ahb;
 	const char *fabclk[NUM_CTX];
+	const char *iface_clk;
 	unsigned int offset;
 	unsigned int haltid;
 	unsigned int rpm_enabled;
