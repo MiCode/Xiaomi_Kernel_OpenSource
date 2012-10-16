@@ -183,8 +183,8 @@ enum msm_hsl_regs {
 
 /* Parity configuration */
 #define NO_PARITY 0x0
-#define EVEN_PARITY 0x1
-#define ODD_PARITY 0x2
+#define EVEN_PARITY 0x2
+#define ODD_PARITY 0x1
 #define SPACE_PARITY 0x3
 
 #define UARTDM_IPR_STALE_TIMEOUT_MSB_BMSK 0xffffff80
